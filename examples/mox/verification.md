@@ -26,14 +26,14 @@ OpenMC のデータは examples/vera/openmc_library.py で作る（Pu-238〜242 
 
 ## 実行
 
-段階は DVC で実行する（ADR-0123）。OpenMC のライブラリとツールは examples/vera/dvc.yaml の段階の出力なので、先に戻す（ADR-0130）:
+ステージは DVC で実行する（ADR-0123）。OpenMC のライブラリとツールは examples/vera/dvc.yaml のステージの出力なので、先に戻す（ADR-0130）:
 
 ```sh
 dvc checkout examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 70 dvc-mox 'nix develop -c dvc repro examples/mox/dvc.yaml'
 ```
 
-段階は `xs`（`mox.msgpack`）、`lattice-mox<N>`（格子計算の k∞）、`fuel-xs-mox<N>`（xlc の燃料の核種ごとの実効断面積、
+ステージは `xs`（`mox.msgpack`）、`lattice-mox<N>`（格子計算の k∞）、`fuel-xs-mox<N>`（xlc の燃料の核種ごとの実効断面積、
 `xlc-mox<N>.msgpack`）、`openmc-mox<N>-model`（OpenMC のモデル model.xml）、`openmc-mox<N>`（OpenMC。入力は `openmc-mox<N>.toml`）、`openmc-mox<N>-extract`（k と
 `openmc-mox<N>-results/fuel-xs.msgpack`）、`compare-k-mox<N>`（k の差）、`compare-capture-mox<N>`（下の表）。
 OpenMC は 1 世代 100 万粒子・250 世代（最初の 50 世代を捨てる）、乱数のシード 1、16 スレッドで 1 問題 16 分ほど。

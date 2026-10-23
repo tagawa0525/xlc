@@ -374,7 +374,7 @@ def pin_lines(d: dict) -> list[str]:
 
 
 def md5_inputs(paths: list[Path]) -> list[dict]:
-    """読んだファイルのパス（段階の cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）"""
+    """読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）"""
     return [
         {"path": str(p), "md5": hashlib.md5(p.read_bytes()).hexdigest()} for p in paths
     ]

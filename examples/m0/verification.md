@@ -1,4 +1,4 @@
-# M0: 3段階の縦切り
+# M0: 3ステージの縦切り
 
 ENDF/B-VIII.0 から、多群ライブラリ（`xs`）、ピンセルの2群定数（`lattice`）、炉心の k_eff（`core`）までを
 順に計算する例。手法と近似は M0 で決めた次の ADR のとおり（後に置き換えたものは、各 ADR の `superseded-by` が
@@ -9,19 +9,19 @@ ENDF/B-VIII.0 から、多群ライブラリ（`xs`）、ピンセルの2群定�
 - 断面積と散乱: [ADR-0038](../../docs/adr/0038-use-zero-kelvin-cross-sections-in-m0.md)、[ADR-0040](../../docs/adr/0040-scatter-isotropically-in-m0.md)、[ADR-0041](../../docs/adr/0041-transfer-by-two-body-kinematics.md)、[ADR-0042](../../docs/adr/0042-collapse-chi-by-fission-source.md)
 - 格子計算: [ADR-0024](../../docs/adr/0024-solve-lattice-with-2d-moc.md)、[ADR-0043](../../docs/adr/0043-track-pin-cells-cyclically.md)、[ADR-0044](../../docs/adr/0044-collapse-to-two-groups.md)
 - 炉心計算: [ADR-0027](../../docs/adr/0027-solve-core-with-nem.md)、[ADR-0045](../../docs/adr/0045-expand-nem-to-fourth-order.md)
-- 段階間のファイル: [ADR-0009](../../docs/adr/0009-write-text-intermediate-files.md)
+- ステージ間のファイル: [ADR-0009](../../docs/adr/0009-write-text-intermediate-files.md)
 
 ## 実行
 
 ENDF/B-VIII.0 の中性子サブライブラリを `references/endf/ENDF-B-VIII.0_neutrons/` に置いて（`xs.toml` と `dvc.yaml` が
-この場所を指す）、DVC で実行する（ADR-0123）。入力かコードが変わった段階だけが走る。
+この場所を指す）、DVC で実行する（ADR-0123）。入力かコードが変わったステージだけが走る。
 
 ```sh
 dvc repro examples/m0/dvc.yaml
 ```
 
 生成物（`wims69.msgpack`, `pincell-fg.msgpack`, `lattice.out`, `core.out`）はこのディレクトリに書き出す。git では追跡せず、DVC の
-キャッシュに置く。各段階の入力・コード・出力の md5 は `dvc.lock` に書かれる。
+キャッシュに置く。各ステージの入力・コード・出力の md5 は `dvc.lock` に書かれる。
 
 | ファイル          | 内容                                                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------------------------- |
@@ -31,8 +31,8 @@ dvc repro examples/m0/dvc.yaml
 | `cycle.toml`      | サイクルの装荷（256 体の ID の並び）                                                                  |
 | `plant.toml`      | 炉心の形（16 × 16 体の位置、ピッチ 21.25 cm、高さ 366 cm）                                            |
 | `assemblies.toml` | 台帳（ピンセルの2群定数の集合体 256 体）                                                              |
-| `dvc.yaml`        | 3段階（xs → lattice → core）の入力、コード、出力とコマンド                                            |
-| `dvc.lock`        | 各段階の入力、コード、出力の md5（`dvc repro` が書く）                                                |
+| `dvc.yaml`        | 3ステージ（xs → lattice → core）の入力、コード、出力とコマンド                                        |
+| `dvc.lock`        | 各ステージの入力、コード、出力の md5（`dvc repro` が書く）                                            |
 
 ## 結果
 
@@ -40,13 +40,13 @@ dvc repro examples/m0/dvc.yaml
 `wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out` は前（e4dbc0de、分岐点 cde7206f）の出力とバイト単位で同じで、`core.out` は k を 8 桁で書く形（0.72315041）に
 なり、軸方向の核分裂の割合の表が加わった。6 桁の k と漏れは同じ。
 
-| 段階      | 結果                                                       |
+| ステージ  | 結果                                                       |
 | --------- | ---------------------------------------------------------- |
 | `xs`      | H-1, O-16, U-235, U-238 の WIMS 69群ライブラリ（293.6 K）  |
 | `lattice` | ピンセルの k∞ = 0.731552                                   |
 | `core`    | 炉心の k_eff = 0.723150（核分裂中性子あたりの漏れ 0.0110） |
 
-各段階の検証は、次のとおり。
+各ステージの検証は、次のとおり。
 
 - `xs`: ポイントワイズの断面積は NJOY RECONR と許容誤差 0.1% 以内で一致する。群平均断面積は NJOY GROUPR と 0.11% 以内、
   ν̄ は 2e-5 以内、χ は 3e-4 以内で一致する（`crates/xs/examples/` の比較プログラム）
@@ -79,8 +79,8 @@ k の値は実機（k∞ 約 1.3）よりかなり低い。主な原因は次の
 ## 結果を変えないことを確かめた変更
 
 - 再構成の展開と角の点のバランスを xlc-numeric に移し、格子のノードごとの形状関数と角の不連続因子を加えた
-  （[ADR-0125](../../docs/adr/0125-derive-corner-factors-from-lattice-corner-balance.md)）: `dvc repro` で 3 つの段階を流し直し、出力（`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out`、
+  （[ADR-0125](../../docs/adr/0125-derive-corner-factors-from-lattice-corner-balance.md)）: `dvc repro` で 3 つのステージを流し直し、出力（`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out`、
   `core.out`）の md5 は `dvc.lock` の前の値と同じだった（df6182db、2026-10-11）
 - 少数群定数の辺を 6 つにして z の厚さを足し、core の z の面を径方向と同じ規則にした（[ADR-0128](../../docs/adr/0128-make-axial-reflector-constants-in-a-full-height-slab.md)）: `dvc repro` で 3 つの
-  段階を流し直し、`wims69.msgpack`、`lattice.out`、`core.out` の md5 は前の値と同じだった。`pincell-fg.msgpack` は形式が
+  ステージを流し直し、`wims69.msgpack`、`lattice.out`、`core.out` の md5 は前の値と同じだった。`pincell-fg.msgpack` は形式が
   変わったので md5 が変わる（ecd77a16、分岐点 7bd7b624、2026-10-12）

@@ -1,9 +1,9 @@
 # 格子計算の燃焼の検証（VERA Problem 2 の集合体。ADR-0178）: 多群ライブラリと OpenMC のライブラリ（ピンセルの検証の
 # ../dvc.yaml と別。理由は xs.toml の説明）→ xlc の格子計算の燃焼 → OpenMC の燃焼の参照解との比較。燃焼チェーン（../chain.msgpack、
-# ../openmc-chain.xml）は ../dvc.yaml の出力。実行するのは default の devShell の `dvc repro`（ADR-0159）。OpenMC を使う段階は
+# ../openmc-chain.xml）は ../dvc.yaml の出力。実行するのは default の devShell の `dvc repro`（ADR-0159）。OpenMC を使うステージは
 # cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps にする（ADR-0130）。
-# OpenMC の燃焼の参照解は AWS で流す（aws.toml、ADR-0174）ので段階にしない。結果は references/openmc/aws/<実行の名前>/ に
-# 取り出し（aws_fetch.sh）、比較の段階の deps にする（examples/vera/p3/dvc.yaml の compare-3A-openmc と同じ）
+# OpenMC の燃焼の参照解は AWS で流す（aws.toml、ADR-0174）のでステージにしない。結果は references/openmc/aws/<実行の名前>/ に
+# 取り出し（aws_fetch.sh）、比較のステージの deps にする（examples/vera/p3/dvc.yaml の compare-3A-openmc と同じ）
 vars:
   - xs.toml
   - openmc-library.toml
@@ -18,7 +18,7 @@ stages:
       - references-shell.txt:
           cache: false
   xs-range:
-    # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとの段階の入力にするため、先に求める（ADR-0138）
+    # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとのステージの入力にするため、先に求める（ADR-0138）
     cmd: ../../../bin/xs range xs.toml xs-range.toml
     deps:
       - xs.toml
@@ -54,7 +54,7 @@ stages:
     outs:
       - depletion.msgpack
   openmc-neutron:
-    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ADR-0130）
+    # 核種ごとのステージは、入力のうちその核種の項目だけを params で deps にする（ADR-0130）
     foreach: ${neutron}
     do:
       cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5

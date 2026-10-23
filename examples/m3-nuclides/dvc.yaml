@@ -1,5 +1,5 @@
-# M3 の新しい核種の段階: ENDF → 多群ライブラリ（xs）。NJOY との比較は crates/xs/examples の比較プログラムで行い、
-# 段階にしない（NJOY の出力は references/njoy-runs にある）。実行するのは `dvc repro`（ADR-0123）。
+# M3 の新しい核種のステージ: ENDF → 多群ライブラリ（xs）。NJOY との比較は crates/xs/examples の比較プログラムで行い、
+# ステージにしない（NJOY の出力は references/njoy-runs にある）。実行するのは `dvc repro`（ADR-0123）。
 stages:
   xs:
     cmd: ../../bin/xs xs.toml

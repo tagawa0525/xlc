@@ -2,7 +2,7 @@
 
 statepoint には実行する前に定義したタリーしか入らないので、xlc と細かく比べるのに要る量を、問題の種類ごとに決まった
 組としてすべての参照解に入れる。組の中身（名前、フィルタ、スコア）を変えたら `VERSION` を上げる。タリーの名前は
-`standard-<版>/<名前>` で、statepoint、summary.h5、段階の model.xml（`openmc-1B-model` の出力。ADR-0136）から版が分かる。
+`standard-<版>/<名前>` で、statepoint、summary.h5、ステージの model.xml（`openmc-1B-model` の出力。ADR-0136）から版が分かる。
 
 群は xlc のライブラリの群構造（WIMS 69 群）の下と上に、範囲の外の 2 つのビン（0〜1e-5 eV と 10 MeV〜1e10 eV）を足した
 71 のビン（`XLC_BINS`。昇順）。細かい群は ECCO 1968 群（`FINE_BINS`。範囲の外は数えない）。
@@ -29,7 +29,7 @@ PREFIX = f"standard-{VERSION}"
 
 # WIMS 69 群の境界 (eV、昇順)。xlc の crates/format/src/group.rs の WIMS69_ASCENDING と同じ（openmc_tallies_check.py が
 # 照らす）。xlc のライブラリ（vera.msgpack）から読まないのは、xs のコードを変えるたびに作り直されるライブラリを、
-# OpenMC の段階の deps にしないため（ADR-0130 の帰結）
+# OpenMC のステージの deps にしないため（ADR-0130 の帰結）
 WIMS69 = (
     1.0e-5, 0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.035, 0.042, 0.05, 0.058, 0.067, 0.08, 0.1,
     0.14, 0.18, 0.22, 0.25, 0.28, 0.3, 0.32, 0.35, 0.4, 0.5, 0.625, 0.78, 0.85, 0.91, 0.95, 0.972,

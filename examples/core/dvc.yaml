@@ -1,4 +1,4 @@
-# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）の段階（ADR-0159）: ENDF → 多群ライブラリ（xs）→
+# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）のステージ（ADR-0159）: ENDF → 多群ライブラリ（xs）→
 # 制御棒の値ごとの格子計算（lattice-<値>）→ 制御棒の軸を持つ 1 つのテーブル（table。#0093 までのつなぎ）→ ケースごとの
 # 炉心（core-<ケース>）→ 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`
 vars:

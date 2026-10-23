@@ -16,8 +16,8 @@
 表 P3-5 の 49 層の境界に、挿入物の端（3B の Pyrex の棒の下の端栓、毒物の下端と上端）を足したもの。
 
 使い方: python3 p3_inputs.py [--library-dir <評価の略称>]
-`--library-dir endfb70` は、同じ入力と段階を ../endfb70/p3 に書く（ENDF/B-VII.0 の検証用ライブラリ。ADR-0175。ライブラリは
-../endfb70/vera.msgpack。OpenMC との比較の段階は書かない）。
+`--library-dir endfb70` は、同じ入力とステージを ../endfb70/p3 に書く（ENDF/B-VII.0 の検証用ライブラリ。ADR-0175。ライブラリは
+../endfb70/vera.msgpack。OpenMC との比較のステージは書かない）。
 """
 
 import itertools
@@ -710,12 +710,12 @@ def core_files(problem: str) -> dict[str, str]:
 
 # `--library-dir <評価>` で examples/vera/<評価>/p3 に書くとき（検証用の別の評価済みデータ。ADR-0175）は 1 つ深いので、
 # リポジトリや examples/vera のファイルへのパスの前に足す。ライブラリは <評価>/vera.msgpack で、`../vera.msgpack` のまま。
-# OpenMC の参照解は VIII.0 のものなので、その比較の段階は書かない
+# OpenMC の参照解は VIII.0 のものなので、その比較のステージは書かない
 UP = ""
 
 
 def code(crate: str) -> list[str]:
-    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
+    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
     return [f"{UP}../../../bin/{crate}"]
 
 
@@ -734,7 +734,7 @@ def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
 
 
 def pipeline() -> str:
-    """段階: ライブラリ（../dvc.yaml の xs）→ 2D の格子（層ごと）→ 平板 → 炉心（等価性と f* の方法）→ 比較"""
+    """ステージ: ライブラリ（../dvc.yaml の xs）→ 2D の格子（層ごと）→ 平板 → 炉心（等価性と f* の方法）→ 比較"""
     stages = []
     for problem in PROBLEMS:
         media = []
@@ -754,7 +754,7 @@ def pipeline() -> str:
                     outs,
                 )
             )
-        # 平板の少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから実行する）。MOC の k と
+        # 平板の少数群定数はディレクトリに書く（DVC はステージの前に出力を消すので、作ってから実行する）。MOC の k と
         # ノード平均の中性子束を比べるため、ログを debug で受ける
         axial = f"axial-{problem}"
         stages.append(
@@ -847,10 +847,10 @@ def pipeline() -> str:
             )
     return (
         "# このファイルは p3_inputs.py が書く。手で直さない。\n"
-        "# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
+        "# VERA Problem 3A、3B を xlc で解くステージ: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
         "# 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性\n"
         "# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI、OpenMC）。実行するのは `dvc repro`\n"
-        "# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）\n"
+        "# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（ステージの入力と、ステージが呼ぶ実行ファイル）\n"
         "stages:\n" + "".join(stages)
     )
 

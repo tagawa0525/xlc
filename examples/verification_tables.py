@@ -1,11 +1,11 @@
-"""検証の記録（examples/*/verification.md）の数値の表を、比較の段階が書いた JSON から描いて置き換える（ADR-0176）。
+"""検証の記録（examples/*/verification.md）の数値の表を、比較のステージが書いた JSON から描いて置き換える（ADR-0176）。
 
 使い方: python3 examples/verification_tables.py [--check] [<verification.md>...]
 
 - 記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、名前の表で置き換える。目印の中は丸ごと置き換わる
   （文章は目印の外に書く）。目印の外は触らない。名前と JSON の対応（TABLES）はこのファイルにある
-- `--check`: 置き換えず、描いた表と記録の中身が違えば差分を出して 1 で終わる。JSON が無い（段階を実行していない）、git で追跡されていない（`cache: false` にして `git add` する）、dvc.lock の md5 と
-  違う（JSON を手で直した、段階を再実行したのに relock していない）、目印が壊れているときも 1 で終わる
+- `--check`: 置き換えず、描いた表と記録の中身が違えば差分を出して 1 で終わる。JSON が無い（ステージを実行していない）、git で追跡されていない（`cache: false` にして `git add` する）、dvc.lock の md5 と
+  違う（JSON を手で直した、ステージを再実行したのに relock していない）、目印が壊れているときも 1 で終わる
 - ファイルを渡さないと examples/*/verification.md のすべて
 - 標準ライブラリだけで動く（hook と `cargo test` から呼ぶ）
 """
@@ -749,8 +749,8 @@ def core_depletion_k(sources: list[dict]) -> str:
     )
 
 
-# dvc.yaml の段階の出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
-# 燃焼度の軸を持つテーブルの確認は、履歴の段階を deps にすると重い段階が走るので段階にしない（examples/depletion/verification.md）
+# dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
+# 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
@@ -800,7 +800,7 @@ def endfb70_openmc(sources: list[dict]) -> str:
     )
 
 
-# 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
+# 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
         [

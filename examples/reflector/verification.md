@@ -23,11 +23,11 @@
 | `axial_slab.py`                    | 軸方向の反射体の平板（`axial-3A-*.toml`）と、それを解く炉心の入力（`core-axial-*.toml`）を書く                            |
 | `axial-3A-16.toml` など            | 集合体の高さ全体の平板。燃料 16 ノード（`16`）、32 ノード（`32`）、`16` の列を半分にしたもの（`fine`）                    |
 | `compare_axial.py`                 | 平板の MOC と炉心の k とノード平均の中性子束の比較、z の辺の ADF の一覧                                                   |
-| `dvc.yaml`、`dvc.lock`             | 段階（xs → assembly-3A → 平板 → 炉心 → 比較、xs → I 型と角型の格子 → 炉心 → 比較。ADR-0123）                              |
+| `dvc.yaml`、`dvc.lock`             | ステージ（xs → assembly-3A → 平板 → 炉心 → 比較、xs → I 型と角型の格子 → 炉心 → 比較。ADR-0123）                          |
 
 生成物（ライブラリ、少数群定数）は git で追跡しない。軸方向の反射体、I 型と角型の格子（`lattice-I`、`lattice-corner`）、
 ADR-0132 の炉心（`core-corner`、`core-corner-outline`、`core-corner-I` と比較）は `dvc repro examples/reflector/dvc.yaml`
-で実行する。ほかの炉心は、段階の定数で次の手順で実行する。
+で実行する。ほかの炉心は、ステージの定数で次の手順で実行する。
 
 ```sh
 cd examples/reflector && ../../target/release/lattice assembly-2B.toml
@@ -192,7 +192,7 @@ RUST_LOG=info,xlc_lattice::fewgroup=debug ../../../target/release/lattice w6-n24
 
 ## 角型の格子の定数を作った体系の再現（e02585ad、分岐点 5bf22a6e、2026-10-13）
 
-格子と、`core-corner`、`core-corner-outline`、`core-corner-I` とその比較は `dvc repro examples/reflector/dvc.yaml` の段階
+格子と、`core-corner`、`core-corner-outline`、`core-corner-I` とその比較は `dvc repro examples/reflector/dvc.yaml` のステージ
 （Slurm で排他）、ほかの 2 つの炉心（`core-corner-get`、`core-corner-fstar`）はその定数で上の手順で実行した（ノード平均を比べるときは
 `RUST_LOG=debug` を付ける）。ライブラリは
 ADR-0133 の S(α,β) の上限のもの。
@@ -200,7 +200,7 @@ ADR-0133 の S(α,β) の上限のもの。
 `reflector-corner.toml`（右上のノードにも反射体の印。燃料に角の点だけで接する。#0029）を MOC で解き（121 秒、格子の
 k = 0.45997592）、ノード（集合体、右、上、右上の反射体）ごとの定数で 2 × 2 の炉心（集合体、+x に右の反射体、+y に上の
 反射体、斜めに右上の反射体。-x、-y は反射、+x、+y は真空）を解いて、格子の MOC と比べた（`compare_radial.py`、
-`compare_edge.py`。`dvc.yaml` の段階は `compare-corner*.out`）。どの炉心も、反射体どうしの面に各側の少数群定数の ADF を
+`compare_edge.py`。`dvc.yaml` のステージは `compare-corner*.out`）。どの炉心も、反射体どうしの面に各側の少数群定数の ADF を
 使う（ADR-0132）。ノード平均の中性子束の比べ方は I 型の節と同じ（core の
 `RUST_LOG=debug` の `node average flux` × 21.5 と、lattice の info のログの `node`）。I 型の格子（`reflector-I.toml`）の
 k は 0.528342。
@@ -280,6 +280,6 @@ f* の方法（燃料のノードを単一集合体の定数 `fg-3A.msgpack` に
   core の等価性（0.53107507）と f*の方法（0.53038144）、ピン出力の RMS（0.080%、1.897%）と、角型の格子の MOC の k
   （0.46231088）、core の 2 つのケース（0.46200853、0.46199079）、ピン出力の RMS（0.105%、3.579%）は、前の節と 7 桁まで
   同じ（f* の方法の 2 つの k の 8 桁目の 1 の差は、core の反復の判定 10⁻⁸ の程度）（ecd77a16、分岐点 7bd7b624、2026-10-12）
-- 1f50ae7a から 4b644566 までの変更（ADR-0157 のループの整列、#0088 の J・K 表の並列。比べた前の `dvc.lock`（d2e990da）は ADR-0158 のマージより後のもので、ADR-0158 の分はここでは確認していない）: `dvc repro examples/reflector/dvc.yaml` で deps の変わった段階を流し直し（`fstar-16`、`fstar-32`、
+- 1f50ae7a から 4b644566 までの変更（ADR-0157 のループの整列、#0088 の J・K 表の並列。比べた前の `dvc.lock`（d2e990da）は ADR-0158 のマージより後のもので、ADR-0158 の分はここでは確認していない）: `dvc repro examples/reflector/dvc.yaml` で deps の変わったステージを流し直し（`fstar-16`、`fstar-32`、
   `fstar-fine` は deps が変わらず走らなかった）、ログ（`*.log`）を除くすべての出力（ライブラリ、格子と炉心の出力、比較の表）の md5 は前の `dvc.lock`（4b644566 の版。d2e990da が
   書いたもの）の値と同じだった（60cf97d0、分岐点 4b644566。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124、2026-10-14。Slurm の排他のジョブ 332）

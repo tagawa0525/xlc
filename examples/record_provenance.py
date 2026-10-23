@@ -1,15 +1,15 @@
 """検証の記録に書く「どの結果か」を、dvc.lock から読んで出す（ADR-0176 の帰結。記録を書く担当が lock を読み直さずに済む）。
 
-使い方: python3 examples/record_provenance.py <dvc.yaml> <段階>...
+使い方: python3 examples/record_provenance.py <dvc.yaml> <ステージ>...
 
-段階ごとに、同じ場所の dvc.lock から次を出す。
+ステージごとに、同じ場所の dvc.lock から次を出す。
 - deps と outs の相対パスと md5（ディレクトリの出力は `.dir` の md5）
 - outs ごとに、その md5 を dvc.lock に入れたコミット（8 桁）と日付。コミット済みの dvc.lock の履歴を新しい方から読み、
-  段階のその出力の md5 が今と同じ間をさかのぼって、いちばん古いコミットを取る。relock で md5 が変わらなければコミットは
-  変わらない。`git log -S<md5>` は同じ md5 を別の段階が入れたときにも当たるので使わない。取れないときは `unknown`
+  ステージのその出力の md5 が今と同じ間をさかのぼって、いちばん古いコミットを取る。relock で md5 が変わらなければコミットは
+  変わらない。`git log -S<md5>` は同じ md5 を別のステージが入れたときにも当たるので使わない。取れないときは `unknown`
   （履歴がない）か `uncommitted`（作業ツリーの lock が HEAD と違う）と出し、黙らない。取れるのは、dvc.lock のコミットで、
   実行したコミット（その前）ではない
-- 比較の段階（outs の JSON の `format` が REPORTS にあるもの）は、そのツールの `--report` の文章を続けて出す。JSON が `inputs`
+- 比較のステージ（outs の JSON の `format` が REPORTS にあるもの）は、そのツールの `--report` の文章を続けて出す。JSON が `inputs`
   を持てば、deps の md5 と一致することを確かめ、違えば `MISMATCH` と出して 1 で終わる
 - 標準ライブラリだけ
 """
@@ -34,7 +34,7 @@ class ProvenanceError(Exception):
 
 
 def parse_stage(text: str, stage: str) -> dict:
-    """dvc.lock の 1 段階の deps と outs（(パス, md5) の並び）"""
+    """dvc.lock の 1 ステージの deps と outs（(パス, md5) の並び）"""
     lines = text.split("\n")
     try:
         start = lines.index(f"  {stage}:") + 1
@@ -92,7 +92,7 @@ def out_md5(text: str, stage: str, out: str) -> str | None:
 
 
 def locked_since(lock: Path, stage: str, out: str) -> tuple[str, str]:
-    """段階 `stage` の出力 `out` の今の md5 を、dvc.lock に入れたコミットと日付。取れなければ ("unknown" か "uncommitted", "")"""
+    """ステージ `stage` の出力 `out` の今の md5 を、dvc.lock に入れたコミットと日付。取れなければ ("unknown" か "uncommitted", "")"""
     now = out_md5(lock.read_text(), stage, out)
     if now is None:
         raise ProvenanceError(f"{lock}: stage {stage} has no output {out}")
@@ -103,7 +103,7 @@ def locked_since(lock: Path, stage: str, out: str) -> tuple[str, str]:
         return "unknown", ""
     commits = [line.split() for line in history.strip().splitlines()]
     head = git(lock, "show", f"{commits[0][0]}:./{lock.name}")
-    # 出力の md5 だけでなく、段階の deps と outs のすべてが HEAD と同じこと（コミット前の deps を出さない）
+    # 出力の md5 だけでなく、ステージの deps と outs のすべてが HEAD と同じこと（コミット前の deps を出さない）
     if head is None or parse_stage(head, stage) != parse_stage(lock.read_text(), stage):
         return "uncommitted", ""
     since = commits[0]
@@ -116,7 +116,7 @@ def locked_since(lock: Path, stage: str, out: str) -> tuple[str, str]:
 
 
 def input_problems(summary: dict, stage: dict) -> list[str]:
-    """JSON の `inputs` が、段階の deps（パスと md5）と一致しない点"""
+    """JSON の `inputs` が、ステージの deps（パスと md5）と一致しない点"""
     deps = dict(stage["deps"])
     problems = []
     for item in summary.get("inputs", []):

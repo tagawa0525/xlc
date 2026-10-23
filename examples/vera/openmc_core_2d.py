@@ -375,7 +375,7 @@ def extract(source: Path, work: Path, results: Path) -> None:
     cells = len(edges) - 1
     path = work / f"statepoint.{run['batches']}.h5"
     with openmc.StatePoint(path) as sp:
-        # run を段階にしない問題では、入力を変えても statepoint は古いまま残るので、実行した設定と入力を突き合わせる
+        # run をステージにしない問題では、入力を変えても statepoint は古いまま残るので、実行した設定と入力を突き合わせる
         ran = {
             "particles": int(sp.n_particles),
             "batches": int(sp.n_batches),

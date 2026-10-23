@@ -11,7 +11,7 @@
 | `cases.toml`                                       | OpenMC と比べる燃焼行列（例示の PWR の燃料のチェーン、複素の固有値の環、硬いチェーン、300 核種の乱数）                 |
 | `compare_openmc.py`                                | 同じ行列を OpenMC の `CRAM16`、`CRAM48` と xlc に与えて差を出す（references の devShell）                              |
 | `../../crates/depletion/examples/deplete_text.rs`  | 行列を文字で受け取って `deplete` を呼ぶ（`compare_openmc.py` が呼ぶ）                                                  |
-| `chain.toml`、`dvc.yaml`                           | 全核種のチェーン `chain.msgpack`（`bin/chain`）と OpenMC のチェーン `openmc-chain.xml` を作る段階                      |
+| `chain.toml`、`dvc.yaml`                           | 全核種のチェーン `chain.msgpack`（`bin/chain`）と OpenMC のチェーン `openmc-chain.xml` を作るステージ                  |
 | `compare_chain.py`                                 | 2 つのチェーンの核種、半減期、崩壊の分岐、反応、収率を比べる                                                           |
 | `chain-cases.toml`、`compare_chain_depletion.py`   | 2 つのチェーンに同じ 1 群の反応率を与え、1 ステップを CRAM48 で解いて比べる                                            |
 | `../../crates/depletion/examples/deplete_chain.rs` | チェーンと反応率から燃焼行列を組み立てて `deplete` を呼ぶ（`compare_chain_depletion.py` が呼ぶ）                       |
@@ -77,7 +77,7 @@ nix develop ../..#references -c python3 compare_chain_depletion.py chain-cases.t
 
 ### 計算
 
-a19a9112（分岐点は main の 98c36637）、2026-10-14。チェーンの段階は `bin/chain`（md5 71f0fbbc）と OpenMC 0.15.2 の
+a19a9112（分岐点は main の 98c36637）、2026-10-14。チェーンのステージは `bin/chain`（md5 71f0fbbc）と OpenMC 0.15.2 の
 `Chain.from_endf`（ENDF/B-VIII.0 の decay 3,821、nfy 31、neutrons 557）。
 
 ### チェーンの比較
@@ -110,7 +110,7 @@ a19a9112（分岐点は main の 98c36637）、2026-10-14。チェーンの段�
 - decay にない収率の生成物（U-235 で 112 の状態）は、どちらも準安定状態を基底状態へ、基底状態を β− の向きに移し、値が一致する
 
 核分裂の Q（MF3 MT18 の QI。出力の規格化に使う。ADR-0173）は、核分裂する 88 核種で一致する（相対差 0）。`compare_chain.py` の
-`核分裂の Q` の行で、xlc a0eead78（分岐点 316e30b6。チェーンの段階の `bin/chain` は md5 8a32a619）、2026-10-15。
+`核分裂の Q` の行で、xlc a0eead78（分岐点 316e30b6。チェーンのステージの `bin/chain` は md5 8a32a619）、2026-10-15。
 
 ### 同じ反応率での 1 ステップ
 
@@ -133,7 +133,7 @@ Ga-81 の分岐比の和が 1 − 1e-7 で、xlc は比で割り直し（Ge-81m 
 ## 燃焼の多群ライブラリ
 
 燃焼の検証（docs/plans/m4-depletion.md の「進め方」5）の最初の多群ライブラリ `depletion.msgpack`（ADR-0169、形式は ADR-0172）を、
-核種ごとの段階（ADR-0138）で作る。
+核種ごとのステージ（ADR-0138）で作る。
 
 ```sh
 dvc repro examples/depletion/dvc.yaml          # xs-range、xs-nuclide@<核種>、xs（depletion.msgpack）
@@ -143,7 +143,7 @@ dvc repro examples/depletion/dvc.yaml          # xs-range、xs-nuclide@<核種>�
 
 xlc 1f978858（分岐点 e0b8dc18、2026-10-23）。Slurm の排他のジョブ 457 で `dvc repro examples/depletion/dvc.yaml:xs` を実行した（下の「格子計算の燃焼」の
 xlc と同じジョブ）。時間は、ラダーの和をベクトル化した（ADR-0188）xlc 27129ed9（分岐点 1f650c35、2026-10-23）の Slurm の排他のジョブ 473 で
-同じ段階を実行し直したもの（65 核種の段階の出力と `depletion.msgpack` の md5 は 457 と同じ）。
+同じステージを実行し直したもの（65 核種のステージの出力と `depletion.msgpack` の md5 は 457 と同じ）。
 
 ### 結果
 
@@ -151,15 +151,15 @@ xlc と同じジョブ）。時間は、ラダーの和をベクトル化した�
   （examples/depletion/xs.toml）。ポイントワイズの範囲は 4 eV〜1.353 MeV。ファイルは 299 MB（md5 ea77045e）
 - χ は即発と遅発の中性子の分布を ν_p と ν_d で重み付けしたもの（ADR-0186）。遅発の分布（MF5 MT455）のない Np-239、Am-242m、Cm-244 は
   全数を即発の分布で数える（`tracing::warn!`）。ADR-0186 の前のライブラリと比べ、出力が変わったのは MF5 MT455 を持つ 13 核種だけ
-  （ほかの 52 核種の段階の出力は md5 が同じ）
-- 非分離共鳴はラダーのサンプリングで遮蔽する（ADR-0177）。Mo-95 は MF3 の弾性散乱の背景が負で、サンプルのエネルギーの 1e-5 以下
+  （ほかの 52 核種のステージの出力は md5 が同じ）
+- 非分離共鳴はラダーのサンプリングで遮蔽する（ADR-0177）。Mo-95 は MF3 の弾性散乱のバックグラウンドが負で、サンプルのエネルギーの 1e-5 以下
   （565 K で 3,712,000 点のうち 33 点）で弾性散乱を 1 μb にした（`tracing::warn!`）
 - チェーンの反応の経路のうち状態に分かれるのは、Am-241 と Am-243 の (n,γ)、Am-243 と Np-237 と Zr-90 の (n,2n)、Fe-58 の (n,p)。
   Am-241 の (n,γ) の Am-242m への割合は、熱群（69 群）で 0.100（2,096 b と 233 b）。負の経路の断面積はない（この項は ADR-0177 の
   前の 60 核種のライブラリ（xlc 53c750b3）で確かめたもの。戻した 5 核種と、非分離共鳴の範囲の群は確かめていない）
 - 時間（Slurm 473）: ジョブの経過時間は 38 分、CPU 時間（sacct の TotalCPU）は 3 時間 4 分（ADR-0188 の前の Slurm 452 は 2 時間 5 分と
-  19 時間 15 分）。核種ごとの段階の時間（xs の `time.busy`、65 核種）の和は 34.7 分（452 は 122.6 分）。長いのは U-238（213 秒）、
-  Am-242m（184 秒）、U-235（148 秒）、H-1（135 秒）、Pu-239（100 秒）、Eu-151（93 秒）。ジョブは段階 68（build、xs-range、
+  19 時間 15 分）。核種ごとのステージの時間（xs の `time.busy`、65 核種）の和は 34.7 分（452 は 122.6 分）。長いのは U-238（213 秒）、
+  Am-242m（184 秒）、U-235（148 秒）、H-1（135 秒）、Pu-239（100 秒）、Eu-151（93 秒）。ジョブはステージ 68（build、xs-range、
   xs-nuclide 65、xs）で 452 と同じ。473 の build は依存を含めて 93 のクレートをコンパイルした（1 分 28 秒。452 は 4）ので、CPU 時間の差は
   その分だけ小さく出ている
 - 核種の中の並列でコアを埋めた後（ADR-0189。xlc 5877ea5a、分岐点 102533e8、2026-10-23、Slurm の排他のジョブ 479）: 同じ入力と範囲のファイルで
@@ -334,7 +334,7 @@ VERA Problem 2 の集合体の燃焼（ADR-0178）を、xlc と OpenMC で比べ
 収率の重みの ADR-0183（熱と高速の点を 112.47 eV で分ける cutoff）、ライブラリは χ に遅発中性子を含める ADR-0186 のもの。
 自己遮蔽の減速計算の格子は、ADR-0185 の帰結の「燃焼の入力に書く値」の許容差 1e-4 で間引く（入力の `ufg-tolerance = 1e-4`。
 `p2_inputs.py` が 8 本の入力に書く）。OpenMC の参照解は AWS の実行（`references/openmc/aws/m4-assembly/openmc-<ジョブ>/`）。
-表は比較の段階の JSON から `python3 examples/verification_tables.py examples/depletion/verification.md` が描く。
+表は比較のステージの JSON から `python3 examples/verification_tables.py examples/depletion/verification.md` が描く。
 
 ```sh
 dvc repro examples/depletion/p2/dvc.yaml:lattice@2F examples/depletion/p2/dvc.yaml:compare@2F
@@ -1437,9 +1437,9 @@ cd examples/depletion/branches
 ../../../target/release/core core-2A.toml > core-2A.out 2> core-2A.log
 ```
 
-段階（`dvc.yaml`）にしていないのは、履歴（p2 の `lattice@2A`）を deps にすると、このブランチで lattice の実行ファイルが変わった
-ために履歴の段階（約 1 時間 41 分）が changed になり、目標を指定した `dvc repro` がそれを再実行するため（ADR-0184）。本番のテーブルの
-段階は ADR-0187 の形で作る。
+ステージ（`dvc.yaml`）にしていないのは、履歴（p2 の `lattice@2A`）を deps にすると、このブランチで lattice の実行ファイルが変わった
+ために履歴のステージ（約 1 時間 41 分）が changed になり、目標を指定した `dvc repro` がそれを再実行するため（ADR-0184）。本番のテーブルの
+ステージは ADR-0187 の形で作る。
 
 ### 計算
 
@@ -1493,7 +1493,7 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
   examples/depletion/branches/core-2A-coarse.msgpack
 ```
 
-「燃焼度の軸を持つテーブル（2A）」と同じ理由で段階にしていない。比較の JSON（`branches/compare-core-2A.json`、
+「燃焼度の軸を持つテーブル（2A）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-2A.json`、
 `branches/compare-core-2A-coarse.json`）は git で追跡する。
 
 ### 計算

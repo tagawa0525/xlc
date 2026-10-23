@@ -1,4 +1,4 @@
-# 集合体を分けたノード（VERA 2B）の段階: 格子計算（lattice-1、lattice-2。ライブラリは examples/vera/dvc.yaml の xs の出力）→
+# 集合体を分けたノード（VERA 2B）のステージ: 格子計算（lattice-1、lattice-2。ライブラリは examples/vera/dvc.yaml の xs の出力）→
 # 分けない（1 × 1）ケースと 2 × 2 のケースの core。実行するのは `dvc repro`（ADR-0123）。先に
 # `dvc checkout examples/vera/dvc.yaml` で vera.msgpack を戻す（ADR-0130）。
 stages:

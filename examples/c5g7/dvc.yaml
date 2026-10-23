@@ -1,5 +1,5 @@
-# C5G7（2D）の段階: 格子計算（lattice-coarse、lattice-fine）、OpenMC の多群モードの参照解（openmc、openmc-extract）、
-# MCNP の参照解と OpenMC との比較（compare-coarse、compare-fine）。断面積は c5g7-xs.toml で、xs の段階はない。
+# C5G7（2D）のステージ: 格子計算（lattice-coarse、lattice-fine）、OpenMC の多群モードの参照解（openmc、openmc-extract）、
+# MCNP の参照解と OpenMC との比較（compare-coarse、compare-fine）。断面積は c5g7-xs.toml で、xs のステージはない。
 # OpenMC のツールは examples/vera/dvc.yaml の references-shell の出力なので、先に `dvc checkout examples/vera/dvc.yaml` で戻す。
 stages:
   lattice-coarse:

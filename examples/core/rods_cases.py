@@ -13,7 +13,7 @@
 横切る 116〜128 の 2 ステップごとと、挿入の深さの違う 20、60、90、150、180、200。どの位置も、参照のメッシュに
 1 cm より薄いノードを作らない（最も薄いのは 1.27 cm）。
 
-ケースの名前の一覧は cases.yaml に書き（dvc.yaml の foreach が読む）、段階（ADR-0159）は dvc.yaml に書く（比較の段階の
+ケースの名前の一覧は cases.yaml に書き（dvc.yaml の foreach が読む）、ステージ（ADR-0159）は dvc.yaml に書く（比較のステージの
 deps にすべてのケースの出力を並べるため）。使い方: python3 rods_cases.py
 """
 
@@ -126,7 +126,7 @@ loading = ["F01"]
 
 
 def code(stage):
-    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../dvc.yaml の build が作る。ADR-0159）"""
+    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイル（../../dvc.yaml の build が作る。ADR-0159）"""
     return [f"../../bin/{stage}"]
 
 
@@ -143,7 +143,7 @@ def write_dvc(names):
         f"../../references/endf/ENDF-B-VIII.0_thermal_scatt/{t}"
         for t in sorted(set(thermal))
     ]
-    text = f"""# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）の段階（ADR-0159）: ENDF → 多群ライブラリ（xs）→
+    text = f"""# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）のステージ（ADR-0159）: ENDF → 多群ライブラリ（xs）→
 # 制御棒の値ごとの格子計算（lattice-<値>）→ 制御棒の軸を持つ 1 つのテーブル（table。#0093 までのつなぎ）→ ケースごとの
 # 炉心（core-<ケース>）→ 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`
 vars:

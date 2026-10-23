@@ -1,7 +1,7 @@
 # M1: 温度と自己遮蔽に依存する核データ
 
 ENDF/B-VIII.0 から、M1 の対象核種（U-234, U-235, U-236, U-238, O-16, O-17, H-1, B-10, B-11, Zr）の
-温度と背景断面積 σ0 に依存する多群ライブラリ（`xs`）を作り、ピンセルの2群定数（`lattice`）を計算する例。
+温度とバックグラウンド断面積 σ0 に依存する多群ライブラリ（`xs`）を作り、ピンセルの2群定数（`lattice`）を計算する例。
 手法と近似は M1 で決めた次の ADR のとおり（後に置き換えたものは、各 ADR の `superseded-by` が
 新しい決定を指す）。範囲と作業の順序は [M1 の計画](../../docs/plans/m1-nuclear-data.md)。
 
@@ -16,19 +16,19 @@ ENDF/B-VIII.0 から、M1 の対象核種（U-234, U-235, U-236, U-238, O-16, O-
 
 ENDF/B-VIII.0 の中性子と熱中性子散乱のサブライブラリを `references/endf/ENDF-B-VIII.0_neutrons/` と
 `references/endf/ENDF-B-VIII.0_thermal_scatt/` に置いて（別の場所なら `xs.toml` の `endf-directory` と
-`thermal-directory` を書き換えて）、段階を DVC で実行する（ADR-0123）。`xs` は 1 コアでなく 32 スレッドで数分〜十数分かかるので、
+`thermal-directory` を書き換えて）、ステージを DVC で実行する（ADR-0123）。`xs` は 1 コアでなく 32 スレッドで数分〜十数分かかるので、
 Slurm に流す（CLAUDE.md の「計算」）:
 
 ```sh
 ~/.claude/scripts/slurm-run.sh -t 45 dvc-m1 'nix develop -c dvc repro examples/m1/dvc.yaml'
 ```
 
-段階は `xs`（`m1.msgpack`）、`lattice`（`pincell-fg.msgpack`、`lattice.out`）、`lattice-temperatures@<温度>`（燃料と減速材の温度を
+ステージは `xs`（`m1.msgpack`）、`lattice`（`pincell-fg.msgpack`、`lattice.out`）、`lattice-temperatures@<温度>`（燃料と減速材の温度を
 変えたピンセル）。生成物は `examples/m1/` に書き出す。
 
 | ファイル             | 内容                                                                               |
 | -------------------- | ---------------------------------------------------------------------------------- |
-| `dvc.yaml`           | 段階（xs、lattice、lattice-temperatures）                                          |
+| `dvc.yaml`           | ステージ（xs、lattice、lattice-temperatures）                                      |
 | `xs.toml`            | 多群ライブラリの入力（14 核種、核種ごとの温度、σ0 9 点、H in H2O の S(α,β)）       |
 | `pincell.toml`       | ピンセルの入力（M0 と同じ 3.1 wt% UO2 と水、被覆管なし。燃料 900 K、減速材 600 K） |
 | `pincell-f*-m*.toml` | `pincell.toml` の燃料と減速材の温度を変えたもの（`f` が燃料、`m` が減速材の温度）  |
@@ -37,7 +37,7 @@ Slurm に流す（CLAUDE.md の「計算」）:
 
 e4dbc0de（分岐点 cde7206f）、2026-10-12。`xs` と `lattice` は Slurm の共有モード（`-c 8`）で流したので、計算時間は書かない。
 
-| 段階      | 結果                                                                |
+| ステージ  | 結果                                                                |
 | --------- | ------------------------------------------------------------------- |
 | `xs`      | 14 核種の WIMS 69群ライブラリ（燃料・被覆管 4 温度、冷却材 2 温度） |
 | `lattice` | ピンセルの k∞ = 0.7241（無限希釈）                                  |
@@ -57,9 +57,9 @@ e4dbc0de（分岐点 cde7206f）、2026-10-12。`xs` と `lattice` は Slurm の
 
 ## 検証
 
-各段階は NJOY の同じ条件の出力と比べた（`crates/xs/examples/` の比較プログラム）。
+各ステージは NJOY の同じ条件の出力と比べた（`crates/xs/examples/` の比較プログラム）。
 
-| 段階                             | NJOY との一致                                                   |
+| ステージ                         | NJOY との一致                                                   |
 | -------------------------------- | --------------------------------------------------------------- |
 | ドップラー拡がり（BROADR）       | 2e-6                                                            |
 | 非分離共鳴の平均断面積（RECONR） | 非分離共鳴の範囲で 2e-4                                         |
