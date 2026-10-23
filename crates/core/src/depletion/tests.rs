@@ -220,6 +220,17 @@ fn uniform_cores_burn_at_the_specific_power() {
     assert_eq!(history.assemblies, ["A1", "A2", "A3", "A4"]);
     assert_eq!(history.axial_mesh, [0.0, 10.0, 20.0]);
     assert_eq!(history.specific_power, 40.0);
+    // 解いた状態（比べるツールがテーブルの同じ状態を引く）
+    assert_eq!(
+        history.state,
+        CoreState {
+            boron: 1200.0,
+            b10: 0.199,
+            moderator: 565.0,
+            fuel: 565.0,
+            banks: Default::default(),
+        }
+    );
     // 集合体ごとの 2 層。質量は 400 g/cm × 10 cm
     assert_eq!(history.heavy_metal, vec![vec![4000.0; 2]; 4]);
     let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
