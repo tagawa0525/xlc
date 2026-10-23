@@ -9,6 +9,7 @@ use crate::material::Material;
 use crate::moc::Remaining;
 use crate::symmetry::Orbits;
 use crate::tracking::Tracking;
+use rayon::prelude::*;
 use xlc_numeric::lu::Lu;
 
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
@@ -630,48 +631,62 @@ impl Coarse {
     ) -> Result<Self, CmfdError> {
         let ng = materials[0].groups();
         let cells = orbits.representatives.len();
+        // [代表] のセルの領域（番号の順）
+        let mut members: Vec<Vec<usize>> = vec![Vec::new(); cells];
+        for region in 0..materials.len() {
+            if let Some(c) = orbits.position(mesh.cell(region)) {
+                members[c].push(region);
+            }
+        }
         let mut volume = vec![0.0; cells];
         let mut phi = vec![0.0; cells * ng];
         // 反応率の和（後で中性子束で割る）
         let mut total = vec![0.0; cells * ng];
         let mut scatter = vec![0.0; cells * ng * ng];
         let mut fission: Vec<Vec<Spectrum>> = vec![Vec::new(); cells];
-        for (region, m) in materials.iter().enumerate() {
-            let Some(c) = orbits.position(mesh.cell(region)) else {
-                continue;
-            };
-            let (v, f) = (volumes[region], &flux[state[region]]);
-            volume[c] += v;
-            for g in 0..ng {
-                phi[c * ng + g] += v * f[g];
-                total[c * ng + g] += v * m.total[g] * f[g];
-                for to in 0..ng {
-                    scatter[(c * ng + to) * ng + g] += v * m.scatter[g][to] * f[g];
-                }
-            }
-            for term in &m.fission_terms {
-                // 同じスペクトルの項はまとめる
-                let terms = &mut fission[c];
-                let index = match terms.iter().position(|s| s.chi == term.chi) {
-                    Some(i) => i,
-                    None => {
-                        terms.push(Spectrum {
-                            chi: term.chi.clone(),
-                            chi_sum: term.chi.iter().sum(),
-                            nu_fission: vec![0.0; ng],
-                        });
-                        terms.len() - 1
+        // セルごとに並列に足す。1 つのセルの中では領域の番号の順に足すので、結果は分け方によらない
+        volume
+            .par_iter_mut()
+            .zip(phi.par_chunks_mut(ng))
+            .zip(total.par_chunks_mut(ng))
+            .zip(scatter.par_chunks_mut(ng * ng))
+            .zip(fission.par_iter_mut())
+            .zip(&members)
+            .for_each(|(((((volume, phi), total), scatter), terms), regions)| {
+                for &region in regions {
+                    let m = materials[region];
+                    let (v, f) = (volumes[region], &flux[state[region]]);
+                    *volume += v;
+                    for g in 0..ng {
+                        phi[g] += v * f[g];
+                        total[g] += v * m.total[g] * f[g];
+                        for to in 0..ng {
+                            scatter[to * ng + g] += v * m.scatter[g][to] * f[g];
+                        }
                     }
-                };
-                for (r, (n, phi)) in terms[index]
-                    .nu_fission
-                    .iter_mut()
-                    .zip(term.nu_fission.iter().zip(f))
-                {
-                    *r += v * n * phi;
+                    for term in &m.fission_terms {
+                        // 同じスペクトルの項はまとめる
+                        let index = match terms.iter().position(|s| s.chi == term.chi) {
+                            Some(i) => i,
+                            None => {
+                                terms.push(Spectrum {
+                                    chi: term.chi.clone(),
+                                    chi_sum: term.chi.iter().sum(),
+                                    nu_fission: vec![0.0; ng],
+                                });
+                                terms.len() - 1
+                            }
+                        };
+                        for (r, (n, phi)) in terms[index]
+                            .nu_fission
+                            .iter_mut()
+                            .zip(term.nu_fission.iter().zip(f))
+                        {
+                            *r += v * n * phi;
+                        }
+                    }
                 }
-            }
-        }
+            });
         for c in 0..cells {
             for g in 0..ng {
                 let reaction = phi[c * ng + g];
@@ -694,14 +709,16 @@ impl Coarse {
             let sigma = sigma_t(c, g);
             1.0 / (3.0 * sigma) + artificial_diffusion(sigma * h) * h
         };
-        for c in 0..cells {
-            for to in 0..ng {
-                for g in 0..ng {
-                    let j = (c * ng + to) * ng + g;
-                    scatter[j] /= phi[c * ng + g];
+        scatter
+            .par_chunks_mut(ng * ng)
+            .zip(phi.par_chunks(ng))
+            .for_each(|(scatter, phi)| {
+                for row in scatter.chunks_mut(ng) {
+                    for (s, f) in row.iter_mut().zip(phi) {
+                        *s /= f;
+                    }
                 }
-            }
-        }
+            });
 
         for (c, terms) in fission.iter_mut().enumerate() {
             for s in terms.iter_mut() {
@@ -801,10 +818,14 @@ impl Coarse {
         let solver = if line && cells.len() >= 2 {
             Solver::Chain(Chain::new(groups, &cells, matrices, &neighbors)?)
         } else {
+            // セルごとに並列に分解し、特異なものはセルの順で最初のものを返す
             let blocks = matrices
+                .into_par_iter()
+                .map(|a| Lu::new(a, groups))
+                .collect::<Vec<_>>()
                 .into_iter()
                 .zip(&cells)
-                .map(|(a, &cell)| Lu::new(a, groups).ok_or(CmfdError::Singular(cell)))
+                .map(|(lu, &cell)| lu.ok_or(CmfdError::Singular(cell)))
                 .collect::<Result<Vec<_>, _>>()?;
             Solver::GaussSeidel { blocks, neighbors }
         };
