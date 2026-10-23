@@ -845,6 +845,14 @@ struct State {
     transported: usize,
 }
 
+/// 2 つの領域の実効断面積が同じこと。自己遮蔽は、物質を共有する領域に同じ配列を指させるので、先に場所を比べて値の比較を省く
+fn same_cross_sections(a: Option<&[Shielded]>, b: Option<&[Shielded]>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => std::ptr::eq(a, b) || a == b,
+        (a, b) => a == b,
+    }
+}
+
 /// 自己遮蔽の結果 `start` の微視的断面積と SPH 因子のまま、燃焼の領域 `regions` の物質を作り直す（ADR-0197）。`materials` は自己遮蔽に
 /// 渡す物質の一覧（核種の並びは `start` を解いたときと同じ）で、燃焼の領域 k の物質は `materials[depleted[k]]`。返すのは、作り直した
 /// `start.materials` の番号と物質。自己遮蔽した物質は、自己遮蔽と同じく、領域の核種の実効断面積（`region_cross_sections`）から作った
@@ -889,7 +897,10 @@ pub(crate) fn remix_depleted(
                 let f = first[m].ok_or_else(|| anyhow!("material {m} has no first region"))?;
                 if k.is_some()
                     && (sph[r] != sph[f]
-                        || start.region_cross_sections(r) != start.region_cross_sections(f))
+                        || !same_cross_sections(
+                            start.region_cross_sections(r),
+                            start.region_cross_sections(f),
+                        ))
                 {
                     bail!(
                         "regions {f} and {r} share material {m} with different cross sections or SPH factors"
@@ -1158,7 +1169,7 @@ pub(crate) fn run_with_moc(
                 })?;
                 // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と数密度から作った群定数に SPH 因子を掛けたもの）を、始まりの
                 // 組成で作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。前提が崩れれば、中点の物質が自己遮蔽の作り方と
-                // 食い違う。始まりの組成で数密度が 0 の核種は物質に入らないので、最初のステップだけでは確かめきれない
+                // 食い違う。始まりの組成で数密度が 0 の核種は物質の和に寄与せず、その断面積は最初のステップだけでは確かめきれない
                 let rebuilt = remix_depleted(
                     library,
                     &at_start,
