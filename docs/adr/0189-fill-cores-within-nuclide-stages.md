@@ -97,7 +97,7 @@ examples/depletion の 65 核種を作り直す Slurm の排他のジョブ 473�
 - 出力（Slurm の排他のジョブ 479、xlc a7c8546c（分岐点 102533e8）、2026-10-23。手順は examples/depletion/issue-0157/measure.sh。DVC を通さない。a7c8546c の後のコミットは、パニックのときの止め方とログの span だけを変えた）:
   - 核種ごとのステージの形（`xs nuclide`、既定のスレッドの数）、案 C の試行（`--threads` 1〜4）の 65 核種の msgpack は、どちらも 65 核種すべての
     md5 が examples/depletion/dvc.lock（ジョブ 473 の出力）と一致した
-  - `xs <入力>`（案 B の形）の `depletion.msgpack` の md5 は dvc.lock と同じ ea77045e689e9684bd0ef26cabf4012a
+  - `xs <入力>`（案 B の形。出力を `all.msgpack` に変えた入力で）の md5 は dvc.lock の `depletion.msgpack` と同じ ea77045e689e9684bd0ef26cabf4012a
   - Cm-244 の 565 K を 1 スレッドで 17 本（1 本だけと、16 本を同時に）作り、md5 が同じだった
 - 時間（同じジョブ 479）: 核種ごとのステージの形のプロセスの経過時間の和 1,154 秒（CPU 時間の和 11,358 秒、平均 9.8 コア）、`xs <入力>` 763 秒
   （CPU 時間 11,486 秒）、案 C の試行 720 秒。比べる元は 473 のステージの始めから終わりの 2,186 秒（核種の span の和 2,080 秒、ステージの間 106 秒）
