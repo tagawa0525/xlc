@@ -98,7 +98,6 @@ fn threads_out_of_indices_return_to_the_budget() {
 }
 
 #[test]
-#[ignore = "a panic on the calling thread does not stop the added threads"]
 fn a_panic_on_the_calling_thread_stops_the_other_threads() {
     // 呼んだスレッドの f(i) がパニックしても、足したスレッドは次の i を取らずに止まる（足したスレッドのパニックと同じ）
     let budget = Budget::new(2);
