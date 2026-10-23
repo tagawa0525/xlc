@@ -4,7 +4,8 @@
 //! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`burnup`、`boron`、`moderator`、`fuel`、`rod`）。
 //! 連続の軸は `points`（昇順。燃焼度は MWd/kg（ADR-0187）、ほかは ppm か K）を持ち、`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の
 //! 原子分率）も持つ。離散の軸の `rod` は `points` の代わりに `values`（制御棒の値の名前の列。`out` は棒のない状態）を持つ）,
-//! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
+//! `split`（集合体を各方向に分けたノードの数。ADR-0108）, `heavy_metal`（初めの重金属の質量 (g/cm、高さ 1 cm あたり)。燃焼の履歴から
+//! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
 //! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`height` は数か nil、`pins` は
 //! `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、どちらもキーは省けない）。
@@ -145,6 +146,9 @@ pub struct Table {
     /// 軸の直積の順（最初の軸がいちばん遅く変わる）の状態ごとに、split × split の部分ノードの定数（部分ノードが
     /// いちばん速く変わる。部分ノードは -y の行から、各行は -x から）
     pub states: Vec<FewGroup>,
+    /// 初めの重金属（Z ≥ 90）の質量 (g/cm、格子全体の高さ 1 cm あたり)。燃焼の履歴から作ったテーブルだけが持ち、core が
+    /// ノードの燃焼度を進めるのに使う（ADR-0190）
+    pub heavy_metal: Option<f64>,
 }
 
 /// テーブルのファイルの読み書きのエラー。
@@ -173,6 +177,8 @@ struct TableFile {
     bounds: Vec<f64>,
     axes: Vec<AxisFile>,
     split: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    heavy_metal: Option<f64>,
     states: Vec<StateFile>,
 }
 
@@ -276,6 +282,7 @@ impl Table {
             axes: Vec::new(),
             split: 1,
             states: vec![state],
+            heavy_metal: None,
         }
     }
 
@@ -290,6 +297,11 @@ impl Table {
         validate_axes(&self.axes).map_err(TableError::Invalid)?;
         if self.split == 0 {
             return invalid("split must be positive".into());
+        }
+        if let Some(m) = self.heavy_metal
+            && !(m > 0.0 && m.is_finite())
+        {
+            return invalid(format!("heavy_metal must be positive, got {m}"));
         }
         let points: usize = self.axes.iter().map(Axis::len).product();
         let sub = self.sub_nodes();
@@ -384,6 +396,7 @@ impl Table {
             bounds,
             axes,
             split: self.split,
+            heavy_metal: self.heavy_metal,
             states,
         })?)
     }
@@ -431,6 +444,7 @@ impl Table {
             axes,
             split: file.split,
             states,
+            heavy_metal: file.heavy_metal,
         };
         table.validate()?;
         Ok(table)

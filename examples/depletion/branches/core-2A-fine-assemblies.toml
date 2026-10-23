@@ -1,0 +1,7 @@
+# 2A の細かい燃焼度の軸を持つテーブル（branch-2A-fine.toml）。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A-fine.msgpack"]
+
+[assembly.A01]
+design = "2A"

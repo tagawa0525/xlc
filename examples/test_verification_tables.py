@@ -777,5 +777,58 @@ class DrawAssemblyDepletion(unittest.TestCase):
                 draw([{"format": "xlc-compare-depletion"}])
 
 
+class DrawCoreDepletion(unittest.TestCase):
+    def summary(self) -> dict:
+        """compare_core_depletion.py の要約（テーブルの点 1 つと点の間 1 つ）"""
+        return {
+            "format": "xlc-compare-core-depletion",
+            "specific_power": 38.41,
+            "table_burnups": [0.0, 10.0],
+            "points": [
+                {
+                    "efpd": 0.0,
+                    "burnup": 0.0,
+                    "on_table": True,
+                    "history_k": 1.18283604,
+                    "k": 1.18283548,
+                    "rho_pcm": -0.0400123,
+                    "branch_rho_pcm": -0.00061,
+                },
+                {
+                    "efpd": 130.17443374,
+                    "burnup": 5.0,
+                    "on_table": False,
+                    "history_k": 1.10057334,
+                    "k": 1.1021,
+                    "rho_pcm": 125.71,
+                    "branch_rho_pcm": None,
+                },
+            ],
+        }
+
+    def test_rows_mark_the_table_points_and_have_the_reactivity_difference(self):
+        table = vt.core_depletion_k([self.summary()])
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+        self.assertEqual(
+            rows,
+            [
+                ["0", "0.00", "○", "1.18283604", "1.18283548", "−0.040", "−0.0006"],
+                ["5", "130.17", "", "1.10057334", "1.10210000", "+125.710", ""],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_depletion_k([{"format": "xlc-compare-depletion"}])
+
+    def test_the_2a_comparison_is_a_git_tracked_json(self):
+        (sources, draw) = vt.TABLES["depletion-2a-core-k"]
+        self.assertIs(draw, vt.core_depletion_k)
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 if __name__ == "__main__":
     unittest.main()

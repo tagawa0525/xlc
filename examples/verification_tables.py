@@ -717,8 +717,44 @@ def aws_depletion_densities(sources: list[dict]) -> str:
     return markdown_table(["燃焼度 (MWd/kg)", *DEPLETION_NUCLIDES], rows)
 
 
-# dvc.yaml の段階の出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）
-GIT_TRACKED = {"examples/depletion/aws-check/compare-aws-1C-rings1.json"}
+def core_depletion_k(sources: list[dict]) -> str:
+    """core の燃焼（集合体 1 体）: 燃焼点ごとの格子計算の履歴と core の k∞ と反応度の差（core − 履歴。ADR-0190）と、テーブルの点の
+    分岐の格子計算との反応度の差（core − 分岐）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-depletion":
+        raise TableError("not an xlc-compare-core-depletion summary")
+    rows = [
+        [
+            burnup_label(p["burnup"]),
+            f"{p['efpd']:.2f}",
+            "○" if p["on_table"] else "",
+            f"{p['history_k']:.8f}",
+            f"{p['k']:.8f}",
+            signed(p["rho_pcm"], 3),
+            "" if p["branch_rho_pcm"] is None else signed(p["branch_rho_pcm"], 4),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "EFPD",
+            "テーブルの点",
+            "履歴の k∞",
+            "core の k∞",
+            "core − 履歴 (pcm)",
+            "core − 分岐 (pcm)",
+        ],
+        rows,
+    )
+
+
+# dvc.yaml の段階の出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
+# 燃焼度の軸を持つテーブルの確認は、履歴の段階を deps にすると重い段階が走るので段階にしない（examples/depletion/verification.md）
+GIT_TRACKED = {
+    "examples/depletion/aws-check/compare-aws-1C-rings1.json",
+    "examples/depletion/branches/compare-core-2A.json",
+}
 
 
 def counted_pin_cell(pins: dict | None) -> str:
@@ -879,6 +915,10 @@ TABLES = {
             ("absorbers", depletion_assembly_absorber_densities),
         ]
     },
+    "depletion-2a-core-k": (
+        ["examples/depletion/branches/compare-core-2A.json"],
+        core_depletion_k,
+    ),
     "depletion-assembly-times": (
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
         depletion_assembly_times,

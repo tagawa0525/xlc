@@ -14,7 +14,7 @@ use crate::tracking::Tracking;
 /// テストのライブラリに、ホウ酸水のホウ素を足したもの（B-10 は Xe-135、B-11 は O-16 のデータを借りる）
 fn library_with_boron() -> Library {
     let mut library = library();
-    let borrow = |from: &str, name: &str, awr: f64| {
+    let borrow = |from: &str, name: &str, za: f64, awr: f64| {
         let mut data = library
             .nuclides
             .iter()
@@ -22,12 +22,13 @@ fn library_with_boron() -> Library {
             .unwrap()
             .clone();
         data.name = name.into();
+        data.za = za;
         data.awr = awr;
         data
     };
     let (b10, b11) = (
-        borrow("Xe-135", "B-10", 9.9269),
-        borrow("O-16", "B-11", 10.9147),
+        borrow("Xe-135", "B-10", 5010.0, 9.9269),
+        borrow("O-16", "B-11", 5011.0, 10.9147),
     );
     library.nuclides.push(b10);
     library.nuclides.push(b11);
@@ -264,4 +265,28 @@ fn the_branch_library_must_transport_the_nuclides_of_the_history() {
     other.nuclides.push(u236);
     let err = branches_of(&branch_input("[0.5]", "[600]"), &history, &other).unwrap_err();
     assert!(format!("{err:#}").contains("library"), "{err:#}");
+}
+
+#[test]
+fn history_branches_carry_the_initial_heavy_metal_mass() {
+    let (history, library) = history();
+    let branches = branches_of(&branch_input("[0, 2.0]", "[600]"), &history, &library).unwrap();
+    // 燃焼度 0 の組成（U-235 7.0e-4、U-238 2.2e-2 /(barn cm)）の U の質量 (g/cm)。O-16 は数えない（ADR-0190、ADR-0173）
+    let awr = |name: &str| {
+        library
+            .nuclides
+            .iter()
+            .find(|n| n.name == name)
+            .unwrap()
+            .awr
+    };
+    let volume: f64 = history.regions.iter().map(|d| d.volume).sum();
+    let grams_per_atom = |name: &str| awr(name) * 1.008_664_915_95 * 1.660_539_066_60e-24;
+    let want =
+        volume * 1.0e24 * (7.0e-4 * grams_per_atom("U-235") + 2.2e-2 * grams_per_atom("U-238"));
+    assert!(
+        (branches.heavy_metal - want).abs() <= 1e-13 * want,
+        "{} vs {want}",
+        branches.heavy_metal
+    );
 }

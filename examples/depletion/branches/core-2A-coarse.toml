@@ -1,0 +1,23 @@
+# core の燃焼（ADR-0190）の確認: core-2A-steps.toml と同じ集合体を、粗いステップ（4 ステップ。終わりはどれもテーブルの燃焼度の点の間の
+# 履歴の燃焼点）で燃焼させる。集合体 1 体は出力の割合が 1 なので、燃焼度はステップの大きさによらず 38.41 W/g × EFPD / 1000 で、k は
+# 細かいステップの同じ燃焼度の k と同じになるはず。
+cycle = "core-2A-fine-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.nominal]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+
+[depletion]
+specific-power = 38.41
+history = "core-2A-coarse.msgpack"
+steps = [
+  { efpd = 130.17443374121325 },  # 5 MWd/kg
+  { efpd = 390.5233012236397 },  # 15 MWd/kg
+  { efpd = 781.0466024472794 },  # 30 MWd/kg
+  { efpd = 1353.8141109086175 },  # 52 MWd/kg
+]
