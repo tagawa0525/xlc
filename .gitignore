@@ -27,3 +27,6 @@
 /examples/reflector/vacuum-corner/*.msgpack
 /examples/reflector/vacuum-corner/*.log
 /examples/vera/free-gas-upper/*.msgpack
+# 格子計算の途中の点と状態（ADR-0196）。計算を終えると lattice が消す
+*.checkpoint
+*.checkpoint.tmp
