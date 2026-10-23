@@ -2790,7 +2790,7 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
 
 テーブルは `table-2A-all.msgpack` md5 51cb4573、`table-2O-all.msgpack` md5 2debe9a3、`table-2F-all.msgpack` md5 78ad62e3（追跡しない生成物）。
 全点のテーブルの k∞ は、作った履歴の k∞ を 2A で 0.064 pcm、2O で 0.065 pcm、2F で 0.064 pcm 以内で再現した。比較と core は
-feat/0170-pyrex-burnup-points の 3501d032b（分岐点は main の 67723ea05）、2026-10-24（手元）。
+feat/0170-pyrex-burnup-points の 804e1895f（分岐点は main の 67723ea05）、2026-10-24（手元）。
 
 ### 結果
 
