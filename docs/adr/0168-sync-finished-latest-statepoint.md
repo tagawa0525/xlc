@@ -4,7 +4,7 @@ date: 2026-10-14
 requires: [ADR-0155]
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0166"]
 ---
 
 # ADR-0168: Sync the newest statepoint once it has been written, and let a relaunch shorten the statepoint interval

@@ -4,7 +4,7 @@ date: 2026-10-15
 requires: [ADR-0155, ADR-0168, ADR-0171]
 supersedes: []
 superseded-by:
-issues: ["#0132"]
+issues: ["#0132", "#0166"]
 ---
 
 # ADR-0174: Generalize the AWS OpenMC run with a run definition file
