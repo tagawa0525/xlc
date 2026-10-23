@@ -354,9 +354,9 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 2P 09d5b5b8、2A-density 5db09b93、2A-rods a5120e74（md5）。両方で同じ核種を輸送する（2A、2A-density、2A-rods は 89 核種、ほかは 90 核種。
 `compare_depletion_assembly.py` が確かめる）。前の本番（ADR-0194、ADR-0195、ADR-0198、#0163 の前）との k∞ の差は、最大で 2.3e-7
 （0.023 pcm。2P の 24 MWd/kg。2O は 2.2e-7、2A は 2.0e-7、2F と 2N は 0.6e-7）。ADR-0195 の確認の 1.3e-7（2A の最初の 11 点）を
-超えるのは、その先の点で、差は燃焼度の途中で段のように変わり、段の間はほぼ一定である（2O は 11、17、26 MWd/kg、2P は 10.5、
-17、26 MWd/kg で変わる。17 と 26 MWd/kg はステップが長くなる点）。MOC を前の解から始めると、収束の判定で止まる解が初期値によって変わることが候補で、確かめていない。
-2M は流していない（履歴の形式の変更で前の履歴は `[history]` で読めず、再実行は要るときに行う）ので、2M の節は前の本番の数値である。
+超えるのは、その先の点で、差は燃焼度の途中で段のように変わり、段の間はゆっくり動く（2O は 11、17、26 MWd/kg、2P は 10.5、17、26 MWd/kg で
+跳ぶ。17 と 26 MWd/kg はステップが長くなる点。2O の差は 11〜16 MWd/kg で −0.8e-7 から −1.1e-7、26〜60 MWd/kg で +0.5e-7 から +0.2e-7）。MOC を前の解から始めると、収束の判定で止まる解が初期値によって変わることが候補で、確かめていない。
+2M は流していない（履歴の形式の変更で前の履歴は `[history]` で読めず、再実行は要るときに行う）ので、2M の節は前の本番の数値である（#0172）。
 OpenMC の時間は AWS の機種がまちまちなので、xlc との比較に使わない（ADR-0174）。
 
 ピン出力は、核分裂する物質（燃料）のあるセルの平均で 1 にして、対称操作の組で比べる。OpenMC の燃焼はチェーンの全核種を CRAM で
@@ -382,11 +382,11 @@ xlc の時間の内訳（秒。履歴の `seconds`、全体は内訳の和）。
 全体 2,332.1、自己遮蔽 2,000.7、MOC 280.1、2O（輸送 141 回）が全体 2,344.2、自己遮蔽 1,761.8、MOC 485.0、2P（輸送 141 回）が全体 2,924.5、
 自己遮蔽 2,314.4、MOC 503.3。ジョブの経過時間（Slurm の timed のジョブの `TIME:` の elapsed。`lattice` と比較のステージの和）は 2A 18 分 58 秒、
 2F 37 分 3 秒、2A-density 18 分 55 秒、2A-rods 39 分 27 秒、2N 1 時間 27 分 2 秒、2O 39 分 49 秒、2P 49 分 34 秒。1 回の輸送の自己遮蔽は
-2A と 2A-density 9.7 秒、2F 22.3 秒、2A-rods 24.7 秒、2N 59.2 秒、2O 12.5 秒、2P 16.4 秒、MOC は 3.3〜4.1 秒。2N の自己遮蔽が長いのは、
+2A と 2A-density 9.7 秒、2F 22.3 秒、2A-rods 24.7 秒、2N 59.2 秒、2O 12.5 秒、2P 16.4 秒、MOC は 3.2〜4.1 秒。2N の自己遮蔽が長いのは、
 IFBA のピン（被覆のリングが燃焼の領域で、ピンの物質が 1 つ増える）で飛程の表の格子点が UFG の格子点を超え、格子点ごとに衝突確率を
 求める（ログの `UFG tracks point by point`。輸送 1 回あたり 16 本ほど）ためとみられる（候補。時間の内訳はピンごとに測っていない。#0129）。
-同じログの行は 2A-rods で輸送 1 回あたり 5 本、2O で 1.4 本、2P で 3.4 本あり、2A、2F、2A-density には無い。2F と 2A-rods が 2A より
-長い原因は確かめていない。
+同じログの行は 2A-rods で輸送 1 回あたり 5 本、2O で 1.4 本、2P で 3.4 本あり、2A、2F、2A-density には無い。2A-rods の自己遮蔽が
+2A より長いのも同じ理由が候補（確かめていない）。2F が 2A より長い原因は確かめていない（2F のログにこの行は無い）。
 
 燃料のピンの Dancoff 係数を持ち越し、移り合うピンへの複製をやめた（ADR-0194）後の 2A を、燃焼度の点を最初の 10 点に切った入力
 （examples/depletion/issue-0137/2A-10.toml、輸送 21 回）で測った（xlc 08c0eea9、分岐点は main の 8453e542、2026-10-23、Slurm の排他の
@@ -404,9 +404,9 @@ IFBA のピン（被覆のリングが燃焼の領域で、ピンの物質が 1 
 MOC の反復を前の輸送の解から始めると（[ADR-0195](../../docs/adr/0195-start-moc-from-the-previous-transport.md)。xlc 008a9e03、分岐点は main の 8453e542、
 2026-10-23、Slurm の排他のジョブ 494。入力は `warm-start/` で、下のコマンド）、2A の最初の 10 点（輸送 21 回）の
 MOC の反復は、最初の輸送が 25 回、2 回目 17 回、3 回目 13 回、4 回目からは 11 回（和 253 回）で、MOC の時間の和は 83.8 秒（2 回目からは
-1 回 3.8 秒）。上の 2A の実行（Slurm 461、平らな初期値から）の同じ 21 回の MOC は 157.4 秒（1 回 7.5 秒）。1 回の反復の時間は 0.30 秒から
+1 回 3.8 秒）。前の本番の 2A の実行（Slurm 461、平らな初期値から）の同じ 21 回の MOC は 157.4 秒（1 回 7.5 秒）。1 回の反復の時間は 0.30 秒から
 0.35 秒に増え、粗メッシュの固有値の反復は 1 回の MOC の反復あたり平均 316 回（最初の輸送）と 326 回（2 回目から）だった。輸送 21 回の
-自己遮蔽は 383.7 秒、全体は 486.5 秒。上の 2A の履歴（`lattice-2A.msgpack` md5 c2591c9f）の同じ 11 点との差は、k∞ が最大 1.3e-7
+自己遮蔽は 383.7 秒、全体は 486.5 秒。前の本番の 2A の履歴（`lattice-2A.msgpack` md5 c2591c9f）の同じ 11 点との差は、k∞ が最大 1.3e-7
 （0.013 pcm。1.5 MWd/kg）、数密度が最大の数密度の 1e-6 倍を超える核種で相対 7.7e-7（Pu-241、2 MWd/kg）、1e-8 倍を超える核種で
 1.0e-6（Pu-242）、ピン出力が相対 3.4e-7 だった（燃焼度 0 の点は平らな初期値から解くので、ビットで一致）。
 
@@ -427,6 +427,7 @@ f3a143d74 に区間だけを足したもの。2026-10-24、Slurm の timed の�
 cargo build --release -p xlc-lattice
 cd examples/depletion/warm-start
 RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice lattice-2A-10.toml > lattice-2A-10.out 2> lattice-2A-10.log
+# ../p2/lattice-2A.msgpack は前の本番（md5 c2591c9f）。main の 6dc2d22e の examples/depletion/p2/dvc.lock の lattice@2A の出力で、DVC のキャッシュにある
 python3 compare_warm_start.py history ../p2/lattice-2A.msgpack lattice-2A-10.msgpack
 # table-2A-fine.msgpack を作ったライブラリと履歴を DVC のキャッシュからコピーしてから（branch-2A-6.toml の冒頭）
 RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice branch-2A-6.toml > branch-2A-6.out 2> branch-2A-6.log
@@ -468,6 +469,7 @@ md5 803bce96。517 の F2 の 11 点は、作り直しの確認を最初の輸�
 ```sh
 cd examples/depletion/issue-0134
 RUST_LOG=info ../../../bin/lattice 2A-step-start.toml > 2A-step-start.out 2> 2A-step-start.log
+# ../p2/lattice-2A.msgpack は前の本番（md5 c2591c9f）。main の 6dc2d22e の examples/depletion/p2/dvc.lock の lattice@2A の出力で、DVC のキャッシュにある
 python3 compare.py 2A-step-start.msgpack ../p2/lattice-2A.msgpack
 # 時間（517）
 RUST_LOG=info ../../../bin/lattice 2A-10-every-transport.toml > 2A-10-every-transport.out 2> 2A-10-every-transport.log
@@ -2278,7 +2280,7 @@ MOC 263.0 秒、反応率と規格化 40.54 秒、燃焼行列 3.75 秒、CRAM48
 
 <!-- /table -->
 
-- U-235 は燃焼度とともに増えて、60 MWd/kg で +1.20%（領域ごとの最大 1.58%、rms 1.24%）。2A（+1.27%）と同程度。U-238 は 0.01% 以内
+- U-235 は燃焼度とともに増えて、60 MWd/kg で +1.20%（領域ごとの最大 1.58%、rms 1.24%）。2A（+1.27%）と同程度。U-238 は 0.01% 未満
 - Pu-239 は +0.04〜+0.19%（60 MWd/kg で +0.04%）
 - Xe-135 は +0.50〜+0.95%、Sm-149 は 0.1 MWd/kg の +0.22% から増えて最大 +2.08%、60 MWd/kg で +1.94%（領域ごとの最大 2.19%）。
   2A と同じ向きと大きさ
@@ -2451,7 +2453,7 @@ md5 a5120e74。両方で同じ 89 核種を輸送する。xlc の時間（輸送
 
 <!-- /table -->
 
-- U-235 は燃焼度とともに増えて、60 MWd/kg で +0.63%（領域ごとの最大 0.93%、rms 0.66%）で、2A（+1.27%）の約半分。U-238 は 0.02% 以内
+- U-235 は燃焼度とともに増えて、60 MWd/kg で +0.63%（領域ごとの最大 0.93%、rms 0.66%）で、2A（+1.27%）の約半分。U-238 は 0.01% 未満
 - Pu-239 は −0.06〜−0.25%（60 MWd/kg で −0.25%）で、2A（正）と符号が逆。原因は確かめていない
 - Xe-135 は +0.47〜+0.59%、Sm-149 は 0.1 MWd/kg の +0.22% から増えて最大 +1.69%、60 MWd/kg で +1.54%（領域ごとの最大 1.95%）
 
