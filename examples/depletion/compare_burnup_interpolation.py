@@ -284,6 +284,9 @@ def report(summary: dict) -> list[str]:
             )
             for method, r in sel["results"].items():
                 rho = r["rho_pcm"]
+                if not rho:
+                    lines.append(f"  {method}: 比べた点がない")
+                    continue
                 worst = int(np.argmax(np.abs(rho)))
                 lines.append(
                     f"  {method}: |Δρ| の最大 {r['max_abs_pcm']:.1f} pcm（{sel['removed'][worst]:g} MWd/kg）、"

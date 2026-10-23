@@ -793,16 +793,18 @@ def burnup_interpolation_points(sources: list[dict]) -> str:
         for sel in t["selections"]:
             r = sel["results"]["hermite"]
             rho = r["rho_pcm"]
-            worst = max(range(len(rho)), key=lambda i: abs(rho[i]))
+            worst = max(range(len(rho)), key=lambda i: abs(rho[i]), default=None)
             rows.append(
                 [
                     t["name"],
                     sel["name"],
                     str(len(sel["burnup"])),
                     str(len(sel["removed"])),
-                    f"{signed(rho[worst], 1)}（{burnup_label(sel['removed'][worst])}）",
+                    ""
+                    if worst is None
+                    else f"{signed(rho[worst], 1)}（{burnup_label(sel['removed'][worst])}）",
                     f"{r['rms_pcm']:.1f}",
-                    f"{signed(min(rho), 1)}〜{signed(max(rho), 1)}",
+                    f"{signed(min(rho), 1)}〜{signed(max(rho), 1)}" if rho else "",
                 ]
             )
     return markdown_table(
