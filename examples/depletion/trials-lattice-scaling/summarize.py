@@ -2,7 +2,7 @@
 
 使い方: summarize.py <ログのディレクトリ> > scaling.json
 busy は区間を開いていたスレッドの時間なので、並列の区間の中の区間（pin、lump など）の合計は、
-各スレッドの時間の和（CPU 時間に近い）で、壁時計ではない。壁時計は親の区間（shielding、moc）の busy。
+各スレッドの時間の和（CPU 時間に近い）で、経過時間ではない。経過時間は親の区間（shielding、moc）の busy。
 """
 
 import json
