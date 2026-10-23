@@ -1,0 +1,126 @@
+# core の燃焼で点ごとに探した臨界ホウ素（core-2A-boron.toml。ADR-0191）と比べる、同じテーブルを同じ燃焼度で一様に引いた探索
+# （ADR-0145）。状態の燃焼度は、履歴（core-2A-boron.msgpack）の各点のノードの燃焼度（解いた値）を repr で書いたもの。探索の設定と
+# 状態は core-2A-boron.toml と同じ。
+cycle = "core-2A-boron-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.p00]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p01]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0.10000000000000002
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p02]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0.25
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p03]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0.5000000000000001
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p04]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0.7500000000000001
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p05]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 1.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p06]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 1.5000000000000002
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p07]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 2.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p08]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 2.5000000000000004
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p09]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 3.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p10]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 3.5
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p11]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 3.9999999999999996
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p12]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 5.000000000000001
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p13]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 6.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p14]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 7.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p15]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 7.999999999999999
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[state.p16]
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 9.0
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
