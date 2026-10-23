@@ -106,12 +106,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .states
             .first()
             .ok_or_else(|| anyhow!("depletion needs one state"))?;
-        let history = deplete(&layout, &tables, state, depletion, &options)
-            .map_err(|e| in_inputs(e, inputs()))?;
-        // 比べるツールが読めるよう、k は状態の出力と同じ桁で
-        for point in &history.points {
+        // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k は状態の出力と同じ桁で
+        let history = deplete(&layout, &tables, state, depletion, &options, |point| {
             println!("point {} {:.8} {:.8}", point.efpd, point.burnup, point.k);
-        }
+        })
+        .map_err(|e| in_inputs(e, inputs()))?;
         let file = &depletion.history;
         let bytes = history.to_msgpack().with_context(|| shown(file))?;
         std::fs::write(file, bytes).with_context(|| shown(file))?;
