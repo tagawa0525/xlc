@@ -71,7 +71,8 @@ def plan(
         # 記録の無いステージは組の最長とみなす。組に記録が無ければすべて同じ値（予算を等分する）
         times[stage] = max(group) if group else 1.0
     total = sum(times.values())
-    if total <= 0:
+    if total == 0:
+        # どれも記録の刻み（0.1 秒）より短い。同じ長さなので予算を等分する
         times = dict.fromkeys(stages, 1.0)
         total = float(len(stages))
     order = sorted(stages, key=lambda s: (-times[s], s))
@@ -161,6 +162,10 @@ def lock_dep_paths(lock_text: str, stage: str, directory: Path) -> set[str] | No
     return {os.path.normpath(directory / p) for p in paths}
 
 
+def raise_error(error: OSError):
+    raise error
+
+
 def fingerprint(path: Path):
     """内容が変わったかを見る指紋（大きさ、mtime、inode。ディレクトリは中のファイルすべて）。無ければ None"""
     try:
@@ -170,7 +175,8 @@ def fingerprint(path: Path):
     if not stat.S_ISDIR(st.st_mode):
         return (st.st_size, st.st_mtime_ns, st.st_ino)
     items = []
-    for dirpath, dirnames, filenames in os.walk(path):
+    # onerror: os.walk は読めないディレクトリを黙って飛ばし、前後の指紋が同じに見える
+    for dirpath, dirnames, filenames in os.walk(path, onerror=raise_error):
         dirnames.sort()
         for name in sorted(filenames):
             file = Path(dirpath) / name
@@ -193,10 +199,18 @@ def read_record(path: Path) -> dict[str, float]:
     if not path.exists():
         return {}
     record = json.loads(path.read_text())
-    if not isinstance(record, dict) or not all(
-        isinstance(v, (int, float)) for v in record.values()
-    ):
+    if not isinstance(record, dict):
         raise RunnerError(f"{path} is not a map from stage to CPU seconds")
+    for stage, seconds in record.items():
+        # bool は int の子クラスなので先に外す
+        if (
+            isinstance(seconds, bool)
+            or not isinstance(seconds, (int, float))
+            or seconds < 0
+        ):
+            raise RunnerError(
+                f"{path}: CPU seconds of {stage} is not a non-negative number: {seconds!r}"
+            )
     return record
 
 
@@ -252,6 +266,14 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
                 finish(done)
                 done = []
             if not running:
+                if failures and queue:
+                    log(
+                        f"not launched after the failure: {', '.join(n for n, _ in queue)}"
+                    )
+                elif queue:
+                    raise RunnerError(
+                        f"stages need more threads than the budget {budget}: {queue}"
+                    )
                 return failures
             reaped = []
             while not reaped:
@@ -288,16 +310,31 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
 
 
 def dvc(*args: str, capture: bool = False) -> str:
-    run = subprocess.run(
-        ["dvc", *args],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE if capture else None,
+    # subprocess.run は例外（SIGTERM からの SystemExit を含む）で子を SIGKILL し、dvc が .dvc/tmp/rwlock と
+    # dvc.lock を書きかけで残す。SIGTERM で止めて、終わるのを待つ
+    proc = subprocess.Popen(
+        ["dvc", *args], text=True, stdout=subprocess.PIPE if capture else None
     )
-    return run.stdout if capture else ""
+    try:
+        out, _ = proc.communicate()
+    except BaseException:
+        if proc.poll() is None:
+            proc.terminate()
+        proc.wait()
+        raise
+    if proc.returncode != 0:
+        raise RunnerError(
+            f"dvc {' '.join(args)} failed with exit code {proc.returncode}"
+        )
+    return out if capture else ""
 
 
 def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
+    if dvc_yaml == Path("dvc.yaml"):
+        # DVC はリポジトリの直下の dvc.yaml のステージを `dvc.yaml:` を付けずに示すので、組を見分けられない
+        raise RunnerError(
+            "the runner does not take the dvc.yaml at the root of the repository"
+        )
     if re.search(r"^\s*wdir:", dvc_yaml.read_text(), re.MULTILINE):
         raise RunnerError(
             f"{dvc_yaml} has wdir; the runner runs commands in the directory of dvc.yaml"
@@ -377,12 +414,21 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
     return 0
 
 
+def positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be positive: {value}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("dvc_yaml", type=Path)
     parser.add_argument("group", help="foreach のステージの名前（例: xs-nuclide）")
     parser.add_argument(
-        "--threads", type=int, help="同時に使うスレッドの合計（既定: 物理コアの数）"
+        "--threads",
+        type=positive_int,
+        help="同時に使うスレッドの合計（既定: 物理コアの数）",
     )
     args = parser.parse_args(argv)
     root = Path(
@@ -396,8 +442,6 @@ def main(argv: list[str] | None = None) -> int:
     dvc_yaml = args.dvc_yaml.resolve().relative_to(root)
     os.chdir(root)
     budget = physical_cores() if args.threads is None else args.threads
-    if budget < 1:
-        raise RunnerError(f"--threads must be positive: {budget}")
     stop_on_sigterm()
     start = time.monotonic()
 
