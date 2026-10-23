@@ -38,8 +38,8 @@ issues: ["#0137"]
 
 ## 検討した案
 
-- 案 A: Dancoff 係数を求めた入力と結果を、呼び出しをまたいで持つ（`ShieldingReuse`）。次の呼び出しで入力（領域ごとの物質の番号、燃料
-  でない物質の全断面積、`DancoffOptions`）がビットで同じなら結果を使い、違えば解き直して置き換える。トラッキングは `ShieldingReuse` が
+- 案 A: Dancoff 係数を求めた入力と結果を、呼び出しをまたいで持つ（`ShieldingReuse`）。次の呼び出しで入力（領域ごとの物質の番号、領域に
+  置いた燃料でない物質の全断面積、`DancoffOptions`）がビットで同じなら結果を使い、違えば解き直して置き換える。トラッキングは `ShieldingReuse` が
   持つので、別のトラッキングの結果は使えない。結果は毎回解いたものとビットで同じ。燃料でない物質が変わる問題では毎回解き直す（効かない
   が誤らない）
 - 案 B: 燃焼の初めに 1 度だけ Dancoff 係数を求め、`shield_fuel_with` の引数で渡す。燃料でない物質を燃焼させる問題と分岐の状態では、
@@ -70,6 +70,8 @@ issues: ["#0137"]
 - テスト（crates/lattice/src/shielding/tests.rs）: `dancoff_factors_are_reused_while_the_fuel_alone_changes`（燃料の組成だけを変えた
   3 回で Dancoff 係数を 1 度だけ解き、結果は毎回解いたもの（`shield_fuel_with`）と等しい）、
   `dancoff_factors_are_solved_again_when_a_non_fuel_material_changes`（減速材の組成を変えれば解き直し、前の組成に戻っても解き直す）、
+  `dancoff_factors_are_solved_again_when_the_regions_take_other_materials`（燃料のピンの 1 本を水にすれば解き直す）、
+  `dancoff_factors_ignore_materials_placed_in_no_region`（どの領域にも置かない物質の組成が変わっても解き直さない）、
   `dancoff_factors_are_solved_again_for_other_dancoff_options`
 - 集合体の燃焼: 2A の燃焼度の点を最初の 10 点に切った入力（輸送 21 回。examples/depletion/issue-0137）の履歴は、本番の
   `lattice-2A.msgpack` の最初の 11 点と、k∞、数密度、ピン出力までビットで同じ。自己遮蔽は輸送 1 回あたり 16.9 秒から 15.6 秒
