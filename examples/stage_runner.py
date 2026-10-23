@@ -259,7 +259,14 @@ class Finished:
 
 
 def execute(
-    queue, cmds, cwd, budget, finish, log=print, kill_grace: float = 10.0
+    queue,
+    cmds,
+    cwd,
+    budget,
+    finish,
+    log=print,
+    kill_grace: float = 10.0,
+    outputs: dict | None = None,
 ) -> list[str]:
     """queue の順にステージを投入し、終わったもの（成功）を finish に渡す。失敗したステージの名前を返す。
 
@@ -276,6 +283,8 @@ def execute(
             if not failures:
                 for name, threads in launchable(queue, free, budget):
                     cmd = with_threads(cmds[name], threads)
+                    # dvc repro と同じく、実行の直前に出力を消す（投入しないステージの出力は残す）
+                    remove_outputs((outputs or {}).get(name, ()), Path())
                     # 自分のセッションに置き、止めるときにシェルの子ごと止める。投入から running に入れるまでの間に
                     # SIGTERM の SystemExit が来ると、後始末がその子を知らずに残すので、その間は SIGTERM を保留する
                     signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
@@ -344,7 +353,10 @@ def execute(
                     proc.wait(timeout=max(0.0, deadline - time.monotonic()))
                 except subprocess.TimeoutExpired:
                     # SIGTERM を無視するか、止まれない子は、猶予の後にセッションごと SIGKILL する
-                    os.killpg(proc.pid, signal.SIGKILL)
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
                     proc.wait()
         finally:
             signal.signal(signal.SIGTERM, previous)
@@ -436,6 +448,19 @@ def remove_outputs(paths, root: Path) -> None:
             shutil.rmtree(target)
         else:
             target.unlink(missing_ok=True)
+
+
+def stage_names(stage_list: str, dvc_yaml) -> set[str]:
+    """`dvc stage list --name-only` の出力から、`<dvc.yaml>:` を外したステージの名前（記録のキーの形）"""
+    prefix = f"{dvc_yaml}:"
+    names = set()
+    for line in stage_list.split():
+        if not line.startswith(prefix):
+            raise RunnerError(
+                f"dvc stage list printed a stage outside {dvc_yaml}: {line}"
+            )
+        names.add(line.removeprefix(prefix))
+    return names
 
 
 def prune_record(record: dict, group: str, stages: set[str]) -> dict:
@@ -536,26 +561,15 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
             or set()
         )
     snapshot = fingerprints(watched, Path())
-    remove_outputs(
-        set().union(
-            *(
-                stage_outputs(
-                    lock_text, k.removeprefix(prefix), dvc_yaml.parent, mine[k]
-                )
-                for k in keys
-            )
-        ),
-        Path(),
-    )
     # cmd は指紋の後に解決する（その間に dvc.yaml や xs.toml が変われば、commit の前の比較で見つかる）
     cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", *keys, capture=True))
     if set(cmds) != set(keys):
         raise RunnerError(f"dvc repro --dry listed {sorted(cmds)}, expected {keys}")
     record_path = dvc_yaml.parent / RECORD_NAME
-    stage_names = set(
-        dvc("stage", "list", "--name-only", str(dvc_yaml), capture=True).split()
+    names_in_yaml = stage_names(
+        dvc("stage", "list", "--name-only", str(dvc_yaml), capture=True), dvc_yaml
     )
-    record = prune_record(read_record(record_path), group, stage_names)
+    record = prune_record(read_record(record_path), group, names_in_yaml)
     queue = plan([k.removeprefix(prefix) for k in keys], record, budget)
     log(
         f"budget={budget} stages={len(queue)}: "
@@ -566,6 +580,7 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         names = [f.name for f in done]
         # commit、確認、戻しの途中で SIGTERM の SystemExit が来ると、確かめていない commit や書きかけの dvc.lock が残る。
         # その間は SIGTERM を保留する（dvc の子は mask を外して受け取る）
+        # 記録と結果の行を書き終えるまで保留する（commit したステージの時間と、commit できなかったステージを残す）
         signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
         try:
             failed = commit_stages(
@@ -576,16 +591,16 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
                 snapshot,
                 Path(),
             )
+            for name in failed:
+                log(f"FAILED {name}: dvc commit failed")
+            committed = [f for f in done if f.name not in failed]
+            for f in committed:
+                record[f.name] = round(f.cpu, 1)
+            write_record(record_path, record)
+            if committed:
+                log(f"committed {', '.join(f.name for f in committed)}")
         finally:
             unblock_sigterm()
-        for name in failed:
-            log(f"FAILED {name}: dvc commit failed")
-        committed = [f for f in done if f.name not in failed]
-        for f in committed:
-            record[f.name] = round(f.cpu, 1)
-        write_record(record_path, record)
-        if committed:
-            log(f"committed {', '.join(f.name for f in committed)}")
         return failed
 
     failures = execute(
@@ -595,6 +610,12 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         budget,
         finish,
         log,
+        outputs={
+            k.removeprefix(prefix): stage_outputs(
+                lock_text, k.removeprefix(prefix), dvc_yaml.parent, mine[k]
+            )
+            for k in keys
+        },
     )
     if failures:
         log(f"ERROR: failed stages (not committed): {', '.join(failures)}")
