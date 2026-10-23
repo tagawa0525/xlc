@@ -17,6 +17,7 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import stat
 import subprocess
@@ -89,18 +90,21 @@ def plan(
     ]
 
 
-def launchable(queue: list[tuple[str, int]], free: int) -> list[tuple[str, int]]:
+def launchable(
+    queue: list[tuple[str, int]], free: int, budget: int
+) -> list[tuple[str, int]]:
     """queue の順に、空きに収まるものを取る（収まらないものは飛ばして後ろを見る）。
 
-    1 つも収まらず空きがあれば、先頭を空きのスレッドの数で取る（ceil の和は予算を超えうるので、待つとコアが遊ぶ）
+    収まらないものは、走っているものが終わるのを待つ（空きの少ないスレッドで始めると、そのステージが最後まで遅い）。
+    何も走っておらず（free == budget）1 つも収まらなければ、先頭を予算の全部で取る
     """
     taken = []
     for name, threads in queue:
         if threads <= free:
             taken.append((name, threads))
             free -= threads
-    if not taken and queue and free > 0:
-        taken.append((queue[0][0], free))
+    if not taken and queue and free == budget:
+        taken.append((queue[0][0], budget))
     return taken
 
 
@@ -254,7 +258,9 @@ class Finished:
     cpu: float
 
 
-def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
+def execute(
+    queue, cmds, cwd, budget, finish, log=print, kill_grace: float = 10.0
+) -> list[str]:
     """queue の順にステージを投入し、終わったもの（成功）を finish に渡す。失敗したステージの名前を返す。
 
     finish は commit できなかったステージの名前を返し、それも失敗に数える。失敗が出たら新しいステージは投入せず、
@@ -268,7 +274,7 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
     try:
         while True:
             if not failures:
-                for name, threads in launchable(queue, free):
+                for name, threads in launchable(queue, free, budget):
                     cmd = with_threads(cmds[name], threads)
                     # 自分のセッションに置き、止めるときにシェルの子ごと止める。投入から running に入れるまでの間に
                     # SIGTERM の SystemExit が来ると、後始末がその子を知らずに残すので、その間は SIGTERM を保留する
@@ -332,8 +338,14 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
                     os.killpg(proc.pid, signal.SIGTERM)
                 except ProcessLookupError:
                     pass
+            deadline = time.monotonic() + kill_grace
             for _, _, proc, _ in running.values():
-                proc.wait()
+                try:
+                    proc.wait(timeout=max(0.0, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired:
+                    # SIGTERM を無視するか、止まれない子は、猶予の後にセッションごと SIGKILL する
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.wait()
         finally:
             signal.signal(signal.SIGTERM, previous)
         raise
@@ -342,8 +354,12 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
 def dvc(*args: str, capture: bool = False) -> str:
     # subprocess.run は例外（SIGTERM からの SystemExit を含む）で子を SIGKILL し、dvc が .dvc/tmp/rwlock と
     # dvc.lock を書きかけで残す。SIGTERM で止めて、終わるのを待つ
+    # 呼び手が SIGTERM を保留していても、dvc は受け取れるように mask を外す（runner は 1 スレッド）
     proc = subprocess.Popen(
-        ["dvc", *args], text=True, stdout=subprocess.PIPE if capture else None
+        ["dvc", *args],
+        text=True,
+        stdout=subprocess.PIPE if capture else None,
+        preexec_fn=unblock_sigterm,  # noqa: PLW1509
     )
     try:
         out, _ = proc.communicate()
@@ -396,6 +412,41 @@ def stages_to_run(group_status: dict) -> list[str]:
     return sorted(group_status)
 
 
+def stage_outputs(
+    lock_text: str, stage: str, directory: Path, status_entries: list
+) -> set[str]:
+    """ステージの出力（リポジトリの直下から）: dvc.lock が記録したものと、dvc status が changed outs に挙げたもの"""
+    outs = set()
+    if f"  {stage}:" in lock_text.split("\n"):
+        outs = {
+            os.path.normpath(directory / path)
+            for path, _ in record_provenance.parse_stage(lock_text, stage)["outs"]
+        }
+    for entry in status_entries:
+        if isinstance(entry, dict):
+            outs.update(entry.get("changed outs", {}))
+    return outs
+
+
+def remove_outputs(paths, root: Path) -> None:
+    """dvc repro と同じく、実行の前に出力を消す（xs が書かずに終わったとき、古い出力を新しい deps で commit しない）"""
+    for path in paths:
+        target = root / path
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+        else:
+            target.unlink(missing_ok=True)
+
+
+def prune_record(record: dict, group: str, stages: set[str]) -> dict:
+    """組の記録のうち、今の組に無いステージ（xs.toml から消した核種）を消す。記録の無いステージの見積もりに効くため"""
+    return {
+        k: v
+        for k, v in record.items()
+        if not ("@" in k and group_of(k) == group) or k in stages
+    }
+
+
 def commit_stages(
     names, commit, lock: Path, directory: Path, snapshot, root: Path
 ) -> list[str]:
@@ -414,6 +465,8 @@ def commit_stages(
         commit(names)
         committed = list(names)
     except RunnerError:
+        if len(names) == 1:
+            return list(names)
         # どのステージが commit できないか（出力が無い、など）を 1 つずつ見る
         committed = []
         for name in names:
@@ -439,7 +492,9 @@ def commit_stages(
         if before is None:
             lock.unlink()
         else:
-            lock.write_text(before)
+            tmp = lock.with_name(lock.name + ".tmp")
+            tmp.write_text(before)
+            tmp.replace(lock)
         raise RunnerError(
             f"{problem}. Restored dvc.lock to before this commit; rerun the stages"
         )
@@ -481,12 +536,26 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
             or set()
         )
     snapshot = fingerprints(watched, Path())
+    remove_outputs(
+        set().union(
+            *(
+                stage_outputs(
+                    lock_text, k.removeprefix(prefix), dvc_yaml.parent, mine[k]
+                )
+                for k in keys
+            )
+        ),
+        Path(),
+    )
     # cmd は指紋の後に解決する（その間に dvc.yaml や xs.toml が変われば、commit の前の比較で見つかる）
     cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", *keys, capture=True))
     if set(cmds) != set(keys):
         raise RunnerError(f"dvc repro --dry listed {sorted(cmds)}, expected {keys}")
     record_path = dvc_yaml.parent / RECORD_NAME
-    record = read_record(record_path)
+    stage_names = set(
+        dvc("stage", "list", "--name-only", str(dvc_yaml), capture=True).split()
+    )
+    record = prune_record(read_record(record_path), group, stage_names)
     queue = plan([k.removeprefix(prefix) for k in keys], record, budget)
     log(
         f"budget={budget} stages={len(queue)}: "
@@ -495,14 +564,20 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
 
     def finish(done: list[Finished]) -> list[str]:
         names = [f.name for f in done]
-        failed = commit_stages(
-            names,
-            lambda batch: dvc("commit", "-f", "-q", *(prefix + n for n in batch)),
-            lock,
-            dvc_yaml.parent,
-            snapshot,
-            Path(),
-        )
+        # commit、確認、戻しの途中で SIGTERM の SystemExit が来ると、確かめていない commit や書きかけの dvc.lock が残る。
+        # その間は SIGTERM を保留する（dvc の子は mask を外して受け取る）
+        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+        try:
+            failed = commit_stages(
+                names,
+                lambda batch: dvc("commit", "-f", "-q", *(prefix + n for n in batch)),
+                lock,
+                dvc_yaml.parent,
+                snapshot,
+                Path(),
+            )
+        finally:
+            unblock_sigterm()
         for name in failed:
             log(f"FAILED {name}: dvc commit failed")
         committed = [f for f in done if f.name not in failed]
@@ -544,20 +619,21 @@ def main(argv: list[str] | None = None) -> int:
         help="同時に使うスレッドの合計（既定: 物理コアの数）",
     )
     args = parser.parse_args(argv)
-    root = Path(
-        subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            check=True,
-            text=True,
-            capture_output=True,
-        ).stdout.strip()
-    )
     start = time.monotonic()
 
     def log(message: str) -> None:
         print(f"[{time.monotonic() - start:7.1f}] {message}", flush=True)
 
     try:
+        git = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if git.returncode != 0:
+            raise RunnerError(f"not in a git repository: {git.stderr.strip()}")
+        root = Path(git.stdout.strip()).resolve()
         dvc_yaml = args.dvc_yaml.resolve().relative_to(root)
         os.chdir(root)
         budget = physical_cores() if args.threads is None else args.threads
