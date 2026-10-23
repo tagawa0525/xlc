@@ -104,9 +104,12 @@ impl<T: Send, E: Send, F: Fn(usize) -> Result<T, E> + Sync> Call<'_, T, E, F> {
             if i + 1 < self.n {
                 let slot = self.budget.take(1);
                 if slot.count == 1 {
+                    // 足したスレッドでも、呼んだスレッドの span（核種の名前など）の中でログを出す
+                    let span = tracing::Span::current();
                     scope.spawn(move || {
                         // スレッドが終わるまで予算を持つ
                         let _slot = slot;
+                        let _span = span.enter();
                         self.help(scope);
                     });
                 }
