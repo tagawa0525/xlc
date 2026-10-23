@@ -17,7 +17,7 @@ toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
-# コマンド名は段階の名前に合わせて `core` とする
+# コマンド名はステージの名前に合わせて `core` とする
 [[bin]]
 name = "core"
 path = "src/main.rs"

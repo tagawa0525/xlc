@@ -413,8 +413,8 @@ fn interpolation_must_agree_across_sequences() {
 
 #[test]
 fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
-    // MF3 の弾性散乱の背景が負で、ラダーの谷で弾性散乱 + 背景が負になる点は、NJOY PURR と同じく 1 μb にする（ADR-0177）。
-    // 背景が −10⁴ b なら、すべての点が 1 μb になる
+    // MF3 の弾性散乱のバックグラウンドが負で、ラダーの谷で弾性散乱 + バックグラウンドが負になる点は、NJOY PURR と同じく 1 μb にする（ADR-0177）。
+    // バックグラウンドが −10⁴ b なら、すべての点が 1 μb になる
     let urr = s_wave(
         vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
         Interpolation::LinLin,
@@ -441,7 +441,7 @@ fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
         assert!((s.elastic - 1.0e-6).abs() < 1.0e-15, "{}", s.elastic);
         assert!((s.total - s.elastic - s.capture).abs() < 1.0e-9 * s.total);
     }
-    // 背景がなければ、弾性散乱は |1 − U|² で負にならず、どの点も変えない
+    // バックグラウンドがなければ、弾性散乱は |1 − U|² で負にならず、どの点も変えない
     let plain = sampled(&xs, 1.0e4, 300.0, &sigma0);
     assert_eq!(plain.floored, 0);
 }
