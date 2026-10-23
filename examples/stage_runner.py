@@ -206,6 +206,15 @@ def write_record(path: Path, record: dict[str, float]) -> None:
     tmp.replace(path)
 
 
+def stop_on_sigterm() -> None:
+    """SIGTERM を SystemExit にする。既定の動作は後始末をせずに終わり、自分のセッションに置いたステージが残る"""
+
+    def handler(signum, frame):
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, handler)
+
+
 @dataclass
 class Finished:
     name: str
@@ -389,6 +398,7 @@ def main(argv: list[str] | None = None) -> int:
     budget = physical_cores() if args.threads is None else args.threads
     if budget < 1:
         raise RunnerError(f"--threads must be positive: {budget}")
+    stop_on_sigterm()
     start = time.monotonic()
 
     def log(message: str) -> None:
