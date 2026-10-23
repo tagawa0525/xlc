@@ -260,7 +260,7 @@ fn deplete_from(
     library: &Library,
     moc: &Options,
     resumed: Option<Partial>,
-    saved: &mut dyn FnMut(&History, &[Vec<f64>]) -> anyhow::Result<()>,
+    saved: &mut SavePoints<'_>,
 ) -> anyhow::Result<History> {
     let input = LatticeInput::parse(text).unwrap();
     let depletion = input.depletion.clone().unwrap();
@@ -408,7 +408,7 @@ fn collect<T, E: From<ChainError>>(
     chain: &Chain,
     initial: Vec<Vec<f64>>,
     steps: &[f64],
-    solve: impl FnMut(&[Vec<f64>], bool) -> Result<Evaluation<T>, E>,
+    solve: impl FnMut(&[Vec<f64>], TransportAt) -> Result<Evaluation<T>, E>,
 ) -> Result<Vec<Point<T>>, E> {
     let mut points = Vec::new();
     let beginning = Beginning {

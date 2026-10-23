@@ -287,6 +287,15 @@ pub struct DepletionTimes {
     pub cram: Duration,
 }
 
+impl DepletionTimes {
+    fn plus(self, other: Self) -> Self {
+        Self {
+            matrix: self.matrix + other.matrix,
+            cram: self.cram + other.cram,
+        }
+    }
+}
+
 /// 領域ごとに、反応率 `rates` の燃焼行列で `n` を時間 `t` (s) だけ進める
 fn advance(
     chain: &Chain,
@@ -320,38 +329,47 @@ pub enum TransportAt {
     Midpoint,
 }
 
-/// CE/CM（ADR-0173）で、初めの組成 `initial`（[領域][チェーンの核種]）からステップ `steps` (s) を進める。`solve` は組成から
-/// 規格化した反応率を求める輸送で、ステップごとに始まりと中点の 2 回、最後の点で 1 回呼ぶ。2 つ目の引数は、どちらの組成の輸送か。
-/// 点は始まりと各ステップの終わりで、点の値はその点の組成で解いた輸送のもの
+/// CE/CM のステップを始める点: 組成 [領域][チェーンの核種] と時間 (s)
+pub struct Beginning {
+    pub densities: Vec<Vec<f64>>,
+    pub time: f64,
+}
+
+/// CE/CM（ADR-0173）で、点 `from` からステップ `steps` (s) を進める。`solve` は組成から規格化した反応率を求める輸送で、ステップ
+/// ごとに始まりと中点の 2 回、最後の点で 1 回呼ぶ。2 つ目の引数は、どちらの組成の輸送か。点は始まりと各ステップの終わりで、点の
+/// 値はその点の組成で解いた輸送のもの。`kept` は点ができるたびに、その点と、ステップの終わりなら次の点の組成と直前の（中点の）
+/// 輸送の値、ここまでの燃焼の時間で呼ぶ（チェックポイント。ADR-0196）。最後の点は次の組成を持たない
 pub fn ce_cm<T, E: From<ChainError>>(
     chain: &Chain,
-    initial: Vec<Vec<f64>>,
+    from: Beginning,
     steps: &[f64],
     mut solve: impl FnMut(&[Vec<f64>], TransportAt) -> Result<Evaluation<T>, E>,
-) -> Result<(Vec<Point<T>>, DepletionTimes), E> {
+    mut kept: impl FnMut(Point<T>, Option<(&[Vec<f64>], &T)>, DepletionTimes) -> Result<(), E>,
+) -> Result<DepletionTimes, E> {
     let mut times = DepletionTimes::default();
-    let mut points = Vec::with_capacity(steps.len() + 1);
-    let mut n = initial;
-    let mut time = 0.0;
+    let mut n = from.densities;
+    let mut time = from.time;
     for &h in steps {
         let start = solve(&n, TransportAt::Point)?;
         let middle = advance(chain, &start.rates, &n, 0.5 * h, &mut times)?;
         let corrector = solve(&middle, TransportAt::Midpoint)?;
         let next = advance(chain, &corrector.rates, &n, h, &mut times)?;
-        points.push(Point {
+        let point = Point {
             time,
             densities: std::mem::replace(&mut n, next),
             extra: start.extra,
-        });
+        };
+        kept(point, Some((&n, &corrector.extra)), times)?;
         time += h;
     }
     let last = solve(&n, TransportAt::Point)?;
-    points.push(Point {
+    let point = Point {
         time,
         densities: n,
         extra: last.extra,
-    });
-    Ok((points, times))
+    };
+    kept(point, None, times)?;
+    Ok(times)
 }
 
 /// 燃焼の領域の 1 つの MOC の領域: 体積 (cm²)、物理的な中性子束 [群]、輸送する核種ごとの自己遮蔽した群定数
@@ -614,6 +632,26 @@ pub struct TransportTimes {
     pub rates: Duration,
 }
 
+impl TransportTimes {
+    fn plus(self, other: Self) -> Self {
+        Self {
+            shielding: self.shielding + other.shielding,
+            moc: self.moc + other.moc,
+            rates: self.rates + other.rates,
+        }
+    }
+}
+
+/// 解き終えたステップの履歴と、次の点の組成 [燃焼の領域][チェーンの核種] を書く先（チェックポイント。ADR-0196）
+pub type SavePoints<'a> = dyn FnMut(&History, &[Vec<f64>]) -> anyhow::Result<()> + 'a;
+
+/// 途中の燃焼の履歴（チェックポイント。ADR-0196）: 解き終えた点と、次の点の組成 [燃焼の領域][チェーンの核種]
+#[derive(Debug)]
+pub struct Partial {
+    pub history: History,
+    pub next: Vec<Vec<f64>>,
+}
+
 /// 燃焼の履歴（ADR-0173）
 #[derive(Debug, Clone)]
 pub struct History {
@@ -843,6 +881,10 @@ struct State {
     pin_powers: Option<Vec<Vec<f64>>>,
     few_group: Option<FewGroup>,
     transported: usize,
+    /// この輸送までの時間の内訳と輸送の回数（この実行の分）
+    transport: TransportTimes,
+    solves: usize,
+    shieldings: usize,
 }
 
 /// 2 つの領域の実効断面積が同じこと。自己遮蔽は、物質を共有する領域に同じ配列を指させるので、先に場所を比べて値の比較を省く
@@ -958,7 +1000,8 @@ pub(crate) fn remix_depleted(
 }
 
 /// 格子を `[depletion]` の条件で燃焼させる（ADR-0173）。`region_materials` は入力の領域ごとの物質の名前、`chosen` はその
-/// 名前で選んだ対称操作。反応ごとの断面積は `reactions` から引く
+/// 名前で選んだ対称操作。反応ごとの断面積は `reactions` から引く。`resumed` があれば、その点に続けて次の点の組成から進め、
+/// ステップを解き終えるたびに、それまでの履歴と次の点の組成で `saved` を呼ぶ（ADR-0196）
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     input: &LatticeInput,
@@ -969,6 +1012,8 @@ pub fn run(
     region_materials: &[String],
     chosen: &Chosen,
     reactions: &dyn ReactionSource,
+    resumed: Option<Partial>,
+    saved: &mut SavePoints<'_>,
 ) -> anyhow::Result<History> {
     run_with_moc(
         input,
@@ -980,6 +1025,8 @@ pub fn run(
         chosen,
         reactions,
         &Options::default(),
+        resumed,
+        saved,
     )
 }
 
@@ -995,6 +1042,8 @@ pub(crate) fn run_with_moc(
     chosen: &Chosen,
     reactions: &dyn ReactionSource,
     moc: &Options,
+    resumed: Option<Partial>,
+    saved: &mut SavePoints<'_>,
 ) -> anyhow::Result<History> {
     chain.check()?;
     let lattice = &tracking.lattice;
@@ -1335,46 +1384,103 @@ pub(crate) fn run_with_moc(
                 pin_powers,
                 few_group,
                 transported: composition.len(),
+                transport,
+                solves,
+                shieldings,
             },
         })
     };
     let steps = step_times(depletion.power, &depletion.burnup);
-    let (points, depletion_times) = ce_cm(chain, initial, &steps, solve)?;
-    let transportable = chain
-        .nuclides
-        .iter()
-        .zip(&transportable)
-        .filter(|(_, t)| **t)
-        .map(|(n, _)| n.name.clone())
+    let burnups: Vec<f64> = std::iter::once(0.0)
+        .chain(depletion.burnup.iter().copied())
         .collect();
-    let burnup = std::iter::once(0.0).chain(depletion.burnup.iter().copied());
-    let points = points
-        .into_iter()
-        .zip(burnup)
-        .map(|(p, burnup)| {
-            Ok(HistoryPoint {
-                time: p.time,
-                burnup,
-                k: p.extra.k,
-                densities: p.densities,
-                pin_powers: p.extra.pin_powers.ok_or_else(|| {
-                    anyhow!("the transport of the point at {burnup} MWd/kg has no pin powers")
-                })?,
-                few_group: p.extra.few_group,
-                transported: p.extra.transported,
-            })
+    let (mut history, beginning) = match resumed {
+        Some(Partial { history, next }) => {
+            let done = history.points.len();
+            let Some(&h) = steps.get(done.wrapping_sub(1)) else {
+                bail!(
+                    "the resumed history has {done} points and no step left of {}",
+                    steps.len()
+                );
+            };
+            let time = history.points[done - 1].time + h;
+            tracing::info!(points = done, "resuming after the saved points");
+            (
+                history,
+                Beginning {
+                    densities: next,
+                    time,
+                },
+            )
+        }
+        None => {
+            let history = History {
+                nuclides: chain.nuclides.iter().map(|n| n.name.clone()).collect(),
+                regions: regions.clone(),
+                transportable: chain
+                    .nuclides
+                    .iter()
+                    .zip(&transportable)
+                    .filter(|(_, t)| **t)
+                    .map(|(n, _)| n.name.clone())
+                    .collect(),
+                points: Vec::new(),
+                transport: TransportTimes::default(),
+                depletion: DepletionTimes::default(),
+                solves: 0,
+                shieldings: 0,
+            };
+            (
+                history,
+                Beginning {
+                    densities: initial,
+                    time: 0.0,
+                },
+            )
+        }
+    };
+    // 前の実行の時間と回数に、この実行の分を足す
+    let (before_transport, before_depletion, before_solves, before_shieldings) = (
+        history.transport,
+        history.depletion,
+        history.solves,
+        history.shieldings,
+    );
+    let done = history.points.len();
+    let point = |p: Point<State>, burnup: f64| -> anyhow::Result<HistoryPoint> {
+        Ok(HistoryPoint {
+            time: p.time,
+            burnup,
+            k: p.extra.k,
+            densities: p.densities,
+            pin_powers: p.extra.pin_powers.ok_or_else(|| {
+                anyhow!("the transport of the point at {burnup} MWd/kg has no pin powers")
+            })?,
+            few_group: p.extra.few_group,
+            transported: p.extra.transported,
         })
-        .collect::<anyhow::Result<_>>()?;
-    Ok(History {
-        nuclides: chain.nuclides.iter().map(|n| n.name.clone()).collect(),
-        regions,
-        transportable,
-        points,
-        transport,
-        depletion: depletion_times,
-        solves,
-        shieldings,
-    })
+    };
+    let mut last = (TransportTimes::default(), 0, 0);
+    let times = ce_cm(chain, beginning, &steps[done..], solve, |p, step, times| {
+        last = (p.extra.transport, p.extra.solves, p.extra.shieldings);
+        let burnup = burnups[history.points.len()];
+        history.points.push(point(p, burnup)?);
+        if let Some((next, latest)) = step {
+            last = (latest.transport, latest.solves, latest.shieldings);
+            history.transport = before_transport.plus(latest.transport);
+            history.depletion = before_depletion.plus(times);
+            history.solves = before_solves + latest.solves;
+            history.shieldings = before_shieldings + latest.shieldings;
+            saved(&history, next)?;
+        }
+        history.depletion = before_depletion.plus(times);
+        Ok(())
+    })?;
+    history.transport = before_transport.plus(last.0);
+    history.depletion = before_depletion.plus(times);
+    history.solves = before_solves + last.1;
+    history.shieldings = before_shieldings + last.2;
+    Ok(history)
 }
 
 #[cfg(test)]

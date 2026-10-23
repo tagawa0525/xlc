@@ -176,9 +176,14 @@ fn more_saved_states_than_the_run_has_are_an_error() {
     let dir = scratch("count");
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
     checkpoint.save_states(&states(3)).unwrap();
-    let error = solve_states(2, Some(&checkpoint), |_, _| {}, |_| unreachable!())
-        .unwrap_err()
-        .to_string();
+    let error = solve_states(
+        2,
+        Some(&checkpoint),
+        |_, _| {},
+        |_| Err(anyhow::anyhow!("no state is solved")),
+    )
+    .unwrap_err()
+    .to_string();
     assert!(error.contains("3 states") && error.contains('2'), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
