@@ -410,7 +410,7 @@ cargo build --release -p xlc-lattice
 cd examples/depletion/warm-start
 RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice lattice-2A-10.toml > lattice-2A-10.out 2> lattice-2A-10.log
 python3 compare_warm_start.py history ../p2/lattice-2A.msgpack lattice-2A-10.msgpack
-# ../p2/depletion.msgpack と ../p2/lattice-2A.msgpack を md5 4ada8d75 と 6272e937 の版に戻してから（branch-2A-6.toml の冒頭）
+# table-2A-fine.msgpack を作ったライブラリと履歴を DVC のキャッシュからコピーしてから（branch-2A-6.toml の冒頭）
 RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice branch-2A-6.toml > branch-2A-6.out 2> branch-2A-6.log
 python3 compare_warm_start.py table ../branches/table-2A-fine.msgpack table-2A-6.msgpack
 ```
