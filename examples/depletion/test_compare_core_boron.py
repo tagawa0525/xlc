@@ -147,6 +147,15 @@ class Summary(unittest.TestCase):
         with self.assertRaises(SystemExit):
             summarize(core)
 
+    def test_uniform_states_that_give_the_boron_are_errors(self):
+        case = UNIFORM_CASE.replace(
+            "burnup = 0.5\nsearch = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1e-6, max-solves = 20 }",
+            "burnup = 0.5\nboron = 812.0",
+        )
+        self.assertIn("boron = 812.0", case)
+        with self.assertRaises(SystemExit):
+            summarize(case=case)
+
     def test_points_without_a_uniform_state_are_errors(self):
         with self.assertRaises(SystemExit):
             summarize(case=UNIFORM_CASE.replace("burnup = 0.5", "burnup = 0.6"))

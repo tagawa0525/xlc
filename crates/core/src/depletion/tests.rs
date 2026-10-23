@@ -694,7 +694,7 @@ fn searches_that_do_not_bracket_stop_at_the_step() {
     .unwrap_err()
     .to_string();
     assert!(
-        error.contains("250") && error.contains("midpoint") && error.contains("bracket"),
+        error.contains("the midpoint of the step to 250 EFPD") && error.contains("bracket"),
         "{error}"
     );
     assert_eq!(seen, [0.0, 50.0, 125.0]);
@@ -750,4 +750,116 @@ fn history_states_hold_either_the_boron_or_the_search() {
         ..given
     };
     assert!(CoreHistory::from_msgpack(&neither.to_msgpack().unwrap()).is_err());
+    // 探索の設定は入力と同じ検査を通る（範囲の下端 < 上端、正の目標と許容、両端と間の 1 点を解ける回数）
+    let bad = |search: BoronSearch| CoreHistory {
+        state: CoreState {
+            search: Some(search),
+            ..searched.state.clone()
+        },
+        ..searched.clone()
+    };
+    let good = searched.state.search.unwrap();
+    for search in [
+        BoronSearch {
+            bracket: [1500.0, 1000.0],
+            ..good
+        },
+        BoronSearch { k: 0.0, ..good },
+        BoronSearch {
+            tolerance: -1.0,
+            ..good
+        },
+        BoronSearch {
+            max_solves: 2,
+            ..good
+        },
+    ] {
+        let bytes = bad(search).to_msgpack().unwrap();
+        assert!(CoreHistory::from_msgpack(&bytes).is_err(), "{search:?}");
+    }
+}
+
+#[test]
+fn midpoints_at_the_starting_boron_fall_to_first_order() {
+    // ADR-0191 の案 S1（中点を、ステップの初めの点で探したホウ素で解く）。`searched_midpoints_keep_second_order` と同じ炉心で、
+    // ホウ素を通した中点の出力の割合の誤差がステップの長さに比例し、ステップを半分にした燃焼度の差の比が 1 次の 2 に近い
+    let burn = |steps: usize| {
+        let efpd: Vec<String> = (1..=steps)
+            .map(|i| format!("{{ efpd = {:?} }}", 150.0 * i as f64 / steps as f64))
+            .collect();
+        let case = searching(CASE, 1.0e-12).replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            &format!("[{}]", efpd.join(", ")),
+        );
+        let (layout, mut tables, case) = core(&case, MIXED, Some(400.0));
+        for (file, table) in layout.files.iter().zip(&mut tables) {
+            if file.ends_with("b.msgpack") {
+                *table = table_with_worth(0.8, Some(380.0), 4.0 * WORTH);
+            }
+        }
+        let state = &case.states[0];
+        let Boron::Search(search) = state.boron else {
+            panic!("the state searches")
+        };
+        let options = tight();
+        let critical = |burnups: &[f64]| {
+            let (solved, found) = crate::case::search_boron(&search, |ppm| {
+                solve_burnups(&layout, &tables, &state.at(ppm), burnups, &options)
+            })
+            .unwrap();
+            (fission_rates(&solved.problem, &solved.solution), found.ppm)
+        };
+        let [nx, ny, nz] = layout.mesh.counts();
+        let masses: Vec<f64> = (0..nx * ny * nz)
+            .map(|site| {
+                let [_, _, z] = layout.mesh.position(site);
+                layout
+                    .site_file(site)
+                    .and_then(|f| tables[f].heavy_metal)
+                    .map_or(0.0, |m| m * layout.mesh.dz[z])
+            })
+            .collect();
+        let mut burnups = vec![0.0; masses.len()];
+        let (mut rates, mut ppm) = critical(&burnups);
+        for i in 1..=steps {
+            let target = 40.0 * 150.0 * i as f64 / steps as f64 * 1.0e-3;
+            let increment = target - weighted(&burnups, &masses);
+            burnups = midpoint(&burnups, &masses, increment, &rates, |b| {
+                let solved = solve_burnups(&layout, &tables, &state.at(ppm), b, &options)?;
+                Ok(fission_rates(&solved.problem, &solved.solution))
+            })
+            .unwrap();
+            (rates, ppm) = critical(&burnups);
+        }
+        // 集合体 A1 の燃焼度（履歴の `assembly_burnups[0]` と同じ量）
+        let history = deplete(
+            &layout,
+            &tables,
+            state,
+            case.depletion.as_ref().unwrap(),
+            &options,
+            |_| {},
+        )
+        .unwrap();
+        let a1 = |b: &[f64]| {
+            let sites: Vec<usize> = (0..b.len())
+                .filter(|&site| {
+                    let [x, y, _] = layout.mesh.position(site);
+                    // 図の上の行が +y。A1 は左上
+                    x == 0 && y == ny - 1
+                })
+                .collect();
+            sites.iter().map(|&s| b[s] * masses[s]).sum::<f64>()
+                / sites.iter().map(|&s| masses[s]).sum::<f64>()
+        };
+        (
+            a1(&burnups),
+            history.points.last().unwrap().assembly_burnups[0],
+        )
+    };
+    let ((s2, c2), (s4, c4), (s8, c8)) = (burn(2), burn(4), burn(8));
+    let ratio = (s2 - s4) / (s4 - s8);
+    assert!((1.5..2.5).contains(&ratio), "{ratio} ({s2}, {s4}, {s8})");
+    // 中点でも探す形（採用）との差は、8 ステップでも燃焼度の 0.1% を超える
+    assert!((s8 - c8).abs() > 1.0e-3 * c8, "{s8} vs {c8} ({c2}, {c4})");
 }
