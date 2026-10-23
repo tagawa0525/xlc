@@ -536,7 +536,9 @@ class CommitTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def fake_commit(self, dep="in.txt", fail=(), touch=False, cmd="./xs {}"):
+    def fake_commit(
+        self, dep="in.txt", fail=(), touch=False, cmd="./xs {}", cmd_line=True
+    ):
         # dvc commit の代わり: lock に cmd と deps を書き、run-cache に 1 件足す
         def commit(names):
             if any(n in fail for n in names):
@@ -544,7 +546,9 @@ class CommitTest(unittest.TestCase):
             with self.lock.open("a") as f:
                 for n in names:
                     out_md5 = f"{n:f>32}"
-                    f.write(f"  {n}:\n    cmd: {cmd.format(n)}\n")
+                    f.write(f"  {n}:\n")
+                    if cmd_line:
+                        f.write(f"    cmd: {cmd.format(n)}\n")
                     f.write(f"    deps:\n    - path: {dep}\n      hash: md5\n")
                     f.write(f"      md5: {'0' * 32}\n")
                     f.write(f"    outs:\n    - path: {n}.out\n      hash: md5\n")
@@ -604,6 +608,17 @@ class CommitTest(unittest.TestCase):
         with self.assertRaises(sr.RunnerError):
             self.commit(["a"], self.fake_commit(dep="other.txt"))
         self.assertEqual(self.lock.read_text(), before)
+
+    def test_lock_the_checks_cannot_read_is_restored(self):
+        # 確認が dvc.lock を読めずに止まるときも、確かめていない commit を残さない
+        before = self.lock.read_text()
+        with self.assertRaises(sr.RunnerError):
+            self.commit(["a"], self.fake_commit(cmd_line=False))
+        self.assertEqual(self.lock.read_text(), before)
+        self.assertEqual(
+            sorted(p.name for p in self.run_cache.rglob("*") if p.is_file()),
+            ["old", "other"],
+        )
 
     def test_commit_cut_by_a_held_sigterm_is_not_retried_stage_by_stage(self):
         # SIGTERM を保留している間に batch の commit が落ちたら、1 つずつ commit し直さずに止まる（止める途中で dvc を
@@ -675,6 +690,11 @@ class OutputsTest(unittest.TestCase):
 
 
 class PruneTest(unittest.TestCase):
+    def test_group_must_be_a_foreach_group(self):
+        sr.check_group({"range", "g@a", "g@b"}, "g")
+        with self.assertRaises(sr.RunnerError):
+            sr.check_group({"range", "g@a"}, "range")
+
     def test_reads_stage_names_without_the_dvc_yaml_prefix(self):
         # dvc stage list --name-only の出力の形（DVC 3.67.1）
         text = f"{YAML}:range\n{YAML}:g@a\n{YAML}:g@b\n"
