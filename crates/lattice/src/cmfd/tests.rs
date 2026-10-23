@@ -71,6 +71,71 @@ fn homogeneous_cell_gives_the_infinite_medium_k() {
     assert_eq!(ratio.len(), 2);
 }
 
+#[test]
+fn homogenized_problem_does_not_depend_on_the_thread_count() {
+    // セルごとの和を並列に足しても、1 つのセルの中で領域を足す順は変わらない。中性子束は領域ごとに違え、
+    // 核分裂のスペクトルが 2 つある物質を混ぜる
+    let tracking = two_by_two();
+    let mesh = CoarseMesh::new(&tracking);
+    let regions = tracking.lattice.regions();
+    let volumes = tracking.volumes(regions);
+    let fuel = Material {
+        total: vec![0.5, 1.2],
+        scatter: vec![vec![0.45, 0.02], vec![0.001, 0.9]],
+        anisotropic: Vec::new(),
+        fission: vec![0.008 / 2.5, 0.25 / 2.5],
+        nu_fission: vec![0.008, 0.25],
+        fission_terms: vec![
+            FissionTerm {
+                chi: vec![1.0, 0.0],
+                nu_fission: vec![0.006, 0.2],
+            },
+            FissionTerm {
+                chi: vec![0.9, 0.1],
+                nu_fission: vec![0.002, 0.05],
+            },
+        ],
+    };
+    let water = Material {
+        total: vec![0.6, 1.5],
+        scatter: vec![vec![0.5, 0.09], vec![0.002, 1.45]],
+        anisotropic: Vec::new(),
+        fission: vec![0.0, 0.0],
+        nu_fission: vec![0.0, 0.0],
+        fission_terms: Vec::new(),
+    };
+    let materials: Vec<&Material> = (0..regions)
+        .map(|r| if r % 3 == 0 { &fuel } else { &water })
+        .collect();
+    let flux: Vec<Vec<f64>> = (0..regions)
+        .map(|r| vec![1.0 + 0.1 * r as f64, 0.3 + 0.07 * (r % 5) as f64])
+        .collect();
+    let state: Vec<usize> = (0..regions).collect();
+    let current: Vec<f64> = (0..mesh.faces() * 2)
+        .map(|j| 1e-3 * ((j % 7) as f64 - 3.0))
+        .collect();
+    let orbits = Orbits::identity(mesh.cells());
+    let solve_on = |threads| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                let coarse = Coarse::homogenize(
+                    &mesh, &orbits, &materials, &volumes, &flux, &state, &current,
+                )
+                .unwrap();
+                let solved = coarse.solve(1.0, &CmfdOptions::default()).unwrap();
+                // Debug は f64 を往復できる最短の桁で書くので、文字列が同じならビットも同じ
+                (format!("{coarse:?}"), solved)
+            })
+    };
+    let serial = solve_on(1);
+    for threads in [2, 3, 4] {
+        assert_eq!(solve_on(threads), serial, "{threads} threads");
+    }
+}
+
 /// 2 群の拡散の平板（`cells` 個の幅 `width` cm のセル、両端は真空）の粗メッシュの問題。面の流れの補正 D̂ はなく、
 /// 内側の面の結合は D/h、真空の面は入射なし（Marshak）の 2D/(h + 4D)。`line` は 1 行の格子として組み立てること
 fn slab(cells: usize, width: f64, line: bool) -> Coarse {
