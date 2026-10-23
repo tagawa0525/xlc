@@ -1313,3 +1313,85 @@ fn states_give_one_burnup_to_every_assembly() {
     assert!(bad("nan"));
     assert!(bad("inf"));
 }
+
+const DEPLETION: &str = r#"
+[state.hfp]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+
+[depletion]
+specific-power = 38.41
+steps = [{ efpd = 9.0 }, { efpd = 32.0 }]
+history = "out/history.msgpack"
+"#;
+
+fn depleting() -> String {
+    format!("{CASE}{DEPLETION}")
+}
+
+#[test]
+fn depletion_reads_the_specific_power_steps_and_history() {
+    let c = Case::parse(&depleting(), base()).unwrap();
+    let d = c.depletion.unwrap();
+    assert_eq!(d.specific_power, 38.41);
+    assert_eq!(
+        d.steps,
+        vec![DepletionStep { efpd: 9.0 }, DepletionStep { efpd: 32.0 }]
+    );
+    assert_eq!(d.history, Path::new("dir/out/history.msgpack"));
+    assert_eq!(c.states.len(), 1);
+    assert_eq!(case().depletion, None);
+}
+
+#[test]
+fn invalid_depletions_are_errors() {
+    let bad = |from: &str, to: &str| Case::parse(&edited(&depleting(), from, to), base()).is_err();
+    // 定格の出力密度は正
+    assert!(bad("specific-power = 38.41", "specific-power = 0.0"));
+    assert!(bad("specific-power = 38.41", "specific-power = nan"));
+    // ステップの終わりの累積の EFPD は 0 より大きく増える
+    assert!(bad("[{ efpd = 9.0 }, { efpd = 32.0 }]", "[]"));
+    assert!(bad("[{ efpd = 9.0 }, { efpd = 32.0 }]", "[{ efpd = 0.0 }]"));
+    assert!(bad(
+        "[{ efpd = 9.0 }, { efpd = 32.0 }]",
+        "[{ efpd = 9.0 }, { efpd = 9.0 }]"
+    ));
+    assert!(bad(
+        "[{ efpd = 9.0 }, { efpd = 32.0 }]",
+        "[{ efpd = 32.0 }, { efpd = 9.0 }]"
+    ));
+    assert!(bad("[{ efpd = 9.0 }, { efpd = 32.0 }]", "[{ efpd = inf }]"));
+    // 効かない項目（出力の割合など）は、足すまで受けない
+    assert!(bad("{ efpd = 9.0 }", "{ efpd = 9.0, power = 0.657 }"));
+    assert!(bad("history = ", "missing = "));
+    // 状態はちょうど 1 つで、燃焼度は与えず、ホウ素は探さない（ADR-0190）
+    assert!(bad("[depletion]", &format!("{STATES}[depletion]")));
+    assert!(bad(
+        "[depletion]",
+        "[state.other]\nboron = 1\nb10 = 0.199\nmoderator = 565\nfuel = 565\n[depletion]"
+    ));
+    assert!(bad(
+        "fuel = 565\n\n[depletion]",
+        "fuel = 565\nburnup = 0.0\n\n[depletion]"
+    ));
+    assert!(bad(
+        "boron = 1300\n",
+        "search = { boron = [1000.0, 1500.0], k = 1.0, tolerance = 1e-5, max-solves = 10 }\n"
+    ));
+    let no_states = format!(
+        "{CASE}[depletion]\nspecific-power = 38.41\nsteps = [{{ efpd = 1.0 }}]\nhistory = \"h.msgpack\"\n"
+    );
+    assert!(Case::parse(&no_states, base()).is_err());
+    // 点ごとのピン出力の出し方はまだ決めていない。分けたノードは部分ノードごとの質量がない
+    assert!(bad(
+        "radial-nodes = 1",
+        "radial-nodes = 1\npin-powers = \"p.msgpack\""
+    ));
+    assert!(bad(
+        "radial-nodes = 1",
+        "radial-nodes = 1\naxial-pin-powers = \"p.msgpack\""
+    ));
+    assert!(bad("radial-nodes = 1", "radial-nodes = 2"));
+}
