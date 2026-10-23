@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-23
+status: accepted
+date: 2026-10-24
 requires: [ADR-0145, ADR-0146, ADR-0187, ADR-0190]
 supersedes: []
 superseded-by:
@@ -143,4 +143,16 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
 
 ### 確認
 
-（実装とともに書く）
+- 燃焼の探索（crates/core/src/depletion/tests.rs）: `searched_points_are_critical_and_record_their_boron`（2 種の集合体の 2 × 2 の
+  炉心で、点の k が目標から 1e-9 以内、ホウ素が範囲の中で燃焼で下がり、履歴の `state` が `search` だけを持つ）、
+  `searched_points_match_the_state_search_at_the_same_uniform_burnup`（集合体 1 体で、点のホウ素、回数、k が、ノードの燃焼度を状態に
+  与えた ADR-0145 の探索とビットで一致）、`searched_midpoints_keep_second_order`（B のホウ素の係数を A の 4 倍にした炉心で、ステップを
+  半分にした燃焼度の差の比が 3.5〜4.5。4.15 になった。中点を初めの点のホウ素で解く案 S1 に一時的に変えると 2.03 で、8 ステップの
+  燃焼度は S2 の収束値と 0.049 MWd/kg 違った。いずれも 2026-10-23）、`searches_that_do_not_bracket_stop_at_the_step`（中点で範囲が
+  解を挟まず、ステップと中点を示して止まり、それまでの点は渡してある）、`solve_errors_name_the_point_or_midpoint`、
+  `search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving`、`history_states_hold_either_the_boron_or_the_search`。
+  入力（crates/core/src/input/tests.rs）: `depletion_states_may_search_the_boron`
+- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼の臨界ホウ素（2A の集合体 1 体）」、5bea7952c、2026-10-24）:
+  ホウ素の軸を 0〜1300 ppm に広げたテーブルで 9 MWd/kg まで 16 ステップ（目標の k 1.19）。17 点の |k − 目標| は最大 6.35e-07 で許容
+  1e-6 の中、ホウ素は 1236.6 ppm から 108.5 ppm まで単調に下がり、17 点とも同じ燃焼度の一様な状態の探索とホウ素（4 桁）、回数、
+  k（8 桁）が一致した。固有値計算は点の探索で 5〜6 回、中点で 6 回、ケース全体で 197 回（ホウ素を与えると 33 回）
