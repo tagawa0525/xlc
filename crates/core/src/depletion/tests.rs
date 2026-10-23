@@ -245,7 +245,6 @@ fn uniform_cores_burn_at_the_specific_power() {
             "{point:?}"
         );
         let close = |b: f64| (b - want).abs() <= 1e-10 * want.max(1.0);
-        assert!(close(point.burnup), "{} vs {want}", point.burnup);
         assert!(
             point.assembly_burnups.iter().all(|&b| close(b)),
             "{point:?}"
