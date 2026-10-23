@@ -821,6 +821,14 @@ def burnup_interpolation_points(sources: list[dict]) -> str:
     )
 
 
+def signed_exponent(x: float) -> str:
+    """符号つきの指数表記の 2 桁（`signed` と同じく、負の符号は U+2212、0 は符号なし。指数の符号は ASCII のまま）"""
+    if x == 0:
+        return "0.0e+00"
+    mantissa, exponent = f"{x:+.1e}".split("e")
+    return f"{mantissa.replace('-', '−')}e{exponent}"
+
+
 def core_depletion_boron(sources: list[dict]) -> str:
     """core の燃焼（集合体 1 体）で点ごとに探した臨界ホウ素（ADR-0191）と、同じ燃焼度の一様な状態の探索（ADR-0145）"""
     (s,) = sources
@@ -833,7 +841,7 @@ def core_depletion_boron(sources: list[dict]) -> str:
             f"{p['boron']:.4f}",
             str(p["solves"]),
             f"{p['k']:.8f}",
-            f"{p['k_minus_target']:+.1e}".replace("-", "−").replace("e−", "e-"),
+            signed_exponent(p["k_minus_target"]),
             f"{p['uniform_boron']:.4f}",
             str(p["uniform_solves"]),
             signed(p["boron_rounded_difference"], 4),
