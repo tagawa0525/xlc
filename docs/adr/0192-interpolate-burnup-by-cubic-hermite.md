@@ -5,6 +5,7 @@ requires: [ADR-0097, ADR-0187, ADR-0190]
 supersedes: []
 superseded-by:
 amends: [ADR-0187]
+amended-by: [ADR-0199]
 issues: ["#0170"]
 ---
 
