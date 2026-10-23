@@ -3,6 +3,9 @@
 実行: python3 -m unittest discover -s examples -p 'test_stage_runner.py'
 """
 
+import os
+import signal
+import subprocess
 import sys
 import tempfile
 import time
@@ -280,6 +283,29 @@ class ExecuteTest(unittest.TestCase):
             sr.execute([("a", 1), ("b", 1)], cmds, self.dir, 2, finish)
         self.assertLess(time.monotonic() - start, 10)
         self.assertFalse((self.dir / "b.out").exists())
+
+    def test_sigterm_stops_running_stages(self):
+        # 偽の xs は自分の pid を書いてから 30 秒待つ。runner を SIGTERM で止めたとき、自分のセッションに置いた xs も止まること
+        (self.dir / "xs").write_text("#!/bin/sh\necho $$ > pid\nsleep 30\n")
+        script = (
+            "import sys; from pathlib import Path; import stage_runner as sr\n"
+            "sr.stop_on_sigterm()\n"
+            "sr.execute([('a', 1)], {'a': './xs a'}, Path(sys.argv[1]), 1, lambda done: None)\n"
+        )
+        runner = subprocess.Popen(
+            [sys.executable, "-c", script, str(self.dir)],
+            cwd=Path(__file__).resolve().parent,
+        )
+        pid_file = self.dir / "pid"
+        deadline = time.monotonic() + 10
+        while not (pid_file.exists() and pid_file.read_text().strip()):
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.05)
+        xs_pid = int(pid_file.read_text())
+        runner.send_signal(signal.SIGTERM)
+        self.assertNotEqual(runner.wait(timeout=10), 0)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(xs_pid, 0)
 
 
 if __name__ == "__main__":
