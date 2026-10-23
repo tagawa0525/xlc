@@ -336,9 +336,9 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 
 ### 計算
 
-ライブラリは d327fc9d、分岐点は main の 1f650c35、2026-10-23（Slurm の排他のジョブ 460。`TIME:` の elapsed は 55 分 2 秒で、
-上流の `build` と 90 核種の `xs-nuclide` を含む）。xlc の格子は 73aedee6（分岐点は同じ）、2026-10-23（Slurm の排他のジョブ 461、462、
-463）。比較は 1a2c8aad、2026-10-23。比較の入力は `lattice-2A.msgpack` md5 c2591c9f と `openmc-2A.msgpack` md5 ce5dfcda、
+ライブラリは 48d2b5c9、分岐点は main の 1f650c35、2026-10-23（Slurm の排他のジョブ 460。`TIME:` の elapsed は 55 分 2 秒で、
+上流の `build` と 90 核種の `xs-nuclide` を含む）。xlc の格子は 0f97cea6（分岐点は同じ）、2026-10-23（Slurm の排他のジョブ 461、462、
+463）。比較は 5ed83ab0、2026-10-23。比較の入力は `lattice-2A.msgpack` md5 c2591c9f と `openmc-2A.msgpack` md5 ce5dfcda、
 `lattice-2F.msgpack` md5 99669f46 と `openmc-2F.msgpack` md5 2637a515、`lattice-2N.msgpack` md5 d4e7c4df と `openmc-2N.msgpack`
 md5 da441001（JSON の `inputs`）。両方で同じ核種を輸送する（2A は 89 核種、2F と 2N は 90 核種。`compare_depletion_assembly.py` が
 確かめる）。OpenMC の時間は AWS の機種がまちまちなので、xlc との比較に使わない（ADR-0174）。
@@ -368,8 +368,8 @@ xlc の時間の内訳（秒。履歴の `seconds`、全体は内訳の和）。
 `UFG tracks point by point`。輸送 1 回あたり 16 本ほど）ためとみられる（候補。時間の内訳はピンごとに測っていない。#0129）。
 2F が 2A より長い原因は確かめていない。
 
-70 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、b962444c）、2P 1 時間 17 分 7 秒（Slurm 474）、
-2M 2 時間 58 分 12 秒（Slurm 480。2P と 2M は 186a6fe6、分岐点は main の 1f650c35、2026-10-23）。xlc の履歴の `seconds` の和は 2O 4,081 秒、
+70 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、ee9d2fdd）、2P 1 時間 17 分 7 秒（Slurm 474）、
+2M 2 時間 58 分 12 秒（Slurm 480。2P と 2M は 2ff103e1、分岐点は main の 1f650c35、2026-10-23）。xlc の履歴の `seconds` の和は 2O 4,081 秒、
 2P 4,575 秒、2M 10,638 秒で、1 回の輸送の自己遮蔽は 2O 20.4 秒、2P 24.1 秒、2M 67.0 秒、MOC は 7.6〜7.9 秒。2M は 2N と同じく IFBA の
 ピンで格子点ごとに衝突確率を求め（輸送 1 回あたり 19 本ほど）、自己遮蔽が長い。2P と 2M は OpenMC の参照解をまだ取り出していない
 （2026-10-23 の時点で、AWS のジョブの完了を確かめられていない）ので、比べていない（`lattice-2P.msgpack` md5 b21d412c、
@@ -987,8 +987,8 @@ rms は 0.068〜0.136%（OpenMC の統計誤差の rms 0.068〜0.072%）で、2 
 ### 2O
 
 Gd 燃料（1.8% 濃縮、5% Gd2O3）12 本の集合体。Gd 燃料のピンは等しい面積の 8 リングで燃焼させ（燃焼の領域はリングごと）、燃焼度は
-0〜60 MWd/kg の 71 点（輸送 141 回）。xlc の格子は b962444c（分岐点は main の 1f650c35）、2026-10-23（Slurm の排他のジョブ 468。
-`TIME:` の elapsed と sacct の Elapsed は 1 時間 8 分 55 秒）、比較は c3dd42b8、2026-10-23。比較の入力は `lattice-2O.msgpack`
+0〜60 MWd/kg の 71 点（輸送 141 回）。xlc の格子は ee9d2fdd（分岐点は main の 1f650c35）、2026-10-23（Slurm の排他のジョブ 468。
+`TIME:` の elapsed と sacct の Elapsed は 1 時間 8 分 55 秒）、比較は 45cffbd5、2026-10-23。比較の入力は `lattice-2O.msgpack`
 md5 3d006d36、`openmc-2O.msgpack` md5 709165e3。xlc の時間（輸送 141 回）は自己遮蔽 2,874.4 秒（1 回 20.4 秒）、MOC 1,106.2 秒、
 反応率と規格化 75.25 秒、燃焼行列 9.02 秒、CRAM48 16.54 秒（`--report`）。
 
