@@ -71,7 +71,10 @@ issues: ["#0137"]
   3 回で Dancoff 係数を 1 度だけ解き、結果は毎回解いたもの（`shield_fuel_with`）と等しい）、
   `dancoff_factors_are_solved_again_when_a_non_fuel_material_changes`（減速材の組成を変えれば解き直し、前の組成に戻っても解き直す）、
   `dancoff_factors_are_solved_again_for_other_dancoff_options`
-- 集合体の燃焼の時間と結果の一致: examples/depletion/verification.md の「集合体の燃焼（2A、2F、2N、2O）」の「時間」
+- 集合体の燃焼: 2A の燃焼度の点を最初の 10 点に切った入力（輸送 21 回。examples/depletion/issue-0137）の履歴は、本番の
+  `lattice-2A.msgpack` の最初の 11 点と、k∞、数密度、ピン出力までビットで同じ。自己遮蔽は輸送 1 回あたり 16.9 秒から 15.6 秒
+  （7.6% 減。Dancoff 係数 38.4 秒 → 2.3 秒、複製 7.0 秒 → 0.01 秒）。xlc 08c0eea9、Slurm 492、2026-10-23。数値と、コードの変わらない
+  区間のゆらぎは examples/depletion/verification.md の「集合体の燃焼（2A、2F、2N、2O）」の「時間」
 
 ## 帰結
 
