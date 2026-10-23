@@ -55,7 +55,8 @@ pub fn solve_at(
 }
 
 /// `solve_at` と同じく解くが、燃焼のケースのノード（テーブルの使い方が `node` を持つもの）は、直方体の位置ごとの燃焼度
-/// `burnups` で引く（ADR-0190）。ほかのテーブルの使い方（反射体の位置）は `state` の燃焼度で引く
+/// `burnups` で引く（ADR-0190）。ほかのテーブルの使い方（反射体の位置）は燃焼しないので、燃焼度なしで引く（燃焼度の軸を持つ
+/// テーブルはエラー）
 pub fn solve_burnups(
     layout: &Layout,
     tables: &[Table],
@@ -75,7 +76,7 @@ pub fn solve_burnups(
         tables,
         |t| {
             Some(State {
-                burnup: t.node.map(|n| burnups[n]).or(state.burnup),
+                burnup: t.node.map(|n| burnups[n]),
                 ..*state
             })
         },
