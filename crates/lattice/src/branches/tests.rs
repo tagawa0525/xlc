@@ -344,3 +344,15 @@ fn each_state_starts_from_one_step_back_on_its_last_moved_axis() {
         }
     }
 }
+
+#[test]
+fn restored_starts_need_every_axis_after_the_first_state() {
+    // 状態 0 を解くと、すべての軸が解を持つ。書いた解の欠けた軸は、後の状態を平らな初期値から黙って始めさせる
+    assert!(Starts::<f64>::restored(&[2, 3], 0, vec![], &[None, None]).is_ok());
+    for slots in [[None, Some(0)], [Some(0), None]] {
+        let error = Starts::restored(&[2, 3], 1, vec![0.5], &slots).unwrap_err();
+        assert!(error.contains("no start"), "{error}");
+    }
+    let error = Starts::restored(&[2, 3], 0, vec![0.5], &[Some(0), Some(0)]).unwrap_err();
+    assert!(error.contains("state 0"), "{error}");
+}
