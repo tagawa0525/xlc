@@ -1238,3 +1238,30 @@ fn step_start_shielding_remixes_depleted_absorbers_too() {
         }
     }
 }
+
+#[test]
+fn step_start_shielding_keeps_the_start_cross_sections_at_the_midpoint() {
+    // U-238 の捕獲を σ0 で変え、自己遮蔽が組成に依るライブラリでは、中点で解き直す F1 と始まりの微視的断面積を使う F2 は、最初の点
+    // （同じ組成の同じ輸送）だけが同じで、ステップを進めた点は違う
+    let mut library = library();
+    let uranium = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-238")
+        .unwrap();
+    for (table, factor) in uranium.temperatures[0]
+        .shielded
+        .iter_mut()
+        .zip([1.0, 0.8, 0.5])
+    {
+        let capture = table.capture[1] * factor;
+        table.total[1] += capture - table.capture[1];
+        table.capture[1] = capture;
+    }
+    let every = deplete_with(PIN, &library);
+    let start = deplete_with(&format!("{PIN}shielding = \"step-start\"\n"), &library);
+    assert_eq!(start.points[0].k.to_bits(), every.points[0].k.to_bits());
+    for (s, e) in start.points.iter().zip(&every.points).skip(1) {
+        assert_ne!(s.k, e.k, "at {} MWd/kg", s.burnup);
+    }
+}
