@@ -1160,6 +1160,8 @@ pub struct TableUse {
     pub rod: Option<String>,
     /// 棒を切る高さ（`Rods::top`）より上の区間か。棒はあるが、層のテーブルは制御棒の軸を持たないこと
     pub cut: bool,
+    /// 燃焼のケース（ADR-0190）の集合体の位置のノードは、ノードごとの燃焼度で引くので、その直方体の位置。ほかは `None`
+    pub node: Option<usize>,
 }
 
 /// 部分挿入のノード（ADR-0127）。
@@ -1607,6 +1609,7 @@ impl Layout {
                     }
                     None => vec![(RodState::Out, z[1] - z[0])],
                 };
+                let site = node_material.len();
                 let mut use_of = |state: &RodState| {
                     let key = TableUse {
                         file,
@@ -1615,6 +1618,7 @@ impl Layout {
                             RodState::Out | RodState::Cut => None,
                         },
                         cut: *state == RodState::Cut,
+                        node: (case.depletion.is_some() && !is_reflector).then_some(site),
                     };
                     *table_index.entry(key.clone()).or_insert_with(|| {
                         tables.push(key);
@@ -1820,6 +1824,28 @@ impl Layout {
             }
         }
         Ok(c)
+    }
+
+    /// ケースの軸方向のノードの境界 (cm。下から)
+    pub fn axial_mesh(&self) -> &[f64] {
+        &self.inputs.case.axial_mesh
+    }
+
+    /// 直方体の位置 `site` のノードのテーブルのファイル（`files` の番号）。部分挿入のノードは区間のファイル（区間は同じ
+    /// 層のテーブルの制御棒の値なので、どれも同じファイル）。ノードのない位置は `None`
+    pub fn site_file(&self, site: usize) -> Option<usize> {
+        let m = self.node_material.get(site).copied().flatten()?;
+        let table = match self.materials.get(m) {
+            Some(material) => material.table,
+            None => {
+                self.partial
+                    .get(m - self.materials.len())?
+                    .segments
+                    .first()?
+                    .0
+            }
+        };
+        Some(self.tables[table].file)
     }
 
     /// z の面ごとの、核分裂率の割合（下から。全体の和が 1）。メッシュの違う計算を、面を足し合わせて比べるのに使う
