@@ -329,3 +329,71 @@ fn histories_round_trip_through_their_file() {
         .and_then(|(_, v)| v.as_str());
     assert_eq!(format, Some("xlc-core-history"));
 }
+
+#[test]
+fn core_average_burnups_do_not_drift_over_many_steps() {
+    // 集合体 1 体・ノード 1 つ。EFPD は 2A の履歴の 0.1〜20 MWd/kg の点（38.41 W/g）。ステップの増分を足し合わせると、丸めで
+    // 20.000000000000004 とテーブルの最後の点 20 を越える。終わりの累積の EFPD から求めると越えない
+    let efpd = [
+        2.603488674824265,
+        6.508721687060661,
+        13.017443374121326,
+        19.526165061181988,
+        26.034886748242652,
+        39.052330122363976,
+        52.069773496485304,
+        65.08721687060662,
+        78.10466024472794,
+        91.12210361884927,
+        104.13954699297058,
+        130.17443374121325,
+        156.20932048945588,
+        182.24420723769853,
+        208.27909398594116,
+        234.31398073418382,
+        260.34886748242644,
+        286.38375423066907,
+        312.41864097891175,
+        338.4535277271544,
+        364.488414475397,
+        390.5233012236397,
+        416.5581879718823,
+        468.62796146836763,
+        520.6977349648529,
+    ];
+    let steps: Vec<String> = efpd.iter().map(|e| format!("{{ efpd = {e:?} }}")).collect();
+    let case = CASE
+        .replace("axial-mesh = [0.0, 10.0, 20.0]", "axial-mesh = [0.0, 20.0]")
+        .replace("specific-power = 40.0", "specific-power = 38.41")
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            &format!("[{}]", steps.join(", ")),
+        );
+    let base = Path::new("dir");
+    let case = Case::parse(&case, base).unwrap();
+    let cycle = Cycle::parse(
+        "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\nloading = [\"A1\"]\n",
+        base,
+    )
+    .unwrap();
+    let plant = Plant::parse("pitch = 20.0\nheight = 20.0\nmap = [\"*\"]\n", base).unwrap();
+    let inventory = Inventory::parse(INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = vec![table(1.0, Some(400.0))];
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &Options::default(),
+    )
+    .unwrap();
+    for (point, e) in history.points.iter().skip(1).zip(efpd) {
+        let want = 38.41 * e * 1.0e-3;
+        assert!(
+            (point.burnup - want).abs() <= 4.0 * f64::EPSILON * want,
+            "{} vs {want}",
+            point.burnup
+        );
+    }
+}
