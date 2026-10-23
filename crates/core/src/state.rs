@@ -359,9 +359,34 @@ pub fn interpolate(
             pick[k] = 0;
         }
     }
-    // 燃焼度の 3 次 Hermite は凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる
+    // 燃焼度の 3 次 Hermite は凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで内挿したときは、
+    // 有限かどうか（validate）に加えて、断面積と拡散係数が負でないことを確かめる（折れ曲がりの近くの 0 に近い量が負になりうる。
+    // ADR-0192）
+    let convex = terms.iter().flatten().all(|&(_, w)| w >= 0.0);
     for f in &out {
         f.validate().map_err(|e| e.to_string())?;
+        if convex {
+            continue;
+        }
+        let items = [
+            ("total", &f.total),
+            ("absorption", &f.absorption),
+            ("nu_fission", &f.nu_fission),
+            ("fission", &f.fission),
+            ("chi", &f.chi),
+            ("diffusion", &f.diffusion),
+        ];
+        for (name, v) in items
+            .into_iter()
+            .chain(f.scatter.iter().map(|row| ("scatter", row)))
+        {
+            if let Some(bad) = v.iter().find(|&&x| x < 0.0) {
+                return Err(format!(
+                    "burnup {}: the interpolation gave a negative {name} {bad}; add burnup points near the bend (ADR-0192)",
+                    state.burnup.unwrap_or(0.0)
+                ));
+            }
+        }
     }
     Ok(out)
 }
