@@ -633,7 +633,8 @@ pub fn shield_fuel_reusing(
     };
     // ピンは `par_iter` の仕事にせず、プールの各スレッドが 1 本ずつ番号の順に取る。`broadcast` の仕事はそのスレッドだけが
     // 実行するので、ピンの中の並列を待つスレッドが別のピンを丸ごと盗んで、待っていたピンの完了を遅らせることがない。
-    // ピンを取り終えたスレッドは、残りのピンの中の並列を手伝う（ADR-0198）
+    // ピンを取り終えたスレッドは、残りのピンの中の並列を手伝う（ADR-0198）。`broadcast` はプールのすべてのスレッドが
+    // 仕事を終えるまで返らないので、プールの外（ほかの並列の仕事が走っていないところ）から呼ぶ
     let next = AtomicUsize::new(0);
     let slots: Vec<OnceLock<Result<PinSolution, SelfShieldingError>>> =
         solving.iter().map(|_| OnceLock::new()).collect();
@@ -642,7 +643,7 @@ pub fn shield_fuel_reusing(
             let k = next.fetch_add(1, Ordering::Relaxed);
             let Some(pin) = solving.get(k) else { break };
             // 番号 k を取ったのはこのスレッドだけなので、`set` は失敗しない
-            let _ = slots[k].set(solve(pin));
+            assert!(slots[k].set(solve(pin)).is_ok(), "pin {k} solved twice");
         }
     });
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> =
