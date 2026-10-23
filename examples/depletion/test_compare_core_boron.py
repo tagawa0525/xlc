@@ -129,6 +129,24 @@ class Summary(unittest.TestCase):
         s = summarize(out=UNIFORM_OUT.replace("in 5 solves", "in 6 solves"))
         self.assertFalse(s["uniform_agrees"])
 
+    def test_points_pair_by_the_node_burnup_that_was_solved(self):
+        # 点の `burnup` は質量の重みの平均で、解いたノードの燃焼度とビットで違いうる
+        core = history()
+        core["points"][1]["burnup"] = 0.10000000000000002
+        s = summarize(core)
+        self.assertEqual(s["points"][1]["uniform_state"], "p1")
+        self.assertEqual(s["points"][1]["burnup"], 0.1)
+
+    def test_uniform_states_without_a_burnup_are_errors(self):
+        with self.assertRaises(SystemExit):
+            summarize(case=UNIFORM_CASE.replace("burnup = 0.5\n", ""))
+
+    def test_the_uniform_states_must_have_the_history_banks(self):
+        core = history()
+        core["state"]["banks"] = {"D": 167}
+        with self.assertRaises(SystemExit):
+            summarize(core)
+
     def test_points_without_a_uniform_state_are_errors(self):
         with self.assertRaises(SystemExit):
             summarize(case=UNIFORM_CASE.replace("burnup = 0.5", "burnup = 0.6"))

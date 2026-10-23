@@ -419,6 +419,21 @@ fn burnups_past_the_table_are_errors() {
 }
 
 #[test]
+fn solve_errors_name_the_point_or_midpoint() {
+    // 中点（14.5 MWd/kg）はテーブルの中で、終わりの点（24 MWd/kg）で内挿のエラーになる。探索のエラーでなくても、どの解かを示す
+    let case = CASE.replace("{ efpd = 250.0 }", "{ efpd = 600.0 }");
+    let error = run(&case, UNIFORM).unwrap_err().to_string();
+    assert!(error.contains("the point at 600 EFPD"), "{error}");
+    let error = run(&searching(&case, 1.0e-9), UNIFORM)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("the midpoint of the step to 600 EFPD"),
+        "{error}"
+    );
+}
+
+#[test]
 fn histories_round_trip_through_their_file() {
     let history = run(CASE, MIXED).unwrap();
     let bytes = history.to_msgpack().unwrap();
@@ -613,8 +628,9 @@ fn searched_points_match_the_state_search_at_the_same_uniform_burnup() {
     )
     .unwrap();
     for point in &history.points {
+        // 解いたのはノードの燃焼度（質量の重みの平均の `burnup` とビットで同じとは限らない）
         let state = CaseState {
-            burnup: Some(point.burnup),
+            burnup: Some(point.burnups[0][0]),
             ..case.states[0].clone()
         };
         let solved = crate::case::solve_state(&layout, &tables, &state, &tight()).unwrap();
