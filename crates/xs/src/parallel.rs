@@ -1,14 +1,32 @@
 //! 独立な計算の並列化。
 
 use std::any::Any;
+use std::num::NonZeroUsize;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{LazyLock, Mutex, PoisonError};
+use std::sync::{Mutex, OnceLock, PoisonError};
 use std::thread::Scope;
 
 /// `in_parallel` が呼んだスレッドのほかに起こすスレッドの予算（プロセスで共有する）。呼んだスレッドも計算するので、
-/// 1 つの呼び出しが使うのは予算 + 1 で、物理コアの数（ADR-0067。このプロセスに許された CPU の数で抑える）にする
-static BUDGET: LazyLock<Budget> = LazyLock::new(|| Budget::new(cores().saturating_sub(1)));
+/// 1 つの呼び出しが使うのは予算 + 1 で、`set_threads` の数か、なければ物理コアの数（ADR-0067。このプロセスに許された
+/// CPU の数で抑える）にする
+static BUDGET: OnceLock<Budget> = OnceLock::new();
+
+fn budget() -> &'static Budget {
+    BUDGET.get_or_init(|| Budget::new(cores().saturating_sub(1)))
+}
+
+/// `in_parallel` が同時に使うスレッドの数を `threads` にする。最初の `in_parallel` より前に 1 度だけ呼ぶ
+pub fn set_threads(threads: NonZeroUsize) -> Result<(), ThreadsAlreadySet> {
+    BUDGET
+        .set(Budget::new(threads.get() - 1))
+        .map_err(|_| ThreadsAlreadySet)
+}
+
+/// `set_threads` を、スレッドの数が決まった後に呼んだ
+#[derive(Debug, thiserror::Error)]
+#[error("the number of threads is already set")]
+pub struct ThreadsAlreadySet;
 
 /// `f(i)`（i = 0..n）を、呼んだスレッドと、プロセスで共有する予算（`BUDGET`）から取るスレッドで並列に求め、i の順に並べて
 /// 返す。
@@ -25,7 +43,7 @@ pub(crate) fn in_parallel<T: Send, E: Send>(
     n: usize,
     f: impl Fn(usize) -> Result<T, E> + Sync,
 ) -> Result<Vec<T>, E> {
-    in_parallel_in(&BUDGET, n, f)
+    in_parallel_in(budget(), n, f)
 }
 
 /// `in_parallel` を、予算 `budget` から取るスレッドで求める
