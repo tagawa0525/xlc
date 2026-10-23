@@ -40,9 +40,10 @@ def main() -> None:
                     n,
                     f"{out}/{n}.msgpack",
                 ]
-                proc = subprocess.Popen(
-                    cmd, cwd=directory, stderr=subprocess.PIPE, text=True
-                )
+                # ログは量が読めないので、パイプでなくファイルに受ける（パイプが詰まると子が止まる）。
+                # 子はファイルを開いたまま持つので、こちらはすぐ閉じてよい
+                with open(f"{out}/{n}.log", "w") as log:
+                    proc = subprocess.Popen(cmd, cwd=directory, stderr=log)
                 running[proc] = (n, p)
                 budget -= p
                 queue.remove(item)
@@ -51,12 +52,9 @@ def main() -> None:
             if proc.poll() is not None:
                 n, p = running.pop(proc)
                 budget += p
-                assert proc.stderr is not None
-                last = [
-                    line
-                    for line in proc.stderr.read().splitlines()
-                    if line.startswith("nuclide ")
-                ]
+                with open(f"{out}/{n}.log") as f:
+                    last = [line for line in f if line.startswith("nuclide ")]
+                last = [line.rstrip("\n") for line in last]
                 print(f"{time.time() - start:.1f}", *last, flush=True)
                 if proc.returncode != 0:
                     sys.exit(f"{n} failed")
