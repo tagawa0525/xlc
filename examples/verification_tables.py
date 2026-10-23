@@ -749,11 +749,84 @@ def core_depletion_k(sources: list[dict]) -> str:
     )
 
 
+def burnup_interpolation_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-burnup-interpolation":
+        raise TableError("not an xlc-compare-burnup-interpolation summary")
+    return s
+
+
+def burnup_interpolation_methods(sources: list[dict]) -> str:
+    """燃焼度の内挿の方式（ADR-0192）: 方式ごと、テーブルと点の選び方ごとの、間引いた点の |Δρ| の最大と rms（pcm）と、
+    真値がデータの範囲にある項目のオーバーシュートの最大（相対）"""
+    s = burnup_interpolation_summary(sources)
+    selections = [(t, sel) for t in s["tables"] for sel in t["selections"]]
+    rows = []
+    for method, label in s["methods"].items():
+        results = [sel["results"][method] for _, sel in selections]
+        overshoot = max((r["overshoot"] for r in results), default=0.0)
+        rows.append(
+            [
+                label,
+                *(f"{r['max_abs_pcm']:.1f} / {r['rms_pcm']:.1f}" for r in results),
+                "0" if overshoot == 0.0 else f"{overshoot:.1e}",
+            ]
+        )
+    return markdown_table(
+        [
+            "方式",
+            *(
+                f"{t['name']} {sel['name']}（{len(sel['burnup'])} 点）"
+                for t, sel in selections
+            ),
+            "オーバーシュートの最大",
+        ],
+        rows,
+    )
+
+
+def burnup_interpolation_points(sources: list[dict]) -> str:
+    """燃焼度の点の選び方（ADR-0192）: 採った方式（3 点の放物線の傾きの Hermite）の、選び方ごとの間引いた点の誤差（pcm）"""
+    s = burnup_interpolation_summary(sources)
+    rows = []
+    for t in s["tables"]:
+        for sel in t["selections"]:
+            r = sel["results"]["hermite"]
+            rho = r["rho_pcm"]
+            worst = max(range(len(rho)), key=lambda i: abs(rho[i]), default=None)
+            rows.append(
+                [
+                    t["name"],
+                    sel["name"],
+                    str(len(sel["burnup"])),
+                    str(len(sel["removed"])),
+                    ""
+                    if worst is None
+                    else f"{signed(rho[worst], 1)}（{burnup_label(sel['removed'][worst])}）",
+                    f"{r['rms_pcm']:.1f}",
+                    f"{signed(min(rho), 1)}〜{signed(max(rho), 1)}" if rho else "",
+                ]
+            )
+    return markdown_table(
+        [
+            "集合体",
+            "点の選び方",
+            "点の数",
+            "比べた点の数",
+            "最大の Δρ (pcm)（燃焼度）",
+            "rms (pcm)",
+            "範囲 (pcm)",
+        ],
+        rows,
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
+    "examples/depletion/branches/compare-burnup-interpolation.json",
 }
 
 
@@ -918,6 +991,14 @@ TABLES = {
     "depletion-2a-core-k": (
         ["examples/depletion/branches/compare-core-2A.json"],
         core_depletion_k,
+    ),
+    "depletion-burnup-interpolation-methods": (
+        ["examples/depletion/branches/compare-burnup-interpolation.json"],
+        burnup_interpolation_methods,
+    ),
+    "depletion-burnup-interpolation-points": (
+        ["examples/depletion/branches/compare-burnup-interpolation.json"],
+        burnup_interpolation_points,
     ),
     "depletion-assembly-times": (
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
