@@ -187,3 +187,19 @@ fn more_saved_states_than_the_run_has_are_an_error() {
     assert!(error.contains("3 states") && error.contains('2'), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn an_unreadable_checkpoint_names_its_file() {
+    let dir = scratch("unreadable");
+    let path = dir.join("a.checkpoint");
+    std::fs::write(&path, b"").unwrap();
+    let error = format!(
+        "{:#}",
+        Checkpoint::new(path, "f".into()).states().unwrap_err()
+    );
+    assert!(
+        error.contains("a.checkpoint") && error.contains("remove"),
+        "{error}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
