@@ -24,36 +24,30 @@ resumed, straight, production = (read(p) for p in sys.argv[1:4])
 for name, path in zip(["resumed", "straight", "production"], sys.argv[1:4]):
     with open(path, "rb") as f:
         print(name, "md5", hashlib.md5(f.read()).hexdigest())
-print(
-    "resumed == straight (bytes without seconds):",
-    without_times(resumed) == without_times(straight),
-)
-print("solves", resumed["solves"], straight["solves"])
-print("seconds resumed", resumed["seconds"])
-print("seconds straight", straight["seconds"])
 n = len(straight["points"])
 if len(production["points"]) < n:
     sys.exit(
         f"the production history has {len(production['points'])} points, fewer than {n}"
     )
-same = all(
-    a["k_inf"] == b["k_inf"]
-    and a["densities"] == b["densities"]
-    and a["burnup"] == b["burnup"]
-    for a, b in zip(straight["points"], production["points"][:n])
-)
-print(
-    f"straight vs production first {n} points (k_inf, densities, burnup bit-equal):",
-    same,
-)
-print(
-    "pin_powers equal:",
-    all(
-        a["pin_powers"] == b["pin_powers"]
-        for a, b in zip(straight["points"], production["points"][:n])
+pairs = list(zip(straight["points"], production["points"][:n]))
+checks = {
+    "resumed == straight (bytes without seconds)": without_times(resumed)
+    == without_times(straight),
+    "solves equal": resumed["solves"] == straight["solves"],
+    f"straight vs production first {n} points (k_inf, densities, burnup bit-equal)": all(
+        a["k_inf"] == b["k_inf"]
+        and a["densities"] == b["densities"]
+        and a["burnup"] == b["burnup"]
+        for a, b in pairs
     ),
-)
-print(
-    "nuclides/regions/transportable equal:",
-    all(straight[k] == production[k] for k in ["nuclides", "regions", "transportable"]),
-)
+    "pin_powers equal": all(a["pin_powers"] == b["pin_powers"] for a, b in pairs),
+    "nuclides/regions/transportable equal": all(
+        straight[k] == production[k] for k in ["nuclides", "regions", "transportable"]
+    ),
+}
+print("seconds resumed", resumed["seconds"])
+print("seconds straight", straight["seconds"])
+for name, ok in checks.items():
+    print(name, ok)
+if not all(checks.values()):
+    sys.exit("some comparisons differ")
