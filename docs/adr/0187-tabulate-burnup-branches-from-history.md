@@ -163,7 +163,7 @@ lattice の実行ファイルが変われば、どちらの段階も changed に
   `negative_history_densities_beyond_the_cram_error_are_errors`。入力（crates/lattice/src/input/tests.rs）:
   `reads_the_history_file_and_its_burnup_points`、`history_burnup_points_are_nonnegative_and_increase`、
   `history_branches_need_branches_shielding_and_a_lattice_table`
-- 2A の履歴（examples/depletion/verification.md の「燃焼度の軸を持つテーブル（2A）」、7f3c9909、2026-10-23）: 燃焼度 0、10、20、
+- 2A の履歴（examples/depletion/verification.md の「燃焼度の軸を持つテーブル（2A）」、68285cd7、2026-10-23）: 燃焼度 0、10、20、
   40 MWd/kg の点で、集合体 1 体の core の k∞ は分岐の格子計算の k∞ を 0.0012 pcm 以内で、履歴の k∞ を −0.040〜−0.056 pcm で再現した
   （履歴との差の候補は、減速材をホウ酸水で書いた 1e-6 の組成の差と、履歴の後の lattice の変更で、分けていない）。点の間の線形の
   内挿の誤差は、15 MWd/kg（10 と 20 の間）で +129 pcm、30 MWd/kg（20 と 40 の間）で +763 pcm

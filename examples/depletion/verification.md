@@ -613,7 +613,7 @@ cd examples/depletion/branches
 
 ### 計算
 
-xlc の分岐と core は 7f3c9909（分岐点は main の 1f650c35）、2026-10-23（Slurm の排他のジョブ 469。`TIME:` の elapsed は 24 分 0 秒で、
+xlc の分岐と core は 68285cd7（分岐点は main の 1f650c35）、2026-10-23（Slurm の排他のジョブ 469。`TIME:` の elapsed は 24 分 0 秒で、
 ビルドの 41 秒を含む）。分岐の 16 状態は 1 状態 78〜99 秒。テーブル `table-2A.msgpack` は md5 3ac7a83e（追跡しない生成物）。
 
 ### 結果
