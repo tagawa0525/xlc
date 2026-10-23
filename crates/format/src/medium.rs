@@ -24,8 +24,9 @@ pub struct Medium {
     pub states: Vec<MediumState>,
 }
 
-/// 1つの状態の媒質の巨視的断面積 (1/cm)。
-#[derive(Debug, Clone, PartialEq)]
+/// 1つの状態の媒質の巨視的断面積 (1/cm)。格子計算のチェックポイントが、状態ごとにフィールド名付きの map で書く（ADR-0196）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MediumState {
     pub total: Vec<f64>,
     /// [モーメント（P0 から）][入射の群][出射の群] の散乱行列
