@@ -1558,7 +1558,7 @@ ADR-0198 の 16 スレッドの区間 7.98 秒は、1 周目 0〜3.1 秒、2 周
 
 ### 遊ぶ理由の候補（確かめていない）
 
-- ピンの UFG: 1 本のピンが 16 スレッドで 1.2 倍に伸びる分（`slowing` と `grid`。メモリの転送の候補）と、39 本を 16 で割る 3 周目
+- ピンの UFG: 1 本のピンが 16 スレッドで 1.2 倍に伸びる分（`slowing` と `grid`。メモリの転送の候補）と、39 本を 16 で割る 3 周目。[#0171](../../docs/issues/0171-lattice-pin-ufg-per-pin-slowdown.md)
 - スイープ: 組は方位角の 30 で、2 周なら上限は 94%（15 倍）なので実測の 5.6 倍はそれ未満。メモリの転送（`main.rs` の冒頭に同じ記述）、組の時間の不揃い。[#0162](../../docs/issues/0162-lattice-moc-sweep-parallel-efficiency.md)
 - 直列の部分（`coarse`、`homogenize`、反復の外、プロセスの外）。[#0163](../../docs/issues/0163-lattice-serial-parts-at-16-threads.md)
 
