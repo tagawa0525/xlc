@@ -651,15 +651,8 @@ struct PointFileIn {
     densities: Vec<Vec<f64>>,
     pin_powers: Vec<Vec<f64>>,
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     few_group: Option<rmpv::Value>,
-}
-
-/// nil を `None` に読み、キーの欠けはエラーにする
-fn nil_or<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
-    d: D,
-) -> Result<Option<T>, D::Error> {
-    Option::deserialize(d)
 }
 
 /// 時間の内訳 (s) を `Duration` にする（負や有限でない値はエラー）
