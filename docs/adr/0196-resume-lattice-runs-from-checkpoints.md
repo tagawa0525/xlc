@@ -17,8 +17,8 @@ issues: ["#0165"]
 書くので、途中で止めると全部を失う。r995 の Slurm は排他のジョブを 1 本ずつ流し、この決定を始めた時点では割り込みがなく
 （PreemptMode は OFF）、急ぐ短い計算を前に出すには、走っているジョブを `scancel` で止めて投げ直すしかなかった。ユーザーの要望
 （2026-10-23）: 「リスタート計算機能がほしい。長い計算を途中でぶった切って、急ぐ計算の優先度を上げられるため」。同じ日のうちに、
-`urgent` のパーティションが走っているジョブを止めて（SUSPEND。`scontrol show config` の PreemptMode は GANG,SUSPEND）先に走る
-ようになり（nixfiles の slurm-run の `--urgent`）、急ぐ計算を前に出すのに `scancel` は要らなくなった。チェックポイントは、ジョブを
+走っているジョブを止めて（SUSPEND。`scontrol show config` の PreemptMode は GANG,SUSPEND）先に走るパーティションが入り（2026-10-24 の時点で
+`timed`。nixfiles の slurm-run の `--timed`）、急ぐ計算を前に出すのに `scancel` は要らなくなった。チェックポイントは、ジョブを
 取り消したとき、ノードやプロセスが止まったとき（停電、OOM killer、時間切れ）に、書き終えた点から続けるために残る。
 
 `dvc repro` はステージを実行する前に outs を消す。燃焼と分岐のステージ（examples/depletion/p2/dvc.yaml の `lattice` など）は
@@ -140,4 +140,4 @@ W1、P1、L1、R3、F1 にする。
   を除く）は、チェックポイントにも足す。再開のテストがビットの不一致として検出する
 - 燃焼の履歴の `few-group` を本番の入力（examples/depletion/p2）に書くかと、公称の状態のテーブルを履歴から輸送なしで作るかは、
   この ADR で決めない（入力を変えると DVC のステージが changed になる）
-- 急ぐ計算を前に出すのは `--urgent`（SUSPEND）で、`scancel` しない（nixfiles の slurm-run のスキル）。チェックポイントは取り消しと停止のため
+- 急ぐ計算を前に出すのは `--timed`（走っている既定のジョブを SUSPEND で止める）で、`scancel` しない（nixfiles の slurm-run のスキル）。チェックポイントは取り消しと停止のため
