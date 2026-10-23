@@ -2136,6 +2136,54 @@ mod lattice {
         assert!(radius > 3.0, "{radius}");
     }
 
+    /// 3×3 のピン（中央を含めて 9 本。対称性で角、辺、中央の 3 本を解く）を、格子を間引いた UFG（核種ごとの縮約と飛程の表を
+    /// 通る）で `threads` のスレッドで自己遮蔽する
+    fn nine_pins_on(threads: usize) -> FuelShielding {
+        let library = resonant_library();
+        let materials = vec![
+            MaterialInput {
+                name: "fuel".into(),
+                temperature: T,
+                composition: vec![
+                    ("U-238".into(), 0.022),
+                    ("U-235".into(), 5.0e-4),
+                    ("O-16".into(), 0.045),
+                ],
+            },
+            MaterialInput {
+                name: "clad".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.043)],
+            },
+            MaterialInput {
+                name: "water".into(),
+                temperature: T,
+                composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+            },
+        ];
+        let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+        let lattice = Lattice::new(vec![pin], vec![vec![0; 3]; 3]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let pin_regions = ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"];
+        let regions: Vec<String> = (0..9).flat_map(|_| pin_regions).map(String::from).collect();
+        let options = ShieldingOptions {
+            thinning: Some(1.0e-4),
+            ..ShieldingOptions::default()
+        };
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| shield_fuel(&library, &tracking, &materials, &regions, &options).unwrap())
+    }
+
+    #[test]
+    fn pins_solved_on_many_threads_match_one_thread() {
+        let one = nine_pins_on(1);
+        assert_eq!(nine_pins_on(4), one);
+        assert_eq!(nine_pins_on(3), one);
+    }
+
     #[test]
     fn rejects_fuel_outside_the_inner_rings() {
         let library = library();
