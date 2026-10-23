@@ -2245,4 +2245,66 @@ mod lattice {
         }
         assert_eq!(reuse.dancoff_solves(), 2);
     }
+
+    #[test]
+    fn dancoff_factors_are_solved_again_when_the_regions_take_other_materials() {
+        // 物質の全断面積が同じでも、領域に置く物質が変われば（燃料のピンの 1 本を水にすれば）解き直す
+        let library = library();
+        let (tracking, all) = geometry(vec![vec![0, 0], vec![0, 0]]);
+        let mut one_less = all.clone();
+        one_less[6] = "water".into();
+        let options = ShieldingOptions::default();
+        let mut reuse = ShieldingReuse::new(&tracking);
+        for regions in [&all, &one_less] {
+            let symmetry = detect(&tracking, regions).unwrap();
+            let reused = shield_fuel_reusing(
+                &library,
+                &mut reuse,
+                &materials(),
+                regions,
+                &symmetry,
+                &options,
+            )
+            .unwrap();
+            let fresh = shield_fuel_with(
+                &library,
+                &tracking,
+                &materials(),
+                regions,
+                &symmetry,
+                &options,
+            )
+            .unwrap();
+            assert_eq!(reused, fresh);
+        }
+        assert_eq!(reuse.dancoff_solves(), 2);
+    }
+
+    #[test]
+    fn dancoff_factors_ignore_materials_placed_in_no_region() {
+        // 入力にあっても格子のどの領域にも置かない物質は Dancoff 係数に効かないので、その組成が変わっても解き直さない
+        let library = library();
+        let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let options = ShieldingOptions::default();
+        let mut reuse = ShieldingReuse::new(&tracking);
+        for h1 in [0.05, 0.04] {
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "unused".into(),
+                temperature: T,
+                composition: vec![("H-1".into(), h1)],
+            });
+            let reused = shield_fuel_reusing(
+                &library, &mut reuse, &materials, &regions, &symmetry, &options,
+            )
+            .unwrap();
+            let fresh = shield_fuel_with(
+                &library, &tracking, &materials, &regions, &symmetry, &options,
+            )
+            .unwrap();
+            assert_eq!(reused, fresh);
+        }
+        assert_eq!(reuse.dancoff_solves(), 1);
+    }
 }
