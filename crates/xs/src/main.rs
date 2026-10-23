@@ -1,9 +1,12 @@
 //! ENDF ファイルから多群ライブラリを作るコマンド。
 //!
-//! 使い方: xs <入力ファイル>
-//!         xs range <入力ファイル> <範囲のファイル>
-//!         xs nuclide <入力ファイル> <範囲のファイル> <核種> <出力>
-//!         xs assemble <入力ファイル> <範囲のファイル> <核種ごとの結果のディレクトリ>
+//! 使い方: xs [--threads <数>] <入力ファイル>
+//!         xs [--threads <数>] range <入力ファイル> <範囲のファイル>
+//!         xs [--threads <数>] nuclide <入力ファイル> <範囲のファイル> <核種> <出力>
+//!         xs [--threads <数>] assemble <入力ファイル> <範囲のファイル> <核種ごとの結果のディレクトリ>
+//!
+//! `--threads` は同時に使うスレッドの数で、省略すると物理コアの数をこのプロセスに許された CPU の数で抑えたもの
+//! （ADR-0067）。結果はスレッドの数によらない。
 //!
 //! 引数が入力ファイルだけのときは、すべての核種を処理して入力の `output` にライブラリを書く。ほかの 3 つは、同じ結果を
 //! 段階に分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
@@ -58,6 +61,7 @@ use xlc_format::group::GroupStructure;
 use xlc_format::library::{Library, NuclideData, is_nuclide_name};
 use xlc_xs::endf::Tape;
 use xlc_xs::multigroup::{SabOutside, Weight};
+use xlc_xs::parallel::set_threads;
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
 use xlc_xs::process::{
     SabUpper, Settings, ThermalScattering, process_nuclide, read_thermal_scattering, resolved,
@@ -233,21 +237,39 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
     })
 }
 
-const USAGE: &str = "usage: xs <input file>
-       xs range <input file> <range file>
-       xs nuclide <input file> <range file> <nuclide> <output>
-       xs assemble <input file> <range file> <nuclide directory>";
+const USAGE: &str = "usage: xs [--threads <count>] <input file>
+       xs [--threads <count>] range <input file> <range file>
+       xs [--threads <count>] nuclide <input file> <range file> <nuclide> <output>
+       xs [--threads <count>] assemble <input file> <range file> <nuclide directory>";
 
 /// 引数の先頭の `--threads <数>` を読み、残りの引数と分ける。
 fn thread_option(args: &[String]) -> anyhow::Result<(Option<NonZeroUsize>, &[String])> {
-    Ok((None, args))
+    match args {
+        [flag, rest @ ..] if flag == "--threads" => match rest {
+            [count, rest @ ..] => {
+                let threads = count.parse().map_err(|error| {
+                    anyhow!("--threads must be a positive integer, got `{count}`: {error}")
+                })?;
+                Ok((Some(threads), rest))
+            }
+            [] => Err(anyhow!("--threads needs the number of threads")),
+        },
+        _ => Ok((None, args)),
+    }
 }
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let result =
-        init_logging().and_then(
-            |()| match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
+    let result = init_logging()
+        .and_then(|()| thread_option(&args))
+        .and_then(|(threads, args)| {
+            if let Some(threads) = threads {
+                set_threads(threads)?;
+            }
+            Ok(args)
+        })
+        .and_then(
+            |args| match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
                 [path] => read_input(Path::new(path)).and_then(|input| run(&input)),
                 ["range", path, out] => {
                     read_input(Path::new(path)).and_then(|input| run_range(&input, Path::new(out)))

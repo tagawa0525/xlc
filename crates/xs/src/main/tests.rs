@@ -272,7 +272,6 @@ fn strings(args: &[&str]) -> Vec<String> {
 }
 
 #[test]
-#[ignore = "--threads is not read yet"]
 fn reads_the_number_of_threads_before_the_command() {
     let args = strings(&["--threads", "4", "range", "xs.toml", "xs-range.toml"]);
     let (threads, rest) = thread_option(&args).unwrap();
@@ -289,7 +288,6 @@ fn leaves_the_number_of_threads_to_the_default_without_the_option() {
 }
 
 #[test]
-#[ignore = "--threads is not read yet"]
 fn rejects_a_bad_number_of_threads() {
     for args in [
         &["--threads"][..],

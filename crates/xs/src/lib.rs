@@ -7,7 +7,7 @@ pub mod doppler;
 pub mod endf;
 pub mod multigroup;
 pub mod numeric;
-mod parallel;
+pub mod parallel;
 pub mod physics;
 pub mod pointwise;
 pub mod process;
