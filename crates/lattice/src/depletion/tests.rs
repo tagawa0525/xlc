@@ -13,6 +13,7 @@ use std::f64::consts::LN_2;
 
 use super::*;
 use crate::input::LatticeInput;
+use crate::shielding::{FuelShielding, shield_fuel_with};
 use crate::symmetry::choose;
 use crate::tracking::Tracking;
 
@@ -367,7 +368,7 @@ fn fissionless_regions_put_the_yield_weight_on_the_first_point() {
 )]
 fn quadratic() -> (
     Chain,
-    impl FnMut(&[Vec<f64>], bool) -> Result<Evaluation<(usize, bool)>, ChainError>,
+    impl FnMut(&[Vec<f64>], TransportAt) -> Result<Evaluation<(usize, TransportAt)>, ChainError>,
 ) {
     let mut a = stable("Xe-135", 54, 135);
     a.reactions.push(capture(1));
@@ -376,13 +377,13 @@ fn quadratic() -> (
     };
     let zero = chain.zero_rates();
     let mut calls = 0;
-    let solve = move |n: &[Vec<f64>], kept: bool| {
+    let solve = move |n: &[Vec<f64>], at: TransportAt| {
         calls += 1;
         let mut rates = zero.clone();
         rates[0].reactions[0][0] = 0.3 * n[0][0];
         Ok(Evaluation {
             rates: vec![rates],
-            extra: (calls, kept),
+            extra: (calls, at),
         })
     };
     (chain, solve)
@@ -392,17 +393,18 @@ fn quadratic() -> (
 fn ce_cm_solves_the_transport_twice_per_step_and_at_the_end() {
     let (chain, mut solve) = quadratic();
     let mut midpoints = 0;
-    let counting = |n: &[Vec<f64>], kept: bool| {
-        midpoints += usize::from(!kept);
-        solve(n, kept)
+    let counting = |n: &[Vec<f64>], at: TransportAt| {
+        midpoints += usize::from(at == TransportAt::Midpoint);
+        solve(n, at)
     };
     let (points, _) = ce_cm(&chain, vec![vec![1.0, 0.0]], &[1.0, 1.0, 1.0], counting).unwrap();
     assert_eq!(points.len(), 4);
     assert_eq!(midpoints, 3);
-    // 点の値は、その点の組成で解いた輸送（始まりの点は 1、3、5 回目、最後の点は 7 回目）で、その輸送にだけ値を残すと伝える
+    // 点の値は、その点の組成で解いた輸送（始まりの点は 1、3、5 回目、最後の点は 7 回目）で、その輸送に点の組成と伝える
     // （中点の輸送は少数群定数などを作らなくてよい）
-    let calls: Vec<(usize, bool)> = points.iter().map(|p| p.extra).collect();
-    assert_eq!(calls, vec![(1, true), (3, true), (5, true), (7, true)]);
+    let calls: Vec<(usize, TransportAt)> = points.iter().map(|p| p.extra).collect();
+    let point = TransportAt::Point;
+    assert_eq!(calls, vec![(1, point), (3, point), (5, point), (7, point)]);
     let times: Vec<f64> = points.iter().map(|p| p.time).collect();
     assert_eq!(times, vec![0.0, 1.0, 2.0, 3.0]);
 }
@@ -416,7 +418,7 @@ fn ce_cm_with_constant_rates_is_one_matrix_exponential() {
     rates[XE135].reactions[0][0] = 2e-5;
     let mut n0 = vec![0.0; chain.nuclides.len()];
     n0[U235] = 7e-4;
-    let solve = |_: &[Vec<f64>], _: bool| -> Result<Evaluation<()>, ChainError> {
+    let solve = |_: &[Vec<f64>], _: TransportAt| -> Result<Evaluation<()>, ChainError> {
         Ok(Evaluation {
             rates: vec![rates.clone()],
             extra: (),
@@ -773,6 +775,7 @@ fn history_is_written_as_a_map_with_the_format_name() {
     let keys: Vec<&str> = seconds.iter().filter_map(|(k, _)| k.as_str()).collect();
     assert_eq!(keys, ["shielding", "moc", "rates", "matrix", "cram"]);
     assert_eq!(get("solves").and_then(rmpv::Value::as_u64), Some(7));
+    assert_eq!(get("shieldings").and_then(rmpv::Value::as_u64), Some(7));
 }
 
 /// 履歴のファイルの、各点の `pin_powers`（[点][行][列]）
@@ -856,7 +859,7 @@ fn a_half_life_without_reactions_halves_the_density() {
     let rates = chain.zero_rates();
     let mut n0 = vec![0.0; chain.nuclides.len()];
     n0[XE135] = 1.0;
-    let solve = |_: &[Vec<f64>], _: bool| -> Result<Evaluation<()>, ChainError> {
+    let solve = |_: &[Vec<f64>], _: TransportAt| -> Result<Evaluation<()>, ChainError> {
         Ok(Evaluation {
             rates: vec![rates.clone()],
             extra: (),
@@ -928,11 +931,9 @@ fn channel_cross_sections_need_every_group() {
     assert!(result.is_err());
 }
 
-#[test]
-fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
-    // 燃料のピンの中の薄い被覆（IFBA の型）と、別のセルの吸収体の棒（Pyrex の型）を燃焼させる。どちらも Xe-135 で、崩壊だけのときより
-    // 速く減る（捕獲の反応率を持つ）。燃焼の領域は、対称操作の組と物質の対（ADR-0173）
-    let text = PIN
+/// 燃料のピンの中の薄い被覆 `coat`（IFBA の型）と、別のセルの吸収体の棒 `poison`（Pyrex の型）も燃焼させる PIN の格子
+fn with_absorbers() -> String {
+    PIN
         .replace("rows = [\"pin\"]", "rows = [\"pin rod\"]")
         .replace(
             "zones = [{ material = \"fuel\", radius = 0.4096, rings = 1 }",
@@ -947,8 +948,13 @@ fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
             "[depletion]",
             "[cell.rod]\nzones = [{ material = \"poison\", radius = 0.4, rings = 1 }, { material = \"water\", rings = 1 }]\n\n[depletion]",
         )
-        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\", \"poison\"]");
-    let history = deplete_input(&text);
+        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\", \"poison\"]")
+}
+
+#[test]
+fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
+    // どちらの吸収体も Xe-135 で、崩壊だけのときより速く減る（捕獲の反応率を持つ）。燃焼の領域は、対称操作の組と物質の対（ADR-0173）
+    let history = deplete_input(&with_absorbers());
     let names: Vec<&str> = history
         .regions
         .iter()
@@ -1006,6 +1012,7 @@ fn history_round_trips_through_its_file() {
     assert_eq!(read.regions, history.regions);
     assert_eq!(read.transportable, history.transportable);
     assert_eq!(read.solves, history.solves);
+    assert_eq!(read.shieldings, history.shieldings);
     assert_eq!(read.points.len(), history.points.len());
     for (r, h) in read.points.iter().zip(&history.points) {
         assert_eq!(r.time.to_bits(), h.time.to_bits());
@@ -1081,4 +1088,180 @@ fn histories_with_repeated_nuclides_are_errors() {
     history.nuclides[1] = history.nuclides[0].clone();
     let err = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap_err();
     assert!(format!("{err:#}").contains("twice"), "{err:#}");
+}
+
+#[test]
+fn every_transport_solves_the_shielding_by_default() {
+    // 自己遮蔽の頻度を書かない入力は、ステップの始まりと中点の両方で解き直す（ADR-0173 の案 F1）
+    let history = deplete_input(PIN);
+    assert_eq!(history.solves, 7);
+    assert_eq!(history.shieldings, 7);
+}
+
+#[test]
+fn step_start_shielding_skips_the_midpoint_transports() {
+    let every = deplete_input(PIN);
+    let start = deplete_input(&format!("{PIN}shielding = \"step-start\"\n"));
+    // 輸送はステップに 2 回と最後の点で 1 回のまま、自己遮蔽は始まりと最後の点だけ
+    assert_eq!(start.solves, 7);
+    assert_eq!(start.shieldings, 4);
+    // テストのライブラリの群定数は σ0 によらないので、中点の微視的断面積は組成を変えて解き直しても同じになり、中点の
+    // 物質は始まりの微視的断面積と中点の数密度で作り直したものと、丸めの誤差の範囲で等しい
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * a.abs().max(b.abs());
+    for (s, e) in start.points.iter().zip(&every.points) {
+        assert!(close(s.k, e.k), "{} vs {}", s.k, e.k);
+        for (ns, ne) in s.densities[0].iter().zip(&e.densities[0]) {
+            assert!(close(*ns, *ne), "{ns} vs {ne}");
+        }
+    }
+}
+
+/// PIN の格子を、入力の物質のまま自己遮蔽した結果と、燃料の燃焼の領域と、入力の物質（燃料と水）
+fn shielded_pin() -> (
+    Library,
+    Lattice,
+    FuelShielding,
+    Vec<DepletionRegion>,
+    Vec<MaterialInput>,
+) {
+    let library = library();
+    let input = LatticeInput::parse(PIN).unwrap();
+    let (lattice, region_materials) = input.geometry().unwrap();
+    let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
+    let chosen = choose(&tracking, &region_materials, None).unwrap();
+    let representatives = chosen.shielding().cell_representatives();
+    let regions = depletion_regions(
+        &lattice,
+        &region_materials,
+        &representatives,
+        &["fuel".to_string()],
+    );
+    let shielded = shield_fuel_with(
+        &library,
+        &tracking,
+        &input.materials,
+        &region_materials,
+        chosen.shielding(),
+        &input.shielding_options(),
+    )
+    .unwrap();
+    (library, lattice, shielded, regions, input.materials)
+}
+
+/// `shielded` の燃料の燃焼の領域の物質を、入力の物質 `materials` の燃料の組成で作り直したもの
+fn remixed_pin(
+    library: &Library,
+    lattice: &Lattice,
+    shielded: &FuelShielding,
+    regions: &[DepletionRegion],
+    materials: &[MaterialInput],
+) -> anyhow::Result<FuelShielding> {
+    let fuel = materials.iter().position(|m| m.name == "fuel").unwrap();
+    let mut remixed = shielded.clone();
+    for (m, material) in remix_depleted(library, shielded, lattice, regions, materials, &[fuel])? {
+        remixed.materials[m] = material;
+    }
+    Ok(remixed)
+}
+
+#[test]
+fn remixing_the_shielded_composition_reproduces_the_shielded_materials() {
+    let (library, lattice, shielded, regions, materials) = shielded_pin();
+    let remixed = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap();
+    assert_eq!(remixed, shielded);
+}
+
+#[test]
+fn remixed_materials_take_the_new_densities_and_keep_the_microscopic_cross_sections() {
+    let (library, lattice, shielded, regions, mut materials) = shielded_pin();
+    let fuel = materials.iter_mut().find(|m| m.name == "fuel").unwrap();
+    for (_, density) in &mut fuel.composition {
+        *density *= 2.0;
+    }
+    let remixed = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap();
+    for r in 0..lattice.regions() {
+        let before = &shielded.materials[shielded.region_material[r]];
+        let after = &remixed.materials[remixed.region_material[r]];
+        assert_eq!(
+            remixed.region_cross_sections(r),
+            shielded.region_cross_sections(r)
+        );
+        if regions[0].regions.contains(&r) {
+            for (a, b) in after.total.iter().zip(&before.total) {
+                assert!((a - 2.0 * b).abs() <= 1e-14 * a, "{a} vs 2 x {b}");
+            }
+        } else {
+            assert_eq!(after, before);
+        }
+    }
+}
+
+#[test]
+fn remixing_needs_the_shielded_nuclides_of_each_region() {
+    let (library, lattice, shielded, regions, mut materials) = shielded_pin();
+    let fuel = materials.iter_mut().find(|m| m.name == "fuel").unwrap();
+    fuel.composition.push(("Xe-135".into(), 1e-9));
+    let error = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap_err();
+    assert!(format!("{error:#}").contains("nuclides"), "{error:#}");
+}
+
+#[test]
+fn step_start_shielding_remixes_depleted_absorbers_too() {
+    // 自己遮蔽しない吸収体（無限希釈の物質）も、中点で始まりの微視的断面積のまま、自己遮蔽と同じ作り方で作り直す。O-16 の弾性散乱を
+    // 散乱行列の行の和と違う値にし、自己遮蔽した群定数の散乱行列の補正 (Σs + σe − σe) / Σs が丸めで 1 にならないライブラリでも、
+    // 無限希釈の物質と同じになる。群定数は σ0 によらないので、輸送のたびに解いたときと丸めの誤差の範囲で等しい
+    let mut library = library();
+    let oxygen = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "O-16")
+        .unwrap();
+    for table in &mut oxygen.temperatures[0].shielded {
+        table.elastic = vec![1.1, 1.1];
+    }
+    let every = deplete_with(&with_absorbers(), &library);
+    let start = deplete_with(
+        &format!("{}shielding = \"step-start\"\n", with_absorbers()),
+        &library,
+    );
+    assert_eq!(start.shieldings, 4);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * a.abs().max(b.abs());
+    for (s, e) in start.points.iter().zip(&every.points) {
+        assert!(close(s.k, e.k), "{} vs {}", s.k, e.k);
+        for (ns, ne) in s
+            .densities
+            .iter()
+            .flatten()
+            .zip(e.densities.iter().flatten())
+        {
+            assert!(close(*ns, *ne), "{ns} vs {ne}");
+        }
+    }
+}
+
+#[test]
+fn step_start_shielding_keeps_the_start_cross_sections_at_the_midpoint() {
+    // U-238 の捕獲を σ0 で変え、自己遮蔽が組成に依るライブラリでは、中点で解き直す F1 と始まりの微視的断面積を使う F2 は、最初の点
+    // （同じ組成の同じ輸送）だけが同じで、ステップを進めた点は違う
+    let mut library = library();
+    let uranium = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-238")
+        .unwrap();
+    for (table, factor) in uranium.temperatures[0]
+        .shielded
+        .iter_mut()
+        .zip([1.0, 0.8, 0.5])
+    {
+        let capture = table.capture[1] * factor;
+        table.total[1] += capture - table.capture[1];
+        table.capture[1] = capture;
+    }
+    let every = deplete_with(PIN, &library);
+    let start = deplete_with(&format!("{PIN}shielding = \"step-start\"\n"), &library);
+    assert_eq!(start.points[0].k.to_bits(), every.points[0].k.to_bits());
+    for (s, e) in start.points.iter().zip(&every.points).skip(1) {
+        assert_ne!(s.k, e.k, "at {} MWd/kg", s.burnup);
+    }
 }
