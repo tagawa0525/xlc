@@ -19,8 +19,8 @@ use xlc_format::library::Library;
 use xlc_format::table::Axis;
 
 use crate::depletion::{
-    DepletionRegion, History, check_negative, check_region_names, depletion_regions, has_data_at,
-    region_material, solved_names,
+    DepletionRegion, HEAVY_METAL_Z, History, check_negative, check_region_names, depletion_regions,
+    has_data_at, heavy_metal_mass, region_material, solved_names,
 };
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
@@ -42,6 +42,8 @@ pub struct HistoryBranches {
     pub axes: Vec<Axis>,
     /// 領域ごとの解く物質の名前（燃焼の領域は `<物質>@<セル>`）
     pub region_materials: Vec<String>,
+    /// 初めの重金属の質量 (g/cm、格子全体の高さ 1 cm あたり)。テーブルの `heavy_metal`（ADR-0190）
+    pub heavy_metal: f64,
     /// 履歴の燃焼の領域
     regions: Vec<DepletionRegion>,
     /// 選んだ燃焼度の点ごとの、燃焼の領域の数密度（[点][領域][履歴の核種]）
@@ -153,6 +155,19 @@ pub fn history_branches(
             );
         }
     }
+    // 初めの重金属の質量は、燃焼（ADR-0173）と同じ式で、燃焼度 0 の数密度から。履歴はチェーンの原子番号を持たないので、
+    // ライブラリの ZA から引く（燃焼度 0 の核種は入力の組成で、上で入力と一致を確かめた。輸送するのでライブラリにある）
+    let heavy_metal = heavy_metal_mass(&history.regions, &first.densities, |i| {
+        let name = &history.nuclides[i];
+        let data = library
+            .nuclides
+            .iter()
+            .find(|n| &n.name == name)
+            .ok_or_else(|| anyhow!("{name}: no mass in the library"))?;
+        // ZA = 1000 Z + A
+        let z = (data.za / 1000.0).floor();
+        Ok((z >= f64::from(HEAVY_METAL_Z)).then_some(data.awr))
+    })?;
     // 輸送する核種は、燃焼のライブラリが燃焼の温度で持つチェーンの核種（ADR-0173 の案 N1）。入力のライブラリと燃焼させた物質の温度
     // （公称）で求め直した集合が履歴と同じこと。違えば、燃焼と違うライブラリか温度で、公称の分岐が履歴の点の輸送でなくなる
     let mut nominal: Vec<f64> = Vec::new();
@@ -299,6 +314,7 @@ pub fn history_branches(
     Ok(HistoryBranches {
         axes,
         region_materials: renamed,
+        heavy_metal,
         regions: history.regions.clone(),
         densities: points
             .iter()

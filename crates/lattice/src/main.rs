@@ -526,8 +526,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        let tables =
+        let mut tables =
             tables(axes, *split, per_state).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        // 履歴からの分岐は格子全体の 1 つのテーブル（入力の検査）で、初めの重金属の質量を持つ（ADR-0190）
+        if let Some(h) = &history_branches {
+            for table in &mut tables {
+                table.heavy_metal = Some(h.heavy_metal);
+            }
+        }
         for (output, table) in outputs.into_iter().zip(tables) {
             let output = base.join(output);
             let bytes = table.to_msgpack().with_context(|| shown(&output))?;

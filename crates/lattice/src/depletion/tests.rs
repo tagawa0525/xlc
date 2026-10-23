@@ -124,7 +124,15 @@ pub(crate) fn library() -> Library {
             };
             NuclideData {
                 name: name.into(),
-                za: 0.0,
+                // ZA = 1000 Z + A（履歴からの分岐が重金属を Z で選ぶ。ADR-0190）
+                za: match name {
+                    "H-1" => 1001.0,
+                    "O-16" => 8016.0,
+                    "Xe-135" => 54135.0,
+                    "U-235" => 92235.0,
+                    "U-238" => 92238.0,
+                    _ => panic!("no ZA for {name}"),
+                },
                 awr,
                 resolved: None,
                 thermal_scattering: false,

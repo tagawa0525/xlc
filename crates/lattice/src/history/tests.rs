@@ -14,7 +14,7 @@ use crate::tracking::Tracking;
 /// テストのライブラリに、ホウ酸水のホウ素を足したもの（B-10 は Xe-135、B-11 は O-16 のデータを借りる）
 fn library_with_boron() -> Library {
     let mut library = library();
-    let borrow = |from: &str, name: &str, awr: f64| {
+    let borrow = |from: &str, name: &str, za: f64, awr: f64| {
         let mut data = library
             .nuclides
             .iter()
@@ -22,12 +22,13 @@ fn library_with_boron() -> Library {
             .unwrap()
             .clone();
         data.name = name.into();
+        data.za = za;
         data.awr = awr;
         data
     };
     let (b10, b11) = (
-        borrow("Xe-135", "B-10", 9.9269),
-        borrow("O-16", "B-11", 10.9147),
+        borrow("Xe-135", "B-10", 5010.0, 9.9269),
+        borrow("O-16", "B-11", 5011.0, 10.9147),
     );
     library.nuclides.push(b10);
     library.nuclides.push(b11);
