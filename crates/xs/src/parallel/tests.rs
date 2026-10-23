@@ -120,3 +120,53 @@ fn a_panic_on_the_calling_thread_stops_the_other_threads() {
         "{computed} of 199 indices computed after the panic"
     );
 }
+
+#[test]
+fn added_threads_log_inside_the_callers_span() {
+    // 足したスレッドの警告にも、呼んだスレッドの span（核種の名前など）が付く
+    use std::sync::{Arc, Mutex};
+    use tracing::Subscriber;
+    use tracing_subscriber::Registry;
+    use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+    use tracing_subscriber::registry::LookupSpan;
+
+    const TARGET: &str = "xs_parallel_span_probe";
+    type Seen = Arc<Mutex<Vec<(std::thread::ThreadId, Vec<String>)>>>;
+    struct Probe(Seen);
+    impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for Probe {
+        fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
+            if event.metadata().target() != TARGET {
+                return;
+            }
+            let spans = ctx
+                .event_scope(event)
+                .map(|scope| scope.from_root().map(|s| s.name().to_string()).collect())
+                .unwrap_or_default();
+            self.0
+                .lock()
+                .unwrap()
+                .push((std::thread::current().id(), spans));
+        }
+    }
+    // 足したスレッドは既定の subscriber を引き継がないので、プロセスの既定にする（このテストだけが設定する）
+    let seen = Seen::default();
+    tracing::subscriber::set_global_default(Registry::default().with(Probe(seen.clone()))).unwrap();
+
+    let budget = Budget::new(3);
+    let caller = tracing::info_span!("caller");
+    let _entered = caller.enter();
+    in_parallel_in(&budget, 50, |_| {
+        std::thread::sleep(Duration::from_millis(2));
+        tracing::info!(target: TARGET, "probe");
+        Ok::<_, ()>(())
+    })
+    .unwrap();
+
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 50);
+    let threads: std::collections::HashSet<_> = seen.iter().map(|(t, _)| *t).collect();
+    assert!(threads.len() > 1, "only the calling thread logged");
+    for (_, spans) in seen.iter() {
+        assert_eq!(spans, &["caller"]);
+    }
+}
