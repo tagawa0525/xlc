@@ -121,7 +121,7 @@ ADR-0187 が案 I2 を退けた理由のうち、振動（オーバーシュー�
   格子点の間にした状態でも相対 1e-13 で再現する）、`burnups_below_the_first_point_are_linear_from_zero_and_zero_does_not_shape_the_rest`、
   `two_point_burnup_spans_are_linear`（0 のない 2 点と、0 のあとに 2 点の軸）、`knees_overshoot_only_next_to_them_by_two_27ths_of_the_slope_change`
   （傾きが 0 から s に変わる折れ線を間隔 h で並べると、折れ曲がりの手前の 1 区間だけでデータの範囲を 2/27 h s 越え、それより 2 区間より
-  離れたところは折れ線そのもの）。`negative_interpolated_cross_sections_are_errors`、`burnup_weights_match_the_python_comparison`（比べた Python と同じ点と値で、
+  離れたところは折れ線そのもの）。`negative_interpolated_cross_sections_are_errors`、`negative_interpolated_form_functions_name_the_burnup_points`、`burnup_weights_match_the_python_comparison`（比べた Python と同じ点と値で、
   同じ重みの値。examples/depletion/test_compare_burnup_interpolation.py の `test_hermite_weights_match_the_core` と対）。ADR-0187 と
   ADR-0190 のテストはそのまま通る
 - 比べるツール（examples/depletion/test_compare_burnup_interpolation.py、test_thin_burnup_table.py）と記録の表
