@@ -67,6 +67,8 @@ def summarize(core: dict, case_text: str, out: str) -> dict:
         raise SystemExit("the history state must search the boron")
     case = tomllib.loads(case_text)
     for name, s in case.get("state", {}).items():
+        if "search" not in s:
+            raise SystemExit(f"state {name} gives no search")
         given = {
             "boron": s["search"]["boron"],
             "k": s["search"]["k"],
