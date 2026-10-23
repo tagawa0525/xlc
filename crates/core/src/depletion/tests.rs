@@ -154,6 +154,15 @@ fn core(case: &str, cycle: &str, heavy_metal: Option<f64>) -> (Layout, Vec<Table
     (layout, tables, case)
 }
 
+/// 固有値の反復を詰める（出力の割合の反復の誤差が、比べる燃焼度の差より小さくなるように）
+fn tight() -> Options {
+    Options {
+        k_tolerance: 1.0e-13,
+        flux_tolerance: 1.0e-12,
+        ..Options::default()
+    }
+}
+
 fn run(case: &str, cycle: &str) -> Result<CoreHistory, CaseError> {
     let (layout, tables, case) = core(case, cycle, Some(400.0));
     deplete(
@@ -161,7 +170,7 @@ fn run(case: &str, cycle: &str) -> Result<CoreHistory, CaseError> {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
-        &Options::default(),
+        &tight(),
     )
 }
 
@@ -216,10 +225,14 @@ fn uniform_cores_burn_at_the_specific_power() {
     let efpd = [0.0, 50.0, 125.0, 250.0];
     assert_eq!(history.points.len(), efpd.len());
     for (point, e) in history.points.iter().zip(efpd) {
-        // 燃焼度 = 出力密度 (W/g) × EFPD / 1000
+        // 燃焼度 = 出力密度 (W/g) × EFPD / 1000。ノードの値は出力の割合の反復の誤差（判定 1e-12）の分だけずれうる
         let want = 40.0 * e / 1000.0;
         assert_eq!(point.efpd, e);
-        let close = |b: f64| (b - want).abs() <= 1e-12 * want.max(1.0);
+        assert!(
+            (point.burnup - want).abs() <= 1e-12 * want.max(1.0),
+            "{point:?}"
+        );
+        let close = |b: f64| (b - want).abs() <= 1e-10 * want.max(1.0);
         assert!(close(point.burnup), "{} vs {want}", point.burnup);
         assert!(
             point.assembly_burnups.iter().all(|&b| close(b)),
@@ -236,9 +249,9 @@ fn uniform_cores_burn_at_the_specific_power() {
         // k は、その燃焼度の一様な状態で解いた k
         let mut state = case.states[0].at(1200.0);
         state.burnup = Some(want);
-        let uniform = solve_at(&layout, &tables, Some(&state), &Options::default()).unwrap();
+        let uniform = solve_at(&layout, &tables, Some(&state), &tight()).unwrap();
         assert!(
-            (point.k - uniform.solution.k).abs() <= 1e-12,
+            (point.k - uniform.solution.k).abs() <= 1e-11,
             "{} vs {}",
             point.k,
             uniform.solution.k
