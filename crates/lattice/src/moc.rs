@@ -87,6 +87,19 @@ pub struct Solution {
     pub iterations: usize,
 }
 
+/// 収束した反復の状態（ADR-0195）。同じトラッキングと対称操作で解く次の問題の反復を、ここから始める
+/// （`solve_symmetric_from`）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Start {
+    k: f64,
+    /// [代表の領域][群] のスカラー中性子束
+    flux: Vec<Vec<f64>>,
+    /// [代表の領域][モーメント (1 番目から)][群] の高次のモーメント
+    higher: Vec<Vec<f64>>,
+    /// [代表のトラック][向き][極角][群] のトラックの端の角度中性子束
+    outgoing: Vec<f64>,
+}
+
 /// MOC の固有値計算のエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum MocError {
@@ -138,6 +151,10 @@ pub enum MocError {
         region: usize,
         image: usize,
     },
+    #[error(
+        "the start was saved from another tracking, symmetry or scattering order (its sizes differ)"
+    )]
+    ForeignStart,
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
     #[error(
@@ -158,7 +175,7 @@ pub fn solve(
     materials: &[&Material],
     options: &Options,
 ) -> Result<Solution, MocError> {
-    solve_with(tracking, materials, options, None)
+    solve_with(tracking, materials, options, None, None).map(|(solution, _)| solution)
 }
 
 /// `solve` と同じ問題を、確かめた対称操作 `symmetry`（`symmetry::detect` か `symmetry::require` の結果。同じトラッキングの
@@ -169,7 +186,19 @@ pub fn solve_symmetric(
     options: &Options,
     symmetry: &Detected,
 ) -> Result<Solution, MocError> {
-    solve_with(tracking, materials, options, Some(symmetry))
+    solve_with(tracking, materials, options, Some(symmetry), None).map(|(solution, _)| solution)
+}
+
+/// `solve_symmetric` と同じく解き、反復を `start`（同じトラッキング、対称操作、散乱の次数で解いた前の問題の収束した状態）から
+/// 始める（ADR-0195）。`None` なら平らな初期値から。収束した状態を解と一緒に返す。`start` の大きさが今の問題と違えばエラー
+pub fn solve_symmetric_from(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: &Detected,
+    start: Option<&Start>,
+) -> Result<(Solution, Start), MocError> {
+    solve_with(tracking, materials, options, Some(symmetry), start)
 }
 
 #[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
@@ -178,7 +207,8 @@ fn solve_with(
     materials: &[&Material],
     options: &Options,
     symmetry: Option<&Detected>,
-) -> Result<Solution, MocError> {
+    start: Option<&Start>,
+) -> Result<(Solution, Start), MocError> {
     // CMFD を MOC より細かく解く前提（ADR-0110）。比が 1 以下なので、緩めた CMFD の精度はスイープによる変化を超えない
     let positive = |t: f64| t > 0.0 && t.is_finite();
     let (cmfd_k, cmfd_flux) = match &options.acceleration {
@@ -322,21 +352,41 @@ fn solve_with(
             .sum()
     };
 
-    let mut flux = vec![vec![1.0; ng]; states];
-    // [代表][モーメント (1 番目から)][群] の高次のモーメント
-    let mut higher = vec![vec![0.0; (pairs.len() - 1) * ng]; states];
+    let width = (pairs.len() - 1) * ng;
+    // 前の解の中性子束、[代表][モーメント (1 番目から)][群] の高次のモーメント、k。なければ平らな中性子束と k = 1
+    let (mut flux, mut higher, mut k) = match start {
+        Some(s) => {
+            if s.flux.len() != states
+                || s.flux.iter().any(|f| f.len() != ng)
+                || s.higher.len() != states
+                || s.higher.iter().any(|h| h.len() != width)
+                || s.outgoing.len() != sweeper.outgoing_len()
+            {
+                return Err(MocError::ForeignStart);
+            }
+            (s.flux.clone(), s.higher.clone(), s.k)
+        }
+        None => (
+            vec![vec![1.0; ng]; states],
+            vec![vec![0.0; width]; states],
+            1.0,
+        ),
+    };
+    // 前の解も、今の物質の生成率で 1 に規格化し直す
     let initial = production(&flux);
     if initial <= 0.0 {
         return Err(MocError::NoFission);
     }
-    for f in flux.iter_mut().flatten() {
+    for f in flux.iter_mut().chain(&mut higher).flatten() {
         *f /= initial;
     }
-    let mut k = 1.0;
-    // スイープの終わりに出ていく角度中性子束（`Sweeper::sweep` を参照）。最初は端の領域の中性子束の
+    // スイープの終わりに出ていく角度中性子束（`Sweeper::sweep` を参照）。前の解がなければ端の領域の中性子束の
     // 等方な分布とする（0 から始めると、鏡面反射の辺でも外向きの流れがあるように見え、CMFD が
     // 漏れの大きな問題として解いてしまう）
-    let mut outgoing = sweeper.isotropic_outgoing(&flux);
+    let mut outgoing = match start {
+        Some(s) => s.outgoing.iter().map(|b| b / initial).collect(),
+        None => sweeper.isotropic_outgoing(&flux),
+    };
     let mut next_outgoing = outgoing.clone();
     let mut tallies = sweeper.tallies(regions);
     let mut k_history = Remaining::default();
@@ -558,7 +608,7 @@ fn solve_with(
                     values.iter().map(|v| v / length).collect()
                 })
                 .collect();
-            return Ok(Solution {
+            let solution = Solution {
                 k,
                 flux: reduced.expand(&flux),
                 volumes,
@@ -570,7 +620,14 @@ fn solve_with(
                 region_currents: reduced.expand_vectors(&new_currents, ng),
                 size: [lattice.width(), lattice.height()],
                 iterations: iteration,
-            });
+            };
+            let start = Start {
+                k,
+                flux,
+                higher,
+                outgoing,
+            };
+            return Ok((solution, start));
         }
     }
     Err(MocError::NotConverged {
