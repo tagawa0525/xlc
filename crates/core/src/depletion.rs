@@ -208,6 +208,19 @@ pub fn deplete(
     let mesh = &layout.mesh;
     let [nx, ny, nz] = mesh.counts();
     let sites = nx * ny * nz;
+    // 核分裂するテーブルは質量を持つこと（燃焼度の定義の質量がないので推測しない）。解く前に、ファイルを示して止める
+    for (file, table) in layout.files.iter().zip(tables) {
+        let fissile = table
+            .states
+            .iter()
+            .any(|s| s.nu_fission.iter().any(|&v| v > 0.0));
+        if fissile && table.heavy_metal.is_none() {
+            return fail(format!(
+                "{}: the table has fission but no heavy_metal; make it from a depletion history (ADR-0190)",
+                file.display()
+            ));
+        }
+    }
     // 位置ごとの初めの重金属の質量 (g)
     let masses: Vec<f64> = (0..sites)
         .map(|site| {
