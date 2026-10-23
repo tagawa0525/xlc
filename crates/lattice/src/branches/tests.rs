@@ -308,3 +308,39 @@ fn tables_collect_each_output_over_the_states() {
     assert_eq!(tables[0].states[5].k_inf, 2.1);
     assert!(super::tables(&axes, 3, split).is_err());
 }
+
+#[test]
+fn each_state_starts_from_one_step_back_on_its_last_moved_axis() {
+    // 状態は軸の直積の順（最初の軸がいちばん遅く変わる）。状態 0 は始める解がない。ほかの状態は、添字が 0 でない最後の軸を
+    // 1 つ戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に解いた状態）から始める（ADR-0195）
+    let cases: [(&[usize], &[Option<usize>]); 3] = [
+        (
+            &[2, 2, 2],
+            &[
+                None,
+                Some(0),
+                Some(0),
+                Some(2),
+                Some(0),
+                Some(4),
+                Some(4),
+                Some(6),
+            ],
+        ),
+        // 格子点が 1 つの軸は動かない
+        (&[2, 1, 2], &[None, Some(0), Some(0), Some(2)]),
+        // 軸のない分岐（状態 1 つ）
+        (&[], &[None]),
+    ];
+    for (counts, expected) in cases {
+        let mut starts = Starts::new(counts);
+        for (state, source) in expected.iter().enumerate() {
+            assert_eq!(
+                starts.start().copied(),
+                *source,
+                "{counts:?}: state {state}"
+            );
+            starts.solved(state);
+        }
+    }
+}
