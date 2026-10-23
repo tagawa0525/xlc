@@ -4,8 +4,8 @@ Usage: python3 compare.py <F2 の履歴> <F1 の履歴>
 
 燃焼度、核種、燃焼の領域が同じことを確かめ、F2 の点の数だけ（F1 が長ければ先頭）、点ごとに k∞ の差 (k_F2 − k_F1) × 1e5 pcm、
 燃焼の領域の物質の種類（燃料 `fuel`、Gd 燃料のリング `gd*`）ごとの主要な核種の数密度の相対差（種類の領域の体積の重みの平均の差と、
-領域ごとの差の絶対値の最大）、ピン出力の相対差の絶対値の最大（F1 のピン出力が正のセル）を出す。最後に、それぞれの絶対値の最大と、
-時間の内訳（`seconds`）、輸送の回数（`solves`）、自己遮蔽の回数（`shieldings`。ない履歴は `-`）を出す。
+領域ごとの差の絶対値の最大）、ピン出力の相対差の絶対値の最大（F1 のピン出力が正のセル）を出す。F1 が 0 の量で F2 が 0 でなければ止める。最後に、それぞれの絶対値の最大と、
+時間の内訳（`seconds`）、輸送の回数（`solves`）、自己遮蔽の回数（`shieldings`。比べる本番の F1 の履歴は回数を書く前の形式で、持たないので `-`）を出す。
 """
 
 import sys
@@ -65,12 +65,21 @@ def main():
                     sum(p1["densities"][r][i] * regions[r]["volume"] for r in members)
                     / total
                 )
+                # F1 が 0 の量は相対差を取れないので、F2 も 0 であることだけを確かめる（初めに 0 の Xe-135 など）
+                if m1 <= 0 and m2 != m1:
+                    raise SystemExit(
+                        f"{p2['burnup']} MWd/kg {k} {name}: F1 {m1}, F2 {m2}"
+                    )
                 mean = (m2 - m1) / m1 if m1 > 0 else 0.0
                 largest = 0.0
                 for r in members:
                     x, y = p2["densities"][r][i], p1["densities"][r][i]
                     if y > 0:
                         largest = max(largest, abs(x - y) / y)
+                    elif x != y:
+                        raise SystemExit(
+                            f"{p2['burnup']} MWd/kg region {r} {name}: F1 {y}, F2 {x}"
+                        )
                 key = (k, name)
                 worst[key] = (
                     max(worst.get(key, (0.0, 0.0))[0], abs(mean)),
@@ -82,6 +91,8 @@ def main():
             for x, y in zip(r2, r1):
                 if y > 0:
                     pins = max(pins, abs(x / y - 1))
+                elif x != y:
+                    raise SystemExit(f"{p2['burnup']} MWd/kg pin power: F1 {y}, F2 {x}")
         worst["pins"] = max(worst["pins"], pins)
         print(
             f"{p2['burnup']:g} | {p1['k_inf']:.6f} | {dk:+.2f} | "
