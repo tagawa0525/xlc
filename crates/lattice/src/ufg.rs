@@ -42,6 +42,8 @@ pub const MAX_TOP: f64 = 2.0e4;
 
 /// 飛程をまとめて並列に求める格子点の数
 const CHUNK: usize = 4096;
+/// 間引きで巨視的な断面積を並列に足す点の塊の大きさ
+const THIN_POINTS: usize = 4096;
 
 /// 減速計算のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -335,7 +337,8 @@ fn solve_cell(
         .filter(|&e| inside(e))
         .chain(group_bounds.iter().copied())
         .collect();
-    energies.sort_by(|a, b| b.total_cmp(a));
+    // 全順序なので、並列の整列でも並びは同じ
+    energies.par_sort_unstable_by(|a, b| b.total_cmp(a));
     energies.dedup();
     // 核種の格子の和（群の境界を含む）の点の数。ここから窓の点を足したものが格子
     let union = energies.len();
@@ -608,21 +611,30 @@ fn thin(
         })
         .collect();
     let present = |k: usize| densities[k].iter().any(|&n| n != 0.0);
-    for (k, d) in data.iter().enumerate() {
-        if !present(k) {
-            continue;
-        }
-        let densities = &densities[k];
-        let p = d.pointwise();
-        let mut cursor = p.energy.len();
-        for (row, &e) in values.chunks_exact_mut(quantities).zip(energies) {
-            let [total, elastic] = evaluate_total_elastic(d, &mut cursor, e)?;
-            for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(densities) {
-                pair[0] += n * total;
-                pair[1] += n * elastic;
+    // 点の塊ごとに並列に足す。点ごとには核種の順に足すので、和の順は点の全体を核種ごとに進めたときと同じ。塊の始めの
+    // カーソルは、その点以下の最後の格子点の次（`bracket` はそこから下る）なので、`bracket` が返す区間は、上の点から
+    // 下ってきたカーソルと同じ
+    values
+        .par_chunks_mut(THIN_POINTS * quantities)
+        .zip(energies.par_chunks(THIN_POINTS))
+        .try_for_each(|(block, energies)| {
+            for (k, d) in data.iter().enumerate() {
+                if !present(k) {
+                    continue;
+                }
+                let densities = &densities[k];
+                let x = &d.pointwise().energy;
+                let mut cursor = x.partition_point(|&v| v <= energies[0]);
+                for (row, &e) in block.chunks_exact_mut(quantities).zip(energies) {
+                    let [total, elastic] = evaluate_total_elastic(d, &mut cursor, e)?;
+                    for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(densities) {
+                        pair[0] += n * total;
+                        pair[1] += n * elastic;
+                    }
+                }
             }
-        }
-    }
+            Ok::<_, UfgError>(())
+        })?;
     // 減速計算と同じく、有限で負でない全断面積だけを受ける（NaN では傾きの範囲が決まらない）
     if let Some(q) = values.iter().position(|v| !(v.is_finite() && *v >= 0.0)) {
         let m = (q % quantities) / 2;
