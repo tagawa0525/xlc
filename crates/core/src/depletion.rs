@@ -23,6 +23,8 @@ const FORMAT: &str = "xlc-core-history";
 pub struct CoreHistory {
     /// 定格の出力密度 (W/g、炉心の平均、初めの重金属)
     pub specific_power: f64,
+    /// すべてのステップで解いた状態
+    pub state: CoreState,
     /// 軸方向のノードの境界 (cm、下から)
     pub axial_mesh: Vec<f64>,
     /// 集合体の ID（名前の順）
@@ -30,6 +32,22 @@ pub struct CoreHistory {
     /// ノードの初めの重金属の質量 (g)
     pub heavy_metal: Vec<Vec<f64>>,
     pub points: Vec<CorePoint>,
+}
+
+/// 解いた炉心の状態（ケースの状態。燃焼度はノードごと）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoreState {
+    /// ホウ素濃度 (ppm)
+    pub boron: f64,
+    /// ホウ素の中の B-10 の原子分率
+    pub b10: f64,
+    /// 減速材の温度 (K)
+    pub moderator: f64,
+    /// 燃料の温度 (K)
+    pub fuel: f64,
+    /// バンク → 位置（ステップ）
+    pub banks: BTreeMap<String, u32>,
 }
 
 /// 燃焼点の値（その点の燃焼度で解いたもの）
@@ -62,6 +80,7 @@ struct FileOut<'a> {
 struct FileIn {
     format: String,
     specific_power: f64,
+    state: CoreState,
     axial_mesh: Vec<f64>,
     assemblies: Vec<String>,
     heavy_metal: Vec<Vec<f64>>,
@@ -69,7 +88,8 @@ struct FileIn {
 }
 
 impl CoreHistory {
-    /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, axial_mesh, assemblies,
+    /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, state: {boron, b10, moderator,
+    /// fuel, banks}, axial_mesh, assemblies,
     /// heavy_metal, points: [{efpd, burnup, k, assembly_burnups, burnups, powers}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
@@ -92,6 +112,7 @@ impl CoreHistory {
         }
         Ok(Self {
             specific_power: file.specific_power,
+            state: file.state,
             axial_mesh: file.axial_mesh,
             assemblies: file.assemblies,
             heavy_metal: file.heavy_metal,
@@ -272,6 +293,13 @@ pub fn deplete(
     }
     Ok(CoreHistory {
         specific_power: depletion.specific_power,
+        state: CoreState {
+            boron: ppm,
+            b10: state.b10,
+            moderator: state.moderator,
+            fuel: state.fuel,
+            banks: state.banks.clone(),
+        },
         axial_mesh: layout.axial_mesh().to_vec(),
         assemblies: placed.keys().map(|id| id.to_string()).collect(),
         heavy_metal,
