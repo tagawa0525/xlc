@@ -74,8 +74,8 @@ pub enum SelfShieldingError {
     Regions { given: usize, regions: usize },
     #[error("cell {0}: fuel must fill the innermost rings of a ring cell")]
     FuelShape(usize),
-    /// 解くと決めたピンの結果がない（内部の不整合）
-    #[error("cell {0}: internal error, the pin was not shielded")]
+    /// 解くと決めたピンの結果がないか、2 度解いた（内部の不整合）
+    #[error("cell {0}: internal error, the pin was not shielded exactly once")]
     Unsolved(usize),
     #[error(
         "cell {0}: the fuel rings differ in nuclides, their order or temperature, or a ring mixes materials"
@@ -636,16 +636,23 @@ pub fn shield_fuel_reusing(
     // ピンを取り終えたスレッドは、残りのピンの中の並列を手伝う（ADR-0198）。`broadcast` はプールのすべてのスレッドが
     // 仕事を終えるまで返らないので、プールの外（ほかの並列の仕事が走っていないところ）から呼ぶ
     let next = AtomicUsize::new(0);
+    // 2 度解いたピンのセル（なければ usize::MAX）
+    let twice = AtomicUsize::new(usize::MAX);
     let slots: Vec<OnceLock<Result<PinSolution, SelfShieldingError>>> =
         solving.iter().map(|_| OnceLock::new()).collect();
     rayon::broadcast(|_| {
         loop {
             let k = next.fetch_add(1, Ordering::Relaxed);
             let Some(pin) = solving.get(k) else { break };
-            // 番号 k を取ったのはこのスレッドだけなので、`set` は失敗しない
-            assert!(slots[k].set(solve(pin)).is_ok(), "pin {k} solved twice");
+            // 番号 k を取ったのはこのスレッドだけなので、`set` は失敗しない。失敗すれば番号の取り方の誤りで、解を捨てずに止める
+            if slots[k].set(solve(pin)).is_err() {
+                twice.store(pin.0, Ordering::Relaxed);
+            }
         }
     });
+    if let cell @ 0..usize::MAX = twice.into_inner() {
+        return Err(SelfShieldingError::Unsolved(cell));
+    }
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> =
         slots.into_iter().map(OnceLock::into_inner).collect();
     let mut solved: Vec<(usize, Solved)> = Vec::new();
