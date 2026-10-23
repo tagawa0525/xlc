@@ -41,8 +41,9 @@ pub enum CaseError {
     #[error("depletion: {0}")]
     Depletion(String),
     /// 燃焼のステップのどの解（点か中点）か、どのステップで起きたか（ADR-0191）
-    #[error("{at}: {source}")]
-    At { at: String, source: Box<CaseError> },
+    /// 表示が原因を含むので、原因をエラーの source にしない（連鎖の表示で繰り返さない）
+    #[error("{at}: {cause}")]
+    At { at: String, cause: Box<CaseError> },
 }
 
 /// テーブル（`layout.files` の順）を状態 `state`（`None` なら軸のないテーブル）で、テーブルの使い方（`layout.tables`。
