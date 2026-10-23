@@ -82,11 +82,11 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 - 止まった核種はない。
 - k: 15 の格子で、ENDF/B-VII.0 の xlc − KENO-VI は +80〜+245 pcm（平均 +137）、3A は +157 pcm、3B は +137 pcm。ENDF/B-VIII.0 では
   格子が −33〜+159 pcm（平均 +63）、3A が +62 pcm、3B が +165 pcm。VII.0 のほうが小さいのは 2F、2G、2J、3B だけで、1B〜1D、2A〜2D、2I、2Q と 3A では VII.0 のほうが +95〜+172 pcm 大きく、
-  2E、2H、2K は +11〜+28 pcm 大きい。
+  2E、2H、2K は +11〜+27 pcm 大きい。
 - VIII.0 の xlc − OpenMC（同じ核データの手法の差。verification.md の「OpenMC との比較」と「Problem 3 の炉心の計算」）は格子で平均 +12 pcm
   （−93〜+72）、3A が +38 pcm、3B が +41 pcm。核データの版が揃えば xlc − KENO-VI もこの大きさになると見込んだが、VII.0 の
-  xlc − KENO-VI は平均で約 +125 pcm 大きい。VIII.0 では xlc − KENO-VI（平均 +63）が xlc − OpenMC（+12）と OpenMC − KENO-VI（+52）の
-  和（+63）に等しいので、この食い違いは VII.0 のライブラリでの xlc の動きにある。原因は確かめていない
+  xlc − KENO-VI は平均で約 +125 pcm 大きい。VIII.0 では xlc − KENO-VI（平均 +63.3）が xlc − OpenMC（+11.6）と OpenMC − KENO-VI（+51.7）の
+  和（+63.3）に等しいので、この食い違いは VII.0 のライブラリでの xlc の動きにある。原因は確かめていない
   （候補は xlc の VII.0 のファイルの扱い、AMPX と NJOY の処理の差、KENO-VI のモデルの解釈。[#0131](../../docs/issues/0131-endfb70-keno-offset.md)）。
   したがって「VIII.0 での KENO-VI との差の残りは核データの版の差」とは、k については言えない。
 - ピン出力: 吸収体のある集合体（2E〜2H、2J、2K）で、VII.0 のライブラリの xlc − KENO-VI の RMS は VIII.0 の 0.48〜0.61 倍に下がる
