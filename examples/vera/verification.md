@@ -1575,7 +1575,7 @@ ADR-0198 の 16 スレッドの区間 7.98 秒は、1 周目 0〜3.1 秒、2 周
 
 #### 計算
 
-修正前（xlc 956c1216。main の 9577ebfff に区間だけを足したもの）は 16 スレッドだけを Slurm 516 で、修正後（xlc 040e7031、分岐点は main の 9577ebfff）は 1、4、16 スレッドを Slurm 514 で（どちらも 2026-10-24、timed の
+修正前（xlc 1b56c785。main の 9577ebfff に区間だけを足したもの）は 16 スレッドだけを Slurm 516 で、修正後（xlc ce465db5、分岐点は main の 9577ebfff）は 1、4、16 スレッドを Slurm 514 で（どちらも 2026-10-24、timed の
 パーティション）、`examples/depletion/trials-lattice-scaling/serial.sh` で実行した。ログの区間は `summarize.py` でまとめた。測定は各 1 回。
 
 #### 結果
