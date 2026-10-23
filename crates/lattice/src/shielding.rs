@@ -174,7 +174,7 @@ impl LumpShielding {
 }
 
 /// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
-/// 共有する（`cell` 以外は代表の値）。
+/// 共有する（`cell` 以外は代表の値。核種ごとの値は複製せず、代表と同じものを指す）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinShielding {
     pub cell: usize,
@@ -182,15 +182,14 @@ pub struct PinShielding {
     pub dancoff: Vec<f64>,
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))。燃料のリングの物質が違うときは、個数密度は
     /// リングの体積で平均したもの（等価原理はその組成で解く。ADR-0173）
-    pub nuclides: Vec<(Nuclide, f64)>,
+    pub nuclides: Arc<Vec<(Nuclide, f64)>>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
     /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
     /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
-    pub effective: Vec<Shielded>,
+    pub effective: Arc<Vec<Shielded>>,
     /// [燃料のリング（内側から）][核種（`nuclides` の順）] の実効断面積。UFG の範囲の群はそのリングの減速計算の値、範囲の外は
     /// 等価原理の値。`effective` と同じく SPH 因子を掛けない物理的な値で、物理的な中性子束（`FuelShielding::physical_flux`）と
-    /// 掛けてリングの反応率にする（ADR-0173）。領域の値（[`FuelShielding::region_cross_sections`]）と同じものを共有し、対称性で
-    /// 移り合うピンも代表と共有する（集合体の燃焼では輸送のたびに作るので、複製しない。ほかの項目は複製する。#0137）
+    /// 掛けてリングの反応率にする（ADR-0173）。領域の値（[`FuelShielding::region_cross_sections`]）と同じものを共有する
     pub rings: Vec<Arc<Vec<Shielded>>>,
     /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。支持格子のあるセルでは、その外に枠と同じ面積の
     /// 支持格子のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
@@ -698,8 +697,8 @@ pub fn shield_fuel_reusing(
         let pin = PinShielding {
             cell,
             dancoff: factors.clone(),
-            nuclides,
-            effective,
+            nuclides: Arc::new(nuclides),
+            effective: Arc::new(effective),
             rings: ring_effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| Sph {
