@@ -1928,3 +1928,71 @@ fn quarter_symmetry_rejects_an_asymmetric_boundary() {
     let result = solve_as(&tracking, &materials, &order_options(0), Symmetry::QUARTER);
     assert!(matches!(result, Err(MocError::Symmetry(_))), "{result:?}");
 }
+
+/// 1/8 対称な 3 × 3 のピンの格子（P1。真ん中のピンは別の燃料）を、外側の 8 本の燃料を `fuel` にして、`start` から解く
+fn octant_from(fuel: &Material, start: Option<&Start>) -> Result<(Solution, Start), MocError> {
+    let (w, g, void) = (
+        with_moments(&moderator(), &[0.4]),
+        with_moments(&fuel_with([0.5, 1.2], [0.008, 0.27]), &[0.2]),
+        Material::void(2),
+    );
+    let library = [fuel, &w, &g, &void];
+    let (lattice, index) = octant_lattice(true);
+    let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+    let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+    let verified = require(&tracking, Symmetry::OCTANT)?;
+    solve_symmetric_from(&tracking, &materials, &order_options(1), &verified, start)
+}
+
+/// `fuel()` の全断面積と νΣf を変えた燃料（散乱は同じ）
+fn fuel_with(total: [f64; 2], nu_fission: [f64; 2]) -> Material {
+    two_group(total, [[0.45, 0.02], [0.0, 0.9]], nu_fission)
+}
+
+#[test]
+fn a_warm_start_from_a_nearby_problem_takes_fewer_sweeps_to_the_same_solution() {
+    // 燃焼の 1 ステップのように、熱群の吸収と νΣf を少し変えた問題を、変える前の解から始める（ADR-0195）
+    let fresh = with_moments(&fuel(), &[0.3]);
+    let burned = with_moments(&fuel_with([0.5, 1.21], [0.008, 0.245]), &[0.3]);
+    let (_, start) = octant_from(&fresh, None).unwrap();
+    let (cold, _) = octant_from(&burned, None).unwrap();
+    let (warm, _) = octant_from(&burned, Some(&start)).unwrap();
+    assert!(
+        warm.iterations < cold.iterations,
+        "{} sweeps from the previous solution, {} from the flat start",
+        warm.iterations,
+        cold.iterations
+    );
+    assert_same_solution(&cold, &warm, &order_options(1));
+}
+
+#[test]
+fn a_warm_start_at_the_solution_still_sweeps_twice() {
+    // 解そのものから始めても、1 回目のスイープの変化だけでは残りの誤差を見積もれないので、2 回目で判定する（ADR-0195）
+    let burned = with_moments(&fuel_with([0.5, 1.21], [0.008, 0.245]), &[0.3]);
+    let (cold, start) = octant_from(&burned, None).unwrap();
+    let (warm, _) = octant_from(&burned, Some(&start)).unwrap();
+    assert_eq!(warm.iterations, 2);
+    assert_same_solution(&cold, &warm, &order_options(1));
+}
+
+#[test]
+fn rejects_a_start_from_another_tracking() {
+    let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+    let (f, m) = (
+        with_moments(&fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let verified = require(&tracking, Symmetry::NONE).unwrap();
+    let (_, start) = solve_symmetric_from(
+        &tracking,
+        &[&f, &f, &m, &m],
+        &order_options(1),
+        &verified,
+        None,
+    )
+    .unwrap();
+    let result = octant_from(&f, Some(&start));
+    assert!(matches!(result, Err(MocError::ForeignStart)), "{result:?}");
+}
