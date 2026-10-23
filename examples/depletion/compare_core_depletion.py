@@ -5,7 +5,9 @@
 
 - `--json`: core の履歴が集合体 1 体・軸方向のノード 1 つ（反射境界で k∞ を解くケース）であることと、core の燃焼点の燃焼度が
   格子計算の履歴の燃焼点のどれかと相対 1e-9 で一致することを確かめ、燃焼点ごとに反応度の差 Δρ = (1/k_履歴 − 1/k_core) × 1e5 pcm と、
-  その燃焼度がテーブルの燃焼度の点か（点の上は内挿の誤差がない）を書く。`inputs` は読んだファイルのパスと md5
+  その燃焼度がテーブルの燃焼度の点か（点の上は内挿の誤差がない）を書く。テーブルの点では、core の状態（履歴の `state`。テーブルの
+  格子点であること）のテーブルの状態の k∞（分岐の格子計算の k∞）との差 (1/k_分岐 − 1/k_core) × 1e5 pcm も書く（ADR-0187 の確認と
+  同じ比べ方。分岐と履歴の差を除いた、テーブルの読み書きと内挿の差）。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
 
@@ -18,6 +20,36 @@ import msgpack
 
 # core の燃焼度と履歴の燃焼点の一致の許容（core は出力密度 × EFPD で、履歴は燃焼度の点から時間を求めて燃焼させる）
 BURNUP_TOLERANCE = 1e-9
+
+
+def branch_k(table: dict, state: dict, burnup: float) -> float:
+    """燃焼度 `burnup`（テーブルの点）と core の状態 `state` の、テーブルの状態の k∞（軸の直積の順で、最初の軸がいちばん遅く変わる）"""
+    if table["split"] != 1:
+        raise SystemExit("the table must not split the assembly")
+    wanted = {
+        "burnup": burnup,
+        "boron": state["boron"],
+        "moderator": state["moderator"],
+        "fuel": state["fuel"],
+    }
+    index = 0
+    for axis in table["axes"]:
+        name = axis["name"]
+        if name not in wanted:
+            raise SystemExit(
+                f"the table has a {name} axis the comparison does not take"
+            )
+        if name == "boron" and axis["b10"] != state["b10"]:
+            raise SystemExit(
+                f"the table has b10 {axis['b10']}, the core {state['b10']}"
+            )
+        points = axis["points"]
+        if wanted[name] not in points:
+            raise SystemExit(
+                f"{name} {wanted[name]} is not a point of the table {points}"
+            )
+        index = index * len(points) + points.index(wanted[name])
+    return table["states"][index]["k_inf"]
 
 
 def summarize(lattice: dict, table: dict, core: dict) -> dict:
@@ -45,16 +77,22 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
         if len(matched) != 1:
             raise SystemExit(f"core burnup {b} is not a point of the history")
         (h,) = matched
+        on_table = h["burnup"] in table_burnups
+        branch = branch_k(table, core["state"], h["burnup"]) if on_table else None
         points.append(
             {
                 "efpd": p["efpd"],
                 "burnup": h["burnup"],
                 "core_burnup": b,
                 "burnup_relative": 0.0 if h["burnup"] == 0.0 else b / h["burnup"] - 1.0,
-                "on_table": h["burnup"] in table_burnups,
+                "on_table": on_table,
                 "history_k": h["k_inf"],
                 "k": p["k"],
                 "rho_pcm": (1.0 / h["k_inf"] - 1.0 / p["k"]) * 1e5,
+                "branch_k": branch,
+                "branch_rho_pcm": None
+                if branch is None
+                else (1.0 / branch - 1.0 / p["k"]) * 1e5,
             }
         )
     on = [abs(p["rho_pcm"]) for p in points if p["on_table"]]
@@ -65,6 +103,9 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
         "points": points,
         "on_table_max_abs_pcm": max(on, default=None),
         "between_max_abs_pcm": max(between, default=None),
+        "on_table_branch_max_abs_pcm": max(
+            (abs(p["branch_rho_pcm"]) for p in points if p["on_table"]), default=None
+        ),
         "burnup_max_relative": max(abs(p["burnup_relative"]) for p in points),
     }
 
@@ -83,7 +124,8 @@ def report(summary: dict) -> list[str]:
     ]
     if on:
         lines.append(
-            f"テーブルの点の |Δρ| の最大 {summary['on_table_max_abs_pcm']:.4f} pcm"
+            f"テーブルの点の |Δρ| の最大 {summary['on_table_max_abs_pcm']:.4f} pcm（履歴と）、"
+            f"{summary['on_table_branch_max_abs_pcm']:.4f} pcm（分岐の格子計算と）"
         )
     if between:
         worst = max(between, key=lambda p: abs(p["rho_pcm"]))
@@ -91,11 +133,14 @@ def report(summary: dict) -> list[str]:
             f"点の間の Δρ は {min(p['rho_pcm'] for p in between):+.1f}〜{max(p['rho_pcm'] for p in between):+.1f} pcm"
             f"（|Δρ| の最大は {worst['burnup']:g} MWd/kg の {worst['rho_pcm']:+.1f} pcm）"
         )
-    lines.append("燃焼度 (MWd/kg) | EFPD | テーブルの点 | k 履歴 | k core | Δρ (pcm)")
+    lines.append(
+        "燃焼度 (MWd/kg) | EFPD | テーブルの点 | k 履歴 | k core | Δρ 履歴 (pcm) | Δρ 分岐 (pcm)"
+    )
     for p in points:
         lines.append(
             f"{p['burnup']:g} | {p['efpd']:.4f} | {'○' if p['on_table'] else ''} | {p['history_k']:.8f} | "
-            f"{p['k']:.8f} | {p['rho_pcm']:+.4f}"
+            f"{p['k']:.8f} | {p['rho_pcm']:+.4f} | "
+            + ("" if p["branch_rho_pcm"] is None else f"{p['branch_rho_pcm']:+.4f}")
         )
     return lines
 
