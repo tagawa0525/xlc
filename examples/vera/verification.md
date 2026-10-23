@@ -1503,9 +1503,9 @@ k は全体と同じ 1.184416（反復 21 回）、ピン出力の差は最大 6
 ### 計算
 
 main（f3a143d74）と、自己遮蔽のピンをスレッドごとに 1 本ずつ取り、間引きの和を点の塊ごとにした版（[ADR-0198](../../docs/adr/0198-solve-shielding-pins-one-per-thread.md)。
-xlc 848fb5e8f、分岐点は main の f3a143d74）を、スレッド数 1、4、16 で 1 つの排他の Slurm のジョブで順に実行した（Slurm 510、2026-10-23。
+xlc 3bfe89aa7、分岐点は main の f3a143d74）を、スレッド数 1、4、16 で 1 つの排他の Slurm のジョブで順に実行した（Slurm 510、2026-10-23。
 `examples/depletion/trials-lattice-scaling/run.sh`）。同じジョブで、間引きの和だけを変えてピンは `par_iter` のままの版（f3a143d74 に
-6bebdca8f の `ufg.rs` だけを当てたもの。ADR-0198 の案 A）を 16 スレッドで測った。ログの区間は `summarize.py` で `scaling.json` に、ピンごとの
+a2e3d33e4 の `ufg.rs` だけを当てたもの。ADR-0198 の案 A）を 16 スレッドで測った。ログの区間は `summarize.py` で `scaling.json` に、ピンごとの
 開始と終了と段別の時間は `pins.py` で `pins.json` にまとめた。プロセスは `perf stat` の下で実行した。測定は各 1 回で、ばらつきは測っていない。
 少数群定数の出力は、7 回の実行のすべてで md5 が同じ（c4ed8f87）。
 
