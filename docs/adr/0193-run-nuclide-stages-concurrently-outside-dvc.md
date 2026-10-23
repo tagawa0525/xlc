@@ -126,7 +126,7 @@ lock が指すので退けた。runner は、今の deps（今の `bin/xs`、入
 
 ## 確認
 
-- examples/depletion の 65 核種（examples/depletion/verification.md の「燃焼の多群ライブラリ」。xlc c92e8cac、分岐点 2b6e1201、2026-10-23、Slurm の
+- examples/depletion の 65 核種（examples/depletion/verification.md の「燃焼の多群ライブラリ」。xlc 8ae06930、分岐点 2b6e1201、2026-10-23、Slurm の
   排他のジョブ 485）: main の lock で bin/xs が変わって changed だった xs-range と 65 核種を runner が実行して commit し、続けて
   `dvc repro examples/depletion/dvc.yaml:xs` を実行した。67 のステージの出力の md5 は main の dvc.lock（Slurm 473）と同じで、lock の差は
   deps の bin/xs だけ。runner の始めから最後の `dvc commit` まで 827 秒（上流 54 秒、核種の最初の投入から最後の回収まで 753 秒、最後の commit 20 秒）。
