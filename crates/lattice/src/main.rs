@@ -113,6 +113,8 @@ fn use_physical_cores() -> anyhow::Result<()> {
 
 fn run(path: &Path) -> anyhow::Result<()> {
     let start = Instant::now();
+    // 輸送の外の段の時間は debug の区間で測る（FmtSpan::CLOSE で、閉じるときに time.busy を出す）
+    let reading = tracing::debug_span!("input").entered();
     let shown = |p: &Path| p.display().to_string();
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
@@ -129,8 +131,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         check_nodes(lattice.rows(), &nodes).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
     }
 
-    let tracking =
-        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
+    drop(reading);
+    let tracking = tracing::debug_span!("tracking").in_scope(|| {
+        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)
+    })?;
     // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は分岐の状態によらないので、解く前に一度だけ
     // 求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
     // 対称性は、その結果から取り出し、成り立たない操作があれば、自己遮蔽の前にその操作の名前と理由を示して止める。"none" は
@@ -139,7 +143,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
         SymmetryChoice::Detect => None,
         SymmetryChoice::Force(symmetry) => Some(symmetry),
     };
-    let chosen = choose(&tracking, &region_materials, forced)
+    let chosen = tracing::debug_span!("symmetry")
+        .in_scope(|| choose(&tracking, &region_materials, forced))
         .with_context(|| format!("{}: symmetry", shown(path)))?;
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
@@ -168,6 +173,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Library(Library),
         Macroscopic(Vec<(String, Material)>),
     }
+    let loading = tracing::debug_span!("library").entered();
     let source = match &input.cross_sections {
         CrossSections::Library(file) => {
             let file = base.join(file);
@@ -180,6 +186,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
         }
     };
+    drop(loading);
     if let Some(depletion) = &input.depletion {
         let Source::Library(library) = &source else {
             return Err(anyhow!("{}: depletion needs a library", shown(path)));
@@ -395,6 +402,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         )
         .with_context(context)?;
         starts.solved(converged);
+        let emitting = tracing::debug_span!("output").entered();
         if let Some(FewGroupOutput {
             bounds,
             files,
@@ -503,6 +511,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         } else {
             println!("k {:.6}", solution.k);
         }
+        drop(emitting);
         tracing::info!(
             state,
             iterations = solution.iterations,
@@ -513,6 +522,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
     }
 
+    let _write = tracing::debug_span!("write").entered();
     if let Some(output) = &input.medium {
         let groups = groups
             .as_ref()
