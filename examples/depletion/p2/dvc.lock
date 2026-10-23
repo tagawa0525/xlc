@@ -7125,8 +7125,8 @@ stages:
     deps:
     - path: ../../../bin/xs
       hash: md5
-      md5: d3dc3807ce70d3bf9578b4ee5a792b52
-      size: 2838840
+      md5: c6bdf39750bdc17d97bdd03d9fa843a8
+      size: 2874408
       isexec: true
     - path: xs-nuclides
       hash: md5
@@ -7139,8 +7139,8 @@ stages:
       size: 35
     - path: xs.toml
       hash: md5
-      md5: 63cb03311018e53e648ecf8f22ad746f
-      size: 8284
+      md5: a47b50a4168d4dbf5df32709b04effe0
+      size: 8290
     outs:
     - path: depletion.msgpack
       hash: md5
