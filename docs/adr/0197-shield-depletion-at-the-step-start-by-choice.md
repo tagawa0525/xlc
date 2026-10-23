@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-23
+status: accepted
+date: 2026-10-24
 requires: [ADR-0173, ADR-0194, ADR-0195]
 amends: [ADR-0173]
 supersedes: []
@@ -64,8 +64,22 @@ S1、M1 にする。
   `step_start_shielding_skips_the_midpoint_transports`（輸送 7 回、自己遮蔽 4 回。群定数が σ0 によらないテストのライブラリでは、F1 と
   相対 1e-12 で同じ）、`remixing_the_shielded_composition_reproduces_the_shielded_materials`、
   `remixed_materials_take_the_new_densities_and_keep_the_microscopic_cross_sections`、`remixing_needs_the_shielded_nuclides_of_each_region`
-- 集合体（examples/depletion/verification.md の「集合体の燃焼」）: 測定の後に書く
+- 集合体（examples/depletion/verification.md の「集合体の燃焼」の「自己遮蔽の頻度（#0134）」。abc594b0、2026-10-24、Slurm 509、
+  512、515）: 2A と 2O の 0〜60 MWd/kg で、F2 の F1 からの k∞ の差は、最初のステップ（0.1 MWd/kg）で +8.5 pcm（2A）、+7.2 pcm（2O）、
+  2 点目から 16 MWd/kg までは −2.2〜+0.3 pcm、長いステップで広がり 60 MWd/kg で −17.9 pcm（2A。4 MWd/kg のステップ）、−10.4 pcm
+  （2O。2 MWd/kg のステップ）。数密度の差の最大は U-235 0.034%、Pu-239 0.081%、Xe-135 0.27%（最初のステップの終わり。2 点目から
+  0.064% 以下）、Sm-149 0.066%、Gd-155 0.21%、Gd-157 0.31%（Gd の燃え尽き）、ピン出力 0.014%。2A の自己遮蔽の時間は、同じコミットの
+  F1 の 1 回 15.6 秒から見積もった 81 回の約 1,267 秒に対し、F2 は 656.6 秒（自己遮蔽 41 回と中点の物質の作り直し 40 回）、全体は
+  約 1,670 秒（見積もり）に対し 1,061.6 秒
 
 ## 帰結
 
-- 測定の後に書く
+- 既定は F1 のまま。依頼の判断の軸（k∞ の差が ADR-0032 の ±100 pcm より桁で小さい数 pcm 以内、数密度の差が OpenMC との差より
+  桁で小さい）のうち、数密度は満たす（OpenMC との差は U-235 +1.27%、Xe-135 +0.84%、Sm-149 +1.92%、2O の Gd-157 −8〜−11%）が、
+  k∞ は最初のステップと長いステップで 7〜18 pcm あり、満たさない。F2 は既定の候補にせず、選べる項目に残す。既定を切り替えるかは、
+  この測定を見て別に決める
+- F2 の差はステップの長さとともに広がる。中点の組成の変化が大きいほど、始まりの微視的断面積との食い違いが大きくなるため（候補。
+  ステップの長さを変えて測っていない）。燃焼度の点を減らす段階（ADR-0173 の時間の進め方の見直し）では、F2 の誤差も合わせて再測定する
+- 最初のステップの差（+7〜+9 pcm）の原因は、Xe-135 が 0 の組成で解いた自己遮蔽を Xe-135 の増えた中点で使うことが候補で、確かめていない
+- 履歴の形式に `shieldings` を足したので、これより前の履歴は読めない（後方互換を作らない）。`[history]` の分岐は、履歴を作り直してから使う
+- 作り直しの前提の確かめ（最初の輸送で 1 回）は、2A で 1 回 0.4 秒ほど（差からの見積もり）
