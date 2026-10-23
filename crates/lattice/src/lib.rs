@@ -7,6 +7,7 @@ pub mod axial;
 pub mod b1;
 pub mod balance;
 pub mod branches;
+pub mod checkpoint;
 pub mod cmfd;
 pub mod cp;
 pub mod depletion;
