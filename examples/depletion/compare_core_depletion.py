@@ -57,6 +57,12 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
     formats = (lattice.get("format"), table.get("format"), core.get("format"))
     if formats != ("xlc-depletion-history", "xlc-table", "xlc-core-history"):
         raise SystemExit(f"unexpected formats {formats}")
+    if "search" in core["state"]:
+        raise SystemExit(
+            "the core history searches the boron; compare it with compare_core_boron.py"
+        )
+    if "boron" not in core["state"]:
+        raise SystemExit("the core history state has neither boron nor search")
     if len(core["assemblies"]) != 1 or len(core["axial_mesh"]) != 2:
         raise SystemExit(
             "the core must be one assembly of one axial node (k-infinity of a reflected assembly)"

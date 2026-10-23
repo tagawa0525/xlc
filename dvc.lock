@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 2702acdcee60554c7fe87437fcd0c3c8.dir
-      size: 3250840
+      md5: 6682d6b8d24f1b17cab02a198cceed4f.dir
+      size: 3270433
       nfiles: 229
     - path: flake.lock
       hash: md5
@@ -45,8 +45,8 @@ stages:
       isexec: true
     - path: bin/core
       hash: md5
-      md5: 06f4ed857d941a71d1e16d29678c3f92
-      size: 3137192
+      md5: 4e582175e5a486849eae878d63e1e520
+      size: 3162976
       isexec: true
     - path: bin/lattice
       hash: md5

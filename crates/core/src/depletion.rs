@@ -3,7 +3,8 @@
 //! ノード n の初めの重金属の質量 Mₙ は、テーブルの `heavy_metal` (g/cm) × ノードの高さ。定格の出力密度 p (W/g) で EFPD を
 //! ΔE 進めると、炉心の平均の燃焼度の増分は Δ = p ΔE / 1000 (MWd/kg) で、ノードの増分は Δ fₙ M / Mₙ（fₙ はノードの核分裂率
 //! Σf φ V の割合、M = Σ Mₙ）。ステップは中点の形（ADR-0173 の CE/CM と同じ）: 初めの燃焼度で解いた割合で中点の燃焼度を、
-//! 中点で解いた割合で終わりの燃焼度を求める。燃焼点（0 と各ステップの終わり）の値は、その点の燃焼度で解いたもの。
+//! 中点で解いた割合で終わりの燃焼度を求める。燃焼点（0 と各ステップの終わり）の値は、その点の燃焼度で解いたもの。状態が
+//! ホウ素の探索を持てば、点と中点の解のすべてで k が目標になるホウ素濃度を探す（ADR-0191）。
 
 use std::collections::BTreeMap;
 
@@ -11,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use xlc_format::msgpack::{self, MsgpackError};
 use xlc_format::table::Table;
 
-use crate::case::{CaseError, Solved, solve_burnups};
-use crate::input::{Boron, CaseState, DepletionInput, Layout};
+use crate::case::{CaseError, Solved, check_search, search_boron, solve_burnups};
+use crate::input::{Boron, BoronSearch, CaseState, DepletionInput, Layout};
 use crate::nem::{Options, fission_rates};
 
 const FORMAT: &str = "xlc-core-history";
@@ -33,12 +34,16 @@ pub struct CoreHistory {
     pub points: Vec<CorePoint>,
 }
 
-/// 解いた炉心の状態（ケースの状態。燃焼度はノードごと）
+/// 解いた炉心の状態（ケースの状態。燃焼度はノードごと）。`boron` と `search` は、入力と同じくどちらか一方だけを持つ
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CoreState {
-    /// ホウ素濃度 (ppm)
-    pub boron: f64,
+    /// 与えたホウ素濃度 (ppm)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boron: Option<f64>,
+    /// 臨界ホウ素の探索（ADR-0191）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search: Option<BoronSearch>,
     /// ホウ素の中の B-10 の原子分率
     pub b10: f64,
     /// 減速材の温度 (K)
@@ -58,6 +63,10 @@ pub struct CorePoint {
     /// 炉心の平均の燃焼度 (MWd/kg。質量の重み)
     pub burnup: f64,
     pub k: f64,
+    /// その点を解いたホウ素濃度 (ppm。与えた値か、探索で求めた値)
+    pub boron: f64,
+    /// その点で解いた固有値計算の回数（与えた濃度なら 1、探索なら ADR-0145 の回数。範囲の両端を含み、下端で許容の中なら 1）
+    pub solves: usize,
     /// 集合体ごとの燃焼度 (MWd/kg。質量の重み)
     pub assembly_burnups: Vec<f64>,
     /// ノードの燃焼度 (MWd/kg)
@@ -87,9 +96,9 @@ struct FileIn {
 }
 
 impl CoreHistory {
-    /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, state: {boron, b10, moderator,
-    /// fuel, banks}, axial_mesh, assemblies,
-    /// heavy_metal, points: [{efpd, burnup, k, assembly_burnups, burnups, powers}]}`
+    /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, state: {boron | search: {boron:
+    /// [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}, axial_mesh, assemblies,
+    /// heavy_metal, points: [{efpd, burnup, k, boron, solves, assembly_burnups, burnups, powers}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
             format: FORMAT,
@@ -108,6 +117,16 @@ impl CoreHistory {
                 "expected format {FORMAT}, found {}",
                 file.format
             )));
+        }
+        if file.state.boron.is_some() == file.state.search.is_some() {
+            return Err(CaseError::Depletion(
+                "the history state must hold either boron or search".into(),
+            ));
+        }
+        if let Some(search) = &file.state.search {
+            search
+                .check()
+                .map_err(|m| CaseError::Depletion(format!("the history state: {m}")))?;
         }
         Ok(Self {
             specific_power: file.specific_power,
@@ -168,6 +187,25 @@ pub fn midpoint(
     advance(burnups, masses, increment, &middle)
 }
 
+/// エラーに、燃焼のどの解かを添える。入力の組み合わせの誤り（どのファイルかを main が添える）と、場所をすでに持つエラーはそのまま
+fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
+    match error {
+        CaseError::Input(_) | CaseError::At { .. } => error,
+        e => CaseError::At {
+            at: at(),
+            cause: Box::new(e),
+        },
+    }
+}
+
+/// 燃焼度の分布を 1 回解いた結果: 解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率
+struct Solve {
+    solved: Solved,
+    ppm: f64,
+    solves: usize,
+    rates: Vec<f64>,
+}
+
 /// 質量 `m` の重みの平均の燃焼度
 fn weighted(b: &[f64], m: &[f64]) -> f64 {
     b.iter().zip(m).map(|(b, m)| b * m).sum::<f64>() / m.iter().sum::<f64>()
@@ -195,14 +233,11 @@ pub fn deplete(
             layout.files.len()
         ));
     }
-    let ppm = match &state.boron {
-        Boron::Given(ppm) => *ppm,
-        Boron::Search(_) => return fail("boron searches are not taken in depletion steps".into()),
-    };
     if state.burnup.is_some() {
         return fail(format!("state {} gives a burnup", state.name));
     }
-    let point_state = state.at(ppm);
+    // 長い計算を始める前に
+    check_search(state, options)?;
     // 状態のバンクの位置で制御棒を入れた並び（ADR-0127）
     let layout = &layout.with_banks(&state.banks)?;
     let mesh = &layout.mesh;
@@ -257,12 +292,30 @@ pub fn deplete(
             "assembly {id} has no heavy-metal mass; its tables need heavy_metal (ADR-0190)"
         ));
     }
-    let solve = |burnups: &[f64]| -> Result<(Solved, Vec<f64>), CaseError> {
-        let solved = solve_burnups(layout, tables, &point_state, burnups, options)?;
+    // 燃焼度 `burnups` で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` はエラーに添える解の場所
+    let solve = |burnups: &[f64], at: &dyn Fn() -> String| -> Result<Solve, CaseError> {
+        let solve_ppm = |ppm: f64| solve_burnups(layout, tables, &state.at(ppm), burnups, options);
+        let solved = match &state.boron {
+            Boron::Given(ppm) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
+            Boron::Search(search) => search_boron(search, solve_ppm)
+                .map(|(solved, found)| (solved, found.ppm, found.solves)),
+        };
+        let (solved, ppm, solves) = solved.map_err(|e| locate(e, at))?;
         let rates = fission_rates(&solved.problem, &solved.solution);
-        Ok((solved, rates))
+        Ok(Solve {
+            solved,
+            ppm,
+            solves,
+            rates,
+        })
     };
-    let record = |efpd: f64, burnups: &[f64], solved: &Solved, rates: &[f64]| {
+    let record = |efpd: f64, burnups: &[f64], solve: &Solve| {
+        let Solve {
+            solved,
+            ppm,
+            solves,
+            rates,
+        } = solve;
         let burnup_rows = by_assembly(burnups);
         let total: f64 = rates.iter().sum();
         let shares: Vec<f64> = rates.iter().map(|r| r / total).collect();
@@ -270,6 +323,8 @@ pub fn deplete(
             efpd,
             burnup: weighted(burnups, &masses),
             k: solved.solution.k,
+            boron: *ppm,
+            solves: *solves,
             assembly_burnups: burnup_rows
                 .iter()
                 .zip(&heavy_metal)
@@ -282,10 +337,16 @@ pub fn deplete(
 
     let mut burnups = vec![0.0; sites];
     let mut efpd = 0.0;
-    let (mut solved, mut rates) = solve(&burnups)?;
-    let mut points = vec![record(efpd, &burnups, &solved, &rates)];
+    let mut solve_at_point = solve(&burnups, &|| "the point at 0 EFPD".into())?;
+    let mut points = vec![record(efpd, &burnups, &solve_at_point)];
     on_point(&points[0]);
-    tracing::info!(efpd, k = solved.solution.k, "depletion point");
+    tracing::info!(
+        efpd,
+        k = points[0].k,
+        boron = points[0].boron,
+        solves = points[0].solves,
+        "depletion point"
+    );
     for step in &depletion.steps {
         let _span = tracing::info_span!("depletion step", efpd = step.efpd).entered();
         // 炉心の平均の燃焼度の増分 (MWd/kg。W/g × d = 1e-3 MWd/kg)。ステップの EFPD の差を足し合わせず、終わりの累積の EFPD の
@@ -293,20 +354,42 @@ pub fn deplete(
         // その点を越えて止まる）
         let target = depletion.specific_power * step.efpd * 1.0e-3;
         let increment = target - weighted(&burnups, &masses);
-        burnups = midpoint(&burnups, &masses, increment, &rates, |b| {
-            solve(b).map(|(_, r)| r)
-        })?;
+        burnups = midpoint(&burnups, &masses, increment, &solve_at_point.rates, |b| {
+            let middle = solve(b, &|| {
+                format!("the midpoint of the step to {} EFPD", step.efpd)
+            })?;
+            tracing::info!(
+                k = middle.solved.solution.k,
+                boron = middle.ppm,
+                solves = middle.solves,
+                "depletion midpoint"
+            );
+            Ok(middle.rates)
+        })
+        // 中点の解のエラーは場所を持つ。燃焼度の増分（`advance`）のエラーに、ステップを添える
+        .map_err(|e| locate(e, &|| format!("the step to {} EFPD", step.efpd)))?;
         efpd = step.efpd;
-        (solved, rates) = solve(&burnups)?;
-        let point = record(efpd, &burnups, &solved, &rates);
+        solve_at_point = solve(&burnups, &|| format!("the point at {efpd} EFPD"))?;
+        let point = record(efpd, &burnups, &solve_at_point);
         on_point(&point);
+        tracing::info!(
+            efpd,
+            k = point.k,
+            boron = point.boron,
+            solves = point.solves,
+            "depletion point"
+        );
         points.push(point);
-        tracing::info!(efpd, k = solved.solution.k, "depletion point");
     }
+    let (boron, search) = match state.boron {
+        Boron::Given(ppm) => (Some(ppm), None),
+        Boron::Search(search) => (None, Some(search)),
+    };
     Ok(CoreHistory {
         specific_power: depletion.specific_power,
         state: CoreState {
-            boron: ppm,
+            boron,
+            search,
             b10: state.b10,
             moderator: state.moderator,
             fuel: state.fuel,

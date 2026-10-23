@@ -821,12 +821,56 @@ def burnup_interpolation_points(sources: list[dict]) -> str:
     )
 
 
+def signed_exponent(x: float) -> str:
+    """符号つきの指数表記の 2 桁（`signed` と同じく、負の符号は U+2212、0 は符号なし。指数の符号は ASCII のまま）"""
+    if x == 0:
+        return "0.0e+00"
+    mantissa, exponent = f"{x:+.1e}".split("e")
+    return f"{mantissa.replace('-', '−')}e{exponent}"
+
+
+def core_depletion_boron(sources: list[dict]) -> str:
+    """core の燃焼（集合体 1 体）で点ごとに探した臨界ホウ素（ADR-0191）と、同じ燃焼度の一様な状態の探索（ADR-0145）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-boron":
+        raise TableError("not an xlc-compare-core-boron summary")
+    rows = [
+        [
+            burnup_label(p["burnup"]),
+            f"{p['efpd']:.2f}",
+            f"{p['boron']:.4f}",
+            str(p["solves"]),
+            f"{p['k']:.8f}",
+            signed_exponent(p["k_minus_target"]),
+            f"{p['uniform_boron']:.4f}",
+            str(p["uniform_solves"]),
+            signed(p["boron_rounded_difference"], 4),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "EFPD",
+            "ホウ素 (ppm)",
+            "回数",
+            "k",
+            "k − 目標",
+            "一様な状態のホウ素 (ppm)",
+            "一様な状態の回数",
+            "差 (ppm)",
+        ],
+        rows,
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
+    "examples/depletion/branches/compare-core-2A-boron.json",
 }
 
 
@@ -999,6 +1043,10 @@ TABLES = {
     "depletion-burnup-interpolation-points": (
         ["examples/depletion/branches/compare-burnup-interpolation.json"],
         burnup_interpolation_points,
+    ),
+    "depletion-2a-core-boron": (
+        ["examples/depletion/branches/compare-core-2A-boron.json"],
+        core_depletion_boron,
     ),
     "depletion-assembly-times": (
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],

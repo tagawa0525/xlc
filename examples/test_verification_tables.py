@@ -941,5 +941,90 @@ class DrawBurnupInterpolation(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawCoreBoron(unittest.TestCase):
+    def summary(self) -> dict:
+        """compare_core_boron.py の要約（燃焼点 2 つ）"""
+        return {
+            "format": "xlc-compare-core-boron",
+            "search": {
+                "boron": [0.0, 1300.0],
+                "k": 1.19,
+                "tolerance": 1e-6,
+                "max_solves": 20,
+            },
+            "points": [
+                {
+                    "efpd": 0.0,
+                    "burnup": 0.0,
+                    "boron": 1234.567891,
+                    "solves": 4,
+                    "k": 1.1900004,
+                    "k_minus_target": 4.0e-7,
+                    "uniform_state": "p0",
+                    "uniform_boron": 1234.5679,
+                    "uniform_solves": 4,
+                    "uniform_k": 1.1900004,
+                    "boron_rounded_difference": 0.0,
+                },
+                {
+                    "efpd": 2.603488674824265,
+                    "burnup": 0.10000000000000002,
+                    "boron": 851.2345,
+                    "solves": 5,
+                    "k": 1.1899998,
+                    "k_minus_target": -2.0e-7,
+                    "uniform_state": "p1",
+                    "uniform_boron": 851.2346,
+                    "uniform_solves": 5,
+                    "uniform_k": 1.1899998,
+                    "boron_rounded_difference": -0.0001,
+                },
+            ],
+        }
+
+    def test_rows_have_the_boron_and_the_uniform_search(self):
+        table = vt.core_depletion_boron([self.summary()])
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+        self.assertEqual(
+            rows,
+            [
+                [
+                    "0",
+                    "0.00",
+                    "1234.5679",
+                    "4",
+                    "1.19000040",
+                    "+4.0e-07",
+                    "1234.5679",
+                    "4",
+                    "0.0000",
+                ],
+                [
+                    "0.1",
+                    "2.60",
+                    "851.2345",
+                    "5",
+                    "1.18999980",
+                    "−2.0e-07",
+                    "851.2346",
+                    "5",
+                    "−0.0001",
+                ],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_depletion_boron([{"format": "xlc-compare-core-depletion"}])
+
+    def test_the_2a_boron_comparison_is_a_git_tracked_json(self):
+        (sources, draw) = vt.TABLES["depletion-2a-core-boron"]
+        self.assertIs(draw, vt.core_depletion_boron)
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 if __name__ == "__main__":
     unittest.main()
