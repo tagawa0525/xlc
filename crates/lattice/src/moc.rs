@@ -407,6 +407,7 @@ fn solve_with(
         // 線源を Σt で割ったもの（角度中性子束の平衡値）の [モーメント][群] の展開係数
         let equilibrium: Vec<Vec<f64>> = tracing::trace_span!("equilibrium").in_scope(|| {
             (0..states)
+                .into_par_iter()
                 .map(|i| equilibrium_moments(material(i), &flux[i], &higher[i], k, &pairs))
                 .collect()
         });
@@ -433,9 +434,11 @@ fn solve_with(
             region_current,
         } = sums;
 
-        // スイープの和から、代表ごとの中性子束、高次のモーメント、中性子流を求め、生成率 1 に規格化する
+        // スイープの和から、代表ごとの中性子束、高次のモーメント、中性子流を求め、生成率 1 に規格化する。代表ごとの値は
+        // ほかの代表によらないので、代表ごとに並列に求める（どの値も同じ式なので、結果は分け方によらない）
         let update = tracing::trace_span!("update").entered();
         let mut new_flux: Vec<Vec<f64>> = (0..states)
+            .into_par_iter()
             .map(|i| {
                 // 真空では、通り抜ける角度中性子束の経路長の積分から求める
                 if let Some(v) = sweeper.void[kept[i]] {
@@ -453,6 +456,7 @@ fn solve_with(
             .collect();
         // 高次のモーメント: φ_k = 4π e_k / (2l + 1) + Σ w Y_k Δψ / (Σt V)（真空では散乱しないので使わない）
         let mut new_higher: Vec<Vec<f64>> = (0..states)
+            .into_par_iter()
             .map(|i| {
                 let total = &material(i).total;
                 let mut values = vec![0.0; (pairs.len() - 1) * ng];
@@ -475,6 +479,7 @@ fn solve_with(
         let moment_of = |pair: (usize, isize)| pairs.iter().position(|&q| q == pair);
         let (x_moment, y_moment) = (moment_of((1, 1)), moment_of((1, -1)));
         let mut new_currents: Vec<Vec<f64>> = (0..states)
+            .into_par_iter()
             .map(|i| {
                 if let Some(v) = sweeper.void[kept[i]] {
                     return void_current[v * 2 * ng..][..2 * ng]
@@ -498,22 +503,21 @@ fn solve_with(
                 }
             })
             .collect();
-        // べき乗法: 生成率の比で k を更新し、中性子束と境界の値を生成率 1 に規格化する
+        // べき乗法: 生成率の比で k を更新し、中性子束と境界の値を生成率 1 に規格化する。生成率の和は代表の順に
+        // 足す（並列に足すと、足す順が分け方で変わる）
         let rate = production(&new_flux);
         let mut new_k = k * rate;
-        for f in new_flux.iter_mut().chain(&mut new_higher).flatten() {
-            *f /= rate;
-        }
-        for c in new_currents.iter_mut().flatten() {
-            *c /= rate;
-        }
+        new_flux
+            .par_iter_mut()
+            .chain(new_higher.par_iter_mut())
+            .chain(new_currents.par_iter_mut())
+            .for_each(|values| values.iter_mut().for_each(|v| *v /= rate));
         for l in leak.iter_mut().chain(&mut current) {
             *l /= rate;
         }
-
-        for b in &mut outgoing {
-            *b /= rate;
-        }
+        outgoing
+            .par_chunks_mut(sweeper.width)
+            .for_each(|values| values.iter_mut().for_each(|b| *b /= rate));
         drop(update);
         // CMFD: 粗メッシュの固有値問題の解で、k と、セルごと・群ごとの中性子束の比を更新する。
         // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
@@ -544,22 +548,22 @@ fn solve_with(
             new_k = coarse_k;
             let _scale = tracing::trace_span!("scale").entered();
             // 高次のモーメントも同じ比で（角度分布の形は変えない）
-            for (i, ((f, h), c)) in new_flux
-                .iter_mut()
-                .zip(&mut new_higher)
-                .zip(&mut new_currents)
+            new_flux
+                .par_iter_mut()
+                .zip(new_higher.par_iter_mut())
+                .zip(new_currents.par_iter_mut())
                 .enumerate()
-            {
-                let cell = cells.index[mesh.cell(kept[i])];
-                for (j, value) in f
-                    .iter_mut()
-                    .chain(h.iter_mut())
-                    .chain(c.iter_mut())
-                    .enumerate()
-                {
-                    *value *= ratio[cell * ng + j % ng];
-                }
-            }
+                .for_each(|(i, ((f, h), c))| {
+                    let cell = cells.index[mesh.cell(kept[i])];
+                    for (j, value) in f
+                        .iter_mut()
+                        .chain(h.iter_mut())
+                        .chain(c.iter_mut())
+                        .enumerate()
+                    {
+                        *value *= ratio[cell * ng + j % ng];
+                    }
+                });
             // トラックの端の角度中性子束も、端のあるセルの比で更新する（領域の中性子束だけを
             // 更新すると、次のスイープで入ってくる流れと食い違う）
             sweeper.scale_outgoing(&mut outgoing, |cell, g| ratio[cells.index[cell] * ng + g]);
@@ -951,18 +955,21 @@ impl<'a> Sweeper<'a> {
     /// 出ていく角度中性子束に、トラックの出口の粗メッシュのセルと群ごとの係数 `factor` を掛ける。出口が外周の 2 つの
     /// 面の境にあれば、出ていく経路と同じく両側のセルの係数を 1/2 ずつ平均する（片側のセルの係数だけを掛けると、
     /// 両側の面に半分ずつ数えた流れと食い違う）
-    fn scale_outgoing(&self, outgoing: &mut [f64], factor: impl Fn(usize, usize) -> f64) {
-        for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
-            let track = self.representatives.tracks[j / 2];
-            let cells = self.mesh.end_cells(track, j % 2 == 0);
-            for (i, o) in out.iter_mut().enumerate() {
-                let g = i % self.ng;
-                *o *= cells
-                    .iter()
-                    .map(|&(cell, w)| w * factor(cell, g))
-                    .sum::<f64>();
-            }
-        }
+    fn scale_outgoing(&self, outgoing: &mut [f64], factor: impl Fn(usize, usize) -> f64 + Sync) {
+        outgoing
+            .par_chunks_mut(self.width)
+            .enumerate()
+            .for_each(|(j, out)| {
+                let track = self.representatives.tracks[j / 2];
+                let cells = self.mesh.end_cells(track, j % 2 == 0);
+                for (i, o) in out.iter_mut().enumerate() {
+                    let g = i % self.ng;
+                    *o *= cells
+                        .iter()
+                        .map(|&(cell, w)| w * factor(cell, g))
+                        .sum::<f64>();
+                }
+            });
     }
 
     /// 代表のトラックの組ごとの部分和の入れ物。組ごとに順にスイープし、組の順に足すので、結果は
@@ -1454,13 +1461,18 @@ fn inexact_cmfd(cmfd: &CmfdOptions, moc: &Options, k_change: f64, flux_change: f
     }
 }
 
-/// 領域と群のうちで最も大きい中性子束の相対変化
+/// 領域と群のうちで最も大きい中性子束の相対変化。領域ごとに並列に求める（最大は足す順によらず、NaN はどの順でも
+/// `f64::max` が捨てるので、結果は分け方によらない）
 fn largest_change(new: &[Vec<f64>], old: &[Vec<f64>]) -> f64 {
-    new.iter()
-        .flatten()
-        .zip(old.iter().flatten())
-        .map(|(new, old)| relative_change(*new, *old))
-        .fold(0.0, f64::max)
+    new.par_iter()
+        .zip(old)
+        .map(|(new, old)| {
+            new.iter()
+                .zip(old)
+                .map(|(new, old)| relative_change(*new, *old))
+                .fold(0.0, f64::max)
+        })
+        .reduce(|| 0.0, f64::max)
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
