@@ -1115,13 +1115,13 @@ fn step_start_shielding_skips_the_midpoint_transports() {
     }
 }
 
-/// PIN の格子を、入力の物質のまま自己遮蔽した結果と、燃料の燃焼の領域と、入力の燃料の物質
+/// PIN の格子を、入力の物質のまま自己遮蔽した結果と、燃料の燃焼の領域と、入力の物質（燃料と水）
 fn shielded_pin() -> (
     Library,
     Lattice,
     FuelShielding,
     Vec<DepletionRegion>,
-    MaterialInput,
+    Vec<MaterialInput>,
 ) {
     let library = library();
     let input = LatticeInput::parse(PIN).unwrap();
@@ -1144,29 +1144,40 @@ fn shielded_pin() -> (
         &input.shielding_options(),
     )
     .unwrap();
-    let fuel = input
-        .materials
-        .iter()
-        .find(|m| m.name == "fuel")
-        .unwrap()
-        .clone();
-    (library, lattice, shielded, regions, fuel)
+    (library, lattice, shielded, regions, input.materials)
+}
+
+/// `shielded` の燃料の燃焼の領域の物質を、入力の物質 `materials` の燃料の組成で作り直したもの
+fn remixed_pin(
+    library: &Library,
+    lattice: &Lattice,
+    shielded: &FuelShielding,
+    regions: &[DepletionRegion],
+    materials: &[MaterialInput],
+) -> anyhow::Result<FuelShielding> {
+    let fuel = materials.iter().position(|m| m.name == "fuel").unwrap();
+    let mut remixed = shielded.clone();
+    for (m, material) in remix_depleted(library, shielded, lattice, regions, materials, &[fuel])? {
+        remixed.materials[m] = material;
+    }
+    Ok(remixed)
 }
 
 #[test]
 fn remixing_the_shielded_composition_reproduces_the_shielded_materials() {
-    let (library, lattice, shielded, regions, fuel) = shielded_pin();
-    let remixed = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap();
+    let (library, lattice, shielded, regions, materials) = shielded_pin();
+    let remixed = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap();
     assert_eq!(remixed, shielded);
 }
 
 #[test]
 fn remixed_materials_take_the_new_densities_and_keep_the_microscopic_cross_sections() {
-    let (library, lattice, shielded, regions, mut fuel) = shielded_pin();
+    let (library, lattice, shielded, regions, mut materials) = shielded_pin();
+    let fuel = materials.iter_mut().find(|m| m.name == "fuel").unwrap();
     for (_, density) in &mut fuel.composition {
         *density *= 2.0;
     }
-    let remixed = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap();
+    let remixed = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap();
     for r in 0..lattice.regions() {
         let before = &shielded.materials[shielded.region_material[r]];
         let after = &remixed.materials[remixed.region_material[r]];
@@ -1186,9 +1197,10 @@ fn remixed_materials_take_the_new_densities_and_keep_the_microscopic_cross_secti
 
 #[test]
 fn remixing_needs_the_shielded_nuclides_of_each_region() {
-    let (library, lattice, shielded, regions, mut fuel) = shielded_pin();
+    let (library, lattice, shielded, regions, mut materials) = shielded_pin();
+    let fuel = materials.iter_mut().find(|m| m.name == "fuel").unwrap();
     fuel.composition.push(("Xe-135".into(), 1e-9));
-    let error = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap_err();
+    let error = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap_err();
     assert!(format!("{error:#}").contains("nuclides"), "{error:#}");
 }
 
