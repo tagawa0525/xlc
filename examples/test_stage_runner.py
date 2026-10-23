@@ -543,10 +543,15 @@ class CommitTest(unittest.TestCase):
                 raise sr.RunnerError("commit failed")
             with self.lock.open("a") as f:
                 for n in names:
+                    out_md5 = f"{n:f>32}"
                     f.write(f"  {n}:\n    cmd: {cmd.format(n)}\n")
                     f.write(f"    deps:\n    - path: {dep}\n      hash: md5\n")
                     f.write(f"      md5: {'0' * 32}\n")
-                    (self.run_cache / "aa" / f"new-{n}").write_text(n)
+                    f.write(f"    outs:\n    - path: {n}.out\n      hash: md5\n")
+                    f.write(f"      md5: {out_md5}\n")
+                    (self.run_cache / "aa" / f"new-{n}").write_text(f"md5: {out_md5}\n")
+            # 同じ間にほかの worktree が足した run-cache の項目
+            (self.run_cache / "aa" / "other").write_text(f"md5: {'e' * 32}\n")
             if touch:
                 mtime = (self.root / "p" / "in.txt").stat().st_mtime_ns + 10**9
                 os.utime(self.root / "p" / "in.txt", ns=(mtime, mtime))
@@ -580,9 +585,11 @@ class CommitTest(unittest.TestCase):
         with self.assertRaises(sr.RunnerError):
             self.commit(["a"], self.fake_commit(touch=True))
         self.assertEqual(self.lock.read_text(), before)
-        # dvc commit が足した run-cache の項目も消す（新しい deps を古い出力に結ぶので）。前からあるものは残す
+        # dvc commit が足した run-cache の項目（commit した出力の md5 を持つもの）も消す。前からあるものと、ほかの
+        # worktree が同じ間に足したものは残す
         self.assertEqual(
-            sorted(p.name for p in self.run_cache.rglob("*") if p.is_file()), ["old"]
+            sorted(p.name for p in self.run_cache.rglob("*") if p.is_file()),
+            ["old", "other"],
         )
 
     def test_command_changed_since_the_run_restores_the_lock(self):
@@ -597,6 +604,26 @@ class CommitTest(unittest.TestCase):
         with self.assertRaises(sr.RunnerError):
             self.commit(["a"], self.fake_commit(dep="other.txt"))
         self.assertEqual(self.lock.read_text(), before)
+
+    def test_commit_cut_by_a_held_sigterm_is_not_retried_stage_by_stage(self):
+        # SIGTERM を保留している間に batch の commit が落ちたら、1 つずつ commit し直さずに止まる（止める途中で dvc を
+        # 増やさない）
+        calls = []
+
+        def commit(names):
+            calls.append(names)
+            raise sr.RunnerError("commit failed")
+
+        previous = signal.signal(signal.SIGTERM, lambda *args: None)
+        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+        try:
+            os.kill(os.getpid(), signal.SIGTERM)
+            with self.assertRaises(sr.RunnerError):
+                self.commit(["a", "b"], commit)
+        finally:
+            signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGTERM})
+            signal.signal(signal.SIGTERM, previous)
+        self.assertEqual(calls, [["a", "b"]])
 
     def test_single_stage_is_not_committed_twice(self):
         calls = []
