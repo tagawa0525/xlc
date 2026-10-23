@@ -1121,17 +1121,31 @@ fn each_finished_step_saves_the_points_so_far_and_the_next_composition() {
 
 #[test]
 fn a_run_resumed_from_a_checkpoint_matches_the_straight_run_bit_for_bit() {
-    let text = format!("{PIN}few-group = {{ bounds = [1e7, 0.625, 1e-5] }}\n");
+    assert_resumes_bit_for_bit(
+        "every",
+        &format!("{PIN}few-group = {{ bounds = [1e7, 0.625, 1e-5] }}\n"),
+    );
+}
+
+#[test]
+fn a_run_shielded_at_step_starts_resumes_bit_for_bit() {
+    // 中点の輸送は始まりの自己遮蔽を使う（ADR-0197）。チェックポイントはステップの終わりに書くので、再開は次の始まりの輸送で
+    // 自己遮蔽を解き直し、一気に流したものと同じ回数（`shieldings`）になる
+    assert_resumes_bit_for_bit("step-start", &format!("{PIN}shielding = \"step-start\"\n"));
+}
+
+/// 入力 `text` の燃焼を 1〜3 回目の書き込みの後で止め、チェックポイントのファイルから再開した履歴が、時間の内訳を除いて一気に
+/// 流したものとバイトで一致すること（`name` はチェックポイントのファイルを分ける）
+fn assert_resumes_bit_for_bit(name: &str, text: &str) {
     let library = library();
-    let straight = deplete_from(
-        &text,
-        &library,
-        &Options::default(),
-        None,
-        &mut |_, _, _| Ok(()),
-    )
+    let straight = deplete_from(text, &library, &Options::default(), None, &mut |_, _, _| {
+        Ok(())
+    })
     .unwrap();
-    let dir = std::env::temp_dir().join(format!("xlc-depletion-resume-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!(
+        "xlc-depletion-resume-{name}-{}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
     for stop in [1, 2, 3] {
         // `stop` 回目の書き込みの後で止めた（scancel した）実行
@@ -1139,7 +1153,7 @@ fn a_run_resumed_from_a_checkpoint_matches_the_straight_run_bit_for_bit() {
             Checkpoint::new(dir.join(format!("stop-{stop}.checkpoint")), "same".into());
         let mut written = 0;
         let error = deplete_from(
-            &text,
+            text,
             &library,
             &Options::default(),
             None,
@@ -1157,7 +1171,7 @@ fn a_run_resumed_from_a_checkpoint_matches_the_straight_run_bit_for_bit() {
         let resumed = checkpoint.depletion().unwrap().unwrap();
         assert_eq!(resumed.history.points.len(), stop);
         let history = deplete_from(
-            &text,
+            text,
             &library,
             &Options::default(),
             Some(resumed),
