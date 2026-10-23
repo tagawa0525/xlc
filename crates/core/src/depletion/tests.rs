@@ -5,7 +5,7 @@ use xlc_format::table::{Axis, Table};
 
 use super::*;
 use crate::case::solve_at;
-use crate::input::{Case, Cycle, Inventory, Layout, Plant};
+use crate::input::{BoronSearch, Case, CaseState, Cycle, Inventory, Layout, Plant};
 use crate::nem::Options;
 
 const PLANT: &str = r#"
@@ -73,9 +73,12 @@ const BURNUP: [f64; 3] = [0.0, 10.0, 20.0];
 const PPM: [f64; 2] = [1000.0, 1500.0];
 const TEMPERATURE: [f64; 2] = [560.0, 570.0];
 
-/// 2 群の定数。核分裂は燃焼度で減り（`fissile` × (1 − 0.02 B)）、熱群の吸収はホウ素濃度で変わる
-fn few(fissile: f64, burnup: f64, ppm: f64) -> FewGroup {
-    let absorption = vec![0.01, 0.06 + 4.0e-5 * (ppm - 1000.0)];
+/// 熱群の吸収のホウ素濃度の係数 (1/cm/ppm)
+const WORTH: f64 = 4.0e-5;
+
+/// 2 群の定数。核分裂は燃焼度で減り（`fissile` × (1 − 0.02 B)）、熱群の吸収はホウ素濃度で変わる（`worth` × (ppm − 1000)）
+fn few(fissile: f64, burnup: f64, ppm: f64, worth: f64) -> FewGroup {
+    let absorption = vec![0.01, 0.06 + worth * (ppm - 1000.0)];
     let removal = 0.02;
     let strength = fissile * (1.0 - 0.02 * burnup);
     let nu_fission = vec![0.005 * strength, 0.1 * strength];
@@ -99,12 +102,17 @@ fn few(fissile: f64, burnup: f64, ppm: f64) -> FewGroup {
 
 /// 燃焼度の軸を持つテーブル（燃焼度、ホウ素、減速材、燃料の順）
 fn table(fissile: f64, heavy_metal: Option<f64>) -> Table {
+    table_with_worth(fissile, heavy_metal, WORTH)
+}
+
+/// `table` の、熱群の吸収のホウ素濃度の係数を `worth` にしたもの
+fn table_with_worth(fissile: f64, heavy_metal: Option<f64>, worth: f64) -> Table {
     let mut states = Vec::new();
     for burnup in BURNUP {
         for ppm in PPM {
             for _ in TEMPERATURE {
                 for _ in TEMPERATURE {
-                    states.push(few(fissile, burnup, ppm));
+                    states.push(few(fissile, burnup, ppm, worth));
                 }
             }
         }
@@ -224,7 +232,8 @@ fn uniform_cores_burn_at_the_specific_power() {
     assert_eq!(
         history.state,
         CoreState {
-            boron: 1200.0,
+            boron: Some(1200.0),
+            search: None,
             b10: 0.199,
             moderator: 565.0,
             fuel: 565.0,
@@ -240,6 +249,8 @@ fn uniform_cores_burn_at_the_specific_power() {
         // 燃焼度 = 出力密度 (W/g) × EFPD / 1000。ノードの値は出力の割合の反復の誤差（判定 1e-12）の分だけずれうる
         let want = 40.0 * e / 1000.0;
         assert_eq!(point.efpd, e);
+        // 与えたホウ素濃度で 1 回ずつ解く
+        assert_eq!((point.boron, point.solves), (1200.0, 1));
         assert!(
             (point.burnup - want).abs() <= 1e-12 * want.max(1.0),
             "{point:?}"
@@ -520,4 +531,207 @@ fn points_are_reported_as_they_are_solved() {
     )
     .unwrap();
     assert_eq!(points, history.points);
+}
+
+/// 状態のホウ素を探索にしたケース（目標の k = 1、範囲はテーブルのホウ素の軸の両端）
+fn searching(case: &str, tolerance: f64) -> String {
+    case.replace(
+        "boron = 1200\n",
+        &format!(
+            "search = {{ boron = [1000.0, 1500.0], k = 1.0, tolerance = {tolerance:e}, max-solves = 30 }}\n"
+        ),
+    )
+}
+
+/// 集合体 1 体（設計 A）、ノード 1 つの炉心
+fn single(case: &str) -> (Layout, Vec<Table>, Case) {
+    let base = Path::new("dir");
+    let case = case.replace("axial-mesh = [0.0, 10.0, 20.0]", "axial-mesh = [0.0, 20.0]");
+    let case = Case::parse(&case, base).unwrap();
+    let cycle = Cycle::parse(
+        "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\nloading = [\"A1\"]\n",
+        base,
+    )
+    .unwrap();
+    let plant = Plant::parse("pitch = 20.0\nheight = 20.0\nmap = [\"*\"]\n", base).unwrap();
+    let inventory = Inventory::parse(INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    (layout, vec![table(1.0, Some(400.0))], case)
+}
+
+#[test]
+fn searched_points_are_critical_and_record_their_boron() {
+    // 40 W/g で 2、5 MWd/kg。k はホウ素濃度でも燃焼度でも下がるので、求めるホウ素は燃焼で下がる
+    let case = searching(CASE, 1.0e-9).replace(
+        "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+        "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+    );
+    let history = run(&case, MIXED).unwrap();
+    // 履歴の状態は探索の設定を持ち、与えた濃度を持たない
+    assert_eq!(history.state.boron, None);
+    assert_eq!(
+        history.state.search,
+        Some(BoronSearch {
+            bracket: [1000.0, 1500.0],
+            k: 1.0,
+            tolerance: 1.0e-9,
+            max_solves: 30,
+        })
+    );
+    assert_eq!(history.points.len(), 3);
+    for point in &history.points {
+        assert!((point.k - 1.0).abs() <= 1.0e-9, "{point:?}");
+        assert!((1000.0..=1500.0).contains(&point.boron), "{point:?}");
+        // 両端と、間の少なくとも 1 点
+        assert!((3..=30).contains(&point.solves), "{point:?}");
+    }
+    assert!(
+        history.points.windows(2).all(|w| w[1].boron < w[0].boron),
+        "{:?}",
+        history.points
+    );
+    // 燃焼度の進め方は ADR-0190 のまま（エネルギーの保存）
+    let last = history.points.last().unwrap();
+    assert!((last.burnup - 40.0 * 125.0 / 1000.0).abs() <= 1e-12 * last.burnup);
+}
+
+#[test]
+fn searched_points_match_the_state_search_at_the_same_uniform_burnup() {
+    // 集合体 1 体では燃焼度が一様なので、点の探索は、その燃焼度を状態に与えた探索（ADR-0145）と同じ計算になる
+    let case = searching(CASE, 1.0e-9).replace(
+        "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+        "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+    );
+    let (layout, tables, case) = single(&case);
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    for point in &history.points {
+        let state = CaseState {
+            burnup: Some(point.burnup),
+            ..case.states[0].clone()
+        };
+        let solved = crate::case::solve_state(&layout, &tables, &state, &tight()).unwrap();
+        let searched = solved.searched.unwrap();
+        assert_eq!(
+            (point.boron, point.solves, point.k),
+            (searched.ppm, searched.solves, solved.solution.k)
+        );
+    }
+}
+
+#[test]
+fn searched_midpoints_keep_second_order() {
+    // B のホウ素の係数を A の 4 倍にして、出力の割合がホウ素濃度で動く炉心。中点でも臨界にすれば、ステップを半分にした
+    // 燃焼度の差の比は 2 次の 4 に近い（中点を初めの点のホウ素で解くと、ホウ素を通した部分が 1 次になる）
+    let burn = |steps: usize| {
+        let efpd: Vec<String> = (1..=steps)
+            .map(|i| format!("{{ efpd = {:?} }}", 150.0 * i as f64 / steps as f64))
+            .collect();
+        let case = searching(CASE, 1.0e-12).replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            &format!("[{}]", efpd.join(", ")),
+        );
+        let (layout, mut tables, case) = core(&case, MIXED, Some(400.0));
+        for (file, table) in layout.files.iter().zip(&mut tables) {
+            if file.ends_with("b.msgpack") {
+                *table = table_with_worth(0.8, Some(380.0), 4.0 * WORTH);
+            }
+        }
+        let history = deplete(
+            &layout,
+            &tables,
+            &case.states[0],
+            case.depletion.as_ref().unwrap(),
+            &tight(),
+            |_| {},
+        )
+        .unwrap();
+        history.points.last().unwrap().assembly_burnups[0]
+    };
+    let (b2, b4, b8) = (burn(2), burn(4), burn(8));
+    let ratio = (b2 - b4) / (b4 - b8);
+    assert!((3.5..4.5).contains(&ratio), "{ratio} ({b2}, {b4}, {b8})");
+}
+
+#[test]
+fn searches_that_do_not_bracket_stop_at_the_step() {
+    // 10 MWd/kg のステップ（125 → 250 EFPD）の中点 7.5 MWd/kg で、1000 ppm でも k < 1。ステップと中点を示して止まり、それまでの
+    // 点は渡してある
+    let case = searching(CASE, 1.0e-9);
+    let (layout, tables, case) = core(&case, MIXED, Some(400.0));
+    let mut seen = Vec::new();
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &tight(),
+        |p| seen.push(p.efpd),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        error.contains("250") && error.contains("midpoint") && error.contains("bracket"),
+        "{error}"
+    );
+    assert_eq!(seen, [0.0, 50.0, 125.0]);
+}
+
+#[test]
+fn search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving() {
+    // 固有値の反復の判定（既定の 1e-8）以下の許容は区別できない（ADR-0145）。解く前に止まる
+    let case = searching(CASE, 1.0e-9);
+    let (layout, tables, case) = core(&case, MIXED, Some(400.0));
+    let mut points = 0;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &Options::default(),
+        |_| points += 1,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("tolerance"), "{error}");
+    assert_eq!(points, 0);
+}
+
+#[test]
+fn history_states_hold_either_the_boron_or_the_search() {
+    let given = run(CASE, MIXED).unwrap();
+    let searched = run(
+        &searching(CASE, 1.0e-9).replace(", { efpd = 250.0 }", ""),
+        MIXED,
+    )
+    .unwrap();
+    for history in [&given, &searched] {
+        let bytes = history.to_msgpack().unwrap();
+        assert_eq!(&CoreHistory::from_msgpack(&bytes).unwrap(), history);
+    }
+    // 両方を持つ状態、どちらもない状態は読めない
+    let both = CoreHistory {
+        state: CoreState {
+            boron: Some(1200.0),
+            ..searched.state.clone()
+        },
+        ..searched.clone()
+    };
+    assert!(CoreHistory::from_msgpack(&both.to_msgpack().unwrap()).is_err());
+    let neither = CoreHistory {
+        state: CoreState {
+            boron: None,
+            search: None,
+            ..given.state.clone()
+        },
+        ..given
+    };
+    assert!(CoreHistory::from_msgpack(&neither.to_msgpack().unwrap()).is_err());
 }

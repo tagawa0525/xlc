@@ -1346,6 +1346,25 @@ fn depletion_reads_the_specific_power_steps_and_history() {
 }
 
 #[test]
+fn depletion_states_may_search_the_boron() {
+    // ステップの各解で臨界ホウ素を探す（ADR-0191）。探索の検査は燃焼でない状態と同じ（ADR-0145）
+    let search = "search = { boron = [0.0, 1300.0], k = 1.0, tolerance = 1e-5, max-solves = 10 }\n";
+    let c = Case::parse(&edited(&depleting(), "boron = 1300\n", search), base()).unwrap();
+    assert_eq!(
+        c.states[0].boron,
+        Boron::Search(BoronSearch {
+            bracket: [0.0, 1300.0],
+            k: 1.0,
+            tolerance: 1e-5,
+            max_solves: 10,
+        })
+    );
+    assert!(c.depletion.is_some());
+    let bad = search.replace("max-solves = 10", "max-solves = 2");
+    assert!(Case::parse(&edited(&depleting(), "boron = 1300\n", &bad), base()).is_err());
+}
+
+#[test]
 fn invalid_depletions_are_errors() {
     let bad = |from: &str, to: &str| Case::parse(&edited(&depleting(), from, to), base()).is_err();
     // 定格の出力密度は正
@@ -1366,7 +1385,7 @@ fn invalid_depletions_are_errors() {
     // 効かない項目（出力の割合など）は、足すまで受けない
     assert!(bad("{ efpd = 9.0 }", "{ efpd = 9.0, power = 0.657 }"));
     assert!(bad("history = ", "missing = "));
-    // 状態はちょうど 1 つで、燃焼度は与えず、ホウ素は探さない（ADR-0190）
+    // 状態はちょうど 1 つで、燃焼度は与えない（ADR-0190）
     assert!(bad("[depletion]", &format!("{STATES}[depletion]")));
     assert!(bad(
         "[depletion]",
@@ -1375,10 +1394,6 @@ fn invalid_depletions_are_errors() {
     assert!(bad(
         "fuel = 565\n\n[depletion]",
         "fuel = 565\nburnup = 0.0\n\n[depletion]"
-    ));
-    assert!(bad(
-        "boron = 1300\n",
-        "search = { boron = [1000.0, 1500.0], k = 1.0, tolerance = 1e-5, max-solves = 10 }\n"
     ));
     let no_states = format!(
         "{CASE}[depletion]\nspecific-power = 38.41\nsteps = [{{ efpd = 1.0 }}]\nhistory = \"h.msgpack\"\n"
