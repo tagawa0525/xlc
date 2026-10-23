@@ -65,7 +65,9 @@ runner が cmd と deps を知る方法:
 - 案 D1（採用）: runner の始めに、見るべきパス（dvc.yaml、`dvc status` が挙げた deps、`dvc.lock` が記録した deps と params のファイル）の
   指紋（ファイルごとの大きさ、mtime、inode。ディレクトリは中のファイルすべて）を取る。`dvc commit` の直前に指紋を比べ、変わっていれば
   commit せずに止まる。commit の直後に、`dvc.lock` が記録したそのステージの deps がすべて見たパスに入り、指紋が変わっていないことを
-  確かめる（commit が hash を取った間も deps が始めのままだったことの確認）。成り立たなければ dvc.lock を commit の前に戻して止まる
+  確かめる（commit が hash を取った間も deps が始めのままだったことの確認）。dvc.lock の cmd が実行した cmd と同じことも確かめる（dvc.yaml の
+  vars のファイルは指紋で見ないので、cmd はこちらで見る）。成り立たなければ dvc.lock を commit の前に戻し、`dvc commit` が足した run-cache の
+  項目（DVC 3.67.1 の `Stage.save` が保存する。新しい deps を、それで作っていない出力に結ぶ）を消して止まる
 - 案 D2: commit の前後で md5 を計算して比べる。ステージごとに熱中性子散乱のディレクトリ（225 MB）などを読み直す。DVC 自身も、
   hash を計算し直すかを大きさ、mtime、inode で決めている（state）ので、指紋で足りる
 - 案 D3: 確かめない。runner の外で同じ worktree の deps を変えたとき（ビルドし直した、xs.toml を直した）、`dvc.lock` が実行していない deps を指す
@@ -112,7 +114,7 @@ python3 examples/stage_runner.py examples/<問題>/dvc.yaml xs-nuclide [--thread
   ステージの出力は残す）。xs が出力を書かずに
   0 で終わったとき、古い出力を新しい deps で commit しない（commit が出力の無さで失敗し、そのステージの失敗になる）
 - 記録のうち、今の組（`dvc stage list`）に無いステージの値は消す（記録の無いステージの見積もりに、消した核種の値を使わない）
-- 後始末で、SIGTERM の後 10 秒で終わらないステージはセッションごと SIGKILL する。commit、確認、dvc.lock の戻しの間は SIGTERM を保留する
+- 後始末で、SIGTERM の後 10 秒で終わらないステージはセッションごと SIGKILL する。commit、確認、dvc.lock の戻し、記録の書き込みの間は SIGTERM と SIGINT を保留する
 
 ADR-0159 の案 B（出力を変えないとみなした変更のあとに `dvc commit` で deps だけを取り込む）は、記録する deps で実行していない出力を
 lock が指すので退けた。runner は、今の deps（今の `bin/xs`、入力、ENDF）で、dvc.yaml の cmd と同じ計算（`--threads` だけが違い、出力は
