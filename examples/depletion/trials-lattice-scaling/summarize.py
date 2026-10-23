@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 
 CLOSE = re.compile(
-    r"Z\s+[A-Z]+\s+(.+?): xlc_\w+::[\w:]+: close time\.busy=([\d.]+)(ms|µs|ns|s)\b"
+    r"Z\s+[A-Z]+\s+(.+?): (?:xlc_\w+|lattice)(?:::[\w:]+)?: close time\.busy=([\d.]+)(ms|µs|ns|s)\b"
 )
 UNIT = {"s": 1.0, "ms": 1e-3, "µs": 1e-6, "ns": 1e-9}
 
