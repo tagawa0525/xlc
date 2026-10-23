@@ -201,6 +201,17 @@ class FingerprintTest(unittest.TestCase):
             finally:
                 (d / "dir" / "sub").chmod(0o755)
 
+    def test_sees_changes_under_a_symlinked_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "target").mkdir()
+            (d / "target" / "f").write_text("1")
+            (d / "dir").mkdir()
+            (d / "dir" / "link").symlink_to(d / "target")
+            before = sr.fingerprints(["dir"], d)
+            (d / "target" / "g").write_text("1")
+            self.assertEqual(sr.changed_paths(before, d), ["dir"])
+
 
 class PhysicalCoresTest(unittest.TestCase):
     def test_counts_cores_not_hardware_threads_within_the_affinity(self):
@@ -213,15 +224,17 @@ class PhysicalCoresTest(unittest.TestCase):
                 (topo / "physical_package_id").write_text(f"{cpu // 4}\n")
                 (topo / "core_id").write_text(f"{(cpu // 2) % 2}\n")
             (root / "cpufreq").mkdir()
-            self.assertEqual(sr.physical_cores(root, allowed=8), 4)
-            self.assertEqual(sr.physical_cores(root, allowed=3), 3)
+            self.assertEqual(sr.physical_cores(root, allowed=set(range(8))), 4)
+            # CPU 0 と 1 は同じコア、2 は別のコア
+            self.assertEqual(sr.physical_cores(root, allowed={0, 1, 2}), 2)
+            self.assertEqual(sr.physical_cores(root, allowed={0, 2, 4, 6}), 4)
 
 
 class RecordTest(unittest.TestCase):
     def test_rejects_times_that_are_not_non_negative_numbers(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "stage-cpu-seconds.json"
-            for bad in ["-1.5", "true", '"3"', "null"]:
+            for bad in ["-1.5", "true", '"3"', "null", "NaN", "Infinity"]:
                 path.write_text(f'{{"g@a": 2.0, "g@b": {bad}}}')
                 with self.assertRaises(sr.RunnerError, msg=bad):
                     sr.read_record(path)
@@ -384,6 +397,47 @@ class DvcTest(unittest.TestCase):
         runner.send_signal(signal.SIGTERM)
         self.assertNotEqual(runner.wait(timeout=10), 0)
         self.assertTrue((self.dir / "got-term").exists())
+
+
+class UpstreamTest(unittest.TestCase):
+    def test_runs_upstream_until_only_the_group_is_changed(self):
+        # build を実行すると xs-range が changed になる（dvc status は上流が出力を書き換えた後の下流を示さない）
+        statuses = [
+            {"dvc.yaml:build": [], f"{YAML}:g@a": []},
+            {f"{YAML}:range": [], f"{YAML}:g@a": []},
+            {f"{YAML}:g@a": [{"changed deps": {"bin/xs": "modified"}}]},
+        ]
+        repros = []
+        status = sr.settle_upstream(
+            lambda: statuses.pop(0), repros.append, YAML, "g", lambda m: None
+        )
+        self.assertEqual(repros, [["dvc.yaml:build"], [f"{YAML}:range"]])
+        self.assertEqual(list(status), [f"{YAML}:g@a"])
+
+    def test_upstream_that_stays_changed_is_an_error(self):
+        status = {"always": ["always changed"], f"{YAML}:g@a": []}
+        with self.assertRaises(sr.RunnerError):
+            sr.settle_upstream(
+                lambda: status, lambda keys: None, YAML, "g", lambda m: None
+            )
+
+
+class StagesToRunTest(unittest.TestCase):
+    def test_runs_stages_with_changed_deps_or_command(self):
+        group = {
+            f"{YAML}:g@a": [{"changed deps": {"bin/xs": "modified"}}],
+            f"{YAML}:g@b": ["changed command"],
+        }
+        self.assertEqual(sr.stages_to_run(group), [f"{YAML}:g@a", f"{YAML}:g@b"])
+
+    def test_stage_with_only_changed_outputs_is_an_error(self):
+        # deps は lock のままで出力だけが違う（戻していない、手で変えた）。runner は作り直さず止まる
+        group = {
+            f"{YAML}:g@a": [{"changed deps": {"bin/xs": "modified"}}],
+            f"{YAML}:g@b": [{"changed outs": {"examples/p/b.msgpack": "deleted"}}],
+        }
+        with self.assertRaises(sr.RunnerError):
+            sr.stages_to_run(group)
 
 
 class ArgumentsTest(unittest.TestCase):
