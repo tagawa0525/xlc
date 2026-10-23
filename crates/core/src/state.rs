@@ -354,35 +354,65 @@ pub fn interpolate(
         }
     }
     // 燃焼度の 3 次 Hermite は凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで内挿したときは、
-    // 有限かどうか（validate）に加えて、断面積と拡散係数が負でないことを確かめる（折れ曲がりの近くの 0 に近い量が負になりうる。
-    // ADR-0192）
+    // 値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも燃焼度の点を足す示唆を添える
+    // （折れ曲がりの近くの 0 に近い量が負になりうる。ADR-0192）
     let convex = terms.iter().flatten().all(|&(_, w)| w >= 0.0);
     for f in &out {
-        f.validate().map_err(|e| e.to_string())?;
-        if convex {
-            continue;
-        }
-        let items = [
-            ("total", &f.total),
-            ("absorption", &f.absorption),
-            ("nu_fission", &f.nu_fission),
-            ("fission", &f.fission),
-            ("chi", &f.chi),
-            ("diffusion", &f.diffusion),
-        ];
-        for (name, v) in items
-            .into_iter()
-            .chain(f.scatter.iter().map(|row| ("scatter", row)))
-        {
-            if let Some(bad) = v.iter().find(|&&x| x < 0.0) {
-                return Err(format!(
-                    "burnup {}: the interpolation gave a negative {name} {bad}; add burnup points near the bend (ADR-0192)",
+        let hint = |e: String| {
+            if convex {
+                e
+            } else {
+                format!(
+                    "burnup {}: {e}; the cubic burnup interpolation overshot, add burnup points near the bend (ADR-0192)",
                     state.burnup.unwrap_or(0.0)
-                ));
+                )
             }
+        };
+        f.validate().map_err(|e| hint(e.to_string()))?;
+        if !convex {
+            non_negative(f).map_err(hint)?;
         }
     }
     Ok(out)
+}
+
+/// 断面積と拡散係数が負でないこと（`FewGroup::validate` は有限かどうかだけを見る）。項目を足したらここで扱いを決める
+/// （`..` を使わない）
+fn non_negative(f: &FewGroup) -> Result<(), String> {
+    let FewGroup {
+        bounds: _,
+        k_inf: _,
+        total,
+        absorption,
+        nu_fission,
+        fission,
+        chi,
+        diffusion,
+        scatter,
+        // 不連続因子、真空の辺の比、形状関数は validate が範囲を確かめる
+        adf: _,
+        vacuum_ratio: _,
+        normalized_adf: _,
+        height: _,
+        pins: _,
+    } = f;
+    let vectors = [
+        ("total", total),
+        ("absorption", absorption),
+        ("nu_fission", nu_fission),
+        ("fission", fission),
+        ("chi", chi),
+        ("diffusion", diffusion),
+    ];
+    for (name, v) in vectors
+        .into_iter()
+        .chain(scatter.iter().map(|row| ("scatter", row)))
+    {
+        if let Some(bad) = v.iter().find(|&&x| x < 0.0) {
+            return Err(format!("the interpolation gave a negative {name} {bad}"));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
