@@ -150,13 +150,15 @@ fn faddeeva_far_from_origin_is_asymptotic() {
 
 #[test]
 fn faddeeva_over_many_x_gives_the_bits_of_each_point() {
-    // まとめた計算は、点ごとの `faddeeva` と同じ演算なので、ビットまで同じ。内部の区切りをまたぐ長さと、空の列も確かめる
-    for y in [0.0, 1.0e-3, 0.07, 2.0, 99.0] {
-        for n in [0, 1, 7, 64, 65, 250] {
+    // まとめた計算は、点ごとの `faddeeva` と同じ演算なので、ビットまで同じ。内部の区切りをまたぐ長さ、空の列、下半面も確かめる
+    for y in [-0.5, 0.0, 1.0e-3, 0.07, 2.0, 99.0] {
+        for n in [0, 1, 7, 32, 33, 250] {
             let x: Vec<f64> = (0..n).map(|i| -120.0 + 240.0 * i as f64 / 249.0).collect();
-            let mut w = vec![Complex64::ZERO; n];
-            faddeeva_upper(y, &x, &mut w);
-            for (&x, w) in x.iter().zip(&w) {
+            let mut w = vec![Complex64::new(7.0, 7.0)];
+            faddeeva_along_x(y, &x, &mut w);
+            assert_eq!(w.len(), n + 1);
+            assert_eq!(w[0], Complex64::new(7.0, 7.0));
+            for (&x, w) in x.iter().zip(&w[1..]) {
                 let expected = faddeeva(Complex64::new(x, y));
                 assert_eq!(
                     (w.re.to_bits(), w.im.to_bits()),
