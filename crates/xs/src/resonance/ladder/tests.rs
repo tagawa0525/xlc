@@ -121,11 +121,24 @@ fn ladder_sums_give_the_bits_of_the_pointwise_formula() {
         let mut parts = Parts::zeroed(energies.len());
         add_ladder(&q, &ladder, &energies, &mut parts);
         let expected = pointwise(&q, &ladder, &energies);
-        let near = ladder
+        // 窓の端で Faddeeva 関数と漸近形が切り替わる共鳴（Δ = 0.2 eV）と、y > 100 で漸近形だけの共鳴（Δ = 1e-4 eV）があること
+        let switching = ladder
             .iter()
-            .filter(|r| (r.energy / delta).abs() <= ASYMPTOTIC)
+            .filter(|r| {
+                let x = energies.iter().map(|&e| ((e - r.energy) / delta).abs());
+                let near = x.clone().filter(|&x| x <= ASYMPTOTIC).count();
+                0 < near && near < energies.len()
+            })
             .count();
-        assert!(near > 0 || delta < 1e-3, "{near}");
+        let wide = ladder
+            .iter()
+            .filter(|r| 0.5 * r.gamma / delta > ASYMPTOTIC)
+            .count();
+        if delta > 1e-3 {
+            assert!(switching > 0 && wide == 0, "{switching}, {wide}");
+        } else {
+            assert_eq!(wide, ladder.len());
+        }
         for (j, e) in expected.iter().enumerate() {
             let got = [parts.elastic[j], parts.fission[j], parts.capture[j]];
             assert_eq!(got.map(f64::to_bits), e.map(f64::to_bits), "sample {j}");
