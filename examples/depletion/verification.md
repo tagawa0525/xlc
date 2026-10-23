@@ -2860,7 +2860,7 @@ python3 examples/depletion/compare_core_boron.py --json examples/depletion/branc
 
 ### 計算
 
-分岐の格子計算は 5bea7952c（分岐点は main の 67723ea05）、2026-10-24（Slurm の既定のジョブ 528。割り込まれうるジョブなので時間は
+分岐の格子計算は f2f76f151（分岐点は main の 67723ea05）、2026-10-24（Slurm の既定のジョブ 528。割り込まれうるジョブなので時間は
 記録に使わない）。テーブル `table-2A-boron.msgpack` は md5 5f443d2e（追跡しない生成物）。core と比較は同じコミット、2026-10-24（手元。
 core の 2 ケースは 1 秒未満）。
 

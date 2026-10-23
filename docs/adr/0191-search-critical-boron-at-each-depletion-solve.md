@@ -153,7 +153,7 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
   解を挟まず、ステップと中点を示して止まり、それまでの点は渡してある）、`solve_errors_name_the_point_or_midpoint`、
   `search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving`、`history_states_hold_either_the_boron_or_the_search`。
   入力（crates/core/src/input/tests.rs）: `depletion_states_may_search_the_boron`
-- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼の臨界ホウ素（2A の集合体 1 体）」、5bea7952c、2026-10-24）:
+- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼の臨界ホウ素（2A の集合体 1 体）」、f2f76f151、2026-10-24）:
   ホウ素の軸を 0〜1300 ppm に広げたテーブルで 9 MWd/kg まで 16 ステップ（目標の k 1.19）。17 点の |k − 目標| は最大 6.35e-07 で許容
   1e-6 の中、ホウ素は 1236.6 ppm から 108.5 ppm まで単調に下がり、17 点とも同じ燃焼度の一様な状態の探索とホウ素（4 桁）、回数、
   k（8 桁）が一致した。固有値計算は点の探索で 5〜6 回、中点で 6 回、ケース全体で 197 回（ホウ素を与えると 33 回）
