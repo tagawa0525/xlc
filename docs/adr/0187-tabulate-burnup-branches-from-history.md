@@ -5,7 +5,7 @@ requires: [ADR-0011, ADR-0026, ADR-0033, ADR-0035, ADR-0036, ADR-0085, ADR-0097,
 supersedes: []
 superseded-by:
 issues: ["#0153"]
-amended-by: [ADR-0195]
+amended-by: [ADR-0192, ADR-0195]
 ---
 
 # ADR-0187: 燃焼度の軸を持つ分岐のテーブルは、公称の燃焼の履歴の組成を固定した瞬時の分岐の直積で作り、core は燃焼度を線形に内挿する
