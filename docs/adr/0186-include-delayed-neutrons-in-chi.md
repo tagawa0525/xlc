@@ -69,7 +69,9 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
 ## 帰結
 
 - 核分裂性の核種の χ が軟らかくなり、ライブラリを作り直す。examples/depletion/depletion.msgpack は作り直した（1C の k が −34〜−36 pcm
-  動く）。examples/vera/vera.msgpack と examples/depletion/p2 のライブラリ、それを使う VERA と 2A の記録は、まだ作り直していない
+  動く）。examples/vera/vera.msgpack と examples/vera/endfb70 のライブラリも作り直し、VERA の格子と 3A、3B の記録を更新した
+  （5-2D の炉心の記録と、同じ vera.msgpack を使う examples/colorset と examples/split は、まだ解き直していない）。examples/depletion/p2 の
+  ライブラリと 2A の記録は、まだ作り直していない
 - Np-239、Am-242m、Cm-244 は、ν が OpenMC と遅発中性子の分（Np-239 で 0.8%）だけ違う
 - NJOY GROUPR との比較（`compare_njoy_gendf` の例）は、GROUPR の MF6 MT18 が MF5 MT18 の分布なので、即発の分布だけで比較する
 - ENDF/B-VIII.0 の MF5 MT455 は族ごとに LF=5（一般の蒸発スペクトル。θ = 1 で g(x) がヒストグラムの表）なので、MF5 の読み込みと
