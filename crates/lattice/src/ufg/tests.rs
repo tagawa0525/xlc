@@ -899,7 +899,7 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
     // [核種][物質]
     let densities = vec![vec![0.02, 0.01], vec![0.04, 0.0]];
     let values = macroscopic_totals(&energies, &data, &densities).unwrap();
-    for (row, &e) in values.chunks_exact(4).zip(&energies) {
+    for (row, &e) in values.as_chunks::<4>().0.iter().zip(&energies) {
         let mut expected = [0.0; 4];
         for (d, n) in data.iter().zip(&densities) {
             let [total, elastic] =
