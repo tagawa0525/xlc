@@ -34,7 +34,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{Starts, state_indices, tables};
+use xlc_lattice::branches::{state_indices, tables};
 use xlc_lattice::checkpoint::{Checkpoint, Fingerprint, SavedState, digest, solve_states};
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
@@ -45,7 +45,7 @@ use xlc_lattice::input::{
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
-use xlc_lattice::moc::{Options, available_order, solve_symmetric_from};
+use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingReuse, shield_fuel_reusing};
 use xlc_lattice::symmetry::{Chosen, choose};
@@ -264,7 +264,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             &chosen,
             &LibraryReactions(library),
             resumed,
-            &mut |history, next| checkpoint.save_depletion(history, next),
+            &mut |history, next, start| checkpoint.save_depletion(history, next, start),
         )
         .with_context(|| format!("{}: depletion", shown(path)))?;
         for point in &history.points {
@@ -355,8 +355,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
     // 燃料でない物質が直前の状態と同じなら、燃料のピンの Dancoff 係数を持ち越す（ADR-0194）
     let mut reuse = ShieldingReuse::new(&tracking);
-    // 状態ごとに、前に解いた近い状態の MOC の収束した状態から反復を始める（ADR-0195）
-    let mut starts = Starts::new(&counts);
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -367,7 +365,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
             println!("k {k:.6}");
         }
     };
-    let solve = |state: usize| -> anyhow::Result<SavedState> {
+    // 状態ごとに、前に解いた近い状態の MOC の収束した状態 `from` から反復を始める（ADR-0195。`solve_states` が持つ）
+    let solve = |state: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
@@ -464,15 +463,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .unwrap_or_else(|| available_order(&materials)),
             ..Options::default()
         };
-        let (solution, converged) = solve_symmetric_from(
-            &tracking,
-            &materials,
-            &options,
-            chosen.moc(),
-            starts.start(),
-        )
-        .with_context(context)?;
-        starts.solved(converged);
+        let (solution, converged) =
+            solve_symmetric_from(&tracking, &materials, &options, chosen.moc(), from)
+                .with_context(context)?;
         let emitting = tracing::debug_span!("output").entered();
         let outputs = if let Some(FewGroupOutput {
             bounds,
@@ -591,11 +584,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
             total_seconds = start.elapsed().as_secs_f64(),
             "lattice"
         );
-        Ok(SavedState {
-            k: solution.k,
-            outputs,
-            medium,
-        })
+        Ok((
+            SavedState {
+                k: solution.k,
+                outputs,
+                medium,
+            },
+            converged,
+        ))
     };
     // 書いてある状態は、今の実行の出力（出力のファイルの数、部分ノードの数、媒質の有無）と合うものだけ使う。指紋が同じなら
     // 合う。合わなければ壊れたか置き換えたチェックポイントで、残りの状態を何時間も解いた後でなく、解く前に止める
@@ -623,7 +619,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         report(state, saved.k);
         Ok(())
     };
-    let states = solve_states(count, checkpoint.as_ref(), fits, solve)?;
+    let states = solve_states(count, &counts, checkpoint.as_ref(), fits, solve)?;
     let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) =
         states.into_iter().map(|s| (s.outputs, s.medium)).unzip();
     let written: Vec<MediumState> = written.into_iter().flatten().collect();

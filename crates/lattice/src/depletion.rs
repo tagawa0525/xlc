@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, anyhow, bail};
@@ -642,14 +643,17 @@ impl TransportTimes {
     }
 }
 
-/// 解き終えたステップの履歴と、次の点の組成 [燃焼の領域][チェーンの核種] を書く先（チェックポイント。ADR-0196）
-pub type SavePoints<'a> = dyn FnMut(&History, &[Vec<f64>]) -> anyhow::Result<()> + 'a;
+/// 解き終えたステップの履歴と、次の点の組成 [燃焼の領域][チェーンの核種]、直前の（中点の）輸送の MOC の解を書く先
+/// （チェックポイント。ADR-0196）
+pub type SavePoints<'a> = dyn FnMut(&History, &[Vec<f64>], &Start) -> anyhow::Result<()> + 'a;
 
-/// 途中の燃焼の履歴（チェックポイント。ADR-0196）: 解き終えた点と、次の点の組成 [燃焼の領域][チェーンの核種]
+/// 途中の燃焼の履歴（チェックポイント。ADR-0196）: 解き終えた点と、次の点の組成 [燃焼の領域][チェーンの核種]、次の点の輸送の
+/// MOC の反復を始める解（直前の輸送の収束した解。ADR-0195）
 #[derive(Debug)]
 pub struct Partial {
     pub history: History,
     pub next: Vec<Vec<f64>>,
+    pub start: Start,
 }
 
 /// 燃焼の履歴（ADR-0173）
@@ -885,6 +889,8 @@ struct State {
     transport: TransportTimes,
     solves: usize,
     shieldings: usize,
+    /// この輸送の MOC の収束した解（次の輸送が反復を始める解）
+    converged: Rc<Start>,
 }
 
 /// 2 つの領域の実効断面積が同じこと。自己遮蔽は、物質を共有する領域に同じ配列を指させるので、先に場所を比べて値の比較を省く
@@ -1146,8 +1152,16 @@ pub(crate) fn run_with_moc(
     // 燃料のピンの Dancoff 係数は、燃料でない物質の全断面積が直前の輸送と同じ間だけ持ち越す。燃焼させる物質が燃料だけなら
     // 初めの輸送で 1 度だけ解き、燃料でない物質（吸収体）を燃焼させれば輸送ごとに解く（ADR-0194）
     let mut reuse = ShieldingReuse::new(tracking);
-    // 直前の輸送の収束した MOC の状態。次の輸送の反復をここから始める（ADR-0195）
-    let mut previous: Option<Start> = None;
+    // 再開するなら、書いた履歴と次の点の組成（`Beginning` は下で作る）と、直前の輸送の解
+    let (resumed, mut previous) = match resumed {
+        Some(Partial {
+            history,
+            next,
+            start,
+        }) => (Some((history, next)), Some(Rc::new(start))),
+        None => (None, None),
+    };
+    // 直前の輸送の収束した MOC の状態。次の輸送の反復をここから始める（ADR-0195）。点のチェックポイントにも書くので共有する
     let mut shieldings = 0;
     // `StepStart` の、ステップの始まりの輸送の自己遮蔽と、それに渡した物質。次の中点の輸送で使う（ADR-0197）
     let mut held: Option<(FuelShielding, Vec<MaterialInput>)> = None;
@@ -1276,9 +1290,10 @@ pub(crate) fn run_with_moc(
             &region_materials,
             &options,
             chosen.moc(),
-            previous.as_ref(),
+            previous.as_deref(),
         )?;
-        previous = Some(converged);
+        let converged = Rc::new(converged);
+        previous = Some(Rc::clone(&converged));
         transport.moc += start.elapsed();
         let start = Instant::now();
         let flux = shielded.physical_flux(lattice, &solution.flux)?;
@@ -1387,6 +1402,7 @@ pub(crate) fn run_with_moc(
                 transport,
                 solves,
                 shieldings,
+                converged,
             },
         })
     };
@@ -1403,7 +1419,7 @@ pub(crate) fn run_with_moc(
         .map(|(n, _)| n.name.clone())
         .collect();
     let (mut history, beginning) = match resumed {
-        Some(Partial { history, next }) => {
+        Some((history, next)) => {
             // 指紋が同じなら同じになる。違えば壊れたチェックポイントなので、輸送の前に止める
             if history.nuclides != nuclides
                 || history.regions != regions
@@ -1495,8 +1511,8 @@ pub(crate) fn run_with_moc(
         history.shieldings = before_shieldings + latest.shieldings;
         let burnup = burnups[history.points.len()];
         history.points.push(point(p, burnup)?);
-        if let Some((next, _)) = step {
-            saved(&history, next)?;
+        if let Some((next, latest)) = step {
+            saved(&history, next, &latest.converged)?;
         }
         Ok(())
     })?;
