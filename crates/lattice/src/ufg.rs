@@ -599,8 +599,6 @@ fn thin(
         return Ok(energies.to_vec());
     }
     let quantities = 2 * materials.len();
-    // [点 × 量] の値。核種ごとに、その核種の格子を降順に進めながら足す（個数密度がどの物質でも 0 の核種は足さない）
-    let mut values = vec![0.0; energies.len() * quantities];
     // [核種][物質] の個数密度
     let densities: Vec<Vec<f64>> = (0..data.len())
         .map(|k| {
@@ -611,30 +609,7 @@ fn thin(
         })
         .collect();
     let present = |k: usize| densities[k].iter().any(|&n| n != 0.0);
-    // 点の塊ごとに並列に足す。点ごとには核種の順に足すので、和の順は点の全体を核種ごとに進めたときと同じ。塊の始めの
-    // カーソルは、その点以下の最後の格子点の次（`bracket` はそこから下る）なので、`bracket` が返す区間は、上の点から
-    // 下ってきたカーソルと同じ
-    values
-        .par_chunks_mut(THIN_POINTS * quantities)
-        .zip(energies.par_chunks(THIN_POINTS))
-        .try_for_each(|(block, energies)| {
-            for (k, d) in data.iter().enumerate() {
-                if !present(k) {
-                    continue;
-                }
-                let densities = &densities[k];
-                let x = &d.pointwise().energy;
-                let mut cursor = x.partition_point(|&v| v <= energies[0]);
-                for (row, &e) in block.chunks_exact_mut(quantities).zip(energies) {
-                    let [total, elastic] = evaluate_total_elastic(d, &mut cursor, e)?;
-                    for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(densities) {
-                        pair[0] += n * total;
-                        pair[1] += n * elastic;
-                    }
-                }
-            }
-            Ok::<_, UfgError>(())
-        })?;
+    let values = macroscopic_totals(energies, data, &densities)?;
     // 減速計算と同じく、有限で負でない全断面積だけを受ける（NaN では傾きの範囲が決まらない）
     if let Some(q) = values.iter().position(|v| !(v.is_finite() && *v >= 0.0)) {
         let m = (q % quantities) / 2;
@@ -710,6 +685,56 @@ fn thin(
         i += 1;
     }
     Ok(kept)
+}
+
+/// 降順のエネルギー `energies` の各点での、物質ごとの巨視的な全断面積と弾性散乱断面積（[点 × (物質 × 2)] の並び）。
+/// `densities` は [核種][物質] の個数密度で、どの物質でも 0 の核種は足さない。点ごとに核種の順に足す
+fn macroscopic_totals(
+    energies: &[f64],
+    data: &[Data],
+    densities: &[Vec<f64>],
+) -> Result<Vec<f64>, UfgError> {
+    let quantities = 2 * densities.first().map_or(0, Vec::len);
+    let present: Vec<(usize, &Data, &[f64])> = data
+        .iter()
+        .zip(densities)
+        .enumerate()
+        .filter(|(_, (_, n))| n.iter().any(|&n| n != 0.0))
+        .map(|(k, (d, n))| (k, d, n.as_slice()))
+        .collect();
+    let mut values = vec![0.0; energies.len() * quantities];
+    if quantities == 0 {
+        return Ok(values);
+    }
+    // 点の塊ごとに並列に足し、和集合の格子の全体を核種ごとに流さない（16 本のピンが同時に流すとメモリの転送で詰まる。
+    // ADR-0198）。塊の始めのカーソルは、その点以下の最後の格子点の次で、`bracket` はそこから下るので、上の点から下って
+    // きたカーソルと同じ区間を返す。エラーは、核種の順、点の順に最初のもの（塊の並列の順によらない）
+    let failures: Vec<(usize, usize, UfgError)> = values
+        .par_chunks_mut(THIN_POINTS * quantities)
+        .zip(energies.par_chunks(THIN_POINTS))
+        .enumerate()
+        .filter_map(|(b, (block, energies))| {
+            for &(k, d, densities) in &present {
+                let x = &d.pointwise().energy;
+                let mut cursor = x.partition_point(|&v| v <= energies[0]);
+                for (i, (row, &e)) in block.chunks_exact_mut(quantities).zip(energies).enumerate() {
+                    let [total, elastic] = match evaluate_total_elastic(d, &mut cursor, e) {
+                        Ok(v) => v,
+                        Err(error) => return Some((k, b * THIN_POINTS + i, error)),
+                    };
+                    for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(densities) {
+                        pair[0] += n * total;
+                        pair[1] += n * elastic;
+                    }
+                }
+            }
+            None
+        })
+        .collect();
+    match failures.into_iter().min_by_key(|&(k, i, _)| (k, i)) {
+        Some((_, _, error)) => Err(error),
+        None => Ok(values),
+    }
 }
 
 /// 核種 `d` の群定数: ポイントワイズの断面積を、リングの中性子束 `flux`（減速計算の格子点の値。点の間で u について線形）で
