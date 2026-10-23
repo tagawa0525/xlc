@@ -35,21 +35,27 @@ class RunnerError(Exception):
 
 
 def physical_cores(
-    sysfs: Path = Path("/sys/devices/system/cpu"), allowed: int | None = None
+    sysfs: Path = Path("/sys/devices/system/cpu"), allowed: set[int] | None = None
 ) -> int:
-    """物理コアの数を、このプロセスに許された CPU の数で抑えたもの（xs の既定と同じ。ADR-0067、ADR-0189）"""
-    cores = {
-        (
-            (topo / "physical_package_id").read_text().strip(),
-            (topo / "core_id").read_text().strip(),
+    """このプロセスに許された CPU の中の物理コアの数（ADR-0067）。
+
+    xs の既定（物理コアの数を許された CPU の数で抑える。ADR-0189）は、Slurm の `-c 16` で 16 を返すが、許された 16 の
+    ハードウェアスレッドは 8 コアにあたる。runner は各ステージに `--threads` を渡すので、許された CPU のコアを数える
+    """
+    if allowed is None:
+        allowed = os.sched_getaffinity(0)
+    cores = set()
+    for cpu in allowed:
+        topo = sysfs / f"cpu{cpu}" / "topology"
+        cores.add(
+            (
+                (topo / "physical_package_id").read_text().strip(),
+                (topo / "core_id").read_text().strip(),
+            )
         )
-        for topo in sysfs.glob("cpu[0-9]*/topology")
-    }
     if not cores:
         raise RunnerError(f"no CPU topology under {sysfs}")
-    if allowed is None:
-        allowed = len(os.sched_getaffinity(0))
-    return min(len(cores), allowed)
+    return len(cores)
 
 
 def group_of(stage: str) -> str:
@@ -176,7 +182,10 @@ def fingerprint(path: Path):
         return (st.st_size, st.st_mtime_ns, st.st_ino)
     items = []
     # onerror: os.walk は読めないディレクトリを黙って飛ばし、前後の指紋が同じに見える
-    for dirpath, dirnames, filenames in os.walk(path, onerror=raise_error):
+    # followlinks: deps のディレクトリの中の symlink の先も DVC は読む
+    for dirpath, dirnames, filenames in os.walk(
+        path, onerror=raise_error, followlinks=True
+    ):
         dirnames.sort()
         for name in sorted(filenames):
             file = Path(dirpath) / name
@@ -206,6 +215,7 @@ def read_record(path: Path) -> dict[str, float]:
         if (
             isinstance(seconds, bool)
             or not isinstance(seconds, (int, float))
+            or not math.isfinite(seconds)
             or seconds < 0
         ):
             raise RunnerError(
@@ -229,11 +239,13 @@ def stop_on_sigterm() -> None:
     signal.signal(signal.SIGTERM, handler)
 
 
+def unblock_sigterm() -> None:
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGTERM})
+
+
 @dataclass
 class Finished:
     name: str
-    threads: int
-    elapsed: float
     cpu: float
 
 
@@ -253,11 +265,21 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
             if not failures:
                 for name, threads in launchable(queue, free):
                     cmd = with_threads(cmds[name], threads)
-                    # 自分のセッションに置き、止めるときにシェルの子ごと止める
-                    proc = subprocess.Popen(
-                        cmd, shell=True, cwd=cwd, start_new_session=True
-                    )
-                    running[proc.pid] = (name, threads, proc, time.monotonic())
+                    # 自分のセッションに置き、止めるときにシェルの子ごと止める。投入から running に入れるまでの間に
+                    # SIGTERM の SystemExit が来ると、後始末がその子を知らずに残すので、その間は SIGTERM を保留する
+                    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+                    try:
+                        # 子は保留の mask を受け継ぐので、exec の前に外す（runner は 1 スレッドなので preexec_fn でよい）
+                        proc = subprocess.Popen(
+                            cmd,
+                            shell=True,
+                            cwd=cwd,
+                            start_new_session=True,
+                            preexec_fn=unblock_sigterm,  # noqa: PLW1509
+                        )
+                        running[proc.pid] = (name, threads, proc, time.monotonic())
+                    finally:
+                        unblock_sigterm()
                     queue.remove((name, threads))
                     free -= threads
                     log(f"start {name} threads={threads}")
@@ -285,6 +307,7 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
                 if not reaped:
                     time.sleep(0.1)
             for (name, threads, proc, start), status, usage in reaped:
+                # Popen に回収済みと知らせる（wait4 で回収したので、Popen が後で回収を試みないように）
                 proc.returncode = os.waitstatus_to_exitcode(status)
                 free += threads
                 elapsed = time.monotonic() - start
@@ -294,7 +317,7 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
                     failures.append(name)
                     log(f"FAILED {name} exit={proc.returncode} elapsed={elapsed:.1f}")
                 else:
-                    done.append(Finished(name, threads, elapsed, cpu))
+                    done.append(Finished(name, cpu))
                     log(
                         f"done {name} threads={threads} elapsed={elapsed:.1f} cpu={cpu:.1f}"
                     )
@@ -329,6 +352,39 @@ def dvc(*args: str, capture: bool = False) -> str:
     return out if capture else ""
 
 
+def settle_upstream(status, repro, dvc_yaml, group: str, log) -> dict:
+    """組の外（上流）が changed でなくなるまで `dvc repro` し、最後の `dvc status` を返す。
+
+    dvc status は、上流が出力を書き換えた後に changed になる下流を示さない（build の後の xs-range）ので、1 回では足りない。
+    同じ上流が続けて changed なら（always_changed など）止まる
+    """
+    previous = None
+    while True:
+        current = status()
+        _, others = split_status(current, dvc_yaml, group)
+        if not others:
+            return current
+        if others == previous:
+            raise RunnerError(f"upstream still changed after dvc repro: {others}")
+        log(f"upstream changed, running dvc repro {' '.join(others)}")
+        repro(others)
+        previous = others
+
+
+def stages_to_run(group_status: dict) -> list[str]:
+    """deps か cmd が変わったステージ。出力だけが lock と違うステージがあれば止まる（dvc repro なら run-cache から戻す）"""
+    outputs_only = []
+    for stage, entries in group_status.items():
+        if not any(not isinstance(e, dict) or "changed deps" in e for e in entries):
+            outputs_only.append(stage)
+    if outputs_only:
+        raise RunnerError(
+            "outputs differ from dvc.lock with the deps unchanged; restore them "
+            f"(scripts/worktree-restore-outputs.sh) or find out why: {outputs_only}"
+        )
+    return sorted(group_status)
+
+
 def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
     if dvc_yaml == Path("dvc.yaml"):
         # DVC はリポジトリの直下の dvc.yaml のステージを `dvc.yaml:` を付けずに示すので、組を見分けられない
@@ -340,21 +396,20 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
             f"{dvc_yaml} has wdir; the runner runs commands in the directory of dvc.yaml"
         )
     target = f"{dvc_yaml}:{group}"
-    status = json.loads(dvc("status", "--json", "--with-deps", target, capture=True))
-    mine, others = split_status(status, dvc_yaml, group)
-    if others:
-        log(f"upstream changed, running dvc repro {' '.join(others)}")
-        dvc("repro", *others)
-        status = json.loads(
+    status = settle_upstream(
+        lambda: json.loads(
             dvc("status", "--json", "--with-deps", target, capture=True)
-        )
-        mine, others = split_status(status, dvc_yaml, group)
-        if others:
-            raise RunnerError(f"upstream still changed after dvc repro: {others}")
+        ),
+        lambda keys: dvc("repro", *keys),
+        dvc_yaml,
+        group,
+        log,
+    )
+    mine, _ = split_status(status, dvc_yaml, group)
     if not mine:
         log(f"{target}: nothing changed")
         return 0
-    keys = sorted(mine)
+    keys = stages_to_run(mine)
     cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", *keys, capture=True))
     if set(cmds) != set(keys):
         raise RunnerError(f"dvc repro --dry listed {sorted(cmds)}, expected {keys}")
