@@ -79,7 +79,8 @@ fn burnup_terms(points: &[f64], x: f64) -> Result<Terms, String> {
     let h10 = t * (1.0 - t) * (1.0 - t);
     let h11 = -t * t * (1.0 - t);
     let mut weights = [0.0; 4];
-    // weights[m] は smooth[j - 1 + m] の重み（j = 0 なら m = 0 は使わない）
+    // weights[m] は smooth[base + m] の重み。base は区間の左の外側の点（j = 0 なら区間の左の点で、m = 3 を使わない）。
+    // slope は base..base + 4 の中の点しか返さない（窓は区間の両端の点を含む 3 点）
     let base = j.saturating_sub(1);
     weights[j - base] += h00;
     weights[j + 1 - base] += h01;
@@ -91,7 +92,7 @@ fn burnup_terms(points: &[f64], x: f64) -> Result<Terms, String> {
     Ok(weights
         .iter()
         .enumerate()
-        .filter(|&(m, w)| *w != 0.0 && base + m < smooth.len())
+        .filter(|&(_, w)| *w != 0.0)
         .map(|(m, &w)| (first + base + m, w))
         .collect())
 }
@@ -101,21 +102,14 @@ fn slope(points: &[f64], k: usize) -> [(usize, f64); 3] {
     let s = k.saturating_sub(1).min(points.len() - 3);
     let p = [points[s], points[s + 1], points[s + 2]];
     let x = points[k];
-    // ラグランジュの基底 l_m の微分: l_m'(x) = Σ_{o≠m} Π_{c≠m,o} (x − p_c) / Π_{c≠m} (p_m − p_c)
+    // 3 点のラグランジュの基底の微分: l_0'(x) = (2x − p_1 − p_2) / ((p_0 − p_1)(p_0 − p_2))、ほかも添字を入れ替えた形
     let coefficient = |m: usize| {
-        let others: Vec<usize> = (0..3).filter(|&c| c != m).collect();
-        let numerator: f64 = others
-            .iter()
-            .map(|&o| {
-                others
-                    .iter()
-                    .filter(|&&c| c != o)
-                    .map(|&c| x - p[c])
-                    .product::<f64>()
-            })
-            .sum();
-        let denominator: f64 = others.iter().map(|&c| p[m] - p[c]).product();
-        numerator / denominator
+        let (a, b) = match m {
+            0 => (p[1], p[2]),
+            1 => (p[0], p[2]),
+            _ => (p[0], p[1]),
+        };
+        (2.0 * x - a - b) / ((p[m] - a) * (p[m] - b))
     };
     [
         (s, coefficient(0)),
