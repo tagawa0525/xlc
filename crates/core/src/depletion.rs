@@ -154,13 +154,15 @@ fn weighted(b: &[f64], m: &[f64]) -> f64 {
 }
 
 /// ケースの燃焼（ADR-0190）: 状態 `state` で、ノードの燃焼度を 0 から `depletion` のステップに沿って進め、燃焼点ごとの値を
-/// 返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）
+/// 返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）。点は解くたびに `on_point` にも渡す（後のステップで止まっても、
+/// それまでの点を出せるように）
 pub fn deplete(
     layout: &Layout,
     tables: &[Table],
     state: &CaseState,
     depletion: &DepletionInput,
     options: &Options,
+    mut on_point: impl FnMut(&CorePoint),
 ) -> Result<CoreHistory, CaseError> {
     let fail = |m: String| Err(CaseError::Depletion(m));
     if layout.split != 1 {
@@ -249,6 +251,7 @@ pub fn deplete(
     let mut efpd = 0.0;
     let (mut solved, mut rates) = solve(&burnups)?;
     let mut points = vec![record(efpd, &burnups, &solved, &rates)];
+    on_point(&points[0]);
     tracing::info!(efpd, k = solved.solution.k, "depletion point");
     for step in &depletion.steps {
         let _span = tracing::info_span!("depletion step", efpd = step.efpd).entered();
@@ -262,7 +265,9 @@ pub fn deplete(
         })?;
         efpd = step.efpd;
         (solved, rates) = solve(&burnups)?;
-        points.push(record(efpd, &burnups, &solved, &rates));
+        let point = record(efpd, &burnups, &solved, &rates);
+        on_point(&point);
+        points.push(point);
         tracing::info!(efpd, k = solved.solution.k, "depletion point");
     }
     Ok(CoreHistory {
