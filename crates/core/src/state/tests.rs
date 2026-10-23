@@ -568,3 +568,48 @@ fn knees_overshoot_only_next_to_them_by_two_27ths_of_the_slope_change() {
         assert!((g(10.0)..=g(12.0)).contains(&r), "{bu}: {r}");
     }
 }
+
+#[test]
+fn burnup_weights_match_the_python_comparison() {
+    // examples/depletion/test_compare_burnup_interpolation.py の同じ点と値（ADR-0192 の比較の Python と同じ重み）
+    let values = [
+        1.3,
+        1.069710678118655,
+        1.1374213562373094,
+        1.213606797749979,
+        1.296227766016838,
+        1.3882640687119285,
+    ];
+    let g = |bu: f64| values[CURVED.iter().position(|&p| p == bu).unwrap()];
+    let t = burnup_table_of(&CURVED, g);
+    let fresh = few(1300.0, 565.0, 900.0).k_inf;
+    for (bu, want) in [
+        (0.3, 1.161826406871193),
+        (1.2, 1.103766188073716),
+        (3.3, 1.1769920198453223),
+        (7.7, 1.2626845558655815),
+        (15.0, 1.3595423657587526),
+    ] {
+        let got = interpolate(&t, Some(&at_burnup(bu, 1300.0, 565.0, 900.0)), None)
+            .unwrap()
+            .remove(0)
+            .k_inf
+            / fresh;
+        assert!(close(got, want), "burnup {bu}: {got} vs {want}");
+    }
+}
+
+#[test]
+fn negative_interpolated_cross_sections_are_errors() {
+    // 熱群の吸収が 10 MWd/kg まで 0 で、そこから増える折れ線。折れ曲がりの手前の区間で Hermite は 0 を下回る
+    let points: Vec<f64> = (1..=10).map(|i| 2.0 * f64::from(i)).collect();
+    let mut t = burnup_table_of(&points, |_| 1.0);
+    let per_burnup = t.states.len() / points.len();
+    for (i, s) in t.states.iter_mut().enumerate() {
+        s.absorption[1] = 0.01 * (points[i / per_burnup] - 10.0).max(0.0);
+    }
+    let err = interpolate(&t, Some(&at_burnup(9.0, 1300.0, 565.0, 900.0)), None).unwrap_err();
+    assert!(err.contains("negative"), "{err}");
+    // データの範囲の中なら通る
+    assert!(interpolate(&t, Some(&at_burnup(12.0, 1300.0, 565.0, 900.0)), None).is_ok());
+}

@@ -92,6 +92,31 @@ class Interpolation(unittest.TestCase):
                 cbi.interpolate(method, x, y, x), y, rtol=1e-14, err_msg=method
             )
 
+    def test_hermite_weights_match_the_core(self):
+        # crates/core/src/state/tests.rs の burnup_weights_match_the_python_comparison と同じ点と値
+        x = np.array([0.0, 0.5, 2.0, 5.0, 10.0, 18.0])
+        y = np.array(
+            [
+                [1.3],
+                [1.069710678118655],
+                [1.1374213562373094],
+                [1.213606797749979],
+                [1.296227766016838],
+                [1.3882640687119285],
+            ]
+        )
+        q = np.array([0.3, 1.2, 3.3, 7.7, 15.0])
+        want = [
+            1.161826406871193,
+            1.103766188073716,
+            1.1769920198453223,
+            1.2626845558655815,
+            1.3595423657587526,
+        ]
+        np.testing.assert_allclose(
+            cbi.interpolate("hermite", x, y, q)[:, 0], want, rtol=1e-13
+        )
+
     def test_unknown_methods_are_errors(self):
         x = np.array([0.0, 1.0, 2.0])
         with self.assertRaises(SystemExit):
