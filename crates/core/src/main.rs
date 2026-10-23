@@ -6,6 +6,9 @@
 //! 出す（`RUST_LOG=debug` で反復ごとの k と変化）。ケースに名前つきの状態があれば、状態を並列に解き、名前の順に
 //! `state <名前>` の行に続けて状態ごとに出す（探索した状態は求めたホウ素濃度も。ADR-0145、ADR-0146）。
 //!
+//! 燃焼のケース（`[depletion]`。ADR-0190）は、燃焼点ごとに `point <EFPD> <炉心の平均の燃焼度 (MWd/kg)> <k>` の行を出し、
+//! 燃焼の履歴をケースの `history` のファイルに書く。
+//!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
@@ -22,6 +25,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::case::{CaseError, check_search, solve_at, solve_states};
+use xlc_core::depletion::deplete;
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{axial_rows, core_rows, reconstruct};
@@ -96,6 +100,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let options = Options::default();
+    if let Some(depletion) = &case.depletion {
+        // ケースの読み込みで、状態がちょうど 1 つであることを確かめてある
+        let state = case
+            .states
+            .first()
+            .ok_or_else(|| anyhow!("depletion needs one state"))?;
+        let history = deplete(&layout, &tables, state, depletion, &options)
+            .map_err(|e| in_inputs(e, inputs()))?;
+        // 比べるツールが読めるよう、k は状態の出力と同じ桁で
+        for point in &history.points {
+            println!("point {} {:.8} {:.8}", point.efpd, point.burnup, point.k);
+        }
+        let file = &depletion.history;
+        let bytes = history.to_msgpack().with_context(|| shown(file))?;
+        std::fs::write(file, bytes).with_context(|| shown(file))?;
+        tracing::info!(seconds = start.elapsed().as_secs_f64(), "core");
+        return Ok(());
+    }
     if case.states.is_empty() {
         let s = solve_at(&layout, &tables, None, &options).map_err(|e| in_inputs(e, inputs()))?;
         report(&layout, &s.problem, &s.solution);
