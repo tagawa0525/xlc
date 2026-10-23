@@ -223,12 +223,14 @@ class PhysicalCoresTest(unittest.TestCase):
     def test_counts_cores_not_hardware_threads_within_the_affinity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            # 2 パッケージ × 2 コア × 2 スレッド
+            # 2 パッケージ × 2 コア × 2 スレッド。core_id はダイごとに 0 から振られうるので、すべて 0 にしておく
             for cpu in range(8):
                 topo = root / f"cpu{cpu}" / "topology"
                 topo.mkdir(parents=True)
-                (topo / "physical_package_id").write_text(f"{cpu // 4}\n")
-                (topo / "core_id").write_text(f"{(cpu // 2) % 2}\n")
+                (topo / "physical_package_id").write_text("0\n")
+                (topo / "core_id").write_text("0\n")
+                first = cpu - cpu % 2
+                (topo / "thread_siblings_list").write_text(f"{first}-{first + 1}\n")
             (root / "cpufreq").mkdir()
             self.assertEqual(sr.physical_cores(root, allowed=set(range(8))), 4)
             # CPU 0 と 1 は同じコア、2 は別のコア
@@ -475,6 +477,23 @@ class UpstreamTest(unittest.TestCase):
         self.assertEqual(repros, [["build"], [f"{YAML}:range"]])
         self.assertEqual(list(status), [f"{YAML}:g@a"])
 
+    def test_upstream_in_another_order_is_still_stuck(self):
+        statuses = [{"a": [], "b": []}, {"b": [], "a": []}]
+        with self.assertRaises(sr.RunnerError):
+            sr.settle_upstream(
+                lambda: statuses.pop(0), lambda keys: None, YAML, "g", lambda m: None
+            )
+
+    def test_upstream_that_comes_back_is_an_error(self):
+        # always_changed の上流が出力を変え、下流が 1 回おきに出る（[a] → [a, b] → [a]）
+        statuses = [{"a": []}, {"a": [], "b": []}, {"a": []}, {"a": [], "b": []}]
+        repros = []
+        with self.assertRaises(sr.RunnerError):
+            sr.settle_upstream(
+                lambda: statuses.pop(0), repros.append, YAML, "g", lambda m: None
+            )
+        self.assertEqual(len(repros), 2)
+
     def test_upstream_that_stays_changed_is_an_error(self):
         status = {"always": ["always changed"], f"{YAML}:g@a": []}
         with self.assertRaises(sr.RunnerError):
@@ -510,18 +529,24 @@ class CommitTest(unittest.TestCase):
         self.lock = self.root / "p" / "dvc.lock"
         self.lock.write_text("schema: '2.0'\nstages:\n")
         self.snapshot = sr.fingerprints(["p/in.txt"], self.root)
+        self.run_cache = self.root / "runs"
+        (self.run_cache / "aa").mkdir(parents=True)
+        (self.run_cache / "aa" / "old").write_text("old")
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def fake_commit(self, dep="in.txt", fail=(), touch=False):
+    def fake_commit(self, dep="in.txt", fail=(), touch=False, cmd="./xs {}"):
+        # dvc commit の代わり: lock に cmd と deps を書き、run-cache に 1 件足す
         def commit(names):
             if any(n in fail for n in names):
                 raise sr.RunnerError("commit failed")
             with self.lock.open("a") as f:
                 for n in names:
-                    f.write(f"  {n}:\n    deps:\n    - path: {dep}\n      hash: md5\n")
+                    f.write(f"  {n}:\n    cmd: {cmd.format(n)}\n")
+                    f.write(f"    deps:\n    - path: {dep}\n      hash: md5\n")
                     f.write(f"      md5: {'0' * 32}\n")
+                    (self.run_cache / "aa" / f"new-{n}").write_text(n)
             if touch:
                 mtime = (self.root / "p" / "in.txt").stat().st_mtime_ns + 10**9
                 os.utime(self.root / "p" / "in.txt", ns=(mtime, mtime))
@@ -530,7 +555,14 @@ class CommitTest(unittest.TestCase):
 
     def commit(self, names, commit):
         return sr.commit_stages(
-            names, commit, self.lock, Path("p"), self.snapshot, self.root
+            names,
+            commit,
+            self.lock,
+            Path("p"),
+            self.snapshot,
+            self.root,
+            cmds={n: f"./xs {n}" for n in names},
+            run_cache=self.run_cache,
         )
 
     def test_stage_that_cannot_be_committed_is_a_failure_and_the_rest_are_committed(
@@ -543,10 +575,21 @@ class CommitTest(unittest.TestCase):
         self.assertIn("  b:", text)
         self.assertNotIn("  x:", text)
 
-    def test_deps_changed_while_committing_restores_the_lock(self):
+    def test_deps_changed_while_committing_restores_the_lock_and_run_cache(self):
         before = self.lock.read_text()
         with self.assertRaises(sr.RunnerError):
             self.commit(["a"], self.fake_commit(touch=True))
+        self.assertEqual(self.lock.read_text(), before)
+        # dvc commit が足した run-cache の項目も消す（新しい deps を古い出力に結ぶので）。前からあるものは残す
+        self.assertEqual(
+            sorted(p.name for p in self.run_cache.rglob("*") if p.is_file()), ["old"]
+        )
+
+    def test_command_changed_since_the_run_restores_the_lock(self):
+        # 実行した cmd と、commit が dvc.lock に書いた cmd が違う（実行の間に dvc.yaml の vars が変わった）
+        before = self.lock.read_text()
+        with self.assertRaises(sr.RunnerError):
+            self.commit(["a"], self.fake_commit(cmd="./xs {} --other"))
         self.assertEqual(self.lock.read_text(), before)
 
     def test_unwatched_deps_in_the_lock_restore_the_lock(self):
@@ -572,6 +615,15 @@ class CommitTest(unittest.TestCase):
         with self.assertRaises(sr.RunnerError):
             self.commit(["a"], calls.append)
         self.assertEqual(calls, [])
+
+
+class LockCommandTest(unittest.TestCase):
+    def test_joins_a_folded_command(self):
+        self.assertEqual(
+            sr.lock_cmd(LOCK, "g@a"),
+            "../../bin/xs nuclide xs.toml xs-range.toml a xs-nuclides/a.msgpack",
+        )
+        self.assertEqual(sr.lock_cmd(LOCK, "g@b"), "echo b")
 
 
 class OutputsTest(unittest.TestCase):
