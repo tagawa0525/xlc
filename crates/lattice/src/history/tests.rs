@@ -201,7 +201,10 @@ fn branch_regions_take_the_history_densities() {
 fn branch_burnups_are_points_of_the_history() {
     let (history, library) = history();
     let err = branches_of(&branch_input("[0, 1.0]", "[600]"), &history, &library).unwrap_err();
-    assert!(format!("{err:#}").contains("1"), "{err:#}");
+    assert!(
+        format!("{err:#}").contains("burnup 1 MWd/kg is not a point of the history"),
+        "{err:#}"
+    );
 }
 
 #[test]
@@ -244,4 +247,21 @@ fn negative_history_densities_beyond_the_cram_error_are_errors() {
     history.points[2].densities[0][U235] = -1.0e-3;
     let err = branches_of(&branch_input("[0.5]", "[600]"), &history, &library).unwrap_err();
     assert!(format!("{err:#}").contains("CRAM"), "{err:#}");
+}
+
+#[test]
+fn the_branch_library_must_transport_the_nuclides_of_the_history() {
+    // 燃焼のライブラリになかったチェーンの核種（U-236）を持つライブラリは、燃焼の輸送と違う核種を輸送するので使えない
+    let (history, library) = history();
+    let mut other = library.clone();
+    let mut u236 = other
+        .nuclides
+        .iter()
+        .find(|n| n.name == "U-238")
+        .unwrap()
+        .clone();
+    u236.name = "U-236".into();
+    other.nuclides.push(u236);
+    let err = branches_of(&branch_input("[0.5]", "[600]"), &history, &other).unwrap_err();
+    assert!(format!("{err:#}").contains("library"), "{err:#}");
 }
