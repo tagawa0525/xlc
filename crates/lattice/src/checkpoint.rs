@@ -327,7 +327,8 @@ pub fn solve_states(
     }
     for state in states.len()..count {
         states.push(solve(state)?);
-        if let Some(c) = checkpoint {
+        // 最後の状態の後は、呼ぶ側が出力を書いてチェックポイントを消す
+        if let (Some(c), true) = (checkpoint, state + 1 < count) {
             c.save_states(&states)?;
         }
     }
