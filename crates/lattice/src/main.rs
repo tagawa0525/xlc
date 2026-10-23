@@ -227,6 +227,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let (t, d) = (history.transport, history.depletion);
         tracing::info!(
             solves = history.solves,
+            shieldings = history.shieldings,
             regions = history.regions.len(),
             shielding = t.shielding.as_secs_f64(),
             moc = t.moc.as_secs_f64(),
