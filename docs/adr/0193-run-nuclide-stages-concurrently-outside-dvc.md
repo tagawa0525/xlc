@@ -108,7 +108,8 @@ python3 examples/stage_runner.py examples/<問題>/dvc.yaml xs-nuclide [--thread
   （SIGKILL すると `.dvc/tmp/rwlock` と dvc.lock を書きかけで残す）
 - 終わったステージは、空いたスレッドに次を投入してから、まとめて `dvc commit -f` する。commit できないステージが出たら、その後は投入
   しないが、同じ回に commit の前に投入したステージは走り切る
-- 実行の前に、ステージの出力（dvc.lock の outs と、`dvc status` の changed outs）を消す（`dvc repro` と同じ）。xs が出力を書かずに
+- ステージを投入する直前に、その出力（dvc.lock の outs と、`dvc status` の changed outs）を消す（`dvc repro` と同じ。投入しない
+  ステージの出力は残す）。xs が出力を書かずに
   0 で終わったとき、古い出力を新しい deps で commit しない（commit が出力の無さで失敗し、そのステージの失敗になる）
 - 記録のうち、今の組（`dvc stage list`）に無いステージの値は消す（記録の無いステージの見積もりに、消した核種の値を使わない）
 - 後始末で、SIGTERM の後 10 秒で終わらないステージはセッションごと SIGKILL する。commit、確認、dvc.lock の戻しの間は SIGTERM を保留する
