@@ -184,6 +184,17 @@ class FingerprintTest(unittest.TestCase):
             (d / "dir" / "g").write_text("1")
             self.assertEqual(sr.changed_paths(before, d), ["dir", "file"])
 
+    def test_unreadable_directory_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "dir" / "sub").mkdir(parents=True)
+            (d / "dir" / "sub").chmod(0)
+            try:
+                with self.assertRaises(PermissionError):
+                    sr.fingerprints(["dir"], d)
+            finally:
+                (d / "dir" / "sub").chmod(0o755)
+
 
 class PhysicalCoresTest(unittest.TestCase):
     def test_counts_cores_not_hardware_threads_within_the_affinity(self):
@@ -201,6 +212,14 @@ class PhysicalCoresTest(unittest.TestCase):
 
 
 class RecordTest(unittest.TestCase):
+    def test_rejects_times_that_are_not_positive_numbers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stage-cpu-seconds.json"
+            for bad in ["0", "-1.5", "true", '"3"']:
+                path.write_text(f'{{"g@a": 2.0, "g@b": {bad}}}')
+                with self.assertRaises(sr.RunnerError, msg=bad):
+                    sr.read_record(path)
+
     def test_missing_record_is_empty_and_writes_sorted(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "stage-cpu-seconds.json"
@@ -308,6 +327,63 @@ class ExecuteTest(unittest.TestCase):
         self.assertNotEqual(runner.wait(timeout=10), 0)
         with self.assertRaises(ProcessLookupError):
             os.kill(xs_pid, 0)
+
+    def test_stage_that_never_fits_is_an_error(self):
+        with self.assertRaises(sr.RunnerError):
+            sr.execute([("a", 3)], {"a": "./xs a 0"}, self.dir, 2, lambda done: None)
+
+
+# 偽の dvc: 自分の pid を書き、SIGTERM を受けたら got-term を書いて終わる。引数 fail なら 3 で終わる
+FAKE_DVC = """#!/bin/sh
+[ "$1" = fail ] && exit 3
+trap 'echo term > got-term; exit 0' TERM
+echo $$ > pid
+sleep 30 &
+wait
+"""
+
+
+class DvcTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        dvc = self.dir / "dvc"
+        dvc.write_text(FAKE_DVC)
+        dvc.chmod(0o755)
+        self.env = {**os.environ, "PATH": f"{self.dir}:{os.environ['PATH']}"}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_failure_is_a_runner_error(self):
+        old = os.environ["PATH"]
+        os.environ["PATH"] = self.env["PATH"]
+        try:
+            with self.assertRaises(sr.RunnerError):
+                sr.dvc("fail")
+        finally:
+            os.environ["PATH"] = old
+
+    def test_sigterm_reaches_dvc_as_sigterm(self):
+        # runner が SIGTERM で止まるとき、待っていた dvc を SIGKILL せず SIGTERM で止め、終わるのを待つこと
+        script = "import stage_runner as sr\nsr.stop_on_sigterm()\nsr.dvc('wait')\n"
+        env = {**self.env, "PYTHONPATH": str(Path(__file__).resolve().parent)}
+        # 偽の dvc は cwd に pid と got-term を書く
+        runner = subprocess.Popen([sys.executable, "-c", script], cwd=self.dir, env=env)
+        pid_file = self.dir / "pid"
+        deadline = time.monotonic() + 10
+        while not (pid_file.exists() and pid_file.read_text().strip()):
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.05)
+        runner.send_signal(signal.SIGTERM)
+        self.assertNotEqual(runner.wait(timeout=10), 0)
+        self.assertTrue((self.dir / "got-term").exists())
+
+
+class ArgumentsTest(unittest.TestCase):
+    def test_threads_must_be_positive(self):
+        with self.assertRaises(SystemExit):
+            sr.main(["examples/p/dvc.yaml", "g", "--threads", "0"])
 
 
 if __name__ == "__main__":
