@@ -64,6 +64,11 @@ pub fn solve_burnups(
     burnups: &[f64],
     options: &Options,
 ) -> Result<Solved, CaseError> {
+    if let Some(b) = state.burnup {
+        return Err(CaseError::Depletion(format!(
+            "the state gives a burnup {b}; the burnups are given by node"
+        )));
+    }
     if burnups.len() != layout.node_material.len() {
         return Err(CaseError::Depletion(format!(
             "{} burnups for {} positions",
