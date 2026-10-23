@@ -21,7 +21,7 @@ const XE135: usize = 2;
 const XE136: usize = 3;
 const CS135: usize = 4;
 const BA140: usize = 5;
-const U235: usize = 6;
+pub(crate) const U235: usize = 6;
 const U236: usize = 7;
 const U238: usize = 8;
 /// U-235 の核分裂の Q (eV)
@@ -55,7 +55,7 @@ fn capture(target: usize) -> Reaction {
 
 /// H-1、O-16、Xe-135（β− で Cs-135、(n,γ) で Xe-136）、Xe-136、Cs-135、Ba-140、U-235（(n,γ) で U-236、核分裂で Xe-135 と
 /// Ba-140 を合わせて 2 個）、U-236、U-238 のチェーン。核分裂生成物の原子の数は核分裂の 2 倍になる
-fn chain() -> Chain {
+pub(crate) fn chain() -> Chain {
     let mut xe135 = stable("Xe-135", 54, 135);
     xe135.decay = Some(Decay {
         half_life: 32_904.0,
@@ -108,7 +108,7 @@ fn chain() -> Chain {
 }
 
 /// 2 群（0.625 eV で分ける）の、分離共鳴のないライブラリ。全断面積は散乱、核分裂、捕獲の和。散乱は P1 まで
-fn library() -> Library {
+pub(crate) fn library() -> Library {
     // (名前, awr, 散乱 [[g→g']], 核分裂, 捕獲)
     let nuclide =
         |name: &str, awr: f64, scatter: [[f64; 2]; 2], fission: [f64; 2], capture: [f64; 2]| {
@@ -202,7 +202,7 @@ fn library() -> Library {
     }
 }
 
-const PIN: &str = r#"
+pub(crate) const PIN: &str = r#"
 library = "unused.msgpack"
 pitch = 1.26
 azimuthal = 8
@@ -234,7 +234,7 @@ fn deplete_input(text: &str) -> History {
 }
 
 /// 入力 `text` を、テストのチェーンとライブラリ `library` で燃焼させる
-fn deplete_with(text: &str, library: &Library) -> History {
+pub(crate) fn deplete_with(text: &str, library: &Library) -> History {
     let input = LatticeInput::parse(text).unwrap();
     let depletion = input.depletion.clone().unwrap();
     let (lattice, region_materials) = input.geometry().unwrap();
@@ -981,4 +981,90 @@ fn depleted_materials_share_one_temperature() {
     .unwrap_err()
     .to_string();
     assert!(error.contains("several temperatures"), "{error}");
+}
+
+#[test]
+fn history_round_trips_through_its_file() {
+    let text = format!("{PIN}few-group = {{ bounds = [1e7, 0.625, 1e-5] }}\n");
+    let history = deplete_input(&text);
+    let read = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read.nuclides, history.nuclides);
+    assert_eq!(read.regions, history.regions);
+    assert_eq!(read.transportable, history.transportable);
+    assert_eq!(read.solves, history.solves);
+    assert_eq!(read.points.len(), history.points.len());
+    for (r, h) in read.points.iter().zip(&history.points) {
+        assert_eq!(r.time.to_bits(), h.time.to_bits());
+        assert_eq!(r.burnup.to_bits(), h.burnup.to_bits());
+        assert_eq!(r.k.to_bits(), h.k.to_bits());
+        assert_eq!(r.densities, h.densities);
+        assert_eq!(r.pin_powers, h.pin_powers);
+        assert_eq!(r.few_group, h.few_group);
+    }
+}
+
+#[test]
+fn reading_a_history_checks_the_format_name() {
+    let mut bytes = deplete_input(PIN).to_msgpack().unwrap();
+    let at = bytes
+        .windows(21)
+        .position(|w| w == b"xlc-depletion-history")
+        .unwrap();
+    bytes[at + 4] = b'D';
+    assert!(History::from_msgpack(&bytes).is_err());
+}
+
+#[test]
+fn histories_without_depletion_regions_are_errors() {
+    let bytes = deplete_input(PIN).to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    // 燃焼の領域と、各点の数密度（[領域][核種]）を空にする
+    let emptied = |v: rmpv::Value, key: &str| match v {
+        rmpv::Value::Map(entries) => rmpv::Value::Map(
+            entries
+                .into_iter()
+                .map(|(k, v)| {
+                    if k.as_str() == Some(key) {
+                        (k, rmpv::Value::Array(Vec::new()))
+                    } else {
+                        (k, v)
+                    }
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    let value = match emptied(value, "regions") {
+        rmpv::Value::Map(entries) => rmpv::Value::Map(
+            entries
+                .into_iter()
+                .map(|(k, v)| match (k.as_str(), v) {
+                    (Some("points"), rmpv::Value::Array(points)) => (
+                        k,
+                        rmpv::Value::Array(
+                            points
+                                .into_iter()
+                                .map(|p| emptied(p, "densities"))
+                                .collect(),
+                        ),
+                    ),
+                    (_, v) => (k, v),
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    let mut empty = Vec::new();
+    rmpv::encode::write_value(&mut empty, &value).unwrap();
+    let err = History::from_msgpack(&empty).unwrap_err();
+    assert!(format!("{err:#}").contains("regions"), "{err:#}");
+}
+
+#[test]
+fn histories_with_repeated_nuclides_are_errors() {
+    let mut history = deplete_input(PIN);
+    // 核種の名前で数密度の列を引くので、同じ名前が 2 つあれば列を選べない
+    history.nuclides[1] = history.nuclides[0].clone();
+    let err = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap_err();
+    assert!(format!("{err:#}").contains("twice"), "{err:#}");
 }

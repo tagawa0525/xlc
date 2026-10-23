@@ -55,11 +55,11 @@ pub struct Nuclide {
     /// 励起エネルギー (eV)
     pub excitation: f64,
     /// 安定なら `None`（nil を書く。項目は省けない）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     pub decay: Option<Decay>,
     pub reactions: Vec<Reaction>,
     /// 核分裂しないなら `None`（nil を書く。項目は省けない）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     pub fission: Option<Fission>,
 }
 
@@ -121,7 +121,7 @@ pub struct Reaction {
 #[serde(deny_unknown_fields)]
 pub struct Channel {
     /// 状態ごとの割合を与える ENDF のファイル（MF9 か MF10）と状態（LFS）。状態に分けない反応は `None`
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     pub final_state: Option<FinalState>,
     /// 生まれる核種（生成物と、(n,p) の H-1、(n,α) の He-4）。生成物がチェーンにないときは空
     pub products: Vec<Product>,
@@ -133,7 +133,7 @@ pub struct Channel {
 pub struct FinalState {
     pub mf: u32,
     /// 状態（LFS）。`None` は、MF8 が基底状態を挙げない反応の、挙げた状態を除いた残り（基底状態へ）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     pub lfs: Option<u32>,
 }
 
@@ -169,17 +169,6 @@ pub struct NuclideRates {
     /// 収率のエネルギーの点ごとの重み（和は 1。核分裂率をどの点に割り当てるかは呼ぶ側が決める。格子計算の燃焼は ADR-0183）。
     /// 核分裂しない核種は空
     pub yield_weights: Vec<f64>,
-}
-
-/// `Option` を、値か nil からだけ読む（serde の derive は、省いた `Option` を `None` にするため）。xlc-format の
-/// table.rs に同じ関数（library.rs に型を決めた同じもの）があるが、`xlc_format::msgpack` に移すと段階の実行ファイルが変わる（#0117）ので、
-/// 移さずに持つ
-fn nil_or<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::deserialize(d)
 }
 
 /// 形式の名前

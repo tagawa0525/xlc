@@ -3,7 +3,9 @@
 //! 軸ごとに隣の2点で線形に内挿する（ホウ素濃度は ppm、減速材は温度、燃料は √T）。格子点の範囲の外はエラーにし、
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
 //! 持ち、与えないときは軸のないテーブルだけを使う。制御棒の離散の軸は内挿せず、値の名前で選ぶ（棒がなければ
-//! `out`。ADR-0127）。
+//! `out`。ADR-0127）。燃焼度は、ほかの連続の軸と同じく線形に内挿する。燃焼度を与える状態では、核分裂のあるテーブルは
+//! 燃焼度の軸を持つこと（燃焼度 0 は軸のない新しい燃料のテーブルでもよい）。核分裂のないテーブル（反射体）は燃焼しないので、軸なしに
+//! どの燃焼度でも使う（ADR-0187）。
 
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, ROD_OUT, Table};
@@ -19,6 +21,8 @@ pub struct State {
     pub moderator: f64,
     /// 燃料の温度 (K)
     pub fuel: f64,
+    /// 燃焼度 (MWd/kg、初めの重金属)。燃焼していない炉心は `None`（ADR-0187）
+    pub burnup: Option<f64>,
 }
 
 /// 内挿する軸の、隣の2点の番号と、上の点の重み。
@@ -213,10 +217,30 @@ pub fn interpolate(
             return Err(format!("the table has no {name} axis for the core state"));
         }
     }
+    let has_burnup = table.axes.iter().any(|a| matches!(a, Axis::Burnup { .. }));
+    // 燃焼度 0 は新しい燃料のテーブルの状態そのもの
+    if let Some(burnup) = state.burnup
+        && burnup != 0.0
+        && !has_burnup
+        && table
+            .states
+            .iter()
+            .any(|s| s.nu_fission.iter().any(|&v| v > 0.0))
+    {
+        return Err(format!(
+            "the table has fission but no burnup axis for the burnup {burnup} of the state (ADR-0187)"
+        ));
+    }
     // テーブルの軸の順に、隣の2点
     let mut brackets = Vec::with_capacity(table.axes.len());
     for axis in &table.axes {
         brackets.push(match axis {
+            Axis::Burnup { points } => {
+                let burnup = state.burnup.ok_or(
+                    "the table has a burnup axis; give the state a burnup (ADR-0187)",
+                )?;
+                bracket("burnup", points, burnup, |x| x)?
+            }
             Axis::Boron { ppm, b10 } => {
                 if *b10 != state.b10 {
                     return Err(format!(

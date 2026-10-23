@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, anyhow, bail};
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use xlc_depletion::chain::{Chain, ChainError, Fission, NuclideRates, Reaction};
 use xlc_depletion::{CramOrder, deplete};
 use xlc_format::fewgroup::FewGroup;
@@ -418,7 +418,8 @@ pub fn has_data_at(library: &Library, name: &str, temperature: f64) -> bool {
 }
 
 /// 燃焼の領域: 物質と、組の代表のセル、MOC の領域（組のすべてのセルの分）と、その体積の和 (cm²)
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DepletionRegion {
     pub material: String,
     pub cell: usize,
@@ -429,6 +430,84 @@ pub struct DepletionRegion {
 /// 燃焼の領域を自己遮蔽と MOC で解くときの物質の名前
 pub fn transport_name(material: &str, cell: usize) -> String {
     format!("{material}@{cell}")
+}
+
+/// 解く物質の名前（`<物質>@<セル>`）が、入力の物質 `materials` の名前と重ならないこと
+pub fn check_region_names(
+    materials: &[MaterialInput],
+    regions: &[DepletionRegion],
+) -> anyhow::Result<()> {
+    for d in regions {
+        let name = transport_name(&d.material, d.cell);
+        if materials.iter().any(|m| m.name == name) {
+            bail!("material `{name}` clashes with the name of a depletion region");
+        }
+    }
+    Ok(())
+}
+
+/// 領域ごとの解く物質の名前。燃焼させる物質 `depleted` の領域は、組の代表のセル `representatives`（[セル]）で
+/// `<物質>@<セル>` にする
+pub fn solved_names(
+    lattice: &Lattice,
+    region_materials: &[String],
+    representatives: &[usize],
+    depleted: &[String],
+) -> Vec<String> {
+    region_materials
+        .iter()
+        .enumerate()
+        .map(|(r, name)| {
+            if depleted.contains(name) {
+                transport_name(name, representatives[lattice.region_cell(r)])
+            } else {
+                name.clone()
+            }
+        })
+        .collect()
+}
+
+/// 燃焼の領域ごとの数密度 `n`（[領域][核種]）の負の値が、近似の誤差の水準であること（ADR-0173）。`name` は核種の名前
+pub fn check_negative(
+    regions: &[DepletionRegion],
+    n: &[Vec<f64>],
+    name: impl Fn(usize) -> String,
+) -> anyhow::Result<()> {
+    for (d, n) in regions.iter().zip(n) {
+        let largest = n.iter().fold(0.0_f64, |a, &b| a.max(b));
+        if let Some((i, v)) = n
+            .iter()
+            .enumerate()
+            .find(|&(_, &v)| v < -NEGATIVE_TOLERANCE * largest)
+        {
+            bail!(
+                "{} in material `{}` of cell {} is {v}, below the CRAM error",
+                name(i),
+                d.material,
+                d.cell
+            );
+        }
+    }
+    Ok(())
+}
+
+/// 燃焼の領域 `d` を解く物質: 温度 `temperature`、輸送する核種 `transported`（番号）の数密度 `n`（負の値は 0。燃焼の
+/// 輸送と履歴からの分岐で同じ。ADR-0173、ADR-0187）。`name` は核種の名前
+pub fn region_material(
+    d: &DepletionRegion,
+    temperature: f64,
+    n: &[f64],
+    transported: &[usize],
+    name: impl Fn(usize) -> String,
+) -> MaterialInput {
+    MaterialInput {
+        name: transport_name(&d.material, d.cell),
+        temperature,
+        composition: transported
+            .iter()
+            .map(|&i| (name(i), n[i].max(0.0)))
+            .collect(),
+    }
 }
 
 /// 燃焼させる物質 `depleted` の領域を、セルの組の代表 `representatives`（[セル]）と物質ごとにまとめる（現れる順）
@@ -540,7 +619,129 @@ struct PointFile<'a> {
     few_group: Option<rmpv::Value>,
 }
 
+/// 読む燃焼の履歴のファイル（書く形 `HistoryFile` と同じ項目）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HistoryFileIn {
+    format: String,
+    nuclides: Vec<String>,
+    regions: Vec<DepletionRegion>,
+    transportable: Vec<String>,
+    points: Vec<PointFileIn>,
+    seconds: SecondsFileIn,
+    solves: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SecondsFileIn {
+    shielding: f64,
+    moc: f64,
+    rates: f64,
+    matrix: f64,
+    cram: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PointFileIn {
+    time: f64,
+    burnup: f64,
+    k_inf: f64,
+    densities: Vec<Vec<f64>>,
+    pin_powers: Vec<Vec<f64>>,
+    /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
+    few_group: Option<rmpv::Value>,
+}
+
+/// 時間の内訳 (s) を `Duration` にする（負や有限でない値はエラー）
+fn seconds(name: &str, s: f64) -> anyhow::Result<Duration> {
+    Duration::try_from_secs_f64(s).map_err(|e| anyhow!("seconds.{name} {s}: {e}"))
+}
+
 impl History {
+    /// `to_msgpack` の形を読む（ADR-0187）。核種の名前、燃焼度が 0 から増えること、各点の数密度が [燃焼の領域][核種] で
+    /// あること、輸送できる核種がチェーンの核種であること、少数群定数が状態 1 つのテーブルであることを確かめる
+    pub fn from_msgpack(bytes: &[u8]) -> anyhow::Result<Self> {
+        let file: HistoryFileIn = msgpack::from_value(msgpack::read_value(bytes)?)?;
+        if file.format != FORMAT {
+            bail!("expected format {FORMAT}, found {}", file.format);
+        }
+        let (nuclides, regions, transportable) = (file.nuclides, file.regions, file.transportable);
+        // 燃焼の輸送は燃焼の領域のない格子で止まる（`run`）ので、領域のない履歴は書かれない
+        if regions.is_empty() {
+            bail!("the history has no depletion regions");
+        }
+        // 数密度の列は核種の名前で引く
+        for (k, name) in nuclides.iter().enumerate() {
+            if nuclides[..k].contains(name) {
+                bail!("the history lists {name} twice");
+            }
+        }
+        if let Some(name) = transportable.iter().find(|n| !nuclides.contains(n)) {
+            bail!("the transportable {name} is not a nuclide of the history");
+        }
+        let burnups: Vec<f64> = file.points.iter().map(|p| p.burnup).collect();
+        if burnups.first() != Some(&0.0) || !burnups.windows(2).all(|w| w[0] < w[1]) {
+            bail!("the history burnups must increase from 0, got {burnups:?}");
+        }
+        let points = file
+            .points
+            .into_iter()
+            .map(|p| {
+                if p.densities.len() != regions.len()
+                    || p.densities.iter().any(|n| n.len() != nuclides.len())
+                {
+                    bail!(
+                        "point at {} MWd/kg: the densities need {} regions of {} nuclides",
+                        p.burnup,
+                        regions.len(),
+                        nuclides.len()
+                    );
+                }
+                let few_group = p
+                    .few_group
+                    .map(|value| -> anyhow::Result<FewGroup> {
+                        let mut bytes = Vec::new();
+                        rmpv::encode::write_value(&mut bytes, &value)?;
+                        let table = Table::from_msgpack(&bytes)?;
+                        match (table.axes.is_empty(), table.states.as_slice()) {
+                            (true, [one]) => Ok(one.clone()),
+                            _ => bail!("the few-group constants of a point must be one state"),
+                        }
+                    })
+                    .transpose()
+                    .with_context(|| format!("point at {} MWd/kg", p.burnup))?;
+                Ok(HistoryPoint {
+                    time: p.time,
+                    burnup: p.burnup,
+                    k: p.k_inf,
+                    densities: p.densities,
+                    pin_powers: p.pin_powers,
+                    few_group,
+                    transported: transportable.len(),
+                })
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let s = &file.seconds;
+        Ok(Self {
+            nuclides,
+            regions,
+            transportable,
+            points,
+            transport: TransportTimes {
+                shielding: seconds("shielding", s.shielding)?,
+                moc: seconds("moc", s.moc)?,
+                rates: seconds("rates", s.rates)?,
+            },
+            depletion: DepletionTimes {
+                matrix: seconds("matrix", s.matrix)?,
+                cram: seconds("cram", s.cram)?,
+            },
+            solves: file.solves,
+        })
+    }
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
     /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
     /// matrix, cram}（時間の内訳 (s)）, solves}`
@@ -635,13 +836,7 @@ pub fn run(
             .find(|m| m.name == name)
             .ok_or_else(|| anyhow!("depleted material `{name}` is not written with nuclides"))
     };
-    // 解く物質の名前が、入力の物質の名前と重ならないこと
-    for d in &regions {
-        let name = transport_name(&d.material, d.cell);
-        if input.materials.iter().any(|m| m.name == name) {
-            bail!("material `{name}` clashes with the name of a depletion region");
-        }
-    }
+    check_region_names(&input.materials, &regions)?;
     // 初めの数密度（チェーンの順）
     let initial = regions
         .iter()
@@ -707,17 +902,12 @@ pub fn run(
         bail!("the depleted materials have no heavy metal (Z >= {HEAVY_METAL_Z})");
     }
     let power = depletion.power * mass;
-    let renamed: Vec<String> = region_materials
-        .iter()
-        .enumerate()
-        .map(|(r, name)| {
-            if depletion.materials.contains(name) {
-                transport_name(name, representatives[lattice.region_cell(r)])
-            } else {
-                name.clone()
-            }
-        })
-        .collect();
+    let renamed = solved_names(
+        lattice,
+        region_materials,
+        &representatives,
+        &depletion.materials,
+    );
     let groups = &library.groups;
     let mut transport = TransportTimes::default();
     let mut solves = 0;
@@ -725,21 +915,7 @@ pub fn run(
         solves += 1;
         let start = Instant::now();
         // 負の数密度は近似の誤差の水準だけを許し、輸送には入れない（ADR-0173）
-        for (d, n) in regions.iter().zip(n) {
-            let largest = n.iter().fold(0.0_f64, |a, &b| a.max(b));
-            if let Some((i, v)) = n
-                .iter()
-                .enumerate()
-                .find(|&(_, &v)| v < -NEGATIVE_TOLERANCE * largest)
-            {
-                bail!(
-                    "{} in material `{}` of cell {} is {v}, below the CRAM error",
-                    chain.nuclides[i].name,
-                    d.material,
-                    d.cell
-                );
-            }
-        }
+        check_negative(&regions, n, |i| chain.nuclides[i].name.clone())?;
         // 輸送できる核種はすべて、数密度が 0 でも輸送して反応率を求める（OpenMC も数密度を掛けない tally で、0 の核種に 1 原子
         // あたりの反応率を与える。始まりに 0 の Xe-135 も予測子で燃え尽きる）。どの領域でも同じ核種の並び（自己遮蔽は 1 つの
         // セルの燃料のリングに同じ並びを求める）
@@ -785,14 +961,13 @@ pub fn run(
             .cloned()
             .collect();
         for (d, n) in regions.iter().zip(n) {
-            materials.push(MaterialInput {
-                name: transport_name(&d.material, d.cell),
-                temperature: base(&d.material)?.temperature,
-                composition: composition
-                    .iter()
-                    .map(|&i| (chain.nuclides[i].name.clone(), n[i].max(0.0)))
-                    .collect(),
-            });
+            materials.push(region_material(
+                d,
+                base(&d.material)?.temperature,
+                n,
+                &composition,
+                |i| chain.nuclides[i].name.clone(),
+            ));
         }
         let shielded = shield_fuel_with(
             library,
@@ -960,4 +1135,4 @@ pub fn run(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
