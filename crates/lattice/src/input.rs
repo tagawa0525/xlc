@@ -865,7 +865,8 @@ impl LatticeInput {
         let depletion = file
             .depletion
             .map(|d| {
-                // 燃焼度の軸を持つテーブルと媒質は決めていない（ADR-0173）。燃焼点ごとのピン出力は燃焼の履歴に入る（ADR-0181）
+                // 燃焼点からの分岐は履歴を読む別の入力（`[history]`。ADR-0187）で解く。媒質は決めていない（ADR-0173）。燃焼点ごとのピン出力は
+                // 燃焼の履歴に入る（ADR-0181）
                 if macroscopic || branches.is_some() {
                     return Err("depletion needs a library and no branches (ADR-0173)".to_string());
                 }
