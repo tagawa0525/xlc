@@ -1,0 +1,224 @@
+{
+ "burned-1e-4-t1": {
+  "wall": 193.328285925,
+  "spans": {
+   "moc": {
+    "busy": 35.7,
+    "count": 1
+   },
+   "moc:coarse": {
+    "busy": 1.1914,
+    "count": 24
+   },
+   "moc:homogenize": {
+    "busy": 0.538,
+    "count": 24
+   },
+   "moc:sweep": {
+    "busy": 31.18,
+    "count": 24
+   },
+   "moc:tallies": {
+    "busy": 1.39,
+    "count": 24
+   },
+   "shielding": {
+    "busy": 155.0,
+    "count": 1
+   },
+   "shielding:dancoff": {
+    "busy": 23.1,
+    "count": 1
+   },
+   "shielding:dilute": {
+    "busy": 0.0001,
+    "count": 1
+   },
+   "shielding:lumps": {
+    "busy": 23.8,
+    "count": 1
+   },
+   "shielding:lumps:lump": {
+    "busy": 0.0063,
+    "count": 6
+   },
+   "shielding:mix": {
+    "busy": 0.0771,
+    "count": 1
+   },
+   "shielding:pin": {
+    "busy": 106.7,
+    "count": 39
+   },
+   "shielding:pin:carlvik": {
+    "busy": 0.2335,
+    "count": 39
+   },
+   "shielding:pin:equivalent-radius": {
+    "busy": 0.7253,
+    "count": 39
+   },
+   "shielding:pin:ring-materials": {
+    "busy": 0.7079,
+    "count": 39
+   },
+   "shielding:pin:sph": {
+    "busy": 0.5291,
+    "count": 39
+   },
+   "shielding:pin:ufg": {
+    "busy": 104.46,
+    "count": 39
+   }
+  },
+  "cmfd_lines": 24
+ },
+ "burned-1e-4-t16": {
+  "wall": 28.985626099,
+  "spans": {
+   "moc": {
+    "busy": 7.75,
+    "count": 1
+   },
+   "moc:coarse": {
+    "busy": 0.9881,
+    "count": 24
+   },
+   "moc:homogenize": {
+    "busy": 0.4515,
+    "count": 24
+   },
+   "moc:sweep": {
+    "busy": 4.597,
+    "count": 24
+   },
+   "moc:tallies": {
+    "busy": 0.4643,
+    "count": 24
+   },
+   "shielding": {
+    "busy": 18.4,
+    "count": 1
+   },
+   "shielding:dancoff": {
+    "busy": 2.22,
+    "count": 1
+   },
+   "shielding:dilute": {
+    "busy": 0.0001,
+    "count": 1
+   },
+   "shielding:lumps": {
+    "busy": 2.19,
+    "count": 1
+   },
+   "shielding:lumps:lump": {
+    "busy": 0.0086,
+    "count": 6
+   },
+   "shielding:mix": {
+    "busy": 0.0791,
+    "count": 1
+   },
+   "shielding:pin": {
+    "busy": 214.88,
+    "count": 39
+   },
+   "shielding:pin:carlvik": {
+    "busy": 0.3157,
+    "count": 39
+   },
+   "shielding:pin:equivalent-radius": {
+    "busy": 1.0817,
+    "count": 39
+   },
+   "shielding:pin:ring-materials": {
+    "busy": 1.6988,
+    "count": 39
+   },
+   "shielding:pin:sph": {
+    "busy": 0.548,
+    "count": 39
+   },
+   "shielding:pin:ufg": {
+    "busy": 211.15,
+    "count": 39
+   }
+  },
+  "cmfd_lines": 24
+ },
+ "burned-1e-4-t4": {
+  "wall": 57.145620159,
+  "spans": {
+   "moc": {
+    "busy": 12.9,
+    "count": 1
+   },
+   "moc:coarse": {
+    "busy": 0.9998,
+    "count": 24
+   },
+   "moc:homogenize": {
+    "busy": 0.451,
+    "count": 24
+   },
+   "moc:sweep": {
+    "busy": 9.646,
+    "count": 24
+   },
+   "moc:tallies": {
+    "busy": 0.5925,
+    "count": 24
+   },
+   "shielding": {
+    "busy": 41.5,
+    "count": 1
+   },
+   "shielding:dancoff": {
+    "busy": 5.71,
+    "count": 1
+   },
+   "shielding:dilute": {
+    "busy": 0.0001,
+    "count": 1
+   },
+   "shielding:lumps": {
+    "busy": 6.17,
+    "count": 1
+   },
+   "shielding:lumps:lump": {
+    "busy": 0.0081,
+    "count": 6
+   },
+   "shielding:mix": {
+    "busy": 0.147,
+    "count": 1
+   },
+   "shielding:pin": {
+    "busy": 127.79,
+    "count": 39
+   },
+   "shielding:pin:carlvik": {
+    "busy": 0.2632,
+    "count": 39
+   },
+   "shielding:pin:equivalent-radius": {
+    "busy": 0.8051,
+    "count": 39
+   },
+   "shielding:pin:ring-materials": {
+    "busy": 0.9129,
+    "count": 39
+   },
+   "shielding:pin:sph": {
+    "busy": 0.5414,
+    "count": 39
+   },
+   "shielding:pin:ufg": {
+    "busy": 125.25,
+    "count": 39
+   }
+  },
+  "cmfd_lines": 24
+ }
+}
