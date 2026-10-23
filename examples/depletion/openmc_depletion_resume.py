@@ -23,7 +23,7 @@ ADR-0174）。輸送の乱数のシードと組成が同じなので先頭の輸
 AWS の機種はまちまちなので、この時間は xlc の時間との比較に使わない（ADR-0174）。
 
 `solve` の設定の組み立て（TimedOperator と CECMIntegrator の引数）は openmc_depletion.py の `solve` と同じ。そちらを変えると
-`openmc-1C` の重い段階が古くなるので、変えずにここへコピーしている（#0132）。
+`openmc-1C` の重いステージが古くなるので、変えずにここへコピーしている（#0132）。
 
 入力の問題でツールを選ぶ（`backend_of`）: 1B〜1D のピンセルは openmc_depletion.py、2 で始まる集合体は
 openmc_depletion_assembly.py（ADR-0178）。集合体は区間ごとにピン出力（pins.json）を前の区間までに続けて書き、extract に渡す。

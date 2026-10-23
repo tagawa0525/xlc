@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# build-binaries.sh — DVC の build の段階（リポジトリの直下の dvc.yaml）。xs、lattice、core と、xs の段階の燃焼チェーンの
-# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
+# build-binaries.sh — DVC の build のステージ（リポジトリの直下の dvc.yaml）。xs、lattice、core と、xs のステージの燃焼チェーンの
+# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust のステージは、この実行ファイルを deps にして呼ぶ（ADR-0159）
 #
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #

@@ -19,7 +19,7 @@ I 型の格子（[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-
 
 - 定数を作った体系では、炉心計算が参照（格子計算の MOC）のノード平均の反応率、面の正味の中性子流、k を再現すること
 - core のノード法と ADF の定義がそろうこと
-- 段階のクレートの独立（[ADR-0002](0002-keep-stage-crates-independent.md)）と、共通の計算の切り出し（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
+- ステージのクレートの独立（[ADR-0002](0002-keep-stage-crates-independent.md)）と、共通の計算の切り出し（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
 - 原理で決まり、手で合わせる係数を持たないこと
 
 ## 検討した案
@@ -37,7 +37,7 @@ I 型の格子（[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-
   ORNL/SPR-2023/3090、13.1.4 節）。オープンソースの
   格子コード Scarabee も、反射体の ADF を NEM の1ノードの解で作る（https://scarabee.readthedocs.io/en/latest/_modules/scarabee/reseau/reflector.html ）
 - 同じ量を core で計算する（lattice は不均質な面の中性子束と正味の中性子流を出し、core が自分の NEM で ADF にする）:
-  NEM のコードを動かさずに済むが、段階の間のファイルが ADF でなく途中の量になり、状態の分岐のテーブルで何を
+  NEM のコードを動かさずに済むが、ステージの間のファイルが ADF でなく途中の量になり、状態の分岐のテーブルで何を
   内挿するかがあいまいになる
 - SPH 因子（DRAGON/DONJON が主に使う。A. Hébert, Applied Reactor Physics, 3rd ed., Presses inter Polytechnique (2020)、
   4 章。未確認）: 面の中性子束の不連続ではなく断面積を補正するので、ADF を入れる NEM（[ADR-0027](0027-solve-core-with-nem.md)）と形が合わない

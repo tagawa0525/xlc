@@ -9,7 +9,7 @@
 //! （ADR-0067）。結果はスレッドの数によらない。
 //!
 //! 引数が入力ファイルだけのときは、すべての核種を処理して入力の `output` にライブラリを書く。ほかの 3 つは、同じ結果を
-//! 段階に分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
+//! ステージに分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
 //! `nuclide` は、その範囲で核種 1 つだけを処理し、1 核種のライブラリを書く。`assemble` は、ディレクトリの
 //! `<核種>.msgpack` を入力の核種の順に、入力と範囲のファイルと同じ条件で作られたことを確かめて、1 つのライブラリにして、
 //! 入力の `output` に書く。
@@ -349,7 +349,7 @@ fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
     }
 }
 
-/// ファイルを書く。DVC は段階の前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
+/// ファイルを書く。DVC はステージの前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
 fn write_file(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
     let context = || format!("{}", path.display());
     if let Some(directory) = path.parent() {
@@ -374,7 +374,7 @@ fn run(input: &Input) -> anyhow::Result<()> {
     write_library(&library_of(settings, nuclides), &input.output)
 }
 
-/// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` の段階の入力になる）。
+/// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` のステージの入力になる）。
 fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
     let tapes = read_tapes(&input.nuclides)?;
     let range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;

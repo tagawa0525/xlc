@@ -23,11 +23,11 @@
 | `axial_slab.py`                    | 軸方向の反射体の平板（`axial-3A-*.toml`）と、それを解く炉心の入力（`core-axial-*.toml`）を書く                            |
 | `axial-3A-16.toml` など            | 集合体の高さ全体の平板。燃料 16 ノード（`16`）、32 ノード（`32`）、`16` の列を半分にしたもの（`fine`）                    |
 | `compare_axial.py`                 | 平板の MOC と炉心の k とノード平均の中性子束の比較、z の辺の ADF の一覧                                                   |
-| `dvc.yaml`、`dvc.lock`             | 段階（xs → assembly-3A → 平板 → 炉心 → 比較、xs → I 型と角型の格子 → 炉心 → 比較。ADR-0123）                              |
+| `dvc.yaml`、`dvc.lock`             | ステージ（xs → assembly-3A → 平板 → 炉心 → 比較、xs → I 型と角型の格子 → 炉心 → 比較。ADR-0123）                          |
 
 生成物（ライブラリ、少数群定数）は git で追跡しない。軸方向の反射体、I 型と角型の格子（`lattice-I`、`lattice-corner`）、
 ADR-0132 の炉心（`core-corner`、`core-corner-outline`、`core-corner-I` と比較）は `dvc repro examples/reflector/dvc.yaml`
-で実行する。ほかの炉心は、段階の定数で次の手順で実行する。
+で実行する。ほかの炉心は、ステージの定数で次の手順で実行する。
 
 ```sh
 cd examples/reflector && ../../target/release/lattice assembly-2B.toml
@@ -192,7 +192,7 @@ RUST_LOG=info,xlc_lattice::fewgroup=debug ../../../target/release/lattice w6-n24
 
 ## 角型の格子の定数を作った体系の再現（d66daa64、分岐点 cf8694b0、2026-10-13）
 
-格子と、`core-corner`、`core-corner-outline`、`core-corner-I` とその比較は `dvc repro examples/reflector/dvc.yaml` の段階
+格子と、`core-corner`、`core-corner-outline`、`core-corner-I` とその比較は `dvc repro examples/reflector/dvc.yaml` のステージ
 （Slurm で排他）、ほかの 2 つの炉心（`core-corner-get`、`core-corner-fstar`）はその定数で上の手順で実行した（ノード平均を比べるときは
 `RUST_LOG=debug` を付ける）。ライブラリは
 ADR-0133 の S(α,β) の上限のもの。
@@ -200,7 +200,7 @@ ADR-0133 の S(α,β) の上限のもの。
 `reflector-corner.toml`（右上のノードにも反射体の印。燃料に角の点だけで接する。#0029）を MOC で解き（121 秒、格子の
 k = 0.45997592）、ノード（集合体、右、上、右上の反射体）ごとの定数で 2 × 2 の炉心（集合体、+x に右の反射体、+y に上の
 反射体、斜めに右上の反射体。-x、-y は反射、+x、+y は真空）を解いて、格子の MOC と比べた（`compare_radial.py`、
-`compare_edge.py`。`dvc.yaml` の段階は `compare-corner*.out`）。どの炉心も、反射体どうしの面に各側の少数群定数の ADF を
+`compare_edge.py`。`dvc.yaml` のステージは `compare-corner*.out`）。どの炉心も、反射体どうしの面に各側の少数群定数の ADF を
 使う（ADR-0132）。ノード平均の中性子束の比べ方は I 型の節と同じ（core の
 `RUST_LOG=debug` の `node average flux` × 21.5 と、lattice の info のログの `node`）。I 型の格子（`reflector-I.toml`）の
 k は 0.528342。

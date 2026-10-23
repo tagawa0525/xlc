@@ -5,10 +5,10 @@ VERA Problem 2E〜2K、3〜5 の物質（Pyrex、AIC、B4C、SS304、Inconel、�
 
 | ファイル   | 内容                                                                                                 |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `dvc.yaml` | 段階（`xs` だけ）                                                                                    |
+| `dvc.yaml` | ステージ（`xs` だけ）                                                                                |
 | `xs.toml`  | 多群ライブラリ（`m3-nuclides.msgpack`）の入力（29 核種、4 温度、σ0 9 点）。生成物は git で追跡しない |
 
-ライブラリは DVC のステージ `xs` で作る（ADR-0123）。NJOY との比較は `crates/xs/examples/` の比較プログラムで行い、段階にしない:
+ライブラリは DVC のステージ `xs` で作る（ADR-0123）。NJOY との比較は `crates/xs/examples/` の比較プログラムで行い、ステージにしない:
 
 ```sh
 ~/.claude/scripts/slurm-run.sh -t 10 dvc-m3-nuclides 'nix develop -c dvc repro examples/m3-nuclides/dvc.yaml'

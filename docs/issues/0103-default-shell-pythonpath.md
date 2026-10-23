@@ -14,7 +14,7 @@ resolution:
 
 references の devShell は shellHook で `PYTHONPATH` を外す（ADR-0124）が、default の devShell は外さない。外の shell に
 `PYTHONPATH` が残っていると、検証用の Python（`withPackages`）も DVC のステージの python3 も、そのパッケージを site-packages
-より先に読む。段階が検証用でない版のパッケージで黙って走り、数値が変わりうる。
+より先に読む。ステージが検証用でない版のパッケージで黙って走り、数値が変わりうる。
 
 調べた #0101 で見つけた。2026-10-12 のジョブ 247 で、dvc のラッパーの素の python3 が msgpack を読めた理由の候補だが、
 確かめていない。

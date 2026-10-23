@@ -13,7 +13,7 @@ requires: []
 
 ENDF から多群ライブラリを作る処理の流れと、対応する共鳴パラメータの形式の範囲を決める必要があった。
 
-- NJOY と段階ごとに比べて検証できること
+- NJOY とステージごとに比べて検証できること
 - 必要になるまで作らないこと
 
 ## 検討した案
@@ -22,7 +22,7 @@ ENDF から多群ライブラリを作る処理の流れと、対応する共鳴
 
 ## 決定と理由
 
-処理の流れは NJOY と同じく、共鳴の再構成 → ドップラー拡がり → 熱中性子散乱 → 群定数化 とする。段階ごとに NJOY の
+処理の流れは NJOY と同じく、共鳴の再構成 → ドップラー拡がり → 熱中性子散乱 → 群定数化 とする。ステージごとに NJOY の
 同じ条件の出力と比べられる。
 
 共鳴パラメータの形式（MLBW / Reich-Moore / R-matrix limited）は、対象核種で実際に使われているものから順に対応する。
@@ -36,7 +36,7 @@ ENDF から多群ライブラリを作る処理の流れと、対応する共鳴
 
 ## 確認
 
-段階ごとに NJOY の出力と比べる例（`crates/xs/examples/compare_njoy_pendf.rs`、`compare_njoy_broadr.rs`、
+ステージごとに NJOY の出力と比べる例（`crates/xs/examples/compare_njoy_pendf.rs`、`compare_njoy_broadr.rs`、
 `compare_njoy_thermr.rs`、`compare_njoy_gendf.rs`、`compare_njoy_shielding.rs`）。結果は examples/m1/verification.md。
 
 ## 帰結

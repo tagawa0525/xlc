@@ -2,8 +2,8 @@
 使う、計算の流れの部品: 入力の読み込み、run と extract のコマンド、初期の中性子源、メッシュの tally の取り出し、k と
 ピン出力の書き出し。
 
-ライブラリの段階（openmc_library.py）が deps にする openmc_input.py と分けるのは、モデルの側の変更で、核種ごとの
-ライブラリの段階を DVC が古いとみなさないようにするため（ADR-0130、ADR-0136）。
+ライブラリのステージ（openmc_library.py）が deps にする openmc_input.py と分けるのは、モデルの側の変更で、核種ごとの
+ライブラリのステージを DVC が古いとみなさないようにするため（ADR-0130、ADR-0136）。
 """
 
 import json
