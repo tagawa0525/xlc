@@ -7,6 +7,8 @@
 
 use std::f64::consts::PI;
 
+use rayon::prelude::*;
+
 use crate::geometry::{Cell, Lattice, Segment};
 use crate::tracking::{Track, Tracking};
 
@@ -428,39 +430,45 @@ fn image_of(
     // トラックの像: 端の点を移し、像の向きの方位角の、同じ始点のトラックを探す
     let apply = |(x, y): (f64, f64)| (matrix[0] * x + matrix[1] * y, matrix[2] * x + matrix[3] * y);
     let azimuths = &tracking.azimuths;
-    let mut tracks = Vec::with_capacity(tracking.tracks.len());
-    for (index, track) in tracking.tracks.iter().enumerate() {
-        let phi = azimuths[track.azimuth].phi;
-        let (dx, dy) = apply((phi.cos(), phi.sin()));
-        // 方位角は (0, π) で持つので、像の向きが下向きなら逆向きのトラックになる
-        let forward = dy > 0.0;
-        let (start, angle) = if forward {
-            (apply(track.start), dy.atan2(dx))
-        } else {
-            (apply(track.end), (-dy).atan2(-dx))
-        };
-        let image = azimuths
-            .iter()
-            .position(|a| (a.phi - angle).abs() < 1.0e-9)
-            .and_then(|a| starts.find(tracking, a, start, tolerance))
-            .ok_or_else(|| broken(format!("track {index} has no image track")))?;
-        let (a, b) = (
-            &azimuths[track.azimuth],
-            &azimuths[tracking.tracks[image].azimuth],
-        );
-        let close = |x: f64, y: f64| (x - y).abs() <= 1.0e-9 * x.abs().max(y.abs());
-        if !(close(a.weight, b.weight) && close(a.spacing, b.spacing)) {
-            return Err(broken(format!(
-                "track {index} and its image {image} differ in weight or spacing"
-            )));
-        }
-        if !segments_match(track, &tracking.tracks[image], &regions, forward, tolerance) {
-            return Err(broken(format!(
-                "track {index} and its image {image} differ in segments"
-            )));
-        }
-        tracks.push((image, forward));
-    }
+    // トラックごとに並列に確かめ、成り立たなければ番号の最も小さいトラックの理由を返す（エラーが分け方によらない）
+    let checked: Vec<Result<(usize, bool), SymmetryError>> = tracking
+        .tracks
+        .par_iter()
+        .enumerate()
+        .map(|(index, track)| {
+            let phi = azimuths[track.azimuth].phi;
+            let (dx, dy) = apply((phi.cos(), phi.sin()));
+            // 方位角は (0, π) で持つので、像の向きが下向きなら逆向きのトラックになる
+            let forward = dy > 0.0;
+            let (start, angle) = if forward {
+                (apply(track.start), dy.atan2(dx))
+            } else {
+                (apply(track.end), (-dy).atan2(-dx))
+            };
+            let image = azimuths
+                .iter()
+                .position(|a| (a.phi - angle).abs() < 1.0e-9)
+                .and_then(|a| starts.find(tracking, a, start, tolerance))
+                .ok_or_else(|| broken(format!("track {index} has no image track")))?;
+            let (a, b) = (
+                &azimuths[track.azimuth],
+                &azimuths[tracking.tracks[image].azimuth],
+            );
+            let close = |x: f64, y: f64| (x - y).abs() <= 1.0e-9 * x.abs().max(y.abs());
+            if !(close(a.weight, b.weight) && close(a.spacing, b.spacing)) {
+                return Err(broken(format!(
+                    "track {index} and its image {image} differ in weight or spacing"
+                )));
+            }
+            if !segments_match(track, &tracking.tracks[image], &regions, forward, tolerance) {
+                return Err(broken(format!(
+                    "track {index} and its image {image} differ in segments"
+                )));
+            }
+            Ok((image, forward))
+        })
+        .collect();
+    let tracks = checked.into_iter().collect::<Result<Vec<_>, _>>()?;
     Ok(Image {
         name,
         matrix,
