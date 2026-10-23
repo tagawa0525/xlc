@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, depletion, performance]
 opened: 2026-10-15
-closed:
+closed: 2026-10-24
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0197
 ---
 
 # 燃焼の中点で自己遮蔽を解き直さない場合の誤差と時間
@@ -26,3 +26,6 @@ ADR-0173 は、CE/CM の始まりと中点の両方の輸送で自己遮蔽を�
 ## 経緯
 
 - 2026-10-15: ADR-0173 の「帰結」から
+- 2026-10-24: `[depletion]` の `shielding = "step-start"` で F2 を選べるようにし、2A と 2O の 0〜60 MWd/kg で F1 と比べた
+  （examples/depletion/verification.md の「自己遮蔽の頻度（#0134）」）。k∞ の差は最初のステップで +7〜+9 pcm、長いステップで最大
+  −17.9 pcm、数密度の差は 0.5% 以下で、自己遮蔽の時間はほぼ半分。既定は F1 のまま（ADR-0197）
