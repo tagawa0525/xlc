@@ -113,6 +113,25 @@ class Summary(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_core_depletion.summarize(lattice, table, core)
 
+    def test_histories_that_search_the_boron_are_errors(self):
+        # 探索した履歴は点ごとにホウ素が違い、状態の 1 つのホウ素でテーブルを引けない（compare_core_boron.py で比べる）
+        lattice, table, core = inputs()
+        del core["state"]["boron"]
+        core["state"]["search"] = {
+            "boron": [0.0, 1300.0],
+            "k": 1.0,
+            "tolerance": 1e-6,
+            "max_solves": 20,
+        }
+        with self.assertRaises(SystemExit):
+            compare_core_depletion.summarize(lattice, table, core)
+
+    def test_states_without_a_boron_or_a_search_are_errors(self):
+        lattice, table, core = inputs()
+        del core["state"]["boron"]
+        with self.assertRaisesRegex(SystemExit, "neither"):
+            compare_core_depletion.summarize(lattice, table, core)
+
     def test_burnups_off_the_history_points_are_errors(self):
         lattice, table, core = inputs()
         core["points"][1]["burnup"] = 1.1

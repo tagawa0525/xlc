@@ -1,0 +1,7 @@
+# 2A のホウ素の軸を 0〜1300 ppm に広げたテーブル（branch-2A-boron.toml）。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A-boron.msgpack"]
+
+[assembly.A01]
+design = "2A"

@@ -1,0 +1,4 @@
+# ホウ素の軸を 0〜1300 ppm に広げたテーブルの集合体 1 体を置くサイクル。
+plant = "core-plant.toml"
+inventory = "core-2A-boron-assemblies.toml"
+loading = ["A01"]

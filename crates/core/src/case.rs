@@ -3,7 +3,7 @@
 use rayon::prelude::*;
 use xlc_format::table::{Axis, Table};
 
-use crate::input::{Boron, CaseState, InputError, Layout, TableUse};
+use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::solve_rodded;
 use crate::search::{SearchError, find};
@@ -40,6 +40,10 @@ pub enum CaseError {
     /// 燃焼のステップのエラー（ADR-0190）
     #[error("depletion: {0}")]
     Depletion(String),
+    /// 燃焼のステップのどの解（点か中点）か、どのステップで起きたか（ADR-0191）
+    /// 表示が原因を含むので、原因をエラーの source にしない（連鎖の表示で繰り返さない）
+    #[error("{at}: {cause}")]
+    At { at: String, cause: Box<CaseError> },
 }
 
 /// テーブル（`layout.files` の順）を状態 `state`（`None` なら軸のないテーブル）で、テーブルの使い方（`layout.tables`。
@@ -175,13 +179,28 @@ pub fn solve_state(
         Boron::Search(search) => search,
     };
     check_search(state, options)?;
+    let (solved, searched) = search_boron(search, |ppm| {
+        solve_at(layout, tables, Some(&state.at(ppm)), options)
+    })?;
+    Ok(Solved {
+        searched: Some(searched),
+        ..solved
+    })
+}
+
+/// `search` の範囲で、`solve`（ホウ素濃度 → 解）の k が目標になるホウ素濃度を Illinois 法で探し（ADR-0145）、最後に解いた
+/// 解と、求めたホウ素濃度と回数を返す。検査（`check_search`）は呼ぶ側が済ませる
+pub fn search_boron(
+    search: &BoronSearch,
+    mut solve: impl FnMut(f64) -> Result<Solved, CaseError>,
+) -> Result<(Solved, Searched), CaseError> {
     let found = find(
         search.bracket,
         search.k,
         search.tolerance,
         search.max_solves,
         |ppm| {
-            let solved = solve_at(layout, tables, Some(&state.at(ppm)), options)?;
+            let solved = solve(ppm)?;
             tracing::debug!(ppm, k = solved.solution.k, "boron search");
             Ok((solved.solution.k, solved))
         },
@@ -190,13 +209,11 @@ pub fn solve_state(
         SearchError::Solve(e) => e,
         e => CaseError::Search(e.to_string()),
     })?;
-    Ok(Solved {
-        searched: Some(Searched {
-            ppm: found.x,
-            solves: found.solves,
-        }),
-        ..found.at
-    })
+    let searched = Searched {
+        ppm: found.x,
+        solves: found.solves,
+    };
+    Ok((found.at, searched))
 }
 
 /// ケースの状態を並列に解く（結果は `states` の順）。各状態の解は1つのスレッドで解くので、スレッドの数によらない。
