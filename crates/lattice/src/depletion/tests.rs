@@ -12,6 +12,7 @@ use xlc_format::library::{
 use std::f64::consts::LN_2;
 
 use super::*;
+use crate::checkpoint::Checkpoint;
 use crate::input::LatticeInput;
 use crate::shielding::{FuelShielding, shield_fuel_with};
 use crate::symmetry::choose;
@@ -249,6 +250,18 @@ pub(crate) fn deplete_with(text: &str, library: &Library) -> History {
 
 /// `deplete_with` の MOC を `moc` の打ち切り条件と加速で解く
 pub(crate) fn deplete_with_moc(text: &str, library: &Library, moc: &Options) -> History {
+    deplete_from(text, library, moc, None, &mut |_, _, _| Ok(())).unwrap()
+}
+
+/// 入力 `text` を、テストのチェーンとライブラリ `library` で、MOC を `moc` で解き、途中の履歴 `resumed` から燃焼させ、ステップを
+/// 解き終えるたびに `saved` を呼ぶ
+pub(crate) fn deplete_from(
+    text: &str,
+    library: &Library,
+    moc: &Options,
+    resumed: Option<Partial>,
+    saved: &mut SavePoints<'_>,
+) -> anyhow::Result<History> {
     let input = LatticeInput::parse(text).unwrap();
     let depletion = input.depletion.clone().unwrap();
     let (lattice, region_materials) = input.geometry().unwrap();
@@ -268,8 +281,33 @@ pub(crate) fn deplete_with_moc(text: &str, library: &Library, moc: &Options) -> 
         &chosen,
         &LibraryReactions(library),
         moc,
+        resumed,
+        saved,
     )
-    .unwrap()
+}
+
+/// MOC の解のコピー（`Start` は大きいので `Clone` を持たない。テストでだけ、チェックポイントと同じ serde でコピーする）
+pub(crate) fn copy(start: &Start) -> Start {
+    rmpv::ext::from_value(rmpv::ext::to_value(start).unwrap()).unwrap()
+}
+
+/// 入力 `text` の 1 つ目のステップの後に書く、履歴と次の点の組成と、直前の輸送の MOC の解
+pub(crate) fn first_save(text: &str, library: &Library) -> (History, Vec<Vec<f64>>, Start) {
+    let mut first = None;
+    deplete_from(
+        text,
+        library,
+        &Options::default(),
+        None,
+        &mut |h, next, start| {
+            if first.is_none() {
+                first = Some((h.clone(), next.to_vec(), copy(start)));
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    first.unwrap()
 }
 
 #[test]
@@ -389,6 +427,25 @@ fn quadratic() -> (
     (chain, solve)
 }
 
+/// 初めの組成 `initial` から CE/CM で進めた点を集める
+fn collect<T, E: From<ChainError>>(
+    chain: &Chain,
+    initial: Vec<Vec<f64>>,
+    steps: &[f64],
+    solve: impl FnMut(&[Vec<f64>], TransportAt) -> Result<Evaluation<T>, E>,
+) -> Result<Vec<Point<T>>, E> {
+    let mut points = Vec::new();
+    let beginning = Beginning {
+        densities: initial,
+        time: 0.0,
+    };
+    ce_cm(chain, beginning, steps, solve, |point, _, _| {
+        points.push(point);
+        Ok(())
+    })?;
+    Ok(points)
+}
+
 #[test]
 fn ce_cm_solves_the_transport_twice_per_step_and_at_the_end() {
     let (chain, mut solve) = quadratic();
@@ -397,7 +454,7 @@ fn ce_cm_solves_the_transport_twice_per_step_and_at_the_end() {
         midpoints += usize::from(at == TransportAt::Midpoint);
         solve(n, at)
     };
-    let (points, _) = ce_cm(&chain, vec![vec![1.0, 0.0]], &[1.0, 1.0, 1.0], counting).unwrap();
+    let points = collect(&chain, vec![vec![1.0, 0.0]], &[1.0, 1.0, 1.0], counting).unwrap();
     assert_eq!(points.len(), 4);
     assert_eq!(midpoints, 3);
     // 点の値は、その点の組成で解いた輸送（始まりの点は 1、3、5 回目、最後の点は 7 回目）で、その輸送に点の組成と伝える
@@ -424,7 +481,7 @@ fn ce_cm_with_constant_rates_is_one_matrix_exponential() {
             extra: (),
         })
     };
-    let (points, _) = ce_cm(&chain, vec![n0.clone()], &[1e6], solve).unwrap();
+    let points = collect(&chain, vec![n0.clone()], &[1e6], solve).unwrap();
     let expected = deplete(&chain.matrix(&rates).unwrap(), &n0, 1e6, CramOrder::Order48).unwrap();
     for (a, b) in points[1].densities[0].iter().zip(&expected) {
         assert!((a - b).abs() <= 1e-14 * 7e-4, "{a} vs {b}");
@@ -437,7 +494,7 @@ fn ce_cm_converges_at_second_order() {
     let error = |steps: usize| {
         let (chain, solve) = quadratic();
         let h = 2.0 / steps as f64;
-        let (points, _) = ce_cm(&chain, vec![vec![1.0, 0.0]], &vec![h; steps], solve).unwrap();
+        let points = collect(&chain, vec![vec![1.0, 0.0]], &vec![h; steps], solve).unwrap();
         let a = points.last().unwrap().densities[0][0];
         (a - 1.0 / (1.0 + 0.3 * 2.0)).abs()
     };
@@ -865,7 +922,7 @@ fn a_half_life_without_reactions_halves_the_density() {
             extra: (),
         })
     };
-    let (points, _) = ce_cm(&chain, vec![n0], &[32_904.0], solve).unwrap();
+    let points = collect(&chain, vec![n0], &[32_904.0], solve).unwrap();
     assert!((points[1].densities[0][XE135] - 0.5).abs() <= 1e-12);
 }
 
@@ -997,6 +1054,8 @@ fn depleted_materials_share_one_temperature() {
         &region_materials,
         &chosen,
         &LibraryReactions(&library),
+        None,
+        &mut |_, _, _| Ok(()),
     )
     .unwrap_err()
     .to_string();
@@ -1022,6 +1081,196 @@ fn history_round_trips_through_its_file() {
         assert_eq!(r.pin_powers, h.pin_powers);
         assert_eq!(r.few_group, h.few_group);
     }
+}
+
+/// 時間の内訳を除いた履歴のファイル（時間は実行ごとに違う）
+fn without_times(history: &History) -> Vec<u8> {
+    let mut history = history.clone();
+    history.transport = TransportTimes::default();
+    history.depletion = DepletionTimes::default();
+    history.to_msgpack().unwrap()
+}
+
+#[test]
+fn each_finished_step_saves_the_points_so_far_and_the_next_composition() {
+    let library = library();
+    let mut saves: Vec<(History, Vec<Vec<f64>>)> = Vec::new();
+    let history = deplete_from(
+        PIN,
+        &library,
+        &Options::default(),
+        None,
+        &mut |h, next, _| {
+            saves.push((h.clone(), next.to_vec()));
+            Ok(())
+        },
+    )
+    .unwrap();
+    // 3 ステップの 4 点のうち、最後の点は履歴そのものとして書くので、チェックポイントはステップごとの 3 回
+    assert_eq!(saves.len(), 3);
+    for (j, (saved, next)) in saves.iter().enumerate() {
+        assert_eq!(saved.points.len(), j + 1);
+        assert_eq!(saved.solves, 2 * (j + 1));
+        assert_eq!(next, &history.points[j + 1].densities);
+        for (s, h) in saved.points.iter().zip(&history.points) {
+            assert_eq!(s.k.to_bits(), h.k.to_bits());
+            assert_eq!(s.densities, h.densities);
+        }
+    }
+}
+
+#[test]
+fn a_run_resumed_from_a_checkpoint_matches_the_straight_run_bit_for_bit() {
+    assert_resumes_bit_for_bit(
+        "every",
+        &format!("{PIN}few-group = {{ bounds = [1e7, 0.625, 1e-5] }}\n"),
+    );
+}
+
+#[test]
+fn a_run_shielded_at_step_starts_resumes_bit_for_bit() {
+    // 中点の輸送は始まりの自己遮蔽を使う（ADR-0197）。チェックポイントはステップの終わりに書くので、再開は次の始まりの輸送で
+    // 自己遮蔽を解き直し、一気に流したものと同じ回数（`shieldings`）になる
+    assert_resumes_bit_for_bit("step-start", &format!("{PIN}shielding = \"step-start\"\n"));
+}
+
+/// 入力 `text` の燃焼を 1〜3 回目の書き込みの後で止め、チェックポイントのファイルから再開した履歴が、時間の内訳を除いて一気に
+/// 流したものとバイトで一致すること（`name` はチェックポイントのファイルを分ける）
+fn assert_resumes_bit_for_bit(name: &str, text: &str) {
+    let library = library();
+    let straight = deplete_from(text, &library, &Options::default(), None, &mut |_, _, _| {
+        Ok(())
+    })
+    .unwrap();
+    let dir = std::env::temp_dir().join(format!(
+        "xlc-depletion-resume-{name}-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    for stop in [1, 2, 3] {
+        // `stop` 回目の書き込みの後で止めた（scancel した）実行
+        let checkpoint =
+            Checkpoint::new(dir.join(format!("stop-{stop}.checkpoint")), "same".into());
+        let mut written = 0;
+        let error = deplete_from(
+            text,
+            &library,
+            &Options::default(),
+            None,
+            &mut |h, next, start| {
+                checkpoint.save_depletion(h, next, start)?;
+                written += 1;
+                if written == stop {
+                    anyhow::bail!("killed");
+                }
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("killed"), "{error:#}");
+        let resumed = checkpoint.depletion().unwrap().unwrap();
+        assert_eq!(resumed.history.points.len(), stop);
+        let history = deplete_from(
+            text,
+            &library,
+            &Options::default(),
+            Some(resumed),
+            &mut |h, next, start| checkpoint.save_depletion(h, next, start),
+        )
+        .unwrap();
+        assert_eq!(history.solves, straight.solves);
+        assert_eq!(
+            without_times(&history),
+            without_times(&straight),
+            "stop {stop}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_resumed_history_of_another_shape_is_an_error() {
+    let library = library();
+    let history = deplete_with(PIN, &library);
+    let (_, _, start) = first_save(PIN, &library);
+    let partial = |history: &History, next: Vec<Vec<f64>>| {
+        let mut history = history.clone();
+        history.points.truncate(2);
+        Some(Partial {
+            history,
+            next,
+            start: copy(&start),
+        })
+    };
+    let next = history.points[2].densities.clone();
+    let mut short = next.clone();
+    short[0].pop();
+    let mut moved = history.clone();
+    moved.points[1].burnup = 0.06;
+    for resumed in [
+        partial(&history, short),
+        partial(&history, vec![]),
+        partial(&moved, next.clone()),
+    ] {
+        let error = deplete_from(
+            PIN,
+            &library,
+            &Options::default(),
+            resumed,
+            &mut |_, _, _| Ok(()),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("does not match") || error.contains("burnups"),
+            "{error}"
+        );
+    }
+}
+
+#[test]
+fn a_resumed_history_needs_a_point() {
+    let library = library();
+    let (_, _, start) = first_save(PIN, &library);
+    let mut history = deplete_with(PIN, &library);
+    let next = history.points[0].densities.clone();
+    history.points.clear();
+    let error = deplete_from(
+        PIN,
+        &library,
+        &Options::default(),
+        Some(Partial {
+            history,
+            next,
+            start,
+        }),
+        &mut |_, _, _| Ok(()),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("no points"), "{error}");
+}
+
+#[test]
+fn a_finished_history_cannot_be_resumed() {
+    let library = library();
+    let (_, _, start) = first_save(PIN, &library);
+    let history = deplete_with(PIN, &library);
+    let next = history.points[3].densities.clone();
+    let error = deplete_from(
+        PIN,
+        &library,
+        &Options::default(),
+        Some(Partial {
+            history,
+            next,
+            start,
+        }),
+        &mut |_, _, _| Ok(()),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("no step left"), "{error}");
 }
 
 #[test]

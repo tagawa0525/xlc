@@ -32,6 +32,11 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 - `--timed` を付けずに流したジョブ（main）の時間も書かない。`TIME:` 行に `preemptible:`（止められうる）、止められたら
   `suspended:` の印が付く。OpenMC の statepoint の計算時間（total）を記録に書くときも、そのジョブは `--timed` で流す（止められていた
   時間が total に入るため）
+- 格子計算の燃焼と分岐（`[depletion]`、`[branches]`、`[history]`）は、点と状態を解くたびに入力の拡張子を `.checkpoint` にしたファイル（`lattice-2A.toml` なら
+  `lattice-2A.checkpoint`）を書く。取り消したジョブや止まったジョブは、同じコマンドで投げ直せば続きから解く（一気に流した結果とビットで同じになるよう作ってある。2A の燃焼で確かめたのは MOC の解を
+  持たせる前のコードで、分岐は単体テストだけ。ADR-0196。急ぐ計算を
+  前に出すのは `scancel` でなく slurm-run の `--timed`）。再開したジョブの `elapsed` は一部の時間なので記録に書かない。履歴の
+  `seconds` は前後の実行の和。始めから測るときはチェックポイントを消す
 
 ## 結果を記録に書く（ツールで。ADR-0176）
 

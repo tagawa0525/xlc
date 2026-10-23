@@ -32,9 +32,12 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
-use xlc_format::medium::Medium;
+use xlc_format::medium::{Medium, MediumState};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{Starts, state_indices, tables};
+use xlc_lattice::branches::{state_indices, tables};
+use xlc_lattice::checkpoint::{
+    Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
+};
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
@@ -44,7 +47,7 @@ use xlc_lattice::input::{
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
-use xlc_lattice::moc::{Options, available_order, solve_symmetric_from};
+use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingReuse, shield_fuel_reusing};
 use xlc_lattice::symmetry::{Chosen, choose};
@@ -119,6 +122,22 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
     let base = path.parent().unwrap_or(Path::new("."));
+    // 燃焼と分岐は点（状態）ごとにチェックポイントを書き、止めた後に同じコマンドで再開する。指紋は結果を決めるもの（実行
+    // ファイル、入力、読むファイル、スレッドの数）で、違えば古い途中の結果から続けずに止まる（ADR-0196）
+    let mut fingerprint =
+        if input.depletion.is_some() || input.branches.is_some() || input.history.is_some() {
+            // `current_exe` のパスを開き直すと、実行の後に置き換えたファイル（`dvc checkout`、build のステージ）を読む。
+            // /proc/self/exe は動いている実行ファイルそのもの
+            let exe = Path::new("/proc/self/exe");
+            let bytes = std::fs::read(exe).with_context(|| shown(exe))?;
+            let mut f = Fingerprint::default();
+            f.add("executable", &bytes);
+            f.add("input", text.as_bytes());
+            f.add("threads", &rayon::current_num_threads().to_le_bytes());
+            Some(f)
+        } else {
+            None
+        };
     let (lattice, region_materials) = input.geometry().with_context(|| shown(path))?;
     // 軸方向の定数のノードの並びは、MOC を解く前に確かめる（ADR-0128）
     if let Some(FewGroupOutput {
@@ -154,17 +173,28 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Library(Library),
         Macroscopic(Vec<(String, Material)>),
     }
-    let load = || -> anyhow::Result<Source> {
+    // チェックポイントを書く実行では、読んだファイルの SHA-256 も返す（指紋に足す。ADR-0196）。読むスレッドで求め、トラッキングに
+    // 重ねる。書かない実行は求めない
+    let fingerprinting = fingerprint.is_some();
+    let load = || -> anyhow::Result<(Source, &'static str, Option<Vec<u8>>)> {
         Ok(match &input.cross_sections {
             CrossSections::Library(file) => {
                 let file = base.join(file);
                 let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-                Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?)
+                (
+                    Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?),
+                    "library",
+                    fingerprinting.then(|| digest(&bytes)),
+                )
             }
             CrossSections::Macroscopic(file) => {
                 let file = base.join(file);
                 let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
-                Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
+                (
+                    Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?),
+                    "macroscopic",
+                    fingerprinting.then(|| digest(text.as_bytes())),
+                )
             }
         })
     };
@@ -179,7 +209,18 @@ fn run(path: &Path) -> anyhow::Result<()> {
         (geometry, source)
     });
     let (tracking, chosen) = geometry?;
-    let source = source?;
+    let (source, label, source_digest) = source?;
+    if let (Some(f), Some(d)) = (&mut fingerprint, source_digest) {
+        f.add(label, &d);
+    }
+    // ほかに入力が指すファイルはすべてここで読み、指紋に足す（足し忘れたファイルを変えても、古い途中の結果から続いてしまう）
+    let mut read = |label: &str, file: &Path| -> anyhow::Result<Vec<u8>> {
+        let bytes = std::fs::read(file).with_context(|| shown(file))?;
+        if let Some(f) = &mut fingerprint {
+            f.add(label, &bytes);
+        }
+        Ok(bytes)
+    };
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
                    groups: usize|
@@ -207,8 +248,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
             return Err(anyhow!("{}: depletion needs a library", shown(path)));
         };
         let file = base.join(&depletion.chain);
-        let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+        let bytes = read("chain", &file)?;
         let chain = Chain::from_msgpack(&bytes).with_context(|| shown(&file))?;
+        let checkpoint = Checkpoint::new(
+            Checkpoint::beside(path),
+            fingerprint
+                .take()
+                .map(Fingerprint::finish)
+                .ok_or_else(|| anyhow!("a depletion has a fingerprint"))?,
+        );
+        let resumed = checkpoint.depletion()?;
         let history = xlc_lattice::depletion::run(
             &input,
             depletion,
@@ -218,6 +267,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
             &region_materials,
             &chosen,
             &LibraryReactions(library),
+            resumed,
+            &mut |history, next, start| checkpoint.save_depletion(history, next, start),
         )
         .with_context(|| format!("{}: depletion", shown(path)))?;
         for point in &history.points {
@@ -239,7 +290,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
         let output = base.join(&depletion.output);
         let bytes = history.to_msgpack().with_context(|| shown(&output))?;
-        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+        write_synced(&output, &bytes)?;
+        checkpoint.remove()?;
         return Ok(());
     }
     let groups = match &source {
@@ -250,12 +302,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let history_branches = match (&input.history, &source) {
         (Some(history), Source::Library(library)) => {
             let file = base.join(&history.file);
-            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-            let read = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
+            let bytes = read("history", &file)?;
+            let history_file = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
             Some(
                 xlc_lattice::history::history_branches(
                     &input,
-                    &read,
+                    &history_file,
                     library,
                     &lattice,
                     &region_materials,
@@ -284,7 +336,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .iter()
         .map(|m| {
             let file = base.join(&m.file);
-            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+            let bytes = read("medium", &file)?;
             let medium = Medium::from_msgpack(&bytes).with_context(|| shown(&file))?;
             let bounds = groups.as_ref().map_or(&[][..], |g| g.bounds());
             check_medium(&medium, bounds, axes)
@@ -305,14 +357,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
-    let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(count);
-    // 状態ごとの細かい群の媒質の出力（ADR-0128）
-    let mut written = Vec::new();
     // 燃料でない物質が直前の状態と同じなら、燃料のピンの Dancoff 係数を持ち越す（ADR-0194）
     let mut reuse = ShieldingReuse::new(&tracking);
-    // 状態ごとに、前に解いた近い状態の MOC の収束した状態から反復を始める（ADR-0195）
-    let mut starts = Starts::new(&counts);
-    for state in 0..count {
+    let checkpoint = fingerprint
+        .take()
+        .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
+    let report = |state: usize, k: f64| {
+        if input.branches.is_some() {
+            println!("state {state} k {k:.6}");
+        } else {
+            println!("k {k:.6}");
+        }
+    };
+    // 状態ごとに、前に解いた近い状態の MOC の収束した状態 `from` から反復を始める（ADR-0195。`solve_states` が持つ）
+    let solve = |state: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
@@ -409,17 +467,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .unwrap_or_else(|| available_order(&materials)),
             ..Options::default()
         };
-        let (solution, converged) = solve_symmetric_from(
-            &tracking,
-            &materials,
-            &options,
-            chosen.moc(),
-            starts.start(),
-        )
-        .with_context(context)?;
-        starts.solved(converged);
+        let (solution, converged) =
+            solve_symmetric_from(&tracking, &materials, &options, chosen.moc(), from)
+                .with_context(context)?;
         let emitting = tracing::debug_span!("output").entered();
-        if let Some(FewGroupOutput {
+        let outputs = if let Some(FewGroupOutput {
             bounds,
             files,
             pins,
@@ -486,7 +538,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 }
             };
             // 格子の x を炉心の z にした定数。z の厚さはノードの x の幅（ADR-0128）
-            let fews = if *along_z {
+            if *along_z {
                 let widths = lattice.widths();
                 let node_widths: Vec<f64> = match files {
                     FewGroupFiles::Lattice(_) => vec![widths.iter().sum()],
@@ -507,26 +559,26 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .with_context(context)?
             } else {
                 fews
-            };
-            per_state.push(fews);
-        }
-        if input.medium.is_some() {
-            written.push(
+            }
+        } else {
+            Vec::new()
+        };
+        // 状態ごとの細かい群の媒質の出力（ADR-0128）
+        let medium = if input.medium.is_some() {
+            Some(
                 homogenize_medium(&solution, &materials, &tracking.boundaries())
                     .with_context(context)?,
-            );
-        }
+            )
+        } else {
+            None
+        };
         // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
         if let Some(file) = &input.pin_powers {
             let rates = cell_fission_rates(&solution, &lattice, &materials)?;
             let file = base.join(file);
             std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
         }
-        if input.branches.is_some() {
-            println!("state {state} k {:.6}", solution.k);
-        } else {
-            println!("k {:.6}", solution.k);
-        }
+        report(state, solution.k);
         drop(emitting);
         tracing::info!(
             state,
@@ -536,7 +588,45 @@ fn run(path: &Path) -> anyhow::Result<()> {
             total_seconds = start.elapsed().as_secs_f64(),
             "lattice"
         );
-    }
+        Ok((
+            SavedState {
+                k: solution.k,
+                outputs,
+                medium,
+            },
+            converged,
+        ))
+    };
+    // 書いてある状態は、今の実行の出力（出力のファイルの数、部分ノードの数、媒質の有無）と合うものだけ使う。指紋が同じなら
+    // 合う。合わなければ壊れたか置き換えたチェックポイントで、残りの状態を何時間も解いた後でなく、解く前に止める
+    let shape: Vec<usize> = match &input.output {
+        Some(FewGroupOutput {
+            files: FewGroupFiles::Lattice(_),
+            split,
+            ..
+        }) => vec![split * split],
+        Some(FewGroupOutput {
+            files: FewGroupFiles::Nodes(entries),
+            ..
+        }) => vec![1; entries.len()],
+        None => Vec::new(),
+    };
+    let fits = |state: usize, saved: &SavedState| -> anyhow::Result<()> {
+        let saved_shape: Vec<usize> = saved.outputs.iter().map(Vec::len).collect();
+        if saved_shape != shape || saved.medium.is_some() != input.medium.is_some() {
+            return Err(anyhow!(
+                "the saved outputs {saved_shape:?} (medium {}) do not fit this run's {shape:?} (medium {})",
+                saved.medium.is_some(),
+                input.medium.is_some()
+            ));
+        }
+        report(state, saved.k);
+        Ok(())
+    };
+    let states = solve_states(count, &counts, checkpoint.as_ref(), fits, solve)?;
+    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) =
+        states.into_iter().map(|s| (s.outputs, s.medium)).unzip();
+    let written: Vec<MediumState> = written.into_iter().flatten().collect();
 
     let _write = tracing::debug_span!("write").entered();
     if let Some(output) = &input.medium {
@@ -550,7 +640,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let output = base.join(output);
         let bytes = medium.to_msgpack().with_context(|| shown(&output))?;
-        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+        write_synced(&output, &bytes)?;
     }
     if let Some(FewGroupOutput { files, split, .. }) = &input.output {
         let outputs: Vec<&Path> = match files {
@@ -568,8 +658,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
         for (output, table) in outputs.into_iter().zip(tables) {
             let output = base.join(output);
             let bytes = table.to_msgpack().with_context(|| shown(&output))?;
-            std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+            write_synced(&output, &bytes)?;
         }
+    }
+    if let Some(checkpoint) = &checkpoint {
+        checkpoint.remove()?;
     }
     Ok(())
 }

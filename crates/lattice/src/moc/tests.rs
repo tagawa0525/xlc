@@ -2038,6 +2038,39 @@ fn rejects_a_start_from_another_tracking() {
 }
 
 #[test]
+fn rejects_a_start_whose_arrays_do_not_fit() {
+    // チェックポイントから読み戻した解は、代表が同じでも配列の長さが揃うとは限らない（壊れたファイル。ADR-0196）
+    let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+    let (f, m) = (burned(0.0), with_moments(&moderator(), &[0.4]));
+    let materials = [&f, &f, &m, &m];
+    let options = order_options(1);
+    let verified = require(&tracking, Symmetry::NONE).unwrap();
+    let solve = || {
+        solve_symmetric_from(&tracking, &materials, &options, &verified, None)
+            .unwrap()
+            .1
+    };
+    let breaks: [fn(&mut Start); 3] = [
+        |s| {
+            s.flux.pop();
+        },
+        |s| {
+            s.higher.pop();
+        },
+        |s| {
+            s.outgoing.pop();
+        },
+    ];
+    for damage in breaks {
+        let mut start = solve();
+        damage(&mut start);
+        let result = solve_symmetric_from(&tracking, &materials, &options, &verified, Some(&start));
+        assert!(matches!(result, Err(MocError::ForeignStart)), "{result:?}");
+    }
+}
+
+#[test]
 fn rejects_a_start_from_another_symmetry_of_the_same_size() {
     // 左右の鏡映と上下の鏡映は、1/8 対称な格子で同じ数の代表を持つが、代表の領域とトラックが違う
     let (f, w, g, void) = (

@@ -5,6 +5,7 @@ use std::f64::consts::PI;
 use std::sync::{Mutex, PoisonError};
 
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub mod dancoff;
 pub mod fixed_source;
@@ -89,8 +90,10 @@ pub struct Solution {
 }
 
 /// 収束した反復の状態（ADR-0195）。同じトラッキングと対称操作で解く次の問題の反復を、ここから始める
-/// （`solve_symmetric_from`）。端の角度中性子束の全体を持つので、複製しない（`Clone` を持たない）
-#[derive(Debug)]
+/// （`solve_symmetric_from`）。端の角度中性子束の全体を持つので、複製しない（`Clone` を持たない）。格子計算のチェックポイントは
+/// フィールド名付きの map で書いて読み戻す（ADR-0196）
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Start {
     /// 解いたトラッキングの領域とトラックの数
     sizes: [usize; 2],
@@ -366,10 +369,13 @@ fn solve_with(
     // 前の解の中性子束、[代表][モーメント (1 番目から)][群] の高次のモーメント、k。なければ平らな中性子束と k = 1
     let (mut flux, mut higher, mut k) = match start {
         Some(s) => {
-            // 代表が同じなら、配列の長さは代表の数で揃う。幅は群とモーメントの数で確かめる
+            // 代表が同じでも、チェックポイントから読み戻した解（ADR-0196）は配列の長さが揃うとは限らないので、長さも確かめる
             if s.sizes != sizes
                 || s.representatives[0] != *kept
                 || s.representatives[1] != reduced.tracks
+                || s.flux.len() != states
+                || s.higher.len() != states
+                || s.outgoing.len() != sweeper.outgoing_len()
                 || s.flux.iter().any(|f| f.len() != ng)
                 || s.higher.iter().any(|h| h.len() != width)
             {
