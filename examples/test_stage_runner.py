@@ -55,14 +55,14 @@ class LaunchableTest(unittest.TestCase):
     def test_takes_stages_in_order_that_fit_and_skips_the_rest(self):
         queue = [("a", 4), ("b", 3), ("c", 1), ("d", 2)]
         # 空き 5: a（4）を入れて残り 1、b（3）と d（2）は飛ばし、c（1）を入れる
-        self.assertEqual(sr.launchable(queue, 5), [("a", 4), ("c", 1)])
+        self.assertEqual(sr.launchable(queue, 5, budget=8), [("a", 4), ("c", 1)])
 
-    def test_when_nothing_fits_the_first_takes_the_free_threads(self):
-        # 空きを遊ばせない: 収まるものが無ければ、先頭を空きのスレッドの数で投入する
-        self.assertEqual(sr.launchable([("a", 4), ("b", 5)], 3), [("a", 3)])
+    def test_waits_while_others_run_when_nothing_fits(self):
+        # 走っているものが終われば収まるので待つ（少ないスレッドで始めると、そのステージが最後まで遅い）
+        self.assertEqual(sr.launchable([("a", 4), ("b", 5)], 3, budget=8), [])
 
-    def test_nothing_is_free(self):
-        self.assertEqual(sr.launchable([("a", 4)], 0), [])
+    def test_stage_larger_than_the_budget_takes_the_whole_budget_when_idle(self):
+        self.assertEqual(sr.launchable([("a", 10), ("b", 1)], 8, budget=8), [("a", 8)])
 
 
 class DryRunTest(unittest.TestCase):
@@ -328,6 +328,28 @@ class ExecuteTest(unittest.TestCase):
         self.assertLess(time.monotonic() - start, 10)
         self.assertFalse((self.dir / "b.out").exists())
 
+    def test_stage_ignoring_sigterm_is_killed_after_the_grace(self):
+        (self.dir / "stubborn").write_text("#!/bin/sh\ntrap '' TERM\nsleep 30\n")
+        (self.dir / "stubborn").chmod(0o755)
+        (self.dir / "xs").write_text(
+            '#!/bin/sh\n[ "$3" = b ] && exec ./stubborn\nexit 0\n'
+        )
+
+        def finish(done):
+            raise sr.RunnerError("deps changed")
+
+        start = time.monotonic()
+        with self.assertRaises(sr.RunnerError):
+            sr.execute(
+                [("a", 1), ("b", 1)],
+                {"a": "./xs a", "b": "./xs b"},
+                self.dir,
+                2,
+                finish,
+                kill_grace=0.5,
+            )
+        self.assertLess(time.monotonic() - start, 10)
+
     def test_sigterm_stops_running_stages(self):
         # 偽の xs は自分の pid を書いてから 30 秒待つ。runner を SIGTERM で止めたとき、自分のセッションに置いた xs も止まること
         (self.dir / "xs").write_text("#!/bin/sh\necho $$ > pid\nsleep 30\n")
@@ -515,6 +537,16 @@ class CommitTest(unittest.TestCase):
             self.commit(["a"], self.fake_commit(dep="other.txt"))
         self.assertEqual(self.lock.read_text(), before)
 
+    def test_single_stage_is_not_committed_twice(self):
+        calls = []
+
+        def commit(names):
+            calls.append(names)
+            raise sr.RunnerError("commit failed")
+
+        self.assertEqual(self.commit(["x"], commit), ["x"])
+        self.assertEqual(calls, [["x"]])
+
     def test_deps_changed_before_committing_commits_nothing(self):
         mtime = (self.root / "p" / "in.txt").stat().st_mtime_ns + 10**9
         os.utime(self.root / "p" / "in.txt", ns=(mtime, mtime))
@@ -522,6 +554,35 @@ class CommitTest(unittest.TestCase):
         with self.assertRaises(sr.RunnerError):
             self.commit(["a"], calls.append)
         self.assertEqual(calls, [])
+
+
+class OutputsTest(unittest.TestCase):
+    def test_lists_locked_and_reported_outputs_from_the_root(self):
+        status = [
+            {"changed deps": {"bin/xs": "modified"}},
+            {"changed outs": {"examples/p/extra.msgpack": "deleted"}},
+        ]
+        self.assertEqual(
+            sr.stage_outputs(LOCK, "g@a", Path("examples/p"), status),
+            {"examples/p/xs-nuclides/a.msgpack", "examples/p/extra.msgpack"},
+        )
+
+    def test_removes_files_and_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "f").write_text("1")
+            (root / "d").mkdir()
+            (root / "d" / "x").write_text("1")
+            sr.remove_outputs(["f", "d", "missing"], root)
+            self.assertEqual(list(root.iterdir()), [])
+
+
+class PruneTest(unittest.TestCase):
+    def test_drops_records_of_stages_no_longer_in_the_group(self):
+        record = {"g@a": 1.0, "g@gone": 2278.0, "h@x": 3.0}
+        self.assertEqual(
+            sr.prune_record(record, "g", {"g@a", "g@b"}), {"g@a": 1.0, "h@x": 3.0}
+        )
 
 
 class ArgumentsTest(unittest.TestCase):
