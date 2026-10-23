@@ -124,8 +124,9 @@ impl Checkpoint {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(error).with_context(|| self.shown()),
         };
-        let file: CheckpointFile =
-            msgpack::from_value(msgpack::read_value(&bytes)?).with_context(|| self.shown())?;
+        let file: CheckpointFile = msgpack::read_value(&bytes)
+            .and_then(msgpack::from_value)
+            .with_context(|| format!("{}: unreadable; remove it to start over", self.shown()))?;
         if file.format != FORMAT {
             bail!(
                 "{}: expected format {FORMAT}, found {}",
