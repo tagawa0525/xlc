@@ -1,4 +1,4 @@
-# 2O の全点のテーブル（branch-2O-all.toml）から、ADR-0192 の指針の 26 点を選んだテーブル（thin_burnup_table.py が書く）。
+# 2O の全点のテーブル（branch-2O-all.toml）から、ADR-0192 と ADR-0199 の指針の 27 点を選んだテーブル（thin_burnup_table.py が書く）。
 [design.2O]
 bounds = [0.0, 21.5]
 layers = ["table-2O-guide.msgpack"]
