@@ -61,7 +61,7 @@ use xlc_format::group::GroupStructure;
 use xlc_format::library::{Library, NuclideData, is_nuclide_name};
 use xlc_xs::endf::Tape;
 use xlc_xs::multigroup::{SabOutside, Weight};
-use xlc_xs::parallel::set_threads;
+use xlc_xs::parallel::{in_parallel, set_threads};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
 use xlc_xs::process::{
     SabUpper, Settings, ThermalScattering, process_nuclide, read_thermal_scattering, resolved,
@@ -325,20 +325,7 @@ fn read_input(path: &Path) -> anyhow::Result<Input> {
 
 /// 入力の核種の ENDF のテープを、並列に読む。
 fn read_tapes(nuclides: &[NuclideInput]) -> anyhow::Result<Vec<Tape>> {
-    let tapes: Vec<anyhow::Result<Tape>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = nuclides
-            .iter()
-            .map(|nuclide| scope.spawn(|| read_tape(&nuclide.endf)))
-            .collect();
-        handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .unwrap_or_else(|_| Err(anyhow!("reading panicked")))
-            })
-            .collect()
-    });
-    tapes.into_iter().collect()
+    in_parallel(nuclides.len(), |i| read_tape(&nuclides[i].endf))
 }
 
 fn settings_of(input: &Input, pointwise_range: Option<(f64, f64)>) -> Settings {
@@ -381,22 +368,9 @@ fn run(input: &Input) -> anyhow::Result<()> {
     let tapes = read_tapes(&input.nuclides)?;
     let pointwise_range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
     let settings = settings_of(input, pointwise_range);
-    let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = input
-            .nuclides
-            .iter()
-            .zip(&tapes)
-            .map(|(nuclide, tape)| scope.spawn(|| process_file(nuclide, tape, &settings)))
-            .collect();
-        handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .unwrap_or_else(|_| Err(anyhow!("processing panicked")))
-            })
-            .collect()
-    });
-    let nuclides = results.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
+    let nuclides = in_parallel(input.nuclides.len(), |i| {
+        process_file(&input.nuclides[i], &tapes[i], &settings)
+    })?;
     write_library(&library_of(settings, nuclides), &input.output)
 }
 
