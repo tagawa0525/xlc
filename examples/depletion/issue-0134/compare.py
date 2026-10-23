@@ -5,7 +5,7 @@ Usage: python3 compare.py <F2 の履歴> <F1 の履歴>
 燃焼度、核種、燃焼の領域が同じことを確かめ、F2 の点の数だけ（F1 が長ければ先頭）、点ごとに k∞ の差 (k_F2 − k_F1) × 1e5 pcm、
 燃焼の領域の物質の種類（燃料 `fuel`、Gd 燃料のリング `gd*`）ごとの主要な核種の数密度の相対差（種類の領域の体積の重みの平均の差と、
 領域ごとの差の絶対値の最大）、ピン出力の相対差の絶対値の最大（F1 のピン出力が正のセル）を出す。F1 が 0 の量で F2 が 0 でなければ止める。最後に、それぞれの絶対値の最大と、
-時間の内訳（`seconds`）、輸送の回数（`solves`）、自己遮蔽の回数（`shieldings`。比べる本番の F1 の履歴は回数を書く前の形式で、持たないので `-`）を出す。
+時間の内訳（`seconds`）、輸送の回数（`solves`）、自己遮蔽の回数（`shieldings`。F2 だけ。F1 は輸送の回数に等しい）を出す。F2 が輸送ごとに自己遮蔽を解いていれば止める。
 """
 
 import sys
@@ -106,16 +106,24 @@ def main():
         print(
             f"max {key[0]} {key[1]}: mean {mean * 100:.4f} %, region {largest * 100:.4f} %"
         )
-    for name, h in [("F2", f2), ("F1", f1)]:
-        print(
-            name,
-            "solves",
-            h["solves"],
-            "shieldings",
-            h.get("shieldings", "-"),
-            "seconds",
-            h["seconds"],
+    # F2 の履歴は自己遮蔽の回数を持つ。比べる本番の F1 の履歴は回数を書く前の形式で、F1 は輸送ごとに解くので回数は輸送の回数
+    if f2["shieldings"] >= f2["solves"]:
+        raise SystemExit(
+            f"F2 solved the shielding {f2['shieldings']} times in {f2['solves']} transports"
         )
+    if "shieldings" in f1 and f1["shieldings"] != f1["solves"]:
+        raise SystemExit(
+            f"F1 solved the shielding {f1['shieldings']} times in {f1['solves']} transports"
+        )
+    print(
+        "F2 solves",
+        f2["solves"],
+        "shieldings",
+        f2["shieldings"],
+        "seconds",
+        f2["seconds"],
+    )
+    print("F1 solves", f1["solves"], "seconds", f1["seconds"])
 
 
 if __name__ == "__main__":
