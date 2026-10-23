@@ -421,7 +421,7 @@ fn solve_cell(
     let table_done = Instant::now();
 
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
-    // 段ごとの壁時計の時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
+    // 段ごとの経過時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
     // スレッドがほかのピンの仕事を盗むと、その時間も衝突確率に入るので、段の割合は 1 スレッドで測る
     let mut times = [Duration::ZERO; 3];
     for start in (0..u.len()).step_by(CHUNK) {
