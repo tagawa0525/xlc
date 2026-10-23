@@ -1,5 +1,6 @@
-# #0137 の試行: examples/depletion/p2/lattice-2A.toml の燃焼度の点を最初の 10 点に切ったもの（ほかは同じ）。燃焼は点を順に進めるので、
-# 履歴は本番（p2/lattice-2A.msgpack）の最初の 10 点と同じ列になる。比べるのは compare.py
+# #0137 の試行: examples/depletion/p2/lattice-2A.toml（p2_inputs.py が書く）の燃焼度の点を最初の 10 点に切ったもの（ほかは library、
+# chain、output の置き場所だけが違う）。燃焼は点を順に進めるので、履歴の 11 点（燃焼度 0 を含む）は本番（p2/lattice-2A.msgpack）の
+# 最初の 11 点と同じ列になる。比べるのは compare.py。記録の測定（Slurm 492）は、同じ中身を trials/ に置いて実行した
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26
