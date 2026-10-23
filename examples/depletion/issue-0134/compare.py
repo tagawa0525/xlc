@@ -1,0 +1,111 @@
+"""#0134 の比較: 自己遮蔽をステップの始まりだけで解いた燃焼の履歴（案 F2）を、輸送のたびに解いた履歴（案 F1）の同じ点と比べる。
+
+Usage: python3 compare.py <F2 の履歴> <F1 の履歴>
+
+燃焼度、核種、燃焼の領域が同じことを確かめ、F2 の点の数だけ（F1 が長ければ先頭）、点ごとに k∞ の差 (k_F2 − k_F1) × 1e5 pcm、
+燃焼の領域の物質の種類（燃料 `fuel`、Gd 燃料のリング `gd*`）ごとの主要な核種の数密度の相対差（種類の領域の体積の重みの平均の差と、
+領域ごとの差の絶対値の最大）、ピン出力の相対差の絶対値の最大（F1 のピン出力が正のセル）を出す。最後に、それぞれの絶対値の最大と、
+時間の内訳（`seconds`）、輸送の回数（`solves`）、自己遮蔽の回数（`shieldings`。ない履歴は `-`）を出す。
+"""
+
+import sys
+
+import msgpack
+
+NUCLIDES = {
+    "fuel": ["U-235", "Pu-239", "Xe-135", "Sm-149"],
+    "gd": ["U-235", "Pu-239", "Xe-135", "Sm-149", "Gd-155", "Gd-157"],
+}
+
+
+def load(path):
+    with open(path, "rb") as f:
+        return msgpack.unpackb(f.read(), raw=False, strict_map_key=False)
+
+
+def kind(material):
+    return "gd" if material.startswith("gd") else material
+
+
+def main():
+    f2, f1 = load(sys.argv[1]), load(sys.argv[2])
+    n = len(f2["points"])
+    if n > len(f1["points"]):
+        raise SystemExit(f"{n} points of F2 for {len(f1['points'])} of F1")
+    for key in ["nuclides", "regions"]:
+        if f2[key] != f1[key]:
+            raise SystemExit(f"{key} differ")
+    a, b = f2["points"], f1["points"][:n]
+    if [p["burnup"] for p in a] != [p["burnup"] for p in b]:
+        raise SystemExit("burnups differ")
+    index = {name: i for i, name in enumerate(f2["nuclides"])}
+    regions = f2["regions"]
+    kinds = {}
+    for r, region in enumerate(regions):
+        kinds.setdefault(kind(region["material"]), []).append(r)
+    worst = {"k": 0.0, "pins": 0.0}
+    print(
+        "burnup | k F1 | dk (pcm) | "
+        + " | ".join(f"{k} {name} mean/max (%)" for k in kinds for name in NUCLIDES[k])
+        + " | pins max (%)"
+    )
+    for p2, p1 in zip(a, b):
+        dk = (p2["k_inf"] - p1["k_inf"]) * 1e5
+        worst["k"] = max(worst["k"], abs(dk))
+        cells = []
+        for k, members in kinds.items():
+            total = sum(regions[r]["volume"] for r in members)
+            for name in NUCLIDES[k]:
+                i = index[name]
+                m2 = (
+                    sum(p2["densities"][r][i] * regions[r]["volume"] for r in members)
+                    / total
+                )
+                m1 = (
+                    sum(p1["densities"][r][i] * regions[r]["volume"] for r in members)
+                    / total
+                )
+                mean = (m2 - m1) / m1 if m1 > 0 else 0.0
+                largest = 0.0
+                for r in members:
+                    x, y = p2["densities"][r][i], p1["densities"][r][i]
+                    if y > 0:
+                        largest = max(largest, abs(x - y) / y)
+                key = (k, name)
+                worst[key] = (
+                    max(worst.get(key, (0.0, 0.0))[0], abs(mean)),
+                    max(worst.get(key, (0.0, 0.0))[1], largest),
+                )
+                cells.append(f"{mean * 100:+.4f}/{largest * 100:.4f}")
+        pins = 0.0
+        for r2, r1 in zip(p2["pin_powers"], p1["pin_powers"]):
+            for x, y in zip(r2, r1):
+                if y > 0:
+                    pins = max(pins, abs(x / y - 1))
+        worst["pins"] = max(worst["pins"], pins)
+        print(
+            f"{p2['burnup']:g} | {p1['k_inf']:.6f} | {dk:+.2f} | "
+            + " | ".join(cells)
+            + f" | {pins * 100:.4f}"
+        )
+    print(f"max |dk| {worst['k']:.2f} pcm, max pins {worst['pins'] * 100:.4f} %")
+    for key, (mean, largest) in (
+        (k, v) for k, v in worst.items() if isinstance(k, tuple)
+    ):
+        print(
+            f"max {key[0]} {key[1]}: mean {mean * 100:.4f} %, region {largest * 100:.4f} %"
+        )
+    for name, h in [("F2", f2), ("F1", f1)]:
+        print(
+            name,
+            "solves",
+            h["solves"],
+            "shieldings",
+            h.get("shieldings", "-"),
+            "seconds",
+            h["seconds"],
+        )
+
+
+if __name__ == "__main__":
+    main()
