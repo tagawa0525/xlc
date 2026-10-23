@@ -9,8 +9,9 @@
   (N_xlc − N_OpenMC) / N_OpenMC（種類の領域の体積の重みの平均）、最後の点の種類ごとの領域の間のばらつき、OpenMC のピン出力の
   統計誤差の rms（対称操作の組で平均したピン出力の、標準偏差 / 平均の二乗平均平方根。xlc は対称な格子を 1/8 で解くので組で平均して比べる。
   ADR-0032 の目標との比較に使う）、燃焼点ごとのピン出力の差（`pins`。xlc と OpenMC のピン出力をそれぞれ組で平均した相対差
-  (xlc / OpenMC − 1) の、核分裂のある組の rms と、絶対値が最大の組の差、位置（組のうち上の行から最初のセルの [行, 列]、0 から）、
-  その組の OpenMC の統計誤差。ADR-0181）を書く。xlc の燃焼の領域と OpenMC の物質は、並びの順に対応させる（種類と体積で確かめる）。
+  (xlc / OpenMC − 1) の、核分裂する物質（燃料と Gd 燃料のリング）のある組の rms と、絶対値が最大の組の差、位置（組のうち上の行から
+  最初のセルの [行, 列]、0 から）、その組の OpenMC の統計誤差、燃焼する吸収体だけのセルの OpenMC の核分裂の絶対値の最大
+  `absorber_max`。ADR-0181）を書く。OpenMC のピン出力は、核分裂する物質のあるセルの平均で 1 に割り直してから比べる。xlc の燃焼の領域と OpenMC の物質は、並びの順に対応させる（種類と体積で確かめる）。
   `inputs` は読んだファイルのパス（段階の cwd から）と md5。時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の
   時間）もコピーする。AWS の機種はまちまちなので、OpenMC の時間は xlc との時間の比較に使わない（ADR-0174）
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -33,6 +34,9 @@ ABSORBER_NUCLIDES = ["B-10"]
 # 燃焼度と体積の一致の許容（燃焼度は入力の同じ値、体積は xlc の格子の円の面積と OpenMC の面積）
 BURNUP_TOLERANCE = 1e-9
 VOLUME_TOLERANCE = 1e-6
+# 燃焼する吸収体のセルの OpenMC の核分裂（燃料のピンの平均 1 に対する値）の上限。CRAM の丸めの誤差でできるアクチニドの核分裂は
+# 2F と 2N で 5e-16 以下で、燃料の取り違えなら 1 の桁になる。その間の、どちらからも桁の離れた値（`pin_differences`）
+ABSORBER_FISSION_LIMIT = 1e-6
 
 
 def compared_openmc_names() -> set[str]:
@@ -130,21 +134,62 @@ def orbit_error(std: list[list[float]], members: list[tuple[int, int]]) -> float
     return math.sqrt(sum(std[i][j] ** 2 for i, j in members)) / len(members)
 
 
-def orbit_std_rms(mean: list[list[float]], std: list[list[float]]) -> float:
-    """ピン出力（[行][列]）を対称操作の組で平均したときの、平均が正の組の（統計誤差 / 平均）の二乗平均平方根。"""
+def is_fissile(kind: str) -> bool:
+    """燃焼する物質の種類が核分裂する物質（燃料と Gd 燃料のリング）か。IFBA の被覆は燃料のピンの中にあり、Pyrex と WABA は案内管の中"""
+    return kind == "fuel" or re.fullmatch(r"gd\d+", kind) is not None
+
+
+def cell_kinds(materials: list[dict]) -> tuple[set, set]:
+    """OpenMC の燃焼する物質（`regions`）から、核分裂する物質のある組と、燃焼する吸収体（Pyrex、WABA）だけの組（`orbit_of` の形）。"""
+    fissile = {
+        tuple(2 * x for x in m["orbit"]) for m in materials if is_fissile(m["material"])
+    }
+    if not fissile:
+        raise SystemExit(
+            f"no fuel among the burnable materials {sorted({m['material'] for m in materials})}"
+        )
+    absorbers = {tuple(2 * x for x in m["orbit"]) for m in materials} - fissile
+    return fissile, absorbers
+
+
+def fuel_pin_mean(rows: list[list[float]], fissile: set) -> float:
+    """核分裂する物質のあるセルのピン出力の平均。OpenMC の抽出（openmc_run.py の fuel_mean）は値が正のセルの平均で割るので、燃焼する
+    吸収体のセルに丸めの誤差の核分裂（`pin_differences`）があると、そのセルも数えた平均で割られている。比べる前にこれで割り直す"""
+    n = len(rows)
+    values = [
+        rows[i][j] for i in range(n) for j in range(n) if orbit_of(i, j, n) in fissile
+    ]
+    return sum(values) / len(values)
+
+
+def orbit_std_rms(
+    mean: list[list[float]], std: list[list[float]], fissile: set
+) -> float:
+    """ピン出力（[行][列]）を対称操作の組で平均したときの、核分裂する物質のある組の（統計誤差 / 平均）の二乗平均平方根。"""
+    n = len(mean)
     relative_errors = [
-        orbit_error(std, members) / average
-        for members in orbits(len(mean))
-        if (average := orbit_mean(mean, members)) > 0
+        orbit_error(std, members) / orbit_mean(mean, members)
+        for members in orbits(n)
+        if orbit_of(*members[0], n) in fissile
     ]
     return math.sqrt(sum(e * e for e in relative_errors) / len(relative_errors))
 
 
 def pin_differences(
-    ours: list[list[float]], mean: list[list[float]], std: list[list[float]]
+    ours: list[list[float]],
+    mean: list[list[float]],
+    std: list[list[float]],
+    fissile: set,
+    absorbers: set,
 ) -> dict:
-    """xlc のピン出力 `ours` と OpenMC の `mean`（統計誤差 `std`）を、それぞれ対称操作の組で平均して比べる（ADR-0181）。核分裂の
-    ある組（OpenMC の組の平均が正）の相対差の rms と、絶対値が最大の組の差、位置、統計誤差。核分裂のあるセルが食い違えば止める。"""
+    """xlc のピン出力 `ours` と OpenMC の `mean`（統計誤差 `std`）を、それぞれ対称操作の組で平均して比べる（ADR-0181）。核分裂する
+    物質のある組（`fissile`）の相対差の rms と、絶対値が最大の組の差、位置、統計誤差。核分裂のあるセルが物質の配置と食い違えば止める。
+
+    燃焼する吸収体だけの組（`absorbers`）の OpenMC の核分裂は比べずに、その最大を `absorber_max` に残す。OpenMC の燃焼はチェーンの
+    全核種を CRAM で解くので、アクチニドのない吸収体にも、物質の原子の数に対して丸めの誤差の大きさのアクチニド（負の値も含む）が
+    でき、核分裂の tally が値を持つ（2F の Pyrex で、平均 1 のピン出力に対して 1e-24〜5e-16。負の値もありうる）。どのセルを比べるかは
+    大きさで 0 とみなすしきい値でなく、物質の配置で決める。ただし吸収体のセルの値が `ABSORBER_FISSION_LIMIT` を超えれば、丸めの
+    誤差でなく配置の取り違え（吸収体の位置に燃料がある、など）として止める"""
     n = len(mean)
     if (
         len(ours) != n
@@ -155,12 +200,25 @@ def pin_differences(
             f"pin maps of other shapes: xlc {[len(r) for r in ours]}, OpenMC {[len(r) for r in mean]}, "
             f"OpenMC errors {[len(r) for r in std]}"
         )
+    absorber_max = 0.0
     for i in range(n):
         for j in range(n):
-            if (ours[i][j] > 0) != (mean[i][j] > 0):
+            orbit = orbit_of(i, j, n)
+            if orbit in fissile:
+                if not (ours[i][j] > 0 and mean[i][j] > 0):
+                    raise SystemExit(
+                        f"pin ({i}, {j}): no fission in a fuel pin (xlc {ours[i][j]}, OpenMC {mean[i][j]})"
+                    )
+            elif ours[i][j] != 0 or (orbit not in absorbers and mean[i][j] != 0):
                 raise SystemExit(
-                    f"pin ({i}, {j}): fission in one code only (xlc {ours[i][j]}, OpenMC {mean[i][j]})"
+                    f"pin ({i}, {j}): fission in a cell without fuel (xlc {ours[i][j]}, OpenMC {mean[i][j]})"
                 )
+            elif abs(mean[i][j]) > ABSORBER_FISSION_LIMIT:
+                raise SystemExit(
+                    f"pin ({i}, {j}): OpenMC fission {mean[i][j]} in a burnt absorber is not a round-off"
+                )
+            else:
+                absorber_max = max(absorber_max, abs(mean[i][j]))
     diffs = []
     for members in orbits(n):
         theirs = orbit_mean(mean, members)
@@ -171,7 +229,7 @@ def pin_differences(
             raise SystemExit(
                 f"xlc pin powers differ within the symmetry orbit of {members[0]}: {values}"
             )
-        if theirs > 0:
+        if orbit_of(*members[0], n) in fissile:
             diffs.append(
                 (
                     orbit_mean(ours, members) / theirs - 1.0,
@@ -186,6 +244,7 @@ def pin_differences(
         "max": worst,
         "at": at,
         "max_std": error,
+        "absorber_max": absorber_max,
     }
 
 
@@ -255,14 +314,22 @@ def summarize(xlc: dict, omc: dict) -> dict:
             f"{len(xlc['points'])} points with {len(omc['pins'])} OpenMC pin maps and "
             f"{len(omc['pins-std'])} error maps"
         )
+    fissile, absorbers = cell_kinds(materials)
+    openmc_pins = []
+    for mean, std in zip(omc["pins"], omc["pins-std"]):
+        scale = fuel_pin_mean(mean, fissile)
+        openmc_pins.append(
+            (
+                [[v / scale for v in row] for row in mean],
+                [[v / scale for v in row] for row in std],
+            )
+        )
     pins = [
-        pin_differences(p["pin_powers"], mean, std)
-        for p, mean, std in zip(xlc["points"], omc["pins"], omc["pins-std"])
+        pin_differences(p["pin_powers"], mean, std, fissile, absorbers)
+        for p, (mean, std) in zip(xlc["points"], openmc_pins)
     ]
     # 形はピン出力の比較で確かめてある
-    pin_std_rms = [
-        orbit_std_rms(mean, std) for mean, std in zip(omc["pins"], omc["pins-std"])
-    ]
+    pin_std_rms = [orbit_std_rms(mean, std, fissile) for mean, std in openmc_pins]
     transport = omc["transport-seconds"]
     seconds = {
         "xlc": {**xlc["seconds"], "solves": xlc["solves"]},
@@ -332,6 +399,12 @@ def report(summary: dict) -> list[str]:
             f"{b:g} | {p['orbits']} | {p['rms'] * 100:.3f} | {p['max'] * 100:+.3f} ± {p['max_std'] * 100:.3f} | "
             f"({row + 1}, {column + 1}) | {s * 100:.3f}"
         )
+    if any("absorber_max" not in p for p in summary["pins"]):
+        raise SystemExit("the JSON has no fission of burnt absorbers; rerun the stage")
+    lines.append(
+        "燃焼する吸収体だけのセルの OpenMC の核分裂（ピン出力。比べない）の最大: "
+        f"{max(p['absorber_max'] for p in summary['pins']):.1e}"
+    )
     for kind, table in summary["kinds"].items():
         names = list(table)
         lines.append(f"{kind} の数密度の相対差 (%): 燃焼度 | " + " | ".join(names))
