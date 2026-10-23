@@ -1,10 +1,7 @@
 # ADR-0196 の試行（DVC のステージにしない）: lattice-2A.toml の最初の 10 点に切り、各点の少数群定数と形状関数も書く。
 # 一気に流す、5 点目のステップの後で scancel して同じコマンドで再開する、の 2 通りで流し、compare_checkpoint.py で比べる
-# 格子計算の燃焼の検証（ADR-0178）: VERA Problem 2 の 毒物のない 3.1% の集合体（燃料、被覆管、減速材 565 K、減速材 0.743 g/cc、ホウ素 1300 ppm。仕様書の表 P2-1）を、分岐なしの 1 つの状態で、
-# 40 点（最後は 60 MWd/kg）まで燃焼させる。OpenMC の参照解は openmc-2A.toml。
-# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。形状、組成と燃焼度の点は
-# OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。
-# 燃焼させる物質は fuel（対称操作の組ごとに 1 つの領域。ADR-0173）。
+# 元の lattice-2A.toml（格子計算の燃焼の検証。ADR-0178）から、燃焼度の点（3.5 MWd/kg まで）、出力のファイル、`few-group` を手で
+# 変えた。p2_inputs.py は書かない。形状と組成は lattice-2A.toml と同じ（VERA Problem 2 の 3.1% の集合体、減速材 565 K、ホウ素 1300 ppm）。
 library = "depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26

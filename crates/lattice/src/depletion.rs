@@ -1152,7 +1152,8 @@ pub(crate) fn run_with_moc(
     // 燃料のピンの Dancoff 係数は、燃料でない物質の全断面積が直前の輸送と同じ間だけ持ち越す。燃焼させる物質が燃料だけなら
     // 初めの輸送で 1 度だけ解き、燃料でない物質（吸収体）を燃焼させれば輸送ごとに解く（ADR-0194）
     let mut reuse = ShieldingReuse::new(tracking);
-    // 再開するなら、書いた履歴と次の点の組成（`Beginning` は下で作る）と、直前の輸送の解
+    // 再開するなら、書いた履歴と次の点の組成（`Beginning` は下で作る）と、直前の輸送の解。`previous` は直前の輸送の収束した
+    // MOC の状態で、次の輸送の反復をここから始める（ADR-0195）。点のチェックポイントにも書くので `Rc` で共有する
     let (resumed, mut previous) = match resumed {
         Some(Partial {
             history,
@@ -1161,7 +1162,6 @@ pub(crate) fn run_with_moc(
         }) => (Some((history, next)), Some(Rc::new(start))),
         None => (None, None),
     };
-    // 直前の輸送の収束した MOC の状態。次の輸送の反復をここから始める（ADR-0195）。点のチェックポイントにも書くので共有する
     let mut shieldings = 0;
     // `StepStart` の、ステップの始まりの輸送の自己遮蔽と、それに渡した物質。次の中点の輸送で使う（ADR-0197）
     let mut held: Option<(FuelShielding, Vec<MaterialInput>)> = None;
