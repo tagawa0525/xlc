@@ -360,6 +360,7 @@ pub fn shield_fuel_with(
 pub struct ShieldingReuse<'a> {
     tracking: &'a Tracking,
     dancoff: Option<DancoffInputs>,
+    /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
 }
 
@@ -368,7 +369,7 @@ pub struct ShieldingReuse<'a> {
 struct DancoffInputs {
     /// [領域] の物質の番号
     region_index: Vec<usize>,
-    /// [物質] の全断面積（燃料の物質は `None`。燃料は黒体なので値を使わない）
+    /// [物質] の全断面積（領域に置いた燃料でない物質だけ。ほかは `None`）
     totals: Vec<Option<Vec<f64>>>,
     options: DancoffOptions,
     /// [セル] の群ごとの Dancoff 係数
@@ -385,25 +386,22 @@ impl<'a> ShieldingReuse<'a> {
         }
     }
 
-    /// 燃料のピンの Dancoff 係数を解いた回数
-    pub fn dancoff_solves(&self) -> usize {
-        self.dancoff_solves
-    }
-
     /// 物質 `dilute`（無限希釈）を領域に `region_index` で置いた格子の、燃料のピンの Dancoff 係数（[セル]）。`fuel` は
-    /// [物質] の燃料か
+    /// [領域] の燃料か
     fn pin_dancoff(
         &mut self,
         dilute: &[Material],
-        fuel: &[bool],
         region_index: &[usize],
+        fuel: &[bool],
         options: &DancoffOptions,
     ) -> Result<Arc<Vec<Option<Vec<f64>>>>, SelfShieldingError> {
-        let totals: Vec<Option<Vec<f64>>> = dilute
-            .iter()
-            .zip(fuel)
-            .map(|(m, &f)| (!f).then(|| m.total.clone()))
-            .collect();
+        // 領域に置いた燃料でない物質の全断面積だけを比べる（燃料は黒体で、どの領域にも置かない物質とともに値を読まない）
+        let mut totals: Vec<Option<Vec<f64>>> = vec![None; dilute.len()];
+        for (&i, &f) in region_index.iter().zip(fuel) {
+            if !f && totals[i].is_none() {
+                totals[i] = Some(dilute[i].total.clone());
+            }
+        }
         if let Some(d) = &self.dancoff
             && d.region_index == region_index
             && d.totals == totals
@@ -412,15 +410,13 @@ impl<'a> ShieldingReuse<'a> {
             tracing::debug!("pin Dancoff factors reused");
             return Ok(d.factors.clone());
         }
-        // 燃料の行は使わない
         let region_totals: Vec<Vec<f64>> = region_index
             .iter()
             .map(|&i| totals[i].clone().unwrap_or_default())
             .collect();
-        let region_fuel: Vec<bool> = region_index.iter().map(|&i| fuel[i]).collect();
         let factors = Arc::new(
             tracing::info_span!("dancoff")
-                .in_scope(|| dancoff(self.tracking, &region_totals, &region_fuel, options))?,
+                .in_scope(|| dancoff(self.tracking, &region_totals, fuel, options))?,
         );
         self.dancoff_solves += 1;
         self.dancoff = Some(DancoffInputs {
@@ -482,12 +478,10 @@ pub fn shield_fuel_reusing(
                 .ok_or_else(|| SelfShieldingError::UnknownMaterial(name.clone()))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    // [物質] の燃料か
-    let fissile: Vec<bool> = dilute
+    let fuel: Vec<bool> = region_index
         .iter()
-        .map(|m| m.nu_fission.iter().any(|&v| v > 0.0))
+        .map(|&i| dilute[i].nu_fission.iter().any(|&v| v > 0.0))
         .collect();
-    let fuel: Vec<bool> = region_index.iter().map(|&i| fissile[i]).collect();
     // 燃料のあるセルごとに、燃料の物質と、燃料が埋める内側のリングの外半径。Dancoff 係数を
     // 求める前に確かめる（燃料が外側にあると、Dancoff 係数のほうが先に失敗して原因が分かりにくい）
     let mut pins = Vec::new();
@@ -536,7 +530,7 @@ pub fn shield_fuel_reusing(
         }
         pins.push((cell, fuel_regions, ring_materials, rings));
     }
-    let factors = reuse.pin_dancoff(&dilute, &fissile, &region_index, &options.dancoff)?;
+    let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
 
     let mut shielded = FuelShielding {
         materials: dilute,
