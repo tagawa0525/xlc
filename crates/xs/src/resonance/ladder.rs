@@ -112,7 +112,7 @@ pub(super) fn bondarenko(
         return Err(LadderError::EmptySampling);
     }
     let mut rng = Rng::new(seed);
-    // 共鳴を持つ系列（`add_ladder` が飛ばさない系列）の最大の準位間隔
+    // 共鳴を持つ系列（下のラダーのループが使う系列）の最大の準位間隔
     let d_max = sequences
         .iter()
         .filter(|q| q.has_resonances())
