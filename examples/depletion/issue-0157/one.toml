@@ -1,0 +1,10 @@
+# 全コアで 1 スレッドずつ同じ計算を実行したときの遅れの測定（ADR-0189）。examples/depletion/xs.toml の Cm-244 を 565 K だけで作る
+output = "one.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+thermal-directory = "../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.Cm-244]
+endf = "n-096_Cm_244.endf"
+temperatures = [565]
