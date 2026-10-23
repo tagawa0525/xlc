@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-23
 requires: [ADR-0011, ADR-0026, ADR-0033, ADR-0035, ADR-0036, ADR-0085, ADR-0097, ADR-0173, ADR-0181]
 supersedes: []
@@ -148,12 +148,33 @@ lattice の実行ファイルが変われば、どちらの段階も changed に
 
 ## 確認
 
-（実装の後に書く）
+- 形式（crates/format/src/table/tests.rs）: `burnup_axes_round_trip_bit_exactly`、`burnup_points_must_be_nonnegative_and_increasing`
+- core の内挿（crates/core/src/state/tests.rs）: `burnup_grid_points_return_the_lattice_states`、
+  `burnup_is_interpolated_linearly_with_the_other_axes`、`burnups_outside_the_points_or_missing_are_errors`、
+  `fissile_tables_without_a_burnup_axis_reject_burnups`（燃焼度 0 と、核分裂のないテーブルを含む）。ケースの入力
+  （crates/core/src/input/tests.rs）: `states_give_one_burnup_to_every_assembly`
+- 履歴の読み込み（crates/lattice/src/depletion/tests.rs）: `history_round_trips_through_its_file`、
+  `reading_a_history_checks_the_format_name`、`histories_without_depletion_regions_are_errors`
+- 履歴からの分岐（crates/lattice/src/history/tests.rs）: `nominal_branches_reproduce_the_history_points`（公称の分岐の k が履歴の各点の
+  k と相対 1e-12 以内）、`branch_regions_take_the_history_densities`、`branch_burnups_are_points_of_the_history`、
+  `the_branch_lattice_must_be_the_lattice_of_the_history`、`branch_temperatures_need_data_for_every_transported_nuclide`、
+  `the_branch_library_must_transport_the_nuclides_of_the_history`、`input_materials_named_like_depletion_regions_are_errors`、
+  `negative_history_densities_beyond_the_cram_error_are_errors`。入力（crates/lattice/src/input/tests.rs）:
+  `reads_the_history_file_and_its_burnup_points`、`history_burnup_points_are_nonnegative_and_increase`、
+  `history_branches_need_branches_shielding_and_a_lattice_table`
+- 2A の履歴（examples/depletion/verification.md の「燃焼度の軸を持つテーブル（2A）」、7f3c9909、2026-10-23）: 燃焼度 0、10、20、
+  40 MWd/kg の点で、集合体 1 体の core の k∞ は分岐の格子計算の k∞ を 0.0012 pcm 以内で、履歴の k∞ を −0.040〜−0.056 pcm で再現した
+  （履歴との差の候補は、減速材をホウ酸水で書いた 1e-6 の組成の差と、履歴の後の lattice の変更で、分けていない）。点の間の線形の
+  内挿の誤差は、15 MWd/kg（10 と 20 の間）で +129 pcm、30 MWd/kg（20 と 40 の間）で +763 pcm
 
 ## 帰結
 
 - 格子計算の回数は、燃焼度の点の数 × ADR-0097 の状態の数（制御棒の値を含む）。計画の見積もり（30 点 × 108 状態で約 122 時間）は
   S1 の直積の値で、減らす手は燃焼度の点を履歴の点より粗くすることと、本番の格子点を決めた後の案 S2
+- 燃焼度の点の間の線形の内挿の誤差は、2A で点の間隔 10 MWd/kg に +129 pcm、20 MWd/kg に +763 pcm（「確認」）。本番の燃焼度の点は、
+  この誤差を測って細かくする（履歴の点はどれでも選べる）
 - ADR-0011 の帰結の HDF5 への移行は行わない
+- 確認の 2A のテーブルは段階にしていない（履歴の段階を deps にすると、実行ファイルの変わったブランチでは履歴を再実行するため。
+  examples/depletion/verification.md）。本番のテーブルの段階は、熱水力の ADR の後に作る
 - ミクロの断面積、均質化した数密度、ADR-0033 のデータは、形式の置き場を決めただけで、まだ書かない（#0153）
 - core の燃焼度はケースの状態の一様な値で、集合体ごとの燃焼度は「進め方」7
