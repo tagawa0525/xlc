@@ -4,7 +4,7 @@ date: 2026-10-23
 requires: [ADR-0067, ADR-0185]
 supersedes: []
 superseded-by:
-issues: ["#0161"]
+issues: ["#0161", "#0171"]
 ---
 
 # ADR-0198: 自己遮蔽のピンを、スレッドごとに 1 本ずつ取って解く
