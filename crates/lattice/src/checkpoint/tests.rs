@@ -250,3 +250,25 @@ fn a_checkpoint_needs_exactly_one_kind() {
     assert!(error.contains("both"), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn the_last_state_is_not_saved() {
+    // 最後の状態の後は出力を書いてチェックポイントを消すので、書くのはそれより前の状態だけ（燃焼の最後の点と同じ）
+    let dir = scratch("last");
+    let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
+    let all = states(3);
+    let mut saved_before = Vec::new();
+    solve_states(
+        3,
+        Some(&checkpoint),
+        |_, _| Ok(()),
+        |i| {
+            saved_before.push(checkpoint.states().unwrap().len());
+            Ok(all[i].clone())
+        },
+    )
+    .unwrap();
+    assert_eq!(saved_before, vec![0, 1, 2]);
+    assert_eq!(checkpoint.states().unwrap().len(), 2);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
