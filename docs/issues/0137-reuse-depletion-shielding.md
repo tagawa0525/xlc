@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, depletion, performance]
 opened: 2026-10-15
-closed:
+closed: 2026-10-23
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0194
 ---
 
 # 燃焼の輸送ごとに組成によらない自己遮蔽の前処理をやり直す
@@ -43,6 +43,12 @@ resolution:
   前処理（Dancoff 係数 2.0〜2.7 秒、塊 2.0〜2.9 秒、移り合うピンへの複製 0.3〜0.7 秒。1 回の輸送あたり）が、その約 3 割になった
   （examples/depletion/issue-0045 の 2A-step。ブランチ feat/0045-ufg-background-nuclides のコミット 047d9379c（分岐点は main の
   682dead38）、Slurm 441）。この issue の再利用の効きは 1.06 倍でなく、それに見合う大きさになる
+- 2026-10-23: 組成によらない前処理をコードで確かめた（ADR-0194 の「背景」）。燃料のピンの Dancoff 係数は燃料でない物質の全断面積だけで
+  決まるので、入力が直前と同じ間だけ持ち越す（ADR-0194）。塊の Dancoff 係数は燃料の自己遮蔽した全断面積を読むので持ち越さない（持ち越すと
+  結果が変わる。ADR-0194 の案 C）。移り合うピンへの複製は核種の群定数を共有してなくした。2A の最初の 10 点（輸送 21 回）は本番の履歴と
+  ビットで同じで、自己遮蔽は輸送 1 回あたり 16.9 秒から 15.6 秒（examples/depletion/verification.md の「集合体の燃焼」の「時間」、
+  xlc 08c0eea9、Slurm 492）。等価なセルの外半径、混合、無限希釈の物質、反応率のライブラリの引き直しは合わせて全体の 2% ほどで、
+  持ち越さない
 
 ## 測定（2026-10-22）
 
