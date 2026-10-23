@@ -930,8 +930,8 @@ pub fn run(
     let groups = &library.groups;
     let mut transport = TransportTimes::default();
     let mut solves = 0;
-    // 燃料でない物質は輸送ごとに同じなので、燃料のピンの Dancoff 係数は燃焼させる物質が燃料だけなら初めの輸送で 1 度だけ解く
-    // （燃料でない物質を燃焼させれば、変わるたびに解き直す。ADR-0194）
+    // 燃料のピンの Dancoff 係数は、燃料でない物質の全断面積が直前の輸送と同じ間だけ持ち越す。燃焼させる物質が燃料だけなら
+    // 初めの輸送で 1 度だけ解き、燃料でない物質（吸収体）を燃焼させれば輸送ごとに解く（ADR-0194）
     let mut reuse = ShieldingReuse::new(tracking);
     let solve = |n: &[Vec<f64>], kept: bool| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
