@@ -20,7 +20,8 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
@@ -73,8 +74,8 @@ pub enum SelfShieldingError {
     Regions { given: usize, regions: usize },
     #[error("cell {0}: fuel must fill the innermost rings of a ring cell")]
     FuelShape(usize),
-    /// 解くと決めたピンの結果がない（内部の不整合）
-    #[error("cell {0}: internal error, the pin was not shielded")]
+    /// 解くと決めたピンの結果がないか、2 度解いた（内部の不整合）
+    #[error("cell {0}: internal error, the pin was not shielded exactly once")]
     Unsolved(usize),
     #[error(
         "cell {0}: the fuel rings differ in nuclides, their order or temperature, or a ring mixes materials"
@@ -577,8 +578,8 @@ pub fn shield_fuel_reusing(
             }
         })
         .collect();
-    // 解くピンは互いに独立なので並列に解く（各ピンの中でも衝突確率を並列に求めるが、ピンの減速計算は逐次なので、
-    // ピンの間でも並列にしてコアを埋める）。ピンの計算は元の物質（`dilute`。領域の番号はこの範囲）だけを読む。
+    // 解くピンは互いに独立なので並列に解く（各ピンの中でも飛程の表、衝突確率、縮約を並列に求めるが、ピンの減速計算は
+    // 逐次なので、ピンの間でも並列にしてコアを埋める）。ピンの計算は元の物質（`dilute`。領域の番号はこの範囲）だけを読む。
     // 結果の物質の追加と領域への割り当て、エラーは、下のループでピンの順に逐次に扱うので、逐次に解いたときと同じ
     let dilute_materials: &[Material] = &shielded.materials;
     let solving: Vec<(usize, &[usize], usize)> = pins
@@ -589,50 +590,71 @@ pub fn shield_fuel_reusing(
         .collect();
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
-    let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
-        .par_iter()
-        .map(|&(cell, ring_materials, rings)| {
-            let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
-            let factors = factors[cell]
-                .as_ref()
-                .ok_or(SelfShieldingError::FuelShape(cell))?;
-            let radius = lattice
-                .cell_type(cell)
-                .pin()
-                .ok_or(SelfShieldingError::FuelShape(cell))?
-                .radii()[rings - 1];
-            let equivalence = Equivalence {
-                chord: 2.0 * radius,
-                terms: factors
-                    .iter()
-                    .map(|&c| carlvik(c))
-                    .collect::<Result<_, _>>()?,
-            };
-            let material = pin_fuel(lattice, cell, materials, ring_materials);
-            let carlvik = tracing::debug_span!("carlvik")
-                .in_scope(|| shield_material(library, &material, &equivalence, options, cell))?;
-            let pin_cell = PinRings {
-                lattice,
-                cell,
-                rings,
-                region_index: &region_index,
-                void,
-                collision: options.collision,
-                thinning: options.thinning,
-            };
-            let ufg = shield_cell(
-                library,
-                &pin_cell,
-                materials,
-                dilute_materials,
-                factors,
-                &carlvik,
-                |inputs| cell_range(library, inputs),
-            )?;
-            Ok(PinSolution { carlvik, ufg })
-        })
-        .map(Some)
-        .collect();
+    let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
+        let &(cell, ring_materials, rings) = pin;
+        let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
+        let factors = factors[cell]
+            .as_ref()
+            .ok_or(SelfShieldingError::FuelShape(cell))?;
+        let radius = lattice
+            .cell_type(cell)
+            .pin()
+            .ok_or(SelfShieldingError::FuelShape(cell))?
+            .radii()[rings - 1];
+        let equivalence = Equivalence {
+            chord: 2.0 * radius,
+            terms: factors
+                .iter()
+                .map(|&c| carlvik(c))
+                .collect::<Result<_, _>>()?,
+        };
+        let material = pin_fuel(lattice, cell, materials, ring_materials);
+        let carlvik = tracing::debug_span!("carlvik")
+            .in_scope(|| shield_material(library, &material, &equivalence, options, cell))?;
+        let pin_cell = PinRings {
+            lattice,
+            cell,
+            rings,
+            region_index: &region_index,
+            void,
+            collision: options.collision,
+            thinning: options.thinning,
+        };
+        let ufg = shield_cell(
+            library,
+            &pin_cell,
+            materials,
+            dilute_materials,
+            factors,
+            &carlvik,
+            |inputs| cell_range(library, inputs),
+        )?;
+        Ok(PinSolution { carlvik, ufg })
+    };
+    // ピンは `par_iter` の仕事にせず、プールの各スレッドが 1 本ずつ番号の順に取る。`broadcast` の仕事はそのスレッドだけが
+    // 実行するので、ピンの中の並列を待つスレッドが別のピンを丸ごと盗んで、待っていたピンの完了を遅らせることがない。
+    // ピンを取り終えたスレッドは、残りのピンの中の並列を手伝う（ADR-0198）。`broadcast` はプールのすべてのスレッドが
+    // 仕事を終えるまで返らないので、プールの外（ほかの並列の仕事が走っていないところ）から呼ぶ
+    let next = AtomicUsize::new(0);
+    // 2 度解いたピンのセル（なければ usize::MAX）
+    let twice = AtomicUsize::new(usize::MAX);
+    let slots: Vec<OnceLock<Result<PinSolution, SelfShieldingError>>> =
+        solving.iter().map(|_| OnceLock::new()).collect();
+    rayon::broadcast(|_| {
+        loop {
+            let k = next.fetch_add(1, Ordering::Relaxed);
+            let Some(pin) = solving.get(k) else { break };
+            // 番号 k を取ったのはこのスレッドだけなので、`set` は失敗しない。失敗すれば番号の取り方の誤りで、解を捨てずに止める
+            if slots[k].set(solve(pin)).is_err() {
+                twice.store(pin.0, Ordering::Relaxed);
+            }
+        }
+    });
+    if let cell @ 0..usize::MAX = twice.into_inner() {
+        return Err(SelfShieldingError::Unsolved(cell));
+    }
+    let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> =
+        slots.into_iter().map(OnceLock::into_inner).collect();
     let mut solved: Vec<(usize, Solved)> = Vec::new();
     // 代表のピンのエネルギーの格子点の数（解いた順）と、移り合うピンへの複製の時間
     let mut points: Vec<usize> = Vec::new();
@@ -983,7 +1005,7 @@ fn shield_lumps(
             found[b] = Some(result);
         }
     }
-    // 塊の遮蔽は互いに独立なので並列に解く（ピンと同じ）。解くときに読む物質は、ここまでに足した物質（ピンの結果を
+    // 塊の遮蔽は互いに独立なので並列に解く（塊は 6 個ほどで、ピンのようにスレッドごとに取る形にはしていない。#0171）。解くときに読む物質は、ここまでに足した物質（ピンの結果を
     // 含む）で、塊の結果の物質は下のループで塊の順に足すので、逐次に解いたときと同じ番号と値になる。エラーも塊の順に返す
     let parent = tracing::Span::current();
     let dilute: &[Material] = &shielded.materials;

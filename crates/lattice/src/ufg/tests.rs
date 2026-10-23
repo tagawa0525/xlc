@@ -847,3 +847,119 @@ fn fine_flux_integrates_to_the_group_flux() {
         }
     }
 }
+
+#[test]
+fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
+    // 塊の境目（降順で THIN_POINTS 番目の点）に不連続点のある核種と、点の少ない核種の和が、点ごとに格子の上端から引き直した
+    // 補間の和とビットで同じ
+    let n = 3 * THIN_POINTS + 7;
+    let mut grid: Vec<f64> = (0..n)
+        .map(|i| 4.0 * (2.0e4_f64 / 4.0).powf(i as f64 / (n - 1) as f64))
+        .collect();
+    grid[0] = 4.0;
+    grid[n - 1] = 2.0e4;
+    let jump = grid[n - 1 - THIN_POINTS];
+    let mut points: Vec<[f64; 4]> = grid
+        .iter()
+        .map(|&e| {
+            [
+                e,
+                10.0 + (e.ln() * 7.0).sin(),
+                4.0 + (e.ln() * 3.0).cos(),
+                0.0,
+            ]
+        })
+        .collect();
+    let at = n - 1 - THIN_POINTS;
+    points.insert(at + 1, [jump, 50.0, 20.0, 0.0]);
+    let lib = library(vec![
+        Spec {
+            name: "A",
+            awr: 200.0,
+            top: None,
+            points,
+        },
+        constant("B", 16.0, 3.0, 2.5, 0.0),
+    ]);
+    let data: Vec<Data> = ["A", "B"]
+        .iter()
+        .map(|name| {
+            let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
+            Data {
+                name: &d.name,
+                gain: 1.0,
+                width: 1.0,
+                table: t,
+            }
+        })
+        .collect();
+    let mut energies = grid.clone();
+    energies.reverse();
+    assert_eq!(energies[THIN_POINTS], jump);
+    // [核種][物質]
+    let densities = vec![vec![0.02, 0.01], vec![0.04, 0.0]];
+    let values = macroscopic_totals(&energies, &data, &densities).unwrap();
+    for (row, &e) in values.as_chunks::<4>().0.iter().zip(&energies) {
+        let mut expected = [0.0; 4];
+        for (d, n) in data.iter().zip(&densities) {
+            let [total, elastic] =
+                evaluate_total_elastic(d, &mut d.pointwise().energy.len(), e).unwrap();
+            // 両方の核種がどれかの物質にあるので、どちらも足す
+            for (m, &n) in n.iter().enumerate() {
+                expected[2 * m] += n * total;
+                expected[2 * m + 1] += n * elastic;
+            }
+        }
+        for q in 0..4 {
+            assert_eq!(
+                row[q].to_bits(),
+                expected[q].to_bits(),
+                "{e} eV quantity {q}"
+            );
+        }
+    }
+}
+
+#[test]
+fn macroscopic_totals_report_the_first_error_in_nuclide_then_point_order() {
+    // 核種 0 は 10 eV より下（最後の塊）で、核種 1 は 1 keV より上（最初の塊）で定義の外。逐次に核種ごとに足したときと同じく、
+    // 核種 0 の、定義の外の最初（最も高い）の点を返す
+    let n = 3 * THIN_POINTS;
+    let energies: Vec<f64> = (0..n)
+        .map(|i| 2.0e4 * (4.0_f64 / 2.0e4).powf(i as f64 / (n - 1) as f64))
+        .collect();
+    let lib = library(vec![
+        Spec {
+            name: "A",
+            awr: 200.0,
+            top: None,
+            points: [10.0, 2.0e4].map(|e| [e, 10.0, 4.0, 0.0]).to_vec(),
+        },
+        Spec {
+            name: "B",
+            awr: 16.0,
+            top: None,
+            points: [4.0, 1.0e3].map(|e| [e, 3.0, 2.5, 0.0]).to_vec(),
+        },
+    ]);
+    let data: Vec<Data> = ["A", "B"]
+        .iter()
+        .map(|name| {
+            let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
+            Data {
+                name: &d.name,
+                gain: 1.0,
+                width: 1.0,
+                table: t,
+            }
+        })
+        .collect();
+    let first = *energies.iter().find(|&&e| e < 10.0).unwrap();
+    let densities = vec![vec![0.02], vec![0.04]];
+    match macroscopic_totals(&energies, &data, &densities) {
+        Err(UfgError::Undefined { name, energy }) => {
+            assert_eq!((name.as_str(), energy), ("A", first));
+        }
+        other => panic!("{other:?}"),
+    }
+}
