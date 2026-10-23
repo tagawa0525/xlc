@@ -239,6 +239,8 @@ fn solve_with(
             cmfd_flux,
         });
     }
+    // 反復の前の用意（入力の確認、体積、粗メッシュ、代表、スイープの表、初期値）
+    let setup = tracing::trace_span!("setup").entered();
     let regions = materials.len();
     let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
     if materials.iter().any(|m| m.groups() != ng) {
@@ -399,12 +401,15 @@ fn solve_with(
     let mut tallies = sweeper.tallies(regions);
     let mut k_history = Remaining::default();
     let mut flux_history = Remaining::default();
+    drop(setup);
 
     for iteration in 1..=options.max_iterations {
         // 線源を Σt で割ったもの（角度中性子束の平衡値）の [モーメント][群] の展開係数
-        let equilibrium: Vec<Vec<f64>> = (0..states)
-            .map(|i| equilibrium_moments(material(i), &flux[i], &higher[i], k, &pairs))
-            .collect();
+        let equilibrium: Vec<Vec<f64>> = tracing::trace_span!("equilibrium").in_scope(|| {
+            (0..states)
+                .map(|i| equilibrium_moments(material(i), &flux[i], &higher[i], k, &pairs))
+                .collect()
+        });
 
         // 段の時間は trace の区間で測る（main.rs の FmtSpan::CLOSE で、閉じるときに time.busy を出す）
         tracing::trace_span!("sweep").in_scope(|| {
@@ -428,6 +433,8 @@ fn solve_with(
             region_current,
         } = sums;
 
+        // スイープの和から、代表ごとの中性子束、高次のモーメント、中性子流を求め、生成率 1 に規格化する
+        let update = tracing::trace_span!("update").entered();
         let mut new_flux: Vec<Vec<f64>> = (0..states)
             .map(|i| {
                 // 真空では、通り抜ける角度中性子束の経路長の積分から求める
@@ -507,6 +514,7 @@ fn solve_with(
         for b in &mut outgoing {
             *b /= rate;
         }
+        drop(update);
         // CMFD: 粗メッシュの固有値問題の解で、k と、セルごと・群ごとの中性子束の比を更新する。
         // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
         if let Acceleration::Cmfd(cmfd) = &options.acceleration {
@@ -534,6 +542,7 @@ fn solve_with(
             let (coarse_k, ratio) =
                 tracing::trace_span!("coarse").in_scope(|| coarse.solve(new_k, &tuned))?;
             new_k = coarse_k;
+            let _scale = tracing::trace_span!("scale").entered();
             // 高次のモーメントも同じ比で（角度分布の形は変えない）
             for (i, ((f, h), c)) in new_flux
                 .iter_mut()
@@ -555,6 +564,7 @@ fn solve_with(
             // 更新すると、次のスイープで入ってくる流れと食い違う）
             sweeper.scale_outgoing(&mut outgoing, |cell, g| ratio[cells.index[cell] * ng + g]);
         }
+        let converge = tracing::trace_span!("converge").entered();
         let change = largest_change(&new_flux, &flux);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
         // 残りの誤差を見積もって判定する
@@ -591,7 +601,9 @@ fn solve_with(
         flux = new_flux;
         higher = new_higher;
         k = new_k;
+        drop(converge);
         if converged {
+            let _finish = tracing::trace_span!("finish").entered();
             // 面と辺の上の平均: 長さで割る。入ってくる側は前の反復のスイープの値で、CMFD の比もかけていないが、
             // 収束した解ではどちらも反復の許容誤差の程度しか違わない
             let lattice = &tracking.lattice;
