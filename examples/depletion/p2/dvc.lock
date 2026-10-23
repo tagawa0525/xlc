@@ -7370,3 +7370,69 @@ stages:
       hash: md5
       md5: 56ec116f1663dc68fee0871259111d89
       size: 71510
+  lattice@2P:
+    cmd: ../../../bin/lattice lattice-2P.toml > lattice-2P.out 2> lattice-2P.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
+      isexec: true
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: depletion.msgpack
+      hash: md5
+      md5: 015111dfb1051d22b64bfbaac0ed921b
+      size: 225995611
+    - path: lattice-2P.toml
+      hash: md5
+      md5: fcfb87897eb2200eae6efbde010a81be
+      size: 7599
+    outs:
+    - path: lattice-2P.log
+      hash: md5
+      md5: b741cbca655aa0d9e4d7e4c490c3ae0e
+      size: 333192
+    - path: lattice-2P.msgpack
+      hash: md5
+      md5: b21d412c4b247c524dcf32cdc015a92e
+      size: 180906068
+    - path: lattice-2P.out
+      hash: md5
+      md5: e14314442e8bb98310837c30aa6b9726
+      size: 1521
+  lattice@2M:
+    cmd: ../../../bin/lattice lattice-2M.toml > lattice-2M.out 2> lattice-2M.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
+      isexec: true
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: depletion.msgpack
+      hash: md5
+      md5: 015111dfb1051d22b64bfbaac0ed921b
+      size: 225995611
+    - path: lattice-2M.toml
+      hash: md5
+      md5: 7ea885f9e5420ac4578bb0b830cf1c1c
+      size: 4973
+    outs:
+    - path: lattice-2M.log
+      hash: md5
+      md5: cd29421667a95f125a630c351755cffe
+      size: 651210
+    - path: lattice-2M.msgpack
+      hash: md5
+      md5: 067566dc94405e727228ab08089bc622
+      size: 141847587
+    - path: lattice-2M.out
+      hash: md5
+      md5: 8748d0809f76f1c5245c5ddc2b7e8ad5
+      size: 1521
