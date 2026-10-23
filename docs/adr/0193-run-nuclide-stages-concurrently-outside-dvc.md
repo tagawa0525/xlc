@@ -86,8 +86,13 @@ python3 examples/stage_runner.py examples/<問題>/dvc.yaml xs-nuclide [--thread
 ```
 
 - 対象は foreach のステージの組 1 つ（`<yaml>:<名前>`）。`dvc status --with-deps` が組の外（上流の build、xs-range）を changed と示せば、先に
-  `dvc repro <それらのステージ>` で実行する（`dvc repro <yaml>:<名前>` と同じく上流を飛ばさない。ADR-0184）。そのあとも組の外が changed なら止まる
-- 予算の既定は `xs` の既定と同じ、物理コアの数をこのプロセスに許された CPU の数で抑えたもの（ADR-0067、ADR-0189）。`--threads` で変える。
+  `dvc repro <それらのステージ>` で実行する（`dvc repro <yaml>:<名前>` と同じく上流を飛ばさない。ADR-0184）。`dvc status` は上流が出力を
+  書き換えた後に changed になる下流を示さない（build の後の xs-range）ので、組の外が changed でなくなるまで繰り返す。同じ上流が続けて
+  changed なら（always_changed など）止まる
+- deps も cmd も変わらず、出力だけが lock と違うステージ（出力を戻していない worktree など）があれば止まる。`dvc repro` は run-cache から
+  戻すものを、runner は作り直さない
+- 予算の既定は、このプロセスに許された CPU の中の物理コアの数（ADR-0067）。`--threads` で変える。xs の既定（ノードの物理コアの数を許された
+  CPU の数で抑えたもの。ADR-0189）は、Slurm の `-c 16` で 8 コアに 16 を返すので、使わない（xs の側は #0158）。
   同時に走るプロセスの数は予算以下になる（各ステージに 1 スレッド以上）。メモリは見ない: 1 核種のプロセスは最大 998 MB（ADR-0189）で、
   16 本でも r995 の 91 GB に収まる
 - 記録の無いステージ（初めての核種）の CPU 時間は、同じ組の記録の最大値とみなす（長いものとして先に、多めのスレッドで流す）。組の記録が
