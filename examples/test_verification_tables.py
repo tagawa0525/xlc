@@ -792,6 +792,7 @@ class DrawCoreDepletion(unittest.TestCase):
                     "history_k": 1.18283604,
                     "k": 1.18283548,
                     "rho_pcm": -0.0400123,
+                    "branch_rho_pcm": -0.00061,
                 },
                 {
                     "efpd": 130.17443374,
@@ -800,6 +801,7 @@ class DrawCoreDepletion(unittest.TestCase):
                     "history_k": 1.10057334,
                     "k": 1.1021,
                     "rho_pcm": 125.71,
+                    "branch_rho_pcm": None,
                 },
             ],
         }
@@ -813,8 +815,8 @@ class DrawCoreDepletion(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ["0", "0.00", "○", "1.18283604", "1.18283548", "−0.040"],
-                ["5", "130.17", "", "1.10057334", "1.10210000", "+125.710"],
+                ["0", "0.00", "○", "1.18283604", "1.18283548", "−0.040", "−0.0006"],
+                ["5", "130.17", "", "1.10057334", "1.10210000", "+125.710", ""],
             ],
         )
 
