@@ -2107,12 +2107,12 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: xs-nuclides
       hash: md5
-      md5: e83e2569d1e9420566b6f6f57304813a.dir
+      md5: e699391614584de8676a37e1ed822a5e.dir
       size: 323949188
       nfiles: 61
     - path: xs-range.toml
@@ -2126,15 +2126,15 @@ stages:
     outs:
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
   xs-range:
     cmd: ../../bin/xs range xs.toml xs-range.toml
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
       hash: md5
@@ -2156,8 +2156,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
       hash: md5
@@ -2203,8 +2203,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       hash: md5
@@ -2244,7 +2244,7 @@ stages:
     outs:
     - path: xs-nuclides/U-235.msgpack
       hash: md5
-      md5: 02f5e1e11a5a363a58cdde4943a6a723
+      md5: 60127e0534dbcca4f5f856a027ea5273
       size: 21591772
   xs-nuclide@B-11:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-11 
@@ -2252,8 +2252,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
       hash: md5
@@ -2299,8 +2299,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
       hash: md5
@@ -2346,8 +2346,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
       hash: md5
@@ -2393,8 +2393,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
       hash: md5
@@ -2440,8 +2440,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
       hash: md5
@@ -2487,8 +2487,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       hash: md5
@@ -2536,8 +2536,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
       hash: md5
@@ -2583,8 +2583,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
       hash: md5
@@ -2630,8 +2630,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
       hash: md5
@@ -2677,8 +2677,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
       hash: md5
@@ -2724,8 +2724,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
       hash: md5
@@ -2771,8 +2771,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
       hash: md5
@@ -2818,8 +2818,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
       hash: md5
@@ -2865,8 +2865,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
       hash: md5
@@ -2912,8 +2912,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
       hash: md5
@@ -2959,8 +2959,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
       hash: md5
@@ -3006,8 +3006,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
       hash: md5
@@ -3053,8 +3053,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
       hash: md5
@@ -3100,8 +3100,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
       hash: md5
@@ -3147,8 +3147,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
       hash: md5
@@ -3194,8 +3194,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
       hash: md5
@@ -3241,8 +3241,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
       hash: md5
@@ -3288,8 +3288,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
       hash: md5
@@ -3335,8 +3335,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
       hash: md5
@@ -3382,8 +3382,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
       hash: md5
@@ -3429,8 +3429,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
       hash: md5
@@ -3476,8 +3476,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
       hash: md5
@@ -3523,8 +3523,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
       hash: md5
@@ -3570,8 +3570,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
       hash: md5
@@ -3617,8 +3617,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
       hash: md5
@@ -3664,8 +3664,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
       hash: md5
@@ -3711,8 +3711,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
       hash: md5
@@ -3758,8 +3758,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
       hash: md5
@@ -3805,8 +3805,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
       hash: md5
@@ -3852,8 +3852,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
       hash: md5
@@ -3899,8 +3899,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
       hash: md5
@@ -3940,7 +3940,7 @@ stages:
     outs:
     - path: xs-nuclides/U-238.msgpack
       hash: md5
-      md5: f420069db832c879f950cc99019bf0e7
+      md5: 27604ab77d7b7e213e77e5217851ef79
       size: 58384600
   xs-nuclide@In-113:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml In-113 
@@ -3948,8 +3948,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
       hash: md5
@@ -3995,8 +3995,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
       hash: md5
@@ -4042,8 +4042,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
       hash: md5
@@ -4089,8 +4089,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
       hash: md5
@@ -4136,8 +4136,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
       hash: md5
@@ -4183,8 +4183,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
       hash: md5
@@ -4224,15 +4224,15 @@ stages:
     outs:
     - path: xs-nuclides/U-234.msgpack
       hash: md5
-      md5: 7208e7500cf348dec21055923e5da9e6
+      md5: 8bf4f37b1324c0717fab10e58b5350d8
       size: 8733250
   xs-nuclide@H-1:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml H-1 xs-nuclides/H-1.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -4281,8 +4281,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
       hash: md5
@@ -4328,8 +4328,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
       hash: md5
@@ -4375,8 +4375,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
       hash: md5
@@ -4422,8 +4422,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
       hash: md5
@@ -4469,8 +4469,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
       hash: md5
@@ -4510,7 +4510,7 @@ stages:
     outs:
     - path: xs-nuclides/U-236.msgpack
       hash: md5
-      md5: bd6a027374af478fb6fedee3be9cbd1c
+      md5: 7532272f0f2ec582d94f35f220ee25a2
       size: 8388190
   xs-nuclide@Sn-114:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-114 
@@ -4518,8 +4518,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
       hash: md5
@@ -4565,8 +4565,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
       hash: md5
@@ -4612,8 +4612,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
       hash: md5
@@ -4659,8 +4659,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
       hash: md5
@@ -4706,8 +4706,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
       hash: md5
@@ -4752,8 +4752,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: p1/pincell-1B.toml
       hash: md5
@@ -4761,12 +4761,12 @@ stages:
       size: 1511
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: p1/lattice-1B.out
       hash: md5
-      md5: 0c9e13a1f5ab5b54d8dd9f27e8126369
+      md5: e962ca664b9035ba055172ef893cd871
       size: 11
   compare-1B:
     cmd: python3 compare_k.py p1/lattice-1B.out p1/openmc-1B-results/k.json > 
@@ -5003,8 +5003,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
       hash: md5
@@ -5050,8 +5050,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_046.endf
       hash: md5
@@ -5097,8 +5097,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_047.endf
       hash: md5
@@ -5144,8 +5144,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_048.endf
       hash: md5
@@ -5191,8 +5191,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: d3dc3807ce70d3bf9578b4ee5a792b52
+      size: 2838840
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
       hash: md5
@@ -5278,8 +5278,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5299,28 +5299,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2G.toml
       hash: md5
       md5: 5e1d8fe5706fcb206e870b40a3ff1911
       size: 4707
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2G.json
       hash: md5
-      md5: 5b1a6373545266b5b9016f5132f614b6
+      md5: 69120ba2354d8412d62f26759ce02011
       size: 289
     - path: p2/keno-lattice-2G.out
       hash: md5
-      md5: 1ca90958db74037bf95cc1f219dc8561
+      md5: 230647a92a582a07b73349864561d544
       size: 11
     - path: p2/pins-2G.msgpack
       hash: md5
-      md5: 184119634c39253a54401e4aece11515
+      md5: e834d109d61a36782b6e4bc639f69a12
       size: 2683
   keno-assembly@2I:
     cmd: ../../bin/lattice p2/assembly-2I.toml > p2/keno-lattice-2I.out && 
@@ -5330,8 +5330,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5351,28 +5351,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2I.toml
       hash: md5
       md5: 8f8f4e149300ca3a984a38c6b2145f1b
       size: 4372
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2I.json
       hash: md5
-      md5: ef2f75819dc0a9ebc882d366e767e776
+      md5: 7eab858511202dd17934eaf08318744b
       size: 290
     - path: p2/keno-lattice-2I.out
       hash: md5
-      md5: fe509d11ff38fb353a27afffd92d20d1
+      md5: f4d9b33db805e93aafa2853ede4ccbee
       size: 11
     - path: p2/pins-2I.msgpack
       hash: md5
-      md5: c19bf7034dfe22292bf0c70ca5dc27f9
+      md5: 407d9fbdcb11b532fcfca0e9f01fa2b7
       size: 2683
   keno-assembly@2B:
     cmd: ../../bin/lattice p2/assembly-2B.toml > p2/keno-lattice-2B.out && 
@@ -5382,8 +5382,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5403,28 +5403,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2B.toml
       hash: md5
       md5: 34cce12cc99fcc0959e71def63c1aad3
       size: 3485
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2B.json
       hash: md5
-      md5: 99329ae41427ae78fd9e8ae7670b9099
+      md5: a11dbd1cbb91f182137fc2dcbedce251
       size: 290
     - path: p2/keno-lattice-2B.out
       hash: md5
-      md5: 6049e3ec835d343106f8b0bafd58067b
+      md5: ee30c88818ef158818961295e8be2be7
       size: 11
     - path: p2/pins-2B.msgpack
       hash: md5
-      md5: 6c58475c21fe5354e54e181c8d87509e
+      md5: 1e549c166448ba923feba30868f13836
       size: 2683
   keno-assembly@2D:
     cmd: ../../bin/lattice p2/assembly-2D.toml > p2/keno-lattice-2D.out && 
@@ -5434,8 +5434,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5455,28 +5455,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2D.toml
       hash: md5
       md5: 1c4385fc805b5912de6be3dbc92e0c89
       size: 3487
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2D.json
       hash: md5
-      md5: eebd07dd3a81b8854b1ef01bf40df314
-      size: 290
+      md5: 107c4e29b9f13456ac60cdbc5945600d
+      size: 289
     - path: p2/keno-lattice-2D.out
       hash: md5
-      md5: 643df50e1904d8cf22056641d5e0521d
+      md5: 97032e7c79e797997a8093d69cab879c
       size: 11
     - path: p2/pins-2D.msgpack
       hash: md5
-      md5: 8b3c589375c3e1d14234b8407ab7a80a
+      md5: fd69f8138f12551bb05bc7ef8f1d77bf
       size: 2683
   keno-assembly@2E:
     cmd: ../../bin/lattice p2/assembly-2E.toml > p2/keno-lattice-2E.out && 
@@ -5486,8 +5486,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5507,28 +5507,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2E.toml
       hash: md5
       md5: 3dc45e435e84c020e40bc288027953f5
       size: 4987
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2E.json
       hash: md5
-      md5: 57f7a1370031806a124e0280a0d08c96
+      md5: e8a48869e78eba1e2ebd7e1cbaeb92b0
       size: 288
     - path: p2/keno-lattice-2E.out
       hash: md5
-      md5: bb1b267f1b59b34722728e76a7823040
+      md5: 066aaa3a4a444a546af06925f1156c32
       size: 11
     - path: p2/pins-2E.msgpack
       hash: md5
-      md5: 30fc704e28ba36b6719c801498b8aaae
+      md5: 59f64eb816634bfbb20aac180d8d1b38
       size: 2683
   keno-pincell@1D:
     cmd: ../../bin/lattice p1/pincell-1D.toml > p1/keno-lattice-1D.out && 
@@ -5537,8 +5537,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5558,24 +5558,24 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p1/pincell-1D.toml
       hash: md5
       md5: 7e55baeae8e91f275f61b49927ec1640
       size: 1513
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-1D.json
       hash: md5
-      md5: aedb7c68aa4ea3574ad91317efa53dd0
+      md5: 1f3630f19a54fe0053fafb2bea1437a0
       size: 182
     - path: p1/keno-lattice-1D.out
       hash: md5
-      md5: 7515e9311e01c154ed22d67d12937e76
+      md5: 17c43dba3430f377ed5c88acd0e69d43
       size: 11
   keno-assembly@2J:
     cmd: ../../bin/lattice p2/assembly-2J.toml > p2/keno-lattice-2J.out && 
@@ -5585,8 +5585,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5606,28 +5606,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2J.toml
       hash: md5
       md5: d934a859b0903687f6d88544f2fffecb
       size: 5017
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2J.json
       hash: md5
-      md5: c37199e2f74017b42095e7969dc6e5bc
+      md5: 29178ff0d833dc950964e9c63ab780e6
       size: 289
     - path: p2/keno-lattice-2J.out
       hash: md5
-      md5: 0aefb766c8ad16de1fb82a06dffb7fe1
+      md5: f2328fa10bc55b3c4671937c7fed9c88
       size: 11
     - path: p2/pins-2J.msgpack
       hash: md5
-      md5: 3361a5f7e1f2fa912a4568e3f7f42513
+      md5: 736c78ba5eb581d501a1e703fea4cd30
       size: 2683
   keno-pincell@1C:
     cmd: ../../bin/lattice p1/pincell-1C.toml > p1/keno-lattice-1C.out && 
@@ -5636,8 +5636,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5657,24 +5657,24 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p1/pincell-1C.toml
       hash: md5
       md5: 4bd70824b7981a01853cd9b80abc613d
       size: 1511
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-1C.json
       hash: md5
-      md5: cabb11cdcd5d0ad3f057320cf65f617b
-      size: 178
+      md5: 9bd17f7ea4af4d38381201fd91f3b6c9
+      size: 182
     - path: p1/keno-lattice-1C.out
       hash: md5
-      md5: afbe0595e990c4fe2701bba5f853fe4e
+      md5: b80584278f40e9d152aa4e7bf4f8829d
       size: 11
   keno-assembly@2C:
     cmd: ../../bin/lattice p2/assembly-2C.toml > p2/keno-lattice-2C.out && 
@@ -5684,8 +5684,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5705,28 +5705,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2C.toml
       hash: md5
       md5: cd1d2c349a05b8110e762a77d55452e7
       size: 3485
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2C.json
       hash: md5
-      md5: e2d02e8755b672a2a94228ab63e070eb
-      size: 287
+      md5: 7064a3fbf7d11f8e237d79123b2fa47d
+      size: 290
     - path: p2/keno-lattice-2C.out
       hash: md5
-      md5: e38f130e57a9bb038b4389986cb3e613
+      md5: f85d899d0c3ddeea2c1d26964323445e
       size: 11
     - path: p2/pins-2C.msgpack
       hash: md5
-      md5: f36eef3677c2e50c6f91ec95b877cccb
+      md5: c8a4637bdf46f19364b47a5ca75f59ec
       size: 2683
   keno-assembly@2F:
     cmd: ../../bin/lattice p2/assembly-2F.toml > p2/keno-lattice-2F.out && 
@@ -5736,8 +5736,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5757,28 +5757,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2F.toml
       hash: md5
       md5: 935e8726d4029825d4f651018d18f1aa
       size: 4730
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2F.json
       hash: md5
-      md5: 737ae8a46b85aff9375b998805604a73
+      md5: 53c20e465e5cda2ff02e8976b02c6ef7
       size: 289
     - path: p2/keno-lattice-2F.out
       hash: md5
-      md5: 9ae7b2265d91f37c83afd2dec7a52857
+      md5: 07b69f39c69e81d632dcedf99d220a6e
       size: 11
     - path: p2/pins-2F.msgpack
       hash: md5
-      md5: bb4ec87289a3a99152258d4afbb3fbf9
+      md5: 672c99613858d4a86812c2137b13fe6a
       size: 2683
   keno-assembly@2A:
     cmd: ../../bin/lattice p2/assembly-2A.toml > p2/keno-lattice-2A.out && 
@@ -5788,8 +5788,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5809,28 +5809,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2A.toml
       hash: md5
       md5: 4aad98ab3d3590d1fe13eb67cb6ec7aa
       size: 3528
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2A.json
       hash: md5
-      md5: 43e16538b3cab722c6f2c4537b0553e0
-      size: 289
+      md5: 8bcbef051d7fab64d76e8dacf34c1956
+      size: 291
     - path: p2/keno-lattice-2A.out
       hash: md5
-      md5: a2127646a0a4567b8c525b7bf532b8da
+      md5: c9931e941f27df5ea552b28d4b9a2bf4
       size: 11
     - path: p2/pins-2A.msgpack
       hash: md5
-      md5: 4cc40a608c5f7e3b8e480c349b319ec5
+      md5: acc3239676d2e3eb8b295e4ba5fba4da
       size: 2683
   keno-assembly@2H:
     cmd: ../../bin/lattice p2/assembly-2H.toml > p2/keno-lattice-2H.out && 
@@ -5840,8 +5840,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5861,28 +5861,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2H.toml
       hash: md5
       md5: f791eeaca60c21269f90553937c309d9
       size: 4531
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2H.json
       hash: md5
-      md5: f4c83a46e0f4e5ef7e95cb588403d61a
-      size: 289
+      md5: d6a5d828cc53588619c5b83ce25ecbc1
+      size: 287
     - path: p2/keno-lattice-2H.out
       hash: md5
-      md5: 98b937b2aeee121dc4de53a435396b5d
+      md5: 0b0231a17a9091c2f40cc97900bc0aa0
       size: 11
     - path: p2/pins-2H.msgpack
       hash: md5
-      md5: c63d8b98264015ffbe15c77f3cd37cdb
+      md5: da29145dbe1de5d9e7de98fa0e09665a
       size: 2683
   keno-assembly@2K:
     cmd: ../../bin/lattice p2/assembly-2K.toml > p2/keno-lattice-2K.out && 
@@ -5892,8 +5892,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5913,28 +5913,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2K.toml
       hash: md5
       md5: a903d799557355b415e276c011af5206
       size: 6195
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2K.json
       hash: md5
-      md5: df2003a0391bed60f0254aeef54b3ea7
+      md5: 2d84b1ccf210e39d77dd7fae5ed2a36d
       size: 288
     - path: p2/keno-lattice-2K.out
       hash: md5
-      md5: 9d6c97fb6eb7f543bb74f30496f3f45e
+      md5: d56e3eaab6073c6cc9dd545f490445fc
       size: 11
     - path: p2/pins-2K.msgpack
       hash: md5
-      md5: bac37ce9221f304d0518ca463b04b70e
+      md5: e8e1cb224e808bdf7eeda8faa917ec84
       size: 2683
   keno-assembly@2Q:
     cmd: ../../bin/lattice p2/assembly-2Q.toml > p2/keno-lattice-2Q.out && 
@@ -5944,8 +5944,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -5965,28 +5965,28 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p2/assembly-2Q.toml
       hash: md5
       md5: 8845ce7c8d89f8d28261f4a64ced9f37
       size: 4078
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-2Q.json
       hash: md5
-      md5: 889b030fe31eba354ae678768c410ad2
-      size: 288
+      md5: e30462cb1e1d506cb03236d4f0ef5bf8
+      size: 289
     - path: p2/keno-lattice-2Q.out
       hash: md5
-      md5: c48e084ba678aff44e6762fa8e36236d
+      md5: 5e5162db2f53146a0fc38a02ce73a457
       size: 11
     - path: p2/pins-2Q.msgpack
       hash: md5
-      md5: c47a366d586c2042136d37245afc54e5
+      md5: 11af9e9c5068b14859203e4d8ff302d6
       size: 2683
   keno-pincell@1B:
     cmd: ../../bin/lattice p1/pincell-1B.toml > p1/keno-lattice-1B.out && 
@@ -5995,8 +5995,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 457aae7a32bc6221c31861c9e63606d9
+      size: 7235920
       isexec: true
     - path: ../../references/vera/spec.txt
       hash: md5
@@ -6016,22 +6016,22 @@ stages:
       size: 2144
     - path: compare_p3.py
       hash: md5
-      md5: a37cee375ff2262ac64cb107fe988b0e
-      size: 22252
+      md5: a1cad242c3295b8ab0460f35cc4b054b
+      size: 22255
     - path: p1/pincell-1B.toml
       hash: md5
       md5: 607599ffb9282261120b82ce84c10a6b
       size: 1511
     - path: vera.msgpack
       hash: md5
-      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      md5: 05132f1dd6836c335cada09e92d1fcf5
       size: 323900899
     outs:
     - path: compare-keno-1B.json
       hash: md5
-      md5: fa8cce7d9686700e9950bd9492d07fe5
-      size: 182
+      md5: 842e7741b1ef0efb62fd7e02000a9bff
+      size: 183
     - path: p1/keno-lattice-1B.out
       hash: md5
-      md5: 0c9e13a1f5ab5b54d8dd9f27e8126369
+      md5: e962ca664b9035ba055172ef893cd871
       size: 11
