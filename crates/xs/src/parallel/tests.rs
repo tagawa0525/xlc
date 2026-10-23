@@ -1,3 +1,4 @@
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
@@ -73,11 +74,12 @@ fn a_running_call_takes_threads_freed_later() {
 
 #[test]
 fn threads_out_of_indices_return_to_the_budget() {
-    // 取る i がなくなったスレッドは予算に返り、まだ走っている重い i の中の並列が使える（最後に残った重い核種）
+    // 取る i がなくなったスレッドは予算に返り、まだ走っている重い i の中の並列が使える（最後に残った重い核種）。
+    // 予算 2 で i が 3 つなので、軽い i を求めたスレッドが予算を返さないと、重い i の中の呼び出しはスレッドを足せない
     let budget = Budget::new(2);
     let inner = Concurrency::new();
-    in_parallel_in(&budget, 2, |i| {
-        if i == 0 {
+    in_parallel_in(&budget, 3, |i| {
+        if i < 2 {
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(20));
@@ -91,6 +93,31 @@ fn threads_out_of_indices_return_to_the_budget() {
     let max = inner.max.load(Ordering::SeqCst);
     assert!(
         max >= 2,
-        "{max} inner tasks at once after the other index was done"
+        "{max} inner tasks at once after the other indices were done"
+    );
+}
+
+#[test]
+#[ignore = "a panic on the calling thread does not stop the added threads"]
+fn a_panic_on_the_calling_thread_stops_the_other_threads() {
+    // 呼んだスレッドの f(i) がパニックしても、足したスレッドは次の i を取らずに止まる（足したスレッドのパニックと同じ）
+    let budget = Budget::new(2);
+    let computed = AtomicUsize::new(0);
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        in_parallel_in(&budget, 200, |i| {
+            if i == 0 {
+                std::thread::sleep(Duration::from_millis(10));
+                panic!("index 0");
+            }
+            std::thread::sleep(Duration::from_millis(2));
+            computed.fetch_add(1, Ordering::SeqCst);
+            Ok::<_, ()>(())
+        })
+    }));
+    assert!(result.is_err());
+    let computed = computed.load(Ordering::SeqCst);
+    assert!(
+        computed < 100,
+        "{computed} of 199 indices computed after the panic"
     );
 }
