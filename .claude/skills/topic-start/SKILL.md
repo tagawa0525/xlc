@@ -107,6 +107,7 @@ cargo build --release
 
 Slurm の投げ方: コマンドは `cd <worktree> && ...` で始める（`&` で切らない）。投げた後に `squeue` のコメントのパスを確かめる。
 main の作業ツリー（~/github/xlc）では dvc も計算も実行しない。見積もりは種類ごとに 1 段階を測ってから本数を掛ける（スキル slurm-run）。
+xs のライブラリの作り直しは、核種ごとのステージを `examples/stage_runner.py` で流す（CLAUDE.md の「計算」、ADR-0193）。
 
 計算の待ち時間が長く、その間に main が進んだら、マージ前の rebase で hash が変わる。計算は測り直さず、付け替えは
 commit-refs remap に任せる（ADR-0122。コード、入力、環境が変わらなければ測り直さない）。長い計算が複数のブランチで

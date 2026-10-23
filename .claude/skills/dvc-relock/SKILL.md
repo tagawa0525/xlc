@@ -89,6 +89,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    - 再実行してよい: 数秒で終わる lattice の問題（lattice-1B）と、その出力だけを入力にする小さな段階（`compare-*`）
    - 実行しない: xs（約 9 分）、OpenMC（40〜60 分）、ライブラリ（核種ごと、逐次で約 30 分）、数分かかる lattice の問題
      （Slurm で流す重さ。CLAUDE.md の「計算」）
+     ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す
    - `build` は 2 で走らせ終えている
 
