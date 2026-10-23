@@ -166,6 +166,47 @@ pub fn faddeeva(z: Complex64) -> Complex64 {
     first + second
 }
 
+/// `faddeeva` を、同じ y ≥ 0 と並んだ x について求め、`w` に書く。
+///
+/// 点ごとの演算は `faddeeva` と同じ式の同じ順序で、結果のビットも同じ。Horner 法の項ごとに前の項に依るので、点を内側の
+/// ループにして、独立な点を並べて（AVX-512 などのベクトル命令で）計算できるようにする（ADR-0188）。
+pub fn faddeeva_upper(y: f64, x: &[f64], w: &mut [Complex64]) {
+    assert!(y >= 0.0, "faddeeva_upper needs y >= 0, got {y}");
+    assert_eq!(x.len(), w.len());
+    let a = faddeeva_coefficients();
+    let l = faddeeva_scale();
+    let mut den = [Complex64::ZERO; FADDEEVA_CHUNK];
+    let mut ratio = [Complex64::ZERO; FADDEEVA_CHUNK];
+    let mut p = [Complex64::ZERO; FADDEEVA_CHUNK];
+    for (x, w) in x.chunks(FADDEEVA_CHUNK).zip(w.chunks_mut(FADDEEVA_CHUNK)) {
+        let n = x.len();
+        let (den, ratio, p) = (&mut den[..n], &mut ratio[..n], &mut p[..n]);
+        for (((&x, den), ratio), p) in x
+            .iter()
+            .zip(den.iter_mut())
+            .zip(ratio.iter_mut())
+            .zip(p.iter_mut())
+        {
+            *den = Complex64::new(l + y, -x);
+            *ratio = Complex64::new(l - y, x) / *den;
+            *p = Complex64::ZERO;
+        }
+        for &coefficient in a.iter().rev() {
+            for (p, &ratio) in p.iter_mut().zip(ratio.iter()) {
+                *p = *p * ratio + coefficient;
+            }
+        }
+        for ((w, &p), &den) in w.iter_mut().zip(p.iter()).zip(den.iter()) {
+            let first = p * 2.0 / (den * den);
+            let second = Complex64::new(1.0 / std::f64::consts::PI.sqrt(), 0.0) / den;
+            *w = first + second;
+        }
+    }
+}
+
+/// `faddeeva_upper` が一度に並べる点の数（スタックの作業配列の大きさ）
+const FADDEEVA_CHUNK: usize = 64;
+
 /// Weideman の近似の項数 N。N = 32 で、定義の数値積分と相対 1e-10、w(iy) = erfcx(y) と 1e-12、
 /// 実軸上の e^(-x²) と絶対 1e-13 で一致する（テストを参照）
 const FADDEEVA_TERMS: usize = 32;

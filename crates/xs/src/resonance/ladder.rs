@@ -12,7 +12,7 @@ use num_complex::Complex64;
 
 use super::{ShieldedSigma, Sigma};
 use crate::endf::WidthDof;
-use crate::special::faddeeva;
+use crate::special::faddeeva_upper;
 
 /// サンプルの数。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -127,7 +127,7 @@ pub(super) fn bondarenko(
     // 弾性散乱、核分裂、捕獲の外の反応の背景（MF3 の全断面積との差）
     let other = background.total - background.elastic - background.fission - background.capture;
     let mut energies = vec![0.0; sampling.samples];
-    let mut parts = vec![[0.0; 3]; sampling.samples];
+    let mut parts = Parts::zeroed(sampling.samples);
     for _ in 0..sampling.ladders {
         // 等間隔の点を一様な乱数でずらす（系統抽出）。どの点も窓の中で一様なので偏りがなく、共鳴の間の谷を独立な一様の点より
         // 漏れなく拾う
@@ -136,12 +136,13 @@ pub(super) fn bondarenko(
         for (i, x) in energies.iter_mut().enumerate() {
             *x = -half + step * (i as f64 + offset);
         }
-        parts.iter_mut().for_each(|p| *p = [0.0; 3]);
-        for q in sequences {
-            add_ladder(q, half, sampling.margin, &mut rng, &energies, &mut parts);
+        parts.clear();
+        for q in sequences.iter().filter(|q| q.has_resonances()) {
+            let ladder = sample_ladder(q, half, sampling.margin, &mut rng);
+            add_ladder(q, &ladder, &energies, &mut parts);
         }
-        for (p, &x) in parts.iter().zip(&energies) {
-            let mut elastic = background.elastic + potential + p[0];
+        for (j, &x) in energies.iter().enumerate() {
+            let mut elastic = background.elastic + potential + parts.elastic[j];
             // MF3 の負の背景を足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
             // NJOY PURR（purr.f90 の unrest）と同じく 1 μb にして、参照解の確率テーブルと扱いを揃える（ADR-0177）
             let floor = elastic < 0.0;
@@ -149,8 +150,8 @@ pub(super) fn bondarenko(
                 elastic = ELASTIC_FLOOR;
                 floored += 1;
             }
-            let fission = background.fission + p[1];
-            let capture = background.capture + p[2];
+            let fission = background.fission + parts.fission[j];
+            let capture = background.capture + parts.capture[j];
             let total = elastic + fission + capture + other;
             if total.is_nan() || total <= 0.0 {
                 return Err(LadderError::NonPositiveTotal {
@@ -197,8 +198,71 @@ pub(super) fn bondarenko(
     })
 }
 
-/// 系列 `q` のラダーを 1 つ作り、エネルギー `energies`（窓 [−half, half] の中）での共鳴の断面積
-/// [弾性散乱, 核分裂, 捕獲] を `parts` に足す。平均断面積と同じく、Γn か Γγ が 0 以下の系列は共鳴を持たない。
+/// ラダーの 1 つの共鳴。
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Resonance {
+    /// 窓の中心からの位置 (eV)
+    pub(super) energy: f64,
+    pub(super) gn: f64,
+    pub(super) gf: f64,
+    /// 全幅 Γ
+    pub(super) gamma: f64,
+}
+
+/// エネルギーごとの共鳴の断面積の和（成分ごとの配列）。
+pub(super) struct Parts {
+    pub(super) elastic: Vec<f64>,
+    pub(super) fission: Vec<f64>,
+    pub(super) capture: Vec<f64>,
+}
+
+impl Parts {
+    pub(super) fn zeroed(n: usize) -> Self {
+        Self {
+            elastic: vec![0.0; n],
+            fission: vec![0.0; n],
+            capture: vec![0.0; n],
+        }
+    }
+
+    fn clear(&mut self) {
+        for v in [&mut self.elastic, &mut self.fission, &mut self.capture] {
+            v.fill(0.0);
+        }
+    }
+}
+
+/// 共鳴を持つ系列 `q` のラダーを 1 つ作る。窓 [−half, half] の外にも、`MIN_MARGIN_SPACINGS` などで決めた範囲に `margin_scale` を
+/// 掛けた範囲まで並べる。最初の共鳴の位置は、最初の間隔の幅の中で一様（PURR の ladr2 と同じ）。
+pub(super) fn sample_ladder(
+    q: &LadderSequence,
+    half: f64,
+    margin_scale: f64,
+    rng: &mut Rng,
+) -> Vec<Resonance> {
+    let mean_width = q.gn + q.gf + q.gg + q.gx;
+    let margin = (mean_width / (PI * q.d * TAIL)).clamp(MIN_MARGIN_SPACINGS, MAX_MARGIN_SPACINGS)
+        * q.d
+        * margin_scale;
+    let (low, high) = (-half - margin, half + margin);
+    let mut resonances = Vec::new();
+    let mut energy = low + q.d * (4.0 / PI).sqrt() * rng.uniform();
+    while energy < high {
+        let gn = q.gn * chi_square(q.dof_n, rng);
+        let gf = q.gf * chi_square(q.dof_f, rng);
+        let gx = q.gx * chi_square(q.dof_x, rng);
+        resonances.push(Resonance {
+            energy,
+            gn,
+            gf,
+            gamma: gn + gf + q.gg + gx,
+        });
+        energy += wigner_spacing(q.d, rng);
+    }
+    resonances
+}
+
+/// 系列 `q` のラダー `ladder` の、エネルギー `energies`（窓の中で昇順）での共鳴の断面積を `parts` に足す。
 ///
 /// 捕獲と核分裂は単準位 Breit-Wigner で、ψ = √π y Re w（PURR の unrest と同じ）。弾性散乱は、同じ系列（同じ J）の共鳴どうしの
 /// 干渉を多準位 Breit-Wigner の |1 − U|² で入れる。単準位の和（PURR）は干渉を共鳴ごとに数えるので、強い s 波の共鳴の干渉の谷で
@@ -209,62 +273,64 @@ pub(super) fn bondarenko(
 /// |1 − U|² = |A|² + Σ_r 2 Re[a_r f_r]、a_r = Γn_r (C_r + i A)、C_r = Σ_s Γn_s/(p̄_s − p_r)（f_r f̄_s を部分分数に分けた）。
 /// |A|² = 4 sin²φ はポテンシャル散乱で、系列の外で足す。ドップラーで広げた f_r は (i√π/Δ) w((E − E_r + iΓ_r/2)/Δ)
 /// （w(z) = (i/π) ∫ e^{−t²}/(z − t) dt から）。σ = (π/k²) g |1 − U|² で、π/k² g = scale/4
-fn add_ladder(
+///
+/// C_r は s を外、r を内のループで、エネルギーごとの和は共鳴を外、エネルギーを内のループで求め、内側の独立な点をベクトル命令で
+/// 並べる。どの点の値も、点ごとに求めたときと同じ演算を同じ順序で足すので、結果のビットは変わらない（ADR-0188）。
+pub(super) fn add_ladder(
     q: &LadderSequence,
-    half: f64,
-    margin_scale: f64,
-    rng: &mut Rng,
+    ladder: &[Resonance],
     energies: &[f64],
-    parts: &mut [[f64; 3]],
+    parts: &mut Parts,
 ) {
-    if !q.has_resonances() {
-        return;
-    }
-    let mean_width = q.gn + q.gf + q.gg + q.gx;
-    let margin = (mean_width / (PI * q.d * TAIL)).clamp(MIN_MARGIN_SPACINGS, MAX_MARGIN_SPACINGS)
-        * q.d
-        * margin_scale;
-    let (low, high) = (-half - margin, half + margin);
-    // 共鳴: (E_r, Γn, Γf, Γ)。最初の共鳴の位置は、最初の間隔の幅の中で一様（PURR の ladr2 と同じ）
-    let mut resonances = Vec::new();
-    let mut er = low + q.d * (4.0 / PI).sqrt() * rng.uniform();
-    while er < high {
-        let gn = q.gn * chi_square(q.dof_n, rng);
-        let gf = q.gf * chi_square(q.dof_f, rng);
-        let gx = q.gx * chi_square(q.dof_x, rng);
-        resonances.push((er, gn, gf, gn + gf + q.gg + gx));
-        er += wigner_spacing(q.d, rng);
+    let pole = |r: &Resonance| Complex64::new(r.energy, -0.5 * r.gamma);
+    let poles: Vec<Complex64> = ladder.iter().map(pole).collect();
+    let mut sums = vec![Complex64::ZERO; ladder.len()];
+    for s in ladder {
+        let conjugate = pole(s).conj();
+        for (c, &p) in sums.iter_mut().zip(&poles) {
+            *c = *c + s.gn / (conjugate - p);
+        }
     }
     let a = Complex64::new(1.0 - q.cos2, q.sin2p);
-    let pole = |(e, _, _, g): (f64, f64, f64, f64)| Complex64::new(e, -0.5 * g);
-    let coefficients: Vec<Complex64> = resonances
-        .iter()
-        .map(|&r| {
-            let p = pole(r);
-            let c: Complex64 = resonances.iter().map(|&s| s.1 / (pole(s).conj() - p)).sum();
-            r.1 * (c + Complex64::i() * a)
-        })
-        .collect();
     let root_pi = PI.sqrt();
     // 弾性散乱 (π/k²) g 2 Re[a_r (i√π/Δ) w] = scale/2 · √π/Δ · Re[i a_r w]
     let elastic_scale = 0.5 * q.scale * root_pi / q.delta;
-    for (&(er, gn, gf, gamma), &ar) in resonances.iter().zip(&coefficients) {
-        let y = 0.5 * gamma / q.delta;
+    let mut x = vec![0.0; energies.len()];
+    let mut w = vec![Complex64::ZERO; energies.len()];
+    for (r, &c) in ladder.iter().zip(&sums) {
+        let ar = r.gn * (c + Complex64::i() * a);
+        let y = 0.5 * r.gamma / q.delta;
         // 捕獲 scale (Γn Γγ/Γ²) ψ、核分裂 scale (Γn Γf/Γ²) ψ
-        let c = q.scale * gn / gamma * root_pi * y / gamma;
-        let (fission_re, capture_re) = (c * gf, c * q.gg);
+        let c = q.scale * r.gn / r.gamma * root_pi * y / r.gamma;
+        let (fission_re, capture_re) = (c * r.gf, c * q.gg);
         let iar = Complex64::i() * ar * elastic_scale;
-        for (p, &e) in parts.iter_mut().zip(energies) {
-            let x = (e - er) / q.delta;
-            let w = if x.abs() > ASYMPTOTIC || y > ASYMPTOTIC {
-                // w(z) ≈ i/(√π z)
-                Complex64::i() / (root_pi * Complex64::new(x, y))
-            } else {
-                faddeeva(Complex64::new(x, y))
-            };
-            p[0] += (iar * w).re;
-            p[1] += fission_re * w.re;
-            p[2] += capture_re * w.re;
+        for (x, &e) in x.iter_mut().zip(energies) {
+            *x = (e - r.energy) / q.delta;
+        }
+        // |x| か y が ASYMPTOTIC を超える点は w(z) ≈ i/(√π z)。エネルギーは昇順なので、|x| ≤ ASYMPTOTIC の点は連続した範囲になる
+        let (first, last) = if y > ASYMPTOTIC {
+            (0, 0)
+        } else {
+            (
+                x.partition_point(|&x| x < -ASYMPTOTIC),
+                x.partition_point(|&x| x <= ASYMPTOTIC),
+            )
+        };
+        for (w, &x) in w[..first].iter_mut().zip(&x[..first]) {
+            *w = Complex64::i() / (root_pi * Complex64::new(x, y));
+        }
+        faddeeva_upper(y, &x[first..last], &mut w[first..last]);
+        for (w, &x) in w[last..].iter_mut().zip(&x[last..]) {
+            *w = Complex64::i() / (root_pi * Complex64::new(x, y));
+        }
+        for (e, w) in parts.elastic.iter_mut().zip(&w) {
+            *e += (iar * w).re;
+        }
+        for (f, w) in parts.fission.iter_mut().zip(&w) {
+            *f += fission_re * w.re;
+        }
+        for (k, w) in parts.capture.iter_mut().zip(&w) {
+            *k += capture_re * w.re;
         }
     }
 }
