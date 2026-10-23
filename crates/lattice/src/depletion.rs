@@ -1089,8 +1089,8 @@ pub(crate) fn run_with_moc(
     // 直前の輸送の収束した MOC の状態。次の輸送の反復をここから始める（ADR-0195）
     let mut previous: Option<Start> = None;
     let mut shieldings = 0;
-    // `StepStart` の、ステップの始まりの輸送の自己遮蔽。次の中点の輸送で使う（ADR-0197）
-    let mut held: Option<FuelShielding> = None;
+    // `StepStart` の、ステップの始まりの輸送の自己遮蔽と、それに渡した物質。次の中点の輸送で使う（ADR-0197）
+    let mut held: Option<(FuelShielding, Vec<MaterialInput>)> = None;
     let solve = |n: &[Vec<f64>], at: TransportAt| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
         let start = Instant::now();
@@ -1153,9 +1153,30 @@ pub(crate) fn run_with_moc(
         let depleted: Vec<usize> = (materials.len() - regions.len()..materials.len()).collect();
         let shielded = match (depletion.shielding, at) {
             (ShieldingFrequency::StepStart, TransportAt::Midpoint) => {
-                let mut at_start = held.take().ok_or_else(|| {
+                let (mut at_start, start_materials) = held.take().ok_or_else(|| {
                     anyhow!("the midpoint transport has no shielding from the step start")
                 })?;
+                // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と数密度から作った群定数に SPH 因子を掛けたもの）を、始まりの
+                // 組成で作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。前提が崩れれば、中点の物質が自己遮蔽の作り方と
+                // 食い違う。始まりの組成で数密度が 0 の核種は物質に入らないので、最初のステップだけでは確かめきれない
+                let rebuilt = remix_depleted(
+                    library,
+                    &at_start,
+                    lattice,
+                    &regions,
+                    &start_materials,
+                    &depleted,
+                )
+                .context("remixing the depleted materials at the step start")?;
+                if let Some((m, _)) = rebuilt
+                    .iter()
+                    .find(|(m, material)| *material != at_start.materials[*m])
+                {
+                    bail!(
+                        "depleted material {m} remixed from its shielded cross sections differs from the \
+                         self-shielding"
+                    );
+                }
                 let rebuilt =
                     remix_depleted(library, &at_start, lattice, &regions, &materials, &depleted)
                         .context("remixing the depleted materials at the midpoint")?;
@@ -1166,7 +1187,7 @@ pub(crate) fn run_with_moc(
             }
             _ => {
                 shieldings += 1;
-                let shielded = shield_fuel_reusing(
+                shield_fuel_reusing(
                     library,
                     &mut reuse,
                     &materials,
@@ -1174,26 +1195,7 @@ pub(crate) fn run_with_moc(
                     chosen.shielding(),
                     &input.shielding_options(),
                 )
-                .context("self-shielding")?;
-                // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と数密度から作った群定数に SPH 因子を掛けたもの）を、ステップの
-                // 始まりごとに、その組成で作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。前提が崩れれば、中点の物質が
-                // 自己遮蔽の作り方と食い違う。始まりの組成で数密度が 0 の核種は物質に入らないので、最初の輸送だけでは確かめきれない
-                if depletion.shielding == ShieldingFrequency::StepStart {
-                    let rebuilt = remix_depleted(
-                        library, &shielded, lattice, &regions, &materials, &depleted,
-                    )
-                    .context("remixing the depleted materials at the step start")?;
-                    if let Some((m, _)) = rebuilt
-                        .iter()
-                        .find(|(m, material)| *material != shielded.materials[*m])
-                    {
-                        bail!(
-                            "depleted material {m} remixed from its shielded cross sections differs from the \
-                             self-shielding"
-                        );
-                    }
-                }
-                shielded
+                .context("self-shielding")?
             }
         };
         transport.shielding += start.elapsed();
@@ -1306,7 +1308,7 @@ pub(crate) fn run_with_moc(
         };
         transport.rates += start.elapsed();
         if depletion.shielding == ShieldingFrequency::StepStart && at == TransportAt::Point {
-            held = Some(shielded);
+            held = Some((shielded, materials));
         }
         tracing::info!(
             solve = solves,
