@@ -102,7 +102,7 @@ use serde::de::DeserializeOwned;
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::ROD_OUT;
 
-use crate::nem::{Boundary, Mesh, Problem, Solution};
+use crate::nem::{Boundary, Mesh, Problem, Solution, fission_rates};
 use crate::rods::{PartialNode, Segment, Weighting};
 use crate::state::State;
 
@@ -1850,16 +1850,9 @@ impl Layout {
 
     /// z の面ごとの、核分裂率の割合（下から。全体の和が 1）。メッシュの違う計算を、面を足し合わせて比べるのに使う
     pub fn axial_fission_fractions(&self, problem: &Problem, solution: &Solution) -> Vec<f64> {
-        let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
         let mut rates = vec![0.0; problem.mesh.dz.len()];
-        for (n, (flux, material)) in solution.flux.iter().zip(&problem.node_material).enumerate() {
-            let Some(m) = material.map(|m| &problem.materials[m]) else {
-                continue;
-            };
-            let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
-            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
-            let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
-            rates[z] += fission * volume;
+        for (n, rate) in fission_rates(problem, solution).into_iter().enumerate() {
+            rates[problem.mesh.position(n)[2]] += rate;
         }
         let total: f64 = rates.iter().sum();
         rates.iter().map(|r| r / total).collect()
@@ -1876,16 +1869,10 @@ impl Layout {
         // 集合体の位置の数（部分ノードを足し合わせる）
         let (cols, rows) = (nx / self.split, ny / self.split);
         let mut rates = vec![vec![0.0; cols]; rows];
-        for (n, (flux, material)) in solution.flux.iter().zip(&problem.node_material).enumerate() {
-            // ノードのない位置は核分裂しない。物質の番号は NEM の解で確かめてある
-            let Some(m) = material.map(|m| &problem.materials[m]) else {
-                continue;
-            };
-            let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
-            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
-            let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
+        for (n, rate) in fission_rates(problem, solution).into_iter().enumerate() {
+            let [x, y, _] = problem.mesh.position(n);
             // 図の上の行が +y
-            rates[rows - 1 - y / self.split][x / self.split] += fission * volume;
+            rates[rows - 1 - y / self.split][x / self.split] += rate;
         }
         let loaded: Vec<f64> = self
             .ids
