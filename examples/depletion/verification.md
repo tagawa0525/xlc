@@ -19,6 +19,7 @@
 | `openmc-library.toml`、`openmc_depletion.py`       | OpenMC のライブラリ（輸送する核種を xlc と揃える）と、OpenMC の燃焼（`openmc-1C-rings*.toml`）                         |
 | `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`）。記録の表は `../verification_tables.py` が描く                |
 | `branches/`                                        | 2A の燃焼の履歴の燃焼点からの分岐のテーブル（`branch-2A.toml`）と、それを内挿する core の集合体 1 体（`core-2A.toml`） |
+| `warm-start/`                                      | MOC を前の輸送の解から始めた（ADR-0195）2A の燃焼の最初の 10 点と分岐の 12 状態、平らな初期値からの出力との比較        |
 
 誤差と差は、絶対値の最大を初期の数密度の最大で割ったもの（ADR-0161 の「確認」）。
 
@@ -389,7 +390,7 @@ xlc の時間の内訳（秒。履歴の `seconds`、全体は内訳の和）。
 等価原理と UFG の実効断面積の複製をなくした（bff730b9。値を移すだけで計算は変えない）が、その後は測っていない。
 
 MOC の反復を前の輸送の解から始めると（[ADR-0195](../../docs/adr/0195-start-moc-from-the-previous-transport.md)。xlc c3350e7b、分岐点は main の 8453e542、
-2026-10-23、Slurm の排他のジョブ 494。試行の入力は `trials/moc-warm-start/` で、記録に残さない）、2A の最初の 10 点（輸送 21 回）の
+2026-10-23、Slurm の排他のジョブ 494。入力は `warm-start/` で、下のコマンド）、2A の最初の 10 点（輸送 21 回）の
 MOC の反復は、最初の輸送が 25 回、2 回目 17 回、3 回目 13 回、4 回目からは 11 回（和 253 回）で、MOC の時間の和は 83.8 秒（2 回目からは
 1 回 3.8 秒）。上の 2A の実行（Slurm 461、平らな初期値から）の同じ 21 回の MOC は 157.4 秒（1 回 7.5 秒）。1 回の反復の時間は 0.30 秒から
 0.35 秒に増え、粗メッシュの固有値の反復は 1 回の MOC の反復あたり平均 316 回（最初の輸送）と 326 回（2 回目から）だった。輸送 21 回の
@@ -403,6 +404,16 @@ MOC の反復は、最初の輸送が 25 回、2 回目 17 回、3 回目 13 回
 17〜18 回（5.7〜6.2 秒）、平らな初期値からの最初の状態が 25 回（8.3 秒）。`table-2A-fine.msgpack`（md5 e0f66326、平らな初期値から、
 Slurm 477）の同じ状態は 24〜25 回、7.1〜7.4 秒。k∞ の差は最大 5.4e-8（40 MWd/kg、565 K）、状態の少数群定数の相対差は最大 1.4e-7（ADF）。
 1 状態の時間は自己遮蔽が大半で 75〜96 秒（Slurm 477 の同じ状態は 71〜91 秒）。
+
+```sh
+cargo build --release -p xlc-lattice
+cd examples/depletion/warm-start
+RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice lattice-2A-10.toml > lattice-2A-10.out 2> lattice-2A-10.log
+python3 compare_warm_start.py history ../p2/lattice-2A.msgpack lattice-2A-10.msgpack
+# ../p2/depletion.msgpack と ../p2/lattice-2A.msgpack を md5 4ada8d75 と 6272e937 の版に戻してから（branch-2A-6.toml の冒頭）
+RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice branch-2A-6.toml > branch-2A-6.out 2> branch-2A-6.log
+python3 compare_warm_start.py table ../branches/table-2A-fine.msgpack table-2A-6.msgpack
+```
 
 70 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、ee9d2fdd）、2P 1 時間 17 分 7 秒（Slurm 474）、
 2M 2 時間 58 分 12 秒（Slurm 480。2P と 2M は 2ff103e1、分岐点は main の 1f650c35、2026-10-23）。xlc の履歴の `seconds` の和は 2O 4,081 秒、
