@@ -9,7 +9,7 @@
 # 使い方: LOGS=<ディレクトリ> run.sh <名前> <bin> <n>...
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
-LOGS=${LOGS:?}
+LOGS=$(realpath -m "${LOGS:?}")
 name=${1:?}
 bin=$(realpath "${2:?}")
 shift 2
@@ -18,7 +18,7 @@ export RUST_LOG='debug,[sweep]=trace,[tallies]=trace,[homogenize]=trace,[coarse]
 input=$LOGS/$name.toml
 for n in "$@"; do
   run=$name-t$n
-  # 出力の置き場所だけを書き換えた入力
+  # 出力の置き場所だけを書き換えた入力（入力の中の相対パスは入力のディレクトリから読むので、LOGS は絶対パスにしてある）
   sed "s|output = \"[^\"]*\"|output = \"$LOGS/$run.msgpack\"|" "$here/lattice-2A-burned-1e-4.toml" > "$input"
   start=$(date +%s.%N)
   RAYON_NUM_THREADS=$n perf stat -x, -o "$LOGS/$run.perf" -e cycles:u,instructions:u,l2_fill_rsp_src.dram_io_near:u,de_no_dispatch_per_slot.backend_stalls:u \
