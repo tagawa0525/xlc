@@ -20,7 +20,7 @@
       };
       inherit (pkgs) lib;
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-      # ここで `rust` を override しない。override すると段階の実行ファイルをビルドするコンパイラが変わる（#0080）。
+      # ここで `rust` を override しない。override するとステージの実行ファイルをビルドするコンパイラが変わる（#0080）。
       # 開発のツールは rust-toolchain.toml にも書かず（DVC の build のステージの deps）、同じ版の component を横に置く。
       # rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
       rustAnalyzerBin = rust.availableComponents.rust-analyzer;
@@ -46,7 +46,7 @@
           uncertainties
         ];
       python = pkgs.python3.withPackages pythonPackages;
-      # 計算の段階の駆動（ADR-0159）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
+      # 計算のステージの駆動（ADR-0159）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
       # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。pkgs.dvc の bin/dvc（makeWrapper）も
       # 使わない: PATH の先頭に素の python3 を足し、ステージの cmd の python3 が検証用の Python でなくなる（#0101）。
       # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ。
