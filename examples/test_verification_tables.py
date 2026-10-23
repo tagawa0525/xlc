@@ -921,6 +921,12 @@ class DrawBurnupInterpolation(unittest.TestCase):
         rows = self.rows(vt.burnup_interpolation_points([s]))
         self.assertEqual(rows[0], ["2A", "1 つおき", "3", "0", "", "0.0", ""])
 
+    def test_a_summary_without_selections_draws_the_methods_only(self):
+        s = self.summary()
+        s["tables"][0]["selections"] = []
+        rows = self.rows(vt.burnup_interpolation_methods([s]))
+        self.assertEqual(rows, [["線形", "0"], ["Hermite", "0"]])
+
     def test_a_summary_of_another_format_is_an_error(self):
         for draw in (vt.burnup_interpolation_methods, vt.burnup_interpolation_points):
             with self.assertRaises(vt.TableError):

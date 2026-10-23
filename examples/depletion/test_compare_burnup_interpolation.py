@@ -117,6 +117,15 @@ class Interpolation(unittest.TestCase):
             cbi.interpolate("hermite", x, y, q)[:, 0], want, rtol=1e-13
         )
 
+    def test_two_points_past_zero_are_linear_for_every_method(self):
+        x = np.array([0.0, 10.0, 20.0])
+        y = np.array([[1.0], [2.0], [3.0]])
+        for method in cbi.METHODS:
+            if method.endswith("-with-zero"):
+                continue
+            got = cbi.interpolate(method, x, y, np.array([15.0]))[0, 0]
+            self.assertAlmostEqual(got, 2.5, places=14, msg=method)
+
     def test_unknown_methods_are_errors(self):
         x = np.array([0.0, 1.0, 2.0])
         with self.assertRaises(SystemExit):
@@ -172,6 +181,12 @@ class Summary(unittest.TestCase):
     def test_tables_with_more_than_one_state_are_errors(self):
         t = table([0.0, 1.0, 2.0], quadratic)
         t["axes"][1]["points"] = [1000.0, 1300.0]
+        with self.assertRaises(SystemExit):
+            cbi.summarize_table(t, [{"name": "all", "burnup": [0.0, 1.0, 2.0]}])
+
+    def test_tables_with_a_rod_axis_of_two_values_are_errors(self):
+        t = table([0.0, 1.0, 2.0], quadratic)
+        t["axes"].append({"name": "rod", "values": ["out", "aic"]})
         with self.assertRaises(SystemExit):
             cbi.summarize_table(t, [{"name": "all", "burnup": [0.0, 1.0, 2.0]}])
 
