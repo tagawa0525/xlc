@@ -1,5 +1,7 @@
 # ADR-0195 の確認: ../p2/lattice-2A.toml の最初の 10 点（輸送 21 回）。前の輸送の解から始めた MOC の反復の数と時間を測り、
 # 平らな初期値から解いた ../p2/lattice-2A.msgpack の同じ点と比べる（compare_warm_start.py。examples/depletion/verification.md）。
+# 記録の数値は、ライブラリ ../p2/depletion.msgpack md5 015111df、チェーン ../chain.msgpack md5 1f1de180、比べる履歴 md5 c2591c9f
+# （main の 8453e542 の dvc.lock の出力）で出した。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26
