@@ -1,0 +1,36 @@
+# core の燃焼で、ステップの点と中点ごとに臨界ホウ素を探す（ADR-0191）確認: ホウ素の軸を 0〜1300 ppm に広げたテーブル
+# （table-2A-boron.msgpack。branch-2A-boron.toml）の集合体 1 体（反射境界）を、38.41 W/g で core-2A-steps.toml の 9 MWd/kg までの
+# 16 ステップで燃焼させる。集合体 1 体の k∞ は漏れを持たないので、目標の k は 1 でなく、初めの点（Xe のない新しい燃料、1300 ppm で
+# k∞ 1.183。table-2A-fine の値）が範囲の上端の内側に入り、9 MWd/kg の中点と点で 0 ppm の k∞ が目標を上回る 1.19 にする。
+cycle = "core-2A-boron-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.hfp]
+b10 = 0.199
+moderator = 565
+fuel = 565
+search = { boron = [0.0, 1300.0], k = 1.19, tolerance = 1.0e-6, max-solves = 20 }
+
+[depletion]
+specific-power = 38.41
+history = "core-2A-boron.msgpack"
+steps = [
+  { efpd = 2.603488674824265 },  # 0.1 MWd/kg
+  { efpd = 6.508721687060661 },  # 0.25 MWd/kg
+  { efpd = 13.017443374121326 },  # 0.5 MWd/kg
+  { efpd = 19.526165061181988 },  # 0.75 MWd/kg
+  { efpd = 26.034886748242652 },  # 1 MWd/kg
+  { efpd = 39.052330122363976 },  # 1.5 MWd/kg
+  { efpd = 52.069773496485304 },  # 2 MWd/kg
+  { efpd = 65.08721687060662 },  # 2.5 MWd/kg
+  { efpd = 78.10466024472794 },  # 3 MWd/kg
+  { efpd = 91.12210361884927 },  # 3.5 MWd/kg
+  { efpd = 104.13954699297058 },  # 4 MWd/kg
+  { efpd = 130.17443374121325 },  # 5 MWd/kg
+  { efpd = 156.20932048945588 },  # 6 MWd/kg
+  { efpd = 182.24420723769853 },  # 7 MWd/kg
+  { efpd = 208.27909398594116 },  # 8 MWd/kg
+  { efpd = 234.31398073418382 },  # 9 MWd/kg
+]
