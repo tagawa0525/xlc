@@ -62,7 +62,9 @@ class LaunchableTest(unittest.TestCase):
         self.assertEqual(sr.launchable([("a", 4), ("b", 5)], 3, budget=8), [])
 
     def test_stage_larger_than_the_budget_takes_the_whole_budget_when_idle(self):
-        self.assertEqual(sr.launchable([("a", 10), ("b", 1)], 8, budget=8), [("a", 8)])
+        # 収まる b を先に入れ、a は何も走っていなくなったとき予算の全部で入る
+        self.assertEqual(sr.launchable([("a", 10), ("b", 1)], 8, budget=8), [("b", 1)])
+        self.assertEqual(sr.launchable([("a", 10)], 8, budget=8), [("a", 8)])
 
 
 class DryRunTest(unittest.TestCase):
