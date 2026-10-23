@@ -7207,8 +7207,8 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 457aae7a32bc6221c31861c9e63606d9
-      size: 7235920
+      md5: d68311f744fc49390e18011982cafffa
+      size: 8091256
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -7225,23 +7225,23 @@ stages:
     outs:
     - path: lattice-2F.log
       hash: md5
-      md5: 2d24fe4efa6549b0c60455b27cb97863
-      size: 130860
+      md5: 1dd2288538d429b1509dac71d958b83f
+      size: 135935
     - path: lattice-2F.msgpack
       hash: md5
-      md5: 99669f4617779313246aa315ab244c45
-      size: 62200659
+      md5: c8f6c71fb7cc85bde8283e3787b18de4
+      size: 62200671
     - path: lattice-2F.out
       hash: md5
-      md5: 4985d9e862ec48ec972bbfdc511b98e0
+      md5: 064c13d8a04614fa8d4b266db147388a
       size: 860
   lattice@2N:
     cmd: ../../../bin/lattice lattice-2N.toml > lattice-2N.out 2> lattice-2N.log
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 457aae7a32bc6221c31861c9e63606d9
-      size: 7235920
+      md5: d68311f744fc49390e18011982cafffa
+      size: 8091256
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -7258,12 +7258,12 @@ stages:
     outs:
     - path: lattice-2N.log
       hash: md5
-      md5: ec493dee49d8adba0a9bcc287ce8e74f
-      size: 335869
+      md5: d8fd9325f75b1da0c8783b98174e79de
+      size: 340973
     - path: lattice-2N.msgpack
       hash: md5
-      md5: d4e7c4df956d74c25056ed32f229bd2f
-      size: 83349221
+      md5: 933e1f1e55cf01eff554540117948018
+      size: 83349233
     - path: lattice-2N.out
       hash: md5
       md5: 3c8f2da15e80dc1324e93c7309dec9f0
@@ -7280,17 +7280,17 @@ stages:
       size: 1731716
     - path: ../compare_depletion_assembly.py
       hash: md5
-      md5: 78a5f80d2a0bfb5d653634533c21998c
-      size: 22228
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
     - path: lattice-2F.msgpack
       hash: md5
-      md5: 99669f4617779313246aa315ab244c45
-      size: 62200659
+      md5: c8f6c71fb7cc85bde8283e3787b18de4
+      size: 62200671
     outs:
     - path: compare-2F.json
       hash: md5
-      md5: 04d11a04a780505def0a6ecd3a6f1504
-      size: 25128
+      md5: 8fd8491a653910e5effee23a8fbdcc1b
+      size: 25133
   compare@2N:
     cmd: python3 ../compare_depletion_assembly.py --json compare-2N.json 
       lattice-2N.msgpack 
@@ -7303,24 +7303,24 @@ stages:
       size: 2242281
     - path: ../compare_depletion_assembly.py
       hash: md5
-      md5: 78a5f80d2a0bfb5d653634533c21998c
-      size: 22228
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
     - path: lattice-2N.msgpack
       hash: md5
-      md5: d4e7c4df956d74c25056ed32f229bd2f
-      size: 83349221
+      md5: 933e1f1e55cf01eff554540117948018
+      size: 83349233
     outs:
     - path: compare-2N.json
       hash: md5
-      md5: 157867e0a723e8b0f876b1bf185cee6d
-      size: 26341
+      md5: 9570eaaa137c9b9292a6d762567f3feb
+      size: 26349
   lattice@2O:
     cmd: ../../../bin/lattice lattice-2O.toml > lattice-2O.out 2> lattice-2O.log
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 457aae7a32bc6221c31861c9e63606d9
-      size: 7235920
+      md5: d68311f744fc49390e18011982cafffa
+      size: 8091256
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -7337,15 +7337,15 @@ stages:
     outs:
     - path: lattice-2O.log
       hash: md5
-      md5: 73418a050786cec435aa49bfe14953e2
-      size: 269818
+      md5: 7dd3920e9e8d5e324e4e7d258da47f3b
+      size: 262551
     - path: lattice-2O.msgpack
       hash: md5
-      md5: 3d006d362e02d97ea4e4eba86e1cc46d
-      size: 129639160
+      md5: d076d94d9b2609e7af28ea867fa85a85
+      size: 129639173
     - path: lattice-2O.out
       hash: md5
-      md5: a5f5bc18018c01b1a481c70e7878810e
+      md5: 26ee093d22a50e64ca296b4ae5c33f2b
       size: 1521
   compare@2O:
     cmd: python3 ../compare_depletion_assembly.py --json compare-2O.json 
@@ -7359,24 +7359,24 @@ stages:
       size: 3496805
     - path: ../compare_depletion_assembly.py
       hash: md5
-      md5: 78a5f80d2a0bfb5d653634533c21998c
-      size: 22228
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
     - path: lattice-2O.msgpack
       hash: md5
-      md5: 3d006d362e02d97ea4e4eba86e1cc46d
-      size: 129639160
+      md5: d076d94d9b2609e7af28ea867fa85a85
+      size: 129639173
     outs:
     - path: compare-2O.json
       hash: md5
-      md5: 56ec116f1663dc68fee0871259111d89
-      size: 71510
+      md5: bca19cbfebc438e171cf344197fd70d3
+      size: 71462
   lattice@2P:
     cmd: ../../../bin/lattice lattice-2P.toml > lattice-2P.out 2> lattice-2P.log
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 457aae7a32bc6221c31861c9e63606d9
-      size: 7235920
+      md5: d68311f744fc49390e18011982cafffa
+      size: 8091256
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -7393,15 +7393,15 @@ stages:
     outs:
     - path: lattice-2P.log
       hash: md5
-      md5: b741cbca655aa0d9e4d7e4c490c3ae0e
-      size: 333192
+      md5: a94b642bb636a90c46b3b4dbbc6c1406
+      size: 325943
     - path: lattice-2P.msgpack
       hash: md5
-      md5: b21d412c4b247c524dcf32cdc015a92e
-      size: 180906068
+      md5: f418a2d8496fe4dd00862cc56bb6ce9a
+      size: 180906081
     - path: lattice-2P.out
       hash: md5
-      md5: e14314442e8bb98310837c30aa6b9726
+      md5: fa9b02e6c182d08be6d8a611f21d077e
       size: 1521
   lattice@2M:
     cmd: ../../../bin/lattice lattice-2M.toml > lattice-2M.out 2> lattice-2M.log
@@ -7448,17 +7448,17 @@ stages:
       size: 4721879
     - path: ../compare_depletion_assembly.py
       hash: md5
-      md5: 78a5f80d2a0bfb5d653634533c21998c
-      size: 22228
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
     - path: lattice-2P.msgpack
       hash: md5
-      md5: b21d412c4b247c524dcf32cdc015a92e
-      size: 180906068
+      md5: f418a2d8496fe4dd00862cc56bb6ce9a
+      size: 180906081
     outs:
     - path: compare-2P.json
       hash: md5
-      md5: fd0b8c2db0002e779419f96a307516df
-      size: 71486
+      md5: 295eafc9fd7fb95b2fa36ae9867aef64
+      size: 71536
   compare@2M:
     cmd: python3 ../compare_depletion_assembly.py --json compare-2M.json 
       lattice-2M.msgpack 
@@ -7482,3 +7482,117 @@ stages:
       hash: md5
       md5: f614b971aeaf1017161e7e112e091580
       size: 41103
+  lattice@2A-density:
+    cmd: ../../../bin/lattice lattice-2A-density.toml > lattice-2A-density.out 
+      2> lattice-2A-density.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: d68311f744fc49390e18011982cafffa
+      size: 8091256
+      isexec: true
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: depletion.msgpack
+      hash: md5
+      md5: 015111dfb1051d22b64bfbaac0ed921b
+      size: 225995611
+    - path: lattice-2A-density.toml
+      hash: md5
+      md5: 2ac6b68d5670351b5aa9eb2e55a1894f
+      size: 4155
+    outs:
+    - path: lattice-2A-density.log
+      hash: md5
+      md5: 173f992acb2f0e9dae6e1d1023784e41
+      size: 140741
+    - path: lattice-2A-density.msgpack
+      hash: md5
+      md5: 74a7eaa07d758fec136654823b9e6d08
+      size: 55150755
+    - path: lattice-2A-density.out
+      hash: md5
+      md5: d57c8f91db0f20845cdd2e74ec954c3a
+      size: 860
+  compare@2A-density:
+    cmd: python3 ../compare_depletion_assembly.py --json compare-2A-density.json
+      lattice-2A-density.msgpack 
+      ../../../references/openmc/aws/m4-assembly/openmc-2A-density/openmc-2A-density.msgpack
+    deps:
+    - path: 
+        ../../../references/openmc/aws/m4-assembly/openmc-2A-density/openmc-2A-density.msgpack
+      hash: md5
+      md5: 5db09b9379f7d6e8d71be86827611c61
+      size: 1546901
+    - path: ../compare_depletion_assembly.py
+      hash: md5
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
+    - path: lattice-2A-density.msgpack
+      hash: md5
+      md5: 74a7eaa07d758fec136654823b9e6d08
+      size: 55150755
+    outs:
+    - path: compare-2A-density.json
+      hash: md5
+      md5: c83236d88fb0fa8d3479bc84fb88154b
+      size: 23183
+  lattice@2A-rods:
+    cmd: ../../../bin/lattice lattice-2A-rods.toml > lattice-2A-rods.out 2> 
+      lattice-2A-rods.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: d68311f744fc49390e18011982cafffa
+      size: 8091256
+      isexec: true
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: depletion.msgpack
+      hash: md5
+      md5: 015111dfb1051d22b64bfbaac0ed921b
+      size: 225995611
+    - path: lattice-2A-rods.toml
+      hash: md5
+      md5: 16840ba6ff7e6b6111f6502420f784d3
+      size: 5157
+    outs:
+    - path: lattice-2A-rods.log
+      hash: md5
+      md5: a6fae1d69692a803fec62ee5710bdab5
+      size: 205062
+    - path: lattice-2A-rods.msgpack
+      hash: md5
+      md5: db4161829ecea9a4e736d70648d9528e
+      size: 55150755
+    - path: lattice-2A-rods.out
+      hash: md5
+      md5: 2f0b32d14138a0cfecb6feb5d6963c6c
+      size: 860
+  compare@2A-rods:
+    cmd: python3 ../compare_depletion_assembly.py --json compare-2A-rods.json 
+      lattice-2A-rods.msgpack 
+      ../../../references/openmc/aws/m4-assembly/openmc-2A-rods/openmc-2A-rods.msgpack
+    deps:
+    - path: 
+        ../../../references/openmc/aws/m4-assembly/openmc-2A-rods/openmc-2A-rods.msgpack
+      hash: md5
+      md5: a5120e74116e8ff6c0681c9f24c5e6aa
+      size: 1546898
+    - path: ../compare_depletion_assembly.py
+      hash: md5
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
+    - path: lattice-2A-rods.msgpack
+      hash: md5
+      md5: db4161829ecea9a4e736d70648d9528e
+      size: 55150755
+    outs:
+    - path: compare-2A-rods.json
+      hash: md5
+      md5: 07ac847363b17cafac61ab58a0c9b8c9
+      size: 23189
