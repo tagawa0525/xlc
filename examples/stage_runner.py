@@ -267,6 +267,7 @@ def execute(
     log=print,
     kill_grace: float = 10.0,
     outputs: dict | None = None,
+    root: Path = Path(),
 ) -> list[str]:
     """queue の順にステージを投入し、終わったもの（成功）を finish に渡す。失敗したステージの名前を返す。
 
@@ -284,7 +285,7 @@ def execute(
                 for name, threads in launchable(queue, free, budget):
                     cmd = with_threads(cmds[name], threads)
                     # dvc repro と同じく、実行の直前に出力を消す（投入しないステージの出力は残す）
-                    remove_outputs((outputs or {}).get(name, ()), Path())
+                    remove_outputs((outputs or {}).get(name, ()), root)
                     # 自分のセッションに置き、止めるときにシェルの子ごと止める。投入から running に入れるまでの間に
                     # SIGTERM の SystemExit が来ると、後始末がその子を知らずに残すので、その間は SIGTERM を保留する
                     signal.pthread_sigmask(signal.SIG_BLOCK, HELD)
@@ -527,6 +528,9 @@ def commit_stages(
         commit(names)
         committed = list(names)
     except RunnerError:
+        if signal.sigpending() & HELD:
+            # 止める途中（保留した SIGTERM か SIGINT がある）。dvc も同じシグナルで落ちたので、commit し直さない
+            raise
         if len(names) == 1:
             return list(names)
         # どのステージが commit できないか（出力が無い、など）を 1 つずつ見る
@@ -560,8 +564,15 @@ def commit_stages(
             tmp = lock.with_name(lock.name + ".tmp")
             tmp.write_text(before)
             tmp.replace(lock)
+        # 共有のキャッシュなので、同じ間にほかのセッションが足した項目は残し、commit した出力の md5 を持つものだけを消す
+        out_md5s = {
+            md5
+            for name in committed
+            for _, md5 in record_provenance.parse_stage(text, name)["outs"]
+        }
         for added in run_cache_files(run_cache) - cached_before:
-            added.unlink()
+            if any(md5 in added.read_text() for md5 in out_md5s):
+                added.unlink()
         raise RunnerError(
             f"{problem}. Restored dvc.lock to before this commit; rerun the stages"
         )
@@ -651,7 +662,7 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
 
     failures = execute(
         queue,
-        {k.removeprefix(prefix): v for k, v in cmds.items()},
+        stage_cmds,
         dvc_yaml.parent,
         budget,
         finish,
@@ -662,6 +673,7 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
             )
             for k in keys
         },
+        root=Path(),
     )
     if failures:
         log(f"ERROR: failed stages (not committed): {', '.join(failures)}")
