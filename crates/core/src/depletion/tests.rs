@@ -431,6 +431,22 @@ fn solve_errors_name_the_point_or_midpoint() {
         error.contains("the midpoint of the step to 600 EFPD"),
         "{error}"
     );
+    // 表示が原因を含むので、エラーの連鎖（main が `{:#}` で出す）で原因を繰り返さない
+    let error = run(&case, UNIFORM).unwrap_err();
+    let mut chain = vec![error.to_string()];
+    let mut cause = std::error::Error::source(&error);
+    while let Some(e) = cause {
+        chain.push(e.to_string());
+        cause = e.source();
+    }
+    let shown = chain.join(": ");
+    let inner = chain[0]
+        .strip_prefix("the point at 600 EFPD: ")
+        .unwrap_or_default();
+    assert!(
+        !inner.is_empty() && shown.matches(inner).count() == 1,
+        "{shown}"
+    );
 }
 
 #[test]
