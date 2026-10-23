@@ -666,7 +666,7 @@ pub fn shield_fuel_reusing(
             .ok_or(SelfShieldingError::Unsolved(cell))??;
         points.extend(ufg.as_ref().map(|c| c.points));
         // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
-        let micro = Arc::new(carlvik.clone());
+        let micro = Arc::new(carlvik);
         let (effective, ring_effective) = match &mut ufg {
             Some(c) => (
                 Arc::new(std::mem::take(&mut c.effective)),
@@ -730,7 +730,7 @@ pub fn shield_fuel_reusing(
                     let nuclides = ring
                         .composition
                         .iter()
-                        .zip(&carlvik)
+                        .zip(micro.iter())
                         .map(|((name, density), s)| {
                             Ok((
                                 shielded_nuclide(library, name, ring.temperature, s)?,
