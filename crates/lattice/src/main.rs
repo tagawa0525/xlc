@@ -134,11 +134,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
         } else {
             None
         };
-    let mut note = |label: &str, bytes: &[u8]| {
-        if let Some(f) = &mut fingerprint {
-            f.add(label, bytes);
-        }
-    };
     let (lattice, region_materials) = input.geometry().with_context(|| shown(path))?;
     // 軸方向の定数のノードの並びは、MOC を解く前に確かめる（ADR-0128）
     if let Some(FewGroupOutput {
@@ -208,8 +203,18 @@ fn run(path: &Path) -> anyhow::Result<()> {
         (geometry, source)
     });
     let (tracking, chosen) = geometry?;
-    let (source, label, read) = source?;
-    note(label, &read);
+    let (source, label, source_digest) = source?;
+    if let Some(f) = &mut fingerprint {
+        f.add(label, &source_digest);
+    }
+    // ほかに入力が指すファイルはすべてここで読み、指紋に足す（足し忘れたファイルを変えても、古い途中の結果から続いてしまう）
+    let mut read = |label: &str, file: &Path| -> anyhow::Result<Vec<u8>> {
+        let bytes = std::fs::read(file).with_context(|| shown(file))?;
+        if let Some(f) = &mut fingerprint {
+            f.add(label, &bytes);
+        }
+        Ok(bytes)
+    };
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
                    groups: usize|
@@ -237,8 +242,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             return Err(anyhow!("{}: depletion needs a library", shown(path)));
         };
         let file = base.join(&depletion.chain);
-        let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-        note("chain", &bytes);
+        let bytes = read("chain", &file)?;
         let chain = Chain::from_msgpack(&bytes).with_context(|| shown(&file))?;
         let checkpoint = Checkpoint::new(
             Checkpoint::beside(path),
@@ -292,8 +296,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let history_branches = match (&input.history, &source) {
         (Some(history), Source::Library(library)) => {
             let file = base.join(&history.file);
-            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-            note("history", &bytes);
+            let bytes = read("history", &file)?;
             let read = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
             Some(
                 xlc_lattice::history::history_branches(
@@ -327,8 +330,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .iter()
         .map(|m| {
             let file = base.join(&m.file);
-            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-            note("medium", &bytes);
+            let bytes = read("medium", &file)?;
             let medium = Medium::from_msgpack(&bytes).with_context(|| shown(&file))?;
             let bounds = groups.as_ref().map_or(&[][..], |g| g.bounds());
             check_medium(&medium, bounds, axes)
