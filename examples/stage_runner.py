@@ -48,12 +48,8 @@ def physical_cores(
     cores = set()
     for cpu in allowed:
         topo = sysfs / f"cpu{cpu}" / "topology"
-        cores.add(
-            (
-                (topo / "physical_package_id").read_text().strip(),
-                (topo / "core_id").read_text().strip(),
-            )
-        )
+        # (package, core_id) はダイごとに core_id が重なりうるので、同じコアのハードウェアスレッドの一覧で数える
+        cores.add((topo / "thread_siblings_list").read_text().strip())
     if not cores:
         raise RunnerError(f"no CPU topology under {sysfs}")
     return len(cores)
@@ -248,8 +244,12 @@ def stop_on_sigterm() -> None:
     signal.signal(signal.SIGTERM, handler)
 
 
+# 投入と commit の間に保留するシグナル（Ctrl-C の KeyboardInterrupt も、確かめていない commit を残す）
+HELD = {signal.SIGTERM, signal.SIGINT}
+
+
 def unblock_sigterm() -> None:
-    signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGTERM})
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, HELD)
 
 
 @dataclass
@@ -287,7 +287,7 @@ def execute(
                     remove_outputs((outputs or {}).get(name, ()), Path())
                     # 自分のセッションに置き、止めるときにシェルの子ごと止める。投入から running に入れるまでの間に
                     # SIGTERM の SystemExit が来ると、後始末がその子を知らずに残すので、その間は SIGTERM を保留する
-                    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+                    signal.pthread_sigmask(signal.SIG_BLOCK, HELD)
                     try:
                         # 子は保留の mask を受け継ぐので、exec の前に外す（runner は 1 スレッドなので preexec_fn でよい）
                         proc = subprocess.Popen(
@@ -395,19 +395,19 @@ def settle_upstream(status, repro, dvc_yaml, group: str, log) -> dict:
     """組の外（上流）が changed でなくなるまで `dvc repro` し、最後の `dvc status` を返す。
 
     dvc status は、上流が出力を書き換えた後に changed になる下流を示さない（build の後の xs-range）ので、1 回では足りない。
-    同じ上流が続けて changed なら（always_changed など）止まる
+    前に見た上流の組に戻れば（always_changed など）止まる。dvc status の並びは決まっていないので、組で比べる
     """
-    previous = None
+    seen = []
     while True:
         current = status()
         _, others = split_status(current, dvc_yaml, group)
         if not others:
             return current
-        if others == previous:
+        if set(others) in seen:
             raise RunnerError(f"upstream still changed after dvc repro: {others}")
+        seen.append(set(others))
         log(f"upstream changed, running dvc repro {' '.join(others)}")
         repro(others)
-        previous = others
 
 
 def stages_to_run(group_status: dict) -> list[str]:
@@ -472,19 +472,56 @@ def prune_record(record: dict, group: str, stages: set[str]) -> dict:
     }
 
 
+def lock_cmd(lock_text: str, stage: str) -> str | None:
+    """dvc.lock の stage の cmd（DVC が折り返した行をつなぐ）。stage が無ければ None"""
+    lines = lock_text.split("\n")
+    if f"  {stage}:" not in lines:
+        return None
+    parts = None
+    for line in lines[lines.index(f"  {stage}:") + 1 :]:
+        if re.match(r"  \S", line):
+            break
+        if line.startswith("    cmd: "):
+            parts = [line.removeprefix("    cmd: ").strip()]
+        elif parts is not None and re.match(r"      \S", line):
+            parts.append(line.strip())
+        elif parts is not None:
+            break
+    if parts is None:
+        raise RunnerError(f"dvc.lock has no single-line-start cmd for {stage}")
+    return " ".join(parts)
+
+
+def run_cache_files(run_cache: Path) -> set[Path]:
+    return (
+        {p for p in run_cache.rglob("*") if p.is_file()}
+        if run_cache.exists()
+        else set()
+    )
+
+
 def commit_stages(
-    names, commit, lock: Path, directory: Path, snapshot, root: Path
+    names,
+    commit,
+    lock: Path,
+    directory: Path,
+    snapshot,
+    root: Path,
+    cmds: dict[str, str],
+    run_cache: Path,
 ) -> list[str]:
     """names を commit し、commit できなかったステージの名前を返す。
 
     commit の前に deps の指紋を比べ、変わっていれば commit しない。commit の後に、dvc.lock が記録した deps が見たパスに
-    入り、指紋が変わっていないことを確かめ、成り立たなければ dvc.lock を commit の前に戻して止まる。
+    入り、指紋が変わっておらず、cmd が実行したもの（cmds）と同じことを確かめる。成り立たなければ dvc.lock を commit の前に
+    戻し、commit が足した run-cache の項目（新しい deps を、それで作っていない出力に結ぶ）を消して止まる。
     """
     if changed := changed_paths(snapshot, root):
         raise RunnerError(
             f"deps changed during the run: {changed}. Not committed: {names}"
         )
     before = lock.read_text() if lock.exists() else None
+    cached_before = run_cache_files(run_cache)
     failed = []
     try:
         commit(names)
@@ -510,6 +547,9 @@ def commit_stages(
                 f"{sorted((paths or set()) - snapshot.keys())}"
             )
             break
+        if (recorded := lock_cmd(text, name)) != cmds[name]:
+            problem = f"dvc.lock records cmd {recorded!r} for {name}, but the runner ran {cmds[name]!r}"
+            break
     else:
         if changed := changed_paths(snapshot, root):
             problem = f"deps changed while committing {committed}: {changed}"
@@ -520,6 +560,8 @@ def commit_stages(
             tmp = lock.with_name(lock.name + ".tmp")
             tmp.write_text(before)
             tmp.replace(lock)
+        for added in run_cache_files(run_cache) - cached_before:
+            added.unlink()
         raise RunnerError(
             f"{problem}. Restored dvc.lock to before this commit; rerun the stages"
         )
@@ -565,6 +607,8 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
     cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", *keys, capture=True))
     if set(cmds) != set(keys):
         raise RunnerError(f"dvc repro --dry listed {sorted(cmds)}, expected {keys}")
+    stage_cmds = {k.removeprefix(prefix): v for k, v in cmds.items()}
+    run_cache = Path(dvc("cache", "dir", capture=True).strip()) / "runs"
     record_path = dvc_yaml.parent / RECORD_NAME
     names_in_yaml = stage_names(
         dvc("stage", "list", "--name-only", str(dvc_yaml), capture=True), dvc_yaml
@@ -581,7 +625,7 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         # commit、確認、戻しの途中で SIGTERM の SystemExit が来ると、確かめていない commit や書きかけの dvc.lock が残る。
         # その間は SIGTERM を保留する（dvc の子は mask を外して受け取る）
         # 記録と結果の行を書き終えるまで保留する（commit したステージの時間と、commit できなかったステージを残す）
-        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+        signal.pthread_sigmask(signal.SIG_BLOCK, HELD)
         try:
             failed = commit_stages(
                 names,
@@ -590,6 +634,8 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
                 dvc_yaml.parent,
                 snapshot,
                 Path(),
+                stage_cmds,
+                run_cache,
             )
             for name in failed:
                 log(f"FAILED {name}: dvc commit failed")
