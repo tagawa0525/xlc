@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# 2A の 1 輸送を、燃料（新しい／60 MWd/kg）× ufg-tolerance（なし／1e-4）× スレッド数 1、4、16 で実行し、ログを $LOGS に書く。
+# 2A の 1 輸送（60 MWd/kg の組成、ufg-tolerance = 1e-4。燃焼の本番と同じ入力）をスレッド数 1、4、16 で実行し、ログを $LOGS に書く。
 # MOC の sweep などの区間は trace なので、その区間だけ有効にする。スレッドは物理コアの 0 番から n 個に固定する（r995 は CPU 0〜15 が別々の物理コア。16〜31 はその SMT の相方）。
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 bin=$here/../../../target/release/lattice
 LOGS=${LOGS:?}
 mkdir -p "$LOGS"
-for fuel in fresh burned; do
-  for tol in none 1e-4; do
+for fuel in burned; do
+  for tol in 1e-4; do
     for n in 1 4 16; do
       name=$fuel-$tol-t$n
       start=$(date +%s.%N)
