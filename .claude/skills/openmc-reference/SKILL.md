@@ -46,7 +46,7 @@ dvc checkout examples/vera/dvc.yaml
 63 ステージを含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
 
 ```sh
-~/.claude/scripts/slurm-run.sh -t 90 vera-reference-stages 'dvc repro examples/vera/dvc.yaml'
+~/.claude/scripts/slurm-run.sh --timed -t 90 vera-reference-stages 'dvc repro examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）
 ```
 
 終わったら `dvc.lock` をコミットする。
@@ -109,7 +109,8 @@ ADR-0155、0168、0171、0174。手順は docs/environment.md の「自己完結
 ## Slurm の名前と見積もり
 
 スキル slurm-run に従い、`-t` は分の数、名前は `<ツール>-<題材>`。過去の実績（16 スレッド。`slurm-history.sh --by-name`、
-verification.md の「参照解」）:
+verification.md の「参照解」。表の実績は割り込みを入れる前のもので、以後 `--timed` を付けずに main で流した参照解は表に入らないので、
+`sacct -X -o JobName,Elapsed` で読む）:
 
 | 計算                                | 実績              | 名前の例                |
 | ----------------------------------- | ----------------- | ----------------------- |

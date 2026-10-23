@@ -20,15 +20,18 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
   「帰結」。復元は分岐点にそこまでのブランチのコミットを当て直し、`dvc status` の md5 で確かめる）
 - 結果を作る側が複数あるときは、それぞれのコミットを書く（例: 「OpenMC は 4888a4cd、比べたのは 3e3cf00c、2026-10-11」）
 
-## 計算は Slurm で、時間は排他のジョブのものだけ
+## 計算は Slurm で、時間は `--timed` の排他のジョブのものだけ
 
 数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md が示す
-`-t <見積もり> <名前> '<コマンド>'` の形で、既定の排他で流す。CLAUDE.md は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
+`--timed -t <見積もり> <名前> '<コマンド>'` の形で、割り込まれない排他で流す（`--timed` を付けないジョブは main で、timed のジョブに止められうる）。CLAUDE.md は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
 
-- 記録に書く時間は、排他のジョブの `TIME:` 行の `elapsed`、または OpenMC が statepoint に書く計算時間（total。既存の
+- 記録に書く時間は、`--timed` の排他のジョブの `TIME:` 行の `elapsed`、または OpenMC が statepoint に書く計算時間（total。既存の
   「参照解」はこちら）
 - `-c` で排他にせず流したジョブの時間は書かない。ログの `TIME:` 行に `shared (-c N): 時間は当てにならない` が付いている。
   数値（k など）は書いてよい
+- `--timed` を付けずに流したジョブ（main）の時間も書かない。`TIME:` 行に `preemptible:`（止められうる）、止められたら
+  `suspended:` の印が付く。OpenMC の statepoint の計算時間（total）を記録に書くときも、そのジョブは `--timed` で流す（止められていた
+  時間が total に入るため）
 
 ## 結果を記録に書く（ツールで。ADR-0176）
 
