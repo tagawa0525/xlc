@@ -34,7 +34,7 @@ use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::{Options, available_order, solve_symmetric};
 use crate::power::{cell_fission_rates, pin_rows};
-use crate::shielding::shield_fuel_with;
+use crate::shielding::{ShieldingReuse, shield_fuel_reusing};
 use crate::symmetry::Chosen;
 use crate::tracking::Tracking;
 
@@ -930,6 +930,9 @@ pub fn run(
     let groups = &library.groups;
     let mut transport = TransportTimes::default();
     let mut solves = 0;
+    // 燃料のピンの Dancoff 係数は、燃料でない物質の全断面積が直前の輸送と同じ間だけ持ち越す。燃焼させる物質が燃料だけなら
+    // 初めの輸送で 1 度だけ解き、燃料でない物質（吸収体）を燃焼させれば輸送ごとに解く（ADR-0194）
+    let mut reuse = ShieldingReuse::new(tracking);
     let solve = |n: &[Vec<f64>], kept: bool| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
         let start = Instant::now();
@@ -988,9 +991,9 @@ pub fn run(
                 |i| chain.nuclides[i].name.clone(),
             ));
         }
-        let shielded = shield_fuel_with(
+        let shielded = shield_fuel_reusing(
             library,
-            tracking,
+            &mut reuse,
             &materials,
             &renamed,
             chosen.shielding(),
