@@ -24,7 +24,11 @@ def thin(table: dict, burnups: list[float]) -> dict:
         raise SystemExit(f"the burnups {burnups} must be points of the table {points}")
     if any(a >= b for a, b in pairwise(burnups)):
         raise SystemExit(f"the burnups {burnups} must increase")
-    block = len(table["states"]) // len(points)
+    block, rest = divmod(len(table["states"]), len(points))
+    if rest or block == 0:
+        raise SystemExit(
+            f"the table has {len(table['states'])} states for {len(points)} burnups"
+        )
     states = []
     for b in burnups:
         i = points.index(b)
