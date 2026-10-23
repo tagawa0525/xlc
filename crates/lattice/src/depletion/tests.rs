@@ -1170,6 +1170,23 @@ fn a_resumed_history_of_another_shape_is_an_error() {
 }
 
 #[test]
+fn a_resumed_history_needs_a_point() {
+    let library = library();
+    let mut history = deplete_with(PIN, &library);
+    let next = history.points[0].densities.clone();
+    history.points.clear();
+    let error = deplete_from(
+        PIN,
+        &library,
+        Some(Partial { history, next }),
+        &mut |_, _| Ok(()),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("no points"), "{error}");
+}
+
+#[test]
 fn a_finished_history_cannot_be_resumed() {
     let library = library();
     let history = deplete_with(PIN, &library);

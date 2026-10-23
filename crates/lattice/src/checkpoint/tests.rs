@@ -135,14 +135,14 @@ fn a_checkpoint_of_the_other_kind_is_an_error() {
 fn states_resume_after_the_saved_ones_and_match_the_straight_run() {
     let dir = scratch("solve");
     let all = states(4);
-    let straight = solve_states(4, None, |_, _| {}, |i| Ok(all[i].clone())).unwrap();
+    let straight = solve_states(4, None, |_, _| Ok(()), |i| Ok(all[i].clone())).unwrap();
     assert_eq!(straight, all);
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
     // 状態 2 を解いている途中で止めた実行
     let error = solve_states(
         4,
         Some(&checkpoint),
-        |_, _| {},
+        |_, _| Ok(()),
         |i| {
             if i == 2 {
                 anyhow::bail!("killed");
@@ -158,7 +158,10 @@ fn states_resume_after_the_saved_ones_and_match_the_straight_run() {
     let resumed = solve_states(
         4,
         Some(&checkpoint),
-        |i, s| restored.push((i, s.k)),
+        |i, s| {
+            restored.push((i, s.k));
+            Ok(())
+        },
         |i| {
             solved.push(i);
             Ok(all[i].clone())
@@ -179,7 +182,7 @@ fn more_saved_states_than_the_run_has_are_an_error() {
     let error = solve_states(
         2,
         Some(&checkpoint),
-        |_, _| {},
+        |_, _| Ok(()),
         |_| Err(anyhow::anyhow!("no state is solved")),
     )
     .unwrap_err()
@@ -201,5 +204,49 @@ fn an_unreadable_checkpoint_names_its_file() {
         error.contains("a.checkpoint") && error.contains("remove"),
         "{error}"
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn restored_states_that_do_not_fit_the_run_stop_before_solving() {
+    let dir = scratch("fit");
+    let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
+    checkpoint.save_states(&states(2)).unwrap();
+    let mut solved = 0;
+    let error = solve_states(
+        4,
+        Some(&checkpoint),
+        |i, _| Err(anyhow::anyhow!("state {i} has no medium")),
+        |_| {
+            solved += 1;
+            Ok(states(1).remove(0))
+        },
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("state 0"), "{error}");
+    assert_eq!(solved, 0);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_checkpoint_needs_exactly_one_kind() {
+    let dir = scratch("one-kind");
+    let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
+    checkpoint.write(&checkpoint.file()).unwrap();
+    let error = checkpoint.states().unwrap_err().to_string();
+    assert!(error.contains("neither"), "{error}");
+    let history = deplete_with(PIN, &library());
+    let both = CheckpointFile {
+        depletion: Some(DepletionFile {
+            history: rmpv::Value::Binary(history.to_msgpack().unwrap()),
+            next: history.points[1].densities.clone(),
+        }),
+        states: Some(Vec::new()),
+        ..checkpoint.file()
+    };
+    checkpoint.write(&both).unwrap();
+    let error = checkpoint.depletion().unwrap_err().to_string();
+    assert!(error.contains("both"), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
