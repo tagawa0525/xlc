@@ -415,6 +415,13 @@ RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice branch-2A-
 python3 compare_warm_start.py table ../branches/table-2A-fine.msgpack table-2A-6.msgpack
 ```
 
+自己遮蔽のピンをスレッドごとに 1 本ずつ取り、間引きの和を点の塊ごとにした版（[ADR-0198](../../docs/adr/0198-solve-shielding-pins-one-per-thread.md)。
+xlc bbd52f485、分岐点は main の f3a143d74、2026-10-23）と main（f3a143d74。MOC は前の輸送の解から始める）の同じ 2A の最初の 10 点（輸送 21 回。
+`issue-0137/2A-10.toml` の library と chain を絶対パスにしたもの）を、1 つの排他の Slurm のジョブ 510 で順に実行した。履歴の 11 点は、時間、
+k∞、数密度、ピン出力までビットで同じ（`issue-0137/compare.py`）。履歴の `seconds` は自己遮蔽 324.6 → 223.8 秒（輸送 1 回 15.5 → 10.7 秒、31% 減）、
+MOC 79.2 → 85.9 秒、反応率と規格化 10.7 → 10.6 秒、燃焼行列と CRAM48 は合わせて 3 秒ほどで、全体 417.1 → 323.6 秒（22% 減。プロセスの
+経過時間は 420.3 → 326.7 秒）。MOC のコードは同じなので、MOC の 6.7 秒の差は確かめていない（ADR-0198 の版が先に走った）。
+
 71 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、ee9d2fdd）、2P 1 時間 17 分 7 秒（Slurm 474）、
 2M 2 時間 58 分 12 秒（Slurm 480。2P と 2M は 2ff103e1、分岐点は main の 1f650c35、2026-10-23）。xlc の履歴の `seconds` の和は 2O 4,081 秒、
 2P 4,575 秒、2M 10,638 秒で、1 回の輸送の自己遮蔽は 2O 20.4 秒、2P 24.1 秒、2M 67.0 秒、MOC は 7.6〜7.9 秒。2M は 2N と同じく IFBA の
