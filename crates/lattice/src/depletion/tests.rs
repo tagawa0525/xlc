@@ -1059,3 +1059,12 @@ fn histories_without_depletion_regions_are_errors() {
     let err = History::from_msgpack(&empty).unwrap_err();
     assert!(format!("{err:#}").contains("regions"), "{err:#}");
 }
+
+#[test]
+fn histories_with_repeated_nuclides_are_errors() {
+    let mut history = deplete_input(PIN);
+    // 核種の名前で数密度の列を引くので、同じ名前が 2 つあれば列を選べない
+    history.nuclides[1] = history.nuclides[0].clone();
+    let err = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap_err();
+    assert!(format!("{err:#}").contains("twice"), "{err:#}");
+}
