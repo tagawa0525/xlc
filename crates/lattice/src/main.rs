@@ -35,7 +35,9 @@ use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::{state_indices, tables};
-use xlc_lattice::checkpoint::{Checkpoint, Fingerprint, SavedState, digest, solve_states};
+use xlc_lattice::checkpoint::{
+    Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
+};
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
@@ -286,7 +288,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
         let output = base.join(&depletion.output);
         let bytes = history.to_msgpack().with_context(|| shown(&output))?;
-        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+        write_synced(&output, &bytes)?;
         checkpoint.remove()?;
         return Ok(());
     }
@@ -636,7 +638,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let output = base.join(output);
         let bytes = medium.to_msgpack().with_context(|| shown(&output))?;
-        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+        write_synced(&output, &bytes)?;
     }
     if let Some(FewGroupOutput { files, split, .. }) = &input.output {
         let outputs: Vec<&Path> = match files {
@@ -654,7 +656,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         for (output, table) in outputs.into_iter().zip(tables) {
             let output = base.join(output);
             let bytes = table.to_msgpack().with_context(|| shown(&output))?;
-            std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+            write_synced(&output, &bytes)?;
         }
     }
     if let Some(checkpoint) = &checkpoint {
