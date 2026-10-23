@@ -90,12 +90,17 @@ def plan(
 
 
 def launchable(queue: list[tuple[str, int]], free: int) -> list[tuple[str, int]]:
-    """queue の順に、空きに収まるものを取る（収まらないものは飛ばして後ろを見る）"""
+    """queue の順に、空きに収まるものを取る（収まらないものは飛ばして後ろを見る）。
+
+    1 つも収まらず空きがあれば、先頭を空きのスレッドの数で取る（ceil の和は予算を超えうるので、待つとコアが遊ぶ）
+    """
     taken = []
     for name, threads in queue:
         if threads <= free:
             taken.append((name, threads))
             free -= threads
+    if not taken and queue and free > 0:
+        taken.append((queue[0][0], free))
     return taken
 
 
@@ -252,8 +257,8 @@ class Finished:
 def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
     """queue の順にステージを投入し、終わったもの（成功）を finish に渡す。失敗したステージの名前を返す。
 
-    失敗が出たら新しいステージは投入せず、走っているものは終わらせる。finish が例外を出したら、走っているものを止めて
-    例外を出し直す。
+    finish は commit できなかったステージの名前を返し、それも失敗に数える。失敗が出たら新しいステージは投入せず、
+    走っているものは終わらせる。finish が例外を出したら、走っているものを止めて例外を出し直す。
     """
     queue = list(queue)
     free = budget
@@ -280,21 +285,18 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
                         running[proc.pid] = (name, threads, proc, time.monotonic())
                     finally:
                         unblock_sigterm()
-                    queue.remove((name, threads))
+                    queue = [item for item in queue if item[0] != name]
                     free -= threads
                     log(f"start {name} threads={threads}")
             # 空いたスレッドに次を投入してから commit する（commit の数秒の間、コアを空けない）
             if done:
-                finish(done)
+                if rejected := finish(done):
+                    failures.extend(rejected)
                 done = []
             if not running:
                 if failures and queue:
                     log(
                         f"not launched after the failure: {', '.join(n for n, _ in queue)}"
-                    )
-                elif queue:
-                    raise RunnerError(
-                        f"stages need more threads than the budget {budget}: {queue}"
                     )
                 return failures
             reaped = []
@@ -322,13 +324,18 @@ def execute(queue, cmds, cwd, budget, finish, log=print) -> list[str]:
                         f"done {name} threads={threads} elapsed={elapsed:.1f} cpu={cpu:.1f}"
                     )
     except BaseException:
-        for _, _, proc, _ in running.values():
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-        for _, _, proc, _ in running.values():
-            proc.wait()
+        # 後始末の間の 2 度目の SIGTERM で、残りのステージを止めずに抜けないように
+        previous = signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        try:
+            for _, _, proc, _ in running.values():
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            for _, _, proc, _ in running.values():
+                proc.wait()
+        finally:
+            signal.signal(signal.SIGTERM, previous)
         raise
 
 
@@ -341,9 +348,13 @@ def dvc(*args: str, capture: bool = False) -> str:
     try:
         out, _ = proc.communicate()
     except BaseException:
-        if proc.poll() is None:
-            proc.terminate()
-        proc.wait()
+        previous = signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+            proc.wait()
+        finally:
+            signal.signal(signal.SIGTERM, previous)
         raise
     if proc.returncode != 0:
         raise RunnerError(
@@ -385,6 +396,56 @@ def stages_to_run(group_status: dict) -> list[str]:
     return sorted(group_status)
 
 
+def commit_stages(
+    names, commit, lock: Path, directory: Path, snapshot, root: Path
+) -> list[str]:
+    """names を commit し、commit できなかったステージの名前を返す。
+
+    commit の前に deps の指紋を比べ、変わっていれば commit しない。commit の後に、dvc.lock が記録した deps が見たパスに
+    入り、指紋が変わっていないことを確かめ、成り立たなければ dvc.lock を commit の前に戻して止まる。
+    """
+    if changed := changed_paths(snapshot, root):
+        raise RunnerError(
+            f"deps changed during the run: {changed}. Not committed: {names}"
+        )
+    before = lock.read_text() if lock.exists() else None
+    failed = []
+    try:
+        commit(names)
+        committed = list(names)
+    except RunnerError:
+        # どのステージが commit できないか（出力が無い、など）を 1 つずつ見る
+        committed = []
+        for name in names:
+            try:
+                commit([name])
+                committed.append(name)
+            except RunnerError:
+                failed.append(name)
+    text = lock.read_text()
+    problem = None
+    for name in committed:
+        paths = lock_dep_paths(text, name, directory)
+        if paths is None or not paths <= snapshot.keys():
+            problem = (
+                f"dvc.lock records deps of {name} the runner did not watch: "
+                f"{sorted((paths or set()) - snapshot.keys())}"
+            )
+            break
+    else:
+        if changed := changed_paths(snapshot, root):
+            problem = f"deps changed while committing {committed}: {changed}"
+    if problem:
+        if before is None:
+            lock.unlink()
+        else:
+            lock.write_text(before)
+        raise RunnerError(
+            f"{problem}. Restored dvc.lock to before this commit; rerun the stages"
+        )
+    return failed
+
+
 def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
     if dvc_yaml == Path("dvc.yaml"):
         # DVC はリポジトリの直下の dvc.yaml のステージを `dvc.yaml:` を付けずに示すので、組を見分けられない
@@ -410,9 +471,6 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         log(f"{target}: nothing changed")
         return 0
     keys = stages_to_run(mine)
-    cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", *keys, capture=True))
-    if set(cmds) != set(keys):
-        raise RunnerError(f"dvc repro --dry listed {sorted(cmds)}, expected {keys}")
     prefix = f"{dvc_yaml}:"
     lock = dvc_yaml.parent / "dvc.lock"
     lock_text = lock.read_text() if lock.exists() else ""
@@ -423,6 +481,10 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
             or set()
         )
     snapshot = fingerprints(watched, Path())
+    # cmd は指紋の後に解決する（その間に dvc.yaml や xs.toml が変われば、commit の前の比較で見つかる）
+    cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", *keys, capture=True))
+    if set(cmds) != set(keys):
+        raise RunnerError(f"dvc repro --dry listed {sorted(cmds)}, expected {keys}")
     record_path = dvc_yaml.parent / RECORD_NAME
     record = read_record(record_path)
     queue = plan([k.removeprefix(prefix) for k in keys], record, budget)
@@ -431,29 +493,25 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         + ", ".join(f"{n}:{t}" for n, t in queue)
     )
 
-    def finish(done: list[Finished]) -> None:
+    def finish(done: list[Finished]) -> list[str]:
         names = [f.name for f in done]
-        if changed := changed_paths(snapshot, Path()):
-            raise RunnerError(
-                f"deps changed during the run: {changed}. Not committed: {names}"
-            )
-        dvc("commit", "-f", "-q", *(prefix + n for n in names))
-        text = lock.read_text()
-        for name in names:
-            paths = lock_dep_paths(text, name, dvc_yaml.parent)
-            if paths is None or not paths <= snapshot.keys():
-                raise RunnerError(
-                    f"dvc.lock records deps of {name} the runner did not watch: "
-                    f"{sorted((paths or set()) - snapshot.keys())}. Do not commit dvc.lock; rerun the stage"
-                )
-        if changed := changed_paths(snapshot, Path()):
-            raise RunnerError(
-                f"deps changed while committing {names}: {changed}. Do not commit dvc.lock; rerun the stages"
-            )
-        for f in done:
+        failed = commit_stages(
+            names,
+            lambda batch: dvc("commit", "-f", "-q", *(prefix + n for n in batch)),
+            lock,
+            dvc_yaml.parent,
+            snapshot,
+            Path(),
+        )
+        for name in failed:
+            log(f"FAILED {name}: dvc commit failed")
+        committed = [f for f in done if f.name not in failed]
+        for f in committed:
             record[f.name] = round(f.cpu, 1)
         write_record(record_path, record)
-        log(f"committed {', '.join(names)}")
+        if committed:
+            log(f"committed {', '.join(f.name for f in committed)}")
+        return failed
 
     failures = execute(
         queue,
@@ -494,19 +552,25 @@ def main(argv: list[str] | None = None) -> int:
             capture_output=True,
         ).stdout.strip()
     )
-    dvc_yaml = args.dvc_yaml.resolve().relative_to(root)
-    os.chdir(root)
-    budget = physical_cores() if args.threads is None else args.threads
-    stop_on_sigterm()
     start = time.monotonic()
 
     def log(message: str) -> None:
         print(f"[{time.monotonic() - start:7.1f}] {message}", flush=True)
 
     try:
+        dvc_yaml = args.dvc_yaml.resolve().relative_to(root)
+        os.chdir(root)
+        budget = physical_cores() if args.threads is None else args.threads
+        stop_on_sigterm()
         code = run_group(dvc_yaml, args.group, budget, log)
-    except RunnerError as e:
-        log(f"ERROR: {e}")
+    except (
+        RunnerError,
+        record_provenance.ProvenanceError,
+        OSError,
+        ValueError,
+    ) as e:
+        # 誤りの行で終わる（ValueError は relative_to と JSON の読み取り、OSError は指紋とファイルの読み書き）
+        log(f"ERROR: {type(e).__name__}: {e}")
         return 1
     log(f"runner elapsed={time.monotonic() - start:.1f}")
     return code
