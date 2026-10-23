@@ -44,23 +44,23 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   examples/vera/dvc.yaml で、OpenMC のライブラリ（核種ごと）と VERA 1B（OpenMC → 抽出、xs → lattice → 比較）を
   端から端まで通した。残り（同じ形で足す）:
   - VERA 1C〜2K の OpenMC と抽出（2B〜2K はピン出力の `pins.msgpack`）、xlc の lattice、比較（`compare_pins.py` を
-    含む）の段階。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
+    含む）のステージ。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
   - 済（ADR-0152）: 燃料の実効断面積の tally は、標準のタリーの組の WIMS 69 群（モジュールの定数）に入り、xlc のライブラリを
     deps にしない。入力の `effective-xs-groups` はなくした
-  - 済（ADR-0136）: OpenMC の段階を「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分ける
-    （1B。ほかの問題は、段階にするときに同じ形で足す）。ライブラリの段階は、NJOY の入力を取り出す API がないので
-    分けず、入力を読む部分を `openmc_input.py` に移して、モデルの部品の変更で再実行しないようにした。1B の実行の段階は、
+  - 済（ADR-0136）: OpenMC のステージを「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分ける
+    （1B。ほかの問題は、ステージにするときに同じ形で足す）。ライブラリのステージは、NJOY の入力を取り出す API がないので
+    分けず、入力を読む部分を `openmc_input.py` に移して、モデルの部品の変更で再実行しないようにした。1B の実行のステージは、
     標準のタリー（ADR-0152）で model.xml が変わったため古いまま残る（作り直しは #0120）。作り直せば、記録の「実行したコミットと分岐点からの
     復元」（ADR-0130）は要らなくなる
   - `openmc-library.toml` の H-1 の温度は、冷却材と被覆管の温度と S(α,β) の温度を合わせたものを手でコピーしている（main の
     `openmc_library.py` は和集合を計算していた）。食い違いを止める検査を足す
-  - `compare_k.py` は lattice の出力が k.json と同じ問題のものかを確かめない。1C 以降の比較の段階を足すときに、問題を
+  - `compare_k.py` は lattice の出力が k.json と同じ問題のものかを確かめない。1C 以降の比較のステージを足すときに、問題を
     照らす
   - MOX（examples/mox/openmc_model.py）、C5G7（examples/c5g7/openmc_model.py）、#0005 の均質な媒質
     （`openmc_homogeneous.py`）、`openmc_balance.py`、`openmc_mg.py` を、計算の条件を入力の TOML で受ける形に直し、
-    段階にする（どれもまだ位置の引数と既定値で受ける）
+    ステージにする（どれもまだ位置の引数と既定値で受ける）
 - 参照の結果は、作るスクリプト（入力、コマンド、粒子数、乱数のシード、ツールの版）をリポジトリに置き、`references/` は
-  いつ消しても作り直せる作業の置き場にする。`njoy-runs/` も作るスクリプトにまとめ直す。すべてを段階にしたら、
+  いつ消しても作り直せる作業の置き場にする。`njoy-runs/` も作るスクリプトにまとめ直す。すべてをステージにしたら、
   `references/openmc/` の手で作った作業ディレクトリ（`endfb80`、`vera-*`、`work-*` など）と手でビルドしたツールを消す
 
 ## 経緯
@@ -87,7 +87,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   で OpenMC のライブラリ（核種ごと）と VERA 1B を端から端まで通した。OpenMC 1B の k は手で実行した値と一致し、ライブラリは
   `references/openmc/endfb80-565`（同じ温度で手で作ったもの）とバイト単位で一致した。examples/vera/verification.md と examples/mox/verification.md の手順は
   リポジトリの直下から実行する形に直した
-- 2026-10-12: 手でビルドした `references/NJOY2016` と `references/openmc/{src,build,install,venv}` は、参照の結果をすべて段階に
+- 2026-10-12: 手でビルドした `references/NJOY2016` と `references/openmc/{src,build,install,venv}` は、参照の結果をすべてステージに
   するまで残す。消すのは派生物（build、install、venv）だけにし、git clone（src）は原本なので残すかをユーザーに確かめる。
   `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない。
   `references/history-rewrite/` は #0077 が閉じるまで消さない

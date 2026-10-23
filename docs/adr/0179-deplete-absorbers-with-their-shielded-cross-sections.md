@@ -75,5 +75,5 @@ issues: ["#0139"]
   `each_region_names_the_cross_sections_its_material_was_shielded_with`、`unshielded_regions_name_their_dilute_cross_sections`、
   `lump_regions_name_the_lump_cross_sections`
 - 2F、2M、2N が 1 ステップ走り、吸収体の B-10 が減ることを確かめた（記録に書かない動作確認。#0139 の「経緯」）
-- OpenMC との比較: examples/depletion/p2/dvc.yaml の比較の段階 `compare@2F`、`compare@2M`、`compare@2N`（compare_depletion_assembly.py）で、
+- OpenMC との比較: examples/depletion/p2/dvc.yaml の比較のステージ `compare@2F`、`compare@2M`、`compare@2N`（compare_depletion_assembly.py）で、
   吸収体の B-10 の数密度を比べる。AWS の m4-assembly の OpenMC の参照解がそろってから流す

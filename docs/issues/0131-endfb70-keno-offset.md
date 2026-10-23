@@ -39,8 +39,8 @@ NJOY で処理した ENDF/B-VII.0 で OpenMC を解き（2D の小さな問題�
 
 ## 経緯
 
-- 2026-10-15: 診断は保留（使用量のため）。ブランチ feat/0131-openmc-endfb70-diagnosisに、`examples/vera/endfb70/openmc/` の段階
+- 2026-10-15: 診断は保留（使用量のため）。ブランチ feat/0131-openmc-endfb70-diagnosisに、`examples/vera/endfb70/openmc/` のステージ
   （ライブラリ 600 K の 33 核種 + H in H2O、1B 450 世代・2B 500 世代の OpenMC、比較 `compare_openmc_keno.py` と表 `endfb70-openmc`）を用意した。
-- 実行したのは `openmc-neutron`、`openmc-thermal`、`openmc-index` までで、`openmc-run@1B` の途中でジョブ 380 を止めた。ライブラリの段階の `endfb70/openmc/dvc.lock` はコミット済み（main への rebase の後も有効）。未実行（lock に項目がない）のは `openmc-model@2B`、`openmc-run`、`openmc-extract`、`compare-1B`、`compare-2B`。
+- 実行したのは `openmc-neutron`、`openmc-thermal`、`openmc-index` までで、`openmc-run@1B` の途中でジョブ 380 を止めた。ライブラリのステージの `endfb70/openmc/dvc.lock` はコミット済み（main への rebase の後も有効）。未実行（lock に項目がない）のは `openmc-model@2B`、`openmc-run`、`openmc-extract`、`compare-1B`、`compare-2B`。
 - 再開は、main に rebase し（ブランチがマージされていれば不要）、`dvc checkout examples/vera/endfb70/dvc.yaml`、`dvc checkout dvc.yaml` のあと、`slurm-run.sh -t 100 openmc-endfb70-1B-2B 'nix develop -c dvc repro examples/vera/endfb70/openmc/dvc.yaml'`（約 80 分、排他）。
 - そのあと `verification-endfb70.md` に `<!-- table: endfb70-openmc -->` の節を足し、`endfb70/openmc/dvc.lock` を更新してコミットする。

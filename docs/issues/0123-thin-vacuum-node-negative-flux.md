@@ -50,7 +50,7 @@ Problem 5 は、Pyrex の棒のある集合体の層に合わせて全炉心の�
 または厚さの比に応じた形）、ADR に書いて core に入れる。small-half.toml が 70.761 cm の境界を含むメッシュで収束し、境界を
 除いた解との差を記録に書く。#0092 の Problem 5 の 3D の炉心（core-hzp、small）を、元の層（examples/vera/p5/p5_inputs.py の
 `CORE_MERGED_BOUNDS` を空にし、15.761 cm の境界を戻したもの）で流し直し、examples/vera/verification.md の Problem 5 の 3D の
-節を書き直す。戻すと、毒物の下端の支持格子の層（`*-poison-igrid`）の 8 つの格子（単一集合体 6、反射体 2）の段階が
+節を書き直す。戻すと、毒物の下端の支持格子の層（`*-poison-igrid`）の 8 つの格子（単一集合体 6、反射体 2）のステージが
 生成のツールに戻るので、それも流す。
 
 ## 経緯

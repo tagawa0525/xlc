@@ -13,7 +13,7 @@ requires: []
 
 `references/`（核データ、ツール、DVC のキャッシュ `references/dvc-cache`）は git で追跡せず、main の worktree にだけ
 実体がある（[ADR-0123](0123-drive-stages-with-dvc.md)、[ADR-0124](0124-pin-reference-assets-with-nix.md)）。
-linked worktree に `references` がないと、DVC は worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階は
+linked worktree に `references` がないと、DVC は worktree の中に別のキャッシュを黙って作り、ENDF を deps にするステージは
 deps がなくて止まる（ADR-0123 の「帰結」）。これまでは docs/environment.md の手順で、人が worktree ごとに symlink を
 張っていた。ADR-0123 は、worktree を作るツールで symlink を作る仕組みと、置き場が違えば止める仕組みがまだないと
 書いている。
