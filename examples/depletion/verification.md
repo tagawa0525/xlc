@@ -405,6 +405,12 @@ MOC の反復は、最初の輸送が 25 回、2 回目 17 回、3 回目 13 回
 Slurm 477）の同じ状態は 24〜25 回、7.1〜7.4 秒。k∞ の差は最大 5.4e-8（40 MWd/kg、565 K）、状態の少数群定数の相対差は最大 1.4e-7（ADF）。
 1 状態の時間は自己遮蔽が大半で 75〜96 秒（Slurm 477 の同じ状態は 71〜91 秒）。
 
+MOC の反復の間の段と粗メッシュの均質化を並列にした版（[#0163](../../docs/issues/0163-lattice-serial-parts-at-16-threads.md)。xlc 040e7031、分岐点は main の
+f3a143d74、2026-10-24、Slurm の timed のジョブ 514。下のコマンドの `lattice-2A-10.toml` の行と同じ）の 2A の最初の 10 点（輸送 21 回）の履歴は、main（f3a143d74）の同じ入力の
+履歴（#0161 の担当の Slurm 510 の出力 `2A-10-base.msgpack`）と `seconds` を除いてビットで一致し、本番の `lattice-2A.msgpack` との差は上と同じ（k∞ 最大
+1.3e-7）。MOC の反復は 253 回、粗メッシュの反復は 1 回の MOC の反復あたり平均 325 回で変わらない。MOC の時間の和は 70.3 秒（Slurm 510 の main は
+79.2 秒。別のジョブどうしの比較）、全体は 411.6 秒。
+
 ```sh
 cargo build --release -p xlc-lattice
 cd examples/depletion/warm-start
