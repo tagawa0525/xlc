@@ -166,6 +166,13 @@ xlc と同じジョブ）。時間は、ラダーの和をベクトル化した�
   `xs nuclide` を 65 核種について順に実行し（DVC を通さない。examples/depletion/issue-0157/measure.sh）、プロセスの経過時間の和は 1,154 秒（473 の核種の span の和は 2,080 秒）、CPU 時間の
   和は 11,358 秒（平均 9.8 コア）。長いのは Am-242m（173 秒）、U-238（86 秒）、Pu-239、U-235、Eu-151（それぞれ 69 秒）。65 核種の出力の md5 は
   dvc.lock と同じ。DVC を通した経過時間は測っていない
+- runner で同時に実行（ADR-0193。xlc c92e8cac、分岐点 2b6e1201、2026-10-23、Slurm の排他のジョブ 485）: `python3 examples/stage_runner.py
+  examples/depletion/dvc.yaml xs-nuclide`（上流の xs-range と 65 核種）に続けて `dvc repro examples/depletion/dvc.yaml:xs`。runner の始めから最後の
+  `dvc commit` まで 827 秒: 上流（`dvc status` と xs-range の `dvc repro`）54 秒、核種の最初の投入から最後の回収まで 753 秒、最後の commit 20 秒。
+  ジョブの経過時間は 14 分 4 秒。核種の CPU 時間の和は 11,757 秒（16 で割って 735 秒。479 は 11,358 秒）。Am-242m（4 スレッド）は 598 秒、U-235
+  （1 スレッド）は 555 秒。commit は 38 回（1 回 2〜4 秒、最後の 15 核種で 20 秒）で、commit の間は終わったステージを回収しない。1 スレッドの
+  ステージの経過時間 − CPU 時間の和は 172 秒（16 で割って 11 秒。回収の遅れの上限）。65 核種の出力、xs-range.toml、depletion.msgpack の
+  md5 は Slurm 473 の dvc.lock と同じ（変わったのは deps の bin/xs だけ）
 
 ## 格子計算の燃焼
 
