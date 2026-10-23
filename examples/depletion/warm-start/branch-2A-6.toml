@@ -1,8 +1,10 @@
 # ADR-0195 の確認: ../branches/branch-2A-fine.toml を 1300 ppm と燃焼度の 6 点に絞った 12 状態。前の状態の解から始めた MOC の
 # 反復の数と時間を測り、平らな初期値から解いた ../branches/table-2A-fine.msgpack（md5 e0f66326）の同じ状態と比べる。ライブラリと
-# 履歴は、そのテーブルを作ったもの（depletion.msgpack md5 4ada8d75、lattice-2A.msgpack md5 6272e937。main の 437a5e51 の
-# p2/dvc.lock の出力で、DVC のキャッシュにある）。今の p2/dvc.lock の出力とは違うので、その 2 つを戻してから実行する。
-library = "../p2/depletion.msgpack"
+# 履歴は、そのテーブルを作ったもの（main の 437a5e51 の p2/dvc.lock の出力）。今の p2 の出力とは違うので、DVC のキャッシュから
+# このディレクトリにコピーしてから実行する（p2 の出力は書き換えない）:
+#   cp --reflink=auto ../../../references/dvc-cache/files/md5/4a/da8d75448f3d8a08948fee69014182 depletion-4ada8d75.msgpack
+#   cp --reflink=auto ../../../references/dvc-cache/files/md5/62/72e93776ffcdd173fde6d91b1c6bb7 lattice-2A-6272e937.msgpack
+library = "depletion-4ada8d75.msgpack"
 few-group = { output = "table-2A-6.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30
@@ -103,5 +105,5 @@ moderator = { temperature = [565], density = [0.743], materials = ["water", "zir
 fuel = { temperature = [565, 600], materials = ["fuel"] }
 
 [history]
-file = "../p2/lattice-2A.msgpack"
+file = "lattice-2A-6272e937.msgpack"
 burnup = [0, 2, 10, 20, 40, 60]

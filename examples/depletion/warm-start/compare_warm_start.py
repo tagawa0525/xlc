@@ -45,14 +45,31 @@ def history(main, trial):
     for p, q in zip(main["points"], trial["points"]):
         if p["burnup"] != q["burnup"]:
             raise SystemExit(f"burnup {p['burnup']} vs {q['burnup']}")
+        # 数密度は、最大の数密度の 1e-6 倍と 1e-8 倍を超える核種で比べる（小さな数密度の相対差は丸めで大きくなる）
         largest = max(max(abs(x) for x in n) for n in p["densities"])
-        density = largest_relative(p["densities"], q["densities"], 1e-10 * largest)
+        densities = " ".join(
+            "densities>{:.0e} {:.2e} {}".format(
+                floor,
+                *relative_density(main["nuclides"], p, q, floor * largest),
+            )
+            for floor in (1e-6, 1e-8)
+        )
         pins = largest_relative(p["pin_powers"], q["pin_powers"], 0.0)
         print(
             f"burnup {q['burnup']:6} k {p['k_inf']:.8f} {q['k_inf']:.8f} "
-            f"dk {q['k_inf'] - p['k_inf']:+.2e} densities {density[0]:.2e} {density[1]} "
-            f"pins {pins[0]:.2e}"
+            f"dk {q['k_inf'] - p['k_inf']:+.2e} {densities} pins {pins[0]:.2e}"
         )
+
+
+def relative_density(nuclides, p, q, floor):
+    """数密度が floor を超える領域と核種の、相対差の最大と、その核種の名前。"""
+    worst = (0.0, None)
+    for x, y in zip(p["densities"], q["densities"], strict=True):
+        for name, u, v in zip(nuclides, x, y, strict=True):
+            scale = max(abs(u), abs(v))
+            if scale > floor and abs(u - v) / scale > worst[0]:
+                worst = (abs(u - v) / scale, name)
+    return worst
 
 
 def table(main, trial):
