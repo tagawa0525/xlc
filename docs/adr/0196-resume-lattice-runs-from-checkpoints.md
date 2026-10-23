@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-23
-requires: [ADR-0097, ADR-0122, ADR-0130, ADR-0159, ADR-0173, ADR-0181, ADR-0184, ADR-0187, ADR-0193]
+requires: [ADR-0097, ADR-0122, ADR-0130, ADR-0159, ADR-0173, ADR-0181, ADR-0184, ADR-0187, ADR-0193, ADR-0194, ADR-0195]
 supersedes: []
 superseded-by:
 issues: ["#0165"]
@@ -82,8 +82,11 @@ W1、P1、L1、R3、F1 にする。
 - 分岐（`lattice` の状態のループ。`checkpoint::solve_states`）は、状態を解き終えるたびに、それまでの状態の k、出力ごとの少数群定数、
   媒質をチェックポイントに書く（燃焼の最後の点と同じく、最後の状態の後は書かない）。再開は書いた状態を標準出力に出し直し、続きの状態から解く。状態が 1 つの問題（分岐と `[history]` の
   ない入力）は書かない
+- MOC は前の輸送の解から反復を始める（ADR-0195）ので、チェックポイントはその解（`moc::Start`）も持つ。燃焼は、書く時点の直前の
+  輸送（ステップの中点の輸送）の収束した解を、分岐は軸ごとの解（`branches::Starts`）と次に解く状態を書き、再開はそこから始める。
+  持たないと、再開した最初の輸送が平らな初期値から始まり、結果が収束の判定の程度で一気に流したものと違う（#0165）
 - チェックポイントの形式は `xlc-lattice-checkpoint`（フィールド名付きの map の MessagePack）で、`fingerprint` と、燃焼なら
-  `history`（`xlc-depletion-history` のバイト列）と `next`、分岐なら `states` を持つ
+  `history`（`xlc-depletion-history` のバイト列）と `next` と `start`、分岐なら `states` と `starts` を持つ
 - 履歴の `seconds` と `solves` は、再開の前後の実行の和にする。ログの `total_seconds` は最後の実行だけの値
 
 - 燃焼の履歴の各点は、`[depletion]` の `few-group`（ADR-0173）を書けば、その点の輸送で均質化した少数群定数（`pins = true` なら
@@ -98,8 +101,10 @@ W1、P1、L1、R3、F1 にする。
   書き込みの後で止め、チェックポイントのファイルから再開した履歴が、時間の内訳を除いて一気に流したものとバイトで一致する
   （少数群定数を含む）
 - `depletion::tests::a_finished_history_cannot_be_resumed`、`a_resumed_history_needs_a_point`、`a_resumed_history_of_another_shape_is_an_error`
-- `checkpoint::tests::states_resume_after_the_saved_ones_and_match_the_straight_run`、
-  `more_saved_states_than_the_run_has_are_an_error`、`saved_states_read_back_bit_for_bit`、
+- `checkpoint::tests::states_resume_after_the_saved_ones_and_match_the_straight_run`（状態の結果が始める解によるふりの解き方で、
+  再開した状態が一気に流したものと同じ解から始まる）、`saved_states_and_starts_read_back_bit_for_bit`、
+  `saved_starts_must_follow_the_saved_states`、`the_last_state_is_not_saved`、
+  `more_saved_states_than_the_run_has_are_an_error`、
   `a_checkpoint_of_another_fingerprint_is_an_error`、`a_checkpoint_of_the_other_kind_is_an_error`、
   `without_a_checkpoint_the_run_starts_from_the_beginning`、`fingerprints_tell_apart_where_the_bytes_belong`、
   `restored_states_that_do_not_fit_the_run_stop_before_solving`、`a_checkpoint_needs_exactly_one_kind`、
@@ -107,7 +112,12 @@ W1、P1、L1、R3、F1 にする。
 - 2A の燃焼度の点を最初の 10 点に切った入力（examples/depletion/p2/lattice-2A-10.toml。各点の少数群定数と形状関数も書く）を、5 点目のステップの後で `scancel` して投げ直した
   履歴が、一気に流した履歴と `seconds` を除いてバイトで一致し、11 点の k∞ と数密度、ピン出力が本番の 2A の履歴の最初の 11 点と
   ビットで一致した。書く費用はステップごとに 5.7〜30 ミリ秒（2.75〜14.9 MB）で、1 ステップは約 56 秒。履歴の 1 点は約 1.35 MB で、
-  少数群定数と形状関数は 7.6 KB（examples/depletion/verification.md の「時間」、xlc 6ba9ca28、2026-10-23、Slurm 495、496、497）
+  少数群定数と形状関数は 7.6 KB（examples/depletion/verification.md の「時間」、xlc 6ba9ca28、2026-10-23、Slurm 495、496、497）。
+  この試行は ADR-0195 の前のコード（MOC を平らな初期値から始め、チェックポイントは `start` を持たない）で流した。`start` を持たせた後の
+  再開の一致は、上の単体テストで確かめ、2A では再実行していない
+- 2A の `start` は 36.2 MB（MessagePack。代表の領域 3,617 × 69 群のスカラー中性子束 2.3 MB、高次のモーメント 20.2 MB、代表のトラックの端の
+  角度中性子束 13.7 MB）で、1 つ目のステップの後のチェックポイントは 39.0 MB だった（examples/depletion/verification.md の「時間」、
+  xlc 8c6e4632、2026-10-23、排他でない Slurm 508）
 - 分岐の状態のループは、本物の格子計算で止めて再開する試行をしていない（状態の結果の読み書きと、続きから解く順は上のテスト）
 
 ## 帰結
@@ -121,8 +131,11 @@ W1、P1、L1、R3、F1 にする。
   `seconds` を除いて比べる。dvc.lock の出力の md5 も、再開の有無によらず実行ごとに変わる（今までと同じ）
 - 再開したジョブの経過時間とログの `total_seconds` は最後の実行の分だけで、時間の記録に使わない。始めから測るときはチェック
   ポイントを消す（.claude/skills/verification-record）
-- MOC の反復を前の輸送の解から始める変更（ブランチ perf/moc-warm-start）が入ると、チェックポイントがその解を持たない限り、再開の
-  結果はビットで一致しなくなる。後からマージする側が持たせる（#0165）。上の再開のテストがそれを検出する
+- 燃焼のチェックポイントは、履歴に加えて MOC の解 1 つ（2A で 36.2 MB）を毎回書く。分岐は軸の数までの解（軸ごとに 1 つ。2A の格子で
+  1 つ 36.2 MB）を毎回書く。1 状態 25〜78 秒に比べて書く時間は小さいと見込む（1 つ目のステップの 39.0 MB は 40 ミリ秒。排他でない
+  ジョブの値で、記録の時間には使わない）
+- 反復を始める解や、前の輸送から持ち越す量を足すとき（ADR-0194 の Dancoff 係数のように、入力が同じなら解き直しても同じになるもの
+  を除く）は、チェックポイントにも足す。再開のテストがビットの不一致として検出する
 - 燃焼の履歴の `few-group` を本番の入力（examples/depletion/p2）に書くかと、公称の状態のテーブルを履歴から輸送なしで作るかは、
   この ADR で決めない（入力を変えると DVC のステージが changed になる）
 - 急ぐ計算を前に出すのは `--urgent`（SUSPEND）で、`scancel` しない（nixfiles の slurm-run のスキル）。チェックポイントは取り消しと停止のため
