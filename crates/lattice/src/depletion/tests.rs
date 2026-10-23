@@ -1141,6 +1141,35 @@ fn a_run_resumed_from_a_checkpoint_matches_the_straight_run_bit_for_bit() {
 }
 
 #[test]
+fn a_resumed_history_of_another_shape_is_an_error() {
+    let library = library();
+    let history = deplete_with(PIN, &library);
+    let partial = |history: &History, next: Vec<Vec<f64>>| {
+        let mut history = history.clone();
+        history.points.truncate(2);
+        Some(Partial { history, next })
+    };
+    let next = history.points[2].densities.clone();
+    let mut short = next.clone();
+    short[0].pop();
+    let mut moved = history.clone();
+    moved.points[1].burnup = 0.06;
+    for resumed in [
+        partial(&history, short),
+        partial(&history, vec![]),
+        partial(&moved, next.clone()),
+    ] {
+        let error = deplete_from(PIN, &library, resumed, &mut |_, _| Ok(()))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("does not match") || error.contains("burnups"),
+            "{error}"
+        );
+    }
+}
+
+#[test]
 fn a_finished_history_cannot_be_resumed() {
     let library = library();
     let history = deplete_with(PIN, &library);
