@@ -95,11 +95,26 @@ pub fn history_branches(
         .map(|d| key(&d.material, d.cell, d.volume))
         .collect();
     if found != recorded {
+        let at = found.iter().zip(&recorded).position(|(a, b)| a != b);
+        let detail = match at {
+            Some(k) => format!(
+                "region {k}: {:?} in the lattice, {:?} in the history (material, cell, volume)",
+                (&regions[k].material, regions[k].cell, regions[k].volume),
+                (
+                    &history.regions[k].material,
+                    history.regions[k].cell,
+                    history.regions[k].volume
+                )
+            ),
+            None => format!(
+                "{} regions in the lattice, {} in the history",
+                regions.len(),
+                history.regions.len()
+            ),
+        };
         bail!(
-            "the depletion regions of the lattice (material, cell, volume) differ from those of the history: \
-             {} in the lattice, {} in the history; give the lattice of the history (ADR-0187)",
-            regions.len(),
-            history.regions.len()
+            "the depletion regions of the lattice differ from those of the history: {detail}; give the lattice of \
+             the history (ADR-0187)"
         );
     }
     let index: HashMap<&str, usize> = history
@@ -137,6 +152,33 @@ pub fn history_branches(
                 d.material
             );
         }
+    }
+    // 輸送する核種は、燃焼のライブラリが燃焼の温度で持つチェーンの核種（ADR-0173 の案 N1）。入力のライブラリと燃焼させた物質の温度
+    // （公称）で求め直した集合が履歴と同じこと。違えば、燃焼と違うライブラリか温度で、公称の分岐が履歴の点の輸送でなくなる
+    let mut nominal: Vec<f64> = Vec::new();
+    for name in &depleted {
+        let t = input
+            .materials
+            .iter()
+            .find(|m| &m.name == name)
+            .map(|m| m.temperature)
+            .ok_or_else(|| anyhow!("depleted material `{name}` is not in the input"))?;
+        if !nominal.contains(&t) {
+            nominal.push(t);
+        }
+    }
+    let expected: Vec<&String> = history
+        .nuclides
+        .iter()
+        .filter(|n| nominal.iter().all(|&t| has_data_at(library, n, t)))
+        .collect();
+    if expected.iter().copied().ne(history.transportable.iter()) {
+        bail!(
+            "the library has data at {nominal:?} K for {} chain nuclides, the history transported {}; give the library \
+             and the depletion temperature of the history (ADR-0187)",
+            expected.len(),
+            history.transportable.len()
+        );
     }
     let points = selection
         .burnup
