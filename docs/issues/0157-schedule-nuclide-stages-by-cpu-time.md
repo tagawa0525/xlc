@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [xs, performance]
 opened: 2026-10-23
-closed:
+closed: 2026-10-23
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0193
 ---
 
 # 核種ごとのステージを、前回の CPU 時間の長い順にスレッドの数を決めて同時に実行する
@@ -22,7 +22,7 @@ ceil(CPU 時間 / (CPU 時間の和 / 16)) に決めて合計 16 スレッドの
 lock に取り込む `dvc commit` の運用。`dvc commit` は ADR-0159 の案 B と #0145 が扱う、lock が実行していない deps を指すおそれに関わる（runner は
 今の deps で実行するので当たらないが、実行中に deps が変わったときの扱いが要る）。
 
-関係する ADR: ADR-0189
+関係する ADR: ADR-0189、ADR-0193
 
 ## 完了の条件
 
@@ -32,3 +32,4 @@ runner を足すか足さないかを ADR で決める。足すなら、出力�
 ## 経緯
 
 - 2026-10-23: ADR-0189 で案 D を採り、案 C をここに分けた
+- 2026-10-23: ADR-0193 で案 C（runner）を採った。65 核種で DVC を通して 827 秒、出力の md5 は `dvc repro` と同じ（Slurm 485）
