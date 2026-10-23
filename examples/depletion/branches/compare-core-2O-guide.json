@@ -11,7 +11,7 @@
   },
   {
    "path": "examples/depletion/branches/core-2O-guide-steps.msgpack",
-   "md5": "9d3f20a020347e39aa12728c676aa48d"
+   "md5": "b2716f3691477a53dea7c43346681702"
   }
  ],
  "specific_power": 38.41,
@@ -87,8 +87,8 @@
    "burnup_relative": 0.0,
    "on_table": false,
    "history_k": 1.0179230854938868,
-   "k": 1.0179232671717797,
-   "rho_pcm": 0.017533639751210472,
+   "k": 1.0179232671717866,
+   "rho_pcm": 0.017533640406242057,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -99,8 +99,8 @@
    "burnup_relative": 2.220446049250313e-16,
    "on_table": false,
    "history_k": 1.0176233220686064,
-   "k": 1.0176677724791998,
-   "rho_pcm": 4.29222721424205,
+   "k": 1.0176677724791996,
+   "rho_pcm": 4.292227214230948,
    "branch_k": null,
    "branch_rho_pcm": null
   },
