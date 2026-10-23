@@ -1505,7 +1505,7 @@ k は全体と同じ 1.184416（反復 21 回）、ピン出力の差は最大 6
 ### 計算
 
 スレッド数 1、4、16 の 3 本を 1 つの排他の Slurm のジョブで、順に実行した（`examples/depletion/trials-lattice-scaling/run.sh`。ログの区間は
-`summarize.py` で `scaling.json` にまとめた）。xlc 9f426591d（crates は main の c356c861f と同じ）、2026-10-23、Slurm 493（全体 4 分 40 秒）。
+`summarize.py` で `scaling.json` にまとめた）。xlc d864a0bbb（crates は main の c356c861f と同じ）、2026-10-23、Slurm 493（全体 4 分 40 秒）。
 測定は各 1 回で、ばらつきは測っていない。
 
 ### 結果
