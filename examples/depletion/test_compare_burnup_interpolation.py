@@ -183,6 +183,23 @@ class Summary(unittest.TestCase):
 
 
 class Report(unittest.TestCase):
+    def test_report_takes_a_selection_of_every_point(self):
+        points = [0.0, 1.0, 2.0]
+        summary = {
+            "format": "xlc-compare-burnup-interpolation",
+            "inputs": [{"path": "x.msgpack", "md5": "0" * 32}],
+            "tables": [
+                {
+                    "name": "T",
+                    **cbi.summarize_table(
+                        table(points, quadratic), [{"name": "all", "burnup": points}]
+                    ),
+                }
+            ],
+        }
+        text = "\n".join(cbi.report(summary))
+        self.assertIn("比べた点 0", text)
+
     def test_report_names_the_worst_point_of_each_method(self):
         points = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
         summary = {

@@ -912,6 +912,15 @@ class DrawBurnupInterpolation(unittest.TestCase):
             ],
         )
 
+    def test_a_selection_of_every_point_has_no_worst_point(self):
+        s = self.summary()
+        sel = s["tables"][0]["selections"][0]
+        sel["removed"] = []
+        for r in sel["results"].values():
+            r.update(rho_pcm=[], max_abs_pcm=0.0, rms_pcm=0.0)
+        rows = self.rows(vt.burnup_interpolation_points([s]))
+        self.assertEqual(rows[0], ["2A", "1 つおき", "3", "0", "", "0.0", ""])
+
     def test_a_summary_of_another_format_is_an_error(self):
         for draw in (vt.burnup_interpolation_methods, vt.burnup_interpolation_points):
             with self.assertRaises(vt.TableError):
