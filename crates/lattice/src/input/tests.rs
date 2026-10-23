@@ -1124,6 +1124,20 @@ fn reads_the_depletion_steps_and_materials() {
 }
 
 #[test]
+fn depletion_shields_at_every_transport_unless_told_to_shield_at_the_step_start() {
+    let every = depleting(DEPLETION).unwrap().depletion.unwrap();
+    assert_eq!(every.shielding, ShieldingFrequency::EveryTransport);
+    let text = format!("{DEPLETION}shielding = \"every-transport\"\n");
+    let written = depleting(&text).unwrap().depletion.unwrap();
+    assert_eq!(written.shielding, ShieldingFrequency::EveryTransport);
+    let text = format!("{DEPLETION}shielding = \"step-start\"\n");
+    let start = depleting(&text).unwrap().depletion.unwrap();
+    assert_eq!(start.shielding, ShieldingFrequency::StepStart);
+    let text = format!("{DEPLETION}shielding = \"midpoint\"\n");
+    assert!(depleting(&text).is_err());
+}
+
+#[test]
 fn rejects_burnup_points_that_do_not_increase_from_zero() {
     for burnup in ["[]", "[0, 1]", "[1, 1]", "[2, 1]", "[-1]"] {
         let text = DEPLETION.replace("[0.1, 0.5, 2]", burnup);

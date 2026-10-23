@@ -13,6 +13,7 @@ use std::f64::consts::LN_2;
 
 use super::*;
 use crate::input::LatticeInput;
+use crate::shielding::{FuelShielding, shield_fuel_with};
 use crate::symmetry::choose;
 use crate::tracking::Tracking;
 
@@ -773,6 +774,7 @@ fn history_is_written_as_a_map_with_the_format_name() {
     let keys: Vec<&str> = seconds.iter().filter_map(|(k, _)| k.as_str()).collect();
     assert_eq!(keys, ["shielding", "moc", "rates", "matrix", "cram"]);
     assert_eq!(get("solves").and_then(rmpv::Value::as_u64), Some(7));
+    assert_eq!(get("shieldings").and_then(rmpv::Value::as_u64), Some(7));
 }
 
 /// 履歴のファイルの、各点の `pin_powers`（[点][行][列]）
@@ -1006,6 +1008,7 @@ fn history_round_trips_through_its_file() {
     assert_eq!(read.regions, history.regions);
     assert_eq!(read.transportable, history.transportable);
     assert_eq!(read.solves, history.solves);
+    assert_eq!(read.shieldings, history.shieldings);
     assert_eq!(read.points.len(), history.points.len());
     for (r, h) in read.points.iter().zip(&history.points) {
         assert_eq!(r.time.to_bits(), h.time.to_bits());
@@ -1081,4 +1084,107 @@ fn histories_with_repeated_nuclides_are_errors() {
     history.nuclides[1] = history.nuclides[0].clone();
     let err = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap_err();
     assert!(format!("{err:#}").contains("twice"), "{err:#}");
+}
+
+#[test]
+fn every_transport_solves_the_shielding_by_default() {
+    // 自己遮蔽の頻度を書かない入力は、ステップの始まりと中点の両方で解き直す（ADR-0173 の案 F1）
+    let history = deplete_input(PIN);
+    assert_eq!(history.solves, 7);
+    assert_eq!(history.shieldings, 7);
+}
+
+#[test]
+fn step_start_shielding_skips_the_midpoint_transports() {
+    let every = deplete_input(PIN);
+    let start = deplete_input(&format!("{PIN}shielding = \"step-start\"\n"));
+    // 輸送はステップに 2 回と最後の点で 1 回のまま、自己遮蔽は始まりと最後の点だけ
+    assert_eq!(start.solves, 7);
+    assert_eq!(start.shieldings, 4);
+    // テストのライブラリの群定数は σ0 によらないので、中点の微視的断面積は組成を変えて解き直しても同じになり、中点の
+    // 物質は始まりの微視的断面積と中点の数密度で作り直したものと、丸めの誤差の範囲で等しい
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * a.abs().max(b.abs());
+    for (s, e) in start.points.iter().zip(&every.points) {
+        assert!(close(s.k, e.k), "{} vs {}", s.k, e.k);
+        for (ns, ne) in s.densities[0].iter().zip(&e.densities[0]) {
+            assert!(close(*ns, *ne), "{ns} vs {ne}");
+        }
+    }
+}
+
+/// PIN の格子を、入力の物質のまま自己遮蔽した結果と、燃料の燃焼の領域と、入力の燃料の物質
+fn shielded_pin() -> (
+    Library,
+    Lattice,
+    FuelShielding,
+    Vec<DepletionRegion>,
+    MaterialInput,
+) {
+    let library = library();
+    let input = LatticeInput::parse(PIN).unwrap();
+    let (lattice, region_materials) = input.geometry().unwrap();
+    let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
+    let chosen = choose(&tracking, &region_materials, None).unwrap();
+    let representatives = chosen.shielding().cell_representatives();
+    let regions = depletion_regions(
+        &lattice,
+        &region_materials,
+        &representatives,
+        &["fuel".to_string()],
+    );
+    let shielded = shield_fuel_with(
+        &library,
+        &tracking,
+        &input.materials,
+        &region_materials,
+        chosen.shielding(),
+        &input.shielding_options(),
+    )
+    .unwrap();
+    let fuel = input
+        .materials
+        .iter()
+        .find(|m| m.name == "fuel")
+        .unwrap()
+        .clone();
+    (library, lattice, shielded, regions, fuel)
+}
+
+#[test]
+fn remixing_the_shielded_composition_reproduces_the_shielded_materials() {
+    let (library, lattice, shielded, regions, fuel) = shielded_pin();
+    let remixed = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap();
+    assert_eq!(remixed, shielded);
+}
+
+#[test]
+fn remixed_materials_take_the_new_densities_and_keep_the_microscopic_cross_sections() {
+    let (library, lattice, shielded, regions, mut fuel) = shielded_pin();
+    for (_, density) in &mut fuel.composition {
+        *density *= 2.0;
+    }
+    let remixed = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap();
+    for r in 0..lattice.regions() {
+        let before = &shielded.materials[shielded.region_material[r]];
+        let after = &remixed.materials[remixed.region_material[r]];
+        assert_eq!(
+            remixed.region_cross_sections(r),
+            shielded.region_cross_sections(r)
+        );
+        if regions[0].regions.contains(&r) {
+            for (a, b) in after.total.iter().zip(&before.total) {
+                assert!((a - 2.0 * b).abs() <= 1e-14 * a, "{a} vs 2 x {b}");
+            }
+        } else {
+            assert_eq!(after, before);
+        }
+    }
+}
+
+#[test]
+fn remixing_needs_the_shielded_nuclides_of_each_region() {
+    let (library, lattice, shielded, regions, mut fuel) = shielded_pin();
+    fuel.composition.push(("Xe-135".into(), 1e-9));
+    let error = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap_err();
+    assert!(format!("{error:#}").contains("nuclides"), "{error:#}");
 }
