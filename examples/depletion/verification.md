@@ -416,7 +416,7 @@ python3 compare_warm_start.py table ../branches/table-2A-fine.msgpack table-2A-6
 ```
 
 自己遮蔽のピンをスレッドごとに 1 本ずつ取り、間引きの和を点の塊ごとにした版（[ADR-0198](../../docs/adr/0198-solve-shielding-pins-one-per-thread.md)。
-xlc bbd52f485、分岐点は main の f3a143d74、2026-10-23）と main（f3a143d74。MOC は前の輸送の解から始める）の同じ 2A の最初の 10 点（輸送 21 回。
+xlc 848fb5e8f、分岐点は main の f3a143d74、2026-10-23）と main（f3a143d74。MOC は前の輸送の解から始める）の同じ 2A の最初の 10 点（輸送 21 回。
 `issue-0137/2A-10.toml` の library と chain を絶対パスにしたもの）を、1 つの排他の Slurm のジョブ 510 で順に実行した。履歴の 11 点は、時間、
 k∞、数密度、ピン出力までビットで同じ（`issue-0137/compare.py`）。履歴の `seconds` は自己遮蔽 324.6 → 223.8 秒（輸送 1 回 15.5 → 10.7 秒、31% 減）、
 MOC 79.2 → 85.9 秒、反応率と規格化 10.7 → 10.6 秒、燃焼行列と CRAM48 は合わせて 3 秒ほどで、全体 417.1 → 323.6 秒（22% 減。プロセスの
