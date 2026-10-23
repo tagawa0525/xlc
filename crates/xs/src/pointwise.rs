@@ -1,7 +1,7 @@
 //! 0 K のポイントワイズの断面積（lin-lin で補間できる表）の作成。
 //!
 //! MF3 の各反応を許容誤差まで線形化し、分離共鳴領域では共鳴パラメータから計算した断面積を
-//! 背景断面積に足す（NJOY の RECONR に相当）。
+//! バックグラウンド断面積に足す（NJOY の RECONR に相当）。
 
 use std::collections::BTreeMap;
 use std::convert::Infallible;
@@ -717,7 +717,7 @@ fn add_resonances(
     Ok(())
 }
 
-/// LSSF=0 の非分離共鳴の範囲 [el, eh] で、弾性散乱・核分裂・捕獲を、平均断面積と MF3 の背景断面積の和に
+/// LSSF=0 の非分離共鳴の範囲 [el, eh] で、弾性散乱・核分裂・捕獲を、平均断面積と MF3 のバックグラウンド断面積の和に
 /// 置き換える（NJOY RECONR と同じ）。和は格子点で求め、格子点の間は MF2 の補間則で補間してから線形化する。
 fn replace_with_unresolved(
     tables: &mut BTreeMap<u32, Tab1>,

@@ -31,7 +31,7 @@ use xlc_format::library::{
 pub struct Settings {
     pub groups: GroupStructure,
     pub weight: Weight,
-    /// 背景断面積 (barn)、降順。最初の値を無限希釈とみなす
+    /// バックグラウンド断面積 (barn)、降順。最初の値を無限希釈とみなす
     pub sigma0: Vec<f64>,
     /// S(α, β) を持たない核種で、この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う
     pub thermal_cutoff: f64,
@@ -161,7 +161,7 @@ pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessErro
     Ok(Mf7Incoherent::parse(&section)?)
 }
 
-/// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) と背景断面積 `sigma0` について作る
+/// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) とバックグラウンド断面積 `sigma0` について作る
 /// （NJOY UNRESR に相当）。非分離共鳴がなければ `None`。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn unresolved_shielding(
@@ -189,7 +189,7 @@ pub fn unresolved_shielding(
     let law = unresolved_interpolation(urr)?;
     let grid = unresolved_grid(urr, range.el, range.eh);
 
-    // MF3 の背景断面積（LSSF=0 のとき）。範囲の上端では内側（左側）の値を使う
+    // MF3 のバックグラウンド断面積（LSSF=0 のとき）。範囲の上端では内側（左側）の値を使う
     let background_table = |mt: u32| -> Result<Option<Tab1>, ProcessError> {
         if urr.lssf != 0 {
             return Ok(None);

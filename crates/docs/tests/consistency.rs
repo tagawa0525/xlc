@@ -243,7 +243,7 @@ fn production_sources_hold_no_test_code() -> Result<()> {
     Ok(())
 }
 
-/// 検証の記録の表が、比較の段階の JSON から描いた表と同じ（ADR-0176）。JSON は数 KB の要約で、DVC の出力
+/// 検証の記録の表が、比較のステージの JSON から描いた表と同じ（ADR-0176）。JSON は数 KB の要約で、DVC の出力
 /// （`cache: false`）のまま git で追跡するので、worktree でも nix の sandbox でも `dvc checkout` なしに走る。
 #[test]
 fn record_tables_match_the_compare_outputs() -> Result<()> {
@@ -401,7 +401,7 @@ fn main_reports_trials_left_by_a_merge() -> Result<()> {
 }
 
 /// linked worktree の `references` は、main の worktree の `references/` を指す symlink でなければならない。
-/// ないと DVC が worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階が止まる（ADR-0123、ADR-0126）。
+/// ないと DVC が worktree の中に別のキャッシュを黙って作り、ENDF を deps にするステージが止まる（ADR-0123、ADR-0126）。
 /// main の worktree では `references/` は実体なので、確かめることはない。
 #[test]
 fn linked_worktrees_share_references() -> Result<()> {

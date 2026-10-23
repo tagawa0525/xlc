@@ -6,7 +6,7 @@ edition.workspace = true
 [lints]
 workspace = true
 
-# xs の段階の一部（ADR-0166）。ENDF の読み口は xlc-xs のライブラリを使い、チェーンの型は xlc-depletion に置く
+# xs のステージの一部（ADR-0166）。ENDF の読み口は xlc-xs のライブラリを使い、チェーンの型は xlc-depletion に置く
 [dependencies]
 xlc-xs = { path = "../xs" }
 xlc-format = { path = "../format" }
