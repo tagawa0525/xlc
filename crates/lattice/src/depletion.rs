@@ -1394,8 +1394,25 @@ pub(crate) fn run_with_moc(
     let burnups: Vec<f64> = std::iter::once(0.0)
         .chain(depletion.burnup.iter().copied())
         .collect();
+    let nuclides: Vec<String> = chain.nuclides.iter().map(|n| n.name.clone()).collect();
+    let transportable: Vec<String> = chain
+        .nuclides
+        .iter()
+        .zip(&transportable)
+        .filter(|(_, t)| **t)
+        .map(|(n, _)| n.name.clone())
+        .collect();
     let (mut history, beginning) = match resumed {
         Some(Partial { history, next }) => {
+            // 指紋が同じなら同じになる。違えば壊れたチェックポイントなので、輸送の前に止める
+            if history.nuclides != nuclides
+                || history.regions != regions
+                || history.transportable != transportable
+                || next.len() != regions.len()
+                || next.iter().any(|n| n.len() != nuclides.len())
+            {
+                bail!("the resumed history does not match the regions and nuclides of this run");
+            }
             let done = history.points.len();
             let Some(&h) = steps.get(done.wrapping_sub(1)) else {
                 bail!(
@@ -1403,6 +1420,14 @@ pub(crate) fn run_with_moc(
                     steps.len()
                 );
             };
+            if history
+                .points
+                .iter()
+                .zip(&burnups)
+                .any(|(p, &b)| p.burnup != b)
+            {
+                bail!("the resumed history has other burnups than this run");
+            }
             let time = history.points[done - 1].time + h;
             tracing::info!(points = done, "resuming after the saved points");
             (
@@ -1415,15 +1440,9 @@ pub(crate) fn run_with_moc(
         }
         None => {
             let history = History {
-                nuclides: chain.nuclides.iter().map(|n| n.name.clone()).collect(),
+                nuclides,
                 regions: regions.clone(),
-                transportable: chain
-                    .nuclides
-                    .iter()
-                    .zip(&transportable)
-                    .filter(|(_, t)| **t)
-                    .map(|(n, _)| n.name.clone())
-                    .collect(),
+                transportable,
                 points: Vec::new(),
                 transport: TransportTimes::default(),
                 depletion: DepletionTimes::default(),
@@ -1460,26 +1479,20 @@ pub(crate) fn run_with_moc(
             transported: p.extra.transported,
         })
     };
-    let mut last = (TransportTimes::default(), 0, 0);
-    let times = ce_cm(chain, beginning, &steps[done..], solve, |p, step, times| {
-        last = (p.extra.transport, p.extra.solves, p.extra.shieldings);
+    ce_cm(chain, beginning, &steps[done..], solve, |p, step, times| {
+        // ここまでの輸送（ステップの終わりなら、点の後に解いた中点の輸送まで）の時間と回数
+        let latest = step.map_or(&p.extra, |(_, l)| l);
+        history.transport = before_transport.plus(latest.transport);
+        history.depletion = before_depletion.plus(times);
+        history.solves = before_solves + latest.solves;
+        history.shieldings = before_shieldings + latest.shieldings;
         let burnup = burnups[history.points.len()];
         history.points.push(point(p, burnup)?);
-        if let Some((next, latest)) = step {
-            last = (latest.transport, latest.solves, latest.shieldings);
-            history.transport = before_transport.plus(latest.transport);
-            history.depletion = before_depletion.plus(times);
-            history.solves = before_solves + latest.solves;
-            history.shieldings = before_shieldings + latest.shieldings;
+        if let Some((next, _)) = step {
             saved(&history, next)?;
         }
-        history.depletion = before_depletion.plus(times);
         Ok(())
     })?;
-    history.transport = before_transport.plus(last.0);
-    history.depletion = before_depletion.plus(times);
-    history.solves = before_solves + last.1;
-    history.shieldings = before_shieldings + last.2;
     Ok(history)
 }
 
