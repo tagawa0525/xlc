@@ -94,7 +94,7 @@ examples/depletion の 65 核種を作り直す Slurm の排他のジョブ 473�
 
 ## 確認
 
-- 出力（Slurm の排他のジョブ 479、xlc 0fdbdda1（分岐点 102533e8）、2026-10-23。手順は examples/depletion/issue-0157/measure.sh。DVC を通さない。0fdbdda1 の後のコミットは、パニックのときの止め方とログの span だけを変えた）:
+- 出力（Slurm の排他のジョブ 479、xlc a7c8546c（分岐点 102533e8）、2026-10-23。手順は examples/depletion/issue-0157/measure.sh。DVC を通さない。a7c8546c の後のコミットは、パニックのときの止め方とログの span だけを変えた）:
   - 核種ごとのステージの形（`xs nuclide`、既定のスレッドの数）、案 C の試行（`--threads` 1〜4）の 65 核種の msgpack は、どちらも 65 核種すべての
     md5 が examples/depletion/dvc.lock（ジョブ 473 の出力）と一致した
   - `xs <入力>`（案 B の形）の `depletion.msgpack` の md5 は dvc.lock と同じ ea77045e689e9684bd0ef26cabf4012a
