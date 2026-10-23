@@ -2,7 +2,7 @@
 
 格子計算が制御棒の分岐を作れるようになるまで（#0093）のつなぎ。格子計算は制御棒を入れた集合体を別の入力で解き、
 軸のない（連続の軸だけの）テーブルを出す。ここでは、群境界、連続の軸（名前、格子点、減速材の密度、B-10 の割合）、
-部分ノードの数、状態の数が同じであることを確かめ（違えばエラー。黙って結合しない）、値ごとの状態を制御棒の軸
+部分ノードの数、状態の数、初めの重金属の質量が同じであることを確かめ（違えばエラー。黙って結合しない）、値ごとの状態を制御棒の軸
 （最後の軸。いちばん速く変わる）に並べる。状態の項目はそのままコピーする（数値のビットを変えない）。
 
 使い方: python3 rod_table.py <出力> <値>=<テーブル> ...（最初の値は棒のない状態 out）
@@ -41,6 +41,12 @@ def main():
                 sys.exit(
                     f"{path} ({value}): {key} differs from {pairs[0][1]}: {table[key]} vs {first[key]}"
                 )
+        # 初めの重金属の質量（履歴から作ったテーブルだけが持つ。ADR-0190）は、どのテーブルも同じ値か、どれも持たない
+        if table.get("heavy_metal") != first.get("heavy_metal"):
+            sys.exit(
+                f"{path} ({value}): heavy_metal differs from {pairs[0][1]}: "
+                f"{table.get('heavy_metal')} vs {first.get('heavy_metal')}"
+            )
         if len(table["states"]) != len(first["states"]):
             sys.exit(
                 f"{path} ({value}): {len(table['states'])} states, {pairs[0][1]} has {len(first['states'])}"
