@@ -1875,7 +1875,7 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
 分岐の格子計算は a8f03866（lattice、format、depletion のクレートは bf8448db から変えていない。分岐点は main の 437a5e51）、2026-10-23
 （Slurm の排他のジョブ 477。`TIME:` の elapsed は 1 時間 26 分 17 秒で、ビルドの 31 秒を含む）。68 状態は 1 状態 78 秒程度（ログの最後の
 状態で 77.8 秒）。テーブル `table-2A-fine.msgpack` は md5 e0f66326（追跡しない生成物）。core と比較は feat/burnup-axis-interpolation の
-460508823（分岐点は main の f3a143d74。core の内挿は 22c4ed16a から変えていない）、2026-10-23（手元。core の 2 ケースは 1 秒未満）。
+a54faef8e（分岐点は main の f3a143d74）、2026-10-23（手元。core の 2 ケースは 1 秒未満）。
 
 テーブルの初めの重金属の質量は 1258.0981395709794 g/cm。履歴の燃焼度 0 の数密度と燃焼の領域の体積から、チェーンの Z（≥ 90）と
 ライブラリの AWR で求め直した値（格子計算の燃焼の出力の規格化と同じ式）とビットで一致した（ライブラリの ZA で重金属を選ぶ
@@ -1986,7 +1986,7 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
 elapsed は 55 分 59 秒でビルドの 1 分 55 秒を含む。1 状態 79.0 秒の平均）、2O は 484（35 分 47 秒。1 状態 30.2 秒の平均。`ufg-tolerance = 1e-4`
 による）。テーブルは `table-2A-all.msgpack` md5 51cb4573、`table-2O-all.msgpack` md5 2debe9a3（追跡しない生成物）。2A のライブラリは当時の
 main の `p2/depletion.msgpack`（md5 4ada8d75。履歴と同じ）、2O は今の main のもの（md5 015111df。履歴と同じ）。全点のテーブルの k∞ は
-履歴の k∞ を 2A で 0.064 pcm、2O で 0.065 pcm 以内で再現した。比較と core は feat/burnup-axis-interpolation の 460508823（分岐点は main の
+履歴の k∞ を 2A で 0.064 pcm、2O で 0.065 pcm 以内で再現した。比較と core は feat/burnup-axis-interpolation の a54faef8e（分岐点は main の
 f3a143d74）、2026-10-23（手元）。
 
 ### 結果
