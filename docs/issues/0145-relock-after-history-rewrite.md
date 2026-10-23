@@ -106,3 +106,11 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   md5 と size だけ）。lattice-1C と compare-1C は同じブランチで再実行した。lattice-2A は付け直さず、changed のまま残す
 - 2026-10-23: 3baba57c0（ADR-0183 の docstring の変更）で openmc-1C とその extract が changed になり、compare-1C の `dvc repro` が OpenMC を始めた
   （Slurm 454）。acfe57b01 で `dvc commit` により付け直した。「問題」の節と「案」の節に追記した
+- 2026-10-24: 語の規則を直したコミット（ed95d3d44。#0142）が `examples/depletion/p2/xs.toml` と `examples/depletion/chain.toml` のコメントだけを
+  直し、p2 の `xs-range`、`xs` と examples/depletion の `chain` が再び changed になった（同じ問題の 2 度目）。p2 の `xs-nuclide` の 90 本も
+  `bin/xs` の md5 の変化（d3dc3807 → c6bdf397。ADR-0188 のビットを保つベクトル化とスレッドの変更）で changed で、`compare@<job>` を目標に
+  `dvc repro` を流すとライブラリの作り直しが走る。高速化の後の p2 の再実行（ブランチ chore/p2-rerun-after-speedups）で、投げる前の
+  `dvc status --with-deps` で見つけ、ライブラリと `chain` を再実行して出力の md5 を lock と比べた（結果は examples/depletion/verification.md の
+  「集合体の燃焼」の「計算」）。同じ時点で、p2 の NJOY のステージ（openmc-neutron、openmc-thermal、openmc-index）と、
+  examples/depletion の xs-range、xs、NJOY のステージ、openmc-chain も changed のまま残る（このブランチでは再実行していない。p2 の集合体の
+  燃焼の目標の上流には入らない）
