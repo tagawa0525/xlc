@@ -59,6 +59,6 @@ opt-level 1 でワークスペースの実行した 1152 テストがすべて�
 
 - `cargo test`、`run-checks.sh`、/git-merge のチェックが、同じ設定で速くなる
 - debug の `cargo build` も opt-level 1 になる。デバッガで変数が消えるときは `--config 'profile.dev.opt-level=0'` で戻す
-- 段階の実行ファイルは release（`target/dvc`、ADR-0159）でビルドするので、この設定の影響を受けない見込み。
+- ステージの実行ファイルは release（`target/dvc`、ADR-0159）でビルドするので、この設定の影響を受けない見込み。
   `dvc status` で確かめてはいない（worktree には `bin/` がなく比べられない）
 - 本番の release と dev で最適化の度合いが違う点は変わらない。release の結果を確かめるテストは、この ADR の対象外

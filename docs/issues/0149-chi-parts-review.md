@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 ADR-0186 の実装（ブランチ feat/0133-fission-spectrum）のコードレビューの 2 周目で、ENDF/B-VIII.0 のライブラリの出力を変えない
-指摘を残した。どれも xs のコードを変えるとライブラリ（examples/depletion/depletion.msgpack。作り直しに約 2 時間）の段階が
+指摘を残した。どれも xs のコードを変えるとライブラリ（examples/depletion/depletion.msgpack。作り直しに約 2 時間）のステージが
 changed になるので、このブランチでは直していない。
 
 1. LF=5 の g(x) は、x = 0 で正の値から始まることを読み込みで求める。割合の分母（(E − U)/θ までの g の積分）が正であるための条件

@@ -38,7 +38,7 @@ OpenMC の参照解を作ってきた（ADR-0031。ツールの固定は ADR-012
 案 C にする（ユーザーの決定、2026-10-15）。
 
 - 検証用ライブラリは、本番の `examples/vera/xs.toml` と同じ核種・温度・群で、ENDF だけ VII.0 にしたもの
-  （`endfb70/xs.toml`）。本番のライブラリ（VIII.0）と、その結果は変えない。コードも変えない。段階は `examples/vera/endfb70/dvc.yaml`（入力は `endfb70/xs.toml`、
+  （`endfb70/xs.toml`）。本番のライブラリ（VIII.0）と、その結果は変えない。コードも変えない。ステージは `examples/vera/endfb70/dvc.yaml`（入力は `endfb70/xs.toml`、
   3A・3B の入力は `p3_inputs.py --library-dir endfb70` が `endfb70/p3` に書く）
 - 仕様書に KENO-VI の値がある問題（1B〜1D、2A〜2K、2Q、3A、3B）を VII.0 のライブラリで解き、KENO-VI と比べる
 - OpenMC の参照解は、仕様書に参照がない問題（燃焼、分岐、HFP）と、原因の診断に反応率が要るときの 2D の小さな問題だけ作る。

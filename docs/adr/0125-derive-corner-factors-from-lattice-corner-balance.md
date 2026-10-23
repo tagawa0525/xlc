@@ -30,7 +30,7 @@ ADR-0096 の展開では、角の値は展開の結果でなく条件である�
   GET の等価性と同じ考え方。ADR-0103）
 - 原理で決まり、手で合わせる係数を持たないこと
 - 外周がすべて鏡面反射の単一の格子では、今の CDF（ADR-0096）に一致すること
-- 段階のクレートの独立（[ADR-0002](0002-keep-stage-crates-independent.md)）と、共通の計算の切り出し（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
+- ステージのクレートの独立（[ADR-0002](0002-keep-stage-crates-independent.md)）と、共通の計算の切り出し（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
 
 ## 検討した案
 

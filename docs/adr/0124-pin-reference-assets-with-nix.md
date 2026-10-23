@@ -18,7 +18,7 @@ requires: []
 PDF は取る手順の記録がなかった。
 
 ADR-0122 は、記録の hash を checkout すれば、固定した環境のもとで当時の結果を出し直せることを求め、その環境を #0018 で
-整えるとした。ADR-0123 は計算の段階を DVC で駆動すると決め、examples/m0/dvc.yaml は `../../references/endf/...` の
+整えるとした。ADR-0123 は計算のステージを DVC で駆動すると決め、examples/m0/dvc.yaml は `../../references/endf/...` の
 ENDF のファイルと `flake.lock` を deps にしている。
 
 判断の軸:
@@ -26,7 +26,7 @@ ENDF のファイルと `flake.lock` を deps にしている。
 - 外から取るものが差し替わったら気づけること（URL とハッシュ）
 - ツールの版、パッチ、コンパイラ、依存のライブラリを、コミットした記述から作り直せること
 - `references/` を消しても、手順なしに作り直せること
-- 環境の固定（Nix）と計算の段階の駆動（DVC、ADR-0123）の役割を分け、DVC の deps と食い違わないこと
+- 環境の固定（Nix）と計算のステージの駆動（DVC、ADR-0123）の役割を分け、DVC の deps と食い違わないこと
 
 ## 検討した案
 
@@ -38,7 +38,7 @@ ENDF のファイルと `flake.lock` を deps にしている。
 - 案 B: 取得とビルドのスクリプトに、URL と sha256 の一覧を添える。ハッシュは照らせるが、コンパイラと依存のライブラリは
   スクリプトを実行したときの環境に任され、作ったものがどの記述から来たかが残らない
 - 案 C: DVC のステージで取り、ビルドする（`dvc import-url` など）。DVC は内容の md5 で出力を追うが、ツールのビルドの環境
-  （コンパイラ、ライブラリ）を固定しない。環境は Nix、段階の駆動は DVC と分ける（ADR-0123 の案 E と同じ切り分け）
+  （コンパイラ、ライブラリ）を固定しない。環境は Nix、ステージの駆動は DVC と分ける（ADR-0123 の案 E と同じ切り分け）
 
 ENDF の zip の取り方:
 
@@ -57,7 +57,7 @@ OpenMC の Python API（openmc、endf）の固定:
 - 案 H: PyPI の wheel（manylinux）を `fetchurl` で取って入れる。今の venv とバイナリが同じになるが、nix store の外の
   ライブラリを前提にした wheel を patchelf で直すことになり、ソースからのビルドより脆い
 - 案 I: uv2nix、poetry2nix などのロックのツールを flake の入力に足す。依存 2 つのために入力が増え、`flake.lock` が
-  変わる（examples/m0/dvc.yaml は `flake.lock` を deps にしているので、M0 の段階が再実行する）
+  変わる（examples/m0/dvc.yaml は `flake.lock` を deps にしているので、M0 のステージが再実行する）
 
 固定した資産を `references/` に見せる方法:
 
@@ -111,7 +111,7 @@ flake.nix の packages:
 - `default` の devShell には dvc の実行ファイルだけを入れる。`pkgs.dvc` をそのまま入れると、Python の setup hook が
   dvc の依存を `PYTHONPATH` に足し、検証用の Python のパッケージより先に読まれる。`references` の devShell は
   `PYTHONPATH` を外し、外の shell の Python のパッケージを読まない
-- ツールを足しても flake の入力は増やさない。`flake.lock` は M0 の段階の deps なので（ADR-0123）、変えると M0 が再実行する
+- ツールを足しても flake の入力は増やさない。`flake.lock` は M0 のステージの deps なので（ADR-0123）、変えると M0 が再実行する
 
 `references/` の扱い:
 
@@ -127,7 +127,7 @@ Nix と DVC の役割:
 
 - Nix は環境（外から取る入力、ツール、そのコンパイラとライブラリ）を固定する。何から作ったかは flake.nix と
   `flake.lock` の内容で決まり、store のパスがそれを表す
-- DVC は計算の段階を駆動し、段階の deps と outs を内容の md5 で追う（ADR-0123）。ENDF のファイルは、out-link を通した
+- DVC は計算のステージを駆動し、ステージの deps と outs を内容の md5 で追う（ADR-0123）。ENDF のファイルは、out-link を通した
   パスで deps にする。DVC は symlink をたどって中身の md5 を取るので、store のパスが変わっても中身が同じなら走らない
 
 ## 確認

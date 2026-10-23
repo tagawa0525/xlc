@@ -8,15 +8,15 @@ blocked-by: []
 resolution: ADR-0163
 ---
 
-# faer を依存に持つクレートを足すと、build の段階の 3 つの実行ファイルがすべて変わる
+# faer を依存に持つクレートを足すと、build のステージの 3 つの実行ファイルがすべて変わる
 
 ## 問題
 
-燃焼のソルバのクレート `xlc-depletion`（ADR-0162。faer に依存し、どの段階のクレートもまだ依存しない）を足した
+燃焼のソルバのクレート `xlc-depletion`（ADR-0162。faer に依存し、どのステージのクレートもまだ依存しない）を足した
 ブランチ feat/cram-depletion-solver（main の 321efe1c に rebase したもの、2026-10-14）で、直下の dvc.yaml の `build` を実行すると、
 3 つの実行ファイルの md5 がすべて変わった（xs: e77257b3 → 563bfe80、lattice: 85a3c566 → 9846663c、core: fe2d8761 → 6cf69103）。
 `crates/depletion` を外し、`Cargo.toml` と `Cargo.lock` を main に戻すと、main の dvc.lock と同じ md5 に戻る。このままマージすると、
-実行ファイルを deps に持つ計算の段階がすべて古くなる。
+実行ファイルを deps に持つ計算のステージがすべて古くなる。
 
 原因の候補: `scripts/build-binaries.sh` はワークスペースの全体を 1 回の `cargo build --release` で作り（ADR-0159 の案 T1）、Cargo は
 共有する依存の feature をワークスペースの全体で統合する。`cargo tree --workspace -e features` では、faer が加わると num-complex に
@@ -35,16 +35,16 @@ tracing-attributes を通じて 3 つのすべてが依存するので、lattice
 ワークスペースの全体をビルドすると決めており、`-p` にするとその性質（perf などで `target/release` を使う。docs/environment.md、
 ADR-0160）が崩れる。ADR-0159 を置き換える決定になる。3 つを 1 回の cargo にしても、lattice と core のどちらかが新しい依存を
 持てば残りの 2 つも変わりうる（別々の cargo の測定のとおり結びついている）ので、根本の解決ではない。別々の cargo は結びつきを
-切るが、lattice と core の段階を一度再実行することになる。
+切るが、lattice と core のステージを一度再実行することになる。
 
 関係する ADR: [ADR-0163](../adr/0163-build-stage-binaries-as-one-package-set.md)
 
 ## 完了の条件
 
-- 次のどれかを ADR で決めてある: (a) ワークスペースの全体のビルドのまま、faer を足したときに段階を再実行する、(b) 3 つを
+- 次のどれかを ADR で決めてある: (a) ワークスペースの全体のビルドのまま、faer を足したときにステージを再実行する、(b) 3 つを
   1 回の cargo で作る（ADR-0159 の案 T1 の全体のビルドの部分を置き換え、`target/release` との違いを docs/environment.md に書く）、(c) 3 つを別々の cargo で作る
-  （lattice と core の段階を一度再実行する）
-- feat/cram-depletion-solver をマージする前に、その決定で `build` を実行し、`bin/` の md5 と再実行する段階が分かっている
+  （lattice と core のステージを一度再実行する）
+- feat/cram-depletion-solver をマージする前に、その決定で `build` を実行し、`bin/` の md5 と再実行するステージが分かっている
 
 ## 経緯
 

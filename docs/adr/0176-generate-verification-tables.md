@@ -7,7 +7,7 @@ superseded-by:
 issues: ["#0130"]
 ---
 
-# ADR-0176: 検証の記録の数値の表を、比較の段階が書く JSON から描き、記録と一致することを検査する
+# ADR-0176: 検証の記録の数値の表を、比較のステージが書く JSON から描き、記録と一致することを検査する
 
 ## 背景
 
@@ -35,10 +35,10 @@ issues: ["#0130"]
 
 ### 表の作り方
 
-- 案 A: 比較のツールが JSON を段階の outs に書き、別の 1 本のツールが記録の目印の間をそこから描いた表で置き換える（採る）
+- 案 A: 比較のツールが JSON をステージの outs に書き、別の 1 本のツールが記録の目印の間をそこから描いた表で置き換える（採る）
 - 案 B: 比較のツールが Markdown の断片（表）を直接書き、記録がそれを取り込む。ツールが表の形（列、桁、符号、全角の幅）を
   知ることになり、同じ量を別の表（問題の組み合わせや列の並びが違うもの）に使い回せない。複数の問題の行を 1 つの表にまとめる
-  のは、問題ごとに走る段階の外の仕事なので、結局まとめるツールが要る。数値と文章の分離ができず、`--check` で比べるのも文字列になる
+  のは、問題ごとに走るステージの外の仕事なので、結局まとめるツールが要る。数値と文章の分離ができず、`--check` で比べるのも文字列になる
 - 案 C: 記録を Markdown でなく生成物にする（テンプレートと JSON から全体を作る）。記録は文章（原因の候補、確かめていないこと、
   再現のコマンド）が大半で、表は一部である。文章をテンプレートに移すと、書き直し（ADR-0117 の「今の姿」）のたびにテンプレートと
   記録の 2 つを読むことになり、読みやすさと保守の両方で悪い。git の差分でも記録が読めなくなる
@@ -54,13 +54,13 @@ issues: ["#0130"]
 
 表の下の「計算: <コミット>、<日付>」（実際の記録では、本文に「数値は 60cf97d0（分岐点 4b644566）、2026-10-14」の形）。
 
-- 案 A: 段階が `git rev-parse HEAD` を呼んで JSON に書く。JSON の md5 が、段階を実行したコミットごとに変わる。rebase で hash が変わると、
+- 案 A: ステージが `git rev-parse HEAD` を呼んで JSON に書く。JSON の md5 が、ステージを実行したコミットごとに変わる。rebase で hash が変わると、
   JSON の中の hash を `commit-refs remap` で書き換える必要があり（対象が JSON にも広がる）、書き換えると `dvc.lock` の md5 と合わなくなる。
-  ADR-0122 は rebase のあとに測り直さず付け替えると決めており、段階を再実行しない限り JSON は変えられない。また、1 つの表の数値は
-  複数の段階が出す（xlc の炉心は core の段階、OpenMC は実行 m3、比較は compare の段階）ので、比較の段階の HEAD だけでは足りない
+  ADR-0122 は rebase のあとに測り直さず付け替えると決めており、ステージを再実行しない限り JSON は変えられない。また、1 つの表の数値は
+  複数のステージが出す（xlc の炉心は core のステージ、OpenMC は実行 m3、比較は compare のステージ）ので、比較のステージの HEAD だけでは足りない
 - 案 B: ツールが `git log -1 --format=%h -- <dvc.lock>` で、その JSON の出力を最後に変えた `dvc.lock` のコミットを取る。取れるのは
   `dvc.lock` のコミット（実行したコミットの次）であって、実行したコミットではない（topic-start の「ジョブが終わったら」の通り、
-  記録に書くのは実行したときの HEAD で、`dvc.lock` はその次のコミット）。relock（rebase のあとに数秒の段階を再実行する）でも変わり、
+  記録に書くのは実行したときの HEAD で、`dvc.lock` はその次のコミット）。relock（rebase のあとに数秒のステージを再実行する）でも変わり、
   分岐点の復元の記録（「分岐点 4b644566」）も出せない
 - 案 C: 今までどおり手で書く。コミットは `commit-refs remap` が付け替える（ADR-0122）。表の数値は検査され、欄は書く人が書く
   （採る）。表の数値と欄の対応が崩れる余地は残る
@@ -77,7 +77,7 @@ issues: ["#0130"]
 ### 文章の `.out` の扱い
 
 - 案 A: 比較のツールが `.out` と JSON の両方を書く（最初の試作）。同じ数が 2 つの出力に二重にあり、出力の種類（msgpack、`.out`、JSON）が
-  段階ごとに増える。捨てた
+  ステージごとに増える。捨てた
 - 案 B: JSON だけを書き、文章は `--report` で JSON から描く（採る）。数値の元は 1 か所で、文章は必要なときに描く
 
 ### JSON の置き場
@@ -108,14 +108,14 @@ issues: ["#0130"]
    `compare-3A.out` と `compare-3B.out` と 1 バイトも違わない（確認で比べた）。割合は小数、k の差は pcm、位置は [行, 列]、層は 1 始まり。
    形は `{"format": "xlc-compare-p3", "problem", "k": {...}, "axial_vs_keno": {...}, "axial_vs_openmc": {...}, "pins_vs_openmc": {...},
    "layer_pins": {"levels": [...]}, ...}`（examples/vera/compare_p3.py の docstring）。OpenMC の参照解は DVC のステージの出力でない
-   （AWS の VM の実行 m3 から取り出した `references/` のファイル）ので、それを deps にする段階 `compare-<問題>-openmc` を足す。
-   従来の `compare-<問題>.out` の段階は `compare-<問題>.json`（KENO-VI だけ）になる。今後の比較のツール（compare_p5.py、compare_keno.py など）も
+   （AWS の VM の実行 m3 から取り出した `references/` のファイル）ので、それを deps にするステージ `compare-<問題>-openmc` を足す。
+   従来の `compare-<問題>.out` のステージは `compare-<問題>.json`（KENO-VI だけ）になる。今後の比較のツール（compare_p5.py、compare_keno.py など）も
    同じ形にする（#0130）
 3. **表を描くツール**: `examples/verification_tables.py <記録>`。記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、
    その名前の表（空行 + 表 + 空行）で置き換える。名前と JSON と描く関数の対応はツールの `TABLES`。目印の中は丸ごと置き換わるので、
    脚注などの文章は目印の外に書く。未知の名前、閉じていない目印、入れ子、同じ名前の 2 回の使用は
    エラー。列は prettier と同じ幅（全角を 2）でそろえ、負の符号は記録と同じ U+2212。標準ライブラリだけ
-4. **`--check`**: 置き換えず、描いた表と記録が違えば差分を出して 1 で終わる。JSON が無い（段階を実行していない。`dvc repro` の指示を出す）、JSON の md5 が
+4. **`--check`**: 置き換えず、描いた表と記録が違えば差分を出して 1 で終わる。JSON が無い（ステージを実行していない。`dvc repro` の指示を出す）、JSON の md5 が
    同じ場所の `dvc.lock` の値と違う（再実行して relock していない、手で直した）ときも 1 で終わる。黙って読み飛ばさない
 5. **計算の欄は手で書く**。案 A は rebase と相性が悪く、案 B は取れる値が違う（上）。欄は `commit-refs remap` が付け替え、
    表の数値は `--check` が検査する。残る穴（表の数値と欄の hash の対応）は、JSON の md5 が `dvc.lock` と一致するかを検査することと、
@@ -128,7 +128,7 @@ issues: ["#0130"]
 
 試作（ブランチ feat/verification-tables、分岐点は main の 1e0c5941、2026-10-15）で確認した。
 
-- 描いた 2 つの表は、既存の手で打った表と文字まで同じ（誤りの修正は 0 件）。段階は 4 つ（compare-3A、compare-3B、compare-3A-openmc、
+- 描いた 2 つの表は、既存の手で打った表と文字まで同じ（誤りの修正は 0 件）。ステージは 4 つ（compare-3A、compare-3B、compare-3A-openmc、
   compare-3B-openmc）を `dvc repro -s` で再実行した（秒。コード、炉心の出力、OpenMC の参照解は変えていない）。`--report` の出力は、
   JSON にする前の `compare-3A.out`、`compare-3B.out`、`compare-3A-openmc.out`、`compare-3B-openmc.out` と 1 バイトも違わない。
   `compare_hzp.py`（`axial_report` を使う）の `hzp/compare-hzp.out` の md5 も変わらない
@@ -150,4 +150,4 @@ issues: ["#0130"]
   `python3 -m unittest discover -s examples -p 'test_verification_tables.py'` を実行する（`test_compare_p3.py` と同じ）
 - 比較のツールが `--json` を持つたびに `p3_inputs.py` のような生成元と TABLES を足す。表の形の知識は `verification_tables.py` に集まる
 - 試作の 2 つの表の元の `compare-<問題>-openmc` は、OpenMC の参照解の 4 つのファイルを deps にする。参照解を作り直したら（実行 m3 でなくなったら）
-  deps のパスを直し、段階を再実行する
+  deps のパスを直し、ステージを再実行する

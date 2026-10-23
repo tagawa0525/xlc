@@ -27,7 +27,7 @@ ADR-0146、ADR-0145 で入った。3D の全炉心の入力は骨組みだけで
   状態を足し、compare_hzp.py の状態の検査（いまは挿入した場合をエラーにする）をバンクの位置を比べる形にする
 - DVC のステージ: core（`core core-hzp.toml > core-hzp.out`）と比較（`python3 compare_hzp.py <spec> core-hzp.toml
   core-hzp.out > compare-hzp.out`）を examples/vera/p5/dvc.yaml に足す。dvc.yaml は feat/p5-2d が作るので、
-  そのマージの後に足す（いま作ると、両方のブランチが同じファイルを足すうえ、入力のない段階が `dvc repro -P` を
+  そのマージの後に足す（いま作ると、両方のブランチが同じファイルを足すうえ、入力のないステージが `dvc repro -P` を
   止める）
 
 関係する ADR: ADR-0145、ADR-0146、ADR-0154
@@ -41,17 +41,17 @@ examples/vera/verification.md に書く。
 
 - 2026-10-12: 計算の仕組みと比較のツールを入れたブランチ feat/p5-hzp-tests で起こした
 - 2026-10-13: 最小の入力の試行（f7b10bc8、feat/p3-xlc の xs.toml に 560、570 K を足したライブラリ）で、3.10% の燃料の層の格子 `31-fuel` と `31-fuel-aic` が分岐の 8 状態を通った（k∞ は 1100 ppm、560 K で 1.206516 と 0.866747、1400 ppm、570 K で 1.171749 と 0.845511）。残りの格子と炉心は、格子の自己遮蔽の高速化（perf/0039-shielding-time）のあとに再実行する
-- 2026-10-14: 3.10% の最小の入力の格子 19 段階（単一集合体 7、反射体 6、制御棒のテーブル 2、内挿と 2D の小さな炉心 4）を
+- 2026-10-14: 3.10% の最小の入力の格子 19 ステージ（単一集合体 7、反射体 6、制御棒のテーブル 2、内挿と 2D の小さな炉心 4）を
   93f0b407（分岐点 704b59e5）の実行ファイルで解いた。main（a66351f2）へ rebase して実行ファイルが変わった（ADR-0157、
   ADR-0158。bin/lattice の md5 bd5af095）ので、f19b6917 の trials/p5-hzp/same_state.py で、`31-fuel` と `reflector-I-31-fuel`
   の最初の状態（1100 ppm、560 K、560 K）を新しい実行ファイルで解き直し、前の出力の同じ状態とビット単位で同じことを確かめた
   （lattice/31-fuel.msgpack の md5 3a2eef2a、lattice/reflector-I-31-fuel.msgpack 016d2181、
-  lattice/reflector-I-31-fuel-fuel.msgpack 9809e8dd）。19 段階は流し直さず、dvc.lock に記録する。平板（`axial-31`、
+  lattice/reflector-I-31-fuel-fuel.msgpack 9809e8dd）。19 ステージは流し直さず、dvc.lock に記録する。平板（`axial-31`、
   `axial-31-rcca`）は ADR-0158 で解き方が変わるので、新しい実行ファイルで解き直した
 - 2026-10-14: 最小の入力の 3D の炉心（small、small-half）が、角の反射体の列の厚さ 0.056 cm のノード（Pyrex の毒物の下端
   15.761 cm と KENO の層の境界 15.817 cm の間）で core の NEM の反復を止めた（#0123）。炉心のメッシュと設計の層から
   15.761 cm を除き、その 0.056 cm を下の端栓の層に含めて進める（ADR-0154。Problem 3B で測った効きは k +0.03 pcm、軸方向の
-  出力は層 1 で +0.172%、層 2 で +0.117%、層 3 で +0.060%、AO −0.0409% → −0.0478%）。#0123 が入ったら、炉心の段階だけを
+  出力は層 1 で +0.172%、層 2 で +0.117%、層 3 で +0.060%、AO −0.0409% → −0.0478%）。#0123 が入ったら、炉心のステージだけを
   元の層で再実行する（格子と平板は境界に依らない）
 - 2026-10-14: 全 32 の場合と場合 1、2 の臨界ホウ素濃度の探索を解き、KENO-VI と実測値と比べて examples/vera/verification.md の
   「Problem 5 の 3D の炉心の計算」に書いた（k は KENO-VI に +148〜+194 pcm、臨界ホウ素濃度は実測に +15、+19 ppm、バンクの価値の

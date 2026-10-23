@@ -17,7 +17,7 @@ OpenMC の statepoint には、実行する前に定義したタリーしか入�
 （2A〜2Q、3A、3B のピンと層、5-2D のピンと集合体）だけで、細かな比較は比較ごとに別の実行で作ってきた:
 
 - 燃料の核種ごとの実効断面積: 入力の `effective-xs-groups` に xlc のライブラリを書いて再実行する。xlc のライブラリは
-  xs のコードを変えるたびに作り直されるので、それを deps にすると OpenMC の段階が再実行する（ADR-0130 の帰結）
+  xs のコードを変えるたびに作り直されるので、それを deps にすると OpenMC のステージが再実行する（ADR-0130 の帰結）
 - 物質ごと・群ごとの中性子収支と移行行列: `openmc_balance.py` の別の実行（1B で 59 分、2K で 97 分、16 スレッド。
   examples/vera/verification.md の「k の差の内訳」）
 
@@ -48,7 +48,7 @@ Problem 3 と 5-2D の参照解は 1 本が 5〜6 時間で、外部の計算機
   71 のビン。境界はモジュールに定数で持ち、xlc の crates/format/src/group.rs と同じことを確認のスクリプトが照らす。範囲の
   外のビンは、バランス（すべてのエネルギーの生成で規格化する）に要る（`openmc_balance.py` の `outside` と同じ）
 - 案 E: xlc のライブラリ（vera.msgpack）から群構造を読む（`openmc_common.group_filter`）。xs のコードを変えるたびに
-  OpenMC の段階が再実行する（ADR-0130 の帰結）
+  OpenMC のステージが再実行する（ADR-0130 の帰結）
 
 群構造に縛られない量:
 
@@ -112,7 +112,7 @@ Problem 3 と 5-2D の参照解は 1 本が 5〜6 時間で、外部の計算機
 既存のツールとの関係:
 
 - `openmc_model.py` の extract は、`fuel-xs.msgpack`（ピンセル）と `pin-xs.msgpack`（集合体。2K の 2 種の燃料も）を標準の組の
-  `nuclides` と `pin nuclides` から書く。入力の `effective-xs-groups` はなくした（xlc のライブラリを OpenMC の段階の deps に
+  `nuclides` と `pin nuclides` から書く。入力の `effective-xs-groups` はなくした（xlc のライブラリを OpenMC のステージの deps に
   しない）
 - `openmc_balance.py` の別の実行は残す。平均は標準の組から作れるが、σ に要る世代ごとの値が statepoint に残らない（#0096）
 

@@ -134,7 +134,7 @@ neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-ni
   `removes_the_parent_without_products_by_spontaneous_fission`、`rescales_decay_ratios_that_sum_close_to_one`、
   `matches_excited_states_to_isomers_by_the_nearest_energy`、`keeps_the_remainder_when_mf8_lists_only_isomers`、
   `borrows_yields_from_the_nearest_mass_of_the_same_element` ほか）と、ENDF の読み口の crates/chain/src/endf/tests.rs
-- 実行ファイル: `bin/chain` を別の cargo で作る build の段階（ADR-0166）で、`bin/xs`、`bin/lattice`、`bin/core` の md5（e77257b3、
+- 実行ファイル: `bin/chain` を別の cargo で作る build のステージ（ADR-0166）で、`bin/xs`、`bin/lattice`、`bin/core` の md5（e77257b3、
   03b6048d、fe2d8761）が main の dvc.lock と同じ（a19a9112、2026-10-14）
 - OpenMC との比較（examples/depletion/verification.md の「燃焼チェーン」、a19a9112、2026-10-14）: 核種の集合（3,820）、半減期、
   自分の収率（31 核種）が一致し、崩壊の分岐、反応、借りる収率の違いは、すべてこの ADR の規則で説明がつく。同じ 1 群の反応率で
