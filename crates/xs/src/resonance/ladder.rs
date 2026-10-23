@@ -12,7 +12,7 @@ use num_complex::Complex64;
 
 use super::{ShieldedSigma, Sigma};
 use crate::endf::WidthDof;
-use crate::special::faddeeva_upper;
+use crate::special::faddeeva_along_x;
 
 /// サンプルの数。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -311,7 +311,7 @@ pub(super) fn add_ladder(
     // 弾性散乱 (π/k²) g 2 Re[a_r (i√π/Δ) w] = scale/2 · √π/Δ · Re[i a_r w]
     let elastic_scale = 0.5 * q.scale * root_pi / q.delta;
     let mut x = vec![0.0; energies.len()];
-    let mut w = vec![Complex64::ZERO; energies.len()];
+    let mut w = Vec::with_capacity(energies.len());
     for (r, c) in ladder.iter().zip(sums) {
         let ar = r.gn * (c + Complex64::i() * a);
         let y = 0.5 * r.gamma / q.delta;
@@ -331,13 +331,11 @@ pub(super) fn add_ladder(
                 x.partition_point(|&x| x <= ASYMPTOTIC),
             )
         };
-        for (w, &x) in w[..first].iter_mut().zip(&x[..first]) {
-            *w = Complex64::i() / (root_pi * Complex64::new(x, y));
-        }
-        faddeeva_upper(y, &x[first..last], &mut w[first..last]);
-        for (w, &x) in w[last..].iter_mut().zip(&x[last..]) {
-            *w = Complex64::i() / (root_pi * Complex64::new(x, y));
-        }
+        let asymptotic = |&x: &f64| Complex64::i() / (root_pi * Complex64::new(x, y));
+        w.clear();
+        w.extend(x[..first].iter().map(asymptotic));
+        faddeeva_along_x(y, &x[first..last], &mut w);
+        w.extend(x[last..].iter().map(asymptotic));
         for (e, w) in parts.elastic.iter_mut().zip(&w) {
             *e += (iar * w).re;
         }
