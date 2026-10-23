@@ -82,6 +82,17 @@
 //! weighting = "flux"   # flux（ADR-0127）か volume（採らなかった体積の重み。比べるときだけで、fine-mesh は書かない）
 //! fine-mesh = 0.25     # 細かいメッシュの幅の上限 (cm)
 //! ```
+//!
+//! 燃焼（ADR-0190）のケースは `[depletion]` を持ち、名前つきの状態（`burnup` と `search` を書かないもの）をちょうど 1 つ
+//! 持つ。その状態をすべてのステップに使い、ノードごとの燃焼度を 0 から進める。`radial-nodes` は 1 で、`pin-powers` と
+//! `axial-pin-powers` は書けない:
+//!
+//! ```toml
+//! [depletion]
+//! specific-power = 38.41                      # 定格の出力密度 (W/g、炉心の平均、初めの重金属)
+//! steps = [{ efpd = 9.0 }, { efpd = 32.0 }]   # ステップの終わりの累積の EFPD。0 より大きく増える
+//! history = "history.msgpack"                 # 燃焼の履歴の出力
+//! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
@@ -711,6 +722,109 @@ pub struct Case {
     pub partial_rods_given: bool,
     /// 核分裂のある層ごとのピン出力と軸方向の出力を書くファイル。状態が1つ以下のときだけ
     pub axial_pin_powers: Option<PathBuf>,
+    /// 燃焼のステップ（ADR-0190）
+    pub depletion: Option<DepletionInput>,
+}
+
+/// ケースの `[depletion]`（ADR-0190）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct DepletionInput {
+    /// 定格の出力密度 (W/g、炉心の平均、初めの重金属)
+    pub specific_power: f64,
+    /// ステップ（0 より大きく増える累積の EFPD の順）
+    pub steps: Vec<DepletionStep>,
+    /// 燃焼の履歴を書くファイル
+    pub history: PathBuf,
+}
+
+/// 燃焼のステップ。ステップの中の出力は定格で一定（ADR-0190）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DepletionStep {
+    /// ステップの終わりの累積の EFPD
+    pub efpd: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct DepletionEntry {
+    specific_power: f64,
+    steps: Vec<StepEntry>,
+    history: PathBuf,
+}
+
+/// 項目は、効くようになるときに足す（出力の割合、入口の温度など。ADR-0190）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StepEntry {
+    efpd: f64,
+}
+
+impl DepletionInput {
+    fn new(entry: DepletionEntry, base: &Path) -> Result<Self, InputError> {
+        let p = entry.specific_power;
+        if !(p > 0.0 && p.is_finite()) {
+            return invalid(format!(
+                "depletion: specific-power must be positive, got {p}"
+            ));
+        }
+        let efpd: Vec<f64> = entry.steps.iter().map(|s| s.efpd).collect();
+        if efpd.is_empty()
+            || !efpd.iter().all(|e| e.is_finite())
+            || efpd[0] <= 0.0
+            || !efpd.windows(2).all(|w| w[0] < w[1])
+        {
+            return invalid(format!(
+                "depletion: the step efpd must increase from above 0, got {efpd:?}"
+            ));
+        }
+        Ok(Self {
+            specific_power: p,
+            steps: efpd
+                .into_iter()
+                .map(|efpd| DepletionStep { efpd })
+                .collect(),
+            history: normalized(&base.join(entry.history)),
+        })
+    }
+
+    /// ケースの状態と出力の組み合わせを確かめる
+    fn check(
+        &self,
+        states: &[CaseState],
+        pin_powers: bool,
+        radial_nodes: usize,
+    ) -> Result<(), InputError> {
+        let [state] = states else {
+            return invalid(format!(
+                "depletion needs exactly one state, got {}",
+                states.len()
+            ));
+        };
+        if state.burnup.is_some() {
+            return invalid(format!(
+                "state {}: give no burnup; the depletion advances the node burnups (ADR-0190)",
+                state.name
+            ));
+        }
+        if matches!(state.boron, Boron::Search(_)) {
+            return invalid(format!(
+                "state {}: boron searches are not taken in depletion steps yet (ADR-0190)",
+                state.name
+            ));
+        }
+        if pin_powers {
+            return invalid(
+                "depletion: pin-powers and axial-pin-powers are not written yet (ADR-0190)",
+            );
+        }
+        // テーブルの重金属の質量は格子全体の 1 つの値で、部分ノードごとの質量を持たない
+        if radial_nodes != 1 {
+            return invalid(format!(
+                "depletion needs radial-nodes = 1, got {radial_nodes} (ADR-0190)"
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Deserialize)]
@@ -724,6 +838,7 @@ struct CaseFile {
     pin_powers: Option<PathBuf>,
     partial_rods: Option<PartialRodsEntry>,
     axial_pin_powers: Option<PathBuf>,
+    depletion: Option<DepletionEntry>,
 }
 
 #[derive(Deserialize)]
@@ -920,6 +1035,18 @@ impl Case {
                 partial_rods.fine_mesh = fine;
             }
         }
+        let depletion = match file.depletion {
+            Some(entry) => {
+                let d = DepletionInput::new(entry, base)?;
+                d.check(
+                    &states,
+                    file.pin_powers.is_some() || file.axial_pin_powers.is_some(),
+                    file.radial_nodes,
+                )?;
+                Some(d)
+            }
+            None => None,
+        };
         if file.pin_powers.is_some() && states.len() > 1 {
             return invalid(format!(
                 "pin-powers needs at most one state, got {}",
@@ -953,6 +1080,7 @@ impl Case {
             partial_rods,
             partial_rods_given,
             axial_pin_powers,
+            depletion,
         })
     }
 }
