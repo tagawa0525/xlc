@@ -88,8 +88,8 @@ pub struct Solution {
 }
 
 /// 収束した反復の状態（ADR-0195）。同じトラッキングと対称操作で解く次の問題の反復を、ここから始める
-/// （`solve_symmetric_from`）。
-#[derive(Debug, Clone, PartialEq)]
+/// （`solve_symmetric_from`）。端の角度中性子束の全体を持つので、複製しない（`Clone` を持たない）
+#[derive(Debug)]
 pub struct Start {
     /// 解いたトラッキングの領域とトラックの数
     sizes: [usize; 2],
