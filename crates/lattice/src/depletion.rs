@@ -78,7 +78,7 @@ const BARN: f64 = 1.0e-24;
 /// 1 日 (s)
 const DAY: f64 = 86_400.0;
 /// 重金属とする原子番号の下限
-const HEAVY_METAL_Z: u32 = 90;
+pub(crate) const HEAVY_METAL_Z: u32 = 90;
 /// CRAM の近似の誤差で説明できる負の数密度の、領域の最大の数密度に対する大きさ（近似の誤差は初めの最大の 1e-15 倍の
 /// 水準。ADR-0161）。これより大きな負の値はエラーにする（ADR-0173）
 const NEGATIVE_TOLERANCE: f64 = 1.0e-12;
@@ -465,6 +465,30 @@ pub fn solved_names(
             }
         })
         .collect()
+}
+
+/// 燃焼の領域 `regions` の数密度 `densities`（[領域][核種]）の重金属の質量 (g、高さ 1 cm あたり)。`heavy(i)` は核種 i が重金属
+/// （Z ≥ 90）ならその AWR、ほかは `None`。燃焼の出力の規格化と燃焼度の定義（ADR-0173）に使い、履歴からの分岐のテーブルにも
+/// 同じ式で書く（ADR-0190）。重金属がなければエラー
+pub(crate) fn heavy_metal_mass(
+    regions: &[DepletionRegion],
+    densities: &[Vec<f64>],
+    heavy: impl Fn(usize) -> anyhow::Result<Option<f64>>,
+) -> anyhow::Result<f64> {
+    let mut mass = 0.0;
+    for (d, n) in regions.iter().zip(densities) {
+        for (i, &density) in n.iter().enumerate() {
+            if density > 0.0
+                && let Some(awr) = heavy(i)?
+            {
+                mass += d.volume * density / BARN * awr * NEUTRON_MASS * ATOMIC_MASS_UNIT;
+            }
+        }
+    }
+    if mass <= 0.0 {
+        bail!("the depleted materials have no heavy metal (Z >= {HEAVY_METAL_Z})");
+    }
+    Ok(mass)
 }
 
 /// 燃焼の領域ごとの数密度 `n`（[領域][核種]）の負の値が、近似の誤差の水準であること（ADR-0173）。`name` は核種の名前
@@ -884,23 +908,18 @@ pub fn run(
         })
         .collect();
     // 初めの重金属の質量 (g、高さ 1 cm あたり)
-    let mut mass = 0.0;
-    for (d, n) in regions.iter().zip(&initial) {
-        for (i, &density) in n.iter().enumerate() {
-            let nuclide = &chain.nuclides[i];
-            if nuclide.z >= HEAVY_METAL_Z && density > 0.0 {
-                let data = library
-                    .nuclides
-                    .iter()
-                    .find(|x| x.name == nuclide.name)
-                    .ok_or_else(|| anyhow!("{}: no mass in the library", nuclide.name))?;
-                mass += d.volume * density / BARN * data.awr * NEUTRON_MASS * ATOMIC_MASS_UNIT;
-            }
+    let mass = heavy_metal_mass(&regions, &initial, |i| {
+        let nuclide = &chain.nuclides[i];
+        if nuclide.z < HEAVY_METAL_Z {
+            return Ok(None);
         }
-    }
-    if mass <= 0.0 {
-        bail!("the depleted materials have no heavy metal (Z >= {HEAVY_METAL_Z})");
-    }
+        library
+            .nuclides
+            .iter()
+            .find(|x| x.name == nuclide.name)
+            .map(|data| Some(data.awr))
+            .ok_or_else(|| anyhow!("{}: no mass in the library", nuclide.name))
+    })?;
     let power = depletion.power * mass;
     let renamed = solved_names(
         lattice,
