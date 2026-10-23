@@ -152,6 +152,29 @@ fn patterned(pattern: [usize; 8], boundaries: Boundaries) -> (Tracking, Vec<usiz
 }
 
 #[test]
+fn detection_does_not_depend_on_the_thread_count() {
+    // トラックごとに並列に確かめても、成り立たない操作の理由は番号の最も小さいトラックのもの。離れた 2 本のトラックの
+    // 区間を伸ばして、どの操作も複数のトラックで成り立たなくする
+    let (mut tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+    let last = tracking.tracks.len() - 1;
+    for t in [3, last] {
+        tracking.tracks[t].segments[0].length += 0.01;
+    }
+    let detect_on = |threads| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| detect(&tracking, &values).unwrap())
+    };
+    let serial = detect_on(1);
+    assert_eq!(serial.symmetry(), Symmetry::NONE);
+    for threads in [2, 5] {
+        assert_eq!(detect_on(threads), serial, "{threads} threads");
+    }
+}
+
+#[test]
 fn identity_holds_even_when_images_cannot_be_found() {
     // 像のトラックは始点を外周に沿った位置で探すので、端が外周の角にあるトラックがあると、恒等以外の操作は確かめられ
     // ない（外した理由としてログに出す）。恒等は確かめなくても成り立つので、判定は止まらず、対称性なしになる

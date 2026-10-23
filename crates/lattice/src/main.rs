@@ -47,7 +47,7 @@ use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingReuse, shield_fuel_reusing};
-use xlc_lattice::symmetry::choose;
+use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
 
 fn main() -> ExitCode {
@@ -113,6 +113,8 @@ fn use_physical_cores() -> anyhow::Result<()> {
 
 fn run(path: &Path) -> anyhow::Result<()> {
     let start = Instant::now();
+    // 輸送の外の段の時間は debug の区間で測る（FmtSpan::CLOSE で、閉じるときに time.busy を出す）
+    let reading = tracing::debug_span!("input").entered();
     let shown = |p: &Path| p.display().to_string();
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
@@ -129,18 +131,55 @@ fn run(path: &Path) -> anyhow::Result<()> {
         check_nodes(lattice.rows(), &nodes).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
     }
 
-    let tracking =
-        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
-    // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は分岐の状態によらないので、解く前に一度だけ
-    // 求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
-    // 対称性は、その結果から取り出し、成り立たない操作があれば、自己遮蔽の前にその操作の名前と理由を示して止める。"none" は
-    // 検証の基準なので判定せず、自己遮蔽も MOC も対称性なしで解く
-    let forced = match input.symmetry {
-        SymmetryChoice::Detect => None,
-        SymmetryChoice::Force(symmetry) => Some(symmetry),
+    drop(reading);
+    let track_and_choose = || -> anyhow::Result<(Tracking, Chosen)> {
+        let tracking = tracing::debug_span!("tracking").in_scope(|| {
+            Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)
+        })?;
+        // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は分岐の状態によらないので、解く前に一度だけ
+        // 求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
+        // 対称性は、その結果から取り出し、成り立たない操作があれば、自己遮蔽の前にその操作の名前と理由を示して止める。"none" は
+        // 検証の基準なので判定せず、自己遮蔽も MOC も対称性なしで解く
+        let forced = match input.symmetry {
+            SymmetryChoice::Detect => None,
+            SymmetryChoice::Force(symmetry) => Some(symmetry),
+        };
+        let chosen = tracing::debug_span!("symmetry")
+            .in_scope(|| choose(&tracking, &region_materials, forced))
+            .with_context(|| format!("{}: symmetry", shown(path)))?;
+        Ok((tracking, chosen))
     };
-    let chosen = choose(&tracking, &region_materials, forced)
-        .with_context(|| format!("{}: symmetry", shown(path)))?;
+    // 断面積の出どころは一度だけ読む。巨視的断面積は分岐を持たない（入力の読み込みで確かめてある）
+    enum Source {
+        Library(Library),
+        Macroscopic(Vec<(String, Material)>),
+    }
+    let load = || -> anyhow::Result<Source> {
+        Ok(match &input.cross_sections {
+            CrossSections::Library(file) => {
+                let file = base.join(file);
+                let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+                Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?)
+            }
+            CrossSections::Macroscopic(file) => {
+                let file = base.join(file);
+                let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
+                Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
+            }
+        })
+    };
+    // ライブラリの復号は 1 つのスレッドで進むので、別のスレッドで読み、トラッキングと対称操作の判定に重ねる。どちらも
+    // 失敗したときは、トラッキングと対称操作のエラーを先に返す。読むスレッドの panic は、そのまま呼び出し側で続ける
+    let (geometry, source) = std::thread::scope(|scope| {
+        let reader = scope.spawn(|| tracing::debug_span!("library").in_scope(load));
+        let geometry = track_and_choose();
+        let source = reader
+            .join()
+            .unwrap_or_else(|payload| std::panic::resume_unwind(payload));
+        (geometry, source)
+    });
+    let (tracking, chosen) = geometry?;
+    let source = source?;
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
                    groups: usize|
@@ -162,23 +201,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
         Ok((named.into_iter().map(|(_, m)| m).collect(), index))
-    };
-    // 断面積の出どころは一度だけ読む。巨視的断面積は分岐を持たない（入力の読み込みで確かめてある）
-    enum Source {
-        Library(Library),
-        Macroscopic(Vec<(String, Material)>),
-    }
-    let source = match &input.cross_sections {
-        CrossSections::Library(file) => {
-            let file = base.join(file);
-            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-            Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?)
-        }
-        CrossSections::Macroscopic(file) => {
-            let file = base.join(file);
-            let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
-            Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
-        }
     };
     if let Some(depletion) = &input.depletion {
         let Source::Library(library) = &source else {
@@ -395,6 +417,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         )
         .with_context(context)?;
         starts.solved(converged);
+        let emitting = tracing::debug_span!("output").entered();
         if let Some(FewGroupOutput {
             bounds,
             files,
@@ -503,6 +526,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         } else {
             println!("k {:.6}", solution.k);
         }
+        drop(emitting);
         tracing::info!(
             state,
             iterations = solution.iterations,
@@ -513,6 +537,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
     }
 
+    let _write = tracing::debug_span!("write").entered();
     if let Some(output) = &input.medium {
         let groups = groups
             .as_ref()
