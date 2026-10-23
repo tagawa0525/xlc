@@ -1,0 +1,4 @@
+# 2O の指針の点のテーブルの集合体 1 体を置くサイクル。
+plant = "core-plant.toml"
+inventory = "core-2O-guide-assemblies.toml"
+loading = ["A01"]
