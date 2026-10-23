@@ -429,7 +429,7 @@ impl<T> Starts<T> {
     }
 
     /// `saved` で書いた、次に解く状態 `state`、解 `solutions`、[軸] の解の番号 `slots` から作り直す。`counts` は [軸] の格子点の
-    /// 数。次に解く状態の始める解がなければ（壊れたチェックポイント）、平らな初期値から黙って始めずにエラー
+    /// 数。状態 0 より後で解の欠けた軸があれば（壊れたチェックポイント）、平らな初期値から黙って始めずにエラー
     pub fn restored(
         counts: &[usize],
         state: usize,
@@ -461,12 +461,18 @@ impl<T> Starts<T> {
             state,
             saved,
         };
-        if let Some(axis) = starts.moved(state)
-            && starts.saved[axis].is_none()
-        {
-            return Err(format!("no start for state {state} on axis {axis}"));
+        // 状態 0 を解くと、すべての軸が解を持つ（`solved`）。欠けた軸は、後の状態を平らな初期値から黙って始めさせる
+        let present = starts.saved.iter().filter(|s| s.is_some()).count();
+        match (state, present) {
+            (0, 0) => Ok(starts),
+            (0, _) => Err("the saved starts of state 0 must be empty".into()),
+            (_, n) if n == counts.len() => Ok(starts),
+            _ => Err(format!(
+                "no start for state {state} on {} of {} axes",
+                counts.len() - present,
+                counts.len()
+            )),
         }
-        Ok(starts)
     }
 
     /// 状態 `state` の、添字が 0 でない最後の軸
