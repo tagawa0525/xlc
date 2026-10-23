@@ -3,7 +3,7 @@
 //! フィールド名付きの map 形式の MessagePack: `format` ("xlc-lattice-checkpoint"), `fingerprint`（`Fingerprint`）と、燃焼なら
 //! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）, start（直前の
 //! 輸送の MOC の収束した解。ADR-0195）}`、分岐なら `states: {states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つの
-//! バイト列）, medium（細かい群の媒質か nil）}], starts: {state（次に解く状態）, saved（[軸] の MOC の解か nil）}}`。
+//! バイト列）, medium（細かい群の媒質か nil）}], starts: {state（次に解く状態）, solutions（MOC の解。同じ解は 1 つ）, slots（[軸] の解の番号か nil）}}`。
 
 use std::fs::File;
 use std::io::Write;
@@ -99,8 +99,31 @@ struct StatesFile {
 #[serde(deny_unknown_fields)]
 struct StartsFile {
     state: usize,
-    /// [軸] の解か nil
-    saved: Vec<rmpv::Value>,
+    /// 残した解（同じ解は 1 つ）
+    solutions: Vec<rmpv::Value>,
+    /// [軸] の解の番号か nil
+    slots: Vec<Option<usize>>,
+}
+
+/// 書く分岐のチェックポイント（解は大きいので複製せず、参照のまま書く）
+#[derive(Serialize)]
+struct StatesFileOut<'a, T> {
+    format: &'static str,
+    fingerprint: &'a str,
+    states: StatesOut<'a, T>,
+}
+
+#[derive(Serialize)]
+struct StatesOut<'a, T> {
+    states: Vec<StateFile>,
+    starts: StartsOut<'a, T>,
+}
+
+#[derive(Serialize)]
+struct StartsOut<'a, T> {
+    state: usize,
+    solutions: Vec<&'a T>,
+    slots: Vec<Option<usize>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -190,15 +213,6 @@ impl Checkpoint {
         format!("checkpoint {}", self.path.display())
     }
 
-    fn file(&self) -> CheckpointFile {
-        CheckpointFile {
-            format: FORMAT.into(),
-            fingerprint: self.fingerprint.clone(),
-            depletion: None,
-            states: None,
-        }
-    }
-
     /// 燃焼の途中の履歴。なければ `None`
     pub fn depletion(&self) -> anyhow::Result<Option<Partial>> {
         let Some(file) = self.read()? else {
@@ -274,17 +288,14 @@ impl Checkpoint {
                 starts.state
             );
         }
-        let saved = starts
-            .saved
+        let solutions = starts
+            .solutions
             .into_iter()
-            .map(|v| match v {
-                rmpv::Value::Nil => Ok(None),
-                v => rmpv::ext::from_value(v).map(Some),
-            })
-            .collect::<Result<Vec<Option<T>>, _>>()
+            .map(rmpv::ext::from_value)
+            .collect::<Result<Vec<T>, _>>()
             .map_err(|e| anyhow!("{}: starts: {e}", self.shown()))?;
-        let starts = Starts::restored(counts, starts.state, saved)
-            .map_err(|e| anyhow!("{}: {e}", self.shown()))?;
+        let starts = Starts::restored(counts, starts.state, solutions, &starts.slots)
+            .map_err(|e| anyhow!("{}: {e}; remove it to start over", self.shown()))?;
         let states = states
             .into_iter()
             .enumerate()
@@ -334,18 +345,18 @@ impl Checkpoint {
                 })
             })
             .collect::<anyhow::Result<_>>()?;
-        let (state, saved) = starts.saved();
-        let saved = saved
-            .into_iter()
-            .map(|v| v.map_or(Ok(rmpv::Value::Nil), rmpv::ext::to_value))
-            .collect::<Result<_, _>>()
-            .map_err(|e| anyhow!("starts: {e}"))?;
-        self.write(&CheckpointFile {
-            states: Some(StatesFile {
+        let (state, solutions, slots) = starts.saved();
+        self.write(&StatesFileOut {
+            format: FORMAT,
+            fingerprint: &self.fingerprint,
+            states: StatesOut {
                 states,
-                starts: StartsFile { state, saved },
-            }),
-            ..self.file()
+                starts: StartsOut {
+                    state,
+                    solutions,
+                    slots,
+                },
+            },
         })
     }
 

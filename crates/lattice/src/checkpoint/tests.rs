@@ -6,6 +6,16 @@ use super::*;
 use crate::branches::Starts;
 use crate::depletion::tests::{PIN, deplete_with, first_save, library};
 
+/// 燃焼も分岐も持たないチェックポイントのファイル
+fn empty(checkpoint: &Checkpoint) -> CheckpointFile {
+    CheckpointFile {
+        format: FORMAT.into(),
+        fingerprint: checkpoint.fingerprint.clone(),
+        depletion: None,
+        states: None,
+    }
+}
+
 /// テストごとの空のディレクトリ
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("xlc-checkpoint-{name}-{}", std::process::id()));
@@ -302,7 +312,7 @@ fn restored_states_that_do_not_fit_the_run_stop_before_solving() {
 fn a_checkpoint_needs_exactly_one_kind() {
     let dir = scratch("one-kind");
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
-    checkpoint.write(&checkpoint.file()).unwrap();
+    checkpoint.write(&empty(&checkpoint)).unwrap();
     let error = checkpoint.states::<f64>(&[2]).unwrap_err().to_string();
     assert!(error.contains("neither"), "{error}");
     let (history, next, start) = first_save(PIN, &library());
@@ -320,7 +330,7 @@ fn a_checkpoint_needs_exactly_one_kind() {
                 slots: Vec::new(),
             },
         }),
-        ..checkpoint.file()
+        ..empty(&checkpoint)
     };
     checkpoint.write(&both).unwrap();
     let error = checkpoint.depletion().unwrap_err().to_string();
