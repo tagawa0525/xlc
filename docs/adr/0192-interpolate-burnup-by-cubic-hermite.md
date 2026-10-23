@@ -86,7 +86,8 @@ h = Bᵢ₊₁ − Bᵢ、t = (B − Bᵢ)/h として、値は H₀₀(t) yᵢ 
 - 値は 4 点（区間の 2 点と外側の 2 点）の線形結合なので、少数群定数と形状関数のすべての項目に同じ重みを掛け、ほかの軸の多重線形
   （ADR-0097）との直積の和にする。項目ごとに方式を変えない。k は内挿した定数から解く
 - 格子点では重みがその点で厳密に 1、ほかで 0 になり（基底を t と 1 − t の積の形で書く）、格子点の状態をそのまま返す
-- 重みに負があり凸結合でないので、内挿した定数はソルバに渡す前に今の値の検査（`FewGroup::validate`）を通す
+- 重みに負があり凸結合でないので、内挿した定数はソルバに渡す前に今の値の検査（`FewGroup::validate`）を通し、負の重みで内挿したときは
+  断面積（全、吸収、νΣf、Σf、χ、散乱）と拡散係数が負でないことも確かめる。負ならエラーにし、点を足すよう示す（0 で切り詰めない）
 
 理由: 採った方式は、比べた方式のうち唯一、2O（Gd）と 2A の指針の点で ±10 pcm に入った（2O で −9.4〜+8.0 pcm、2A で −7.4〜+3.4 pcm）。
 重みが点の位置だけで決まる局所的な線形結合で、ほかの軸との直積の形と、すべての項目に同じ方式を当てる今の実装にそのまま入る。
@@ -117,7 +118,9 @@ ADR-0187 が案 I2 を退けた理由のうち、振動（オーバーシュー�
   格子点の間にした状態でも相対 1e-13 で再現する）、`burnups_below_the_first_point_are_linear_from_zero_and_zero_does_not_shape_the_rest`、
   `two_point_burnup_spans_are_linear`（0 のない 2 点と、0 のあとに 2 点の軸）、`knees_overshoot_only_next_to_them_by_two_27ths_of_the_slope_change`
   （傾きが 0 から s に変わる折れ線を間隔 h で並べると、折れ曲がりの手前の 1 区間だけでデータの範囲を 2/27 h s 越え、それより 2 区間より
-  離れたところは折れ線そのもの）。ADR-0187 と ADR-0190 のテストはそのまま通る
+  離れたところは折れ線そのもの）。`negative_interpolated_cross_sections_are_errors`、`burnup_weights_match_the_python_comparison`（比べた Python と同じ点と値で、
+  同じ重みの値。examples/depletion/test_compare_burnup_interpolation.py の `test_hermite_weights_match_the_core` と対）。ADR-0187 と
+  ADR-0190 のテストはそのまま通る
 - 比べるツール（examples/depletion/test_compare_burnup_interpolation.py、test_thin_burnup_table.py）と記録の表
   （examples/test_verification_tables.py の `DrawBurnupInterpolation`）
 - 方式の比較と指針（examples/depletion/verification.md の「燃焼度の内挿の方式と点の選び方」、a54faef8e、2026-10-23）: 上の表。オーバー
