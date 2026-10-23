@@ -308,16 +308,96 @@ fn nodes_burn_by_their_own_power() {
 
 #[test]
 fn fissile_tables_without_heavy_metal_cannot_deplete() {
-    let (layout, tables, case) = core(CASE, UNIFORM, None);
-    let result = deplete(
+    // B のテーブルだけが質量を持たない。解く前に、そのファイルを示して止まる
+    let (layout, mut tables, case) = core(CASE, MIXED, Some(400.0));
+    for (file, table) in layout.files.iter().zip(&mut tables) {
+        if file.ends_with("b.msgpack") {
+            table.heavy_metal = None;
+        }
+    }
+    let mut points = 0;
+    let error = deplete(
         &layout,
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
         &Options::default(),
-        |_| {},
+        |_| points += 1,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        error.contains("b.msgpack") && error.contains("heavy_metal"),
+        "{error}"
     );
-    assert!(result.is_err());
+    assert_eq!(points, 0);
+}
+
+#[test]
+fn solving_by_node_burnups_rejects_a_state_burnup() {
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let mut state = case.states[0].at(1200.0);
+    state.burnup = Some(5.0);
+    let burnups = vec![0.0; layout.node_material.len()];
+    assert!(crate::case::solve_burnups(&layout, &tables, &state, &burnups, &tight()).is_err());
+    state.burnup = None;
+    assert!(crate::case::solve_burnups(&layout, &tables, &state, &burnups, &tight()).is_ok());
+}
+
+#[test]
+fn reflector_sites_take_no_burnup() {
+    // 集合体 1 体の両側に反射体。反射体のテーブルは燃焼度の軸も核分裂も持たない
+    let base = Path::new("dir");
+    let plant = Plant::parse(
+        "pitch = 20.0\nheight = 20.0\nmap = [\"R  *  R\"]\n[reflector.R]\nbounds = [0.0, 20.0]\nlayers = [\"r.msgpack\"]\n",
+        base,
+    )
+    .unwrap();
+    let cycle = Cycle::parse(
+        "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\nloading = [\".  A1  .\"]\n",
+        base,
+    )
+    .unwrap();
+    let case = Case::parse(
+        &CASE.replace(
+            "[\"reflective\", \"reflective\"], y",
+            "[\"zero-flux\", \"zero-flux\"], y",
+        ),
+        base,
+    )
+    .unwrap();
+    let inventory = Inventory::parse(INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables: Vec<Table> = layout
+        .files
+        .iter()
+        .map(|f| {
+            if f.ends_with("r.msgpack") {
+                let mut t = table(0.0, None);
+                // 燃焼度の軸を除いた、最初の燃焼度の点の状態
+                t.axes.remove(0);
+                t.states.truncate(t.states.len() / BURNUP.len());
+                t
+            } else {
+                table(1.0, Some(400.0))
+            }
+        })
+        .collect();
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    // 履歴は集合体だけを持つ
+    assert_eq!(history.assemblies, ["A1"]);
+    let last = history.points.last().unwrap();
+    assert!((last.burnup - 40.0 * 250.0 / 1000.0).abs() <= 1e-12 * last.burnup);
+    let total: f64 = last.powers.iter().flatten().sum();
+    assert!((total - 1.0).abs() <= 1e-12, "{total}");
 }
 
 #[test]
