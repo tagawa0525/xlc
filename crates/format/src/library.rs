@@ -118,7 +118,7 @@ pub struct GroupReaction {
 #[serde(deny_unknown_fields)]
 pub struct GroupChannel {
     /// 状態ごとの割合を与えるファイルと状態。状態に分けない反応は nil（項目は省けない）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub final_state: Option<ChannelState>,
     /// 無限希釈の群の断面積 (barn)
     pub cross_section: Vec<f64>,
@@ -131,14 +131,8 @@ pub struct ChannelState {
     /// 割合を与える ENDF のファイル（MF9 か MF10）
     pub mf: u32,
     /// 状態（LFS）。nil は、MF8 が基底状態を挙げない反応の、挙げた状態を除いた残り（基底状態へ）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub lfs: Option<u32>,
-}
-
-fn nil_or<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
-    d: D,
-) -> Result<Option<T>, D::Error> {
-    Option::deserialize(d)
 }
 
 /// 1つの温度での、ドップラー拡がりのポイントワイズの断面積 (barn)。`Library::pointwise_range` の範囲で、エネルギーの昇順

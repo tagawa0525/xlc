@@ -5,8 +5,8 @@
 //! 値の木で確かめる。入れ子の構造体の位置は型ごとに違うので、`map` と `field` で呼び出し側が確かめる。
 
 use rmpv::Value;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 /// MessagePack の読み書きのエラー。
 #[derive(Debug, thiserror::Error)]
@@ -59,4 +59,14 @@ pub fn array<'a>(entries: &'a [(Value, Value)], key: &str) -> &'a [Value] {
 /// 確かめた値を型に変換する。
 pub fn from_value<T: DeserializeOwned>(value: Value) -> Result<T, MsgpackError> {
     rmpv::ext::from_value(value).map_err(|e| MsgpackError::Decode(e.to_string()))
+}
+
+/// `Option` を、値か nil からだけ読む（`#[serde(deserialize_with = "...")]` に使う）。キーの欠けはエラーにする（ADR-0129。
+/// serde の derive は、省いた `Option` を `None` にするため）
+pub fn nil_or<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    Option::deserialize(d)
 }

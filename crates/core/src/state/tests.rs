@@ -79,6 +79,7 @@ fn state(boron: f64, moderator: f64, fuel: f64) -> State {
         b10: 0.199,
         moderator,
         fuel,
+        burnup: None,
     }
 }
 
@@ -308,4 +309,112 @@ fn rod_values_the_table_cannot_select_are_errors() {
     // 軸のないテーブルは棒を選べない
     let single = Table::single(few(1300.0, 565.0, 565.0));
     assert!(interpolate(&single, None, Some("aic")).is_err());
+}
+
+const BURNUP: [f64; 3] = [0.0, 10.0, 20.0];
+
+/// table() の各量を (1 + bu / 40) 倍した状態（燃焼度についても多重線形）
+fn burnt(bu: f64, ppm: f64, tm: f64, tf: f64) -> FewGroup {
+    let f = few(ppm, tm, tf);
+    let mut out = scaled(&f, 1.0 + bu / 40.0);
+    // 群境界と比で決まる量は倍にしない（chi は和が 1）
+    out.chi = f.chi;
+    out
+}
+
+/// table() の前に燃焼度の軸を置いたテーブル（燃焼度がいちばん遅く変わる。ADR-0187）
+fn burnup_table() -> Table {
+    let mut states = Vec::new();
+    for bu in BURNUP {
+        for ppm in PPM {
+            for tm in TM {
+                for tf in TF {
+                    states.push(burnt(bu, ppm, tm, tf));
+                }
+            }
+        }
+    }
+    let mut t = table();
+    t.axes.insert(
+        0,
+        Axis::Burnup {
+            points: BURNUP.to_vec(),
+        },
+    );
+    t.states = states;
+    t
+}
+
+fn at_burnup(burnup: f64, boron: f64, moderator: f64, fuel: f64) -> State {
+    State {
+        burnup: Some(burnup),
+        ..state(boron, moderator, fuel)
+    }
+}
+
+#[test]
+fn burnup_grid_points_return_the_lattice_states() {
+    let t = burnup_table();
+    for bu in BURNUP {
+        let got = interpolate(&t, Some(&at_burnup(bu, 1300.0, 580.0, 900.0)), None)
+            .unwrap()
+            .remove(0);
+        assert_eq!(got, burnt(bu, 1300.0, 580.0, 900.0));
+    }
+}
+
+#[test]
+fn burnup_is_interpolated_linearly_with_the_other_axes() {
+    let t = burnup_table();
+    for (bu, ppm, tm, tf) in [(4.0, 1300.0, 565.0, 900.0), (15.5, 1000.0, 560.0, 700.0)] {
+        let got = interpolate(&t, Some(&at_burnup(bu, ppm, tm, tf)), None)
+            .unwrap()
+            .remove(0);
+        let want = burnt(bu, ppm, tm, tf);
+        assert!(
+            close(got.k_inf, want.k_inf),
+            "{} vs {}",
+            got.k_inf,
+            want.k_inf
+        );
+        assert!(close(got.absorption[1], want.absorption[1]));
+        assert!(close(got.chi[0], 1.0));
+    }
+}
+
+#[test]
+fn burnups_outside_the_points_or_missing_are_errors() {
+    let t = burnup_table();
+    let err = |s: &State| interpolate(&t, Some(s), None).unwrap_err();
+    assert!(err(&at_burnup(20.5, 1300.0, 565.0, 900.0)).contains("burnup"));
+    assert!(err(&at_burnup(-1.0, 1300.0, 565.0, 900.0)).contains("burnup"));
+    assert!(err(&at_burnup(f64::NAN, 1300.0, 565.0, 900.0)).contains("burnup"));
+    // 燃焼度の軸を持つテーブルに、燃焼度のない状態
+    assert!(err(&state(1300.0, 565.0, 900.0)).contains("burnup"));
+}
+
+#[test]
+fn fissile_tables_without_a_burnup_axis_reject_burnups() {
+    // 燃料（核分裂のある）のテーブルを、燃焼度の軸なしに燃えた状態で使わない
+    let err =
+        interpolate(&table(), Some(&at_burnup(10.0, 1300.0, 565.0, 900.0)), None).unwrap_err();
+    assert!(err.contains("burnup"), "{err}");
+    // 燃焼度 0 は新しい燃料のテーブルの状態そのもの
+    let fresh = interpolate(&table(), Some(&state(1300.0, 565.0, 900.0)), None).unwrap();
+    let zero = interpolate(&table(), Some(&at_burnup(0.0, 1300.0, 565.0, 900.0)), None).unwrap();
+    assert_eq!(fresh, zero);
+    // 核分裂のないテーブル（反射体）は燃焼しないので、どの燃焼度でも同じ値
+    let mut reflector = table();
+    for s in &mut reflector.states {
+        s.nu_fission = vec![0.0; 2];
+        s.fission = vec![0.0; 2];
+    }
+    let fresh = interpolate(&reflector, Some(&state(1300.0, 565.0, 900.0)), None).unwrap();
+    let burnt = interpolate(
+        &reflector,
+        Some(&at_burnup(10.0, 1300.0, 565.0, 900.0)),
+        None,
+    )
+    .unwrap();
+    assert_eq!(fresh, burnt);
 }

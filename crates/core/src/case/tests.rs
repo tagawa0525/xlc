@@ -125,6 +125,7 @@ fn given(name: &str, boron: f64, temperature: f64) -> CaseState {
         b10: 0.199,
         moderator: temperature,
         fuel: temperature,
+        burnup: None,
         banks: Default::default(),
     }
 }
@@ -141,6 +142,7 @@ fn searching(bracket: [f64; 2], tolerance: f64) -> CaseState {
         b10: 0.199,
         moderator: 565.0,
         fuel: 565.0,
+        burnup: None,
         banks: Default::default(),
     }
 }

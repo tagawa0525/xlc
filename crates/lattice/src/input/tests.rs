@@ -1223,3 +1223,66 @@ fn depleted_material_names_leave_room_for_the_region_names() {
     );
     assert!(LatticeInput::parse(&text).is_err());
 }
+
+/// 燃焼の履歴の燃焼点からの分岐（ADR-0187）のピンセル: 減速材をホウ酸水で書き、3 つの軸の分岐と `[history]` を足す
+fn history_branches(history: &str) -> String {
+    let water = PIN_CELL.replace(
+        "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+        "water = { density = 0.7, boron = 1000, b10 = 0.2 }",
+    );
+    format!(
+        "{water}\n[branches]\nboron = {{ ppm = [500, 1000], materials = [\"water\"] }}\n\
+         moderator = {{ temperature = [600], density = [0.7], materials = [\"water\"] }}\n\
+         fuel = {{ temperature = [900], materials = [\"fuel\"] }}\n[history]\n{history}"
+    )
+}
+
+const HISTORY: &str = r#"file = "history.msgpack"
+burnup = [0, 10, 20]
+"#;
+
+#[test]
+fn reads_the_history_file_and_its_burnup_points() {
+    let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
+    let history = input.history.unwrap();
+    assert_eq!(history.file, PathBuf::from("history.msgpack"));
+    assert_eq!(history.burnup, vec![0.0, 10.0, 20.0]);
+    assert!(LatticeInput::parse(PIN_CELL).unwrap().history.is_none());
+}
+
+#[test]
+fn history_burnup_points_are_nonnegative_and_increase() {
+    for burnup in ["[]", "[-1]", "[1, 1]", "[2, 1]", "[0, nan]"] {
+        let text = history_branches(&HISTORY.replace("[0, 10, 20]", burnup));
+        assert!(LatticeInput::parse(&text).is_err(), "{burnup}");
+    }
+    let text = history_branches(&HISTORY.replace("[0, 10, 20]", "[5]"));
+    assert!(LatticeInput::parse(&text).is_ok());
+}
+
+#[test]
+fn history_branches_need_branches_shielding_and_a_lattice_table() {
+    let ok = history_branches(HISTORY);
+    assert!(LatticeInput::parse(&ok).is_ok());
+    // 分岐の軸がない（core は 3 つの軸を求める）
+    let start = ok.find("[branches]").unwrap();
+    let end = ok.find("[history]").unwrap();
+    let unbranched = format!("{}{}", &ok[..start], &ok[end..]);
+    assert!(LatticeInput::parse(&unbranched).is_err());
+    // テーブルのファイルがない、ノードごとのファイル
+    let no_table = ok.replace(
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }\n",
+        "",
+    );
+    assert!(LatticeInput::parse(&no_table).is_err());
+    let nodes = ok.replace(
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+        "few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [{ output = \"a.msgpack\", columns = [1, 1], rows = [1, 1] }] }",
+    );
+    assert!(LatticeInput::parse(&nodes).is_err());
+    // 自己遮蔽なし、媒質の出力、燃焼
+    assert!(LatticeInput::parse(&format!("self-shielding = false\n{ok}")).is_err());
+    assert!(LatticeInput::parse(&format!("medium = \"fuel.medium\"\n{ok}")).is_err());
+    let depleting = format!("{ok}\n[depletion]\n{DEPLETION}");
+    assert!(LatticeInput::parse(&depleting).is_err());
+}
