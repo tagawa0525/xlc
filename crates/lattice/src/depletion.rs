@@ -673,6 +673,12 @@ impl History {
         if regions.is_empty() {
             bail!("the history has no depletion regions");
         }
+        // 数密度の列は核種の名前で引く
+        for (k, name) in nuclides.iter().enumerate() {
+            if nuclides[..k].contains(name) {
+                bail!("the history lists {name} twice");
+            }
+        }
         if let Some(name) = transportable.iter().find(|n| !nuclides.contains(n)) {
             bail!("the transportable {name} is not a nuclide of the history");
         }
