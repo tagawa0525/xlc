@@ -10,7 +10,7 @@ xs=$(readlink -f ../../../target/release/xs)
 T=/run/current-system/sw/bin/time
 rm -rf out && mkdir -p out/one out/stages out/runner
 echo "== slowdown: Cm-244 565 K, --threads 1"
-$T -f "single elapsed=%e user=%U" taskset -c 0 "$xs" --threads 1 nuclide one.toml ../xs-range.toml Cm-244 out/one/single.msgpack 2>&1 | grep -v " INFO \| WARN " || true
+$T -f "single elapsed=%e user=%U" taskset -c 0 "$xs" --threads 1 nuclide one.toml ../xs-range.toml Cm-244 out/one/single.msgpack 2>&1 | grep -v " INFO \| WARN "
 pids=()
 for k in $(seq 0 15); do
   $T -f "copy$k elapsed=%e user=%U" taskset -c "$k" "$xs" --threads 1 nuclide one.toml ../xs-range.toml Cm-244 "out/one/copy$k.msgpack" 2>&1 | grep -v " INFO \| WARN " &
