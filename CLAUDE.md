@@ -34,6 +34,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
   数秒のステージを再実行する /dvc-relock だけに使う。実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）
+- 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
+  ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `dvc repro <yaml>:xs`。ADR-0193）。
+  runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
 - `dvc repro` を投げる前に、走りうるステージを数えて見積もる（出力を戻した、ジョブを実行する worktree で）。
   `dvc status --with-deps <yaml>:<ステージ>` の changed と、目標の上流（`dvc dag --dot <yaml>:<ステージ>`）のうちその下流に
   あるもの（`dvc status` と `dvc repro --dry` は、上流が出力を書き換えた後に走る下流を出さない。上流が同じ出力を書けば下流は
