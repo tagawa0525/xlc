@@ -126,6 +126,12 @@ class Summary(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_core_depletion.summarize(lattice, table, core)
 
+    def test_states_without_a_boron_or_a_search_are_errors(self):
+        lattice, table, core = inputs()
+        del core["state"]["boron"]
+        with self.assertRaisesRegex(SystemExit, "neither"):
+            compare_core_depletion.summarize(lattice, table, core)
+
     def test_burnups_off_the_history_points_are_errors(self):
         lattice, table, core = inputs()
         core["points"][1]["burnup"] = 1.1
