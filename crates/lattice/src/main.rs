@@ -124,8 +124,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // ファイル、入力、読むファイル、スレッドの数）で、違えば古い途中の結果から続けずに止まる（ADR-0196）
     let mut fingerprint =
         if input.depletion.is_some() || input.branches.is_some() || input.history.is_some() {
-            let exe = std::env::current_exe().context("executable")?;
-            let bytes = std::fs::read(&exe).with_context(|| shown(&exe))?;
+            // `current_exe` のパスを開き直すと、実行の後に置き換えたファイル（`dvc checkout`、build のステージ）を読む。
+            // /proc/self/exe は動いている実行ファイルそのもの
+            let exe = Path::new("/proc/self/exe");
+            let bytes = std::fs::read(exe).with_context(|| shown(exe))?;
             let mut f = Fingerprint::default();
             f.add("executable", &bytes);
             f.add("input", text.as_bytes());
