@@ -368,7 +368,7 @@ fn fissionless_regions_put_the_yield_weight_on_the_first_point() {
 )]
 fn quadratic() -> (
     Chain,
-    impl FnMut(&[Vec<f64>], bool) -> Result<Evaluation<(usize, bool)>, ChainError>,
+    impl FnMut(&[Vec<f64>], TransportAt) -> Result<Evaluation<(usize, TransportAt)>, ChainError>,
 ) {
     let mut a = stable("Xe-135", 54, 135);
     a.reactions.push(capture(1));
@@ -377,13 +377,13 @@ fn quadratic() -> (
     };
     let zero = chain.zero_rates();
     let mut calls = 0;
-    let solve = move |n: &[Vec<f64>], kept: bool| {
+    let solve = move |n: &[Vec<f64>], at: TransportAt| {
         calls += 1;
         let mut rates = zero.clone();
         rates[0].reactions[0][0] = 0.3 * n[0][0];
         Ok(Evaluation {
             rates: vec![rates],
-            extra: (calls, kept),
+            extra: (calls, at),
         })
     };
     (chain, solve)
@@ -393,17 +393,18 @@ fn quadratic() -> (
 fn ce_cm_solves_the_transport_twice_per_step_and_at_the_end() {
     let (chain, mut solve) = quadratic();
     let mut midpoints = 0;
-    let counting = |n: &[Vec<f64>], kept: bool| {
-        midpoints += usize::from(!kept);
-        solve(n, kept)
+    let counting = |n: &[Vec<f64>], at: TransportAt| {
+        midpoints += usize::from(at == TransportAt::Midpoint);
+        solve(n, at)
     };
     let (points, _) = ce_cm(&chain, vec![vec![1.0, 0.0]], &[1.0, 1.0, 1.0], counting).unwrap();
     assert_eq!(points.len(), 4);
     assert_eq!(midpoints, 3);
-    // 点の値は、その点の組成で解いた輸送（始まりの点は 1、3、5 回目、最後の点は 7 回目）で、その輸送にだけ値を残すと伝える
+    // 点の値は、その点の組成で解いた輸送（始まりの点は 1、3、5 回目、最後の点は 7 回目）で、その輸送に点の組成と伝える
     // （中点の輸送は少数群定数などを作らなくてよい）
-    let calls: Vec<(usize, bool)> = points.iter().map(|p| p.extra).collect();
-    assert_eq!(calls, vec![(1, true), (3, true), (5, true), (7, true)]);
+    let calls: Vec<(usize, TransportAt)> = points.iter().map(|p| p.extra).collect();
+    let point = TransportAt::Point;
+    assert_eq!(calls, vec![(1, point), (3, point), (5, point), (7, point)]);
     let times: Vec<f64> = points.iter().map(|p| p.time).collect();
     assert_eq!(times, vec![0.0, 1.0, 2.0, 3.0]);
 }
@@ -417,7 +418,7 @@ fn ce_cm_with_constant_rates_is_one_matrix_exponential() {
     rates[XE135].reactions[0][0] = 2e-5;
     let mut n0 = vec![0.0; chain.nuclides.len()];
     n0[U235] = 7e-4;
-    let solve = |_: &[Vec<f64>], _: bool| -> Result<Evaluation<()>, ChainError> {
+    let solve = |_: &[Vec<f64>], _: TransportAt| -> Result<Evaluation<()>, ChainError> {
         Ok(Evaluation {
             rates: vec![rates.clone()],
             extra: (),
@@ -858,7 +859,7 @@ fn a_half_life_without_reactions_halves_the_density() {
     let rates = chain.zero_rates();
     let mut n0 = vec![0.0; chain.nuclides.len()];
     n0[XE135] = 1.0;
-    let solve = |_: &[Vec<f64>], _: bool| -> Result<Evaluation<()>, ChainError> {
+    let solve = |_: &[Vec<f64>], _: TransportAt| -> Result<Evaluation<()>, ChainError> {
         Ok(Evaluation {
             rates: vec![rates.clone()],
             extra: (),

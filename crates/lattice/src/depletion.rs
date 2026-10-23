@@ -311,24 +311,32 @@ fn advance(
     Ok(next)
 }
 
+/// CE/CM の輸送を解く組成
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportAt {
+    /// 点（ステップの始まりと最後の点）の組成。輸送の値（`Evaluation::extra`）を点に残す
+    Point,
+    /// ステップの中点の予測の組成。輸送の値は点に残さない
+    Midpoint,
+}
+
 /// CE/CM（ADR-0173）で、初めの組成 `initial`（[領域][チェーンの核種]）からステップ `steps` (s) を進める。`solve` は組成から
-/// 規格化した反応率を求める輸送で、ステップごとに始まりと中点の 2 回、最後の点で 1 回呼ぶ。2 つ目の引数は、その輸送の値
-/// （`Evaluation::extra`）を点に残すか（中点の輸送は残さない）。点は始まりと各ステップの終わりで、点の値はその点の組成で解いた
-/// 輸送のもの
+/// 規格化した反応率を求める輸送で、ステップごとに始まりと中点の 2 回、最後の点で 1 回呼ぶ。2 つ目の引数は、どちらの組成の輸送か。
+/// 点は始まりと各ステップの終わりで、点の値はその点の組成で解いた輸送のもの
 pub fn ce_cm<T, E: From<ChainError>>(
     chain: &Chain,
     initial: Vec<Vec<f64>>,
     steps: &[f64],
-    mut solve: impl FnMut(&[Vec<f64>], bool) -> Result<Evaluation<T>, E>,
+    mut solve: impl FnMut(&[Vec<f64>], TransportAt) -> Result<Evaluation<T>, E>,
 ) -> Result<(Vec<Point<T>>, DepletionTimes), E> {
     let mut times = DepletionTimes::default();
     let mut points = Vec::with_capacity(steps.len() + 1);
     let mut n = initial;
     let mut time = 0.0;
     for &h in steps {
-        let start = solve(&n, true)?;
+        let start = solve(&n, TransportAt::Point)?;
         let middle = advance(chain, &start.rates, &n, 0.5 * h, &mut times)?;
-        let corrector = solve(&middle, false)?;
+        let corrector = solve(&middle, TransportAt::Midpoint)?;
         let next = advance(chain, &corrector.rates, &n, h, &mut times)?;
         points.push(Point {
             time,
@@ -337,7 +345,7 @@ pub fn ce_cm<T, E: From<ChainError>>(
         });
         time += h;
     }
-    let last = solve(&n, true)?;
+    let last = solve(&n, TransportAt::Point)?;
     points.push(Point {
         time,
         densities: n,
@@ -1083,7 +1091,7 @@ pub(crate) fn run_with_moc(
     let mut shieldings = 0;
     // `StepStart` の、ステップの始まりの輸送の自己遮蔽。次の中点の輸送で使う（ADR-0197）
     let mut held: Option<FuelShielding> = None;
-    let solve = |n: &[Vec<f64>], kept: bool| -> anyhow::Result<Evaluation<State>> {
+    let solve = |n: &[Vec<f64>], at: TransportAt| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
         let start = Instant::now();
         // 負の数密度は近似の誤差の水準だけを許し、輸送には入れない（ADR-0173）
@@ -1143,9 +1151,8 @@ pub(crate) fn run_with_moc(
         }
         // 燃焼の領域 k の物質は、自己遮蔽に渡す物質の一覧の最後の領域の数の k 番目
         let depleted: Vec<usize> = (materials.len() - regions.len()..materials.len()).collect();
-        // ce_cm が点に残さない輸送（`kept` でないもの）は、ステップの中点の輸送
-        let shielded = match (depletion.shielding, kept) {
-            (ShieldingFrequency::StepStart, false) => {
+        let shielded = match (depletion.shielding, at) {
+            (ShieldingFrequency::StepStart, TransportAt::Midpoint) => {
                 let mut at_start = held.take().ok_or_else(|| {
                     anyhow!("the midpoint transport has no shielding from the step start")
                 })?;
@@ -1270,7 +1277,7 @@ pub(crate) fn run_with_moc(
             }
         }
         // 中点の輸送のピン出力と少数群定数は点に残らないので作らない
-        let pin_powers = if kept {
+        let pin_powers = if at == TransportAt::Point {
             Some(pin_rows(
                 &cell_fission_rates(&solution, lattice, &region_materials)?,
                 lattice,
@@ -1279,7 +1286,7 @@ pub(crate) fn run_with_moc(
             None
         };
         let few_group = match &depletion.few_group {
-            Some(DepletionFewGroup { bounds, pins }) if kept => {
+            Some(DepletionFewGroup { bounds, pins }) if at == TransportAt::Point => {
                 let boundaries = tracking.boundaries();
                 let mut few =
                     homogenize(&solution, &region_materials, groups, bounds, &boundaries)?;
@@ -1298,7 +1305,7 @@ pub(crate) fn run_with_moc(
             _ => None,
         };
         transport.rates += start.elapsed();
-        if depletion.shielding == ShieldingFrequency::StepStart && kept {
+        if depletion.shielding == ShieldingFrequency::StepStart && at == TransportAt::Point {
             held = Some(shielded);
         }
         tracing::info!(
