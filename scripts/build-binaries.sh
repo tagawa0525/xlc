@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# build-binaries.sh — DVC の build の段階（リポジトリの直下の dvc.yaml）。xs、lattice、core と、xs の段階の燃焼チェーンの
-# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
+# build-binaries.sh — DVC の build のステージ（リポジトリの直下の dvc.yaml）。xs、lattice、core と、xs のステージの燃焼チェーンの
+# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust のステージは、この実行ファイルを deps にして呼ぶ（ADR-0159）
 #
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #
@@ -60,7 +60,7 @@ mkdir -p bin
 for name in "${names[@]}" "${separate[@]}"; do
   built="target/dvc/release/$name"
   # worktree のパスや、devShell に入ったディレクトリの outputs/out/lib（入ったのが別の場所なら $top を含まない）が埋まった
-  # 実行ファイルは、ほかの worktree と md5 が合わず、段階を再実行することになる
+  # 実行ファイルは、ほかの worktree と md5 が合わず、ステージを再実行することになる
   if grep -qaF -e "$top" -e /outputs/out/lib -- "$built"; then
     echo "ERROR: $built に worktree のパスか outputs/out/lib が埋まっている（ADR-0159）" >&2
     exit 1
