@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
     let nuclides = pin
         .nuclides
         .iter()
-        .zip(&pin.effective)
+        .zip(pin.effective.iter())
         .map(|((n, _), s)| {
             (
                 n.name.replace('-', ""),

@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
         ) else {
             anyhow::bail!("a shielded pin outside the pin block");
         };
-        for ((nuclide, _), effective) in pin.nuclides.iter().zip(&pin.effective) {
+        for ((nuclide, _), effective) in pin.nuclides.iter().zip(pin.effective.iter()) {
             let rates = nuclides
                 .entry(nuclide.name.replace('-', ""))
                 .or_insert_with(|| {
