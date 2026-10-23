@@ -18,6 +18,8 @@ resolution:
 `lattice@2M` と `compare@2M` は `dvc status` で changed（`bin/lattice`）のままで、`dvc repro -P` などで下流を流すと、2M の
 再実行が走る。
 
+関係する ADR: なし
+
 ## やること
 
 - 2M の履歴を読む作業（履歴からのテーブル、分岐、warm-start の比較など）を始める前に、
