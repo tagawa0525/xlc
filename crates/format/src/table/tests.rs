@@ -447,3 +447,35 @@ fn burnup_points_must_be_nonnegative_and_increasing() {
     table.states.truncate(4);
     assert!(table.validate().is_err());
 }
+
+#[test]
+fn heavy_metal_round_trips_and_is_written_only_when_held() {
+    let mut table = burnup_sample();
+    table.heavy_metal = Some(4321.0 / 7.0);
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    // 持たないテーブルはキーを書かない（ADR-0190）
+    let fresh = sample();
+    assert_eq!(fresh.heavy_metal, None);
+    let value = msgpack::read_value(&fresh.to_msgpack().unwrap()).unwrap();
+    let keys: Vec<&str> = value
+        .as_map()
+        .unwrap()
+        .iter()
+        .filter_map(|(k, _)| k.as_str())
+        .collect();
+    assert!(!keys.contains(&"heavy_metal"), "{keys:?}");
+    assert_eq!(
+        Table::from_msgpack(&fresh.to_msgpack().unwrap()).unwrap(),
+        fresh
+    );
+}
+
+#[test]
+fn heavy_metal_must_be_positive() {
+    for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        let mut table = burnup_sample();
+        table.heavy_metal = Some(bad);
+        assert!(table.validate().is_err(), "{bad}");
+    }
+}
