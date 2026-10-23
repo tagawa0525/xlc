@@ -67,7 +67,8 @@ runner が cmd と deps を知る方法:
   commit せずに止まる。commit の直後に、`dvc.lock` が記録したそのステージの deps がすべて見たパスに入り、指紋が変わっていないことを
   確かめる（commit が hash を取った間も deps が始めのままだったことの確認）。dvc.lock の cmd が実行した cmd と同じことも確かめる（dvc.yaml の
   vars のファイルは指紋で見ないので、cmd はこちらで見る）。成り立たなければ dvc.lock を commit の前に戻し、`dvc commit` が足した run-cache の
-  項目（DVC 3.67.1 の `Stage.save` が保存する。新しい deps を、それで作っていない出力に結ぶ）を消して止まる
+  項目（DVC 3.67.1 の `Stage.save` が保存する。新しい deps を、それで作っていない出力に結ぶ）を消して止まる。消すのは commit の間に増えた
+  項目のうち commit した出力の md5 を持つものだけ（キャッシュは worktree で共有し、ほかのセッションの項目を消さない）
 - 案 D2: commit の前後で md5 を計算して比べる。ステージごとに熱中性子散乱のディレクトリ（225 MB）などを読み直す。DVC 自身も、
   hash を計算し直すかを大きさ、mtime、inode で決めている（state）ので、指紋で足りる
 - 案 D3: 確かめない。runner の外で同じ worktree の deps を変えたとき（ビルドし直した、xs.toml を直した）、`dvc.lock` が実行していない deps を指す
