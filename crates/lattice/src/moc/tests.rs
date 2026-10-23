@@ -2036,3 +2036,32 @@ fn rejects_a_start_from_another_tracking() {
     let result = octant_from(&f, &options, Some(&start));
     assert!(matches!(result, Err(MocError::ForeignStart)), "{result:?}");
 }
+
+#[test]
+fn rejects_a_start_from_another_symmetry_of_the_same_size() {
+    // 左右の鏡映と上下の鏡映は、1/8 対称な格子で同じ数の代表を持つが、代表の領域とトラックが違う
+    let (f, w, g, void) = (
+        burned(0.0),
+        with_moments(&moderator(), &[0.4]),
+        with_moments(&fuel_with([0.5, 1.2], [0.008, 0.27]), &[0.2]),
+        Material::void(2),
+    );
+    let library = [&f, &w, &g, &void];
+    let (lattice, index) = octant_lattice(true);
+    let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+    let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+    let options = order_options(1);
+    let solve_as_start = |operation: usize| {
+        let verified = require(&tracking, Symmetry::new(&[operation]).unwrap()).unwrap();
+        solve_symmetric_from(&tracking, &materials, &options, &verified, None)
+            .unwrap()
+            .1
+    };
+    let (vertical, horizontal) = (solve_as_start(4), solve_as_start(5));
+    assert_eq!(vertical.flux.len(), horizontal.flux.len());
+    assert_eq!(vertical.outgoing.len(), horizontal.outgoing.len());
+    assert_ne!(vertical.representatives, horizontal.representatives);
+    let verified = require(&tracking, Symmetry::new(&[5]).unwrap()).unwrap();
+    let result = solve_symmetric_from(&tracking, &materials, &options, &verified, Some(&vertical));
+    assert!(matches!(result, Err(MocError::ForeignStart)), "{result:?}");
+}
