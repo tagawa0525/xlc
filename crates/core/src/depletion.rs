@@ -65,7 +65,7 @@ pub struct CorePoint {
     pub k: f64,
     /// その点を解いたホウ素濃度 (ppm。与えた値か、探索で求めた値)
     pub boron: f64,
-    /// その点で解いた固有値計算の回数（与えた濃度なら 1、探索なら範囲の両端を含む回数）
+    /// その点で解いた固有値計算の回数（与えた濃度なら 1、探索なら ADR-0145 の回数。範囲の両端を含み、下端で許容の中なら 1）
     pub solves: usize,
     /// 集合体ごとの燃焼度 (MWd/kg。質量の重み)
     pub assembly_burnups: Vec<f64>,
@@ -276,19 +276,19 @@ pub fn deplete(
             "assembly {id} has no heavy-metal mass; its tables need heavy_metal (ADR-0190)"
         ));
     }
-    // 燃焼度 `burnups` で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` は探索のエラーに添える解の場所
+    // 燃焼度 `burnups` で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` はエラーに添える解の場所（入力の組み合わせの誤りは、
+    // どのファイルかを main が添えるので、そのまま返す）
     let solve = |burnups: &[f64], at: &dyn Fn() -> String| -> Result<Solve, CaseError> {
         let solve_ppm = |ppm: f64| solve_burnups(layout, tables, &state.at(ppm), burnups, options);
-        let (solved, ppm, solves) = match &state.boron {
-            Boron::Given(ppm) => (solve_ppm(*ppm)?, *ppm, 1),
-            Boron::Search(search) => {
-                let (solved, found) = search_boron(search, solve_ppm).map_err(|e| match e {
-                    CaseError::Search(m) => CaseError::Search(format!("{}: {m}", at())),
-                    e => e,
-                })?;
-                (solved, found.ppm, found.solves)
-            }
+        let solved = match &state.boron {
+            Boron::Given(ppm) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
+            Boron::Search(search) => search_boron(search, solve_ppm)
+                .map(|(solved, found)| (solved, found.ppm, found.solves)),
         };
+        let (solved, ppm, solves) = solved.map_err(|e| match e {
+            CaseError::Input(_) => e,
+            e => CaseError::Depletion(format!("{}: {e}", at())),
+        })?;
         let rates = fission_rates(&solved.problem, &solved.solution);
         Ok(Solve {
             solved,
