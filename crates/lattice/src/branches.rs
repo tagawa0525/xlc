@@ -323,13 +323,7 @@ impl BranchesEntry {
         let total: usize = counts.iter().product();
         let mut states = Vec::with_capacity(total);
         for index in 0..total {
-            // 最初の軸がいちばん遅く変わる
-            let mut at = vec![0; counts.len()];
-            let mut rest = index;
-            for (k, &n) in counts.iter().enumerate().rev() {
-                at[k] = rest % n;
-                rest /= n;
-            }
+            let at = state_indices(&counts, index);
             let mut state = materials.to_vec();
             let mut state_waters = waters.clone();
             for (change, &i) in changes.iter().zip(&at) {
@@ -410,16 +404,21 @@ impl<T> Starts<T> {
 
     /// 状態 `state` の、添字が 0 でない最後の軸
     fn moved(&self, state: usize) -> Option<usize> {
-        let mut rest = state;
-        let mut moved = None;
-        for (axis, &count) in self.counts.iter().enumerate().rev() {
-            if moved.is_none() && rest % count != 0 {
-                moved = Some(axis);
-            }
-            rest /= count;
-        }
-        moved
+        state_indices(&self.counts, state)
+            .iter()
+            .rposition(|&i| i > 0)
     }
+}
+
+/// 軸の直積の順（最初の軸がいちばん遅く変わる）の状態 `state` の、[軸] の格子点の添字。`counts` は [軸] の格子点の数
+pub fn state_indices(counts: &[usize], state: usize) -> Vec<usize> {
+    let mut at = vec![0; counts.len()];
+    let mut rest = state;
+    for (k, &n) in counts.iter().enumerate().rev() {
+        at[k] = rest % n;
+        rest /= n;
+    }
+    at
 }
 
 #[cfg(test)]
