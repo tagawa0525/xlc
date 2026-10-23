@@ -63,7 +63,7 @@ cargo build --release
 ```
 
 ワークスペースの全体のビルドは、`build` の 3 つのパッケージだけのビルドと共有の依存の feature の統合が違いうるので、
-`target/release` の実行ファイルは `bin/` と同じバイトとは限らない。段階と feature の統合を揃えたいとき（perf、段階の
+`target/release` の実行ファイルは `bin/` と同じバイトとは限らない。ステージと feature の統合を揃えたいとき（perf、ステージの
 パニックの再実行）は、`cargo clean --release -p xlc-xs -p xlc-lattice -p xlc-core` のあと `cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core`
 で作り直す（cargo はリンクの環境を fingerprint に含めないので先に消す。ADR-0159。strip の設定が違うので、`bin/` と同じ機械語に
 なるかは確かめていない。ADR-0163）。
@@ -89,7 +89,7 @@ cargo build --release
 
 1. コードと入力の変更をすべてコミットする。記録に書く試行の入力（`trials/`）は `git add -f` でコミットする（スキル verification-record の「記録に書く試行」）。`git status --short` が空であることを確かめる
 2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、rebase を終えてからスキル dvc-relock の前半で整える（rebase の途中では dvc を実行しない）。rebase の終わりに post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
-3. 段階（`dvc.yaml`）で実行するなら、先に `dvc checkout`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
+3. ステージ（`dvc.yaml`）で実行するなら、先に `dvc checkout`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
 5. 1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など）なら、コードのレビュー（/code-review）を
    打ち切りまで回す（2 の rebase の後に）。流した後にコードを変えると、ADR-0122 のとおり再実行が要る。流した後の

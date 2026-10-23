@@ -15,7 +15,7 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 - 数値を出すコードと入力は、コミットしてから実行する。`git status --short` が空であることを確かめる（追跡しない
   ファイルは無視される）。作業ツリーが汚れていると、記録のコミットを checkout しても同じ結果が出ない
 - 記録に書くコミットは `git rev-parse --short=8 HEAD`（8 桁。既存の記録と同じ）。日付は実行した日
-- 段階（`dvc.yaml`）で実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）。記録には、実行したコミットと、ブランチの上なら
+- ステージ（`dvc.yaml`）で実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）。記録には、実行したコミットと、ブランチの上なら
   分岐点（`git merge-base HEAD main`）を書く。rebase で deps が変わっても走らせ直さず、分岐点から復元する（ADR-0130 の
   「帰結」。復元は分岐点にそこまでのブランチのコミットを当て直し、`dvc status` の md5 で確かめる）
 - 結果を作る側が複数あるときは、それぞれのコミットを書く（例: 「OpenMC は 4888a4cd、比べたのは 3e3cf00c、2026-10-11」）
@@ -35,10 +35,10 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 結果の表と出どころは、dvc.lock と出力を読み直して手で打たず、ツールに出させる。リポジトリの直下で、python3 は
 default の devShell の中（標準ライブラリだけのツールだが、`--report` が呼ぶツールは msgpack を使う）。
 
-1. **出どころを取る**: `python3 examples/record_provenance.py examples/<問題>/dvc.yaml <段階>...`。段階ごとに、deps と outs の
-   md5（先頭 8 桁）、outs の md5 を dvc.lock に入れたコミットと日付、比較の段階なら `--report` の文章が出る。
+1. **出どころを取る**: `python3 examples/record_provenance.py examples/<問題>/dvc.yaml <ステージ>...`。ステージごとに、deps と outs の
+   md5（先頭 8 桁）、outs の md5 を dvc.lock に入れたコミットと日付、比較のステージなら `--report` の文章が出る。
    - `unknown` / `uncommitted` と出たら、書かずに原因を直す（dvc.lock をコミットしていない、など）。`MISMATCH` は、JSON の
-     `inputs` が dvc.lock の deps と違う（古い JSON）ので、段階を再実行して relock する
+     `inputs` が dvc.lock の deps と違う（古い JSON）ので、ステージを再実行して relock する
    - 出るコミットは dvc.lock のコミット（実行したコミットの次）。記録の「計算」の欄に書くのは実行したコミット（下）
 2. **表**: 手で打たない。比較のツールに `--json` があれば、`<!-- table: <名前> -->` 〜 `<!-- /table -->` の目印をつけ、
    `examples/verification_tables.py` の `TABLES` に名前と描く関数を足して、`python3 examples/verification_tables.py
@@ -48,9 +48,9 @@ default の devShell の中（標準ライブラリだけのツールだが、`-
 3. **本文の数値**: 表の外の数値（RMS、倍率、層の数など）は、`--report` の出力からコピーする。自分で数え直したり丸め直したりしない。
    `--report` に無い量は、JSON に足してからコピーする
 4. **計算の欄（コミットと日付）**: 手で書く。自動で出さないのは、実行したコミットは dvc.lock のコミットでなく、1 つの表の
-   数値を複数の段階（core、OpenMC、比較）が出すため。書くのは、各段階を実行したときの HEAD（`git rev-parse --short=8 HEAD`）、日付、
-   ブランチの上なら分岐点（上の「数値を出す前」）。`record_provenance.py` の出力で、どの段階のどの md5 の結果かを確かめてから書く
-   （例: xlc の炉心は core の段階の md5 と dvc.lock のコミット、OpenMC は参照解の実行、比べたのは compare の段階）
+   数値を複数のステージ（core、OpenMC、比較）が出すため。書くのは、各ステージを実行したときの HEAD（`git rev-parse --short=8 HEAD`）、日付、
+   ブランチの上なら分岐点（上の「数値を出す前」）。`record_provenance.py` の出力で、どのステージのどの md5 の結果かを確かめてから書く
+   （例: xlc の炉心は core のステージの md5 と dvc.lock のコミット、OpenMC は参照解の実行、比べたのは compare のステージ）
 5. 再現のコマンドは、リポジトリの直下から実行する形でコードブロックに書く（「k の差の内訳」の節の形）。python3 は
    `nix develop .#references -c` の中、cargo と dvc は `default` の devShell の中。比較の文章は
    `python3 examples/vera/compare_p3.py --report <JSON>`
