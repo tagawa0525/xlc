@@ -900,35 +900,16 @@ impl CaseState {
         let boron = match (entry.boron, entry.search) {
             (Some(ppm), None) => Boron::Given(ppm),
             (None, Some(search)) => {
-                let [low, high] = search.boron;
-                if !(low >= 0.0 && low < high && high.is_finite()) {
-                    return what(format!(
-                        "search boron must be a range from low to high ppm, got {:?}",
-                        search.boron
-                    ));
-                }
-                if !(search.k > 0.0 && search.k.is_finite()) {
-                    return what(format!("search k must be positive, got {}", search.k));
-                }
-                if !(search.tolerance > 0.0 && search.tolerance.is_finite()) {
-                    return what(format!(
-                        "search tolerance must be positive, got {}",
-                        search.tolerance
-                    ));
-                }
-                // 範囲の両端だけでは探せない
-                if search.max_solves < 3 {
-                    return what(format!(
-                        "search max-solves must be at least 3 (the two ends and a point between), got {}",
-                        search.max_solves
-                    ));
-                }
-                Boron::Search(BoronSearch {
+                let search = BoronSearch {
                     bracket: search.boron,
                     k: search.k,
                     tolerance: search.tolerance,
                     max_solves: search.max_solves,
-                })
+                };
+                if let Err(message) = search.check() {
+                    return what(message);
+                }
+                Boron::Search(search)
             }
             (Some(_), Some(_)) => return what("give boron or search, not both".into()),
             (None, None) => return what("give boron or search".into()),
@@ -1118,6 +1099,36 @@ pub struct BoronSearch {
     pub tolerance: f64,
     /// 固有値計算の回数の上限（範囲の両端を含む）
     pub max_solves: usize,
+}
+
+impl BoronSearch {
+    /// 探索の設定の検査（入力と燃焼の履歴で同じ）
+    pub fn check(&self) -> Result<(), String> {
+        let [low, high] = self.bracket;
+        if !(low >= 0.0 && low < high && high.is_finite()) {
+            return Err(format!(
+                "search boron must be a range from low to high ppm, got {:?}",
+                self.bracket
+            ));
+        }
+        if !(self.k > 0.0 && self.k.is_finite()) {
+            return Err(format!("search k must be positive, got {}", self.k));
+        }
+        if !(self.tolerance > 0.0 && self.tolerance.is_finite()) {
+            return Err(format!(
+                "search tolerance must be positive, got {}",
+                self.tolerance
+            ));
+        }
+        // 範囲の両端だけでは探せない
+        if self.max_solves < 3 {
+            return Err(format!(
+                "search max-solves must be at least 3 (the two ends and a point between), got {}",
+                self.max_solves
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl CaseState {

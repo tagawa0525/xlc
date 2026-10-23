@@ -123,6 +123,11 @@ impl CoreHistory {
                 "the history state must hold either boron or search".into(),
             ));
         }
+        if let Some(search) = &file.state.search {
+            search
+                .check()
+                .map_err(|m| CaseError::Depletion(format!("the history state: {m}")))?;
+        }
         Ok(Self {
             specific_power: file.specific_power,
             state: file.state,
@@ -180,6 +185,17 @@ pub fn midpoint(
     let half = advance(burnups, masses, 0.5 * increment, rates)?;
     let middle = solve(&half)?;
     advance(burnups, masses, increment, &middle)
+}
+
+/// エラーに、燃焼のどの解かを添える。入力の組み合わせの誤り（どのファイルかを main が添える）と、場所をすでに持つエラーはそのまま
+fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
+    match error {
+        CaseError::Input(_) | CaseError::At { .. } => error,
+        e => CaseError::At {
+            at: at(),
+            source: Box::new(e),
+        },
+    }
 }
 
 /// 燃焼度の分布を 1 回解いた結果: 解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率
@@ -276,8 +292,7 @@ pub fn deplete(
             "assembly {id} has no heavy-metal mass; its tables need heavy_metal (ADR-0190)"
         ));
     }
-    // 燃焼度 `burnups` で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` はエラーに添える解の場所（入力の組み合わせの誤りは、
-    // どのファイルかを main が添えるので、そのまま返す）
+    // 燃焼度 `burnups` で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` はエラーに添える解の場所
     let solve = |burnups: &[f64], at: &dyn Fn() -> String| -> Result<Solve, CaseError> {
         let solve_ppm = |ppm: f64| solve_burnups(layout, tables, &state.at(ppm), burnups, options);
         let solved = match &state.boron {
@@ -285,10 +300,7 @@ pub fn deplete(
             Boron::Search(search) => search_boron(search, solve_ppm)
                 .map(|(solved, found)| (solved, found.ppm, found.solves)),
         };
-        let (solved, ppm, solves) = solved.map_err(|e| match e {
-            CaseError::Input(_) => e,
-            e => CaseError::Depletion(format!("{}: {e}", at())),
-        })?;
+        let (solved, ppm, solves) = solved.map_err(|e| locate(e, at))?;
         let rates = fission_rates(&solved.problem, &solved.solution);
         Ok(Solve {
             solved,
@@ -353,7 +365,9 @@ pub fn deplete(
                 "depletion midpoint"
             );
             Ok(middle.rates)
-        })?;
+        })
+        // 中点の解のエラーは場所を持つ。燃焼度の増分（`advance`）のエラーに、ステップを添える
+        .map_err(|e| locate(e, &|| format!("the step to {} EFPD", step.efpd)))?;
         efpd = step.efpd;
         solve_at_point = solve(&burnups, &|| format!("the point at {efpd} EFPD"))?;
         let point = record(efpd, &burnups, &solve_at_point);
