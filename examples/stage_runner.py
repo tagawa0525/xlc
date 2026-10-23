@@ -364,7 +364,7 @@ def execute(
         raise
 
 
-def dvc(*args: str, capture: bool = False) -> str:
+def dvc(*args: str, capture: bool = False, hold: bool = False) -> str:
     # subprocess.run は例外（SIGTERM からの SystemExit を含む）で子を SIGKILL し、dvc が .dvc/tmp/rwlock と
     # dvc.lock を書きかけで残す。SIGTERM で止めて、終わるのを待つ
     # 呼び手が SIGTERM を保留していても、dvc は受け取れるように mask を外す（runner は 1 スレッド）
@@ -372,7 +372,9 @@ def dvc(*args: str, capture: bool = False) -> str:
         ["dvc", *args],
         text=True,
         stdout=subprocess.PIPE if capture else None,
-        preexec_fn=unblock_sigterm,  # noqa: PLW1509
+        # hold: 呼び手が保留したシグナルを dvc にも保留させる（commit を途中で切らない。DVC 3.67.1 は SIGTERM を受けると
+        # 後始末をせずに終わり、dvc.lock をその場で書き換える）
+        preexec_fn=None if hold else unblock_sigterm,  # noqa: PLW1509
     )
     try:
         out, _ = proc.communicate()
@@ -451,6 +453,12 @@ def remove_outputs(paths, root: Path) -> None:
             target.unlink(missing_ok=True)
 
 
+def check_group(names: set[str], group: str) -> None:
+    """group が dvc.yaml の foreach の組であること。違えば、組のステージが無く、すべてを上流として逐次に実行してしまう"""
+    if not any(n.startswith(f"{group}@") for n in names):
+        raise RunnerError(f"{group} is not a foreach group of the dvc.yaml")
+
+
 def stage_names(stage_list: str, dvc_yaml) -> set[str]:
     """`dvc stage list --name-only` の出力から、`<dvc.yaml>:` を外したステージの名前（記録のキーの形）"""
     prefix = f"{dvc_yaml}:"
@@ -525,58 +533,77 @@ def commit_stages(
     cached_before = run_cache_files(run_cache)
     failed = []
     try:
-        commit(names)
-        committed = list(names)
-    except RunnerError:
-        if signal.sigpending() & HELD:
-            # 止める途中（保留した SIGTERM か SIGINT がある）。dvc も同じシグナルで落ちたので、commit し直さない
-            raise
-        if len(names) == 1:
-            return list(names)
-        # どのステージが commit できないか（出力が無い、など）を 1 つずつ見る
-        committed = []
-        for name in names:
-            try:
-                commit([name])
-                committed.append(name)
-            except RunnerError:
-                failed.append(name)
-    text = lock.read_text()
-    problem = None
-    for name in committed:
-        paths = lock_dep_paths(text, name, directory)
-        if paths is None or not paths <= snapshot.keys():
-            problem = (
-                f"dvc.lock records deps of {name} the runner did not watch: "
-                f"{sorted((paths or set()) - snapshot.keys())}"
-            )
-            break
-        if (recorded := lock_cmd(text, name)) != cmds[name]:
-            problem = f"dvc.lock records cmd {recorded!r} for {name}, but the runner ran {cmds[name]!r}"
-            break
-    else:
-        if changed := changed_paths(snapshot, root):
-            problem = f"deps changed while committing {committed}: {changed}"
+        try:
+            commit(names)
+            committed = list(names)
+        except RunnerError:
+            if signal.sigpending() & HELD:
+                # 止める途中（保留した SIGTERM か SIGINT がある）。commit し直さない
+                raise
+            if len(names) == 1:
+                return list(names)
+            # どのステージが commit できないか（出力が無い、など）を 1 つずつ見る
+            committed = []
+            for name in names:
+                try:
+                    commit([name])
+                    committed.append(name)
+                except RunnerError:
+                    if signal.sigpending() & HELD:
+                        raise
+                    failed.append(name)
+        problem = verify_commit(
+            lock.read_text(), committed, directory, snapshot, root, cmds
+        )
+    except BaseException:
+        # 確認が終わらないまま抜けるときも、確かめていない commit を残さない
+        restore_commit(lock, before, run_cache, cached_before, names)
+        raise
     if problem:
-        if before is None:
-            lock.unlink()
-        else:
-            tmp = lock.with_name(lock.name + ".tmp")
-            tmp.write_text(before)
-            tmp.replace(lock)
-        # 共有のキャッシュなので、同じ間にほかのセッションが足した項目は残し、commit した出力の md5 を持つものだけを消す
-        out_md5s = {
-            md5
-            for name in committed
-            for _, md5 in record_provenance.parse_stage(text, name)["outs"]
-        }
-        for added in run_cache_files(run_cache) - cached_before:
-            if any(md5 in added.read_text() for md5 in out_md5s):
-                added.unlink()
+        restore_commit(lock, before, run_cache, cached_before, names)
         raise RunnerError(
             f"{problem}. Restored dvc.lock to before this commit; rerun the stages"
         )
     return failed
+
+
+def verify_commit(text, committed, directory, snapshot, root, cmds) -> str | None:
+    """commit の後の確認。成り立たなければ理由を返す"""
+    for name in committed:
+        paths = lock_dep_paths(text, name, directory)
+        if paths is None or not paths <= snapshot.keys():
+            return (
+                f"dvc.lock records deps of {name} the runner did not watch: "
+                f"{sorted((paths or set()) - snapshot.keys())}"
+            )
+        if (recorded := lock_cmd(text, name)) != cmds[name]:
+            return f"dvc.lock records cmd {recorded!r} for {name}, but the runner ran {cmds[name]!r}"
+    if changed := changed_paths(snapshot, root):
+        return f"deps changed while committing {committed}: {changed}"
+    return None
+
+
+def restore_commit(lock, before, run_cache, cached_before, names) -> None:
+    """dvc.lock を commit の前に戻し、commit が足した run-cache の項目を消す"""
+    text = lock.read_text() if lock.exists() else ""
+    # 共有のキャッシュなので、同じ間にほかのセッションが足した項目は残し、commit した出力の md5 を持つものだけを消す
+    out_md5s = set()
+    for name in names:
+        try:
+            out_md5s |= {
+                md5 for _, md5 in record_provenance.parse_stage(text, name)["outs"]
+            }
+        except record_provenance.ProvenanceError:
+            pass
+    if before is None:
+        lock.unlink(missing_ok=True)
+    else:
+        tmp = lock.with_name(lock.name + ".tmp")
+        tmp.write_text(before)
+        tmp.replace(lock)
+    for added in run_cache_files(run_cache) - cached_before:
+        if any(md5 in added.read_text() for md5 in out_md5s):
+            added.unlink()
 
 
 def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
@@ -589,6 +616,10 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         raise RunnerError(
             f"{dvc_yaml} has wdir; the runner runs commands in the directory of dvc.yaml"
         )
+    names_in_yaml = stage_names(
+        dvc("stage", "list", "--name-only", str(dvc_yaml), capture=True), dvc_yaml
+    )
+    check_group(names_in_yaml, group)
     target = f"{dvc_yaml}:{group}"
     status = settle_upstream(
         lambda: json.loads(
@@ -621,9 +652,6 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
     stage_cmds = {k.removeprefix(prefix): v for k, v in cmds.items()}
     run_cache = Path(dvc("cache", "dir", capture=True).strip()) / "runs"
     record_path = dvc_yaml.parent / RECORD_NAME
-    names_in_yaml = stage_names(
-        dvc("stage", "list", "--name-only", str(dvc_yaml), capture=True), dvc_yaml
-    )
     record = prune_record(read_record(record_path), group, names_in_yaml)
     queue = plan([k.removeprefix(prefix) for k in keys], record, budget)
     log(
@@ -640,7 +668,9 @@ def run_group(dvc_yaml: Path, group: str, budget: int, log) -> int:
         try:
             failed = commit_stages(
                 names,
-                lambda batch: dvc("commit", "-f", "-q", *(prefix + n for n in batch)),
+                lambda batch: dvc(
+                    "commit", "-f", "-q", *(prefix + n for n in batch), hold=True
+                ),
                 lock,
                 dvc_yaml.parent,
                 snapshot,
