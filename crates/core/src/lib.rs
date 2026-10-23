@@ -6,6 +6,7 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod case;
+pub mod depletion;
 pub mod input;
 pub mod nem;
 pub mod pins;
