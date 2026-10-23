@@ -2187,7 +2187,7 @@ mod lattice {
             .unwrap();
             assert_eq!(reused, fresh);
         }
-        assert_eq!(reuse.dancoff_solves(), 1);
+        assert_eq!(reuse.dancoff_solves, 1);
     }
 
     #[test]
@@ -2211,7 +2211,7 @@ mod lattice {
             .unwrap();
             assert_eq!(reused, fresh, "{k}");
         }
-        assert_eq!(reuse.dancoff_solves(), 3);
+        assert_eq!(reuse.dancoff_solves, 3);
     }
 
     #[test]
@@ -2243,7 +2243,7 @@ mod lattice {
             .unwrap();
             assert_eq!(reused, fresh);
         }
-        assert_eq!(reuse.dancoff_solves(), 2);
+        assert_eq!(reuse.dancoff_solves, 2);
     }
 
     #[test]
@@ -2277,7 +2277,7 @@ mod lattice {
             .unwrap();
             assert_eq!(reused, fresh);
         }
-        assert_eq!(reuse.dancoff_solves(), 2);
+        assert_eq!(reuse.dancoff_solves, 2);
     }
 
     #[test]
@@ -2305,6 +2305,6 @@ mod lattice {
             .unwrap();
             assert_eq!(reused, fresh);
         }
-        assert_eq!(reuse.dancoff_solves(), 1);
+        assert_eq!(reuse.dancoff_solves, 1);
     }
 }
