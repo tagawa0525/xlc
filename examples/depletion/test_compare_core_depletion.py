@@ -20,16 +20,28 @@ def inputs():
             for b, k in [(0.0, 1.2), (1.0, 1.15), (2.0, 1.1), (3.0, 1.05)]
         ],
     }
+    # 燃焼度 2 点 × ホウ素 2 点 × 減速材 1 点 × 燃料 1 点。公称（1300 ppm）の分岐の k∞ は 1.2 + 2e-8 と 1.1 − 1e-8
     table = {
         "format": "xlc-table",
+        "split": 1,
         "axes": [
             {"name": "burnup", "points": [0.0, 2.0]},
-            {"name": "boron", "points": [1300.0], "b10": 0.199},
+            {"name": "boron", "points": [1000.0, 1300.0], "b10": 0.199},
+            {"name": "moderator", "points": [565.0], "density": [0.743]},
+            {"name": "fuel", "points": [565.0]},
         ],
+        "states": [{"k_inf": k} for k in [1.3, 1.2 + 2e-8, 1.2, 1.1 - 1e-8]],
     }
     core = {
         "format": "xlc-core-history",
         "specific_power": 40.0,
+        "state": {
+            "boron": 1300.0,
+            "b10": 0.199,
+            "moderator": 565.0,
+            "fuel": 565.0,
+            "banks": {},
+        },
         "axial_mesh": [0.0, 21.5],
         "assemblies": ["A01"],
         "heavy_metal": [[9000.0]],
@@ -77,6 +89,29 @@ class Summary(unittest.TestCase):
         self.assertAlmostEqual(
             s["between_max_abs_pcm"], abs(p[1]["rho_pcm"]), places=12
         )
+
+    def test_table_points_compare_with_the_branch_lattice_k(self):
+        s = compare_core_depletion.summarize(*inputs())
+        p = s["points"]
+        # 分岐の格子計算の k∞ は、core の状態のテーブルの状態の k∞
+        self.assertEqual([q["branch_k"] for q in p], [1.2 + 2e-8, None, 1.1 - 1e-8])
+        self.assertAlmostEqual(
+            p[0]["branch_rho_pcm"],
+            (1 / (1.2 + 2e-8) - 1 / (1.2 + 1e-8)) * 1e5,
+            places=12,
+        )
+        self.assertIsNone(p[1]["branch_rho_pcm"])
+        self.assertAlmostEqual(
+            s["on_table_branch_max_abs_pcm"],
+            max(abs(p[0]["branch_rho_pcm"]), abs(p[2]["branch_rho_pcm"])),
+            places=15,
+        )
+
+    def test_a_state_off_the_table_points_is_an_error(self):
+        lattice, table, core = inputs()
+        core["state"]["boron"] = 1200.0
+        with self.assertRaises(SystemExit):
+            compare_core_depletion.summarize(lattice, table, core)
 
     def test_burnups_off_the_history_points_are_errors(self):
         lattice, table, core = inputs()
