@@ -102,7 +102,7 @@ W1、P1、L1、R3、F1 にする。
   `more_saved_states_than_the_run_has_are_an_error`、`saved_states_read_back_bit_for_bit`、
   `a_checkpoint_of_another_fingerprint_is_an_error`、`a_checkpoint_of_the_other_kind_is_an_error`、
   `without_a_checkpoint_the_run_starts_from_the_beginning`、`fingerprints_tell_apart_where_the_bytes_belong`
-- 2A の燃焼度の点を最初の 10 点に切った入力（各点の少数群定数と形状関数も書く）を、5 点目のステップの後で `scancel` して投げ直した
+- 2A の燃焼度の点を最初の 10 点に切った入力（examples/depletion/p2/lattice-2A-10.toml。各点の少数群定数と形状関数も書く）を、5 点目のステップの後で `scancel` して投げ直した
   履歴が、一気に流した履歴と `seconds` を除いてバイトで一致し、11 点の k∞ と数密度、ピン出力が本番の 2A の履歴の最初の 11 点と
   ビットで一致した。書く費用はステップごとに 5.7〜30 ミリ秒（2.75〜14.9 MB）で、1 ステップは約 56 秒。履歴の 1 点は約 1.35 MB で、
   少数群定数と形状関数は 7.6 KB（examples/depletion/verification.md の「時間」、xlc 6ba9ca28、2026-10-23、Slurm 495、496、497）

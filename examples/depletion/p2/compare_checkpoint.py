@@ -1,6 +1,6 @@
-"""ADR-0196 の試行: 再開した履歴と一気に流した履歴、本番の履歴の最初の点を比べる。
+"""ADR-0196 の試行（lattice-2A-10.toml）: 再開した履歴と一気に流した履歴、本番の履歴の最初の点を比べる。
 
-使い方: python3 compare.py <再開した履歴> <一気に流した履歴> <本番の履歴>
+使い方: python3 compare_checkpoint.py <再開した履歴> <一気に流した履歴> <本番の履歴>
 """
 
 import hashlib
@@ -32,6 +32,10 @@ print("solves", resumed["solves"], straight["solves"])
 print("seconds resumed", resumed["seconds"])
 print("seconds straight", straight["seconds"])
 n = len(straight["points"])
+if len(production["points"]) < n:
+    sys.exit(
+        f"the production history has {len(production['points'])} points, fewer than {n}"
+    )
 same = all(
     a["k_inf"] == b["k_inf"]
     and a["densities"] == b["densities"]
