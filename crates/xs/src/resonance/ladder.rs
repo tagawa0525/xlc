@@ -200,24 +200,24 @@ pub(super) fn bondarenko(
 
 /// ラダーの 1 つの共鳴。
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Resonance {
+struct Resonance {
     /// 窓の中心からの位置 (eV)
-    pub(super) energy: f64,
-    pub(super) gn: f64,
-    pub(super) gf: f64,
+    energy: f64,
+    gn: f64,
+    gf: f64,
     /// 全幅 Γ
-    pub(super) gamma: f64,
+    gamma: f64,
 }
 
 /// エネルギーごとの共鳴の断面積の和（成分ごとの配列）。
-pub(super) struct Parts {
-    pub(super) elastic: Vec<f64>,
-    pub(super) fission: Vec<f64>,
-    pub(super) capture: Vec<f64>,
+struct Parts {
+    elastic: Vec<f64>,
+    fission: Vec<f64>,
+    capture: Vec<f64>,
 }
 
 impl Parts {
-    pub(super) fn zeroed(n: usize) -> Self {
+    fn zeroed(n: usize) -> Self {
         Self {
             elastic: vec![0.0; n],
             fission: vec![0.0; n],
@@ -234,7 +234,7 @@ impl Parts {
 
 /// 共鳴を持つ系列 `q` のラダーを 1 つ作る。窓 [−half, half] の外にも、`MIN_MARGIN_SPACINGS` などで決めた範囲に `margin_scale` を
 /// 掛けた範囲まで並べる。最初の共鳴の位置は、最初の間隔の幅の中で一様（PURR の ladr2 と同じ）。
-pub(super) fn sample_ladder(
+fn sample_ladder(
     q: &LadderSequence,
     half: f64,
     margin_scale: f64,
@@ -276,12 +276,7 @@ pub(super) fn sample_ladder(
 ///
 /// C_r は s を外、r を内のループで、エネルギーごとの和は共鳴を外、エネルギーを内のループで求め、内側の独立な点をベクトル命令で
 /// 並べる。どの点の値も、点ごとに求めたときと同じ演算を同じ順序で足すので、結果のビットは変わらない（ADR-0188）。
-pub(super) fn add_ladder(
-    q: &LadderSequence,
-    ladder: &[Resonance],
-    energies: &[f64],
-    parts: &mut Parts,
-) {
+fn add_ladder(q: &LadderSequence, ladder: &[Resonance], energies: &[f64], parts: &mut Parts) {
     // 極 p_r = E_r − iΓ_r/2 の実部と虚部を別の配列に置き、num_complex の Γn_s/(p̄_s − p_r) と和と同じ式を成分で書く
     let pole_re: Vec<f64> = ladder.iter().map(|r| r.energy).collect();
     let pole_im: Vec<f64> = ladder.iter().map(|r| -0.5 * r.gamma).collect();
@@ -289,7 +284,7 @@ pub(super) fn add_ladder(
     let mut sum_im = vec![0.0; ladder.len()];
     for s in ladder {
         // p̄_s
-        let (conjugate_re, conjugate_im) = (s.energy, -(-0.5 * s.gamma));
+        let (conjugate_re, conjugate_im) = (s.energy, 0.5 * s.gamma);
         for (((sum_re, sum_im), &p_re), &p_im) in sum_re
             .iter_mut()
             .zip(sum_im.iter_mut())
@@ -336,14 +331,16 @@ pub(super) fn add_ladder(
         w.extend(x[..first].iter().map(asymptotic));
         faddeeva_along_x(y, &x[first..last], &mut w);
         w.extend(x[last..].iter().map(asymptotic));
-        for (e, w) in parts.elastic.iter_mut().zip(&w) {
-            *e += (iar * w).re;
-        }
-        for (f, w) in parts.fission.iter_mut().zip(&w) {
-            *f += fission_re * w.re;
-        }
-        for (k, w) in parts.capture.iter_mut().zip(&w) {
-            *k += capture_re * w.re;
+        for (((elastic, fission), capture), w) in parts
+            .elastic
+            .iter_mut()
+            .zip(parts.fission.iter_mut())
+            .zip(parts.capture.iter_mut())
+            .zip(&w)
+        {
+            *elastic += (iar * w).re;
+            *fission += fission_re * w.re;
+            *capture += capture_re * w.re;
         }
     }
 }
