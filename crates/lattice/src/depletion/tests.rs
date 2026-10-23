@@ -930,11 +930,9 @@ fn channel_cross_sections_need_every_group() {
     assert!(result.is_err());
 }
 
-#[test]
-fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
-    // 燃料のピンの中の薄い被覆（IFBA の型）と、別のセルの吸収体の棒（Pyrex の型）を燃焼させる。どちらも Xe-135 で、崩壊だけのときより
-    // 速く減る（捕獲の反応率を持つ）。燃焼の領域は、対称操作の組と物質の対（ADR-0173）
-    let text = PIN
+/// 燃料のピンの中の薄い被覆 `coat`（IFBA の型）と、別のセルの吸収体の棒 `poison`（Pyrex の型）も燃焼させる PIN の格子
+fn with_absorbers() -> String {
+    PIN
         .replace("rows = [\"pin\"]", "rows = [\"pin rod\"]")
         .replace(
             "zones = [{ material = \"fuel\", radius = 0.4096, rings = 1 }",
@@ -949,8 +947,13 @@ fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
             "[depletion]",
             "[cell.rod]\nzones = [{ material = \"poison\", radius = 0.4, rings = 1 }, { material = \"water\", rings = 1 }]\n\n[depletion]",
         )
-        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\", \"poison\"]");
-    let history = deplete_input(&text);
+        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\", \"poison\"]")
+}
+
+#[test]
+fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
+    // どちらの吸収体も Xe-135 で、崩壊だけのときより速く減る（捕獲の反応率を持つ）。燃焼の領域は、対称操作の組と物質の対（ADR-0173）
+    let history = deplete_input(&with_absorbers());
     let names: Vec<&str> = history
         .regions
         .iter()
@@ -1187,4 +1190,38 @@ fn remixing_needs_the_shielded_nuclides_of_each_region() {
     fuel.composition.push(("Xe-135".into(), 1e-9));
     let error = remix_depleted(&library, &shielded, &lattice, &regions, &[fuel]).unwrap_err();
     assert!(format!("{error:#}").contains("nuclides"), "{error:#}");
+}
+
+#[test]
+fn step_start_shielding_remixes_depleted_absorbers_too() {
+    // 自己遮蔽しない吸収体（無限希釈の物質）も、中点で始まりの微視的断面積のまま、自己遮蔽と同じ作り方で作り直す。O-16 の弾性散乱を
+    // 散乱行列の行の和と違う値にし、自己遮蔽した群定数の散乱行列の補正 (Σs + σe − σe) / Σs が丸めで 1 にならないライブラリでも、
+    // 無限希釈の物質と同じになる。群定数は σ0 によらないので、輸送のたびに解いたときと丸めの誤差の範囲で等しい
+    let mut library = library();
+    let oxygen = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "O-16")
+        .unwrap();
+    for table in &mut oxygen.temperatures[0].shielded {
+        table.elastic = vec![1.1, 1.1];
+    }
+    let every = deplete_with(&with_absorbers(), &library);
+    let start = deplete_with(
+        &format!("{}shielding = \"step-start\"\n", with_absorbers()),
+        &library,
+    );
+    assert_eq!(start.shieldings, 4);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * a.abs().max(b.abs());
+    for (s, e) in start.points.iter().zip(&every.points) {
+        assert!(close(s.k, e.k), "{} vs {}", s.k, e.k);
+        for (ns, ne) in s
+            .densities
+            .iter()
+            .flatten()
+            .zip(e.densities.iter().flatten())
+        {
+            assert!(close(*ns, *ne), "{ns} vs {ne}");
+        }
+    }
 }
