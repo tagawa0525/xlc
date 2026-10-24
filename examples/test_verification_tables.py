@@ -1335,6 +1335,7 @@ class DrawUfgFreeGas(unittest.TestCase):
                     "name": "0",
                     "key": "1C-0",
                     "openmc_k": 1.17,
+                    "swaps": ["U-238:27-27"],
                     "results": {
                         "static": result(1.1714, -46.0, 0.0, {"U-238:27-27": -54.4}),
                         "exact": result(1.1716, -26.0, 20.0, {"U-238:27-27": -40.0}),
@@ -1344,6 +1345,7 @@ class DrawUfgFreeGas(unittest.TestCase):
                     "name": "40",
                     "key": "2A-40",
                     "openmc_k": 0.825,
+                    "swaps": ["U-238:27-27"],
                     "results": {
                         "static": result(
                             0.8255, 64.0, 0.0, {"U-238:27-27": -29.7}, tilt
@@ -1381,10 +1383,29 @@ class DrawUfgFreeGas(unittest.TestCase):
     def test_a_swap_missing_in_a_state_is_a_dash(self):
         summary = self.summary()
         summary["swaps"].append({"spec": "Pu-239:27-27", "label": "Pu-239、27 群"})
+        summary["states"][1]["swaps"].append("Pu-239:27-27")
         summary["states"][1]["results"]["static"]["swaps"]["Pu-239:27-27"] = -3.0
+        del summary["states"][1]["results"]["exact"]
         table = vt.ufg_free_gas_swaps([summary])
         self.assertRegex(table, r"\| 0 +\| 静止 +\| −54\.4 +\| – +\|")
         self.assertRegex(table, r"\| 40 +\| 静止 +\| −29\.7 +\| −3\.0 +\|")
+
+    def test_a_declared_swap_missing_from_the_results_is_an_error(self):
+        summary = self.summary()
+        summary["states"][1]["swaps"].append("Pu-239:27-27")
+        summary["swaps"].append({"spec": "Pu-239:27-27", "label": "Pu-239、27 群"})
+        with self.assertRaises(vt.TableError):
+            vt.ufg_free_gas_swaps([summary])
+
+    def test_unknown_swaps_or_modes_to_keep_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.ufg_free_gas_swaps([self.summary()], specs=["U-238:25-25"])
+        with self.assertRaises(vt.TableError):
+            vt.ufg_free_gas_swaps([self.summary()], modes=["heavy"])
+
+    def test_a_tilt_log_without_bins_in_the_range_is_an_error(self):
+        with self.assertRaisesRegex(vt.TableError, "40"):
+            vt.ufg_free_gas_tilt([self.summary()], energies=(15.968, 27.7))
 
     def test_swap_tables_can_keep_some_swaps_and_modes(self):
         summary = self.summary()
