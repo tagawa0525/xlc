@@ -677,7 +677,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .ok_or_else(|| anyhow!("a medium needs a library"))?;
         let medium = Medium {
             bounds: groups.bounds().to_vec(),
-            axes: axes.to_vec(),
+            axes: axes
+                .iter()
+                .cloned()
+                .map(xlc_format::table::Axis::without_nominal)
+                .collect(),
             states: written,
         };
         let output = base.join(output);

@@ -548,6 +548,15 @@ impl BranchesEntry {
             .enumerate()
             .filter(|&(_, &c)| c > 1)
             .fold(0, |mask, (k, _)| mask | (1 << k));
+        // 点が 2 つ以上の軸は、どれかの組が持つ（持たなければ、その軸の分岐を解かず、core が公称の値を黙って使う）
+        let covered = subgrids.iter().fold(0, |mask, &s| mask | s);
+        if let Some(axis) = (0..counts.len()).find(|&k| varying & !covered & (1 << k) != 0) {
+            return Err(format!(
+                "branches.subgrids: no subgrid holds the {} axis of {} points",
+                axes[axis].name(),
+                counts[axis]
+            ));
+        }
         let nominal: Option<Vec<usize>> = per_axis.iter().copied().collect();
         let solved = if components(varying) {
             vec![true; total]

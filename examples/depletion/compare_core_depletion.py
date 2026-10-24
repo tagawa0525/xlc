@@ -32,7 +32,7 @@ def branch_k(table: dict, state: dict, burnup: float) -> float:
         "moderator": state["moderator"],
         "fuel": state["fuel"],
     }
-    index = 0
+    at = []
     for axis in table["axes"]:
         name = axis["name"]
         if name not in wanted:
@@ -48,8 +48,11 @@ def branch_k(table: dict, state: dict, burnup: float) -> float:
             raise SystemExit(
                 f"{name} {wanted[name]} is not a point of the table {points}"
             )
-        index = index * len(points) + points.index(wanted[name])
-    return table["states"][index]["k_inf"]
+        at.append(points.index(wanted[name]))
+    # テーブルは解いた点だけを持つ（ADR-0200）。split は 1（状態は点ごとに 1 つ）
+    if at not in table["points"]:
+        raise SystemExit(f"the table has not solved the point {at}")
+    return table["states"][table["points"].index(at)]["k_inf"]
 
 
 def summarize(lattice: dict, table: dict, core: dict) -> dict:

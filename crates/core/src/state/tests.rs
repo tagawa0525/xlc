@@ -967,15 +967,14 @@ fn thinned_table(thinned: &[f64], shape: impl Fn(f64) -> f64) -> Table {
             )
         })
         .collect();
-    let table = Table {
+
+    Table {
         axes,
         split: 1,
         points,
         states,
         heavy_metal: None,
-    };
-    table.validate().unwrap();
-    table
+    }
 }
 
 /// 点（ホウ素、減速材、燃料の番号）の、燃焼度の 2 次の差の係数（公称で 0）
@@ -1000,6 +999,7 @@ fn wiggle(bu: f64) -> f64 {
 fn off_nominal_states_add_their_difference_from_the_nominal_state_over_their_burnups() {
     // 公称でない状態は 0、0.5、5、18 MWd/kg だけで解く（ADR-0200 の案 B2）
     let t = thinned_table(&[0.0, 0.5, 5.0, 18.0], wiggle);
+    t.validate().unwrap();
     let template = few(1300.0, 565.0, 550.0).k_inf;
     for (i, ppm) in PPM.into_iter().enumerate() {
         for (k, tf) in TF.into_iter().enumerate() {
@@ -1045,8 +1045,9 @@ fn off_nominal_states_add_their_difference_from_the_nominal_state_over_their_bur
 
 #[test]
 fn burnups_outside_the_points_of_an_off_nominal_state_are_errors() {
-    // 公称でない状態を 10 MWd/kg までしか解いていないテーブルは、その先の燃焼度で外挿しない
+    // 公称でない状態を 10 MWd/kg までしか解いていないテーブルは、その先の燃焼度で外挿しない（読み込みの検査も止める）
     let t = thinned_table(&[0.0, 0.5, 5.0, 10.0], wiggle);
+    assert!(t.validate().is_err());
     assert!(interpolate(&t, Some(&at_burnup(15.0, 1300.0, 565.0, 550.0)), None).is_ok());
     let err = interpolate(&t, Some(&at_burnup(15.0, 1000.0, 565.0, 550.0)), None).unwrap_err();
     assert!(err.contains("burnup"), "{err}");
