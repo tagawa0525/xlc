@@ -1,0 +1,56 @@
+# ADR-0203: UFG の自由ガスの散乱核の測定の要約（ufg_free_gas.py summarize の設定）。OpenMC の k は swap-candidates.toml の実行の平均
+# （swap-candidates.json の k の差と同じ）。置き換えは swaps.txt の組で、OpenMC の反応率は 1C の 0、5 MWd/kg が Slurm 448、2A-40 が
+# 459（シード 3）
+candidates = "../swap-candidates.toml"
+
+[[mode]]
+key = "static"
+label = "静止した標的（ADR-0070）"
+
+[[mode]]
+key = "exact"
+label = "自由ガス（参照: 上限なし、細かさ 4、収束まで）"
+
+[[mode]]
+key = "cells2"
+label = "自由ガス、細かさ 2"
+
+[[mode]]
+key = "sweep1"
+label = "自由ガス、スイープ 1 回"
+
+[[mode]]
+key = "cap400"
+label = "自由ガス、400 kT まで"
+
+[[mode]]
+key = "fast"
+label = "自由ガス、400 kT まで、細かさ 2、スイープ 1 回"
+
+[[swap]]
+spec = "U-238:27-27"
+label = "U-238、4〜9.88 eV"
+
+[[swap]]
+spec = "*:27-27"
+label = "燃料の全核種、4〜9.88 eV"
+
+[[swap]]
+spec = "U-238:14-26"
+label = "U-238、9.88 eV〜15 keV"
+
+[[swap]]
+spec = "*:14-26"
+label = "燃料の全核種、9.88 eV〜15 keV"
+
+[[state]]
+name = "1C 0 MWd/kg"
+key = "1C-0"
+
+[[state]]
+name = "1C 5 MWd/kg"
+key = "1C-5"
+
+[[state]]
+name = "2A 40 MWd/kg"
+key = "2A-40"
