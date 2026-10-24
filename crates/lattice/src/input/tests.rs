@@ -1,4 +1,5 @@
 use super::*;
+use crate::branches::BranchShielding;
 
 const PIN_CELL: &str = r#"
 # pin cell
@@ -1302,41 +1303,31 @@ fn history_branches_need_branches_shielding_and_a_lattice_table() {
 }
 
 #[test]
-fn branches_shield_every_state_unless_told_to_shield_at_the_nominal_moderator() {
-    // 分岐の自己遮蔽（ADR-0201）。書かなければ状態ごとに解き直す
+fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
+    // 分岐の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は公称のホウ素の自己遮蔽を使う。履歴のない分岐も同じ
     let with = |value: &str| {
         history_branches(HISTORY).replace(
             "[history]\n",
             &format!("shielding = \"{value}\"\n[history]\n"),
         )
     };
+    let plain = |text: String| text[..text.find("[history]").unwrap()].to_string();
     let shielding = |text: &str| {
         LatticeInput::parse(text)
             .map(|input| input.branches.unwrap().shielding())
             .map_err(|e| e.to_string())
     };
+    for text in [history_branches(HISTORY), plain(history_branches(HISTORY))] {
+        assert_eq!(shielding(&text), Ok(BranchShielding::NominalBoron));
+    }
     assert_eq!(
-        shielding(&history_branches(HISTORY)),
-        Ok(BranchShielding::EveryState)
+        shielding(&with("nominal-boron")),
+        Ok(BranchShielding::NominalBoron)
     );
-    assert_eq!(
-        shielding(&with("every-state")),
-        Ok(BranchShielding::EveryState)
-    );
-    assert_eq!(
-        shielding(&with("nominal-moderator")),
-        Ok(BranchShielding::NominalModerator)
-    );
+    for text in [with("every-state"), plain(with("every-state"))] {
+        assert_eq!(shielding(&text), Ok(BranchShielding::EveryState));
+    }
+    // 値は nominal-boron と every-state だけ
+    assert!(shielding(&with("nominal-moderator")).is_err());
     assert!(shielding(&with("nominal")).is_err());
-    // 公称の減速材の自己遮蔽は、履歴からの分岐だけ（燃料の組成が状態によらない）
-    let plain = |value: &str| {
-        let text = with(value);
-        text[..text.find("[history]").unwrap()].to_string()
-    };
-    assert_eq!(
-        shielding(&plain("every-state")),
-        Ok(BranchShielding::EveryState)
-    );
-    let err = shielding(&plain("nominal-moderator")).unwrap_err();
-    assert!(err.contains("[history]"), "{err}");
 }

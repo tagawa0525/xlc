@@ -1023,6 +1023,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A-boron.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
+    "examples/depletion/branches/compare-shielding-boron.json",
 }
 
 
@@ -1214,6 +1215,14 @@ TABLES = {
     ),
     "depletion-branch-shielding-constants": (
         ["examples/depletion/branches/compare-shielding.json"],
+        branch_shielding_constants,
+    ),
+    "depletion-branch-shielding-boron-k": (
+        ["examples/depletion/branches/compare-shielding-boron.json"],
+        branch_shielding_k,
+    ),
+    "depletion-branch-shielding-boron-constants": (
+        ["examples/depletion/branches/compare-shielding-boron.json"],
         branch_shielding_constants,
     ),
     "depletion-assembly-times": (

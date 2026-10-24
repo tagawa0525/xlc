@@ -3010,23 +3010,88 @@ python3 examples/depletion/compare_branch_cross_terms.py --json examples/depleti
 
 ## 分岐の自己遮蔽（ADR-0201）
 
-燃焼度の軸を持つ分岐のテーブル（ADR-0187）の自己遮蔽を、燃焼度の点と燃料の温度の点ごとに公称のホウ素と減速材で 1 度だけ解き、ホウ素と
-減速材の軸が変える物質（水と被覆管）だけを状態の組成と温度で作り直す近似（[ADR-0201](../../docs/adr/0201-shield-branches-at-the-nominal-moderator-by-choice.md) の
-`shielding = "nominal-moderator"`）を、状態ごとに解き直す既定（`"every-state"`）と比べた。入力は examples/depletion/branches/ の
-`shielding-<集合体>-every.toml` と `shielding-<集合体>-nominal.toml`（`shielding` の行だけが違う）。2A の履歴の燃焼度 0、20 MWd/kg と、
-2O の履歴の 4 MWd/kg（Gd の燃え尽きの前）で、ホウ素 900、1300（公称）、1700 ppm × 減速材 3 点 × 燃料 1 点（公称）。減速材の温度は
-ライブラリが水と被覆管の核種に持つ 565 K と 600 K から選び（ADR-0097 の M3 の 550、580 K はライブラリにない）、密度は M3 の
+燃焼度の軸を持つ分岐のテーブル（ADR-0187）の自己遮蔽を、参照の状態で 1 度だけ解いて状態に再利用する 2 つの方式を、状態ごとに解き直す
+方式（`shielding = "every-state"`）と比べた（[ADR-0201](../../docs/adr/0201-shield-branches-at-the-nominal-boron.md)）。既定の `"nominal-boron"` は、燃焼度、
+減速材、燃料の温度の点ごとに公称のホウ素で解き、ホウ素の軸が変える水だけを状態の組成で作り直す。採らなかった `"nominal-moderator"` は、
+燃焼度と燃料の温度の点ごとに公称のホウ素と減速材で解き、水と被覆管を状態の組成と温度で作り直した。状態はどちらも、2A の履歴の燃焼度 0、
+20 MWd/kg と 2O の履歴の 4 MWd/kg（Gd の燃え尽きの前）で、ホウ素 900、1300（公称）、1700 ppm × 減速材 3 点 × 燃料 1 点（公称）。減速材の
+温度はライブラリが水と被覆管の核種に持つ 565 K と 600 K から選び（ADR-0097 の M3 の 550、580 K はライブラリにない）、密度は M3 の
 0.76972、0.71190 g/cc と公称の 0.743 g/cc。2A は公称（565 K、0.743）、600 K と 0.71190、565 K と 0.76972（`2A-dense`）、2O は公称（600 K、
-0.743）、565 K と 0.76972、600 K と 0.71190（`2O-thin`）。
+0.743）、565 K と 0.76972、600 K と 0.71190（`2O-thin`）。履歴のステージを deps にすると重いステージが走るので、「燃焼度の軸を持つ
+テーブル（2A）」と同じ理由でステージにせず、比較の JSON は git で追跡する。
 
-### 計算
+### 公称のホウ素（既定）
 
-xlc d3e0b64e（分岐点は main の 828f27a5）、2026-10-24、Slurm 531（2A）、532（2O）。どちらも timed でないジョブなので、時間は記録に
-使わない。ライブラリは `p2/depletion.msgpack` md5 015111df、履歴は `p2/lattice-2A.msgpack` md5 eb9ca398、`p2/lattice-2O.msgpack` md5 d076d94d。
-比べたテーブルの md5 は `branches/compare-shielding.json` の `inputs`。履歴のステージを deps にすると重いステージが走るので、
-「燃焼度の軸を持つテーブル（2A）」と同じ理由でステージにせず、比較の JSON は git で追跡する。
+#### 計算
+
+入力は examples/depletion/branches/ の `shielding-<集合体>-every.toml` と `shielding-<集合体>-boron.toml`（`shielding` の行だけが違う）。
+xlc 667c3a51（分岐点は main の 9fe1bee7）、2026-10-24、Slurm 533（timed でないジョブなので、時間は記録に使わない）。ライブラリは
+`p2/depletion.msgpack` md5 015111df、履歴は `p2/lattice-2A.msgpack` md5 eb9ca398、`p2/lattice-2O.msgpack` md5 d076d94d。every-state の
+テーブルの md5 は、下の nominal-moderator の比較（d3e0b64e）の every-state のテーブルと同じ。比べたテーブルの md5 は
+`branches/compare-shielding-boron.json` の `inputs`。
 
 ```sh
+cargo build --release --locked -p xlc-lattice
+cd examples/depletion/branches
+for f in shielding-2A-every shielding-2A-boron shielding-2A-dense-every shielding-2A-dense-boron \
+         shielding-2O-every shielding-2O-boron shielding-2O-thin-every shielding-2O-thin-boron; do
+  RUST_LOG=info ../../../target/release/lattice $f.toml > $f.out 2> $f.log
+done
+cd ../../..
+python3 examples/depletion/compare_branch_shielding.py --json examples/depletion/branches/compare-shielding-boron.json \
+  examples/depletion/branches/compare-shielding-boron.toml
+```
+
+#### 結果
+
+k∞ の差 (k_nominal-boron − k_every-state) × 1e5（pcm）。行はホウ素、列は減速材の点（`–` は解いていない点）:
+
+<!-- table: depletion-branch-shielding-boron-k -->
+
+| 集合体 | 燃焼度 (MWd/kg) | ホウ素 (ppm) | 565 K、0.743 g/cc | 565 K、0.76972 g/cc | 600 K、0.7119 g/cc | 600 K、0.743 g/cc |
+| ------ | --------------- | ------------ | ----------------- | ------------------- | ------------------ | ----------------- |
+| 2A     | 0               | 900          | −0.37             | −0.36               | −0.38              | –                 |
+| 2A     | 0               | 1300         | 0.00              | 0.00                | 0.00               | –                 |
+| 2A     | 0               | 1700         | +0.29             | +0.28               | +0.30              | –                 |
+| 2A     | 20              | 900          | −0.27             | −0.26               | −0.27              | –                 |
+| 2A     | 20              | 1300         | 0.00              | 0.00                | 0.00               | –                 |
+| 2A     | 20              | 1700         | +0.22             | +0.22               | +0.23              | –                 |
+| 2O     | 4               | 900          | –                 | −0.25               | −0.26              | −0.26             |
+| 2O     | 4               | 1300         | –                 | 0.00                | 0.00               | 0.00              |
+| 2O     | 4               | 1700         | –                 | +0.20               | +0.21              | +0.20             |
+
+<!-- /table -->
+
+燃焼度の点ごとの Δk∞ の絶対値の最大と、少数群定数の項目ごとの相対差の最大（状態と群、散乱は元と先、ADF は辺にわたる）:
+
+<!-- table: depletion-branch-shielding-boron-constants -->
+
+| 集合体 | 燃焼度 (MWd/kg) | 状態の数 | Δk∞ の絶対値の最大 (pcm) | Σa      | νΣf     | D       | Σs      | ADF     |
+| ------ | --------------- | -------- | ------------------------ | ------- | ------- | ------- | ------- | ------- |
+| 2A     | 0               | 9        | 0.38                     | 1.5e-05 | 1.6e-05 | 7.4e-07 | 7.4e-06 | 2.9e-07 |
+| 2A     | 20              | 9        | 0.27                     | 9.2e-06 | 9.4e-06 | 6.5e-07 | 5.4e-06 | 2.6e-07 |
+| 2O     | 4               | 9        | 0.26                     | 1.3e-05 | 1.5e-05 | 7.0e-07 | 6.8e-06 | 2.7e-07 |
+
+<!-- /table -->
+
+参照の状態（公称の 1300 ppm）の差は 0.000 pcm で、少数群定数の相対差は 4.3e-12 以下（ビットで同じでないのは、MOC の反復を前に解いた
+状態の解から始め（ADR-0195）、前に解いた状態が方式で違うためが候補で、確かめていない）。ホウ素だけを変えた状態の差は −0.38〜+0.30 pcm
+（Σa の相対差 1.5e-5 以下）で、下の nominal-moderator のホウ素だけを変えた状態の差（−0.37〜+0.29 pcm）と同じ程度。減速材の点は、どれも
+その点で解き直した参照から作るので、減速材の密度による差はない。自己遮蔽の回数（ログの `branches` の `shieldings`）は、2A が 12 回 → 4 回
+（燃焼度 2 点 × 減速材 2 点）、2A-dense が 6 回 → 2 回、2O が 6 回 → 2 回、2O-thin が 3 回 → 1 回で、ホウ素 3 点の 1/3。
+
+### 公称の減速材（採らなかった案）
+
+#### 計算
+
+入力は xlc d3e0b64e の examples/depletion/branches/ の `shielding-<集合体>-every.toml`（そのときの既定の every-state）と
+`shielding-<集合体>-nominal.toml`（`shielding = "nominal-moderator"`。今の lattice は読まないので、作り直すには d3e0b64e を checkout する）。
+xlc d3e0b64e（分岐点は main の 828f27a5）、2026-10-24、Slurm 531（2A）、532（2O）。どちらも timed でないジョブなので、時間は記録に
+使わない。ライブラリは `p2/depletion.msgpack` md5 015111df、履歴は `p2/lattice-2A.msgpack` md5 eb9ca398、`p2/lattice-2O.msgpack` md5 d076d94d。
+比べたテーブルの md5 は `branches/compare-shielding.json` の `inputs`。
+
+```sh
+git checkout d3e0b64e
 cargo build --release --locked -p xlc-lattice
 cd examples/depletion/branches
 for f in shielding-2A-every shielding-2A-nominal shielding-2A-dense-every shielding-2A-dense-nominal \
@@ -3038,7 +3103,7 @@ python3 examples/depletion/compare_branch_shielding.py --json examples/depletion
   examples/depletion/branches/compare-shielding.toml
 ```
 
-### 結果
+#### 結果
 
 k∞ の差 (k_nominal-moderator − k_every-state) × 1e5（pcm）。行はホウ素、列は減速材の点（`–` は解いていない点）:
 
@@ -3080,5 +3145,5 @@ k∞ の差 (k_nominal-moderator − k_every-state) × 1e5（pcm）。行はホ�
 91% と 53% を落とす（燃料の共鳴の自己遮蔽が Dancoff 係数を通して減速材の密度に依る分。候補で、Dancoff 係数と共鳴の吸収を分けて確かめていない）。
 Σa の相対差の最大は 0.15〜0.22%、Gd の 2O でも 2A と同じ程度で、Gd の自己遮蔽に特有の差は見えない。
 
-自己遮蔽の回数（ログの `branches` の `shieldings`）は、2A が 12 回 → 2 回（燃焼度 2 点。公称は軸の点）、2A-dense が 6 回 → 2 回
-（公称は軸の点でなく、参照の自己遮蔽は表に入らない）、2O が 6 回 → 1 回、2O-thin が 3 回 → 1 回。
+自己遮蔽の回数（ログの `branches` の `shieldings`）は、2A が 12 回 → 2 回、2A-dense が 6 回 → 2 回（公称の減速材は軸の点でなく、参照の
+自己遮蔽は表に入らない）、2O が 6 回 → 1 回、2O-thin が 3 回 → 1 回。

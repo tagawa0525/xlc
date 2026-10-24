@@ -1,5 +1,5 @@
-"""分岐の自己遮蔽を公称の減速材で 1 度だけ解いたテーブル（ADR-0201 の `shielding = "nominal-moderator"`）を、状態ごとに解き直した
-テーブル（`"every-state"`）と比べる。
+"""分岐の自己遮蔽を公称の状態で解いて状態に再利用したテーブル（ADR-0201 の `shielding = "nominal-boron"` か
+`"nominal-moderator"`）を、状態ごとに解き直したテーブル（`"every-state"`）と比べる。
 
 使い方: python3 compare_branch_shielding.py --json <要約の出力先> <入力（TOML）>
         python3 compare_branch_shielding.py --report <要約の JSON>
@@ -9,7 +9,7 @@
     [[case]]
     name = "2A"
     every = "table-shielding-2A-every.msgpack"
-    nominal = "table-shielding-2A-nominal.msgpack"
+    nominal = "table-shielding-2A-boron.msgpack"
 
 - 2 つのテーブルは同じ軸（燃焼度、ホウ素、減速材、燃料）と、軸の点の数の積の状態を持つこと（部分ノードに分けたテーブルは
   比べない）。状態ごとに軸の値を添える。有限でない値はエラー

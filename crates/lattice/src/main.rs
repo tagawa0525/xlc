@@ -34,13 +34,12 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{state_indices, tables};
+use xlc_lattice::branches::{BranchShielder, state_indices, tables};
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
 };
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
-use xlc_lattice::history::BranchShielder;
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{
     CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput, VOID,
@@ -50,7 +49,6 @@ use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
-use xlc_lattice::shielding::{ShieldingReuse, shield_fuel_reusing};
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
 
@@ -358,10 +356,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
-    // 燃料でない物質が直前の状態と同じなら、燃料のピンの Dancoff 係数を持ち越す（ADR-0194）
-    let mut reuse = ShieldingReuse::new(&tracking);
-    // 履歴からの分岐は、`[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）
-    let mut shielder = BranchShielder::new(&tracking);
+    // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
+    // ピンの Dancoff 係数を持ち越す（ADR-0194）
+    let varied = input.branches.as_ref().map_or(&[][..], |b| b.varied());
+    let mut shielder = BranchShielder::new(
+        &tracking,
+        solved_materials,
+        varied,
+        chosen.shielding(),
+        input.shielding_options(),
+    );
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -374,37 +378,49 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
     // 状態ごとに、前に解いた近い状態の MOC の収束した状態 `from` から反復を始める（ADR-0195。`solve_states` が持つ）
     let solve = |state: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
-        // 履歴からの分岐の物質は `BranchShielder` が状態ごとに作り、下の自己遮蔽で先に分かれる（履歴は自己遮蔽を求める）。ここで
-        // 作ると状態ごとに燃焼の領域の組成を 2 度複製する
+        // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
+        let built;
         let state_materials: &[MaterialInput] = match &history_branches {
-            Some(_) => &[],
+            Some(h) => {
+                built = h.state(state);
+                &built
+            }
             None => &plain[state],
         };
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
         let (unique, region_index) = match &source {
             Source::Library(library) => {
-                if let Some(h) = &history_branches {
+                if input.self_shielding {
+                    // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
+                    let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
+                        match (&history_branches, &input.branches) {
+                            (Some(h), _) => {
+                                let reference = h.reference(state);
+                                (
+                                    reference,
+                                    Box::new(move || {
+                                        reference.map_or_else(Vec::new, |(point, r)| {
+                                            h.reference_state(point, r)
+                                        })
+                                    }),
+                                )
+                            }
+                            (None, Some(b)) => {
+                                let reference = b.reference(state);
+                                (
+                                    reference.map(|r| (0, r)),
+                                    Box::new(move || {
+                                        reference
+                                            .map_or_else(Vec::new, |r| b.references()[r].clone())
+                                    }),
+                                )
+                            }
+                            (None, None) => (None, Box::new(Vec::new)),
+                        };
                     shielder
-                        .shield(
-                            library,
-                            h,
-                            state,
-                            chosen.shielding(),
-                            &input.shielding_options(),
-                        )
+                        .shield(library, state_materials, reference, nominal)
                         .with_context(|| format!("{}: self-shielding", context()))?
-                } else if input.self_shielding {
-                    let shielded = shield_fuel_reusing(
-                        library,
-                        &mut reuse,
-                        state_materials,
-                        solved_materials,
-                        chosen.shielding(),
-                        &input.shielding_options(),
-                    )
-                    .with_context(|| format!("{}: self-shielding", context()))?;
-                    (shielded.materials, shielded.region_material)
                 } else {
                     let mut named = state_materials
                         .iter()
@@ -634,7 +650,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Ok(())
     };
     let states = solve_states(count, &counts, checkpoint.as_ref(), fits, solve)?;
-    if history_branches.is_some() {
+    if input.branches.is_some() && input.self_shielding {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
             shieldings = shielder.shieldings(),

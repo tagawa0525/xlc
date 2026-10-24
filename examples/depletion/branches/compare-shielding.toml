@@ -1,5 +1,6 @@
-# 分岐の自己遮蔽（ADR-0201）の比較: shielding-<集合体>-every.toml と shielding-<集合体>-nominal.toml が書くテーブルを比べる
-# （../compare_branch_shielding.py）
+# 減速材の分岐でも公称の自己遮蔽を使う方式（`shielding = "nominal-moderator"`。ADR-0201 で採らなかった案）の比較: xlc d3e0b64e の
+# shielding-<集合体>-every.toml と shielding-<集合体>-nominal.toml が書いたテーブルを比べる（../compare_branch_shielding.py）。今の lattice は
+# nominal-moderator を読まないので、テーブルを作り直すには d3e0b64e を checkout する
 [[case]]
 name = "2A"
 every = "table-shielding-2A-every.msgpack"
