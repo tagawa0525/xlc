@@ -99,7 +99,8 @@ fn references_keep_the_nominal_boron_and_moderator_at_the_fuel_temperature_of_ea
     let input = LatticeInput::parse(INPUT).unwrap();
     let branches = input.branches.as_ref().unwrap();
     for (state, s) in input.branch_states().iter().enumerate() {
-        let reference = branches.reference(state);
+        // 燃料の温度の軸は最後の軸（いちばん速く変わる）
+        let reference = &branches.references()[state % 2];
         assert_eq!(material(reference, "fuel"), material(s, "fuel"), "{state}");
         for name in ["water", "clad"] {
             assert_eq!(
@@ -110,7 +111,10 @@ fn references_keep_the_nominal_boron_and_moderator_at_the_fuel_temperature_of_ea
         }
     }
     // 状態 7 は燃料 1（580 K）
-    assert_eq!(material(branches.reference(7), "fuel").temperature, 580.0);
+    assert_eq!(
+        material(&branches.references()[1], "fuel").temperature,
+        580.0
+    );
     // 参照から作り直す物質は、ホウ素と減速材の軸が変える物質
     assert_eq!(branches.varied(), ["water".to_string(), "clad".to_string()]);
 }
