@@ -12,6 +12,9 @@
 //! 範囲の上（E_high より上）は、中性子束をどのリングでも 1/E（F = 1）とし、散乱断面積はライブラリの無限希釈の
 //! 群定数とする（範囲の上限はアクチニドの分離共鳴の上端で、その上の遮蔽は σ0 の表で扱う）。群の上端より上に
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
+//!
+//! [`Scattering::FreeGas`] では、分離共鳴を持たない核種の散乱核を温度 T の自由ガスの核にする（[`free_gas`]、ADR-0203）。
+//! 上方散乱でまだ求めていない低いエネルギーの中性子束を使うので、自由ガスの核の届く範囲を掃き直す。
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -29,6 +32,9 @@ const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
+use free_gas::{Light, Thermal};
+
+mod free_gas;
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
 use xlc_numeric::lu::solve;
 
@@ -66,6 +72,8 @@ pub enum UfgError {
     Undefined { name: String, energy: f64 },
     #[error("the slowing-down equations are singular at {0} eV")]
     Singular(f64),
+    #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
+    NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
     /// 核種を含むリングの縮約の結果がない（内部の不整合）
@@ -160,6 +168,43 @@ fn range_below(library: &Library, top: f64) -> Result<[f64; 2], UfgError> {
     Ok([low, high])
 }
 
+/// UFG の減速計算の散乱核の、標的の扱い（ADR-0203）。
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Scattering {
+    /// どの核種も静止した標的（ADR-0070）
+    #[default]
+    Static,
+    /// 分離共鳴を持たない核種（ライブラリの `resolved` が nil）を温度 T の自由ガスにする。分離共鳴を持つ核種は静止した標的
+    FreeGas(FreeGas),
+}
+
+/// 自由ガスの核の計算の条件（ADR-0203）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FreeGas {
+    /// 自由ガスの核を使う入射エネルギーの上限（核種の kT の倍数）。それより上は静止した標的。`None` は範囲の全体
+    pub upper: Option<f64>,
+    /// 自由ガスと静止した標的の核の差を積分する区間の細かさ（上方散乱の裾は kT あたり、下端のぼけはその幅あたりの区間の数）
+    pub cells: usize,
+    /// 上方散乱のスイープの回数。`None` は、中性子束の相対変化が [`SWEEP_TOLERANCE`] 以下になるまで（[`MAX_SWEEPS`] 回まで）
+    pub sweeps: Option<usize>,
+}
+
+impl Default for FreeGas {
+    /// ADR-0203 の既定
+    fn default() -> Self {
+        Self {
+            upper: None,
+            cells: 4,
+            sweeps: None,
+        }
+    }
+}
+
+/// 上方散乱のスイープを打ち切る、中性子束の相対変化の最大
+pub const SWEEP_TOLERANCE: f64 = 1.0e-10;
+/// 上方散乱のスイープの回数の上限
+pub const MAX_SWEEPS: usize = 50;
+
 /// 1つの核種（名前と温度の組）の減速計算のデータ
 struct Data<'a> {
     name: &'a str,
@@ -169,6 +214,8 @@ struct Data<'a> {
     width: f64,
     /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
     table: Cow<'a, TemperatureData>,
+    /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種）
+    light: Option<Light>,
 }
 
 impl Data<'_> {
@@ -210,11 +257,20 @@ pub fn slowing_down(
     rings: &[Option<&MaterialInput>],
     range: [f64; 2],
 ) -> Result<CellSpectrum, UfgError> {
-    slowing_down_with(library, cell, rings, range, Collision::default(), None)
+    slowing_down_with(
+        library,
+        cell,
+        rings,
+        range,
+        Collision::default(),
+        None,
+        Scattering::Static,
+    )
 }
 
-/// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引くもの（[`thin`]。
-/// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））。
+/// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引き（[`thin`]。
+/// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））、
+/// 散乱核の標的の扱いを `scattering` で選ぶもの。
 pub fn slowing_down_with(
     library: &Library,
     cell: &Cylinder,
@@ -222,8 +278,11 @@ pub fn slowing_down_with(
     range: [f64; 2],
     collision: Collision,
     thinning: Option<f64>,
+    scattering: Scattering,
 ) -> Result<CellSpectrum, UfgError> {
-    solve_cell(library, cell, rings, range, collision, thinning, None)
+    solve_cell(
+        library, cell, rings, range, collision, thinning, scattering, None,
+    )
 }
 
 /// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]）。
@@ -237,6 +296,7 @@ pub struct FineFlux {
 
 /// [`slowing_down_with`] と同じ減速計算を解き、格子点ごとのリングの中性子束も返す（群の中の重みを参照解の細かい
 /// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。
+#[allow(clippy::too_many_arguments)]
 pub fn slowing_down_fine(
     library: &Library,
     cell: &Cylinder,
@@ -244,6 +304,7 @@ pub fn slowing_down_fine(
     range: [f64; 2],
     collision: Collision,
     thinning: Option<f64>,
+    scattering: Scattering,
 ) -> Result<(CellSpectrum, FineFlux), UfgError> {
     let mut fine = FineFlux::default();
     let spectrum = solve_cell(
@@ -253,12 +314,14 @@ pub fn slowing_down_fine(
         range,
         collision,
         thinning,
+        scattering,
         Some(&mut fine),
     )?;
     Ok((spectrum, fine))
 }
 
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
+#[allow(clippy::too_many_arguments)]
 fn solve_cell(
     library: &Library,
     cell: &Cylinder,
@@ -266,6 +329,7 @@ fn solve_cell(
     range: [f64; 2],
     collision: Collision,
     thinning: Option<f64>,
+    scattering: Scattering,
     fine: Option<&mut FineFlux>,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
@@ -312,11 +376,18 @@ fn solve_cell(
                         });
                     }
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
+                    let light = match scattering {
+                        Scattering::FreeGas(options) if d.resolved.is_none() => {
+                            Some(Light::new(d.awr, t.temperature, options.upper))
+                        }
+                        _ => None,
+                    };
                     data.push(Data {
                         name: &d.name,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
                         table: t,
+                        light,
                     });
                     keys.push((name, temperature));
                     data.len() - 1
@@ -413,6 +484,9 @@ fn solve_cell(
         known: Vec::new(),
         own: entries.iter().map(|ring| vec![0.0; ring.len()]).collect(),
         slabs: vec![(0.0, Vec::new()); data.len()],
+        thermal: None,
+        sweeps: None,
+        extra: (vec![0.0; n], vec![0.0; n]),
     };
 
     // 表で内挿するなら、軸ごとの全断面積の範囲を格子点の全体で先に求めて表を作る（表で衝突確率が減らないセルは作らない）
@@ -427,50 +501,91 @@ fn solve_cell(
     // 段ごとの経過時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
     // スレッドがほかのピンの仕事を盗むと、その時間も衝突確率に入るので、段の割合は 1 スレッドで測る
     let mut times = [Duration::ZERO; 3];
-    for start in (0..u.len()).step_by(CHUNK) {
-        let clock = Instant::now();
-        let chunk = start..(start + CHUNK).min(u.len());
-        // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲]
-        let mut values: Vec<Vec<Row>> = Vec::with_capacity(chunk.len());
-        for &(e, below) in &points[chunk.clone()] {
-            let row = data
+    let pass = Pass {
+        data: &data,
+        entries: &entries,
+        cell,
+        table: &table,
+        points: &points,
+        group_bounds,
+        ng,
+    };
+    // 自由ガスの核の届く範囲（start から）は、上方散乱が前のスイープの中性子束を使うので、収束するまで掃き直す
+    sweep.thermal = match scattering {
+        Scattering::Static => None,
+        Scattering::FreeGas(options) => {
+            let lights: Vec<usize> = (0..data.len())
+                .filter(|&k| data[k].light.is_some())
+                .collect();
+            let mut sigma = vec![Vec::with_capacity(points.len()); lights.len()];
+            let mut cursors: Vec<usize> = lights
                 .iter()
-                .zip(cursors.iter_mut())
-                .map(|(d, c)| evaluate(d, c, e, below))
-                .collect::<Result<Vec<_>, _>>()?;
-            values.push(row);
-        }
-        let evaluated = Instant::now();
-        let exact = |row: &[Row]| {
-            let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
-            cell.tracks(&totals).map_err(UfgError::from)
-        };
-        let tracks = values
-            .par_iter()
-            .map(|row| match &table {
-                None => exact(row),
-                Some((table, first)) => {
-                    let sigma: Vec<f64> = first.iter().map(|&i| total(&entries[i], row)).collect();
-                    match table.tracks(&sigma)? {
-                        Some(tracks) => Ok(tracks),
-                        // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
-                        None => exact(row),
-                    }
+                .map(|&k| data[k].pointwise().energy.len())
+                .collect();
+            for &(e, below) in &points {
+                for ((&k, c), column) in lights.iter().zip(&mut cursors).zip(&mut sigma) {
+                    column.push(evaluate(&data[k], c, e, below)?[1]);
                 }
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let collided = Instant::now();
-        for ((m, row), w) in chunk.zip(values).zip(&tracks) {
-            let (e, below) = points[m];
-            sweep.point(m, row, w, e)?;
-            // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
-            if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
-                sweep.group += 1;
+            }
+            let rings = lights
+                .iter()
+                .map(|&k| {
+                    entries
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(i, ring)| {
+                            ring.iter()
+                                .filter(move |&&(j, _)| j == k)
+                                .map(move |&(_, d)| (i, d))
+                        })
+                        .collect()
+                })
+                .collect();
+            let energies: Vec<f64> = points.iter().map(|&(e, _)| e).collect();
+            Thermal::new(
+                lights.iter().filter_map(|&k| data[k].light).collect(),
+                sigma,
+                rings,
+                options.cells,
+                &energies,
+                n,
+            )
+            .map(|t| (t, options))
+        }
+    }
+    .map(|(t, options)| {
+        sweep.sweeps = options.sweeps;
+        t
+    });
+    let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
+    pass.run(&mut sweep, &mut cursors, 0..start, &mut times)?;
+    if sweep.thermal.is_some() {
+        let saved = sweep.save();
+        let mut count = 0;
+        loop {
+            pass.run(&mut sweep, &mut cursors, start..u.len(), &mut times)?;
+            count += 1;
+            let change = sweep
+                .thermal
+                .as_mut()
+                .and_then(|t| t.finish(&u, &sweep.flux));
+            tracing::debug!(sweep = count, change, "UFG free-gas sweep");
+            let done = match sweep.sweeps {
+                Some(limit) => count >= limit,
+                None => change.is_some_and(|c| c <= SWEEP_TOLERANCE),
+            };
+            if done {
+                break;
+            }
+            if sweep.sweeps.is_none() && count >= MAX_SWEEPS {
+                return Err(UfgError::NotConverged(MAX_SWEEPS));
+            }
+            sweep.restore(&saved);
+            // 核種の格子のカーソルは降順にしか進まないので、範囲の上端から引き直す
+            for (c, d) in cursors.iter_mut().zip(&data) {
+                *c = d.pointwise().energy.len();
             }
         }
-        times[0] += evaluated - clock;
-        times[1] += collided - evaluated;
-        times[2] += collided.elapsed();
     }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成
@@ -574,6 +689,85 @@ fn solve_cell(
         nuclides,
         points: u.len(),
     })
+}
+
+/// 格子点の範囲を高いエネルギーから順に解くスイープの、変わらない入力。
+struct Pass<'a> {
+    data: &'a [Data<'a>],
+    entries: &'a [Vec<(usize, f64)>],
+    cell: &'a Cylinder,
+    table: &'a Option<(TrackTable, Vec<usize>)>,
+    points: &'a [(f64, bool)],
+    group_bounds: &'a [f64],
+    ng: usize,
+}
+
+impl Pass<'_> {
+    /// 格子点 `range` を順に解く（`cursors` は核種の格子のカーソル、`times` は段ごとの経過時間に足す）
+    fn run(
+        &self,
+        sweep: &mut Sweep,
+        cursors: &mut [usize],
+        range: Range<usize>,
+        times: &mut [Duration; 3],
+    ) -> Result<(), UfgError> {
+        let Self {
+            data,
+            entries,
+            cell,
+            table,
+            points,
+            group_bounds,
+            ng,
+        } = *self;
+        for first in range.clone().step_by(CHUNK) {
+            let clock = Instant::now();
+            let chunk = first..(first + CHUNK).min(range.end);
+            // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲]
+            let mut values: Vec<Vec<Row>> = Vec::with_capacity(chunk.len());
+            for &(e, below) in &points[chunk.clone()] {
+                let row = data
+                    .iter()
+                    .zip(cursors.iter_mut())
+                    .map(|(d, c)| evaluate(d, c, e, below))
+                    .collect::<Result<Vec<_>, _>>()?;
+                values.push(row);
+            }
+            let evaluated = Instant::now();
+            let exact = |row: &[Row]| {
+                let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
+                cell.tracks(&totals).map_err(UfgError::from)
+            };
+            let tracks = values
+                .par_iter()
+                .map(|row| match table {
+                    None => exact(row),
+                    Some((table, first)) => {
+                        let sigma: Vec<f64> =
+                            first.iter().map(|&i| total(&entries[i], row)).collect();
+                        match table.tracks(&sigma)? {
+                            Some(tracks) => Ok(tracks),
+                            // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
+                            None => exact(row),
+                        }
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let collided = Instant::now();
+            for ((m, row), w) in chunk.zip(values).zip(&tracks) {
+                let (e, below) = points[m];
+                sweep.point(m, row, w, e)?;
+                // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
+                if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
+                    sweep.group += 1;
+                }
+            }
+            times[0] += evaluated - clock;
+            times[1] += collided - evaluated;
+            times[2] += collided.elapsed();
+        }
+        Ok(())
+    }
 }
 
 /// 降順のエネルギー `energies` を、リングの物質（`entries` の同じ並びは 1 つ）ごとの巨視的な全断面積と弾性散乱断面積が、残した点の
@@ -1143,9 +1337,53 @@ struct Sweep<'a> {
     own: Vec<Vec<f64>>,
     /// [核種] の、窓の下端の区間の積分の範囲の上の部分と、格子点の値の重み
     slabs: Vec<(f64, Vec<(usize, f64)>)>,
+    /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、軽い核種のあるとき）と、上方散乱のスイープの回数
+    thermal: Option<Thermal>,
+    sweeps: Option<usize>,
+    /// 格子点ごとに再利用する作業用の配列: [リング] の自由ガスの核の散乱源の既知の部分と、その点の F_i の係数
+    extra: (Vec<f64>, Vec<f64>),
+}
+
+/// 掃き直しの始めに戻す、スイープの状態
+struct Saved {
+    windows: Vec<Vec<f64>>,
+    lower: Vec<usize>,
+    previous: Vec<Row>,
+    group: usize,
+    group_flux: Vec<Vec<f64>>,
+    rates: Vec<Vec<Vec<Row>>>,
+    /// 解いた格子点の数
+    len: usize,
 }
 
 impl Sweep<'_> {
+    fn save(&self) -> Saved {
+        Saved {
+            windows: self.windows.clone(),
+            lower: self.lower.clone(),
+            previous: self.previous.clone(),
+            group: self.group,
+            group_flux: self.group_flux.clone(),
+            rates: self.rates.clone(),
+            len: self.flux.first().map_or(0, Vec::len),
+        }
+    }
+
+    fn restore(&mut self, saved: &Saved) {
+        self.windows.clone_from(&saved.windows);
+        self.lower.clone_from(&saved.lower);
+        self.previous.clone_from(&saved.previous);
+        self.group = saved.group;
+        self.group_flux.clone_from(&saved.group_flux);
+        self.rates.clone_from(&saved.rates);
+        for f in &mut self.flux {
+            f.truncate(saved.len);
+        }
+        for e in &mut self.elastic {
+            e.truncate(saved.len);
+        }
+    }
+
     /// 格子点 m の中性子束を求め、窓の積分と群の積分を進める。`values` はその点のポイントワイズの断面積、`tracks` は飛程。
     fn point(
         &mut self,
@@ -1155,8 +1393,12 @@ impl Sweep<'_> {
         energy: f64,
     ) -> Result<(), UfgError> {
         let n = self.volumes.len();
-        for (column, v) in self.elastic.iter_mut().zip(&values) {
-            column.push(v[1]);
+        for ((column, v), d) in self.elastic.iter_mut().zip(&values).zip(self.data) {
+            // 自由ガスの核の、静止した標的の窓の部分は σs/N（free_gas の R_static/N）
+            match d.light {
+                Some(light) => column.push(v[1] * light.window_scale(energy)),
+                None => column.push(v[1]),
+            }
         }
         // 窓の積分のうち既知の部分 [リング][項] と、その点の F_i の係数
         let known = &mut self.known;
@@ -1210,8 +1452,26 @@ impl Sweep<'_> {
                 .map(|(&(k, d), t)| d * self.data[k].gain * t)
                 .sum()
         };
-        let k: Vec<f64> = (0..n).map(|i| source(i, &known[i])).collect();
-        let c: Vec<f64> = (0..n).map(|i| source(i, &own[i])).collect();
+        let mut k: Vec<f64> = (0..n).map(|i| source(i, &known[i])).collect();
+        let mut c: Vec<f64> = (0..n).map(|i| source(i, &own[i])).collect();
+        if let Some(thermal) = &mut self.thermal {
+            let (extra_known, extra_own) = &mut self.extra;
+            extra_known.fill(0.0);
+            extra_own.fill(0.0);
+            thermal.source(
+                m,
+                self.u,
+                self.above.high,
+                energy,
+                &self.flux,
+                extra_known,
+                extra_own,
+            );
+            for i in 0..n {
+                k[i] += extra_known[i];
+                c[i] += extra_own[i];
+            }
+        }
         // tracks[j][i] は、リング i の線源からリング j の中を飛ぶ長さ W_ij。表から内挿した飛程は対称でないので、
         // この向きで読む（格子点ごとに求めた W は対称で、向きによらない）
         let matrix: Vec<f64> = tracks
@@ -1235,6 +1495,9 @@ impl Sweep<'_> {
                 self.windows[i][e] = known[i][e] + own[i][e] * f[i];
             }
             self.flux[i].push(f[i]);
+        }
+        if let Some(thermal) = &mut self.thermal {
+            thermal.record(m, self.u, &self.flux);
         }
         // 群の積分（レサジーの台形則）
         if m > 0 {
