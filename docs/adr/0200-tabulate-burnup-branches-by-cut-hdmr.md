@@ -266,7 +266,8 @@ lattice の実行は、状態を軸の直積の番号で数えたまま、解く
   `reading_needs_the_points`、`state_axes_carry_their_interpolation_variable_and_nominal_value`、
   `reading_checks_the_transform_and_the_nominal_fields`、`nominal_values_are_points_given_to_all_state_axes_or_none`、
   `cut_hdmr_points_hold_full_subgrids_closed_under_subsets`、`rod_values_hold_their_own_subgrids`、
-  `points_solved_at_some_burnups_need_the_nominal_state_at_every_burnup`
+  `points_solved_at_some_burnups_need_the_nominal_state_at_every_burnup`、`points_solved_at_some_burnups_span_the_burnup_axis`。
+  媒質（medium/tests.rs）: `media_hold_no_nominal_values`
 - core の組み立て（crates/core/src/state/tests.rs）: `product_tables_interpolate_bit_for_bit_like_the_axis_product_sum`（公称の値の
   有無、制御棒の軸、曲がった燃焼度の軸の直積のテーブルで、軸の直積の重みつきの和とビットで同じ）、
   `axes_interpolate_in_the_variable_of_their_transform`、`cut_hdmr_reproduces_pair_terms_and_drops_only_the_triple_term`（2 軸の積の
@@ -284,7 +285,8 @@ lattice の実行は、状態を軸の直積の番号で数えたまま、解く
   履歴からの分岐（history/tests.rs）: `off_nominal_states_are_solved_at_their_burnups_only`、`pair_subgrid_states_shield_like_the_product_states`
   （公称のホウ素の自己遮蔽で、部分格子の状態が直積の同じ状態とビットで同じ）。チェックポイント（checkpoint/tests.rs）:
   `runs_of_some_states_resume_after_the_saved_ones`。ADR-0201 の確認のテストはそのまま通る
-- ツール: examples/core/test_rod_table.py（制御棒の組の点と燃焼点）、examples/depletion/test_thin_burnup_table.py、
+- ツール: examples/core/test_rod_table.py（制御棒の組の点と燃焼点）、examples/depletion/test_thin_burnup_table.py、examples/depletion/test_compare_core_depletion.py の
+  `test_branch_states_are_found_by_their_points`、
   examples/depletion/test_compare_branch_cross_terms.py の `Subgrids`（直積のテーブルから部分格子のテーブルを書く `--subgrids`）
 - 2A の 40 MWd/kg（xlc a9d85f72、分岐点は main の e54a1e37、2026-10-24、Slurm 537）: branch-2A-cross.toml と branch-2A-cross-rods.toml の
   直積のテーブル（各 12 状態）を作り直し、rod_table.py でまとめ、`--subgrids` で 2 軸の組すべての点（制御棒の値ごとに 10 点）を取り出して、
