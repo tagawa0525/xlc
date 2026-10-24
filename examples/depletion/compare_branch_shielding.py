@@ -11,7 +11,8 @@
     every = "table-shielding-2A-every.msgpack"
     nominal = "table-shielding-2A-nominal.msgpack"
 
-- 2 つのテーブルは同じ軸（燃焼度、ホウ素、減速材、燃料）と状態の数を持つこと。状態ごとに軸の値を添える
+- 2 つのテーブルは同じ軸（燃焼度、ホウ素、減速材、燃料）と、軸の点の数の積の状態を持つこと（部分ノードに分けたテーブルは
+  比べない）。状態ごとに軸の値を添える。有限でない値はエラー
 - k∞ の差は (k_nominal − k_every) × 1e5（pcm）
 - 少数群定数の項目（`ITEMS`）ごとに、群（と散乱の元と先、ADF の辺）のうち |every| か |nominal| が 0 でないものの相対差
   |nominal − every| / max(|every|, |nominal|) の最大
@@ -20,6 +21,7 @@
 
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -43,6 +45,8 @@ def relative(a, b) -> float:
         raise SystemExit(f"{len(x)} vs {len(y)} values")
     worst = 0.0
     for u, v in zip(x, y):
+        if not (math.isfinite(u) and math.isfinite(v)):
+            raise SystemExit(f"values {u} and {v} are not finite")
         scale = max(abs(u), abs(v))
         if scale > 0.0:
             worst = max(worst, abs(u - v) / scale)
@@ -72,12 +76,18 @@ def compare(name: str, every: dict, nominal: dict) -> dict:
     """1 つの集合体の 2 つのテーブルの、状態ごとの差"""
     if every["axes"] != nominal["axes"]:
         raise SystemExit(f"{name}: the tables have different axes")
-    if len(every["states"]) != len(nominal["states"]):
-        raise SystemExit(
-            f"{name}: {len(every['states'])} vs {len(nominal['states'])} states"
-        )
+    expected = math.prod(len(a["points"]) for a in every["axes"])
+    for table in (every, nominal):
+        if table["split"] != 1 or len(table["states"]) != expected:
+            raise SystemExit(
+                f"{name}: {len(table['states'])} states of split {table['split']} for axes of {expected} points"
+            )
     states = []
     for index, (e, n) in enumerate(zip(every["states"], nominal["states"])):
+        if not (math.isfinite(e["k_inf"]) and math.isfinite(n["k_inf"])):
+            raise SystemExit(
+                f"{name}: state {index} has k-inf {e['k_inf']}, {n['k_inf']}"
+            )
         states.append(
             {
                 **axis_values(every["axes"], index),
