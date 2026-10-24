@@ -1340,7 +1340,8 @@ fn off_nominal_burnups_are_history_burnups_and_default_to_all() {
     let text = history_branches(&format!("{HISTORY}off-nominal-burnup = [0, 20]\n"));
     let history = LatticeInput::parse(&text).unwrap().history.unwrap();
     assert_eq!(history.off_nominal, vec![0.0, 20.0]);
-    for bad in ["[]", "[5]", "[20, 0]", "[0, 0]"] {
+    // 公称でない状態の差は外挿しないので、最初と最後の燃焼点を含む
+    for bad in ["[]", "[5]", "[20, 0]", "[0, 0]", "[0, 10]", "[10, 20]"] {
         let text = history_branches(&format!("{HISTORY}off-nominal-burnup = {bad}\n"));
         assert!(LatticeInput::parse(&text).is_err(), "{bad}");
     }
