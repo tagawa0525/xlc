@@ -94,15 +94,70 @@ pub(super) fn erfcx(x: f64) -> f64 {
 /// （散乱則の α の積分と一致することは `kernel_is_the_integral_of_the_free_gas_law` で確かめる）。xs の `free_gas_kernel` と
 /// 同じ計算で、複製する理由は [`erf`] と同じ。
 pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
-    let _ = (e, e_out, awr, kt);
-    0.0
+    if e <= 0.0 || e_out <= 0.0 {
+        return 0.0;
+    }
+    let sqrt_a = awr.sqrt();
+    let theta = (awr + 1.0) / (2.0 * sqrt_a);
+    let zeta = (awr - 1.0) / (2.0 * sqrt_a);
+    let (s, s_out) = ((e / kt).sqrt(), (e_out / kt).sqrt());
+    // e^(-y²) erfcx(x) = e^(-y²+x²) erfc(x)。指数を先にまとめて桁あふれを避ける。e^(-y²) が 0 に落ちるなら erfcx を
+    // 求めない（erfcx(x) ≤ 1 なので積は 0）
+    let scaled = |y: f64, x: f64| {
+        let factor = (-y * y).exp();
+        if factor == 0.0 {
+            0.0
+        } else {
+            factor * erfcx(x)
+        }
+    };
+    let bracket = if e_out <= e {
+        // erf(θ√ε' - ζ√ε) + erf(θ√ε' + ζ√ε) + e^(ε-ε') [erfc(θ√ε + ζ√ε') - erfc(θ√ε - ζ√ε')]
+        let (x1, x2) = (theta * s + zeta * s_out, theta * s - zeta * s_out);
+        let (u, v) = (zeta * s - theta * s_out, zeta * s + theta * s_out);
+        if u > 0.0 {
+            // 遠い下方散乱: O(1) の項が打ち消し合うので、同じ指数因子をもつ項どうしをまとめる
+            let pair = |y: f64, a: f64, b: f64| {
+                let factor = (-y * y).exp();
+                if factor == 0.0 {
+                    0.0
+                } else {
+                    factor * (erfcx(a) - erfcx(b))
+                }
+            };
+            pair(u, u, x2) + pair(v, x1, v)
+        } else {
+            erf(-u) + erf(v) + scaled(v, x1) - scaled(u, x2)
+        }
+    } else {
+        // erf(θ√ε' - ζ√ε) - erf(θ√ε' + ζ√ε) + e^(ε-ε') [erf(θ√ε - ζ√ε') + erf(θ√ε + ζ√ε')]
+        let (p, q) = (theta * s_out - zeta * s, theta * s_out + zeta * s);
+        let (r, t) = (theta * s - zeta * s_out, theta * s + zeta * s_out);
+        if r < 0.0 {
+            // 遠い上方散乱: 同様に、同じ指数因子をもつ項どうしをまとめる
+            let pair = |y: f64, a: f64, b: f64| {
+                let factor = (-y * y).exp();
+                if factor == 0.0 {
+                    0.0
+                } else {
+                    factor * (erfcx(a) - erfcx(b))
+                }
+            };
+            pair(p, -r, p) + pair(q, q, t)
+        } else {
+            scaled(q, q) - scaled(p, p) + ((e - e_out) / kt).exp() * (erf(r) + erf(t))
+        }
+    };
+    // 打ち消し合いの丸めで負になった裾は 0 にする
+    (theta * theta / (2.0 * e) * bracket).max(0.0)
 }
 
 /// ∫ S(E→E') dE' = N(E) = (1 + 1/(2a²)) erf(a) + e^{−a²}/(√π a)、a² = A E/kT。断面積を一定とした自由原子の断面積を
 /// 温度に拡げた比（ドップラー拡がりの式で、断面積が一定のときの値）。
 pub(super) fn effective_ratio(e: f64, awr: f64, kt: f64) -> f64 {
-    let _ = (e, awr, kt);
-    1.0
+    let a2 = awr * e / kt;
+    let a = a2.sqrt();
+    (1.0 + 0.5 / a2) * erf(a) + (-a2).exp() / (PI.sqrt() * a)
 }
 
 /// 自由ガスの核で散乱する 1 つの軽い核種（名前と温度の組）。
@@ -158,8 +213,14 @@ impl Light {
     /// D(u'→u) = R(u'→u) − R_static(u'→u)/N(E')（入射 `x` = u'、出射 `u` とそのエネルギー `e_out`、`high` は範囲の上端）。
     /// `inside` は u' を静止した核の窓（u − Δ < u' < u）の中として扱う（窓の端では、区間の側の極限を選ぶ）。
     pub(super) fn correction(&self, high: f64, x: f64, u: f64, e_out: f64, inside: bool) -> f64 {
-        let _ = (high, x, u, e_out, inside);
-        0.0
+        let e_in = high * (-x).exp();
+        let ratio = effective_ratio(e_in, self.awr, self.kt);
+        let thermal = e_out * kernel(e_in, e_out, self.awr, self.kt) / ratio;
+        if inside {
+            thermal - self.gain * (-(u - x)).exp() / ratio
+        } else {
+            thermal
+        }
     }
 
     /// 出射のレサジー `u`（エネルギー `e`）で D が 0 でない区間を、昇順に `out` に書く（`bounds` は作業用）。上端の側は
@@ -500,8 +561,71 @@ pub(super) fn integrate(
     qb: usize,
     history: &History,
 ) -> (f64, f64) {
-    let _ = (f, u, m, a, b, qa, qb, history);
-    (0.0, 0.0)
+    let last = u.len() - 1;
+    let (mut known, mut own) = (0.0, 0.0);
+    // 今のスイープの、u_{m−1} までの部分
+    if m >= 1 {
+        let x1 = b.min(u[m - 1]);
+        if x1 > a {
+            let m1 = history
+                .prefix
+                .moments(u, history.flux, qa, a, qb.min(m - 1), x1, f.c);
+            known += f.against(m1);
+        }
+        // [u_{m−1}, u_m]: F_{m−1} は既知、F_m は未知
+        let (x0, x1) = (a.max(u[m - 1]), b.min(u[m]));
+        if x1 > x0 {
+            let (wa, wb) = f.linear(x0, x1);
+            // 区間の端の F の重みを、格子点 m−1 と m の重みに直す
+            let (ta, tb) = (
+                (x0 - u[m - 1]) / (u[m] - u[m - 1]),
+                (x1 - u[m - 1]) / (u[m] - u[m - 1]),
+            );
+            let fm1 = history.flux[m - 1];
+            known += fm1 * (wa * (1.0 - ta) + wb * (1.0 - tb));
+            own += wa * ta + wb * tb;
+        }
+    }
+    if m < last {
+        // [u_m, u_{m+1}]: F_m は未知、F_{m+1} は前のスイープ（最初のスイープでは F_m）
+        let (x0, x1) = (a.max(u[m]), b.min(u[m + 1]));
+        if x1 > x0 {
+            let (wa, wb) = f.linear(x0, x1);
+            let (ta, tb) = (
+                (x0 - u[m]) / (u[m + 1] - u[m]),
+                (x1 - u[m]) / (u[m + 1] - u[m]),
+            );
+            match history.previous {
+                Some((flux, _)) => {
+                    own += wa * (1.0 - ta) + wb * (1.0 - tb);
+                    known += flux[m + 1] * (wa * ta + wb * tb);
+                }
+                None => own += wa + wb,
+            }
+        }
+        // [u_{m+1}, u_last]: 前のスイープ
+        let (x0, x1) = (a.max(u[m + 1]), b.min(u[last]));
+        if x1 > x0 {
+            match history.previous {
+                Some((flux, prefix)) => {
+                    let q0 = qa.max(m + 1);
+                    let q1 = qb.min(last);
+                    known += f.against(prefix.moments(u, flux, q0, x0, q1, x1, f.c));
+                }
+                None => own += f.integral(x0, x1),
+            }
+        }
+    }
+    // 格子の最後の点より後: 最後の点の中性子束
+    let x0 = a.max(u[last]);
+    if b > x0 {
+        let integral = f.integral(x0, b);
+        match history.previous {
+            Some((flux, _)) if m < last => known += flux[last] * integral,
+            _ => own += integral,
+        }
+    }
+    (known, own)
 }
 
 /// 格子の昇順のレサジー `u` で、u_q ≤ x となる最後の格子点（x が最初の点より前なら 0）
