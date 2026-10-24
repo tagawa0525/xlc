@@ -5,7 +5,7 @@
 
 設定は `candidates`（OpenMC の実行の一覧。swap-candidates.toml。設定のディレクトリから）、`[[mode]]`（`key`、`label`。最初は
 `static`）、`[[state]]`（`name` は swap-candidates の状態の名前、`key` はログの名前）。ログは設定のディレクトリの
-`logs/<状態>-<散乱核>-absorption.txt`（swap_absorption の例の出力）と、あれば `logs/<状態>-<散乱核>-fine.txt`（fine_compare.py の出力）。
+`logs/<状態>-<散乱核>-absorption.txt`（swap_absorption の例の出力。無い散乱核は、その状態の結果に入れない）と、あれば `logs/<状態>-<散乱核>-fine.txt`（fine_compare.py の出力）。
 
 k の差は xlc − OpenMC（OpenMC の実行の k の平均。pcm）、変化は同じ状態の静止した標的からの k の変化（pcm）。置き換えの寄与は
 swap_absorption の k の変化の符号を変えたもの（pcm。swap_candidates.py と同じ）。傾きは fine_compare.py の区間ごとの比 − 1。
@@ -77,8 +77,11 @@ def summarize_state(
     results = {}
     specs = None
     for mode in modes:
-        if mode not in logs:
-            raise SummaryError(f"{name}: no logs of `{mode}`")
+        if logs.get(mode) is None:
+            # 状態によっては流していない散乱核がある（その状態の結果に入れない）
+            if mode == "static":
+                raise SummaryError(f"{name}: no logs of `static`")
+            continue
         absorption, fine = logs[mode]
         k, swaps = parse_absorption(absorption)
         if specs is None:
@@ -125,8 +128,9 @@ def summarize(config: Path) -> dict:
             absorption = base / "logs" / f"{state['key']}-{mode}-absorption.txt"
             fine = base / "logs" / f"{state['key']}-{mode}-fine.txt"
             logs[mode] = (
-                absorption.read_text(),
-                fine.read_text() if fine.exists() else None,
+                (absorption.read_text(), fine.read_text() if fine.exists() else None)
+                if absorption.exists()
+                else None
             )
         s = summarize_state(
             state["name"], state["key"], runs[state["name"]], modes, logs
