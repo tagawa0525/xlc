@@ -93,30 +93,47 @@ fn states_change_the_listed_materials_with_the_first_axis_slowest() {
 }
 
 #[test]
-fn references_keep_the_nominal_boron_and_moderator_at_the_fuel_temperature_of_each_state() {
-    // 自己遮蔽を公称の減速材で解くとき（ADR-0201）の参照: 燃料の温度の軸だけを状態のものにし、ホウ素と減速材の軸が変える物質は
-    // 入力のまま
+fn references_keep_the_nominal_boron_at_the_moderator_and_fuel_points_of_each_state() {
+    // 自己遮蔽を公称のホウ素で解くとき（ADR-0201）の参照: 減速材と燃料の温度の軸は状態の格子点、ホウ素は入力のまま
     let input = LatticeInput::parse(INPUT).unwrap();
     let branches = input.branches.as_ref().unwrap();
-    for (state, s) in input.branch_states().iter().enumerate() {
-        // 燃料の温度の軸は最後の軸（いちばん速く変わる）
-        let reference = &branches.references()[state % 2];
+    let states = input.branch_states();
+    // 減速材 3 点 × 燃料 2 点
+    assert_eq!(branches.references().len(), 6);
+    for (state, s) in states.iter().enumerate() {
+        let reference = &branches.references()[branches.reference(state).unwrap()];
         assert_eq!(material(reference, "fuel"), material(s, "fuel"), "{state}");
-        for name in ["water", "clad"] {
-            assert_eq!(
-                material(reference, name),
-                material(&input.materials, name),
-                "{state} {name}"
-            );
-        }
+        assert_eq!(material(reference, "clad"), material(s, "clad"), "{state}");
+        let (water, nominal) = (material(reference, "water"), material(s, "water"));
+        assert_eq!(water.temperature, nominal.temperature, "{state}");
+        // ホウ酸水は状態の密度で、ホウ素だけが入力の 1300 ppm
+        let density = [0.76972, 0.74271, 0.71190][(state / 2) % 3];
+        let expected: Vec<(String, f64)> = borated_water(density, 1300.0, 0.199)
+            .unwrap()
+            .into_iter()
+            .collect();
+        assert_eq!(water.composition, expected, "{state}");
     }
-    // 燃料の温度の格子点 1 の参照は 580 K
-    assert_eq!(
-        material(&branches.references()[1], "fuel").temperature,
-        580.0
-    );
-    // 参照から作り直す物質は、ホウ素と減速材の軸が変える物質
-    assert_eq!(branches.varied(), ["water".to_string(), "clad".to_string()]);
+    // ホウ素の点ごとに同じ参照を使う（ホウ素は最初の軸）
+    assert_eq!(branches.reference(7), branches.reference(1));
+    // 参照から作り直す物質は、ホウ素の軸が変える物質
+    assert_eq!(branches.varied(), ["water".to_string()]);
+    // 状態ごとに解き直すなら参照を使わない
+    let every = edited(
+        "fuel = { temperature = [550, 580], materials = [\"fuel\"] }",
+        "fuel = { temperature = [550, 580], materials = [\"fuel\"] }\nshielding = \"every-state\"",
+    )
+    .unwrap();
+    let every = every.branches.as_ref().unwrap();
+    assert!((0..12).all(|state| every.reference(state).is_none()));
+    // ホウ素が 1 点なら、状態ごとに参照が違い、再利用するものがないので状態ごとに解く
+    let single = edited(
+        "boron = { ppm = [900, 1700], materials = [\"water\"] }",
+        "boron = { ppm = [900], materials = [\"water\"] }",
+    )
+    .unwrap();
+    let single = single.branches.as_ref().unwrap();
+    assert!((0..6).all(|state| single.reference(state).is_none()));
 }
 
 #[test]

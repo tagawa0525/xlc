@@ -1,0 +1,525 @@
+{
+ "format": "xlc-compare-branch-shielding",
+ "items": [
+  "absorption",
+  "nu_fission",
+  "diffusion",
+  "scatter",
+  "adf"
+ ],
+ "cases": [
+  {
+   "name": "2A",
+   "states": [
+    {
+     "burnup": 0.0,
+     "boron": 900.0,
+     "moderator_temperature": 565.0,
+     "density": 0.743,
+     "fuel": 565.0,
+     "k_every": 1.2312657104245657,
+     "k_nominal": 1.231262021971053,
+     "dk_pcm": -0.36884535126180396,
+     "relative": {
+      "absorption": 1.4853096377411548e-05,
+      "nu_fission": 1.6024420405658746e-05,
+      "diffusion": 7.253338762625759e-07,
+      "scatter": 7.180686142670112e-06,
+      "adf": 2.7592297398207396e-07
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 900.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 565.0,
+     "k_every": 1.2305198890413922,
+     "k_nominal": 1.230516131349507,
+     "dk_pcm": -0.37576918852089136,
+     "relative": {
+      "absorption": 1.4648707212120577e-05,
+      "nu_fission": 1.5894385753823995e-05,
+      "diffusion": 7.428606393977584e-07,
+      "scatter": 7.403423670868663e-06,
+      "adf": 2.682845354098002e-07
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 1300.0,
+     "moderator_temperature": 565.0,
+     "density": 0.743,
+     "fuel": 565.0,
+     "k_every": 1.1825479802728425,
+     "k_nominal": 1.182547980272005,
+     "dk_pcm": -8.375522497772181e-08,
+     "relative": {
+      "absorption": 2.2618800314137723e-12,
+      "nu_fission": 6.054281457772397e-14,
+      "diffusion": 2.0242472081768343e-14,
+      "scatter": 8.684357634672122e-14,
+      "adf": 1.599591883171395e-12
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 1300.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 565.0,
+     "k_every": 1.183789400980034,
+     "k_nominal": 1.183789400979653,
+     "dk_pcm": -3.810285420513537e-08,
+     "relative": {
+      "absorption": 4.359959758695459e-14,
+      "nu_fission": 3.539626168060396e-14,
+      "diffusion": 1.160005098876426e-14,
+      "scatter": 7.54805411026294e-14,
+      "adf": 1.8011018312085061e-13
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 1700.0,
+     "moderator_temperature": 565.0,
+     "density": 0.743,
+     "fuel": 565.0,
+     "k_every": 1.1380389817920105,
+     "k_nominal": 1.1380418942970236,
+     "dk_pcm": 0.29125050131639796,
+     "relative": {
+      "absorption": 1.4295749250984194e-05,
+      "nu_fission": 1.6003110899332343e-05,
+      "diffusion": 7.111589786456686e-07,
+      "scatter": 7.1145891229045445e-06,
+      "adf": 2.811435078990015e-07
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 1700.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 565.0,
+     "k_every": 1.1409516389371472,
+     "k_nominal": 1.1409546290271866,
+     "dk_pcm": 0.2990090039345361,
+     "relative": {
+      "absorption": 1.4112679879043085e-05,
+      "nu_fission": 1.5873988815069842e-05,
+      "diffusion": 7.293662015843373e-07,
+      "scatter": 7.336976133040561e-06,
+      "adf": 2.73927470952324e-07
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 900.0,
+     "moderator_temperature": 565.0,
+     "density": 0.743,
+     "fuel": 565.0,
+     "k_every": 1.0098417524010648,
+     "k_nominal": 1.0098390955693684,
+     "dk_pcm": -0.26568316964237226,
+     "relative": {
+      "absorption": 9.108218608496466e-06,
+      "nu_fission": 9.324547035286348e-06,
+      "diffusion": 6.392149587678004e-07,
+      "scatter": 5.2604394231109546e-06,
+      "adf": 2.5514101118926613e-07
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 900.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 565.0,
+     "k_every": 1.0100111941750767,
+     "k_nominal": 1.0100084889035121,
+     "dk_pcm": -0.2705271564540368,
+     "relative": {
+      "absorption": 8.946910290643128e-06,
+      "nu_fission": 9.239930796048045e-06,
+      "diffusion": 6.540811591940586e-07,
+      "scatter": 5.414326835730635e-06,
+      "adf": 2.50549649615868e-07
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 1300.0,
+     "moderator_temperature": 565.0,
+     "density": 0.743,
+     "fuel": 565.0,
+     "k_every": 0.9741642736507949,
+     "k_nominal": 0.9741642736534477,
+     "dk_pcm": 2.652766895039349e-07,
+     "relative": {
+      "absorption": 7.607111150774713e-13,
+      "nu_fission": 2.1447436367885714e-13,
+      "diffusion": 1.8128922035474913e-14,
+      "scatter": 6.441700207955402e-13,
+      "adf": 4.551719846386441e-13
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 1300.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 565.0,
+     "k_every": 0.9761133373588085,
+     "k_nominal": 0.9761133373563583,
+     "dk_pcm": -2.450151193045258e-07,
+     "relative": {
+      "absorption": 1.1609408252382353e-12,
+      "nu_fission": 2.2720930060474483e-13,
+      "diffusion": 6.839558502393226e-15,
+      "scatter": 5.142641838399483e-13,
+      "adf": 6.583692998443995e-13
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 1700.0,
+     "moderator_temperature": 565.0,
+     "density": 0.743,
+     "fuel": 565.0,
+     "k_every": 0.9414586195288088,
+     "k_nominal": 0.9414608421874127,
+     "dk_pcm": 0.22226586038343044,
+     "relative": {
+      "absorption": 8.770275633883779e-06,
+      "nu_fission": 9.305374091184426e-06,
+      "diffusion": 6.290747721310172e-07,
+      "scatter": 5.199149374271497e-06,
+      "adf": 2.5888367713869243e-07
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 1700.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 565.0,
+     "k_every": 0.9449021608747207,
+     "k_nominal": 0.9449044402812544,
+     "dk_pcm": 0.2279406533745032,
+     "relative": {
+      "absorption": 8.622908387910455e-06,
+      "nu_fission": 9.221405275149938e-06,
+      "diffusion": 6.442842017360411e-07,
+      "scatter": 5.352829059151303e-06,
+      "adf": 2.5426010530925846e-07
+     }
+    }
+   ]
+  },
+  {
+   "name": "2A-dense",
+   "states": [
+    {
+     "burnup": 0.0,
+     "boron": 900.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 565.0,
+     "k_every": 1.231216932005278,
+     "k_nominal": 1.2312133084234556,
+     "dk_pcm": -0.36235818223762095,
+     "relative": {
+      "absorption": 1.5006549752870151e-05,
+      "nu_fission": 1.611771847494472e-05,
+      "diffusion": 7.08585427399936e-07,
+      "scatter": 6.997207593032537e-06,
+      "adf": 2.7967917012395944e-07
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 1300.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 565.0,
+     "k_every": 1.1809316837669015,
+     "k_nominal": 1.1809316837662356,
+     "dk_pcm": -6.659117701701689e-08,
+     "relative": {
+      "absorption": 1.2732300130276952e-12,
+      "nu_fission": 1.0749006637538436e-13,
+      "diffusion": 4.341297666547992e-14,
+      "scatter": 1.66289162676642e-13,
+      "adf": 1.6604512398744716e-12
+     }
+    },
+    {
+     "burnup": 0.0,
+     "boron": 1700.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 565.0,
+     "k_every": 1.1351105469546647,
+     "k_nominal": 1.1351133902107988,
+     "dk_pcm": 0.28432561340885343,
+     "relative": {
+      "absorption": 1.4431002505065243e-05,
+      "nu_fission": 1.609586917389328e-05,
+      "diffusion": 6.936401958069424e-07,
+      "scatter": 6.931530976912823e-06,
+      "adf": 2.8537974971476184e-07
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 900.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 565.0,
+     "k_every": 1.011259700049551,
+     "k_nominal": 1.0112570774992238,
+     "dk_pcm": -0.2622550327124884,
+     "relative": {
+      "absorption": 9.228566266575733e-06,
+      "nu_fission": 9.386469800979535e-06,
+      "diffusion": 6.254281682712297e-07,
+      "scatter": 5.132997489253969e-06,
+      "adf": 2.5778593168314514e-07
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 1300.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 565.0,
+     "k_every": 0.9743087366929329,
+     "k_nominal": 0.9743087366903723,
+     "dk_pcm": -2.560618383995461e-07,
+     "relative": {
+      "absorption": 9.338348868442555e-13,
+      "nu_fission": 1.6967201870552753e-13,
+      "diffusion": 2.371087507637181e-14,
+      "scatter": 6.337942401827171e-13,
+      "adf": 1.5111415222076897e-12
+     }
+    },
+    {
+     "burnup": 20.0,
+     "boron": 1700.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 565.0,
+     "k_every": 0.940523357240664,
+     "k_nominal": 0.9405255411343324,
+     "dk_pcm": 0.21838936683504784,
+     "relative": {
+      "absorption": 8.878985080245709e-06,
+      "nu_fission": 9.366932850924743e-06,
+      "diffusion": 6.148499032947474e-07,
+      "scatter": 5.071912591515579e-06,
+      "adf": 2.6152559517306e-07
+     }
+    }
+   ]
+  },
+  {
+   "name": "2O",
+   "states": [
+    {
+     "burnup": 4.0,
+     "boron": 900.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 600.0,
+     "k_every": 1.0698637910847622,
+     "k_nominal": 1.0698612479286331,
+     "dk_pcm": -0.2543156129020119,
+     "relative": {
+      "absorption": 1.3182773980876018e-05,
+      "nu_fission": 1.4694259661692977e-05,
+      "diffusion": 6.657616167251184e-07,
+      "scatter": 6.457631324795359e-06,
+      "adf": 2.6082511492662937e-07
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 900.0,
+     "moderator_temperature": 600.0,
+     "density": 0.743,
+     "fuel": 600.0,
+     "k_every": 1.0704209682823216,
+     "k_nominal": 1.0704183836834535,
+     "dk_pcm": -0.25845988680384124,
+     "relative": {
+      "absorption": 1.302354326994295e-05,
+      "nu_fission": 1.459553397792845e-05,
+      "diffusion": 6.81735279569327e-07,
+      "scatter": 6.622254441027466e-06,
+      "adf": 2.546928826753212e-07
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 1300.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 600.0,
+     "k_every": 1.0331474104479526,
+     "k_nominal": 1.0331474104431442,
+     "dk_pcm": -4.808375919651553e-07,
+     "relative": {
+      "absorption": 4.245590311584582e-12,
+      "nu_fission": 2.779502493223615e-13,
+      "diffusion": 5.5832003351261806e-14,
+      "scatter": 7.456481762503749e-13,
+      "adf": 3.0767105642513805e-12
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 1300.0,
+     "moderator_temperature": 600.0,
+     "density": 0.743,
+     "fuel": 600.0,
+     "k_every": 1.0351094415112738,
+     "k_nominal": 1.0351094415109459,
+     "dk_pcm": -3.2795988147427124e-08,
+     "relative": {
+      "absorption": 1.0834547153992687e-13,
+      "nu_fission": 2.5095238396594576e-14,
+      "diffusion": 3.5605989163184785e-14,
+      "scatter": 6.547760039001376e-14,
+      "adf": 2.1870484319396584e-13
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 1700.0,
+     "moderator_temperature": 565.0,
+     "density": 0.76972,
+     "fuel": 600.0,
+     "k_every": 0.9993063097152189,
+     "k_nominal": 0.9993083076246295,
+     "dk_pcm": 0.19979094105782025,
+     "relative": {
+      "absorption": 1.2681462109062803e-05,
+      "nu_fission": 1.4670443952736293e-05,
+      "diffusion": 6.479791614316466e-07,
+      "scatter": 6.392700718908801e-06,
+      "adf": 2.653355666154567e-07
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 1700.0,
+     "moderator_temperature": 600.0,
+     "density": 0.743,
+     "fuel": 600.0,
+     "k_every": 1.0024618459432184,
+     "k_nominal": 1.0024638918812003,
+     "dk_pcm": 0.20459379819204315,
+     "relative": {
+      "absorption": 1.2538525449709762e-05,
+      "nu_fission": 1.4572508462884598e-05,
+      "diffusion": 6.649331399515747e-07,
+      "scatter": 6.557042191339733e-06,
+      "adf": 2.592316361853709e-07
+     }
+    }
+   ]
+  },
+  {
+   "name": "2O-thin",
+   "states": [
+    {
+     "burnup": 4.0,
+     "boron": 900.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 600.0,
+     "k_every": 1.069550544013653,
+     "k_nominal": 1.0695479225428202,
+     "dk_pcm": -0.26214708328531344,
+     "relative": {
+      "absorption": 1.2834435166790362e-05,
+      "nu_fission": 1.4486989333327204e-05,
+      "diffusion": 6.984427774821225e-07,
+      "scatter": 6.823993832129327e-06,
+      "adf": 2.5013440411922107e-07
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 1300.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 600.0,
+     "k_every": 1.0357016064092097,
+     "k_nominal": 1.0357016064090276,
+     "dk_pcm": -1.8207657603852567e-08,
+     "relative": {
+      "absorption": 1.2228810741001159e-12,
+      "nu_fission": 1.0115305228013964e-13,
+      "diffusion": 2.6979308668926602e-14,
+      "scatter": 3.616358400750316e-13,
+      "adf": 3.814710340974935e-12
+     }
+    },
+    {
+     "burnup": 4.0,
+     "boron": 1700.0,
+     "moderator_temperature": 600.0,
+     "density": 0.7119,
+     "fuel": 600.0,
+     "k_every": 1.004317694678386,
+     "k_nominal": 1.0043197840672369,
+     "dk_pcm": 0.2089388850823326,
+     "relative": {
+      "absorption": 1.2368586571135774e-05,
+      "nu_fission": 1.446455209380435e-05,
+      "diffusion": 6.823285142964791e-07,
+      "scatter": 6.758398723643458e-06,
+      "adf": 2.5461184840742153e-07
+     }
+    }
+   ]
+  }
+ ],
+ "inputs": [
+  {
+   "path": "examples/depletion/branches/table-shielding-2A-every.msgpack",
+   "md5": "450e4ad498c6dee622aa3f967819a8ca"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2A-boron.msgpack",
+   "md5": "0a6cbce19b2db5fff9655281fa1477de"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2A-dense-every.msgpack",
+   "md5": "6fb6cc9a339664d59e0c0ca33065afd6"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2A-dense-boron.msgpack",
+   "md5": "40eedfb67990d7df53ec4c641f15fa24"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2O-every.msgpack",
+   "md5": "b24065049226a02bd147c4296958c008"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2O-boron.msgpack",
+   "md5": "833360f332af83bae62b43e37abe08d1"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2O-thin-every.msgpack",
+   "md5": "f9a3154818fcfacee49d92cfcec5de25"
+  },
+  {
+   "path": "examples/depletion/branches/table-shielding-2O-thin-boron.msgpack",
+   "md5": "793d7be4d865afa4e835f0c72ec2cc22"
+  }
+ ]
+}
