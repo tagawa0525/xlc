@@ -110,7 +110,7 @@ fn references_keep_the_nominal_boron_and_moderator_at_the_fuel_temperature_of_ea
             );
         }
     }
-    // 状態 7 は燃料 1（580 K）
+    // 燃料の温度の格子点 1 の参照は 580 K
     assert_eq!(
         material(&branches.references()[1], "fuel").temperature,
         580.0
