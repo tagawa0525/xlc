@@ -41,11 +41,13 @@ import numpy as np
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from compare_burnup_interpolation import k_inf, unvector, vector
+from compare_burnup_interpolation import interpolate, k_inf, unvector, vector
 
 # 相対の差を書く項目
 RELATIVE = ["fission", "nu_fission", "absorption", "diffusion", "adf"]
 RODS = ["out", "in"]
+# 分岐と公称の差を燃焼度について内挿する方式（compare_burnup_interpolation.py の名前。hermite は core の内挿。ADR-0192）
+THINNING_METHODS = ["linear", "hermite"]
 
 
 def closure(keep: list[list[str]], names: list[str]) -> list[tuple[str, ...]]:
@@ -205,6 +207,89 @@ def summarize_table(
     }
 
 
+def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
+    """分岐を燃焼度の点 `burnup` だけで解いたとして、公称でない各状態の、公称の状態との差（少数群定数の項目）を燃焼度について
+    内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は `summarize_table` と同じ向き）"""
+    burnup, axes = continuous_axes(table)
+    if burnup is None:
+        raise SystemExit(f"{name}: the table has no burnup axis")
+    names = [a["name"] for a in axes]
+    points = [[float(p) for p in a["points"]] for a in axes]
+    if sorted(nominal) != sorted(names) or any(
+        float(nominal[n]) not in p for n, p in zip(names, points, strict=True)
+    ):
+        raise SystemExit(f"{name}: the nominal {nominal} must be a point of {names}")
+    indices = list(itertools.product(*[range(len(p)) for p in points]))
+    per_point = len(indices)
+    if len(table["states"]) != per_point * len(burnup):
+        raise SystemExit(f"{name}: {len(table['states'])} states for the axes")
+    at_nominal = indices.index(
+        tuple(p.index(float(nominal[n])) for n, p in zip(names, points, strict=True))
+    )
+    states = [
+        table["states"][b * per_point : (b + 1) * per_point] for b in range(len(burnup))
+    ]
+    nominal_values = np.array([vector(s[at_nominal]) for s in states])
+    out = []
+    for sel in selections:
+        chosen = [float(b) for b in sel["burnup"]]
+        if (
+            chosen != sorted(set(chosen))
+            or any(b not in burnup for b in chosen)
+            or chosen[0] != burnup[0]
+            or chosen[-1] != burnup[-1]
+        ):
+            raise SystemExit(
+                f"{name} {sel['name']}: the burnups {chosen} must be increasing points of the table from the first to the last"
+            )
+        index = [burnup.index(b) for b in chosen]
+        removed = [i for i in range(len(burnup)) if i not in index]
+        results = {}
+        for method in THINNING_METHODS:
+            worst_per_point = [0.0] * len(removed)
+            worst = (0.0, None)
+            for flat, grid_index in enumerate(indices):
+                if flat == at_nominal:
+                    continue
+                difference = (
+                    np.array([vector(s[flat]) for s in states]) - nominal_values
+                )
+                values = interpolate(
+                    method,
+                    np.array(chosen),
+                    difference[index],
+                    np.array([burnup[i] for i in removed]),
+                )
+                for n, i in enumerate(removed):
+                    rebuilt = unvector(nominal_values[i] + values[n], states[i][flat])
+                    rho = (1 / k_inf(states[i][flat]) - 1 / k_inf(rebuilt)) * 1e5
+                    if abs(rho) > abs(worst_per_point[n]):
+                        worst_per_point[n] = rho
+                    if abs(rho) > abs(worst[0]):
+                        worst = (
+                            rho,
+                            {"burnup": burnup[i]}
+                            | {
+                                a: points[k][grid_index[k]] for k, a in enumerate(names)
+                            },
+                        )
+            results[method] = {
+                "rho_pcm": worst_per_point,
+                "max_abs_pcm": abs(worst[0]),
+                "worst_pcm": worst[0],
+                "worst": worst[1],
+            }
+        out.append(
+            {
+                "name": sel["name"],
+                "burnup": chosen,
+                "removed": [burnup[i] for i in removed],
+                "results": results,
+            }
+        )
+    return {"name": name, "burnup": burnup, "selections": out}
+
+
 def summarize(tables: list[tuple], models: list[dict]) -> dict:
     """`tables` は (名前, テーブル, 制御棒を入れたテーブルか None, 公称の状態) の列"""
     return {
@@ -239,6 +324,14 @@ def report(summary: dict) -> list[str]:
                     f"    {model}（{r['states']} 状態）: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、"
                     f"{r['worst']}）、rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}"
                 )
+    for t in summary.get("thinning", []):
+        lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}")
+        for sel in t["selections"]:
+            lines.append(f"  {sel['name']}（{len(sel['burnup'])} 点）: {sel['burnup']}")
+            for method, r in sel["results"].items():
+                lines.append(
+                    f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）"
+                )
     return lines
 
 
@@ -262,8 +355,22 @@ def main() -> None:
             tables.append(
                 (t["name"], msgpack.unpackb(path.read_bytes()), rodded, t["nominal"])
             )
+        thinning = []
+        for t in config.get("thinning", []):
+            path = config_path.parent / t["file"]
+            if path not in files:
+                files.append(path)
+            thinning.append(
+                thin(
+                    t["name"],
+                    msgpack.unpackb(path.read_bytes()),
+                    t["nominal"],
+                    t["selections"],
+                )
+            )
         summary = {
             "format": "xlc-compare-branch-cross-terms",
+            "thinning": thinning,
             "inputs": [
                 {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
                 for f in files
