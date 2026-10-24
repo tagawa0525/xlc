@@ -50,10 +50,15 @@ class Fine(unittest.TestCase):
             ug.parse_fine("4.0-9.877 eV: 195 bins\n")
 
 
+SPECS = ["U-238:27-27", "*:27-27", "U-238:14-26", "*:14-26"]
+
+
 class State(unittest.TestCase):
     def test_kernels_without_logs_are_left_out(self):
         logs = {"static": (ABSORPTION_LOG, None), "exact": None}
-        state = ug.summarize_state("2A 40", "2A-40", [0.825], ["static", "exact"], logs)
+        state = ug.summarize_state(
+            "2A 40", "2A-40", [0.825], ["static", "exact"], logs, SPECS
+        )
         self.assertEqual(list(state["results"]), ["static"])
 
     def test_differences_use_the_mean_openmc_k_and_the_static_k(self):
@@ -62,7 +67,7 @@ class State(unittest.TestCase):
             "exact": (ABSORPTION_LOG.replace("k 0.825540", "k 0.825835", 1), FINE_LOG),
         }
         state = ug.summarize_state(
-            "2A 40", "2A-40", [0.82480, 0.82500], ["static", "exact"], logs
+            "2A 40", "2A-40", [0.82480, 0.82500], ["static", "exact"], logs, SPECS
         )
         static, exact = state["results"]["static"], state["results"]["exact"]
         self.assertAlmostEqual(static["diff_pcm"], (0.825540 - 0.82490) * 1e5)
@@ -73,7 +78,7 @@ class State(unittest.TestCase):
     def test_the_static_mode_must_come_first(self):
         logs = {"exact": (ABSORPTION_LOG, None)}
         with self.assertRaises(ug.SummaryError):
-            ug.summarize_state("2A 40", "2A-40", [0.825], ["exact"], logs)
+            ug.summarize_state("2A 40", "2A-40", [0.825], ["exact"], logs, SPECS)
 
     def test_modes_must_swap_the_same_list(self):
         logs = {
@@ -81,7 +86,26 @@ class State(unittest.TestCase):
             "exact": ("k 0.825835\nU-238:27-27: k 0.826 (+16.5 pcm)\n", None),
         }
         with self.assertRaises(ug.SummaryError):
-            ug.summarize_state("2A 40", "2A-40", [0.825], ["static", "exact"], logs)
+            ug.summarize_state(
+                "2A 40", "2A-40", [0.825], ["static", "exact"], logs, SPECS
+            )
+
+    def test_the_state_keeps_its_declared_swaps(self):
+        logs = {"static": (ABSORPTION_LOG, None)}
+        state = ug.summarize_state("2A 40", "2A-40", [0.825], ["static"], logs, SPECS)
+        self.assertEqual(state["swaps"], SPECS)
+
+    def test_logs_must_swap_the_declared_list(self):
+        # 途中で切れたログや、宣言と違う一覧で流したログは止める
+        logs = {"static": (ABSORPTION_LOG, None)}
+        with self.assertRaises(ug.SummaryError):
+            ug.summarize_state(
+                "2A 40", "2A-40", [0.825], ["static"], logs, [*SPECS, "Pu-239:27-27"]
+            )
+
+    def test_swap_lists_skip_comments_and_blank_lines(self):
+        text = "# 説明\nU-238:27-27\n\n*:27-27\n"
+        self.assertEqual(ug.parse_swaps(text), ["U-238:27-27", "*:27-27"])
 
 
 if __name__ == "__main__":

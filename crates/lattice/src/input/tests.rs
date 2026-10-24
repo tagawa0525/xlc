@@ -427,6 +427,22 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
             upper: Some(400.0),
             cells: 8,
             sweeps: Some(2),
+            heavy: None,
+        })
+    );
+    // ADR-0204: `heavy` で分離共鳴を持つ核種も、その kT の倍数より下で自由ガスにする（inf は上限なし）
+    assert_eq!(
+        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = 400 }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            heavy: Some(400.0),
+            ..FreeGas::default()
+        })
+    );
+    assert_eq!(
+        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = inf }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            heavy: Some(f64::INFINITY),
+            ..FreeGas::default()
         })
     );
     assert_eq!(
@@ -445,6 +461,11 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
         "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = 0 }",
         "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = -400 }",
         "ufg-scattering = \"free-gas\"\nufg-free-gas = { lower = 4 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = 0 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = -400 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = nan }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = true }",
+        "ufg-free-gas = { heavy = 400 }",
     ] {
         assert!(scattering(bad).is_err(), "{bad}");
     }

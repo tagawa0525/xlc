@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import unicodedata
+from functools import partial
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -1092,27 +1093,58 @@ def ufg_free_gas_k(sources: list[dict]) -> str:
     )
 
 
-def ufg_free_gas_swaps(sources: list[dict]) -> str:
-    """ADR-0203 の UFG の散乱核ごとの、UFG の範囲の吸収を OpenMC の値に置き換えて測る k への寄与（pcm）"""
+def ufg_free_gas_swaps(
+    sources: list[dict],
+    specs: list[str] | None = None,
+    modes: list[str] | None = None,
+) -> str:
+    """ADR-0203 の UFG の散乱核ごとの、UFG の範囲の吸収を OpenMC の値に置き換えて測る k への寄与（pcm）。`specs` と `modes` は
+    残す置き換えと散乱核（省略するとすべて。要約に無いものは止める）。状態が流していない置き換え（状態の `swaps` に無いもの。燃料に無い
+    核種）は –"""
     s = ufg_free_gas_summary(sources)
+    for wanted, known in [
+        (specs, [x["spec"] for x in s["swaps"]]),
+        (modes, [m["key"] for m in s["modes"]]),
+    ]:
+        unknown = sorted(set(wanted or []) - set(known))
+        if unknown:
+            raise TableError(f"the summary has no {unknown}")
+    swaps = [x for x in s["swaps"] if specs is None or x["spec"] in specs]
+    kept = [m for m in s["modes"] if modes is None or m["key"] in modes]
+
+    def cell(state: dict, values: dict, spec: str) -> str:
+        # 状態が流していない置き換え（燃料に無い核種）だけを –、流したのに結果が無いものは止める
+        if spec not in state["swaps"]:
+            return "–"
+        if spec not in values:
+            raise TableError(f"{state['name']}: no result of the swap {spec}")
+        return signed(values[spec], 1)
+
     rows = [
         [
             t["name"],
             mode["label"],
-            *(
-                signed(t["results"][mode["key"]]["swaps"][x["spec"]], 1)
-                for x in s["swaps"]
-            ),
+            *(cell(t, t["results"][mode["key"]]["swaps"], x["spec"]) for x in swaps),
         ]
         for t in s["states"]
-        for mode in s["modes"]
+        for mode in kept
         if mode["key"] in t["results"]
     ]
-    return markdown_table(["状態", "散乱核", *(x["label"] for x in s["swaps"])], rows)
+    return markdown_table(["状態", "散乱核", *(x["label"] for x in swaps)], rows)
 
 
-def ufg_free_gas_tilt(sources: list[dict]) -> str:
-    """ADR-0203 の UFG の散乱核ごとの、27 群の燃料の中性子束の区間ごとの比 − 1（%。群の中で規格化。fine_compare.py）"""
+# ADR-0204 の表の置き換えの列: UFG の範囲を 2 つに分けたもの（ADR-0203 と同じ）と、U-238 と Pu-239 の 4〜48 eV の群ごと
+UFG_RANGE_SWAPS = ["U-238:27-27", "*:27-27", "U-238:14-26", "*:14-26"]
+UFG_GROUP_SWAPS = [
+    f"{n}:{g}-{g}" for n in ["U-238", "Pu-239"] for g in [27, 26, 25, 24]
+]
+
+
+def ufg_free_gas_tilt(
+    sources: list[dict], energies: tuple[float, float] | None = None
+) -> str:
+    """ADR-0203 の UFG の散乱核ごとの、燃料の中性子束の区間ごとの比 − 1（%。群の中で規格化。fine_compare.py）。`energies` は残す
+    区間（中点）のエネルギーの範囲 (eV)（省略するとすべての区間）"""
     s = ufg_free_gas_summary(sources)
     rows, bins = [], None
     for t in s["states"]:
@@ -1120,6 +1152,14 @@ def ufg_free_gas_tilt(sources: list[dict]) -> str:
             tilt = t["results"].get(mode["key"], {}).get("tilt")
             if tilt is None:
                 continue
+            if energies is not None:
+                low, high = energies
+                # 区間の端は fine_compare.py が 4 桁に丸めて書くので、群の境界と比べずに区間の中点で選ぶ
+                tilt = [b for b in tilt if low < 0.5 * (b["low"] + b["high"]) < high]
+                if not tilt:
+                    raise TableError(
+                        f"{t['name']}, {mode['label']}: the fine log has no bins in {low}-{high} eV"
+                    )
             edges = [(b["low"], b["high"]) for b in tilt]
             if bins is None:
                 bins = edges
@@ -1128,7 +1168,7 @@ def ufg_free_gas_tilt(sources: list[dict]) -> str:
             rows.append(
                 [t["name"], mode["label"], *(signed(100 * b["ratio"], 2) for b in tilt)]
             )
-    if bins is None:
+    if not bins:
         raise TableError("no fine logs")
     return markdown_table(
         ["状態", "散乱核", *(f"{lo:g}〜{hi:g} eV" for lo, hi in bins)], rows
@@ -1147,6 +1187,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
+    "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
 }
 
 
@@ -1298,6 +1339,30 @@ TABLES = {
             ("k", ufg_free_gas_k),
             ("swaps", ufg_free_gas_swaps),
             ("tilt", ufg_free_gas_tilt),
+        ]
+    },
+    **{
+        f"depletion-ufg-heavy-free-gas-{name}": (
+            ["examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json"],
+            draw,
+        )
+        for name, draw in [
+            ("k", ufg_free_gas_k),
+            (
+                "swaps",
+                partial(ufg_free_gas_swaps, specs=UFG_RANGE_SWAPS),
+            ),
+            (
+                "groups",
+                partial(
+                    ufg_free_gas_swaps,
+                    specs=UFG_GROUP_SWAPS,
+                    modes=["static", "light", "light-cap", "heavy", "heavy-cap"],
+                ),
+            ),
+            ("tilt-27", partial(ufg_free_gas_tilt, energies=(4.0, 9.877))),
+            ("tilt-25", partial(ufg_free_gas_tilt, energies=(15.968, 27.7))),
+            ("tilt-24", partial(ufg_free_gas_tilt, energies=(27.7, 48.052))),
         ]
     },
     "depletion-1c-rings4-rings": (
