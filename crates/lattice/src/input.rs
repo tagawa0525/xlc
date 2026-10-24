@@ -1017,12 +1017,15 @@ impl LatticeInput {
                 }
                 // 公称でない状態を解く燃焼点。書かなければすべての燃焼点（ADR-0200 の案 B1）
                 let off_nominal = h.off_nominal_burnup.unwrap_or_else(|| h.burnup.clone());
-                if off_nominal.is_empty()
+                // core は公称の状態との差を外挿しないので、最初と最後の燃焼点を含む
+                if off_nominal.first() != h.burnup.first()
+                    || off_nominal.last() != h.burnup.last()
                     || !off_nominal.iter().all(|b| h.burnup.contains(b))
                     || !off_nominal.windows(2).all(|w| w[0] < w[1])
                 {
                     return Err(format!(
-                        "the off-nominal burnup points must be increasing points of `burnup`, got {off_nominal:?}"
+                        "the off-nominal burnup points must be increasing points of `burnup` from its first to its \
+                         last, got {off_nominal:?}"
                     ));
                 }
                 Ok(HistoryInput {

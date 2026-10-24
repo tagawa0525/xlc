@@ -115,6 +115,17 @@ impl Axis {
     }
 
     /// 公称の値を `value` にした軸（`boron`、`moderator`、`fuel` だけ）
+    /// 公称の値を除いた軸
+    pub fn without_nominal(mut self) -> Self {
+        match &mut self {
+            Self::Boron { nominal, .. }
+            | Self::Moderator { nominal, .. }
+            | Self::Fuel { nominal, .. } => *nominal = None,
+            Self::Burnup { .. } | Self::Rod { .. } => {}
+        }
+        self
+    }
+
     pub fn with_nominal(mut self, value: f64) -> Self {
         match &mut self {
             Self::Boron { nominal, .. }
@@ -384,6 +395,17 @@ fn validate_points(axes: &[Axis], points: &[Vec<usize>]) -> Result<(), String> {
     }
     if let Some(b) = burnup {
         let all = axes[b].len();
+        // core は公称の状態との差を外挿しないので、どの点も燃焼度の軸の最初と最後の点で解く
+        if burnups
+            .values()
+            .any(|solved| solved.first() != Some(&0) || solved.last() != Some(&(all - 1)))
+        {
+            return Err(
+                "every point must be solved at the first and the last burnup (the differences from the nominal \
+                 state are not extrapolated. ADR-0200)"
+                    .into(),
+            );
+        }
         if burnups.values().any(|solved| solved.len() != all) {
             let nominal = nominal.ok_or(
                 "points solved at only some burnups need the nominal values (the burnups of the other points are \
