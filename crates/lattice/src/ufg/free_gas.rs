@@ -14,6 +14,7 @@
 
 use std::f64::consts::PI;
 
+use rayon::prelude::*;
 use xlc_numeric::quadrature::GAUSS_LEGENDRE_2;
 
 /// ボルツマン定数 (eV/K)。CODATA 2018 の値（xs の `physics::BK` と同じ）
@@ -21,6 +22,10 @@ pub(super) const BOLTZMANN: f64 = 8.617_333_262e-5;
 
 /// 上端の側の区間の幅（kT の倍数）。上方散乱の裾 e^{−(E−E')/kT} がここで e^{−28} ≈ 7e−13 に下がる
 pub(super) const TAIL: f64 = 28.0;
+
+/// D の散乱源を並列に積分する区間の塊の大きさ（1 つの区間は核の評価 2 回とリングごとの積分で 1 µs ほど。塊を小さくすると
+/// 並列の手間が勝つ）
+const CELLS_PER_TASK: usize = 16;
 
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
 pub(super) const EDGE: f64 = 6.0;
@@ -736,36 +741,49 @@ impl Thermal {
                 &mut self.bounds,
                 &mut self.pieces,
             );
-            // 隣の区間と共有する端の値（端の位置、窓の中として扱ったか、格子点、値）
-            let mut shared: Option<(f64, bool, usize, f64)> = None;
-            for &(a, b) in &self.pieces {
-                let inside = light.inside(u[m], a, b);
-                let f = |x: f64, q: usize| {
-                    interpolate(u, sigma, q, x) * light.correction(high, x, u[m], e, inside)
-                };
-                let (qa, fa) = match shared {
-                    Some((x, side, q, value)) if x == a && side == inside => (q, value),
-                    _ => {
-                        let q = locate(u, a);
-                        (q, f(a, q))
+            let prefix = &self.prefix;
+            let previous = self.previous.as_ref();
+            // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
+            let parts: Vec<Vec<(f64, f64)>> = self
+                .pieces
+                .par_chunks(CELLS_PER_TASK)
+                .map(|chunk| {
+                    let mut sums = vec![(0.0, 0.0); rings.len()];
+                    // 隣の区間と共有する端の値（端の位置、窓の中として扱ったか、格子点、値）
+                    let mut shared: Option<(f64, bool, usize, f64)> = None;
+                    for &(a, b) in chunk {
+                        let inside = light.inside(u[m], a, b);
+                        let f = |x: f64, q: usize| {
+                            interpolate(u, sigma, q, x) * light.correction(high, x, u[m], e, inside)
+                        };
+                        let (qa, fa) = match shared {
+                            Some((x, side, q, value)) if x == a && side == inside => (q, value),
+                            _ => {
+                                let q = locate(u, a);
+                                (q, f(a, q))
+                            }
+                        };
+                        let qb = locate(u, b);
+                        let fb = f(b, qb);
+                        shared = Some((b, inside, qb, fb));
+                        let mid = 0.5 * (a + b);
+                        let quadratic = Quadratic::through(a, b, fa, f(mid, locate(u, mid)), fb);
+                        for (sum, &(i, _)) in sums.iter_mut().zip(rings) {
+                            let history = History {
+                                flux: &flux[i],
+                                prefix: &prefix[i],
+                                previous: previous.map(|(f, p)| (f[i].as_slice(), &p[i])),
+                            };
+                            let (k, o) = integrate(&quadratic, u, m, a, b, qa, qb, &history);
+                            sum.0 += k;
+                            sum.1 += o;
+                        }
                     }
-                };
-                let qb = locate(u, b);
-                let fb = f(b, qb);
-                shared = Some((b, inside, qb, fb));
-                let mid = 0.5 * (a + b);
-                let quadratic = Quadratic::through(a, b, fa, f(mid, locate(u, mid)), fb);
-                for &(i, density) in rings {
-                    let history = History {
-                        flux: &flux[i],
-                        prefix: &self.prefix[i],
-                        previous: self
-                            .previous
-                            .as_ref()
-                            .map(|(f, p)| (f[i].as_slice(), &p[i])),
-                    };
-                    let (k, o) = integrate(&quadratic, u, m, a, b, qa, qb, &history);
-
+                    sums
+                })
+                .collect();
+            for part in parts {
+                for ((k, o), &(i, density)) in part.into_iter().zip(rings) {
                     known[i] += density * k;
                     own[i] += density * o;
                 }
