@@ -4,7 +4,7 @@ date: 2026-10-24
 requires: [ADR-0070, ADR-0073, ADR-0203]
 supersedes: []
 superseded-by:
-issues: ["#0152", "#0133"]
+issues: ["#0152", "#0133", "#0179"]
 ---
 
 # ADR-0204: UFG の減速計算で、分離共鳴を持つ核種の散乱核も、入力で選べば 400 kT より下で温度 T の自由ガスの核にする
@@ -54,7 +54,7 @@ ADR-0203 の後の #0152 の 27 群の燃料の中性子束の傾きと、新し
 ADR-0203 の案 F1〜F3（400 kT の上限、区間の細かさ 2、スイープの回数の固定）を、重い核種にもそのまま使う。スイープ 1 回は重い核種で大きく
 外れる（下の測定）。最初のスイープは格子点より後の中性子束をその点の値とみなすので、重い核種の上方散乱が共鳴の谷の中の中性子束を高く
 見積もることが候補で、確かめていない。最初のスイープの前に静止した標的の解を「前のスイープ」として使えば、1 回で足りる見込みがあるが、
-作っておらず測っていない。
+作っておらず測っていない（#0179）。
 
 ## 決定と理由
 
@@ -69,7 +69,8 @@ ADR-0203 の案 F1〜F3（400 kT の上限、区間の細かさ 2、スイープ
 測定（examples/depletion/verification.md の「分離共鳴を持つ核種の自由ガスの散乱核（ADR-0204）」。xlc は 4f6f40a3、1C の 0 MWd/kg の
 `fine_flux` は 261c2950、2026-10-24）:
 
-- 重い核種の 400 kT の自由ガスで、k は軽い核種だけのときから 1C の 0 MWd/kg で +15.3、5 MWd/kg で +14.1、2A-40 で +9.7 pcm 動き、
+- 重い核種の 400 kT の自由ガスで、k は軽い核種だけのときから 1C の 0 MWd/kg で +15.3、2A-40 で +9.7 pcm 動き（軽い核種は上限なしでも
+  400 kT まででも同じ差。1C の 5 MWd/kg は軽い核種も 400 kT までの組だけを流し、+14.1 pcm）、
   新しい燃料から 2A-40 への k の差の増えは +73.1 から +67.5 pcm（−5.6）になる。k の差（xlc − OpenMC）は正の側に開く（新しい燃料で
   +20.6 → +35.9 pcm）
 - 動くのは主に U-238 の 25 群（15.97〜27.7 eV。20.9 eV の共鳴）で、吸収の置き換えの寄与は −22.4 → +0.9（新しい燃料）、−30.0 → −13.4 pcm
@@ -87,10 +88,10 @@ ADR-0203 の案 F1〜F3（400 kT の上限、区間の細かさ 2、スイープ
 
 - 既定の静止した標的と、`heavy` を書かない `"free-gas"` は、自己遮蔽の結果がビットで変わらない（`fine_flux` の出力の md5 が、2A-40 の
   静止した標的で ADR-0203 の記録の出力と、1C の 0 MWd/kg の ADR-0203 の 400 kT と速い方法で main の実行ファイルの出力と同じ）
-- 重い核種の上限なし（`heavy = inf`）は、1C の 0 MWd/kg で上方散乱のスイープが 50 回で収束せず止まる（減速材のない U-238 だけのセルでも
-  同じ。手元の試行で、1 回のスイープで変化は 0.6〜0.8 倍ほどしか縮まない）。上限なしの参照は、スイープの加速か初期値（静止した標的の解）が要る
-- スイープ 1 回の速い方法は重い核種で使えず、重い核種を入れるとスイープ 3 回が要る。参照の 2A-40 は、軽い核種だけの参照より重い
-  （`--timed` で測っていない）
+- 重い核種の上限なし（`heavy = inf`）は、1C の 0 MWd/kg で上方散乱のスイープが 50 回で収束せず止まる。上限なしの参照は、スイープの加速か
+  初期値（静止した標的の解）が要る（#0179）
+- スイープ 1 回の速い方法は重い核種で使えず、重い核種を入れるとスイープ 3 回が要る（1 回で足りる初期値は #0179）。上限より上の出射では、
+  重い核種の区間を作らない（`Gas::idle`。結果はビットで同じ）。時間は `--timed` で測っていない
 - 残る UFG の範囲の差の候補: H in H2O の 4〜10 eV の束縛（ADR-0203 の案 K3）、分離共鳴の上方散乱（案 R2）、等価なセル。#0152 に書く
 
 ## 確認
@@ -98,6 +99,6 @@ ADR-0203 の案 F1〜F3（400 kT の上限、区間の細かさ 2、スイープ
 - 単体試験: `crates/lattice/src/ufg/tests.rs` の `resonant_nuclides_at_a_vanishing_temperature_give_the_static_spectrum`、
   `resonant_free_gas_moves_the_resonance_shielding`、`resonant_free_gas_spectrum_converges_with_the_cells`、`resonant_nuclides_follow_their_own_cap`、
   `resonant_free_gas_moves_a_cell_of_resonant_nuclides_only`、`resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium`、
-  `crates/lattice/src/ufg/free_gas/tests.rs` の `correction_vanishes_outside_its_cells`（A = 89、236）と
-  `cells_integrate_the_correction_against_a_resonant_cross_section`。入力は `ufg_scattering_defaults_to_targets_at_rest`
+  `crates/lattice/src/ufg/free_gas/tests.rs` の `correction_vanishes_outside_its_cells`（A = 89、236）、
+  `cells_integrate_the_correction_against_a_resonant_cross_section`、`idle_gases_have_no_cells`。入力は `ufg_scattering_defaults_to_targets_at_rest`
 - 測定は examples/depletion/verification.md の「分離共鳴を持つ核種の自由ガスの散乱核（ADR-0204）」
