@@ -33,4 +33,4 @@ UFG の減速計算で分離共鳴を持つ核種（重い核種）も自由ガ�
 
 - 2026-10-24: ADR-0204 の測定（ブランチ feat/ufg-heavy-nuclide-thermal-motion）で見つけた。上限なしの実行は Slurm 545
 
-関係する ADR: ADR-0203、ADR-0204
+関係する ADR: ADR-0204
