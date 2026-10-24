@@ -178,17 +178,9 @@ fn media_must_match_the_library_and_the_branches() {
     let refs: Vec<&Material> = materials.iter().collect();
     let state = homogenize_medium(&solution, &refs, &Boundaries::REFLECTIVE).unwrap();
     let axes = vec![
-        Axis::Boron {
-            ppm: vec![1300.0],
-            b10: 0.199,
-        },
-        Axis::Moderator {
-            temperature: vec![600.0],
-            density: vec![0.743],
-        },
-        Axis::Fuel {
-            temperature: vec![600.0, 900.0],
-        },
+        Axis::boron(vec![1300.0], 0.199),
+        Axis::moderator(vec![600.0], vec![0.743]),
+        Axis::fuel(vec![600.0, 900.0]),
     ];
     let bounds = vec![1.0e7, 0.625, 1.0e-5];
     let medium = Medium {
@@ -197,13 +189,19 @@ fn media_must_match_the_library_and_the_branches() {
         states: vec![state.clone(), state.clone()],
     };
     assert!(check_medium(&medium, &bounds, &axes).is_ok());
+    // 平板の軸の公称の値（ADR-0200）は比べない（媒質は持たない）
+    let nominal: Vec<Axis> = axes
+        .iter()
+        .map(|a| {
+            let value = a.points()[0];
+            a.clone().with_nominal(value)
+        })
+        .collect();
+    assert!(check_medium(&medium, &bounds, &nominal).is_ok());
     let err = check_medium(&medium, &[2.0e7, 0.625, 1.0e-5], &axes).unwrap_err();
     assert!(err.contains("bounds"), "{err}");
     let mut other = axes.clone();
-    other[1] = Axis::Moderator {
-        temperature: vec![600.0],
-        density: vec![0.7],
-    };
+    other[1] = Axis::moderator(vec![600.0], vec![0.7]);
     for slab in [vec![], other] {
         let err = check_medium(&medium, &bounds, &slab).unwrap_err();
         assert!(err.contains("axes"), "{err}");

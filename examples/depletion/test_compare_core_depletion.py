@@ -30,6 +30,7 @@ def inputs():
             {"name": "moderator", "points": [565.0], "density": [0.743]},
             {"name": "fuel", "points": [565.0]},
         ],
+        "points": [[0, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0]],
         "states": [{"k_inf": k} for k in [1.3, 1.2 + 2e-8, 1.2, 1.1 - 1e-8]],
     }
     core = {
@@ -106,6 +107,17 @@ class Summary(unittest.TestCase):
             max(abs(p[0]["branch_rho_pcm"]), abs(p[2]["branch_rho_pcm"])),
             places=15,
         )
+
+    def test_branch_states_are_found_by_their_points(self):
+        # 解いた点だけを持つテーブル（ADR-0200）: 燃焼度 2 の公称でない点（1000 ppm）を解いていない
+        lattice, table, core = inputs()
+        table["points"] = [[0, 0, 0, 0], [0, 1, 0, 0], [1, 1, 0, 0]]
+        table["states"] = [{"k_inf": k} for k in [1.3, 1.2 + 2e-8, 1.1 - 1e-8]]
+        p = compare_core_depletion.summarize(lattice, table, core)["points"]
+        self.assertEqual([q["branch_k"] for q in p], [1.2 + 2e-8, None, 1.1 - 1e-8])
+        core["state"]["boron"] = 1000.0
+        with self.assertRaises(SystemExit):
+            compare_core_depletion.summarize(lattice, table, core)
 
     def test_a_state_off_the_table_points_is_an_error(self):
         lattice, table, core = inputs()

@@ -21,8 +21,30 @@ def table(k: float, **extra) -> dict:
         "bounds": [1e7, 0.625, 1e-5],
         "axes": [{"name": "burnup", "points": [0.0, 10.0]}],
         "split": 1,
+        "points": [[0], [1]],
         "states": [{"k_inf": k}, {"k_inf": k / 2}],
         **extra,
+    }
+
+
+def boron(k: float, nominal: float = 1300.0) -> dict:
+    """燃焼度 2 点 × ホウ素 2 点（公称は `nominal`）のテーブル"""
+    return {
+        "format": "xlc-table",
+        "bounds": [1e7, 0.625, 1e-5],
+        "axes": [
+            {"name": "burnup", "points": [0.0, 10.0]},
+            {
+                "name": "boron",
+                "points": [1000.0, 1300.0],
+                "b10": 0.199,
+                "nominal": nominal,
+                "transform": "linear",
+            },
+        ],
+        "split": 1,
+        "points": [[0, 0], [0, 1], [1, 0], [1, 1]],
+        "states": [{"k_inf": k + i} for i in range(4)],
     }
 
 
@@ -50,6 +72,43 @@ class Merge(unittest.TestCase):
         merged = merge(table(1.2), table(1.0))
         self.assertEqual(merged["axes"][-1], {"name": "rod", "values": ["out", "aic"]})
         self.assertEqual([s["k_inf"] for s in merged["states"]], [1.2, 1.0, 0.6, 0.5])
+        self.assertEqual(merged["points"], [[0, 0], [0, 1], [1, 0], [1, 1]])
+
+    def test_rodded_tables_may_solve_other_points_and_some_burnups(self):
+        # 制御棒を入れた組（ADR-0200）は、燃焼度 10 の点の公称のホウ素の状態だけ。燃焼度の番号は棒のないテーブルの軸で数え直す
+        rodded = boron(5.0)
+        rodded["axes"][0]["points"] = [10.0]
+        rodded["points"] = [[0, 1]]
+        rodded["states"] = [{"k_inf": 0.7}]
+        merged = merge(boron(1.0), rodded)
+        self.assertEqual(merged["axes"][0]["points"], [0.0, 10.0])
+        self.assertEqual(
+            merged["points"],
+            [[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1]],
+        )
+        self.assertEqual(
+            [s["k_inf"] for s in merged["states"]], [1.0, 2.0, 3.0, 4.0, 0.7]
+        )
+
+    def test_burnups_outside_the_first_table_are_errors(self):
+        rodded = table(1.0)
+        rodded["axes"][0]["points"] = [0.0, 20.0]
+        with self.assertRaises(SystemExit):
+            merge(table(1.2), rodded)
+
+    def test_axes_with_other_nominal_values_or_points_are_errors(self):
+        with self.assertRaises(SystemExit):
+            merge(boron(1.0), boron(1.0, nominal=1000.0))
+        other = boron(1.0)
+        other["axes"][1]["points"] = [900.0, 1300.0]
+        with self.assertRaises(SystemExit):
+            merge(boron(1.0), other)
+
+    def test_tables_without_points_are_errors(self):
+        bare = table(1.0)
+        del bare["points"]
+        with self.assertRaises(SystemExit):
+            merge(table(1.2), bare)
 
     def test_the_heavy_metal_mass_is_kept_when_every_table_has_the_same(self):
         merged = merge(table(1.2, heavy_metal=1258.0), table(1.0, heavy_metal=1258.0))

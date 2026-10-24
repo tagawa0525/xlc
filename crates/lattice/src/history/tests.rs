@@ -431,6 +431,7 @@ fn shield_states(
         s.input.shielding_options(),
     );
     let shielded = (0..branches.len())
+        .filter(|&i| branches.solved(i))
         .map(|i| {
             let reference = branches.reference(i);
             shielder
@@ -681,4 +682,55 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
         })
         .unwrap_err();
     assert!(format!("{err:#}").contains("fuel@"), "{err:#}");
+}
+
+#[test]
+fn off_nominal_states_are_solved_at_their_burnups_only() {
+    // 燃焼度 0、0.5、2.0 の点で、公称の状態（ホウ素 1000 ppm、減速材 600 K、燃料 600 K）はすべての点、ほかの状態は 0 と 2.0 だけ
+    // （ADR-0200 の案 B2）。ホウ素 2 点 × 減速材 2 点 × 燃料 1 点は 2 軸の組で直積
+    let (history, library) = history();
+    let text = format!(
+        "{}off-nominal-burnup = [0, 2.0]\n",
+        two_moderators("[0, 0.5, 2.0]")
+    );
+    let branches = branches_of(&text, &history, &library).unwrap();
+    assert_eq!(branches.len(), 3 * 4);
+    let solved: Vec<usize> = (0..12).filter(|&i| branches.solved(i)).collect();
+    // 状態の番号は燃焼度 × 4 + (ホウ素 × 2 + 減速材)。公称は (1, 0)
+    assert_eq!(solved, vec![0, 1, 2, 3, 6, 8, 9, 10, 11]);
+    // 公称の状態が格子点にないと、公称でない状態の燃焼点を間引けない
+    let off = text.replace(
+        "boron = { ppm = [500, 1000], materials = [\"water\"] }",
+        "boron = { ppm = [500, 700], materials = [\"water\"] }",
+    );
+    let err = format!("{:#}", branches_of(&off, &history, &library).unwrap_err());
+    assert!(err.contains("nominal"), "{err}");
+}
+
+#[test]
+fn pair_subgrid_states_shield_like_the_product_states() {
+    // 2 軸の組の部分格子の状態を公称のホウ素の自己遮蔽（ADR-0201）で解くと、直積の同じ状態とビットで同じ。参照は、解く状態の
+    // 燃焼度、減速材、燃料の点ごとに 1 度
+    let library = library_for_reuse();
+    let history = deplete_with(&borated(PIN), &library);
+    let text = two_moderators("[0, 0.5]").replace(
+        "fuel = { temperature = [600], materials = [\"fuel\"] }",
+        "fuel = { temperature = [600, 650], materials = [\"fuel\"] }",
+    );
+    let product = text.replace(
+        "[history]",
+        "subgrids = [[\"boron\", \"moderator\", \"fuel\"]]\n[history]",
+    );
+    let (branches, pairs, pair_solves) = shield_states(&text, &history, &library);
+    let (_, all, all_solves) = shield_states(&product, &history, &library);
+    let solved: Vec<usize> = (0..branches.len())
+        .filter(|&i| branches.solved(i))
+        .collect();
+    // 2 × 2 × 2 の 8 状態から、3 つの軸がどれも公称でない状態（ホウ素 500 ppm、650 K、650 K）を除く
+    assert_eq!(solved.len(), 2 * 7);
+    for (n, &i) in solved.iter().enumerate() {
+        assert_eq!(pairs[n], all[i], "state {i}");
+    }
+    assert_eq!(pair_solves, 2 * 4);
+    assert_eq!(all_solves, 2 * 4);
 }
