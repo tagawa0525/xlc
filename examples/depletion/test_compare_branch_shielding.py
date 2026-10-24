@@ -75,8 +75,9 @@ class CompareTest(unittest.TestCase):
         worst = case["states"][3]["relative"]
         for item in ["absorption", "nu_fission", "diffusion", "scatter", "adf"]:
             self.assertAlmostEqual(worst[item], 0.002, places=12, msg=item)
+        # 相対差の分母は 2 つの値の絶対値の大きい方
         self.assertAlmostEqual(
-            case["states"][1]["relative"]["absorption"], 0.001, places=12
+            case["states"][1]["relative"]["absorption"], 0.001 / 1.001, places=12
         )
         self.assertEqual(case["states"][0]["relative"]["adf"], 0.0)
 
