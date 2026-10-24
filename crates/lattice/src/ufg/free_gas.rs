@@ -1,4 +1,5 @@
-//! UFG の減速計算の、分離共鳴を持たない核種（軽い核種）の標的の熱運動を、温度 T の自由ガスで扱う散乱核（ADR-0203）。
+//! UFG の減速計算の、標的の熱運動を温度 T の自由ガスで扱う散乱核。分離共鳴を持たない核種（ADR-0203）と、選んだときの分離共鳴を
+//! 持つ核種（ADR-0204）に使う。
 //!
 //! 入射 E'（レサジー u'）、出射 E（u）のレサジーあたりの散乱核は R(u'→u) = E S(E'→E)/N(E')。S は断面積を一定とした
 //! 自由ガスの核（[`kernel`]）、N は温度に拡げた断面積と自由原子の断面積の比（[`effective_ratio`]）で、ライブラリの
@@ -8,7 +9,7 @@
 //!
 //! と分けると、R_static/N は静止した標的の窓の積分（弾性散乱断面積を σs/N にする）で扱え、D は静止した核の両端の近くに
 //! だけ残る: 上端 E' = E の近く（上方散乱の e^{−(E−E')/kT} の裾と、下方散乱の側の幅 4kT/A ほどの折れ）と、下端 E' = E/α の
-//! 近く（erf の引数 θ√(E/kT) − ζ√(E'/kT) が 0 を横切るぼけ。E' の幅 2√(E' kT)/ζ）。D は、その近くの区間（[`Light::cells`]）
+//! 近く（erf の引数 θ√(E/kT) − ζ√(E'/kT) が 0 を横切るぼけ。E' の幅 2√(E' kT)/ζ）。D は、その近くの区間（[`Gas::cells`]）
 //! ごとに 3 点の 2 次式で近似し、中性子束の累積の積率（[`Prefix`]）で積分する。区間の外の D は、上端の側で e^{−[`TAIL`]}、
 //! 下端の側で erfc([`EDGE`]) 程度より小さい（`correction_vanishes_outside_its_cells`）。
 
@@ -157,9 +158,9 @@ pub(super) fn effective_ratio(e: f64, awr: f64, kt: f64) -> f64 {
     (1.0 + 0.5 / a2) * erf(a) + (-a2).exp() / (PI.sqrt() * a)
 }
 
-/// 自由ガスの核で散乱する 1 つの軽い核種（名前と温度の組）。
+/// 自由ガスの核で散乱する 1 つの核種（名前と温度の組）。
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Light {
+pub(super) struct Gas {
     awr: f64,
     kt: f64,
     /// 1/(1 − α)
@@ -172,7 +173,7 @@ pub(super) struct Light {
     cap: f64,
 }
 
-impl Light {
+impl Gas {
     /// 質量比 `awr`、温度 `temperature` (K) の核種。`upper` は自由ガスの核を使う入射エネルギーの上限（kT の倍数）で、
     /// `None` は上限なし。
     pub(super) fn new(awr: f64, temperature: f64, upper: Option<f64>) -> Self {
@@ -634,11 +635,11 @@ fn interpolate(u: &[f64], values: &[f64], q: usize, x: f64) -> f64 {
 /// 減速計算のスイープの間の、自由ガスの核の D の散乱源の状態。
 #[derive(Debug, Clone)]
 pub(super) struct Thermal {
-    /// [軽い核種] の核
-    lights: Vec<Light>,
-    /// [軽い核種][格子点] のポイントワイズの弾性散乱断面積（D に掛ける）
+    /// [自由ガスの核種] の核
+    gases: Vec<Gas>,
+    /// [自由ガスの核種][格子点] のポイントワイズの弾性散乱断面積（D に掛ける）
     sigma: Vec<Vec<f64>>,
-    /// [軽い核種] の（リング, 個数密度）
+    /// [自由ガスの核種] の（リング, 個数密度）
     rings: Vec<Vec<(usize, f64)>>,
     /// 上端の側の区間の段（[`grades`]）と、下端の側の区間の細かさ
     grades: Vec<f64>,
@@ -652,33 +653,33 @@ pub(super) struct Thermal {
     /// 作業用の区間の境界と区間
     bounds: Vec<f64>,
     pieces: Vec<(f64, f64)>,
-    /// 作業用の、すべての軽い核種の（核種, 区間の両端）
+    /// 作業用の、すべての自由ガスの核種の（核種, 区間の両端）
     all: Vec<(usize, f64, f64)>,
 }
 
 impl Thermal {
-    /// 軽い核種の核 `lights`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、区間の細かさ `cells`
-    /// の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。軽い核種がなければ `None`。
+    /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、区間の細かさ `cells`
+    /// の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ `None`。
     pub(super) fn new(
-        lights: Vec<Light>,
+        gases: Vec<Gas>,
         sigma: Vec<Vec<f64>>,
         rings: Vec<Vec<(usize, f64)>>,
         cells: usize,
         energies: &[f64],
         n: usize,
     ) -> Option<Self> {
-        if lights.is_empty() {
+        if gases.is_empty() {
             return None;
         }
         // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0
-        let reach = lights
+        let reach = gases
             .iter()
             .map(|l| l.cap() + TAIL * l.kt())
             .fold(0.0, f64::max);
         let first = energies.iter().position(|&e| e <= reach)?;
         let start = first.saturating_sub(1);
         Some(Self {
-            lights,
+            gases,
             sigma,
             rings,
             grades: grades(cells),
@@ -713,11 +714,11 @@ impl Thermal {
             return;
         }
         let last = u.len() - 1;
-        // すべての軽い核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
+        // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
         // 手間を避ける）
         self.all.clear();
-        for (l, light) in self.lights.iter().enumerate() {
-            light.cells(
+        for (l, gas) in self.gases.iter().enumerate() {
+            gas.cells(
                 high,
                 u[m],
                 e,
@@ -730,7 +731,7 @@ impl Thermal {
             self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
         }
         let n = known.len();
-        let (lights, sigmas, rings) = (&self.lights, &self.sigma, &self.rings);
+        let (gases, sigmas, rings) = (&self.gases, &self.sigma, &self.rings);
         let prefix = &self.prefix;
         let previous = self.previous.as_ref();
         // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
@@ -742,10 +743,10 @@ impl Thermal {
                 // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
                 for &(l, a, b) in chunk {
-                    let (light, sigma) = (&lights[l], &sigmas[l]);
-                    let inside = light.inside(u[m], a, b);
+                    let (gas, sigma) = (&gases[l], &sigmas[l]);
+                    let inside = gas.inside(u[m], a, b);
                     let f = |x: f64, q: usize| {
-                        interpolate(u, sigma, q, x) * light.correction(high, x, u[m], e, inside)
+                        interpolate(u, sigma, q, x) * gas.correction(high, x, u[m], e, inside)
                     };
                     let (qa, fa) = match shared {
                         Some((k, x, side, q, value)) if k == l && x == a && side == inside => {
@@ -784,7 +785,7 @@ impl Thermal {
         }
     }
 
-    /// 格子点 m の中性子束が決まったあと、軽い核種を含むリングの累積の積率を進める
+    /// 格子点 m の中性子束が決まったあと、自由ガスの核種を含むリングの累積の積率を進める
     pub(super) fn record(&mut self, m: usize, u: &[f64], flux: &[Vec<f64>]) {
         if m < self.start {
             return;
@@ -813,7 +814,7 @@ impl Thermal {
                 })
                 .fold(0.0, f64::max)
         });
-        // 今のスイープの累積の積率（`record` が軽い核種を含むリングで進めたもの）を、次のスイープの「前のスイープ」にする
+        // 今のスイープの累積の積率（`record` が自由ガスの核種を含むリングで進めたもの）を、次のスイープの「前のスイープ」にする
         let fresh = vec![Prefix::new(self.start); self.prefix.len()];
         let prefixes = std::mem::replace(&mut self.prefix, fresh);
         self.previous = Some((flux.to_vec(), prefixes));
