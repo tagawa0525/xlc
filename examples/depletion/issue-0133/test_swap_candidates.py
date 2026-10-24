@@ -15,7 +15,7 @@ BURNT = [*FRESH, "Pu-239", "Pu-241", "Xe-135", "Sm-149", "Rh-103", "Am-241"]
 
 ABSORPTION_LOG = """k 1.086000
 U-238:1-13: k 1.085500 (-50.0 pcm)
-U-238:27: k 1.086300 (+30.0 pcm)
+U-238:27-27: k 1.086300 (+30.0 pcm)
 """
 
 TRANSFER_LOG = """material water
@@ -40,7 +40,7 @@ class Lists(unittest.TestCase):
         self.assertEqual(
             specs["ufg27-other"],
             ",".join(
-                f"{n}:27"
+                f"{n}:27-27"
                 for n in [
                     "U-234",
                     "U-235",
@@ -73,14 +73,14 @@ class Logs(unittest.TestCase):
         k0, changes = sc.parse_absorption(ABSORPTION_LOG)
         self.assertEqual(k0, 1.086)
         self.assertAlmostEqual(changes["U-238:1-13"], -50.0, places=6)
-        self.assertAlmostEqual(changes["U-238:27"], 30.0, places=6)
+        self.assertAlmostEqual(changes["U-238:27-27"], 30.0, places=6)
 
     def test_transfer_log_uses_the_kept_sph_factors(self):
         changes = sc.parse_transfer(TRANSFER_LOG)
         self.assertAlmostEqual(changes[("water", 1, 13)], -120.0, places=6)
 
 
-ITEMS = [("fast-u238", "U-238:1-13"), ("ufg27-u238", "U-238:27")]
+ITEMS = [("fast-u238", "U-238:1-13"), ("ufg27-u238", "U-238:27-27")]
 TRANSFERS = [("transfer-water-fast", "water", 1, 13)]
 
 
