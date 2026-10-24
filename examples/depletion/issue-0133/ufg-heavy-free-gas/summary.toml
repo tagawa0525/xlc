@@ -1,0 +1,100 @@
+# ADR-0204: 分離共鳴を持つ核種（以下、重い核種）の UFG の自由ガスの散乱核の測定の要約（ufg_free_gas.py summarize の設定）。OpenMC の k は
+# swap-candidates.toml の実行の平均。置き換えは swaps.txt（1C の 0 MWd/kg は Pu の無い swaps-1C-0.txt）の組で、OpenMC の反応率は
+# 1C の 0、5 MWd/kg が Slurm 448、2A-40 が 459（シード 3）。軽い核種は分離共鳴を持たない核種（H-1、O-16、B-10、B-11）
+candidates = "../swap-candidates.toml"
+
+[[mode]]
+key = "static"
+label = "静止した標的（ADR-0070）"
+
+[[mode]]
+key = "light"
+label = "軽い核種だけ自由ガス（ADR-0203 の参照: 上限なし、細かさ 4、収束まで）"
+
+[[mode]]
+key = "light-cap"
+label = "軽い核種だけ自由ガス、400 kT まで（細かさ 4、収束まで）"
+
+[[mode]]
+key = "light-fast"
+label = "軽い核種だけ自由ガス、ADR-0203 の速い方法（400 kT まで、細かさ 2、スイープ 1 回）"
+
+[[mode]]
+key = "heavy"
+label = "重い核種も 400 kT まで自由ガス（R1 の参照: 軽い核種は上限なし、細かさ 4、収束まで）"
+
+[[mode]]
+key = "heavy-cap"
+label = "重い核種も自由ガス、どの核種も 400 kT まで（細かさ 4、収束まで）"
+
+[[mode]]
+key = "heavy-cap-cells8"
+label = "重い核種も自由ガス、どの核種も 400 kT まで（細かさ 8、収束まで）"
+
+[[mode]]
+key = "heavy-fast1"
+label = "重い核種も自由ガス、400 kT まで、細かさ 2、スイープ 1 回"
+
+[[mode]]
+key = "heavy-fast2"
+label = "重い核種も自由ガス、400 kT まで、細かさ 2、スイープ 2 回"
+
+[[mode]]
+key = "heavy-fast3"
+label = "重い核種も自由ガス、400 kT まで、細かさ 2、スイープ 3 回"
+
+[[swap]]
+spec = "U-238:27-27"
+label = "U-238、4〜9.88 eV"
+
+[[swap]]
+spec = "*:27-27"
+label = "燃料の全核種、4〜9.88 eV"
+
+[[swap]]
+spec = "U-238:14-26"
+label = "U-238、9.88 eV〜15 keV"
+
+[[swap]]
+spec = "*:14-26"
+label = "燃料の全核種、9.88 eV〜15 keV"
+
+[[swap]]
+spec = "U-238:26-26"
+label = "U-238、9.88〜16.0 eV"
+
+[[swap]]
+spec = "U-238:25-25"
+label = "U-238、16.0〜27.7 eV"
+
+[[swap]]
+spec = "U-238:24-24"
+label = "U-238、27.7〜48.1 eV"
+
+[[swap]]
+spec = "Pu-239:27-27"
+label = "Pu-239、4〜9.88 eV"
+
+[[swap]]
+spec = "Pu-239:26-26"
+label = "Pu-239、9.88〜16.0 eV"
+
+[[swap]]
+spec = "Pu-239:25-25"
+label = "Pu-239、16.0〜27.7 eV"
+
+[[swap]]
+spec = "Pu-239:24-24"
+label = "Pu-239、27.7〜48.1 eV"
+
+[[state]]
+name = "1C 0 MWd/kg"
+key = "1C-0"
+
+[[state]]
+name = "1C 5 MWd/kg"
+key = "1C-5"
+
+[[state]]
+name = "2A 40 MWd/kg"
+key = "2A-40"
