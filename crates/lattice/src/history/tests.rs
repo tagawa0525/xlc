@@ -426,7 +426,7 @@ fn shield_states(
     let mut shielder = BranchShielder::new(
         &s.tracking,
         &branches.region_materials,
-        branches.varied(),
+        s.input.branches.as_ref().unwrap().varied(),
         s.chosen.shielding(),
         s.input.shielding_options(),
     );
@@ -528,7 +528,7 @@ fn branches_without_a_history_shield_at_the_nominal_boron_too() {
         .iter()
         .enumerate()
         .map(|(i, state)| {
-            let r = branches.reference_of(i);
+            let r = branches.reference(i).unwrap();
             shielder
                 .shield(&library, state, Some((0, r)), || {
                     branches.references()[r].clone()
