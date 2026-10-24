@@ -1,9 +1,9 @@
-# 分岐の自己遮蔽を公称の減速材で 1 度だけ解く近似（ADR-0201 の `shielding = "nominal-moderator"`）の誤差を、状態ごとに解き直す既定と
-# 比べる入力（examples/depletion/verification.md の「分岐の自己遮蔽」）。VERA Problem 2 の 2O（Gd 燃料 12 本）の燃焼の履歴（../p2/lattice-2O.msgpack）の
+# 分岐の自己遮蔽を、減速材と燃料の温度の点ごとに公称のホウ素で 1 度だけ解く既定（ADR-0201 の `shielding = "nominal-boron"`）の誤差を、
+# 状態ごとに解き直す方式（`"every-state"`）と比べる入力（examples/depletion/verification.md の「分岐の自己遮蔽（ADR-0201）」）。VERA Problem 2 の 2O（Gd 燃料 12 本）の燃焼の履歴（../p2/lattice-2O.msgpack）の
 # 燃焼度 4 MWd/kg（Gd の燃え尽きの前）で、ホウ素 3 点（900、公称の 1300、1700 ppm）× 減速材 2 点（565 K と 0.76972 g/cc、公称の 600 K と 0.743 g/cc）× 燃料 1 点（公称の 600 K）。
 # 減速材の温度は、ライブラリ（../p2/depletion.msgpack）が水と被覆管の核種に持つ 565 K と 600 K から選ぶ（ADR-0097 の M3 の 550、580 K は
 # ない）。密度は ADR-0097 の M3 の点（VERA の仕様書の表 G-2 の 550 K と 580 K の値）。格子、離散化、組成は履歴の入力
-# （../p2/lattice-2O.toml）と同じ（減速材はホウ酸水で書き、履歴の入力の数密度と相対で約 1e-6 違う）。`-every` と `-nominal` は
+# （../p2/lattice-2O.toml）と同じ（減速材はホウ酸水で書き、履歴の入力の数密度と相対で約 1e-6 違う）。`-every` と `-boron` は
 # `[branches]` の `shielding` だけが違う。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-shielding-2O-every.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -260,6 +260,7 @@ sectors = 8
 boron = { ppm = [900, 1300, 1700], materials = ["water"] }
 moderator = { temperature = [565, 600], density = [0.76972, 0.743], materials = ["water", "zircaloy"] }
 fuel = { temperature = [600], materials = ["fuel", "gd0", "gd1", "gd2", "gd3", "gd4", "gd5", "gd6", "gd7"] }
+shielding = "every-state"
 
 [history]
 file = "../p2/lattice-2O.msgpack"
