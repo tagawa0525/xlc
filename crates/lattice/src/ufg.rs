@@ -386,13 +386,13 @@ fn solve_cell(
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
                     // 分離共鳴を持つ核種は `heavy` を選んだときだけ、その上限で自由ガスにする（ADR-0204）
                     let gas = match scattering {
-                        Scattering::FreeGas(options) => match (&d.resolved, options.heavy) {
-                            (None, _) => Some(Gas::new(d.awr, t.temperature, options.upper)),
-                            (Some(_), Some(heavy)) => {
-                                Some(Gas::new(d.awr, t.temperature, Some(heavy)))
-                            }
-                            (Some(_), None) => None,
-                        },
+                        Scattering::FreeGas(options) => {
+                            let upper = match &d.resolved {
+                                None => Some(options.upper),
+                                Some(_) => options.heavy.map(Some),
+                            };
+                            upper.map(|upper| Gas::new(d.awr, t.temperature, upper))
+                        }
                         Scattering::Static => None,
                     };
                     data.push(Data {
