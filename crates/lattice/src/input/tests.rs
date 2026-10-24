@@ -1,4 +1,5 @@
 use super::*;
+use crate::branches::BranchShielding;
 
 const PIN_CELL: &str = r#"
 # pin cell

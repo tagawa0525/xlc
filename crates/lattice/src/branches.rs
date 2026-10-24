@@ -7,7 +7,7 @@
 //! # 温度と、ホウ酸水の密度（格子点ごと）。挙げた物質の温度を変え、ホウ酸水なら密度も変える
 //! moderator = { temperature = [550, 565, 580], density = [0.76972, 0.74271, 0.71190], materials = ["water", "clad"] }
 //! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
-//! shielding = "every-state"   # 自己遮蔽（"every-state" か "nominal-moderator"。省略すると every-state。ADR-0201）
+//! shielding = "nominal-boron" # 自己遮蔽（"nominal-boron" か "every-state"。省略すると nominal-boron。ADR-0201）
 //! ```
 //!
 //! 軸は boron、moderator、fuel の順に並べ、3つとも書く（core は状態を与えるとき3つの軸をすべて求める）。温度の軸が変える物質は名前で挙げ、物質の種類から
@@ -19,11 +19,21 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
+use xlc_format::library::{Library, LookupError};
 use xlc_format::table::{Axis, Table};
 
+use crate::depletion::same_cross_sections;
+use crate::geometry::Lattice;
 use crate::input::{MaterialInput, MediumInput, Mixture};
+use crate::material::Material;
+use crate::shielding::{
+    FuelShielding, ShieldingOptions, ShieldingReuse, shield_fuel_reusing, shielded_nuclide,
+};
+use crate::symmetry::Detected;
+use crate::tracking::Tracking;
 use crate::water::borated_water;
 
 /// ホウ酸水で書いた物質の量（ADR-0106）。
@@ -39,9 +49,9 @@ pub struct Water {
 pub enum BranchShielding {
     /// 状態ごとに、その状態の物質で解き直す
     EveryState,
-    /// 燃焼の履歴からの分岐で、燃焼度の点と燃料の温度の格子点ごとに、ホウ素と減速材を公称（入力の物質）にした参照の状態で 1 度だけ
-    /// 解く。状態の物質は、参照の自己遮蔽の物質のうち、ホウ素と減速材の軸が変える物質だけを状態のものに作り直す
-    NominalModerator,
+    /// 減速材と燃料の温度の格子点ごとに（履歴からの分岐は燃焼度の点ごとにも）、ホウ素を公称（入力の物質）にした参照の状態で
+    /// 1 度だけ解く。状態の物質は、参照の自己遮蔽の物質のうち、ホウ素の軸が変える物質だけを状態の組成で作り直す（[`BranchShielder`]）
+    NominalBoron,
 }
 
 /// 分岐の軸と、軸の直積の順の物質の組。
@@ -50,9 +60,9 @@ pub struct Branches {
     axes: Vec<Axis>,
     states: Vec<Vec<MaterialInput>>,
     shielding: BranchShielding,
-    /// [燃料の温度の格子点] の参照の物質の組（燃料の温度の軸だけを変えたもの）
+    /// [減速材と燃料の温度の格子点の直積] の参照の物質の組（ホウ素の軸だけを入力のままにしたもの）
     references: Vec<Vec<MaterialInput>>,
-    /// ホウ素と減速材の軸が変える物質（現れる順）
+    /// ホウ素の軸が変える物質
     varied: Vec<String>,
 }
 
@@ -72,12 +82,19 @@ impl Branches {
         self.shielding
     }
 
-    /// [燃料の温度の格子点] の参照の物質の組: 燃料の温度の軸だけをその格子点にし、ホウ素と減速材の軸が変える物質は入力のまま
+    /// [減速材と燃料の温度の格子点の直積（減速材が遅く変わる）] の参照の物質の組: 減速材と燃料の温度の軸はその格子点、ホウ素の
+    /// 軸が変える物質は入力のまま
     pub fn references(&self) -> &[Vec<MaterialInput>] {
         &self.references
     }
 
-    /// ホウ素と減速材の軸が変える物質
+    /// 状態 `state` の参照の `references` の番号
+    pub fn reference_of(&self, state: usize) -> usize {
+        // ホウ素は最初の軸（いちばん遅く変わる）なので、ほかの軸の添字は状態の番号をそれらの点の数の積で割った余り
+        state % self.references.len()
+    }
+
+    /// ホウ素の軸が変える物質
     pub fn varied(&self) -> &[String] {
         &self.varied
     }
@@ -97,7 +114,7 @@ pub(crate) struct BranchesEntry {
 #[serde(rename_all = "kebab-case")]
 enum ShieldingEntry {
     EveryState,
-    NominalModerator,
+    NominalBoron,
 }
 
 #[derive(Deserialize)]
@@ -408,38 +425,280 @@ impl BranchesEntry {
                 state_of(&at)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        // 参照は燃料の温度の軸（最後の軸）だけを変える
-        let fuel_points = counts.last().copied().unwrap_or(0);
-        let references = (0..fuel_points)
-            .map(|i| {
-                let mut at = vec![None; counts.len()];
-                if let Some(last) = at.last_mut() {
-                    *last = Some(i);
-                }
+        // 参照はホウ素の軸（最初の軸）を入力のままにし、ほかの軸の格子点の直積を同じ順に並べる
+        let rest: usize = counts[1..].iter().product();
+        let references = (0..rest)
+            .map(|index| {
+                let at: Vec<Option<usize>> = std::iter::once(None)
+                    .chain(state_indices(&counts[1..], index).into_iter().map(Some))
+                    .collect();
                 state_of(&at)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let mut varied: Vec<String> = Vec::new();
-        for change in &changes {
-            if let Change::Boron(_, listed) | Change::Moderator(_, _, listed) = change {
-                for name in listed {
-                    if !varied.contains(name) {
-                        varied.push(name.clone());
-                    }
-                }
-            }
-        }
+        let varied = changes
+            .iter()
+            .find_map(|change| match change {
+                Change::Boron(_, listed) => Some(listed.clone()),
+                _ => None,
+            })
+            .ok_or("branches: no boron axis")?;
         Ok(Branches {
             axes,
             states,
             shielding: match self.shielding {
-                None | Some(ShieldingEntry::EveryState) => BranchShielding::EveryState,
-                Some(ShieldingEntry::NominalModerator) => BranchShielding::NominalModerator,
+                None | Some(ShieldingEntry::NominalBoron) => BranchShielding::NominalBoron,
+                Some(ShieldingEntry::EveryState) => BranchShielding::EveryState,
             },
             references,
             varied,
         })
     }
+}
+
+/// 分岐の状態を順に自己遮蔽する（ADR-0201）。参照の指定のない状態は、その状態の物質で解く。参照のある状態は、参照の状態（ホウ素が
+/// 公称）で 1 度解いた自己遮蔽を持ち、ホウ素の軸が変える物質だけを状態の組成で作り直す。参照は今の燃焼度の点のものだけを持つ
+/// （状態は燃焼度の点の順に渡す）。燃料の組成によらない前処理（Dancoff 係数）は `ShieldingReuse` で持ち越す
+pub struct BranchShielder<'a> {
+    tracking: &'a Tracking,
+    reuse: ShieldingReuse<'a>,
+    /// [領域] の自己遮蔽と MOC に渡す物質の名前
+    region_materials: &'a [String],
+    /// ホウ素の軸が変える物質
+    varied: &'a [String],
+    symmetry: &'a Detected,
+    options: ShieldingOptions,
+    /// 今の燃焼度の点の、参照の番号ごとの自己遮蔽と、それに渡した物質
+    held: Vec<(usize, usize, FuelShielding, Vec<MaterialInput>)>,
+    /// 自己遮蔽を解いた回数
+    shieldings: usize,
+}
+
+impl<'a> BranchShielder<'a> {
+    /// トラッキング `tracking` の格子の、領域ごとの物質の名前が `region_materials` の状態を、対称操作 `symmetry` と条件
+    /// `options` で自己遮蔽する。`varied` はホウ素の軸が変える物質
+    pub fn new(
+        tracking: &'a Tracking,
+        region_materials: &'a [String],
+        varied: &'a [String],
+        symmetry: &'a Detected,
+        options: ShieldingOptions,
+    ) -> Self {
+        Self {
+            tracking,
+            reuse: ShieldingReuse::new(tracking),
+            region_materials,
+            varied,
+            symmetry,
+            options,
+            held: Vec::new(),
+            shieldings: 0,
+        }
+    }
+
+    /// 自己遮蔽を解いた回数
+    pub fn shieldings(&self) -> usize {
+        self.shieldings
+    }
+
+    /// 物質 `state` の状態の、物質の一覧と [領域] のその番号。`reference` は参照から作るときの燃焼度の点と参照の番号で、その参照の
+    /// 物質はまだ解いていなければ `nominal` で作る
+    pub fn shield(
+        &mut self,
+        library: &Library,
+        state: &[MaterialInput],
+        reference: Option<(usize, usize)>,
+        nominal: impl FnOnce() -> Vec<MaterialInput>,
+    ) -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
+        let names = self.region_materials;
+        let Some((point, index)) = reference else {
+            self.shieldings += 1;
+            let shielded = shield_fuel_reusing(
+                library,
+                &mut self.reuse,
+                state,
+                names,
+                self.symmetry,
+                &self.options,
+            )?;
+            return Ok((shielded.materials, shielded.region_material));
+        };
+        let lattice = &self.tracking.lattice;
+        self.held.retain(|(p, ..)| *p == point);
+        if !self.held.iter().any(|(_, i, ..)| *i == index) {
+            let nominal = nominal();
+            self.shieldings += 1;
+            let shielded = shield_fuel_reusing(
+                library,
+                &mut self.reuse,
+                &nominal,
+                names,
+                self.symmetry,
+                &self.options,
+            )?;
+            // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）を、公称の組成で
+            // 作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。崩れれば、状態の物質が自己遮蔽の作り方と食い違う
+            let rebuilt = remix_varied(
+                library,
+                &shielded,
+                lattice,
+                names,
+                self.varied,
+                &nominal,
+                &nominal,
+            )
+            .context("remixing the nominal materials")?;
+            if let Some((m, _)) = rebuilt
+                .iter()
+                .find(|(m, material)| *material != shielded.materials[*m])
+            {
+                bail!(
+                    "material {m} remixed from its shielded cross sections differs from the self-shielding at the \
+                     nominal boron"
+                );
+            }
+            self.held.push((point, index, shielded, nominal));
+        }
+        let (_, _, shielded, nominal) = self
+            .held
+            .iter()
+            .find(|(_, i, ..)| *i == index)
+            .ok_or_else(|| anyhow!("no reference shielding {index}"))?;
+        let mut unique = shielded.materials.clone();
+        if state != nominal.as_slice() {
+            let rebuilt = remix_varied(
+                library,
+                shielded,
+                lattice,
+                names,
+                self.varied,
+                nominal,
+                state,
+            )
+            .context("remixing the materials of the boron axis")?;
+            for (m, material) in rebuilt {
+                unique[m] = material;
+            }
+        }
+        Ok((unique, shielded.region_material.clone()))
+    }
+}
+
+/// 公称の状態の物質 `nominal` で解いた自己遮蔽 `reference` の実効断面積と SPH 因子のまま、物質の名前が `varied` の領域の物質を、状態の
+/// 物質 `state` の組成で作り直す（ADR-0201）。`region_materials` は [領域] の物質の名前で、`nominal` と `state` は同じ名前を同じ順に
+/// 持ち、作り直す物質の温度は同じであること（実効断面積はその温度の値）。返すのは、作り直した `reference.materials` の番号と物質。
+/// 自己遮蔽した物質は、自己遮蔽と同じく、核種の実効断面積から作った群定数を数密度で混ぜて SPH 因子を掛け、自己遮蔽しなかった物質は
+/// `Material::mix`（無限希釈）で作る。公称の組成にない核種（公称のホウ素が 0 の B-10 など）は無限希釈の値
+pub(crate) fn remix_varied(
+    library: &Library,
+    reference: &FuelShielding,
+    lattice: &Lattice,
+    region_materials: &[String],
+    varied: &[String],
+    nominal: &[MaterialInput],
+    state: &[MaterialInput],
+) -> anyhow::Result<Vec<(usize, Material)>> {
+    if nominal.len() != state.len() || nominal.iter().zip(state).any(|(a, b)| a.name != b.name) {
+        bail!("the nominal and the state materials differ in their names");
+    }
+    if region_materials.len() != reference.region_material.len() {
+        bail!(
+            "{} region materials for {} regions",
+            region_materials.len(),
+            reference.region_material.len()
+        );
+    }
+    let ng = library.groups.len();
+    // 領域ごとの SPH 因子 μ（[領域][群]）。物理的な中性子束は MOC の中性子束に μ を掛けたものなので、1 の中性子束から引く
+    let ones = vec![vec![1.0; ng]; lattice.regions()];
+    let sph = reference.physical_flux(lattice, &ones)?;
+    // 物質の番号ごとの、作り直す物質の名前と最初の領域。共有する領域の実効断面積と SPH 因子は最初の領域のものを使うので、同じこと。
+    // 作り直さない物質の領域と共有していれば、作り直せない
+    let mut owner: Vec<Option<(&str, usize)>> = vec![None; reference.materials.len()];
+    let mut kept = vec![false; reference.materials.len()];
+    for (r, name) in region_materials.iter().enumerate() {
+        let m = reference.region_material[r];
+        if !varied.contains(name) {
+            kept[m] = true;
+            continue;
+        }
+        match owner[m] {
+            None => owner[m] = Some((name, r)),
+            Some((other, _)) if other != name => {
+                bail!("material {m} is shared by `{other}` and `{name}`")
+            }
+            Some((_, f)) => {
+                if sph[r] != sph[f]
+                    || !same_cross_sections(
+                        reference.region_cross_sections(r),
+                        reference.region_cross_sections(f),
+                    )
+                {
+                    bail!(
+                        "regions {f} and {r} share material {m} with different cross sections or SPH factors"
+                    );
+                }
+            }
+        }
+    }
+    if let Some(m) = (0..owner.len()).find(|&m| owner[m].is_some() && kept[m]) {
+        bail!("material {m} is shared with a material the branches keep");
+    }
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    owner
+        .iter()
+        .enumerate()
+        .filter_map(|(m, o)| o.map(|(name, r)| (m, name, r)))
+        .map(|(m, name, r)| -> anyhow::Result<(usize, Material)> {
+            let k = nominal
+                .iter()
+                .position(|x| x.name == name)
+                .ok_or_else(|| anyhow!("material `{name}` is not in the state"))?;
+            let (before, after) = (&nominal[k], &state[k]);
+            if after.temperature != before.temperature {
+                bail!(
+                    "material `{name}` is at {} K in the state and {} K at the nominal boron",
+                    after.temperature,
+                    before.temperature
+                );
+            }
+            // 自己遮蔽しなかった物質の領域は、自己遮蔽に渡した物質の一覧と同じ番号の、`Material::mix` の物質（自己遮蔽した物質は
+            // 一覧と真空の後に足される）。自己遮蔽した群定数の作り方（`shielded_nuclide`）で作ると、散乱行列の補正の丸めで食い違う
+            if m == k {
+                return Ok((
+                    m,
+                    Material::mix(library, &after.composition, after.temperature)?,
+                ));
+            }
+            let cross_sections = reference
+                .region_cross_sections(r)
+                .ok_or_else(|| anyhow!("region {r} has no shielded cross sections"))?;
+            if cross_sections.len() != before.composition.len() {
+                bail!(
+                    "region {r}: {} shielded nuclides for the {} nuclides of `{name}`",
+                    cross_sections.len(),
+                    before.composition.len()
+                );
+            }
+            let nuclides = after
+                .composition
+                .iter()
+                .map(|(nuclide, density)| {
+                    let shielded = match before.composition.iter().position(|(n, _)| n == nuclide) {
+                        Some(i) => cross_sections[i].clone(),
+                        None => {
+                            library.shielded(nuclide, after.temperature, &vec![infinite; ng])?
+                        }
+                    };
+                    Ok((
+                        shielded_nuclide(library, nuclide, after.temperature, &shielded)?,
+                        *density,
+                    ))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            let mixed = Material::from_nuclides(&nuclides, ng)?.scaled(&sph[r])?;
+            Ok((m, mixed))
+        })
+        .collect()
 }
 
 /// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。状態 0 は始める解が
