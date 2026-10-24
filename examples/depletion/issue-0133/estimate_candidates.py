@@ -58,17 +58,20 @@ CANDIDATES = [
 def estimate(
     d: dict, candidates: list = CANDIDATES
 ) -> list[tuple[str, float, float, list[str]]]:
-    """候補ごとの (名前, 下限, 上限, 組成に無くて数えなかった核種)。寄与は部分ごとの相対差に線形なので、和の下限と上限は部分ごとの
-    両端の小さい方と大きい方の和（部分どうしの端をそろえると、符号の逆な部分が打ち消して範囲が狭くなる）"""
+    """候補ごとの (名前, 下限, 上限, 組成に無くて数えなかった核種)。寄与は測った比ごとに線形なので、和の下限と上限は比ごとの両端の
+    小さい方と大きい方の和。同じ核種と群の範囲と比の範囲を持つ部分（捕獲と核分裂）は 1 つの測った比を共有するので、先に係数を
+    足してから端を取る（別々に端を取ると、どの入力も許さない組み合わせになる）"""
     rates = d["rates"]
     production = sum(sum(v["nu-fission"]["mean"]) for v in rates.values())
     absorption = sum(sum(m["absorption"]) for m in d["materials"].values())
     k = d["k"]
     out = []
     for name, parts in candidates:
-        low = high = 0.0
+        coefficients: dict[tuple, float] = {}
         missing = []
         for nuclide, first, last, reaction, *ends in parts:
+            if reaction not in ("capture", "fission"):
+                raise ValueError(f"{name}: unknown reaction `{reaction}`")
             if nuclide not in rates:
                 if nuclide not in missing:
                     missing.append(nuclide)
@@ -82,7 +85,11 @@ def estimate(
                     sum(r["nu-fission"]["mean"][g]) / production
                     - sum(r["fission"]["mean"][g]) / absorption
                 )
-            values = [per * e * 1e5 for e in ends]
+            key = (nuclide, first, last, *ends)
+            coefficients[key] = coefficients.get(key, 0.0) + per
+        low = high = 0.0
+        for (*_, a, b), per in coefficients.items():
+            values = [per * e * 1e5 for e in (a, b)]
             low += min(values)
             high += max(values)
         out.append((name, low, high, missing))
