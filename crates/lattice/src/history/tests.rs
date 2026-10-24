@@ -650,3 +650,35 @@ fn remixed_materials_take_the_state_densities_at_the_nominal_temperature() {
         .is_err()
     );
 }
+
+#[test]
+fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
+    // 参照から作るのはホウ素の軸の物質だけなので、ほかの物質が参照と違う状態（別の減速材の点の参照を渡した）は止める
+    let library = library_for_reuse();
+    let history = deplete_with(&borated(PIN), &library);
+    let s = setup(&branch_input("[0.5]", "[600, 650]"));
+    let branches = history_branches(
+        &s.input,
+        &history,
+        &library,
+        &s.tracking.lattice,
+        &s.region_materials,
+        &s.chosen,
+    )
+    .unwrap();
+    let varied = s.input.branches.as_ref().unwrap().varied();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        varied,
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    // 状態 1 は燃料 650 K、参照 0 は燃料 600 K
+    let err = shielder
+        .shield(&library, &branches.state(1), Some((0, 0)), || {
+            branches.reference_state(0, 0)
+        })
+        .unwrap_err();
+    assert!(format!("{err:#}").contains("fuel@"), "{err:#}");
+}
