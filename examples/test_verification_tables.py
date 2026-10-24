@@ -1250,12 +1250,19 @@ class BranchShieldingTest(unittest.TestCase):
             with self.assertRaises(vt.TableError):
                 draw([{"format": "xlc-compare-burnup-interpolation"}])
 
-    def test_the_branch_shielding_comparison_is_a_git_tracked_json(self):
-        for name in [
-            "depletion-branch-shielding-k",
-            "depletion-branch-shielding-constants",
+    def test_the_branch_shielding_comparisons_are_git_tracked_jsons(self):
+        # 採らなかった nominal-moderator と、既定の nominal-boron（ADR-0201）
+        for name, draw in [
+            ("depletion-branch-shielding-k", vt.branch_shielding_k),
+            ("depletion-branch-shielding-constants", vt.branch_shielding_constants),
+            ("depletion-branch-shielding-boron-k", vt.branch_shielding_k),
+            (
+                "depletion-branch-shielding-boron-constants",
+                vt.branch_shielding_constants,
+            ),
         ]:
-            (sources, _) = vt.TABLES[name]
+            (sources, drawn) = vt.TABLES[name]
+            self.assertIs(drawn, draw, name)
             self.assertTrue(set(sources) <= vt.GIT_TRACKED, name)
 
 
