@@ -101,7 +101,7 @@ fn references_keep_the_nominal_boron_at_the_moderator_and_fuel_points_of_each_st
     // 減速材 3 点 × 燃料 2 点
     assert_eq!(branches.references().len(), 6);
     for (state, s) in states.iter().enumerate() {
-        let reference = &branches.references()[branches.reference_of(state)];
+        let reference = &branches.references()[branches.reference(state).unwrap()];
         assert_eq!(material(reference, "fuel"), material(s, "fuel"), "{state}");
         assert_eq!(material(reference, "clad"), material(s, "clad"), "{state}");
         let (water, nominal) = (material(reference, "water"), material(s, "water"));
@@ -115,9 +115,17 @@ fn references_keep_the_nominal_boron_at_the_moderator_and_fuel_points_of_each_st
         assert_eq!(water.composition, expected, "{state}");
     }
     // ホウ素の点ごとに同じ参照を使う（ホウ素は最初の軸）
-    assert_eq!(branches.reference_of(7), branches.reference_of(1));
+    assert_eq!(branches.reference(7), branches.reference(1));
     // 参照から作り直す物質は、ホウ素の軸が変える物質
     assert_eq!(branches.varied(), ["water".to_string()]);
+    // 状態ごとに解き直すなら参照を使わない
+    let every = edited(
+        "fuel = { temperature = [550, 580], materials = [\"fuel\"] }",
+        "fuel = { temperature = [550, 580], materials = [\"fuel\"] }\nshielding = \"every-state\"",
+    )
+    .unwrap();
+    let every = every.branches.as_ref().unwrap();
+    assert!((0..12).all(|state| every.reference(state).is_none()));
 }
 
 #[test]

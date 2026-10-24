@@ -20,7 +20,6 @@ use anyhow::{anyhow, bail};
 use xlc_format::library::Library;
 use xlc_format::table::Axis;
 
-use crate::branches::BranchShielding;
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, check_negative, check_region_names, depletion_regions,
     has_data_at, heavy_metal_mass, region_material, solved_names,
@@ -57,12 +56,10 @@ pub struct HistoryBranches {
     transported: Vec<usize>,
     /// 分岐の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     branch: Vec<(Vec<MaterialInput>, Vec<f64>)>,
-    /// 状態の自己遮蔽の解き方（ADR-0201）
-    shielding: BranchShielding,
+    /// 分岐の状態ごとの参照の番号（`Branches::reference`。ADR-0201）
+    reference_of: Vec<Option<usize>>,
     /// 参照の状態（ホウ素が公称。`Branches::references` の順）の、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     references: Vec<(Vec<MaterialInput>, Vec<f64>)>,
-    /// ホウ素の軸が変える物質
-    varied: Vec<String>,
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
@@ -341,9 +338,10 @@ pub fn history_branches(
         nuclides: history.nuclides.clone(),
         transported,
         branch,
-        shielding: branches.shielding(),
+        reference_of: (0..branches.states().len())
+            .map(|b| branches.reference(b))
+            .collect(),
         references,
-        varied: branches.varied().to_vec(),
     })
 }
 
@@ -365,26 +363,15 @@ impl HistoryBranches {
         self.materials(point, &self.branch[b])
     }
 
-    /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点と参照の番号（ADR-0201。`Branches::reference_of`）
+    /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点と参照の番号（ADR-0201）
     pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
-        match self.shielding {
-            BranchShielding::EveryState => None,
-            // ホウ素は分岐の最初の軸なので、分岐の状態の番号を参照の数で割った余りが参照の番号（`Branches::reference_of`）
-            BranchShielding::NominalBoron => Some((
-                index / self.branch.len(),
-                (index % self.branch.len()) % self.references.len(),
-            )),
-        }
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        self.reference_of[b].map(|r| (point, r))
     }
 
     /// 燃焼度の点 `point` の、参照 `reference`（ホウ素が公称）の解く物質
     pub fn reference_state(&self, point: usize, reference: usize) -> Vec<MaterialInput> {
         self.materials(point, &self.references[reference])
-    }
-
-    /// ホウ素の軸が変える物質
-    pub fn varied(&self) -> &[String] {
-        &self.varied
     }
 
     /// 燃焼度の点 `point` の、燃焼させない物質と燃焼の領域の温度が `branch` の状態の解く物質

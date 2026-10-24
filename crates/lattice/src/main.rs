@@ -34,7 +34,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{BranchShielder, BranchShielding, state_indices, tables};
+use xlc_lattice::branches::{BranchShielder, state_indices, tables};
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
 };
@@ -366,10 +366,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
         chosen.shielding(),
         input.shielding_options(),
     );
-    let nominal_boron = input
-        .branches
-        .as_ref()
-        .filter(|b| b.shielding() == BranchShielding::NominalBoron);
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -398,7 +394,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 if input.self_shielding {
                     // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
                     let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
-                        match (&history_branches, nominal_boron) {
+                        match (&history_branches, &input.branches) {
                             (Some(h), _) => {
                                 let reference = h.reference(state);
                                 (
@@ -411,8 +407,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 )
                             }
                             (None, Some(b)) => {
-                                let r = b.reference_of(state);
-                                (Some((0, r)), Box::new(move || b.references()[r].clone()))
+                                let reference = b.reference(state);
+                                (
+                                    reference.map(|r| (0, r)),
+                                    Box::new(move || {
+                                        reference
+                                            .map_or_else(Vec::new, |r| b.references()[r].clone())
+                                    }),
+                                )
                             }
                             (None, None) => (None, Box::new(Vec::new)),
                         };
