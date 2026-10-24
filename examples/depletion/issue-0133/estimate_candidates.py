@@ -55,30 +55,37 @@ CANDIDATES = [
 ]
 
 
-def estimate(path: Path) -> list[tuple[str, float, float]]:
-    d = msgpack.unpackb(path.read_bytes())
+def estimate(
+    d: dict, candidates: list = CANDIDATES
+) -> list[tuple[str, float, float, list[str]]]:
+    """候補ごとの (名前, 下限, 上限, 組成に無くて数えなかった核種)。寄与は部分ごとの相対差に線形なので、和の下限と上限は部分ごとの
+    両端の小さい方と大きい方の和（部分どうしの端をそろえると、符号の逆な部分が打ち消して範囲が狭くなる）"""
     rates = d["rates"]
     production = sum(sum(v["nu-fission"]["mean"]) for v in rates.values())
     absorption = sum(sum(m["absorption"]) for m in d["materials"].values())
     k = d["k"]
     out = []
-    for name, parts in CANDIDATES:
-        ends = []
-        for end in (4, 5):
-            dk = 0.0
-            for part in parts:
-                nuclide, first, last = part[:3]
-                if nuclide not in rates:
-                    continue
-                r = rates[nuclide]
-                g = slice(first - 1, last)
-                if part[3] == "capture":
-                    dk -= k * part[end] * sum(r["(n,gamma)"]["mean"][g]) / absorption
-                else:
-                    dk += k * part[end] * sum(r["nu-fission"]["mean"][g]) / production
-                    dk -= k * part[end] * sum(r["fission"]["mean"][g]) / absorption
-            ends.append(dk * 1e5)
-        out.append((name, min(ends), max(ends)))
+    for name, parts in candidates:
+        low = high = 0.0
+        missing = []
+        for nuclide, first, last, reaction, *ends in parts:
+            if nuclide not in rates:
+                if nuclide not in missing:
+                    missing.append(nuclide)
+                continue
+            r = rates[nuclide]
+            g = slice(first - 1, last)
+            if reaction == "capture":
+                per = -k * sum(r["(n,gamma)"]["mean"][g]) / absorption
+            else:
+                per = k * (
+                    sum(r["nu-fission"]["mean"][g]) / production
+                    - sum(r["fission"]["mean"][g]) / absorption
+                )
+            values = [per * e * 1e5 for e in ends]
+            low += min(values)
+            high += max(values)
+        out.append((name, low, high, missing))
     return out
 
 
@@ -88,11 +95,14 @@ def main(argv: list[str]) -> int:
         return 2
     for path in argv:
         print(path)
-        for name, low, high in estimate(Path(path)):
+        for name, low, high, missing in estimate(
+            msgpack.unpackb(Path(path).read_bytes())
+        ):
             span = (
                 f"{low:+.1f}" if abs(high - low) < 0.05 else f"{low:+.1f}〜{high:+.1f}"
             )
-            print(f"  {name}: {span} pcm")
+            note = f"（組成に無い: {'、'.join(missing)}）" if missing else ""
+            print(f"  {name}: {span} pcm{note}")
     return 0
 
 
