@@ -1266,5 +1266,47 @@ class BranchShieldingTest(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED, name)
 
 
+class DrawSwapCandidates(unittest.TestCase):
+    def summary(self) -> dict:
+        return {
+            "format": "xlc-swap-candidates",
+            "order": ["fast-u238", "thermal-pu"],
+            "labels": {"fast-u238": "U-238、高速", "thermal-pu": "Pu、熱"},
+            "states": [
+                {
+                    "name": "0",
+                    "diff_pcm": -34.2,
+                    "diff_std_pcm": 18.0,
+                    "items": {"fast-u238": {"pcm": 52.94}},
+                },
+                {
+                    "name": "40",
+                    "diff_pcm": 63.0,
+                    "diff_std_pcm": 9.4,
+                    "items": {"fast-u238": {"pcm": 49.8}, "thermal-pu": {"pcm": 34.4}},
+                },
+            ],
+        }
+
+    def test_rows_give_each_state_and_the_change_from_the_first(self):
+        table = vt.swap_candidates([self.summary()])
+        lines = table.splitlines()
+        self.assertIn("40 − 0", lines[0])
+        self.assertRegex(
+            table, r"\| k の差（xlc − OpenMC） +\| −34 ± 18 +\| \+63 ± 9 +\| \+97 +\|"
+        )
+        self.assertRegex(table, r"\| U-238、高速 +\| \+52\.9 +\| \+49\.8 +\| −3\.1 +\|")
+
+    def test_an_item_missing_in_a_state_is_a_dash_and_counts_as_zero_in_the_change(
+        self,
+    ):
+        table = vt.swap_candidates([self.summary()])
+        self.assertRegex(table, r"\| Pu、熱 +\| – +\| \+34\.4 +\| \+34\.4 +\|")
+
+    def test_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.swap_candidates([{"format": "xlc-compare-depletion"}])
+
+
 if __name__ == "__main__":
     unittest.main()
