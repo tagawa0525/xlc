@@ -2,6 +2,7 @@ use xlc_format::library::{Library, Resolved, Shielded};
 use xlc_format::table::Axis;
 
 use super::*;
+use crate::branches::{BranchShielder, remix_varied};
 use crate::cmfd::CmfdOptions;
 use crate::depletion::tests::{PIN, U235, deplete_with, deplete_with_moc, library};
 use crate::depletion::{History, transport_name};
@@ -376,13 +377,10 @@ fn library_for_reuse() -> Library {
     library
 }
 
-/// 入力 `text` の `[branches]` に、公称の減速材で自己遮蔽を解く指定（ADR-0201）を足したもの
-fn nominal_moderator(text: &str) -> String {
+/// 入力 `text` の `[branches]` に、状態ごとに自己遮蔽を解く指定（ADR-0201）を足したもの
+fn every_state(text: &str) -> String {
     assert!(text.contains("[history]\n"));
-    text.replace(
-        "[history]\n",
-        "shielding = \"nominal-moderator\"\n[history]\n",
-    )
+    text.replace("[history]\n", "shielding = \"every-state\"\n[history]\n")
 }
 
 /// 入力 `text` のピンセルに、Zr-90 の支持格子の枠（物質 zirc。燃料のピンの等価なセルの外の塊として遮蔽する）を足したもの
@@ -395,10 +393,21 @@ fn framed(text: &str) -> String {
     )
 }
 
+/// 減速材の軸を 2 点（600 K と 0.7 g/cc、650 K と 0.66 g/cc）にした `branch_input`
+fn two_moderators(burnup: &str) -> String {
+    let text = branch_input(burnup, "[600]");
+    let axis = "moderator = { temperature = [600], density = [0.7], materials = [\"water\"] }";
+    assert!(text.contains(axis));
+    text.replace(
+        axis,
+        "moderator = { temperature = [600, 650], density = [0.7, 0.66], materials = [\"water\"] }",
+    )
+}
+
 /// 状態の物質の一覧と、領域ごとのその番号
 type Shielding = (Vec<Material>, Vec<usize>);
 
-/// 入力 `text` の分岐の状態を順に `BranchShielder` で自己遮蔽した物質と、自己遮蔽を解いた回数
+/// 入力 `text` の履歴からの分岐の状態を順に `BranchShielder` で自己遮蔽した物質と、自己遮蔽を解いた回数
 fn shield_states(
     text: &str,
     history: &History,
@@ -414,17 +423,21 @@ fn shield_states(
         &s.chosen,
     )
     .unwrap();
-    let mut shielder = BranchShielder::new(&s.tracking);
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        branches.varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
     let shielded = (0..branches.len())
         .map(|i| {
+            let reference = branches.reference(i);
             shielder
-                .shield(
-                    library,
-                    &branches,
-                    i,
-                    s.chosen.shielding(),
-                    &s.input.shielding_options(),
-                )
+                .shield(library, &branches.state(i), reference, || {
+                    let (point, r) = reference.unwrap();
+                    branches.reference_state(point, r)
+                })
                 .unwrap()
         })
         .collect();
@@ -438,9 +451,8 @@ fn region_material(shielding: &Shielding, region: usize) -> &Material {
 }
 
 /// 物質の名前が `name` に合う領域
-fn regions_of(branches: &HistoryBranches, name: impl Fn(&str) -> bool) -> Vec<usize> {
-    branches
-        .region_materials
+fn regions_of(names: &[String], name: impl Fn(&str) -> bool) -> Vec<usize> {
+    names
         .iter()
         .enumerate()
         .filter(|(_, n)| name(n))
@@ -449,26 +461,26 @@ fn regions_of(branches: &HistoryBranches, name: impl Fn(&str) -> bool) -> Vec<us
 }
 
 #[test]
-fn nominal_moderator_shielding_solves_once_per_burnup_and_fuel_temperature() {
+fn nominal_boron_shielding_solves_once_per_burnup_moderator_and_fuel_point() {
     let library = library_for_reuse();
     let history = deplete_with(&borated(PIN), &library);
-    let every = branch_input("[0, 0.5]", "[600, 650]");
-    let (branches, solved, solves) = shield_states(&every, &history, &library);
-    let (_, reused, reuses) = shield_states(&nominal_moderator(&every), &history, &library);
-    // 燃焼度 2 点 × ホウ素 2 点 × 燃料 2 点を、状態ごとに解く
+    let text = two_moderators("[0, 0.5]");
+    let (branches, solved, solves) = shield_states(&every_state(&text), &history, &library);
+    let (_, reused, reuses) = shield_states(&text, &history, &library);
+    // 燃焼度 2 点 × ホウ素 2 点 × 減速材 2 点 × 燃料 1 点を、状態ごとに解く
     assert_eq!(branches.len(), 8);
     assert_eq!(solves, 8);
-    // 燃焼度の点と燃料の温度の点ごとに 1 回（公称の 1000 ppm は軸の点）
+    // 既定は燃焼度、減速材、燃料の点ごとに 1 回（公称の 1000 ppm は軸の点）
     assert_eq!(reuses, 4);
-    let fuel = regions_of(&branches, |n| n.contains('@'));
-    let water = regions_of(&branches, |n| n == "water");
+    let fuel = regions_of(&branches.region_materials, |n| n.contains('@'));
+    let water = regions_of(&branches.region_materials, |n| n == "water");
     assert!(!fuel.is_empty() && !water.is_empty());
     for point in 0..2 {
-        for temperature in 0..2 {
-            let at = |boron: usize| (point * 2 + boron) * 2 + temperature;
-            // 公称のホウ素の状態は、その燃料の温度で解いた自己遮蔽そのもの
+        for moderator in 0..2 {
+            let at = |boron: usize| (point * 2 + boron) * 2 + moderator;
+            // 公称のホウ素の状態は、その減速材で解いた自己遮蔽そのもの
             assert_eq!(reused[at(1)], solved[at(1)]);
-            // ホウ素を変えた状態の燃料は公称の状態の物質のまま。解き直すと Dancoff 係数を通して変わる
+            // ホウ素を変えた状態の燃料は公称のホウ素の状態の物質のまま。解き直すと Dancoff 係数を通して変わる
             for &r in &fuel {
                 assert_eq!(
                     region_material(&reused[at(0)], r),
@@ -487,107 +499,73 @@ fn nominal_moderator_shielding_solves_once_per_burnup_and_fuel_temperature() {
                 );
             }
         }
-    }
-}
-
-#[test]
-fn nominal_moderator_shielding_solves_each_fuel_temperature_again() {
-    // 燃料の温度を変えた状態は、公称のホウ素と減速材でその温度の自己遮蔽を解いた物質を使い、ほかの燃料の温度の物質を使わない
-    let library = library_for_reuse();
-    let history = deplete_with(&borated(PIN), &library);
-    let text = nominal_moderator(&branch_input("[0.5]", "[600, 650]"));
-    let (branches, reused, reuses) = shield_states(&text, &history, &library);
-    assert_eq!(reuses, 2);
-    // 状態 0 と 2 は燃料 600 K、1 と 3 は 650 K
-    for &r in &regions_of(&branches, |n| n.contains('@')) {
-        assert_eq!(
-            region_material(&reused[0], r),
-            region_material(&reused[2], r)
-        );
-        assert_eq!(
-            region_material(&reused[1], r),
-            region_material(&reused[3], r)
-        );
-        assert_ne!(
-            region_material(&reused[0], r),
-            region_material(&reused[1], r)
-        );
-    }
-}
-
-/// 枠（Zr-90 の塊）のある格子で、ホウ素 2 点 × 減速材 2 点（600 K と 650 K。減速材の軸は水と枠を変える）の分岐の入力
-fn framed_branches() -> String {
-    let text = framed(&branch_input("[0.5]", "[600]"));
-    let axis = "moderator = { temperature = [600], density = [0.7], materials = [\"water\"] }";
-    assert!(text.contains(axis));
-    text.replace(
-        axis,
-        "moderator = { temperature = [600, 650], density = [0.7, 0.66], materials = [\"water\", \"zirc\"] }",
-    )
-}
-
-#[test]
-fn nominal_moderator_shielding_carries_the_shielding_factors_to_the_state_temperature() {
-    let library = library_for_reuse();
-    let history = deplete_with(&framed(&borated(PIN)), &library);
-    let every = framed_branches();
-    let (branches, solved, solves) = shield_states(&every, &history, &library);
-    let (_, reused, reuses) = shield_states(&nominal_moderator(&every), &history, &library);
-    assert_eq!((branches.len(), solves, reuses), (4, 4, 1));
-    // 状態 2（1000 ppm、600 K）が公称
-    assert_eq!(reused[2], solved[2]);
-    let frame = regions_of(&branches, |n| n == "zirc")[0];
-    let s = setup(&every);
-    let nominal = shield_fuel_with(
-        &library,
-        &s.tracking,
-        &branches.state(2),
-        &branches.region_materials,
-        s.chosen.shielding(),
-        &s.input.shielding_options(),
-    )
-    .unwrap();
-    let effective = &nominal.region_cross_sections(frame).unwrap()[0];
-    let dilute = |t: f64| {
-        library
-            .shielded("Zr-90", t, &[library.sigma0[0]; 2])
-            .unwrap()
-    };
-    assert!(effective.total[0] < dilute(600.0).total[0]);
-    // 650 K の状態の枠: 650 K の無限希釈の値に、公称の状態の実効断面積と 600 K の無限希釈の値の比を掛ける
-    for state in [1, 3] {
-        let want = 4.0e-2 * dilute(650.0).total[0] * (effective.total[0] / dilute(600.0).total[0]);
-        let got = region_material(&reused[state], frame).total[0];
-        assert!((got - want).abs() <= 1e-12 * want, "{got} vs {want}");
-    }
-    // 600 K の状態の枠は公称の物質のまま
-    assert_eq!(
-        region_material(&reused[0], frame),
-        region_material(&solved[2], frame)
-    );
-    // 水は状態の組成と温度の無限希釈
-    for state in 0..4 {
-        for &r in &regions_of(&branches, |n| n == "water") {
-            assert_eq!(
-                region_material(&reused[state], r),
-                region_material(&solved[state], r)
+        // 減速材を変えた状態は解き直す（燃料の物質が違う）
+        for &r in &fuel {
+            assert_ne!(
+                region_material(&reused[point * 4], r),
+                region_material(&reused[point * 4 + 1], r)
             );
         }
     }
 }
 
 #[test]
-fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
-    // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）の確かめ方: 公称の組成で
-    // 作り直すと、自己遮蔽の物質とビットで同じ
+fn branches_without_a_history_shield_at_the_nominal_boron_too() {
     let library = library_for_reuse();
-    let history = deplete_with(&framed(&borated(PIN)), &library);
-    let text = nominal_moderator(&framed_branches());
-    let s = setup(&text);
+    let history_text = two_moderators("[0]");
+    let text = &history_text[..history_text.find("[history]").unwrap()];
+    let s = setup(text);
+    let branches = s.input.branches.as_ref().unwrap();
+    let states = s.input.branch_states();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &s.region_materials,
+        branches.varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    let shielded: Vec<Shielding> = states
+        .iter()
+        .enumerate()
+        .map(|(i, state)| {
+            let r = branches.reference_of(i);
+            shielder
+                .shield(&library, state, Some((0, r)), || {
+                    branches.references()[r].clone()
+                })
+                .unwrap()
+        })
+        .collect();
+    // ホウ素 2 点 × 減速材 2 点で、減速材の点ごとに 1 回
+    assert_eq!(states.len(), 4);
+    assert_eq!(shielder.shieldings(), 2);
+    for &r in &regions_of(&s.region_materials, |n| n == "fuel") {
+        assert_eq!(
+            region_material(&shielded[0], r),
+            region_material(&shielded[2], r)
+        );
+        assert_ne!(
+            region_material(&shielded[0], r),
+            region_material(&shielded[1], r)
+        );
+    }
+}
+
+/// 枠（Zr-90 の塊）のある格子の、燃焼度 0.5 MWd/kg の分岐（減速材 2 点）と、その公称の状態（状態 2）で解いた自己遮蔽
+fn framed_nominal(
+    library: &Library,
+) -> (
+    Setup,
+    HistoryBranches,
+    Vec<MaterialInput>,
+    crate::shielding::FuelShielding,
+) {
+    let history = deplete_with(&framed(&borated(PIN)), library);
+    let s = setup(&framed(&two_moderators("[0.5]")));
     let branches = history_branches(
         &s.input,
         &history,
-        &library,
+        library,
         &s.tracking.lattice,
         &s.region_materials,
         &s.chosen,
@@ -595,7 +573,7 @@ fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
     .unwrap();
     let nominal = branches.state(2);
     let shielded = shield_fuel_with(
-        &library,
+        library,
         &s.tracking,
         &nominal,
         &branches.region_materials,
@@ -603,17 +581,25 @@ fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
         &s.input.shielding_options(),
     )
     .unwrap();
+    (s, branches, nominal, shielded)
+}
+
+#[test]
+fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
+    // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）の確かめ方: 公称の組成で
+    // 作り直すと、自己遮蔽の物質とビットで同じ。無限希釈の水と、塊（枠）の両方で
+    let library = library_for_reuse();
+    let (s, branches, nominal, shielded) = framed_nominal(&library);
     let rebuilt = remix_varied(
         &library,
         &shielded,
         &s.tracking.lattice,
         &branches.region_materials,
-        branches.varied(),
+        &["water".to_string(), "zirc".to_string()],
         &nominal,
         &nominal,
     )
     .unwrap();
-    // 水（無限希釈）と枠（塊）
     assert_eq!(rebuilt.len(), 2);
     for (m, material) in rebuilt {
         assert_eq!(material, shielded.materials[m], "material {m}");
@@ -621,46 +607,46 @@ fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
 }
 
 #[test]
-fn carried_shielding_scales_the_state_dilution_by_the_nominal_ratio() {
-    let table = |v: [f64; 2]| Shielded {
-        total: v.to_vec(),
-        elastic: v.to_vec(),
-        fission: vec![0.0; 2],
-        nu_fission: vec![0.0; 2],
-        capture: v.to_vec(),
-    };
-    let (nominal, state, shielded) = (table([4.0, 3.0]), table([5.0, 7.0]), table([2.0, 3.0]));
-    let carried = carry_shielding(&nominal, &state, &shielded).unwrap();
-    // 遮蔽した群は比を掛け、遮蔽していない群（比が 1）は状態の無限希釈の値そのもの
-    assert_eq!(carried.total, vec![2.5, 7.0]);
-    assert_eq!(carried.capture, vec![2.5, 7.0]);
-    assert_eq!(carried.fission, vec![0.0; 2]);
-    // 無限希釈の値が 0 の反応に遮蔽した値があれば、比が決まらない
-    let mut odd = shielded.clone();
-    odd.fission[0] = 1.0;
-    assert!(carry_shielding(&nominal, &state, &odd).is_err());
-}
-
-#[test]
-fn only_nominal_moderator_shielding_needs_the_depleted_materials_off_the_moderator_axis() {
-    // 公称の減速材の自己遮蔽は燃焼させた物質を参照から取るので、ホウ素と減速材の軸がそれを変えるとエラー。状態ごとに解くなら、
-    // 燃焼させた物質の温度を減速材の軸で変えてもよい（燃料の温度の軸は、格子に置かない物質 spare に挙げる）
-    let (history, library) = history();
-    let text = branch_input("[0.5]", "[600]");
-    let moderator = "density = [0.7], materials = [\"water\"] }";
-    let fuel = "materials = [\"fuel\"] }";
-    assert!(text.contains(moderator) && text.contains(fuel));
-    let every = text
-        .replace(fuel, "materials = [\"spare\"] }")
-        .replace(
-            moderator,
-            "density = [0.7], materials = [\"water\", \"fuel\"] }",
+fn remixed_materials_take_the_state_densities_at_the_nominal_temperature() {
+    let library = library_for_reuse();
+    let (s, branches, nominal, shielded) = framed_nominal(&library);
+    let varied = ["zirc".to_string()];
+    let frame = regions_of(&branches.region_materials, |n| n == "zirc")[0];
+    // 枠の数密度を 2 倍にした状態は、同じ実効断面積で、巨視的断面積が 2 倍
+    let mut state = nominal.clone();
+    let zirc = state.iter_mut().find(|m| m.name == "zirc").unwrap();
+    zirc.composition[0].1 *= 2.0;
+    let rebuilt = remix_varied(
+        &library,
+        &shielded,
+        &s.tracking.lattice,
+        &branches.region_materials,
+        &varied,
+        &nominal,
+        &state,
+    )
+    .unwrap();
+    let m = shielded.region_material[frame];
+    let (_, material) = rebuilt.iter().find(|(i, _)| *i == m).unwrap();
+    for (a, b) in material.total.iter().zip(&shielded.materials[m].total) {
+        assert!((a - 2.0 * b).abs() <= 1e-12 * a, "{a} vs {b}");
+    }
+    // 温度を変えた状態は、公称の温度の実効断面積から作れない
+    let mut hot = nominal.clone();
+    hot.iter_mut()
+        .find(|m| m.name == "zirc")
+        .unwrap()
+        .temperature = 650.0;
+    assert!(
+        remix_varied(
+            &library,
+            &shielded,
+            &s.tracking.lattice,
+            &branches.region_materials,
+            &varied,
+            &nominal,
+            &hot,
         )
-        .replace(
-            "[material.water]",
-            "[material.spare]\ntemperature = 600\nnuclides = { O-16 = 2.5e-2 }\n\n[material.water]",
-        );
-    branches_of(&every, &history, &library).unwrap();
-    let err = branches_of(&nominal_moderator(&every), &history, &library).unwrap_err();
-    assert!(format!("{err:#}").contains("depleted material"), "{err:#}");
+        .is_err()
+    );
 }
