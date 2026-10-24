@@ -629,8 +629,6 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             Some(_) => Err("`ufg-free-gas` needs `ufg-scattering = \"free-gas\"`".into()),
         },
         Some("free-gas") => {
-            return Ok(Scattering::Static);
-            #[allow(unreachable_code)]
             let defaults = FreeGas::default();
             let Some(entry) = entry else {
                 return Ok(Scattering::FreeGas(defaults));
