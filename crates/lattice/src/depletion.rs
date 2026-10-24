@@ -894,7 +894,7 @@ struct State {
 }
 
 /// 2 つの領域の実効断面積が同じこと。自己遮蔽は、物質を共有する領域に同じ配列を指させるので、先に場所を比べて値の比較を省く
-fn same_cross_sections(a: Option<&[Shielded]>, b: Option<&[Shielded]>) -> bool {
+pub(crate) fn same_cross_sections(a: Option<&[Shielded]>, b: Option<&[Shielded]>) -> bool {
     match (a, b) {
         (Some(a), Some(b)) => std::ptr::eq(a, b) || a == b,
         (a, b) => a == b,

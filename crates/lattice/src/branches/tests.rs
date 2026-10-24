@@ -93,6 +93,33 @@ fn states_change_the_listed_materials_with_the_first_axis_slowest() {
 }
 
 #[test]
+fn references_keep_the_nominal_boron_and_moderator_at_the_fuel_temperature_of_each_state() {
+    // 自己遮蔽を公称の減速材で解くとき（ADR-0201）の参照: 燃料の温度の軸だけを状態のものにし、ホウ素と減速材の軸が変える物質は
+    // 入力のまま
+    let input = LatticeInput::parse(INPUT).unwrap();
+    let branches = input.branches.as_ref().unwrap();
+    for (state, s) in input.branch_states().iter().enumerate() {
+        // 燃料の温度の軸は最後の軸（いちばん速く変わる）
+        let reference = &branches.references()[state % 2];
+        assert_eq!(material(reference, "fuel"), material(s, "fuel"), "{state}");
+        for name in ["water", "clad"] {
+            assert_eq!(
+                material(reference, name),
+                material(&input.materials, name),
+                "{state} {name}"
+            );
+        }
+    }
+    // 燃料の温度の格子点 1 の参照は 580 K
+    assert_eq!(
+        material(&branches.references()[1], "fuel").temperature,
+        580.0
+    );
+    // 参照から作り直す物質は、ホウ素と減速材の軸が変える物質
+    assert_eq!(branches.varied(), ["water".to_string(), "clad".to_string()]);
+}
+
+#[test]
 fn without_branches_there_is_one_state() {
     let i = INPUT.find("[branches]").unwrap();
     let input = LatticeInput::parse(&INPUT[..i]).unwrap();
