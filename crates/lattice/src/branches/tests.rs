@@ -646,3 +646,19 @@ fn restored_starts_follow_the_solved_states() {
     missing[k] = None;
     assert!(Starts::restored(&counts, present, next, solutions, &missing).is_err());
 }
+
+#[test]
+fn state_index_inverts_state_indices() {
+    let counts = [3, 1, 2];
+    for state in 0..6 {
+        assert_eq!(state_index(&counts, &state_indices(&counts, state)), state);
+    }
+}
+
+#[test]
+#[should_panic(expected = "solved")]
+fn solving_past_the_last_state_is_a_bug() {
+    let mut starts = Starts::over(&[2], vec![1]);
+    starts.solved(0.5);
+    starts.solved(1.5);
+}

@@ -59,7 +59,14 @@ def table(g, burnup: list[float] | None = None) -> dict:
         g(u, b, m, f)
         for u, b, m, f in itertools.product(points, BORON, MODERATOR, FUEL)
     ]
-    return {"format": "xlc-table", "split": 1, "axes": axes(burnup), "states": states}
+    sizes = [len(a["points"]) for a in axes(burnup)]
+    return {
+        "format": "xlc-table",
+        "split": 1,
+        "axes": axes(burnup),
+        "points": [list(p) for p in itertools.product(*[range(n) for n in sizes])],
+        "states": states,
+    }
 
 
 def additive(u, b, m, f) -> dict:
@@ -319,6 +326,15 @@ def lattice_table(burnup: list[float] | None = None) -> dict:
         for p in itertools.product(*[range(len(a["points"])) for a in t["axes"]])
     ]
     return t
+
+
+class Products(unittest.TestCase):
+    def test_compared_tables_must_hold_the_product_points(self):
+        # 解いた点だけのテーブル（ADR-0200）は、直積の状態の番号で読めない
+        t = table(additive)
+        t["points"][0], t["points"][1] = t["points"][1], t["points"][0]
+        with self.assertRaises(SystemExit):
+            cct.table_grid("a", t, NOMINAL)
 
 
 class Subgrids(unittest.TestCase):

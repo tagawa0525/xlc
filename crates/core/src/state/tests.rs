@@ -1052,3 +1052,24 @@ fn burnups_outside_the_points_of_an_off_nominal_state_are_errors() {
     let err = interpolate(&t, Some(&at_burnup(15.0, 1000.0, 565.0, 550.0)), None).unwrap_err();
     assert!(err.contains("burnup"), "{err}");
 }
+
+#[test]
+fn negative_differences_from_the_nominal_state_are_errors() {
+    // 公称の状態の熱群の吸収が燃焼度 2 の点だけ小さく、公称でない状態の差（0、0.5、5、18 で解いた）が大きく負だと、燃焼度 2 で
+    // 公称の状態に差を足した値が負になる。燃焼度の重みは凸結合でも、差の内挿は公称の状態を負の重みで引く
+    let mut t = thinned_table(&[0.0, 0.5, 5.0, 18.0], |_| 1.0);
+    for (p, s) in t.points.iter().zip(t.states.iter_mut()) {
+        let nominal = p[1..] == [1, 0, 0];
+        s.absorption[1] = match (nominal, CURVED[p[0]] == 2.0) {
+            (true, true) => 1.0e-4,
+            (true, false) => 0.01,
+            (false, _) => 0.001,
+        };
+    }
+    t.validate().unwrap();
+    let err = interpolate(&t, Some(&at_burnup(2.0, 900.0, 565.0, 550.0)), None).unwrap_err();
+    assert!(
+        err.contains("negative") && err.contains("ADR-0200"),
+        "{err}"
+    );
+}
