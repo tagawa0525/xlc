@@ -74,8 +74,7 @@
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
 //! shielding = "every-transport"  # 自己遮蔽を解く輸送（"every-transport" か "step-start"。省略すると every-transport。ADR-0197）
 //!
-//! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む。
-//!                                 # [branches] の shielding = "nominal-moderator" はこれと組む。ADR-0201）
+//! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! ```
@@ -93,7 +92,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
-use crate::branches::{BranchShielding, Branches, BranchesEntry, Water};
+use crate::branches::{Branches, BranchesEntry, Water};
 use crate::depletion::{DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
@@ -1007,16 +1006,6 @@ impl LatticeInput {
             })
             .transpose()
             .map_err(invalid)?;
-        // 公称の減速材の自己遮蔽は、燃料の組成が状態によらない履歴からの分岐で使う（ADR-0201）
-        if history.is_none()
-            && branches
-                .as_ref()
-                .is_some_and(|b| b.shielding() == BranchShielding::NominalModerator)
-        {
-            return Err(invalid(
-                "branches.shielding = \"nominal-moderator\" needs [history] (ADR-0201)".into(),
-            ));
-        }
         Ok(Self {
             self_shielding,
             collision,
