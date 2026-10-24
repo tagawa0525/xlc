@@ -15,7 +15,6 @@ openmc_pin_rates.py の ABOVE と同じ）。値は世代の生成で規格化�
 """
 
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -29,18 +28,13 @@ sys.path.insert(0, str(ROOT / "examples"))
 sys.path.insert(0, str(ROOT / "examples" / "depletion"))
 sys.path.insert(0, str(ROOT / "examples" / "vera"))
 import openmc_depletion
+from compare_depletion import openmc_name
 from openmc_common import group_filter
 
 ABOVE = 1.0e9
 SCORES = ["(n,gamma)", "fission", "nu-fission"]
 # OpenMC の物質の名前から、xlc の格子の入力の物質の名前へ（間隙は真空で物質を持たない）
 NAMES = {"fuel-0": "fuel", "zircaloy-4": "zircaloy", "moderator": "water"}
-
-
-def openmc_name(name: str) -> str:
-    """xlc の核種の名前（U-235、Pm-148m）を OpenMC の名前（U235、Pm148_m1）に"""
-    symbol, mass, isomer = re.fullmatch(r"([A-Z][a-z]?)-(\d+)(m)?", name).groups()
-    return f"{symbol}{mass}" + ("_m1" if isomer else "")
 
 
 def main():
