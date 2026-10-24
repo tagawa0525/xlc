@@ -1251,7 +1251,7 @@ class BranchShieldingTest(unittest.TestCase):
                 draw([{"format": "xlc-compare-burnup-interpolation"}])
 
     def test_the_branch_shielding_comparisons_are_git_tracked_jsons(self):
-        # 採らなかった nominal-moderator と、既定の nominal-boron（ADR-0201）
+        # nominal-moderator と nominal-boron の比較（ADR-0201）
         for name, draw in [
             ("depletion-branch-shielding-k", vt.branch_shielding_k),
             ("depletion-branch-shielding-constants", vt.branch_shielding_constants),

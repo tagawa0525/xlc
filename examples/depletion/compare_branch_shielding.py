@@ -1,4 +1,4 @@
-"""分岐の自己遮蔽を公称の状態で解いて状態に再利用したテーブル（ADR-0201 の `shielding = "nominal-boron"` と、採らなかった
+"""分岐の自己遮蔽を公称の状態で解いて状態に再利用したテーブル（ADR-0201 の `shielding = "nominal-boron"` か
 `"nominal-moderator"`）を、状態ごとに解き直したテーブル（`"every-state"`）と比べる。
 
 使い方: python3 compare_branch_shielding.py --json <要約の出力先> <入力（TOML）>

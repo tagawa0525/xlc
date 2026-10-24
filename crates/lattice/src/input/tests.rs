@@ -1327,7 +1327,7 @@ fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
     for text in [with("every-state"), plain(with("every-state"))] {
         assert_eq!(shielding(&text), Ok(BranchShielding::EveryState));
     }
-    // 減速材の分岐でも公称の自己遮蔽を使う方式は、誤差が大きく選べない
+    // 値は nominal-boron と every-state だけ
     assert!(shielding(&with("nominal-moderator")).is_err());
     assert!(shielding(&with("nominal")).is_err());
 }
