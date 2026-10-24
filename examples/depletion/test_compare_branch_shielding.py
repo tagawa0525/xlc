@@ -91,6 +91,22 @@ class CompareTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             cbs.compare("2A", every, short)
 
+    def test_split_tables_are_errors(self):
+        # 部分ノードに分けたテーブルは、分岐の状態ごとに split² の状態を持つ
+        every = table([state(1.0)] * 16)
+        every["split"] = 2
+        with self.assertRaises(SystemExit):
+            cbs.compare("2A", every, every)
+
+    def test_values_that_are_not_finite_are_errors(self):
+        every = table([state(1.0)] * 4)
+        nominal = table([state(1.0)] * 3 + [state(1.0, float("nan"))])
+        with self.assertRaises(SystemExit):
+            cbs.compare("2A", every, nominal)
+        nominal = table([state(1.0)] * 3 + [state(float("nan"))])
+        with self.assertRaises(SystemExit):
+            cbs.compare("2A", every, nominal)
+
 
 if __name__ == "__main__":
     unittest.main()
