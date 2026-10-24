@@ -146,6 +146,8 @@ boron = { ppm = [0, 650, 1300], materials = ["water"] }
 # 600 K の密度は仕様書の 2B〜2D の 0.661 g/cc（表 P2-4）。565 K は履歴の 0.743 g/cc
 moderator = { temperature = [565, 600], density = [0.743, 0.661], materials = ["water", "zircaloy"] }
 fuel = { temperature = [565, 600], materials = ["fuel"] }
+# 交差の項を落とす誤差を測る真値なので、直積で解く（燃焼度の軸を持つ分岐の既定は 2 軸の組の部分格子。ADR-0200）
+subgrids = [["boron", "moderator", "fuel"]]
 
 [history]
 file = "../p2/lattice-2A.msgpack"
