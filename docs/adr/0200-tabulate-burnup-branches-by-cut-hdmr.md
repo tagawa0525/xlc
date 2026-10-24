@@ -1,7 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-24
-requires: [ADR-0032, ADR-0085, ADR-0097, ADR-0187, ADR-0192, ADR-0199]
+requires: [ADR-0032, ADR-0085, ADR-0097, ADR-0187, ADR-0192, ADR-0195, ADR-0199]
 supersedes: []
 superseded-by:
 amends: [ADR-0187]
@@ -106,6 +106,32 @@ examples/depletion/compare_branch_cross_terms.py）。値は組み立てた状�
   外すと 24 pcm になる。測ったのは制御棒のない、公称からの変化の小さい分岐（ホウ素 −300 ppm、燃料 +35 K）だけで、差が数千 pcm の制御棒を
   入れた状態と、Gd や Pyrex の燃え尽きの近くの差は測っていない
 
+テーブルの形式（組の並びの表し方。ユーザーの指摘（2026-10-24）: 将来、点を探索しながら足す方法（Smolyak の疎格子を階層的余剰で細かく
+する適応的な疎格子、HDMR の次数の適応）に広げられるよう、組の並びを、点の集合と各点の階層の印（どの軸の組の、どの格子点か）として
+表せる形にする。疎格子そのものは作らない）:
+
+- 案 L1（組の並び）: テーブルに組の列を置き、組ごとに離散の軸の値、持つ軸の組、分岐を解く燃焼点を書き、状態はその組から決まる
+  決まった順に並べる。組の構造がファイルに見えるが、状態の順は読む側が組から組み立て直すので、点を選ぶツール（燃焼点の間引き、
+  制御棒のテーブルの結合）も同じ組み立てを持つ。点を 1 つずつ足す方法では、足した点ごとに組の種類を足すことになる
+- 案 L2（点の集合と、点ごとに階層の印を書く）: 状態ごとに、格子点の番号と、どの軸の組（成分）の点かを書く。印は格子点の番号と
+  公称の状態から決まるので重複し、食い違いを読み込みで確かめることになる
+- 案 L3（点の集合。点ごとの格子点の番号と、軸の公称の値。採用）: テーブルは解いた点の格子点の番号の列（辞書式の昇順）を持ち、
+  状態はその順に並ぶ。点の成分（公称と違う軸の組）は番号と軸の公称の値から決まり、制御棒の値と燃焼度の番号も点の番号の一部なので、
+  組（制御棒の値ごとの成分の集合）、組ごとの燃焼点、直積（すべての点）は、どれも同じ形で書ける。燃焼点の間引きは点を除くだけ、
+  制御棒のテーブルの結合は番号を 1 つ足すだけになる。Smolyak の疎格子の階層は、1 次元の格子点の入れ子の階層（公称を階層 0）を
+  軸の点の属性として足せば、点の階層の印（軸ごとの階層の組）が番号から決まり、点の並びは変えずに済む（見込み。作っていない）。
+  読み込みは、点の集合が成分の集合として部分集合について閉じ、各成分の部分格子の点をすべて持つことを確かめる（疎格子では、この
+  検査を許される階層の組の集合の検査に広げる）
+
+軸の内挿の変数（関数形。ユーザーの指摘（2026-10-24）: 内挿の関数形は物理を考慮する。今は燃料の温度の √T だけで、ホウ素を 1/v の吸収、
+減速材の密度を散乱断面積に比例として扱うなどが候補）:
+
+- 案 T1: 内挿の変数を core に軸の名前ごとに書く（今の ADR-0097 の実装）: 変数を変えると、core とテーブルを作る側の両方を
+  直し、古いテーブルとの区別がファイルにない
+- 案 T2: 内挿の変数を軸の属性としてテーブルに書く（採用）: lattice が軸ごとの変数を書き、core はそれを読んで内挿する。変数を
+  変えるのは、ADR で決めて、lattice の軸の作り方の 1 か所と、新しい変数の計算を足すだけになる。どの変数が良いかは、集合体でなく
+  1 × 1 や 3 × 3 のピンの格子で、交差の項と一緒に測ってから決める（この ADR では変えない）
+
 ## 決定と理由
 
 これは [ADR-0187](0187-tabulate-burnup-branches-from-history.md) の「構造と形式（案 S1、F1）」のうち、「燃焼度を最初の軸（いちばん遅く変わる）に置き、各燃焼度の点の中は
@@ -160,8 +186,35 @@ U は組の持つ軸の組とその部分集合（空集合と 1 軸ずつを含
 格子点（組の部分格子の点と、公称の燃焼点）では、テーブルの値をそのまま返す。直積のテーブル（M3 の ADR-0097 のテーブル）は、3 つの軸を
 すべて持つ組 1 つと同じで、今の多重線形と同じ値になる。
 
-`xlc-table` の形式は、状態の直積の並び（ADR-0097 の `states`）に代えて組の並びを持つ（組ごとに、離散の軸の値、持つ軸の組、分岐を解く燃焼点、
-状態）。フィールドの名前と読み込みの検査は実装で決める。後方互換は作らない（[ADR-0012](0012-drop-backward-compatibility.md)）。
+### 形式と入力（案 L3、案 T2）
+
+`xlc-table` は、状態の直積の並び（ADR-0097 の `states`）に代えて、解いた点の列 `points`（点ごとに、軸の順の格子点の番号。離散の軸は
+値の番号。辞書式の昇順）を持ち、`states` はその順に並ぶ（点ごとに部分ノードの定数が続く）。ホウ素、減速材、燃料の軸は、内挿の変数
+`transform`（`linear` か `sqrt`。ADR-0097 のとおりホウ素と減速材は `linear`、燃料は `sqrt`）と、公称の値 `nominal`（格子点の 1 つ）を
+持つ。公称の値は 3 つの軸がすべて持つか、どれも持たない。読み込みは、制御棒の値ごとに、点の集合が直積（公称の値がないとき）か、
+公称の状態と成分の部分格子の和（成分の集合が部分集合について閉じ、各成分の部分格子の点をすべて持つ）であることと、すべての
+燃焼点で解いていない点があれば、公称の状態（制御棒の `out`）がすべての燃焼点を持つことを確かめる。後方互換は作らない
+（[ADR-0012](0012-drop-backward-compatibility.md)）: `points` や `transform` のないファイルは読まない。
+
+lattice の入力:
+
+- `[branches]` の `subgrids`: 解く部分格子の軸の組の列（`[["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]` のように書く）。
+  解く状態は、公称と違う軸の組が、どれかの組の部分集合になる状態。省略すると、`[history]` があれば 2 軸の組すべて（上の既定）、なければ
+  3 つの軸（直積。M3 のテーブルは ADR-0097 のまま）
+- 公称の状態は入力の物質の状態（燃焼の履歴の条件）。軸ごとに、その軸だけを格子点に変えても入力の物質が変わらない格子点で、点が
+  1 つの軸はその点。どれかの組が点が 2 つ以上の軸をすべて持てば直積で、公称の状態は要らない（入力の物質が格子点にない M3 の
+  入力も今のまま解ける）。そうでなければ、入力の物質がどの軸でも格子点にないとエラーにする。公称の状態が決まれば、テーブルの軸に
+  公称の値を書く。[ADR-0201](0201-shield-branches-at-the-nominal-boron.md) の参照（公称のホウ素）は入力の物質のホウ素なので、部分格子の公称と同じになる
+- `[history]` の `off-nominal-burnup`: 公称でない状態を解く燃焼点（`burnup` から選ぶ）。省略すると `burnup` のすべて（案 B1 と同じ）。
+  公称の状態は `burnup` のすべてで解く
+- 制御棒を入れた組は、制御棒を入れた格子の入力で同じ履歴を読んで作り（燃焼点は `burnup` に、間引いた点を書く）、制御棒の値ごとの
+  テーブルを examples/core/rod_table.py でまとめる（#0093 まで）。値ごとのテーブルは点の集合と燃焼点が違ってよく、燃焼度でない軸
+  （公称の値と内挿の変数を含む）が同じことを確かめる
+
+lattice の実行は、状態を軸の直積の番号で数えたまま、解く状態だけを順に解く。ADR-0201 の参照（状態の減速材と燃料の格子点）、媒質の
+状態の番号、チェックポイントは、この番号で引く。[ADR-0195](0195-start-moc-from-the-previous-transport.md) の反復を始める解（添字が 0 でない最後の軸を 1 つ戻し、後の軸を 0 にした状態の解）は、
+その状態を解かないときは、直前に解いた状態の解にする（平らな初期値より近い。直積では今と同じ）。細かい群の媒質の出力（ADR-0128）は
+直積の状態を持つので、部分格子では書けない（エラー）。
 
 ### 見積もり
 
@@ -184,9 +237,15 @@ U は組の持つ軸の組とその部分集合（空集合と 1 軸ずつを含
 
 ## 帰結
 
-- ADR-0187 の確認の 2A のテーブルと、M3 の直積のテーブルは、組 1 つのテーブルとして読めるように形式を作り直す
-- lattice は、組ごとに公称の状態、1 軸ずつの分岐、選んだ軸の組の部分格子を、組の燃焼点で解く。core は上の式で組み立てる。どちらも未実装
-  （#0176）
+- 直積のテーブル（ADR-0187 の確認の 2A のテーブル、M3 のテーブル）は、点がすべての格子点の、組 1 つのテーブルになる。core はこれを今と
+  同じ演算（軸の順に掛けた重みを、点の順に足す）で引き、ビットで同じ値を返す。形式が変わるので、今あるテーブルのファイルは lattice で
+  作り直す（読み込みを残さない）
+- lattice は、制御棒の値の入力ごとに公称の状態、1 軸ずつの分岐、選んだ軸の組の部分格子を、`off-nominal-burnup` の燃焼点で解き、core は
+  上の式で組み立てる
+- 燃焼度の軸を持つ分岐の既定が 2 軸の組になるので、3 つの軸に 2 点以上を持つ履歴からの分岐の入力は、直積が要れば `subgrids` に 3 つの軸を
+  書く（examples/depletion/branches の branch-2A-cross.toml と branch-2A-cross-rods.toml。交差の項を落とす誤差の真値）
+- 軸の内挿の変数がテーブルにあるので、関数形の候補（ホウ素の 1/v、減速材の密度に比例する散乱など）は、ADR で決めたうえで、format の
+  変数の種類と lattice の軸の作り方に足せば core はそのまま引ける。候補はピンの格子で測ってから決める
 - 計画の「CPU と記憶の見積もり（xlc）」の分岐のテーブルの見積もりを、上の見積もりに書き換えた
 - 記憶: 状態の数が減るので、ADR-0187 の状態ごとの微視的断面積の置き場の大きさも同じ比で減る
 - 組の燃焼点を間引くので、燃焼点の間で公称でない状態の差を内挿する誤差が加わる。制御棒を入れた組（2A を含む）と、Gd と Pyrex の
@@ -201,8 +260,35 @@ U は組の持つ軸の組とその部分集合（空集合と 1 軸ずつを含
 - 交差の項を落とす誤差: examples/depletion/compare_branch_cross_terms.py（テストは examples/depletion/test_compare_branch_cross_terms.py）で、
   直積のテーブルから組を取り出して組み立て、直積の状態と比べる。記録は examples/depletion/verification.md の「分岐のテーブルの交差の項」
   （上の表の値。2B は 6867728 のテーブル、2A の 40 MWd/kg は 130372b94 の入力で分岐点の main 828f27a54 と同じ lattice、2026-10-24）
-- 実装（#0176）では、次を確かめる: 組 1 つの直積のテーブルで core が今の多重線形と同じ値を返すこと、部分格子の点と燃焼点でテーブルの
-  値を返すこと、上の式が 2 軸の積の項を持つ関数を厳密に再現し 3 軸の積の項だけを落とすこと、制御棒の組の公称の状態を返すこと、2A の
-  40 MWd/kg の直積のテーブルから取り出した組のテーブルで core の k∞ がこの記録の値（0.53 pcm 以下）を再現すること
+- 形式（crates/format/src/table/tests.rs）: `points_round_trip_and_index_the_states`、`points_must_index_the_axes_in_increasing_order`、
+  `reading_needs_the_points`、`state_axes_carry_their_interpolation_variable_and_nominal_value`、
+  `reading_checks_the_transform_and_the_nominal_fields`、`nominal_values_are_points_given_to_all_state_axes_or_none`、
+  `cut_hdmr_points_hold_full_subgrids_closed_under_subsets`、`rod_values_hold_their_own_subgrids`、
+  `points_solved_at_some_burnups_need_the_nominal_state_at_every_burnup`
+- core の組み立て（crates/core/src/state/tests.rs）: `product_tables_interpolate_bit_for_bit_like_the_axis_product_sum`（公称の値の
+  有無、制御棒の軸、曲がった燃焼度の軸の直積のテーブルで、軸の直積の重みつきの和とビットで同じ）、
+  `axes_interpolate_in_the_variable_of_their_transform`、`cut_hdmr_reproduces_pair_terms_and_drops_only_the_triple_term`（2 軸の積の
+  項を持つ関数を相対 1e-13 で再現し、3 軸の積の項だけを落とす）、`cut_hdmr_points_return_the_table_states`（部分格子の点でテーブルの
+  状態をビットで返す）、`rod_values_assemble_from_their_own_nominal_state`、`negative_cut_hdmr_assemblies_are_errors`、
+  `off_nominal_states_add_their_difference_from_the_nominal_state_over_their_burnups`（公称の状態だけを解いた燃焼点で、公称の状態に
+  2 次の差を足した値。解いた燃焼点ではテーブルの状態をビットで）、`burnups_outside_the_points_of_an_off_nominal_state_are_errors`。
+  ADR-0097、ADR-0187、ADR-0192 のテストはそのまま通る
+- lattice（crates/lattice/src/branches/tests.rs）: `the_nominal_state_is_the_grid_point_of_the_input_materials`、
+  `branches_without_a_history_solve_the_product_unless_told_the_subgrids`、`pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs`
+  （3 × 3 × 3 で 19 状態、3 × 2 × 2 で 10 状態）、`subgrids_need_the_nominal_state_and_name_distinct_axes`、
+  `references_of_subgrid_states_are_their_moderator_and_fuel_points`（ADR-0201 の参照）、`media_need_the_product_of_the_branches`、
+  `tables_hold_the_solved_points`、`states_outside_the_subgrids_start_from_the_last_solved_state`、`restored_starts_follow_the_solved_states`。
+  入力（input/tests.rs）: `off_nominal_burnups_are_history_burnups_and_default_to_all`、`history_branches_default_to_all_pair_subgrids`。
+  履歴からの分岐（history/tests.rs）: `off_nominal_states_are_solved_at_their_burnups_only`、`pair_subgrid_states_shield_like_the_product_states`
+  （公称のホウ素の自己遮蔽で、部分格子の状態が直積の同じ状態とビットで同じ）。チェックポイント（checkpoint/tests.rs）:
+  `runs_of_some_states_resume_after_the_saved_ones`。ADR-0201 の確認のテストはそのまま通る
+- ツール: examples/core/test_rod_table.py（制御棒の組の点と燃焼点）、examples/depletion/test_thin_burnup_table.py、
+  examples/depletion/test_compare_branch_cross_terms.py の `Subgrids`（直積のテーブルから部分格子のテーブルを書く `--subgrids`）
+- 2A の 40 MWd/kg（xlc a9d85f72、分岐点は main の e54a1e37、2026-10-24、Slurm 537）: branch-2A-cross.toml と branch-2A-cross-rods.toml の
+  直積のテーブル（各 12 状態）を作り直し、rod_table.py でまとめ、`--subgrids` で 2 軸の組すべての点（制御棒の値ごとに 10 点）を取り出して、
+  集合体 1 体（反射境界）の core で直積の 24 状態を解いた。core の k と compare_branch_cross_terms.py の組み立ての k∞ の差は
+  0.0013 pcm 以下（core が出す k の桁 1e-8 の丸めの程度）、組み立てと直積の差の最大は制御棒なしで 0.38 pcm、制御棒ありで 0.53 pcm で、
+  上の表の値を再現した（作り直したテーブルは ADR-0201 の公称のホウ素の自己遮蔽で、上の表のテーブルとは別の md5）。この確認の入力は
+  試行で残していない
 - 本番の格子点が決まったら、集合体の種類ごとに少数の燃焼点（0、0.5、中ほど、終わり）で直積のテーブルを解き、交差の項と 3 次の項を
   落とす誤差が目安（|Δρ| ≤ 5 pcm）に入ることを確かめてから、組の持つ軸の組を決める
