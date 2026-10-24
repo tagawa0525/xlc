@@ -1308,5 +1308,80 @@ class DrawSwapCandidates(unittest.TestCase):
             vt.swap_candidates([{"format": "xlc-compare-depletion"}])
 
 
+class DrawUfgFreeGas(unittest.TestCase):
+    def summary(self) -> dict:
+        def result(k, diff, change, swaps, tilt=None):
+            return {
+                "k": k,
+                "diff_pcm": diff,
+                "change_pcm": change,
+                "swaps": swaps,
+                "tilt": tilt,
+            }
+
+        tilt = [
+            {"low": 4.018, "high": 5.012, "ratio": -0.0107},
+            {"low": 7.87, "high": 9.863, "ratio": 0.0107},
+        ]
+        return {
+            "format": "xlc-ufg-free-gas",
+            "modes": [
+                {"key": "static", "label": "静止"},
+                {"key": "exact", "label": "自由ガス"},
+            ],
+            "swaps": [{"spec": "U-238:27-27", "label": "U-238、27 群"}],
+            "states": [
+                {
+                    "name": "0",
+                    "key": "1C-0",
+                    "openmc_k": 1.17,
+                    "results": {
+                        "static": result(1.1714, -46.0, 0.0, {"U-238:27-27": -54.4}),
+                        "exact": result(1.1716, -26.0, 20.0, {"U-238:27-27": -40.0}),
+                    },
+                },
+                {
+                    "name": "40",
+                    "key": "2A-40",
+                    "openmc_k": 0.825,
+                    "results": {
+                        "static": result(
+                            0.8255, 64.0, 0.0, {"U-238:27-27": -29.7}, tilt
+                        ),
+                        "exact": result(0.8258, 93.5, 29.5, {"U-238:27-27": -20.0}),
+                    },
+                },
+            ],
+        }
+
+    def test_k_rows_give_each_mode_and_the_growth_from_the_first_state(self):
+        table = vt.ufg_free_gas_k([self.summary()])
+        self.assertIn("40 − 0", table.splitlines()[0])
+        self.assertRegex(table, r"\| 静止 +\| −46\.0 +\| \+64\.0 +\| \+110\.0 +\|")
+        self.assertRegex(table, r"\| 自由ガス +\| −26\.0 +\| \+93\.5 +\| \+119\.5 +\|")
+
+    def test_swap_rows_give_each_state_and_mode(self):
+        table = vt.ufg_free_gas_swaps([self.summary()])
+        self.assertRegex(table, r"\| 40 +\| 自由ガス +\| −20\.0 +\|")
+
+    def test_tilt_rows_keep_only_the_runs_with_fine_flux(self):
+        table = vt.ufg_free_gas_tilt([self.summary()])
+        self.assertRegex(table, r"\| 40 +\| 静止 +\| −1\.07 +\| \+1\.07 +\|")
+        self.assertNotIn("自由ガス", table)
+        self.assertIn("4.018〜5.012 eV", table.splitlines()[0])
+
+    def test_a_kernel_not_run_in_a_state_is_a_dash(self):
+        summary = self.summary()
+        del summary["states"][1]["results"]["exact"]
+        self.assertRegex(
+            vt.ufg_free_gas_k([summary]), r"\| 自由ガス +\| −26\.0 +\| – +\| – +\|"
+        )
+        self.assertNotRegex(vt.ufg_free_gas_swaps([summary]), r"\| 40 +\| 自由ガス")
+
+    def test_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.ufg_free_gas_k([{"format": "xlc-swap-candidates"}])
+
+
 if __name__ == "__main__":
     unittest.main()

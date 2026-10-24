@@ -396,6 +396,67 @@ fn ufg_tolerance_thins_only_when_given() {
 }
 
 #[test]
+fn ufg_scattering_defaults_to_targets_at_rest() {
+    // ADR-0203: 省略すると静止した標的。"free-gas" で自由ガスの核にし、`ufg-free-gas` で条件を選ぶ
+    let scattering = |lines: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{lines}"),
+        )
+        .map(|input| input.shielding_options().scattering)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL).unwrap().scattering,
+        Scattering::Static
+    );
+    assert_eq!(
+        scattering("ufg-scattering = \"static\"").unwrap(),
+        Scattering::Static
+    );
+    assert_eq!(
+        scattering("ufg-scattering = \"free-gas\"").unwrap(),
+        Scattering::FreeGas(FreeGas::default())
+    );
+    assert_eq!(
+        scattering(
+            "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = 400, cells = 8, sweeps = 2 }"
+        )
+        .unwrap(),
+        Scattering::FreeGas(FreeGas {
+            upper: Some(400.0),
+            cells: 8,
+            sweeps: Some(2),
+        })
+    );
+    assert_eq!(
+        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { cells = 2 }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            cells: 2,
+            ..FreeGas::default()
+        })
+    );
+    for bad in [
+        "ufg-scattering = \"moving\"",
+        "ufg-free-gas = { cells = 2 }",
+        "ufg-scattering = \"static\"\nufg-free-gas = { cells = 2 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { cells = 0 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { sweeps = 0 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = 0 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = -400 }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { lower = 4 }",
+    ] {
+        assert!(scattering(bad).is_err(), "{bad}");
+    }
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\nufg-scattering = \"free-gas\"",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+}
+
+#[test]
 fn self_shielding_needs_a_library() {
     let result = replaced(
         LATTICE,

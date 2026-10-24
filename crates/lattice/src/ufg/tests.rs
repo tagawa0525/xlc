@@ -24,6 +24,11 @@ fn constant(name: &'static str, awr: f64, total: f64, elastic: f64, fission: f64
 }
 
 fn library(specs: Vec<Spec>) -> Library {
+    library_at(specs, TEMPERATURE)
+}
+
+/// [`library`] の、温度 `temperature` (K) のもの
+fn library_at(specs: Vec<Spec>, temperature: f64) -> Library {
     let groups = GroupStructure::new(BOUNDS.to_vec()).unwrap();
     let ng = BOUNDS.len() - 1;
     let nuclides = specs
@@ -44,7 +49,7 @@ fn library(specs: Vec<Spec>) -> Library {
                 thermal_scattering: false,
                 temperatures: vec![TemperatureData {
                     reactions: Vec::new(),
-                    temperature: TEMPERATURE,
+                    temperature,
                     chi: vec![0.0; ng],
                     scatter: vec![vec![vec![0.0; ng]; ng]],
                     shielded: vec![Shielded {
@@ -75,9 +80,13 @@ fn library(specs: Vec<Spec>) -> Library {
 }
 
 fn material(composition: &[(&str, f64)]) -> MaterialInput {
+    material_at(composition, TEMPERATURE)
+}
+
+fn material_at(composition: &[(&str, f64)], temperature: f64) -> MaterialInput {
     MaterialInput {
         name: "m".into(),
-        temperature: TEMPERATURE,
+        temperature,
         composition: composition
             .iter()
             .map(|&(n, d)| (n.to_string(), d))
@@ -371,8 +380,18 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            None,
+            Scattering::Static,
+        )
+        .unwrap()
+    };
     let (table, exact) = (solve(Collision::default()), solve(Collision::Exact));
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
@@ -406,7 +425,15 @@ fn non_finite_totals_stop_with_the_table_as_without() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     for collision in [Collision::Exact, Collision::default()] {
-        let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None);
+        let result = slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            None,
+            Scattering::Static,
+        );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
             "{collision:?}: {:?}",
@@ -430,6 +457,7 @@ fn zero_totals_stop_the_table_with_their_ring() {
         [4.0, 1.0e4],
         Collision::default(),
         None,
+        Scattering::Static,
     );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
@@ -445,8 +473,18 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            None,
+            Scattering::Static,
+        )
+        .unwrap()
+    };
     assert_eq!(
         solve(Collision::Table { density: 100_000 }),
         solve(Collision::Exact)
@@ -465,8 +503,18 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
         None,
         Some(&water),
     ];
-    let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            None,
+            Scattering::Static,
+        )
+        .unwrap()
+    };
     (solve(Collision::default()), solve(Collision::Exact))
 }
 
@@ -584,6 +632,7 @@ fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
                 gain: 1.0 / (1.0 - alpha),
                 width: -alpha.ln(),
                 table: t,
+                light: None,
             }
         })
         .collect();
@@ -661,6 +710,7 @@ fn thinned_grids_give_the_group_constants_of_the_full_grid() {
             [4.0, 1.0e4],
             Collision::Exact,
             thinning,
+            Scattering::Static,
         )
         .unwrap()
     };
@@ -705,6 +755,7 @@ fn a_vanishing_tolerance_gives_the_group_constants_tallied_in_the_sweep() {
             [4.0, 1.0e4],
             Collision::Exact,
             thinning,
+            Scattering::Static,
         )
         .unwrap()
     };
@@ -759,6 +810,7 @@ fn thinned_grids_keep_both_limits_of_discontinuities() {
             [4.0, 1.0e4],
             Collision::Exact,
             thinning,
+            Scattering::Static,
         )
         .unwrap()
     };
@@ -785,6 +837,7 @@ fn void_cells_stop_with_an_error_when_thinned() {
             [4.0, 1.0e4],
             Collision::Exact,
             thinning,
+            Scattering::Static,
         );
         assert!(result.is_err(), "{thinning:?}");
     }
@@ -804,6 +857,7 @@ fn non_finite_totals_stop_the_thinning_as_without() {
             [4.0, 1.0e4],
             Collision::Exact,
             thinning,
+            Scattering::Static,
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -821,9 +875,26 @@ fn fine_flux_integrates_to_the_group_flux() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     let range = [4.0, 1.0e4];
-    let plain = slowing_down_with(&lib, &cell, &rings, range, Collision::default(), None).unwrap();
-    let (spectrum, fine) =
-        slowing_down_fine(&lib, &cell, &rings, range, Collision::default(), None).unwrap();
+    let plain = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        range,
+        Collision::default(),
+        None,
+        Scattering::Static,
+    )
+    .unwrap();
+    let (spectrum, fine) = slowing_down_fine(
+        &lib,
+        &cell,
+        &rings,
+        range,
+        Collision::default(),
+        None,
+        Scattering::Static,
+    )
+    .unwrap();
     assert_eq!(spectrum, plain);
     assert_eq!(fine.flux.len(), rings.len());
     assert!(fine.energies.windows(2).all(|w| w[0] >= w[1]));
@@ -890,6 +961,7 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
                 gain: 1.0,
                 width: 1.0,
                 table: t,
+                light: None,
             }
         })
         .collect();
@@ -951,6 +1023,7 @@ fn macroscopic_totals_report_the_first_error_in_nuclide_then_point_order() {
                 gain: 1.0,
                 width: 1.0,
                 table: t,
+                light: None,
             }
         })
         .collect();
@@ -962,4 +1035,160 @@ fn macroscopic_totals_report_the_first_error_in_nuclide_then_point_order() {
         }
         other => panic!("{other:?}"),
     }
+}
+
+/// 6.67 eV の強い吸収の共鳴を持つ燃料（O-16 を含む）、真空のギャップ、水（H-1、O-16）のセルの、温度 `temperature` (K) の
+/// ライブラリと、燃料、水の物質
+fn thermal_cell(temperature: f64) -> (Library, MaterialInput, MaterialInput) {
+    let resonance = |e: f64| 2.0e4 / (1.0 + ((e - 6.67) / 0.02).powi(2));
+    let mut energies: Vec<f64> = (0..=600).map(|k| 6.37 + 0.001 * k as f64).collect();
+    energies.splice(0..0, [4.0, 5.0, 6.0]);
+    energies.extend([8.0, 10.0, 100.0, 1.0e3, 2.0e4]);
+    let points = energies
+        .iter()
+        .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
+        .collect();
+    let lib = library_at(
+        vec![
+            Spec {
+                name: "U-238",
+                awr: 236.0,
+                top: Some(2.0e4),
+                points,
+            },
+            constant("U-235", 233.0, 10.0, 8.0, 1.0),
+            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+            constant("O-16", 15.86, 3.8, 3.8, 0.0),
+        ],
+        temperature,
+    );
+    let fuel = material_at(
+        &[("U-238", 0.022), ("U-235", 0.0005), ("O-16", 0.045)],
+        temperature,
+    );
+    let water = material_at(&[("H-1", 0.05), ("O-16", 0.025)], temperature);
+    (lib, fuel, water)
+}
+
+/// [`thermal_cell`] の 100 eV より下の減速計算
+fn thermal_spectrum(temperature: f64, scattering: Scattering) -> CellSpectrum {
+    let (lib, fuel, water) = thermal_cell(temperature);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        scattering,
+    )
+    .unwrap()
+}
+
+/// 2 つの結果の群ごとの中性子束の相対差の最大
+fn flux_difference(a: &CellSpectrum, b: &CellSpectrum) -> f64 {
+    a.flux
+        .iter()
+        .flatten()
+        .zip(b.flux.iter().flatten())
+        .map(|(x, y)| ((x - y) / y).abs())
+        .fold(0.0, f64::max)
+}
+
+fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scattering {
+    Scattering::FreeGas(FreeGas {
+        upper,
+        cells,
+        sweeps,
+    })
+}
+
+#[test]
+fn free_gas_at_a_vanishing_temperature_gives_the_static_spectrum() {
+    // T → 0 で自由ガスの核は静止した標的の核になる
+    let at_rest = thermal_spectrum(1.0e-3, Scattering::Static);
+    let cold = thermal_spectrum(1.0e-3, free_gas(None, 4, None));
+    assert!(
+        flux_difference(&cold, &at_rest) < 1e-7,
+        "{}",
+        flux_difference(&cold, &at_rest)
+    );
+    // 600 K では群の中性子束が動く（4〜100 eV の群の 6.67 eV の共鳴の遮蔽）
+    let hot = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let warm_at_rest = thermal_spectrum(600.0, Scattering::Static);
+    assert!(flux_difference(&hot, &warm_at_rest) > 1e-5);
+}
+
+#[test]
+fn free_gas_spectrum_converges_with_the_cells() {
+    // 区間を細かくすると群の中性子束と群定数が収束する
+    let spectra: Vec<CellSpectrum> = [2, 4, 8, 16]
+        .iter()
+        .map(|&cells| thermal_spectrum(600.0, free_gas(None, cells, None)))
+        .collect();
+    let steps: Vec<f64> = spectra
+        .windows(2)
+        .map(|w| flux_difference(&w[0], &w[1]))
+        .collect();
+    assert!(steps[2] < 1e-7, "{steps:?}");
+    assert!(steps[2] < steps[0], "{steps:?}");
+}
+
+#[test]
+fn capping_above_the_range_keeps_the_uncapped_spectrum() {
+    // 上限が範囲の上端より上なら、上限のないときと同じ。上限が範囲の下端より下なら静止した標的と同じ
+    let uncapped = thermal_spectrum(600.0, free_gas(None, 4, None));
+    assert_eq!(
+        thermal_spectrum(600.0, free_gas(Some(1.0e9), 4, None)),
+        uncapped
+    );
+    assert_eq!(
+        thermal_spectrum(600.0, free_gas(Some(1.0), 4, None)),
+        thermal_spectrum(600.0, Scattering::Static)
+    );
+    // 上限を上げると上限のない結果に近づく
+    let capped: Vec<f64> = [400.0, 4000.0]
+        .iter()
+        .map(|&n| {
+            flux_difference(
+                &thermal_spectrum(600.0, free_gas(Some(n), 4, None)),
+                &uncapped,
+            )
+        })
+        .collect();
+    assert!(capped[1] < capped[0], "{capped:?}");
+}
+
+#[test]
+fn converged_sweeps_match_many_fixed_sweeps() {
+    // 収束するまでのスイープは、十分な回数のスイープと同じ。1 回のスイープ（上方散乱の先を F_m とみなす）は近い
+    let converged = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let many = thermal_spectrum(600.0, free_gas(None, 4, Some(20)));
+    assert!(flux_difference(&many, &converged) < 1e-9);
+    let one = thermal_spectrum(600.0, free_gas(None, 4, Some(1)));
+    assert!(flux_difference(&one, &converged) < 1e-3);
+}
+
+#[test]
+fn nuclides_with_resolved_resonances_stay_at_rest() {
+    // 分離共鳴を持つ核種だけのセルは、自由ガスを選んでも静止した標的と同じ
+    let (lib, _, _) = thermal_cell(600.0);
+    let fuel = material(&[("U-238", 0.022)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e3],
+            Collision::Exact,
+            None,
+            scattering,
+        )
+        .unwrap()
+    };
+    assert_eq!(solve(free_gas(None, 4, None)), solve(Scattering::Static));
 }
