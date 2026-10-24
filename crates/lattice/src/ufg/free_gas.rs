@@ -644,13 +644,25 @@ fn interpolate(u: &[f64], values: &[f64], q: usize, x: f64) -> f64 {
     values[q] + (values[q + 1] - values[q]) * (x - u[q]) / width
 }
 
+/// 上限 `cap` (eV) より下の入射を補間する最初の格子点（`energies` はエネルギーの降順）。区間は上限で区切られ、上限より下の入射だけが
+/// 残る（[`Gas::cells`]）ので、補間する格子の区間は上限を含む区間から先にある。上限が範囲の下限より下なら最後の格子点（範囲の
+/// 下限より下の入射は、最後の格子点の値を使う）
+pub(super) fn first_below(energies: &[f64], cap: f64) -> usize {
+    let last = energies.len().saturating_sub(1);
+    energies
+        .iter()
+        .position(|&e| e < cap)
+        .map_or(last, |k| k.saturating_sub(1))
+}
+
 /// 減速計算のスイープの間の、自由ガスの核の D の散乱源の状態。
 #[derive(Debug, Clone)]
 pub(super) struct Thermal {
     /// [自由ガスの核種] の核
     gases: Vec<Gas>,
-    /// [自由ガスの核種][格子点] のポイントワイズの弾性散乱断面積（D に掛ける）
-    sigma: Vec<Vec<f64>>,
+    /// [自由ガスの核種] の（最初の格子点、そこからの [格子点] のポイントワイズの弾性散乱断面積）（D に掛ける。最初の格子点は
+    /// [`first_below`]）
+    sigma: Vec<(usize, Vec<f64>)>,
     /// [自由ガスの核種] の（リング, 個数密度）
     rings: Vec<Vec<(usize, f64)>>,
     /// 上端の側の区間の段（[`grades`]）と、下端の側の区間の細かさ
@@ -674,7 +686,7 @@ impl Thermal {
     /// の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ `None`。
     pub(super) fn new(
         gases: Vec<Gas>,
-        sigma: Vec<Vec<f64>>,
+        sigma: Vec<(usize, Vec<f64>)>,
         rings: Vec<Vec<(usize, f64)>>,
         cells: usize,
         energies: &[f64],
@@ -759,10 +771,11 @@ impl Thermal {
                 // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
                 for &(l, a, b) in chunk {
-                    let (gas, sigma) = (&gases[l], &sigmas[l]);
+                    let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
                     let inside = gas.inside(u[m], a, b);
                     let f = |x: f64, q: usize| {
-                        interpolate(u, sigma, q, x) * gas.correction(high, x, u[m], e, inside)
+                        interpolate(&u[*offset..], sigma, q - offset, x)
+                            * gas.correction(high, x, u[m], e, inside)
                     };
                     let (qa, fa) = match shared {
                         Some((k, x, side, q, value)) if k == l && x == a && side == inside => {
