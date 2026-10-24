@@ -1,6 +1,7 @@
 """#0133: 燃焼で増える k の差の候補ごとに、既に測った反応率の相対差と OpenMC の tally の割合から k への寄与の桁を見積もる。
 
-使い方: python3 estimate_candidates.py <openmc-rates.msgpack>...（openmc_pin_rates*.py か openmc_pin_transfer.py の出力）
+使い方: python3 estimate_candidates.py <openmc-rates.msgpack>...（openmc_pin_rates*.py の出力。物質ごとの吸収（`materials` の
+`absorption`）を読むので、openmc_pin_transfer.py の出力は受け付けない）
 
 k∞ = P / A（P は生成、A は吸収。外周が鏡面反射）なので、核種と群の反応率が相対的に r だけ違えば、δk ≈ k (r ΔP/P − r ΔA/A)。
 P と A は燃料の全核種の和（被覆管と減速材の吸収を A に足す）。相対差は #0133、#0148、#0151、#0152 の測定（新しい燃料か 2A の
@@ -21,10 +22,10 @@ CANDIDATES = [
         "#0151 熱群の重み",
         [
             ("U-238", 57, 68, "capture", 0.0010, 0.0058),
-            ("Pu-239", 50, 52, "capture", 0.0039, 0.0083),
-            ("Pu-239", 50, 52, "fission", 0.0039, 0.0083),
-            ("Pu-239", 46, 48, "capture", -0.0060, -0.0009),
-            ("Pu-239", 46, 48, "fission", -0.0060, -0.0009),
+            ("Pu-239", 53, 55, "capture", 0.0039, 0.0083),
+            ("Pu-239", 53, 55, "fission", 0.0039, 0.0083),
+            ("Pu-239", 47, 49, "capture", -0.0060, -0.0009),
+            ("Pu-239", 47, 49, "fission", -0.0060, -0.0009),
         ],
     ),
     # 4〜9.877 eV（27 群）の燃料の中性子束の傾きで、薄い核種の捕獲が U-236 −1.7%、Nd-145 −1.5%、Ag-109 −1.3%、Tc-99 −1.2%、
