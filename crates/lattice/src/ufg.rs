@@ -14,7 +14,8 @@
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
 //!
 //! [`Scattering::FreeGas`] では、分離共鳴を持たない核種の散乱核を温度 T の自由ガスの核にする（[`free_gas`]、ADR-0203）。
-//! 上方散乱でまだ求めていない低いエネルギーの中性子束を使うので、自由ガスの核の届く範囲を掃き直す。
+//! 上方散乱でまだ求めていない低いエネルギーの中性子束を使うので、自由ガスの核の届く範囲を掃き直す。範囲の下限より下からの
+//! 上方散乱は、その中性子束を範囲の最後の格子点の値（1/E）とする（ADR-0203）。
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -562,10 +563,7 @@ fn solve_cell(
         loop {
             pass.run(&mut sweep, &mut cursors, start..u.len(), &mut times)?;
             count += 1;
-            let change = sweep
-                .thermal
-                .as_mut()
-                .and_then(|t| t.finish(&u, &sweep.flux));
+            let change = sweep.thermal.as_mut().and_then(|t| t.finish(&sweep.flux));
             tracing::debug!(sweep = count, change, "UFG free-gas sweep");
             let done = match sweeps {
                 Some(limit) => count >= limit,

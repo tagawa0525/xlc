@@ -243,8 +243,8 @@ impl Light {
         // E' = E ± y kT のレサジー（上方散乱の裾は E − E' で減るので、エネルギーで測る）。E' が 0 に届く段は打ち切る
         let below = |y: f64| u - (-y * scale).ln_1p();
         let above = |y: f64| u - (y * scale).ln_1p();
-        // 範囲の下限 4 eV と燃料の温度（1200 K で TAIL kT ≈ 2.9 eV）では E' = E − TAIL kT は正なので、打ち切りは届かない
-        // 上方散乱（E' ≤ 0）のときだけ
+        // E' = E − y kT が 0 に近づく段（y kT が E の 0.999 倍を超える）は置かない（ln(1 − y kT/E) が発散する）。範囲の下限 4 eV
+        // では、TAIL kT が 4 eV を超える約 1660 K より高い温度で、この打ち切りが裾を落とす
         let reach = TAIL.min(0.999 / scale);
         // 下方散乱の側の折れの大きさは e^{−E/(A kT)} ほどで、DOWNSIDE より小さければ区間を置かない
         let downside = if e < DOWNSIDE * self.awr * self.kt {
@@ -394,15 +394,6 @@ impl Prefix {
         }
     }
 
-    /// 格子点 `start`, `start` + 1, … の中性子束 `flux`（全体の添字）の累積の積率
-    pub(super) fn of(u: &[f64], flux: &[f64], start: usize) -> Self {
-        let mut prefix = Self::new(start);
-        for m in start..flux.len() {
-            prefix.push(u, flux, m);
-        }
-        prefix
-    }
-
     /// 格子点 m（= 次の点）の累積の積率を足す（`flux` は m までの値を持つ）
     pub(super) fn push(&mut self, u: &[f64], flux: &[f64], m: usize) {
         if m == self.start {
@@ -414,11 +405,6 @@ impl Prefix {
         let s = segment_moments(u[m - 1], u[m], flux[m - 1], flux[m]);
         self.values
             .push([last[0].add(s[0]), last[1].add(s[1]), last[2].add(s[2])]);
-    }
-
-    /// 戻す: 格子点 `len` 以降を捨てる
-    pub(super) fn truncate(&mut self, len: usize) {
-        self.values.truncate(len.saturating_sub(self.start));
     }
 
     /// ∫_{x0}^{x1} F (s − c)^j ds（j = 0, 1, 2）。`q0`, `q1` は u_q ≤ x の格子点。端の区間の部分は c のまわりで直接
@@ -657,7 +643,7 @@ pub(super) struct Thermal {
     /// 上端の側の区間の段（[`grades`]）と、下端の側の区間の細かさ
     grades: Vec<f64>,
     cells: usize,
-    /// D が 0 でありうる最初の格子点の 1 つ前（ここから掃き直す）
+    /// D が 0 でない格子点のうち最初のものの 1 つ前（ここから掃き直す。これより前の格子点の D は 0）
     start: usize,
     /// [リング] の今のスイープの累積の積率
     prefix: Vec<Prefix>,
@@ -815,7 +801,7 @@ impl Thermal {
 
     /// スイープを終え、前のスイープとの中性子束の差（start 以降の格子点の相対差の最大。最初のスイープは `None`）を返し、今のスイープを
     /// 次のスイープの「前のスイープ」にする。
-    pub(super) fn finish(&mut self, u: &[f64], flux: &[Vec<f64>]) -> Option<f64> {
+    pub(super) fn finish(&mut self, flux: &[Vec<f64>]) -> Option<f64> {
         let change = self.previous.as_ref().map(|(old, _)| {
             flux.iter()
                 .zip(old)
@@ -827,22 +813,10 @@ impl Thermal {
                 })
                 .fold(0.0, f64::max)
         });
-        // 累積の積率は、軽い核種を含むリングだけ
-        let prefixes = flux
-            .iter()
-            .enumerate()
-            .map(|(i, f)| {
-                if self.rings.iter().flatten().any(|&(r, _)| r == i) {
-                    Prefix::of(u, f, self.start)
-                } else {
-                    Prefix::new(self.start)
-                }
-            })
-            .collect();
+        // 今のスイープの累積の積率（`record` が軽い核種を含むリングで進めたもの）を、次のスイープの「前のスイープ」にする
+        let fresh = vec![Prefix::new(self.start); self.prefix.len()];
+        let prefixes = std::mem::replace(&mut self.prefix, fresh);
         self.previous = Some((flux.to_vec(), prefixes));
-        for p in &mut self.prefix {
-            p.truncate(self.start);
-        }
         change
     }
 }
