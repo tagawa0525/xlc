@@ -173,6 +173,49 @@ class Rods(unittest.TestCase):
             cct.summarize([("t", table(additive), rodded, NOMINAL)], self.models())
 
 
+THINNING_BURNUP = [0.0, 1.0, 2.0, 4.0, 6.0, 10.0]
+
+
+class Thinning(unittest.TestCase):
+    """分岐を燃焼度の一部の点だけで解き、公称の状態との差を燃焼度について内挿する"""
+
+    def branch_table(self, delta) -> dict:
+        """公称の νΣf2 は燃焼度で 2 次に変わり、分岐の状態はそこに delta(燃焼度) × (ホウ素の偏差) を足す"""
+
+        def g(u, b, m, f):
+            base = additive(u, b, m, f)["nu_fission"][1] - 1e-3 * u * u
+            return state(base + delta(u) * (b - 1300) / 400)
+
+        return table(g, THINNING_BURNUP)
+
+    def test_branch_differences_linear_in_burnup_are_reproduced_from_any_points(self):
+        t = self.branch_table(lambda u: 1e-3 * u)
+        s = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+        (sel,) = s["selections"]
+        self.assertEqual(sel["removed"], [1.0, 2.0, 6.0])
+        for method in cct.THINNING_METHODS:
+            self.assertLess(sel["results"][method]["max_abs_pcm"], 1e-9, method)
+
+    def test_removed_points_take_the_full_table_as_the_truth(self):
+        # 差が 6 で折れる。選んだ 4 と 10 の間にある折れを、線形も Hermite（区間の点が 2 つなので線形）も拾えない
+        t = self.branch_table(lambda u: 1e-3 * max(u - 6.0, 0.0))
+        s = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+        (sel,) = s["selections"]
+        linear = sel["results"]["linear"]
+        self.assertGreater(linear["max_abs_pcm"], 1.0)
+        # 間引いた点 1、2 は折れの手前で、差は 0
+        self.assertLess(max(abs(r) for r in linear["rho_pcm"][:2]), 1e-9)
+        # 誤差を出すのは公称でない状態だけで、そのうち最大の状態を書く
+        self.assertNotEqual(linear["worst"]["boron"], 1300.0)
+        self.assertEqual(linear["worst"]["burnup"], 6.0)
+
+    def test_selections_must_be_points_from_the_first_to_the_last(self):
+        t = self.branch_table(lambda u: 0.0)
+        for burnup in ([0.0, 3.0, 10.0], [0.0, 4.0], [1.0, 4.0, 10.0]):
+            with self.assertRaises(SystemExit, msg=str(burnup)):
+                cct.thin("t", t, NOMINAL, [{"name": "bad", "burnup": burnup}])
+
+
 class Errors(unittest.TestCase):
     def test_the_nominal_state_must_be_a_grid_point(self):
         for nominal in (
