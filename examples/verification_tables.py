@@ -1099,19 +1099,32 @@ def ufg_free_gas_swaps(
     modes: list[str] | None = None,
 ) -> str:
     """ADR-0203 の UFG の散乱核ごとの、UFG の範囲の吸収を OpenMC の値に置き換えて測る k への寄与（pcm）。`specs` と `modes` は
-    残す置き換えと散乱核（省略するとすべて）。状態が流していない置き換え（燃料に無い核種）は –"""
+    残す置き換えと散乱核（省略するとすべて。要約に無いものは止める）。状態が流していない置き換え（状態の `swaps` に無いもの。燃料に無い
+    核種）は –"""
     s = ufg_free_gas_summary(sources)
+    for wanted, known in [
+        (specs, [x["spec"] for x in s["swaps"]]),
+        (modes, [m["key"] for m in s["modes"]]),
+    ]:
+        unknown = sorted(set(wanted or []) - set(known))
+        if unknown:
+            raise TableError(f"the summary has no {unknown}")
     swaps = [x for x in s["swaps"] if specs is None or x["spec"] in specs]
     kept = [m for m in s["modes"] if modes is None or m["key"] in modes]
 
-    def cell(values: dict, spec: str) -> str:
-        return "–" if spec not in values else signed(values[spec], 1)
+    def cell(state: dict, values: dict, spec: str) -> str:
+        # 状態が流していない置き換え（燃料に無い核種）だけを –、流したのに結果が無いものは止める
+        if spec not in state["swaps"]:
+            return "–"
+        if spec not in values:
+            raise TableError(f"{state['name']}: no result of the swap {spec}")
+        return signed(values[spec], 1)
 
     rows = [
         [
             t["name"],
             mode["label"],
-            *(cell(t["results"][mode["key"]]["swaps"], x["spec"]) for x in swaps),
+            *(cell(t, t["results"][mode["key"]]["swaps"], x["spec"]) for x in swaps),
         ]
         for t in s["states"]
         for mode in kept
@@ -1143,6 +1156,10 @@ def ufg_free_gas_tilt(
                 low, high = energies
                 # 区間の端は fine_compare.py が 4 桁に丸めて書くので、群の境界と比べずに区間の中点で選ぶ
                 tilt = [b for b in tilt if low < 0.5 * (b["low"] + b["high"]) < high]
+                if not tilt:
+                    raise TableError(
+                        f"{t['name']}, {mode['label']}: the fine log has no bins in {low}-{high} eV"
+                    )
             edges = [(b["low"], b["high"]) for b in tilt]
             if bins is None:
                 bins = edges
