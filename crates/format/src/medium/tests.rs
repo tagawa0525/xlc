@@ -28,17 +28,9 @@ fn sample() -> Medium {
     Medium {
         bounds: vec![2.0e7, 1.0e5, 0.625, 1.0e-5],
         axes: vec![
-            Axis::Boron {
-                ppm: vec![900.0, 1700.0],
-                b10: 0.199,
-            },
-            Axis::Moderator {
-                temperature: vec![565.0],
-                density: vec![0.743],
-            },
-            Axis::Fuel {
-                temperature: vec![565.0, 900.0],
-            },
+            Axis::boron(vec![900.0, 1700.0], 0.199),
+            Axis::moderator(vec![565.0], vec![0.743]),
+            Axis::fuel(vec![565.0, 900.0]),
         ],
         states: (1..=4).map(|i| state(f64::from(i))).collect(),
     }
@@ -82,14 +74,7 @@ fn invalid_media_are_errors() {
         },
         "states",
     );
-    bad(
-        |m| {
-            m.axes[2] = Axis::Fuel {
-                temperature: vec![900.0, 565.0],
-            }
-        },
-        "axis",
-    );
+    bad(|m| m.axes[2] = Axis::fuel(vec![900.0, 565.0]), "axis");
     // 群の数と違う長さ、有限でない値、負の断面積
     bad(
         |m| {
