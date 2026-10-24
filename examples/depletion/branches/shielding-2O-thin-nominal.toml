@@ -1,0 +1,267 @@
+# 分岐の自己遮蔽を公称の減速材で 1 度だけ解く近似（ADR-0201 の `shielding = "nominal-moderator"`）の誤差を、状態ごとに解き直す既定と
+# 比べる入力（examples/depletion/verification.md の「分岐の自己遮蔽」）。VERA Problem 2 の 2O（Gd 燃料 12 本）の燃焼の履歴（../p2/lattice-2O.msgpack）の
+# 燃焼度 4 MWd/kg（Gd の燃え尽きの前）で、ホウ素 3 点（900、公称の 1300、1700 ppm）× 減速材 1 点（600 K と 0.71190 g/cc）× 燃料 1 点（公称の 600 K）。
+# 減速材の温度は、ライブラリ（../p2/depletion.msgpack）が水と被覆管の核種に持つ 565 K と 600 K から選ぶ（ADR-0097 の M3 の 550、580 K は
+# ない）。密度は ADR-0097 の M3 の点（VERA の仕様書の表 G-2 の 550 K と 580 K の値）。格子、離散化、組成は履歴の入力
+# （../p2/lattice-2O.toml）と同じ（減速材はホウ酸水で書き、履歴の入力の数密度と相対で約 1e-6 違う）。`-every` と `-nominal` は
+# `[branches]` の `shielding` だけが違う。
+library = "../p2/depletion.msgpack"
+few-group = { output = "table-shielding-2O-thin-nominal.msgpack", bounds = [1e7, 0.625, 1e-5] }
+ufg-tolerance = 1e-4
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gd  pin pin gt  pin pin gt  pin pin gt  pin pin gd  pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin gd  pin pin pin gd  pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin gd  pin pin pin pin pin pin pin gd  pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin gd  pin pin pin pin pin pin pin gd  pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin gd  pin pin pin gd  pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin gd  pin pin gt  pin pin gt  pin pin gt  pin pin gd  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+]
+
+[material.fuel]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 600
+# 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
+water = { density = 0.743, boron = 1300, b10 = 0.199 }
+
+[material.gd0]
+temperature = 600
+
+[material.gd0.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd1]
+temperature = 600
+
+[material.gd1.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd2]
+temperature = 600
+
+[material.gd2.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd3]
+temperature = 600
+
+[material.gd3.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd4]
+temperature = 600
+
+[material.gd4.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd5]
+temperature = 600
+
+[material.gd5.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd6]
+temperature = 600
+
+[material.gd6.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+[material.gd7]
+temperature = 600
+
+[material.gd7.nuclides]
+U-234 = 3.18096e-06
+U-235 = 3.90500e-04
+U-236 = 1.79300e-06
+U-238 = 2.10299e-02
+Gd-152 = 3.35960e-06
+Gd-154 = 3.66190e-05
+Gd-155 = 2.48606e-04
+Gd-156 = 3.43849e-04
+Gd-157 = 2.62884e-04
+Gd-158 = 4.17255e-04
+Gd-160 = 3.67198e-04
+O-16 = 4.53705e-02
+
+# 燃料のピン（3.1%）
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# Gd 燃料のピン（リングごとに別の物質。ギャップは真空）
+[cell.gd]
+zones = [
+  { material = "gd0", radius = 0.1448154688, rings = 1 },
+  { material = "gd1", radius = 0.2048, rings = 1 },
+  { material = "gd2", radius = 0.2508277497, rings = 1 },
+  { material = "gd3", radius = 0.2896309376, rings = 1 },
+  { material = "gd4", radius = 0.3238172324, rings = 1 },
+  { material = "gd5", radius = 0.3547240054, rings = 1 },
+  { material = "gd6", radius = 0.3831457164, rings = 1 },
+  { material = "gd7", radius = 0.4096, rings = 1 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [900, 1300, 1700], materials = ["water"] }
+moderator = { temperature = [600], density = [0.71190], materials = ["water", "zircaloy"] }
+fuel = { temperature = [600], materials = ["fuel", "gd0", "gd1", "gd2", "gd3", "gd4", "gd5", "gd6", "gd7"] }
+shielding = "nominal-moderator"
+
+[history]
+file = "../p2/lattice-2O.msgpack"
+burnup = [4]

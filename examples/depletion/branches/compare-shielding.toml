@@ -1,0 +1,21 @@
+# 分岐の自己遮蔽（ADR-0201）の比較: shielding-<集合体>-every.toml と shielding-<集合体>-nominal.toml が書くテーブルを比べる
+# （../compare_branch_shielding.py）
+[[case]]
+name = "2A"
+every = "table-shielding-2A-every.msgpack"
+nominal = "table-shielding-2A-nominal.msgpack"
+
+[[case]]
+name = "2A-dense"
+every = "table-shielding-2A-dense-every.msgpack"
+nominal = "table-shielding-2A-dense-nominal.msgpack"
+
+[[case]]
+name = "2O"
+every = "table-shielding-2O-every.msgpack"
+nominal = "table-shielding-2O-nominal.msgpack"
+
+[[case]]
+name = "2O-thin"
+every = "table-shielding-2O-thin-every.msgpack"
+nominal = "table-shielding-2O-thin-nominal.msgpack"
