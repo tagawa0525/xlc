@@ -646,7 +646,7 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             };
             // 分離共鳴を持つ核種の上限は、inf（上限なし）も受け付ける（ADR-0204）
             let heavy = match entry.heavy {
-                Some(v) if !(v > 0.0) => {
+                Some(v) if v.is_nan() || v <= 0.0 => {
                     return Err(format!(
                         "`ufg-free-gas.heavy` must be a positive multiple of kT (or inf), got {v}"
                     ));
