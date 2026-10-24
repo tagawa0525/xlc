@@ -46,11 +46,14 @@ label = "燃料の全核種、9.88 eV〜15 keV"
 [[state]]
 name = "1C 0 MWd/kg"
 key = "1C-0"
+swaps = "swaps.txt"
 
 [[state]]
 name = "1C 5 MWd/kg"
 key = "1C-5"
+swaps = "swaps.txt"
 
 [[state]]
 name = "2A 40 MWd/kg"
 key = "2A-40"
+swaps = "swaps.txt"

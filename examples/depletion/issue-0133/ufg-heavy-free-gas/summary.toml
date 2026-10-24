@@ -90,11 +90,14 @@ label = "Pu-239、27.7〜48.1 eV"
 [[state]]
 name = "1C 0 MWd/kg"
 key = "1C-0"
+swaps = "swaps-1C-0.txt"
 
 [[state]]
 name = "1C 5 MWd/kg"
 key = "1C-5"
+swaps = "swaps.txt"
 
 [[state]]
 name = "2A 40 MWd/kg"
 key = "2A-40"
+swaps = "swaps.txt"
