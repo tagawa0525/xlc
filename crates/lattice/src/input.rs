@@ -7,6 +7,10 @@
 //!                                 # false で格子点ごとに求める。ADR-0156）
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
+//! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると static。ADR-0203）
+//! ufg-free-gas = { upper = 400, cells = 4, sweeps = 2 }   # free-gas の条件（どれも省略できる。ADR-0203）: 自由ガスの核を
+//!                                 # 使う入射エネルギーの上限（kT の倍数。省略すると上限なし）、核の差を積分する区間の
+//!                                 # 細かさ、上方散乱のスイープの回数（省略すると収束するまで）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -101,7 +105,7 @@ use crate::history::HistoryInput;
 use crate::shielding::ShieldingOptions;
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
-use crate::ufg::Collision;
+use crate::ufg::{Collision, FreeGas, Scattering};
 use crate::water::borated_water;
 
 /// 解くときに使う格子の対称性の選び方（ADR-0112）。
@@ -190,6 +194,8 @@ pub struct LatticeInput {
     pub collision: Collision,
     /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185。`None` は間引かない）
     pub thinning: Option<f64>,
+    /// 自己遮蔽の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
+    pub scattering: Scattering,
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
@@ -279,6 +285,15 @@ pub enum InputError {
     Geometry(#[from] GeometryError),
 }
 
+/// `ufg-free-gas` の値
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FreeGasEntry {
+    upper: Option<f64>,
+    cells: Option<i64>,
+    sweeps: Option<i64>,
+}
+
 /// `track-table` の値: 10 倍あたりの格子点の数か、false（格子点ごとに求める）
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -297,6 +312,10 @@ struct InputFile {
     track_table: Option<TrackTableEntry>,
     /// 省略すると間引かない（ADR-0185）
     ufg_tolerance: Option<f64>,
+    /// 省略すると静止した標的（ADR-0203）
+    ufg_scattering: Option<String>,
+    /// `ufg-scattering = "free-gas"` の条件。省略すると ADR-0203 の既定
+    ufg_free_gas: Option<FreeGasEntry>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,
@@ -602,16 +621,61 @@ struct ZoneEntry {
     rings: usize,
 }
 
+/// `ufg-scattering` と `ufg-free-gas` から散乱核の標的の扱い（ADR-0203）
+fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<Scattering, String> {
+    match kind {
+        None | Some("static") => match entry {
+            None => Ok(Scattering::Static),
+            Some(_) => Err("`ufg-free-gas` needs `ufg-scattering = \"free-gas\"`".into()),
+        },
+        Some("free-gas") => {
+            return Ok(Scattering::Static);
+            #[allow(unreachable_code)]
+            let defaults = FreeGas::default();
+            let Some(entry) = entry else {
+                return Ok(Scattering::FreeGas(defaults));
+            };
+            let upper = match entry.upper {
+                Some(v) if !positive(v) => {
+                    return Err(format!(
+                        "`ufg-free-gas.upper` must be a positive multiple of kT, got {v}"
+                    ));
+                }
+                v => v.or(defaults.upper),
+            };
+            let count = |name: &str, v: Option<i64>| -> Result<Option<usize>, String> {
+                match v {
+                    Some(n) if n < 1 => Err(format!(
+                        "`ufg-free-gas.{name}` must be a positive integer, got {n}"
+                    )),
+                    Some(n) => Ok(Some(n as usize)),
+                    None => Ok(None),
+                }
+            };
+            Ok(Scattering::FreeGas(FreeGas {
+                upper,
+                cells: count("cells", entry.cells)?.unwrap_or(defaults.cells),
+                sweeps: count("sweeps", entry.sweeps)?.or(defaults.sweeps),
+            }))
+        }
+        Some(other) => Err(format!(
+            "`ufg-scattering` must be \"static\" or \"free-gas\", not {other:?}"
+        )),
+    }
+}
+
 fn positive(v: f64) -> bool {
     v > 0.0 && v.is_finite()
 }
 
 impl LatticeInput {
-    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）と格子の間引き（`ufg-tolerance`）だけで、ほかは既定の値
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）、格子の間引き（`ufg-tolerance`）、散乱核の標的の扱い
+    /// （`ufg-scattering`、`ufg-free-gas`）だけで、ほかは既定の値
     pub fn shielding_options(&self) -> ShieldingOptions {
         ShieldingOptions {
             collision: self.collision,
             thinning: self.thinning,
+            scattering: self.scattering,
             ..ShieldingOptions::default()
         }
     }
@@ -736,6 +800,14 @@ impl LatticeInput {
                 "`ufg-tolerance` must be between 0 and 1, got {t}"
             )));
         }
+        if !self_shielding && (file.ufg_scattering.is_some() || file.ufg_free_gas.is_some()) {
+            return Err(invalid(
+                "`ufg-scattering` and `ufg-free-gas` are used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        let scattering =
+            parse_scattering(file.ufg_scattering.as_deref(), file.ufg_free_gas).map_err(invalid)?;
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
@@ -1040,6 +1112,7 @@ impl LatticeInput {
             self_shielding,
             collision,
             thinning,
+            scattering,
             cross_sections,
             output,
             pin_powers: file.pin_powers,
