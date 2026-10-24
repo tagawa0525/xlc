@@ -632,7 +632,7 @@ fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
                 gain: 1.0 / (1.0 - alpha),
                 width: -alpha.ln(),
                 table: t,
-                light: None,
+                gas: None,
             }
         })
         .collect();
@@ -961,7 +961,7 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
                 gain: 1.0,
                 width: 1.0,
                 table: t,
-                light: None,
+                gas: None,
             }
         })
         .collect();
@@ -1023,7 +1023,7 @@ fn macroscopic_totals_report_the_first_error_in_nuclide_then_point_order() {
                 gain: 1.0,
                 width: 1.0,
                 table: t,
-                light: None,
+                gas: None,
             }
         })
         .collect();
