@@ -1014,6 +1014,46 @@ def branch_shielding_constants(sources: list[dict]) -> str:
     )
 
 
+def swap_candidates(sources: list[dict]) -> str:
+    """#0133 の候補ごとの、断面積を OpenMC の値に置き換えて測る k への寄与（pcm）。状態ごとの値と、最初の状態からの変化"""
+    (s,) = sources
+    if s.get("format") != "xlc-swap-candidates":
+        raise TableError("not an xlc-swap-candidates summary")
+    states = s["states"]
+    first, later = states[0], states[1:]
+
+    def value(x) -> str:
+        return "–" if x is None else signed(x, 1)
+
+    def change(a, b) -> str:
+        return "–" if a is None or b is None else signed(b - a, 1)
+
+    rows = [
+        [
+            "k の差（xlc − OpenMC）",
+            *(f"{signed(t['diff_pcm'], 0)} ± {t['diff_std_pcm']:.0f}" for t in states),
+            *(signed(t["diff_pcm"] - first["diff_pcm"], 0) for t in later),
+        ]
+    ]
+    for key in s["order"]:
+        pcm = [t["items"].get(key, {}).get("pcm") for t in states]
+        rows.append(
+            [
+                s["labels"][key],
+                *(value(x) for x in pcm),
+                *(change(pcm[0], x) for x in pcm[1:]),
+            ]
+        )
+    return markdown_table(
+        [
+            "項目",
+            *(t["name"] for t in states),
+            *(f"{t['name']} − {first['name']}" for t in later),
+        ],
+        rows,
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
@@ -1024,6 +1064,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
+    "examples/depletion/issue-0133/swap-candidates.json",
 }
 
 
@@ -1161,6 +1202,10 @@ TABLES = {
     "aws-depletion-1c-densities": (
         ["examples/depletion/aws-check/compare-aws-1C-rings1.json"],
         aws_depletion_densities,
+    ),
+    "depletion-1c-swap-candidates": (
+        ["examples/depletion/issue-0133/swap-candidates.json"],
+        swap_candidates,
     ),
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],
