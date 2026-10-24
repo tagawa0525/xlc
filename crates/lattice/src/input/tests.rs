@@ -1300,3 +1300,43 @@ fn history_branches_need_branches_shielding_and_a_lattice_table() {
     let depleting = format!("{ok}\n[depletion]\n{DEPLETION}");
     assert!(LatticeInput::parse(&depleting).is_err());
 }
+
+#[test]
+fn branches_shield_every_state_unless_told_to_shield_at_the_nominal_moderator() {
+    // 分岐の自己遮蔽（ADR-0201）。書かなければ状態ごとに解き直す
+    let with = |value: &str| {
+        history_branches(HISTORY).replace(
+            "[history]\n",
+            &format!("shielding = \"{value}\"\n[history]\n"),
+        )
+    };
+    let shielding = |text: &str| {
+        LatticeInput::parse(text)
+            .map(|input| input.branches.unwrap().shielding())
+            .map_err(|e| e.to_string())
+    };
+    assert_eq!(
+        shielding(&history_branches(HISTORY)),
+        Ok(BranchShielding::EveryState)
+    );
+    assert_eq!(
+        shielding(&with("every-state")),
+        Ok(BranchShielding::EveryState)
+    );
+    assert_eq!(
+        shielding(&with("nominal-moderator")),
+        Ok(BranchShielding::NominalModerator)
+    );
+    assert!(shielding(&with("nominal")).is_err());
+    // 公称の減速材の自己遮蔽は、履歴からの分岐だけ（燃料の組成が状態によらない）
+    let plain = |value: &str| {
+        let text = with(value);
+        text[..text.find("[history]").unwrap()].to_string()
+    };
+    assert_eq!(
+        shielding(&plain("every-state")),
+        Ok(BranchShielding::EveryState)
+    );
+    let err = shielding(&plain("nominal-moderator")).unwrap_err();
+    assert!(err.contains("[history]"), "{err}");
+}
