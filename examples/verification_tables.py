@@ -915,6 +915,99 @@ def branch_thinning(sources: list[dict]) -> str:
     )
 
 
+def branch_shielding_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-branch-shielding":
+        raise TableError("not an xlc-compare-branch-shielding summary")
+    return s
+
+
+def branch_shielding_groups(s: dict) -> dict:
+    """集合体（ケースの名前の `-` の前）と燃焼度ごとの状態（ケースの順、状態の順）"""
+    groups: dict = {}
+    for case in s["cases"]:
+        assembly = case["name"].split("-")[0]
+        for state in case["states"]:
+            groups.setdefault((assembly, state["burnup"]), []).append(state)
+    return groups
+
+
+def branch_shielding_k(sources: list[dict]) -> str:
+    """分岐の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
+    列は減速材の温度と密度"""
+    s = branch_shielding_summary(sources)
+    groups = branch_shielding_groups(s)
+    moderators = sorted(
+        {
+            (state["moderator_temperature"], state["density"])
+            for states in groups.values()
+            for state in states
+        }
+    )
+    rows = []
+    for (assembly, burnup), states in groups.items():
+        for boron in sorted({state["boron"] for state in states}):
+            at = {
+                (state["moderator_temperature"], state["density"]): state["dk_pcm"]
+                for state in states
+                if state["boron"] == boron
+            }
+            rows.append(
+                [
+                    assembly,
+                    burnup_label(burnup),
+                    f"{boron:g}",
+                    *(signed(at[m], 2) if m in at else "–" for m in moderators),
+                ]
+            )
+    return markdown_table(
+        [
+            "集合体",
+            "燃焼度 (MWd/kg)",
+            "ホウ素 (ppm)",
+            *(f"{t:g} K、{d:g} g/cc" for t, d in moderators),
+        ],
+        rows,
+    )
+
+
+def branch_shielding_constants(sources: list[dict]) -> str:
+    """分岐の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の |Δk∞| の最大（pcm）と、少数群定数の項目ごとの
+    相対差の最大（ADR-0201）"""
+    s = branch_shielding_summary(sources)
+    rows = []
+    for (assembly, burnup), states in branch_shielding_groups(s).items():
+        rows.append(
+            [
+                assembly,
+                burnup_label(burnup),
+                str(len(states)),
+                f"{max(abs(state['dk_pcm']) for state in states):.2f}",
+                *(
+                    f"{max(state['relative'][item] for state in states):.1e}"
+                    for item in s["items"]
+                ),
+            ]
+        )
+    labels = {
+        "absorption": "Σa",
+        "nu_fission": "νΣf",
+        "diffusion": "D",
+        "scatter": "Σs",
+        "adf": "ADF",
+    }
+    return markdown_table(
+        [
+            "集合体",
+            "燃焼度 (MWd/kg)",
+            "状態の数",
+            "|Δk∞| の最大 (pcm)",
+            *(labels[item] for item in s["items"]),
+        ],
+        rows,
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
@@ -923,6 +1016,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-burnup-interpolation.json",
     "examples/depletion/branches/compare-core-2A-boron.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
+    "examples/depletion/branches/compare-shielding.json",
 }
 
 
@@ -1107,6 +1201,14 @@ TABLES = {
     "depletion-2a-core-boron": (
         ["examples/depletion/branches/compare-core-2A-boron.json"],
         core_depletion_boron,
+    ),
+    "depletion-branch-shielding-k": (
+        ["examples/depletion/branches/compare-shielding.json"],
+        branch_shielding_k,
+    ),
+    "depletion-branch-shielding-constants": (
+        ["examples/depletion/branches/compare-shielding.json"],
+        branch_shielding_constants,
     ),
     "depletion-assembly-times": (
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
