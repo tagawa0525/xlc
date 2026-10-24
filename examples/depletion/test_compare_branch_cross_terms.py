@@ -304,5 +304,84 @@ class Main(unittest.TestCase):
             self.assertEqual(len(paths), 2)
 
 
+PAIRS = [["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]
+
+
+def lattice_table(burnup: list[float] | None = None) -> dict:
+    """lattice が書く形の直積のテーブル（点の番号、公称の値、内挿の変数を持つ。ADR-0200）"""
+    t = table(boron_moderator_cross, burnup)
+    for a in t["axes"]:
+        if a["name"] in NOMINAL:
+            a["nominal"] = NOMINAL[a["name"]]
+            a["transform"] = "sqrt" if a["name"] == "fuel" else "linear"
+    t["points"] = [
+        list(p)
+        for p in itertools.product(*[range(len(a["points"])) for a in t["axes"]])
+    ]
+    return t
+
+
+class Subgrids(unittest.TestCase):
+    def test_pair_subgrids_keep_the_points_with_a_nominal_axis(self):
+        product = lattice_table()
+        out = cct.subgrid_table(product, PAIRS)
+        # 1 + 6 + 12 点。3 つの軸がどれも公称でない点だけを除く
+        self.assertEqual(len(out["points"]), 19)
+        self.assertTrue(all(1 in p for p in out["points"]))
+        for p, s in zip(out["points"], out["states"], strict=True):
+            self.assertEqual(s, product["states"][product["points"].index(p)])
+        self.assertEqual(out["axes"], product["axes"])
+
+    def test_one_axis_branches_keep_the_nominal_state_and_the_axes(self):
+        out = cct.subgrid_table(lattice_table(), [])
+        self.assertEqual(len(out["points"]), 7)
+
+    def test_burnup_and_rod_points_keep_every_value(self):
+        burnt = lattice_table([0.0, 10.0])
+        out = cct.subgrid_table(burnt, PAIRS)
+        self.assertEqual(len(out["points"]), 2 * 19)
+        rodded = lattice_table()
+        rodded["axes"].append({"name": "rod", "values": ["out", "aic"]})
+        rodded["points"] = [p + [r] for p in rodded["points"] for r in range(2)]
+        rodded["states"] = [s for s in rodded["states"] for _ in range(2)]
+        out = cct.subgrid_table(rodded, PAIRS)
+        self.assertEqual(len(out["points"]), 2 * 19)
+
+    def test_tables_must_be_products_with_nominal_values(self):
+        bare = lattice_table()
+        del bare["axes"][0]["nominal"]
+        with self.assertRaises(SystemExit):
+            cct.subgrid_table(bare, PAIRS)
+        short = lattice_table()
+        short["points"] = short["points"][:-1]
+        short["states"] = short["states"][:-1]
+        with self.assertRaises(SystemExit):
+            cct.subgrid_table(short, PAIRS)
+        with self.assertRaises(SystemExit):
+            cct.subgrid_table(lattice_table(), [["boron", "rod"]])
+
+    def test_the_command_writes_the_subgrid_table(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "product.msgpack"
+            source.write_bytes(msgpack.packb(lattice_table()))
+            output = root / "pairs.msgpack"
+            argv = sys.argv
+            sys.argv = [
+                "compare_branch_cross_terms.py",
+                "--subgrids",
+                str(source),
+                str(output),
+                "boron,moderator",
+                "boron,fuel",
+                "moderator,fuel",
+            ]
+            try:
+                cct.main()
+            finally:
+                sys.argv = argv
+            self.assertEqual(len(msgpack.unpackb(output.read_bytes())["points"]), 19)
+
+
 if __name__ == "__main__":
     unittest.main()
