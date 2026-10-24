@@ -1,8 +1,9 @@
 """#0133 の試行: xlc の格子の入力（lattice.toml）の燃料の組成で 1C のピンセルを OpenMC で解き、物質（燃料、被覆管、減速材）ごとの
 群ごとの中性子束と、群の間の散乱の移行の行列（nu-scatter、出来事ごとの推定）を、`swap_transfer` の例が読む形（balance.msgpack の
 `k` と `materials` の `flux`、`transfer`）で書く。散乱の移行の差の k への寄与を、物質と入射の群の範囲ごとに測るため。同じファイルに、
-燃料の群ごとの中性子束と核種ごとの反応率（`(n,gamma)`、`fission`、`nu-fission`）を `swap_absorption` の例が読む形（openmc_pin_rates.py
-の `flux`、`bounds`、`densities`、`rates`）で書く（吸収の置き換えも同じ実行の値で測れるように）。
+燃料の群ごとの中性子束と核種ごとの反応率（`(n,gamma)`、`fission`、`nu-fission` だけ）を `swap_absorption` の例が読むキー（`flux`、
+`bounds`、`densities`、`rates` の `mean`）で書く（吸収の置き換えも同じ実行の値で測れるように）。標準偏差のキーは `std_dev` で、
+openmc_pin_rates.py の `std` と違い、物質ごとの吸収も無いので、openmc_pin_rates.py の出力を読むほかのツールには渡せない。
 
 使い方（references の devShell で）: python3 openmc_pin_transfer.py <openmc-1C-rings1.toml> <lattice.toml> <xlc のライブラリ>
     <作業ディレクトリ> <粒子数> <世代数> <非アクティブ> <スレッド数> <シード>（すべて要る）
