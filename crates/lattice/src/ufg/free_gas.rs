@@ -25,7 +25,7 @@ pub(super) const TAIL: f64 = 28.0;
 
 /// D の散乱源を並列に積分する区間の塊の大きさ（1 つの区間は核の評価 2 回とリングごとの積分で 1 µs ほど。塊を小さくすると
 /// 並列の手間が勝つ）
-const CELLS_PER_TASK: usize = 16;
+const CELLS_PER_TASK: usize = 32;
 
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
 pub(super) const EDGE: f64 = 6.0;
@@ -672,6 +672,8 @@ pub(super) struct Thermal {
     /// 作業用の区間の境界と区間
     bounds: Vec<f64>,
     pieces: Vec<(f64, f64)>,
+    /// 作業用の、すべての軽い核種の（核種, 区間の両端）
+    all: Vec<(usize, f64, f64)>,
 }
 
 impl Thermal {
@@ -706,6 +708,7 @@ impl Thermal {
             previous: None,
             bounds: Vec::new(),
             pieces: Vec::new(),
+            all: Vec::new(),
         })
     }
 
@@ -730,7 +733,10 @@ impl Thermal {
             return;
         }
         let last = u.len() - 1;
-        for ((light, sigma), rings) in self.lights.iter().zip(&self.sigma).zip(&self.rings) {
+        // すべての軽い核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
+        // 手間を避ける）
+        self.all.clear();
+        for (l, light) in self.lights.iter().enumerate() {
             light.cells(
                 high,
                 u[m],
@@ -741,52 +747,59 @@ impl Thermal {
                 &mut self.bounds,
                 &mut self.pieces,
             );
-            let prefix = &self.prefix;
-            let previous = self.previous.as_ref();
-            // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
-            let parts: Vec<Vec<(f64, f64)>> = self
-                .pieces
-                .par_chunks(CELLS_PER_TASK)
-                .map(|chunk| {
-                    let mut sums = vec![(0.0, 0.0); rings.len()];
-                    // 隣の区間と共有する端の値（端の位置、窓の中として扱ったか、格子点、値）
-                    let mut shared: Option<(f64, bool, usize, f64)> = None;
-                    for &(a, b) in chunk {
-                        let inside = light.inside(u[m], a, b);
-                        let f = |x: f64, q: usize| {
-                            interpolate(u, sigma, q, x) * light.correction(high, x, u[m], e, inside)
-                        };
-                        let (qa, fa) = match shared {
-                            Some((x, side, q, value)) if x == a && side == inside => (q, value),
-                            _ => {
-                                let q = locate(u, a);
-                                (q, f(a, q))
-                            }
-                        };
-                        let qb = locate(u, b);
-                        let fb = f(b, qb);
-                        shared = Some((b, inside, qb, fb));
-                        let mid = 0.5 * (a + b);
-                        let quadratic = Quadratic::through(a, b, fa, f(mid, locate(u, mid)), fb);
-                        for (sum, &(i, _)) in sums.iter_mut().zip(rings) {
-                            let history = History {
-                                flux: &flux[i],
-                                prefix: &prefix[i],
-                                previous: previous.map(|(f, p)| (f[i].as_slice(), &p[i])),
-                            };
-                            let (k, o) = integrate(&quadratic, u, m, a, b, qa, qb, &history);
-                            sum.0 += k;
-                            sum.1 += o;
+            self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
+        }
+        let n = known.len();
+        let (lights, sigmas, rings) = (&self.lights, &self.sigma, &self.rings);
+        let prefix = &self.prefix;
+        let previous = self.previous.as_ref();
+        // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
+        let parts: Vec<Vec<(f64, f64)>> = self
+            .all
+            .par_chunks(CELLS_PER_TASK)
+            .map(|chunk| {
+                let mut sums = vec![(0.0, 0.0); n];
+                // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
+                let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
+                for &(l, a, b) in chunk {
+                    let (light, sigma) = (&lights[l], &sigmas[l]);
+                    let inside = light.inside(u[m], a, b);
+                    let f = |x: f64, q: usize| {
+                        interpolate(u, sigma, q, x) * light.correction(high, x, u[m], e, inside)
+                    };
+                    let (qa, fa) = match shared {
+                        Some((k, x, side, q, value)) if k == l && x == a && side == inside => {
+                            (q, value)
                         }
+                        _ => {
+                            let q = locate(u, a);
+                            (q, f(a, q))
+                        }
+                    };
+                    let qb = locate(u, b);
+                    let fb = f(b, qb);
+                    shared = Some((l, b, inside, qb, fb));
+                    let mid = 0.5 * (a + b);
+                    let quadratic = Quadratic::through(a, b, fa, f(mid, locate(u, mid)), fb);
+                    for &(i, density) in &rings[l] {
+                        let history = History {
+                            flux: &flux[i],
+                            prefix: &prefix[i],
+                            previous: previous.map(|(f, p)| (f[i].as_slice(), &p[i])),
+                        };
+                        let (k, o) = integrate(&quadratic, u, m, a, b, qa, qb, &history);
+                        sums[i].0 += density * k;
+                        sums[i].1 += density * o;
                     }
-                    sums
-                })
-                .collect();
-            for part in parts {
-                for ((k, o), &(i, density)) in part.into_iter().zip(rings) {
-                    known[i] += density * k;
-                    own[i] += density * o;
                 }
+                sums
+            })
+            .collect();
+        for part in parts {
+            for ((k, o), (known, own)) in part.into_iter().zip(known.iter_mut().zip(own.iter_mut()))
+            {
+                *known += k;
+                *own += o;
             }
         }
     }
