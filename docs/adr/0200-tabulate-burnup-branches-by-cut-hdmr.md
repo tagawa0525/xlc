@@ -288,7 +288,7 @@ lattice の実行は、状態を軸の直積の番号で数えたまま、解く
 - ツール: examples/core/test_rod_table.py（制御棒の組の点と燃焼点）、examples/depletion/test_thin_burnup_table.py、examples/depletion/test_compare_core_depletion.py の
   `test_branch_states_are_found_by_their_points`、
   examples/depletion/test_compare_branch_cross_terms.py の `Subgrids`（直積のテーブルから部分格子のテーブルを書く `--subgrids`）
-- 2A の 40 MWd/kg（xlc a9d85f72、分岐点は main の e54a1e37、2026-10-24、Slurm 537）: branch-2A-cross.toml と branch-2A-cross-rods.toml の
+- 2A の 40 MWd/kg（xlc 92a3cb2c、分岐点は main の e54a1e37、2026-10-24、Slurm 537）: branch-2A-cross.toml と branch-2A-cross-rods.toml の
   直積のテーブル（各 12 状態）を作り直し、rod_table.py でまとめ、`--subgrids` で 2 軸の組すべての点（制御棒の値ごとに 10 点）を取り出して、
   集合体 1 体（反射境界）の core で直積の 24 状態を解いた。core の k と compare_branch_cross_terms.py の組み立ての k∞ の差は
   0.0013 pcm 以下（core が出す k の桁 1e-8 の丸めの程度）、組み立てと直積の差の最大は制御棒なしで 0.38 pcm、制御棒ありで 0.53 pcm で、
