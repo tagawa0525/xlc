@@ -114,7 +114,6 @@ impl Axis {
         }
     }
 
-    /// 公称の値を `value` にした軸（`boron`、`moderator`、`fuel` だけ）
     /// 公称の値を除いた軸
     pub fn without_nominal(mut self) -> Self {
         match &mut self {
@@ -126,6 +125,7 @@ impl Axis {
         self
     }
 
+    /// 公称の値を `value` にした軸（`boron`、`moderator`、`fuel` だけ。ほかの軸はそのまま）
     pub fn with_nominal(mut self, value: f64) -> Self {
         match &mut self {
             Self::Boron { nominal, .. }

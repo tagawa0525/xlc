@@ -382,7 +382,7 @@ fn each_state_starts_from_one_step_back_on_its_last_moved_axis() {
                 *source,
                 "{counts:?}: state {state}"
             );
-            starts.solved(state);
+            starts.solved(state).unwrap();
         }
     }
 }
@@ -616,7 +616,7 @@ fn states_outside_the_subgrids_start_from_the_last_solved_state() {
             None => None,
         };
         assert_eq!(starts.start().copied(), want, "{at:?}");
-        starts.solved(s);
+        starts.solved(s).unwrap();
         previous = Some(s);
     }
     // (0, 1, 0) の ADR-0195 の状態 (0, 0, 0) は解かないので、直前の (0, 0, 1) から
@@ -632,7 +632,7 @@ fn restored_starts_follow_the_solved_states() {
         .collect();
     let mut straight = Starts::over(&counts, present.clone());
     for &s in &present[..5] {
-        straight.solved(s as f64);
+        straight.solved(s as f64).unwrap();
     }
     let (next, solutions, slots) = straight.saved();
     assert_eq!(next, 5);
@@ -656,9 +656,9 @@ fn state_index_inverts_state_indices() {
 }
 
 #[test]
-#[should_panic(expected = "solved")]
-fn solving_past_the_last_state_is_a_bug() {
+fn solving_past_the_last_state_is_an_error() {
     let mut starts = Starts::over(&[2], vec![1]);
-    starts.solved(0.5);
-    starts.solved(1.5);
+    starts.solved(0.5).unwrap();
+    let err = starts.solved(1.5).unwrap_err();
+    assert!(err.contains("solved"), "{err}");
 }

@@ -458,7 +458,7 @@ pub fn solve_states<T: Serialize + DeserializeOwned>(
     for (n, &state) in present.iter().enumerate().skip(states.len()) {
         let (saved, converged) = solve(state, starts.start())?;
         states.push(saved);
-        starts.solved(converged);
+        starts.solved(converged).map_err(|e| anyhow!(e))?;
         // 最後の状態の後は、呼ぶ側が出力を書いてチェックポイントを消す
         if let (Some(c), true) = (checkpoint, n + 1 < count) {
             c.save_states(&states, &starts)?;

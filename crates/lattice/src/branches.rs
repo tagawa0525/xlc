@@ -908,28 +908,29 @@ impl<T> Starts<T> {
         let mut back = at;
         back[axis] -= 1;
         back[axis + 1..].iter_mut().for_each(|i| *i = 0);
-        let back = back
-            .iter()
-            .zip(&self.counts)
-            .fold(0, |index, (&i, &c)| index * c + i);
+        let back = state_index(&self.counts, &back);
         match &self.saved[axis] {
             Some((solved, value)) if *solved == back => Some(value),
             _ => self.saved.last()?.as_ref().map(|(_, value)| &**value),
         }
     }
 
-    /// 次に解く状態の解 `value` を残し、その次の状態に進む
-    pub fn solved(&mut self, value: T) {
+    /// 次に解く状態の解 `value` を残し、その次の状態に進む。解く状態をすべて解いた後に呼べばエラー（呼ぶ側の誤り）
+    pub fn solved(&mut self, value: T) -> Result<(), String> {
         let value = Rc::new(value);
-        let Some(&state) = self.present.get(self.next) else {
-            return;
-        };
+        let state = *self.present.get(self.next).ok_or_else(|| {
+            format!(
+                "solved more states than the {} the run solves",
+                self.present.len()
+            )
+        })?;
         // 添字が 0 でない最後の軸より後の軸はすべて 0 なので、その軸と後の軸の解になる
         let first = self.moved(state).unwrap_or(0);
         for slot in &mut self.saved[first..] {
             *slot = Some((state, Rc::clone(&value)));
         }
         self.next += 1;
+        Ok(())
     }
 
     /// 解いた状態の数と、残した解（同じ解は 1 つ）と、[軸] の残した解の番号（チェックポイントに書く。ADR-0196）
@@ -976,7 +977,7 @@ impl<T> Starts<T> {
         }
         if next > present.len() {
             return Err(format!(
-                "{next} saved states for a run of {}",
+                "{next} states saved for a run of {}",
                 present.len()
             ));
         }
@@ -1025,6 +1026,13 @@ impl<T> Starts<T> {
             .iter()
             .rposition(|&i| i > 0)
     }
+}
+
+/// [軸] の格子点の添字 `at` の、軸の直積の順（最初の軸がいちばん遅く変わる）の状態の番号（`state_indices` の逆）
+pub fn state_index(counts: &[usize], at: &[usize]) -> usize {
+    at.iter()
+        .zip(counts)
+        .fold(0, |index, (&i, &c)| index * c + i)
 }
 
 /// 軸の直積の順（最初の軸がいちばん遅く変わる）の状態 `state` の、[軸] の格子点の添字。`counts` は [軸] の格子点の数
