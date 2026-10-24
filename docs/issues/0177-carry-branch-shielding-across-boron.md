@@ -19,7 +19,7 @@ ADR-0201 の `shielding = "nominal-moderator"`（燃焼度の点と燃料の温�
 
 参照を燃焼度の点 × 減速材の点 × 燃料の温度の点ごとに持ち、ホウ素の軸の物質だけを作り直せば、誤差はホウ素の分（上の 0.2〜0.4 pcm）に
 留まる見込みで、自己遮蔽の回数は ADR-0097 の M3 の 27 状態で燃焼度の点ごとに 9 回（今の every-state の 1/3）になる（見込みで、測っていない）。
-ADR-0201 の作り直し（`history::remix_varied`）は、参照の取り方（`Branches::reference`）と作り直す物質（`Branches::varied`）を変えれば使える。
+ADR-0201 の作り直し（`history::remix_varied`）は、参照の取り方（`Branches::references` と `HistoryBranches::reference`）と作り直す物質（`Branches::varied`）を変えれば使える。
 
 関係する ADR: ADR-0201
 
