@@ -122,7 +122,9 @@ pub fn check_medium(medium: &Medium, bounds: &[f64], axes: &[Axis]) -> Result<()
             medium.bounds
         ));
     }
-    if medium.axes != axes {
+    // 媒質は公称の値を持たないので、平板の軸の公称の値（ADR-0200）は比べない
+    let slab: Vec<Axis> = axes.iter().cloned().map(Axis::without_nominal).collect();
+    if medium.axes != slab {
         return Err(format!(
             "the medium has the branch axes {:?}, the lattice {axes:?}; make the medium with the \
              same branches",

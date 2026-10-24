@@ -150,6 +150,10 @@ impl Medium {
         if self.axes.iter().any(|a| matches!(a, Axis::Rod { .. })) {
             return invalid("media have no rod axis (ADR-0128)".into());
         }
+        // 媒質は軸の直積の状態を持ち、部分格子の公称の状態を使わない（ADR-0200）
+        if self.axes.iter().any(|a| a.nominal_index().is_some()) {
+            return invalid("media have no nominal values (ADR-0200)".into());
+        }
         let points: usize = self.axes.iter().map(Axis::len).product();
         if self.states.len() != points {
             return invalid(format!(

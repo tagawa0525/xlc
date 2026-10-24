@@ -3,8 +3,9 @@
 
 使い方: python3 thin_burnup_table.py <テーブル（msgpack）> <出力（msgpack）> <燃焼度 (MWd/kg)>...
 
-燃焼度はテーブルの燃焼度の点と厳密に等しく、増える順であること（違えばエラー）。燃焼度は最初の軸（いちばん遅く変わる）で、
-状態は燃焼度の点ごとに、ほかの軸の点の数の積 × 部分ノードの数（split²）だけ続く。
+燃焼度はテーブルの燃焼度の点と厳密に等しく、増える順であること（違えばエラー）。燃焼度は最初の軸で、解いた点（`points`）の
+うち選んだ燃焼度の点のものを、燃焼度の番号を付け直して残す（点ごとに部分ノードの数（split²）の状態が続く）。点ごとに解いた燃焼度の
+点が違うテーブル（ADR-0200）も同じ。
 """
 
 import sys
@@ -24,18 +25,22 @@ def thin(table: dict, burnups: list[float]) -> dict:
         raise SystemExit(f"the burnups {burnups} must be points of the table {points}")
     if any(a >= b for a, b in pairwise(burnups)):
         raise SystemExit(f"the burnups {burnups} must increase")
-    block, rest = divmod(len(table["states"]), len(points))
-    if rest or block == 0:
+    sub = table["split"] ** 2
+    if len(table["states"]) != len(table["points"]) * sub:
         raise SystemExit(
-            f"the table has {len(table['states'])} states for {len(points)} burnups"
+            f"the table has {len(table['states'])} states for {len(table['points'])} points"
         )
+    index = {points.index(b): n for n, b in enumerate(burnups)}
+    kept_points = []
     states = []
-    for b in burnups:
-        i = points.index(b)
-        states += table["states"][i * block : (i + 1) * block]
+    for n, point in enumerate(table["points"]):
+        if point[0] in index:
+            kept_points.append([index[point[0]], *point[1:]])
+            states += table["states"][n * sub : (n + 1) * sub]
     return {
         **table,
         "axes": [{**axes[0], "points": list(burnups)}, *axes[1:]],
+        "points": kept_points,
         "states": states,
     }
 

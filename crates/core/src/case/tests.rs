@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::Axis;
+use xlc_format::table::{Axis, product_points};
 
 use super::*;
 use crate::input::{Boron, BoronSearch, Case, Cycle, Inventory, Plant};
@@ -83,24 +83,19 @@ fn table(fissile: f64) -> Table {
             }
         }
     }
-    Table {
+    let mut table = Table {
+        points: Vec::new(),
         split: 1,
         heavy_metal: None,
         axes: vec![
-            Axis::Boron {
-                ppm: PPM.to_vec(),
-                b10: 0.199,
-            },
-            Axis::Moderator {
-                temperature: TM.to_vec(),
-                density: vec![0.75, 0.74],
-            },
-            Axis::Fuel {
-                temperature: TF.to_vec(),
-            },
+            Axis::boron(PPM.to_vec(), 0.199),
+            Axis::moderator(TM.to_vec(), vec![0.75, 0.74]),
+            Axis::fuel(TF.to_vec()),
         ],
         states,
-    }
+    };
+    table.points = product_points(&table.axes);
+    table
 }
 
 /// 炉心の並びと、`layout.files` の順のテーブル

@@ -1,15 +1,24 @@
-//! 炉心の状態からの分岐のテーブルの内挿（ADR-0097）。
+//! 炉心の状態からの分岐のテーブルの内挿（ADR-0097、ADR-0200）。
 //!
-//! 軸ごとに隣の2点で線形に内挿する（ホウ素濃度は ppm、減速材は温度、燃料は √T）。格子点の範囲の外はエラーにし、
+//! 軸ごとに隣の2点で、軸の内挿の変数（テーブルの軸の `transform`。ADR-0097 の ppm、温度、√T）について線形に内挿する。格子点の範囲の外はエラーにし、
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
 //! 持ち、与えないときは軸のないテーブルだけを使う。制御棒の離散の軸は内挿せず、値の名前で選ぶ（棒がなければ
 //! `out`。ADR-0127）。燃焼度は、各点の傾きをその点と両隣の 3 点の放物線の微分にした 3 次 Hermite で内挿する
 //! （ADR-0192）。燃焼度 0 の点は傾きに使わず、0 から次の点までは線形にする。傾きに使う点が 2 つの軸は線形になる。
 //! 燃焼度を与える状態では、核分裂のあるテーブルは燃焼度の軸を持つこと（燃焼度 0 は軸のない新しい燃料のテーブルでも
 //! よい）。核分裂のないテーブル（反射体）は燃焼しないので、軸なしにどの燃焼度でも使う（ADR-0187）。
+//!
+//! テーブルが軸の直積でなく、公称の状態と成分（公称と違う軸の組）の部分格子の点を持つときは、制御棒の値の点の中で cut-HDMR の式
+//! f(x) = Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x₀) で組み立てる（U は成分の集合、f(x_v, x₀) は v の軸だけ x の値にし、ほかを公称に
+//! した状態を、その部分格子の中で多重線形に内挿した値。ADR-0200）。f(x_v, x₀) の係数をまとめて、成分 v の部分格子に
+//! c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|} を掛けて足す。軸の直積は c が 3 つの軸の成分だけ 1 で、ほかの成分は 0 なので、直積の多重線形
+//! そのものになる。すべての燃焼度の点で解いていない点は、その点の燃焼度の点での公称の状態との差を燃焼度について内挿し、
+//! 公称の状態をすべての燃焼度の点で内挿した値に足す（燃焼度の内挿はどちらも ADR-0192）。
+
+use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, ROD_OUT, Table};
+use xlc_format::table::{Axis, ROD_OUT, Table, component};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -283,29 +292,42 @@ pub fn interpolate(
             "the table has fission but no burnup axis for the burnup {burnup} of the state (ADR-0187)"
         ));
     }
-    // テーブルの軸の順に、内挿に使う格子点と重み
+    // テーブルの軸の順に、内挿に使う格子点と重み。範囲の外は、組み立てに使わない軸でもエラーにする（燃焼度の軸は、すべての燃焼度の
+    // 点で解いた点の重み）
     let mut terms = Vec::with_capacity(table.axes.len());
-    for axis in &table.axes {
+    let mut burnup = None;
+    for (a, axis) in table.axes.iter().enumerate() {
         terms.push(match axis {
             Axis::Burnup { points } => {
-                let burnup = state.burnup.ok_or(
+                let value = state.burnup.ok_or(
                     "the table has a burnup axis; give the state a burnup (ADR-0187)",
                 )?;
-                burnup_terms(points, burnup)?
+                burnup = Some((a, points.as_slice(), value));
+                burnup_terms(points, value)?
             }
-            Axis::Boron { ppm, b10 } => {
+            Axis::Boron {
+                ppm, b10, transform, ..
+            } => {
                 if *b10 != state.b10 {
                     return Err(format!(
                         "boron: the table has b10 {b10} and the state {}; they must be exactly equal",
                         state.b10
                     ));
                 }
-                bracket("boron", ppm, state.boron, |x| x)?
+                bracket("boron", ppm, state.boron, |x| transform.apply(x))?
             }
-            Axis::Moderator { temperature, .. } => {
-                bracket("moderator", temperature, state.moderator, |x| x)?
-            }
-            Axis::Fuel { temperature } => bracket("fuel", temperature, state.fuel, f64::sqrt)?,
+            Axis::Moderator {
+                temperature,
+                transform,
+                ..
+            } => bracket("moderator", temperature, state.moderator, |x| {
+                transform.apply(x)
+            })?,
+            Axis::Fuel {
+                temperature,
+                transform,
+                ..
+            } => bracket("fuel", temperature, state.fuel, |x| transform.apply(x))?,
             Axis::Rod { values } => {
                 let wanted = rod.unwrap_or(ROD_OUT);
                 let i = values.iter().position(|v| v == wanted).ok_or_else(|| {
@@ -315,65 +337,286 @@ pub fn interpolate(
             }
         });
     }
+    let mut assembly = Assembly::new(table, &terms, burnup);
+    let weights = assembly.weights()?;
 
     let mut out: Vec<FewGroup> = (0..sub)
         .map(|q| table.states.get(q).map(|s| scaled(s, 0.0)))
         .collect::<Option<_>>()
         .ok_or("the table has no states")?;
-    // 軸ごとの格子点の直積の重みつきの和（最初の軸がいちばん遅く変わる並び）。部分ノードごとに足す
-    let mut pick = vec![0usize; terms.len()];
-    'corners: loop {
-        let mut index = 0;
-        let mut weight = 1.0;
-        for ((axis, t), &p) in table.axes.iter().zip(&terms).zip(&pick) {
-            let (i, w) = t[p];
-            index = index * axis.len() + i;
-            weight *= w;
-        }
+    // 点の順（軸の直積なら、最初の軸がいちばん遅く変わる順）に、部分ノードごとに足す
+    for &(point, weight) in &weights {
         if weight != 0.0 {
             for (q, acc) in out.iter_mut().enumerate() {
                 let s = table
                     .states
-                    .get(index * sub + q)
-                    .ok_or_else(|| format!("the table has no state {index} sub-node {q}"))?;
+                    .get(point * sub + q)
+                    .ok_or_else(|| format!("the table has no state {point} sub-node {q}"))?;
                 accumulate(acc, weight, s)?;
             }
         }
-        // 最後の軸から桁を進める
-        let mut k = terms.len();
-        loop {
-            if k == 0 {
-                break 'corners;
-            }
-            k -= 1;
-            pick[k] += 1;
-            if pick[k] < terms[k].len() {
-                break;
-            }
-            pick[k] = 0;
-        }
     }
-    // 燃焼度の 3 次 Hermite は凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで内挿したときは、
-    // 値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも燃焼度の点を足す示唆を添える
-    // （折れ曲がりの近くの 0 に近い量が負になりうる。ADR-0192）
-    let convex = terms.iter().flatten().all(|&(_, w)| w >= 0.0);
+    // 燃焼度の 3 次 Hermite と cut-HDMR の組み立ては凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで
+    // 組み立てたときは、値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも負の重みの出どころと
+    // 示唆を添える（折れ曲がりの近くや、解いていない格子点の近くの 0 に近い量が負になりうる。ADR-0192、ADR-0200）
+    let mut causes = Vec::new();
+    if assembly.negative_burnup {
+        causes.push(format!(
+            "the cubic burnup interpolation at burnup {} overshot, add burnup points near the bend (ADR-0192)",
+            state.burnup.unwrap_or(0.0)
+        ));
+    }
+    if assembly.negative_difference {
+        causes.push(
+            "a state solved at some burnups adds its difference from the nominal state, add its burnup points \
+             (ADR-0200)"
+                .to_string(),
+        );
+    }
+    if assembly.negative_components {
+        causes.push(
+            "the cut-HDMR assembly of the subgrids went past the solved states, add the subgrid of more axes \
+             (ADR-0200)"
+                .to_string(),
+        );
+    }
     for f in &out {
         let hint = |e: String| {
-            if convex {
+            if causes.is_empty() {
                 e
             } else {
-                format!(
-                    "burnup {}: {e}; the cubic burnup interpolation overshot, add burnup points near the bend (ADR-0192)",
-                    state.burnup.unwrap_or(0.0)
-                )
+                format!("{e}; {}", causes.join("; "))
             }
         };
         f.validate().map_err(|e| hint(e.to_string()))?;
-        if !convex {
+        if !causes.is_empty() {
             non_negative(f).map_err(hint)?;
         }
     }
     Ok(out)
+}
+
+/// テーブルの点の、状態の値に掛ける重みの組み立て（モジュールの説明の cut-HDMR と、燃焼度の公称との差の内挿）
+struct Assembly<'a> {
+    table: &'a Table,
+    /// [軸] の格子点と重み（燃焼度の軸は、すべての燃焼度の点で解いた点の重み）
+    terms: &'a [Terms],
+    /// 燃焼度の軸の番号、点、状態の燃焼度
+    burnup: Option<(usize, &'a [f64], f64)>,
+    /// 部分格子で組み立てる軸（ホウ素、減速材、燃料）の番号
+    state_axes: Vec<usize>,
+    /// 部分格子で組み立てる軸の公称の格子点（テーブルが公称の値を持たなければ `None`）
+    nominal: Option<Vec<usize>>,
+    /// 制御棒の軸の番号と、選んだ値の番号
+    rod: Option<(usize, usize)>,
+    /// 負の重みの出どころ
+    negative_burnup: bool,
+    negative_components: bool,
+    /// 公称の状態との差で燃焼度を内挿した点がある（公称の状態を負の重みで引く）
+    negative_difference: bool,
+}
+
+impl<'a> Assembly<'a> {
+    fn new(table: &'a Table, terms: &'a [Terms], burnup: Option<(usize, &'a [f64], f64)>) -> Self {
+        let state_axes: Vec<usize> = (0..table.axes.len())
+            .filter(|&a| table.axes[a].state_axis().is_some())
+            .collect();
+        let nominal = state_axes
+            .iter()
+            .map(|&a| table.axes[a].nominal_index())
+            .collect();
+        let rod = table
+            .axes
+            .iter()
+            .position(|a| matches!(a, Axis::Rod { .. }))
+            .map(|a| (a, terms[a][0].0));
+        Self {
+            table,
+            terms,
+            burnup,
+            state_axes,
+            nominal,
+            rod,
+            negative_burnup: false,
+            negative_components: false,
+            negative_difference: false,
+        }
+    }
+
+    /// 選んだ制御棒の値の点の成分と、その係数 c_v（係数が 0 の成分は除く）。公称の値のないテーブルは直積で、3 つの軸の成分だけ
+    fn components(&self) -> Result<Vec<(u32, f64)>, String> {
+        let all = (1u32 << self.state_axes.len()) - 1;
+        let Some(nominal) = &self.nominal else {
+            return Ok(vec![(all, 1.0)]);
+        };
+        let masks: BTreeSet<u32> = self
+            .table
+            .points
+            .iter()
+            .filter(|p| self.rod.is_none_or(|(a, r)| p[a] == r))
+            .map(|p| {
+                let at: Vec<usize> = self.state_axes.iter().map(|&a| p[a]).collect();
+                component(&at, nominal)
+            })
+            .collect();
+        if masks.is_empty() {
+            return Err("the table has no states for the rod value".into());
+        }
+        // c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|}（整数なので丸めない）
+        Ok(masks
+            .iter()
+            .map(|&v| {
+                let c: i32 = masks
+                    .iter()
+                    .filter(|&&u| u & v == v)
+                    .map(|&u| if (u ^ v).count_ones() % 2 == 0 { 1 } else { -1 })
+                    .sum();
+                (v, f64::from(c))
+            })
+            .filter(|&(_, c)| c != 0.0)
+            .collect())
+    }
+
+    /// 点の番号（`at` の燃焼度の軸の番号は `k` にする）
+    fn point(&self, at: &[usize], k: Option<usize>) -> Result<usize, String> {
+        let mut at = at.to_vec();
+        if let (Some((b, ..)), Some(k)) = (self.burnup, k) {
+            at[b] = k;
+        }
+        self.table
+            .point_index(&at)
+            .ok_or_else(|| format!("the table has no state at the point {at:?}"))
+    }
+
+    /// [点] の重み（点の順。同じ点の重みはまとめる）
+    fn weights(&mut self) -> Result<Vec<(usize, f64)>, String> {
+        let mut weights: Vec<(usize, f64)> = Vec::new();
+        self.negative_burnup = self
+            .burnup
+            .is_some_and(|(b, ..)| self.terms[b].iter().any(|&(_, w)| w < 0.0));
+        for (v, c) in self.components()? {
+            if c < 0.0 {
+                self.negative_components = true;
+            }
+            // 軸ごとの格子点と重み: 成分の軸は状態の重み、成分でない状態の軸は公称の点、燃焼度の軸はあとで点ごとに
+            let corner_terms: Vec<Terms> = (0..self.table.axes.len())
+                .map(|a| match self.state_axes.iter().position(|&s| s == a) {
+                    Some(i) if v & (1 << i) == 0 => {
+                        let nominal = self.nominal.as_ref().map_or(0, |n| n[i]);
+                        vec![(nominal, 1.0)]
+                    }
+                    _ if self.burnup.is_some_and(|(b, ..)| b == a) => vec![(0, 1.0)],
+                    _ => self.terms[a].clone(),
+                })
+                .collect();
+            let mut pick = vec![0usize; corner_terms.len()];
+            'corners: loop {
+                let at: Vec<usize> = corner_terms
+                    .iter()
+                    .zip(&pick)
+                    .map(|(t, &p)| t[p].0)
+                    .collect();
+                self.corner(&at, &corner_terms, &pick, c, &mut weights)?;
+                // 最後の軸から桁を進める
+                let mut k = corner_terms.len();
+                loop {
+                    if k == 0 {
+                        break 'corners;
+                    }
+                    k -= 1;
+                    pick[k] += 1;
+                    if pick[k] < corner_terms[k].len() {
+                        break;
+                    }
+                    pick[k] = 0;
+                }
+            }
+        }
+        weights.sort_by_key(|&(p, _)| p);
+        let mut merged: Vec<(usize, f64)> = Vec::with_capacity(weights.len());
+        for (p, w) in weights {
+            match merged.last_mut() {
+                Some((last, sum)) if *last == p => *sum += w,
+                _ => merged.push((p, w)),
+            }
+        }
+        Ok(merged)
+    }
+
+    /// 成分の係数 `c` の部分格子の角 `at`（`corner_terms` の `pick` の格子点）の重みを `weights` に足す。燃焼度の軸があれば、
+    /// その点を解いた燃焼度の点で
+    fn corner(
+        &mut self,
+        at: &[usize],
+        corner_terms: &[Terms],
+        pick: &[usize],
+        c: f64,
+        weights: &mut Vec<(usize, f64)>,
+    ) -> Result<(), String> {
+        // 軸の順に掛けた重み（燃焼度の軸は `burnup_weight`）
+        let product = |burnup_weight: f64| {
+            let mut weight = 1.0;
+            for (a, (t, &p)) in corner_terms.iter().zip(pick).enumerate() {
+                weight *= if self.burnup.is_some_and(|(b, ..)| b == a) {
+                    burnup_weight
+                } else {
+                    t[p].1
+                };
+            }
+            c * weight
+        };
+        // 重みが 0 の角は使わない（解いた燃焼度の点の範囲の外でも、エラーにしない）
+        if product(1.0) == 0.0 {
+            return Ok(());
+        }
+        let Some((b, points, value)) = self.burnup else {
+            weights.push((self.point(at, None)?, product(1.0)));
+            return Ok(());
+        };
+        let solved: Vec<usize> = (0..points.len())
+            .filter(|&k| self.point(at, Some(k)).is_ok())
+            .collect();
+        if solved.len() == points.len() {
+            for &(k, h) in &self.terms[b] {
+                weights.push((self.point(at, Some(k))?, product(h)));
+            }
+            return Ok(());
+        }
+        // 公称の状態との差を、解いた燃焼度の点で内挿する
+        let nominal = self.nominal.as_ref().ok_or(
+            "points solved at only some burnups need the nominal values of the table (ADR-0200)",
+        )?;
+        let mut origin = at.to_vec();
+        for (&a, &n) in self.state_axes.iter().zip(nominal) {
+            origin[a] = n;
+        }
+        if let (Some((a, _)), Some(Axis::Rod { values })) =
+            (self.rod, self.rod.map(|(a, _)| &self.table.axes[a]))
+        {
+            origin[a] = values
+                .iter()
+                .position(|v| v == ROD_OUT)
+                .ok_or("points solved at only some burnups need the rod value out (ADR-0200)")?;
+        }
+        let at_solved: Vec<f64> = solved.iter().map(|&k| points[k]).collect();
+        let difference = burnup_terms(&at_solved, value).map_err(|e| {
+            format!("the point {at:?} is solved at the burnups {at_solved:?} only: {e}")
+        })?;
+        let weight = product(1.0);
+        self.negative_difference = true;
+        for &(k, h) in &self.terms[b] {
+            weights.push((self.point(&origin, Some(k))?, weight * h));
+        }
+        for (i, h) in difference {
+            if h < 0.0 {
+                self.negative_burnup = true;
+            }
+            let k = solved[i];
+            weights.push((self.point(at, Some(k))?, weight * h));
+            weights.push((self.point(&origin, Some(k))?, -weight * h));
+        }
+        Ok(())
+    }
 }
 
 /// 断面積と拡散係数が負でないこと（`FewGroup::validate` は有限かどうかだけを見る）。項目を足したらここで扱いを決める
