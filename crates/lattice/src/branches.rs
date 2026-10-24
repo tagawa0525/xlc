@@ -72,13 +72,7 @@ impl Branches {
         self.shielding
     }
 
-    /// 状態 `state` の参照の物質の組: 燃料の温度の軸だけを状態の格子点にし、ホウ素と減速材の軸が変える物質は入力のまま
-    pub fn reference(&self, state: usize) -> &[MaterialInput] {
-        // 燃料の温度の軸は最後の軸（いちばん速く変わる）
-        &self.references[state % self.references.len()]
-    }
-
-    /// [燃料の温度の格子点] の参照の物質の組
+    /// [燃料の温度の格子点] の参照の物質の組: 燃料の温度の軸だけをその格子点にし、ホウ素と減速材の軸が変える物質は入力のまま
     pub fn references(&self) -> &[Vec<MaterialInput>] {
         &self.references
     }
