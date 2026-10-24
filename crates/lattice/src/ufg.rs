@@ -526,20 +526,28 @@ fn solve_cell(
     let (thermal, sweeps) = match scattering {
         Scattering::Static => (None, None),
         Scattering::FreeGas(options) => {
-            let gases: Vec<usize> = (0..data.len()).filter(|&k| data[k].gas.is_some()).collect();
-            let mut sigma = vec![Vec::with_capacity(points.len()); gases.len()];
-            let mut cursors: Vec<usize> = gases
+            let gases: Vec<(usize, Gas)> = data
                 .iter()
-                .map(|&k| data[k].pointwise().energy.len())
+                .enumerate()
+                .filter_map(|(k, d)| d.gas.map(|gas| (k, gas)))
                 .collect();
-            for &(e, below) in &points {
-                for ((&k, c), column) in gases.iter().zip(&mut cursors).zip(&mut sigma) {
-                    column.push(evaluate(&data[k], c, e, below)?[1]);
-                }
-            }
+            let energies: Vec<f64> = points.iter().map(|&(e, _)| e).collect();
+            // D に掛ける σs は、上限より下の入射を補間する格子点からだけ引く（上限の低い分離共鳴を持つ核種で、範囲の全体を持たない）
+            let sigma = gases
+                .iter()
+                .map(|&(k, gas)| {
+                    let first = free_gas::first_below(&energies, gas.cap());
+                    let mut cursor = data[k].pointwise().energy.len();
+                    let column = points[first..]
+                        .iter()
+                        .map(|&(e, below)| Ok(evaluate(&data[k], &mut cursor, e, below)?[1]))
+                        .collect::<Result<Vec<f64>, UfgError>>()?;
+                    Ok((first, column))
+                })
+                .collect::<Result<Vec<_>, UfgError>>()?;
             let rings = gases
                 .iter()
-                .map(|&k| {
+                .map(|&(k, _)| {
                     entries
                         .iter()
                         .enumerate()
@@ -551,9 +559,8 @@ fn solve_cell(
                         .collect()
                 })
                 .collect();
-            let energies: Vec<f64> = points.iter().map(|&(e, _)| e).collect();
             let thermal = Thermal::new(
-                gases.iter().filter_map(|&k| data[k].gas).collect(),
+                gases.iter().map(|&(_, gas)| gas).collect(),
                 sigma,
                 rings,
                 options.cells,

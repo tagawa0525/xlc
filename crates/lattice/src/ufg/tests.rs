@@ -1567,3 +1567,12 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
         );
     }
 }
+
+#[test]
+fn a_resonant_cap_just_below_the_range_reaches_it_by_up_scattering() {
+    // 60 kT（600 K で 3.1 eV）の上限は範囲の下限 4 eV より下だが、上方散乱の裾は 4 eV の近くの格子点に届く（範囲の下限より下の入射は
+    // 最後の格子点の値を使う）
+    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let capped = thermal_spectrum(600.0, free_gas_heavy(60.0, 4, None));
+    assert!(flux_difference(&capped, &light) > 0.0);
+}
