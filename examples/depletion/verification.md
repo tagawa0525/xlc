@@ -532,7 +532,7 @@ F2 の全体は F1 の 66%。F1 の 1 回の自己遮蔽は 10.5 秒で、F2 の
 
 #### 計算
 
-xlc 997c4543（分岐点は main の 828f27a5）、2026-10-24、Slurm 531（2A）、532（2O）。どちらも timed でないジョブなので、時間は記録に
+xlc d3e0b64e（分岐点は main の 828f27a5）、2026-10-24、Slurm 531（2A）、532（2O）。どちらも timed でないジョブなので、時間は記録に
 使わない。ライブラリは `p2/depletion.msgpack` md5 015111df、履歴は `p2/lattice-2A.msgpack` md5 eb9ca398、`p2/lattice-2O.msgpack` md5 d076d94d。
 比べたテーブルの md5 は `branches/compare-shielding.json` の `inputs`。
 

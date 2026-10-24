@@ -104,7 +104,7 @@ R1 と M1 にし、入力で選ぶ。
   650 K の無限希釈の値と自己遮蔽因子の積と相対 1e-12 で同じ）、`remixing_the_nominal_composition_reproduces_the_shielded_materials`、
   `carried_shielding_scales_the_state_dilution_by_the_nominal_ratio`、
   `only_nominal_moderator_shielding_needs_the_depleted_materials_off_the_moderator_axis`
-- 集合体（examples/depletion/verification.md の「分岐の自己遮蔽（ADR-0201）」。xlc 997c4543、分岐点は main の 828f27a5、2026-10-24、
+- 集合体（examples/depletion/verification.md の「分岐の自己遮蔽（ADR-0201）」。xlc d3e0b64e、分岐点は main の 828f27a5、2026-10-24、
   Slurm 531、532）: 2A の 0、20 MWd/kg と 2O の 4 MWd/kg で、ホウ素 900、1300、1700 ppm × 減速材 3 点（公称、温度を 35 K 変えて密度を
   M3 の 0.71190 か 0.76972 g/cc にした点、公称の温度で密度だけを変えた点。ライブラリが 565 K と 600 K だけを持つので、M3 の 550、580 K は
   使えない）× 燃料 1 点（公称）。状態ごとに解き直したテーブルとの k∞ の差は、公称の状態で 0.000 pcm、ホウ素だけを変えた状態で −0.37〜+0.29 pcm、
