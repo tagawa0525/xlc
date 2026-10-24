@@ -1092,27 +1092,38 @@ def ufg_free_gas_k(sources: list[dict]) -> str:
     )
 
 
-def ufg_free_gas_swaps(sources: list[dict]) -> str:
-    """ADR-0203 の UFG の散乱核ごとの、UFG の範囲の吸収を OpenMC の値に置き換えて測る k への寄与（pcm）"""
+def ufg_free_gas_swaps(
+    sources: list[dict],
+    specs: list[str] | None = None,
+    modes: list[str] | None = None,
+) -> str:
+    """ADR-0203 の UFG の散乱核ごとの、UFG の範囲の吸収を OpenMC の値に置き換えて測る k への寄与（pcm）。`specs` と `modes` は
+    残す置き換えと散乱核（省略するとすべて）。状態が流していない置き換え（燃料に無い核種）は –"""
     s = ufg_free_gas_summary(sources)
+    swaps = [x for x in s["swaps"] if specs is None or x["spec"] in specs]
+    kept = [m for m in s["modes"] if modes is None or m["key"] in modes]
+
+    def cell(values: dict, spec: str) -> str:
+        return "–" if spec not in values else signed(values[spec], 1)
+
     rows = [
         [
             t["name"],
             mode["label"],
-            *(
-                signed(t["results"][mode["key"]]["swaps"][x["spec"]], 1)
-                for x in s["swaps"]
-            ),
+            *(cell(t["results"][mode["key"]]["swaps"], x["spec"]) for x in swaps),
         ]
         for t in s["states"]
-        for mode in s["modes"]
+        for mode in kept
         if mode["key"] in t["results"]
     ]
-    return markdown_table(["状態", "散乱核", *(x["label"] for x in s["swaps"])], rows)
+    return markdown_table(["状態", "散乱核", *(x["label"] for x in swaps)], rows)
 
 
-def ufg_free_gas_tilt(sources: list[dict]) -> str:
-    """ADR-0203 の UFG の散乱核ごとの、27 群の燃料の中性子束の区間ごとの比 − 1（%。群の中で規格化。fine_compare.py）"""
+def ufg_free_gas_tilt(
+    sources: list[dict], energies: tuple[float, float] | None = None
+) -> str:
+    """ADR-0203 の UFG の散乱核ごとの、燃料の中性子束の区間ごとの比 − 1（%。群の中で規格化。fine_compare.py）。`energies` は残す
+    区間（中点）のエネルギーの範囲 (eV)（省略するとすべての区間）"""
     s = ufg_free_gas_summary(sources)
     rows, bins = [], None
     for t in s["states"]:
@@ -1120,6 +1131,10 @@ def ufg_free_gas_tilt(sources: list[dict]) -> str:
             tilt = t["results"].get(mode["key"], {}).get("tilt")
             if tilt is None:
                 continue
+            if energies is not None:
+                low, high = energies
+                # 区間の端は fine_compare.py が 4 桁に丸めて書くので、群の境界と比べずに区間の中点で選ぶ
+                tilt = [b for b in tilt if low < 0.5 * (b["low"] + b["high"]) < high]
             edges = [(b["low"], b["high"]) for b in tilt]
             if bins is None:
                 bins = edges
@@ -1128,7 +1143,7 @@ def ufg_free_gas_tilt(sources: list[dict]) -> str:
             rows.append(
                 [t["name"], mode["label"], *(signed(100 * b["ratio"], 2) for b in tilt)]
             )
-    if bins is None:
+    if not bins:
         raise TableError("no fine logs")
     return markdown_table(
         ["状態", "散乱核", *(f"{lo:g}〜{hi:g} eV" for lo, hi in bins)], rows
