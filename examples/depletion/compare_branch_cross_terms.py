@@ -80,6 +80,8 @@ def migration_area(state: dict) -> float:
     total = np.asarray(state["total"], dtype=float)
     scatter = np.asarray(state["scatter"], dtype=float)
     diffusion = np.asarray(state["diffusion"], dtype=float)
+    if len(total) != 2:
+        raise SystemExit(f"the migration area needs two groups, not {len(total)}")
     return float(sum(diffusion[g] / (total[g] - scatter[g][g]) for g in range(2)))
 
 
@@ -89,44 +91,68 @@ def relative_errors(rebuilt: dict, truth: dict) -> dict:
         t = np.asarray(truth[item], dtype=float)
         r = np.asarray(rebuilt[item], dtype=float)
         nonzero = t != 0
-        out[item] = float(np.max(np.abs(r[nonzero] - t[nonzero]) / np.abs(t[nonzero])))
+        if (r[~nonzero] != 0).any():
+            raise SystemExit(f"{item}: the rebuilt state is not zero where the grid is")
+        out[item] = (
+            float(np.max(np.abs(r[nonzero] - t[nonzero]) / np.abs(t[nonzero])))
+            if nonzero.any()
+            else 0.0
+        )
     return out
 
 
-def continuous_axes(table: dict) -> tuple[list[float] | None, list[dict]]:
+def table_grid(name: str, table: dict, nominal: dict) -> dict:
+    """テーブルの燃焼度の点（なければ None）、連続の軸の名前と点、公称の状態の点の番号、燃焼度の点ごとの状態の数を確かめて返す"""
     if table.get("format") != "xlc-table" or table.get("split") != 1:
         raise SystemExit(
-            "the table must be an xlc-table that does not split the assembly"
+            f"{name}: the table must be an xlc-table that does not split the assembly"
         )
     axes = table["axes"]
     if any("points" not in a for a in axes):
-        raise SystemExit("give the rods as a second table, not as a rod axis")
+        raise SystemExit(f"{name}: give the rods as a second table, not as a rod axis")
+    burnup = None
     if axes[0]["name"] == "burnup":
-        return [float(b) for b in axes[0]["points"]], axes[1:]
-    return None, axes
-
-
-def summarize_table(
-    name: str, table: dict, rodded: dict | None, nominal: dict, models: list[dict]
-) -> dict:
-    burnup, axes = continuous_axes(table)
+        burnup = [float(b) for b in axes[0]["points"]]
+        axes = axes[1:]
     names = [a["name"] for a in axes]
-    if rodded is not None and [(a["name"], a["points"]) for a in rodded["axes"]] != [
-        (a["name"], a["points"]) for a in table["axes"]
-    ]:
-        raise SystemExit(f"{name}: the rodded table must have the axes of the table")
+    points = [[float(p) for p in a["points"]] for a in axes]
     if sorted(nominal) != sorted(names):
         raise SystemExit(
             f"{name}: give the nominal value of every axis {names}, not {sorted(nominal)}"
         )
-    points = [[float(p) for p in a["points"]] for a in axes]
-    nominal_index = []
     for n, p in zip(names, points, strict=True):
         if float(nominal[n]) not in p:
             raise SystemExit(
                 f"{name}: the nominal {n} {nominal[n]} is not a point of the axis {p}"
             )
-        nominal_index.append(p.index(float(nominal[n])))
+    per_point = math.prod(len(p) for p in points)
+    if len(table["states"]) != per_point * len(burnup or [None]):
+        raise SystemExit(f"{name}: {len(table['states'])} states for the axes")
+    return {
+        "burnup": burnup,
+        "names": names,
+        "points": points,
+        "nominal": tuple(
+            p.index(float(nominal[n])) for n, p in zip(names, points, strict=True)
+        ),
+        "per_point": per_point,
+    }
+
+
+def summarize_table(
+    name: str, table: dict, rodded: dict | None, nominal: dict, models: list[dict]
+) -> dict:
+    grid_of = table_grid(name, table, nominal)
+    if rodded is not None:
+        table_grid(f"{name} (rods)", rodded, nominal)
+        if [(a["name"], a["points"]) for a in rodded["axes"]] != [
+            (a["name"], a["points"]) for a in table["axes"]
+        ]:
+            raise SystemExit(
+                f"{name}: the rodded table must have the axes of the table"
+            )
+    burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
+    nominal_index = list(grid_of["nominal"])
     all_names = names + (["rods"] if rodded is not None else [])
     values = points + ([RODS] if rodded is not None else [])
     nominal_index = tuple(nominal_index + ([0] if rodded is not None else []))
@@ -143,13 +169,11 @@ def summarize_table(
         if rodded is not None or all("rods" not in k for k in m["keep"])
     ]
     sizes = [len(v) for v in values]
-    per_point = math.prod(len(p) for p in points)
+    per_point = grid_of["per_point"]
     burnups = burnup if burnup is not None else [None]
-    if len(table["states"]) != per_point * len(burnups):
-        raise SystemExit(f"{name}: {len(table['states'])} states for the axes")
     table_k = []
     out_points = []
-    for b, _ in enumerate(burnups):
+    for b in range(len(burnups)):
         sources = [table] + ([rodded] if rodded is not None else [])
         states = {}
         for r, source in enumerate(sources):
@@ -210,22 +234,13 @@ def summarize_table(
 def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
     """分岐を燃焼度の点 `burnup` だけで解いたとして、公称でない各状態の、公称の状態との差（少数群定数の項目）を燃焼度について
     内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は `summarize_table` と同じ向き）"""
-    burnup, axes = continuous_axes(table)
+    grid_of = table_grid(name, table, nominal)
+    burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
     if burnup is None:
         raise SystemExit(f"{name}: the table has no burnup axis")
-    names = [a["name"] for a in axes]
-    points = [[float(p) for p in a["points"]] for a in axes]
-    if sorted(nominal) != sorted(names) or any(
-        float(nominal[n]) not in p for n, p in zip(names, points, strict=True)
-    ):
-        raise SystemExit(f"{name}: the nominal {nominal} must be a point of {names}")
     indices = list(itertools.product(*[range(len(p)) for p in points]))
-    per_point = len(indices)
-    if len(table["states"]) != per_point * len(burnup):
-        raise SystemExit(f"{name}: {len(table['states'])} states for the axes")
-    at_nominal = indices.index(
-        tuple(p.index(float(nominal[n])) for n, p in zip(names, points, strict=True))
-    )
+    per_point = grid_of["per_point"]
+    at_nominal = indices.index(grid_of["nominal"])
     states = [
         table["states"][b * per_point : (b + 1) * per_point] for b in range(len(burnup))
     ]
@@ -234,13 +249,15 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
     for sel in selections:
         chosen = [float(b) for b in sel["burnup"]]
         if (
-            chosen != sorted(set(chosen))
+            len(chosen) < 2
+            or len(chosen) == len(burnup)
+            or chosen != sorted(set(chosen))
             or any(b not in burnup for b in chosen)
             or chosen[0] != burnup[0]
             or chosen[-1] != burnup[-1]
         ):
             raise SystemExit(
-                f"{name} {sel['name']}: the burnups {chosen} must be increasing points of the table from the first to the last"
+                f"{name} {sel['name']}: the burnups {chosen} must be increasing points of the table from the first to the last, leaving some out"
             )
         index = [burnup.index(b) for b in chosen]
         removed = [i for i in range(len(burnup)) if i not in index]
@@ -265,7 +282,7 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
                     rho = (1 / k_inf(states[i][flat]) - 1 / k_inf(rebuilt)) * 1e5
                     if abs(rho) > abs(worst_per_point[n]):
                         worst_per_point[n] = rho
-                    if abs(rho) > abs(worst[0]):
+                    if worst[1] is None or abs(rho) > abs(worst[0]):
                         worst = (
                             rho,
                             {"burnup": burnup[i]}
@@ -343,27 +360,29 @@ def main() -> None:
         config_path = Path(args[2])
         config = tomllib.loads(config_path.read_text())
         files = [config_path]
+        loaded = {}
+
+        def read(path: Path) -> dict:
+            """テーブルを 1 度だけ読み、`inputs` に 1 度だけ載せる"""
+            if path not in loaded:
+                files.append(path)
+                loaded[path] = msgpack.unpackb(path.read_bytes())
+            return loaded[path]
+
         tables = []
         for t in config["table"]:
-            path = config_path.parent / t["file"]
-            files.append(path)
             rodded = None
             if "rods" in t:
-                rods_path = config_path.parent / t["rods"]
-                files.append(rods_path)
-                rodded = msgpack.unpackb(rods_path.read_bytes())
+                rodded = read(config_path.parent / t["rods"])
             tables.append(
-                (t["name"], msgpack.unpackb(path.read_bytes()), rodded, t["nominal"])
+                (t["name"], read(config_path.parent / t["file"]), rodded, t["nominal"])
             )
         thinning = []
         for t in config.get("thinning", []):
-            path = config_path.parent / t["file"]
-            if path not in files:
-                files.append(path)
             thinning.append(
                 thin(
                     t["name"],
-                    msgpack.unpackb(path.read_bytes()),
+                    read(config_path.parent / t["file"]),
                     t["nominal"],
                     t["selections"],
                 )
