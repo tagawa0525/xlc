@@ -3,7 +3,7 @@
 //! フィールド名付きの map 形式の MessagePack: `format` ("xlc-lattice-checkpoint"), `fingerprint`（`Fingerprint`）と、燃焼なら
 //! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）, start（直前の
 //! 輸送の MOC の収束した解。ADR-0195）}`、分岐なら `states: {states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つの
-//! バイト列）, medium（細かい群の媒質か nil）}], starts: {state（次に解く状態）, solutions（MOC の解。同じ解は 1 つ）, slots（[軸] の解の番号か nil）}}`。
+//! バイト列）, medium（細かい群の媒質か nil）}], starts: {state（解いた状態の数）, solutions（MOC の解。同じ解は 1 つ）, slots（[軸] の解の番号か nil）}}`。
 
 use std::fs::File;
 use std::io::Write;
@@ -269,14 +269,15 @@ impl Checkpoint {
         })
     }
 
-    /// 分岐の解き終えた状態（状態の順）と、次に解く状態の MOC の反復を始める解（`counts` は [軸] の格子点の数）。なければ空と
-    /// 状態 0 から
+    /// 分岐の解き終えた状態（解く状態の順）と、次に解く状態の MOC の反復を始める解（`counts` は [軸] の格子点の数、`present` は
+    /// 解く状態の、軸の直積の順の番号）。なければ空と最初の状態から
     pub fn states<T: DeserializeOwned>(
         &self,
         counts: &[usize],
+        present: &[usize],
     ) -> anyhow::Result<(Vec<SavedState>, Starts<T>)> {
         let Some(file) = self.read()? else {
-            return Ok((Vec::new(), Starts::new(counts)));
+            return Ok((Vec::new(), Starts::over(counts, present.to_vec())));
         };
         let Some(StatesFile { states, starts }) = file.states else {
             bail!("{}: holds a depletion, not branch states", self.shown());
@@ -295,8 +296,14 @@ impl Checkpoint {
             .map(rmpv::ext::from_value)
             .collect::<Result<Vec<T>, _>>()
             .map_err(|e| anyhow!("{}: starts: {e}", self.shown()))?;
-        let starts = Starts::restored(counts, starts.state, solutions, &starts.slots)
-            .map_err(|e| anyhow!("{}: {e}; remove it to start over", self.shown()))?;
+        let starts = Starts::restored(
+            counts,
+            present.to_vec(),
+            starts.state,
+            solutions,
+            &starts.slots,
+        )
+        .map_err(|e| anyhow!("{}: {e}; remove it to start over", self.shown()))?;
         let states = states
             .into_iter()
             .enumerate()
@@ -410,20 +417,21 @@ fn few_group(value: rmpv::Value) -> anyhow::Result<FewGroup> {
     }
 }
 
-/// 分岐の `count` 個の状態（[軸] の格子点の数 `counts` の直積の順）を順に解く。`solve` は状態を、MOC の反復を始める解
+/// 分岐の状態のうち `present`（[軸] の格子点の数 `counts` の直積の順の番号。増える順）を順に解く。`solve` は状態を、MOC の反復を始める解
 /// （`branches::Starts`。ADR-0195）から解き、結果と収束した解を返す。`checkpoint` があれば、書いてある状態を `restored` に渡して
 /// （今の実行の出力に合わなければ `restored` がエラーを返し、残りの状態を解く前に止まる）使い、書いてある始める解から続きの
 /// 状態を解いて、状態を解き終えるたびに書く
 pub fn solve_states<T: Serialize + DeserializeOwned>(
-    count: usize,
+    present: &[usize],
     counts: &[usize],
     checkpoint: Option<&Checkpoint>,
     mut restored: impl FnMut(usize, &SavedState) -> anyhow::Result<()>,
     mut solve: impl FnMut(usize, Option<&T>) -> anyhow::Result<(SavedState, T)>,
 ) -> anyhow::Result<Vec<SavedState>> {
+    let count = present.len();
     let (mut states, mut starts) = match checkpoint {
-        Some(c) => c.states(counts)?,
-        None => (Vec::new(), Starts::new(counts)),
+        Some(c) => c.states(counts, present)?,
+        None => (Vec::new(), Starts::over(counts, present.to_vec())),
     };
     if states.len() > count {
         bail!(
@@ -439,7 +447,7 @@ pub fn solve_states<T: Serialize + DeserializeOwned>(
             "resuming after the saved states"
         );
     }
-    for (state, saved) in states.iter().enumerate() {
+    for (&state, saved) in present.iter().zip(&states) {
         restored(state, saved).with_context(|| {
             format!(
                 "{}: state {state}",
@@ -447,12 +455,12 @@ pub fn solve_states<T: Serialize + DeserializeOwned>(
             )
         })?;
     }
-    for state in states.len()..count {
+    for (n, &state) in present.iter().enumerate().skip(states.len()) {
         let (saved, converged) = solve(state, starts.start())?;
         states.push(saved);
         starts.solved(converged);
         // 最後の状態の後は、呼ぶ側が出力を書いてチェックポイントを消す
-        if let (Some(c), true) = (checkpoint, state + 1 < count) {
+        if let (Some(c), true) = (checkpoint, n + 1 < count) {
             c.save_states(&states, &starts)?;
         }
     }

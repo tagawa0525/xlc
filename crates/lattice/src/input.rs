@@ -77,6 +77,7 @@
 //! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
+//! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -330,12 +331,13 @@ struct InputFile {
     history: Option<HistoryEntry>,
 }
 
-/// 燃焼の履歴の燃焼点からの分岐（ADR-0187）
+/// 燃焼の履歴の燃焼点からの分岐（ADR-0187、ADR-0200）
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct HistoryEntry {
     file: PathBuf,
     burnup: Vec<f64>,
+    off_nominal_burnup: Option<Vec<f64>>,
 }
 
 /// 燃焼の条件（ADR-0173）
@@ -806,9 +808,23 @@ impl LatticeInput {
         }
         let branches = file
             .branches
-            .map(|b| b.build(&materials, &waters, &mixtures, &media))
+            .map(|b| {
+                b.build(
+                    &materials,
+                    &waters,
+                    &mixtures,
+                    &media,
+                    file.history.is_some(),
+                )
+            })
             .transpose()
             .map_err(invalid)?;
+        // 細かい群の媒質のファイルは、軸の直積の状態を持つ（ADR-0128）
+        if file.medium.is_some() && branches.as_ref().is_some_and(|b| !b.is_product()) {
+            return Err(invalid(
+                "medium needs the branches to solve the product of their axes (no subgrids. ADR-0128)".into(),
+            ));
+        }
         if branches.is_some() && file.pin_powers.is_some() {
             return Err(invalid(
                 "pin-powers cannot be written with branches (form functions go into the table; \
@@ -999,9 +1015,20 @@ impl LatticeInput {
                         h.burnup
                     ));
                 }
+                // 公称でない状態を解く燃焼点。書かなければすべての燃焼点（ADR-0200 の案 B1）
+                let off_nominal = h.off_nominal_burnup.unwrap_or_else(|| h.burnup.clone());
+                if off_nominal.is_empty()
+                    || !off_nominal.iter().all(|b| h.burnup.contains(b))
+                    || !off_nominal.windows(2).all(|w| w[0] < w[1])
+                {
+                    return Err(format!(
+                        "the off-nominal burnup points must be increasing points of `burnup`, got {off_nominal:?}"
+                    ));
+                }
                 Ok(HistoryInput {
                     file: h.file,
                     burnup: h.burnup,
+                    off_nominal,
                 })
             })
             .transpose()

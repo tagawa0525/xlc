@@ -3,12 +3,14 @@
 //! 入力の `[history]` が挙げた燃焼点ごとに、燃焼の履歴（ADR-0173）の燃焼の領域の数密度を固定し、`[branches]` の状態
 //! （ADR-0097）で輸送する。分岐の状態では燃焼させない。燃焼の領域は燃焼の輸送と同じ `<物質>@<セル>` の物質として解き、
 //! 輸送する核種は履歴の `transportable`（数密度が 0 の核種も含め、負の値は 0 にする）。状態は燃焼度がいちばん遅く変わり、
-//! 各燃焼度の点の中は分岐の軸の直積の順。
+//! 各燃焼度の点の中は分岐の軸の直積の順。解くのは、公称の状態（`[branches]` の公称）をすべての燃焼点で、ほかの部分格子の状態を
+//! `off-nominal-burnup` の燃焼点で（ADR-0200）。
 //!
 //! ```toml
 //! [history]
 //! file = "history.msgpack"   # 燃焼の履歴（入力のファイルのあるディレクトリから）
-//! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
+//! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。公称の状態はすべての点で解く
+//! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
 //! ```
 //!
 //! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。
@@ -35,6 +37,8 @@ pub struct HistoryInput {
     pub file: PathBuf,
     /// 分岐を解く燃焼点 (MWd/kg)。0 以上で増え、どれも履歴の燃焼度のどれかと等しい
     pub burnup: Vec<f64>,
+    /// 公称でない状態を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
+    pub off_nominal: Vec<f64>,
 }
 
 /// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
@@ -60,6 +64,12 @@ pub struct HistoryBranches {
     reference_of: Vec<Option<usize>>,
     /// 参照の状態（ホウ素が公称。`Branches::references` の順）の、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     references: Vec<(Vec<MaterialInput>, Vec<f64>)>,
+    /// 分岐の状態ごとに、解くか（`Branches::solved`）
+    solved: Vec<bool>,
+    /// 公称の分岐の状態（`Branches::nominal_state`）
+    nominal: Option<usize>,
+    /// 燃焼度の点ごとに、公称でない状態を解くか
+    off_nominal: Vec<bool>,
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
@@ -322,6 +332,18 @@ pub fn history_branches(
         .iter()
         .map(|state| split(state))
         .collect::<anyhow::Result<Vec<_>>>()?;
+    // 公称でない状態の燃焼点を間引くと、その差を公称の状態から内挿するので、公称の状態が要る（ADR-0200）
+    let off_nominal: Vec<bool> = selection
+        .burnup
+        .iter()
+        .map(|b| selection.off_nominal.contains(b))
+        .collect();
+    if off_nominal.contains(&false) && branches.nominal_state().is_none() {
+        bail!(
+            "off-nominal-burnup: the off-nominal states are interpolated from the nominal state, the input materials, \
+             which are not at a point of every branch axis (ADR-0200)"
+        );
+    }
     let mut axes = vec![Axis::Burnup {
         points: selection.burnup.clone(),
     }];
@@ -342,6 +364,11 @@ pub fn history_branches(
             .map(|b| branches.reference(b))
             .collect(),
         references,
+        solved: (0..branches.states().len())
+            .map(|b| branches.solved(b))
+            .collect(),
+        nominal: branches.nominal_state(),
+        off_nominal,
     })
 }
 
@@ -361,6 +388,13 @@ impl HistoryBranches {
     pub fn state(&self, index: usize) -> Vec<MaterialInput> {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
         self.materials(point, &self.branch[b])
+    }
+
+    /// 状態 `index`（軸の直積の順）を解くか: 分岐の部分格子の状態で、公称の状態か、公称でない状態を解く燃焼点のもの（ADR-0200）
+    pub fn solved(&self, index: usize) -> bool {
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        self.solved.get(b).copied().unwrap_or(false)
+            && (self.nominal == Some(b) || self.off_nominal.get(point).copied().unwrap_or(false))
     }
 
     /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点と参照の番号（ADR-0201）
