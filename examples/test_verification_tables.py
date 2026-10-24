@@ -1370,6 +1370,14 @@ class DrawUfgFreeGas(unittest.TestCase):
         self.assertNotIn("自由ガス", table)
         self.assertIn("4.018〜5.012 eV", table.splitlines()[0])
 
+    def test_a_kernel_not_run_in_a_state_is_a_dash(self):
+        summary = self.summary()
+        del summary["states"][1]["results"]["exact"]
+        self.assertRegex(
+            vt.ufg_free_gas_k([summary]), r"\| 自由ガス +\| −26\.0 +\| – +\| – +\|"
+        )
+        self.assertNotRegex(vt.ufg_free_gas_swaps([summary]), r"\| 40 +\| 自由ガス")
+
     def test_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
             vt.ufg_free_gas_k([{"format": "xlc-swap-candidates"}])

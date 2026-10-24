@@ -51,6 +51,11 @@ class Fine(unittest.TestCase):
 
 
 class State(unittest.TestCase):
+    def test_kernels_without_logs_are_left_out(self):
+        logs = {"static": (ABSORPTION_LOG, None), "exact": None}
+        state = ug.summarize_state("2A 40", "2A-40", [0.825], ["static", "exact"], logs)
+        self.assertEqual(list(state["results"]), ["static"])
+
     def test_differences_use_the_mean_openmc_k_and_the_static_k(self):
         logs = {
             "static": (ABSORPTION_LOG, None),
