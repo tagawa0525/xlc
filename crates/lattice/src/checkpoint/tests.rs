@@ -47,6 +47,11 @@ fn states(count: usize) -> Vec<SavedState> {
         .collect()
 }
 
+/// 軸 `counts` の直積のすべての状態
+fn every(counts: &[usize]) -> Vec<usize> {
+    (0..counts.iter().product()).collect()
+}
+
 /// 軸 `counts` の状態を `solved` 個解いた後の、反復を始める解（状態 i の解を i + 0.5 とする）
 fn starts_after(counts: &[usize], solved: usize) -> Starts<f64> {
     let mut starts = Starts::new(counts);
@@ -77,7 +82,7 @@ fn without_a_checkpoint_the_run_starts_from_the_beginning() {
     let dir = scratch("missing");
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
     assert!(checkpoint.depletion().unwrap().is_none());
-    let (states, starts) = checkpoint.states::<f64>(&[2, 3]).unwrap();
+    let (states, starts) = checkpoint.states::<f64>(&[2, 3], &every(&[2, 3])).unwrap();
     assert!(states.is_empty());
     assert_eq!(starts.start(), None);
     // 消すものがなくてもよい（一気に流した燃焼は、点の数によっては 1 度も書かない）
@@ -94,7 +99,7 @@ fn saved_states_and_starts_read_back_bit_for_bit() {
     checkpoint
         .save_states(&saved, &starts_after(&counts, 3))
         .unwrap();
-    let (read, mut starts) = checkpoint.states::<f64>(&counts).unwrap();
+    let (read, mut starts) = checkpoint.states::<f64>(&counts, &every(&counts)).unwrap();
     assert_eq!(read, saved);
     for (r, s) in read.iter().zip(&saved) {
         assert_eq!(r.k.to_bits(), s.k.to_bits());
@@ -125,7 +130,7 @@ fn a_checkpoint_of_another_fingerprint_is_an_error() {
         .save_states(&states(1), &starts_after(&[2], 1))
         .unwrap();
     let error = Checkpoint::new(path.clone(), "new".into())
-        .states::<f64>(&[2])
+        .states::<f64>(&[2], &every(&[2]))
         .unwrap_err()
         .to_string();
     assert!(
@@ -158,7 +163,10 @@ fn a_checkpoint_of_the_other_kind_is_an_error() {
     assert!(error.contains("states"), "{error}");
     let (history, next, start) = first_save(PIN, &library());
     checkpoint.save_depletion(&history, &next, &start).unwrap();
-    let error = checkpoint.states::<f64>(&[2]).unwrap_err().to_string();
+    let error = checkpoint
+        .states::<f64>(&[2], &every(&[2]))
+        .unwrap_err()
+        .to_string();
     assert!(error.contains("depletion"), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -177,7 +185,7 @@ fn states_resume_after_the_saved_ones_and_match_the_straight_run() {
     let all = states(6);
     let counts = [2, 3];
     let straight = solve_states(
-        6,
+        &every(&counts),
         &counts,
         None,
         |_, _| Ok(()),
@@ -187,7 +195,7 @@ fn states_resume_after_the_saved_ones_and_match_the_straight_run() {
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
     // 状態 4 を解いている途中で止めた実行
     let error = solve_states(
-        6,
+        &every(&counts),
         &counts,
         Some(&checkpoint),
         |_, _| Ok(()),
@@ -200,11 +208,18 @@ fn states_resume_after_the_saved_ones_and_match_the_straight_run() {
     )
     .unwrap_err();
     assert!(error.to_string().contains("killed"), "{error:#}");
-    assert_eq!(checkpoint.states::<f64>(&counts).unwrap().0.len(), 4);
+    assert_eq!(
+        checkpoint
+            .states::<f64>(&counts, &every(&counts))
+            .unwrap()
+            .0
+            .len(),
+        4
+    );
     let mut restored = Vec::new();
     let mut solved = Vec::new();
     let resumed = solve_states(
-        6,
+        &every(&counts),
         &counts,
         Some(&checkpoint),
         |i, s| {
@@ -234,7 +249,7 @@ fn more_saved_states_than_the_run_has_are_an_error() {
         .save_states(&states(3), &starts_after(&[2], 3))
         .unwrap();
     let error = solve_states(
-        2,
+        &every(&[2]),
         &[2],
         Some(&checkpoint),
         |_, _| Ok(()),
@@ -253,13 +268,21 @@ fn saved_starts_must_follow_the_saved_states() {
     checkpoint
         .save_states(&states(2), &starts_after(&[4], 3))
         .unwrap();
-    let error = format!("{:#}", checkpoint.states::<f64>(&[4]).unwrap_err());
+    let error = format!(
+        "{:#}",
+        checkpoint.states::<f64>(&[4], &every(&[4])).unwrap_err()
+    );
     assert!(error.contains("2 states") && error.contains('3'), "{error}");
     // 軸の格子点の数が違う解も使わない
     checkpoint
         .save_states(&states(2), &starts_after(&[4], 2))
         .unwrap();
-    let error = format!("{:#}", checkpoint.states::<f64>(&[2, 2]).unwrap_err());
+    let error = format!(
+        "{:#}",
+        checkpoint
+            .states::<f64>(&[2, 2], &every(&[2, 2]))
+            .unwrap_err()
+    );
     assert!(error.contains("axes"), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -272,7 +295,7 @@ fn an_unreadable_checkpoint_names_its_file() {
     let error = format!(
         "{:#}",
         Checkpoint::new(path, "f".into())
-            .states::<f64>(&[2])
+            .states::<f64>(&[2], &every(&[2]))
             .unwrap_err()
     );
     assert!(
@@ -292,7 +315,7 @@ fn restored_states_that_do_not_fit_the_run_stop_before_solving() {
     let mut solved = 0;
     let all = states(1);
     let error = solve_states(
-        4,
+        &every(&[4]),
         &[4],
         Some(&checkpoint),
         |i, _| Err(anyhow::anyhow!("state {i} has no medium")),
@@ -313,7 +336,10 @@ fn a_checkpoint_needs_exactly_one_kind() {
     let dir = scratch("one-kind");
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
     checkpoint.write(&empty(&checkpoint)).unwrap();
-    let error = checkpoint.states::<f64>(&[2]).unwrap_err().to_string();
+    let error = checkpoint
+        .states::<f64>(&[2], &every(&[2]))
+        .unwrap_err()
+        .to_string();
     assert!(error.contains("neither"), "{error}");
     let (history, next, start) = first_save(PIN, &library());
     let both = CheckpointFile {
@@ -346,18 +372,31 @@ fn the_last_state_is_not_saved() {
     let all = states(3);
     let mut saved_before = Vec::new();
     solve_states(
-        3,
+        &every(&[3]),
         &[3],
         Some(&checkpoint),
         |_, _| Ok(()),
         |i, start: Option<&f64>| {
-            saved_before.push(checkpoint.states::<f64>(&[3]).unwrap().0.len());
+            saved_before.push(
+                checkpoint
+                    .states::<f64>(&[3], &every(&[3]))
+                    .unwrap()
+                    .0
+                    .len(),
+            );
             Ok(solve_from(&all, i, start))
         },
     )
     .unwrap();
     assert_eq!(saved_before, vec![0, 1, 2]);
-    assert_eq!(checkpoint.states::<f64>(&[3]).unwrap().0.len(), 2);
+    assert_eq!(
+        checkpoint
+            .states::<f64>(&[3], &every(&[3]))
+            .unwrap()
+            .0
+            .len(),
+        2
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -375,7 +414,7 @@ fn a_solution_shared_by_axes_is_written_once() {
     let starts = file.states.unwrap().starts;
     assert_eq!(starts.solutions.len(), 1);
     assert_eq!(starts.slots, vec![Some(0), Some(0), Some(0)]);
-    let (_, mut read) = checkpoint.states::<f64>(&counts).unwrap();
+    let (_, mut read) = checkpoint.states::<f64>(&counts, &every(&counts)).unwrap();
     let mut straight = starts_after(&counts, 1);
     for state in 1..8 {
         assert_eq!(read.start(), straight.start(), "state {state}");
@@ -400,7 +439,63 @@ fn a_missing_start_of_the_next_state_is_an_error() {
     starts.slots = vec![None];
     starts.solutions.clear();
     checkpoint.write(&file).unwrap();
-    let error = format!("{:#}", checkpoint.states::<f64>(&[2]).unwrap_err());
+    let error = format!(
+        "{:#}",
+        checkpoint.states::<f64>(&[2], &every(&[2])).unwrap_err()
+    );
     assert!(error.contains("no start"), "{error}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn runs_of_some_states_resume_after_the_saved_ones() {
+    // 部分格子の状態（直積の番号 1、3、4、5。ADR-0200）だけを解く実行も、書いた状態の後から続け、続けずに解いた実行と同じ
+    let dir = scratch("some");
+    let all = states(6);
+    let counts = [2, 3];
+    let present = [1, 3, 4, 5];
+    let straight = solve_states(
+        &present,
+        &counts,
+        None,
+        |_, _| Ok(()),
+        |i, start: Option<&f64>| Ok(solve_from(&all, i, start)),
+    )
+    .unwrap();
+    assert_eq!(straight.len(), 4);
+    let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
+    let error = solve_states(
+        &present,
+        &counts,
+        Some(&checkpoint),
+        |_, _| Ok(()),
+        |i, start: Option<&f64>| {
+            if i == 4 {
+                anyhow::bail!("killed");
+            }
+            Ok(solve_from(&all, i, start))
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("killed"), "{error:#}");
+    let mut restored = Vec::new();
+    let mut solved = Vec::new();
+    let resumed = solve_states(
+        &present,
+        &counts,
+        Some(&checkpoint),
+        |i, _| {
+            restored.push(i);
+            Ok(())
+        },
+        |i, start: Option<&f64>| {
+            solved.push(i);
+            Ok(solve_from(&all, i, start))
+        },
+    )
+    .unwrap();
+    assert_eq!(restored, vec![1, 3]);
+    assert_eq!(solved, vec![4, 5]);
+    assert_eq!(resumed, straight);
     std::fs::remove_dir_all(&dir).unwrap();
 }
