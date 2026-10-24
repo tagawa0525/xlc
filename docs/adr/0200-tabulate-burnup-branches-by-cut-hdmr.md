@@ -272,7 +272,7 @@ lattice の実行は、状態を軸の直積の番号で数えたまま、解く
   有無、制御棒の軸、曲がった燃焼度の軸の直積のテーブルで、軸の直積の重みつきの和とビットで同じ）、
   `axes_interpolate_in_the_variable_of_their_transform`、`cut_hdmr_reproduces_pair_terms_and_drops_only_the_triple_term`（2 軸の積の
   項を持つ関数を相対 1e-13 で再現し、3 軸の積の項だけを落とす）、`cut_hdmr_points_return_the_table_states`（部分格子の点でテーブルの
-  状態をビットで返す）、`rod_values_assemble_from_their_own_nominal_state`、`negative_cut_hdmr_assemblies_are_errors`、
+  状態をビットで返す）、`rod_values_assemble_from_their_own_nominal_state`、`negative_cut_hdmr_assemblies_are_errors`、`negative_differences_from_the_nominal_state_are_errors`、
   `off_nominal_states_add_their_difference_from_the_nominal_state_over_their_burnups`（公称の状態だけを解いた燃焼点で、公称の状態に
   2 次の差を足した値。解いた燃焼点ではテーブルの状態をビットで）、`burnups_outside_the_points_of_an_off_nominal_state_are_errors`。
   ADR-0097、ADR-0187、ADR-0192 のテストはそのまま通る
