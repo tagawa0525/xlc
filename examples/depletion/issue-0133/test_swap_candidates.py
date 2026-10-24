@@ -76,12 +76,36 @@ class Logs(unittest.TestCase):
         self.assertAlmostEqual(changes["U-238:27-27"], 30.0, places=6)
 
     def test_transfer_log_uses_the_kept_sph_factors(self):
-        changes = sc.parse_transfer(TRANSFER_LOG)
-        self.assertAlmostEqual(changes[("water", 1, 13)], -120.0, places=6)
+        found = sc.transfer_runs(TRANSFER_LOG)
+        self.assertEqual(found[("water", 1, 13)]["openmc"], 1.085)
+        self.assertAlmostEqual(found[("water", 1, 13)]["change"], -120.0, places=6)
 
 
 ITEMS = [("fast-u238", "U-238:1-13"), ("ufg27-u238", "U-238:27-27")]
 TRANSFERS = [("transfer-water-fast", "water", 1, 13)]
+
+
+class Malformed(unittest.TestCase):
+    def test_a_repeated_absorption_line_is_an_error(self):
+        with self.assertRaises(sc.SummaryError):
+            sc.parse_absorption(ABSORPTION_LOG + "U-238:1-13: k 1.085500 (-50.0 pcm)\n")
+
+    def test_a_repeated_transfer_block_is_an_error(self):
+        with self.assertRaises(sc.SummaryError):
+            sc.transfer_runs(TRANSFER_LOG + TRANSFER_LOG)
+
+    def test_an_unreadable_groups_line_is_an_error(self):
+        with self.assertRaises(sc.SummaryError):
+            sc.transfer_runs(TRANSFER_LOG.replace("groups 1..=13;", "groups 1 to 13;"))
+
+    def test_a_block_without_its_own_xlc_k_is_an_error(self):
+        second = "\n".join(
+            line
+            for line in TRANSFER_LOG.splitlines()
+            if not line.startswith(("material", "xlc "))
+        ).replace("groups 1..=13", "groups 14..=27")
+        with self.assertRaises(sc.SummaryError):
+            sc.transfer_runs(TRANSFER_LOG + second + "\n")
 
 
 class Summary(unittest.TestCase):
@@ -155,6 +179,51 @@ class Summary(unittest.TestCase):
                         "k_std": 0.0002,
                         "absorption": "k 1.000000\n",
                         "transfer": None,
+                        "fast": True,
+                    }
+                ],
+            )
+
+    def test_rest_pairs_each_run_with_its_own_openmc_k(self):
+        items = [*ITEMS, ("all", "*:14-69")]
+        log = ABSORPTION_LOG + "*:14-69: k 1.085800 (-20.0 pcm)\n"
+        state = sc.summarize_state(
+            "1C 5 MWd/kg",
+            items,
+            TRANSFERS,
+            [
+                {
+                    "k": 1.0852,
+                    "k_std": 0.0002,
+                    "absorption": log,
+                    "transfer": None,
+                    "fast": True,
+                },
+                {
+                    "k": 1.0850,
+                    "k_std": 0.0002,
+                    "absorption": log,
+                    "transfer": TRANSFER_LOG,
+                    "fast": True,
+                },
+            ],
+        )
+        # 移行のある実行だけ: (1.086 − 1.085) × 1e5 − 20 − 120
+        self.assertAlmostEqual(state["items"]["rest"]["pcm"], -40.0, places=6)
+        self.assertEqual(len(state["items"]["rest"]["runs"]), 1)
+
+    def test_a_transfer_log_against_another_openmc_run_is_an_error(self):
+        with self.assertRaises(sc.SummaryError):
+            sc.summarize_state(
+                "1C 5 MWd/kg",
+                ITEMS,
+                TRANSFERS,
+                [
+                    {
+                        "k": 1.0852,
+                        "k_std": 0.0002,
+                        "absorption": ABSORPTION_LOG,
+                        "transfer": TRANSFER_LOG,
                         "fast": True,
                     }
                 ],
