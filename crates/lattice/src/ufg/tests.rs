@@ -1262,7 +1262,9 @@ fn resonant_nuclides_follow_their_own_cap() {
 
 #[test]
 fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
-    // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く
+    // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く。減速材のないセルでは、重い核種の 1 回の衝突で
+    // 失うエネルギーが上方散乱で得るものと同じほどに小さく、スイープの収束が遅いので、収束まで解くと
+    // `UfgError::NotConverged` で止まる
     let (lib, _, _) = thermal_cell(600.0);
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
@@ -1277,13 +1279,16 @@ fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
             None,
             scattering,
         )
-        .unwrap()
     };
-    let moving = solve(free_gas_heavy(f64::INFINITY, 4, None));
-    let at_rest = solve(Scattering::Static);
+    let moving = solve(free_gas_heavy(f64::INFINITY, 4, Some(32))).unwrap();
+    let at_rest = solve(Scattering::Static).unwrap();
     assert!(
         flux_difference(&moving, &at_rest) > 1e-5,
         "{}",
         flux_difference(&moving, &at_rest)
     );
+    assert!(matches!(
+        solve(free_gas_heavy(f64::INFINITY, 4, None)),
+        Err(UfgError::NotConverged(MAX_SWEEPS))
+    ));
 }
