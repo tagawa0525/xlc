@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import unicodedata
+from functools import partial
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -1119,6 +1120,13 @@ def ufg_free_gas_swaps(
     return markdown_table(["状態", "散乱核", *(x["label"] for x in swaps)], rows)
 
 
+# ADR-0204 の表の置き換えの列: UFG の範囲を 2 つに分けたもの（ADR-0203 と同じ）と、U-238 と Pu-239 の 4〜48 eV の群ごと
+UFG_RANGE_SWAPS = ["U-238:27-27", "*:27-27", "U-238:14-26", "*:14-26"]
+UFG_GROUP_SWAPS = [
+    f"{n}:{g}-{g}" for n in ["U-238", "Pu-239"] for g in [27, 26, 25, 24]
+]
+
+
 def ufg_free_gas_tilt(
     sources: list[dict], energies: tuple[float, float] | None = None
 ) -> str:
@@ -1162,6 +1170,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
+    "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
 }
 
 
@@ -1313,6 +1322,30 @@ TABLES = {
             ("k", ufg_free_gas_k),
             ("swaps", ufg_free_gas_swaps),
             ("tilt", ufg_free_gas_tilt),
+        ]
+    },
+    **{
+        f"depletion-ufg-heavy-free-gas-{name}": (
+            ["examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json"],
+            draw,
+        )
+        for name, draw in [
+            ("k", ufg_free_gas_k),
+            (
+                "swaps",
+                partial(ufg_free_gas_swaps, specs=UFG_RANGE_SWAPS),
+            ),
+            (
+                "groups",
+                partial(
+                    ufg_free_gas_swaps,
+                    specs=UFG_GROUP_SWAPS,
+                    modes=["static", "light", "light-cap", "heavy", "heavy-cap"],
+                ),
+            ),
+            ("tilt-27", partial(ufg_free_gas_tilt, energies=(4.0, 9.877))),
+            ("tilt-25", partial(ufg_free_gas_tilt, energies=(15.968, 27.7))),
+            ("tilt-24", partial(ufg_free_gas_tilt, energies=(27.7, 48.052))),
         ]
     },
     "depletion-1c-rings4-rings": (
