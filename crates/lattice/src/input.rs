@@ -654,6 +654,7 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
                 upper,
                 cells: count("cells", entry.cells)?.unwrap_or(defaults.cells),
                 sweeps: count("sweeps", entry.sweeps)?.or(defaults.sweeps),
+                heavy: defaults.heavy,
             }))
         }
         Some(other) => Err(format!(
