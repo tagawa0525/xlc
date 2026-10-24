@@ -640,3 +640,27 @@ fn carried_shielding_scales_the_state_dilution_by_the_nominal_ratio() {
     odd.fission[0] = 1.0;
     assert!(carry_shielding(&nominal, &state, &odd).is_err());
 }
+
+#[test]
+fn only_nominal_moderator_shielding_needs_the_depleted_materials_off_the_moderator_axis() {
+    // 公称の減速材の自己遮蔽は燃焼させた物質を参照から取るので、ホウ素と減速材の軸がそれを変えるとエラー。状態ごとに解くなら、
+    // 燃焼させた物質の温度を減速材の軸で変えてもよい（燃料の温度の軸は、格子に置かない物質 spare に挙げる）
+    let (history, library) = history();
+    let text = branch_input("[0.5]", "[600]");
+    let moderator = "density = [0.7], materials = [\"water\"] }";
+    let fuel = "materials = [\"fuel\"] }";
+    assert!(text.contains(moderator) && text.contains(fuel));
+    let every = text
+        .replace(fuel, "materials = [\"spare\"] }")
+        .replace(
+            moderator,
+            "density = [0.7], materials = [\"water\", \"fuel\"] }",
+        )
+        .replace(
+            "[material.water]",
+            "[material.spare]\ntemperature = 600\nnuclides = { O-16 = 2.5e-2 }\n\n[material.water]",
+        );
+    branches_of(&every, &history, &library).unwrap();
+    let err = branches_of(&nominal_moderator(&every), &history, &library).unwrap_err();
+    assert!(format!("{err:#}").contains("depleted material"), "{err:#}");
+}
