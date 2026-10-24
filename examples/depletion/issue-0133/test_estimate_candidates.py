@@ -46,6 +46,26 @@ class Estimate(unittest.TestCase):
         self.assertAlmostEqual(low, -300.0, places=6)
         self.assertAlmostEqual(high, 0.0, places=6)
 
+    def test_capture_and_fission_of_one_measured_ratio_move_together(self):
+        # Pu-239 の同じ群の捕獲と核分裂は 1 つの測った比（+1〜+2%）を共有する。捕獲は k を −100〜−200 pcm、核分裂（生成 1 から
+        # 吸収 0 を引く）は +1000〜+2000 pcm 動かすので、和は +900〜+1800 pcm（別々に端を取ると +800〜+1900 pcm）
+        candidates = [
+            (
+                "c",
+                [
+                    ("Pu-239", 1, 1, "capture", 0.01, 0.02),
+                    ("Pu-239", 1, 1, "fission", 0.01, 0.02),
+                ],
+            )
+        ]
+        ((_, low, high, _),) = ec.estimate(RATES, candidates)
+        self.assertAlmostEqual(low, 900.0, places=6)
+        self.assertAlmostEqual(high, 1800.0, places=6)
+
+    def test_an_unknown_reaction_is_an_error(self):
+        with self.assertRaises(ValueError):
+            ec.estimate(RATES, [("c", [("U-238", 1, 1, "captur", 0.01, 0.01)])])
+
     def test_a_nuclide_not_in_the_composition_is_reported(self):
         candidates = [
             (

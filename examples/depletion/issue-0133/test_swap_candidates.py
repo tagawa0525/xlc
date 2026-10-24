@@ -229,6 +229,44 @@ class Summary(unittest.TestCase):
                 ],
             )
 
+    def test_a_transfer_log_may_differ_from_the_absorption_k_by_one_printed_digit(self):
+        state = sc.summarize_state(
+            "1C 5 MWd/kg",
+            ITEMS,
+            TRANSFERS,
+            [
+                {
+                    "k": 1.085,
+                    "k_std": 0.0002,
+                    "absorption": ABSORPTION_LOG,
+                    "transfer": TRANSFER_LOG.replace(
+                        "k 1.086000 (1/A", "k 1.086001 (1/A"
+                    ),
+                    "fast": True,
+                }
+            ],
+        )
+        self.assertEqual(len(state["items"]["transfer-water-fast"]["runs"]), 1)
+
+    def test_a_transfer_log_of_another_xlc_solution_is_an_error(self):
+        with self.assertRaises(sc.SummaryError):
+            sc.summarize_state(
+                "1C 5 MWd/kg",
+                ITEMS,
+                TRANSFERS,
+                [
+                    {
+                        "k": 1.085,
+                        "k_std": 0.0002,
+                        "absorption": ABSORPTION_LOG,
+                        "transfer": TRANSFER_LOG.replace(
+                            "k 1.086000 (1/A", "k 1.086002 (1/A"
+                        ),
+                        "fast": True,
+                    }
+                ],
+            )
+
     def test_runs_must_share_the_xlc_k(self):
         with self.assertRaises(sc.SummaryError):
             sc.summarize_state(
