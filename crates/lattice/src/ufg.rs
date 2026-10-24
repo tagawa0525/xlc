@@ -188,6 +188,9 @@ pub struct FreeGas {
     pub cells: usize,
     /// 上方散乱のスイープの回数。`None` は、中性子束の相対変化が [`SWEEP_TOLERANCE`] 以下になるまで（[`MAX_SWEEPS`] 回まで）
     pub sweeps: Option<usize>,
+    /// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限（核種の kT の倍数。無限大は範囲の全体）。`None` は分離共鳴を
+    /// 持つ核種を静止した標的にする（ADR-0204）
+    pub heavy: Option<f64>,
 }
 
 impl Default for FreeGas {
@@ -197,6 +200,7 @@ impl Default for FreeGas {
             upper: None,
             cells: 4,
             sweeps: None,
+            heavy: None,
         }
     }
 }

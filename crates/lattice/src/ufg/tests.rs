@@ -1102,6 +1102,17 @@ fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scatteri
         upper,
         cells,
         sweeps,
+        heavy: None,
+    })
+}
+
+/// [`free_gas`] の、分離共鳴を持つ核種も `heavy`（kT の倍数）より下で自由ガスにするもの
+fn free_gas_heavy(heavy: f64, cells: usize, sweeps: Option<usize>) -> Scattering {
+    Scattering::FreeGas(FreeGas {
+        upper: None,
+        cells,
+        sweeps,
+        heavy: Some(heavy),
     })
 }
 
@@ -1173,7 +1184,7 @@ fn converged_sweeps_match_many_fixed_sweeps() {
 
 #[test]
 fn nuclides_with_resolved_resonances_stay_at_rest() {
-    // 分離共鳴を持つ核種だけのセルは、自由ガスを選んでも静止した標的と同じ
+    // 分離共鳴を持つ核種だけのセルは、`heavy` を書かずに自由ガスを選んでも静止した標的と同じ
     let (lib, _, _) = thermal_cell(600.0);
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
@@ -1191,4 +1202,88 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
         .unwrap()
     };
     assert_eq!(solve(free_gas(None, 4, None)), solve(Scattering::Static));
+}
+
+#[test]
+fn resonant_nuclides_at_a_vanishing_temperature_give_the_static_spectrum() {
+    // 分離共鳴を持つ核種も自由ガスにしても、T → 0 で静止した標的の核になる
+    let at_rest = thermal_spectrum(1.0e-3, Scattering::Static);
+    let cold = thermal_spectrum(1.0e-3, free_gas_heavy(f64::INFINITY, 4, None));
+    assert!(
+        flux_difference(&cold, &at_rest) < 1e-7,
+        "{}",
+        flux_difference(&cold, &at_rest)
+    );
+}
+
+#[test]
+fn resonant_free_gas_moves_the_resonance_shielding() {
+    // 600 K では、分離共鳴を持つ核種（U-238、U-235）の熱運動で、軽い核種だけを自由ガスにしたときから群の中性子束が動く
+    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let heavy = thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None));
+    assert!(
+        flux_difference(&heavy, &light) > 1e-5,
+        "{}",
+        flux_difference(&heavy, &light)
+    );
+}
+
+#[test]
+fn resonant_free_gas_spectrum_converges_with_the_cells() {
+    // 分離共鳴を持つ核種も自由ガスにしたとき、区間を細かくすると群の中性子束が収束する
+    let spectra: Vec<CellSpectrum> = [2, 4, 8, 16]
+        .iter()
+        .map(|&cells| thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, cells, None)))
+        .collect();
+    let steps: Vec<f64> = spectra
+        .windows(2)
+        .map(|w| flux_difference(&w[0], &w[1]))
+        .collect();
+    assert!(steps[2] < 1e-6, "{steps:?}");
+    assert!(steps[2] < steps[0], "{steps:?}");
+}
+
+#[test]
+fn resonant_nuclides_follow_their_own_cap() {
+    // 分離共鳴を持つ核種の上限（`heavy`）は軽い核種の上限（`upper`）と別に効く。範囲の下端より下の上限は、分離共鳴を持つ核種を
+    // 静止させたままにし、範囲の上端より上の上限は、上限のないときと同じ
+    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    assert_eq!(thermal_spectrum(600.0, free_gas_heavy(1.0, 4, None)), light);
+    assert_eq!(
+        thermal_spectrum(600.0, free_gas_heavy(1.0e9, 4, None)),
+        thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None))
+    );
+    // 400 kT（600 K で 20.7 eV）の上限は、上限のないときと静止したときの間
+    let capped = thermal_spectrum(600.0, free_gas_heavy(400.0, 4, None));
+    let uncapped = thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None));
+    assert!(flux_difference(&capped, &light) > 0.0);
+    assert!(flux_difference(&capped, &uncapped) > 0.0);
+}
+
+#[test]
+fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
+    // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く
+    let (lib, _, _) = thermal_cell(600.0);
+    let fuel = material(&[("U-238", 0.022)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e3],
+            Collision::Exact,
+            None,
+            scattering,
+        )
+        .unwrap()
+    };
+    let moving = solve(free_gas_heavy(f64::INFINITY, 4, None));
+    let at_rest = solve(Scattering::Static);
+    assert!(
+        flux_difference(&moving, &at_rest) > 1e-5,
+        "{}",
+        flux_difference(&moving, &at_rest)
+    );
 }

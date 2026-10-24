@@ -137,6 +137,9 @@ fn correction_vanishes_outside_its_cells() {
         (15.86, 600.0),
         (15.86, 1200.0),
         (0.99917, 1200.0),
+        (89.13, 600.0),
+        (236.0, 565.0),
+        (236.0, 900.0),
     ] {
         let light = Light::new(awr, temperature, None);
         let grades = grades(4);
@@ -173,10 +176,21 @@ fn test_flux(u: f64) -> f64 {
     1.0 + 0.2 * (7.0 * u).sin() - 0.6 * (-((u - 1.25) / 0.01).powi(2)).exp()
 }
 
-/// 格子点 m の D の散乱源を、区間の機構（[`integrate`]）と、細かい直接の求積で求める
+/// 格子点 m の D の散乱源を、区間の機構（[`integrate`]）と、細かい直接の求積で求める（弾性散乱断面積は一定）
 fn sources(light: &Light, cells: usize, u: &[f64], m: usize, high: f64) -> (f64, f64) {
+    sources_with(light, cells, u, m, high, &vec![3.8; u.len()])
+}
+
+/// [`sources`] の、格子点ごとの弾性散乱断面積 `sigma` のもの
+fn sources_with(
+    light: &Light,
+    cells: usize,
+    u: &[f64],
+    m: usize,
+    high: f64,
+    sigma: &[f64],
+) -> (f64, f64) {
     let flux: Vec<f64> = u.iter().map(|&x| test_flux(x)).collect();
-    let sigma = vec![3.8; u.len()];
     let prefix = prefix_of(u, &flux, 0);
     let history = History {
         flux: &flux[..m],
@@ -201,7 +215,7 @@ fn sources(light: &Light, cells: usize, u: &[f64], m: usize, high: f64) -> (f64,
     for &(a, b) in &pieces {
         let inside = light.inside(u[m], a, b);
         let f = |x: f64| {
-            interpolate(u, &sigma, locate(u, x), x) * light.correction(high, x, u[m], e, inside)
+            interpolate(u, sigma, locate(u, x), x) * light.correction(high, x, u[m], e, inside)
         };
         let mid = 0.5 * (a + b);
         let q = Quadratic::through(a, b, f(a), f(mid), f(b));
@@ -234,6 +248,39 @@ fn cells_integrate_the_correction_against_the_flux() {
                 "A {awr}, u {target}: {errors:?} of {scale}"
             );
             assert!(errors[3] <= errors[0], "A {awr}, u {target}: {errors:?}");
+        }
+    }
+}
+
+#[test]
+fn cells_integrate_the_correction_against_a_resonant_cross_section() {
+    // 分離共鳴を持つ核種（U-238、900 K）の弾性散乱断面積が区間の中で共鳴の形に変わっても、区間の 2 次式による D の散乱源は、
+    // 細かい直接の求積に、区間を細かくするほど近づく。共鳴は u = 1.25（E = 5.73 eV）で、幅は 900 K のドップラー幅ほど。
+    // 2 次式は σs と D の積を近似するので、σs が一定のとき（`cells_integrate_the_correction_against_the_flux`）より遅く、
+    // 区間の細かさを倍にするごとに誤差は 3 分の 1 より小さくなる
+    let u = test_grid();
+    let high = 20.0;
+    let sigma: Vec<f64> = u
+        .iter()
+        .map(|&x| 9.0 + 2.0e3 / (1.0 + ((x - 1.25) / 0.01).powi(2)))
+        .collect();
+    let light = Light::new(236.0, 900.0, None);
+    for target in [1.22, 1.25, 1.26, 1.29] {
+        let m = locate(&u, target);
+        let errors: Vec<f64> = [2, 4, 8, 16]
+            .iter()
+            .map(|&cells| {
+                let (machine, direct) = sources_with(&light, cells, &u, m, high, &sigma);
+                (machine - direct).abs()
+            })
+            .collect();
+        let (_, scale) = sources_with(&light, 16, &u, m, high, &sigma);
+        assert!(
+            errors[3] <= 1e-5 * scale.abs(),
+            "u {target}: {errors:?} of {scale}"
+        );
+        for w in errors.windows(2) {
+            assert!(3.0 * w[1] <= w[0], "u {target}: {errors:?}");
         }
     }
 }
