@@ -214,7 +214,8 @@ def summarize_state(
                     f"{name}: a transfer log has no {material} {first}-{last}"
                 )
             block = found[(material, first, last)]
-            if abs(block["base"] - k0) > 2e-6:
+            # どちらのログも k を小数 6 桁で書くので、同じ解なら印字の丸めの半分（5e-7）の内で合う
+            if abs(block["base"] - k0) > 5e-7:
                 raise SummaryError(
                     f"{name}: the transfer log solved another xlc k ({block['base']} and {k0})"
                 )
