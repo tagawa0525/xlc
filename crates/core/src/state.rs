@@ -366,6 +366,13 @@ pub fn interpolate(
             state.burnup.unwrap_or(0.0)
         ));
     }
+    if assembly.negative_difference {
+        causes.push(
+            "a state solved at some burnups adds its difference from the nominal state, add its burnup points \
+             (ADR-0200)"
+                .to_string(),
+        );
+    }
     if assembly.negative_components {
         causes.push(
             "the cut-HDMR assembly of the subgrids went past the solved states, add the subgrid of more axes \
@@ -405,6 +412,8 @@ struct Assembly<'a> {
     /// 負の重みの出どころ
     negative_burnup: bool,
     negative_components: bool,
+    /// 公称の状態との差で燃焼度を内挿した点がある（公称の状態を負の重みで引く）
+    negative_difference: bool,
 }
 
 impl<'a> Assembly<'a> {
@@ -430,6 +439,7 @@ impl<'a> Assembly<'a> {
             rod,
             negative_burnup: false,
             negative_components: false,
+            negative_difference: false,
         }
     }
 
@@ -593,6 +603,7 @@ impl<'a> Assembly<'a> {
             format!("the point {at:?} is solved at the burnups {at_solved:?} only: {e}")
         })?;
         let weight = product(1.0);
+        self.negative_difference = true;
         for &(k, h) in &self.terms[b] {
             weights.push((self.point(&origin, Some(k))?, weight * h));
         }

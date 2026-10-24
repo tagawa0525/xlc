@@ -131,6 +131,12 @@ def table_grid(name: str, table: dict, nominal: dict) -> dict:
                 f"{name}: the nominal {n} {nominal[n]} is not a point of the axis {p}"
             )
     per_point = math.prod(len(p) for p in points)
+    # 状態を軸の直積の順の番号で読むので、解いた点が直積の点を同じ順に持つこと（ADR-0200 の部分格子のテーブルは読まない）
+    sizes = [len(burnup)] if burnup is not None else []
+    sizes += [len(p) for p in points]
+    product = [list(p) for p in itertools.product(*[range(n) for n in sizes])]
+    if table.get("points") != product:
+        raise SystemExit(f"{name}: the table must hold the product of its axes")
     if len(table["states"]) != per_point * len(burnup or [None]):
         raise SystemExit(f"{name}: {len(table['states'])} states for the axes")
     return {

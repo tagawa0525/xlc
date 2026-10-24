@@ -23,7 +23,7 @@ BURNUP_TOLERANCE = 1e-9
 
 
 def branch_k(table: dict, state: dict, burnup: float) -> float:
-    """燃焼度 `burnup`（テーブルの点）と core の状態 `state` の、テーブルの状態の k∞（軸の直積の順で、最初の軸がいちばん遅く変わる）"""
+    """燃焼度 `burnup`（テーブルの点）と core の状態 `state` の、テーブルの状態の k∞（状態は解いた点 `points` で探す。ADR-0200）"""
     if table["split"] != 1:
         raise SystemExit("the table must not split the assembly")
     wanted = {

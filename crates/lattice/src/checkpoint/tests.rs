@@ -56,7 +56,7 @@ fn every(counts: &[usize]) -> Vec<usize> {
 fn starts_after(counts: &[usize], solved: usize) -> Starts<f64> {
     let mut starts = Starts::new(counts);
     for i in 0..solved {
-        starts.solved(i as f64 + 0.5);
+        starts.solved(i as f64 + 0.5).unwrap();
     }
     starts
 }
@@ -108,8 +108,8 @@ fn saved_states_and_starts_read_back_bit_for_bit() {
     let mut straight = starts_after(&counts, 3);
     assert_eq!(starts.start(), straight.start());
     assert_eq!(starts.start(), Some(&0.5));
-    starts.solved(3.5);
-    straight.solved(3.5);
+    starts.solved(3.5).unwrap();
+    straight.solved(3.5).unwrap();
     assert_eq!(starts.start(), straight.start());
     // 書き込みは一時ファイルを rename で置き換えるので、チェックポイントのほかに残らない
     let names: Vec<_> = std::fs::read_dir(&dir)
@@ -246,7 +246,7 @@ fn more_saved_states_than_the_run_has_are_an_error() {
     let dir = scratch("count");
     let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
     checkpoint
-        .save_states(&states(3), &starts_after(&[2], 3))
+        .save_states(&states(3), &starts_after(&[4], 3))
         .unwrap();
     let error = solve_states(
         &every(&[2]),
@@ -418,8 +418,8 @@ fn a_solution_shared_by_axes_is_written_once() {
     let mut straight = starts_after(&counts, 1);
     for state in 1..8 {
         assert_eq!(read.start(), straight.start(), "state {state}");
-        read.solved(state as f64 + 0.5);
-        straight.solved(state as f64 + 0.5);
+        read.solved(state as f64 + 0.5).unwrap();
+        straight.solved(state as f64 + 0.5).unwrap();
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
