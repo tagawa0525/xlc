@@ -563,6 +563,25 @@ impl<'a> BranchShielder<'a> {
             .iter()
             .find(|(_, i, ..)| *i == index)
             .ok_or_else(|| anyhow!("no reference shielding {index}"))?;
+        // 参照から作り直すのはホウ素の軸の物質だけなので、ほかの物質は参照と同じこと（違えば、別の減速材か燃料の温度の参照）
+        if nominal.len() != state.len() {
+            bail!(
+                "{} materials in the state, {} in the reference",
+                state.len(),
+                nominal.len()
+            );
+        }
+        if let Some(m) = state
+            .iter()
+            .zip(nominal)
+            .find(|(m, n)| m != n && !self.varied.contains(&m.name))
+            .map(|(m, _)| m)
+        {
+            bail!(
+                "material `{}` of the state differs from the reference at the nominal boron",
+                m.name
+            );
+        }
         let mut unique = shielded.materials.clone();
         if state != nominal.as_slice() {
             let rebuilt = remix_varied(
