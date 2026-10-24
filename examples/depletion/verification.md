@@ -324,8 +324,8 @@ nix develop .#references -c python3 examples/depletion/issue-0133/swap_candidate
 
 #### 計算
 
-xlc は c1ba5cb75（格子のコードは分岐点の main の 9fe1bee7d と同じ）、2026-10-24（Slurm 536）。OpenMC は、1C の 0 と 5 MWd/kg が #0133 の
-Slurm 448（20 万粒子 × 100 アクティブ世代）と、このブランチの Slurm 534（bf927be49、分岐点は main の 9fe1bee7d、2026-10-24。
+xlc は 1a76c3541（格子のコードは分岐点の main の 9fe1bee7d と同じ）、2026-10-24（Slurm 536）。OpenMC は、1C の 0 と 5 MWd/kg が #0133 の
+Slurm 448（20 万粒子 × 100 アクティブ世代）と、このブランチの Slurm 534（97553b20a、分岐点は main の 9fe1bee7d、2026-10-24。
 30 万粒子 × 100 アクティブ世代、`openmc_pin_transfer.py`）、2A の 40 MWd/kg が #0133 の Slurm 456、458、459（シード 1、2、3）と 534。
 456 と 458 は群 1 に 10 MeV より上を数えないので、15 keV より上の吸収の置き換えから外す。移行は 534 だけ。
 ライブラリは examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。実行の対応は `issue-0133/swap-candidates.toml`、ログは

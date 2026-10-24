@@ -227,7 +227,7 @@ Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を入れて両方が 54 核種を�
   説明できない残りの増え（+55 ± 18 pcm）の内訳
 - 2026-10-24: 燃焼で増える k の差の候補（#0148、#0151、#0152、核分裂生成物）の寄与を、同じ組成の 1C のピンセルで吸収と散乱の移行を
   OpenMC の値に置き換えて測り、順番を ADR-0202 に決めた（ブランチ feat/0133-burnup-bias-breakdown、分岐点は main の 9fe1bee7d。xlc は
-  c1ba5cb75（Slurm 536）、OpenMC の移行の tally は bf927be49（Slurm 534）。examples/depletion/verification.md の「k の差の候補の寄与（#0133）」。
+  1a76c3541（Slurm 536）、OpenMC の移行の tally は 97553b20a（Slurm 534）。examples/depletion/verification.md の「k の差の候補の寄与（#0133）」。
   スクリプトは `issue-0133/` の `openmc_pin_transfer.py`、`swap_candidates.py`、`estimate_candidates.py`）
   - 新しい燃料から 2A の 40 MWd/kg の組成への輸送の差の増え +111 pcm は、UFG の範囲（4 eV〜15 keV）+83（吸収 +44、うち 4〜9.88 eV
     +34.6。移行 +39、うち減速材 +25.8）、0.625 eV より下 +8、0.625〜4 eV +8.7、15 keV より上 +3、残り +16.6 に分かれる。上の (7) の
