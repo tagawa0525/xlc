@@ -1238,6 +1238,13 @@ class BranchShieldingTest(unittest.TestCase):
             ],
         )
 
+    def test_two_states_at_one_moderator_point_are_an_error(self):
+        # 燃料の温度の点が 2 つあるテーブルは、減速材の点の列に 2 つの状態が入る
+        s = self.summary()
+        s["cases"][1]["states"].append(self.state(0.0, 900.0, 565.0, 0.76972, 1.0))
+        with self.assertRaises(vt.TableError):
+            vt.branch_shielding_k([s])
+
     def test_a_summary_of_another_format_is_an_error(self):
         for draw in (vt.branch_shielding_k, vt.branch_shielding_constants):
             with self.assertRaises(vt.TableError):
