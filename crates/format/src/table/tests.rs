@@ -581,7 +581,7 @@ fn pairs() -> Table {
     // 3 つの軸がどれも公称でない点（3 次の成分）だけを除く
     let points: Vec<Vec<usize>> = product_points(&axes)
         .into_iter()
-        .filter(|p| p.iter().any(|&i| i == 1))
+        .filter(|p| p.contains(&1))
         .collect();
     Table {
         states: (0..points.len()).map(|i| state(3.0 + i as f64)).collect(),

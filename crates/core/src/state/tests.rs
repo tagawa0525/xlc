@@ -1,5 +1,6 @@
 use super::*;
 use xlc_format::fewgroup::Pins;
+use xlc_format::table::product_points;
 
 /// 各量が (ppm, 減速材の温度, √燃料の温度) の多重線形な関数（交差の項を含む）である状態
 fn value(ppm: f64, tm: f64, tf: f64) -> f64 {
@@ -54,24 +55,19 @@ fn table() -> Table {
             }
         }
     }
-    Table {
+    let mut table = Table {
+        points: Vec::new(),
         split: 1,
         heavy_metal: None,
         axes: vec![
-            Axis::Boron {
-                ppm: PPM.to_vec(),
-                b10: 0.199,
-            },
-            Axis::Moderator {
-                temperature: TM.to_vec(),
-                density: vec![0.76972, 0.74271, 0.71190],
-            },
-            Axis::Fuel {
-                temperature: TF.to_vec(),
-            },
+            Axis::boron(PPM.to_vec(), 0.199),
+            Axis::moderator(TM.to_vec(), vec![0.76972, 0.74271, 0.71190]),
+            Axis::fuel(TF.to_vec()),
         ],
         states,
-    }
+    };
+    table.points = product_points(&table.axes);
+    table
 }
 
 fn state(boron: f64, moderator: f64, fuel: f64) -> State {
@@ -172,6 +168,7 @@ fn invalid_states_are_errors() {
     // 状態があるのに軸がない、状態がないのに軸がある
     let mut two = t.clone();
     two.axes.pop();
+    two.points = product_points(&two.axes);
     two.states = two.states.iter().step_by(2).cloned().collect();
     assert!(err(Some(&state(1300.0, 565.0, 600.0)), &two).contains("fuel"));
     // 軸がないことは、ほかの軸の範囲の外より先に示す
@@ -182,9 +179,8 @@ fn invalid_states_are_errors() {
 #[test]
 fn single_point_axes_need_that_value() {
     let mut t = table();
-    t.axes[2] = Axis::Fuel {
-        temperature: vec![550.0],
-    };
+    t.axes[2] = Axis::fuel(vec![550.0]);
+    t.points = product_points(&t.axes);
     t.states = t.states.iter().step_by(2).cloned().collect();
     let got = interpolate(&t, Some(&state(1300.0, 565.0, 550.0)), None)
         .unwrap()
@@ -270,6 +266,7 @@ fn rodded_table() -> Table {
             values: vec!["out".into(), "aic".into(), "b4c".into()],
         },
     );
+    t.points = product_points(&t.axes);
     t.states = states;
     t
 }
@@ -342,6 +339,7 @@ fn burnup_table() -> Table {
             points: BURNUP.to_vec(),
         },
     );
+    t.points = product_points(&t.axes);
     t.states = states;
     t
 }
@@ -439,6 +437,7 @@ fn burnup_table_of(points: &[f64], g: impl Fn(f64) -> f64) -> Table {
             points: points.to_vec(),
         },
     );
+    t.points = product_points(&t.axes);
     t.states = states;
     t
 }
