@@ -632,7 +632,7 @@ fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
                 gain: 1.0 / (1.0 - alpha),
                 width: -alpha.ln(),
                 table: t,
-                light: None,
+                gas: None,
             }
         })
         .collect();
@@ -961,7 +961,7 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
                 gain: 1.0,
                 width: 1.0,
                 table: t,
-                light: None,
+                gas: None,
             }
         })
         .collect();
@@ -1023,7 +1023,7 @@ fn macroscopic_totals_report_the_first_error_in_nuclide_then_point_order() {
                 gain: 1.0,
                 width: 1.0,
                 table: t,
-                light: None,
+                gas: None,
             }
         })
         .collect();
@@ -1102,6 +1102,17 @@ fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scatteri
         upper,
         cells,
         sweeps,
+        heavy: None,
+    })
+}
+
+/// [`free_gas`] の、分離共鳴を持つ核種も `heavy`（kT の倍数）より下で自由ガスにするもの
+fn free_gas_heavy(heavy: f64, cells: usize, sweeps: Option<usize>) -> Scattering {
+    Scattering::FreeGas(FreeGas {
+        upper: None,
+        cells,
+        sweeps,
+        heavy: Some(heavy),
     })
 }
 
@@ -1173,7 +1184,7 @@ fn converged_sweeps_match_many_fixed_sweeps() {
 
 #[test]
 fn nuclides_with_resolved_resonances_stay_at_rest() {
-    // 分離共鳴を持つ核種だけのセルは、自由ガスを選んでも静止した標的と同じ
+    // 分離共鳴を持つ核種だけのセルは、`heavy` を書かずに自由ガスを選んでも静止した標的と同じ
     let (lib, _, _) = thermal_cell(600.0);
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
@@ -1191,4 +1202,377 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
         .unwrap()
     };
     assert_eq!(solve(free_gas(None, 4, None)), solve(Scattering::Static));
+}
+
+#[test]
+fn resonant_nuclides_at_a_vanishing_temperature_give_the_static_spectrum() {
+    // 分離共鳴を持つ核種も自由ガスにしても、T → 0 で静止した標的の核になる
+    let at_rest = thermal_spectrum(1.0e-3, Scattering::Static);
+    let cold = thermal_spectrum(1.0e-3, free_gas_heavy(f64::INFINITY, 4, None));
+    assert!(
+        flux_difference(&cold, &at_rest) < 1e-7,
+        "{}",
+        flux_difference(&cold, &at_rest)
+    );
+}
+
+#[test]
+fn resonant_free_gas_moves_the_resonance_shielding() {
+    // 600 K では、分離共鳴を持つ核種（U-238、U-235）の熱運動で、軽い核種だけを自由ガスにしたときから群の中性子束が動く
+    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let heavy = thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None));
+    assert!(
+        flux_difference(&heavy, &light) > 1e-5,
+        "{}",
+        flux_difference(&heavy, &light)
+    );
+}
+
+#[test]
+fn resonant_free_gas_spectrum_converges_with_the_cells() {
+    // 分離共鳴を持つ核種も自由ガスにしたとき、区間を細かくすると群の中性子束が収束する
+    let spectra: Vec<CellSpectrum> = [2, 4, 8, 16]
+        .iter()
+        .map(|&cells| thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, cells, None)))
+        .collect();
+    let steps: Vec<f64> = spectra
+        .windows(2)
+        .map(|w| flux_difference(&w[0], &w[1]))
+        .collect();
+    assert!(steps[2] < 1e-6, "{steps:?}");
+    assert!(steps[2] < steps[0], "{steps:?}");
+}
+
+#[test]
+fn resonant_nuclides_follow_their_own_cap() {
+    // 分離共鳴を持つ核種の上限（`heavy`）は軽い核種の上限（`upper`）と別に効く。範囲の下端より下の上限は、分離共鳴を持つ核種を
+    // 静止させたままにし、範囲の上端より上の上限は、上限のないときと同じ
+    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    assert_eq!(thermal_spectrum(600.0, free_gas_heavy(1.0, 4, None)), light);
+    assert_eq!(
+        thermal_spectrum(600.0, free_gas_heavy(1.0e9, 4, None)),
+        thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None))
+    );
+    // 400 kT（600 K で 20.7 eV）の上限は、6.67 eV の共鳴の熱運動を残し、上限のないときからの動きのほとんどを再現する
+    // （上限より上の入射の分は、上限のないときと軽い核種だけのときの差の 1 割ほど）
+    let capped = thermal_spectrum(600.0, free_gas_heavy(400.0, 4, None));
+    let uncapped = thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None));
+    let whole = flux_difference(&uncapped, &light);
+    assert!(flux_difference(&capped, &light) > 0.8 * whole, "{whole}");
+    assert!(flux_difference(&capped, &uncapped) < 0.2 * whole, "{whole}");
+    assert!(
+        flux_difference(&capped, &uncapped) > 0.01 * whole,
+        "{whole}"
+    );
+}
+
+#[test]
+fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
+    // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く。減速材のないセルはスイープの収束が遅い（#0179）ので、
+    // スイープの回数を固定する
+    let (lib, _, _) = thermal_cell(600.0);
+    let fuel = material(&[("U-238", 0.022)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e3],
+            Collision::Exact,
+            None,
+            scattering,
+        )
+        .unwrap()
+    };
+    let moving = solve(free_gas_heavy(f64::INFINITY, 4, Some(32)));
+    let at_rest = solve(Scattering::Static);
+    assert!(
+        flux_difference(&moving, &at_rest) > 1e-5,
+        "{}",
+        flux_difference(&moving, &at_rest)
+    );
+}
+
+/// 無限媒質の 1 つの核種: 質量比、個数密度、自由ガスの核で散乱するか、ポイントワイズの (E, 全, 弾性散乱) の表
+struct DirectNuclide<'a> {
+    awr: f64,
+    density: f64,
+    gas: bool,
+    table: &'a [[f64; 3]],
+}
+
+/// 表の lin-lin の補間（[全, 弾性散乱]）。表の外は端の値
+fn table_at(table: &[[f64; 3]], e: f64) -> [f64; 2] {
+    let k = table.partition_point(|p| p[0] <= e);
+    if k == 0 {
+        return [table[0][1], table[0][2]];
+    }
+    if k == table.len() {
+        let p = table[k - 1];
+        return [p[1], p[2]];
+    }
+    let (a, b) = (table[k - 1], table[k]);
+    let t = (e - a[0]) / (b[0] - a[0]);
+    [a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2])]
+}
+
+/// 無限媒質の減速を、レサジーの等間隔の格子（`points` 区間）の上で散乱核を直接に求積して解いた F = E φ（区間の機構と
+/// 静止した核と差の分け方によらない検証用）。範囲の上は F = 1 で静止した標的（散乱断面積は表の最初の値。[`library_at`] の
+/// 群定数と同じ）、範囲の下限より下は F と断面積を最後の格子点の値とする（減速計算と同じ約束）。自由ガスの核は
+/// R(u'→u) = E S(E'→E)/N(E')（[`free_gas::kernel`]）を、静止した核の窓の両側にぼけの幅の 16 倍まで積分する
+fn direct_medium(
+    nuclides: &[DirectNuclide],
+    temperature: f64,
+    [low, high]: [f64; 2],
+    points: usize,
+) -> (Vec<f64>, Vec<f64>) {
+    use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
+    let kt = free_gas::BOLTZMANN * temperature;
+    let length = (high / low).ln();
+    let u: Vec<f64> = (0..=points)
+        .map(|j| length * j as f64 / points as f64)
+        .collect();
+    let e: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
+    let last = points;
+    let total: Vec<f64> = e
+        .iter()
+        .map(|&x| {
+            nuclides
+                .iter()
+                .map(|n| n.density * table_at(n.table, x)[0])
+                .sum()
+        })
+        .collect();
+    let elastic = |n: &DirectNuclide, x: f64| table_at(n.table, x.max(low))[1];
+    // 格子点 j の散乱源の、範囲の上からの部分と、格子点ごとの F の重み
+    let mut above = vec![0.0; points + 1];
+    let mut weights: Vec<Vec<(usize, f64)>> = vec![Vec::new(); points + 1];
+    for j in 0..=points {
+        let mut w = vec![0.0; points + 1];
+        for n in nuclides {
+            let alpha = ((n.awr - 1.0) / (n.awr + 1.0)).powi(2);
+            let width = -alpha.ln();
+            let gain = 1.0 / (1.0 - alpha);
+            if u[j] < width {
+                above[j] += n.density * elastic(n, low) * gain * ((-u[j]).exp() - (-width).exp());
+            }
+            let zeta = (n.awr - 1.0) / (2.0 * n.awr.sqrt());
+            let blur = if n.gas {
+                16.0 * 2.0 * (kt / e[j]).sqrt() / zeta
+            } else {
+                0.0
+            };
+            let (from, to) = ((u[j] - width - blur).max(0.0), u[j] + blur);
+            let kernel = |x: f64| {
+                let e_in = high * (-x).exp();
+                if n.gas {
+                    e[j] * free_gas::kernel(e_in, e[j], n.awr, kt)
+                        / free_gas::effective_ratio(e_in, n.awr, kt)
+                } else if x <= u[j] && x >= u[j] - width {
+                    gain * (-(u[j] - x)).exp()
+                } else {
+                    0.0
+                }
+            };
+            // 格子の区間ごと（静止した核は窓の下端、自由ガスは u_j の折れで分ける）
+            let q0 = ((from / length * points as f64).floor() as usize).min(last);
+            let q1 = ((to.min(length) / length * points as f64).ceil() as usize).min(last);
+            for q in q0..q1 {
+                let mut cuts = vec![u[q].max(from), u[q + 1].min(to)];
+                for c in [u[j] - width, u[j]] {
+                    if c > cuts[0] && c < cuts[1] {
+                        cuts.push(c);
+                    }
+                }
+                cuts.sort_by(f64::total_cmp);
+                for p in cuts.windows(2) {
+                    let (mid, half) = (0.5 * (p[0] + p[1]), 0.5 * (p[1] - p[0]));
+                    for &(x, g) in &GAUSS_LEGENDRE_4 {
+                        let s = mid + half * x;
+                        let t = (s - u[q]) / (u[q + 1] - u[q]);
+                        let v = g * half * n.density * elastic(n, high * (-s).exp()) * kernel(s);
+                        w[q] += v * (1.0 - t);
+                        w[q + 1] += v * t;
+                    }
+                }
+            }
+            // 範囲の下限より下（F と断面積は最後の格子点の値）
+            if to > length {
+                let (mid, half) = (0.5 * (length + to), 0.5 * (to - length));
+                for &(x, g) in &GAUSS_LEGENDRE_4 {
+                    let s = mid + half * x;
+                    w[last] += g * half * n.density * elastic(n, low) * kernel(s);
+                }
+            }
+        }
+        weights[j] = w
+            .into_iter()
+            .enumerate()
+            .filter(|&(_, v)| v != 0.0)
+            .collect();
+    }
+    // 上方散乱があるので、高いエネルギーから順に解き直す（ガウス-ザイデル）
+    let mut flux = vec![1.0; points + 1];
+    for _ in 0..500 {
+        let mut change: f64 = 0.0;
+        for j in 0..=points {
+            let (mut source, mut own) = (above[j], 0.0);
+            for &(q, v) in &weights[j] {
+                if q == j {
+                    own += v;
+                } else {
+                    source += v * flux[q];
+                }
+            }
+            let next = source / (total[j] - own);
+            change = change.max(((next - flux[j]) / next).abs());
+            flux[j] = next;
+        }
+        if change < 1e-13 {
+            return (u, flux);
+        }
+    }
+    panic!("the direct medium did not converge");
+}
+
+/// 格子 `u` の F の、エネルギー [a, b] での ∫ g F du（g は E の関数。台形則で、端は補間）
+fn direct_rate(
+    u: &[f64],
+    flux: &[f64],
+    high: f64,
+    [a, b]: [f64; 2],
+    g: impl Fn(f64) -> f64,
+) -> f64 {
+    let (ua, ub) = ((high / b).ln(), (high / a).ln());
+    let at = |x: f64| {
+        let k = u.partition_point(|&v| v <= x).clamp(1, u.len() - 1);
+        let t = (x - u[k - 1]) / (u[k] - u[k - 1]);
+        flux[k - 1] + t * (flux[k] - flux[k - 1])
+    };
+    let mut nodes = vec![ua];
+    nodes.extend(u.iter().copied().filter(|&x| x > ua && x < ub));
+    nodes.push(ub);
+    nodes
+        .windows(2)
+        .map(|w| {
+            let f = |x: f64| g(high * (-x).exp()) * at(x);
+            0.5 * (w[1] - w[0]) * (f(w[0]) + f(w[1]))
+        })
+        .sum()
+}
+
+#[test]
+fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
+    // 分離共鳴を持つ核種（U-238 の 6.67 eV のような捕獲と散乱の共鳴、900 K）と静止した減速材（O-16）の無限媒質で、
+    // U-238 を自由ガスにしたときの群の捕獲の変化が、散乱核を格子の上で直接に求積した解の変化と合う
+    let temperature = 900.0;
+    let capture = |e: f64| 2.0e3 / (1.0 + ((e - 6.67) / 0.05).powi(2));
+    let scatter = |e: f64| 1.5e2 / (1.0 + ((e - 6.67) / 0.05).powi(2));
+    let mut energies: Vec<f64> = (0..=700).map(|k| 6.0 + 0.002 * k as f64).collect();
+    energies.splice(0..0, (0..20).map(|k| 4.0 + 0.1 * k as f64));
+    energies.extend((1..=126).map(|k| 7.4 + 0.1 * k as f64));
+    energies.extend([100.0, 1.0e3, 2.0e4]);
+    let u238: Vec<[f64; 3]> = energies
+        .iter()
+        .map(|&e| [e, 9.0 + capture(e) + scatter(e), 9.0 + scatter(e)])
+        .collect();
+    let oxygen = [[4.0, 3.8, 3.8], [2.0e4, 3.8, 3.8]];
+    let spec = |name, awr, top, table: &[[f64; 3]]| Spec {
+        name,
+        awr,
+        top,
+        points: table
+            .iter()
+            .map(|p| [p[0], p[1], p[2], p[1] - p[2]])
+            .collect(),
+    };
+    let mut lib = library_at(
+        vec![
+            spec("U-238", 236.0, Some(2.0e4), &u238),
+            spec("O-16", 15.86, None, &oxygen),
+        ],
+        temperature,
+    );
+    lib.groups = GroupStructure::new(vec![2.0e7, 2.0e4, 20.0, 9.877, 4.0, 1.0e-5]).unwrap();
+    let (n_u, n_o) = (0.022, 0.2);
+    let fuel = material_at(&[("U-238", n_u), ("O-16", n_o)], temperature);
+    let cell = Cylinder::new(vec![0.3, 0.6]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel)];
+    // O-16 は上限を範囲の下（1 kT）にして静止させ、U-238 だけを自由ガスにする
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 20.0],
+            Collision::Exact,
+            None,
+            scattering,
+        )
+        .unwrap()
+    };
+    let moving = Scattering::FreeGas(FreeGas {
+        upper: Some(1.0),
+        cells: 4,
+        sweeps: None,
+        heavy: Some(f64::INFINITY),
+    });
+    // 群（20〜9.877、9.877〜4 eV）の U-238 の捕獲率
+    let ufg_rates = |s: &CellSpectrum| -> Vec<f64> {
+        (0..2)
+            .map(|g| s.nuclides[0][0].capture[g] * s.flux[0][g])
+            .collect()
+    };
+    let (ufg_static, ufg_moving) = (
+        ufg_rates(&solve(Scattering::Static)),
+        ufg_rates(&solve(moving)),
+    );
+    let direct = |gas: bool| -> Vec<f64> {
+        let nuclides = [
+            DirectNuclide {
+                awr: 236.0,
+                density: n_u,
+                gas,
+                table: &u238,
+            },
+            DirectNuclide {
+                awr: 15.86,
+                density: n_o,
+                gas: false,
+                table: &oxygen,
+            },
+        ];
+        let (u, flux) = direct_medium(&nuclides, temperature, [4.0, 20.0], 4000);
+        [[9.877, 20.0], [4.0, 9.877]]
+            .iter()
+            .map(|&range| direct_rate(&u, &flux, 20.0, range, capture))
+            .collect()
+    };
+    let (direct_static, direct_moving) = (direct(false), direct(true));
+    for g in 0..2 {
+        // 静止した標的どうしの差（減速計算の窓の格子の離散化。直接の解は格子を倍にしても 1e−6 しか動かない）は 1e−3 ほどで、
+        // 自由ガスによる変化（1e−3 ほど）の差はその大きさの数 % に収まる
+        assert!(
+            (ufg_static[g] / direct_static[g] - 1.0).abs() < 2e-3,
+            "group {g}: {ufg_static:?} {direct_static:?}"
+        );
+        let ufg_change = ufg_moving[g] / ufg_static[g] - 1.0;
+        let direct_change = direct_moving[g] / direct_static[g] - 1.0;
+        assert!(direct_change.abs() > 5e-4, "group {g}: {direct_change}");
+        assert!(
+            (ufg_change - direct_change).abs() < 0.1 * direct_change.abs(),
+            "group {g}: {ufg_change} {direct_change}"
+        );
+    }
+}
+
+#[test]
+fn a_resonant_cap_just_below_the_range_reaches_it_by_up_scattering() {
+    // 60 kT（600 K で 3.1 eV）の上限は範囲の下限 4 eV より下だが、上方散乱の裾は 4 eV の近くの格子点に届く（範囲の下限より下の入射は
+    // 最後の格子点の値を使う）
+    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let capped = thermal_spectrum(600.0, free_gas_heavy(60.0, 4, None));
+    assert!(flux_difference(&capped, &light) > 0.0);
 }

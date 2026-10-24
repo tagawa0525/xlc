@@ -137,22 +137,25 @@ fn correction_vanishes_outside_its_cells() {
         (15.86, 600.0),
         (15.86, 1200.0),
         (0.99917, 1200.0),
+        (89.13, 600.0),
+        (236.0, 565.0),
+        (236.0, 900.0),
     ] {
-        let light = Light::new(awr, temperature, None);
+        let gas = Gas::new(awr, temperature, None);
         let grades = grades(4);
         for e in [4.0, 4.5, 50.0, 5000.0] {
             let u = (high / e).ln();
-            light.cells(high, u, e, &grades, 4, 9.0, &mut bounds, &mut cells);
-            let width = light.width.min(3.0);
+            gas.cells(high, u, e, &grades, 4, 9.0, &mut bounds, &mut cells);
+            let width = gas.width.min(3.0);
             let samples = 20_000;
             for j in 0..=samples {
                 let x = u - width - 0.5 + (width + 2.0) * j as f64 / samples as f64;
                 if x < 0.0 || cells.iter().any(|&(a, b)| a <= x && x <= b) {
                     continue;
                 }
-                let inside = u - light.width < x && x < u;
-                let d = light.correction(high, x, u, e, inside);
-                assert!(d.abs() < 1e-11 * light.gain, "A {awr}, E {e}: D({x}) = {d}");
+                let inside = u - gas.width < x && x < u;
+                let d = gas.correction(high, x, u, e, inside);
+                assert!(d.abs() < 1e-11 * gas.gain, "A {awr}, E {e}: D({x}) = {d}");
             }
         }
     }
@@ -173,10 +176,21 @@ fn test_flux(u: f64) -> f64 {
     1.0 + 0.2 * (7.0 * u).sin() - 0.6 * (-((u - 1.25) / 0.01).powi(2)).exp()
 }
 
-/// 格子点 m の D の散乱源を、区間の機構（[`integrate`]）と、細かい直接の求積で求める
-fn sources(light: &Light, cells: usize, u: &[f64], m: usize, high: f64) -> (f64, f64) {
+/// 格子点 m の D の散乱源を、区間の機構（[`integrate`]）と、細かい直接の求積で求める（弾性散乱断面積は一定）
+fn sources(gas: &Gas, cells: usize, u: &[f64], m: usize, high: f64) -> (f64, f64) {
+    sources_with(gas, cells, u, m, high, &vec![3.8; u.len()])
+}
+
+/// [`sources`] の、格子点ごとの弾性散乱断面積 `sigma` のもの
+fn sources_with(
+    gas: &Gas,
+    cells: usize,
+    u: &[f64],
+    m: usize,
+    high: f64,
+    sigma: &[f64],
+) -> (f64, f64) {
     let flux: Vec<f64> = u.iter().map(|&x| test_flux(x)).collect();
-    let sigma = vec![3.8; u.len()];
     let prefix = prefix_of(u, &flux, 0);
     let history = History {
         flux: &flux[..m],
@@ -187,7 +201,7 @@ fn sources(light: &Light, cells: usize, u: &[f64], m: usize, high: f64) -> (f64,
     let (mut bounds, mut pieces) = (Vec::new(), Vec::new());
     let grades = grades(cells);
     let last = u[u.len() - 1];
-    light.cells(
+    gas.cells(
         high,
         u[m],
         e,
@@ -199,9 +213,9 @@ fn sources(light: &Light, cells: usize, u: &[f64], m: usize, high: f64) -> (f64,
     );
     let (mut machine, mut direct) = (0.0, 0.0);
     for &(a, b) in &pieces {
-        let inside = light.inside(u[m], a, b);
+        let inside = gas.inside(u[m], a, b);
         let f = |x: f64| {
-            interpolate(u, &sigma, locate(u, x), x) * light.correction(high, x, u[m], e, inside)
+            interpolate(u, sigma, locate(u, x), x) * gas.correction(high, x, u[m], e, inside)
         };
         let mid = 0.5 * (a + b);
         let q = Quadratic::through(a, b, f(a), f(mid), f(b));
@@ -218,22 +232,55 @@ fn cells_integrate_the_correction_against_the_flux() {
     let u = test_grid();
     let high = 20.0;
     for awr in [0.99917, 15.86] {
-        let light = Light::new(awr, 600.0, None);
+        let gas = Gas::new(awr, 600.0, None);
         for target in [0.6, 1.25, 1.28, 2.9] {
             let m = locate(&u, target);
             let errors: Vec<f64> = [2, 4, 8, 16]
                 .iter()
                 .map(|&cells| {
-                    let (machine, direct) = sources(&light, cells, &u, m, high);
+                    let (machine, direct) = sources(&gas, cells, &u, m, high);
                     (machine - direct).abs()
                 })
                 .collect();
-            let (_, scale) = sources(&light, 16, &u, m, high);
+            let (_, scale) = sources(&gas, 16, &u, m, high);
             assert!(
                 errors[3] <= 1e-6 * scale.abs().max(1e-6),
                 "A {awr}, u {target}: {errors:?} of {scale}"
             );
             assert!(errors[3] <= errors[0], "A {awr}, u {target}: {errors:?}");
+        }
+    }
+}
+
+#[test]
+fn cells_integrate_the_correction_against_a_resonant_cross_section() {
+    // 分離共鳴を持つ核種（U-238、900 K）の弾性散乱断面積が区間の中で共鳴の形に変わっても、区間の 2 次式による D の散乱源は、
+    // 細かい直接の求積に、区間を細かくするほど近づく。共鳴は u = 1.25（E = 5.73 eV）で、幅は 900 K のドップラー幅ほど。
+    // 2 次式は σs と D の積を近似するので、σs が一定のとき（`cells_integrate_the_correction_against_the_flux`）より遅く、
+    // 区間の細かさを倍にするごとに誤差は 3 分の 1 より小さくなる
+    let u = test_grid();
+    let high = 20.0;
+    let sigma: Vec<f64> = u
+        .iter()
+        .map(|&x| 9.0 + 2.0e3 / (1.0 + ((x - 1.25) / 0.01).powi(2)))
+        .collect();
+    let gas = Gas::new(236.0, 900.0, None);
+    for target in [1.22, 1.25, 1.26, 1.29] {
+        let m = locate(&u, target);
+        let errors: Vec<f64> = [2, 4, 8, 16]
+            .iter()
+            .map(|&cells| {
+                let (machine, direct) = sources_with(&gas, cells, &u, m, high, &sigma);
+                (machine - direct).abs()
+            })
+            .collect();
+        let (_, scale) = sources_with(&gas, 16, &u, m, high, &sigma);
+        assert!(
+            errors[3] <= 1e-5 * scale.abs(),
+            "u {target}: {errors:?} of {scale}"
+        );
+        for w in errors.windows(2) {
+            assert!(3.0 * w[1] <= w[0], "u {target}: {errors:?}");
         }
     }
 }
@@ -264,4 +311,31 @@ fn first_sweep_takes_the_flux_ahead_as_its_own() {
     assert_rel(k1 + o1, total, 1e-12);
     assert_rel(k2 + o2, total, 1e-12);
     assert!(o1 > o2);
+}
+
+#[test]
+fn idle_gases_have_no_cells() {
+    // `idle` の出射では、上限より下の入射の区間が無い（区間を作らずに飛ばしても散乱源は変わらない）
+    let high: f64 = 2.0e4;
+    let (mut bounds, mut cells) = (Vec::new(), Vec::new());
+    let grades = grades(4);
+    let mut idle = 0;
+    for (awr, temperature) in [
+        (0.99917, 600.0),
+        (15.86, 600.0),
+        (89.13, 600.0),
+        (236.0, 900.0),
+    ] {
+        let gas = Gas::new(awr, temperature, Some(400.0));
+        for k in 0..400 {
+            let e = 4.0 * 1.02_f64.powi(k);
+            let u = (high / e).ln();
+            gas.cells(high, u, e, &grades, 4, 9.0, &mut bounds, &mut cells);
+            if gas.idle(high, u, e) {
+                idle += 1;
+                assert!(cells.is_empty(), "A {awr}, E {e}: {} cells", cells.len());
+            }
+        }
+    }
+    assert!(idle > 0);
 }

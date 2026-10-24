@@ -4,7 +4,7 @@
     python3 ufg_free_gas.py summarize <設定 (TOML)> <JSON>
 
 設定は `candidates`（OpenMC の実行の一覧。swap-candidates.toml。設定のディレクトリから）、`[[mode]]`（`key`、`label`。最初は
-`static`）、`[[state]]`（`name` は swap-candidates の状態の名前、`key` はログの名前）。ログは設定のディレクトリの
+`static`）、`[[state]]`（`name` は swap-candidates の状態の名前、`key` はログの名前、`swaps` は置き換えの一覧のファイル）。ログは設定のディレクトリの
 `logs/<状態>-<散乱核>-absorption.txt`（swap_absorption の例の出力。無い散乱核は、その状態の結果に入れない）と、あれば `logs/<状態>-<散乱核>-fine.txt`（fine_compare.py の出力）。
 
 k の差は xlc − OpenMC（OpenMC の実行の k の平均。pcm）、変化は同じ状態の静止した標的からの k の変化（pcm）。置き換えの寄与は
@@ -42,6 +42,15 @@ def parse_absorption(text: str) -> tuple[float, dict[str, float]]:
     return k, swaps
 
 
+def parse_swaps(text: str) -> list[str]:
+    """置き換えの一覧（swap_absorption の例の入力）の置き換え。空行と `#` からの行は読まない"""
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
 def parse_fine(text: str) -> list[dict]:
     """fine_compare.py の出力から、区間ごとの下端、上端 (eV) と比 − 1"""
     bins = [
@@ -67,15 +76,16 @@ def summarize_state(
     openmc: list[float],
     modes: list[str],
     logs: dict[str, tuple[str, str | None]],
+    specs: list[str],
 ) -> dict:
-    """1 つの状態の散乱核ごとの結果。`logs` は散乱核ごとの（swap_absorption のログ、fine_compare.py の出力か None）"""
+    """1 つの状態の散乱核ごとの結果。`logs` は散乱核ごとの（swap_absorption のログ、fine_compare.py の出力か None）、`specs` は
+    その状態の置き換えの一覧（どのログもこの順に置き換えていること）"""
     if not modes or modes[0] != "static":
         raise SummaryError(f"{name}: the first mode must be `static`")
     if not openmc:
         raise SummaryError(f"{name}: no OpenMC runs")
     k_openmc = sum(openmc) / len(openmc)
     results = {}
-    specs = None
     for mode in modes:
         if logs.get(mode) is None:
             # 状態によっては流していない散乱核がある（その状態の結果に入れない）
@@ -84,10 +94,8 @@ def summarize_state(
             continue
         absorption, fine = logs[mode]
         k, swaps = parse_absorption(absorption)
-        if specs is None:
-            specs = list(swaps)
-        elif list(swaps) != specs:
-            raise SummaryError(f"{name}: `{mode}` swapped another list")
+        if list(swaps) != specs:
+            raise SummaryError(f"{name}: `{mode}` swapped another list than {specs}")
         results[mode] = {
             "k": k,
             "diff_pcm": (k - k_openmc) * 1e5,
@@ -100,6 +108,7 @@ def summarize_state(
         "key": key,
         "openmc_k": k_openmc,
         "openmc_runs": openmc,
+        "swaps": specs,
         "results": results,
     }
 
@@ -132,8 +141,9 @@ def summarize(config: Path) -> dict:
                 if absorption.exists()
                 else None
             )
+        specs = parse_swaps((base / state["swaps"]).read_text())
         s = summarize_state(
-            state["name"], state["key"], runs[state["name"]], modes, logs
+            state["name"], state["key"], runs[state["name"]], modes, logs, specs
         )
         unknown = set(s["results"]["static"]["swaps"]) - {
             x["spec"] for x in swap_labels

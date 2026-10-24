@@ -14,6 +14,7 @@
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
 //!
 //! [`Scattering::FreeGas`] では、分離共鳴を持たない核種の散乱核を温度 T の自由ガスの核にする（[`free_gas`]、ADR-0203）。
+//! [`FreeGas::heavy`] を選ぶと、分離共鳴を持つ核種も、その上限より下で同じ断面積一定の自由ガスの核にする（ADR-0204）。
 //! 上方散乱でまだ求めていない低いエネルギーの中性子束を使うので、自由ガスの核の届く範囲を掃き直す。範囲の下限より下からの
 //! 上方散乱は、その中性子束を範囲の最後の格子点の値（1/E）とする（ADR-0203）。
 
@@ -33,7 +34,7 @@ const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
-use free_gas::{Light, Thermal};
+use free_gas::{Gas, Thermal};
 
 mod free_gas;
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
@@ -175,7 +176,8 @@ pub enum Scattering {
     /// どの核種も静止した標的（ADR-0070）
     #[default]
     Static,
-    /// 分離共鳴を持たない核種（ライブラリの `resolved` が nil）を温度 T の自由ガスにする。分離共鳴を持つ核種は静止した標的
+    /// 分離共鳴を持たない核種（ライブラリの `resolved` が nil）を温度 T の自由ガスにする。分離共鳴を持つ核種は、
+    /// [`FreeGas::heavy`] を選べばその上限より下で自由ガス、選ばなければ静止した標的
     FreeGas(FreeGas),
 }
 
@@ -188,6 +190,9 @@ pub struct FreeGas {
     pub cells: usize,
     /// 上方散乱のスイープの回数。`None` は、中性子束の相対変化が [`SWEEP_TOLERANCE`] 以下になるまで（[`MAX_SWEEPS`] 回まで）
     pub sweeps: Option<usize>,
+    /// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限（核種の kT の倍数。無限大は範囲の全体）。`None` は分離共鳴を
+    /// 持つ核種を静止した標的にする（ADR-0204）
+    pub heavy: Option<f64>,
 }
 
 impl Default for FreeGas {
@@ -197,6 +202,7 @@ impl Default for FreeGas {
             upper: None,
             cells: 4,
             sweeps: None,
+            heavy: None,
         }
     }
 }
@@ -215,8 +221,9 @@ struct Data<'a> {
     width: f64,
     /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
     table: Cow<'a, TemperatureData>,
-    /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種）
-    light: Option<Light>,
+    /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種と、[`FreeGas::heavy`] を選んだときの
+    /// 分離共鳴を持つ核種）
+    gas: Option<Gas>,
 }
 
 impl Data<'_> {
@@ -377,18 +384,23 @@ fn solve_cell(
                         });
                     }
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
-                    let light = match scattering {
-                        Scattering::FreeGas(options) if d.resolved.is_none() => {
-                            Some(Light::new(d.awr, t.temperature, options.upper))
+                    // 分離共鳴を持つ核種は `heavy` を選んだときだけ、その上限で自由ガスにする（ADR-0204）
+                    let gas = match scattering {
+                        Scattering::FreeGas(options) => {
+                            let upper = match &d.resolved {
+                                None => Some(options.upper),
+                                Some(_) => options.heavy.map(Some),
+                            };
+                            upper.map(|upper| Gas::new(d.awr, t.temperature, upper))
                         }
-                        _ => None,
+                        Scattering::Static => None,
                     };
                     data.push(Data {
                         name: &d.name,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
                         table: t,
-                        light,
+                        gas,
                     });
                     keys.push((name, temperature));
                     data.len() - 1
@@ -514,22 +526,28 @@ fn solve_cell(
     let (thermal, sweeps) = match scattering {
         Scattering::Static => (None, None),
         Scattering::FreeGas(options) => {
-            let lights: Vec<usize> = (0..data.len())
-                .filter(|&k| data[k].light.is_some())
-                .collect();
-            let mut sigma = vec![Vec::with_capacity(points.len()); lights.len()];
-            let mut cursors: Vec<usize> = lights
+            let gases: Vec<(usize, Gas)> = data
                 .iter()
-                .map(|&k| data[k].pointwise().energy.len())
+                .enumerate()
+                .filter_map(|(k, d)| d.gas.map(|gas| (k, gas)))
                 .collect();
-            for &(e, below) in &points {
-                for ((&k, c), column) in lights.iter().zip(&mut cursors).zip(&mut sigma) {
-                    column.push(evaluate(&data[k], c, e, below)?[1]);
-                }
-            }
-            let rings = lights
+            let energies: Vec<f64> = points.iter().map(|&(e, _)| e).collect();
+            // D に掛ける σs は、上限より下の入射を補間する格子点からだけ引く（上限の低い分離共鳴を持つ核種で、範囲の全体を持たない）
+            let sigma = gases
                 .iter()
-                .map(|&k| {
+                .map(|&(k, gas)| {
+                    let first = free_gas::first_below(&energies, gas.cap());
+                    let mut cursor = data[k].pointwise().energy.len();
+                    let column = points[first..]
+                        .iter()
+                        .map(|&(e, below)| Ok(evaluate(&data[k], &mut cursor, e, below)?[1]))
+                        .collect::<Result<Vec<f64>, UfgError>>()?;
+                    Ok((first, column))
+                })
+                .collect::<Result<Vec<_>, UfgError>>()?;
+            let rings = gases
+                .iter()
+                .map(|&(k, _)| {
                     entries
                         .iter()
                         .enumerate()
@@ -541,9 +559,8 @@ fn solve_cell(
                         .collect()
                 })
                 .collect();
-            let energies: Vec<f64> = points.iter().map(|&(e, _)| e).collect();
             let thermal = Thermal::new(
-                lights.iter().filter_map(|&k| data[k].light).collect(),
+                gases.iter().map(|&(_, gas)| gas).collect(),
                 sigma,
                 rings,
                 options.cells,
@@ -1329,7 +1346,7 @@ struct Sweep<'a> {
     own: Vec<Vec<f64>>,
     /// [核種] の、窓の下端の区間の積分の範囲の上の部分と、格子点の値の重み
     slabs: Vec<(f64, Vec<(usize, f64)>)>,
-    /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、軽い核種のあるとき）
+    /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、自由ガスの核種のあるとき）
     thermal: Option<Thermal>,
     /// 格子点ごとに再利用する作業用の配列: [リング] の自由ガスの核の散乱源の既知の部分と、その点の F_i の係数
     extra: (Vec<f64>, Vec<f64>),
@@ -1386,8 +1403,8 @@ impl Sweep<'_> {
         let n = self.volumes.len();
         for ((column, v), d) in self.elastic.iter_mut().zip(&values).zip(self.data) {
             // 自由ガスの核の、静止した標的の窓の部分は σs/N（free_gas の R_static/N）
-            match d.light {
-                Some(light) => column.push(v[1] * light.window_scale(energy)),
+            match d.gas {
+                Some(gas) => column.push(v[1] * gas.window_scale(energy)),
                 None => column.push(v[1]),
             }
         }
