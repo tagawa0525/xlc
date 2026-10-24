@@ -3,6 +3,11 @@
 
 使い方: python3 compare_branch_cross_terms.py --json <要約の出力先> <入力（TOML）>
         python3 compare_branch_cross_terms.py --report <要約の JSON>
+        python3 compare_branch_cross_terms.py --subgrids <直積のテーブル> <出力> <軸の組>...
+
+`--subgrids` は、lattice が書いた直積のテーブル（軸の公称の値を持つ）から、公称の状態と、1 軸ずつの分岐と、軸の組（`boron,moderator`
+のようにカンマで区切る）の部分格子の点だけを残したテーブル（ADR-0200 の形）を書く。燃焼度と制御棒の軸はすべての値を残す。core が
+これから組み立てた状態を、ここでの組み立て（直積のテーブルから同じ点を取り出す）と比べる。
 
 入力の TOML（パスは TOML のあるディレクトリから）:
 
@@ -307,6 +312,42 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
     return {"name": name, "burnup": burnup, "selections": out}
 
 
+STATE_AXES = ["boron", "moderator", "fuel"]
+
+
+def subgrid_table(table: dict, keep: list[list[str]]) -> dict:
+    """直積のテーブル `table` から、公称の状態と 1 軸ずつの分岐と、`keep` の軸の組の部分格子の点だけを残したテーブル（モジュールの
+    説明の `--subgrids`）"""
+    axes = table["axes"]
+    positions = [i for i, a in enumerate(axes) if a["name"] in STATE_AXES]
+    if any("nominal" not in axes[i] for i in positions):
+        raise SystemExit(
+            "the table needs the nominal values of the boron, moderator and fuel axes"
+        )
+    unknown = [a for k in keep for a in k if a not in STATE_AXES]
+    if unknown:
+        raise SystemExit(f"unknown axes {unknown}; subgrids take {STATE_AXES}")
+    sizes = [len(a["points"]) if "points" in a else len(a["values"]) for a in axes]
+    product = [list(p) for p in itertools.product(*[range(n) for n in sizes])]
+    if table.get("points") != product:
+        raise SystemExit("the table must hold the product of its axes")
+    nominal = {i: axes[i]["points"].index(axes[i]["nominal"]) for i in positions}
+    kept = [{axes[i]["name"] for i in positions if axes[i]["name"] in k} for k in keep]
+
+    def solved(point: list[int]) -> bool:
+        off = {axes[i]["name"] for i in positions if point[i] != nominal[i]}
+        # 1 軸ずつの分岐はどのモデルも持つ（`closure`）
+        return len(off) <= 1 or any(off <= k for k in kept)
+
+    sub = table["split"] ** 2
+    points, states = [], []
+    for n, point in enumerate(product):
+        if solved(point):
+            points.append(point)
+            states += table["states"][n * sub : (n + 1) * sub]
+    return {**table, "points": points, "states": states}
+
+
 def summarize(tables: list[tuple], models: list[dict]) -> dict:
     """`tables` は (名前, テーブル, 制御棒を入れたテーブルか None, 公称の状態) の列"""
     return {
@@ -356,6 +397,10 @@ def main() -> None:
     args = sys.argv[1:]
     if len(args) == 2 and args[0] == "--report":
         print("\n".join(report(json.loads(Path(args[1]).read_text()))))
+    elif len(args) >= 3 and args[0] == "--subgrids":
+        keep = [k.split(",") for k in args[3:]]
+        out = subgrid_table(msgpack.unpackb(Path(args[1]).read_bytes()), keep)
+        Path(args[2]).write_bytes(msgpack.packb(out))
     elif len(args) == 3 and args[0] == "--json":
         config_path = Path(args[2])
         config = tomllib.loads(config_path.read_text())
