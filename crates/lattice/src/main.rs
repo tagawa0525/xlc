@@ -40,6 +40,7 @@ use xlc_lattice::checkpoint::{
 };
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
+use xlc_lattice::history::BranchShielder;
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{
     CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput, VOID,
@@ -359,6 +360,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
     // 燃料でない物質が直前の状態と同じなら、燃料のピンの Dancoff 係数を持ち越す（ADR-0194）
     let mut reuse = ShieldingReuse::new(&tracking);
+    // 履歴からの分岐は、`[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）
+    let mut shielder = BranchShielder::new(&tracking);
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -384,7 +387,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
         let (unique, region_index) = match &source {
             Source::Library(library) => {
-                if input.self_shielding {
+                if let Some(h) = &history_branches {
+                    shielder
+                        .shield(
+                            library,
+                            h,
+                            state,
+                            chosen.shielding(),
+                            &input.shielding_options(),
+                        )
+                        .with_context(|| format!("{}: self-shielding", context()))?
+                } else if input.self_shielding {
                     let shielded = shield_fuel_reusing(
                         library,
                         &mut reuse,
@@ -624,6 +637,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Ok(())
     };
     let states = solve_states(count, &counts, checkpoint.as_ref(), fits, solve)?;
+    if history_branches.is_some() {
+        // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
+        tracing::info!(
+            shieldings = shielder.shieldings(),
+            total_seconds = start.elapsed().as_secs_f64(),
+            "branches"
+        );
+    }
     let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) =
         states.into_iter().map(|s| (s.outputs, s.medium)).unzip();
     let written: Vec<MediumState> = written.into_iter().flatten().collect();
