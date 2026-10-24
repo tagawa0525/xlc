@@ -314,3 +314,50 @@ fn rejects_missing_temperature_and_short_table() {
     // β の上限 316 は kT ≈ 0.0253 eV で 8 eV 分なので、10 eV までの下方散乱を覆わない
     assert!(ThermalSab::new(&data, TEMPERATURE, 10.0, SabOutside::Zero).is_err());
 }
+
+#[test]
+fn short_collision_kernel_of_hydrogen_is_the_free_gas_at_the_material_temperature() {
+    // H（A ≈ 1）の短時間衝突近似の P0 の核は、E と E' が kT_eff より十分高いところで、有効温度によらず物質の温度の自由ガスの
+    // 核と同じ（下方散乱は有効温度の自由ガスの核で、A = 1 では erf(√(E'/kT_eff))/E。出射 E' ≥ 4 eV で温度による差は
+    // erfc(6) ≈ 2e−17 より小さい。上方散乱は物質の温度の詳細つり合いで e^{−(E'−E)/kT}。ADR-0203）。ENDF/B-VIII.0 の H in H2O の 600 K の有効温度は 1301 K。短時間衝突近似の散乱則
+    // e^{−β/2} S = e^{−(α − |β|)² r/(4α) − (|β| + β)/2}/√(4πα/r)（r = T/T_eff）を、v = √α について細かく積分する
+    let (awr, temperature, effective): (f64, f64, f64) = (0.9991673, 600.0, 1301.0);
+    let kt = BK * temperature;
+    let r = temperature / effective;
+    let sigma_bound = ((awr + 1.0) / awr).powi(2);
+    for (e, e_out) in [
+        (6.0, 5.0),
+        (6.0, 5.99),
+        (6.0, 6.03),
+        (6.0, 6.2),
+        (9.0, 4.0),
+        (9.8, 9.9),
+    ] {
+        let (root, root_out) = (f64::sqrt(e), f64::sqrt(e_out));
+        let beta = (e_out - e) / kt;
+        let b = beta.abs();
+        let (lo, hi) = (
+            (root - root_out).abs() / (awr * kt).sqrt(),
+            (root + root_out) / (awr * kt).sqrt(),
+        );
+        let pieces = 20_000;
+        let h = (hi - lo) / pieces as f64;
+        let mut integral = 0.0;
+        for k in 0..pieces {
+            let mid = lo + (k as f64 + 0.5) * h;
+            for &(x, w) in &GAUSS_LEGENDRE_8 {
+                let v = mid + 0.5 * h * x;
+                let alpha = v * v;
+                let law = (-(alpha - b).powi(2) * r / (4.0 * alpha) - 0.5 * (b + beta)).exp()
+                    / (4.0 * std::f64::consts::PI * alpha / r).sqrt();
+                integral += w * 0.5 * h * 2.0 * v * law;
+            }
+        }
+        let short = sigma_bound * awr / (4.0 * e) * integral;
+        let free = free_gas_kernel(e, e_out, awr, kt);
+        assert!(
+            (short / free - 1.0).abs() < 1e-10,
+            "{e} → {e_out}: {short} vs {free}"
+        );
+    }
+}
