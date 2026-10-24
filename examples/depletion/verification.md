@@ -313,7 +313,7 @@ nix develop .#references -c python3 examples/depletion/issue-0133/openmc_pin_tra
   examples/depletion/issue-0133/pin-2A-40.toml examples/depletion/depletion.msgpack references/openmc/pin-transfer-1C/2A-40 300000 120 20 16 1
 # xlc（置き換えの一覧は swap_candidates.py lists が書く。移行は swap_candidates.py transfers の物質と群ごとに、ログの前に `material <物質>` を置く）
 cargo run --release -p xlc-lattice --example swap_absorption -- examples/depletion/issue-0133/pin-2A-40.toml \
-  references/openmc/pin-transfer-1C/2A-40/transfer.msgpack examples/depletion/issue-0133/swap-logs/swaps-2A-40.txt
+  references/openmc/pin-transfer-1C/2A-40/transfer.msgpack examples/depletion/issue-0133/swap-logs/candidates-2A-40.txt
 cargo run --release -p xlc-lattice --example swap_transfer -- examples/depletion/issue-0133/pin-2A-40.toml \
   references/openmc/pin-transfer-1C/2A-40/transfer.msgpack water 1 13
 # 要約（表の JSON）
