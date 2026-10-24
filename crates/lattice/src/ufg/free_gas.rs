@@ -107,7 +107,15 @@ pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
     let zeta = (awr - 1.0) / (2.0 * sqrt_a);
     let (s, s_out) = ((e / kt).sqrt(), (e_out / kt).sqrt());
     // e^(-y²) erfcx(x) = e^(-y²+x²) erfc(x)。指数を先にまとめて桁あふれを避ける。e^(-y²) が 0 に落ちるなら erfcx を
-    // 求めない（erfcx(x) ≤ 1 なので積は 0）
+    // 求めない（erfcx(x) ≤ 1 なので積は 0）。`pair` は同じ指数因子の 2 つの erfcx の差
+    let pair = |y: f64, a: f64, b: f64| {
+        let factor = (-y * y).exp();
+        if factor == 0.0 {
+            0.0
+        } else {
+            factor * (erfcx(a) - erfcx(b))
+        }
+    };
     let scaled = |y: f64, x: f64| {
         let factor = (-y * y).exp();
         if factor == 0.0 {
@@ -122,14 +130,6 @@ pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
         let (u, v) = (zeta * s - theta * s_out, zeta * s + theta * s_out);
         if u > 0.0 {
             // 遠い下方散乱: O(1) の項が打ち消し合うので、同じ指数因子をもつ項どうしをまとめる
-            let pair = |y: f64, a: f64, b: f64| {
-                let factor = (-y * y).exp();
-                if factor == 0.0 {
-                    0.0
-                } else {
-                    factor * (erfcx(a) - erfcx(b))
-                }
-            };
             pair(u, u, x2) + pair(v, x1, v)
         } else {
             erf(-u) + erf(v) + scaled(v, x1) - scaled(u, x2)
@@ -140,14 +140,6 @@ pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
         let (r, t) = (theta * s - zeta * s_out, theta * s + zeta * s_out);
         if r < 0.0 {
             // 遠い上方散乱: 同様に、同じ指数因子をもつ項どうしをまとめる
-            let pair = |y: f64, a: f64, b: f64| {
-                let factor = (-y * y).exp();
-                if factor == 0.0 {
-                    0.0
-                } else {
-                    factor * (erfcx(a) - erfcx(b))
-                }
-            };
             pair(p, -r, p) + pair(q, q, t)
         } else {
             scaled(q, q) - scaled(p, p) + ((e - e_out) / kt).exp() * (erf(r) + erf(t))
