@@ -1037,11 +1037,13 @@ def swap_candidates(sources: list[dict]) -> str:
     ]
     for key in s["order"]:
         pcm = [t["items"].get(key, {}).get("pcm") for t in states]
+        # 組成に核種が無くて置き換えの無い状態（新しい燃料の Pu など）の寄与は 0 なので、変化は 0 からのもの
+        start = 0.0 if key not in first["items"] else pcm[0]
         rows.append(
             [
                 s["labels"][key],
                 *(value(x) for x in pcm),
-                *(change(pcm[0], x) for x in pcm[1:]),
+                *(change(start, x) for x in pcm[1:]),
             ]
         )
     return markdown_table(
