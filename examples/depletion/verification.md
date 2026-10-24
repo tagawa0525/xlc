@@ -519,80 +519,6 @@ F2 の全体は F1 の 66%。F1 の 1 回の自己遮蔽は 10.5 秒で、F2 の
 2A の `start` は 36.2 MB（代表の領域 3,617 × 69 群。高次のモーメントが 20.2 MB、端の角度中性子束が 13.7 MB）で、1 つ目のステップの
 後のチェックポイントは 39.0 MB だった（xlc efd82e85、分岐点は main の f3a143d7、2026-10-23、排他でない Slurm 508。書く時間は記録しない）。
 
-### 分岐の自己遮蔽（ADR-0201）
-
-燃焼度の軸を持つ分岐のテーブル（ADR-0187）の自己遮蔽を、燃焼度の点と燃料の温度の点ごとに公称のホウ素と減速材で 1 度だけ解き、ホウ素と
-減速材の軸が変える物質（水と被覆管）だけを状態の組成と温度で作り直す近似（[ADR-0201](../../docs/adr/0201-shield-branches-at-the-nominal-moderator-by-choice.md) の
-`shielding = "nominal-moderator"`）を、状態ごとに解き直す既定（`"every-state"`）と比べた。入力は examples/depletion/branches/ の
-`shielding-<集合体>-every.toml` と `shielding-<集合体>-nominal.toml`（`shielding` の行だけが違う）。2A の履歴の燃焼度 0、20 MWd/kg と、
-2O の履歴の 4 MWd/kg（Gd の燃え尽きの前）で、ホウ素 900、1300（公称）、1700 ppm × 減速材 3 点 × 燃料 1 点（公称）。減速材の温度は
-ライブラリが水と被覆管の核種に持つ 565 K と 600 K から選び（ADR-0097 の M3 の 550、580 K はライブラリにない）、密度は M3 の
-0.76972、0.71190 g/cc と公称の 0.743 g/cc。2A は公称（565 K、0.743）、600 K と 0.71190、565 K と 0.76972（`2A-dense`）、2O は公称（600 K、
-0.743）、565 K と 0.76972、600 K と 0.71190（`2O-thin`）。
-
-#### 計算
-
-xlc d3e0b64e（分岐点は main の 828f27a5）、2026-10-24、Slurm 531（2A）、532（2O）。どちらも timed でないジョブなので、時間は記録に
-使わない。ライブラリは `p2/depletion.msgpack` md5 015111df、履歴は `p2/lattice-2A.msgpack` md5 eb9ca398、`p2/lattice-2O.msgpack` md5 d076d94d。
-比べたテーブルの md5 は `branches/compare-shielding.json` の `inputs`。
-
-```sh
-cargo build --release --locked -p xlc-lattice
-cd examples/depletion/branches
-for f in shielding-2A-every shielding-2A-nominal shielding-2A-dense-every shielding-2A-dense-nominal \
-         shielding-2O-every shielding-2O-nominal shielding-2O-thin-every shielding-2O-thin-nominal; do
-  RUST_LOG=info ../../../target/release/lattice $f.toml > $f.out 2> $f.log
-done
-cd ../../..
-python3 examples/depletion/compare_branch_shielding.py --json examples/depletion/branches/compare-shielding.json \
-  examples/depletion/branches/compare-shielding.toml
-```
-
-#### 結果
-
-k∞ の差 (k_nominal-moderator − k_every-state) × 1e5（pcm）。行はホウ素、列は減速材の点（`–` は解いていない点）:
-
-<!-- table: depletion-branch-shielding-k -->
-
-| 集合体 | 燃焼度 (MWd/kg) | ホウ素 (ppm) | 565 K、0.743 g/cc | 565 K、0.76972 g/cc | 600 K、0.7119 g/cc | 600 K、0.743 g/cc |
-| ------ | --------------- | ------------ | ----------------- | ------------------- | ------------------ | ----------------- |
-| 2A     | 0               | 900          | −0.37             | +89.71              | −118.41            | –                 |
-| 2A     | 0               | 1300         | 0.00              | +85.81              | −112.79            | –                 |
-| 2A     | 0               | 1700         | +0.29             | +82.21              | −107.69            | –                 |
-| 2A     | 20              | 900          | −0.27             | +74.46              | −98.25             | –                 |
-| 2A     | 20              | 1300         | 0.00              | +71.64              | −94.24             | –                 |
-| 2A     | 20              | 1700         | +0.22             | +69.05              | −90.57             | –                 |
-| 2O     | 4               | 900          | –                 | +78.41              | −101.67            | −0.26             |
-| 2O     | 4               | 1300         | –                 | +75.54              | −97.65             | 0.00              |
-| 2O     | 4               | 1700         | –                 | +72.85              | −93.96             | +0.20             |
-
-<!-- /table -->
-
-燃焼度の点ごとの Δk∞ の絶対値の最大と、少数群定数の項目ごとの相対差の最大（状態と群、散乱は元と先、ADF は辺にわたる）:
-
-<!-- table: depletion-branch-shielding-constants -->
-
-| 集合体 | 燃焼度 (MWd/kg) | 状態の数 | Δk∞ の絶対値の最大 (pcm) | Σa      | νΣf     | D       | Σs      | ADF     |
-| ------ | --------------- | -------- | ------------------------ | ------- | ------- | ------- | ------- | ------- |
-| 2A     | 0               | 9        | 118.41                   | 2.2e-03 | 1.7e-04 | 1.8e-05 | 9.2e-04 | 4.9e-05 |
-| 2A     | 20              | 9        | 98.25                    | 1.9e-03 | 2.9e-04 | 3.1e-05 | 9.1e-04 | 5.2e-05 |
-| 2O     | 4               | 9        | 101.67                   | 2.1e-03 | 2.5e-04 | 2.7e-05 | 9.0e-04 | 4.7e-05 |
-
-<!-- /table -->
-
-公称の状態（2A の 565 K、0.743 g/cc、1300 ppm と、2O の 600 K、0.743 g/cc、1300 ppm）の差は 0.000 pcm で、少数群定数の相対差は 3e-10 以下
-（ビットで同じでないのは、MOC の反復を前に解いた状態の解から始め（ADR-0195）、前に解いた状態が方式で違うためが候補で、確かめていない）。
-ホウ素だけを変えた状態の差は 0.2〜0.4 pcm（Σa の相対差 1.5e-5 以下）で、燃焼度の内挿の目安 ±10 pcm（ADR-0192）より 1 桁以上小さい。
-減速材の密度を変えた状態の差は 69〜118 pcm で、密度を 4.2% 下げると −90〜−118 pcm、3.6% 上げると +69〜+90 pcm と、密度の変化の向きと
-大きさに沿う。2O の 600 K のまま密度だけを下げた状態（`2O-thin`、−94〜−102 pcm）と、2A の 35 K 上げて同じ密度に下げた状態（−91〜−118 pcm）
-が同じ程度なので、差の大半は密度によるもので、温度の 35 K の分は分けていない。解き直したテーブルの密度の効果（同じホウ素と燃焼度で、
-公称の状態からの k∞ の変化）は 2A の 0 MWd/kg、1300 ppm で 600 K と 0.71190 が +124 pcm、565 K と 0.76972 が −162 pcm で、近似はその
-91% と 53% を落とす（燃料の共鳴の自己遮蔽が Dancoff 係数を通して減速材の密度に依る分。候補で、Dancoff 係数と共鳴の吸収を分けて確かめていない）。
-Σa の相対差の最大は 0.15〜0.22%、Gd の 2O でも 2A と同じ程度で、Gd の自己遮蔽に特有の差は見えない。
-
-自己遮蔽の回数（ログの `branches` の `shieldings`）は、2A が 12 回 → 2 回（燃焼度 2 点。公称は軸の点）、2A-dense が 6 回 → 2 回
-（公称は軸の点でなく、参照の自己遮蔽は表に入らない）、2O が 6 回 → 1 回、2O-thin が 3 回 → 1 回。
-
 ### 2A
 
 #### k∞
@@ -3081,3 +3007,78 @@ python3 examples/depletion/compare_branch_cross_terms.py --json examples/depleti
 
 - 0.1 と 0.5 MWd/kg（Xe と Sm の平衡の前後）を含めば、8 点で 1.40 pcm、10 点で 0.67 pcm。外すと 24 pcm
 - 分岐の大きさ（ホウ素 −300 ppm、燃料 +35 K）に比例して誤差も増える見込み（確かめていない）。Gd と Pyrex の集合体では測っていない（#0176）
+
+## 分岐の自己遮蔽（ADR-0201）
+
+燃焼度の軸を持つ分岐のテーブル（ADR-0187）の自己遮蔽を、燃焼度の点と燃料の温度の点ごとに公称のホウ素と減速材で 1 度だけ解き、ホウ素と
+減速材の軸が変える物質（水と被覆管）だけを状態の組成と温度で作り直す近似（[ADR-0201](../../docs/adr/0201-shield-branches-at-the-nominal-moderator-by-choice.md) の
+`shielding = "nominal-moderator"`）を、状態ごとに解き直す既定（`"every-state"`）と比べた。入力は examples/depletion/branches/ の
+`shielding-<集合体>-every.toml` と `shielding-<集合体>-nominal.toml`（`shielding` の行だけが違う）。2A の履歴の燃焼度 0、20 MWd/kg と、
+2O の履歴の 4 MWd/kg（Gd の燃え尽きの前）で、ホウ素 900、1300（公称）、1700 ppm × 減速材 3 点 × 燃料 1 点（公称）。減速材の温度は
+ライブラリが水と被覆管の核種に持つ 565 K と 600 K から選び（ADR-0097 の M3 の 550、580 K はライブラリにない）、密度は M3 の
+0.76972、0.71190 g/cc と公称の 0.743 g/cc。2A は公称（565 K、0.743）、600 K と 0.71190、565 K と 0.76972（`2A-dense`）、2O は公称（600 K、
+0.743）、565 K と 0.76972、600 K と 0.71190（`2O-thin`）。
+
+### 計算
+
+xlc d3e0b64e（分岐点は main の 828f27a5）、2026-10-24、Slurm 531（2A）、532（2O）。どちらも timed でないジョブなので、時間は記録に
+使わない。ライブラリは `p2/depletion.msgpack` md5 015111df、履歴は `p2/lattice-2A.msgpack` md5 eb9ca398、`p2/lattice-2O.msgpack` md5 d076d94d。
+比べたテーブルの md5 は `branches/compare-shielding.json` の `inputs`。履歴のステージを deps にすると重いステージが走るので、
+「燃焼度の軸を持つテーブル（2A）」と同じ理由でステージにせず、比較の JSON は git で追跡する。
+
+```sh
+cargo build --release --locked -p xlc-lattice
+cd examples/depletion/branches
+for f in shielding-2A-every shielding-2A-nominal shielding-2A-dense-every shielding-2A-dense-nominal \
+         shielding-2O-every shielding-2O-nominal shielding-2O-thin-every shielding-2O-thin-nominal; do
+  RUST_LOG=info ../../../target/release/lattice $f.toml > $f.out 2> $f.log
+done
+cd ../../..
+python3 examples/depletion/compare_branch_shielding.py --json examples/depletion/branches/compare-shielding.json \
+  examples/depletion/branches/compare-shielding.toml
+```
+
+### 結果
+
+k∞ の差 (k_nominal-moderator − k_every-state) × 1e5（pcm）。行はホウ素、列は減速材の点（`–` は解いていない点）:
+
+<!-- table: depletion-branch-shielding-k -->
+
+| 集合体 | 燃焼度 (MWd/kg) | ホウ素 (ppm) | 565 K、0.743 g/cc | 565 K、0.76972 g/cc | 600 K、0.7119 g/cc | 600 K、0.743 g/cc |
+| ------ | --------------- | ------------ | ----------------- | ------------------- | ------------------ | ----------------- |
+| 2A     | 0               | 900          | −0.37             | +89.71              | −118.41            | –                 |
+| 2A     | 0               | 1300         | 0.00              | +85.81              | −112.79            | –                 |
+| 2A     | 0               | 1700         | +0.29             | +82.21              | −107.69            | –                 |
+| 2A     | 20              | 900          | −0.27             | +74.46              | −98.25             | –                 |
+| 2A     | 20              | 1300         | 0.00              | +71.64              | −94.24             | –                 |
+| 2A     | 20              | 1700         | +0.22             | +69.05              | −90.57             | –                 |
+| 2O     | 4               | 900          | –                 | +78.41              | −101.67            | −0.26             |
+| 2O     | 4               | 1300         | –                 | +75.54              | −97.65             | 0.00              |
+| 2O     | 4               | 1700         | –                 | +72.85              | −93.96             | +0.20             |
+
+<!-- /table -->
+
+燃焼度の点ごとの Δk∞ の絶対値の最大と、少数群定数の項目ごとの相対差の最大（状態と群、散乱は元と先、ADF は辺にわたる）:
+
+<!-- table: depletion-branch-shielding-constants -->
+
+| 集合体 | 燃焼度 (MWd/kg) | 状態の数 | Δk∞ の絶対値の最大 (pcm) | Σa      | νΣf     | D       | Σs      | ADF     |
+| ------ | --------------- | -------- | ------------------------ | ------- | ------- | ------- | ------- | ------- |
+| 2A     | 0               | 9        | 118.41                   | 2.2e-03 | 1.7e-04 | 1.8e-05 | 9.2e-04 | 4.9e-05 |
+| 2A     | 20              | 9        | 98.25                    | 1.9e-03 | 2.9e-04 | 3.1e-05 | 9.1e-04 | 5.2e-05 |
+| 2O     | 4               | 9        | 101.67                   | 2.1e-03 | 2.5e-04 | 2.7e-05 | 9.0e-04 | 4.7e-05 |
+
+<!-- /table -->
+
+公称の状態（2A の 565 K、0.743 g/cc、1300 ppm と、2O の 600 K、0.743 g/cc、1300 ppm）の差は 0.000 pcm で、少数群定数の相対差は 3e-10 以下
+（ビットで同じでないのは、MOC の反復を前に解いた状態の解から始め（ADR-0195）、前に解いた状態が方式で違うためが候補で、確かめていない）。
+ホウ素だけを変えた状態の差は 0.2〜0.4 pcm（Σa の相対差 1.5e-5 以下）で、燃焼度の内挿の目安 ±10 pcm（ADR-0192）より 1 桁以上小さい。
+減速材の密度を変えた状態の差は 69〜118 pcm で、密度を 4.2% 下げると −90〜−118 pcm、3.6% 上げると +69〜+90 pcm と、密度の変化の向きと
+大きさに沿う。2O の 600 K のまま密度だけを下げた状態（`2O-thin`、−94〜−102 pcm）と、2A の 35 K 上げて同じ密度に下げた状態（−91〜−118 pcm）
+が同じ程度なので、差の大半は密度によるもので、温度の 35 K の分は分けていない。解き直したテーブルの密度の効果（同じホウ素と燃焼度で、
+公称の状態からの k∞ の変化）は 2A の 0 MWd/kg、1300 ppm で 600 K と 0.71190 が +124 pcm、565 K と 0.76972 が −162 pcm で、近似はその
+91% と 53% を落とす（燃料の共鳴の自己遮蔽が Dancoff 係数を通して減速材の密度に依る分。候補で、Dancoff 係数と共鳴の吸収を分けて確かめていない）。
+Σa の相対差の最大は 0.15〜0.22%、Gd の 2O でも 2A と同じ程度で、Gd の自己遮蔽に特有の差は見えない。
+
+自己遮蔽の回数（ログの `branches` の `shieldings`）は、2A が 12 回 → 2 回（燃焼度 2 点。公称は軸の点）、2A-dense が 6 回 → 2 回
+（公称は軸の点でなく、参照の自己遮蔽は表に入らない）、2O が 6 回 → 1 回、2O-thin が 3 回 → 1 回。
