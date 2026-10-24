@@ -374,13 +374,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
     // 状態ごとに、前に解いた近い状態の MOC の収束した状態 `from` から反復を始める（ADR-0195。`solve_states` が持つ）
     let solve = |state: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
-        // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
-        let built;
+        // 履歴からの分岐の物質は `BranchShielder` が状態ごとに作り、下の自己遮蔽で先に分かれる（履歴は自己遮蔽を求める）。ここで
+        // 作ると状態ごとに燃焼の領域の組成を 2 度複製する
         let state_materials: &[MaterialInput] = match &history_branches {
-            Some(h) => {
-                built = h.state(state);
-                &built
-            }
+            Some(_) => &[],
             None => &plain[state],
         };
         let state_start = Instant::now();
