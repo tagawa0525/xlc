@@ -63,9 +63,9 @@ issues: ["#0177"]
 R1 と M1 にし、入力で選ぶ。
 
 - `[branches]` の `shielding`: `"every-state"`（状態ごとに解き直す。既定）か `"nominal-moderator"`（R1、M1）。ほかの値はエラー。
-  `"nominal-moderator"` は `[history]` と組む（燃料の組成が状態によらないのは履歴からの分岐で、燃焼させた物質はホウ素と減速材の軸に
-  挙がらない）。`[history]` のない入力ではエラー
-- 参照の物質（`Branches::reference`）は、燃料の温度の軸（最後の軸）だけを状態の格子点にし、ほかは入力の物質のまま。ホウ素と減速材の
+  `"nominal-moderator"` は `[history]` と組む（燃料の組成が状態によらないのは履歴からの分岐）。`[history]` のない入力と、燃焼させた
+  物質をホウ素か減速材の軸に挙げた入力（燃焼させた物質は参照から取るので、状態の温度にならない）ではエラー
+- 参照の物質（`Branches::references`）は、燃料の温度の軸（最後の軸）だけを状態の格子点にし、ほかは入力の物質のまま。ホウ素と減速材の
   軸に挙げた物質が作り直す物質（`Branches::varied`）
 - `BranchShielder` が状態を順に解き、今の燃焼度の点の参照の自己遮蔽を燃料の温度の点ごとに持つ。燃料の組成によらない前処理（Dancoff
   係数）は ADR-0194 のとおり持ち越す。状態の物質が参照の物質と同じなら、参照の自己遮蔽をそのまま使う
@@ -102,7 +102,8 @@ R1 と M1 にし、入力で選ぶ。
   `nominal_moderator_shielding_solves_each_fuel_temperature_again`、
   `nominal_moderator_shielding_carries_the_shielding_factors_to_the_state_temperature`（Zr-90 の枠の塊を 650 K の状態で作り直し、
   650 K の無限希釈の値と自己遮蔽因子の積と相対 1e-12 で同じ）、`remixing_the_nominal_composition_reproduces_the_shielded_materials`、
-  `carried_shielding_scales_the_state_dilution_by_the_nominal_ratio`
+  `carried_shielding_scales_the_state_dilution_by_the_nominal_ratio`、
+  `only_nominal_moderator_shielding_needs_the_depleted_materials_off_the_moderator_axis`
 - 集合体（examples/depletion/verification.md の「分岐の自己遮蔽（ADR-0201）」。xlc 997c4543、分岐点は main の 828f27a5、2026-10-24、
   Slurm 531、532）: 2A の 0、20 MWd/kg と 2O の 4 MWd/kg で、ホウ素 900、1300、1700 ppm × 減速材 3 点（公称、温度を 35 K 変えて密度を
   M3 の 0.71190 か 0.76972 g/cc にした点、公称の温度で密度だけを変えた点。ライブラリが 565 K と 600 K だけを持つので、M3 の 550、580 K は
