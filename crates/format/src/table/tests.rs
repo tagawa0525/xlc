@@ -760,3 +760,15 @@ fn points_solved_at_some_burnups_need_the_nominal_state_at_every_burnup() {
     let err = no_out.validate().unwrap_err().to_string();
     assert!(err.contains("out"), "{err}");
 }
+
+#[test]
+fn points_solved_at_some_burnups_span_the_burnup_axis() {
+    // core は燃焼度の差を外挿しないので、どの点も燃焼度の軸の最初と最後の点で解く（ADR-0200）
+    let mut short = thinned();
+    let last = short.points.len();
+    short.points.retain(|p| !(p[0] == 2 && p[1..] != [1, 1, 1]));
+    short.states.truncate(short.points.len());
+    assert!(short.points.len() < last);
+    let err = short.validate().unwrap_err().to_string();
+    assert!(err.contains("first and the last"), "{err}");
+}

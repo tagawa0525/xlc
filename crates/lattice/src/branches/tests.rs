@@ -534,6 +534,8 @@ fn subgrids_need_the_nominal_state_and_name_distinct_axes() {
         r#"subgrids = [[]]"#,
         r#"subgrids = [["boron", "boron"]]"#,
         r#"subgrids = [["boron", "rod"]]"#,
+        // 点が 2 つ以上の燃料の軸を、どの組も持たない（燃料の分岐を解かず、core が黙って公称の燃料の値を使う）
+        r#"subgrids = [["boron", "moderator"]]"#,
     ] {
         assert!(LatticeInput::parse(&three_by_three(bad)).is_err(), "{bad}");
     }

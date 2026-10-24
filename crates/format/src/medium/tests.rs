@@ -179,3 +179,18 @@ fn media_have_no_rod_axis() {
     medium.states = (1..=8).map(|i| state(f64::from(i))).collect();
     assert!(medium.validate().is_err());
 }
+
+#[test]
+fn media_hold_no_nominal_values() {
+    // 媒質は軸の直積の状態を持ち、部分格子の公称の状態を使わない（ADR-0200）
+    let mut medium = sample();
+    medium.axes = medium
+        .axes
+        .into_iter()
+        .map(|a| {
+            let value = a.points()[0];
+            a.with_nominal(value)
+        })
+        .collect();
+    assert!(medium.validate().is_err());
+}

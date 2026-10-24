@@ -189,6 +189,15 @@ fn media_must_match_the_library_and_the_branches() {
         states: vec![state.clone(), state.clone()],
     };
     assert!(check_medium(&medium, &bounds, &axes).is_ok());
+    // 平板の軸の公称の値（ADR-0200）は比べない（媒質は持たない）
+    let nominal: Vec<Axis> = axes
+        .iter()
+        .map(|a| {
+            let value = a.points()[0];
+            a.clone().with_nominal(value)
+        })
+        .collect();
+    assert!(check_medium(&medium, &bounds, &nominal).is_ok());
     let err = check_medium(&medium, &[2.0e7, 0.625, 1.0e-5], &axes).unwrap_err();
     assert!(err.contains("bounds"), "{err}");
     let mut other = axes.clone();
