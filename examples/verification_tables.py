@@ -972,7 +972,7 @@ def branch_shielding_k(sources: list[dict]) -> str:
 
 
 def branch_shielding_constants(sources: list[dict]) -> str:
-    """分岐の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の |Δk∞| の最大（pcm）と、少数群定数の項目ごとの
+    """分岐の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
     相対差の最大（ADR-0201）"""
     s = branch_shielding_summary(sources)
     rows = []
@@ -1001,7 +1001,7 @@ def branch_shielding_constants(sources: list[dict]) -> str:
             "集合体",
             "燃焼度 (MWd/kg)",
             "状態の数",
-            "|Δk∞| の最大 (pcm)",
+            "Δk∞ の絶対値の最大 (pcm)",
             *(labels[item] for item in s["items"]),
         ],
         rows,
