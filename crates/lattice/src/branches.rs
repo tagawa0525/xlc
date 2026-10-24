@@ -88,10 +88,12 @@ impl Branches {
         &self.references
     }
 
-    /// 状態 `state` の自己遮蔽を参照から作るなら、その参照の `references` の番号（`every-state` は `None`）
+    /// 状態 `state` の自己遮蔽を参照から作るなら、その参照の `references` の番号（`every-state` と、ホウ素が 1 点で状態ごとに参照が
+    /// 違い再利用するものがないときは `None`）
     pub fn reference(&self, state: usize) -> Option<usize> {
         match self.shielding {
             BranchShielding::EveryState => None,
+            BranchShielding::NominalBoron if self.references.len() == self.states.len() => None,
             // ホウ素は最初の軸（いちばん遅く変わる）なので、ほかの軸の添字は状態の番号をそれらの点の数の積で割った余り
             BranchShielding::NominalBoron => Some(state % self.references.len()),
         }
