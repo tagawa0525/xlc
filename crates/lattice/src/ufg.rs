@@ -485,7 +485,6 @@ fn solve_cell(
         own: entries.iter().map(|ring| vec![0.0; ring.len()]).collect(),
         slabs: vec![(0.0, Vec::new()); data.len()],
         thermal: None,
-        sweeps: None,
         extra: (vec![0.0; n], vec![0.0; n]),
     };
 
@@ -511,8 +510,8 @@ fn solve_cell(
         ng,
     };
     // 自由ガスの核の届く範囲（start から）は、上方散乱が前のスイープの中性子束を使うので、収束するまで掃き直す
-    sweep.thermal = match scattering {
-        Scattering::Static => None,
+    let (thermal, sweeps) = match scattering {
+        Scattering::Static => (None, None),
         Scattering::FreeGas(options) => {
             let lights: Vec<usize> = (0..data.len())
                 .filter(|&k| data[k].light.is_some())
@@ -542,25 +541,23 @@ fn solve_cell(
                 })
                 .collect();
             let energies: Vec<f64> = points.iter().map(|&(e, _)| e).collect();
-            Thermal::new(
+            let thermal = Thermal::new(
                 lights.iter().filter_map(|&k| data[k].light).collect(),
                 sigma,
                 rings,
                 options.cells,
                 &energies,
                 n,
-            )
-            .map(|t| (t, options))
+            );
+            (thermal, options.sweeps)
         }
-    }
-    .map(|(t, options)| {
-        sweep.sweeps = options.sweeps;
-        t
-    });
+    };
+    sweep.thermal = thermal;
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
     pass.run(&mut sweep, &mut cursors, 0..start, &mut times)?;
     if sweep.thermal.is_some() {
         let saved = sweep.save();
+        let saved_cursors = cursors.clone();
         let mut count = 0;
         loop {
             pass.run(&mut sweep, &mut cursors, start..u.len(), &mut times)?;
@@ -570,21 +567,18 @@ fn solve_cell(
                 .as_mut()
                 .and_then(|t| t.finish(&u, &sweep.flux));
             tracing::debug!(sweep = count, change, "UFG free-gas sweep");
-            let done = match sweep.sweeps {
+            let done = match sweeps {
                 Some(limit) => count >= limit,
                 None => change.is_some_and(|c| c <= SWEEP_TOLERANCE),
             };
             if done {
                 break;
             }
-            if sweep.sweeps.is_none() && count >= MAX_SWEEPS {
+            if sweeps.is_none() && count >= MAX_SWEEPS {
                 return Err(UfgError::NotConverged(MAX_SWEEPS));
             }
             sweep.restore(&saved);
-            // 核種の格子のカーソルは降順にしか進まないので、範囲の上端から引き直す
-            for (c, d) in cursors.iter_mut().zip(&data) {
-                *c = d.pointwise().energy.len();
-            }
+            cursors.clone_from(&saved_cursors);
         }
     }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
@@ -1337,9 +1331,8 @@ struct Sweep<'a> {
     own: Vec<Vec<f64>>,
     /// [核種] の、窓の下端の区間の積分の範囲の上の部分と、格子点の値の重み
     slabs: Vec<(f64, Vec<(usize, f64)>)>,
-    /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、軽い核種のあるとき）と、上方散乱のスイープの回数
+    /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、軽い核種のあるとき）
     thermal: Option<Thermal>,
-    sweeps: Option<usize>,
     /// 格子点ごとに再利用する作業用の配列: [リング] の自由ガスの核の散乱源の既知の部分と、その点の F_i の係数
     extra: (Vec<f64>, Vec<f64>),
 }
