@@ -1253,18 +1253,23 @@ fn resonant_nuclides_follow_their_own_cap() {
         thermal_spectrum(600.0, free_gas_heavy(1.0e9, 4, None)),
         thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None))
     );
-    // 400 kT（600 K で 20.7 eV）の上限は、上限のないときと静止したときの間
+    // 400 kT（600 K で 20.7 eV）の上限は、6.67 eV の共鳴の熱運動を残し、上限のないときからの動きのほとんどを再現する
+    // （上限より上の入射の分は、上限のないときと軽い核種だけのときの差の 1 割ほど）
     let capped = thermal_spectrum(600.0, free_gas_heavy(400.0, 4, None));
     let uncapped = thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None));
-    assert!(flux_difference(&capped, &light) > 0.0);
-    assert!(flux_difference(&capped, &uncapped) > 0.0);
+    let whole = flux_difference(&uncapped, &light);
+    assert!(flux_difference(&capped, &light) > 0.8 * whole, "{whole}");
+    assert!(flux_difference(&capped, &uncapped) < 0.2 * whole, "{whole}");
+    assert!(
+        flux_difference(&capped, &uncapped) > 0.01 * whole,
+        "{whole}"
+    );
 }
 
 #[test]
 fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
-    // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く。減速材のないセルでは、重い核種の 1 回の衝突で
-    // 失うエネルギーが上方散乱で得るものと同じほどに小さく、スイープの収束が遅いので、収束まで解くと
-    // `UfgError::NotConverged` で止まる
+    // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く。減速材のないセルはスイープの収束が遅い（#0179）ので、
+    // スイープの回数を固定する
     let (lib, _, _) = thermal_cell(600.0);
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
@@ -1279,18 +1284,15 @@ fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
             None,
             scattering,
         )
+        .unwrap()
     };
-    let moving = solve(free_gas_heavy(f64::INFINITY, 4, Some(32))).unwrap();
-    let at_rest = solve(Scattering::Static).unwrap();
+    let moving = solve(free_gas_heavy(f64::INFINITY, 4, Some(32)));
+    let at_rest = solve(Scattering::Static);
     assert!(
         flux_difference(&moving, &at_rest) > 1e-5,
         "{}",
         flux_difference(&moving, &at_rest)
     );
-    assert!(matches!(
-        solve(free_gas_heavy(f64::INFINITY, 4, None)),
-        Err(UfgError::NotConverged(MAX_SWEEPS))
-    ));
 }
 
 /// 無限媒質の 1 つの核種: 質量比、個数密度、自由ガスの核で散乱するか、ポイントワイズの (E, 全, 弾性散乱) の表
