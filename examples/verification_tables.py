@@ -1056,6 +1056,85 @@ def swap_candidates(sources: list[dict]) -> str:
     )
 
 
+def ufg_free_gas_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-ufg-free-gas":
+        raise TableError("not an xlc-ufg-free-gas summary")
+    return s
+
+
+def ufg_free_gas_k(sources: list[dict]) -> str:
+    """ADR-0203 の UFG の散乱核ごとの k の差（xlc − OpenMC、pcm）と、最初の状態からの増え"""
+    s = ufg_free_gas_summary(sources)
+    states = s["states"]
+    first, later = states[0], states[1:]
+    rows = []
+    for mode in s["modes"]:
+        key = mode["key"]
+        diffs = [t["results"].get(key, {}).get("diff_pcm") for t in states]
+        rows.append(
+            [
+                mode["label"],
+                *("–" if d is None else signed(d, 1) for d in diffs),
+                *(
+                    "–" if d is None or diffs[0] is None else signed(d - diffs[0], 1)
+                    for d in diffs[1:]
+                ),
+            ]
+        )
+    return markdown_table(
+        [
+            "散乱核",
+            *(t["name"] for t in states),
+            *(f"{t['name']} − {first['name']}" for t in later),
+        ],
+        rows,
+    )
+
+
+def ufg_free_gas_swaps(sources: list[dict]) -> str:
+    """ADR-0203 の UFG の散乱核ごとの、UFG の範囲の吸収を OpenMC の値に置き換えて測る k への寄与（pcm）"""
+    s = ufg_free_gas_summary(sources)
+    rows = [
+        [
+            t["name"],
+            mode["label"],
+            *(
+                signed(t["results"][mode["key"]]["swaps"][x["spec"]], 1)
+                for x in s["swaps"]
+            ),
+        ]
+        for t in s["states"]
+        for mode in s["modes"]
+        if mode["key"] in t["results"]
+    ]
+    return markdown_table(["状態", "散乱核", *(x["label"] for x in s["swaps"])], rows)
+
+
+def ufg_free_gas_tilt(sources: list[dict]) -> str:
+    """ADR-0203 の UFG の散乱核ごとの、27 群の燃料の中性子束の区間ごとの比 − 1（%。群の中で規格化。fine_compare.py）"""
+    s = ufg_free_gas_summary(sources)
+    rows, bins = [], None
+    for t in s["states"]:
+        for mode in s["modes"]:
+            tilt = t["results"].get(mode["key"], {}).get("tilt")
+            if tilt is None:
+                continue
+            edges = [(b["low"], b["high"]) for b in tilt]
+            if bins is None:
+                bins = edges
+            elif edges != bins:
+                raise TableError("the fine logs use other bins")
+            rows.append(
+                [t["name"], mode["label"], *(signed(100 * b["ratio"], 2) for b in tilt)]
+            )
+    if bins is None:
+        raise TableError("no fine logs")
+    return markdown_table(
+        ["状態", "散乱核", *(f"{lo:g}〜{hi:g} eV" for lo, hi in bins)], rows
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
@@ -1067,6 +1146,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/issue-0133/swap-candidates.json",
+    "examples/depletion/issue-0133/ufg-free-gas/summary.json",
 }
 
 
@@ -1209,6 +1289,17 @@ TABLES = {
         ["examples/depletion/issue-0133/swap-candidates.json"],
         swap_candidates,
     ),
+    **{
+        f"depletion-ufg-free-gas-{name}": (
+            ["examples/depletion/issue-0133/ufg-free-gas/summary.json"],
+            draw,
+        )
+        for name, draw in [
+            ("k", ufg_free_gas_k),
+            ("swaps", ufg_free_gas_swaps),
+            ("tilt", ufg_free_gas_tilt),
+        ]
+    },
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],
         depletion_rings,

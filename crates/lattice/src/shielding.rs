@@ -36,7 +36,7 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, Collision, UfgError, cell_range, material_range, slowing_down_with,
+    CellSpectrum, Collision, Scattering, UfgError, cell_range, material_range, slowing_down_with,
 };
 
 /// 格子の燃料の自己遮蔽の反復の条件。
@@ -51,6 +51,8 @@ pub struct ShieldingOptions {
     /// 燃料のピンと棒の UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は
     /// 間引かない。ADR-0185）
     pub thinning: Option<f64>,
+    /// 燃料のピンと棒の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
+    pub scattering: Scattering,
 }
 
 impl Default for ShieldingOptions {
@@ -61,6 +63,7 @@ impl Default for ShieldingOptions {
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
             thinning: None,
+            scattering: Scattering::Static,
         }
     }
 }
@@ -619,6 +622,7 @@ pub fn shield_fuel_reusing(
             void,
             collision: options.collision,
             thinning: options.thinning,
+            scattering: options.scattering,
         };
         let ufg = shield_cell(
             library,
@@ -1037,6 +1041,7 @@ fn shield_lumps(
                         void: materials.len(),
                         collision: options.collision,
                         thinning: options.thinning,
+                        scattering: options.scattering,
                     };
                     shield_cell(
                         library,
@@ -1250,6 +1255,8 @@ struct PinRings<'a> {
     collision: Collision,
     /// 減速計算の格子の間引きの許容差
     thinning: Option<f64>,
+    /// 減速計算の散乱核の標的の扱い
+    scattering: Scattering,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1405,6 +1412,7 @@ fn solve_equivalent_cell<'a>(
         range,
         pin.collision,
         pin.thinning,
+        pin.scattering,
     )?;
     Ok(Some(EquivalentCell {
         radius,
