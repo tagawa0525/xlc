@@ -119,19 +119,25 @@ fn kernel_approaches_the_target_at_rest_far_above_kt() {
 
 #[test]
 fn correction_vanishes_outside_its_cells() {
-    // 区間の外の u' では D が静止した核の 1e−11 倍より小さい（TAIL と EDGE の選び方）
+    // 区間の外の u' では D が静止した核の 1e−11 倍より小さい（TAIL と EDGE の選び方。1200 K でも範囲の下限で）
     let high: f64 = 2.0e4;
     let (mut bounds, mut cells) = (Vec::new(), Vec::new());
-    for awr in [0.99917, 9.93, 15.86] {
-        let light = Light::new(awr, 600.0, None);
+    for (awr, temperature) in [
+        (0.99917, 600.0),
+        (9.93, 600.0),
+        (15.86, 600.0),
+        (15.86, 1200.0),
+        (0.99917, 1200.0),
+    ] {
+        let light = Light::new(awr, temperature, None);
         let grades = grades(4);
-        for e in [4.5, 50.0, 5000.0] {
+        for e in [4.0, 4.5, 50.0, 5000.0] {
             let u = (high / e).ln();
             light.cells(high, u, e, &grades, 4, 9.0, &mut bounds, &mut cells);
             let width = light.width.min(3.0);
             let samples = 20_000;
             for j in 0..=samples {
-                let x = u - width - 0.5 + (width + 1.0) * j as f64 / samples as f64;
+                let x = u - width - 0.5 + (width + 2.0) * j as f64 / samples as f64;
                 if x < 0.0 || cells.iter().any(|&(a, b)| a <= x && x <= b) {
                     continue;
                 }
