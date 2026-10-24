@@ -251,7 +251,9 @@ impl Light {
         // E' = E ± y kT のレサジー（上方散乱の裾は E − E' で減るので、エネルギーで測る）。E' が 0 に届く段は打ち切る
         let below = |y: f64| u - (-y * scale).ln_1p();
         let above = |y: f64| u - (y * scale).ln_1p();
-        let reach = TAIL.min(0.5 / scale);
+        // 範囲の下限 4 eV と燃料の温度（1200 K で TAIL kT ≈ 2.9 eV）では E' = E − TAIL kT は正なので、打ち切りは届かない
+        // 上方散乱（E' ≤ 0）のときだけ
+        let reach = TAIL.min(0.999 / scale);
         // 下方散乱の側の折れの大きさは e^{−E/(A kT)} ほどで、DOWNSIDE より小さければ区間を置かない
         let downside = if e < DOWNSIDE * self.awr * self.kt {
             TAIL
