@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, branches, shielding, performance]
 opened: 2026-10-24
-closed:
+closed: 2026-10-24
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0201
 ---
 
 # 分岐の自己遮蔽をホウ素の軸だけで持ち越す案の誤差と時間を測る
@@ -31,3 +31,6 @@ ADR-0201 の作り直し（`history::remix_varied`）は、参照の取り方（
 ## 経緯
 
 - 2026-10-24: ADR-0201 の測定で、ホウ素と減速材の密度の誤差が 2 桁以上違うと分かった
+- 2026-10-24: ユーザーが「ホウ素の軸は再利用しましょう」と決め、ADR-0201 で既定（`shielding = "nominal-boron"`）にした。2A と 2O で、ホウ素だけを
+  変えた状態の差は −0.38〜+0.30 pcm、自己遮蔽の回数は 27 状態で 9 回の比（examples/depletion/verification.md の「分岐の自己遮蔽（ADR-0201）」。
+  xlc 667c3a51、Slurm 533）
