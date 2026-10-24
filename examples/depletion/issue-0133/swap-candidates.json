@@ -1,0 +1,687 @@
+{
+ "format": "xlc-swap-candidates",
+ "order": [
+  "fast-u238",
+  "fast-other",
+  "ufg27-u238",
+  "ufg27-other",
+  "ufg-u238",
+  "ufg-other",
+  "epithermal",
+  "thermal-u235",
+  "thermal-u238",
+  "thermal-pu",
+  "thermal-other",
+  "thermal-46-56",
+  "thermal-57-69",
+  "fp",
+  "xe-sm",
+  "all",
+  "transfer-fuel-fast",
+  "transfer-water-fast",
+  "transfer-zircaloy-fast",
+  "transfer-fuel-ufg",
+  "transfer-water-ufg",
+  "transfer-zircaloy-low",
+  "transfer-fuel-thermal",
+  "transfer-water-epithermal",
+  "transfer-water-thermal",
+  "rest"
+ ],
+ "labels": {
+  "fast-u238": "U-238、15 keV より上（#0148）",
+  "fast-other": "ほかのアクチニド、15 keV より上",
+  "ufg27-u238": "U-238、4〜9.88 eV（#0152）",
+  "ufg27-other": "U-238 と O-16 を除く燃料の核種、4〜9.88 eV（#0152）",
+  "ufg-u238": "U-238、9.88 eV〜15 keV",
+  "ufg-other": "U-238 と O-16 を除く燃料の核種、9.88 eV〜15 keV",
+  "epithermal": "燃料の全核種、0.625〜4 eV",
+  "thermal-u235": "U-235、0.625 eV より下（#0151）",
+  "thermal-u238": "U-238、0.625 eV より下（#0151）",
+  "thermal-pu": "Pu-239 と Pu-241、0.625 eV より下（#0151）",
+  "thermal-other": "ほかの燃料の核種、0.625 eV より下（#0151）",
+  "thermal-46-56": "燃料の全核種、0.1〜0.625 eV（#0151）",
+  "thermal-57-69": "燃料の全核種、0.1 eV より下（#0151）",
+  "fp": "核分裂生成物、4 eV〜15 keV と 4 eV より下（#0133）",
+  "xe-sm": "Xe-135 と Sm-149、15 keV より下",
+  "all": "吸収の置き換えの全部（燃料の全核種、15 keV より上はアクチニド）",
+  "transfer-fuel-fast": "移行: 燃料、15 keV より上（#0148）",
+  "transfer-water-fast": "移行: 減速材、15 keV より上（#0148）",
+  "transfer-zircaloy-fast": "移行: 被覆管、15 keV より上（#0148）",
+  "transfer-fuel-ufg": "移行: 燃料、4 eV〜15 keV",
+  "transfer-water-ufg": "移行: 減速材、4 eV〜15 keV（#0152）",
+  "transfer-zircaloy-low": "移行: 被覆管、15 keV より下",
+  "transfer-fuel-thermal": "移行: 燃料、4 eV より下",
+  "transfer-water-epithermal": "移行: 減速材、0.625〜4 eV",
+  "transfer-water-thermal": "移行: 減速材、0.625 eV より下（#0151）",
+  "rest": "残り（差 − 吸収の全部 − 移行の和）"
+ },
+ "states": [
+  {
+   "name": "1C 0 MWd/kg",
+   "k_xlc": 1.17141,
+   "openmc": [
+    {
+     "k": 1.1717514655214667,
+     "k_std": 0.00017980031466935511
+    },
+    {
+     "k": 1.171998499491347,
+     "k_std": 0.00017362000479057552
+    }
+   ],
+   "diff_pcm": -46.4982506406697,
+   "diff_std_pcm": 12.497205609523132,
+   "items": {
+    "fast-u238": {
+     "pcm": 52.65,
+     "runs": [
+      52.9,
+      52.4
+     ]
+    },
+    "fast-other": {
+     "pcm": 1.6,
+     "runs": [
+      1.6,
+      1.6
+     ]
+    },
+    "ufg27-u238": {
+     "pcm": -54.4,
+     "runs": [
+      -54.3,
+      -54.5
+     ]
+    },
+    "ufg27-other": {
+     "pcm": 7.949999999999999,
+     "runs": [
+      7.7,
+      8.2
+     ]
+    },
+    "ufg-u238": {
+     "pcm": -35.45,
+     "runs": [
+      -25.1,
+      -45.8
+     ]
+    },
+    "ufg-other": {
+     "pcm": -0.65,
+     "runs": [
+      -1.1,
+      -0.2
+     ]
+    },
+    "epithermal": {
+     "pcm": -0.35,
+     "runs": [
+      -0.4,
+      -0.3
+     ]
+    },
+    "thermal-u235": {
+     "pcm": 41.5,
+     "runs": [
+      41.3,
+      41.7
+     ]
+    },
+    "thermal-u238": {
+     "pcm": -16.45,
+     "runs": [
+      -16.4,
+      -16.5
+     ]
+    },
+    "thermal-other": {
+     "pcm": -0.2,
+     "runs": [
+      -0.2,
+      -0.2
+     ]
+    },
+    "thermal-46-56": {
+     "pcm": -1.95,
+     "runs": [
+      -2.0,
+      -1.9
+     ]
+    },
+    "thermal-57-69": {
+     "pcm": 26.700000000000003,
+     "runs": [
+      26.6,
+      26.8
+     ]
+    },
+    "all": {
+     "pcm": -3.8,
+     "runs": [
+      6.1,
+      -13.7
+     ]
+    },
+    "transfer-fuel-fast": {
+     "pcm": 25.399999999997647,
+     "runs": [
+      25.399999999997647
+     ]
+    },
+    "transfer-water-fast": {
+     "pcm": 63.600000000008095,
+     "runs": [
+      63.600000000008095
+     ]
+    },
+    "transfer-zircaloy-fast": {
+     "pcm": -0.5999999999950489,
+     "runs": [
+      -0.5999999999950489
+     ]
+    },
+    "transfer-fuel-ufg": {
+     "pcm": -51.50000000000432,
+     "runs": [
+      -51.50000000000432
+     ]
+    },
+    "transfer-water-ufg": {
+     "pcm": 44.800000000000395,
+     "runs": [
+      44.800000000000395
+     ]
+    },
+    "transfer-zircaloy-low": {
+     "pcm": -2.199999999996649,
+     "runs": [
+      -2.199999999996649
+     ]
+    },
+    "transfer-fuel-thermal": {
+     "pcm": 3.2000000000032003,
+     "runs": [
+      3.2000000000032003
+     ]
+    },
+    "transfer-water-epithermal": {
+     "pcm": -2.2999999999884224,
+     "runs": [
+      -2.2999999999884224
+     ]
+    },
+    "transfer-water-thermal": {
+     "pcm": 1.3000000000040757,
+     "runs": [
+      1.3000000000040757
+     ]
+    },
+    "rest": {
+     "pcm": -124.39825064069868,
+     "runs": []
+    }
+   },
+   "sources": [
+    {
+     "openmc": "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack",
+     "absorption": "swap-logs/1C-0-448-absorption.txt",
+     "fast": true
+    },
+    {
+     "openmc": "references/openmc/pin-transfer-1C/1C-0/transfer.msgpack",
+     "absorption": "swap-logs/1C-0-534-absorption.txt",
+     "transfer": "swap-logs/1C-0-534-transfer.txt",
+     "fast": true
+    }
+   ]
+  },
+  {
+   "name": "1C 5 MWd/kg",
+   "k_xlc": 1.086056,
+   "openmc": [
+    {
+     "k": 1.0860302442984655,
+     "k_std": 0.0002209502004661611
+    },
+    {
+     "k": 1.0859553371363717,
+     "k_std": 0.00014148291835418866
+    }
+   ],
+   "diff_pcm": 6.320928258118919,
+   "diff_std_pcm": 13.118346625247291,
+   "items": {
+    "fast-u238": {
+     "pcm": 51.849999999999994,
+     "runs": [
+      51.9,
+      51.8
+     ]
+    },
+    "fast-other": {
+     "pcm": 1.5,
+     "runs": [
+      1.5,
+      1.5
+     ]
+    },
+    "ufg27-u238": {
+     "pcm": -52.45,
+     "runs": [
+      -50.0,
+      -54.9
+     ]
+    },
+    "ufg27-other": {
+     "pcm": 15.5,
+     "runs": [
+      16.2,
+      14.8
+     ]
+    },
+    "ufg-u238": {
+     "pcm": -22.25,
+     "runs": [
+      -17.1,
+      -27.4
+     ]
+    },
+    "ufg-other": {
+     "pcm": -1.1,
+     "runs": [
+      -1.8,
+      -0.4
+     ]
+    },
+    "epithermal": {
+     "pcm": 4.949999999999999,
+     "runs": [
+      5.1,
+      4.8
+     ]
+    },
+    "thermal-u235": {
+     "pcm": 36.7,
+     "runs": [
+      36.6,
+      36.8
+     ]
+    },
+    "thermal-u238": {
+     "pcm": -12.55,
+     "runs": [
+      -12.5,
+      -12.6
+     ]
+    },
+    "thermal-pu": {
+     "pcm": 7.0,
+     "runs": [
+      7.0,
+      7.0
+     ]
+    },
+    "thermal-other": {
+     "pcm": 6.55,
+     "runs": [
+      6.5,
+      6.6
+     ]
+    },
+    "thermal-46-56": {
+     "pcm": 15.149999999999999,
+     "runs": [
+      15.1,
+      15.2
+     ]
+    },
+    "thermal-57-69": {
+     "pcm": 22.4,
+     "runs": [
+      22.3,
+      22.5
+     ]
+    },
+    "fp": {
+     "pcm": 11.55,
+     "runs": [
+      11.5,
+      11.6
+     ]
+    },
+    "xe-sm": {
+     "pcm": 8.95,
+     "runs": [
+      8.9,
+      9.0
+     ]
+    },
+    "all": {
+     "pcm": 35.7,
+     "runs": [
+      43.5,
+      27.9
+     ]
+    },
+    "transfer-fuel-fast": {
+     "pcm": 27.999999999983594,
+     "runs": [
+      27.999999999983594
+     ]
+    },
+    "transfer-water-fast": {
+     "pcm": 64.39999999998669,
+     "runs": [
+      64.39999999998669
+     ]
+    },
+    "transfer-zircaloy-fast": {
+     "pcm": -0.40000000001150227,
+     "runs": [
+      -0.40000000001150227
+     ]
+    },
+    "transfer-fuel-ufg": {
+     "pcm": -50.70000000000352,
+     "runs": [
+      -50.70000000000352
+     ]
+    },
+    "transfer-water-ufg": {
+     "pcm": 48.39999999999289,
+     "runs": [
+      48.39999999999289
+     ]
+    },
+    "transfer-zircaloy-low": {
+     "pcm": -3.100000000011427,
+     "runs": [
+      -3.100000000011427
+     ]
+    },
+    "transfer-fuel-thermal": {
+     "pcm": 1.4999999999876223,
+     "runs": [
+      1.4999999999876223
+     ]
+    },
+    "transfer-water-epithermal": {
+     "pcm": -1.8000000000073513,
+     "runs": [
+      -1.8000000000073513
+     ]
+    },
+    "transfer-water-thermal": {
+     "pcm": 2.199999999996649,
+     "runs": [
+      2.199999999996649
+     ]
+    },
+    "rest": {
+     "pcm": -117.87907174179475,
+     "runs": []
+    }
+   },
+   "sources": [
+    {
+     "openmc": "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack",
+     "absorption": "swap-logs/1C-5-448-absorption.txt",
+     "fast": true
+    },
+    {
+     "openmc": "references/openmc/pin-transfer-1C/1C-5/transfer.msgpack",
+     "absorption": "swap-logs/1C-5-534-absorption.txt",
+     "transfer": "swap-logs/1C-5-534-transfer.txt",
+     "fast": true
+    }
+   ]
+  },
+  {
+   "name": "2A 40 MWd/kg",
+   "k_xlc": 0.82554,
+   "openmc": [
+    {
+     "k": 0.8247863055163666,
+     "k_std": 0.00015882548350339048
+    },
+    {
+     "k": 0.8251642196108393,
+     "k_std": 0.00015109941547448267
+    },
+    {
+     "k": 0.8247781755410761,
+     "k_std": 0.00016984026079392244
+    },
+    {
+     "k": 0.8248629999397179,
+     "k_std": 0.00017368611324885522
+    }
+   ],
+   "diff_pcm": 64.20748480000515,
+   "diff_std_pcm": 8.180355573294852,
+   "items": {
+    "fast-u238": {
+     "pcm": 49.849999999999994,
+     "runs": [
+      49.8,
+      49.9
+     ]
+    },
+    "fast-other": {
+     "pcm": 0.9,
+     "runs": [
+      0.9,
+      0.9
+     ]
+    },
+    "ufg27-u238": {
+     "pcm": -29.7,
+     "runs": [
+      -32.9,
+      -26.3,
+      -33.9,
+      -25.7
+     ]
+    },
+    "ufg27-other": {
+     "pcm": 17.9,
+     "runs": [
+      17.0,
+      19.3,
+      18.1,
+      17.2
+     ]
+    },
+    "ufg-u238": {
+     "pcm": -26.075,
+     "runs": [
+      -20.1,
+      -29.5,
+      -28.3,
+      -26.4
+     ]
+    },
+    "ufg-other": {
+     "pcm": -0.85,
+     "runs": [
+      -1.0,
+      -0.6,
+      -0.4,
+      -1.4
+     ]
+    },
+    "epithermal": {
+     "pcm": 8.3,
+     "runs": [
+      8.8,
+      6.2,
+      7.6,
+      10.6
+     ]
+    },
+    "thermal-u235": {
+     "pcm": 10.575,
+     "runs": [
+      10.6,
+      10.5,
+      10.7,
+      10.5
+     ]
+    },
+    "thermal-u238": {
+     "pcm": -9.375,
+     "runs": [
+      -9.4,
+      -9.3,
+      -9.5,
+      -9.3
+     ]
+    },
+    "thermal-pu": {
+     "pcm": 34.425,
+     "runs": [
+      34.4,
+      34.4,
+      34.4,
+      34.5
+     ]
+    },
+    "thermal-other": {
+     "pcm": -2.775,
+     "runs": [
+      -2.7,
+      -2.9,
+      -2.9,
+      -2.6
+     ]
+    },
+    "thermal-46-56": {
+     "pcm": 24.95,
+     "runs": [
+      25.0,
+      24.8,
+      24.8,
+      25.2
+     ]
+    },
+    "thermal-57-69": {
+     "pcm": 7.825,
+     "runs": [
+      7.8,
+      7.8,
+      7.9,
+      7.8
+     ]
+    },
+    "fp": {
+     "pcm": 8.774999999999999,
+     "runs": [
+      9.7,
+      9.7,
+      8.1,
+      7.6
+     ]
+    },
+    "xe-sm": {
+     "pcm": 6.2,
+     "runs": [
+      6.2,
+      6.2,
+      6.1,
+      6.3
+     ]
+    },
+    "all": {
+     "pcm": 52.45,
+     "runs": [
+      46.7,
+      58.2
+     ]
+    },
+    "transfer-fuel-fast": {
+     "pcm": 29.800000000002047,
+     "runs": [
+      29.800000000002047
+     ]
+    },
+    "transfer-water-fast": {
+     "pcm": 66.8000000000002,
+     "runs": [
+      66.8000000000002
+     ]
+    },
+    "transfer-zircaloy-fast": {
+     "pcm": -1.599999999990498,
+     "runs": [
+      -1.599999999990498
+     ]
+    },
+    "transfer-fuel-ufg": {
+     "pcm": -37.99999999999359,
+     "runs": [
+      -37.99999999999359
+     ]
+    },
+    "transfer-water-ufg": {
+     "pcm": 70.60000000000954,
+     "runs": [
+      70.60000000000954
+     ]
+    },
+    "transfer-zircaloy-low": {
+     "pcm": -3.399999999997849,
+     "runs": [
+      -3.399999999997849
+     ]
+    },
+    "transfer-fuel-thermal": {
+     "pcm": -2.599999999997049,
+     "runs": [
+      -2.599999999997049
+     ]
+    },
+    "transfer-water-epithermal": {
+     "pcm": -2.799999999991698,
+     "runs": [
+      -2.799999999991698
+     ]
+    },
+    "transfer-water-thermal": {
+     "pcm": 0.9000000000036756,
+     "runs": [
+      0.9000000000036756
+     ]
+    },
+    "rest": {
+     "pcm": -107.94251520003964,
+     "runs": []
+    }
+   },
+   "sources": [
+    {
+     "openmc": "references/openmc/pin-rates-1C/2a40-fine/openmc-rates.msgpack",
+     "absorption": "swap-logs/2A-40-456-absorption.txt",
+     "fast": false
+    },
+    {
+     "openmc": "references/openmc/pin-rates-1C/2a40-seed2-fine/openmc-rates.msgpack",
+     "absorption": "swap-logs/2A-40-458-absorption.txt",
+     "fast": false
+    },
+    {
+     "openmc": "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack",
+     "absorption": "swap-logs/2A-40-459-absorption.txt",
+     "fast": true
+    },
+    {
+     "openmc": "references/openmc/pin-transfer-1C/2A-40/transfer.msgpack",
+     "absorption": "swap-logs/2A-40-534-absorption.txt",
+     "transfer": "swap-logs/2A-40-534-transfer.txt",
+     "fast": true
+    }
+   ]
+  }
+ ]
+}
