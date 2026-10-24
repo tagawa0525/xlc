@@ -126,6 +126,14 @@ fn references_keep_the_nominal_boron_at_the_moderator_and_fuel_points_of_each_st
     .unwrap();
     let every = every.branches.as_ref().unwrap();
     assert!((0..12).all(|state| every.reference(state).is_none()));
+    // ホウ素が 1 点なら、状態ごとに参照が違い、再利用するものがないので状態ごとに解く
+    let single = edited(
+        "boron = { ppm = [900, 1700], materials = [\"water\"] }",
+        "boron = { ppm = [900], materials = [\"water\"] }",
+    )
+    .unwrap();
+    let single = single.branches.as_ref().unwrap();
+    assert!((0..6).all(|state| single.reference(state).is_none()));
 }
 
 #[test]
