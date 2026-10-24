@@ -5,9 +5,13 @@
 """
 
 import itertools
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+
+import msgpack
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_branch_cross_terms as cct
@@ -217,6 +221,41 @@ class Thinning(unittest.TestCase):
 
 
 class Errors(unittest.TestCase):
+    def test_rodded_tables_are_checked_like_the_table(self):
+        for change in (
+            {"split": 4},
+            {"format": "xlc-fewgroup"},
+            {"states": table(additive)["states"][:-1]},
+        ):
+            rodded = {**table(additive), **change}
+            with self.assertRaises(SystemExit, msg=str(change)):
+                cct.summarize([("t", table(additive), rodded, NOMINAL)], MODELS)
+
+    def test_thinning_must_remove_a_point(self):
+        t = table(additive, [0.0, 1.0, 2.0])
+        for burnup in ([0.0, 1.0, 2.0], []):
+            with self.assertRaises(SystemExit, msg=str(burnup)):
+                cct.thin("t", t, NOMINAL, [{"name": "bad", "burnup": burnup}])
+
+    def test_thinning_without_error_names_the_first_removed_state(self):
+        t = table(additive, [0.0, 1.0, 2.0])
+        s = cct.thin("t", t, NOMINAL, [{"name": "2 点", "burnup": [0.0, 2.0]}])
+        hermite = s["selections"][0]["results"]["hermite"]
+        self.assertLess(hermite["max_abs_pcm"], 1e-9)
+        self.assertEqual(hermite["worst"]["burnup"], 1.0)
+
+    def test_migration_areas_need_two_groups(self):
+        three = state(0.1)
+        three["total"] = [0.5, 0.6, 1.0]
+        with self.assertRaises(SystemExit):
+            cct.migration_area(three)
+
+    def test_items_that_are_zero_in_every_group_compare_as_zero(self):
+        truth = {**state(0.1), "fission": [0.0, 0.0]}
+        self.assertEqual(cct.relative_errors(truth, truth)["fission"], 0.0)
+        with self.assertRaises(SystemExit):
+            cct.relative_errors({**truth, "fission": [0.0, 1e-3]}, truth)
+
     def test_the_nominal_state_must_be_a_grid_point(self):
         for nominal in (
             {**NOMINAL, "boron": 1250.0},
@@ -240,6 +279,29 @@ class Report(unittest.TestCase):
             cct.report(s)
         lines = cct.report({**s, "inputs": [{"path": "a.msgpack", "md5": "0" * 32}]})
         self.assertIn("a.msgpack 00000000", lines[0])
+
+
+class Main(unittest.TestCase):
+    def test_a_file_read_twice_is_listed_once_in_the_inputs(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "t.msgpack").write_bytes(msgpack.packb(table(additive)))
+            nominal = "nominal = { boron = 1300, moderator = 565, fuel = 565 }"
+            (root / "c.toml").write_text(
+                f'[[table]]\nname = "a"\nfile = "t.msgpack"\n{nominal}\n'
+                f'[[table]]\nname = "b"\nfile = "t.msgpack"\n{nominal}\n'
+                '[[model]]\nname = "1 軸ずつ"\nkeep = []\n'
+            )
+            out = root / "s.json"
+            argv = sys.argv
+            sys.argv = ["x", "--json", str(out), str(root / "c.toml")]
+            try:
+                cct.main()
+            finally:
+                sys.argv = argv
+            paths = [i["path"] for i in json.loads(out.read_text())["inputs"]]
+            self.assertEqual(len(paths), len(set(paths)))
+            self.assertEqual(len(paths), 2)
 
 
 if __name__ == "__main__":
