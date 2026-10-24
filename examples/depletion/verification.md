@@ -425,8 +425,10 @@ xlc は、1C の 0 と 5 MWd/kg が 4a2fd7e8（Slurm 541、542）、2A-40 が 5d
 参照を 5d25f8fb で解き直すと、`swap_absorption` の出力の 6 桁は同じ）。2A-40 は細かさ 2 を流していない（1C の 2 つの状態で参照との差が
 0.1 pcm 以下）。2A-40 の参照の傾きは測っておらず、スイープ 1 回の傾きで代える（1C の 0 MWd/kg で参照との差は区間ごとに 0.04% 以内）。
 ライブラリは examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。ログは `issue-0133/ufg-free-gas/logs/`、要約は
-`issue-0133/ufg-free-gas/summary.json`。S(α,β) と自由ガスの移行の行は e0631171（`logs/sab-free-gas-rows-600K.txt`、2026-10-24）。
-時間はどれも `--timed` でないジョブなので記録しない。
+`issue-0133/ufg-free-gas/summary.json`。S(α,β) と自由ガスの移行の行は df0bc35c（`logs/sab-free-gas-rows-600K.txt`、2026-10-24）。
+時間はどれも `--timed` でないジョブなので記録しない。測定のあとの 65aae158 で上方散乱の区間の打ち切りを E' = E/2 から E' = 0.001 E に
+変えた（900 K の燃料の O-16 では 4〜4.34 eV の格子点で区間が延びる）。手元で解き直した 1C の 0 MWd/kg の参照と 400 kT の上限、2A-40 の
+スイープ 1 回と 3 つの組の `swap_absorption` の出力の 6 桁は、記録のログと同じ（2026-10-24。参照は 04a15206 と同じコード）。
 
 #### 結果
 
