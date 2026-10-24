@@ -13,15 +13,15 @@ resolution:
 ## 問題
 
 examples/depletion/verification.md の「集合体の燃焼」には、集合体ごとの節（2A、2F、2N、2O、2P、2M、2A-density、2A-rods）しか
-なく、種類をまたぐ傾向（k∞ の差の 0 の点、最大とその燃焼度、60 MWd/kg の値、ピン出力の rms の範囲）を 1 か所で見る表が無い。
+なく、種類をまたぐ傾向（k∞ の差の燃焼度 0 の点、最大とその燃焼度、60 MWd/kg の値、ピン出力の rms の範囲）を 1 か所で見る表が無い。
 傾向を読むには 8 つの節を行き来する必要がある。
 
-2026-10-24 の値（xlc 78a9a9b64 の examples/depletion/p2/compare-*.json から、親のセッションが集計したもの。表を作るときは
-JSON から出し直す）:
+2026-10-24 の値（xlc 78a9a9b64 の examples/depletion/p2/compare-*.json の `burnup` と `k[].diff_pcm` から、親のセッションが集計し、この issue の担当が
+JSON で確かめたもの。表を作るときは JSON から出し直す）:
 
-- k∞ の差が 0 になる燃焼度の点（pcm）: 2A +11、2A-density +13、2A-rods +36、2F +63、2N +62、2O +66、2P +93、2M +10
+- 燃焼度 0 の点の k∞ の差（pcm）: 2A +11、2A-density +13、2A-rods +36、2F +63、2N +62、2O +66、2P +93、2M +10
 - 60 MWd/kg の k∞ の差は +176〜+210 pcm。2A-rods だけ +66 pcm
-- 差の最大は 44〜52 MWd/kg
+- 差の最大は 44〜52 MWd/kg（94〜235 pcm。2A-rods が 94、2O が 235）
 
 ユーザーが 2026-10-24 に「今は直さない」と決めた。
 
