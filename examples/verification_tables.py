@@ -1071,12 +1071,15 @@ def ufg_free_gas_k(sources: list[dict]) -> str:
     rows = []
     for mode in s["modes"]:
         key = mode["key"]
-        diffs = [t["results"][key]["diff_pcm"] for t in states]
+        diffs = [t["results"].get(key, {}).get("diff_pcm") for t in states]
         rows.append(
             [
                 mode["label"],
-                *(signed(d, 1) for d in diffs),
-                *(signed(d - diffs[0], 1) for d in diffs[1:]),
+                *("–" if d is None else signed(d, 1) for d in diffs),
+                *(
+                    "–" if d is None or diffs[0] is None else signed(d - diffs[0], 1)
+                    for d in diffs[1:]
+                ),
             ]
         )
     return markdown_table(
@@ -1103,6 +1106,7 @@ def ufg_free_gas_swaps(sources: list[dict]) -> str:
         ]
         for t in s["states"]
         for mode in s["modes"]
+        if mode["key"] in t["results"]
     ]
     return markdown_table(["状態", "散乱核", *(x["label"] for x in s["swaps"])], rows)
 
@@ -1113,7 +1117,7 @@ def ufg_free_gas_tilt(sources: list[dict]) -> str:
     rows, bins = [], None
     for t in s["states"]:
         for mode in s["modes"]:
-            tilt = t["results"][mode["key"]]["tilt"]
+            tilt = t["results"].get(mode["key"], {}).get("tilt")
             if tilt is None:
                 continue
             edges = [(b["low"], b["high"]) for b in tilt]
