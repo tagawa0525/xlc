@@ -947,11 +947,17 @@ def branch_shielding_k(sources: list[dict]) -> str:
     rows = []
     for (assembly, burnup), states in groups.items():
         for boron in sorted({state["boron"] for state in states}):
-            at = {
-                (state["moderator_temperature"], state["density"]): state["dk_pcm"]
-                for state in states
-                if state["boron"] == boron
-            }
+            at: dict = {}
+            for state in states:
+                if state["boron"] != boron:
+                    continue
+                key = (state["moderator_temperature"], state["density"])
+                # 燃料の温度の軸は列にないので、1 点のテーブルだけを描く（同じ減速材の点の状態を黙って上書きしない）
+                if key in at:
+                    raise TableError(
+                        f"{assembly} {burnup} MWd/kg {boron} ppm: two states at moderator {key}"
+                    )
+                at[key] = state["dk_pcm"]
             rows.append(
                 [
                     assembly,
