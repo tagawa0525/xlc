@@ -312,3 +312,30 @@ fn first_sweep_takes_the_flux_ahead_as_its_own() {
     assert_rel(k2 + o2, total, 1e-12);
     assert!(o1 > o2);
 }
+
+#[test]
+fn idle_gases_have_no_cells() {
+    // `idle` の出射では、上限より下の入射の区間が無い（区間を作らずに飛ばしても散乱源は変わらない）
+    let high: f64 = 2.0e4;
+    let (mut bounds, mut cells) = (Vec::new(), Vec::new());
+    let grades = grades(4);
+    let mut idle = 0;
+    for (awr, temperature) in [
+        (0.99917, 600.0),
+        (15.86, 600.0),
+        (89.13, 600.0),
+        (236.0, 900.0),
+    ] {
+        let gas = Gas::new(awr, temperature, Some(400.0));
+        for k in 0..400 {
+            let e = 4.0 * 1.02_f64.powi(k);
+            let u = (high / e).ln();
+            gas.cells(high, u, e, &grades, 4, 9.0, &mut bounds, &mut cells);
+            if gas.idle(high, u, e) {
+                idle += 1;
+                assert!(cells.is_empty(), "A {awr}, E {e}: {} cells", cells.len());
+            }
+        }
+    }
+    assert!(idle > 0);
+}

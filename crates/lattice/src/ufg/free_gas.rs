@@ -293,6 +293,18 @@ impl Gas {
         }
     }
 
+    /// 出射のレサジー `u`（エネルギー `e`）で、[`Gas::cells`] の区間がどれも上限より上の入射にあって落ちるか。上端の側の
+    /// 区間の最も低い入射は E − TAIL kT、下端の側は u − Δ + EDGE × ぼけの幅（[`Gas::cells`] と同じ式。O-16 のように下端の側の
+    /// ぼけが窓の幅を超える核種では、上方散乱の裾より下まで届く）
+    pub(super) fn idle(&self, high: f64, u: f64, e: f64) -> bool {
+        if e - TAIL * self.kt < self.cap {
+            return false;
+        }
+        let center = u - self.width;
+        let blur = 2.0 * (self.kt / (high * (-center).exp())).sqrt() / self.zeta;
+        !blur.is_finite() || high * (-(center + EDGE * blur)).exp() >= self.cap
+    }
+
     /// 区間 [a, b] を静止した核の窓の中として扱うか
     pub(super) fn inside(&self, u: f64, a: f64, b: f64) -> bool {
         let mid = 0.5 * (a + b);
@@ -718,6 +730,10 @@ impl Thermal {
         // 手間を避ける）
         self.all.clear();
         for (l, gas) in self.gases.iter().enumerate() {
+            // 分離共鳴を持つ核種の 400 kT のように上限が範囲の上端より低い核種で、区間を作って捨てる手間を省く
+            if gas.idle(high, u[m], e) {
+                continue;
+            }
             gas.cells(
                 high,
                 u[m],
