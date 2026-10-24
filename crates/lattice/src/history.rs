@@ -330,9 +330,11 @@ pub fn history_branches(
         .iter()
         .map(|state| split(state))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    // 燃焼させた物質の組成は状態によらないので、ホウ素と減速材の軸が変える物質に入らない（入力の検査で、燃焼させた物質は燃料の
-    // 温度の軸にだけ挙がる）
-    if let Some(name) = branches.varied().iter().find(|n| depleted.contains(n)) {
+    // 公称の減速材の自己遮蔽は、燃焼させた物質を参照の自己遮蔽から取り、ホウ素と減速材の軸が変える物質だけを作り直すので、燃焼させた
+    // 物質がその軸に挙がれば状態の温度にならない
+    if branches.shielding() == BranchShielding::NominalModerator
+        && let Some(name) = branches.varied().iter().find(|n| depleted.contains(n))
+    {
         bail!("depleted material `{name}` is changed by the boron or moderator axis");
     }
     let mut axes = vec![Axis::Burnup {
