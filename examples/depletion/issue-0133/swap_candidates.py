@@ -88,8 +88,8 @@ def absorption_items(nuclides: list[str]) -> list[tuple[str, str]]:
     items = [
         ("fast-u238", spec(["U-238"], "1-13")),
         ("fast-other", spec([n for n in actinides if n != "U-238"], "1-13")),
-        ("ufg27-u238", "U-238:27"),
-        ("ufg27-other", spec(others, "27")),
+        ("ufg27-u238", "U-238:27-27"),
+        ("ufg27-other", spec(others, "27-27")),
         ("ufg-u238", "U-238:14-26"),
         ("ufg-other", spec(others, "14-26")),
         ("epithermal", "*:28-45"),
