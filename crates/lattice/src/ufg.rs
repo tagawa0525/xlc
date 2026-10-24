@@ -14,6 +14,7 @@
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
 //!
 //! [`Scattering::FreeGas`] では、分離共鳴を持たない核種の散乱核を温度 T の自由ガスの核にする（[`free_gas`]、ADR-0203）。
+//! [`FreeGas::heavy`] を選ぶと、分離共鳴を持つ核種も、その上限より下で同じ断面積一定の自由ガスの核にする（ADR-0204）。
 //! 上方散乱でまだ求めていない低いエネルギーの中性子束を使うので、自由ガスの核の届く範囲を掃き直す。範囲の下限より下からの
 //! 上方散乱は、その中性子束を範囲の最後の格子点の値（1/E）とする（ADR-0203）。
 
@@ -175,7 +176,8 @@ pub enum Scattering {
     /// どの核種も静止した標的（ADR-0070）
     #[default]
     Static,
-    /// 分離共鳴を持たない核種（ライブラリの `resolved` が nil）を温度 T の自由ガスにする。分離共鳴を持つ核種は静止した標的
+    /// 分離共鳴を持たない核種（ライブラリの `resolved` が nil）を温度 T の自由ガスにする。分離共鳴を持つ核種は、
+    /// [`FreeGas::heavy`] を選べばその上限より下で自由ガス、選ばなければ静止した標的
     FreeGas(FreeGas),
 }
 
@@ -219,7 +221,8 @@ struct Data<'a> {
     width: f64,
     /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
     table: Cow<'a, TemperatureData>,
-    /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種）
+    /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種と、[`FreeGas::heavy`] を選んだときの
+    /// 分離共鳴を持つ核種）
     light: Option<Light>,
 }
 
@@ -381,11 +384,16 @@ fn solve_cell(
                         });
                     }
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
+                    // 分離共鳴を持つ核種は `heavy` を選んだときだけ、その上限で自由ガスにする（ADR-0204）
                     let light = match scattering {
-                        Scattering::FreeGas(options) if d.resolved.is_none() => {
-                            Some(Light::new(d.awr, t.temperature, options.upper))
-                        }
-                        _ => None,
+                        Scattering::FreeGas(options) => match (&d.resolved, options.heavy) {
+                            (None, _) => Some(Light::new(d.awr, t.temperature, options.upper)),
+                            (Some(_), Some(heavy)) => {
+                                Some(Light::new(d.awr, t.temperature, Some(heavy)))
+                            }
+                            (Some(_), None) => None,
+                        },
+                        Scattering::Static => None,
                     };
                     data.push(Data {
                         name: &d.name,
