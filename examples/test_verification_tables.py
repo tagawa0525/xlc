@@ -1128,5 +1128,136 @@ class DrawCoreBoron(unittest.TestCase):
         self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class BranchShieldingTest(unittest.TestCase):
+    @staticmethod
+    def state(burnup, boron, temperature, density, dk, scale=1e-5):
+        return {
+            "burnup": burnup,
+            "boron": boron,
+            "moderator_temperature": temperature,
+            "density": density,
+            "fuel": 565.0,
+            "k_every": 1.0,
+            "k_nominal": 1.0 + dk * 1e-5,
+            "dk_pcm": dk,
+            "relative": {
+                "absorption": scale,
+                "nu_fission": 2 * scale,
+                "diffusion": 3 * scale,
+                "scatter": 4 * scale,
+                "adf": 5 * scale,
+            },
+        }
+
+    def summary(self):
+        """compare_branch_shielding.py の要約（2A の 2 つの入力と 2O の 1 つの入力）"""
+        s = self.state
+        return {
+            "format": "xlc-compare-branch-shielding",
+            "items": ["absorption", "nu_fission", "diffusion", "scatter", "adf"],
+            "cases": [
+                {
+                    "name": "2A",
+                    "states": [
+                        s(0.0, 900.0, 565.0, 0.743, -1.234),
+                        s(0.0, 900.0, 600.0, 0.7119, 2.5),
+                        s(0.0, 1300.0, 565.0, 0.743, 0.0),
+                        s(0.0, 1300.0, 600.0, 0.7119, 3.0, 2e-5),
+                    ],
+                },
+                {
+                    "name": "2A-dense",
+                    "states": [
+                        s(0.0, 900.0, 565.0, 0.76972, -4.0),
+                        s(0.0, 1300.0, 565.0, 0.76972, -0.5),
+                    ],
+                },
+                {"name": "2O", "states": [s(4.0, 900.0, 600.0, 0.743, 0.25)]},
+            ],
+            "inputs": [],
+        }
+
+    @staticmethod
+    def rows(table):
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+
+    def test_k_rows_are_the_boron_points_and_columns_the_moderator_points(self):
+        table = vt.branch_shielding_k([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "集合体",
+                "燃焼度 (MWd/kg)",
+                "ホウ素 (ppm)",
+                "565 K、0.743 g/cc",
+                "565 K、0.76972 g/cc",
+                "600 K、0.7119 g/cc",
+                "600 K、0.743 g/cc",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["2A", "0", "900", "−1.23", "−4.00", "+2.50", "–"],
+                ["2A", "0", "1300", "0.00", "−0.50", "+3.00", "–"],
+                ["2O", "4", "900", "–", "–", "–", "+0.25"],
+            ],
+        )
+
+    def test_constants_rows_take_the_largest_difference_of_each_burnup(self):
+        table = vt.branch_shielding_constants([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "2A",
+                    "0",
+                    "6",
+                    "4.00",
+                    "2.0e-05",
+                    "4.0e-05",
+                    "6.0e-05",
+                    "8.0e-05",
+                    "1.0e-04",
+                ],
+                [
+                    "2O",
+                    "4",
+                    "1",
+                    "0.25",
+                    "1.0e-05",
+                    "2.0e-05",
+                    "3.0e-05",
+                    "4.0e-05",
+                    "5.0e-05",
+                ],
+            ],
+        )
+
+    def test_two_states_at_one_moderator_point_are_an_error(self):
+        # 燃料の温度の点が 2 つあるテーブルは、減速材の点の列に 2 つの状態が入る
+        s = self.summary()
+        s["cases"][1]["states"].append(self.state(0.0, 900.0, 565.0, 0.76972, 1.0))
+        with self.assertRaises(vt.TableError):
+            vt.branch_shielding_k([s])
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (vt.branch_shielding_k, vt.branch_shielding_constants):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-burnup-interpolation"}])
+
+    def test_the_branch_shielding_comparison_is_a_git_tracked_json(self):
+        for name in [
+            "depletion-branch-shielding-k",
+            "depletion-branch-shielding-constants",
+        ]:
+            (sources, _) = vt.TABLES[name]
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED, name)
+
+
 if __name__ == "__main__":
     unittest.main()

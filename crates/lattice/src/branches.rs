@@ -7,6 +7,7 @@
 //! # 温度と、ホウ酸水の密度（格子点ごと）。挙げた物質の温度を変え、ホウ酸水なら密度も変える
 //! moderator = { temperature = [550, 565, 580], density = [0.76972, 0.74271, 0.71190], materials = ["water", "clad"] }
 //! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
+//! shielding = "every-state"   # 自己遮蔽（"every-state" か "nominal-moderator"。省略すると every-state。ADR-0201）
 //! ```
 //!
 //! 軸は boron、moderator、fuel の順に並べ、3つとも書く（core は状態を与えるとき3つの軸をすべて求める）。温度の軸が変える物質は名前で挙げ、物質の種類から
@@ -33,11 +34,26 @@ pub struct Water {
     pub b10: f64,
 }
 
+/// 分岐の状態の自己遮蔽の解き方（ADR-0201）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BranchShielding {
+    /// 状態ごとに、その状態の物質で解き直す
+    EveryState,
+    /// 燃焼の履歴からの分岐で、燃焼度の点と燃料の温度の格子点ごとに、ホウ素と減速材を公称（入力の物質）にした参照の状態で 1 度だけ
+    /// 解く。状態の物質は、参照の自己遮蔽の物質のうち、ホウ素と減速材の軸が変える物質だけを状態のものに作り直す
+    NominalModerator,
+}
+
 /// 分岐の軸と、軸の直積の順の物質の組。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Branches {
     axes: Vec<Axis>,
     states: Vec<Vec<MaterialInput>>,
+    shielding: BranchShielding,
+    /// [燃料の温度の格子点] の参照の物質の組（燃料の温度の軸だけを変えたもの）
+    references: Vec<Vec<MaterialInput>>,
+    /// ホウ素と減速材の軸が変える物質（現れる順）
+    varied: Vec<String>,
 }
 
 impl Branches {
@@ -50,6 +66,21 @@ impl Branches {
     pub fn states(&self) -> &[Vec<MaterialInput>] {
         &self.states
     }
+
+    /// 状態の自己遮蔽の解き方
+    pub fn shielding(&self) -> BranchShielding {
+        self.shielding
+    }
+
+    /// [燃料の温度の格子点] の参照の物質の組: 燃料の温度の軸だけをその格子点にし、ホウ素と減速材の軸が変える物質は入力のまま
+    pub fn references(&self) -> &[Vec<MaterialInput>] {
+        &self.references
+    }
+
+    /// ホウ素と減速材の軸が変える物質
+    pub fn varied(&self) -> &[String] {
+        &self.varied
+    }
 }
 
 #[derive(Deserialize)]
@@ -58,6 +89,15 @@ pub(crate) struct BranchesEntry {
     boron: Option<BoronEntry>,
     moderator: Option<ModeratorEntry>,
     fuel: Option<FuelEntry>,
+    shielding: Option<ShieldingEntry>,
+}
+
+/// 分岐の状態の自己遮蔽の解き方（ADR-0201）
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum ShieldingEntry {
+    EveryState,
+    NominalModerator,
 }
 
 #[derive(Deserialize)]
@@ -319,14 +359,12 @@ impl BranchesEntry {
             return Err("branches: give all three axes (boron, moderator and fuel)".into());
         }
 
-        let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
-        let total: usize = counts.iter().product();
-        let mut states = Vec::with_capacity(total);
-        for index in 0..total {
-            let at = state_indices(&counts, index);
+        // 軸ごとの格子点の添字（`None` の軸は入力のまま）の物質の組
+        let state_of = |at: &[Option<usize>]| -> Result<Vec<MaterialInput>, String> {
             let mut state = materials.to_vec();
             let mut state_waters = waters.clone();
-            for (change, &i) in changes.iter().zip(&at) {
+            for (change, i) in changes.iter().zip(at) {
+                let Some(i) = *i else { continue };
                 for m in &mut state {
                     match change {
                         Change::Boron(ppm, listed) if listed.contains(&m.name) => {
@@ -357,9 +395,50 @@ impl BranchesEntry {
                         .collect();
                 }
             }
-            states.push(state);
+            Ok(state)
+        };
+        let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
+        let total: usize = counts.iter().product();
+        let states = (0..total)
+            .map(|index| {
+                let at: Vec<Option<usize>> = state_indices(&counts, index)
+                    .into_iter()
+                    .map(Some)
+                    .collect();
+                state_of(&at)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        // 参照は燃料の温度の軸（最後の軸）だけを変える
+        let fuel_points = counts.last().copied().unwrap_or(0);
+        let references = (0..fuel_points)
+            .map(|i| {
+                let mut at = vec![None; counts.len()];
+                if let Some(last) = at.last_mut() {
+                    *last = Some(i);
+                }
+                state_of(&at)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut varied: Vec<String> = Vec::new();
+        for change in &changes {
+            if let Change::Boron(_, listed) | Change::Moderator(_, _, listed) = change {
+                for name in listed {
+                    if !varied.contains(name) {
+                        varied.push(name.clone());
+                    }
+                }
+            }
         }
-        Ok(Branches { axes, states })
+        Ok(Branches {
+            axes,
+            states,
+            shielding: match self.shielding {
+                None | Some(ShieldingEntry::EveryState) => BranchShielding::EveryState,
+                Some(ShieldingEntry::NominalModerator) => BranchShielding::NominalModerator,
+            },
+            references,
+            varied,
+        })
     }
 }
 
