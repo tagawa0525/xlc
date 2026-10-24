@@ -1,0 +1,59 @@
+# #0133: 燃焼で増える k の差の候補ごとの、置き換えで測る k への寄与（swap_candidates.py summarize の設定。ADR-0202）。
+# OpenMC の実行: 448 は 1C の燃焼の 0 と 5 MWd/kg の組成（openmc_pin_rates.py）、456、458、459 は 2A の 40 MWd/kg の組成の
+# シード 1、2、3（openmc_pin_rates_2a.py。456 と 458 は群 1 に 10 MeV より上を数えないので fast = false）、534 は
+# openmc_pin_transfer.py（移行の行列と燃料の反応率）。ログは Slurm 536 の swap_absorption と swap_transfer の出力
+
+[[state]]
+name = "1C 0 MWd/kg"
+lattice = "pin-1C-0.toml"
+
+[[state.run]]
+openmc = "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack"
+absorption = "swap-logs/1C-0-448-absorption.txt"
+fast = true
+
+[[state.run]]
+openmc = "references/openmc/pin-transfer-1C/1C-0/transfer.msgpack"
+absorption = "swap-logs/1C-0-534-absorption.txt"
+transfer = "swap-logs/1C-0-534-transfer.txt"
+fast = true
+
+[[state]]
+name = "1C 5 MWd/kg"
+lattice = "pin-1C-5.toml"
+
+[[state.run]]
+openmc = "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack"
+absorption = "swap-logs/1C-5-448-absorption.txt"
+fast = true
+
+[[state.run]]
+openmc = "references/openmc/pin-transfer-1C/1C-5/transfer.msgpack"
+absorption = "swap-logs/1C-5-534-absorption.txt"
+transfer = "swap-logs/1C-5-534-transfer.txt"
+fast = true
+
+[[state]]
+name = "2A 40 MWd/kg"
+lattice = "pin-2A-40.toml"
+
+[[state.run]]
+openmc = "references/openmc/pin-rates-1C/2a40-fine/openmc-rates.msgpack"
+absorption = "swap-logs/2A-40-456-absorption.txt"
+fast = false
+
+[[state.run]]
+openmc = "references/openmc/pin-rates-1C/2a40-seed2-fine/openmc-rates.msgpack"
+absorption = "swap-logs/2A-40-458-absorption.txt"
+fast = false
+
+[[state.run]]
+openmc = "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack"
+absorption = "swap-logs/2A-40-459-absorption.txt"
+fast = true
+
+[[state.run]]
+openmc = "references/openmc/pin-transfer-1C/2A-40/transfer.msgpack"
+absorption = "swap-logs/2A-40-534-absorption.txt"
+transfer = "swap-logs/2A-40-534-transfer.txt"
+fast = true
