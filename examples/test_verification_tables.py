@@ -941,6 +941,108 @@ class DrawBurnupInterpolation(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawBranchCrossTerms(unittest.TestCase):
+    @staticmethod
+    def summary():
+        """compare_branch_cross_terms.py の要約（燃焼度の軸のないテーブルと、燃焼度の点 2 つで制御棒を持つテーブル）"""
+
+        def model(states, max_abs):
+            return {"states": states, "max_abs_pcm": max_abs}
+
+        def point(burnup, models):
+            return {"burnup": burnup, "models": models}
+
+        def selection(name, burnup, linear, hermite, worst):
+            return {
+                "name": name,
+                "burnup": burnup,
+                "results": {
+                    "linear": {"max_abs_pcm": linear},
+                    "hermite": {"max_abs_pcm": hermite, "worst": {"burnup": worst}},
+                },
+            }
+
+        return {
+            "format": "xlc-compare-branch-cross-terms",
+            "tables": [
+                {
+                    "name": "2B",
+                    "points": [
+                        point(
+                            None,
+                            {"1 軸ずつ": model(7, 177.07), "B×M": model(11, 0.734)},
+                        )
+                    ],
+                },
+                {
+                    "name": "2A",
+                    "points": [
+                        point(
+                            10.0,
+                            {
+                                "1 軸ずつ": model(8, 150.0),
+                                "B×M": model(12, 1.0),
+                                "B×M×R": model(16, 0.2),
+                            },
+                        ),
+                        point(
+                            40.0,
+                            {
+                                "1 軸ずつ": model(8, 180.0),
+                                "B×M": model(12, 3.0),
+                                "B×M×R": model(16, 0.1),
+                            },
+                        ),
+                    ],
+                },
+            ],
+            "thinning": [
+                {
+                    "name": "2A",
+                    "selections": [
+                        selection("10 点", [0.0, 0.1, 60.0], 2.54, 0.67, 1.0),
+                        selection("7 点", [0.0, 60.0], 4.03, 1.94, 0.5),
+                    ],
+                }
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_model_rows_have_the_largest_error_over_the_burnup_points(self):
+        table = vt.branch_cross_terms([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(header, ["モデル", "2B", "2A"])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["1 軸ずつ", "177.07（7）", "180.00（8）"],
+                ["B×M", "0.73（11）", "3.00（12）"],
+                ["B×M×R", "", "0.20（16）"],
+            ],
+        )
+
+    def test_thinning_rows_have_both_methods_and_the_worst_hermite_burnup(self):
+        table = vt.branch_thinning([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["2A", "10 点", "3", "2.54", "0.67（1）"],
+                ["2A", "7 点", "2", "4.03", "1.94（0.5）"],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (vt.branch_cross_terms, vt.branch_thinning):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-burnup-interpolation"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in ("depletion-branch-cross-terms", "depletion-branch-thinning"):
+            (sources, _) = vt.TABLES[name]
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawCoreBoron(unittest.TestCase):
     def summary(self) -> dict:
         """compare_core_boron.py の要約（燃焼点 2 つ）"""

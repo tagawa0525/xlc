@@ -864,6 +864,57 @@ def core_depletion_boron(sources: list[dict]) -> str:
     )
 
 
+def branch_cross_terms_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-branch-cross-terms":
+        raise TableError("not an xlc-compare-branch-cross-terms summary")
+    return s
+
+
+def branch_cross_terms(sources: list[dict]) -> str:
+    """分岐のテーブルの交差の項（ADR-0200）: モデルごと、テーブルごとの、組み立てた状態の |Δρ| の最大（pcm。燃焼度の点が
+    複数あればその最大）と、モデルが解く状態の数"""
+    s = branch_cross_terms_summary(sources)
+    models = []
+    for t in s["tables"]:
+        for p in t["points"]:
+            models += [m for m in p["models"] if m not in models]
+    rows = []
+    for m in models:
+        cells = []
+        for t in s["tables"]:
+            results = [p["models"][m] for p in t["points"] if m in p["models"]]
+            if results:
+                worst = max(r["max_abs_pcm"] for r in results)
+                cells.append(f"{worst:.2f}（{results[0]['states']}）")
+            else:
+                cells.append("")
+        rows.append([m, *cells])
+    return markdown_table(["モデル", *(t["name"] for t in s["tables"])], rows)
+
+
+def branch_thinning(sources: list[dict]) -> str:
+    """分岐を燃焼度の一部の点だけで解いたとき（ADR-0200）: 選び方ごとの、間引いた点の |Δρ| の最大（pcm）。Hermite は最大の燃焼度を添える"""
+    s = branch_cross_terms_summary(sources)
+    rows = []
+    for t in s["thinning"]:
+        for sel in t["selections"]:
+            linear = sel["results"]["linear"]
+            hermite = sel["results"]["hermite"]
+            rows.append(
+                [
+                    t["name"],
+                    sel["name"],
+                    str(len(sel["burnup"])),
+                    f"{linear['max_abs_pcm']:.2f}",
+                    f"{hermite['max_abs_pcm']:.2f}（{hermite['worst']['burnup']:g}）",
+                ]
+            )
+    return markdown_table(
+        ["テーブル", "選び方", "点", "線形 (pcm)", "Hermite (pcm、燃焼度)"], rows
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
@@ -871,6 +922,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
     "examples/depletion/branches/compare-core-2A-boron.json",
+    "examples/depletion/branches/compare-branch-cross-terms.json",
 }
 
 
@@ -1039,6 +1091,14 @@ TABLES = {
     "depletion-burnup-interpolation-methods": (
         ["examples/depletion/branches/compare-burnup-interpolation.json"],
         burnup_interpolation_methods,
+    ),
+    "depletion-branch-cross-terms": (
+        ["examples/depletion/branches/compare-branch-cross-terms.json"],
+        branch_cross_terms,
+    ),
+    "depletion-branch-thinning": (
+        ["examples/depletion/branches/compare-branch-cross-terms.json"],
+        branch_thinning,
     ),
     "depletion-burnup-interpolation-points": (
         ["examples/depletion/branches/compare-burnup-interpolation.json"],
