@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{Axis, Table};
+use xlc_format::table::{Axis, Table, product_points};
 
 use super::*;
 use crate::case::solve_at;
@@ -117,27 +117,22 @@ fn table_with_worth(fissile: f64, heavy_metal: Option<f64>, worth: f64) -> Table
             }
         }
     }
-    Table {
+    let mut table = Table {
+        points: Vec::new(),
         axes: vec![
             Axis::Burnup {
                 points: BURNUP.to_vec(),
             },
-            Axis::Boron {
-                ppm: PPM.to_vec(),
-                b10: 0.199,
-            },
-            Axis::Moderator {
-                temperature: TEMPERATURE.to_vec(),
-                density: vec![0.75, 0.74],
-            },
-            Axis::Fuel {
-                temperature: TEMPERATURE.to_vec(),
-            },
+            Axis::boron(PPM.to_vec(), 0.199),
+            Axis::moderator(TEMPERATURE.to_vec(), vec![0.75, 0.74]),
+            Axis::fuel(TEMPERATURE.to_vec()),
         ],
         split: 1,
         states,
         heavy_metal,
-    }
+    };
+    table.points = product_points(&table.axes);
+    table
 }
 
 /// 炉心の並び、`layout.files` の順のテーブル（A は核分裂 1.0、B は 0.8。重金属は A が 400、B が 380 g/cm）、ケース
@@ -387,6 +382,7 @@ fn reflector_sites_take_no_burnup() {
                 let mut t = table(0.0, None);
                 // 燃焼度の軸を除いた、最初の燃焼度の点の状態
                 t.axes.remove(0);
+                t.points = product_points(&t.axes);
                 t.states.truncate(t.states.len() / BURNUP.len());
                 t
             } else {

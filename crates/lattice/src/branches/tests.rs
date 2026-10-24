@@ -47,17 +47,9 @@ fn axes_follow_boron_moderator_fuel() {
     assert_eq!(
         branches.axes(),
         vec![
-            Axis::Boron {
-                ppm: vec![900.0, 1700.0],
-                b10: 0.199
-            },
-            Axis::Moderator {
-                temperature: vec![550.0, 565.0, 580.0],
-                density: vec![0.76972, 0.74271, 0.71190]
-            },
-            Axis::Fuel {
-                temperature: vec![550.0, 580.0]
-            },
+            Axis::boron(vec![900.0, 1700.0], 0.199),
+            Axis::moderator(vec![550.0, 565.0, 580.0], vec![0.76972, 0.74271, 0.71190]),
+            Axis::fuel(vec![550.0, 580.0]),
         ]
     );
 }

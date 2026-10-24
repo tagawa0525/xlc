@@ -9,7 +9,7 @@
 //! よい）。核分裂のないテーブル（反射体）は燃焼しないので、軸なしにどの燃焼度でも使う（ADR-0187）。
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, ROD_OUT, Table};
+use xlc_format::table::{Axis, ROD_OUT, Table, product_points};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -245,6 +245,10 @@ pub fn interpolate(
     rod: Option<&str>,
 ) -> Result<Vec<FewGroup>, String> {
     let sub = table.sub_nodes();
+    // 状態の番号を軸の直積の順で数える
+    if table.points != product_points(&table.axes) {
+        return Err("the table does not hold the product of its axes".into());
+    }
     if let Some(rod) = rod
         && !table.axes.iter().any(|a| matches!(a, Axis::Rod { .. }))
     {
@@ -293,7 +297,7 @@ pub fn interpolate(
                 )?;
                 burnup_terms(points, burnup)?
             }
-            Axis::Boron { ppm, b10 } => {
+            Axis::Boron { ppm, b10, .. } => {
                 if *b10 != state.b10 {
                     return Err(format!(
                         "boron: the table has b10 {b10} and the state {}; they must be exactly equal",
@@ -305,7 +309,7 @@ pub fn interpolate(
             Axis::Moderator { temperature, .. } => {
                 bracket("moderator", temperature, state.moderator, |x| x)?
             }
-            Axis::Fuel { temperature } => bracket("fuel", temperature, state.fuel, f64::sqrt)?,
+            Axis::Fuel { temperature, .. } => bracket("fuel", temperature, state.fuel, f64::sqrt)?,
             Axis::Rod { values } => {
                 let wanted = rod.unwrap_or(ROD_OUT);
                 let i = values.iter().position(|v| v == wanted).ok_or_else(|| {

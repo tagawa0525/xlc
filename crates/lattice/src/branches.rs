@@ -23,7 +23,7 @@ use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, LookupError};
-use xlc_format::table::{Axis, Table};
+use xlc_format::table::{Axis, Table, product_points};
 
 use crate::depletion::same_cross_sections;
 use crate::geometry::Lattice;
@@ -259,6 +259,7 @@ pub fn tables(
         .map(|_| Table {
             axes: axes.to_vec(),
             split,
+            points: product_points(axes),
             states: Vec::with_capacity(expected * split * split),
             heavy_metal: None,
         })
@@ -323,10 +324,7 @@ impl BranchesEntry {
             }
             let b10 = b10.ok_or("branches.boron: list the materials it changes")?;
             check_all_waters("boron", &b.materials, waters)?;
-            axes.push(Axis::Boron {
-                ppm: b.ppm.clone(),
-                b10,
-            });
+            axes.push(Axis::boron(b.ppm.clone(), b10));
             changes.push(Change::Boron(b.ppm, b.materials));
         }
         if let Some(m) = self.moderator {
@@ -346,10 +344,7 @@ impl BranchesEntry {
             if waters.is_empty() {
                 return Err("branches.moderator: no material is written as water".into());
             }
-            axes.push(Axis::Moderator {
-                temperature: m.temperature.clone(),
-                density: m.density.clone(),
-            });
+            axes.push(Axis::moderator(m.temperature.clone(), m.density.clone()));
             changes.push(Change::Moderator(m.temperature, m.density, m.materials));
         }
         if let Some(f) = self.fuel {
@@ -368,9 +363,7 @@ impl BranchesEntry {
                     "branches: material `{name}` is in both the moderator and the fuel axes"
                 ));
             }
-            axes.push(Axis::Fuel {
-                temperature: f.temperature.clone(),
-            });
+            axes.push(Axis::fuel(f.temperature.clone()));
             changes.push(Change::Fuel(f.temperature, f.materials));
         }
         if axes.is_empty() {
