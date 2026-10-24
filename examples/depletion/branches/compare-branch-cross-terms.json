@@ -318,10 +318,6 @@
    "md5": "5f8d48c4741b7198de855cce28c87d86"
   },
   {
-   "path": "examples/depletion/branches/table-2A-cross.msgpack",
-   "md5": "5f8d48c4741b7198de855cce28c87d86"
-  },
-  {
    "path": "examples/depletion/branches/table-2A-cross-rods.msgpack",
    "md5": "8e21eb3b4fcfc96e966f007c27562e08"
   }

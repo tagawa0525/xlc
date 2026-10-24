@@ -2953,8 +2953,13 @@ python3 examples/depletion/compare_branch_cross_terms.py --json examples/depleti
 
 2A（40 MWd/kg）の 2 つのテーブルは、入力を 130372b94 でコミットし、lattice のコードが分岐点の main 828f27a54 と同じブランチ
 （feat/branch-table-structure-for-burnup）で、2026-10-24、Slurm の既定のジョブ 530（割り込まれうるジョブなので時間は記録に使わない）。
-ライブラリは `p2/depletion.msgpack`（md5 015111df）。比較は 5d1b837d、2026-10-24（手元）。どのテーブルも、少数群定数から解き直した k∞ と
+ライブラリは `p2/depletion.msgpack`（md5 015111df）。比較は cf921f7d、2026-10-24（手元）。どのテーブルも、少数群定数から解き直した k∞ と
 テーブルの `k_inf`（格子計算の k∞）の差は 0.006 pcm 以下。
+
+2A（17 点）と 2A（40 MWd/kg）の 40 MWd/kg の公称の状態（1300 ppm、565 K、565 K）の k∞ は 0.843975 と 0.843633 で、約 48 pcm 違う。2A（17 点）は
+前の履歴（md5 6272e937）から自己遮蔽の格子を間引かずに（`ufg-tolerance` なし）、a8f03866 の lattice で解いたテーブルで、2A（40 MWd/kg）は今の
+履歴（md5 eb9ca398、`ufg-tolerance = 1e-4`）から同じ許容差で、828f27a54 の lattice で解いた。差の原因（履歴、自己遮蔽の格子、lattice の変更）は
+分けていない。ここで比べるのは、それぞれのテーブルの中の、組み立てた状態と直積の状態の差なので、テーブルの間の差は比べる量に入らない。
 
 ### 結果
 
@@ -2981,7 +2986,7 @@ python3 examples/depletion/compare_branch_cross_terms.py --json examples/depleti
 
 - 1 軸ずつの分岐だけでは、B×M の交差を落として 2B で 177 pcm、2A（40 MWd/kg）で 2,093 pcm になる。B×M を持つと 2B で 0.73 pcm、2A（40 MWd/kg）で
   7.13 pcm（残りは M×F。減速材 600 K、燃料 600 K の状態）で、2 軸の組すべてを持つと 0.01 pcm と 0.38 pcm（3 次の項）
-- B×F を落とす誤差は、2A（17 点）で燃焼度 0 の 0.58 pcm から 60 MWd/kg の 0.85 pcm に増える（ホウ素 −300 ppm、燃料 +35 K。`--report`）
+- B×F を落とす誤差は、2A（17 点）で 0.55〜0.85 pcm（ホウ素 −300 ppm、燃料 +35 K。燃焼度 0 の 0.58 pcm から 4 MWd/kg の 0.55 pcm に下がり、そこから 60 MWd/kg の 0.85 pcm まで増える。`--report`）
 - 制御棒を公称の状態の差だけで持つと、制御棒を入れた状態で 2,780 pcm（ホウ素 0 ppm、減速材 600 K）。連続の軸の 2 軸の組をすべて持っても
   1,381 pcm で、制御棒の効きの変化を持たない。制御棒を入れた格子にも 2 軸の組すべての部分格子を持つと（「2 軸の組すべて × R」）0.53 pcm
 - 少数群定数の相対の差の最大は、「2 軸の組すべて × R」で νΣf、Σf、Σa、D、ADF のどれも 0.000%（丸めて。`--report`）
