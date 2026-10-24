@@ -52,7 +52,7 @@ LABELS = {
     "transfer-fuel-thermal": "移行: 燃料、4 eV より下",
     "transfer-water-epithermal": "移行: 減速材、0.625〜4 eV",
     "transfer-water-thermal": "移行: 減速材、0.625 eV より下（#0151）",
-    "rest": "残り（差 − 吸収の全部 − 移行の和）",
+    "rest": "残り（差 − 吸収の全部 − 移行の和。移行のある実行ごと）",
 }
 TRANSFERS = [
     ("transfer-fuel-fast", "fuel", 1, 13),
@@ -120,34 +120,55 @@ def parse_absorption(text: str) -> tuple[float, dict[str, float]]:
         m = re.fullmatch(r"(.+): k \d+\.\d+ \(([+-]\d+\.\d+) pcm\)", line)
         if m is None:
             raise SummaryError(f"cannot read the absorption log line: {line}")
+        if m.group(1) in changes:
+            raise SummaryError(f"the absorption log repeats `{m.group(1)}`")
         changes[m.group(1)] = float(m.group(2))
     return k0, changes
 
 
-def parse_transfer(text: str) -> dict[tuple[str, int, int], float]:
-    """`material <名前>` を前に置いた swap_transfer のログから、(物質, 最初の群, 最後の群) ごとの k の変化 (pcm)"""
-    return {key: change for key, (_, change) in transfer_runs(text).items()}
+def k_of(line: str) -> float:
+    m = re.search(r" k (\d+\.\d+)", line)
+    if m is None:
+        raise SummaryError(f"cannot read k in the transfer log line: {line}")
+    return float(m.group(1))
 
 
-def transfer_runs(text: str) -> dict[tuple[str, int, int], tuple[float, float]]:
-    """parse_transfer と同じ置き換えごとの、(置き換えない xlc の k, 変化 (pcm))"""
+def transfer_runs(text: str) -> dict[tuple[str, int, int], dict[str, float]]:
+    """`material <名前>` を前に置いた swap_transfer のログから、(物質, 最初の群, 最後の群) ごとの、OpenMC の k（`openmc`）、置き換えない
+    xlc の k（`base`）、置き換えた k の変化（`change`、pcm）"""
     found = {}
-    material = groups = base = None
+    material = None
+    block: dict = {}
     for line in text.splitlines():
         if line.startswith("material "):
-            material, groups, base = line.split()[1], None, None
+            material, block = line.split()[1], {}
         elif line.startswith("groups "):
             m = re.match(r"groups (\d+)\.\.=(\d+);", line)
-            groups = (int(m.group(1)), int(m.group(2)))
-        elif line.startswith("xlc "):
-            base = float(re.search(r" k (\d+\.\d+)", line).group(1))
-        elif line.startswith("swapped, SPH kept"):
-            if material is None or groups is None or base is None:
+            if m is None:
                 raise SummaryError(
-                    f"a swapped k without its material, groups or base: {line}"
+                    f"cannot read the groups in the transfer log line: {line}"
                 )
-            k = float(re.search(r" k (\d+\.\d+)", line).group(1))
-            found[(material, *groups)] = (base, (k - base) * 1e5)
+            block = {"groups": (int(m.group(1)), int(m.group(2)))}
+        elif line.startswith("OpenMC k "):
+            block["openmc"] = k_of(line)
+        elif line.startswith("xlc "):
+            block["base"] = k_of(line)
+        elif line.startswith("swapped, SPH kept"):
+            if material is None or not {"groups", "openmc", "base"} <= block.keys():
+                raise SummaryError(
+                    f"a swapped k without its material, groups, OpenMC k or base: {line}"
+                )
+            key = (material, *block["groups"])
+            if key in found:
+                raise SummaryError(
+                    f"the transfer log repeats {material} {key[1]}-{key[2]}"
+                )
+            found[key] = {
+                "openmc": block["openmc"],
+                "base": block["base"],
+                "change": (k_of(line) - block["base"]) * 1e5,
+            }
+            block = {}
     return found
 
 
@@ -161,7 +182,8 @@ def summarize_state(
     transfers: list[tuple[str, str, int, int]],
     runs: list[dict],
 ) -> dict:
-    """1 つの状態の、OpenMC の実行ごとの寄与と平均"""
+    """1 つの状態の、OpenMC の実行ごとの寄与と平均。残り（k の差 − 吸収の全部 − 移行の和）は、移行のある実行ごとに、その実行の
+    OpenMC の k と置き換えで求めて平均する"""
     if not runs:
         raise SummaryError(f"{name}: no OpenMC runs")
     parsed = [parse_absorption(run["absorption"]) for run in runs]
@@ -177,35 +199,42 @@ def summarize_state(
             if spec not in changes:
                 raise SummaryError(f"{name}: a log has no line `{spec}`")
             values[key].append(-changes[spec])
-    for key, material, first, last in transfers:
+    for key, *_ in transfers:
         values[key] = []
-        for run in runs:
-            if run.get("transfer") is None:
-                continue
-            found = transfer_runs(run["transfer"])
+    rests = []
+    all_spec = dict(items).get("all")
+    for run, (_, changes) in zip(runs, parsed):
+        if run.get("transfer") is None:
+            continue
+        found = transfer_runs(run["transfer"])
+        moved = []
+        for key, material, first, last in transfers:
             if (material, first, last) not in found:
                 raise SummaryError(
                     f"{name}: a transfer log has no {material} {first}-{last}"
                 )
-            base, change = found[(material, first, last)]
-            if abs(base - k0) > 2e-6:
+            block = found[(material, first, last)]
+            if abs(block["base"] - k0) > 2e-6:
                 raise SummaryError(
-                    f"{name}: the transfer log solved another xlc k ({base} and {k0})"
+                    f"{name}: the transfer log solved another xlc k ({block['base']} and {k0})"
                 )
-            values[key].append(-change)
+            if abs(block["openmc"] - run["k"]) > 5e-7:
+                raise SummaryError(
+                    f"{name}: the transfer log was swapped against another OpenMC run "
+                    f"(k {block['openmc']} and {run['k']})"
+                )
+            values[key].append(-block["change"])
+            moved.append(-block["change"])
+        if all_spec is not None and run["fast"]:
+            rests.append((k0 - run["k"]) * 1e5 + changes[all_spec] - sum(moved))
     k_openmc = mean([run["k"] for run in runs])
-    diff = (k0 - k_openmc) * 1e5
     out = {key: {"pcm": mean(v), "runs": v} for key, v in values.items()}
-    moved = [out[key]["pcm"] for key, *_ in transfers]
-    rest = None
-    if "all" in out and out["all"]["pcm"] is not None and moved and None not in moved:
-        rest = diff - out["all"]["pcm"] - sum(moved)
-    out["rest"] = {"pcm": rest, "runs": []}
+    out["rest"] = {"pcm": mean(rests), "runs": rests}
     return {
         "name": name,
         "k_xlc": k0,
         "openmc": [{"k": run["k"], "k_std": run["k_std"]} for run in runs],
-        "diff_pcm": diff,
+        "diff_pcm": (k0 - k_openmc) * 1e5,
         "diff_std_pcm": math.sqrt(sum(run["k_std"] ** 2 for run in runs))
         / len(runs)
         * 1e5,
