@@ -356,6 +356,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
+    // 解く状態（軸の直積の順の番号）: 部分格子の状態と、公称でない状態を解く燃焼点（ADR-0200）
+    let present: Vec<usize> = (0..count)
+        .filter(|&state| match (&history_branches, &input.branches) {
+            (Some(h), _) => h.solved(state),
+            (None, Some(b)) => b.solved(state),
+            (None, None) => true,
+        })
+        .collect();
     // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
     let varied = input.branches.as_ref().map_or(&[][..], |b| b.varied());
@@ -649,7 +657,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         report(state, saved.k);
         Ok(())
     };
-    let states = solve_states(count, &counts, checkpoint.as_ref(), fits, solve)?;
+    let states = solve_states(&present, &counts, checkpoint.as_ref(), fits, solve)?;
     if input.branches.is_some() && input.self_shielding {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
@@ -681,8 +689,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        let mut tables =
-            tables(axes, *split, per_state).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        let points: Vec<Vec<usize>> = present
+            .iter()
+            .map(|&state| state_indices(&counts, state))
+            .collect();
+        let mut tables = tables(axes, *split, &points, per_state)
+            .map_err(|e| anyhow!("{}: {e}", shown(path)))?;
         // 履歴からの分岐は格子全体の 1 つのテーブル（入力の検査）で、初めの重金属の質量を持つ（ADR-0190）
         if let Some(h) = &history_branches {
             for table in &mut tables {

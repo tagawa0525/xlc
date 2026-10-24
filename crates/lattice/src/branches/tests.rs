@@ -501,7 +501,7 @@ fn pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs() {
     assert_eq!((0..27).filter(|&s| one.solved(s)).count(), 7);
     // 公称が端の格子点で、軸の点の数が違う（ADR-0200 の 2A の 40 MWd/kg の形: 3 × 2 × 2 で 10 状態）
     let uneven = LatticeInput::parse(
-        &INPUT
+        &(INPUT
             .replace(
                 "boron = { ppm = [900, 1700], materials = [\"water\"] }",
                 "boron = { ppm = [900, 1100, 1300], materials = [\"water\"] }",
@@ -515,7 +515,7 @@ fn pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs() {
                 "fuel = { temperature = [565, 580], materials = [\"fuel\"] }",
             )
             + PAIRS
-            + "\n",
+            + "\n"),
     )
     .unwrap();
     let uneven = uneven.branches.as_ref().unwrap();
@@ -576,7 +576,7 @@ fn media_need_the_product_of_the_branches() {
 fn tables_hold_the_solved_points() {
     let input = LatticeInput::parse(&three_by_three(PAIRS)).unwrap();
     let branches = input.branches.as_ref().unwrap();
-    let axes = branches.axes();
+    let axes = branches.axes().to_vec();
     let solved: Vec<usize> = (0..27).filter(|&s| branches.solved(s)).collect();
     let points: Vec<Vec<usize>> = solved
         .iter()

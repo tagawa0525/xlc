@@ -1,5 +1,5 @@
-//! 格子計算の分岐（ADR-0097）。入力の `[branches]` の軸（ホウ素濃度、減速材の温度と密度、燃料の温度）から、
-//! 軸の直積の順（最初の軸がいちばん遅く変わる）の物質の組を作る。
+//! 格子計算の分岐（ADR-0097、ADR-0200）。入力の `[branches]` の軸（ホウ素濃度、減速材の温度と密度、燃料の温度）から、
+//! 軸の直積の順（最初の軸がいちばん遅く変わる）の物質の組を作り、そのうち解く状態を部分格子（`subgrids`）で選ぶ。
 //!
 //! ```toml
 //! [branches]
@@ -8,10 +8,17 @@
 //! moderator = { temperature = [550, 565, 580], density = [0.76972, 0.74271, 0.71190], materials = ["water", "clad"] }
 //! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
 //! shielding = "nominal-boron" # 自己遮蔽（"nominal-boron" か "every-state"。省略すると nominal-boron。ADR-0201）
+//! # 解く部分格子の軸の組（cut-HDMR。ADR-0200）。省略すると、[history] があれば 2 軸の組すべて、なければ 3 つの軸（直積。ADR-0097）
+//! subgrids = [["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]
 //! ```
 //!
 //! 軸は boron、moderator、fuel の順に並べ、3つとも書く（core は状態を与えるとき3つの軸をすべて求める）。温度の軸が変える物質は名前で挙げ、物質の種類から
 //! 推測しない。同じ物質を2つの温度の軸に挙げられない。
+//!
+//! 公称の状態は入力の物質の状態（燃焼の履歴の条件）で、軸ごとに、入力の物質をそのまま残す格子点（点が 1 つの軸はその点）。
+//! 解く状態は、公称と違う軸の組が `subgrids` の組のどれかの部分集合になる状態（公称の状態、1 軸ずつの分岐、組の部分格子）。
+//! 組のどれかが、点が 2 つ以上の軸をすべて持てば直積で、公称の状態は要らない。そうでなければ、入力の物質がどの軸でも格子点に
+//! あること。
 //!
 //! 体積の割合で混ぜた物質（ADR-0128）は、軸が変える成分を持てばその軸に挙げ、持たなければ挙げない（混ぜた物質は
 //! 状態ごとの成分から作る）。細かい群の媒質は燃料の温度の軸にだけ挙げ、分岐の状態ごとに媒質の同じ状態を使う。
@@ -23,7 +30,7 @@ use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, LookupError};
-use xlc_format::table::{Axis, Table, product_points};
+use xlc_format::table::{Axis, Table, component};
 
 use crate::depletion::same_cross_sections;
 use crate::geometry::Lattice;
@@ -64,6 +71,10 @@ pub struct Branches {
     references: Vec<Vec<MaterialInput>>,
     /// ホウ素の軸が変える物質
     varied: Vec<String>,
+    /// [軸] の公称の格子点（入力の物質が格子点にない軸があれば `None`）
+    nominal: Option<Vec<usize>>,
+    /// [状態（軸の直積の順）] を解くか
+    solved: Vec<bool>,
 }
 
 impl Branches {
@@ -88,8 +99,8 @@ impl Branches {
         &self.references
     }
 
-    /// 状態 `state` の自己遮蔽を参照から作るなら、その参照の `references` の番号（`every-state` と、ホウ素が 1 点で状態ごとに参照が
-    /// 違い再利用するものがないときは `None`）
+    /// 状態 `state`（軸の直積の順の番号。部分格子の状態だけを解くときも同じ番号）の自己遮蔽を参照から作るなら、その参照の
+    /// `references` の番号（`every-state` と、ホウ素が 1 点で状態ごとに参照が違い再利用するものがないときは `None`）
     pub fn reference(&self, state: usize) -> Option<usize> {
         match self.shielding {
             BranchShielding::EveryState => None,
@@ -103,6 +114,31 @@ impl Branches {
     pub fn varied(&self) -> &[String] {
         &self.varied
     }
+
+    /// [軸] の公称の格子点（入力の物質の状態）
+    pub fn nominal(&self) -> Option<&[usize]> {
+        self.nominal.as_deref()
+    }
+
+    /// 公称の状態の、軸の直積の順の番号
+    pub fn nominal_state(&self) -> Option<usize> {
+        let counts: Vec<usize> = self.axes.iter().map(Axis::len).collect();
+        self.nominal.as_ref().map(|n| {
+            n.iter()
+                .zip(&counts)
+                .fold(0, |index, (&i, &c)| index * c + i)
+        })
+    }
+
+    /// 状態 `state`（軸の直積の順）を解くか
+    pub fn solved(&self, state: usize) -> bool {
+        self.solved.get(state).copied().unwrap_or(false)
+    }
+
+    /// 軸の直積のすべての状態を解くか
+    pub fn is_product(&self) -> bool {
+        self.solved.iter().all(|&s| s)
+    }
 }
 
 #[derive(Deserialize)]
@@ -112,6 +148,7 @@ pub(crate) struct BranchesEntry {
     moderator: Option<ModeratorEntry>,
     fuel: Option<FuelEntry>,
     shielding: Option<ShieldingEntry>,
+    subgrids: Option<Vec<Vec<String>>>,
 }
 
 /// 分岐の状態の自己遮蔽の解き方（ADR-0201）
@@ -240,18 +277,19 @@ fn check_all_waters(
     }
 }
 
-/// 状態ごとの出力の部分ノードの少数群定数（[状態][出力][部分ノード]。分けていなければ部分ノードは1つ）を、出力
-/// ごとのテーブル（状態は軸の直積の順）にまとめる。
+/// 解いた状態ごとの出力の部分ノードの少数群定数（[状態][出力][部分ノード]。分けていなければ部分ノードは1つ）を、出力
+/// ごとのテーブルにまとめる。`points` は解いた状態の、軸の順の格子点の番号（テーブルの点）。
 pub fn tables(
     axes: &[Axis],
     split: usize,
+    points: &[Vec<usize>],
     per_state: Vec<Vec<Vec<FewGroup>>>,
 ) -> Result<Vec<Table>, String> {
-    let expected: usize = axes.iter().map(|a| a.points().len()).product();
-    if per_state.len() != expected {
+    if per_state.len() != points.len() {
         return Err(format!(
-            "{} states for axes of {expected} points in all",
-            per_state.len()
+            "{} states for {} points",
+            per_state.len(),
+            points.len()
         ));
     }
     let outputs = per_state.first().map_or(0, Vec::len);
@@ -259,8 +297,8 @@ pub fn tables(
         .map(|_| Table {
             axes: axes.to_vec(),
             split,
-            points: product_points(axes),
-            states: Vec::with_capacity(expected * split * split),
+            points: points.to_vec(),
+            states: Vec::with_capacity(points.len() * split * split),
             heavy_metal: None,
         })
         .collect();
@@ -285,6 +323,33 @@ pub fn tables(
     Ok(tables)
 }
 
+/// 軸の名前の組の bit（boron、moderator、fuel の順）
+fn subgrid_mask(axis_set: &[String]) -> Result<u32, String> {
+    let mut mask = 0;
+    for name in axis_set {
+        let bit = match name.as_str() {
+            "boron" => 0,
+            "moderator" => 1,
+            "fuel" => 2,
+            other => {
+                return Err(format!(
+                    "branches.subgrids: unknown axis `{other}` (boron, moderator or fuel)"
+                ));
+            }
+        };
+        if mask & (1 << bit) != 0 {
+            return Err(format!(
+                "branches.subgrids: `{name}` appears twice in a subgrid"
+            ));
+        }
+        mask |= 1 << bit;
+    }
+    if mask == 0 {
+        return Err("branches.subgrids: a subgrid needs axes".into());
+    }
+    Ok(mask)
+}
+
 /// 軸ごとの変更
 enum Change {
     Boron(Vec<f64>, Vec<String>),
@@ -293,14 +358,16 @@ enum Change {
 }
 
 impl BranchesEntry {
-    /// 軸を確かめ、軸の直積の順の物質の組（核種かホウ酸水で書いた物質）を作る。`waters` はホウ酸水で書いた物質の量、
-    /// `mixtures` と `media` は軸に挙げる規則を確かめるだけ（ADR-0128）。
+    /// 軸を確かめ、軸の直積の順の物質の組（核種かホウ酸水で書いた物質）と、公称の状態と、解く状態を作る。`waters` はホウ酸水で
+    /// 書いた物質の量、`mixtures` と `media` は軸に挙げる規則を確かめるだけ（ADR-0128）。
+    /// `history` は燃焼の履歴からの分岐か（`subgrids` の既定を決める。ADR-0200）
     pub(crate) fn build(
         self,
         materials: &[MaterialInput],
         waters: &BTreeMap<String, Water>,
         mixtures: &[Mixture],
         media: &[MediumInput],
+        history: bool,
     ) -> Result<Branches, String> {
         let mut axes = Vec::new();
         let mut changes = Vec::new();
@@ -440,6 +507,78 @@ impl BranchesEntry {
                 _ => None,
             })
             .ok_or("branches: no boron axis")?;
+        // 公称の状態: 軸ごとに、その軸だけを変えても入力の物質が変わらない格子点（点が 1 つの軸はその点）
+        let input = state_of(&[None, None, None])?;
+        let mut per_axis = Vec::with_capacity(counts.len());
+        for (k, &count) in counts.iter().enumerate() {
+            if count == 1 {
+                per_axis.push(Some(0));
+                continue;
+            }
+            let mut found = Vec::new();
+            for i in 0..count {
+                let mut at = vec![None; counts.len()];
+                at[k] = Some(i);
+                if state_of(&at)? == input {
+                    found.push(i);
+                }
+            }
+            per_axis.push(if let [only] = found[..] {
+                Some(only)
+            } else {
+                None
+            });
+        }
+        // 解く部分格子の軸の組と、その部分集合（成分）
+        let subgrids = match self.subgrids {
+            Some(sets) if sets.is_empty() => {
+                return Err("branches.subgrids: give the axis sets of the subgrids".into());
+            }
+            Some(sets) => sets
+                .iter()
+                .map(|set| subgrid_mask(set))
+                .collect::<Result<Vec<_>, _>>()?,
+            // 燃焼度の軸を持つテーブルは 2 軸の組すべて（ADR-0200）、M3 のテーブルは直積（ADR-0097）
+            None if history => vec![0b011, 0b101, 0b110],
+            None => vec![0b111],
+        };
+        let components = |mask: u32| subgrids.iter().any(|&s| s & mask == mask);
+        let varying = counts
+            .iter()
+            .enumerate()
+            .filter(|&(_, &c)| c > 1)
+            .fold(0, |mask, (k, _)| mask | (1 << k));
+        let nominal: Option<Vec<usize>> = per_axis.iter().copied().collect();
+        let solved = if components(varying) {
+            vec![true; total]
+        } else {
+            let at = nominal.as_ref().ok_or_else(|| {
+                let names: Vec<&str> = axes
+                    .iter()
+                    .zip(&per_axis)
+                    .filter(|(_, n)| n.is_none())
+                    .map(|(a, _)| a.name())
+                    .collect();
+                format!(
+                    "branches.subgrids: the subgrids hang from the nominal state, the input materials, which are not \
+                     at a point of the {names:?} axes (ADR-0200)"
+                )
+            })?;
+            (0..total)
+                .map(|index| components(component(&state_indices(&counts, index), at)))
+                .collect()
+        };
+        let axes = match &nominal {
+            Some(at) => axes
+                .into_iter()
+                .zip(at)
+                .map(|(axis, &i)| {
+                    let value = axis.points()[i];
+                    axis.with_nominal(value)
+                })
+                .collect(),
+            None => axes,
+        };
         Ok(Branches {
             axes,
             states,
@@ -449,6 +588,8 @@ impl BranchesEntry {
             },
             references,
             varied,
+            nominal,
+            solved,
         })
     }
 }
@@ -718,54 +859,78 @@ pub(crate) fn remix_varied(
         .collect()
 }
 
-/// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。状態 0 は始める解が
-/// なく、ほかの状態は、添字が 0 でない最後の軸を 1 つ戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に解いた
-/// 状態）の解から始める。直前に解いた状態は、その軸に加えて後の軸もすべて違う。
+/// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。最初に解く状態は始める解
+/// がなく、ほかの状態は、添字が 0 でない最後の軸を 1 つ戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に解いた
+/// 状態）の解から始める。直前に解いた状態は、その軸に加えて後の軸もすべて違う。部分格子の状態だけを解き（ADR-0200）、その状態を
+/// 解いていなければ、直前に解いた状態の解から始める（平らな初期値より近い）。
 #[derive(Debug)]
 pub struct Starts<T> {
     /// [軸] の格子点の数
     counts: Vec<usize>,
-    /// 次に解く状態
-    state: usize,
-    /// [軸] の、その軸より後の軸の添字がすべて 0 の状態のうち、最後に解いたものの解
-    saved: Vec<Option<Rc<T>>>,
+    /// 解く状態（軸の直積の順の番号。増える順）
+    present: Vec<usize>,
+    /// 次に解く状態の `present` の中の番号（解いた状態の数）
+    next: usize,
+    /// [軸] の、その軸より後の軸の添字がすべて 0 の解いた状態のうち、最後に解いたものの番号と解。最後の軸は直前に解いた状態
+    saved: Vec<Option<(usize, Rc<T>)>>,
 }
 
 impl<T> Starts<T> {
-    /// `counts` は [軸] の格子点の数。状態 0 から順に解く
+    /// `counts` は [軸] の格子点の数。軸の直積のすべての状態を、状態 0 から順に解く
     pub fn new(counts: &[usize]) -> Self {
+        Self::over(counts, (0..counts.iter().product()).collect())
+    }
+
+    /// `counts` は [軸] の格子点の数、`present` は解く状態（軸の直積の順の番号。増える順）
+    pub fn over(counts: &[usize], present: Vec<usize>) -> Self {
         Self {
             counts: counts.to_vec(),
-            state: 0,
+            present,
+            next: 0,
             saved: vec![None; counts.len()],
         }
     }
 
     /// 次に解く状態の反復を始める解
     pub fn start(&self) -> Option<&T> {
-        self.moved(self.state)
-            .and_then(|axis| self.saved[axis].as_deref())
+        let state = *self.present.get(self.next)?;
+        let at = state_indices(&self.counts, state);
+        let axis = at.iter().rposition(|&i| i > 0)?;
+        let mut back = at;
+        back[axis] -= 1;
+        back[axis + 1..].iter_mut().for_each(|i| *i = 0);
+        let back = back
+            .iter()
+            .zip(&self.counts)
+            .fold(0, |index, (&i, &c)| index * c + i);
+        match &self.saved[axis] {
+            Some((solved, value)) if *solved == back => Some(value),
+            _ => self.saved.last()?.as_ref().map(|(_, value)| &**value),
+        }
     }
 
     /// 次に解く状態の解 `value` を残し、その次の状態に進む
     pub fn solved(&mut self, value: T) {
         let value = Rc::new(value);
+        let Some(&state) = self.present.get(self.next) else {
+            return;
+        };
         // 添字が 0 でない最後の軸より後の軸はすべて 0 なので、その軸と後の軸の解になる
-        let first = self.moved(self.state).unwrap_or(0);
+        let first = self.moved(state).unwrap_or(0);
         for slot in &mut self.saved[first..] {
-            *slot = Some(Rc::clone(&value));
+            *slot = Some((state, Rc::clone(&value)));
         }
-        self.state += 1;
+        self.next += 1;
     }
 
-    /// 次に解く状態と、残した解（同じ解は 1 つ）と、[軸] の残した解の番号（チェックポイントに書く。ADR-0196）
+    /// 解いた状態の数と、残した解（同じ解は 1 つ）と、[軸] の残した解の番号（チェックポイントに書く。ADR-0196）
     pub fn saved(&self) -> (usize, Vec<&T>, Vec<Option<usize>>) {
         let mut solutions: Vec<&Rc<T>> = Vec::new();
         let slots = self
             .saved
             .iter()
             .map(|slot| {
-                slot.as_ref().map(|value| {
+                slot.as_ref().map(|(_, value)| {
                     solutions
                         .iter()
                         .position(|s| Rc::ptr_eq(s, value))
@@ -777,17 +942,19 @@ impl<T> Starts<T> {
             })
             .collect();
         (
-            self.state,
+            self.next,
             solutions.into_iter().map(|s| &**s).collect(),
             slots,
         )
     }
 
-    /// `saved` で書いた、次に解く状態 `state`、解 `solutions`、[軸] の解の番号 `slots` から作り直す。`counts` は [軸] の格子点の
-    /// 数。状態 0 より後で解の欠けた軸があれば（壊れたチェックポイント）、平らな初期値から黙って始めずにエラー
+    /// `saved` で書いた、解いた状態の数 `next`、解 `solutions`、[軸] の解の番号 `slots` から作り直す。`counts` は [軸] の格子点の
+    /// 数、`present` は解く状態。軸ごとの解の状態は解いた状態の並びから決まるので、その有無が書いた番号と合わなければ（壊れた
+    /// チェックポイント）、近い解の代わりに平らな初期値や別の解から黙って始めずにエラー
     pub fn restored(
         counts: &[usize],
-        state: usize,
+        present: Vec<usize>,
+        next: usize,
         solutions: Vec<T>,
         slots: &[Option<usize>],
     ) -> Result<Self, String> {
@@ -798,36 +965,49 @@ impl<T> Starts<T> {
                 counts.len()
             ));
         }
-        let solutions: Vec<Rc<T>> = solutions.into_iter().map(Rc::new).collect();
-        let saved = slots
+        if next > present.len() {
+            return Err(format!(
+                "{next} saved states for a run of {}",
+                present.len()
+            ));
+        }
+        let mut starts = Self::over(counts, present);
+        // 解いた状態の並びから決まる、軸ごとの解の状態
+        let mut expected: Vec<Option<usize>> = vec![None; counts.len()];
+        for &state in &starts.present[..next] {
+            let first = starts.moved(state).unwrap_or(0);
+            for slot in &mut expected[first..] {
+                *slot = Some(state);
+            }
+        }
+        if next == 0 && slots.iter().any(Option::is_some) {
+            return Err("the saved starts of state 0 must be empty".into());
+        }
+        let missing = expected
             .iter()
-            .map(|slot| {
-                slot.map(|i| {
-                    solutions
-                        .get(i)
-                        .cloned()
-                        .ok_or_else(|| format!("start {i} of {} solutions", solutions.len()))
-                })
-                .transpose()
+            .zip(slots)
+            .filter(|(e, s)| e.is_some() != s.is_some())
+            .count();
+        if missing > 0 {
+            return Err(format!(
+                "no start for state {next} on {missing} of {} axes",
+                counts.len()
+            ));
+        }
+        let solutions: Vec<Rc<T>> = solutions.into_iter().map(Rc::new).collect();
+        starts.saved = expected
+            .iter()
+            .zip(slots)
+            .map(|(state, slot)| match (state, slot) {
+                (Some(state), Some(i)) => solutions
+                    .get(*i)
+                    .map(|value| Some((*state, Rc::clone(value))))
+                    .ok_or_else(|| format!("start {i} of {} solutions", solutions.len())),
+                _ => Ok(None),
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let starts = Self {
-            counts: counts.to_vec(),
-            state,
-            saved,
-        };
-        // 状態 0 を解くと、すべての軸が解を持つ（`solved`）。欠けた軸は、後の状態を平らな初期値から黙って始めさせる
-        let present = starts.saved.iter().filter(|s| s.is_some()).count();
-        match (state, present) {
-            (0, 0) => Ok(starts),
-            (0, _) => Err("the saved starts of state 0 must be empty".into()),
-            (_, n) if n == counts.len() => Ok(starts),
-            _ => Err(format!(
-                "no start for state {state} on {} of {} axes",
-                counts.len() - present,
-                counts.len()
-            )),
-        }
+        starts.next = next;
+        Ok(starts)
     }
 
     /// 状態 `state` の、添字が 0 でない最後の軸
