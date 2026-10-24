@@ -3,6 +3,15 @@ use xlc_numeric::quadrature::GAUSS_LEGENDRE_8;
 
 const KT: f64 = BOLTZMANN * 600.0;
 
+/// 格子点 `start` からの中性子束 `flux`（全体の添字）の累積の積率
+fn prefix_of(u: &[f64], flux: &[f64], start: usize) -> Prefix {
+    let mut prefix = Prefix::new(start);
+    for m in start..flux.len() {
+        prefix.push(u, flux, m);
+    }
+    prefix
+}
+
 fn assert_rel(actual: f64, expected: f64, tol: f64) {
     assert!(
         (actual - expected).abs() <= tol * expected.abs(),
@@ -168,7 +177,7 @@ fn test_flux(u: f64) -> f64 {
 fn sources(light: &Light, cells: usize, u: &[f64], m: usize, high: f64) -> (f64, f64) {
     let flux: Vec<f64> = u.iter().map(|&x| test_flux(x)).collect();
     let sigma = vec![3.8; u.len()];
-    let prefix = Prefix::of(u, &flux, 0);
+    let prefix = prefix_of(u, &flux, 0);
     let history = History {
         flux: &flux[..m],
         prefix: &prefix,
@@ -234,7 +243,7 @@ fn first_sweep_takes_the_flux_ahead_as_its_own() {
     // 前のスイープのないとき、m より後の中性子束は F_m とみなし、その分は F_m の係数に入る
     let u = test_grid();
     let flux = vec![1.0; u.len()];
-    let prefix = Prefix::of(&u, &flux, 0);
+    let prefix = prefix_of(&u, &flux, 0);
     let m = locate(&u, 1.0);
     let q = Quadratic::through(0.9, 1.1, 1.0, 2.0, 0.5);
     let first = History {
