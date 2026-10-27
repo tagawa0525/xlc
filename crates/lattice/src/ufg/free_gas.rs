@@ -64,10 +64,10 @@ pub(super) fn erf(x: f64) -> f64 {
 }
 
 /// これより大きい x の erf(x) は倍精度で 1（erfc(6) ≈ 2e−17 は 1 の丸めの半分より小さいので、1 − erfc の計算も 1 になる）。
-/// 連分数の 40 項を省く
+/// erfcx と指数関数を省く
 const SATURATION: f64 = 6.0;
 
-/// これより小さい x では級数、大きい x では連分数を使う
+/// これより小さい x では級数、大きい x では Cody の有理近似（[`erfcx`]）を使う
 const SERIES_LIMIT: f64 = 2.5;
 
 /// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
@@ -89,14 +89,99 @@ pub(super) fn erfcx(x: f64) -> f64 {
     if x < SERIES_LIMIT {
         return (x * x).exp() * (1.0 - erf_series(x));
     }
-    // 連分数 erfcx(x) = 1/√π · 1/(x + (1/2)/(x + 1/(x + (3/2)/(x + …)))) を後ろから評価する。
-    // x ≥ 2.5 では 40 項で倍精度の精度になる
-    const TERMS: u32 = 40;
-    let mut t = x;
-    for k in (1..=TERMS).rev() {
-        t = x + 0.5 * f64::from(k) / t;
+    if x <= CODY_MIDDLE_LIMIT {
+        compensated_horner(&CODY_MIDDLE_NUMERATOR, x)
+            / compensated_horner(&CODY_MIDDLE_DENOMINATOR, x)
+    } else {
+        // erfcx(x) = (1/√π − w R(w))/x、w = 1/x²。x² が桁あふれする x では w = 0 で 1/(√π x) になる
+        let w = 1.0 / (x * x);
+        let tail = w * horner(&CODY_TAIL_NUMERATOR, w) / horner(&CODY_TAIL_DENOMINATOR, w);
+        (0.5 * std::f64::consts::FRAC_2_SQRT_PI - tail) / x
     }
-    1.0 / (PI.sqrt() * t)
+}
+
+// Cody の有理近似の係数（ADR-0211）。W. J. Cody, "Rational Chebyshev approximations for the error function",
+// Math. Comp. 23 (1969) 631–637 の近似を、Netlib の specfun の CALERF（倍精度の DATA 文。1990-03-19 版）からそのままコピーし、
+// 高次の係数から並べた。コピーした値は、多倍長（mpmath）で有理式を評価し、erfcx との相対差が 2.5 ≤ x ≤ 4 で 8.1e−19、
+// 4 ≤ x ≤ 4e4 で 5.9e−19 以下になることで確かめた。出典と照らせるように、f64 で表せる桁より長い値も丸めずに残す
+
+/// これ以下の x では erfcx を 8 次 / 8 次の有理式 P(x)/Q(x) で、より大きい x では 1/x² の有理式で求める（CALERF の区間の境）
+const CODY_MIDDLE_LIMIT: f64 = 4.0;
+
+/// P(x) の係数（CALERF の C(9), C(1), …, C(8)）
+#[allow(clippy::excessive_precision)]
+const CODY_MIDDLE_NUMERATOR: [f64; 9] = [
+    2.15311535474403846e-8,
+    5.64188496988670089e-1,
+    8.88314979438837594e0,
+    6.61191906371416295e1,
+    2.98635138197400131e2,
+    8.81952221241769090e2,
+    1.71204761263407058e3,
+    2.05107837782607147e3,
+    1.23033935479799725e3,
+];
+
+/// Q(x) の係数（1, CALERF の D(1), …, D(8)）
+#[allow(clippy::excessive_precision)]
+const CODY_MIDDLE_DENOMINATOR: [f64; 9] = [
+    1.0,
+    1.57449261107098347e1,
+    1.17693950891312499e2,
+    5.37181101862009858e2,
+    1.62138957456669019e3,
+    3.29079923573345963e3,
+    4.36261909014324716e3,
+    3.43936767414372164e3,
+    1.23033935480374942e3,
+];
+
+/// x > 4 の R(w) = P(w)/Q(w) の分子の係数（CALERF の P(6), P(1), …, P(5)）
+#[allow(clippy::excessive_precision)]
+const CODY_TAIL_NUMERATOR: [f64; 6] = [
+    1.63153871373020978e-2,
+    3.05326634961232344e-1,
+    3.60344899949804439e-1,
+    1.25781726111229246e-1,
+    1.60837851487422766e-2,
+    6.58749161529837803e-4,
+];
+
+/// R(w) の分母の係数（1, CALERF の Q(1), …, Q(5)）
+#[allow(clippy::excessive_precision)]
+const CODY_TAIL_DENOMINATOR: [f64; 6] = [
+    1.0,
+    2.56852019228982242e0,
+    1.87295284992346047e0,
+    5.27905102951428412e-1,
+    6.05183413124413191e-2,
+    2.33520497626869185e-3,
+];
+
+/// 高次から並べた係数の多項式の Horner 法。積和は融合積和（mul_add）で、FMA の無い CPU でも同じビットになる
+fn horner(coefficients: &[f64], x: f64) -> f64 {
+    coefficients[1..]
+        .iter()
+        .fold(coefficients[0], |sum, &c| sum.mul_add(x, c))
+}
+
+/// 高次から並べた係数の多項式の補償 Horner 法（Graillat, Langlois, Louvet, "Compensated Horner scheme", 2005）。
+/// 各段の積と和の丸めの誤差を誤差なしの変換（積は融合積和、和は Knuth の TwoSum）で取り出し、別の Horner 法で足し戻す。
+/// 係数と x が正の多項式では、結果は倍精度の丸め 1 回ほどの誤差になる。2.5 ≤ x ≤ 4 の P/Q を普通の Horner 法で求めると、
+/// 丸めが積もって erfcx の誤差が 5.5 ulp に達する（ADR-0211）
+fn compensated_horner(coefficients: &[f64], x: f64) -> f64 {
+    let mut sum = coefficients[0];
+    let mut error = 0.0_f64;
+    for &c in &coefficients[1..] {
+        let product = sum * x;
+        let product_error = sum.mul_add(x, -product);
+        let next = product + c;
+        let z = next - product;
+        let sum_error = (product - (next - z)) + (c - z);
+        error = error.mul_add(x, product_error + sum_error);
+        sum = next;
+    }
+    sum + error
 }
 
 /// 自由原子の散乱断面積を 1 としたときの、断面積を一定とした自由ガスのエネルギー移行の確率密度 S(E→E') (1/eV)。`awr` は
