@@ -634,10 +634,10 @@ stages:
     cmd: python3 ../../../reflector/compare_axial.py axial-3A.log 
       core-3A-slab.log > compare-3A-slab.out
     deps:
-    - path: ../../../reflector/compare_axial.py
+    - path: ../../../../python-ast/examples/reflector/compare_axial.py.ast
       hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A.log
       hash: md5
       md5: 33b615aeb0fd2ce6eab43a8cc4de7ee6
@@ -689,10 +689,10 @@ stages:
     cmd: python3 ../../../reflector/compare_axial.py axial-3B.log 
       core-3B-slab.log > compare-3B-slab.out
     deps:
-    - path: ../../../reflector/compare_axial.py
+    - path: ../../../../python-ast/examples/reflector/compare_axial.py.ast
       hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3B.log
       hash: md5
       md5: da8e2927f192cabc268b6df2745bf20b
