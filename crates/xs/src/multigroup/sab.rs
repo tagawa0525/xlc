@@ -82,10 +82,6 @@ pub enum SabError {
     #[error("no effective temperature of S(α, β) at {0} K")]
     EffectiveTemperature(f64),
     #[error(
-        "the UFG up-scattering reaches down to {lowest} eV, so the S(α, β) transfer (limit {cutoff} eV) has no positive start"
-    )]
-    TransferRange { cutoff: f64, lowest: f64 },
-    #[error(
         "the outgoing energies of the S(α, β) transfer at {incident} eV are no group structure: {reason}"
     )]
     TransferGrid { incident: f64, reason: String },
@@ -298,7 +294,8 @@ impl<'a> ThermalSab<'a> {
     }
 
     /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。S(α, β) の上限が UFG の下限から上方散乱の
-    /// 届く幅より下なら、UFG に届く S(α, β) の散乱がないので `None`。
+    /// 届く幅より下なら、UFG に届く S(α, β) の散乱がないので `None`。届く幅が UFG の下限を超えるときも、正の入射から表を始められ
+    /// ないので `None`（lattice は `sab` を選ぶと止まる）。
     pub fn ufg_transfer(&self, low: f64) -> Result<Option<SabTransfer>, SabError> {
         self.ufg_transfer_on(low, TRANSFER_INCIDENT_STEP, TRANSFER_STEP)
     }
@@ -321,13 +318,8 @@ impl<'a> ThermalSab<'a> {
             .fold(f64::NEG_INFINITY, f64::max);
         let reach = UFG_TAIL * BK * hottest;
         let lowest = low - reach;
-        if lowest.is_nan() || lowest <= 0.0 {
-            return Err(SabError::TransferRange {
-                cutoff: self.cutoff,
-                lowest,
-            });
-        }
-        if self.cutoff <= lowest {
+        // 上方散乱が 0 eV まで届けば正の入射から表を始められず、S(α, β) の上限が届く幅より下なら UFG に届く S(α, β) の散乱がない
+        if lowest.is_nan() || lowest <= 0.0 || self.cutoff <= lowest {
             return Ok(None);
         }
         let n = ((self.cutoff / lowest).ln() / du).ceil() as usize;
