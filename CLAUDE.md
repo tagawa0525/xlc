@@ -41,7 +41,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
   実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
-  数秒のステージを再実行する /dvc-relock だけに使う。実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）
+  数秒のステージを再実行する /dvc-relock だけに使う。実行したら `dvc.lock` をコミットする（上流の `build` と `python-ast` が書き換えたリポジトリの直下の `dvc.lock` と `python-ast/` も。ADR-0159、ADR-0210）
 - 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
   ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `dvc repro <yaml>:xs`。ADR-0193）。
   runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
@@ -57,6 +57,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml のステージの
   出力で、git で追跡しない。worktree では `scripts/worktree-restore-outputs.sh`（中身は `dvc checkout`）でキャッシュから戻す（ADR-0130）。ステージが呼ぶ
   `bin/` の実行ファイルは、リポジトリの直下の `dvc.yaml` の `build` の出力で、同じスクリプトで戻る（ADR-0159）。
+  ステージの deps の .py は、元のファイルでなく、直下の `dvc.yaml` の `python-ast` が書く正規形（docstring とコメントを除いた形。
+  `python-ast/<パス>.ast`、git で追跡）にする（cmd は元の .py を呼ぶ。ADR-0210）。.py を deps に足すときは、`python-ast` の
+  foreach にも足す（`scripts/test_normalize_python.py` が食い違いを止める）。
   NJOY と OpenMC を使うステージは cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
