@@ -3,7 +3,8 @@
 # の燃料の組成を置いた 1 つの状態。OpenMC の反応率（openmc_pin_rates*.py）と移行（openmc_pin_transfer.py）と同じ組成。
 library = "../../depletion.msgpack"
 ufg-scattering = "free-gas"
-ufg-free-gas = { upper = 400, heavy = 400, sab = true }
+ufg-free-gas = { upper = 400, cells = 4, sweeps = inf, heavy = 400, sab = true }
+ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
