@@ -101,6 +101,10 @@ pub enum UfgError {
         "internal error: the S(α, β) source at {energy} eV has no table share at transfer {transfer} eV"
     )]
     SabTable { energy: f64, transfer: f64 },
+    #[error(
+        "`ufg-transfer = \"ring-flux\"` counts the transfers on the full grid only (not with `ufg-tolerance`)"
+    )]
+    ThinnedTransfers,
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
