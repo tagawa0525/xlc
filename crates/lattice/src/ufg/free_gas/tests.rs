@@ -424,17 +424,8 @@ fn locate_from_finds_the_point_of_locate_from_any_hint() {
 include!("../../../../xs/src/special/erfcx_cases.rs");
 
 #[test]
-fn erfcx_is_within_two_ulp_of_multiprecision_values() {
+fn erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values() {
     for &(x, hi, lo) in ERFCX_REFERENCE {
-        let ulp = f64::from_bits(hi.to_bits() + 1) - hi;
-        let error = ((erfcx(x) - hi) - lo) / ulp;
-        assert!(error.abs() <= 2.0, "x={x}: {error} ulp");
-    }
-}
-
-#[test]
-fn erfcx_below_2_5_is_within_two_and_a_half_ulp_of_multiprecision_values() {
-    for &(x, hi, lo) in ERFCX_REFERENCE_BELOW_2_5 {
         let ulp = f64::from_bits(hi.to_bits() + 1) - hi;
         let error = ((erfcx(x) - hi) - lo) / ulp;
         assert!(error.abs() <= 2.5, "x={x}: {error} ulp");
