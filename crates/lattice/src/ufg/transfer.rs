@@ -337,7 +337,7 @@ impl Counting<'_> {
     }
 
     /// リング `i` の核種 `e`（組成の番号）の移行の行。要素は有限で、負なら弾性散乱断面積の [`NEGATIVE`] 倍までの丸め（それより
-    /// 負なら、数え方の近似が減速計算と食い違っているので止める）
+    /// 負なら、数え方の近似が減速計算と食い違っているか、間引いた格子で数えたほかの群への移行が弾性散乱を超えているので止める）
     fn rows(&self, i: usize, e: usize, rates: &Rates) -> Result<NuclideTransfer, UfgError> {
         let ng = self.bounds.len() - 1;
         let top = self.groups.start;

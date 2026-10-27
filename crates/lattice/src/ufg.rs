@@ -101,7 +101,8 @@ pub enum UfgError {
         "internal error: the S(α, β) source at {energy} eV has no table share at transfer {transfer} eV"
     )]
     SabTable { energy: f64, transfer: f64 },
-    /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合）
+    /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合か、間引いた格子（`ufg-tolerance`）で数えたほかの群への移行が
+    /// 弾性散乱断面積を超える。ADR-0208）
     #[error(
         "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative"
     )]
