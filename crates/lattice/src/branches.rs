@@ -32,7 +32,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, LookupError};
 use xlc_format::table::{Axis, Table, component};
 
-use crate::depletion::same_cross_sections;
+use crate::depletion::{same_cross_sections, same_transfers};
 use crate::geometry::Lattice;
 use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::material::Material;
@@ -799,9 +799,10 @@ pub(crate) fn remix_varied(
                         reference.region_cross_sections(r),
                         reference.region_cross_sections(f),
                     )
+                    || !same_transfers(reference.region_transfers(r), reference.region_transfers(f))
                 {
                     bail!(
-                        "regions {f} and {r} share material {m} with different cross sections or SPH factors"
+                        "regions {f} and {r} share material {m} with different cross sections, transfers or SPH factors"
                     );
                 }
             }

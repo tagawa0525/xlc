@@ -38,6 +38,7 @@ use crate::power::{cell_fission_rates, pin_rows};
 use crate::shielding::{FuelShielding, ShieldingReuse, shield_fuel_reusing, shielded_nuclide_with};
 use crate::symmetry::Chosen;
 use crate::tracking::Tracking;
+use crate::ufg::NuclideTransfer;
 
 /// 入力の `[depletion]`（ADR-0173）。
 #[derive(Debug, Clone, PartialEq)]
@@ -893,6 +894,14 @@ struct State {
     converged: Rc<Start>,
 }
 
+/// 2 つの領域の UFG の範囲の移行が同じこと（[`same_cross_sections`] と同じく、先に場所を比べる）
+pub(crate) fn same_transfers(a: Option<&[NuclideTransfer]>, b: Option<&[NuclideTransfer]>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => std::ptr::eq(a, b) || a == b,
+        (a, b) => a == b,
+    }
+}
+
 /// 2 つの領域の実効断面積が同じこと。自己遮蔽は、物質を共有する領域に同じ配列を指させるので、先に場所を比べて値の比較を省く
 pub(crate) fn same_cross_sections(a: Option<&[Shielded]>, b: Option<&[Shielded]>) -> bool {
     match (a, b) {
@@ -949,7 +958,7 @@ pub(crate) fn remix_depleted(
                             start.region_cross_sections(r),
                             start.region_cross_sections(f),
                         )
-                        || start.region_transfers(r) != start.region_transfers(f))
+                        || !same_transfers(start.region_transfers(r), start.region_transfers(f)))
                 {
                     bail!(
                         "regions {f} and {r} share material {m} with different cross sections, transfers or SPH factors"
@@ -997,8 +1006,8 @@ pub(crate) fn remix_depleted(
                 .iter()
                 .zip(cross_sections)
                 .enumerate()
-                .map(|(k, ((name, density), s))| {
-                    let transfer = transfers.map(|t| &t[k]);
+                .map(|(j, ((name, density), s))| {
+                    let transfer = transfers.map(|t| &t[j]);
                     Ok((
                         shielded_nuclide_with(library, name, material.temperature, s, transfer)?,
                         *density,
