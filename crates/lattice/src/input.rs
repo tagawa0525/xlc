@@ -326,7 +326,7 @@ impl std::fmt::Display for SweepsEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Count(n) => write!(f, "{n}"),
-            Self::Float(v) => write!(f, "{v}"),
+            Self::Float(v) => write!(f, "{v:?}"),
         }
     }
 }
@@ -334,7 +334,7 @@ impl std::fmt::Display for SweepsEntry {
 impl std::fmt::Display for HeavyEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Float(v) => write!(f, "{v}"),
+            Self::Float(v) => write!(f, "{v:?}"),
             Self::Bool(b) => write!(f, "{b}"),
         }
     }
