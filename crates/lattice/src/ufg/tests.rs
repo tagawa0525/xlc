@@ -48,6 +48,7 @@ fn library_at(specs: Vec<Spec>, temperature: f64) -> Library {
                 }),
                 thermal_scattering: false,
                 temperatures: vec![TemperatureData {
+                    sab_transfer: None,
                     reactions: Vec::new(),
                     temperature,
                     chi: vec![0.0; ng],

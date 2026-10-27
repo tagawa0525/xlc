@@ -883,6 +883,7 @@ impl Common<'_> {
             shielded,
             pointwise,
             reactions,
+            sab_transfer: None,
         })
     }
 }

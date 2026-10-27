@@ -14,6 +14,7 @@
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
 //!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
+//!                              sab_transfer: nil か {incident, transfer, density}（S(α, β) を持つ核種だけ）,
 //!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
 //!                                           cross_section: [無限希釈の G 個]}]}]}]}]}
 //! ```
@@ -150,6 +151,21 @@ pub struct Pointwise {
     pub capture: Vec<f64>,
 }
 
+/// 超微細群の減速計算に使う、S(α, β) による P0 の散乱の移行の点の値（ADR-0205）。入射 E と出射 E' の
+/// p(E→E') = σ0(E→E')/σ(E) (1/eV)（σ(E) は S(α, β) の散乱断面積で、∫ p dE' = 1）を、入射のエネルギーと移行 E' − E の格子の
+/// 上に持つ。格子点の間は、入射について ln E に線形、移行について線形に補間する。入射の最後の点は S(α, β) を使う入射エネルギーの
+/// 上限で、その上は自由ガスの核で扱う（ADR-0133）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SabTransfer {
+    /// 入射エネルギー (eV)、昇順
+    pub incident: Vec<f64>,
+    /// 移行 E' − E (eV)、昇順
+    pub transfer: Vec<f64>,
+    /// [入射][移行] の p(E→E') (1/eV)。出射が 0 以下のところは 0
+    pub density: Vec<Vec<f64>>,
+}
+
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -164,6 +180,10 @@ pub struct TemperatureData {
     pub pointwise: Pointwise,
     /// 燃焼チェーンの反応の群の断面積（代表の MT の昇順）
     pub reactions: Vec<GroupReaction>,
+    /// S(α, β) による P0 の散乱の移行（熱中性子散乱を S(α, β) で作り、ポイントワイズの範囲のあるライブラリだけ。ほかは nil で、
+    /// nil でも項目は省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub sab_transfer: Option<SabTransfer>,
 }
 
 /// 分離共鳴の範囲（分離共鳴を持つ核種だけが持つ）。
@@ -635,6 +655,7 @@ fn interpolate(
         shielded,
         pointwise,
         reactions,
+        sab_transfer: None,
     })
 }
 
