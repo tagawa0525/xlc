@@ -853,6 +853,24 @@ fn locate(u: &[f64], x: f64) -> usize {
     u.partition_point(|&v| v <= x).saturating_sub(1)
 }
 
+/// [`locate`] と同じ格子点を、u_hint ≤ x なら `hint` から間隔を倍にしながら先へ探す。区間の端は昇順に並び、前の端の格子点の
+/// 近くにあるので、格子の全体（数十万点）を 2 分探索するより、キャッシュに載らない点を読まずに済む
+fn locate_from(u: &[f64], x: f64, hint: usize) -> usize {
+    if !(hint < u.len() && u[hint] <= x) {
+        return locate(u, x);
+    }
+    // u[low] ≤ x を保ち、u[low + step] > x か格子の終わりになるまで進める
+    let (mut low, mut step) = (hint, 1);
+    loop {
+        let high = (low + step).min(u.len());
+        if high == u.len() || u[high] > x {
+            return low + u[low..high].partition_point(|&v| v <= x) - 1;
+        }
+        low = high;
+        step *= 2;
+    }
+}
+
 /// 格子点の値 `values` を、レサジー x で u について線形に補間する（最後の点より後は最後の点の値）
 fn interpolate(u: &[f64], values: &[f64], q: usize, x: f64) -> f64 {
     let last = u.len() - 1;
@@ -1018,6 +1036,8 @@ impl<'a> Thermal<'a> {
                 let mut sums = vec![(0.0, 0.0); n];
                 // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
+                // 前の区間の上端の格子点（[`locate_from`] の起点）
+                let mut hint = 0;
                 for &(l, a, b) in chunk {
                     let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
                     let inside = gas.inside(u[m], a, b);
@@ -1030,15 +1050,17 @@ impl<'a> Thermal<'a> {
                             (q, value)
                         }
                         _ => {
-                            let q = locate(u, a);
+                            let q = locate_from(u, a, hint);
                             (q, f(a, q))
                         }
                     };
-                    let qb = locate(u, b);
+                    let mid = 0.5 * (a + b);
+                    let q_mid = locate_from(u, mid, qa);
+                    let qb = locate_from(u, b, q_mid);
+                    hint = qb;
                     let fb = f(b, qb);
                     shared = Some((l, b, inside, qb, fb));
-                    let mid = 0.5 * (a + b);
-                    let quadratic = Quadratic::through(a, b, fa, f(mid, locate(u, mid)), fb);
+                    let quadratic = Quadratic::through(a, b, fa, f(mid, q_mid), fb);
                     for &(i, density) in &rings[l] {
                         let history = History {
                             flux: &flux[i],
@@ -1212,7 +1234,7 @@ impl SabSource<'_> {
             a = b;
         }
         // 小区間の核の割合、σs、中性子束の補間の位置は、小区間の両端だけで決まる
-        let term = |&(a, b): &(f64, f64)| {
+        let term = |hint: &mut usize, &(a, b): &(f64, f64)| {
             let center = 0.5 * (a + b);
             let incident = e - center;
             let x = (high / incident).ln();
@@ -1226,8 +1248,9 @@ impl SabSource<'_> {
             if share <= 0.0 {
                 return Ok(None);
             }
-            // 中点を含む格子の区間の始まり（u_cell ≤ x の最後の格子点）
-            let cell = u.partition_point(|&v| v <= x).saturating_sub(1);
+            // 中点を含む格子の区間の始まり（u_cell ≤ x の最後の格子点）。x は小区間とともに増える
+            let cell = locate_from(u, x, *hint);
+            *hint = cell;
             let sigma = interpolate(
                 &u[self.offset..],
                 self.sigma,
@@ -1245,7 +1268,7 @@ impl SabSource<'_> {
         cells
             .par_iter()
             .with_min_len(SAB_CELLS_PER_TASK)
-            .map(term)
+            .map_init(|| 0, term)
             .collect_into_vec(&mut work.terms);
         let assign = |idx: usize, c: f64, i: usize, known: &mut [f64], own: &mut [f64]| {
             if idx < m {
