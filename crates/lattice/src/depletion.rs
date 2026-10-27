@@ -35,7 +35,7 @@ use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::{Options, Start, available_order, solve_symmetric_from};
 use crate::power::{cell_fission_rates, pin_rows};
-use crate::shielding::{FuelShielding, ShieldingReuse, shield_fuel_reusing, shielded_nuclide};
+use crate::shielding::{FuelShielding, ShieldingReuse, shield_fuel_reusing, shielded_nuclide_with};
 use crate::symmetry::Chosen;
 use crate::tracking::Tracking;
 
@@ -901,7 +901,7 @@ pub(crate) fn same_cross_sections(a: Option<&[Shielded]>, b: Option<&[Shielded]>
     }
 }
 
-/// 自己遮蔽の結果 `start` の微視的断面積と SPH 因子のまま、燃焼の領域 `regions` の物質を作り直す（ADR-0197）。`materials` は自己遮蔽に
+/// 自己遮蔽の結果 `start` の微視的断面積（UFG の範囲の移行を含む。ADR-0207）と SPH 因子のまま、燃焼の領域 `regions` の物質を作り直す（ADR-0197）。`materials` は自己遮蔽に
 /// 渡す物質の一覧（核種の並びは `start` を解いたときと同じ）で、燃焼の領域 k の物質は `materials[depleted[k]]`。返すのは、作り直した
 /// `start.materials` の番号と物質。自己遮蔽した物質は、自己遮蔽と同じく、領域の核種の実効断面積（`region_cross_sections`）から作った
 /// 群定数を数密度で混ぜて SPH 因子を掛け、自己遮蔽しなかった物質は `Material::mix`（無限希釈）で作る
@@ -948,10 +948,11 @@ pub(crate) fn remix_depleted(
                         || !same_cross_sections(
                             start.region_cross_sections(r),
                             start.region_cross_sections(f),
-                        ))
+                        )
+                        || start.region_transfers(r) != start.region_transfers(f))
                 {
                     bail!(
-                        "regions {f} and {r} share material {m} with different cross sections or SPH factors"
+                        "regions {f} and {r} share material {m} with different cross sections, transfers or SPH factors"
                     );
                 }
             }
@@ -987,13 +988,19 @@ pub(crate) fn remix_depleted(
                     material.name
                 );
             }
+            let transfers = start.region_transfers(r);
+            if transfers.is_some_and(|t| t.len() != cross_sections.len()) {
+                bail!("region {r}: the transfers do not match the shielded nuclides");
+            }
             let nuclides = material
                 .composition
                 .iter()
                 .zip(cross_sections)
-                .map(|((name, density), s)| {
+                .enumerate()
+                .map(|(k, ((name, density), s))| {
+                    let transfer = transfers.map(|t| &t[k]);
                     Ok((
-                        shielded_nuclide(library, name, material.temperature, s)?,
+                        shielded_nuclide_with(library, name, material.temperature, s, transfer)?,
                         *density,
                     ))
                 })

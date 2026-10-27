@@ -39,6 +39,7 @@ use crate::input::MaterialInput;
 use free_gas::{Gas, Thermal};
 
 mod free_gas;
+mod transfer;
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
 use xlc_numeric::lu::solve;
 
@@ -319,7 +320,7 @@ pub fn slowing_down_with(
     scattering: Scattering,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library, cell, rings, range, collision, thinning, scattering, None,
+        library, cell, rings, range, collision, thinning, scattering, None, None,
     )
 }
 
@@ -343,8 +344,19 @@ pub fn slowing_down_transfers(
     thinning: Option<f64>,
     scattering: Scattering,
 ) -> Result<(CellSpectrum, Vec<Vec<NuclideTransfer>>), UfgError> {
-    let spectrum = slowing_down_with(library, cell, rings, range, collision, thinning, scattering)?;
-    Ok((spectrum, Vec::new()))
+    let mut transfers = Vec::new();
+    let spectrum = solve_cell(
+        library,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        Some(&mut transfers),
+    )?;
+    Ok((spectrum, transfers))
 }
 
 /// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]）。
@@ -378,6 +390,7 @@ pub fn slowing_down_fine(
         thinning,
         scattering,
         Some(&mut fine),
+        None,
     )?;
     Ok((spectrum, fine))
 }
@@ -393,6 +406,7 @@ fn solve_cell(
     thinning: Option<f64>,
     scattering: Scattering,
     fine: Option<&mut FineFlux>,
+    transfers: Option<&mut Vec<Vec<NuclideTransfer>>>,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -778,6 +792,40 @@ fn solve_cell(
             list.push(shielded);
         }
         nuclides.push(list);
+    }
+    if let Some(transfers) = transfers {
+        // 自由ガスの核種の番号（`Thermal::new` に渡した順）
+        let mut count = 0;
+        let gas_of: Vec<Option<usize>> = data
+            .iter()
+            .map(|d| {
+                d.gas.map(|_| {
+                    count += 1;
+                    count - 1
+                })
+            })
+            .collect();
+        let counted = Instant::now();
+        *transfers = transfer::Counting {
+            data: &data,
+            entries: &entries,
+            u: &u,
+            points: &points,
+            flux: &sweep.flux,
+            elastic: &sweep.elastic,
+            group_flux: &sweep.group_flux,
+            nuclides: &nuclides,
+            bounds,
+            groups: top..bottom,
+            high,
+            thermal: sweep.thermal.as_ref(),
+            gas_of: &gas_of,
+        }
+        .count()?;
+        tracing::debug!(
+            seconds = counted.elapsed().as_secs_f64(),
+            "UFG transfers counted"
+        );
     }
     // 頼まれたときだけ格子点ごとの中性子束を渡す（頼まれなければ、格子点の数 × リングの数の中性子束はここで捨てる）
     if let Some(fine) = fine {

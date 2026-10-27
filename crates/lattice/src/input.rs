@@ -14,6 +14,9 @@
 //!                                 # まで）、分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし。省略すると
 //!                                 # 静止した標的。ADR-0204）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下で
 //!                                 # ライブラリの S(α, β) の移行にするか（省略すると false で自由ガスの核。ADR-0205）
+//! ufg-transfer = "ring-flux"      # 自己遮蔽の等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（"infinite-dilution"
+//!                                 # はライブラリの無限希釈の形（ADR-0076）、"ring-flux" は UFG の減速計算でリングの中性子束と同じ
+//!                                 # 散乱核で数えた弾性散乱の移行。省略すると infinite-dilution。ADR-0207）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -199,6 +202,8 @@ pub struct LatticeInput {
     pub thinning: Option<f64>,
     /// 自己遮蔽の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
     pub scattering: Scattering,
+    /// 自己遮蔽の等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（ADR-0207）
+    pub transfer: UfgTransfer,
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
@@ -686,12 +691,13 @@ fn positive(v: f64) -> bool {
 
 impl LatticeInput {
     /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）、格子の間引き（`ufg-tolerance`）、散乱核の標的の扱い
-    /// （`ufg-scattering`、`ufg-free-gas`）だけで、ほかは既定の値
+    /// （`ufg-scattering`、`ufg-free-gas`）、散乱行列の移行の形（`ufg-transfer`）だけで、ほかは既定の値
     pub fn shielding_options(&self) -> ShieldingOptions {
         ShieldingOptions {
             collision: self.collision,
             thinning: self.thinning,
             scattering: self.scattering,
+            transfer: self.transfer,
             ..ShieldingOptions::default()
         }
     }
@@ -824,6 +830,21 @@ impl LatticeInput {
         }
         let scattering =
             parse_scattering(file.ufg_scattering.as_deref(), file.ufg_free_gas).map_err(invalid)?;
+        if !self_shielding && file.ufg_transfer.is_some() {
+            return Err(invalid(
+                "`ufg-transfer` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        let transfer = match file.ufg_transfer.as_deref() {
+            None | Some("infinite-dilution") => UfgTransfer::InfiniteDilution,
+            Some("ring-flux") => UfgTransfer::RingFlux,
+            Some(other) => {
+                return Err(invalid(format!(
+                    "`ufg-transfer` must be \"infinite-dilution\" or \"ring-flux\", not {other:?}"
+                )));
+            }
+        };
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
@@ -1129,6 +1150,7 @@ impl LatticeInput {
             collision,
             thinning,
             scattering,
+            transfer,
             cross_sections,
             output,
             pin_powers: file.pin_powers,

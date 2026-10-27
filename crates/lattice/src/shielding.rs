@@ -37,8 +37,11 @@ use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
     CellSpectrum, Collision, NuclideTransfer, Scattering, UfgError, cell_range, material_range,
-    slowing_down_with,
+    slowing_down_transfers, slowing_down_with,
 };
+
+/// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
+type Transfers = Arc<Vec<NuclideTransfer>>;
 
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -132,6 +135,12 @@ pub enum SelfShieldingError {
     FluxGroups { given: usize, groups: usize },
     #[error("cell {0}: the SPH factors do not match the rings and groups of the cell")]
     SphLayout(usize),
+    #[error("{name}: transfer rows of {given} groups for {groups} groups (internal error)")]
+    TransferGroups {
+        name: String,
+        given: usize,
+        groups: usize,
+    },
     #[error("the lattice is not the one that was self-shielded")]
     ForeignLattice,
     #[error(transparent)]
@@ -159,6 +168,8 @@ pub struct FuelShielding {
     lattice: Lattice,
     /// [領域] の、物質の核種ごとの物理的な実効断面積（[`FuelShielding::region_cross_sections`]）
     region_effective: Vec<Option<Arc<Vec<Shielded>>>>,
+    /// [領域] の、物質の核種ごとの UFG の範囲の群の弾性散乱の移行（[`FuelShielding::region_transfers`]）
+    region_transfers: Vec<Option<Transfers>>,
 }
 
 /// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
@@ -239,9 +250,13 @@ impl FuelShielding {
     }
 
     /// 領域 `region` の物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`] で遮蔽した等価なセルのリングの
-    /// 領域だけ。核種の順は [`FuelShielding::region_cross_sections`] と同じ）（未実装）
-    pub fn region_transfers(&self, _region: usize) -> Option<&[NuclideTransfer]> {
-        None
+    /// 領域だけ。核種の順は [`FuelShielding::region_cross_sections`] と同じ）。領域の物質は、これと実効断面積から
+    /// [`shielded_nuclide_with`] で作った群定数を混ぜたもの
+    pub fn region_transfers(&self, region: usize) -> Option<&[NuclideTransfer]> {
+        self.region_transfers
+            .get(region)?
+            .as_deref()
+            .map(Vec::as_slice)
     }
 
     /// MOC の中性子束 `flux`（[領域][群]）を物理的な中性子束にする。SPH 因子 μ を掛けた領域と群では、MOC の中性子束は
@@ -563,6 +578,7 @@ pub fn shield_fuel_reusing(
         lumps: Vec::new(),
         lattice: lattice.clone(),
         region_effective: vec![None; regions],
+        region_transfers: vec![None; regions],
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
@@ -643,6 +659,7 @@ pub fn shield_fuel_reusing(
             collision: options.collision,
             thinning: options.thinning,
             scattering: options.scattering,
+            transfer: options.transfer,
         };
         let ufg = shield_cell(
             library,
@@ -697,6 +714,7 @@ pub fn shield_fuel_reusing(
                 &fuel_regions,
                 &mut shielded.region_material,
                 &mut shielded.region_effective,
+                &mut shielded.region_transfers,
             )?;
             shielded.pins.push(PinShielding {
                 cell,
@@ -754,10 +772,11 @@ pub fn shield_fuel_reusing(
                     .rings
                     .into_iter()
                     .zip(c.ring_nuclides)
-                    .map(|(m, nuclides)| {
+                    .zip(c.ring_transfers)
+                    .map(|((m, nuclides), transfers)| {
                         m.zip(nuclides).map(|(m, nuclides)| {
                             shielded.materials.push(m);
-                            (shielded.materials.len() - 1, nuclides)
+                            (shielded.materials.len() - 1, nuclides, transfers)
                         })
                     })
                     .collect(),
@@ -805,6 +824,7 @@ pub fn shield_fuel_reusing(
             &fuel_regions,
             &mut shielded.region_material,
             &mut shielded.region_effective,
+            &mut shielded.region_transfers,
         )?;
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
@@ -1062,6 +1082,7 @@ fn shield_lumps(
                         collision: options.collision,
                         thinning: options.thinning,
                         scattering: options.scattering,
+                        transfer: options.transfer,
                     };
                     shield_cell(
                         library,
@@ -1088,18 +1109,24 @@ fn shield_lumps(
             Some((c, rings)) => {
                 // 棒のリングの物質。塊の領域のリングは、その領域のセル（対称操作の像）の中の番号から求める
                 let mut ring_material = Vec::with_capacity(rings);
-                for (m, nuclides) in c.rings.into_iter().zip(c.ring_nuclides).take(rings) {
+                let ring_iter = c
+                    .rings
+                    .into_iter()
+                    .zip(c.ring_nuclides)
+                    .zip(c.ring_transfers);
+                for ((m, nuclides), transfers) in ring_iter.take(rings) {
                     let shape = || SelfShieldingError::CellShape(cell);
                     let (m, nuclides) = (m.ok_or_else(shape)?, nuclides.ok_or_else(shape)?);
                     shielded.materials.push(m);
-                    ring_material.push((shielded.materials.len() - 1, nuclides));
+                    ring_material.push((shielded.materials.len() - 1, nuclides, transfers));
                 }
                 for &region in &lump_regions {
                     let shape = || SelfShieldingError::CellShape(lattice.region_cell(region));
                     let ring = LumpShielding::ring_of(lattice, region).ok_or_else(shape)?;
-                    let (m, nuclides) = ring_material.get(ring).ok_or_else(shape)?;
+                    let (m, nuclides, transfers) = ring_material.get(ring).ok_or_else(shape)?;
                     shielded.region_material[region] = *m;
                     shielded.region_effective[region] = Some(nuclides.clone());
+                    shielded.region_transfers[region] = transfers.clone();
                 }
                 let factors = c.sph.into_iter().take(rings).collect();
                 (c.effective, Some(c.radius), Some((factors, c.groups)))
@@ -1201,11 +1228,14 @@ struct PinSolution {
     ufg: Option<CellShielding>,
 }
 
+/// 等価なセルのリングの物質の番号と、その物質の核種ごとの実効断面積と移行
+type RingAssignment = (usize, Arc<Vec<Shielded>>, Option<Transfers>);
+
 /// ピンのセルの領域に割り当てる物質の番号と、その物質の核種ごとの実効断面積
 enum Assigned {
     /// 等価なセルのリングごとの物質（真空は `None`）と、減速材のリングの始まり
     Rings {
-        materials: Vec<Option<(usize, Arc<Vec<Shielded>>)>>,
+        materials: Vec<Option<RingAssignment>>,
         start: usize,
     },
     /// 燃料のリングごとの物質（UFG の範囲がないとき。燃料の領域だけ）
@@ -1220,6 +1250,7 @@ fn assign(
     fuel_regions: &std::ops::Range<usize>,
     region_material: &mut [usize],
     region_effective: &mut [Option<Arc<Vec<Shielded>>>],
+    region_transfers: &mut [Option<Transfers>],
 ) -> Result<(), SelfShieldingError> {
     match assigned {
         Assigned::Rings { materials, start } => {
@@ -1229,10 +1260,11 @@ fn assign(
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
             let first = lattice.cell_regions(cell).start;
             for (targets, material) in ring_targets(pin, first, *start).iter().zip(materials) {
-                if let Some((m, nuclides)) = material {
+                if let Some((m, nuclides, transfers)) = material {
                     for &region in targets {
                         region_material[region] = *m;
                         region_effective[region] = Some(nuclides.clone());
+                        region_transfers[region] = transfers.clone();
                     }
                 }
             }
@@ -1277,6 +1309,8 @@ struct PinRings<'a> {
     thinning: Option<f64>,
     /// 減速計算の散乱核の標的の扱い
     scattering: Scattering,
+    /// リングの物質の UFG の範囲の群の散乱行列の移行の形
+    transfer: UfgTransfer,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1299,6 +1333,8 @@ struct CellShielding {
     /// [リング][核種] の実効断面積（`rings` と同じリング。真空は `None`）。中心のリングは UFG の範囲の群がリングの値、範囲の外が
     /// 等価原理の値で、ほかのリングは範囲の外が無限希釈
     ring_nuclides: Vec<Option<Arc<Vec<Shielded>>>>,
+    /// [リング][核種] の UFG の範囲の群の弾性散乱の移行（`rings` と同じリング。[`UfgTransfer::RingFlux`] のときだけ）
+    ring_transfers: Vec<Option<Transfers>>,
     /// [リング][UFG の範囲の群] の SPH 因子
     sph: Vec<Vec<f64>>,
     /// `sph` の列の群
@@ -1321,6 +1357,8 @@ struct EquivalentCell<'a> {
     /// 減速計算した群
     groups: std::ops::Range<usize>,
     spectrum: CellSpectrum,
+    /// [リング][核種] の弾性散乱の移行（[`UfgTransfer::RingFlux`] のときだけ）
+    transfers: Option<Vec<Vec<NuclideTransfer>>>,
 }
 
 /// セル `pin.cell` の内側の `pin.rings` のリング（燃料は核種の並びの同じ物質、棒は同じ物質）を中心に、群ごとの Dancoff 係数 `dancoff` を合わせた
@@ -1425,15 +1463,32 @@ fn solve_equivalent_cell<'a>(
             .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
-    let spectrum = slowing_down_with(
-        library,
-        &cylinder,
-        &inputs,
-        range,
-        pin.collision,
-        pin.thinning,
-        pin.scattering,
-    )?;
+    let (spectrum, transfers) = match pin.transfer {
+        UfgTransfer::InfiniteDilution => (
+            slowing_down_with(
+                library,
+                &cylinder,
+                &inputs,
+                range,
+                pin.collision,
+                pin.thinning,
+                pin.scattering,
+            )?,
+            None,
+        ),
+        UfgTransfer::RingFlux => {
+            let (spectrum, transfers) = slowing_down_transfers(
+                library,
+                &cylinder,
+                &inputs,
+                range,
+                pin.collision,
+                pin.thinning,
+                pin.scattering,
+            )?;
+            (spectrum, Some(transfers))
+        }
+    };
     Ok(Some(EquivalentCell {
         radius,
         cylinder,
@@ -1442,6 +1497,7 @@ fn solve_equivalent_cell<'a>(
         frame: frame.is_some(),
         groups: top..bottom,
         spectrum,
+        transfers,
     }))
 }
 
@@ -1529,6 +1585,7 @@ fn shield_cell(
         frame,
         groups,
         spectrum,
+        transfers,
     } = &equivalent;
     let (top, bottom) = (groups.start, groups.end);
     let bounds = library.groups.bounds();
@@ -1537,13 +1594,16 @@ fn shield_cell(
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
     let mut ring_nuclides = Vec::with_capacity(inputs.len());
+    let mut ring_transfers = Vec::with_capacity(inputs.len());
     tracing::debug_span!("ring-materials").in_scope(|| -> Result<(), SelfShieldingError> {
         for (j, input) in inputs.iter().enumerate() {
             let Some(m) = input else {
                 rings.push(None);
                 ring_nuclides.push(None);
+                ring_transfers.push(None);
                 continue;
             };
+            let ring_transfer = transfers.as_ref().map(|t| &t[j]);
             let mut fulls = Vec::with_capacity(m.composition.len());
             let nuclides = m
                 .composition
@@ -1563,12 +1623,15 @@ fn shield_cell(
                         full.nu_fission[g] = ufg.nu_fission[g - top];
                         full.capture[g] = ufg.capture[g - top];
                     }
-                    let nuclide = shielded_nuclide(library, name, m.temperature, &full)?;
+                    let transfer = ring_transfer.map(|t| &t[k]);
+                    let nuclide =
+                        shielded_nuclide_with(library, name, m.temperature, &full, transfer)?;
                     fulls.push(full);
                     Ok((nuclide, *density))
                 })
                 .collect::<Result<Vec<_>, SelfShieldingError>>()?;
             ring_nuclides.push(Some(Arc::new(fulls)));
+            ring_transfers.push(ring_transfer.map(|t| Arc::new(t.clone())));
             let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
                 SelfShieldingError::Material {
                     name: m.name.clone(),
@@ -1619,6 +1682,7 @@ fn shield_cell(
     if *frame {
         rings.pop();
         ring_nuclides.pop();
+        ring_transfers.pop();
     }
 
     // 中心の物質（燃料か棒）の平均: そのリングの中性子束と体積の重み
@@ -1629,6 +1693,7 @@ fn shield_cell(
         start: *start,
         effective,
         ring_nuclides,
+        ring_transfers,
         sph,
         groups: top..bottom,
         points: spectrum.points,
@@ -1742,15 +1807,64 @@ pub fn shielded_nuclide(
     Ok(nuclide)
 }
 
-/// [`shielded_nuclide`] の、UFG の範囲の群の弾性散乱の移行 `transfer` を使うもの（未実装）
+/// [`shielded_nuclide`] の、UFG の範囲の群の弾性散乱の移行 `transfer` のある群の散乱行列を、その移行で作るもの（ADR-0207）。
+/// その群の P0 の行は、移行の行（弾性散乱。行の和は `shielded` の弾性散乱）に、ライブラリの行の和のうち無限希釈の弾性散乱を超える
+/// 分（非弾性散乱など。UFG の減速計算は扱わない）をライブラリの行の形で配ったものを足す（行の和は [`shielded_nuclide`] と同じ）。
+/// P1 以上の行は、要素ごとにライブラリの P_l/P0 を保つ（ライブラリの P0 が 0 の要素は 0）。ほかの群と、`transfer` がなければ
+/// すべての群は [`shielded_nuclide`] のまま
 pub fn shielded_nuclide_with(
     library: &Library,
     name: &str,
     temperature: f64,
     shielded: &Shielded,
-    _transfer: Option<&NuclideTransfer>,
+    transfer: Option<&NuclideTransfer>,
 ) -> Result<Nuclide, SelfShieldingError> {
-    shielded_nuclide(library, name, temperature, shielded)
+    let mut nuclide = shielded_nuclide(library, name, temperature, shielded)?;
+    let Some(transfer) = transfer else {
+        return Ok(nuclide);
+    };
+    let ng = library.groups.len();
+    let raw = library.nuclide(name, temperature)?;
+    let infinite = library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    let dilute = library.shielded(name, temperature, &vec![*infinite; ng])?;
+    if transfer.groups.end > ng || transfer.rows.len() != transfer.groups.len() {
+        return Err(SelfShieldingError::TransferGroups {
+            name: name.into(),
+            given: transfer.groups.end,
+            groups: ng,
+        });
+    }
+    for (g, row) in transfer.groups.clone().zip(&transfer.rows) {
+        if row.len() != ng {
+            return Err(SelfShieldingError::TransferGroups {
+                name: name.into(),
+                given: row.len(),
+                groups: ng,
+            });
+        }
+        let library_row = &raw.scatter[g];
+        let sum: f64 = library_row.iter().sum();
+        let other = if sum > 0.0 {
+            (sum - dilute.elastic[g]) / sum
+        } else {
+            0.0
+        };
+        let p0: Vec<f64> = row
+            .iter()
+            .zip(library_row)
+            .map(|(t, r)| t + other * r)
+            .collect();
+        for (moment, library_moment) in nuclide.anisotropic.iter_mut().zip(&raw.anisotropic) {
+            moment[g] = library_moment[g]
+                .iter()
+                .zip(library_row)
+                .zip(&p0)
+                .map(|((a, r), p)| if *r != 0.0 { a * p / r } else { 0.0 })
+                .collect();
+        }
+        nuclide.scatter[g] = p0;
+    }
+    Ok(nuclide)
 }
 
 /// 自己遮蔽の計算のエラー。
