@@ -45,8 +45,8 @@ issues: ["#0152"]
 
 ### 参照の条件の書き方
 
-条件の項目ごとの既定を速い方法の値にすると、参照の値（上限なし、収束まで、重い核種は静止した標的）を書く方法が要る（今までは省略が参照の
-値だった）。
+条件の項目ごとの既定を速い方法の値にすると、今まで省略で選んでいた値（軽い核種の上限なし、収束まで、重い核種は静止した標的）を書く方法が
+要る。参照（`{ upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }`）と ADR-0203 の参照（`heavy = false`、`sab = false`）は、これらで書く。
 
 - `upper = inf`、`sweeps = inf` を「上限なし」「収束まで」とし、重い核種を静止した標的にするのは `heavy = false`（採用）。`heavy = inf` は
   ADR-0204 のとおり上限なしの自由ガス。`inf` は TOML の浮動小数点の無限大で、`heavy` がすでに受け付けている書き方と揃う
@@ -60,7 +60,7 @@ issues: ["#0152"]
 
 - `ufg-scattering`: `"free-gas"`（今まで `"static"`）
 - `ufg-free-gas` の各項目: `upper = 400`、`cells = 2`、`sweeps = 3`、`heavy = 400`、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した
-  標的、false）。参照の値は `upper = inf`、`sweeps = inf`、`heavy = false` で書く（上の「参照の条件の書き方」）。`ufg-free-gas` は
+  標的、false）。今まで省略で選んでいた値は `upper = inf`、`sweeps = inf`、`heavy = false` で書く（上の「参照の条件の書き方」）。`ufg-free-gas` は
   `ufg-scattering` を省略しても書ける（`"static"` と組めば止める）
 - `ufg-transfer`: `"ring-flux"`（今まで `"infinite-dilution"`）
 
@@ -91,19 +91,26 @@ issues: ["#0152"]
   無限希釈の形）の値で、記録の先頭にそう書いた: examples/depletion（1C と 2A のほか。2A 以外の集合体、MOX-1 など）、branches、build-alignment、
   colorset、core、mox、split、vera（verification.md、verification-endfb70.md）。m0、m1、reflector は自己遮蔽をしない入力だけ、c5g7 は巨視的
   断面積で、UFG を使わない
-- 前の測定の試行の入力（examples/depletion/issue-0133 の、`ufg-free-gas` の一部の項目だけを書いたもの）は、省略した項目が今は速い方法の値に
-  なる。それらの記録の値は、記録に書いたコミットで再現する。集合体の自由ガスの試行の表は、静止した標的の本番の要約を試行の隣にコピーして比べる
+- 前の測定の試行の入力（examples/depletion/issue-0133 などの、`ufg-scattering`、`ufg-transfer` を書かないものと、`ufg-free-gas` の一部の
+  項目だけを書いたもの。`ufg-transfer/` の `dilute` の入力と `ufg-free-gas/` の `exact` の入力を含む）は、省略した項目が今は新しい既定の値に
+  なり、名前やコメントの設定と違う計算になる。入力は書き換えず、それらの記録の値は、記録に書いたコミットで再現する。集合体の自由ガスの試行の表は、静止した標的の本番の要約を試行の隣にコピーして比べる
   （`issue-0133/ufg-free-gas-assemblies/compare-<問題>-static.json`）
 - 参照（`{ upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }`）は重いまま（#0178、#0179）
+- 新しい既定で流したのは 1C と 2A だけで、間引いた格子の集合体のうち 2F（Pyrex）、2M（IFBA）、2N（WABA）、2O、2P（Gd）、2A-density、
+  2A-rods と examples/depletion/branches の入力は流していない。間引いた格子の移行の行が負になって `UfgError::Transfer` で止まる可能性は、
+  ADR-0208 の帰結のとおり残る（2A では止まらなかった）
 
 ## 確認
 
 - 入力の試験（`crates/lattice/src/input/tests.rs`）: `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`（省略した項目が速い方法の値、
-  `inf` と `heavy = false` で参照の値、`"static"` と `ufg-free-gas` を組めば止める）、`ufg_transfer_defaults_to_the_ring_flux_rows`、
+  `inf` と `heavy = false` で今まで省略で選んでいた値、`"static"` と `ufg-free-gas` を組めば止める）、`ufg_transfer_defaults_to_the_ring_flux_rows`、
   `static_targets_and_infinite_dilution_reproduce_the_former_defaults`（静止した標的と無限希釈の形を書いた入力の自己遮蔽の条件が、前の既定と
   同じ）。`crates/lattice/src/shielding/tests.rs` の `ring_flux_transfers_are_the_default_and_infinite_dilution_carries_no_rows`。ADR-0207 と
   ADR-0208 の「確認」の `infinite_dilution_transfers_are_the_default_and_carry_no_rows` と `ufg_transfer_defaults_to_the_infinite_dilution_rows` は、
   この 2 つに名前を変えた
+- 前の既定の結果がビットで同じこと: 1C のピンセルの新しい燃料（`issue-0133/pin-1C-0.toml` に `ufg-scattering = "static"`、
+  `ufg-transfer = "infinite-dilution"` と少数群定数の出力を足したもの）を、main の d90bcdf8f とこのブランチの `lattice` で解き、標準出力と
+  少数群定数のファイルの md5 が同じ（2026-10-28、手元）
 - 1C の燃焼（examples/depletion/verification.md「格子計算の燃焼」。xlc f434af311、2026-10-28、Slurm の timed のジョブ 563）: k の差（xlc − OpenMC）は
   1 リングで −61〜+73 → +29〜+136 pcm、4 リングで −10〜+50 → +78〜+126 pcm。xlc の k は 0 の点で +97.7（1 リング）、+97.2 pcm（4 リング）、
   5 MWd/kg で +63.7、+63.2 pcm 動き、0 の点から 5 MWd/kg への変化は +117.6 → +83.6 pcm（1 リング）、+44.9 → +11.0 pcm（4 リング）に縮む。
