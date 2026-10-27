@@ -14,6 +14,8 @@ MOX-2）、燃料のリングの数（`rings`、等しい面積に分け、リ�
 
 形状と組成は examples/mox/openmc_model.py の問題のもの（ギャップのない被覆管、ホウ素のない減速材）。燃焼の方式、輸送する核種の
 規則、run と extract の出力の形は openmc_depletion.py と同じ（ADR-0173、ADR-0183）で、extract の msgpack は compare_depletion.py が読む。
+`read`、`ring_radii`、`solve`、`extract` は openmc_depletion.py の同じ名前の関数のコピー（問題、形状、温度の扱いだけが違う）。
+共通の関数にすると、そちらを deps にする openmc-1C が古くなるのでコピーしている（#0132）。
 """
 
 import importlib.util
@@ -32,12 +34,10 @@ import openmc.deplete
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-sys.path.insert(0, str(HERE.parent / "vera"))
 sys.path.insert(0, str(HERE))
 from openmc_common import eigenvalue_settings, material
 from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
 from openmc_input import input_path, read_input
-from openmc_model import temperature_mode
 
 
 def load_mox_model():
@@ -131,12 +131,25 @@ def build(run: dict) -> tuple[openmc.Model, list[openmc.Material]]:
     settings = eigenvalue_settings(
         run["particles"], run["batches"], run["inactive"], run["seed"], MOX.PITCH / 2
     )
-    settings.temperature = temperature_mode(cold)
+    # ライブラリにある温度の表だけを使う（kT から K に直すときの丸めのために 1 K の幅を許す）。燃焼のライブラリは入力の温度
+    # そのものの表を持ち、内挿の要る温度（VERA の 565 K の S(α,β)）を持たない
+    settings.temperature = {"method": "nearest", "tolerance": 1.0}
     settings.output = {"summary": False, "tallies": False}
     model = openmc.Model(
         openmc.Geometry(cells), openmc.Materials([*fuels, clad, water]), settings
     )
     return model, fuels
+
+
+def check_transportable(run: dict, transportable: list[str]) -> None:
+    """初めの燃料の核種がすべて燃料で輸送される（ライブラリが燃料の温度で持つ）ことを確かめる。欠けると TimedOperator は
+    その核種を崩壊だけにし、輸送を解き終えてから比較の検査で分かるので、輸送の前に止める。"""
+    missing = sorted(set(MOX.FUEL[run["problem"]]) - set(transportable))
+    if missing:
+        raise SystemExit(
+            f"the library has no data at {run['fuel-temperature']} K for the fuel "
+            f"nuclides {missing}"
+        )
 
 
 def solve(source: Path, work: Path) -> None:
@@ -146,7 +159,6 @@ def solve(source: Path, work: Path) -> None:
     os.environ["OMP_NUM_THREADS"] = str(run["threads"])
     openmc.config["cross_sections"] = run["cross-sections"]
     model, _ = build(run)
-    # 演算子と積分器の引数は openmc_depletion.py の solve と同じ。そちらを共通の関数にすると openmc-1C が古くなる（#0132）
     TimedOperator.fuel_temperature = float(run["fuel-temperature"])
     operator = TimedOperator(
         model,
@@ -156,6 +168,7 @@ def solve(source: Path, work: Path) -> None:
         fission_yield_opts={"cutoff": YIELD_CUTOFF},
         reaction_rate_mode="direct",
     )
+    check_transportable(run, TimedOperator.transportable)
     burnup = run["burnup"]
     steps = [b - a for a, b in itertools.pairwise([0.0, *burnup])]
     integrator = openmc.deplete.CECMIntegrator(
