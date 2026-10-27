@@ -135,7 +135,7 @@ pub enum SelfShieldingError {
     FluxGroups { given: usize, groups: usize },
     #[error("cell {0}: the SPH factors do not match the rings and groups of the cell")]
     SphLayout(usize),
-    #[error("{name}: transfer rows of {given} groups for {groups} groups (internal error)")]
+    #[error("{name}: {given} transfer rows (or row entries) for {groups} groups (internal error)")]
     TransferGroups {
         name: String,
         given: usize,
@@ -1787,10 +1787,49 @@ pub fn shielded_nuclide(
     temperature: f64,
     shielded: &Shielded,
 ) -> Result<Nuclide, SelfShieldingError> {
+    shielded_nuclide_with(library, name, temperature, shielded, None)
+}
+
+/// [`shielded_nuclide`] の、UFG の範囲の群の弾性散乱の移行 `transfer` のある群の散乱行列を、その移行で作るもの（ADR-0207）。
+/// その群の P0 の行は、移行の行（弾性散乱。行の和は `shielded` の弾性散乱）に、ライブラリの行の和のうち無限希釈の弾性散乱を超える
+/// 分（非弾性散乱など。UFG の減速計算は扱わない）をライブラリの行の形で配ったものを足す（ライブラリの行の和が正なら、行の和は
+/// [`shielded_nuclide`] と同じ。行の和が 0 の群は、[`shielded_nuclide`] が 0 のまま残す弾性散乱を移行の行で入れる）。P1 以上の行は、
+/// 要素ごとにライブラリの P_l/P0 を保つ（ライブラリの P0 が 0 の要素は 0）。ほかの群と、`transfer` がなければすべての群は
+/// [`shielded_nuclide`] のまま
+pub fn shielded_nuclide_with(
+    library: &Library,
+    name: &str,
+    temperature: f64,
+    shielded: &Shielded,
+    transfer: Option<&NuclideTransfer>,
+) -> Result<Nuclide, SelfShieldingError> {
     let mut nuclide = library.nuclide(name, temperature)?;
     let ng = library.groups.len();
     let infinite = library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let dilute = library.shielded(name, temperature, &vec![*infinite; ng])?;
+    // 移行の行で作る群の、ライブラリの P0〜P_L の行（下で ADR-0076 の比を掛ける前のもの）
+    let library_rows: Vec<(usize, Vec<Vec<f64>>)> = match transfer {
+        None => Vec::new(),
+        Some(t) => {
+            if t.groups.end > ng || t.rows.len() != t.groups.len() {
+                return Err(SelfShieldingError::TransferGroups {
+                    name: name.into(),
+                    given: t.rows.len(),
+                    groups: t.groups.len(),
+                });
+            }
+            t.groups
+                .clone()
+                .map(|g| {
+                    let rows = std::iter::once(&nuclide.scatter)
+                        .chain(&nuclide.anisotropic)
+                        .map(|m| m[g].clone())
+                        .collect();
+                    (g, rows)
+                })
+                .collect()
+        }
+    };
     // 弾性散乱の変化を P0 の行の和に入れ、どの次数の行も同じ比で変える（角度分布の形は変えない）
     for g in 0..ng {
         let sum: f64 = nuclide.scatter[g].iter().sum();
@@ -1801,69 +1840,41 @@ pub fn shielded_nuclide(
                 .for_each(|m| m[g].iter_mut().for_each(|v| *v *= factor));
         }
     }
+    if let Some(t) = transfer {
+        for ((g, rows), row) in library_rows.into_iter().zip(&t.rows) {
+            if row.len() != ng {
+                return Err(SelfShieldingError::TransferGroups {
+                    name: name.into(),
+                    given: row.len(),
+                    groups: ng,
+                });
+            }
+            let library_row = &rows[0];
+            let sum: f64 = library_row.iter().sum();
+            let other = if sum > 0.0 {
+                (sum - dilute.elastic[g]) / sum
+            } else {
+                0.0
+            };
+            let p0: Vec<f64> = row
+                .iter()
+                .zip(library_row)
+                .map(|(t, r)| t + other * r)
+                .collect();
+            for (moment, library_moment) in nuclide.anisotropic.iter_mut().zip(&rows[1..]) {
+                moment[g] = library_moment
+                    .iter()
+                    .zip(library_row)
+                    .zip(&p0)
+                    .map(|((a, r), p)| if *r != 0.0 { a * p / r } else { 0.0 })
+                    .collect();
+            }
+            nuclide.scatter[g] = p0;
+        }
+    }
     nuclide.total.clone_from(&shielded.total);
     nuclide.fission.clone_from(&shielded.fission);
     nuclide.nu_fission.clone_from(&shielded.nu_fission);
-    Ok(nuclide)
-}
-
-/// [`shielded_nuclide`] の、UFG の範囲の群の弾性散乱の移行 `transfer` のある群の散乱行列を、その移行で作るもの（ADR-0207）。
-/// その群の P0 の行は、移行の行（弾性散乱。行の和は `shielded` の弾性散乱）に、ライブラリの行の和のうち無限希釈の弾性散乱を超える
-/// 分（非弾性散乱など。UFG の減速計算は扱わない）をライブラリの行の形で配ったものを足す（行の和は [`shielded_nuclide`] と同じ）。
-/// P1 以上の行は、要素ごとにライブラリの P_l/P0 を保つ（ライブラリの P0 が 0 の要素は 0）。ほかの群と、`transfer` がなければ
-/// すべての群は [`shielded_nuclide`] のまま
-pub fn shielded_nuclide_with(
-    library: &Library,
-    name: &str,
-    temperature: f64,
-    shielded: &Shielded,
-    transfer: Option<&NuclideTransfer>,
-) -> Result<Nuclide, SelfShieldingError> {
-    let mut nuclide = shielded_nuclide(library, name, temperature, shielded)?;
-    let Some(transfer) = transfer else {
-        return Ok(nuclide);
-    };
-    let ng = library.groups.len();
-    let raw = library.nuclide(name, temperature)?;
-    let infinite = library.sigma0.first().ok_or(LookupError::NoSigma0)?;
-    let dilute = library.shielded(name, temperature, &vec![*infinite; ng])?;
-    if transfer.groups.end > ng || transfer.rows.len() != transfer.groups.len() {
-        return Err(SelfShieldingError::TransferGroups {
-            name: name.into(),
-            given: transfer.groups.end,
-            groups: ng,
-        });
-    }
-    for (g, row) in transfer.groups.clone().zip(&transfer.rows) {
-        if row.len() != ng {
-            return Err(SelfShieldingError::TransferGroups {
-                name: name.into(),
-                given: row.len(),
-                groups: ng,
-            });
-        }
-        let library_row = &raw.scatter[g];
-        let sum: f64 = library_row.iter().sum();
-        let other = if sum > 0.0 {
-            (sum - dilute.elastic[g]) / sum
-        } else {
-            0.0
-        };
-        let p0: Vec<f64> = row
-            .iter()
-            .zip(library_row)
-            .map(|(t, r)| t + other * r)
-            .collect();
-        for (moment, library_moment) in nuclide.anisotropic.iter_mut().zip(&raw.anisotropic) {
-            moment[g] = library_moment[g]
-                .iter()
-                .zip(library_row)
-                .zip(&p0)
-                .map(|((a, r), p)| if *r != 0.0 { a * p / r } else { 0.0 })
-                .collect();
-        }
-        nuclide.scatter[g] = p0;
-    }
     Ok(nuclide)
 }
 
