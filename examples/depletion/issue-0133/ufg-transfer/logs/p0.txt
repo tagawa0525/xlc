@@ -1,0 +1,4 @@
+1C-0 dilute k 1.171938
+1C-0 ring k 1.172009
+2A-40 dilute k 0.825962
+2A-40 ring k 0.825613
