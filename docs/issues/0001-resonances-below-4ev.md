@@ -26,7 +26,7 @@ U-238 −1%）ので、核種の間の干渉も入っていない。Pu-240 の 1
   1次元の CP を解く
 - C. 表を引く方式を 1.25〜1.86 eV で止める（MPACT、Polaris、HELIOS、nTRACER。今の xlc と同じ系統）
 
-関係する ADR: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0052](../adr/0052-scatter-h-in-h2o-by-sab.md)、[ADR-0069](../adr/0069-cap-cell-slowing-down-at-20-kev.md)、[ADR-0073](../adr/0073-store-pointwise-data-in-library.md)、[ADR-0074](../adr/0074-shield-outside-range-by-equivalence.md)、[ADR-0205](../adr/0205-scatter-h-in-h2o-by-sab-in-ufg.md)
+関係する ADR: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0052](../adr/0052-scatter-h-in-h2o-by-sab.md)、[ADR-0069](../adr/0069-cap-cell-slowing-down-at-20-kev.md)、[ADR-0073](../adr/0073-store-pointwise-data-in-library.md)、[ADR-0074](../adr/0074-shield-outside-range-by-equivalence.md)、[ADR-0205](../adr/0205-scatter-h-in-h2o-by-sab-in-ufg.md)、[ADR-0206](../adr/0206-deplete-mox1-pincell-at-the-1c-conditions.md)
 
 ## 完了の条件
 
