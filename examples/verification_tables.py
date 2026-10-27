@@ -605,6 +605,41 @@ def depletion_assembly_k(sources: list[dict]) -> str:
     return markdown_table(["燃焼度 (MWd/kg)", "差 (pcm)", "変化 (pcm)"], rows)
 
 
+def depletion_assembly_free_gas_k(sources: list[dict]) -> str:
+    """集合体の燃焼: 静止した標的の本番と自由ガスの試行の、燃焼点ごとの k∞ の差（xlc − OpenMC。± は OpenMC の標準偏差）と 0 の点からの変化"""
+    base, trial = (assembly_checked(s) for s in sources)
+    if base["problem"] != trial["problem"]:
+        raise TableError(
+            f"problems {base['problem']} and {trial['problem']} are not the same"
+        )
+    if base["burnup"] != trial["burnup"]:
+        raise TableError("the two summaries have different burnup points")
+    rows = []
+    for b, kb, kt in zip(base["burnup"], base["k"], trial["k"], strict=True):
+        if kb["openmc_std_pcm"] != kt["openmc_std_pcm"]:
+            raise TableError(f"the OpenMC errors differ at {b} MWd/kg")
+        std = f"{kb['openmc_std_pcm']:.0f}"
+        rows.append(
+            [
+                burnup_label(b),
+                f"{signed(kb['diff_pcm'], 0)} ± {std}",
+                signed(kb["change_pcm"], 0),
+                f"{signed(kt['diff_pcm'], 0)} ± {std}",
+                signed(kt["change_pcm"], 0),
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "静止した標的 差 (pcm)",
+            "静止した標的 変化 (pcm)",
+            "自由ガス 差 (pcm)",
+            "自由ガス 変化 (pcm)",
+        ],
+        rows,
+    )
+
+
 def assembly_density_table(s: dict, columns: list[tuple[str, list]]) -> str:
     rows = [
         [burnup_label(b)] + [percent_or_dash(series[i]) for _, series in columns]
@@ -1188,6 +1223,8 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
+    "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json",
+    "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
 }
 
 
@@ -1428,6 +1465,16 @@ TABLES = {
         ["examples/depletion/branches/compare-shielding-boron.json"],
         branch_shielding_constants,
     ),
+    **{
+        f"depletion-{job.lower()}-free-gas-k": (
+            [
+                f"examples/depletion/p2/compare-{job}.json",
+                f"examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-{job}-fg.json",
+            ],
+            depletion_assembly_free_gas_k,
+        )
+        for job in ("2A", "2O")
+    },
     "depletion-assembly-times": (
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
         depletion_assembly_times,

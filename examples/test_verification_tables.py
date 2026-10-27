@@ -777,6 +777,81 @@ class DrawAssemblyDepletion(unittest.TestCase):
                 draw([{"format": "xlc-compare-depletion"}])
 
 
+class DrawAssemblyFreeGas(unittest.TestCase):
+    def summary(self, diffs: list[float]) -> dict:
+        """compare_depletion_assembly.py の要約（k だけ。2 点）"""
+        return {
+            "format": "xlc-compare-depletion-assembly",
+            "problem": "2A",
+            "burnup": [0.0, 60.0],
+            "k": [
+                {
+                    "diff_pcm": d,
+                    "openmc_std_pcm": 9.6,
+                    "change_pcm": d - diffs[0],
+                }
+                for d in diffs
+            ],
+        }
+
+    def test_each_point_has_the_difference_and_the_change_of_both_kernels(self):
+        table = vt.depletion_assembly_free_gas_k(
+            [self.summary([10.6, 179.6]), self.summary([42.2, 152.4])]
+        )
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")
+        ]
+        self.assertEqual(
+            rows[0],
+            [
+                "燃焼度 (MWd/kg)",
+                "静止した標的 差 (pcm)",
+                "静止した標的 変化 (pcm)",
+                "自由ガス 差 (pcm)",
+                "自由ガス 変化 (pcm)",
+            ],
+        )
+        self.assertEqual(rows[2], ["0", "+11 \u00b1 10", "0", "+42 \u00b1 10", "0"])
+        self.assertEqual(
+            rows[3], ["60", "+180 \u00b1 10", "+169", "+152 \u00b1 10", "+110"]
+        )
+
+    def test_summaries_with_different_burnups_are_an_error(self):
+        other = self.summary([42.2, 152.4])
+        other["burnup"] = [0.0, 50.0]
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_free_gas_k([self.summary([10.6, 179.6]), other])
+
+    def test_the_tables_compare_the_production_run_with_the_tracked_trial(self):
+        for job in ("2A", "2O"):
+            sources, draw = vt.TABLES[f"depletion-{job.lower()}-free-gas-k"]
+            self.assertEqual(
+                sources,
+                [
+                    f"examples/depletion/p2/compare-{job}.json",
+                    (
+                        "examples/depletion/issue-0133/ufg-free-gas-assemblies/"
+                        f"compare-{job}-fg.json"
+                    ),
+                ],
+            )
+            self.assertIs(draw, vt.depletion_assembly_free_gas_k)
+            self.assertIn(sources[1], vt.GIT_TRACKED)
+
+    def test_summaries_of_different_problems_are_an_error(self):
+        other = self.summary([42.2, 152.4])
+        other["problem"] = "2O"
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_free_gas_k([self.summary([10.6, 179.6]), other])
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_free_gas_k(
+                [self.summary([1.0, 2.0]), {"format": "xlc-compare-depletion"}]
+            )
+
+
 class DrawCoreDepletion(unittest.TestCase):
     def summary(self) -> dict:
         """compare_core_depletion.py の要約（テーブルの点 1 つと点の間 1 つ）"""
