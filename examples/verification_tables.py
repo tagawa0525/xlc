@@ -1211,8 +1211,33 @@ def ufg_free_gas_tilt(
 
 
 def ufg_free_gas_transfers(sources: list[dict]) -> str:
-    """ADR-0205 の UFG の散乱核ごとの、物質の移行の行を OpenMC の値に置き換えて測る k への寄与（pcm）"""
-    raise TableError("not drawn yet")
+    """ADR-0205 の UFG の散乱核ごとの、物質の移行の行を OpenMC の値に置き換えて測る k への寄与（pcm）。移行の置き換えを流した
+    散乱核だけを並べ、要約の列（`transfers`）の置き換えが無ければ止める"""
+    s = ufg_free_gas_summary(sources)
+    columns = s.get("transfers", [])
+    if not columns:
+        raise TableError("the summary lists no transfer swaps")
+    rows = []
+    for t in s["states"]:
+        for mode in s["modes"]:
+            values = t["results"].get(mode["key"], {}).get("transfers")
+            if values is None:
+                continue
+            missing = [c["spec"] for c in columns if c["spec"] not in values]
+            if missing:
+                raise TableError(
+                    f"{t['name']}, {mode['label']}: no transfer swaps {missing}"
+                )
+            rows.append(
+                [
+                    t["name"],
+                    mode["label"],
+                    *(signed(values[c["spec"]], 1) for c in columns),
+                ]
+            )
+    if not rows:
+        raise TableError("no transfer logs")
+    return markdown_table(["状態", "散乱核", *(c["label"] for c in columns)], rows)
 
 
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
