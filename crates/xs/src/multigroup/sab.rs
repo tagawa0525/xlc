@@ -12,6 +12,7 @@ use super::free_gas::{gaussian_law_moments, integrate_points};
 use crate::endf::{Interpolation, Mf7Incoherent};
 use crate::physics::BK;
 use xlc_format::group::GroupStructure;
+use xlc_format::library::SabTransfer;
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
 
 /// LAT=1 の表で α, β に使う kT0 (eV)（ENDF の定義）
@@ -44,6 +45,10 @@ pub enum SabOutside {
     Zero,
 }
 
+/// UFG の減速計算が上方散乱を扱う幅（kT の倍数）。lattice の自由ガスの核の上端の側の区間の幅 `TAIL` と同じで、上方散乱の裾
+/// e^{−(E−E')/kT} がここで e^{−28} ≈ 7e−13 に下がる（ステージのクレートは互いに依存しないので、値をそろえて書く）
+pub const UFG_TAIL: f64 = 28.0;
+
 /// THERMR が S = 0 の格子点に接する区間を短時間衝突近似で補う、α A と β の下限（thermr.f90 の `sig` の test2）
 const SHORT_COLLISION_LIMIT: f64 = 30.0;
 
@@ -68,6 +73,10 @@ pub enum SabError {
     AboveEvaluated { cutoff: f64, evaluated: f64 },
     #[error("no effective temperature of S(α, β) at {0} K")]
     EffectiveTemperature(f64),
+    #[error(
+        "S(α, β) limit {cutoff} eV is below {lowest} eV, so no S(α, β) scattering reaches the UFG range"
+    )]
+    TransferRange { cutoff: f64, lowest: f64 },
     #[error(
         "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
     )]
@@ -274,6 +283,17 @@ impl<'a> ThermalSab<'a> {
             .zip(&short)
             .map(|(t, s)| factor * t + common * s)
             .collect()
+    }
+
+    /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。`groups` は散乱断面積（行の積分）を
+    /// 求める群構造。
+    pub fn ufg_transfer(&self, groups: &GroupStructure, low: f64) -> Result<SabTransfer, SabError> {
+        let _ = (groups, low);
+        Ok(SabTransfer {
+            incident: Vec::new(),
+            transfer: Vec::new(),
+            density: Vec::new(),
+        })
     }
 
     /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
