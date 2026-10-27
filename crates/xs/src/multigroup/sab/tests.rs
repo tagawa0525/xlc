@@ -372,44 +372,55 @@ fn ufg_transfer_covers_the_ufg_reach() {
     // 入射は UFG の下限から上方散乱の届く幅（表の最高温度の UFG_TAIL kT）下から S(α, β) の上限まで、移行は出射 0 eV から
     // 上方散乱の届く幅まで
     let data = free_gas_table();
-    let table = free_gas_up_to_10_ev(&data)
-        .ufg_transfer(&GroupStructure::wims69(), 4.0)
-        .unwrap();
+    let table = free_gas_up_to_10_ev(&data).ufg_transfer(4.0).unwrap();
     let reach = UFG_TAIL * BK * TEMPERATURE;
     assert!(table.incident[0] <= 4.0 - reach);
     assert_eq!(*table.incident.last().unwrap(), 10.0);
     assert!(table.transfer[0] <= -10.0);
     assert!(*table.transfer.last().unwrap() >= reach);
-    // 移行 0（核の折れ）は格子点
+    // 移行 0（核の対数の山）は格子点
     assert!(table.transfer.contains(&0.0));
 }
 
+/// 入射 `e` で比べる出射: UFG の下限、下方散乱の遠く、山の両側の近く、上方散乱の裾
+fn ufg_outgoing(e: f64, kt: f64) -> [f64; 8] {
+    [
+        0.5 * e,
+        4.0,
+        0.9 * e,
+        e - 3.0 * kt,
+        e - 0.3 * kt,
+        e + 0.5 * kt,
+        e + 2.0 * kt,
+        e + 9.0 * kt,
+    ]
+}
+
+/// 群の積分 `integrals`（入射 e の、出射が [e_out, 上] と [下, e_out] の 2 群の構造で、群の外は端の群に入るもの）から、
+/// 出射が e_out 以下の割合
+fn share_below(integrals: &[f64]) -> f64 {
+    integrals[1] / integrals.iter().sum::<f64>()
+}
+
+/// 出射 `e_out` を境にした 2 群の構造（群の外は端の群に入るので、上の群は e_out より上、下の群は e_out 以下のすべて）
+fn split_at(e_out: f64) -> GroupStructure {
+    GroupStructure::new(vec![1.0e3, e_out, 1.0e-3]).unwrap()
+}
+
 #[test]
-fn ufg_transfer_of_a_free_gas_table_is_the_normalized_free_gas_kernel() {
-    // 自由ガスの S(α, β) の移行は、自由ガスの核を、その全体の積分（散乱断面積）で割ったもの。格子点の間（入射の ln E と移行の
-    // 補間）でも、表の補間の誤差の範囲で合う
+fn ufg_transfer_between_grid_points_is_the_share_of_the_kernel() {
+    // 格子点の間（入射の ln E と移行の補間）の累積の割合は、同じ S(α, β) の核の、出射がそれ以下の割合と合う。格子点の
+    // 間の核を一定とする補間の誤差は、移行の格子の幅の中の核の変わり方の分
     let data = free_gas_table();
     let sab = free_gas_up_to_10_ev(&data);
-    let groups = GroupStructure::wims69();
-    let table = sab.ufg_transfer(&groups, 4.0).unwrap();
+    let table = sab.ufg_transfer(4.0).unwrap();
     let kt = BK * TEMPERATURE;
     for e in [4.0, 5.3, 7.77, 9.99] {
-        let total: f64 = free_gas_group_integrals(&groups, e, 1.0, kt).iter().sum();
-        let peak = free_gas_kernel(e, e, 1.0, kt) / total;
-        for e_out in [
-            0.5 * e,
-            4.0,
-            0.9 * e,
-            e - 3.0 * kt,
-            e - 0.3 * kt,
-            e + 0.5 * kt,
-            e + 2.0 * kt,
-            e + 9.0 * kt,
-        ] {
-            let expected = free_gas_kernel(e, e_out, 1.0, kt) / total;
-            let value = table.at(e, e_out).unwrap();
+        for e_out in ufg_outgoing(e, kt) {
+            let expected = share_below(&sab.group_integrals(&split_at(e_out), e));
+            let value = table.cumulative_at(e, e_out - e).unwrap();
             assert!(
-                (value - expected).abs() <= 2e-3 * expected + 1e-6 * peak,
+                (value - expected).abs() <= 1e-4,
                 "{e} → {e_out}: {value} vs {expected}"
             );
         }
@@ -417,22 +428,35 @@ fn ufg_transfer_of_a_free_gas_table_is_the_normalized_free_gas_kernel() {
 }
 
 #[test]
-fn ufg_transfer_rows_integrate_to_one() {
-    // 行は散乱断面積で割ってあるので、出射の全体（0 eV から）で積分すると 1（中性子を失わず、増やさない）。行は移行について
-    // 線形なので台形則
+fn ufg_transfer_of_a_free_gas_table_is_the_free_gas_share() {
+    // 自由ガスの S(α, β) の累積の割合は、自由ガスの核の、出射がそれ以下の割合。表そのものの補間と表の外の短時間衝突近似の
+    // 誤差で、この表の 4〜10 eV の散乱断面積は解析式と 0.3〜0.5% 違い、表の核の割合そのものが解析式と 1.7e−3 まで違う
     let data = free_gas_table();
-    let table = free_gas_up_to_10_ev(&data)
-        .ufg_transfer(&GroupStructure::wims69(), 4.0)
-        .unwrap();
+    let sab = free_gas_up_to_10_ev(&data);
+    let table = sab.ufg_transfer(4.0).unwrap();
+    let kt = BK * TEMPERATURE;
+    for e in [4.0, 5.3, 7.77, 9.99] {
+        for e_out in ufg_outgoing(e, kt) {
+            let expected = share_below(&free_gas_group_integrals(&split_at(e_out), e, 1.0, kt));
+            let value = table.cumulative_at(e, e_out - e).unwrap();
+            assert!(
+                (value - expected).abs() <= 2e-3,
+                "{e} → {e_out}: {value} vs {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn ufg_transfer_rows_rise_from_zero_to_one() {
+    // 行は散乱断面積で割った累積なので、出射 0 eV で 0、上方散乱の届く幅で 1（中性子を失わず、増やさない）
+    let data = free_gas_table();
+    let table = free_gas_up_to_10_ev(&data).ufg_transfer(4.0).unwrap();
     assert!(table.incident.len() > 1);
-    for (e, row) in table.incident.iter().zip(&table.density) {
-        let sum: f64 = table
-            .transfer
-            .windows(2)
-            .zip(row.windows(2))
-            .map(|(t, p)| 0.5 * (t[1] - t[0]) * (p[0] + p[1]))
-            .sum();
-        assert!((sum - 1.0).abs() < 1e-3, "{e} eV: {sum}");
+    for (e, row) in table.incident.iter().zip(&table.cumulative) {
+        assert_eq!(row[0], 0.0, "{e} eV");
+        let last = row[row.len() - 1];
+        assert!((last - 1.0).abs() < 1e-12, "{e} eV: {last}");
     }
 }
 
@@ -442,7 +466,7 @@ fn ufg_transfer_needs_the_limit_above_the_ufg_reach() {
     let data = free_gas_table();
     let sab = ThermalSab::new(&data, TEMPERATURE, 2.0, SabOutside::ShortCollisionTime).unwrap();
     assert!(matches!(
-        sab.ufg_transfer(&GroupStructure::wims69(), 4.0),
+        sab.ufg_transfer(4.0),
         Err(SabError::TransferRange { .. })
     ));
 }

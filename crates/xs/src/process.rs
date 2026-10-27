@@ -790,21 +790,31 @@ impl Common<'_> {
         };
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
-        let thermal = match self.thermal {
+        // S(α, β) の核種は、UFG の減速計算に使う S(α, β) の移行の表も作る（ポイントワイズの範囲があるときだけ。ADR-0205）
+        let (thermal, sab_transfer) = match self.thermal {
             Some(thermal) => {
                 let (upper, free_gas_upper) = thermal.limits()?;
-                Thermal::Sab {
-                    sab: ThermalSab::new(&thermal.data, temperature, upper, thermal.outside)?,
+                let sab = ThermalSab::new(&thermal.data, temperature, upper, thermal.outside)?;
+                let transfer = settings
+                    .pointwise_range
+                    .map(|(low, _)| sab.ufg_transfer(low))
+                    .transpose()?;
+                let thermal = Thermal::Sab {
+                    sab,
                     free_gas: FreeGas {
                         kt: BK * temperature,
                         cutoff: free_gas_upper,
                     },
-                }
+                };
+                (thermal, transfer)
             }
-            None => Thermal::FreeGas(FreeGas {
-                kt: BK * temperature,
-                cutoff: settings.thermal_cutoff,
-            }),
+            None => (
+                Thermal::FreeGas(FreeGas {
+                    kt: BK * temperature,
+                    cutoff: settings.thermal_cutoff,
+                }),
+                None,
+            ),
         };
         let elastic_table = tables.get(&2).ok_or(ProcessError::MissingMf3(2))?;
         let elastic_only = BTreeMap::from([(2, elastic_table.clone())]);
@@ -883,7 +893,7 @@ impl Common<'_> {
             shielded,
             pointwise,
             reactions,
-            sab_transfer: None,
+            sab_transfer,
         })
     }
 }

@@ -49,6 +49,12 @@ pub enum SabOutside {
 /// e^{−(E−E')/kT} がここで e^{−28} ≈ 7e−13 に下がる（ステージのクレートは互いに依存しないので、値をそろえて書く）
 pub const UFG_TAIL: f64 = 28.0;
 
+/// UFG の S(α, β) の移行の表の、入射の格子の間隔（レサジー）と移行の格子の間隔 (eV)。ENDF/B-VIII.0 の H in H2O の 600 K で、
+/// 入射の格子点の間の WIMS 69 群の出射の群の割合の誤差が 1.7e−5、累積の割合の誤差が 1.9e−4（準弾性散乱の山を含む移行の
+/// 区間の中。格子点の上では累積は正しい）。測り方は examples/sab_transfer_error.rs、比べた間隔は ADR-0205
+const TRANSFER_INCIDENT_STEP: f64 = 0.01;
+const TRANSFER_STEP: f64 = 0.005;
+
 /// THERMR が S = 0 の格子点に接する区間を短時間衝突近似で補う、α A と β の下限（thermr.f90 の `sig` の test2）
 const SHORT_COLLISION_LIMIT: f64 = 30.0;
 
@@ -285,14 +291,61 @@ impl<'a> ThermalSab<'a> {
             .collect()
     }
 
-    /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。`groups` は散乱断面積（行の積分）を
-    /// 求める群構造。
-    pub fn ufg_transfer(&self, groups: &GroupStructure, low: f64) -> Result<SabTransfer, SabError> {
-        let _ = (groups, low);
+    /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。
+    pub fn ufg_transfer(&self, low: f64) -> Result<SabTransfer, SabError> {
+        self.ufg_transfer_on(low, TRANSFER_INCIDENT_STEP, TRANSFER_STEP)
+    }
+
+    /// [`ThermalSab::ufg_transfer`] を、入射の格子の間隔 `du`（レサジー）と移行の格子の間隔 `dt` (eV) で作る。入射は上限から
+    /// 下へ間隔 `du` で、UFG の下限から上方散乱の届く幅（表の最も高い温度の [`UFG_TAIL`] kT）下まで、移行は間隔 `dt` の
+    /// 倍数（核の山の 0 を含む）で、出射 0 eV から上方散乱の届く幅まで。格子は温度によらないので、温度の間で点ごとに内挿
+    /// できる（ADR-0080）
+    pub fn ufg_transfer_on(&self, low: f64, du: f64, dt: f64) -> Result<SabTransfer, SabError> {
+        let hottest = self
+            .data
+            .temperatures
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
+        let reach = UFG_TAIL * BK * hottest;
+        let lowest = low - reach;
+        if !(lowest > 0.0 && self.cutoff > lowest) {
+            return Err(SabError::TransferRange {
+                cutoff: self.cutoff,
+                lowest,
+            });
+        }
+        let n = ((self.cutoff / lowest).ln() / du).ceil() as usize;
+        let incident: Vec<f64> = (0..=n)
+            .map(|i| self.cutoff * (-((n - i) as f64) * du).exp())
+            .collect();
+        let (below, above) = ((self.cutoff / dt).ceil() as i64, (reach / dt).ceil() as i64);
+        let transfer: Vec<f64> = (-below..=above).map(|k| k as f64 * dt).collect();
+        // 行ごとに、出射 E + t の格子点を境にした群で核を積分し、下から足す（群の外の割合は端の群に入るので、行の和は散乱断面積）。
+        // 核は E' = E に対数の山を持つので、点の値を補間せず、群の積分（山を区切りにして細かく分ける）から累積を作る
+        let cumulative = crate::parallel::in_parallel(incident.len(), |i| {
+            let e = incident[i];
+            let first = transfer.partition_point(|&t| e + t <= 0.0);
+            let bounds: Vec<f64> = transfer[first..].iter().rev().map(|&t| e + t).collect();
+            let groups = GroupStructure::new(bounds).map_err(|_| SabError::TransferRange {
+                cutoff: self.cutoff,
+                lowest,
+            })?;
+            let masses = self.group_integrals(&groups, e);
+            let total: f64 = masses.iter().sum();
+            let mut row = vec![0.0; transfer.len()];
+            let mut sum = 0.0;
+            // 群は出射の降順なので、最後の群から足す。格子点 first の累積は 0（出射 0 eV からその点までの割合は最下位の群に入る）
+            for (k, mass) in masses.iter().rev().enumerate() {
+                sum += mass;
+                row[first + k + 1] = sum / total;
+            }
+            Ok::<_, SabError>(row)
+        })?;
         Ok(SabTransfer {
-            incident: Vec::new(),
-            transfer: Vec::new(),
-            density: Vec::new(),
+            incident,
+            transfer,
+            cumulative,
         })
     }
 
