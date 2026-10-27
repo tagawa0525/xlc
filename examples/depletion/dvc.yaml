@@ -187,6 +187,7 @@ stages:
       - openmc_depletion.py
       - ../mox/openmc_model.py
       - ../vera/openmc_model.py
+      - ../vera/openmc_tallies.py
       - ../openmc_common.py
       - ../openmc_input.py
       - ../openmc_run.py
