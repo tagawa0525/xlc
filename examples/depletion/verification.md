@@ -1432,7 +1432,7 @@ RUST_LOG=xlc_lattice=debug <lattice> 2A-1step.toml > /dev/null 2> 2A-1step.log
 
 #### 計算
 
-直す前は b48418e2（main の 45dcd41b に内訳のログだけを足したもの）、直した後は 42e1f37f（分岐点は同じ）、2026-10-28、Slurm の timed の
+直す前は e6446b79（main の 45dcd41b に内訳のログだけを足したもの）、直した後は d2d90202（分岐点は同じ）、2026-10-28、Slurm の timed の
 ジョブ 568（16 スレッド）。ジョブは最初の自己遮蔽の区間が閉じたところで lattice を止めた（最初の自己遮蔽の時間と値は、その後の計算に
 よらない）。要約のログ（ピンごとの `UFG slowing down`、`UFG free-gas sweep`、自己遮蔽の区間の行）は `issue-0180/logs/`。ライブラリは examples/depletion/depletion.msgpack と
 examples/depletion/p2/depletion.msgpack（分岐点の dvc.lock のもの）。
