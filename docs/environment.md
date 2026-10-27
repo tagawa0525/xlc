@@ -89,11 +89,28 @@ sha256sum -c docs/specs.sha256
 
 NJOY の入力と出力は `references/njoy-runs/` に置き、`crates/xs/examples/compare_njoy_*` で比べる。
 
+`references/njoy-runs/<核種>/` の tape（比べるときの対応）:
+
+- tape25: 0 K の PENDF
+- tape24: WIMS69、`iwt=4` の GENDF
+- tape26: MF6 の散乱行列。GROUPR の MF6 の中性子の行列は `mfd=8` で出す
+- tape27: 600 K と 1200 K の BROADR の出力。同じ MAT に入っているので分けて比べる
+
+ENDF は `references/endf/ENDF-B-VIII.0_*` にある。NJOY 側の近似による既知の差（xlc の誤りではない。表は examples/m1/verification.md）:
+
+- BROADR は節点のエネルギーの丸めで、bsigma が 1〜3 区間高く始まる
+- 群の 1e-3 の差は、閾値反応では GROUPR の台形則、共鳴では RECONR の粗い格子による
+- U-236 の χ は、GROUPR の `econst` が全入射に 1e-5 eV の θ を使うので、最大 17% 違う
+
 ## OpenMC（0.15.2）
 
 `.#openmc` は OpenMC 0.15.2 を OpenMP つきでビルドしたもの（同梱の fmt が GCC 16 でコンパイルできないので GCC 13）。
 `.#openmc-python` は、同じソースから作った openmc の Python API と endf 0.1.12 を、検証のスクリプトの依存に足した
 Python。どちらも `references` の devShell に入る。スクリプトは `openmc` と `njoy` を `PATH` から呼ぶ。
+
+OpenMC のライブラリ `references/openmc/endfb80/`（600 K だけ）と `endfb80-565/` は、DVC のステージにする前に手で作ったもの。今のライブラリは
+`examples/vera/openmc-library/`（`examples/vera/dvc.yaml` の出力）で、新しい計算はそちらを使う（ADR-0130）。参照解の実効断面積は
+`references/openmc/vera-xs2-1B/` などにある。
 
 コマンドはリポジトリ（worktree）の直下で実行し、作業のディレクトリを引数で渡す。worktree の `references` は main の
 `references/` への symlink なので、`references/openmc` に `cd` してから `../..` で flake やスクリプトを指すと、
@@ -126,6 +143,11 @@ x86_64 の nix のクロージャをそのまま送れる。本番は次の節�
 - 1 本ずつ別の VM で、並列に実行する（スレッド数は VM の物理コア数に合わせる）
 - 結果（数十 MB）を回収する
 - VM を削除する（方式 B）
+
+## 参照の仕様書の写し
+
+仕様書のテキスト版が `references/vera/spec.txt`（VERA）と `references/c5g7/spec.txt`（C5G7）にある。C5G7 の 2D の
+参照 k は 1.186550（MCNP。examples/c5g7/verification.md）。
 
 ## 外部の計算機での参照解（Problem 3、5-2D、燃焼）
 
@@ -164,6 +186,10 @@ examples/aws/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3
 （認証切れの疑いは `aws login` のやり直しを求める。終了コードでは分からないので、ログの `ATTENTION:` を見る）。
 走っているかは `aws_watch.sh --status <name>`（走っていれば 0、いなければ 1）で確かめる。`pgrep -f` や `pkill -f` は使わない
 （コマンド文字列が別の待ちループや自分のシェルに当たり、2026-10-14 に監視が 2 時間止まった）。
+
+`aws login` のセッションは約 12 時間で切れる（2026-10-13 は約 20 時間、2 回目は約 12 時間。切れるとローカルの `aws_status.sh`、`aws_run.sh` と監視が全部失敗し、
+VM はインスタンスのロールで動き続けるので計算と S3 の同期は続く）。長い本番の前にユーザーに `aws login` のやり直しを頼み、切れたら監視を止めて
+ユーザーに `! aws login` を頼む。
 
 用意するもの（2026-10-13 に作成済み。バケットは管理者が作った）:
 
@@ -277,6 +303,10 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 全 AZ で 1〜3 だった。どちらも起動の記録（`launches/`）に `AZ`、`MARKET` として残り、`--dry-run` で引数を検証できる。
 
 #### 機種と AZ の自動選択（`--type auto`、ADR-0171）
+
+数時間の OpenMC の参照解は AWS のスポット（`--type auto`）、xlc の計算は条件が変わりやすく無駄になりうるので r995 の Slurm で流す（ユーザー
+2026-10-14）。オンデマンドと m7a 系は使わない（メモリが余る機種で、独断の予備だった。ユーザー 2026-10-13）。短い OpenMC（分単位）はローカルでよい。
+候補を足すとき（新しい世代の機種など）は、速度とメモリが合うかを確かめて `examples/aws/aws_types.toml` に足す。
 
 `aws_run.sh --type auto`（新しい実行と起動し直しの両方）は、`examples/aws/aws_types.toml` の候補の機種（c8a.4xlarge、c8a.8xlarge、
 c7a.8xlarge、c7a.4xlarge）の直近 1 時間のスポット価格を AZ ごとに引き、1 本の費用 = 価格 ÷ 速度の安い (機種, AZ) から順に
