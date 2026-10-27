@@ -1,9 +1,10 @@
 ---
-status: proposed
-date: 2026-10-24
+status: accepted
+date: 2026-10-28
 requires: [ADR-0070, ADR-0133, ADR-0166, ADR-0202]
 supersedes: []
 superseded-by:
+amended-by: [ADR-0209]
 issues: ["#0152", "#0133", "#0178"]
 ---
 
@@ -109,7 +110,7 @@ issues: ["#0152", "#0133", "#0178"]
 
 - 単体試験: `crates/lattice/src/ufg/free_gas/tests.rs`（閉じた式と散乱則の積分、A = 1 の Wigner-Wilkins の形、N(E) への規格化、
   T → 0 の静止した核、区間の外の D、区間と直接の求積）と `crates/lattice/src/ufg/tests.rs`（T → 0 で静止した標的の結果、区間の細かさ、
-  上限、スイープの収束、分離共鳴を持つ核種）。入力は `ufg_scattering_defaults_to_targets_at_rest`。H の短時間衝突近似と自由ガスは
+  上限、スイープの収束、分離共鳴を持つ核種）。入力は `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`。H の短時間衝突近似と自由ガスは
   xs の `short_collision_kernel_of_hydrogen_is_the_free_gas_at_the_material_temperature`
 - 測定は examples/depletion/verification.md の「UFG の自由ガスの散乱核（ADR-0203）」
 - 集合体: 2A と 2O の燃焼を、軽い核種と重い核種の両方を 400 kT まで自由ガスにした設定（細かさ 2、スイープ 3 回。ADR-0204）で OpenMC と比べた。0 から 60 MWd/kg への k の差の増えは、静止した標的の本番から 2A で +169.0 → +110.3 pcm、2O で +112.1 → +68.7 pcm に縮み、0 の点の差は 2A で +10.6 → +42.2 pcm、2O で +66.1 → +88.0 pcm に上がる（同じコミットの静止した標的の対照は流していない）。ピン出力の rms は不変（examples/depletion/verification.md の「集合体での自由ガスの散乱核（ADR-0203、ADR-0204）」）
