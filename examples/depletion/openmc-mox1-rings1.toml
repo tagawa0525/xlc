@@ -1,0 +1,17 @@
+# 格子計算の燃焼の検証の参照解（ADR-0173）の MOX 版: LWR MOX ピンセル MOX-1（形状と組成は ../mox/openmc_model.py）を、燃料 1 リング
+# （等しい面積）の燃焼する物質で、分岐なしの 1 つの状態で燃焼させる（openmc_depletion_mox.py）。xlc は lattice-mox1-rings1.toml。
+# 温度、出力密度、燃焼度の点、粒子数、世代数、シードは 1C（openmc-1C-rings1.toml）と同じ（ADR-0206。燃料はライブラリが燃料の核種を
+# 持つ 900 K で、../mox の 600 K と違う）
+problem = "MOX-1"
+rings = 1
+fuel-temperature = 900
+moderator-temperature = 600
+cross-sections = "openmc-library/cross_sections.xml"
+chain = "openmc-chain.xml"
+power = 38.41
+burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
+particles = 200000
+batches = 130
+inactive = 30
+seed = 1
+threads = 16
