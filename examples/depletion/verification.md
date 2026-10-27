@@ -1015,7 +1015,7 @@ python3 examples/depletion/issue-0133/ufg_transfer.py summarize examples/depleti
 
 #### 計算
 
-xlc は b64e0ef0（分岐点は main の 7fbba448）、2026-10-28（Slurm 560。時間は割り込まれうるジョブなので記録しない。時間は同じコミットの
+xlc は 4333da75（分岐点は main の 7fbba448）、2026-10-28（Slurm 560。時間は割り込まれうるジョブなので記録しない。時間は同じコミットの
 `--timed` のジョブ Slurm 561）。ライブラリは
 examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。無限希釈の balance の出力は、「群の移行の行の群の中の重み（#0152）」の
 2A-40 の出力（20b94bdf）とバイトまで同じ。1C の 5 MWd/kg の xlc の格子点ごとの中性子束は、このジョブの `fine_flux` で作った（ほかは #0152 の
