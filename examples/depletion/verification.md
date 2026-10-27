@@ -1073,17 +1073,18 @@ xlc はジョブ 457、OpenMC はジョブ 409（どちらも上の排他のジ�
 LWR MOX ピンセル MOX-1（形状と組成は `../mox/`）を、1C と同じ条件（燃料 900 K、被覆管と減速材 600 K、38.41 W/g、0.1〜5 MWd/kg の
 6 ステップ、OpenMC は 1 世代 20 万粒子・130 世代、シード 1）で燃焼させる（[ADR-0206](../../docs/adr/0206-deplete-mox1-pincell-at-the-1c-conditions.md)）。
 燃料は 1 リング。燃料の温度が `../mox/` の 600 K と違うので、燃焼の初めの k はそこの比較（−219 pcm）とは比べない。
-入力とステージ（`openmc-mox1`、`openmc-mox1-extract`、`lattice-mox1`、`compare-mox1`）を準備した。参照解（OpenMC の燃焼）は未実行で、
-流すコマンドと見積もりは #0152。
-
-```sh
-~/.claude/scripts/slurm-run.sh -t 120 openmc-mox1-depletion 'nix develop -c dvc repro examples/depletion/dvc.yaml:compare-mox1'
-```
+入力とステージ（`openmc-mox1`、`openmc-mox1-extract`、`lattice-mox1`、`compare-mox1`）を準備した。参照解（OpenMC の燃焼）は未実行
+（流し方と見積もりは #0152）。
 
 ### 計算
 
-xlc は 8db246fa5、分岐点は main の f2e30c51c、2026-10-27（Slurm 555。既定のジョブなので時間は記録しない）。燃料で輸送する核種は 54 で、
-粒子数を落とした OpenMC の試しの実行（Slurm 556、1 ステップ。出力は残さない）の輸送する核種と同じ（`compare_depletion.py` の検査と同じ集合）。
+xlc は 8db246fa5、分岐点は main の f2e30c51c、2026-10-27（Slurm 555）。ライブラリは ADR-0205 のあとのもの（分岐点の dvc.lock）で、
+上の「格子計算の燃焼」の 1C の xlc（ADR-0186 のライブラリ）とは違う。燃料で輸送する核種は 54 で、粒子数を落とした OpenMC の試しの
+実行（Slurm 556、1 ステップ。出力は残さない）の輸送する核種と同じ（`compare_depletion.py` の検査と同じ集合）。
+
+### xlc の k∞
+
+`lattice-mox1-rings1.out`: 0 MWd/kg で 1.195979、0.1 で 1.183370、0.5 で 1.180383、1 で 1.177078、2 で 1.171222、3 で 1.166107、5 で 1.157291。
 
 ## 集合体の燃焼
 

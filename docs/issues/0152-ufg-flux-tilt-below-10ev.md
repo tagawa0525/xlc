@@ -38,7 +38,7 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   説明できるかは確かめていない
 - 等価なセル（ADR-0068）の、共鳴の谷の深さの誤差。27 群の U-238、U-235、Pu-239 の共鳴の谷の近くで xlc の中性子束が +2〜+4% 高い区間がある
 
-関係する ADR: ADR-0202、ADR-0203、ADR-0204、ADR-0205
+関係する ADR: ADR-0202、ADR-0203、ADR-0204、ADR-0205、ADR-0206
 
 ## 完了の条件
 
@@ -68,10 +68,10 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   燃料）、−10.1 → −2.1 pcm（2A-40）。5.0〜6.3 eV（6.67 eV の共鳴の下）の −0.4% が残り、その候補（確かめていない）は分離共鳴の上方散乱
   （ADR-0204 の案 R2）と等価なセル
 - 2026-10-27: 切り分けの題材に Pu の多い燃料を足すため、MOX-1 のピンセルの燃焼を 1C と同じ条件で用意した（ADR-0206、ブランチ
-  feat/mox1-depletion-reference-inputs。examples/depletion/verification.md「MOX-1 のピンセルの燃焼（準備）」）。xlc の燃焼は流した
-  （Slurm 555、燃焼の初めの k∞ 1.195979、5 MWd/kg で 1.157291）。参照解（OpenMC の燃焼）は未実行。流すコマンドは
+  feat/mox1-depletion-reference-inputs。examples/depletion/verification.md「MOX-1 のピンセルの燃焼（準備）」）。xlc の燃焼は流した。
+  参照解（OpenMC の燃焼）は未実行。流すコマンドは
   `~/.claude/scripts/slurm-run.sh -t 120 openmc-mox1-depletion 'nix develop -c dvc repro examples/depletion/dvc.yaml:compare-mox1'`
   （worktree で `scripts/worktree-restore-outputs.sh` の後に。上流で走るのは `references-shell`、`openmc-mox1`、`openmc-mox1-extract`、
-  `compare-mox1` だけ）。見積もりは 1C の 1 リング（ジョブ 409）の輸送 13 回 5,362 秒（1 回 約 410 秒。アクティブバッチ 53,518 粒子/s、
-  非アクティブバッチ 156,204 粒子/s）から、1 時間 30 分ほど。粒子数を落とした MOX-1 の試し（Slurm 556、1 世代 5,000 粒子、既定のジョブ）の
-  アクティブバッチは 56,568〜63,206 粒子/s で、1C と同じ程度（粒子数が少なく、時間の比較には使えない）
+  `compare-mox1` だけ）。見積もりは 1C の 1 リング（ジョブ 409）の輸送 13 回 5,362 秒（1 回 約 410 秒。examples/depletion/verification.md
+  「時間の内訳」）と同じ粒子数なので、1 時間 30 分ほど。1C と比べるときは、1C の xlc（`lattice-1C`）を MOX-1 と同じライブラリと
+  `bin/lattice` で再実行する（今の 1C の xlc の結果は ADR-0205 の前のライブラリのもの）

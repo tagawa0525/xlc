@@ -57,12 +57,17 @@ issues: ["#0001", "#0152"]
 
 - ステージは examples/depletion に置く。燃焼に要るもの（チェーン、燃焼の多群ライブラリ、OpenMC のライブラリとチェーン）が
   そこのステージの出力で、examples/mox の `mox.msgpack` はチェーンの核種を持たない
-- OpenMC の燃焼は、別のモジュール examples/depletion/openmc_depletion_mox.py で組み立てる。`openmc_depletion.py` を直すと
-  `openmc-1C` が古くなる（#0132 と同じ理由）。温度は入力の項目（`fuel-temperature`、`moderator-temperature`）にする
+- OpenMC の燃焼は、別のモジュール examples/depletion/openmc_depletion_mox.py で組み立てる。`openmc_depletion.py` のコードを直すと
+  `openmc-1C` が古くなり、再実行が要る（#0132 と同じ理由。`dvc commit` で付け直すのは、コメントだけの変更のとき（acfe57b0）に限る）。
+  温度は入力の項目（`fuel-temperature`、`moderator-temperature`）にし、温度のモードはライブラリの表の温度だけを使う `nearest` にする。
+  初めの燃料の核種のどれかを燃料の温度で輸送できなければ、輸送の前に止める
+- 1C と MOX-1 の燃焼の k の差の推移を比べるときは、両方の xlc を同じライブラリと `bin/lattice` で流す（2026-10-27 の時点の 1C の xlc の
+  結果は ADR-0205 の前のライブラリのもの）
 - 参照解（OpenMC の燃焼）は、入力とステージを用意しただけで、まだ流していない
 
 ### 確認
 
-- examples/depletion/test_openmc_depletion_mox.py: 入力の検査、等しい面積のリング、MOX-1 の組成と温度、ギャップのない形状
+- examples/depletion/test_openmc_depletion_mox.py: 入力の検査、等しい面積のリング、MOX-1 の組成と温度、ギャップのない形状、
+  温度のモード、初めの燃料の核種が輸送されないときに止めること
 - 粒子数を落とした OpenMC の試しの実行で、燃焼の 1 ステップが回ること（出力は残さない）
 - 参照解を流したあと、`compare-mox1` の要約を examples/depletion/verification.md に書く
