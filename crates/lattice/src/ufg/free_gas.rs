@@ -15,6 +15,7 @@
 //! 下端の側で erfc([`EDGE`]) 程度より小さい（`correction_vanishes_outside_its_cells`）。
 
 use std::f64::consts::PI;
+use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
 use xlc_format::library::SabTransfer;
@@ -902,6 +903,8 @@ pub(super) struct Thermal {
     pieces: Vec<(f64, f64)>,
     /// 作業用の、すべての自由ガスの核種の（核種, 区間の両端）
     all: Vec<(usize, f64, f64)>,
+    /// 散乱源の経過時間（ログの内訳）: [自由ガスの核の区間, S(α, β) の移行]
+    elapsed: [Duration; 2],
 }
 
 impl Thermal {
@@ -947,6 +950,7 @@ impl Thermal {
             bounds: Vec::new(),
             pieces: Vec::new(),
             all: Vec::new(),
+            elapsed: [Duration::ZERO; 2],
         })
     }
 
@@ -977,6 +981,7 @@ impl Thermal {
         if m < self.start {
             return Ok(());
         }
+        let clock = Instant::now();
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
         // 手間を避ける）
@@ -1052,6 +1057,7 @@ impl Thermal {
                 *own += o;
             }
         }
+        let gas_done = Instant::now();
         // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
         for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
             if let Some(table) = table {
@@ -1066,7 +1072,14 @@ impl Thermal {
                 source.add(m, e, rings, flux, previous, known, own)?;
             }
         }
+        self.elapsed[0] += gas_done - clock;
+        self.elapsed[1] += gas_done.elapsed();
         Ok(())
+    }
+
+    /// 散乱源の経過時間の和 (s): [自由ガスの核の区間, S(α, β) の移行]
+    pub(super) fn elapsed(&self) -> [f64; 2] {
+        self.elapsed.map(|t| t.as_secs_f64())
     }
 
     /// 格子点 m の中性子束が決まったあと、自由ガスの核種を含むリングの累積の積率を進める
