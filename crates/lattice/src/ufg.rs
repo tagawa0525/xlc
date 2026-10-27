@@ -77,7 +77,7 @@ pub enum UfgError {
     #[error("the slowing-down equations are singular at {0} eV")]
     Singular(f64),
     #[error(
-        "{name}: `sab` needs the S(α, β) transfer of the library (made by an xs with ADR-0205)"
+        "{name}: `sab` needs the S(α, β) transfer of the library, which xs leaves out when the S(α, β) limit does not reach the UFG range or the up-scattering reach goes below 0 eV (and libraries made before ADR-0205 lack)"
     )]
     NoSabTransfer { name: String },
     #[error(
@@ -423,6 +423,11 @@ fn solve_cell(
                                 Some(_) => options.heavy.map(Some),
                             };
                             let gas = upper.map(|upper| Gas::new(d.awr, t.temperature, upper));
+                            // S(α, β) の移行は自由ガスの核の上限より上の入射を自由ガスに残すので、自由ガスの核を持たない核種
+                            // （`heavy` のない分離共鳴を持つ核種）では使えない（黙って静止した標的にしない）
+                            if gas.is_none() && options.sab && d.thermal_scattering {
+                                return Err(UfgError::SabWithoutFreeGas { name: name.clone() });
+                            }
                             match gas {
                                 Some(gas) if options.sab && d.thermal_scattering => {
                                     let table = t.sab_transfer.as_ref().ok_or_else(|| {
@@ -501,7 +506,10 @@ fn solve_cell(
         .iter()
         .map(|d| d.width / WINDOW_POINTS as f64)
         .fold(f64::INFINITY, f64::min);
-    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
+    // S(α, β) の上限は、丸めで同じレサジーになる点があっても残す（両側の極限の 2 点を置くため）
+    let (u, energies) = lethargy_grid(&energies, high, step, |e| {
+        group_bounds.contains(&e) || floors.contains(&e)
+    });
     // （エネルギー、低い側の極限か）
     let mut points: Vec<(f64, bool)> = Vec::with_capacity(energies.len() + jumps.len());
     let mut lethargies: Vec<f64> = Vec::with_capacity(energies.len() + jumps.len());
