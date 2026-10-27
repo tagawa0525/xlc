@@ -16,7 +16,7 @@ pub fn erf(x: f64) -> f64 {
     }
 }
 
-/// これより小さい x では級数、大きい x では Cody の有理近似（[`erfcx`]）を使う
+/// これより小さい x の erf と erfc は級数で、大きい x の erf と erfc は erfcx(x) exp(−x²) から求める
 const SERIES_LIMIT: f64 = 2.5;
 
 /// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
@@ -47,12 +47,12 @@ pub fn erfc(x: f64) -> f64 {
 /// スケールした相補誤差関数 erfcx(x) = exp(x²) erfc(x)（x ≥ 0）。
 /// exp(x²) と erfc(x) を別に計算すると、大きな x で桁あふれ・桁落ちする。
 pub fn erfcx(x: f64) -> f64 {
-    if x < SERIES_LIMIT {
+    if x < CODY_LOWER_LIMIT {
+        // erf(x) < 0.5 なので 1 − erf は桁落ちしない
         return (x * x).exp() * (1.0 - erf_series(x));
     }
     if x <= CODY_MIDDLE_LIMIT {
-        compensated_horner(&CODY_MIDDLE_NUMERATOR, x)
-            / compensated_horner(&CODY_MIDDLE_DENOMINATOR, x)
+        compensated_rational(&CODY_MIDDLE_NUMERATOR, &CODY_MIDDLE_DENOMINATOR, x)
     } else {
         // erfcx(x) = (1/√π − w R(w))/x、w = 1/x²。x² が桁あふれする x では w = 0 で 1/(√π x) になる
         let w = 1.0 / (x * x);
@@ -63,10 +63,15 @@ pub fn erfcx(x: f64) -> f64 {
 
 // Cody の有理近似の係数（ADR-0211）。W. J. Cody, "Rational Chebyshev approximations for the error function",
 // Math. Comp. 23 (1969) 631–637 の近似を、Netlib の specfun の CALERF（倍精度の DATA 文。1990-03-19 版）からそのままコピーし、
-// 高次の係数から並べた。コピーした値は、多倍長（mpmath）で有理式を評価し、erfcx との相対差が 2.5 ≤ x ≤ 4 で 8.1e−19、
+// 高次の係数から並べた。コピーした値は、多倍長（mpmath）で有理式を評価し、erfcx との相対差が 0.46875 ≤ x ≤ 4 で 1.2e−18、
 // 4 ≤ x ≤ 4e4 で 5.9e−19 以下になることで確かめた。出典と照らせるように、f64 で表せる桁より長い値も丸めずに残す
 
-/// これ以下の x では erfcx を 8 次 / 8 次の有理式 P(x)/Q(x) で、より大きい x では 1/x² の有理式で求める（CALERF の区間の境）
+/// これより小さい x では erfcx を級数の erf から、これ以上の x では Cody の有理近似で求める（CALERF の区間の境 THRESH）。
+/// 級数の 1 − erf は x が大きいほど桁落ちし、x = 2.5 の直下で 1 万 ulp を超える（ADR-0211）
+const CODY_LOWER_LIMIT: f64 = 0.46875;
+
+/// これ以下の x では erfcx を 8 次 / 8 次の有理式 P(x)/Q(x) で、より大きい x では 1/x² の 5 次 / 5 次の有理式で求める
+/// （CALERF の区間の境）
 const CODY_MIDDLE_LIMIT: f64 = 4.0;
 
 /// P(x) の係数（CALERF の C(9), C(1), …, C(8)）
@@ -126,23 +131,31 @@ fn horner(coefficients: &[f64], x: f64) -> f64 {
         .fold(coefficients[0], |sum, &c| sum.mul_add(x, c))
 }
 
-/// 高次から並べた係数の多項式の補償 Horner 法（Graillat, Langlois, Louvet, "Compensated Horner scheme", 2005）。
-/// 各段の積と和の丸めの誤差を誤差なしの変換（積は融合積和、和は Knuth の TwoSum）で取り出し、別の Horner 法で足し戻す。
-/// 係数と x が正の多項式では、結果は倍精度の丸め 1 回ほどの誤差になる。2.5 ≤ x ≤ 4 の P/Q を普通の Horner 法で求めると、
-/// 丸めが積もって erfcx の誤差が 5.5 ulp に達する（ADR-0211）
-fn compensated_horner(coefficients: &[f64], x: f64) -> f64 {
-    let mut sum = coefficients[0];
-    let mut error = 0.0_f64;
-    for &c in &coefficients[1..] {
+/// 高次から並べた係数の 2 つの多項式の比 P(x)/Q(x) を、補償 Horner 法（Graillat, Langlois, Louvet, "Compensated Horner
+/// scheme", 2005）で求める。各段の積と和の丸めの誤差を誤差なしの変換（積は融合積和、和は Knuth の TwoSum）で取り出し、別の
+/// Horner 法で足し戻す。係数と x が正の多項式では、P と Q はそれぞれ倍精度の丸め 1 回ほどの誤差になる。普通の Horner 法では
+/// 丸めが積もって erfcx の誤差が 5.5 ulp に達する（ADR-0211）。P と Q を 1 つのループで進めるのは、独立な 2 つの依存の列を
+/// 並べて待ちを隠すため（別々のループの 1.7 倍の速さ）
+fn compensated_rational<const N: usize>(
+    numerator: &[f64; N],
+    denominator: &[f64; N],
+    x: f64,
+) -> f64 {
+    let step = |sum: f64, error: f64, c: f64| {
         let product = sum * x;
         let product_error = sum.mul_add(x, -product);
         let next = product + c;
         let z = next - product;
         let sum_error = (product - (next - z)) + (c - z);
-        error = error.mul_add(x, product_error + sum_error);
-        sum = next;
+        (next, error.mul_add(x, product_error + sum_error))
+    };
+    let (mut p, mut p_error) = (numerator[0], 0.0);
+    let (mut q, mut q_error) = (denominator[0], 0.0);
+    for (&a, &b) in numerator[1..].iter().zip(&denominator[1..]) {
+        (p, p_error) = step(p, p_error, a);
+        (q, q_error) = step(q, q_error, b);
     }
-    sum + error
+    (p + p_error) / (q + q_error)
 }
 
 /// スケールした指数積分 e^z E1(z)（z > 0）。E1(z) = ∫_z^∞ e^(-t)/t dt。
