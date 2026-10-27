@@ -43,7 +43,7 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   変更など）は計算のステージを動かさない。ただしコードの行をずらすコメントは、実行ファイルを変えうる（ADR-0159 が測った）。
   deps がソースそのものである .py には、バイトの同一で止める仕組みがなく、文書だけの変更が出力の再計算の候補になる
 
-関係する ADR: なし
+関係する ADR: ADR-0210（.py の deps を正規形にする）
 
 ## 例ごとの扱い
 
@@ -72,7 +72,7 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   deps を正規形のファイルに替える前処理が要る
 - 何もしない（ADR-0130 のとおり、結果が要るときに再実行する）。書き換えは稀で、再実行の費用はそのときに払う
 
-### 参照解の deps の .py の文書だけの変更への案（決めていない。決めるときは ADR）
+### 参照解の deps の .py の文書だけの変更への案（(b) に決めた。ADR-0210）
 
 - (a) 参照解の deps の .py を文書だけ直すマージの前に、`dvc commit` で付け直す手順を /dvc-relock に足す。ADR-0130 の案 L、ADR-0143 の帰結、ADR-0159 の案 B が
   退けた形との整合（コメントと docstring だけの差を「同じコード」とみなす条件と、その確かめ方）を ADR で決める要がある
@@ -120,3 +120,13 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   `dvc commit` の付け直しは 3517e4666 を含めて 3 度目）。p2 の `openmc-neutron@*` の 90 ステージは、deps の examples/openmc_input.py だけが
   変わった changed のまま残る（main bcc78ee0b の `dvc status`）。「案」の節の (a) か (b) を ADR で決めないまま、同じ判断を手で
   繰り返している
+- 2026-10-28: 「案」の (b) を ADR-0210 で決め、実装した（ブランチ feat/0145-normalized-python-deps）。例の `dvc.yaml` の deps の
+  .py（33 ファイル）を、直下の `dvc.yaml` の `python-ast` が書く正規形（docstring とコメントを除いた `ast.unparse`。
+  `python-ast/<パス>.ast`、git で追跡）に替えた。lock は、分岐点（main 84517a7f5）で changed でなかった 110 ステージと、
+  changed の原因が .py だけで lock の版と今の版の正規形が一致した 219 ステージ（p2 の openmc-neutron 90 と openmc-thermal、
+  examples/vera と endfb70/openmc の OpenMC のライブラリなど）を `dvc commit` で付け直した。付け直しの後の `dvc status` の
+  changed は 468 項目で、分岐点の 687 項目から 219 を除いたものと一致した。.py の docstring とコメントによる付け直しは、これで
+  要らなくなる。完了の条件のうち、仕組みは .py の deps だけを満たす: toml のコメントの変更（ed95d3d44 の
+  `examples/depletion/p2/openmc-library.toml`）で p2 の `openmc-index` が changed のまま残り（lock の版 8d4ec01e1 との差は
+  コメントの語だけ）、toml の deps と history-rewrite の段は決めていない。p2 の lattice@2A と compare@2A は changed でない。
+  issue は開いたままにする
