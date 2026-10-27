@@ -1036,8 +1036,8 @@ impl<'a> Thermal<'a> {
                 let mut sums = vec![(0.0, 0.0); n];
                 // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
-                // 前の区間の上端の格子点（[`locate_from`] の起点）
-                let mut hint = 0;
+                // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
+                let mut hint = usize::MAX;
                 for &(l, a, b) in chunk {
                     let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
                     let inside = gas.inside(u[m], a, b);
@@ -1226,18 +1226,19 @@ impl SabSource<'_> {
             if next_table <= b {
                 j += 1;
             }
-            // 区切りは a より先にあり（格子点の q と表の j は、a 以下の点を飛ばしてある）、小区間は空にならない
-            if b <= a {
-                return Err(UfgError::SabTable {
-                    energy: e,
-                    transfer: a,
-                });
-            }
             cells.push((a, b));
+            // 区切りは a より先にあり（格子点の q と表の j は、a 以下の点を飛ばしてある）、小区間は空にならない。空になれば、その
+            // 小区間を誤りとして残し（前の小区間の誤りが先に報告されるように）、ここで止める
+            if b <= a {
+                break;
+            }
             a = b;
         }
         // 小区間の核の割合、σs、中性子束の補間の位置は、小区間の両端だけで決まる
         let term = |hint: &mut usize, &(a, b): &(f64, f64)| {
+            if b <= a {
+                return Err(a);
+            }
             let center = 0.5 * (a + b);
             let incident = e - center;
             let x = (high / incident).ln();
@@ -1271,7 +1272,7 @@ impl SabSource<'_> {
         cells
             .par_iter()
             .with_min_len(SAB_CELLS_PER_TASK)
-            .map_init(|| 0, term)
+            .map_init(|| usize::MAX, term)
             .collect_into_vec(&mut work.terms);
         let assign = |idx: usize, c: f64, i: usize, known: &mut [f64], own: &mut [f64]| {
             if idx < m {
