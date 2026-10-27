@@ -14,7 +14,7 @@
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
 //!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
-//!                              sab_transfer: nil か {incident, transfer, density}（S(α, β) を持つ核種だけ）,
+//!                              sab_transfer: nil か {incident, transfer, cumulative}（S(α, β) を持つ核種だけ）,
 //!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
 //!                                           cross_section: [無限希釈の G 個]}]}]}]}]}
 //! ```
@@ -151,10 +151,11 @@ pub struct Pointwise {
     pub capture: Vec<f64>,
 }
 
-/// 超微細群の減速計算に使う、S(α, β) による P0 の散乱の移行の点の値（ADR-0205）。入射 E と出射 E' の
-/// p(E→E') = σ0(E→E')/σ(E) (1/eV)（σ(E) は S(α, β) の散乱断面積で、∫ p dE' = 1）を、入射のエネルギーと移行 E' − E の格子の
-/// 上に持つ。格子点の間は、入射について ln E に線形、移行について線形に補間する。入射の最後の点は S(α, β) を使う入射エネルギーの
-/// 上限で、その上は自由ガスの核で扱う（ADR-0133）。
+/// 超微細群の減速計算に使う、S(α, β) による P0 の散乱の移行の累積の割合（ADR-0205）。入射 E で散乱した中性子のうち、出射が
+/// E + t 以下のものの割合 C(E, t) = ∫_0^{E+t} σ0(E→E') dE'/σ(E)（σ(E) は S(α, β) の散乱断面積）を、入射のエネルギーと移行
+/// t = E' − E の格子の上に持つ。核は E' = E に対数の特異点（準弾性散乱の山）を持つので、点の値でなく累積を持つ（格子の区間の
+/// 中の割合は、区間の幅によらず正しい）。格子点の間は、入射について ln E に線形、移行について線形に補間する（区間の中の核を
+/// 一定とする）。入射の最後の点は S(α, β) を使う入射エネルギーの上限で、その上は自由ガスの核で扱う（ADR-0133）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SabTransfer {
@@ -162,8 +163,8 @@ pub struct SabTransfer {
     pub incident: Vec<f64>,
     /// 移行 E' − E (eV)、昇順
     pub transfer: Vec<f64>,
-    /// [入射][移行] の p(E→E') (1/eV)。出射が 0 以下のところは 0
-    pub density: Vec<Vec<f64>>,
+    /// [入射][移行] の C(E, t)。出射が 0 以下のところは 0
+    pub cumulative: Vec<Vec<f64>>,
 }
 
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
@@ -626,10 +627,10 @@ fn interpolate(
             Some(SabTransfer {
                 incident: a.incident.clone(),
                 transfer: a.transfer.clone(),
-                density: a
-                    .density
+                cumulative: a
+                    .cumulative
                     .iter()
-                    .zip(&b.density)
+                    .zip(&b.cumulative)
                     .map(|(x, y)| mix(x, y))
                     .collect(),
             })
@@ -752,9 +753,9 @@ impl From<MsgpackError> for LibraryError {
 }
 
 impl SabTransfer {
-    /// 入射 `e_in` (eV)、出射 `e_out` (eV) の p(E→E') (1/eV)。入射について ln E に線形、移行について線形に補間する。格子の
+    /// 入射 `e_in` (eV) の、出射が `e_out` (eV) 以下の割合 C。入射について ln E に線形、移行について線形に補間する。格子の
     /// 外は `None`
-    pub fn at(&self, e_in: f64, e_out: f64) -> Option<f64> {
+    pub fn cumulative_at(&self, e_in: f64, e_out: f64) -> Option<f64> {
         // x の昇順の格子での、x を含む区間の始まりと区間の中の位置（格子の外は None。最後の点は最後の区間の終わり）
         let locate = |grid: &[f64], x: f64| {
             let (first, last) = (grid[0], grid[grid.len() - 1]);
@@ -768,7 +769,7 @@ impl SabTransfer {
         let w = (e_in / self.incident[i]).ln() / (self.incident[i + 1] / self.incident[i]).ln();
         let (j, v) = locate(&self.transfer, e_out - e_in)?;
         let row = |r: &[f64]| r[j] + v * (r[j + 1] - r[j]);
-        let (a, b) = (row(&self.density[i]), row(&self.density[i + 1]));
+        let (a, b) = (row(&self.cumulative[i]), row(&self.cumulative[i + 1]));
         Some(a + w * (b - a))
     }
 
@@ -783,26 +784,26 @@ impl SabTransfer {
         if !increasing(&self.transfer) {
             return Err("S(α, β) transfer: transfers must be two or more increasing values".into());
         }
-        if self.density.len() != self.incident.len()
+        if self.cumulative.len() != self.incident.len()
             || self
-                .density
+                .cumulative
                 .iter()
                 .any(|row| row.len() != self.transfer.len())
         {
             return Err(format!(
-                "S(α, β) transfer: densities must be {} x {}",
+                "S(α, β) transfer: cumulative shares must be {} x {}",
                 self.incident.len(),
                 self.transfer.len()
             ));
         }
         if let Some(bad) = self
-            .density
+            .cumulative
             .iter()
             .flatten()
             .find(|v| !(v.is_finite() && **v >= 0.0))
         {
             return Err(format!(
-                "S(α, β) transfer: density {bad} must be finite and non-negative"
+                "S(α, β) transfer: cumulative share {bad} must be finite and non-negative"
             ));
         }
         Ok(())

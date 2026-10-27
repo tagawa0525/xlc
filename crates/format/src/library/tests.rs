@@ -813,15 +813,15 @@ fn chain_reactions_are_in_increasing_mt() {
     assert!(CHAIN_REACTIONS.windows(2).all(|w| w[0].mt < w[1].mt));
 }
 
-/// S(α, β) の移行の表: 入射 3 点、移行 3 点で、値を `scale` 倍したもの
+/// S(α, β) の移行の表: 入射 3 点、移行 3 点の累積の割合で、値を `scale` 倍したもの
 fn sab_transfer(scale: f64) -> SabTransfer {
     SabTransfer {
         incident: vec![2.0, 4.0, 10.0],
         transfer: vec![-6.0, 0.0, 1.5],
-        density: vec![
-            vec![0.0, 0.5 * scale, 0.1 * scale],
-            vec![0.0, 0.3 * scale, 0.1 * scale],
-            vec![0.08 * scale, 0.2 * scale, 1.7929089665572825e-9],
+        cumulative: vec![
+            vec![0.0, 0.6 * scale, scale],
+            vec![0.0, 0.7 * scale, scale],
+            vec![1.7929089665572825e-9, 0.9 * scale, scale],
         ],
     }
 }
@@ -838,7 +838,7 @@ fn sab_transfer_round_trips_bit_exactly() {
 }
 
 #[test]
-fn sab_transfer_must_be_a_table_of_finite_densities() {
+fn sab_transfer_must_be_a_table_of_cumulative_shares() {
     let rejected = |change: &dyn Fn(&mut SabTransfer)| {
         let mut table = sab_transfer(1.0);
         change(&mut table);
@@ -858,25 +858,26 @@ fn sab_transfer_must_be_a_table_of_finite_densities() {
     assert!(rejected(&|t| t.incident[0] = 0.0));
     assert!(rejected(&|t| {
         t.incident.truncate(1);
-        t.density.truncate(1);
+        t.cumulative.truncate(1);
     }));
     // 移行は増え、2 点以上
     assert!(rejected(&|t| t.transfer[2] = 0.0));
     assert!(rejected(&|t| {
         t.transfer.truncate(1);
-        for row in &mut t.density {
+        for row in &mut t.cumulative {
             row.truncate(1);
         }
     }));
-    // 値は [入射][移行] の形で、有限で負でない
+    // 値は [入射][移行] の形で、有限で負でなく、移行について減らない
     assert!(rejected(&|t| {
-        t.density.pop();
+        t.cumulative.pop();
     }));
     assert!(rejected(&|t| {
-        t.density[1].pop();
+        t.cumulative[1].pop();
     }));
-    assert!(rejected(&|t| t.density[1][1] = -1e-3));
-    assert!(rejected(&|t| t.density[1][1] = f64::NAN));
+    assert!(rejected(&|t| t.cumulative[1][0] = -1e-3));
+    assert!(rejected(&|t| t.cumulative[1][1] = f64::NAN));
+    assert!(rejected(&|t| t.cumulative[1][2] = 0.5));
     assert!(!rejected(&|_| {}));
     // S(α, β) を持たない核種と、ポイントワイズの範囲のないライブラリは表を持たない
     let mut library = sample();
@@ -905,7 +906,7 @@ fn interpolation_mixes_the_sab_transfer() {
     let low = sab_transfer(1.0);
     assert_eq!(table.incident, low.incident);
     assert_eq!(table.transfer, low.transfer);
-    assert!((table.density[1][1] - f * low.density[1][1]).abs() < 1e-15);
+    assert!((table.cumulative[1][1] - f * low.cumulative[1][1]).abs() < 1e-15);
     // 片方の温度にだけある表と、格子の違う表は内挿しない
     let refused = |change: &dyn Fn(&mut SabTransfer)| {
         let mut library = two_temperatures(true);
@@ -965,19 +966,19 @@ fn sab_transfer_in_array_form_is_rejected() {
 }
 
 #[test]
-fn sab_transfer_interpolates_in_ln_e_and_linearly_in_the_transfer() {
+fn sab_transfer_interpolates_the_cumulative_share_in_ln_e_and_the_transfer() {
     let table = sab_transfer(1.0);
     // 格子点では表の値
-    assert_eq!(table.at(4.0, 4.0), Some(0.3));
-    assert_eq!(table.at(10.0, 4.0), Some(0.08));
+    assert_eq!(table.cumulative_at(4.0, 4.0), Some(0.7));
+    assert_eq!(table.cumulative_at(10.0, 4.0), Some(1.7929089665572825e-9));
     // 入射 4〜10 eV の ln E の中点、移行 0〜1.5 eV の中点
     let e = (4.0_f64 * 10.0).sqrt();
-    let expected = 0.5 * (0.5 * (0.3 + 0.1) + 0.5 * (0.2 + 1.7929089665572825e-9));
-    let value = table.at(e, e + 0.75).unwrap();
+    let expected = 0.5 * (0.5 * (0.7 + 1.0) + 0.5 * (0.9 + 1.0));
+    let value = table.cumulative_at(e, e + 0.75).unwrap();
     assert!((value - expected).abs() < 1e-15, "{value} vs {expected}");
     // 格子の外は値がない
-    assert_eq!(table.at(1.9, 1.9), None);
-    assert_eq!(table.at(10.5, 10.5), None);
-    assert_eq!(table.at(4.0, 5.6), None);
-    assert_eq!(table.at(10.0, 3.9), None);
+    assert_eq!(table.cumulative_at(1.9, 1.9), None);
+    assert_eq!(table.cumulative_at(10.5, 10.5), None);
+    assert_eq!(table.cumulative_at(4.0, 5.6), None);
+    assert_eq!(table.cumulative_at(10.0, 3.9), None);
 }
