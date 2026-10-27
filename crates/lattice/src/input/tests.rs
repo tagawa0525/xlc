@@ -515,7 +515,12 @@ fn ufg_transfer_defaults_to_the_infinite_dilution_rows() {
         transfer("ufg-transfer = \"ring-flux\"").unwrap(),
         UfgTransfer::RingFlux
     );
-    for bad in ["ufg-transfer = \"ring\"", "ufg-transfer = true"] {
+    // 間引いた格子とは組めない（ADR-0207）。減速計算より前の、入力を読むところで止める
+    for bad in [
+        "ufg-transfer = \"ring\"",
+        "ufg-transfer = true",
+        "ufg-transfer = \"ring-flux\"\nufg-tolerance = 1e-4",
+    ] {
         assert!(transfer(bad).is_err(), "{bad}");
     }
     let off = replaced(
