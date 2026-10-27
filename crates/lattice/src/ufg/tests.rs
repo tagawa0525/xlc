@@ -1961,3 +1961,29 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
         }
     }
 }
+
+#[test]
+fn transfers_on_a_thinned_grid_stop_with_an_error() {
+    // 間引いた格子では、自分の群への移行を差で決める弾性散乱（核種自身の格子で縮約）とほかの群への移行（間引いた格子で数える）が
+    // 別の格子の値になるので、移行を数えない
+    let lib = library_with(
+        vec![constant("O-16", 15.86, 3.8, 3.8, 0.0)],
+        TEMPERATURE,
+        &FINE_BOUNDS,
+    );
+    let m = material(&[("O-16", 0.05)]);
+    let cell = Cylinder::new(vec![0.5]).unwrap();
+    let result = slowing_down_transfers(
+        &lib,
+        &cell,
+        &[Some(&m)],
+        [4.0, 2.0e4],
+        Collision::Exact,
+        Some(1.0e-4),
+        Scattering::Static,
+    );
+    assert!(
+        matches!(result, Err(UfgError::ThinnedTransfers)),
+        "{result:?}"
+    );
+}
