@@ -343,7 +343,8 @@ fn idle_gases_have_no_cells() {
 #[test]
 fn correction_shares_split_the_kernel_at_an_outgoing_energy() {
     // 入射 E' の D（エネルギーあたり (S − S_static)/N）を出射のエネルギー Ex の下と上に分けた積分は、核と静止した核をそれぞれ
-    // 直接積分した値の差に合い、2 つの和は 1 − 1/N（∫ S dE = N、∫ S_static dE = 1）
+    // 直接積分した値の差に合い、2 つの和は 1 − 1/N（∫ S dE = N、∫ S_static dE = 1）。区間の細かさは移行を数えるときの
+    // [`SHARE_CELLS`]
     for (awr, temperature) in [
         (0.99917, 600.0),
         (15.86, 600.0),
@@ -353,7 +354,7 @@ fn correction_shares_split_the_kernel_at_an_outgoing_energy() {
         let gas = Gas::new(awr, temperature, None);
         let kt = gas.kt;
         let alpha = 1.0 - 1.0 / gas.gain;
-        let grades = grades(2);
+        let grades = grades(SHARE_CELLS);
         for e in [4.0, 6.0, 30.0] {
             let n = effective_ratio(e, awr, kt);
             let edge = alpha * e;
@@ -389,7 +390,7 @@ fn correction_shares_split_the_kernel_at_an_outgoing_energy() {
                 let below_kernel = cumulative[breaks.iter().position(|&b| b == x).unwrap()];
                 let below_static = gas.gain / e * (x.clamp(edge, e) - edge);
                 let expected = (below_kernel - below_static) / n;
-                let [below, above] = gas.shares(e, x, &grades, 2);
+                let [below, above] = gas.shares(e, x, &grades, SHARE_CELLS);
                 assert!(
                     (below - expected).abs() < 1e-10,
                     "A {awr}, T {temperature}, E' {e}, Ex {x}: {below} vs {expected}"

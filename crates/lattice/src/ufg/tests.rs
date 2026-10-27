@@ -1850,7 +1850,9 @@ fn static_transfers_of_a_scatterer_follow_the_kernel() {
         assert_eq!(transfer.rows.len(), 7);
         for (h, row) in transfer.groups.clone().zip(&transfer.rows) {
             let width = x(h + 1) - x(h);
-            assert!((spectrum.flux[0][h - 1] / width - 1.0).abs() < 1e-12);
+            // 窓の積分を格子点ごとに更新する丸めが積もり、U-238 で 8e−12 ほど 1 からずれる
+            let flat = spectrum.flux[0][h - 1] / width - 1.0;
+            assert!(flat.abs() < 1e-10, "{name} {h}: {flat}");
             assert_eq!(row.len(), FINE_BOUNDS.len() - 1);
             for (g, &value) in row.iter().enumerate() {
                 let below = if g + 1 == row.len() {
@@ -1892,14 +1894,16 @@ fn above_beyond(lib: &Library, m: &MaterialInput, high: f64, x: f64) -> f64 {
 #[test]
 fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
     // 無限媒質（1 つのリング）の群ごとの中性子収支 Σt,g φ_g = Σ_h Σs(h→g) φ_h + （範囲の上からの線源）。移行の行は UFG の
-    // 減速計算と同じ核で数えるので、散乱核によらず釣り合う（差は、減速計算の格子点の散乱源と群の積分の台形則の差だけ）。自由ガスの
-    // 核と S(α, β) の移行では、範囲の下限より下からの上方散乱が入る最後の群を除く
+    // 減速計算と同じ核で数えるので、散乱核によらず釣り合う。差は、格子点の散乱源を台形則で群に積分した値と、散乱源の積分の差
+    // （静止した標的の共鳴のある群で 2e−7 ほど）。減速計算は自由ガスの核の差 D を区間ごとの 2 次式で近似するので、その区間の細かさを
+    // 移行を数える細かさ（SHARE_CELLS）と同じ 8 にする（速い方法の 2 では D の近似の差で 2e−6 ほど釣り合わない）。自由ガスの核と
+    // S(α, β) の移行では、範囲の下限より下からの上方散乱が入る最後の群を除く
     let table = free_gas_transfer(0.99917, 600.0, 0.002);
     for (label, scattering, sab_table) in [
         ("static", Scattering::Static, None),
-        ("free gas", free_gas(None, 2, None), None),
-        ("resonant free gas", free_gas_heavy(400.0, 2, None), None),
-        ("S(a,b)", sab(2, None), Some(table)),
+        ("free gas", free_gas(None, 8, None), None),
+        ("resonant free gas", free_gas_heavy(400.0, 8, None), None),
+        ("S(a,b)", sab(8, None), Some(table)),
     ] {
         let (mut lib, _, _) = thermal_cell_with(600.0, &FINE_BOUNDS);
         if let Some(table) = sab_table {
