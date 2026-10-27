@@ -2511,4 +2511,72 @@ pub(crate) mod lattice {
         }
         assert!(changed > 1e-3, "{changed}");
     }
+
+    #[test]
+    fn branch_remixing_keeps_the_ring_flux_transfers_by_nuclide_name() {
+        // 分岐の作り直し（ADR-0201）は、核種の名前で公称の組成の移行の行を引く。公称の組成なら自己遮蔽の物質とビットで同じで、
+        // 核種の順を入れ替えた組成でも、同じ核種の移行の行で作る
+        let library = resonant_library();
+        let options = ShieldingOptions {
+            transfer: UfgTransfer::RingFlux,
+            ..ShieldingOptions::default()
+        };
+        let (shielded, lattice, regions, materials) = ring_pin(&options);
+        let varied = ["water".to_string()];
+        let rebuilt = crate::branches::remix_varied(
+            &library, &shielded, &lattice, &regions, &varied, &materials, &materials,
+        )
+        .unwrap();
+        assert!(!rebuilt.is_empty());
+        for (m, material) in &rebuilt {
+            assert_eq!(material, &shielded.materials[*m], "material {m}");
+        }
+        let mut swapped = materials.clone();
+        let water = swapped.iter_mut().find(|m| m.name == "water").unwrap();
+        water.composition.reverse();
+        let rebuilt = crate::branches::remix_varied(
+            &library, &shielded, &lattice, &regions, &varied, &materials, &swapped,
+        )
+        .unwrap();
+        let ng = library.groups.len();
+        let sph = shielded
+            .physical_flux(&lattice, &vec![vec![1.0; ng]; lattice.regions()])
+            .unwrap();
+        let r = regions.iter().position(|n| n == "water").unwrap();
+        let nominal = &materials
+            .iter()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition;
+        let nuclides: Vec<_> = water_of(&swapped)
+            .iter()
+            .map(|(name, density)| {
+                let i = nominal.iter().position(|(n, _)| n == name).unwrap();
+                let s = &shielded.region_cross_sections(r).unwrap()[i];
+                let t = &shielded.region_transfers(r).unwrap()[i];
+                (
+                    shielded_nuclide_with(&library, name, T, s, Some(t)).unwrap(),
+                    *density,
+                )
+            })
+            .collect();
+        let expected = Material::from_nuclides(&nuclides, ng)
+            .unwrap()
+            .scaled(&sph[r])
+            .unwrap();
+        let (_, material) = rebuilt
+            .iter()
+            .find(|(m, _)| *m == shielded.region_material[r])
+            .unwrap();
+        assert_eq!(material, &expected);
+    }
+
+    fn water_of(materials: &[MaterialInput]) -> Vec<(String, f64)> {
+        materials
+            .iter()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition
+            .clone()
+    }
 }
