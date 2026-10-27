@@ -321,7 +321,7 @@ impl<'a> ThermalSab<'a> {
             .fold(f64::NEG_INFINITY, f64::max);
         let reach = UFG_TAIL * BK * hottest;
         let lowest = low - reach;
-        if !(lowest > 0.0) {
+        if lowest.is_nan() || lowest <= 0.0 {
             return Err(SabError::TransferRange {
                 cutoff: self.cutoff,
                 lowest,
