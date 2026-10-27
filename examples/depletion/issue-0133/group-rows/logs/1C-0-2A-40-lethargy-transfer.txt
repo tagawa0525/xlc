@@ -1,0 +1,12 @@
+material water 27-27
+groups 27..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 3.5e-12; after the swap: max |μ'/μ − 1| 2.24e-5
+OpenMC k 1.171998
+xlc                      k 1.172316 (1/A 1.172316), k − OpenMC   +31.7 pcm; max |out-scatter xs / OpenMC − 1| 2.16e-3
+swapped, SPH kept        k 1.172473 (1/A 1.172473), k − OpenMC   +47.5 pcm; max |out-scatter xs / OpenMC − 1| 2.22e-16
+swapped, SPH recomputed  k 1.172475 (1/A 1.172475), k − OpenMC   +47.6 pcm; max |out-scatter xs / OpenMC − 1| 2.22e-16
+material water 14-26
+groups 14..=26; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 3.5e-12; after the swap: max |μ'/μ − 1| 1.61e-5
+OpenMC k 1.171998
+xlc                      k 1.172316 (1/A 1.172316), k − OpenMC   +31.7 pcm; max |out-scatter xs / OpenMC − 1| 7.94e-4
+swapped, SPH kept        k 1.172284 (1/A 1.172284), k − OpenMC   +28.5 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
+swapped, SPH recomputed  k 1.172284 (1/A 1.172284), k − OpenMC   +28.6 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
