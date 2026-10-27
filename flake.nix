@@ -44,6 +44,7 @@
           scipy
           pandas
           uncertainties
+          pyyaml
         ];
       python = pkgs.python3.withPackages pythonPackages;
       # 計算のステージの駆動（ADR-0159）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
