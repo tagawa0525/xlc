@@ -74,6 +74,18 @@ pub enum UfgError {
     Undefined { name: String, energy: f64 },
     #[error("the slowing-down equations are singular at {0} eV")]
     Singular(f64),
+    #[error(
+        "{name}: `sab` needs the S(α, β) transfer of the library (made by an xs with ADR-0205)"
+    )]
+    NoSabTransfer { name: String },
+    #[error(
+        "{name}: the S(α, β) transfer starts at {first} eV, above the up-scattering reach {needed} eV"
+    )]
+    SabCoverage {
+        name: String,
+        first: f64,
+        needed: f64,
+    },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
@@ -193,6 +205,9 @@ pub struct FreeGas {
     /// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限（核種の kT の倍数。無限大は範囲の全体）。`None` は分離共鳴を
     /// 持つ核種を静止した標的にする（ADR-0204）
     pub heavy: Option<f64>,
+    /// S(α, β) を持つ核種（H in H2O の H）を、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で散乱させる。false は、その
+    /// 核種も自由ガスの核にする（ADR-0205）
+    pub sab: bool,
 }
 
 impl Default for FreeGas {
@@ -203,6 +218,7 @@ impl Default for FreeGas {
             cells: 4,
             sweeps: None,
             heavy: None,
+            sab: false,
         }
     }
 }
