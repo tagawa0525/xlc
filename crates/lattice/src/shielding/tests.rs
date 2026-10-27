@@ -2441,13 +2441,8 @@ pub(crate) mod lattice {
     #[test]
     fn ring_flux_transfers_are_the_default_and_infinite_dilution_carries_no_rows() {
         // ADR-0209: 既定はリングの中性子束で数えた移行。無限希釈の形を選べば、領域は移行の行を持たない
+        assert_eq!(ShieldingOptions::default().transfer, UfgTransfer::RingFlux);
         let default = ring_pin(&ShieldingOptions::default()).0;
-        let ring_flux = ring_pin(&ShieldingOptions {
-            transfer: UfgTransfer::RingFlux,
-            ..ShieldingOptions::default()
-        })
-        .0;
-        assert_eq!(default, ring_flux);
         assert!((0..6).any(|r| default.region_transfers(r).is_some()));
         let dilution = ring_pin(&ShieldingOptions {
             transfer: UfgTransfer::InfiniteDilution,
