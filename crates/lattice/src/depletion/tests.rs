@@ -1374,8 +1374,21 @@ fn shielded_pin() -> (
     Vec<DepletionRegion>,
     Vec<MaterialInput>,
 ) {
-    let library = library();
-    let input = LatticeInput::parse(PIN).unwrap();
+    shielded_pin_with(library(), PIN)
+}
+
+/// [`shielded_pin`] の、ライブラリを `library`、入力を `text` にしたもの
+fn shielded_pin_with(
+    library: Library,
+    text: &str,
+) -> (
+    Library,
+    Lattice,
+    FuelShielding,
+    Vec<DepletionRegion>,
+    Vec<MaterialInput>,
+) {
+    let input = LatticeInput::parse(text).unwrap();
     let (lattice, region_materials) = input.geometry().unwrap();
     let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
     let chosen = choose(&tracking, &region_materials, None).unwrap();
@@ -1417,6 +1430,23 @@ fn remixed_pin(
 #[test]
 fn remixing_the_shielded_composition_reproduces_the_shielded_materials() {
     let (library, lattice, shielded, regions, materials) = shielded_pin();
+    let remixed = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap();
+    assert_eq!(remixed, shielded);
+}
+
+#[test]
+fn remixing_ring_flux_shielding_reproduces_the_shielded_materials() {
+    // UFG の範囲の移行をリングの中性子束で数えた自己遮蔽（ADR-0207）でも、領域の移行の行から同じ物質に作り直せる
+    let (library, lattice, shielded, regions, materials) = shielded_pin_with(
+        crate::shielding::tests::lattice::resonant_library(),
+        &format!("ufg-transfer = \"ring-flux\"\n{PIN}"),
+    );
+    assert!(
+        regions[0]
+            .regions
+            .iter()
+            .all(|&r| shielded.region_transfers(r).is_some())
+    );
     let remixed = remixed_pin(&library, &lattice, &shielded, &regions, &materials).unwrap();
     assert_eq!(remixed, shielded);
 }

@@ -39,6 +39,7 @@ use crate::input::MaterialInput;
 use free_gas::{Gas, Thermal};
 
 mod free_gas;
+mod transfer;
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
 use xlc_numeric::lu::solve;
 
@@ -100,6 +101,21 @@ pub enum UfgError {
         "internal error: the S(α, β) source at {energy} eV has no table share at transfer {transfer} eV"
     )]
     SabTable { energy: f64, transfer: f64 },
+    #[error(
+        "`ufg-transfer = \"ring-flux\"` counts the transfers on the full grid only (not with `ufg-tolerance`)"
+    )]
+    ThinnedTransfers,
+    /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合）
+    #[error(
+        "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative"
+    )]
+    Transfer {
+        ring: usize,
+        nuclide: usize,
+        from: usize,
+        to: usize,
+        value: f64,
+    },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
@@ -319,8 +335,43 @@ pub fn slowing_down_with(
     scattering: Scattering,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library, cell, rings, range, collision, thinning, scattering, None,
+        library, cell, rings, range, collision, thinning, scattering, None, None,
     )
+}
+
+/// 1 つの核種の、UFG の範囲の群から出る弾性散乱の移行（ADR-0207。[`slowing_down_transfers`]）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct NuclideTransfer {
+    /// 入射の群（ライブラリの群の番号。減速計算した群）
+    pub groups: Range<usize>,
+    /// [入射の群 − `groups.start`][出射の群（ライブラリのすべての群）] の移行の微視的断面積 (barn)
+    pub rows: Vec<Vec<f64>>,
+}
+
+/// [`slowing_down_with`] と同じ減速計算を解き、[リング][核種（物質の組成の順）] の弾性散乱の移行の行も返す（ADR-0207）。
+#[allow(clippy::too_many_arguments)]
+pub fn slowing_down_transfers(
+    library: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    collision: Collision,
+    thinning: Option<f64>,
+    scattering: Scattering,
+) -> Result<(CellSpectrum, Vec<Vec<NuclideTransfer>>), UfgError> {
+    let mut transfers = Vec::new();
+    let spectrum = solve_cell(
+        library,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        Some(&mut transfers),
+    )?;
+    Ok((spectrum, transfers))
 }
 
 /// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]）。
@@ -354,6 +405,7 @@ pub fn slowing_down_fine(
         thinning,
         scattering,
         Some(&mut fine),
+        None,
     )?;
     Ok((spectrum, fine))
 }
@@ -369,7 +421,12 @@ fn solve_cell(
     thinning: Option<f64>,
     scattering: Scattering,
     fine: Option<&mut FineFlux>,
+    transfers: Option<&mut Vec<Vec<NuclideTransfer>>>,
 ) -> Result<CellSpectrum, UfgError> {
+    // 間引いた格子では群定数を核種自身の格子で縮約するので、間引いた格子で数える移行と格子が揃わない
+    if transfers.is_some() && thinning.is_some() {
+        return Err(UfgError::ThinnedTransfers);
+    }
     let volumes = cell.volumes();
     let n = volumes.len();
     if rings.len() != n {
@@ -754,6 +811,40 @@ fn solve_cell(
             list.push(shielded);
         }
         nuclides.push(list);
+    }
+    if let Some(transfers) = transfers {
+        // 自由ガスの核種の番号（`Thermal::new` に渡した順）
+        let mut count = 0;
+        let gas_of: Vec<Option<usize>> = data
+            .iter()
+            .map(|d| {
+                d.gas.map(|_| {
+                    count += 1;
+                    count - 1
+                })
+            })
+            .collect();
+        let counted = Instant::now();
+        *transfers = transfer::Counting {
+            data: &data,
+            entries: &entries,
+            u: &u,
+            points: &points,
+            flux: &sweep.flux,
+            elastic: &sweep.elastic,
+            group_flux: &sweep.group_flux,
+            nuclides: &nuclides,
+            bounds,
+            groups: top..bottom,
+            high,
+            thermal: sweep.thermal.as_ref(),
+            gas_of: &gas_of,
+        }
+        .count()?;
+        tracing::debug!(
+            seconds = counted.elapsed().as_secs_f64(),
+            "UFG transfers counted"
+        );
     }
     // 頼まれたときだけ格子点ごとの中性子束を渡す（頼まれなければ、格子点の数 × リングの数の中性子束はここで捨てる）
     if let Some(fine) = fine {

@@ -1603,5 +1603,89 @@ class DrawGroupRows(unittest.TestCase):
             vt.group_rows_swaps([{"format": "xlc-ufg-free-gas"}])
 
 
+class DrawUfgTransfer(unittest.TestCase):
+    def summary(self) -> dict:
+        def rows(xlc_out, state_out, kernel_out):
+            entry = {
+                "xlc": [xlc_out, 0.40],
+                "state": [state_out, 0.40],
+                "kernel-openmc": [0.5887, 0.40],
+                "kernel-xlc": [kernel_out, 0.40],
+                "kernel-lethargy": [0.5945, 0.40],
+            }
+            return {"k2": {"water:27": entry, "water:14": entry, "water:15": entry}}
+
+        def state(name, openmc_k, k_dilute, k_ring, swaps, kernels, ring_rows):
+            return {
+                "key": name,
+                "name": name,
+                "openmc_k": openmc_k,
+                "kernels": kernels,
+                "modes": {
+                    "dilute": {"k": k_dilute, "swaps": {"water:27-27": swaps[0]}},
+                    "ring": {"k": k_ring, "swaps": {"water:27-27": swaps[1]}},
+                },
+                "rows": {
+                    "dilute": rows(0.5932, 0.5888, 0.5884) if kernels else {},
+                    "ring": ring_rows if kernels else {},
+                },
+            }
+
+        return {
+            "format": "xlc-ufg-transfer",
+            "specs": [{"spec": "water:27-27", "label": "減速材、27 群"}],
+            "kernels": [{"key": "k2", "label": "2A-40 の核"}],
+            "modes": [
+                {"key": "dilute", "label": "無限希釈"},
+                {"key": "ring", "label": "リング"},
+            ],
+            "states": [
+                state("1C 0", 1.171998, 1.172316, 1.172000, (-3.8, 1.0), [], {}),
+                state(
+                    "2A 40",
+                    0.824863,
+                    0.825977,
+                    0.825628,
+                    (44.5, 14.0),
+                    ["k2"],
+                    rows(0.5866, 0.5888, 0.5884),
+                ),
+            ],
+        }
+
+    def test_k_rows_give_the_difference_of_each_mode_and_its_increase(self):
+        table = vt.ufg_transfer_k([self.summary()])
+        self.assertRegex(table, r"\| 無限希釈 +\| \+31\.8 +\| \+111\.4 +\| \+79\.6 +\|")
+        self.assertRegex(table, r"\| リング +\| \+0\.2 +\| \+76\.5 +\| \+76\.3 +\|")
+        self.assertRegex(table, r"\| OpenMC の k +\| 1\.17200 +\| 0\.82486 +\| – +\|")
+
+    def test_swap_rows_compare_the_modes_and_the_increase_from_the_first_state(self):
+        table = vt.ufg_transfer_swaps([self.summary()])
+        self.assertRegex(
+            table, r"\| 2A 40 +\| 減速材、27 群 +\| \+44\.5 +\| \+14\.0 +\| −30\.5 +\|"
+        )
+        self.assertRegex(
+            table,
+            r"\| 2A 40 − 1C 0 +\| 減速材、27 群 +\| \+48\.3 +\| \+13\.0 +\| −35\.3 +\|",
+        )
+
+    def test_out_rows_are_relative_to_the_openmc_row_and_skip_states_without_kernels(
+        self,
+    ):
+        table = vt.ufg_transfer_rows([self.summary()])
+        self.assertRegex(
+            table,
+            r"\| 2A 40 +\| 2A-40 の核 +\| water +\| 27 +\| 0\.58880 +\| \+0\.75% +\| −0\.37% +\| −0\.07% +\| −0\.31% +\|",
+        )
+        self.assertRegex(
+            table, r"\| 2A 40 +\| 2A-40 の核 +\| water +\| 15〜26 +\| – +\|"
+        )
+        self.assertNotIn("1C 0", table)
+
+    def test_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.ufg_transfer_k([{"format": "xlc-group-rows"}])
+
+
 if __name__ == "__main__":
     unittest.main()

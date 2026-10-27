@@ -339,3 +339,68 @@ fn idle_gases_have_no_cells() {
     }
     assert!(idle > 0);
 }
+
+#[test]
+fn correction_shares_split_the_kernel_at_an_outgoing_energy() {
+    // 入射 E' の D（エネルギーあたり (S − S_static)/N）を出射のエネルギー Ex の下と上に分けた積分は、核と静止した核をそれぞれ
+    // 直接積分した値の差に合い、2 つの和は 1 − 1/N（∫ S dE = N、∫ S_static dE = 1）。区間の細かさは移行を数えるときの
+    // [`SHARE_CELLS`]
+    for (awr, temperature) in [
+        (0.99917, 600.0),
+        (15.86, 600.0),
+        (15.86, 1200.0),
+        (236.0, 900.0),
+    ] {
+        let gas = Gas::new(awr, temperature, None);
+        let kt = gas.kt;
+        let alpha = 1.0 - 1.0 / gas.gain;
+        let grades = grades(SHARE_CELLS);
+        for e in [4.0, 6.0, 30.0] {
+            let n = effective_ratio(e, awr, kt);
+            let edge = alpha * e;
+            let mut outgoing = vec![
+                edge - 0.01,
+                edge + 0.005,
+                0.5 * (edge + e),
+                e - 0.3,
+                e - 0.02,
+                e + 0.01,
+                e + 0.2,
+                e + 5.0,
+                2.0,
+            ];
+            outgoing.retain(|&x| x > 0.0);
+            // 核の累積 ∫_0^Ex S dE を、αE' と E' と Ex の点で区切り、E' のまわり ± 50 kT を細かく積分する
+            let mut breaks = vec![0.0, edge, e, (e - 50.0 * kt).max(0.0), e + 50.0 * kt];
+            breaks.extend(&outgoing);
+            breaks.retain(|&x| x >= 0.0);
+            breaks.sort_by(f64::total_cmp);
+            breaks.dedup();
+            let mut cumulative = vec![0.0];
+            for w in breaks.windows(2) {
+                let (a, b) = (w[0], w[1]);
+                let near = b > e - 50.0 * kt && a < e + 50.0 * kt;
+                let pieces = if near { 20_000 } else { 2_000 };
+                let piece = integrate_fn(|x| kernel(e, x, awr, kt), a, b, pieces);
+                cumulative.push(cumulative.last().unwrap() + piece);
+            }
+            let total = *cumulative.last().unwrap();
+            assert_rel(total, n, 1e-10);
+            for &x in &outgoing {
+                let below_kernel = cumulative[breaks.iter().position(|&b| b == x).unwrap()];
+                let below_static = gas.gain / e * (x.clamp(edge, e) - edge);
+                let expected = (below_kernel - below_static) / n;
+                let [below, above] = gas.shares(e, x, &grades, SHARE_CELLS);
+                assert!(
+                    (below - expected).abs() < 1e-10,
+                    "A {awr}, T {temperature}, E' {e}, Ex {x}: {below} vs {expected}"
+                );
+                assert!(
+                    (below + above - (1.0 - 1.0 / n)).abs() < 1e-10,
+                    "A {awr}, T {temperature}, E' {e}, Ex {x}: {below} + {above} vs {}",
+                    1.0 - 1.0 / n
+                );
+            }
+        }
+    }
+}

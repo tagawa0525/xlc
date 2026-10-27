@@ -1,0 +1,24 @@
+material water 27-27
+groups 27..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 3.9e-12; after the swap: max |μ'/μ − 1| 2.73e-5
+OpenMC k 1.171998
+xlc                      k 1.172387 (1/A 1.172387), k − OpenMC   +38.9 pcm; max |out-scatter xs / OpenMC − 1| 2.73e-3
+swapped, SPH kept        k 1.172575 (1/A 1.172575), k − OpenMC   +57.7 pcm; max |out-scatter xs / OpenMC − 1| 2.22e-16
+swapped, SPH recomputed  k 1.172577 (1/A 1.172577), k − OpenMC   +57.8 pcm; max |out-scatter xs / OpenMC − 1| 4.44e-16
+material water 14-26
+groups 14..=26; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 3.9e-12; after the swap: max |μ'/μ − 1| 5.03e-5
+OpenMC k 1.171998
+xlc                      k 1.172387 (1/A 1.172387), k − OpenMC   +38.9 pcm; max |out-scatter xs / OpenMC − 1| 2.55e-3
+swapped, SPH kept        k 1.172114 (1/A 1.172115), k − OpenMC   +11.6 pcm; max |out-scatter xs / OpenMC − 1| 6.66e-16
+swapped, SPH recomputed  k 1.172114 (1/A 1.172114), k − OpenMC   +11.5 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
+material fuel 27-27
+groups 27..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 3.9e-12; after the swap: max |μ'/μ − 1| 1.95e-5
+OpenMC k 1.171998
+xlc                      k 1.172387 (1/A 1.172387), k − OpenMC   +38.9 pcm; max |out-scatter xs / OpenMC − 1| 1.55e-3
+swapped, SPH kept        k 1.172384 (1/A 1.172384), k − OpenMC   +38.5 pcm; max |out-scatter xs / OpenMC − 1| 6.59e-8
+swapped, SPH recomputed  k 1.172385 (1/A 1.172385), k − OpenMC   +38.6 pcm; max |out-scatter xs / OpenMC − 1| 1.00e-9
+material fuel 14-26
+groups 14..=26; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 3.9e-12; after the swap: max |μ'/μ − 1| 2.64e-4
+OpenMC k 1.171998
+xlc                      k 1.172387 (1/A 1.172387), k − OpenMC   +38.9 pcm; max |out-scatter xs / OpenMC − 1| 1.67e-2
+swapped, SPH kept        k 1.172393 (1/A 1.172393), k − OpenMC   +39.5 pcm; max |out-scatter xs / OpenMC − 1| 6.17e-8
+swapped, SPH recomputed  k 1.172393 (1/A 1.172393), k − OpenMC   +39.4 pcm; max |out-scatter xs / OpenMC − 1| 2.64e-9

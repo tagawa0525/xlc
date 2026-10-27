@@ -32,12 +32,12 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, LookupError};
 use xlc_format::table::{Axis, Table, component};
 
-use crate::depletion::same_cross_sections;
+use crate::depletion::{same_cross_sections, same_transfers};
 use crate::geometry::Lattice;
 use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::material::Material;
 use crate::shielding::{
-    FuelShielding, ShieldingOptions, ShieldingReuse, shield_fuel_reusing, shielded_nuclide,
+    FuelShielding, ShieldingOptions, ShieldingReuse, shield_fuel_reusing, shielded_nuclide_with,
 };
 use crate::symmetry::Detected;
 use crate::tracking::Tracking;
@@ -799,9 +799,10 @@ pub(crate) fn remix_varied(
                         reference.region_cross_sections(r),
                         reference.region_cross_sections(f),
                     )
+                    || !same_transfers(reference.region_transfers(r), reference.region_transfers(f))
                 {
                     bail!(
-                        "regions {f} and {r} share material {m} with different cross sections or SPH factors"
+                        "regions {f} and {r} share material {m} with different cross sections, transfers or SPH factors"
                     );
                 }
             }
@@ -846,18 +847,31 @@ pub(crate) fn remix_varied(
                     before.composition.len()
                 );
             }
+            let transfers = reference.region_transfers(r);
+            if transfers.is_some_and(|t| t.len() != cross_sections.len()) {
+                bail!("region {r}: the transfers do not match the shielded nuclides");
+            }
             let nuclides = after
                 .composition
                 .iter()
                 .map(|(nuclide, density)| {
-                    let shielded = match before.composition.iter().position(|(n, _)| n == nuclide) {
+                    let index = before.composition.iter().position(|(n, _)| n == nuclide);
+                    let shielded = match index {
                         Some(i) => cross_sections[i].clone(),
                         None => {
                             library.shielded(nuclide, after.temperature, &vec![infinite; ng])?
                         }
                     };
+                    // 公称の組成にない核種は無限希釈で、UFG の範囲の移行も持たない
+                    let transfer = index.and_then(|i| transfers.map(|t| &t[i]));
                     Ok((
-                        shielded_nuclide(library, nuclide, after.temperature, &shielded)?,
+                        shielded_nuclide_with(
+                            library,
+                            nuclide,
+                            after.temperature,
+                            &shielded,
+                            transfer,
+                        )?,
                         *density,
                     ))
                 })
