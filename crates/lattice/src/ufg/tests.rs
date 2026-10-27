@@ -1912,109 +1912,124 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
         ("resonant free gas", free_gas_heavy(400.0, 8, None), None),
         ("S(a,b)", sab(8, None), Some(table)),
     ];
-    for ((label, scattering, sab_table), thinning) in cases
-        .into_iter()
-        .flat_map(|case| [None, Some(1.0e-4)].map(move |t| (case.clone(), t)))
-    {
-        let (mut lib, _, _) = thermal_cell_with(600.0, &FINE_BOUNDS);
-        if sab_table.is_some() {
-            make_sab(&mut lib, sab_table);
-        }
-        let m = material(&[
-            ("U-238", 0.01),
-            ("U-235", 3.0e-4),
-            ("O-16", 0.03),
-            ("H-1", 0.03),
-        ]);
-        let high = 1.0e2;
-        let cell = Cylinder::new(vec![0.5]).unwrap();
-        let (spectrum, transfers) = slowing_down_transfers(
-            &lib,
-            &cell,
-            &[Some(&m)],
-            [4.0, high],
-            Collision::Exact,
-            thinning,
-            scattering,
-        )
-        .unwrap();
-        let groups = spectrum.groups.clone();
-        assert_eq!(groups, 4..8);
-        let x = |b: usize| (high / FINE_BOUNDS[b]).ln();
-        let phi = |h: usize| spectrum.flux[0][h - groups.start];
-        let last = match scattering {
-            Scattering::Static => groups.end,
-            Scattering::FreeGas(_) => groups.end - 1,
-        };
-        for g in groups.start..last {
-            let removal = phi(g)
-                * m.composition
+    for (label, scattering, sab_table) in cases {
+        let mut full_points = None;
+        for thinning in [None, Some(1.0e-4)] {
+            let (mut lib, _, _) = thermal_cell_with(600.0, &FINE_BOUNDS);
+            if sab_table.is_some() {
+                make_sab(&mut lib, sab_table.clone());
+            }
+            let m = material(&[
+                ("U-238", 0.01),
+                ("U-235", 3.0e-4),
+                ("O-16", 0.03),
+                ("H-1", 0.03),
+            ]);
+            let high = 1.0e2;
+            let cell = Cylinder::new(vec![0.5]).unwrap();
+            let (spectrum, transfers) = slowing_down_transfers(
+                &lib,
+                &cell,
+                &[Some(&m)],
+                [4.0, high],
+                Collision::Exact,
+                thinning,
+                scattering,
+            )
+            .unwrap();
+            match full_points {
+                None => full_points = Some(spectrum.points),
+                Some(full) => assert!(
+                    spectrum.points < full,
+                    "{label}: {} vs {full}",
+                    spectrum.points
+                ),
+            }
+            let groups = spectrum.groups.clone();
+            assert_eq!(groups, 4..8);
+            let x = |b: usize| (high / FINE_BOUNDS[b]).ln();
+            let phi = |h: usize| spectrum.flux[0][h - groups.start];
+            let last = match scattering {
+                Scattering::Static => groups.end,
+                Scattering::FreeGas(_) => groups.end - 1,
+            };
+            for g in groups.start..last {
+                let removal = phi(g)
+                    * m.composition
+                        .iter()
+                        .zip(&spectrum.nuclides[0])
+                        .map(|((_, n), s)| n * s.total[g - groups.start])
+                        .sum::<f64>();
+                let inflow: f64 = m
+                    .composition
                     .iter()
-                    .zip(&spectrum.nuclides[0])
-                    .map(|((_, n), s)| n * s.total[g - groups.start])
-                    .sum::<f64>();
-            let inflow: f64 = m
-                .composition
-                .iter()
-                .zip(&transfers[0])
-                .map(|((_, n), t)| {
-                    n * groups
-                        .clone()
-                        .map(|h| t.rows[h - groups.start][g] * phi(h))
-                        .sum::<f64>()
-                })
-                .sum();
-            let above = above_beyond(&lib, &m, high, x(g)) - above_beyond(&lib, &m, high, x(g + 1));
-            let balance = (inflow + above) / removal - 1.0;
-            assert!(
-                balance.abs() < 1e-6,
-                "{label} {thinning:?}: group {g}: {balance:e}"
-            );
+                    .zip(&transfers[0])
+                    .map(|((_, n), t)| {
+                        n * groups
+                            .clone()
+                            .map(|h| t.rows[h - groups.start][g] * phi(h))
+                            .sum::<f64>()
+                    })
+                    .sum();
+                let above =
+                    above_beyond(&lib, &m, high, x(g)) - above_beyond(&lib, &m, high, x(g + 1));
+                let balance = (inflow + above) / removal - 1.0;
+                assert!(
+                    balance.abs() < 1e-6,
+                    "{label} {thinning:?}: group {g}: {balance:e}"
+                );
+            }
         }
     }
 }
 
-/// [`DILUTE_RESONANCE`] の核種の数密度。物質の弾性散乱断面積への共鳴の頂点の寄与（4e−6 /cm）が、燃料の断面積（0.42 /cm ほど）の間引きの
-/// 許容差 1e−4 より小さく、間引いた格子から共鳴の点が落ちる
+/// 薄い核種の数密度。物質の弾性散乱断面積への共鳴の頂点の寄与（4e−6 /cm）が、燃料の断面積（0.42 /cm ほど）の間引きの許容差 1e−4 より
+/// 小さく、間引いた格子から共鳴の点が落ちる
 const DILUTE: f64 = 2.0e-9;
 
-/// 薄い核種の弾性散乱の共鳴の頂点 (eV) と、半値半幅
-const DILUTE_RESONANCE: (f64, f64) = (5.19, 0.01);
+/// 薄い核種（名前、質量比、弾性散乱の共鳴の頂点 (eV)）。Ag-109 の共鳴は 4〜6 eV の群の中ほど、Tc-99 の共鳴は群の下端 4 eV から核の届く幅
+/// （レサジーで 0.04 ほど）の中にある
+const DILUTE_NUCLIDES: [(&str, f64, f64); 2] = [("Ag-109", 107.97, 5.19), ("Tc-99", 98.13, 4.06)];
 
-/// [`thermal_cell_with`] の [`FINE_BOUNDS`] のセルに、燃料に [`DILUTE_RESONANCE`] の弾性散乱の共鳴を持つ薄い核種を足したもの（ライブラリ、
-/// 燃料、減速材と、その核種の点のエネルギー）。H-1 に表 `table` を持たせる（S(α, β) の移行を選ぶとき）
-fn transfer_cell(table: Option<SabTransfer>) -> (Library, MaterialInput, MaterialInput, Vec<f64>) {
-    let (peak, width) = DILUTE_RESONANCE;
-    let resonance = |e: f64| 2.0e3 / (1.0 + ((e - peak) / width).powi(2));
-    let mut energies: Vec<f64> = (0..=400).map(|k| 5.0 + 0.001 * k as f64).collect();
+/// 薄い核種の共鳴の半値半幅 (eV)
+const DILUTE_WIDTH: f64 = 0.01;
+
+/// 頂点 `peak` の弾性散乱の共鳴を持つ核種の、0.001 eV ごとの点のエネルギー（頂点の ±0.2 eV）と範囲の端の点
+fn dilute_energies(peak: f64) -> Vec<f64> {
+    let mut energies: Vec<f64> = (0..=400)
+        .map(|k| peak - 0.2 + 0.001 * k as f64)
+        .filter(|&e| e > 4.0)
+        .collect();
     energies.insert(0, 4.0);
     energies.extend([10.0, 100.0, 2.0e4]);
-    let points = energies
-        .iter()
-        .map(|&e| [e, 7.0 + resonance(e), 5.0 + resonance(e), 0.0])
-        .collect();
+    energies
+}
+
+/// [`thermal_cell_with`] の [`FINE_BOUNDS`] のセルの燃料に、[`DILUTE_NUCLIDES`] を足したもの（ライブラリ、燃料、減速材）。H-1 に表
+/// `table` を持たせる（S(α, β) の移行を選ぶとき）
+fn transfer_cell(table: Option<SabTransfer>) -> (Library, MaterialInput, MaterialInput) {
     let mut specs = thermal_specs();
-    specs.push(Spec {
-        name: "Ag-109",
-        awr: 107.97,
-        top: Some(2.0e4),
-        points,
-    });
+    for (name, awr, peak) in DILUTE_NUCLIDES {
+        let resonance = |e: f64| 2.0e3 / (1.0 + ((e - peak) / DILUTE_WIDTH).powi(2));
+        let points = dilute_energies(peak)
+            .iter()
+            .map(|&e| [e, 7.0 + resonance(e), 5.0 + resonance(e), 0.0])
+            .collect();
+        specs.push(Spec {
+            name,
+            awr,
+            top: Some(2.0e4),
+            points,
+        });
+    }
     let mut lib = library_with(specs, 600.0, &FINE_BOUNDS);
     if table.is_some() {
         make_sab(&mut lib, table);
     }
-    let fuel = material_at(
-        &[
-            ("U-238", 0.022),
-            ("U-235", 0.0005),
-            ("O-16", 0.045),
-            ("Ag-109", DILUTE),
-        ],
-        600.0,
-    );
-    let water = material_at(&[("H-1", 0.05), ("O-16", 0.025)], 600.0);
-    (lib, fuel, water, energies)
+    let (_, mut fuel, water) = thermal_cell_with(600.0, &FINE_BOUNDS);
+    fuel.composition
+        .extend(DILUTE_NUCLIDES.map(|(name, ..)| (name.to_string(), DILUTE)));
+    (lib, fuel, water)
 }
 
 /// [`transfer_cell`] の 100 eV より下の減速計算と移行（燃料、真空、減速材 2 つのリング）
@@ -2023,7 +2038,7 @@ fn thermal_transfers(
     scattering: Scattering,
     table: Option<SabTransfer>,
 ) -> (CellSpectrum, Vec<Vec<NuclideTransfer>>) {
-    let (lib, fuel, water, _) = transfer_cell(table);
+    let (lib, fuel, water) = transfer_cell(table);
     let cell = Cylinder::new(RADII.to_vec()).unwrap();
     let rings = [Some(&fuel), None, Some(&water), Some(&water)];
     slowing_down_transfers(
@@ -2053,18 +2068,14 @@ fn transfer_kernels() -> [(&'static str, Scattering, Option<SabTransfer>); 4] {
 }
 
 #[test]
-fn dilute_resonance_drops_out_of_the_thinned_grid() {
-    // 移行の試験の前提: 薄い核種の共鳴の点は、間引かない格子にはすべてあり、間引いた格子からは落ちる
-    let (lib, fuel, water, energies) = transfer_cell(None);
+fn dilute_resonances_drop_out_of_the_thinned_grid() {
+    // 移行の試験の前提: 薄い核種の共鳴の頂点の近くの点は、間引かない格子にはすべてあり、間引いた格子からはほとんど落ちる（残るのは
+    // 1 割より少ない。Tc-99 は 40 点のうち 1 点が残る）
+    let (lib, fuel, water) = transfer_cell(None);
     let cell = Cylinder::new(RADII.to_vec()).unwrap();
     let rings = [Some(&fuel), None, Some(&water), Some(&water)];
-    let (peak, width) = DILUTE_RESONANCE;
-    let near: Vec<f64> = energies
-        .into_iter()
-        .filter(|e| (e - peak).abs() <= 2.0 * width)
-        .collect();
-    let kept = |thinning| {
-        let (_, fine) = slowing_down_fine(
+    let energies = |thinning| {
+        slowing_down_fine(
             &lib,
             &cell,
             &rings,
@@ -2073,18 +2084,35 @@ fn dilute_resonance_drops_out_of_the_thinned_grid() {
             thinning,
             Scattering::Static,
         )
-        .unwrap();
-        near.iter().filter(|e| fine.energies.contains(e)).count()
+        .unwrap()
+        .1
+        .energies
     };
-    assert_eq!(kept(None), near.len());
-    assert_eq!(kept(Some(1.0e-4)), 0);
+    let (full, thinned) = (energies(None), energies(Some(1.0e-4)));
+    for (name, _, peak) in DILUTE_NUCLIDES {
+        let near: Vec<f64> = dilute_energies(peak)
+            .into_iter()
+            .filter(|e| (e - peak).abs() <= 2.0 * DILUTE_WIDTH)
+            .collect();
+        assert!(near.iter().all(|e| full.contains(e)), "{name}");
+        let kept = near.iter().filter(|e| thinned.contains(e)).count();
+        assert!(10 * kept < near.len(), "{name}: {kept} of {}", near.len());
+    }
 }
 
 #[test]
 fn thinned_transfers_follow_the_full_grid() {
-    // ADR-0208: 間引いた格子の移行の行は、間引かない格子の行と、行の和の 1e−6 以内で一致する（測った最大は 3.4e−7。許容差は 1e−4）。
-    // 差は、ほかの群への移行を間引いた格子で数えた誤差と、自分の群への移行に入る群定数の弾性散乱の間引きの誤差。ほかの群への移行に
-    // 2 つの格子の弾性散乱の比を掛ける案（ADR-0208 の案 G2）は、薄い核種の共鳴が群の境界から離れているこのセルで 1.4e−6 になる
+    // ADR-0208: 間引いた格子の移行の行は、間引かない格子の行と一致する。差は、ほかの群への移行を間引いた格子で数えた誤差と、自分の群への
+    // 移行に入る群定数の弾性散乱の間引きの誤差で、行の和に対して 1e−6 以内（測った最大は 3.7e−7）。ただし、落ちた共鳴が群の境界から核の
+    // 届く幅の中にある薄い核種（Tc-99）は、その群から出る移行を間引いた格子で数える誤差がそのまま入り、1e−3 以内（測った最大は 2.0e−4。
+    // 間引きの許容差 1e−4 と同じ桁）
+    let (_, fuel, _) = transfer_cell(None);
+    let fuel_index = |name: &str| {
+        fuel.composition
+            .iter()
+            .position(|(n, _)| n == name)
+            .unwrap()
+    };
     for (label, scattering, table) in transfer_kernels() {
         let (full_spectrum, full) = thermal_transfers(None, scattering, table.clone());
         let (thinned_spectrum, thinned) = thermal_transfers(Some(1.0e-4), scattering, table);
@@ -2099,11 +2127,16 @@ fn thinned_transfers_follow_the_full_grid() {
             assert_eq!(a.len(), b.len(), "{label}: ring {i}");
             for (e, (a, b)) in a.iter().zip(b).enumerate() {
                 assert_eq!(a.rows.len(), b.rows.len(), "{label}: ring {i} nuclide {e}");
+                let bound = if i == 0 && e == fuel_index("Tc-99") {
+                    1e-3
+                } else {
+                    1e-6
+                };
                 for (h, (x, y)) in a.rows.iter().zip(&b.rows).enumerate() {
                     let sum: f64 = y.iter().sum();
                     for (g, (p, q)) in x.iter().zip(y).enumerate() {
                         assert!(
-                            (p - q).abs() <= 1e-6 * sum,
+                            (p - q).abs() <= bound * sum,
                             "{label}: ring {i} nuclide {e} {h} → {g}: {p} vs {q}"
                         );
                     }
