@@ -1,0 +1,17 @@
+from pathlib import Path
+from typing import Any
+import tomllib
+
+def check_keys(table: dict[str, Any], where: str, required: set[str], optional: set[str]) -> None:
+    missing = required - table.keys()
+    unknown = table.keys() - required - optional
+    if missing or unknown:
+        raise SystemExit(f'{where}: missing keys {sorted(missing)}, unknown keys {sorted(unknown)}')
+
+def read_input(path: Path, required: set[str], optional: set[str]) -> dict[str, Any]:
+    table = tomllib.loads(path.read_text())
+    check_keys(table, str(path), required, optional)
+    return table
+
+def input_path(input_file: Path, value: str) -> Path:
+    return (input_file.parent / value).resolve()

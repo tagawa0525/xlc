@@ -12,6 +12,10 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_chain.py 
       ../../references/endf openmc-chain.xml
     deps:
+    - path: ../../python-ast/examples/depletion/openmc_chain.py.ast
+      hash: md5
+      md5: 445f00169ed4892ba139f14cffc43c0c
+      size: 577
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
       md5: cd9527b605466e5ab21efa3e6ca54be2.dir
@@ -27,10 +31,6 @@ stages:
       md5: 528c1361afed7122fa619130226950ac.dir
       size: 8269842
       nfiles: 35
-    - path: openmc_chain.py
-      hash: md5
-      md5: 557c40287f33d5ba6c2500d923e82e3b
-      size: 1113
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -2926,18 +2926,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sm147 openmc-library/neutron/Sm147.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_147.endf
       hash: md5
       md5: fc84ba06b48ccafc2a5ad780501c85f7
       size: 1767912
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -2957,18 +2957,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Zr94 openmc-library/neutron/Zr94.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
       hash: md5
       md5: 81602f01efb0df40c5d34ded3000a975
       size: 1805000
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -2989,18 +2989,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml U236 openmc-library/neutron/U236.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
       hash: md5
       md5: 2d3b0b0d3606816b27c03c9b2ce92cc0
       size: 1359412
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3020,18 +3020,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Mo95 openmc-library/neutron/Mo95.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-042_Mo_095.endf
       hash: md5
       md5: ec32523eccc09b8a361535d69c03e2ee
       size: 1552148
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3051,18 +3051,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml U238 openmc-library/neutron/U238.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
       hash: md5
       md5: 6d52fe1a299934af828599b40b0122e7
       size: 14939396
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3082,18 +3082,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sm151 openmc-library/neutron/Sm151.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_151.endf
       hash: md5
       md5: c88fb5498f98a72a9870e34e5bf00924
       size: 1838972
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3113,18 +3113,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn112 openmc-library/neutron/Sn112.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
       hash: md5
       md5: 595f36f9195db944c4cf3482eb369e92
       size: 175864
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3145,18 +3145,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml U234 openmc-library/neutron/U234.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
       hash: md5
       md5: 02d5c7d15b6c3838b4a2439873d6fa25
       size: 1980104
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3176,18 +3176,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml U235 openmc-library/neutron/U235.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       hash: md5
       md5: e72aa70c44180ba3b03342a4a4c37997
       size: 36883940
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3207,18 +3207,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml O16 openmc-library/neutron/O16.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       hash: md5
       md5: 88f659e2ff0ed092bf2ec6a6672fc25e
       size: 41873568
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3239,18 +3239,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml H1 openmc-library/neutron/H1.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
       size: 671232
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3270,18 +3270,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml B10 openmc-library/neutron/B10.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
       hash: md5
       md5: de4713deb591bde04f4c7ef2446bdc2e
       size: 873392
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3301,18 +3301,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml B11 openmc-library/neutron/B11.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
       hash: md5
       md5: ededbd01d87d3297c377e105f60d59d3
       size: 659224
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3332,18 +3332,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Zr90 openmc-library/neutron/Zr90.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
       hash: md5
       md5: 845fe13188e04ddaa8957922ca4425e9
       size: 1370128
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3364,18 +3364,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Zr91 openmc-library/neutron/Zr91.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
       hash: md5
       md5: 05504d0c3dc22b27907d13b2427670bc
       size: 3334576
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3396,18 +3396,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Zr92 openmc-library/neutron/Zr92.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
       hash: md5
       md5: 08f21535331cdfa3e35e6959735519c5
       size: 2054584
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3428,18 +3428,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Zr96 openmc-library/neutron/Zr96.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
       hash: md5
       md5: ea8fcd356c8333dd48792e88063ee4b4
       size: 1403112
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3460,18 +3460,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn114 openmc-library/neutron/Sn114.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
       hash: md5
       md5: 8b944d53fcc7d5f89063f053a0e8f53f
       size: 181640
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3492,18 +3492,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn115 openmc-library/neutron/Sn115.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
       hash: md5
       md5: 9d8f748af4ac334ed786dbd774bb7d3f
       size: 159828
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3524,18 +3524,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn116 openmc-library/neutron/Sn116.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
       hash: md5
       md5: 5d2de1ba6ffd79f575fcc6faed2714f3
       size: 138700
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3556,18 +3556,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn117 openmc-library/neutron/Sn117.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
       hash: md5
       md5: 957998ec497ad3d52903e12a1bec5020
       size: 152456
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3588,18 +3588,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn118 openmc-library/neutron/Sn118.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
       hash: md5
       md5: 9586a6ff74a5b7af5e106020163f27f1
       size: 115292
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3620,18 +3620,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn119 openmc-library/neutron/Sn119.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
       hash: md5
       md5: 8dad9918e3854c87b437bbbf3c471852
       size: 174040
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3652,18 +3652,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn120 openmc-library/neutron/Sn120.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
       hash: md5
       md5: 3f89239ea480a4d42c789210d76a0ad5
       size: 1506016
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3684,18 +3684,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn122 openmc-library/neutron/Sn122.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
       hash: md5
       md5: 83e39a2dda8feb62d76efdcb48de77c8
       size: 136724
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3716,18 +3716,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sn124 openmc-library/neutron/Sn124.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
       hash: md5
       md5: 8f4ee39c13872485d867ed145ff14476
       size: 164540
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3748,18 +3748,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Fe54 openmc-library/neutron/Fe54.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
       hash: md5
       md5: 6cc65e9140f60c97daded32a60ba7e0b
       size: 15451864
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3779,18 +3779,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Fe56 openmc-library/neutron/Fe56.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
       hash: md5
       md5: 63a54468ec41309d24d849bc95d91450
       size: 24237844
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3810,18 +3810,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Fe57 openmc-library/neutron/Fe57.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
       hash: md5
       md5: 781dfc0da22c68b6ab910ba4828f1dbe
       size: 13578160
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3841,18 +3841,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Fe58 openmc-library/neutron/Fe58.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
       hash: md5
       md5: 371938e3ea66338454e6396d6f898049
       size: 9280132
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3872,18 +3872,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cr50 openmc-library/neutron/Cr50.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
       hash: md5
       md5: 1d54ef6c80fa4e8a01776f2d77a4e51d
       size: 10644408
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3903,18 +3903,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cr52 openmc-library/neutron/Cr52.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
       hash: md5
       md5: 19629202c6af02350e7597e4b91f6992
       size: 10647220
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3934,18 +3934,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cr53 openmc-library/neutron/Cr53.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
       hash: md5
       md5: 8484eb4f0ce055c5139234b3ea855e3e
       size: 8880068
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3965,18 +3965,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cr54 openmc-library/neutron/Cr54.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
       hash: md5
       md5: 6b447452b7c17a43341ec8416bd7d32e
       size: 2459512
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3996,18 +3996,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Np237 openmc-library/neutron/Np237.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_237.endf
       hash: md5
       md5: 6df4eefe33f81cf37f602fdf7e5baf3c
       size: 1367088
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4027,18 +4027,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Np239 openmc-library/neutron/Np239.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_239.endf
       hash: md5
       md5: 002074dea749b4dc195b58501981e928
       size: 2187964
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4058,18 +4058,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pu238 openmc-library/neutron/Pu238.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
       hash: md5
       md5: b870d3049c559377f6115f7ffbd1d0c4
       size: 1813208
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4089,18 +4089,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pu239 openmc-library/neutron/Pu239.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
       hash: md5
       md5: 24c63293f959312e25f4f3aa48527b29
       size: 23724464
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4120,18 +4120,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pu240 openmc-library/neutron/Pu240.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
       hash: md5
       md5: 34845959fef842988cc9c88998ec244e
       size: 34801768
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4151,18 +4151,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pu241 openmc-library/neutron/Pu241.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
       hash: md5
       md5: 9b4bdb3861cb0e063f9b3e466ac315de
       size: 324292
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4182,18 +4182,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pu242 openmc-library/neutron/Pu242.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
       hash: md5
       md5: a7d749550507a3f6e6eef82ddb368102
       size: 2219352
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4213,18 +4213,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Am241 openmc-library/neutron/Am241.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
       hash: md5
       md5: 93b74d0b81ef08f5588a4767920fef9c
       size: 2069860
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4244,18 +4244,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Am243 openmc-library/neutron/Am243.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_243.endf
       hash: md5
       md5: e9fd763e6eda9a4db99f1075ea2af14c
       size: 898928
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4275,18 +4275,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cm242 openmc-library/neutron/Cm242.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_242.endf
       hash: md5
       md5: 9300b7dcbc27a8ebebc7a1f57bb824e7
       size: 2119260
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4306,18 +4306,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cm244 openmc-library/neutron/Cm244.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_244.endf
       hash: md5
       md5: 0a69b256265b71f24801458ee6340af2
       size: 2240708
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4337,18 +4337,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Tc99 openmc-library/neutron/Tc99.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-043_Tc_099.endf
       hash: md5
       md5: d1039925364043ad189d7cc22d557dbc
       size: 3387700
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4368,18 +4368,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Ru101 openmc-library/neutron/Ru101.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-044_Ru_101.endf
       hash: md5
       md5: 5888fddc6dd2fe8bc328ac24a764585a
       size: 2110520
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4399,18 +4399,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Rh103 openmc-library/neutron/Rh103.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-045_Rh_103.endf
       hash: md5
       md5: 21cfe777ec57463e654f52bb4e5a0693
       size: 1681652
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4430,18 +4430,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Ag109 openmc-library/neutron/Ag109.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
       hash: md5
       md5: 5cce54b6221074a9f151b8b7fd554e1f
       size: 1744124
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4461,18 +4461,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml I135 openmc-library/neutron/I135.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-053_I_135.endf
       hash: md5
       md5: daeacd6519e943b47078cbeb08863955
       size: 161272
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4492,18 +4492,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Xe135 openmc-library/neutron/Xe135.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-054_Xe_135.endf
       hash: md5
       md5: a5ba07d18bb6290ee0b3e06df548a349
       size: 160512
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4523,18 +4523,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Cs133 openmc-library/neutron/Cs133.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-055_Cs_133.endf
       hash: md5
       md5: a1d960c4639886a348b99d2c4064874a
       size: 1555872
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4554,18 +4554,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Nd143 openmc-library/neutron/Nd143.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_143.endf
       hash: md5
       md5: a072d604b98dae47b889dd6db8281912
       size: 1699360
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4585,18 +4585,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Nd145 openmc-library/neutron/Nd145.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_145.endf
       hash: md5
       md5: 8de64380d4ca6e38feac0aa74112e756
       size: 1649960
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4616,18 +4616,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pm148_m1 openmc-library/neutron/Pm148_m1.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148m1.endf
       hash: md5
       md5: d7a77b9302c886b5526b889c63176b7d
       size: 204820
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4647,18 +4647,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sm149 openmc-library/neutron/Sm149.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_149.endf
       hash: md5
       md5: f3a8a4cd7fca5db1dcc90139db02f5f0
       size: 1681956
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4678,18 +4678,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sm150 openmc-library/neutron/Sm150.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_150.endf
       hash: md5
       md5: 497bed1aee2b8a8f3f351999c2ad9287
       size: 1712508
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4709,18 +4709,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sm152 openmc-library/neutron/Sm152.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_152.endf
       hash: md5
       md5: ec36072e63956a77b54011d14753b022
       size: 1647528
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4740,18 +4740,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Eu153 openmc-library/neutron/Eu153.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_153.endf
       hash: md5
       md5: 3f66b90cc2b6024d0959109cf496b390
       size: 1776120
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4771,18 +4771,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Gd155 openmc-library/neutron/Gd155.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-064_Gd_155.endf
       hash: md5
       md5: 324f31dee44ba5bde39722547d97744f
       size: 2551396
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4803,6 +4803,14 @@ stages:
       thermal openmc-library.toml c_H_in_H2O 
       openmc-library/thermal/c_H_in_H2O.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
@@ -4811,14 +4819,6 @@ stages:
       hash: md5
       md5: ff8fb554e0893e672e95bf060817f087
       size: 17400580
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4840,14 +4840,14 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py index
       openmc-library.toml openmc-library
     deps:
-    - path: ../openmc_input.py
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
       hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: openmc-library.toml
       hash: md5
       md5: 8ae58a2ee53f9c656467c71fac658061
@@ -4875,18 +4875,22 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py run 
       openmc-1C-rings4.toml openmc-1C-rings4
     deps:
-    - path: ../openmc_common.py
+    - path: ../../python-ast/examples/depletion/openmc_depletion.py.ast
       hash: md5
-      md5: d63903c807752b2c16e811ae5c96f66e
-      size: 3475
-    - path: ../openmc_input.py
+      md5: b98b611a4c9b98ae08db96eac383ffad
+      size: 7461
+    - path: ../../python-ast/examples/openmc_common.py.ast
       hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_model.py
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: 7277012541e79afaa65d62370de1fc43
-      size: 29444
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
     - path: openmc-1C-rings4.toml
       hash: md5
       md5: 33a36d153be9ecffff4605d0926ca97e
@@ -4900,10 +4904,6 @@ stages:
       md5: 09fa81bf0a6c05bc58967e223c9e53a7.dir
       size: 451672617
       nfiles: 70
-    - path: openmc_depletion.py
-      hash: md5
-      md5: 4e5fc825b421e5ac5ee69ff74dddb545
-      size: 11791
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4918,6 +4918,10 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py extract 
       openmc-1C-rings4.toml openmc-1C-rings4 openmc-1C-rings4.msgpack
     deps:
+    - path: ../../python-ast/examples/depletion/openmc_depletion.py.ast
+      hash: md5
+      md5: b98b611a4c9b98ae08db96eac383ffad
+      size: 7461
     - path: openmc-1C-rings4
       hash: md5
       md5: bff325a2a1eaf97796dc5f2c3017e759.dir
@@ -4927,10 +4931,6 @@ stages:
       hash: md5
       md5: 33a36d153be9ecffff4605d0926ca97e
       size: 1021
-    - path: openmc_depletion.py
-      hash: md5
-      md5: 4e5fc825b421e5ac5ee69ff74dddb545
-      size: 11791
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4944,18 +4944,22 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py run 
       openmc-1C-rings1.toml openmc-1C-rings1
     deps:
-    - path: ../openmc_common.py
+    - path: ../../python-ast/examples/depletion/openmc_depletion.py.ast
       hash: md5
-      md5: d63903c807752b2c16e811ae5c96f66e
-      size: 3475
-    - path: ../openmc_input.py
+      md5: b98b611a4c9b98ae08db96eac383ffad
+      size: 7461
+    - path: ../../python-ast/examples/openmc_common.py.ast
       hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_model.py
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: 7277012541e79afaa65d62370de1fc43
-      size: 29444
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
     - path: openmc-1C-rings1.toml
       hash: md5
       md5: 80d2d2af66544959a4e782c399b8ccb3
@@ -4969,10 +4973,6 @@ stages:
       md5: 09fa81bf0a6c05bc58967e223c9e53a7.dir
       size: 451672617
       nfiles: 70
-    - path: openmc_depletion.py
-      hash: md5
-      md5: 4e5fc825b421e5ac5ee69ff74dddb545
-      size: 11791
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5054,6 +5054,10 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py extract 
       openmc-1C-rings1.toml openmc-1C-rings1 openmc-1C-rings1.msgpack
     deps:
+    - path: ../../python-ast/examples/depletion/openmc_depletion.py.ast
+      hash: md5
+      md5: b98b611a4c9b98ae08db96eac383ffad
+      size: 7461
     - path: openmc-1C-rings1
       hash: md5
       md5: ced0348b13b2b42ca65868460e0a9af5.dir
@@ -5063,10 +5067,6 @@ stages:
       hash: md5
       md5: 80d2d2af66544959a4e782c399b8ccb3
       size: 1021
-    - path: openmc_depletion.py
-      hash: md5
-      md5: 4e5fc825b421e5ac5ee69ff74dddb545
-      size: 11791
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5080,10 +5080,10 @@ stages:
     cmd: python3 compare_depletion.py --json compare-1C-rings1.json 
       lattice-1C-rings1.msgpack openmc-1C-rings1.msgpack
     deps:
-    - path: compare_depletion.py
+    - path: ../../python-ast/examples/depletion/compare_depletion.py.ast
       hash: md5
-      md5: a0ef119fbb988c641f84cb98914ae336
-      size: 8791
+      md5: a27b2028dc60cac3d435a9c01a68bf97
+      size: 5911
     - path: lattice-1C-rings1.msgpack
       hash: md5
       md5: 825defe7ce514f113789ce7905a5b70d
@@ -5135,10 +5135,10 @@ stages:
     cmd: python3 compare_depletion.py --json compare-1C-rings4.json 
       lattice-1C-rings4.msgpack openmc-1C-rings4.msgpack
     deps:
-    - path: compare_depletion.py
+    - path: ../../python-ast/examples/depletion/compare_depletion.py.ast
       hash: md5
-      md5: a0ef119fbb988c641f84cb98914ae336
-      size: 8791
+      md5: a27b2028dc60cac3d435a9c01a68bf97
+      size: 5911
     - path: lattice-1C-rings4.msgpack
       hash: md5
       md5: 51678c63888ecf6f1a8472972884e85a
@@ -5391,18 +5391,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pm147 openmc-library/neutron/Pm147.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_147.endf
       hash: md5
       md5: d14be7177ddf43ed3ba9f3febcb97526
       size: 194788
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5422,18 +5422,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Am242_m1 openmc-library/neutron/Am242_m1.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_242m1.endf
       hash: md5
       md5: 960aec7ff8b35e57d6136f85ce76910c
       size: 1084140
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5453,18 +5453,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pm148 openmc-library/neutron/Pm148.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148.endf
       hash: md5
       md5: a237d08af4c2401b23043b6ccfa911a9
       size: 146984
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5484,18 +5484,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pm149 openmc-library/neutron/Pm149.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_149.endf
       hash: md5
       md5: f72d8e6a1de7845992394a14f1d66a81
       size: 195700
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5515,18 +5515,18 @@ stages:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Eu151 openmc-library/neutron/Eu151.h5
     deps:
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_151.endf
       hash: md5
       md5: f49b14583f7b3235d6a9f186744b0600
       size: 251864
-    - path: ../openmc_input.py
-      hash: md5
-      md5: 6af6d29afab033dcf5ada70b60e12c2f
-      size: 1513
-    - path: ../vera/openmc_library.py
-      hash: md5
-      md5: e4669790daf4049f7048ffc781c148f2
-      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e

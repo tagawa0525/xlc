@@ -27,9 +27,9 @@ stages:
     # スクリプトを直してもモデルが同じなら変わらず、下の openmc は再実行しない（ADR-0136）
     cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-c5g7.toml openmc-model
     deps:
-      - openmc_model.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/c5g7/openmc_model.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
       - openmc-c5g7.toml
       - c5g7-xs.toml
@@ -51,9 +51,9 @@ stages:
   openmc-extract:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-c5g7.toml openmc openmc-results
     deps:
-      - openmc_model.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/c5g7/openmc_model.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
       - openmc-c5g7.toml
       - openmc
@@ -62,7 +62,7 @@ stages:
   compare-coarse:
     cmd: python3 compare.py lattice-coarse.out pins.msgpack openmc-results/pins.msgpack > compare-coarse.out
     deps:
-      - compare.py
+      - ../../python-ast/examples/c5g7/compare.py.ast
       - lattice-coarse.out
       - pins.msgpack
       - openmc-results/pins.msgpack
@@ -71,7 +71,7 @@ stages:
   compare-fine:
     cmd: python3 compare.py lattice-fine.out fine-pins.msgpack openmc-results/pins.msgpack > compare-fine.out
     deps:
-      - compare.py
+      - ../../python-ast/examples/c5g7/compare.py.ast
       - lattice-fine.out
       - fine-pins.msgpack
       - openmc-results/pins.msgpack

@@ -1,0 +1,9 @@
+import sys
+from pathlib import Path
+import msgpack
+table = msgpack.unpackb(Path(sys.argv[1]).read_bytes(), raw=False)
+for state in table['states']:
+    state['adf'] = [[1.0 for _ in side] for side in state['adf']]
+    if state['pins'] is not None:
+        state['pins']['corners'] = [[1.0 for _ in corner] for corner in state['pins']['corners']]
+Path(sys.argv[2]).write_bytes(msgpack.packb(table))

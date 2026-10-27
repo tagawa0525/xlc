@@ -1,0 +1,195 @@
+import math
+import sys
+from pathlib import Path
+from typing import Any
+import numpy as np
+import openmc
+import openmc_tallies
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from openmc_common import material
+from openmc_model import AIC, B4C, FUEL, GUIDE_INNER, GUIDE_OUTER, GUIDE_TUBES, HALF_GAP, INSTRUMENT_INNER, INSTRUMENT_OUTER, INSTRUMENT_TUBE, MODERATOR_DENSE, PITCH, PYREX_OCTANTS, SS304, ZIRCALOY, N, concentric, fuel_layers, octant_images, pin_lattice, pyrex_layers, rod_layers, temperature_mode, tube, with_carbon
+from openmc_resume import OPTIONAL, Options, run_model, run_or_extract, set_statepoints
+from openmc_run import box_settings, fuel_mean, mesh_values, write_k, write_pin_powers
+from openmc_run import read_run as common_read_run
+TEMPERATURE = 565.0
+ASSEMBLY_PITCH = N * PITCH + 2 * HALF_GAP
+FUEL_211 = {'U234': 4.04814e-06, 'U235': 0.000488801, 'U236': 2.23756e-06, 'U238': 0.0223844, 'O16': 0.0457591}
+FUEL_2619 = {'U234': 5.09503e-06, 'U235': 0.000606709, 'U236': 2.76809e-06, 'U238': 0.0222663, 'O16': 0.0457617}
+CARBON_STEEL = with_carbon({'Fe54': 0.00489841, 'Fe56': 0.0768945, 'Fe57': 0.00177583, 'Fe58': 0.00023633}, 0.00393598)
+FUELS = {'2.1': FUEL_211, '2.6': FUEL_2619, '3.1': FUEL}
+LOADING = ((('2.1', 0), ('2.6', 20), ('2.1', 0), ('2.6', 20), ('2.1', 0), ('2.6', 20), ('2.1', 0), ('3.1', 12)), (('2.6', 20), ('2.1', 0), ('2.6', 24), ('2.1', 0), ('2.6', 20), ('2.1', 0), ('3.1', 24), ('3.1', 0)), (('2.1', 0), ('2.6', 24), ('2.1', 0), ('2.6', 20), ('2.1', 0), ('2.6', 16), ('2.1', 0), ('3.1', 8)), (('2.6', 20), ('2.1', 0), ('2.6', 20), ('2.1', 0), ('2.6', 20), ('2.1', 0), ('3.1', 16), ('3.1', 0)), (('2.1', 0), ('2.6', 20), ('2.1', 0), ('2.6', 20), ('2.6', 0), ('2.6', 24), ('3.1', 0)), (('2.6', 20), ('2.1', 0), ('2.6', 16), ('2.1', 0), ('2.6', 24), ('3.1', 12), ('3.1', 0)), (('2.1', 0), ('3.1', 24), ('2.1', 0), ('3.1', 16), ('3.1', 0), ('3.1', 0)), (('3.1', 12), ('3.1', 0), ('3.1', 8), ('3.1', 0)))
+BANK_D = {(0, 0), (0, 4), (4, 0), (4, 4)}
+RODS = {'5A-2D': None, '5B-2D': ('aic', AIC, 0.382), '5C-2D': ('b4c', B4C, 0.373)}
+BAFFLE_GAP = 0.19
+BAFFLE_THICKNESS = 2.85
+BARREL = (187.96, 193.68)
+PAD = (194.64, 201.63)
+PAD_ANGLES = (45.0 - 16.0, 45.0 + 16.0)
+LINER = 219.15
+VESSEL = (219.71, 241.7)
+
+def assembly(fuel: openmc.Material, clad: openmc.Material, water: openmc.Material, pyrex: int, rod: openmc.Universe | None, pyrex_cell: openmc.Universe) -> openmc.Universe:
+    pin = concentric(fuel_layers(fuel, clad), water)
+    universes = [[pin] * N for _ in range(N)]
+    empty = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water)
+    poisoned = octant_images(PYREX_OCTANTS[pyrex]) if pyrex else set()
+    if len(poisoned) != pyrex or poisoned - set(GUIDE_TUBES):
+        raise SystemExit(f'bad Pyrex pattern for {pyrex} rods')
+    if rod is not None and pyrex:
+        raise SystemExit('Pyrex rods in a rodded assembly')
+    for i, j in GUIDE_TUBES:
+        universes[i][j] = rod or (pyrex_cell if (i, j) in poisoned else empty)
+    i, j = INSTRUMENT_TUBE
+    universes[i][j] = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
+    return openmc.Universe(cells=[openmc.Cell(fill=pin_lattice(universes, water))])
+
+def row_extents() -> list[tuple[float, float, float]]:
+    half = ASSEMBLY_PITCH / 2
+    out = []
+    for r, row in enumerate(LOADING):
+        top = 0.0 if r == 0 else -(r * ASSEMBLY_PITCH - half)
+        bottom = -(r * ASSEMBLY_PITCH + half)
+        out.append((bottom, top, (len(row) - 1) * ASSEMBLY_PITCH + half))
+    return out
+
+def grown(d: float) -> openmc.Region:
+    boxes = []
+    for bottom, top, right in row_extents():
+        boxes.append(+openmc.YPlane(bottom - d) & -openmc.YPlane(top + d if top < 0 else 1.0) & -openmc.XPlane(right + d))
+    return openmc.Union(boxes)
+
+def geometry_of(problem: str, m: dict[str, Any]) -> openmc.Geometry:
+    water, clad, steel = (m['water'], m['clad'], m['steel'])
+    pyrex_cell = tube(pyrex_layers(TEMPERATURE), GUIDE_INNER, GUIDE_OUTER, clad, water)
+    rod = None
+    if RODS[problem] is not None:
+        name, nuclides, radius = RODS[problem]
+        rod = tube(rod_layers(name, nuclides, radius, TEMPERATURE), GUIDE_INNER, GUIDE_OUTER, clad, water)
+    outer_water = openmc.Universe(cells=[openmc.Cell(fill=water)])
+    cache: dict[tuple[str, int, bool], openmc.Universe] = {}
+    universes = []
+    for r, row in enumerate(LOADING):
+        line = []
+        for c, (enrichment, pyrex) in enumerate(row):
+            rodded = (r, c) in BANK_D
+            key = (enrichment, pyrex, rodded)
+            if key not in cache:
+                cache[key] = assembly(m[f'fuel {enrichment}'], clad, water, pyrex, rod if rodded else None, pyrex_cell)
+            line.append(cache[key])
+        universes.append(line + [outer_water] * (len(LOADING) - len(line)))
+    core = openmc.RectLattice()
+    core.pitch = (ASSEMBLY_PITCH, ASSEMBLY_PITCH)
+    core.lower_left = (-ASSEMBLY_PITCH / 2, -(len(LOADING) - 0.5) * ASSEMBLY_PITCH)
+    core.universes = universes
+    core.outer = outer_water
+    x0 = openmc.XPlane(0.0, boundary_type='reflective')
+    y0 = openmc.YPlane(0.0, boundary_type='reflective')
+    quadrant = +x0 & -y0
+    fuel = grown(0.0)
+    inner = grown(BAFFLE_GAP)
+    baffle = grown(BAFFLE_GAP + BAFFLE_THICKNESS)
+    cylinders = [openmc.ZCylinder(r=r) for r in (*BARREL, *PAD, LINER, *VESSEL)]
+    barrel_in, barrel_out, pad_in, pad_out, liner, vessel_in, vessel_out = cylinders
+    vessel_out.boundary_type = 'vacuum'
+    near_x, near_y = (openmc.Plane(a=-math.sin(math.radians(-a)), b=math.cos(math.radians(-a))) for a in PAD_ANGLES)
+    pad = +pad_in & -pad_out & -near_x & +near_y
+    cells = [openmc.Cell(fill=core, region=quadrant & fuel), openmc.Cell(fill=water, region=quadrant & inner & ~fuel), openmc.Cell(fill=steel, region=quadrant & baffle & ~inner), openmc.Cell(fill=water, region=quadrant & -barrel_in & ~baffle), openmc.Cell(fill=steel, region=quadrant & +barrel_in & -barrel_out), openmc.Cell(fill=water, region=quadrant & +barrel_out & -liner & ~pad), openmc.Cell(fill=steel, region=quadrant & pad), openmc.Cell(fill=steel, region=quadrant & +liner & -vessel_in), openmc.Cell(fill=m['carbon steel'], region=quadrant & +vessel_in & -vessel_out)]
+    return openmc.Geometry(cells)
+
+def pin_edges() -> tuple[list[float], list[int]]:
+    edges = [0.0]
+    pins = []
+    for c in range(len(LOADING)):
+        centre = c * ASSEMBLY_PITCH
+        for j in range(N):
+            low = centre + (j - N / 2) * PITCH
+            high = low + PITCH
+            if high <= 0.0:
+                continue
+            if low > edges[-1] + 1e-09:
+                edges.append(low)
+            pins.append(len(edges) - 1)
+            edges.append(high)
+    return (edges, pins)
+
+def pin_mesh() -> openmc.RectilinearMesh:
+    edges, _ = pin_edges()
+    mesh = openmc.RectilinearMesh()
+    mesh.x_grid = edges
+    mesh.y_grid = [-e for e in reversed(edges)]
+    mesh.z_grid = [-1000000.0, 1000000.0]
+    return mesh
+
+def assembly_mesh() -> openmc.RegularMesh:
+    mesh = openmc.RegularMesh()
+    n = len(LOADING)
+    mesh.lower_left = (-ASSEMBLY_PITCH / 2, -(n - 0.5) * ASSEMBLY_PITCH)
+    mesh.upper_right = ((n - 0.5) * ASSEMBLY_PITCH, ASSEMBLY_PITCH / 2)
+    mesh.dimension = (n, n)
+    return mesh
+
+def read_run(source: Path) -> dict[str, Any]:
+    return common_read_run(source, list(RODS), OPTIONAL | openmc_tallies.OPTIONAL)
+
+def solve(source: Path, work: Path, options: Options) -> None:
+    run = read_run(source)
+    problem = run['problem']
+    work.mkdir(parents=True, exist_ok=True)
+    m = {**{f'fuel {e}': material(f'fuel {e}', d, TEMPERATURE) for e, d in FUELS.items()}, 'clad': material('zircaloy-4', ZIRCALOY, TEMPERATURE), 'water': material('moderator', MODERATOR_DENSE, TEMPERATURE), 'steel': material('ss304', SS304, TEMPERATURE), 'carbon steel': material('carbon steel', CARBON_STEEL, TEMPERATURE)}
+    m['water'].add_s_alpha_beta('c_H_in_H2O')
+    geometry = geometry_of(problem, m)
+    materials = openmc.Materials(geometry.get_all_materials().values())
+    materials.cross_sections = str(run['cross-sections'])
+    size = len(LOADING) * ASSEMBLY_PITCH - ASSEMBLY_PITCH / 2
+    settings = box_settings(run['particles'], run['batches'], run['inactive'], run['seed'], (0.0, -size, -1.0), (size, 0.0, 1.0))
+    settings.entropy_mesh = assembly_mesh()
+    set_statepoints(settings, run, options)
+    settings.temperature = temperature_mode(TEMPERATURE)
+    tallies = openmc.Tallies()
+    for name, mesh in (('fission', pin_mesh()), ('assemblies', assembly_mesh())):
+        tally = openmc.Tally(name=name)
+        tally.filters = [openmc.MeshFilter(mesh)]
+        tally.scores = ['fission']
+        tallies.append(tally)
+    if openmc_tallies.enabled(run):
+        tallies.extend(openmc_tallies.core_2d(list(materials), assembly_mesh(), HALF_GAP))
+        openmc_tallies.quiet(settings)
+    model = openmc.Model(geometry, materials, settings, tallies)
+    run_model(model, run, work, options)
+
+def unfold(quarter: np.ndarray) -> np.ndarray:
+    rows = np.concatenate([quarter[:0:-1], quarter], axis=0)
+    return np.concatenate([rows[:, :0:-1], rows], axis=1)
+
+def extract(source: Path, work: Path, results: Path) -> None:
+    run = read_run(source)
+    problem = run['problem']
+    edges, pins = pin_edges()
+    cells = len(edges) - 1
+    path = work / f"statepoint.{run['batches']}.h5"
+    with openmc.StatePoint(path) as sp:
+        ran = {'particles': int(sp.n_particles), 'batches': int(sp.n_batches), 'inactive': int(sp.n_inactive), 'seed': int(sp.seed)}
+        expected = {key: run[key] for key in ran}
+        if ran != expected:
+            raise SystemExit(f'{path} was run with {ran}, but {source} says {expected}')
+        k = sp.keff
+        rate, std = mesh_values(sp, 'fission', (cells, cells))
+        by, by_std = mesh_values(sp, 'assemblies', (len(LOADING), len(LOADING)))
+    results.mkdir(parents=True, exist_ok=True)
+    widths = np.diff(edges)[pins] / PITCH
+    area = np.outer(widths, widths)
+    rate = unfold(rate[np.ix_(pins, pins)] / area)
+    std = unfold(std[np.ix_(pins, pins)] / area)
+    mean = fuel_mean(rate)
+    write_pin_powers(results / 'pins.msgpack', rate / mean)
+    write_pin_powers(results / 'pins-std.msgpack', std / mean)
+    full = np.ones(len(LOADING))
+    full[0] = 2.0
+    by, by_std = (unfold(v * np.outer(full, full)) for v in (by, by_std))
+    mean = fuel_mean(by)
+    write_pin_powers(results / 'assemblies.msgpack', by / mean)
+    write_pin_powers(results / 'assemblies-std.msgpack', by_std / mean)
+    write_k(results / 'k.json', problem, k)
+if __name__ == '__main__':
+    run_or_extract(solve, extract, __doc__)

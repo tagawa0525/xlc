@@ -18,8 +18,8 @@ stages:
     do:
       cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
       deps:
-        - ../../openmc_library.py
-        - ../../../openmc_input.py
+        - ../../../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.endf}
       params:
@@ -32,8 +32,8 @@ stages:
     do:
       cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
       deps:
-        - ../../openmc_library.py
-        - ../../../openmc_input.py
+        - ../../../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.neutron}
         - ${item.thermal}
@@ -45,8 +45,8 @@ stages:
   openmc-index:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py index openmc-library.toml openmc-library
     deps:
-      - ../../openmc_library.py
-      - ../../../openmc_input.py
+      - ../../../../python-ast/examples/vera/openmc_library.py.ast
+      - ../../../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
       - openmc-library.toml
       - openmc-library/neutron
@@ -58,11 +58,11 @@ stages:
     do:
       cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py model openmc-${item}.toml openmc-${item}-model
       deps:
-        - ../../openmc_model.py
-        - ../../openmc_tallies.py
-        - ../../../openmc_common.py
-        - ../../../openmc_run.py
-        - ../../../openmc_input.py
+        - ../../../../python-ast/examples/vera/openmc_model.py.ast
+        - ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+        - ../../../../python-ast/examples/openmc_common.py.ast
+        - ../../../../python-ast/examples/openmc_run.py.ast
+        - ../../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - openmc-${item}.toml
       outs:
@@ -86,11 +86,11 @@ stages:
     do:
       cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py extract openmc-${item}.toml openmc-${item} openmc-${item}-results
       deps:
-        - ../../openmc_model.py
-        - ../../openmc_tallies.py
-        - ../../../openmc_common.py
-        - ../../../openmc_run.py
-        - ../../../openmc_input.py
+        - ../../../../python-ast/examples/vera/openmc_model.py.ast
+        - ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+        - ../../../../python-ast/examples/openmc_common.py.ast
+        - ../../../../python-ast/examples/openmc_run.py.ast
+        - ../../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - openmc-${item}.toml
         - openmc-${item}
@@ -100,9 +100,9 @@ stages:
     # ENDF/B-VII.0 の OpenMC を基準にした、xlc（../dvc.yaml の pincell@1B）と KENO-VI の k の差。要約は git で追跡する（ADR-0176）
     cmd: python3 ../../compare_openmc_keno.py --json compare-1B.json ../../../../references/vera/spec.txt 1B ../compare-1B.json openmc-1B-results
     deps:
-      - ../../compare_openmc_keno.py
-      - ../../compare_keno.py
-      - ../../compare_p3.py
+      - ../../../../python-ast/examples/vera/compare_openmc_keno.py.ast
+      - ../../../../python-ast/examples/vera/compare_keno.py.ast
+      - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-1B.json
       - openmc-1B-results
@@ -112,9 +112,9 @@ stages:
   compare-2B:
     cmd: python3 ../../compare_openmc_keno.py --json compare-2B.json ../../../../references/vera/spec.txt 2B ../compare-2B.json openmc-2B-results ../p2/pins-2B.msgpack
     deps:
-      - ../../compare_openmc_keno.py
-      - ../../compare_keno.py
-      - ../../compare_p3.py
+      - ../../../../python-ast/examples/vera/compare_openmc_keno.py.ast
+      - ../../../../python-ast/examples/vera/compare_keno.py.ast
+      - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-2B.json
       - openmc-2B-results

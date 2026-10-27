@@ -1,0 +1,217 @@
+import hashlib
+import json
+import math
+import re
+import sys
+from pathlib import Path
+import msgpack
+FUEL_NUCLIDES = ['U-235', 'U-238', 'Pu-239', 'Xe-135', 'Sm-149']
+GD_NUCLIDES = ['Gd-155', 'Gd-157']
+ABSORBER_NUCLIDES = ['B-10']
+BURNUP_TOLERANCE = 1e-09
+VOLUME_TOLERANCE = 1e-06
+ABSORBER_FISSION_LIMIT = 1e-06
+
+def compared_openmc_names() -> set[str]:
+    return {openmc_name(n) for n in FUEL_NUCLIDES + GD_NUCLIDES + ABSORBER_NUCLIDES}
+
+def nuclides_of(kind: str) -> list[str]:
+    if kind == 'fuel':
+        return FUEL_NUCLIDES
+    if re.fullmatch('gd\\d+', kind):
+        return GD_NUCLIDES
+    if kind in ('ifba', 'pyrex', 'waba'):
+        return ABSORBER_NUCLIDES
+    raise SystemExit(f'unknown kind of burnable material {kind}')
+
+def openmc_name(name: str) -> str:
+    m = re.fullmatch('([A-Z][a-z]?)-(\\d+)(m(\\d*))?', name)
+    if m is None:
+        raise SystemExit(f'unexpected nuclide name {name}')
+    symbol, mass, isomer, level = m.groups()
+    return f'{symbol}{mass}' + (f'_m{level or 1}' if isomer else '')
+
+def relative(ours: float, theirs: float) -> float | None:
+    return None if theirs == 0.0 else ours / theirs - 1.0
+
+def orbit_of(i: int, j: int, n: int) -> tuple[int, int]:
+    a, b = sorted((abs(2 * i - (n - 1)), abs(2 * j - (n - 1))), reverse=True)
+    return (a, b)
+
+def check_same_run(xlc: dict, omc: dict) -> None:
+    if xlc['format'] != 'xlc-depletion-history' or omc['format'] != 'openmc-depletion-assembly':
+        raise SystemExit('unexpected formats')
+    ours = {openmc_name(n) for n in xlc['transportable']}
+    theirs = set(omc['transportable'])
+    if ours != theirs:
+        raise SystemExit(f'transported nuclides differ: xlc only {sorted(ours - theirs)}, OpenMC only {sorted(theirs - ours)}')
+    burnup = [p['burnup'] for p in xlc['points']]
+    if len(burnup) != len(omc['burnup']) or any((abs(a - b) > BURNUP_TOLERANCE * max(b, 1.0) for a, b in zip(burnup, omc['burnup']))):
+        raise SystemExit(f"burnup points differ: {burnup} vs {omc['burnup']}")
+    regions, materials = (xlc['regions'], omc['regions'])
+    if len(regions) != len(materials):
+        raise SystemExit(f'{len(regions)} xlc regions for {len(materials)} OpenMC materials')
+    for i, (r, m) in enumerate(zip(regions, materials)):
+        if r['material'] != m['material']:
+            raise SystemExit(f"region {i}: {r['material']} vs {m['material']}")
+        n = len(omc['pins'][0])
+        row, column = divmod(r['cell'], n + 2)
+        if orbit_of(row - 1, column - 1, n) != tuple((2 * x for x in m['orbit'])):
+            raise SystemExit(f"region {i}: cell {r['cell']} is not in the orbit {m['orbit']}")
+        if abs(r['volume'] - m['volume']) > VOLUME_TOLERANCE * m['volume']:
+            raise SystemExit(f"region {i} ({r['material']}): volume {r['volume']} vs {m['volume']}")
+
+def orbits(n: int) -> list[list[tuple[int, int]]]:
+    found: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for i in range(n):
+        for j in range(n):
+            found.setdefault(orbit_of(i, j, n), []).append((i, j))
+    return list(found.values())
+
+def orbit_mean(values: list[list[float]], members: list[tuple[int, int]]) -> float:
+    return sum((values[i][j] for i, j in members)) / len(members)
+
+def orbit_error(std: list[list[float]], members: list[tuple[int, int]]) -> float:
+    return math.sqrt(sum((std[i][j] ** 2 for i, j in members))) / len(members)
+
+def is_fissile(kind: str) -> bool:
+    return kind == 'fuel' or re.fullmatch('gd\\d+', kind) is not None
+
+def cell_kinds(materials: list[dict]) -> tuple[set, set]:
+    fissile = {tuple((2 * x for x in m['orbit'])) for m in materials if is_fissile(m['material'])}
+    if not fissile:
+        raise SystemExit(f"no fuel among the burnable materials {sorted({m['material'] for m in materials})}")
+    absorbers = {tuple((2 * x for x in m['orbit'])) for m in materials} - fissile
+    return (fissile, absorbers)
+
+def fuel_pin_mean(rows: list[list[float]], fissile: set) -> float:
+    n = len(rows)
+    values = [rows[i][j] for i in range(n) for j in range(n) if orbit_of(i, j, n) in fissile]
+    return sum(values) / len(values)
+
+def orbit_std_rms(mean: list[list[float]], std: list[list[float]], fissile: set) -> float:
+    n = len(mean)
+    relative_errors = [orbit_error(std, members) / orbit_mean(mean, members) for members in orbits(n) if orbit_of(*members[0], n) in fissile]
+    return math.sqrt(sum((e * e for e in relative_errors)) / len(relative_errors))
+
+def pin_differences(ours: list[list[float]], mean: list[list[float]], std: list[list[float]], fissile: set, absorbers: set) -> dict:
+    n = len(mean)
+    if len(ours) != n or len(std) != n or any((len(row) != n for row in [*ours, *mean, *std])):
+        raise SystemExit(f'pin maps of other shapes: xlc {[len(r) for r in ours]}, OpenMC {[len(r) for r in mean]}, OpenMC errors {[len(r) for r in std]}')
+    absorber_max = 0.0
+    for i in range(n):
+        for j in range(n):
+            orbit = orbit_of(i, j, n)
+            if orbit in fissile:
+                if not (ours[i][j] > 0 and mean[i][j] > 0):
+                    raise SystemExit(f'pin ({i}, {j}): no fission in a fuel pin (xlc {ours[i][j]}, OpenMC {mean[i][j]})')
+            elif ours[i][j] != 0 or (orbit not in absorbers and mean[i][j] != 0):
+                raise SystemExit(f'pin ({i}, {j}): fission in a cell without fuel (xlc {ours[i][j]}, OpenMC {mean[i][j]})')
+            elif abs(mean[i][j]) > ABSORBER_FISSION_LIMIT:
+                raise SystemExit(f'pin ({i}, {j}): OpenMC fission {mean[i][j]} in a burnt absorber is not a round-off')
+            else:
+                absorber_max = max(absorber_max, abs(mean[i][j]))
+    diffs = []
+    for members in orbits(n):
+        theirs = orbit_mean(mean, members)
+        values = [ours[i][j] for i, j in members]
+        if max(values) - min(values) > 1e-09 * max((abs(v) for v in values)):
+            raise SystemExit(f'xlc pin powers differ within the symmetry orbit of {members[0]}: {values}')
+        if orbit_of(*members[0], n) in fissile:
+            diffs.append((orbit_mean(ours, members) / theirs - 1.0, list(members[0]), orbit_error(std, members) / theirs))
+    worst, at, error = max(diffs, key=lambda d: abs(d[0]))
+    return {'orbits': len(diffs), 'rms': math.sqrt(sum((d * d for d, _, _ in diffs)) / len(diffs)), 'max': worst, 'at': at, 'max_std': error, 'absorber_max': absorber_max}
+
+def summarize(xlc: dict, omc: dict) -> dict:
+    check_same_run(xlc, omc)
+    burnup = [p['burnup'] for p in xlc['points']]
+    index = {name: i for i, name in enumerate(xlc['nuclides'])}
+    regions, materials = (xlc['regions'], omc['regions'])
+    kinds = list(dict.fromkeys((r['material'] for r in regions)))
+
+    def difference(r: int, point: int, name: str) -> float | None:
+        return relative(xlc['points'][point]['densities'][r][index[name]], materials[r]['densities'][openmc_name(name)][point])
+    first = (xlc['points'][0]['k_inf'] - omc['k'][0]) * 100000.0
+    k = []
+    for i, point in enumerate(xlc['points']):
+        diff = (point['k_inf'] - omc['k'][i]) * 100000.0
+        k.append({'xlc': point['k_inf'], 'openmc': omc['k'][i], 'openmc_std_pcm': omc['k-std'][i] * 100000.0, 'diff_pcm': diff, 'change_pcm': diff - first})
+    by_kind: dict[str, dict[str, list]] = {}
+    spread: dict[str, dict[str, dict]] = {}
+    last = len(burnup) - 1
+    for kind in kinds:
+        members = [r for r, region in enumerate(regions) if region['material'] == kind]
+        total = sum((regions[r]['volume'] for r in members))
+        by_kind[kind], spread[kind] = ({}, {})
+        for name in nuclides_of(kind):
+            series = []
+            for point in range(len(burnup)):
+                ours = sum((xlc['points'][point]['densities'][r][index[name]] * regions[r]['volume'] for r in members))
+                theirs = sum((materials[r]['densities'][openmc_name(name)][point] * regions[r]['volume'] for r in members))
+                series.append(relative(ours / total, theirs / total))
+            by_kind[kind][name] = series
+            diffs = [d for r in members if (d := difference(r, last, name)) is not None]
+            spread[kind][name] = {'regions': len(diffs), 'max_abs': max((abs(d) for d in diffs), default=None), 'rms': math.sqrt(sum((d * d for d in diffs)) / len(diffs)) if diffs else None}
+    if any(('pin_powers' not in p for p in xlc['points'])):
+        raise SystemExit('the xlc history has no pin powers (ADR-0181); rerun the lattice stage')
+    if not len(xlc['points']) == len(omc['pins']) == len(omc['pins-std']):
+        raise SystemExit(f"{len(xlc['points'])} points with {len(omc['pins'])} OpenMC pin maps and {len(omc['pins-std'])} error maps")
+    fissile, absorbers = cell_kinds(materials)
+    openmc_pins = []
+    for mean, std in zip(omc['pins'], omc['pins-std']):
+        scale = fuel_pin_mean(mean, fissile)
+        openmc_pins.append(([[v / scale for v in row] for row in mean], [[v / scale for v in row] for row in std]))
+    pins = [pin_differences(p['pin_powers'], mean, std, fissile, absorbers) for p, (mean, std) in zip(xlc['points'], openmc_pins)]
+    pin_std_rms = [orbit_std_rms(mean, std, fissile) for mean, std in openmc_pins]
+    transport = omc['transport-seconds']
+    seconds = {'xlc': {**xlc['seconds'], 'solves': xlc['solves']}, 'openmc': {'transport': sum(transport), 'fastest': min(transport), 'slowest': max(transport), 'solves': len(transport), 'cram': sum(omc['cram-seconds']), 'total': omc['total-seconds']}}
+    return {'problem': omc['problem'], 'burnup': burnup, 'transported': len(omc['transportable']), 'regions': len(regions), 'seconds': seconds, 'k': k, 'kinds': by_kind, 'spread': spread, 'pin_std_rms': pin_std_rms, 'pins': pins}
+
+def percent(x: float | None) -> str:
+    return '–' if x is None else f'{x * 100:+.2f}'
+
+def report(summary: dict) -> list[str]:
+    if 'inputs' not in summary:
+        raise SystemExit('the JSON has no inputs; rerun the stage')
+    if 'pins' not in summary:
+        raise SystemExit('the JSON has no pin power differences (ADR-0181); rerun the stage')
+    lines = ['inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in summary['inputs'])), f"問題 {summary['problem']}、輸送する核種: 両方で同じ {summary['transported']} 核種、燃焼する物質 {summary['regions']}", '燃焼度 (MWd/kg) | k xlc | k OpenMC | 差 (pcm) | 0 からの変化 (pcm) | OpenMC のピン出力の統計誤差 rms (%)']
+    for b, k, s in zip(summary['burnup'], summary['k'], summary['pin_std_rms']):
+        lines.append(f"{b:g} | {k['xlc']:.6f} | {k['openmc']:.6f} ± {k['openmc_std_pcm'] / 100000.0:.6f} | {k['diff_pcm']:+.0f} ± {k['openmc_std_pcm']:.0f} | {k['change_pcm']:+.0f} | {s * 100:.3f}")
+    if not len(summary['burnup']) == len(summary['pins']) == len(summary['pin_std_rms']):
+        raise SystemExit(f"{len(summary['burnup'])} burnup points with {len(summary['pins'])} pin rows and {len(summary['pin_std_rms'])} error rows; rerun the stage")
+    lines.append('ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列。1 から） | OpenMC の統計誤差 rms')
+    for b, p, s in zip(summary['burnup'], summary['pins'], summary['pin_std_rms']):
+        row, column = p['at']
+        lines.append(f"{b:g} | {p['orbits']} | {p['rms'] * 100:.3f} | {p['max'] * 100:+.3f} ± {p['max_std'] * 100:.3f} | ({row + 1}, {column + 1}) | {s * 100:.3f}")
+    if any(('absorber_max' not in p for p in summary['pins'])):
+        raise SystemExit('the JSON has no fission of burnt absorbers; rerun the stage')
+    lines.append(f"燃焼する吸収体だけのセルの OpenMC の核分裂（ピン出力。比べない）の最大: {max((p['absorber_max'] for p in summary['pins'])):.1e}")
+    for kind, table in summary['kinds'].items():
+        names = list(table)
+        lines.append(f'{kind} の数密度の相対差 (%): 燃焼度 | ' + ' | '.join(names))
+        for i, b in enumerate(summary['burnup']):
+            lines.append(f'{b:g} | ' + ' | '.join((percent(table[n][i]) for n in names)))
+        lines.append(f'{kind} の最後の点の領域間のばらつき (%): 核種 | 領域数 | 最大の絶対値 | rms')
+        for n in names:
+            sp = summary['spread'][kind][n]
+            lines.append(f"{n} | {sp['regions']} | {percent(sp['max_abs']).lstrip('+')} | {percent(sp['rms']).lstrip('+')}")
+    x, o = (summary['seconds']['xlc'], summary['seconds']['openmc'])
+    lines.append(f"時間 xlc（輸送 {x['solves']} 回）: 自己遮蔽 {x['shielding']:.1f} 秒、MOC {x['moc']:.1f} 秒、反応率 {x['rates']:.2f} 秒、燃焼行列 {x['matrix']:.2f} 秒、CRAM {x['cram']:.2f} 秒")
+    lines.append(f"時間 OpenMC（輸送 {o['solves']} 回、AWS の機種による。xlc との比較に使わない）: 全体 {o['total']:.0f} 秒、輸送 {o['transport']:.0f} 秒（1 回 {o['fastest']:.0f}〜{o['slowest']:.0f} 秒）、CRAM {o['cram']:.1f} 秒")
+    return lines
+
+def main() -> None:
+    args = sys.argv[1:]
+    if len(args) == 2 and args[0] == '--report':
+        print('\n'.join(report(json.loads(Path(args[1]).read_text()))))
+    elif len(args) == 4 and args[0] == '--json':
+        files = [Path(args[2]), Path(args[3])]
+        xlc, omc = (msgpack.unpackb(f.read_bytes()) for f in files)
+        summary = {'format': 'xlc-compare-depletion-assembly', 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], **summarize(xlc, omc)}
+        Path(args[1]).write_text(json.dumps(summary, indent=1) + '\n')
+        print('\n'.join(report(summary)))
+    else:
+        raise SystemExit(__doc__)
+if __name__ == '__main__':
+    main()

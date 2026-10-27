@@ -22,11 +22,13 @@
 
 import itertools
 import math
+import os
 import sys
 from fractions import Fraction
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
 
 # 仕様書の高さ（下部炉心板の上面から、cm）を炉心の z にずらす量: 下の水 50 cm と下部炉心板 5 cm
 OFFSET = Fraction("55")
@@ -719,10 +721,18 @@ def code(crate: str) -> list[str]:
     return [f"{UP}../../../bin/{crate}"]
 
 
+def python_ast(dep: str) -> str:
+    """Python のファイルの deps は、リポジトリの直下の dvc.yaml の python-ast が書く正規形にする（ADR-0210）"""
+    source = os.path.relpath(os.path.normpath(HERE / dep), ROOT)
+    return os.path.relpath(ROOT / "python-ast" / f"{source}.ast", HERE)
+
+
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
     return (
         f"  {name}:\n    cmd: {cmd}\n    deps:\n"
-        + "".join(f"      - {d}\n" for d in deps)
+        + "".join(
+            f"      - {python_ast(d) if d.endswith('.py') else d}\n" for d in deps
+        )
         + "    outs:\n"
         + "".join(
             f"      - {o.removeprefix('git:')}:\n          cache: false\n"

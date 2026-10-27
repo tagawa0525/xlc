@@ -1,0 +1,19 @@
+import json
+import sys
+from pathlib import Path
+
+def lattice_k(path: Path) -> float:
+    values = [float(line.split()[1]) for line in path.read_text().splitlines() if line.startswith('k ')]
+    if len(values) != 1:
+        raise SystemExit(f"{path}: expected one 'k' line, found {len(values)}")
+    return values[0]
+
+def main() -> None:
+    if len(sys.argv) != 3:
+        raise SystemExit(__doc__)
+    ours = lattice_k(Path(sys.argv[1]))
+    reference = json.loads(Path(sys.argv[2]).read_text())
+    k, sigma = (reference['k'], reference['k-std'])
+    print(f"{reference['problem']} xlc {ours:.6f} OpenMC {k:.6f} +- {sigma:.6f} diff {(ours - k) * 100000.0:+.0f} +- {sigma * 100000.0:.0f} pcm")
+if __name__ == '__main__':
+    main()

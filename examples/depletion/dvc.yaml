@@ -30,7 +30,7 @@ stages:
   openmc-chain:
     cmd: nix develop ../..#references -c python3 openmc_chain.py ../../references/endf openmc-chain.xml
     deps:
-      - openmc_chain.py
+      - ../../python-ast/examples/depletion/openmc_chain.py.ast
       - references-shell.txt
       - ../../references/endf/ENDF-B-VIII.0_decay
       - ../../references/endf/ENDF-B-VIII.0_nfy
@@ -79,8 +79,8 @@ stages:
     do:
       cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
       deps:
-        - ../vera/openmc_library.py
-        - ../openmc_input.py
+        - ../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.endf}
       params:
@@ -93,8 +93,8 @@ stages:
     do:
       cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
       deps:
-        - ../vera/openmc_library.py
-        - ../openmc_input.py
+        - ../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.neutron}
         - ${item.thermal}
@@ -106,8 +106,8 @@ stages:
   openmc-index:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py index openmc-library.toml openmc-library
     deps:
-      - ../vera/openmc_library.py
-      - ../openmc_input.py
+      - ../../python-ast/examples/vera/openmc_library.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
       - openmc-library.toml
       - openmc-library/neutron
@@ -120,10 +120,10 @@ stages:
     do:
       cmd: nix develop ../..#references -c python3 openmc_depletion.py run openmc-1C-${item}.toml openmc-1C-${item}
       deps:
-        - openmc_depletion.py
-        - ../vera/openmc_model.py
-        - ../openmc_common.py
-        - ../openmc_input.py
+        - ../../python-ast/examples/depletion/openmc_depletion.py.ast
+        - ../../python-ast/examples/vera/openmc_model.py.ast
+        - ../../python-ast/examples/openmc_common.py.ast
+        - ../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - openmc-library
         - openmc-chain.xml
@@ -135,7 +135,7 @@ stages:
     do:
       cmd: nix develop ../..#references -c python3 openmc_depletion.py extract openmc-1C-${item}.toml openmc-1C-${item} openmc-1C-${item}.msgpack
       deps:
-        - openmc_depletion.py
+        - ../../python-ast/examples/depletion/openmc_depletion.py.ast
         - references-shell.txt
         - openmc-1C-${item}
         - openmc-1C-${item}.toml
@@ -173,7 +173,7 @@ stages:
     do:
       cmd: python3 compare_depletion.py --json compare-1C-${item}.json lattice-1C-${item}.msgpack openmc-1C-${item}.msgpack
       deps:
-        - compare_depletion.py
+        - ../../python-ast/examples/depletion/compare_depletion.py.ast
         - lattice-1C-${item}.msgpack
         - openmc-1C-${item}.msgpack
       outs:
@@ -183,14 +183,14 @@ stages:
     # MOX-1 の OpenMC の燃焼（ADR-0206）。形状と組成は ../mox/openmc_model.py、演算子は openmc_depletion.py から読む
     cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py run openmc-mox1-rings1.toml openmc-mox1-rings1
     deps:
-      - openmc_depletion_mox.py
-      - openmc_depletion.py
-      - ../mox/openmc_model.py
-      - ../vera/openmc_model.py
-      - ../vera/openmc_tallies.py
-      - ../openmc_common.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/depletion/openmc_depletion_mox.py.ast
+      - ../../python-ast/examples/depletion/openmc_depletion.py.ast
+      - ../../python-ast/examples/mox/openmc_model.py.ast
+      - ../../python-ast/examples/vera/openmc_model.py.ast
+      - ../../python-ast/examples/vera/openmc_tallies.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - references-shell.txt
       - openmc-library
       - openmc-chain.xml
@@ -200,8 +200,8 @@ stages:
   openmc-mox1-extract:
     cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py extract openmc-mox1-rings1.toml openmc-mox1-rings1 openmc-mox1-rings1.msgpack
     deps:
-      - openmc_depletion_mox.py
-      - ../mox/openmc_model.py
+      - ../../python-ast/examples/depletion/openmc_depletion_mox.py.ast
+      - ../../python-ast/examples/mox/openmc_model.py.ast
       - references-shell.txt
       - openmc-mox1-rings1
       - openmc-mox1-rings1.toml
@@ -222,7 +222,7 @@ stages:
   compare-mox1:
     cmd: python3 compare_depletion.py --json compare-mox1-rings1.json lattice-mox1-rings1.msgpack openmc-mox1-rings1.msgpack
     deps:
-      - compare_depletion.py
+      - ../../python-ast/examples/depletion/compare_depletion.py.ast
       - lattice-mox1-rings1.msgpack
       - openmc-mox1-rings1.msgpack
     outs:

@@ -44,6 +44,7 @@ H 列と 8 行の中心を通る 2 つの対称面で鏡映して広げる（ope
 
 import itertools
 import math
+import os
 import re
 from fractions import Fraction
 from pathlib import Path
@@ -51,6 +52,7 @@ from pathlib import Path
 import tomllib
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
 
 TEMPERATURE = 565
 # 少数群の境界 (eV)（examples/reflector と同じ 2 群）
@@ -1124,10 +1126,18 @@ def code(crate: str) -> list[str]:
     return [f"../../../bin/{crate}"]
 
 
+def python_ast(dep: str) -> str:
+    """Python のファイルの deps は、リポジトリの直下の dvc.yaml の python-ast が書く正規形にする（ADR-0210）"""
+    source = os.path.relpath(os.path.normpath(HERE / dep), ROOT)
+    return os.path.relpath(ROOT / "python-ast" / f"{source}.ast", HERE)
+
+
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
     return (
         f"  {name}:\n    cmd: {cmd}\n    deps:\n"
-        + "".join(f"      - {d}\n" for d in deps)
+        + "".join(
+            f"      - {python_ast(d) if d.endswith('.py') else d}\n" for d in deps
+        )
         + "    outs:\n"
         + "".join(
             f"      - {o.removeprefix('git:')}:\n          cache: false\n"

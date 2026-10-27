@@ -1,0 +1,55 @@
+import math
+import re
+import sys
+from pathlib import Path
+import msgpack
+CAPTIONS = {'2A': 'Figure P2-3: Problem 2A (565K) CE KENO-VI Power Distribution Results', '2B': 'Figure P2-4: Problem 2B (600K) CE KENO-VI Power Distribution Results', '2C': 'Figure P2-5: Problem 2C (900K) CE KENO-VI Power Distribution Results', '2D': 'Figure P2-6: Problem 2D (1200K) CE KENO-VI Power Distribution Results', '2E': 'Figure P2-7: Problem 2E (12 Pyrex) CE KENO-VI Power Distribution Results', '2F': 'Figure P2-8: Problem 2F (24 Pyrex) CE KENO-VI Power Distribution Results', '2G': 'Figure P2-9: Problem 2G (AIC) CE KENO-VI Power Distribution Results', '2H': 'Figure P2-10: Problem 2H (B4C) CE KENO-VI Power Distribution Results', '2I': 'Figure P2-11: Problem 2I (Instrument Thimble) CE KENO-VI Power Distribution Results', '2J': 'Figure P2-12: Problem 2J (Instrument and Pyrex) CE KENO-VI Power Distribution Results', '2K': 'Figure P2-13: Problem 2K (Zoned and 24 Pyrex) CE KENO-VI Power Distribution Results', '2Q': 'Figure P2-19: Problem 2Q (Zircaloy Spacer Grid) CE KENO-VI Power Distribution Results'}
+TUBES = {(0, 0), (3, 0), (3, 3), (5, 5), (6, 0), (6, 3)}
+VALUE = re.compile('\\d\\.\\d{4}')
+
+def keno_octant(spec: list[str], caption: str) -> dict[tuple[int, int], float]:
+    lines = [i for i, line in enumerate(spec) if caption in line]
+    if not lines:
+        raise SystemExit(f'caption not found: {caption}')
+    rows: list[str] = []
+    i = lines[-1]
+    while len(rows) < 8:
+        i -= 1
+        if i < 0:
+            raise SystemExit(f'table above {caption!r} is incomplete')
+        line = spec[i]
+        if line.strip() and 'Max:' not in line:
+            rows.append(line)
+    octant = {}
+    for k, line in enumerate(reversed(rows), start=1):
+        values = [float(v) for v in VALUE.findall(line.split('%')[0])]
+        columns = [j for j in range(k + 1) if (k, j) not in TUBES]
+        if len(values) != len(columns):
+            raise SystemExit(f'row {k} has {len(values)} values for columns {columns}')
+        octant.update({(k, j): v for j, v in zip(columns, values)})
+    return octant
+
+def compare(spec: list[str], problem: str, rows: list[list[float]]) -> tuple[int, float, float, tuple[int, int]]:
+    if problem not in CAPTIONS:
+        raise SystemExit(f'unknown problem {problem}; expected one of {list(CAPTIONS)}')
+    if len(rows) != 17 or any((len(row) != 17 for row in rows)):
+        raise SystemExit('expected a 17 x 17 map')
+    fuel = [x for row in rows for x in row if x > 0]
+    mean = sum(fuel) / len(fuel)
+    differences = []
+    for (i, j), keno in keno_octant(spec, CAPTIONS[problem]).items():
+        images = {(8 + a, 8 + b) for a, b in [(i, j), (j, i), (-i, j), (j, -i), (i, -j), (-j, i), (-i, -j), (-j, -i)]}
+        ours = sum((rows[r][c] for r, c in images)) / len(images) / mean
+        differences.append((ours / keno - 1, (i, j)))
+    rms = math.sqrt(sum((d * d for d, _ in differences)) / len(differences))
+    worst, at = max(differences, key=lambda d: abs(d[0]))
+    return (len(differences), rms, worst, at)
+
+def main() -> None:
+    spec = Path(sys.argv[1]).read_text().split('\n')
+    problem = sys.argv[2]
+    rows = msgpack.unpackb(Path(sys.argv[3]).read_bytes())['rows']
+    n, rms, worst, at = compare(spec, problem, rows)
+    print(f'{problem}: {n} positions, rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}')
+if __name__ == '__main__':
+    main()

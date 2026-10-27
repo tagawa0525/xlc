@@ -63,10 +63,10 @@ stages:
     # モデルが同じなら変わらず、下の openmc-mox1 は再実行しない（ADR-0136）
     cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-mox1.toml openmc-mox1-model
     deps:
-      - openmc_model.py
-      - ../openmc_common.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/mox/openmc_model.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
       - openmc-mox1.toml
       - mox.msgpack
@@ -90,10 +90,10 @@ stages:
   openmc-mox1-extract:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-mox1.toml openmc-mox1 openmc-mox1-results
     deps:
-      - openmc_model.py
-      - ../openmc_common.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/mox/openmc_model.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
       - openmc-mox1.toml
       - mox.msgpack
@@ -103,7 +103,7 @@ stages:
   compare-k-mox1:
     cmd: python3 ../vera/compare_k.py lattice-mox1.out openmc-mox1-results/k.json > compare-k-mox1.out
     deps:
-      - ../vera/compare_k.py
+      - ../../python-ast/examples/vera/compare_k.py.ast
       - lattice-mox1.out
       - openmc-mox1-results/k.json
     outs:
@@ -112,7 +112,7 @@ stages:
     # しきい値を ENDF の MF3 から読むので、比べる核種の ENDF も deps にする
     cmd: python3 compare_capture.py xs.toml xlc-mox1.msgpack openmc-mox1-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 Pu238 Am241 O16 > compare-capture-mox1.out
     deps:
-      - compare_capture.py
+      - ../../python-ast/examples/mox/compare_capture.py.ast
       - xs.toml
       - mox.msgpack
       - xlc-mox1.msgpack
@@ -165,10 +165,10 @@ stages:
     # モデルが同じなら変わらず、下の openmc-mox2 は再実行しない（ADR-0136）
     cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-mox2.toml openmc-mox2-model
     deps:
-      - openmc_model.py
-      - ../openmc_common.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/mox/openmc_model.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
       - openmc-mox2.toml
       - mox.msgpack
@@ -192,10 +192,10 @@ stages:
   openmc-mox2-extract:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-mox2.toml openmc-mox2 openmc-mox2-results
     deps:
-      - openmc_model.py
-      - ../openmc_common.py
-      - ../openmc_input.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/mox/openmc_model.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
       - openmc-mox2.toml
       - mox.msgpack
@@ -205,7 +205,7 @@ stages:
   compare-k-mox2:
     cmd: python3 ../vera/compare_k.py lattice-mox2.out openmc-mox2-results/k.json > compare-k-mox2.out
     deps:
-      - ../vera/compare_k.py
+      - ../../python-ast/examples/vera/compare_k.py.ast
       - lattice-mox2.out
       - openmc-mox2-results/k.json
     outs:
@@ -213,7 +213,7 @@ stages:
   compare-capture-mox2:
     cmd: python3 compare_capture.py xs.toml xlc-mox2.msgpack openmc-mox2-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 Pu238 Am241 O16 > compare-capture-mox2.out
     deps:
-      - compare_capture.py
+      - ../../python-ast/examples/mox/compare_capture.py.ast
       - xs.toml
       - mox.msgpack
       - xlc-mox2.msgpack

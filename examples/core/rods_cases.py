@@ -169,7 +169,7 @@ stages:
   table:
     cmd: python3 rod_table.py table-rods.msgpack out=fg-out.msgpack aic=fg-aic.msgpack b4c=fg-b4c.msgpack
     deps:
-      - rod_table.py
+      - ../../python-ast/examples/core/rod_table.py.ast
       - fg-out.msgpack
       - fg-aic.msgpack
       - fg-b4c.msgpack
@@ -191,8 +191,8 @@ stages:
   compare:
     cmd: python3 compare_rods.py > compare.out
     deps:
-      - compare_rods.py
-      - rods_cases.py
+      - ../../python-ast/examples/core/compare_rods.py.ast
+      - ../../python-ast/examples/core/rods_cases.py.ast
 {listed([f"out/{n}.out" for n in names], 6)}    outs:
       - compare.out
 """
