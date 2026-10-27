@@ -30,6 +30,10 @@ use super::{Data, NuclideTransfer, UfgError, segment};
 /// 全体の積分で、入射のエネルギーの冪のように滑らかに変わる
 const SHARE_WIDTH: f64 = 0.01;
 
+/// 移行の行の要素に許す負の値の大きさ（弾性散乱断面積に対する比）。差で決める要素の丸め（倍精度の 1e−16 の数十倍）より十分大きく、
+/// 自由ガスの核の差の近似の誤差（`correction_shares_split_the_kernel_at_an_outgoing_energy` で 1e−10）よりも大きい
+const NEGATIVE: f64 = 1.0e-9;
+
 /// 減速計算の結果から移行を数える入力。
 pub(super) struct Counting<'a> {
     pub(super) data: &'a [Data<'a>],
@@ -103,7 +107,7 @@ impl Counting<'_> {
                     }
                     self.add_sab(i, k, l, &segments, &mut rates)?;
                 }
-                Ok(self.rows(i, e, &rates))
+                self.rows(i, e, &rates)
             })
             .collect::<Result<Vec<_>, UfgError>>()?;
         let mut rows = rows.into_iter();
@@ -328,8 +332,9 @@ impl Counting<'_> {
         Ok(())
     }
 
-    /// リング `i` の核種 `e`（組成の番号）の移行の行
-    fn rows(&self, i: usize, e: usize, rates: &Rates) -> NuclideTransfer {
+    /// リング `i` の核種 `e`（組成の番号）の移行の行。要素は有限で、負なら弾性散乱断面積の [`NEGATIVE`] 倍までの丸め（それより
+    /// 負なら、数え方の近似が減速計算と食い違っているので止める）
+    fn rows(&self, i: usize, e: usize, rates: &Rates) -> Result<NuclideTransfer, UfgError> {
         let ng = self.bounds.len() - 1;
         let top = self.groups.start;
         let elastic = &self.nuclides[i][e].elastic;
@@ -352,13 +357,26 @@ impl Counting<'_> {
                 }
                 let others: f64 = row.iter().sum();
                 row[big] = elastic[h] - others;
-                row
+                if let Some((to, &value)) = row
+                    .iter()
+                    .enumerate()
+                    .find(|&(_, &v)| !(v.is_finite() && v >= -NEGATIVE * elastic[h]))
+                {
+                    return Err(UfgError::Transfer {
+                        ring: i,
+                        nuclide: e,
+                        from: big,
+                        to,
+                        value,
+                    });
+                }
+                Ok(row)
             })
-            .collect();
-        NuclideTransfer {
+            .collect::<Result<_, UfgError>>()?;
+        Ok(NuclideTransfer {
             groups: self.groups.clone(),
             rows,
-        }
+        })
     }
 }
 
