@@ -7,16 +7,17 @@
 //!                                 # false で格子点ごとに求める。ADR-0156）
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
-//! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると static。ADR-0203）
-//! ufg-free-gas = { upper = 400, cells = 4, sweeps = 2, heavy = 400, sab = true }   # free-gas の条件（どれも省略できる。ADR-0203）:
-//!                                 # 分離共鳴を持たない核種の自由ガスの核を使う入射エネルギーの上限（kT の倍数。省略すると
-//!                                 # 上限なし）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（省略すると収束する
-//!                                 # まで）、分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし。省略すると
-//!                                 # 静止した標的。ADR-0204）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下で
-//!                                 # ライブラリの S(α, β) の移行にするか（省略すると false で自由ガスの核。ADR-0205）
+//! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると free-gas。ADR-0203、ADR-0209）
+//! ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400, sab = true }   # free-gas の条件（どれも省略でき、省略した
+//!                                 # 項目はこの例の値。ADR-0209。参照は { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }）:
+//!                                 # 分離共鳴を持たない核種の自由ガスの核を使う入射エネルギーの上限（kT の倍数。inf で上限なし。
+//!                                 # ADR-0203）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（inf で収束するまで）、
+//!                                 # 分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし、false で静止した標的。
+//!                                 # ADR-0204）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下でライブラリの S(α, β) の
+//!                                 # 移行にするか（false で自由ガスの核。ADR-0205）
 //! ufg-transfer = "ring-flux"      # 自己遮蔽の等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（"infinite-dilution"
 //!                                 # はライブラリの無限希釈の形（ADR-0076）、"ring-flux" は UFG の減速計算でリングの中性子束と同じ
-//!                                 # 散乱核で数えた弾性散乱の移行。省略すると infinite-dilution。ADR-0207）
+//!                                 # 散乱核で数えた弾性散乱の移行。省略すると ring-flux。ADR-0207、ADR-0209）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -297,11 +298,46 @@ pub enum InputError {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FreeGasEntry {
+    /// kT の倍数か inf（上限なし）
     upper: Option<f64>,
     cells: Option<i64>,
-    sweeps: Option<i64>,
-    heavy: Option<f64>,
+    sweeps: Option<SweepsEntry>,
+    heavy: Option<HeavyEntry>,
     sab: Option<bool>,
+}
+
+/// `ufg-free-gas.sweeps` の値: 回数か、inf（収束するまで）
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum SweepsEntry {
+    Count(i64),
+    Float(f64),
+}
+
+/// `ufg-free-gas.heavy` の値: kT の倍数か inf（上限なし）、または false（分離共鳴を持つ核種は静止した標的）
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum HeavyEntry {
+    Float(f64),
+    Bool(bool),
+}
+
+impl std::fmt::Display for SweepsEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Count(n) => write!(f, "{n}"),
+            Self::Float(v) => write!(f, "{v:?}"),
+        }
+    }
+}
+
+impl std::fmt::Display for HeavyEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Float(v) => write!(f, "{v:?}"),
+            Self::Bool(b) => write!(f, "{b}"),
+        }
+    }
 }
 
 /// `track-table` の値: 10 倍あたりの格子点の数か、false（格子点ごとに求める）
@@ -322,11 +358,11 @@ struct InputFile {
     track_table: Option<TrackTableEntry>,
     /// 省略すると間引かない（ADR-0185）
     ufg_tolerance: Option<f64>,
-    /// 省略すると静止した標的（ADR-0203）
+    /// 省略すると自由ガス（ADR-0209）
     ufg_scattering: Option<String>,
-    /// `ufg-scattering = "free-gas"` の条件。省略すると ADR-0203 の既定
+    /// `ufg-scattering = "free-gas"` の条件。省略した項目は ADR-0209 の既定
     ufg_free_gas: Option<FreeGasEntry>,
-    /// 省略すると無限希釈の形（ADR-0207）
+    /// 省略するとリングの中性子束で数えた移行（ADR-0209）
     ufg_transfer: Option<String>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
@@ -633,48 +669,64 @@ struct ZoneEntry {
     rings: usize,
 }
 
-/// `ufg-scattering` と `ufg-free-gas` から散乱核の標的の扱い（ADR-0203）
+/// `ufg-scattering` と `ufg-free-gas` から散乱核の標的の扱い（ADR-0203。既定は ADR-0209）
 fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<Scattering, String> {
     match kind {
-        None | Some("static") => match entry {
+        Some("static") => match entry {
             None => Ok(Scattering::Static),
             Some(_) => Err("`ufg-free-gas` needs `ufg-scattering = \"free-gas\"`".into()),
         },
-        Some("free-gas") => {
+        None | Some("free-gas") => {
             let defaults = FreeGas::default();
             let Some(entry) = entry else {
                 return Ok(Scattering::FreeGas(defaults));
             };
+            // inf は上限なし
             let upper = match entry.upper {
-                Some(v) if !positive(v) => {
+                None => defaults.upper,
+                Some(v) if v == f64::INFINITY => None,
+                Some(v) if positive(v) => Some(v),
+                Some(v) => {
                     return Err(format!(
-                        "`ufg-free-gas.upper` must be a positive multiple of kT, got {v}"
+                        "`ufg-free-gas.upper` must be a positive multiple of kT or inf, got {v}"
                     ));
                 }
-                v => v.or(defaults.upper),
             };
-            // 分離共鳴を持つ核種の上限は、inf（上限なし）も受け付ける（ADR-0204）
+            // 分離共鳴を持つ核種の上限は、inf（上限なし。ADR-0204）と false（静止した標的）も受け付ける
             let heavy = match entry.heavy {
-                Some(v) if v.is_nan() || v <= 0.0 => {
+                None => defaults.heavy,
+                Some(HeavyEntry::Bool(false)) => None,
+                Some(HeavyEntry::Float(v)) if v > 0.0 => Some(v),
+                Some(other) => {
                     return Err(format!(
-                        "`ufg-free-gas.heavy` must be a positive multiple of kT (or inf), got {v}"
+                        "`ufg-free-gas.heavy` must be a positive multiple of kT, inf or false, got {other}"
                     ));
                 }
-                v => v.or(defaults.heavy),
             };
-            let count = |name: &str, v: Option<i64>| -> Result<Option<usize>, String> {
-                match v {
-                    Some(n) if n < 1 => Err(format!(
-                        "`ufg-free-gas.{name}` must be a positive integer, got {n}"
-                    )),
-                    Some(n) => Ok(Some(n as usize)),
-                    None => Ok(None),
+            let cells = match entry.cells {
+                None => defaults.cells,
+                Some(n) if n >= 1 => n as usize,
+                Some(n) => {
+                    return Err(format!(
+                        "`ufg-free-gas.cells` must be a positive integer, got {n}"
+                    ));
+                }
+            };
+            // inf は収束するまで
+            let sweeps = match entry.sweeps {
+                None => defaults.sweeps,
+                Some(SweepsEntry::Count(n)) if n >= 1 => Some(n as usize),
+                Some(SweepsEntry::Float(v)) if v == f64::INFINITY => None,
+                Some(other) => {
+                    return Err(format!(
+                        "`ufg-free-gas.sweeps` must be a positive integer or inf, got {other}"
+                    ));
                 }
             };
             Ok(Scattering::FreeGas(FreeGas {
                 upper,
-                cells: count("cells", entry.cells)?.unwrap_or(defaults.cells),
-                sweeps: count("sweeps", entry.sweeps)?.or(defaults.sweeps),
+                cells,
+                sweeps,
                 heavy,
                 sab: entry.sab.unwrap_or(defaults.sab),
             }))
@@ -837,7 +889,8 @@ impl LatticeInput {
             ));
         }
         let transfer = match file.ufg_transfer.as_deref() {
-            None | Some("infinite-dilution") => UfgTransfer::InfiniteDilution,
+            None => UfgTransfer::default(),
+            Some("infinite-dilution") => UfgTransfer::InfiniteDilution,
             Some("ring-flux") => UfgTransfer::RingFlux,
             Some(other) => {
                 return Err(invalid(format!(

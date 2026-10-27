@@ -1519,14 +1519,12 @@ pub(crate) mod lattice {
         let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
         let lattice = Lattice::new(vec![pin, rod], layout).unwrap();
         let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
-        let shielded = shield_fuel(
-            &library,
-            &tracking,
-            &materials,
-            &regions,
-            &ShieldingOptions::default(),
-        )
-        .unwrap();
+        // 比べる減速計算（`slowing_down`）と同じ静止した標的
+        let options = ShieldingOptions {
+            scattering: Scattering::Static,
+            ..ShieldingOptions::default()
+        };
+        let shielded = shield_fuel(&library, &tracking, &materials, &regions, &options).unwrap();
         (library, materials, shielded)
     }
 
@@ -2441,15 +2439,17 @@ pub(crate) mod lattice {
     }
 
     #[test]
-    fn infinite_dilution_transfers_are_the_default_and_carry_no_rows() {
+    fn ring_flux_transfers_are_the_default_and_infinite_dilution_carries_no_rows() {
+        // ADR-0209: 既定はリングの中性子束で数えた移行。無限希釈の形を選べば、領域は移行の行を持たない
+        assert_eq!(ShieldingOptions::default().transfer, UfgTransfer::RingFlux);
         let default = ring_pin(&ShieldingOptions::default()).0;
-        let explicit = ring_pin(&ShieldingOptions {
+        assert!((0..6).any(|r| default.region_transfers(r).is_some()));
+        let dilution = ring_pin(&ShieldingOptions {
             transfer: UfgTransfer::InfiniteDilution,
             ..ShieldingOptions::default()
         })
         .0;
-        assert_eq!(default, explicit);
-        assert!((0..6).all(|r| default.region_transfers(r).is_none()));
+        assert!((0..6).all(|r| dilution.region_transfers(r).is_none()));
     }
 
     #[test]
