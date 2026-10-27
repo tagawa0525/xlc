@@ -823,13 +823,17 @@ class DrawAssemblyFreeGas(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.depletion_assembly_free_gas_k([self.summary([10.6, 179.6]), other])
 
-    def test_the_tables_compare_the_production_run_with_the_tracked_trial(self):
+    def test_the_tables_compare_the_static_target_run_with_the_tracked_trial(self):
+        # 静止した標的の本番の要約は、既定を切り替えた（ADR-0209）後の本番に上書きされないよう、試行の隣に git で追跡する
         for job in ("2A", "2O"):
             sources, draw = vt.TABLES[f"depletion-{job.lower()}-free-gas-k"]
             self.assertEqual(
                 sources,
                 [
-                    f"examples/depletion/p2/compare-{job}.json",
+                    (
+                        "examples/depletion/issue-0133/ufg-free-gas-assemblies/"
+                        f"compare-{job}-static.json"
+                    ),
                     (
                         "examples/depletion/issue-0133/ufg-free-gas-assemblies/"
                         f"compare-{job}-fg.json"
@@ -837,6 +841,7 @@ class DrawAssemblyFreeGas(unittest.TestCase):
                 ],
             )
             self.assertIs(draw, vt.depletion_assembly_free_gas_k)
+            self.assertIn(sources[0], vt.GIT_TRACKED)
             self.assertIn(sources[1], vt.GIT_TRACKED)
 
     def test_summaries_of_different_problems_are_an_error(self):
