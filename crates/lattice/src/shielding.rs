@@ -156,6 +156,14 @@ pub enum SelfShieldingError {
         row: f64,
         elastic: f64,
     },
+    #[error(
+        "{name}: a scattering moment of group {group} to group {to} exceeds its P0 element (no element-wise P_l/P0)"
+    )]
+    MomentAboveP0 {
+        name: String,
+        group: usize,
+        to: usize,
+    },
     #[error("the lattice is not the one that was self-shielded")]
     ForeignLattice,
     #[error(transparent)]

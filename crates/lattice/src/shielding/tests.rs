@@ -2579,4 +2579,41 @@ pub(crate) mod lattice {
             .composition
             .clone()
     }
+
+    #[test]
+    fn transfers_stop_on_library_rows_they_cannot_split() {
+        // 移行の行で作る群で、ライブラリの行の和が無限希釈の弾性散乱より小さい（0 も）か、P_l の要素が P0 の要素より大きい行は、
+        // 弾性散乱でない分も要素ごとの P_l/P0 も決まらないので止める
+        let transfer = NuclideTransfer {
+            groups: 0..1,
+            rows: vec![vec![5.0, 2.0]],
+        };
+        let table = |library: &Library| library.shielded("U-238", T, &[1.0; 2]).unwrap();
+        for row in [vec![6.0, 1.0], vec![0.0, 0.0]] {
+            let mut library = library();
+            library.nuclides[0].temperatures[0].scatter[0][0] = row.clone();
+            let result =
+                shielded_nuclide_with(&library, "U-238", T, &table(&library), Some(&transfer));
+            assert!(
+                matches!(
+                    result,
+                    Err(SelfShieldingError::ElasticAboveRow { group: 0, .. })
+                ),
+                "{row:?}: {result:?}"
+            );
+        }
+        let mut library = library();
+        library.nuclides[0].temperatures[0].scatter = vec![
+            vec![vec![9.0, 1.0], vec![0.0, 4.0]],
+            vec![vec![2.0, 1.5], vec![0.0, 1.0]],
+        ];
+        let result = shielded_nuclide_with(&library, "U-238", T, &table(&library), Some(&transfer));
+        assert!(
+            matches!(
+                result,
+                Err(SelfShieldingError::MomentAboveP0 { group: 0, .. })
+            ),
+            "{result:?}"
+        );
+    }
 }
