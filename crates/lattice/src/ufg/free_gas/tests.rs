@@ -433,6 +433,15 @@ fn erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values() {
 }
 
 #[test]
+fn erf_is_within_four_ulp_of_multiprecision_values() {
+    for &(x, hi, lo) in ERF_REFERENCE {
+        let ulp = f64::from_bits(hi.to_bits() + 1) - hi;
+        let error = ((erf(x) - hi) - lo) / ulp;
+        assert!(error.abs() <= 4.0, "x={x}: {error} ulp");
+    }
+}
+
+#[test]
 fn erfcx_gives_the_same_bits_as_its_copy() {
     for &(x, bits) in ERFCX_BITS {
         assert_eq!(erfcx(x).to_bits(), bits, "x={x}");
