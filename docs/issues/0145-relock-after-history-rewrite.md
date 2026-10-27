@@ -114,3 +114,9 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   「集合体の燃焼」の「計算」）。同じ時点で、p2 の NJOY のステージ（openmc-neutron、openmc-thermal、openmc-index）と、
   examples/depletion の xs-range、xs、NJOY のステージ、openmc-chain も changed のまま残る（このブランチでは再実行していない。p2 の集合体の
   燃焼の目標の上流には入らない）
+- 2026-10-28: ed95d3d44 が examples/openmc_input.py と openmc_chain.py の docstring だけを直したので、examples/depletion の OpenMC の
+  ライブラリのステージ、openmc-chain、openmc-1C が changed になっていた。MOX-1 の OpenMC の燃焼（ADR-0206）を目標に流すとライブラリの
+  作り直しから始まるので、c09ed7164 で `dvc commit` により付け直した（docstring による付け直しは acfe57b01 に続く 2 度目、
+  `dvc commit` の付け直しは 3517e4666 を含めて 3 度目）。p2 の `openmc-neutron@*` の 90 ステージは、deps の examples/openmc_input.py だけが
+  変わった changed のまま残る（main bcc78ee0b の `dvc status`）。「案」の節の (a) か (b) を ADR で決めないまま、同じ判断を手で
+  繰り返している
