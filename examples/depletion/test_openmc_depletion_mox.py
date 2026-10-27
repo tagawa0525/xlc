@@ -87,6 +87,18 @@ class Read(unittest.TestCase):
             read_text(INPUT.replace("rings = 1", "rings = 0"))
 
 
+class Transportable(unittest.TestCase):
+    def test_initial_fuel_nuclides_without_data_at_the_fuel_temperature_are_an_error(
+        self,
+    ):
+        transportable = sorted(set(MOX1) - {"Pu242"})
+        with self.assertRaises(SystemExit):
+            mox.check_transportable(run_of(), transportable)
+
+    def test_initial_fuel_nuclides_with_data_pass(self):
+        mox.check_transportable(run_of(), sorted(MOX1) + ["Xe135"])
+
+
 class Build(unittest.TestCase):
     def test_the_rings_split_the_pellet_into_equal_areas(self):
         _, fuels = mox.build(run_of(rings=4))
@@ -112,7 +124,7 @@ class Build(unittest.TestCase):
         self.assertEqual([s[0] for s in water._sab], ["c_H_in_H2O"])
 
     def test_the_temperature_mode_uses_only_the_library_temperatures(self):
-        model, _ = mox.build(run_of())
+        model, _ = mox.build(run_of(**{"moderator-temperature": 565.0}))
         self.assertEqual(
             model.settings.temperature, {"method": "nearest", "tolerance": 1.0}
         )
