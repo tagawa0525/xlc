@@ -1,0 +1,69 @@
+import re
+import sys
+from pathlib import Path
+import msgpack
+NUMBER = '[-+0-9.eE]+'
+
+def ordered(log: str, fluxes: dict[int, list[float]]) -> list[list[float]]:
+    if sorted(fluxes) != list(range(len(fluxes))):
+        raise SystemExit(f'{log}: node numbers {sorted(fluxes)} are not 0 to {len(fluxes) - 1}')
+    return [fluxes[n] for n in range(len(fluxes))]
+
+def lattice(log: str) -> tuple[float, list[list[float]]]:
+    k = None
+    fluxes = {}
+    for line in Path(log).read_text().splitlines():
+        if 'one-node constants' in line:
+            k = float(re.search(f' k=({NUMBER})', line).group(1))
+        m = re.search(f'node node=(\\d+) average_flux=\\[({NUMBER}), ({NUMBER})\\]', line)
+        if m:
+            fluxes[int(m.group(1))] = [float(m.group(2)), float(m.group(3))]
+    if k is None or not fluxes:
+        raise SystemExit(f'{log}: no k or node fluxes (run with RUST_LOG=debug)')
+    return (k, ordered(log, fluxes))
+
+def core(log: str) -> tuple[float, list[list[float]]]:
+    k = None
+    fluxes = {}
+    for line in Path(log).read_text().splitlines():
+        m = re.search(f'iteration=\\d+ k=({NUMBER})', line)
+        if m:
+            k = float(m.group(1))
+        m = re.search(f'node average flux node=(\\d+) flux=\\[({NUMBER}), ({NUMBER})\\]', line)
+        if m:
+            fluxes[int(m.group(1))] = [float(m.group(2)), float(m.group(3))]
+    if k is None or not fluxes:
+        raise SystemExit(f'{log}: no k or node fluxes (run with RUST_LOG=debug)')
+    return (k, ordered(log, fluxes))
+
+def compare(lattice_log: str, core_log: str) -> None:
+    k_moc, moc = lattice(lattice_log)
+    k_core, nem = core(core_log)
+    if len(moc) != len(nem):
+        raise SystemExit(f'{len(moc)} lattice nodes, {len(nem)} core nodes')
+    print(f'k MOC {k_moc:.8f}, core {k_core:.8f}, dk/k {100000.0 * (k_core / k_moc - 1):+.4f} pcm')
+    worst = [0.0, 0.0]
+    for n, (a, b) in enumerate(zip(nem, moc)):
+        d = [x / y - 1 for x, y in zip(a, b)]
+        print(f'node {n:2}: MOC ({b[0]:.6e}, {b[1]:.6e}), core / MOC - 1 ({d[0]:+.2e}, {d[1]:+.2e})')
+        worst = [max(w, abs(x)) for w, x in zip(worst, d)]
+    print(f'max |core / MOC - 1| (fast, thermal): ({worst[0]:.2e}, {worst[1]:.2e})')
+
+def fstar(files: list[str]) -> None:
+    for f in files:
+        table = msgpack.unpackb(Path(f).read_bytes(), raw=False)
+        for state in table['states']:
+            adf = state['adf']
+            marks = state['normalized_adf']
+            sides = ', '.join((f"{name} ({adf[s][0]:.5f}, {adf[s][1]:.5f}){(' f*' if marks[s] else '')}" for name, s in [('-z', 4), ('+z', 5)]))
+            print(f"{Path(f).name}: height {state['height']}, {sides}")
+
+def main() -> None:
+    if sys.argv[1:2] == ['fstar']:
+        fstar(sys.argv[2:])
+    elif len(sys.argv) == 3:
+        compare(sys.argv[1], sys.argv[2])
+    else:
+        raise SystemExit(__doc__)
+if __name__ == '__main__':
+    main()

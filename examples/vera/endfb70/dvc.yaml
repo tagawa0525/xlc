@@ -65,10 +65,10 @@ stages:
       deps:
         - ../p1/pincell-${item}.toml
         - vera.msgpack
-        - ../compare_keno_lattice.py
-        - ../compare_keno.py
-        - ../compare_k.py
-        - ../compare_p3.py
+        - ../../../python-ast/examples/vera/compare_keno_lattice.py.ast
+        - ../../../python-ast/examples/vera/compare_keno.py.ast
+        - ../../../python-ast/examples/vera/compare_k.py.ast
+        - ../../../python-ast/examples/vera/compare_p3.py.ast
         - ../../../references/vera/spec.txt
         - ../../../bin/lattice
       outs:
@@ -83,10 +83,10 @@ stages:
       deps:
         - ../p2/assembly-${item}.toml
         - vera.msgpack
-        - ../compare_keno_lattice.py
-        - ../compare_keno.py
-        - ../compare_k.py
-        - ../compare_p3.py
+        - ../../../python-ast/examples/vera/compare_keno_lattice.py.ast
+        - ../../../python-ast/examples/vera/compare_keno.py.ast
+        - ../../../python-ast/examples/vera/compare_k.py.ast
+        - ../../../python-ast/examples/vera/compare_p3.py.ast
         - ../../../references/vera/spec.txt
         - ../../../bin/lattice
       outs:

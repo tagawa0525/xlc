@@ -1,0 +1,319 @@
+import os
+import sys
+from pathlib import Path
+from typing import Any, NamedTuple
+import msgpack
+import numpy as np
+import openmc
+import openmc_tallies
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from openmc_common import STORED, eigenvalue_settings, material
+from openmc_run import fuel_mean, mesh_values, model_run_extract, write_k, write_pin_powers
+from openmc_run import read_run as common_read_run
+SCORES = ['total', 'elastic', 'fission']
+PITCH = 1.26
+N = 17
+HALF_GAP = 0.04
+PELLET = 0.4096
+CLAD_INNER = 0.418
+CLAD_OUTER = 0.475
+GUIDE_INNER = 0.561
+GUIDE_OUTER = 0.602
+INSTRUMENT_INNER = 0.559
+INSTRUMENT_OUTER = 0.605
+COLD = 600.0
+FUEL_TEMPERATURE = {'1B': 600.0, '1C': 900.0, '1D': 1200.0, '2A': 565.0, '2B': 600.0, '2C': 900.0, '2D': 1200.0, '2E': 600.0, '2E-empty': 600.0, '2F': 600.0, '2G': 600.0, '2H': 600.0, '2I': 600.0, '2J': 600.0, '2K': 600.0, '2Q': 565.0}
+MODERATOR_TEMPERATURE = {'1B': 600.0, '1C': 600.0, '1D': 600.0, '2A': 565.0, '2B': 600.0, '2C': 600.0, '2D': 600.0, '2E': 600.0, '2E-empty': 600.0, '2F': 600.0, '2G': 600.0, '2H': 600.0, '2I': 600.0, '2J': 600.0, '2K': 600.0, '2Q': 565.0}
+GRID_FRAME = {'2Q': 0.024512}
+FUEL = {'U234': 6.11864e-06, 'U235': 0.000718132, 'U236': 3.29861e-06, 'U238': 0.0221546, 'O16': 0.0457642}
+FUEL_36 = {'U234': 7.21203e-06, 'U235': 0.000833952, 'U236': 3.82913e-06, 'U238': 0.0220384, 'O16': 0.0457669}
+ZIRCALOY = {'Cr50': 3.30121e-06, 'Cr52': 6.36606e-05, 'Cr53': 7.2186e-06, 'Cr54': 1.79686e-06, 'Fe54': 8.68307e-06, 'Fe56': 0.000136306, 'Fe57': 3.14789e-06, 'Fe58': 4.18926e-07, 'Zr90': 0.0218865, 'Zr91': 0.00477292, 'Zr92': 0.00729551, 'Zr94': 0.00739335, 'Zr96': 0.0011911, 'Sn112': 4.68066e-06, 'Sn114': 3.18478e-06, 'Sn115': 1.64064e-06, 'Sn116': 7.01616e-05, 'Sn117': 3.70592e-05, 'Sn118': 0.000116872, 'Sn119': 4.14504e-05, 'Sn120': 0.000157212, 'Sn122': 2.23417e-05, 'Sn124': 2.79392e-05}
+MODERATOR = {'O16': 0.0220729, 'H1': 0.0441459, 'B10': 9.52537e-06, 'B11': 3.83408e-05}
+MODERATOR_DENSE = {'O16': 0.0248112, 'H1': 0.0496224, 'B10': 1.0707e-05, 'B11': 4.30971e-05}
+PYREX = {'B10': 0.000963266, 'B11': 0.00390172, 'O16': 0.0467761, 'Si28': 0.018198, 'Si29': 0.000924474, 'Si30': 0.000610133}
+SS304 = {'C12': 0.000317461, 'C13': 3.43358e-06, 'Si28': 0.00158197, 'Si29': 8.03653e-05, 'Si30': 5.30394e-05, 'P31': 6.99938e-05, 'Cr50': 0.000764915, 'Cr52': 0.0147506, 'Cr53': 0.0016726, 'Cr54': 0.000416346, 'Mn55': 0.00175387, 'Fe54': 0.00344776, 'Fe56': 0.0541225, 'Fe57': 0.00124992, 'Fe58': 0.000166342, 'Ni58': 0.00530854, 'Ni60': 0.00204484, 'Ni61': 8.88879e-05, 'Ni62': 0.000283413, 'Ni64': 7.2177e-05}
+AIC = {'Ag107': 0.0236159, 'Ag109': 0.0219403, 'Cd106': 3.41523e-05, 'Cd108': 2.43165e-05, 'Cd110': 0.00034125, 'Cd111': 0.00034972, 'Cd112': 0.000659276, 'Cd113': 0.000333873, 'Cd114': 0.000784957, 'Cd116': 0.000204641, 'In113': 0.000344262, 'In115': 0.0076805}
+B4C = {'B10': 0.0152689, 'B11': 0.0614591, 'C12': 0.0189768, 'C13': 0.000205247}
+MODERATOR_OF = {'1B': MODERATOR, '1C': MODERATOR, '1D': MODERATOR, '2A': MODERATOR_DENSE, '2B': MODERATOR, '2C': MODERATOR, '2D': MODERATOR, '2E': MODERATOR_DENSE, '2E-empty': MODERATOR_DENSE, '2F': MODERATOR_DENSE, '2G': MODERATOR_DENSE, '2H': MODERATOR_DENSE, '2I': MODERATOR_DENSE, '2J': MODERATOR_DENSE, '2K': MODERATOR_DENSE, '2Q': MODERATOR_DENSE}
+PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
+ROD_CLAD = (0.386, 0.484)
+THIMBLE_RADII = (0.258, 0.382)
+GUIDE_TUBES = [(2, 5), (2, 8), (2, 11), (3, 3), (3, 13), (5, 2), (5, 5), (5, 8), (5, 11), (5, 14), (8, 2), (8, 5), (8, 11), (8, 14), (11, 2), (11, 5), (11, 8), (11, 11), (11, 14), (13, 3), (13, 13), (14, 5), (14, 8), (14, 11)]
+INSTRUMENT_TUBE = (8, 8)
+PYREX_OCTANTS = {8: {(3, 0), (5, 5)}, 12: {(3, 0), (6, 3)}, 16: {(3, 0), (5, 5), (6, 3)}, 20: {(3, 0), (5, 5), (6, 0), (6, 3)}, 24: {(3, 0), (3, 3), (5, 5), (6, 0), (6, 3)}}
+CARBON = {'C12': 0.9893, 'C13': 0.0107}
+LOW_ENRICHMENT_2K = {(1, 0), (7, 7), (8, 6), (8, 7), (8, 8)}
+
+def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
+    centre = N // 2
+    for a, b in octant:
+        if not 0 <= b <= a <= centre:
+            raise SystemExit(f'{(a, b)} is not in the octant')
+    return {(centre + si * x, centre + sj * y) for a, b in octant for x, y in ((a, b), (b, a)) for si in (1, -1) for sj in (1, -1)}
+
+def with_carbon(densities: dict[str, float], carbon: float) -> dict[str, float]:
+    return {**densities, **{n: carbon * f for n, f in CARBON.items()}}
+Layers = list[tuple[openmc.Material | None, float]]
+Frame = tuple[openmc.Material, float]
+
+def outside(region: openmc.Region, water: openmc.Material, frame: Frame | None) -> list[openmc.Cell]:
+    if frame is None:
+        return [openmc.Cell(fill=water, region=region)]
+    material, thickness = frame
+    box = openmc.model.RectangularPrism(PITCH - 2 * thickness, PITCH - 2 * thickness)
+    return [openmc.Cell(fill=water, region=region & -box), openmc.Cell(fill=material, region=+box)]
+
+def concentric(layers: Layers, water: openmc.Material, frame: Frame | None=None) -> openmc.Universe:
+    if not layers:
+        if frame is not None:
+            raise SystemExit('a spacer grid frame around an empty cell')
+        return openmc.Universe(cells=[openmc.Cell(fill=water)])
+    cells = []
+    surface = None
+    for fill, radius in layers:
+        boundary = openmc.ZCylinder(r=radius)
+        region = -boundary if surface is None else +surface & -boundary
+        cells.append(openmc.Cell(fill=fill, region=region))
+        surface = boundary
+    cells.extend(outside(+surface, water, frame))
+    return openmc.Universe(cells=cells)
+
+def tube(layers: Layers, inner: float, outer: float, clad: openmc.Material, water: openmc.Material, frame: Frame | None=None) -> openmc.Universe:
+    return concentric([*layers, (water, inner), (clad, outer)], water, frame)
+
+def fuel_layers(fuel: openmc.Material, clad: openmc.Material) -> Layers:
+    return [(fuel, PELLET), (None, CLAD_INNER), (clad, CLAD_OUTER)]
+
+def pin_lattice(universes: list[list[openmc.Universe]], water: openmc.Material) -> openmc.RectLattice:
+    lattice = openmc.RectLattice()
+    lattice.pitch = (PITCH, PITCH)
+    lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
+    lattice.universes = universes
+    lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=water)])
+    return lattice
+
+def pyrex_layers(temperature: float) -> Layers:
+    pyrex = material('pyrex', PYREX, temperature)
+    steel = material('ss304', SS304, temperature)
+    return pyrex_rod_layers(pyrex, steel)
+
+def pyrex_rod_layers(pyrex: openmc.Material, steel: openmc.Material) -> Layers:
+    fills = [None, steel, None, pyrex, None, steel]
+    return list(zip(fills, PYREX_RADII))
+
+def rod_layers(name: str, nuclides: dict[str, float], radius: float, temperature: float) -> Layers:
+    absorber = material(name, nuclides, temperature)
+    steel = material('ss304', SS304, temperature)
+    clad_in, clad_out = ROD_CLAD
+    return [(absorber, radius), (None, clad_in), (steel, clad_out)]
+
+def thimble_layers(temperature: float) -> Layers:
+    inner, outer = THIMBLE_RADII
+    return [(None, inner), (material('ss304', SS304, temperature), outer)]
+INSERTS = {'2E': (pyrex_layers, sorted(octant_images(PYREX_OCTANTS[12]))), '2F': (pyrex_layers, GUIDE_TUBES), '2G': (lambda t: rod_layers('aic', AIC, 0.382, t), GUIDE_TUBES), '2H': (lambda t: rod_layers('b4c', B4C, 0.373, t), GUIDE_TUBES), '2J': (pyrex_layers, GUIDE_TUBES), '2K': (pyrex_layers, GUIDE_TUBES)}
+INSTRUMENT_INSERTS = {'2I': thimble_layers, '2J': thimble_layers}
+ZONED = {'2K': (FUEL_36, octant_images(LOW_ENRICHMENT_2K))}
+
+def geometry_of(problem: str, fuel: openmc.Material, clad: openmc.Material, water: openmc.Material, gap: openmc.Material | None=None, insert: openmc.Universe | None=None, instrument_insert: openmc.Universe | None=None, zoned_fuel: openmc.Material | None=None, frame: Frame | None=None) -> tuple[openmc.Geometry, float]:
+    pellet, inner, outer = (openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER))
+
+    def rod_of(pellet_fill: openmc.Material) -> openmc.Universe:
+        return openmc.Universe(cells=[openmc.Cell(fill=pellet_fill, region=-pellet), openmc.Cell(fill=gap, region=+pellet & -inner), openmc.Cell(fill=clad, region=+inner & -outer), *outside(+outer, water, frame)])
+    rod = rod_of(fuel)
+    if frame is not None and (insert is not None or instrument_insert is not None):
+        raise SystemExit('a spacer grid frame is not put on the cells of inserts')
+    if problem.startswith('1'):
+        half = PITCH / 2
+        root = openmc.Cell(fill=rod)
+    else:
+        guide = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water, frame)
+        if problem in INSTRUMENT_INSERTS:
+            if instrument_insert is None:
+                raise SystemExit(f'{problem} needs the cell of its instrument tube insert')
+            instrument = instrument_insert
+        else:
+            instrument = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water, frame)
+        universes = [[rod] * N for _ in range(N)]
+        if problem in ZONED:
+            if zoned_fuel is None:
+                raise SystemExit(f'{problem} needs its second fuel')
+            zoned = rod_of(zoned_fuel)
+            kept = ZONED[problem][1]
+            tubes = {*GUIDE_TUBES, INSTRUMENT_TUBE} & kept
+            if tubes:
+                raise SystemExit(f'fuel kept at tube positions {sorted(tubes)}')
+            for i in range(N):
+                for j in range(N):
+                    if (i, j) not in kept:
+                        universes[i][j] = zoned
+        for i, j in GUIDE_TUBES:
+            universes[i][j] = guide
+        universes[INSTRUMENT_TUBE[0]][INSTRUMENT_TUBE[1]] = instrument
+        if problem in INSERTS:
+            if insert is None:
+                raise SystemExit(f'{problem} needs the cell of its guide tube inserts')
+            for i, j in INSERTS[problem][1]:
+                if (i, j) not in GUIDE_TUBES:
+                    raise SystemExit(f'insert at {(i, j)} is not in a guide tube')
+                universes[i][j] = insert
+        lattice = pin_lattice(universes, water)
+        half = N * PITCH / 2 + HALF_GAP
+        root = openmc.Cell(fill=lattice)
+    box = openmc.model.RectangularPrism(2 * half, 2 * half, boundary_type='reflective')
+    root.region = -box
+    return (openmc.Geometry([root]), half)
+
+def pin_mesh() -> openmc.RegularMesh:
+    mesh = openmc.RegularMesh()
+    mesh.dimension = (N, N)
+    mesh.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
+    mesh.upper_right = (N * PITCH / 2, N * PITCH / 2)
+    return mesh
+
+def pin_rows(sp: openmc.StatePoint, value: str='mean'):
+    mean, std = mesh_values(sp, 'fission', (N, N))
+    return {'mean': mean, 'std_dev': std}[value]
+
+def write_pins(sp: openmc.StatePoint, path: Path) -> None:
+    rates = pin_rows(sp)
+    write_pin_powers(path, rates / fuel_mean(rates))
+
+class Built(NamedTuple):
+    fuel: openmc.Material
+    materials: openmc.Materials
+    geometry: openmc.Geometry
+    half: float
+
+def build(problem: str) -> Built:
+    fuel = material('fuel', FUEL, FUEL_TEMPERATURE[problem])
+    clad = material('zircaloy-4', ZIRCALOY, MODERATOR_TEMPERATURE[problem])
+    water = material('moderator', MODERATOR_OF[problem], MODERATOR_TEMPERATURE[problem])
+    water.add_s_alpha_beta('c_H_in_H2O')
+    materials = openmc.Materials([fuel, clad, water])
+
+    def add_materials(layers: Layers) -> None:
+        for fill, _ in layers:
+            if fill is not None and all((fill is not m for m in materials)):
+                materials.append(fill)
+    zoned_fuel = None
+    if problem in ZONED:
+        zoned_fuel = material('fuel-zoned', ZONED[problem][0], FUEL_TEMPERATURE[problem])
+        materials.append(zoned_fuel)
+    insert = None
+    if problem in INSERTS:
+        layers = INSERTS[problem][0](MODERATOR_TEMPERATURE[problem])
+        add_materials(layers)
+        insert = tube(layers, GUIDE_INNER, GUIDE_OUTER, clad, water)
+    instrument_insert = None
+    if problem in INSTRUMENT_INSERTS:
+        layers = INSTRUMENT_INSERTS[problem](MODERATOR_TEMPERATURE[problem])
+        add_materials(layers)
+        instrument_insert = tube(layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
+    frame = (clad, GRID_FRAME[problem]) if problem in GRID_FRAME else None
+    geometry, half = geometry_of(problem, fuel, clad, water, insert=insert, instrument_insert=instrument_insert, zoned_fuel=zoned_fuel, frame=frame)
+    return Built(fuel, materials, geometry, half)
+
+def temperature_settings(problem: str) -> dict:
+    return temperature_mode(MODERATOR_TEMPERATURE[problem])
+
+def temperature_mode(temperature: float) -> dict:
+    method = 'nearest' if temperature == COLD else 'interpolation'
+    return {'method': method, 'tolerance': 1.0}
+
+def read_run(source: Path) -> dict[str, Any]:
+    run = common_read_run(source, list(FUEL_TEMPERATURE), openmc_tallies.OPTIONAL)
+    problem = run['problem']
+    if any((problem not in table for table in (MODERATOR_TEMPERATURE, MODERATOR_OF))):
+        raise SystemExit(f'{problem} lacks its moderator in the tables')
+    return run
+
+def fuels_of(materials: openmc.Materials) -> list[openmc.Material]:
+    return [m for m in materials if m.name in ('fuel', 'fuel-zoned')]
+
+def standard_tallies(problem: str, materials: openmc.Materials) -> list[openmc.Tally]:
+    if problem.startswith('1'):
+        return openmc_tallies.pincell(list(materials))
+    half = N * PITCH / 2 + HALF_GAP
+    return openmc_tallies.assembly(list(materials), fuels_of(materials), pin_mesh(), half, HALF_GAP)
+
+def without_outside(groups: np.ndarray) -> np.ndarray:
+    return groups[..., 1:-1][..., ::-1]
+
+def fuel_xs(sp: openmc.StatePoint, fuel: openmc.Material) -> dict:
+    bins = {'filters': [openmc.MaterialFilter], 'filter_bins': [(fuel.id,)]}
+    flux = sp.get_tally(name=openmc_tallies.name('material groups'))
+    phi = flux.get_values(scores=['flux'], **bins).ravel()
+    rates = sp.get_tally(name=openmc_tallies.name('nuclides'))
+    densities = fuel.get_nuclide_atom_densities()
+    xs = {}
+    for nuclide, density in densities.items():
+        xs[nuclide] = {}
+        for score in SCORES:
+            rate = rates.get_values(scores=[STORED.get(score, score)], nuclides=[nuclide], **bins).ravel()
+            value = np.divide(rate, density * phi, out=np.zeros_like(rate), where=phi > 0)
+            xs[nuclide][score] = without_outside(value).tolist()
+    return xs
+
+def pin_xs(sp: openmc.StatePoint, fuels: list[openmc.Material]) -> dict:
+
+    def pins(values: np.ndarray) -> np.ndarray:
+        return values.reshape(N, N, len(fuels), -1)[::-1]
+    phi = pins(sp.get_tally(name=openmc_tallies.name('pin nuclides flux')).get_values(scores=['flux']))
+    rates = sp.get_tally(name=openmc_tallies.name('pin nuclides'))
+    xs = {}
+    for nuclide in FUEL:
+        density = np.array([f.get_nuclide_atom_densities()[nuclide] for f in fuels])[:, None]
+        reacting = (density * phi).sum(axis=2)
+        xs[nuclide] = {}
+        for score in SCORES:
+            rate = pins(rates.get_values(scores=[STORED.get(score, score)], nuclides=[nuclide])).sum(axis=2)
+            value = np.divide(rate, reacting, out=np.zeros_like(rate), where=reacting > 0)
+            xs[nuclide][score] = without_outside(value).tolist()
+    return xs
+
+def model(source: Path, directory: Path) -> None:
+    run = read_run(source)
+    problem = run['problem']
+    _, materials, geometry, half = build(problem)
+    settings = eigenvalue_settings(run['particles'], run['batches'], run['inactive'], run['seed'], half)
+    settings.temperature = temperature_settings(problem)
+    tallies = openmc.Tallies()
+    if problem.startswith('2'):
+        mesh = pin_mesh()
+        tally = openmc.Tally(name='fission')
+        tally.filters = [openmc.MeshFilter(mesh)]
+        tally.scores = ['fission']
+        tallies.append(tally)
+    if openmc_tallies.enabled(run):
+        tallies.extend(standard_tallies(problem, materials))
+        openmc_tallies.quiet(settings)
+    directory.mkdir(parents=True, exist_ok=True)
+    openmc.Model(geometry, materials, settings, tallies).export_to_model_xml(directory / 'model.xml')
+
+def solve(source: Path, directory: Path, work: Path) -> None:
+    run = read_run(source)
+    work.mkdir(parents=True, exist_ok=True)
+    os.environ['OPENMC_CROSS_SECTIONS'] = str(run['cross-sections'])
+    openmc.run(threads=run['threads'], output=False, cwd=work, path_input=str((directory / 'model.xml').resolve()))
+
+def extract(source: Path, work: Path, results: Path) -> None:
+    run = read_run(source)
+    problem = run['problem']
+    results.mkdir(parents=True, exist_ok=True)
+    with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
+        k = sp.keff
+        if problem.startswith('2'):
+            write_pins(sp, results / 'pins.msgpack')
+        if openmc_tallies.enabled(run):
+            materials = list(sp.summary.materials)
+            if problem.startswith('1'):
+                fuel, = fuels_of(materials)
+                path, form = (results / 'fuel-xs.msgpack', 'xlc-fuel-xs')
+                xs = fuel_xs(sp, fuel)
+            else:
+                path, form = (results / 'pin-xs.msgpack', 'xlc-pin-xs')
+                xs = pin_xs(sp, fuels_of(materials))
+            path.write_bytes(msgpack.packb({'format': form, 'nuclides': xs}))
+    write_k(results / 'k.json', problem, k)
+if __name__ == '__main__':
+    model_run_extract(model, solve, extract, __doc__)

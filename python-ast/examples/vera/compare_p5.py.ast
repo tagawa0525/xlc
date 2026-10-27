@@ -1,0 +1,299 @@
+import hashlib
+import json
+import math
+import re
+import sys
+from pathlib import Path
+import msgpack
+import numpy as np
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import compare_k
+FORMAT = 'xlc-compare-p5'
+COLUMNS = 'RPNMLKJHGFEDCBA'
+ASSEMBLY_TABLE = '{problem}-2D Assembly Powers'
+POWER_TABLE = 'Table M3-6: Problem 5-2D Reference Solution Power Statistics'
+PROBLEMS = ['5A', '5B', '5C']
+QUARTER = 8
+OCTANT_ROWS = [1, 2, 3, 4, 5, 6, 6, 4]
+
+def core_output(path: str) -> tuple[float, np.ndarray]:
+    k = None
+    rows = []
+    reading = False
+    for line in Path(path).read_text().splitlines():
+        if line.startswith('k-eff'):
+            if k is not None:
+                raise SystemExit(f'{path}: more than one k-eff')
+            k = float(line.split()[1])
+        elif line.startswith('(`.` is a reflector site'):
+            reading = True
+        elif reading and line.strip():
+            try:
+                rows.append([float(x) if x not in ('.', '-') else np.nan for x in line.split()])
+            except ValueError:
+                raise SystemExit(f'{path}: not a row of assembly fission rates: {line}') from None
+    if k is None or not rows:
+        raise SystemExit(f'{path}: no k-eff or assembly fission rates')
+    if len({len(r) for r in rows}) != 1:
+        raise SystemExit(f'{path}: assembly rows differ in length')
+    return (k, np.array(rows))
+
+def fuel_assemblies(rates: np.ndarray) -> np.ndarray:
+    keep_r = ~np.all(np.isnan(rates), axis=1)
+    keep_c = ~np.all(np.isnan(rates), axis=0)
+    return rates[keep_r][:, keep_c]
+
+def read_pins(path: str) -> np.ndarray:
+    rows = np.array(msgpack.unpackb(Path(path).read_bytes(), raw=False)['rows'], dtype=float)
+    rows = rows[rows.any(axis=1)][:, rows.any(axis=0)]
+    return rows / rows[rows > 0].mean()
+
+def keno_k(spec: list[str], problem: str) -> tuple[float, float]:
+    for line in spec:
+        m = re.match(f'^{problem}-2D\\s+(\\d\\.\\d+)\\s+(\\d\\.\\d+)\\s*$', line)
+        if m:
+            return (float(m.group(1)), float(m.group(2)))
+    raise SystemExit(f'KENO-VI k of {problem}-2D not found')
+
+def keno_max_pin(spec: list[str], problem: str) -> float:
+    start = next((i for i, line in enumerate(spec) if POWER_TABLE in line and any((l.split()[:1] == ['Maximum'] for l in spec[i:i + 4]))), None)
+    if start is None:
+        raise SystemExit(f'{POWER_TABLE} not found')
+    rows = [line.split()[1:] for line in spec[start:start + 12] if line.split()[:1] == ['Maximum'] and line.split()[1] != 'Uncertainty']
+    if len(rows) != 2 or len(rows[1]) != len(PROBLEMS):
+        raise SystemExit(f'{POWER_TABLE}: expected two Maximum rows of {len(PROBLEMS)} values')
+    return float(rows[1][PROBLEMS.index(problem)])
+
+def keno_assemblies(spec: list[str], problem: str) -> np.ndarray:
+    title = ASSEMBLY_TABLE.format(problem=problem)
+    start = next((i for i, line in enumerate(spec) if line.strip().startswith(title)), None)
+    if start is None:
+        raise SystemExit(f'{title} not found')
+    octant = []
+    for line in spec[start + 2:start + 2 + QUARTER]:
+        values = [float(x) for x in re.findall('(?<![\\d.])(\\d\\.\\d{5})(?![\\d%])', line)]
+        if len(values) != OCTANT_ROWS[len(octant)]:
+            raise SystemExit(f'{title}: row {8 + len(octant)} has {len(values)} values, expected {OCTANT_ROWS[len(octant)]}')
+        octant.append(values)
+    quarter = np.full((QUARTER, QUARTER), np.nan)
+    for r, values in enumerate(octant):
+        for c, v in enumerate(values):
+            quarter[r, c] = v
+    for r in range(QUARTER):
+        for c in range(QUARTER):
+            if np.isnan(quarter[r, c]) and (not np.isnan(quarter[c, r])):
+                quarter[r, c] = quarter[c, r]
+    if np.count_nonzero(~np.isnan(quarter)) != 56:
+        raise SystemExit(f'{title}: expected 56 assemblies in the quarter, read {np.count_nonzero(~np.isnan(quarter))}')
+    return unfold(quarter)
+
+def unfold(quarter: np.ndarray) -> np.ndarray:
+    rows = np.concatenate([quarter[:0:-1], quarter], axis=0)
+    return np.concatenate([rows[:, :0:-1], rows], axis=1)
+
+def stat(d: np.ndarray, where: np.ndarray | None=None) -> dict:
+    if d.size == 0:
+        return {'n': 0, 'rms': None, 'max': None, 'at': None}
+    i = int(np.abs(d).argmax())
+    return {'n': int(d.size), 'rms': float(np.sqrt((d * d).mean())), 'max': float(d[i]), 'at': [int(x) for x in where[i]] if where is not None else None}
+
+def stat_line(name: str, d: dict) -> str:
+    if d['n'] == 0:
+        return f'{name}: none'
+    at = f" at {tuple(d['at'])}" if d['at'] is not None else ''
+    at += f" {d['name']}" if 'name' in d else ''
+    return f"{name}: {d['n']}, rms {100 * d['rms']:.3f}%, max {100 * d['max']:+.3f}%{at}"
+
+def positive(*arrays: np.ndarray) -> None:
+    for a in arrays:
+        if not (np.asarray(a) > 0).all():
+            raise SystemExit('a reference value or standard deviation is not positive; cannot give the difference in sigma')
+
+def std_summary(std: np.ndarray, reference: np.ndarray) -> dict:
+    positive(std, reference)
+    s = std / reference
+    return {'median': float(np.median(s)), 'max': float(s.max())}
+
+def sigma_summary(ours: np.ndarray, reference: np.ndarray, std: np.ndarray, where: np.ndarray) -> dict:
+    positive(std)
+    ratio = np.abs(ours - reference) / std
+    i = int(ratio.argmax())
+    return {'max': float(ratio[i]), 'at': [int(x) for x in where[i]], 'beyond_2sigma': int((ratio > 2).sum()), 'n': int(ratio.size)}
+
+def named(d: dict) -> dict:
+    if d.get('at') is not None:
+        d['name'] = assembly_name(d['at'])
+    return d
+
+def assembly_summary(ours: np.ndarray, reference: np.ndarray, std: np.ndarray | None=None) -> dict:
+    ours = fuel_assemblies(ours)
+    if ours.shape != reference.shape:
+        raise SystemExit(f'assembly maps differ in shape: {ours.shape} and {reference.shape}')
+    fuel = ~np.isnan(reference) & (reference > 0)
+    if not np.array_equal(fuel, ~np.isnan(ours)):
+        raise SystemExit('assembly maps differ in fuel positions')
+    ours = ours / ours[fuel].mean()
+    mean = reference[fuel].mean()
+    reference = reference / mean
+    if std is not None:
+        std = std / mean
+    rel = ours[fuel] / reference[fuel] - 1
+    absolute = ours[fuel] - reference[fuel]
+    where = np.argwhere(fuel)
+    i = int(np.abs(absolute).argmax())
+    edge = edge_assemblies(fuel)
+    n = fuel.shape[0] // 2
+    result = {'relative': named(stat(rel, where)), 'absolute': named({'rms': float(np.sqrt((absolute ** 2).mean())), 'max': float(absolute[i]), 'at': [int(x) for x in where[i]], 'reference': float(reference[fuel][i])}), 'peripheral': named(stat(rel[edge[fuel]], np.argwhere(fuel & edge))), 'quarter': [[[float(ours[r, c]), float(reference[r, c])] if fuel[r, c] else None for c in range(n, fuel.shape[1])] for r in range(n, fuel.shape[0])]}
+    if std is not None:
+        result['std'] = std_summary(std[fuel], reference[fuel])
+        result['sigma'] = named(sigma_summary(ours[fuel], reference[fuel], std[fuel], where))
+    return result
+
+def assembly_lines(d: dict) -> list[str]:
+    a = d['absolute']
+    lines = [stat_line('assemblies (relative)', d['relative']), f"assemblies (absolute): rms {a['rms']:.4f}, max {a['max']:+.4f} at {tuple(a['at'])} {a['name']} (reference {a['reference']:.4f})", stat_line('peripheral assemblies (relative)', d['peripheral'])]
+    if 'std' in d:
+        lines.append(f"reference relative std: median {100 * d['std']['median']:.3f}%, max {100 * d['std']['max']:.3f}%")
+    lines.append('lower-right quarter from the centre row and column (rows 8-15, columns H-A in 5-2D), xlc / reference:')
+    for row in d['quarter']:
+        lines.append(' '.join((f'{c[0]:.4f}/{c[1]:.4f}' if c else ' ' * 13 for c in row)))
+    if 'sigma' in d:
+        g = d['sigma']
+        lines.append(f"assemblies xlc - reference in sigma: max {g['max']:.1f} at {tuple(g['at'])} {g['name']}, {g['beyond_2sigma']} of {g['n']} beyond 2 sigma")
+    return lines
+
+def assembly_name(at: list[int]) -> str:
+    return f'{COLUMNS[at[1]]}{at[0] + 1:02d}'
+
+def edge_assemblies(fuel: np.ndarray) -> np.ndarray:
+    padded = np.pad(fuel, 1, constant_values=False)
+    out = np.zeros_like(fuel)
+    for di in (-1, 0, 1):
+        for dj in (-1, 0, 1):
+            out |= ~padded[1 + di:1 + di + fuel.shape[0], 1 + dj:1 + dj + fuel.shape[1]]
+    return out & fuel
+
+def pin_summary(ours: np.ndarray, reference: np.ndarray, std: np.ndarray | None=None) -> dict:
+    if ours.shape != reference.shape:
+        raise SystemExit(f'pin maps differ in shape: {ours.shape} and {reference.shape}')
+    fuel = reference > 0
+    if not np.array_equal(fuel, ours > 0):
+        raise SystemExit('the two pin maps have different fuel cells')
+    n = 17
+    blocks = fuel.reshape(fuel.shape[0] // n, n, fuel.shape[1] // n, n).any(axis=(1, 3))
+    edge = np.kron(edge_assemblies(blocks), np.ones((n, n), dtype=bool)) & fuel
+    low = fuel & (reference < 0.8)
+
+    def relative(mask: np.ndarray) -> dict:
+        return stat(ours[mask] / reference[mask] - 1, np.argwhere(mask))
+    result = {'all': relative(fuel), 'peripheral': relative(edge), 'low': relative(low), 'max_pin': {'xlc': float(ours.max()), 'reference': float(reference.max())}}
+    if std is not None:
+        result['std'] = std_summary(std[fuel], reference[fuel])
+        result['sigma'] = sigma_summary(ours[fuel], reference[fuel], std[fuel], np.argwhere(fuel))
+    return result
+
+def pin_lines(d: dict) -> list[str]:
+    lines = [stat_line('pins', d['all']), stat_line('pins of peripheral assemblies', d['peripheral']), stat_line('pins with power < 0.8', d['low']), f"max pin power: xlc {d['max_pin']['xlc']:.5f}, reference {d['max_pin']['reference']:.5f}"]
+    if 'std' in d:
+        lines.append(f"reference relative std: median {100 * d['std']['median']:.3f}%, max {100 * d['std']['max']:.3f}%")
+        g = d['sigma']
+        lines.append(f"pins xlc - reference in sigma: max {g['max']:.1f} at {tuple(g['at'])}, {g['beyond_2sigma']} of {g['n']} beyond 2 sigma")
+    return lines
+
+def md5_inputs(paths: list[Path]) -> list[dict]:
+    return [{'path': str(p), 'md5': hashlib.md5(p.read_bytes()).hexdigest()} for p in paths]
+
+def check_problem(problem: str) -> None:
+    if problem not in PROBLEMS:
+        raise SystemExit(f'unknown problem {problem}; expected one of {PROBLEMS}')
+
+def keno(problem: str, spec_path: str, core_out: str, core_pins: str) -> dict:
+    check_problem(problem)
+    spec = Path(spec_path).read_text().splitlines()
+    k, rates = core_output(core_out)
+    k_ref, sigma = keno_k(spec, problem)
+    pins = read_pins(core_pins)
+    return {'format': FORMAT, 'kind': 'keno', 'problem': problem, 'inputs': md5_inputs([Path(spec_path), Path(core_out), Path(core_pins)]), 'k': {'xlc': k, 'reference': k_ref, 'reference_std': sigma, 'diff_pcm': 100000.0 * (k / k_ref - 1)}, 'assemblies': assembly_summary(rates, keno_assemblies(spec, problem)), 'max_pin': {'xlc': float(pins.max()), 'reference': keno_max_pin(spec, problem)}}
+
+def openmc(problem: str, spec_path: str, core_out: str, core_pins: str, results: str) -> dict:
+    check_problem(problem)
+    k, rates = core_output(core_out)
+    k_keno, s_keno = keno_k(Path(spec_path).read_text().splitlines(), problem)
+    directory = Path(results)
+    files = [directory / name for name in ['k.json', 'assemblies.msgpack', 'assemblies-std.msgpack', 'pins.msgpack', 'pins-std.msgpack']]
+    ref = json.loads(files[0].read_text())
+    positive(np.array([ref['k'], ref['k-std']]))
+    assemblies, std, pins, pins_std = (np.array(msgpack.unpackb(f.read_bytes())['rows']) for f in files[1:])
+    keep_r, keep_c = (pins.any(axis=1), pins.any(axis=0))
+    pins, pins_std = (m[keep_r][:, keep_c] for m in (pins, pins_std))
+    mean = pins[pins > 0].mean()
+    diff_pcm = 100000.0 * (k / ref['k'] - 1)
+    return {'format': FORMAT, 'kind': 'openmc', 'problem': problem, 'inputs': md5_inputs([Path(spec_path), Path(core_out), Path(core_pins), *files]), 'k': {'xlc': k, 'reference': ref['k'], 'reference_std': ref['k-std'], 'diff_pcm': diff_pcm, 'diff_std_pcm': 100000.0 * ref['k-std'], 'sigma': abs(diff_pcm) / (100000.0 * ref['k-std']), 'keno': k_keno, 'keno_std': s_keno, 'diff_keno_pcm': 100000.0 * (ref['k'] - k_keno), 'diff_keno_std_pcm': 100000.0 * math.hypot(ref['k-std'], s_keno)}, 'assemblies': assembly_summary(rates, np.where(assemblies > 0, assemblies, np.nan), std), 'pins': pin_summary(read_pins(core_pins), pins / mean, pins_std / mean)}
+
+def report(summary: dict) -> list[str]:
+    if 'inputs' not in summary:
+        raise SystemExit('the JSON has no inputs (an older run); rerun the stage')
+    k = summary['k']
+    lines = ['inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in summary['inputs']))]
+    if summary['kind'] == 'keno':
+        lines.append(f"k: xlc {k['xlc']:.6f}, KENO-VI {k['reference']:.6f} +- {k['reference_std']:.6f}, {k['diff_pcm']:+.1f} pcm")
+        lines += assembly_lines(summary['assemblies'])
+        m = summary['max_pin']
+        lines.append(f"max pin power: xlc {m['xlc']:.5f}, KENO-VI {m['reference']:.5f}")
+        return lines
+    lines.append(f"k: xlc {k['xlc']:.6f}, OpenMC {k['reference']:.6f} +- {k['reference_std']:.6f}, {k['diff_pcm']:+.1f} pcm")
+    lines.append(f"k xlc - OpenMC in sigma: {k['sigma']:.1f}")
+    lines.append(f"k OpenMC - KENO-VI: {k['diff_keno_pcm']:+.1f} +- {k['diff_keno_std_pcm']:.1f} pcm (KENO-VI {k['keno']:.6f} +- {k['keno_std']:.6f})")
+    lines += assembly_lines(summary['assemblies'])
+    lines += pin_lines(summary['pins'])
+    return lines
+
+def lattice_k(path: str) -> float:
+    return compare_k.lattice_k(Path(path))
+
+def moc(lattice_out: str, lattice_pins: str, core_out: str, core_pins: str) -> None:
+    k_ref = lattice_k(lattice_out)
+    k, rates = core_output(core_out)
+    print(f'k: core {k:.6f}, MOC {k_ref:.6f}, {100000.0 * (k / k_ref - 1):+.1f} pcm')
+    reference = read_pins(lattice_pins)
+    n = 17
+    blocks = reference.reshape(reference.shape[0] // n, n, reference.shape[1] // n, n).sum(axis=(1, 3))
+    print('\n'.join(assembly_lines(assembly_summary(rates, blocks / blocks.mean()))))
+    print('\n'.join(pin_lines(pin_summary(read_pins(core_pins), reference))))
+
+def symmetry(core_out: str, core_pins: str) -> None:
+    k, rates = core_output(core_out)
+    print(f'k: {k:.6f}')
+    a = np.nan_to_num(fuel_assemblies(rates))
+    p = read_pins(core_pins)
+    for name, m in (('assemblies', a), ('pins', p)):
+        if m.shape[0] != m.shape[1]:
+            raise SystemExit(f'{name}: the map is not square ({m.shape}), so it has no 90-degree symmetry to check')
+        scale = np.abs(m).max()
+        for op, image in (('rotation by 90', np.rot90(m)), ('rotation by 180', np.rot90(m, 2)), ('mirror in x', m[:, ::-1]), ('mirror in y', m[::-1, :]), ('mirror in the diagonal', m.T)):
+            print(f'{name}, {op}: max |difference| / max {np.abs(image - m).max() / scale:.2e}')
+
+def main() -> None:
+    args = sys.argv[1:]
+    match args:
+        case ['--report', path]:
+            summary = json.loads(Path(path).read_text())
+            if summary.get('format') != FORMAT:
+                raise SystemExit(f'{path}: not {FORMAT}')
+            print('\n'.join(report(summary)))
+        case ['--json', out, 'keno', problem, spec, core_out, pins]:
+            Path(out).write_text(json.dumps(keno(problem, spec, core_out, pins), indent=1) + '\n')
+        case ['--json', out, 'openmc', problem, spec, core_out, pins, results]:
+            Path(out).write_text(json.dumps(openmc(problem, spec, core_out, pins, results), indent=1) + '\n')
+        case ['moc', lattice_out, lattice_pins, out, pins]:
+            moc(lattice_out, lattice_pins, out, pins)
+        case ['symmetry', out, pins]:
+            symmetry(out, pins)
+        case ['k', lattice_out, out]:
+            k_ref = lattice_k(lattice_out)
+            k, _ = core_output(out)
+            print(f'k: core {k:.6f}, MOC {k_ref:.6f}, {100000.0 * (k / k_ref - 1):+.1f} pcm')
+        case _:
+            raise SystemExit(__doc__)
+if __name__ == '__main__':
+    main()

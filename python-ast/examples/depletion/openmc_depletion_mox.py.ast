@@ -1,0 +1,126 @@
+import importlib.util
+import itertools
+import json
+import math
+import os
+import sys
+import time
+from pathlib import Path
+import msgpack
+import numpy as np
+import openmc
+import openmc.deplete
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE))
+from openmc_common import eigenvalue_settings, material
+from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
+from openmc_input import input_path, read_input
+
+def load_mox_model():
+    spec = importlib.util.spec_from_file_location('mox_openmc_model', HERE.parent / 'mox' / 'openmc_model.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+MOX = load_mox_model()
+KEYS = {'problem', 'rings', 'fuel-temperature', 'moderator-temperature', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads'}
+
+def read(source: Path) -> dict:
+    run = read_input(source, KEYS, set())
+    if run['problem'] not in MOX.FUEL:
+        raise SystemExit(f"unknown problem {run['problem']}; expected one of {list(MOX.FUEL)}")
+    if not (isinstance(run['rings'], int) and run['rings'] > 0):
+        raise SystemExit(f"rings must be a positive integer, got {run['rings']}")
+    for key in ('fuel-temperature', 'moderator-temperature'):
+        if not run[key] > 0:
+            raise SystemExit(f'{key} must be positive, got {run[key]}')
+    burnup = run['burnup']
+    if not burnup or burnup[0] <= 0 or any((b <= a for a, b in itertools.pairwise(burnup))):
+        raise SystemExit(f'burnup must be positive and increasing, got {burnup}')
+    if not run['power'] > 0:
+        raise SystemExit(f"power must be positive, got {run['power']}")
+    run['cross-sections'] = input_path(source, run['cross-sections'])
+    run['chain'] = input_path(source, run['chain'])
+    return run
+
+def ring_radii(rings: int) -> list[float]:
+    return [MOX.PELLET * math.sqrt((i + 1) / rings) for i in range(rings)]
+
+def build(run: dict) -> tuple[openmc.Model, list[openmc.Material]]:
+    radii = ring_radii(run['rings'])
+    hot, cold = (float(run['fuel-temperature']), float(run['moderator-temperature']))
+    fuels = []
+    inner = 0.0
+    for i, r in enumerate(radii):
+        fuel = material(f'fuel-{i}', MOX.FUEL[run['problem']], hot)
+        fuel.depletable = True
+        fuel.volume = math.pi * (r * r - inner * inner)
+        fuels.append(fuel)
+        inner = r
+    clad = material('zirconium', MOX.ZIRCONIUM, cold)
+    water = material('water', MOX.WATER, cold)
+    water.add_s_alpha_beta('c_H_in_H2O')
+    cells = []
+    surface = None
+    for fuel, r in zip(fuels, radii):
+        boundary = openmc.ZCylinder(r=r)
+        region = -boundary if surface is None else +surface & -boundary
+        cells.append(openmc.Cell(fill=fuel, region=region))
+        surface = boundary
+    outer = openmc.ZCylinder(r=MOX.CLAD_OUTER)
+    box = openmc.model.RectangularPrism(MOX.PITCH, MOX.PITCH, boundary_type='reflective')
+    cells.append(openmc.Cell(fill=clad, region=+surface & -outer))
+    cells.append(openmc.Cell(fill=water, region=+outer & -box))
+    settings = eigenvalue_settings(run['particles'], run['batches'], run['inactive'], run['seed'], MOX.PITCH / 2)
+    settings.temperature = {'method': 'nearest', 'tolerance': 1.0}
+    settings.output = {'summary': False, 'tallies': False}
+    model = openmc.Model(openmc.Geometry(cells), openmc.Materials([*fuels, clad, water]), settings)
+    return (model, fuels)
+
+def check_transportable(run: dict, transportable: list[str]) -> None:
+    missing = sorted(set(MOX.FUEL[run['problem']]) - set(transportable))
+    if missing:
+        raise SystemExit(f"the library has no data at {run['fuel-temperature']} K for the fuel nuclides {missing}")
+
+def solve(source: Path, work: Path) -> None:
+    run = read(source)
+    work.mkdir(parents=True, exist_ok=True)
+    os.chdir(work)
+    os.environ['OMP_NUM_THREADS'] = str(run['threads'])
+    openmc.config['cross_sections'] = run['cross-sections']
+    model, _ = build(run)
+    TimedOperator.fuel_temperature = float(run['fuel-temperature'])
+    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode='fission-q', fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
+    check_transportable(run, TimedOperator.transportable)
+    burnup = run['burnup']
+    steps = [b - a for a, b in itertools.pairwise([0.0, *burnup])]
+    integrator = openmc.deplete.CECMIntegrator(operator, steps, power_density=run['power'], timestep_units='MWd/kg', solver='cram48')
+    start = time.perf_counter()
+    integrator.integrate(final_step=True)
+    total = time.perf_counter() - start
+    (work / 'transport-seconds.json').write_text(json.dumps({'transport': TRANSPORT_SECONDS, 'total': total, 'transportable': TimedOperator.transportable}) + '\n')
+    print(f'transport {sum(TRANSPORT_SECONDS):.1f} s in {len(TRANSPORT_SECONDS)} solves, total {total:.1f} s')
+
+def extract(source: Path, work: Path, output: Path) -> None:
+    run = read(source)
+    results = openmc.deplete.Results(work / 'depletion_results.h5')
+    _, fuels = build(run)
+    times, k = results.get_keff(time_units='s')
+    nuclides = list(results[0].index_nuc)
+    rings = []
+    for fuel in fuels:
+        mat = str(fuel.id)
+        densities = {name: results.get_atoms(mat, name, nuc_units='atom/b-cm')[1].tolist() for name in nuclides}
+        rings.append({'name': fuel.name, 'volume': fuel.volume, 'densities': densities})
+    seconds = json.loads((work / 'transport-seconds.json').read_text())
+    output.write_bytes(msgpack.packb({'format': 'openmc-depletion', 'burnup': [0.0, *run['burnup']], 'time': np.asarray(times).tolist(), 'k': k[:, 0].tolist(), 'k-std': k[:, 1].tolist(), 'rings': rings, 'transport-seconds': seconds['transport'], 'total-seconds': seconds['total'], 'cram-seconds': [float(r.proc_time) for r in results], 'transportable': seconds['transportable']}))
+    for b, kk in zip([0.0, *run['burnup']], k):
+        print(f'burnup {b} k {kk[0]:.6f} +- {kk[1]:.6f}')
+if __name__ == '__main__':
+    match sys.argv[1:]:
+        case ['run', source, work]:
+            solve(Path(source).resolve(), Path(work).resolve())
+        case ['extract', source, work, output]:
+            extract(Path(source).resolve(), Path(work).resolve(), Path(output).resolve())
+        case _:
+            raise SystemExit(__doc__)

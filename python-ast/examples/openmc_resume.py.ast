@@ -1,0 +1,94 @@
+import re
+import sys
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+import openmc
+KEEP = 2
+POLL_SECONDS = 30
+OPTIONAL = {'statepoint-interval'}
+
+@dataclass(frozen=True)
+class Options:
+    restart: bool = False
+    threads: int | None = None
+    statepoint_interval: int | None = None
+
+def statepoints(work: Path) -> list[Path]:
+    found = [(int(m.group(1)), p) for p in work.glob('statepoint.*.h5') if (m := re.fullmatch('statepoint\\.(\\d+)\\.h5', p.name))]
+    return [p for _, p in sorted(found)]
+
+def latest_readable(found: list[Path]) -> Path:
+    while found:
+        try:
+            with openmc.StatePoint(found[-1]):
+                return found[-1].resolve()
+        except (OSError, KeyError, ValueError) as error:
+            print(f'removing unreadable {found[-1].name}: {error}', flush=True)
+            found.pop().unlink()
+    raise SystemExit('no readable statepoint to restart from')
+
+def set_statepoints(settings: openmc.Settings, run: dict[str, Any], options: Options) -> None:
+    interval = options.statepoint_interval
+    if interval is None:
+        interval = run.get('statepoint-interval')
+    if interval is None:
+        return
+    if interval <= 0:
+        raise SystemExit('statepoint-interval must be positive')
+    last = settings.batches
+    settings.statepoint = {'batches': [*range(interval, last, interval), last]}
+
+def prune(work: Path) -> None:
+    for old in statepoints(work)[:-KEEP]:
+        old.unlink(missing_ok=True)
+
+def run_model(model: openmc.Model, run: dict[str, Any], work: Path, options: Options) -> None:
+    restart_file = None
+    found = statepoints(work)
+    if options.restart:
+        restart_file = latest_readable(found)
+        print(f'restart from {restart_file}', flush=True)
+    elif found:
+        raise SystemExit(f'{work} already has statepoints ({found[-1].name}); add --restart to continue, or remove them to start over')
+    stop = threading.Event()
+
+    def prune_while_running() -> None:
+        while not stop.wait(POLL_SECONDS):
+            prune(work)
+    pruner = threading.Thread(target=prune_while_running, daemon=True)
+    pruner.start()
+    try:
+        model.run(cwd=work, threads=options.threads or run['threads'], output=False, restart_file=restart_file)
+    finally:
+        stop.set()
+        pruner.join()
+    prune(work)
+
+def run_or_extract(solve: Callable[[Path, Path, Options], None], extract: Callable[[Path, Path, Path], None], usage: str) -> None:
+    args = sys.argv[1:]
+    if args[:1] == ['run']:
+        rest = args[1:]
+        restart = False
+        threads = None
+        interval = None
+        while rest and rest[0].startswith('--'):
+            match rest:
+                case ['--restart', *tail]:
+                    restart = True
+                case ['--threads', n, *tail] if n.isascii() and n.isdigit() and (int(n) > 0):
+                    threads = int(n)
+                case ['--statepoint-interval', n, *tail] if n.isascii() and n.isdigit() and (int(n) > 0):
+                    interval = int(n)
+                case _:
+                    raise SystemExit(usage)
+            rest = tail
+        if len(rest) != 2:
+            raise SystemExit(usage)
+        solve(Path(rest[0]), Path(rest[1]), Options(restart, threads, interval))
+    elif len(args) == 4 and args[0] == 'extract':
+        extract(Path(args[1]), Path(args[2]), Path(args[3]))
+    else:
+        raise SystemExit(usage)

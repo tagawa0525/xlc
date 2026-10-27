@@ -1,0 +1,41 @@
+import re
+import sys
+from pathlib import Path
+from compare_axial import NUMBER, lattice
+
+def main() -> None:
+    if len(sys.argv) < 5:
+        raise SystemExit(__doc__)
+    lattice_log, core_log, height = (sys.argv[1], sys.argv[2], float(sys.argv[3]))
+    sites = [int(s) for s in sys.argv[4:]]
+    k_moc, moc = lattice(lattice_log)
+    k_core, nem = core_fluxes(core_log)
+    if len(sites) != len(moc):
+        raise SystemExit(f'{len(moc)} lattice nodes, {len(sites)} sites given')
+    print(f'k MOC {k_moc:.8f}, core {k_core:.8f}, dk/k {100000.0 * (k_core / k_moc - 1):+.4f} pcm')
+    worst = [0.0, 0.0]
+    missing = [s for s in sites if s not in nem]
+    if missing:
+        raise SystemExit(f'{core_log}: no node at sites {missing}')
+    for n, (b, site) in enumerate(zip(moc, sites)):
+        a = [height * x for x in nem[site]]
+        d = [x / y - 1 for x, y in zip(a, b)]
+        print(f'node {n} (site {site}): MOC ({b[0]:.6e}, {b[1]:.6e}), core / MOC - 1 ({d[0]:+.2e}, {d[1]:+.2e})')
+        worst = [max(w, abs(x)) for w, x in zip(worst, d)]
+    print(f'max |core / MOC - 1| (fast, thermal): ({worst[0]:.2e}, {worst[1]:.2e})')
+
+def core_fluxes(log: str) -> tuple[float, dict[int, list[float]]]:
+    k = None
+    fluxes = {}
+    for line in Path(log).read_text().splitlines():
+        m = re.search(f'iteration=\\d+ k=({NUMBER})', line)
+        if m:
+            k = float(m.group(1))
+        m = re.search(f'node average flux node=(\\d+) flux=\\[({NUMBER}), ({NUMBER})\\]', line)
+        if m:
+            fluxes[int(m.group(1))] = [float(m.group(2)), float(m.group(3))]
+    if k is None or not fluxes:
+        raise SystemExit(f'{log}: no k or node fluxes (run with RUST_LOG=debug)')
+    return (k, fluxes)
+if __name__ == '__main__':
+    main()

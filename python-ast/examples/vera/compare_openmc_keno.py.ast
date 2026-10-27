@@ -1,0 +1,52 @@
+import hashlib
+import json
+import math
+import sys
+from pathlib import Path
+import msgpack
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from compare_keno import compare
+from compare_p3 import keno_k
+
+def normalized(path: Path) -> list[list[float]]:
+    rows = msgpack.unpackb(path.read_bytes())['rows']
+    fuel = [x for row in rows for x in row if x > 0]
+    mean = sum(fuel) / len(fuel)
+    return [[x / mean for x in row] for row in rows]
+
+def pin_differences(ours: Path, reference: Path) -> dict:
+    a, b = (normalized(ours), normalized(reference))
+    if [[x > 0 for x in r] for r in a] != [[x > 0 for x in r] for r in b]:
+        raise SystemExit('the two maps have fission in different cells')
+    diffs = [(x / y - 1, [i, j]) for i, (ra, rb) in enumerate(zip(a, b)) for j, (x, y) in enumerate(zip(ra, rb)) if x > 0]
+    worst, at = max(diffs, key=lambda d: abs(d[0]))
+    rms = math.sqrt(sum((d * d for d, _ in diffs)) / len(diffs))
+    return {'positions': len(diffs), 'rms': rms, 'max': worst, 'at': at}
+
+def main() -> None:
+    args = sys.argv[1:]
+    if len(args) not in (6, 7) or args[0] != '--json':
+        raise SystemExit(__doc__)
+    spec_path, problem = (Path(args[2]), args[3])
+    xlc_path, results = (Path(args[4]), Path(args[5]))
+    xlc_pins = Path(args[6]) if len(args) == 7 else None
+    spec = spec_path.read_text().split('\n')
+    xlc = json.loads(xlc_path.read_text())
+    omc = json.loads((results / 'k.json').read_text())
+    k_keno, s_keno = keno_k(spec, problem)
+    k_xlc, k_omc, s_omc = (xlc['k']['xlc'], omc['k'], omc['k-std'])
+    files = [spec_path, xlc_path, results / 'k.json']
+    pins_keno = pins_xlc = None
+    if problem.startswith('2'):
+        omc_pins = results / 'pins.msgpack'
+        files.append(omc_pins)
+        rows = msgpack.unpackb(omc_pins.read_bytes())['rows']
+        n, rms, worst, at = compare(spec, problem, rows)
+        pins_keno = {'positions': n, 'rms': rms, 'max': worst, 'at': list(at)}
+        if xlc_pins is not None:
+            files.append(xlc_pins)
+            pins_xlc = pin_differences(xlc_pins, omc_pins)
+    summary = {'format': 'xlc-compare-openmc-keno', 'problem': problem, 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], 'k': {'xlc': k_xlc, 'openmc': k_omc, 'openmc_std': s_omc, 'keno': k_keno, 'keno_std': s_keno, 'diff_xlc_openmc_pcm': (k_xlc - k_omc) * 100000.0, 'diff_xlc_openmc_std_pcm': s_omc * 100000.0, 'diff_openmc_keno_pcm': (k_omc - k_keno) * 100000.0, 'diff_openmc_keno_std_pcm': math.hypot(s_omc, s_keno) * 100000.0, 'diff_xlc_keno_pcm': (k_xlc - k_keno) * 100000.0}, 'pins_openmc_vs_keno': pins_keno, 'pins_xlc_vs_openmc': pins_xlc}
+    Path(args[1]).write_text(json.dumps(summary, indent=1) + '\n')
+if __name__ == '__main__':
+    main()

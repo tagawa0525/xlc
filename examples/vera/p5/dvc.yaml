@@ -458,8 +458,8 @@ stages:
   compare-small-E:
     cmd: python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack core-small-E.out core-small-E-pins.msgpack > compare-small-E.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - small-moc.out
       - small-moc-pins.msgpack
       - core-small-E.out
@@ -469,8 +469,8 @@ stages:
   compare-small-I:
     cmd: python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack core-small-I.out core-small-I-pins.msgpack > compare-small-I.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - small-moc.out
       - small-moc-pins.msgpack
       - core-small-I.out
@@ -480,8 +480,8 @@ stages:
   compare-small-step-Lx:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Lx.out core-small-step-Lx-pins.msgpack > compare-small-step-Lx.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - core-small-step-Lx.out
       - core-small-step-Lx-pins.msgpack
     outs:
@@ -489,8 +489,8 @@ stages:
   compare-small-step-Ly:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Ly.out core-small-step-Ly-pins.msgpack > compare-small-step-Ly.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - core-small-step-Ly.out
       - core-small-step-Ly-pins.msgpack
     outs:
@@ -498,8 +498,8 @@ stages:
   compare-lattice-I-equivalence:
     cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-equivalence.out > compare-lattice-I-equivalence.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - reflector-I.out
       - core-lattice-I-equivalence.out
     outs:
@@ -507,8 +507,8 @@ stages:
   compare-lattice-I-fstar:
     cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-fstar.out > compare-lattice-I-fstar.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - reflector-I.out
       - core-lattice-I-fstar.out
     outs:
@@ -516,8 +516,8 @@ stages:
   compare-lattice-corner-equivalence:
     cmd: python3 ../compare_p5.py k reflector-corner.out core-lattice-corner-equivalence.out > compare-lattice-corner-equivalence.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - reflector-corner.out
       - core-lattice-corner-equivalence.out
     outs:
@@ -525,8 +525,8 @@ stages:
   compare-lattice-corner-fstar:
     cmd: python3 ../compare_p5.py k reflector-corner.out core-lattice-corner-fstar.out > compare-lattice-corner-fstar.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - reflector-corner.out
       - core-lattice-corner-fstar.out
     outs:
@@ -534,8 +534,8 @@ stages:
   compare-5A:
     cmd: python3 ../compare_p5.py --json compare-5A.json keno 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - core-5A.out
       - core-5A-pins.msgpack
@@ -545,8 +545,8 @@ stages:
   compare-5A-Ly:
     cmd: python3 ../compare_p5.py --json compare-5A-Ly.json keno 5A ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - core-5A-Ly.out
       - core-5A-Ly-pins.msgpack
@@ -556,8 +556,8 @@ stages:
   compare-5A-Inext:
     cmd: python3 ../compare_p5.py --json compare-5A-Inext.json keno 5A ../../../references/vera/spec.txt core-5A-Inext.out core-5A-Inext-pins.msgpack
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - core-5A-Inext.out
       - core-5A-Inext-pins.msgpack
@@ -567,8 +567,8 @@ stages:
   compare-5B:
     cmd: python3 ../compare_p5.py --json compare-5B.json keno 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - core-5B.out
       - core-5B-pins.msgpack
@@ -578,8 +578,8 @@ stages:
   compare-5C:
     cmd: python3 ../compare_p5.py --json compare-5C.json keno 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - core-5C.out
       - core-5C-pins.msgpack
@@ -589,8 +589,8 @@ stages:
   compare-5A-openmc:
     cmd: python3 ../compare_p5.py --json compare-5A-openmc.json openmc 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack openmc-5A-2D-results
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - openmc-5A-2D-results/k.json
       - openmc-5A-2D-results/assemblies.msgpack
@@ -605,8 +605,8 @@ stages:
   compare-5A-Ly-openmc:
     cmd: python3 ../compare_p5.py --json compare-5A-Ly-openmc.json openmc 5A ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack openmc-5A-2D-results
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - openmc-5A-2D-results/k.json
       - openmc-5A-2D-results/assemblies.msgpack
@@ -621,8 +621,8 @@ stages:
   compare-5A-Inext-openmc:
     cmd: python3 ../compare_p5.py --json compare-5A-Inext-openmc.json openmc 5A ../../../references/vera/spec.txt core-5A-Inext.out core-5A-Inext-pins.msgpack openmc-5A-2D-results
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - openmc-5A-2D-results/k.json
       - openmc-5A-2D-results/assemblies.msgpack
@@ -637,8 +637,8 @@ stages:
   compare-5B-openmc:
     cmd: python3 ../compare_p5.py --json compare-5B-openmc.json openmc 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack ../../../references/openmc/aws/m3/openmc-5B-2D
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - ../../../references/openmc/aws/m3/openmc-5B-2D/k.json
       - ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies.msgpack
@@ -653,8 +653,8 @@ stages:
   compare-5C-openmc:
     cmd: python3 ../compare_p5.py --json compare-5C-openmc.json openmc 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack ../../../references/openmc/aws/m3/openmc-5C-2D
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - ../../../references/openmc/aws/m3/openmc-5C-2D/k.json
       - ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies.msgpack
@@ -1509,7 +1509,7 @@ stages:
   hzp-table-21-fuel:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/21-fuel-rods.msgpack out=lattice/21-fuel.msgpack aic=lattice/21-fuel-aic.msgpack b4c=lattice/21-fuel-b4c.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/21-fuel.msgpack
       - hzp/lattice/21-fuel-aic.msgpack
       - hzp/lattice/21-fuel-b4c.msgpack
@@ -1518,7 +1518,7 @@ stages:
   hzp-table-21-zgrid:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/21-zgrid-rods.msgpack out=lattice/21-zgrid.msgpack aic=lattice/21-zgrid-aic.msgpack b4c=lattice/21-zgrid-b4c.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/21-zgrid.msgpack
       - hzp/lattice/21-zgrid-aic.msgpack
       - hzp/lattice/21-zgrid-b4c.msgpack
@@ -1527,7 +1527,7 @@ stages:
   hzp-table-26-fuel:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/26-fuel-rods.msgpack out=lattice/26-fuel.msgpack aic=lattice/26-fuel-aic.msgpack b4c=lattice/26-fuel-b4c.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/26-fuel.msgpack
       - hzp/lattice/26-fuel-aic.msgpack
       - hzp/lattice/26-fuel-b4c.msgpack
@@ -1536,7 +1536,7 @@ stages:
   hzp-table-26-zgrid:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/26-zgrid-rods.msgpack out=lattice/26-zgrid.msgpack aic=lattice/26-zgrid-aic.msgpack b4c=lattice/26-zgrid-b4c.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/26-zgrid.msgpack
       - hzp/lattice/26-zgrid-aic.msgpack
       - hzp/lattice/26-zgrid-b4c.msgpack
@@ -1545,7 +1545,7 @@ stages:
   hzp-table-31-fuel:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/31-fuel-rods.msgpack out=lattice/31-fuel.msgpack aic=lattice/31-fuel-aic.msgpack b4c=lattice/31-fuel-b4c.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/31-fuel-aic.msgpack
       - hzp/lattice/31-fuel-b4c.msgpack
@@ -1554,7 +1554,7 @@ stages:
   hzp-table-31-zgrid:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/31-zgrid-rods.msgpack out=lattice/31-zgrid.msgpack aic=lattice/31-zgrid-aic.msgpack b4c=lattice/31-zgrid-b4c.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/31-zgrid.msgpack
       - hzp/lattice/31-zgrid-aic.msgpack
       - hzp/lattice/31-zgrid-b4c.msgpack
@@ -1563,7 +1563,7 @@ stages:
   hzp-table-reflector-I-31-fuel-fuel:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/reflector-I-31-fuel-fuel-rods.msgpack out=lattice/reflector-I-31-fuel-fuel.msgpack aic=lattice/reflector-I-31-fuel-aic-fuel.msgpack b4c=lattice/reflector-I-31-fuel-b4c-fuel.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
@@ -1572,7 +1572,7 @@ stages:
   hzp-table-reflector-I-31-zgrid-fuel:
     cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/reflector-I-31-zgrid-fuel-rods.msgpack out=lattice/reflector-I-31-zgrid-fuel.msgpack aic=lattice/reflector-I-31-zgrid-aic-fuel.msgpack b4c=lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
     deps:
-      - ../../core/rod_table.py
+      - ../../../python-ast/examples/core/rod_table.py.ast
       - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
       - hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
@@ -1918,8 +1918,8 @@ stages:
   hzp-compare-interp-31:
     cmd: python3 ../compare_p5.py k assembly-31.out hzp/interp-31.out > hzp/compare-interp-31.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - assembly-31.out
       - hzp/interp-31.out
     outs:
@@ -1927,8 +1927,8 @@ stages:
   hzp-compare-small-half:
     cmd: python3 ../compare_p5.py symmetry hzp/small-half.out hzp/small-half-pins.msgpack > hzp/compare-small-half.out
     deps:
-      - ../compare_p5.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - hzp/small-half.out
       - hzp/small-half-pins.msgpack
     outs:
@@ -1936,11 +1936,11 @@ stages:
   hzp-compare:
     cmd: python3 compare_hzp.py ../../../references/vera/spec.txt hzp/core-hzp.toml hzp/core-hzp.out > hzp/compare-hzp.out
     deps:
-      - compare_hzp.py
-      - ../compare_p3.py
-      - ../compare_p5.py
-      - ../compare_keno.py
-      - ../compare_k.py
+      - ../../../python-ast/examples/vera/p5/compare_hzp.py.ast
+      - ../../../python-ast/examples/vera/compare_p3.py.ast
+      - ../../../python-ast/examples/vera/compare_p5.py.ast
+      - ../../../python-ast/examples/vera/compare_keno.py.ast
+      - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
       - hzp/core-hzp.toml
       - hzp/core-hzp.out

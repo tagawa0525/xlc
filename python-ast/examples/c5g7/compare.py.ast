@@ -1,0 +1,59 @@
+import math
+import sys
+from pathlib import Path
+import msgpack
+REFERENCE_K = 1.18655
+REFERENCE_MAX = 2.498
+REFERENCE_MIN = 0.23
+REFERENCE_ASSEMBLIES = {'inner UO2': 492.8, 'MOX': 211.7, 'outer UO2': 139.8}
+ASSEMBLY = 17
+NON_FUEL = {(r, c) for r, cols in {2: (5, 8, 11), 3: (3, 13), 5: (2, 5, 8, 11, 14), 8: (2, 5, 8, 11, 14), 11: (2, 5, 8, 11, 14), 13: (3, 13), 14: (5, 8, 11)}.items() for c in cols}
+
+def lattice_k(path: Path) -> float:
+    values = [float(line.split()[1]) for line in path.read_text().splitlines() if line.startswith('k ')]
+    if len(values) != 1:
+        raise SystemExit(f"{path}: expected one 'k' line, found {len(values)}")
+    return values[0]
+
+def read_rates(path: str) -> list[list[float]]:
+    with open(path, 'rb') as f:
+        data = msgpack.unpack(f)
+    if data['format'] != 'xlc-pin-powers':
+        raise SystemExit(f"not a pin power file: {data['format']}")
+    rates = data['rows']
+    if len(rates) != 3 * ASSEMBLY or any((len(row) != 3 * ASSEMBLY for row in rates)):
+        raise SystemExit('expected a 51 x 51 table')
+    return rates
+
+def pins(rates: list[list[float]], block_row: int, block_col: int) -> list[float]:
+    return [rates[block_row * ASSEMBLY + r][block_col * ASSEMBLY + c] for r in range(ASSEMBLY) for c in range(ASSEMBLY) if (r, c) not in NON_FUEL]
+
+def fuel_pins(rates: list[list[float]]) -> list[float]:
+    fuel = [p for block in [(0, 0), (0, 1), (1, 0), (1, 1)] for p in pins(rates, *block)]
+    mean = sum(fuel) / len(fuel)
+    return [p / mean for p in fuel]
+
+def main() -> None:
+    if len(sys.argv) not in (3, 4):
+        raise SystemExit(__doc__)
+    k = lattice_k(Path(sys.argv[1]))
+    rates = read_rates(sys.argv[2])
+    blocks = {'inner UO2': [(0, 0)], 'MOX': [(0, 1), (1, 0)], 'outer UO2': [(1, 1)]}
+    fuel_all = [p for block in [(0, 0), (0, 1), (1, 0), (1, 1)] for p in pins(rates, *block)]
+    mean = sum(fuel_all) / len(fuel_all)
+    fuel = [p / mean for p in fuel_all]
+    print(f'k          {k:.6f}  reference {REFERENCE_K:.6f}  diff {(k - REFERENCE_K) * 100000.0:+.0f} pcm')
+    print(f'max pin    {max(fuel):.3f}     reference {REFERENCE_MAX:.3f}     diff {(max(fuel) / REFERENCE_MAX - 1) * 100:+.2f} %')
+    print(f'min pin    {min(fuel):.3f}     reference {REFERENCE_MIN:.3f}     diff {(min(fuel) / REFERENCE_MIN - 1) * 100:+.2f} %')
+    for name, positions in blocks.items():
+        total = sum((sum(pins(rates, *b)) / mean for b in positions)) / len(positions)
+        reference = REFERENCE_ASSEMBLIES[name]
+        print(f'{name:<10} {total:.1f}     reference {reference:.1f}     diff {(total / reference - 1) * 100:+.2f} %')
+    if len(sys.argv) == 4:
+        reference = fuel_pins(read_rates(sys.argv[3]))
+        diffs = [a / b - 1 for a, b in zip(fuel, reference)]
+        rms = math.sqrt(sum((d * d for d in diffs)) / len(diffs))
+        worst = max(diffs, key=abs)
+        print(f'vs OpenMC  rms {rms * 100:.2f} %  max {worst * 100:+.2f} %  ({len(diffs)} fuel pins)')
+if __name__ == '__main__':
+    main()
