@@ -895,6 +895,27 @@ fn sab_transfer_must_be_a_table_of_cumulative_shares() {
 }
 
 #[test]
+fn sab_transfers_must_agree_across_temperatures_and_end_at_one() {
+    // 表は核種のすべての温度にあるか、どの温度にも無く、格子は温度によらない。行は 1（散乱した中性子のすべて）で終わる
+    let check = |change: &dyn Fn(&mut NuclideData)| {
+        let mut library = two_temperatures(true);
+        let h1 = library.nuclides.last_mut().unwrap();
+        h1.temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+        h1.temperatures[1].sab_transfer = Some(sab_transfer(1.0));
+        change(h1);
+        library.to_msgpack().is_ok()
+    };
+    assert!(check(&|_| {}));
+    assert!(!check(&|n| n.temperatures[1].sab_transfer = None));
+    assert!(!check(&|n| {
+        n.temperatures[1].sab_transfer.as_mut().unwrap().incident[1] = 5.0;
+    }));
+    assert!(!check(&|n| {
+        n.temperatures[1].sab_transfer.as_mut().unwrap().cumulative[1][2] = 0.9;
+    }));
+}
+
+#[test]
 fn interpolation_mixes_the_sab_transfer() {
     let mut library = two_temperatures(true);
     let h1 = library.nuclides.last_mut().unwrap();

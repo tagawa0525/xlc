@@ -1739,6 +1739,19 @@ fn sab_table_must_reach_the_up_scattering_below_the_range() {
 }
 
 #[test]
+fn sab_limit_must_lie_below_the_range_top() {
+    // S(α, β) の上限が範囲の上端以上なら、範囲の上（静止した標的と群定数で扱う入射）と S(α, β) の移行が同じ入射を数えるので止める
+    let mut table = free_gas_transfer(0.99917, 600.0, 0.04);
+    let last = table.cumulative.last().unwrap().clone();
+    table.incident.push(150.0);
+    table.cumulative.push(last);
+    assert!(matches!(
+        sab_spectrum(Some(table), sab(4, None)),
+        Err(UfgError::SabAboveRange { .. })
+    ));
+}
+
+#[test]
 fn sab_sweeps_converge() {
     // 収束するまでのスイープは、十分な回数のスイープと同じ
     let table = free_gas_transfer(0.99917, 600.0, 0.04);

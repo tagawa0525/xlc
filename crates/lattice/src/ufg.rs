@@ -80,6 +80,8 @@ pub enum UfgError {
         "{name}: `sab` needs the S(α, β) transfer of the library (made by an xs with ADR-0205)"
     )]
     NoSabTransfer { name: String },
+    #[error("{name}: the S(α, β) limit {floor} eV must lie below the UFG range top {high} eV")]
+    SabAboveRange { name: String, floor: f64, high: f64 },
     #[error(
         "{name}: the S(α, β) transfer starts at {first} eV, above the up-scattering reach {needed} eV"
     )]

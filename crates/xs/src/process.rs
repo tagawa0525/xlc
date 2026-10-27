@@ -798,7 +798,8 @@ impl Common<'_> {
                 let transfer = settings
                     .pointwise_range
                     .map(|(low, _)| sab.ufg_transfer(low))
-                    .transpose()?;
+                    .transpose()?
+                    .flatten();
                 let thermal = Thermal::Sab {
                     sab,
                     free_gas: FreeGas {

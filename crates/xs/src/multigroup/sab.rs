@@ -294,8 +294,9 @@ impl<'a> ThermalSab<'a> {
     }
 
     /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。
-    pub fn ufg_transfer(&self, low: f64) -> Result<SabTransfer, SabError> {
+    pub fn ufg_transfer(&self, low: f64) -> Result<Option<SabTransfer>, SabError> {
         self.ufg_transfer_on(low, TRANSFER_INCIDENT_STEP, TRANSFER_STEP)
+            .map(Some)
     }
 
     /// [`ThermalSab::ufg_transfer`] を、入射の格子の間隔 `du`（レサジー）と移行の格子の間隔 `dt` (eV) で作る。入射は上限から
