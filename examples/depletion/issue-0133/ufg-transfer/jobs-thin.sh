@@ -17,9 +17,12 @@ pids+=($!)
 $run 2A-40 $R/2A-40/transfer.msgpack references/ufg-sab/2A-40-sab-fast3-fine.msgpack \
   "2A-40=$R/2A-40-fine-seed2/transfer.msgpack" $S $S dilute-thin,ring-thin &
 pids+=($!)
+# 両方の状態を待ってから、どちらかが失敗していれば止める
+failed=0
 for p in "${pids[@]}"; do
-  wait "$p"
+  wait "$p" || failed=1
 done
+((failed == 0))
 k=$here/logs/thin-k.txt
 : >"$k"
 for s in 1C-0 2A-40; do
@@ -28,6 +31,8 @@ for s in 1C-0 2A-40; do
       dilute) i=$here/../ufg-sab/pin-$s-sab-fast3.toml ;;
       ring) i=$here/pin-$s-ring.toml ;;
     esac
-    echo "$s $m $(target/release/lattice "$i" 2>"${k%.txt}-$s-$m.err")" >>"$k"
+    # 代入にして、lattice の失敗を set -e で止める（echo の引数の中では終了コードが消える）
+    value=$(target/release/lattice "$i" 2>"${k%.txt}-$s-$m.err")
+    echo "$s $m $value" >>"$k"
   done
 done
