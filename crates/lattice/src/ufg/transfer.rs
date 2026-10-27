@@ -34,7 +34,8 @@ use super::{Data, NuclideTransfer, UfgError, segment};
 const SHARE_WIDTH: f64 = 0.01;
 
 /// 移行の行の要素に許す負の値の大きさ（弾性散乱断面積に対する比）。差で決める要素の丸め（倍精度の 1e−16 の数十倍）より十分大きく、
-/// 自由ガスの核の差の近似の誤差（`correction_shares_split_the_kernel_at_an_outgoing_energy` で 1e−10）よりも大きい
+/// 自由ガスの核の差の近似の誤差（`correction_shares_split_the_kernel_at_an_outgoing_energy` で 1e−10）よりも大きい。間引いた格子でも緩めない
+/// （自分の群への移行に入るのは、ほかの群への移行を間引いた格子で数えた誤差で、それが行を負にするなら止めて知らせる。ADR-0208）
 const NEGATIVE: f64 = 1.0e-9;
 
 /// 減速計算の結果から移行を数える入力。
