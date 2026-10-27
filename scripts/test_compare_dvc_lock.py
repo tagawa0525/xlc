@@ -69,6 +69,14 @@ class CompareLocks(unittest.TestCase):
     def test_missing_lock_is_an_empty_stage_set(self):
         self.assertEqual(cmp.compare_locks("f", None, lock()), ["f: stage a: added"])
 
+    def test_stage_with_null_value_is_a_stage_without_fields(self):
+        text = "schema: '2.0'\nstages:\n  s:\n"
+        self.assertEqual(cmp.compare_locks("f", text, text), [])
+        self.assertEqual(
+            cmp.compare_locks("f", text, lock()),
+            ["f: stage a: added", "f: stage s: removed"],
+        )
+
     def test_stage_without_params_equals_stage_without_params(self):
         text = "schema: '2.0'\nstages:\n  s:\n    cmd: c\n"
         self.assertEqual(cmp.compare_locks("f", text, text), [])

@@ -23,7 +23,7 @@ STATUS = {
     "examples/b/dvc.yaml:s1": [{"changed deps": {"y": "modified"}}],
     "build": [{"changed deps": {"src": "modified"}}],
     "examples/b/dvc.yaml:references-shell": ["always changed"],
-    "examples/b/dvc.yaml:s2": [{"changed command": "modified"}],
+    "examples/b/dvc.yaml:s2": ["changed command", "changed checksum"],
 }
 
 
@@ -37,6 +37,7 @@ class Count(unittest.TestCase):
                     "changed deps": 2,
                     "changed outs": 2,
                     "changed command": 0,
+                    "changed checksum": 0,
                     "always changed": 0,
                 },
                 "examples/b/dvc.yaml": {
@@ -44,6 +45,7 @@ class Count(unittest.TestCase):
                     "changed deps": 1,
                     "changed outs": 0,
                     "changed command": 1,
+                    "changed checksum": 1,
                     "always changed": 1,
                 },
                 "dvc.yaml": {
@@ -51,6 +53,7 @@ class Count(unittest.TestCase):
                     "changed deps": 1,
                     "changed outs": 0,
                     "changed command": 0,
+                    "changed checksum": 0,
                     "always changed": 0,
                 },
             },
