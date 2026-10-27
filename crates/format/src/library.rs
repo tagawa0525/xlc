@@ -774,7 +774,7 @@ impl SabTransfer {
     }
 
     /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数で、移行について
-    /// 減らないこと。
+    /// 減らず、1 で終わること。
     fn check(&self) -> Result<(), String> {
         let increasing = |v: &[f64]| {
             v.len() >= 2 && v.iter().all(|x| x.is_finite()) && v.windows(2).all(|w| w[0] < w[1])
@@ -813,6 +813,17 @@ impl SabTransfer {
             .any(|row| row.windows(2).any(|w| w[1] < w[0]))
         {
             return Err("S(α, β) transfer: cumulative shares must not decrease".into());
+        }
+        // 行は散乱した中性子のすべて（1）で終わる（xs は行を、行の積分で割る。足す順の違いの丸めだけを許す）
+        if let Some(row) = self
+            .cumulative
+            .iter()
+            .find(|row| (row[row.len() - 1] - 1.0).abs() > 1e-9)
+        {
+            return Err(format!(
+                "S(α, β) transfer: cumulative shares must end at 1, not {}",
+                row[row.len() - 1]
+            ));
         }
         Ok(())
     }
@@ -959,6 +970,18 @@ impl NuclideData {
                         return Err(at("pointwise data without a pointwise range".into()));
                     }
                 }
+            }
+            // 表は核種のすべての温度にあるか、どの温度にも無く、格子は温度によらない（温度の間で点ごとに内挿する。ADR-0080）
+            let first = &self.temperatures[0].sab_transfer;
+            let agrees = match (first, &t.sab_transfer) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.incident == b.incident && a.transfer == b.transfer,
+                _ => false,
+            };
+            if !agrees {
+                return Err(at(
+                    "S(α, β) transfers must be on every temperature or none, on one grid".into(),
+                ));
             }
             if let Some(table) = &t.sab_transfer {
                 if !self.thermal_scattering || range.is_none() {
