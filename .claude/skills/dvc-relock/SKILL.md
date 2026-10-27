@@ -65,13 +65,19 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流のステージを所有するブランチか main の記録を確かめてから、ユーザーに聞く。
 
-2. 実行ファイルを作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock` が衝突したら、
-   main の版を取って rebase を終え、ここで `build` を実行して書き直す。手で行を選んで混ぜない）:
+2. 実行ファイルと Python の正規形を作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock`
+   か `python-ast/` が衝突したら、main の版を取って rebase を終え、ここで `build` と `python-ast` を実行して書き直す。手で行を
+   選んで混ぜない）:
 
    ```bash
    nix develop -c dvc repro -s build
+   nix develop -c dvc repro -s dvc.yaml:python-ast
    nix develop -c dvc status
    ```
+
+   例のステージの deps の .py は、`python-ast`（リポジトリの直下の `dvc.yaml`。数秒）が書く正規形で（ADR-0210）、`build` と
+   同じく、先に実行しないとコードの変わった .py の下流が changed に出ない。docstring とコメントだけの変更なら正規形は変わらず、
+   下流は changed にならない。`python-ast` を実行したら、リポジトリの直下の `dvc.lock` と `python-ast/` も 4 でコミットする
 
    計算のステージの deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
    戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）を実行しないと、ソースが変わった
