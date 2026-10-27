@@ -442,6 +442,12 @@ fn erf_is_within_four_ulp_of_multiprecision_values() {
 }
 
 #[test]
+fn erf_and_erfcx_of_nan_are_nan() {
+    assert!(erf(f64::NAN).is_nan());
+    assert!(erfcx(f64::NAN).is_nan());
+}
+
+#[test]
 fn erfcx_gives_the_same_bits_as_its_copy() {
     for &(x, bits) in ERFCX_BITS {
         assert_eq!(erfcx(x).to_bits(), bits, "x={x}");
