@@ -46,6 +46,8 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `dvc repro <yaml>:xs`。ADR-0193）。
   runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
 - `dvc repro` を投げる前に、走りうるステージを数えて見積もる（出力を戻した、ジョブを実行する worktree で）。
+  changed の数は `dvc status` の文字列を grep で数えず（タブで始まる `changed deps:` の行を拾って誤り、2026-10-28 に 468 を 942 と数えた）、
+  `scripts/count-changed-stages.py [<yaml>...]` で数える。
   `dvc status --with-deps <yaml>:<ステージ>` の changed と、目標の上流（`dvc dag --dot <yaml>:<ステージ>`）のうちその下流に
   あるもの（`dvc status` と `dvc repro --dry` は、上流が出力を書き換えた後に走る下流を出さない。上流が同じ出力を書けば下流は
   飛ぶので上限）。走るステージに参照解（数時間の OpenMC）が入っていれば、投げずに原因（deps の文書だけの変更など）を調べる。

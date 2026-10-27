@@ -9,6 +9,8 @@ allowed-tools:
   - Bash(nix develop -c dvc status --json*)
   - Bash(nix develop -c dvc status --with-deps examples/*)
   - Bash(nix develop -c scripts/check-dvc-lock.sh*)
+  - Bash(nix develop -c scripts/compare-dvc-lock.py*)
+  - Bash(nix develop -c scripts/count-changed-stages.py*)
   - Bash(scripts/check-dvc-lock.sh*)
   - Bash(head -1 examples/*/dvc.lock)
   - Bash(head -1 dvc.lock)
@@ -90,6 +92,10 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    ので実行せず、原因を調べる。ブランチが触れた例だけを見るなら、`dvc status --with-deps examples/<問題>/dvc.yaml`（`--with-deps` がないと、上流の `build` を示さない）。
    `dvc status` が失敗したら（`dvc.lock` が読めない、キャッシュの参照が切れた、など）止める。
 
+   changed のステージの数は、`dvc status` の文字列を grep で数えず（タブで始まる `changed deps:` の行を拾って誤る。2026-10-28 に
+   468 を 942 と数えた）、`nix develop -c scripts/count-changed-stages.py [examples/<問題>/dvc.yaml...]` で数える（yaml ごとの
+   changed のステージ数と、deps、outs、command、always changed の内訳を出す）。
+
 3. ステージごとに、再実行するかを決める。目安（所要時間は ADR-0130 の「確認」の値）:
 
    - 再実行してよい: 数秒で終わる lattice の問題（lattice-1B）と、その出力だけを入力にする小さなステージ（`compare-*`）
@@ -142,6 +148,12 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `nix develop -c scripts/check-dvc-lock.sh examples/<問題>/dvc.lock`（direnv で入っていれば `nix develop -c` は要らない）が終了コード 0 で終わること（dvc が lock を読めるかの検査は、このツールが
    唯一の定義。pre-commit の hook `dvc-lock` も同じツールを呼ぶ。issue #0090）。
 
+出力を作り直さず `dvc commit` で lock を付け直したとき（deps の置き場や正規形を替えた ADR-0210 の移行など）は、deps の hash
+だけが変わったことを `nix develop -c scripts/compare-dvc-lock.py <付け直す前のコミット> HEAD` で確かめる（2 つのコミットの間で変わった
+すべての `dvc.lock` について、ステージの集合と、各ステージの `cmd`、`outs`、`params` を比べ、違いはファイルとステージと欄で出して
+終了コード 1 で終わる）。ステージの集合の差も違いとして出る（python-ast のステージの追加のように増えて当然のときは、出力を読んで確かめる）。
+ステージを再実行した lock は `outs` が変わるので、この確認は付け直しだけのコミットの範囲に使う。
+
 この後は /git-merge の「チェック」に進む。
 
 ### マージの前に: main の作業ツリーに残る古い出力
@@ -165,6 +177,8 @@ nix develop -c dvc checkout dvc.yaml
 nix develop -c dvc checkout examples/<問題>/dvc.yaml
 nix develop -c dvc status --with-deps examples/<問題>/dvc.yaml
 ```
+
+changed のステージの数は、前半の 2 と同じく `nix develop -c scripts/count-changed-stages.py examples/<問題>/dvc.yaml` で数える。
 
 `-P` ではなく、ブランチが `dvc.yaml` を足した、または変えた例ごとに行う。`dvc status` の changed が、前半で走らせ
 なかったステージ（deps が `dvc.lock` と合わないステージ）と、その下流のステージだけであることを確かめる。`references-shell`
