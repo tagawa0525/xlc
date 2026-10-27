@@ -8,6 +8,8 @@ CASL の VERA Core Physics Benchmark Problems（CASL-U-2012-0131-004）のうち
 xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC を動かして作る（核データの違いを比較から除くため。
 [ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」で、1B は examples/vera/dvc.yaml のステージ（[ADR-0130](../../docs/adr/0130-drive-reference-results-with-dvc.md)）。
 
+この記録の格子計算（自己遮蔽のある lattice）の値と、それから作った定数は、自己遮蔽の UFG の減速計算の古い既定（静止した標的、無限希釈の形）のもので、既定を切り替えた [ADR-0209](../../docs/adr/0209-default-ufg-to-physical-kernels.md) の後に作り直していない。
+
 ENDF/B-VII.0 のライブラリでの KENO-VI との比較（核データの版を揃えた比較）は [verification-endfb70.md](verification-endfb70.md)。
 
 | ファイル                        | 内容                                                                                                                                                            |

@@ -3,6 +3,8 @@
 ADR-0157（ループの先頭を 64 バイトに揃えてビルドする）を決めた測定。整列の設定ごとに、xs、lattice、core の出力が
 バイト単位で同じかと、時間を比べる。
 
+この記録の格子計算（自己遮蔽のある lattice）の値と、それから作った定数は、自己遮蔽の UFG の減速計算の古い既定（静止した標的、無限希釈の形）のもので、既定を切り替えた [ADR-0209](../../docs/adr/0209-default-ufg-to-physical-kernels.md) の後に作り直していない。
+
 ## 計算
 
 - スクリプトと入力: このディレクトリの `build.sh`、`measure-xs.sh`、`measure-lattice-core.sh`、`measure-2A.sh`、
