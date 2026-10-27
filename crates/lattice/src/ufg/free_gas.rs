@@ -879,7 +879,7 @@ pub(super) fn first_below(energies: &[f64], cap: f64) -> usize {
 
 /// 減速計算のスイープの間の、自由ガスの核の D の散乱源の状態。
 #[derive(Debug, Clone)]
-pub(super) struct Thermal {
+pub(super) struct Thermal<'a> {
     /// [自由ガスの核種] の核
     gases: Vec<Gas>,
     /// [自由ガスの核種] の（最初の格子点、そこからの [格子点] のポイントワイズの弾性散乱断面積）（D に掛ける。最初の格子点は
@@ -888,7 +888,7 @@ pub(super) struct Thermal {
     /// [自由ガスの核種] の（リング, 個数密度）
     rings: Vec<Vec<(usize, f64)>>,
     /// [自由ガスの核種] の、S(α, β) の上限より下の入射で使う S(α, β) の移行の表（[`Gas::below_sab`] の核種だけ）
-    tables: Vec<Option<SabTransfer>>,
+    tables: Vec<Option<&'a SabTransfer>>,
     /// 上端の側の区間の段（[`grades`]）と、下端の側の区間の細かさ
     grades: Vec<f64>,
     cells: usize,
@@ -907,7 +907,7 @@ pub(super) struct Thermal {
     elapsed: [Duration; 2],
 }
 
-impl Thermal {
+impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
     /// `None`。
@@ -915,7 +915,7 @@ impl Thermal {
         gases: Vec<Gas>,
         sigma: Vec<(usize, Vec<f64>)>,
         rings: Vec<Vec<(usize, f64)>>,
-        tables: Vec<Option<SabTransfer>>,
+        tables: Vec<Option<&'a SabTransfer>>,
         cells: usize,
         energies: &[f64],
         n: usize,
@@ -962,7 +962,7 @@ impl Thermal {
     /// S(α, β) の移行の表
     pub(super) fn gas(&self, l: usize) -> (&Gas, usize, &[f64], Option<&SabTransfer>) {
         let (offset, sigma) = &self.sigma[l];
-        (&self.gases[l], *offset, sigma, self.tables[l].as_ref())
+        (&self.gases[l], *offset, sigma, self.tables[l])
     }
 
     /// 格子点 m（エネルギー `e`）の D の散乱源を、リングごとに既知の部分を `known` に、F_m の係数を `own` に足す。`flux` は

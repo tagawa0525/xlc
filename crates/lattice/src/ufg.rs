@@ -676,11 +676,7 @@ fn solve_cell(
             // S(α, β) の移行で散乱する核種の表
             let tables = gases
                 .iter()
-                .map(|&(k, gas)| {
-                    gas.floor()
-                        .and(data[k].table.sab_transfer.as_ref())
-                        .cloned()
-                })
+                .map(|&(k, gas)| gas.floor().and(data[k].table.sab_transfer.as_ref()))
                 .collect();
             let thermal = Thermal::new(
                 gases.iter().map(|&(_, gas)| gas).collect(),
@@ -1546,7 +1542,7 @@ struct Sweep<'a> {
     /// [核種] の、窓の下端の区間の積分の範囲の上の部分と、格子点の値の重み
     slabs: Vec<(f64, Vec<(usize, f64)>)>,
     /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、自由ガスの核種のあるとき）
-    thermal: Option<Thermal>,
+    thermal: Option<Thermal<'a>>,
     /// 格子点ごとに再利用する作業用の配列: [リング] の自由ガスの核の散乱源の既知の部分と、その点の F_i の係数
     extra: (Vec<f64>, Vec<f64>),
 }
