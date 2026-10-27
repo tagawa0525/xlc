@@ -1368,6 +1368,7 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/ufg-sab/summary.json",
     "examples/depletion/issue-0133/group-rows/summary.json",
     "examples/depletion/issue-0133/ufg-transfer/summary.json",
+    "examples/depletion/issue-0133/ufg-transfer/summary-thin.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
 }
@@ -1739,6 +1740,14 @@ TABLES = {
             ("swaps", ufg_transfer_swaps),
             ("rows", ufg_transfer_rows),
         ]
+    },
+    # ADR-0208 の間引いた格子の測定。置き換えの寄与の表は最後の列が最初の形との差で、4 つの形では読めないので描かない
+    **{
+        f"depletion-ufg-transfer-thin-{name}": (
+            ["examples/depletion/issue-0133/ufg-transfer/summary-thin.json"],
+            draw,
+        )
+        for name, draw in [("k", ufg_transfer_k), ("rows", ufg_transfer_rows)]
     },
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],

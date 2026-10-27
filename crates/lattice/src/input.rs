@@ -845,12 +845,6 @@ impl LatticeInput {
                 )));
             }
         };
-        if transfer == UfgTransfer::RingFlux && thinning.is_some() {
-            return Err(invalid(
-                "`ufg-transfer = \"ring-flux\"` counts the transfers on the full grid only (not with `ufg-tolerance`. ADR-0207)"
-                    .into(),
-            ));
-        }
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,

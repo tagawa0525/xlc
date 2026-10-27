@@ -1,0 +1,55 @@
+# ADR-0208: ADR-0207 の測定（summary.toml）の 2 つの移行の形に、UFG の格子を許容差 1e-4 で間引いた形（pin-<状態>-<形>-thin.toml）を
+# 足した要約（ufg_transfer.py summarize の設定）。間引かない形のログは ADR-0207 の測定（jobs.sh）、間引いた形は jobs-thin.sh のもの。
+# 状態の OpenMC の行と k、核は summary.toml と同じ。
+
+[[spec]]
+spec = "water:27-27"
+label = "減速材、4〜9.88 eV"
+
+[[spec]]
+spec = "water:14-26"
+label = "減速材、9.88 eV〜15 keV"
+
+[[spec]]
+spec = "fuel:27-27"
+label = "燃料、4〜9.88 eV"
+
+[[spec]]
+spec = "fuel:14-26"
+label = "燃料、9.88 eV〜15 keV"
+
+[[kernel]]
+key = "2A-40"
+label = "2A 40 MWd/kg（Slurm 557）"
+
+[[kernel]]
+key = "MOX1"
+label = "MOX-1 0 MWd/kg（Slurm 558）"
+
+[[mode]]
+key = "dilute"
+label = "無限希釈"
+
+[[mode]]
+key = "dilute-thin"
+label = "無限希釈、間引き"
+
+[[mode]]
+key = "ring"
+label = "リングの中性子束"
+
+[[mode]]
+key = "ring-thin"
+label = "リングの中性子束、間引き"
+
+[[state]]
+key = "1C-0"
+name = "1C 0 MWd/kg"
+kernels = ["2A-40", "MOX1"]
+rows = ["water:27-27", "water:14-26"]
+
+[[state]]
+key = "2A-40"
+name = "2A 40 MWd/kg"
+kernels = ["2A-40"]
+rows = ["water:27-27", "water:14-26", "fuel:27-27", "fuel:14-26"]

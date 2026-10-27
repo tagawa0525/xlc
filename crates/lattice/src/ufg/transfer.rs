@@ -16,6 +16,9 @@
 //! - S(α, β) の移行（S(α, β) の上限より下の入射）: 表の累積 C(E', E_x − E')（[`SabTransfer::cumulative_at`]）
 //!
 //! 範囲の下限より下への出射も同じ式で数える（核は入射だけで決まり、その下に UFG の格子は要らない）。
+//!
+//! 間引いた格子（ADR-0185）でも、減速計算の格子点で数える。弾性散乱断面積は核種自身の格子で縮約した群定数なので、自分の群への
+//! 移行には、ほかの群への移行を間引いた格子で数えた誤差だけが入る（ADR-0208）。
 
 use std::ops::Range;
 
@@ -31,7 +34,8 @@ use super::{Data, NuclideTransfer, UfgError, segment};
 const SHARE_WIDTH: f64 = 0.01;
 
 /// 移行の行の要素に許す負の値の大きさ（弾性散乱断面積に対する比）。差で決める要素の丸め（倍精度の 1e−16 の数十倍）より十分大きく、
-/// 自由ガスの核の差の近似の誤差（`correction_shares_split_the_kernel_at_an_outgoing_energy` で 1e−10）よりも大きい
+/// 自由ガスの核の差の近似の誤差（`correction_shares_split_the_kernel_at_an_outgoing_energy` で 1e−10）よりも大きい。間引いた格子でも緩めない
+/// （自分の群への移行に入るのは、ほかの群への移行を間引いた格子で数えた誤差で、それが行を負にするなら止めて知らせる。ADR-0208）
 const NEGATIVE: f64 = 1.0e-9;
 
 /// 減速計算の結果から移行を数える入力。
@@ -333,7 +337,7 @@ impl Counting<'_> {
     }
 
     /// リング `i` の核種 `e`（組成の番号）の移行の行。要素は有限で、負なら弾性散乱断面積の [`NEGATIVE`] 倍までの丸め（それより
-    /// 負なら、数え方の近似が減速計算と食い違っているので止める）
+    /// 負なら、数え方の近似が減速計算と食い違っているか、間引いた格子で数えたほかの群への移行が弾性散乱を超えているので止める）
     fn rows(&self, i: usize, e: usize, rates: &Rates) -> Result<NuclideTransfer, UfgError> {
         let ng = self.bounds.len() - 1;
         let top = self.groups.start;
@@ -355,6 +359,8 @@ impl Counting<'_> {
                         0.0
                     };
                 }
+                // 間引いた格子でも、ほかの群への移行を 2 つの格子の弾性散乱の比で拡大縮小しない。共鳴の点が落ちた核種で、群の
+                // 端から離れた共鳴の分まで出る割合に掛かる（ADR-0208 の案 G2）
                 let others: f64 = row.iter().sum();
                 row[big] = elastic[h] - others;
                 if let Some((to, &value)) = row

@@ -101,13 +101,10 @@ pub enum UfgError {
         "internal error: the S(α, β) source at {energy} eV has no table share at transfer {transfer} eV"
     )]
     SabTable { energy: f64, transfer: f64 },
+    /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合か、間引いた格子（`ufg-tolerance`）で数えたほかの群への移行が
+    /// 弾性散乱断面積を超える。ADR-0208）
     #[error(
-        "`ufg-transfer = \"ring-flux\"` counts the transfers on the full grid only (not with `ufg-tolerance`)"
-    )]
-    ThinnedTransfers,
-    /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合）
-    #[error(
-        "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative"
+        "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative (with `ufg-tolerance`, the transfers out of the group counted on the thinned grid may exceed the elastic)"
     )]
     Transfer {
         ring: usize,
@@ -423,10 +420,6 @@ fn solve_cell(
     fine: Option<&mut FineFlux>,
     transfers: Option<&mut Vec<Vec<NuclideTransfer>>>,
 ) -> Result<CellSpectrum, UfgError> {
-    // 間引いた格子では群定数を核種自身の格子で縮約するので、間引いた格子で数える移行と格子が揃わない
-    if transfers.is_some() && thinning.is_some() {
-        return Err(UfgError::ThinnedTransfers);
-    }
     let volumes = cell.volumes();
     let n = volumes.len();
     if rings.len() != n {
