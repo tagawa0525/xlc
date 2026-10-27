@@ -201,7 +201,8 @@ Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、Open
 2026-10-28（Slurm の timed のジョブ 563。時間の表の xlc の行はこの実行の値）。自己遮蔽の UFG の減速計算は ADR-0209 の既定（散乱核は
 ADR-0205 の速い方法、移行はリングの中性子束。入力は `ufg-*` を書かない）。ライブラリは ADR-0205 の形式で作り直したもの（`depletion.msgpack`
 md5 cbc33de9。分岐点の dvc.lock）。比較の入力は `lattice-1C-rings1.msgpack` md5 825defe7、`openmc-1C-rings1.msgpack` md5 2c7d0331、
-`lattice-1C-rings4.msgpack` md5 51678c63、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。
+`lattice-1C-rings4.msgpack` md5 51678c63、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。実行の後に入力の誤りの文言だけを直した
+`bin/lattice`（58ebdb250）に、再実行せずに `dvc commit` で付け直した（計算は変わらない）。
 
 ### 輸送する核種
 
@@ -1457,7 +1458,8 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 減速計算は ADR-0209 の前の既定（静止した標的、無限希釈の形）。2A は、ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの
 中性子束）で f434af311（ブランチ feat/physical-ufg-defaults、分岐点は main の d90bcdf8f、2026-10-28、Slurm の timed のジョブ 565）。2A の
 ライブラリは、ADR-0205 の形式で同じブランチの f434af311 で作り直した `p2/depletion.msgpack` md5 3cad67c8（`stage_runner.py` と `xs`。
-Slurm 564。90 核種の出力がすべて変わった）、チェーンは同じ。
+Slurm 564。90 核種の出力がすべて変わった）、チェーンは同じ。`lattice@2A` は、実行の後に入力の誤りの文言だけを直した `bin/lattice`（58ebdb250）に、
+再実行せずに `dvc commit` で付け直した。
 比較の入力（JSON の `inputs`）は、xlc の `lattice-<ジョブ>.msgpack` が 2A a72f9a69、2F c8f6c71f、2N 933e1f1e、2O d076d94d、2P f418a2d8、
 2A-density 74a7eaa0、2A-rods db416182、OpenMC の `openmc-<ジョブ>.msgpack` が 2A ce5dfcda、2F 2637a515、2N da441001、2O 709165e3、
 2P 09d5b5b8、2A-density 5db09b93、2A-rods a5120e74（md5）。両方で同じ核種を輸送する（2A、2A-density、2A-rods は 89 核種、ほかは 90 核種。
