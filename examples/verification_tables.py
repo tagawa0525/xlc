@@ -1240,6 +1240,118 @@ def ufg_free_gas_transfers(sources: list[dict]) -> str:
     return markdown_table(["状態", "散乱核", *(c["label"] for c in columns)], rows)
 
 
+def group_rows_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-group-rows":
+        raise TableError("not an xlc-group-rows summary")
+    return s
+
+
+def group_rows_swaps(sources: list[dict]) -> str:
+    """#0152 の、物質の移行の行を、状態の OpenMC の行と、核の実行の細かい入射の核を xlc の群の中の中性子束か 1/E でまとめた行に
+    置き換えて測る k への寄与（pcm）。群の中の重みの寄与は 2 つの重みの差、中性子束の差は OpenMC の行と xlc の重みの行の差"""
+    s = group_rows_summary(sources)
+    labels = {k["key"]: k["label"] for k in s["kernels"]}
+    rows = []
+    for t in s["states"]:
+        for spec in s["specs"]:
+            swap = t["swaps"].get(spec["spec"])
+            if swap is None:
+                continue
+            for kernel in t["kernels"]:
+                k = swap["kernels"][kernel]
+                rows.append(
+                    [
+                        t["name"],
+                        spec["label"],
+                        labels[kernel],
+                        signed(swap["openmc"], 1),
+                        signed(k["xlc"], 1),
+                        signed(k["lethargy"], 1),
+                        signed(k["xlc"] - k["lethargy"], 1),
+                        signed(swap["openmc"] - k["xlc"], 1),
+                    ]
+                )
+    return markdown_table(
+        [
+            "状態",
+            "置き換え",
+            "核",
+            "OpenMC の行",
+            "核 × xlc の中性子束",
+            "核 × 1/E",
+            "群の中の重み",
+            "中性子束の差",
+        ],
+        rows,
+    )
+
+
+def group_rows_out(sources: list[dict], key: str) -> str:
+    """#0152 の、物質と群 `key`（`<物質>:<群>`）の群から出る移行（1/cm）。状態の OpenMC の値と、xlc、核の実行の細かい入射の核を
+    核の実行、xlc、1/E の重みでまとめた値の、OpenMC との比 − 1"""
+    s = group_rows_summary(sources)
+    labels = {k["key"]: k["label"] for k in s["kernels"]}
+    rows = []
+    for t in s["states"]:
+        for kernel in t["kernels"]:
+            row = t["rows"][kernel].get(key)
+            if row is None:
+                continue
+            reference = row["state"][0]
+
+            def ratio(name: str, row=row, reference=reference) -> str:
+                return f"{signed((row[name][0] / reference - 1) * 100, 2)}%"
+
+            rows.append(
+                [
+                    t["name"],
+                    labels[kernel],
+                    f"{reference:.5f}",
+                    ratio("xlc"),
+                    ratio("kernel-openmc"),
+                    ratio("kernel-xlc"),
+                    ratio("kernel-lethargy"),
+                ]
+            )
+    if not rows:
+        raise TableError(f"no rows of {key}")
+    return markdown_table(
+        [
+            "状態",
+            "核",
+            "OpenMC (1/cm)",
+            "xlc",
+            "核 × 核の実行の中性子束",
+            "核 × xlc の中性子束",
+            "核 × 1/E",
+        ],
+        rows,
+    )
+
+
+def group_rows_spectrum(sources: list[dict]) -> str:
+    """#0152 の、群の中の区間ごとの中性子束の xlc / OpenMC − 1（%。核の実行のある状態だけ）"""
+    s = group_rows_summary(sources)
+    rows = []
+    header = None
+    for t in s["states"]:
+        if t["spectrum"] is None:
+            continue
+        for material, bins in t["spectrum"].items():
+            names = [f"{b['low']:g}〜{b['high']:g} eV" for b in bins]
+            if header is None:
+                header = names
+            elif names != header:
+                raise TableError(f"{t['name']}, {material}: other bins {names}")
+            rows.append(
+                [t["name"], material, *(signed(b["ratio"] * 100, 2) for b in bins)]
+            )
+    if header is None:
+        raise TableError("no state has a fine run")
+    return markdown_table(["状態", "物質", *header], rows)
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
@@ -1254,6 +1366,7 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-sab/summary.json",
+    "examples/depletion/issue-0133/group-rows/summary.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
 }
@@ -1454,6 +1567,18 @@ TABLES = {
             ("tilt-25", partial(ufg_free_gas_tilt, energies=(15.968, 27.7))),
         ]
     },
+    "depletion-group-rows-swaps": (
+        ["examples/depletion/issue-0133/group-rows/summary.json"],
+        group_rows_swaps,
+    ),
+    "depletion-group-rows-out-27": (
+        ["examples/depletion/issue-0133/group-rows/summary.json"],
+        partial(group_rows_out, key="water:27"),
+    ),
+    "depletion-group-rows-spectrum": (
+        ["examples/depletion/issue-0133/group-rows/summary.json"],
+        group_rows_spectrum,
+    ),
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],
         depletion_rings,
