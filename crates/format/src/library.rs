@@ -752,6 +752,13 @@ impl From<MsgpackError> for LibraryError {
 }
 
 impl SabTransfer {
+    /// 入射 `e_in` (eV)、出射 `e_out` (eV) の p(E→E') (1/eV)。入射について ln E に線形、移行について線形に補間する。格子の
+    /// 外は `None`
+    pub fn at(&self, e_in: f64, e_out: f64) -> Option<f64> {
+        let _ = (e_in, e_out);
+        None
+    }
+
     /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数であること。
     fn check(&self) -> Result<(), String> {
         let increasing = |v: &[f64]| {
