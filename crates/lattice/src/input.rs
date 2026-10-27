@@ -311,15 +311,33 @@ struct FreeGasEntry {
 #[serde(untagged)]
 enum SweepsEntry {
     Count(i64),
-    Unlimited(f64),
+    Float(f64),
 }
 
 /// `ufg-free-gas.heavy` の値: kT の倍数か inf（上限なし）、または false（分離共鳴を持つ核種は静止した標的）
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 enum HeavyEntry {
-    Cap(f64),
-    FreeGas(bool),
+    Float(f64),
+    Bool(bool),
+}
+
+impl std::fmt::Display for SweepsEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Count(n) => write!(f, "{n}"),
+            Self::Float(v) => write!(f, "{v}"),
+        }
+    }
+}
+
+impl std::fmt::Display for HeavyEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Float(v) => write!(f, "{v}"),
+            Self::Bool(b) => write!(f, "{b}"),
+        }
+    }
 }
 
 /// `track-table` の値: 10 倍あたりの格子点の数か、false（格子点ごとに求める）
@@ -677,11 +695,11 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             // 分離共鳴を持つ核種の上限は、inf（上限なし。ADR-0204）と false（静止した標的）も受け付ける
             let heavy = match entry.heavy {
                 None => defaults.heavy,
-                Some(HeavyEntry::FreeGas(false)) => None,
-                Some(HeavyEntry::Cap(v)) if v > 0.0 && !v.is_nan() => Some(v),
+                Some(HeavyEntry::Bool(false)) => None,
+                Some(HeavyEntry::Float(v)) if v > 0.0 => Some(v),
                 Some(other) => {
                     return Err(format!(
-                        "`ufg-free-gas.heavy` must be a positive multiple of kT, inf or false, got {other:?}"
+                        "`ufg-free-gas.heavy` must be a positive multiple of kT, inf or false, got {other}"
                     ));
                 }
             };
@@ -698,10 +716,10 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             let sweeps = match entry.sweeps {
                 None => defaults.sweeps,
                 Some(SweepsEntry::Count(n)) if n >= 1 => Some(n as usize),
-                Some(SweepsEntry::Unlimited(v)) if v == f64::INFINITY => None,
+                Some(SweepsEntry::Float(v)) if v == f64::INFINITY => None,
                 Some(other) => {
                     return Err(format!(
-                        "`ufg-free-gas.sweeps` must be a positive integer or inf, got {other:?}"
+                        "`ufg-free-gas.sweeps` must be a positive integer or inf, got {other}"
                     ));
                 }
             };
