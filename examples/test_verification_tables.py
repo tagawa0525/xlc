@@ -1478,6 +1478,25 @@ class DrawUfgFreeGas(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.ufg_free_gas_swaps([self.summary()], modes=["heavy"])
 
+    def test_transfer_rows_keep_only_the_runs_with_transfer_logs(self):
+        summary = self.summary()
+        summary["transfers"] = [{"spec": "water:27-27", "label": "減速材、27 群"}]
+        summary["states"][0]["results"]["exact"]["transfers"] = {"water:27-27": 9.3}
+        table = vt.ufg_free_gas_transfers([summary])
+        self.assertIn("減速材、27 群", table.splitlines()[0])
+        self.assertRegex(table, r"\| 0 +\| 自由ガス +\| \+9\.3 +\|")
+        self.assertNotIn("静止", table)
+
+    def test_a_transfer_missing_from_a_run_is_an_error(self):
+        summary = self.summary()
+        summary["transfers"] = [
+            {"spec": "water:27-27", "label": "減速材、27 群"},
+            {"spec": "fuel:27-27", "label": "燃料、27 群"},
+        ]
+        summary["states"][0]["results"]["exact"]["transfers"] = {"water:27-27": 9.3}
+        with self.assertRaises(vt.TableError):
+            vt.ufg_free_gas_transfers([summary])
+
     def test_a_tilt_log_without_bins_in_the_range_is_an_error(self):
         with self.assertRaisesRegex(vt.TableError, "40"):
             vt.ufg_free_gas_tilt([self.summary()], energies=(15.968, 27.7))
