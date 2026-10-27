@@ -26,7 +26,7 @@ deps の hash だけが変わり、ステージの集合、`cmd`、`outs`、`par
 Python は別の closure で、PYTHONNOUSERSITE と PATH の都合から検証用の Python からは見えない: flake.nix の
 `dvc` の組み立て）。
 
-関係する ADR: なし（ADR-0210 の移行が動機だが、決定は変えない）
+関係する ADR: なし
 
 ## 案
 
