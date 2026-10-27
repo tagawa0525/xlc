@@ -54,7 +54,7 @@ pub(super) fn erf(x: f64) -> f64 {
     if x < 0.0 {
         return -erf(-x);
     }
-    if x < SERIES_LIMIT {
+    if x < CODY_LOWER_LIMIT {
         erf_series(x)
     } else if x < SATURATION {
         1.0 - erfcx(x) * (-x * x).exp()
@@ -66,9 +66,6 @@ pub(super) fn erf(x: f64) -> f64 {
 /// これより大きい x の erf(x) は倍精度で 1（erfc(6) ≈ 2e−17 は 1 の丸めの半分より小さいので、1 − erfc の計算も 1 になる）。
 /// erfcx と指数関数を省く
 const SATURATION: f64 = 6.0;
-
-/// これより小さい x の erf は級数で、大きい x の erf は [`SATURATION`] まで 1 − erfcx(x) exp(−x²) で求める
-const SERIES_LIMIT: f64 = 2.5;
 
 /// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
 fn erf_series(x: f64) -> f64 {
@@ -105,8 +102,9 @@ pub(super) fn erfcx(x: f64) -> f64 {
 // 高次の係数から並べた。コピーした値は、多倍長（mpmath）で有理式を評価し、erfcx との相対差が 0.46875 ≤ x ≤ 4 で 1.2e−18、
 // 4 ≤ x ≤ 4e4 で 5.9e−19 以下になることで確かめた。出典と照らせるように、f64 で表せる桁より長い値も丸めずに残す
 
-/// これより小さい x では erfcx を級数の erf から、これ以上の x では Cody の有理近似で求める（CALERF の区間の境 THRESH）。
-/// 級数の 1 − erf は erf が 1 に近いほど桁落ちする（ADR-0211）
+/// これより小さい x では erf を級数で、erfcx をその erf から求め、これ以上の x では erfcx を Cody の有理近似で、erf を
+/// 1 − erfcx(x) exp(−x²) で求める（CALERF の区間の境 THRESH）。級数の 1 − erf は erf が 1 に近いほど桁落ちし、級数の erf は
+/// 掛ける exp(−x²) に x² の丸めが x² 倍で効く（ADR-0211）
 const CODY_LOWER_LIMIT: f64 = 0.46875;
 
 /// これ以下の x では erfcx を 8 次 / 8 次の有理式 P(x)/Q(x) で、より大きい x では 1/x² の 5 次 / 5 次の有理式で求める
