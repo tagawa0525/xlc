@@ -26,7 +26,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SabOutside::ShortCollisionTime,
     )?;
     let started = std::time::Instant::now();
-    let table = sab.ufg_transfer_on(low, du, dt)?;
+    let table = sab
+        .ufg_transfer_on(low, du, dt)?
+        .ok_or("the S(α, β) limit is below the UFG reach")?;
     let seconds = started.elapsed().as_secs_f64();
     let reach = table.transfer[table.transfer.len() - 1];
     let groups = GroupStructure::wims69();

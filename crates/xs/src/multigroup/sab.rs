@@ -82,9 +82,13 @@ pub enum SabError {
     #[error("no effective temperature of S(α, β) at {0} K")]
     EffectiveTemperature(f64),
     #[error(
-        "S(α, β) limit {cutoff} eV is below {lowest} eV, so no S(α, β) scattering reaches the UFG range"
+        "the UFG up-scattering reaches down to {lowest} eV, so the S(α, β) transfer (limit {cutoff} eV) has no positive start"
     )]
     TransferRange { cutoff: f64, lowest: f64 },
+    #[error(
+        "the outgoing energies of the S(α, β) transfer at {incident} eV are no group structure: {reason}"
+    )]
+    TransferGrid { incident: f64, reason: String },
     #[error(
         "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
     )]
@@ -293,17 +297,22 @@ impl<'a> ThermalSab<'a> {
             .collect()
     }
 
-    /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。
+    /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。S(α, β) の上限が UFG の下限から上方散乱の
+    /// 届く幅より下なら、UFG に届く S(α, β) の散乱がないので `None`。
     pub fn ufg_transfer(&self, low: f64) -> Result<Option<SabTransfer>, SabError> {
         self.ufg_transfer_on(low, TRANSFER_INCIDENT_STEP, TRANSFER_STEP)
-            .map(Some)
     }
 
     /// [`ThermalSab::ufg_transfer`] を、入射の格子の間隔 `du`（レサジー）と移行の格子の間隔 `dt` (eV) で作る。入射は上限から
     /// 下へ間隔 `du` で、UFG の下限から上方散乱の届く幅（表の最も高い温度の [`UFG_TAIL`] kT）下まで、移行は間隔 `dt` の
     /// 倍数（核の山の 0 を含む）で、出射 0 eV から上方散乱の届く幅まで。格子は温度によらないので、温度の間で点ごとに内挿
     /// できる（ADR-0080）
-    pub fn ufg_transfer_on(&self, low: f64, du: f64, dt: f64) -> Result<SabTransfer, SabError> {
+    pub fn ufg_transfer_on(
+        &self,
+        low: f64,
+        du: f64,
+        dt: f64,
+    ) -> Result<Option<SabTransfer>, SabError> {
         let hottest = self
             .data
             .temperatures
@@ -312,11 +321,14 @@ impl<'a> ThermalSab<'a> {
             .fold(f64::NEG_INFINITY, f64::max);
         let reach = UFG_TAIL * BK * hottest;
         let lowest = low - reach;
-        if !(lowest > 0.0 && self.cutoff > lowest) {
+        if !(lowest > 0.0) {
             return Err(SabError::TransferRange {
                 cutoff: self.cutoff,
                 lowest,
             });
+        }
+        if self.cutoff <= lowest {
+            return Ok(None);
         }
         let n = ((self.cutoff / lowest).ln() / du).ceil() as usize;
         let incident: Vec<f64> = (0..=n)
@@ -330,9 +342,9 @@ impl<'a> ThermalSab<'a> {
             let e = incident[i];
             let first = transfer.partition_point(|&t| e + t <= 0.0);
             let bounds: Vec<f64> = transfer[first..].iter().rev().map(|&t| e + t).collect();
-            let groups = GroupStructure::new(bounds).map_err(|_| SabError::TransferRange {
-                cutoff: self.cutoff,
-                lowest,
+            let groups = GroupStructure::new(bounds).map_err(|error| SabError::TransferGrid {
+                incident: e,
+                reason: error.to_string(),
             })?;
             let masses = self.group_integrals(&groups, e);
             let total: f64 = masses.iter().sum();
@@ -345,11 +357,11 @@ impl<'a> ThermalSab<'a> {
             }
             Ok::<_, SabError>(row)
         })?;
-        Ok(SabTransfer {
+        Ok(Some(SabTransfer {
             incident,
             transfer,
             cumulative,
-        })
+        }))
     }
 
     /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
