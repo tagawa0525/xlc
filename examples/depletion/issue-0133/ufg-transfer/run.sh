@@ -28,16 +28,17 @@ input() {
       ;;
   esac
 }
-if [[ ! -e $fine ]]; then
-  target/release/examples/fine_flux "$(input dilute)" "$fine" >"$here/logs/$state-fine.err" 2>&1
-fi
 IFS=, read -ra spec_list <<<"$specs"
 IFS=, read -ra row_list <<<"$row_specs"
 IFS=, read -ra kernel_list <<<"$kernels"
 IFS=, read -ra mode_list <<<"$modes"
+# fine_flux より前に、形の名前を確かめる
 for mode in "${mode_list[@]}"; do
   input "$mode" >/dev/null
 done
+if [[ ! -e $fine ]]; then
+  target/release/examples/fine_flux "$(input dilute)" "$fine" >"$here/logs/$state-fine.err" 2>&1
+fi
 for mode in "${mode_list[@]}"; do
   log=$here/logs/$state-$mode
   : >"$log-transfer.txt"
