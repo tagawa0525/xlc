@@ -839,6 +839,12 @@ class DrawAssemblyFreeGas(unittest.TestCase):
             self.assertIs(draw, vt.depletion_assembly_free_gas_k)
             self.assertIn(sources[1], vt.GIT_TRACKED)
 
+    def test_summaries_of_different_problems_are_an_error(self):
+        other = self.summary([42.2, 152.4])
+        other["problem"] = "2O"
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_free_gas_k([self.summary([10.6, 179.6]), other])
+
     def test_a_summary_of_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
             vt.depletion_assembly_free_gas_k(

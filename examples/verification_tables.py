@@ -608,6 +608,10 @@ def depletion_assembly_k(sources: list[dict]) -> str:
 def depletion_assembly_free_gas_k(sources: list[dict]) -> str:
     """集合体の燃焼: 静止した標的の本番と自由ガスの試行の、燃焼点ごとの k∞ の差（xlc − OpenMC。± は OpenMC の標準偏差）と 0 の点からの変化"""
     base, trial = (assembly_checked(s) for s in sources)
+    if base["problem"] != trial["problem"]:
+        raise TableError(
+            f"problems {base['problem']} and {trial['problem']} are not the same"
+        )
     if base["burnup"] != trial["burnup"]:
         raise TableError("the two summaries have different burnup points")
     rows = []
