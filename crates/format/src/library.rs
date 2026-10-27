@@ -752,25 +752,52 @@ impl From<MsgpackError> for LibraryError {
     }
 }
 
+/// x の昇順の格子での、x を含む区間の始まりと区間の中の位置（格子の外は None。最後の点は最後の区間の終わり）
+fn locate(grid: &[f64], x: f64) -> Option<(usize, f64)> {
+    let (first, last) = (grid[0], grid[grid.len() - 1]);
+    if !(first <= x && x <= last) {
+        return None;
+    }
+    let j = (grid.partition_point(|&g| g <= x) - 1).min(grid.len() - 2);
+    Some((j, (x - grid[j]) / (grid[j + 1] - grid[j])))
+}
+
+/// [`SabTransfer`] の 1 つの入射の、入射の格子の間の位置（[`SabTransfer::row`]）
+#[derive(Debug, Clone, Copy)]
+pub struct SabRow<'a> {
+    table: &'a SabTransfer,
+    /// 入射を含む区間の始まりと、区間の中の ln E の位置
+    i: usize,
+    w: f64,
+}
+
+impl SabRow<'_> {
+    /// 出射が入射 + `transfer` (eV) 以下の割合 C。移行について線形に、入射について ln E に線形に補間する。移行の格子の外は `None`
+    pub fn cumulative(&self, transfer: f64) -> Option<f64> {
+        let table = self.table;
+        let (j, v) = locate(&table.transfer, transfer)?;
+        let row = |r: &[f64]| r[j] + v * (r[j + 1] - r[j]);
+        let (a, b) = (
+            row(&table.cumulative[self.i]),
+            row(&table.cumulative[self.i + 1]),
+        );
+        Some(a + self.w * (b - a))
+    }
+}
+
 impl SabTransfer {
     /// 入射 `e_in` (eV) の、出射が e_in + `transfer` (eV) 以下の割合 C。入射について ln E に線形、移行について線形に補間する。
     /// 格子の外は `None`（移行で引くのは、出射から入射を引き直すと丸めで格子の端を越えるため）
     pub fn cumulative_at(&self, e_in: f64, transfer: f64) -> Option<f64> {
-        // x の昇順の格子での、x を含む区間の始まりと区間の中の位置（格子の外は None。最後の点は最後の区間の終わり）
-        let locate = |grid: &[f64], x: f64| {
-            let (first, last) = (grid[0], grid[grid.len() - 1]);
-            if !(first <= x && x <= last) {
-                return None;
-            }
-            let j = (grid.partition_point(|&g| g <= x) - 1).min(grid.len() - 2);
-            Some((j, (x - grid[j]) / (grid[j + 1] - grid[j])))
-        };
+        self.row(e_in)?.cumulative(transfer)
+    }
+
+    /// 入射 `e_in` (eV) の、入射の格子の間の内挿（[`SabTransfer::cumulative_at`] と同じ）。同じ入射で移行の違う値を引くときに、
+    /// 入射の区間を 1 度だけ探す。格子の外は `None`
+    pub fn row(&self, e_in: f64) -> Option<SabRow<'_>> {
         let (i, _) = locate(&self.incident, e_in)?;
         let w = (e_in / self.incident[i]).ln() / (self.incident[i + 1] / self.incident[i]).ln();
-        let (j, v) = locate(&self.transfer, transfer)?;
-        let row = |r: &[f64]| r[j] + v * (r[j + 1] - r[j]);
-        let (a, b) = (row(&self.cumulative[i]), row(&self.cumulative[i + 1]));
-        Some(a + w * (b - a))
+        Some(SabRow { table: self, i, w })
     }
 
     /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数で、移行について

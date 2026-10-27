@@ -59,7 +59,7 @@ pub(super) struct Counting<'a> {
     pub(super) groups: Range<usize>,
     /// 範囲の上端 (eV)
     pub(super) high: f64,
-    pub(super) thermal: Option<&'a Thermal>,
+    pub(super) thermal: Option<&'a Thermal<'a>>,
     /// [核種] の自由ガスの核種の番号（[`Thermal::gas`]）
     pub(super) gas_of: &'a [Option<usize>],
 }

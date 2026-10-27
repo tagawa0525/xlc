@@ -676,11 +676,7 @@ fn solve_cell(
             // S(α, β) の移行で散乱する核種の表
             let tables = gases
                 .iter()
-                .map(|&(k, gas)| {
-                    gas.floor()
-                        .and(data[k].table.sab_transfer.as_ref())
-                        .cloned()
-                })
+                .map(|&(k, gas)| gas.floor().and(data[k].table.sab_transfer.as_ref()))
                 .collect();
             let thermal = Thermal::new(
                 gases.iter().map(|&(_, gas)| gas).collect(),
@@ -721,7 +717,9 @@ fn solve_cell(
         }
     }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
-    // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成
+    let [free_gas, sab] = sweep.thermal.as_ref().map_or([0.0; 2], Thermal::elapsed);
+    // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成。
+    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源
     tracing::debug!(
         points = u.len(),
         union,
@@ -734,6 +732,8 @@ fn solve_cell(
         evaluate,
         collision,
         slowing,
+        free_gas,
+        sab,
         "UFG slowing down"
     );
 
@@ -1542,7 +1542,7 @@ struct Sweep<'a> {
     /// [核種] の、窓の下端の区間の積分の範囲の上の部分と、格子点の値の重み
     slabs: Vec<(f64, Vec<(usize, f64)>)>,
     /// 自由ガスの核の散乱源（[`Scattering::FreeGas`] で、自由ガスの核種のあるとき）
-    thermal: Option<Thermal>,
+    thermal: Option<Thermal<'a>>,
     /// 格子点ごとに再利用する作業用の配列: [リング] の自由ガスの核の散乱源の既知の部分と、その点の F_i の係数
     extra: (Vec<f64>, Vec<f64>),
 }

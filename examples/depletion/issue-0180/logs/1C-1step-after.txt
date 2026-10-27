@@ -1,0 +1,6 @@
+2026-10-27T22:40:16.656760Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:40:29.754961Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.22082260111585023
+2026-10-27T22:40:43.260772Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.01299497575639781
+2026-10-27T22:40:43.260822Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG slowing down points=879489 union=879453 jumps=36 nuclides=81 rings=8 lookup=2.2662e-5 grid=0.041665248 table=0.793100603 evaluate=0.971560032 collision=0.169145685 slowing=44.573764261 free_gas=27.664059271 sab=9.384337028000001
+2026-10-27T22:40:44.107998Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=1 solved=1 points_min=Some(879489) points_max=Some(879489) points_sum=879489
+2026-10-27T22:40:44.108003Z  INFO shielding: xlc_lattice::shielding: close time.busy=47.7s time.idle=2.00µs

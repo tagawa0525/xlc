@@ -1,0 +1,158 @@
+2026-10-27T22:42:15.460499Z DEBUG shielding:pin{cell=43}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.479004Z DEBUG shielding:pin{cell=41}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.479835Z DEBUG shielding:pin{cell=20}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.516037Z DEBUG shielding:pin{cell=21}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.537268Z DEBUG shielding:pin{cell=44}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.552530Z DEBUG shielding:pin{cell=40}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.589706Z DEBUG shielding:pin{cell=28}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.711551Z DEBUG shielding:pin{cell=42}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.732877Z DEBUG shielding:pin{cell=22}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.733758Z DEBUG shielding:pin{cell=45}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.742988Z DEBUG shielding:pin{cell=46}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.744235Z DEBUG shielding:pin{cell=23}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.749736Z DEBUG shielding:pin{cell=24}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:15.765762Z DEBUG shielding:pin{cell=27}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:18.163647Z DEBUG shielding:pin{cell=25}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:18.360109Z DEBUG shielding:pin{cell=26}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:20.551241Z DEBUG shielding:pin{cell=43}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.0851236089798166
+2026-10-27T22:42:20.573974Z DEBUG shielding:pin{cell=41}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08521221618113412
+2026-10-27T22:42:20.582476Z DEBUG shielding:pin{cell=20}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08507461334403094
+2026-10-27T22:42:20.612590Z DEBUG shielding:pin{cell=21}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08514956732949662
+2026-10-27T22:42:20.631736Z DEBUG shielding:pin{cell=44}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494098643486547
+2026-10-27T22:42:20.645542Z DEBUG shielding:pin{cell=40}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08522414282313609
+2026-10-27T22:42:20.690194Z DEBUG shielding:pin{cell=28}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08515298029137627
+2026-10-27T22:42:21.013501Z DEBUG shielding:pin{cell=42}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.0852144419967531
+2026-10-27T22:42:21.021470Z DEBUG shielding:pin{cell=22}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08514997742135402
+2026-10-27T22:42:21.030992Z DEBUG shielding:pin{cell=45}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08511462612153134
+2026-10-27T22:42:21.040166Z DEBUG shielding:pin{cell=24}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08513878397048946
+2026-10-27T22:42:21.041660Z DEBUG shielding:pin{cell=23}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08514878615822559
+2026-10-27T22:42:21.052557Z DEBUG shielding:pin{cell=46}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08511774765145096
+2026-10-27T22:42:21.080926Z DEBUG shielding:pin{cell=27}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08513234085559947
+2026-10-27T22:42:25.337521Z DEBUG shielding:pin{cell=25}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08514768576465431
+2026-10-27T22:42:25.534176Z DEBUG shielding:pin{cell=26}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08513723337158569
+2026-10-27T22:42:25.652600Z DEBUG shielding:pin{cell=43}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024540954866376368
+2026-10-27T22:42:25.652645Z DEBUG shielding:pin{cell=43}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002598669 grid=0.47866612 table=0.728611028 evaluate=0.172167033 collision=0.13477094 slowing=15.718971386 free_gas=14.26155976 sab=0.595855226
+2026-10-27T22:42:25.657344Z DEBUG shielding:pin{cell=41}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.00248424678488356
+2026-10-27T22:42:25.657392Z DEBUG shielding:pin{cell=41}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002544549 grid=0.476980347 table=0.734679716 evaluate=0.177622064 collision=0.146752403 slowing=15.692797922 free_gas=14.250539182 sab=0.591846914
+2026-10-27T22:42:25.688447Z DEBUG shielding:pin{cell=20}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024382897573389985
+2026-10-27T22:42:25.688491Z DEBUG shielding:pin{cell=20}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000412481 grid=0.476881593 table=0.743510809 evaluate=0.172171928 collision=0.129030196 slowing=15.750933395 free_gas=14.295209171 sab=0.59296102
+2026-10-27T22:42:25.711262Z DEBUG shielding:pin{cell=21}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002462707442813907
+2026-10-27T22:42:25.711325Z DEBUG shielding:pin{cell=21}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001036288 grid=0.466167248 table=0.763352592 evaluate=0.197929483 collision=0.135934987 slowing=15.729495396 free_gas=14.282927466 sab=0.59303139
+2026-10-27T22:42:25.729479Z DEBUG shielding:pin{cell=40}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024884785603689176
+2026-10-27T22:42:25.729527Z DEBUG shielding:pin{cell=40}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002536624 grid=0.49446402 table=0.760080043 evaluate=0.172752922 collision=0.14979184 slowing=15.72272233 free_gas=14.262726186 sab=0.592910393
+2026-10-27T22:42:25.730327Z DEBUG shielding:pin{cell=44}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023977685922680647
+2026-10-27T22:42:25.730357Z DEBUG shielding:pin{cell=44}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.00105883 grid=0.49160308 table=0.777109957 evaluate=0.175102728 collision=0.147825284 slowing=15.721342708 free_gas=14.265069262 sab=0.592525708
+2026-10-27T22:42:25.784540Z DEBUG shielding:pin{cell=28}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024638527260926464
+2026-10-27T22:42:25.784590Z DEBUG shielding:pin{cell=28}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002760923 grid=0.583907623 table=0.732512553 evaluate=0.184850217 collision=0.129730865 slowing=15.723594893 free_gas=14.278779157 sab=0.592212447
+2026-10-27T22:42:26.323175Z DEBUG shielding:pin{cell=22}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024628448945348273
+2026-10-27T22:42:26.323219Z DEBUG shielding:pin{cell=22}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002645637 grid=0.496648505 table=0.750251374 evaluate=0.178398644 collision=0.144435092 slowing=16.333563121 free_gas=14.819349155 sab=0.617182249
+2026-10-27T22:42:26.340430Z DEBUG shielding:pin{cell=42}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002485033176839503
+2026-10-27T22:42:26.340474Z DEBUG shielding:pin{cell=42}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002491108 grid=0.474733085 table=0.757582783 evaluate=0.178914978 collision=0.126243375 slowing=16.381527903 free_gas=14.868982277 sab=0.617986903
+2026-10-27T22:42:26.343004Z DEBUG shielding:pin{cell=45}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024511548480148793
+2026-10-27T22:42:26.343033Z DEBUG shielding:pin{cell=45}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000972268 grid=0.463484561 table=0.782515926 evaluate=0.170976016 collision=0.148113 slowing=16.360385976 free_gas=14.840444901 sab=0.617046761
+2026-10-27T22:42:26.346684Z DEBUG shielding:pin{cell=24}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002459108966959897
+2026-10-27T22:42:26.346715Z DEBUG shielding:pin{cell=24}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002339003 grid=0.498973253 table=0.749211809 evaluate=0.182772058 collision=0.150367088 slowing=16.342710684 free_gas=14.829916179 sab=0.616636911
+2026-10-27T22:42:26.356577Z DEBUG shielding:pin{cell=23}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024624457387826884
+2026-10-27T22:42:26.356627Z DEBUG shielding:pin{cell=23}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002391261 grid=0.481808005 table=0.759344978 evaluate=0.181337709 collision=0.154783801 slowing=16.358029406 free_gas=14.840543652000001 sab=0.616841981
+2026-10-27T22:42:26.358132Z DEBUG shielding:pin{cell=46}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024521744665631628
+2026-10-27T22:42:26.358163Z DEBUG shielding:pin{cell=46}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002367147 grid=0.493926274 table=0.748629141 evaluate=0.16772878 collision=0.151487996 slowing=16.376329106 free_gas=14.857760914 sab=0.616906914
+2026-10-27T22:42:26.390599Z DEBUG shielding:pin{cell=27}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024569731847597616
+2026-10-27T22:42:26.390653Z DEBUG shielding:pin{cell=27}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.002551522 grid=0.491232497 table=0.750793147 evaluate=0.176186422 collision=0.155500155 slowing=16.395273385 free_gas=14.873160189 sab=0.617564962
+2026-10-27T22:42:32.470962Z DEBUG shielding:pin{cell=25}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002462077365492005
+2026-10-27T22:42:32.471017Z DEBUG shielding:pin{cell=25}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001028303 grid=0.471050038 table=1.174316835 evaluate=0.236161897 collision=0.172057411 slowing=21.993842856 free_gas=19.60511173 sab=1.0699807159999999
+2026-10-27T22:42:32.675999Z DEBUG shielding:pin{cell=26}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024585939986344375
+2026-10-27T22:42:32.676065Z DEBUG shielding:pin{cell=26}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.003070913 grid=0.588482888 table=1.2601881879999999 evaluate=0.226822631 collision=0.160969212 slowing=22.003011824 free_gas=19.624554951 sab=1.071109744
+2026-10-27T22:42:42.153574Z DEBUG shielding:pin{cell=47}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:42.252256Z DEBUG shielding:pin{cell=60}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:42.261795Z DEBUG shielding:pin{cell=61}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:42.266536Z DEBUG shielding:pin{cell=62}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:42.283728Z DEBUG shielding:pin{cell=64}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:42.304567Z DEBUG shielding:pin{cell=65}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:42.326232Z DEBUG shielding:pin{cell=81}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.485909Z DEBUG shielding:pin{cell=82}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.486622Z DEBUG shielding:pin{cell=83}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.547551Z DEBUG shielding:pin{cell=101}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.562974Z DEBUG shielding:pin{cell=85}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.577099Z DEBUG shielding:pin{cell=102}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.593312Z DEBUG shielding:pin{cell=100}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:43.728124Z DEBUG shielding:pin{cell=84}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:47.406110Z DEBUG shielding:pin{cell=47}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.0849373717466683
+2026-10-27T22:42:47.472513Z DEBUG shielding:pin{cell=62}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08483252787240202
+2026-10-27T22:42:47.492062Z DEBUG shielding:pin{cell=64}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494439124893428
+2026-10-27T22:42:47.509055Z DEBUG shielding:pin{cell=65}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08493655658103405
+2026-10-27T22:42:47.557170Z DEBUG shielding:pin{cell=81}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08482616618415284
+2026-10-27T22:42:47.717509Z DEBUG shielding:pin{cell=60}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08512776812368339
+2026-10-27T22:42:47.799870Z DEBUG shielding:pin{cell=61}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494025937930977
+2026-10-27T22:42:48.919695Z DEBUG shielding:pin{cell=83}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08510799218829276
+2026-10-27T22:42:48.960185Z DEBUG shielding:pin{cell=82}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494182082701021
+2026-10-27T22:42:49.002632Z DEBUG shielding:pin{cell=100}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08499664473944807
+2026-10-27T22:42:49.024926Z DEBUG shielding:pin{cell=85}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494155105339293
+2026-10-27T22:42:49.097433Z DEBUG shielding:pin{cell=101}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08493721931721367
+2026-10-27T22:42:49.219236Z DEBUG shielding:pin{cell=84}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08510405819285385
+2026-10-27T22:42:49.289438Z DEBUG shielding:pin{cell=102}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08510565533472246
+2026-10-27T22:42:51.338689Z DEBUG shielding:pin{cell=103}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:51.977400Z DEBUG shielding:pin{cell=104}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:42:52.549457Z DEBUG shielding:pin{cell=47}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023967189985392256
+2026-10-27T22:42:52.549516Z DEBUG shielding:pin{cell=47}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001108613 grid=0.318309478 table=0.724532989 evaluate=0.172482812 collision=0.144587038 slowing=15.942539592 free_gas=14.448024361 sab=0.611801109
+2026-10-27T22:42:52.598144Z DEBUG shielding:pin{cell=62}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002367198459001034
+2026-10-27T22:42:52.598199Z DEBUG shielding:pin{cell=62}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000859487 grid=0.38849989 table=0.702933921 evaluate=0.162846284 collision=0.148736257 slowing=15.870230376 free_gas=14.386519742 sab=0.604092619
+2026-10-27T22:42:52.617614Z DEBUG shielding:pin{cell=64}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023987593100682427
+2026-10-27T22:42:52.617682Z DEBUG shielding:pin{cell=64}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001633624 grid=0.390214867 table=0.697108016 evaluate=0.16343416 collision=0.144011261 slowing=15.892973787 free_gas=14.406255582 sab=0.604114659
+2026-10-27T22:42:52.640694Z DEBUG shielding:pin{cell=65}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023964826120001005
+2026-10-27T22:42:52.640755Z DEBUG shielding:pin{cell=65}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000811156 grid=0.380444537 table=0.704359186 evaluate=0.170156734 collision=0.121958334 slowing=15.89476164 free_gas=14.413280331 sab=0.605479946
+2026-10-27T22:42:52.704102Z DEBUG shielding:pin{cell=81}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002365461107213147
+2026-10-27T22:42:52.704173Z DEBUG shielding:pin{cell=81}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000957059 grid=0.374567627 table=0.701939351 evaluate=0.17175036 collision=0.143962524 slowing=15.911164722 free_gas=14.431336720000001 sab=0.608711075
+2026-10-27T22:42:52.967256Z DEBUG shielding:pin{cell=61}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023975572963169096
+2026-10-27T22:42:52.967316Z DEBUG shielding:pin{cell=61}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000726509 grid=0.390971912 table=0.706664576 evaluate=0.172344641 collision=0.141437246 slowing=16.253052374 free_gas=14.756722899 sab=0.61842236
+2026-10-27T22:42:53.183573Z DEBUG shielding:pin{cell=60}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024554637976448098
+2026-10-27T22:42:53.183631Z DEBUG shielding:pin{cell=60}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001295072 grid=0.394836057 table=0.709583305 evaluate=0.175687547 collision=0.125159452 slowing=16.495009297 free_gas=14.958149098 sab=0.647970563
+2026-10-27T22:42:54.218496Z DEBUG shielding:pin{cell=83}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002448995798622305
+2026-10-27T22:42:54.218549Z DEBUG shielding:pin{cell=83}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001019506 grid=0.342692122 table=0.763762126 evaluate=0.158088839 collision=0.125953435 slowing=16.419978849 free_gas=14.946645012 sab=0.624302743
+2026-10-27T22:42:54.274965Z DEBUG shielding:pin{cell=82}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023980111944357685
+2026-10-27T22:42:54.275021Z DEBUG shielding:pin{cell=82}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000843627 grid=0.344944474 table=0.782418332 evaluate=0.163821625 collision=0.12371004 slowing=16.476194422 free_gas=15.001090098 sab=0.625987761
+2026-10-27T22:42:54.326494Z DEBUG shielding:pin{cell=100}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002414224324782859
+2026-10-27T22:42:54.326550Z DEBUG shielding:pin{cell=100}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000809134 grid=0.415648565 table=0.745367449 evaluate=0.157972888 collision=0.120665875 slowing=16.462610835 free_gas=14.983478505 sab=0.625474776
+2026-10-27T22:42:54.328594Z DEBUG shielding:pin{cell=85}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023979327444726946
+2026-10-27T22:42:54.328645Z DEBUG shielding:pin{cell=85}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000991053 grid=0.417877404 table=0.747638325 evaluate=0.149368466 collision=0.140554502 slowing=16.451319516 free_gas=14.969594777 sab=0.624374004
+2026-10-27T22:42:54.440614Z DEBUG shielding:pin{cell=101}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002396674787663048
+2026-10-27T22:42:54.440679Z DEBUG shielding:pin{cell=101}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000933356 grid=0.410612037 table=0.741609071 evaluate=0.147819173 collision=0.131663602 slowing=16.569174168 free_gas=15.088148896 sab=0.634904534
+2026-10-27T22:42:54.540551Z DEBUG shielding:pin{cell=84}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002447720458950832
+2026-10-27T22:42:54.540613Z DEBUG shielding:pin{cell=84}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001458848 grid=0.419171624 table=0.752205736 evaluate=0.15264165 collision=0.126701736 slowing=16.674634109 free_gas=15.166267583 sab=0.652641824
+2026-10-27T22:42:54.662997Z DEBUG shielding:pin{cell=102}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024482377805395182
+2026-10-27T22:42:54.663054Z DEBUG shielding:pin{cell=102}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001216204 grid=0.402403649 table=0.73689731 evaluate=0.15511121 collision=0.131904719 slowing=16.774886014 free_gas=15.282241426 sab=0.644178311
+2026-10-27T22:42:56.472317Z DEBUG shielding:pin{cell=103}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08510665730301346
+2026-10-27T22:42:57.299755Z DEBUG shielding:pin{cell=104}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494089908246091
+2026-10-27T22:43:03.453974Z DEBUG shielding:pin{cell=103}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002448562636327812
+2026-10-27T22:43:03.454063Z DEBUG shielding:pin{cell=103}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.00050251 grid=0.355950034 table=0.712067252 evaluate=0.155524007 collision=0.116804363 slowing=17.626139319 free_gas=15.962966376 sab=0.825675342
+2026-10-27T22:43:05.096698Z DEBUG shielding:pin{cell=104}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002397743202281813
+2026-10-27T22:43:05.096788Z DEBUG shielding:pin{cell=104}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000587538 grid=0.385270562 table=0.76824414 evaluate=0.169105848 collision=0.139302328 slowing=18.884107422 free_gas=17.076934431 sab=0.87988353
+2026-10-27T22:43:09.997993Z DEBUG shielding:pin{cell=122}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:11.815748Z DEBUG shielding:pin{cell=161}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:12.086756Z DEBUG shielding:pin{cell=121}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:12.158330Z DEBUG shielding:pin{cell=140}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:12.188889Z DEBUG shielding:pin{cell=141}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:12.191172Z DEBUG shielding:pin{cell=142}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:12.207952Z DEBUG shielding:pin{cell=160}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-27T22:43:12.926865Z DEBUG shielding:pin{cell=122}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494434410958639
+2026-10-27T22:43:14.452358Z DEBUG shielding:pin{cell=161}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494346314780019
+2026-10-27T22:43:14.878757Z DEBUG shielding:pin{cell=121}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08494359048532886
+2026-10-27T22:43:15.017210Z DEBUG shielding:pin{cell=140}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.0851109045170736
+2026-10-27T22:43:15.028152Z DEBUG shielding:pin{cell=142}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08495091502060764
+2026-10-27T22:43:15.046925Z DEBUG shielding:pin{cell=141}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08510880855941078
+2026-10-27T22:43:15.047124Z DEBUG shielding:pin{cell=160}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08511734436077385
+2026-10-27T22:43:15.816033Z DEBUG shielding:pin{cell=122}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023987455803579495
+2026-10-27T22:43:15.816100Z DEBUG shielding:pin{cell=122}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001029375 grid=0.508092996 table=1.22272572 evaluate=0.272894539 collision=0.206774958 slowing=9.43497884 free_gas=6.625564417 sab=1.341292902
+2026-10-27T22:43:17.529704Z DEBUG shielding:pin{cell=161}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023984890571561177
+2026-10-27T22:43:17.529773Z DEBUG shielding:pin{cell=161}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001105969 grid=0.630966342 table=2.148476505 evaluate=0.211375418 collision=0.09941379 slowing=9.268061199 free_gas=6.640939281 sab=1.534393542
+2026-10-27T22:43:18.358385Z DEBUG shielding:pin{cell=121}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0023985261276122556
+2026-10-27T22:43:18.358457Z DEBUG shielding:pin{cell=121}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000984731 grid=0.680241925 table=3.742731494 evaluate=0.217185844 collision=0.112451621 slowing=10.045526441 free_gas=8.029638646 sab=0.899826626
+2026-10-27T22:43:19.439368Z DEBUG shielding:pin{cell=142}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024006632129748547
+2026-10-27T22:43:19.439453Z DEBUG shielding:pin{cell=142}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001068378 grid=0.592914187 table=2.519323127 evaluate=0.206217211 collision=0.155343165 slowing=11.10975734 free_gas=8.984256159 sab=0.964400128
+2026-10-27T22:43:20.123735Z DEBUG shielding:pin{cell=140}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002449942321511565
+2026-10-27T22:43:20.123792Z DEBUG shielding:pin{cell=140}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000983799 grid=0.651563448 table=2.938003547 evaluate=0.220388105 collision=0.126380144 slowing=11.804838982 free_gas=9.702509135 sab=0.959891477
+2026-10-27T22:43:20.763317Z DEBUG shielding:pin{cell=160}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024520426019294
+2026-10-27T22:43:20.763368Z DEBUG shielding:pin{cell=160}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001052878 grid=0.636040591 table=2.328738565 evaluate=0.210128769 collision=0.141427762 slowing=12.440039712 free_gas=10.309558131 sab=0.958912753
+2026-10-27T22:43:20.786492Z DEBUG shielding:pin{cell=141}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002449260917845764
+2026-10-27T22:43:20.786580Z DEBUG shielding:pin{cell=141}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.001003396 grid=0.581652428 table=3.008607372 evaluate=0.221932089 collision=0.120797162 slowing=12.455150584 free_gas=9.693312468 sab=1.610480256
+2026-10-27T22:43:24.398523Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=264 solved=39 points_min=Some(94887) points_max=Some(94887) points_sum=3700593
+2026-10-27T22:43:24.398586Z  INFO shielding: xlc_lattice::shielding: close time.busy=78.4s time.idle=2.10µs
