@@ -48,6 +48,10 @@ class Rows(unittest.TestCase):
         self.assertEqual(row["kernel-xlc"], [0.5938165, 0.3982808])
         self.assertEqual(rows["MOX1"]["water:27"]["kernel-openmc"][0], 0.5906456)
 
+    def test_a_repeated_group_is_an_error(self):
+        with self.assertRaises(gr.SummaryError):
+            gr.parse_rows(ROWS_LOG + ROWS_LOG)
+
     def test_a_group_line_before_its_kernel_is_an_error(self):
         with self.assertRaises(gr.SummaryError):
             gr.parse_rows(ROWS_LOG.split("\n", 1)[1])
@@ -66,6 +70,16 @@ class Spectrum(unittest.TestCase):
             "material water\n9118-1.503e+04 eV: xlc 0.5 OpenMC 0.5 比 +0.0010\n"
         )
         self.assertEqual(spectrum["water"][0]["high"], 15030.0)
+
+    def test_spectrum_reads_edges_with_negative_exponents(self):
+        spectrum = gr.parse_spectrum(
+            "material water\n1e-05-5e-05 eV: xlc 0.5 OpenMC 0.5 比 -0.0010\n"
+        )
+        self.assertEqual(spectrum["water"][0]["low"], 1e-05)
+
+    def test_a_repeated_material_is_an_error(self):
+        with self.assertRaises(gr.SummaryError):
+            gr.parse_spectrum(SPECTRUM_LOG + SPECTRUM_LOG)
 
     def test_a_range_off_the_fine_bins_is_an_error(self):
         kernel = gr.Kernel(
@@ -209,6 +223,15 @@ kernels = ["2A-40"]
                 Path(d),
                 transfer_log(1.172316, 1.172386),
                 '\n[[spec]]\nspec = "fuel:27-27"\nlabel = "燃料"\n',
+            )
+            with self.assertRaises(gr.SummaryError):
+                gr.summarize(Path(d) / "summary.toml")
+
+    def test_rows_missing_a_swapped_group_are_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.write_case(Path(d), transfer_log(1.172316, 1.172386))
+            (Path(d) / "logs/1C-0-rows.txt").write_text(
+                ROWS_LOG.split("kernel MOX1")[0].replace("group 27", "group 26")
             )
             with self.assertRaises(gr.SummaryError):
                 gr.summarize(Path(d) / "summary.toml")
