@@ -1718,6 +1718,20 @@ fn sab_off_ignores_the_table() {
 }
 
 #[test]
+fn sab_source_does_not_depend_on_the_thread_count() {
+    // S(α, β) の移行の散乱源は、スレッドの数によらずビットで同じ
+    let table = free_gas_transfer(0.99917, 600.0, 0.02);
+    let solve = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| sab_spectrum(Some(table.clone()), sab(4, Some(3))).unwrap())
+    };
+    assert_eq!(solve(1), solve(4));
+}
+
+#[test]
 fn sab_needs_the_table_of_sab_nuclides() {
     // S(α, β) の核種に表がなければ止める。S(α, β) の核種でないもの（O-16 など）は、`sab` を選んでも自由ガスの核
     assert!(matches!(
