@@ -105,7 +105,7 @@ use crate::depletion::{DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
-use crate::shielding::ShieldingOptions;
+use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::{Collision, FreeGas, Scattering};
@@ -321,6 +321,8 @@ struct InputFile {
     ufg_scattering: Option<String>,
     /// `ufg-scattering = "free-gas"` の条件。省略すると ADR-0203 の既定
     ufg_free_gas: Option<FreeGasEntry>,
+    /// 省略すると無限希釈の形（ADR-0207）
+    ufg_transfer: Option<String>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,

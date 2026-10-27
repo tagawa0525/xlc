@@ -340,6 +340,11 @@ impl Gas {
         !blur.is_finite() || high * (-(center + EDGE * blur)).exp() >= self.cap
     }
 
+    /// 入射 `e_in` の D を、出射のエネルギー `e_x` の下と上に分けて積分したもの（未実装）
+    pub(super) fn shares(&self, _e_in: f64, _e_x: f64, _grades: &[f64], _cells: usize) -> [f64; 2] {
+        [0.0, 0.0]
+    }
+
     /// 区間 [a, b] を静止した核の窓の中として扱うか
     pub(super) fn inside(&self, u: f64, a: f64, b: f64) -> bool {
         let mid = 0.5 * (a + b);
