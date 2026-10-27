@@ -81,8 +81,9 @@ S(α,β) の移行は、ADR-0203 と ADR-0204 の速い方法（400 kT の上限
 入力の項目 `ufg-free-gas` に `sab`（S(α,β) の核種を、S(α,β) の上限より下の入射でライブラリの S(α,β) の移行で散乱させる。省略すると
 false）を足す（`ufg-scattering = "free-gas"` のときだけ書ける）。B(4) より上の H と、ほかの核種は ADR-0203、ADR-0204 の扱いのまま。
 ライブラリの各温度に、S(α,β) の核種だけ（ポイントワイズの範囲があるとき）案 P3 の表 `sab_transfer`（入射、移行、累積）を持たせる（形式の
-変更。nil でも項目は省けず、古い形式のライブラリは読まない）。`sab = true` で、S(α,β) の核種に表がないか、表が範囲の下限への上方散乱と
-上限から下限への下方散乱を覆わなければ止める。
+変更。nil でも項目は省けず、古い形式のライブラリは読まない）。S(α,β) の上限が UFG の下限から上方散乱の届く幅より下の核種は、UFG に
+届く S(α,β) の散乱がないので表を持たない。`sab = true` で、S(α,β) の核種に表がないか、S(α,β) の上限が範囲の上端以上（範囲の上の入射を
+静止した標的と S(α,β) の移行の両方で数える）か、表が範囲の下限への上方散乱と上限から下限への下方散乱を覆わなければ止める。
 
 測定（examples/depletion/verification.md の「H in H2O の S(α,β) の UFG の散乱核（ADR-0205）」。ライブラリは 843e2223、xlc は b7541488、
 2026-10-27）。k の差は xlc − OpenMC（pcm）、増えは 1C の新しい燃料から 2A-40 まで。
@@ -111,7 +112,8 @@ OpenMC と同じ扱い（H の S(α,β)、重い核種の 400 kT の自由ガス
 
 - ライブラリの形式が変わり、xs で作り直していないライブラリ（examples/vera、examples/depletion/p2 などの核種の出力）は lattice が読めない。
   examples/depletion の 65 核種は作り直した（Slurm 550、14 分）。作り直していない例の dvc.lock の出力は古いまま
-- ライブラリは H in H2O の 3 つの温度で 18 MB ほど大きくなる（examples/depletion で 299 MB から 319 MB）
+- ライブラリは H in H2O の 3 つの温度で 20 MB ほど大きくなる（examples/depletion で 299 MB から 319 MB）。表の大きさ、セルごとの表の
+  コピー、散乱源の小区間の手間は詰めていない（#0180）
 - 既定（静止した標的）と `sab` を書かない `"free-gas"` の結果は変わらない（1C の 0 と 5 MWd/kg の static、heavy-cap、heavy-fast3 の
   `swap_absorption` の出力は、ADR-0204 の記録のログと文字まで同じ）
 - 残る UFG の範囲の差の候補: 27 群の 5.0〜6.3 eV の燃料の中性子束の −0.4%（U-238 の 6.67 eV の共鳴の下）、分離共鳴の上方散乱（ADR-0204 の
@@ -121,11 +123,11 @@ OpenMC と同じ扱い（H の S(α,β)、重い核種の 400 kT の自由ガス
 ## 確認
 
 - 単体試験: format の `sab_transfer_round_trips_bit_exactly`、`sab_transfer_must_be_a_table_of_cumulative_shares`、
-  `interpolation_mixes_the_sab_transfer`、`sab_transfer_in_array_form_is_rejected`、
+  `sab_transfers_must_agree_across_temperatures_and_end_at_one`、`interpolation_mixes_the_sab_transfer`、`sab_transfer_in_array_form_is_rejected`、
   `sab_transfer_interpolates_the_cumulative_share_in_ln_e_and_the_transfer`。xs の `ufg_transfer_covers_the_ufg_reach`、
   `ufg_transfer_between_grid_points_is_the_share_of_the_kernel`、`ufg_transfer_of_a_free_gas_table_is_the_free_gas_share`（自由ガスの
-  S(α,β) は自由ガスの核の割合）、`ufg_transfer_rows_rise_from_zero_to_one`（保存）、`ufg_transfer_needs_the_limit_above_the_ufg_reach`、
+  S(α,β) は自由ガスの核の割合）、`ufg_transfer_rows_rise_from_zero_to_one`（保存）、`ufg_transfer_is_none_below_the_ufg_reach`、
   `sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range`。lattice の `sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum`、
   `sab_of_a_hotter_table_moves_the_spectrum`、`sab_off_ignores_the_table`、`sab_needs_the_table_of_sab_nuclides`、
-  `sab_table_must_reach_the_up_scattering_below_the_range`、`sab_sweeps_converge`。入力は `ufg_scattering_defaults_to_targets_at_rest`
+  `sab_table_must_reach_the_up_scattering_below_the_range`、`sab_limit_must_lie_below_the_range_top`、`sab_sweeps_converge`。入力は `ufg_scattering_defaults_to_targets_at_rest`
 - 測定は examples/depletion/verification.md の「H in H2O の S(α,β) の UFG の散乱核（ADR-0205）」
