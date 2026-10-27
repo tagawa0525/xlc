@@ -1,0 +1,64 @@
+import re
+from pathlib import Path
+HERE = Path(__file__).resolve().parent
+HEIGHT = 365.76
+NODES = 16
+STEP = 1.5875
+AIC = 101.6
+B4C = 259.08
+STEPS = [116, 118, 120, 122, 124, 126, 128, 20, 60, 90, 150, 180, 200]
+FINE = {'2': 2.0, '1': 1.0, '0.25': 0.25, '0.125': 0.125}
+FINE_STEPS = [116, 122, 180]
+NOTE = '# このファイルは rods_cases.py が書く。'
+
+def mesh(extra=()):
+    bounds = [round(HEIGHT * i / NODES, 6) for i in range(NODES + 1)]
+    bounds[-1] = HEIGHT
+    for p in extra:
+        if 0.0 < p < HEIGHT and p not in bounds:
+            bounds.append(p)
+    return sorted(bounds)
+
+def numbers(values):
+    return '[' + ', '.join((repr(v) for v in values)) + ']'
+
+def case(name, steps, axial, partial=None):
+    lines = [f'{NOTE}{name}', 'cycle = "../cycle.toml"', f'axial-mesh = {numbers(axial)}', 'radial-nodes = 1', 'boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["marshak", "marshak"] }', '', '[state.hzp]', 'boron = 1300', 'b10 = 0.199', 'moderator = 600', 'fuel = 600', f'banks = {{ D = {steps} }}']
+    if partial:
+        lines += ['', '[partial-rods]'] + partial
+    (HERE / 'cases' / f'{name}.toml').write_text('\n'.join(lines) + '\n')
+    return name
+
+def main():
+    (HERE / 'plant.toml').write_text(f'{NOTE}集合体1体の燃料の列と VERA の制御棒（仕様書の表 8）\npitch = 21.5\nheight = {HEIGHT!r}\nmap = ["*"]\n\n[rods]\nstep = {STEP!r}\nbottom = 0.0\nsteps = 230\ntop = {HEIGHT!r}\nmap = ["D"]\n\n[rods.bank.D]\ntype = "rcca"\n\n[rods.type.rcca]\nsegments = [{{ value = "aic", length = {AIC!r} }}, {{ value = "b4c", length = {B4C!r} }}]\n')
+    (HERE / 'assemblies.toml').write_text(f'{NOTE}燃料の層は制御棒の軸を持つテーブル（rod_table.py）\n[design.fuel]\nbounds = [0.0, {HEIGHT!r}]\nlayers = ["table-rods.msgpack"]\n\n[assembly.F01]\ndesign = "fuel"\n')
+    (HERE / 'cycle.toml').write_text(f'{NOTE}\nplant = "plant.toml"\ninventory = "assemblies.toml"\nloading = ["F01"]\n')
+    (HERE / 'cases').mkdir(exist_ok=True)
+    names = []
+    for s in STEPS:
+        tip = 0.0 + s * STEP
+        names.append(case(f'flux-{s}', s, mesh()))
+        names.append(case(f'volume-{s}', s, mesh(), ['weighting = "volume"']))
+        names.append(case(f'split-{s}', s, mesh([tip, tip + AIC])))
+    for label, width in FINE.items():
+        for s in FINE_STEPS:
+            names.append(case(f'fine-{label}-{s}', s, mesh(), [f'fine-mesh = {width!r}']))
+    write_dvc(names)
+    (HERE / 'cases.yaml').write_text('# このファイルは rods_cases.py が書く。dvc.yaml の foreach が読むケースの名前\ncases:\n' + ''.join((f'  - {n}\n' for n in names)))
+
+def code(stage):
+    return [f'../../bin/{stage}']
+
+def listed(items, indent):
+    return ''.join((f"{' ' * indent}- {item}\n" for item in items))
+
+def write_dvc(names):
+    xs = (HERE / 'xs.toml').read_text()
+    endf = re.findall('^endf = "([^"]+)"', xs, flags=re.MULTILINE)
+    thermal = re.findall('^thermal = "([^"]+)"', xs, flags=re.MULTILINE)
+    endf_deps = [f'../../references/endf/ENDF-B-VIII.0_neutrons/{e}' for e in endf]
+    endf_deps += [f'../../references/endf/ENDF-B-VIII.0_thermal_scatt/{t}' for t in sorted(set(thermal))]
+    text = f"# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）のステージ（ADR-0159）: ENDF → 多群ライブラリ（xs）→\n# 制御棒の値ごとの格子計算（lattice-<値>）→ 制御棒の軸を持つ 1 つのテーブル（table。#0093 までのつなぎ）→ ケースごとの\n# 炉心（core-<ケース>）→ 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`\nvars:\n  - cases.yaml\nstages:\n  xs:\n    cmd: ../../bin/xs xs.toml\n    deps:\n      - xs.toml\n{listed(endf_deps + code('xs'), 6)}    outs:\n      - rods.msgpack\n  lattice:\n    foreach: [out, aic, b4c]\n    do:\n      # 結果の k∞ は標準出力に出るので、ファイルに受ける\n      cmd: ../../bin/lattice assembly-${{item}}.toml > lattice-${{item}}.out\n      deps:\n        - assembly-${{item}}.toml\n        - rods.msgpack\n{listed(code('lattice'), 8)}      outs:\n        - fg-${{item}}.msgpack\n        - lattice-${{item}}.out\n  table:\n    cmd: python3 rod_table.py table-rods.msgpack out=fg-out.msgpack aic=fg-aic.msgpack b4c=fg-b4c.msgpack\n    deps:\n      - ../../python-ast/examples/core/rod_table.py.ast\n      - fg-out.msgpack\n      - fg-aic.msgpack\n      - fg-b4c.msgpack\n    outs:\n      - table-rods.msgpack\n  core:\n    foreach: ${{cases}}\n    do:\n      # DVC は出力の親のディレクトリを作らないので、作ってから実行する\n      cmd: mkdir -p out && ../../bin/core cases/${{item}}.toml > out/${{item}}.out\n      deps:\n        - cases/${{item}}.toml\n        - plant.toml\n        - assemblies.toml\n        - cycle.toml\n        - table-rods.msgpack\n{listed(code('core'), 8)}      outs:\n        - out/${{item}}.out\n  compare:\n    cmd: python3 compare_rods.py > compare.out\n    deps:\n      - ../../python-ast/examples/core/compare_rods.py.ast\n      - ../../python-ast/examples/core/rods_cases.py.ast\n{listed([f'out/{n}.out' for n in names], 6)}    outs:\n      - compare.out\n"
+    (HERE / 'dvc.yaml').write_text(text)
+if __name__ == '__main__':
+    main()

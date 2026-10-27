@@ -59,8 +59,8 @@ stages:
     do:
       cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
       deps:
-        - ../../vera/openmc_library.py
-        - ../../openmc_input.py
+        - ../../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.endf}
       params:
@@ -73,8 +73,8 @@ stages:
     do:
       cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
       deps:
-        - ../../vera/openmc_library.py
-        - ../../openmc_input.py
+        - ../../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.neutron}
         - ${item.thermal}
@@ -86,8 +86,8 @@ stages:
   openmc-index:
     cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py index openmc-library.toml openmc-library
     deps:
-      - ../../vera/openmc_library.py
-      - ../../openmc_input.py
+      - ../../../python-ast/examples/vera/openmc_library.py.ast
+      - ../../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
       - openmc-library.toml
       - openmc-library/neutron
@@ -116,7 +116,7 @@ stages:
     do:
       cmd: python3 ../compare_depletion_assembly.py --json compare-${item}.json lattice-${item}.msgpack ../../../references/openmc/aws/m4-assembly/openmc-${item}/openmc-${item}.msgpack
       deps:
-        - ../compare_depletion_assembly.py
+        - ../../../python-ast/examples/depletion/compare_depletion_assembly.py.ast
         - lattice-${item}.msgpack
         - ../../../references/openmc/aws/m4-assembly/openmc-${item}/openmc-${item}.msgpack
       outs:

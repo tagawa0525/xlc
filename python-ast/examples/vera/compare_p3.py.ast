@@ -1,0 +1,256 @@
+import hashlib
+import json
+import math
+import re
+import statistics
+import sys
+from pathlib import Path
+import msgpack
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import itertools
+from compare_keno import keno_octant
+CAPTIONS = {'3A': 'Figure P3-3: Problem 3A CE KENO-VI Radial Power Distribution Results', '3B': 'Figure P3-4: Problem 3B CE KENO-VI Radial Power Distribution Results'}
+FUEL_BOTTOM = 11.951
+TOLERANCE = 1e-06
+
+def keno_k(spec: list[str], problem: str) -> tuple[float, float]:
+    for line in spec:
+        m = re.match(f'^{problem}\\s+(\\d\\.\\d+)\\s+(\\d\\.\\d+)\\s*$', line)
+        if m:
+            return (float(m.group(1)), float(m.group(2)))
+    raise SystemExit(f'KENO-VI k of {problem} not found')
+
+def keno_axial(spec: list[str], problem: str) -> tuple[list[float], list[float]]:
+    start = next((i for i, line in enumerate(spec) if 'Problem 3 Axial Power Results' in line), None)
+    if start is None:
+        raise SystemExit('the axial power table is not found')
+    column = {'3A': 3, '3B': 5}[problem]
+    rows = []
+    for line in spec[start:start + 60]:
+        m = re.match('\\s*(\\d+)\\s+([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+) \\+/- ([\\d.]+)% ([\\d.]+) \\+/- ([\\d.]+)%', line)
+        if m:
+            rows.append((float(m.group(2)), float(m.group(3)), float(m.group(column + 1))))
+    if len(rows) != 49:
+        raise SystemExit(f'expected 49 axial levels, found {len(rows)}')
+    rows.sort()
+    bounds = [rows[0][0] - rows[0][1] - FUEL_BOTTOM]
+    for top, thickness, _ in rows:
+        if abs(top - thickness - FUEL_BOTTOM - bounds[-1]) > 0.001:
+            raise SystemExit(f'axial level ending at {top} does not follow the one below')
+        bounds.append(top - FUEL_BOTTOM)
+    return (bounds, [r[2] for r in rows])
+
+def read_layers(path: Path) -> dict:
+    data = msgpack.unpackb(path.read_bytes())
+    if data.get('format') != 'xlc-axial-pin-powers':
+        raise SystemExit(f'{path}: not xlc-axial-pin-powers')
+    return data
+
+def coarsen(bounds: list[float], values: list, reference: list[float]) -> list:
+    origin = bounds[0]
+    z = [b - origin for b in bounds]
+    index = []
+    for r in reference:
+        k = min(range(len(z)), key=lambda i: abs(z[i] - r))
+        if abs(z[k] - r) > TOLERANCE * max(1.0, z[-1]):
+            raise SystemExit(f'the reference bound {r} is not a bound of the xlc layers')
+        index.append(k)
+    if index[0] != 0 or index[-1] != len(z) - 1:
+        raise SystemExit(f'the reference layers span {reference[0]}-{reference[-1]} cm, the xlc layers {z[0]}-{z[-1]} cm')
+
+    def weighted(a: int, b: int):
+        total = z[b] - z[a]
+
+        def add(items):
+            first = items[0][1]
+            if isinstance(first, list):
+                return [add([(w, v[i]) for w, v in items]) for i in range(len(first))]
+            return sum((w * v for w, v in items)) / total
+        return add([(z[k + 1] - z[k], values[k]) for k in range(a, b)])
+    return [weighted(a, b) for a, b in itertools.pairwise(index)]
+
+def offset(bounds: list[float], axial: list[float]) -> float:
+    middle = (bounds[0] + bounds[-1]) / 2
+    lower = upper = 0.0
+    for lo, hi, p in zip(bounds, bounds[1:], axial):
+        lower += p * max(0.0, min(hi, middle) - lo)
+        upper += p * max(0.0, hi - max(lo, middle))
+    return (upper - lower) / (upper + lower)
+
+def offset_std(bounds: list[float], axial: list[float], std: list[float]) -> float:
+    middle = (bounds[0] + bounds[-1]) / 2
+    lower = upper = 0.0
+    weights = []
+    for lo, hi, p in zip(bounds, bounds[1:], axial):
+        w_lower = max(0.0, min(hi, middle) - lo)
+        w_upper = max(0.0, hi - max(lo, middle))
+        lower += p * w_lower
+        upper += p * w_upper
+        weights.append((w_lower, w_upper))
+    total = (upper + lower) ** 2
+    return math.sqrt(sum(((2 * (w_upper * lower - w_lower * upper) / total * s) ** 2 for (w_lower, w_upper), s in zip(weights, std))))
+
+def sigma_multiple(diffs: list[float], stds: list[float]) -> tuple[float, int]:
+    ratios = [abs(d) / s for d, s in zip(diffs, stds)]
+    at = max(range(len(ratios)), key=ratios.__getitem__)
+    return (ratios[at], at)
+
+def pin_sigma(ours: list[list[float]], ref: list[list[float]], ref_std: list[list[float]]) -> tuple[float, float, tuple]:
+    cells = [(i, j) for i, row in enumerate(ref) for j, value in enumerate(row) if value > 0]
+    median = statistics.median((ref_std[i][j] / ref[i][j] for i, j in cells))
+    multiple, k = sigma_multiple([ours[i][j] - ref[i][j] for i, j in cells], [ref_std[i][j] for i, j in cells])
+    return (median, multiple, cells[k])
+
+def axial_summary(name: str, bounds: list[float], ours: list[float], ref: list[float], subject: str='xlc', levels: bool=False) -> dict:
+    if not len(ours) == len(ref) == len(bounds) - 1:
+        raise SystemExit(f'{len(ours)} {subject} and {len(ref)} {name} levels for {len(bounds) - 1} layers')
+    diffs = [a - b for a, b in zip(ours, ref)]
+    rms = math.sqrt(sum((d * d for d in diffs)) / len(diffs))
+    relative = math.sqrt(sum(((a / b - 1) ** 2 for a, b in zip(ours, ref))) / len(ref))
+    worst = max(range(len(diffs)), key=lambda i: abs(diffs[i]))
+    summary = {'name': name, 'subject_name': subject, 'rms': rms, 'relative_rms': relative, 'max': diffs[worst], 'max_level': worst + 1, 'max_bounds': [bounds[worst], bounds[worst + 1]], 'ao_subject': offset(bounds, ours), 'ao_reference': offset(bounds, ref)}
+    if levels:
+        summary['levels'] = [{'lo': lo, 'hi': hi, 'subject': a, 'reference': b} for lo, hi, a, b in zip(bounds, bounds[1:], ours, ref)]
+    return summary
+
+def pin_stats(ours: list[list[float]], ref: list[list[float]]) -> tuple[float, float, tuple]:
+    if len(ours) != len(ref) or any((len(a) != len(b) for a, b in zip(ours, ref))):
+        raise SystemExit('the two pin maps differ in shape')
+    diffs = [(a / b - 1, (i, j)) for i, (ra, rb) in enumerate(zip(ours, ref)) for j, (a, b) in enumerate(zip(ra, rb)) if a > 0 and b > 0]
+    if any(((a > 0) != (b > 0) for ra, rb in zip(ours, ref) for a, b in zip(ra, rb))):
+        raise SystemExit('the two maps have fission in different cells')
+    if not diffs:
+        raise SystemExit('the two maps have no cell with fission')
+    rms = math.sqrt(sum((d * d for d, _ in diffs)) / len(diffs))
+    worst = max(diffs, key=lambda d: abs(d[0]))
+    return (rms, worst[0], worst[1])
+
+def keno_pins(spec: list[str], problem: str, rows: list[list[float]], subject: str='pins') -> dict:
+    if len(rows) != 17 or any((len(r) != 17 for r in rows)):
+        raise SystemExit('expected a 17 x 17 map')
+    fuel = [x for r in rows for x in r if x > 0]
+    mean = sum(fuel) / len(fuel)
+    diffs = []
+    for (i, j), keno in keno_octant(spec, CAPTIONS[problem]).items():
+        images = {(8 + a, 8 + b) for a, b in [(i, j), (j, i), (-i, j), (j, -i), (i, -j), (-j, i), (-i, -j), (-j, -i)]}
+        ours = sum((rows[r][c] for r, c in images)) / len(images) / mean
+        diffs.append((ours / keno - 1, (i, j)))
+    rms = math.sqrt(sum((d * d for d, _ in diffs)) / len(diffs))
+    worst, at = max(diffs, key=lambda d: abs(d[0]))
+    return {'subject_name': subject, 'positions': len(diffs), 'rms': rms, 'max': worst, 'at': list(at)}
+
+def compare(args: list[str]) -> dict:
+    problem = args[0]
+    if problem not in CAPTIONS:
+        raise SystemExit(f'unknown problem {problem}')
+    spec = Path(args[1]).read_text().split('\n')
+    lines = [l for l in Path(args[2]).read_text().splitlines() if l.startswith('k-eff ')]
+    if len(lines) != 1:
+        raise SystemExit(f'{args[2]}: expected one k-eff line')
+    k = float(lines[0].split()[1])
+    pins = msgpack.unpackb(Path(args[3]).read_bytes())['rows']
+    layers = read_layers(Path(args[4]))
+    openmc = Path(args[5]) if len(args) == 6 else None
+    k_keno, s_keno = keno_k(spec, problem)
+    files = [Path(a) for a in args[1:5]]
+    if openmc:
+        files += [openmc / name for name in ['k.json', 'layers.msgpack', 'pins.msgpack', 'pins-std.msgpack']]
+    summary = {'format': 'xlc-compare-p3', 'problem': problem, 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], 'k': {'xlc': k, 'keno': k_keno, 'keno_std': s_keno, 'diff_keno_pcm': (k - k_keno) * 100000.0}}
+    if openmc:
+        ref = json.loads((openmc / 'k.json').read_text())
+        summary['k'].update({'openmc': ref['k'], 'openmc_std': ref['k-std'], 'diff_openmc_pcm': (k - ref['k']) * 100000.0, 'diff_openmc_std_pcm': ref['k-std'] * 100000.0})
+    keno_bounds, keno_power = keno_axial(spec, problem)
+    ours_axial = coarsen(layers['bounds'], layers['axial'], keno_bounds)
+    summary['axial_vs_keno'] = axial_summary('KENO-VI', keno_bounds, ours_axial, keno_power, levels=True)
+    summary['pins_vs_keno'] = keno_pins(spec, problem, pins)
+    if not openmc:
+        return summary
+    reference = read_layers(openmc / 'layers.msgpack')
+    ref_bounds = [b - reference['bounds'][0] for b in reference['bounds']]
+    ours_ref_axial = coarsen(layers['bounds'], layers['axial'], ref_bounds)
+    summary['axial_vs_openmc'] = axial_summary('OpenMC', ref_bounds, ours_ref_axial, reference['axial'], levels=True)
+    axial_std = reference['axial-std']
+    multiple, at = sigma_multiple([a - b for a, b in zip(ours_ref_axial, reference['axial'])], axial_std)
+    ao_diff = offset(ref_bounds, ours_ref_axial) - offset(ref_bounds, reference['axial'])
+    ao_std = offset_std(ref_bounds, reference['axial'], axial_std)
+    summary['axial_vs_openmc'].update({'sigma_max': multiple, 'sigma_max_level': at + 1, 'levels_beyond_2sigma': sum((abs(a - b) > 2 * s for a, b, s in zip(ours_ref_axial, reference['axial'], axial_std))), 'levels_total': len(axial_std), 'ao_diff': ao_diff, 'ao_std': ao_std, 'ao_sigma': abs(ao_diff) / ao_std})
+    ref_pins = msgpack.unpackb((openmc / 'pins.msgpack').read_bytes())['rows']
+    ref_pins_std = msgpack.unpackb((openmc / 'pins-std.msgpack').read_bytes())['rows']
+    rms, worst, at = pin_stats(pins, ref_pins)
+    median, multiple, sigma_at = pin_sigma(pins, ref_pins, ref_pins_std)
+    summary['pins_vs_openmc'] = {'rms': rms, 'max': worst, 'at': list(at), 'openmc_std_median': median, 'sigma_max': multiple, 'sigma_max_at': list(sigma_at)}
+    if len(ref_bounds) != len(keno_bounds) or any((abs(a - b) > TOLERANCE * max(1.0, keno_bounds[-1]) for a, b in zip(ref_bounds, keno_bounds))):
+        raise SystemExit('the OpenMC layers differ from the KENO-VI layers')
+    summary['k'].update({'openmc_keno_diff_pcm': (summary['k']['openmc'] - k_keno) * 100000.0, 'openmc_keno_std_pcm': math.hypot(summary['k']['openmc_std'], s_keno) * 100000.0})
+    summary['axial_openmc_vs_keno'] = axial_summary('KENO-VI', keno_bounds, reference['axial'], keno_power, 'OpenMC')
+    summary['pins_openmc_vs_keno'] = keno_pins(spec, problem, ref_pins, 'pins OpenMC')
+    ours_layers = coarsen(layers['bounds'], layers['layers'], ref_bounds)
+    if len(reference['layers']) != len(ours_layers):
+        raise SystemExit(f"{len(reference['layers'])} OpenMC layer maps for {len(ours_layers)} layers")
+    overall = None
+    levels = []
+    for k_level, (a, b) in enumerate(zip(ours_layers, reference['layers'])):
+        rms, worst, at = pin_stats(a, b)
+        median, multiple, sigma_at = pin_sigma(a, b, reference['layers-std'][k_level])
+        levels.append({'level': k_level + 1, 'rms': rms, 'max': worst, 'at': list(at), 'openmc_std_median': median, 'sigma_max': multiple, 'sigma_max_at': list(sigma_at)})
+        if overall is None or abs(worst) > abs(overall[0]):
+            overall = (worst, k_level + 1, at)
+    if overall is None:
+        raise SystemExit('the OpenMC results have no layers')
+    summary['layer_pins'] = {'max': overall[0], 'max_level': overall[1], 'max_at': list(overall[2]), 'levels': levels}
+    return summary
+
+def axial_lines(d: dict) -> list[str]:
+    name, subject = (d['name'], d['subject_name'])
+    lines = [f"axial{('' if subject == 'xlc' else ' ' + subject)} vs {name}: rms {d['rms']:.4f} (relative {100 * d['relative_rms']:.2f}%), max {d['max']:+.4f} at level {d['max_level']} ({d['max_bounds'][0]:.3f}-{d['max_bounds'][1]:.3f} cm above the fuel bottom), AO {subject} {100 * d['ao_subject']:+.3f}% {name} {100 * d['ao_reference']:+.3f}%"]
+    for k, row in enumerate(d.get('levels', [])):
+        a, b = (row['subject'], row['reference'])
+        lines.append(f"  level {k + 1:2} {row['lo']:8.3f}-{row['hi']:8.3f}: {subject} {a:.5f} {name} {b:.5f} diff {a - b:+.5f}")
+    return lines
+
+def axial_report(name: str, bounds: list[float], ours: list[float], ref: list[float], subject: str='xlc', levels: bool=True) -> None:
+    summary = axial_summary(name, bounds, ours, ref, subject, levels)
+    print('\n'.join(axial_lines(summary)))
+
+def pins_line(d: dict) -> str:
+    return f"{d['subject_name']} vs KENO-VI: {d['positions']} positions, rms {100 * d['rms']:.3f}%, max {100 * d['max']:+.3f}% at {tuple(d['at'])}"
+
+def report(summary: dict) -> list[str]:
+    if 'inputs' not in summary:
+        raise SystemExit('the JSON has no inputs (an older run); rerun the stage')
+    p, k = (summary['problem'], summary['k'])
+    lines = ['inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in summary['inputs'])), f"{p} k xlc {k['xlc']:.6f} KENO-VI {k['keno']:.6f} +- {k['keno_std']:.6f} diff {k['diff_keno_pcm']:+.0f} pcm"]
+    if 'openmc' not in k:
+        return [*lines, *axial_lines(summary['axial_vs_keno']), pins_line(summary['pins_vs_keno'])]
+    lines.append(f"{p} k xlc {k['xlc']:.6f} OpenMC {k['openmc']:.6f} +- {k['openmc_std']:.6f} diff {k['diff_openmc_pcm']:+.0f} +- {k['diff_openmc_std_pcm']:.0f} pcm")
+    lines += axial_lines(summary['axial_vs_keno'])
+    lines.append(pins_line(summary['pins_vs_keno']))
+    a = summary['axial_vs_openmc']
+    lines += axial_lines(a)
+    lines.append(f"axial xlc - OpenMC in sigma (layer errors independent, normalization not included): max {a['sigma_max']:.1f} at level {a['sigma_max_level']}, {a['levels_beyond_2sigma']} of {a['levels_total']} levels beyond 2 sigma")
+    lines.append(f"AO xlc - OpenMC {100 * a['ao_diff']:+.3f} +- {100 * a['ao_std']:.3f}% (layer errors independent; {a['ao_sigma']:.1f} sigma)")
+    o = summary['pins_vs_openmc']
+    lines.append(f"pins vs OpenMC: rms {100 * o['rms']:.3f}%, max {100 * o['max']:+.3f}% at {tuple(o['at'])}")
+    lines.append(f"pins xlc - OpenMC in sigma: OpenMC relative std median {100 * o['openmc_std_median']:.3f}%, max difference {o['sigma_max']:.1f} sigma at {tuple(o['sigma_max_at'])}")
+    lines.append(f"{p} k OpenMC {k['openmc']:.6f} KENO-VI {k['keno']:.6f} diff {k['openmc_keno_diff_pcm']:+.1f} +- {k['openmc_keno_std_pcm']:.1f} pcm")
+    lines += axial_lines(summary['axial_openmc_vs_keno'])
+    lines.append(pins_line(summary['pins_openmc_vs_keno']))
+    layer = summary['layer_pins']
+    for row in layer['levels']:
+        lines.append(f"  level {row['level']:2}: pins rms {100 * row['rms']:.3f}%, max {100 * row['max']:+.3f}% at {tuple(row['at'])}; OpenMC relative std median {100 * row['openmc_std_median']:.3f}%, max difference {row['sigma_max']:.1f} sigma at {tuple(row['sigma_max_at'])}")
+    lines.append(f"layer pins vs OpenMC: max {100 * layer['max']:+.3f}% at level {layer['max_level']} {tuple(layer['max_at'])}")
+    return lines
+
+def main() -> None:
+    args = sys.argv[1:]
+    if len(args) == 2 and args[0] == '--report':
+        summary = json.loads(Path(args[1]).read_text())
+        if summary.get('format') != 'xlc-compare-p3':
+            raise SystemExit(f'{args[1]}: not xlc-compare-p3')
+        print('\n'.join(report(summary)))
+    elif len(args) in (7, 8) and args[0] == '--json':
+        Path(args[1]).write_text(json.dumps(compare(args[2:]), indent=1) + '\n')
+    else:
+        raise SystemExit(__doc__)
+if __name__ == '__main__':
+    main()

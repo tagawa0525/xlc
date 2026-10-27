@@ -1,0 +1,42 @@
+import sys
+from pathlib import Path
+import msgpack
+import numpy as np
+
+def read(path: str) -> np.ndarray:
+    rows = np.array(msgpack.unpackb(Path(path).read_bytes(), raw=False)['rows'])
+    rows = rows[rows.any(axis=1)][:, rows.any(axis=0)]
+    return rows / rows[rows > 0].mean()
+
+def summary(name: str, a: np.ndarray, b: np.ndarray, power: np.ndarray) -> None:
+    fuel = b > 0
+    if not np.array_equal(fuel, a > 0):
+        raise SystemExit('the two maps have different fuel cells')
+    d = a[fuel] / b[fuel] - 1
+    hot = power[fuel] >= 0.8
+    if not hot.any():
+        raise SystemExit('no pin of the reference has a power of 0.8 or more')
+    print(f'{name}: {fuel.sum()} pins, rms {100 * np.sqrt((d * d).mean()):.3f}%, max {100 * d[np.abs(d).argmax()]:+.3f}%, max at power >= 0.8 {100 * np.abs(d[hot]).max():.3f}%')
+
+def main() -> None:
+    a, b = (read(sys.argv[1]), read(sys.argv[2]))
+    if a.shape != b.shape:
+        raise SystemExit(f'shapes differ: {a.shape} and {b.shape}')
+    summary('pins', a, b, b)
+    if '--blocks' in sys.argv:
+        n = int(sys.argv[sys.argv.index('--blocks') + 1])
+        if a.shape[0] != a.shape[1] or a.shape[0] % n != 0:
+            raise SystemExit(f'a {a.shape} map does not split into {n} x {n} assemblies')
+        size = a.shape[0] // n
+        mean_a, mean_b = (np.ones_like(a), np.ones_like(b))
+        blocks = []
+        for r in range(n):
+            for c in range(n):
+                s = (slice(r * size, (r + 1) * size), slice(c * size, (c + 1) * size))
+                fa, fb = (a[s][a[s] > 0].mean(), b[s][b[s] > 0].mean())
+                mean_a[s], mean_b[s] = (fa, fb)
+                blocks.append(f'{100 * (fa / fb - 1):+.3f}%')
+        print('assembly means:', ' '.join(blocks))
+        summary('shape in assemblies', a / mean_a, b / mean_b, b)
+if __name__ == '__main__':
+    main()

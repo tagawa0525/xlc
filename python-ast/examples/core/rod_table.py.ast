@@ -1,0 +1,69 @@
+import sys
+import msgpack
+
+def read(path):
+    with open(path, 'rb') as f:
+        table = msgpack.unpackb(f.read(), raw=False, strict_map_key=False)
+    if table.get('format') != 'xlc-table':
+        sys.exit(f'{path}: not an xlc-table')
+    if any((axis['name'] == 'rod' for axis in table['axes'])):
+        sys.exit(f'{path}: already has a rod axis')
+    if 'points' not in table:
+        sys.exit(f'{path}: has no points')
+    return table
+
+def burnup_axis(table):
+    names = [axis['name'] for axis in table['axes']]
+    return names.index('burnup') if 'burnup' in names else None
+
+def merge(pairs):
+    first = pairs[0][2]
+    b = burnup_axis(first)
+    others = [a for i, a in enumerate(first['axes']) if i != b]
+    burnups = first['axes'][b]['points'] if b is not None else None
+    sub = first['split'] ** 2
+    rows = []
+    for r, (value, path, table) in enumerate(pairs):
+        for key in ('bounds', 'split'):
+            if table[key] != first[key]:
+                sys.exit(f'{path} ({value}): {key} differs from {pairs[0][1]}: {table[key]} vs {first[key]}')
+        if table.get('heavy_metal') != first.get('heavy_metal'):
+            sys.exit(f"{path} ({value}): heavy_metal differs from {pairs[0][1]}: {table.get('heavy_metal')} vs {first.get('heavy_metal')}")
+        tb = burnup_axis(table)
+        if (tb is None) != (b is None):
+            sys.exit(f'{path} ({value}): the burnup axis differs from {pairs[0][1]}')
+        axes = [a for i, a in enumerate(table['axes']) if i != tb]
+        if axes != others or (tb is not None and tb != b):
+            sys.exit(f"{path} ({value}): axes differ from {pairs[0][1]}: {table['axes']} vs {first['axes']}")
+        own = table['axes'][tb]['points'] if tb is not None else None
+        if own is not None and any((p not in burnups for p in own)):
+            sys.exit(f'{path} ({value}): the burnups {own} are not points of {pairs[0][1]} {burnups}')
+        if len(table['states']) != len(table['points']) * sub:
+            sys.exit(f"{path} ({value}): {len(table['states'])} states for {len(table['points'])} points")
+        for n, point in enumerate(table['points']):
+            point = list(point)
+            if tb is not None:
+                point[tb] = burnups.index(own[point[tb]])
+            rows.append((point + [r], table['states'][n * sub:(n + 1) * sub]))
+    rows.sort(key=lambda row: row[0])
+    merged = dict(first)
+    merged['axes'] = first['axes'] + [{'name': 'rod', 'values': [v for v, _, _ in pairs]}]
+    merged['points'] = [point for point, _ in rows]
+    merged['states'] = [s for _, states in rows for s in states]
+    return merged
+
+def main():
+    if len(sys.argv) < 4:
+        sys.exit('usage: rod_table.py <output> <value>=<table> <value>=<table> ...')
+    output = sys.argv[1]
+    pairs = [arg.split('=', 1) for arg in sys.argv[2:]]
+    if any((len(p) != 2 for p in pairs)):
+        sys.exit('each table is <value>=<path>')
+    values = [v for v, _ in pairs]
+    if values[0] != 'out' or len(set(values)) != len(values):
+        sys.exit(f'the values must start with out and be distinct, got {values}')
+    merged = merge([(value, path, read(path)) for value, path in pairs])
+    with open(output, 'wb') as f:
+        f.write(msgpack.packb(merged, use_bin_type=True))
+if __name__ == '__main__':
+    main()

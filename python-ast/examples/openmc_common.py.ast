@@ -1,0 +1,47 @@
+from collections.abc import Callable
+from pathlib import Path
+import msgpack
+import numpy as np
+import openmc
+STORED = {'elastic': '(n,elastic)', 'capture': '(n,gamma)'}
+
+def material(name: str, densities: dict[str, float], temperature: float) -> openmc.Material:
+    m = openmc.Material(name=name, temperature=temperature)
+    for nuclide, density in densities.items():
+        m.add_nuclide(nuclide, density, 'ao')
+    m.set_density('sum')
+    return m
+
+def eigenvalue_settings(particles: int, batches: int, inactive: int, seed: int, half: float) -> openmc.Settings:
+    settings = openmc.Settings()
+    settings.particles = particles
+    settings.batches = batches
+    settings.inactive = inactive
+    settings.seed = seed
+    settings.source = openmc.IndependentSource(space=openmc.stats.Box((-half, -half, -1), (half, half, 1)), constraints={'fissionable': True})
+    return settings
+
+def group_filter(library: Path) -> openmc.EnergyFilter:
+    bounds = msgpack.unpackb(library.read_bytes())['group_bounds']
+    return openmc.EnergyFilter(sorted(bounds))
+
+def fuel_tallies(name: str, filters: list[openmc.Filter], nuclides: list[str], scores: list[str]) -> list[openmc.Tally]:
+    rates = openmc.Tally(name=name)
+    rates.filters = filters
+    rates.nuclides = nuclides
+    rates.scores = [STORED.get(score, score) for score in scores]
+    flux = openmc.Tally(name=f'{name} flux')
+    flux.filters = filters
+    flux.scores = ['flux']
+    return [rates, flux]
+
+def effective_xs(sp: openmc.StatePoint, name: str, densities: dict[str, float], scores: list[str], arrange: Callable[[np.ndarray], np.ndarray]) -> dict[str, dict[str, np.ndarray]]:
+    phi = arrange(sp.get_tally(name=f'{name} flux').get_values(scores=['flux']))
+    rates = sp.get_tally(name=name)
+    xs = {}
+    for nuclide, density in densities.items():
+        xs[nuclide] = {}
+        for score in scores:
+            rate = arrange(rates.get_values(scores=[STORED.get(score, score)], nuclides=[nuclide]))
+            xs[nuclide][score] = np.divide(rate, density * phi, out=np.zeros_like(rate), where=phi > 0)
+    return xs
