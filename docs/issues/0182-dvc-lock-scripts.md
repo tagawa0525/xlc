@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [dvc, tooling]
 opened: 2026-10-28
-closed:
+closed: 2026-10-28
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット d0ed14af0
 ---
 
 # dvc.lock の比較とステージ数の計数をスクリプトにする
@@ -51,3 +51,7 @@ Python は別の closure で、PYTHONNOUSERSITE と PATH の都合から検証�
 ## 経緯
 
 - 2026-10-28: 起こした（親が推した 4 件の仕組みの案（この issue のスクリプト 2 件を含む）を、ユーザーが 08:14 に推奨のとおり採った）
+- 2026-10-28: 実装した。`dvc status --json` の値は辞書か、中身の無い種類の文字列（`always changed`）で、種類に
+  `changed command` もある。094a34403 の `scripts/count-changed-stages.py` は 630 ステージ（changed deps 626、changed outs 10、
+  changed command 1、always changed 4）で、`dvc status --json` のキーの数と一致した。flake.nix の変更は `build` の deps なので、
+  マージの後に `build` の lock を付け直す（`dvc repro -s build`）。
