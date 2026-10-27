@@ -201,6 +201,7 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py extract openmc-mox1-rings1.toml openmc-mox1-rings1 openmc-mox1-rings1.msgpack
     deps:
       - openmc_depletion_mox.py
+      - ../mox/openmc_model.py
       - references-shell.txt
       - openmc-mox1-rings1
       - openmc-mox1-rings1.toml
