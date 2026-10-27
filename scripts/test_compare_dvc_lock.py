@@ -74,7 +74,7 @@ class CompareLocks(unittest.TestCase):
         self.assertEqual(cmp.compare_locks("f", text, text), [])
         self.assertEqual(
             cmp.compare_locks("f", text, lock()),
-            ["f: stage a: added", "f: stage s: removed"],
+            ["f: stage s: removed", "f: stage a: added"],
         )
 
     def test_stage_without_params_equals_stage_without_params(self):

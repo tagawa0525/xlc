@@ -20,7 +20,9 @@ COMPARED = ("cmd", "outs", "params")
 def parse(text):
     if text is None:
         return {}
-    return (yaml.safe_load(text) or {}).get("stages") or {}
+    stages = (yaml.safe_load(text) or {}).get("stages") or {}
+    # 中身の無いステージ（null）は、欄の無いステージとして比べる
+    return {name: stage or {} for name, stage in stages.items()}
 
 
 def compare_locks(name, base_text, head_text):
@@ -53,15 +55,16 @@ def main(argv):
         return 2
     base, head = argv[1], argv[2]
     listed = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}..{head}", "--", "*dvc.lock"],
+        ["git", "diff", "--name-only", "-z", f"{base}..{head}", "--", "*dvc.lock"],
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.split()
+    ).stdout.split("\0")[:-1]
     diffs = []
     for path in listed:
         diffs += compare_locks(path, show(base, path), show(head, path))
-    print("\n".join(diffs))
+    if diffs:
+        print("\n".join(diffs))
     print(f"{len(listed)} lock files compared, {len(diffs)} differences")
     return 1 if diffs else 0
 
