@@ -4,6 +4,7 @@
 """
 
 import ast
+import functools
 import os
 import re
 import subprocess
@@ -158,8 +159,13 @@ def python_ast_items() -> list[str]:
     return re.findall(r"- (\S+)", block.group(1))
 
 
+@functools.cache
 def stage_deps() -> dict[str, list[str]]:
-    """例の dvc.yaml ごとの、リストの項目の行（リポジトリの直下からのパスに直したもの）"""
+    """例の dvc.yaml ごとの、.py と正規形のパス（リポジトリの直下からのパスに直したもの）
+
+    YAML を読むライブラリは references の devShell に無いので、行から拾う。コメントと cmd の行を除いたすべての語を見る
+    （リストの項目の行に限らない: 行末のコメントや `[a.py]` の形の deps も拾う）。
+    """
     files = subprocess.run(
         ["git", "ls-files", "--", ":(glob)**/dvc.yaml"],
         cwd=ROOT,
@@ -172,12 +178,16 @@ def stage_deps() -> dict[str, list[str]]:
         if name == "dvc.yaml":
             continue
         base = os.path.dirname(name)
-        lines = (ROOT / name).read_text(encoding="utf-8").splitlines()
-        result[name] = [
-            os.path.normpath(os.path.join(base, m.group(1)))
-            for line in lines
-            if (m := re.match(r"\s*-\s+(\S+?)(:)?\s*$", line))
-        ]
+        paths = []
+        for line in (ROOT / name).read_text(encoding="utf-8").splitlines():
+            code = re.sub(r"(^|\s)#.*$", "", line)
+            if re.match(r"\s*cmd:", code):
+                continue
+            paths += [
+                os.path.normpath(os.path.join(base, path))
+                for path in re.findall(r"[\w./${}-]+\.(?:py|ast)(?![\w.])", code)
+            ]
+        result[name] = paths
     return result
 
 
@@ -197,7 +207,7 @@ class RepositoryDepsTest(unittest.TestCase):
             f"{name}: {dep}"
             for name, deps in stage_deps().items()
             for dep in deps
-            if dep.startswith("python-ast/") and dep not in written
+            if dep.endswith(".ast") and dep not in written
         ]
         self.assertEqual(unknown, [])
 
@@ -207,6 +217,15 @@ class RepositoryDepsTest(unittest.TestCase):
             item for item in python_ast_items() if f"python-ast/{item}.ast" not in used
         ]
         self.assertEqual(unused, [])
+
+    def test_committed_forms_match_the_current_python_files(self):
+        stale = [
+            item
+            for item in python_ast_items()
+            if (ROOT / "python-ast" / f"{item}.ast").read_text(encoding="utf-8")
+            != norm.normalize((ROOT / item).read_text(encoding="utf-8"), filename=item)
+        ]
+        self.assertEqual(stale, [])
 
 
 if __name__ == "__main__":
