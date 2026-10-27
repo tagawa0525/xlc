@@ -2104,7 +2104,7 @@ fn dilute_resonances_drop_out_of_the_thinned_grid() {
 fn thinned_transfers_follow_the_full_grid() {
     // ADR-0208: 間引いた格子の移行の行は、間引かない格子の行と一致する。差は、ほかの群への移行を間引いた格子で数えた誤差と、自分の群への
     // 移行に入る群定数の弾性散乱の間引きの誤差で、行の和に対して 1e−6 以内（測った最大は 3.7e−7）。ただし、落ちた共鳴が群の境界から核の
-    // 届く幅の中にある薄い核種（Tc-99）は、その群から出る移行を間引いた格子で数える誤差がそのまま入り、1e−3 以内（測った最大は 2.0e−4。
+    // 届く幅の中にある薄い核種（Tc-99）は、その群から出る移行を間引いた格子で数える誤差がそのまま入り、4e−4 以内（測った最大は 2.0e−4。
     // 間引きの許容差 1e−4 と同じ桁）
     let (_, fuel, _) = transfer_cell(None);
     let fuel_index = |name: &str| {
@@ -2128,7 +2128,7 @@ fn thinned_transfers_follow_the_full_grid() {
             for (e, (a, b)) in a.iter().zip(b).enumerate() {
                 assert_eq!(a.rows.len(), b.rows.len(), "{label}: ring {i} nuclide {e}");
                 let bound = if i == 0 && e == fuel_index("Tc-99") {
-                    1e-3
+                    4e-4
                 } else {
                     1e-6
                 };
