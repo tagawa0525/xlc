@@ -1964,7 +1964,7 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
 }
 
 /// [`thermal_cell_with`] の [`FINE_BOUNDS`] の 100 eV より下の減速計算と移行（燃料、真空、減速材 2 つのリング）。燃料には、5.19 eV に
-/// 弾性散乱の共鳴を持つ薄い核種（物質の断面積への寄与が間引きの許容差より小さく、間引いた格子から共鳴の点が落ちる）を足す。H-1 に
+/// 弾性散乱の共鳴を持つ薄い核種（物質の断面積への寄与が間引きの許容差より小さく、間引いた格子から共鳴の点が落ちうる）を足す。H-1 に
 /// 表 `table` を持たせる（S(α, β) の移行を選ぶとき）
 fn thermal_transfers(
     thinning: Option<f64>,
@@ -2032,7 +2032,8 @@ fn transfer_kernels() -> [(&'static str, Scattering, Option<SabTransfer>); 4] {
 
 #[test]
 fn thinned_transfers_keep_the_shielded_elastic_as_the_row_sums() {
-    // ADR-0208: 間引いた格子でも、移行の行の和は核種の格子で縮約した弾性散乱断面積（群定数）で、要素は負にならない
+    // ADR-0208: 間引いた格子でも、移行の行の和は核種の格子で縮約した弾性散乱断面積（群定数。間引いた格子で縮約した弾性散乱ではない）で、
+    // 要素は負にならない
     for (label, scattering, table) in transfer_kernels() {
         let (spectrum, transfers) = thermal_transfers(Some(1.0e-4), scattering, table);
         assert!(!transfers.is_empty(), "{label}");
@@ -2057,7 +2058,8 @@ fn thinned_transfers_keep_the_shielded_elastic_as_the_row_sums() {
 
 #[test]
 fn thinned_transfers_follow_the_full_grid() {
-    // ADR-0208: 間引いた格子の移行の行は、間引かない格子の行と、間引きの許容差の程度で一致する（行の和に対する要素の差）
+    // ADR-0208: 間引いた格子の移行の行は、間引かない格子の行と一致する。差は、ほかの群への移行を間引いた格子で数えた誤差だけで、
+    // 行の和に対して 1e−6 以内（測った最大は 3.9e−7。許容差は 1e−4）
     for (label, scattering, table) in transfer_kernels() {
         let (full_spectrum, full) = thermal_transfers(None, scattering, table.clone());
         let (thinned_spectrum, thinned) = thermal_transfers(Some(1.0e-4), scattering, table);
@@ -2073,7 +2075,7 @@ fn thinned_transfers_follow_the_full_grid() {
                     let sum: f64 = y.iter().sum();
                     for (g, (p, q)) in x.iter().zip(y).enumerate() {
                         assert!(
-                            (p - q).abs() <= 1e-4 * sum,
+                            (p - q).abs() <= 1e-6 * sum,
                             "{label}: ring {i} nuclide {e} {h} → {g}: {p} vs {q}"
                         );
                     }
