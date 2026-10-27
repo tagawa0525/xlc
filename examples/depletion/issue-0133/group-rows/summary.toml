@@ -1,0 +1,43 @@
+# #0152: 物質の群の移行の行を、状態の OpenMC の行と、OpenMC の細かい入射の区間の核を xlc の群の中の中性子束か 1/E でまとめた行に
+# 置き換えた測定の要約（group_rows.py summarize の設定）。xlc の入力は ../ufg-sab/pin-<状態>-sab-fast3.toml（S(α,β) の速い方法）。
+# 状態の OpenMC の行は 1C-0 と 2A-40 が Slurm 534、MOX1 が 558。核は 2A-40 が Slurm 557（シード 2）、MOX1 が 558。1C-0 は細かい入射を
+# 数えた実行が無いので、減速材の行だけを 2 つの核で測る（減速材の核は燃料の組成によらない）。
+
+[[spec]]
+spec = "water:27-27"
+label = "減速材、4〜9.88 eV"
+
+[[spec]]
+spec = "water:14-26"
+label = "減速材、9.88 eV〜15 keV"
+
+[[spec]]
+spec = "fuel:27-27"
+label = "燃料、4〜9.88 eV"
+
+[[spec]]
+spec = "fuel:14-26"
+label = "燃料、9.88 eV〜15 keV"
+
+[[kernel]]
+key = "2A-40"
+label = "2A 40 MWd/kg（Slurm 557）"
+
+[[kernel]]
+key = "MOX1"
+label = "MOX-1 0 MWd/kg（Slurm 558）"
+
+[[state]]
+key = "1C-0"
+name = "1C 0 MWd/kg"
+kernels = ["2A-40", "MOX1"]
+
+[[state]]
+key = "2A-40"
+name = "2A 40 MWd/kg"
+kernels = ["2A-40"]
+
+[[state]]
+key = "MOX1"
+name = "MOX-1 0 MWd/kg"
+kernels = ["MOX1"]
