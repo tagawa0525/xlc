@@ -896,12 +896,12 @@ nix develop .#references -c python3 examples/depletion/issue-0133/group_rows.py 
 
 #### 計算
 
-OpenMC は 512fcca0（分岐点は main の f2e30c51）、2026-10-27（2A-40 が Slurm 557、MOX-1 が 558。30 万粒子 × 100 アクティブ世代）。
-xlc の置き換えは 7842c75c（分岐点は同じ）、2026-10-27（Slurm 559）。1C の 0 MWd/kg と 2A-40 の OpenMC の状態の行は Slurm 534（「k の差の
+OpenMC は 31ea7e26（分岐点は main の f2e30c51）、2026-10-27（2A-40 が Slurm 557、MOX-1 が 558。30 万粒子 × 100 アクティブ世代）。
+xlc の置き換えは 20b94bdf（分岐点は同じ）、2026-10-27（Slurm 559）。1C の 0 MWd/kg と 2A-40 の OpenMC の状態の行は Slurm 534（「k の差の
 候補の寄与（#0133）」）、MOX-1 は 558。xlc の UFG の中性子束は、1C の 0 MWd/kg と 2A-40 が「H in H2O の S(α,β) の UFG の散乱核（ADR-0205）」の
-`fine_flux` の出力（b7541488）、MOX-1 は f2e30c51 のコードで 512fcca0 と同じ入力を手元で解いたもの（2026-10-27）。ライブラリは
-examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。群の中の区間の中性子束の比（`spectrum`）は 7842c75c、状態の間の xlc の
-中性子束の形の比（`shift`）は 19e45e9e で手元で出した（2026-10-28）。ログは `issue-0133/group-rows/logs/`、要約は
+`fine_flux` の出力（b7541488）、MOX-1 は f2e30c51 のコードで 31ea7e26 と同じ入力を手元で解いたもの（2026-10-27）。ライブラリは
+examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。群の中の区間の中性子束の比（`spectrum`）は 20b94bdf、状態の間の xlc の
+中性子束の形の比（`shift`）は 76c42ede で手元で出した（2026-10-28）。ログは `issue-0133/group-rows/logs/`、要約は
 `issue-0133/group-rows/summary.json`。時間はどれも `--timed` でないジョブなので記録しない。
 
 #### 結果
