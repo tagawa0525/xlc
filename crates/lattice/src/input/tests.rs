@@ -396,8 +396,17 @@ fn ufg_tolerance_thins_only_when_given() {
 }
 
 #[test]
-fn ufg_scattering_defaults_to_targets_at_rest() {
-    // ADR-0203: 省略すると静止した標的。"free-gas" で自由ガスの核にし、`ufg-free-gas` で条件を選ぶ
+fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
+    // ADR-0209: 省略すると、ADR-0205 の速い方法（軽い核種と重い核種の 400 kT までの自由ガス、細かさ 2、スイープ 3 回、H in H2O の
+    // S(α, β)）。`ufg-free-gas` の書かない項目もその値
+    let fast = FreeGas {
+        upper: Some(400.0),
+        cells: 2,
+        sweeps: Some(3),
+        heavy: Some(400.0),
+        sab: true,
+    };
+    assert_eq!(FreeGas::default(), fast);
     let scattering = |lines: &str| {
         replaced(
             PIN_CELL,
@@ -408,90 +417,93 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
     };
     assert_eq!(
         LatticeInput::parse(PIN_CELL).unwrap().scattering,
-        Scattering::Static
+        Scattering::FreeGas(fast)
+    );
+    assert_eq!(
+        scattering("ufg-scattering = \"free-gas\"").unwrap(),
+        Scattering::FreeGas(fast)
     );
     assert_eq!(
         scattering("ufg-scattering = \"static\"").unwrap(),
         Scattering::Static
     );
+    // `ufg-scattering` を省略しても条件を書ける
     assert_eq!(
-        scattering("ufg-scattering = \"free-gas\"").unwrap(),
-        Scattering::FreeGas(FreeGas::default())
+        scattering("ufg-free-gas = { cells = 4 }").unwrap(),
+        Scattering::FreeGas(FreeGas { cells: 4, ..fast })
     );
     assert_eq!(
         scattering(
-            "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = 400, cells = 8, sweeps = 2 }"
+            "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = 300, cells = 8, sweeps = 2 }"
         )
         .unwrap(),
         Scattering::FreeGas(FreeGas {
-            upper: Some(400.0),
+            upper: Some(300.0),
             cells: 8,
             sweeps: Some(2),
+            ..fast
+        })
+    );
+    // 参照の値: 上限なし（inf）、収束まで（sweeps = inf）、重い核種は静止した標的（heavy = false）、自由ガスの H（sab = false）
+    assert_eq!(
+        scattering(
+            "ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = false, sab = false }"
+        )
+        .unwrap(),
+        Scattering::FreeGas(FreeGas {
+            upper: None,
+            cells: 4,
+            sweeps: None,
             heavy: None,
             sab: false,
         })
     );
-    // ADR-0204: `heavy` で分離共鳴を持つ核種も、その kT の倍数より下で自由ガスにする（inf は上限なし）
+    // ADR-0204: `heavy = inf` は重い核種の上限なしの自由ガス
     assert_eq!(
-        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = 400 }").unwrap(),
-        Scattering::FreeGas(FreeGas {
-            heavy: Some(400.0),
-            ..FreeGas::default()
-        })
-    );
-    assert_eq!(
-        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = inf }").unwrap(),
+        scattering("ufg-free-gas = { heavy = inf }").unwrap(),
         Scattering::FreeGas(FreeGas {
             heavy: Some(f64::INFINITY),
-            ..FreeGas::default()
-        })
-    );
-    // ADR-0205: `sab` で、S(α, β) を持つ核種（H in H2O の H）を S(α, β) の上限より下で S(α, β) の移行にする
-    assert_eq!(
-        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { sab = true }").unwrap(),
-        Scattering::FreeGas(FreeGas {
-            sab: true,
-            ..FreeGas::default()
-        })
-    );
-    assert_eq!(
-        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { cells = 2 }").unwrap(),
-        Scattering::FreeGas(FreeGas {
-            cells: 2,
-            ..FreeGas::default()
+            ..fast
         })
     );
     for bad in [
         "ufg-scattering = \"moving\"",
-        "ufg-free-gas = { cells = 2 }",
         "ufg-scattering = \"static\"\nufg-free-gas = { cells = 2 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { cells = 0 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { sweeps = 0 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = 0 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { upper = -400 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { lower = 4 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = 0 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = -400 }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = nan }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = true }",
-        "ufg-free-gas = { heavy = 400 }",
-        "ufg-free-gas = { sab = true }",
-        "ufg-scattering = \"free-gas\"\nufg-free-gas = { sab = 1 }",
+        "ufg-free-gas = { cells = 0 }",
+        "ufg-free-gas = { sweeps = 0 }",
+        "ufg-free-gas = { sweeps = 2.5 }",
+        "ufg-free-gas = { sweeps = -inf }",
+        "ufg-free-gas = { sweeps = nan }",
+        "ufg-free-gas = { upper = 0 }",
+        "ufg-free-gas = { upper = -400 }",
+        "ufg-free-gas = { upper = nan }",
+        "ufg-free-gas = { lower = 4 }",
+        "ufg-free-gas = { heavy = 0 }",
+        "ufg-free-gas = { heavy = -400 }",
+        "ufg-free-gas = { heavy = nan }",
+        "ufg-free-gas = { heavy = true }",
+        "ufg-free-gas = { sab = 1 }",
     ] {
         assert!(scattering(bad).is_err(), "{bad}");
     }
-    let off = replaced(
-        PIN_CELL,
-        "library = \"m1.msgpack\"",
-        "library = \"m1.msgpack\"\nself-shielding = false\nufg-scattering = \"free-gas\"",
-    );
-    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    for off in [
+        "ufg-scattering = \"free-gas\"",
+        "ufg-scattering = \"static\"",
+        "ufg-free-gas = { cells = 4 }",
+    ] {
+        let off = replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\nself-shielding = false\n{off}"),
+        );
+        assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    }
 }
 
 #[test]
-fn ufg_transfer_defaults_to_the_infinite_dilution_rows() {
-    // ADR-0207: 省略すると、UFG の範囲の群の散乱行列はライブラリの無限希釈の形（ADR-0076）。"ring-flux" で等価なセルのリングの
-    // UFG の中性子束で移行を数える
+fn ufg_transfer_defaults_to_the_ring_flux_rows() {
+    // ADR-0209: 省略すると、等価なセルのリングの UFG の中性子束で移行を数える（ADR-0207）。"infinite-dilution" でライブラリの
+    // 無限希釈の形（ADR-0076）
     let transfer = |lines: &str| {
         replaced(
             PIN_CELL,
@@ -505,7 +517,7 @@ fn ufg_transfer_defaults_to_the_infinite_dilution_rows() {
             .unwrap()
             .shielding_options()
             .transfer,
-        UfgTransfer::InfiniteDilution
+        UfgTransfer::RingFlux
     );
     assert_eq!(
         transfer("ufg-transfer = \"infinite-dilution\"").unwrap(),
@@ -517,7 +529,7 @@ fn ufg_transfer_defaults_to_the_infinite_dilution_rows() {
     );
     // 間引いた格子とも組める（ADR-0208）
     assert_eq!(
-        transfer("ufg-transfer = \"ring-flux\"\nufg-tolerance = 1e-4").unwrap(),
+        transfer("ufg-tolerance = 1e-4").unwrap(),
         UfgTransfer::RingFlux
     );
     for bad in ["ufg-transfer = \"ring\"", "ufg-transfer = true"] {
@@ -529,6 +541,29 @@ fn ufg_transfer_defaults_to_the_infinite_dilution_rows() {
         "library = \"m1.msgpack\"\nself-shielding = false\nufg-transfer = \"ring-flux\"",
     );
     assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+}
+
+#[test]
+fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
+    // ADR-0209: 静止した標的と無限希釈の形を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定（ADR-0070、ADR-0076）と同じ。
+    // 解く側は条件だけで決まるので、結果もビットで同じ
+    let input = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nufg-scattering = \"static\"\nufg-transfer = \"infinite-dilution\"",
+    )
+    .unwrap();
+    let options = input.shielding_options();
+    assert_eq!(options.scattering, Scattering::Static);
+    assert_eq!(options.transfer, UfgTransfer::InfiniteDilution);
+    assert_eq!(
+        options,
+        ShieldingOptions {
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::InfiniteDilution,
+            ..ShieldingOptions::default()
+        }
+    );
 }
 
 #[test]
