@@ -444,7 +444,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             ..fast
         })
     );
-    // 参照の値: 上限なし（inf）、収束まで（sweeps = inf）、重い核種は静止した標的（heavy = false）、自由ガスの H（sab = false）
+    // ADR-0203 の参照の値（上限なし、収束まで、重い核種は静止した標的、自由ガスの H）も書ける: inf、sweeps = inf、heavy = false、sab = false
     assert_eq!(
         scattering(
             "ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = false, sab = false }"
@@ -545,23 +545,24 @@ fn ufg_transfer_defaults_to_the_ring_flux_rows() {
 
 #[test]
 fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
-    // ADR-0209: 静止した標的と無限希釈の形を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定（ADR-0070、ADR-0076）と同じ。
-    // 解く側は条件だけで決まるので、結果もビットで同じ
+    // ADR-0209: 静止した標的と無限希釈の形を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定（ADR-0070、ADR-0076）の条件と同じ。
+    // 解く側は条件だけで決まる
     let input = replaced(
         PIN_CELL,
         "library = \"m1.msgpack\"",
         "library = \"m1.msgpack\"\nufg-scattering = \"static\"\nufg-transfer = \"infinite-dilution\"",
     )
     .unwrap();
-    let options = input.shielding_options();
-    assert_eq!(options.scattering, Scattering::Static);
-    assert_eq!(options.transfer, UfgTransfer::InfiniteDilution);
     assert_eq!(
-        options,
+        input.shielding_options(),
         ShieldingOptions {
+            tolerance: 1.0e-6,
+            max_iterations: 100,
+            dancoff: crate::moc::dancoff::DancoffOptions::default(),
+            collision: Collision::Table { density: 16 },
+            thinning: None,
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
-            ..ShieldingOptions::default()
         }
     );
 }
