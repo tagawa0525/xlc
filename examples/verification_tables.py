@@ -1367,9 +1367,159 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-sab/summary.json",
     "examples/depletion/issue-0133/group-rows/summary.json",
+    "examples/depletion/issue-0133/ufg-transfer/summary.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
 }
+
+
+def ufg_transfer_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-ufg-transfer":
+        raise TableError("not an xlc-ufg-transfer summary")
+    return s
+
+
+def ufg_transfer_k(sources: list[dict]) -> str:
+    """ADR-0207 の、UFG の範囲の群の移行の形ごとの k の差（xlc − OpenMC、pcm）と、最初の状態からの増え"""
+    s = ufg_transfer_summary(sources)
+    states = s["states"]
+    first = states[0]
+    header = (
+        ["移行の形"]
+        + [t["name"] for t in states]
+        + [f"{t['name']} − {first['name']}" for t in states[1:]]
+    )
+    rows = [
+        ["OpenMC の k"]
+        + [f"{t['openmc_k']:.5f}" for t in states]
+        + ["–" for _ in states[1:]]
+    ]
+    for mode in s["modes"]:
+        diffs = [(t["modes"][mode["key"]]["k"] - t["openmc_k"]) * 1e5 for t in states]
+        rows.append(
+            [mode["label"]]
+            + [signed(d, 1) for d in diffs]
+            + [signed(d - diffs[0], 1) for d in diffs[1:]]
+        )
+    return markdown_table(header, rows)
+
+
+def ufg_transfer_swaps(sources: list[dict]) -> str:
+    """ADR-0207 の、物質の移行の行を状態の OpenMC の行に置き換えた k への寄与（pcm）を、移行の形ごとに。最後の行は、最初の状態からの
+    寄与の増え"""
+    s = ufg_transfer_summary(sources)
+    modes = s["modes"]
+    states = s["states"]
+    first = states[0]
+
+    def values(t: dict, spec: str) -> list[float]:
+        return [t["modes"][m["key"]]["swaps"][spec] for m in modes]
+
+    rows = []
+    for t in states:
+        for spec in s["specs"]:
+            v = values(t, spec["spec"])
+            rows.append(
+                [
+                    t["name"],
+                    spec["label"],
+                    *[signed(x, 1) for x in v],
+                    signed(v[-1] - v[0], 1),
+                ]
+            )
+    for t in states[1:]:
+        for spec in s["specs"]:
+            v = [
+                a - b
+                for a, b in zip(values(t, spec["spec"]), values(first, spec["spec"]))
+            ]
+            rows.append(
+                [
+                    f"{t['name']} − {first['name']}",
+                    spec["label"],
+                    *[signed(x, 1) for x in v],
+                    signed(v[-1] - v[0], 1),
+                ]
+            )
+    return markdown_table(
+        [
+            "状態",
+            "置き換え",
+            *[m["label"] for m in modes],
+            f"{modes[-1]['label']} − {modes[0]['label']}",
+        ],
+        rows,
+    )
+
+
+def ufg_transfer_rows(sources: list[dict]) -> str:
+    """ADR-0207 の、群から出る移行の、状態の OpenMC の行との比 − 1（%）。xlc は移行の形ごと、「核 × xlc の中性子束」は OpenMC の細かい
+    入射の核を xlc のリングの中性子束でまとめた行（#0152）。14〜26 群は 14 群と、15〜26 群のうち絶対値の最も大きいもの"""
+    s = ufg_transfer_summary(sources)
+    modes = [m["key"] for m in s["modes"]]
+    labels = {k["key"]: k["label"] for k in s["kernels"]}
+    rows = []
+    for t in s["states"]:
+        for kernel in t["kernels"]:
+            found = {mode: t["rows"][mode][kernel] for mode in modes}
+            materials = sorted(
+                {name.split(":")[0] for name in found[modes[0]]},
+                key=["water", "fuel"].index,
+            )
+            for material in materials:
+                spans = [("27", [27]), ("14", [14]), ("15〜26", list(range(15, 27)))]
+                for label, numbers in spans:
+                    names = [
+                        f"{material}:{g}"
+                        for g in numbers
+                        if f"{material}:{g}" in found[modes[0]]
+                    ]
+                    if not names:
+                        continue
+
+                    def ratio(
+                        mode: str,
+                        column: str,
+                        of: str = "state",
+                        found=found,
+                        names=names,
+                    ) -> float:
+                        values = [
+                            found[mode][n][column][0] / found[mode][n][of][0] - 1
+                            for n in names
+                        ]
+                        return max(values, key=abs) * 100
+
+                    rows.append(
+                        [
+                            t["name"],
+                            labels[kernel],
+                            material,
+                            label,
+                            f"{found[modes[0]][names[0]]['state'][0]:.5f}"
+                            if len(numbers) == 1
+                            else "–",
+                            *[f"{signed(ratio(mode, 'xlc'), 2)}%" for mode in modes],
+                            f"{signed(ratio(modes[-1], 'kernel-xlc'), 2)}%",
+                            f"{signed(ratio(modes[-1], 'xlc', 'kernel-xlc'), 2)}%",
+                        ]
+                    )
+    if not rows:
+        raise TableError("no rows")
+    return markdown_table(
+        [
+            "状態",
+            "核",
+            "物質",
+            "群",
+            "OpenMC (1/cm)",
+            *[m["label"] for m in s["modes"]],
+            "核 × xlc の中性子束",
+            f"{s['modes'][-1]['label']} / 核 × xlc の中性子束",
+        ],
+        rows,
+    )
 
 
 def counted_pin_cell(pins: dict | None) -> str:
@@ -1579,6 +1729,17 @@ TABLES = {
         ["examples/depletion/issue-0133/group-rows/summary.json"],
         group_rows_spectrum,
     ),
+    **{
+        f"depletion-ufg-transfer-{name}": (
+            ["examples/depletion/issue-0133/ufg-transfer/summary.json"],
+            draw,
+        )
+        for name, draw in [
+            ("k", ufg_transfer_k),
+            ("swaps", ufg_transfer_swaps),
+            ("rows", ufg_transfer_rows),
+        ]
+    },
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],
         depletion_rings,
