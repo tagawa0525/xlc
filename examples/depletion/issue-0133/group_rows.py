@@ -159,11 +159,10 @@ def rows(state, kernel_path, balance, fine, material, first, last):
         return row.sum() - row[g], row[g]
 
     for g in groups(first, last):
-        x = (
-            np.array(xlc["materials"][material]["transfer"][g])
-            / (xlc["materials"][material]["flux"][g])
-        )
-        values = {"xlc": split(x, g), "state": split(group_row(state, material, g), g)}
+        values = {
+            "xlc": split(group_row(xlc, material, g), g),
+            "state": split(group_row(state, material, g), g),
+        }
         for name in WEIGHTS:
             w = weight_of(name, kernel, fine, material, kernel.bins(g))
             values[f"kernel-{name}"] = split(kernel.row(g, w), g)
@@ -246,10 +245,18 @@ def parse_rows(text):
                 words[i]: [float(words[i + 1]), float(words[i + 2])]
                 for i in range(0, len(words), 3)
             }
-            found.setdefault(kernel, {})[f"{material}:{m.group(1)}"] = values
+            entries = found.setdefault(kernel, {})
+            name = f"{material}:{m.group(1)}"
+            if name in entries:
+                raise SummaryError(f"the rows log repeats {kernel} {name}")
+            entries[name] = values
         elif line.strip():
             raise SummaryError(f"cannot read the rows line: {line}")
     return found
+
+
+# spectrum の区間の境（`:.4g`。指数の表記を含む）
+NUMBER = r"\d+(?:\.\d+)?(?:e[+-]\d+)?"
 
 
 def parse_spectrum(text):
@@ -259,10 +266,12 @@ def parse_spectrum(text):
     for line in text.splitlines():
         if line.startswith("material "):
             material = line.split()[1]
+            if material in found:
+                raise SummaryError(f"the spectrum log repeats `{material}`")
             found[material] = []
         elif line.strip():
             m = re.fullmatch(
-                r"([\d.e+]+)-([\d.e+]+) eV: xlc [\d.]+ OpenMC [\d.]+ 比 ([+-][\d.]+)",
+                rf"({NUMBER})-({NUMBER}) eV: xlc [\d.]+ OpenMC [\d.]+ 比 ([+-][\d.]+)",
                 line,
             )
             if m is None or material is None:
@@ -329,6 +338,16 @@ def summarize(config):
         rows = parse_rows((logs / f"{key}-rows.txt").read_text())
         if set(rows) != set(state["kernels"]):
             raise SummaryError(f"{key}: the rows log has kernels {sorted(rows)}")
+        expected = {
+            f"{spec.split(':')[0]}:{g + 1}"
+            for spec in wanted
+            for g in groups(*spec.split(":")[1].split("-"))
+        }
+        for kernel, entries in rows.items():
+            if set(entries) != expected:
+                raise SummaryError(
+                    f"{key}: the {kernel} rows are {sorted(entries)}, not {sorted(expected)}"
+                )
         spectrum = logs / f"{key}-spectrum.txt"
         states.append(
             {
