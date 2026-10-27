@@ -619,6 +619,25 @@ fn interpolate(
                 .collect(),
         })
         .collect();
+    // S(α, β) の移行は、同じ格子の点の値を内挿する（格子が違えば、点の対応がない）
+    let sab_transfer = match (&low.sab_transfer, &high.sab_transfer) {
+        (None, None) => None,
+        (Some(a), Some(b)) if a.incident == b.incident && a.transfer == b.transfer => {
+            Some(SabTransfer {
+                incident: a.incident.clone(),
+                transfer: a.transfer.clone(),
+                density: a
+                    .density
+                    .iter()
+                    .zip(&b.density)
+                    .map(|(x, y)| mix(x, y))
+                    .collect(),
+            })
+        }
+        _ => {
+            return Err("the two temperatures have S(α, β) transfers on different grids".into());
+        }
+    };
     let (p, q) = (&low.pointwise, &high.pointwise);
     let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
     if repeated(&p.energy) || repeated(&q.energy) {
@@ -655,7 +674,7 @@ fn interpolate(
         shielded,
         pointwise,
         reactions,
-        sab_transfer: None,
+        sab_transfer,
     })
 }
 
@@ -697,6 +716,13 @@ fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
             for shielded in array(temperature, "shielded") {
                 map(shielded)?;
             }
+            if let Some((_, table)) = temperature
+                .iter()
+                .find(|(k, _)| k.as_str() == Some("sab_transfer"))
+                && !table.is_nil()
+            {
+                map(table)?;
+            }
             for reaction in array(temperature, "reactions") {
                 for channel in array(map(reaction)?, "channels") {
                     let channel = map(channel)?;
@@ -722,6 +748,44 @@ impl From<MsgpackError> for LibraryError {
             MsgpackError::TrailingBytes(n) => Self::TrailingBytes(n),
             MsgpackError::NotMap => Self::NotMap,
         }
+    }
+}
+
+impl SabTransfer {
+    /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数であること。
+    fn check(&self) -> Result<(), String> {
+        let increasing = |v: &[f64]| {
+            v.len() >= 2 && v.iter().all(|x| x.is_finite()) && v.windows(2).all(|w| w[0] < w[1])
+        };
+        if !(increasing(&self.incident) && self.incident[0] > 0.0) {
+            return Err("S(α, β) transfer: incident energies must be two or more increasing positive values".into());
+        }
+        if !increasing(&self.transfer) {
+            return Err("S(α, β) transfer: transfers must be two or more increasing values".into());
+        }
+        if self.density.len() != self.incident.len()
+            || self
+                .density
+                .iter()
+                .any(|row| row.len() != self.transfer.len())
+        {
+            return Err(format!(
+                "S(α, β) transfer: densities must be {} x {}",
+                self.incident.len(),
+                self.transfer.len()
+            ));
+        }
+        if let Some(bad) = self
+            .density
+            .iter()
+            .flatten()
+            .find(|v| !(v.is_finite() && **v >= 0.0))
+        {
+            return Err(format!(
+                "S(α, β) transfer: density {bad} must be finite and non-negative"
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -866,6 +930,16 @@ impl NuclideData {
                         return Err(at("pointwise data without a pointwise range".into()));
                     }
                 }
+            }
+            if let Some(table) = &t.sab_transfer {
+                if !self.thermal_scattering || range.is_none() {
+                    return Err(at(
+                        "only S(α, β) nuclides of a library with a pointwise range have S(α, β) \
+                         transfers"
+                            .into(),
+                    ));
+                }
+                table.check().map_err(at)?;
             }
             let values = t
                 .chi
