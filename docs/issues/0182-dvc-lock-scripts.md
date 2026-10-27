@@ -26,6 +26,8 @@ deps の hash だけが変わり、ステージの集合、`cmd`、`outs`、`par
 Python は別の closure で、PYTHONNOUSERSITE と PATH の都合から検証用の Python からは見えない: flake.nix の
 `dvc` の組み立て）。
 
+関係する ADR: なし（ADR-0210 の移行が動機だが、決定は変えない）
+
 ## 案
 
 1. `scripts/compare-dvc-lock.py <base> <head>`: 2 つの git の rev の間で変わった `dvc.lock` すべてについて、ステージの
