@@ -7,6 +7,7 @@
     python3 group_rows.py write <状態の transfer.msgpack> <核の transfer.msgpack> <xlc の fine.msgpack> <物質> <最初の群>
         <最後の群> <重み> <出力>
     python3 group_rows.py spectrum <核の transfer.msgpack> <xlc の fine.msgpack> <物質> <下端 eV> <上端 eV> <区間の数>
+    python3 group_rows.py shift <xlc の fine.msgpack (a)> <xlc の fine.msgpack (b)> <リング> <下端 eV> <上端 eV> <区間の数>
     python3 group_rows.py summarize <設定 (TOML)> <JSON>
 
 <状態の transfer.msgpack> は openmc_pin_transfer.py の出力（群の行）、<核の transfer.msgpack> は細かい入射の区間を数えた同じ
@@ -18,8 +19,12 @@
 Σ_i w_i r_i(h) / Σ_i w_i。重みは `openmc`（核の実行の φ_i。群の行の値に戻る）、`xlc`（xlc の中性子束の区間の積分）、`lethargy`
 （区間のレサジーの幅。1/E の中性子束）。
 
+shift は xlc の 2 つの状態の、リング（`moderator` か `fuel`）の範囲の中性子束を、レサジーの等間隔の区間で積分し、範囲の中で規格化した比
+a / b − 1 を書く（状態で群の中のスペクトルがどう変わるかを見るため）。
+
 summarize は group-rows/run.sh のログ（設定のディレクトリの `logs/`）を表の JSON にまとめる。設定は `[[spec]]`（`spec` は
-`<物質>:<最初の群>-<最後の群>`、`label`）、`[[kernel]]`（`key`、`label`）、`[[state]]`（`key`、`name`、`kernels` は核の名前の並び）。
+`<物質>:<最初の群>-<最後の群>`、`label`）、`[[kernel]]`（`key`、`label`）、`[[state]]`（`key`、`name`、`kernels` は核の名前の並び、`specs` はその状態で流した置き換え。省くとすべての `[[spec]]`。ログの置き換えが
+これと違えば止める）。
 寄与は swap_transfer の SPH 因子を置き換える前のままの k の変化の符号を変えたもの（pcm。swap_candidates.py と同じ）で、`openmc` は状態の
 OpenMC の行、`kernels` は核ごとの `xlc` と `lethargy` の重みの行に置き換えたもの。`logs/<状態>-spectrum.txt`（spectrum の出力に
 `material <物質>` を前に置いたもの）があれば、区間ごとの比 − 1 を低いエネルギーから書く。
@@ -70,9 +75,8 @@ class Kernel:
         self.transfer = np.array(entry["transfer_mean"])
         self.group_bounds = np.array(data["bounds"])
 
-    def bins(self, g):
-        """群 g（0 始まり）の区間の番号"""
-        hi, lo = self.group_bounds[g], self.group_bounds[g + 1]
+    def range_bins(self, lo, hi):
+        """[lo, hi] eV をちょうど埋める区間の番号（端が区間の境でなければ止める）"""
         inside = np.where(
             (self.bounds[:-1] <= hi * (1 + 1e-9)) & (self.bounds[1:] >= lo * (1 - 1e-9))
         )[0]
@@ -80,8 +84,12 @@ class Kernel:
             np.isclose(self.bounds[inside[0]], hi, rtol=1e-9)
             and np.isclose(self.bounds[inside[-1] + 1], lo, rtol=1e-9)
         ):
-            raise SystemExit(f"group {g + 1} is not divided into fine bins")
+            raise SystemExit(f"{lo}-{hi} eV is not divided into fine bins")
         return inside
+
+    def bins(self, g):
+        """群 g（0 始まり）の区間の番号"""
+        return self.range_bins(self.group_bounds[g + 1], self.group_bounds[g])
 
     def row(self, g, weight):
         """群 g の行（1/cm）を、区間の重み `weight` でまとめたもの"""
@@ -102,7 +110,9 @@ def xlc_weight(fine, ring, bounds):
     for j in range(len(bounds) - 1):
         ua, uc = np.log(bounds[j + 1]), np.log(bounds[j])
         if ua < u[0] - 1e-12 or uc > u[-1] + 1e-12:
-            continue
+            raise SystemExit(
+                f"{bounds[j + 1]}-{bounds[j]} eV is outside the xlc grid {e[0]}-{e[-1]} eV"
+            )
         inner = (u > ua) & (u < uc)
         grid = np.concatenate([[ua], u[inner], [uc]])
         values = np.concatenate(
@@ -112,12 +122,20 @@ def xlc_weight(fine, ring, bounds):
     return out
 
 
-def weights(kernel, fine, material):
-    return {
-        "openmc": None,
-        "xlc": xlc_weight(fine, FINE_RING[material], kernel.bounds),
-        "lethargy": np.log(kernel.bounds[:-1] / kernel.bounds[1:]),
-    }
+def weight_of(name, kernel, fine, material, bins):
+    """区間 `bins`（kernel の区間の番号）の重み。ほかの区間は 0（`Kernel.row` は群の区間だけを使う）"""
+    if name == "openmc":
+        return None
+    b = kernel.bounds
+    w = np.zeros(len(b) - 1)
+    if name == "xlc":
+        edges = np.concatenate([b[bins], [b[bins[-1] + 1]]])
+        w[bins] = xlc_weight(fine, FINE_RING[material], edges)
+    elif name == "lethargy":
+        w[bins] = np.log(b[bins] / b[bins + 1])
+    else:
+        raise SystemExit(f"weight must be one of {WEIGHTS}")
+    return w
 
 
 def group_row(data, material, g):
@@ -135,7 +153,7 @@ def groups(first, last):
 def rows(state, kernel_path, balance, fine, material, first, last):
     state, xlc = read(state), read(balance)
     kernel = Kernel(read(kernel_path), material)
-    w = weights(kernel, read(fine), material)
+    fine = read(fine)
 
     def split(row, g):
         return row.sum() - row[g], row[g]
@@ -147,7 +165,8 @@ def rows(state, kernel_path, balance, fine, material, first, last):
         )
         values = {"xlc": split(x, g), "state": split(group_row(state, material, g), g)}
         for name in WEIGHTS:
-            values[f"kernel-{name}"] = split(kernel.row(g, w[name]), g)
+            w = weight_of(name, kernel, fine, material, kernel.bins(g))
+            values[f"kernel-{name}"] = split(kernel.row(g, w), g)
         text = " ".join(f"{k} {out:.6e} {own:.6e}" for k, (out, own) in values.items())
         print(f"group {g + 1} out/own: {text}")
 
@@ -157,9 +176,10 @@ def write(state_path, kernel_path, fine, material, first, last, weight, output):
         raise SystemExit(f"weight must be one of {WEIGHTS}")
     state = read(state_path)
     kernel = Kernel(read(kernel_path), material)
-    w = weights(kernel, read(fine), material)[weight]
+    fine = read(fine)
     m = state["materials"][material]
     for g in groups(first, last):
+        w = weight_of(weight, kernel, fine, material, kernel.bins(g))
         m["transfer"][g] = (kernel.row(g, w) * m["flux"][g]).tolist()
     Path(output).write_bytes(msgpack.packb(state))
 
@@ -168,9 +188,11 @@ def spectrum(kernel_path, fine, material, lo, hi, n):
     kernel = Kernel(read(kernel_path), material)
     lo, hi, n = float(lo), float(hi), int(n)
     b = kernel.bounds
-    inside = np.where((b[:-1] <= hi * (1 + 1e-9)) & (b[1:] >= lo * (1 - 1e-9)))[0]
+    inside = kernel.range_bins(lo, hi)
+    if not 1 <= n <= len(inside):
+        raise SystemExit(f"{n} intervals for {len(inside)} fine bins")
     po = kernel.flux[inside]
-    px = xlc_weight(read(fine), FINE_RING[material], b)[inside]
+    px = weight_of("xlc", kernel, read(fine), material, inside)[inside]
     po, px = po / po.sum(), px / px.sum()
     edges = np.linspace(0, len(inside), n + 1).astype(int)
     for a, c in itertools.pairwise(edges):
@@ -178,6 +200,26 @@ def spectrum(kernel_path, fine, material, lo, hi, n):
             f"{b[inside[c - 1] + 1]:.4g}-{b[inside[a]]:.4g} eV: xlc {px[a:c].sum():.5f} "
             f"OpenMC {po[a:c].sum():.5f} 比 {px[a:c].sum() / po[a:c].sum() - 1:+.4f}"
         )
+
+
+def shift_lines(fine_a, fine_b, ring, lo, hi, n):
+    """xlc の 2 つの状態の、リング `ring` の [lo, hi] eV の中性子束を、レサジーの等間隔の n 区間で積分し、範囲の中で規格化した
+    比 a / b − 1 の行（低いエネルギーから）"""
+    edges = np.geomspace(hi, lo, n + 1)
+    a = xlc_weight(fine_a, ring, edges)[::-1]
+    b = xlc_weight(fine_b, ring, edges)[::-1]
+    a, b = a / a.sum(), b / b.sum()
+    up = edges[::-1]
+    return [
+        f"{up[j]:.4g}-{up[j + 1]:.4g} eV: 比 {a[j] / b[j] - 1:+.4f}" for j in range(n)
+    ]
+
+
+def shift(fine_a, fine_b, ring, lo, hi, n):
+    for line in shift_lines(
+        read(fine_a), read(fine_b), ring, float(lo), float(hi), int(n)
+    ):
+        print(line)
 
 
 def parse_rows(text):
@@ -220,7 +262,8 @@ def parse_spectrum(text):
             found[material] = []
         elif line.strip():
             m = re.fullmatch(
-                r"([\d.]+)-([\d.]+) eV: xlc [\d.]+ OpenMC [\d.]+ 比 ([+-][\d.]+)", line
+                r"([\d.e+]+)-([\d.e+]+) eV: xlc [\d.]+ OpenMC [\d.]+ 比 ([+-][\d.]+)",
+                line,
             )
             if m is None or material is None:
                 raise SummaryError(f"cannot read the spectrum line: {line}")
@@ -236,7 +279,7 @@ def parse_spectrum(text):
     return found
 
 
-def contributions(path, k=None):
+def contributions(path, k=None, openmc_k=None):
     """swap_transfer のログから、置き換えない k、OpenMC の k と、`<物質>:<最初の群>-<最後の群>` ごとの寄与（pcm）。`k` があれば、
     置き換えない k が同じこと（同じ入力とコードのログ）を確かめる"""
     try:
@@ -248,8 +291,13 @@ def contributions(path, k=None):
     bases = {r["base"] for r in runs.values()} | ({k} if k is not None else set())
     if len(bases) != 1:
         raise SummaryError(f"{path}: the unswapped k differs: {sorted(bases)}")
-    (base,) = {r["base"] for r in runs.values()}
-    (openmc,) = {r["openmc"] for r in runs.values()}
+    references = {r["openmc"] for r in runs.values()} | (
+        {openmc_k} if openmc_k is not None else set()
+    )
+    if len(references) != 1:
+        raise SummaryError(f"{path}: the OpenMC k differs: {sorted(references)}")
+    (base,) = bases
+    (openmc,) = references
     found = {f"{m}:{a}-{b}": -r["change"] for (m, a, b), r in runs.items()}
     return base, openmc, found
 
@@ -263,19 +311,20 @@ def summarize(config):
     for state in c["state"]:
         key = state["key"]
         k, openmc_k, openmc = contributions(logs / f"{key}-transfer.txt")
-        swaps = {
-            spec: {"openmc": openmc[spec], "kernels": {}}
-            for spec in specs
-            if spec in openmc
-        }
+        wanted = state.get("specs", specs)
+        if set(openmc) != set(wanted):
+            raise SummaryError(f"{key}: the OpenMC row swaps are {sorted(openmc)}")
+        swaps = {spec: {"openmc": openmc[spec], "kernels": {}} for spec in wanted}
         for kernel in state["kernels"]:
             for weight in ("xlc", "lethargy"):
                 _, _, found = contributions(
-                    logs / f"{key}-{kernel}-{weight}-transfer.txt", k
+                    logs / f"{key}-{kernel}-{weight}-transfer.txt", k, openmc_k
                 )
+                if set(found) != set(wanted):
+                    raise SummaryError(
+                        f"{key}: the {kernel} {weight} swaps are {sorted(found)}"
+                    )
                 for spec, pcm in found.items():
-                    if spec not in swaps:
-                        raise SummaryError(f"{key}: `{spec}` has no OpenMC row swap")
                     swaps[spec]["kernels"].setdefault(kernel, {})[weight] = pcm
         rows = parse_rows((logs / f"{key}-rows.txt").read_text())
         if set(rows) != set(state["kernels"]):
@@ -314,6 +363,7 @@ COMMANDS = {
     "write": (write, 8),
     "spectrum": (spectrum, 6),
     "summarize": (write_summary, 2),
+    "shift": (shift, 6),
 }
 
 if __name__ == "__main__":
