@@ -1882,12 +1882,15 @@ pub fn shielded_nuclide_with(
             }
             let library_row = &rows[0];
             let sum: f64 = library_row.iter().sum();
+            // 行の和が無限希釈の弾性散乱より小さい行（丸めを超えて。和が 0 の行も）は、弾性散乱でない分を配れない（ライブラリの
+            // 不整合）
             let other = if sum > 0.0 {
                 (sum - dilute.elastic[g]) / sum
+            } else if dilute.elastic[g] > 0.0 {
+                f64::NEG_INFINITY
             } else {
                 0.0
             };
-            // 行の和が無限希釈の弾性散乱より小さい行（丸めを超えて）は、弾性散乱でない分を配れない（ライブラリの不整合）
             if other < -NON_ELASTIC_ROUNDING {
                 return Err(SelfShieldingError::ElasticAboveRow {
                     name: name.into(),
@@ -1901,6 +1904,18 @@ pub fn shielded_nuclide_with(
                 .zip(library_row)
                 .map(|(t, r)| t + other * r)
                 .collect();
+            // 分布の Legendre のモーメントは |P_l| ≤ P0 なので、要素ごとの P_l/P0 は 1 以下（超えればライブラリの不整合）
+            for library_moment in &rows[1..] {
+                if let Some(to) = (0..ng).find(|&h| {
+                    library_moment[h].abs() > library_row[h] * (1.0 + NON_ELASTIC_ROUNDING)
+                }) {
+                    return Err(SelfShieldingError::MomentAboveP0 {
+                        name: name.into(),
+                        group: g,
+                        to,
+                    });
+                }
+            }
             for (moment, library_moment) in nuclide.anisotropic.iter_mut().zip(&rows[1..]) {
                 moment[g] = library_moment
                     .iter()
