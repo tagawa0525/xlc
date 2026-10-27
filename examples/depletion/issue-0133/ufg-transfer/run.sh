@@ -10,7 +10,7 @@
 #
 # 置き換えは `<物質>:<最初の群>-<最後の群>`。rows の置き換えは、核の行と比べる物質と群（燃料の核は同じ状態の実行にしかないので、
 # 状態ごとに選ぶ。空なら rows を実行しない）。<xlc の fine.msgpack> が無ければ、無限希釈の入力の fine_flux で作る（リングの中性子束は
-# どちらの形でも同じ）。ログは logs/<状態>-<形>-transfer.txt（置き換えごとに `material <物質> <群>` の行を前に置く）と
+# dilute と ring で同じ。間引いた形でも、核は間引かない格子のこの中性子束でまとめる）。ログは logs/<状態>-<形>-transfer.txt（置き換えごとに `material <物質> <群>` の行を前に置く）と
 # logs/<状態>-<形>-rows.txt（核と置き換えごとに `kernel <名前> material <物質> <群>` の行を前に置く）、balance の出力は
 # references/ufg-transfer/<状態>-<形>-balance.msgpack（git で追跡しない）。
 set -euo pipefail
@@ -21,8 +21,7 @@ mkdir -p "$here/logs" "$out"
 input() {
   case $1 in
     dilute) echo "$here/../ufg-sab/pin-$state-sab-fast3.toml" ;;
-    ring) echo "$here/pin-$state-ring.toml" ;;
-    dilute-thin | ring-thin) echo "$here/pin-$state-$1.toml" ;;
+    ring | dilute-thin | ring-thin) echo "$here/pin-$state-$1.toml" ;;
     *)
       echo "unknown mode $1" >&2
       exit 1

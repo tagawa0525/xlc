@@ -2,7 +2,7 @@
 # ADR-0208 の測定のジョブ: 1C-0 と 2A-40 の状態で、ADR-0207 の測定（jobs.sh）の 2 つの移行の形の UFG の格子を許容差 1e-4 で間引いた
 # `dilute-thin` と `ring-thin` の run.sh を同時に流し、そのあと 2 つの状態の間引かない `dilute` と `ring` の k を logs/thin-k.txt に書く
 # （間引かない形の置き換えと行は jobs.sh のログ。間引かない格子の計算は ADR-0208 で変わらないことを、この k で確かめる）。
-# リポジトリの直下で、`cargo build --release -p xlc-lattice --bin lattice --example swap_transfer --example balance` の後に実行する。
+# リポジトリの直下で、`cargo build --release -p xlc-lattice --bin lattice --example swap_transfer --example balance --example fine_flux` の後に実行する。
 # 状態の OpenMC の行と k、核、xlc の格子点ごとの中性子束は jobs.sh と同じ。
 set -euo pipefail
 R=references/openmc/pin-transfer-1C
