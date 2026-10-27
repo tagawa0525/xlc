@@ -17,6 +17,7 @@
 | `../../crates/depletion/examples/deplete_chain.rs` | チェーンと反応率から燃焼行列を組み立てて `deplete` を呼ぶ（`compare_chain_depletion.py` が呼ぶ）                       |
 | `lattice-1C-rings1.toml`、`lattice-1C-rings4.toml` | xlc の格子計算の燃焼（VERA 1C、燃料 1 リングと 4 リング）。`lattice-2A.toml` は 2A の 1 ステップの時間                 |
 | `openmc-library.toml`、`openmc_depletion.py`       | OpenMC のライブラリ（輸送する核種を xlc と揃える）と、OpenMC の燃焼（`openmc-1C-rings*.toml`）                         |
+| `openmc_depletion_mox.py`                          | MOX-1 の燃焼（ADR-0206）の OpenMC（`openmc-mox1-rings1.toml`）。xlc は `lattice-mox1-rings1.toml`。参照解は未実行      |
 | `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`）。記録の表は `../verification_tables.py` が描く                |
 | `branches/`                                        | 2A の燃焼の履歴の燃焼点からの分岐のテーブル（`branch-2A.toml`）と、それを内挿する core の集合体 1 体（`core-2A.toml`） |
 | `warm-start/`                                      | MOC を前の輸送の解から始めた（ADR-0195）2A の燃焼の最初の 10 点と分岐の 12 状態、平らな初期値からの出力との比較        |
@@ -1066,6 +1067,23 @@ xlc はジョブ 457、OpenMC はジョブ 409（どちらも上の排他のジ�
 - OpenMC の 1 回の輸送は、燃焼の tally のあるアクティブバッチが非アクティブバッチより遅い: 1 リングで 53,518 と 156,204 粒子/s（2.9 倍）、
   4 リングで 22,772 と 130,857 粒子/s（5.7 倍）（輸送 13 回の中央値。ジョブ 409 のログの `Calculation Rate`）。4 リングの輸送は
   1 リングの 2.2 倍。xlc の 1 リングは OpenMC の 1/47 の時間
+
+## MOX-1 のピンセルの燃焼（準備）
+
+LWR MOX ピンセル MOX-1（形状と組成は `../mox/`）を、1C と同じ条件（燃料 900 K、被覆管と減速材 600 K、38.41 W/g、0.1〜5 MWd/kg の
+6 ステップ、OpenMC は 1 世代 20 万粒子・130 世代、シード 1）で燃焼させる（[ADR-0206](../../docs/adr/0206-deplete-mox1-pincell-at-the-1c-conditions.md)）。
+燃料は 1 リング。燃料の温度が `../mox/` の 600 K と違うので、燃焼の初めの k はそこの比較（−219 pcm）とは比べない。
+入力とステージ（`openmc-mox1`、`openmc-mox1-extract`、`lattice-mox1`、`compare-mox1`）を準備した。参照解（OpenMC の燃焼）は未実行で、
+流すコマンドと見積もりは #0152。
+
+```sh
+~/.claude/scripts/slurm-run.sh -t 120 openmc-mox1-depletion 'nix develop -c dvc repro examples/depletion/dvc.yaml:compare-mox1'
+```
+
+### 計算
+
+xlc は 8db246fa5、分岐点は main の f2e30c51c、2026-10-27（Slurm 555。既定のジョブなので時間は記録しない）。燃料で輸送する核種は 54 で、
+粒子数を落とした OpenMC の試しの実行（Slurm 556、1 ステップ。出力は残さない）の輸送する核種と同じ（`compare_depletion.py` の検査と同じ集合）。
 
 ## 集合体の燃焼
 
