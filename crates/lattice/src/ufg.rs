@@ -104,7 +104,7 @@ pub enum UfgError {
     /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合か、間引いた格子（`ufg-tolerance`）で数えたほかの群への移行が
     /// 弾性散乱断面積を超える。ADR-0208）
     #[error(
-        "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative"
+        "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative (with `ufg-tolerance`, the transfers out of the group counted on the thinned grid may exceed the elastic)"
     )]
     Transfer {
         ring: usize,
