@@ -489,6 +489,44 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
 }
 
 #[test]
+fn ufg_transfer_defaults_to_the_infinite_dilution_rows() {
+    // ADR-0207: 省略すると、UFG の範囲の群の散乱行列はライブラリの無限希釈の形（ADR-0076）。"ring-flux" で等価なセルのリングの
+    // UFG の中性子束で移行を数える
+    let transfer = |lines: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{lines}"),
+        )
+        .map(|input| input.shielding_options().transfer)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL)
+            .unwrap()
+            .shielding_options()
+            .transfer,
+        UfgTransfer::InfiniteDilution
+    );
+    assert_eq!(
+        transfer("ufg-transfer = \"infinite-dilution\"").unwrap(),
+        UfgTransfer::InfiniteDilution
+    );
+    assert_eq!(
+        transfer("ufg-transfer = \"ring-flux\"").unwrap(),
+        UfgTransfer::RingFlux
+    );
+    for bad in ["ufg-transfer = \"ring\"", "ufg-transfer = true"] {
+        assert!(transfer(bad).is_err(), "{bad}");
+    }
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\nufg-transfer = \"ring-flux\"",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+}
+
+#[test]
 fn self_shielding_needs_a_library() {
     let result = replaced(
         LATTICE,

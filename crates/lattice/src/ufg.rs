@@ -323,6 +323,30 @@ pub fn slowing_down_with(
     )
 }
 
+/// 1 つの核種の、UFG の範囲の群から出る弾性散乱の移行（ADR-0207。[`slowing_down_transfers`]）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct NuclideTransfer {
+    /// 入射の群（ライブラリの群の番号。減速計算した群）
+    pub groups: Range<usize>,
+    /// [入射の群 − `groups.start`][出射の群（ライブラリのすべての群）] の移行の微視的断面積 (barn)
+    pub rows: Vec<Vec<f64>>,
+}
+
+/// [`slowing_down_with`] と同じ減速計算を解き、[リング][核種（物質の組成の順）] の弾性散乱の移行の行も返す（ADR-0207）。
+#[allow(clippy::too_many_arguments)]
+pub fn slowing_down_transfers(
+    library: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    collision: Collision,
+    thinning: Option<f64>,
+    scattering: Scattering,
+) -> Result<(CellSpectrum, Vec<Vec<NuclideTransfer>>), UfgError> {
+    let spectrum = slowing_down_with(library, cell, rings, range, collision, thinning, scattering)?;
+    Ok((spectrum, Vec::new()))
+}
+
 /// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]）。
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FineFlux {

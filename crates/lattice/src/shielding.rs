@@ -36,7 +36,8 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, Collision, Scattering, UfgError, cell_range, material_range, slowing_down_with,
+    CellSpectrum, Collision, NuclideTransfer, Scattering, UfgError, cell_range, material_range,
+    slowing_down_with,
 };
 
 /// 格子の燃料の自己遮蔽の反復の条件。
@@ -53,6 +54,8 @@ pub struct ShieldingOptions {
     pub thinning: Option<f64>,
     /// 燃料のピンと棒の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
     pub scattering: Scattering,
+    /// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（ADR-0207）
+    pub transfer: UfgTransfer,
 }
 
 impl Default for ShieldingOptions {
@@ -64,8 +67,19 @@ impl Default for ShieldingOptions {
             collision: Collision::default(),
             thinning: None,
             scattering: Scattering::Static,
+            transfer: UfgTransfer::InfiniteDilution,
         }
     }
+}
+
+/// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の群の間の移行の形（ADR-0207）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UfgTransfer {
+    /// ライブラリの無限希釈の形のまま、行の和を自己遮蔽した弾性散乱に合わせる（ADR-0076）
+    #[default]
+    InfiniteDilution,
+    /// 弾性散乱の移行を、UFG の減速計算でリングの中性子束と同じ散乱核で数える
+    RingFlux,
 }
 
 /// 格子の燃料の自己遮蔽のエラー。
@@ -222,6 +236,12 @@ impl FuelShielding {
             .get(region)?
             .as_deref()
             .map(Vec::as_slice)
+    }
+
+    /// 領域 `region` の物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`] で遮蔽した等価なセルのリングの
+    /// 領域だけ。核種の順は [`FuelShielding::region_cross_sections`] と同じ）（未実装）
+    pub fn region_transfers(&self, _region: usize) -> Option<&[NuclideTransfer]> {
+        None
     }
 
     /// MOC の中性子束 `flux`（[領域][群]）を物理的な中性子束にする。SPH 因子 μ を掛けた領域と群では、MOC の中性子束は
@@ -1722,6 +1742,17 @@ pub fn shielded_nuclide(
     Ok(nuclide)
 }
 
+/// [`shielded_nuclide`] の、UFG の範囲の群の弾性散乱の移行 `transfer` を使うもの（未実装）
+pub fn shielded_nuclide_with(
+    library: &Library,
+    name: &str,
+    temperature: f64,
+    shielded: &Shielded,
+    _transfer: Option<&NuclideTransfer>,
+) -> Result<Nuclide, SelfShieldingError> {
+    shielded_nuclide(library, name, temperature, shielded)
+}
+
 /// 自己遮蔽の計算のエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum ShieldingError {
@@ -1858,4 +1889,4 @@ pub fn effective(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
