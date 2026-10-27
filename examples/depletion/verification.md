@@ -1424,14 +1424,17 @@ ADR-0209 の既定で、1C の燃焼のピン（1 リング、解くピン 1 本
 探すこと、区間の端の格子点を前の端から探すこと、S(α,β) の表を複製せずに借りること（どれも和の順を変えず、結果はビットで同じ）。
 
 ```sh
-# 入力は 1C と 2A の燃焼の入力の燃焼度を最初の 1 点にしたもの。最初の自己遮蔽が終わったところで止める
-examples/depletion/issue-0180/breakdown.sh <作業ディレクトリ> before=<直す前の lattice> after=<直した後の lattice>
+# 入力は 1C と 2A の燃焼の入力の燃焼度を最初の 1 点にしたもの。内訳は debug のログ（RUST_LOG は表示だけを選ぶ。ADR-0137）
+cd examples/depletion/issue-0180
+RUST_LOG=xlc_lattice=debug <lattice> 1C-1step.toml > /dev/null 2> 1C-1step.log
+RUST_LOG=xlc_lattice=debug <lattice> 2A-1step.toml > /dev/null 2> 2A-1step.log
 ```
 
 #### 計算
 
 直す前は b48418e2（main の 45dcd41b に内訳のログだけを足したもの）、直した後は 42e1f37f（分岐点は同じ）、2026-10-28、Slurm の timed の
-ジョブ 568（16 スレッド）。要約のログは `issue-0180/logs/`。ライブラリは examples/depletion/depletion.msgpack と
+ジョブ 568（16 スレッド）。ジョブは最初の自己遮蔽の区間が閉じたところで lattice を止めた（最初の自己遮蔽の時間と値は、その後の計算に
+よらない）。要約のログ（ピンごとの `UFG slowing down`、`UFG free-gas sweep`、自己遮蔽の区間の行）は `issue-0180/logs/`。ライブラリは examples/depletion/depletion.msgpack と
 examples/depletion/p2/depletion.msgpack（分岐点の dvc.lock のもの）。
 
 #### 結果
@@ -1444,7 +1447,8 @@ examples/depletion/p2/depletion.msgpack（分岐点の dvc.lock のもの）。
 - 2A（39 本）: ピンの和で `free_gas` 606.8 → 543.3 秒、`sab` 31.1 → 29.3 秒（ピンごとに 1.6 秒以下）。ピンはスレッドが 1 本ずつ取って並列に
   解く（ADR-0198）ので、時間は 39 本の仕事の和で決まり、その 9 割が自由ガスの散乱源。S(α,β) の散乱源はピンの和の 5% で、直列でも全体を
   遅らせていなかった
-- 2 つがほぼ同じ時間だったのは、ピン数によらない固定費ではない（表の複製は 1 回 6 MB の複製で、時間に現れない）。1C は 1 本の直列の
+- 2 つがほぼ同じ時間だったのは、ピン数によらない固定費ではない（直す前の `slowing` は、2A のピンの和の 90% が自由ガスの散乱源、
+  1C の 90% が 2 つの散乱源。表の複製だけの時間は分けて測っていない）。1C は 1 本の直列の
   S(α,β) の散乱源の待ちで、2A は 39 本の自由ガスの散乱源の仕事の和で、別の理由で同じ大きさになっていた。直した後の 2A の時間は自由ガスの
   散乱源の仕事で決まる（#0181）
 - 結果はビットで同じ: 熱中性子のスイープの 3 回目の中性子束の変化は、1C で同じ値（0.01299497575639781）、2A で 39 本の値の並びが同じ。
