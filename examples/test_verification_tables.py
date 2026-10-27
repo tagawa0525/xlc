@@ -796,7 +796,7 @@ class DrawAssemblyFreeGas(unittest.TestCase):
 
     def test_each_point_has_the_difference_and_the_change_of_both_kernels(self):
         table = vt.depletion_assembly_free_gas_k(
-            [self.summary([10.6, 179.6]), self.summary([42.2, 152.5])]
+            [self.summary([10.6, 179.6]), self.summary([42.2, 152.4])]
         )
         rows = [
             [c.strip() for c in line.strip("|").split("|")]
@@ -814,11 +814,11 @@ class DrawAssemblyFreeGas(unittest.TestCase):
         )
         self.assertEqual(rows[2], ["0", "+11 \u00b1 10", "0", "+42 \u00b1 10", "0"])
         self.assertEqual(
-            rows[3], ["60", "+180 \u00b1 10", "+169", "+153 \u00b1 10", "+110"]
+            rows[3], ["60", "+180 \u00b1 10", "+169", "+152 \u00b1 10", "+110"]
         )
 
     def test_summaries_with_different_burnups_are_an_error(self):
-        other = self.summary([42.2, 152.5])
+        other = self.summary([42.2, 152.4])
         other["burnup"] = [0.0, 50.0]
         with self.assertRaises(vt.TableError):
             vt.depletion_assembly_free_gas_k([self.summary([10.6, 179.6]), other])
