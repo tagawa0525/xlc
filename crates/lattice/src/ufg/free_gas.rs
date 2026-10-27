@@ -1,5 +1,6 @@
 //! UFG の減速計算の、標的の熱運動を温度 T の自由ガスで扱う散乱核。分離共鳴を持たない核種（ADR-0203）と、選んだときの分離共鳴を
-//! 持つ核種（ADR-0204）に使う。
+//! 持つ核種（ADR-0204）に使う。選んだときの S(α, β) の核種の、S(α, β) の上限より下の入射は、ライブラリの S(α, β) の移行で
+//! 扱う（[`SabSource`]、ADR-0205）。
 //!
 //! 入射 E'（レサジー u'）、出射 E（u）のレサジーあたりの散乱核は R(u'→u) = E S(E'→E)/N(E')。S は断面積を一定とした
 //! 自由ガスの核（[`kernel`]）、N は温度に拡げた断面積と自由原子の断面積の比（[`effective_ratio`]）で、ライブラリの
@@ -16,6 +17,7 @@
 use std::f64::consts::PI;
 
 use rayon::prelude::*;
+use xlc_format::library::SabTransfer;
 use xlc_numeric::quadrature::GAUSS_LEGENDRE_2;
 
 /// ボルツマン定数 (eV/K)。CODATA 2018 の値（xs の `physics::BK` と同じ）
@@ -171,6 +173,8 @@ pub(super) struct Gas {
     zeta: f64,
     /// この入射エネルギー (eV) 未満で自由ガスの核を使う
     cap: f64,
+    /// この入射エネルギー (eV) 未満では、自由ガスの核の代わりに S(α, β) の移行を使う（[`Gas::below_sab`]。0 は使わない）
+    floor: f64,
 }
 
 impl Gas {
@@ -186,7 +190,27 @@ impl Gas {
             width: -alpha.ln(),
             zeta: (awr - 1.0).abs() / (2.0 * awr.sqrt()),
             cap: upper.map_or(f64::INFINITY, |n| n * kt),
+            floor: 0.0,
         }
+    }
+
+    /// S(α, β) の移行の表 `table` の上限（入射の最後の点）より下の入射で、自由ガスの核の代わりにその表を使う核種（ADR-0205）。
+    /// 静止した標的の窓は上限より下で 0 にし（[`Gas::window_scale`]）、自由ガスの核の差 D の区間は上限より上の入射に限る
+    pub(super) fn below_sab(self, table: &SabTransfer) -> Self {
+        Self {
+            floor: table.incident[table.incident.len() - 1],
+            ..self
+        }
+    }
+
+    /// S(α, β) の移行を使う入射エネルギーの上限 (eV)。使わなければ `None`
+    pub(super) fn floor(&self) -> Option<f64> {
+        (self.floor > 0.0).then_some(self.floor)
+    }
+
+    /// 自由ガスの核か S(α, β) の移行を使う入射エネルギーの上限 (eV)
+    pub(super) fn top(&self) -> f64 {
+        self.cap.max(self.floor)
     }
 
     /// 自由ガスの核を使う入射エネルギーの上限 (eV)
@@ -199,9 +223,12 @@ impl Gas {
         self.kt
     }
 
-    /// 入射エネルギー `e_in` の静止した標的の窓に掛ける 1/N(E')（自由ガスの核を使わない入射エネルギーでは 1）
-    pub(super) fn window_scale(&self, e_in: f64) -> f64 {
-        if e_in < self.cap {
+    /// 入射エネルギー `e_in` の静止した標的の窓に掛ける 1/N(E')（自由ガスの核を使わない入射エネルギーでは 1、S(α, β) の移行を使う
+    /// 入射エネルギーでは 0。`below` は不連続点の低い側の極限で、S(α, β) の上限ちょうどの低い側も 0）
+    pub(super) fn window_scale(&self, e_in: f64, below: bool) -> f64 {
+        if e_in < self.floor || (below && e_in == self.floor) {
+            0.0
+        } else if e_in < self.cap {
             1.0 / effective_ratio(e_in, self.awr, self.kt)
         } else {
             1.0
@@ -223,9 +250,9 @@ impl Gas {
 
     /// 出射のレサジー `u`（エネルギー `e`）で D が 0 でない区間を、昇順に `out` に書く（`bounds` は作業用）。上端の側は
     /// u の両側に、E' = E ± y kT（y は `grades` の段、[`grades`]）の点を置き、下端の側は u − Δ を中心に、ぼけの幅の
-    /// 1/`cells` の等間隔で ±[`EDGE`] 幅を覆う。両方を合わせ、u、u − Δ、自由ガスの核の上限、範囲の上端（u' = 0）、`bottom`
-    /// （格子の最後の点）で区切る（D と中性子束の扱いが、区間の中で変わらないように）。範囲の上（u' < 0）と、自由ガスの
-    /// 核を使わない入射エネルギーの区間は落とす（静止した標的で扱う）。
+    /// 1/`cells` の等間隔で ±[`EDGE`] 幅を覆う。両方を合わせ、u、u − Δ、自由ガスの核の上限、S(α, β) の上限、範囲の上端
+    /// （u' = 0）、`bottom`（格子の最後の点）で区切る（D と中性子束の扱いが、区間の中で変わらないように）。範囲の上（u' < 0）と、
+    /// 自由ガスの核を使わない入射エネルギーの区間（上限より上は静止した標的、S(α, β) の上限より下は S(α, β) の移行で扱う）は落とす。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn cells(
         &self,
@@ -275,7 +302,12 @@ impl Gas {
             supports[1] = (center - EDGE * blur, center + EDGE * blur);
         }
         let covered = |x: f64| supports.iter().any(|&(lo, hi)| lo <= x && x <= hi);
-        let breaks = [center, (high / self.cap).ln(), 0.0, bottom];
+        let floor = if self.floor > 0.0 {
+            (high / self.floor).ln()
+        } else {
+            f64::INFINITY
+        };
+        let breaks = [center, (high / self.cap).ln(), floor, 0.0, bottom];
         bounds.extend(breaks.into_iter().filter(|&x| covered(x)));
         bounds.sort_by(f64::total_cmp);
         // 丸めで重なった境界（下端の側の等間隔の点と u − Δ など）は 1 つにまとめる。幅がほぼ 0 の区間の 2 次式は、3 点の
@@ -287,7 +319,8 @@ impl Gas {
         for w in bounds.windows(2) {
             let (a, b) = (w[0], w[1]);
             let mid = 0.5 * (a + b);
-            if b > a && mid >= 0.0 && high * (-mid).exp() < self.cap && covered(mid) {
+            let e_mid = high * (-mid).exp();
+            if b > a && mid >= 0.0 && e_mid < self.cap && e_mid >= self.floor && covered(mid) {
                 out.push((a, b));
             }
         }
@@ -665,6 +698,8 @@ pub(super) struct Thermal {
     sigma: Vec<(usize, Vec<f64>)>,
     /// [自由ガスの核種] の（リング, 個数密度）
     rings: Vec<Vec<(usize, f64)>>,
+    /// [自由ガスの核種] の、S(α, β) の上限より下の入射で使う S(α, β) の移行の表（[`Gas::below_sab`] の核種だけ）
+    tables: Vec<Option<SabTransfer>>,
     /// 上端の側の区間の段（[`grades`]）と、下端の側の区間の細かさ
     grades: Vec<f64>,
     cells: usize,
@@ -682,12 +717,14 @@ pub(super) struct Thermal {
 }
 
 impl Thermal {
-    /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、区間の細かさ `cells`
-    /// の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ `None`。
+    /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
+    /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
+    /// `None`。
     pub(super) fn new(
         gases: Vec<Gas>,
         sigma: Vec<(usize, Vec<f64>)>,
         rings: Vec<Vec<(usize, f64)>>,
+        tables: Vec<Option<SabTransfer>>,
         cells: usize,
         energies: &[f64],
         n: usize,
@@ -695,10 +732,17 @@ impl Thermal {
         if gases.is_empty() {
             return None;
         }
-        // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0
+        // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0。S(α, β) の移行は、
+        // 表の上限から表の移行の最大まで上に届く
         let reach = gases
             .iter()
-            .map(|l| l.cap() + TAIL * l.kt())
+            .zip(&tables)
+            .map(|(l, table)| {
+                let sab = table
+                    .as_ref()
+                    .map_or(0.0, |t| l.top() + t.transfer[t.transfer.len() - 1]);
+                (l.cap() + TAIL * l.kt()).max(sab)
+            })
             .fold(0.0, f64::max);
         let first = energies.iter().position(|&e| e <= reach)?;
         let start = first.saturating_sub(1);
@@ -706,6 +750,7 @@ impl Thermal {
             gases,
             sigma,
             rings,
+            tables,
             grades: grades(cells),
             cells,
             start,
@@ -812,6 +857,20 @@ impl Thermal {
                 *own += o;
             }
         }
+        // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
+        for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
+            if let Some(table) = table {
+                let source = SabSource {
+                    table,
+                    u,
+                    high,
+                    offset: *offset,
+                    sigma,
+                };
+                let previous = previous.map(|(f, _)| f.as_slice());
+                source.add(m, e, rings, flux, previous, known, own);
+            }
+        }
     }
 
     /// 格子点 m の中性子束が決まったあと、自由ガスの核種を含むリングの累積の積率を進める
@@ -848,6 +907,127 @@ impl Thermal {
         let prefixes = std::mem::replace(&mut self.prefix, fresh);
         self.previous = Some((flux.to_vec(), prefixes));
         change
+    }
+}
+
+/// S(α, β) の移行の表による散乱源（ADR-0205）。表は入射 E' と移行 t = E − E' の累積の割合 C(E', t) を持ち、表の区間の中の核を
+/// 一定とする。出射 E（レサジー u）の散乱源 ∫ σs(u') F(u') R(u'→u) du'（R = E p(E'→E)、p は出射のエネルギーあたりの割合）を、
+/// 入射を表の移行の格子点と減速計算の格子点で区切った小区間の和にする。小区間では、核の割合 C(E'_c, t_b) − C(E'_c, t_a)
+/// （E'_c は小区間の中点の入射）に E/E'_c を掛けたものが ∫ R du' で、σs と F は中点の値（F は格子点の値の線形補間）とする。
+/// 核は E' = E に対数の山（準弾性散乱）を持つので、点の値で求積せず、表の累積の差で割合を求める。
+pub(super) struct SabSource<'a> {
+    pub(super) table: &'a SabTransfer,
+    /// 格子の全体のレサジー（昇順）と範囲の上端 (eV)
+    pub(super) u: &'a [f64],
+    pub(super) high: f64,
+    /// 弾性散乱断面積の列の最初の格子点と、そこからの [格子点] の値
+    pub(super) offset: usize,
+    pub(super) sigma: &'a [f64],
+}
+
+impl SabSource<'_> {
+    /// 格子点 m（出射 `e`）の散乱源を、[`Thermal::source`] と同じく、リング（`rings` は（リング, 個数密度））ごとに既知の部分を
+    /// `known` に、F_m の係数を `own` に足す。`flux` は今のスイープの [リング] の中性子束（m より前）、`previous` は前のスイープの
+    /// 中性子束（最初のスイープは `None` で、m より後の中性子束を F_m とする）。格子の最後の点より後（範囲の下限より下の入射）の
+    /// 中性子束は最後の点の値
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn add(
+        &self,
+        m: usize,
+        e: f64,
+        rings: &[(usize, f64)],
+        flux: &[Vec<f64>],
+        previous: Option<&[Vec<f64>]>,
+        known: &mut [f64],
+        own: &mut [f64],
+    ) {
+        let (table, u, high) = (self.table, self.u, self.high);
+        let last = u.len() - 1;
+        let floor = table.incident[table.incident.len() - 1];
+        // 入射は表の上限から（t = e − 上限）、表の入射の最初の点か移行の最大まで
+        let t_low = e - floor;
+        let t_high = table.transfer[table.transfer.len() - 1].min(e - table.incident[0]);
+        if t_low >= t_high {
+            return;
+        }
+        // 格子点 q の移行 t_q = e − E'_q（q とともに増える）。表の上限以下の入射の最初の格子点から
+        let transfer_at = |q: usize| e - high * (-u[q]).exp();
+        let mut q = u.partition_point(|&x| high * (-x).exp() > floor);
+        let mut j = table.transfer.partition_point(|&t| t <= t_low);
+        // 小区間の中点を含む格子の区間の始まり（中点とともに進める）
+        let mut cell = q.saturating_sub(1);
+        let assign = |idx: usize, c: f64, i: usize, known: &mut [f64], own: &mut [f64]| {
+            if idx < m {
+                known[i] += c * flux[i][idx];
+            } else if idx == m {
+                own[i] += c;
+            } else {
+                match previous {
+                    Some(p) => known[i] += c * p[i][idx],
+                    None => own[i] += c,
+                }
+            }
+        };
+        let mut a = t_low;
+        while a < t_high {
+            // 次の区切り: 表の移行の格子点か、減速計算の格子点の移行の小さい方
+            while q <= last && transfer_at(q) <= a {
+                q += 1;
+            }
+            let next_grid = if q <= last {
+                transfer_at(q)
+            } else {
+                f64::INFINITY
+            };
+            let next_table = table.transfer.get(j).copied().unwrap_or(f64::INFINITY);
+            let b = next_grid.min(next_table).min(t_high);
+            if next_table <= b {
+                j += 1;
+            }
+            if b <= a {
+                continue;
+            }
+            let center = 0.5 * (a + b);
+            let incident = e - center;
+            let x = (high / incident).ln();
+            // 入射と移行は表の中にある（入射は表の最初の点から上限まで、移行は上限から範囲の下限への下方散乱から表の最大まで。
+            // 表がそれを覆うことは、核種のデータを引くときに確かめてある）
+            let (Some(cb), Some(ca)) = (
+                table.cumulative_at(incident, b),
+                table.cumulative_at(incident, a),
+            ) else {
+                a = b;
+                continue;
+            };
+            let share = cb - ca;
+            a = b;
+            if share <= 0.0 {
+                continue;
+            }
+            while cell < last && u[cell + 1] <= x {
+                cell += 1;
+            }
+            let sigma = interpolate(
+                &u[self.offset..],
+                self.sigma,
+                cell.max(self.offset) - self.offset,
+                x,
+            );
+            let weight = sigma * share * e / incident;
+            // F は格子の区間 [u_cell, u_cell+1] の線形補間（最後の点より後は最後の点の値）
+            let (lower, tau) = if cell >= last || x >= u[last] {
+                (last, 0.0)
+            } else {
+                (cell, (x - u[cell]) / (u[cell + 1] - u[cell]))
+            };
+            for &(i, density) in rings {
+                let c = density * weight;
+                assign(lower, c * (1.0 - tau), i, known, own);
+                if tau > 0.0 {
+                    assign(lower + 1, c * tau, i, known, own);
+                }
+            }
+        }
     }
 }
 
