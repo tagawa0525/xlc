@@ -836,6 +836,12 @@ impl LatticeInput {
                     .into(),
             ));
         }
+        if file.ufg_transfer.as_deref() == Some("ring-flux") && thinning.is_some() {
+            return Err(invalid(
+                "`ufg-transfer = \"ring-flux\"` counts the transfers on the full grid only (not with `ufg-tolerance`. ADR-0207)"
+                    .into(),
+            ));
+        }
         let transfer = match file.ufg_transfer.as_deref() {
             None | Some("infinite-dilution") => UfgTransfer::InfiniteDilution,
             Some("ring-flux") => UfgTransfer::RingFlux,

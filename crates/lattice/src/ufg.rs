@@ -105,6 +105,17 @@ pub enum UfgError {
         "`ufg-transfer = \"ring-flux\"` counts the transfers on the full grid only (not with `ufg-tolerance`)"
     )]
     ThinnedTransfers,
+    /// 数えた移行の行が有限でないか、負の要素を持つ（減速計算と数え方の不整合）
+    #[error(
+        "ring {ring}, nuclide {nuclide}: transfer {value} from group {from} to group {to} is not finite and non-negative"
+    )]
+    Transfer {
+        ring: usize,
+        nuclide: usize,
+        from: usize,
+        to: usize,
+        value: f64,
+    },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]

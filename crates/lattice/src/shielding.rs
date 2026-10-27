@@ -43,6 +43,10 @@ use crate::ufg::{
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
 type Transfers = Arc<Vec<NuclideTransfer>>;
 
+/// ライブラリの行の和が無限希釈の弾性散乱より小さくてよい丸めの大きさ（行の和に対する比）。depletion.msgpack の UFG の範囲では、その差は
+/// 7e−16 以下
+const NON_ELASTIC_ROUNDING: f64 = 1.0e-12;
+
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ShieldingOptions {
@@ -135,11 +139,22 @@ pub enum SelfShieldingError {
     FluxGroups { given: usize, groups: usize },
     #[error("cell {0}: the SPH factors do not match the rings and groups of the cell")]
     SphLayout(usize),
-    #[error("{name}: {given} transfer rows (or row entries) for {groups} groups (internal error)")]
+    #[error(
+        "{name}: transfer rows of {given} (groups, rows or row entries) for {groups} (internal error)"
+    )]
     TransferGroups {
         name: String,
         given: usize,
         groups: usize,
+    },
+    #[error(
+        "{name}: the scattering row of group {group} sums to {row} b, below the infinitely dilute elastic {elastic} b"
+    )]
+    ElasticAboveRow {
+        name: String,
+        group: usize,
+        row: f64,
+        elastic: f64,
     },
     #[error("the lattice is not the one that was self-shielded")]
     ForeignLattice,
@@ -209,7 +224,8 @@ pub struct PinShielding {
     pub cell: usize,
     /// 群ごとの Dancoff 係数
     pub dancoff: Vec<f64>,
-    /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))。燃料のリングの物質が違うときは、個数密度は
+    /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))。散乱行列は ADR-0076 の形（[`UfgTransfer::RingFlux`] でも、
+    /// リングの移行の行は平均せず、格子の物質だけがその行を使う）。燃料のリングの物質が違うときは、個数密度は
     /// リングの体積で平均したもの（等価原理はその組成で解く。ADR-0173）
     pub nuclides: Arc<Vec<(Nuclide, f64)>>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
@@ -1811,7 +1827,14 @@ pub fn shielded_nuclide_with(
     let library_rows: Vec<(usize, Vec<Vec<f64>>)> = match transfer {
         None => Vec::new(),
         Some(t) => {
-            if t.groups.end > ng || t.rows.len() != t.groups.len() {
+            if t.groups.end > ng {
+                return Err(SelfShieldingError::TransferGroups {
+                    name: name.into(),
+                    given: t.groups.end,
+                    groups: ng,
+                });
+            }
+            if t.rows.len() != t.groups.len() {
                 return Err(SelfShieldingError::TransferGroups {
                     name: name.into(),
                     given: t.rows.len(),
@@ -1856,6 +1879,15 @@ pub fn shielded_nuclide_with(
             } else {
                 0.0
             };
+            // 行の和が無限希釈の弾性散乱より小さい行（丸めを超えて）は、弾性散乱でない分を配れない（ライブラリの不整合）
+            if other < -NON_ELASTIC_ROUNDING {
+                return Err(SelfShieldingError::ElasticAboveRow {
+                    name: name.into(),
+                    group: g,
+                    row: sum,
+                    elastic: dilute.elastic[g],
+                });
+            }
             let p0: Vec<f64> = row
                 .iter()
                 .zip(library_row)
