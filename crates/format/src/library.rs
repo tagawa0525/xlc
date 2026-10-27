@@ -773,7 +773,8 @@ impl SabTransfer {
         Some(a + w * (b - a))
     }
 
-    /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数であること。
+    /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数で、移行について
+    /// 減らないこと。
     fn check(&self) -> Result<(), String> {
         let increasing = |v: &[f64]| {
             v.len() >= 2 && v.iter().all(|x| x.is_finite()) && v.windows(2).all(|w| w[0] < w[1])
@@ -805,6 +806,13 @@ impl SabTransfer {
             return Err(format!(
                 "S(α, β) transfer: cumulative share {bad} must be finite and non-negative"
             ));
+        }
+        if self
+            .cumulative
+            .iter()
+            .any(|row| row.windows(2).any(|w| w[1] < w[0]))
+        {
+            return Err("S(α, β) transfer: cumulative shares must not decrease".into());
         }
         Ok(())
     }
