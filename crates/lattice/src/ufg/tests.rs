@@ -1739,6 +1739,34 @@ fn sab_table_must_reach_the_up_scattering_below_the_range() {
 }
 
 #[test]
+fn sab_needs_the_free_gas_of_its_nuclides() {
+    // 分離共鳴を持つ S(α, β) の核種は、`heavy` を書かなければ静止した標的で、`sab` を黙って落とさずに止める
+    let (mut lib, fuel, water) = sab_cell(Some(free_gas_transfer(0.99917, 600.0, 0.04)));
+    lib.nuclides
+        .iter_mut()
+        .find(|n| n.name == "H-1")
+        .unwrap()
+        .resolved = Some(Resolved {
+        top: 2.0e4,
+        potential: 20.0,
+    });
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    assert!(matches!(
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            sab(4, None)
+        ),
+        Err(UfgError::SabWithoutFreeGas { .. })
+    ));
+}
+
+#[test]
 fn sab_limit_must_lie_below_the_range_top() {
     // S(α, β) の上限が範囲の上端以上なら、範囲の上（静止した標的と群定数で扱う入射）と S(α, β) の移行が同じ入射を数えるので止める
     let mut table = free_gas_transfer(0.99917, 600.0, 0.04);
