@@ -1253,6 +1253,7 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
+    "examples/depletion/issue-0133/ufg-sab/summary.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
 }
@@ -1430,6 +1431,27 @@ TABLES = {
             ("tilt-27", partial(ufg_free_gas_tilt, energies=(4.0, 9.877))),
             ("tilt-25", partial(ufg_free_gas_tilt, energies=(15.968, 27.7))),
             ("tilt-24", partial(ufg_free_gas_tilt, energies=(27.7, 48.052))),
+        ]
+    },
+    **{
+        f"depletion-ufg-sab-{name}": (
+            ["examples/depletion/issue-0133/ufg-sab/summary.json"],
+            draw,
+        )
+        for name, draw in [
+            ("k", ufg_free_gas_k),
+            ("swaps", partial(ufg_free_gas_swaps, specs=UFG_RANGE_SWAPS)),
+            (
+                "groups",
+                partial(
+                    ufg_free_gas_swaps,
+                    specs=UFG_GROUP_SWAPS,
+                    modes=["heavy", "sab", "heavy-cap", "sab-cap"],
+                ),
+            ),
+            ("transfers", ufg_free_gas_transfers),
+            ("tilt-27", partial(ufg_free_gas_tilt, energies=(4.0, 9.877))),
+            ("tilt-25", partial(ufg_free_gas_tilt, energies=(15.968, 27.7))),
         ]
     },
     "depletion-1c-rings4-rings": (
