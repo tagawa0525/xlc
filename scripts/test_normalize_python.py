@@ -4,6 +4,9 @@
 """
 
 import ast
+import os
+import re
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -12,6 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import normalize_python as norm
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def form(source: str) -> str:
@@ -140,6 +145,68 @@ class MainTest(unittest.TestCase):
             dst = Path(tmp, "out", "deep", "a.py.ast")
             norm.main([str(src), str(dst)])
             self.assertEqual(dst.read_text(encoding="utf-8"), "x = 1\n")
+
+
+def python_ast_items() -> list[str]:
+    """リポジトリの直下の dvc.yaml の python-ast の foreach の並び"""
+    text = (ROOT / "dvc.yaml").read_text(encoding="utf-8")
+    block = re.search(
+        r"^  python-ast:\n    foreach:\n((?:      - \S+\n)+)    do:", text, re.MULTILINE
+    )
+    if block is None:
+        raise AssertionError("dvc.yaml has no python-ast stage with a foreach list")
+    return re.findall(r"- (\S+)", block.group(1))
+
+
+def stage_deps() -> dict[str, list[str]]:
+    """例の dvc.yaml ごとの、リストの項目の行（リポジトリの直下からのパスに直したもの）"""
+    files = subprocess.run(
+        ["git", "ls-files", "--", ":(glob)**/dvc.yaml"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    result = {}
+    for name in files:
+        if name == "dvc.yaml":
+            continue
+        base = os.path.dirname(name)
+        lines = (ROOT / name).read_text(encoding="utf-8").splitlines()
+        result[name] = [
+            os.path.normpath(os.path.join(base, m.group(1)))
+            for line in lines
+            if (m := re.match(r"\s*-\s+(\S+?)(:)?\s*$", line))
+        ]
+    return result
+
+
+class RepositoryDepsTest(unittest.TestCase):
+    def test_example_stages_depend_on_the_form_not_the_python_file(self):
+        bare = [
+            f"{name}: {dep}"
+            for name, deps in stage_deps().items()
+            for dep in deps
+            if dep.endswith(".py")
+        ]
+        self.assertEqual(bare, [])
+
+    def test_every_form_a_stage_depends_on_is_written_by_python_ast(self):
+        written = {f"python-ast/{item}.ast" for item in python_ast_items()}
+        unknown = [
+            f"{name}: {dep}"
+            for name, deps in stage_deps().items()
+            for dep in deps
+            if dep.startswith("python-ast/") and dep not in written
+        ]
+        self.assertEqual(unknown, [])
+
+    def test_python_ast_writes_only_forms_some_stage_depends_on(self):
+        used = {dep for deps in stage_deps().values() for dep in deps}
+        unused = [
+            item for item in python_ast_items() if f"python-ast/{item}.ast" not in used
+        ]
+        self.assertEqual(unused, [])
 
 
 if __name__ == "__main__":
