@@ -73,19 +73,19 @@ impl Default for ShieldingOptions {
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
             thinning: None,
-            scattering: Scattering::Static,
-            transfer: UfgTransfer::InfiniteDilution,
+            scattering: Scattering::default(),
+            transfer: UfgTransfer::default(),
         }
     }
 }
 
-/// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の群の間の移行の形（ADR-0207）。
+/// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の群の間の移行の形（ADR-0207。既定は ADR-0209）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UfgTransfer {
     /// ライブラリの無限希釈の形のまま、行の和を自己遮蔽した弾性散乱に合わせる（ADR-0076）
-    #[default]
     InfiniteDilution,
     /// 弾性散乱の移行を、UFG の減速計算でリングの中性子束と同じ散乱核で数える
+    #[default]
     RingFlux,
 }
 
