@@ -97,7 +97,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
      （Slurm で流す重さ。CLAUDE.md の「計算」）
      ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す
-   - `build` は 2 で走らせ終えている
+   - `build` と `python-ast` は 2 で走らせ終えている
 
    数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
 
