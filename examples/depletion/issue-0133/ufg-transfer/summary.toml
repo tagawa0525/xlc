@@ -1,0 +1,60 @@
+# ADR-0207: UFG の範囲の群の散乱行列の移行の形を、無限希釈（ADR-0076）と、リングの中性子束で数えた移行にした測定の要約（ufg_transfer.py
+# summarize の設定）。xlc の入力は ../ufg-sab/pin-<状態>-sab-fast3.toml（S(α,β) の速い方法）と pin-<状態>-ring.toml。状態の OpenMC の行と k は
+# 1C-0、1C-5、2A-40 が Slurm 534、MOX1 が 558。核は 2A-40 が Slurm 557（シード 2）、MOX1 が 558。1C の 2 つの状態は細かい入射を数えた実行が
+# 無いので、減速材の行だけを 2 つの核で比べる（減速材の核は燃料の組成によらない。#0152 の記録）。
+
+[[spec]]
+spec = "water:27-27"
+label = "減速材、4〜9.88 eV"
+
+[[spec]]
+spec = "water:14-26"
+label = "減速材、9.88 eV〜15 keV"
+
+[[spec]]
+spec = "fuel:27-27"
+label = "燃料、4〜9.88 eV"
+
+[[spec]]
+spec = "fuel:14-26"
+label = "燃料、9.88 eV〜15 keV"
+
+[[kernel]]
+key = "2A-40"
+label = "2A 40 MWd/kg（Slurm 557）"
+
+[[kernel]]
+key = "MOX1"
+label = "MOX-1 0 MWd/kg（Slurm 558）"
+
+[[mode]]
+key = "dilute"
+label = "無限希釈（ADR-0076）"
+
+[[mode]]
+key = "ring"
+label = "リングの中性子束（ADR-0207）"
+
+[[state]]
+key = "1C-0"
+name = "1C 0 MWd/kg"
+kernels = ["2A-40", "MOX1"]
+rows = ["water:27-27", "water:14-26"]
+
+[[state]]
+key = "1C-5"
+name = "1C 5 MWd/kg"
+kernels = ["2A-40", "MOX1"]
+rows = ["water:27-27", "water:14-26"]
+
+[[state]]
+key = "2A-40"
+name = "2A 40 MWd/kg"
+kernels = ["2A-40"]
+rows = ["water:27-27", "water:14-26", "fuel:27-27", "fuel:14-26"]
+
+[[state]]
+key = "MOX1"
+name = "MOX-1 0 MWd/kg"
+kernels = ["MOX1"]
+rows = ["water:27-27", "water:14-26", "fuel:27-27", "fuel:14-26"]
