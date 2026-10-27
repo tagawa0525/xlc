@@ -5,6 +5,7 @@
 
 import ast
 import functools
+import hashlib
 import os
 import re
 import subprocess
@@ -159,6 +160,18 @@ def python_ast_items() -> list[str]:
     return re.findall(r"- (\S+)", block.group(1))
 
 
+def locked_source_md5(item: str) -> str | None:
+    """リポジトリの直下の dvc.lock が python-ast@<item> の deps に記録した <item> の md5（無ければ None）"""
+    text = (ROOT / "dvc.lock").read_text(encoding="utf-8")
+    m = re.search(
+        rf"^  python-ast@{re.escape(item)}:\n(?:    .*\n|      .*\n)*?    - path: "
+        rf"{re.escape(item)}\n      hash: md5\n      md5: (\w+)$",
+        text,
+        re.MULTILINE,
+    )
+    return m.group(1) if m else None
+
+
 @functools.cache
 def stage_deps() -> dict[str, list[str]]:
     """例の dvc.yaml ごとの、.py と正規形のパス（リポジトリの直下からのパスに直したもの）
@@ -218,11 +231,15 @@ class RepositoryDepsTest(unittest.TestCase):
         ]
         self.assertEqual(unused, [])
 
-    def test_committed_forms_match_the_current_python_files(self):
+    def test_forms_of_python_files_changed_since_python_ast_ran_are_current(self):
+        # dvc.lock が記録した .py のまま（python-ast がそのソースから書いた正規形）は比べ直さない: Python の版を上げたあとに、
+        # 変えていないファイルの正規形を書き直させない（ADR-0210）
         stale = [
             item
             for item in python_ast_items()
-            if (ROOT / "python-ast" / f"{item}.ast").read_text(encoding="utf-8")
+            if hashlib.md5((ROOT / item).read_bytes()).hexdigest()
+            != locked_source_md5(item)
+            and (ROOT / "python-ast" / f"{item}.ast").read_text(encoding="utf-8")
             != norm.normalize((ROOT / item).read_text(encoding="utf-8"), filename=item)
         ]
         self.assertEqual(stale, [])
