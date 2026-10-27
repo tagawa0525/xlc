@@ -1,9 +1,10 @@
 ---
-status: proposed
-date: 2026-10-27
+status: accepted
+date: 2026-10-28
 requires: [ADR-0073, ADR-0080, ADR-0133, ADR-0203, ADR-0204]
 supersedes: []
 superseded-by:
+amended-by: [ADR-0209]
 issues: ["#0152", "#0133", "#0001", "#0180"]
 ---
 
@@ -130,5 +131,5 @@ OpenMC と同じ扱い（H の S(α,β)、重い核種の 400 kT の自由ガス
   S(α,β) は自由ガスの核の割合）、`ufg_transfer_rows_rise_from_zero_to_one`（保存）、`ufg_transfer_is_none_below_the_ufg_reach`、
   `sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range`。lattice の `sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum`、
   `sab_of_a_hotter_table_moves_the_spectrum`、`sab_off_ignores_the_table`、`sab_needs_the_table_of_sab_nuclides`、
-  `sab_table_must_reach_the_up_scattering_below_the_range`、`sab_needs_the_free_gas_of_its_nuclides`、`sab_limit_must_lie_below_the_range_top`、`sab_sweeps_converge`。入力は `ufg_scattering_defaults_to_targets_at_rest`
+  `sab_table_must_reach_the_up_scattering_below_the_range`、`sab_needs_the_free_gas_of_its_nuclides`、`sab_limit_must_lie_below_the_range_top`、`sab_sweeps_converge`。入力は `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`
 - 測定は examples/depletion/verification.md の「H in H2O の S(α,β) の UFG の散乱核（ADR-0205）」
