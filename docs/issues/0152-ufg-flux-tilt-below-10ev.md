@@ -74,4 +74,6 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   （worktree で `scripts/worktree-restore-outputs.sh` の後に。上流で走るのは `references-shell`、`openmc-mox1`、`openmc-mox1-extract`、
   `compare-mox1` だけ）。見積もりは 1C の 1 リング（ジョブ 409）の輸送 13 回 5,362 秒（1 回 約 410 秒。examples/depletion/verification.md
   「時間の内訳」）と同じ粒子数なので、1 時間 30 分ほど。1C と比べるときは、1C の xlc（`lattice-1C`）を MOX-1 と同じライブラリと
-  `bin/lattice` で再実行する（今の 1C の xlc の結果は ADR-0205 の前のライブラリのもの）
+  `bin/lattice` で再実行する（今の 1C の xlc の結果は ADR-0205 の前のライブラリのもの）。`compare_depletion.py` の数密度を比べる核種
+  （`NUCLIDES`）は U-235、U-238、Pu-239、Xe-135、Sm-149 だけなので、MOX-1 の比較の前に Pu-240、Pu-241、Pu-242、Am-241 を比べる形にする
+  （`compare-mox1` は数秒で、参照解を流し直さずに作り直せる）
