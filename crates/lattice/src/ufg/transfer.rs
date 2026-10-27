@@ -75,9 +75,10 @@ impl Counting<'_> {
         let pairs: Vec<(usize, usize)> = (0..gases)
             .flat_map(|l| (1..ng).map(move |b| (l, b)))
             .collect();
+        let grades = grades(SHARE_CELLS);
         let cells: Vec<[Vec<ShareCell>; 2]> = pairs
             .par_iter()
-            .map(|&(l, b)| self.share_cells(l, b, x[b]))
+            .map(|&(l, b)| self.share_cells(l, b, x[b], &grades))
             .collect();
         let tasks: Vec<(usize, usize)> = self
             .entries
@@ -186,7 +187,7 @@ impl Counting<'_> {
     }
 
     /// 自由ガスの核種 `l` の、境界 `b`（レサジー `x`）の割合の区間（[`Gas::share_cells`]）
-    fn share_cells(&self, l: usize, b: usize, x: f64) -> [Vec<ShareCell>; 2] {
+    fn share_cells(&self, l: usize, b: usize, x: f64, grades: &[f64]) -> [Vec<ShareCell>; 2] {
         let Some(thermal) = self.thermal else {
             return [Vec::new(), Vec::new()];
         };
@@ -203,7 +204,7 @@ impl Counting<'_> {
             x,
             self.bounds[b],
             incident,
-            &grades(SHARE_CELLS),
+            grades,
             SHARE_CELLS,
             SHARE_WIDTH,
         )

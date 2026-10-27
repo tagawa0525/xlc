@@ -412,6 +412,10 @@ fn solve_cell(
     fine: Option<&mut FineFlux>,
     transfers: Option<&mut Vec<Vec<NuclideTransfer>>>,
 ) -> Result<CellSpectrum, UfgError> {
+    // 間引いた格子では群定数を核種自身の格子で縮約するので、間引いた格子で数える移行と格子が揃わない
+    if transfers.is_some() && thinning.is_some() {
+        return Err(UfgError::ThinnedTransfers);
+    }
     let volumes = cell.volumes();
     let n = volumes.len();
     if rings.len() != n {
