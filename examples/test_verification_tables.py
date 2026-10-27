@@ -1526,5 +1526,82 @@ class DrawUfgFreeGas(unittest.TestCase):
             vt.ufg_free_gas_k([{"format": "xlc-swap-candidates"}])
 
 
+class DrawGroupRows(unittest.TestCase):
+    def summary(self) -> dict:
+        def rows(state_out, kernel_out):
+            return {
+                "water:27": {
+                    "xlc": [0.5932, 0.3967],
+                    "state": [state_out, 0.40],
+                    "kernel-openmc": [kernel_out, 0.40],
+                    "kernel-xlc": [0.5884, 0.40],
+                    "kernel-lethargy": [0.5945, 0.40],
+                }
+            }
+
+        swaps = {
+            "water:27-27": {
+                "openmc": 44.5,
+                "kernels": {"k2": {"xlc": 47.2, "lethargy": -12.9}},
+            }
+        }
+        return {
+            "format": "xlc-group-rows",
+            "specs": [{"spec": "water:27-27", "label": "減速材、27 群"}],
+            "kernels": [{"key": "k2", "label": "2A-40 の核"}],
+            "states": [
+                {
+                    "key": "2A-40",
+                    "name": "2A 40",
+                    "k": 0.825977,
+                    "openmc_k": 0.824863,
+                    "kernels": ["k2"],
+                    "swaps": swaps,
+                    "rows": {"k2": rows(0.5888, 0.5887)},
+                    "spectrum": {
+                        "water": [
+                            {"low": 4.0, "high": 5.014, "ratio": 0.0051},
+                            {"low": 7.879, "high": 9.877, "ratio": 0.012},
+                        ]
+                    },
+                },
+                {
+                    "key": "1C-0",
+                    "name": "1C 0",
+                    "k": 1.172316,
+                    "openmc_k": 1.171998,
+                    "kernels": ["k2"],
+                    "swaps": swaps,
+                    "rows": {"k2": rows(0.5936, 0.5887)},
+                    "spectrum": None,
+                },
+            ],
+        }
+
+    def test_swap_rows_give_the_openmc_row_and_the_kernel_by_each_weight(self):
+        table = vt.group_rows_swaps([self.summary()])
+        self.assertRegex(
+            table,
+            r"\| 2A 40 +\| 減速材、27 群 +\| 2A-40 の核 +\| \+44\.5 +\| \+47\.2 +\| −12\.9 +\| \+60\.1 +\| −2\.7 +\|",
+        )
+
+    def test_out_rows_are_relative_to_the_openmc_row_of_the_state(self):
+        table = vt.group_rows_out([self.summary()], key="water:27")
+        self.assertRegex(
+            table,
+            r"\| 2A 40 +\| 2A-40 の核 +\| 0\.58880 +\| \+0\.75% +\| −0\.02% +\| −0\.07% +\| \+0\.97% +\|",
+        )
+
+    def test_spectrum_rows_keep_only_the_states_with_a_fine_run(self):
+        table = vt.group_rows_spectrum([self.summary()])
+        self.assertRegex(table, r"\| 2A 40 +\| water +\| \+0\.51 +\| \+1\.20 +\|")
+        self.assertNotIn("1C 0", table)
+        self.assertIn("4〜5.014 eV", table.splitlines()[0])
+
+    def test_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.group_rows_swaps([{"format": "xlc-ufg-free-gas"}])
+
+
 if __name__ == "__main__":
     unittest.main()
