@@ -5,6 +5,7 @@
 library = "../../depletion.msgpack"
 ufg-scattering = "free-gas"
 ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400, sab = true }
+ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02

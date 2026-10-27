@@ -2,6 +2,8 @@
 # 燃料の組成（../../mox/pincell-mox1.toml と同じ個数密度）を置いた 1 つの状態。ほかの状態と形状、温度、減速材を揃え、燃料の組成だけを変える。
 # OpenMC の移行（openmc_pin_transfer.py）と同じ組成。
 library = "../depletion.msgpack"
+ufg-scattering = "static"
+ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02

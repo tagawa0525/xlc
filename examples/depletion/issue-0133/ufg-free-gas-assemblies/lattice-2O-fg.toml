@@ -5,7 +5,8 @@
 # 燃焼させる物質は fuel, gd0, gd1, gd2, gd3, gd4, gd5, gd6, gd7（対称操作の組ごとに 1 つの領域。ADR-0173）。
 library = "../../p2/depletion.msgpack"
 ufg-scattering = "free-gas"
-ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400 }
+ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400, sab = false }
+ufg-transfer = "infinite-dilution"
 ufg-tolerance = 1e-4
 pitch = 1.26
 azimuthal = 30
