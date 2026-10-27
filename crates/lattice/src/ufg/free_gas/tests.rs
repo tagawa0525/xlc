@@ -404,3 +404,19 @@ fn correction_shares_split_the_kernel_at_an_outgoing_energy() {
         }
     }
 }
+
+#[test]
+fn locate_from_finds_the_point_of_locate_from_any_hint() {
+    // 重なった格子点（不連続点の両側の極限）を含む昇順の格子で、起点によらず locate と同じ格子点
+    let u = [0.0, 0.1, 0.2, 0.2, 0.35, 0.5, 0.5, 0.5, 0.9, 1.4];
+    let xs = [-0.1, 0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.6, 1.4, 2.0, f64::NAN];
+    for &x in &xs {
+        for hint in 0..=u.len() {
+            assert_eq!(
+                locate_from(&u, x, hint),
+                locate(&u, x),
+                "x = {x}, hint = {hint}"
+            );
+        }
+    }
+}
