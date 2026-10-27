@@ -32,3 +32,6 @@ resolution:
 - 2026-10-15: ADR-0174 の実装のレビューから
 - 2026-10-15: 集合体の燃焼（ADR-0178）の `openmc_depletion_assembly.py` の `operator` が同じ引数の 3 つ目のコピーになった（`openmc_depletion.py` の `TimedOperator` と `YIELD_CUTOFF` は import している）。共通の関数にするときは 3 つとも置き換える
 - 2026-10-15: ADR-0174 の確認 (c)（区間に分けた AWS の実機の実行が手元の分けない実行と統計の範囲で一致するか）は済み。結果は examples/depletion/verification.md の「AWS での燃焼の参照解の確認」。中断からの再開の実機の確認は残る
+- 2026-10-27: MOX のピンセルの燃焼（ADR-0206）の `openmc_depletion_mox.py` の `solve` が、同じ引数の 4 つ目のコピーになった
+  （`TimedOperator` と `YIELD_CUTOFF` は import している）。`read`、`ring_radii`、`extract` も `openmc_depletion.py` のコピー（問題、形状、
+  温度の扱いだけが違う）。共通の関数にするときは、これらも置き換える

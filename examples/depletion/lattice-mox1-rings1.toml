@@ -1,0 +1,54 @@
+# 格子計算の燃焼の検証（ADR-0173）の MOX 版: LWR MOX ピンセル MOX-1（../mox/pincell-mox1.toml と同じ形状、組成、離散化）を、燃料 1 リングの
+# 燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。OpenMC の参照解は openmc-mox1-rings1.toml。温度、出力密度、燃焼度の点は 1C
+# （lattice-1C-rings1.toml）と同じ（ADR-0206。燃料は 900 K で、../mox の 600 K と違う）
+library = "depletion.msgpack"
+pitch = 1.26
+azimuthal = 64
+spacing = 0.02
+rows = ["pin"]
+
+[material.fuel]
+temperature = 900
+
+[material.fuel.nuclides]
+U-235 = 5.1050e-05
+U-238 = 2.0370e-02
+Pu-238 = 4.6690e-05
+Pu-239 = 1.4650e-03
+Pu-240 = 5.6910e-04
+Pu-241 = 2.7130e-04
+Pu-242 = 1.4130e-04
+Am-241 = 3.0280e-05
+O-16 = 4.5880e-02
+
+[material.zirconium]
+temperature = 600
+
+[material.zirconium.nuclides]
+Zr-90 = 1.99626e-02
+Zr-91 = 4.35336e-03
+Zr-92 = 6.65420e-03
+Zr-94 = 6.74344e-03
+Zr-96 = 1.08640e-03
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.744e-02, O-16 = 2.372e-02 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.41, rings = 5 },
+  { material = "zirconium", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[depletion]
+chain = "chain.msgpack"
+power = 38.41
+burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
+materials = ["fuel"]
+output = "lattice-mox1-rings1.msgpack"
+few-group = { bounds = [1e7, 0.625, 1e-5] }

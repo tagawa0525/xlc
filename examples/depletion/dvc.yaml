@@ -4,7 +4,8 @@
 # チェーンと範囲のステージは ENDF をディレクトリごと deps にする（sha256 で固定した。ADR-0124）。燃焼の検証の多群ライブラリ（ADR-0169）は、
 # examples/vera と同じ核種ごとのステージ（範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）で作る
 # 格子計算の燃焼の検証（ADR-0173）の OpenMC のライブラリ（openmc-library.toml、核種ごとのステージは examples/vera と同じ
-# ../vera/openmc_library.py）と、OpenMC と xlc の燃焼、その比較のステージを持つ
+# ../vera/openmc_library.py）と、OpenMC と xlc の燃焼、その比較のステージを持つ。MOX のピンセル MOX-1 の燃焼（ADR-0206）も、同じ
+# ライブラリとチェーンを使うのでここに置く
 vars:
   - xs.toml
   - openmc-library.toml
@@ -178,3 +179,52 @@ stages:
       outs:
         - compare-1C-${item}.json:
             cache: false
+  openmc-mox1:
+    # MOX-1 の OpenMC の燃焼（ADR-0206）。形状と組成は ../mox/openmc_model.py、演算子は openmc_depletion.py から読む
+    cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py run openmc-mox1-rings1.toml openmc-mox1-rings1
+    deps:
+      - openmc_depletion_mox.py
+      - openmc_depletion.py
+      - ../mox/openmc_model.py
+      - ../vera/openmc_model.py
+      - ../vera/openmc_tallies.py
+      - ../openmc_common.py
+      - ../openmc_input.py
+      - ../openmc_run.py
+      - references-shell.txt
+      - openmc-library
+      - openmc-chain.xml
+      - openmc-mox1-rings1.toml
+    outs:
+      - openmc-mox1-rings1
+  openmc-mox1-extract:
+    cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py extract openmc-mox1-rings1.toml openmc-mox1-rings1 openmc-mox1-rings1.msgpack
+    deps:
+      - openmc_depletion_mox.py
+      - ../mox/openmc_model.py
+      - references-shell.txt
+      - openmc-mox1-rings1
+      - openmc-mox1-rings1.toml
+    outs:
+      - openmc-mox1-rings1.msgpack
+  lattice-mox1:
+    # xlc の MOX-1 の燃焼（ADR-0206）。k∞ は標準出力、時間の内訳はログ（標準エラー）に出る
+    cmd: ../../bin/lattice lattice-mox1-rings1.toml > lattice-mox1-rings1.out 2> lattice-mox1-rings1.log
+    deps:
+      - lattice-mox1-rings1.toml
+      - depletion.msgpack
+      - chain.msgpack
+      - ../../bin/lattice
+    outs:
+      - lattice-mox1-rings1.out
+      - lattice-mox1-rings1.msgpack
+      - lattice-mox1-rings1.log
+  compare-mox1:
+    cmd: python3 compare_depletion.py --json compare-mox1-rings1.json lattice-mox1-rings1.msgpack openmc-mox1-rings1.msgpack
+    deps:
+      - compare_depletion.py
+      - lattice-mox1-rings1.msgpack
+      - openmc-mox1-rings1.msgpack
+    outs:
+      - compare-mox1-rings1.json:
+          cache: false
