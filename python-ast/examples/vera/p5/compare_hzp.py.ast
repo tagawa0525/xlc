@@ -1,0 +1,287 @@
+import re
+import sys
+from pathlib import Path
+import numpy as np
+import tomllib
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_p3 import axial_report, coarsen
+from compare_p5 import fuel_assemblies, stat, stat_line, unfold
+BANKS = ['A', 'B', 'C', 'D', 'SA', 'SB', 'SC', 'SD']
+WITHDRAWN = 230
+B10 = 0.199
+NUMBER = '\\d+(?:\\.\\d+)?'
+P56 = 'Table P5-6: Problem 5 Reference Solution Eigenvalue Results'
+P57 = 'Table P5-7: Problem 5 Measured and Reference Solution ZPPT Results'
+ROW = re.compile(f'^\\s*(\\d+)\\s+(\\d+|↓)\\s+(\\d+|↓)\\s+((?:(?:\\d+|-)\\s+){{8}})({NUMBER}) ± ({NUMBER})')
+AXIAL_TABLE = 'Problem 5 Average Axial Power Results'
+RADIAL_TABLE = 'Problem 5 Assembly Radial Power Results'
+RADIAL_ROWS = 'Assembly Radial Powers'
+OCTANT_ROWS = [1, 2, 3, 4, 5, 6, 6, 4]
+FUEL_BOTTOM = 11.951
+FUEL_TOP = 377.711
+CORE_ORIGIN = -55.0
+POWER_STATE = 'case-1'
+
+def table_lines(spec: list[str], caption: str) -> list[str]:
+    found = [i for i, line in enumerate(spec) if caption in line]
+    if not found:
+        raise SystemExit(f'caption not found: {caption}')
+    return spec[found[-1] + 1:]
+
+def keno_cases(spec: list[str]) -> dict[int, dict]:
+    cases: dict[int, dict] = {}
+    boron = temperature = None
+    for line in table_lines(spec, P56):
+        if P57 in line:
+            break
+        m = ROW.match(line)
+        if not m:
+            continue
+        n = int(m.group(1))
+        boron = boron if m.group(2) == '↓' else float(m.group(2))
+        temperature = temperature if m.group(3) == '↓' else float(m.group(3))
+        steps = [WITHDRAWN if s == '-' else int(s) for s in m.group(4).split()]
+        cases[n] = {'boron': boron, 'temperature': temperature, 'banks': dict(zip(BANKS, steps)), 'k': float(m.group(5)), 'sigma': float(m.group(6))}
+    if sorted(cases) != list(range(1, 33)):
+        raise SystemExit(f'{P56}: expected cases 1 to 32, found {sorted(cases)}')
+    return cases
+
+def zppt_results(spec: list[str]) -> dict[str, tuple[float, float]]:
+    results = {}
+    patterns = {**{bank: f'Bank {bank} Worth' for bank in BANKS}, 'total': 'Total Bank Worths', 'DBW': 'DBW \\(pcm/ppm\\)', 'ITC': 'ITC \\(pcm/F\\)'}
+    lines = table_lines(spec, P57)[:40]
+    for name, label in patterns.items():
+        for line in lines:
+            m = re.search(f'{label}(?: \\(pcm\\))?\\s+(-?{NUMBER})\\s+(-?{NUMBER}) ±', line)
+            if m:
+                results[name] = (float(m.group(1)), float(m.group(2)))
+                break
+        else:
+            raise SystemExit(f'{P57}: no row for {label}')
+    return results
+
+def rho(k_from: float, k_to: float) -> float:
+    return (1.0 / k_from - 1.0 / k_to) * 100000.0
+
+def worths(k: dict[int, float], cases: dict[int, dict]) -> dict[str, float]:
+    out = {}
+    for i, bank in enumerate(BANKS):
+        if 11 in k and 12 + i in k:
+            out[bank] = -rho(k[11], k[12 + i])
+    if all((bank in out for bank in BANKS)):
+        out['total'] = sum((out[bank] for bank in BANKS))
+    if 2 in k and 11 in k:
+        out['DBW'] = rho(k[11], k[2]) / (cases[2]['boron'] - cases[11]['boron'])
+    if 20 in k and 21 in k:
+        out['ITC'] = rho(k[20], k[21]) / (cases[21]['temperature'] - cases[20]['temperature']) / 1.8
+    return out
+
+def check_keno_definitions(cases: dict[int, dict], table: dict[str, tuple[float, float]]) -> None:
+    computed = worths({n: c['k'] for n, c in cases.items()}, cases)
+    margins = {name: 1.0 for name in [*BANKS, 'total']} | {'DBW': 0.01}
+    for name, margin in margins.items():
+        keno = table[name][1]
+        if abs(computed[name] - keno) > margin:
+            raise SystemExit(f'{name}: KENO-VI k of {P56} give {computed[name]:.2f}, but {P57} has {keno}')
+    print(f"KENO-VI definitions: worths and DBW of {P57} reproduced from {P56}; ITC from cases 20 and 21 is {computed['ITC']:.2f} pcm/F (the table's {table['ITC'][1]} is fitted over 550 to 580 K, Appendix G)")
+
+def keno_axial(spec: list[str]) -> tuple[list[float], list[float]]:
+    start = next((i for i, line in enumerate(spec) if AXIAL_TABLE in line), None)
+    if start is None:
+        raise SystemExit(f'{AXIAL_TABLE} not found')
+    rows = []
+    for line in spec[start:start + 60]:
+        m = re.match(f'\\s*(\\d+)\\s+({NUMBER})\\s+({NUMBER})\\s+({NUMBER}) \\+/- ({NUMBER})%', line)
+        if m:
+            rows.append((float(m.group(2)), float(m.group(3)), float(m.group(4))))
+    if len(rows) != 49:
+        raise SystemExit(f'{AXIAL_TABLE}: expected 49 levels, found {len(rows)}')
+    rows.sort()
+    bounds = [rows[0][0] - rows[0][1] - FUEL_BOTTOM]
+    for top, thickness, _ in rows:
+        if abs(top - thickness - FUEL_BOTTOM - bounds[-1]) > 0.001:
+            raise SystemExit(f'{AXIAL_TABLE}: level ending at {top} does not follow the one below')
+        bounds.append(top - FUEL_BOTTOM)
+    if abs(bounds[0]) > 0.001 or abs(bounds[-1] - (FUEL_TOP - FUEL_BOTTOM)) > 0.001:
+        raise SystemExit(f'{AXIAL_TABLE}: levels span {bounds[0]}-{bounds[-1]} cm, not the fuel height')
+    return (bounds, [r[2] for r in rows])
+
+def keno_radial(spec: list[str]) -> np.ndarray:
+    caption = next((i for i, line in enumerate(spec) if RADIAL_TABLE in line), None)
+    if caption is None:
+        raise SystemExit(f'{RADIAL_TABLE} not found')
+    start = next((i for i in range(caption, len(spec)) if spec[i].strip() == RADIAL_ROWS), None)
+    if start is None:
+        raise SystemExit(f'{RADIAL_ROWS} not found after {RADIAL_TABLE}')
+    quarter = np.full((8, 8), np.nan)
+    for r, line in enumerate(spec[start + 2:start + 10]):
+        values = [float(x) for x in re.findall('(?<![\\d.])(\\d\\.\\d{5})(?![\\d%])', line)]
+        if len(values) != OCTANT_ROWS[r]:
+            raise SystemExit(f'{RADIAL_ROWS}: row {8 + r} has {len(values)} values, expected {OCTANT_ROWS[r]}')
+        quarter[r, :len(values)] = values
+    quarter = np.where(np.isnan(quarter), quarter.T, quarter)
+    if np.count_nonzero(~np.isnan(quarter)) != 56:
+        raise SystemExit(f'{RADIAL_ROWS}: expected 56 assemblies in the quarter')
+    return unfold(quarter)
+
+def state_power(path: Path, name: str) -> tuple[list[float], list[float], np.ndarray]:
+    lines = path.read_text().splitlines()
+    start = next((i for i, line in enumerate(lines) if line == f'state {name}'), None)
+    if start is None:
+        raise SystemExit(f'{path}: no state {name}')
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('state ')), len(lines))
+    block = lines[start:end]
+    heads = {}
+    for head in ('axial fission fractions', 'assembly fission rates'):
+        heads[head] = next((i for i, line in enumerate(block) if line.startswith(head)), None)
+        if heads[head] is None:
+            raise SystemExit(f'{path}: state {name} has no `{head}` table')
+    a, b = heads.values()
+    nodes = [tuple((float(x) for x in line.split())) for line in block[a + 1:b]]
+    bottom, top = (FUEL_BOTTOM - CORE_ORIGIN, FUEL_TOP - CORE_ORIGIN)
+    tolerance = 0.0001
+    fuel = [(z0, z1, f) for z0, z1, f in nodes if z0 >= bottom - tolerance and z1 <= top + tolerance]
+    outside = sum((f for z0, z1, f in nodes)) - sum((f for *_, f in fuel))
+    if not fuel or abs(fuel[0][0] - bottom) > tolerance or abs(fuel[-1][1] - top) > tolerance or (abs(outside) > 1e-12):
+        raise SystemExit(f'{path}: state {name}: fission outside the fuel height or no node bound at its ends')
+    total = sum((f for *_, f in fuel))
+    height = top - bottom
+    bounds = [fuel[0][0] - bottom] + [z1 - bottom for _, z1, _ in fuel]
+    axial = [f / (z1 - z0) / (total / height) for z0, z1, f in fuel]
+    rows = [[np.nan if x in ('.', '-') else float(x) for x in line.split()] for line in block[b + 2:] if line.strip()]
+    return (bounds, axial, np.array(rows))
+
+def power_report(spec: list[str], core_out: Path) -> None:
+    print(f'\npower distribution ({POWER_STATE} against Appendix F, KENO-VI without the instrument thimbles)')
+    bounds, ours, rates = state_power(core_out, POWER_STATE)
+    keno_bounds, keno = keno_axial(spec)
+    axial_report('KENO-VI', keno_bounds, coarsen(bounds, ours, keno_bounds), keno)
+    rates = fuel_assemblies(rates)
+    reference = keno_radial(spec)
+    if rates.shape != reference.shape or (np.isnan(rates) != np.isnan(reference)).any():
+        raise SystemExit('assemblies: the xlc and KENO-VI cores have different fuel positions')
+    fuel = ~np.isnan(reference)
+    rates = rates / rates[fuel].mean()
+    print(stat_line('assembly relative difference vs KENO-VI', stat(rates[fuel] / reference[fuel] - 1)))
+    print('octant (rows 8-15 from column H): xlc (mean of the 8 symmetric positions), KENO-VI, relative difference')
+    images = [rates, rates.T, rates[::-1], rates[:, ::-1], rates[::-1, ::-1], rates.T[::-1], rates.T[:, ::-1], rates.T[::-1, ::-1]]
+    folded = np.mean(images, axis=0)
+    print(f'largest spread of the 8 symmetric positions in xlc: {100 * np.nanmax(np.max(images, axis=0) / np.min(images, axis=0) - 1):.3f}%')
+    for r, n in enumerate(OCTANT_ROWS):
+        cells = [f'{folded[7 + r, 7 + c]:.4f} {reference[7 + r, 7 + c]:.4f} {100 * (folded[7 + r, 7 + c] / reference[7 + r, 7 + c] - 1):+6.2f}%' for c in range(n)]
+        print(f'  {8 + r:2d}  ' + '   '.join(cells))
+
+def core_results(path: Path) -> dict[str, dict]:
+    results: dict[str, dict] = {}
+    name = None
+    for line in path.read_text().splitlines():
+        if line.startswith('state '):
+            name = line.split()[1]
+            if name in results:
+                raise SystemExit(f'{path}: state {name} appears twice')
+            results[name] = {}
+        elif line.startswith('boron '):
+            if name is None or 'boron' in results[name]:
+                raise SystemExit(f'{path}: boron line outside a state block or twice')
+            results[name]['boron'] = float(line.split()[1])
+        elif line.startswith('k-eff '):
+            if name is None:
+                raise SystemExit(f'{path}: k-eff before any `state <name>` line')
+            if 'k' in results[name]:
+                raise SystemExit(f'{path}: state {name} has two k-eff lines')
+            results[name]['k'] = float(line.split()[1])
+    if not results or any(('k' not in r for r in results.values())):
+        raise SystemExit(f'{path}: expected `state <name>` blocks with k-eff')
+    return results
+
+def case_states(path: Path, cases: dict[int, dict]) -> dict[str, tuple[int, bool]]:
+    states = tomllib.loads(path.read_text()).get('state', {})
+    out = {}
+    for name, state in states.items():
+        if not isinstance(state, dict):
+            raise SystemExit(f'{path}: state {name}: name each state as [state.<name>]')
+        m = re.fullmatch('case-([1-9]\\d*)(-boron)?', name)
+        if not m or int(m.group(1)) not in cases:
+            raise SystemExit(f'{path}: state {name}: name it case-<n> or case-<n>-boron (Table P5-2)')
+        n, search = (int(m.group(1)), m.group(2) is not None)
+        case = cases[n]
+        if state.get('banks') != case['banks']:
+            raise SystemExit(f"{path}: state {name}: banks {state.get('banks')} differ from case {n} ({case['banks']})")
+        if search and n > 10:
+            raise SystemExit(f'{path}: state {name}: only the critical cases 1 to 10 search the boron')
+        target = state.get('search')
+        if search != (target is not None) or (search and (not isinstance(target, dict) or target.get('k') != 1.0)):
+            raise SystemExit(f'{path}: state {name}: -boron states search the boron for k = 1, others give it')
+        wanted = {'b10': B10, 'moderator': case['temperature'], 'fuel': case['temperature']}
+        if not search:
+            wanted['boron'] = case['boron']
+        for key, value in wanted.items():
+            if state.get(key) != value:
+                raise SystemExit(f'{path}: state {name}: {key} {state.get(key)} differs from case {n} ({value})')
+        out[name] = (n, search)
+    return out
+
+def main() -> None:
+    if len(sys.argv) != 4:
+        raise SystemExit(__doc__)
+    spec = Path(sys.argv[1]).read_text().splitlines()
+    cases = keno_cases(spec)
+    table = zppt_results(spec)
+    check_keno_definitions(cases, table)
+    states = case_states(Path(sys.argv[2]), cases)
+    results = core_results(Path(sys.argv[3]))
+    if set(results) != set(states):
+        raise SystemExit(f'states of the case {sorted(states)} differ from the output {sorted(results)}')
+    searches = {name: state['search'] for name, state in tomllib.loads(Path(sys.argv[2]).read_text())['state'].items() if 'search' in state}
+    for name in states:
+        if (name in searches) != ('boron' in results[name]):
+            raise SystemExit(f'state {name}: the output has a boron line only for -boron states')
+        rounding = 5e-09
+        if name in searches and abs(results[name]['k'] - 1.0) > searches[name]['tolerance'] + rounding:
+            raise SystemExit(f"state {name}: searched k {results[name]['k']} is not within the tolerance of 1")
+    print('\ncritical boron (ppm)        xlc  measured   diff')
+    if not any((search for _, search in states.values())):
+        print('not computed (needs case-<n>-boron states)')
+    for name, (n, search) in sorted(states.items(), key=lambda s: s[1]):
+        if search:
+            ppm = results[name]['boron']
+            measured = cases[n]['boron']
+            print(f"case {n:2d} {'':14s} {ppm:9.2f} {measured:9.2f} {ppm - measured:+6.2f}")
+    print('\nk by case                      xlc    KENO-VI   xlc-KENO (pcm)  xlc-critical (pcm)')
+    k = {}
+    for name, (n, search) in sorted(states.items(), key=lambda s: s[1]):
+        if search:
+            continue
+        k[n] = results[name]['k']
+        keno = cases[n]['k']
+        critical = f'{rho(1.0, k[n]):+8.1f}' if n <= 10 else ''
+        sigma = cases[n]['sigma'] / keno ** 2 * 100000.0
+        print(f"case {n:2d} {'':12s} {k[n]:.8f}  {keno:.6f}  {rho(keno, k[n]):+8.1f} ± {sigma:.1f}  {critical}")
+    ours = worths(k, cases)
+    print('\nquantity                    xlc  measured   KENO-VI  vs measured  vs KENO-VI')
+    for name in [*BANKS, 'total', 'DBW', 'ITC']:
+        label = {'DBW': 'DBW (pcm/ppm)', 'ITC': 'ITC (pcm/F)', 'total': 'total bank worth (pcm)'}.get(name, f'bank {name} worth (pcm)')
+        if name not in ours:
+            print(f'{label:24s} not computed (needs its cases as states)')
+            continue
+        measured, keno_table = table[name]
+        if name in ('DBW', 'ITC'):
+            vs = [f'{ours[name] - x:+8.2f}' for x in (measured, keno_table)]
+        else:
+            vs = [f'{ours[name] / x - 1:+8.1%}' for x in (measured, keno_table)]
+        print(f'{label:24s} {ours[name]:8.2f} {measured:9.2f} {keno_table:9.2f}  {vs[0]}        {vs[1]}')
+    missing = [n for n in range(22, 33) if n not in k]
+    print('\nbank D integral worth (pcm from case 22)')
+    if missing:
+        print(f'not computed (needs cases {missing} as states)')
+    else:
+        for n in range(23, 33):
+            steps = cases[n]['banks']['D']
+            keno = rho(cases[22]['k'], cases[n]['k'])
+            print(f'D at {steps:3d} steps  {rho(k[22], k[n]):8.1f}  KENO-VI {keno:8.1f}')
+    if POWER_STATE in results:
+        power_report(spec, Path(sys.argv[3]))
+    else:
+        print(f'\npower distribution: not computed (needs the state {POWER_STATE})')
+if __name__ == '__main__':
+    main()

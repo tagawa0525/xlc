@@ -29,3 +29,11 @@ repos:
         files: ^examples/(verification_tables\.py|.*/(verification(-[a-z0-9]+)?\.md|dvc\.lock|compare-[^/]*\.json))$
         pass_filenames: false # 渡されたファイルでなく、すべての記録を見る（JSON は追跡しない DVC の出力）
         verbose: true
+      - id: python-ast
+        name: example stages depend on the current Python forms
+        # run-checks.sh は .py の差分があるときだけ Python のテストを実行するので、dvc.yaml だけの変更でも検査する（ADR-0210）
+        entry: python3 scripts/test_normalize_python.py RepositoryDepsTest
+        language: system
+        files: ^(.*dvc\.yaml|python-ast/.*|.*\.py)$
+        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml と正規形を見る
+        verbose: true

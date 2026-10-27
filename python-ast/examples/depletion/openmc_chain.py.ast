@@ -1,0 +1,16 @@
+import sys
+from pathlib import Path
+from openmc.deplete import Chain
+
+def endf_files(root: Path, part: str) -> list[str]:
+    files = sorted((str(p) for p in (root / f'ENDF-B-VIII.0_{part}').glob('*.endf')))
+    if not files:
+        sys.exit(f"no *.endf in {root / f'ENDF-B-VIII.0_{part}'}")
+    return files
+
+def main():
+    root, output = (Path(sys.argv[1]), Path(sys.argv[2]))
+    chain = Chain.from_endf(endf_files(root, 'decay'), endf_files(root, 'nfy'), endf_files(root, 'neutrons'), progress=False)
+    chain.export_to_xml(output)
+if __name__ == '__main__':
+    main()

@@ -127,7 +127,7 @@ stages:
   compare-axial-slab-16:
     cmd: python3 compare_axial.py axial-3A-16.log core-axial-slab-16.log > compare-axial-slab-16.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-3A-16.log
       - core-axial-slab-16.log
     outs:
@@ -148,7 +148,7 @@ stages:
   compare-axial-fstar-16:
     cmd: python3 compare_axial.py axial-3A-16.log core-axial-fstar-16.log > compare-axial-fstar-16.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-3A-16.log
       - core-axial-fstar-16.log
     outs:
@@ -157,7 +157,7 @@ stages:
     # 軸方向の反射体の定数の z の辺の ADF と f* の印
     cmd: python3 compare_axial.py fstar axial-16/*.msgpack > fstar-16.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-16
     outs:
       - fstar-16.out
@@ -176,7 +176,7 @@ stages:
   compare-axial-slab-32:
     cmd: python3 compare_axial.py axial-3A-32.log core-axial-slab-32.log > compare-axial-slab-32.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-3A-32.log
       - core-axial-slab-32.log
     outs:
@@ -197,7 +197,7 @@ stages:
   compare-axial-fstar-32:
     cmd: python3 compare_axial.py axial-3A-32.log core-axial-fstar-32.log > compare-axial-fstar-32.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-3A-32.log
       - core-axial-fstar-32.log
     outs:
@@ -206,7 +206,7 @@ stages:
     # 軸方向の反射体の定数の z の辺の ADF と f* の印
     cmd: python3 compare_axial.py fstar axial-32/*.msgpack > fstar-32.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-32
     outs:
       - fstar-32.out
@@ -225,7 +225,7 @@ stages:
   compare-axial-slab-fine:
     cmd: python3 compare_axial.py axial-3A-fine.log core-axial-slab-fine.log > compare-axial-slab-fine.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-3A-fine.log
       - core-axial-slab-fine.log
     outs:
@@ -246,7 +246,7 @@ stages:
   compare-axial-fstar-fine:
     cmd: python3 compare_axial.py axial-3A-fine.log core-axial-fstar-fine.log > compare-axial-fstar-fine.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-3A-fine.log
       - core-axial-fstar-fine.log
     outs:
@@ -255,7 +255,7 @@ stages:
     # 軸方向の反射体の定数の z の辺の ADF と f* の印
     cmd: python3 compare_axial.py fstar axial-fine/*.msgpack > fstar-fine.out
     deps:
-      - compare_axial.py
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
       - axial-fine
     outs:
       - fstar-fine.out
@@ -306,9 +306,9 @@ stages:
   compare-corner:
     cmd: python3 compare_radial.py reflector-corner.log core-corner.log 21.5 0 1 2 3 > compare-corner.out && python3 compare_edge.py core-pins-corner.msgpack moc-pins-corner.msgpack >> compare-corner.out
     deps:
-      - compare_radial.py
-      - compare_axial.py
-      - compare_edge.py
+      - ../../python-ast/examples/reflector/compare_radial.py.ast
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
+      - ../../python-ast/examples/reflector/compare_edge.py.ast
       - reflector-corner.log
       - moc-pins-corner.msgpack
       - core-corner.log
@@ -334,9 +334,9 @@ stages:
   compare-corner-outline:
     cmd: python3 compare_radial.py reflector-corner.log core-corner-outline.log 21.5 0 1 3 4 > compare-corner-outline.out && python3 compare_edge.py core-pins-corner-outline.msgpack moc-pins-corner.msgpack >> compare-corner-outline.out
     deps:
-      - compare_radial.py
-      - compare_axial.py
-      - compare_edge.py
+      - ../../python-ast/examples/reflector/compare_radial.py.ast
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
+      - ../../python-ast/examples/reflector/compare_edge.py.ast
       - reflector-corner.log
       - moc-pins-corner.msgpack
       - core-corner-outline.log
@@ -361,9 +361,9 @@ stages:
   compare-corner-I:
     cmd: python3 compare_radial.py reflector-corner.log core-corner-I.log 21.5 0 1 2 3 > compare-corner-I.out && python3 compare_edge.py core-pins-corner-I.msgpack moc-pins-corner.msgpack >> compare-corner-I.out
     deps:
-      - compare_radial.py
-      - compare_axial.py
-      - compare_edge.py
+      - ../../python-ast/examples/reflector/compare_radial.py.ast
+      - ../../python-ast/examples/reflector/compare_axial.py.ast
+      - ../../python-ast/examples/reflector/compare_edge.py.ast
       - reflector-corner.log
       - moc-pins-corner.msgpack
       - core-corner-I.log

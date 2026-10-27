@@ -1,0 +1,29 @@
+import json
+import sys
+from pathlib import Path
+import msgpack
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from compare_k import lattice_k
+from compare_keno import compare
+from compare_p3 import keno_k
+
+def summary(spec: list[str], problem: str, lattice_out: Path, pins: Path | None) -> dict:
+    k = lattice_k(lattice_out)
+    k_keno, sigma = keno_k(spec, problem)
+    result = {'format': 'xlc-compare-keno-lattice', 'problem': problem, 'k': {'xlc': k, 'keno': k_keno, 'keno_std': sigma, 'diff_pcm': (k - k_keno) * 100000.0}, 'pins': None}
+    if pins is not None:
+        rows = msgpack.unpackb(pins.read_bytes())['rows']
+        n, rms, worst, at = compare(spec, problem, rows)
+        result['pins'] = {'positions': n, 'rms': rms, 'max': worst, 'at': list(at)}
+    return result
+
+def main() -> None:
+    args = sys.argv[1:]
+    if len(args) not in (5, 6) or args[0] != '--json':
+        raise SystemExit(__doc__)
+    spec = Path(args[2]).read_text().split('\n')
+    pins = Path(args[5]) if len(args) == 6 else None
+    result = summary(spec, args[3], Path(args[4]), pins)
+    Path(args[1]).write_text(json.dumps(result, indent=1) + '\n')
+if __name__ == '__main__':
+    main()

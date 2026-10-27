@@ -1,0 +1,51 @@
+import json
+import sys
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+import msgpack
+import numpy as np
+import openmc
+from openmc_input import input_path, read_input
+
+def box_settings(particles: int, batches: int, inactive: int, seed: int, lower: tuple[float, float, float], upper: tuple[float, float, float]) -> openmc.Settings:
+    settings = openmc.Settings()
+    settings.particles = particles
+    settings.batches = batches
+    settings.inactive = inactive
+    settings.seed = seed
+    settings.source = openmc.IndependentSource(space=openmc.stats.Box(lower, upper), constraints={'fissionable': True})
+    return settings
+RUN_KEYS = {'problem', 'cross-sections', 'particles', 'batches', 'inactive', 'seed', 'threads'}
+
+def read_run(source: Path, problems: list[str], optional: set[str] | None=None) -> dict[str, Any]:
+    run = read_input(source, RUN_KEYS, optional or set())
+    if run['problem'] not in problems:
+        raise SystemExit(f"unknown problem {run['problem']}; expected one of {problems}")
+    run['cross-sections'] = input_path(source, run['cross-sections'])
+    return run
+
+def write_k(path: Path, problem: str, k) -> None:
+    path.write_text(json.dumps({'problem': problem, 'k': k.nominal_value, 'k-std': k.std_dev}) + '\n')
+    print(f'{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}')
+
+def fuel_mean(rows: np.ndarray) -> float:
+    return rows[rows > 0].mean()
+
+def write_pin_powers(path: Path, rows: np.ndarray) -> None:
+    path.write_bytes(msgpack.packb({'format': 'xlc-pin-powers', 'rows': rows.tolist()}))
+
+def model_run_extract(model: Callable[[Path, Path], None], solve: Callable[[Path, Path, Path], None], extract: Callable[[Path, Path, Path], None], usage: str) -> None:
+    match sys.argv[1:]:
+        case ['model', source, directory]:
+            model(Path(source), Path(directory))
+        case ['run', source, directory, work]:
+            solve(Path(source), Path(directory), Path(work))
+        case ['extract', source, work, results]:
+            extract(Path(source), Path(work), Path(results))
+        case _:
+            raise SystemExit(usage)
+
+def mesh_values(sp: openmc.StatePoint, name: str, shape: tuple[int, ...]) -> tuple[np.ndarray, np.ndarray]:
+    tally = sp.get_tally(name=name)
+    return tuple((np.flip(tally.get_values(scores=['fission'], value=v).reshape(shape), axis=-2) for v in ('mean', 'std_dev')))

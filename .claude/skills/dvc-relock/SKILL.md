@@ -65,13 +65,19 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流のステージを所有するブランチか main の記録を確かめてから、ユーザーに聞く。
 
-2. 実行ファイルを作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock` が衝突したら、
-   main の版を取って rebase を終え、ここで `build` を実行して書き直す。手で行を選んで混ぜない）:
+2. 実行ファイルと Python の正規形を作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock`
+   か `python-ast/` が衝突したら、main の版を取って rebase を終え、ここで `build` と `python-ast` を実行して書き直す。手で行を
+   選んで混ぜない）:
 
    ```bash
    nix develop -c dvc repro -s build
+   nix develop -c dvc repro -s dvc.yaml:python-ast
    nix develop -c dvc status
    ```
+
+   例のステージの deps の .py は、`python-ast`（リポジトリの直下の `dvc.yaml`。数秒）が書く正規形で（ADR-0210）、`build` と
+   同じく、先に実行しないとコードの変わった .py の下流が changed に出ない。docstring とコメントだけの変更なら正規形は変わらず、
+   下流は changed にならない。`python-ast` を実行したら、リポジトリの直下の `dvc.lock` と `python-ast/` も 4 でコミットする
 
    計算のステージの deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
    戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）を実行しないと、ソースが変わった
@@ -91,7 +97,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
      （Slurm で流す重さ。CLAUDE.md の「計算」）
      ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す
-   - `build` は 2 で走らせ終えている
+   - `build` と `python-ast` は 2 で走らせ終えている
 
    数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
 
@@ -108,7 +114,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock dvc.lock   # dvc.lock はリポジトリの直下の build の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
+   git add examples/<問題>/dvc.lock dvc.lock python-ast   # dvc.lock と python-ast/ はリポジトリの直下の build と python-ast の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
    git commit -F <メッセージのファイル>
    ```
 
@@ -131,7 +137,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
    書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。再実行したステージの新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
-6. 作り直した `dvc.lock` を確かめる（`build` を実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
+6. 作り直した `dvc.lock` を確かめる（`build` か `python-ast` を実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
    読めず、書くこともない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
    `nix develop -c scripts/check-dvc-lock.sh examples/<問題>/dvc.lock`（direnv で入っていれば `nix develop -c` は要らない）が終了コード 0 で終わること（dvc が lock を読めるかの検査は、このツールが
    唯一の定義。pre-commit の hook `dvc-lock` も同じツールを呼ぶ。issue #0090）。

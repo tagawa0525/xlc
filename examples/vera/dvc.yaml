@@ -36,8 +36,8 @@ stages:
     do:
       cmd: nix develop ../..#references -c python3 openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
       deps:
-        - openmc_library.py
-        - ../openmc_input.py
+        - ../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.endf}
       params:
@@ -50,8 +50,8 @@ stages:
     do:
       cmd: nix develop ../..#references -c python3 openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
       deps:
-        - openmc_library.py
-        - ../openmc_input.py
+        - ../../python-ast/examples/vera/openmc_library.py.ast
+        - ../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
         - ${item.neutron}
         - ${item.thermal}
@@ -63,8 +63,8 @@ stages:
   openmc-index:
     cmd: nix develop ../..#references -c python3 openmc_library.py index openmc-library.toml openmc-library
     deps:
-      - openmc_library.py
-      - ../openmc_input.py
+      - ../../python-ast/examples/vera/openmc_library.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
       - openmc-library.toml
       - openmc-library/neutron
@@ -76,11 +76,11 @@ stages:
     # 直してもモデルが同じなら変わらず、下の openmc-1B は再実行しない（ADR-0136）
     cmd: nix develop ../..#references -c python3 openmc_model.py model p1/openmc-1B.toml p1/openmc-1B-model
     deps:
-      - openmc_model.py
-      - openmc_tallies.py
-      - ../openmc_common.py
-      - ../openmc_run.py
-      - ../openmc_input.py
+      - ../../python-ast/examples/vera/openmc_model.py.ast
+      - ../../python-ast/examples/vera/openmc_tallies.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
       - p1/openmc-1B.toml
     outs:
@@ -103,11 +103,11 @@ stages:
   openmc-1B-extract:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract p1/openmc-1B.toml p1/openmc-1B p1/openmc-1B-results
     deps:
-      - openmc_model.py
-      - openmc_tallies.py
-      - ../openmc_common.py
-      - ../openmc_run.py
-      - ../openmc_input.py
+      - ../../python-ast/examples/vera/openmc_model.py.ast
+      - ../../python-ast/examples/vera/openmc_tallies.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
       - p1/openmc-1B.toml
       - p1/openmc-1B
@@ -117,13 +117,13 @@ stages:
     # run はステージにしない（本番は手で Slurm に流した。verification.md の「Problem 5-2D の参照解」）。その statepoint を deps にして結果を抜く
     cmd: nix develop ../..#references -c python3 openmc_core_2d.py extract p5/openmc-5A-2D.toml ../../references/openmc/vera-5A-2D p5/openmc-5A-2D-results
     deps:
-      - openmc_core_2d.py
-      - openmc_model.py
-      - openmc_tallies.py
-      - ../openmc_common.py
-      - ../openmc_input.py
-      - ../openmc_resume.py
-      - ../openmc_run.py
+      - ../../python-ast/examples/vera/openmc_core_2d.py.ast
+      - ../../python-ast/examples/vera/openmc_model.py.ast
+      - ../../python-ast/examples/vera/openmc_tallies.py.ast
+      - ../../python-ast/examples/openmc_common.py.ast
+      - ../../python-ast/examples/openmc_input.py.ast
+      - ../../python-ast/examples/openmc_resume.py.ast
+      - ../../python-ast/examples/openmc_run.py.ast
       - references-shell.txt
       - p5/openmc-5A-2D.toml
       - ../../references/openmc/vera-5A-2D
@@ -179,7 +179,7 @@ stages:
   compare-1B:
     cmd: python3 compare_k.py p1/lattice-1B.out p1/openmc-1B-results/k.json > p1/compare-1B.out
     deps:
-      - compare_k.py
+      - ../../python-ast/examples/vera/compare_k.py.ast
       - p1/lattice-1B.out
       - p1/openmc-1B-results/k.json
     outs:
@@ -193,10 +193,10 @@ stages:
       deps:
         - p1/pincell-${item}.toml
         - vera.msgpack
-        - compare_keno_lattice.py
-        - compare_keno.py
-        - compare_k.py
-        - compare_p3.py
+        - ../../python-ast/examples/vera/compare_keno_lattice.py.ast
+        - ../../python-ast/examples/vera/compare_keno.py.ast
+        - ../../python-ast/examples/vera/compare_k.py.ast
+        - ../../python-ast/examples/vera/compare_p3.py.ast
         - ../../references/vera/spec.txt
         - ../../bin/lattice
       outs:
@@ -210,10 +210,10 @@ stages:
       deps:
         - p2/assembly-${item}.toml
         - vera.msgpack
-        - compare_keno_lattice.py
-        - compare_keno.py
-        - compare_k.py
-        - compare_p3.py
+        - ../../python-ast/examples/vera/compare_keno_lattice.py.ast
+        - ../../python-ast/examples/vera/compare_keno.py.ast
+        - ../../python-ast/examples/vera/compare_k.py.ast
+        - ../../python-ast/examples/vera/compare_p3.py.ast
         - ../../references/vera/spec.txt
         - ../../bin/lattice
       outs:

@@ -1,0 +1,107 @@
+import openmc
+import openmc.mgxs
+VERSION = 1
+PREFIX = f'standard-{VERSION}'
+WIMS69 = (1e-05, 0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.035, 0.042, 0.05, 0.058, 0.067, 0.08, 0.1, 0.14, 0.18, 0.22, 0.25, 0.28, 0.3, 0.32, 0.35, 0.4, 0.5, 0.625, 0.78, 0.85, 0.91, 0.95, 0.972, 0.996, 1.02, 1.045, 1.071, 1.097, 1.123, 1.15, 1.3, 1.5, 2.1, 2.6, 3.3, 4.0, 9.877, 15.968, 27.7, 48.052, 75.501, 148.728, 367.262, 906.898, 1425.1, 2239.45, 3519.1, 5530.0, 9118.0, 15030.0, 24780.0, 40850.0, 67340.0, 111000.0, 183000.0, 302500.0, 500000.0, 821000.0, 1353000.0, 2231000.0, 3679000.0, 6065500.0, 10000000.0)
+XLC_BINS = (0.0, *WIMS69, 10000000000.0)
+FINE_BINS = tuple(openmc.mgxs.GROUP_STRUCTURES['ECCO-1968'])
+MULTIPLYING = ('(n,2nd)', '(n,2n)', '(n,3n)', '(n,2na)', '(n,3na)', '(n,2n2a)', '(n,4n)', '(n,2np)', '(n,3np)')
+ZONE_SCORES = ('flux', 'total', 'scatter', 'absorption', 'fission', 'nu-fission')
+MATERIAL_SCORES = (*ZONE_SCORES, *MULTIPLYING)
+FINE_SCORES = ('flux', 'absorption', 'nu-fission')
+TRACKED = ('U234', 'U235', 'U236', 'U238', 'O16', 'H1', 'B10', 'Ag107', 'Ag109', 'In113', 'In115', 'Cd113', 'Gd155', 'Gd157')
+NUCLIDE_SCORES = ('total', 'elastic', 'absorption', 'fission', 'nu-fission', '(n,gamma)', '(n,2n)')
+LEGENDRE_ORDER = 3
+OPTIONAL = {'standard-tallies'}
+
+def quiet(settings: openmc.Settings) -> None:
+    settings.output = {'tallies': False}
+
+def enabled(run: dict) -> bool:
+    value = run.get('standard-tallies', True)
+    if not isinstance(value, bool):
+        raise SystemExit(f'standard-tallies must be true or false, got {value!r}')
+    return value
+
+def name(kind: str) -> str:
+    return f'{PREFIX}/{kind}'
+
+def tally(kind: str, filters: list[openmc.Filter], scores: tuple[str, ...], nuclides: list[str] | None=None) -> openmc.Tally:
+    t = openmc.Tally(name=name(kind))
+    t.filters = filters
+    t.scores = list(scores)
+    if nuclides:
+        t.nuclides = nuclides
+    return t
+
+def tracked(materials: list[openmc.Material]) -> list[str]:
+    present = {n for m in materials for n in m.get_nuclides()}
+    return [n for n in TRACKED if n in present]
+
+class Filters:
+
+    def __init__(self, materials: list[openmc.Material]):
+        self.materials = openmc.MaterialFilter(materials)
+        self.groups = openmc.EnergyFilter(XLC_BINS)
+        self.groups_out = openmc.EnergyoutFilter(XLC_BINS)
+        self.fine = openmc.EnergyFilter(FINE_BINS)
+        self.legendre = openmc.LegendreFilter(LEGENDRE_ORDER)
+        self.meshes: dict[int, openmc.MeshFilter] = {}
+
+    def mesh(self, mesh: openmc.MeshBase) -> openmc.MeshFilter:
+        return self.meshes.setdefault(mesh.id, openmc.MeshFilter(mesh))
+
+def material_tallies(f: Filters, materials: list[openmc.Material]) -> list[openmc.Tally]:
+    return [tally('material groups', [f.materials, f.groups], MATERIAL_SCORES), tally('material transfer', [f.materials, f.groups, f.groups_out, f.legendre], ('nu-scatter',)), tally('material fine', [f.materials, f.fine], FINE_SCORES), tally('nuclides', [f.materials, f.groups], NUCLIDE_SCORES, tracked(materials))]
+
+def zone_tallies(f: Filters, kind: str, mesh: openmc.MeshBase, transfer: bool, current: bool) -> list[openmc.Tally]:
+    zones = f.mesh(mesh)
+    tallies = [tally(f'{kind} groups', [zones, f.groups], ZONE_SCORES)]
+    if transfer:
+        tallies.append(tally(f'{kind} transfer', [zones, f.groups, f.groups_out], ('nu-scatter',)))
+    if current:
+        tallies.append(tally(f'{kind} current', [openmc.MeshSurfaceFilter(mesh), f.groups], ('current',)))
+    return tallies
+
+def pin_fuel_tallies(f: Filters, pins: openmc.MeshBase, fuels: list[openmc.Material]) -> list[openmc.Tally]:
+    filters = [f.mesh(pins), openmc.MaterialFilter(fuels), f.groups]
+    return [tally('pin nuclides', filters, NUCLIDE_SCORES, tracked(fuels)), tally('pin nuclides flux', filters, ('flux',))]
+
+def strip_edges(low: float, faces: list[float], high: float, gap: float) -> list[float]:
+    edges = {low, high}
+    for face in faces:
+        edges |= {e for e in (face - gap, face + gap) if low < e < high}
+    return sorted(edges)
+
+def boundary_mesh(x: list[float], y: list[float], z: list[float] | None=None) -> openmc.RectilinearMesh:
+    mesh = openmc.RectilinearMesh()
+    mesh.x_grid = x
+    mesh.y_grid = y
+    mesh.z_grid = z if z is not None else [-1000000.0, 1000000.0]
+    return mesh
+
+def boundary_tally(f: Filters, mesh: openmc.MeshBase) -> openmc.Tally:
+    return tally('boundary', [f.mesh(mesh), f.groups], ('flux',))
+
+def pincell(materials: list[openmc.Material]) -> list[openmc.Tally]:
+    return material_tallies(Filters(materials), materials)
+
+def assembly(materials: list[openmc.Material], fuels: list[openmc.Material], pins: openmc.MeshBase, half: float, gap: float) -> list[openmc.Tally]:
+    f = Filters(materials)
+    edges = strip_edges(-half, [-half, half], half, gap)
+    return [*material_tallies(f, materials), *zone_tallies(f, 'pin', pins, transfer=False, current=False), *pin_fuel_tallies(f, pins, fuels), boundary_tally(f, boundary_mesh(edges, edges))]
+
+def assembly_3d(materials: list[openmc.Material], fuels: list[openmc.Material], pins: openmc.MeshBase, half: float, gap: float, levels: list[float]) -> list[openmc.Tally]:
+    f = Filters(materials)
+    layers = boundary_mesh([-half, half], [-half, half], levels)
+    edges = strip_edges(-half, [-half, half], half, gap)
+    return [*material_tallies(f, materials), *zone_tallies(f, 'pin', pins, transfer=False, current=False), *pin_fuel_tallies(f, pins, fuels), *zone_tallies(f, 'layer', layers, transfer=True, current=True), boundary_tally(f, boundary_mesh(edges, edges, levels))]
+
+def core_2d(materials: list[openmc.Material], assemblies: openmc.RegularMesh, gap: float) -> list[openmc.Tally]:
+    f = Filters(materials)
+    n = assemblies.dimension[0]
+    pitch = assemblies.width[0]
+    faces = [(c + 0.5) * pitch for c in range(n)]
+    x = strip_edges(0.0, faces, faces[-1] + gap, gap)
+    y = [-e for e in reversed(x)]
+    return [*material_tallies(f, materials), *zone_tallies(f, 'assembly', assemblies, transfer=True, current=True), boundary_tally(f, boundary_mesh(x, y))]

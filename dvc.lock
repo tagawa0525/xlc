@@ -58,3 +58,571 @@ stages:
       md5: 3632b403edb3198f36f35603575197cc
       size: 2930200
       isexec: true
+  python-ast@examples/c5g7/compare.py:
+    cmd: python3 scripts/normalize_python.py examples/c5g7/compare.py 
+      python-ast/examples/c5g7/compare.py.ast
+    deps:
+    - path: examples/c5g7/compare.py
+      hash: md5
+      md5: c95c62783d39b92fd80ad758122793b6
+      size: 4622
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/c5g7/compare.py.ast
+      hash: md5
+      md5: d912d97fa134f308d9e7c42df2094cfe
+      size: 2999
+  python-ast@examples/c5g7/openmc_model.py:
+    cmd: python3 scripts/normalize_python.py examples/c5g7/openmc_model.py 
+      python-ast/examples/c5g7/openmc_model.py.ast
+    deps:
+    - path: examples/c5g7/openmc_model.py
+      hash: md5
+      md5: fe356ee489d73d5e5ba13c425ade4ee3
+      size: 9052
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/c5g7/openmc_model.py.ast
+      hash: md5
+      md5: 1a60af4169c5ed73736a5c9d5fefb7d5
+      size: 5918
+  python-ast@examples/colorset/compare.py:
+    cmd: python3 scripts/normalize_python.py examples/colorset/compare.py 
+      python-ast/examples/colorset/compare.py.ast
+    deps:
+    - path: examples/colorset/compare.py
+      hash: md5
+      md5: 3c4862071561c0385334b8092bc69c48
+      size: 2832
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/colorset/compare.py.ast
+      hash: md5
+      md5: 9d5da1eff732a37201adb4dae2d5fb38
+      size: 1853
+  python-ast@examples/colorset/diffusion.py:
+    cmd: python3 scripts/normalize_python.py examples/colorset/diffusion.py 
+      python-ast/examples/colorset/diffusion.py.ast
+    deps:
+    - path: examples/colorset/diffusion.py
+      hash: md5
+      md5: 6bda741a58d901e73b7952ce9f1aa22e
+      size: 10268
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/colorset/diffusion.py.ast
+      hash: md5
+      md5: 592a6fc11ae7a33daef906ed10360bb6
+      size: 7549
+  python-ast@examples/colorset/without_df.py:
+    cmd: python3 scripts/normalize_python.py examples/colorset/without_df.py 
+      python-ast/examples/colorset/without_df.py.ast
+    deps:
+    - path: examples/colorset/without_df.py
+      hash: md5
+      md5: 3b961d0ee7db4bc58004cad2cac90fd3
+      size: 741
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/colorset/without_df.py.ast
+      hash: md5
+      md5: 32d8fa3f05d335391b01545962dacedf
+      size: 398
+  python-ast@examples/core/compare_rods.py:
+    cmd: python3 scripts/normalize_python.py examples/core/compare_rods.py 
+      python-ast/examples/core/compare_rods.py.ast
+    deps:
+    - path: examples/core/compare_rods.py
+      hash: md5
+      md5: b030674c93a69cef662aa0773fa337dd
+      size: 4757
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/core/compare_rods.py.ast
+      hash: md5
+      md5: 20e17a9ef5a223439c267b733648f052
+      size: 3682
+  python-ast@examples/core/rod_table.py:
+    cmd: python3 scripts/normalize_python.py examples/core/rod_table.py 
+      python-ast/examples/core/rod_table.py.ast
+    deps:
+    - path: examples/core/rod_table.py
+      hash: md5
+      md5: b3e8483efb62651cd152337a799cadb5
+      size: 5190
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/core/rod_table.py.ast
+      hash: md5
+      md5: 48c4564a6b69075ca4a666b686e82eef
+      size: 3306
+  python-ast@examples/core/rods_cases.py:
+    cmd: python3 scripts/normalize_python.py examples/core/rods_cases.py 
+      python-ast/examples/core/rods_cases.py.ast
+    deps:
+    - path: examples/core/rods_cases.py
+      hash: md5
+      md5: 1824f544789f75342dcb39301328b527
+      size: 7469
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/core/rods_cases.py.ast
+      hash: md5
+      md5: fa9fc433f6299d6776548e45c15fe578
+      size: 5297
+  python-ast@examples/depletion/compare_depletion.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/compare_depletion.py 
+      python-ast/examples/depletion/compare_depletion.py.ast
+    deps:
+    - path: examples/depletion/compare_depletion.py
+      hash: md5
+      md5: a0ef119fbb988c641f84cb98914ae336
+      size: 8791
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/compare_depletion.py.ast
+      hash: md5
+      md5: a27b2028dc60cac3d435a9c01a68bf97
+      size: 5911
+  python-ast@examples/depletion/compare_depletion_assembly.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/compare_depletion_assembly.py 
+      python-ast/examples/depletion/compare_depletion_assembly.py.ast
+    deps:
+    - path: examples/depletion/compare_depletion_assembly.py
+      hash: md5
+      md5: dba63bb40c2ea607a1a3589b065740c4
+      size: 22240
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/compare_depletion_assembly.py.ast
+      hash: md5
+      md5: 7e45334ba2c9ae0fdeb2bfc60d873b94
+      size: 13658
+  python-ast@examples/depletion/openmc_chain.py:
+    cmd: python3 scripts/normalize_python.py examples/depletion/openmc_chain.py 
+      python-ast/examples/depletion/openmc_chain.py.ast
+    deps:
+    - path: examples/depletion/openmc_chain.py
+      hash: md5
+      md5: 557c40287f33d5ba6c2500d923e82e3b
+      size: 1113
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/openmc_chain.py.ast
+      hash: md5
+      md5: 445f00169ed4892ba139f14cffc43c0c
+      size: 577
+  python-ast@examples/depletion/openmc_depletion.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/openmc_depletion.py 
+      python-ast/examples/depletion/openmc_depletion.py.ast
+    deps:
+    - path: examples/depletion/openmc_depletion.py
+      hash: md5
+      md5: 4e5fc825b421e5ac5ee69ff74dddb545
+      size: 11791
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/openmc_depletion.py.ast
+      hash: md5
+      md5: b98b611a4c9b98ae08db96eac383ffad
+      size: 7461
+  python-ast@examples/depletion/openmc_depletion_mox.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/openmc_depletion_mox.py 
+      python-ast/examples/depletion/openmc_depletion_mox.py.ast
+    deps:
+    - path: examples/depletion/openmc_depletion_mox.py
+      hash: md5
+      md5: eed4c6a213197b7a046f430542d8a213
+      size: 10042
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/openmc_depletion_mox.py.ast
+      hash: md5
+      md5: 54531cb8b7e190b904ad2fc44068f397
+      size: 6424
+  python-ast@examples/mox/compare_capture.py:
+    cmd: python3 scripts/normalize_python.py examples/mox/compare_capture.py 
+      python-ast/examples/mox/compare_capture.py.ast
+    deps:
+    - path: examples/mox/compare_capture.py
+      hash: md5
+      md5: e9482f7b599360f0401a356bbc2cdea2
+      size: 10537
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/mox/compare_capture.py.ast
+      hash: md5
+      md5: d36aa1049a03340efd7b7e7ae67a86ec
+      size: 6205
+  python-ast@examples/mox/openmc_model.py:
+    cmd: python3 scripts/normalize_python.py examples/mox/openmc_model.py 
+      python-ast/examples/mox/openmc_model.py.ast
+    deps:
+    - path: examples/mox/openmc_model.py
+      hash: md5
+      md5: 314248895335e418c06879644c0e1890
+      size: 8944
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/mox/openmc_model.py.ast
+      hash: md5
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+  python-ast@examples/openmc_common.py:
+    cmd: python3 scripts/normalize_python.py examples/openmc_common.py 
+      python-ast/examples/openmc_common.py.ast
+    deps:
+    - path: examples/openmc_common.py
+      hash: md5
+      md5: d63903c807752b2c16e811ae5c96f66e
+      size: 3475
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+  python-ast@examples/openmc_input.py:
+    cmd: python3 scripts/normalize_python.py examples/openmc_input.py 
+      python-ast/examples/openmc_input.py.ast
+    deps:
+    - path: examples/openmc_input.py
+      hash: md5
+      md5: 6af6d29afab033dcf5ada70b60e12c2f
+      size: 1513
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+  python-ast@examples/openmc_resume.py:
+    cmd: python3 scripts/normalize_python.py examples/openmc_resume.py 
+      python-ast/examples/openmc_resume.py.ast
+    deps:
+    - path: examples/openmc_resume.py
+      hash: md5
+      md5: a90c8a98b8982c506edcccd63d9c2277
+      size: 5924
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/openmc_resume.py.ast
+      hash: md5
+      md5: 008ce9dbb5daab4b2c23ba200fb48d91
+      size: 3492
+  python-ast@examples/openmc_run.py:
+    cmd: python3 scripts/normalize_python.py examples/openmc_run.py 
+      python-ast/examples/openmc_run.py.ast
+    deps:
+    - path: examples/openmc_run.py
+      hash: md5
+      md5: 184be1af3d95567b84f518f379744b4b
+      size: 4465
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+  python-ast@examples/reflector/compare_axial.py:
+    cmd: python3 scripts/normalize_python.py examples/reflector/compare_axial.py
+      python-ast/examples/reflector/compare_axial.py.ast
+    deps:
+    - path: examples/reflector/compare_axial.py
+      hash: md5
+      md5: 4f88660ac0c3526724741123ef086009
+      size: 4203
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
+  python-ast@examples/reflector/compare_edge.py:
+    cmd: python3 scripts/normalize_python.py examples/reflector/compare_edge.py 
+      python-ast/examples/reflector/compare_edge.py.ast
+    deps:
+    - path: examples/reflector/compare_edge.py
+      hash: md5
+      md5: aae745a67164541a1a642fdfb11b8f03
+      size: 1727
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/reflector/compare_edge.py.ast
+      hash: md5
+      md5: a052340d92265c43bc9e4881f2d4ea3b
+      size: 1156
+  python-ast@examples/reflector/compare_radial.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/reflector/compare_radial.py 
+      python-ast/examples/reflector/compare_radial.py.ast
+    deps:
+    - path: examples/reflector/compare_radial.py
+      hash: md5
+      md5: 18de5a9a6cf77de87e8b03f12049c17c
+      size: 2962
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/reflector/compare_radial.py.ast
+      hash: md5
+      md5: 7393791078cf4908df0ac09e8fb0626a
+      size: 1759
+  python-ast@examples/vera/compare_k.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/compare_k.py 
+      python-ast/examples/vera/compare_k.py.ast
+    deps:
+    - path: examples/vera/compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_k.py.ast
+      hash: md5
+      md5: 1954b90bc16850c48b9a8b5d821470ea
+      size: 732
+  python-ast@examples/vera/compare_keno.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/compare_keno.py 
+      python-ast/examples/vera/compare_keno.py.ast
+    deps:
+    - path: examples/vera/compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_keno.py.ast
+      hash: md5
+      md5: 0d6ce13aae60ffc42f08fbc8f72ea478
+      size: 3412
+  python-ast@examples/vera/compare_keno_lattice.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/vera/compare_keno_lattice.py 
+      python-ast/examples/vera/compare_keno_lattice.py.ast
+    deps:
+    - path: examples/vera/compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_keno_lattice.py.ast
+      hash: md5
+      md5: 3a4f527ef173ed85f06e20eb8fef8c20
+      size: 1193
+  python-ast@examples/vera/compare_openmc_keno.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/vera/compare_openmc_keno.py 
+      python-ast/examples/vera/compare_openmc_keno.py.ast
+    deps:
+    - path: examples/vera/compare_openmc_keno.py
+      hash: md5
+      md5: a27ff6f1a06708fa61a7602e81098f75
+      size: 4877
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_openmc_keno.py.ast
+      hash: md5
+      md5: 066cc54a2fd88a62335658b07718c8a8
+      size: 2790
+  python-ast@examples/vera/compare_p3.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/compare_p3.py 
+      python-ast/examples/vera/compare_p3.py.ast
+    deps:
+    - path: examples/vera/compare_p3.py
+      hash: md5
+      md5: e3c3469cd8d43c2514f66455384f34d8
+      size: 22261
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_p3.py.ast
+      hash: md5
+      md5: 11b6a4d38d3f5c00904e1d5bf2460fbd
+      size: 15757
+  python-ast@examples/vera/compare_p5.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/compare_p5.py 
+      python-ast/examples/vera/compare_p5.py.ast
+    deps:
+    - path: examples/vera/compare_p5.py
+      hash: md5
+      md5: b1778f83d07b63ca1218832eec79e3b1
+      size: 23409
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_p5.py.ast
+      hash: md5
+      md5: dc7e6ce7e79d2d9e448ee0c81b3c2f3a
+      size: 16024
+  python-ast@examples/vera/openmc_core_2d.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/openmc_core_2d.py 
+      python-ast/examples/vera/openmc_core_2d.py.ast
+    deps:
+    - path: examples/vera/openmc_core_2d.py
+      hash: md5
+      md5: 624d13bdd2aba11b33ae3faad3b516cc
+      size: 18178
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/openmc_core_2d.py.ast
+      hash: md5
+      md5: 32869ba087afec5f25cb4a3b496ec5b1
+      size: 10685
+  python-ast@examples/vera/openmc_library.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/openmc_library.py 
+      python-ast/examples/vera/openmc_library.py.ast
+    deps:
+    - path: examples/vera/openmc_library.py
+      hash: md5
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/openmc_library.py.ast
+      hash: md5
+      md5: 9d2f53ffbbdab6514418cef40a7e4a79
+      size: 2936
+  python-ast@examples/vera/openmc_model.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/openmc_model.py 
+      python-ast/examples/vera/openmc_model.py.ast
+    deps:
+    - path: examples/vera/openmc_model.py
+      hash: md5
+      md5: 7277012541e79afaa65d62370de1fc43
+      size: 29444
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+  python-ast@examples/vera/openmc_tallies.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/openmc_tallies.py 
+      python-ast/examples/vera/openmc_tallies.py.ast
+    deps:
+    - path: examples/vera/openmc_tallies.py
+      hash: md5
+      md5: b327a7cb514301ab37985acc2afac853
+      size: 12943
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+  python-ast@examples/vera/p5/compare_hzp.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/p5/compare_hzp.py 
+      python-ast/examples/vera/p5/compare_hzp.py.ast
+    deps:
+    - path: examples/vera/p5/compare_hzp.py
+      hash: md5
+      md5: a44b4c844209b2236b66365bf639ffb7
+      size: 21663
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/p5/compare_hzp.py.ast
+      hash: md5
+      md5: d4c5b67de76bdba19d84989a50a2791e
+      size: 15338
