@@ -698,9 +698,9 @@ ADR-0204 の速い方法）を足し、ライブラリ、チェーン、出力�
 # xlc（Slurm の既定のジョブ。ライブラリとチェーンは本番のもの）
 ~/.claude/scripts/slurm-run.sh -t 1:30:00 xlc-2A-ufg-free-gas 'bin/lattice examples/depletion/issue-0133/ufg-free-gas-assemblies/lattice-2A-fg.toml'
 ~/.claude/scripts/slurm-run.sh -t 2:30:00 xlc-2O-ufg-free-gas 'bin/lattice examples/depletion/issue-0133/ufg-free-gas-assemblies/lattice-2O-fg.toml'
-# 比較（作業ディレクトリに履歴 lattice-<問題>-fg.msgpack を置く）
+# 比較（履歴は入力の隣に書かれる。`.gitignore` が無視する）
 python3 examples/depletion/compare_depletion_assembly.py --json examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json \
-  lattice-2A-fg.msgpack references/openmc/aws/m4-assembly/openmc-2A/openmc-2A.msgpack
+  examples/depletion/issue-0133/ufg-free-gas-assemblies/lattice-2A-fg.msgpack references/openmc/aws/m4-assembly/openmc-2A/openmc-2A.msgpack
 python3 examples/depletion/compare_depletion_assembly.py --report examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json
 ```
 
@@ -712,8 +712,11 @@ xlc は main の daa6dee68 の `bin/lattice`（md5 a9b4f89c）、2026-10-26。2A
 （ライブラリ、チェーン、出力のパスは、実行したときの `trials/ufg-free-gas-assemblies/` からの書き方を、この置き場からの書き方に直した）。
 
 静止した標的の本番は、2A が a925a9ed、2O が 02f35491（どちらも 2026-10-24。分岐点は main の 6dc2d22e。「集合体の燃焼」の「計算」）で、
-自由ガスの試行とは xlc のコミットが違う。ADR-0203 と ADR-0204 は、静止した標的の既定で自己遮蔽の結果がビットで変わらないことを
-1C のピンセルで確かめたが、集合体の本番と試行の間のコミットで 2A と 2O の履歴が同じかは確かめていない。
+自由ガスの試行とは xlc のコミットが違う（本番の 02f35491 から試行の daa6dee68 までに、lattice の crate は自由ガスの核の追加と整理、
+分岐の格子の変更などを受けた）。ADR-0203 と ADR-0204 は、静止した標的の既定で自己遮蔽の結果がビットで変わらないことを
+1C のピンセルで確かめたが、集合体の本番と試行の間のコミットで 2A と 2O の履歴が同じかは確かめていない（同じコミットで静止した標的の
+対照を流していない）。下の静止した標的との差と縮みは、自由ガスの核によるものと、ほかのコミットの変化を含みうる値（候補）である。
+比較の JSON の `seconds` は既定のジョブの時間なので使わない。
 
 #### 結果
 
@@ -852,11 +855,12 @@ k∞ の差（xlc − OpenMC、pcm）と、0 の点からの変化。
 2O: 0 の点の差が +66.1 から +88.0 pcm、最大は +235.4 から +213.4 pcm（どちらも 52 MWd/kg）、60 MWd/kg は +178.2 から +156.7 pcm。
 増えは +112.1 から +68.7 pcm（−43.4）。静止した標的との差は 0 の点で +21.9、60 MWd/kg で −21.5 pcm。
 
-- 自由ガスの散乱核は、どちらの集合体でも k の差を新しい燃料で正の側へ、燃えた組成で負の側へ動かし、増えを 2A で 35%、2O で 39% 縮める。
-  向きはピンセルの測定（軽い核種の自由ガスで k が新しい燃料 +67.1、2A-40 で +29.5 pcm 動き、増えが −37.6 pcm。重い核種も入れた参照の組では
+- 本番との差は、どちらの集合体でも k の差を新しい燃料で正の側へ、燃えた組成で負の側へ動かし、増えを 2A で 35%、2O で 39% 縮める
+  （上のとおり、同じコミットの対照はない）。向きはピンセルの測定（軽い核種の自由ガスで k が新しい燃料 +67.1、2A-40 で +29.5 pcm 動き、増えが −37.6 pcm。重い核種も入れた参照の組では
   増えが +110.7 から +67.5 pcm、−43.2。上の 2 つの節）と同じ
-- 2A の 40 MWd/kg の増えは +158.4 から +104.9 pcm（−53.5）、2O は +112.6 から +72.0 pcm（−40.7）。ピンセルの縮みと同じ程度だが、
-  ピンセルの状態と集合体は組成と形が違い、集合体の縮みがピンセルの縮みと同じ原因かは確かめていない
+- 2A の 40 MWd/kg の増えは +158.4 から +104.9 pcm（−53.5）、2O は +112.6 から +72.0 pcm（−40.7）。ピンセルの重い核種も入れた縮み
+  （−43.2 pcm）より 2A は 24% 大きく、2O は 6% 小さい。ピンセルの状態と集合体は組成と形が違い、集合体の縮みがピンセルの縮みと
+  同じ原因かは確かめていない
 - 増えは縮んでも残る（2A で +110.3、2O で +68.7 pcm）。残りの候補は ADR-0204 の記録の候補（H in H2O の 4〜10 eV の束縛、分離共鳴の
   上方散乱、等価なセル）で、どれがどれだけ説明するかは確かめていない
 - ピン出力の rms は不変で、2A が 0.06〜0.11%、2O が 0.07〜0.18%。本番との差は、点ごとの rms で 2A が 0.0011、2O が 0.0037 ポイント以下
