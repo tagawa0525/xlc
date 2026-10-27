@@ -22,6 +22,8 @@ STATUS = {
     "examples/a/dvc.yaml:s3": [{"changed outs": {"o": "deleted"}}],
     "examples/b/dvc.yaml:s1": [{"changed deps": {"y": "modified"}}],
     "build": [{"changed deps": {"src": "modified"}}],
+    "examples/b/dvc.yaml:references-shell": ["always changed"],
+    "examples/b/dvc.yaml:s2": [{"changed command": "modified"}],
 }
 
 
@@ -30,9 +32,27 @@ class Count(unittest.TestCase):
         self.assertEqual(
             cnt.count_changed(STATUS),
             {
-                "examples/a/dvc.yaml": {"changed deps": 2, "changed outs": 2},
-                "examples/b/dvc.yaml": {"changed deps": 1, "changed outs": 0},
-                "dvc.yaml": {"changed deps": 1, "changed outs": 0},
+                "examples/a/dvc.yaml": {
+                    "stages": 3,
+                    "changed deps": 2,
+                    "changed outs": 2,
+                    "changed command": 0,
+                    "always changed": 0,
+                },
+                "examples/b/dvc.yaml": {
+                    "stages": 3,
+                    "changed deps": 1,
+                    "changed outs": 0,
+                    "changed command": 1,
+                    "always changed": 1,
+                },
+                "dvc.yaml": {
+                    "stages": 1,
+                    "changed deps": 1,
+                    "changed outs": 0,
+                    "changed command": 0,
+                    "always changed": 0,
+                },
             },
         )
 
