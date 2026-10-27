@@ -1,0 +1,109 @@
+# ADR-0205: H in H2O の H の UFG の散乱核を、S(α,β) の上限 B(4) より下で S(α,β) の移行にした測定の要約（ufg_free_gas.py summarize の設定）。
+# OpenMC の k は swap-candidates.toml の実行の平均、反応率は 1C の 0、5 MWd/kg が Slurm 448、2A-40 が 459（シード 3）、移行は 534。
+# 置き換えは ../ufg-heavy-free-gas/swaps.txt（1C の 0 MWd/kg は Pu の無い swaps-1C-0.txt）。自由ガスの散乱核（static、heavy、heavy-cap、
+# heavy-fast3）の吸収と傾きのログのうち、このブランチで流していないもの（1C-0 の heavy と傾き、2A-40 のすべて）は ADR-0204 の
+# ../ufg-heavy-free-gas/logs/ のコピー（このブランチで流した 1C の 2 状態の static、heavy-cap、heavy-fast3 は、そのログと文字まで同じ）
+candidates = "../swap-candidates.toml"
+
+[[mode]]
+key = "static"
+label = "静止した標的（ADR-0070）"
+
+[[mode]]
+key = "heavy"
+label = "自由ガス（ADR-0204 の参照: 軽い核種は上限なし、重い核種は 400 kT まで、細かさ 4、収束まで）"
+
+[[mode]]
+key = "sab"
+label = "S(α,β)、ほかは ADR-0204 の参照と同じ（参照）"
+
+[[mode]]
+key = "heavy-cap"
+label = "自由ガス、どの核種も 400 kT まで（細かさ 4、収束まで）"
+
+[[mode]]
+key = "sab-cap"
+label = "S(α,β)、ほかはどの核種も 400 kT まで（細かさ 4、収束まで）"
+
+[[mode]]
+key = "heavy-fast3"
+label = "自由ガス、ADR-0204 の速い方法（400 kT まで、細かさ 2、スイープ 3 回）"
+
+[[mode]]
+key = "sab-fast3"
+label = "S(α,β)、ほかは ADR-0204 の速い方法（速い方法）"
+
+[[swap]]
+spec = "U-238:27-27"
+label = "U-238、4〜9.88 eV"
+
+[[swap]]
+spec = "*:27-27"
+label = "燃料の全核種、4〜9.88 eV"
+
+[[swap]]
+spec = "U-238:14-26"
+label = "U-238、9.88 eV〜15 keV"
+
+[[swap]]
+spec = "*:14-26"
+label = "燃料の全核種、9.88 eV〜15 keV"
+
+[[swap]]
+spec = "U-238:26-26"
+label = "U-238、9.88〜16.0 eV"
+
+[[swap]]
+spec = "U-238:25-25"
+label = "U-238、16.0〜27.7 eV"
+
+[[swap]]
+spec = "U-238:24-24"
+label = "U-238、27.7〜48.1 eV"
+
+[[swap]]
+spec = "Pu-239:27-27"
+label = "Pu-239、4〜9.88 eV"
+
+[[swap]]
+spec = "Pu-239:26-26"
+label = "Pu-239、9.88〜16.0 eV"
+
+[[swap]]
+spec = "Pu-239:25-25"
+label = "Pu-239、16.0〜27.7 eV"
+
+[[swap]]
+spec = "Pu-239:24-24"
+label = "Pu-239、27.7〜48.1 eV"
+
+[[transfer]]
+spec = "water:27-27"
+label = "減速材、4〜9.88 eV"
+
+[[transfer]]
+spec = "water:14-26"
+label = "減速材、9.88 eV〜15 keV"
+
+[[transfer]]
+spec = "fuel:27-27"
+label = "燃料、4〜9.88 eV"
+
+[[transfer]]
+spec = "fuel:14-26"
+label = "燃料、9.88 eV〜15 keV"
+
+[[state]]
+name = "1C 0 MWd/kg"
+key = "1C-0"
+swaps = "../ufg-heavy-free-gas/swaps-1C-0.txt"
+
+[[state]]
+name = "1C 5 MWd/kg"
+key = "1C-5"
+swaps = "../ufg-heavy-free-gas/swaps.txt"
+
+[[state]]
+name = "2A 40 MWd/kg"
+key = "2A-40"
+swaps = "../ufg-heavy-free-gas/swaps.txt"
