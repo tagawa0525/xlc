@@ -1962,28 +1962,96 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
     }
 }
 
-#[test]
-fn transfers_on_a_thinned_grid_stop_with_an_error() {
-    // 間引いた格子では、自分の群への移行を差で決める弾性散乱（核種自身の格子で縮約）とほかの群への移行（間引いた格子で数える）が
-    // 別の格子の値になるので、移行を数えない
-    let lib = library_with(
-        vec![constant("O-16", 15.86, 3.8, 3.8, 0.0)],
-        TEMPERATURE,
-        &FINE_BOUNDS,
-    );
-    let m = material(&[("O-16", 0.05)]);
-    let cell = Cylinder::new(vec![0.5]).unwrap();
-    let result = slowing_down_transfers(
+/// [`thermal_cell_with`] の [`FINE_BOUNDS`] の 100 eV より下の減速計算と移行（燃料、真空、減速材 2 つのリング）。H-1 に表 `table` を
+/// 持たせる（S(α, β) の移行を選ぶとき）
+fn thermal_transfers(
+    thinning: Option<f64>,
+    scattering: Scattering,
+    table: Option<SabTransfer>,
+) -> (CellSpectrum, Vec<Vec<NuclideTransfer>>) {
+    let (mut lib, fuel, water) = thermal_cell_with(600.0, &FINE_BOUNDS);
+    if let Some(table) = table {
+        let h1 = lib.nuclides.iter_mut().find(|n| n.name == "H-1").unwrap();
+        h1.thermal_scattering = true;
+        h1.temperatures[0].sab_transfer = Some(table);
+    }
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    slowing_down_transfers(
         &lib,
         &cell,
-        &[Some(&m)],
-        [4.0, 2.0e4],
+        &rings,
+        [4.0, 1.0e2],
         Collision::Exact,
-        Some(1.0e-4),
-        Scattering::Static,
-    );
-    assert!(
-        matches!(result, Err(UfgError::ThinnedTransfers)),
-        "{result:?}"
-    );
+        thinning,
+        scattering,
+    )
+    .unwrap()
+}
+
+/// 移行の試験の散乱核（ラベル、散乱核、H-1 の S(α, β) の表）
+fn transfer_kernels() -> [(&'static str, Scattering, Option<SabTransfer>); 4] {
+    [
+        ("static", Scattering::Static, None),
+        ("free gas", free_gas(None, 2, Some(3)), None),
+        ("resonant free gas", free_gas_heavy(400.0, 2, Some(3)), None),
+        (
+            "S(a,b)",
+            sab(2, Some(3)),
+            Some(free_gas_transfer(0.99917, 600.0, 0.002)),
+        ),
+    ]
+}
+
+#[test]
+fn thinned_transfers_keep_the_shielded_elastic_as_the_row_sums() {
+    // ADR-0208: 間引いた格子でも、移行の行の和は核種の格子で縮約した弾性散乱断面積（群定数）で、要素は負にならない
+    for (label, scattering, table) in transfer_kernels() {
+        let (spectrum, transfers) = thermal_transfers(Some(1.0e-4), scattering, table);
+        assert!(!transfers.is_empty(), "{label}");
+        for (i, (ring, shielded)) in transfers.iter().zip(&spectrum.nuclides).enumerate() {
+            for (e, (t, s)) in ring.iter().zip(shielded).enumerate() {
+                for (h, row) in t.rows.iter().enumerate() {
+                    let elastic = s.elastic[h];
+                    let sum: f64 = row.iter().sum();
+                    assert!(
+                        (sum - elastic).abs() <= 1e-12 * elastic,
+                        "{label}: ring {i} nuclide {e} group {h}: {sum} vs {elastic}"
+                    );
+                    assert!(
+                        row.iter().all(|&v| v >= 0.0),
+                        "{label}: ring {i} nuclide {e} group {h}: {row:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn thinned_transfers_follow_the_full_grid() {
+    // ADR-0208: 間引いた格子の移行の行は、間引かない格子の行と、間引きの許容差の程度で一致する（行の和に対する要素の差）
+    for (label, scattering, table) in transfer_kernels() {
+        let (full_spectrum, full) = thermal_transfers(None, scattering, table.clone());
+        let (thinned_spectrum, thinned) = thermal_transfers(Some(1.0e-4), scattering, table);
+        assert!(
+            thinned_spectrum.points < full_spectrum.points,
+            "{label}: {} vs {}",
+            thinned_spectrum.points,
+            full_spectrum.points
+        );
+        for (i, (a, b)) in thinned.iter().zip(&full).enumerate() {
+            for (e, (a, b)) in a.iter().zip(b).enumerate() {
+                for (h, (x, y)) in a.rows.iter().zip(&b.rows).enumerate() {
+                    let sum: f64 = y.iter().sum();
+                    for (g, (p, q)) in x.iter().zip(y).enumerate() {
+                        assert!(
+                            (p - q).abs() <= 1e-4 * sum,
+                            "{label}: ring {i} nuclide {e} {h} → {g}: {p} vs {q}"
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
