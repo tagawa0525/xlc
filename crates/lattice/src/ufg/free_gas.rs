@@ -15,6 +15,7 @@
 //! 下端の側で erfc([`EDGE`]) 程度より小さい（`correction_vanishes_outside_its_cells`）。
 
 use std::f64::consts::PI;
+use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
 use xlc_format::library::SabTransfer;
@@ -852,6 +853,24 @@ fn locate(u: &[f64], x: f64) -> usize {
     u.partition_point(|&v| v <= x).saturating_sub(1)
 }
 
+/// [`locate`] と同じ格子点を、u_hint ≤ x なら `hint` から間隔を倍にしながら先へ探す。区間の端は昇順に並び、前の端の格子点の
+/// 近くにあるので、格子の全体（数十万点）を 2 分探索するより、キャッシュに載らない点を読まずに済む
+fn locate_from(u: &[f64], x: f64, hint: usize) -> usize {
+    if !(hint < u.len() && u[hint] <= x) {
+        return locate(u, x);
+    }
+    // u[low] ≤ x を保ち、u[low + step] > x か格子の終わりになるまで進める
+    let (mut low, mut step) = (hint, 1);
+    loop {
+        let high = (low + step).min(u.len());
+        if high == u.len() || u[high] > x {
+            return low + u[low..high].partition_point(|&v| v <= x) - 1;
+        }
+        low = high;
+        step *= 2;
+    }
+}
+
 /// 格子点の値 `values` を、レサジー x で u について線形に補間する（最後の点より後は最後の点の値）
 fn interpolate(u: &[f64], values: &[f64], q: usize, x: f64) -> f64 {
     let last = u.len() - 1;
@@ -878,7 +897,7 @@ pub(super) fn first_below(energies: &[f64], cap: f64) -> usize {
 
 /// 減速計算のスイープの間の、自由ガスの核の D の散乱源の状態。
 #[derive(Debug, Clone)]
-pub(super) struct Thermal {
+pub(super) struct Thermal<'a> {
     /// [自由ガスの核種] の核
     gases: Vec<Gas>,
     /// [自由ガスの核種] の（最初の格子点、そこからの [格子点] のポイントワイズの弾性散乱断面積）（D に掛ける。最初の格子点は
@@ -887,7 +906,7 @@ pub(super) struct Thermal {
     /// [自由ガスの核種] の（リング, 個数密度）
     rings: Vec<Vec<(usize, f64)>>,
     /// [自由ガスの核種] の、S(α, β) の上限より下の入射で使う S(α, β) の移行の表（[`Gas::below_sab`] の核種だけ）
-    tables: Vec<Option<SabTransfer>>,
+    tables: Vec<Option<&'a SabTransfer>>,
     /// 上端の側の区間の段（[`grades`]）と、下端の側の区間の細かさ
     grades: Vec<f64>,
     cells: usize,
@@ -902,9 +921,13 @@ pub(super) struct Thermal {
     pieces: Vec<(f64, f64)>,
     /// 作業用の、すべての自由ガスの核種の（核種, 区間の両端）
     all: Vec<(usize, f64, f64)>,
+    /// 作業用の、S(α, β) の移行の小区間と、その重み
+    sab: SabWork,
+    /// 散乱源の経過時間（ログの内訳）: [自由ガスの核の区間, S(α, β) の移行]
+    elapsed: [Duration; 2],
 }
 
-impl Thermal {
+impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
     /// `None`。
@@ -912,7 +935,7 @@ impl Thermal {
         gases: Vec<Gas>,
         sigma: Vec<(usize, Vec<f64>)>,
         rings: Vec<Vec<(usize, f64)>>,
-        tables: Vec<Option<SabTransfer>>,
+        tables: Vec<Option<&'a SabTransfer>>,
         cells: usize,
         energies: &[f64],
         n: usize,
@@ -947,6 +970,8 @@ impl Thermal {
             bounds: Vec::new(),
             pieces: Vec::new(),
             all: Vec::new(),
+            sab: SabWork::default(),
+            elapsed: [Duration::ZERO; 2],
         })
     }
 
@@ -958,7 +983,7 @@ impl Thermal {
     /// S(α, β) の移行の表
     pub(super) fn gas(&self, l: usize) -> (&Gas, usize, &[f64], Option<&SabTransfer>) {
         let (offset, sigma) = &self.sigma[l];
-        (&self.gases[l], *offset, sigma, self.tables[l].as_ref())
+        (&self.gases[l], *offset, sigma, self.tables[l])
     }
 
     /// 格子点 m（エネルギー `e`）の D の散乱源を、リングごとに既知の部分を `known` に、F_m の係数を `own` に足す。`flux` は
@@ -977,6 +1002,7 @@ impl Thermal {
         if m < self.start {
             return Ok(());
         }
+        let clock = Instant::now();
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
         // 手間を避ける）
@@ -1010,6 +1036,8 @@ impl Thermal {
                 let mut sums = vec![(0.0, 0.0); n];
                 // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
+                // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
+                let mut hint = usize::MAX;
                 for &(l, a, b) in chunk {
                     let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
                     let inside = gas.inside(u[m], a, b);
@@ -1022,15 +1050,17 @@ impl Thermal {
                             (q, value)
                         }
                         _ => {
-                            let q = locate(u, a);
+                            let q = locate_from(u, a, hint);
                             (q, f(a, q))
                         }
                     };
-                    let qb = locate(u, b);
+                    let mid = 0.5 * (a + b);
+                    let q_mid = locate_from(u, mid, qa);
+                    let qb = locate_from(u, b, q_mid);
+                    hint = qb;
                     let fb = f(b, qb);
                     shared = Some((l, b, inside, qb, fb));
-                    let mid = 0.5 * (a + b);
-                    let quadratic = Quadratic::through(a, b, fa, f(mid, locate(u, mid)), fb);
+                    let quadratic = Quadratic::through(a, b, fa, f(mid, q_mid), fb);
                     for &(i, density) in &rings[l] {
                         let history = History {
                             flux: &flux[i],
@@ -1052,9 +1082,10 @@ impl Thermal {
                 *own += o;
             }
         }
+        let gas_done = Instant::now();
         // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
         for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
-            if let Some(table) = table {
+            if let Some(table) = *table {
                 let source = SabSource {
                     table,
                     u,
@@ -1063,10 +1094,17 @@ impl Thermal {
                     sigma,
                 };
                 let previous = previous.map(|(f, _)| f.as_slice());
-                source.add(m, e, rings, flux, previous, known, own)?;
+                source.add(m, e, rings, flux, previous, known, own, &mut self.sab)?;
             }
         }
+        self.elapsed[0] += gas_done - clock;
+        self.elapsed[1] += gas_done.elapsed();
         Ok(())
+    }
+
+    /// 散乱源の経過時間の和 (s): [自由ガスの核の区間, S(α, β) の移行]
+    pub(super) fn elapsed(&self) -> [f64; 2] {
+        self.elapsed.map(|t| t.as_secs_f64())
     }
 
     /// 格子点 m の中性子束が決まったあと、自由ガスの核種を含むリングの累積の積率を進める
@@ -1121,11 +1159,30 @@ pub(super) struct SabSource<'a> {
     pub(super) sigma: &'a [f64],
 }
 
+/// [`SabSource::add`] の作業用の配列（格子点ごとに再利用する）
+#[derive(Debug, Clone, Default)]
+pub(super) struct SabWork {
+    /// 小区間の移行の両端
+    cells: Vec<(f64, f64)>,
+    /// 小区間ごとの重み
+    terms: Vec<SabTerm>,
+}
+
+/// S(α, β) の移行の小区間の（中性子束を補間する格子の区間の始まり、∫ σs R du'、区間の中の位置）。割合が 0 以下の小区間は `None`、
+/// 表の外は `Err`（移行の下端）
+type SabTerm = Result<Option<(usize, f64, f64)>, f64>;
+
+/// 並列の 1 つの仕事にする小区間の数の下限（格子点ごとの小区間は、表の移行の格子点の数 2389 と同じ桁）
+const SAB_CELLS_PER_TASK: usize = 256;
+
 impl SabSource<'_> {
     /// 格子点 m（出射 `e`）の散乱源を、[`Thermal::source`] と同じく、リング（`rings` は（リング, 個数密度））ごとに既知の部分を
     /// `known` に、F_m の係数を `own` に足す。`flux` は今のスイープの [リング] の中性子束（m より前）、`previous` は前のスイープの
     /// 中性子束（最初のスイープは `None` で、m より後の中性子束を F_m とする）。格子の最後の点より後（範囲の下限より下の入射）の
-    /// 中性子束は最後の点の値
+    /// 中性子束は最後の点の値。`work` は作業用。
+    ///
+    /// 小区間の区切りを順に決め、小区間ごとの重みを並列に求めてから、小区間の順に足す（足す順が直列と同じなので、和は並列の分け方に
+    /// よらない）
     #[allow(clippy::too_many_arguments)]
     pub(super) fn add(
         &self,
@@ -1136,6 +1193,7 @@ impl SabSource<'_> {
         previous: Option<&[Vec<f64>]>,
         known: &mut [f64],
         own: &mut [f64],
+        work: &mut SabWork,
     ) -> Result<(), UfgError> {
         let (table, u, high) = (self.table, self.u, self.high);
         let last = u.len() - 1;
@@ -1150,20 +1208,8 @@ impl SabSource<'_> {
         let transfer_at = |q: usize| e - high * (-u[q]).exp();
         let mut q = u.partition_point(|&x| high * (-x).exp() > floor);
         let mut j = table.transfer.partition_point(|&t| t <= t_low);
-        // 小区間の中点を含む格子の区間の始まり（中点とともに進める）
-        let mut cell = q.saturating_sub(1);
-        let assign = |idx: usize, c: f64, i: usize, known: &mut [f64], own: &mut [f64]| {
-            if idx < m {
-                known[i] += c * flux[i][idx];
-            } else if idx == m {
-                own[i] += c;
-            } else {
-                match previous {
-                    Some(p) => known[i] += c * p[i][idx],
-                    None => own[i] += c,
-                }
-            }
-        };
+        let cells = &mut work.cells;
+        cells.clear();
         let mut a = t_low;
         while a < t_high {
             // 次の区切り: 表の移行の格子点か、減速計算の格子点の移行の小さい方
@@ -1180,35 +1226,35 @@ impl SabSource<'_> {
             if next_table <= b {
                 j += 1;
             }
-            // 区切りは a より先にあり（格子点の q と表の j は、a 以下の点を飛ばしてある）、小区間は空にならない
+            cells.push((a, b));
+            // 区切りは a より先にあり（格子点の q と表の j は、a 以下の点を飛ばしてある）、小区間は空にならない。空になれば、その
+            // 小区間を誤りとして残し（前の小区間の誤りが先に報告されるように）、ここで止める
             if b <= a {
-                return Err(UfgError::SabTable {
-                    energy: e,
-                    transfer: a,
-                });
+                break;
+            }
+            a = b;
+        }
+        // 小区間の核の割合、σs、中性子束の補間の位置は、小区間の両端だけで決まる
+        let term = |hint: &mut usize, &(a, b): &(f64, f64)| {
+            if b <= a {
+                return Err(a);
             }
             let center = 0.5 * (a + b);
             let incident = e - center;
             let x = (high / incident).ln();
             // 入射と移行は表の中にある（入射は表の最初の点から上限まで、移行は上限から範囲の下限への下方散乱から表の最大まで。
             // 表がそれを覆うことは、核種のデータを引くときに確かめてある）
-            let (Some(cb), Some(ca)) = (
-                table.cumulative_at(incident, b),
-                table.cumulative_at(incident, a),
-            ) else {
-                return Err(UfgError::SabTable {
-                    energy: e,
-                    transfer: a,
-                });
+            let row = table.row(incident).ok_or(a)?;
+            let (Some(cb), Some(ca)) = (row.cumulative(b), row.cumulative(a)) else {
+                return Err(a);
             };
             let share = cb - ca;
-            a = b;
             if share <= 0.0 {
-                continue;
+                return Ok(None);
             }
-            while cell < last && u[cell + 1] <= x {
-                cell += 1;
-            }
+            // 中点を含む格子の区間の始まり（u_cell ≤ x の最後の格子点）。x は小区間とともに増える
+            let cell = locate_from(u, x, *hint);
+            *hint = cell;
             let sigma = interpolate(
                 &u[self.offset..],
                 self.sigma,
@@ -1217,10 +1263,36 @@ impl SabSource<'_> {
             );
             let weight = sigma * share * e / incident;
             // F は格子の区間 [u_cell, u_cell+1] の線形補間（最後の点より後は最後の点の値）
-            let (lower, tau) = if cell >= last || x >= u[last] {
-                (last, 0.0)
+            Ok(Some(if cell >= last || x >= u[last] {
+                (last, weight, 0.0)
             } else {
-                (cell, (x - u[cell]) / (u[cell + 1] - u[cell]))
+                (cell, weight, (x - u[cell]) / (u[cell + 1] - u[cell]))
+            }))
+        };
+        cells
+            .par_iter()
+            .with_min_len(SAB_CELLS_PER_TASK)
+            .map_init(|| usize::MAX, term)
+            .collect_into_vec(&mut work.terms);
+        let assign = |idx: usize, c: f64, i: usize, known: &mut [f64], own: &mut [f64]| {
+            if idx < m {
+                known[i] += c * flux[i][idx];
+            } else if idx == m {
+                own[i] += c;
+            } else {
+                match previous {
+                    Some(p) => known[i] += c * p[i][idx],
+                    None => own[i] += c,
+                }
+            }
+        };
+        for term in &work.terms {
+            let Some((lower, weight, tau)) = term.map_err(|transfer| UfgError::SabTable {
+                energy: e,
+                transfer,
+            })?
+            else {
+                continue;
             };
             for &(i, density) in rings {
                 let c = density * weight;
