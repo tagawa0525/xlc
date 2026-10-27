@@ -175,17 +175,23 @@ include!("erfcx_cases.rs");
 #[test]
 fn erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values() {
     for &(x, hi, lo) in ERFCX_REFERENCE {
-        let ulp = f64::from_bits(hi.to_bits() + 1) - hi;
-        let error = ((erfcx(x) - hi) - lo) / ulp;
+        let error = ulp_error(erfcx(x), hi, lo);
         assert!(error.abs() <= 2.5, "x={x}: {error} ulp");
+    }
+}
+
+#[test]
+fn erfcx_of_negative_x_is_within_five_ulp_of_multiprecision_values() {
+    for &(x, hi, lo) in ERFCX_NEGATIVE_REFERENCE {
+        let error = ulp_error(erfcx(x), hi, lo);
+        assert!(error.abs() <= 5.0, "x={x}: {error} ulp");
     }
 }
 
 #[test]
 fn erf_is_within_four_ulp_of_multiprecision_values() {
     for &(x, hi, lo) in ERF_REFERENCE {
-        let ulp = f64::from_bits(hi.to_bits() + 1) - hi;
-        let error = ((erf(x) - hi) - lo) / ulp;
+        let error = ulp_error(erf(x), hi, lo);
         assert!(error.abs() <= 4.0, "x={x}: {error} ulp");
     }
 }
@@ -204,10 +210,9 @@ fn erfcx_gives_the_same_bits_as_its_copy() {
 }
 
 #[test]
-fn erfc_is_within_seven_ulp_of_multiprecision_values() {
-    // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値。erfcx_cases.py が書き出す）。x は 0.46875 ≤ x < 2.5 の一様な
-    // 乱数 4 万点で誤差が大きかった点と、0.46875、3、5。erfcx(x)·exp(−x²) の誤差は、x² の丸めが exp に入る分（x² × 丸め）だけ
-    // erfcx より大きい
+fn erfc_is_within_five_ulp_of_multiprecision_values() {
+    // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値。erfcx_cases.py が書き出す）。x は 0.46875〜2.5 と 0.46875〜26 の
+    // 一様な乱数（4 万点、3 万点）で誤差が大きかった点と、区間の端
     for (x, hi, lo) in [
         (0.46875, 0.507386526782062, 3.3306914518767484e-17),
         (1.0, 0.15729920705028513, -2.954563826510312e-18),
@@ -229,9 +234,23 @@ fn erfc_is_within_seven_ulp_of_multiprecision_values() {
         ),
         (3.0, 2.209049699858544e-05, 1.5563377960343457e-22),
         (5.0, 1.537459794428035e-12, -8.569418222079096e-29),
+        (
+            5.922074164830626,
+            5.5187495001680506e-17,
+            -5.648040660648485e-34,
+        ),
+        (
+            18.560032360202097,
+            7.563327616274788e-152,
+            -6.685261138650425e-169,
+        ),
+        (
+            24.550577990594043,
+            3.9655981201297054e-264,
+            7.636248203320565e-281,
+        ),
     ] {
-        let ulp = f64::from_bits(f64::to_bits(hi) + 1) - hi;
-        let error = ((erfc(x) - hi) - lo) / ulp;
-        assert!(error.abs() <= 7.0, "x={x}: {error} ulp");
+        let error = ulp_error(erfc(x), hi, lo);
+        assert!(error.abs() <= 5.0, "x={x}: {error} ulp");
     }
 }
