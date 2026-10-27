@@ -969,16 +969,16 @@ fn sab_transfer_in_array_form_is_rejected() {
 fn sab_transfer_interpolates_the_cumulative_share_in_ln_e_and_the_transfer() {
     let table = sab_transfer(1.0);
     // 格子点では表の値
-    assert_eq!(table.cumulative_at(4.0, 4.0), Some(0.7));
-    assert_eq!(table.cumulative_at(10.0, 4.0), Some(1.7929089665572825e-9));
+    assert_eq!(table.cumulative_at(4.0, 0.0), Some(0.7));
+    assert_eq!(table.cumulative_at(10.0, -6.0), Some(1.7929089665572825e-9));
     // 入射 4〜10 eV の ln E の中点、移行 0〜1.5 eV の中点
     let e = (4.0_f64 * 10.0).sqrt();
     let expected = 0.5 * (0.5 * (0.7 + 1.0) + 0.5 * (0.9 + 1.0));
-    let value = table.cumulative_at(e, e + 0.75).unwrap();
+    let value = table.cumulative_at(e, 0.75).unwrap();
     assert!((value - expected).abs() < 1e-15, "{value} vs {expected}");
     // 格子の外は値がない
-    assert_eq!(table.cumulative_at(1.9, 1.9), None);
-    assert_eq!(table.cumulative_at(10.5, 10.5), None);
-    assert_eq!(table.cumulative_at(4.0, 5.6), None);
-    assert_eq!(table.cumulative_at(10.0, 3.9), None);
+    assert_eq!(table.cumulative_at(1.9, 0.0), None);
+    assert_eq!(table.cumulative_at(10.5, 0.0), None);
+    assert_eq!(table.cumulative_at(4.0, 1.6), None);
+    assert_eq!(table.cumulative_at(10.0, -6.1), None);
 }

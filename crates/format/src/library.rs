@@ -753,9 +753,9 @@ impl From<MsgpackError> for LibraryError {
 }
 
 impl SabTransfer {
-    /// 入射 `e_in` (eV) の、出射が `e_out` (eV) 以下の割合 C。入射について ln E に線形、移行について線形に補間する。格子の
-    /// 外は `None`
-    pub fn cumulative_at(&self, e_in: f64, e_out: f64) -> Option<f64> {
+    /// 入射 `e_in` (eV) の、出射が e_in + `transfer` (eV) 以下の割合 C。入射について ln E に線形、移行について線形に補間する。
+    /// 格子の外は `None`（移行で引くのは、出射から入射を引き直すと丸めで格子の端を越えるため）
+    pub fn cumulative_at(&self, e_in: f64, transfer: f64) -> Option<f64> {
         // x の昇順の格子での、x を含む区間の始まりと区間の中の位置（格子の外は None。最後の点は最後の区間の終わり）
         let locate = |grid: &[f64], x: f64| {
             let (first, last) = (grid[0], grid[grid.len() - 1]);
@@ -767,7 +767,7 @@ impl SabTransfer {
         };
         let (i, _) = locate(&self.incident, e_in)?;
         let w = (e_in / self.incident[i]).ln() / (self.incident[i + 1] / self.incident[i]).ln();
-        let (j, v) = locate(&self.transfer, e_out - e_in)?;
+        let (j, v) = locate(&self.transfer, transfer)?;
         let row = |r: &[f64]| r[j] + v * (r[j + 1] - r[j]);
         let (a, b) = (row(&self.cumulative[i]), row(&self.cumulative[i + 1]));
         Some(a + w * (b - a))
