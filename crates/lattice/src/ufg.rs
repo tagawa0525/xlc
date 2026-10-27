@@ -83,13 +83,19 @@ pub enum UfgError {
     #[error("{name}: the S(α, β) limit {floor} eV must lie below the UFG range top {high} eV")]
     SabAboveRange { name: String, floor: f64, high: f64 },
     #[error(
-        "{name}: the S(α, β) transfer starts at {first} eV, above the up-scattering reach {needed} eV"
+        "{name}: the {what} of the S(α, β) transfer is {value} eV where the UFG needs {needed} eV"
     )]
     SabCoverage {
         name: String,
-        first: f64,
+        what: &'static str,
+        value: f64,
         needed: f64,
     },
+    /// S(α, β) の散乱源の小区間が表の外か空（表の範囲は核種のデータを引くときに確かめるので、内部の不整合）
+    #[error(
+        "internal error: the S(α, β) source at {energy} eV has no table share at transfer {transfer} eV"
+    )]
+    SabTable { energy: f64, transfer: f64 },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
@@ -418,7 +424,7 @@ fn solve_cell(
                                     let table = t.sab_transfer.as_ref().ok_or_else(|| {
                                         UfgError::NoSabTransfer { name: name.clone() }
                                     })?;
-                                    check_sab_coverage(name, table, gas.kt(), low)?;
+                                    check_sab_coverage(name, table, gas.kt(), [low, high])?;
                                     Some(gas.below_sab(table))
                                 }
                                 gas => gas,
@@ -446,11 +452,19 @@ fn solve_cell(
     // 格子（エネルギーの降順）: ポイントワイズの断面積の格子と群の境界に、どの核種の窓にも WINDOW_POINTS 点が入るよう点を足す
     let group_bounds = &bounds[top..=bottom];
     let inside = |e: f64| e > low && e < high;
+    // S(α, β) の上限では、静止した標的の窓の σs/N が上で値を持ち、下で 0 になる（その下は S(α, β) の移行で扱う）ので、両側の
+    // 極限の 2 つの格子点を置く（ADR-0205）
+    let floors: Vec<f64> = data
+        .iter()
+        .filter_map(|d| d.gas.and_then(|g| g.floor()))
+        .filter(|&f| inside(f))
+        .collect();
     let mut energies: Vec<f64> = data
         .iter()
         .flat_map(|d| d.pointwise().energy.iter().copied())
         .filter(|&e| inside(e))
         .chain(group_bounds.iter().copied())
+        .chain(floors.iter().copied())
         .collect();
     // 全順序なので、並列の整列でも並びは同じ
     energies.par_sort_unstable_by(|a, b| b.total_cmp(a));
@@ -468,16 +482,6 @@ fn solve_cell(
         .filter(|w| w[0] == w[1] && w[0] > low && w[0] < high)
         .map(|w| w[0])
         .collect();
-    // S(α, β) の上限では、静止した標的の窓の σs/N が上で値を持ち、下で 0 になる（その下は S(α, β) の移行で扱う）ので、両側の
-    // 極限の 2 つの格子点を置く（ADR-0205）
-    let floors: Vec<f64> = data
-        .iter()
-        .filter_map(|d| d.gas.and_then(|g| g.floor()))
-        .filter(|&f| f > low && f < high)
-        .collect();
-    energies.extend(&floors);
-    energies.par_sort_unstable_by(|a, b| b.total_cmp(a));
-    energies.dedup();
     jumps.extend(&floors);
     jumps.sort_by(f64::total_cmp);
     jumps.dedup();
@@ -752,30 +756,39 @@ fn solve_cell(
     })
 }
 
-/// 核種 `name` の S(α, β) の移行の表 `table` が、範囲の下限 `low` (eV) の格子点への上方散乱（入射は `low` − TAIL kT から、移行は
-/// TAIL kT まで。`kt` は物質の温度の kT）と、表の上限から `low` への下方散乱を覆うこと（覆わない部分を黙って落とさない）
+/// 核種 `name` の S(α, β) の移行の表 `table` の上限が範囲 `range` の上端より下にあり（上端以上なら、範囲の上の入射を静止した
+/// 標的と S(α, β) の移行の両方で数える）、表が範囲の下限の格子点への上方散乱（入射は下限 − TAIL kT から、移行は TAIL kT まで。
+/// `kt` は物質の温度の kT）と、表の上限から下限への下方散乱を覆うこと（覆わない部分を黙って落とさない）
 fn check_sab_coverage(
     name: &str,
     table: &xlc_format::library::SabTransfer,
     kt: f64,
-    low: f64,
+    [low, high]: [f64; 2],
 ) -> Result<(), UfgError> {
     let reach = free_gas::TAIL * kt;
-    let (first, last) = (table.incident[0], table.incident[table.incident.len() - 1]);
+    let (first, floor) = (table.incident[0], table.incident[table.incident.len() - 1]);
     let (lowest, highest) = (table.transfer[0], table.transfer[table.transfer.len() - 1]);
-    let fail = |first: f64, needed: f64| UfgError::SabCoverage {
+    if floor >= high {
+        return Err(UfgError::SabAboveRange {
+            name: name.to_string(),
+            floor,
+            high,
+        });
+    }
+    let fail = |what: &'static str, value: f64, needed: f64| UfgError::SabCoverage {
         name: name.to_string(),
-        first,
+        what,
+        value,
         needed,
     };
     if first > low - reach {
-        return Err(fail(first, low - reach));
+        return Err(fail("lowest incident energy", first, low - reach));
     }
     if highest < reach {
-        return Err(fail(highest, reach));
+        return Err(fail("largest transfer", highest, reach));
     }
-    if lowest > low - last {
-        return Err(fail(lowest, low - last));
+    if lowest > low - floor {
+        return Err(fail("smallest transfer", lowest, low - floor));
     }
     Ok(())
 }
@@ -1556,7 +1569,7 @@ impl Sweep<'_> {
                 &self.flux,
                 extra_known,
                 extra_own,
-            );
+            )?;
             for i in 0..n {
                 k[i] += extra_known[i];
                 c[i] += extra_own[i];

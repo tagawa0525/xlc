@@ -18,6 +18,8 @@ use std::f64::consts::PI;
 
 use rayon::prelude::*;
 use xlc_format::library::SabTransfer;
+
+use super::UfgError;
 use xlc_numeric::quadrature::GAUSS_LEGENDRE_2;
 
 /// ボルツマン定数 (eV/K)。CODATA 2018 の値（xs の `physics::BK` と同じ）
@@ -778,9 +780,9 @@ impl Thermal {
         flux: &[Vec<f64>],
         known: &mut [f64],
         own: &mut [f64],
-    ) {
+    ) -> Result<(), UfgError> {
         if m < self.start {
-            return;
+            return Ok(());
         }
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
@@ -868,9 +870,10 @@ impl Thermal {
                     sigma,
                 };
                 let previous = previous.map(|(f, _)| f.as_slice());
-                source.add(m, e, rings, flux, previous, known, own);
+                source.add(m, e, rings, flux, previous, known, own)?;
             }
         }
+        Ok(())
     }
 
     /// 格子点 m の中性子束が決まったあと、自由ガスの核種を含むリングの累積の積率を進める
@@ -940,7 +943,7 @@ impl SabSource<'_> {
         previous: Option<&[Vec<f64>]>,
         known: &mut [f64],
         own: &mut [f64],
-    ) {
+    ) -> Result<(), UfgError> {
         let (table, u, high) = (self.table, self.u, self.high);
         let last = u.len() - 1;
         let floor = table.incident[table.incident.len() - 1];
@@ -948,7 +951,7 @@ impl SabSource<'_> {
         let t_low = e - floor;
         let t_high = table.transfer[table.transfer.len() - 1].min(e - table.incident[0]);
         if t_low >= t_high {
-            return;
+            return Ok(());
         }
         // 格子点 q の移行 t_q = e − E'_q（q とともに増える）。表の上限以下の入射の最初の格子点から
         let transfer_at = |q: usize| e - high * (-u[q]).exp();
@@ -984,8 +987,12 @@ impl SabSource<'_> {
             if next_table <= b {
                 j += 1;
             }
+            // 区切りは a より先にあり（格子点の q と表の j は、a 以下の点を飛ばしてある）、小区間は空にならない
             if b <= a {
-                continue;
+                return Err(UfgError::SabTable {
+                    energy: e,
+                    transfer: a,
+                });
             }
             let center = 0.5 * (a + b);
             let incident = e - center;
@@ -996,8 +1003,10 @@ impl SabSource<'_> {
                 table.cumulative_at(incident, b),
                 table.cumulative_at(incident, a),
             ) else {
-                a = b;
-                continue;
+                return Err(UfgError::SabTable {
+                    energy: e,
+                    transfer: a,
+                });
             };
             let share = cb - ca;
             a = b;
@@ -1028,6 +1037,7 @@ impl SabSource<'_> {
                 }
             }
         }
+        Ok(())
     }
 }
 
