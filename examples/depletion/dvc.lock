@@ -45,8 +45,8 @@ stages:
     deps:
     - path: ../../bin/chain
       hash: md5
-      md5: ad3798fa7e1ef2f0d7c8ab3680484aad
-      size: 1952640
+      md5: 4f4049605971c8bb7d1d3191cccccab9
+      size: 1953088
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -5542,3 +5542,37 @@ stages:
       hash: md5
       md5: d82fb471b3a8b53e4de00872ba10856b
       size: 1402592
+  lattice-mox1:
+    cmd: ../../bin/lattice lattice-mox1-rings1.toml > lattice-mox1-rings1.out 2>
+      lattice-mox1-rings1.log
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 5b851ab63d6e4f5329708a67970552a5
+      size: 8422480
+      isexec: true
+    - path: chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: depletion.msgpack
+      hash: md5
+      md5: cbc33de92e0043a059e31a93d066d927
+      size: 319254036
+    - path: lattice-mox1-rings1.toml
+      hash: md5
+      md5: 77f568eba80ba839f229681583686d50
+      size: 1515
+    outs:
+    - path: lattice-mox1-rings1.log
+      hash: md5
+      md5: bbf2de12e647f0863df34b4f766c908b
+      size: 23143
+    - path: lattice-mox1-rings1.msgpack
+      hash: md5
+      md5: a099e6ea71b062730007e3f2465154d1
+      size: 271324
+    - path: lattice-mox1-rings1.out
+      hash: md5
+      md5: 2273cd479c828cfdaf4cc7e0edd53f6c
+      size: 144
