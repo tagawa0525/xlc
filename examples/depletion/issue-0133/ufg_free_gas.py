@@ -1,14 +1,17 @@
-"""ADR-0203: UFG の自由ガスの散乱核の測定（ufg-free-gas/）の要約を書く。
+"""ADR-0203、ADR-0204、ADR-0205: UFG の散乱核の測定（ufg-free-gas/、ufg-heavy-free-gas/、ufg-sab/）の要約を書く。
 
 使い方:
     python3 ufg_free_gas.py summarize <設定 (TOML)> <JSON>
 
 設定は `candidates`（OpenMC の実行の一覧。swap-candidates.toml。設定のディレクトリから）、`[[mode]]`（`key`、`label`。最初は
 `static`）、`[[state]]`（`name` は swap-candidates の状態の名前、`key` はログの名前、`swaps` は置き換えの一覧のファイル）。ログは設定のディレクトリの
-`logs/<状態>-<散乱核>-absorption.txt`（swap_absorption の例の出力。無い散乱核は、その状態の結果に入れない）と、あれば `logs/<状態>-<散乱核>-fine.txt`（fine_compare.py の出力）。
+`logs/<状態>-<散乱核>-absorption.txt`（swap_absorption の例の出力。無い散乱核は、その状態の結果に入れない）と、あれば `logs/<状態>-<散乱核>-fine.txt`（fine_compare.py の出力）、
+`logs/<状態>-<散乱核>-transfer.txt`（swap_transfer の例の出力に `material <物質>` を前に置いたもの）。`[[transfer]]`（`spec` は `<物質>:<最初の群>-<最後の群>`、
+`label`）は表の列。
 
 k の差は xlc − OpenMC（OpenMC の実行の k の平均。pcm）、変化は同じ状態の静止した標的からの k の変化（pcm）。置き換えの寄与は
-swap_absorption の k の変化の符号を変えたもの（pcm。swap_candidates.py と同じ）。傾きは fine_compare.py の区間ごとの比 − 1。
+swap_absorption の k の変化の符号を変えたもの、移行の置き換えの寄与は swap_transfer の SPH 因子を置き換える前のままの k の変化の符号を
+変えたもの（pcm。どちらも swap_candidates.py と同じ）。傾きは fine_compare.py の区間ごとの比 − 1。
 """
 
 import json
@@ -17,6 +20,8 @@ import sys
 from pathlib import Path
 
 import tomllib
+from swap_candidates import SummaryError as CandidatesError
+from swap_candidates import transfer_runs
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -70,6 +75,24 @@ def parse_fine(text: str) -> list[dict]:
     return bins
 
 
+def transfers_of(name: str, mode: str, k: float, text: str) -> dict[str, float]:
+    """swap_transfer のログ（`material <物質>` を前に置いたもの）から、`<物質>:<最初の群>-<最後の群>` ごとの寄与（SPH 因子を置き換える
+    前のままの k の変化の符号を変えたもの、pcm。swap_candidates.py と同じ）。置き換えない k が吸収のログの k（`k`）と違えば止める
+    （別の入力か別のコードで流したログ）"""
+    try:
+        runs = transfer_runs(text)
+    except CandidatesError as e:
+        raise SummaryError(f"{name}: `{mode}`: {e}") from e
+    found = {}
+    for (material, first, last), run in runs.items():
+        if run["base"] != k:
+            raise SummaryError(
+                f"{name}: `{mode}` transfer log starts from k {run['base']}, not {k}"
+            )
+        found[f"{material}:{first}-{last}"] = -run["change"]
+    return found
+
+
 def summarize_state(
     name: str,
     key: str,
@@ -92,7 +115,7 @@ def summarize_state(
             if mode == "static":
                 raise SummaryError(f"{name}: no logs of `static`")
             continue
-        absorption, fine = logs[mode]
+        absorption, fine, transfer = logs[mode]
         k, swaps = parse_absorption(absorption)
         if list(swaps) != specs:
             raise SummaryError(f"{name}: `{mode}` swapped another list than {specs}")
@@ -102,6 +125,9 @@ def summarize_state(
             "change_pcm": (k - results.get("static", {"k": k})["k"]) * 1e5,
             "swaps": swaps,
             "tilt": None if fine is None else parse_fine(fine),
+            "transfers": None
+            if transfer is None
+            else transfers_of(name, mode, k, transfer),
         }
     return {
         "name": name,
@@ -111,6 +137,10 @@ def summarize_state(
         "swaps": specs,
         "results": results,
     }
+
+
+def read_if_any(path: Path) -> str | None:
+    return path.read_text() if path.exists() else None
 
 
 def summarize(config: Path) -> dict:
@@ -136,8 +166,9 @@ def summarize(config: Path) -> dict:
         for mode in modes:
             absorption = base / "logs" / f"{state['key']}-{mode}-absorption.txt"
             fine = base / "logs" / f"{state['key']}-{mode}-fine.txt"
+            transfer = base / "logs" / f"{state['key']}-{mode}-transfer.txt"
             logs[mode] = (
-                (absorption.read_text(), fine.read_text() if fine.exists() else None)
+                (absorption.read_text(), read_if_any(fine), read_if_any(transfer))
                 if absorption.exists()
                 else None
             )
@@ -155,6 +186,7 @@ def summarize(config: Path) -> dict:
         "format": "xlc-ufg-free-gas",
         "modes": settings["mode"],
         "swaps": swap_labels,
+        "transfers": settings.get("transfer", []),
         "states": states,
     }
 

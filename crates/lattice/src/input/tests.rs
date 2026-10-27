@@ -428,6 +428,7 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
             cells: 8,
             sweeps: Some(2),
             heavy: None,
+            sab: false,
         })
     );
     // ADR-0204: `heavy` で分離共鳴を持つ核種も、その kT の倍数より下で自由ガスにする（inf は上限なし）
@@ -442,6 +443,14 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
         scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = inf }").unwrap(),
         Scattering::FreeGas(FreeGas {
             heavy: Some(f64::INFINITY),
+            ..FreeGas::default()
+        })
+    );
+    // ADR-0205: `sab` で、S(α, β) を持つ核種（H in H2O の H）を S(α, β) の上限より下で S(α, β) の移行にする
+    assert_eq!(
+        scattering("ufg-scattering = \"free-gas\"\nufg-free-gas = { sab = true }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            sab: true,
             ..FreeGas::default()
         })
     );
@@ -466,6 +475,8 @@ fn ufg_scattering_defaults_to_targets_at_rest() {
         "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = nan }",
         "ufg-scattering = \"free-gas\"\nufg-free-gas = { heavy = true }",
         "ufg-free-gas = { heavy = 400 }",
+        "ufg-free-gas = { sab = true }",
+        "ufg-scattering = \"free-gas\"\nufg-free-gas = { sab = 1 }",
     ] {
         assert!(scattering(bad).is_err(), "{bad}");
     }

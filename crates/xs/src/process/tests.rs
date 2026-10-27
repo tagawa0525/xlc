@@ -846,3 +846,29 @@ fn delayed_nubar_is_not_read_without_its_spectrum() {
     let tape = Tape::parse(&text).unwrap();
     assert_eq!(nubar_values(&parts(&tape).unwrap()), vec![2.72]);
 }
+
+#[test]
+fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
+    // S(α, β) で熱中性子散乱を作る核種は、ポイントワイズの範囲があれば温度ごとに UFG の S(α, β) の移行の表を持つ（ADR-0205）
+    use crate::multigroup::sab_tests::{TEMPERATURE, coarse_free_gas_table};
+    let thermal = ThermalScattering {
+        data: coarse_free_gas_table(),
+        upper: SabUpper::Evaluated,
+        outside: SabOutside::ShortCollisionTime,
+        free_gas_upper: 10.0,
+    };
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[]);
+    let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &settings).unwrap();
+    let table = data.temperatures[0].sab_transfer.as_ref().unwrap();
+    assert_eq!(table.incident.last(), Some(&10.0));
+    // S(α, β) のない核種と、ポイントワイズの範囲のないライブラリは持たない
+    let plain = process_nuclide(&tape, "X", &[TEMPERATURE], None, &settings).unwrap();
+    assert!(plain.temperatures[0].sab_transfer.is_none());
+    let without_range = Settings {
+        pointwise_range: None,
+        ..settings
+    };
+    let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &without_range).unwrap();
+    assert!(data.temperatures[0].sab_transfer.is_none());
+}

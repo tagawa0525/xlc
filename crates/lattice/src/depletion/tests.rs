@@ -139,6 +139,7 @@ pub(crate) fn library() -> Library {
                 resolved: None,
                 thermal_scattering: false,
                 temperatures: vec![TemperatureData {
+                    sab_transfer: None,
                     temperature: T,
                     chi: if fission[0] > 0.0 {
                         vec![1.0, 0.0]

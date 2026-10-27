@@ -12,6 +12,7 @@ use super::free_gas::{gaussian_law_moments, integrate_points};
 use crate::endf::{Interpolation, Mf7Incoherent};
 use crate::physics::BK;
 use xlc_format::group::GroupStructure;
+use xlc_format::library::SabTransfer;
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
 
 /// LAT=1 の表で α, β に使う kT0 (eV)（ENDF の定義）
@@ -44,6 +45,18 @@ pub enum SabOutside {
     Zero,
 }
 
+/// UFG の減速計算が上方散乱を扱う幅（kT の倍数）。lattice の自由ガスの核の上端の側の区間の幅 `TAIL` と同じで、上方散乱の裾
+/// e^{−(E−E')/kT} がここで e^{−28} ≈ 7e−13 に下がる（ステージのクレートは互いに依存しないので、値をそろえて書く）
+pub const UFG_TAIL: f64 = 28.0;
+
+/// UFG の S(α, β) の移行の表の、入射の格子の間隔（レサジー）と移行の格子の間隔 (eV)（ADR-0205）。移行の格子点の上の累積は
+/// 正しく、格子点の間は区間の中の核を一定とする（ENDF/B-VIII.0 の H in H2O の 600 K で、累積の誤差は準弾性散乱の山を含む
+/// 区間の中で 1.9e−4。examples/sab_transfer_error.rs）。入射の間隔は、lattice の UFG で自由ガスの核から作った表と自由ガスの核の
+/// 群の中性子束の差が、間隔の 2 乗ほどで減る（0.02 で 3.3e−6、0.01 で 9.0e−7、0.005 で 3.2e−7、0.0025 で 1.7e−7。自由ガスの
+/// 区間の細かさの差は 1.2e−7）ので、差が区間の細かさの差の 3 倍以内になる 0.005
+const TRANSFER_INCIDENT_STEP: f64 = 0.005;
+const TRANSFER_STEP: f64 = 0.005;
+
 /// THERMR が S = 0 の格子点に接する区間を短時間衝突近似で補う、α A と β の下限（thermr.f90 の `sig` の test2）
 const SHORT_COLLISION_LIMIT: f64 = 30.0;
 
@@ -68,6 +81,10 @@ pub enum SabError {
     AboveEvaluated { cutoff: f64, evaluated: f64 },
     #[error("no effective temperature of S(α, β) at {0} K")]
     EffectiveTemperature(f64),
+    #[error(
+        "the outgoing energies of the S(α, β) transfer at {incident} eV are no group structure: {reason}"
+    )]
+    TransferGrid { incident: f64, reason: String },
     #[error(
         "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
     )]
@@ -274,6 +291,69 @@ impl<'a> ThermalSab<'a> {
             .zip(&short)
             .map(|(t, s)| factor * t + common * s)
             .collect()
+    }
+
+    /// UFG の減速計算の S(α, β) の移行の表（ADR-0205）。`low` は UFG の範囲の下限 (eV)。S(α, β) の上限が UFG の下限から上方散乱の
+    /// 届く幅より下なら、UFG に届く S(α, β) の散乱がないので `None`。届く幅が UFG の下限を超えるときも、正の入射から表を始められ
+    /// ないので `None`（lattice は `sab` を選ぶと止まる）。
+    pub fn ufg_transfer(&self, low: f64) -> Result<Option<SabTransfer>, SabError> {
+        self.ufg_transfer_on(low, TRANSFER_INCIDENT_STEP, TRANSFER_STEP)
+    }
+
+    /// [`ThermalSab::ufg_transfer`] を、入射の格子の間隔 `du`（レサジー）と移行の格子の間隔 `dt` (eV) で作る。入射は上限から
+    /// 下へ間隔 `du` で、UFG の下限から上方散乱の届く幅（表の最も高い温度の [`UFG_TAIL`] kT）下まで、移行は間隔 `dt` の
+    /// 倍数（核の山の 0 を含む）で、出射 0 eV から上方散乱の届く幅まで。格子は温度によらないので、温度の間で点ごとに内挿
+    /// できる（ADR-0080）
+    pub fn ufg_transfer_on(
+        &self,
+        low: f64,
+        du: f64,
+        dt: f64,
+    ) -> Result<Option<SabTransfer>, SabError> {
+        let hottest = self
+            .data
+            .temperatures
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
+        let reach = UFG_TAIL * BK * hottest;
+        let lowest = low - reach;
+        // 上方散乱が 0 eV まで届けば正の入射から表を始められず、S(α, β) の上限が届く幅より下なら UFG に届く S(α, β) の散乱がない
+        if lowest.is_nan() || lowest <= 0.0 || self.cutoff <= lowest {
+            return Ok(None);
+        }
+        let n = ((self.cutoff / lowest).ln() / du).ceil() as usize;
+        let incident: Vec<f64> = (0..=n)
+            .map(|i| self.cutoff * (-((n - i) as f64) * du).exp())
+            .collect();
+        let (below, above) = ((self.cutoff / dt).ceil() as i64, (reach / dt).ceil() as i64);
+        let transfer: Vec<f64> = (-below..=above).map(|k| k as f64 * dt).collect();
+        // 行ごとに、出射 E + t の格子点を境にした群で核を積分し、下から足す（群の外の割合は端の群に入るので、行の和は散乱断面積）。
+        // 核は E' = E に対数の山を持つので、点の値を補間せず、群の積分（山を区切りにして細かく分ける）から累積を作る
+        let cumulative = crate::parallel::in_parallel(incident.len(), |i| {
+            let e = incident[i];
+            let first = transfer.partition_point(|&t| e + t <= 0.0);
+            let bounds: Vec<f64> = transfer[first..].iter().rev().map(|&t| e + t).collect();
+            let groups = GroupStructure::new(bounds).map_err(|error| SabError::TransferGrid {
+                incident: e,
+                reason: error.to_string(),
+            })?;
+            let masses = self.group_integrals(&groups, e);
+            let total: f64 = masses.iter().sum();
+            let mut row = vec![0.0; transfer.len()];
+            let mut sum = 0.0;
+            // 群は出射の降順なので、最後の群から足す。格子点 first の累積は 0（出射 0 eV からその点までの割合は最下位の群に入る）
+            for (k, mass) in masses.iter().rev().enumerate() {
+                sum += mass;
+                row[first + k + 1] = sum / total;
+            }
+            Ok::<_, SabError>(row)
+        })?;
+        Ok(Some(SabTransfer {
+            incident,
+            transfer,
+            cumulative,
+        }))
     }
 
     /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
