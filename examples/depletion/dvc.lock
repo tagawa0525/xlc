@@ -5022,8 +5022,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: d5afdb40ed2b64cdb57fc44db6632b38
-      size: 8537256
+      md5: 45b58ddcfd87e70ebce357cf01a2a5e5
+      size: 8533696
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5103,8 +5103,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: d5afdb40ed2b64cdb57fc44db6632b38
-      size: 8537256
+      md5: 45b58ddcfd87e70ebce357cf01a2a5e5
+      size: 8533696
       isexec: true
     - path: chain.msgpack
       hash: md5
