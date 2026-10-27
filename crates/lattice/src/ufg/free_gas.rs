@@ -20,7 +20,7 @@ use rayon::prelude::*;
 use xlc_format::library::SabTransfer;
 
 use super::UfgError;
-use xlc_numeric::quadrature::GAUSS_LEGENDRE_2;
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_2, GAUSS_LEGENDRE_4};
 
 /// ボルツマン定数 (eV/K)。CODATA 2018 の値（xs の `physics::BK` と同じ）
 pub(super) const BOLTZMANN: f64 = 8.617_333_262e-5;
@@ -34,6 +34,10 @@ const CELLS_PER_TASK: usize = 32;
 
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
 pub(super) const EDGE: f64 = 6.0;
+
+/// 移行を数えるとき（[`Gas::share_cells`]）の、[`Gas::shares`] の区間の細かさ。核を直接積分した値に 1e−10 で合う細かさ
+/// （`correction_shares_split_the_kernel_at_an_outgoing_energy`。減速計算の速い方法の 2 では、H の 4 eV で 6e−10 違う）
+pub(super) const SHARE_CELLS: usize = 8;
 
 /// 上端の下方散乱の側（E' > E）の D の大きさ e^{−E/(A kT)} の指数の上限。e^{−37} ≈ 9e−17 より小さい D は倍精度で R に
 /// 埋もれるので、E/(A kT) がこれを超える格子点ではその側に区間を置かない
@@ -340,6 +344,180 @@ impl Gas {
         !blur.is_finite() || high * (-(center + EDGE * blur)).exp() >= self.cap
     }
 
+    /// 入射 `e_in` の D を、出射のエネルギー `e_x` の下と上に分けて積分した [∫_{E<e_x} D_E dE, ∫_{E>e_x} D_E dE]。D_E は出射の
+    /// エネルギーあたりの D（D_E(E) = (S(E'→E) − S_static(E))/N(E')、S_static = 1/((1 − α)E') は αE' ≤ E ≤ E' の静止した核）で、
+    /// 2 つの和は 1 − 1/N（∫ S dE = N、∫ S_static dE = 1）。D_E が 0 でないのは、上端の側 E' ± TAIL kT と、下端の側の核の erf の
+    /// 引数 θ√(E/kT) − |ζ|√(E'/kT) が ±EDGE の間（A ≈ 1 の H では E = 0 から 36 kT ほど。分母が θ なので、[`Gas::cells`] の入射の
+    /// 側のぼけの幅と違う）だけ。上端の側は [`grades`] の段（`grades` は `cells` で作ったもの）、下端の側は √E の等間隔の
+    /// 2 EDGE `cells` 個の区間で区切り、αE'、E'、`e_x` でも区切る（S_static の飛びと核の折れ）。区間ごとに E = s² kT で s について
+    /// 4 点の Gauss-Legendre 則で積分する（H の核は E → 0 で √E のように立ち上がり、s については滑らか）
+    pub(super) fn shares(&self, e_in: f64, e_x: f64, grades: &[f64], cells: usize) -> [f64; 2] {
+        let kt = self.kt;
+        let ratio = effective_ratio(e_in, self.awr, kt);
+        let alpha = 1.0 - 1.0 / self.gain;
+        let edge = alpha * e_in;
+        let level = self.gain / e_in;
+        let density = |e: f64| {
+            let s_static = if edge <= e && e <= e_in { level } else { 0.0 };
+            (kernel(e_in, e, self.awr, kt) - s_static) / ratio
+        };
+        let reach = TAIL.min(e_in / kt);
+        let mut bounds: Vec<f64> = Vec::with_capacity(2 * grades.len() + 8);
+        for &y in grades {
+            bounds.push(e_in + y * kt);
+            if y <= reach {
+                bounds.push(e_in - y * kt);
+            }
+        }
+        bounds.push(e_in - reach * kt);
+        let upper = (e_in - reach * kt, e_in + TAIL * kt);
+        let theta = (self.awr + 1.0) / (2.0 * self.awr.sqrt());
+        let center = self.zeta * (e_in / kt).sqrt();
+        let (s0, s1) = (((center - EDGE) / theta).max(0.0), (center + EDGE) / theta);
+        let pieces = (2.0 * EDGE * cells as f64).ceil() as usize;
+        for j in 0..=pieces {
+            let s = s0 + (s1 - s0) * j as f64 / pieces as f64;
+            bounds.push(s * s * kt);
+        }
+        let lower = (s0 * s0 * kt, s1 * s1 * kt);
+        bounds.extend([edge, e_in, e_x]);
+        bounds.retain(|b| b.is_finite() && *b >= 0.0);
+        bounds.sort_by(f64::total_cmp);
+        bounds.dedup();
+        let covered = |x: f64| (upper.0 <= x && x <= upper.1) || (lower.0 <= x && x <= lower.1);
+        let mut shares = [0.0; 2];
+        for w in bounds.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            let mid = 0.5 * (a + b);
+            if b <= a || !covered(mid) {
+                continue;
+            }
+            let (sa, sb) = ((a / kt).sqrt(), (b / kt).sqrt());
+            let (center, half) = (0.5 * (sa + sb), 0.5 * (sb - sa));
+            let value: f64 = GAUSS_LEGENDRE_4
+                .iter()
+                .map(|&(x, w)| {
+                    let s = center + half * x;
+                    w * half * density(s * s * kt) * 2.0 * s * kt
+                })
+                .sum();
+            shares[usize::from(mid > e_x)] += value;
+        }
+        shares
+    }
+
+    /// 出射の境界（エネルギー `e_b`、レサジー `x`。`high` は範囲の上端）について、[`Gas::shares`] が 0 でない入射のレサジーを、
+    /// 自由ガスの核を使う入射のレサジー `incident`（[始め, 終わり]）の中で区間に分け、区間ごとに割合を 2 次式で近似したもの
+    /// [境界より上の入射の、境界より下への割合, 境界より下の入射の、境界より上への割合]。D の山が境界にかかる入射は、上端の側が
+    /// E' = `e_b` ± y kT（y は `grades` の段）、下端の側が erf の引数が境界で ±EDGE になる √E' の間（2 EDGE `cells` 個の等間隔）で、
+    /// そこで区切る。それ以外の入射の割合は、下端の側の山の全体の積分か 0 で、入射とともに滑らかに変わるので、幅 `width` 以下の
+    /// レサジーの等間隔で区切る
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn share_cells(
+        &self,
+        high: f64,
+        x: f64,
+        e_b: f64,
+        incident: [f64; 2],
+        grades: &[f64],
+        cells: usize,
+        width: f64,
+    ) -> [Vec<ShareCell>; 2] {
+        let kt = self.kt;
+        let theta = (self.awr + 1.0) / (2.0 * self.awr.sqrt());
+        let s_b = (e_b / kt).sqrt();
+        // 下端の側の山 [((|ζ|√ε' − EDGE)⁺/θ)², ((|ζ|√ε' + EDGE)/θ)²] kT が境界の下にかかる入射は √ε' < (θ s_b + EDGE)/|ζ|、上に
+        // かかる入射は √ε' > (θ s_b − EDGE)/|ζ|
+        let below_reach = if self.zeta > 0.0 {
+            ((theta * s_b + EDGE) / self.zeta).powi(2) * kt
+        } else {
+            f64::INFINITY
+        };
+        let above_reach = if theta * s_b <= EDGE {
+            0.0
+        } else if self.zeta > 0.0 {
+            ((theta * s_b - EDGE) / self.zeta).powi(2) * kt
+        } else {
+            f64::INFINITY
+        };
+        let lethargy = |e: f64| {
+            if e > 0.0 {
+                (high / e).ln()
+            } else {
+                f64::INFINITY
+            }
+        };
+        let spans = [
+            [
+                incident[0].max(lethargy((e_b + TAIL * kt).max(below_reach))),
+                incident[1].min(x),
+            ],
+            [
+                incident[0].max(x),
+                incident[1].min(lethargy((e_b - TAIL * kt).min(above_reach))),
+            ],
+        ];
+        let mut breaks: Vec<f64> = Vec::with_capacity(2 * grades.len() + 4 * EDGE as usize * cells);
+        for &y in grades {
+            breaks.push(lethargy(e_b + y * kt));
+            breaks.push(lethargy(e_b - y * kt));
+        }
+        if self.zeta > 0.0 {
+            let (lo, hi) = (
+                ((theta * s_b - EDGE) / self.zeta).max(0.0),
+                (theta * s_b + EDGE) / self.zeta,
+            );
+            let pieces = (2.0 * EDGE * cells as f64).ceil() as usize;
+            for j in 0..=pieces {
+                let s = lo + (hi - lo) * j as f64 / pieces as f64;
+                breaks.push(lethargy(s * s * kt));
+            }
+        }
+        let shares = |v: f64, side: usize| self.shares(high * (-v).exp(), e_b, grades, cells)[side];
+        [0, 1].map(|side| {
+            let [a, b] = spans[side];
+            let mut out = Vec::new();
+            if a.is_nan() || b.is_nan() || a >= b {
+                return out;
+            }
+            let mut nodes: Vec<f64> = breaks
+                .iter()
+                .copied()
+                .filter(|&v| a < v && v < b)
+                .chain([a, b])
+                .collect();
+            nodes.sort_by(f64::total_cmp);
+            nodes.dedup();
+            let mut start = (a, shares(a, side));
+            for w in nodes.windows(2) {
+                let (lo, hi) = (w[0], w[1]);
+                let n = ((hi - lo) / width).ceil().max(1.0) as usize;
+                for j in 1..=n {
+                    let end = if j == n {
+                        hi
+                    } else {
+                        lo + (hi - lo) * j as f64 / n as f64
+                    };
+                    let mid = 0.5 * (start.0 + end);
+                    let finish = (end, shares(end, side));
+                    out.push(ShareCell {
+                        a: start.0,
+                        b: end,
+                        quadratic: Quadratic::through(
+                            start.0,
+                            end,
+                            start.1,
+                            shares(mid, side),
+                            finish.1,
+                        ),
+                    });
+                    start = finish;
+                }
+            }
+            out
+        })
+    }
+
     /// 区間 [a, b] を静止した核の窓の中として扱うか
     pub(super) fn inside(&self, u: f64, a: f64, b: f64) -> bool {
         let mid = 0.5 * (a + b);
@@ -535,7 +713,7 @@ impl Quadratic {
         }
     }
 
-    fn at(&self, s: f64) -> f64 {
+    pub(super) fn at(&self, s: f64) -> f64 {
         let d = s - self.c;
         let [a0, a1, a2] = self.coefficients;
         a0 + d * (a1 + d * a2)
@@ -569,6 +747,14 @@ impl Quadratic {
         }
         (wa, wb)
     }
+}
+
+/// 入射のレサジーの区間 [a, b] で、D を出射の境界の下（または上）に積分した割合を近似する 2 次式（[`Gas::share_cells`]）。
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ShareCell {
+    pub(super) a: f64,
+    pub(super) b: f64,
+    pub(super) quadratic: Quadratic,
 }
 
 /// 1 つのリングの、格子点 m での D の散乱源の計算に使う中性子束。
@@ -766,6 +952,13 @@ impl Thermal {
 
     pub(super) fn start(&self) -> usize {
         self.start
+    }
+
+    /// 自由ガスの核種 `l` の核と、[`Thermal::new`] に渡したその弾性散乱断面積の列（最初の格子点と、そこからの [格子点] の値）、
+    /// S(α, β) の移行の表
+    pub(super) fn gas(&self, l: usize) -> (&Gas, usize, &[f64], Option<&SabTransfer>) {
+        let (offset, sigma) = &self.sigma[l];
+        (&self.gases[l], *offset, sigma, self.tables[l].as_ref())
     }
 
     /// 格子点 m（エネルギー `e`）の D の散乱源を、リングごとに既知の部分を `known` に、F_m の係数を `own` に足す。`flux` は

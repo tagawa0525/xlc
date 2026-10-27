@@ -180,7 +180,7 @@ fn two_terms_are_weighted_by_the_narrow_resonance_flux() {
     assert!(close(result.total[1], 20.0));
 }
 
-mod lattice {
+pub(crate) mod lattice {
     use super::super::*;
     use crate::geometry::{Lattice, PinCell};
     use crate::input::MaterialInput;
@@ -918,7 +918,7 @@ mod lattice {
     }
 
     /// 分離共鳴（200 eV の共鳴）を持つ U-238 と、ポイントワイズの断面積を持つ核種のライブラリ。群 1, 2 が UFG の範囲
-    fn resonant_library() -> Library {
+    pub(crate) fn resonant_library() -> Library {
         let bounds = vec![1.0e7, 1.0e4, 1.0e2, 4.0, 0.625, 1.0e-5];
         let ng = bounds.len() - 1;
         let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
@@ -2357,5 +2357,263 @@ mod lattice {
             assert_eq!(reused, fresh);
         }
         assert_eq!(reuse.dancoff_solves, 1);
+    }
+
+    #[test]
+    fn transfers_replace_the_elastic_part_of_the_scattering_rows() {
+        // 移行の行のある群では、P0 の行を移行の行（弾性散乱）と、ライブラリの行の和のうち無限希釈の弾性散乱を超える分（非弾性散乱
+        // など）をライブラリの行の形で配ったものの和にし、P1 以上はライブラリの要素ごとの P1/P0 を保つ。ほかの群は ADR-0076 のまま
+        let mut library = library();
+        library.nuclides[0].temperatures[0].scatter = vec![
+            vec![vec![9.0, 1.0], vec![0.0, 4.0]],
+            vec![vec![2.0, 0.5], vec![0.0, 1.0]],
+        ];
+        // σ0 = 1 の弾性散乱は群 0 で 7（無限希釈は 8）。ライブラリの行の和 10 のうち 2 が弾性散乱でない
+        let table = library.shielded("U-238", T, &[1.0; 2]).unwrap();
+        let transfer = NuclideTransfer {
+            groups: 0..1,
+            rows: vec![vec![5.0, 2.0]],
+        };
+        let nuclide = shielded_nuclide_with(&library, "U-238", T, &table, Some(&transfer)).unwrap();
+        let close = |a: &[f64], b: &[f64]| {
+            a.iter()
+                .zip(b)
+                .all(|(x, y)| (x - y).abs() <= 1e-14 * y.abs().max(1.0))
+        };
+        let p0 = [5.0 + 2.0 * 0.9, 2.0 + 2.0 * 0.1];
+        assert!(close(&nuclide.scatter[0], &p0), "{:?}", nuclide.scatter[0]);
+        assert!(
+            close(
+                &nuclide.anisotropic[0][0],
+                &[2.0 * p0[0] / 9.0, 0.5 * p0[1] / 1.0]
+            ),
+            "{:?}",
+            nuclide.anisotropic[0][0]
+        );
+        let dilute = shielded_nuclide(&library, "U-238", T, &table).unwrap();
+        assert_eq!(nuclide.scatter[1], dilute.scatter[1]);
+        assert_eq!(nuclide.anisotropic[0][1], dilute.anisotropic[0][1]);
+        assert_eq!(nuclide.total, dilute.total);
+        let sum = |row: &[f64]| row.iter().sum::<f64>();
+        assert!((sum(&nuclide.scatter[0]) - sum(&dilute.scatter[0])).abs() <= 1e-14 * 9.0);
+        // 移行の行がなければ ADR-0076 と同じ
+        assert_eq!(
+            shielded_nuclide_with(&library, "U-238", T, &table, None).unwrap(),
+            dilute
+        );
+    }
+
+    /// [`resonant_library`] の燃料（3 リング）、真空のギャップ、被覆管、水のピンセル 1 本を `options` で自己遮蔽した結果と、格子、
+    /// 領域ごとの物質の名前、物質
+    fn ring_pin(
+        options: &ShieldingOptions,
+    ) -> (FuelShielding, Lattice, Vec<String>, Vec<MaterialInput>) {
+        let library = resonant_library();
+        let materials = vec![
+            MaterialInput {
+                name: "fuel".into(),
+                temperature: T,
+                composition: vec![
+                    ("U-238".into(), 0.022),
+                    ("U-235".into(), 5.0e-4),
+                    ("O-16".into(), 0.045),
+                ],
+            },
+            MaterialInput {
+                name: "clad".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.043)],
+            },
+            MaterialInput {
+                name: "water".into(),
+                temperature: T,
+                composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+            },
+        ];
+        let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+        let lattice = Lattice::pin_cell(pin);
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let regions: Vec<String> = ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"]
+            .map(String::from)
+            .to_vec();
+        let shielded = shield_fuel(&library, &tracking, &materials, &regions, options).unwrap();
+        (shielded, lattice, regions, materials)
+    }
+
+    #[test]
+    fn infinite_dilution_transfers_are_the_default_and_carry_no_rows() {
+        let default = ring_pin(&ShieldingOptions::default()).0;
+        let explicit = ring_pin(&ShieldingOptions {
+            transfer: UfgTransfer::InfiniteDilution,
+            ..ShieldingOptions::default()
+        })
+        .0;
+        assert_eq!(default, explicit);
+        assert!((0..6).all(|r| default.region_transfers(r).is_none()));
+    }
+
+    #[test]
+    fn ring_flux_transfers_make_the_ring_materials_and_keep_the_row_sums() {
+        // 等価なセルのリングの領域は、核種ごとの移行の行を持ち、領域の物質はその行で作った群定数を数密度で混ぜて SPH 因子を掛けた
+        // もの（燃焼の作り直しと同じ作り方）。行の和は ADR-0076 の行の和と同じで、行の形は無限希釈の形と変わる
+        let library = resonant_library();
+        let options = ShieldingOptions {
+            transfer: UfgTransfer::RingFlux,
+            ..ShieldingOptions::default()
+        };
+        let (shielded, lattice, regions, materials) = ring_pin(&options);
+        let ng = library.groups.len();
+        let ones = vec![vec![1.0; ng]; lattice.regions()];
+        let sph = shielded.physical_flux(&lattice, &ones).unwrap();
+        let mut changed = 0.0_f64;
+        for (r, name) in regions.iter().enumerate() {
+            if name == crate::input::VOID {
+                assert!(shielded.region_transfers(r).is_none());
+                continue;
+            }
+            let transfers = shielded.region_transfers(r).unwrap();
+            let effective = shielded.region_cross_sections(r).unwrap();
+            let material = materials.iter().find(|m| &m.name == name).unwrap();
+            assert_eq!(transfers.len(), material.composition.len());
+            let mut nuclides = Vec::new();
+            for (((nuclide, density), s), t) in
+                material.composition.iter().zip(effective).zip(transfers)
+            {
+                assert_eq!(t.groups, 1..3);
+                let with = shielded_nuclide_with(&library, nuclide, T, s, Some(t)).unwrap();
+                let without = shielded_nuclide(&library, nuclide, T, s).unwrap();
+                for g in 0..ng {
+                    let (a, b): (f64, f64) = (
+                        with.scatter[g].iter().sum(),
+                        without.scatter[g].iter().sum(),
+                    );
+                    assert!(
+                        (a - b).abs() <= 1e-12 * b,
+                        "region {r} {nuclide} group {g}: {a} vs {b}"
+                    );
+                    if !t.groups.contains(&g) {
+                        assert_eq!(with.scatter[g], without.scatter[g]);
+                    }
+                    for (x, y) in with.scatter[g].iter().zip(&without.scatter[g]) {
+                        changed = changed.max((x - y).abs() / b);
+                    }
+                }
+                nuclides.push((with, *density));
+            }
+            let expected = Material::from_nuclides(&nuclides, ng)
+                .unwrap()
+                .scaled(&sph[r])
+                .unwrap();
+            assert_eq!(
+                shielded.materials[shielded.region_material[r]], expected,
+                "region {r}"
+            );
+        }
+        assert!(changed > 1e-3, "{changed}");
+    }
+
+    #[test]
+    fn branch_remixing_keeps_the_ring_flux_transfers_by_nuclide_name() {
+        // 分岐の作り直し（ADR-0201）は、核種の名前で公称の組成の移行の行を引く。公称の組成なら自己遮蔽の物質とビットで同じで、
+        // 核種の順を入れ替えた組成でも、同じ核種の移行の行で作る
+        let library = resonant_library();
+        let options = ShieldingOptions {
+            transfer: UfgTransfer::RingFlux,
+            ..ShieldingOptions::default()
+        };
+        let (shielded, lattice, regions, materials) = ring_pin(&options);
+        let varied = ["water".to_string()];
+        let rebuilt = crate::branches::remix_varied(
+            &library, &shielded, &lattice, &regions, &varied, &materials, &materials,
+        )
+        .unwrap();
+        assert!(!rebuilt.is_empty());
+        for (m, material) in &rebuilt {
+            assert_eq!(material, &shielded.materials[*m], "material {m}");
+        }
+        let mut swapped = materials.clone();
+        let water = swapped.iter_mut().find(|m| m.name == "water").unwrap();
+        water.composition.reverse();
+        let rebuilt = crate::branches::remix_varied(
+            &library, &shielded, &lattice, &regions, &varied, &materials, &swapped,
+        )
+        .unwrap();
+        let ng = library.groups.len();
+        let sph = shielded
+            .physical_flux(&lattice, &vec![vec![1.0; ng]; lattice.regions()])
+            .unwrap();
+        let r = regions.iter().position(|n| n == "water").unwrap();
+        let nominal = &materials
+            .iter()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition;
+        let nuclides: Vec<_> = water_of(&swapped)
+            .iter()
+            .map(|(name, density)| {
+                let i = nominal.iter().position(|(n, _)| n == name).unwrap();
+                let s = &shielded.region_cross_sections(r).unwrap()[i];
+                let t = &shielded.region_transfers(r).unwrap()[i];
+                (
+                    shielded_nuclide_with(&library, name, T, s, Some(t)).unwrap(),
+                    *density,
+                )
+            })
+            .collect();
+        let expected = Material::from_nuclides(&nuclides, ng)
+            .unwrap()
+            .scaled(&sph[r])
+            .unwrap();
+        let (_, material) = rebuilt
+            .iter()
+            .find(|(m, _)| *m == shielded.region_material[r])
+            .unwrap();
+        assert_eq!(material, &expected);
+    }
+
+    fn water_of(materials: &[MaterialInput]) -> Vec<(String, f64)> {
+        materials
+            .iter()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition
+            .clone()
+    }
+
+    #[test]
+    fn transfers_stop_on_library_rows_they_cannot_split() {
+        // 移行の行で作る群で、ライブラリの行の和が無限希釈の弾性散乱より小さい（0 も）か、P_l の要素が P0 の要素より大きい行は、
+        // 弾性散乱でない分も要素ごとの P_l/P0 も決まらないので止める
+        let transfer = NuclideTransfer {
+            groups: 0..1,
+            rows: vec![vec![5.0, 2.0]],
+        };
+        let table = |library: &Library| library.shielded("U-238", T, &[1.0; 2]).unwrap();
+        for row in [vec![6.0, 1.0], vec![0.0, 0.0]] {
+            let mut library = library();
+            library.nuclides[0].temperatures[0].scatter[0][0] = row.clone();
+            let result =
+                shielded_nuclide_with(&library, "U-238", T, &table(&library), Some(&transfer));
+            assert!(
+                matches!(
+                    result,
+                    Err(SelfShieldingError::ElasticAboveRow { group: 0, .. })
+                ),
+                "{row:?}: {result:?}"
+            );
+        }
+        let mut library = library();
+        library.nuclides[0].temperatures[0].scatter = vec![
+            vec![vec![9.0, 1.0], vec![0.0, 4.0]],
+            vec![vec![2.0, 1.5], vec![0.0, 1.0]],
+        ];
+        let result = shielded_nuclide_with(&library, "U-238", T, &table(&library), Some(&transfer));
+        assert!(
+            matches!(
+                result,
+                Err(SelfShieldingError::MomentAboveP0 { group: 0, .. })
+            ),
+            "{result:?}"
+        );
     }
 }
