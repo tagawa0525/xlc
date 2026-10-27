@@ -7,6 +7,7 @@
     python3 group_rows.py write <状態の transfer.msgpack> <核の transfer.msgpack> <xlc の fine.msgpack> <物質> <最初の群>
         <最後の群> <重み> <出力>
     python3 group_rows.py spectrum <核の transfer.msgpack> <xlc の fine.msgpack> <物質> <下端 eV> <上端 eV> <区間の数>
+    python3 group_rows.py summarize <設定 (TOML)> <JSON>
 
 <状態の transfer.msgpack> は openmc_pin_transfer.py の出力（群の行）、<核の transfer.msgpack> は細かい入射の区間を数えた同じ
 スクリプトの出力（`fine`）、<xlc の balance.msgpack> は `balance` の例の出力、<xlc の fine.msgpack> は `fine_flux` の例の出力
@@ -17,6 +18,12 @@
 Σ_i w_i r_i(h) / Σ_i w_i。重みは `openmc`（核の実行の φ_i。群の行の値に戻る）、`xlc`（xlc の中性子束の区間の積分）、`lethargy`
 （区間のレサジーの幅。1/E の中性子束）。
 
+summarize は group-rows/run.sh のログ（設定のディレクトリの `logs/`）を表の JSON にまとめる。設定は `[[spec]]`（`spec` は
+`<物質>:<最初の群>-<最後の群>`、`label`）、`[[kernel]]`（`key`、`label`）、`[[state]]`（`key`、`name`、`kernels` は核の名前の並び）。
+寄与は swap_transfer の SPH 因子を置き換える前のままの k の変化の符号を変えたもの（pcm。swap_candidates.py と同じ）で、`openmc` は状態の
+OpenMC の行、`kernels` は核ごとの `xlc` と `lethargy` の重みの行に置き換えたもの。`logs/<状態>-spectrum.txt`（spectrum の出力に
+`material <物質>` を前に置いたもの）があれば、区間ごとの比 − 1 を低いエネルギーから書く。
+
 rows は、群ごとに、群から出る移行（自分の群への移行を除く行の和）と、自分の群への移行（1/cm）を、xlc、状態の OpenMC、核の 3 つの重みで
 書く。write は、状態の transfer.msgpack の物質の行のうち、群の範囲の行を、核を重みで群にまとめた行（の中性子束倍）に置き換えて書く
 （`swap_transfer` の例に渡すため。ほかの物質と群はそのまま）。spectrum は、群の範囲 [下端, 上端] を同じ数の区間に分け、
@@ -24,15 +31,24 @@ rows は、群ごとに、群から出る移行（自分の群への移行を除
 """
 
 import itertools
+import json
+import re
 import sys
 from pathlib import Path
 
 import msgpack
 import numpy as np
+import tomllib
+from swap_candidates import SummaryError as CandidatesError
+from swap_candidates import transfer_runs
 
 # OpenMC の物質の xlc の名前から、fine_flux の出力のリングの名前へ
 FINE_RING = {"water": "moderator", "fuel": "fuel"}
 WEIGHTS = ("openmc", "xlc", "lethargy")
+
+
+class SummaryError(Exception):
+    pass
 
 
 def read(path):
@@ -164,7 +180,141 @@ def spectrum(kernel_path, fine, material, lo, hi, n):
         )
 
 
-COMMANDS = {"rows": (rows, 7), "write": (write, 8), "spectrum": (spectrum, 6)}
+def parse_rows(text):
+    """rows の出力（核ごとに `kernel <名前> material <物質> <群>` を前に置いたもの）から、核ごと、`<物質>:<群>` ごとの重みごとの
+    [群から出る移行, 自分の群への移行]"""
+    found = {}
+    kernel = material = None
+    for line in text.splitlines():
+        if line.startswith("kernel "):
+            m = re.fullmatch(r"kernel (\S+) material (\S+) \d+-\d+", line)
+            if m is None:
+                raise SummaryError(f"cannot read the kernel line: {line}")
+            kernel, material = m.groups()
+        elif line.startswith("group "):
+            if kernel is None:
+                raise SummaryError(f"a group line before its kernel: {line}")
+            m = re.fullmatch(r"group (\d+) out/own: (.+)", line)
+            if m is None:
+                raise SummaryError(f"cannot read the group line: {line}")
+            words = m.group(2).split()
+            if len(words) % 3:
+                raise SummaryError(f"cannot read the group line: {line}")
+            values = {
+                words[i]: [float(words[i + 1]), float(words[i + 2])]
+                for i in range(0, len(words), 3)
+            }
+            found.setdefault(kernel, {})[f"{material}:{m.group(1)}"] = values
+        elif line.strip():
+            raise SummaryError(f"cannot read the rows line: {line}")
+    return found
+
+
+def parse_spectrum(text):
+    """spectrum の出力（物質ごとに `material <物質>` を前に置いたもの）から、物質ごとの区間の下端、上端 (eV) と比 − 1（低いエネルギーから）"""
+    found = {}
+    material = None
+    for line in text.splitlines():
+        if line.startswith("material "):
+            material = line.split()[1]
+            found[material] = []
+        elif line.strip():
+            m = re.fullmatch(
+                r"([\d.]+)-([\d.]+) eV: xlc [\d.]+ OpenMC [\d.]+ 比 ([+-][\d.]+)", line
+            )
+            if m is None or material is None:
+                raise SummaryError(f"cannot read the spectrum line: {line}")
+            found[material].append(
+                {
+                    "low": float(m.group(1)),
+                    "high": float(m.group(2)),
+                    "ratio": float(m.group(3)),
+                }
+            )
+    for bins in found.values():
+        bins.sort(key=lambda b: b["low"])
+    return found
+
+
+def contributions(path, k=None):
+    """swap_transfer のログから、置き換えない k、OpenMC の k と、`<物質>:<最初の群>-<最後の群>` ごとの寄与（pcm）。`k` があれば、
+    置き換えない k が同じこと（同じ入力とコードのログ）を確かめる"""
+    try:
+        runs = transfer_runs(Path(path).read_text())
+    except CandidatesError as e:
+        raise SummaryError(f"{path}: {e}") from e
+    if not runs:
+        raise SummaryError(f"{path}: no swap")
+    bases = {r["base"] for r in runs.values()} | ({k} if k is not None else set())
+    if len(bases) != 1:
+        raise SummaryError(f"{path}: the unswapped k differs: {sorted(bases)}")
+    (base,) = {r["base"] for r in runs.values()}
+    (openmc,) = {r["openmc"] for r in runs.values()}
+    found = {f"{m}:{a}-{b}": -r["change"] for (m, a, b), r in runs.items()}
+    return base, openmc, found
+
+
+def summarize(config):
+    config = Path(config)
+    c = tomllib.loads(config.read_text())
+    logs = config.parent / "logs"
+    specs = [s["spec"] for s in c["spec"]]
+    states = []
+    for state in c["state"]:
+        key = state["key"]
+        k, openmc_k, openmc = contributions(logs / f"{key}-transfer.txt")
+        swaps = {
+            spec: {"openmc": openmc[spec], "kernels": {}}
+            for spec in specs
+            if spec in openmc
+        }
+        for kernel in state["kernels"]:
+            for weight in ("xlc", "lethargy"):
+                _, _, found = contributions(
+                    logs / f"{key}-{kernel}-{weight}-transfer.txt", k
+                )
+                for spec, pcm in found.items():
+                    if spec not in swaps:
+                        raise SummaryError(f"{key}: `{spec}` has no OpenMC row swap")
+                    swaps[spec]["kernels"].setdefault(kernel, {})[weight] = pcm
+        rows = parse_rows((logs / f"{key}-rows.txt").read_text())
+        if set(rows) != set(state["kernels"]):
+            raise SummaryError(f"{key}: the rows log has kernels {sorted(rows)}")
+        spectrum = logs / f"{key}-spectrum.txt"
+        states.append(
+            {
+                "key": key,
+                "name": state["name"],
+                "k": k,
+                "openmc_k": openmc_k,
+                "kernels": state["kernels"],
+                "swaps": swaps,
+                "rows": rows,
+                "spectrum": parse_spectrum(spectrum.read_text())
+                if spectrum.exists()
+                else None,
+            }
+        )
+    return {
+        "format": "xlc-group-rows",
+        "specs": c["spec"],
+        "kernels": c["kernel"],
+        "states": states,
+    }
+
+
+def write_summary(config, output):
+    Path(output).write_text(
+        json.dumps(summarize(config), ensure_ascii=False, indent=1) + "\n"
+    )
+
+
+COMMANDS = {
+    "rows": (rows, 7),
+    "write": (write, 8),
+    "spectrum": (spectrum, 6),
+    "summarize": (write_summary, 2),
+}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
