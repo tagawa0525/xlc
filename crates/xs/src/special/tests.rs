@@ -205,8 +205,9 @@ fn erfcx_gives_the_same_bits_as_its_copy() {
 
 #[test]
 fn erfc_is_within_seven_ulp_of_multiprecision_values() {
-    // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値）。x は 0.46875 ≤ x < 2.5 の一様な乱数 4 万点で誤差が大きかった
-    // 点と区間の端。erfcx(x)·exp(−x²) の誤差は、x² の丸めが exp に入る分（2x² × 丸め）だけ erfcx より大きい
+    // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値。erfcx_cases.py が書き出す）。x は 0.46875 ≤ x < 2.5 の一様な
+    // 乱数 4 万点で誤差が大きかった点と、0.46875、3、5。erfcx(x)·exp(−x²) の誤差は、x² の丸めが exp に入る分（x² × 丸め）だけ
+    // erfcx より大きい
     for (x, hi, lo) in [
         (0.46875, 0.507386526782062, 3.3306914518767484e-17),
         (1.0, 0.15729920705028513, -2.954563826510312e-18),

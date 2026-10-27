@@ -1,5 +1,5 @@
 // erf と erfcx の検査の点。xs の `special::tests` と lattice の `ufg::free_gas::tests` が include! で読み、2 つのクレートの
-// erf と erfcx（同じ計算の複製。ADR-0203）を同じ表で確かめる
+// erf と erfcx（同じ計算の複製。ADR-0203）を同じ表で確かめる。多倍長の参照値は erfcx_cases.py が書き出す
 
 /// erfcx(x) の多倍長の値（x, hi, lo。hi + lo が値）。mpmath 1.4.1 の 60 桁で erfc(x)·exp(x²) を求め、hi に倍精度へ丸めた値、
 /// lo に残りを丸めた値を置いた。x = 1e200 は mpmath の erfc が扱えないので、漸近展開の 2 項 (1 − 1/(2x²))/(√π x)（次の項は
