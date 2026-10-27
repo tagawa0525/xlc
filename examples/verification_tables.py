@@ -1210,6 +1210,11 @@ def ufg_free_gas_tilt(
     )
 
 
+def ufg_free_gas_transfers(sources: list[dict]) -> str:
+    """ADR-0205 の UFG の散乱核ごとの、物質の移行の行を OpenMC の値に置き換えて測る k への寄与（pcm）"""
+    raise TableError("not drawn yet")
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
