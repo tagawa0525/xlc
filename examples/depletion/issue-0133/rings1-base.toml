@@ -2,6 +2,8 @@
 # ../vera/p1/pincell-1C.toml と同じ形状、組成、離散化）を、燃料 1 リングの燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。
 # OpenMC の参照解は openmc-1C-rings1.toml。出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。
 library = "../depletion.msgpack"
+ufg-scattering = "static"
+ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
