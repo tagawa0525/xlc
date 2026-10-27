@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import group_rows as gr
 
@@ -59,9 +61,82 @@ class Spectrum(unittest.TestCase):
         )
         self.assertEqual(spectrum["fuel"][1]["ratio"], 0.0049)
 
+    def test_spectrum_reads_edges_in_exponent_form(self):
+        spectrum = gr.parse_spectrum(
+            "material water\n9118-1.503e+04 eV: xlc 0.5 OpenMC 0.5 比 +0.0010\n"
+        )
+        self.assertEqual(spectrum["water"][0]["high"], 15030.0)
+
+    def test_a_range_off_the_fine_bins_is_an_error(self):
+        kernel = gr.Kernel(
+            kernel_data([16.0, 8.0, 4.0], [2.0, 1.0], [[1.0], [1.0]], [16.0, 4.0]),
+            "water",
+        )
+        with self.assertRaises(SystemExit):
+            kernel.range_bins(4.0, 15.0)
+
     def test_an_unreadable_line_is_an_error(self):
         with self.assertRaises(gr.SummaryError):
             gr.parse_spectrum("material water\n4-5 eV: ratio\n")
+
+
+def kernel_data(bounds, flux, transfer, group_bounds):
+    return {
+        "bounds": group_bounds,
+        "fine": {
+            "bounds": bounds,
+            "materials": {
+                "water": {"mean": flux, "transfer_mean": transfer},
+            },
+        },
+    }
+
+
+def fine_data(energies, flux):
+    return {"energies": energies, "moderator": flux, "fuel": flux}
+
+
+class Weights(unittest.TestCase):
+    # 群 1 は 4〜16 eV を 2 つの区間（4〜8、8〜16 eV）に分け、出射は群 1 と群 2
+    def kernel(self):
+        return gr.Kernel(
+            kernel_data(
+                [16.0, 8.0, 4.0],
+                [2.0, 1.0],
+                [[1.0, 1.0], [0.25, 0.75]],
+                [16.0, 4.0, 1.0],
+            ),
+            "water",
+        )
+
+    def test_the_kernel_run_weight_gives_back_the_group_row(self):
+        row = self.kernel().row(0, None)
+        self.assertEqual(row.tolist(), [1.25 / 3.0, 1.75 / 3.0])
+
+    def test_an_even_weight_averages_the_bin_rows(self):
+        row = self.kernel().row(0, np.array([1.0, 1.0]))
+        self.assertEqual(row.tolist(), [0.375, 0.625])
+
+    def test_the_xlc_weight_integrates_the_flux_per_lethargy(self):
+        # レサジーあたりの中性子束が u = ln E に線形なら台形の積分は厳密
+        e = np.geomspace(16.0, 4.0, 9)
+        w = gr.xlc_weight(fine_data(e, np.log(e)), "moderator", [16.0, 8.0, 4.0])
+        exact = [
+            (np.log(16.0) ** 2 - np.log(8.0) ** 2) / 2,
+            (np.log(8.0) ** 2 - np.log(4.0) ** 2) / 2,
+        ]
+        np.testing.assert_allclose(w, exact, rtol=1e-12)
+
+    def test_a_bin_outside_the_xlc_grid_is_an_error(self):
+        e = np.geomspace(16.0, 5.0, 9)
+        with self.assertRaises(SystemExit):
+            gr.xlc_weight(fine_data(e, np.ones(9)), "moderator", [16.0, 8.0, 4.0])
+
+    def test_a_shift_between_identical_spectra_is_zero(self):
+        e = np.geomspace(16.0, 4.0, 9)
+        fine = fine_data(e, np.log(e))
+        lines = gr.shift_lines(fine, fine, "moderator", 4.0, 16.0, 2)
+        self.assertEqual(lines, ["4-8 eV: 比 +0.0000", "8-16 eV: 比 +0.0000"])
 
 
 class Summarize(unittest.TestCase):
@@ -103,6 +178,49 @@ kernels = ["2A-40"]
         self.assertEqual(state["openmc_k"], 1.171998)
         self.assertEqual(state["spectrum"], None)
         self.assertEqual(state["rows"]["2A-40"]["water:27"]["state"][0], 0.5935841)
+
+    def write_case(self, d, kernel_log, spec_extra=""):
+        (d / "logs").mkdir()
+        (d / "summary.toml").write_text(
+            f"""[[spec]]
+spec = "water:27-27"
+label = "減速材"
+{spec_extra}
+[[kernel]]
+key = "2A-40"
+label = "核"
+
+[[state]]
+key = "1C-0"
+name = "1C 0"
+kernels = ["2A-40"]
+"""
+        )
+        (d / "logs/1C-0-transfer.txt").write_text(transfer_log(1.172316, 1.172354))
+        (d / "logs/1C-0-2A-40-xlc-transfer.txt").write_text(kernel_log)
+        (d / "logs/1C-0-2A-40-lethargy-transfer.txt").write_text(
+            transfer_log(1.172316, 1.172473)
+        )
+        (d / "logs/1C-0-rows.txt").write_text(ROWS_LOG.split("kernel MOX1")[0])
+
+    def test_a_configured_swap_missing_in_the_logs_is_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.write_case(
+                Path(d),
+                transfer_log(1.172316, 1.172386),
+                '\n[[spec]]\nspec = "fuel:27-27"\nlabel = "燃料"\n',
+            )
+            with self.assertRaises(gr.SummaryError):
+                gr.summarize(Path(d) / "summary.toml")
+
+    def test_a_kernel_log_against_another_openmc_k_is_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = transfer_log(1.172316, 1.172386).replace(
+                "OpenMC k 1.171998", "OpenMC k 0.824863"
+            )
+            self.write_case(Path(d), log)
+            with self.assertRaises(gr.SummaryError):
+                gr.summarize(Path(d) / "summary.toml")
 
     def test_logs_from_another_unswapped_k_are_an_error(self):
         with tempfile.TemporaryDirectory() as d:
