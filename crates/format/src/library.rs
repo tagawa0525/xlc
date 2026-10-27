@@ -755,8 +755,21 @@ impl SabTransfer {
     /// 入射 `e_in` (eV)、出射 `e_out` (eV) の p(E→E') (1/eV)。入射について ln E に線形、移行について線形に補間する。格子の
     /// 外は `None`
     pub fn at(&self, e_in: f64, e_out: f64) -> Option<f64> {
-        let _ = (e_in, e_out);
-        None
+        // x の昇順の格子での、x を含む区間の始まりと区間の中の位置（格子の外は None。最後の点は最後の区間の終わり）
+        let locate = |grid: &[f64], x: f64| {
+            let (first, last) = (grid[0], grid[grid.len() - 1]);
+            if !(first <= x && x <= last) {
+                return None;
+            }
+            let j = (grid.partition_point(|&g| g <= x) - 1).min(grid.len() - 2);
+            Some((j, (x - grid[j]) / (grid[j + 1] - grid[j])))
+        };
+        let (i, _) = locate(&self.incident, e_in)?;
+        let w = (e_in / self.incident[i]).ln() / (self.incident[i + 1] / self.incident[i]).ln();
+        let (j, v) = locate(&self.transfer, e_out - e_in)?;
+        let row = |r: &[f64]| r[j] + v * (r[j + 1] - r[j]);
+        let (a, b) = (row(&self.density[i]), row(&self.density[i + 1]));
+        Some(a + w * (b - a))
     }
 
     /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数であること。
