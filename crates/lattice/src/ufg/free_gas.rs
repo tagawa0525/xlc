@@ -1164,10 +1164,13 @@ pub(super) struct SabSource<'a> {
 pub(super) struct SabWork {
     /// 小区間の移行の両端
     cells: Vec<(f64, f64)>,
-    /// 小区間ごとの（中性子束を補間する格子の区間の始まり、∫ σs R du'、区間の中の位置）。割合が 0 以下の小区間は `None`、表の外は
-    /// `Err`（移行の下端）
-    terms: Vec<Result<Option<(usize, f64, f64)>, f64>>,
+    /// 小区間ごとの重み
+    terms: Vec<SabTerm>,
 }
+
+/// S(α, β) の移行の小区間の（中性子束を補間する格子の区間の始まり、∫ σs R du'、区間の中の位置）。割合が 0 以下の小区間は `None`、
+/// 表の外は `Err`（移行の下端）
+type SabTerm = Result<Option<(usize, f64, f64)>, f64>;
 
 /// 並列の 1 つの仕事にする小区間の数の下限（格子点ごとの小区間は、表の移行の格子点の数 2389 と同じ桁）
 const SAB_CELLS_PER_TASK: usize = 256;
