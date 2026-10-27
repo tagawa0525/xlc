@@ -41,9 +41,13 @@ pub fn erfc(x: f64) -> f64 {
     }
 }
 
-/// スケールした相補誤差関数 erfcx(x) = exp(x²) erfc(x)（x ≥ 0）。
+/// スケールした相補誤差関数 erfcx(x) = exp(x²) erfc(x)。
 /// exp(x²) と erfc(x) を別に計算すると、大きな x で桁あふれ・桁落ちする。
 pub fn erfcx(x: f64) -> f64 {
+    if x < 0.0 {
+        // erfc(−x) = 2 − erfc(x)
+        return 2.0 * (x * x).exp() - erfcx(-x);
+    }
     if x < CODY_LOWER_LIMIT {
         // erf(x) < 0.5 なので 1 − erf は桁落ちしない
         return (x * x).exp() * (1.0 - erf_series(x));
