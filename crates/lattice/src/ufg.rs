@@ -210,10 +210,9 @@ fn range_below(library: &Library, top: f64) -> Result<[f64; 2], UfgError> {
 }
 
 /// UFG の減速計算の散乱核の、標的の扱い（ADR-0203）。
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Scattering {
     /// どの核種も静止した標的（ADR-0070）
-    #[default]
     Static,
     /// 分離共鳴を持たない核種（ライブラリの `resolved` が nil）を温度 T の自由ガスにする。分離共鳴を持つ核種は、
     /// [`FreeGas::heavy`] を選べばその上限より下で自由ガス、選ばなければ静止した標的
@@ -237,15 +236,22 @@ pub struct FreeGas {
     pub sab: bool,
 }
 
+impl Default for Scattering {
+    /// ADR-0209 の既定（[`FreeGas`] の既定の自由ガス）
+    fn default() -> Self {
+        Self::FreeGas(FreeGas::default())
+    }
+}
+
 impl Default for FreeGas {
-    /// ADR-0203 の既定
+    /// ADR-0209 の既定（ADR-0205 の速い方法）
     fn default() -> Self {
         Self {
-            upper: None,
-            cells: 4,
-            sweeps: None,
-            heavy: None,
-            sab: false,
+            upper: Some(400.0),
+            cells: 2,
+            sweeps: Some(3),
+            heavy: Some(400.0),
+            sab: true,
         }
     }
 }
@@ -301,7 +307,7 @@ impl Default for Collision {
 }
 
 /// セル `cell` の、範囲 `range`（[`cell_range`]）の減速計算。`rings` はリングごとの物質（真空は `None`）。
-/// 飛程は既定の求め方（[`Collision::default`]）で求める。
+/// 飛程は既定の求め方（[`Collision::default`]）で求め、散乱核はどの核種も静止した標的（[`Scattering::Static`]）。
 pub fn slowing_down(
     library: &Library,
     cell: &Cylinder,
