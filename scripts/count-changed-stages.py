@@ -4,16 +4,22 @@
 使い方: scripts/count-changed-stages.py [<dvc.yaml>...]
 
 引数は dvc status にそのまま渡す。`dvc status` の文字列を grep で数えると、タブで始まる `changed deps:` の行を拾って
-誤る（2026-10-28 に 468 を 942 と数えた）ので、JSON の「yaml:ステージ」のキーを yaml ごとに数える。stages は
+誤るので、JSON の「yaml:ステージ」のキーを yaml ごとに数える。stages は
 changed のステージの数で、種類ごとの数は 1 つのステージが複数の種類を持てば、それぞれに数える。知らない種類の変更
-（not in cache など）は ValueError で止める。
+（not in cache は changed outs の中身で、種類ではない）は ValueError で止める。
 """
 
 import json
 import subprocess
 import sys
 
-KINDS = ("changed deps", "changed outs", "changed command", "always changed")
+KINDS = (
+    "changed deps",
+    "changed outs",
+    "changed command",
+    "changed checksum",
+    "always changed",
+)
 
 
 def count_changed(status):
