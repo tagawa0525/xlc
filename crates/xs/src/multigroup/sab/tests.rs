@@ -372,7 +372,10 @@ fn ufg_transfer_covers_the_ufg_reach() {
     // 入射は UFG の下限から上方散乱の届く幅（表の最高温度の UFG_TAIL kT）下から S(α, β) の上限まで、移行は出射 0 eV から
     // 上方散乱の届く幅まで
     let data = free_gas_table();
-    let table = free_gas_up_to_10_ev(&data).ufg_transfer(4.0).unwrap();
+    let table = free_gas_up_to_10_ev(&data)
+        .ufg_transfer(4.0)
+        .unwrap()
+        .unwrap();
     let reach = UFG_TAIL * BK * TEMPERATURE;
     assert!(table.incident[0] <= 4.0 - reach);
     assert_eq!(*table.incident.last().unwrap(), 10.0);
@@ -413,7 +416,7 @@ fn ufg_transfer_between_grid_points_is_the_share_of_the_kernel() {
     // 間の核を一定とする補間の誤差は、移行の格子の幅の中の核の変わり方の分
     let data = free_gas_table();
     let sab = free_gas_up_to_10_ev(&data);
-    let table = sab.ufg_transfer(4.0).unwrap();
+    let table = sab.ufg_transfer(4.0).unwrap().unwrap();
     let kt = BK * TEMPERATURE;
     for e in [4.0, 5.3, 7.77, 9.99] {
         for e_out in ufg_outgoing(e, kt) {
@@ -433,7 +436,7 @@ fn ufg_transfer_of_a_free_gas_table_is_the_free_gas_share() {
     // 誤差で、この表の 4〜10 eV の散乱断面積は解析式と 0.3〜0.5% 違い、表の核の割合そのものが解析式と 1.7e−3 まで違う
     let data = free_gas_table();
     let sab = free_gas_up_to_10_ev(&data);
-    let table = sab.ufg_transfer(4.0).unwrap();
+    let table = sab.ufg_transfer(4.0).unwrap().unwrap();
     let kt = BK * TEMPERATURE;
     for e in [4.0, 5.3, 7.77, 9.99] {
         for e_out in ufg_outgoing(e, kt) {
@@ -451,7 +454,10 @@ fn ufg_transfer_of_a_free_gas_table_is_the_free_gas_share() {
 fn ufg_transfer_rows_rise_from_zero_to_one() {
     // 行は散乱断面積で割った累積なので、出射 0 eV で 0、上方散乱の届く幅で 1（中性子を失わず、増やさない）
     let data = free_gas_table();
-    let table = free_gas_up_to_10_ev(&data).ufg_transfer(4.0).unwrap();
+    let table = free_gas_up_to_10_ev(&data)
+        .ufg_transfer(4.0)
+        .unwrap()
+        .unwrap();
     assert!(table.incident.len() > 1);
     for (e, row) in table.incident.iter().zip(&table.cumulative) {
         assert_eq!(row[0], 0.0, "{e} eV");
@@ -461,12 +467,10 @@ fn ufg_transfer_rows_rise_from_zero_to_one() {
 }
 
 #[test]
-fn ufg_transfer_needs_the_limit_above_the_ufg_reach() {
-    // S(α, β) の上限が UFG の下限から上方散乱の届く幅より下なら、UFG に届く S(α, β) の散乱がなく、表は作れない
+fn ufg_transfer_is_none_below_the_ufg_reach() {
+    // S(α, β) の上限が UFG の下限から上方散乱の届く幅より下なら、UFG に届く S(α, β) の散乱がなく、表は要らない（S(α, β) を UFG で
+    // 使わないライブラリの作成を止めない）
     let data = free_gas_table();
     let sab = ThermalSab::new(&data, TEMPERATURE, 2.0, SabOutside::ShortCollisionTime).unwrap();
-    assert!(matches!(
-        sab.ufg_transfer(4.0),
-        Err(SabError::TransferRange { .. })
-    ));
+    assert!(sab.ufg_transfer(4.0).unwrap().is_none());
 }
