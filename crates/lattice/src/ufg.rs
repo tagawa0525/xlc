@@ -80,6 +80,10 @@ pub enum UfgError {
         "{name}: `sab` needs the S(α, β) transfer of the library (made by an xs with ADR-0205)"
     )]
     NoSabTransfer { name: String },
+    #[error(
+        "{name}: `sab` needs the free gas of this S(α, β) nuclide with resolved resonances (`heavy`)"
+    )]
+    SabWithoutFreeGas { name: String },
     #[error("{name}: the S(α, β) limit {floor} eV must lie below the UFG range top {high} eV")]
     SabAboveRange { name: String, floor: f64, high: f64 },
     #[error(

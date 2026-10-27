@@ -473,4 +473,7 @@ fn ufg_transfer_is_none_below_the_ufg_reach() {
     let data = free_gas_table();
     let sab = ThermalSab::new(&data, TEMPERATURE, 2.0, SabOutside::ShortCollisionTime).unwrap();
     assert!(sab.ufg_transfer(4.0).unwrap().is_none());
+    // 上方散乱の届く幅が UFG の下限を超える（0 eV まで届く）なら、正の入射から表を始められないので、これも表を持たない
+    let sab = free_gas_up_to_10_ev(&data);
+    assert!(sab.ufg_transfer(0.5).unwrap().is_none());
 }
