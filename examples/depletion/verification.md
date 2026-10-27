@@ -1000,7 +1000,7 @@ examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。群�
 組成によらない）。
 
 ```sh
-cargo build --release -p xlc-lattice --example swap_transfer --example balance --example fine_flux
+cargo build --release -p xlc-lattice --bin lattice --example swap_transfer --example balance --example fine_flux
 # 4 つの状態（同時に）と、P0 の散乱だけで解いた k（logs/p0.txt）
 ~/.claude/scripts/slurm-run.sh -t 40 ufg-transfer-adr0207 'examples/depletion/issue-0133/ufg-transfer/jobs.sh'
 # 自己遮蔽の時間（2A-40、無限希釈とリングの中性子束）
