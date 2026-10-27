@@ -117,7 +117,9 @@ deps のパスを替えると、.py を deps に持つすべてのステージ�
   文字列と代入の右辺を残す。本体が docstring だけのクラスと関数も、Python として読める正規形になる
 - `FailureTest`: 構文の誤りは `SyntaxError` で止まる
 - `RepositoryDepsTest`: 例の `dvc.yaml`（コメントと cmd の行を除く）に .py が無いこと、deps の正規形がすべて `python-ast` の
-  並びにあること、並びの正規形がどれかの例の deps にあること、git で追跡する正規形が今の .py から作ったものと一致すること。
+  並びにあること、並びの正規形がどれかの例の deps にあること、直下の `dvc.lock` が記録した版から変わった .py の正規形が今の .py から
+  作ったものと一致すること（記録した版のままの .py は比べ直さない。Python の版を上げたあとに、変えていないファイルの正規形を
+  書き直させないため）。
   run-checks.sh は .py の差分があるときだけ Python のテストを実行するので、pre-commit の hook `python-ast` が、`dvc.yaml`、
   `python-ast/`、.py を変えるコミットでこのクラスを実行する
 
