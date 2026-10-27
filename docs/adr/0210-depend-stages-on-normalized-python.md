@@ -116,8 +116,10 @@ deps のパスを替えると、.py を deps に持つすべてのステージ�
 - `DocstringTest`: モジュール、クラス、メソッド、ネストした関数、async の関数の docstring を落とし、f-string と 2 つ目の文の
   文字列と代入の右辺を残す。本体が docstring だけのクラスと関数も、Python として読める正規形になる
 - `FailureTest`: 構文の誤りは `SyntaxError` で止まる
-- `RepositoryDepsTest`: 例の `dvc.yaml` の deps に .py が無いこと、deps の正規形がすべて `python-ast` の並びにあること、並びの
-  正規形がどれかの例の deps にあること
+- `RepositoryDepsTest`: 例の `dvc.yaml`（コメントと cmd の行を除く）に .py が無いこと、deps の正規形がすべて `python-ast` の
+  並びにあること、並びの正規形がどれかの例の deps にあること、git で追跡する正規形が今の .py から作ったものと一致すること。
+  run-checks.sh は .py の差分があるときだけ Python のテストを実行するので、pre-commit の hook `python-ast` が、`dvc.yaml`、
+  `python-ast/`、.py を変えるコミットでこのクラスを実行する
 
 2026-10-28、このブランチ（main 84517a7f5 の上）で測った:
 
@@ -148,6 +150,7 @@ deps のパスを替えると、.py を deps に持つすべてのステージ�
   （/dvc-relock）は、`build` に続けて `python-ast` を実行する
 - 例のステージに .py を deps として足すときは、`python-ast` の foreach にも足す。`RepositoryDepsTest` が食い違いを止める
 - `python-ast/` の正規形は git で追跡する生成物で、手で直さない。.py のコードを変えたブランチは、`python-ast` を実行して正規形と
-  リポジトリの直下の `dvc.lock` をコミットする（実行しないまま残すと、`build` と同じく、次の `dvc repro` が書き直す）
+  リポジトリの直下の `dvc.lock` をコミットする。正規形を書き直さないままのコミットは `RepositoryDepsTest` が止める（`build` の
+  実行ファイルと違い、正規形は git にあるので、古いまま main に入ると、例の `dvc status` が変わったコードを示さない）
 - Python の版を変える（`flake.lock` の更新）と、次にそのファイルを変えたときに、書き方の差で正規形が変わりうる。版の間で
   `ast.unparse` の出力がどれだけ変わるかは確かめていない
