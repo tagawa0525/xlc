@@ -601,18 +601,18 @@ stages:
       ../../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
       core-3A-layers.msgpack
     deps:
+    - path: ../../../../python-ast/examples/vera/compare_keno.py.ast
+      hash: md5
+      md5: 0d6ce13aae60ffc42f08fbc8f72ea478
+      size: 3412
+    - path: ../../../../python-ast/examples/vera/compare_p3.py.ast
+      hash: md5
+      md5: 11b6a4d38d3f5c00904e1d5bf2460fbd
+      size: 15757
     - path: ../../../../references/vera/spec.txt
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../../compare_keno.py
-      hash: md5
-      md5: cf98aec448a1a85321477ab7f86a2503
-      size: 4663
-    - path: ../../compare_p3.py
-      hash: md5
-      md5: a1cad242c3295b8ab0460f35cc4b054b
-      size: 22255
     - path: core-3A-layers.msgpack
       hash: md5
       md5: c809e610d0ce7a9d1fdac70418d41199
@@ -656,18 +656,18 @@ stages:
       ../../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack 
       core-3B-layers.msgpack
     deps:
+    - path: ../../../../python-ast/examples/vera/compare_keno.py.ast
+      hash: md5
+      md5: 0d6ce13aae60ffc42f08fbc8f72ea478
+      size: 3412
+    - path: ../../../../python-ast/examples/vera/compare_p3.py.ast
+      hash: md5
+      md5: 11b6a4d38d3f5c00904e1d5bf2460fbd
+      size: 15757
     - path: ../../../../references/vera/spec.txt
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../../compare_keno.py
-      hash: md5
-      md5: cf98aec448a1a85321477ab7f86a2503
-      size: 4663
-    - path: ../../compare_p3.py
-      hash: md5
-      md5: a1cad242c3295b8ab0460f35cc4b054b
-      size: 22255
     - path: core-3B-layers.msgpack
       hash: md5
       md5: a68b8b1faa0dd79c16112ec27c4c339a
