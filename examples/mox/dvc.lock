@@ -292,6 +292,10 @@ stages:
       openmc-mox2-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 
       Pu238 Am241 O16 > compare-capture-mox2.out
     deps:
+    - path: ../../python-ast/examples/mox/compare_capture.py.ast
+      hash: md5
+      md5: d36aa1049a03340efd7b7e7ae67a86ec
+      size: 6205
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       hash: md5
       md5: 88f659e2ff0ed092bf2ec6a6672fc25e
@@ -328,10 +332,6 @@ stages:
       hash: md5
       md5: 93b74d0b81ef08f5588a4767920fef9c
       size: 2069860
-    - path: compare_capture.py
-      hash: md5
-      md5: e9482f7b599360f0401a356bbc2cdea2
-      size: 10537
     - path: mox.msgpack
       hash: md5
       md5: df682763e02f7e29cebe2a53d61d97ae
@@ -486,10 +486,10 @@ stages:
     cmd: python3 ../vera/compare_k.py lattice-mox1.out 
       openmc-mox1-results/k.json > compare-k-mox1.out
     deps:
-    - path: ../vera/compare_k.py
+    - path: ../../python-ast/examples/vera/compare_k.py.ast
       hash: md5
-      md5: f2197502bb8efebcf8748fac405e9638
-      size: 1269
+      md5: 1954b90bc16850c48b9a8b5d821470ea
+      size: 732
     - path: lattice-mox1.out
       hash: md5
       md5: a5dd341f266277512ac01a1ad15c12e4
@@ -585,6 +585,10 @@ stages:
       openmc-mox1-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 
       Pu238 Am241 O16 > compare-capture-mox1.out
     deps:
+    - path: ../../python-ast/examples/mox/compare_capture.py.ast
+      hash: md5
+      md5: d36aa1049a03340efd7b7e7ae67a86ec
+      size: 6205
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       hash: md5
       md5: 88f659e2ff0ed092bf2ec6a6672fc25e
@@ -621,10 +625,6 @@ stages:
       hash: md5
       md5: 93b74d0b81ef08f5588a4767920fef9c
       size: 2069860
-    - path: compare_capture.py
-      hash: md5
-      md5: e9482f7b599360f0401a356bbc2cdea2
-      size: 10537
     - path: mox.msgpack
       hash: md5
       md5: df682763e02f7e29cebe2a53d61d97ae
@@ -650,10 +650,10 @@ stages:
     cmd: python3 ../vera/compare_k.py lattice-mox2.out 
       openmc-mox2-results/k.json > compare-k-mox2.out
     deps:
-    - path: ../vera/compare_k.py
+    - path: ../../python-ast/examples/vera/compare_k.py.ast
       hash: md5
-      md5: f2197502bb8efebcf8748fac405e9638
-      size: 1269
+      md5: 1954b90bc16850c48b9a8b5d821470ea
+      size: 732
     - path: lattice-mox2.out
       hash: md5
       md5: b3ae01c45e950bcfa3acc201063d2685

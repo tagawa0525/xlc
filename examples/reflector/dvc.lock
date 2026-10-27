@@ -390,14 +390,14 @@ stages:
     cmd: python3 compare_axial.py axial-3A-16.log core-axial-slab-16.log > 
       compare-axial-slab-16.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A-16.log
       hash: md5
       md5: 03b1f996359119f16696d6781165efbd
       size: 119880
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     - path: core-axial-slab-16.log
       hash: md5
       md5: e393c0410989826cec8a8cdd1302d683
@@ -454,14 +454,14 @@ stages:
     cmd: python3 compare_axial.py axial-3A-16.log core-axial-fstar-16.log > 
       compare-axial-fstar-16.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A-16.log
       hash: md5
       md5: 03b1f996359119f16696d6781165efbd
       size: 119880
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     - path: core-axial-fstar-16.log
       hash: md5
       md5: 7e475492f827fb3b1f946747b4059740
@@ -474,15 +474,15 @@ stages:
   fstar-16:
     cmd: python3 compare_axial.py fstar axial-16/*.msgpack > fstar-16.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-16
       hash: md5
       md5: fec02e5f3770cfe14ff074b3ad868a2f.dir
       size: 12136
       nfiles: 25
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     outs:
     - path: fstar-16.out
       hash: md5
@@ -531,14 +531,14 @@ stages:
     cmd: python3 compare_axial.py axial-3A-32.log core-axial-slab-32.log > 
       compare-axial-slab-32.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A-32.log
       hash: md5
       md5: 4ec0cfb1d4a28f3d316a0066ad0e14e5
       size: 154879
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     - path: core-axial-slab-32.log
       hash: md5
       md5: e3c1148cd5de019e3671013376ca4c0d
@@ -595,14 +595,14 @@ stages:
     cmd: python3 compare_axial.py axial-3A-32.log core-axial-fstar-32.log > 
       compare-axial-fstar-32.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A-32.log
       hash: md5
       md5: 4ec0cfb1d4a28f3d316a0066ad0e14e5
       size: 154879
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     - path: core-axial-fstar-32.log
       hash: md5
       md5: bc4f008dbd6424bdd6b2166d39b02d7e
@@ -615,15 +615,15 @@ stages:
   fstar-32:
     cmd: python3 compare_axial.py fstar axial-32/*.msgpack > fstar-32.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-32
       hash: md5
       md5: df1d298f9044fd4ad1216e34b8b9fc33.dir
       size: 19880
       nfiles: 41
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     outs:
     - path: fstar-32.out
       hash: md5
@@ -672,14 +672,14 @@ stages:
     cmd: python3 compare_axial.py axial-3A-fine.log core-axial-slab-fine.log > 
       compare-axial-slab-fine.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A-fine.log
       hash: md5
       md5: 3e5521c5bdfbeebfa324d038f3c93d10
       size: 120296
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     - path: core-axial-slab-fine.log
       hash: md5
       md5: ca298c9c1a4fcd625e22320aa8ebd3c9
@@ -736,14 +736,14 @@ stages:
     cmd: python3 compare_axial.py axial-3A-fine.log core-axial-fstar-fine.log > 
       compare-axial-fstar-fine.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-3A-fine.log
       hash: md5
       md5: 3e5521c5bdfbeebfa324d038f3c93d10
       size: 120296
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     - path: core-axial-fstar-fine.log
       hash: md5
       md5: 610d767de1acdcdd5a41ce60f099bad2
@@ -756,15 +756,15 @@ stages:
   fstar-fine:
     cmd: python3 compare_axial.py fstar axial-fine/*.msgpack > fstar-fine.out
     deps:
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
+      hash: md5
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
     - path: axial-fine
       hash: md5
       md5: 3b45884ee1331794a3382692951445e9.dir
       size: 12136
       nfiles: 25
-    - path: compare_axial.py
-      hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
     outs:
     - path: fstar-fine.out
       hash: md5
@@ -1017,18 +1017,18 @@ stages:
       2 3 > compare-corner.out && python3 compare_edge.py 
       core-pins-corner.msgpack moc-pins-corner.msgpack >> compare-corner.out
     deps:
-    - path: compare_axial.py
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
       hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
-    - path: compare_edge.py
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
+    - path: ../../python-ast/examples/reflector/compare_edge.py.ast
       hash: md5
-      md5: aae745a67164541a1a642fdfb11b8f03
-      size: 1727
-    - path: compare_radial.py
+      md5: a052340d92265c43bc9e4881f2d4ea3b
+      size: 1156
+    - path: ../../python-ast/examples/reflector/compare_radial.py.ast
       hash: md5
-      md5: 18de5a9a6cf77de87e8b03f12049c17c
-      size: 2962
+      md5: 7393791078cf4908df0ac09e8fb0626a
+      size: 1759
     - path: core-corner.log
       hash: md5
       md5: 033585ea0d2e159e09dcf4559065d8a5
@@ -1055,18 +1055,18 @@ stages:
       1 2 3 > compare-corner-I.out && python3 compare_edge.py 
       core-pins-corner-I.msgpack moc-pins-corner.msgpack >> compare-corner-I.out
     deps:
-    - path: compare_axial.py
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
       hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
-    - path: compare_edge.py
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
+    - path: ../../python-ast/examples/reflector/compare_edge.py.ast
       hash: md5
-      md5: aae745a67164541a1a642fdfb11b8f03
-      size: 1727
-    - path: compare_radial.py
+      md5: a052340d92265c43bc9e4881f2d4ea3b
+      size: 1156
+    - path: ../../python-ast/examples/reflector/compare_radial.py.ast
       hash: md5
-      md5: 18de5a9a6cf77de87e8b03f12049c17c
-      size: 2962
+      md5: 7393791078cf4908df0ac09e8fb0626a
+      size: 1759
     - path: core-corner-I.log
       hash: md5
       md5: caddb39fdd1074f2f78a532de0053f9e
@@ -1094,18 +1094,18 @@ stages:
       core-pins-corner-outline.msgpack moc-pins-corner.msgpack >> 
       compare-corner-outline.out
     deps:
-    - path: compare_axial.py
+    - path: ../../python-ast/examples/reflector/compare_axial.py.ast
       hash: md5
-      md5: 4f88660ac0c3526724741123ef086009
-      size: 4203
-    - path: compare_edge.py
+      md5: 4beab103557ebaba44a0300ff3017d09
+      size: 2907
+    - path: ../../python-ast/examples/reflector/compare_edge.py.ast
       hash: md5
-      md5: aae745a67164541a1a642fdfb11b8f03
-      size: 1727
-    - path: compare_radial.py
+      md5: a052340d92265c43bc9e4881f2d4ea3b
+      size: 1156
+    - path: ../../python-ast/examples/reflector/compare_radial.py.ast
       hash: md5
-      md5: 18de5a9a6cf77de87e8b03f12049c17c
-      size: 2962
+      md5: 7393791078cf4908df0ac09e8fb0626a
+      size: 1759
     - path: core-corner-outline.log
       hash: md5
       md5: 54a641fe35b2cea6be2202c1829f71ab

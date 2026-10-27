@@ -123,10 +123,10 @@ stages:
     cmd: python3 compare.py lattice-coarse.out pins.msgpack 
       openmc-results/pins.msgpack > compare-coarse.out
     deps:
-    - path: compare.py
+    - path: ../../python-ast/examples/c5g7/compare.py.ast
       hash: md5
-      md5: c95c62783d39b92fd80ad758122793b6
-      size: 4622
+      md5: d912d97fa134f308d9e7c42df2094cfe
+      size: 2999
     - path: lattice-coarse.out
       hash: md5
       md5: b030eb68b427c245b1d1820b558aefae
@@ -173,10 +173,10 @@ stages:
     cmd: python3 compare.py lattice-fine.out fine-pins.msgpack 
       openmc-results/pins.msgpack > compare-fine.out
     deps:
-    - path: compare.py
+    - path: ../../python-ast/examples/c5g7/compare.py.ast
       hash: md5
-      md5: c95c62783d39b92fd80ad758122793b6
-      size: 4622
+      md5: d912d97fa134f308d9e7c42df2094cfe
+      size: 2999
     - path: fine-pins.msgpack
       hash: md5
       md5: 84f022aab7150bb7b784e434e2f96186
