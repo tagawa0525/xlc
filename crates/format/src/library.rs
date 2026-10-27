@@ -14,6 +14,7 @@
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
 //!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
+//!                              sab_transfer: nil か {incident, transfer, cumulative}（S(α, β) を持つ核種だけ）,
 //!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
 //!                                           cross_section: [無限希釈の G 個]}]}]}]}]}
 //! ```
@@ -150,6 +151,22 @@ pub struct Pointwise {
     pub capture: Vec<f64>,
 }
 
+/// 超微細群の減速計算に使う、S(α, β) による P0 の散乱の移行の累積の割合（ADR-0205）。入射 E で散乱した中性子のうち、出射が
+/// E + t 以下のものの割合 C(E, t) = ∫_0^{E+t} σ0(E→E') dE'/σ(E)（σ(E) は S(α, β) の散乱断面積）を、入射のエネルギーと移行
+/// t = E' − E の格子の上に持つ。核は E' = E に対数の特異点（準弾性散乱の山）を持つので、点の値でなく累積を持つ（格子の区間の
+/// 中の割合は、区間の幅によらず正しい）。格子点の間は、入射について ln E に線形、移行について線形に補間する（区間の中の核を
+/// 一定とする）。入射の最後の点は S(α, β) を使う入射エネルギーの上限で、その上は自由ガスの核で扱う（ADR-0133）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SabTransfer {
+    /// 入射エネルギー (eV)、昇順
+    pub incident: Vec<f64>,
+    /// 移行 E' − E (eV)、昇順
+    pub transfer: Vec<f64>,
+    /// [入射][移行] の C(E, t)。出射が 0 以下のところは 0
+    pub cumulative: Vec<Vec<f64>>,
+}
+
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -164,6 +181,10 @@ pub struct TemperatureData {
     pub pointwise: Pointwise,
     /// 燃焼チェーンの反応の群の断面積（代表の MT の昇順）
     pub reactions: Vec<GroupReaction>,
+    /// S(α, β) による P0 の散乱の移行（熱中性子散乱を S(α, β) で作り、ポイントワイズの範囲のあるライブラリだけ。ほかは nil で、
+    /// nil でも項目は省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub sab_transfer: Option<SabTransfer>,
 }
 
 /// 分離共鳴の範囲（分離共鳴を持つ核種だけが持つ）。
@@ -599,6 +620,25 @@ fn interpolate(
                 .collect(),
         })
         .collect();
+    // S(α, β) の移行は、同じ格子の点の値を内挿する（格子が違えば、点の対応がない）
+    let sab_transfer = match (&low.sab_transfer, &high.sab_transfer) {
+        (None, None) => None,
+        (Some(a), Some(b)) if a.incident == b.incident && a.transfer == b.transfer => {
+            Some(SabTransfer {
+                incident: a.incident.clone(),
+                transfer: a.transfer.clone(),
+                cumulative: a
+                    .cumulative
+                    .iter()
+                    .zip(&b.cumulative)
+                    .map(|(x, y)| mix(x, y))
+                    .collect(),
+            })
+        }
+        _ => {
+            return Err("the two temperatures have S(α, β) transfers on different grids".into());
+        }
+    };
     let (p, q) = (&low.pointwise, &high.pointwise);
     let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
     if repeated(&p.energy) || repeated(&q.energy) {
@@ -635,6 +675,7 @@ fn interpolate(
         shielded,
         pointwise,
         reactions,
+        sab_transfer,
     })
 }
 
@@ -676,6 +717,13 @@ fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
             for shielded in array(temperature, "shielded") {
                 map(shielded)?;
             }
+            if let Some((_, table)) = temperature
+                .iter()
+                .find(|(k, _)| k.as_str() == Some("sab_transfer"))
+                && !table.is_nil()
+            {
+                map(table)?;
+            }
             for reaction in array(temperature, "reactions") {
                 for channel in array(map(reaction)?, "channels") {
                     let channel = map(channel)?;
@@ -701,6 +749,83 @@ impl From<MsgpackError> for LibraryError {
             MsgpackError::TrailingBytes(n) => Self::TrailingBytes(n),
             MsgpackError::NotMap => Self::NotMap,
         }
+    }
+}
+
+impl SabTransfer {
+    /// 入射 `e_in` (eV) の、出射が e_in + `transfer` (eV) 以下の割合 C。入射について ln E に線形、移行について線形に補間する。
+    /// 格子の外は `None`（移行で引くのは、出射から入射を引き直すと丸めで格子の端を越えるため）
+    pub fn cumulative_at(&self, e_in: f64, transfer: f64) -> Option<f64> {
+        // x の昇順の格子での、x を含む区間の始まりと区間の中の位置（格子の外は None。最後の点は最後の区間の終わり）
+        let locate = |grid: &[f64], x: f64| {
+            let (first, last) = (grid[0], grid[grid.len() - 1]);
+            if !(first <= x && x <= last) {
+                return None;
+            }
+            let j = (grid.partition_point(|&g| g <= x) - 1).min(grid.len() - 2);
+            Some((j, (x - grid[j]) / (grid[j + 1] - grid[j])))
+        };
+        let (i, _) = locate(&self.incident, e_in)?;
+        let w = (e_in / self.incident[i]).ln() / (self.incident[i + 1] / self.incident[i]).ln();
+        let (j, v) = locate(&self.transfer, transfer)?;
+        let row = |r: &[f64]| r[j] + v * (r[j + 1] - r[j]);
+        let (a, b) = (row(&self.cumulative[i]), row(&self.cumulative[i + 1]));
+        Some(a + w * (b - a))
+    }
+
+    /// 入射エネルギーが正で増える 2 点以上、移行が増える 2 点以上で、値が [入射][移行] の形の有限で負でない数で、移行について
+    /// 減らず、1 で終わること。
+    fn check(&self) -> Result<(), String> {
+        let increasing = |v: &[f64]| {
+            v.len() >= 2 && v.iter().all(|x| x.is_finite()) && v.windows(2).all(|w| w[0] < w[1])
+        };
+        if !(increasing(&self.incident) && self.incident[0] > 0.0) {
+            return Err("S(α, β) transfer: incident energies must be two or more increasing positive values".into());
+        }
+        if !increasing(&self.transfer) {
+            return Err("S(α, β) transfer: transfers must be two or more increasing values".into());
+        }
+        if self.cumulative.len() != self.incident.len()
+            || self
+                .cumulative
+                .iter()
+                .any(|row| row.len() != self.transfer.len())
+        {
+            return Err(format!(
+                "S(α, β) transfer: cumulative shares must be {} x {}",
+                self.incident.len(),
+                self.transfer.len()
+            ));
+        }
+        if let Some(bad) = self
+            .cumulative
+            .iter()
+            .flatten()
+            .find(|v| !(v.is_finite() && **v >= 0.0))
+        {
+            return Err(format!(
+                "S(α, β) transfer: cumulative share {bad} must be finite and non-negative"
+            ));
+        }
+        if self
+            .cumulative
+            .iter()
+            .any(|row| row.windows(2).any(|w| w[1] < w[0]))
+        {
+            return Err("S(α, β) transfer: cumulative shares must not decrease".into());
+        }
+        // 行は散乱した中性子のすべて（1）で終わる（xs は行を、行の積分で割る。足す順の違いの丸めだけを許す）
+        if let Some(row) = self
+            .cumulative
+            .iter()
+            .find(|row| (row[row.len() - 1] - 1.0).abs() > 1e-9)
+        {
+            return Err(format!(
+                "S(α, β) transfer: cumulative shares must end at 1, not {}",
+                row[row.len() - 1]
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -845,6 +970,28 @@ impl NuclideData {
                         return Err(at("pointwise data without a pointwise range".into()));
                     }
                 }
+            }
+            // 表は核種のすべての温度にあるか、どの温度にも無く、格子は温度によらない（温度の間で点ごとに内挿する。ADR-0080）
+            let first = &self.temperatures[0].sab_transfer;
+            let agrees = match (first, &t.sab_transfer) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.incident == b.incident && a.transfer == b.transfer,
+                _ => false,
+            };
+            if !agrees {
+                return Err(at(
+                    "S(α, β) transfers must be on every temperature or none, on one grid".into(),
+                ));
+            }
+            if let Some(table) = &t.sab_transfer {
+                if !self.thermal_scattering || range.is_none() {
+                    return Err(at(
+                        "only S(α, β) nuclides of a library with a pointwise range have S(α, β) \
+                         transfers"
+                            .into(),
+                    ));
+                }
+                table.check().map_err(at)?;
             }
             let values = t
                 .chi

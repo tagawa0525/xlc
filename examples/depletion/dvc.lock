@@ -77,8 +77,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
       hash: md5
@@ -87,8 +87,8 @@ stages:
       nfiles: 561
     - path: xs.toml
       hash: md5
-      md5: 78116ec26e1d02a3d8ea207206257c0c
-      size: 6815
+      md5: aa74d963cd4970c99dd3fc832de00388
+      size: 6821
     outs:
     - path: xs-range.toml
       hash: md5
@@ -100,8 +100,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
       hash: md5
@@ -139,16 +139,16 @@ stages:
     outs:
     - path: xs-nuclides/Zr-90.msgpack
       hash: md5
-      md5: de5d942f0b6dd214a26dcdc08b18340f
-      size: 3761182
+      md5: f2d47885d62f9493c58b222169ec6227
+      size: 3761238
   xs-nuclide@Rh-103:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Rh-103 
       xs-nuclides/Rh-103.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-045_Rh_103.endf
       hash: md5
@@ -186,16 +186,16 @@ stages:
     outs:
     - path: xs-nuclides/Rh-103.msgpack
       hash: md5
-      md5: 0fea409cb58aa20959ce78c4e3b58322
-      size: 7214687
+      md5: fa2d25ed27e15c982595bc259de079d4
+      size: 7214743
   xs-nuclide@U-236:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-236 
       xs-nuclides/U-236.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
       hash: md5
@@ -233,16 +233,16 @@ stages:
     outs:
     - path: xs-nuclides/U-236.msgpack
       hash: md5
-      md5: 13ecef011c66096d1eed3461e63002a7
-      size: 5542554
+      md5: 55a7cdda2d68ca8af3f6a819ff8de6f5
+      size: 5542610
   xs-nuclide@Sm-147:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-147 
       xs-nuclides/Sm-147.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_147.endf
       hash: md5
@@ -280,15 +280,15 @@ stages:
     outs:
     - path: xs-nuclides/Sm-147.msgpack
       hash: md5
-      md5: e2b6469a8c569afc24995a3989f9694f
-      size: 7781039
+      md5: ad7726074dc6a3374871a977d886bfe7
+      size: 7781095
   xs-nuclide@H-1:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml H-1 xs-nuclides/H-1.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -329,16 +329,16 @@ stages:
     outs:
     - path: xs-nuclides/H-1.msgpack
       hash: md5
-      md5: 13bb7f38619f73d24e4dfdb7dc8c2988
-      size: 635586
+      md5: dd3cc3fa53cada3822a1593f1546c147
+      size: 21159108
   xs-nuclide@Sn-122:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-122 
       xs-nuclides/Sn-122.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
       hash: md5
@@ -376,16 +376,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-122.msgpack
       hash: md5
-      md5: 755699a679f72f640e2fb20e7f00f4ce
-      size: 9406331
+      md5: b9931f356f1d5e0d47aa07b2fee8ceb9
+      size: 9406387
   xs-nuclide@Nd-143:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Nd-143 
       xs-nuclides/Nd-143.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_143.endf
       hash: md5
@@ -423,16 +423,16 @@ stages:
     outs:
     - path: xs-nuclides/Nd-143.msgpack
       hash: md5
-      md5: fce17c093f399cffac9d93a1ddac444c
-      size: 5824025
+      md5: f7951625cea0d753213168c9b6c4b654
+      size: 5824081
   xs-nuclide@B-11:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-11 
       xs-nuclides/B-11.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
       hash: md5
@@ -468,16 +468,16 @@ stages:
     outs:
     - path: xs-nuclides/B-11.msgpack
       hash: md5
-      md5: 3b3fe1637f97a196498f976aee9948c6
-      size: 451727
+      md5: 43c00ef9f1489a02f608d914c6a154d1
+      size: 451755
   xs-nuclide@Pu-238:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-238 
       xs-nuclides/Pu-238.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
       hash: md5
@@ -515,16 +515,16 @@ stages:
     outs:
     - path: xs-nuclides/Pu-238.msgpack
       hash: md5
-      md5: fd788aa50f24666afa704fe4bda108b1
-      size: 3456751
+      md5: 79530c6a69bda382e1960fd957a44217
+      size: 3456807
   xs-nuclide@Cr-50:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-50 
       xs-nuclides/Cr-50.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
       hash: md5
@@ -560,16 +560,16 @@ stages:
     outs:
     - path: xs-nuclides/Cr-50.msgpack
       hash: md5
-      md5: aeeb60345716612874d26315a3bb3af4
-      size: 3968078
+      md5: 3d42a7664cadf89fd3f2754bde8fa7b0
+      size: 3968106
   xs-nuclide@Zr-94:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-94 
       xs-nuclides/Zr-94.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
       hash: md5
@@ -607,16 +607,16 @@ stages:
     outs:
     - path: xs-nuclides/Zr-94.msgpack
       hash: md5
-      md5: 3ae0dcb9828bd86f511cc69593c14e29
-      size: 3207616
+      md5: e5c9a6ad98ef7f0ec9943bd90dd819df
+      size: 3207672
   xs-nuclide@Am-241:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Am-241 
       xs-nuclides/Am-241.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
       hash: md5
@@ -654,16 +654,16 @@ stages:
     outs:
     - path: xs-nuclides/Am-241.msgpack
       hash: md5
-      md5: e1125590ca190a7d873a8955d8798d41
-      size: 3597617
+      md5: cd67b3b5f2b49a97ee4983e72fd46315
+      size: 3597673
   xs-nuclide@Nd-145:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Nd-145 
       xs-nuclides/Nd-145.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_145.endf
       hash: md5
@@ -701,16 +701,16 @@ stages:
     outs:
     - path: xs-nuclides/Nd-145.msgpack
       hash: md5
-      md5: 99380bac99bf00986c286f01a63c68b8
-      size: 6542765
+      md5: 91aa6c79f06e42dc61b8478036a22ce3
+      size: 6542821
   xs-nuclide@Am-243:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Am-243 
       xs-nuclides/Am-243.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_243.endf
       hash: md5
@@ -748,16 +748,16 @@ stages:
     outs:
     - path: xs-nuclides/Am-243.msgpack
       hash: md5
-      md5: c479c034704ca6160b354374c7d01f46
-      size: 2124153
+      md5: 795e583b08c160433cdede3fd70ae3b4
+      size: 2124209
   xs-nuclide@Sn-115:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-115 
       xs-nuclides/Sn-115.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
       hash: md5
@@ -795,16 +795,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-115.msgpack
       hash: md5
-      md5: 9623c0fc467d66d26065904cd590f118
-      size: 1212047
+      md5: 8dcac71c9aa833017f1a56028fd2270d
+      size: 1212103
   xs-nuclide@U-235:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-235 
       xs-nuclides/U-235.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       hash: md5
@@ -842,16 +842,16 @@ stages:
     outs:
     - path: xs-nuclides/U-235.msgpack
       hash: md5
-      md5: 8328c6c43427876f4f232157d4c28678
-      size: 14062924
+      md5: 4e282eddef9f8cd896cdfc7b3e3f86af
+      size: 14062980
   xs-nuclide@Fe-56:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-56 
       xs-nuclides/Fe-56.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
       hash: md5
@@ -887,16 +887,16 @@ stages:
     outs:
     - path: xs-nuclides/Fe-56.msgpack
       hash: md5
-      md5: 251cdecd762471f4b802aa87d7c51e00
-      size: 3904412
+      md5: 8e76a066117de45e8c8ac66cd8dd3844
+      size: 3904440
   xs-nuclide@Cs-133:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cs-133 
       xs-nuclides/Cs-133.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-055_Cs_133.endf
       hash: md5
@@ -934,16 +934,16 @@ stages:
     outs:
     - path: xs-nuclides/Cs-133.msgpack
       hash: md5
-      md5: f295ccf06c1dabb79cd7967359b6e5ff
-      size: 6812657
+      md5: abac40715d805cf3b585f16f743bc740
+      size: 6812713
   xs-nuclide@Sm-150:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-150 
       xs-nuclides/Sm-150.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_150.endf
       hash: md5
@@ -981,16 +981,16 @@ stages:
     outs:
     - path: xs-nuclides/Sm-150.msgpack
       hash: md5
-      md5: a076f77bb6830b3cdc6d49dd7f03c117
-      size: 2523329
+      md5: ad56f894793de6c3e8dd23ce0e972e98
+      size: 2523385
   xs-nuclide@Pu-239:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-239 
       xs-nuclides/Pu-239.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
       hash: md5
@@ -1028,16 +1028,16 @@ stages:
     outs:
     - path: xs-nuclides/Pu-239.msgpack
       hash: md5
-      md5: 07b9f94f5fcf560cb80985324dc9a33a
-      size: 13288585
+      md5: baee1bfadbf56cdbea492b768590cee5
+      size: 13288641
   xs-nuclide@Sm-149:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-149 
       xs-nuclides/Sm-149.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_149.endf
       hash: md5
@@ -1075,16 +1075,16 @@ stages:
     outs:
     - path: xs-nuclides/Sm-149.msgpack
       hash: md5
-      md5: 2d042598f957115e614ae07486ab99f4
-      size: 5040161
+      md5: 86626e8f0e7489f43dbbdaa3b0ede67e
+      size: 5040217
   xs-nuclide@U-234:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-234 
       xs-nuclides/U-234.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
       hash: md5
@@ -1122,16 +1122,16 @@ stages:
     outs:
     - path: xs-nuclides/U-234.msgpack
       hash: md5
-      md5: e60deb0611af341ce40787c5431b8cd7
-      size: 5768868
+      md5: d21457533df8cf0841bea68e7fa543ba
+      size: 5768924
   xs-nuclide@Sn-116:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-116 
       xs-nuclides/Sn-116.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
       hash: md5
@@ -1169,16 +1169,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-116.msgpack
       hash: md5
-      md5: c601309791dc585d1872a51c1ab0052a
-      size: 6930485
+      md5: a7a0a82c604ac037256c6cf3cf119a71
+      size: 6930541
   xs-nuclide@Sn-112:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-112 
       xs-nuclides/Sn-112.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
       hash: md5
@@ -1216,16 +1216,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-112.msgpack
       hash: md5
-      md5: 097ffc0f46bb6717a2c5473398231945
-      size: 1677635
+      md5: d05e62588b0f4c99586d00f7fe8c25a9
+      size: 1677691
   xs-nuclide@Fe-58:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-58 
       xs-nuclides/Fe-58.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
       hash: md5
@@ -1261,16 +1261,16 @@ stages:
     outs:
     - path: xs-nuclides/Fe-58.msgpack
       hash: md5
-      md5: 1776e277e65b63013f7f09781a034029
-      size: 2810578
+      md5: 57d868bf9e3e7731cd53b07bf573e4aa
+      size: 2810606
   xs-nuclide@Cr-54:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-54 
       xs-nuclides/Cr-54.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
       hash: md5
@@ -1306,16 +1306,16 @@ stages:
     outs:
     - path: xs-nuclides/Cr-54.msgpack
       hash: md5
-      md5: 5d521c45b193bec1b89f1b85bf0a8fde
-      size: 1884650
+      md5: 20bd9d03bf31913792e1460da8180159
+      size: 1884678
   xs-nuclide@B-10:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-10 
       xs-nuclides/B-10.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
       hash: md5
@@ -1351,16 +1351,16 @@ stages:
     outs:
     - path: xs-nuclides/B-10.msgpack
       hash: md5
-      md5: 95afedb807c39e62fb1c411b3a6ef50e
-      size: 456171
+      md5: 453a15359db558d1ca7e1a62c89ceca0
+      size: 456199
   xs-nuclide@U-238:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-238 
       xs-nuclides/U-238.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
       hash: md5
@@ -1398,16 +1398,16 @@ stages:
     outs:
     - path: xs-nuclides/U-238.msgpack
       hash: md5
-      md5: cfc9362c157343f1e64bb0f9a5efa360
-      size: 38360962
+      md5: d577292884c441498b24fad52d16c1ed
+      size: 38361018
   xs-nuclide@O-16:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml O-16 
       xs-nuclides/O-16.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       hash: md5
@@ -1445,16 +1445,16 @@ stages:
     outs:
     - path: xs-nuclides/O-16.msgpack
       hash: md5
-      md5: 9ed3cc16fead9ba7fdf473f1da9a9a19
-      size: 856023
+      md5: 8359a7d64881f05a3fb8c3b8f201eec4
+      size: 856079
   xs-nuclide@Zr-91:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-91 
       xs-nuclides/Zr-91.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
       hash: md5
@@ -1492,16 +1492,16 @@ stages:
     outs:
     - path: xs-nuclides/Zr-91.msgpack
       hash: md5
-      md5: a12ae1810f9d0dbf0f89ce232b1c56f2
-      size: 4677582
+      md5: c188492d91a77d612ad21ffc3645d42b
+      size: 4677638
   xs-nuclide@Zr-92:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-92 
       xs-nuclides/Zr-92.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
       hash: md5
@@ -1539,16 +1539,16 @@ stages:
     outs:
     - path: xs-nuclides/Zr-92.msgpack
       hash: md5
-      md5: 23270360da1f1689006475f98c148e2c
-      size: 3862690
+      md5: e39f34b203bf35a26c9ae0ca7b8ced3f
+      size: 3862746
   xs-nuclide@Zr-96:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-96 
       xs-nuclides/Zr-96.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
       hash: md5
@@ -1586,16 +1586,16 @@ stages:
     outs:
     - path: xs-nuclides/Zr-96.msgpack
       hash: md5
-      md5: ff5ccf53e3b3707c16c784032d08e3c7
-      size: 2042944
+      md5: 9a5bb7c7f7dd2c322766703d366c59c7
+      size: 2043000
   xs-nuclide@Sn-114:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-114 
       xs-nuclides/Sn-114.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
       hash: md5
@@ -1633,16 +1633,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-114.msgpack
       hash: md5
-      md5: 87c211af3d58a0febf0c19c72b5769af
-      size: 1606139
+      md5: 734b6379505d82ded0fcbf4e85f5e2ca
+      size: 1606195
   xs-nuclide@Sn-117:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-117 
       xs-nuclides/Sn-117.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
       hash: md5
@@ -1680,16 +1680,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-117.msgpack
       hash: md5
-      md5: 4f61d513c9cd83ddc87698459b910e93
-      size: 2985839
+      md5: 10c45ab5c7d4fd68c99521e98cc29a76
+      size: 2985895
   xs-nuclide@Sn-118:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-118 
       xs-nuclides/Sn-118.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
       hash: md5
@@ -1727,16 +1727,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-118.msgpack
       hash: md5
-      md5: 816bd2e0cd6a029f8f6730b699ed88c3
-      size: 1375127
+      md5: e6ec9f11892cc0f934feb4a790eb822e
+      size: 1375183
   xs-nuclide@Sn-119:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-119 
       xs-nuclides/Sn-119.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
       hash: md5
@@ -1774,16 +1774,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-119.msgpack
       hash: md5
-      md5: f13958477c8ff0a82d90226e09d2499c
-      size: 1873385
+      md5: 57cc044f4473446de2881a19f0e558d3
+      size: 1873441
   xs-nuclide@Sn-120:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-120 
       xs-nuclides/Sn-120.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
       hash: md5
@@ -1821,16 +1821,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-120.msgpack
       hash: md5
-      md5: bf33eddfb24eb18731ae4948679597bd
-      size: 5936215
+      md5: 14cd583099fb6db3f3bc1ba8d14dc55b
+      size: 5936271
   xs-nuclide@Sn-124:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-124 
       xs-nuclides/Sn-124.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
       hash: md5
@@ -1868,16 +1868,16 @@ stages:
     outs:
     - path: xs-nuclides/Sn-124.msgpack
       hash: md5
-      md5: db7fd137c8c6960733d45729f932b7cf
-      size: 5886449
+      md5: 55d95d39961b80e954013ba59a754307
+      size: 5886505
   xs-nuclide@Fe-54:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-54 
       xs-nuclides/Fe-54.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
       hash: md5
@@ -1913,16 +1913,16 @@ stages:
     outs:
     - path: xs-nuclides/Fe-54.msgpack
       hash: md5
-      md5: 4625f9313d7a21db6b8752434846d773
-      size: 4262648
+      md5: 3743b82e7594ef6dff0973e5d7a824a4
+      size: 4262676
   xs-nuclide@Fe-57:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-57 
       xs-nuclides/Fe-57.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
       hash: md5
@@ -1958,16 +1958,16 @@ stages:
     outs:
     - path: xs-nuclides/Fe-57.msgpack
       hash: md5
-      md5: cb38b5634b6d5ebf7dff799712140c3d
-      size: 1698620
+      md5: a6623a481dc9b224a72ab679daa7de81
+      size: 1698648
   xs-nuclide@Cr-52:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-52 
       xs-nuclides/Cr-52.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
       hash: md5
@@ -2003,16 +2003,16 @@ stages:
     outs:
     - path: xs-nuclides/Cr-52.msgpack
       hash: md5
-      md5: 67a79df9811d12222ca735ad62b6d0fc
-      size: 3419546
+      md5: c9cccff737ecb0c70fffeb08287ae263
+      size: 3419574
   xs-nuclide@Cr-53:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-53 
       xs-nuclides/Cr-53.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
       hash: md5
@@ -2048,16 +2048,16 @@ stages:
     outs:
     - path: xs-nuclides/Cr-53.msgpack
       hash: md5
-      md5: 9a241e743150815f394cf5eb84a1d9e0
-      size: 2860484
+      md5: 1e30af8f0b35a130cf00d9c812b218b2
+      size: 2860512
   xs-nuclide@Np-237:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Np-237 
       xs-nuclides/Np-237.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_237.endf
       hash: md5
@@ -2095,16 +2095,16 @@ stages:
     outs:
     - path: xs-nuclides/Np-237.msgpack
       hash: md5
-      md5: 96c7b635228fda648602952058d1b731
-      size: 6781457
+      md5: a4d5773ff502e7389702a28ff992bd12
+      size: 6781513
   xs-nuclide@Np-239:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Np-239 
       xs-nuclides/Np-239.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_239.endf
       hash: md5
@@ -2142,16 +2142,16 @@ stages:
     outs:
     - path: xs-nuclides/Np-239.msgpack
       hash: md5
-      md5: e384454a2e357e204d08df9192ea9a0a
-      size: 885617
+      md5: 67dbf85bbbc2a951e053444d48174c21
+      size: 885673
   xs-nuclide@Pu-240:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-240 
       xs-nuclides/Pu-240.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
       hash: md5
@@ -2189,16 +2189,16 @@ stages:
     outs:
     - path: xs-nuclides/Pu-240.msgpack
       hash: md5
-      md5: f5ff92104181d055ac5ef3f2d1dba8e0
-      size: 15429289
+      md5: 2868742801645ccbe32665dabb048a20
+      size: 15429345
   xs-nuclide@Pu-241:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-241 
       xs-nuclides/Pu-241.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
       hash: md5
@@ -2236,16 +2236,16 @@ stages:
     outs:
     - path: xs-nuclides/Pu-241.msgpack
       hash: md5
-      md5: 93ffca852fa355743daeb5b35a29e80f
-      size: 3811293
+      md5: 9265ee1c657e62d2ca895f8d3a794f36
+      size: 3811349
   xs-nuclide@Pu-242:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-242 
       xs-nuclides/Pu-242.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
       hash: md5
@@ -2283,16 +2283,16 @@ stages:
     outs:
     - path: xs-nuclides/Pu-242.msgpack
       hash: md5
-      md5: 0d7d24e26d2841b0f50f020aa13f607e
-      size: 3769303
+      md5: ba22ec6461844ce8730c9efe2103b359
+      size: 3769359
   xs-nuclide@Eu-153:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-153 
       xs-nuclides/Eu-153.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_153.endf
       hash: md5
@@ -2330,16 +2330,16 @@ stages:
     outs:
     - path: xs-nuclides/Eu-153.msgpack
       hash: md5
-      md5: 9eedca88441e6932358663398cfdb854
-      size: 2254463
+      md5: 425cbc993e097c02a6c099d6d1a14d90
+      size: 2254519
   xs-nuclide@Tc-99:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Tc-99 
       xs-nuclides/Tc-99.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-043_Tc_099.endf
       hash: md5
@@ -2377,16 +2377,16 @@ stages:
     outs:
     - path: xs-nuclides/Tc-99.msgpack
       hash: md5
-      md5: 6280043fc9b0ab25f3c6372fcda710fd
-      size: 10478662
+      md5: 51ac40731c9f8be08dd2483a297c67aa
+      size: 10478718
   xs-nuclide@Gd-155:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Gd-155 
       xs-nuclides/Gd-155.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-064_Gd_155.endf
       hash: md5
@@ -2424,16 +2424,16 @@ stages:
     outs:
     - path: xs-nuclides/Gd-155.msgpack
       hash: md5
-      md5: 0802f7193f17aff4d69f80f27b102f9c
-      size: 2795759
+      md5: 8ef3d362ffbca2c21645e06fc425bd81
+      size: 2795815
   xs-nuclide@Sm-151:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-151 
       xs-nuclides/Sm-151.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_151.endf
       hash: md5
@@ -2471,16 +2471,16 @@ stages:
     outs:
     - path: xs-nuclides/Sm-151.msgpack
       hash: md5
-      md5: 0b9cfd4a1afd0f55e4bc927168cf9ecf
-      size: 3661811
+      md5: e2354fbe405f113439f795dc7ec36796
+      size: 3661867
   xs-nuclide@Mo-95:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Mo-95 
       xs-nuclides/Mo-95.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-042_Mo_095.endf
       hash: md5
@@ -2518,16 +2518,16 @@ stages:
     outs:
     - path: xs-nuclides/Mo-95.msgpack
       hash: md5
-      md5: c017bc51c1481763f17ab01e61d8d1fd
-      size: 3019966
+      md5: 79b7b4afa650baec55e539c6c028d277
+      size: 3020022
   xs-nuclide@Sm-152:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-152 
       xs-nuclides/Sm-152.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_152.endf
       hash: md5
@@ -2565,16 +2565,16 @@ stages:
     outs:
     - path: xs-nuclides/Sm-152.msgpack
       hash: md5
-      md5: 19462db2621ddb0a20a08e03789415d3
-      size: 5128559
+      md5: 84d01f53aa55da33cfb86f58cf4aabe1
+      size: 5128615
   xs-nuclide@I-135:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml I-135 
       xs-nuclides/I-135.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-053_I_135.endf
       hash: md5
@@ -2612,16 +2612,16 @@ stages:
     outs:
     - path: xs-nuclides/I-135.msgpack
       hash: md5
-      md5: 0dd56e336409b268f8ebdcdc0f96f74f
-      size: 860636
+      md5: eae76396c831f150b5cb94bfcb57ffd4
+      size: 860692
   xs-nuclide@Cm-242:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cm-242 
       xs-nuclides/Cm-242.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_242.endf
       hash: md5
@@ -2659,16 +2659,16 @@ stages:
     outs:
     - path: xs-nuclides/Cm-242.msgpack
       hash: md5
-      md5: 114e07dbe516ba63b26e75e90ad3a57b
-      size: 1783755
+      md5: faf56f4e5fb5d33fa83d696c47da559c
+      size: 1783811
   xs-nuclide@Cm-244:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cm-244 
       xs-nuclides/Cm-244.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_244.endf
       hash: md5
@@ -2706,16 +2706,16 @@ stages:
     outs:
     - path: xs-nuclides/Cm-244.msgpack
       hash: md5
-      md5: c219db8334cfa6b6684befbb89113d37
-      size: 4433913
+      md5: e2716a334652aff3667e73086bc6b018
+      size: 4433969
   xs-nuclide@Xe-135:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Xe-135 
       xs-nuclides/Xe-135.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-054_Xe_135.endf
       hash: md5
@@ -2753,16 +2753,16 @@ stages:
     outs:
     - path: xs-nuclides/Xe-135.msgpack
       hash: md5
-      md5: 0feaea81e0f0409364bb9acddcde2502
-      size: 925037
+      md5: 2d6c7aceac4d921a4ab4909b921714fa
+      size: 925093
   xs-nuclide@Ag-109:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ag-109 
       xs-nuclides/Ag-109.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
       hash: md5
@@ -2800,16 +2800,16 @@ stages:
     outs:
     - path: xs-nuclides/Ag-109.msgpack
       hash: md5
-      md5: 11b26d86a57db9ee229af43f2d864903
-      size: 10286855
+      md5: 978b6c4d2e522a5b372a186b868f9613
+      size: 10286911
   xs-nuclide@Pm-148m:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pm-148m 
       xs-nuclides/Pm-148m.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148m1.endf
       hash: md5
@@ -2847,16 +2847,16 @@ stages:
     outs:
     - path: xs-nuclides/Pm-148m.msgpack
       hash: md5
-      md5: 30a181f5d6d495c43bb576cf4a28f2e2
-      size: 828918
+      md5: 066a7464ef53b7c969b5d1beb7e4250c
+      size: 828974
   xs-nuclide@Ru-101:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ru-101 
       xs-nuclides/Ru-101.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-044_Ru_101.endf
       hash: md5
@@ -2894,20 +2894,20 @@ stages:
     outs:
     - path: xs-nuclides/Ru-101.msgpack
       hash: md5
-      md5: 0138a8a676214a76094df3d662a3193c
-      size: 2871197
+      md5: 3c1fc01be0443e6db8ecc8e967059ef2
+      size: 2871253
   xs:
     cmd: ../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: xs-nuclides
       hash: md5
-      md5: 4ae5a271d30b64d48052f70ed8bcbfaa.dir
-      size: 298779613
+      md5: 0021a948967164e25b3f5ef9a3dc7323.dir
+      size: 319306439
       nfiles: 66
     - path: xs-range.toml
       hash: md5
@@ -2915,13 +2915,13 @@ stages:
       size: 35
     - path: xs.toml
       hash: md5
-      md5: 78116ec26e1d02a3d8ea207206257c0c
-      size: 6815
+      md5: aa74d963cd4970c99dd3fc832de00388
+      size: 6821
     outs:
     - path: depletion.msgpack
       hash: md5
-      md5: ea77045e689e9684bd0ef26cabf4012a
-      size: 298727210
+      md5: cbc33de92e0043a059e31a93d066d927
+      size: 319254036
   openmc-neutron@Sm147:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Sm147 openmc-library/neutron/Sm147.h5
@@ -5158,8 +5158,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_151.endf
       hash: md5
@@ -5197,16 +5197,16 @@ stages:
     outs:
     - path: xs-nuclides/Eu-151.msgpack
       hash: md5
-      md5: b25589539034bfbd941e42b1038dd769
-      size: 2344319
+      md5: 0bec215f85eb9ca720abbaabcad9cdd5
+      size: 2344375
   xs-nuclide@Pm-147:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pm-147 
       xs-nuclides/Pm-147.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_147.endf
       hash: md5
@@ -5244,16 +5244,16 @@ stages:
     outs:
     - path: xs-nuclides/Pm-147.msgpack
       hash: md5
-      md5: ea481ff1408af841896bdcfe3421b86e
-      size: 1816145
+      md5: 5dc76e232756c3f370627cb05ef725cc
+      size: 1816201
   xs-nuclide@Am-242m:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Am-242m 
       xs-nuclides/Am-242m.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_242m1.endf
       hash: md5
@@ -5291,16 +5291,16 @@ stages:
     outs:
     - path: xs-nuclides/Am-242m.msgpack
       hash: md5
-      md5: 6edd548befe5c6797d27e2e6e0a66b6f
-      size: 1216378
+      md5: 4c26e45b60f2928de1f3823509d25ad4
+      size: 1216434
   xs-nuclide@Pm-148:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pm-148 
       xs-nuclides/Pm-148.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148.endf
       hash: md5
@@ -5338,16 +5338,16 @@ stages:
     outs:
     - path: xs-nuclides/Pm-148.msgpack
       hash: md5
-      md5: 535d1020040429a11e6f66740730ec94
-      size: 901029
+      md5: 6ab3c152a5c5af8f9665263772f99ab2
+      size: 901085
   xs-nuclide@Pm-149:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pm-149 
       xs-nuclides/Pm-149.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: c6bdf39750bdc17d97bdd03d9fa843a8
-      size: 2874408
+      md5: 3632b403edb3198f36f35603575197cc
+      size: 2930200
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_149.endf
       hash: md5
@@ -5385,8 +5385,8 @@ stages:
     outs:
     - path: xs-nuclides/Pm-149.msgpack
       hash: md5
-      md5: dd9d86a05b8918dae2b94b358ab358fe
-      size: 902973
+      md5: 93461c078281186d87ed1324f5891ca0
+      size: 903029
   openmc-neutron@Pm147:
     cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
       neutron openmc-library.toml Pm147 openmc-library/neutron/Pm147.h5

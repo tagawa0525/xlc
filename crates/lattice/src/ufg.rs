@@ -15,6 +15,8 @@
 //!
 //! [`Scattering::FreeGas`] では、分離共鳴を持たない核種の散乱核を温度 T の自由ガスの核にする（[`free_gas`]、ADR-0203）。
 //! [`FreeGas::heavy`] を選ぶと、分離共鳴を持つ核種も、その上限より下で同じ断面積一定の自由ガスの核にする（ADR-0204）。
+//! [`FreeGas::sab`] を選ぶと、S(α, β) の核種（H in H2O の H）は、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で
+//! 散乱する（[`free_gas::SabSource`]、ADR-0205）。
 //! 上方散乱でまだ求めていない低いエネルギーの中性子束を使うので、自由ガスの核の届く範囲を掃き直す。範囲の下限より下からの
 //! 上方散乱は、その中性子束を範囲の最後の格子点の値（1/E）とする（ADR-0203）。
 
@@ -74,6 +76,30 @@ pub enum UfgError {
     Undefined { name: String, energy: f64 },
     #[error("the slowing-down equations are singular at {0} eV")]
     Singular(f64),
+    #[error(
+        "{name}: `sab` needs the S(α, β) transfer of the library, which xs leaves out when the S(α, β) limit does not reach the UFG range or the up-scattering reach goes below 0 eV (and libraries made before ADR-0205 lack)"
+    )]
+    NoSabTransfer { name: String },
+    #[error(
+        "{name}: `sab` needs the free gas of this S(α, β) nuclide with resolved resonances (`heavy`)"
+    )]
+    SabWithoutFreeGas { name: String },
+    #[error("{name}: the S(α, β) limit {floor} eV must lie below the UFG range top {high} eV")]
+    SabAboveRange { name: String, floor: f64, high: f64 },
+    #[error(
+        "{name}: the {what} of the S(α, β) transfer is {value} eV where the UFG needs {needed} eV"
+    )]
+    SabCoverage {
+        name: String,
+        what: &'static str,
+        value: f64,
+        needed: f64,
+    },
+    /// S(α, β) の散乱源の小区間が表の外か空（表の範囲は核種のデータを引くときに確かめるので、内部の不整合）
+    #[error(
+        "internal error: the S(α, β) source at {energy} eV has no table share at transfer {transfer} eV"
+    )]
+    SabTable { energy: f64, transfer: f64 },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
@@ -193,6 +219,9 @@ pub struct FreeGas {
     /// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限（核種の kT の倍数。無限大は範囲の全体）。`None` は分離共鳴を
     /// 持つ核種を静止した標的にする（ADR-0204）
     pub heavy: Option<f64>,
+    /// S(α, β) を持つ核種（H in H2O の H）を、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で散乱させる。false は、その
+    /// 核種も自由ガスの核にする（ADR-0205）
+    pub sab: bool,
 }
 
 impl Default for FreeGas {
@@ -203,6 +232,7 @@ impl Default for FreeGas {
             cells: 4,
             sweeps: None,
             heavy: None,
+            sab: false,
         }
     }
 }
@@ -384,14 +414,30 @@ fn solve_cell(
                         });
                     }
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
-                    // 分離共鳴を持つ核種は `heavy` を選んだときだけ、その上限で自由ガスにする（ADR-0204）
+                    // 分離共鳴を持つ核種は `heavy` を選んだときだけ、その上限で自由ガスにする（ADR-0204）。`sab` を選べば、
+                    // S(α, β) の核種はその上限より下で S(α, β) の移行で散乱する（ADR-0205）
                     let gas = match scattering {
                         Scattering::FreeGas(options) => {
                             let upper = match &d.resolved {
                                 None => Some(options.upper),
                                 Some(_) => options.heavy.map(Some),
                             };
-                            upper.map(|upper| Gas::new(d.awr, t.temperature, upper))
+                            let gas = upper.map(|upper| Gas::new(d.awr, t.temperature, upper));
+                            // S(α, β) の移行は自由ガスの核の上限より上の入射を自由ガスに残すので、自由ガスの核を持たない核種
+                            // （`heavy` のない分離共鳴を持つ核種）では使えない（黙って静止した標的にしない）
+                            if gas.is_none() && options.sab && d.thermal_scattering {
+                                return Err(UfgError::SabWithoutFreeGas { name: name.clone() });
+                            }
+                            match gas {
+                                Some(gas) if options.sab && d.thermal_scattering => {
+                                    let table = t.sab_transfer.as_ref().ok_or_else(|| {
+                                        UfgError::NoSabTransfer { name: name.clone() }
+                                    })?;
+                                    check_sab_coverage(name, table, gas.kt(), [low, high])?;
+                                    Some(gas.below_sab(table))
+                                }
+                                gas => gas,
+                            }
                         }
                         Scattering::Static => None,
                     };
@@ -415,11 +461,19 @@ fn solve_cell(
     // 格子（エネルギーの降順）: ポイントワイズの断面積の格子と群の境界に、どの核種の窓にも WINDOW_POINTS 点が入るよう点を足す
     let group_bounds = &bounds[top..=bottom];
     let inside = |e: f64| e > low && e < high;
+    // S(α, β) の上限では、静止した標的の窓の σs/N が上で値を持ち、下で 0 になる（その下は S(α, β) の移行で扱う）ので、両側の
+    // 極限の 2 つの格子点を置く（ADR-0205）
+    let floors: Vec<f64> = data
+        .iter()
+        .filter_map(|d| d.gas.and_then(|g| g.floor()))
+        .filter(|&f| inside(f))
+        .collect();
     let mut energies: Vec<f64> = data
         .iter()
         .flat_map(|d| d.pointwise().energy.iter().copied())
         .filter(|&e| inside(e))
         .chain(group_bounds.iter().copied())
+        .chain(floors.iter().copied())
         .collect();
     // 全順序なので、並列の整列でも並びは同じ
     energies.par_sort_unstable_by(|a, b| b.total_cmp(a));
@@ -437,6 +491,7 @@ fn solve_cell(
         .filter(|w| w[0] == w[1] && w[0] > low && w[0] < high)
         .map(|w| w[0])
         .collect();
+    jumps.extend(&floors);
     jumps.sort_by(f64::total_cmp);
     jumps.dedup();
     // 間引くなら、群の境界と不連続点を残し、リングの物質ごとの巨視的な全断面積と弾性散乱断面積を許容差で再現できる点だけを
@@ -451,7 +506,10 @@ fn solve_cell(
         .iter()
         .map(|d| d.width / WINDOW_POINTS as f64)
         .fold(f64::INFINITY, f64::min);
-    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
+    // S(α, β) の上限は、丸めで同じレサジーになる点があっても残す（両側の極限の 2 点を置くため）
+    let (u, energies) = lethargy_grid(&energies, high, step, |e| {
+        group_bounds.contains(&e) || floors.contains(&e)
+    });
     // （エネルギー、低い側の極限か）
     let mut points: Vec<(f64, bool)> = Vec::with_capacity(energies.len() + jumps.len());
     let mut lethargies: Vec<f64> = Vec::with_capacity(energies.len() + jumps.len());
@@ -536,7 +594,7 @@ fn solve_cell(
             let sigma = gases
                 .iter()
                 .map(|&(k, gas)| {
-                    let first = free_gas::first_below(&energies, gas.cap());
+                    let first = free_gas::first_below(&energies, gas.top());
                     let mut cursor = data[k].pointwise().energy.len();
                     let column = points[first..]
                         .iter()
@@ -559,10 +617,20 @@ fn solve_cell(
                         .collect()
                 })
                 .collect();
+            // S(α, β) の移行で散乱する核種の表
+            let tables = gases
+                .iter()
+                .map(|&(k, gas)| {
+                    gas.floor()
+                        .and(data[k].table.sab_transfer.as_ref())
+                        .cloned()
+                })
+                .collect();
             let thermal = Thermal::new(
                 gases.iter().map(|&(_, gas)| gas).collect(),
                 sigma,
                 rings,
+                tables,
                 options.cells,
                 &energies,
                 n,
@@ -700,6 +768,43 @@ fn solve_cell(
     })
 }
 
+/// 核種 `name` の S(α, β) の移行の表 `table` の上限が範囲 `range` の上端より下にあり（上端以上なら、範囲の上の入射を静止した
+/// 標的と S(α, β) の移行の両方で数える）、表が範囲の下限の格子点への上方散乱（入射は下限 − TAIL kT から、移行は TAIL kT まで。
+/// `kt` は物質の温度の kT）と、表の上限から下限への下方散乱を覆うこと（覆わない部分を黙って落とさない）
+fn check_sab_coverage(
+    name: &str,
+    table: &xlc_format::library::SabTransfer,
+    kt: f64,
+    [low, high]: [f64; 2],
+) -> Result<(), UfgError> {
+    let reach = free_gas::TAIL * kt;
+    let (first, floor) = (table.incident[0], table.incident[table.incident.len() - 1]);
+    let (lowest, highest) = (table.transfer[0], table.transfer[table.transfer.len() - 1]);
+    if floor >= high {
+        return Err(UfgError::SabAboveRange {
+            name: name.to_string(),
+            floor,
+            high,
+        });
+    }
+    let fail = |what: &'static str, value: f64, needed: f64| UfgError::SabCoverage {
+        name: name.to_string(),
+        what,
+        value,
+        needed,
+    };
+    if first > low - reach {
+        return Err(fail("lowest incident energy", first, low - reach));
+    }
+    if highest < reach {
+        return Err(fail("largest transfer", highest, reach));
+    }
+    if lowest > low - floor {
+        return Err(fail("smallest transfer", lowest, low - floor));
+    }
+    Ok(())
+}
+
 /// 格子点の範囲を高いエネルギーから順に解くスイープの、変わらない入力。
 struct Pass<'a> {
     data: &'a [Data<'a>],
@@ -765,7 +870,7 @@ impl Pass<'_> {
             let collided = Instant::now();
             for ((m, row), w) in chunk.zip(values).zip(&tracks) {
                 let (e, below) = points[m];
-                sweep.point(m, row, w, e)?;
+                sweep.point(m, row, w, e, below)?;
                 // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
                 if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
                     sweep.group += 1;
@@ -1392,19 +1497,21 @@ impl Sweep<'_> {
         }
     }
 
-    /// 格子点 m の中性子束を求め、窓の積分と群の積分を進める。`values` はその点のポイントワイズの断面積、`tracks` は飛程。
+    /// 格子点 m の中性子束を求め、窓の積分と群の積分を進める。`values` はその点のポイントワイズの断面積、`tracks` は飛程、
+    /// `below` は不連続点の低い側の極限か。
     fn point(
         &mut self,
         m: usize,
         values: Vec<Row>,
         tracks: &[Vec<f64>],
         energy: f64,
+        below: bool,
     ) -> Result<(), UfgError> {
         let n = self.volumes.len();
         for ((column, v), d) in self.elastic.iter_mut().zip(&values).zip(self.data) {
-            // 自由ガスの核の、静止した標的の窓の部分は σs/N（free_gas の R_static/N）
+            // 自由ガスの核の、静止した標的の窓の部分は σs/N（free_gas の R_static/N）。S(α, β) の上限より下は 0
             match d.gas {
-                Some(gas) => column.push(v[1] * gas.window_scale(energy)),
+                Some(gas) => column.push(v[1] * gas.window_scale(energy, below)),
                 None => column.push(v[1]),
             }
         }
@@ -1474,7 +1581,7 @@ impl Sweep<'_> {
                 &self.flux,
                 extra_known,
                 extra_own,
-            );
+            )?;
             for i in 0..n {
                 k[i] += extra_known[i];
                 c[i] += extra_own[i];

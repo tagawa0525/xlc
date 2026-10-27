@@ -68,6 +68,7 @@ fn temperature(t: f64, fissile: bool) -> TemperatureData {
         scatter: vec![vec![vec![4.0, 0.01], vec![1.0e-7, 15.0]]],
         shielded: vec![shielded(1.0, fissile), shielded(0.5, fissile)],
         reactions: reactions(),
+        sab_transfer: None,
     }
 }
 
@@ -810,4 +811,195 @@ fn reaction_channels_follow_the_chain_layout() {
 fn chain_reactions_are_in_increasing_mt() {
     // ライブラリの `reactions` は代表の MT の昇順で、xs は `CHAIN_REACTIONS` の並びで書く
     assert!(CHAIN_REACTIONS.windows(2).all(|w| w[0].mt < w[1].mt));
+}
+
+/// S(α, β) の移行の表: 入射 3 点、移行 3 点の累積の割合で、値を `scale` 倍したもの
+fn sab_transfer(scale: f64) -> SabTransfer {
+    SabTransfer {
+        incident: vec![2.0, 4.0, 10.0],
+        transfer: vec![-6.0, 0.0, 1.5],
+        cumulative: vec![
+            vec![0.0, 0.6 * scale, scale],
+            vec![0.0, 0.7 * scale, scale],
+            vec![1.7929089665572825e-9, 0.9 * scale, scale],
+        ],
+    }
+}
+
+#[test]
+fn sab_transfer_round_trips_bit_exactly() {
+    let mut library = sample();
+    library.nuclides[1].thermal_scattering = true;
+    library.nuclides[1].temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+    assert_eq!(
+        Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap(),
+        library
+    );
+}
+
+#[test]
+fn sab_transfer_must_be_a_table_of_cumulative_shares() {
+    let rejected = |change: &dyn Fn(&mut SabTransfer)| {
+        let mut table = sab_transfer(1.0);
+        change(&mut table);
+        let mut library = sample();
+        library.nuclides[1].thermal_scattering = true;
+        library.nuclides[1].temperatures[0].sab_transfer = Some(table);
+        let written = library.to_msgpack().is_err();
+        let mut file = sample_file();
+        file.nuclides[1].thermal_scattering = true;
+        file.nuclides[1].temperatures[0].sab_transfer =
+            library.nuclides[1].temperatures[0].sab_transfer.clone();
+        let read = Library::from_msgpack(&rmp_serde::to_vec_named(&file).unwrap()).is_err();
+        written && read
+    };
+    // 入射は正で増え、2 点以上
+    assert!(rejected(&|t| t.incident.swap(0, 1)));
+    assert!(rejected(&|t| t.incident[0] = 0.0));
+    assert!(rejected(&|t| {
+        t.incident.truncate(1);
+        t.cumulative.truncate(1);
+    }));
+    // 移行は増え、2 点以上
+    assert!(rejected(&|t| t.transfer[2] = 0.0));
+    assert!(rejected(&|t| {
+        t.transfer.truncate(1);
+        for row in &mut t.cumulative {
+            row.truncate(1);
+        }
+    }));
+    // 値は [入射][移行] の形で、有限で負でなく、移行について減らない
+    assert!(rejected(&|t| {
+        t.cumulative.pop();
+    }));
+    assert!(rejected(&|t| {
+        t.cumulative[1].pop();
+    }));
+    assert!(rejected(&|t| t.cumulative[1][0] = -1e-3));
+    assert!(rejected(&|t| t.cumulative[1][1] = f64::NAN));
+    assert!(rejected(&|t| t.cumulative[1][2] = 0.5));
+    assert!(!rejected(&|_| {}));
+    // S(α, β) を持たない核種と、ポイントワイズの範囲のないライブラリは表を持たない
+    let mut library = sample();
+    library.nuclides[1].temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+    assert!(library.to_msgpack().is_err());
+    library.nuclides[1].thermal_scattering = true;
+    assert!(library.to_msgpack().is_ok());
+    library.pointwise_range = None;
+    for n in &mut library.nuclides {
+        for t in &mut n.temperatures {
+            t.pointwise = Pointwise::default();
+        }
+    }
+    assert!(library.to_msgpack().is_err());
+}
+
+#[test]
+fn sab_transfers_must_agree_across_temperatures_and_end_at_one() {
+    // 表は核種のすべての温度にあるか、どの温度にも無く、格子は温度によらない。行は 1（散乱した中性子のすべて）で終わる
+    let check = |change: &dyn Fn(&mut NuclideData)| {
+        let mut library = two_temperatures(true);
+        let h1 = library.nuclides.last_mut().unwrap();
+        h1.temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+        h1.temperatures[1].sab_transfer = Some(sab_transfer(1.0));
+        change(h1);
+        library.to_msgpack().is_ok()
+    };
+    assert!(check(&|_| {}));
+    assert!(!check(&|n| n.temperatures[1].sab_transfer = None));
+    assert!(!check(&|n| {
+        n.temperatures[1].sab_transfer.as_mut().unwrap().incident[1] = 5.0;
+    }));
+    assert!(!check(&|n| {
+        n.temperatures[1].sab_transfer.as_mut().unwrap().cumulative[1][2] = 0.9;
+    }));
+}
+
+#[test]
+fn interpolation_mixes_the_sab_transfer() {
+    let mut library = two_temperatures(true);
+    let h1 = library.nuclides.last_mut().unwrap();
+    h1.temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+    h1.temperatures[1].sab_transfer = Some(sab_transfer(2.0));
+    let (_, t) = library.lookup("H-1", 565.0).unwrap();
+    let f = 1.0 + (565.0 - 550.0) / (573.6 - 550.0);
+    let table = t.sab_transfer.as_ref().unwrap();
+    let low = sab_transfer(1.0);
+    assert_eq!(table.incident, low.incident);
+    assert_eq!(table.transfer, low.transfer);
+    assert!((table.cumulative[1][1] - f * low.cumulative[1][1]).abs() < 1e-15);
+    // 片方の温度にだけある表と、格子の違う表は内挿しない
+    let refused = |change: &dyn Fn(&mut SabTransfer)| {
+        let mut library = two_temperatures(true);
+        let h1 = library.nuclides.last_mut().unwrap();
+        h1.temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+        let mut high = sab_transfer(2.0);
+        change(&mut high);
+        h1.temperatures[1].sab_transfer = Some(high);
+        library.lookup("H-1", 565.0).is_err()
+    };
+    assert!(refused(&|t| t.incident[1] = 5.0));
+    assert!(refused(&|t| t.transfer[1] = 0.1));
+    let mut library = two_temperatures(true);
+    library.nuclides.last_mut().unwrap().temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+    assert!(library.lookup("H-1", 565.0).is_err());
+}
+
+#[test]
+fn sab_transfer_in_array_form_is_rejected() {
+    // 表も、ほかの構造と同じくフィールド名つきの map で書く
+    let mut file = sample_file();
+    file.nuclides[1].thermal_scattering = true;
+    file.nuclides[1].temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+    let named = rmp_serde::to_vec_named(&file).unwrap();
+    let mut value = rmpv::decode::read_value(&mut named.as_slice()).unwrap();
+    let array = rmpv::Value::Array(vec![
+        rmpv::Value::Array(vec![2.0.into(), 4.0.into(), 10.0.into()]),
+        rmpv::Value::Array(vec![(-6.0).into(), 0.0.into(), 1.5.into()]),
+        rmpv::Value::Array(Vec::new()),
+    ]);
+    fn field<'a>(value: &'a mut rmpv::Value, name: &str) -> &'a mut rmpv::Value {
+        let rmpv::Value::Map(entries) = value else {
+            panic!("not a map");
+        };
+        &mut entries
+            .iter_mut()
+            .find(|(k, _)| k.as_str() == Some(name))
+            .unwrap()
+            .1
+    }
+    let set = |value: &mut rmpv::Value| {
+        let rmpv::Value::Array(nuclides) = field(value, "nuclides") else {
+            panic!("no nuclides");
+        };
+        let rmpv::Value::Array(temperatures) = field(&mut nuclides[1], "temperatures") else {
+            panic!("no temperatures");
+        };
+        *field(&mut temperatures[0], "sab_transfer") = array;
+    };
+    set(&mut value);
+    let mut bytes = Vec::new();
+    rmpv::encode::write_value(&mut bytes, &value).unwrap();
+    assert!(matches!(
+        Library::from_msgpack(&bytes),
+        Err(LibraryError::NotMap)
+    ));
+}
+
+#[test]
+fn sab_transfer_interpolates_the_cumulative_share_in_ln_e_and_the_transfer() {
+    let table = sab_transfer(1.0);
+    // 格子点では表の値
+    assert_eq!(table.cumulative_at(4.0, 0.0), Some(0.7));
+    assert_eq!(table.cumulative_at(10.0, -6.0), Some(1.7929089665572825e-9));
+    // 入射 4〜10 eV の ln E の中点、移行 0〜1.5 eV の中点
+    let e = (4.0_f64 * 10.0).sqrt();
+    let expected = 0.5 * (0.5 * (0.7 + 1.0) + 0.5 * (0.9 + 1.0));
+    let value = table.cumulative_at(e, 0.75).unwrap();
+    assert!((value - expected).abs() < 1e-15, "{value} vs {expected}");
+    // 格子の外は値がない
+    assert_eq!(table.cumulative_at(1.9, 0.0), None);
+    assert_eq!(table.cumulative_at(10.5, 0.0), None);
+    assert_eq!(table.cumulative_at(4.0, 1.6), None);
+    assert_eq!(table.cumulative_at(10.0, -6.1), None);
 }

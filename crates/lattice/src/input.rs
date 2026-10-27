@@ -8,11 +8,12 @@
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると static。ADR-0203）
-//! ufg-free-gas = { upper = 400, cells = 4, sweeps = 2, heavy = 400 }   # free-gas の条件（どれも省略できる。ADR-0203）:
+//! ufg-free-gas = { upper = 400, cells = 4, sweeps = 2, heavy = 400, sab = true }   # free-gas の条件（どれも省略できる。ADR-0203）:
 //!                                 # 分離共鳴を持たない核種の自由ガスの核を使う入射エネルギーの上限（kT の倍数。省略すると
 //!                                 # 上限なし）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（省略すると収束する
 //!                                 # まで）、分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし。省略すると
-//!                                 # 静止した標的。ADR-0204）
+//!                                 # 静止した標的。ADR-0204）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下で
+//!                                 # ライブラリの S(α, β) の移行にするか（省略すると false で自由ガスの核。ADR-0205）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -295,6 +296,7 @@ struct FreeGasEntry {
     cells: Option<i64>,
     sweeps: Option<i64>,
     heavy: Option<f64>,
+    sab: Option<bool>,
 }
 
 /// `track-table` の値: 10 倍あたりの格子点の数か、false（格子点ごとに求める）
@@ -667,6 +669,7 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
                 cells: count("cells", entry.cells)?.unwrap_or(defaults.cells),
                 sweeps: count("sweeps", entry.sweeps)?.or(defaults.sweeps),
                 heavy,
+                sab: entry.sab.unwrap_or(defaults.sab),
             }))
         }
         Some(other) => Err(format!(

@@ -26,7 +26,7 @@ U-238 −1%）ので、核種の間の干渉も入っていない。Pu-240 の 1
   1次元の CP を解く
 - C. 表を引く方式を 1.25〜1.86 eV で止める（MPACT、Polaris、HELIOS、nTRACER。今の xlc と同じ系統）
 
-関係する ADR: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0052](../adr/0052-scatter-h-in-h2o-by-sab.md)、[ADR-0069](../adr/0069-cap-cell-slowing-down-at-20-kev.md)、[ADR-0073](../adr/0073-store-pointwise-data-in-library.md)、[ADR-0074](../adr/0074-shield-outside-range-by-equivalence.md)
+関係する ADR: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0052](../adr/0052-scatter-h-in-h2o-by-sab.md)、[ADR-0069](../adr/0069-cap-cell-slowing-down-at-20-kev.md)、[ADR-0073](../adr/0073-store-pointwise-data-in-library.md)、[ADR-0074](../adr/0074-shield-outside-range-by-equivalence.md)、[ADR-0205](../adr/0205-scatter-h-in-h2o-by-sab-in-ufg.md)
 
 ## 完了の条件
 
@@ -51,3 +51,6 @@ A と B を試作して、MOX-1 の Pu-242 の誤差と干渉がどこまで消�
   UFG の範囲（4 eV〜15.03 keV）の U、Pu-239、Pu-241、Xe-135、Sm-149 を除く核種は +14 pcm（27 群の中性子束の傾き（#0152）が候補で、
   確かめていない）。A は #0151 の熱の
   重みも扱い、散乱核を熱中性子の範囲まで扱えば #0152 の候補の 1 つ（H の S(α,β)）も扱う
+- 2026-10-27: 4 eV〜B(4)（10.00008 eV）の H in H2O の S(α,β) の散乱核を UFG に入れた（ADR-0205）。ライブラリは S(α,β) の移行を、入射が
+  4 eV − 28 kT（表の最も高い温度）から B(4) まで、出射が 0 eV からの累積の割合で持つ。A の案（UFG を熱中性子の範囲へ延ばす）では、表は
+  UFG の下限から作るので、下限を下げれば同じ作り方で作れる。散乱源と上方散乱のスイープが、延ばした範囲でそのまま使えるかは確かめていない

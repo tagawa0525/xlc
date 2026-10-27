@@ -24,6 +24,7 @@ fn library() -> Library {
             resolved: None,
             thermal_scattering: false,
             temperatures: vec![TemperatureData {
+                sab_transfer: None,
                 reactions: Vec::new(),
                 pointwise: Default::default(),
                 temperature: T,
@@ -200,6 +201,7 @@ mod lattice {
             resolved: None,
             thermal_scattering: false,
             temperatures: vec![TemperatureData {
+                sab_transfer: None,
                 reactions: Vec::new(),
                 pointwise: Default::default(),
                 temperature: T,
@@ -946,6 +948,7 @@ mod lattice {
                 }),
                 thermal_scattering: false,
                 temperatures: vec![TemperatureData {
+                    sab_transfer: None,
                     reactions: Vec::new(),
                     temperature: T,
                     chi: (0..ng)
