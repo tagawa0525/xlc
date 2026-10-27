@@ -86,12 +86,14 @@ erfcx(x) exp(−x²) が最大 6.6 ulp。
 ## 確認
 
 テストは xs の `special::tests` と lattice の `ufg::free_gas::tests` の両方にあり、点の表は xs の `special/erfcx_cases.rs` に置いて、2 つの
-テストが include! で同じ表を読む。
+テストが include! で同じ表を読む。多倍長の参照値は `special/erfcx_cases.py`（mpmath 1.4.1、60 桁）が書き出す。
 
-- `erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values`: 区間の端と、上の計測で誤差の大きかった x を含む 41 点で、mpmath の
+- `erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values`: 区間の端と、上の計測で誤差の大きかった x を含む 46 点で、mpmath の
   60 桁の値との差が 2.5 ulp 以下（連分数は x = 36.8 で 2.97 ulp、級数は x = 2.475 で 16,444 ulp なので落ちる）
 - `erf_is_within_four_ulp_of_multiprecision_values`: 10 点で 4 ulp 以下（級数は x = 2.42 で 13.3 ulp なので落ちる）
 - `erfc_is_within_seven_ulp_of_multiprecision_values`（xs だけ）: 8 点で 7 ulp 以下
+- 負の x の erfcx は erfcx(−x) = 2 exp(x²) − erfcx(x) で求め、上の 2.5 ulp の表に x = −0.25〜−10 の 5 点を入れる。
+  `erf_and_erfcx_of_nan_are_nan`: NaN は NaN を返す（lattice の erf は x ≥ 6 だけを 1 にする）
 - `erfcx_gives_the_same_bits_as_its_copy`: 40 点のビットの表に、2 つのクレートの erfcx が同じ値を返す。点は x = 0 と x ≥ 0.46875 で、
   四則と融合積和だけで求まる（libm の exp を通る x < 0.46875 は、libm の版でビットが変わりうるので置かない）
 - 1 スレッドの `free_gas`（1C の 0 MWd/kg のピンセル `issue-0133/pin-1C-0.toml` に ADR-0209 の既定を明示したもの、手元、2026-10-28。
