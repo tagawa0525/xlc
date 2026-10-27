@@ -17,6 +17,7 @@ fn library() -> Library {
                 .map(|(temperature, c)| {
                     let v = |values: Vec<f64>| values.iter().map(|x| c * x).collect();
                     TemperatureData {
+                        sab_transfer: None,
                         reactions: Vec::new(),
                         pointwise: Default::default(),
                         temperature,
