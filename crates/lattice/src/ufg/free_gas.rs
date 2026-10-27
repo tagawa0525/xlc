@@ -86,7 +86,7 @@ fn erf_series(x: f64) -> f64 {
 pub(super) fn erfcx(x: f64) -> f64 {
     if x < 0.0 {
         // erfc(−x) = 2 − erfc(x)
-        return 2.0 * (x * x).exp() - erfcx(-x);
+        return 2.0 * exp_square(x, 1.0) - erfcx(-x);
     }
     if x < CODY_LOWER_LIMIT {
         // erf(x) < 0.5 なので 1 − erf は桁落ちしない
@@ -100,6 +100,15 @@ pub(super) fn erfcx(x: f64) -> f64 {
         let tail = w * horner(&CODY_TAIL_NUMERATOR, w) / horner(&CODY_TAIL_DENOMINATOR, w);
         (0.5 * std::f64::consts::FRAC_2_SQRT_PI - tail) / x
     }
+}
+
+/// exp(sign·x²) を、x² の丸めを指数に入れずに求める。x を 1/16 の倍数 s に切り捨てると s² は丸めなしで表せ（|x| < 2²² で。
+/// それより大きい x の exp(±x²) は桁あふれか 0）、残りの x² − s² = (x − s)(x + s) は 1 より小さいので、その丸めは指数で増えない
+/// （CALERF と同じ分け方）。exp(±x*x) と書くと、x*x の丸めが x² 倍で効く（x = 24.6 で 510 ulp。ADR-0211）
+fn exp_square(x: f64, sign: f64) -> f64 {
+    let s = (x * 16.0).trunc() / 16.0;
+    let rest = (x - s) * (x + s);
+    (sign * s * s).exp() * (sign * rest).exp()
 }
 
 // Cody の有理近似の係数（ADR-0211）。W. J. Cody, "Rational Chebyshev approximations for the error function",
