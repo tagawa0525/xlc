@@ -1371,6 +1371,8 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/ufg-transfer/summary-thin.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-fg.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
+    "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-static.json",
+    "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-static.json",
 }
 
 
@@ -1815,7 +1817,7 @@ TABLES = {
     **{
         f"depletion-{job.lower()}-free-gas-k": (
             [
-                f"examples/depletion/p2/compare-{job}.json",
+                f"examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-{job}-static.json",
                 f"examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-{job}-fg.json",
             ],
             depletion_assembly_free_gas_k,
