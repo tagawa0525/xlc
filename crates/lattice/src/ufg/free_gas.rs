@@ -56,10 +56,11 @@ pub(super) fn erf(x: f64) -> f64 {
     }
     if x < CODY_LOWER_LIMIT {
         erf_series(x)
-    } else if x < SATURATION {
-        1.0 - erfcx(x) * (-x * x).exp()
-    } else {
+    } else if x >= SATURATION {
         1.0
+    } else {
+        // NaN もここで NaN になる
+        1.0 - erfcx(x) * (-x * x).exp()
     }
 }
 
@@ -81,8 +82,12 @@ fn erf_series(x: f64) -> f64 {
     2.0 / PI.sqrt() * (-x2).exp() * sum
 }
 
-/// スケールした相補誤差関数 erfcx(x) = exp(x²) erfc(x)（x ≥ 0）。xs の `special::erfcx` と同じ計算。
+/// スケールした相補誤差関数 erfcx(x) = exp(x²) erfc(x)。xs の `special::erfcx` と同じ計算。
 pub(super) fn erfcx(x: f64) -> f64 {
+    if x < 0.0 {
+        // erfc(−x) = 2 − erfc(x)
+        return 2.0 * (x * x).exp() - erfcx(-x);
+    }
     if x < CODY_LOWER_LIMIT {
         // erf(x) < 0.5 なので 1 − erf は桁落ちしない
         return (x * x).exp() * (1.0 - erf_series(x));
