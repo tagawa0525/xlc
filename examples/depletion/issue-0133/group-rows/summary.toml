@@ -31,6 +31,7 @@ label = "MOX-1 0 MWd/kg（Slurm 558）"
 key = "1C-0"
 name = "1C 0 MWd/kg"
 kernels = ["2A-40", "MOX1"]
+specs = ["water:27-27", "water:14-26"]
 
 [[state]]
 key = "2A-40"
