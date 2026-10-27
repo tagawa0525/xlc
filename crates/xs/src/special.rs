@@ -16,7 +16,7 @@ pub fn erf(x: f64) -> f64 {
     }
 }
 
-/// これより小さい x の erf と erfc は級数で、大きい x の erf と erfc は erfcx(x) exp(−x²) から求める
+/// これより小さい x の erf は級数で、大きい x の erf は 1 − erfc(x) で求める
 const SERIES_LIMIT: f64 = 2.5;
 
 /// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
@@ -37,7 +37,7 @@ fn erf_series(x: f64) -> f64 {
 pub fn erfc(x: f64) -> f64 {
     if x < 0.0 {
         2.0 - erfc(-x)
-    } else if x < SERIES_LIMIT {
+    } else if x < CODY_LOWER_LIMIT {
         1.0 - erf_series(x)
     } else {
         erfcx(x) * (-x * x).exp()
