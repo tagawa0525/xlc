@@ -1051,8 +1051,8 @@ fn thermal_cell(temperature: f64) -> (Library, MaterialInput, MaterialInput) {
     thermal_cell_with(temperature, &BOUNDS)
 }
 
-/// [`thermal_cell`] の、群の境界を `bounds` にしたもの
-fn thermal_cell_with(temperature: f64, bounds: &[f64]) -> (Library, MaterialInput, MaterialInput) {
+/// [`thermal_cell`] の核種（U-238 は 6.67 eV に捕獲の共鳴を持つ）
+fn thermal_specs() -> Vec<Spec> {
     let resonance = |e: f64| 2.0e4 / (1.0 + ((e - 6.67) / 0.02).powi(2));
     let mut energies: Vec<f64> = (0..=600).map(|k| 6.37 + 0.001 * k as f64).collect();
     energies.splice(0..0, [4.0, 5.0, 6.0]);
@@ -1061,21 +1061,22 @@ fn thermal_cell_with(temperature: f64, bounds: &[f64]) -> (Library, MaterialInpu
         .iter()
         .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
         .collect();
-    let lib = library_with(
-        vec![
-            Spec {
-                name: "U-238",
-                awr: 236.0,
-                top: Some(2.0e4),
-                points,
-            },
-            constant("U-235", 233.0, 10.0, 8.0, 1.0),
-            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
-            constant("O-16", 15.86, 3.8, 3.8, 0.0),
-        ],
-        temperature,
-        bounds,
-    );
+    vec![
+        Spec {
+            name: "U-238",
+            awr: 236.0,
+            top: Some(2.0e4),
+            points,
+        },
+        constant("U-235", 233.0, 10.0, 8.0, 1.0),
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+    ]
+}
+
+/// [`thermal_cell`] の、群の境界を `bounds` にしたもの
+fn thermal_cell_with(temperature: f64, bounds: &[f64]) -> (Library, MaterialInput, MaterialInput) {
+    let lib = library_with(thermal_specs(), temperature, bounds);
     let fuel = material_at(
         &[("U-238", 0.022), ("U-235", 0.0005), ("O-16", 0.045)],
         temperature,
@@ -1962,14 +1963,40 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
     }
 }
 
-/// [`thermal_cell_with`] の [`FINE_BOUNDS`] の 100 eV より下の減速計算と移行（燃料、真空、減速材 2 つのリング）。H-1 に表 `table` を
-/// 持たせる（S(α, β) の移行を選ぶとき）
+/// [`thermal_cell_with`] の [`FINE_BOUNDS`] の 100 eV より下の減速計算と移行（燃料、真空、減速材 2 つのリング）。燃料には、5.19 eV に
+/// 弾性散乱の共鳴を持つ薄い核種（物質の断面積への寄与が間引きの許容差より小さく、間引いた格子から共鳴の点が落ちる）を足す。H-1 に
+/// 表 `table` を持たせる（S(α, β) の移行を選ぶとき）
 fn thermal_transfers(
     thinning: Option<f64>,
     scattering: Scattering,
     table: Option<SabTransfer>,
 ) -> (CellSpectrum, Vec<Vec<NuclideTransfer>>) {
-    let (mut lib, fuel, water) = thermal_cell_with(600.0, &FINE_BOUNDS);
+    let resonance = |e: f64| 2.0e3 / (1.0 + ((e - 5.19) / 0.01).powi(2));
+    let mut energies: Vec<f64> = (0..=400).map(|k| 5.0 + 0.001 * k as f64).collect();
+    energies.insert(0, 4.0);
+    energies.extend([10.0, 100.0, 2.0e4]);
+    let points = energies
+        .iter()
+        .map(|&e| [e, 7.0 + resonance(e), 5.0 + resonance(e), 0.0])
+        .collect();
+    let mut specs = thermal_specs();
+    specs.push(Spec {
+        name: "Ag-109",
+        awr: 107.97,
+        top: Some(2.0e4),
+        points,
+    });
+    let mut lib = library_with(specs, 600.0, &FINE_BOUNDS);
+    let fuel = material_at(
+        &[
+            ("U-238", 0.022),
+            ("U-235", 0.0005),
+            ("O-16", 0.045),
+            ("Ag-109", 1.0e-8),
+        ],
+        600.0,
+    );
+    let water = material_at(&[("H-1", 0.05), ("O-16", 0.025)], 600.0);
     if let Some(table) = table {
         let h1 = lib.nuclides.iter_mut().find(|n| n.name == "H-1").unwrap();
         h1.thermal_scattering = true;
