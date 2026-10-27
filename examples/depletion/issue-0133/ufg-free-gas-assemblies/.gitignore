@@ -1,0 +1,4 @@
+/lattice-*.msgpack
+/lattice-*.checkpoint
+/lattice-*.out
+/lattice-*.log
