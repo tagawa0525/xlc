@@ -295,6 +295,7 @@ struct FreeGasEntry {
     cells: Option<i64>,
     sweeps: Option<i64>,
     heavy: Option<f64>,
+    sab: Option<bool>,
 }
 
 /// `track-table` の値: 10 倍あたりの格子点の数か、false（格子点ごとに求める）
@@ -667,6 +668,7 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
                 cells: count("cells", entry.cells)?.unwrap_or(defaults.cells),
                 sweeps: count("sweeps", entry.sweeps)?.or(defaults.sweeps),
                 heavy,
+                sab: defaults.sab,
             }))
         }
         Some(other) => Err(format!(

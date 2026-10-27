@@ -1,6 +1,8 @@
 use super::*;
 use xlc_format::group::GroupStructure;
-use xlc_format::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
+use xlc_format::library::{
+    NuclideData, Pointwise, Resolved, SabTransfer, Shielded, TemperatureData,
+};
 
 const TEMPERATURE: f64 = 600.0;
 const BOUNDS: [f64; 7] = [2.0e7, 2.0e4, 1.0e4, 1.0e3, 1.0e2, 4.0, 1.0e-5];
@@ -1104,6 +1106,7 @@ fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scatteri
         cells,
         sweeps,
         heavy: None,
+        sab: false,
     })
 }
 
@@ -1114,6 +1117,7 @@ fn free_gas_heavy(heavy: f64, cells: usize, sweeps: Option<usize>) -> Scattering
         cells,
         sweeps,
         heavy: Some(heavy),
+        sab: false,
     })
 }
 
@@ -1519,6 +1523,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
         cells: 4,
         sweeps: None,
         heavy: Some(f64::INFINITY),
+        sab: false,
     });
     // 群（20〜9.877、9.877〜4 eV）の U-238 の捕獲率
     let ufg_rates = |s: &CellSpectrum| -> Vec<f64> {
@@ -1576,4 +1581,168 @@ fn a_resonant_cap_just_below_the_range_reaches_it_by_up_scattering() {
     let light = thermal_spectrum(600.0, free_gas(None, 4, None));
     let capped = thermal_spectrum(600.0, free_gas_heavy(60.0, 4, None));
     assert!(flux_difference(&capped, &light) > 0.0);
+}
+
+/// S(α, β) の上限（ENDF/B-VIII.0 の H in H2O の B(4)）
+const SAB_UPPER: f64 = 10.00008;
+
+/// 温度 `temperature` (K) の断面積一定の自由ガス（質量比 `awr`）の核の、S(α, β) の移行の表（xs が作る形）。入射は S(α, β) の上限
+/// からレサジーの間隔 0.01 で 4 eV − TAIL kT の下まで、移行は間隔 `dt` (eV) で出射 0 eV から TAIL kT の上まで。累積は核を移行の
+/// 格子の区間ごとに Simpson 則（8 区間）で積分し、N(E)（核の全体の積分）で割る
+fn free_gas_transfer(awr: f64, temperature: f64, dt: f64) -> SabTransfer {
+    let kt = free_gas::BOLTZMANN * temperature;
+    let reach = free_gas::TAIL * kt;
+    let lowest = 4.0 - reach;
+    let du = 0.01;
+    let n = ((SAB_UPPER / lowest).ln() / du).ceil() as usize;
+    let incident: Vec<f64> = (0..=n)
+        .map(|i| SAB_UPPER * (-((n - i) as f64) * du).exp())
+        .collect();
+    let (below, above) = ((SAB_UPPER / dt).ceil() as i64, (reach / dt).ceil() as i64);
+    let transfer: Vec<f64> = (-below..=above).map(|k| k as f64 * dt).collect();
+    let cumulative = incident
+        .iter()
+        .map(|&e| {
+            let total = free_gas::effective_ratio(e, awr, kt);
+            let mut row = vec![0.0; transfer.len()];
+            let mut sum = 0.0;
+            for j in 1..transfer.len() {
+                let (a, b) = ((e + transfer[j - 1]).max(0.0), (e + transfer[j]).max(0.0));
+                if b > a {
+                    let h = (b - a) / 8.0;
+                    let f = |k: usize| free_gas::kernel(e, a + k as f64 * h, awr, kt);
+                    let weights = [1.0, 4.0, 2.0, 4.0, 2.0, 4.0, 2.0, 4.0, 1.0];
+                    sum += h / 3.0 * (0..=8).map(|k| weights[k] * f(k)).sum::<f64>();
+                }
+                row[j] = sum / total;
+            }
+            row
+        })
+        .collect();
+    SabTransfer {
+        incident,
+        transfer,
+        cumulative,
+    }
+}
+
+/// [`thermal_cell`] の H-1 を S(α, β) の核種にし、表 `table` を持たせたもの（`None` は表なし）
+fn sab_cell(table: Option<SabTransfer>) -> (Library, MaterialInput, MaterialInput) {
+    let (mut lib, fuel, water) = thermal_cell(600.0);
+    let h1 = lib.nuclides.iter_mut().find(|n| n.name == "H-1").unwrap();
+    h1.thermal_scattering = true;
+    h1.temperatures[0].sab_transfer = table;
+    (lib, fuel, water)
+}
+
+/// [`sab_cell`] の 100 eV より下の減速計算
+fn sab_spectrum(
+    table: Option<SabTransfer>,
+    scattering: Scattering,
+) -> Result<CellSpectrum, UfgError> {
+    let (lib, fuel, water) = sab_cell(table);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        scattering,
+    )
+}
+
+/// [`free_gas`] の、S(α, β) の核種を S(α, β) の移行にするもの
+fn sab(cells: usize, sweeps: Option<usize>) -> Scattering {
+    Scattering::FreeGas(FreeGas {
+        upper: None,
+        cells,
+        sweeps,
+        heavy: None,
+        sab: true,
+    })
+}
+
+#[test]
+fn sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum() {
+    // 自由ガスの核から作った表の S(α, β) の移行は、自由ガスの核と同じ散乱。表の移行の格子を細かくすると、自由ガスの核の結果に
+    // 近づく（表は格子の区間の中の核を一定とする）
+    let free = sab_spectrum(None, free_gas(None, 4, None)).unwrap();
+    let differences: Vec<f64> = [0.04, 0.02, 0.01]
+        .iter()
+        .map(|&dt| {
+            let table = free_gas_transfer(0.99917, 600.0, dt);
+            flux_difference(&sab_spectrum(Some(table), sab(4, None)).unwrap(), &free)
+        })
+        .collect();
+    assert!(differences[2] < differences[0], "{differences:?}");
+    assert!(differences[2] < 1e-5, "{differences:?}");
+}
+
+#[test]
+fn sab_of_a_hotter_table_moves_the_spectrum() {
+    // 物質より熱い自由ガスの表（束縛で広がった核の代わり）は、S(α, β) の上限より下の H の散乱を変え、群の中性子束を動かす
+    let free = sab_spectrum(None, free_gas(None, 4, None)).unwrap();
+    let hot = free_gas_transfer(0.99917, 1200.0, 0.02);
+    let moved = sab_spectrum(Some(hot), sab(4, None)).unwrap();
+    assert!(flux_difference(&moved, &free) > 1e-5);
+}
+
+#[test]
+fn sab_off_ignores_the_table() {
+    // `sab` を選ばなければ、表を持つ核種も自由ガスの核で、表のないときとビットで同じ
+    let table = free_gas_transfer(0.99917, 600.0, 0.04);
+    assert_eq!(
+        sab_spectrum(Some(table), free_gas(None, 4, None)).unwrap(),
+        sab_spectrum(None, free_gas(None, 4, None)).unwrap()
+    );
+}
+
+#[test]
+fn sab_needs_the_table_of_sab_nuclides() {
+    // S(α, β) の核種に表がなければ止める。S(α, β) の核種でないもの（O-16 など）は、`sab` を選んでも自由ガスの核
+    assert!(matches!(
+        sab_spectrum(None, sab(4, None)),
+        Err(UfgError::NoSabTransfer { .. })
+    ));
+    let (lib, fuel, water) = thermal_cell(600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+        )
+        .unwrap()
+    };
+    assert_eq!(solve(sab(4, None)), solve(free_gas(None, 4, None)));
+}
+
+#[test]
+fn sab_table_must_reach_the_up_scattering_below_the_range() {
+    // 表の入射が、範囲の下限から上方散乱の届く幅（TAIL kT）の下まで届かなければ止める
+    let mut table = free_gas_transfer(0.99917, 600.0, 0.04);
+    let start = table.incident.partition_point(|&e| e < 3.5);
+    table.incident.drain(..start);
+    table.cumulative.drain(..start);
+    assert!(matches!(
+        sab_spectrum(Some(table), sab(4, None)),
+        Err(UfgError::SabCoverage { .. })
+    ));
+}
+
+#[test]
+fn sab_sweeps_converge() {
+    // 収束するまでのスイープは、十分な回数のスイープと同じ
+    let table = free_gas_transfer(0.99917, 600.0, 0.04);
+    let converged = sab_spectrum(Some(table.clone()), sab(4, None)).unwrap();
+    let many = sab_spectrum(Some(table), sab(4, Some(20))).unwrap();
+    assert!(flux_difference(&many, &converged) < 1e-9);
 }
