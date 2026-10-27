@@ -858,6 +858,123 @@ U-238 と Pu-239 の 24〜27 群の吸収の置き換えの寄与（pcm。1C の
 - 表の移行の補間の誤差（xs の例 `sab_transfer_error`）: 入射の格子点の間で、累積の割合の差は 600 K で 1.9e−4、550 K で 2.3e−4（準弾性
   散乱の山を含む移行の区間の中）、WIMS 69 群の出射の群の割合の相対差は 1.1e−4、1.3e−4
 
+### 群の移行の行の群の中の重み（#0152）
+
+「H in H2O の S(α,β) の UFG の散乱核（ADR-0205）」で、減速材の 27 群（4〜9.877 eV）の移行の置き換えの寄与は、散乱核によらず 1C の
+0 MWd/kg で −3.8、2A-40 で +44.5 pcm と、状態の間で +48 pcm 違う。xlc の物質の群の移行の行は、ライブラリの無限希釈の散乱行列の形
+（群の中の重みは ADR-0039 の 1/E）の行の和を、自己遮蔽した弾性散乱に合わせたもの（ADR-0076）で、等価なセルの UFG の中性子束で縮約
+していない。この差を、OpenMC の群の行を、群の中の細かい入射の区間ごとの行（核）と、それを群にまとめる重み（区間の中性子束）に分けて
+調べた。OpenMC は 1C のピンセル（「k の差の候補の寄与（#0133）」と同じ模型）で、UFG の範囲（14〜27 群、4 eV〜15.03 keV）の各群を
+1 桁あたり 500 のレサジーの等間隔の区間（27 群は 196）に分け、物質ごとの区間の中性子束と、燃料と減速材の区間から群への移行を数えた
+（`openmc_pin_transfer.py` の細かい入射の引数）。状態は 2A-40（シード 2）と、1C のピンセルの燃料だけを MOX-1（NEA の LWR MOX
+ピンセルの Pu の劣化が大きい組成、新しい燃料。`issue-0133/pin-MOX1.toml`）にしたもの。区間の核を、核の実行の中性子束（群の行に戻る）、
+xlc の等価なセルの同じリング（燃料か減速材）の UFG の中性子束（`fine_flux` の例）、1/E でまとめた行を作り、xlc の行をそれに
+置き換えた `swap_transfer`（SPH 因子は置き換える前のまま）の寄与を、OpenMC の状態の行に置き換えた寄与と比べる（`group_rows.py`）。
+xlc の入力は S(α,β) の速い方法（`issue-0133/ufg-sab/pin-<状態>-sab-fast3.toml`）。1C の 0 MWd/kg は細かい入射を数えた実行が無いので、
+減速材の核（燃料の組成によらない）を 2A-40 と MOX-1 の実行から取る。
+
+```sh
+# OpenMC（細かい入射の区間の核。1 状態 4〜8 分、16 スレッド）
+nix develop .#references -c python3 examples/depletion/issue-0133/openmc_pin_transfer.py examples/depletion/openmc-1C-rings1.toml \
+  examples/depletion/issue-0133/pin-2A-40.toml examples/depletion/depletion.msgpack references/openmc/pin-transfer-1C/2A-40-fine-seed2 \
+  300000 120 20 16 2 4.0 15030.0 500
+# xlc（状態ごとに、OpenMC の行と、核ごとの 2 つの重みの行の swap_transfer。核は <名前>=<transfer.msgpack> をコンマで並べる）
+cargo build --release -p xlc-lattice --example swap_transfer --example balance
+examples/depletion/issue-0133/group-rows/run.sh 2A-40 examples/depletion/issue-0133/ufg-sab/pin-2A-40-sab-fast3.toml \
+  references/openmc/pin-transfer-1C/2A-40/transfer.msgpack references/ufg-sab/2A-40-sab-fast3-fine.msgpack \
+  2A-40=references/openmc/pin-transfer-1C/2A-40-fine-seed2/transfer.msgpack water:27-27,water:14-26,fuel:27-27,fuel:14-26
+# 群の中の区間の中性子束の比（物質ごとに `material <物質>` を前に置いて logs/<状態>-spectrum.txt に続けて書く）
+python3 examples/depletion/issue-0133/group_rows.py spectrum references/openmc/pin-transfer-1C/2A-40-fine-seed2/transfer.msgpack \
+  references/ufg-sab/2A-40-sab-fast3-fine.msgpack water 4 9.877 4
+# 要約（表の JSON）
+nix develop .#references -c python3 examples/depletion/issue-0133/group_rows.py summarize \
+  examples/depletion/issue-0133/group-rows/summary.toml examples/depletion/issue-0133/group-rows/summary.json
+```
+
+#### 計算
+
+OpenMC は 512fcca0（分岐点は main の f2e30c51）、2026-10-27（2A-40 が Slurm 557、MOX-1 が 558。30 万粒子 × 100 アクティブ世代）。
+xlc の置き換えは 7842c75c（分岐点は同じ）、2026-10-27（Slurm 559）。1C の 0 MWd/kg と 2A-40 の OpenMC の状態の行は Slurm 534（「k の差の
+候補の寄与（#0133）」）、MOX-1 は 558。xlc の UFG の中性子束は、1C の 0 MWd/kg と 2A-40 が「H in H2O の S(α,β) の UFG の散乱核（ADR-0205）」の
+`fine_flux` の出力（b7541488）、MOX-1 は f2e30c51 のコードで 512fcca0 と同じ入力を手元で解いたもの（2026-10-27）。ライブラリは
+examples/depletion/depletion.msgpack（分岐点の dvc.lock のもの）。ログは `issue-0133/group-rows/logs/`、要約は
+`issue-0133/group-rows/summary.json`。時間はどれも `--timed` でないジョブなので記録しない。
+
+#### 結果
+
+減速材の 27 群から出る移行（1/cm）。OpenMC は状態の行、ほかはその値との比 − 1。
+
+<!-- table: depletion-group-rows-out-27 -->
+
+| 状態           | 核                          | OpenMC (1/cm) | xlc    | 核 × 核の実行の中性子束 | 核 × xlc の中性子束 | 核 × 1/E |
+| -------------- | --------------------------- | ------------- | ------ | ----------------------- | ------------------- | -------- |
+| 1C 0 MWd/kg    | 2A 40 MWd/kg（Slurm 557）   | 0.59358       | −0.06% | −0.82%                  | +0.04%              | +0.16%   |
+| 1C 0 MWd/kg    | MOX-1 0 MWd/kg（Slurm 558） | 0.59358       | −0.06% | −0.50%                  | +0.05%              | +0.18%   |
+| 2A 40 MWd/kg   | 2A 40 MWd/kg（Slurm 557）   | 0.58879       | +0.75% | −0.01%                  | −0.06%              | +0.97%   |
+| MOX-1 0 MWd/kg | MOX-1 0 MWd/kg（Slurm 558） | 0.59065       | +0.44% | 0.00%                   | 0.00%               | +0.68%   |
+
+<!-- /table -->
+
+置き換えの寄与（pcm）。群の中の重みは「核 × xlc の中性子束」−「核 × 1/E」、中性子束の差は「OpenMC の行」−「核 × xlc の中性子束」。
+
+<!-- table: depletion-group-rows-swaps -->
+
+| 状態           | 置き換え                | 核                          | OpenMC の行 | 核 × xlc の中性子束 | 核 × 1/E | 群の中の重み | 中性子束の差 |
+| -------------- | ----------------------- | --------------------------- | ----------- | ------------------- | -------- | ------------ | ------------ |
+| 1C 0 MWd/kg    | 減速材、4〜9.88 eV      | 2A 40 MWd/kg（Slurm 557）   | −3.8        | −7.0                | −15.7    | +8.7         | +3.2         |
+| 1C 0 MWd/kg    | 減速材、4〜9.88 eV      | MOX-1 0 MWd/kg（Slurm 558） | −3.8        | −7.5                | −17.1    | +9.6         | +3.7         |
+| 1C 0 MWd/kg    | 減速材、9.88 eV〜15 keV | 2A 40 MWd/kg（Slurm 557）   | +48.6       | +53.5               | +3.2     | +50.3        | −4.9         |
+| 1C 0 MWd/kg    | 減速材、9.88 eV〜15 keV | MOX-1 0 MWd/kg（Slurm 558） | +48.6       | +50.0               | 0.0      | +50.0        | −1.4         |
+| 2A 40 MWd/kg   | 減速材、4〜9.88 eV      | 2A 40 MWd/kg（Slurm 557）   | +44.5       | +47.2               | −12.9    | +60.1        | −2.7         |
+| 2A 40 MWd/kg   | 減速材、9.88 eV〜15 keV | 2A 40 MWd/kg（Slurm 557）   | +26.0       | +29.6               | +0.7     | +28.9        | −3.6         |
+| 2A 40 MWd/kg   | 燃料、4〜9.88 eV        | 2A 40 MWd/kg（Slurm 557）   | −26.5       | −25.9               | −12.9    | −13.0        | −0.6         |
+| 2A 40 MWd/kg   | 燃料、9.88 eV〜15 keV   | 2A 40 MWd/kg（Slurm 557）   | −11.5       | −10.3               | −49.3    | +39.0        | −1.2         |
+| MOX-1 0 MWd/kg | 減速材、4〜9.88 eV      | MOX-1 0 MWd/kg（Slurm 558） | +9.3        | +9.3                | −2.4     | +11.7        | 0.0          |
+| MOX-1 0 MWd/kg | 減速材、9.88 eV〜15 keV | MOX-1 0 MWd/kg（Slurm 558） | +25.0       | +27.9               | +3.2     | +24.7        | −2.9         |
+| MOX-1 0 MWd/kg | 燃料、4〜9.88 eV        | MOX-1 0 MWd/kg（Slurm 558） | +1.8        | +1.9                | +4.9     | −3.0         | −0.1         |
+| MOX-1 0 MWd/kg | 燃料、9.88 eV〜15 keV   | MOX-1 0 MWd/kg（Slurm 558） | −11.0       | −10.5               | −58.1    | +47.6        | −0.5         |
+
+<!-- /table -->
+
+27 群の中の区間の中性子束の xlc / OpenMC − 1（%。27 群の中で規格化。OpenMC は核の実行）。
+
+<!-- table: depletion-group-rows-spectrum -->
+
+| 状態           | 物質  | 4〜5.014 eV | 5.014〜6.286 eV | 6.286〜7.879 eV | 7.879〜9.877 eV |
+| -------------- | ----- | ----------- | --------------- | --------------- | --------------- |
+| 2A 40 MWd/kg   | water | +0.51       | −0.87           | −1.23           | +1.20           |
+| 2A 40 MWd/kg   | fuel  | −0.15       | −0.60           | +0.19           | +0.44           |
+| MOX-1 0 MWd/kg | water | +0.44       | +0.03           | −1.94           | +1.04           |
+| MOX-1 0 MWd/kg | fuel  | −0.24       | −0.24           | −0.16           | +0.49           |
+
+<!-- /table -->
+
+- 減速材の 27 群から出る移行は、OpenMC で 1C の 0 MWd/kg の 0.59358 から 2A-40 で 0.58879（−0.81%）、MOX-1 で 0.59065（−0.49%）に
+  減る（行の相対標準偏差は 5e−4 ほど）。xlc の行は 0.59322〜0.59323 で状態によらない。OpenMC の核を xlc の UFG の減速材の中性子束で
+  まとめると、どの状態でも OpenMC の行と 0.06% 以内で合う。2 つの核（2A-40 と MOX-1 の実行）を同じ重みでまとめた行は 0.01% 以内で
+  合い、減速材の核は燃料の組成によらない
+- 置き換えの寄与の状態の間の差（2A-40 − 1C の 0 MWd/kg、2A-40 の核）は、減速材の 27 群で +48.3 pcm（−3.8 → +44.5）で、そのうち
+  群の中の重みが +51.4（+8.7 → +60.1）、1/E でまとめた核の差が +2.8（−15.7 → −12.9）、xlc と OpenMC の中性子束の差が −5.9（+3.2 →
+  −2.7）。減速材の 14〜26 群は −22.6 pcm（+48.6 → +26.0）で、群の中の重みが −21.4、1/E の核が −2.5、中性子束の差が +1.3。xlc の
+  行を、OpenMC の核を xlc 自身の UFG の中性子束でまとめた行にすると、置き換えの寄与の残りは減速材、燃料のどの行も 4.9 pcm 以内
+- 群の中の重みの差は、xlc の UFG の減速材の中性子束の群の中の形が状態で変わることによる。27 群の中で規格化した xlc の減速材の
+  中性子束の 2A-40 / 1C の 0 MWd/kg − 1 は、4〜5.01、5.01〜6.29、6.29〜7.88、7.88〜9.88 eV で −1.25、−7.20、+3.26、+4.91%（MOX-1 では
+  −3.04、+1.66、−3.11、+3.85%）で、2A-40 では群の下の方が減り、群から出る移行が減る（`group_rows.py` の `xlc_weight` で区間を積分した値）。
+  5.01〜6.29 eV の減りを作る核種（候補: U-236 の 5.45 eV、Ag-109 の 5.19 eV、Tc-99 の 5.58 eV、Pu-241 の 5.81 eV の共鳴。ENDF/B-VIII.0 の
+  MF2 の分離共鳴のエネルギー）と、7.88〜9.88 eV の増え（候補: U-235 の 8.76 eV の共鳴の減り）は確かめていない。Pu の多い MOX-1 の
+  減速材の 27 群の寄与は +9.3 pcm（1C の 0 MWd/kg から +13.1）で、2A-40 の +44.5 より小さい
+- xlc の UFG の減速材の中性子束の群の中の形は、OpenMC と 4 区間で 1.9% 以内で合い（U-238 の 6.67 eV の共鳴の区間で xlc が低い）、
+  減速材の 27 群の置き換えの寄与では 3.7 pcm 以内の差になる。群の中の重み（xlc の行が UFG の中性子束で縮約されていないこと）に比べて小さい
+- 1/E でまとめた減速材の核は、xlc の行より群から出る移行が 0.22% 大きい（xlc の行の和は OpenMC の行の和より 0.19% 小さい）。
+  ADR-0133 の 4〜10 eV の H in H2O の散乱断面積の約 0.2% の差が候補で、確かめていない。その k への寄与は状態の間でほぼ変わらない
+  （減速材の 27 群で −15.7、−12.9、−2.4 pcm。同じ行の差の重みが状態で違う）
+- 燃料の 27 群から出る移行は、xlc が OpenMC より 2A-40 で 16.4%、MOX-1 で 13.5% 小さく、OpenMC の核を xlc の UFG の燃料の中性子束で
+  まとめると 0.4% 以内で合う。燃料の「核 × 1/E」は、群の中の弾性散乱の自己遮蔽も外す（無限希釈の重み）ので、核の差でなく、表の
+  群の中の重みの列も核と自己遮蔽の両方を含む
+- 修正方法の案は ADR-0207（proposed。UFG の範囲の群の散乱行列の移行の形を、等価なセルのリングの UFG の中性子束で縮約する）
+- MOX-1 の k は xlc（S(α,β) の速い方法）1.160886、OpenMC 1.16308 ± 0.00016 で、差は −220 pcm（1C の 0 MWd/kg は +32 pcm。
+  `logs/MOX1-transfer.txt`）。原因は調べていない
+
 ### 集合体での自由ガスの散乱核（ADR-0203、ADR-0204）
 
 ピンセルで測った軽い核種と重い核種の自由ガスの散乱核（上の 2 つの節）を、集合体の燃焼の 2A と 2O に入れ、OpenMC との k∞ の差が
