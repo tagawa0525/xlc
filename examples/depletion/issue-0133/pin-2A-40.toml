@@ -1,6 +1,8 @@
 # #0133 の試行: VERA 1C のピンセル（../../vera/p1/pincell-1C.toml と同じ形状、温度、離散化。燃料は 1 リング）に、OpenMC の 2A の燃焼の 40 MWd/kg（39 の組の体積の平均。1C で輸送する核種のうち 2A の結果にあるもの）
 # の燃料の組成を置いた 1 つの状態。OpenMC の反応率（openmc_pin_rates*.py）と移行（openmc_pin_transfer.py）と同じ組成。
 library = "../depletion.msgpack"
+ufg-scattering = "static"
+ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
