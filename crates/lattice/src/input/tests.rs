@@ -1512,6 +1512,26 @@ fn history_branches_need_branches_shielding_and_a_lattice_table() {
 }
 
 #[test]
+fn history_micro_nuclides_are_distinct_names_of_an_unsplit_table() {
+    // 書かなければミクロ燃焼の微視的断面積を作らない（ADR-0216）
+    let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
+    assert!(input.history.unwrap().micro.is_empty());
+    let micro = |list: &str| history_branches(&format!("{HISTORY}micro = {list}\n"));
+    let input = LatticeInput::parse(&micro(r#"["U-235", "Xe-135"]"#)).unwrap();
+    assert_eq!(input.history.unwrap().micro, vec!["U-235", "Xe-135"]);
+    for bad in ["[]", r#"["U-235", "U-235"]"#, r#"["uranium"]"#] {
+        assert!(LatticeInput::parse(&micro(bad)).is_err(), "{bad}");
+    }
+    // 格子全体で均質化するので、部分ノードに分けたテーブルとは組めない
+    let split = micro(r#"["U-235"]"#).replace(
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5], split = 2 }",
+    );
+    let err = LatticeInput::parse(&split).unwrap_err();
+    assert!(err.to_string().contains("split"), "{err}");
+}
+
+#[test]
 fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
     // 分岐の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は公称のホウ素の自己遮蔽を使う。履歴のない分岐も同じ
     let with = |value: &str| {

@@ -411,6 +411,7 @@ struct HistoryEntry {
     file: PathBuf,
     burnup: Vec<f64>,
     off_nominal_burnup: Option<Vec<f64>>,
+    micro: Option<Vec<String>>,
 }
 
 /// 燃焼の条件（ADR-0173）
@@ -1216,6 +1217,7 @@ impl LatticeInput {
                     file: h.file,
                     burnup: h.burnup,
                     off_nominal,
+                    micro: h.micro.unwrap_or_default(),
                 })
             })
             .transpose()

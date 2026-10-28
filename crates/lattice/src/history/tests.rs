@@ -734,3 +734,219 @@ fn pair_subgrid_states_shield_like_the_product_states() {
     assert_eq!(pair_solves, 2 * 4);
     assert_eq!(all_solves, 2 * 4);
 }
+
+/// 分岐の状態 `index` を自己遮蔽と MOC（`tight`）で解いた、自己遮蔽の結果と MOC の解
+fn solved(
+    text: &str,
+    library: &Library,
+    branches: &HistoryBranches,
+    index: usize,
+) -> (Setup, crate::shielding::FuelShielding, crate::moc::Solution) {
+    let s = setup(text);
+    let shielded = shield_fuel_with(
+        library,
+        &s.tracking,
+        &branches.state(index),
+        &branches.region_materials,
+        s.chosen.shielding(),
+        &s.input.shielding_options(),
+    )
+    .unwrap();
+    let regions: Vec<&Material> = shielded
+        .region_material
+        .iter()
+        .map(|&i| &shielded.materials[i])
+        .collect();
+    let options = Options {
+        scattering_order: available_order(&regions),
+        ..tight()
+    };
+    let solution = solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc()).unwrap();
+    (s, shielded, solution)
+}
+
+/// 少数群の境界（テストのライブラリの群と同じ 2 群）
+const BOUNDS: [f64; 3] = [1.0e7, 0.625, 1.0e-5];
+
+#[test]
+fn micro_densities_are_volume_averages_of_the_history_over_the_lattice() {
+    let (history, library) = history();
+    let text = format!(
+        "{}micro = [\"U-235\", \"Xe-135\", \"U-238\"]\n",
+        branch_input("[0, 0.5, 2.0]", "[600]")
+    );
+    let branches = branches_of(&text, &history, &library).unwrap();
+    assert_eq!(branches.micro_nuclides(), ["U-235", "Xe-135", "U-238"]);
+    // 格子の体積はピッチ 1.26 cm の正方形
+    let lattice = 1.26 * 1.26;
+    for (k, point) in [0, 2, 3].into_iter().enumerate() {
+        for (j, name) in ["U-235", "Xe-135", "U-238"].into_iter().enumerate() {
+            let i = history.nuclides.iter().position(|n| n == name).unwrap();
+            let want: f64 = history
+                .regions
+                .iter()
+                .zip(&history.points[point].densities)
+                .map(|(d, n)| d.volume * n[i].max(0.0))
+                .sum::<f64>()
+                / lattice;
+            let got = branches.micro_densities()[k][j];
+            assert!(
+                (got - want).abs() <= 1e-14 * want.abs(),
+                "{name} at point {point}: {got} vs {want}"
+            );
+        }
+    }
+    // 燃焼度 0 の Xe-135 は 0
+    assert_eq!(branches.micro_densities()[0][1], 0.0);
+}
+
+#[test]
+fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() {
+    // 輸送するすべての核種を追えば、Σᵢ σᵢ N̄ᵢ は少数群定数のうち燃焼させた物質の分（MOC の中性子束と SPH 因子を掛けた物質で
+    // 均質化したもの）と丸めの範囲で同じ（ADR-0216）
+    let (history, library) = history();
+    let names: Vec<String> = history
+        .transportable
+        .iter()
+        .map(|n| format!("\"{n}\""))
+        .collect();
+    let text = format!(
+        "{}micro = [{}]\n",
+        branch_input("[0, 2.0]", "[600]"),
+        names.join(", ")
+    );
+    let branches = branches_of(&text, &history, &library).unwrap();
+    for index in 0..branches.len() {
+        let (s, shielded, solution) = solved(&text, &library, &branches, index);
+        let micro = branches
+            .micro(
+                index,
+                &library,
+                &shielded,
+                &s.tracking.lattice,
+                &solution,
+                &BOUNDS,
+            )
+            .unwrap();
+        let point = index / (branches.len() / 2);
+        let densities = &branches.micro_densities()[point];
+        let fuel: Vec<usize> = regions_of(&branches.region_materials, |n| n.contains('@'));
+        // 群ごとの中性子束と、燃焼させた物質の反応率
+        let flux: Vec<f64> = (0..2)
+            .map(|g| {
+                (0..solution.volumes.len())
+                    .map(|r| solution.volumes[r] * solution.flux[r][g])
+                    .sum()
+            })
+            .collect();
+        let part = |value: &dyn Fn(&Material, usize) -> f64, g: usize| -> f64 {
+            fuel.iter()
+                .map(|&r| {
+                    let m = &shielded.materials[shielded.region_material[r]];
+                    solution.volumes[r] * solution.flux[r][g] * value(m, g)
+                })
+                .sum::<f64>()
+                / flux[g]
+        };
+        let sum = |value: &dyn Fn(&xlc_format::table::MicroNuclide) -> f64| -> f64 {
+            micro.iter().zip(densities).map(|(m, n)| n * value(m)).sum()
+        };
+        let close = |got: f64, want: f64, what: &str| {
+            assert!(
+                (got - want).abs() <= 1e-12 * want.abs().max(1e-300),
+                "state {index} {what}: {got} vs {want}"
+            );
+        };
+        for g in 0..2 {
+            close(sum(&|m| m.total[g]), part(&|m, g| m.total[g], g), "total");
+            close(
+                sum(&|m| m.nu_fission[g]),
+                part(&|m, g| m.nu_fission[g], g),
+                "nu-fission",
+            );
+            close(
+                sum(&|m| m.fission[g]),
+                part(&|m, g| m.fission[g], g),
+                "fission",
+            );
+            for to in 0..2 {
+                close(
+                    sum(&|m| m.scatter[g][to]),
+                    part(&|m, g| m.scatter[g][to], g),
+                    "scatter",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn micro_reactions_follow_the_library_chain_reactions_and_split_fissions_at_the_yield_cutoff() {
+    let (history, library) = history();
+    let text = format!(
+        "{}micro = [\"U-235\", \"Xe-135\"]\n",
+        branch_input("[0, 2.0]", "[600]")
+    );
+    let branches = branches_of(&text, &history, &library).unwrap();
+    // 燃焼度 0 の公称（1000 ppm）の状態。Xe-135 の数密度は 0 で、燃料の中で一様に重みを付ける
+    let index = 1;
+    let (s, shielded, solution) = solved(&text, &library, &branches, index);
+    let micro = branches
+        .micro(
+            index,
+            &library,
+            &shielded,
+            &s.tracking.lattice,
+            &solution,
+            &BOUNDS,
+        )
+        .unwrap();
+    let (u235, xe135) = (&micro[0], &micro[1]);
+    // テストのライブラリのチェーンの反応は、状態に分けない捕獲だけ
+    for m in [u235, xe135] {
+        assert_eq!(m.reactions.len(), 1);
+        assert_eq!(m.reactions[0].mt, 102);
+        assert_eq!(m.reactions[0].channels.len(), 1);
+        // 経路が 1 つなら、捕獲の経路の断面積は吸収から核分裂を引いたもの（テストのライブラリは散乱、核分裂、捕獲だけ）
+        for g in 0..2 {
+            let absorption = m.total[g] - m.scatter[g].iter().sum::<f64>();
+            let capture = m.reactions[0].channels[0][g];
+            assert!(
+                (capture - (absorption - m.fission[g])).abs() <= 1e-12 * capture,
+                "{capture} vs {absorption} - {}",
+                m.fission[g]
+            );
+        }
+    }
+    assert!(xe135.total.iter().all(|s| s.is_finite() && *s > 0.0));
+    assert_eq!(xe135.thermal_fission, None);
+    // 収率の境界 √(0.0253 · 5e5) eV は速い群（0.625 eV〜10 MeV）の中にあり、レサジーの幅の比で分ける（ADR-0183）。少数群の
+    // 核分裂率は σf × 中性子束で、細かい群と少数群が同じなので、割合はその比で決まる
+    let cutoff = (0.0253_f64 * 5.0e5).sqrt();
+    let below = (cutoff / 0.625).ln() / (1.0e7 / 0.625_f64).ln();
+    let flux: Vec<f64> = (0..2)
+        .map(|g| {
+            (0..solution.volumes.len())
+                .map(|r| solution.volumes[r] * solution.flux[r][g])
+                .sum()
+        })
+        .collect();
+    let rates = [u235.fission[0] * flux[0], u235.fission[1] * flux[1]];
+    let want = (rates[1] + below * rates[0]) / (rates[0] + rates[1]);
+    let got = u235.thermal_fission.unwrap();
+    assert!((got - want).abs() <= 1e-12, "{got} vs {want}");
+}
+
+#[test]
+fn micro_nuclides_must_be_transported_in_the_history() {
+    let (history, library) = history();
+    // U-236 はチェーンにあるがライブラリにない（輸送しない）。Pu-239 は履歴の核種でない
+    for name in ["U-236", "Pu-239"] {
+        let text = format!(
+            "{}micro = [\"U-235\", \"{name}\"]\n",
+            branch_input("[0.5]", "[600]")
+        );
+        let err = branches_of(&text, &history, &library).unwrap_err();
+        assert!(format!("{err:#}").contains(name), "{err:#}");
+    }
+}

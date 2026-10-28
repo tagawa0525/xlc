@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
 use xlc_format::library::Library;
-use xlc_format::table::Axis;
+use xlc_format::table::{Axis, MicroNuclide};
 
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, check_negative, check_region_names, depletion_regions,
@@ -28,6 +28,8 @@ use crate::depletion::{
 };
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
+use crate::moc::Solution;
+use crate::shielding::FuelShielding;
 use crate::symmetry::Chosen;
 
 /// 入力の `[history]`（ADR-0187）。
@@ -39,6 +41,8 @@ pub struct HistoryInput {
     pub burnup: Vec<f64>,
     /// 公称でない状態を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
     pub off_nominal: Vec<f64>,
+    /// ミクロ燃焼で追う核種（ADR-0216）。空なら微視的断面積を作らない
+    pub micro: Vec<String>,
 }
 
 /// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
@@ -70,6 +74,10 @@ pub struct HistoryBranches {
     nominal: Option<usize>,
     /// 燃焼度の点ごとに、公称でない状態を解くか
     off_nominal: Vec<bool>,
+    /// ミクロ燃焼で追う核種の名前（ADR-0216）
+    micro_nuclides: Vec<String>,
+    /// [燃焼度の点][追う核種] の均質化した数密度 (1/(barn cm))
+    micro_densities: Vec<Vec<f64>>,
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
@@ -369,6 +377,8 @@ pub fn history_branches(
             .collect(),
         nominal: branches.nominal_state(),
         off_nominal,
+        micro_nuclides: Vec::new(),
+        micro_densities: Vec::new(),
     })
 }
 
@@ -406,6 +416,29 @@ impl HistoryBranches {
     /// 燃焼度の点 `point` の、参照 `reference`（ホウ素が公称）の解く物質
     pub fn reference_state(&self, point: usize, reference: usize) -> Vec<MaterialInput> {
         self.materials(point, &self.references[reference])
+    }
+
+    /// ミクロ燃焼で追う核種の名前（入力の `micro` の順）
+    pub fn micro_nuclides(&self) -> &[String] {
+        &self.micro_nuclides
+    }
+
+    /// [燃焼度の点][追う核種] の、格子で均質化した数密度 (1/(barn cm))
+    pub fn micro_densities(&self) -> &[Vec<f64>] {
+        &self.micro_densities
+    }
+
+    /// 状態 `index` の追う核種の少数群（境界 `bounds`）の微視的断面積（ADR-0216）
+    pub fn micro(
+        &self,
+        _index: usize,
+        _library: &Library,
+        _shielding: &FuelShielding,
+        _lattice: &Lattice,
+        _solution: &Solution,
+        _bounds: &[f64],
+    ) -> anyhow::Result<Vec<MicroNuclide>> {
+        bail!("micro cross sections are not implemented")
     }
 
     /// 燃焼度の点 `point` の、燃焼させない物質と燃焼の領域の温度が `branch` の状態の解く物質
