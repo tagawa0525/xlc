@@ -95,24 +95,35 @@ fn init_logging() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `RAYON_NUM_THREADS` がなければ、rayon のスレッドの数を、このプロセスに許された論理 CPU（SMT のハードウェアスレッドを
-/// 含む。affinity と cgroup の CPU の上限で抑えた数）の数にする（ADR-0214）。決まったスレッドの数をログに出す。
+/// rayon のスレッドの数を、`RAYON_NUM_THREADS`（正の整数）があればその数、なければこのプロセスに許された論理 CPU（SMT の
+/// ハードウェアスレッドを含む。affinity と cgroup の CPU の上限で抑えた数）の数にし（ADR-0214）、その数と、決めたものをログに出す。
 #[allow(
     clippy::disallowed_methods,
-    reason = "RAYON_NUM_THREADS は並列の数だけを選び、結果を変えない（ADR-0137、ADR-0198）"
+    reason = "RAYON_NUM_THREADS は並列の数だけを選ぶ。出力が数によらないかは未確認（#0060、ADR-0137）"
 )]
 fn use_allowed_cpus() -> anyhow::Result<()> {
-    // rayon の既定のプールも available_parallelism の数だが、求められないときに黙って 1 にするので、自分で作る
-    let from = if std::env::var_os("RAYON_NUM_THREADS").is_none() {
-        let allowed = std::thread::available_parallelism().context("available CPUs")?;
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(allowed.get())
-            .build_global()
-            .context("thread pool")?;
-        "allowed CPUs"
-    } else {
-        "RAYON_NUM_THREADS"
+    // rayon に変数を読ませないのは、正の整数でない値と、available_parallelism が求められないときに、黙って既定や 1 にするため
+    let (threads, from) = match std::env::var("RAYON_NUM_THREADS") {
+        Ok(value) => {
+            let threads = value
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| n > 0)
+                .ok_or_else(|| {
+                    anyhow!("RAYON_NUM_THREADS must be a positive integer, got `{value}`")
+                })?;
+            (threads, "RAYON_NUM_THREADS")
+        }
+        Err(VarError::NotPresent) => {
+            let allowed = std::thread::available_parallelism().context("available CPUs")?;
+            (allowed.get(), "default")
+        }
+        Err(error @ VarError::NotUnicode(_)) => return Err(anyhow!("RAYON_NUM_THREADS: {error}")),
     };
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .context("thread pool")?;
     tracing::info!(threads = rayon::current_num_threads(), from, "thread pool");
     Ok(())
 }
