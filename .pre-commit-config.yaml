@@ -40,9 +40,10 @@ repos:
       - id: references-shell
         name: references-shell.txt matches the references devShell
         # references-shell のステージは always_changed で dvc repro まで書き直されないので、flake の変更で食い違っても
-        # dvc status に出ない（ADR-0212、#0183）
+        # dvc status に出ない（ADR-0212、#0183）。devShell は flake.nix と flake.lock のほかに flake.nix が読むファイル
+        # （docs/patches/ の NJOY のパッチなど）でも変わるので、並びをコピーせずにすべてのコミットで比べる（評価は 1 秒ほど）
         entry: scripts/check-references-shell.sh
         language: system
-        files: ^(flake\.(nix|lock)|(.*/)?references-shell\.txt)$
+        always_run: true
         pass_filenames: false # 渡されたファイルでなく、追跡しているすべての references-shell.txt を見る
         verbose: true

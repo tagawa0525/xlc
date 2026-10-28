@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-references-shell.sh — references の devShell の store のパスと、追跡している references-shell.txt を比べる
-# （.pre-commit-config.yaml の references-shell が、flake.nix、flake.lock、references-shell.txt を変えるコミットで呼ぶ）
+# （.pre-commit-config.yaml の references-shell が、すべてのコミットで呼ぶ）
 #
 # Usage: scripts/check-references-shell.sh（リポジトリのどこからでもよい）
 #
@@ -24,6 +24,11 @@ shell=$(nix eval --raw .#devShells.x86_64-linux.references.outPath)
 
 stale=()
 for record in "${records[@]}"; do
+  if [[ ! -f "$record" ]]; then
+    echo "FAILED: $record は追跡しているが、作業ツリーに無い" >&2
+    stale+=("$record")
+    continue
+  fi
   recorded=$(<"$record")
   if [[ "$recorded" != "$shell" ]]; then
     echo "FAILED: $record は $recorded、references の devShell は $shell" >&2
