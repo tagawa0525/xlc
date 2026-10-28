@@ -10,9 +10,9 @@
 //!
 //! - `<核種>:<最初の群>-<最後の群>`: 燃料の核種の吸収と核分裂。核種を `*` にすると、OpenMC の反応率のある燃料の全核種
 //! - `<核種>!<最初の群>-<最後の群>`: 燃料の核種の、捕獲と核分裂のほかの吸収（(n,p)、(n,α) など。`--absorption`。
-//!   openmc_pin_rates.py の出力の `rates` の `absorption`、`(n,gamma)`、`fission`）。`*` は `:` と同じ
+//!   openmc_pin_rates.py の出力の `rates` の `absorption`、`(n,gamma)`、`fission`）。`*` は `--absorption` の出力に反応率のある燃料の全核種
 //! - `<核種>^<最初の群>-<最後の群>`: 燃料の核種の中性子の過剰（(n,2n) などの多重度の分。`--excess`。openmc_pin_excess.py の
-//!   出力）。`*` は `:` と同じ
+//!   出力）。`*` は `--excess` の出力に反応率のある燃料の全核種
 //! - `@<物質>=<OpenMC の物質>:<最初の群>-<最後の群>`: 物質（被覆管、減速材など。xlc の入力の名前）の吸収（`--materials`。
 //!   openmc_pin_rates.py の出力の `materials` の `flux` と `absorption`）
 //! - `~<物質>:<最初の群>-<最後の群>`: 物質の散乱の移行の行（`--transfer`。openmc_pin_transfer.py の出力の `materials`。物質の
@@ -500,7 +500,8 @@ fn groups_of(part: &str, range: &str, ng: usize) -> anyhow::Result<Range<usize>>
     Ok(first - 1..last)
 }
 
-/// 置き換えの 1 行を部分の並びにする（燃料の核種の `*` は、OpenMC の反応率のある燃料の全核種に開く）
+/// 置き換えの 1 行を部分の並びにする（燃料の核種の `*` は、値を取る OpenMC の出力（`:` は `reference`、`!` と `^` は `sources`）に
+/// 反応率のある燃料の全核種に開く）
 fn parse(
     spec: &str,
     fuel: &[String],
@@ -940,16 +941,16 @@ fn main() -> anyhow::Result<()> {
         .collect::<anyhow::Result<Vec<_>>>()?
         .into_iter()
         .unzip();
+    let sources = Sources {
+        absorption: absorption_reference.as_ref(),
+        excess: excess_reference.as_ref(),
+    };
     for spec in &specs {
         let mut ratios: BTreeMap<String, Ratio> = BTreeMap::new();
         // 核種ごとの、全断面積に足す捕獲と核分裂のほかの吸収の差と、中性子の過剰の差 (barn)
         let mut shifts: BTreeMap<String, (Vec<f64>, Vec<f64>)> = BTreeMap::new();
         let mut changes: BTreeMap<String, MaterialChange> = BTreeMap::new();
         let mut chi = false;
-        let sources = Sources {
-            absorption: absorption_reference.as_ref(),
-            excess: excess_reference.as_ref(),
-        };
         for part in parse(spec, &fuel, &reference, &sources, ng)? {
             match part {
                 Swap::Nuclide(name, groups) => {
