@@ -105,7 +105,7 @@ const ERFCX_REFERENCE: &[(f64, f64, f64)] = &[
     (1e+200, 5.641895835477563e-201, 3.5981468851464104e-217),
 ];
 
-/// [`ERFCX_REFERENCE`] と同じ作り方の、負の x の erfcx。x² が丸めなしで表せる点と、−26〜0 の一様な乱数 3 万点で誤差が大きかった点（exp(x²) を 1/16 と 2⁻²¹ で分けたとき）
+/// [`ERFCX_REFERENCE`] と同じ作り方の、負の x の erfcx。x² が丸めなしで表せる点と、ADR-0211 の計測で誤差が大きかった点
 const ERFCX_NEGATIVE_REFERENCE: &[(f64, f64, f64)] = &[
     (-0.25, 1.358642370104722, 7.228199234484179e-18),
     (
@@ -206,10 +206,11 @@ const ERF_REFERENCE: &[(f64, f64, f64)] = &[
     (6.0, 1.0, -2.1519736712498913e-17),
 ];
 
-/// `actual` の、多倍長の値 hi + lo からの差を、hi の ulp で数える。ulp は hi から値の側の隣の浮動小数点数までの間隔（hi が 2 の
-/// 冪で値がその下にあるとき、上の間隔で数えると誤差を半分に数える）
+/// `actual` の、多倍長の値 hi + lo からの差を、hi の ulp で数える。ulp は hi から値の側（lo = 0 なら actual の側）の隣の浮動小数点数
+/// までの間隔（hi が 2 の冪でその下を上の間隔で数えると、誤差を半分に数える）
 fn ulp_error(actual: f64, hi: f64, lo: f64) -> f64 {
-    let neighbour = if lo < 0.0 {
+    let below = if lo == 0.0 { actual < hi } else { lo < 0.0 };
+    let neighbour = if below {
         hi.to_bits() - 1
     } else {
         hi.to_bits() + 1
