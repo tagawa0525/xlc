@@ -47,7 +47,7 @@ references の devShell の store のパスが、NJOY と OpenMC のステージ
 - 足した Python のパッケージを参照のステージが使わない（検証用のツールやテストだけが使う）なら、flake.nix の
   referencesPythonPackages でなく pythonPackages に足す。references の devShell が変わらなくなり、この検査が通る
 - 参照のステージのツール（NJOY、OpenMC、referencesPython）を変えたなら、default の devShell で次を実行して
-  references-shell.txt をコミットする。参照のステージは changed になり、結果が要るときに再実行する（ADR-0130）。
+  references-shell.txt と、同じ実行が書き換える dvc.lock の references-shell の項をコミットする。参照のステージは changed になり、結果が要るときに再実行する（ADR-0130）。
   dvc commit で lock を付け直さない（ADR-0212 の「(b)」の対象外）
 MSG
 for record in "${stale[@]}"; do
