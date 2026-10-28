@@ -114,6 +114,21 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(nominal, {"density": case})
 
+    def test_fresh_tables_must_reproduce_their_history(self):
+        # 燃焼度 0 の組成は 3 本の履歴で同じなので、取り違えたテーブルは燃焼度 0 の k で分かる
+        nominal = history({0.0: 1.2, 10.0: 1.1}, 1.0)
+        for key, wrong in (("branch", 1.2), ("hybrid", 1.2), ("reverse", 1.0)):
+            case = {
+                "history": history({0.0: 1.0, 10.0: 0.95}, 1.1),
+                "branch": table({0.0: 1.0, 10.0: 0.94}),
+                "hybrid": table({0.0: 1.0, 10.0: 0.948}),
+                "reverse": table({0.0: 1.2, 10.0: 1.105}),
+                "reverse_hybrid": table({0.0: 1.2, 10.0: 1.104}),
+            }
+            case[key] = table({0.0: wrong, 10.0: 0.94})
+            with self.subTest(key), self.assertRaises(SystemExit):
+                c.compare(nominal, {"density": case})
+
     def test_tables_varying_another_axis_are_errors(self):
         t = table({0.0: 1.0})
         t["axes"][1]["points"] = [0.0, 1300.0]
