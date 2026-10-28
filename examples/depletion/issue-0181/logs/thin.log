@@ -1,0 +1,724 @@
+2026-10-28T06:04:42.894364Z  INFO xlc_lattice::symmetry: symmetry symmetry="all eight operations (1/8)" operations=8
+2026-10-28T06:04:43.681369Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=0 density=-0.0
+2026-10-28T06:04:43.686373Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=4.96ms time.idle=2.17µs
+2026-10-28T06:04:43.689323Z DEBUG shielding:dancoff: xlc_lattice::moc: regions held by the tallies of the track groups regions=104 crossed=3120
+2026-10-28T06:04:43.840117Z  INFO shielding:dancoff: xlc_lattice::shielding: close time.busy=154ms time.idle=1.34µs
+2026-10-28T06:04:43.842999Z DEBUG shielding:pin{cell=0}:carlvik: xlc_lattice::shielding: equivalence iterations iterations=5 nuclides=89 dilute=84
+2026-10-28T06:04:43.843019Z DEBUG shielding:pin{cell=0}:carlvik: xlc_lattice::shielding: close time.busy=2.86ms time.idle=711ns
+2026-10-28T06:04:43.879524Z DEBUG shielding:pin{cell=0}:equivalent-radius: xlc_lattice::shielding: close time.busy=35.1ms time.idle=1.91µs
+2026-10-28T06:04:43.908998Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="B-10" own=308 added=308
+2026-10-28T06:04:43.909017Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="B-11" own=56 added=50
+2026-10-28T06:04:43.909020Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="C-12" own=41 added=14
+2026-10-28T06:04:43.909022Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="C-13" own=36 added=2
+2026-10-28T06:04:43.909025Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="O-16" own=28 added=3
+2026-10-28T06:04:43.909036Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Al-27" own=358 added=358
+2026-10-28T06:04:43.909041Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-28" own=114 added=112
+2026-10-28T06:04:43.909053Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-29" own=137 added=136
+2026-10-28T06:04:43.909064Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-30" own=780 added=779
+2026-10-28T06:04:43.909080Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="P-31" own=52 added=41
+2026-10-28T06:04:43.909095Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-50" own=426 added=426
+2026-10-28T06:04:43.909110Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-52" own=405 added=405
+2026-10-28T06:04:43.909128Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-53" own=771 added=771
+2026-10-28T06:04:43.909167Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-54" own=628 added=628
+2026-10-28T06:04:43.909195Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Mn-55" own=2219 added=2203
+2026-10-28T06:04:43.909274Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-54" own=1145 added=1144
+2026-10-28T06:04:43.909290Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-56" own=570 added=559
+2026-10-28T06:04:43.909317Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-57" own=2189 added=2187
+2026-10-28T06:04:43.909339Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-58" own=1446 added=1446
+2026-10-28T06:04:43.909364Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-58" own=884 added=884
+2026-10-28T06:04:43.909391Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-60" own=1044 added=1008
+2026-10-28T06:04:43.909532Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-61" own=3257 added=3256
+2026-10-28T06:04:43.909543Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-62" own=532 added=532
+2026-10-28T06:04:43.909553Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-64" own=602 added=602
+2026-10-28T06:04:43.909588Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-90" own=1886 added=1886
+2026-10-28T06:04:43.909947Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-91" own=12093 added=12093
+2026-10-28T06:04:43.909987Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-92" own=3371 added=3371
+2026-10-28T06:04:43.910019Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-94" own=2722 added=2722
+2026-10-28T06:04:43.910045Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-96" own=2272 added=2272
+2026-10-28T06:04:43.910163Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Mo-95" own=10464 added=10450
+2026-10-28T06:04:43.911100Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Tc-99" own=47575 added=47565
+2026-10-28T06:04:43.911233Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ru-101" own=9751 added=9734
+2026-10-28T06:04:43.912418Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Rh-103" own=30934 added=30918
+2026-10-28T06:04:43.912867Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ag-107" own=41513 added=41495
+2026-10-28T06:04:43.913512Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ag-109" own=46116 added=46078
+2026-10-28T06:04:43.915485Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-106" own=8777 added=8768
+2026-10-28T06:04:43.915668Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-108" own=10101 added=10092
+2026-10-28T06:04:43.915871Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-110" own=14867 added=14859
+2026-10-28T06:04:43.916129Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-111" own=20444 added=20427
+2026-10-28T06:04:43.916368Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-112" own=19359 added=19356
+2026-10-28T06:04:43.916748Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-113" own=30867 added=30850
+2026-10-28T06:04:43.916935Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-114" own=14521 added=14514
+2026-10-28T06:04:43.917052Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-116" own=9098 added=9092
+2026-10-28T06:04:43.917178Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="In-113" own=9391 added=9353
+2026-10-28T06:04:43.917544Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="In-115" own=27221 added=27180
+2026-10-28T06:04:43.917601Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-112" own=3928 added=3892
+2026-10-28T06:04:43.917655Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-114" own=3622 added=3590
+2026-10-28T06:04:43.917681Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-115" own=1636 added=1590
+2026-10-28T06:04:43.917929Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-116" own=16183 added=16182
+2026-10-28T06:04:43.918092Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-117" own=10126 added=10094
+2026-10-28T06:04:43.918136Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-118" own=2534 added=2501
+2026-10-28T06:04:43.918219Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-119" own=4752 added=4714
+2026-10-28T06:04:43.918383Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-120" own=8630 added=8629
+2026-10-28T06:04:43.918463Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-122" own=3508 added=3508
+2026-10-28T06:04:43.918520Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-124" own=2553 added=2552
+2026-10-28T06:04:43.918531Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="I-135" own=157 added=47
+2026-10-28T06:04:43.918546Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Xe-135" own=317 added=239
+2026-10-28T06:04:43.923705Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cs-133" own=28858 added=28825
+2026-10-28T06:04:43.924052Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Nd-143" own=23841 added=23794
+2026-10-28T06:04:43.924441Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Nd-145" own=27643 added=27594
+2026-10-28T06:04:43.924445Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pm-148m" own=22 added=0
+2026-10-28T06:04:43.924924Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-147" own=34465 added=34394
+2026-10-28T06:04:43.925218Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-149" own=21196 added=21137
+2026-10-28T06:04:43.925331Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-150" own=7973 added=7944
+2026-10-28T06:04:43.925529Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-151" own=14318 added=14275
+2026-10-28T06:04:43.925808Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-152" own=20446 added=20422
+2026-10-28T06:04:43.925910Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Eu-153" own=7133 added=7098
+2026-10-28T06:04:43.926288Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-152" own=27817 added=27791
+2026-10-28T06:04:43.926702Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-154" own=30991 added=30967
+2026-10-28T06:04:43.926838Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-155" own=9859 added=9803
+2026-10-28T06:04:43.927074Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-156" own=17159 added=17141
+2026-10-28T06:04:43.927217Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-157" own=10153 added=10098
+2026-10-28T06:04:43.927504Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-158" own=20494 added=20484
+2026-10-28T06:04:43.927685Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-160" own=12692 added=12682
+2026-10-28T06:04:43.928028Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-234" own=23526 added=23502
+2026-10-28T06:04:43.929060Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-235" own=65315 added=65271
+2026-10-28T06:04:43.929456Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-236" own=22439 added=22399
+2026-10-28T06:04:43.941848Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-238" own=146024 added=146000
+2026-10-28T06:04:43.942491Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Np-237" own=30648 added=30613
+2026-10-28T06:04:43.942499Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Np-239" own=118 added=1
+2026-10-28T06:04:43.942755Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-238" own=12501 added=12384
+2026-10-28T06:04:43.944003Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-239" own=62268 added=62231
+2026-10-28T06:04:43.945350Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-240" own=69519 added=69484
+2026-10-28T06:04:43.945637Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-241" own=15104 added=15074
+2026-10-28T06:04:43.945900Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-242" own=13811 added=13788
+2026-10-28T06:04:43.946172Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Am-241" own=14288 added=14237
+2026-10-28T06:04:43.946299Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Am-243" own=6487 added=6447
+2026-10-28T06:04:43.946393Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cm-242" own=4541 added=4471
+2026-10-28T06:04:43.946710Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cm-244" own=17167 added=17117
+2026-10-28T06:04:43.946715Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="H-1" own=113 added=16
+2026-10-28T06:04:44.825297Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::track_table: track table nodes=6600 derivatives=0
+2026-10-28T06:04:48.137488Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-28T06:04:50.870389Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08521620837174884
+2026-10-28T06:04:53.600649Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.00248565834038895
+2026-10-28T06:04:53.600703Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: TRIAL free-gas split cells=29076456 evaluations=60868665 integrates=153645384 calls=7998 build=4.313922656 integrate=2.517218808
+2026-10-28T06:04:53.600706Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG slowing down points=94887 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000614739 grid=0.29346524 table=0.651663985 evaluate=0.139067933 collision=0.103023008 slowing=8.518469534 free_gas=7.2123340129999995 sab=0.565284211
+2026-10-28T06:04:56.560179Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG transfers counted seconds=2.756788031
+2026-10-28T06:04:56.561695Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: close time.busy=12.7s time.idle=1.93µs
+2026-10-28T06:04:56.580063Z DEBUG shielding:pin{cell=0}:ring-materials: xlc_lattice::shielding: close time.busy=18.3ms time.idle=1.88µs
+2026-10-28T06:04:56.591022Z DEBUG shielding:pin{cell=0}:sph: xlc_lattice::shielding: close time.busy=10.8ms time.idle=982ns
+2026-10-28T06:04:56.591444Z DEBUG shielding:pin{cell=0}: xlc_lattice::shielding: close time.busy=12.8s time.idle=1.97µs
+2026-10-28T06:04:56.594422Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=0.0 solved=0.002956424
+2026-10-28T06:04:56.595056Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=618µs time.idle=1.71µs
+2026-10-28T06:04:56.595068Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=731ns time.idle=772ns
+2026-10-28T06:04:56.595071Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=1 solved=1 points_min=Some(94887) points_max=Some(94887) points_sum=94887
+2026-10-28T06:04:56.595077Z  INFO shielding: xlc_lattice::shielding: close time.busy=12.9s time.idle=1.77µs
+2026-10-28T06:04:56.595256Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: track volumes against the exact areas regions=104 worst_region=43 cell=0 relative_error=-0.032058363848172844
+2026-10-28T06:04:56.595366Z  INFO moc{regions=104 tracks=1636}: xlc_lattice::moc::symmetric: symmetry tracks=1636 representative_tracks=221 regions=104 representative_regions=13 cells=1 representative_cells=1
+2026-10-28T06:04:56.595851Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: regions held by the tallies of the track groups regions=104 crossed=1081
+2026-10-28T06:04:56.600996Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=0.2483970428453155
+2026-10-28T06:04:56.601128Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=1 k=0.2483970428453155 k_change=-0.7516029571546845 flux_change=0.9386205095691218
+2026-10-28T06:04:56.606151Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=0.2830565132476232
+2026-10-28T06:04:56.606279Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=2 k=0.2830565132476232 k_change=0.03465947040230771 flux_change=0.6500092912708991
+2026-10-28T06:04:56.611287Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.40623619721177084
+2026-10-28T06:04:56.611424Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=3 k=0.40623619721177084 k_change=0.12317968396414763 flux_change=0.49955338729609217
+2026-10-28T06:04:56.616431Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.5312207192169706
+2026-10-28T06:04:56.616559Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=4 k=0.5312207192169706 k_change=0.12498452200519972 flux_change=0.22568436519832646
+2026-10-28T06:04:56.621547Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.6435708145279239
+2026-10-28T06:04:56.621675Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=5 k=0.6435708145279239 k_change=0.1123500953109533 flux_change=0.13094630857796902
+2026-10-28T06:04:56.626660Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.741868768006398
+2026-10-28T06:04:56.626788Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=6 k=0.741868768006398 k_change=0.09829795347847414 flux_change=0.0956080658097304
+2026-10-28T06:04:56.631772Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.8282852401512226
+2026-10-28T06:04:56.631915Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=7 k=0.8282852401512226 k_change=0.08641647214482462 flux_change=0.07433153362959137
+2026-10-28T06:04:56.636929Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.895131702502239
+2026-10-28T06:04:56.637057Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=8 k=0.895131702502239 k_change=0.06684646235101632 flux_change=0.04699171892376708
+2026-10-28T06:04:56.642037Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=3 k=0.9524086543567917
+2026-10-28T06:04:56.642165Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=9 k=0.9524086543567917 k_change=0.05727695185455273 flux_change=0.03882886348600764
+2026-10-28T06:04:56.647158Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=0.9968514685485215
+2026-10-28T06:04:56.647285Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=10 k=0.9968514685485215 k_change=0.044442814191729796 flux_change=0.02428765984910667
+2026-10-28T06:04:56.652276Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.0335328698448472
+2026-10-28T06:04:56.652420Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=11 k=1.0335328698448472 k_change=0.03668140129632569 flux_change=0.017025897105674304
+2026-10-28T06:04:56.657400Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.064792561534742
+2026-10-28T06:04:56.657528Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=12 k=1.064792561534742 k_change=0.03125969168989484 flux_change=0.013389579604800469
+2026-10-28T06:04:56.662508Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.0849069530389794
+2026-10-28T06:04:56.662636Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=13 k=1.0849069530389794 k_change=0.02011439150423744 flux_change=0.009512983874167548
+2026-10-28T06:04:56.667623Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.105033683608899
+2026-10-28T06:04:56.667751Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=14 k=1.105033683608899 k_change=0.020126730569919538 flux_change=0.008880832859295133
+2026-10-28T06:04:56.672736Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.122224162031278
+2026-10-28T06:04:56.672864Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=15 k=1.122224162031278 k_change=0.017190478422379085 flux_change=0.010259960831799936
+2026-10-28T06:04:56.677889Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1352670423491475
+2026-10-28T06:04:56.678023Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=16 k=1.1352670423491475 k_change=0.013042880317869487 flux_change=0.006519483487783417
+2026-10-28T06:04:56.683023Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1437414140167177
+2026-10-28T06:04:56.683151Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=17 k=1.1437414140167177 k_change=0.008474371667570146 flux_change=0.00471727423546693
+2026-10-28T06:04:56.688139Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1502424797666804
+2026-10-28T06:04:56.688266Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=18 k=1.1502424797666804 k_change=0.006501065749962676 flux_change=0.004169964027749483
+2026-10-28T06:04:56.693261Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1586794175411341
+2026-10-28T06:04:56.693389Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=19 k=1.1586794175411341 k_change=0.008436937774453757 flux_change=0.005731188022985142
+2026-10-28T06:04:56.698402Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1619056875073217
+2026-10-28T06:04:56.698532Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=20 k=1.1619056875073217 k_change=0.0032262699661875782 flux_change=0.003297690938103049
+2026-10-28T06:04:56.703523Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.16729945041301
+2026-10-28T06:04:56.703650Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=21 k=1.16729945041301 k_change=0.005393762905688382 flux_change=0.003597458294583595
+2026-10-28T06:04:56.708639Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.170458638437988
+2026-10-28T06:04:56.708766Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=22 k=1.170458638437988 k_change=0.0031591880249779436 flux_change=0.0021518615011635483
+2026-10-28T06:04:56.713757Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1731218327933537
+2026-10-28T06:04:56.713886Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=23 k=1.1731218327933537 k_change=0.002663194355365661 flux_change=0.0021275200659084735
+2026-10-28T06:04:56.718926Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1754453596647685
+2026-10-28T06:04:56.719053Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=24 k=1.1754453596647685 k_change=0.002323526871414794 flux_change=0.0017523904385729676
+2026-10-28T06:04:56.724040Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1775049817498
+2026-10-28T06:04:56.724168Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=25 k=1.1775049817498 k_change=0.0020596220850315206 flux_change=0.0015669691679095525
+2026-10-28T06:04:56.729159Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.178943441243229
+2026-10-28T06:04:56.729287Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=26 k=1.178943441243229 k_change=0.0014384594934289119 flux_change=0.0012085202814988971
+2026-10-28T06:04:56.734274Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.18032211289045
+2026-10-28T06:04:56.734401Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=27 k=1.18032211289045 k_change=0.0013786716472210525 flux_change=0.001065357161105163
+2026-10-28T06:04:56.739375Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1813201567572151
+2026-10-28T06:04:56.739502Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=28 k=1.1813201567572151 k_change=0.0009980438667651637 flux_change=0.0008419254919987326
+2026-10-28T06:04:56.744500Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1823664939763294
+2026-10-28T06:04:56.744630Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=29 k=1.1823664939763294 k_change=0.0010463372191142906 flux_change=0.0012856534040123744
+2026-10-28T06:04:56.749624Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1832465295283456
+2026-10-28T06:04:56.749752Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=30 k=1.1832465295283456 k_change=0.0008800355520162118 flux_change=0.0010318239669029083
+2026-10-28T06:04:56.754733Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.183731510489181
+2026-10-28T06:04:56.754866Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=31 k=1.183731510489181 k_change=0.00048498096083537945 flux_change=0.0005181228114091148
+2026-10-28T06:04:56.759864Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1843195987197355
+2026-10-28T06:04:56.759994Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=32 k=1.1843195987197355 k_change=0.000588088230554451 flux_change=0.0006410675484759394
+2026-10-28T06:04:56.764979Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.184749878081644
+2026-10-28T06:04:56.765106Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=33 k=1.184749878081644 k_change=0.00043027936190842553 flux_change=0.0004588364750310981
+2026-10-28T06:04:56.770096Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1851234660769403
+2026-10-28T06:04:56.770223Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=34 k=1.1851234660769403 k_change=0.0003735879952964094 flux_change=0.00042423071620533104
+2026-10-28T06:04:56.775202Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1854376436480172
+2026-10-28T06:04:56.775330Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=35 k=1.1854376436480172 k_change=0.00031417757107687905 flux_change=0.00041547754847773586
+2026-10-28T06:04:56.780310Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1856986777670644
+2026-10-28T06:04:56.780438Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=36 k=1.1856986777670644 k_change=0.00026103411904720986 flux_change=0.0003314621599996883
+2026-10-28T06:04:56.785425Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.185936065925187
+2026-10-28T06:04:56.785553Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=37 k=1.185936065925187 k_change=0.00023738815812257563 flux_change=0.0003218601684637776
+2026-10-28T06:04:56.790546Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.186076693766407
+2026-10-28T06:04:56.790674Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=38 k=1.186076693766407 k_change=0.00014062784121993133 flux_change=0.0002449025595641612
+2026-10-28T06:04:56.795671Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1862770001051364
+2026-10-28T06:04:56.795799Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=39 k=1.1862770001051364 k_change=0.00020030633872947234 flux_change=0.0004391813873323103
+2026-10-28T06:04:56.800784Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1863891055196911
+2026-10-28T06:04:56.800914Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=40 k=1.1863891055196911 k_change=0.00011210541455475287 flux_change=0.00020413030683026338
+2026-10-28T06:04:56.805909Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.18650334653837
+2026-10-28T06:04:56.806039Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=41 k=1.18650334653837 k_change=0.00011424101867896219 flux_change=0.00022895321721655076
+2026-10-28T06:04:56.811026Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1865972500217439
+2026-10-28T06:04:56.811154Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=42 k=1.1865972500217439 k_change=9.390348337379173e-5 flux_change=0.00019501701064559356
+2026-10-28T06:04:56.816137Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1866865680792875
+2026-10-28T06:04:56.816265Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=43 k=1.1866865680792875 k_change=8.931805754364142e-5 flux_change=0.00023941603862190813
+2026-10-28T06:04:56.821250Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1867526837338285
+2026-10-28T06:04:56.821378Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=44 k=1.1867526837338285 k_change=6.61156545409547e-5 flux_change=0.00014706654069355374
+2026-10-28T06:04:56.826380Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.186816027194553
+2026-10-28T06:04:56.826507Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=45 k=1.186816027194553 k_change=6.334346072445207e-5 flux_change=0.000150858998740983
+2026-10-28T06:04:56.831503Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1868559596626276
+2026-10-28T06:04:56.831631Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=46 k=1.1868559596626276 k_change=3.993246807465489e-5 flux_change=9.604503362329892e-5
+2026-10-28T06:04:56.836618Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.186903692780334
+2026-10-28T06:04:56.836746Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=47 k=1.186903692780334 k_change=4.7733117706449946e-5 flux_change=0.00013350407107127105
+2026-10-28T06:04:56.841731Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1869390817400884
+2026-10-28T06:04:56.841859Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=48 k=1.1869390817400884 k_change=3.538895975441214e-5 flux_change=9.193511777023244e-5
+2026-10-28T06:04:56.846843Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1869661037961272
+2026-10-28T06:04:56.846973Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=49 k=1.1869661037961272 k_change=2.702205603877239e-5 flux_change=7.060551714246562e-5
+2026-10-28T06:04:56.851977Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1869973502838782
+2026-10-28T06:04:56.852105Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=50 k=1.1869973502838782 k_change=3.1246487750991037e-5 flux_change=0.0001258413276568027
+2026-10-28T06:04:56.857083Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1870160717023448
+2026-10-28T06:04:56.857216Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=51 k=1.1870160717023448 k_change=1.872141846659403e-5 flux_change=6.464995859703503e-5
+2026-10-28T06:04:56.862205Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1870351667547634
+2026-10-28T06:04:56.862333Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=52 k=1.1870351667547634 k_change=1.9095052418593994e-5 flux_change=6.529109347930804e-5
+2026-10-28T06:04:56.867333Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187051727451328
+2026-10-28T06:04:56.867461Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=53 k=1.187051727451328 k_change=1.6560696564527078e-5 flux_change=5.7284578575648744e-5
+2026-10-28T06:04:56.872454Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1870653199466086
+2026-10-28T06:04:56.872583Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=54 k=1.1870653199466086 k_change=1.3592495280656536e-5 flux_change=4.9435396979983266e-5
+2026-10-28T06:04:56.877571Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187076718856269
+2026-10-28T06:04:56.877699Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=55 k=1.187076718856269 k_change=1.139890966039836e-5 flux_change=4.1348996924048086e-5
+2026-10-28T06:04:56.882687Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1870859525965276
+2026-10-28T06:04:56.882815Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=56 k=1.1870859525965276 k_change=9.233740258629552e-6 flux_change=3.571155233971263e-5
+2026-10-28T06:04:56.887795Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1870956988554733
+2026-10-28T06:04:56.887956Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=57 k=1.1870956988554733 k_change=9.746258945675379e-6 flux_change=4.5004337086050246e-5
+2026-10-28T06:04:56.892945Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871024166747162
+2026-10-28T06:04:56.893073Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=58 k=1.1871024166747162 k_change=6.71781924288517e-6 flux_change=2.8148349829735423e-5
+2026-10-28T06:04:56.898070Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871090615187248
+2026-10-28T06:04:56.898197Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=59 k=1.1871090615187248 k_change=6.644844008585338e-6 flux_change=2.9979620161148606e-5
+2026-10-28T06:04:56.903191Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871140389824075
+2026-10-28T06:04:56.903319Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=60 k=1.1871140389824075 k_change=4.977463682775962e-6 flux_change=2.4486826525350978e-5
+2026-10-28T06:04:56.908297Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871189408023717
+2026-10-28T06:04:56.908425Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=61 k=1.1871189408023717 k_change=4.901819964153731e-6 flux_change=2.4124408617517513e-5
+2026-10-28T06:04:56.913416Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871226026169575
+2026-10-28T06:04:56.913543Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=62 k=1.1871226026169575 k_change=3.6618145857758577e-6 flux_change=1.7697577667893097e-5
+2026-10-28T06:04:56.918726Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187126346540583
+2026-10-28T06:04:56.918865Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=63 k=1.187126346540583 k_change=3.743923625565415e-6 flux_change=2.0826592451530685e-5
+2026-10-28T06:04:56.923966Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871288958077324
+2026-10-28T06:04:56.924097Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=64 k=1.1871288958077324 k_change=2.549267149376533e-6 flux_change=1.267668763726735e-5
+2026-10-28T06:04:56.929123Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187131718864454
+2026-10-28T06:04:56.929255Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=65 k=1.187131718864454 k_change=2.8230567215015157e-6 flux_change=1.7064292157187892e-5
+2026-10-28T06:04:56.934258Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871335511944998
+2026-10-28T06:04:56.934386Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=66 k=1.1871335511944998 k_change=1.832330045914432e-6 flux_change=1.0083447972583155e-5
+2026-10-28T06:04:56.939400Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871353945380634
+2026-10-28T06:04:56.939533Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=67 k=1.1871353945380634 k_change=1.8433435635678563e-6 flux_change=1.1460948826544086e-5
+2026-10-28T06:04:56.944530Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871371664537682
+2026-10-28T06:04:56.944658Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=68 k=1.1871371664537682 k_change=1.7719157048290413e-6 flux_change=1.2394877482919891e-5
+2026-10-28T06:04:56.949650Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871382777559985
+2026-10-28T06:04:56.949779Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=69 k=1.1871382777559985 k_change=1.1113022302389197e-6 flux_change=7.846764329045072e-6
+2026-10-28T06:04:56.954762Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871395419710529
+2026-10-28T06:04:56.954893Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=70 k=1.1871395419710529 k_change=1.2642150544195374e-6 flux_change=8.39409451009349e-6
+2026-10-28T06:04:56.959900Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187140560845664
+2026-10-28T06:04:56.960038Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=71 k=1.187140560845664 k_change=1.0188746111250424e-6 flux_change=6.980038787118352e-6
+2026-10-28T06:04:56.965032Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871414226511658
+2026-10-28T06:04:56.965160Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=72 k=1.1871414226511658 k_change=8.618055018505544e-7 flux_change=5.743204203001904e-6
+2026-10-28T06:04:56.970151Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187142176929248
+2026-10-28T06:04:56.970279Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=73 k=1.187142176929248 k_change=7.542780822156203e-7 flux_change=5.4319718622489875e-6
+2026-10-28T06:04:56.975299Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871428051710653
+2026-10-28T06:04:56.975427Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=74 k=1.1871428051710653 k_change=6.282418172354198e-7 flux_change=4.6860117322306084e-6
+2026-10-28T06:04:56.980416Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871433604115504
+2026-10-28T06:04:56.980543Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=75 k=1.1871433604115504 k_change=5.552404851449921e-7 flux_change=4.288343983013493e-6
+2026-10-28T06:04:56.985534Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871438289025844
+2026-10-28T06:04:56.985662Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=76 k=1.1871438289025844 k_change=4.684910339669557e-7 flux_change=3.841004697023638e-6
+2026-10-28T06:04:56.990658Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871442532478684
+2026-10-28T06:04:56.990786Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=77 k=1.1871442532478684 k_change=4.2434528402246485e-7 flux_change=3.6799151876164446e-6
+2026-10-28T06:04:56.995775Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871446030414852
+2026-10-28T06:04:56.995905Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=78 k=1.1871446030414852 k_change=3.4979361673848075e-7 flux_change=2.8048520559187494e-6
+2026-10-28T06:04:57.000900Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871449306310111
+2026-10-28T06:04:57.001028Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=79 k=1.1871449306310111 k_change=3.275895259502448e-7 flux_change=2.9035452992959227e-6
+2026-10-28T06:04:57.006034Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871451678889748
+2026-10-28T06:04:57.006166Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=80 k=1.1871451678889748 k_change=2.3725796371998342e-7 flux_change=2.1078663904488335e-6
+2026-10-28T06:04:57.011149Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871454244850386
+2026-10-28T06:04:57.011277Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=81 k=1.1871454244850386 k_change=2.565960637301856e-7 flux_change=2.524959524411328e-6
+2026-10-28T06:04:57.016267Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187145606778566
+2026-10-28T06:04:57.016395Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=82 k=1.187145606778566 k_change=1.8229352738430293e-7 flux_change=1.706999262853167e-6
+2026-10-28T06:04:57.021406Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871457986562677
+2026-10-28T06:04:57.021534Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=83 k=1.1871457986562677 k_change=1.9187770172734986e-7 flux_change=1.9246059820834137e-6
+2026-10-28T06:04:57.026527Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187145926328002
+2026-10-28T06:04:57.026655Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=84 k=1.187145926328002 k_change=1.276717342957312e-7 flux_change=1.2718621612773462e-6
+2026-10-28T06:04:57.031652Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871460690816578
+2026-10-28T06:04:57.031780Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=85 k=1.1871460690816578 k_change=1.4275365578519938e-7 flux_change=1.599298034852385e-6
+2026-10-28T06:04:57.036772Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871461831618149
+2026-10-28T06:04:57.036902Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=86 k=1.1871461831618149 k_change=1.140801570986838e-7 flux_change=1.2465504972028015e-6
+2026-10-28T06:04:57.041895Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871462715133843
+2026-10-28T06:04:57.042023Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=87 k=1.1871462715133843 k_change=8.835156939390743e-8 flux_change=9.309944678624851e-7
+2026-10-28T06:04:57.047013Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871463642355597
+2026-10-28T06:04:57.047142Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=88 k=1.1871463642355597 k_change=9.272217549316508e-8 flux_change=1.0735838589881193e-6
+2026-10-28T06:04:57.052134Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871464339177356
+2026-10-28T06:04:57.052262Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=89 k=1.1871464339177356 k_change=6.968217580727298e-8 flux_change=7.795091345042313e-7
+2026-10-28T06:04:57.057246Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187146497346368
+2026-10-28T06:04:57.057374Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=90 k=1.187146497346368 k_change=6.342863234642948e-8 flux_change=7.283045436523779e-7
+2026-10-28T06:04:57.062363Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871465555293588
+2026-10-28T06:04:57.062490Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=91 k=1.1871465555293588 k_change=5.8182990869681817e-8 flux_change=6.961527165825829e-7
+2026-10-28T06:04:57.067490Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871466041320415
+2026-10-28T06:04:57.067625Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=92 k=1.1871466041320415 k_change=4.8602682767295846e-8 flux_change=5.758373199409319e-7
+2026-10-28T06:04:57.072619Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871466456621533
+2026-10-28T06:04:57.072752Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=93 k=1.1871466456621533 k_change=4.153011179397481e-8 flux_change=5.11667240237015e-7
+2026-10-28T06:04:57.077748Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871466826999202
+2026-10-28T06:04:57.077877Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=94 k=1.1871466826999202 k_change=3.703776685348714e-8 flux_change=4.790389481001238e-7
+2026-10-28T06:04:57.082975Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871467131336133
+2026-10-28T06:04:57.083103Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=95 k=1.1871467131336133 k_change=3.043369312116795e-8 flux_change=3.991010440595848e-7
+2026-10-28T06:04:57.088093Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871467419121497
+2026-10-28T06:04:57.088222Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=96 k=1.1871467419121497 k_change=2.8778536442786162e-8 flux_change=3.928405062501868e-7
+2026-10-28T06:04:57.093232Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187146766346289
+2026-10-28T06:04:57.093359Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=97 k=1.187146766346289 k_change=2.4434139156426227e-8 flux_change=3.328318861089912e-7
+2026-10-28T06:04:57.098377Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.187146785333177
+2026-10-28T06:04:57.098505Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=98 k=1.187146785333177 k_change=1.8986888061789386e-8 flux_change=2.6441910447411125e-7
+2026-10-28T06:04:57.103497Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871468059245829
+2026-10-28T06:04:57.103624Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=99 k=1.1871468059245829 k_change=2.0591405913705785e-8 flux_change=3.0838603079271905e-7
+2026-10-28T06:04:57.108621Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1871468204644648
+2026-10-28T06:04:57.108749Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=100 k=1.1871468204644648 k_change=1.453988196509215e-8 flux_change=2.0342849048813258e-7
+2026-10-28T06:04:57.108781Z  INFO moc{regions=104 tracks=1636}: xlc_lattice::moc: close time.busy=514ms time.idle=1.13µs
+2026-10-28T06:04:57.111133Z  INFO xlc_lattice::depletion: depletion transport solve=1 k=1.1871468204644648 iterations=100 nuclides=89
+2026-10-28T06:04:57.152297Z  WARN xlc_lattice::depletion: decay only: no library data at the temperature of the depletion regions nuclides="H-1" density=1.343361967186401e-16
+2026-10-28T06:04:57.152312Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=1246 density=2.1755612516610166e-6
+2026-10-28T06:04:57.156960Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=4.63ms time.idle=983ns
+2026-10-28T06:04:57.157066Z DEBUG shielding: xlc_lattice::shielding: pin Dancoff factors reused
+2026-10-28T06:04:57.161598Z DEBUG shielding:pin{cell=0}:carlvik: xlc_lattice::shielding: equivalence iterations iterations=5 nuclides=89 dilute=20
+2026-10-28T06:04:57.161611Z DEBUG shielding:pin{cell=0}:carlvik: xlc_lattice::shielding: close time.busy=4.52ms time.idle=1.24µs
+2026-10-28T06:04:57.181504Z DEBUG shielding:pin{cell=0}:equivalent-radius: xlc_lattice::shielding: close time.busy=19.2ms time.idle=1.78µs
+2026-10-28T06:04:57.209418Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="B-10" own=308 added=308
+2026-10-28T06:04:57.209435Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="B-11" own=56 added=50
+2026-10-28T06:04:57.209447Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="C-12" own=41 added=14
+2026-10-28T06:04:57.209457Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="C-13" own=36 added=2
+2026-10-28T06:04:57.209460Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="O-16" own=28 added=3
+2026-10-28T06:04:57.209471Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Al-27" own=358 added=358
+2026-10-28T06:04:57.209476Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-28" own=114 added=112
+2026-10-28T06:04:57.209488Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-29" own=137 added=136
+2026-10-28T06:04:57.209500Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-30" own=780 added=779
+2026-10-28T06:04:57.209516Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="P-31" own=52 added=41
+2026-10-28T06:04:57.209532Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-50" own=426 added=426
+2026-10-28T06:04:57.209547Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-52" own=405 added=405
+2026-10-28T06:04:57.209564Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-53" own=771 added=771
+2026-10-28T06:04:57.209603Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-54" own=628 added=628
+2026-10-28T06:04:57.209632Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Mn-55" own=2219 added=2203
+2026-10-28T06:04:57.209712Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-54" own=1145 added=1144
+2026-10-28T06:04:57.209729Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-56" own=570 added=559
+2026-10-28T06:04:57.209756Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-57" own=2189 added=2187
+2026-10-28T06:04:57.209779Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-58" own=1446 added=1446
+2026-10-28T06:04:57.209803Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-58" own=884 added=884
+2026-10-28T06:04:57.209830Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-60" own=1044 added=1008
+2026-10-28T06:04:57.209977Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-61" own=3257 added=3256
+2026-10-28T06:04:57.209988Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-62" own=532 added=532
+2026-10-28T06:04:57.209999Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-64" own=602 added=602
+2026-10-28T06:04:57.210023Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-90" own=1886 added=1886
+2026-10-28T06:04:57.210377Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-91" own=12093 added=12093
+2026-10-28T06:04:57.210418Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-92" own=3371 added=3371
+2026-10-28T06:04:57.210450Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-94" own=2722 added=2722
+2026-10-28T06:04:57.210478Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-96" own=2272 added=2272
+2026-10-28T06:04:57.210597Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Mo-95" own=10464 added=10450
+2026-10-28T06:04:57.211552Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Tc-99" own=47575 added=47565
+2026-10-28T06:04:57.211690Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ru-101" own=9751 added=9734
+2026-10-28T06:04:57.212889Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Rh-103" own=30934 added=30918
+2026-10-28T06:04:57.213346Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ag-107" own=41513 added=41495
+2026-10-28T06:04:57.214009Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ag-109" own=46116 added=46078
+2026-10-28T06:04:57.215791Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-106" own=8777 added=8768
+2026-10-28T06:04:57.215925Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-108" own=10101 added=10092
+2026-10-28T06:04:57.216111Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-110" own=14867 added=14859
+2026-10-28T06:04:57.216369Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-111" own=20444 added=20427
+2026-10-28T06:04:57.216608Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-112" own=19359 added=19356
+2026-10-28T06:04:57.216987Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-113" own=30867 added=30850
+2026-10-28T06:04:57.217169Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-114" own=14521 added=14514
+2026-10-28T06:04:57.217285Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-116" own=9098 added=9092
+2026-10-28T06:04:57.217408Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="In-113" own=9391 added=9353
+2026-10-28T06:04:57.217769Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="In-115" own=27221 added=27180
+2026-10-28T06:04:57.217827Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-112" own=3928 added=3892
+2026-10-28T06:04:57.217881Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-114" own=3622 added=3590
+2026-10-28T06:04:57.217909Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-115" own=1636 added=1590
+2026-10-28T06:04:57.218153Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-116" own=16183 added=16182
+2026-10-28T06:04:57.218315Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-117" own=10126 added=10094
+2026-10-28T06:04:57.218360Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-118" own=2534 added=2501
+2026-10-28T06:04:57.218442Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-119" own=4752 added=4714
+2026-10-28T06:04:57.218601Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-120" own=8630 added=8629
+2026-10-28T06:04:57.218680Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-122" own=3508 added=3508
+2026-10-28T06:04:57.218737Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-124" own=2553 added=2552
+2026-10-28T06:04:57.218742Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="I-135" own=157 added=47
+2026-10-28T06:04:57.218750Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Xe-135" own=317 added=239
+2026-10-28T06:04:57.223918Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cs-133" own=28858 added=28825
+2026-10-28T06:04:57.224303Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Nd-143" own=23841 added=23794
+2026-10-28T06:04:57.224736Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Nd-145" own=27643 added=27594
+2026-10-28T06:04:57.224740Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pm-148m" own=22 added=0
+2026-10-28T06:04:57.225271Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-147" own=34465 added=34394
+2026-10-28T06:04:57.225587Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-149" own=21196 added=21137
+2026-10-28T06:04:57.225706Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-150" own=7973 added=7944
+2026-10-28T06:04:57.225917Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-151" own=14318 added=14275
+2026-10-28T06:04:57.226216Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-152" own=20446 added=20422
+2026-10-28T06:04:57.226322Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Eu-153" own=7133 added=7098
+2026-10-28T06:04:57.226712Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-152" own=27817 added=27791
+2026-10-28T06:04:57.227146Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-154" own=30991 added=30967
+2026-10-28T06:04:57.227286Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-155" own=9859 added=9803
+2026-10-28T06:04:57.227530Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-156" own=17159 added=17141
+2026-10-28T06:04:57.227676Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-157" own=10153 added=10098
+2026-10-28T06:04:57.227974Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-158" own=20494 added=20484
+2026-10-28T06:04:57.228161Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-160" own=12692 added=12682
+2026-10-28T06:04:57.228505Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-234" own=23526 added=23502
+2026-10-28T06:04:57.229550Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-235" own=65315 added=65271
+2026-10-28T06:04:57.229948Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-236" own=22439 added=22399
+2026-10-28T06:04:57.242561Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-238" own=146024 added=146000
+2026-10-28T06:04:57.243239Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Np-237" own=30648 added=30613
+2026-10-28T06:04:57.243249Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Np-239" own=118 added=1
+2026-10-28T06:04:57.243516Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-238" own=12501 added=12384
+2026-10-28T06:04:57.244817Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-239" own=62268 added=62231
+2026-10-28T06:04:57.246252Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-240" own=69519 added=69484
+2026-10-28T06:04:57.246555Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-241" own=15104 added=15074
+2026-10-28T06:04:57.246831Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-242" own=13811 added=13788
+2026-10-28T06:04:57.247117Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Am-241" own=14288 added=14237
+2026-10-28T06:04:57.247246Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Am-243" own=6487 added=6447
+2026-10-28T06:04:57.247335Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cm-242" own=4541 added=4471
+2026-10-28T06:04:57.247666Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cm-244" own=17167 added=17117
+2026-10-28T06:04:57.247671Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="H-1" own=113 added=16
+2026-10-28T06:04:58.401539Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::track_table: track table nodes=6600 derivatives=0
+2026-10-28T06:05:01.699112Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-28T06:05:04.436446Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.0852148122835238
+2026-10-28T06:05:07.173316Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.002485573566934744
+2026-10-28T06:05:07.173361Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: TRIAL free-gas split cells=29128776 evaluations=60977964 integrates=153922425 calls=8010 build=4.31831452 integrate=2.517000467
+2026-10-28T06:05:07.173369Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG slowing down points=94881 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000421527 grid=0.563582246 table=0.656012296 evaluate=0.137242955 collision=0.101191366 slowing=8.518454995 free_gas=7.214948102 sab=0.570579675
+2026-10-28T06:05:10.137745Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG transfers counted seconds=2.756315282
+2026-10-28T06:05:10.139649Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: close time.busy=13.0s time.idle=2.08µs
+2026-10-28T06:05:10.158421Z DEBUG shielding:pin{cell=0}:ring-materials: xlc_lattice::shielding: close time.busy=18.7ms time.idle=1.61µs
+2026-10-28T06:05:10.169183Z DEBUG shielding:pin{cell=0}:sph: xlc_lattice::shielding: close time.busy=10.6ms time.idle=1.27µs
+2026-10-28T06:05:10.169652Z DEBUG shielding:pin{cell=0}: xlc_lattice::shielding: close time.busy=13.0s time.idle=822ns
+2026-10-28T06:05:10.172645Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=0.0 solved=0.002968638
+2026-10-28T06:05:10.173254Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=592µs time.idle=1.79µs
+2026-10-28T06:05:10.173267Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=952ns time.idle=801ns
+2026-10-28T06:05:10.173270Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=1 solved=1 points_min=Some(94881) points_max=Some(94881) points_sum=94881
+2026-10-28T06:05:10.173276Z  INFO shielding: xlc_lattice::shielding: close time.busy=13.0s time.idle=861ns
+2026-10-28T06:05:10.173457Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: track volumes against the exact areas regions=104 worst_region=43 cell=0 relative_error=-0.032058363848172844
+2026-10-28T06:05:10.173565Z  INFO moc{regions=104 tracks=1636}: xlc_lattice::moc::symmetric: symmetry tracks=1636 representative_tracks=221 regions=104 representative_regions=13 cells=1 representative_cells=1
+2026-10-28T06:05:10.173890Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: regions held by the tallies of the track groups regions=104 crossed=1081
+2026-10-28T06:05:10.179108Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1655197104905837
+2026-10-28T06:05:10.179241Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=1 k=1.1655197104905837 k_change=-0.021627109973881176 flux_change=0.021043796231379034
+2026-10-28T06:05:10.184286Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1568203862830937
+2026-10-28T06:05:10.184416Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=2 k=1.1568203862830937 k_change=-0.008699324207489978 flux_change=0.007336661110941947
+2026-10-28T06:05:10.189428Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1539174866095394
+2026-10-28T06:05:10.189557Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=3 k=1.1539174866095394 k_change=-0.0029028996735542822 flux_change=0.002371961162386032
+2026-10-28T06:05:10.194562Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1531743668465635
+2026-10-28T06:05:10.194690Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=4 k=1.1531743668465635 k_change=-0.000743119762975919 flux_change=0.0005313045550081151
+2026-10-28T06:05:10.199690Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152943898684442
+2026-10-28T06:05:10.199818Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=5 k=1.152943898684442 k_change=-0.0002304681621214666 flux_change=0.00013463970560496994
+2026-10-28T06:05:10.204850Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152842120689811
+2026-10-28T06:05:10.204980Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=6 k=1.152842120689811 k_change=-0.00010177799463106929 flux_change=8.18301844712398e-5
+2026-10-28T06:05:10.209989Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1527723011050512
+2026-10-28T06:05:10.210126Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=7 k=1.1527723011050512 k_change=-6.981958475971162e-5 flux_change=4.281631195298605e-5
+2026-10-28T06:05:10.215115Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1527227026779132
+2026-10-28T06:05:10.215243Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=8 k=1.1527227026779132 k_change=-4.95984271380312e-5 flux_change=2.1634625156986304e-5
+2026-10-28T06:05:10.220234Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1526848370188958
+2026-10-28T06:05:10.220362Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=9 k=1.1526848370188958 k_change=-3.7865659017422004e-5 flux_change=2.002341491680805e-5
+2026-10-28T06:05:10.225354Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1526556598765627
+2026-10-28T06:05:10.225481Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=10 k=1.1526556598765627 k_change=-2.9177142333081107e-5 flux_change=2.180702529530397e-5
+2026-10-28T06:05:10.230503Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1526327432284693
+2026-10-28T06:05:10.230631Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=11 k=1.1526327432284693 k_change=-2.291664809339622e-5 flux_change=2.1940981518800772e-5
+2026-10-28T06:05:10.235630Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1526137591042456
+2026-10-28T06:05:10.235757Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=12 k=1.1526137591042456 k_change=-1.898412422374207e-5 flux_change=1.9429448690313545e-5
+2026-10-28T06:05:10.240744Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152601377389435
+2026-10-28T06:05:10.240874Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=13 k=1.152601377389435 k_change=-1.2381714810549838e-5 flux_change=1.590425659814348e-5
+2026-10-28T06:05:10.245883Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152589510653053
+2026-10-28T06:05:10.246011Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=14 k=1.152589510653053 k_change=-1.1866736381982435e-5 flux_change=1.4129982150780277e-5
+2026-10-28T06:05:10.251004Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525791563821886
+2026-10-28T06:05:10.251132Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=15 k=1.1525791563821886 k_change=-1.0354270864487702e-5 flux_change=1.6994849736565773e-5
+2026-10-28T06:05:10.256143Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525713747071582
+2026-10-28T06:05:10.256270Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=16 k=1.1525713747071582 k_change=-7.781675030349433e-6 flux_change=1.4028222883895219e-5
+2026-10-28T06:05:10.261260Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152566250985782
+2026-10-28T06:05:10.261387Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=17 k=1.152566250985782 k_change=-5.123721376287804e-6 flux_change=8.148615190719305e-6
+2026-10-28T06:05:10.266391Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525624694903343
+2026-10-28T06:05:10.266519Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=18 k=1.1525624694903343 k_change=-3.7814954476633744e-6 flux_change=7.278742623815123e-6
+2026-10-28T06:05:10.271530Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525575911431432
+2026-10-28T06:05:10.271658Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=19 k=1.1525575911431432 k_change=-4.878347191095145e-6 flux_change=1.0372493427007214e-5
+2026-10-28T06:05:10.276662Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.15255555892587
+2026-10-28T06:05:10.276804Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=20 k=1.15255555892587 k_change=-2.0322172731290777e-6 flux_change=6.3204269911015566e-6
+2026-10-28T06:05:10.281847Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525524218661651
+2026-10-28T06:05:10.281977Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=21 k=1.1525524218661651 k_change=-3.137059704894085e-6 flux_change=7.498143226222687e-6
+2026-10-28T06:05:10.286976Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152550461126668
+2026-10-28T06:05:10.287103Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=22 k=1.152550461126668 k_change=-1.9607394972087633e-6 flux_change=4.83678599428424e-6
+2026-10-28T06:05:10.292106Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525488681195064
+2026-10-28T06:05:10.292233Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=23 k=1.1525488681195064 k_change=-1.5930071615155583e-6 flux_change=4.670574478874249e-6
+2026-10-28T06:05:10.297231Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525474667858648
+2026-10-28T06:05:10.297359Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=24 k=1.1525474667858648 k_change=-1.401333641570801e-6 flux_change=4.171897352338755e-6
+2026-10-28T06:05:10.302354Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525462120208856
+2026-10-28T06:05:10.302482Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=25 k=1.1525462120208856 k_change=-1.2547649792526983e-6 flux_change=3.346211366705113e-6
+2026-10-28T06:05:10.307468Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525453260395233
+2026-10-28T06:05:10.307596Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=26 k=1.1525453260395233 k_change=-8.859813622752455e-7 flux_change=2.795325763174679e-6
+2026-10-28T06:05:10.312591Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525444811958432
+2026-10-28T06:05:10.312718Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=27 k=1.1525444811958432 k_change=-8.448436801256065e-7 flux_change=2.6284755200683556e-6
+2026-10-28T06:05:10.317715Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525438580109415
+2026-10-28T06:05:10.317842Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=28 k=1.1525438580109415 k_change=-6.231849016824498e-7 flux_change=2.100084286484771e-6
+2026-10-28T06:05:10.322841Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152543197451844
+2026-10-28T06:05:10.322970Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=29 k=1.152543197451844 k_change=-6.605590974206876e-7 flux_change=2.510360142858901e-6
+2026-10-28T06:05:10.327970Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525426304831508
+2026-10-28T06:05:10.328098Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=30 k=1.1525426304831508 k_change=-5.669686933273965e-7 flux_change=2.5294148284636056e-6
+2026-10-28T06:05:10.333090Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525423073027539
+2026-10-28T06:05:10.333217Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=31 k=1.1525423073027539 k_change=-3.231803968883895e-7 flux_change=1.385890494708086e-6
+2026-10-28T06:05:10.338210Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525419335915787
+2026-10-28T06:05:10.338341Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=32 k=1.1525419335915787 k_change=-3.737111751167532e-7 flux_change=1.5767718895291e-6
+2026-10-28T06:05:10.343362Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525416501427261
+2026-10-28T06:05:10.343489Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=33 k=1.1525416501427261 k_change=-2.834488526115564e-7 flux_change=1.249373984376006e-6
+2026-10-28T06:05:10.348480Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525414045357856
+2026-10-28T06:05:10.348607Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=34 k=1.1525414045357856 k_change=-2.456069405631922e-7 flux_change=1.0991206078218402e-6
+2026-10-28T06:05:10.353636Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525411957266019
+2026-10-28T06:05:10.353763Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=35 k=1.1525411957266019 k_change=-2.0880918372156998e-7 flux_change=9.788562087103824e-7
+2026-10-28T06:05:10.358760Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.152541020968619
+2026-10-28T06:05:10.358889Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=36 k=1.152541020968619 k_change=-1.7475798275157217e-7 flux_change=8.384079701947875e-7
+2026-10-28T06:05:10.363887Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525408621415063
+2026-10-28T06:05:10.364015Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=37 k=1.1525408621415063 k_change=-1.588271127950236e-7 flux_change=7.64097441069899e-7
+2026-10-28T06:05:10.369011Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525407664862488
+2026-10-28T06:05:10.369138Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=38 k=1.1525407664862488 k_change=-9.565525749266612e-8 flux_change=5.535010476779147e-7
+2026-10-28T06:05:10.374129Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525406319806528
+2026-10-28T06:05:10.374257Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=39 k=1.1525406319806528 k_change=-1.3450559599448297e-7 flux_change=7.798007440783049e-7
+2026-10-28T06:05:10.379253Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525405527428614
+2026-10-28T06:05:10.379383Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=40 k=1.1525405527428614 k_change=-7.923779143936827e-8 flux_change=4.819926236899975e-7
+2026-10-28T06:05:10.384413Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525404737752138
+2026-10-28T06:05:10.384541Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=41 k=1.1525404737752138 k_change=-7.896764753212437e-8 flux_change=5.170048279837125e-7
+2026-10-28T06:05:10.389537Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525404081427564
+2026-10-28T06:05:10.389664Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=42 k=1.1525404081427564 k_change=-6.563245746882274e-8 flux_change=4.3629183238497454e-7
+2026-10-28T06:05:10.394673Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525403444598867
+2026-10-28T06:05:10.394794Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=43 k=1.1525403444598867 k_change=-6.368286964431036e-8 flux_change=4.3646095778804463e-7
+2026-10-28T06:05:10.399767Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525402966799474
+2026-10-28T06:05:10.399896Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=44 k=1.1525402966799474 k_change=-4.777993933835489e-8 flux_change=2.994496020159454e-7
+2026-10-28T06:05:10.404883Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525402510052698
+2026-10-28T06:05:10.405013Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=45 k=1.1525402510052698 k_change=-4.567467759564181e-8 flux_change=3.129947790554616e-7
+2026-10-28T06:05:10.410008Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1525402216558458
+2026-10-28T06:05:10.410136Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=46 k=1.1525402216558458 k_change=-2.934942400223406e-8 flux_change=2.120486873876558e-7
+2026-10-28T06:05:10.410165Z  INFO moc{regions=104 tracks=1636}: xlc_lattice::moc: close time.busy=237ms time.idle=1.28µs
+2026-10-28T06:05:10.412434Z  INFO xlc_lattice::depletion: depletion transport solve=2 k=1.1525402216558458 iterations=46 nuclides=89
+2026-10-28T06:05:10.460050Z  INFO xlc_lattice::checkpoint: checkpoint bytes=1000637 seconds=0.005932175
+2026-10-28T06:05:10.460262Z  WARN xlc_lattice::depletion: decay only: no library data at the temperature of the depletion regions nuclides="H-1" density=4.2071675832909513e-16
+2026-10-28T06:05:10.460276Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=1281 density=4.298289212767951e-6
+2026-10-28T06:05:10.465130Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=4.84ms time.idle=1.80µs
+2026-10-28T06:05:10.465235Z DEBUG shielding: xlc_lattice::shielding: pin Dancoff factors reused
+2026-10-28T06:05:10.469866Z DEBUG shielding:pin{cell=0}:carlvik: xlc_lattice::shielding: equivalence iterations iterations=5 nuclides=89 dilute=20
+2026-10-28T06:05:10.469880Z DEBUG shielding:pin{cell=0}:carlvik: xlc_lattice::shielding: close time.busy=4.62ms time.idle=1.06µs
+2026-10-28T06:05:10.486533Z DEBUG shielding:pin{cell=0}:equivalent-radius: xlc_lattice::shielding: close time.busy=16.0ms time.idle=1.35µs
+2026-10-28T06:05:10.512736Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="B-10" own=308 added=308
+2026-10-28T06:05:10.512755Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="B-11" own=56 added=50
+2026-10-28T06:05:10.512758Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="C-12" own=41 added=14
+2026-10-28T06:05:10.512761Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="C-13" own=36 added=2
+2026-10-28T06:05:10.512763Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="O-16" own=28 added=3
+2026-10-28T06:05:10.512775Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Al-27" own=358 added=358
+2026-10-28T06:05:10.512781Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-28" own=114 added=112
+2026-10-28T06:05:10.512792Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-29" own=137 added=136
+2026-10-28T06:05:10.512804Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Si-30" own=780 added=779
+2026-10-28T06:05:10.512820Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="P-31" own=52 added=41
+2026-10-28T06:05:10.512836Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-50" own=426 added=426
+2026-10-28T06:05:10.512852Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-52" own=405 added=405
+2026-10-28T06:05:10.512870Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-53" own=771 added=771
+2026-10-28T06:05:10.512912Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cr-54" own=628 added=628
+2026-10-28T06:05:10.512942Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Mn-55" own=2219 added=2203
+2026-10-28T06:05:10.513023Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-54" own=1145 added=1144
+2026-10-28T06:05:10.513040Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-56" own=570 added=559
+2026-10-28T06:05:10.513067Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-57" own=2189 added=2187
+2026-10-28T06:05:10.513099Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Fe-58" own=1446 added=1446
+2026-10-28T06:05:10.513133Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-58" own=884 added=884
+2026-10-28T06:05:10.513160Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-60" own=1044 added=1008
+2026-10-28T06:05:10.513304Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-61" own=3257 added=3256
+2026-10-28T06:05:10.513315Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-62" own=532 added=532
+2026-10-28T06:05:10.513325Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ni-64" own=602 added=602
+2026-10-28T06:05:10.513350Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-90" own=1886 added=1886
+2026-10-28T06:05:10.513709Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-91" own=12093 added=12093
+2026-10-28T06:05:10.513751Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-92" own=3371 added=3371
+2026-10-28T06:05:10.513784Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-94" own=2722 added=2722
+2026-10-28T06:05:10.513811Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Zr-96" own=2272 added=2272
+2026-10-28T06:05:10.513932Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Mo-95" own=10464 added=10450
+2026-10-28T06:05:10.514883Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Tc-99" own=47575 added=47565
+2026-10-28T06:05:10.515017Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ru-101" own=9751 added=9734
+2026-10-28T06:05:10.516209Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Rh-103" own=30934 added=30918
+2026-10-28T06:05:10.516668Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ag-107" own=41513 added=41495
+2026-10-28T06:05:10.517323Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Ag-109" own=46116 added=46078
+2026-10-28T06:05:10.519091Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-106" own=8777 added=8768
+2026-10-28T06:05:10.519212Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-108" own=10101 added=10092
+2026-10-28T06:05:10.519385Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-110" own=14867 added=14859
+2026-10-28T06:05:10.519624Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-111" own=20444 added=20427
+2026-10-28T06:05:10.519853Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-112" own=19359 added=19356
+2026-10-28T06:05:10.520222Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-113" own=30867 added=30850
+2026-10-28T06:05:10.520401Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-114" own=14521 added=14514
+2026-10-28T06:05:10.520517Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cd-116" own=9098 added=9092
+2026-10-28T06:05:10.520638Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="In-113" own=9391 added=9353
+2026-10-28T06:05:10.521002Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="In-115" own=27221 added=27180
+2026-10-28T06:05:10.521059Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-112" own=3928 added=3892
+2026-10-28T06:05:10.521113Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-114" own=3622 added=3590
+2026-10-28T06:05:10.521138Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-115" own=1636 added=1590
+2026-10-28T06:05:10.521385Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-116" own=16183 added=16182
+2026-10-28T06:05:10.521549Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-117" own=10126 added=10094
+2026-10-28T06:05:10.521593Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-118" own=2534 added=2501
+2026-10-28T06:05:10.521675Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-119" own=4752 added=4714
+2026-10-28T06:05:10.521833Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-120" own=8630 added=8629
+2026-10-28T06:05:10.521912Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-122" own=3508 added=3508
+2026-10-28T06:05:10.521971Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sn-124" own=2553 added=2552
+2026-10-28T06:05:10.521977Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="I-135" own=157 added=47
+2026-10-28T06:05:10.521985Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Xe-135" own=317 added=239
+2026-10-28T06:05:10.525772Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cs-133" own=28858 added=28825
+2026-10-28T06:05:10.526144Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Nd-143" own=23841 added=23794
+2026-10-28T06:05:10.526565Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Nd-145" own=27643 added=27594
+2026-10-28T06:05:10.526568Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pm-148m" own=22 added=0
+2026-10-28T06:05:10.527086Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-147" own=34465 added=34394
+2026-10-28T06:05:10.527398Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-149" own=21196 added=21137
+2026-10-28T06:05:10.527518Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-150" own=7973 added=7944
+2026-10-28T06:05:10.527726Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-151" own=14318 added=14275
+2026-10-28T06:05:10.528028Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Sm-152" own=20446 added=20422
+2026-10-28T06:05:10.528135Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Eu-153" own=7133 added=7098
+2026-10-28T06:05:10.528528Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-152" own=27817 added=27791
+2026-10-28T06:05:10.528965Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-154" own=30991 added=30967
+2026-10-28T06:05:10.529109Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-155" own=9859 added=9803
+2026-10-28T06:05:10.529355Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-156" own=17159 added=17141
+2026-10-28T06:05:10.529502Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-157" own=10153 added=10098
+2026-10-28T06:05:10.529797Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-158" own=20494 added=20484
+2026-10-28T06:05:10.529986Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Gd-160" own=12692 added=12682
+2026-10-28T06:05:10.530334Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-234" own=23526 added=23502
+2026-10-28T06:05:10.531380Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-235" own=65315 added=65271
+2026-10-28T06:05:10.531781Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-236" own=22439 added=22399
+2026-10-28T06:05:10.543148Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="U-238" own=146024 added=146000
+2026-10-28T06:05:10.543838Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Np-237" own=30648 added=30613
+2026-10-28T06:05:10.543851Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Np-239" own=118 added=1
+2026-10-28T06:05:10.544134Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-238" own=12501 added=12384
+2026-10-28T06:05:10.545505Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-239" own=62268 added=62231
+2026-10-28T06:05:10.547061Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-240" own=69519 added=69484
+2026-10-28T06:05:10.547392Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-241" own=15104 added=15074
+2026-10-28T06:05:10.547692Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Pu-242" own=13811 added=13788
+2026-10-28T06:05:10.548009Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Am-241" own=14288 added=14237
+2026-10-28T06:05:10.548153Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Am-243" own=6487 added=6447
+2026-10-28T06:05:10.548255Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cm-242" own=4541 added=4471
+2026-10-28T06:05:10.548641Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="Cm-244" own=17167 added=17117
+2026-10-28T06:05:10.548646Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG nuclide points name="H-1" own=113 added=16
+2026-10-28T06:05:11.699562Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::track_table: track table nodes=6600 derivatives=0
+2026-10-28T06:05:14.993943Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=1
+2026-10-28T06:05:17.726834Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=2 change=0.08521378329749436
+2026-10-28T06:05:20.460696Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG free-gas sweep sweep=3 change=0.0024854976423064564
+2026-10-28T06:05:20.460737Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: TRIAL free-gas split cells=29102760 evaluations=60923706 integrates=153784857 calls=8004 build=4.315474474 integrate=2.511143798
+2026-10-28T06:05:20.460740Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG slowing down points=94869 union=1265967 jumps=47 nuclides=90 rings=8 lookup=0.000350375 grid=0.559566137 table=0.653091925 evaluate=0.135825682 collision=0.102658835 slowing=8.507678911 free_gas=7.204928696 sab=0.568622551
+2026-10-28T06:05:23.421426Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: UFG transfers counted seconds=2.757797204
+2026-10-28T06:05:23.423285Z DEBUG shielding:pin{cell=0}:ufg: xlc_lattice::ufg: close time.busy=12.9s time.idle=1.67µs
+2026-10-28T06:05:23.441850Z DEBUG shielding:pin{cell=0}:ring-materials: xlc_lattice::shielding: close time.busy=18.5ms time.idle=1.46µs
+2026-10-28T06:05:23.452620Z DEBUG shielding:pin{cell=0}:sph: xlc_lattice::shielding: close time.busy=10.6ms time.idle=991ns
+2026-10-28T06:05:23.453036Z DEBUG shielding:pin{cell=0}: xlc_lattice::shielding: close time.busy=13.0s time.idle=662ns
+2026-10-28T06:05:23.456017Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=0.0 solved=0.002960392
+2026-10-28T06:05:23.456608Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=577µs time.idle=1.85µs
+2026-10-28T06:05:23.456619Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=1.07µs time.idle=400ns
+2026-10-28T06:05:23.456622Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=1 solved=1 points_min=Some(94869) points_max=Some(94869) points_sum=94869
+2026-10-28T06:05:23.456627Z  INFO shielding: xlc_lattice::shielding: close time.busy=13.0s time.idle=762ns
+2026-10-28T06:05:23.456809Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: track volumes against the exact areas regions=104 worst_region=43 cell=0 relative_error=-0.032058363848172844
+2026-10-28T06:05:23.456920Z  INFO moc{regions=104 tracks=1636}: xlc_lattice::moc::symmetric: symmetry tracks=1636 representative_tracks=221 regions=104 representative_regions=13 cells=1 representative_cells=1
+2026-10-28T06:05:23.457286Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: regions held by the tallies of the track groups regions=104 crossed=1081
+2026-10-28T06:05:23.462563Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1506594587340475
+2026-10-28T06:05:23.462697Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=1 k=1.1506594587340475 k_change=-0.0018807629217982846 flux_change=0.0016060466952151347
+2026-10-28T06:05:23.467742Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1497756778879278
+2026-10-28T06:05:23.467871Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=2 k=1.1497756778879278 k_change=-0.0008837808461197305 flux_change=0.0007376545403095314
+2026-10-28T06:05:23.472893Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1493983748424308
+2026-10-28T06:05:23.473022Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=3 k=1.1493983748424308 k_change=-0.00037730304549699056 flux_change=0.00029776320657180007
+2026-10-28T06:05:23.478017Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1492544557439897
+2026-10-28T06:05:23.478145Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=4 k=1.1492544557439897 k_change=-0.00014391909844113648 flux_change=0.00010021535858649077
+2026-10-28T06:05:23.483159Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1491857280858928
+2026-10-28T06:05:23.483298Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=5 k=1.1491857280858928 k_change=-6.872765809684545e-5 flux_change=3.972218544879008e-5
+2026-10-28T06:05:23.488303Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1491445763060546
+2026-10-28T06:05:23.488431Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=6 k=1.1491445763060546 k_change=-4.1151779838211056e-5 flux_change=1.9556513786094985e-5
+2026-10-28T06:05:23.493435Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1491150988267105
+2026-10-28T06:05:23.493563Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=7 k=1.1491150988267105 k_change=-2.9477479344119928e-5 flux_change=1.1951617073006724e-5
+2026-10-28T06:05:23.498596Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.149094543421193
+2026-10-28T06:05:23.498724Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=8 k=1.149094543421193 k_change=-2.0555405517486136e-5 flux_change=6.388562999160244e-6
+2026-10-28T06:05:23.503723Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.149078644331255
+2026-10-28T06:05:23.503851Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=9 k=1.149078644331255 k_change=-1.5899089937931876e-5 flux_change=4.597612404863091e-6
+2026-10-28T06:05:23.508858Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490668249198575
+2026-10-28T06:05:23.508987Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=10 k=1.1490668249198575 k_change=-1.1819411397606672e-5 flux_change=4.528295267338892e-6
+2026-10-28T06:05:23.513994Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490575565307306
+2026-10-28T06:05:23.514122Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=11 k=1.1490575565307306 k_change=-9.268389126848575e-6 flux_change=3.89673021693211e-6
+2026-10-28T06:05:23.519119Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.149049958368945
+2026-10-28T06:05:23.519247Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=12 k=1.149049958368945 k_change=-7.598161785526969e-6 flux_change=3.10616601021451e-6
+2026-10-28T06:05:23.524240Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490451024194535
+2026-10-28T06:05:23.524373Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=13 k=1.1490451024194535 k_change=-4.855949491622269e-6 flux_change=2.6463686311291336e-6
+2026-10-28T06:05:23.529372Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490403819830142
+2026-10-28T06:05:23.529499Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=14 k=1.1490403819830142 k_change=-4.720436439287212e-6 flux_change=2.4307828043358545e-6
+2026-10-28T06:05:23.534498Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490363789040139
+2026-10-28T06:05:23.534625Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=15 k=1.1490363789040139 k_change=-4.003079000280962e-6 flux_change=2.6516039178215685e-6
+2026-10-28T06:05:23.539624Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.149033378592495
+2026-10-28T06:05:23.539752Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=16 k=1.149033378592495 k_change=-3.000311518785992e-6 flux_change=1.797332858534461e-6
+2026-10-28T06:05:23.544745Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490314182662866
+2026-10-28T06:05:23.544871Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=17 k=1.1490314182662866 k_change=-1.960326208472196e-6 flux_change=1.2291649014570093e-6
+2026-10-28T06:05:23.549862Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490299254554222
+2026-10-28T06:05:23.549992Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=18 k=1.1490299254554222 k_change=-1.4928108644784999e-6 flux_change=1.0631222715026832e-6
+2026-10-28T06:05:23.554990Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.149028026464373
+2026-10-28T06:05:23.555118Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=19 k=1.149028026464373 k_change=-1.8989910490763151e-6 flux_change=1.601601769318042e-6
+2026-10-28T06:05:23.560118Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490272701641984
+2026-10-28T06:05:23.560246Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=20 k=1.1490272701641984 k_change=-7.563001747090681e-7 flux_change=1.0322132110091221e-6
+2026-10-28T06:05:23.565253Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490260540614654
+2026-10-28T06:05:23.565381Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=21 k=1.1490260540614654 k_change=-1.2161027329593566e-6 flux_change=1.1650516876661065e-6
+2026-10-28T06:05:23.570385Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.14902532506682
+2026-10-28T06:05:23.570513Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=22 k=1.14902532506682 k_change=-7.289946453159502e-7 flux_change=7.432130894331927e-7
+2026-10-28T06:05:23.575529Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490247152069595
+2026-10-28T06:05:23.575656Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=23 k=1.1490247152069595 k_change=-6.098598606119054e-7 flux_change=7.736305929434339e-7
+2026-10-28T06:05:23.580658Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490241816210784
+2026-10-28T06:05:23.580786Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=24 k=1.1490241816210784 k_change=-5.335858810351368e-7 flux_change=6.810600263689513e-7
+2026-10-28T06:05:23.585786Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490237083660981
+2026-10-28T06:05:23.585912Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=25 k=1.1490237083660981 k_change=-4.7325498031547397e-7 flux_change=5.895084753954223e-7
+2026-10-28T06:05:23.590891Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.149023374479031
+2026-10-28T06:05:23.591022Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=26 k=1.149023374479031 k_change=-3.33887067105465e-7 flux_change=4.937525173144302e-7
+2026-10-28T06:05:23.596035Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490230555080638
+2026-10-28T06:05:23.596163Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=27 k=1.1490230555080638 k_change=-3.189709671946872e-7 flux_change=4.5982522317846703e-7
+2026-10-28T06:05:23.601160Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490228224910548
+2026-10-28T06:05:23.601288Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=28 k=1.1490228224910548 k_change=-2.3301700902145228e-7 flux_change=3.8024763970975415e-7
+2026-10-28T06:05:23.606287Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490225787801103
+2026-10-28T06:05:23.606415Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=29 k=1.1490225787801103 k_change=-2.437109445363461e-7 flux_change=4.775768020050008e-7
+2026-10-28T06:05:23.611409Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490223727468132
+2026-10-28T06:05:23.611537Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=30 k=1.1490223727468132 k_change=-2.060332970899026e-7 flux_change=4.370540100289951e-7
+2026-10-28T06:05:23.616538Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490222560490058
+2026-10-28T06:05:23.616666Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=31 k=1.1490222560490058 k_change=-1.1669780741740965e-7 flux_change=2.6570251325368993e-7
+2026-10-28T06:05:23.621698Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490221176722033
+2026-10-28T06:05:23.621825Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=32 k=1.1490221176722033 k_change=-1.3837680246098216e-7 flux_change=2.8612909021246203e-7
+2026-10-28T06:05:23.626816Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490220151054016
+2026-10-28T06:05:23.626946Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=33 k=1.1490220151054016 k_change=-1.0256680171849553e-7 flux_change=2.2174278778719962e-7
+2026-10-28T06:05:23.631947Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490219259209273
+2026-10-28T06:05:23.632075Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=34 k=1.1490219259209273 k_change=-8.918447425010356e-8 flux_change=2.0064606317671704e-7
+2026-10-28T06:05:23.637072Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490218506455983
+2026-10-28T06:05:23.637200Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=35 k=1.1490218506455983 k_change=-7.527532908113699e-8 flux_change=1.9007392467236597e-7
+2026-10-28T06:05:23.642202Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490217877323907
+2026-10-28T06:05:23.642330Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=36 k=1.1490217877323907 k_change=-6.291320753248897e-8 flux_change=1.6001825422202522e-7
+2026-10-28T06:05:23.647395Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490217306281987
+2026-10-28T06:05:23.647523Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=37 k=1.1490217306281987 k_change=-5.710419204163486e-8 flux_change=1.506982673777784e-7
+2026-10-28T06:05:23.652524Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1490216959857746
+2026-10-28T06:05:23.652654Z DEBUG moc{regions=104 tracks=1636}: xlc_lattice::moc: iteration=38 k=1.1490216959857746 k_change=-3.4642424040498554e-8 flux_change=1.1348984713598203e-7
+2026-10-28T06:05:23.652683Z  INFO moc{regions=104 tracks=1636}: xlc_lattice::moc: close time.busy=196ms time.idle=842ns
+2026-10-28T06:05:23.654929Z  INFO xlc_lattice::depletion: depletion transport solve=3 k=1.1490216959857746 iterations=38 nuclides=89
