@@ -91,11 +91,12 @@ cargo build --release
 2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、rebase を終えてからスキル dvc-relock の前半で整える（rebase の途中では dvc を実行しない）。rebase の終わりに post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
 3. ステージ（`dvc.yaml`）で実行するなら、先に `scripts/dvc-checkout.py`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
-5. 1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など）なら、コードのレビュー（/code-review）を
+5. 1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など。投げる前の見積もり `-t` か、main の同じ計算の時間で判断する）なら、コードのレビュー（/code-review）を
    打ち切りまで回す（2 の rebase の後に）。流した後にコードを変えると、ADR-0122 のとおり再実行が要る。流した後の
    レビューで出た、出力を変えるコードの指摘のうち、精度に関わるものは直して再実行し、それ以外は issue に残すか、まとめて
    1 度だけ再実行する（2026-10-22 の feat/0133-fission-spectrum では、レビューの 1 周目の xs の修正で 65 核種のライブラリ
-   （約 2 時間）を作り直し、2 周目の指摘を issue に残した。構造の側の案は #0150）
+   （約 2 時間）を作り直し、2 周目の指摘を issue に残した。構造の側の案は #0150。2026-10-28 の #0181 では、main で 1 時間 0 分 40 秒の 2A の燃焼を含む
+   timed の 2 本（Slurm 575、576）をレビューの前の版で流し、レビューと手元の試行で直した版で 577、578 を再実行した）
 6. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）、分岐点は `git merge-base HEAD main`
 
 計算を投げる直前に `git log --oneline <分岐点>..main`（分岐点は `git merge-base HEAD main`）を見て、出力を変える変更
