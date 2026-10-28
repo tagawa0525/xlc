@@ -114,6 +114,22 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(nominal, {"density": case})
 
+    @staticmethod
+    def fresh_case(**fresh) -> dict:
+        """燃焼度 0 の k だけを fresh で変えた条件"""
+        ks = {
+            "branch": {0.0: 1.0, 10.0: 0.94},
+            "hybrid": {0.0: 1.0, 10.0: 0.948},
+            "reverse": {0.0: 1.2, 10.0: 1.105},
+            "reverse_hybrid": {0.0: 1.2, 10.0: 1.104},
+        }
+        for key, k in fresh.items():
+            ks[key][0.0] = k
+        return {
+            "history": history({0.0: 1.0, 10.0: 0.95}, 1.1),
+            **{key: table(k) for key, k in ks.items()},
+        }
+
     def test_fresh_tables_must_reproduce_their_history(self):
         # 燃焼度 0 の組成は 3 本の履歴で同じなので、別の条件で解いたテーブルは燃焼度 0 の k で分かる
         nominal = history({0.0: 1.2, 10.0: 1.1}, 1.0)
@@ -123,16 +139,20 @@ class Compare(unittest.TestCase):
             ("reverse", 1.0),
             ("reverse_hybrid", 1.0),
         ):
-            case = {
-                "history": history({0.0: 1.0, 10.0: 0.95}, 1.1),
-                "branch": table({0.0: 1.0, 10.0: 0.94}),
-                "hybrid": table({0.0: 1.0, 10.0: 0.948}),
-                "reverse": table({0.0: 1.2, 10.0: 1.105}),
-                "reverse_hybrid": table({0.0: 1.2, 10.0: 1.104}),
-            }
-            case[key] = table({0.0: wrong, 10.0: 0.94})
-            with self.subTest(key), self.assertRaises(SystemExit):
-                c.compare(nominal, {"density": case})
+            with (
+                self.subTest(key),
+                self.assertRaisesRegex(SystemExit, f"the {key} table misses"),
+            ):
+                c.compare(nominal, {"density": self.fresh_case(**{key: wrong})})
+
+    def test_fresh_misses_are_the_table_against_its_history(self):
+        nominal = history({0.0: 1.2, 10.0: 1.1}, 1.0)
+        case = self.fresh_case(branch=1.0000005, reverse=1.1999994)
+        fresh = c.compare(nominal, {"density": case})["density"][0]["fresh_pcm"]
+        self.assertAlmostEqual(fresh["branch"], pcm(1.0, 1.0000005), places=9)
+        self.assertGreater(fresh["branch"], 0)
+        self.assertAlmostEqual(fresh["reverse"], pcm(1.2, 1.1999994), places=9)
+        self.assertEqual(fresh["hybrid"], 0.0)
 
     def test_tables_varying_another_axis_are_errors(self):
         t = table({0.0: 1.0})
