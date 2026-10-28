@@ -83,7 +83,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 差分が文書（`.md`）だけのとき、run-checks.sh は fmt、clippy、全体の `cargo test` の代わりに docs クレートのテスト
   （`cargo test -p xlc-docs`）だけを実行する。宣言は `scripts/run-rust-docs-tests.sh`（nixfiles の ADR-0057）。ほかの差分では
   全体の後にも宣言を実行し、宣言に実行権限が無ければ差分によらず失敗する
-- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が references の devShell で実行し、run-checks.sh が
+- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が python-tests の devShell（references の Python に検証用のツールのパッケージを足したもの。ADR-0212）で実行し、run-checks.sh が
   それを呼ぶ（nixfiles の ADR-0036）。run-checks.sh は Python のステージを .py の変更があるときだけ実行するので、
   手元では `scripts/run-python-tests.sh` で全部を実行できる
 - ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる

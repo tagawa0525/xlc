@@ -86,9 +86,10 @@ flake.nix の Python のパッケージの並びを 2 つにする:
 `references-shell.txt` と同じ `qdaa3j64…` に戻る。参照のステージの lock は、記録した環境で作った出力をそのまま指すので、
 付け直しは要らない。
 
-すべてのコミットで、pre-commit の hook `references-shell`（`scripts/check-references-shell.sh`）が、`references` の devShell の
-store のパスと、追跡しているすべての `references-shell.txt` を比べ、食い違えば止める（devShell は flake.nix と flake.lock のほかに、
-flake.nix が読む docs/patches/ の NJOY のパッチでも変わるので、ファイルで絞らない。評価は 1 秒ほど）。
+flake.nix、flake.lock、docs/patches/（flake.nix が NJOY に当てるパッチ）か `references-shell.txt` を変えるコミットで、pre-commit の
+hook `references-shell`（`scripts/check-references-shell.sh`）が、`references` の devShell の store のパスと、追跡しているすべての
+`references-shell.txt` をバイトで比べ、食い違えば止める。すべてのコミットでは実行しない（汚れた git の flake の評価は、追跡している
+木を毎回 nix store にコピーする。約 19 MB）。
 `references-shell` のステージは `always_changed` で、`dvc repro` が走るまで `references-shell.txt` を書き直さないので、
 hook がなければ、devShell の変更が `dvc status` に出ないまま main に入る（#0183 が見つからなかった理由）。
 食い違ったら、次のどちらかで直す:
@@ -111,7 +112,9 @@ hook がなければ、devShell の変更が `dvc status` に出ないまま mai
 4. 変わった deps の親の版のバイトが、そのステージの出力に入っていない: 親の版の md5、sha1、sha256 の 16 進と、親の版にあって
    今の版に無い行（空白だけの行を除く）のどれも、出力のどのファイルにも現れない（`grep -rqaF` が見つけない）。入力のファイルの
    md5 を出力に書くスクリプト（比較のスクリプトの `inputs`）や、入力をコピーするスクリプトでは、バイトの差が出力に入る。圧縮した出力の
-   中は見えないので、出力に圧縮したファイルがあるステージは付け直さない
+   中は見えないので、出力に圧縮したファイルがあるステージは付け直さない。16 進でない digest（msgpack や HDF5 のバイト列）や入力を
+   混ぜた指紋（lattice のチェックポイントの `Fingerprint`）も grep に見えないので、出力にそれを書くステージも付け直さない（どの
+   ステージが書くかはプログラムで決まり、grep では分からない。付け直しの前にステージのプログラムで確かめる）
 
 付け直したら、`scripts/compare-dvc-lock.py <親> HEAD` で `cmd`、`outs`、`params` が変わっていないことを確かめ、コミットの本文に
 付け直したステージと、2〜4 を確かめたコマンドを書く。
@@ -142,7 +145,7 @@ ADR-0143 の帰結（実行ファイルが一致しないときに `dvc commit` 
   ステージ（examples/depletion 72、p2 91、vera 68、endfb70/openmc 34、mox 2、c5g7 1）。471 は ADR-0210 の付け直しの後の 468 に、`build`
   （flake.nix の変更。作り直した `bin/` はバイトが同じ）と、ADR-0211 の後の `compare-1C` の 2 つを足したもの。`openmc-1C` は changed でない
 - `dvc repro examples/depletion/dvc.yaml:compare-1C` は、`references-shell`（同じパスを書いた）と `compare-1C` の 2 つだけを実行した
-  （23 秒。3a273a1bc）
+  （23 秒。9382e2a29 の上で実行し、lock は 3a273a1bc）
 - hook のテスト（`scripts/test_check_references_shell.py`。一時のリポジトリの最小の flake で nix eval を実行する）:
   すべての `references-shell.txt` が devShell と同じなら通る、flake.nix を変えて devShell のパスが変わると、食い違うファイルと
   2 つのパスを挙げて止まる、食い違うファイルだけを挙げる、追跡しないファイルは見ない、追跡しているが作業ツリーに無いファイルを
@@ -159,7 +162,7 @@ ADR-0143 の帰結（実行ファイルが一致しないときに `dvc commit` 
 - テストは `python-tests`（`references` の Python に pyyaml を足したもの）で走るので、参照のステージのスクリプトが
   `referencesPythonPackages` に無いパッケージを import しても、テストは通り、ステージが `ModuleNotFoundError` で止まる（黙って
   違う結果にはならない）。参照のスクリプトの import を並びと照らす検査は作っていない
-- hook は rebase とマージで混ざった flake を見ない（コミットを作らないため）。/dvc-relock は同じスクリプトを手で実行するが、
+- hook は rebase とマージで混ざった flake と、並びの外のファイル（flake.nix が後で読むようになったもの）の変更を見ない。/dvc-relock は同じスクリプトを手で実行するが、
   `dvc.yaml` の無いブランチは /dvc-relock を通らない。マージの経路で実行する形は #0185 に書いた
 - /dvc-relock は、`references-shell` を対象から外すだけでなく、hook と同じ比較で `references-shell.txt` の中身を確かめる
 - TOML のコメントの直しでは、(b) の条件で付け直せる。p2 の `openmc-index`（ed95d3d44 で changed のまま）への適用は別の作業にする
