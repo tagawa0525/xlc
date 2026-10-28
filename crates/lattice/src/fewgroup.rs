@@ -1454,7 +1454,7 @@ fn check_regions(solution: &Solution, materials: &[&Material]) -> Result<(), Hom
 }
 
 /// [細かい群] の少数群の番号。少数群の境界は細かい群の境界の一部で、全体を覆う降順であること。
-fn coarse_groups(
+pub(crate) fn coarse_groups(
     fine: &GroupStructure,
     coarse_bounds: &[f64],
 ) -> Result<Vec<usize>, HomogenizeError> {
