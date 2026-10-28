@@ -5,7 +5,8 @@
     <作業ディレクトリ> <スレッド数>
 
 粒子数、世代数、シードは model.xml のまま（tally は乱数を使わないので、同じ OpenMC とライブラリなら元の実行と同じ粒子の歴史になる。
-`same_histories` は k が元の実行と同じか。違っても、反応率と中性子束は同じ実行のものなので、その比の断面積は使える）。燃料の物質のフィルタ、群のフィルタ（群 1 の上端を 10 MeV より上に広げたもの）、核種は元の `rates` の tally と
+`same_histories` は k が元の実行とビットで同じか（同じ歴史でも、スレッドの tally の和の順で k が 1e-13 ほど違いうるので、false なら
+元の k との差を見る）。歴史が違っても、反応率と中性子束は同じ実行のものなので、その比の断面積は使える）。燃料の物質のフィルタ、群のフィルタ（群 1 の上端を 10 MeV より上に広げたもの）、核種は元の `rates` の tally と
 同じものを使う。出力（作業ディレクトリの openmc-excess.msgpack）は `format`、`k`、`k_std`、`same_histories`、`bounds`、`flux`（群ごとの燃料の中性子束、
 降順の群）、`densities`、`rates`（xlc の核種名から、反応ごとの `mean` と `std`）で、`bounds`、`densities` は元の
 openmc-rates.msgpack の値、`flux` はこの実行の値。
