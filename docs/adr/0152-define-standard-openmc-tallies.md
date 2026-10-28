@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-12
+status: accepted
+date: 2026-10-29
 requires: [ADR-0075, ADR-0123, ADR-0130, ADR-0150, ADR-0151]
 supersedes: []
 superseded-by:
@@ -148,11 +148,14 @@ statepoint の大半は源の粒子のバンク（104 MB）で、標準の組は
 - `openmc_balance.py` の別の実行は残る（#0096）
 - 組を変えたら版を上げる。比べるツールは名前（`standard-<版>/…`）で読むので、版の違う statepoint を黙って読まない
 - 1/4 炉心のピンごとの核種と、3D の層ごとのピンの核種は入れない（案 M、N）。要るようになったら、版を上げて足す
+- 組を入れるのは VERA のモデル（`openmc_model.py`、`openmc_model_3d.py`、`openmc_core_2d.py`）で、Problem 3 と 5-2D の参照解は組の版 1 を
+  持つ（examples/vera/verification.md の「参照解」）。燃焼の参照解（examples/depletion の `openmc_depletion*.py`。
+  `openmc_model.py` の定数と関数を使うが、組を足す `model` を通らない）と、examples/c5g7、examples/mox のモデルは組を入れない
 
 ## 確認
 
 - `examples/vera/openmc_tallies_check.py`（references の devShell で実行する）が、問題の種類ごとのタリーの名前、フィルタの
-  並び、スコア、核種と、群の境界が xlc の WIMS 69 群と同じことを確かめる
+  並び、スコア、核種と、群の境界が xlc の WIMS 69 群と同じことを確かめる。main 681c14f9b で `standard-1: ok`（2026-10-29、手元）
 - 短い実行（上の測定。10 世代を数える）で、すべての物質とビンの合計の P/A と k（P/A は、生成の合計を正味の吸収の合計で割ったもの）、物質ごとの nu-scatter の P0 の
   行の和と scatter + 増える分の比が合うこと（trials/std/consistency.py）。P/A と k（± は k の標準偏差）は、2B が 1.18329 と
   1.18364 ± 0.00030、3A が 1.17134 と 1.1712 ± 0.0006、5A-2D が 1.00470 と 1.00488 ± 0.00035。比は 2B が 0.9998〜1.0000、3A が

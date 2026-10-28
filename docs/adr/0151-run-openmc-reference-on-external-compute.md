@@ -1,10 +1,10 @@
 ---
-status: proposed
-date: 2026-10-12
+status: accepted
+date: 2026-10-29
 requires: []
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0189"]
 ---
 
 # ADR-0151: Run OpenMC reference solutions on AWS EC2 c7a spot instances
@@ -94,18 +94,25 @@ OpenMC の参照解のうち、r995 で流すと待ち時間が長くなるも�
 ### 帰結
 
 - 外部の計算機で流した結果は、k と統計誤差の参照解として使う。時間は記録しない（1 世代あたりの時間は r995 の測定だけ）
-- examples/*/verification.md の「計算」の節に、計算機の種類（c7a.4xlarge など）とコア数を書く。Zen4（c7a）と Zen5（r995）で k が統計誤差の中で一致することは、初回に r995 と同じ入力の 1 本で確かめてから使う（浮動小数点の演算順序で乱数の列は同一にならないので、差が k の標準誤差の 2 倍以内かで見る。基準はその時に決める）
+- examples/*/verification.md の「計算」の節に、計算機の種類（c7a.4xlarge など）とコア数を書く。Zen4（c7a）と Zen5（r995）で k が統計誤差の中で一致することは、初回に r995 と同じ入力の 1 本で確かめてから使う（浮動小数点の演算順序で乱数の列は同一にならないので、差が k の標準誤差の 2 倍以内かで見る。基準はその時に決める）とした。r995 と同じ入力で比べたのは c8a.8xlarge の 1 本（1C のピンセルの燃焼、AWS の実行 m4、2026-10-15。0 の点の k は丸めまで同じで、燃焼の 6 点の差は合成 σ の 2 倍以内。examples/depletion/verification.md の「AWS での燃焼の参照解の確認（ADR-0174 の確認 (c)）」）だけで、本番 m3 の多くの区間を流した c7a と m7a は比べていない（#0189）
+- 機種は ADR-0171 で、c7a と c8a の 4xlarge、8xlarge（`examples/aws/aws_types.toml`）から、スポット価格を速度の見積もりで割った 1 本の費用の安い順に選ぶ。c7a はその候補の 1 つになった
 - 費用の見積もり（us-east のスポット）: いまの 4 本が約 $5〜8（352 物理コア時間 x $0.015〜0.023）、M3 の残りが約 $25〜38（1648 物理コア時間）。単価は c7a.16xlarge の値で、c7a.4xlarge のスポット価格と空きは別に動く。4 本並列には 64 vCPU のスポットクォータが要る。取り出しは AWS の無料枠（月 100 GB まで）に収まる（結果は数十 MB）。EBS とスナップショットの少額費用がかかる
 - 準備と手順は docs/environment.md の「外部の計算機（AWS）」。本番の流し方（user-data、S3、自己終了）は ADR-0155
 
 ### 確認
 
-確かめていないことがある。結論に影響するものを先に並べる。
-
-- 新規アカウントのスポット vCPU クォータの既定（引き上げ申請が要るかもしれない）
-- Zen4（c7a）と Zen5（r995）の OpenMC での 1 コアあたりの速さ。上の時間の見積もり（約 5.5 時間）は r995 の値で置いている
-- Azure Dasv6 の vCPU が物理コアか
-- GCP の vCPU が SMT のスレッドであること（Google の文書）
-- 価格はすべて集計サイトのスナップショット（2026-01〜09 の混在）で、公式の価格表ではない。スポットは変動する
-- Hetzner サーバーオークションの現在価格、OVHcloud、Scaleway、DigitalOcean、日本の大学・HPC
-- 実際に借りて 1 本流したときの費用と所要時間（流したら、この ADR の帰結ではなく verification.md に書く）
+- 試走（docs/environment.md の「試走」、xlc b873a967、2026-10-13）: c7a.large のスポットで、起動、クロージャと核データの送付、3A と 5A-2D の
+  短い実行、statepoint からの `--restart` の再開（最初の実行と k が一致）、回収した statepoint の手元の extract のバイト一致を通した。
+  c7a.large の `lscpu` の Thread(s) per core は 1 で、vCPU が物理コアだった
+- 本番 m3（入力とツールのコミット eb667f66、2026-10-13〜15）: 3A、3B、5B-2D、5C-2D の参照解を 1 本 1 台のスポットで流し、中断のたびに
+  statepoint から再開して完了した。S3 から `aws_fetch.sh --verify m3` で取り出し、SHA256SUMS の一致と、手元の extract が VM の結果と
+  バイト一致することを確かめた（examples/vera/verification.md の「Problem 3 の参照解」と 5-2D の節）。1 本は c7a.4xlarge、c7a.8xlarge、
+  c8a.4xlarge、c8a.8xlarge（5B-2D では m7a.4xlarge も 1 回）をまたいだ。時間は記録していない
+- 確かめていないこと:
+  - c7a（Zen4）と m7a の k が r995 と統計誤差の中で一致すること（帰結。c8a.8xlarge は比べた。#0189）
+  - 新規アカウントのスポット vCPU クォータの既定（`aws_run.sh` はクォータ L-34B43A08 の残りで候補を絞る。docs/environment.md）
+  - c7a と c8a の OpenMC での 1 本あたりの速さ（ADR-0171 の速度は見積もり）
+  - Azure Dasv6 の vCPU が物理コアか、GCP の vCPU が SMT のスレッドであること（Google の文書）
+  - 価格はすべて集計サイトのスナップショット（2026-01〜09 の混在）で、公式の価格表ではない。スポットは変動する
+  - Hetzner サーバーオークションの現在価格、OVHcloud、Scaleway、DigitalOcean、日本の大学・HPC
+  - 実際に借りて流したときの費用
