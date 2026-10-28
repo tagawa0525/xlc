@@ -2,7 +2,7 @@
 status: proposed
 date: 2026-10-28
 requires: [ADR-0189, ADR-0193, ADR-0198, ADR-0213]
-supersedes: [ADR-0067]
+supersedes: []
 superseded-by:
 issues: ["#0181"]
 ---
