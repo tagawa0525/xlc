@@ -1,4 +1,4 @@
-use super::hold::available_from;
+use super::hold::{available_from, cgroup_limits};
 use super::*;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
@@ -2279,4 +2279,35 @@ fn unreadable_memory_stops_with_an_error() {
             "{meminfo:?} {limits:?}"
         );
     }
+}
+
+#[test]
+fn cgroup_limits_are_read_from_the_cgroup_and_its_ancestors() {
+    // このプロセスの cgroup から根までの memory.max と memory.current を読む。memory.max の無い階層は読まない。cgroup の
+    // ディレクトリが無ければ、制限を読み落とさないようにエラーで止める
+    let root = std::env::temp_dir().join(format!("xlc-cgroup-{}", std::process::id()));
+    let leaf = root.join("a/b");
+    std::fs::create_dir_all(&leaf).unwrap();
+    std::fs::write(root.join("a/memory.max"), "1000\n").unwrap();
+    std::fs::write(root.join("a/memory.current"), "400\n").unwrap();
+    std::fs::write(leaf.join("memory.max"), "max\n").unwrap();
+    std::fs::write(leaf.join("memory.current"), "300\n").unwrap();
+    let limits = cgroup_limits(&root, "/a/b").unwrap();
+    assert_eq!(
+        limits,
+        vec![
+            ("max\n".to_string(), "300\n".to_string()),
+            ("1000\n".to_string(), "400\n".to_string())
+        ]
+    );
+    assert!(matches!(
+        cgroup_limits(&root, "/a/missing"),
+        Err(MemoryError::Read { .. })
+    ));
+    std::fs::remove_file(leaf.join("memory.current")).unwrap();
+    assert!(matches!(
+        cgroup_limits(&root, "/a/b"),
+        Err(MemoryError::Read { .. })
+    ));
+    std::fs::remove_dir_all(&root).unwrap();
 }
