@@ -951,8 +951,8 @@ pub(super) struct Thermal<'a> {
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
-    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`]。格子点ごとの核種の区間の始まりも 40 B を 1 区間として
-    /// 数える。0 なら持たず、スイープごとに作り直す）。
+    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`]。すべての格子点の核種の区間の始まりと位置の表も、
+    /// 40 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         gases: Vec<Gas>,
