@@ -26,8 +26,9 @@ from pathlib import Path
 import msgpack
 from make_hybrid import TRACKED
 
-# 燃焼度 0 の組成は 3 本の履歴で同じなので、分岐は履歴の k を再現する（測った差は 0.051 pcm 以下。減速材をホウ酸水で書いた
-# 組成の差が候補）。これを超えれば、テーブルを別の履歴か条件から解いたとみて止める
+# 燃焼度 0 の組成は 3 本の履歴で同じなので、分岐はその条件の履歴の k を再現する（測った差は 0.051 pcm 以下。減速材をホウ酸水で
+# 書いた組成の差が候補）。これを超えれば、テーブルを別の条件で解いたとみて止める。別の履歴の組成から同じ条件で解いたテーブルは、
+# 燃焼度 0 では同じ k なので、この検査では分からない
 FRESH_TOLERANCE_PCM = 0.1
 NUCLIDES = ("U-235", "Pu-239", "Pu-240", "Pu-241", "Xe-135", "Sm-149")
 
@@ -113,11 +114,12 @@ def compare(nominal, cases):
             raise SystemExit(f"{name}: the histories lack the burnups {missing}")
         if burnups[0] != 0:
             raise SystemExit(f"{name}: the tables must solve the fresh point")
+        # ρ(テーブル) − ρ(その条件の履歴)
         fresh = {
-            "branch": rho(branch[0.0], varied[0.0][0]),
-            "hybrid": rho(hybrid[0.0], varied[0.0][0]),
-            "reverse": rho(reverse[0.0], base[0.0][0]),
-            "reverse_hybrid": rho(reverse_hybrid[0.0], base[0.0][0]),
+            "branch": rho(varied[0.0][0], branch[0.0]),
+            "hybrid": rho(varied[0.0][0], hybrid[0.0]),
+            "reverse": rho(base[0.0][0], reverse[0.0]),
+            "reverse_hybrid": rho(base[0.0][0], reverse_hybrid[0.0]),
         }
         for key, value in fresh.items():
             if abs(value) > FRESH_TOLERANCE_PCM:
