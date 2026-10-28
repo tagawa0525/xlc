@@ -21,7 +21,7 @@ rebase とマージはコミットの hook を通らないので、ブランチ�
 `examples/verification_tables.py --check` は hook のほかに `cargo test`（crates/docs の検査）からも実行され、マージの前のチェックで
 止まる。同じ形にするには crates/docs に検査を足す（#0183 のブランチは crates/ を変えない範囲だった）。
 
-関係する ADR: なし（ADR-0212 の「帰結」が触れる）
+関係する ADR: なし
 
 ## 完了の条件
 
