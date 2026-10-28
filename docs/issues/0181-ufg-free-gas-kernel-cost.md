@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, shielding, performance]
 opened: 2026-10-28
-closed:
+closed: 2026-10-28
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0214
 ---
 
 # UFG の自由ガスの核の評価の手間
@@ -126,3 +126,7 @@ D の散乱源（`Thermal::source` の区間の積分）になる。#0180 で S(
     ピンの 1 スレッドの仕事は 7.9 秒ほどで、その内訳は上の項のとおり（`free_gas` 4.6 秒、`sab` 0.57 秒、`grid` 0.8 秒、`table` 0.66 秒）。
     SMT の 32 スレッドでは完了の条件の中に入る（比較のステージの 35 秒ほどを足しても 37 分 20 秒ほど。確かめていない）。スレッドの数の既定（ADR-0067）を
     変えるかは別の決定
+- 2026-10-28: ユーザーの決定（21:45）で、lattice のスレッドの数の既定を許された論理 CPU の数にした（ADR-0214）。2A の燃焼（228bf1806、
+  Slurm の timed のジョブ 582、32 スレッド、`lattice` と比較）は自己遮蔽の和 1,860.6 秒、MOC 301.6 秒、全体 2,213.1 秒、経過時間 37 分 28 秒で、
+  完了の条件（37 分 56 秒）に入った。MaxRSS 20.7 GB。履歴は前の lock の出力と `seconds` のほかはバイトで同じ。1C の燃焼（Slurm 581）は
+  自己遮蔽の和 1 リング 445.2 秒、4 リング 644.2 秒、経過時間 18 分 44 秒で、16 スレッドより遅い（examples/depletion/verification.md）
