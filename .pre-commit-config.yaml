@@ -37,3 +37,12 @@ repos:
         files: ^(.*dvc\.yaml|python-ast/.*|.*\.py)$
         pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml と正規形を見る
         verbose: true
+      - id: references-shell
+        name: references-shell.txt matches the references devShell
+        # references-shell のステージは always_changed で dvc repro まで書き直されないので、flake の変更で食い違っても
+        # dvc status に出ない（ADR-0212、#0183）
+        entry: scripts/check-references-shell.sh
+        language: system
+        files: ^(flake\.(nix|lock)|(.*/)?references-shell\.txt)$
+        pass_filenames: false # 渡されたファイルでなく、追跡しているすべての references-shell.txt を見る
+        verbose: true
