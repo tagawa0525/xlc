@@ -1,5 +1,5 @@
 use super::*;
-use crate::special::erfc;
+use xlc_numeric::error_function::erfc;
 
 /// エラーにならない関数の期待値
 fn mean(dof: WidthDof, tolerance: f64, f: impl Fn(f64) -> f64) -> f64 {

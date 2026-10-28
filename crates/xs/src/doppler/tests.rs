@@ -2,7 +2,7 @@ use super::*;
 use crate::endf::{Interpolation, RangeKind, ResonanceRange};
 use crate::physics::BK;
 use crate::pointwise::linearize;
-use crate::special::erf;
+use xlc_numeric::error_function::erf;
 
 const SQRT_PI: f64 = 1.772_453_850_905_516;
 
