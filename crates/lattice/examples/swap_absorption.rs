@@ -29,7 +29,10 @@
 //!
 //! 捕獲と核分裂のほかの吸収は、OpenMC の `absorption`（消滅の反応と核分裂の和）−（`(n,gamma)` + `fission`）と、xlc の核種の
 //! 正味の吸収（実効の全断面積 − 散乱行列の行の和）に過剰を足し戻し（物質の吸収と同じく、ライブラリの燃焼チェーンの反応の無限希釈の
-//! 群の断面積）、捕獲と核分裂を引いた値の差を、全断面積に足す（xlc の値は、全断面積と行の和の食い違いも含む）。中性子の過剰は、正味の吸収
+//! 群の断面積）、捕獲と核分裂を引いた値の差を、全断面積に足す（xlc の値は、全断面積と行の和の食い違いも含む）。行の和は、自己遮蔽の
+//! 核種の組み立てと同じく無限希釈の行の和を弾性散乱の変化だけ動かしたもので、UFG の範囲の群でリングの中性子束で縮約した移行の行
+//! （ADR-0207）を使う格子では、その行と実効の弾性散乱の食い違いは xlc の値に入らない。ライブラリが群の断面積を持たない多重度の反応
+//! （MT11、24、25、30、41、42）は過剰に入らないので、その分は xlc のほかの吸収を小さくする（物質の吸収と同じ）。中性子の過剰は、正味の吸収
 //! （全断面積 − 散乱行列の行の和）を xlc の過剰と OpenMC の過剰（`(n,2n)` + 2 `(n,3n)` + 3 `(n,4n)`）の差だけ動かす（全断面積だけを
 //! 動かし、散乱行列の多重度は xlc のまま。移行の置き換えと同時なら、OpenMC の行と合わせて OpenMC の正味の吸収になる）。どちらも
 //! 比でなく差にする（捕獲と核分裂のほかの吸収は、反応の無い群で両方が 0 になり、比が決まらない）。差はピンの燃料で平均した値で、
@@ -307,6 +310,12 @@ fn shift(openmc: &[f64], xlc: &[f64], groups: &Range<usize>) -> Vec<f64> {
     out
 }
 
+/// 群 `groups` で xlc の過剰 `xlc` を OpenMC の過剰 `openmc` にする全断面積の変化 (barn。範囲の外は 0)。正味の吸収は消滅の吸収から
+/// 過剰を引いたものなので、過剰の差の符号を変える
+fn excess_shift(xlc: &[f64], openmc: &[f64], groups: &Range<usize>) -> Vec<f64> {
+    shift(xlc, openmc, groups)
+}
+
 /// 物質の吸収の比 R = OpenMC / xlc（`groups` の外は 1）。`xlc_absorption` は xlc の物質全体の、多重度を差し引かない吸収
 /// （正味の吸収 + 中性子の過剰）の物理的な値
 fn material_ratio(
@@ -473,6 +482,12 @@ enum Swap {
     Chi,
 }
 
+/// 燃料のほかの吸収と過剰の値を取る OpenMC の出力（`--absorption`、`--excess`）
+struct Sources<'a> {
+    absorption: Option<&'a Reference>,
+    excess: Option<&'a Reference>,
+}
+
 /// `<最初>-<最後>`（1 始まり、両端を含む）を、0 始まりで終わりを含まない範囲にする
 fn groups_of(part: &str, range: &str, ng: usize) -> anyhow::Result<Range<usize>> {
     let (first, last) = range
@@ -490,6 +505,7 @@ fn parse(
     spec: &str,
     fuel: &[String],
     reference: &Reference,
+    sources: &Sources,
     ng: usize,
 ) -> anyhow::Result<Vec<Swap>> {
     let mut out = Vec::new();
@@ -498,12 +514,12 @@ fn parse(
             out.push(Swap::Chi);
             continue;
         }
-        // 燃料の核種（`*` は OpenMC の反応率のある燃料の全核種）
-        let nuclides = |name: &str| -> anyhow::Result<Vec<String>> {
+        // 燃料の核種（`*` は、値を取る OpenMC の出力 `values` に反応率のある燃料の全核種）
+        let nuclides = |name: &str, values: &Reference| -> anyhow::Result<Vec<String>> {
             if name == "*" {
                 Ok(fuel
                     .iter()
-                    .filter(|n| reference.rates.contains_key(*n))
+                    .filter(|n| values.rates.contains_key(*n))
                     .cloned()
                     .collect())
             } else if fuel.iter().any(|n| n == name) {
@@ -514,8 +530,11 @@ fn parse(
         };
         if let Some((name, range)) = part.split_once('!') {
             let groups = groups_of(part, range, ng)?;
+            let values = sources
+                .absorption
+                .ok_or_else(|| anyhow!("`{part}` needs --absorption"))?;
             out.extend(
-                nuclides(name)?
+                nuclides(name, values)?
                     .into_iter()
                     .map(|n| Swap::Other(n, groups.clone())),
             );
@@ -523,8 +542,11 @@ fn parse(
         }
         if let Some((name, range)) = part.split_once('^') {
             let groups = groups_of(part, range, ng)?;
+            let values = sources
+                .excess
+                .ok_or_else(|| anyhow!("`{part}` needs --excess"))?;
             out.extend(
-                nuclides(name)?
+                nuclides(name, values)?
                     .into_iter()
                     .map(|n| Swap::Excess(n, groups.clone())),
             );
@@ -550,7 +572,7 @@ fn parse(
             });
         } else {
             out.extend(
-                nuclides(name)?
+                nuclides(name, reference)?
                     .into_iter()
                     .map(|n| Swap::Nuclide(n, groups.clone())),
             );
@@ -924,7 +946,11 @@ fn main() -> anyhow::Result<()> {
         let mut shifts: BTreeMap<String, (Vec<f64>, Vec<f64>)> = BTreeMap::new();
         let mut changes: BTreeMap<String, MaterialChange> = BTreeMap::new();
         let mut chi = false;
-        for part in parse(spec, &fuel, &reference, ng)? {
+        let sources = Sources {
+            absorption: absorption_reference.as_ref(),
+            excess: excess_reference.as_ref(),
+        };
+        for part in parse(spec, &fuel, &reference, &sources, ng)? {
             match part {
                 Swap::Nuclide(name, groups) => {
                     let k = fuel
@@ -951,8 +977,8 @@ fn main() -> anyhow::Result<()> {
                         .iter()
                         .position(|n| *n == name)
                         .ok_or_else(|| anyhow!("{name} is not in the fuel"))?;
-                    let r = absorption_reference
-                        .as_ref()
+                    let r = sources
+                        .absorption
                         .ok_or_else(|| anyhow!("`{spec}` needs --absorption"))?;
                     let d = shift(
                         &openmc_other(r, &name, &groups, ng)?,
@@ -969,11 +995,10 @@ fn main() -> anyhow::Result<()> {
                         .iter()
                         .position(|n| *n == name)
                         .ok_or_else(|| anyhow!("{name} is not in the fuel"))?;
-                    let r = excess_reference
-                        .as_ref()
+                    let r = sources
+                        .excess
                         .ok_or_else(|| anyhow!("`{spec}` needs --excess"))?;
-                    // 正味の吸収は消滅の吸収から過剰を引いたものなので、過剰の差の符号を変えて全断面積に足す
-                    let d = shift(
+                    let d = excess_shift(
                         &xlc_excesses[k],
                         &openmc_excess(r, &name, &groups, ng)?,
                         &groups,
