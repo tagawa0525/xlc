@@ -20,7 +20,9 @@
 //! 間引いた格子（ADR-0185）でも、減速計算の格子点で数える。弾性散乱断面積は核種自身の格子で縮約した群定数なので、自分の群への
 //! 移行には、ほかの群への移行を間引いた格子で数えた誤差だけが入る（ADR-0208）。
 
+use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use rayon::prelude::*;
 use xlc_format::library::{SabTransfer, Shielded};
@@ -37,6 +39,43 @@ const SHARE_WIDTH: f64 = 0.01;
 /// 自由ガスの核の差の近似の誤差（`correction_shares_split_the_kernel_at_an_outgoing_energy` で 1e−10）よりも大きい。間引いた格子でも緩めない
 /// （自分の群への移行に入るのは、ほかの群への移行を間引いた格子で数えた誤差で、それが行を負にするなら止めて知らせる。ADR-0208）
 const NEGATIVE: f64 = 1.0e-9;
+
+/// 移行の計数の割合の区間（[`Gas::share_cells`]）を、減速計算（ピン、輸送、分岐の状態）の間で共有する表（ADR-0213）。区間は
+/// 自由ガスの核種の核（[`Gas`] のすべての値）、範囲の上端、格子の最後の点、ライブラリの群の境界だけで決まり、格子、中性子束、
+/// 個数密度に依らないので、それらのビットを鍵に、[境界 − 1] の区間を持つ。
+#[derive(Debug, Default)]
+pub struct ShareCellCache {
+    columns: Mutex<HashMap<ShareKey, Arc<ShareColumn>>>,
+}
+
+/// 1 つの自由ガスの核種の [境界 − 1] の割合の区間 [境界より上の入射, 境界より下の入射]
+type ShareColumn = Vec<[Vec<ShareCell>; 2]>;
+
+/// [`ShareCellCache`] の鍵: [`Gas::bits`]、範囲の上端、格子の最後の点（レサジー）、群の境界 (eV) のビット
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ShareKey {
+    gas: [u64; 7],
+    high: u64,
+    last: u64,
+    bounds: Vec<u64>,
+}
+
+impl ShareCellCache {
+    /// 持っている自由ガスの核種の列の数
+    pub fn len(&self) -> usize {
+        self.lock().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    // ロックの中では作り終えた列を引くか入れるだけで、表が途中の状態で残ることはないので、ほかのスレッドがロックを持ったまま
+    // 止まった（毒された）表もそのまま使う
+    fn lock(&self) -> MutexGuard<'_, HashMap<ShareKey, Arc<ShareColumn>>> {
+        self.columns.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
 
 /// 減速計算の結果から移行を数える入力。
 pub(super) struct Counting<'a> {
@@ -62,6 +101,8 @@ pub(super) struct Counting<'a> {
     pub(super) thermal: Option<&'a Thermal<'a>>,
     /// [核種] の自由ガスの核種の番号（[`Thermal::gas`]）
     pub(super) gas_of: &'a [Option<usize>],
+    /// 割合の区間の表
+    pub(super) shares: &'a ShareCellCache,
 }
 
 /// 群 h の [境界] の、下への移行の率 B と上への移行の率 A
@@ -80,14 +121,7 @@ impl Counting<'_> {
         let gases = self.thermal.map_or(0, |_| {
             self.gas_of.iter().flatten().max().map_or(0, |&l| l + 1)
         });
-        let pairs: Vec<(usize, usize)> = (0..gases)
-            .flat_map(|l| (1..ng).map(move |b| (l, b)))
-            .collect();
-        let grades = grades(SHARE_CELLS);
-        let cells: Vec<[Vec<ShareCell>; 2]> = pairs
-            .par_iter()
-            .map(|&(l, b)| self.share_cells(l, b, x[b], &grades))
-            .collect();
+        let columns = self.share_columns(gases, &x);
         let tasks: Vec<(usize, usize)> = self
             .entries
             .iter()
@@ -100,8 +134,7 @@ impl Counting<'_> {
                 let k = self.entries[i][e].0;
                 let mut rates = self.static_rates(i, k, &x, &segments);
                 if let Some(l) = self.gas_of[k] {
-                    let mine = pairs.iter().zip(&cells).filter(|((m, _), _)| *m == l);
-                    for (&(_, b), [below, above]) in mine {
+                    for (b, [below, above]) in (1..ng).zip(columns[l].iter()) {
                         for cell in below {
                             self.add_cell(i, l, cell, &segments, |h, v| rates.below[h][b] += v);
                         }
@@ -120,6 +153,51 @@ impl Counting<'_> {
             .iter()
             .map(|ring| rows.by_ref().take(ring.len()).collect())
             .collect())
+    }
+
+    /// [自由ガスの核種] の [境界 − 1] の割合の区間。表（[`ShareCellCache`]）に無い核種の列は、境界ごとに並列に作って表に入れる
+    /// （ロックの外で作る。同時に同じ鍵の列を作ったほかの減速計算が先に入れていれば、ビットで同じその列を使う）
+    fn share_columns(&self, gases: usize, x: &[f64]) -> Vec<Arc<ShareColumn>> {
+        let ng = self.bounds.len() - 1;
+        let Some(thermal) = self.thermal else {
+            return Vec::new();
+        };
+        let bounds: Vec<u64> = self.bounds.iter().map(|b| b.to_bits()).collect();
+        let keys: Vec<ShareKey> = (0..gases)
+            .map(|l| ShareKey {
+                gas: thermal.gas(l).0.bits(),
+                high: self.high.to_bits(),
+                last: self.u[self.u.len() - 1].to_bits(),
+                bounds: bounds.clone(),
+            })
+            .collect();
+        let mut columns: Vec<Option<Arc<ShareColumn>>> = {
+            let table = self.shares.lock();
+            keys.iter().map(|k| table.get(k).cloned()).collect()
+        };
+        let missing: Vec<usize> = (0..gases).filter(|&l| columns[l].is_none()).collect();
+        if missing.is_empty() {
+            return columns.into_iter().flatten().collect();
+        }
+        let pairs: Vec<(usize, usize)> = missing
+            .iter()
+            .flat_map(|&l| (1..ng).map(move |b| (l, b)))
+            .collect();
+        let grades = grades(SHARE_CELLS);
+        let cells: Vec<[Vec<ShareCell>; 2]> = pairs
+            .par_iter()
+            .map(|&(l, b)| self.share_cells(l, b, x[b], &grades))
+            .collect();
+        let mut cells = cells.into_iter();
+        let mut table = self.shares.lock();
+        for &l in &missing {
+            let column: ShareColumn = cells.by_ref().take(ng - 1).collect();
+            let held = table
+                .entry(keys[l].clone())
+                .or_insert_with(|| Arc::new(column));
+            columns[l] = Some(held.clone());
+        }
+        columns.into_iter().flatten().collect()
     }
 
     /// [区間] の群（`groups` の中の番号）。減速計算と同じく、群の境界の高い側の格子点で次の群に移る

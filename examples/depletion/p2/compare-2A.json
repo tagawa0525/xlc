@@ -3,7 +3,7 @@
  "inputs": [
   {
    "path": "lattice-2A.msgpack",
-   "md5": "7aae6697a9c3f0af430575d0da2aa8af"
+   "md5": "42bd398cd9eaf31bb599ac064f559462"
   },
   {
    "path": "../../../references/openmc/aws/m4-assembly/openmc-2A/openmc-2A.msgpack",
@@ -58,11 +58,11 @@
  "regions": 39,
  "seconds": {
   "xlc": {
-   "shielding": 3290.860054714,
-   "moc": 261.812115378,
-   "rates": 40.69166738,
-   "matrix": 3.692920425,
-   "cram": 6.712863037,
+   "shielding": 2063.435097696,
+   "moc": 260.841704144,
+   "rates": 40.697529614,
+   "matrix": 3.734130784,
+   "cram": 6.829153015,
    "solves": 81
   },
   "openmc": {

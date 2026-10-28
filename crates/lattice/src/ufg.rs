@@ -39,8 +39,12 @@ use crate::input::MaterialInput;
 use free_gas::{Gas, Thermal};
 
 mod free_gas;
+mod hold;
 mod transfer;
+
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
+pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
+pub use transfer::ShareCellCache;
 use xlc_numeric::lu::solve;
 
 /// ポイントワイズの断面積の列の数: [全, 弾性散乱, 核分裂, νσf, 捕獲]
@@ -322,12 +326,15 @@ pub fn slowing_down(
         Collision::default(),
         None,
         Scattering::Static,
+        // 静止した標的にはスイープの間で持つ区間がない
+        0,
     )
 }
 
 /// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引き（[`thin`]。
 /// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））、
-/// 散乱核の標的の扱いを `scattering` で選ぶもの。
+/// 散乱核の標的の扱いを `scattering` で選ぶもの。スイープの間で持つ区間は `hold` 個まで（[`held_cells`]。ADR-0213）。
+#[allow(clippy::too_many_arguments)]
 pub fn slowing_down_with(
     library: &Library,
     cell: &Cylinder,
@@ -336,9 +343,10 @@ pub fn slowing_down_with(
     collision: Collision,
     thinning: Option<f64>,
     scattering: Scattering,
+    hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library, cell, rings, range, collision, thinning, scattering, None, None,
+        library, cell, rings, range, collision, thinning, scattering, None, None, hold,
     )
 }
 
@@ -352,6 +360,8 @@ pub struct NuclideTransfer {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、[リング][核種（物質の組成の順）] の弾性散乱の移行の行も返す（ADR-0207）。
+/// 自由ガスの核の移行の割合の区間は `shares` から引き、無ければ作って入れる。スイープの間で持つ区間は `hold` 個まで（[`held_cells`]。
+/// ADR-0213）。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_transfers(
     library: &Library,
@@ -361,6 +371,8 @@ pub fn slowing_down_transfers(
     collision: Collision,
     thinning: Option<f64>,
     scattering: Scattering,
+    shares: &ShareCellCache,
+    hold: usize,
 ) -> Result<(CellSpectrum, Vec<Vec<NuclideTransfer>>), UfgError> {
     let mut transfers = Vec::new();
     let spectrum = solve_cell(
@@ -372,7 +384,8 @@ pub fn slowing_down_transfers(
         thinning,
         scattering,
         None,
-        Some(&mut transfers),
+        Some((&mut transfers, shares)),
+        hold,
     )?;
     Ok((spectrum, transfers))
 }
@@ -387,7 +400,8 @@ pub struct FineFlux {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、格子点ごとのリングの中性子束も返す（群の中の重みを参照解の細かい
-/// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。
+/// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。スイープの間で持つ区間は
+/// `hold` 個まで（[`held_cells`]）。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_fine(
     library: &Library,
@@ -397,6 +411,7 @@ pub fn slowing_down_fine(
     collision: Collision,
     thinning: Option<f64>,
     scattering: Scattering,
+    hold: usize,
 ) -> Result<(CellSpectrum, FineFlux), UfgError> {
     let mut fine = FineFlux::default();
     let spectrum = solve_cell(
@@ -409,6 +424,7 @@ pub fn slowing_down_fine(
         scattering,
         Some(&mut fine),
         None,
+        hold,
     )?;
     Ok((spectrum, fine))
 }
@@ -424,7 +440,8 @@ fn solve_cell(
     thinning: Option<f64>,
     scattering: Scattering,
     fine: Option<&mut FineFlux>,
-    transfers: Option<&mut Vec<Vec<NuclideTransfer>>>,
+    transfers: Option<(&mut Vec<Vec<NuclideTransfer>>, &ShareCellCache)>,
+    hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -686,6 +703,8 @@ fn solve_cell(
                 options.cells,
                 &energies,
                 n,
+                // スイープが 1 回なら、持った区間を使うスイープがない
+                if options.sweeps == Some(1) { 0 } else { hold },
             );
             (thermal, options.sweeps)
         }
@@ -716,10 +735,14 @@ fn solve_cell(
             cursors.clone_from(&saved_cursors);
         }
     }
+    let held = sweep.thermal.as_ref().map_or(0, Thermal::held);
+    if let Some(thermal) = &mut sweep.thermal {
+        thermal.release();
+    }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
     let [free_gas, sab] = sweep.thermal.as_ref().map_or([0.0; 2], Thermal::elapsed);
     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成。
-    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源
+    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源。held はスイープの間で持った区間の数
     tracing::debug!(
         points = u.len(),
         union,
@@ -734,6 +757,7 @@ fn solve_cell(
         slowing,
         free_gas,
         sab,
+        held,
         "UFG slowing down"
     );
 
@@ -811,7 +835,7 @@ fn solve_cell(
         }
         nuclides.push(list);
     }
-    if let Some(transfers) = transfers {
+    if let Some((transfers, shares)) = transfers {
         // 自由ガスの核種の番号（`Thermal::new` に渡した順）
         let mut count = 0;
         let gas_of: Vec<Option<usize>> = data
@@ -838,6 +862,7 @@ fn solve_cell(
             high,
             thermal: sweep.thermal.as_ref(),
             gas_of: &gas_of,
+            shares,
         }
         .count()?;
         tracing::debug!(

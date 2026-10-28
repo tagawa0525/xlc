@@ -1,3 +1,4 @@
+use super::hold::{available_from, cgroup_limits};
 use super::*;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
@@ -397,6 +398,7 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
             collision,
             None,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -441,6 +443,7 @@ fn non_finite_totals_stop_with_the_table_as_without() {
             collision,
             None,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -466,6 +469,7 @@ fn zero_totals_stop_the_table_with_their_ring() {
         Collision::default(),
         None,
         Scattering::Static,
+        held_cells(1 << 30, 1),
     );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
@@ -490,6 +494,7 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
             collision,
             None,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -520,6 +525,7 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
             collision,
             None,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -719,6 +725,7 @@ fn thinned_grids_give_the_group_constants_of_the_full_grid() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -764,6 +771,7 @@ fn a_vanishing_tolerance_gives_the_group_constants_tallied_in_the_sweep() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -819,6 +827,7 @@ fn thinned_grids_keep_both_limits_of_discontinuities() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -846,6 +855,7 @@ fn void_cells_stop_with_an_error_when_thinned() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         );
         assert!(result.is_err(), "{thinning:?}");
     }
@@ -866,6 +876,7 @@ fn non_finite_totals_stop_the_thinning_as_without() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -891,6 +902,7 @@ fn fine_flux_integrates_to_the_group_flux() {
         Collision::default(),
         None,
         Scattering::Static,
+        held_cells(1 << 30, 1),
     )
     .unwrap();
     let (spectrum, fine) = slowing_down_fine(
@@ -901,6 +913,7 @@ fn fine_flux_integrates_to_the_group_flux() {
         Collision::default(),
         None,
         Scattering::Static,
+        held_cells(1 << 30, 1),
     )
     .unwrap();
     assert_eq!(spectrum, plain);
@@ -1098,6 +1111,7 @@ fn thermal_spectrum(temperature: f64, scattering: Scattering) -> CellSpectrum {
         Collision::Exact,
         None,
         scattering,
+        held_cells(1 << 30, 1),
     )
     .unwrap()
 }
@@ -1215,6 +1229,7 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1300,6 +1315,7 @@ fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1527,6 +1543,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1668,6 +1685,7 @@ fn sab_spectrum(
         Collision::Exact,
         None,
         scattering,
+        held_cells(1 << 30, 1),
     )
 }
 
@@ -1750,6 +1768,7 @@ fn sab_needs_the_table_of_sab_nuclides() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1791,7 +1810,8 @@ fn sab_needs_the_free_gas_of_its_nuclides() {
             [4.0, 1.0e2],
             Collision::Exact,
             None,
-            sab(4, None)
+            sab(4, None),
+            held_cells(1 << 30, 1),
         ),
         Err(UfgError::SabWithoutFreeGas { .. })
     ));
@@ -1861,6 +1881,8 @@ fn static_transfers_of_a_scatterer_follow_the_kernel() {
             Collision::Exact,
             None,
             Scattering::Static,
+            &ShareCellCache::default(),
+            held_cells(1 << 30, 1),
         )
         .unwrap();
         assert_eq!(transfers.len(), 1);
@@ -1949,6 +1971,8 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
                 Collision::Exact,
                 thinning,
                 scattering,
+                &ShareCellCache::default(),
+                held_cells(1 << 30, 1),
             )
             .unwrap();
             match full_points {
@@ -2063,6 +2087,8 @@ fn thermal_transfers(
         Collision::Exact,
         thinning,
         scattering,
+        &ShareCellCache::default(),
+        held_cells(1 << 30, 1),
     )
     .unwrap()
 }
@@ -2097,6 +2123,7 @@ fn dilute_resonances_drop_out_of_the_thinned_grid() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
         .1
@@ -2157,5 +2184,169 @@ fn thinned_transfers_follow_the_full_grid() {
                 }
             }
         }
+    }
+}
+
+#[test]
+fn shared_share_cells_give_the_transfers_of_fresh_ones() {
+    // 移行の計数の割合の区間（ShareCell）を、ほかの減速計算（個数密度の違う燃料で、間引いた格子も違う）と共有する表から引いても、
+    // 作り直したときと中性子束と移行がビットで同じ。表の列は自由ガスの核種と温度の組ごとに 1 度だけ作る
+    let (lib, fuel, water) = transfer_cell(None);
+    let mut denser = fuel.clone();
+    for (_, density) in &mut denser.composition {
+        *density *= 1.3;
+    }
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let solve = |fuel: &MaterialInput, shares: &ShareCellCache| {
+        let rings = [Some(fuel), None, Some(&water), Some(&water)];
+        let solved = slowing_down_transfers(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            Some(1.0e-4),
+            free_gas_heavy(400.0, 2, Some(3)),
+            shares,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap();
+        // Debug の表記は f64 を往復できる最短の 10 進で書くので、ビットの違う値は違う文字列になる
+        format!("{solved:?}")
+    };
+    let shared = ShareCellCache::default();
+    let first = solve(&fuel, &shared);
+    let gases = shared.len();
+    assert!(gases > 0);
+    let second = solve(&denser, &shared);
+    assert_eq!(shared.len(), gases);
+    assert_eq!(first, solve(&fuel, &ShareCellCache::default()));
+    assert_eq!(second, solve(&denser, &ShareCellCache::default()));
+    assert_ne!(first, second);
+}
+
+#[test]
+fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
+    // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
+    let gib = 1u64 << 30;
+    assert_eq!(hold_budget(10 * gib), 32 * gib / 5);
+    assert_eq!(hold_budget(2 * gib), 0);
+    assert_eq!(hold_budget(gib), 0);
+}
+
+#[test]
+fn held_cells_divide_the_budget_among_the_solves_at_once() {
+    // 1 回の減速計算が持つ区間の数は、全体の量を同時に解きうる減速計算の数で分けたもの（1 区間 40 B）
+    let gib = 1u64 << 30;
+    assert_eq!(held_cells(gib, 1), (gib / 40) as usize);
+    assert_eq!(held_cells(32 * gib, 32), (gib / 40) as usize);
+    assert_eq!(held_cells(gib, 0), held_cells(gib, 1));
+    for at_once in 1..=40 {
+        assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 40 <= 10 * gib + 7);
+    }
+}
+
+#[test]
+fn available_memory_is_mem_available_or_the_room_left_in_the_cgroups() {
+    // /proc/meminfo の MemAvailable（kB）と、cgroup の memory.max からその memory.current を引いた残りの、小さい方。memory.max が
+    // max の cgroup は制限しない
+    let meminfo = "MemTotal:       95000000 kB\nMemFree:  1000 kB\nMemAvailable:   80000000 kB\n";
+    assert_eq!(available_from(meminfo, &[]).unwrap(), 80_000_000 * 1024);
+    assert_eq!(
+        available_from(meminfo, &[("max\n", "123\n")]).unwrap(),
+        80_000_000 * 1024
+    );
+    assert_eq!(
+        available_from(meminfo, &[("max\n", "1\n"), ("10000\n", "4000\n")]).unwrap(),
+        6000
+    );
+    assert_eq!(available_from(meminfo, &[("100\n", "400\n")]).unwrap(), 0);
+}
+
+#[test]
+fn unreadable_memory_stops_with_an_error() {
+    // 推測せずに止める: MemAvailable の無い meminfo、数でない値
+    let ok = "MemAvailable: 100 kB\n";
+    for (meminfo, limits) in [
+        ("MemTotal: 100 kB\n", vec![]),
+        ("MemAvailable: lots kB\n", vec![]),
+        ("MemAvailable: 100 MB\n", vec![]),
+        (ok, vec![("ten\n", "1\n")]),
+        (ok, vec![("10\n", "")]),
+    ] {
+        assert!(
+            matches!(available_from(meminfo, &limits), Err(MemoryError::Parse(_))),
+            "{meminfo:?} {limits:?}"
+        );
+    }
+}
+
+#[test]
+fn cgroup_limits_are_read_from_the_cgroup_and_its_ancestors() {
+    // このプロセスの cgroup から根までの memory.max と memory.high（どちらも memory.current と組にする）を読む。上限のファイルの
+    // 無い階層は読まない。cgroup v2 の根（cgroup.controllers のあるところ）でないか、cgroup のディレクトリが無いか、根の外を指す
+    // （..）ときは、制限を読み落とさないようにエラーで止める
+    let root = std::env::temp_dir().join(format!("xlc-cgroup-{}", std::process::id()));
+    let leaf = root.join("a/b");
+    std::fs::create_dir_all(&leaf).unwrap();
+    std::fs::write(root.join("a/memory.max"), "1000\n").unwrap();
+    std::fs::write(root.join("a/memory.current"), "400\n").unwrap();
+    std::fs::write(leaf.join("memory.max"), "max\n").unwrap();
+    std::fs::write(leaf.join("memory.high"), "700\n").unwrap();
+    std::fs::write(leaf.join("memory.current"), "300\n").unwrap();
+    assert!(matches!(
+        cgroup_limits(&root, "/a/b"),
+        Err(MemoryError::NotCgroup2(_))
+    ));
+    std::fs::write(root.join("cgroup.controllers"), "memory\n").unwrap();
+    let limits = cgroup_limits(&root, "/a/b").unwrap();
+    assert_eq!(
+        limits,
+        vec![
+            ("max\n".to_string(), "300\n".to_string()),
+            ("700\n".to_string(), "300\n".to_string()),
+            ("1000\n".to_string(), "400\n".to_string())
+        ]
+    );
+    assert!(matches!(
+        cgroup_limits(&root, "/a/missing"),
+        Err(MemoryError::Read { .. })
+    ));
+    for outside in ["/..", "/a/../.."] {
+        assert!(
+            matches!(
+                cgroup_limits(&root, outside),
+                Err(MemoryError::NotCgroup2(_))
+            ),
+            "{outside}"
+        );
+    }
+    std::fs::remove_file(leaf.join("memory.current")).unwrap();
+    assert!(matches!(
+        cgroup_limits(&root, "/a/b"),
+        Err(MemoryError::Read { .. })
+    ));
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn unsearchable_cgroups_stop_with_an_error() {
+    // 上限のファイルの有無を確かめられない階層（検索の権限の無いディレクトリ）を、上限の無い階層として扱わない。root は権限を
+    // 無視するので確かめられない
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("xlc-cgroup-perm-{}", std::process::id()));
+    let a = root.join("a");
+    std::fs::create_dir_all(a.join("b")).unwrap();
+    std::fs::write(root.join("cgroup.controllers"), "memory\n").unwrap();
+    std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let searchable = std::fs::metadata(a.join("b")).is_ok();
+    let result = cgroup_limits(&root, "/a");
+    std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+    if !searchable {
+        assert!(
+            matches!(result, Err(MemoryError::Read { .. })),
+            "{result:?}"
+        );
     }
 }

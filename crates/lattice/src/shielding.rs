@@ -36,8 +36,8 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, Collision, NuclideTransfer, Scattering, UfgError, cell_range, material_range,
-    slowing_down_transfers, slowing_down_with,
+    CellSpectrum, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache, UfgError,
+    cell_range, held_cells, hold_total, material_range, slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -59,6 +59,8 @@ pub struct ShieldingOptions {
     /// 燃料のピンと棒の UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は
     /// 間引かない。ADR-0185）
     pub thinning: Option<f64>,
+    /// 自由ガスの散乱源の区間をスイープの間で持つ量の全体 (B)（`None` は自己遮蔽のたびに使用可能メモリから求める。ADR-0213）
+    pub hold_memory: Option<u64>,
     /// 燃料のピンと棒の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
     pub scattering: Scattering,
     /// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（ADR-0207）
@@ -73,6 +75,7 @@ impl Default for ShieldingOptions {
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
             thinning: None,
+            hold_memory: None,
             scattering: Scattering::default(),
             transfer: UfgTransfer::default(),
         }
@@ -127,6 +130,8 @@ pub enum SelfShieldingError {
     Equivalent(#[from] EquivalentError),
     #[error(transparent)]
     Ufg(#[from] UfgError),
+    #[error(transparent)]
+    Memory(#[from] MemoryError),
     #[error(transparent)]
     Cp(#[from] CpError),
     #[error(transparent)]
@@ -425,6 +430,8 @@ pub struct ShieldingReuse<'a> {
     dancoff: Option<DancoffInputs>,
     /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
+    /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
+    shares: ShareCellCache,
 }
 
 /// 燃料のピンの Dancoff 係数を求めた入力と結果
@@ -446,6 +453,7 @@ impl<'a> ShieldingReuse<'a> {
             tracking,
             dancoff: None,
             dancoff_solves: 0,
+            shares: ShareCellCache::default(),
         }
     }
 
@@ -594,6 +602,10 @@ pub fn shield_fuel_reusing(
         pins.push((cell, fuel_regions, ring_materials, rings));
     }
     let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
+    let shares = &reuse.shares;
+    // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）
+    let total = hold_total(options.hold_memory)?;
+    tracing::debug!(bytes = total, "UFG held memory");
 
     let mut shielded = FuelShielding {
         materials: dilute,
@@ -653,6 +665,9 @@ pub fn shield_fuel_reusing(
         .collect();
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
+    // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方
+    let threads = rayon::current_num_threads();
+    let hold = held_cells(total, threads.min(solving.len()));
     let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
         let &(cell, ring_materials, rings) = pin;
         let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
@@ -684,6 +699,8 @@ pub fn shield_fuel_reusing(
             thinning: options.thinning,
             scattering: options.scattering,
             transfer: options.transfer,
+            shares,
+            hold,
         };
         let ufg = shield_cell(
             library,
@@ -867,6 +884,7 @@ pub fn shield_fuel_reusing(
             &region_index,
             (symmetry.images(), &orbits),
             options,
+            (shares, total),
             &mut shielded,
         )
     })?;
@@ -910,6 +928,7 @@ pub fn shield_fuel_reusing(
 /// 黒体の Dancoff 係数と平均弦長で遮蔽する。対称に移り合うセルの組の対応する黒体は1つにする。塊が棒（[`rod_rings`]）
 /// なら、UFG の範囲の群は、塊の Dancoff 係数を合わせた等価なセルの減速計算の、棒のリングの平均にする（範囲は
 /// [`material_range`]。棒の物質の核種で決める）。
+#[allow(clippy::too_many_arguments)]
 fn shield_lumps(
     library: &Library,
     tracking: &Tracking,
@@ -917,6 +936,7 @@ fn shield_lumps(
     region_index: &[usize],
     (images, orbits): (&[Image], &[usize]),
     options: &ShieldingOptions,
+    (shares, total): (&ShareCellCache, u64),
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
     let lattice = &tracking.lattice;
@@ -1077,6 +1097,12 @@ fn shield_lumps(
     // 含む）で、塊の結果の物質は下のループで塊の順に足すので、逐次に解いたときと同じ番号と値になる。エラーも塊の順に返す
     let parent = tracing::Span::current();
     let dilute: &[Material] = &shielded.materials;
+    // 塊は `par_iter` なので、減速計算を待つスレッドがほかの塊を盗んで入れ子に解きうる。同時に解きうる減速計算は棒の塊の数まで
+    let rods = lump_of
+        .iter()
+        .filter(|(b, _, lump_regions)| rod_rings(lattice, body_of[*b].0, lump_regions).is_some())
+        .count();
+    let hold = held_cells(total, rods);
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()
         .map(|(b, index, lump_regions)| {
@@ -1107,6 +1133,8 @@ fn shield_lumps(
                         thinning: options.thinning,
                         scattering: options.scattering,
                         transfer: options.transfer,
+                        shares,
+                        hold,
                     };
                     shield_cell(
                         library,
@@ -1335,6 +1363,9 @@ struct PinRings<'a> {
     scattering: Scattering,
     /// リングの物質の UFG の範囲の群の散乱行列の移行の形
     transfer: UfgTransfer,
+    /// 移行の計数の自由ガスの核の割合の区間の表と、スイープの間で持つ区間の数の上限（[`held_cells`]。ADR-0213）
+    shares: &'a ShareCellCache,
+    hold: usize,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1497,6 +1528,7 @@ fn solve_equivalent_cell<'a>(
                 pin.collision,
                 pin.thinning,
                 pin.scattering,
+                pin.hold,
             )?,
             None,
         ),
@@ -1509,6 +1541,8 @@ fn solve_equivalent_cell<'a>(
                 pin.collision,
                 pin.thinning,
                 pin.scattering,
+                pin.shares,
+                pin.hold,
             )?;
             (spectrum, Some(transfers))
         }
