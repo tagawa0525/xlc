@@ -1,10 +1,10 @@
-//! 特殊関数（標準ライブラリにない指数積分、不完全ガンマ関数、Faddeeva 関数）。誤差関数は xlc-numeric の `error_function`。
+//! 特殊関数（標準ライブラリにない誤差関数など）。
 
 use num_complex::Complex64;
 
 use crate::numeric::NumericError;
 
-use xlc_numeric::error_function::erf;
+pub use xlc_numeric::error_function::{erf, erfc, erfcx};
 
 /// スケールした指数積分 e^z E1(z)（z > 0）。E1(z) = ∫_z^∞ e^(-t)/t dt。
 ///

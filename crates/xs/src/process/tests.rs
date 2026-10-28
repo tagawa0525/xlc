@@ -445,7 +445,7 @@ fn processes_each_temperature_and_sigma0() {
         let (awr, kt) = (236.006, BK * t.temperature);
         let effective = |e: f64| {
             let a = (awr * e / kt).sqrt();
-            let n = (1.0 + 0.5 / (a * a)) * xlc_numeric::error_function::erf(a)
+            let n = (1.0 + 0.5 / (a * a)) * crate::special::erf(a)
                 + (-a * a).exp() / (a * std::f64::consts::PI.sqrt());
             10.0 * n
         };

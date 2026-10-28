@@ -6,8 +6,7 @@
 use super::quadrature::gauss_kronrod;
 use crate::endf::WidthDof;
 use crate::numeric::NumericError;
-use crate::special::exp_e1;
-use xlc_numeric::error_function::erfcx;
+use crate::special::{erfcx, exp_e1};
 
 /// u の積分の上限を k u² = TAIL とする。密度は e^(-40) ≈ 4e-18 倍になり、倍精度で無視できる
 const TAIL: f64 = 40.0;
