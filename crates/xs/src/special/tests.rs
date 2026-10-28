@@ -181,10 +181,10 @@ fn erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values() {
 }
 
 #[test]
-fn erfcx_of_negative_x_is_within_five_ulp_of_multiprecision_values() {
+fn erfcx_of_negative_x_is_within_four_ulp_of_multiprecision_values() {
     for &(x, hi, lo) in ERFCX_NEGATIVE_REFERENCE {
         let error = ulp_error(erfcx(x), hi, lo);
-        assert!(error.abs() <= 5.0, "x={x}: {error} ulp");
+        assert!(error.abs() <= 4.0, "x={x}: {error} ulp");
     }
 }
 
@@ -220,9 +220,9 @@ fn erfcx_gives_the_same_bits_as_its_copy() {
 }
 
 #[test]
-fn erfc_is_within_five_ulp_of_multiprecision_values() {
+fn erfc_is_within_four_ulp_of_multiprecision_values() {
     // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値。erfcx_cases.py が書き出す）。x は 0.46875〜2.5 と 0.46875〜26 の
-    // 一様な乱数（4 万点、3 万点）で誤差が大きかった点と、区間の端
+    // 一様な乱数（4 万点、3 万点）で誤差が大きかった点（exp(−x²) を分けないとき、1/16 と 2⁻²¹ で分けたとき）と、区間の端
     for (x, hi, lo) in [
         (0.46875, 0.507386526782062, 3.3306914518767484e-17),
         (1.0, 0.15729920705028513, -2.954563826510312e-18),
@@ -255,12 +255,17 @@ fn erfc_is_within_five_ulp_of_multiprecision_values() {
             -6.685261138650425e-169,
         ),
         (
+            19.682425596191692,
+            1.6293983823401032e-170,
+            4.778675919976482e-187,
+        ),
+        (
             24.550577990594043,
             3.9655981201297054e-264,
             7.636248203320565e-281,
         ),
     ] {
         let error = ulp_error(erfc(x), hi, lo);
-        assert!(error.abs() <= 5.0, "x={x}: {error} ulp");
+        assert!(error.abs() <= 4.0, "x={x}: {error} ulp");
     }
 }

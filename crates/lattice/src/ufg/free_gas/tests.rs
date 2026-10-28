@@ -432,10 +432,10 @@ fn erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values() {
 }
 
 #[test]
-fn erfcx_of_negative_x_is_within_five_ulp_of_multiprecision_values() {
+fn erfcx_of_negative_x_is_within_four_ulp_of_multiprecision_values() {
     for &(x, hi, lo) in ERFCX_NEGATIVE_REFERENCE {
         let error = ulp_error(erfcx(x), hi, lo);
-        assert!(error.abs() <= 5.0, "x={x}: {error} ulp");
+        assert!(error.abs() <= 4.0, "x={x}: {error} ulp");
     }
 }
 
