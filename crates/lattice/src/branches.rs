@@ -674,7 +674,7 @@ impl<'a> BranchShielder<'a> {
         let names = self.region_materials;
         let Some((point, index)) = reference else {
             self.shieldings += 1;
-            let mut shielded = shield_fuel_reusing(
+            let shielded = shield_fuel_reusing(
                 library,
                 &mut self.reuse,
                 state,
@@ -682,7 +682,8 @@ impl<'a> BranchShielder<'a> {
                 self.symmetry,
                 &self.options,
             )?;
-            let materials = std::mem::take(&mut shielded.materials);
+            // 燃料の自己遮蔽は物質の一覧を持ったまま返す（SPH 因子を引く `physical_flux` が物質の群の数を使う）
+            let materials = shielded.materials.clone();
             let region_material = shielded.region_material.clone();
             return Ok((materials, region_material, Fuel::Solved(Box::new(shielded))));
         };
@@ -770,8 +771,7 @@ impl<'a> BranchShielder<'a> {
     }
 }
 
-/// 状態の燃料の自己遮蔽（`BranchShielder::shield_state`）: その状態で解いたものか、参照のもの。解いたものの `materials` は
-/// 物質の一覧として返したので空
+/// 状態の燃料の自己遮蔽（`BranchShielder::shield_state`）: その状態で解いたものか、参照のもの
 pub enum Fuel<'a> {
     Solved(Box<FuelShielding>),
     Reference(&'a FuelShielding),
