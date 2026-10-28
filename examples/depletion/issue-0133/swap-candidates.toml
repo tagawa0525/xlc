@@ -3,7 +3,9 @@
 # シード 1、2、3（openmc_pin_rates_2a.py。456 と 458 は群 1 に 10 MeV より上を数えないので fast = false）、534 は
 # openmc_pin_transfer.py（移行の行列と燃料の反応率）。格子の入力は ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの
 # 中性子束）を明示した ufg-transfer/pin-<状態>-ring.toml。ログは swap_absorption と swap_transfer の出力（Slurm のジョブは
-# ../verification.md「k の差の候補の寄与（#0133）」の「計算」）
+# ../verification.md「k の差の候補の寄与（#0133）」の「計算」）。物質の吸収（materials）は 534 に物質の tally が無いので 448、456、
+# 458、459 の値で測り、同時の置き換え（joint）は燃料の吸収と移行を 534、物質の吸収を 448（2A-40 は 459）から取る。χ は
+# openmc_chi.py の出力（chi/）
 
 [[state]]
 name = "1C 0 MWd/kg"
@@ -12,6 +14,7 @@ lattice = "ufg-transfer/pin-1C-0-ring.toml"
 [[state.run]]
 openmc = "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack"
 absorption = "swap-logs/1C-0-448-absorption.txt"
+materials = "swap-logs/1C-0-448-materials.txt"
 fast = true
 
 [[state.run]]
@@ -20,6 +23,15 @@ absorption = "swap-logs/1C-0-534-absorption.txt"
 transfer = "swap-logs/1C-0-534-transfer.txt"
 fast = true
 
+[state.joint]
+openmc = "references/openmc/pin-transfer-1C/1C-0/transfer.msgpack"
+materials = "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack"
+log = "swap-logs/1C-0-joint.txt"
+
+[state.chi]
+openmc = "chi/chi-1C-0.msgpack"
+log = "swap-logs/1C-0-chi.txt"
+
 [[state]]
 name = "1C 5 MWd/kg"
 lattice = "ufg-transfer/pin-1C-5-ring.toml"
@@ -27,6 +39,7 @@ lattice = "ufg-transfer/pin-1C-5-ring.toml"
 [[state.run]]
 openmc = "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack"
 absorption = "swap-logs/1C-5-448-absorption.txt"
+materials = "swap-logs/1C-5-448-materials.txt"
 fast = true
 
 [[state.run]]
@@ -35,6 +48,15 @@ absorption = "swap-logs/1C-5-534-absorption.txt"
 transfer = "swap-logs/1C-5-534-transfer.txt"
 fast = true
 
+[state.joint]
+openmc = "references/openmc/pin-transfer-1C/1C-5/transfer.msgpack"
+materials = "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack"
+log = "swap-logs/1C-5-joint.txt"
+
+[state.chi]
+openmc = "chi/chi-1C-5.msgpack"
+log = "swap-logs/1C-5-chi.txt"
+
 [[state]]
 name = "2A 40 MWd/kg"
 lattice = "ufg-transfer/pin-2A-40-ring.toml"
@@ -42,16 +64,19 @@ lattice = "ufg-transfer/pin-2A-40-ring.toml"
 [[state.run]]
 openmc = "references/openmc/pin-rates-1C/2a40-fine/openmc-rates.msgpack"
 absorption = "swap-logs/2A-40-456-absorption.txt"
+materials = "swap-logs/2A-40-456-materials.txt"
 fast = false
 
 [[state.run]]
 openmc = "references/openmc/pin-rates-1C/2a40-seed2-fine/openmc-rates.msgpack"
 absorption = "swap-logs/2A-40-458-absorption.txt"
+materials = "swap-logs/2A-40-458-materials.txt"
 fast = false
 
 [[state.run]]
 openmc = "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack"
 absorption = "swap-logs/2A-40-459-absorption.txt"
+materials = "swap-logs/2A-40-459-materials.txt"
 fast = true
 
 [[state.run]]
@@ -59,3 +84,12 @@ openmc = "references/openmc/pin-transfer-1C/2A-40/transfer.msgpack"
 absorption = "swap-logs/2A-40-534-absorption.txt"
 transfer = "swap-logs/2A-40-534-transfer.txt"
 fast = true
+
+[state.joint]
+openmc = "references/openmc/pin-transfer-1C/2A-40/transfer.msgpack"
+materials = "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack"
+log = "swap-logs/2A-40-joint.txt"
+
+[state.chi]
+openmc = "chi/chi-2A-40.msgpack"
+log = "swap-logs/2A-40-chi.txt"
