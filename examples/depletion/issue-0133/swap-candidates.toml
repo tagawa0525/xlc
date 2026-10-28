@@ -5,7 +5,8 @@
 # 中性子束）を明示した ufg-transfer/pin-<状態>-ring.toml。ログは swap_absorption と swap_transfer の出力（Slurm のジョブは
 # ../verification.md「k の差の候補の寄与（#0133）」の「計算」）。物質の吸収（materials）は 534 に物質の tally が無いので 448、456、
 # 458、459 の値で測り、同時の置き換え（joint）は燃料の吸収と移行を 534、物質の吸収を 448（2A-40 は 459）から取る。χ は
-# openmc_chi.py の出力（chi/）
+# openmc_chi.py の出力（chi/）。燃料のほかの吸収と過剰など（other）は 448 と 459 の `rates` と、同じ入力を解き直した
+# openmc_pin_excess.py の出力（references/openmc/pin-rates-1C/<実行>-excess/。Slurm 585）で測り、同時の置き換えも同じ値を使う
 
 [[state]]
 name = "1C 0 MWd/kg"
@@ -15,6 +16,7 @@ lattice = "ufg-transfer/pin-1C-0-ring.toml"
 openmc = "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack"
 absorption = "swap-logs/1C-0-448-absorption.txt"
 materials = "swap-logs/1C-0-448-materials.txt"
+other = "swap-logs/1C-0-448-other.txt"
 fast = true
 
 [[state.run]]
@@ -40,6 +42,7 @@ lattice = "ufg-transfer/pin-1C-5-ring.toml"
 openmc = "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack"
 absorption = "swap-logs/1C-5-448-absorption.txt"
 materials = "swap-logs/1C-5-448-materials.txt"
+other = "swap-logs/1C-5-448-other.txt"
 fast = true
 
 [[state.run]]
@@ -77,6 +80,7 @@ fast = false
 openmc = "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack"
 absorption = "swap-logs/2A-40-459-absorption.txt"
 materials = "swap-logs/2A-40-459-materials.txt"
+other = "swap-logs/2A-40-459-other.txt"
 fast = true
 
 [[state.run]]
