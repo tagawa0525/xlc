@@ -2283,31 +2283,60 @@ fn unreadable_memory_stops_with_an_error() {
 
 #[test]
 fn cgroup_limits_are_read_from_the_cgroup_and_its_ancestors() {
-    // このプロセスの cgroup から根までの memory.max と memory.current を読む。memory.max の無い階層は読まない。cgroup の
-    // ディレクトリが無ければ、制限を読み落とさないようにエラーで止める
+    // このプロセスの cgroup から根までの memory.max と memory.high（どちらも memory.current と組にする）を読む。上限のファイルの
+    // 無い階層は読まない。cgroup v2 の根（cgroup.controllers のあるところ）でないか、cgroup のディレクトリが無いか、根の外を指す
+    // （..）ときは、制限を読み落とさないようにエラーで止める
     let root = std::env::temp_dir().join(format!("xlc-cgroup-{}", std::process::id()));
     let leaf = root.join("a/b");
     std::fs::create_dir_all(&leaf).unwrap();
     std::fs::write(root.join("a/memory.max"), "1000\n").unwrap();
     std::fs::write(root.join("a/memory.current"), "400\n").unwrap();
     std::fs::write(leaf.join("memory.max"), "max\n").unwrap();
+    std::fs::write(leaf.join("memory.high"), "700\n").unwrap();
     std::fs::write(leaf.join("memory.current"), "300\n").unwrap();
+    assert!(matches!(
+        cgroup_limits(&root, "/a/b"),
+        Err(MemoryError::NotCgroup2(_))
+    ));
+    std::fs::write(root.join("cgroup.controllers"), "memory\n").unwrap();
     let limits = cgroup_limits(&root, "/a/b").unwrap();
     assert_eq!(
         limits,
         vec![
             ("max\n".to_string(), "300\n".to_string()),
+            ("700\n".to_string(), "300\n".to_string()),
             ("1000\n".to_string(), "400\n".to_string())
         ]
     );
-    assert!(matches!(
-        cgroup_limits(&root, "/a/missing"),
-        Err(MemoryError::Read { .. })
-    ));
+    for outside in ["/a/missing", "/..", "/a/../.."] {
+        assert!(cgroup_limits(&root, outside).is_err(), "{outside}");
+    }
     std::fs::remove_file(leaf.join("memory.current")).unwrap();
     assert!(matches!(
         cgroup_limits(&root, "/a/b"),
         Err(MemoryError::Read { .. })
     ));
     std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn unsearchable_cgroups_stop_with_an_error() {
+    // 上限のファイルの有無を確かめられない階層（検索の権限の無いディレクトリ）を、上限の無い階層として扱わない。root は権限を
+    // 無視するので確かめられない
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("xlc-cgroup-perm-{}", std::process::id()));
+    let a = root.join("a");
+    std::fs::create_dir_all(a.join("b")).unwrap();
+    std::fs::write(root.join("cgroup.controllers"), "memory\n").unwrap();
+    std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let searchable = std::fs::metadata(a.join("b")).is_ok();
+    let result = cgroup_limits(&root, "/a");
+    std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+    if !searchable {
+        assert!(
+            matches!(result, Err(MemoryError::Read { .. })),
+            "{result:?}"
+        );
+    }
 }
