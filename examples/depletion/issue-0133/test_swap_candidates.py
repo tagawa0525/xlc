@@ -273,7 +273,7 @@ class Summary(unittest.TestCase):
             )
 
     def test_transfer_rows_take_the_lines_of_the_joint_log(self):
-        # swap_transfer の変化は小数 6 桁の 2 つの k の差なので、同時の置き換えのログの行（同じ置き換え）を表に使い、行の和を残りと閉じる
+        # swap_transfer の変化は小数 6 桁の 2 つの k の差なので、同時の置き換えのログの行（同じ置き換えの 1 つの k の差）を表に使う
         joint = JOINT_LOG.replace(
             "~water:1-13: k 1.084800 (-120.0 pcm)",
             "~water:1-13: k 1.084799 (-120.1 pcm)",
