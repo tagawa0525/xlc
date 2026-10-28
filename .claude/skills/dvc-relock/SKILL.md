@@ -153,7 +153,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    唯一の定義。pre-commit の hook `dvc-lock` も同じツールを呼ぶ。issue #0090）。
 
 出力を作り直さず `dvc commit` で lock を付け直してよいのは、ADR-0212 の (b) の条件（重いステージで、変更の親で changed でなく、
-変わった deps が値の同じ TOML だけで、その md5 が出力に無い）を満たすステージと、ADR が決めた移行だけである。実行ファイルと
+変わった deps が値の同じ TOML だけで、親の版のバイトが出力に入っていない）を満たすステージと、ADR が決めた移行だけである。実行ファイルと
 `references-shell.txt` の差では付け直さない。
 付け直したとき（deps の置き場や正規形を替えた ADR-0210 の移行など）は、deps の hash
 だけが変わったことを `nix develop -c scripts/compare-dvc-lock.py <付け直す前のコミット> HEAD` で確かめる（2 つのコミットの間で変わった
