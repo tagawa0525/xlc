@@ -37,8 +37,8 @@ issues: ["#0190", "#0153"]
 
 ### 測った大きさ
 
-examples/depletion/verification.md の「履歴の効き（2A）」（xlc の分岐は 02f35491 の lattice と、入力 b1ddab7d、0e653ef7、2026-10-29、
-Slurm 587、588。比較は fa18abad）。2A（減速材 0.743 g/cc、565 K、1300 ppm）、2A-density（0.661 g/cc）、2A-rods（案内管 24 本に AIC）の
+examples/depletion/verification.md の「履歴の効き（2A）」（xlc の分岐は 02f35491 の lattice と、入力 09869909、0424eb34、2026-10-29、
+Slurm 587、588。比較は 8b65319c）。2A（減速材 0.743 g/cc、565 K、1300 ppm）、2A-density（0.661 g/cc）、2A-rods（案内管 24 本に AIC）の
 3 本の燃焼の履歴は同じ lattice と既定とライブラリのもので、燃焼度の同じ点で、履歴の分岐の k∞ を 2A の組成からその条件への瞬時の分岐と
 比べた（履歴の効き）。さらに、2A の組成のうち ADR-0035 の候補の元素（U、Np、Pu、Am、Xe、Sm、Gd）だけを履歴の分岐の値にした組成を
 同じ条件で解き、履歴の分岐との差を「追わない核種の分」とした。置き換えたのは元素の核種のすべてで、分岐が輸送する 89 核種のうち 26 核種
