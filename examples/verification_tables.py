@@ -951,6 +951,69 @@ def branch_thinning(sources: list[dict]) -> str:
     )
 
 
+def history_effect_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-effect":
+        raise TableError("not an xlc-compare-history-effect summary")
+    return s
+
+
+def history_effect(case: str, sources: list[dict]) -> str:
+    """履歴の効き（ADR-0215）: 燃焼度ごとの、履歴の間、履歴の効きとその追う核種と追わない核種の分、逆向きとその分（pcm）"""
+    rows = [
+        [
+            burnup_label(r["burnup"]),
+            *(
+                signed(r[key], 1)
+                for key in (
+                    "between_histories_pcm",
+                    "effect_pcm",
+                    "tracked_pcm",
+                    "untracked_pcm",
+                    "reverse_pcm",
+                    "reverse_tracked_pcm",
+                    "reverse_untracked_pcm",
+                )
+            ),
+        ]
+        for r in history_effect_summary(sources)["cases"][case]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "履歴の間",
+            "履歴の効き",
+            "追う核種",
+            "追わない核種",
+            "逆向き",
+            "逆向きの追う核種",
+            "逆向きの追わない核種",
+        ],
+        rows,
+    )
+
+
+def history_effect_densities(case: str, sources: list[dict]) -> str:
+    """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
+    rows = history_effect_summary(sources)["cases"][case]
+    nuclides = list(rows[0]["densities_percent"])
+    return markdown_table(
+        ["燃焼度 (MWd/kg)", *nuclides],
+        [
+            [
+                burnup_label(r["burnup"]),
+                *(
+                    "–"
+                    if r["densities_percent"][n] is None
+                    else signed(r["densities_percent"][n], 2)
+                    for n in nuclides
+                ),
+            ]
+            for r in rows
+        ],
+    )
+
+
 def branch_shielding_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-branch-shielding":
@@ -1362,6 +1425,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
+    "examples/depletion/history/history-effect.json",
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
@@ -1797,6 +1861,22 @@ TABLES = {
     "depletion-2a-core-boron": (
         ["examples/depletion/branches/compare-core-2A-boron.json"],
         core_depletion_boron,
+    ),
+    "depletion-history-effect-density": (
+        ["examples/depletion/history/history-effect.json"],
+        partial(history_effect, "density"),
+    ),
+    "depletion-history-effect-rods": (
+        ["examples/depletion/history/history-effect.json"],
+        partial(history_effect, "rods"),
+    ),
+    "depletion-history-densities-density": (
+        ["examples/depletion/history/history-effect.json"],
+        partial(history_effect_densities, "density"),
+    ),
+    "depletion-history-densities-rods": (
+        ["examples/depletion/history/history-effect.json"],
+        partial(history_effect_densities, "rods"),
     ),
     "depletion-branch-shielding-k": (
         ["examples/depletion/branches/compare-shielding.json"],
