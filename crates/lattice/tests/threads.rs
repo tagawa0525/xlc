@@ -10,8 +10,8 @@
 
 use std::process::Command;
 
-/// 入力の無いパスで lattice を実行し（入力を読む前に止まる）、ログの `threads=` の数を返す
-fn logged_threads(rayon_num_threads: Option<&str>) -> usize {
+/// 入力の無いパスで lattice を実行し（入力を読む前に止まる）、標準エラーを返す
+fn stderr_of(rayon_num_threads: Option<&str>) -> String {
     let mut command = Command::new(env!("CARGO_BIN_EXE_lattice"));
     command
         .arg("/nonexistent/xlc-threads-test.toml")
@@ -22,21 +22,43 @@ fn logged_threads(rayon_num_threads: Option<&str>) -> usize {
     }
     let output = command.output().unwrap();
     assert!(!output.status.success(), "the missing input should fail");
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    let field = stderr
+    String::from_utf8(output.stderr).unwrap()
+}
+
+/// ログの `<key>=` の値
+fn field<'a>(stderr: &'a str, key: &str) -> &'a str {
+    stderr
         .split_whitespace()
-        .find_map(|word| word.strip_prefix("threads="))
-        .unwrap_or_else(|| panic!("no `threads=` in the log:\n{stderr}"));
-    field.parse().unwrap()
+        .find_map(|word| word.strip_prefix(key)?.strip_prefix('='))
+        .unwrap_or_else(|| panic!("no `{key}=` in the log:\n{stderr}"))
 }
 
 #[test]
 fn uses_every_allowed_logical_cpu_without_rayon_num_threads() {
     let allowed = std::thread::available_parallelism().unwrap().get();
-    assert_eq!(logged_threads(None), allowed);
+    let stderr = stderr_of(None);
+    assert_eq!(field(&stderr, "threads").parse::<usize>().unwrap(), allowed);
+    assert_eq!(field(&stderr, "from"), "\"default\"");
 }
 
 #[test]
 fn uses_rayon_num_threads_when_given() {
-    assert_eq!(logged_threads(Some("3")), 3);
+    let stderr = stderr_of(Some("3"));
+    assert_eq!(field(&stderr, "threads"), "3");
+    assert_eq!(field(&stderr, "from"), "\"RAYON_NUM_THREADS\"");
+}
+
+#[test]
+fn rayon_num_threads_that_is_not_a_positive_count_is_an_error() {
+    for value in ["abc", "0", ""] {
+        let stderr = stderr_of(Some(value));
+        assert!(
+            stderr.contains("error: RAYON_NUM_THREADS"),
+            "RAYON_NUM_THREADS={value:?} should stop lattice:\n{stderr}"
+        );
+        assert!(
+            !stderr.contains("threads="),
+            "no pool for {value:?}:\n{stderr}"
+        );
+    }
 }
