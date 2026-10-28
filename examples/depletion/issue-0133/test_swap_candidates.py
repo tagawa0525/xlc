@@ -127,6 +127,10 @@ class Lists(unittest.TestCase):
             specs["excess-fast-products"], ",".join(f"{n}^1-13" for n in products)
         )
 
+    def test_fuel_without_non_actinides_has_no_product_lines(self):
+        keys = [key for key, _ in sc.other_items(["U-235", "U-238"])]
+        self.assertEqual(keys, ["other-fast", "other-low", "excess-fast"])
+
     def test_other_and_excess_lines_touch_group_one_by_their_groups(self):
         self.assertTrue(sc.touches_group_one("*!1-13"))
         self.assertTrue(sc.touches_group_one("O-16^1-13"))
