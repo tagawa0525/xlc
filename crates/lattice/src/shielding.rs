@@ -36,8 +36,8 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, Collision, NuclideTransfer, Scattering, UfgError, cell_range, material_range,
-    slowing_down_transfers, slowing_down_with,
+    CellSpectrum, Collision, NuclideTransfer, Scattering, ShareCellCache, UfgError, cell_range,
+    material_range, slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -425,6 +425,8 @@ pub struct ShieldingReuse<'a> {
     dancoff: Option<DancoffInputs>,
     /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
+    /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
+    shares: ShareCellCache,
 }
 
 /// 燃料のピンの Dancoff 係数を求めた入力と結果
@@ -446,6 +448,7 @@ impl<'a> ShieldingReuse<'a> {
             tracking,
             dancoff: None,
             dancoff_solves: 0,
+            shares: ShareCellCache::default(),
         }
     }
 
@@ -594,6 +597,7 @@ pub fn shield_fuel_reusing(
         pins.push((cell, fuel_regions, ring_materials, rings));
     }
     let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
+    let shares = &reuse.shares;
 
     let mut shielded = FuelShielding {
         materials: dilute,
@@ -684,6 +688,7 @@ pub fn shield_fuel_reusing(
             thinning: options.thinning,
             scattering: options.scattering,
             transfer: options.transfer,
+            shares,
         };
         let ufg = shield_cell(
             library,
@@ -867,6 +872,7 @@ pub fn shield_fuel_reusing(
             &region_index,
             (symmetry.images(), &orbits),
             options,
+            shares,
             &mut shielded,
         )
     })?;
@@ -910,6 +916,7 @@ pub fn shield_fuel_reusing(
 /// 黒体の Dancoff 係数と平均弦長で遮蔽する。対称に移り合うセルの組の対応する黒体は1つにする。塊が棒（[`rod_rings`]）
 /// なら、UFG の範囲の群は、塊の Dancoff 係数を合わせた等価なセルの減速計算の、棒のリングの平均にする（範囲は
 /// [`material_range`]。棒の物質の核種で決める）。
+#[allow(clippy::too_many_arguments)]
 fn shield_lumps(
     library: &Library,
     tracking: &Tracking,
@@ -917,6 +924,7 @@ fn shield_lumps(
     region_index: &[usize],
     (images, orbits): (&[Image], &[usize]),
     options: &ShieldingOptions,
+    shares: &ShareCellCache,
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
     let lattice = &tracking.lattice;
@@ -1107,6 +1115,7 @@ fn shield_lumps(
                         thinning: options.thinning,
                         scattering: options.scattering,
                         transfer: options.transfer,
+                        shares,
                     };
                     shield_cell(
                         library,
@@ -1335,6 +1344,8 @@ struct PinRings<'a> {
     scattering: Scattering,
     /// リングの物質の UFG の範囲の群の散乱行列の移行の形
     transfer: UfgTransfer,
+    /// 移行の計数の自由ガスの核の割合の区間の表（ADR-0213）
+    shares: &'a ShareCellCache,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1509,6 +1520,7 @@ fn solve_equivalent_cell<'a>(
                 pin.collision,
                 pin.thinning,
                 pin.scattering,
+                pin.shares,
             )?;
             (spectrum, Some(transfers))
         }

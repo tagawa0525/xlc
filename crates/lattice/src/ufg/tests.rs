@@ -1861,6 +1861,7 @@ fn static_transfers_of_a_scatterer_follow_the_kernel() {
             Collision::Exact,
             None,
             Scattering::Static,
+            &ShareCellCache::default(),
         )
         .unwrap();
         assert_eq!(transfers.len(), 1);
@@ -1949,6 +1950,7 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
                 Collision::Exact,
                 thinning,
                 scattering,
+                &ShareCellCache::default(),
             )
             .unwrap();
             match full_points {
@@ -2063,6 +2065,7 @@ fn thermal_transfers(
         Collision::Exact,
         thinning,
         scattering,
+        &ShareCellCache::default(),
     )
     .unwrap()
 }
