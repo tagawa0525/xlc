@@ -86,8 +86,9 @@ flake.nix の Python のパッケージの並びを 2 つにする:
 `references-shell.txt` と同じ `qdaa3j64…` に戻る。参照のステージの lock は、記録した環境で作った出力をそのまま指すので、
 付け直しは要らない。
 
-flake.nix か flake.lock を変えるコミットは、pre-commit の hook `references-shell`（`scripts/check-references-shell.sh`）が、
-`references` の devShell の store のパスと、追跡しているすべての `references-shell.txt` を比べ、食い違えば止める。
+すべてのコミットで、pre-commit の hook `references-shell`（`scripts/check-references-shell.sh`）が、`references` の devShell の
+store のパスと、追跡しているすべての `references-shell.txt` を比べ、食い違えば止める（devShell は flake.nix と flake.lock のほかに、
+flake.nix が読む docs/patches/ の NJOY のパッチでも変わるので、ファイルで絞らない。評価は 1 秒ほど）。
 `references-shell` のステージは `always_changed` で、`dvc repro` が走るまで `references-shell.txt` を書き直さないので、
 hook がなければ、devShell の変更が `dvc status` に出ないまま main に入る（#0183 が見つからなかった理由）。
 食い違ったら、次のどちらかで直す:
@@ -107,8 +108,10 @@ hook がなければ、devShell の変更が `dvc status` に出ないまま mai
 3. 変わった deps がすべて TOML のファイルで、親の版と今の版を `tomllib` で読んだ値が、キーの順序を含めて一致する（両方を
    `json.dumps` した文字列が同じ）。コメント、空白、引用符の書き方だけの差にあたる。順序を比べるのは、核種の並びの順で
    出力を書くスクリプトがあるため
-4. 変わった deps の lock の md5 が、そのステージの出力のどのファイルにも現れない（`grep -rqaF <md5> <outs>` が見つけない）。
-   入力のファイルの md5 を出力に書くスクリプト（比較のスクリプトの `inputs`）では、バイトの差が出力に入る
+4. 変わった deps の親の版のバイトが、そのステージの出力に入っていない: 親の版の md5、sha1、sha256 の 16 進と、親の版にあって
+   今の版に無い行（空白だけの行を除く）のどれも、出力のどのファイルにも現れない（`grep -rqaF` が見つけない）。入力のファイルの
+   md5 を出力に書くスクリプト（比較のスクリプトの `inputs`）や、入力をコピーするスクリプトでは、バイトの差が出力に入る。圧縮した出力の
+   中は見えないので、出力に圧縮したファイルがあるステージは付け直さない
 
 付け直したら、`scripts/compare-dvc-lock.py <親> HEAD` で `cmd`、`outs`、`params` が変わっていないことを確かめ、コミットの本文に
 付け直したステージと、2〜4 を確かめたコマンドを書く。
@@ -142,7 +145,8 @@ ADR-0143 の帰結（実行ファイルが一致しないときに `dvc commit` 
   （23 秒。3a273a1bc）
 - hook のテスト（`scripts/test_check_references_shell.py`。一時のリポジトリの最小の flake で nix eval を実行する）:
   すべての `references-shell.txt` が devShell と同じなら通る、flake.nix を変えて devShell のパスが変わると、食い違うファイルと
-  2 つのパスを挙げて止まる、食い違うファイルだけを挙げる、追跡しないファイルは見ない、追跡するファイルが無ければ止まる。
+  2 つのパスを挙げて止まる、食い違うファイルだけを挙げる、追跡しないファイルは見ない、追跡しているが作業ツリーに無いファイルを
+  挙げて止まる、追跡するファイルが無ければ止まる。
   このリポジトリで `referencesPythonPackages` に pyyaml を足すと、4 つのファイルを挙げて止まった（試して戻した）
 - (b) の条件は、このブランチでは使っていない（付け直したステージは無い）
 
@@ -152,6 +156,11 @@ ADR-0143 の帰結（実行ファイルが一致しないときに `dvc commit` 
   新しいパッケージを使うなら、`referencesPythonPackages` に足し、hook が `references-shell.txt` の書き直しを求める
 - `references` の devShell の Python は、default の devShell の Python の上位集合でなくなる。default のパッケージを使う
   スクリプトを `nix develop .#references` で実行しない（テストは `python-tests`）
+- テストは `python-tests`（`references` の Python に pyyaml を足したもの）で走るので、参照のステージのスクリプトが
+  `referencesPythonPackages` に無いパッケージを import しても、テストは通り、ステージが `ModuleNotFoundError` で止まる（黙って
+  違う結果にはならない）。参照のスクリプトの import を並びと照らす検査は作っていない
+- hook は rebase とマージで混ざった flake を見ない（コミットを作らないため）。/dvc-relock は同じスクリプトを手で実行するが、
+  `dvc.yaml` の無いブランチは /dvc-relock を通らない。マージの経路で実行する形は #0185 に書いた
 - /dvc-relock は、`references-shell` を対象から外すだけでなく、hook と同じ比較で `references-shell.txt` の中身を確かめる
 - TOML のコメントの直しでは、(b) の条件で付け直せる。p2 の `openmc-index`（ed95d3d44 で changed のまま）への適用は別の作業にする
   （#0145）。TOML の正規形（案 B5）は、コメントだけの直しが繰り返すときに #0145 で決める
