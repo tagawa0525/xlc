@@ -48,36 +48,58 @@ pub fn held_cells(total: u64, at_once: usize) -> usize {
 }
 
 /// このプロセスの使用可能メモリ (B): /proc/meminfo の MemAvailable と、このプロセスの cgroup（v2）とその祖先の memory.max の
-/// 残り（memory.max − memory.current）の小さい方。memory.max の無い階層（メモリの制御が無い）は制限しない
+/// 残り（memory.max − memory.current）の小さい方（[`cgroup_limits`]）
 pub fn available_memory() -> Result<u64, MemoryError> {
-    let read = |path: &Path| {
-        std::fs::read_to_string(path).map_err(|source| MemoryError::Read {
-            path: path.to_path_buf(),
-            source,
-        })
-    };
     let meminfo = read(Path::new("/proc/meminfo"))?;
     let cgroup = read(Path::new("/proc/self/cgroup"))?;
     let relative = cgroup
         .lines()
         .find_map(|line| line.strip_prefix("0::"))
         .ok_or(MemoryError::NoCgroup)?;
-    let mut limits = Vec::new();
-    let mut dir = Path::new("/sys/fs/cgroup").join(relative.trim_start_matches('/'));
-    loop {
-        let max = dir.join("memory.max");
-        if max.exists() {
-            limits.push((read(&max)?, read(&dir.join("memory.current"))?));
-        }
-        if dir == Path::new("/sys/fs/cgroup") || !dir.pop() {
-            break;
-        }
-    }
+    let limits = cgroup_limits(Path::new("/sys/fs/cgroup"), relative)?;
     let limits: Vec<(&str, &str)> = limits
         .iter()
         .map(|(m, c)| (m.as_str(), c.as_str()))
         .collect();
     available_from(&meminfo, &limits)
+}
+
+fn read(path: &Path) -> Result<String, MemoryError> {
+    std::fs::read_to_string(path).map_err(|source| MemoryError::Read {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// cgroup（v2）の根 `root` の下の `relative`（/proc/self/cgroup の `0::` の後）から根までの階層の、（memory.max、memory.current）の
+/// 内容。memory.max の無い階層（メモリの制御が無い）は読まない。`relative` のディレクトリが無いとき（v2 が別の場所にある、cgroup の
+/// 名前空間がずれている）と、memory.max の有無を確かめられないときは、制限を読み落とさないように止める
+pub(super) fn cgroup_limits(
+    root: &Path,
+    relative: &str,
+) -> Result<Vec<(String, String)>, MemoryError> {
+    let mut dir = root.join(relative.trim_start_matches('/'));
+    if !dir.is_dir() {
+        return Err(MemoryError::Read {
+            path: dir,
+            source: std::io::Error::from(std::io::ErrorKind::NotFound),
+        });
+    }
+    let mut limits = Vec::new();
+    loop {
+        let max = dir.join("memory.max");
+        let exists = max.try_exists().map_err(|source| MemoryError::Read {
+            path: max.clone(),
+            source,
+        })?;
+        if exists {
+            limits.push((read(&max)?, read(&dir.join("memory.current"))?));
+        }
+        if dir == root || !dir.pop() {
+            break;
+        }
+    }
+    Ok(limits)
 }
 
 /// /proc/meminfo の内容 `meminfo` と、cgroup の（memory.max、memory.current）の内容 `limits` から求めた使用可能メモリ (B)
