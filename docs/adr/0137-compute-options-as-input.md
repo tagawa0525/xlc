@@ -43,7 +43,7 @@ ADR-0122 は禁止を文章にしただけで、新しい読み取りを止め�
 - `std::env` の読み取り（`var`、`var_os`、`vars`、`vars_os`）を禁じる。残す読み取りは、計算の結果を変えないものに限り、
   読む関数に `#[allow]` と理由を付ける:
   - `RUST_LOG`（xs、lattice、core の `init_logging`）: 表示する量だけを選ぶ
-  - `RAYON_NUM_THREADS`（lattice の `use_allowed_cpus`）: 並列の数だけを選ぶ（ADR-0067。結果が数によらないことは #0060）
+  - `RAYON_NUM_THREADS`（lattice の `use_physical_cores`）: 並列の数だけを選ぶ（ADR-0067。結果が数によらないことは #0060）
   - crates/docs/tests/consistency.rs の `vars_os`: テスト用のリポジトリから、呼び出し元の `GIT_*` を外す
 
 `RAYON_NUM_THREADS` は、結果がスレッド数によらないことを #0060 が確かめるまで、計算の条件でない前提で許す（確認前の
