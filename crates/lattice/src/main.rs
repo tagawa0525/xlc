@@ -56,7 +56,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
         [input] => init_logging()
-            .and_then(|()| use_physical_cores())
+            .and_then(|()| use_allowed_cpus())
             .and_then(|()| run(Path::new(input))),
         _ => Err(anyhow!("usage: lattice <input>")),
     };
@@ -96,20 +96,25 @@ fn init_logging() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `RAYON_NUM_THREADS` がなければ、rayon のスレッド数を物理コアの数にする。
-/// 物理コアの数はマシン全体の値なので、このプロセスに許された CPU の数（論理）で抑える。
+/// `RAYON_NUM_THREADS` がなければ、rayon のスレッドの数を、このプロセスに許された論理 CPU（SMT のハードウェアスレッドを
+/// 含む。affinity と cgroup の CPU の上限で抑えた数）の数にする（ADR-0214）。決まったスレッドの数をログに出す。
 #[allow(
     clippy::disallowed_methods,
-    reason = "RAYON_NUM_THREADS は並列の数だけを選ぶ。出力が数によらないかは未確認（#0060、ADR-0137）"
+    reason = "RAYON_NUM_THREADS は並列の数だけを選び、結果を変えない（ADR-0137、ADR-0198）"
 )]
-fn use_physical_cores() -> anyhow::Result<()> {
-    if std::env::var_os("RAYON_NUM_THREADS").is_none() {
+fn use_allowed_cpus() -> anyhow::Result<()> {
+    // rayon の既定のプールも available_parallelism の数だが、求められないときに黙って 1 にするので、自分で作る
+    let from = if std::env::var_os("RAYON_NUM_THREADS").is_none() {
         let allowed = std::thread::available_parallelism().context("available CPUs")?;
         rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get_physical().min(allowed.get()))
+            .num_threads(allowed.get())
             .build_global()
             .context("thread pool")?;
-    }
+        "allowed CPUs"
+    } else {
+        "RAYON_NUM_THREADS"
+    };
+    tracing::info!(threads = rayon::current_num_threads(), from, "thread pool");
     Ok(())
 }
 
