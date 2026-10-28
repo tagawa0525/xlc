@@ -150,7 +150,7 @@ statepoint の大半は源の粒子のバンク（104 MB）で、標準の組は
 - 1/4 炉心のピンごとの核種と、3D の層ごとのピンの核種は入れない（案 M、N）。要るようになったら、版を上げて足す
 - 組を入れるのは VERA のモデル（`openmc_model.py`、`openmc_model_3d.py`、`openmc_core_2d.py`）で、Problem 3 と 5-2D の参照解は組の版 1 を
   持つ（examples/vera/verification.md の「参照解」）。燃焼の参照解（examples/depletion の `openmc_depletion*.py`。
-  `openmc_model.py` からは形状と物質の定数だけを読む）と、examples/c5g7、examples/mox のモデルは組を入れない
+  `openmc_model.py` の定数と関数を使うが、組を足す `model` を通らない）と、examples/c5g7、examples/mox のモデルは組を入れない
 
 ## 確認
 
