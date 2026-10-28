@@ -151,7 +151,7 @@ def other_items(nuclides: list[str]) -> list[tuple[str, str]]:
     def spec(mark: str, groups: str) -> str:
         return ",".join(f"{n}{mark}{groups}" for n in products)
 
-    return [
+    items = [
         ("fast-products", spec(":", "1-13")),
         ("other-fast", "*!1-13"),
         ("other-fast-products", spec("!", "1-13")),
@@ -160,6 +160,7 @@ def other_items(nuclides: list[str]) -> list[tuple[str, str]]:
         ("excess-fast", "*^1-13"),
         ("excess-fast-products", spec("^", "1-13")),
     ]
+    return [(key, s) for key, s in items if s]
 
 
 def material_items() -> list[tuple[str, str]]:
