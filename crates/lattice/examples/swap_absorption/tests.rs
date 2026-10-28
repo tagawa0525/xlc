@@ -275,13 +275,67 @@ fn a_shift_is_the_openmc_value_less_the_xlc_value_in_its_groups() {
 fn other_and_excess_swaps_name_fuel_nuclides_and_groups() {
     let fuel = ["O-16".to_string(), "U-238".to_string()];
     let r = reference(&[]);
+    let sources = Sources {
+        absorption: Some(&r),
+        excess: Some(&r),
+    };
     assert_eq!(
-        parse("*!1-2,U-238^1-1", &fuel, &r, 3).unwrap(),
+        parse("*!1-2,U-238^1-1", &fuel, &r, &sources, 3).unwrap(),
         vec![
             Swap::Other("U-238".to_string(), 0..2),
             Swap::Excess("U-238".to_string(), 0..1),
         ]
     );
-    assert!(parse("Pu-239!1-1", &fuel, &r, 3).is_err());
-    assert!(parse("U-238^0-1", &fuel, &r, 3).is_err());
+    assert!(parse("Pu-239!1-1", &fuel, &r, &sources, 3).is_err());
+    assert!(parse("U-238^0-1", &fuel, &r, &sources, 3).is_err());
+}
+
+#[test]
+fn star_other_and_excess_swaps_take_the_nuclides_of_their_openmc_values() {
+    let fuel = ["O-16".to_string(), "U-238".to_string()];
+    // 位置の参照（燃料の吸収と移行の実行）は U-238 だけ、ほかの吸収と過剰の値は O-16 と U-238 にある
+    let main = reference(&[]);
+    let mut both = reference(&[]);
+    both.rates.insert("O-16".to_string(), BTreeMap::new());
+    let sources = Sources {
+        absorption: Some(&both),
+        excess: Some(&both),
+    };
+    let names = |swaps: Vec<Swap>| -> Vec<String> {
+        swaps
+            .into_iter()
+            .map(|s| match s {
+                Swap::Other(n, _) | Swap::Excess(n, _) | Swap::Nuclide(n, _) => n,
+                _ => unreachable!(),
+            })
+            .collect()
+    };
+    assert_eq!(
+        names(parse("*!1-1", &fuel, &main, &sources, 3).unwrap()),
+        ["O-16", "U-238"]
+    );
+    assert_eq!(
+        names(parse("*^1-1", &fuel, &main, &sources, 3).unwrap()),
+        ["O-16", "U-238"]
+    );
+    assert_eq!(
+        names(parse("*:1-1", &fuel, &main, &sources, 3).unwrap()),
+        ["U-238"]
+    );
+    // 値の無い印は止める
+    let none = Sources {
+        absorption: None,
+        excess: None,
+    };
+    assert!(parse("*!1-1", &fuel, &main, &none, 3).is_err());
+    assert!(parse("U-238^1-1", &fuel, &main, &none, 3).is_err());
+}
+
+#[test]
+fn an_excess_above_xlc_lowers_the_total() {
+    // OpenMC の過剰が xlc より大きければ、正味の吸収（全断面積）を減らす
+    assert_eq!(
+        excess_shift(&[0.5, 0.0, 0.0], &[0.75, 0.0, 0.0], &(0..1)),
+        vec![-0.25, 0.0, 0.0]
+    );
 }
