@@ -21,7 +21,7 @@ use rayon::prelude::*;
 use xlc_format::library::SabTransfer;
 
 use super::UfgError;
-use xlc_numeric::error_function::{erf, erfcx};
+use xlc_numeric::error_function::{erf, erf_with_gaussian, erfcx};
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_2, GAUSS_LEGENDRE_4};
 
 /// ボルツマン定数 (eV/K)。CODATA 2018 の値（xs の `physics::BK` と同じ）
@@ -76,8 +76,8 @@ pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
             factor * (erfcx(a) - erfcx(b))
         }
     };
-    let scaled = |y: f64, x: f64| {
-        let factor = (-y * y).exp();
+    // `factor` は e^(-y²)。近い下方散乱では同じ e^(-y²) を erf にも渡す
+    let scaled = |factor: f64, x: f64| {
         if factor == 0.0 {
             0.0
         } else {
@@ -92,7 +92,10 @@ pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
             // 遠い下方散乱: O(1) の項が打ち消し合うので、同じ指数因子をもつ項どうしをまとめる
             pair(u, u, x2) + pair(v, x1, v)
         } else {
-            erf(-u) + erf(v) + scaled(v, x1) - scaled(u, x2)
+            // erf(−u) と e^(−u²) erfcx(x2)、erf(v) と e^(−v²) erfcx(x1) は同じ指数因子を使う。erf(v) + e^(−v²) erfcx(x1) を
+            // 1 − e^(−v²)(erfcx(v) − erfcx(x1)) とまとめないのは、丸めが変わるため（#0181）
+            let (gu, gv) = ((-u * u).exp(), (-v * v).exp());
+            erf_with_gaussian(-u, gu) + erf_with_gaussian(v, gv) + scaled(gv, x1) - scaled(gu, x2)
         }
     } else {
         // erf(θ√ε' - ζ√ε) - erf(θ√ε' + ζ√ε) + e^(ε-ε') [erf(θ√ε - ζ√ε') + erf(θ√ε + ζ√ε')]
@@ -102,7 +105,8 @@ pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
             // 遠い上方散乱: 同様に、同じ指数因子をもつ項どうしをまとめる
             pair(p, -r, p) + pair(q, q, t)
         } else {
-            scaled(q, q) - scaled(p, p) + ((e - e_out) / kt).exp() * (erf(r) + erf(t))
+            scaled((-q * q).exp(), q) - scaled((-p * p).exp(), p)
+                + ((e - e_out) / kt).exp() * (erf(r) + erf(t))
         }
     };
     // 打ち消し合いの丸めで負になった裾は 0 にする
