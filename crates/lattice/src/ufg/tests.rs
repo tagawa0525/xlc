@@ -397,7 +397,7 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
             collision,
             None,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -442,7 +442,7 @@ fn non_finite_totals_stop_with_the_table_as_without() {
             collision,
             None,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -468,7 +468,7 @@ fn zero_totals_stop_the_table_with_their_ring() {
         Collision::default(),
         None,
         Scattering::Static,
-        held_cells(1, 1),
+        held_cells(1 << 30, 1),
     );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
@@ -493,7 +493,7 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
             collision,
             None,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -524,7 +524,7 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
             collision,
             None,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -724,7 +724,7 @@ fn thinned_grids_give_the_group_constants_of_the_full_grid() {
             Collision::Exact,
             thinning,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -770,7 +770,7 @@ fn a_vanishing_tolerance_gives_the_group_constants_tallied_in_the_sweep() {
             Collision::Exact,
             thinning,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -826,7 +826,7 @@ fn thinned_grids_keep_both_limits_of_discontinuities() {
             Collision::Exact,
             thinning,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -854,7 +854,7 @@ fn void_cells_stop_with_an_error_when_thinned() {
             Collision::Exact,
             thinning,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         );
         assert!(result.is_err(), "{thinning:?}");
     }
@@ -875,7 +875,7 @@ fn non_finite_totals_stop_the_thinning_as_without() {
             Collision::Exact,
             thinning,
             Scattering::Static,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -901,7 +901,7 @@ fn fine_flux_integrates_to_the_group_flux() {
         Collision::default(),
         None,
         Scattering::Static,
-        held_cells(1, 1),
+        held_cells(1 << 30, 1),
     )
     .unwrap();
     let (spectrum, fine) = slowing_down_fine(
@@ -1109,7 +1109,7 @@ fn thermal_spectrum(temperature: f64, scattering: Scattering) -> CellSpectrum {
         Collision::Exact,
         None,
         scattering,
-        held_cells(1, 1),
+        held_cells(1 << 30, 1),
     )
     .unwrap()
 }
@@ -1227,7 +1227,7 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
             Collision::Exact,
             None,
             scattering,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1313,7 +1313,7 @@ fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
             Collision::Exact,
             None,
             scattering,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1541,7 +1541,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
             Collision::Exact,
             None,
             scattering,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1683,7 +1683,7 @@ fn sab_spectrum(
         Collision::Exact,
         None,
         scattering,
-        held_cells(1, 1),
+        held_cells(1 << 30, 1),
     )
 }
 
@@ -1766,7 +1766,7 @@ fn sab_needs_the_table_of_sab_nuclides() {
             Collision::Exact,
             None,
             scattering,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap()
     };
@@ -1809,7 +1809,7 @@ fn sab_needs_the_free_gas_of_its_nuclides() {
             Collision::Exact,
             None,
             sab(4, None),
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         ),
         Err(UfgError::SabWithoutFreeGas { .. })
     ));
@@ -1880,7 +1880,7 @@ fn static_transfers_of_a_scatterer_follow_the_kernel() {
             None,
             Scattering::Static,
             &ShareCellCache::default(),
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap();
         assert_eq!(transfers.len(), 1);
@@ -1970,7 +1970,7 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
                 thinning,
                 scattering,
                 &ShareCellCache::default(),
-                held_cells(1, 1),
+                held_cells(1 << 30, 1),
             )
             .unwrap();
             match full_points {
@@ -2086,7 +2086,7 @@ fn thermal_transfers(
         thinning,
         scattering,
         &ShareCellCache::default(),
-        held_cells(1, 1),
+        held_cells(1 << 30, 1),
     )
     .unwrap()
 }
@@ -2205,7 +2205,7 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
             Some(1.0e-4),
             free_gas_heavy(400.0, 2, Some(3)),
             shares,
-            held_cells(1, 1),
+            held_cells(1 << 30, 1),
         )
         .unwrap();
         // Debug の表記は f64 を往復できる最短の 10 進で書くので、ビットの違う値は違う文字列になる
@@ -2223,18 +2223,57 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
 }
 
 #[test]
-fn held_cells_share_the_limit_of_all_threads_among_the_solves_at_once() {
-    // スイープの間で持つ区間の数の上限は、スレッドの数 × 1 回の減速計算の上限を、同時に解きうる減速計算の数で分けたもの。1 本の
-    // ピンを全スレッドで解けば全体を 1 つで使い、スレッドより多い減速計算が同時に走りうれば（盗みで入れ子になる塊）1 回の上限より小さい
-    let one = held_cells(32, 32);
-    assert_eq!(one * std::mem::size_of::<[f64; 5]>(), (1 << 30) / 40 * 40);
-    assert_eq!(held_cells(32, 8), 4 * one);
-    assert_eq!(held_cells(32, 1), 32 * one);
-    assert_eq!(held_cells(1, 1), one);
-    assert_eq!(held_cells(4, 8), one / 2);
-    for threads in 1..=33 {
-        for at_once in 1..=40 {
-            assert!(held_cells(threads, at_once) * at_once <= threads * one);
-        }
+fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
+    // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
+    let gib = 1u64 << 30;
+    assert_eq!(hold_budget(10 * gib), 32 * gib / 5);
+    assert_eq!(hold_budget(2 * gib), 0);
+    assert_eq!(hold_budget(gib), 0);
+}
+
+#[test]
+fn held_cells_divide_the_budget_among_the_solves_at_once() {
+    // 1 回の減速計算が持つ区間の数は、全体の量を同時に解きうる減速計算の数で分けたもの（1 区間 40 B）
+    let gib = 1u64 << 30;
+    assert_eq!(held_cells(gib, 1), (gib / 40) as usize);
+    assert_eq!(held_cells(32 * gib, 32), (gib / 40) as usize);
+    assert_eq!(held_cells(gib, 0), held_cells(gib, 1));
+    for at_once in 1..=40 {
+        assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 40 <= 10 * gib + 7);
+    }
+}
+
+#[test]
+fn available_memory_is_mem_available_or_the_room_left_in_the_cgroups() {
+    // /proc/meminfo の MemAvailable（kB）と、cgroup の memory.max からその memory.current を引いた残りの、小さい方。memory.max が
+    // max の cgroup は制限しない
+    let meminfo = "MemTotal:       95000000 kB\nMemFree:  1000 kB\nMemAvailable:   80000000 kB\n";
+    assert_eq!(available_from(meminfo, &[]).unwrap(), 80_000_000 * 1024);
+    assert_eq!(
+        available_from(meminfo, &[("max\n", "123\n")]).unwrap(),
+        80_000_000 * 1024
+    );
+    assert_eq!(
+        available_from(meminfo, &[("max\n", "1\n"), ("10000\n", "4000\n")]).unwrap(),
+        6000
+    );
+    assert_eq!(available_from(meminfo, &[("100\n", "400\n")]).unwrap(), 0);
+}
+
+#[test]
+fn unreadable_memory_stops_with_an_error() {
+    // 推測せずに止める: MemAvailable の無い meminfo、数でない値
+    let ok = "MemAvailable: 100 kB\n";
+    for (meminfo, limits) in [
+        ("MemTotal: 100 kB\n", vec![]),
+        ("MemAvailable: lots kB\n", vec![]),
+        ("MemAvailable: 100 MB\n", vec![]),
+        (ok, vec![("ten\n", "1\n")]),
+        (ok, vec![("10\n", "")]),
+    ] {
+        assert!(
+            matches!(available_from(meminfo, &limits), Err(MemoryError::Parse(_))),
+            "{meminfo:?} {limits:?}"
+        );
     }
 }
