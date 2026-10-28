@@ -34,9 +34,9 @@ pub(super) const TAIL: f64 = 28.0;
 /// 並列の手間が勝つ）
 const CELLS_PER_TASK: usize = 32;
 
-/// 1 回の減速計算がスイープの間で持つ区間（[`HeldCell`]）の数の上限（1 GiB。ADR-0213）。自己遮蔽のピンはスレッドごとに 1 本ずつ
-/// 解く（ADR-0198）ので、全体はこれのスレッドの数倍で抑えられる。格子点ごとの核種の区間の始まり（核種の数 + 1 個の u32）は数えない
-/// （2A のピンで区間の 1% ほど）
+/// スレッドの数だけの減速計算を同時に解くときの、1 回の減速計算がスイープの間で持つ区間（[`HeldCell`]）の数の上限（1 GiB。
+/// ADR-0213）。全体はこれのスレッドの数倍（[`super::held_cells`]）。格子点ごとの核種の区間の始まり（核種の数 + 1 個の u32）は数えない
+/// （2A のピンで区間の 0.3% ほど）
 pub(super) const HELD_CELLS: usize = (1 << 30) / std::mem::size_of::<HeldCell>();
 
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
@@ -937,8 +937,7 @@ pub(super) struct Thermal<'a> {
     all: Vec<(usize, f64, f64)>,
     starts: Vec<u32>,
     /// [格子点 − start] の、最初のスイープで作って持った区間（持たない格子点は `None`。ADR-0213）。区間はすべての格子点で 1 つの
-    /// 配列に続けて置く（格子点ごとの配列にすると、解くスレッドが輸送ごとに変わるピンで、捨てた配列の領域がスレッドごとの
-    /// 割り当ての領域に残り、輸送ごとに常駐のメモリが増える。#0181 の経緯）
+    /// 配列に続けて置く（格子点ごとの配列にしない理由は ADR-0213 の「検討した案」の置き方）
     held: Vec<Option<Held>>,
     held_cells: Vec<HeldCell>,
     held_starts: Vec<u32>,
@@ -1130,6 +1129,13 @@ impl<'a> Thermal<'a> {
                 starts: self.held_starts.len(),
             });
             self.held_starts.extend_from_slice(&self.starts);
+            // 伸ばす幅は倍にするが、上限（持った数 + 残り）を超えて確保しない（`resize` に任せると上限の 2 倍まで確保しうる）
+            let need = first + self.all.len();
+            let capacity = self.held_cells.capacity();
+            if need > capacity {
+                let target = need.max(capacity.saturating_mul(2)).min(first + self.room);
+                self.held_cells.reserve_exact(target - first);
+            }
             self.held_cells
                 .resize(first + self.all.len(), HeldCell::default());
             self.room -= self.all.len();
