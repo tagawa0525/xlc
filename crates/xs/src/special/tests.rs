@@ -197,6 +197,16 @@ fn erf_is_within_four_ulp_of_multiprecision_values() {
 }
 
 #[test]
+fn erfc_and_erfcx_saturate_at_large_arguments() {
+    assert_eq!(erfc(f64::INFINITY), 0.0);
+    assert_eq!(erfc(1e308), 0.0);
+    assert_eq!(erfc(f64::NEG_INFINITY), 2.0);
+    assert_eq!(erfcx(f64::NEG_INFINITY), f64::INFINITY);
+    assert_eq!(erfcx(-1e308), f64::INFINITY);
+    assert_eq!(erf(1e308), 1.0);
+}
+
+#[test]
 fn erf_and_erfcx_of_nan_are_nan() {
     assert!(erf(f64::NAN).is_nan());
     assert!(erfcx(f64::NAN).is_nan());
