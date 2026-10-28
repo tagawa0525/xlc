@@ -1,11 +1,11 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-28
 requires: [ADR-0124, ADR-0130, ADR-0159, ADR-0210]
 supersedes: []
 superseded-by:
 amends: [ADR-0130]
-issues: ["#0183"]
+issues: ["#0183", "#0145"]
 ---
 
 # ADR-0212: 参照のステージの Python を検証用のパッケージから分け、deps の付け直しは値の同じ TOML に限る
@@ -126,6 +126,25 @@ ADR-0130 の「rebase やあとのコミットで deps が変わると…その�
 ADR-0143 の帰結（実行ファイルが一致しないときに `dvc commit` しない）は変わらない。
 
 ## 確認
+
+2026-10-28、ブランチ fix/0183-references-shell（分岐点は main の b5f9acce3）で測った:
+
+- 並びを分けた後の `nix eval --raw .#devShells.x86_64-linux.references.outPath` は `/nix/store/qdaa3j64…-nix-shell` で、
+  6634685a6 の親（pyyaml の前）と同じ。default の devShell は分ける前と同じ（`lihpfbzd…`）。`references` の devShell の Python は
+  `import yaml` で `ModuleNotFoundError`、`import openmc, msgpack, numpy` は通る
+- `scripts/run-python-tests.sh`（`python-tests` の devShell）で、追跡しているすべての Python のテストが通る（pyyaml を使う
+  test_compare_dvc_lock などと、OpenMC を使う test_openmc_model を含む）
+- `scripts/count-changed-stages.py`（全体）の changed: main の状態で `references-shell` を流した後（4 つの `references-shell.txt` を
+  `jrv2kvr1…` にしたもの）は 739、並びを分けた後は 471。差の 268 は、`references-shell.txt` だけで changed になった NJOY と OpenMC の
+  ステージ（examples/depletion 72、p2 91、vera 68、endfb70/openmc 34、mox 2、c5g7 1）。471 は ADR-0210 の付け直しの後の 468 に、`build`
+  （flake.nix の変更。作り直した `bin/` はバイトが同じ）と、ADR-0211 の後の `compare-1C` の 2 つを足したもの。`openmc-1C` は changed でない
+- `dvc repro examples/depletion/dvc.yaml:compare-1C` は、`references-shell`（同じパスを書いた）と `compare-1C` の 2 つだけを実行した
+  （23 秒。3a273a1bc）
+- hook のテスト（`scripts/test_check_references_shell.py`。一時のリポジトリの最小の flake で nix eval を実行する）:
+  すべての `references-shell.txt` が devShell と同じなら通る、flake.nix を変えて devShell のパスが変わると、食い違うファイルと
+  2 つのパスを挙げて止まる、食い違うファイルだけを挙げる、追跡しないファイルは見ない、追跡するファイルが無ければ止まる。
+  このリポジトリで `referencesPythonPackages` に pyyaml を足すと、4 つのファイルを挙げて止まった（試して戻した）
+- (b) の条件は、このブランチでは使っていない（付け直したステージは無い）
 
 ## 帰結
 
