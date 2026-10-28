@@ -89,7 +89,7 @@ cargo build --release
 
 1. コードと入力の変更をすべてコミットする。記録に書く試行の入力（`trials/`）は `git add -f` でコミットする（スキル verification-record の「記録に書く試行」）。`git status --short` が空であることを確かめる
 2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、rebase を終えてからスキル dvc-relock の前半で整える（rebase の途中では dvc を実行しない）。rebase の終わりに post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
-3. ステージ（`dvc.yaml`）で実行するなら、先に `dvc checkout`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
+3. ステージ（`dvc.yaml`）で実行するなら、先に `scripts/dvc-checkout.py`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
 5. 1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など）なら、コードのレビュー（/code-review）を
    打ち切りまで回す（2 の rebase の後に）。流した後にコードを変えると、ADR-0122 のとおり再実行が要る。流した後の
@@ -155,5 +155,5 @@ worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡
   cp --reflink=auto examples/vera/vera.msgpack ~/github/xlc/examples/vera/vera.msgpack
   ```
 
-  DVC のステージの出力を入れたブランチをマージしたあとは、main で `dvc checkout dvc.yaml` と `dvc checkout examples/vera/dvc.yaml`
+  DVC のステージの出力を入れたブランチをマージしたあとは、main で `scripts/dvc-checkout.py dvc.yaml` と `scripts/dvc-checkout.py examples/vera/dvc.yaml`
   をして `dvc.lock` の出力に合わせる（ADR-0130、ADR-0159。手順はスキル dvc-relock の後半）
