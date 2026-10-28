@@ -420,3 +420,85 @@ fn locate_from_finds_the_point_of_locate_from_any_hint() {
         }
     }
 }
+
+/// [`Thermal`] で、試験の格子の 3 回のスイープを模した散乱源。格子点ごとの [リング] の（既知の部分, F_m の係数）を、スイープの順に
+/// 並べたものと、最初のスイープで持った区間の数を返す。`hold` は持つ区間の数の上限。中性子束は散乱源に依るようにする（持った区間を
+/// 使うスイープでも、中性子束が前のスイープと違う）
+fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
+    let u = test_grid();
+    let high = 20.0;
+    let energies: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
+    let gases = vec![
+        Gas::new(0.99917, 600.0, None),
+        Gas::new(15.86, 600.0, None),
+        Gas::new(236.0, 900.0, Some(400.0)),
+    ];
+    let sigma = gases
+        .iter()
+        .zip([20.0, 3.8, 9.0])
+        .map(|(gas, value)| {
+            let first = first_below(&energies, gas.top());
+            (first, vec![value; u.len() - first])
+        })
+        .collect();
+    let rings = vec![
+        vec![(1, 0.03)],
+        vec![(0, 0.05), (1, 0.025)],
+        vec![(0, 0.022), (1, 0.045)],
+    ];
+    let n = 2;
+    let mut thermal = Thermal::new(gases, sigma, rings, vec![None; 3], 2, &energies, n, hold)
+        .expect("free-gas nuclides");
+    let start = thermal.start();
+    let mut flux: Vec<Vec<f64>> = vec![u[..start].iter().map(|&x| test_flux(x)).collect(); n];
+    let mut out = Vec::new();
+    let mut held = 0;
+    for sweep in 0..3 {
+        for f in &mut flux {
+            f.truncate(start);
+        }
+        for m in start..u.len() {
+            let (mut known, mut own) = (vec![0.0; n], vec![0.0; n]);
+            thermal
+                .source(m, &u, high, energies[m], &flux, &mut known, &mut own)
+                .unwrap();
+            for (i, f) in flux.iter_mut().enumerate() {
+                f.push(test_flux(u[m]) * (1.0 + 0.01 * sweep as f64) + 1e-3 * (known[i] + own[i]));
+            }
+            thermal.record(m, &u, &flux);
+            out.push(known.into_iter().zip(own).collect());
+        }
+        if sweep == 0 {
+            held = thermal.held();
+            // 持つ配列の区間、核種の区間の始まりと位置の表は、確保した分も上限を超えない
+            let starts = (thermal.held_starts.capacity() * 4
+                + thermal.held.capacity() * std::mem::size_of::<Option<Held>>())
+            .div_ceil(40);
+            assert!(thermal.held_cells.capacity() + starts <= hold, "{hold}");
+        }
+        thermal.finish(&flux);
+    }
+    thermal.release();
+    assert_eq!(thermal.held(), 0);
+    (out, held)
+}
+
+#[test]
+fn held_cells_give_the_sources_of_rebuilt_cells_bit_for_bit() {
+    // スイープの間で持った区間と 2 次式を積分だけに使っても、毎回作り直したときと散乱源がビットで同じ。上限が区間の一部だけを持つ
+    // ときも（上限を超える格子点は作り直す）同じ
+    let (rebuilt, none) = swept_sources(0);
+    assert_eq!(none, 0);
+    let (all, total) = swept_sources(usize::MAX);
+    assert!(total > 0);
+    let (part, some) = swept_sources(total / 2);
+    assert!(0 < some && some <= total / 2, "{some} of {total}");
+    let bits = |v: &[Vec<(f64, f64)>]| -> Vec<(u64, u64)> {
+        v.iter()
+            .flatten()
+            .map(|&(k, o)| (k.to_bits(), o.to_bits()))
+            .collect()
+    };
+    assert_eq!(bits(&all), bits(&rebuilt));
+    assert_eq!(bits(&part), bits(&rebuilt));
+}
