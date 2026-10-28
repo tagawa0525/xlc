@@ -2206,17 +2206,17 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
 
 #[test]
 fn held_cells_share_the_limit_of_all_threads_among_the_solves_at_once() {
-    // スイープの間で持つ区間の数の上限は、スレッドの数 × 1 回の減速計算の上限を、同時に解く減速計算（スレッドの数以下）で分けたもの。
-    // 1 本のピンを全スレッドで解けば全体を 1 つで使い、スレッドより多いピンを解けば 1 回の上限
-    let one = held_cells(32, 39);
+    // スイープの間で持つ区間の数の上限は、スレッドの数 × 1 回の減速計算の上限を、同時に解きうる減速計算の数で分けたもの。1 本の
+    // ピンを全スレッドで解けば全体を 1 つで使い、スレッドより多い減速計算が同時に走りうれば（盗みで入れ子になる塊）1 回の上限より小さい
+    let one = held_cells(32, 32);
     assert_eq!(one * std::mem::size_of::<[f64; 5]>(), (1 << 30) / 40 * 40);
-    assert_eq!(held_cells(32, 32), one);
     assert_eq!(held_cells(32, 8), 4 * one);
     assert_eq!(held_cells(32, 1), 32 * one);
-    assert_eq!(held_cells(1, 3), one);
+    assert_eq!(held_cells(1, 1), one);
+    assert_eq!(held_cells(4, 8), one / 2);
     for threads in 1..=33 {
-        for solves in 1..=40 {
-            assert!(held_cells(threads, solves) * threads.min(solves) <= threads * one);
+        for at_once in 1..=40 {
+            assert!(held_cells(threads, at_once) * at_once <= threads * one);
         }
     }
 }
