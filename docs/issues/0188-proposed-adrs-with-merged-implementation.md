@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs, tooling]
 opened: 2026-10-29
-closed:
+closed: 2026-10-29
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 3809b14e5
 ---
 
 # 実装をマージした proposed の ADR
@@ -41,3 +41,8 @@ ADR-0202 は、方法を物質と χ に広げた分を 2026-10-29 に「## 補�
 ## 経緯
 
 - 2026-10-29: /retro（14 回目）で、ADR-0202 が 3 回の測定に使われたまま proposed であることから、同じ状態の ADR を数えた
+- 2026-10-29: 表の 6 件を確かめて accepted にした（ブランチ docs/0188-accept-implemented-adrs）。ADR-0144 は perf/0088-line-shape-table の判定
+  （Slurm 327）を「確認」に書いた。ADR-0151 は、帰結の Zen4 と r995 の k の比較が済んでいないので #0189 に結んだ。ADR-0152 は
+  `openmc_tallies_check.py` が通る。ADR-0169 は、縮約が読めない核種を止める検査を #0116 に残した。ADR-0202 は「## 補足」の 2 項を
+  「決定と理由」と「確認」に畳み込んだ。ADR-0206 は、OpenMC の参照解を流すのが後回し（#0152）であることを「確認」と「帰結」に書いた
+- 2026-10-29: 実装をマージするブランチで status を見落とさない仕組みは、nixfiles の /git-merge の側（proposed の ADR を一覧に出す段）で作る
