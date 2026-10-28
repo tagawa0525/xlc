@@ -1,0 +1,8 @@
+@water=moderator:1-13
+@water=moderator:14-27
+@water=moderator:28-45
+@water=moderator:46-69
+@zircaloy=zircaloy-4:1-13
+@zircaloy=zircaloy-4:14-27
+@zircaloy=zircaloy-4:28-45
+@zircaloy=zircaloy-4:46-69
