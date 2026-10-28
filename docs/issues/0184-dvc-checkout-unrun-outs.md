@@ -12,8 +12,8 @@ resolution:
 
 ## 問題
 
-引数なしの `dvc checkout` は、main の上でも終了コード 255 で終わる。`dvc.lock` に hash がまだ無いステージの出力（examples/depletion/p2 の
-本番、examples/vera/endfb70/openmc の 1B と 2B の OpenMC、examples/depletion の openmc-mox1 など）が戻らないためで、/dvc-relock の
+引数なしの `dvc checkout` は、main の上でも終了コード 255 で終わる。`dvc.lock` に hash がまだ無いステージの出力（examples/vera/endfb70/openmc の
+1B と 2B の OpenMC、examples/depletion の openmc-mox1。main 1ed9b10a8 で 7 件。examples/depletion/p2 には無い）が戻らないためで、/dvc-relock の
 前半の手順 1 は、`Checkout failed for following targets:` に並んだ出力ごとに、その `dvc.lock` を `git diff main` で見て、ブランチが
 変えた出力でないかを人が確かめるとしている。relock のたびに同じ目視が要り、2026-10-28 の ADR-0211 のマージでも親が 2 回の
 コマンドで確かめた。
