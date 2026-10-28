@@ -68,9 +68,8 @@ def main():
     model.tallies = openmc.Tallies([tally])
     os.environ["OMP_NUM_THREADS"] = str(threads)
     openmc.config["cross_sections"] = run["cross-sections"]
-    # 同じ粒子数と世代数で解いた statepoint があれば、解き直さずに読む（集計の名前 chi と核種は読むときに確かめる）
-    done = work / f"statepoint.{batches}.h5"
-    sp_path = done if done.exists() else model.run(cwd=work, output=False)
+    # 作業ディレクトリの statepoint は読み直さずに解き直す（statepoint は燃料の組成を持たず、別の状態の結果と見分けられない）
+    sp_path = model.run(cwd=work, output=False)
     lib = msgpack.unpackb(Path(library).read_bytes(), strict_map_key=False)
     bounds = lib["group_bounds"]
     with openmc.StatePoint(sp_path) as sp:
