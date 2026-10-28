@@ -3,17 +3,29 @@
 
 /// 誤差関数 erf(x)。
 pub fn erf(x: f64) -> f64 {
+    erf_given(x, || (-x * x).exp())
+}
+
+/// 誤差関数 erf(x) を、呼び出し側が求めた `gaussian` = `(-x * x).exp()` を使って求める（[`erf`] とビットで同じ値）。同じ
+/// exp(−x²) をほかの項にも掛ける呼び出し側が、指数関数を 1 度で済ませるため。符号を反転した x の (−x)·x は符号だけが違う
+/// 積なので、x の符号によらず同じビットになる
+pub fn erf_with_gaussian(x: f64, gaussian: f64) -> f64 {
+    erf_given(x, || gaussian)
+}
+
+/// erf(x)。exp(−x²) は要る区間でだけ `gaussian` で求める（x ≥ [`SATURATION`] では求めない）
+fn erf_given(x: f64, gaussian: impl FnOnce() -> f64) -> f64 {
     if x < 0.0 {
-        return -erf(-x);
+        return -erf_given(-x, gaussian);
     }
     if x < CODY_LOWER_LIMIT {
-        erf_series(x)
+        erf_series(x, gaussian())
     } else if x >= SATURATION {
         1.0
     } else {
         // exp(−x*x) の x*x の丸めの効きは erfc(x) 倍に縮むので、erfc の exp_square で分けない。
         // NaN もここで NaN になる
-        1.0 - erfcx(x) * (-x * x).exp()
+        1.0 - erfcx(x) * gaussian()
     }
 }
 
@@ -21,8 +33,8 @@ pub fn erf(x: f64) -> f64 {
 /// erfcx と指数関数を省く
 const SATURATION: f64 = 6.0;
 
-/// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
-fn erf_series(x: f64) -> f64 {
+/// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。`gaussian` は exp(−x²)
+fn erf_series(x: f64, gaussian: f64) -> f64 {
     let x2 = x * x;
     let mut term = x;
     let mut sum = x;
@@ -32,7 +44,7 @@ fn erf_series(x: f64) -> f64 {
         term *= 2.0 * x2 / (2.0 * n + 1.0);
         sum += term;
     }
-    2.0 / std::f64::consts::PI.sqrt() * (-x2).exp() * sum
+    2.0 / std::f64::consts::PI.sqrt() * gaussian * sum
 }
 
 /// 相補誤差関数 erfc(x) = 1 - erf(x)。
@@ -40,7 +52,7 @@ pub fn erfc(x: f64) -> f64 {
     if x < 0.0 {
         2.0 - erfc(-x)
     } else if x < CODY_LOWER_LIMIT {
-        1.0 - erf_series(x)
+        1.0 - erf_series(x, (-x * x).exp())
     } else {
         erfcx(x) * exp_square(x, -1.0)
     }
@@ -55,7 +67,7 @@ pub fn erfcx(x: f64) -> f64 {
     }
     if x < CODY_LOWER_LIMIT {
         // erf(x) < 0.5 なので 1 − erf は桁落ちしない
-        return (x * x).exp() * (1.0 - erf_series(x));
+        return (x * x).exp() * (1.0 - erf_series(x, (-x * x).exp()));
     }
     if x <= CODY_MIDDLE_LIMIT {
         compensated_rational(&CODY_MIDDLE_NUMERATOR, &CODY_MIDDLE_DENOMINATOR, x)
