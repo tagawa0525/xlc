@@ -658,10 +658,23 @@ impl<'a> BranchShielder<'a> {
         reference: Option<(usize, usize)>,
         nominal: impl FnOnce() -> Vec<MaterialInput>,
     ) -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
+        self.shield_state(library, state, reference, nominal)
+            .map(|(materials, region_material, _)| (materials, region_material))
+    }
+
+    /// `shield` と同じ物質の一覧と番号に、状態の燃料の核種の実効断面積と SPH 因子を持つ自己遮蔽を添える。参照から作った状態は参照の
+    /// 自己遮蔽（作り直すのはホウ素の軸の物質だけで、燃料の実効断面積は参照と同じ）
+    pub fn shield_state(
+        &mut self,
+        library: &Library,
+        state: &[MaterialInput],
+        reference: Option<(usize, usize)>,
+        nominal: impl FnOnce() -> Vec<MaterialInput>,
+    ) -> anyhow::Result<(Vec<Material>, Vec<usize>, Fuel<'_>)> {
         let names = self.region_materials;
         let Some((point, index)) = reference else {
             self.shieldings += 1;
-            let shielded = shield_fuel_reusing(
+            let mut shielded = shield_fuel_reusing(
                 library,
                 &mut self.reuse,
                 state,
@@ -669,7 +682,9 @@ impl<'a> BranchShielder<'a> {
                 self.symmetry,
                 &self.options,
             )?;
-            return Ok((shielded.materials, shielded.region_material));
+            let materials = std::mem::take(&mut shielded.materials);
+            let region_material = shielded.region_material.clone();
+            return Ok((materials, region_material, Fuel::Solved(Box::new(shielded))));
         };
         let lattice = &self.tracking.lattice;
         self.held.retain(|(p, ..)| *p == point);
@@ -747,7 +762,29 @@ impl<'a> BranchShielder<'a> {
                 unique[m] = material;
             }
         }
-        Ok((unique, shielded.region_material.clone()))
+        Ok((
+            unique,
+            shielded.region_material.clone(),
+            Fuel::Reference(shielded),
+        ))
+    }
+}
+
+/// 状態の燃料の自己遮蔽（`BranchShielder::shield_state`）: その状態で解いたものか、参照のもの。解いたものの `materials` は
+/// 物質の一覧として返したので空
+pub enum Fuel<'a> {
+    Solved(Box<FuelShielding>),
+    Reference(&'a FuelShielding),
+}
+
+impl std::ops::Deref for Fuel<'_> {
+    type Target = FuelShielding;
+
+    fn deref(&self) -> &FuelShielding {
+        match self {
+            Self::Solved(s) => s,
+            Self::Reference(s) => s,
+        }
     }
 }
 

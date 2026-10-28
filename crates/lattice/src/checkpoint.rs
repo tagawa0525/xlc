@@ -136,6 +136,8 @@ struct StateFile {
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
     #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     medium: Option<MediumState>,
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
+    micro: Option<Vec<MicroNuclide>>,
 }
 
 impl Checkpoint {
@@ -320,7 +322,7 @@ impl Checkpoint {
                     k: s.k,
                     outputs,
                     medium: s.medium,
-                    micro: None,
+                    micro: s.micro,
                 })
             })
             .collect::<anyhow::Result<_>>()?;
@@ -353,6 +355,7 @@ impl Checkpoint {
                     k: s.k,
                     outputs,
                     medium: s.medium.clone(),
+                    micro: s.micro.clone(),
                 })
             })
             .collect::<anyhow::Result<_>>()?;
