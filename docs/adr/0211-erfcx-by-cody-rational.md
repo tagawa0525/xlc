@@ -42,8 +42,8 @@ lattice の自由ガスの核は erf と erfcx を呼ぶ。xs では `resonance/
 erfcx の 1 回の時間は、2.5 ≤ x < 50 で、連分数 57〜69 ns、CALERF のまま 3.2 ns、Faddeeva 3.0 ns、採用した形 4.7 ns。0.46875 ≤ x < 2.5 で、
 級数 37 ns、採用した形 8.0 ns。erf（0.46875〜2.5 の一様な乱数 4 万点、mpmath の erf との差）は、級数が最大 13.3 ulp（x = 2.42。掛ける
 exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x) exp(−x²) が最大 3.5 ulp、10 ns。erfc は、0.46875〜2.5 の 4 万点で 1 − 級数が
-最大 16,712 ulp、0.46875〜26 の一様な乱数 3 万点で erfcx(x) exp(−x*x) が最大 510 ulp（x = 24.6）、exp(−x²) を下の分け方にすると最大 4.9 ulp。
-負の x の erfcx（−26〜0 の 3 万点）は、2 exp(x*x) − erfcx(−x) が最大 502 ulp、分け方で最大 4.6 ulp。
+最大 16,712 ulp、0.46875〜26 の一様な乱数 3 万点で erfcx(x) exp(−x*x) が最大 510 ulp（x = 24.6）、exp(−x²) を下の分け方にすると、1/16 で切る CALERF の分け方で最大 4.9 ulp、2⁻²¹ で最大 3.3 ulp。
+負の x の erfcx（−26〜0 の 3 万点）は、2 exp(x*x) − erfcx(−x) が最大 502 ulp、1/16 で 4.6 ulp、2⁻²¹ で 3.1 ulp。
 
 - 案 A: 連分数の段の数を x で減らす。今の連分数と 200 段の連分数がビットで同じになる段は、x = 2.5 で 38、4 で 21、6 で 14。連分数を呼ぶ x の
   78% が 2.5 ≤ x < 6（#0181）なので、減らせる段は少ない。採らない
@@ -70,10 +70,12 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
 - erfcx: 0.46875 ≤ x ≤ 4 は Cody の 8 次 / 8 次の有理式を補償 Horner 法で、x > 4 は Cody の 1/x² の有理式を FMA の Horner 法で求め、
   x < 0.46875 は級数の erf から exp(x²)(1 − erf(x))（erf(x) < 0.5 なので 1 − erf は桁落ちしない。最大 0.89 ulp）。最大の誤差は x ≥ 2.5 で
   1.83 ulp 以下（連分数は 2.97 ulp）、0.46875 ≤ x < 2.5 で 2.36 ulp 以下（級数は 16,444 ulp）で、1 回の時間は 1/4.6〜1/12
-- erf: x ≥ 0.46875 は 1 − erfcx(x) exp(−x²)（lattice は x ≥ 6 で 1）、x < 0.46875 は級数。最大 3.5 ulp（級数は 13.3 ulp）で、1/3.4 の時間
-- erfc（xs）: x ≥ 0.46875 は erfcx(x) exp(−x²)、x < 0.46875 は 1 − 級数。exp(−x²) は CALERF と同じく exp(−s²) exp(−(x − s)(x + s))
-  （s は x を 1/16 の倍数に切り捨てた値で、s² は丸めなしで表せる）に分け、x*x の丸めを指数に入れない。最大 4.9 ulp（x ≤ 26）
-- 負の x の erfcx: erfc(−x) = 2 − erfc(x) から 2 exp(x²) − erfcx(−x)。exp(x²) は同じ分け方。最大 4.6 ulp
+- erf: x ≥ 0.46875 は 1 − erfcx(x) exp(−x²)（x ≥ 6 は 1）、x < 0.46875 は級数。最大 3.5 ulp（級数は 13.3 ulp）で、1/3.4 の時間
+- erfc（xs）: x ≥ 0.46875 は erfcx(x) exp(−x²)、x < 0.46875 は 1 − 級数。exp(−x²) は CALERF と同じ形の exp(−s²) exp(−(x − s)(x + s))
+  （s は x を 2⁻²¹ の倍数に切り捨てた値で、|x| < 32 で s² は丸めなしで表せる）に分け、x*x の丸めを指数に入れない。CALERF の 1/16 で
+  切る分け方は、残り (x − s)(x + s) が x = 26 で 3 に達し、その丸めが指数で 3 倍になる。exp(−s²) が 0 か桁あふれなら、そのまま返す（無限大の
+  x で 0 × ∞ にしない）。最大 3.3 ulp（x ≤ 26）
+- 負の x の erfcx: erfc(−x) = 2 − erfc(x) から 2 exp(x²) − erfcx(−x)。exp(x²) は同じ分け方。最大 3.1 ulp
 - erf は exp(−x*x) のまま（分けない）。x*x の丸めの効きは erfc(x) 倍に縮み、xs と lattice の erf のビットが同じになる
 - 分子と分母は 1 つのループで進める。独立な 2 つの依存の列が並び、別々のループの 1.7 倍の速さ（13.7 → 7.9 ns、0.46875 ≤ x < 2.5）で、
   ビットは同じ
@@ -92,8 +94,10 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
 - `erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values`: 区間の端と、上の計測で誤差の大きかった x を含む 41 点で、mpmath の
   60 桁の値との差が 2.5 ulp 以下（連分数は x = 36.8 で 2.97 ulp、級数は x = 2.475 で 16,444 ulp なので落ちる）
 - `erf_is_within_four_ulp_of_multiprecision_values`: 10 点で 4 ulp 以下（級数は x = 2.42 で 13.3 ulp なので落ちる）
-- `erfc_is_within_five_ulp_of_multiprecision_values`（xs だけ）: 11 点で 5 ulp 以下（exp(−x*x) では x = 24.6 で 510 ulp なので落ちる）
-- `erfcx_of_negative_x_is_within_five_ulp_of_multiprecision_values`: 8 点で 5 ulp 以下（2 exp(x*x) − erfcx(−x) では x = −5.94 で 30 ulp）
+- `erfc_is_within_four_ulp_of_multiprecision_values`（xs だけ）: 12 点で 4 ulp 以下（exp(−x*x) では x = 24.6 で 510 ulp なので落ちる）
+- `erfcx_of_negative_x_is_within_four_ulp_of_multiprecision_values`: 9 点で 4 ulp 以下（2 exp(x*x) − erfcx(−x) では x = −5.94 で 30 ulp）
+- `erfc_and_erfcx_saturate_at_large_arguments`（xs）、`erf_and_erfcx_saturate_at_large_arguments`（lattice）: ±∞ と ±1e308 で
+  0、2、∞、1 を返す
 - `erf_and_erfcx_of_nan_are_nan`: NaN は NaN を返す（lattice の erf は x ≥ 6 だけを 1 にする）
 - ulp は、多倍長の値の側の隣の浮動小数点数までの間隔で数える（値が 2 の冪の直下のとき、上の間隔で数えると誤差を半分に数える）
 - `erfcx_gives_the_same_bits_as_its_copy`: 40 点のビットの表に、2 つのクレートの erfcx が同じ値を返す。点は x = 0 と x ≥ 0.46875 で、
