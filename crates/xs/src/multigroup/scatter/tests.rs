@@ -897,7 +897,7 @@ fn mf5_without_known_multiplicity_is_error() {
 fn broadened_constant(sigma: f64, awr: f64, kt: f64) -> Tab1 {
     let n = |e: f64| {
         let a = (awr * e / kt).sqrt();
-        (1.0 + 0.5 / (a * a)) * xlc_numeric::error_function::erf(a)
+        (1.0 + 0.5 / (a * a)) * crate::special::erf(a)
             + (-a * a).exp() / (a * std::f64::consts::PI.sqrt())
     };
     let points = 20000;

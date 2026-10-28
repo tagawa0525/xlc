@@ -1,7 +1,7 @@
 use super::super::factors::{penetrability, phase_shift};
 use super::*;
 use crate::endf::{OrbitalL, Tab1, UrrLValue};
-use xlc_numeric::error_function::erfc;
+use crate::special::erfc;
 
 const AWRI: f64 = 236.0;
 const AP: f64 = 0.948;
