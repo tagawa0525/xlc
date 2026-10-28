@@ -102,6 +102,18 @@ class Compare(unittest.TestCase):
         for value in self.rows()[1]["densities_percent"].values():
             self.assertAlmostEqual(value, 10.0, places=9)
 
+    def test_tables_solving_burnups_the_histories_lack_are_errors(self):
+        nominal = history({0.0: 1.2, 10.0: 1.1}, 1.0)
+        case = {
+            "history": history({0.0: 1.0, 10.0: 0.95}, 1.1),
+            "branch": table({0.0: 1.0, 12.0: 0.94}),
+            "hybrid": table({0.0: 1.0, 12.0: 0.948}),
+            "reverse": table({0.0: 1.2, 12.0: 1.105}),
+            "reverse_hybrid": table({0.0: 1.2, 12.0: 1.104}),
+        }
+        with self.assertRaises(SystemExit):
+            c.compare(nominal, {"density": case})
+
     def test_tables_varying_another_axis_are_errors(self):
         t = table({0.0: 1.0})
         t["axes"][1]["points"] = [0.0, 1300.0]
