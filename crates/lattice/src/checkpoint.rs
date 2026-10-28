@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::medium::MediumState;
 use xlc_format::msgpack;
-use xlc_format::table::Table;
+use xlc_format::table::{MicroNuclide, Table};
 
 use crate::branches::Starts;
 use crate::depletion::{History, Partial};
@@ -60,6 +60,8 @@ pub struct SavedState {
     pub outputs: Vec<Vec<FewGroup>>,
     /// 細かい群の媒質の出力（ADR-0128）があるときの媒質
     pub medium: Option<MediumState>,
+    /// 履歴からの分岐でミクロ燃焼の核種を追うときの、核種ごとの微視的断面積（ADR-0216）
+    pub micro: Option<Vec<MicroNuclide>>,
 }
 
 /// チェックポイントのファイルと、今の実行の指紋
@@ -318,6 +320,7 @@ impl Checkpoint {
                     k: s.k,
                     outputs,
                     medium: s.medium,
+                    micro: None,
                 })
             })
             .collect::<anyhow::Result<_>>()?;

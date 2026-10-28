@@ -642,6 +642,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 k: solution.k,
                 outputs,
                 medium,
+                micro: None,
             },
             converged,
         ))
