@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [dvc, tooling]
 opened: 2026-10-28
-closed:
+closed: 2026-10-28
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット e6131291d
 ---
 
 # 未実行のステージの出力で dvc checkout が終了コード 255 を返す
@@ -20,7 +20,8 @@ resolution:
 
 `dvc checkout --allow-missing` は、hash の無い出力を `WARNING: No file hash info found for '<出力>'. It won't be created.` にして
 終了コード 0 で終わる（main 1ed9b10a8 の examples/vera/endfb70/openmc/dvc.yaml で確かめた。--allow-missing なしは 255 で同じ 5 件を並べた）。
-ただし、hash はあるがキャッシュに無い出力（/dvc-relock が止まるべき場合）も同じく飛ばすかは確かめていない。
+ただし、hash はあるがキャッシュに無い出力（/dvc-relock が止まるべき場合）も、警告を出さずに飛ばして終了コード 0 で終わる
+（dvc 3.67.1。一時のリポジトリで、実行したステージの出力とキャッシュを消して確かめた）ので、代わりには使えない。
 
 関係する ADR: ADR-0130
 
@@ -33,3 +34,6 @@ hash の無い出力（未実行）と、それ以外の失敗（キャッシュ
 ## 経緯
 
 - 2026-10-28: /retro で、relock のたびに同じ目視が要ることから書いた
+- 2026-10-28: `scripts/dvc-checkout.py` が dvc checkout の失敗の一覧から `No file hash info found` の出力を除き、残りがあれば
+  止める形にし、/dvc-relock の手順 1 と後半、`scripts/worktree-restore-outputs.sh` から呼んだ。main 7e0dd7a51 の上の worktree で
+  `UNRUN: 7`、終了コード 0
