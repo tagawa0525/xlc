@@ -2,6 +2,8 @@
  "format": "xlc-compare-history-effect",
  "inputs": {
   "lattice-2A-eb9ca398.msgpack": "eb9ca398a40b921fa206c36498357ca6",
+  "hybrid-density.msgpack": "d0266de00deca96e4d8b0adf3bd9b29f",
+  "hybrid-rods.msgpack": "baac9a47e892098200ce1a41c6535be8",
   "lattice-2A-density-74a7eaa0.msgpack": "74a7eaa07d758fec136654823b9e6d08",
   "table-density-from-2A.msgpack": "27559d0bf6367aa6b1a4d807fb2d8e0c",
   "table-density-hybrid.msgpack": "50623dfa20211d145c7b47c3f91c4993",
