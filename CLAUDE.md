@@ -31,8 +31,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   `~/.claude/scripts/slurm-run.sh [--timed] -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。時間を記録する測定は `--timed` を付ける（割り込まれないパーティション timed で、走っている main のジョブを止めて先に走る）。付けないジョブは main で、timed のジョブに止められうるので、その時間は記録に書かない（`TIME:` 行に `preemptible:` の印が付く）。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - lattice のスレッドの数は、`RAYON_NUM_THREADS` が無ければプロセスに許された論理 CPU（SMT を含む）の数で、r995 の排他のジョブでは
-  32（1 コア 2 スレッドの 16 コア。`lscpu`）。始めにログに出す（`thread pool threads=`）。xs の `--threads` の既定と runner の予算は
-  物理コアの数をプロセスに許された CPU の数で抑えたもので、r995 の排他のジョブでは 16（ADR-0214）。xs の数はログに出ないので、記録と
+  32（1 コア 2 スレッドの 16 コア。`lscpu`）。始めにログに出す（`thread pool threads=`）。xs の `--threads` の既定は
+  機械の物理コアの数をプロセスに許された CPU の数で抑えたもの、runner の予算は許された CPU の中の物理コアの数で、r995 の排他のジョブでは
+  どちらも 16、`-c 16` では xs 16、runner 8（ADR-0214、ADR-0193）。xs の数はログに出ないので、記録と
   依頼に書くときは、この規則と、ジョブで付けた `--threads`、`-c` の数から書く（#0186）
 - 数時間の OpenMC の参照解は AWS のスポット（`aws_run.sh --type auto`。ADR-0171）、xlc の計算は条件が変わりやすいので r995 の
   Slurm、短い OpenMC はローカル。機種の選び方と、オンデマンドと m7a 系を使わないことは docs/environment.md の「外部の計算機（AWS）」（ユーザー 2026-10-13、2026-10-14）
