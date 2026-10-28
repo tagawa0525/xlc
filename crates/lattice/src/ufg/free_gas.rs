@@ -21,6 +21,7 @@ use rayon::prelude::*;
 use xlc_format::library::SabTransfer;
 
 use super::UfgError;
+use xlc_numeric::error_function::{erf, erfcx};
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_2, GAUSS_LEGENDRE_4};
 
 /// ボルツマン定数 (eV/K)。CODATA 2018 の値（xs の `physics::BK` と同じ）
@@ -48,57 +49,6 @@ const DOWNSIDE: f64 = 37.0;
 /// 2 次式の補間の誤差（区間の幅の 4 乗 × e^{−y}）が端から離れても増えず、区間の数は y によらず 2 GRADE × 区間の細かさで済む
 const GRADE: f64 = 4.0;
 
-/// 誤差関数 erf(x)。xs の `special::erf` と同じ計算（ステージのクレートは互いに依存せず、共通のクレートに移すと xs と
-/// lattice の実行ファイルが変わり、すべてのステージが古くなるので、ここに複製する。ADR-0203）。
-pub(super) fn erf(x: f64) -> f64 {
-    if x < 0.0 {
-        return -erf(-x);
-    }
-    if x < SERIES_LIMIT {
-        erf_series(x)
-    } else if x < SATURATION {
-        1.0 - erfcx(x) * (-x * x).exp()
-    } else {
-        1.0
-    }
-}
-
-/// これより大きい x の erf(x) は倍精度で 1（erfc(6) ≈ 2e−17 は 1 の丸めの半分より小さいので、1 − erfc の計算も 1 になる）。
-/// 連分数の 40 項を省く
-const SATURATION: f64 = 6.0;
-
-/// これより小さい x では級数、大きい x では連分数を使う
-const SERIES_LIMIT: f64 = 2.5;
-
-/// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
-fn erf_series(x: f64) -> f64 {
-    let x2 = x * x;
-    let mut term = x;
-    let mut sum = x;
-    let mut n = 0.0;
-    while term > sum * f64::EPSILON {
-        n += 1.0;
-        term *= 2.0 * x2 / (2.0 * n + 1.0);
-        sum += term;
-    }
-    2.0 / PI.sqrt() * (-x2).exp() * sum
-}
-
-/// スケールした相補誤差関数 erfcx(x) = exp(x²) erfc(x)（x ≥ 0）。xs の `special::erfcx` と同じ計算。
-pub(super) fn erfcx(x: f64) -> f64 {
-    if x < SERIES_LIMIT {
-        return (x * x).exp() * (1.0 - erf_series(x));
-    }
-    // 連分数 erfcx(x) = 1/√π · 1/(x + (1/2)/(x + 1/(x + (3/2)/(x + …)))) を後ろから評価する。
-    // x ≥ 2.5 では 40 項で倍精度の精度になる
-    const TERMS: u32 = 40;
-    let mut t = x;
-    for k in (1..=TERMS).rev() {
-        t = x + 0.5 * f64::from(k) / t;
-    }
-    1.0 / (PI.sqrt() * t)
-}
-
 /// 自由原子の散乱断面積を 1 としたときの、断面積を一定とした自由ガスのエネルギー移行の確率密度 S(E→E') (1/eV)。`awr` は
 /// 標的の質量比、`kt` は標的の温度の kT (eV)。重心系で等方な散乱の、自由ガスの散乱則
 ///   S(α, β) = e^{−(α+β)²/(4α)}/√(4πα)（α, β は kT で測る。ADR-0133 の式と同じ）
@@ -107,7 +57,7 @@ pub(super) fn erfcx(x: f64) -> f64 {
 ///   S = θ²/(2E) [erf(θ√ε' − ζ√ε) ± erf(θ√ε' + ζ√ε) + e^{ε−ε'} (erf(θ√ε − ζ√ε') ∓ erf(θ√ε + ζ√ε'))]、
 ///   θ = (A + 1)/(2√A)、ζ = (A − 1)/(2√A)、ε = E/kT、上の符号は E' ≤ E
 /// （散乱則の α の積分と一致することは `kernel_is_the_integral_of_the_free_gas_law` で確かめる）。xs の `free_gas_kernel` と
-/// 同じ計算で、複製する理由は [`erf`] と同じ。
+/// 同じ式（ADR-0203 で複製した）。
 pub(super) fn kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
     if e <= 0.0 || e_out <= 0.0 {
         return 0.0;
