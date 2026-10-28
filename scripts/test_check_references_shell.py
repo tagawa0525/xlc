@@ -92,6 +92,12 @@ class CheckReferencesShell(unittest.TestCase):
         self.assertIn("examples/b/references-shell.txt", result.stderr)
         self.assertNotIn("examples/a/references-shell.txt", result.stderr)
 
+    def test_fails_on_a_trailing_newline_the_stage_does_not_write(self):
+        self.record("examples/a/references-shell.txt", self.shell_path() + "\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("examples/a/references-shell.txt", result.stderr)
+
     def test_ignores_untracked_records(self):
         path = self.shell_path()
         self.record("examples/a/references-shell.txt", path)
