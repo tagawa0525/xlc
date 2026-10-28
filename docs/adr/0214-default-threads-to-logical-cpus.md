@@ -1,8 +1,9 @@
 ---
 status: proposed
 date: 2026-10-28
-requires: [ADR-0189, ADR-0193, ADR-0198, ADR-0213]
+requires: [ADR-0067, ADR-0189, ADR-0193, ADR-0198, ADR-0213]
 supersedes: []
+amends: [ADR-0067]
 superseded-by:
 issues: ["#0181"]
 ---
@@ -48,21 +49,26 @@ MOC は ADR-0067 と同じく 32 スレッドで 16% 遅いが、自己遮蔽が
 
 ## 決定と理由
 
-案 a。lattice は `RAYON_NUM_THREADS` が無ければ、このプロセスに許された論理 CPU の数で rayon のプールを作る。数が求められなければ
-エラーで止める（rayon の既定は 1 にして続けるので、自分で作る）。スレッドの数と、それを決めたもの（既定か `RAYON_NUM_THREADS`）を
-始めにログに出す（記録にスレッドの数を書くときに、ログで確かめるため）。
+案 a。lattice は `RAYON_NUM_THREADS` が無ければ、このプロセスに許された論理 CPU の数で rayon のプールを作る。これは ADR-0067 の
+「スレッド数の既定は物理コアの数とする」の lattice の部分を置き換える。ほかの部分（xs と runner の既定）は変わらない。
+
+- 変数は lattice が読み、正の整数でなければエラーで止める。数が求められなければエラーで止める（rayon に任せると、どちらも黙って
+  既定や 1 にして続ける）
+- スレッドの数と、それを決めたもの（`default` か `RAYON_NUM_THREADS`）を始めにログに出す（記録にスレッドの数を書くときに、ログで
+  確かめるため）
 
 - 2A の燃焼は 32 スレッドで全体 8% 速い（背景）。自己遮蔽のピンはスレッドごとに 1 本ずつ解く（ADR-0198）ので、39 本の解くピンを
   32 本ずつ並べられる
 - 案 c は上限 1.9% のために MOC の経路に別のプールを通し、保守の費用に見合わない。MOC が支配的な計算（無限希釈の格子計算、ADR-0067
   の 2B の P3）が本番の時間の大半になったら見直す
-- xs と runner は物理コアの数のまま（ADR-0067 の規則を引き継ぐ）。測った記録が無く、変えるとライブラリの作り直しが要るため。xs の
+- xs と runner は物理コアの数のまま（ADR-0067）。測った記録が無く、変えるとライブラリの作り直しが要るため。xs の
   ライブラリを次に作り直すときに、SMT の効きを測って決め直す
 
 ## 確認
 
 - テスト: `crates/lattice/tests/threads.rs` の `uses_every_allowed_logical_cpu_without_rayon_num_threads`（`RAYON_NUM_THREADS` が
-  無いとき、ログのスレッドの数がテストのプロセスの `available_parallelism` と同じ）と `uses_rayon_num_threads_when_given`
+  無いとき、ログのスレッドの数がテストのプロセスの `available_parallelism` と同じで、`from` が `default`）、
+  `uses_rayon_num_threads_when_given`、`rayon_num_threads_that_is_not_a_positive_count_is_an_error`（`abc`、`0`、空でプールを作らずに止まる）
 
 ## 帰結
 
@@ -70,6 +76,7 @@ MOC は ADR-0067 と同じく 32 スレッドで 16% 遅いが、自己遮蔽が
   分け、1 本あたりの上限は半分になる。r995 の全体 59 GB ほど（ADR-0213）を 32 で分けて 1.8 GB ほどで、2A のピン（0.39 GB）は全部を持つ
 - 2A の MaxRSS は 12.0 → 20.5 GB（Slurm 580 と 579）に増える。同時に解くピンの持つ区間と、スレッドごとの作業の配列が倍になることが
   候補（内訳は測っていない）
-- MOC が支配的な計算は SMT で遅くなりうる（ADR-0067 の P3 で 12%、2A の燃焼の MOC で 16%）
+- MOC が支配的な計算は SMT で遅くなりうる（ADR-0067 の P3 で 12%、2A の燃焼の MOC で 16%）。メモリが足りない、または MOC が
+  支配的な計算は、`RAYON_NUM_THREADS` に物理コアの数を与えて流す
 - 時間を記録する測定のスレッドの数が r995 の排他のジョブで 16 から 32 になる。ADR-0122 の環境の変更で、時間の表は再測定する
 - 燃焼と分岐のチェックポイントの指紋はスレッドの数を含む（ADR-0196）ので、既定の数で始めた途中の結果から、この変更の後には続けない
