@@ -2,9 +2,7 @@
 name: dvc-relock
 description: DVC のステージ（examples/*/dvc.yaml）を含むブランチのマージの前後の手順。rebase のあとに dvc.lock を整え、マージのあとに main の出力を置き換える。/git-merge の rebase の段の後とマージの後に使う。
 allowed-tools:
-  - Bash(nix develop -c dvc checkout examples/*)
-  - Bash(nix develop -c dvc checkout)
-  - Bash(nix develop -c dvc checkout dvc.yaml)
+  - Bash(nix develop -c scripts/dvc-checkout.py*)
   - Bash(nix develop -c dvc status)
   - Bash(nix develop -c dvc status --json*)
   - Bash(nix develop -c dvc status --with-deps examples/*)
@@ -52,18 +50,15 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 1. main 側で変わった上流の出力を戻す:
 
    ```bash
-   nix develop -c dvc checkout
+   nix develop -c scripts/dvc-checkout.py
    ```
 
    `dvc status` と `dvc repro` の前に必ず行う。しないと、古い上流の出力から再実行して、誤った md5 を `dvc.lock` に
    書く。
 
-   引数なしの `dvc checkout` は、main の上でも終了コード 255 で終わる。`dvc.lock` に hash がまだ無いステージの出力（まだ
-   流していない examples/depletion/p2 の本番と examples/vera/endfb70/openmc の OpenMC。`No file hash info found`）が
-   戻らないためで、戻らなかった出力は `Checkout failed for following targets:` の後に並ぶ（2026-10-23、43a0af25d で
-   p2 の 21 件と endfb70 の 5 件）。並んだ出力ごとに、そのステージの `dvc.lock`（`examples/depletion/p2/dvc.lock`、
-   `examples/vera/endfb70/openmc/dvc.lock` など）を `git diff main -- <その dvc.lock>` で見る。差が無ければ main でも戻らない
-   既知の出力なので、続ける。ブランチで変えた `dvc.lock` の出力が並んだら、そこで止まり、原因を調べる。`references` の symlink が無いときも止まる。
+   スクリプトは `dvc checkout` を実行し、`dvc.lock` に hash がまだ無いステージ（流していない参照解）の出力を `UNRUN:` の
+   数にまとめ、hash があるのに戻らなかった出力（キャッシュに無い、ブランチが変えた `dvc.lock` の出力）を `MISSING:` に
+   並べて終了コード 1 で止まる（#0184）。止まったら、そこで原因を調べる。`references` の symlink が無いときも止まる。
    `references` が main の `references/` を指すかは `realpath references` と main の `references/` の `realpath`
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流のステージを所有するブランチか main の記録を確かめてから、ユーザーに聞く。
@@ -180,8 +175,8 @@ main の出力は、DVC を入れる前のもの（`vera.msgpack` など）か�
 置き換える。`bin/` の実行ファイル（リポジトリの直下の `dvc.yaml` の build。ADR-0159）も戻す:
 
 ```bash
-nix develop -c dvc checkout dvc.yaml
-nix develop -c dvc checkout examples/<問題>/dvc.yaml
+nix develop -c scripts/dvc-checkout.py dvc.yaml
+nix develop -c scripts/dvc-checkout.py examples/<問題>/dvc.yaml
 nix develop -c dvc status --with-deps examples/<問題>/dvc.yaml
 ```
 
@@ -191,7 +186,7 @@ changed のステージの数は、前半の 2 と同じく `nix develop -c scri
 なかったステージ（deps が `dvc.lock` と合わないステージ）と、その下流のステージだけであることを確かめる。`references-shell`
 （`always_changed`）は常に出るので数えない。ブランチが `build` を実行せずにコードを変えたなら、`build` とその下流も出る
 （ADR-0159 の帰結。`dvc repro` で作り直すまで、そのままでよい）。ほかのステージが changed なら、
-出力が足りない、またはキャッシュにない。`dvc checkout` が失敗したら止めて、原因を調べる（推測で `dvc repro` を実行しない）。
+出力が足りない、またはキャッシュにない。`scripts/dvc-checkout.py` が失敗したら止めて、原因を調べる（推測で `dvc repro` を実行しない）。
 
 走らせなかったステージの changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
 要るときに HEAD で `dvc repro` すれば再実行する（ADR-0130）。

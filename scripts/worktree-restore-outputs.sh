@@ -8,9 +8,10 @@
 # 約 10 秒、追加の使用量は約 14 MB（2026-10-21、379e81d6a）。reflink が効かない場所では全体のコピーになる。
 # 続けて、DVC の出力でない参照解 examples/vera/p2/openmc-2K.msgpack（ADR-0121）を main からコピーする。
 #
-# 終了コード: 戻せない出力があれば 0 でない。dvc checkout は、dvc.lock にまだ hash が無いステージ（No file hash
-# info）と、キャッシュに無い出力（OpenMC の結果など、作った機械から持ってきていないもの）を戻せず、255 で終わる。
-# 戻せなかったものは dvc の出力に並ぶので、作業に要るものが入っていなければ dvc repro で作る。黙って捨てない。
+# 終了コード: dvc.lock に hash がある出力を戻せなければ 0 でない。checkout は scripts/dvc-checkout.py で行い、hash の
+# まだ無いステージ（未実行。No file hash info）の出力は数えるだけにする（#0184）。キャッシュに無い出力（OpenMC の結果
+# など、作った機械から持ってきていないもの）は MISSING に並ぶので、作業に要るものが入っていなければ dvc repro で作る。
+# 黙って捨てない。
 
 set -uo pipefail
 
@@ -24,16 +25,7 @@ fi
 
 status=0
 
-log=$(mktemp)
-trap 'rm -f "$log"' EXIT
-dvc checkout 2>&1 | tee "$log"
-rc=${PIPESTATUS[0]}
-if (( rc != 0 )); then
-  unlocked=$(grep -c 'No file hash info found' "$log" || true)
-  echo "WARNING: dvc checkout が終了コード $rc で終わった。戻っていない出力がある" \
-    "（dvc.lock に hash が無いもの $unlocked 行。ほかはキャッシュに無い出力など。上の一覧を見る）" >&2
-  status=$rc
-fi
+python3 scripts/dvc-checkout.py || status=$?
 
 main_root=$(git rev-parse --path-format=absolute --git-common-dir)/..
 pin=examples/vera/p2/openmc-2K.msgpack
