@@ -657,7 +657,9 @@ pub fn shield_fuel_reusing(
         .collect();
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
-    let hold = held_cells(rayon::current_num_threads(), solving.len());
+    // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方
+    let threads = rayon::current_num_threads();
+    let hold = held_cells(threads, threads.min(solving.len()));
     let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
         let &(cell, ring_materials, rings) = pin;
         let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
@@ -1087,7 +1089,12 @@ fn shield_lumps(
     // 含む）で、塊の結果の物質は下のループで塊の順に足すので、逐次に解いたときと同じ番号と値になる。エラーも塊の順に返す
     let parent = tracing::Span::current();
     let dilute: &[Material] = &shielded.materials;
-    let hold = held_cells(rayon::current_num_threads(), lump_of.len());
+    // 塊は `par_iter` なので、減速計算を待つスレッドがほかの塊を盗んで入れ子に解きうる。同時に解きうる減速計算は棒の塊の数まで
+    let rods = lump_of
+        .iter()
+        .filter(|(b, _, lump_regions)| rod_rings(lattice, body_of[*b].0, lump_regions).is_some())
+        .count();
+    let hold = held_cells(rayon::current_num_threads(), rods);
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()
         .map(|(b, index, lump_regions)| {
@@ -1513,6 +1520,7 @@ fn solve_equivalent_cell<'a>(
                 pin.collision,
                 pin.thinning,
                 pin.scattering,
+                pin.hold,
             )?,
             None,
         ),
