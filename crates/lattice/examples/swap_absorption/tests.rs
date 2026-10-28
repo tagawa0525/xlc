@@ -306,7 +306,7 @@ fn star_other_and_excess_swaps_take_the_nuclides_of_their_openmc_values() {
             .into_iter()
             .map(|s| match s {
                 Swap::Other(n, _) | Swap::Excess(n, _) | Swap::Nuclide(n, _) => n,
-                _ => unreachable!(),
+                other => format!("{other:?}"),
             })
             .collect()
     };
