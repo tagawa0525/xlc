@@ -2159,3 +2159,40 @@ fn thinned_transfers_follow_the_full_grid() {
         }
     }
 }
+
+#[test]
+fn shared_share_cells_give_the_transfers_of_fresh_ones() {
+    // 移行の計数の割合の区間（ShareCell）を、ほかの減速計算（個数密度の違う燃料で、間引いた格子も違う）と共有する表から引いても、
+    // 作り直したときと中性子束と移行がビットで同じ。表の列は自由ガスの核種と温度の組ごとに 1 度だけ作る
+    let (lib, fuel, water) = transfer_cell(None);
+    let mut denser = fuel.clone();
+    for (_, density) in &mut denser.composition {
+        *density *= 1.3;
+    }
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let solve = |fuel: &MaterialInput, shares: &ShareCellCache| {
+        let rings = [Some(fuel), None, Some(&water), Some(&water)];
+        let solved = slowing_down_transfers(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            Some(1.0e-4),
+            free_gas_heavy(400.0, 2, Some(3)),
+            shares,
+        )
+        .unwrap();
+        // Debug の表記は f64 を往復できる最短の 10 進で書くので、ビットの違う値は違う文字列になる
+        format!("{solved:?}")
+    };
+    let shared = ShareCellCache::default();
+    let first = solve(&fuel, &shared);
+    let gases = shared.len();
+    assert!(gases > 0);
+    let second = solve(&denser, &shared);
+    assert_eq!(shared.len(), gases);
+    assert_eq!(first, solve(&fuel, &ShareCellCache::default()));
+    assert_eq!(second, solve(&denser, &ShareCellCache::default()));
+    assert_ne!(first, second);
+}
