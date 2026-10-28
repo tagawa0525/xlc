@@ -1194,6 +1194,64 @@ class DrawHistoryEffect(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawMicroLinearization(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_linearization.py の要約（点の組 2 つ）"""
+
+        def row(a, b, tracked, linear, u235, pu239):
+            return {
+                "from": a,
+                "to": b,
+                "tracked_pcm": tracked,
+                "linear_pcm": linear,
+                "error_pcm": linear - tracked,
+                "density_change_percent": {"U-235": u235, "Pu-239": pu239},
+            }
+
+        return {
+            "format": "xlc-compare-micro-linearization",
+            "nuclides": 31,
+            "self_check_pcm": 1e-9,
+            "rows": [
+                row(0.0, 0.1, -3.04, -3.0, -0.31, None),
+                row(56.0, 60.0, -1234.56, -1230.0, -12.346, 1.5),
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_rows_give_the_transport_the_linear_effects_and_the_density_changes(self):
+        table = vt.micro_linearization([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "輸送 (pcm)",
+                "線形 (pcm)",
+                "誤差 (pcm)",
+                "U-235 (%)",
+                "Pu-239 (%)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["0 → 0.1", "−3.04", "−3.00", "+0.04", "−0.31", "–"],
+                ["56 → 60", "−1234.56", "−1230.00", "+4.56", "−12.35", "+1.50"],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.micro_linearization([{"format": "xlc-compare-history-effect"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        (sources, _) = vt.TABLES["depletion-micro-linearization"]
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawCoreBoron(unittest.TestCase):
     def summary(self) -> dict:
         """compare_core_boron.py の要約（燃焼点 2 つ）"""
