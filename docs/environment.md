@@ -105,8 +105,9 @@ ENDF は `references/endf/ENDF-B-VIII.0_*` にある。NJOY 側の近似によ�
 ## OpenMC（0.15.2）
 
 `.#openmc` は OpenMC 0.15.2 を OpenMP つきでビルドしたもの（同梱の fmt が GCC 16 でコンパイルできないので GCC 13）。
-`.#openmc-python` は、同じソースから作った openmc の Python API と endf 0.1.12 を、検証のスクリプトの依存に足した
-Python。どちらも `references` の devShell に入る。スクリプトは `openmc` と `njoy` を `PATH` から呼ぶ。
+`.#openmc-python` は、同じソースから作った openmc の Python API と endf 0.1.12 を、参照のステージのスクリプトの依存
+（flake.nix の `referencesPythonPackages`）に足した Python。どちらも `references` の devShell に入る。検証用のツールだけが使う
+パッケージ（pyyaml）は入らないので、`dvc.lock` を読むスクリプトなどは default の devShell で実行する（ADR-0212）。スクリプトは `openmc` と `njoy` を `PATH` から呼ぶ。
 
 OpenMC のライブラリ `references/openmc/endfb80/`（600 K だけ）と `endfb80-565/` は、DVC のステージにする前に手で作ったもの。今のライブラリは
 `examples/vera/openmc-library/`（`examples/vera/dvc.yaml` の出力）で、新しい計算はそちらを使う（ADR-0130）。参照解の実効断面積は
