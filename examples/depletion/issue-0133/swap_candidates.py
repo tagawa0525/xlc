@@ -1,17 +1,26 @@
 """#0133: 燃焼で増える k の差の候補ごとに、断面積を OpenMC の値に置き換えて測る k への寄与をまとめる。
 
 使い方:
-    python3 swap_candidates.py lists <格子の入力 (TOML)>       # swap_absorption の例の置き換えの一覧（1 行に 1 つ）
+    python3 swap_candidates.py lists <格子の入力 (TOML)>       # swap_absorption の例の燃料の核種の置き換えの一覧（1 行に 1 つ）
+    python3 swap_candidates.py materials                       # swap_absorption の例の物質の吸収の置き換えの一覧
+    python3 swap_candidates.py joint <格子の入力 (TOML)>       # 同時の置き換えと、それと同じ実行で別々に解く置き換えの一覧
     python3 swap_candidates.py transfers                       # swap_transfer の例の引数（物質、最初の群、最後の群）
     python3 swap_candidates.py summarize <設定 (TOML)> <JSON>  # 置き換えのログから寄与の要約を書く
 
-寄与は置き換えた k の変化の符号を変えたもの（pcm。xlc の断面積のその差が k の差（xlc − OpenMC）に足している分）。吸収は
-`swap_absorption`（捕獲 + 核分裂、核分裂、νσf。SPH 因子は置き換える前のまま）、移行は `swap_transfer` の「SPH kept」（同じく
-置き換える前の SPH 因子）。OpenMC の実行が複数あれば、実行ごとの寄与を平均する。群 1 に 10 MeV より上を数えない実行（`fast =
-false`）は、15 keV より上の群を含む置き換えから外す。
+寄与は置き換えた k の変化の符号を変えたもの（pcm。xlc の断面積のその差が k の差（xlc − OpenMC）に足している分）。燃料の核種の
+吸収は `swap_absorption`（捕獲 + 核分裂、核分裂、νσf。SPH 因子は置き換える前のまま）、物質の吸収と χ も `swap_absorption`
+（`--materials`、`--chi`）、移行は同時の置き換えの実行のログの行（`swap_absorption` の `~`。`swap_transfer` の「SPH kept」と同じ置き換えで、そのログとは表示の
+丸めの中で合うことを確かめる）。OpenMC の実行が複数あれば、
+実行ごとの寄与を平均する。群 1 に 10 MeV より上を数えない実行（`fast = false`）は、群 1 を含む置き換えから外す。
+
+置き換えどうしの相互作用は、吸収の全部（燃料の全核種）、物質の吸収、移行を 1 つの実行で同時に置き換えた寄与から、同じ実行で
+別々に置き換えた寄与の和を引いたもの。残りは、同時の置き換えの OpenMC の実行の k の差から、同時の置き換えと χ の寄与を引いたもの
+（差 − 吸収の全部 − 物質の吸収 − 移行の和 − χ − 相互作用と同じ）。
 
 設定は `[[state]]`（`name`、`lattice`（設定のディレクトリから））ごとに `[[state.run]]`（`openmc`（リポジトリの直下から。OpenMC の
-k を読む msgpack）、`absorption`、`transfer`（どちらも設定のディレクトリからのログ。`transfer` は無くてよい）、`fast`）を並べる。
+k を読む msgpack）、`absorption`、`materials`、`transfer`（どれも設定のディレクトリからのログ。`materials` と `transfer` は無くて
+よい）、`fast`）を並べ、`[state.joint]`（`openmc`（燃料の吸収と移行の実行）、`materials`（物質の吸収の実行。どちらも `[[state.run]]`
+の `openmc` のどれか）、`log`）と `[state.chi]`（`openmc`（openmc_chi.py の出力。記録のため）、`log`）を書く。
 """
 
 import json
@@ -43,6 +52,14 @@ LABELS = {
     "fp": "核分裂生成物、4 eV〜15 keV と 4 eV より下（#0133）",
     "xe-sm": "Xe-135 と Sm-149、15 keV より下",
     "all": "吸収の置き換えの全部（燃料の全核種、15 keV より上はアクチニド）",
+    "material-water-fast": "吸収: 減速材、15 keV より上",
+    "material-water-ufg": "吸収: 減速材、4 eV〜15 keV",
+    "material-water-epithermal": "吸収: 減速材、0.625〜4 eV",
+    "material-water-thermal": "吸収: 減速材、0.625 eV より下",
+    "material-zircaloy-fast": "吸収: 被覆管、15 keV より上",
+    "material-zircaloy-ufg": "吸収: 被覆管、4 eV〜15 keV",
+    "material-zircaloy-epithermal": "吸収: 被覆管、0.625〜4 eV",
+    "material-zircaloy-thermal": "吸収: 被覆管、0.625 eV より下",
     "transfer-fuel-fast": "移行: 燃料、15 keV より上（#0148）",
     "transfer-water-fast": "移行: 減速材、15 keV より上（#0148）",
     "transfer-zircaloy-fast": "移行: 被覆管、15 keV より上（#0148）",
@@ -52,8 +69,13 @@ LABELS = {
     "transfer-fuel-thermal": "移行: 燃料、4 eV より下",
     "transfer-water-epithermal": "移行: 減速材、0.625〜4 eV",
     "transfer-water-thermal": "移行: 減速材、0.625 eV より下（#0151）",
-    "rest": "残り（差 − 吸収の全部 − 移行の和。移行のある実行ごと）",
+    "chi": "χ（燃料のアクチニド）",
+    "interaction": "置き換えどうしの相互作用（吸収の全部、物質の吸収、移行の同時 − 別々の和）",
+    "rest": "残り（差 − 吸収の全部 − 物質の吸収 − 移行の和 − χ − 相互作用。同時の置き換えの実行の値）",
 }
+# 物質の吸収を置き換える物質（xlc の入力の名前、openmc_pin_rates.py の OpenMC の物質の名前）とエネルギーの範囲
+MATERIALS = [("water", "moderator"), ("zircaloy", "zircaloy-4")]
+RANGES = [("fast", 1, 13), ("ufg", 14, 27), ("epithermal", 28, 45), ("thermal", 46, 69)]
 TRANSFERS = [
     ("transfer-fuel-fast", "fuel", 1, 13),
     ("transfer-water-fast", "water", 1, 13),
@@ -107,6 +129,37 @@ def absorption_items(nuclides: list[str]) -> list[tuple[str, str]]:
         ("all", "*:14-69," + spec(actinides, "1-13")),
     ]
     return [(key, s) for key, s in items if s]
+
+
+def material_items() -> list[tuple[str, str]]:
+    """物質と範囲ごとの (名前, swap_absorption の物質の吸収の置き換え)"""
+    return [
+        (f"material-{xlc}-{key}", f"@{xlc}={openmc}:{first}-{last}")
+        for xlc, openmc in MATERIALS
+        for key, first, last in RANGES
+    ]
+
+
+def joint_lines(
+    items: list[tuple[str, str]],
+    materials: list[tuple[str, str]],
+    transfers: list[tuple[str, str, int, int]],
+) -> list[str]:
+    """同時の置き換えのログの一覧: 別々の置き換え（吸収の全部、物質の吸収、移行）と、それらをつないだ同時の置き換え（最後の行）"""
+    all_spec = dict(items).get("all")
+    if all_spec is None:
+        raise SummaryError("no line swaps all the absorption")
+    separate = [
+        all_spec,
+        *(spec for _, spec in materials),
+        *(f"~{material}:{first}-{last}" for _, material, first, last in transfers),
+    ]
+    return [*separate, ",".join(separate)]
+
+
+def touches_group_one(spec: str) -> bool:
+    """置き換えが群 1（10 MeV より上を数えるかで変わる群）を含むか"""
+    return any(part.split(":")[-1].startswith("1-") for part in spec.split(","))
 
 
 def parse_absorption(text: str) -> tuple[float, dict[str, float]]:
@@ -179,35 +232,56 @@ def mean(values: list[float]) -> float | None:
 def summarize_state(
     name: str,
     items: list[tuple[str, str]],
+    materials: list[tuple[str, str]],
     transfers: list[tuple[str, str, int, int]],
     runs: list[dict],
+    joint: dict,
+    chi: dict,
 ) -> dict:
-    """1 つの状態の、OpenMC の実行ごとの寄与と平均。残り（k の差 − 吸収の全部 − 移行の和）は、移行のある実行ごとに、その実行の
-    OpenMC の k と置き換えで求めて平均する"""
+    """1 つの状態の、OpenMC の実行ごとの寄与と平均。`joint` は同時の置き換えのログ（`log`）と、その燃料の吸収と移行の実行（`run`）、
+    物質の吸収の実行（`materials_run`）の番号。`chi` は χ の置き換えのログ（`log`）"""
     if not runs:
         raise SummaryError(f"{name}: no OpenMC runs")
     parsed = [parse_absorption(run["absorption"]) for run in runs]
     k0 = parsed[0][0]
     if any(abs(k - k0) > 5e-7 for k, _ in parsed):
         raise SummaryError(f"{name}: the runs were swapped on other xlc solutions")
+
+    def same_xlc(k: float, what: str) -> None:
+        if abs(k - k0) > 5e-7:
+            raise SummaryError(
+                f"{name}: the {what} log solved another xlc k ({k} and {k0})"
+            )
+
     values: dict[str, list[float]] = {}
     for key, spec in items:
         values[key] = []
         for run, (_, changes) in zip(runs, parsed):
-            if not run["fast"] and (key.startswith("fast-") or key == "all"):
+            if not run["fast"] and touches_group_one(spec):
                 continue
             if spec not in changes:
                 raise SummaryError(f"{name}: a log has no line `{spec}`")
             values[key].append(-changes[spec])
-    for key, *_ in transfers:
+    material_changes = {}
+    for key, _ in materials:
         values[key] = []
-    rests = []
-    all_spec = dict(items).get("all")
-    for run, (_, changes) in zip(runs, parsed):
+    for index, run in enumerate(runs):
+        if run.get("materials") is None:
+            continue
+        k, changes = parse_absorption(run["materials"])
+        same_xlc(k, "materials")
+        material_changes[index] = changes
+        for key, spec in materials:
+            if spec not in changes:
+                raise SummaryError(f"{name}: a materials log has no line `{spec}`")
+            if run["fast"] or not touches_group_one(spec):
+                values[key].append(-changes[spec])
+    transfer_changes = {}
+    for index, run in enumerate(runs):
         if run.get("transfer") is None:
             continue
         found = transfer_runs(run["transfer"])
-        moved = []
+        transfer_changes[index] = found
         for key, material, first, last in transfers:
             if (material, first, last) not in found:
                 raise SummaryError(
@@ -224,13 +298,56 @@ def summarize_state(
                     f"{name}: the transfer log was swapped against another OpenMC run "
                     f"(k {block['openmc']} and {run['k']})"
                 )
-            values[key].append(-block["change"])
-            moved.append(-block["change"])
-        if all_spec is not None and run["fast"]:
-            rests.append((k0 - run["k"]) * 1e5 + changes[all_spec] - sum(moved))
+
+    # 同時の置き換え。別々の行は、同じ OpenMC の値で解いたほかのログの行と合うこと（同じ置き換えなので、ログの丸めの中で同じ）
+    i, j = joint["run"], joint["materials_run"]
+    if i not in transfer_changes or not runs[i]["fast"]:
+        raise SummaryError(
+            f"{name}: the joint swap needs a run with transfers above 10 MeV"
+        )
+    # 表の移行の行は同時の置き換えの実行だけから取るので、ほかの実行の移行のログは使い道がない
+    if set(transfer_changes) != {i}:
+        raise SummaryError(f"{name}: a run other than the joint one has a transfer log")
+    if j not in material_changes or not runs[j]["fast"]:
+        raise SummaryError(
+            f"{name}: the joint swap needs a run with materials above 10 MeV"
+        )
+    k, joined = parse_absorption(joint["log"])
+    same_xlc(k, "joint")
+    lines = joint_lines(items, materials, transfers)
+    missing = [line for line in lines if line not in joined]
+    if missing:
+        raise SummaryError(f"{name}: the joint log has no line `{missing[0]}`")
+    all_spec, together = lines[0], lines[-1]
+    expected = {all_spec: (parsed[i][1][all_spec], 0.1)}
+    for _, spec in materials:
+        expected[spec] = (material_changes[j][spec], 0.1)
+    for _, material, first, last in transfers:
+        # swap_transfer の変化は小数 6 桁の 2 つの k の差なので、丸めの分だけ広く
+        change = transfer_changes[i][(material, first, last)]["change"]
+        expected[f"~{material}:{first}-{last}"] = (change, 0.2)
+    for spec, (change, tolerance) in expected.items():
+        if abs(joined[spec] - change) > tolerance + 1e-9:
+            raise SummaryError(
+                f"{name}: the joint log has `{spec}` {joined[spec]:+.1f} pcm, the separate log {change:+.1f}"
+            )
+    # 移行の行は同時の置き換えのログの行（swap_transfer の変化は小数 6 桁の k の差で、丸めの分だけ残りと閉じない）
+    for key, material, first, last in transfers:
+        values[key] = [-joined[f"~{material}:{first}-{last}"]]
+    joint_pcm = -joined[together]
+    interaction = joint_pcm + sum(joined[spec] for spec in lines[:-1])
+    k, chi_changes = parse_absorption(chi["log"])
+    same_xlc(k, "chi")
+    if "chi" not in chi_changes:
+        raise SummaryError(f"{name}: the chi log has no line `chi`")
+    chi_pcm = -chi_changes["chi"]
+    rest = (k0 - runs[i]["k"]) * 1e5 - joint_pcm - chi_pcm
+
     k_openmc = mean([run["k"] for run in runs])
     out = {key: {"pcm": mean(v), "runs": v} for key, v in values.items()}
-    out["rest"] = {"pcm": mean(rests), "runs": rests}
+    out["chi"] = {"pcm": chi_pcm, "runs": [chi_pcm]}
+    out["interaction"] = {"pcm": interaction, "runs": [interaction]}
+    out["rest"] = {"pcm": rest, "runs": [rest]}
     return {
         "name": name,
         "k_xlc": k0,
@@ -239,6 +356,7 @@ def summarize_state(
         "diff_std_pcm": math.sqrt(sum(run["k_std"] ** 2 for run in runs))
         / len(runs)
         * 1e5,
+        "joint_pcm": joint_pcm,
         "items": out,
     }
 
@@ -263,14 +381,36 @@ def summarize(config: Path) -> dict:
                     "k": reference["k"],
                     "k_std": reference["k_std"],
                     "absorption": (base / run["absorption"]).read_text(),
-                    "transfer": (base / run["transfer"]).read_text()
-                    if "transfer" in run
-                    else None,
+                    **{
+                        key: (base / run[key]).read_text() if key in run else None
+                        for key in ("materials", "transfer")
+                    },
                     "fast": run["fast"],
                 }
             )
-        s = summarize_state(state["name"], items, TRANSFERS, runs)
+        sources = [run["openmc"] for run in state["run"]]
+        joint = state["joint"]
+        for key in ("openmc", "materials"):
+            if sources.count(joint[key]) != 1:
+                raise SummaryError(
+                    f"{state['name']}: the joint {key} run {joint[key]} is not one of the runs"
+                )
+        s = summarize_state(
+            state["name"],
+            items,
+            material_items(),
+            TRANSFERS,
+            runs,
+            {
+                "run": sources.index(joint["openmc"]),
+                "materials_run": sources.index(joint["materials"]),
+                "log": (base / joint["log"]).read_text(),
+            },
+            {"log": (base / state["chi"]["log"]).read_text()},
+        )
         s["sources"] = state["run"]
+        s["joint_sources"] = joint
+        s["chi_sources"] = state["chi"]
         states.append(s)
         order += [key for key in s["items"] if key not in order]
     order = [key for key in LABELS if key in order]
@@ -287,6 +427,13 @@ def main(argv: list[str]) -> int:
         case ["lists", lattice]:
             for _, spec in absorption_items(fuel_nuclides(Path(lattice))):
                 print(spec)
+        case ["materials"]:
+            for _, spec in material_items():
+                print(spec)
+        case ["joint", lattice]:
+            items = absorption_items(fuel_nuclides(Path(lattice)))
+            for line in joint_lines(items, material_items(), TRANSFERS):
+                print(line)
         case ["transfers"]:
             for _, material, first, last in TRANSFERS:
                 print(material, first, last)

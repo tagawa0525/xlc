@@ -17,6 +17,14 @@
   "fp",
   "xe-sm",
   "all",
+  "material-water-fast",
+  "material-water-ufg",
+  "material-water-epithermal",
+  "material-water-thermal",
+  "material-zircaloy-fast",
+  "material-zircaloy-ufg",
+  "material-zircaloy-epithermal",
+  "material-zircaloy-thermal",
   "transfer-fuel-fast",
   "transfer-water-fast",
   "transfer-zircaloy-fast",
@@ -26,6 +34,8 @@
   "transfer-fuel-thermal",
   "transfer-water-epithermal",
   "transfer-water-thermal",
+  "chi",
+  "interaction",
   "rest"
  ],
  "labels": {
@@ -45,6 +55,14 @@
   "fp": "核分裂生成物、4 eV〜15 keV と 4 eV より下（#0133）",
   "xe-sm": "Xe-135 と Sm-149、15 keV より下",
   "all": "吸収の置き換えの全部（燃料の全核種、15 keV より上はアクチニド）",
+  "material-water-fast": "吸収: 減速材、15 keV より上",
+  "material-water-ufg": "吸収: 減速材、4 eV〜15 keV",
+  "material-water-epithermal": "吸収: 減速材、0.625〜4 eV",
+  "material-water-thermal": "吸収: 減速材、0.625 eV より下",
+  "material-zircaloy-fast": "吸収: 被覆管、15 keV より上",
+  "material-zircaloy-ufg": "吸収: 被覆管、4 eV〜15 keV",
+  "material-zircaloy-epithermal": "吸収: 被覆管、0.625〜4 eV",
+  "material-zircaloy-thermal": "吸収: 被覆管、0.625 eV より下",
   "transfer-fuel-fast": "移行: 燃料、15 keV より上（#0148）",
   "transfer-water-fast": "移行: 減速材、15 keV より上（#0148）",
   "transfer-zircaloy-fast": "移行: 被覆管、15 keV より上（#0148）",
@@ -54,7 +72,9 @@
   "transfer-fuel-thermal": "移行: 燃料、4 eV より下",
   "transfer-water-epithermal": "移行: 減速材、0.625〜4 eV",
   "transfer-water-thermal": "移行: 減速材、0.625 eV より下（#0151）",
-  "rest": "残り（差 − 吸収の全部 − 移行の和。移行のある実行ごと）"
+  "chi": "χ（燃料のアクチニド）",
+  "interaction": "置き換えどうしの相互作用（吸収の全部、物質の吸収、移行の同時 − 別々の和）",
+  "rest": "残り（差 − 吸収の全部 − 物質の吸収 − 移行の和 − χ − 相互作用。同時の置き換えの実行の値）"
  },
  "states": [
   {
@@ -72,6 +92,7 @@
    ],
    "diff_pcm": 51.20174935933086,
    "diff_std_pcm": 12.497205609523132,
+   "joint_pcm": 158.1,
    "items": {
     "fast-u238": {
      "pcm": 52.65,
@@ -164,64 +185,124 @@
       78.9
      ]
     },
-    "transfer-fuel-fast": {
-     "pcm": 25.399999999997647,
+    "material-water-fast": {
+     "pcm": 2.6,
      "runs": [
-      25.399999999997647
+      2.6
+     ]
+    },
+    "material-water-ufg": {
+     "pcm": 0.0,
+     "runs": [
+      -0.0
+     ]
+    },
+    "material-water-epithermal": {
+     "pcm": 0.1,
+     "runs": [
+      0.1
+     ]
+    },
+    "material-water-thermal": {
+     "pcm": -18.7,
+     "runs": [
+      -18.7
+     ]
+    },
+    "material-zircaloy-fast": {
+     "pcm": -2.8,
+     "runs": [
+      -2.8
+     ]
+    },
+    "material-zircaloy-ufg": {
+     "pcm": 0.9,
+     "runs": [
+      0.9
+     ]
+    },
+    "material-zircaloy-epithermal": {
+     "pcm": 0.0,
+     "runs": [
+      0.0
+     ]
+    },
+    "material-zircaloy-thermal": {
+     "pcm": -0.7,
+     "runs": [
+      -0.7
+     ]
+    },
+    "transfer-fuel-fast": {
+     "pcm": 25.4,
+     "runs": [
+      25.4
      ]
     },
     "transfer-water-fast": {
-     "pcm": 63.600000000008095,
+     "pcm": 63.6,
      "runs": [
-      63.600000000008095
+      63.6
      ]
     },
     "transfer-zircaloy-fast": {
-     "pcm": -0.5999999999950489,
+     "pcm": -0.6,
      "runs": [
-      -0.5999999999950489
+      -0.6
      ]
     },
     "transfer-fuel-ufg": {
-     "pcm": -0.29999999999752447,
+     "pcm": -0.3,
      "runs": [
-      -0.29999999999752447
+      -0.3
      ]
     },
     "transfer-water-ufg": {
-     "pcm": 8.399999999997299,
+     "pcm": 8.4,
      "runs": [
-      8.399999999997299
+      8.4
      ]
     },
     "transfer-zircaloy-low": {
-     "pcm": 0.9000000000147779,
+     "pcm": 0.9,
      "runs": [
-      0.9000000000147779
+      0.9
      ]
     },
     "transfer-fuel-thermal": {
-     "pcm": 3.2000000000032003,
+     "pcm": 3.2,
      "runs": [
-      3.2000000000032003
+      3.2
      ]
     },
     "transfer-water-epithermal": {
-     "pcm": -2.2999999999884224,
+     "pcm": -2.3,
      "runs": [
-      -2.2999999999884224
+      -2.3
      ]
     },
     "transfer-water-thermal": {
-     "pcm": 1.3000000000040757,
+     "pcm": 1.3,
      "runs": [
-      1.3000000000040757
+      1.3
+     ]
+    },
+    "chi": {
+     "pcm": -2.8,
+     "runs": [
+      -2.8
+     ]
+    },
+    "interaction": {
+     "pcm": -1.8000000000000114,
+     "runs": [
+      -1.8000000000000114
      ]
     },
     "rest": {
-     "pcm": -139.64994913474186,
+     "pcm": -116.44994913469775,
      "runs": [
-      -139.64994913474186
+      -116.44994913469775
      ]
     }
    },
@@ -229,6 +310,7 @@
     {
      "openmc": "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack",
      "absorption": "swap-logs/1C-0-448-absorption.txt",
+     "materials": "swap-logs/1C-0-448-materials.txt",
      "fast": true
     },
     {
@@ -237,7 +319,16 @@
      "transfer": "swap-logs/1C-0-534-transfer.txt",
      "fast": true
     }
-   ]
+   ],
+   "joint_sources": {
+    "openmc": "references/openmc/pin-transfer-1C/1C-0/transfer.msgpack",
+    "materials": "references/openmc/pin-rates-1C/n0/openmc-rates.msgpack",
+    "log": "swap-logs/1C-0-joint.txt"
+   },
+   "chi_sources": {
+    "openmc": "chi/chi-1C-0.msgpack",
+    "log": "swap-logs/1C-0-chi.txt"
+   }
   },
   {
    "name": "1C 5 MWd/kg",
@@ -254,6 +345,7 @@
    ],
    "diff_pcm": 76.32092825813342,
    "diff_std_pcm": 13.118346625247291,
+   "joint_pcm": 183.9,
    "items": {
     "fast-u238": {
      "pcm": 51.8,
@@ -367,34 +459,82 @@
       102.3
      ]
     },
-    "transfer-fuel-fast": {
-     "pcm": 27.900000000014025,
+    "material-water-fast": {
+     "pcm": 2.7,
      "runs": [
-      27.900000000014025
+      2.7
+     ]
+    },
+    "material-water-ufg": {
+     "pcm": 0.0,
+     "runs": [
+      0.0
+     ]
+    },
+    "material-water-epithermal": {
+     "pcm": 0.1,
+     "runs": [
+      0.1
+     ]
+    },
+    "material-water-thermal": {
+     "pcm": -14.3,
+     "runs": [
+      -14.3
+     ]
+    },
+    "material-zircaloy-fast": {
+     "pcm": -2.6,
+     "runs": [
+      -2.6
+     ]
+    },
+    "material-zircaloy-ufg": {
+     "pcm": 0.9,
+     "runs": [
+      0.9
+     ]
+    },
+    "material-zircaloy-epithermal": {
+     "pcm": 0.0,
+     "runs": [
+      -0.0
+     ]
+    },
+    "material-zircaloy-thermal": {
+     "pcm": -0.5,
+     "runs": [
+      -0.5
+     ]
+    },
+    "transfer-fuel-fast": {
+     "pcm": 28.0,
+     "runs": [
+      28.0
      ]
     },
     "transfer-water-fast": {
-     "pcm": 64.4000000000089,
+     "pcm": 64.4,
      "runs": [
-      64.4000000000089
+      64.4
      ]
     },
     "transfer-zircaloy-fast": {
-     "pcm": -0.3999999999892978,
+     "pcm": -0.4,
      "runs": [
-      -0.3999999999892978
+      -0.4
      ]
     },
     "transfer-fuel-ufg": {
-     "pcm": -0.6999999999868223,
+     "pcm": -0.7,
      "runs": [
-      -0.6999999999868223
+      -0.7
      ]
     },
     "transfer-water-ufg": {
-     "pcm": 4.000000000004,
+     "pcm": 4.0,
      "runs": [
-      4.000000000004
+      4.0
      ]
     },
     "transfer-zircaloy-low": {
@@ -404,27 +544,39 @@
      ]
     },
     "transfer-fuel-thermal": {
-     "pcm": 1.5000000000098268,
+     "pcm": 1.6,
      "runs": [
-      1.5000000000098268
+      1.6
      ]
     },
     "transfer-water-epithermal": {
-     "pcm": -1.8999999999991246,
+     "pcm": -1.8,
      "runs": [
-      -1.8999999999991246
+      -1.8
      ]
     },
     "transfer-water-thermal": {
-     "pcm": 2.199999999996649,
+     "pcm": 2.2,
      "runs": [
-      2.199999999996649
+      2.2
+     ]
+    },
+    "chi": {
+     "pcm": -2.7,
+     "runs": [
+      -2.7
+     ]
+    },
+    "interaction": {
+     "pcm": -2.0,
+     "runs": [
+      -2.0
      ]
     },
     "rest": {
-     "pcm": -119.23371363722384,
+     "pcm": -101.1337136371657,
      "runs": [
-      -119.23371363722384
+      -101.1337136371657
      ]
     }
    },
@@ -432,6 +584,7 @@
     {
      "openmc": "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack",
      "absorption": "swap-logs/1C-5-448-absorption.txt",
+     "materials": "swap-logs/1C-5-448-materials.txt",
      "fast": true
     },
     {
@@ -440,7 +593,16 @@
      "transfer": "swap-logs/1C-5-534-transfer.txt",
      "fast": true
     }
-   ]
+   ],
+   "joint_sources": {
+    "openmc": "references/openmc/pin-transfer-1C/1C-5/transfer.msgpack",
+    "materials": "references/openmc/pin-rates-1C/n6/openmc-rates.msgpack",
+    "log": "swap-logs/1C-5-joint.txt"
+   },
+   "chi_sources": {
+    "openmc": "chi/chi-1C-5.msgpack",
+    "log": "swap-logs/1C-5-chi.txt"
+   }
   },
   {
    "name": "2A 40 MWd/kg",
@@ -465,6 +627,7 @@
    ],
    "diff_pcm": 73.00748480000286,
    "diff_std_pcm": 8.180355573294852,
+   "joint_pcm": 185.3,
    "items": {
     "fast-u238": {
      "pcm": 49.849999999999994,
@@ -604,64 +767,136 @@
       103.7
      ]
     },
-    "transfer-fuel-fast": {
-     "pcm": 29.69999999999917,
+    "material-water-fast": {
+     "pcm": 2.6,
      "runs": [
-      29.69999999999917
+      2.6
+     ]
+    },
+    "material-water-ufg": {
+     "pcm": 0.0,
+     "runs": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "material-water-epithermal": {
+     "pcm": -0.10000000000000002,
+     "runs": [
+      -0.1,
+      -0.1,
+      -0.1
+     ]
+    },
+    "material-water-thermal": {
+     "pcm": -11.333333333333334,
+     "runs": [
+      -11.3,
+      -11.3,
+      -11.4
+     ]
+    },
+    "material-zircaloy-fast": {
+     "pcm": -1.9,
+     "runs": [
+      -1.9
+     ]
+    },
+    "material-zircaloy-ufg": {
+     "pcm": 0.5666666666666667,
+     "runs": [
+      0.6,
+      0.4,
+      0.7
+     ]
+    },
+    "material-zircaloy-epithermal": {
+     "pcm": 0.0,
+     "runs": [
+      -0.0,
+      -0.0,
+      -0.0
+     ]
+    },
+    "material-zircaloy-thermal": {
+     "pcm": -0.4000000000000001,
+     "runs": [
+      -0.4,
+      -0.4,
+      -0.4
+     ]
+    },
+    "transfer-fuel-fast": {
+     "pcm": 29.8,
+     "runs": [
+      29.8
      ]
     },
     "transfer-water-fast": {
-     "pcm": 66.69999999999732,
+     "pcm": 66.8,
      "runs": [
-      66.69999999999732
+      66.8
      ]
     },
     "transfer-zircaloy-fast": {
-     "pcm": -1.6999999999933735,
+     "pcm": -1.6,
      "runs": [
-      -1.6999999999933735
+      -1.6
      ]
     },
     "transfer-fuel-ufg": {
-     "pcm": -0.999999999995449,
+     "pcm": -0.9,
      "runs": [
-      -0.999999999995449
+      -0.9
      ]
     },
     "transfer-water-ufg": {
-     "pcm": 5.500000000002725,
+     "pcm": 5.5,
      "runs": [
-      5.500000000002725
+      5.5
      ]
     },
     "transfer-zircaloy-low": {
-     "pcm": -0.8999999999925734,
+     "pcm": -0.9,
      "runs": [
-      -0.8999999999925734
+      -0.9
      ]
     },
     "transfer-fuel-thermal": {
-     "pcm": -2.599999999997049,
+     "pcm": -2.5,
      "runs": [
-      -2.599999999997049
+      -2.5
      ]
     },
     "transfer-water-epithermal": {
-     "pcm": -2.799999999991698,
+     "pcm": -2.8,
      "runs": [
-      -2.799999999991698
+      -2.8
      ]
     },
     "transfer-water-thermal": {
-     "pcm": 0.9000000000036756,
+     "pcm": 0.9,
      "runs": [
-      0.9000000000036756
+      0.9
+     ]
+    },
+    "chi": {
+     "pcm": 0.7,
+     "runs": [
+      0.7
+     ]
+    },
+    "interaction": {
+     "pcm": -2.1999999999999886,
+     "runs": [
+      -2.1999999999999886
      ]
     },
     "rest": {
-     "pcm": -120.99999397181993,
+     "pcm": -109.49999397178719,
      "runs": [
-      -120.99999397181993
+      -109.49999397178719
      ]
     }
    },
@@ -669,16 +904,19 @@
     {
      "openmc": "references/openmc/pin-rates-1C/2a40-fine/openmc-rates.msgpack",
      "absorption": "swap-logs/2A-40-456-absorption.txt",
+     "materials": "swap-logs/2A-40-456-materials.txt",
      "fast": false
     },
     {
      "openmc": "references/openmc/pin-rates-1C/2a40-seed2-fine/openmc-rates.msgpack",
      "absorption": "swap-logs/2A-40-458-absorption.txt",
+     "materials": "swap-logs/2A-40-458-materials.txt",
      "fast": false
     },
     {
      "openmc": "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack",
      "absorption": "swap-logs/2A-40-459-absorption.txt",
+     "materials": "swap-logs/2A-40-459-materials.txt",
      "fast": true
     },
     {
@@ -687,7 +925,16 @@
      "transfer": "swap-logs/2A-40-534-transfer.txt",
      "fast": true
     }
-   ]
+   ],
+   "joint_sources": {
+    "openmc": "references/openmc/pin-transfer-1C/2A-40/transfer.msgpack",
+    "materials": "references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack",
+    "log": "swap-logs/2A-40-joint.txt"
+   },
+   "chi_sources": {
+    "openmc": "chi/chi-2A-40.msgpack",
+    "log": "swap-logs/2A-40-chi.txt"
+   }
   }
  ]
 }
