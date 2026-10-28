@@ -105,8 +105,8 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
      ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す。ただし出力の `references-shell.txt` は
      `dvc repro` まで書き直されず、devShell が変わっても `dvc status` に出ないので、中身を `scripts/check-references-shell.sh` で
-     確かめる（flake.nix か flake.lock を変えたコミットでは pre-commit の hook が同じものを実行するが、rebase で main の flake の
-     変更と混ざった版は hook を通っていない）。食い違えば止め、出力の文言の修正方法に従う（ADR-0212 の (a)）
+     確かめる（コミットのたびに pre-commit の hook が同じものを実行するが、rebase で main の flake の変更と混ざった版は hook を
+     通っていない）。食い違えば止め、出力の文言の修正方法に従う（ADR-0212 の (a)）
    - `build` と `python-ast` は 2 で走らせ終えている
 
    数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
