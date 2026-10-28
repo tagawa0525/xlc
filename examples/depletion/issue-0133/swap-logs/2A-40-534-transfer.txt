@@ -1,54 +1,54 @@
 material fuel
-groups 1..=13; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 3.02e-4
+groups 1..=13; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 3.00e-4
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 1.42e-1
-swapped, SPH kept        k 0.825242 (1/A 0.825243), k − OpenMC   +37.9 pcm; max |out-scatter xs / OpenMC − 1| 1.44e-15
-swapped, SPH recomputed  k 0.825241 (1/A 0.825241), k − OpenMC   +37.8 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 1.42e-1
+swapped, SPH kept        k 0.825331 (1/A 0.825331), k − OpenMC   +46.8 pcm; max |out-scatter xs / OpenMC − 1| 1.44e-15
+swapped, SPH recomputed  k 0.825330 (1/A 0.825330), k − OpenMC   +46.7 pcm; max |out-scatter xs / OpenMC − 1| 2.11e-15
 material water
-groups 1..=13; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 1.11e-4
+groups 1..=13; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 1.10e-4
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 3.43e-2
-swapped, SPH kept        k 0.824872 (1/A 0.824872), k − OpenMC    +0.9 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
-swapped, SPH recomputed  k 0.824873 (1/A 0.824873), k − OpenMC    +1.0 pcm; max |out-scatter xs / OpenMC − 1| 1.78e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 3.43e-2
+swapped, SPH kept        k 0.824961 (1/A 0.824961), k − OpenMC    +9.8 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
+swapped, SPH recomputed  k 0.824961 (1/A 0.824961), k − OpenMC    +9.8 pcm; max |out-scatter xs / OpenMC − 1| 8.88e-16
 material zircaloy
-groups 1..=13; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 4.34e-5
+groups 1..=13; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 4.31e-5
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 1.99e-1
-swapped, SPH kept        k 0.825556 (1/A 0.825556), k − OpenMC   +69.3 pcm; max |out-scatter xs / OpenMC − 1| 5.55e-16
-swapped, SPH recomputed  k 0.825556 (1/A 0.825556), k − OpenMC   +69.3 pcm; max |out-scatter xs / OpenMC − 1| 3.22e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 1.99e-1
+swapped, SPH kept        k 0.825645 (1/A 0.825645), k − OpenMC   +78.2 pcm; max |out-scatter xs / OpenMC − 1| 3.22e-15
+swapped, SPH recomputed  k 0.825645 (1/A 0.825645), k − OpenMC   +78.2 pcm; max |out-scatter xs / OpenMC − 1| 8.88e-16
 material fuel
-groups 14..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 1.66e-3
+groups 14..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 2.25e-4
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 1.64e-1
-swapped, SPH kept        k 0.825920 (1/A 0.825920), k − OpenMC  +105.7 pcm; max |out-scatter xs / OpenMC − 1| 5.94e-7
-swapped, SPH recomputed  k 0.825830 (1/A 0.825831), k − OpenMC   +96.7 pcm; max |out-scatter xs / OpenMC − 1| 2.57e-8
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 1.44e-2
+swapped, SPH kept        k 0.825638 (1/A 0.825638), k − OpenMC   +77.5 pcm; max |out-scatter xs / OpenMC − 1| 6.82e-8
+swapped, SPH recomputed  k 0.825635 (1/A 0.825636), k − OpenMC   +77.2 pcm; max |out-scatter xs / OpenMC − 1| 2.12e-9
 material water
-groups 14..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 1.04e-4
+groups 14..=27; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 4.44e-5
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 7.50e-3
-swapped, SPH kept        k 0.824834 (1/A 0.824834), k − OpenMC    -2.9 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
-swapped, SPH recomputed  k 0.824829 (1/A 0.824829), k − OpenMC    -3.4 pcm; max |out-scatter xs / OpenMC − 1| 8.88e-16
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 3.72e-3
+swapped, SPH kept        k 0.825573 (1/A 0.825573), k − OpenMC   +71.0 pcm; max |out-scatter xs / OpenMC − 1| 1.44e-15
+swapped, SPH recomputed  k 0.825575 (1/A 0.825575), k − OpenMC   +71.2 pcm; max |out-scatter xs / OpenMC − 1| 1.55e-15
 material zircaloy
-groups 14..=69; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 2.67e-4
+groups 14..=69; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 1.14e-5
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 1.69e-1
-swapped, SPH kept        k 0.825574 (1/A 0.825574), k − OpenMC   +71.1 pcm; max |out-scatter xs / OpenMC − 1| 2.22e-15
-swapped, SPH recomputed  k 0.825571 (1/A 0.825572), k − OpenMC   +70.8 pcm; max |out-scatter xs / OpenMC − 1| 5.11e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 9.83e-2
+swapped, SPH kept        k 0.825637 (1/A 0.825637), k − OpenMC   +77.4 pcm; max |out-scatter xs / OpenMC − 1| 6.66e-16
+swapped, SPH recomputed  k 0.825637 (1/A 0.825638), k − OpenMC   +77.4 pcm; max |out-scatter xs / OpenMC − 1| 4.66e-15
 material fuel
-groups 28..=69; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 1.59e-12
+groups 28..=69; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 1.68e-12
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 4.09e-2
-swapped, SPH kept        k 0.825566 (1/A 0.825566), k − OpenMC   +70.3 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
-swapped, SPH recomputed  k 0.825566 (1/A 0.825566), k − OpenMC   +70.3 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 4.09e-2
+swapped, SPH kept        k 0.825654 (1/A 0.825654), k − OpenMC   +79.1 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
+swapped, SPH recomputed  k 0.825654 (1/A 0.825654), k − OpenMC   +79.1 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
 material water
-groups 28..=45; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 1.59e-12
+groups 28..=45; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 1.68e-12
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 4.71e-3
-swapped, SPH kept        k 0.825568 (1/A 0.825568), k − OpenMC   +70.5 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
-swapped, SPH recomputed  k 0.825568 (1/A 0.825568), k − OpenMC   +70.5 pcm; max |out-scatter xs / OpenMC − 1| 1.55e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 4.71e-3
+swapped, SPH kept        k 0.825656 (1/A 0.825656), k − OpenMC   +79.3 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
+swapped, SPH recomputed  k 0.825656 (1/A 0.825656), k − OpenMC   +79.3 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
 material water
-groups 46..=69; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.5e-12; after the swap: max |μ'/μ − 1| 1.59e-12
+groups 46..=69; 1 pins (1 solved); SPH factors recomputed from the reference: max |Δμ| 1.6e-12; after the swap: max |μ'/μ − 1| 1.68e-12
 OpenMC k 0.824863
-xlc                      k 0.825540 (1/A 0.825540), k − OpenMC   +67.7 pcm; max |out-scatter xs / OpenMC − 1| 2.02e-3
-swapped, SPH kept        k 0.825531 (1/A 0.825531), k − OpenMC   +66.8 pcm; max |out-scatter xs / OpenMC − 1| 1.33e-15
-swapped, SPH recomputed  k 0.825531 (1/A 0.825531), k − OpenMC   +66.8 pcm; max |out-scatter xs / OpenMC − 1| 1.11e-15
+xlc                      k 0.825628 (1/A 0.825629), k − OpenMC   +76.5 pcm; max |out-scatter xs / OpenMC − 1| 2.02e-3
+swapped, SPH kept        k 0.825619 (1/A 0.825619), k − OpenMC   +75.6 pcm; max |out-scatter xs / OpenMC − 1| 1.78e-15
+swapped, SPH recomputed  k 0.825619 (1/A 0.825619), k − OpenMC   +75.6 pcm; max |out-scatter xs / OpenMC − 1| 8.88e-16
