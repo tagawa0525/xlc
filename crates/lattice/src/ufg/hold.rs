@@ -85,11 +85,13 @@ pub(super) fn cgroup_limits(
     let inside = relative
         .components()
         .all(|c| matches!(c, std::path::Component::Normal(_)));
-    let exists = |path: PathBuf| {
-        path.try_exists()
-            .map_err(|source| MemoryError::Read { path, source })
+    let exists = |path: &Path| {
+        path.try_exists().map_err(|source| MemoryError::Read {
+            path: path.to_path_buf(),
+            source,
+        })
     };
-    if !inside || !exists(root.join("cgroup.controllers"))? {
+    if !inside || !exists(&root.join("cgroup.controllers"))? {
         return Err(MemoryError::NotCgroup2(root.join(relative)));
     }
     let mut dir = root.join(relative);
@@ -102,11 +104,17 @@ pub(super) fn cgroup_limits(
     }
     let mut limits = Vec::new();
     loop {
+        let mut found = Vec::new();
         for name in ["memory.max", "memory.high"] {
             let limit = dir.join(name);
-            if exists(limit.clone())? {
-                limits.push((read(&limit)?, read(&dir.join("memory.current"))?));
+            if exists(&limit)? {
+                found.push(read(&limit)?);
             }
+        }
+        // 同じ階層の上限は、1 度に読んだ同じ使用量と比べる
+        if !found.is_empty() {
+            let current = read(&dir.join("memory.current"))?;
+            limits.extend(found.into_iter().map(|limit| (limit, current.clone())));
         }
         if dir == root || !dir.pop() {
             break;
