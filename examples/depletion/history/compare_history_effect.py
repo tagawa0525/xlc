@@ -1,7 +1,8 @@
 """2A の履歴の効き（条件を変えた燃焼と、2A の組成からの瞬時の分岐の差）を、燃焼度の点ごとに出す。
 
     python3 compare_history_effect.py --json history-effect.json   # このディレクトリの出力から JSON を書く
-    python3 compare_history_effect.py --report history-effect.json # 記録の表と文
+
+記録の表は、この JSON から examples/verification_tables.py が描く。
 
 履歴（`xlc-depletion-history`）の k∞ と数密度、分岐のテーブル（`xlc-table`。燃焼度の軸だけが 2 点以上）の k∞ を読む。反応度の
 差は Δρ = (1/k_b − 1/k_a) × 1e5 pcm（a から b への差）。
@@ -23,8 +24,11 @@ import sys
 from pathlib import Path
 
 import msgpack
+from make_hybrid import TRACKED
 
-TRACKED = ("U", "Np", "Pu", "Am", "Xe", "Sm", "Gd")
+# 燃焼度 0 の組成は 3 本の履歴で同じなので、分岐は履歴の k を再現する（測った差は 0.051 pcm 以下。減速材をホウ酸水で書いた
+# 組成の差が候補）。これを超えれば、テーブルを別の履歴か条件から解いたとみて止める
+FRESH_TOLERANCE_PCM = 0.1
 NUCLIDES = ("U-235", "Pu-239", "Pu-240", "Pu-241", "Xe-135", "Sm-149")
 
 # 条件を変えた燃焼ごとの、履歴と分岐のテーブルのファイル
@@ -45,6 +49,7 @@ CASES = {
     },
 }
 NOMINAL = "lattice-2A-eb9ca398.msgpack"
+HYBRIDS = ["hybrid-density.msgpack", "hybrid-rods.msgpack"]
 
 
 def read(path):
@@ -106,6 +111,19 @@ def compare(nominal, cases):
         missing = [u for u in burnups if u not in varied or u not in base]
         if missing:
             raise SystemExit(f"{name}: the histories lack the burnups {missing}")
+        if burnups[0] != 0:
+            raise SystemExit(f"{name}: the tables must solve the fresh point")
+        fresh = {
+            "branch": rho(branch[0.0], varied[0.0][0]),
+            "hybrid": rho(hybrid[0.0], varied[0.0][0]),
+            "reverse": rho(reverse[0.0], base[0.0][0]),
+            "reverse_hybrid": rho(reverse_hybrid[0.0], base[0.0][0]),
+        }
+        for key, value in fresh.items():
+            if abs(value) > FRESH_TOLERANCE_PCM:
+                raise SystemExit(
+                    f"{name}: the {key} table misses its history at burnup 0 by {value:.3f} pcm"
+                )
         rows = []
         for u in burnups:
             k_varied, n_varied = varied[u]
@@ -144,7 +162,7 @@ def compare(nominal, cases):
 
 def write_json(directory, output):
     d = Path(directory)
-    files = [NOMINAL] + [f for case in CASES.values() for f in case.values()]
+    files = [NOMINAL, *HYBRIDS] + [f for case in CASES.values() for f in case.values()]
     cases = {
         name: {key: read(d / f) for key, f in case.items()}
         for name, case in CASES.items()
@@ -158,46 +176,13 @@ def write_json(directory, output):
     Path(output).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n")
 
 
-def report(path):
-    summary = json.loads(Path(path).read_text())
-    lines = []
-    for name, rows in summary["cases"].items():
-        lines.append(f"## {name}")
-        lines.append("")
-        lines.append(
-            "| 燃焼度 (MWd/kg) | 履歴の間 (pcm) | 履歴の効き (pcm) | 追う核種 (pcm) | 追わない核種 (pcm) "
-            "| 逆向き (pcm) | 逆向きの追う核種 (pcm) | 逆向きの追わない核種 (pcm) |"
-        )
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
-        for r in rows:
-            lines.append(
-                f"| {r['burnup']:g} | {r['between_histories_pcm']:+.1f} | {r['effect_pcm']:+.1f} | "
-                f"{r['tracked_pcm']:+.1f} | {r['untracked_pcm']:+.1f} | {r['reverse_pcm']:+.1f} | "
-                f"{r['reverse_tracked_pcm']:+.1f} | {r['reverse_untracked_pcm']:+.1f} |"
-            )
-        lines.append("")
-        lines.append("| 燃焼度 (MWd/kg) | " + " | ".join(NUCLIDES) + " |")
-        lines.append("| --- |" + " --- |" * len(NUCLIDES))
-        for r in rows:
-            cells = [
-                "–" if v is None else f"{v:+.2f}"
-                for v in (r["densities_percent"][n] for n in NUCLIDES)
-            ]
-            lines.append(f"| {r['burnup']:g} | " + " | ".join(cells) + " |")
-        lines.append("")
-    print("\n".join(lines))
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--json", help="このディレクトリの出力から書く JSON")
-    group.add_argument("--report", help="表と文を出す JSON")
+    parser.add_argument(
+        "--json", required=True, help="このディレクトリの出力から書く JSON"
+    )
     args = parser.parse_args()
-    if args.json:
-        write_json(Path(__file__).resolve().parent, args.json)
-    else:
-        report(args.report)
+    write_json(Path(__file__).resolve().parent, args.json)
 
 
 if __name__ == "__main__":
