@@ -1,4 +1,5 @@
 {
+ "format": "xlc-compare-history-effect",
  "inputs": {
   "lattice-2A-eb9ca398.msgpack": "eb9ca398a40b921fa206c36498357ca6",
   "lattice-2A-density-74a7eaa0.msgpack": "74a7eaa07d758fec136654823b9e6d08",
