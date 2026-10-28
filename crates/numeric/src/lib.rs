@@ -7,6 +7,7 @@
 
 pub mod anm;
 pub mod equivalence;
+pub mod error_function;
 pub mod lu;
 pub mod nem;
 pub mod pins;
