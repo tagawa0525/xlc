@@ -4,6 +4,8 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
+燃焼度 0 の行の `fresh_pcm` は、各テーブルのその条件の履歴に対する ρ(テーブル) − ρ(履歴)。
+
 履歴（`xlc-depletion-history`）の k∞ と数密度、分岐のテーブル（`xlc-table`。燃焼度の軸だけが 2 点以上）の k∞ を読む。反応度の
 差は Δρ = (1/k_b − 1/k_a) × 1e5 pcm（a から b への差）。
 
@@ -158,6 +160,7 @@ def compare(nominal, cases):
                     },
                 }
             )
+        rows[0]["fresh_pcm"] = fresh
         result[name] = rows
     return result
 
