@@ -26,6 +26,8 @@ pub enum MemoryError {
         "no cgroup v2 entry in /proc/self/cgroup (give `ufg-hold-memory` to set the held memory)"
     )]
     NoCgroup,
+    #[error("{0} is not in a cgroup v2 tree (give `ufg-hold-memory` to set the held memory)")]
+    NotCgroup2(PathBuf),
 }
 
 /// 使用可能メモリ `available` (B) のうち、自己遮蔽の全体で持つ量 (B): [`RESERVE`] を除いた 8 割
@@ -47,8 +49,8 @@ pub fn held_cells(total: u64, at_once: usize) -> usize {
     usize::try_from(cells).unwrap_or(usize::MAX)
 }
 
-/// このプロセスの使用可能メモリ (B): /proc/meminfo の MemAvailable と、このプロセスの cgroup（v2）とその祖先の memory.max の
-/// 残り（memory.max − memory.current）の小さい方（[`cgroup_limits`]）
+/// このプロセスの使用可能メモリ (B): /proc/meminfo の MemAvailable と、このプロセスの cgroup（v2）とその祖先の memory.max と
+/// memory.high の残り（上限 − memory.current）の小さい方（[`cgroup_limits`]）
 pub fn available_memory() -> Result<u64, MemoryError> {
     let meminfo = read(Path::new("/proc/meminfo"))?;
     let cgroup = read(Path::new("/proc/self/cgroup"))?;
@@ -71,29 +73,40 @@ fn read(path: &Path) -> Result<String, MemoryError> {
     })
 }
 
-/// cgroup（v2）の根 `root` の下の `relative`（/proc/self/cgroup の `0::` の後）から根までの階層の、（memory.max、memory.current）の
-/// 内容。memory.max の無い階層（メモリの制御が無い）は読まない。`relative` のディレクトリが無いとき（v2 が別の場所にある、cgroup の
-/// 名前空間がずれている）と、memory.max の有無を確かめられないときは、制限を読み落とさないように止める
+/// cgroup（v2）の根 `root` の下の `relative`（/proc/self/cgroup の `0::` の後）から根までの階層の、上限（memory.max と memory.high）
+/// ごとの（上限、memory.current）の内容。上限のファイルの無い階層（メモリの制御が無い）は読まない。`root` が cgroup v2 の根
+/// （cgroup.controllers のあるところ）でないとき、`relative` が根の外を指す（..）とき、ディレクトリを調べられないとき、上限のファイルの
+/// 有無を確かめられないときは、制限を読み落とさないように止める
 pub(super) fn cgroup_limits(
     root: &Path,
     relative: &str,
 ) -> Result<Vec<(String, String)>, MemoryError> {
-    let mut dir = root.join(relative.trim_start_matches('/'));
-    if !dir.is_dir() {
-        return Err(MemoryError::Read {
-            path: dir,
-            source: std::io::Error::from(std::io::ErrorKind::NotFound),
-        });
+    let relative = Path::new(relative.trim_start_matches('/'));
+    let inside = relative
+        .components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)));
+    let exists = |path: PathBuf| {
+        path.try_exists()
+            .map_err(|source| MemoryError::Read { path, source })
+    };
+    if !inside || !exists(root.join("cgroup.controllers"))? {
+        return Err(MemoryError::NotCgroup2(root.join(relative)));
+    }
+    let mut dir = root.join(relative);
+    let metadata = std::fs::metadata(&dir).map_err(|source| MemoryError::Read {
+        path: dir.clone(),
+        source,
+    })?;
+    if !metadata.is_dir() {
+        return Err(MemoryError::NotCgroup2(dir));
     }
     let mut limits = Vec::new();
     loop {
-        let max = dir.join("memory.max");
-        let exists = max.try_exists().map_err(|source| MemoryError::Read {
-            path: max.clone(),
-            source,
-        })?;
-        if exists {
-            limits.push((read(&max)?, read(&dir.join("memory.current"))?));
+        for name in ["memory.max", "memory.high"] {
+            let limit = dir.join(name);
+            if exists(limit.clone())? {
+                limits.push((read(&limit)?, read(&dir.join("memory.current"))?));
+            }
         }
         if dir == root || !dir.pop() {
             break;
@@ -102,7 +115,7 @@ pub(super) fn cgroup_limits(
     Ok(limits)
 }
 
-/// /proc/meminfo の内容 `meminfo` と、cgroup の（memory.max、memory.current）の内容 `limits` から求めた使用可能メモリ (B)
+/// /proc/meminfo の内容 `meminfo` と、cgroup の（上限、memory.current）の内容 `limits` から求めた使用可能メモリ (B)
 pub(super) fn available_from(meminfo: &str, limits: &[(&str, &str)]) -> Result<u64, MemoryError> {
     let line = meminfo
         .lines()
