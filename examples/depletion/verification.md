@@ -316,8 +316,12 @@ OpenMC の燃焼をシードだけ変えて 2 本流すと、5 MWd/kg の参照�
 ### k の差の候補の寄与（#0133）
 
 燃焼で増える k∞ の差の原因の候補（#0148、#0151、#0152、核分裂生成物）ごとに、同じ組成の 1C のピンセル（燃料 1 リング）で、xlc の
-燃料の核種の吸収と核分裂（`swap_absorption` の例）と、物質の散乱の移行の行（`swap_transfer` の例。SPH 因子は置き換える前のまま）を
-OpenMC の実効断面積に置き換えて解き、k の変化の符号を変えたものを、その差の k の差への寄与とする（ADR-0202）。状態は 1C の燃焼の
+燃料の核種の吸収と核分裂、被覆管と減速材の吸収、燃料の χ（`swap_absorption` の例）と、物質の散乱の移行の行（`swap_transfer` の例）を
+OpenMC の値に置き換えて解き（SPH 因子はどれも置き換える前のまま）、k の変化の符号を変えたものを、その差の k の差への寄与とする
+（ADR-0202）。物質の吸収は、OpenMC の消滅の吸収（`absorption`）と、xlc の物質の正味の吸収に (n,2n) などの中性子の過剰を足し戻した
+値の比で置き換える（xlc の散乱行列は多重度を数えるので、正味の吸収は消滅の吸収から過剰を引いた値。`swap_absorption` の doc）。
+置き換えどうしの相互作用は、燃料の吸収の全部、物質の吸収、移行を 1 つの実行で同時に置き換えた寄与から、同じ実行で別々に置き換えた
+寄与の和を引いたもの。状態は 1C の燃焼の
 0 と 5 MWd/kg の組成、2A の燃焼の 40 MWd/kg の組成（燃料の核種は 0 MWd/kg が 5、5 MWd/kg が 53、40 MWd/kg が 2A の結果にある 49 で、
 2A-40 には Pm-147、Pm-148、Pm-149、Eu-151 が無い）。xlc の自己遮蔽の UFG の減速計算は ADR-0209 の既定（散乱核は ADR-0205 の速い方法、
 移行はリングの中性子束（ADR-0207））で、入力はその値を明示した `issue-0133/ufg-transfer/pin-<状態>-ring.toml`（ほかは
@@ -335,6 +339,21 @@ cargo run --release -p xlc-lattice --example swap_absorption -- examples/depleti
   references/openmc/pin-transfer-1C/2A-40/transfer.msgpack examples/depletion/issue-0133/swap-logs/candidates-2A-40.txt
 cargo run --release -p xlc-lattice --example swap_transfer -- examples/depletion/issue-0133/ufg-transfer/pin-2A-40-ring.toml \
   references/openmc/pin-transfer-1C/2A-40/transfer.msgpack water 1 13
+# OpenMC の χ（状態ごと。1 状態 1〜3 分、16 スレッド）
+nix develop .#references -c python3 examples/depletion/issue-0133/openmc_chi.py examples/depletion/openmc-1C-rings1.toml \
+  examples/depletion/depletion.msgpack references/openmc/pin-chi-1C/2A-40 200000 100 20 16 \
+  examples/depletion/issue-0133/pin-2A-40.toml examples/depletion/issue-0133/chi/chi-2A-40.msgpack
+# xlc の物質の吸収（一覧は swap_candidates.py materials）、同時の置き換え（一覧は swap_candidates.py joint）、χ
+cargo run --release -p xlc-lattice --example swap_absorption -- examples/depletion/issue-0133/ufg-transfer/pin-2A-40-ring.toml \
+  references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack examples/depletion/issue-0133/swap-logs/materials.txt \
+  --materials references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack
+cargo run --release -p xlc-lattice --example swap_absorption -- examples/depletion/issue-0133/ufg-transfer/pin-2A-40-ring.toml \
+  references/openmc/pin-transfer-1C/2A-40/transfer.msgpack examples/depletion/issue-0133/swap-logs/joint-2A-40.txt \
+  --materials references/openmc/pin-rates-1C/2a40-seed3-fine/openmc-rates.msgpack \
+  --transfer references/openmc/pin-transfer-1C/2A-40/transfer.msgpack
+cargo run --release -p xlc-lattice --example swap_absorption -- examples/depletion/issue-0133/ufg-transfer/pin-2A-40-ring.toml \
+  references/openmc/pin-transfer-1C/2A-40/transfer.msgpack examples/depletion/issue-0133/swap-logs/chi.txt \
+  --chi examples/depletion/issue-0133/chi/chi-2A-40.msgpack
 # 要約（表の JSON）
 nix develop .#references -c python3 examples/depletion/issue-0133/swap_candidates.py summarize \
   examples/depletion/issue-0133/swap-candidates.toml examples/depletion/issue-0133/swap-candidates.json
@@ -349,6 +368,14 @@ xlc は 548875e82（ブランチ docs/0133-swap-new-default、分岐点は main 
 456 と 458 は群 1 に 10 MeV より上を数えないので、15 keV より上の吸収の置き換えから外す。移行は 534 だけ。実行の対応は
 `issue-0133/swap-candidates.toml`、ログは `issue-0133/swap-logs/`。xlc の置き換える前の k は 1C の 0 MWd/kg で 1.172387 で、1C の燃焼の
 0 の点の k（1 リング、1.1723822。「格子計算の燃焼」）と 0.5 pcm 違う（候補は、燃焼の入力が数密度 0 の核種も輸送すること。確かめていない）。
+
+物質の吸収、同時の置き換え、χ は、xlc が c6d6d96d（ブランチ feat/0133-swap-remainder、分岐点は main の e7332a11f）、2026-10-29（Slurm 584。
+時間は割り込まれうるジョブなので記録しない）。燃料の核種の吸収と移行のログは上の 548875e82 のまま（その後 crates/lattice/src とライブラリは
+変わっていない。同時の置き換えのログの吸収の全部と移行の 9 行は、そのログと表示の桁で合う。要約が確かめる）。物質の吸収は、534 に
+物質ごとの tally が無いので、448（1C）と 456、458、459（2A-40）の `materials` から測り、同時の置き換えは燃料の吸収と移行を 534、物質の
+吸収を 448（2A-40 は 459）から取る。OpenMC の χ は同じジョブで `openmc_chi.py` が状態ごとに解いたもの（20 万粒子 × 100 世代（20 世代を
+捨てる）、シード 1。燃料の組成は `issue-0133/pin-<状態>.toml` で、そのアクチニドのすべての χ。出力は `issue-0133/chi/`、表示は
+`issue-0133/swap-logs/<状態>-chi-openmc.txt`）。
 
 #### 結果
 
@@ -401,26 +428,33 @@ xlc は 548875e82（ブランチ docs/0133-swap-new-default、分岐点は main 
 
 - 置き換えの項目には重なりがある（「核分裂生成物」と「Xe-135 と Sm-149」はほかの行に含まれ、「0.1〜0.625 eV」「0.1 eV より下」は
   0.625 eV より下の核種ごとの行と同じ範囲を分け直したもの）。重ならない行（15 keV より上の 2 行、4〜9.88 eV の 2 行、9.88 eV〜15 keV の
-  2 行、0.625〜4 eV、0.625 eV より下の核種ごとの 4 行、移行の 9 行、残り）の和は k の差に近いが、行ごとに平均する実行が違う（移行と
-  残りは Slurm 534 だけ。残りはその実行の k の差から、同じ実行の置き換えを引く）ので、0、5、40 MWd/kg で −2.5、+11.5、−1.5 pcm ずれる
-- 吸収と移行の置き換えは別々に解くので、和は足し合わせの近似で、残りは置き換えていない量（被覆管と減速材の吸収、χ、非弾性散乱と
-  (n,2n) の断面積、全断面積の輸送の補正）と、置き換えどうしの相互作用を含む。残りは −119〜−140 pcm で、状態による変化は +20.4、
-  +18.6 pcm
+  2 行、0.625〜4 eV、0.625 eV より下の核種ごとの 4 行、物質の吸収の 8 行、移行の 9 行、χ、相互作用、残り）の和は k の差に近いが、行ごとに
+  平均する実行が違う（移行と残りは Slurm 534 だけ、物質の吸収は 448 と 456、458、459。残りは 534 の k の差から、同じ OpenMC の値の同時の
+  置き換えと χ を引く）ので、0、5、40 MWd/kg で −2.5、+11.2、−2.1 pcm ずれる
+- 相互作用は −1.8〜−2.2 pcm で、置き換えの寄与は別々の和で近似できる。残りは、どの置き換えにも入らない量: 燃料の核種の捕獲と
+  核分裂のほかの吸収（O-16 の (n,α) など）と 15 keV より上のアクチニドでない核種の吸収、燃料の (n,2n) などの中性子の過剰（燃料の吸収と
+  移行の置き換えは xlc の正味の吸収を保つ）、P1 以上の散乱行列（移行の置き換えは P0 の比を掛けるので、移行ごとの平均の余弦は xlc の
+  まま）、MOC と SPH 因子（置き換えた断面積で SPH 因子を求め直さない）。どれも寄与は測っていない。残りは −101〜−116 pcm で、状態による
+  変化は +15.3、+6.9 pcm
+- 物質の吸収の寄与の大半は減速材の 0.625 eV より下（−18.7、−14.3、−11.3 pcm。xlc の減速材の熱群の吸収が OpenMC より大きい向き）で、
+  15 keV より上は減速材 +2.6〜+2.7、被覆管 −1.9〜−2.8 pcm、ほかの範囲は 1 pcm 以内。χ は −2.8、−2.7、+0.7 pcm（OpenMC の χ の、
+  1.353 MeV より上の割合は U-235、U-238、Pu-239、Pu-241 で xlc と 0.004 以内）
 - 実行の間のばらつきは、U-238 の UFG の範囲で大きい: 9.88 eV〜15 keV は新しい燃料で +9.2 と −11.6 pcm、1C の 5 MWd/kg で +14.7 と +4.3 pcm、
   2A の 40 MWd/kg で −5.2〜+4.2 pcm、4〜9.88 eV は 1C の 5 MWd/kg で +4.9 と 0.0 pcm、2A の 40 MWd/kg で −2.1〜+6.1 pcm
   （`swap-candidates.json` の `runs`）。それと「吸収の置き換えの全部」を除くほかの行の差は 4.5 pcm 以内
 - 1C の 0 MWd/kg の k の差は、OpenMC の 2 本の平均で +51 ± 12 pcm（「格子計算の燃焼」の k∞ の表の 0 の点の +53 ± 22 pcm は燃焼の参照解に
-  対する差で、統計誤差の中で合う）。移行を数えた Slurm 534 の実行の差 +38.9 pcm は、吸収の置き換え +78.9、移行の置き換え +99.6、残り
-  −139.6 pcm に分かれる。534 の置き換えの寄与の大半は 15 keV より上（U-238 の吸収 +52.4、減速材の移行 +63.6、燃料の移行 +25.4、計 +141.4）と
+  対する差で、統計誤差の中で合う）。移行を数えた Slurm 534 の実行の差 +38.9 pcm は、吸収の置き換え +78.9、物質の吸収 −18.6、移行の置き換え
+  +99.6、χ −2.8、相互作用 −1.8、残り −116.4 pcm に分かれる（同時の置き換えは +158.1 で、置き換えた xlc の k 1.170807 は 534 の OpenMC の
+  k 1.171998 より 119.1 pcm 小さい）。534 の置き換えの寄与の大半は 15 keV より上（U-238 の吸収 +52.4、減速材の移行 +63.6、燃料の移行 +25.4、計 +141.4）と
   0.625 eV より下の吸収（U-235 +41.8、U-238 −16.6）で、UFG の範囲（4 eV〜15 keV）は吸収 +0.2（U-238 の 4〜9.88 eV +10.5、9.88 eV〜15 keV
   −11.6 など。OpenMC の 2 本の平均では +10.0）、移行 +8.1（減速材 +8.4、燃料 −0.3）
 - 1C の 5 MWd/kg の組成への増えは +25 pcm（OpenMC 2 本の平均。統計誤差は約 18 pcm）。Slurm 534 だけでは +41.2 pcm で、吸収 +23.4、
-  移行 −2.6、残り +20.4 に分かれる。吸収の平均の増え +21.2 は、0.1〜0.625 eV の全核種 +17.1、U-238 の 9.88 eV〜15 keV +10.7（実行の間の
+  物質の吸収 +4.9、移行 −2.6、χ +0.1、相互作用 −0.2、残り +15.3 に分かれる（物質の吸収は 448 の値で、和は 41.2 と 0.3 pcm 違う）。吸収の平均の増え +21.2 は、0.1〜0.625 eV の全核種 +17.1、U-238 の 9.88 eV〜15 keV +10.7（実行の間の
   ばらつきの中）、U-238 の 4〜9.88 eV −8.1、0.625〜4 eV +5.3 など。「格子計算の燃焼」の k∞ の表の 5 MWd/kg の変化（1 リング +84 pcm）とは
   別の量で、燃焼の参照解の 5 MWd/kg の OpenMC の k（1.085269）は、同じ組成のこの表の 2 本（1.08603、1.08596）より 69〜76 pcm 小さい
   （「k∞」の節のシード 1 の外れ）
 - 新しい燃料から 2A の 40 MWd/kg の組成への増えは +22 pcm（OpenMC の平均。統計誤差は約 15 pcm）。Slurm 534 だけでは +37.6 pcm で、
-  吸収 +24.8、移行 −5.8、残り +18.6 に分かれる（平均と 534 の差 15.8 pcm のうち 12.3 pcm は、1C の 0 MWd/kg の平均と 534 の k の差の違い。448 の OpenMC の k は 534 より 24.7 pcm 小さい）。吸収の平均の増え
+  吸収 +24.8、物質の吸収 +8.0（2A-40 は 3 本の平均）、移行 −5.8、χ +3.5、相互作用 −0.4、残り +6.9 に分かれる（物質の吸収の平均は同時の置き換えの 459 の値と違い、和は 37.6 と 0.6 pcm 違う）（平均と 534 の差 15.8 pcm のうち 12.3 pcm は、1C の 0 MWd/kg の平均と 534 の k の差の違い。448 の OpenMC の k は 534 より 24.7 pcm 小さい）。吸収の平均の増え
   +9.1 の内訳は、0.625 eV より下 +8.0（U-235 −31.0、Pu-239 と Pu-241 +34.5、U-238 +7.1、ほかの核種 −2.6）、0.625〜4 eV +8.7、UFG の範囲
   −3.2（U-238 の 4〜9.88 eV −8.5、ほかの核種の 4〜9.88 eV +5.8）、15 keV より上 −3.5（行ごとに平均する実行が違うので、和は 9.1 と合わない）。
   移行の増えは、15 keV より上 +6.3、UFG の範囲 −3.6、被覆管の 15 keV より下と 4 eV より下 −8.5
