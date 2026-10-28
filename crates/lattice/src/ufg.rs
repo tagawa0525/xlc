@@ -39,9 +39,11 @@ use crate::input::MaterialInput;
 use free_gas::{Gas, Thermal};
 
 mod free_gas;
+mod hold;
 mod transfer;
 
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
+pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
 pub use transfer::ShareCellCache;
 use xlc_numeric::lu::solve;
 
@@ -348,12 +350,6 @@ pub fn slowing_down_with(
     )
 }
 
-/// `threads` 個のスレッドで、同時に最大 `at_once` 個の減速計算を解くときの、1 回の減速計算がスイープの間で持つ区間の数の上限
-/// （ADR-0213）。全体をスレッドの数 × 1 回の減速計算の上限（1 GiB）に抑え、同時に解きうる減速計算の数で分ける
-pub fn held_cells(threads: usize, at_once: usize) -> usize {
-    free_gas::HELD_CELLS * threads.max(1) / at_once.max(1)
-}
-
 /// 1 つの核種の、UFG の範囲の群から出る弾性散乱の移行（ADR-0207。[`slowing_down_transfers`]）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct NuclideTransfer {
@@ -404,7 +400,8 @@ pub struct FineFlux {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、格子点ごとのリングの中性子束も返す（群の中の重みを参照解の細かい
-/// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。
+/// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。スイープの間で持つ区間は
+/// `hold` 個まで（[`held_cells`]）。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_fine(
     library: &Library,
@@ -414,6 +411,7 @@ pub fn slowing_down_fine(
     collision: Collision,
     thinning: Option<f64>,
     scattering: Scattering,
+    hold: usize,
 ) -> Result<(CellSpectrum, FineFlux), UfgError> {
     let mut fine = FineFlux::default();
     let spectrum = solve_cell(
@@ -426,7 +424,7 @@ pub fn slowing_down_fine(
         scattering,
         Some(&mut fine),
         None,
-        free_gas::HELD_CELLS,
+        hold,
     )?;
     Ok((spectrum, fine))
 }

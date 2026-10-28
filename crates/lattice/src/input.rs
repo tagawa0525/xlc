@@ -15,6 +15,8 @@
 //!                                 # 分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし、false で静止した標的。
 //!                                 # ADR-0204）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下でライブラリの S(α, β) の
 //!                                 # 移行にするか（false で自由ガスの核。ADR-0205）
+//! ufg-hold-memory = 80            # 自己遮蔽の自由ガスの散乱源の区間を、減速計算のスイープの間で持つ量の全体 (GiB)。省略すると、
+//!                                 # 自己遮蔽のたびに使用可能メモリから 2 GiB を除いた 8 割（ADR-0213）
 //! ufg-transfer = "ring-flux"      # 自己遮蔽の等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（"infinite-dilution"
 //!                                 # はライブラリの無限希釈の形（ADR-0076）、"ring-flux" は UFG の減速計算でリングの中性子束と同じ
 //!                                 # 散乱核で数えた弾性散乱の移行。省略すると ring-flux。ADR-0207、ADR-0209）
@@ -201,6 +203,8 @@ pub struct LatticeInput {
     pub collision: Collision,
     /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185。`None` は間引かない）
     pub thinning: Option<f64>,
+    /// 自己遮蔽の自由ガスの散乱源の区間をスイープの間で持つ量の全体 (B)（ADR-0213。`None` は使用可能メモリから求める）
+    pub hold_memory: Option<u64>,
     /// 自己遮蔽の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
     pub scattering: Scattering,
     /// 自己遮蔽の等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（ADR-0207）
@@ -364,6 +368,8 @@ struct InputFile {
     ufg_free_gas: Option<FreeGasEntry>,
     /// 省略するとリングの中性子束で数えた移行（ADR-0209）
     ufg_transfer: Option<String>,
+    /// GiB。省略すると使用可能メモリから求める（ADR-0213）
+    ufg_hold_memory: Option<f64>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,
@@ -748,6 +754,7 @@ impl LatticeInput {
         ShieldingOptions {
             collision: self.collision,
             thinning: self.thinning,
+            hold_memory: self.hold_memory,
             scattering: self.scattering,
             transfer: self.transfer,
             ..ShieldingOptions::default()
@@ -888,6 +895,21 @@ impl LatticeInput {
                     .into(),
             ));
         }
+        if !self_shielding && file.ufg_hold_memory.is_some() {
+            return Err(invalid(
+                "`ufg-hold-memory` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        let hold_memory = match file.ufg_hold_memory {
+            None => None,
+            Some(gib) if gib >= 0.0 && gib.is_finite() => Some((gib * (1u64 << 30) as f64) as u64),
+            Some(gib) => {
+                return Err(invalid(format!(
+                    "`ufg-hold-memory` must be a finite non-negative number of GiB, got {gib}"
+                )));
+            }
+        };
         let transfer = match file.ufg_transfer.as_deref() {
             None => UfgTransfer::default(),
             Some("infinite-dilution") => UfgTransfer::InfiniteDilution,
@@ -1202,6 +1224,7 @@ impl LatticeInput {
             self_shielding,
             collision,
             thinning,
+            hold_memory,
             scattering,
             transfer,
             cross_sections,
