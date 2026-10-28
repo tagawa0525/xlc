@@ -25,9 +25,10 @@
 //! 物質の吸収は、OpenMC の `absorption`（消滅の反応のすべて: 捕獲、(n,p)、(n,α) など）/ 物質の中性子束と、xlc の物質全体を物理的な
 //! 中性子束で平均した吸収の比 R を、物質のすべての領域の吸収に掛ける。xlc の物質の吸収 Σt − Σ_g' Σs(g→g') は、散乱行列が
 //! (n,2n) などの多重度を数えるので、消滅の吸収から中性子の過剰（(n,2n) の σ、(n,3n) の 2σ、(n,4n) の 3σ。ライブラリの燃焼チェーンの
-//! 反応の無限希釈の群の断面積）を引いた値になる（被覆管の Zr-91 は 6〜10 MeV の群で (n,2n) が消滅の吸収の数倍で、正味の吸収が
+//! 反応の無限希釈の群の断面積）を引いた値になる（被覆管の Zr-91 は 6〜10 MeV の群で (n,2n) が消滅の吸収の約 10 倍で、正味の吸収が
 //! 負になりうる）。比べるのは過剰を足し戻した値で、全断面積を (R − 1) ×（正味の吸収 + 過剰）だけ動かし、散乱は変えない。ライブラリが
-//! 群の断面積を持たない多重度の反応（MT11、24、25、30、41、42）は過剰に入らない。
+//! 群の断面積を持たない多重度の反応（MT11、24、25、30、41、42）と、MF8 が生成物の状態の一部だけを挙げて経路に入らない分（ライブラリを
+//! 作るときの警告）は過剰に入らない。
 //!
 //! 移行は `swap_transfer` の「SPH kept」と同じ置き換え（物質全体の移行の断面積の要素ごとの比 R を、物質のすべての領域の行に掛け、
 //! xlc が 0 で OpenMC が正の要素は OpenMC の値を置く。P1 以上の行列に同じ比を掛け、全断面積は行の和の変化だけ動かす）。χ は、燃料の
@@ -664,7 +665,13 @@ fn main() -> anyhow::Result<()> {
     // 物質の吸収と移行の比に使う、置き換えない解の物質ごとの反応率（物理的な中性子束で平均）
     let physical = shielded.physical_flux(&tracking.lattice, &solution.flux)?;
     let rates = by_material(&solution, &regions, &names, &physical)?;
-    let factor_of = sph_of_materials(&shielded, &lattice, ng)?;
+    // SPH 因子を外して置き換えるのは物質の吸収と移行だけなので、その置き換えの無い一覧は、因子を集められない格子（支持格子のあるピン
+    // など）でも解く
+    let factor_of = if specs.iter().any(|s| s.contains('@') || s.contains('~')) {
+        sph_of_materials(&shielded, &lattice, ng)?
+    } else {
+        vec![None; shielded.materials.len()]
+    };
     let terms = fuel_terms(&shielded, &input, &names);
     // 物質（xlc の名前）の番号。ほかの名前の領域と共有する物質は置き換えられない
     let indices_of = |material: &str| -> anyhow::Result<Vec<usize>> {
