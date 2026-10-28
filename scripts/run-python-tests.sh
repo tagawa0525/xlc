@@ -2,9 +2,10 @@
 # 追跡している Python のテスト（test_*.py と *_test.py）を、テストのあるディレクトリごとに unittest で実行する。
 # run-checks.sh が scripts/run-python-tests.sh を見つけて呼ぶ（nixfiles の ADR-0036）。
 #
-# references の devShell で実行する: examples/vera/test_openmc_model.py が OpenMC の Python を import し、default の
-# devShell には無いため。references の Python は default のパッケージに OpenMC を足した上位集合なので、ほかのテストも
-# 同じ shell で通る（flake.nix の referencesPython）。テストを default と分けて skip しない（落ちるテストを隠すため）。
+# python-tests の devShell で実行する: examples/vera/test_openmc_model.py が OpenMC の Python を import し、default の
+# devShell には無いため。その Python は default のパッケージに OpenMC を足した上位集合なので、ほかのテストも同じ shell で
+# 通る（flake.nix の testsPython）。references の devShell は参照のステージが使うパッケージだけで、検証用のツールの
+# pyyaml などが無い（ADR-0212）。テストを default と分けて skip しない（落ちるテストを隠すため）。
 # discover でなく追跡しているモジュール名を渡す: 追跡していないファイルを実行せず、子のディレクトリのテストを親で
 # 重ねて実行しないため（run-checks.sh の python_subdir_tests と同じ）。
 set -euo pipefail
@@ -21,7 +22,7 @@ if (( ${#entries[@]} == 0 )); then
 fi
 
 # shellcheck disable=SC2016 # 変数は nix develop の中の bash が展開する
-exec nix develop .#references -c bash -c '
+exec nix develop .#python-tests -c bash -c '
   set -euo pipefail
   dir=""; mods=()
   run() { echo "== $dir: python3 -m unittest ${mods[*]}"; (cd -- "$dir" && python3 -m unittest "${mods[@]}"); }
