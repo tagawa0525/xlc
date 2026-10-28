@@ -204,7 +204,7 @@ md5 cbc33de9。分岐点の dvc.lock）。比較の入力は `lattice-1C-rings1.
 `lattice-1C-rings4.msgpack` md5 51678c63、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。実行の後に入力の誤りの文言だけを直した
 `bin/lattice`（58ebdb250）に、再実行せずに `dvc commit` で付け直した（計算は変わらない）。
 
-ADR-0211 の誤差関数で作り直したライブラリ（`depletion.msgpack` md5 d86514f8）で、xlc の格子（`lattice-1C`）だけを 55e515b14（ブランチ
+ADR-0211 の誤差関数で作り直したライブラリ（`depletion.msgpack` md5 d86514f8）で、xlc の格子（`lattice-1C`）だけを 4a3b38a55（ブランチ
 perf/0181-free-gas-erfcx、分岐点は main の 742e11dc0、2026-10-28、Slurm の timed のジョブ 573）で再実行した。比較のステージ
 （`compare-1C`）は #0183 のため流しておらず、この節の表と比較の入力の md5 は上の f434af311 の実行のもの。同じ `compare_depletion.py` で
 比べた使い捨ての出力では、xlc の k∞ の変化はすべての点で 5e-14 以下（ADR-0211 の確認）。
@@ -1503,8 +1503,8 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 直した `xs.toml`、`chain.toml` の md5 で、90 核種の出力と `xs-range.toml` も同じ md5。#0145）。xlc の格子と比較は、
 2F、2A-density、2A-rods、2N、2O、2P が 02f35491（Slurm の timed のジョブ 521〜526。1 本ずつ）で、分岐点は同じ、2026-10-24。自己遮蔽の UFG の
 減速計算は ADR-0209 の前の既定（静止した標的、無限希釈の形）。2A は、ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの
-中性子束）と ADR-0211 の誤差関数で 55e515b14（ブランチ perf/0181-free-gas-erfcx、分岐点は main の 742e11dc0、2026-10-28、Slurm の timed の
-ジョブ 574）。2A のライブラリは、同じブランチの dad2febda で作り直した `p2/depletion.msgpack` md5 e84310af（`stage_runner.py` と `xs`。
+中性子束）と ADR-0211 の誤差関数で 4a3b38a55（ブランチ perf/0181-free-gas-erfcx、分岐点は main の 742e11dc0、2026-10-28、Slurm の timed の
+ジョブ 574）。2A のライブラリは、同じブランチの 00e97f8ba で作り直した `p2/depletion.msgpack` md5 e84310af（`stage_runner.py` と `xs`。
 Slurm 572。90 核種の出力がすべて変わった）、チェーンは同じ。ADR-0211 の前（f434af311、Slurm 565）からの k∞ の変化は、すべての点で 5e-12 以下。
 比較の入力（JSON の `inputs`）は、xlc の `lattice-<ジョブ>.msgpack` が 2A 7aae6697、2F c8f6c71f、2N 933e1f1e、2O d076d94d、2P f418a2d8、
 2A-density 74a7eaa0、2A-rods db416182、OpenMC の `openmc-<ジョブ>.msgpack` が 2A ce5dfcda、2F 2637a515、2N da441001、2O 709165e3、
