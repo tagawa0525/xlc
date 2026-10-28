@@ -1123,6 +1123,77 @@ class DrawBranchCrossTerms(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawHistoryEffect(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_history_effect.py の要約（条件 1 つ、燃焼度 2 点）"""
+
+        def row(burnup, scale):
+            return {
+                "burnup": burnup,
+                "between_histories_pcm": 184.5 * scale,
+                "effect_pcm": 311.94 * scale,
+                "tracked_pcm": 316.7 * scale,
+                "untracked_pcm": -4.76 * scale,
+                "reverse_pcm": 340.7 * scale,
+                "reverse_tracked_pcm": 345.24 * scale,
+                "reverse_untracked_pcm": -4.56 * scale,
+                "densities_percent": {
+                    "U-235": 0.531 * scale,
+                    "Pu-239": None if scale == 0 else 6.2,
+                },
+            }
+
+        return {
+            "format": "xlc-compare-history-effect",
+            "cases": {"density": [row(0.0, 0), row(10.0, 1)]},
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_effect_rows_split_the_history_and_the_reverse_effects(self):
+        table = vt.history_effect("density", [self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"],
+                [
+                    "10",
+                    "+184.5",
+                    "+311.9",
+                    "+316.7",
+                    "−4.8",
+                    "+340.7",
+                    "+345.2",
+                    "−4.6",
+                ],
+            ],
+        )
+
+    def test_density_rows_are_percentages_with_dashes_for_absent_nuclides(self):
+        table = vt.history_effect_densities("density", [self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(header, ["燃焼度 (MWd/kg)", "U-235", "Pu-239"])
+        self.assertEqual(
+            self.rows(table), [["0", "0.00", "–"], ["10", "+0.53", "+6.20"]]
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (vt.history_effect, vt.history_effect_densities):
+            with self.assertRaises(vt.TableError):
+                draw("density", [{"format": "xlc-compare-branch-cross-terms"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in (
+            "depletion-history-effect-density",
+            "depletion-history-effect-rods",
+            "depletion-history-densities-density",
+            "depletion-history-densities-rods",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawCoreBoron(unittest.TestCase):
     def summary(self) -> dict:
         """compare_core_boron.py の要約（燃焼点 2 つ）"""

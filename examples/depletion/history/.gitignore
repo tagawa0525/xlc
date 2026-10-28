@@ -1,0 +1,5 @@
+# 生成物とキャッシュからコピーしたもの。入力、ツール、出力の k（.out）だけを追跡する
+*.msgpack
+*.log
+*.checkpoint
+/lattice-d68311f7
