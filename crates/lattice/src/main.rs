@@ -32,6 +32,7 @@ use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
+use xlc_format::table::{Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::{BranchShielder, state_indices, tables};
 use xlc_lattice::checkpoint::{
@@ -412,7 +413,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
-        let (unique, region_index) = match &source {
+        // 履歴からの分岐の微視的断面積（ADR-0216）に使う、状態の燃料の自己遮蔽
+        let (unique, region_index, fuel) = match &source {
             Source::Library(library) => {
                 if input.self_shielding {
                     // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
@@ -441,9 +443,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             }
                             (None, None) => (None, Box::new(Vec::new)),
                         };
-                    shielder
-                        .shield(library, state_materials, reference, nominal)
-                        .with_context(|| format!("{}: self-shielding", context()))?
+                    let (materials, region_index, fuel) = shielder
+                        .shield_state(library, state_materials, reference, nominal)
+                        .with_context(|| format!("{}: self-shielding", context()))?;
+                    (materials, region_index, Some(fuel))
                 } else {
                     let mut named = state_materials
                         .iter()
@@ -495,12 +498,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     check_orders(&named, &medium_names)
                         .map_err(|e| anyhow!(e))
                         .with_context(context)?;
-                    by_name(named, library.groups.len())?
+                    let (materials, region_index) = by_name(named, library.groups.len())?;
+                    (materials, region_index, None)
                 }
             }
             Source::Macroscopic(named) => {
                 let groups = named.first().map_or(0, |(_, m)| m.groups());
-                by_name(named.clone(), groups)?
+                let (materials, region_index) = by_name(named.clone(), groups)?;
+                (materials, region_index, None)
             }
         };
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
@@ -627,6 +632,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let file = base.join(file);
             std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
         }
+        // 追う核種の微視的断面積（ADR-0216）。`[history]` は自己遮蔽と格子全体の少数群定数のファイルを求める（入力の検査）
+        let micro = match &history_branches {
+            Some(h) if !h.micro_nuclides().is_empty() => {
+                let (Source::Library(library), Some(fuel), Some(output)) =
+                    (&source, &fuel, &input.output)
+                else {
+                    return Err(anyhow!(
+                        "micro cross sections need a library, the self-shielding and few-group output"
+                    ))
+                    .with_context(context);
+                };
+                Some(
+                    h.micro(state, library, fuel, &lattice, &solution, &output.bounds)
+                        .with_context(|| format!("{}: micro cross sections", context()))?,
+                )
+            }
+            _ => None,
+        };
         report(state, solution.k);
         drop(emitting);
         tracing::info!(
@@ -642,7 +665,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 k: solution.k,
                 outputs,
                 medium,
-                micro: None,
+                micro,
             },
             converged,
         ))
@@ -661,11 +684,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
         }) => vec![1; entries.len()],
         None => Vec::new(),
     };
+    let micro_nuclides = history_branches
+        .as_ref()
+        .map_or(0, |h| h.micro_nuclides().len());
     let fits = |state: usize, saved: &SavedState| -> anyhow::Result<()> {
         let saved_shape: Vec<usize> = saved.outputs.iter().map(Vec::len).collect();
-        if saved_shape != shape || saved.medium.is_some() != input.medium.is_some() {
+        let saved_micro = saved.micro.as_ref().map_or(0, Vec::len);
+        if saved_shape != shape
+            || saved.medium.is_some() != input.medium.is_some()
+            || saved_micro != micro_nuclides
+        {
             return Err(anyhow!(
-                "the saved outputs {saved_shape:?} (medium {}) do not fit this run's {shape:?} (medium {})",
+                "the saved outputs {saved_shape:?} (medium {}, {saved_micro} micro nuclides) do not fit this run's \
+                 {shape:?} (medium {}, {micro_nuclides} micro nuclides)",
                 saved.medium.is_some(),
                 input.medium.is_some()
             ));
@@ -682,8 +713,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
             "branches"
         );
     }
-    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) =
-        states.into_iter().map(|s| (s.outputs, s.medium)).unzip();
+    let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
+    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) = states
+        .into_iter()
+        .map(|s| {
+            if let Some(m) = s.micro {
+                micro_states.push(m);
+            }
+            (s.outputs, s.medium)
+        })
+        .unzip();
     let written: Vec<MediumState> = written.into_iter().flatten().collect();
 
     let _write = tracing::debug_span!("write").entered();
@@ -719,6 +758,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
         if let Some(h) = &history_branches {
             for table in &mut tables {
                 table.heavy_metal = Some(h.heavy_metal);
+            }
+            // ミクロ燃焼の核種の数密度と、解いた状態（`points` の順）ごとの微視的断面積（ADR-0216）
+            if !h.micro_nuclides().is_empty() {
+                let micro = Micro {
+                    nuclides: h.micro_nuclides().to_vec(),
+                    densities: h.micro_densities().to_vec(),
+                    states: std::mem::take(&mut micro_states),
+                };
+                for table in &mut tables {
+                    table.micro = Some(micro.clone());
+                }
             }
         }
         for (output, table) in outputs.into_iter().zip(tables) {
