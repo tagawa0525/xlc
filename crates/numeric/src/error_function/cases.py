@@ -1,11 +1,9 @@
-"""erfcx_cases.rs と special/tests.rs の多倍長の参照値（x, hi, lo）の行を、Rust の配列の要素の形で書き出す。
+"""cases.rs と tests.rs の多倍長の参照値（x, hi, lo）の行を、Rust の配列の要素の形で書き出す。
 
 hi は 60 桁の値を倍精度に丸めた値、lo は残りを丸めた値。mpmath は devShell に無いので、nixpkgs の Python で実行する:
 
     nix shell --impure --expr 'let p = (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux;
-      in p.python3.withPackages (ps: [ps.mpmath])' -c python3 -I erfcx_cases.py
-
-ERFCX_BITS は参照値でなく実装のビットなので、ここでは作らない（テストが違うビットを示す）。
+      in p.python3.withPackages (ps: [ps.mpmath])' -c python3 -I cases.py
 """
 
 import mpmath
