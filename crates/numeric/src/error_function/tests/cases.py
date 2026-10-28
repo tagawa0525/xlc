@@ -1,4 +1,4 @@
-"""cases.rs と tests.rs の多倍長の参照値（x, hi, lo）の行を、Rust の配列の要素の形で書き出す。
+"""cases.rs の多倍長の参照値（x, hi, lo）の行を、Rust の配列の要素の形で書き出す。
 
 hi は 60 桁の値を倍精度に丸めた値、lo は残りを丸めた値。mpmath は devShell に無いので、nixpkgs の Python で実行する:
 
@@ -53,4 +53,4 @@ if __name__ == "__main__":
     rows("ERFCX_REFERENCE", erfcx, ERFCX_POINTS)
     rows("ERFCX_NEGATIVE_REFERENCE", erfcx, ERFCX_NEGATIVE_POINTS)
     rows("ERF_REFERENCE", lambda x: mpmath.erf(mpmath.mpf(x)), ERF_POINTS)
-    rows("erfc（tests.rs）", lambda x: mpmath.erfc(mpmath.mpf(x)), ERFC_POINTS)
+    rows("ERFC_REFERENCE", lambda x: mpmath.erfc(mpmath.mpf(x)), ERFC_POINTS)
