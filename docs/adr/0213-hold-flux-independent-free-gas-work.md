@@ -92,10 +92,11 @@ ShareCell:
   持たない。スイープを終えたら捨て、移行の計数の間は持たない
 - 上限: 自己遮蔽の全体で持つ量は、入力の `ufg-hold-memory`（GiB、0 以上。最上位の項目で、ほかの `ufg-*` と並べる）があればその量、
   無ければ自己遮蔽を呼ぶたび（輸送ごと）に（使用可能メモリ − 2 GiB）× 0.8（`ufg::hold_total`、`ufg::hold_budget`）。使用可能メモリは
-  /proc/meminfo の MemAvailable と、このプロセスの cgroup（v2）とその祖先の memory.max の残り（memory.max − memory.current。memory.max
-  の無い階層は制限しない）の小さい方（cgroup にメモリの上限を置く環境で、MemAvailable がホストの全体を示すときに抑える）。読めない
-  とき（MemAvailable の無い meminfo、cgroup v2 の行の無い /proc/self/cgroup、/sys/fs/cgroup の下に無い cgroup、memory.max の有無を
-  確かめられない階層、数でない値）は推測せずエラーで止め、
+  /proc/meminfo の MemAvailable と、このプロセスの cgroup（v2）とその祖先の memory.max と memory.high（越えるとカーネルが回収して
+  遅くする）の残り（上限 − memory.current。上限のファイルの無い階層は制限しない）の小さい方（cgroup にメモリの上限を置く環境で、
+  MemAvailable がホストの全体を示すときに抑える）。読めないとき（MemAvailable の無い meminfo、cgroup v2 の行の無い /proc/self/cgroup、
+  cgroup.controllers の無い /sys/fs/cgroup（cgroup v2 の根でない）、根の外を指す cgroup、調べられないディレクトリ、上限のファイルの
+  有無を確かめられない階層、数でない値）は推測せずエラーで止め、
   `ufg-hold-memory` を示す。全体の量を同時に解きうる減速計算の数で分けた量（1 区間 40 B で数える。`ufg::held_cells`）が 1 回の減速計算の
   上限で、自己遮蔽のピンと塊が移行の形によらず渡す。例と試験の 1 本の減速計算は、同時に 1 つとして分ける。最初に持つ格子点で、
   すべての格子点の核種の区間の始まり（核種の数 + 1 個の u32）と格子点ごとの位置の表を確保して上限から引き、区間の配列は倍に伸ばすが
@@ -152,7 +153,8 @@ ShareCell:
 ## 帰結
 
 - メモリは、自己遮蔽の全体で（使用可能メモリ − 2 GiB）× 0.8 まで増える（ShareCell の表を除く）。量は自己遮蔽の始めに 1 度求めるので、
-  減速計算が持つ区間のほかの作業の配列（格子点、飛程の表、衝突確率）は残りの 2 割と 2 GiB に収まる必要がある。2A（16 スレッド）では全体の
+  減速計算が持つ区間のほかの作業の配列（格子点、飛程の表、衝突確率）と、自己遮蔽の間に増える ShareCell の表は、残りの 2 割と 2 GiB に
+  収まる必要がある。2A（16 スレッド）では全体の
   量 59 GB ほどに対して持つのは 6 GB ほどで、MaxRSS は 12.0 GB（Slurm 580）
 - r995 の Slurm はジョブの cgroup に memory.max を置かない（`TaskPlugin = (null)`、slurmd.service の memory.max は `max`。2026-10-28 に `scontrol show config` と /sys/fs/cgroup で確かめた）。排他なしの `-c` のジョブを 2 本同時に
   流すと、どちらも同じ MemAvailable から量を求め、足して機械のメモリを超えうる。同時に流すときは `ufg-hold-memory` で分ける
