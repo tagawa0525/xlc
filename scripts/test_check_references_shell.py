@@ -101,6 +101,16 @@ class CheckReferencesShell(unittest.TestCase):
         result = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_names_a_tracked_record_missing_from_the_work_tree(self):
+        path = self.shell_path()
+        self.record("examples/a/references-shell.txt", path)
+        self.record("examples/b/references-shell.txt", path)
+        (self.repo / "examples/b/references-shell.txt").unlink()
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("examples/b/references-shell.txt", result.stderr)
+        self.assertIn("ADR-0212", result.stderr)
+
     def test_fails_without_tracked_records(self):
         result = self.check()
         self.assertEqual(result.returncode, 2)
