@@ -95,8 +95,8 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
 
 ## 確認
 
-テストは xlc-numeric の `error_function::tests` にあり、点の表は `error_function/cases.rs` に置く。多倍長の参照値は
-`error_function/cases.py`（mpmath 1.4.1、60 桁）が書き出す。移した前後で、x = 0 と x ≥ 0.46875 の 40 点の erfcx のビットが同じことを
+テストは xlc-numeric の `error_function::tests` にあり、点の表は `error_function/tests/cases.rs` に置く。多倍長の参照値は
+`error_function/tests/cases.py`（mpmath 1.4.1、60 桁）が書き出す。移した前後で、x = 0 と x ≥ 0.46875 の 40 点の erfcx のビットが同じことを
 確かめた（使い捨てのテスト）。
 
 - `erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values`: 区間の端と、上の計測で誤差の大きかった x を含む 41 点で、mpmath の
@@ -109,7 +109,8 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
 - ulp は、多倍長の値の側の隣の浮動小数点数までの間隔で数える（値が 2 の冪の直下のとき、上の間隔で数えると誤差を半分に数える）
 - 1 スレッドの `free_gas`（1C の 0 MWd/kg のピンセル `issue-0133/pin-1C-0.toml` に ADR-0209 の既定を明示したもの、手元、2026-10-28。
   ほかのジョブと CPU を共有した、時間を記録するジョブではない交互の 2 回）: main の 00d789a1f で 9.74〜9.75 秒、6b4d12590（erf を
-  erfcx から求めるコミット。後の負の x と erfc の変更は核の呼ぶ値を変えない）で 4.84〜4.86 秒。k の標準出力は 6 桁で同じ（1.172387）
+  erfcx から求めるコミット。後の負の x と erfc の変更は核の呼ぶ値を変えない）で 4.84〜4.86 秒。xlc-numeric に移した 0ed052ed5 で
+  4.87 秒（2 回。クレートをまたぐ呼び出しでも遅くならない。erf と erfcx に `#[inline]` を付けても 4.91 秒で速くならない）。k の標準出力は 6 桁で同じ（1.172387）
 
 ## 帰結
 
