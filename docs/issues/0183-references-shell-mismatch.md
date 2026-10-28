@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [dvc, openmc, tooling]
 opened: 2026-10-28
-closed:
+closed: 2026-10-28
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0212
 ---
 
 # references の devShell の store のパスが examples の references-shell.txt と食い違う
@@ -36,7 +36,7 @@ devShell）の両方が使うので、検証用のスクリプトのために足
 付け直したのはその場の判断で、再発を防ぐ仕組みは .py の docstring とコメントを除く ADR-0210 のほかは決めていない）。ADR-0211 のブランチは、
 `bin/xs` のバイトだけが変わる refactor（eaecf6144）を、ライブラリの作り直しの 2 本を避けるために戻した（8926b94e4）。
 
-関係する ADR: なし
+関係する ADR: ADR-0212
 
 ## 完了の条件
 
@@ -51,3 +51,7 @@ flake.nix か flake.lock を変えたブランチで、マージの前に refere
 
 - 2026-10-28: ADR-0211 の 1C の燃焼の再測定の前の `dvc status` で見つけた
 - 2026-10-28: /retro で、#0182 のマージで見つからなかった理由（/dvc-relock が `references-shell` を対象から外すだけで中身を比べない）を足した
+- 2026-10-28: ADR-0212 で、参照のステージの Python のパッケージの並びを検証用から分けた（pyyaml は default と python-tests の devShell
+  だけ）。references の devShell は pyyaml の前と同じ `qdaa3j64…` に戻り、4 つの `references-shell.txt` と lock は付け直さずに合った。
+  pre-commit の hook `references-shell` が、flake の変更で食い違うコミットを止める。`compare-1C` を流し、記録の 1C の表を更新した（3a273a1bc）。
+  「pyyaml を足しても OpenMC と NJOY の結果は変わらないはず」は確かめていないまま、確かめずに済む形にした
