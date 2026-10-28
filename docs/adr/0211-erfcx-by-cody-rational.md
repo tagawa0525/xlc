@@ -131,5 +131,5 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
 ## 補足
 
 - 2026-10-28: 帰結の「1C の比較のステージは流していない」は、ADR-0212 で references の devShell の store のパスを記録したものに戻した後、
-  `compare-1C` を流した（d898d9f56）。記録の 1C の k∞ と数密度の表は値が変わらず、時間の表の xlc の行はこの ADR の再実行（Slurm 573）の値になった
+  `compare-1C` を流した（cae204b30。lock は d898d9f56）。記録の 1C の k∞ と数密度の表は値が変わらず、時間の表の xlc の行はこの ADR の再実行（Slurm 573）の値になった
   （examples/depletion/verification.md の「格子計算の燃焼」）

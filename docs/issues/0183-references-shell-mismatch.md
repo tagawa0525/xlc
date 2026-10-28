@@ -53,5 +53,5 @@ flake.nix か flake.lock を変えたブランチで、マージの前に refere
 - 2026-10-28: /retro で、#0182 のマージで見つからなかった理由（/dvc-relock が `references-shell` を対象から外すだけで中身を比べない）を足した
 - 2026-10-28: ADR-0212 で、参照のステージの Python のパッケージの並びを検証用から分けた（pyyaml は default と python-tests の devShell
   だけ）。references の devShell は pyyaml の前と同じ `qdaa3j64…` に戻り、4 つの `references-shell.txt` と lock は付け直さずに合った。
-  pre-commit の hook `references-shell` が、flake の変更で食い違うコミットを止める。`compare-1C` を流し、記録の 1C の表を更新した（d898d9f56）。
+  pre-commit の hook `references-shell` が、flake.nix、flake.lock、docs/patches/ の変更で食い違うコミットを止める。`compare-1C` を流し、記録の 1C の表を更新した（cae204b30 で実行、lock は d898d9f56）。
   「pyyaml を足しても OpenMC と NJOY の結果は変わらないはず」は確かめていないまま、確かめずに済む形にした
