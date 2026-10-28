@@ -4428,7 +4428,7 @@ k∞ の差 (k_nominal-moderator − k_every-state) × 1e5（pcm）。行はホ�
 
 ## 履歴の効き（2A）
 
-燃焼履歴の補正（[ADR-0215](../../docs/adr/0215-correct-history-by-moderator-density-and-rod-histories.md)）の大きさを決めるため、条件を変えた燃焼（履歴の分岐）の 2A-density（減速材の密度
+燃焼履歴の補正（[ADR-0215](../../docs/adr/0215-correct-untracked-history-by-history-branches.md)）の大きさを決めるため、条件を変えた燃焼（履歴の分岐）の 2A-density（減速材の密度
 0.661 g/cc）と 2A-rods（案内管 24 本に AIC の制御棒）を、2A の履歴の組成からその条件への瞬時の分岐（ADR-0187）と同じ燃焼度で比べる。
 差はどれも Δρ = (1/k_a − 1/k_b) × 1e5 pcm（a から b へ）で、k∞ は格子計算の値（履歴の `k_inf` と分岐のテーブルの `k_inf`）。量の定義:
 
