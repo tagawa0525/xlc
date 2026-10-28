@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-28
 requires: [ADR-0203, ADR-0209]
 supersedes: []
@@ -111,9 +111,19 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
   ほかのジョブと CPU を共有した、時間を記録するジョブではない交互の 2 回）: main の 00d789a1f で 9.74〜9.75 秒、6b4d12590（erf を
   erfcx から求めるコミット。後の負の x と erfc の変更は核の呼ぶ値を変えない）で 4.84〜4.86 秒。xlc-numeric に移した 0ed052ed5 で
   4.87 秒（2 回。クレートをまたぐ呼び出しでも遅くならない。erf と erfcx に `#[inline]` を付けても 4.91 秒で速くならない）。k の標準出力は 6 桁で同じ（1.172387）
+- 2A の集合体の燃焼（examples/depletion/verification.md「集合体の燃焼」の「時間」。55e515b14、分岐点は main の 742e11dc0、2026-10-28、Slurm の
+  timed のジョブ 574）: 自己遮蔽の和 6,131.5 → 3,290.9 秒（1 回 74.4〜77.0 → 39.9〜41.4 秒）、ジョブの経過時間 1 時間 47 分 59 秒 → 1 時間 0 分 40 秒。
+  ADR-0209 の前（18 分 58 秒）の 3.2 倍で、#0181 の目安（2 倍以内）には届かない。k∞ の差（xlc − OpenMC）は 0 MWd/kg で +64.6 pcm、0 → 40 MWd/kg の
+  変化は +67.3 pcm で、ADR-0211 の前（+65、+67 pcm）と同じ（xlc の k∞ の変化はすべての点で 5e-12 以下。OpenMC の標準偏差は 8.6〜11.6 pcm）
+- 1C の燃焼（1 リングと 4 リングの xlc。同じコミット、Slurm の timed のジョブ 573）: 自己遮蔽の和は 1 リング 994.5 → 499.1 秒、4 リング
+  1,232.2 → 730.7 秒（1 回 76.3〜77.2 → 38.3〜38.5 秒、94.3〜95.3 → 55.8〜56.5 秒）、xlc の 2 つの燃焼の経過時間は 20 分 53 秒（ADR-0211 の前は
+  比較を含めて 37 分 41 秒）。k∞ を同じ `compare_depletion.py` で OpenMC と比べると（使い捨ての出力。下の帰結）、xlc の k∞ の変化はすべての点で
+  5e-14 以下で、0 MWd/kg の差は 1 リング +52.7 pcm、4 リング +102.0 pcm（ADR-0209 の +53 pcm と同じ。OpenMC の標準偏差は約 20 pcm）
 
 ## 帰結
 
 - ライブラリの値と lattice の自由ガスの核が変わる。examples/depletion と examples/depletion/p2 のライブラリを作り直し、1C と 2A の
-  燃焼を再測定する（examples/depletion/verification.md）
-- 自由ガスの散乱源の残りの手間は #0181 に書く
+  燃焼を再測定した（examples/depletion/verification.md）。ほかの例のライブラリは、結果が要るときに作り直す
+- 1C の比較のステージ（`compare-1C`）は流していない。上流の `references-shell` が今の references の devShell の store のパスと食い違い
+  （main の 6634685a6 で pyyaml を足した後）、目標の上流を流すと OpenMC の燃焼まで再実行するため。記録の 1C の表は ADR-0211 の前の値のまま
+- 自由ガスの散乱源の残りの手間は #0181 に書く（2A の目安に届かないので、#0181 は開いたまま）
