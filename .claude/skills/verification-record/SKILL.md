@@ -59,8 +59,9 @@ default の devShell の中（標準ライブラリだけのツールだが、`-
    数値を複数のステージ（core、OpenMC、比較）が出すため。書くのは、各ステージを実行したときの HEAD（`git rev-parse --short=8 HEAD`）、日付、
    ブランチの上なら分岐点（上の「数値を出す前」）。`record_provenance.py` の出力で、どのステージのどの md5 の結果かを確かめてから書く
    （例: xlc の炉心は core のステージの md5 と dvc.lock のコミット、OpenMC は参照解の実行、比べたのは compare のステージ）
-5. 再現のコマンドは、リポジトリの直下から実行する形でコードブロックに書く（「k の差の内訳」の節の形）。python3 は
-   `nix develop .#references -c` の中、cargo と dvc は `default` の devShell の中。比較の文章は
+5. 再現のコマンドは、リポジトリの直下から実行する形でコードブロックに書く（「k の差の内訳」の節の形）。OpenMC の
+   Python API を使う python3 は `nix develop .#references -c` の中、ほかの python3（pyyaml などの検証用のツール）と cargo と dvc は
+   `default` の devShell の中（references の Python は default の上位集合でない。ADR-0212）。比較の文章は
    `python3 examples/vera/compare_p3.py --report <JSON>`
 
 ## 書き方

@@ -127,3 +127,9 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
 - 1C の比較のステージ（`compare-1C`）は流していない。上流の `references-shell` が今の references の devShell の store のパスと食い違い
   （main の 6634685a6 で pyyaml を足した後）、目標の上流を流すと OpenMC の燃焼まで再実行するため。記録の 1C の表は ADR-0211 の前の値のまま
 - 自由ガスの散乱源の残りの手間は #0181 に書く（2A の目安に届かないので、#0181 は開いたまま）
+
+## 補足
+
+- 2026-10-28: 帰結の「1C の比較のステージは流していない」は、ADR-0212 で references の devShell の store のパスを記録したものに戻した後、
+  `compare-1C` を流した（9382e2a29。lock は 3a273a1bc）。記録の 1C の k∞ と数密度の表は値が変わらず、時間の表の xlc の行はこの ADR の再実行（Slurm 573）の値になった
+  （examples/depletion/verification.md の「格子計算の燃焼」）
