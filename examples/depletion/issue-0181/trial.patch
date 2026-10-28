@@ -1,0 +1,155 @@
+diff --git a/crates/lattice/src/ufg.rs b/crates/lattice/src/ufg.rs
+index 8ae719d99..40fb885dc 100644
+--- a/crates/lattice/src/ufg.rs
++++ b/crates/lattice/src/ufg.rs
+@@ -718,6 +718,17 @@ fn solve_cell(
+     }
+     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
+     let [free_gas, sab] = sweep.thermal.as_ref().map_or([0.0; 2], Thermal::elapsed);
++    if let Some(t) = sweep.thermal.as_ref() {
++        tracing::debug!(
++            cells = t.counts[0],
++            evaluations = t.counts[1],
++            integrates = t.counts[2],
++            calls = t.counts[3],
++            build = t.split[0].as_secs_f64(),
++            integrate = t.split[1].as_secs_f64(),
++            "TRIAL free-gas split"
++        );
++    }
+     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成。
+     // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源
+     tracing::debug!(
+diff --git a/crates/lattice/src/ufg/free_gas.rs b/crates/lattice/src/ufg/free_gas.rs
+index 417f5450c..18813d001 100644
+--- a/crates/lattice/src/ufg/free_gas.rs
++++ b/crates/lattice/src/ufg/free_gas.rs
+@@ -875,6 +875,11 @@ pub(super) struct Thermal<'a> {
+     sab: SabWork,
+     /// 散乱源の経過時間（ログの内訳）: [自由ガスの核の区間, S(α, β) の移行]
+     elapsed: [Duration; 2],
++    cache: Vec<Option<Vec<(usize, f64, f64, usize, usize, Quadratic)>>>,
++    /// [区間, f の評価, integrate, source の呼び出し]
++    pub(super) counts: [u64; 4],
++    /// [2 次式の作成（区間の作成を含まない）, 積分]
++    pub(super) split: [Duration; 2],
+ }
+ 
+ impl<'a> Thermal<'a> {
+@@ -922,6 +927,9 @@ impl<'a> Thermal<'a> {
+             all: Vec::new(),
+             sab: SabWork::default(),
+             elapsed: [Duration::ZERO; 2],
++            cache: Vec::new(),
++            counts: [0; 4],
++            split: [Duration::ZERO; 2],
+         })
+     }
+ 
+@@ -978,20 +986,23 @@ impl<'a> Thermal<'a> {
+         let (gases, sigmas, rings) = (&self.gases, &self.sigma, &self.rings);
+         let prefix = &self.prefix;
+         let previous = self.previous.as_ref();
+-        // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
+-        let parts: Vec<Vec<(f64, f64)>> = self
+-            .all
+-            .par_chunks(CELLS_PER_TASK)
+-            .map(|chunk| {
+-                let mut sums = vec![(0.0, 0.0); n];
+-                // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
++        let slot = m - self.start;
++        if self.cache.len() <= slot {
++            self.cache.resize_with(slot + 1, || None);
++        }
++        let reuse = std::env::var_os("XLC_TRIAL_REUSE").is_some();
++        let built_clock = Instant::now();
++        if !(reuse && self.cache[slot].is_some()) {
++            let mut built: Vec<(usize, f64, f64, usize, usize, Quadratic)> = Vec::with_capacity(self.all.len());
++            for chunk in self.all.chunks(CELLS_PER_TASK) {
+                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
+-                // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
+                 let mut hint = usize::MAX;
+                 for &(l, a, b) in chunk {
+                     let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
+                     let inside = gas.inside(u[m], a, b);
+-                    let f = |x: f64, q: usize| {
++                    let mut evals = 0u64;
++                    let mut f = |x: f64, q: usize| {
++                        evals += 1;
+                         interpolate(&u[*offset..], sigma, q - offset, x)
+                             * gas.correction(high, x, u[m], e, inside)
+                     };
+@@ -1011,12 +1022,30 @@ impl<'a> Thermal<'a> {
+                     let fb = f(b, qb);
+                     shared = Some((l, b, inside, qb, fb));
+                     let quadratic = Quadratic::through(a, b, fa, f(mid, q_mid), fb);
++                    self.counts[1] += evals;
++                    built.push((l, a, b, qa, qb, quadratic));
++                }
++            }
++            self.counts[0] += built.len() as u64;
++            self.cache[slot] = Some(built);
++        }
++        self.counts[3] += 1;
++        let integrate_clock = Instant::now();
++        self.split[0] += integrate_clock - built_clock;
++        let cached = self.cache[slot].as_ref().expect("built above");
++        let mut calls = 0u64;
++        let parts: Vec<Vec<(f64, f64)>> = cached
++            .chunks(CELLS_PER_TASK)
++            .map(|chunk| {
++                let mut sums = vec![(0.0, 0.0); n];
++                for &(l, a, b, qa, qb, quadratic) in chunk {
+                     for &(i, density) in &rings[l] {
+                         let history = History {
+                             flux: &flux[i],
+                             prefix: &prefix[i],
+                             previous: previous.map(|(f, p)| (f[i].as_slice(), &p[i])),
+                         };
++                        calls += 1;
+                         let (k, o) = integrate(&quadratic, u, m, a, b, qa, qb, &history);
+                         sums[i].0 += density * k;
+                         sums[i].1 += density * o;
+@@ -1025,6 +1054,10 @@ impl<'a> Thermal<'a> {
+                 sums
+             })
+             .collect();
++        self.counts[2] += calls;
++        if !reuse {
++            self.cache[slot] = None;
++        }
+         for part in parts {
+             for ((k, o), (known, own)) in part.into_iter().zip(known.iter_mut().zip(own.iter_mut()))
+             {
+@@ -1032,6 +1065,7 @@ impl<'a> Thermal<'a> {
+                 *own += o;
+             }
+         }
++        self.split[1] += integrate_clock.elapsed();
+         let gas_done = Instant::now();
+         // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
+         for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
+diff --git a/crates/lattice/src/ufg/transfer.rs b/crates/lattice/src/ufg/transfer.rs
+index f77e276bc..80165341e 100644
+--- a/crates/lattice/src/ufg/transfer.rs
++++ b/crates/lattice/src/ufg/transfer.rs
+@@ -84,10 +84,19 @@ impl Counting<'_> {
+             .flat_map(|l| (1..ng).map(move |b| (l, b)))
+             .collect();
+         let grades = grades(SHARE_CELLS);
++        let trial_clock = std::time::Instant::now();
+         let cells: Vec<[Vec<ShareCell>; 2]> = pairs
+             .par_iter()
+             .map(|&(l, b)| self.share_cells(l, b, x[b], &grades))
+             .collect();
++        let total: usize = cells.iter().map(|[a, b]| a.len() + b.len()).sum();
++        tracing::debug!(
++            seconds = trial_clock.elapsed().as_secs_f64(),
++            gases,
++            pairs = pairs.len(),
++            share_cells = total,
++            "TRIAL share cells"
++        );
+         let tasks: Vec<(usize, usize)> = self
+             .entries
+             .iter()
