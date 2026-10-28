@@ -34,6 +34,11 @@ pub(super) const TAIL: f64 = 28.0;
 /// 並列の手間が勝つ）
 const CELLS_PER_TASK: usize = 32;
 
+/// 1 回の減速計算がスイープの間で持つ区間（[`HeldCell`]）の数の上限（1 GiB。ADR-0213）。自己遮蔽のピンはスレッドごとに 1 本ずつ
+/// 解く（ADR-0198）ので、全体はこれのスレッドの数倍で抑えられる。格子点ごとの核種の区間の始まり（核種の数 + 1 個の u32）は数えない
+/// （2A のピンで区間の 1% ほど）
+pub(super) const HELD_CELLS: usize = (1 << 30) / std::mem::size_of::<HeldCell>();
+
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
 pub(super) const EDGE: f64 = 6.0;
 
@@ -158,6 +163,14 @@ impl Gas {
             floor: table.incident[table.incident.len() - 1],
             ..self
         }
+    }
+
+    /// すべての値のビット（移行の計数の割合の区間を、減速計算の間で共有する表の鍵。ADR-0213）
+    pub(super) fn bits(&self) -> [u64; 7] {
+        [
+            self.awr, self.kt, self.gain, self.width, self.zeta, self.cap, self.floor,
+        ]
+        .map(f64::to_bits)
     }
 
     /// S(α, β) の移行を使う入射エネルギーの上限 (eV)。使わなければ `None`
@@ -651,6 +664,14 @@ pub(super) struct Quadratic {
 }
 
 impl Quadratic {
+    /// 持った区間の 2 次式。中心は [`Quadratic::through`] と同じ式で両端から求め直す（同じ演算なので、ビットで同じ値になる）
+    fn held(cell: &HeldCell) -> Self {
+        Self {
+            c: 0.5 * (cell.a + cell.b),
+            coefficients: cell.coefficients,
+        }
+    }
+
     pub(super) fn through(a: f64, b: f64, fa: f64, fm: f64, fb: f64) -> Self {
         let c = 0.5 * (a + b);
         let h = 0.5 * (b - a);
@@ -698,6 +719,22 @@ impl Quadratic {
         }
         (wa, wb)
     }
+}
+
+/// スイープの間で持つ、D の散乱源の区間 [a, b] と、その σs × D の 2 次式の係数（[`Thermal::source`]。ADR-0213）。
+/// 区間の格子点と核種は持たず、格子点は積分の前に探し直し、核種は格子点ごとの核種の区間の始まりで決める（1 区間 40 B）
+#[derive(Debug, Clone, Copy)]
+struct HeldCell {
+    a: f64,
+    b: f64,
+    coefficients: [f64; 3],
+}
+
+/// 1 つの格子点の、持った区間（核種の順）と、[核種] の区間の始まり（最後は区間の数）
+#[derive(Debug, Clone)]
+struct Held {
+    cells: Vec<HeldCell>,
+    starts: Vec<u32>,
 }
 
 /// 入射のレサジーの区間 [a, b] で、D を出射の境界の下（または上）に積分した割合を近似する 2 次式（[`Gas::share_cells`]）。
@@ -869,8 +906,13 @@ pub(super) struct Thermal<'a> {
     /// 作業用の区間の境界と区間
     bounds: Vec<f64>,
     pieces: Vec<(f64, f64)>,
-    /// 作業用の、すべての自由ガスの核種の（核種, 区間の両端）
+    /// 作業用の、すべての自由ガスの核種の（核種, 区間の両端）と、[核種] の区間の始まり（最後は区間の数）
     all: Vec<(usize, f64, f64)>,
+    starts: Vec<u32>,
+    /// [格子点 − start] の、最初のスイープで作って持った区間（持たない格子点は `None`。ADR-0213）
+    held: Vec<Option<Held>>,
+    /// まだ持てる区間の数
+    room: usize,
     /// 作業用の、S(α, β) の移行の小区間と、その重み
     sab: SabWork,
     /// 散乱源の経過時間（ログの内訳）: [自由ガスの核の区間, S(α, β) の移行]
@@ -880,7 +922,8 @@ pub(super) struct Thermal<'a> {
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
-    /// `None`。
+    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`HELD_CELLS`]。0 なら持たず、スイープごとに作り直す）。
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         gases: Vec<Gas>,
         sigma: Vec<(usize, Vec<f64>)>,
@@ -889,6 +932,7 @@ impl<'a> Thermal<'a> {
         cells: usize,
         energies: &[f64],
         n: usize,
+        hold: usize,
     ) -> Option<Self> {
         if gases.is_empty() {
             return None;
@@ -920,6 +964,9 @@ impl<'a> Thermal<'a> {
             bounds: Vec::new(),
             pieces: Vec::new(),
             all: Vec::new(),
+            starts: Vec::new(),
+            held: Vec::new(),
+            room: hold,
             sab: SabWork::default(),
             elapsed: [Duration::ZERO; 2],
         })
@@ -927,6 +974,17 @@ impl<'a> Thermal<'a> {
 
     pub(super) fn start(&self) -> usize {
         self.start
+    }
+
+    /// スイープの間で持っている区間の数
+    pub(super) fn held(&self) -> usize {
+        self.held.iter().flatten().map(|h| h.cells.len()).sum()
+    }
+
+    /// スイープを終えたあと、持った区間を捨てる（移行の計数の間は持たない）。そのあとの [`Thermal::source`] は作り直す
+    pub(super) fn release(&mut self) {
+        self.held = Vec::new();
+        self.room = 0;
     }
 
     /// 自由ガスの核種 `l` の核と、[`Thermal::new`] に渡したその弾性散乱断面積の列（最初の格子点と、そこからの [格子点] の値）、
@@ -953,11 +1011,73 @@ impl<'a> Thermal<'a> {
             return Ok(());
         }
         let clock = Instant::now();
+        let n = known.len();
+        let slot = m - self.start;
+        let parts = match self.held.get(slot).and_then(Option::as_ref) {
+            Some(held) => self.integrate_held(held, m, u, flux, n),
+            None => {
+                let (parts, cells) = self.build(m, u, high, e, flux, n);
+                if let Some(cells) = cells {
+                    if self.held.len() <= slot {
+                        self.held.resize_with(slot + 1, || None);
+                    }
+                    self.room -= cells.len();
+                    self.held[slot] = Some(Held {
+                        cells,
+                        starts: self.starts.clone(),
+                    });
+                }
+                parts
+            }
+        };
+        for part in parts {
+            for ((k, o), (known, own)) in part.into_iter().zip(known.iter_mut().zip(own.iter_mut()))
+            {
+                *known += k;
+                *own += o;
+            }
+        }
+        let gas_done = Instant::now();
+        let (sigmas, rings) = (&self.sigma, &self.rings);
+        let previous = self.previous.as_ref();
+        // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
+        for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
+            if let Some(table) = *table {
+                let source = SabSource {
+                    table,
+                    u,
+                    high,
+                    offset: *offset,
+                    sigma,
+                };
+                let previous = previous.map(|(f, _)| f.as_slice());
+                source.add(m, e, rings, flux, previous, known, own, &mut self.sab)?;
+            }
+        }
+        self.elapsed[0] += gas_done - clock;
+        self.elapsed[1] += gas_done.elapsed();
+        Ok(())
+    }
+
+    /// 格子点 m（エネルギー `e`）の区間を作り、2 次式にして積分した、区間の塊ごとの [リング] の（既知の部分, F_m の係数）。持てる数が
+    /// 残っていれば、作った区間（[`HeldCell`]）も返す（[`Thermal::starts`] はこの格子点の核種の区間の始まり）
+    #[allow(clippy::type_complexity)]
+    fn build(
+        &mut self,
+        m: usize,
+        u: &[f64],
+        high: f64,
+        e: f64,
+        flux: &[Vec<f64>],
+        n: usize,
+    ) -> (Vec<Vec<(f64, f64)>>, Option<Vec<HeldCell>>) {
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
         // 手間を避ける）
         self.all.clear();
+        self.starts.clear();
         for (l, gas) in self.gases.iter().enumerate() {
+            self.starts.push(self.all.len() as u32);
             // 分離共鳴を持つ核種の 400 kT のように上限が範囲の上端より低い核種で、区間を作って捨てる手間を省く
             if gas.idle(high, u[m], e) {
                 continue;
@@ -974,16 +1094,17 @@ impl<'a> Thermal<'a> {
             );
             self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
         }
-        let n = known.len();
-        let (gases, sigmas, rings) = (&self.gases, &self.sigma, &self.rings);
-        let prefix = &self.prefix;
-        let previous = self.previous.as_ref();
+        self.starts.push(self.all.len() as u32);
+        let keep = !self.all.is_empty() && self.all.len() <= self.room;
+        let (gases, sigmas) = (&self.gases, &self.sigma);
+        let add = self.adder(m, u, flux);
         // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
-        let parts: Vec<Vec<(f64, f64)>> = self
+        let parts: Vec<(Vec<(f64, f64)>, Vec<HeldCell>)> = self
             .all
             .par_chunks(CELLS_PER_TASK)
             .map(|chunk| {
                 let mut sums = vec![(0.0, 0.0); n];
+                let mut cells = Vec::with_capacity(if keep { chunk.len() } else { 0 });
                 // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
                 let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
                 // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
@@ -1011,45 +1132,91 @@ impl<'a> Thermal<'a> {
                     let fb = f(b, qb);
                     shared = Some((l, b, inside, qb, fb));
                     let quadratic = Quadratic::through(a, b, fa, f(mid, q_mid), fb);
-                    for &(i, density) in &rings[l] {
-                        let history = History {
-                            flux: &flux[i],
-                            prefix: &prefix[i],
-                            previous: previous.map(|(f, p)| (f[i].as_slice(), &p[i])),
-                        };
-                        let (k, o) = integrate(&quadratic, u, m, a, b, qa, qb, &history);
-                        sums[i].0 += density * k;
-                        sums[i].1 += density * o;
+                    add(&mut sums, l, &quadratic, a, b, qa, qb);
+                    if keep {
+                        cells.push(HeldCell {
+                            a,
+                            b,
+                            coefficients: quadratic.coefficients,
+                        });
                     }
+                }
+                (sums, cells)
+            })
+            .collect();
+        if keep {
+            let mut cells = Vec::with_capacity(self.all.len());
+            let sums = parts
+                .into_iter()
+                .map(|(sums, part)| {
+                    cells.extend(part);
+                    sums
+                })
+                .collect();
+            (sums, Some(cells))
+        } else {
+            (parts.into_iter().map(|(sums, _)| sums).collect(), None)
+        }
+    }
+
+    /// 格子点 m の持った区間 `held` を、作ったとき（[`Thermal::build`]）と同じ塊に分けて同じ順に積分した、区間の塊ごとの [リング] の
+    /// （既知の部分, F_m の係数）。区間の格子点は、作ったときと同じく u_q ≤ x の最後の格子点（[`locate_from`] は起点によらない）
+    fn integrate_held(
+        &self,
+        held: &Held,
+        m: usize,
+        u: &[f64],
+        flux: &[Vec<f64>],
+        n: usize,
+    ) -> Vec<Vec<(f64, f64)>> {
+        let add = self.adder(m, u, flux);
+        let starts = &held.starts;
+        held.cells
+            .par_chunks(CELLS_PER_TASK)
+            .enumerate()
+            .map(|(c, chunk)| {
+                let mut sums = vec![(0.0, 0.0); n];
+                let first = c * CELLS_PER_TASK;
+                // 塊の最初の区間を含む核種（区間の無い核種は始まりが次の核種と同じなので、その最後のもの）
+                let mut l = starts.partition_point(|&s| s as usize <= first) - 1;
+                let mut hint = usize::MAX;
+                for (j, cell) in chunk.iter().enumerate() {
+                    while starts[l + 1] as usize <= first + j {
+                        l += 1;
+                    }
+                    let qa = locate_from(u, cell.a, hint);
+                    let qb = locate_from(u, cell.b, qa);
+                    hint = qb;
+                    add(&mut sums, l, &Quadratic::held(cell), cell.a, cell.b, qa, qb);
                 }
                 sums
             })
-            .collect();
-        for part in parts {
-            for ((k, o), (known, own)) in part.into_iter().zip(known.iter_mut().zip(own.iter_mut()))
-            {
-                *known += k;
-                *own += o;
-            }
-        }
-        let gas_done = Instant::now();
-        // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
-        for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
-            if let Some(table) = *table {
-                let source = SabSource {
-                    table,
-                    u,
-                    high,
-                    offset: *offset,
-                    sigma,
+            .collect()
+    }
+
+    /// 核種 l の区間 [a, b]（格子点 qa、qb）の 2 次式を、核種を含むリングごとに格子点 m の中性子束の重みで積分し、個数密度を掛けて
+    /// [リング] の（既知の部分, F_m の係数）に足すもの
+    #[allow(clippy::type_complexity)]
+    fn adder<'s>(
+        &'s self,
+        m: usize,
+        u: &'s [f64],
+        flux: &'s [Vec<f64>],
+    ) -> impl Fn(&mut [(f64, f64)], usize, &Quadratic, f64, f64, usize, usize) + Sync + 's {
+        let (rings, prefix) = (&self.rings, &self.prefix);
+        let previous = self.previous.as_ref();
+        move |sums, l, quadratic, a, b, qa, qb| {
+            for &(i, density) in &rings[l] {
+                let history = History {
+                    flux: &flux[i],
+                    prefix: &prefix[i],
+                    previous: previous.map(|(f, p)| (f[i].as_slice(), &p[i])),
                 };
-                let previous = previous.map(|(f, _)| f.as_slice());
-                source.add(m, e, rings, flux, previous, known, own, &mut self.sab)?;
+                let (k, o) = integrate(quadratic, u, m, a, b, qa, qb, &history);
+                sums[i].0 += density * k;
+                sums[i].1 += density * o;
             }
         }
-        self.elapsed[0] += gas_done - clock;
-        self.elapsed[1] += gas_done.elapsed();
-        Ok(())
     }
 
     /// 散乱源の経過時間の和 (s): [自由ガスの核の区間, S(α, β) の移行]

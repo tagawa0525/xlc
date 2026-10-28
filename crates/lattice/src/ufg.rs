@@ -40,7 +40,9 @@ use free_gas::{Gas, Thermal};
 
 mod free_gas;
 mod transfer;
+
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
+pub use transfer::ShareCellCache;
 use xlc_numeric::lu::solve;
 
 /// ポイントワイズの断面積の列の数: [全, 弾性散乱, 核分裂, νσf, 捕獲]
@@ -352,6 +354,7 @@ pub struct NuclideTransfer {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、[リング][核種（物質の組成の順）] の弾性散乱の移行の行も返す（ADR-0207）。
+/// 自由ガスの核の移行の割合の区間は `shares` から引き、無ければ作って入れる（ADR-0213）。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_transfers(
     library: &Library,
@@ -361,6 +364,7 @@ pub fn slowing_down_transfers(
     collision: Collision,
     thinning: Option<f64>,
     scattering: Scattering,
+    shares: &ShareCellCache,
 ) -> Result<(CellSpectrum, Vec<Vec<NuclideTransfer>>), UfgError> {
     let mut transfers = Vec::new();
     let spectrum = solve_cell(
@@ -372,7 +376,7 @@ pub fn slowing_down_transfers(
         thinning,
         scattering,
         None,
-        Some(&mut transfers),
+        Some((&mut transfers, shares)),
     )?;
     Ok((spectrum, transfers))
 }
@@ -424,7 +428,7 @@ fn solve_cell(
     thinning: Option<f64>,
     scattering: Scattering,
     fine: Option<&mut FineFlux>,
-    transfers: Option<&mut Vec<Vec<NuclideTransfer>>>,
+    transfers: Option<(&mut Vec<Vec<NuclideTransfer>>, &ShareCellCache)>,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -686,6 +690,12 @@ fn solve_cell(
                 options.cells,
                 &energies,
                 n,
+                // スイープが 1 回なら、持った区間を使うスイープがない
+                if options.sweeps == Some(1) {
+                    0
+                } else {
+                    free_gas::HELD_CELLS
+                },
             );
             (thermal, options.sweeps)
         }
@@ -716,10 +726,14 @@ fn solve_cell(
             cursors.clone_from(&saved_cursors);
         }
     }
+    let held = sweep.thermal.as_ref().map_or(0, Thermal::held);
+    if let Some(thermal) = &mut sweep.thermal {
+        thermal.release();
+    }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
     let [free_gas, sab] = sweep.thermal.as_ref().map_or([0.0; 2], Thermal::elapsed);
     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成。
-    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源
+    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源。held はスイープの間で持った区間の数
     tracing::debug!(
         points = u.len(),
         union,
@@ -734,6 +748,7 @@ fn solve_cell(
         slowing,
         free_gas,
         sab,
+        held,
         "UFG slowing down"
     );
 
@@ -811,7 +826,7 @@ fn solve_cell(
         }
         nuclides.push(list);
     }
-    if let Some(transfers) = transfers {
+    if let Some((transfers, shares)) = transfers {
         // 自由ガスの核種の番号（`Thermal::new` に渡した順）
         let mut count = 0;
         let gas_of: Vec<Option<usize>> = data
@@ -838,6 +853,7 @@ fn solve_cell(
             high,
             thermal: sweep.thermal.as_ref(),
             gas_of: &gas_of,
+            shares,
         }
         .count()?;
         tracing::debug!(
