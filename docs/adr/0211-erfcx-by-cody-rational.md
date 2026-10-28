@@ -4,10 +4,11 @@ date: 2026-10-28
 requires: [ADR-0203, ADR-0209]
 supersedes: []
 superseded-by:
+amends: [ADR-0203]
 issues: ["#0181"]
 ---
 
-# ADR-0211: erf と erfcx の x ≥ 0.46875 を Cody の有理近似で求める
+# ADR-0211: erf と erfcx の x ≥ 0.46875 を Cody の有理近似で求め、xlc-numeric に 1 つだけ置く
 
 ## 背景
 
@@ -15,7 +16,7 @@ ADR-0209 の既定では、自己遮蔽の時間の大半が自由ガスの核�
 erfcx（x ≥ 2.5 の 40 段の連分数）だった（#0181 の「問題」）。2A の燃焼のジョブは ADR-0209 の前の 18 分 58 秒から 1 時間 47 分 59 秒になった。
 x < 2.5 では、erf を級数で（x = 2 で 29 回、2.4 で 35 回の割り算）、erfcx と erfc をその 1 − erf から求めていた。
 
-erf と erfcx は xs の `special` と、その複製の lattice の `ufg::free_gas` にある（ステージのクレートは互いに依存しない。ADR-0203）。
+erf と erfcx は xs の `special` と、その複製の lattice の `ufg::free_gas` にあった（ステージのクレートは互いに依存しない。ADR-0203）。
 lattice の自由ガスの核は erf と erfcx を呼ぶ。xs では `resonance/fluctuation.rs`（非分離共鳴の幅の揺らぎの積分）、`multigroup/free_gas.rs`
 （自由ガスの核）が erfcx と erf を、`multigroup/outgoing.rs`（Maxwell 分布の累積 `gamma_p_3_2`）が erf を使う。xs の erfc を呼ぶのはテストだけ。
 
@@ -76,32 +77,36 @@ exp(−x²) に x² の丸めが x² 倍で効く）、34 ns で、1 − erfcx(x
   切る分け方は、残り (x − s)(x + s) が x = 26 で 3 に達し、その丸めが指数で 3 倍になる。exp(−s²) が 0 か桁あふれなら、そのまま返す（無限大の
   x で 0 × ∞ にしない）。最大 3.3 ulp（x ≤ 26）
 - 負の x の erfcx: erfc(−x) = 2 − erfc(x) から 2 exp(x²) − erfcx(−x)。exp(x²) は同じ分け方。最大 3.1 ulp
-- erf は exp(−x*x) のまま（分けない）。x*x の丸めの効きは erfc(x) 倍に縮み、xs と lattice の erf のビットが同じになる
+- erf は exp(−x*x) のまま（分けない）。1 − erfc の erfc の相対の誤差は erf では erfc(x) 倍に縮むので、分けなくても最大 3.5 ulp
 - 分子と分母は 1 つのループで進める。独立な 2 つの依存の列が並び、別々のループの 1.7 倍の速さ（13.7 → 7.9 ns、0.46875 ≤ x < 2.5）で、
   ビットは同じ
 - 積和は `f64::mul_add` で書く。融合積和は 1 回の丸めなので、FMA の命令の無い CPU（ライブラリの fma）でも同じビットになる
   （`target-cpu` を付けずにコンパイルした計測でも、テストの点のビットが同じ）
 - 係数は CALERF の倍精度の DATA 文の 10 進の値を丸めずにコピーし、上の mpmath の評価で確かめた。コードのコメントに出典と確かめ方を書く
-- xs と lattice に同じコードを置く（ADR-0203 の複製の理由のまま）。xs の値も変わるので、ライブラリを作り直す。作り直すのは 1C と 2A の
+- erf、erfc、erfcx は xlc-numeric の `error_function` に 1 つだけ置き、xs の `special` はそれを再公開し、lattice の自由ガスの核はそれを
+  呼ぶ（ADR-0203 の、誤差関数を lattice に複製する決定を置き換える）。ADR-0203 が複製したのは、共通のクレートに移すと xs と lattice の
+  実行ファイルのバイトが変わり、xs のすべてのステージが古くなるためだった。この決定はどのみち両方の実行ファイルを変え、ライブラリを
+  作り直すので、移す費用が増えない。複製のままだと、130 行ほどの同じコードと、2 つのビットが同じことを確かめるテストと、クレートを
+  またぐ include! を保つことになる（初めは複製で実装し、ユーザーの判断で移した。2026-10-28）。自由ガスの核の式（xs の `free_gas_kernel`
+  と lattice の `kernel`）の複製は、この決定の範囲の外で、ADR-0203 のまま
+- xs の値も変わるので、ライブラリを作り直す。作り直すのは 1C と 2A の
   燃焼の再測定に要る examples/depletion（65 核種）と examples/depletion/p2（90 核種）だけで、ほかの例のライブラリは `bin/xs` が変わって
   changed になるが、結果が要るときに作り直す（ADR-0130）
 
 ## 確認
 
-テストは xs の `special::tests` と lattice の `ufg::free_gas::tests` の両方にあり、点の表は xs の `special/erfcx_cases.rs` に置いて、2 つの
-テストが include! で同じ表を読む。多倍長の参照値は `special/erfcx_cases.py`（mpmath 1.4.1、60 桁）が書き出す。
+テストは xlc-numeric の `error_function::tests` にあり、点の表は `error_function/cases.rs` に置く。多倍長の参照値は
+`error_function/cases.py`（mpmath 1.4.1、60 桁）が書き出す。移した前後で、x = 0 と x ≥ 0.46875 の 40 点の erfcx のビットが同じことを
+確かめた（使い捨てのテスト）。
 
 - `erfcx_is_within_two_and_a_half_ulp_of_multiprecision_values`: 区間の端と、上の計測で誤差の大きかった x を含む 41 点で、mpmath の
   60 桁の値との差が 2.5 ulp 以下（連分数は x = 36.8 で 2.97 ulp、級数は x = 2.475 で 16,444 ulp なので落ちる）
 - `erf_is_within_four_ulp_of_multiprecision_values`: 10 点で 4 ulp 以下（級数は x = 2.42 で 13.3 ulp なので落ちる）
-- `erfc_is_within_four_ulp_of_multiprecision_values`（xs だけ）: 12 点で 4 ulp 以下（exp(−x*x) では x = 24.6 で 510 ulp なので落ちる）
+- `erfc_is_within_four_ulp_of_multiprecision_values`: 12 点で 4 ulp 以下（exp(−x*x) では x = 24.6 で 510 ulp なので落ちる）
 - `erfcx_of_negative_x_is_within_four_ulp_of_multiprecision_values`: 9 点で 4 ulp 以下（2 exp(x*x) − erfcx(−x) では x = −5.94 で 30 ulp）
-- `erfc_and_erfcx_saturate_at_large_arguments`（xs）、`erf_and_erfcx_saturate_at_large_arguments`（lattice）: ±∞ と ±1e308 で
-  0、2、∞、1 を返す
-- `erf_and_erfcx_of_nan_are_nan`: NaN は NaN を返す（lattice の erf は x ≥ 6 だけを 1 にする）
+- `erfc_and_erfcx_saturate_at_large_arguments`: ±∞ と ±1e308 で 0、2、∞、1 を返す
+- `erf_and_erfcx_of_nan_are_nan`: NaN は NaN を返す（erf は x ≥ 6 だけを 1 にする）
 - ulp は、多倍長の値の側の隣の浮動小数点数までの間隔で数える（値が 2 の冪の直下のとき、上の間隔で数えると誤差を半分に数える）
-- `erfcx_gives_the_same_bits_as_its_copy`: 40 点のビットの表に、2 つのクレートの erfcx が同じ値を返す。点は x = 0 と x ≥ 0.46875 で、
-  四則と融合積和だけで求まる（libm の exp を通る x < 0.46875 は、libm の版でビットが変わりうるので置かない）
 - 1 スレッドの `free_gas`（1C の 0 MWd/kg のピンセル `issue-0133/pin-1C-0.toml` に ADR-0209 の既定を明示したもの、手元、2026-10-28。
   ほかのジョブと CPU を共有した、時間を記録するジョブではない交互の 2 回）: main の 00d789a1f で 9.74〜9.75 秒、6b4d12590（erf を
   erfcx から求めるコミット。後の負の x と erfc の変更は核の呼ぶ値を変えない）で 4.84〜4.86 秒。k の標準出力は 6 桁で同じ（1.172387）
