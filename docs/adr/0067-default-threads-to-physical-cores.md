@@ -5,6 +5,7 @@ supersedes: []
 superseded-by:
 issues: []
 requires: []
+amended-by: [ADR-0214]
 ---
 
 # ADR-0067: スレッド数の既定は物理コアの数とする
