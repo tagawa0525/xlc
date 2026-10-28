@@ -9,7 +9,7 @@
 
 寄与は置き換えた k の変化の符号を変えたもの（pcm。xlc の断面積のその差が k の差（xlc − OpenMC）に足している分）。燃料の核種の
 吸収は `swap_absorption`（捕獲 + 核分裂、核分裂、νσf。SPH 因子は置き換える前のまま）、物質の吸収と χ も `swap_absorption`
-（`--materials`、`--chi`）、移行は同時の置き換えのログの行（`swap_absorption` の `~`。`swap_transfer` の「SPH kept」と同じ置き換えで、そのログとは表示の
+（`--materials`、`--chi`）、移行は同時の置き換えの実行のログの行（`swap_absorption` の `~`。`swap_transfer` の「SPH kept」と同じ置き換えで、そのログとは表示の
 丸めの中で合うことを確かめる）。OpenMC の実行が複数あれば、
 実行ごとの寄与を平均する。群 1 に 10 MeV より上を数えない実行（`fast = false`）は、群 1 を含む置き換えから外す。
 
@@ -276,8 +276,6 @@ def summarize_state(
                 raise SummaryError(f"{name}: a materials log has no line `{spec}`")
             if run["fast"] or not touches_group_one(spec):
                 values[key].append(-changes[spec])
-    for key, *_ in transfers:
-        values[key] = []
     transfer_changes = {}
     for index, run in enumerate(runs):
         if run.get("transfer") is None:
@@ -307,6 +305,9 @@ def summarize_state(
         raise SummaryError(
             f"{name}: the joint swap needs a run with transfers above 10 MeV"
         )
+    # 表の移行の行は同時の置き換えの実行だけから取るので、ほかの実行の移行のログは使い道がない
+    if set(transfer_changes) != {i}:
+        raise SummaryError(f"{name}: a run other than the joint one has a transfer log")
     if j not in material_changes or not runs[j]["fast"]:
         raise SummaryError(
             f"{name}: the joint swap needs a run with materials above 10 MeV"
