@@ -18,7 +18,7 @@ x < 2.5 では、erf を級数で（x = 2 で 29 回、2.4 で 35 回の割り�
 
 erf と erfcx は xs の `special` と、その複製の lattice の `ufg::free_gas` にあった（ステージのクレートは互いに依存しない。ADR-0203）。
 lattice の自由ガスの核は erf と erfcx を呼ぶ。xs では `resonance/fluctuation.rs`（非分離共鳴の幅の揺らぎの積分）、`multigroup/free_gas.rs`
-（自由ガスの核）が erfcx と erf を、`multigroup/outgoing.rs`（Maxwell 分布の累積 `gamma_p_3_2`）が erf を使う。xs の erfc を呼ぶのはテストだけ。
+（自由ガスの核）が erfcx と erf を、`special::gamma_p_3_2`（Maxwell 分布の累積。`multigroup/outgoing.rs` が使う）が erf を使う。xs の erfc を呼ぶのはテストだけ。
 
 判断の軸:
 
