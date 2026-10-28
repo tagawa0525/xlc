@@ -12,7 +12,8 @@
 - 追わない核種の分 = ρ(履歴の分岐) − ρ(2A の組成のうち、ミクロ燃焼で追う元素だけを履歴の分岐の値にした組成の分岐)
 - 追う核種の分 = 履歴の効き − 追わない核種の分
 - 逆向き = ρ(履歴の分岐の組成から 2A の条件への瞬時の分岐) − ρ(2A の k∞)。2A の条件で、組成だけを履歴の分岐のものにした
-  差（条件と組成の交差の項がなければ履歴の効きと等しい）
+  差（条件と組成の交差の項がなければ履歴の効きと等しい）。追わない核種の分は ρ(履歴の分岐の組成から 2A の条件への分岐)
+  − ρ(上の置き換えた組成から 2A の条件への分岐)で、追う核種の分は残り
 """
 
 import argparse
@@ -33,12 +34,14 @@ CASES = {
         "branch": "table-density-from-2A.msgpack",
         "hybrid": "table-density-hybrid.msgpack",
         "reverse": "table-nominal-from-density.msgpack",
+        "reverse_hybrid": "table-density-hybrid-nominal.msgpack",
     },
     "rods": {
         "history": "lattice-2A-rods-db416182.msgpack",
         "branch": "table-rods-from-2A.msgpack",
         "hybrid": "table-rods-hybrid.msgpack",
         "reverse": "table-rods-out-from-rods.msgpack",
+        "reverse_hybrid": "table-rods-hybrid-out.msgpack",
     },
 }
 NOMINAL = "lattice-2A-eb9ca398.msgpack"
@@ -88,16 +91,17 @@ def history_points(history):
 
 
 def compare(nominal, cases):
-    """nominal は 2A の履歴、cases は条件ごとの {history, branch, hybrid, reverse}（履歴と 3 つのテーブル）"""
+    """nominal は 2A の履歴、cases は条件ごとの {history, branch, hybrid, reverse, reverse_hybrid}（履歴と 4 つのテーブル）"""
     base = history_points(nominal)
     result = {}
     for name, case in cases.items():
         varied = history_points(case["history"])
-        branch, hybrid, reverse = (
-            table_k(case[key]) for key in ("branch", "hybrid", "reverse")
+        branch, hybrid, reverse, reverse_hybrid = (
+            table_k(case[key])
+            for key in ("branch", "hybrid", "reverse", "reverse_hybrid")
         )
         burnups = sorted(branch)
-        if sorted(hybrid) != burnups or sorted(reverse) != burnups:
+        if any(sorted(t) != burnups for t in (hybrid, reverse, reverse_hybrid)):
             raise SystemExit(f"{name}: the tables solve different burnups")
         rows = []
         for u in burnups:
@@ -105,6 +109,8 @@ def compare(nominal, cases):
             k_base, n_base = base[u]
             effect = rho(branch[u], k_varied)
             untracked = rho(hybrid[u], k_varied)
+            reverse_effect = rho(k_base, reverse[u])
+            reverse_untracked = rho(reverse_hybrid[u], reverse[u])
             rows.append(
                 {
                     "burnup": u,
@@ -113,11 +119,14 @@ def compare(nominal, cases):
                     "k_branch": branch[u],
                     "k_hybrid": hybrid[u],
                     "k_reverse": reverse[u],
+                    "k_reverse_hybrid": reverse_hybrid[u],
                     "between_histories_pcm": rho(k_base, k_varied),
                     "effect_pcm": effect,
                     "untracked_pcm": untracked,
                     "tracked_pcm": effect - untracked,
-                    "reverse_pcm": rho(k_base, reverse[u]),
+                    "reverse_pcm": reverse_effect,
+                    "reverse_tracked_pcm": reverse_effect - reverse_untracked,
+                    "reverse_untracked_pcm": reverse_untracked,
                     "densities_percent": {
                         n: (n_varied[n] / n_base[n] - 1) * 100
                         if n_base[n] > 0
@@ -152,13 +161,15 @@ def report(path):
         lines.append(f"## {name}")
         lines.append("")
         lines.append(
-            "| 燃焼度 (MWd/kg) | 履歴の間 (pcm) | 履歴の効き (pcm) | 追う核種 (pcm) | 追わない核種 (pcm) | 逆向き (pcm) |"
+            "| 燃焼度 (MWd/kg) | 履歴の間 (pcm) | 履歴の効き (pcm) | 追う核種 (pcm) | 追わない核種 (pcm) "
+            "| 逆向き (pcm) | 逆向きの追う核種 (pcm) | 逆向きの追わない核種 (pcm) |"
         )
-        lines.append("| --- | --- | --- | --- | --- | --- |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
         for r in rows:
             lines.append(
                 f"| {r['burnup']:g} | {r['between_histories_pcm']:+.1f} | {r['effect_pcm']:+.1f} | "
-                f"{r['tracked_pcm']:+.1f} | {r['untracked_pcm']:+.1f} | {r['reverse_pcm']:+.1f} |"
+                f"{r['tracked_pcm']:+.1f} | {r['untracked_pcm']:+.1f} | {r['reverse_pcm']:+.1f} | "
+                f"{r['reverse_tracked_pcm']:+.1f} | {r['reverse_untracked_pcm']:+.1f} |"
             )
         lines.append("")
         lines.append("| 燃焼度 (MWd/kg) | " + " | ".join(NUCLIDES) + " |")
