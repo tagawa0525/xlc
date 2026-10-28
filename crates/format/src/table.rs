@@ -462,6 +462,45 @@ pub struct Table {
     /// 初めの重金属（Z ≥ 90）の質量 (g/cm、格子全体の高さ 1 cm あたり)。燃焼の履歴から作ったテーブルだけが持ち、core が
     /// ノードの燃焼度を進めるのに使う（ADR-0190）
     pub heavy_metal: Option<f64>,
+    /// ミクロ燃焼の核種の均質化した数密度と微視的断面積（ADR-0187、ADR-0216）。燃焼の履歴から作ったテーブルだけが持てる
+    pub micro: Option<Micro>,
+}
+
+/// ミクロ燃焼で追う核種の、燃焼度の点ごとの格子で均質化した数密度と、状態ごとの少数群の微視的断面積（ADR-0216）。格子全体の
+/// 均質化なので、部分ノードに分けないテーブル（`split` が 1）だけが持つ
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Micro {
+    /// 追う核種の名前
+    pub nuclides: Vec<String>,
+    /// [燃焼度の軸の点][核種] の均質化した数密度 (1/(barn cm))
+    pub densities: Vec<Vec<f64>>,
+    /// [`Table::points` の点][核種] の微視的断面積
+    pub states: Vec<Vec<MicroNuclide>>,
+}
+
+/// 1 つの状態の、1 つの核種の少数群の微視的断面積 (barn)（ADR-0216）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MicroNuclide {
+    pub total: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub fission: Vec<f64>,
+    /// P0 の散乱行列 [入射の群][出射の群]
+    pub scatter: Vec<Vec<f64>>,
+    /// ライブラリのチェーンの反応（ADR-0172）ごとの、経路ごとの断面積
+    pub reactions: Vec<MicroReaction>,
+    /// 核分裂率のうち、収率の境界（ADR-0183）より下の割合。核分裂しない核種は nil（キーは省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub thermal_fission: Option<f64>,
+}
+
+/// チェーンの反応の代表の MT と、経路（ライブラリとチェーンの経路の並び）ごとの少数群の断面積 (barn)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MicroReaction {
+    pub mt: u32,
+    pub channels: Vec<Vec<f64>>,
 }
 
 /// テーブルのファイルの読み書きのエラー。
@@ -641,6 +680,7 @@ impl Table {
             points: vec![Vec::new()],
             states: vec![state],
             heavy_metal: None,
+            micro: None,
         }
     }
 
@@ -811,6 +851,7 @@ impl Table {
             points: file.points,
             states,
             heavy_metal: file.heavy_metal,
+            micro: None,
         };
         table.validate()?;
         Ok(table)

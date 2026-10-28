@@ -87,6 +87,7 @@ fn table(fissile: f64) -> Table {
         points: Vec::new(),
         split: 1,
         heavy_metal: None,
+        micro: None,
         axes: vec![
             Axis::boron(PPM.to_vec(), 0.199),
             Axis::moderator(TM.to_vec(), vec![0.75, 0.74]),
