@@ -262,7 +262,17 @@ class Summary(unittest.TestCase):
         self.assertAlmostEqual(state["items"]["interaction"]["pcm"], 30.0, places=6)
         self.assertAlmostEqual(state["items"]["chi"]["pcm"], -5.0, places=6)
 
-    def test_transfer_rows_take_the_unrounded_lines_of_the_joint_log(self):
+    def test_a_transfer_log_outside_the_joint_run_is_an_error(self):
+        # 表の移行の行は同時の置き換えの実行だけから取るので、ほかの実行の移行のログは表に入らない
+        with self.assertRaises(sc.SummaryError):
+            summarize(
+                [
+                    run(materials=MATERIALS_LOG, transfer=TRANSFER_LOG),
+                    run(transfer=TRANSFER_LOG),
+                ]
+            )
+
+    def test_transfer_rows_take_the_lines_of_the_joint_log(self):
         # swap_transfer の変化は小数 6 桁の 2 つの k の差なので、同時の置き換えのログの行（同じ置き換え）を表に使い、行の和を残りと閉じる
         joint = JOINT_LOG.replace(
             "~water:1-13: k 1.084800 (-120.0 pcm)",
