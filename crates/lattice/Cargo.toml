@@ -25,5 +25,10 @@ tracing-subscriber.workspace = true
 name = "lattice"
 path = "src/main.rs"
 
+# 置き換えの比の計算のテスト（examples/swap_absorption/tests.rs）を `cargo test` で実行する
+[[example]]
+name = "swap_absorption"
+test = true
+
 [dev-dependencies]
 rmp-serde.workspace = true

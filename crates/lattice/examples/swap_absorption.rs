@@ -19,6 +19,9 @@
 //! SPH 因子は置き換える前のものをそのまま使い、置き換えた断面積で求め直さない（`swap_transfer` の (A) と同じ）。UFG の範囲の
 //! 群では、置き換えでリングの間の中性子束の形が変わる分を SPH 因子が追わないので、その分は k の変化に入らない。
 
+// テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
+#![cfg_attr(test, allow(clippy::disallowed_macros))]
+
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -322,3 +325,7 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "swap_absorption/tests.rs"]
+mod tests;
