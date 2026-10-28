@@ -597,6 +597,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
             dancoff: crate::moc::dancoff::DancoffOptions::default(),
             collision: Collision::Table { density: 16 },
             thinning: None,
+            hold_memory: None,
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
         }

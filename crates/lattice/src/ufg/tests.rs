@@ -1,3 +1,4 @@
+use super::hold::available_from;
 use super::*;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
@@ -912,6 +913,7 @@ fn fine_flux_integrates_to_the_group_flux() {
         Collision::default(),
         None,
         Scattering::Static,
+        held_cells(1 << 30, 1),
     )
     .unwrap();
     assert_eq!(spectrum, plain);
@@ -2121,6 +2123,7 @@ fn dilute_resonances_drop_out_of_the_thinned_grid() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1 << 30, 1),
         )
         .unwrap()
         .1

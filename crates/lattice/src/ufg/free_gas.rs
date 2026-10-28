@@ -34,9 +34,8 @@ pub(super) const TAIL: f64 = 28.0;
 /// 並列の手間が勝つ）
 const CELLS_PER_TASK: usize = 32;
 
-/// スレッドの数だけの減速計算を同時に解くときの、1 回の減速計算がスイープの間で持つ区間（[`HeldCell`]）の数の上限（1 GiB。
-/// ADR-0213）。全体はこれのスレッドの数倍（[`super::held_cells`]）
-pub(super) const HELD_CELLS: usize = (1 << 30) / std::mem::size_of::<HeldCell>();
+/// スイープの間で持つ 1 区間（[`HeldCell`]）の大きさ (B)
+pub(super) const HELD_CELL_BYTES: usize = std::mem::size_of::<HeldCell>();
 
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
 pub(super) const EDGE: f64 = 6.0;

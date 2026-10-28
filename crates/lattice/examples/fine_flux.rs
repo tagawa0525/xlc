@@ -18,7 +18,7 @@ use xlc_lattice::cp::Cylinder;
 use xlc_lattice::input::{CrossSections, LatticeInput, MaterialInput, VOID};
 use xlc_lattice::shielding::shield_fuel;
 use xlc_lattice::tracking::Tracking;
-use xlc_lattice::ufg::{cell_range, slowing_down_fine};
+use xlc_lattice::ufg::{cell_range, held_cells, hold_total, slowing_down_fine};
 
 #[derive(Serialize)]
 struct Fine {
@@ -98,6 +98,7 @@ fn main() -> anyhow::Result<()> {
         options.collision,
         options.thinning,
         options.scattering,
+        held_cells(hold_total(options.hold_memory)?, 1),
     )?;
     // 等価なセルの形を自己遮蔽の `solve_equivalent_cell` からコピーしているので、燃料のリングの UFG の範囲の群定数が自己遮蔽の結果と
     // 同じことを確かめる（自己遮蔽の側の作り方が変わって、ここが別のセルを解くようになれば止まる）
