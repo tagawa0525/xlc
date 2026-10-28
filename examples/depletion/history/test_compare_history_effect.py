@@ -61,6 +61,7 @@ class Compare(unittest.TestCase):
             "branch": table({0.0: 1.0, 10.0: 0.94}),
             "hybrid": table({0.0: 1.0, 10.0: 0.948}),
             "reverse": table({0.0: 1.2, 10.0: 1.105}),
+            "reverse_hybrid": table({0.0: 1.2, 10.0: 1.104}),
         }
         return c.compare(nominal, {"density": case})["density"]
 
@@ -79,6 +80,17 @@ class Compare(unittest.TestCase):
     def test_the_reverse_is_the_varied_composition_at_the_nominal_conditions(self):
         row = self.rows()[1]
         self.assertAlmostEqual(row["reverse_pcm"], pcm(1.1, 1.105), places=9)
+
+    def test_the_reverse_splits_into_tracked_and_untracked_parts_alike(self):
+        row = self.rows()[1]
+        self.assertAlmostEqual(
+            row["reverse_untracked_pcm"], pcm(1.104, 1.105), places=9
+        )
+        self.assertAlmostEqual(
+            row["reverse_tracked_pcm"] + row["reverse_untracked_pcm"],
+            row["reverse_pcm"],
+            places=9,
+        )
 
     def test_fresh_points_have_no_effect(self):
         row = self.rows()[0]
@@ -103,6 +115,7 @@ class Compare(unittest.TestCase):
             "branch": table({0.0: 1.0, 10.0: 0.94}),
             "hybrid": table({0.0: 1.0}),
             "reverse": table({0.0: 1.2, 10.0: 1.105}),
+            "reverse_hybrid": table({0.0: 1.2, 10.0: 1.104}),
         }
         with self.assertRaises(SystemExit):
             c.compare(nominal, {"density": case})
