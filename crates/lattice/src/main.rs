@@ -11,10 +11,9 @@
 //! 環境変数 `RUST_LOG` で選ぶ（既定は info。debug で反復ごとの k と変化、trace で最も変化の
 //! 大きい領域まで）。
 //!
-//! スレッド数は、環境変数 `RAYON_NUM_THREADS` があればその値、なければ物理コアの数とする
-//! （`taskset` やコンテナで使える CPU が絞られていれば、その数を超えない）。
-//! MOC のスイープはメモリの転送速度で頭打ちになり、1つのコアを2つのスレッドで分ける
-//! （SMT）とかえって遅くなるため。
+//! スレッド数は、環境変数 `RAYON_NUM_THREADS` があればその値、なければこのプロセスに許された論理 CPU（SMT の
+//! ハードウェアスレッドを含む。`taskset` やコンテナで使える CPU が絞られていれば、その数）の数とし、始めにログに出す
+//! （ADR-0214）。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
@@ -56,7 +55,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
         [input] => init_logging()
-            .and_then(|()| use_physical_cores())
+            .and_then(|()| use_allowed_cpus())
             .and_then(|()| run(Path::new(input))),
         _ => Err(anyhow!("usage: lattice <input>")),
     };
@@ -96,20 +95,36 @@ fn init_logging() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `RAYON_NUM_THREADS` がなければ、rayon のスレッド数を物理コアの数にする。
-/// 物理コアの数はマシン全体の値なので、このプロセスに許された CPU の数（論理）で抑える。
+/// rayon のスレッドの数を、`RAYON_NUM_THREADS`（正の整数）があればその数、なければこのプロセスに許された論理 CPU（SMT の
+/// ハードウェアスレッドを含む。affinity と cgroup の CPU の上限で抑えた数）の数にし（ADR-0214）、その数と、決めたものをログに出す。
 #[allow(
     clippy::disallowed_methods,
     reason = "RAYON_NUM_THREADS は並列の数だけを選ぶ。出力が数によらないかは未確認（#0060、ADR-0137）"
 )]
-fn use_physical_cores() -> anyhow::Result<()> {
-    if std::env::var_os("RAYON_NUM_THREADS").is_none() {
-        let allowed = std::thread::available_parallelism().context("available CPUs")?;
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get_physical().min(allowed.get()))
-            .build_global()
-            .context("thread pool")?;
-    }
+fn use_allowed_cpus() -> anyhow::Result<()> {
+    // rayon に変数を読ませないのは、正の整数でない値と、available_parallelism が求められないときに、黙って既定や 1 にするため
+    let (threads, from) = match std::env::var("RAYON_NUM_THREADS") {
+        Ok(value) => {
+            let threads = value
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| n > 0)
+                .ok_or_else(|| {
+                    anyhow!("RAYON_NUM_THREADS must be a positive integer, got `{value}`")
+                })?;
+            (threads, "RAYON_NUM_THREADS")
+        }
+        Err(VarError::NotPresent) => {
+            let allowed = std::thread::available_parallelism().context("available CPUs")?;
+            (allowed.get(), "default")
+        }
+        Err(error @ VarError::NotUnicode(_)) => return Err(anyhow!("RAYON_NUM_THREADS: {error}")),
+    };
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .context("thread pool")?;
+    tracing::info!(threads = rayon::current_num_threads(), from, "thread pool");
     Ok(())
 }
 

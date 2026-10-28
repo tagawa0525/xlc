@@ -11,7 +11,6 @@ xlc-numeric = { path = "../numeric" }
 xlc-format = { path = "../format" }
 xlc-depletion = { path = "../depletion" }
 anyhow.workspace = true
-num_cpus.workspace = true
 rayon.workspace = true
 rmpv.workspace = true
 serde.workspace = true
