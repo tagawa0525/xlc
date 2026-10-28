@@ -1,0 +1,9 @@
+k 1.086756
+@water=moderator:1-13: k 1.086729 (-2.7 pcm)
+@water=moderator:14-27: k 1.086756 (-0.0 pcm)
+@water=moderator:28-45: k 1.086756 (-0.1 pcm)
+@water=moderator:46-69: k 1.086899 (+14.3 pcm)
+@zircaloy=zircaloy-4:1-13: k 1.086783 (+2.6 pcm)
+@zircaloy=zircaloy-4:14-27: k 1.086747 (-0.9 pcm)
+@zircaloy=zircaloy-4:28-45: k 1.086756 (+0.0 pcm)
+@zircaloy=zircaloy-4:46-69: k 1.086761 (+0.5 pcm)

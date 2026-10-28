@@ -1,0 +1,16 @@
+k 1.08600+/-0.00024
+Am-243: no neutrons from fission (the library chi stays)
+Cm-242: no neutrons from fission (the library chi stays)
+Cm-244: no neutrons from fission (the library chi stays)
+Am-241: 生成の割合 0.00000; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.60005, xlc 0.60789; 平均の対数エネルギー OpenMC 1.92e+06, xlc 1.518e+06 eV
+Np-237: 生成の割合 0.00002; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.59407, xlc 0.59496; 平均の対数エネルギー OpenMC 1.484e+06, xlc 1.457e+06 eV
+Np-239: 生成の割合 0.00002; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.57007, xlc 0.57656; 平均の対数エネルギー OpenMC 1.373e+06, xlc 1.417e+06 eV
+Pu-238: 生成の割合 0.00000; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.62300, xlc 0.60943; 平均の対数エネルギー OpenMC 1.5e+06, xlc 1.521e+06 eV
+Pu-239: 生成の割合 0.21030; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.60301, xlc 0.60285; 平均の対数エネルギー OpenMC 1.496e+06, xlc 1.496e+06 eV
+Pu-240: 生成の割合 0.00015; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.60583, xlc 0.60143; 平均の対数エネルギー OpenMC 1.482e+06, xlc 1.492e+06 eV
+Pu-241: 生成の割合 0.00623; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.57357, xlc 0.57151; 平均の対数エネルギー OpenMC 1.402e+06, xlc 1.398e+06 eV
+Pu-242: 生成の割合 0.00000; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.57689, xlc 0.57688; 平均の対数エネルギー OpenMC 1.354e+06, xlc 1.418e+06 eV
+U-234: 生成の割合 0.00010; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.55609, xlc 0.56726; 平均の対数エネルギー OpenMC 1.321e+06, xlc 1.38e+06 eV
+U-235: 生成の割合 0.69705; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.57319, xlc 0.57280; 平均の対数エネルギー OpenMC 1.393e+06, xlc 1.392e+06 eV
+U-236: 生成の割合 0.00030; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.59131, xlc 0.58676; 平均の対数エネルギー OpenMC 1.45e+06, xlc 1.45e+06 eV
+U-238: 生成の割合 0.08582; 1.353 MeV より上（群 1〜4）の割合 OpenMC 0.56865, xlc 0.56840; 平均の対数エネルギー OpenMC 1.377e+06, xlc 1.377e+06 eV
