@@ -800,21 +800,84 @@ fn micro_densities_are_volume_averages_of_the_history_over_the_lattice() {
     assert_eq!(branches.micro_densities()[0][1], 0.0);
 }
 
-#[test]
-fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() {
-    // 輸送するすべての核種を追えば、Σᵢ σᵢ N̄ᵢ は少数群定数のうち燃焼させた物質の分（MOC の中性子束と SPH 因子を掛けた物質で
-    // 均質化したもの）と丸めの範囲で同じ（ADR-0216）
-    let (history, library) = history();
+/// 追う核種の微視的断面積 `micro` と均質化した数密度 `densities` の Σᵢ σᵢ N̄ᵢ が、少数群定数のうち燃焼させた物質（名前に `@` を含む
+/// 領域）の分（MOC の中性子束と体積で、解いた物質 `materials`（[領域] の番号 `region_material`）を均質化したもの）と丸めの範囲で
+/// 同じこと（ADR-0216）
+fn assert_micro_closes(
+    micro: &[xlc_format::table::MicroNuclide],
+    densities: &[f64],
+    region_names: &[String],
+    materials: &[Material],
+    region_material: &[usize],
+    solution: &crate::moc::Solution,
+    what: &str,
+) {
+    let fuel: Vec<usize> = regions_of(region_names, |n| n.contains('@'));
+    let flux: Vec<f64> = (0..2)
+        .map(|g| {
+            (0..solution.volumes.len())
+                .map(|r| solution.volumes[r] * solution.flux[r][g])
+                .sum()
+        })
+        .collect();
+    let part = |value: &dyn Fn(&Material) -> f64, g: usize| -> f64 {
+        fuel.iter()
+            .map(|&r| {
+                solution.volumes[r] * solution.flux[r][g] * value(&materials[region_material[r]])
+            })
+            .sum::<f64>()
+            / flux[g]
+    };
+    let sum = |value: &dyn Fn(&xlc_format::table::MicroNuclide) -> f64| -> f64 {
+        micro.iter().zip(densities).map(|(m, n)| n * value(m)).sum()
+    };
+    let close = |got: f64, want: f64, item: &str| {
+        assert!(
+            (got - want).abs() <= 1e-12 * want.abs().max(1e-300),
+            "{what} {item}: {got} vs {want}"
+        );
+    };
+    for g in 0..2 {
+        close(sum(&|m| m.total[g]), part(&|m| m.total[g], g), "total");
+        close(
+            sum(&|m| m.nu_fission[g]),
+            part(&|m| m.nu_fission[g], g),
+            "nu-fission",
+        );
+        close(
+            sum(&|m| m.fission[g]),
+            part(&|m| m.fission[g], g),
+            "fission",
+        );
+        for to in 0..2 {
+            close(
+                sum(&|m| m.scatter[g][to]),
+                part(&|m| m.scatter[g][to], g),
+                "scatter",
+            );
+        }
+    }
+}
+
+/// 輸送するすべての核種を `micro` に挙げた分岐の入力
+fn all_transported(history: &History, burnup: &str) -> String {
     let names: Vec<String> = history
         .transportable
         .iter()
         .map(|n| format!("\"{n}\""))
         .collect();
-    let text = format!(
+    format!(
         "{}micro = [{}]\n",
-        branch_input("[0, 2.0]", "[600]"),
+        branch_input(burnup, "[600]"),
         names.join(", ")
-    );
+    )
+}
+
+#[test]
+fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() {
+    // 輸送するすべての核種を追えば、Σᵢ σᵢ N̄ᵢ は少数群定数のうち燃焼させた物質の分と同じ
+    let (history, library) = history();
+    let text = all_transported(&history, "[0, 2.0]");
     let branches = branches_of(&text, &history, &library).unwrap();
     for index in 0..branches.len() {
         let (s, shielded, solution) = solved(&text, &library, &branches, index);
@@ -829,53 +892,71 @@ fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() 
             )
             .unwrap();
         let point = index / (branches.len() / 2);
-        let densities = &branches.micro_densities()[point];
-        let fuel: Vec<usize> = regions_of(&branches.region_materials, |n| n.contains('@'));
-        // 群ごとの中性子束と、燃焼させた物質の反応率
-        let flux: Vec<f64> = (0..2)
-            .map(|g| {
-                (0..solution.volumes.len())
-                    .map(|r| solution.volumes[r] * solution.flux[r][g])
-                    .sum()
-            })
-            .collect();
-        let part = |value: &dyn Fn(&Material, usize) -> f64, g: usize| -> f64 {
-            fuel.iter()
-                .map(|&r| {
-                    let m = &shielded.materials[shielded.region_material[r]];
-                    solution.volumes[r] * solution.flux[r][g] * value(m, g)
+        assert_micro_closes(
+            &micro,
+            &branches.micro_densities()[point],
+            &branches.region_materials,
+            &shielded.materials,
+            &shielded.region_material,
+            &solution,
+            &format!("state {index}"),
+        );
+    }
+}
+
+#[test]
+fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
+    // 分岐の自己遮蔽（ADR-0201）が返す燃料の自己遮蔽は、状態ごとに解いたもの（every-state）でも、ホウ素の軸の物質だけを作り直す
+    // 参照のもの（nominal-boron）でも、返した物質の燃料と同じ実効断面積と SPH 因子を持つ
+    let (history, library) = history();
+    for text in [
+        all_transported(&history, "[0, 2.0]"),
+        every_state(&all_transported(&history, "[0, 2.0]")),
+    ] {
+        let s = setup(&text);
+        let branches = branches_of(&text, &history, &library).unwrap();
+        let mut shielder = BranchShielder::new(
+            &s.tracking,
+            &branches.region_materials,
+            s.input.branches.as_ref().unwrap().varied(),
+            s.chosen.shielding(),
+            s.input.shielding_options(),
+        );
+        for index in 0..branches.len() {
+            let reference = branches.reference(index);
+            let (materials, region_material, fuel) = shielder
+                .shield_state(&library, &branches.state(index), reference, || {
+                    let (point, r) = reference.unwrap();
+                    branches.reference_state(point, r)
                 })
-                .sum::<f64>()
-                / flux[g]
-        };
-        let sum = |value: &dyn Fn(&xlc_format::table::MicroNuclide) -> f64| -> f64 {
-            micro.iter().zip(densities).map(|(m, n)| n * value(m)).sum()
-        };
-        let close = |got: f64, want: f64, what: &str| {
-            assert!(
-                (got - want).abs() <= 1e-12 * want.abs().max(1e-300),
-                "state {index} {what}: {got} vs {want}"
+                .unwrap();
+            let regions: Vec<&Material> = region_material.iter().map(|&i| &materials[i]).collect();
+            let options = Options {
+                scattering_order: available_order(&regions),
+                ..tight()
+            };
+            let solution =
+                solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc()).unwrap();
+            let micro = branches
+                .micro(
+                    index,
+                    &library,
+                    &fuel,
+                    &s.tracking.lattice,
+                    &solution,
+                    &BOUNDS,
+                )
+                .unwrap();
+            let point = index / (branches.len() / 2);
+            assert_micro_closes(
+                &micro,
+                &branches.micro_densities()[point],
+                &branches.region_materials,
+                &materials,
+                &region_material,
+                &solution,
+                &format!("state {index} (reference {reference:?})"),
             );
-        };
-        for g in 0..2 {
-            close(sum(&|m| m.total[g]), part(&|m, g| m.total[g], g), "total");
-            close(
-                sum(&|m| m.nu_fission[g]),
-                part(&|m, g| m.nu_fission[g], g),
-                "nu-fission",
-            );
-            close(
-                sum(&|m| m.fission[g]),
-                part(&|m, g| m.fission[g], g),
-                "fission",
-            );
-            for to in 0..2 {
-                close(
-                    sum(&|m| m.scatter[g][to]),
-                    part(&|m, g| m.scatter[g][to], g),
-                    "scatter",
-                );
-            }
         }
     }
 }
