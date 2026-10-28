@@ -31,10 +31,22 @@ MATERIALS_LOG = """k 1.086000
 @water=moderator:46-69: k 1.086200 (+20.0 pcm)
 """
 
-JOINT_SPEC = "*:14-69,@water=moderator:1-13,@water=moderator:46-69,~water:1-13"
+OTHER_LOG = """k 1.086000
+O-16:1-13: k 1.085990 (-1.0 pcm)
+*!1-13: k 1.085980 (-2.0 pcm)
+*^1-13: k 1.086030 (+3.0 pcm)
+"""
+
+JOINT_SPEC = (
+    "*:14-69,O-16:1-13,*!1-13,*^1-13,"
+    "@water=moderator:1-13,@water=moderator:46-69,~water:1-13"
+)
 
 JOINT_LOG = f"""k 1.086000
 *:14-69: k 1.085800 (-20.0 pcm)
+O-16:1-13: k 1.085990 (-1.0 pcm)
+*!1-13: k 1.085980 (-2.0 pcm)
+*^1-13: k 1.086030 (+3.0 pcm)
 @water=moderator:1-13: k 1.085900 (-10.0 pcm)
 @water=moderator:46-69: k 1.086200 (+20.0 pcm)
 ~water:1-13: k 1.084800 (-120.0 pcm)
@@ -96,9 +108,34 @@ class Lists(unittest.TestCase):
         )
         self.assertEqual(len(specs), 8)
 
+    def test_other_lines_split_the_fuel_and_its_non_actinides(self):
+        specs = dict(sc.other_items(BURNT))
+        products = ["O-16", "Xe-135", "Sm-149", "Rh-103"]
+        self.assertEqual(
+            specs["fast-products"], ",".join(f"{n}:1-13" for n in products)
+        )
+        self.assertEqual(specs["other-fast"], "*!1-13")
+        self.assertEqual(
+            specs["other-fast-products"], ",".join(f"{n}!1-13" for n in products)
+        )
+        self.assertEqual(specs["other-low"], "*!14-69")
+        self.assertEqual(
+            specs["other-low-products"], ",".join(f"{n}!14-69" for n in products)
+        )
+        self.assertEqual(specs["excess-fast"], "*^1-13")
+        self.assertEqual(
+            specs["excess-fast-products"], ",".join(f"{n}^1-13" for n in products)
+        )
+
+    def test_other_and_excess_lines_touch_group_one_by_their_groups(self):
+        self.assertTrue(sc.touches_group_one("*!1-13"))
+        self.assertTrue(sc.touches_group_one("O-16^1-13"))
+        self.assertFalse(sc.touches_group_one("*!14-69"))
+
     def test_the_joint_line_swaps_every_separate_line_at_once(self):
         lines = sc.joint_lines(
             [("fast-u238", "U-238:1-13"), ("all", "*:14-69")],
+            OTHERS,
             [
                 ("material-water-fast", "@water=moderator:1-13"),
                 ("material-water-thermal", "@water=moderator:46-69"),
@@ -109,6 +146,9 @@ class Lists(unittest.TestCase):
             lines,
             [
                 "*:14-69",
+                "O-16:1-13",
+                "*!1-13",
+                "*^1-13",
                 "@water=moderator:1-13",
                 "@water=moderator:46-69",
                 "~water:1-13",
@@ -140,16 +180,31 @@ MATERIALS = [
     ("material-water-thermal", "@water=moderator:46-69"),
 ]
 TRANSFERS = [("transfer-water-fast", "water", 1, 13)]
+# 同時の置き換えに入れない行（other-fast-products）を含む
+OTHERS = [
+    ("fast-products", "O-16:1-13"),
+    ("other-fast", "*!1-13"),
+    ("other-fast-products", "O-16!1-13"),
+    ("excess-fast", "*^1-13"),
+]
 ALL_LOG = ABSORPTION_LOG + "*:14-69: k 1.085800 (-20.0 pcm)\n"
 
 
-def run(k=1.085, absorption=ALL_LOG, materials=None, transfer=None, fast=True):
+def run(
+    k=1.085,
+    absorption=ALL_LOG,
+    materials=None,
+    transfer=None,
+    fast=True,
+    other=OTHER_LOG + "O-16!1-13: k 1.085990 (-1.0 pcm)\n",
+):
     return {
         "k": k,
         "k_std": 0.0002,
         "absorption": absorption,
         "materials": materials,
         "transfer": transfer,
+        "other": other,
         "fast": fast,
     }
 
@@ -159,6 +214,7 @@ def summarize(runs, joint_log=JOINT_LOG, chi_log=CHI_LOG, materials_run=0):
     return sc.summarize_state(
         "1C 5 MWd/kg",
         ITEMS,
+        OTHERS,
         MATERIALS,
         TRANSFERS,
         runs,
@@ -251,6 +307,51 @@ class Summary(unittest.TestCase):
         self.assertEqual(
             state["items"]["material-water-thermal"]["runs"], [-20.0, -20.0]
         )
+
+    def test_other_contributions_average_the_runs_with_other_logs(self):
+        runs = [
+            run(
+                k=1.0852,
+                materials=MATERIALS_LOG,
+                other=OTHER_LOG.replace("-2.0", "-6.0").replace("1.085980", "1.085940")
+                + "O-16!1-13: k 1.085990 (-1.0 pcm)\n",
+            ),
+            run(other=None),
+            run(transfer=TRANSFER_LOG),
+        ]
+        joint = JOINT_LOG.replace(
+            "*!1-13: k 1.085980 (-2.0 pcm)", "*!1-13: k 1.085940 (-6.0 pcm)"
+        )
+        state = summarize(runs, joint_log=joint)
+        self.assertEqual(state["items"]["other-fast"]["runs"], [6.0, 2.0])
+        self.assertEqual(state["items"]["fast-products"]["runs"], [1.0, 1.0])
+        self.assertEqual(state["items"]["excess-fast"]["runs"], [-3.0, -3.0])
+        self.assertEqual(state["items"]["other-fast-products"]["runs"], [1.0, 1.0])
+        # 同時 160 − 別々の和（吸収の全部 20 + ほかの吸収と過剰 1 + 6 − 3 + 物質 10 − 20 + 移行 120）
+        self.assertAlmostEqual(state["items"]["interaction"]["pcm"], 26.0, places=6)
+
+    def test_other_lines_of_runs_without_the_group_above_10_mev_are_left_out(self):
+        runs = [
+            run(fast=False),
+            run(materials=MATERIALS_LOG, transfer=TRANSFER_LOG),
+        ]
+        state = summarize(runs, materials_run=1)
+        self.assertEqual(state["items"]["other-fast"]["runs"], [2.0])
+
+    def test_a_joint_other_line_off_the_materials_run_is_an_error(self):
+        joint = JOINT_LOG.replace(
+            "*^1-13: k 1.086030 (+3.0 pcm)", "*^1-13: k 1.086050 (+5.0 pcm)"
+        )
+        with self.assertRaises(sc.SummaryError):
+            summarize(two_runs(), joint_log=joint)
+
+    def test_the_joint_swap_needs_other_lines_on_the_materials_run(self):
+        runs = [
+            run(k=1.0852, materials=MATERIALS_LOG, other=None),
+            run(transfer=TRANSFER_LOG),
+        ]
+        with self.assertRaises(sc.SummaryError):
+            summarize(runs)
 
     def test_a_line_missing_from_a_log_is_an_error(self):
         with self.assertRaises(sc.SummaryError):
