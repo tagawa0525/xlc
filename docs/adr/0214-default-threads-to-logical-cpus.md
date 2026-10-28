@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-28
 requires: [ADR-0067, ADR-0189, ADR-0193, ADR-0198, ADR-0213]
 supersedes: []
@@ -70,6 +70,16 @@ MOC は ADR-0067 と同じく 32 スレッドで 16% 遅いが、自己遮蔽が
 - テスト: `crates/lattice/tests/threads.rs` の `uses_every_allowed_logical_cpu_without_rayon_num_threads`（`RAYON_NUM_THREADS` が
   無いとき、ログのスレッドの数がテストのプロセスの `available_parallelism` と同じで、`from` が `default`）、
   `uses_rayon_num_threads_when_given`、`rayon_num_threads_that_is_not_a_positive_count_is_an_error`（`abc`、`0`、空でプールを作らずに止まる）
+- `dvc repro dvc.yaml:build` の後の `bin/xs`、`bin/core`、`bin/chain` の md5 は main の dvc.lock と同じ（898960b1、9225ca86、4f404960）で、
+  `bin/lattice` だけが変わる（4ae624f3）。xs のライブラリのステージは changed にならない
+- Slurm の timed のジョブ（228bf1806、分岐点は main の 7b8bae1b2、2026-10-28。ログの `thread pool threads=32 from="default"`）。履歴は 3 つとも
+  前の lock の出力（ADR-0213 の 66975c6bb、16 スレッド）と `seconds` のほかはバイトで同じで、比較の JSON は `inputs` の md5 と時間のほかは
+  変わらない（examples/depletion/verification.md）:
+  - 2A の燃焼（Slurm 582、`lattice` と比較）: 自己遮蔽の和 1,860.6 秒（1 回 22.4〜27.8 秒、中央値 22.9 秒）、MOC 301.6 秒、全体 2,213.1 秒、
+    経過時間 37 分 28 秒、MaxRSS 20.7 GB。16 スレッド（Slurm 580）の 2,063.4 秒、260.8 秒、2,375.5 秒、40 分 10 秒、12.0 GB に対して、
+    自己遮蔽 10% 短く、MOC 16% 長く、全体 7% 短い。#0181 の完了の条件（37 分 56 秒）に入る
+  - 1C の燃焼（Slurm 581、2 つの `lattice` と比較）: 自己遮蔽の和 1 リング 445.2 秒、4 リング 644.2 秒、経過時間 18 分 44 秒、MaxRSS 11.9 GB。
+    16 スレッド（Slurm 577）の 403.9 秒、638.0 秒、17 分 55 秒、12.3 GB に対して、10% と 1% 遅い
 
 ## 帰結
 
@@ -77,6 +87,8 @@ MOC は ADR-0067 と同じく 32 スレッドで 16% 遅いが、自己遮蔽が
   分け、1 本あたりの上限は半分になる。r995 の全体 59 GB ほど（ADR-0213）を 32 で分けて 1.8 GB ほどで、2A のピン（0.39 GB）は全部を持つ
 - 2A の MaxRSS は 12.0 → 20.5 GB（Slurm 580 と 579）に増える。同時に解くピンの持つ区間と、スレッドごとの作業の配列が倍になることが
   候補（内訳は測っていない）
+- 1 本のピンを全スレッドの塊で解く 1C（間引かない格子。ADR-0213）は、SMT で 1〜10% 遅くなる（「確認」）。原因（メモリの転送の候補）は
+  確かめていない。ピンセルの燃焼は本番の時間の大半でないので、既定は 2A に合わせる
 - MOC が支配的な計算は SMT で遅くなりうる（ADR-0067 の P3 で 12%、2A の燃焼の MOC で 16%）。メモリが足りない、または MOC が
   支配的な計算は、`RAYON_NUM_THREADS` に物理コアの数を与えて流す
 - 時間を記録する測定のスレッドの数が r995 の排他のジョブで 16 から 32 になる。ADR-0122 の環境の変更で、時間の表は再測定する
