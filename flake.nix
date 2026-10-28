@@ -34,8 +34,10 @@
         export CARGO_TARGET_DIR
         exec ${rustAnalyzerBin}/bin/rust-analyzer "$@"
       '';
-      # 検証用のツール（OpenMC の入力の作成と結果の読み出し、比較のスクリプト）が使う Python のパッケージ
-      pythonPackages =
+      # 参照のステージ（references の devShell で走る OpenMC と NJOY のスクリプト）が使う Python のパッケージ。
+      # references の devShell の store のパスはそのステージの deps なので、ここを変えると参照解が changed になる。
+      # 参照のステージが使わないパッケージは pythonPackages にだけ足す（#0183）
+      referencesPythonPackages =
         p: with p; [
           numpy
           h5py
@@ -44,8 +46,9 @@
           scipy
           pandas
           uncertainties
-          pyyaml
         ];
+      # 検証用のツール（比較のスクリプト、dvc.lock を読むスクリプト）とテストが使う Python のパッケージ
+      pythonPackages = p: referencesPythonPackages p ++ [ p.pyyaml ];
       python = pkgs.python3.withPackages pythonPackages;
       # 計算のステージの駆動（ADR-0159）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
       # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。pkgs.dvc の bin/dvc（makeWrapper）も
@@ -221,7 +224,9 @@
         ];
         pythonImportsCheck = [ "openmc" ];
       };
-      referencesPython = pkgs.python3.withPackages (p: pythonPackages p ++ [ openmcPython ]);
+      referencesPython = pkgs.python3.withPackages (p: referencesPythonPackages p ++ [ openmcPython ]);
+      # Python のテスト（scripts/run-python-tests.sh）: 検証用のツールのパッケージと OpenMC の Python API の両方を使う
+      testsPython = pkgs.python3.withPackages (p: pythonPackages p ++ [ openmcPython ]);
     in
     {
       checks.${system} = {
@@ -294,6 +299,14 @@
           # 外の shell（direnv で入った default の devShell など）の PYTHONPATH を引き継ぐと、その shell の Python の
           # パッケージが referencesPython のものより先に読まれる。referencesPython は PYTHONPATH なしで自分の
           # パッケージを見つける
+          shellHook = ''
+            unset PYTHONPATH
+          '';
+        };
+        # Python のテスト: references の Python に検証用のツールのパッケージを足したもの。参照のステージの deps に
+        # 入らないので、検証用のパッケージを足しても参照解は changed にならない
+        python-tests = pkgs.mkShell {
+          packages = [ testsPython ];
           shellHook = ''
             unset PYTHONPATH
           '';
