@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-references-shell.sh — references の devShell の store のパスと、追跡している references-shell.txt を比べる
-# （.pre-commit-config.yaml の references-shell が、すべてのコミットで呼ぶ）
+# （.pre-commit-config.yaml の references-shell が呼ぶ）
 #
 # Usage: scripts/check-references-shell.sh（リポジトリのどこからでもよい）
 #
@@ -20,7 +20,8 @@ if (( ${#records[@]} == 0 )); then
   exit 2
 fi
 
-shell=$(nix eval --raw .#devShells.x86_64-linux.references.outPath)
+# 評価で flake.lock を書き換えない（コミットに入らない lock で比べることになる）。入力が lock に無ければ止まる
+shell=$(nix eval --no-update-lock-file --raw .#devShells.x86_64-linux.references.outPath)
 
 stale=()
 for record in "${records[@]}"; do
@@ -29,9 +30,10 @@ for record in "${records[@]}"; do
     stale+=("$record")
     continue
   fi
-  recorded=$(<"$record")
-  if [[ "$recorded" != "$shell" ]]; then
-    echo "FAILED: $record は $recorded、references の devShell は $shell" >&2
+  # DVC はバイトで md5 を取り、nix eval --raw は末尾に改行を書かないので、文字列でなくバイトで比べる（$(<file) は末尾の
+  # 改行を落とす）
+  if ! cmp -s -- "$record" <(printf '%s' "$shell"); then
+    echo "FAILED: $record は $(<"$record")（バイトで比べる。末尾の改行も違いになる）、references の devShell は $shell" >&2
     stale+=("$record")
   fi
 done
