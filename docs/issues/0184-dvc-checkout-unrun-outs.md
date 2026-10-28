@@ -5,7 +5,7 @@ opened: 2026-10-28
 closed: 2026-10-28
 milestone:
 blocked-by: []
-resolution: コミット e6131291d
+resolution: コミット 52e440c67
 ---
 
 # 未実行のステージの出力で dvc checkout が終了コード 255 を返す
