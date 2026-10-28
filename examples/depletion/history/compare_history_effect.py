@@ -103,6 +103,9 @@ def compare(nominal, cases):
         burnups = sorted(branch)
         if any(sorted(t) != burnups for t in (hybrid, reverse, reverse_hybrid)):
             raise SystemExit(f"{name}: the tables solve different burnups")
+        missing = [u for u in burnups if u not in varied or u not in base]
+        if missing:
+            raise SystemExit(f"{name}: the histories lack the burnups {missing}")
         rows = []
         for u in burnups:
             k_varied, n_varied = varied[u]
