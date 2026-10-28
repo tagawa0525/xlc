@@ -38,6 +38,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   ジョブは理由を書いて止める（ユーザー 2026-10-24）
 - 仕様書に KENO-VI の参照解がある問題は ENDF/B-VII.0 の検証用ライブラリで KENO と直接比べ、OpenMC の参照解は仕様書に参照のない
   問題（燃焼、分岐、HFP）と診断だけに作る（ADR-0175）。3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0124、docs/plans/m3-core-hzp.md。ユーザー 2026-10-15）
+- 結果を変えない deps の変更で、重いステージを再実行せず `dvc commit` で付け直してよいのは、ADR-0212 の (b) の条件（値の同じ TOML だけ）を
+  満たすときと、ADR が決めた移行（ADR-0159、ADR-0210）だけ。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
+  devShell の store のパスが参照解の deps。食い違いは pre-commit の hook `references-shell` が止める。ADR-0212）
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
   実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
@@ -80,7 +83,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 差分が文書（`.md`）だけのとき、run-checks.sh は fmt、clippy、全体の `cargo test` の代わりに docs クレートのテスト
   （`cargo test -p xlc-docs`）だけを実行する。宣言は `scripts/run-rust-docs-tests.sh`（nixfiles の ADR-0057）。ほかの差分では
   全体の後にも宣言を実行し、宣言に実行権限が無ければ差分によらず失敗する
-- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が references の devShell で実行し、run-checks.sh が
+- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が python-tests の devShell（references の Python に検証用のツールのパッケージを足したもの。ADR-0212）で実行し、run-checks.sh が
   それを呼ぶ（nixfiles の ADR-0036）。run-checks.sh は Python のステージを .py の変更があるときだけ実行するので、
   手元では `scripts/run-python-tests.sh` で全部を実行できる
 - ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる

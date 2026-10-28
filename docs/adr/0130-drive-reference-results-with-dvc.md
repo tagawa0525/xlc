@@ -5,6 +5,7 @@ supersedes: []
 superseded-by:
 issues: ["#0018", "#0184"]
 requires: [ADR-0122, ADR-0123, ADR-0124, ADR-0126]
+amended-by: [ADR-0212]
 ---
 
 # ADR-0130: 参照の結果は DVC のステージで作り、OpenMC のステージは references の devShell で包む

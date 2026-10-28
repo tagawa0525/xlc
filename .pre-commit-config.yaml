@@ -37,3 +37,14 @@ repos:
         files: ^(.*dvc\.yaml|python-ast/.*|.*\.py)$
         pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml と正規形を見る
         verbose: true
+      - id: references-shell
+        name: references-shell.txt matches the references devShell
+        # references-shell のステージは always_changed で dvc repro まで書き直されないので、flake の変更で食い違っても
+        # dvc status に出ない（ADR-0212、#0183）。devShell は flake.nix と flake.lock のほかに、flake.nix が references の
+        # devShell に読み込む docs/patches/（NJOY のパッチ）でも変わる。すべてのコミットでは実行しない: 汚れた git の flake の
+        # 評価は追跡している木を毎回 nix store にコピーする（約 19 MB）。並びから漏れたものはマージの前の検査で拾う（#0185）
+        entry: scripts/check-references-shell.sh
+        language: system
+        files: ^(flake\.(nix|lock)|docs/patches/.*|(.*/)?references-shell\.txt)$
+        pass_filenames: false # 渡されたファイルでなく、追跡しているすべての references-shell.txt を見る
+        verbose: true
