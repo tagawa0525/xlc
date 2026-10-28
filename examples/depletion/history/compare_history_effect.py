@@ -147,6 +147,7 @@ def write_json(directory, output):
         for name, case in CASES.items()
     }
     summary = {
+        "format": "xlc-compare-history-effect",
         "inputs": {f: md5(d / f) for f in files},
         "tracked_elements": list(TRACKED),
         "cases": compare(read(d / NOMINAL), cases),
