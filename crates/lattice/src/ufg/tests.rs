@@ -2308,8 +2308,18 @@ fn cgroup_limits_are_read_from_the_cgroup_and_its_ancestors() {
             ("1000\n".to_string(), "400\n".to_string())
         ]
     );
-    for outside in ["/a/missing", "/..", "/a/../.."] {
-        assert!(cgroup_limits(&root, outside).is_err(), "{outside}");
+    assert!(matches!(
+        cgroup_limits(&root, "/a/missing"),
+        Err(MemoryError::Read { .. })
+    ));
+    for outside in ["/..", "/a/../.."] {
+        assert!(
+            matches!(
+                cgroup_limits(&root, outside),
+                Err(MemoryError::NotCgroup2(_))
+            ),
+            "{outside}"
+        );
     }
     std::fs::remove_file(leaf.join("memory.current")).unwrap();
     assert!(matches!(
