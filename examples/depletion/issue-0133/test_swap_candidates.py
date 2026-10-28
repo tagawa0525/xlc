@@ -264,7 +264,7 @@ class Summary(unittest.TestCase):
 
     def test_a_transfer_log_outside_the_joint_run_is_an_error(self):
         # 表の移行の行は同時の置き換えの実行だけから取るので、ほかの実行の移行のログは表に入らない
-        with self.assertRaises(sc.SummaryError):
+        with self.assertRaisesRegex(sc.SummaryError, "other than the joint one"):
             summarize(
                 [
                     run(materials=MATERIALS_LOG, transfer=TRANSFER_LOG),
