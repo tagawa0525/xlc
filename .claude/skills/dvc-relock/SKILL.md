@@ -12,6 +12,7 @@ allowed-tools:
   - Bash(nix develop -c scripts/compare-dvc-lock.py*)
   - Bash(nix develop -c scripts/count-changed-stages.py*)
   - Bash(scripts/check-dvc-lock.sh*)
+  - Bash(scripts/check-references-shell.sh*)
   - Bash(head -1 examples/*/dvc.lock)
   - Bash(head -1 dvc.lock)
   - Bash(nix develop -c dvc repro -s *)
@@ -102,7 +103,10 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    - 実行しない: xs（約 9 分）、OpenMC（40〜60 分）、ライブラリ（核種ごと、逐次で約 30 分）、数分かかる lattice の問題
      （Slurm で流す重さ。CLAUDE.md の「計算」）
      ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
-   - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す
+   - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す。ただし出力の `references-shell.txt` は
+     `dvc repro` まで書き直されず、devShell が変わっても `dvc status` に出ないので、中身を `scripts/check-references-shell.sh` で
+     確かめる（flake.nix か flake.lock を変えたコミットでは pre-commit の hook が同じものを実行するが、rebase で main の flake の
+     変更と混ざった版は hook を通っていない）。食い違えば止め、出力の文言の修正方法に従う（ADR-0212 の (a)）
    - `build` と `python-ast` は 2 で走らせ終えている
 
    数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
@@ -148,7 +152,10 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `nix develop -c scripts/check-dvc-lock.sh examples/<問題>/dvc.lock`（direnv で入っていれば `nix develop -c` は要らない）が終了コード 0 で終わること（dvc が lock を読めるかの検査は、このツールが
    唯一の定義。pre-commit の hook `dvc-lock` も同じツールを呼ぶ。issue #0090）。
 
-出力を作り直さず `dvc commit` で lock を付け直したとき（deps の置き場や正規形を替えた ADR-0210 の移行など）は、deps の hash
+出力を作り直さず `dvc commit` で lock を付け直してよいのは、ADR-0212 の (b) の条件（重いステージで、変更の親で changed でなく、
+変わった deps が値の同じ TOML だけで、その md5 が出力に無い）を満たすステージと、ADR が決めた移行だけである。実行ファイルと
+`references-shell.txt` の差では付け直さない。
+付け直したとき（deps の置き場や正規形を替えた ADR-0210 の移行など）は、deps の hash
 だけが変わったことを `nix develop -c scripts/compare-dvc-lock.py <付け直す前のコミット> HEAD` で確かめる（2 つのコミットの間で変わった
 すべての `dvc.lock` について、ステージの集合と、各ステージの `cmd`、`outs`、`params` を比べ、違いはファイルとステージと欄で出して
 終了コード 1 で終わる）。ステージの集合の差も違いとして出る（python-ast のステージの追加のように増えて当然のときは、出力を読んで確かめる）。
