@@ -117,6 +117,23 @@ class CheckReferencesShell(unittest.TestCase):
         self.assertIn("examples/b/references-shell.txt", result.stderr)
         self.assertIn("ADR-0212", result.stderr)
 
+    def test_stops_without_writing_a_lock_for_an_unlocked_input(self):
+        dep = self.repo / "dep"
+        dep.mkdir()
+        (dep / "flake.nix").write_text("{ outputs = { self }: { }; }\n")
+        self.record("examples/a/references-shell.txt", self.shell_path())
+        flake = FLAKE.format(tag="a").replace(
+            "{\n  outputs = { self }:",
+            '{\n  inputs.dep.url = "path:'
+            + str(dep)
+            + '";\n  outputs = { self, dep }:',
+        )
+        (self.repo / "flake.nix").write_text(flake)
+        run("git", "add", "flake.nix", cwd=self.repo).check_returncode()
+        result = self.check()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.repo / "flake.lock").exists())
+
     def test_fails_without_tracked_records(self):
         result = self.check()
         self.assertEqual(result.returncode, 2)
