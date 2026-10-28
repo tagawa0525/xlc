@@ -9,7 +9,8 @@
 
 寄与は置き換えた k の変化の符号を変えたもの（pcm。xlc の断面積のその差が k の差（xlc − OpenMC）に足している分）。燃料の核種の
 吸収は `swap_absorption`（捕獲 + 核分裂、核分裂、νσf。SPH 因子は置き換える前のまま）、物質の吸収と χ も `swap_absorption`
-（`--materials`、`--chi`）、移行は `swap_transfer` の「SPH kept」（同じく置き換える前の SPH 因子）。OpenMC の実行が複数あれば、
+（`--materials`、`--chi`）、移行は同時の置き換えのログの行（`swap_absorption` の `~`。`swap_transfer` の「SPH kept」と同じ置き換えで、そのログとは表示の
+丸めの中で合うことを確かめる）。OpenMC の実行が複数あれば、
 実行ごとの寄与を平均する。群 1 に 10 MeV より上を数えない実行（`fast = false`）は、群 1 を含む置き換えから外す。
 
 置き換えどうしの相互作用は、吸収の全部（燃料の全核種）、物質の吸収、移行を 1 つの実行で同時に置き換えた寄与から、同じ実行で
@@ -70,7 +71,7 @@ LABELS = {
     "transfer-water-thermal": "移行: 減速材、0.625 eV より下（#0151）",
     "chi": "χ（燃料のアクチニド）",
     "interaction": "置き換えどうしの相互作用（吸収の全部、物質の吸収、移行の同時 − 別々の和）",
-    "rest": "残り（差 − 吸収の全部 − 物質の吸収 − 移行の和 − χ − 相互作用）",
+    "rest": "残り（差 − 吸収の全部 − 物質の吸収 − 移行の和 − χ − 相互作用。同時の置き換えの実行の値）",
 }
 # 物質の吸収を置き換える物質（xlc の入力の名前、openmc_pin_rates.py の OpenMC の物質の名前）とエネルギーの範囲
 MATERIALS = [("water", "moderator"), ("zircaloy", "zircaloy-4")]
@@ -299,7 +300,6 @@ def summarize_state(
                     f"{name}: the transfer log was swapped against another OpenMC run "
                     f"(k {block['openmc']} and {run['k']})"
                 )
-            values[key].append(-block["change"])
 
     # 同時の置き換え。別々の行は、同じ OpenMC の値で解いたほかのログの行と合うこと（同じ置き換えなので、ログの丸めの中で同じ）
     i, j = joint["run"], joint["materials_run"]
@@ -330,6 +330,9 @@ def summarize_state(
             raise SummaryError(
                 f"{name}: the joint log has `{spec}` {joined[spec]:+.1f} pcm, the separate log {change:+.1f}"
             )
+    # 移行の行は同時の置き換えのログの行（swap_transfer の変化は小数 6 桁の k の差で、丸めの分だけ残りと閉じない）
+    for key, material, first, last in transfers:
+        values[key] = [-joined[f"~{material}:{first}-{last}"]]
     joint_pcm = -joined[together]
     interaction = joint_pcm + sum(joined[spec] for spec in lines[:-1])
     k, chi_changes = parse_absorption(chi["log"])
