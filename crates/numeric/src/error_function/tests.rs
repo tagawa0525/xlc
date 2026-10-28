@@ -35,6 +35,26 @@ fn erf_is_within_four_ulp_of_multiprecision_values() {
 }
 
 #[test]
+fn erf_with_a_given_gaussian_is_erf_bit_for_bit() {
+    let samples = ERF_REFERENCE.iter().map(|&(x, _, _)| x).chain([
+        0.0,
+        CODY_LOWER_LIMIT,
+        SATURATION,
+        1e308,
+        f64::INFINITY,
+    ]);
+    for x in samples.flat_map(|x| [x, -x]) {
+        let gaussian = (-x * x).exp();
+        assert_eq!(
+            erf_with_gaussian(x, gaussian).to_bits(),
+            erf(x).to_bits(),
+            "x={x}"
+        );
+    }
+    assert!(erf_with_gaussian(f64::NAN, f64::NAN).is_nan());
+}
+
+#[test]
 fn erfc_and_erfcx_saturate_at_large_arguments() {
     assert_eq!(erfc(f64::INFINITY), 0.0);
     assert_eq!(erfcx(f64::INFINITY), 0.0);
