@@ -396,6 +396,42 @@ fn ufg_tolerance_thins_only_when_given() {
 }
 
 #[test]
+fn ufg_hold_memory_sets_the_held_memory_of_the_self_shielding() {
+    // ADR-0213: 省略すると使用可能メモリから求め（`None`）、GiB で与えるとその量。負と有限でない値、自己遮蔽をしない入力ではエラー
+    let hold = |line: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.shielding_options().hold_memory)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL)
+            .unwrap()
+            .shielding_options()
+            .hold_memory,
+        None
+    );
+    assert_eq!(hold("ufg-hold-memory = 80").unwrap(), Some(80 << 30));
+    assert_eq!(hold("ufg-hold-memory = 0.5").unwrap(), Some(1 << 29));
+    assert_eq!(hold("ufg-hold-memory = 0").unwrap(), Some(0));
+    for bad in [
+        "ufg-hold-memory = -1",
+        "ufg-hold-memory = inf",
+        "ufg-hold-memory = nan",
+    ] {
+        assert!(matches!(hold(bad), Err(InputError::Invalid(_))), "{bad}");
+    }
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\nufg-hold-memory = 80",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+}
+
+#[test]
 fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     // ADR-0209: 省略すると、ADR-0205 の速い方法（軽い核種と重い核種の 400 kT までの自由ガス、細かさ 2、スイープ 3 回、H in H2O の
     // S(α, β)）。`ufg-free-gas` の書かない項目もその値
