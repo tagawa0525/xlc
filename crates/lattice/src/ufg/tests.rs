@@ -397,6 +397,7 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
             collision,
             None,
             Scattering::Static,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -441,6 +442,7 @@ fn non_finite_totals_stop_with_the_table_as_without() {
             collision,
             None,
             Scattering::Static,
+            held_cells(1, 1),
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -466,6 +468,7 @@ fn zero_totals_stop_the_table_with_their_ring() {
         Collision::default(),
         None,
         Scattering::Static,
+        held_cells(1, 1),
     );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
@@ -490,6 +493,7 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
             collision,
             None,
             Scattering::Static,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -520,6 +524,7 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
             collision,
             None,
             Scattering::Static,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -719,6 +724,7 @@ fn thinned_grids_give_the_group_constants_of_the_full_grid() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -764,6 +770,7 @@ fn a_vanishing_tolerance_gives_the_group_constants_tallied_in_the_sweep() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -819,6 +826,7 @@ fn thinned_grids_keep_both_limits_of_discontinuities() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -846,6 +854,7 @@ fn void_cells_stop_with_an_error_when_thinned() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1, 1),
         );
         assert!(result.is_err(), "{thinning:?}");
     }
@@ -866,6 +875,7 @@ fn non_finite_totals_stop_the_thinning_as_without() {
             Collision::Exact,
             thinning,
             Scattering::Static,
+            held_cells(1, 1),
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -891,6 +901,7 @@ fn fine_flux_integrates_to_the_group_flux() {
         Collision::default(),
         None,
         Scattering::Static,
+        held_cells(1, 1),
     )
     .unwrap();
     let (spectrum, fine) = slowing_down_fine(
@@ -1098,6 +1109,7 @@ fn thermal_spectrum(temperature: f64, scattering: Scattering) -> CellSpectrum {
         Collision::Exact,
         None,
         scattering,
+        held_cells(1, 1),
     )
     .unwrap()
 }
@@ -1215,6 +1227,7 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -1300,6 +1313,7 @@ fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -1527,6 +1541,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -1668,6 +1683,7 @@ fn sab_spectrum(
         Collision::Exact,
         None,
         scattering,
+        held_cells(1, 1),
     )
 }
 
@@ -1750,6 +1766,7 @@ fn sab_needs_the_table_of_sab_nuclides() {
             Collision::Exact,
             None,
             scattering,
+            held_cells(1, 1),
         )
         .unwrap()
     };
@@ -1791,7 +1808,8 @@ fn sab_needs_the_free_gas_of_its_nuclides() {
             [4.0, 1.0e2],
             Collision::Exact,
             None,
-            sab(4, None)
+            sab(4, None),
+            held_cells(1, 1),
         ),
         Err(UfgError::SabWithoutFreeGas { .. })
     ));

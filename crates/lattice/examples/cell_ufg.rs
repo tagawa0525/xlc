@@ -18,7 +18,7 @@ use xlc_format::library::Library;
 use xlc_format::msgpack::to_named;
 use xlc_lattice::cp::Cylinder;
 use xlc_lattice::input::{CrossSections, LatticeInput, MaterialInput, VOID};
-use xlc_lattice::ufg::{MAX_TOP, slowing_down_with};
+use xlc_lattice::ufg::{MAX_TOP, held_cells, slowing_down_with};
 
 #[derive(Serialize)]
 struct Rates {
@@ -136,6 +136,7 @@ fn main() -> anyhow::Result<()> {
         input.collision,
         input.thinning,
         input.scattering,
+        held_cells(1, 1),
     )?;
     let volumes = cylinder.volumes();
     let mine: Vec<usize> = (0..rings.len())

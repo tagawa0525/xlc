@@ -35,8 +35,7 @@ pub(super) const TAIL: f64 = 28.0;
 const CELLS_PER_TASK: usize = 32;
 
 /// スレッドの数だけの減速計算を同時に解くときの、1 回の減速計算がスイープの間で持つ区間（[`HeldCell`]）の数の上限（1 GiB。
-/// ADR-0213）。全体はこれのスレッドの数倍（[`super::held_cells`]）。格子点ごとの核種の区間の始まり（核種の数 + 1 個の u32）は数えない
-/// （2A のピンで区間の 0.3% ほど）
+/// ADR-0213）。全体はこれのスレッドの数倍（[`super::held_cells`]）
 pub(super) const HELD_CELLS: usize = (1 << 30) / std::mem::size_of::<HeldCell>();
 
 /// 下端の側の区間の半幅（ぼけの幅 2√(E' kT)/ζ の倍数）。erfc(6) ≈ 2e−17
@@ -952,7 +951,8 @@ pub(super) struct Thermal<'a> {
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
-    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`HELD_CELLS`]。0 なら持たず、スイープごとに作り直す）。
+    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`]。格子点ごとの核種の区間の始まりも 40 B を 1 区間として
+    /// 数える。0 なら持たず、スイープごとに作り直す）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         gases: Vec<Gas>,
@@ -1117,12 +1117,24 @@ impl<'a> Thermal<'a> {
             self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
         }
         self.starts.push(self.all.len() as u32);
+        // 最初に持つ格子点で、すべての格子点の核種の区間の始まりと、格子点ごとの位置の表を確保し、上限から引く（持つ区間とともに
+        // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）
+        if self.held_starts.capacity() == 0 && !self.all.is_empty() && self.room > 0 {
+            let slots = u.len() - self.start;
+            let bytes = slots * self.starts.len() * std::mem::size_of::<u32>()
+                + slots * std::mem::size_of::<Option<Held>>();
+            let cost = bytes.div_ceil(std::mem::size_of::<HeldCell>());
+            if cost < self.room {
+                self.held_starts.reserve_exact(slots * self.starts.len());
+                self.held.resize_with(slots, || None);
+                self.room -= cost;
+            } else {
+                self.room = 0;
+            }
+        }
         let keep = !self.all.is_empty() && self.all.len() <= self.room;
         let first = self.held_cells.len();
         if keep {
-            if self.held.len() <= slot {
-                self.held.resize_with(slot + 1, || None);
-            }
             self.held[slot] = Some(Held {
                 cells: first,
                 len: self.all.len(),

@@ -324,12 +324,15 @@ pub fn slowing_down(
         Collision::default(),
         None,
         Scattering::Static,
+        // 静止した標的にはスイープの間で持つ区間がない
+        0,
     )
 }
 
 /// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引き（[`thin`]。
 /// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））、
-/// 散乱核の標的の扱いを `scattering` で選ぶもの。
+/// 散乱核の標的の扱いを `scattering` で選ぶもの。スイープの間で持つ区間は `hold` 個まで（[`held_cells`]。ADR-0213）。
+#[allow(clippy::too_many_arguments)]
 pub fn slowing_down_with(
     library: &Library,
     cell: &Cylinder,
@@ -338,26 +341,17 @@ pub fn slowing_down_with(
     collision: Collision,
     thinning: Option<f64>,
     scattering: Scattering,
+    hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library,
-        cell,
-        rings,
-        range,
-        collision,
-        thinning,
-        scattering,
-        None,
-        None,
-        free_gas::HELD_CELLS,
+        library, cell, rings, range, collision, thinning, scattering, None, None, hold,
     )
 }
 
-/// `solves` 個の減速計算を `threads` 個のスレッドで同時に解くときの、1 回の減速計算がスイープの間で持つ区間の数の上限（ADR-0213）。
-/// 全体をスレッドの数 × 1 回の減速計算の上限（1 GiB）に抑え、同時に解く減速計算（スレッドの数以下）で分ける
-pub fn held_cells(threads: usize, solves: usize) -> usize {
-    let threads = threads.max(1);
-    free_gas::HELD_CELLS * threads / threads.min(solves).max(1)
+/// `threads` 個のスレッドで、同時に最大 `at_once` 個の減速計算を解くときの、1 回の減速計算がスイープの間で持つ区間の数の上限
+/// （ADR-0213）。全体をスレッドの数 × 1 回の減速計算の上限（1 GiB）に抑え、同時に解きうる減速計算の数で分ける
+pub fn held_cells(threads: usize, at_once: usize) -> usize {
+    free_gas::HELD_CELLS * threads.max(1) / at_once.max(1)
 }
 
 /// 1 つの核種の、UFG の範囲の群から出る弾性散乱の移行（ADR-0207。[`slowing_down_transfers`]）。
