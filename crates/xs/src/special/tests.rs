@@ -221,8 +221,8 @@ fn erfcx_gives_the_same_bits_as_its_copy() {
 
 #[test]
 fn erfc_is_within_four_ulp_of_multiprecision_values() {
-    // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値。erfcx_cases.py が書き出す）。x は 0.46875〜2.5 と 0.46875〜26 の
-    // 一様な乱数（4 万点、3 万点）で誤差が大きかった点（exp(−x²) を分けないとき、1/16 と 2⁻²¹ で分けたとき）と、区間の端
+    // mpmath 1.4.1 の 60 桁の erfc(x)（x, hi, lo。hi + lo が値。erfcx_cases.py が書き出す）。x は ADR-0211 の計測
+    // （0.46875〜2.5 と 0.46875〜26 の一様な乱数）で誤差が大きかった点と、区間の端
     for (x, hi, lo) in [
         (0.46875, 0.507386526782062, 3.3306914518767484e-17),
         (1.0, 0.15729920705028513, -2.954563826510312e-18),
