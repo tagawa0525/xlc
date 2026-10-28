@@ -102,13 +102,19 @@ pub(super) fn erfcx(x: f64) -> f64 {
     }
 }
 
-/// exp(sign·x²) を、x² の丸めを指数に入れずに求める。x を 1/16 の倍数 s に切り捨てると s² は丸めなしで表せ（|x| < 2²² で。
-/// それより大きい x の exp(±x²) は桁あふれか 0）、残りの x² − s² = (x − s)(x + s) は 1 より小さいので、その丸めは指数で増えない
-/// （CALERF と同じ分け方）。exp(±x*x) と書くと、x*x の丸めが x² 倍で効く（x = 24.6 で 510 ulp。ADR-0211）
+/// exp(sign·x²) を、x² の丸めを指数に入れずに求める。x を 2⁻²¹ の倍数 s に切り捨てると、|x| < 32 で s の仮数は 26 ビット以下で s² は
+/// 丸めなしで表せ、残りの x² − s² = (x − s)(x + s) は 2⁻²¹ × 2|x| より小さいので、その丸めは指数で増えない（CALERF の 1/16 で切る
+/// 分け方では、残りが x = 26 で 3 に達し、その丸めが 3 倍で効く）。|x| ≥ 32 では exp(±s²) が 0 か桁あふれになり、そのまま返す
+/// （残りを掛けると 0 × ∞ になりうる）。exp(±x*x) と書くと、x*x の丸めが x² 倍で効く（x = 24.6 で 510 ulp。ADR-0211）
 fn exp_square(x: f64, sign: f64) -> f64 {
-    let s = (x * 16.0).trunc() / 16.0;
+    const SCALE: f64 = 2_097_152.0; // 2²¹
+    let s = (x * SCALE).trunc() / SCALE;
+    let head = (sign * s * s).exp();
+    if head == 0.0 || head.is_infinite() {
+        return head;
+    }
     let rest = (x - s) * (x + s);
-    (sign * s * s).exp() * (sign * rest).exp()
+    head * (sign * rest).exp()
 }
 
 // Cody の有理近似の係数（ADR-0211）。W. J. Cody, "Rational Chebyshev approximations for the error function",
