@@ -3,11 +3,16 @@
 //!
 //! 使い方: swap_absorption <格子の入力 (TOML)> <OpenMC の openmc-rates.msgpack> <置き換えの一覧（テキスト）>
 //!     [--materials <物質の吸収のある OpenMC の出力>] [--transfer <OpenMC の移行の出力>] [--chi <OpenMC の χ>]
+//!     [--absorption <核種の吸収のある OpenMC の出力>] [--excess <OpenMC の核種の (n,2n) などの出力>]
 //!
 //! 一覧は 1 行に 1 つの置き換え（空行と `#` からの行は読まない）。置き換えは次の部分を `,` でつないだもので、置き換えごとに別に
 //! 解き、置き換えない k との差を書く。群は 1 始まりで、高いエネルギーから数え、`<最初の群>-<最後の群>` は両端を含む。
 //!
 //! - `<核種>:<最初の群>-<最後の群>`: 燃料の核種の吸収と核分裂。核種を `*` にすると、OpenMC の反応率のある燃料の全核種
+//! - `<核種>!<最初の群>-<最後の群>`: 燃料の核種の、捕獲と核分裂のほかの吸収（(n,p)、(n,α) など。`--absorption`。
+//!   openmc_pin_rates.py の出力の `rates` の `absorption`、`(n,gamma)`、`fission`）。`*` は `:` と同じ
+//! - `<核種>^<最初の群>-<最後の群>`: 燃料の核種の中性子の過剰（(n,2n) などの多重度の分。`--excess`。openmc_pin_excess.py の
+//!   出力）。`*` は `:` と同じ
 //! - `@<物質>=<OpenMC の物質>:<最初の群>-<最後の群>`: 物質（被覆管、減速材など。xlc の入力の名前）の吸収（`--materials`。
 //!   openmc_pin_rates.py の出力の `materials` の `flux` と `absorption`）
 //! - `~<物質>:<最初の群>-<最後の群>`: 物質の散乱の移行の行（`--transfer`。openmc_pin_transfer.py の出力の `materials`。物質の
@@ -21,6 +26,14 @@
 //! 置き換えは比 R = OpenMC / xlc を、燃料のリングごとの核種の値に掛ける形にし（リングの間の違いを残す）、リングの物質の全断面積、
 //! 核分裂、νΣf と、その核種の核分裂の項を、SPH 因子（物質の全断面積 / 核種の全断面積の和。SPH 因子を掛けた物質の全断面積は核種の
 //! 和の μ 倍）を掛けて動かす。散乱は変えない（吸収の差だけを測る）。
+//!
+//! 捕獲と核分裂のほかの吸収は、OpenMC の `absorption`（消滅の反応と核分裂の和）−（`(n,gamma)` + `fission`）と、xlc の核種の
+//! 正味の吸収（実効の全断面積 − 散乱行列の行の和）に過剰を足し戻し（物質の吸収と同じく、ライブラリの燃焼チェーンの反応の無限希釈の
+//! 群の断面積）、捕獲と核分裂を引いた値の差を、全断面積に足す（xlc の値は、全断面積と行の和の食い違いも含む）。中性子の過剰は、正味の吸収
+//! （全断面積 − 散乱行列の行の和）を xlc の過剰と OpenMC の過剰（`(n,2n)` + 2 `(n,3n)` + 3 `(n,4n)`）の差だけ動かす（全断面積だけを
+//! 動かし、散乱行列の多重度は xlc のまま。移行の置き換えと同時なら、OpenMC の行と合わせて OpenMC の正味の吸収になる）。どちらも
+//! 比でなく差にする（捕獲と核分裂のほかの吸収は、反応の無い群で両方が 0 になり、比が決まらない）。差はピンの燃料で平均した値で、
+//! リングの間で同じだけ動かし、SPH 因子を掛ける。`:` の置き換えとは別の量なので、同じ核種の同じ群に重ねてよい。
 //!
 //! 物質の吸収は、OpenMC の `absorption`（消滅の反応のすべて: 捕獲、(n,p)、(n,α) など）/ 物質の中性子束と、xlc の物質全体を物理的な
 //! 中性子束で平均した吸収の比 R を、物質のすべての領域の吸収に掛ける。xlc の物質の吸収 Σt − Σ_g' Σs(g→g') は、散乱行列が
@@ -51,7 +64,7 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use xlc_format::library::Library;
+use xlc_format::library::{Library, TemperatureData};
 use xlc_format::msgpack::{from_value, read_value};
 use xlc_lattice::balance::by_material;
 use xlc_lattice::input::{CrossSections, LatticeInput, MaterialInput};
@@ -107,11 +120,24 @@ struct ChiReference {
     chi: BTreeMap<String, Vec<f64>>,
 }
 
-/// 1 つの核種の、群ごとの吸収と核分裂の比 OpenMC / xlc（置き換えない群は 1）
+/// 1 つの核種の、群ごとの吸収と核分裂の比 OpenMC / xlc（置き換えない群は 1）と、全断面積に足す物理的な断面積 (barn。置き換えない
+/// 群は 0)
 struct Ratio {
     absorption: Vec<f64>,
     fission: Vec<f64>,
     nu_fission: Vec<f64>,
+    shift: Vec<f64>,
+}
+
+impl Ratio {
+    fn unchanged(ng: usize) -> Self {
+        Ratio {
+            absorption: vec![1.0; ng],
+            fission: vec![1.0; ng],
+            nu_fission: vec![1.0; ng],
+            shift: vec![0.0; ng],
+        }
+    }
 }
 
 fn ratio(
@@ -145,11 +171,7 @@ fn ratio(
             "the OpenMC rates of {name} do not have {ng} groups"
         ));
     }
-    let mut r = Ratio {
-        absorption: vec![1.0; ng],
-        fission: vec![1.0; ng],
-        nu_fission: vec![1.0; ng],
-    };
+    let mut r = Ratio::unchanged(ng);
     for g in groups.clone() {
         let phi = reference.flux[g] * density;
         let a_x = xlc.capture[g] + xlc.fission[g];
@@ -174,6 +196,115 @@ fn ratio(
         }
     }
     Ok(r)
+}
+
+/// OpenMC の核種 `name` の、群 `groups` の反応率の重みつきの和 Σ w × 反応率 / 中性子束 / 数密度 (barn。`scores` は (反応, w)。範囲の外の
+/// 群は 0)
+fn per_atom(
+    reference: &Reference,
+    name: &str,
+    scores: &[(&str, f64)],
+    groups: &Range<usize>,
+    ng: usize,
+) -> anyhow::Result<Vec<f64>> {
+    let rates = reference
+        .rates
+        .get(name)
+        .ok_or_else(|| anyhow!("{name} has no OpenMC rates"))?;
+    let density = *reference
+        .densities
+        .get(name)
+        .ok_or_else(|| anyhow!("{name} has no OpenMC density"))?;
+    let values = scores
+        .iter()
+        .map(|&(s, w)| {
+            let v = &rates
+                .get(s)
+                .ok_or_else(|| anyhow!("{name} has no OpenMC `{s}`"))?
+                .mean;
+            if v.len() == ng {
+                Ok((v, w))
+            } else {
+                Err(anyhow!(
+                    "the OpenMC `{s}` of {name} does not have {ng} groups"
+                ))
+            }
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    if reference.flux.len() != ng {
+        return Err(anyhow!("the OpenMC flux does not have {ng} groups"));
+    }
+    let mut out = vec![0.0; ng];
+    for g in groups.clone() {
+        let phi = reference.flux[g] * density;
+        if !(phi > 0.0 && phi.is_finite()) {
+            return Err(anyhow!("{name} group {}: no OpenMC flux", g + 1));
+        }
+        out[g] = values.iter().map(|(v, w)| w * v[g]).sum::<f64>() / phi;
+    }
+    Ok(out)
+}
+
+/// OpenMC の核種の、捕獲と核分裂のほかの吸収 (barn)。OpenMC の `absorption` は消滅の反応（MT102〜117 など）と核分裂の和
+fn openmc_other(
+    reference: &Reference,
+    name: &str,
+    groups: &Range<usize>,
+    ng: usize,
+) -> anyhow::Result<Vec<f64>> {
+    per_atom(
+        reference,
+        name,
+        &[("absorption", 1.0), ("(n,gamma)", -1.0), ("fission", -1.0)],
+        groups,
+        ng,
+    )
+}
+
+/// OpenMC の核種の中性子の過剰 σ(n,2n) + 2σ(n,3n) + 3σ(n,4n) (barn)
+fn openmc_excess(
+    reference: &Reference,
+    name: &str,
+    groups: &Range<usize>,
+    ng: usize,
+) -> anyhow::Result<Vec<f64>> {
+    per_atom(
+        reference,
+        name,
+        &[("(n,2n)", 1.0), ("(n,3n)", 2.0), ("(n,4n)", 3.0)],
+        groups,
+        ng,
+    )
+}
+
+/// xlc の核種の、捕獲と核分裂のほかの吸収 (barn): 正味の吸収（実効の全断面積 − 散乱行列の行の和）+ 過剰 `excess` − 捕獲 − 核分裂。
+/// 自己遮蔽は散乱行列の行の和を弾性散乱の変化だけ動かすので（`shielding` の核種の組み立て）、行の和は無限希釈の行の和（`scatter` は
+/// 無限希釈の P0 の行列）− 無限希釈の弾性散乱（`elastic`）+ 実効の弾性散乱
+fn xlc_other(
+    effective: &xlc_format::library::Shielded,
+    scatter: &[Vec<f64>],
+    elastic: &[f64],
+    excess: &[f64],
+) -> Vec<f64> {
+    (0..effective.total.len())
+        .map(|g| {
+            effective.total[g]
+                - effective.elastic[g]
+                - effective.capture[g]
+                - effective.fission[g]
+                - (scatter[g].iter().sum::<f64>() - elastic[g])
+                + excess[g]
+        })
+        .collect()
+}
+
+/// 群 `groups` で xlc の値 `xlc` を OpenMC の値 `openmc` にする差 (barn。範囲の外は 0)
+fn shift(openmc: &[f64], xlc: &[f64], groups: &Range<usize>) -> Vec<f64> {
+    let mut out = vec![0.0; openmc.len()];
+    for g in groups.clone() {
+        out[g] = openmc[g] - xlc[g];
+    }
+    out
 }
 
 /// 物質の吸収の比 R = OpenMC / xlc（`groups` の外は 1）。`xlc_absorption` は xlc の物質全体の、多重度を差し引かない吸収
@@ -241,7 +372,26 @@ fn replace_chi(
     Ok(())
 }
 
-/// 物質の中性子の過剰 Σ_核種 N (σ(n,2n) + 2σ(n,3n) + 3σ(n,4n)) (1/cm)。ライブラリの燃焼チェーンの反応の無限希釈の群の断面積
+/// 核種の中性子の過剰 σ(n,2n) + 2σ(n,3n) + 3σ(n,4n) (barn)。ライブラリの燃焼チェーンの反応の無限希釈の群の断面積
+fn nuclide_excess(table: &TemperatureData, ng: usize) -> Vec<f64> {
+    let mut excess = vec![0.0; ng];
+    for reaction in &table.reactions {
+        let extra = match reaction.mt {
+            16 => 1.0,
+            17 => 2.0,
+            37 => 3.0,
+            _ => continue,
+        };
+        for channel in &reaction.channels {
+            for (e, s) in excess.iter_mut().zip(&channel.cross_section) {
+                *e += extra * s;
+            }
+        }
+    }
+    excess
+}
+
+/// 物質の中性子の過剰 Σ_核種 N (σ(n,2n) + 2σ(n,3n) + 3σ(n,4n)) (1/cm)
 fn neutron_excess(
     library: &Library,
     material: &MaterialInput,
@@ -250,18 +400,8 @@ fn neutron_excess(
     let mut excess = vec![0.0; ng];
     for (name, density) in &material.composition {
         let (_, table) = library.lookup(name, material.temperature)?;
-        for reaction in &table.reactions {
-            let extra = match reaction.mt {
-                16 => 1.0,
-                17 => 2.0,
-                37 => 3.0,
-                _ => continue,
-            };
-            for channel in &reaction.channels {
-                for (e, s) in excess.iter_mut().zip(&channel.cross_section) {
-                    *e += extra * density * s;
-                }
-            }
+        for (e, s) in excess.iter_mut().zip(nuclide_excess(&table, ng)) {
+            *e += density * s;
         }
     }
     Ok(excess)
@@ -310,9 +450,14 @@ fn swap_rows(
 }
 
 /// 1 つの部分の置き換え
+#[derive(Debug, PartialEq)]
 enum Swap {
     /// 燃料の核種の吸収と核分裂
     Nuclide(String, Range<usize>),
+    /// 燃料の核種の、捕獲と核分裂のほかの吸収
+    Other(String, Range<usize>),
+    /// 燃料の核種の中性子の過剰
+    Excess(String, Range<usize>),
     /// 物質（xlc の名前）の吸収を、OpenMC の物質 `openmc` の値に
     Absorption {
         material: String,
@@ -353,6 +498,38 @@ fn parse(
             out.push(Swap::Chi);
             continue;
         }
+        // 燃料の核種（`*` は OpenMC の反応率のある燃料の全核種）
+        let nuclides = |name: &str| -> anyhow::Result<Vec<String>> {
+            if name == "*" {
+                Ok(fuel
+                    .iter()
+                    .filter(|n| reference.rates.contains_key(*n))
+                    .cloned()
+                    .collect())
+            } else if fuel.iter().any(|n| n == name) {
+                Ok(vec![name.to_string()])
+            } else {
+                Err(anyhow!("{name} is not in the fuel"))
+            }
+        };
+        if let Some((name, range)) = part.split_once('!') {
+            let groups = groups_of(part, range, ng)?;
+            out.extend(
+                nuclides(name)?
+                    .into_iter()
+                    .map(|n| Swap::Other(n, groups.clone())),
+            );
+            continue;
+        }
+        if let Some((name, range)) = part.split_once('^') {
+            let groups = groups_of(part, range, ng)?;
+            out.extend(
+                nuclides(name)?
+                    .into_iter()
+                    .map(|n| Swap::Excess(n, groups.clone())),
+            );
+            continue;
+        }
         let (name, range) = part
             .split_once(':')
             .ok_or_else(|| anyhow!("`{part}`: expected <name>:<first>-<last> or chi"))?;
@@ -371,16 +548,12 @@ fn parse(
                 material: material.to_string(),
                 groups,
             });
-        } else if name == "*" {
-            out.extend(
-                fuel.iter()
-                    .filter(|n| reference.rates.contains_key(*n))
-                    .map(|n| Swap::Nuclide(n.clone(), groups.clone())),
-            );
-        } else if fuel.iter().any(|n| n == name) {
-            out.push(Swap::Nuclide(name.to_string(), groups));
         } else {
-            return Err(anyhow!("{name} is not in the fuel"));
+            out.extend(
+                nuclides(name)?
+                    .into_iter()
+                    .map(|n| Swap::Nuclide(n, groups.clone())),
+            );
         }
     }
     Ok(out)
@@ -460,17 +633,7 @@ fn swapped(
         for ((name, density), s) in input_material.composition.iter().zip(nuclides) {
             let has_term = s.nu_fission.iter().any(|&v| v > 0.0);
             if let Some(r) = ratios.get(name) {
-                for (g, &mu) in sph.iter().enumerate() {
-                    let da = mu * density * (r.absorption[g] - 1.0) * (s.capture[g] + s.fission[g]);
-                    let df = mu * density * (r.fission[g] - 1.0) * s.fission[g];
-                    let dnf = mu * density * (r.nu_fission[g] - 1.0) * s.nu_fission[g];
-                    m.total[g] += da;
-                    m.fission[g] += df;
-                    m.nu_fission[g] += dnf;
-                    if has_term {
-                        m.fission_terms[term].nu_fission[g] += dnf;
-                    }
-                }
+                swap_nuclide(m, has_term.then_some(term), &sph, *density, s, r);
             }
             if has_term {
                 term += 1;
@@ -484,6 +647,30 @@ fn swapped(
         }
     }
     Ok(materials)
+}
+
+/// 物質 `m` の 1 つの核種（実効断面積 `s`、数密度 `density`、核分裂の項の番号 `term`）の捕獲 + 核分裂、核分裂、νΣf に比 `r` を掛け、
+/// 全断面積に `r.shift` を足す（どれも SPH 因子 `sph` を掛ける）
+fn swap_nuclide(
+    m: &mut Material,
+    term: Option<usize>,
+    sph: &[f64],
+    density: f64,
+    s: &xlc_format::library::Shielded,
+    r: &Ratio,
+) {
+    for (g, &mu) in sph.iter().enumerate() {
+        let da =
+            mu * density * ((r.absorption[g] - 1.0) * (s.capture[g] + s.fission[g]) + r.shift[g]);
+        let df = mu * density * (r.fission[g] - 1.0) * s.fission[g];
+        let dnf = mu * density * (r.nu_fission[g] - 1.0) * s.nu_fission[g];
+        m.total[g] += da;
+        m.fission[g] += df;
+        m.nu_fission[g] += dnf;
+        if let Some(t) = term {
+            m.fission_terms[t].nu_fission[g] += dnf;
+        }
+    }
 }
 
 /// [ライブラリの群] の因子（`groups` の外は 1）
@@ -569,13 +756,15 @@ fn main() -> anyhow::Result<()> {
         anyhow!(
             "usage: swap_absorption <lattice input> <openmc-rates.msgpack> <list of swaps> \
              [--materials <OpenMC rates with materials>] [--transfer <OpenMC transfers>] \
-             [--chi <OpenMC chi>]"
+             [--chi <OpenMC chi>] [--absorption <OpenMC rates with absorption>] \
+             [--excess <OpenMC excess>]"
         )
     };
     let [_, input, reference, list, options @ ..] = args.as_slice() else {
         return Err(usage());
     };
     let (mut materials_path, mut transfer_path, mut chi_path) = (None, None, None);
+    let (mut absorption_path, mut excess_path) = (None, None);
     for pair in options.chunks(2) {
         let [flag, value] = pair else {
             return Err(usage());
@@ -584,6 +773,8 @@ fn main() -> anyhow::Result<()> {
             "--materials" => &mut materials_path,
             "--transfer" => &mut transfer_path,
             "--chi" => &mut chi_path,
+            "--absorption" => &mut absorption_path,
+            "--excess" => &mut excess_path,
             _ => return Err(usage()),
         };
         if slot.replace(value.as_str()).is_some() {
@@ -619,6 +810,15 @@ fn main() -> anyhow::Result<()> {
     let transfer_reference: Option<TransferReference> =
         transfer_path.map(read_reference).transpose()?;
     let chi_reference: Option<ChiReference> = chi_path.map(read_reference).transpose()?;
+    let absorption_reference: Option<Reference> =
+        absorption_path.map(read_reference).transpose()?;
+    let excess_reference: Option<Reference> = excess_path.map(read_reference).transpose()?;
+    if let Some(r) = &absorption_reference {
+        check_bounds("the OpenMC absorption", &r.bounds, bounds)?;
+    }
+    if let Some(r) = &excess_reference {
+        check_bounds("the OpenMC excess", &r.bounds, bounds)?;
+    }
     if let Some(r) = &material_reference {
         check_bounds("the OpenMC materials", &r.bounds, bounds)?;
     }
@@ -699,8 +899,29 @@ fn main() -> anyhow::Result<()> {
             .get(material)
             .ok_or_else(|| anyhow!("no xlc rates of `{material}`"))
     };
+    // 燃料の核種の、xlc の捕獲と核分裂のほかの吸収と中性子の過剰 (barn。`pin.nuclides` の順)
+    let (xlc_others, xlc_excesses): (Vec<Vec<f64>>, Vec<Vec<f64>>) = pin
+        .nuclides
+        .iter()
+        .zip(pin.effective.iter())
+        .map(|((nuclide, _), effective)| {
+            let (_, table) = library.lookup(&nuclide.name, nuclide.temperature)?;
+            let excess = nuclide_excess(&table, ng);
+            let other = xlc_other(
+                effective,
+                &table.scatter[0],
+                &table.shielded[0].elastic,
+                &excess,
+            );
+            Ok((other, excess))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?
+        .into_iter()
+        .unzip();
     for spec in &specs {
         let mut ratios: BTreeMap<String, Ratio> = BTreeMap::new();
+        // 核種ごとの、全断面積に足す捕獲と核分裂のほかの吸収の差と、中性子の過剰の差 (barn)
+        let mut shifts: BTreeMap<String, (Vec<f64>, Vec<f64>)> = BTreeMap::new();
         let mut changes: BTreeMap<String, MaterialChange> = BTreeMap::new();
         let mut chi = false;
         for part in parse(spec, &fuel, &reference, ng)? {
@@ -724,6 +945,43 @@ fn main() -> anyhow::Result<()> {
                             ratios.insert(name, r);
                         }
                     }
+                }
+                Swap::Other(name, groups) => {
+                    let k = fuel
+                        .iter()
+                        .position(|n| *n == name)
+                        .ok_or_else(|| anyhow!("{name} is not in the fuel"))?;
+                    let r = absorption_reference
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("`{spec}` needs --absorption"))?;
+                    let d = shift(
+                        &openmc_other(r, &name, &groups, ng)?,
+                        &xlc_others[k],
+                        &groups,
+                    );
+                    let (other, _) = shifts
+                        .entry(name)
+                        .or_insert_with(|| (vec![0.0; ng], vec![0.0; ng]));
+                    other[groups.clone()].copy_from_slice(&d[groups]);
+                }
+                Swap::Excess(name, groups) => {
+                    let k = fuel
+                        .iter()
+                        .position(|n| *n == name)
+                        .ok_or_else(|| anyhow!("{name} is not in the fuel"))?;
+                    let r = excess_reference
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("`{spec}` needs --excess"))?;
+                    // 正味の吸収は消滅の吸収から過剰を引いたものなので、過剰の差の符号を変えて全断面積に足す
+                    let d = shift(
+                        &xlc_excesses[k],
+                        &openmc_excess(r, &name, &groups, ng)?,
+                        &groups,
+                    );
+                    let (_, excess) = shifts
+                        .entry(name)
+                        .or_insert_with(|| (vec![0.0; ng], vec![0.0; ng]));
+                    excess[groups.clone()].copy_from_slice(&d[groups]);
                 }
                 Swap::Absorption {
                     material,
@@ -780,6 +1038,12 @@ fn main() -> anyhow::Result<()> {
                     }
                     chi = true;
                 }
+            }
+        }
+        for (name, (other, excess)) in shifts {
+            let r = ratios.entry(name).or_insert_with(|| Ratio::unchanged(ng));
+            for (g, s) in r.shift.iter_mut().enumerate() {
+                *s = other[g] + excess[g];
             }
         }
         let mut materials = swapped(&shielded, &input, &names, &ratios)?;
