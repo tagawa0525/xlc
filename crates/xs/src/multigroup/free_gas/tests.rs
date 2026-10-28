@@ -1,5 +1,5 @@
 use super::*;
-use crate::special::erf;
+use xlc_numeric::error_function::erf;
 
 const KT: f64 = 0.0253;
 

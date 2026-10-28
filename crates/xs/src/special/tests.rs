@@ -1,4 +1,5 @@
 use super::*;
+use xlc_numeric::error_function::{erfc, erfcx};
 
 fn assert_rel(actual: f64, expected: f64, tol: f64) {
     assert!(

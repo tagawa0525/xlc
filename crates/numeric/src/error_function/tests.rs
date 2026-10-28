@@ -1,36 +1,10 @@
 use super::*;
 
-fn assert_rel(actual: f64, expected: f64, tol: f64) {
-    assert!(
-        (actual - expected).abs() <= tol * expected.abs(),
-        "actual {actual}, expected {expected}"
-    );
-}
-
 #[test]
-fn erf_values() {
+fn erf_is_odd_and_erfc_is_two_minus_its_reflection() {
     assert_eq!(erf(0.0), 0.0);
-    assert_rel(erf(0.5), 0.520_499_877_813_046_5, 1e-14);
-    assert_rel(erf(1.0), 0.842_700_792_949_714_9, 1e-14);
-    assert_rel(erf(2.0), 0.995_322_265_018_952_7, 1e-14);
-    assert_rel(erf(-1.0), -0.842_700_792_949_714_9, 1e-14);
-    assert_rel(erf(5.0), 0.999_999_999_998_462_6, 1e-14);
-}
-#[test]
-fn erfc_values() {
-    assert_rel(erfc(0.5), 0.479_500_122_186_953_5, 1e-13);
-    assert_rel(erfc(2.0), 0.004_677_734_981_047_266, 1e-12);
-    assert_rel(erfc(3.0), 2.209_049_699_858_544e-5, 1e-12);
-    assert_rel(erfc(5.0), 1.537_459_794_428_035e-12, 1e-12);
-    assert_rel(erfc(-1.0), 1.842_700_792_949_715, 1e-14);
-}
-#[test]
-fn erfcx_large_argument() {
-    assert_rel(erfcx(10.0), 0.056_140_992_743_822_594, 1e-12);
-    // 漸近形 1/(x√π)
-    let x = 1.0e4;
-    assert_rel(erfcx(x), 1.0 / (x * std::f64::consts::PI.sqrt()), 1e-8);
-    assert_rel(erfcx(1.0), 1.0_f64.exp() * 0.157_299_207_050_285_13, 1e-13);
+    assert_eq!(erf(-1.0), -erf(1.0));
+    assert_eq!(erfc(-1.0), 2.0 - erfc(1.0));
 }
 
 mod cases;
@@ -63,6 +37,10 @@ fn erf_is_within_four_ulp_of_multiprecision_values() {
 #[test]
 fn erfc_and_erfcx_saturate_at_large_arguments() {
     assert_eq!(erfc(f64::INFINITY), 0.0);
+    assert_eq!(erfcx(f64::INFINITY), 0.0);
+    assert_eq!(erfcx(1e308), 0.5 * std::f64::consts::FRAC_2_SQRT_PI / 1e308);
+    assert_eq!(erf(f64::NEG_INFINITY), -1.0);
+    assert_eq!(erfc(-1e308), 2.0);
     assert_eq!(erfc(1e308), 0.0);
     assert_eq!(erfc(f64::NEG_INFINITY), 2.0);
     assert_eq!(erfcx(f64::NEG_INFINITY), f64::INFINITY);
