@@ -7151,8 +7151,8 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 441f1993c999cb33e164ec577c027522
-      size: 8591384
+      md5: 4ae624f335347c18faee41a5cf9c2990
+      size: 8567752
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -7169,11 +7169,11 @@ stages:
     outs:
     - path: lattice-2A.log
       hash: md5
-      md5: a34469bccd295b997e7ab5aac4c4b329
-      size: 140774
+      md5: 64483346af6519a71ccecea3a534fc04
+      size: 140857
     - path: lattice-2A.msgpack
       hash: md5
-      md5: 42bd398cd9eaf31bb599ac064f559462
+      md5: 7efea6648225ba815eb831ad73a431aa
       size: 55150755
     - path: lattice-2A.out
       hash: md5
@@ -7196,13 +7196,13 @@ stages:
       size: 1546893
     - path: lattice-2A.msgpack
       hash: md5
-      md5: 42bd398cd9eaf31bb599ac064f559462
+      md5: 7efea6648225ba815eb831ad73a431aa
       size: 55150755
     outs:
     - path: compare-2A.json
       hash: md5
-      md5: e8ac3509306ff2f1f03be4c3324b55da
-      size: 23193
+      md5: 048242b1640f607c4d4dd41250b2d57c
+      size: 23200
   lattice@2F:
     cmd: ../../../bin/lattice lattice-2F.toml > lattice-2F.out 2> lattice-2F.log
     deps:
