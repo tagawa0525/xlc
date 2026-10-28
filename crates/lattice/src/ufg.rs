@@ -340,8 +340,24 @@ pub fn slowing_down_with(
     scattering: Scattering,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library, cell, rings, range, collision, thinning, scattering, None, None,
+        library,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        None,
+        free_gas::HELD_CELLS,
     )
+}
+
+/// `solves` 個の減速計算を `threads` 個のスレッドで同時に解くときの、1 回の減速計算がスイープの間で持つ区間の数の上限（ADR-0213）。
+/// 全体をスレッドの数 × 1 回の減速計算の上限（1 GiB）に抑え、同時に解く減速計算（スレッドの数以下）で分ける
+pub fn held_cells(threads: usize, solves: usize) -> usize {
+    let threads = threads.max(1);
+    free_gas::HELD_CELLS * threads / threads.min(solves).max(1)
 }
 
 /// 1 つの核種の、UFG の範囲の群から出る弾性散乱の移行（ADR-0207。[`slowing_down_transfers`]）。
@@ -354,7 +370,8 @@ pub struct NuclideTransfer {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、[リング][核種（物質の組成の順）] の弾性散乱の移行の行も返す（ADR-0207）。
-/// 自由ガスの核の移行の割合の区間は `shares` から引き、無ければ作って入れる（ADR-0213）。
+/// 自由ガスの核の移行の割合の区間は `shares` から引き、無ければ作って入れる。スイープの間で持つ区間は `hold` 個まで（[`held_cells`]。
+/// ADR-0213）。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_transfers(
     library: &Library,
@@ -365,6 +382,7 @@ pub fn slowing_down_transfers(
     thinning: Option<f64>,
     scattering: Scattering,
     shares: &ShareCellCache,
+    hold: usize,
 ) -> Result<(CellSpectrum, Vec<Vec<NuclideTransfer>>), UfgError> {
     let mut transfers = Vec::new();
     let spectrum = solve_cell(
@@ -377,6 +395,7 @@ pub fn slowing_down_transfers(
         scattering,
         None,
         Some((&mut transfers, shares)),
+        hold,
     )?;
     Ok((spectrum, transfers))
 }
@@ -413,6 +432,7 @@ pub fn slowing_down_fine(
         scattering,
         Some(&mut fine),
         None,
+        free_gas::HELD_CELLS,
     )?;
     Ok((spectrum, fine))
 }
@@ -429,6 +449,7 @@ fn solve_cell(
     scattering: Scattering,
     fine: Option<&mut FineFlux>,
     transfers: Option<(&mut Vec<Vec<NuclideTransfer>>, &ShareCellCache)>,
+    hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -691,11 +712,7 @@ fn solve_cell(
                 &energies,
                 n,
                 // スイープが 1 回なら、持った区間を使うスイープがない
-                if options.sweeps == Some(1) {
-                    0
-                } else {
-                    free_gas::HELD_CELLS
-                },
+                if options.sweeps == Some(1) { 0 } else { hold },
             );
             (thermal, options.sweeps)
         }

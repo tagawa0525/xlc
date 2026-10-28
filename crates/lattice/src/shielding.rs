@@ -37,7 +37,7 @@ use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
     CellSpectrum, Collision, NuclideTransfer, Scattering, ShareCellCache, UfgError, cell_range,
-    material_range, slowing_down_transfers, slowing_down_with,
+    held_cells, material_range, slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -657,6 +657,7 @@ pub fn shield_fuel_reusing(
         .collect();
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
+    let hold = held_cells(rayon::current_num_threads(), solving.len());
     let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
         let &(cell, ring_materials, rings) = pin;
         let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
@@ -689,6 +690,7 @@ pub fn shield_fuel_reusing(
             scattering: options.scattering,
             transfer: options.transfer,
             shares,
+            hold,
         };
         let ufg = shield_cell(
             library,
@@ -1085,6 +1087,7 @@ fn shield_lumps(
     // 含む）で、塊の結果の物質は下のループで塊の順に足すので、逐次に解いたときと同じ番号と値になる。エラーも塊の順に返す
     let parent = tracing::Span::current();
     let dilute: &[Material] = &shielded.materials;
+    let hold = held_cells(rayon::current_num_threads(), lump_of.len());
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()
         .map(|(b, index, lump_regions)| {
@@ -1116,6 +1119,7 @@ fn shield_lumps(
                         scattering: options.scattering,
                         transfer: options.transfer,
                         shares,
+                        hold,
                     };
                     shield_cell(
                         library,
@@ -1344,8 +1348,9 @@ struct PinRings<'a> {
     scattering: Scattering,
     /// リングの物質の UFG の範囲の群の散乱行列の移行の形
     transfer: UfgTransfer,
-    /// 移行の計数の自由ガスの核の割合の区間の表（ADR-0213）
+    /// 移行の計数の自由ガスの核の割合の区間の表と、スイープの間で持つ区間の数の上限（[`held_cells`]。ADR-0213）
     shares: &'a ShareCellCache,
+    hold: usize,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1521,6 +1526,7 @@ fn solve_equivalent_cell<'a>(
                 pin.thinning,
                 pin.scattering,
                 pin.shares,
+                pin.hold,
             )?;
             (spectrum, Some(transfers))
         }

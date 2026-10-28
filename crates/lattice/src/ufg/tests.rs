@@ -1862,6 +1862,7 @@ fn static_transfers_of_a_scatterer_follow_the_kernel() {
             None,
             Scattering::Static,
             &ShareCellCache::default(),
+            held_cells(1, 1),
         )
         .unwrap();
         assert_eq!(transfers.len(), 1);
@@ -1951,6 +1952,7 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
                 thinning,
                 scattering,
                 &ShareCellCache::default(),
+                held_cells(1, 1),
             )
             .unwrap();
             match full_points {
@@ -2066,6 +2068,7 @@ fn thermal_transfers(
         thinning,
         scattering,
         &ShareCellCache::default(),
+        held_cells(1, 1),
     )
     .unwrap()
 }
@@ -2184,6 +2187,7 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
             Some(1.0e-4),
             free_gas_heavy(400.0, 2, Some(3)),
             shares,
+            held_cells(1, 1),
         )
         .unwrap();
         // Debug の表記は f64 を往復できる最短の 10 進で書くので、ビットの違う値は違う文字列になる
