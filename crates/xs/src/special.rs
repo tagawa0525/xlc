@@ -11,11 +11,18 @@ pub fn erf(x: f64) -> f64 {
     }
     if x < CODY_LOWER_LIMIT {
         erf_series(x)
+    } else if x >= SATURATION {
+        1.0
     } else {
-        // erfc の exp_square でなく exp(−x*x) で、lattice の `erf` と同じビットにする。x*x の丸めの効きは erfc(x) 倍に縮む
+        // erfc の exp_square でなく exp(−x*x) で、lattice の `erf` と同じ計算にする。x*x の丸めの効きは erfc(x) 倍に縮む。
+        // NaN もここで NaN になる
         1.0 - erfcx(x) * (-x * x).exp()
     }
 }
+
+/// これより大きい x の erf(x) は倍精度で 1（erfc(6) ≈ 2e−17 は 1 の丸めの半分より小さいので、1 − erfc の計算も 1 になる）。
+/// erfcx と指数関数を省く
+const SATURATION: f64 = 6.0;
 
 /// erf(x) = 2/√π exp(-x²) Σ 2ⁿ x^(2n+1) / (1·3·…·(2n+1))。項がすべて正なので桁落ちしない。
 fn erf_series(x: f64) -> f64 {
