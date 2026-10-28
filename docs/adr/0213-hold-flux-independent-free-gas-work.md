@@ -154,7 +154,7 @@ ShareCell:
 - メモリは、自己遮蔽の全体で（使用可能メモリ − 2 GiB）× 0.8 まで増える（ShareCell の表を除く）。量は自己遮蔽の始めに 1 度求めるので、
   減速計算が持つ区間のほかの作業の配列（格子点、飛程の表、衝突確率）は残りの 2 割と 2 GiB に収まる必要がある。2A（16 スレッド）では全体の
   量 59 GB ほどに対して持つのは 6 GB ほどで、MaxRSS は 12.0 GB（Slurm 580）
-- r995 の Slurm はジョブの cgroup に memory.max を置かない（`max`。2026-10-28 のレビューで確かめた）。排他なしの `-c` のジョブを 2 本同時に
+- r995 の Slurm はジョブの cgroup に memory.max を置かない（`TaskPlugin = (null)`、slurmd.service の memory.max は `max`。2026-10-28 に `scontrol show config` と /sys/fs/cgroup で確かめた）。排他なしの `-c` のジョブを 2 本同時に
   流すと、どちらも同じ MemAvailable から量を求め、足して機械のメモリを超えうる。同時に流すときは `ufg-hold-memory` で分ける
 - memory.current はページキャッシュを含むので、memory.max のある環境では、読んだファイルのキャッシュで量が小さくなりうる（候補。
   確かめていない）
