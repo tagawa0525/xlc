@@ -12,6 +12,7 @@
 
 import difflib
 import hashlib
+import itertools
 import json
 import math
 import re
@@ -916,8 +917,9 @@ def core_partial_rods_k(sources: list[dict]) -> str:
 
 def core_partial_rods_densities(sources: list[dict]) -> str:
     """部分挿入のノードのミクロ燃焼の追う核種ごとの、割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の数密度の相対差の絶対値の
-    最大、最後の燃焼点の割合 1 の割合 0 に対する相対差 (%)、数密度が割合について単調でない燃焼点"""
+    最大、最後の燃焼点の軸方向のノードごとの割合 1 の割合 0 に対する相対差 (%)、数密度が割合について単調でない燃焼点とノード"""
     s = core_partial_rods_summary(sources)
+    mesh = s["axial_mesh"]
 
     def limit(x):
         return "–" if x is None else signed_exponent(x)
@@ -927,8 +929,12 @@ def core_partial_rods_densities(sources: list[dict]) -> str:
             n,
             limit(d["zero_limit"]["relative"]),
             limit(d["one_limit"]["relative"]),
-            micro_percent(d["last_change"]),
-            ", ".join(burnup_label(b) for b in d["not_monotonic"]) or "なし",
+            *(micro_percent(c) for c in d["last_change"]),
+            ", ".join(
+                f"{burnup_label(m['burnup'])}（{mesh[m['node']]:g}）"
+                for m in d["not_monotonic"]
+            )
+            or "なし",
         ]
         for n, d in s["densities"].items()
     ]
@@ -937,8 +943,11 @@ def core_partial_rods_densities(sources: list[dict]) -> str:
             "核種",
             "割合 0 − 棒なし（相対）",
             "割合 1 − 棒あり（相対）",
-            "最後の点の割合 1 − 割合 0 (%)",
-            "単調でない燃焼点 (MWd/kg)",
+            *(
+                f"最後の点の割合 1 − 割合 0、{a:g}〜{b:g} cm (%)"
+                for a, b in itertools.pairwise(mesh)
+            ),
+            "単調でない燃焼点 (MWd/kg、ノードの下端 cm)",
         ],
         rows,
     )
