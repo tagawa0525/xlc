@@ -91,6 +91,8 @@ micro = { chain = "chain.msgpack", xenon = "equilibrium" }   # tracked か equil
   崩壊だけのステップの状態で解く
 
 燃焼点 0 と、崩壊だけのステップの後の点は、組成を時間で進めた値のまま解く（新しい燃料と停止の後の Xe は平衡でなく、崩壊の結果）。
+Xe-135 は追う核種で、I-135 は追う核種か補助の核種であること（補助の核種は崩壊だけで少数群定数を補正しないので、補助の Xe-135 の平衡は
+中性子束に効かない）。そうでなければ最初の点を解く前にエラーにする。
 
 出力のある解は、ノードごとに Xe-135、I-135 と、それらへ崩壊で流れ込む補助の核種（追う核種のほかは平衡にしない）の数密度を、解の反応率
 （ADR-0218 の出力の割合で規格化した、ミクロ燃焼と同じ燃焼行列 A）で Σⱼ∈S Aᵢⱼ Nⱼ = −Σⱼ∉S Aᵢⱼ Nⱼ（i ∈ S）を解いた値に置き換えて解き直す。
@@ -116,7 +118,7 @@ micro = { chain = "chain.msgpack", xenon = "equilibrium" }   # tracked か equil
 ## 確認
 
 - ノードの平衡（crates/core/src/micro/tests.rs）: `equilibrium_balances_iodine_and_xenon_with_their_precursors_at_the_rates`（Te-135、I-135、Xe-135 が
-  解析的な平衡と相対 1e-12、時間微分が生成の項の 1e-12 以下）、`equilibrium_needs_xenon_and_iodine_among_the_solved_nuclides`
+  解析的な平衡と相対 1e-12、時間微分が生成の項の 1e-12 以下）、`equilibrium_needs_tracked_xenon_and_solved_iodine`
 - 燃焼（crates/core/src/depletion/tests.rs）: `equilibrium_xenon_balances_the_operating_points_and_decays_after_shutdowns`（出力の割合 0.5 の
   ステップの終わりの点で解析的な平衡と相対 1e-9、停止の 6 時間後は平衡から崩壊で進めた値、次のステップの出力の割合 0.8 で釣り合う点、固有値計算の
   回数）、`equilibrium_xenon_steps_keep_second_order`（A と B の炉心で、ステップを半分にした燃焼度の差の比が 3.5〜4.5）、
