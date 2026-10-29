@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-ブランチ fix/0200-step-instability-after-power-change のレビューの 1〜3 周目（/code-review high）で、小さな炉心の燃焼では再現しない次の指摘を残した。
+ブランチ fix/0200-step-instability-after-power-change のレビューの 1〜3 周目と記録の周（/code-review high）で、小さな炉心の燃焼では再現しないか、誤った数値にならない次の指摘を残した。
 
 - `crates/core/src/depletion.rs` の `anderson` は、残差の差の正規方程式 ΔFᵀΔF γ = ΔFᵀf を LU で解き、LU が特異とみなすとき（ピボットがちょうど 0）
   だけ単純な反復に戻る。残差の差がほぼ平行だと条件数が大きく、γ が大きくなって負の数密度を 0 に切り、反復が 50 回の上限で止まりうる。QR や
@@ -28,6 +28,11 @@ resolution:
   する。点の鍵と炉心の平均の燃焼度は方式によらないので、値は変わらない（3 周目）
 - 平衡の解は、組成を持つのに状態の並びでミクロ燃焼の使い方のない位置を、最初の解の後に「the equilibrium changed the micro depleted sites」で
   止める。状態ごとのミクロ燃焼する位置は `MicroNodes::new` が同じことを確かめるので、届かない（3 周目）
+- `anderson` は、並べた組成のすべての項を 0 以上に切る。平衡にしない核種の、CRAM の誤差の範囲（`NEGATIVE_TOLERANCE`）の負の数密度（−1e-20 ほど）も、
+  2 回目の反復からは 0 になり、点の組成が CRAM の結果と違う（記録の周）
+- `solve_operating` は、平衡の経路で組成を参照で受けてから複製する（持っている値をそのまま使える）。終わりの点の解き方の 2 つの腕（崩壊だけの
+  ステップの前と、それ以外）は、運転している状態と出力を先に決めて、点の状態と違うときだけ解き直す形にまとめられる（記録の周）
+- `examples/depletion/compare_core_steps.py` のモジュールの説明は、`steps` を「中点のホウ素ごと」と書く（方式ごと。`equilibrium` を含む）（記録の周）
 
 関係する ADR: ADR-0219
 
@@ -37,4 +42,4 @@ resolution:
 
 ## 経緯
 
-- 2026-10-29: fix/0200-step-instability-after-power-change のレビューの 1〜3 周目で挙がった
+- 2026-10-29: fix/0200-step-instability-after-power-change のレビューの 1〜3 周目と記録の周（2026-10-30）で挙がった
