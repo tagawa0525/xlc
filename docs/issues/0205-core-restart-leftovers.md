@@ -46,6 +46,13 @@ ADR-0220 の restart は、前のサイクルの燃焼の履歴 1 本の最後�
 - 前のサイクルの最後の点と次のサイクルの最初のステップの状態か出力が違う restart（サイクルの途中で切る）は、続けて解いた燃焼と違う燃焼点 0 になる
   （ADR-0220 の帰結）。エラーにも警告にもしていない
 
+3 周目のレビューで挙がり、直さなかったもの:
+
+- テスト `restart_mismatches_are_errors` の「数密度を持つノードが違う」の組は、追う核種の行だけを空にするので `MicroChain::compose` の数の違いで止まり、
+  `deplete` のノードの照合（ミクロ燃焼するノードと履歴の数密度を持つノードの違い）の分岐に届かない
+- examples/depletion/compare_core_restart.py の `if not count` は届かない分岐で、`relative_density_differences` は 1 か所からだけ呼ぶラッパー
+- small_core_cases.py が書く b の前と後の半分のコメントは「停止 の点で切った」で、18 日の停止の後の点と読めない
+
 関係する ADR: ADR-0220
 
 ## 完了の条件
