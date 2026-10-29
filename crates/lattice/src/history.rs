@@ -89,7 +89,8 @@ pub struct HistoryBranches {
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
-/// 入力の領域ごとの物質の名前、`chosen` はその名前で選んだ対称操作。入力の格子が履歴の格子と違えばエラー
+/// 入力の領域ごとの物質の名前、`chosen` はその名前で選んだ対称操作。入力の格子の燃焼の領域（物質、組の代表のセル、体積）が履歴の
+/// ものと違えばエラー。燃焼させない物質のセル（案内管の中身など）は履歴の格子と違ってよく、MOC の領域の番号は入力の格子のもの
 pub fn history_branches(
     input: &LatticeInput,
     history: &History,
@@ -147,8 +148,8 @@ pub fn history_branches(
             ),
         };
         bail!(
-            "the depletion regions of the lattice differ from those of the history: {detail}; give the lattice of \
-             the history (ADR-0187)"
+            "the depletion regions of the lattice differ from those of the history: {detail}; give a lattice \
+             whose depleted cells are those of the history (ADR-0187)"
         );
     }
     let index: HashMap<&str, usize> = history
