@@ -30,19 +30,30 @@ CYCLE = [
     ("burnup", 7.5, None, None, "7.5 MWd/kg"),
 ]
 
-# 中点のホウ素の文（ヘッダーの 4 行目）と `[depletion]` に足す行
-MIDPOINTS = {
-    "search": ("中点のホウ素は ADR-0191 の探索。", []),
+TRACKED = 'micro = { chain = "../chain.msgpack" }'
+
+# 燃焼の方式: 名前 → (ヘッダーの 4 行目、`micro` の行、`[depletion]` に足す行)
+METHODS = {
+    "search": ("中点のホウ素は ADR-0191 の探索。", TRACKED, []),
     "start": (
         "中点のホウ素は ステップの初めの点で探した濃度（ADR-0191 の案 S1）。",
+        TRACKED,
         ['midpoint-boron = "start"'],
+    ),
+    "equilibrium": (
+        "中点のホウ素は ADR-0191 の探索。Xe-135 と I-135 は出力のある解で平衡の値（#0200）。",
+        'micro = { chain = "../chain.msgpack", xenon = "equilibrium" }',
+        [],
     ),
 }
 
-# ケース: (中点のホウ素, 分割)
-CASES = [("search", s) for s in (1, 2, 4, 8, 16, 32, 64)] + [
-    ("start", s) for s in (1, 2, 4)
-]
+# ケース: (方式, 分割)
+CASES = (
+    [("search", s) for s in (1, 2, 4, 8, 16, 32, 64)]
+    + [("start", s) for s in (1, 2, 4)]
+    + [("equilibrium", s) for s in (1, 2, 4, 8, 16)]
+)
+
 
 HEAD = """\
 cycle = "core-small-cycle.toml"
@@ -94,7 +105,7 @@ def steps(split: int) -> list[str]:
 
 
 def case(method: str, split: int) -> str:
-    sentence, extra = MIDPOINTS[method]
+    sentence, micro, extra = METHODS[method]
     head = (
         "# 小さな炉心の core の燃焼（ステップの大きさの誤差と中点の探索の効き）: core-small-plant.toml の 2A の 4 × 4 の 1/4 と反射体を、\n"
         "# バンク D の出し入れ、出力の割合、18 日の停止を含むサイクルで、点と中点の臨界ホウ素を探して燃焼させる。基準のサイクル\n"
@@ -104,7 +115,7 @@ def case(method: str, split: int) -> str:
     depletion = [
         f'history = "core-small-{method}-{split}.msgpack"',
         "# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン",
-        'micro = { chain = "../chain.msgpack" }',
+        micro,
         *extra,
         "steps = [",
         *steps(split),
