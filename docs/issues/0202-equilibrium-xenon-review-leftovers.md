@@ -33,6 +33,8 @@ resolution:
 - `solve_operating` は、平衡の経路で組成を参照で受けてから複製する（持っている値をそのまま使える）。終わりの点の解き方の 2 つの腕（崩壊だけの
   ステップの前と、それ以外）は、運転している状態と出力を先に決めて、点の状態と違うときだけ解き直す形にまとめられる（記録の周）
 - `examples/depletion/compare_core_steps.py` のモジュールの説明は、`steps` を「中点のホウ素ごと」と書く（方式ごと。`equilibrium` を含む）（記録の周）
+- 比較の要約 `examples/depletion/branches/compare-core-small-steps.json` は 149 KB で、CLAUDE.md の「文書」の「数十 KB ほどの要約」を超える。軸方向の
+  部分は日付と丸めた偏りだけにして 300 KB から 68 KB に減らしたが、ステップの部分（3 方式 16 本で 59 KB）は減らしていない（担当の報告 2026-10-30）
 
 関係する ADR: ADR-0219
 
