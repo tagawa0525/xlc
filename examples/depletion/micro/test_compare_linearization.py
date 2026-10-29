@@ -116,6 +116,20 @@ class Compare(unittest.TestCase):
         self.assertAlmostEqual(row["density_change_percent"]["U-235"], 200.0, places=9)
         self.assertLess(summary["self_check_pcm"], 1e-9)
 
+    def test_the_error_is_the_linear_minus_the_transport_effect_from_their_own_bases(
+        self,
+    ):
+        # テーブルの k∞ が 2 群の k と少し違っても（収束の誤差）、誤差は 2 つの効きの差そのもの
+        densities = [[1.0e-4], [3.0e-4]]
+        nominal = table(densities)
+        nominal["states"][0]["k_inf"] *= 1.0 + 1.0e-7
+        shifted = table(None, 1.1)
+        shifted["states"][0]["k_inf"] = nominal["states"][0]["k_inf"]
+        row = cl.compare(nominal, shifted)["rows"][0]
+        self.assertAlmostEqual(
+            row["error_pcm"], row["linear_pcm"] - row["tracked_pcm"], places=10
+        )
+
     def test_branch_axes_with_one_point_are_allowed(self):
         nominal, shifted = table([[1.0e-4], [3.0e-4]]), table(None)
         for t in (nominal, shifted):
