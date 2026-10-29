@@ -1834,3 +1834,18 @@ fn history_points_name_their_state_and_step_power() {
     assert!(with_point(0, &|p| p.power = Some(1.0)).is_err());
     assert!(with_point(2, &|p| p.power = None).is_err());
 }
+
+#[test]
+fn depletions_without_states_or_steps_are_errors() {
+    // 入力の検査を通らない形を直接渡しても、添字で止まらずにエラーを返す
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let mut empty = case.depletion.clone().unwrap();
+    empty.steps.clear();
+    for (states, depletion) in [
+        (&[][..], case.depletion.as_ref().unwrap()),
+        (&[][..], &empty),
+        (&case.states[..], &empty),
+    ] {
+        assert!(deplete(&layout, &tables, states, depletion, None, &tight(), |_| {}).is_err());
+    }
+}
