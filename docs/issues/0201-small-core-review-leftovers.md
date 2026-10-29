@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-ブランチ feat/small-core-depletion のレビューの 1、2 周目（/code-review high）で、誤った数値や落ちるテストにならない次の指摘を残した。
+ブランチ feat/small-core-depletion のレビューの 1〜3 周目（/code-review high）で、誤った数値や落ちるテストにならない次の指摘を残した。
 
 - `examples/depletion/compare_core_steps.py` は、中点の固有値計算の回数を core のログ（tracing の `depletion midpoint` の行の `solves=`）から読む。
   ログの形（イベントの名前、項目、ANSI の色）が変わると読めず、ログを残さない再実行と比べられない。ADR-0191 の案 O2 は中点の値を履歴に
@@ -28,6 +28,13 @@ resolution:
 - `compare_core_steps.py` の `key` は、分割の間の点を日数を 1e-6 日に丸めて組にする。分けた時間の和の丸め（1e-13 ほど）が丸めの境を
   またぐと、正しい組が「no points at」で止まる（誤った数値にはならない）。点の数を確かめるようにしたので、点の番号で組にして日数の差を
   許容で確かめる形にできる（2 周目）
+- `verification_tables.py` の `core_steps_ratio` は、丸めて 0 になる負の比を「−0.00」と描く（`signed` は符号を付けない）（3 周目）
+- `compare_core_steps.py` の `midpoint` は、中点のホウ素が `search` と `start` のちょうど 2 つのときだけ作り、ほかの名前は黙って `None` にする。
+  `core_steps_midpoint` は `steps` に `search` が無い要約で `TableError` でなく `KeyError` になる（3 周目）
+- `compare_core_cycle.py` の、中点を初めの点のホウ素で解いた履歴を止める検査（`default_midpoints`）は、参照では `single_state` と 2 度呼ばれ、
+  サイクルの履歴の側は test_compare_core_cycle.py にテストがない（3 周目）
+- crates/core/src/depletion/tests.rs の `midpoints_at_the_starting_boron_fall_to_first_order` の入力で選んだ案 S1 の確かめは、最後の点の集合体 A1 の
+  燃焼度だけを比べ、点のホウ素や状態を変えた後の中点のホウ素を比べない（3 周目）
 
 関係する ADR: ADR-0191
 
@@ -37,4 +44,4 @@ resolution:
 
 ## 経緯
 
-- 2026-10-29: feat/small-core-depletion のレビューの 1、2 周目で挙がった
+- 2026-10-29: feat/small-core-depletion のレビューの 1〜3 周目で挙がった
