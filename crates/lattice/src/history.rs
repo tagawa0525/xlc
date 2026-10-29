@@ -183,7 +183,7 @@ pub fn history_branches(
         if &expected != densities {
             bail!(
                 "material `{}`: the composition differs from the initial densities of the history; \
-                 give the lattice of the history (ADR-0187)",
+                 give the depleted materials of the history (ADR-0187)",
                 d.material
             );
         }
