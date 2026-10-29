@@ -39,5 +39,5 @@ steps = [
   { efpd = 156.20932048945588, power = 0.7, state = "aro" },  # 6 MWd/kg
   { efpd = 182.24420723769853, power = 0.7 },  # 7 MWd/kg
   { decay-days = 18.0 },  # 停止
-  { efpd = 208.2790939859412 },  # 8 MWd/kg
+  { efpd = 195.26165061181985 },  # 7.5 MWd/kg
 ]
