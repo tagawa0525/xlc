@@ -126,6 +126,22 @@ class Compare(unittest.TestCase):
         shifted = table(None, 1.1)
         shifted["states"][0]["k_inf"] = nominal["states"][0]["k_inf"]
         row = cl.compare(nominal, shifted)["rows"][0]
+        # 輸送の効きはテーブルの k∞、線形の効きは同じ定数の 2 群の k を基準にする
+        rho = lambda k: 1e5 * (1.0 - 1.0 / k)
+        base = two_group_k(TOTAL, SCATTER, NU_FISSION)
+        delta = 2.0e-4
+        predicted = two_group_k(
+            [t + s * delta for t, s in zip(TOTAL, SIGMA["total"])],
+            [
+                [x + s * delta for x, s in zip(r, sr)]
+                for r, sr in zip(SCATTER, SIGMA["scatter"])
+            ],
+            [n + s * delta for n, s in zip(NU_FISSION, SIGMA["nu_fission"])],
+        )
+        self.assertAlmostEqual(
+            row["tracked_pcm"], rho(1.1) - rho(nominal["states"][0]["k_inf"]), places=8
+        )
+        self.assertAlmostEqual(row["linear_pcm"], rho(predicted) - rho(base), places=8)
         self.assertAlmostEqual(
             row["error_pcm"], row["linear_pcm"] - row["tracked_pcm"], places=10
         )
