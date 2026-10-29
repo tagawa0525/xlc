@@ -1011,6 +1011,117 @@ def core_cycle_points(sources: list[dict]) -> str:
     )
 
 
+def core_steps_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-steps":
+        raise TableError("not an xlc-compare-core-steps summary")
+    return s
+
+
+def core_steps_ratio(r: float | None) -> str:
+    return "–" if r is None else f"{r:.2f}"
+
+
+def core_steps(method: str, sources: list[dict]) -> str:
+    """ステップの幅を変えた core の燃焼（compare_core_steps.py）の、中点のホウ素 `method` の燃焼の、基準の燃焼点ごとのホウ素濃度、
+    隣り合う分割の差（ホウ素、ノードの燃焼度の差の最大、ノードの出力の割合の相対差の最大）とその比"""
+    s = core_steps_summary(sources)
+    if method not in s["steps"]:
+        raise TableError(f"the summary has no {method} depletions")
+    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(s["splits"])]
+    finest = s["splits"][-1]
+    rows = []
+    for p in s["steps"][method]:
+        d = p["differences"]
+        r = p["ratios"]
+        rows.append(
+            [
+                f"{p['burnup']:.4f}",
+                f"{p['days']:.4f}",
+                "–" if p["power"] is None else f"{p['power']:g}",
+                p["state"],
+                f"{p['boron'][-1]:.4f}",
+                *(signed(x["boron"], 4) for x in d),
+                *(core_steps_ratio(x["boron"]) for x in r),
+                *(f"{x['burnup']:.2e}" for x in d),
+                *(core_steps_ratio(x["burnup"]) for x in r),
+                *(f"{x['power']:.2e}" for x in d),
+                *(core_steps_ratio(x["power"]) for x in r),
+            ]
+        )
+    ratio_names = [f"({a})/({b})" for a, b in itertools.pairwise(pairs)]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "日数",
+            "出力の割合",
+            "状態",
+            f"ホウ素（分割 {finest}） (ppm)",
+            *(f"ホウ素の差 {x} (ppm)" for x in pairs),
+            *(f"ホウ素の比 {x}" for x in ratio_names),
+            *(f"燃焼度の差の最大 {x} (MWd/kg)" for x in pairs),
+            *(f"燃焼度の比 {x}" for x in ratio_names),
+            *(f"出力の相対差の最大 {x}" for x in pairs),
+            *(f"出力の比 {x}" for x in ratio_names),
+        ],
+        rows,
+    )
+
+
+def core_steps_midpoint(sources: list[dict]) -> str:
+    """中点のホウ素の ADR-0191 の案 S1（start）と探索（search）の差（start − search）: 基準の燃焼点ごと、分割ごとのホウ素の差、ノードの
+    燃焼度の差の最大、ノードの出力の割合の相対差の最大"""
+    s = core_steps_summary(sources)
+    if s["midpoint"] is None:
+        raise TableError("the summary has no start and search depletions")
+    splits = [str(x) for x in s["splits"]]
+    base = s["steps"]["search"]
+    rows = []
+    for i, p in enumerate(base):
+        at = [s["midpoint"][x][i] for x in splits]
+        rows.append(
+            [
+                f"{p['burnup']:.4f}",
+                f"{p['days']:.4f}",
+                p["state"],
+                *(signed(a["boron"], 4) for a in at),
+                *(f"{a['burnup']:.2e}" for a in at),
+                *(f"{a['power']:.2e}" for a in at),
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "日数",
+            "状態",
+            *(f"ホウ素の差（分割 {x}） (ppm)" for x in splits),
+            *(f"燃焼度の差の最大（分割 {x}） (MWd/kg)" for x in splits),
+            *(f"出力の相対差の最大（分割 {x}）" for x in splits),
+        ],
+        rows,
+    )
+
+
+def core_steps_solves(sources: list[dict]) -> str:
+    """燃焼ごとの燃焼点の数と固有値計算の回数（点、中点、和）"""
+    s = core_steps_summary(sources)
+    rows = [
+        [
+            x["method"],
+            str(x["split"]),
+            str(x["points"]),
+            str(x["point_solves"]),
+            str(x["midpoint_solves"]),
+            str(x["total"]),
+        ]
+        for x in s["solves"]
+    ]
+    return markdown_table(
+        ["中点のホウ素", "分割", "燃焼点", "点の固有値計算", "中点の固有値計算", "計"],
+        rows,
+    )
+
+
 def burnup_interpolation_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-burnup-interpolation":
@@ -2159,6 +2270,22 @@ TABLES = {
     "depletion-2a-core-cycle-rods": (
         ["examples/depletion/branches/compare-core-2A-cycle-rods.json"],
         core_cycle_points,
+    ),
+    "depletion-small-core-steps": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(core_steps, "search"),
+    ),
+    "depletion-small-core-steps-start": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(core_steps, "start"),
+    ),
+    "depletion-small-core-midpoint": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        core_steps_midpoint,
+    ),
+    "depletion-small-core-solves": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        core_steps_solves,
     ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],
