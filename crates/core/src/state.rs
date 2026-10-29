@@ -351,15 +351,22 @@ pub fn interpolate_micro(
             }
         }
     }
-    for (name, n) in micro.nuclides.iter().zip(&nuclides) {
-        // 収率の重みの割合は 0..1（負の重みの組み立てで外れうる。ADR-0183）
-        if let Some(f) = n.thermal_fission
-            && !(0.0..=1.0).contains(&f)
-        {
-            return Err(weights.hint(format!(
-                "{name}: the interpolated fraction of fissions below the yield cutoff is {f}"
-            )));
-        }
+    for (name, n) in micro.nuclides.iter().zip(&mut nuclides) {
+        // 足したのは境界より下の核分裂の断面積（割合 × 群の和の σf）。同じ重みで足した σf との比を割合にする。割合のまま負の重みで
+        // 足すと、1 に近い割合が 1 を超える（ADR-0183、ADR-0192）
+        let fission: f64 = n.fission.iter().sum();
+        n.thermal_fission = match n.thermal_fission {
+            Some(below) if fission > 0.0 => {
+                let f = below / fission;
+                if !((-FRACTION_ROUNDING)..=1.0 + FRACTION_ROUNDING).contains(&f) {
+                    return Err(weights.hint(format!(
+                        "{name}: the interpolated fraction of fissions below the yield cutoff is {f}"
+                    )));
+                }
+                Some(f.clamp(0.0, 1.0))
+            }
+            _ => None,
+        };
         if !weights.causes.is_empty() {
             let negative = [&n.total, &n.nu_fission, &n.fission]
                 .into_iter()
@@ -378,6 +385,9 @@ pub fn interpolate_micro(
         nuclides,
     })
 }
+
+/// 内挿した収率の境界より下の核分裂の割合の、0..1 から外れてよい丸めの大きさ（数個の重みの和の丸め。1 に寄せる）
+const FRACTION_ROUNDING: f64 = 1.0e-9;
 
 /// `w` 倍した微視的断面積。項目を足したらここで扱いを決める（`..` を使わない）
 fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
@@ -402,7 +412,8 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
                 channels: r.channels.iter().map(|c| v(c)).collect(),
             })
             .collect(),
-        thermal_fission: thermal_fission.map(|f| w * f),
+        // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す（`interpolate_micro` が比に戻す）
+        thermal_fission: thermal_fission.map(|f| w * f * fission.iter().sum::<f64>()),
     }
 }
 
@@ -427,8 +438,9 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
             add(a, w, x);
         }
     }
+    // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す
     if let (Some(a), Some(x)) = (&mut acc.thermal_fission, thermal_fission) {
-        *a += w * x;
+        *a += w * x * fission.iter().sum::<f64>();
     }
 }
 
