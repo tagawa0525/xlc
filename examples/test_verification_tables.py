@@ -1542,6 +1542,114 @@ class DrawCoreCycle(unittest.TestCase):
             vt.core_cycle_points([{"format": "xlc-compare-core-micro"}])
 
 
+class DrawCoreSteps(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_core_steps.py の要約（分割 1、2、4、燃焼点 2 つ、search と start）"""
+
+        def diff(a, b, boron, burnup, power):
+            return {
+                "splits": [a, b],
+                "boron": boron,
+                "k": 0.0,
+                "burnup": burnup,
+                "power": power,
+            }
+
+        def point(burnup, power, state, ratio):
+            return {
+                "efpd": burnup * 26.0,
+                "days": burnup * 26.0,
+                "power": power,
+                "state": state,
+                "burnup": burnup,
+                "boron": [900.0, 901.0, 901.25],
+                "k": [1.1, 1.1, 1.1],
+                "differences": [
+                    diff(1, 2, -1.0, 4e-3, 2e-3),
+                    diff(2, 4, -0.25, 1e-3, 5e-4),
+                ],
+                "ratios": [
+                    {"splits": [1, 4], "boron": ratio, "burnup": 4.0, "power": 4.0}
+                ],
+            }
+
+        def mid(boron):
+            return {
+                "efpd": 0.0,
+                "days": 0.0,
+                "boron": boron,
+                "k": 0.0,
+                "burnup": 1e-2,
+                "power": 3e-3,
+            }
+
+        steps = [point(0.0, None, "aro", None), point(1.0, 0.7, "rodded", 4.0)]
+        return {
+            "format": "xlc-compare-core-steps",
+            "splits": {"search": [1, 2, 4], "start": [1, 2, 4]},
+            "methods": ["search", "start"],
+            "steps": {"search": steps, "start": steps},
+            "midpoint": {
+                "1": [mid(0.0), mid(-12.5)],
+                "2": [mid(0.0), mid(-6.0)],
+                "4": [mid(0.0), mid(-3.0)],
+            },
+            "solves": [
+                {
+                    "method": "search",
+                    "split": 1,
+                    "points": 2,
+                    "point_solves": 12,
+                    "midpoint_solves": 6,
+                    "total": 18,
+                },
+                {
+                    "method": "start",
+                    "split": 1,
+                    "points": 2,
+                    "point_solves": 12,
+                    "midpoint_solves": 1,
+                    "total": 13,
+                },
+            ],
+        }
+
+    def test_steps_show_the_split_differences_and_their_ratios(self):
+        lines = vt.core_steps("search", [self.summary()]).splitlines()
+        self.assertIn("ホウ素の差 1−2 (ppm)", lines[0])
+        self.assertIn("燃焼度の比 (1−2)/(2−4)", lines[0])
+        self.assertIn("ホウ素（分割 4） (ppm)", lines[0])
+        # 燃焼点 0 は出力の割合なし、比のない差は –
+        self.assertIn("| –", lines[2])
+        self.assertIn("−0.2500", lines[3])
+        self.assertIn("4.00e-03", lines[3])
+        self.assertIn("| 4.00 ", lines[3])
+        self.assertIn("rodded", lines[3])
+
+    def test_midpoints_show_start_minus_search_per_split(self):
+        lines = vt.core_steps_midpoint([self.summary()]).splitlines()
+        self.assertIn("ホウ素の差（分割 4） (ppm)", lines[0])
+        self.assertIn("−12.5000", lines[3])
+        self.assertIn("−3.0000", lines[3])
+
+    def test_solves_list_points_and_midpoints(self):
+        lines = vt.core_steps_solves([self.summary()]).splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertIn("| 18 ", lines[2])
+
+    def test_other_summaries_and_missing_methods_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_steps("search", [{"format": "xlc-compare-core-cycle"}])
+        s = self.summary()
+        del s["steps"]["start"]
+        with self.assertRaises(vt.TableError):
+            vt.core_steps("start", [s])
+        s["midpoint"] = None
+        with self.assertRaises(vt.TableError):
+            vt.core_steps_midpoint([s])
+
+
 class DrawMicroLinearization(unittest.TestCase):
     @staticmethod
     def summary() -> dict:

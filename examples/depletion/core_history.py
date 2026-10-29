@@ -1,10 +1,19 @@
 """core の燃焼の履歴（`xlc-core-history`。ADR-0190、ADR-0218）を読む比較のツールの共通の部分。"""
 
 
+def default_midpoints(core: dict) -> None:
+    """中点を初めの点のホウ素で解いた燃焼（ADR-0191 の案 S1）なら止める（既定の燃焼を比べるツールで比べない）"""
+    if core.get("midpoint_boron") == "start":
+        raise SystemExit(
+            "the core history solves the midpoints at the start boron (ADR-0191 S1); this tool compares the default search"
+        )
+
+
 def single_state(core: dict) -> dict:
     """状態が 1 つで定格の出力のままの燃焼の、その状態（履歴の `states` の値）。状態が 1 つでないか、出力の割合が 1 でないステップ
     （崩壊だけのステップは 0）があれば止める（ステップごとに状態や出力の変わる燃焼は、すべての点を定格の燃焼の履歴と 1 つの状態の
     テーブルの値と比べるツールで比べない。ADR-0218）"""
+    default_midpoints(core)
     states = core["states"]
     if len(states) != 1:
         raise SystemExit(
