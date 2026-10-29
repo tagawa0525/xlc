@@ -1399,6 +1399,34 @@ fn depletion_states_may_search_the_boron() {
 }
 
 #[test]
+fn depletion_midpoints_may_take_the_boron_of_the_step_start() {
+    // ADR-0191 の案 S1（中点を、ステップの初めの点で探したホウ素で解く）を比べるための項目。省けば、点と中点のすべてで探す
+    // （ADR-0191 の決定）
+    let search = "search = { boron = [0.0, 1300.0], k = 1.0, tolerance = 1e-5, max-solves = 10 }\n";
+    let searching = edited(&depleting(), "boron = 1300\n", search);
+    let midpoint = |text: &str, value: &str| {
+        edited(
+            text,
+            "history = \"out/history.msgpack\"\n",
+            &format!("history = \"out/history.msgpack\"\nmidpoint-boron = \"{value}\"\n"),
+        )
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.depletion.unwrap().midpoint_boron);
+    assert_eq!(read(&searching).unwrap(), MidpointBoron::Search);
+    assert_eq!(
+        read(&midpoint(&searching, "search")).unwrap(),
+        MidpointBoron::Search
+    );
+    assert_eq!(
+        read(&midpoint(&searching, "start")).unwrap(),
+        MidpointBoron::Start
+    );
+    assert!(read(&midpoint(&searching, "previous")).is_err());
+    // ホウ素を与えた状態だけのケースでは、中点はどちらでもそのホウ素で解くので効かない
+    assert!(read(&midpoint(&depleting(), "start")).is_err());
+}
+
+#[test]
 fn invalid_depletions_are_errors() {
     let bad = |from: &str, to: &str| Case::parse(&edited(&depleting(), from, to), base()).is_err();
     // 定格の出力密度は正
