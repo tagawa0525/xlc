@@ -60,3 +60,19 @@ class MidpointBoron(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Xenon(unittest.TestCase):
+    def test_histories_of_equilibrium_xenon_are_errors(self):
+        # 平衡 Xe の燃焼（ADR-0219）は、Xe を時間で追う格子計算や core の燃焼と比べるツールで比べない
+        history = {
+            "states": {"nominal": dict(STATE)},
+            "points": [],
+            "midpoint_boron": "search",
+            "nuclides": ["Xe-135"],
+            "xenon": "equilibrium",
+        }
+        with self.assertRaises(SystemExit):
+            single_state(history)
+        history["xenon"] = "tracked"
+        self.assertEqual(single_state(history), STATE)
