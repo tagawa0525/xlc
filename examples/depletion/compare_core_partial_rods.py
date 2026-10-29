@@ -7,8 +7,9 @@
 - `--json`: どの core の履歴も、集合体 1 体のミクロ燃焼で、軸方向のメッシュ、追う核種、出力密度、燃焼点（EFPD と、相対 1e-9 で燃焼度）と、制御棒の
   バンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
   含み、比べる先の 2 つの燃焼はバンクを持たず、棒の入った燃焼の最初の点の k が棒のない燃焼より小さく、割合の燃焼のどれかがバンクを
-  持ち、どのバンクのステップも割合が増えると減ること（棒は上から入る。履歴と割合の取り違えを止める）。ノードの重金属の質量も同じで、
-  どのノードも追う核種の数密度を持つこと。
+  持ち、どの割合の燃焼もそのバンクを持ち、ステップから求めた割合 (s₀ − s) / (s₀ − s₁)（棒は上から入り、割合 0 と 1 の先端はノードの
+  上と下の面）がラベルと 1e-12 で一致すること（履歴と割合の取り違えを止める）。ノードの重金属の質量も同じで、
+  どのノードも追う核種の数密度と、最初の点の後に正の燃焼度を持つこと。
   次を書く。
   - 燃焼点ごとの k: 割合ごとの k、割合 0 の k の棒のない燃焼の k からの反応度の差、割合 1 の k の棒の入った燃焼の k からの差
     （Δρ = (1/k_基準 − 1/k) × 1e5 pcm）、k が割合について単調か、割合ごとの軸方向のノードの燃焼度と、それがノードごとに割合に
@@ -81,6 +82,8 @@ def check_core(name: str, core: dict, first: dict) -> None:
         for column in p["densities"]
     ):
         raise SystemExit(f"{name}: a node has no densities of the tracked nuclides")
+    if any(not b > 0.0 for p in core["points"][1:] for b in p["burnups"][0]):
+        raise SystemExit(f"{name}: a node has no burnup after the first point")
     state = {k: v for k, v in core["state"].items() if k != "banks"}
     if state != {k: v for k, v in first["state"].items() if k != "banks"}:
         raise SystemExit(f"{name}: the state differs beyond the banks")
@@ -142,11 +145,18 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     names_of_banks = sorted({b for bank in banks for b in bank})
     if not names_of_banks:
         raise SystemExit("no fraction has banks, so the labels cannot be checked")
+    # 割合 0 と 1 の先端はノードの上と下の面で、先端の高さはステップに比例するので、割合はステップから
+    # (s₀ − s) / (s₀ − s₁) で決まる
     for b in names_of_banks:
         steps = [bank.get(b) for bank in banks]
-        if None in steps or not all(x > y for x, y in itertools.pairwise(steps)):
+        if None in steps or not steps[0] > steps[-1]:
             raise SystemExit(
                 f"bank {b} at {steps} steps does not go in with the fractions {fractions}"
+            )
+        implied = [(steps[0] - x) / (steps[0] - steps[-1]) for x in steps]
+        if any(abs(i - f) > 1e-12 for i, f in zip(implied, fractions)):
+            raise SystemExit(
+                f"bank {b} at {steps} steps implies the fractions {implied}, labeled {fractions}"
             )
     names = out["nuclides"]
     burnups = [p["burnup"] for p in out["points"]]
