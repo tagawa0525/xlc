@@ -96,8 +96,8 @@ class Compare(unittest.TestCase):
         nu_fission = [n + s * delta for n, s in zip(NU_FISSION, SIGMA["nu_fission"])]
         predicted = two_group_k(total, scatter, nu_fission)
         base = two_group_k(TOTAL, SCATTER, NU_FISSION)
-        # 輸送の値は予測から 3 pcm ずれたもの
-        transport = 1.0 / (1.0 / predicted + 3.0e-5)
+        # 輸送の値は予測より 3 pcm 大きい反応度（1 − 1/k）のもの。誤差は ρ(予測) − ρ(輸送) で −3 pcm
+        transport = 1.0 / (1.0 / predicted - 3.0e-5)
         summary = cl.compare(table(densities), table(None, transport))
         self.assertEqual(summary["format"], "xlc-compare-micro-linearization")
         self.assertEqual(summary["nuclides"], 1)
@@ -110,6 +110,9 @@ class Compare(unittest.TestCase):
             row["linear_pcm"], (1 / base - 1 / predicted) * 1e5, places=9
         )
         self.assertAlmostEqual(row["error_pcm"], -3.0, places=9)
+        self.assertAlmostEqual(
+            row["error_pcm"], row["linear_pcm"] - row["tracked_pcm"], places=9
+        )
         self.assertAlmostEqual(row["density_change_percent"]["U-235"], 200.0, places=9)
         self.assertLess(summary["self_check_pcm"], 1e-9)
 
