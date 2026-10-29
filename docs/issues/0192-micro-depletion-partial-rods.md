@@ -4,7 +4,7 @@ labels: [core, depletion]
 opened: 2026-10-29
 closed:
 milestone: M4
-blocked-by: []
+blocked-by: ["#0196"]
 resolution:
 ---
 
@@ -20,7 +20,7 @@ core のミクロ燃焼（ADR-0216、#0153）は、追う核種の反応率を�
 
 Problem 9 のサイクルの燃焼は D バンクを部分挿入で運転するので、炉心の燃焼の前に要る。
 
-関係する ADR: ADR-0216
+関係する ADR: ADR-0216、ADR-0217
 
 ## 完了の条件
 
@@ -29,3 +29,7 @@ Problem 9 のサイクルの燃焼は D バンクを部分挿入で運転する�
 ## 経緯
 
 - 2026-10-29: core のミクロ燃焼（feat/0153-core-micro-depletion）で、部分挿入のノードをエラーにして残した
+- 2026-10-29: ADR-0217（proposed）で、区間の微視的断面積を、ノードの少数群定数を混ぜた重み（ADR-0127 の区間の中性子束の積分）で混ぜると
+  決め、core に実装した（feat/0192-partial-rod-micro-depletion。単体テストで、挿入の割合の極限で一様なノードの燃焼に 1 次で近づくこと）。
+  2A の集合体 1 体の確かめに要る制御棒を入れた組のテーブル（`examples/depletion/branches/branch-2A-micro-rods.toml`）は、格子計算が
+  #0196 で止まるので作っていない
