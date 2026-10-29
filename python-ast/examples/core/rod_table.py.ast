@@ -22,6 +22,7 @@ def merge(pairs):
     others = [a for i, a in enumerate(first['axes']) if i != b]
     burnups = first['axes'][b]['points'] if b is not None else None
     sub = first['split'] ** 2
+    first_micro = first.get('micro')
     rows = []
     for r, (value, path, table) in enumerate(pairs):
         for key in ('bounds', 'split'):
@@ -40,17 +41,39 @@ def merge(pairs):
             sys.exit(f'{path} ({value}): the burnups {own} are not points of {pairs[0][1]} {burnups}')
         if len(table['states']) != len(table['points']) * sub:
             sys.exit(f"{path} ({value}): {len(table['states'])} states for {len(table['points'])} points")
+        micro = table.get('micro')
+        check_micro(path, value, micro, first_micro, own, burnups, table['points'])
         for n, point in enumerate(table['points']):
             point = list(point)
             if tb is not None:
                 point[tb] = burnups.index(own[point[tb]])
-            rows.append((point + [r], table['states'][n * sub:(n + 1) * sub]))
+            rows.append((point + [r], table['states'][n * sub:(n + 1) * sub], micro['states'][n] if micro is not None else None))
     rows.sort(key=lambda row: row[0])
     merged = dict(first)
     merged['axes'] = first['axes'] + [{'name': 'rod', 'values': [v for v, _, _ in pairs]}]
-    merged['points'] = [point for point, _ in rows]
-    merged['states'] = [s for _, states in rows for s in states]
+    merged['points'] = [point for point, _, _ in rows]
+    merged['states'] = [s for _, states, _ in rows for s in states]
+    if first_micro is not None:
+        merged['micro'] = dict(first_micro)
+        merged['micro']['states'] = [m for _, _, m in rows]
     return merged
+DENSITY_ROUNDING = 1e-12
+
+def check_micro(path, value, micro, first_micro, own, burnups, points):
+    if (micro is None) != (first_micro is None):
+        sys.exit(f'{path} ({value}): micro data must be in every table or in none')
+    if micro is None:
+        return
+    if micro['nuclides'] != first_micro['nuclides']:
+        sys.exit(f"{path} ({value}): the micro nuclides {micro['nuclides']} differ from {first_micro['nuclides']}")
+    if own is None or len(micro['densities']) != len(own):
+        sys.exit(f'{path} ({value}): micro densities need one row per burnup point')
+    if len(micro['states']) != len(points):
+        sys.exit(f"{path} ({value}): {len(micro['states'])} micro states for {len(points)} points")
+    for burnup, row in zip(own, micro['densities']):
+        expected = first_micro['densities'][burnups.index(burnup)]
+        if len(row) != len(expected) or any((abs(a - b) > DENSITY_ROUNDING * max(abs(a), abs(b)) for a, b in zip(row, expected))):
+            sys.exit(f'{path} ({value}): the micro densities at burnup {burnup} differ from the first table')
 
 def main():
     if len(sys.argv) < 4:
