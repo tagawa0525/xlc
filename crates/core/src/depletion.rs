@@ -139,6 +139,22 @@ impl CoreHistory {
                 "the history state must hold either boron or search".into(),
             ));
         }
+        // ミクロ燃焼の履歴は、どの点もノードごとに追う核種の数の数密度（核分裂のないノードは空）を持つ
+        for (k, point) in file.points.iter().enumerate() {
+            let fits = match (&file.nuclides, &point.densities) {
+                (None, None) => true,
+                (Some(names), Some(rows)) => rows
+                    .iter()
+                    .flatten()
+                    .all(|n| n.is_empty() || n.len() == names.len()),
+                _ => false,
+            };
+            if !fits {
+                return Err(CaseError::Depletion(format!(
+                    "point {k}: the densities must match the micro nuclides of the history"
+                )));
+            }
+        }
         if let Some(search) = &file.state.search {
             search
                 .check()
