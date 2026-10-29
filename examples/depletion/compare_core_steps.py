@@ -47,14 +47,19 @@ SHARED = (
 
 
 def method_name(core: dict) -> str:
-    """履歴の燃焼の方式の名前: Xe を時間で追う燃焼（`xenon` が `tracked` か無い）は `midpoint_boron`（`search` か `start`）、Xe を
-    平衡にした燃焼は `equilibrium`（中点でも探す燃焼だけ）"""
+    """履歴の燃焼の方式の名前: Xe を時間で追う燃焼（`xenon` が `tracked`）とミクロ燃焼しない燃焼は `midpoint_boron`（`search` か
+    `start`）、Xe を平衡にした燃焼は `equilibrium`（中点でも探す燃焼だけ）。ミクロ燃焼の履歴（`nuclides` を持つ）は `xenon` を持ち、
+    ミクロ燃焼しない履歴は持たない（ADR-0219）"""
     midpoint = core.get("midpoint_boron")
-    xenon = core.get("xenon", "tracked")
-    if midpoint not in ("search", "start") or xenon not in ("tracked", "equilibrium"):
+    if midpoint not in ("search", "start"):
+        raise SystemExit(f"unexpected midpoint_boron {midpoint} of a history")
+    if ("nuclides" in core) != ("xenon" in core):
         raise SystemExit(
-            f"unexpected midpoint_boron {midpoint} and xenon {xenon} of a history"
+            "a micro depletion history names its xenon treatment, and only it (ADR-0219)"
         )
+    xenon = core.get("xenon", "tracked")
+    if xenon not in ("tracked", "equilibrium"):
+        raise SystemExit(f"unexpected xenon {xenon} of a history")
     if xenon == "tracked":
         return midpoint
     if midpoint != "search":
