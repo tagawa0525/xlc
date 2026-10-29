@@ -448,7 +448,7 @@ fn equilibrium_balances_iodine_and_xenon_with_their_precursors_at_the_rates() {
 }
 
 #[test]
-fn equilibrium_needs_xenon_and_iodine_among_the_solved_nuclides() {
+fn equilibrium_needs_tracked_xenon_and_solved_iodine() {
     let reference = micro_at(vec![0.0; 5]).nuclides;
     // Xe-135 も I-135 も追わない（どちらも解く核種にない）
     let micro = MicroChain::new(&chain(), &names(&TRACKED[..3]), &reference[..3]).unwrap();
@@ -459,6 +459,24 @@ fn equilibrium_needs_xenon_and_iodine_among_the_solved_nuclides() {
     };
     let rates = micro.rates(&at, &[3.0e13, 1.0e13], &n, 104.5).unwrap();
     assert!(micro.equilibrium(&rates, &n).is_err());
+    // Xe-135 を追わず、追う Cs-135 へ流れ込む補助の核種として解くだけでは、平衡の Xe が少数群定数に効かないので解かない
+    let cesium = MicroNuclide {
+        reactions: Vec::new(),
+        ..sigma([0.0, 0.0], [0.0, 0.0], 0.0)
+    };
+    let micro = MicroChain::new(
+        &chain(),
+        &names(&["U-235", "U-236", "Np-237", "Cs-135"]),
+        &[
+            reference[0].clone(),
+            reference[1].clone(),
+            reference[2].clone(),
+            cesium,
+        ],
+    )
+    .unwrap();
+    assert!(micro.solved.contains(&"Xe-135".to_string()));
+    assert!(!micro.balances_xenon());
     // I-135 を追わなくても、Xe-135 へ流れ込む補助の核種として解けば平衡を解ける
     let micro = MicroChain::new(&chain(), &names(&TRACKED[..4]), &reference[..4]).unwrap();
     assert_eq!(micro.solved[..3], names(&["Te-135", "I-135", "Xe-135"]));
@@ -468,6 +486,7 @@ fn equilibrium_needs_xenon_and_iodine_among_the_solved_nuclides() {
         nuclides: reference[..4].to_vec(),
     };
     let rates = micro.rates(&at, &[3.0e13, 1.0e13], &n, 104.5).unwrap();
+    assert!(micro.balances_xenon());
     let got = micro.equilibrium(&rates, &n).unwrap();
     assert!(got[..3].iter().all(|&v| v > 0.0), "{got:?}");
 }
