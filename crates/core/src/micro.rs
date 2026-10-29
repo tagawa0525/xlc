@@ -218,6 +218,46 @@ impl MicroChain {
         self.tracked.iter().map(|t| n[t.column]).collect()
     }
 
+    /// 補助の核種の、解く核種の中の番号（解く核種の順）
+    fn auxiliary_columns(&self) -> Vec<usize> {
+        (0..self.solved.len())
+            .filter(|&k| self.tracked.iter().all(|t| t.column != k))
+            .collect()
+    }
+
+    /// 補助の核種の名前（解く核種の順）
+    pub fn auxiliary_nuclides(&self) -> Vec<String> {
+        self.auxiliary_columns()
+            .into_iter()
+            .map(|k| self.solved[k].clone())
+            .collect()
+    }
+
+    /// 解く核種の数密度 `n` のうち、補助の核種のもの（`auxiliary_nuclides` の順）
+    pub fn auxiliary_densities(&self, n: &[f64]) -> Vec<f64> {
+        self.auxiliary_columns().into_iter().map(|k| n[k]).collect()
+    }
+
+    /// 追う核種の数密度 `tracked`（テーブルの順）と補助の核種の数密度 `auxiliary`（`auxiliary_nuclides` の順）から、解く核種の
+    /// 数密度。数が合わなければエラー
+    pub fn compose(&self, tracked: &[f64], auxiliary: &[f64]) -> Result<Vec<f64>, String> {
+        let columns = self.auxiliary_columns();
+        if tracked.len() != self.tracked.len() || auxiliary.len() != columns.len() {
+            return Err(format!(
+                "{} tracked and {} auxiliary densities for {} tracked and {} auxiliary nuclides",
+                tracked.len(),
+                auxiliary.len(),
+                self.tracked.len(),
+                columns.len()
+            ));
+        }
+        let mut n = self.initial(tracked);
+        for (k, &v) in columns.into_iter().zip(auxiliary) {
+            n[k] = v;
+        }
+        Ok(n)
+    }
+
     /// ノードの微視的断面積 `micro`、少数群の中性子束の形 `flux`、解く核種の数密度 `n` (1/(barn cm)) で、追う核種の核分裂の出力が
     /// 出力密度 `power_density` (W/cm³) になるように規格化した、追う核種ごとの反応率。負の数密度は出力に数えない（格子計算の燃焼と
     /// 同じ。ADR-0173）
