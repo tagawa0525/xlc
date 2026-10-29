@@ -1638,6 +1638,38 @@ class DrawCoreSteps(unittest.TestCase):
         self.assertEqual(len(lines), 4)
         self.assertIn("| 18 ", lines[2])
 
+    def test_axial_offsets_follow_the_reference_points_since_a_day(self):
+        s = self.summary()
+
+        def run(method, split, days):
+            return {
+                "method": method,
+                "split": split,
+                "points": [{"efpd": d, "days": d, "offset": 0.01 * d} for d in days],
+            }
+
+        s["axial"] = [
+            run("search", 2, [0.0, 1.0, 2.0, 3.0, 4.0]),
+            run("search", 4, [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]),
+            run("equilibrium", 2, [0.0, 1.0, 2.0, 3.0, 4.0]),
+        ]
+        table = vt.core_steps_axial(
+            ("search", 4), [("search", 2), ("search", 4), ("equilibrium", 2)], 2.0, [s]
+        )
+        lines = table.splitlines()
+        self.assertIn("search 分割 2", lines[0])
+        self.assertIn("equilibrium 分割 2", lines[0])
+        # 2 日からの分割 4 の点（5 つ）。分割 2 の無い点は –
+        self.assertEqual(len(lines), 2 + 5)
+        self.assertIn("2.5000", lines[3])
+        self.assertIn("| –", lines[3])
+        self.assertIn("+0.0250", lines[3])
+        self.assertIn("+0.0300", lines[4])
+        with self.assertRaises(vt.TableError):
+            vt.core_steps_axial(("search", 8), [("search", 2)], 0.0, [s])
+        with self.assertRaises(vt.TableError):
+            vt.core_steps_axial(("search", 4), [("start", 2)], 0.0, [s])
+
     def test_other_summaries_and_missing_methods_are_errors(self):
         with self.assertRaises(vt.TableError):
             vt.core_steps("search", [{"format": "xlc-compare-core-cycle"}])
