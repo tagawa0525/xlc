@@ -1326,6 +1326,7 @@ class DrawCorePartialRods(unittest.TestCase):
             "specific_power": 38.41,
             "fractions": [0.0, 0.5, 1.0],
             "banks": [{"D": 172}, {"D": 86}, {"D": 0}],
+            "axial_mesh": [0.0, 10.75, 21.5],
             "nuclides": ["U-235", "Xe-135"],
             "points": [
                 {
@@ -1351,16 +1352,19 @@ class DrawCorePartialRods(unittest.TestCase):
             ],
             "densities": {
                 "U-235": {
-                    "zero_limit": {"relative": -1.2e-12, "burnup": 0.1},
-                    "one_limit": {"relative": 3.4e-11, "burnup": 0.1},
-                    "last_change": 1.23e-3,
+                    "zero_limit": {"relative": -1.2e-12, "burnup": 0.1, "node": 1},
+                    "one_limit": {"relative": 3.4e-11, "burnup": 0.1, "node": 0},
+                    "last_change": [-4.5e-4, 1.23e-3],
                     "not_monotonic": [],
                 },
                 "Xe-135": {
-                    "zero_limit": {"relative": 0.0, "burnup": 0.1},
-                    "one_limit": {"relative": None, "burnup": None},
-                    "last_change": None,
-                    "not_monotonic": [0.1, 10.0],
+                    "zero_limit": {"relative": 0.0, "burnup": 0.1, "node": 0},
+                    "one_limit": {"relative": None, "burnup": None, "node": None},
+                    "last_change": [None, None],
+                    "not_monotonic": [
+                        {"burnup": 0.1, "node": 1},
+                        {"burnup": 10.0, "node": 0},
+                    ],
                 },
             },
         }
@@ -1409,13 +1413,25 @@ class DrawCorePartialRods(unittest.TestCase):
             ],
         )
 
-    def test_density_rows_are_by_nuclide(self):
+    def test_density_rows_are_by_nuclide_with_the_change_of_each_node(self):
         table = vt.core_partial_rods_densities([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "核種",
+                "割合 0 − 棒なし（相対）",
+                "割合 1 − 棒あり（相対）",
+                "最後の点の割合 1 − 割合 0、0〜10.75 cm (%)",
+                "最後の点の割合 1 − 割合 0、10.75〜21.5 cm (%)",
+                "単調でない燃焼点 (MWd/kg、ノードの下端 cm)",
+            ],
+        )
         self.assertEqual(
             self.rows(table),
             [
-                ["U-235", "−1.2e-12", "+3.4e-11", "+0.1230", "なし"],
-                ["Xe-135", "0.0e+00", "–", "–", "0.1, 10"],
+                ["U-235", "−1.2e-12", "+3.4e-11", "−0.0450", "+0.1230", "なし"],
+                ["Xe-135", "0.0e+00", "–", "–", "–", "0.1（10.75）, 10（0）"],
             ],
         )
 
