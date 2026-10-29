@@ -4880,8 +4880,8 @@ python3 examples/depletion/compare_core_partial_rods.py --report $B/compare-core
 ブランチ feat/0192-partial-rod-record（分岐点は main の 87f5dd7b）、2026-10-29。分岐の格子計算は 87f5dd7b の `bin/lattice`（main の
 `dvc.lock` の `build` の出力。Slurm 594 が棒のない組、595 が制御棒を入れた組。割り込まれうるジョブなので時間は記録に使わない）。棒のない組の
 テーブル `table-2A-micro.msgpack` は md5 646d0ec2（「core のミクロ燃焼（2A の集合体 1 体）」と同じ）、制御棒を入れた組は 70b204f3、まとめた
-テーブルは 9689f898（どれも追跡しない生成物）。core の 7 つの燃焼は a54bfdee5（手元。`bin/core` は main の `dvc.lock` の `build` の出力）、
-比較は ff2936aff（手元）。
+テーブルは 9689f898（どれも追跡しない生成物）。core の 7 つの燃焼は 13523f3eb（手元。`bin/core` は main の `dvc.lock` の `build` の出力）、
+比較は 76eec8dd3（手元）。
 
 ### 結果
 
