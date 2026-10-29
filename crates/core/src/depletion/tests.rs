@@ -1990,3 +1990,84 @@ fn equilibrium_xenon_steps_keep_second_order() {
     let ratio = (b2 - b4) / (b4 - b8);
     assert!((3.5..4.5).contains(&ratio), "{ratio} ({b2}, {b4}, {b8})");
 }
+
+/// `two_rod_states` のケースを、Xe のチェーンと平衡 Xe で燃焼させる（`rod_states_run` と同じ集合体 1 体）
+fn xenon_rod_states_run(steps: &str) -> CoreHistory {
+    let case = two_rod_states(steps).replace("xenon = \"tracked\"", "xenon = \"equilibrium\"");
+    let base = Path::new("dir");
+    let case = Case::parse(&case, base).unwrap();
+    let cycle = Cycle::parse(ROD_CYCLE, base).unwrap();
+    let plant = Plant::parse(ROD_PLANT, base).unwrap();
+    let inventory = Inventory::parse(ROD_INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = vec![with_rod_axis(with_xenon(table(1.0, Some(400.0))))];
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&xenon_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap()
+}
+
+#[test]
+fn equilibrium_before_a_decay_step_balances_in_the_operating_state() {
+    // 崩壊だけのステップの前の点は、崩壊だけのステップの状態で解く（ADR-0218 の案 P2）が、Xe は停止の前に運転していた状態の中性子束で
+    // 釣り合う（停止の状態の中性子束で運転したことはない）
+    let changed = xenon_rod_states_run(
+        "[{ efpd = 50.0, state = \"out\" }, { decay-days = 1.0, state = \"in\" }, { efpd = 60.0 }]",
+    );
+    let kept = xenon_rod_states_run(
+        "[{ efpd = 50.0, state = \"out\" }, { decay-days = 1.0 }, { efpd = 60.0, state = \"in\" }]",
+    );
+    assert_eq!(changed.points[1].state, "in");
+    assert_eq!(kept.points[1].state, "out");
+    let node = |h: &CoreHistory| h.points[1].densities.clone().unwrap();
+    for (a, b) in node(&changed)
+        .iter()
+        .flatten()
+        .zip(node(&kept).iter().flatten())
+    {
+        for (x, y) in a.iter().zip(b) {
+            assert!((x - y).abs() <= 1.0e-9 * y.abs(), "{x} vs {y}");
+        }
+    }
+    // 棒を抜いた状態では上下のノードの Xe-135 が同じ（棒の入った状態の中性子束では上のノードが少ない）
+    let rows = node(&changed);
+    assert!((rows[0][0][3] / rows[0][1][3] - 1.0).abs() <= 1.0e-9);
+}
+
+#[test]
+fn equilibrium_xenon_without_xenon_and_iodine_stops_before_solving() {
+    // 平衡にする Xe-135 と I-135 を解かないチェーンと追う核種は、最初の点を解く前に止める
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let mut case = micro_case(CASE);
+    case.depletion
+        .as_mut()
+        .unwrap()
+        .micro
+        .as_mut()
+        .unwrap()
+        .xenon = Xenon::Equilibrium;
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    let mut points = 0;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| points += 1,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("Xe-135"), "{error}");
+    assert_eq!(points, 0);
+}
