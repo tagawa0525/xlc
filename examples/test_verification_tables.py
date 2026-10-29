@@ -1455,6 +1455,93 @@ class DrawCorePartialRods(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawCoreCycle(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_core_cycle.py の要約（軸方向のノード 2 つ、燃焼点 3 つ（2 つ目は崩壊だけのステップ）、参照 1 つ）"""
+        densities = {
+            "I-135": [1e-9, 2e-9],
+            "Xe-135": [3e-9, 4e-9],
+            "Sm-149": [5e-8, 6e-8],
+        }
+        point = {
+            "state": "out",
+            "node_burnups": [0.0, 0.0],
+            "densities": densities,
+        }
+        return {
+            "format": "xlc-compare-core-cycle",
+            "specific_power": 38.41,
+            "axial_mesh": [0.0, 10.75, 21.5],
+            "nuclides": ["I-135", "Xe-135", "Sm-149"],
+            "references": ["rated"],
+            "points": [
+                {
+                    **point,
+                    "efpd": 0.0,
+                    "days": 0.0,
+                    "power": None,
+                    "burnup": 0.0,
+                    "analytic_burnup": 0.0,
+                    "burnup_relative": 0.0,
+                    "k": 1.18308830,
+                    "references": {
+                        "rated": {
+                            "k": 1.18308830,
+                            "rho_pcm": 0.0,
+                            "densities": densities,
+                        }
+                    },
+                },
+                {
+                    **point,
+                    "efpd": 2.6034886,
+                    "days": 3.0,
+                    "power": 0.0,
+                    "burnup": 0.1,
+                    "analytic_burnup": 0.1,
+                    "burnup_relative": -2.2e-16,
+                    "k": 1.2,
+                    "references": {"rated": None},
+                },
+                {
+                    **point,
+                    "efpd": 5.2069773,
+                    "days": 8.2069773,
+                    "power": 0.5,
+                    "state": "half",
+                    "node_burnups": [0.21, 0.19],
+                    "burnup": 0.2,
+                    "analytic_burnup": 0.2,
+                    "burnup_relative": 0.0,
+                    "k": 1.1,
+                    "references": {
+                        "rated": {"k": 1.14, "rho_pcm": -3189.0, "densities": densities}
+                    },
+                },
+            ],
+        }
+
+    def test_rows_show_the_step_the_burnup_check_and_the_reference_differences(self):
+        table = vt.core_cycle_points([self.summary()])
+        lines = table.splitlines()
+        self.assertIn("k − rated (pcm)", lines[0])
+        self.assertIn("Xe-135 (1/(barn cm))", lines[0])
+        # 燃焼点 0 は出力の割合なし、崩壊だけのステップは 0 で参照なし
+        self.assertIn("| –", lines[2])
+        self.assertIn("| 0 ", lines[3])
+        self.assertIn("−2.2e-16", lines[3])
+        # ノードごとの値は下から / で区切る
+        self.assertIn("0.21 / 0.19", lines[4])
+        self.assertIn("3.000e-09 / 4.000e-09", lines[4])
+        self.assertIn("−3189.000", lines[4])
+        self.assertEqual(lines[3].count("–"), 1)
+
+    def test_other_summaries_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_cycle_points([{"format": "xlc-compare-core-micro"}])
+
+
 class DrawMicroLinearization(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
