@@ -10,9 +10,9 @@
 （make_shifted.py）。点の組 (k - 1, k) ごとに:
 
 - 輸送: ρ(shifted の点 k の k∞) − ρ(nominal の点 k - 1 の k∞)。追う核種の組成の差だけの効き
-- 線形: ρ(予測) − ρ(nominal の点 k - 1 の 2 群の k∞)。予測は、点 k - 1 の少数群定数（全断面積、散乱行列、νΣf）に
+- 線形: ρ(予測) − ρ(nominal の点 k - 1 の少数群定数の 2 群の k)。予測は、点 k - 1 の少数群定数（全断面積、散乱行列、νΣf）に
   Σᵢ σᵢ(k - 1)(N̄ᵢ(k) − N̄ᵢ(k - 1)) を足した定数の 2 群の無限媒質の k
-- 誤差: ρ(予測) − ρ(shifted の点 k の k∞)（線形 − 輸送。正なら線形の補正は反応度を高く見積もる）
+- 誤差: 線形 − 輸送（2 つの基準が同じなら ρ(予測) − ρ(shifted の点 k の k∞)。正なら線形の補正は反応度を高く見積もる）
 
 ρ は反応度 1 − 1/k で、差は pcm（Δρ = (1/k_a − 1/k_b) × 1e5、a から b へ）。2 群の k は、少数群定数から無限媒質の固有値として求め、テーブルの
 k∞ との差（`self_check_pcm`。nominal のすべての状態の最大）を出す（外周が鏡面反射の格子の少数群定数は格子の k∞ を保つ）。
@@ -101,8 +101,8 @@ def burnups(table):
 
 
 def rho(k):
-    """1e5/k。反応度 1 − 1/k の差は、この差の向きを逆にしたもの"""
-    return 1e5 / k
+    """反応度 1 − 1/k (pcm)"""
+    return 1e5 * (1.0 - 1.0 / k)
 
 
 def compare(nominal, shifted):
@@ -113,7 +113,7 @@ def compare(nominal, shifted):
         raise SystemExit("the tables have different burnup points")
     micro = nominal["micro"]
     names = micro["nuclides"]
-    fresh = rho(nominal["states"][0]["k_inf"]) - rho(shifted["states"][0]["k_inf"])
+    fresh = rho(shifted["states"][0]["k_inf"]) - rho(nominal["states"][0]["k_inf"])
     if abs(fresh) > FRESH_TOLERANCE_PCM:
         raise SystemExit(f"the fresh points differ by {fresh} pcm")
     # 予測に使うのは nominal の少数群定数なので、その状態で確かめる（shifted は k∞ だけを使う）
@@ -125,14 +125,16 @@ def compare(nominal, shifted):
         base = nominal["states"][k - 1]
         predicted = k_inf(corrected(base, micro["states"][k - 1], deltas))
         transport = shifted["states"][k]["k_inf"]
+        # どちらの効きも自分の基準（テーブルの k∞ と、同じ定数の 2 群の k）からの差なので、基準の収束の差（self_check）は入らない
+        tracked = rho(transport) - rho(base["k_inf"])
+        linear = rho(predicted) - rho(k_inf(base))
         rows.append(
             {
                 "from": points[k - 1],
                 "to": points[k],
-                "tracked_pcm": rho(base["k_inf"]) - rho(transport),
-                "linear_pcm": rho(k_inf(base)) - rho(predicted),
-                # 反応度 1 − 1/k の差なので、1e5/k の差とは逆の向き
-                "error_pcm": rho(transport) - rho(predicted),
+                "tracked_pcm": tracked,
+                "linear_pcm": linear,
+                "error_pcm": linear - tracked,
                 "density_change_percent": {
                     n: (
                         None
@@ -164,7 +166,7 @@ def report(summary):
         r["linear_pcm"] / r["tracked_pcm"] for r in rows if abs(r["tracked_pcm"]) > 1.0
     ]
     return (
-        f"追う核種 {summary['nuclides']}、点の組 {len(rows)}。線形の補正の誤差 ρ(予測) − ρ(輸送) は "
+        f"追う核種 {summary['nuclides']}、点の組 {len(rows)}。線形の補正の誤差（線形 − 輸送）は "
         f"{min(errors):+.2f}〜{max(errors):+.2f} pcm（絶対値の最大は {worst['from']:g}→{worst['to']:g} MWd/kg の "
         f"{worst['error_pcm']:+.2f} pcm、そのときの輸送の効き {worst['tracked_pcm']:+.1f} pcm）。効きが 1 pcm を超える組で、線形の補正は "
         f"輸送の効きの {100 * min(shares):.2f}〜{100 * max(shares):.2f}% を再現した。2 群の k とテーブルの k∞ の差は最大 "
