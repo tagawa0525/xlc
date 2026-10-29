@@ -197,7 +197,7 @@ impl CoreHistory {
                     && power >= 0.0
                     && (power == 0.0) == (point.efpd == before.efpd)
                     && point.efpd >= before.efpd
-                    && point.days > before.days)
+                    && point.days >= before.days)
             {
                 return Err(CaseError::Depletion(format!(
                     "point {k}: the step power {power}, EFPD {} and days {} do not follow the point before \
