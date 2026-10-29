@@ -1160,3 +1160,28 @@ fn micro_cross_sections_need_the_micro_data_and_the_rod_axis() {
     // 範囲の外の状態は少数群定数と同じくエラー
     assert!(interpolate_micro(&t, &at_burnup(25.0, 1300.0, 565.0, 600.0), None).is_err());
 }
+
+#[test]
+fn thermal_fractions_near_one_stay_in_range_between_burnup_points() {
+    // 境界より下の核分裂の断面積 a(u) が 5 MWd/kg までは小さく 10 MWd/kg から大きく、上の断面積は 1e-6 で一定。割合 a / (a + 1e-6) は
+    // 10 と 18 MWd/kg で 1 に近く、割合そのものを 3 次 Hermite（負の重み）で内挿すると 1 を超える。断面積で内挿した比は超えない
+    let below = |u: f64| if u <= 5.0 { 1.0e-5 } else { 1.0 };
+    let mut t = with_micro(burnup_table_of(&CURVED, curve), curve);
+    let points = t.points.clone();
+    for (p, state) in points.iter().zip(&mut t.micro.as_mut().unwrap().states) {
+        let a = below(CURVED[p[0]]);
+        state[0].fission = vec![1.0e-6, a];
+        state[0].thermal_fission = Some(a / (a + 1.0e-6));
+    }
+    t.validate().unwrap();
+    for bu in [11.0, 13.0, 15.0, 17.0] {
+        let s = at_burnup(bu, 1300.0, 580.0, 900.0);
+        let m = interpolate_micro(&t, &s, None).unwrap();
+        let f = m.nuclides[0].thermal_fission.unwrap();
+        assert!((0.0..=1.0).contains(&f), "{bu}: {f}");
+        // 境界より下と全体の断面積の比
+        let fission = &m.nuclides[0].fission;
+        let want = fission[1] / (fission[0] + fission[1]);
+        assert!((f - want).abs() <= 1e-15, "{bu}: {f} vs {want}");
+    }
+}
