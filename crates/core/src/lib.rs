@@ -8,6 +8,7 @@
 pub mod case;
 pub mod depletion;
 pub mod input;
+pub mod micro;
 pub mod nem;
 pub mod pins;
 pub mod rods;

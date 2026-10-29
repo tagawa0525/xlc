@@ -735,6 +735,15 @@ pub struct DepletionInput {
     pub steps: Vec<DepletionStep>,
     /// 燃焼の履歴を書くファイル
     pub history: PathBuf,
+    /// ミクロ燃焼（ADR-0216）。書かなければ、ノードの燃焼度だけを進める
+    pub micro: Option<MicroInput>,
+}
+
+/// `[depletion]` の `micro`（ADR-0216）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct MicroInput {
+    /// 格子計算の燃焼と同じチェーンのファイル（ADR-0165）
+    pub chain: PathBuf,
 }
 
 /// 燃焼のステップ。ステップの中の出力は定格で一定（ADR-0190）
@@ -784,6 +793,7 @@ impl DepletionInput {
                 .map(|efpd| DepletionStep { efpd })
                 .collect(),
             history: normalized(&base.join(entry.history)),
+            micro: None,
         })
     }
 
