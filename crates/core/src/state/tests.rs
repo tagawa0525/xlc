@@ -1076,3 +1076,88 @@ fn negative_differences_from_the_nominal_state_are_errors() {
         "{err}"
     );
 }
+
+/// 状態ごとに、少数群定数の項目から作った 1 核種の微視的断面積（捕獲の経路は吸収）と、燃焼度の点ごとの数密度 `density(燃焼度)` を
+/// 足したテーブル
+fn with_micro(mut t: Table, density: impl Fn(f64) -> f64) -> Table {
+    let points = match &t.axes[0] {
+        Axis::Burnup { points } => points.clone(),
+        _ => unreachable!("the test tables put the burnup axis first"),
+    };
+    t.micro = Some(xlc_format::table::Micro {
+        nuclides: vec!["U-235".into()],
+        densities: points.iter().map(|&b| vec![density(b)]).collect(),
+        states: t
+            .states
+            .iter()
+            .map(|s| {
+                vec![MicroNuclide {
+                    total: s.total.clone(),
+                    nu_fission: s.nu_fission.clone(),
+                    fission: s.fission.clone(),
+                    scatter: s.scatter.clone(),
+                    reactions: vec![xlc_format::table::MicroReaction {
+                        mt: 102,
+                        channels: vec![s.absorption.clone()],
+                    }],
+                    thermal_fission: Some(0.9),
+                }]
+            })
+            .collect(),
+    });
+    t.validate().unwrap();
+    t
+}
+
+#[test]
+fn micro_cross_sections_take_the_weights_of_the_few_group_constants() {
+    // 線形の燃焼度の点と、3 次 Hermite の燃焼度の点（ADR-0192）
+    for (t, last) in [
+        (with_micro(burnup_table(), curve), 20.0),
+        (with_micro(burnup_table_of(&CURVED, curve), curve), 18.0),
+    ] {
+        let Axis::Burnup { points } = &t.axes[0] else {
+            unreachable!()
+        };
+        let densities = &t.micro.as_ref().unwrap().densities;
+        for (bu, ppm, tm, tf) in [
+            (0.0, 1300.0, 565.0, 550.0),
+            (0.3, 1000.0, 560.0, 700.0),
+            (3.0, 1700.0, 580.0, 900.0),
+            (10.0, 1450.0, 551.0, 600.0),
+            (14.0, 900.0, 575.0, 820.0),
+            (last, 1300.0, 565.0, 565.0),
+        ] {
+            let s = at_burnup(bu, ppm, tm, tf);
+            let f = interpolate(&t, Some(&s), None).unwrap().remove(0);
+            let m = interpolate_micro(&t, &s, None).unwrap();
+            let [n] = &m.nuclides[..] else {
+                panic!("one nuclide")
+            };
+            assert_eq!(n.total, f.total, "{bu}");
+            assert_eq!(n.nu_fission, f.nu_fission);
+            assert_eq!(n.fission, f.fission);
+            assert_eq!(n.scatter, f.scatter);
+            assert_eq!(n.reactions[0].mt, 102);
+            assert_eq!(n.reactions[0].channels, [f.absorption.clone()]);
+            assert!((n.thermal_fission.unwrap() - 0.9).abs() <= 1e-15);
+            // 数密度は公称の履歴の値なので、燃焼度だけで内挿する
+            let want: f64 = burnup_terms(points, bu)
+                .unwrap()
+                .iter()
+                .map(|&(k, h)| h * densities[k][0])
+                .sum();
+            assert_eq!(m.densities, [want], "{bu}");
+        }
+    }
+}
+
+#[test]
+fn micro_cross_sections_need_the_micro_data_and_the_rod_axis() {
+    let s = at_burnup(3.0, 1300.0, 565.0, 600.0);
+    assert!(interpolate_micro(&burnup_table(), &s, None).is_err());
+    let t = with_micro(burnup_table(), curve);
+    assert!(interpolate_micro(&t, &s, Some("aic")).is_err());
+    // 範囲の外の状態は少数群定数と同じくエラー
+    assert!(interpolate_micro(&t, &at_burnup(25.0, 1300.0, 565.0, 600.0), None).is_err());
+}

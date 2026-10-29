@@ -108,12 +108,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .first()
             .ok_or_else(|| anyhow!("depletion needs one state"))?;
         // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k とホウ素濃度は状態の出力と同じ桁で
-        let history = deplete(&layout, &tables, state, depletion, &options, |point| {
-            println!(
-                "point {} {:.8} {:.8} {:.4} {}",
-                point.efpd, point.burnup, point.k, point.boron, point.solves
-            );
-        })
+        let history = deplete(
+            &layout,
+            &tables,
+            state,
+            depletion,
+            None,
+            &options,
+            |point| {
+                println!(
+                    "point {} {:.8} {:.8} {:.4} {}",
+                    point.efpd, point.burnup, point.k, point.boron, point.solves
+                );
+            },
+        )
         .map_err(|e| in_inputs(e, inputs()))?;
         let file = &depletion.history;
         let bytes = history.to_msgpack().with_context(|| shown(file))?;

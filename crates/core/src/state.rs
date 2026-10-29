@@ -18,7 +18,7 @@
 use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, ROD_OUT, Table, component};
+use xlc_format::table::{Axis, MicroNuclide, ROD_OUT, Table, component};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -300,6 +300,25 @@ pub fn interpolate(
         }
     }
     Ok(out)
+}
+
+/// テーブルの微視的断面積と均質化した数密度を、炉心の状態で内挿した値（ADR-0216）
+#[derive(Debug, Clone, PartialEq)]
+pub struct MicroAt {
+    /// 燃焼度で内挿した、公称の履歴の均質化した数密度 N̄ᵢ⁰ (1/(barn cm)。テーブルの核種の順)
+    pub densities: Vec<f64>,
+    /// 状態と燃焼度で内挿した微視的断面積（テーブルの核種の順）
+    pub nuclides: Vec<MicroNuclide>,
+}
+
+/// テーブルの微視的断面積を、少数群定数と同じ重み（状態の組み立てと燃焼度の内挿）で、均質化した数密度を燃焼度の内挿だけで引く。
+/// テーブルが `micro` を持たなければエラー
+pub fn interpolate_micro(
+    _table: &Table,
+    _state: &State,
+    _rod: Option<&str>,
+) -> Result<MicroAt, String> {
+    Err("not implemented".into())
 }
 
 /// 内挿に使うテーブルの点の重みと、負の重みの出どころ（負の重みで組み立てたときだけ。値の検査のエラーに添える）

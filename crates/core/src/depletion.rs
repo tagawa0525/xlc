@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use xlc_depletion::chain::Chain;
 use xlc_format::msgpack::{self, MsgpackError};
 use xlc_format::table::Table;
 
@@ -31,6 +32,9 @@ pub struct CoreHistory {
     pub assemblies: Vec<String>,
     /// ノードの初めの重金属の質量 (g)
     pub heavy_metal: Vec<Vec<f64>>,
+    /// ミクロ燃焼（ADR-0216）で追う核種の名前（テーブルの順）。ミクロ燃焼しなければ `None`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nuclides: Option<Vec<String>>,
     pub points: Vec<CorePoint>,
 }
 
@@ -73,6 +77,10 @@ pub struct CorePoint {
     pub burnups: Vec<Vec<f64>>,
     /// ノードの出力の割合（核分裂率の割合。炉心の和が 1）
     pub powers: Vec<Vec<f64>>,
+    /// ミクロ燃焼のノードの追う核種の数密度 (1/(barn cm)。[集合体][軸方向のノード][核種]。核分裂のないノードは空)。
+    /// ミクロ燃焼しなければ `None`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub densities: Option<Vec<Vec<Vec<f64>>>>,
 }
 
 /// 書くファイルの形（`CoreHistory` に `format` を足したもの）
@@ -92,6 +100,8 @@ struct FileIn {
     axial_mesh: Vec<f64>,
     assemblies: Vec<String>,
     heavy_metal: Vec<Vec<f64>>,
+    #[serde(default)]
+    nuclides: Option<Vec<String>>,
     points: Vec<CorePoint>,
 }
 
@@ -134,6 +144,7 @@ impl CoreHistory {
             axial_mesh: file.axial_mesh,
             assemblies: file.assemblies,
             heavy_metal: file.heavy_metal,
+            nuclides: file.nuclides,
             points: file.points,
         })
     }
@@ -219,9 +230,11 @@ pub fn deplete(
     tables: &[Table],
     state: &CaseState,
     depletion: &DepletionInput,
+    chain: Option<&Chain>,
     options: &Options,
     mut on_point: impl FnMut(&CorePoint),
 ) -> Result<CoreHistory, CaseError> {
+    let _ = chain;
     let fail = |m: String| Err(CaseError::Depletion(m));
     if layout.split != 1 {
         return fail(format!("radial-nodes = {} cannot deplete", layout.split));
@@ -332,6 +345,7 @@ pub fn deplete(
                 .collect(),
             burnups: burnup_rows,
             powers: by_assembly(&shares),
+            densities: None,
         }
     };
 
@@ -398,6 +412,7 @@ pub fn deplete(
         axial_mesh: layout.axial_mesh().to_vec(),
         assemblies: placed.keys().map(|id| id.to_string()).collect(),
         heavy_metal,
+        nuclides: None,
         points,
     })
 }
