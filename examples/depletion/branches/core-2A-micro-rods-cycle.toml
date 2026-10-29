@@ -1,0 +1,4 @@
+# 制御棒の軸を持つ微視的断面積のテーブルの集合体 1 体を、制御棒のバンク D のある炉心に置くサイクル。
+plant = "core-2A-micro-rods-plant.toml"
+inventory = "core-2A-micro-rods-assemblies.toml"
+loading = ["A01"]
