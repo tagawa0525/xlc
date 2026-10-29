@@ -500,8 +500,8 @@ pub fn deplete(
         // その点を越えて止まる）
         let target = depletion.specific_power * step.efpd * 1.0e-3;
         let increment = target - weighted(&burnups, &masses);
-        // ステップの時間 (s)。燃焼度の増分と同じエネルギー（1 MWd/kg = 1000 W d/g）
-        let time = increment * 1.0e3 / depletion.specific_power * DAY;
+        // ステップの時間 (s)。ケースの EFPD の差（定格の出力で燃焼度の増分と同じエネルギー）
+        let time = (step.efpd - efpd) * DAY;
         let at_step = || format!("the step to {} EFPD", step.efpd);
         // 中点の解と、その燃焼度と組成（ミクロ燃焼の修正子の反応率に使う。ADR-0173 の CE/CM）
         let mut middle_of_step = None;
