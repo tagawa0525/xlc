@@ -174,6 +174,11 @@ class Summary(unittest.TestCase):
         reversed_ = [(f, c) for (f, _), (_, c) in zip(partial, reversed(partial))]
         with self.assertRaises(SystemExit):
             compare_core_partial_rods.summarize(out, rodded, reversed_)
+        # 順を保った取り違え: 割合 0.5 に、ステップが 0 と 1 の間の 1/4 の燃焼を付ける
+        out, rodded, partial = inputs()
+        partial[1][1]["state"]["banks"] = {"D": 129}
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(out, rodded, partial)
         # どの割合の燃焼もバンクを持たなければ、取り違えを確かめられない
         out, rodded, partial = inputs()
         for _, c in partial:
@@ -221,6 +226,7 @@ class Summary(unittest.TestCase):
             lambda c: c.pop("nuclides"),
             lambda c: c.update(assemblies=["A01", "A02"]),
             lambda c: c.update(heavy_metal=[[4500.0, 4400.0]]),
+            lambda c: c["points"][1].update(burnups=[[2.0, 0.0]]),
             lambda c: c["points"][1].update(densities=[[[], [6.6e-4, 0.8e-8]]]),
         ):
             out, rodded, partial = inputs()
