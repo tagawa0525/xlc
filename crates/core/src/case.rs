@@ -196,7 +196,7 @@ fn solve_with(
             solution,
         });
     }
-    let (solution, materials) = solve_rodded(
+    let (solution, materials, _) = solve_rodded(
         &problem,
         partial,
         layout.partial_rods.weighting,

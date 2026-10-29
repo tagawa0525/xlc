@@ -1256,3 +1256,171 @@ fn fissile_tables_off_the_depleted_nodes_are_errors() {
     .to_string();
     assert!(error.contains("not a depleted node"), "{error}");
 }
+
+// 部分挿入のノードのミクロ燃焼（ADR-0217）
+
+/// 集合体 1 体の上から制御棒（バンク D、AIC だけ）を入れる炉心の形。先端は 0.001 × ステップ (cm)
+const ROD_PLANT: &str = r#"
+pitch = 20.0
+height = 20.0
+map = ["*"]
+
+[rods]
+step = 0.001
+bottom = 0.0
+steps = 20000
+top = 20.0
+map = ["D"]
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.type.rcca]
+segments = [{ value = "aic", length = 20.0 }]
+"#;
+
+const ROD_INVENTORY: &str = r#"
+[design.A]
+bounds = [0.0, 20.0]
+layers = ["a.msgpack"]
+
+[assembly.A1]
+design = "A"
+"#;
+
+const ROD_CYCLE: &str = r#"
+plant = "plant.toml"
+inventory = "assemblies.toml"
+loading = ["A1"]
+"#;
+
+/// 軸方向に 2 つのノード（0〜10、10〜20 cm）。上のノードに先端が来る
+const ROD_CASE: &str = r#"
+cycle = "cycle.toml"
+axial-mesh = [0.0, 10.0, 20.0]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.hfp]
+boron = 1200
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 20000 }
+
+[depletion]
+specific-power = 40.0
+steps = [{ efpd = 50.0 }, { efpd = 125.0 }]
+history = "history.msgpack"
+"#;
+
+/// `with_micro` のテーブルに制御棒の軸（`out`、`aic`）を足す。`aic` は熱群の吸収を足し、U-235 の微視的断面積の熱群を小さくする
+fn with_rod_axis(table: Table) -> Table {
+    let micro = table.micro.clone().unwrap();
+    let mut states = Vec::new();
+    let mut micro_states = Vec::new();
+    for (state, nuclides) in table.states.iter().zip(&micro.states) {
+        states.push(state.clone());
+        micro_states.push(nuclides.clone());
+        let mut rodded = state.clone();
+        rodded.absorption[1] += 0.03;
+        rodded.total[1] += 0.03;
+        states.push(rodded);
+        let mut rodded = nuclides.clone();
+        let u235 = &mut rodded[0];
+        u235.fission[1] *= 0.7;
+        u235.nu_fission[1] *= 0.7;
+        u235.total[1] -= 0.3 * 50.0 * (1.0 + CAPTURE_TO_FISSION);
+        u235.reactions[0].channels[0][1] *= 0.7;
+        u235.thermal_fission = Some(0.9);
+        micro_states.push(rodded);
+    }
+    let mut out = Table {
+        points: Vec::new(),
+        axes: table.axes.clone(),
+        split: table.split,
+        states,
+        heavy_metal: table.heavy_metal,
+        micro: Some(Micro {
+            states: micro_states,
+            ..micro
+        }),
+    };
+    out.axes.push(Axis::Rod {
+        values: vec!["out".into(), "aic".into()],
+    });
+    out.points = product_points(&out.axes);
+    out.validate().unwrap();
+    out
+}
+
+/// バンク D をステップ `step` に置いて、集合体 1 体の 2 つのノードをミクロ燃焼させる
+fn rodded_micro_run(step: u32) -> CoreHistory {
+    let base = Path::new("dir");
+    let mut case = micro_case(ROD_CASE);
+    let cycle = Cycle::parse(ROD_CYCLE, base).unwrap();
+    let plant = Plant::parse(ROD_PLANT, base).unwrap();
+    let inventory = Inventory::parse(ROD_INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = vec![with_rod_axis(with_micro(table(1.0, Some(400.0)), &TRACKED))];
+    case.states[0].banks.insert("D".into(), step);
+    deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap()
+}
+
+/// 2 つの履歴の、最後の点の k の差 (pcm) と、追う核種の数密度の相対差の最大
+fn history_difference(a: &CoreHistory, b: &CoreHistory) -> (f64, f64) {
+    let (a, b) = (a.points.last().unwrap(), b.points.last().unwrap());
+    let relative = a
+        .densities
+        .iter()
+        .flatten()
+        .flatten()
+        .zip(b.densities.iter().flatten().flatten())
+        .flat_map(|(x, y)| x.iter().zip(y))
+        .filter(|(_, y)| **y > 0.0)
+        .map(|(x, y)| ((x - y) / y).abs())
+        .fold(0.0, f64::max);
+    (1.0e5 * (a.k - b.k), relative)
+}
+
+#[test]
+fn partial_node_micro_depletion_approaches_the_uniform_nodes_at_the_insertion_limits() {
+    // 上のノードの挿入の割合が 0 と 1 に近づくと、部分挿入のノードのミクロ燃焼は、そのノードを棒のないノードと棒の入った
+    // ノードにした燃焼に近づく（区間の重みが 0 に近づく。ADR-0127 の「境界がノードの面に近づくと」）
+    let out = rodded_micro_run(20000);
+    let rodded = rodded_micro_run(10000);
+    // 棒の効きは区別できる大きさ
+    let (worth, _) = history_difference(&out, &rodded);
+    assert!(worth > 100.0, "{worth} pcm");
+    for (limit, near, nearer) in [(&out, 19990, 19999), (&rodded, 10010, 10001)] {
+        let (dk_near, dn_near) = history_difference(&rodded_micro_run(near), limit);
+        let (dk_nearer, dn_nearer) = history_difference(&rodded_micro_run(nearer), limit);
+        assert!(
+            dk_nearer.abs() < 0.1 && dn_nearer < 1.0e-5,
+            "{nearer}: {dk_nearer} pcm, {dn_nearer} ({near}: {dk_near} pcm, {dn_near})"
+        );
+        assert!(
+            dk_nearer.abs() < dk_near.abs() && dn_nearer < dn_near,
+            "{nearer}: {dk_nearer} pcm, {dn_nearer} ({near}: {dk_near} pcm, {dn_near})"
+        );
+    }
+}
+
+#[test]
+fn partial_node_micro_depletion_is_monotonic_in_the_insertion() {
+    // 先端を下げる（挿入の割合を増やす）ほど、最後の点の k は下がる
+    let ks: Vec<f64> = [20000, 17500, 15000, 12500, 10000]
+        .into_iter()
+        .map(|s| rodded_micro_run(s).points.last().unwrap().k)
+        .collect();
+    assert!(ks.windows(2).all(|w| w[1] < w[0]), "{ks:?}");
+}
