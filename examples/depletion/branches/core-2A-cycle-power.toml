@@ -1,0 +1,27 @@
+# サイクルのステップ（ADR-0218）の確認 (i): core-2A-micro.toml と同じ集合体 1 体、テーブル、状態、出力密度で、出力の割合を
+# 100 % → 50 % → 100 % と変える。燃焼度は出力の割合によらず定格の出力密度 × EFPD で進み、50 % のステップは時間が 2 倍で
+# ノードの出力密度が半分になる。比べる先は 100 % のままの core-2A-micro.toml。
+cycle = "core-2A-micro-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.nominal]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+
+[depletion]
+specific-power = 38.41
+history = "core-2A-cycle-power.msgpack"
+# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+micro = { chain = "../chain.msgpack" }
+steps = [
+  { efpd = 2.603488674824265 },  # 0.1 MWd/kg
+  { efpd = 13.017443374121326 },  # 0.5 MWd/kg
+  { efpd = 19.526165061181988, power = 0.5 },  # 0.75 MWd/kg
+  { efpd = 26.034886748242652, power = 0.5 },  # 1 MWd/kg
+  { efpd = 39.052330122363976 },  # 1.5 MWd/kg
+  { efpd = 52.069773496485304 },  # 2 MWd/kg
+]
