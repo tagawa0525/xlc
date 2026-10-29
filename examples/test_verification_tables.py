@@ -1587,7 +1587,7 @@ class DrawCoreSteps(unittest.TestCase):
         steps = [point(0.0, None, "aro", None), point(1.0, 0.7, "rodded", 4.0)]
         return {
             "format": "xlc-compare-core-steps",
-            "splits": [1, 2, 4],
+            "splits": {"search": [1, 2, 4], "start": [1, 2, 4]},
             "methods": ["search", "start"],
             "steps": {"search": steps, "start": steps},
             "midpoint": {
