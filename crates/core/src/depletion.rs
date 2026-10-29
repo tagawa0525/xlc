@@ -859,15 +859,19 @@ pub fn deplete(
                 (fraction, format!("the point at {efpd} EFPD"))
             }
         };
-        // 出力のステップの終わりの点は、そのステップの出力で運転している解。崩壊だけのステップの後の点は、崩壊で進めた組成のまま
-        // 解く（停止の後の Xe は、平衡でなく崩壊の結果）
+        // 出力のステップの終わりの点は運転している解。点は次のステップの状態で解く（ADR-0218 の案 P2）ので、次も出力のステップなら
+        // その出力で、次が崩壊だけのステップか最後の点なら終わったステップの出力で運転している。崩壊だけのステップの後の点は、崩壊で
+        // 進めた組成のまま解く（停止の後の Xe は、平衡でなく崩壊の結果）
         (solve_at_point, densities) = match step.kind {
             StepKind::Power { power, .. } => solve_operating(
                 point_state(i + 1),
                 &burnups,
                 densities.take(),
                 None,
-                power,
+                match depletion.steps.get(i + 1).map(|s| s.kind) {
+                    Some(StepKind::Power { power: next, .. }) => next,
+                    _ => power,
+                },
                 &|| at_point.clone(),
             )?,
             StepKind::Decay { .. } => (
