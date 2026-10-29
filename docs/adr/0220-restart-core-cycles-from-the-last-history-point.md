@@ -184,6 +184,21 @@ restart の燃焼点 0 は、ADR-0219 の燃焼点 0 と同じく、読んだ組
 - 燃焼の履歴の形式が変わり（ミクロ燃焼の履歴の `auxiliary` と `auxiliary_densities`）、今までのミクロ燃焼の履歴は core の `CoreHistory::from_msgpack` で
   読めない（restart に使えない）。Python の比較のツールは足した項目を読まないので、今までの履歴も新しい履歴も読める
 
+- 前のサイクルの最後の点は、最後のステップの状態と（平衡 Xe なら）出力で解く（ADR-0218 の案 P2、ADR-0219）。次のサイクルの最初のステップの状態か出力が
+  それと違うと、restart の燃焼点 0 は、続けて解いた燃焼の同じ点（次のステップの状態で解き、平衡 Xe なら次のステップの出力で釣り合う）と違う組成と状態で
+  解く。サイクルの間は停止の崩壊だけのステップの後の点（組成を時間で進めた値のまま解く）で切るので、Problem 10 では違わない
+
 ### 確認
 
-まだ実装していない。
+- 入力（crates/core/src/input/tests.rs）: `cycles_restart_from_a_history_and_name_their_fresh_assemblies`、`invalid_restarts_are_errors`（装荷図にない
+  `fresh`、重なる `fresh`、履歴のない restart、知らない項目、燃焼しないケース）
+- 燃焼（crates/core/src/depletion/tests.rs）: `restarts_continue_the_depletion_of_one_case`（A と B の炉心を Xe を時間で追う燃焼と平衡 Xe で、途中で
+  履歴に書いて restart した燃焼が、切らない燃焼の続きと k と燃焼度が相対 1e-12、追う核種と補助の核種の数密度が相対 1e-9 で一致）、
+  `restarts_without_the_auxiliary_nuclides_would_not_continue`（補助の I-135 を 0 にした履歴では停止の 6 時間後の Xe-135 が続きの 0.9 倍未満）、
+  `reloads_carry_the_states_by_assembly_id`（入れ替え、回転、取り出し、新しい集合体。炉心の平均の燃焼度の増分が定格の出力密度 × EFPD）、
+  `restart_mismatches_are_errors`、`micro_histories_hold_the_auxiliary_densities_of_their_last_point`
+- 小さな炉心（examples/depletion/verification.md の「restart と装荷替え（小さな炉心）」。core は 4f1ee930、比較は 1fd8dcb3、2026-10-30）: 平衡 Xe の
+  基準のサイクルと 30 日の停止を、2 MWd/kg の点と 18 日の停止の後で切って restart した燃焼は、切らない燃焼と |Δρ| が 1.535e-08 pcm、ホウ素の差が
+  1.793e-08 ppm、ノードの燃焼度の差が 3.482e-10 MWd/kg、追う核種の数密度の差が 2.669e-10（核種ごとの炉心の最大に対する比）まで一致した。2A の
+  チェーンの補助の核種は 143 で、Nd-147、Pm-147、Pm-149 を含む（切らない燃焼の履歴の `auxiliary`）。装荷替え（A01 と A04 の入れ替え、A02 の回転、
+  A03 の取り出しと新しい A05）の BOC の臨界ホウ素は 975.8429 ppm、炉心の平均の燃焼度は 4.6689 MWd/kg
