@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use xlc_depletion::chain::{Chain, ChainError, Fission, NuclideRates, Reaction};
 use xlc_depletion::{CramOrder, deplete};
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::library::{Library, Shielded};
+use xlc_format::library::{GroupReaction, Library, Shielded};
 use xlc_format::msgpack;
 use xlc_format::table::Table;
 
@@ -117,7 +117,7 @@ const YIELD_FAST: f64 = 5.0e5;
 
 /// 収率の熱と高速の点を分ける境界 (eV)。2 点の幾何平均 √(0.0253 · 5e5) ≈ 112.47 eV で、参照解の OpenMC に与える
 /// `cutoff` と同じ（OpenMC 0.15.2 の既定の 112.0 eV ではない。ADR-0183）
-fn yield_cutoff() -> f64 {
+pub(crate) fn yield_cutoff() -> f64 {
     (YIELD_THERMAL * YIELD_FAST).sqrt()
 }
 
@@ -173,7 +173,7 @@ pub fn yield_weights(group_bounds: &[f64], rates: &[f64], fission: &Fission) -> 
 
 /// 群の核分裂率 `rates`（群境界 `group_bounds` は降順の eV）の、`energy` より下と上の和。`energy` を含む群は
 /// レサジーの幅の比で分ける
-fn split_at(group_bounds: &[f64], rates: &[f64], energy: f64) -> (f64, f64) {
+pub(crate) fn split_at(group_bounds: &[f64], rates: &[f64], energy: f64) -> (f64, f64) {
     let (mut below, mut above) = (0.0, 0.0);
     for (g, &rate) in rates.iter().enumerate() {
         let (upper, lower) = (group_bounds[g], group_bounds[g + 1]);
@@ -242,31 +242,42 @@ impl ReactionSource for LibraryReactions<'_> {
                 "{nuclide}: the channels of MT{mt} in the library differ from the chain"
             ));
         }
-        let dilute: Vec<Vec<f64>> = group
-            .channels
-            .iter()
-            .map(|c| c.cross_section.clone())
-            .collect();
-        if mt != CAPTURE {
-            return Ok(dilute);
-        }
-        let groups = shielded.capture.len();
-        let mut channels = vec![vec![0.0; groups]; dilute.len()];
-        for g in 0..groups {
-            let sum: f64 = dilute.iter().map(|c| c[g]).sum();
-            if sum > 0.0 {
-                for (out, c) in channels.iter_mut().zip(&dilute) {
-                    out[g] = shielded.capture[g] * c[g] / sum;
-                }
-            } else if shielded.capture[g] != 0.0 {
-                return Err(format!(
-                    "{nuclide}: shielded capture {} in group {g} without dilute channels",
-                    shielded.capture[g]
-                ));
-            }
-        }
-        Ok(channels)
+        channel_cross_sections(nuclide, group, shielded)
     }
+}
+
+/// ライブラリのチェーンの反応 `group` の経路ごとの群の断面積 (barn)。捕獲（MT102）は自己遮蔽した捕獲 `shielded.capture` を経路の
+/// 無限希釈の断面積の比で群ごとに分け（ADR-0172 の案 T2）、ほかの反応は無限希釈の値のまま。燃焼の反応率（`LibraryReactions`）と
+/// テーブルの微視的断面積（ADR-0216）が同じ値を使う
+pub(crate) fn channel_cross_sections(
+    nuclide: &str,
+    group: &GroupReaction,
+    shielded: &Shielded,
+) -> Result<Vec<Vec<f64>>, String> {
+    let dilute: Vec<Vec<f64>> = group
+        .channels
+        .iter()
+        .map(|c| c.cross_section.clone())
+        .collect();
+    if group.mt != CAPTURE {
+        return Ok(dilute);
+    }
+    let groups = shielded.capture.len();
+    let mut channels = vec![vec![0.0; groups]; dilute.len()];
+    for g in 0..groups {
+        let sum: f64 = dilute.iter().map(|c| c[g]).sum();
+        if sum > 0.0 {
+            for (out, c) in channels.iter_mut().zip(&dilute) {
+                out[g] = shielded.capture[g] * c[g] / sum;
+            }
+        } else if shielded.capture[g] != 0.0 {
+            return Err(format!(
+                "{nuclide}: shielded capture {} in group {g} without dilute channels",
+                shielded.capture[g]
+            ));
+        }
+    }
+    Ok(channels)
 }
 
 /// 1 回の輸送で求めた、領域ごとの反応率（規格化したもの。[領域][チェーンの核種]）と、点に残す値

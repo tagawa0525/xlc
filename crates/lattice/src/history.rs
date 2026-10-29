@@ -19,16 +19,24 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
-use xlc_format::library::Library;
-use xlc_format::table::Axis;
+use xlc_format::library::{Library, Shielded};
+use xlc_format::table::{Axis, MicroNuclide, MicroReaction};
 
 use crate::depletion::{
-    DepletionRegion, HEAVY_METAL_Z, History, check_negative, check_region_names, depletion_regions,
-    has_data_at, heavy_metal_mass, region_material, solved_names,
+    DepletionRegion, HEAVY_METAL_Z, History, channel_cross_sections, check_negative,
+    check_region_names, depletion_regions, has_data_at, heavy_metal_mass, region_material,
+    solved_names, split_at, yield_cutoff,
 };
+use crate::fewgroup::coarse_groups;
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
+use crate::moc::Solution;
+use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Chosen;
+use crate::ufg::NuclideTransfer;
+
+/// 微視的断面積を足す MOC の領域の組: 核種ごとの実効断面積、UFG の範囲の移行、重みを付けた細かい群の中性子束の和
+type Member<'a> = (&'a [Shielded], Option<&'a [NuclideTransfer]>, Vec<f64>);
 
 /// 入力の `[history]`（ADR-0187）。
 #[derive(Debug, Clone, PartialEq)]
@@ -39,6 +47,8 @@ pub struct HistoryInput {
     pub burnup: Vec<f64>,
     /// 公称でない状態を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
     pub off_nominal: Vec<f64>,
+    /// ミクロ燃焼で追う核種（ADR-0216）。空なら微視的断面積を作らない
+    pub micro: Vec<String>,
 }
 
 /// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
@@ -70,6 +80,12 @@ pub struct HistoryBranches {
     nominal: Option<usize>,
     /// 燃焼度の点ごとに、公称でない状態を解くか
     off_nominal: Vec<bool>,
+    /// ミクロ燃焼で追う核種の名前（ADR-0216）
+    micro_nuclides: Vec<String>,
+    /// 追う核種の、輸送する核種（`transported`。燃焼の領域の物質の核種の並び）の中の番号
+    micro_positions: Vec<usize>,
+    /// [燃焼度の点][追う核種] の均質化した数密度 (1/(barn cm))
+    micro_densities: Vec<Vec<f64>>,
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
@@ -344,6 +360,42 @@ pub fn history_branches(
              which are not at a point of every branch axis (ADR-0200)"
         );
     }
+    // ミクロ燃焼で追う核種は、履歴が輸送した核種（ADR-0216。輸送しない核種は自己遮蔽した断面積を持たない）
+    let micro_positions = selection
+        .micro
+        .iter()
+        .map(|name| {
+            let i = index.get(name.as_str()).ok_or_else(|| {
+                anyhow!("micro nuclide {name} is not a nuclide of the history (ADR-0216)")
+            })?;
+            transported.iter().position(|t| t == i).ok_or_else(|| {
+                anyhow!(
+                    "micro nuclide {name} is not transported in the history (no library data at the depletion \
+                     temperature. ADR-0216)"
+                )
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    // 均質化した数密度は、燃焼の領域の数密度（負は輸送と同じく 0）を体積で重みを付けて格子の体積で割ったもの
+    let lattice_volume: f64 = lattice.volumes().iter().sum();
+    let micro_densities = points
+        .iter()
+        .map(|&p| {
+            micro_positions
+                .iter()
+                .map(|&k| {
+                    let i = transported[k];
+                    history
+                        .regions
+                        .iter()
+                        .zip(&history.points[p].densities)
+                        .map(|(d, n)| d.volume * n[i].max(0.0))
+                        .sum::<f64>()
+                        / lattice_volume
+                })
+                .collect()
+        })
+        .collect();
     let mut axes = vec![Axis::Burnup {
         points: selection.burnup.clone(),
     }];
@@ -369,6 +421,9 @@ pub fn history_branches(
             .collect(),
         nominal: branches.nominal_state(),
         off_nominal,
+        micro_nuclides: selection.micro.clone(),
+        micro_positions,
+        micro_densities,
     })
 }
 
@@ -406,6 +461,217 @@ impl HistoryBranches {
     /// 燃焼度の点 `point` の、参照 `reference`（ホウ素が公称）の解く物質
     pub fn reference_state(&self, point: usize, reference: usize) -> Vec<MaterialInput> {
         self.materials(point, &self.references[reference])
+    }
+
+    /// ミクロ燃焼で追う核種の名前（入力の `micro` の順）
+    pub fn micro_nuclides(&self) -> &[String] {
+        &self.micro_nuclides
+    }
+
+    /// [燃焼度の点][追う核種] の、格子で均質化した数密度 (1/(barn cm))
+    pub fn micro_densities(&self) -> &[Vec<f64>] {
+        &self.micro_densities
+    }
+
+    /// 状態 `index` の追う核種の、少数群（境界 `bounds`）の微視的断面積 (barn)（ADR-0216）。`shielding` は状態の燃料の自己遮蔽、
+    /// `solution` はその MOC の解。少数群定数（`fewgroup::homogenize`）と同じく MOC の中性子束と体積で重みを付け、物質と同じく SPH
+    /// 因子を掛けた核種の群定数を、燃焼の領域の数密度で重みを付けて足し、均質化した数密度と少数群の中性子束で割る。均質化した
+    /// 数密度が 0 の核種は、燃焼の領域で 1 として重みを付ける
+    pub fn micro(
+        &self,
+        index: usize,
+        library: &Library,
+        shielding: &FuelShielding,
+        lattice: &Lattice,
+        solution: &Solution,
+        bounds: &[f64],
+    ) -> anyhow::Result<Vec<MicroNuclide>> {
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        let temperatures = &self.branch[b].1;
+        let fine = library.groups.len();
+        let group_of = coarse_groups(&library.groups, bounds)?;
+        let coarse = bounds.len() - 1;
+        // 領域ごとの SPH 因子 μ（物理的な中性子束は MOC の中性子束に μ を掛けたもの）
+        let ones = vec![vec![1.0; fine]; lattice.regions()];
+        let sph = shielding.physical_flux(lattice, &ones)?;
+        if solution.flux.len() != lattice.regions() || solution.volumes.len() != lattice.regions() {
+            bail!(
+                "the solution has {} regions for {} of the lattice",
+                solution.flux.len(),
+                lattice.regions()
+            );
+        }
+        let mut flux = vec![0.0; coarse];
+        for (phi, volume) in solution.flux.iter().zip(&solution.volumes) {
+            for (g, f) in phi.iter().enumerate() {
+                flux[group_of[g]] += volume * f;
+            }
+        }
+        if flux.iter().any(|&f| !(f > 0.0 && f.is_finite())) {
+            bail!("the few-group fluxes {flux:?} must be positive");
+        }
+        let lattice_volume: f64 = lattice.volumes().iter().sum();
+        let depleted_volume: f64 = self.regions.iter().map(|d| d.volume).sum();
+        let mut out = Vec::with_capacity(self.micro_positions.len());
+        for (j, &k) in self.micro_positions.iter().enumerate() {
+            let name = &self.nuclides[self.transported[k]];
+            let mean = self.micro_densities[point][j];
+            let mut total = vec![0.0; coarse];
+            let mut nu_fission = vec![0.0; coarse];
+            let mut fission = vec![0.0; coarse];
+            let mut scatter = vec![vec![0.0; coarse]; coarse];
+            // 細かい群の核分裂率（収率の重み。ADR-0183）
+            let mut fine_fission = vec![0.0; fine];
+            let mut reactions: Option<Vec<MicroReaction>> = None;
+            for ((d, n), &temperature) in self
+                .regions
+                .iter()
+                .zip(&self.densities[point])
+                .zip(temperatures)
+            {
+                let weight = if mean > 0.0 {
+                    n[self.transported[k]].max(0.0)
+                } else {
+                    1.0
+                };
+                if weight == 0.0 {
+                    continue;
+                }
+                let (_, data) = library.lookup(name, temperature)?;
+                // 実効断面積と移行が同じ MOC の領域（同じ配列を指す。自己遮蔽の結果）は、重みを付けた細かい群の中性子束を
+                // 足してから 1 度だけ核種の群定数にする
+                let mut members: Vec<Member> = Vec::new();
+                for &r in &d.regions {
+                    let effective = shielding.region_cross_sections(r).ok_or_else(|| {
+                        anyhow!(
+                            "region {r} of material `{}` has no shielded cross sections",
+                            d.material
+                        )
+                    })?;
+                    if effective.len() != self.transported.len() {
+                        bail!(
+                            "region {r} of material `{}`: {} shielded nuclides for {} transported",
+                            d.material,
+                            effective.len(),
+                            self.transported.len()
+                        );
+                    }
+                    let transfers = shielding.region_transfers(r);
+                    let weighted: Vec<f64> = (0..fine)
+                        .map(|g| weight * solution.volumes[r] * solution.flux[r][g] * sph[r][g])
+                        .collect();
+                    let same = |(e, t, _): &&mut Member| {
+                        std::ptr::eq(*e, effective)
+                            && match (t, transfers) {
+                                (Some(a), Some(b)) => std::ptr::eq(*a, b),
+                                (a, b) => a.is_none() && b.is_none(),
+                            }
+                    };
+                    match members.iter_mut().find(|m| same(m)) {
+                        Some((_, _, sum)) => {
+                            for (s, w) in sum.iter_mut().zip(&weighted) {
+                                *s += w;
+                            }
+                        }
+                        None => members.push((effective, transfers, weighted)),
+                    }
+                }
+                for (effective, transfers, weighted) in members {
+                    let shielded = &effective[k];
+                    let nuclide = shielded_nuclide_with(
+                        library,
+                        name,
+                        temperature,
+                        shielded,
+                        transfers.map(|t| &t[k]),
+                    )?;
+                    for (g, &w) in weighted.iter().enumerate() {
+                        let big = group_of[g];
+                        total[big] += w * nuclide.total[g];
+                        nu_fission[big] += w * nuclide.nu_fission[g];
+                        fission[big] += w * nuclide.fission[g];
+                        for (to, x) in nuclide.scatter[g].iter().enumerate() {
+                            scatter[big][group_of[to]] += w * x;
+                        }
+                        fine_fission[g] += w * shielded.fission[g];
+                    }
+                    let channels = data
+                        .reactions
+                        .iter()
+                        .map(|reaction| {
+                            channel_cross_sections(name, reaction, shielded)
+                                .map(|c| (reaction.mt, c))
+                                .map_err(|e| anyhow!(e))
+                        })
+                        .collect::<anyhow::Result<Vec<_>>>()?;
+                    let sums = reactions.get_or_insert_with(|| {
+                        channels
+                            .iter()
+                            .map(|(mt, c)| MicroReaction {
+                                mt: *mt,
+                                channels: vec![vec![0.0; coarse]; c.len()],
+                            })
+                            .collect()
+                    });
+                    let shape = |r: &[MicroReaction]| -> Vec<(u32, usize)> {
+                        r.iter().map(|r| (r.mt, r.channels.len())).collect()
+                    };
+                    if shape(sums)
+                        != channels
+                            .iter()
+                            .map(|(mt, c)| (*mt, c.len()))
+                            .collect::<Vec<_>>()
+                    {
+                        bail!(
+                            "{name}: the chain reactions of the library differ between temperatures"
+                        );
+                    }
+                    for (sum, (_, c)) in sums.iter_mut().zip(&channels) {
+                        for (out, sigma) in sum.channels.iter_mut().zip(c) {
+                            for (g, &w) in weighted.iter().enumerate() {
+                                out[group_of[g]] += w * sigma[g];
+                            }
+                        }
+                    }
+                }
+            }
+            // 均質化した数密度 × 少数群の中性子束で割る。数密度が 0 なら、燃焼の領域の体積の割合（重み 1 の数密度）
+            let density = if mean > 0.0 {
+                mean
+            } else {
+                depleted_volume / lattice_volume
+            };
+            let per = |values: Vec<f64>| -> Vec<f64> {
+                values
+                    .iter()
+                    .zip(&flux)
+                    .map(|(v, f)| v / (density * f))
+                    .collect()
+            };
+            let scatter = scatter
+                .into_iter()
+                .zip(&flux)
+                .map(|(row, f)| row.iter().map(|v| v / (density * f)).collect())
+                .collect();
+            let reactions = reactions
+                .unwrap_or_default()
+                .into_iter()
+                .map(|r| MicroReaction {
+                    mt: r.mt,
+                    channels: r.channels.into_iter().map(&per).collect(),
+                })
+                .collect();
+            let (below, above) = split_at(library.groups.bounds(), &fine_fission, yield_cutoff());
+            out.push(MicroNuclide {
+                total: per(total),
+                nu_fission: per(nu_fission),
+                fission: per(fission),
+                scatter,
+                reactions,
+                thermal_fission: (below + above > 0.0).then(|| below / (below + above)),
+            });
+        }
+        Ok(out)
     }
 
     /// 燃焼度の点 `point` の、燃焼させない物質と燃焼の領域の温度が `branch` の状態の解く物質

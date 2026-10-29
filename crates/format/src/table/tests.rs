@@ -20,6 +20,7 @@ fn sample() -> Table {
         split: 1,
         states: (0..4).map(|i| state(3.0 + f64::from(i))).collect(),
         heavy_metal: None,
+        micro: None,
     }
 }
 
@@ -589,6 +590,7 @@ fn pairs() -> Table {
         axes,
         split: 1,
         heavy_metal: None,
+        micro: None,
     }
 }
 
@@ -771,4 +773,157 @@ fn points_solved_at_some_burnups_span_the_burnup_axis() {
     assert!(short.points.len() < last);
     let err = short.validate().unwrap_err().to_string();
     assert!(err.contains("first and the last"), "{err}");
+}
+
+/// 核種 `scale` 倍の値の微視的断面積（2 群。核分裂するなら収率の境界より下の割合を持つ）
+fn micro_nuclide(scale: f64, fissile: bool) -> MicroNuclide {
+    let x = |v: f64| scale * v / 3.0;
+    MicroNuclide {
+        total: vec![x(11.0), x(13.0)],
+        nu_fission: if fissile {
+            vec![x(1.1), x(70.0)]
+        } else {
+            vec![0.0; 2]
+        },
+        fission: if fissile {
+            vec![x(0.4), x(29.0)]
+        } else {
+            vec![0.0; 2]
+        },
+        scatter: vec![vec![x(9.0), x(0.1)], vec![x(0.01), x(8.0)]],
+        reactions: vec![
+            MicroReaction {
+                mt: 16,
+                channels: vec![vec![x(0.002), 0.0]],
+            },
+            MicroReaction {
+                mt: 102,
+                channels: vec![vec![x(0.3), x(2.0)], vec![x(0.03), x(0.2)]],
+            },
+        ],
+        thermal_fission: fissile.then_some(0.8 + scale / 1000.0),
+    }
+}
+
+/// 燃焼度 2 点の `burnup_sample` に、核種 2 つ（核分裂するものとしないもの）のミクロ燃焼のデータを持たせたもの
+fn micro_sample() -> Table {
+    let mut table = burnup_sample();
+    table.micro = Some(Micro {
+        nuclides: vec!["U-235".into(), "Xe-135".into()],
+        densities: vec![vec![7.0e-4 / 3.0, 0.0], vec![5.0e-4 / 3.0, 1.0e-8 / 3.0]],
+        states: (0..table.points.len())
+            .map(|p| {
+                let p = 1.0 + p as f64;
+                vec![micro_nuclide(p, true), micro_nuclide(2.0 * p, false)]
+            })
+            .collect(),
+    });
+    table
+}
+
+#[test]
+fn micro_data_round_trip_bit_exactly_and_are_written_only_when_held() {
+    let table = micro_sample();
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    // 持たないテーブルはキーを書かない（ADR-0216）
+    let value = msgpack::read_value(&burnup_sample().to_msgpack().unwrap()).unwrap();
+    let keys: Vec<&str> = value
+        .as_map()
+        .unwrap()
+        .iter()
+        .filter_map(|(k, _)| k.as_str())
+        .collect();
+    assert!(!keys.contains(&"micro"), "{keys:?}");
+}
+
+#[test]
+fn micro_data_need_a_burnup_axis_one_sub_node_and_matching_sizes() {
+    let bad = |change: &dyn Fn(&mut Table)| {
+        let mut table = micro_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+        // 書く前にも確かめる
+        assert!(table.to_msgpack().is_err());
+    };
+    // 燃焼度の軸のないテーブル
+    bad(&|t| {
+        t.axes.remove(0);
+        t.points = product_points(&t.axes);
+        t.states.truncate(t.points.len());
+        let micro = t.micro.as_mut().unwrap();
+        micro.states.truncate(t.points.len());
+        micro.densities.truncate(1);
+    });
+    // 部分ノードに分けたテーブル
+    bad(&|t| {
+        t.split = 2;
+        t.states = t.states.iter().flat_map(|s| vec![s.clone(); 4]).collect();
+    });
+    // 核種の名前
+    bad(&|t| t.micro.as_mut().unwrap().nuclides[1] = "U-235".into());
+    bad(&|t| t.micro.as_mut().unwrap().nuclides[1] = "xenon".into());
+    bad(&|t| {
+        let micro = t.micro.as_mut().unwrap();
+        micro.nuclides.clear();
+        micro.densities.iter_mut().for_each(Vec::clear);
+        micro.states.iter_mut().for_each(Vec::clear);
+    });
+    // 数密度は燃焼度の点ごとに核種の数だけ、0 以上の有限の値
+    bad(&|t| {
+        t.micro.as_mut().unwrap().densities.pop();
+    });
+    bad(&|t| {
+        t.micro.as_mut().unwrap().densities[0].pop();
+    });
+    bad(&|t| t.micro.as_mut().unwrap().densities[1][0] = -1.0e-30);
+    bad(&|t| t.micro.as_mut().unwrap().densities[1][0] = f64::NAN);
+    // 断面積は点ごとに核種の数だけ、群の数の有限の値
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states.pop();
+    });
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states[2].pop();
+    });
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states[0][0].total.pop();
+    });
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states[0][0].scatter[1].pop();
+    });
+    bad(&|t| t.micro.as_mut().unwrap().states[0][1].total[0] = f64::INFINITY);
+    bad(&|t| t.micro.as_mut().unwrap().states[0][0].fission[1] = -1.0);
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states[0][0].reactions[1].channels[0].pop();
+    });
+    bad(&|t| t.micro.as_mut().unwrap().states[0][0].reactions[1].channels[0][0] = -0.5);
+}
+
+#[test]
+fn micro_reactions_and_yield_fractions_agree_across_states() {
+    let bad = |change: &dyn Fn(&mut Table)| {
+        let mut table = micro_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+    };
+    // 状態の間で内挿するので、核種ごとの反応の MT と経路の数はどの状態でも同じ
+    bad(&|t| t.micro.as_mut().unwrap().states[3][0].reactions[0].mt = 17);
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states[3][0].reactions.pop();
+    });
+    bad(&|t| {
+        t.micro.as_mut().unwrap().states[3][0].reactions[1]
+            .channels
+            .pop();
+    });
+    // 1 つの核種に同じ反応が 2 つはない
+    bad(&|t| {
+        for state in &mut t.micro.as_mut().unwrap().states {
+            state[0].reactions[1].mt = 16;
+        }
+    });
+    // 収率の境界より下の割合は、核分裂する核種だけが 0〜1 で持つ
+    bad(&|t| t.micro.as_mut().unwrap().states[0][0].thermal_fission = None);
+    bad(&|t| t.micro.as_mut().unwrap().states[0][0].thermal_fission = Some(1.5));
+    bad(&|t| t.micro.as_mut().unwrap().states[0][1].thermal_fission = Some(0.5));
 }

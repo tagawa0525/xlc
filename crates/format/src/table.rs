@@ -7,7 +7,10 @@
 //! 1 つ。部分格子の組み立ての基準。ADR-0200。3 つとも持つか、どれも持たない）を持つ。離散の軸の `rod` は `points` の代わりに `values`
 //! （制御棒の値の名前の列。`out` は棒のない状態）を持つ）,
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）, `heavy_metal`（初めの重金属の質量 (g/cm、高さ 1 cm あたり)。燃焼の履歴から
-//! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）,
+//! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）, `micro`（ミクロ燃焼の核種の `nuclides`、燃焼度の点ごとの均質化した
+//! 数密度 `densities`、`points` の点ごとの核種ごとの微視的断面積 `states`（`total`、`nu_fission`、`fission`、`scatter`、`reactions`（`mt` と
+//! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない））。燃焼度の軸を持ち、分けないテーブルだけが書き、ほかはキーを
+//! 書かない。ADR-0216）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
@@ -462,6 +465,45 @@ pub struct Table {
     /// 初めの重金属（Z ≥ 90）の質量 (g/cm、格子全体の高さ 1 cm あたり)。燃焼の履歴から作ったテーブルだけが持ち、core が
     /// ノードの燃焼度を進めるのに使う（ADR-0190）
     pub heavy_metal: Option<f64>,
+    /// ミクロ燃焼の核種の均質化した数密度と微視的断面積（ADR-0187、ADR-0216）。燃焼の履歴から作ったテーブルだけが持てる
+    pub micro: Option<Micro>,
+}
+
+/// ミクロ燃焼で追う核種の、燃焼度の点ごとの格子で均質化した数密度と、状態ごとの少数群の微視的断面積（ADR-0216）。格子全体の
+/// 均質化なので、部分ノードに分けないテーブル（`split` が 1）だけが持つ
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Micro {
+    /// 追う核種の名前
+    pub nuclides: Vec<String>,
+    /// [燃焼度の軸の点][核種] の均質化した数密度 (1/(barn cm))
+    pub densities: Vec<Vec<f64>>,
+    /// [`Table::points` の点][核種] の微視的断面積
+    pub states: Vec<Vec<MicroNuclide>>,
+}
+
+/// 1 つの状態の、1 つの核種の少数群の微視的断面積 (barn)（ADR-0216）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MicroNuclide {
+    pub total: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub fission: Vec<f64>,
+    /// P0 の散乱行列 [入射の群][出射の群]
+    pub scatter: Vec<Vec<f64>>,
+    /// ライブラリのチェーンの反応（ADR-0172）ごとの、経路ごとの断面積
+    pub reactions: Vec<MicroReaction>,
+    /// 核分裂率のうち、収率の境界（ADR-0183）より下の割合。核分裂しない核種は nil（キーは省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub thermal_fission: Option<f64>,
+}
+
+/// チェーンの反応の代表の MT と、経路（ライブラリとチェーンの経路の並び）ごとの少数群の断面積 (barn)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MicroReaction {
+    pub mt: u32,
+    pub channels: Vec<Vec<f64>>,
 }
 
 /// テーブルのファイルの読み書きのエラー。
@@ -494,6 +536,8 @@ struct TableFile {
     heavy_metal: Option<f64>,
     points: Vec<Vec<usize>>,
     states: Vec<StateFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    micro: Option<Micro>,
 }
 
 /// ファイルの軸（テーブルと媒質で共有する。ADR-0128）
@@ -641,6 +685,7 @@ impl Table {
             points: vec![Vec::new()],
             states: vec![state],
             heavy_metal: None,
+            micro: None,
         }
     }
 
@@ -717,6 +762,125 @@ impl Table {
                 ));
             }
         }
+        if let Some(micro) = &self.micro {
+            self.validate_micro(micro).map_err(TableError::Invalid)?;
+        }
+        Ok(())
+    }
+
+    /// ミクロ燃焼のデータ（ADR-0216）が、燃焼度の軸と点と群の数に合い、値が有限で、核種ごとの反応の並びと核分裂の有無が状態の間で
+    /// 同じこと（状態の間で内挿するため）
+    fn validate_micro(&self, micro: &Micro) -> Result<(), String> {
+        let burnups = self
+            .axes
+            .iter()
+            .find(|a| matches!(a, Axis::Burnup { .. }))
+            .ok_or("micro data need a burnup axis (they are written from a depletion history)")?
+            .len();
+        if self.split != 1 {
+            return Err(format!(
+                "micro data are homogenized over the whole lattice, so the table must not be split (split {})",
+                self.split
+            ));
+        }
+        let names = &micro.nuclides;
+        if names.is_empty() {
+            return Err("micro data need nuclides".into());
+        }
+        if let Some(name) = names
+            .iter()
+            .enumerate()
+            .find(|&(i, n)| !crate::library::is_nuclide_name(n) || names[..i].contains(n))
+            .map(|(_, n)| n)
+        {
+            return Err(format!(
+                "micro nuclide {name:?} is not a distinct nuclide name"
+            ));
+        }
+        if micro.densities.len() != burnups
+            || micro.densities.iter().any(|row| {
+                row.len() != names.len() || !row.iter().all(|&n| n >= 0.0 && n.is_finite())
+            })
+        {
+            return Err(format!(
+                "micro densities must be {burnups} rows of {} nonnegative values",
+                names.len()
+            ));
+        }
+        if micro.states.len() != self.points.len() {
+            return Err(format!(
+                "{} micro states for {} points",
+                micro.states.len(),
+                self.points.len()
+            ));
+        }
+        let groups = self.states[0].bounds.len() - 1;
+        let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
+        let nonnegative = |v: &[f64]| sized(v) && v.iter().all(|&x| x >= 0.0);
+        // 状態の間で比べる、核種ごとの反応の MT と経路の数、核分裂の有無
+        let shape = |n: &MicroNuclide| {
+            (
+                n.reactions
+                    .iter()
+                    .map(|r| (r.mt, r.channels.len()))
+                    .collect::<Vec<_>>(),
+                n.thermal_fission.is_some(),
+            )
+        };
+        for (p, state) in micro.states.iter().enumerate() {
+            if state.len() != names.len() {
+                return Err(format!(
+                    "micro state {p}: {} nuclides for {}",
+                    state.len(),
+                    names.len()
+                ));
+            }
+            for (i, n) in state.iter().enumerate() {
+                let at = || format!("micro state {p}, {}", names[i]);
+                let fissile = n.fission.iter().any(|&f| f > 0.0);
+                if !nonnegative(&n.total)
+                    || !nonnegative(&n.nu_fission)
+                    || !nonnegative(&n.fission)
+                    || n.scatter.len() != groups
+                    || !n.scatter.iter().all(|row| sized(row))
+                {
+                    return Err(format!(
+                        "{}: cross sections must have {groups} finite groups (total and fission nonnegative)",
+                        at()
+                    ));
+                }
+                let mts: Vec<u32> = n.reactions.iter().map(|r| r.mt).collect();
+                if mts.iter().enumerate().any(|(k, mt)| mts[..k].contains(mt))
+                    || !n
+                        .reactions
+                        .iter()
+                        .all(|r| r.channels.iter().all(|c| nonnegative(c)))
+                {
+                    return Err(format!(
+                        "{}: reactions must be distinct and their channels {groups} nonnegative groups",
+                        at()
+                    ));
+                }
+                match n.thermal_fission {
+                    Some(f) if fissile && (0.0..=1.0).contains(&f) => {}
+                    None if !fissile => {}
+                    _ => {
+                        return Err(format!(
+                            "{}: the fraction of fissions below the yield cutoff must be in 0..1 for fissile nuclides \
+                             and nil for the others, got {:?}",
+                            at(),
+                            n.thermal_fission
+                        ));
+                    }
+                }
+                if shape(n) != shape(&micro.states[0][i]) {
+                    return Err(format!(
+                        "{}: the reactions and the fission differ from those of state 0",
+                        at()
+                    ));
+                }
+            }
+        }
         Ok(())
     }
 
@@ -763,6 +927,7 @@ impl Table {
             heavy_metal: self.heavy_metal,
             points: self.points.clone(),
             states,
+            micro: self.micro.clone(),
         })?)
     }
 
@@ -811,6 +976,7 @@ impl Table {
             points: file.points,
             states,
             heavy_metal: file.heavy_metal,
+            micro: file.micro,
         };
         table.validate()?;
         Ok(table)

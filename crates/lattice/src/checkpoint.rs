@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::medium::MediumState;
 use xlc_format::msgpack;
-use xlc_format::table::Table;
+use xlc_format::table::{MicroNuclide, Table};
 
 use crate::branches::Starts;
 use crate::depletion::{History, Partial};
@@ -60,6 +60,8 @@ pub struct SavedState {
     pub outputs: Vec<Vec<FewGroup>>,
     /// 細かい群の媒質の出力（ADR-0128）があるときの媒質
     pub medium: Option<MediumState>,
+    /// 履歴からの分岐でミクロ燃焼の核種を追うときの、核種ごとの微視的断面積（ADR-0216）
+    pub micro: Option<Vec<MicroNuclide>>,
 }
 
 /// チェックポイントのファイルと、今の実行の指紋
@@ -134,6 +136,8 @@ struct StateFile {
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
     #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     medium: Option<MediumState>,
+    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
+    micro: Option<Vec<MicroNuclide>>,
 }
 
 impl Checkpoint {
@@ -318,6 +322,7 @@ impl Checkpoint {
                     k: s.k,
                     outputs,
                     medium: s.medium,
+                    micro: s.micro,
                 })
             })
             .collect::<anyhow::Result<_>>()?;
@@ -350,6 +355,7 @@ impl Checkpoint {
                     k: s.k,
                     outputs,
                     medium: s.medium.clone(),
+                    micro: s.micro.clone(),
                 })
             })
             .collect::<anyhow::Result<_>>()?;

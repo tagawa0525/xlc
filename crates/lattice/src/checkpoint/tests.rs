@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use xlc_format::medium::MediumState;
+use xlc_format::table::{MicroNuclide, MicroReaction};
 
 use super::*;
 use crate::branches::Starts;
@@ -42,6 +43,28 @@ fn states(count: usize) -> Vec<SavedState> {
                     nu_fission: vec![0.025, 0.24],
                     chi: vec![1.0, 0.0],
                 }),
+                // 核分裂しない核種（収率の割合は nil）と核分裂する核種
+                micro: Some(vec![
+                    MicroNuclide {
+                        total: vec![1.0 + i as f64, 2.0 / 3.0],
+                        nu_fission: vec![0.0; 2],
+                        fission: vec![0.0; 2],
+                        scatter: vec![vec![0.5, 0.1], vec![0.0, 0.6]],
+                        reactions: vec![MicroReaction {
+                            mt: 102,
+                            channels: vec![vec![0.1, 1.0 / 7.0]],
+                        }],
+                        thermal_fission: None,
+                    },
+                    MicroNuclide {
+                        total: vec![12.0, 100.0 / 3.0],
+                        nu_fission: vec![2.4, 140.0],
+                        fission: vec![1.0, 58.0],
+                        scatter: vec![vec![9.0, 0.1], vec![0.0, 8.0]],
+                        reactions: vec![],
+                        thermal_fission: Some(0.8 + i as f64 / 100.0),
+                    },
+                ]),
             }
         })
         .collect()

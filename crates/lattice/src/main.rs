@@ -18,6 +18,7 @@
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
+use std::borrow::Cow;
 use std::env::VarError;
 use std::io::IsTerminal;
 use std::path::Path;
@@ -32,6 +33,7 @@ use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
+use xlc_format::table::{Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::{BranchShielder, state_indices, tables};
 use xlc_lattice::checkpoint::{
@@ -412,97 +414,110 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
-        let (unique, region_index) = match &source {
-            Source::Library(library) => {
-                if input.self_shielding {
-                    // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
-                    let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
-                        match (&history_branches, &input.branches) {
-                            (Some(h), _) => {
-                                let reference = h.reference(state);
-                                (
-                                    reference,
-                                    Box::new(move || {
-                                        reference.map_or_else(Vec::new, |(point, r)| {
-                                            h.reference_state(point, r)
-                                        })
-                                    }),
-                                )
-                            }
-                            (None, Some(b)) => {
-                                let reference = b.reference(state);
-                                (
-                                    reference.map(|r| (0, r)),
-                                    Box::new(move || {
-                                        reference
-                                            .map_or_else(Vec::new, |r| b.references()[r].clone())
-                                    }),
-                                )
-                            }
-                            (None, None) => (None, Box::new(Vec::new)),
-                        };
+        // 自己遮蔽した状態の物質と、履歴からの分岐の微視的断面積（ADR-0216）に使う燃料の自己遮蔽
+        let held = match &source {
+            Source::Library(library) if input.self_shielding => {
+                // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
+                let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
+                    match (&history_branches, &input.branches) {
+                        (Some(h), _) => {
+                            let reference = h.reference(state);
+                            (
+                                reference,
+                                Box::new(move || {
+                                    reference.map_or_else(Vec::new, |(point, r)| {
+                                        h.reference_state(point, r)
+                                    })
+                                }),
+                            )
+                        }
+                        (None, Some(b)) => {
+                            let reference = b.reference(state);
+                            (
+                                reference.map(|r| (0, r)),
+                                Box::new(move || {
+                                    reference.map_or_else(Vec::new, |r| b.references()[r].clone())
+                                }),
+                            )
+                        }
+                        (None, None) => (None, Box::new(Vec::new)),
+                    };
+                Some(
                     shielder
-                        .shield(library, state_materials, reference, nominal)
-                        .with_context(|| format!("{}: self-shielding", context()))?
-                } else {
-                    let mut named = state_materials
+                        .shield_state(library, state_materials, reference, nominal)
+                        .with_context(|| format!("{}: self-shielding", context()))?,
+                )
+            }
+            _ => None,
+        };
+        // 自己遮蔽した状態は、その自己遮蔽の物質と番号をそのまま使う
+        let (unique, region_index): (Cow<'_, [Material]>, Cow<'_, [usize]>) = match (&held, &source)
+        {
+            (Some(shielded), _) => (
+                Cow::Borrowed(shielded.materials()),
+                Cow::Borrowed(shielded.region_material()),
+            ),
+            (None, Source::Library(library)) => {
+                let mut named = state_materials
+                    .iter()
+                    .map(|m| {
+                        Material::mix(library, &m.composition, m.temperature)
+                            .map(|mixed| (m.name.clone(), mixed))
+                            .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()
+                    .with_context(context)?;
+                // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
+                for mixture in &input.mixtures {
+                    let parts: Vec<(&_, f64)> = mixture
+                        .parts
                         .iter()
-                        .map(|m| {
-                            Material::mix(library, &m.composition, m.temperature)
-                                .map(|mixed| (m.name.clone(), mixed))
+                        .filter(|(part, _)| part != VOID)
+                        .map(|(part, f)| {
+                            state_materials
+                                .iter()
+                                .find(|m| &m.name == part)
+                                .map(|m| (m, *f))
+                                .ok_or_else(|| {
+                                    anyhow!(
+                                        "material `{}`: component `{part}` is not in the state",
+                                        mixture.name
+                                    )
+                                })
+                        })
+                        .collect::<anyhow::Result<_>>()
+                        .with_context(context)?;
+                    let mixed = Material::mixture(library, &parts)
+                        .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
+                        .with_context(context)?;
+                    named.push((mixture.name.clone(), mixed));
+                }
+                // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
+                for (m, medium) in input.media.iter().zip(&media) {
+                    let from = medium
+                        .states
+                        .get(state)
+                        .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
+                        .and_then(|s| {
+                            Material::from_medium(s)
                                 .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                         })
-                        .collect::<anyhow::Result<Vec<_>>>()
                         .with_context(context)?;
-                    // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
-                    for mixture in &input.mixtures {
-                        let parts: Vec<(&_, f64)> = mixture
-                            .parts
-                            .iter()
-                            .filter(|(part, _)| part != VOID)
-                            .map(|(part, f)| {
-                                state_materials
-                                    .iter()
-                                    .find(|m| &m.name == part)
-                                    .map(|m| (m, *f))
-                                    .ok_or_else(|| {
-                                        anyhow!(
-                                            "material `{}`: component `{part}` is not in the state",
-                                            mixture.name
-                                        )
-                                    })
-                            })
-                            .collect::<anyhow::Result<_>>()
-                            .with_context(context)?;
-                        let mixed = Material::mixture(library, &parts)
-                            .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
-                            .with_context(context)?;
-                        named.push((mixture.name.clone(), mixed));
-                    }
-                    // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
-                    for (m, medium) in input.media.iter().zip(&media) {
-                        let from = medium
-                            .states
-                            .get(state)
-                            .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
-                            .and_then(|s| {
-                                Material::from_medium(s)
-                                    .map_err(|e| anyhow!("material `{}`: {e}", m.name))
-                            })
-                            .with_context(context)?;
-                        named.push((m.name.clone(), from));
-                    }
-                    check_orders(&named, &medium_names)
-                        .map_err(|e| anyhow!(e))
-                        .with_context(context)?;
-                    by_name(named, library.groups.len())?
+                    named.push((m.name.clone(), from));
                 }
+                check_orders(&named, &medium_names)
+                    .map_err(|e| anyhow!(e))
+                    .with_context(context)?;
+                let (materials, region_index) = by_name(named, library.groups.len())?;
+                (Cow::Owned(materials), Cow::Owned(region_index))
             }
-            Source::Macroscopic(named) => {
+            (None, Source::Macroscopic(named)) => {
                 let groups = named.first().map_or(0, |(_, m)| m.groups());
-                by_name(named.clone(), groups)?
+                let (materials, region_index) = by_name(named.clone(), groups)?;
+                (Cow::Owned(materials), Cow::Owned(region_index))
             }
         };
+        let fuel = held.as_ref().map(|h| h.fuel());
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
         // 媒質（ADR-0128）の領域。領域がすべて1つの核分裂のある媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
         let media_regions: Vec<Option<usize>> = region_materials
@@ -627,6 +642,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let file = base.join(file);
             std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
         }
+        // 追う核種の微視的断面積（ADR-0216）。`[history]` は自己遮蔽と格子全体の少数群定数のファイルを求める（入力の検査）
+        let micro = match &history_branches {
+            Some(h) if !h.micro_nuclides().is_empty() => {
+                let (Source::Library(library), Some(fuel), Some(output)) =
+                    (&source, fuel, &input.output)
+                else {
+                    return Err(anyhow!(
+                        "micro cross sections need a library, the self-shielding and few-group output"
+                    ))
+                    .with_context(context);
+                };
+                Some(
+                    h.micro(state, library, fuel, &lattice, &solution, &output.bounds)
+                        .with_context(|| format!("{}: micro cross sections", context()))?,
+                )
+            }
+            _ => None,
+        };
         report(state, solution.k);
         drop(emitting);
         tracing::info!(
@@ -642,6 +675,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 k: solution.k,
                 outputs,
                 medium,
+                micro,
             },
             converged,
         ))
@@ -660,11 +694,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
         }) => vec![1; entries.len()],
         None => Vec::new(),
     };
+    let micro_nuclides = history_branches
+        .as_ref()
+        .map_or(0, |h| h.micro_nuclides().len());
     let fits = |state: usize, saved: &SavedState| -> anyhow::Result<()> {
         let saved_shape: Vec<usize> = saved.outputs.iter().map(Vec::len).collect();
-        if saved_shape != shape || saved.medium.is_some() != input.medium.is_some() {
+        let saved_micro = saved.micro.as_ref().map_or(0, Vec::len);
+        if saved_shape != shape
+            || saved.medium.is_some() != input.medium.is_some()
+            || saved_micro != micro_nuclides
+        {
             return Err(anyhow!(
-                "the saved outputs {saved_shape:?} (medium {}) do not fit this run's {shape:?} (medium {})",
+                "the saved outputs {saved_shape:?} (medium {}, {saved_micro} micro nuclides) do not fit this run's \
+                 {shape:?} (medium {}, {micro_nuclides} micro nuclides)",
                 saved.medium.is_some(),
                 input.medium.is_some()
             ));
@@ -681,8 +723,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
             "branches"
         );
     }
-    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) =
-        states.into_iter().map(|s| (s.outputs, s.medium)).unzip();
+    let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
+    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) = states
+        .into_iter()
+        .map(|s| {
+            if let Some(m) = s.micro {
+                micro_states.push(m);
+            }
+            (s.outputs, s.medium)
+        })
+        .unzip();
     let written: Vec<MediumState> = written.into_iter().flatten().collect();
 
     let _write = tracing::debug_span!("write").entered();
@@ -718,6 +768,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
         if let Some(h) = &history_branches {
             for table in &mut tables {
                 table.heavy_metal = Some(h.heavy_metal);
+            }
+            // ミクロ燃焼の核種の数密度と、解いた状態（`points` の順）ごとの微視的断面積（ADR-0216）
+            if !h.micro_nuclides().is_empty() {
+                let micro = Micro {
+                    nuclides: h.micro_nuclides().to_vec(),
+                    densities: h.micro_densities().to_vec(),
+                    states: std::mem::take(&mut micro_states),
+                };
+                for table in &mut tables {
+                    table.micro = Some(micro.clone());
+                }
             }
         }
         for (output, table) in outputs.into_iter().zip(tables) {

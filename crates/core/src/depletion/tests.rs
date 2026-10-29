@@ -130,6 +130,7 @@ fn table_with_worth(fissile: f64, heavy_metal: Option<f64>, worth: f64) -> Table
         split: 1,
         states,
         heavy_metal,
+        micro: None,
     };
     table.points = product_points(&table.axes);
     table
