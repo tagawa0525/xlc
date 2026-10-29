@@ -1194,6 +1194,108 @@ class DrawHistoryEffect(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawCoreMicro(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_core_micro.py の要約（燃焼点 2 つ、テーブルの点 1 つ、追う核種 2 つ）"""
+        return {
+            "format": "xlc-compare-core-micro",
+            "specific_power": 38.41,
+            "nuclides": ["U-235", "Xe-135"],
+            "table_burnups": [0.0, 10.0],
+            "points": [
+                {
+                    "efpd": 2.6034886,
+                    "burnup": 0.1,
+                    "on_table": False,
+                    "history_k": 1.14559843,
+                    "micro_k": 1.14569915,
+                    "plain_k": 1.14559792,
+                    "micro_pcm": 7.6741,
+                    "plain_pcm": -0.0389,
+                    "correction_pcm": 7.7130,
+                },
+                {
+                    "efpd": 260.348867,
+                    "burnup": 10.0,
+                    "on_table": True,
+                    "history_k": 1.05496381,
+                    "micro_k": 1.05496295,
+                    "plain_k": 1.05496347,
+                    "micro_pcm": -0.0773,
+                    "plain_pcm": -0.0305,
+                    "correction_pcm": -0.0467,
+                },
+            ],
+            "density_points": [
+                {"burnup": 0.0, "relative": {"U-235": 0.0, "Xe-135": None}},
+                {"burnup": 10.0, "relative": {"U-235": -1.23e-5, "Xe-135": 4.56e-5}},
+            ],
+            "density_largest": {
+                "U-235": {"relative": -1.23e-5, "burnup": 10.0},
+                "Xe-135": {"relative": -3.139e-3, "burnup": 0.1},
+            },
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_k_rows_separate_the_correction_from_the_interpolation(self):
+        table = vt.core_micro_k([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "0.1",
+                    "2.60",
+                    "",
+                    "1.14559843",
+                    "1.14569915",
+                    "+7.674",
+                    "−0.039",
+                    "+7.713",
+                ],
+                [
+                    "10",
+                    "260.35",
+                    "○",
+                    "1.05496381",
+                    "1.05496295",
+                    "−0.077",
+                    "−0.031",
+                    "−0.047",
+                ],
+            ],
+        )
+
+    def test_density_rows_are_the_table_points_and_the_largest_by_nuclide(self):
+        table = vt.core_micro_densities([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(header, ["燃焼度 (MWd/kg)", "U-235 (%)", "Xe-135 (%)"])
+        self.assertEqual(
+            self.rows(table),
+            [["0", "0.0000", "–"], ["10", "−0.0012", "+0.0046"]],
+        )
+        table = vt.core_micro_largest([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [["U-235", "−0.0012", "10"], ["Xe-135", "−0.3139", "0.1"]],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (vt.core_micro_k, vt.core_micro_densities, vt.core_micro_largest):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-core-depletion"}])
+
+    def test_the_2a_comparison_is_a_git_tracked_json(self):
+        for name in (
+            "depletion-2a-core-micro-k",
+            "depletion-2a-core-micro-densities",
+            "depletion-2a-core-micro-largest",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawMicroLinearization(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
