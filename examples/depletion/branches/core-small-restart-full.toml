@@ -1,0 +1,41 @@
+# 小さな炉心の restart の確認（ADR-0220）の、切らない燃焼: 基準のサイクル（core-small-equilibrium-1.toml）と、その後の
+# 30 日の停止（サイクルの間の停止。装荷替えの core-small-reload.toml の前のサイクル）。平衡 Xe
+cycle = "core-small-cycle.toml"
+axial-mesh = [0.0, 22.86, 45.72, 68.58, 91.44, 114.3, 137.16, 160.02, 182.88, 205.74, 228.6, 251.46, 274.32, 297.18, 320.04, 342.9, 365.76]
+radial-nodes = 1
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "vacuum"], z = ["marshak", "marshak"], outline = "marshak" }
+
+# バンク D を抜いた状態（230 ステップで先端が炉心の上端）
+[state.aro]
+b10 = 0.199
+moderator = 565
+fuel = 565
+search = { boron = [0.0, 1300.0], k = 1.071, tolerance = 1.0e-6, max-solves = 20 }
+banks = { D = 230 }
+
+# バンク D を 140 ステップ（先端 222.885 cm）まで入れた状態。下から 10 番目のノード（205.74〜228.6 cm）が部分挿入
+[state.rodded]
+b10 = 0.199
+moderator = 565
+fuel = 565
+search = { boron = [0.0, 1300.0], k = 1.071, tolerance = 1.0e-6, max-solves = 20 }
+banks = { D = 140 }
+
+[depletion]
+specific-power = 38.41
+history = "core-small-restart-full.msgpack"
+# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+micro = { chain = "../chain.msgpack", xenon = "equilibrium" }
+steps = [
+  { efpd = 6.508721687060662, state = "aro" },  # 0.25 MWd/kg
+  { efpd = 26.03488674824265 },  # 1 MWd/kg
+  { efpd = 52.0697734964853 },  # 2 MWd/kg
+  { efpd = 78.10466024472794 },  # 3 MWd/kg
+  { efpd = 104.1395469929706, state = "rodded" },  # 4 MWd/kg
+  { efpd = 130.17443374121325 },  # 5 MWd/kg
+  { efpd = 156.20932048945588, power = 0.7, state = "aro" },  # 6 MWd/kg
+  { efpd = 182.24420723769853, power = 0.7 },  # 7 MWd/kg
+  { decay-days = 18.0 },  # 停止
+  { efpd = 195.26165061181985 },  # 7.5 MWd/kg
+  { decay-days = 30.0 },  # サイクルの間の停止
+]

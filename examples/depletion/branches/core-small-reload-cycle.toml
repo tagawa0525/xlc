@@ -1,0 +1,10 @@
+# 小さな炉心の装荷替え（ADR-0220）: core-small-restart-full.toml（基準のサイクルと 30 日の停止）の燃焼の履歴の最後の点から、
+# A01 と A04 を入れ替え、A02 を 90° 回し、A03 を取り出して新しい A05 を中心側（バンク D の位置）に装荷する
+plant = "core-small-plant.toml"
+inventory = "core-small-assemblies.toml"
+restart = { history = "core-small-restart-full.msgpack", fresh = ["A05"] }
+loading = [
+  ".    .       .",
+  "A04  A02@90  .",
+  "A05  A01     .",
+]
