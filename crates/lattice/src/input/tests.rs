@@ -1532,6 +1532,19 @@ fn history_micro_nuclides_are_distinct_names_of_an_unsplit_table() {
 }
 
 #[test]
+fn history_shielding_file_is_read_only_when_given() {
+    // 書かなければ、燃焼の領域は状態の組成で自己遮蔽する
+    let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
+    assert_eq!(input.history.unwrap().shielding_file, None);
+    let given = history_branches(&format!("{HISTORY}shielding-file = \"previous.msgpack\"\n"));
+    let input = LatticeInput::parse(&given).unwrap();
+    assert_eq!(
+        input.history.unwrap().shielding_file,
+        Some(std::path::PathBuf::from("previous.msgpack"))
+    );
+}
+
+#[test]
 fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
     // 分岐の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は公称のホウ素の自己遮蔽を使う。履歴のない分岐も同じ
     let with = |value: &str| {
