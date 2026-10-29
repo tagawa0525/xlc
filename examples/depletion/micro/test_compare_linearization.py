@@ -113,6 +113,16 @@ class Compare(unittest.TestCase):
         self.assertAlmostEqual(row["density_change_percent"]["U-235"], 200.0, places=9)
         self.assertLess(summary["self_check_pcm"], 1e-9)
 
+    def test_branch_axes_with_one_point_are_allowed(self):
+        nominal, shifted = table([[1.0e-4], [3.0e-4]]), table(None)
+        for t in (nominal, shifted):
+            t["axes"].append({"name": "fuel", "points": [565.0]})
+            t["points"] = [[0, 0], [1, 0]]
+        self.assertEqual(len(cl.compare(nominal, shifted)["rows"]), 1)
+        nominal["axes"][1]["points"] = [565.0, 600.0]
+        with self.assertRaises(SystemExit):
+            cl.compare(nominal, shifted)
+
     def test_tables_without_micro_data_or_with_other_burnups_are_errors(self):
         with self.assertRaises(SystemExit):
             cl.compare(table(None), table(None))
