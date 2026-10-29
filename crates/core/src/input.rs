@@ -94,6 +94,9 @@
 //! # ミクロ燃焼（ADR-0216。省略するとノードの燃焼度だけを進める）。格子計算の燃焼と同じチェーンで、追う核種と補助の核種を
 //! # ノードごとに解き、少数群定数に線形の補正を足す。核分裂のあるテーブルは `micro` を持つこと
 //! micro = { chain = "chain.msgpack" }
+//! # 状態が search を持つステップの中点を解くホウ素濃度（ADR-0191）: search（省略したとき。中点でも探す）か start（ステップの
+//! # 初めの点で探した濃度。ADR-0191 の案 S1 との差を測るため。search の状態の efpd のステップがなければエラー）
+//! # midpoint-boron = "start"
 //! # ステップ（ADR-0218）: efpd（ステップの終わりの累積の EFPD。それまでの efpd より大きい）か decay-days（崩壊だけのステップの
 //! # 日数。micro のあるケースだけ）のどちらか一方。power は efpd のステップの出力の割合（定格に対する比。省略すると 1。micro の
 //! # あるケースだけ）。state は状態の名前（省略すると前のステップと同じ。状態が 2 つ以上なら最初のステップに書く）
@@ -748,6 +751,19 @@ pub struct DepletionInput {
     pub history: PathBuf,
     /// ミクロ燃焼（ADR-0216）。書かなければ、ノードの燃焼度だけを進める
     pub micro: Option<MicroInput>,
+    /// 探索の状態のステップの中点を解くホウ素濃度（ADR-0191）
+    pub midpoint_boron: MidpointBoron,
+}
+
+/// `[depletion]` の `midpoint-boron`: 状態が `search` を持つステップの中点を解くホウ素濃度（ADR-0191）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MidpointBoron {
+    /// 中点でも k が目標になるホウ素濃度を探す（ADR-0191 の決定）
+    #[default]
+    Search,
+    /// ステップの初めの点で探したホウ素濃度で解く（ADR-0191 の案 S1。採用した探索との差を測るため）
+    Start,
 }
 
 /// `[depletion]` の `micro`（ADR-0216）。
@@ -781,6 +797,8 @@ struct DepletionEntry {
     steps: Vec<StepEntry>,
     history: PathBuf,
     micro: Option<MicroEntry>,
+    #[serde(default)]
+    midpoint_boron: MidpointBoron,
 }
 
 /// 項目は決めたときに足す（平衡 Xe の入力など。#0193）
@@ -897,6 +915,7 @@ impl DepletionInput {
             micro: entry.micro.map(|m| MicroInput {
                 chain: normalized(&base.join(m.chain)),
             }),
+            midpoint_boron: entry.midpoint_boron,
         })
     }
 
@@ -923,6 +942,17 @@ impl DepletionInput {
             return invalid(format!(
                 "depletion needs radial-nodes = 1, got {radial_nodes} (ADR-0190)"
             ));
+        }
+        // 中点のホウ素を選ぶのは、探索の状態の中点を解くステップだけ
+        if self.midpoint_boron == MidpointBoron::Start
+            && !self.steps.iter().any(|s| {
+                matches!(s.kind, StepKind::Power { .. })
+                    && matches!(states[s.state].boron, Boron::Search(_))
+            })
+        {
+            return invalid(
+                "depletion: midpoint-boron = \"start\" has no effect; no efpd step solves a state that searches the boron (ADR-0191)",
+            );
         }
         Ok(())
     }
