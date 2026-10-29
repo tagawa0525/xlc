@@ -8,7 +8,8 @@
   バンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
   含むこと。次を書く。
   - 燃焼点ごとの k: 割合ごとの k、割合 0 の k の棒のない燃焼の k からの反応度の差、割合 1 の k の棒の入った燃焼の k からの差
-    （Δρ = (1/k_基準 − 1/k) × 1e5 pcm）、k が割合について単調か
+    （Δρ = (1/k_基準 − 1/k) × 1e5 pcm）、k が割合について単調か、割合ごとの軸方向のノードの燃焼度と、それがノードごとに割合に
+    ついて単調か
   - 追う核種ごと: 割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の、数密度の相対差 N / N_基準 − 1 の絶対値の最大とその燃焼度と
     軸方向のノードの番号（下から。基準が 0 の点は比べない）、最後の燃焼点のノードごとの割合 1 の割合 0 に対する相対差（割合 0 の
     値が 0 なら null）、数密度が割合について単調でない燃焼点の燃焼度とノード
@@ -119,6 +120,7 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     points = []
     for j, p in enumerate(out["points"]):
         ks = [core["points"][j]["k"] for _, core in partial]
+        node_burnups = [core["points"][j]["burnups"][0] for _, core in partial]
         points.append(
             {
                 "efpd": p["efpd"],
@@ -129,6 +131,11 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
                 "zero_pcm": rho_pcm(p["k"], ks[0]),
                 "one_pcm": rho_pcm(rodded["points"][j]["k"], ks[-1]),
                 "k_monotonic": monotonic(ks),
+                "node_burnups": node_burnups,
+                "node_burnups_monotonic": all(
+                    monotonic([b[z] for b in node_burnups])
+                    for z in range(len(node_burnups[0]))
+                ),
             }
         )
     zero_limit = largest(names, burnups, zero, node_densities(out))
@@ -186,6 +193,15 @@ def report(summary: dict) -> list[str]:
         lines.append(f"{label}: {min(values):+.6f}〜{max(values):+.6f} pcm")
     bad = [p["burnup"] for p in points if not p["k_monotonic"]]
     lines.append(f"k が割合について単調でない燃焼点: {bad or 'なし'}")
+    bad = [p["burnup"] for p in points if not p["node_burnups_monotonic"]]
+    lines.append(f"ノードの燃焼度が割合について単調でない燃焼点: {bad or 'なし'}")
+    last = points[-1]
+    lines.append(
+        f"最後の点（{last['burnup']:g} MWd/kg）のノードの燃焼度（下から、割合ごと）: "
+        + "、".join(
+            "/".join(f"{b:.4f}" for b in burnups) for burnups in last["node_burnups"]
+        )
+    )
     lines.append(
         "核種 | 割合 0 − 棒なし（相対） | 燃焼度, ノード | 割合 1 − 棒あり（相対） | 燃焼度, ノード | 最後の点の 1 / 0 − 1、ノードごと (%) "
         "| 単調でない (燃焼度, ノード)"
