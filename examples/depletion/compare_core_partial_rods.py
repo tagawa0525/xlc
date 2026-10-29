@@ -6,7 +6,8 @@
 
 - `--json`: どの core の履歴も、集合体 1 体のミクロ燃焼で、軸方向のメッシュ、追う核種、出力密度、燃焼点（EFPD と、相対 1e-9 で燃焼度）と、制御棒の
   バンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
-  含むこと。次を書く。
+  含み、比べる先の 2 つの燃焼はバンクを持たず、どのバンクの位置も割合について一方に動くこと（履歴と割合の取り違えを止める）。
+  次を書く。
   - 燃焼点ごとの k: 割合ごとの k、割合 0 の k の棒のない燃焼の k からの反応度の差、割合 1 の k の棒の入った燃焼の k からの差
     （Δρ = (1/k_基準 − 1/k) × 1e5 pcm）、k が割合について単調か、割合ごとの軸方向のノードの燃焼度と、それがノードごとに割合に
     ついて単調か
@@ -27,7 +28,7 @@ from pathlib import Path
 
 import msgpack
 
-# 燃焼点の燃焼度の一致の許容（集合体の燃焼度はノードの燃焼度の和なので、ノードの出力が違う燃焼では丸めが違う）
+# 燃焼点の燃焼度の一致の許容（炉心の燃焼度はノードの燃焼度の重金属の質量の重みの平均なので、ノードの出力が違う燃焼では丸めが違う）
 BURNUP_TOLERANCE = 1e-9
 
 
@@ -103,7 +104,8 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     """棒のない燃焼 `out`、棒の入った燃焼 `rodded`、(割合, 燃焼) の列 `partial` を比べた要約（モジュールの説明の `--json`）"""
     fractions = [f for f, _ in partial]
     if (
-        fractions != sorted(set(fractions))
+        not fractions
+        or fractions != sorted(set(fractions))
         or fractions[0] != 0.0
         or fractions[-1] != 1.0
     ):
@@ -114,6 +116,23 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     check_core("rodded", rodded, out)
     for f, core in partial:
         check_core(f"fraction {f}", core, out)
+    for name, core in [("out", out), ("rodded", rodded)]:
+        if core["state"]["banks"]:
+            raise SystemExit(
+                f"{name}: the uniform run has banks {core['state']['banks']}"
+            )
+    # 割合と履歴の組を取り違えていないこと: どのバンクの位置も割合について一方に動く
+    banks = [core["state"]["banks"] for _, core in partial]
+    names_of_banks = sorted({b for bank in banks for b in bank})
+    for b in names_of_banks:
+        steps = [bank.get(b) for bank in banks]
+        if None in steps or not (
+            all(x < y for x, y in itertools.pairwise(steps))
+            or all(x > y for x, y in itertools.pairwise(steps))
+        ):
+            raise SystemExit(
+                f"bank {b} at {steps} steps does not move one way with the fractions {fractions}"
+            )
     names = out["nuclides"]
     burnups = [p["burnup"] for p in out["points"]]
     dens = [node_densities(core) for _, core in partial]
@@ -227,7 +246,8 @@ def report(summary: dict) -> list[str]:
         values = [
             abs(d[key]["relative"]) for d in densities if d[key]["relative"] is not None
         ]
-        lines.append(f"数密度の{label}の相対差の絶対値の最大: {max(values):.3e}")
+        largest = f"{max(values):.3e}" if values else "–"
+        lines.append(f"数密度の{label}の相対差の絶対値の最大: {largest}")
     bad = [name for name, d in summary["densities"].items() if d["not_monotonic"]]
     lines.append(
         f"数密度が割合について単調でない点を持つ核種: {len(bad)} / {len(summary['densities'])}（{' '.join(bad)}）"
