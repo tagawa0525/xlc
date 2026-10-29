@@ -75,7 +75,7 @@ default の devShell の中（標準ライブラリだけのツールだが、`-
 
 記録のコミットの hash は、`remap.commitRefs` が true のリポジトリでは、rebase のあとに post-rewrite hook が（rebase の途中の amend では呼ばず、rebase の終わりに一度だけ呼ぶ）
 `commit-refs remap` で付け替える。コミットはしないので、`git diff` で付け替えた記録を確かめてコミットする（件名の例:
-`docs: point the records at the rebased commits`）。測り直さない（ADR-0122）。
+`docs: point the records at the rebased commits`）。再測定しない（ADR-0122）。
 
 - hook が失敗したときは、出力の最後に「修正方法」が出る。`$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` に
   対応表が残るので、`commit-refs remap <そのファイル>` で呼び直す。`ERROR:` は、何も書き換えずに止まったときに出る。出力の理由を読んでから直す。
@@ -120,4 +120,4 @@ python3 examples/vera/compare_balance.py xlc-2K.msgpack references/openmc/balanc
 2. マージの前に、記録に書かない試行を `git rm -r` で消すコミットを入れる（マージは `--no-ff` なので、消す前のコミットは
    main から辿れる）。残ったままだと、マージのコミットの前の hook が実行する `cargo test`（`main_reports_trials_left_by_a_merge`）が止める
 3. 繰り返し比べるツールと、採用した入力は `git mv trials/<入力> examples/<問題>/` で移し、記録のパスと hash を移した先と
-   移したコミットに書き換える。計算（コード、入力、環境）を変えていなければ測り直さない
+   移したコミットに書き換える。計算（コード、入力、環境）を変えていなければ再測定しない
