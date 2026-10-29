@@ -91,6 +91,7 @@
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
+//! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -411,6 +412,7 @@ struct HistoryEntry {
     file: PathBuf,
     burnup: Vec<f64>,
     off_nominal_burnup: Option<Vec<f64>>,
+    micro: Option<Vec<String>>,
 }
 
 /// 燃焼の条件（ADR-0173）
@@ -1212,10 +1214,35 @@ impl LatticeInput {
                          last, got {off_nominal:?}"
                     ));
                 }
+                // ミクロ燃焼で追う核種（ADR-0216）。微視的断面積は格子全体で均質化するので、部分ノードに分けないテーブルだけ
+                let micro = match h.micro {
+                    None => Vec::new(),
+                    Some(list) => {
+                        if list.is_empty()
+                            || list.iter().enumerate().any(|(i, n)| {
+                                !is_nuclide_name(n) || list[..i].contains(n)
+                            })
+                        {
+                            return Err(format!(
+                                "[history] micro must list distinct nuclide names, got {list:?}"
+                            ));
+                        }
+                        if let Some(FewGroupOutput { split, .. }) = &output
+                            && *split != 1
+                        {
+                            return Err(format!(
+                                "[history] micro cross sections are homogenized over the whole lattice, so the table \
+                                 must not be split (split {split}. ADR-0216)"
+                            ));
+                        }
+                        list
+                    }
+                };
                 Ok(HistoryInput {
                     file: h.file,
                     burnup: h.burnup,
                     off_nominal,
+                    micro,
                 })
             })
             .transpose()

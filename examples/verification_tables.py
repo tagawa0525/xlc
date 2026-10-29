@@ -951,6 +951,40 @@ def branch_thinning(sources: list[dict]) -> str:
     )
 
 
+def micro_linearization(sources: list[dict]) -> str:
+    """ミクロ燃焼の線形の補正（ADR-0216）: 燃焼度の点の組ごとの、追う核種の組成の差の輸送の効き、線形の補正の効き、その誤差（pcm）と、
+    数密度の相対の変化（%）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-micro-linearization":
+        raise TableError("not an xlc-compare-micro-linearization summary")
+    nuclides = list(s["rows"][0]["density_change_percent"])
+    rows = [
+        [
+            f"{burnup_label(r['from'])} → {burnup_label(r['to'])}",
+            signed(r["tracked_pcm"], 2),
+            signed(r["linear_pcm"], 2),
+            signed(r["error_pcm"], 2),
+            *(
+                "–"
+                if r["density_change_percent"][n] is None
+                else signed(r["density_change_percent"][n], 2)
+                for n in nuclides
+            ),
+        ]
+        for r in s["rows"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "輸送 (pcm)",
+            "線形 (pcm)",
+            "誤差 (pcm)",
+            *(f"{n} (%)" for n in nuclides),
+        ],
+        rows,
+    )
+
+
 def history_effect_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-history-effect":
@@ -1426,6 +1460,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/history/history-effect.json",
+    "examples/depletion/micro/linearization.json",
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
     "examples/depletion/issue-0133/ufg-heavy-free-gas/summary.json",
@@ -1861,6 +1896,10 @@ TABLES = {
     "depletion-2a-core-boron": (
         ["examples/depletion/branches/compare-core-2A-boron.json"],
         core_depletion_boron,
+    ),
+    "depletion-micro-linearization": (
+        ["examples/depletion/micro/linearization.json"],
+        micro_linearization,
     ),
     "depletion-history-effect-density": (
         ["examples/depletion/history/history-effect.json"],

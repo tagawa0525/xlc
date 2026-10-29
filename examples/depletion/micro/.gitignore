@@ -1,0 +1,4 @@
+# 生成物。入力、ツール、比較の JSON、出力の k（.out）だけを追跡する
+*.msgpack
+*.log
+*.checkpoint
