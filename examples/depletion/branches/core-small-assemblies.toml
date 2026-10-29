@@ -1,0 +1,15 @@
+# 小さな炉心の集合体の台帳: 4 体とも 2A の制御棒の軸を持つミクロ燃焼のテーブル（branch-2A-micro-boron.toml と
+# branch-2A-micro-boron-rods.toml を ../../core/rod_table.py でまとめたもの）。反射体に面する集合体にも、集合体 1 体（反射境界）の
+# 定数を使う（反射体の格子の燃料のノードの定数を使う ADR-0153 の形にしない。比べるのは同じ炉心のステップの分け方の違い）。
+[design.2A]
+bounds = [0.0, 365.76]
+layers = ["table-2A-micro-boron-rod-axis.msgpack"]
+
+[assembly.A01]
+design = "2A"
+[assembly.A02]
+design = "2A"
+[assembly.A03]
+design = "2A"
+[assembly.A04]
+design = "2A"
