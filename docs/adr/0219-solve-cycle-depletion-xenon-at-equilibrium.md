@@ -86,7 +86,9 @@ micro = { chain = "chain.msgpack", xenon = "equilibrium" }   # tracked か equil
 
 - ステップの中点（そのステップの出力の割合）
 - 出力のステップの終わりの点。点は次のステップの状態で解く（ADR-0218 の案 P2）ので、次も出力のステップならその出力の割合、次が崩壊だけの
-  ステップか最後の点なら終わったステップの出力の割合。ステップの初めの点、中点、修正子が同じ出力の平衡になる
+  ステップか最後の点なら終わったステップの出力の割合。ステップの初めの点、中点、修正子が同じ出力の平衡になる。崩壊だけのステップの前の点で、
+  崩壊だけのステップが別の状態を指すときは、終わったステップの状態で平衡の組成を求め（停止の前に運転していた中性子束）、その組成で点を
+  崩壊だけのステップの状態で解く
 
 燃焼点 0 と、崩壊だけのステップの後の点は、組成を時間で進めた値のまま解く（新しい燃料と停止の後の Xe は平衡でなく、崩壊の結果）。
 
@@ -118,6 +120,7 @@ micro = { chain = "chain.msgpack", xenon = "equilibrium" }   # tracked か equil
 - 燃焼（crates/core/src/depletion/tests.rs）: `equilibrium_xenon_balances_the_operating_points_and_decays_after_shutdowns`（出力の割合 0.5 の
   ステップの終わりの点で解析的な平衡と相対 1e-9、停止の 6 時間後は平衡から崩壊で進めた値、次のステップの出力の割合 0.8 で釣り合う点、固有値計算の
   回数）、`equilibrium_xenon_steps_keep_second_order`（A と B の炉心で、ステップを半分にした燃焼度の差の比が 3.5〜4.5）、
+  `equilibrium_before_a_decay_step_balances_in_the_operating_state`、`equilibrium_xenon_without_xenon_and_iodine_stops_before_solving`、
   `histories_hold_densities_exactly_when_they_name_nuclides`（履歴の `xenon`）。入力（crates/core/src/input/tests.rs）:
   `depletion_micro_names_the_chain_of_the_lattice_depletion`
 - 小さな炉心（examples/depletion/verification.md の「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」）: 平衡 Xe の燃焼の分割 1〜16 の
