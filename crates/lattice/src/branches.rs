@@ -649,28 +649,16 @@ impl<'a> BranchShielder<'a> {
         self.shieldings
     }
 
-    /// 物質 `state` の状態の、物質の一覧と [領域] のその番号。`reference` は参照から作るときの燃焼度の点と参照の番号で、その参照の
-    /// 物質はまだ解いていなければ `nominal` で作る
-    pub fn shield(
-        &mut self,
-        library: &Library,
-        state: &[MaterialInput],
-        reference: Option<(usize, usize)>,
-        nominal: impl FnOnce() -> Vec<MaterialInput>,
-    ) -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
-        self.shield_state(library, state, reference, nominal)
-            .map(|(materials, region_material, _)| (materials, region_material))
-    }
-
-    /// `shield` と同じ物質の一覧と番号に、状態の燃料の核種の実効断面積と SPH 因子を持つ自己遮蔽を添える。参照から作った状態は参照の
-    /// 自己遮蔽（作り直すのはホウ素の軸の物質だけで、燃料の実効断面積は参照と同じ）
+    /// 物質 `state` の状態の自己遮蔽。`reference` は参照から作るときの燃焼度の点と参照の番号で、その参照の物質はまだ解いていなければ
+    /// `nominal` で作る。参照から作った状態は参照の自己遮蔽を持ち（作り直すのはホウ素の軸の物質だけで、燃料の実効断面積は参照と同じ）、
+    /// 公称と違う状態は作り直した物質の一覧を添える
     pub fn shield_state(
         &mut self,
         library: &Library,
         state: &[MaterialInput],
         reference: Option<(usize, usize)>,
         nominal: impl FnOnce() -> Vec<MaterialInput>,
-    ) -> anyhow::Result<(Vec<Material>, Vec<usize>, Fuel<'_>)> {
+    ) -> anyhow::Result<StateShielding<'_>> {
         let names = self.region_materials;
         let Some((point, index)) = reference else {
             self.shieldings += 1;
@@ -682,10 +670,10 @@ impl<'a> BranchShielder<'a> {
                 self.symmetry,
                 &self.options,
             )?;
-            // 燃料の自己遮蔽は物質の一覧を持ったまま返す（SPH 因子を引く `physical_flux` が物質の群の数を使う）
-            let materials = shielded.materials.clone();
-            let region_material = shielded.region_material.clone();
-            return Ok((materials, region_material, Fuel::Solved(Box::new(shielded))));
+            return Ok(StateShielding {
+                fuel: Fuel::Solved(Box::new(shielded)),
+                remixed: None,
+            });
         };
         let lattice = &self.tracking.lattice;
         self.held.retain(|(p, ..)| *p == point);
@@ -747,8 +735,10 @@ impl<'a> BranchShielder<'a> {
                 m.name
             );
         }
-        let mut unique = shielded.materials.clone();
-        if state != nominal.as_slice() {
+        let remixed = if state == nominal.as_slice() {
+            None
+        } else {
+            let mut unique = shielded.materials.clone();
             let rebuilt = remix_varied(
                 library,
                 shielded,
@@ -762,16 +752,41 @@ impl<'a> BranchShielder<'a> {
             for (m, material) in rebuilt {
                 unique[m] = material;
             }
-        }
-        Ok((
-            unique,
-            shielded.region_material.clone(),
-            Fuel::Reference(shielded),
-        ))
+            Some(unique)
+        };
+        Ok(StateShielding {
+            fuel: Fuel::Reference(shielded),
+            remixed,
+        })
+    }
+}
+
+/// 分岐の 1 つの状態の自己遮蔽（`BranchShielder::shield_state`）: 燃料の自己遮蔽と、ホウ素の軸の物質を作り直したときの物質の一覧
+#[derive(Debug)]
+pub struct StateShielding<'a> {
+    fuel: Fuel<'a>,
+    remixed: Option<Vec<Material>>,
+}
+
+impl StateShielding<'_> {
+    /// 物質の一覧
+    pub fn materials(&self) -> &[Material] {
+        self.remixed.as_deref().unwrap_or(&self.fuel.materials)
+    }
+
+    /// [領域] の `materials` の番号
+    pub fn region_material(&self) -> &[usize] {
+        &self.fuel.region_material
+    }
+
+    /// 状態の燃料の核種の実効断面積と SPH 因子を持つ自己遮蔽
+    pub fn fuel(&self) -> &FuelShielding {
+        &self.fuel
     }
 }
 
 /// 状態の燃料の自己遮蔽（`BranchShielder::shield_state`）: その状態で解いたものか、参照のもの
+#[derive(Debug)]
 pub enum Fuel<'a> {
     Solved(Box<FuelShielding>),
     Reference(&'a FuelShielding),

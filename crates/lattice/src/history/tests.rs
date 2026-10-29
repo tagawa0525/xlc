@@ -434,12 +434,14 @@ fn shield_states(
         .filter(|&i| branches.solved(i))
         .map(|i| {
             let reference = branches.reference(i);
-            shielder
-                .shield(library, &branches.state(i), reference, || {
-                    let (point, r) = reference.unwrap();
-                    branches.reference_state(point, r)
-                })
-                .unwrap()
+            owned(
+                shielder
+                    .shield_state(library, &branches.state(i), reference, || {
+                        let (point, r) = reference.unwrap();
+                        branches.reference_state(point, r)
+                    })
+                    .unwrap(),
+            )
         })
         .collect();
     let solved = shielder.shieldings();
@@ -447,6 +449,11 @@ fn shield_states(
 }
 
 /// 領域 `region` の物質
+/// 分岐の自己遮蔽の物質の一覧と [領域] のその番号
+fn owned(state: crate::branches::StateShielding) -> Shielding {
+    (state.materials().to_vec(), state.region_material().to_vec())
+}
+
 fn region_material(shielding: &Shielding, region: usize) -> &Material {
     &shielding.0[shielding.1[region]]
 }
@@ -530,11 +537,13 @@ fn branches_without_a_history_shield_at_the_nominal_boron_too() {
         .enumerate()
         .map(|(i, state)| {
             let r = branches.reference(i).unwrap();
-            shielder
-                .shield(&library, state, Some((0, r)), || {
-                    branches.references()[r].clone()
-                })
-                .unwrap()
+            owned(
+                shielder
+                    .shield_state(&library, state, Some((0, r)), || {
+                        branches.references()[r].clone()
+                    })
+                    .unwrap(),
+            )
         })
         .collect();
     // ホウ素 2 点 × 減速材 2 点で、減速材の点ごとに 1 回
@@ -677,7 +686,7 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
     );
     // 状態 1 は燃料 650 K、参照 0 は燃料 600 K
     let err = shielder
-        .shield(&library, &branches.state(1), Some((0, 0)), || {
+        .shield_state(&library, &branches.state(1), Some((0, 0)), || {
             branches.reference_state(0, 0)
         })
         .unwrap_err();
@@ -924,12 +933,17 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
         );
         for index in 0..branches.len() {
             let reference = branches.reference(index);
-            let (materials, region_material, fuel) = shielder
+            let shielded = shielder
                 .shield_state(&library, &branches.state(index), reference, || {
                     let (point, r) = reference.unwrap();
                     branches.reference_state(point, r)
                 })
                 .unwrap();
+            let (materials, region_material, fuel) = (
+                shielded.materials(),
+                shielded.region_material(),
+                shielded.fuel(),
+            );
             let regions: Vec<&Material> = region_material.iter().map(|&i| &materials[i]).collect();
             let options = Options {
                 scattering_order: available_order(&regions),
@@ -941,7 +955,7 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
                 .micro(
                     index,
                     &library,
-                    &fuel,
+                    fuel,
                     &s.tracking.lattice,
                     &solution,
                     &BOUNDS,
@@ -952,8 +966,8 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
                 &micro,
                 &branches.micro_densities()[point],
                 &branches.region_materials,
-                &materials,
-                &region_material,
+                materials,
+                region_material,
                 &solution,
                 &format!("state {index} (reference {reference:?})"),
             );
