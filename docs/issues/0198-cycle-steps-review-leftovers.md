@@ -34,6 +34,10 @@ ADR-0218 のブランチ（feat/core-cycle-steps）のレビューの 1 周目�
 - `deplete` の崩壊だけのステップは、チェーンだけで決まる崩壊の行列をステップごとに作り直す。`point_state` の `map_or(0, …)` と `used` の
   `|| point_state(0) == k` は、ステップが空でないことを確かめた後では効かない
 - `compare_core_cycle.py` の `densities` は、核分裂のないノード（数密度が空）を持つ履歴で `IndexError` になる（集合体 1 体の確認では起きない）
+- 履歴の読み込みは、燃焼点 0 が 0 EFPD、0 日であることを確かめない。`deplete` は `DepletionInput` を直に受けたとき、出力の割合が正で
+  EFPD が増えることを確かめない（入力の読み込みは確かめる）
+- 入力は、最初の `efpd` のステップの前の崩壊だけのステップ（新しい燃料の 0 EFPD の停止。効かない）を受ける
+- `compare_core_cycle.py` の参照の点の `power != 0` の絞り込みは、参照を定格のままに限った後では効かない
 
 関係する ADR: ADR-0218
 
@@ -43,4 +47,4 @@ ADR-0218 のブランチ（feat/core-cycle-steps）のレビューの 1 周目�
 
 ## 経緯
 
-- 2026-10-29: feat/core-cycle-steps のレビューの 1、2 周目（/code-review high）で挙がった
+- 2026-10-29: feat/core-cycle-steps のレビューの 1〜3 周目（/code-review high）で挙がった
