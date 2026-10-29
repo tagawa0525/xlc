@@ -21,12 +21,14 @@ def core(points, banks=None, shift=0.0):
     return {
         "format": "xlc-core-history",
         "specific_power": 40.0,
-        "state": {
-            "boron": 1300.0,
-            "b10": 0.199,
-            "moderator": 565.0,
-            "fuel": 565.0,
-            "banks": banks or {},
+        "states": {
+            "nominal": {
+                "boron": 1300.0,
+                "b10": 0.199,
+                "moderator": 565.0,
+                "fuel": 565.0,
+                "banks": banks or {},
+            }
         },
         "axial_mesh": [0.0, 10.75, 21.5],
         "assemblies": ["A01"],
@@ -176,13 +178,13 @@ class Summary(unittest.TestCase):
             compare_core_partial_rods.summarize(out, rodded, reversed_)
         # 順を保った取り違え: 割合 0.5 に、ステップが 0 と 1 の間の 1/4 の燃焼を付ける
         out, rodded, partial = inputs()
-        partial[1][1]["state"]["banks"] = {"D": 129}
+        partial[1][1]["states"]["nominal"]["banks"] = {"D": 129}
         with self.assertRaises(SystemExit):
             compare_core_partial_rods.summarize(out, rodded, partial)
         # どの割合の燃焼もバンクを持たなければ、取り違えを確かめられない
         out, rodded, partial = inputs()
         for _, c in partial:
-            c["state"]["banks"] = {}
+            c["states"]["nominal"]["banks"] = {}
         with self.assertRaises(SystemExit):
             compare_core_partial_rods.summarize(out, rodded, partial)
         # 棒のない燃焼と棒の入った燃焼を取り違えると、棒の入った燃焼の最初の点の k が大きい
@@ -191,7 +193,7 @@ class Summary(unittest.TestCase):
             compare_core_partial_rods.summarize(rodded, out, partial)
         # 比べる先の燃焼はバンクを持たない
         out, rodded, partial = inputs()
-        rodded["state"]["banks"] = {"D": 0}
+        rodded["states"]["nominal"]["banks"] = {"D": 0}
         with self.assertRaises(SystemExit):
             compare_core_partial_rods.summarize(out, rodded, partial)
 
@@ -218,7 +220,7 @@ class Summary(unittest.TestCase):
 
     def test_histories_must_differ_only_in_the_banks(self):
         for change in (
-            lambda c: c["state"].update(boron=1000.0),
+            lambda c: c["states"]["nominal"].update(boron=1000.0),
             lambda c: c.update(specific_power=38.0),
             lambda c: c.update(nuclides=["U-235", "Xe-136"]),
             lambda c: c["points"][1].update(burnup=1.5),
