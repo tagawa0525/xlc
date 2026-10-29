@@ -413,40 +413,49 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
-        // 履歴からの分岐の微視的断面積（ADR-0216）に使う、状態の燃料の自己遮蔽
-        let (unique, region_index, fuel) = match &source {
-            Source::Library(library) => {
-                if input.self_shielding {
-                    // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
-                    let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
-                        match (&history_branches, &input.branches) {
-                            (Some(h), _) => {
-                                let reference = h.reference(state);
-                                (
-                                    reference,
-                                    Box::new(move || {
-                                        reference.map_or_else(Vec::new, |(point, r)| {
-                                            h.reference_state(point, r)
-                                        })
-                                    }),
-                                )
-                            }
-                            (None, Some(b)) => {
-                                let reference = b.reference(state);
-                                (
-                                    reference.map(|r| (0, r)),
-                                    Box::new(move || {
-                                        reference
-                                            .map_or_else(Vec::new, |r| b.references()[r].clone())
-                                    }),
-                                )
-                            }
-                            (None, None) => (None, Box::new(Vec::new)),
-                        };
-                    let (materials, region_index, fuel) = shielder
+        // 自己遮蔽した状態の物質と、履歴からの分岐の微視的断面積（ADR-0216）に使う燃料の自己遮蔽
+        let held = match &source {
+            Source::Library(library) if input.self_shielding => {
+                // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
+                let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
+                    match (&history_branches, &input.branches) {
+                        (Some(h), _) => {
+                            let reference = h.reference(state);
+                            (
+                                reference,
+                                Box::new(move || {
+                                    reference.map_or_else(Vec::new, |(point, r)| {
+                                        h.reference_state(point, r)
+                                    })
+                                }),
+                            )
+                        }
+                        (None, Some(b)) => {
+                            let reference = b.reference(state);
+                            (
+                                reference.map(|r| (0, r)),
+                                Box::new(move || {
+                                    reference.map_or_else(Vec::new, |r| b.references()[r].clone())
+                                }),
+                            )
+                        }
+                        (None, None) => (None, Box::new(Vec::new)),
+                    };
+                Some(
+                    shielder
                         .shield_state(library, state_materials, reference, nominal)
-                        .with_context(|| format!("{}: self-shielding", context()))?;
-                    (materials, region_index, Some(fuel))
+                        .with_context(|| format!("{}: self-shielding", context()))?,
+                )
+            }
+            _ => None,
+        };
+        let (unique, region_index): (std::borrow::Cow<'_, [Material]>, Vec<usize>) = match &source {
+            Source::Library(library) => {
+                if let Some(shielded) = &held {
+                    (
+                        std::borrow::Cow::Borrowed(shielded.materials()),
+                        shielded.region_material().to_vec(),
+                    )
                 } else {
                     let mut named = state_materials
                         .iter()
@@ -499,15 +508,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         .map_err(|e| anyhow!(e))
                         .with_context(context)?;
                     let (materials, region_index) = by_name(named, library.groups.len())?;
-                    (materials, region_index, None)
+                    (std::borrow::Cow::Owned(materials), region_index)
                 }
             }
             Source::Macroscopic(named) => {
                 let groups = named.first().map_or(0, |(_, m)| m.groups());
                 let (materials, region_index) = by_name(named.clone(), groups)?;
-                (materials, region_index, None)
+                (std::borrow::Cow::Owned(materials), region_index)
             }
         };
+        let fuel = held.as_ref().map(|h| h.fuel());
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
         // 媒質（ADR-0128）の領域。領域がすべて1つの核分裂のある媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
         let media_regions: Vec<Option<usize>> = region_materials
@@ -636,7 +646,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let micro = match &history_branches {
             Some(h) if !h.micro_nuclides().is_empty() => {
                 let (Source::Library(library), Some(fuel), Some(output)) =
-                    (&source, &fuel, &input.output)
+                    (&source, fuel, &input.output)
                 else {
                     return Err(anyhow!(
                         "micro cross sections need a library, the self-shielding and few-group output"
