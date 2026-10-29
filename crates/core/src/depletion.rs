@@ -5,6 +5,10 @@
 //! Σf φ V の割合、M = Σ Mₙ）。ステップは中点の形（ADR-0173 の CE/CM と同じ）: 初めの燃焼度で解いた割合で中点の燃焼度を、
 //! 中点で解いた割合で終わりの燃焼度を求める。燃焼点（0 と各ステップの終わり）の値は、その点の燃焼度で解いたもの。状態が
 //! ホウ素の探索を持てば、点と中点の解のすべてで k が目標になるホウ素濃度を探す（ADR-0191）。
+//!
+//! ステップは状態と出力の割合を持つ（ADR-0218）。燃焼点は、そこから始まるステップの状態で解く（最後の点は最後のステップの
+//! 状態）ので、ステップの初めの点、中点、修正子はどれもそのステップの状態の解になる。出力の割合はステップの時間（EFPD の増分 /
+//! 割合）とノードの出力密度を決め、燃焼度の増分は変えない。崩壊だけのステップは、ミクロ燃焼の組成を崩壊の項だけで進める。
 
 use std::collections::BTreeMap;
 
@@ -18,7 +22,7 @@ use xlc_format::table::{Axis, Micro, Table};
 use crate::case::{
     CaseError, Compositions, Solved, check_search, search_boron, solve_compositions,
 };
-use crate::input::{Boron, BoronSearch, CaseState, DepletionInput, Layout};
+use crate::input::{Boron, BoronSearch, CaseState, DepletionInput, Layout, StepKind};
 use crate::micro::MicroChain;
 use crate::nem::{Options, fission_rates};
 use crate::rods::mix_micro;
@@ -31,8 +35,8 @@ const FORMAT: &str = "xlc-core-history";
 pub struct CoreHistory {
     /// 定格の出力密度 (W/g、炉心の平均、初めの重金属)
     pub specific_power: f64,
-    /// すべてのステップで解いた状態
-    pub state: CoreState,
+    /// 解いた状態（名前 → 状態。ステップの使った状態だけ）
+    pub states: BTreeMap<String, CoreState>,
     /// 軸方向のノードの境界 (cm、下から)
     pub axial_mesh: Vec<f64>,
     /// 集合体の ID（名前の順）
@@ -69,8 +73,15 @@ pub struct CoreState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CorePoint {
-    /// 累積の EFPD
+    /// 累積の EFPD（崩壊だけのステップの前後で同じ）
     pub efpd: f64,
+    /// 燃焼点 0 からの経過の日数（崩壊だけのステップの日数を含む）
+    pub days: f64,
+    /// その点で終わるステップの出力の割合（定格に対する比。崩壊だけのステップは 0）。燃焼点 0 は `None`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub power: Option<f64>,
+    /// その点を解いた状態の名前（その点から始まるステップの状態。最後の点は最後のステップの状態。ADR-0218）
+    pub state: String,
     /// 炉心の平均の燃焼度 (MWd/kg。質量の重み)
     pub burnup: f64,
     pub k: f64,
@@ -103,7 +114,7 @@ struct FileOut<'a> {
 struct FileIn {
     format: String,
     specific_power: f64,
-    state: CoreState,
+    states: BTreeMap<String, CoreState>,
     axial_mesh: Vec<f64>,
     assemblies: Vec<String>,
     heavy_metal: Vec<Vec<f64>>,
@@ -113,9 +124,9 @@ struct FileIn {
 }
 
 impl CoreHistory {
-    /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, state: {boron | search: {boron:
-    /// [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}, axial_mesh, assemblies,
-    /// heavy_metal, points: [{efpd, burnup, k, boron, solves, assembly_burnups, burnups, powers}]}`
+    /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, states: {<名前>: {boron | search:
+    /// {boron: [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}}, axial_mesh, assemblies, heavy_metal,
+    /// nuclides?, points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
             format: FORMAT,
@@ -135,10 +146,17 @@ impl CoreHistory {
                 file.format
             )));
         }
-        if file.state.boron.is_some() == file.state.search.is_some() {
-            return Err(CaseError::Depletion(
-                "the history state must hold either boron or search".into(),
-            ));
+        for (name, state) in &file.states {
+            if state.boron.is_some() == state.search.is_some() {
+                return Err(CaseError::Depletion(format!(
+                    "the history state {name} must hold either boron or search"
+                )));
+            }
+            if let Some(search) = &state.search {
+                search
+                    .check()
+                    .map_err(|m| CaseError::Depletion(format!("the history state {name}: {m}")))?;
+            }
         }
         // ミクロ燃焼の履歴は、どの点も [集合体][軸方向のノード] ごとに追う核種の数の有限な数密度（核分裂のないノードは空）を持つ
         let layers = file.axial_mesh.len().saturating_sub(1);
@@ -160,15 +178,22 @@ impl CoreHistory {
                     "point {k}: the densities must match the micro nuclides of the history"
                 )));
             }
-        }
-        if let Some(search) = &file.state.search {
-            search
-                .check()
-                .map_err(|m| CaseError::Depletion(format!("the history state: {m}")))?;
+            if !file.states.contains_key(&point.state) {
+                return Err(CaseError::Depletion(format!(
+                    "point {k}: the history has no state {}",
+                    point.state
+                )));
+            }
+            // 燃焼点 0 だけが、そこで終わるステップを持たない
+            if point.power.is_some() == (k == 0) {
+                return Err(CaseError::Depletion(format!(
+                    "point {k}: only the first point has no step power"
+                )));
+            }
         }
         Ok(Self {
             specific_power: file.specific_power,
-            state: file.state,
+            states: file.states,
             axial_mesh: file.axial_mesh,
             assemblies: file.assemblies,
             heavy_metal: file.heavy_metal,
@@ -237,8 +262,9 @@ fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
     }
 }
 
-/// 燃焼度の分布を 1 回解いた結果: 解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率
+/// 燃焼度の分布を 1 回解いた結果: 解いた状態（`states` の番号）、解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率
 struct Solve {
+    state: usize,
     solved: Solved,
     ppm: f64,
     solves: usize,
@@ -250,13 +276,29 @@ fn weighted(b: &[f64], m: &[f64]) -> f64 {
     b.iter().zip(m).map(|(b, m)| b * m).sum::<f64>() / m.iter().sum::<f64>()
 }
 
-/// ケースの燃焼（ADR-0190）: 状態 `state` で、ノードの燃焼度を 0 から `depletion` のステップに沿って進め、燃焼点ごとの値を
-/// 返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）。点は解くたびに `on_point` にも渡す（後のステップで止まっても、
-/// それまでの点を出せるように）
+/// 状態 `state` の、燃焼の履歴の形
+fn core_state(state: &CaseState) -> CoreState {
+    let (boron, search) = match state.boron {
+        Boron::Given(ppm) => (Some(ppm), None),
+        Boron::Search(search) => (None, Some(search)),
+    };
+    CoreState {
+        boron,
+        search,
+        b10: state.b10,
+        moderator: state.moderator,
+        fuel: state.fuel,
+        banks: state.banks.clone(),
+    }
+}
+
+/// ケースの燃焼（ADR-0190、ADR-0218）: 状態 `states`（ケースの名前つきの状態。ステップが番号で指す）で、ノードの燃焼度を 0 から
+/// `depletion` のステップに沿って進め、燃焼点ごとの値を返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）。点は
+/// 解くたびに `on_point` にも渡す（後のステップで止まっても、それまでの点を出せるように）
 pub fn deplete(
     layout: &Layout,
     tables: &[Table],
-    state: &CaseState,
+    states: &[CaseState],
     depletion: &DepletionInput,
     chain: Option<&Chain>,
     options: &Options,
@@ -273,18 +315,60 @@ pub fn deplete(
             layout.files.len()
         ));
     }
-    if state.burnup.is_some() {
-        return fail(format!("state {} gives a burnup", state.name));
+    if let Some(step) = depletion.steps.iter().find(|s| s.state >= states.len()) {
+        return fail(format!(
+            "a step uses state {} of {} states",
+            step.state,
+            states.len()
+        ));
     }
-    // 長い計算を始める前に
-    check_search(state, options)?;
-    // 状態のバンクの位置で制御棒を入れた並び（ADR-0127）
-    let layout = &layout.with_banks(&state.banks)?;
-    let mesh = &layout.mesh;
+    // 燃焼点 i を解く状態: そこから始まるステップの状態。最後の点は最後のステップの状態（ADR-0218 の案 P2）
+    let point_state = |i: usize| {
+        depletion
+            .steps
+            .get(i)
+            .or(depletion.steps.last())
+            .map_or(0, |s| s.state)
+    };
+    // ステップの使う状態（番号の順）
+    let used: Vec<usize> = (0..states.len())
+        .filter(|&k| depletion.steps.iter().any(|s| s.state == k) || point_state(0) == k)
+        .collect();
+    for &k in &used {
+        let state = &states[k];
+        if state.burnup.is_some() {
+            return fail(format!("state {} gives a burnup", state.name));
+        }
+        // 長い計算を始める前に
+        check_search(state, options)?;
+    }
+    // 状態のバンクの位置で制御棒を入れた並び（ADR-0127）。使わない状態は並びを作らない（`None`）
+    let layouts: Vec<Option<Layout>> = (0..states.len())
+        .map(|k| {
+            used.contains(&k)
+                .then(|| layout.with_banks(&states[k].banks))
+                .transpose()
+        })
+        .collect::<Result<_, _>>()?;
+    let first = layouts[point_state(0)]
+        .as_ref()
+        .ok_or_else(|| CaseError::Depletion("the first point has no state".into()))?;
+    // 組成と燃焼度は位置ごとに持つので、どの状態の並びも同じファイルと位置であること
+    if let Some((k, _)) = layouts.iter().enumerate().find(|(_, l)| {
+        l.as_ref()
+            .is_some_and(|l| l.files != first.files || l.mesh.counts() != first.mesh.counts())
+    }) {
+        return fail(format!(
+            "state {} lays out other files or sites than state {}",
+            states[k].name,
+            states[point_state(0)].name
+        ));
+    }
+    let mesh = &first.mesh;
     let [nx, ny, nz] = mesh.counts();
     let sites = nx * ny * nz;
     // 核分裂するテーブルは質量を持つこと（燃焼度の定義の質量がないので推測しない）。解く前に、ファイルを示して止める
-    for (file, table) in layout.files.iter().zip(tables) {
+    for (file, table) in first.files.iter().zip(tables) {
         if fissile(table) && table.heavy_metal.is_none() {
             return fail(format!(
                 "{}: the table has fission but no heavy_metal; make it from a depletion history (ADR-0190)",
@@ -296,16 +380,16 @@ pub fn deplete(
     let masses: Vec<f64> = (0..sites)
         .map(|site| {
             let [_, _, z] = mesh.position(site);
-            layout
+            first
                 .site_file(site)
                 .and_then(|f| tables[f].heavy_metal)
                 .map_or(0.0, |m| m * mesh.dz[z])
         })
         .collect();
     // 集合体の ID（名前の順）と、その位置（x, y）。図の上の行が +y
-    let rows = layout.ids.len();
+    let rows = first.ids.len();
     let mut placed: BTreeMap<&str, [usize; 2]> = BTreeMap::new();
-    for (r, row) in layout.ids.iter().enumerate() {
+    for (r, row) in first.ids.iter().enumerate() {
         for (x, id) in row.iter().enumerate() {
             if let Some(id) = id {
                 placed.insert(id, [x, rows - 1 - r]);
@@ -330,7 +414,7 @@ pub fn deplete(
     }
     // ミクロ燃焼（ADR-0216）のノードと、初めの組成（テーブルの燃焼度 0 の数密度。補助の核種は 0）
     let micro = match (&depletion.micro, chain) {
-        (Some(_), Some(chain)) => Some(MicroNodes::new(layout, tables, chain)?),
+        (Some(_), Some(chain)) => Some(MicroNodes::new(&layouts, tables, chain)?),
         (None, None) => None,
         (Some(_), None) => {
             return fail("the case asks for micro depletion, but no chain is given".into());
@@ -339,23 +423,37 @@ pub fn deplete(
             return fail("a chain is given, but the case asks for no micro depletion".into());
         }
     };
+    if micro.is_none()
+        && depletion
+            .steps
+            .iter()
+            .any(|s| matches!(s.kind, StepKind::Decay { .. }))
+    {
+        return fail("a decay step needs micro depletion (ADR-0218)".into());
+    }
     let mut densities = micro
         .as_ref()
-        .map(|m| m.initial(layout, tables))
+        .map(|m| m.initial(point_state(0), &layouts, tables))
         .transpose()?;
     if let Some(m) = &micro {
         tracing::info!(
             tracked = m.chain.nuclides.len(),
             auxiliary = m.chain.auxiliary(),
-            nodes = m.uses.iter().flatten().count(),
+            nodes = m.uses[point_state(0)].iter().flatten().count(),
             "micro depletion"
         );
     }
-    // 燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` はエラーに添える解の場所
-    let solve = |burnups: &[f64],
+    // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` は
+    // エラーに添える解の場所
+    let solve = |k: usize,
+                 burnups: &[f64],
                  n: Option<&[Option<Vec<f64>>]>,
                  at: &dyn Fn() -> String|
      -> Result<Solve, CaseError> {
+        let state = &states[k];
+        let layout = layouts[k]
+            .as_ref()
+            .ok_or_else(|| CaseError::Depletion(format!("state {} is not laid out", state.name)))?;
         let compositions = micro.as_ref().zip(n).map(|(m, densities)| Compositions {
             chain: &m.chain,
             densities,
@@ -378,17 +476,20 @@ pub fn deplete(
         let (solved, ppm, solves) = solved.map_err(|e| locate(e, at))?;
         let rates = fission_rates(&solved.problem, &solved.solution);
         Ok(Solve {
+            state: k,
             solved,
             ppm,
             solves,
             rates,
         })
     };
-    // 解 `solve`（燃焼度 `burnups`、組成 `n`）の反応率で、組成 `from` を時間 `t` (s) だけ進める。ノードの出力密度は定格の出力密度 ×
-    // 解の核分裂率の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギー）
+    // 解 `solve`（燃焼度 `burnups`、組成 `n`）の反応率で、組成 `from` を時間 `t` (s) だけ進める。ノードの出力密度は出力の割合
+    // `power` × 定格の出力密度 × 解の核分裂率の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギーを、
+    // 割合で伸びた時間で出す。ADR-0218）
     let mass: f64 = masses.iter().sum();
     let deplete_nodes = |m: &MicroNodes,
                          solve: &Solve,
+                         power: f64,
                          burnups: &[f64],
                          n: &[Option<Vec<f64>>],
                          from: &[Option<Vec<f64>>],
@@ -396,19 +497,25 @@ pub fn deplete(
                          at: &dyn Fn() -> String|
      -> Result<Vec<Option<Vec<f64>>>, CaseError> {
         let total: f64 = solve.rates.iter().sum();
-        let state = state.at(solve.ppm);
+        let state = states[solve.state].at(solve.ppm);
+        let (Some(layout), uses) = (&layouts[solve.state], &m.uses[solve.state]) else {
+            return Err(CaseError::Depletion(format!(
+                "state {} is not laid out",
+                states[solve.state].name
+            )));
+        };
         let start = std::time::Instant::now();
         let next = (0..sites)
             .into_par_iter()
             .map(|site| {
-                let (Some(node_use), Some(n), Some(from)) = (m.uses[site], &n[site], &from[site])
+                let (Some(node_use), Some(n), Some(from)) = (uses[site], &n[site], &from[site])
                 else {
                     return Ok(None);
                 };
                 let [x, y, z] = mesh.position(site);
                 let volume = mesh.dx[x] * mesh.dy[y] * mesh.dz[z];
                 let power_density =
-                    depletion.specific_power * solve.rates[site] / total * mass / volume;
+                    power * depletion.specific_power * solve.rates[site] / total * mass / volume;
                 let s = crate::state::State {
                     burnup: Some(burnups[site]),
                     ..state
@@ -453,8 +560,38 @@ pub fn deplete(
         );
         Ok(next)
     };
-    let record = |efpd: f64, burnups: &[f64], solve: &Solve, n: Option<&[Option<Vec<f64>>]>| {
+    // 崩壊だけのステップ: 組成 `n` を、崩壊の項だけの行列で時間 `t` (s) だけ進める（ADR-0218）
+    let decay_nodes = |m: &MicroNodes,
+                       n: &[Option<Vec<f64>>],
+                       t: f64,
+                       at: &dyn Fn() -> String|
+     -> Result<Vec<Option<Vec<f64>>>, CaseError> {
+        let a = m
+            .chain
+            .decay_matrix()
+            .map_err(|e| locate(CaseError::Depletion(e), at))?;
+        n.par_iter()
+            .map(|n| {
+                n.as_ref()
+                    .map(|n| {
+                        let next = xlc_depletion::deplete(&a, n, t, CRAM_ORDER)
+                            .map_err(|e| e.to_string())?;
+                        check_negative(&m.chain, &next)?;
+                        Ok(next)
+                    })
+                    .transpose()
+            })
+            .collect::<Result<Vec<_>, String>>()
+            .map_err(|e| locate(CaseError::Depletion(e), at))
+    };
+    let record = |efpd: f64,
+                  days: f64,
+                  power: Option<f64>,
+                  burnups: &[f64],
+                  solve: &Solve,
+                  n: Option<&[Option<Vec<f64>>]>| {
         let Solve {
+            state,
             solved,
             ppm,
             solves,
@@ -479,6 +616,9 @@ pub fn deplete(
         });
         CorePoint {
             efpd,
+            days,
+            power,
+            state: states[*state].name.clone(),
             burnup: weighted(burnups, &masses),
             k: solved.solution.k,
             boron: *ppm,
@@ -493,112 +633,137 @@ pub fn deplete(
             densities,
         }
     };
-
-    let mut burnups = vec![0.0; sites];
-    let mut efpd = 0.0;
-    let mut solve_at_point = solve(&burnups, densities.as_deref(), &|| {
-        "the point at 0 EFPD".into()
-    })?;
-    let mut points = vec![record(
-        efpd,
-        &burnups,
-        &solve_at_point,
-        densities.as_deref(),
-    )];
-    on_point(&points[0]);
-    tracing::info!(
-        efpd,
-        k = points[0].k,
-        boron = points[0].boron,
-        solves = points[0].solves,
-        "depletion point"
-    );
-    for step in &depletion.steps {
-        let _span = tracing::info_span!("depletion step", efpd = step.efpd).entered();
-        // 炉心の平均の燃焼度の増分 (MWd/kg。W/g × d = 1e-3 MWd/kg)。ステップの EFPD の差を足し合わせず、終わりの累積の EFPD の
-        // 燃焼度と今の炉心の平均の差にする（ステップの丸めの誤差を積み上げない。積み上げると、テーブルの最後の点で終わるケースが
-        // その点を越えて止まる）
-        let target = depletion.specific_power * step.efpd * 1.0e-3;
-        let increment = target - weighted(&burnups, &masses);
-        // ステップの時間 (s)。ケースの EFPD の差（定格の出力で燃焼度の増分と同じエネルギー）
-        let time = (step.efpd - efpd) * DAY;
-        let at_step = || format!("the step to {} EFPD", step.efpd);
-        // 中点の解と、その燃焼度と組成（ミクロ燃焼の修正子の反応率に使う。ADR-0173 の CE/CM）
-        let mut middle_of_step = None;
-        let start = burnups.clone();
-        burnups = midpoint(&burnups, &masses, increment, &solve_at_point.rates, |b| {
-            // 予測子: 初めの解の反応率で、中点の組成へ
-            let half = match (&micro, &densities) {
-                (Some(m), Some(n)) => Some(deplete_nodes(
-                    m,
-                    &solve_at_point,
-                    &start,
-                    n,
-                    n,
-                    0.5 * time,
-                    &at_step,
-                )?),
-                _ => None,
-            };
-            let middle = solve(b, half.as_deref(), &|| {
-                format!("the midpoint of the step to {} EFPD", step.efpd)
-            })?;
-            tracing::info!(
-                k = middle.solved.solution.k,
-                boron = middle.ppm,
-                solves = middle.solves,
-                "depletion midpoint"
-            );
-            let rates = middle.rates.clone();
-            middle_of_step = Some((middle, b.to_vec(), half));
-            Ok(rates)
-        })
-        // 中点の解のエラーは場所を持つ。燃焼度の増分（`advance`）のエラーに、ステップを添える
-        .map_err(|e| locate(e, &at_step))?;
-        // 修正子: 中点の解の反応率（中点の燃焼度の σ、中点の組成で規格化）で、初めの組成から終わりへ
-        if let (Some(m), Some(n), Some((middle, half_burnups, Some(half)))) =
-            (&micro, &densities, &middle_of_step)
-        {
-            densities = Some(deplete_nodes(
-                m,
-                middle,
-                half_burnups,
-                half,
-                n,
-                time,
-                &at_step,
-            )?);
-        }
-        efpd = step.efpd;
-        solve_at_point = solve(&burnups, densities.as_deref(), &|| {
-            format!("the point at {efpd} EFPD")
-        })?;
-        let point = record(efpd, &burnups, &solve_at_point, densities.as_deref());
-        on_point(&point);
+    let report = |point: &CorePoint| {
         tracing::info!(
-            efpd,
+            efpd = point.efpd,
+            days = point.days,
+            state = point.state,
             k = point.k,
             boron = point.boron,
             solves = point.solves,
             "depletion point"
         );
+    };
+
+    let mut burnups = vec![0.0; sites];
+    let mut efpd = 0.0;
+    let mut days = 0.0;
+    let mut solve_at_point = solve(point_state(0), &burnups, densities.as_deref(), &|| {
+        "the point at 0 EFPD".into()
+    })?;
+    let mut points = vec![record(
+        efpd,
+        days,
+        None,
+        &burnups,
+        &solve_at_point,
+        densities.as_deref(),
+    )];
+    on_point(&points[0]);
+    report(&points[0]);
+    for (i, step) in depletion.steps.iter().enumerate() {
+        let (power, at_point) = match step.kind {
+            StepKind::Decay { days: d } => {
+                let _span = tracing::info_span!("decay step", efpd, days = d).entered();
+                let at_step = || format!("the decay step of {d} days after {efpd} EFPD");
+                if let (Some(m), Some(n)) = (&micro, &densities) {
+                    densities = Some(decay_nodes(m, n, d * DAY, &at_step)?);
+                }
+                days += d;
+                (
+                    0.0,
+                    format!("the point after the decay to {days} days at {efpd} EFPD"),
+                )
+            }
+            StepKind::Power {
+                efpd: end,
+                power: fraction,
+            } => {
+                let _span = tracing::info_span!("depletion step", efpd = end).entered();
+                // 炉心の平均の燃焼度の増分 (MWd/kg。W/g × d = 1e-3 MWd/kg)。ステップの EFPD の差を足し合わせず、終わりの累積の
+                // EFPD の燃焼度と今の炉心の平均の差にする（ステップの丸めの誤差を積み上げない。積み上げると、テーブルの最後の点で
+                // 終わるケースがその点を越えて止まる）。出力の割合によらない（EFPD は割合を含む。ADR-0218）
+                let target = depletion.specific_power * end * 1.0e-3;
+                let increment = target - weighted(&burnups, &masses);
+                // ステップの時間 (s)。EFPD の差を出力の割合で割った日数
+                let step_days = (end - efpd) / fraction;
+                let time = step_days * DAY;
+                let at_step = || format!("the step to {end} EFPD");
+                // 中点の解と、その燃焼度と組成（ミクロ燃焼の修正子の反応率に使う。ADR-0173 の CE/CM）
+                let mut middle_of_step = None;
+                let start = burnups.clone();
+                burnups = midpoint(&burnups, &masses, increment, &solve_at_point.rates, |b| {
+                    // 予測子: 初めの解の反応率で、中点の組成へ
+                    let half = match (&micro, &densities) {
+                        (Some(m), Some(n)) => Some(deplete_nodes(
+                            m,
+                            &solve_at_point,
+                            fraction,
+                            &start,
+                            n,
+                            n,
+                            0.5 * time,
+                            &at_step,
+                        )?),
+                        _ => None,
+                    };
+                    let middle = solve(step.state, b, half.as_deref(), &|| {
+                        format!("the midpoint of the step to {end} EFPD")
+                    })?;
+                    tracing::info!(
+                        k = middle.solved.solution.k,
+                        boron = middle.ppm,
+                        solves = middle.solves,
+                        "depletion midpoint"
+                    );
+                    let rates = middle.rates.clone();
+                    middle_of_step = Some((middle, b.to_vec(), half));
+                    Ok(rates)
+                })
+                // 中点の解のエラーは場所を持つ。燃焼度の増分（`advance`）のエラーに、ステップを添える
+                .map_err(|e| locate(e, &at_step))?;
+                // 修正子: 中点の解の反応率（中点の燃焼度の σ、中点の組成で規格化）で、初めの組成から終わりへ
+                if let (Some(m), Some(n), Some((middle, half_burnups, Some(half)))) =
+                    (&micro, &densities, &middle_of_step)
+                {
+                    densities = Some(deplete_nodes(
+                        m,
+                        middle,
+                        fraction,
+                        half_burnups,
+                        half,
+                        n,
+                        time,
+                        &at_step,
+                    )?);
+                }
+                efpd = end;
+                days += step_days;
+                (fraction, format!("the point at {efpd} EFPD"))
+            }
+        };
+        solve_at_point = solve(point_state(i + 1), &burnups, densities.as_deref(), &|| {
+            at_point.clone()
+        })?;
+        let point = record(
+            efpd,
+            days,
+            Some(power),
+            &burnups,
+            &solve_at_point,
+            densities.as_deref(),
+        );
+        on_point(&point);
+        report(&point);
         points.push(point);
     }
-    let (boron, search) = match state.boron {
-        Boron::Given(ppm) => (Some(ppm), None),
-        Boron::Search(search) => (None, Some(search)),
-    };
     Ok(CoreHistory {
         specific_power: depletion.specific_power,
-        state: CoreState {
-            boron,
-            search,
-            b10: state.b10,
-            moderator: state.moderator,
-            fuel: state.fuel,
-            banks: state.banks.clone(),
-        },
-        axial_mesh: layout.axial_mesh().to_vec(),
+        states: used
+            .iter()
+            .map(|&k| (states[k].name.clone(), core_state(&states[k])))
+            .collect(),
+        axial_mesh: first.axial_mesh().to_vec(),
         assemblies: placed.keys().map(|id| id.to_string()).collect(),
         heavy_metal,
         nuclides: micro.map(|m| m.chain.nuclides),
@@ -634,8 +799,8 @@ fn check_negative(chain: &MicroChain, n: &[f64]) -> Result<(), String> {
 /// ミクロ燃焼するノード（ADR-0216）
 struct MicroNodes {
     chain: MicroChain,
-    /// [直方体の位置] のテーブルの使い方（ミクロ燃焼する、核分裂のある位置だけ）
-    uses: Vec<Option<NodeUse>>,
+    /// [状態][直方体の位置] のテーブルの使い方（ミクロ燃焼する、核分裂のある位置だけ）。並びを作らない状態は空
+    uses: Vec<Vec<Option<NodeUse>>>,
 }
 
 /// ミクロ燃焼するノードの微視的断面積の引き方
@@ -655,65 +820,103 @@ fn fissile(table: &Table) -> bool {
         .any(|s| s.nu_fission.iter().any(|&v| v > 0.0))
 }
 
-impl MicroNodes {
-    /// 核分裂のある位置をミクロ燃焼する。そのテーブルは `micro` を持ち、追う核種はどのテーブルも同じで、チェーンの反応と合うこと
-    fn new(layout: &Layout, tables: &[Table], chain: &Chain) -> Result<Self, CaseError> {
-        let fail = |m: String| Err(CaseError::Depletion(m));
-        let mut uses = vec![None; layout.node_material.len()];
-        let mut files: BTreeMap<usize, &Micro> = BTreeMap::new();
-        // 位置 `site` のテーブルの使い方 `table` が核分裂するか。核分裂するなら、燃焼度で引く使い方で、テーブルが `micro` を持つこと
-        let mut fissile_use = |site: usize, table: usize| -> Result<bool, CaseError> {
-            let file = layout.tables[table].file;
-            if !fissile(&tables[file]) {
-                return Ok(false);
-            }
-            // 燃焼度で引かない使い方（反射体の位置など）は、補正も燃焼もしないので、核分裂のあるテーブルを置けない
-            if layout.tables[table].node.is_none() {
-                return Err(CaseError::Depletion(format!(
-                    "site {site} uses the fissile table {} but is not a depleted node, so the micro depletion would \
-                     neither deplete nor correct it",
-                    layout.files[file].display()
-                )));
-            }
-            let Some(micro) = &tables[file].micro else {
-                return Err(CaseError::Depletion(format!(
-                    "{}: the table has no micro data for the micro depletion; make it with [history] micro \
-                     (ADR-0216)",
-                    layout.files[file].display()
-                )));
-            };
-            files.insert(file, micro);
-            Ok(true)
+/// 並び `layout` の位置ごとのミクロ燃焼の使い方。核分裂するテーブルは、燃焼度で引く使い方で `micro` を持つこと。使った
+/// テーブルの `micro` を `files` に集める
+fn node_uses<'a>(
+    layout: &Layout,
+    tables: &'a [Table],
+    files: &mut BTreeMap<usize, &'a Micro>,
+) -> Result<Vec<Option<NodeUse>>, CaseError> {
+    let fail = |m: String| Err(CaseError::Depletion(m));
+    let mut uses = vec![None; layout.node_material.len()];
+    // 位置 `site` のテーブルの使い方 `table` が核分裂するか。核分裂するなら、燃焼度で引く使い方で、テーブルが `micro` を持つこと
+    let mut fissile_use = |site: usize, table: usize| -> Result<bool, CaseError> {
+        let file = layout.tables[table].file;
+        if !fissile(&tables[file]) {
+            return Ok(false);
+        }
+        // 燃焼度で引かない使い方（反射体の位置など）は、補正も燃焼もしないので、核分裂のあるテーブルを置けない
+        if layout.tables[table].node.is_none() {
+            return Err(CaseError::Depletion(format!(
+                "site {site} uses the fissile table {} but is not a depleted node, so the micro depletion would \
+                 neither deplete nor correct it",
+                layout.files[file].display()
+            )));
+        }
+        let Some(micro) = &tables[file].micro else {
+            return Err(CaseError::Depletion(format!(
+                "{}: the table has no micro data for the micro depletion; make it with [history] micro \
+                 (ADR-0216)",
+                layout.files[file].display()
+            )));
         };
-        for (site, material) in layout.node_material.iter().enumerate() {
-            let Some(m) = *material else { continue };
-            uses[site] = match layout.materials.get(m) {
-                Some(material) => {
-                    fissile_use(site, material.table)?.then_some(NodeUse::Uniform(material.table))
+        files.insert(file, micro);
+        Ok(true)
+    };
+    for (site, material) in layout.node_material.iter().enumerate() {
+        let Some(m) = *material else { continue };
+        uses[site] = match layout.materials.get(m) {
+            Some(material) => {
+                fissile_use(site, material.table)?.then_some(NodeUse::Uniform(material.table))
+            }
+            None => {
+                // 部分挿入のノード: 区間のどれかが核分裂すれば、区間の微視的断面積を混ぜて燃焼させる（ADR-0217）。区間は同じ
+                // 層のテーブルで、初めの組成と公称の数密度は区間によらない
+                let index = m - layout.materials.len();
+                let segments = &layout.partial[index].segments;
+                if segments
+                    .iter()
+                    .any(|&(t, _)| layout.tables[t].file != layout.tables[segments[0].0].file)
+                {
+                    return fail(format!(
+                        "site {site}: the intervals of a partially rodded node use different tables"
+                    ));
                 }
-                None => {
-                    // 部分挿入のノード: 区間のどれかが核分裂すれば、区間の微視的断面積を混ぜて燃焼させる（ADR-0217）。区間は同じ
-                    // 層のテーブルで、初めの組成と公称の数密度は区間によらない
-                    let index = m - layout.materials.len();
-                    let segments = &layout.partial[index].segments;
-                    if segments
-                        .iter()
-                        .any(|&(t, _)| layout.tables[t].file != layout.tables[segments[0].0].file)
-                    {
-                        return fail(format!(
-                            "site {site}: the intervals of a partially rodded node use different tables"
-                        ));
-                    }
-                    let mut any = false;
-                    for &(table, _) in &layout.partial[index].segments {
-                        any |= fissile_use(site, table)?;
-                    }
-                    any.then_some(NodeUse::Partial(index))
+                let mut any = false;
+                for &(table, _) in &layout.partial[index].segments {
+                    any |= fissile_use(site, table)?;
                 }
-            };
+                any.then_some(NodeUse::Partial(index))
+            }
+        };
+    }
+    Ok(uses)
+}
+
+impl MicroNodes {
+    /// 状態ごとの並び `layouts`（並びを作らない状態は `None`）の核分裂のある位置をミクロ燃焼する。そのテーブルは `micro` を持ち、
+    /// 追う核種はどのテーブルも同じで、チェーンの反応と合うこと。組成は位置ごとに持つので、ミクロ燃焼する位置はどの状態でも同じこと
+    fn new(layouts: &[Option<Layout>], tables: &[Table], chain: &Chain) -> Result<Self, CaseError> {
+        let fail = |m: String| Err(CaseError::Depletion(m));
+        let mut files: BTreeMap<usize, &Micro> = BTreeMap::new();
+        let uses = layouts
+            .iter()
+            .map(|l| {
+                l.as_ref()
+                    .map_or(Ok(Vec::new()), |l| node_uses(l, tables, &mut files))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let sites =
+            |u: &[Option<NodeUse>]| -> Vec<bool> { u.iter().map(Option::is_some).collect() };
+        let mut laid = uses.iter().filter(|u| !u.is_empty());
+        if let Some(reference) = laid.next()
+            && laid.any(|u| sites(u) != sites(reference))
+        {
+            return fail("the states micro deplete different sites".into());
         }
         let Some((&first, micro)) = files.iter().next() else {
             return fail("no fissile node to micro deplete".into());
+        };
+        let files_of = layouts
+            .iter()
+            .flatten()
+            .next()
+            .map(|l| l.files.clone())
+            .unwrap_or_default();
+        let name = |file: usize| {
+            files_of
+                .get(file)
+                .map_or_else(|| format!("table {file}"), |p| p.display().to_string())
         };
         let names = &micro.nuclides;
         let mut built = None;
@@ -722,33 +925,33 @@ impl MicroNodes {
                 return fail(format!(
                     "{} tracks the micro nuclides {:?}, but {} tracks {names:?}; all tables must track the same \
                      nuclides (ADR-0216)",
-                    layout.files[file].display(),
+                    name(file),
                     micro.nuclides,
-                    layout.files[first].display()
+                    name(first)
                 ));
             }
             let reference = micro.states.first().ok_or_else(|| {
-                CaseError::Depletion(format!(
-                    "{}: the micro data have no states",
-                    layout.files[file].display()
-                ))
+                CaseError::Depletion(format!("{}: the micro data have no states", name(file)))
             })?;
-            let c = MicroChain::new(chain, names, reference).map_err(|e| {
-                CaseError::Depletion(format!("{}: {e}", layout.files[file].display()))
-            })?;
+            let c = MicroChain::new(chain, names, reference)
+                .map_err(|e| CaseError::Depletion(format!("{}: {e}", name(file))))?;
             built.get_or_insert(c);
         }
         let chain = built.ok_or_else(|| CaseError::Depletion("no micro table".into()))?;
         Ok(Self { chain, uses })
     }
 
-    /// 初めの組成: テーブルの燃焼度 0 の点の均質化した数密度（補助の核種は 0）
+    /// 初めの組成: テーブルの燃焼度 0 の点の均質化した数密度（補助の核種は 0）。状態 `k` の並びのテーブルで引く
     fn initial(
         &self,
-        layout: &Layout,
+        k: usize,
+        layouts: &[Option<Layout>],
         tables: &[Table],
     ) -> Result<Vec<Option<Vec<f64>>>, CaseError> {
-        self.uses
+        let layout = layouts[k]
+            .as_ref()
+            .ok_or_else(|| CaseError::Depletion("the first state is not laid out".into()))?;
+        self.uses[k]
             .iter()
             .map(|u| {
                 let Some(u) = u else { return Ok(None) };

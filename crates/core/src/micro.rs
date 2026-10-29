@@ -288,6 +288,11 @@ impl MicroChain {
         Ok(rates)
     }
 
+    /// 崩壊だけの燃焼行列（反応率 0。崩壊だけのステップ。ADR-0218）
+    pub fn decay_matrix(&self) -> Result<DepletionMatrix, String> {
+        DepletionMatrix::from_triplets(self.solved.len(), &self.decay).map_err(|e| e.to_string())
+    }
+
     /// 追う核種の反応率 `rates` の、解く核種の燃焼行列（`Chain::matrix_entries` と同じ項。解かない核種への生成物は落とし、
     /// 消滅は対角に残す）
     pub fn matrix(&self, rates: &[TrackedRates]) -> Result<DepletionMatrix, String> {

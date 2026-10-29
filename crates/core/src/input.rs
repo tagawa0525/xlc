@@ -83,18 +83,26 @@
 //! fine-mesh = 0.25     # 細かいメッシュの幅の上限 (cm)
 //! ```
 //!
-//! 燃焼（ADR-0190）のケースは `[depletion]` を持ち、名前つきの状態（`burnup` を書かないもの）をちょうど 1 つ持つ。その状態を
-//! すべてのステップに使い、ノードごとの燃焼度を 0 から進める。状態が `search` を持てば、点と中点の解のすべてで臨界ホウ素を
+//! 燃焼（ADR-0190）のケースは `[depletion]` を持ち、名前つきの状態（`burnup` を書かないもの）を 1 つ以上持つ。ステップは状態を
+//! 名前で指し（ADR-0218）、ノードごとの燃焼度を 0 から進める。状態が `search` を持てば、点と中点の解のすべてで臨界ホウ素を
 //! 探す（ADR-0191）。`radial-nodes` は 1 で、`pin-powers` と `axial-pin-powers` は書けない:
 //!
 //! ```toml
 //! [depletion]
 //! specific-power = 38.41                      # 定格の出力密度 (W/g、炉心の平均、初めの重金属)
-//! steps = [{ efpd = 9.0 }, { efpd = 32.0 }]   # ステップの終わりの累積の EFPD。0 より大きく増える
 //! history = "history.msgpack"                 # 燃焼の履歴の出力
 //! # ミクロ燃焼（ADR-0216。省略するとノードの燃焼度だけを進める）。格子計算の燃焼と同じチェーンで、追う核種と補助の核種を
 //! # ノードごとに解き、少数群定数に線形の補正を足す。核分裂のあるテーブルは `micro` を持つこと
 //! micro = { chain = "chain.msgpack" }
+//! # ステップ（ADR-0218）: efpd（ステップの終わりの累積の EFPD。それまでの efpd より大きい）か decay-days（崩壊だけのステップの
+//! # 日数。micro のあるケースだけ）のどちらか一方。power は efpd のステップの出力の割合（定格に対する比。省略すると 1。micro の
+//! # あるケースだけ）。state は状態の名前（省略すると前のステップと同じ。状態が 2 つ以上なら最初のステップに書く）
+//! steps = [
+//!   { efpd = 9.0, power = 0.657, state = "s2" },
+//!   { efpd = 32.0, power = 0.997, state = "s3" },
+//!   { decay-days = 18.0 },
+//!   { efpd = 50.0 },
+//! ]
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -734,7 +742,7 @@ pub struct Case {
 pub struct DepletionInput {
     /// 定格の出力密度 (W/g、炉心の平均、初めの重金属)
     pub specific_power: f64,
-    /// ステップ（0 より大きく増える累積の EFPD の順）
+    /// ステップ（`efpd` のステップの累積の EFPD は 0 より大きく増える。ADR-0218）
     pub steps: Vec<DepletionStep>,
     /// 燃焼の履歴を書くファイル
     pub history: PathBuf,
@@ -749,11 +757,21 @@ pub struct MicroInput {
     pub chain: PathBuf,
 }
 
-/// 燃焼のステップ。ステップの中の出力は定格で一定（ADR-0190）
+/// 燃焼のステップ。ステップの中の出力と状態は一定（ADR-0190、ADR-0218）
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DepletionStep {
-    /// ステップの終わりの累積の EFPD
-    pub efpd: f64,
+    pub kind: StepKind,
+    /// ステップの状態（`Case::states` の番号）
+    pub state: usize,
+}
+
+/// ステップの長さと出力（ADR-0218）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StepKind {
+    /// 出力のあるステップ: 終わりの累積の EFPD と、出力の割合（定格に対する比）
+    Power { efpd: f64, power: f64 },
+    /// 崩壊だけのステップ: 日数
+    Decay { days: f64 },
 }
 
 #[derive(Deserialize)]
@@ -772,37 +790,109 @@ struct MicroEntry {
     chain: PathBuf,
 }
 
-/// 項目は、効くようになるときに足す（出力の割合、入口の温度など。ADR-0190）
+/// 項目は、効くようになるときに足す（入口の温度など。ADR-0218）
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct StepEntry {
-    efpd: f64,
+    efpd: Option<f64>,
+    power: Option<f64>,
+    decay_days: Option<f64>,
+    state: Option<String>,
 }
 
 impl DepletionInput {
-    fn new(entry: DepletionEntry, base: &Path) -> Result<Self, InputError> {
+    /// `states` はケースの名前つきの状態（名前の順）
+    fn new(entry: DepletionEntry, base: &Path, states: &[CaseState]) -> Result<Self, InputError> {
         let p = entry.specific_power;
         if !(p > 0.0 && p.is_finite()) {
             return invalid(format!(
                 "depletion: specific-power must be positive, got {p}"
             ));
         }
-        let efpd: Vec<f64> = entry.steps.iter().map(|s| s.efpd).collect();
-        if efpd.is_empty()
-            || !efpd.iter().all(|e| e.is_finite())
-            || efpd[0] <= 0.0
-            || !efpd.windows(2).all(|w| w[0] < w[1])
+        if entry.steps.is_empty() {
+            return invalid("depletion: give at least one step");
+        }
+        let micro = entry.micro.is_some();
+        let mut steps = Vec::with_capacity(entry.steps.len());
+        let mut efpd = 0.0;
+        let mut state = None;
+        for (i, s) in entry.steps.into_iter().enumerate() {
+            let what = |m: String| invalid(format!("depletion: step {}: {m}", i + 1));
+            let kind = match (s.efpd, s.decay_days) {
+                (Some(e), None) => {
+                    if !(e.is_finite() && e > efpd) {
+                        return what(format!(
+                            "efpd must be finite and beyond the {efpd} EFPD of the steps before, got {e}"
+                        ));
+                    }
+                    let power = match s.power {
+                        // 出力の割合は、ミクロ燃焼の時間と反応率にだけ効く（燃焼度の増分は EFPD だけで決まり、熱水力のフィードバックは
+                        // ない。ADR-0218）
+                        Some(_) if !micro => {
+                            return what(
+                                "power has no effect without micro depletion (ADR-0218)".into(),
+                            );
+                        }
+                        Some(f) if !(f > 0.0 && f.is_finite()) => {
+                            return what(format!("power must be positive, got {f}"));
+                        }
+                        Some(f) => f,
+                        None => 1.0,
+                    };
+                    efpd = e;
+                    StepKind::Power { efpd: e, power }
+                }
+                (None, Some(d)) => {
+                    if !micro {
+                        return what(
+                            "a decay step needs micro depletion; without it no composition decays (ADR-0218)"
+                                .into(),
+                        );
+                    }
+                    if s.power.is_some() {
+                        return what("a decay step takes no power".into());
+                    }
+                    if !(d > 0.0 && d.is_finite()) {
+                        return what(format!("decay-days must be positive, got {d}"));
+                    }
+                    StepKind::Decay { days: d }
+                }
+                _ => return what("give efpd or decay-days, not both or neither".into()),
+            };
+            // 省けば前のステップと同じ。状態が 1 つなら、最初のステップも省ける
+            let k = match (s.state, state) {
+                (Some(name), _) => match states.iter().position(|c| c.name == name) {
+                    Some(k) => k,
+                    None => return what(format!("no state {name}")),
+                },
+                (None, Some(k)) => k,
+                (None, None) if states.len() == 1 => 0,
+                (None, None) => {
+                    return what(format!(
+                        "name the state of the first step; the case has {} states",
+                        states.len()
+                    ));
+                }
+            };
+            state = Some(k);
+            steps.push(DepletionStep { kind, state: k });
+        }
+        if !steps
+            .iter()
+            .any(|s| matches!(s.kind, StepKind::Power { .. }))
         {
-            return invalid(format!(
-                "depletion: the step efpd must increase from above 0, got {efpd:?}"
-            ));
+            return invalid("depletion: give at least one efpd step");
+        }
+        if let Some(unused) = states
+            .iter()
+            .enumerate()
+            .find(|&(k, _)| !steps.iter().any(|s| s.state == k))
+        {
+            return invalid(format!("depletion: no step uses state {}", unused.1.name));
         }
         Ok(Self {
             specific_power: p,
-            steps: efpd
-                .into_iter()
-                .map(|efpd| DepletionStep { efpd })
-                .collect(),
+            steps,
             history: normalized(&base.join(entry.history)),
             micro: entry.micro.map(|m| MicroInput {
                 chain: normalized(&base.join(m.chain)),
@@ -817,13 +907,7 @@ impl DepletionInput {
         pin_powers: bool,
         radial_nodes: usize,
     ) -> Result<(), InputError> {
-        let [state] = states else {
-            return invalid(format!(
-                "depletion needs exactly one state, got {}",
-                states.len()
-            ));
-        };
-        if state.burnup.is_some() {
+        if let Some(state) = states.iter().find(|s| s.burnup.is_some()) {
             return invalid(format!(
                 "state {}: give no burnup; the depletion advances the node burnups (ADR-0190)",
                 state.name
@@ -1035,7 +1119,10 @@ impl Case {
         }
         let depletion = match file.depletion {
             Some(entry) => {
-                let d = DepletionInput::new(entry, base)?;
+                if states.is_empty() {
+                    return invalid("depletion needs a named state ([state.<name>])");
+                }
+                let d = DepletionInput::new(entry, base, &states)?;
                 d.check(
                     &states,
                     file.pin_powers.is_some() || file.axial_pin_powers.is_some(),

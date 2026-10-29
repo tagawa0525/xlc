@@ -103,11 +103,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .collect::<anyhow::Result<Vec<_>>>()?;
     let options = Options::default();
     if let Some(depletion) = &case.depletion {
-        // ケースの読み込みで、状態がちょうど 1 つであることを確かめてある
-        let state = case
-            .states
-            .first()
-            .ok_or_else(|| anyhow!("depletion needs one state"))?;
         // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k とホウ素濃度は状態の出力と同じ桁で
         // ミクロ燃焼のチェーン（ADR-0216）
         let chain = depletion
@@ -121,7 +116,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let history = deplete(
             &layout,
             &tables,
-            state,
+            &case.states,
             depletion,
             chain.as_ref(),
             &options,
