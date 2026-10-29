@@ -5161,7 +5161,7 @@ docs/plans/m4-depletion.md の「進め方」7）。
 - 炉心（`branches/core-small-plant.toml`、`core-small-assemblies.toml`、`core-small-cycle.toml`）: 2A の集合体 4 × 4 の 1/4（2 × 2。左と下は鏡面
   反射）と、燃料の右と上の I 型の反射体。高さは 365.76 cm で、軸方向に 22.86 cm のノード 16（軸方向の反射体はなく、上下の面は Marshak）。
   集合体はどれも 2A の集合体 1 体（反射境界）の制御棒の軸を持つミクロ燃焼のテーブルを使う（反射体に面する集合体にも。ADR-0153 の形に
-  しない）。バンク D は 1/4 の中心側の集合体（全炉心の中央の 4 体）に入る。30〜46 cm のノードは部分挿入のノードが解けない状態がある（#0199）
+  しない）。バンク D は 1/4 の中心側の集合体（全炉心の中央の 4 体）に入る。軸方向のノードの高さが 30〜46 cm（8、12 ノード）だと、部分挿入のノードが解けない状態がある（#0199）
 - テーブル: 2A のミクロ燃焼のテーブル（「部分挿入のノードのミクロ燃焼（2A の集合体 1 体）」と同じ燃焼度の点、格子、追う核種）を、
   臨界ホウ素の探索が囲い込めるようにホウ素 0、300、600、1000、1300 ppm × 燃料 565 K で作り直したもの（`branches/branch-2A-micro-boron.toml`、
   `branch-2A-micro-boron-rods.toml` を ../core/rod_table.py でまとめる）と、VERA Problem 5 の I 型の反射体の格子を同じライブラリと状態で解いた
@@ -5204,7 +5204,7 @@ python3 examples/depletion/compare_core_steps.py --report $B/compare-core-small-
 
 ブランチ feat/small-core-depletion（分岐点は main の 4549c690）、2026-10-29。テーブルは 4549c690 の `bin/lattice`（main の `dvc.lock` の `build` の出力）で、
 入力は ec7170cf（Slurm 598、割り込まれうるジョブなので時間は記録に使わない）。md5 は棒のない組 eb7e54cc、制御棒の組 b56558cb、まとめたもの 283e440b、
-反射体 1c35212f。core の 8 つの燃焼は 3d0234d6 の入力と `target/release/core`（a10b37e2 から core のコードは同じ）で手元、比較は 3ac4ee09。core の履歴の md5 は
+反射体 1c35212f。core の 8 つの燃焼は 3d0234d6 の入力と `target/release/core`（a10b37e2 から core のコードは同じ）で手元、比較は 2b461d79。core の履歴の md5 は
 分割 1、2、4、8、16 の順に、探索 7af3c68e、7fcbe30e、4957d915、9610a457、ecb944a9、案 S1 88ea3183、b6aa10eb、354876b1。
 
 ### 結果

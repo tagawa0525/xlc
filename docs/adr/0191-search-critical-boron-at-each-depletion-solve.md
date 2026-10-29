@@ -165,7 +165,7 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
   ホウ素の軸を 0〜1300 ppm に広げたテーブルで 9 MWd/kg まで 16 ステップ（目標の k 1.19）。17 点の |k − 目標| は最大 6.35e-07 で許容
   1e-6 の中、ホウ素は 1236.6 ppm から 108.5 ppm まで単調に下がり、17 点とも同じ燃焼度の一様な状態の探索とホウ素（4 桁）、回数、
   k（8 桁）が一致した。固有値計算は点の探索で 5〜6 回、中点で 6 回、ケース全体で 197 回（ホウ素を与えると 33 回）
-- 小さな炉心（examples/depletion/verification.md の「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」、比較は 3ac4ee09、2026-10-29。2A の
+- 小さな炉心（examples/depletion/verification.md の「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」、比較は 2b461d79、2026-10-29。2A の
   4 × 4 の 1/4 と反射体、軸方向に 16 ノード、バンク D の出し入れ、出力の割合 0.7、18 日の停止を含む 7.5 MWd/kg までのサイクルで、ステップを 1、2、4 個に
   分けた）: 案 S1 は `[depletion] midpoint-boron = "start"` で選ぶ（crates/core/src/input/tests.rs の
   `depletion_midpoints_may_take_the_boron_of_the_step_start`。探索の状態の出力のステップがなければエラー。`midpoints_at_the_starting_boron_fall_to_first_order` は、
