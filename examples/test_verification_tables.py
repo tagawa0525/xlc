@@ -1525,7 +1525,7 @@ class DrawCoreCycle(unittest.TestCase):
     def test_rows_show_the_step_the_burnup_check_and_the_reference_differences(self):
         table = vt.core_cycle_points([self.summary()])
         lines = table.splitlines()
-        self.assertIn("k − rated (pcm)", lines[0])
+        self.assertIn("Δρ（rated から） (pcm)", lines[0])
         self.assertIn("Xe-135 (1/(barn cm))", lines[0])
         # 燃焼点 0 は出力の割合なし、崩壊だけのステップは 0 で参照なし
         self.assertIn("| –", lines[2])
