@@ -315,6 +315,13 @@ pub fn deplete(
             layout.files.len()
         ));
     }
+    if states.is_empty() || depletion.steps.is_empty() {
+        return fail(format!(
+            "the depletion needs a state and a step, got {} states and {} steps",
+            states.len(),
+            depletion.steps.len()
+        ));
+    }
     if let Some(step) = depletion.steps.iter().find(|s| s.state >= states.len()) {
         return fail(format!(
             "a step uses state {} of {} states",
