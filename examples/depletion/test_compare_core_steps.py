@@ -113,6 +113,15 @@ class Steps(unittest.TestCase):
         s = summarize(search_runs(error=0.0))
         self.assertIsNone(s["steps"]["search"][1]["ratios"][0]["boron"])
 
+    def test_start_minus_search_at_the_splits_of_both(self):
+        runs = search_runs(splits=(1, 2, 4, 8))
+        runs.update({("start", sp): core(sp, "start") for sp in (1, 2)})
+        s = summarize(runs)
+        self.assertEqual(s["splits"], {"search": [1, 2, 4, 8], "start": [1, 2]})
+        self.assertEqual(sorted(s["midpoint"]), ["1", "2"])
+        self.assertEqual(len(s["steps"]["search"][1]["ratios"]), 2)
+        self.assertEqual(s["steps"]["start"][1]["ratios"], [])
+
     def test_start_minus_search_at_each_split(self):
         runs = search_runs()
         runs.update({("start", sp): core(sp, "start", error=3.0) for sp in (1, 2, 4)})
@@ -162,9 +171,9 @@ class Errors(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_core_steps.summarize(runs, logs)
 
-    def test_search_and_start_need_the_same_splits(self):
+    def test_start_needs_the_base_split(self):
         runs = search_runs()
-        runs[("start", 1)] = core(1, "start")
+        runs[("start", 2)] = core(2, "start")
         with self.assertRaises(SystemExit):
             summarize(runs)
 
