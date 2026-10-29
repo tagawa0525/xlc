@@ -11,7 +11,7 @@
     EFPD と日数が相対 1e-12 で同じであること（違えば止める）。点ごとに、k と切らない燃焼の k、反応度の差
     Δρ = (1/k_切らない − 1/k) × 1e5 pcm、ホウ素の差（後の半分 − 切らない）、ノードの燃焼度の差の絶対値の最大、追う核種の数密度の差の
     絶対値の最大（核種ごとの、切らない燃焼のその点の炉心の最大の数密度に対する比。下限は炉心のすべての核種の最大の数密度の 1e-12 倍）。
-    最後の点の補助の核種の数密度の差も同じ比で（下限は追う核種と補助の核種の最大の 1e-12 倍）。前の半分の点と切らない燃焼の初めの点の
+    最後の点の補助の核種の数密度の差も同じ比で（下限は追う核種と補助の核種の最大の 1e-12 倍。差の最大の核種とその核種の炉心の最大の数密度も）。前の半分の点と切らない燃焼の初めの点の
     k の差の絶対値の最大も書く（同じ計算なので 0 の見込み）
   - 装荷替え（`reload`）: 切らない燃焼を前のサイクルとして、装荷替えの燃焼の燃焼点 0 の、前のサイクルの履歴にある集合体（引き継いだ集合体）の
     ノードの燃焼度と数密度が前のサイクルの最後の点のその集合体と同じで、前のサイクルにない集合体（新しい集合体）のノードの燃焼度が 0 である
@@ -72,8 +72,15 @@ def largest_density(*densities) -> float:
 
 
 def relative_density_differences(what: str, got, want, scale: float) -> float:
+    return largest_density_difference(what, got, want, scale)[0]
+
+
+def largest_density_difference(
+    what: str, got, want, scale: float
+) -> tuple[float, int | None, float]:
     """ノードの数密度 [集合体][軸方向のノード][核種] の差の絶対値の最大。核種ごとに、`want` の炉心の最大の数密度と、`scale`（炉心の最大の
-    数密度）の `CRAM_ERROR` 倍の大きい方に対する比。どちらかが数密度を持たないか、形が違えば止める（比べずに差 0 と書かない）"""
+    数密度）の `CRAM_ERROR` 倍の大きい方に対する比。どちらかが数密度を持たないか、形が違えば止める（比べずに差 0 と書かない）。比、その
+    核種の番号（比べるノードがなければ `None`）、その核種の `want` の炉心の最大の数密度を返す"""
     if got is None or want is None:
         raise SystemExit(f"{what}: the densities are missing")
     shape = lambda d: [[len(n) for n in a] for a in d]
@@ -81,18 +88,19 @@ def relative_density_differences(what: str, got, want, scale: float) -> float:
         raise SystemExit(f"{what}: the densities differ in shape")
     nodes = [(g, w) for ga, wa in zip(got, want) for g, w in zip(ga, wa) if w]
     if not nodes:
-        return 0.0
+        return 0.0, None, 0.0
     count = len(nodes[0][1])
     floor = CRAM_ERROR * scale
-    largest = [max(floor, *(abs(w[i]) for _, w in nodes)) for i in range(count)]
-    return max(
-        (
-            abs(g[i] - w[i]) / (largest[i] or 1.0)
-            for g, w in nodes
-            for i in range(count)
-        ),
-        default=0.0,
+    peak = [max(abs(w[i]) for _, w in nodes) for i in range(count)]
+    largest = [max(floor, p) for p in peak]
+    if not count:
+        return 0.0, None, 0.0
+    ratio, i = max(
+        (abs(g[i] - w[i]) / (largest[i] or 1.0), i)
+        for g, w in nodes
+        for i in range(count)
     )
+    return ratio, i, peak[i]
 
 
 def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
@@ -145,6 +153,15 @@ def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
                 ),
             }
         )
+    auxiliary = largest_density_difference(
+        f"{name} auxiliary",
+        second.get("auxiliary_densities"),
+        full.get("auxiliary_densities"),
+        largest_density(
+            full["points"][-1].get("densities") or [],
+            full.get("auxiliary_densities") or [],
+        ),
+    )
     return {
         "name": name,
         "cut": {"efpd": cut["efpd"], "days": cut["days"]},
@@ -152,15 +169,10 @@ def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
             abs(a["k"] - b["k"]) for a, b in zip(first["points"], full["points"])
         ),
         "points": points,
-        "auxiliary_max_relative": relative_density_differences(
-            f"{name} auxiliary",
-            second.get("auxiliary_densities"),
-            full.get("auxiliary_densities"),
-            largest_density(
-                full["points"][-1].get("densities") or [],
-                full.get("auxiliary_densities") or [],
-            ),
-        ),
+        "auxiliary_max_relative": auxiliary[0],
+        "auxiliary_max_nuclide": None
+        if auxiliary[1] is None
+        else {"name": full["auxiliary"][auxiliary[1]], "largest": auxiliary[2]},
     }
 
 
@@ -245,12 +257,14 @@ def report(summary: dict) -> list[str]:
         points = cut["points"]
         rho = [abs(p["rho_pcm"]) for p in points]
         boron = [abs(p["boron_diff"]) for p in points]
+        n = cut["auxiliary_max_nuclide"]
+        aux = "" if n is None else f"（{n['name']}、炉心の最大 {n['largest']:.3e}）"
         lines.append(
             f"切る点 {cut['name']}（{cut['cut']['efpd']:.4f} EFPD、{cut['cut']['days']:.4f} 日）: 後の半分の点 {len(points)}、"
             f"|Δρ| の最大 {max(rho):.3e} pcm、|ホウ素の差| の最大 {max(boron):.3e} ppm、"
             f"ノードの燃焼度の差の最大 {max(p['burnup_max_diff'] for p in points):.3e} MWd/kg、"
             f"追う核種の数密度の差の最大 {max(p['density_max_relative'] for p in points):.3e}、"
-            f"最後の点の補助の核種 {cut['auxiliary_max_relative']:.3e}、前の半分の k の差の最大 {cut['first_k_max_diff']:.3e}"
+            f"最後の点の補助の核種 {cut['auxiliary_max_relative']:.3e}{aux}、前の半分の k の差の最大 {cut['first_k_max_diff']:.3e}"
         )
         for p in points:
             lines.append(
