@@ -23,7 +23,7 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 ## 計算は Slurm で、時間は `--timed` の排他のジョブのものだけ
 
 数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md が示す
-`--timed -t <見積もり> <名前> '<コマンド>'` の形で、割り込まれない排他で流す（`--timed` を付けないジョブは main で、timed のジョブに止められうる）。CLAUDE.md は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
+`--class <区分> --ref '<参照>' --purpose '<目的>' --timed -t <見積もり> <名前> '<コマンド>'` の形（時間を測る計算の区分は timed、記録に載せる本番は record）で、割り込まれない排他で流す（`--timed` を付けないジョブは main で、timed のジョブに止められうる）。CLAUDE.md は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
 
 - 記録に書く時間は、`--timed` の排他のジョブの `TIME:` 行の `elapsed`、または OpenMC が statepoint に書く計算時間（total。既存の
   「参照解」はこちら）
@@ -35,7 +35,7 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 - 格子計算の燃焼と分岐（`[depletion]`、`[branches]`、`[history]`）は、点と状態を解くたびに入力の拡張子を `.checkpoint` にしたファイル（`lattice-2A.toml` なら
   `lattice-2A.checkpoint`）を書く。取り消したジョブや止まったジョブは、同じコマンドで投げ直せば続きから解く（一気に流した結果とビットで同じになるよう作ってある。2A の燃焼で確かめたのは MOC の解を
   持たせる前のコードで、分岐は単体テストだけ。ADR-0196。急ぐ計算を
-  前に出すのは `scancel` でなく slurm-run の `--timed`）。再開したジョブの `elapsed` は一部の時間なので記録に書かない。履歴の
+  前に出すのは `scancel` でなく slurm-run の `--top`（同じ区分の中）か、数分の計算の `--timed`）。再開したジョブの `elapsed` は一部の時間なので記録に書かない。履歴の
   `seconds` は前後の実行の和。始めから測るときはチェックポイントを消す
 
 ## 結果を記録に書く（ツールで。ADR-0176）
