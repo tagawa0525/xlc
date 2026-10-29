@@ -36,12 +36,14 @@ def inputs():
     core = {
         "format": "xlc-core-history",
         "specific_power": 40.0,
-        "state": {
-            "boron": 1300.0,
-            "b10": 0.199,
-            "moderator": 565.0,
-            "fuel": 565.0,
-            "banks": {},
+        "states": {
+            "nominal": {
+                "boron": 1300.0,
+                "b10": 0.199,
+                "moderator": 565.0,
+                "fuel": 565.0,
+                "banks": {},
+            }
         },
         "axial_mesh": [0.0, 21.5],
         "assemblies": ["A01"],
@@ -115,21 +117,21 @@ class Summary(unittest.TestCase):
         table["states"] = [{"k_inf": k} for k in [1.3, 1.2 + 2e-8, 1.1 - 1e-8]]
         p = compare_core_depletion.summarize(lattice, table, core)["points"]
         self.assertEqual([q["branch_k"] for q in p], [1.2 + 2e-8, None, 1.1 - 1e-8])
-        core["state"]["boron"] = 1000.0
+        core["states"]["nominal"]["boron"] = 1000.0
         with self.assertRaises(SystemExit):
             compare_core_depletion.summarize(lattice, table, core)
 
     def test_a_state_off_the_table_points_is_an_error(self):
         lattice, table, core = inputs()
-        core["state"]["boron"] = 1200.0
+        core["states"]["nominal"]["boron"] = 1200.0
         with self.assertRaises(SystemExit):
             compare_core_depletion.summarize(lattice, table, core)
 
     def test_histories_that_search_the_boron_are_errors(self):
         # 探索した履歴は点ごとにホウ素が違い、状態の 1 つのホウ素でテーブルを引けない（compare_core_boron.py で比べる）
         lattice, table, core = inputs()
-        del core["state"]["boron"]
-        core["state"]["search"] = {
+        del core["states"]["nominal"]["boron"]
+        core["states"]["nominal"]["search"] = {
             "boron": [0.0, 1300.0],
             "k": 1.0,
             "tolerance": 1e-6,
@@ -140,7 +142,7 @@ class Summary(unittest.TestCase):
 
     def test_states_without_a_boron_or_a_search_are_errors(self):
         lattice, table, core = inputs()
-        del core["state"]["boron"]
+        del core["states"]["nominal"]["boron"]
         with self.assertRaisesRegex(SystemExit, "neither"):
             compare_core_depletion.summarize(lattice, table, core)
 

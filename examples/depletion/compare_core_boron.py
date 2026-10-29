@@ -22,6 +22,7 @@ from pathlib import Path
 
 import msgpack
 import tomllib
+from core_history import single_state
 
 # core の状態の出力（crates/core/src/main.rs）の、探索した状態のホウ素濃度と k の行
 BORON_LINE = re.compile(r"boron (\S+) ppm \(searched in (\d+) solves\)")
@@ -61,7 +62,7 @@ def summarize(core: dict, case_text: str, out: str) -> dict:
         raise SystemExit(f"unexpected format {core.get('format')}")
     if len(core["assemblies"]) != 1 or len(core["axial_mesh"]) != 2:
         raise SystemExit("the core must be one assembly of one axial node")
-    state = core["state"]
+    state = single_state(core)
     search = state.get("search")
     if search is None or "boron" in state:
         raise SystemExit("the history state must search the boron")

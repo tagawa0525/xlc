@@ -18,12 +18,14 @@ def history() -> dict:
     return {
         "format": "xlc-core-history",
         "specific_power": 38.41,
-        "state": {
-            "search": dict(SEARCH),
-            "b10": 0.199,
-            "moderator": 565.0,
-            "fuel": 565.0,
-            "banks": {},
+        "states": {
+            "nominal": {
+                "search": dict(SEARCH),
+                "b10": 0.199,
+                "moderator": 565.0,
+                "fuel": 565.0,
+                "banks": {},
+            }
         },
         "axial_mesh": [0.0, 21.5],
         "assemblies": ["A01"],
@@ -143,7 +145,7 @@ class Summary(unittest.TestCase):
 
     def test_the_uniform_states_must_have_the_history_banks(self):
         core = history()
-        core["state"]["banks"] = {"D": 167}
+        core["states"]["nominal"]["banks"] = {"D": 167}
         with self.assertRaises(SystemExit):
             summarize(core)
 
@@ -162,8 +164,8 @@ class Summary(unittest.TestCase):
 
     def test_the_history_must_search_on_one_node(self):
         core = history()
-        del core["state"]["search"]
-        core["state"]["boron"] = 1300.0
+        del core["states"]["nominal"]["search"]
+        core["states"]["nominal"]["boron"] = 1300.0
         with self.assertRaises(SystemExit):
             summarize(core)
         core = history()

@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+from core_history import single_state
 
 # core の燃焼度と履歴とテーブルの燃焼点の一致の許容（core は出力密度 × EFPD で、履歴は燃焼度の点から時間を求めて燃焼させる）
 BURNUP_TOLERANCE = 1e-9
@@ -56,7 +57,7 @@ def summarize(lattice: dict, table: dict, micro: dict, plain: dict) -> dict:
             "give the micro-depleted core history first and the one without micro depletion second"
         )
     if (
-        micro["state"] != plain["state"]
+        single_state(micro) != single_state(plain)
         or micro["specific_power"] != plain["specific_power"]
     ):
         raise SystemExit("the two core histories differ in their state or power")

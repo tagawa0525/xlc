@@ -172,7 +172,7 @@ fn run(case: &str, cycle: &str) -> Result<CoreHistory, CaseError> {
     deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &tight(),
@@ -226,8 +226,9 @@ fn uniform_cores_burn_at_the_specific_power() {
     assert_eq!(history.axial_mesh, [0.0, 10.0, 20.0]);
     assert_eq!(history.specific_power, 40.0);
     // 解いた状態（比べるツールがテーブルの同じ状態を引く）
+    assert_eq!(history.states.len(), 1);
     assert_eq!(
-        history.state,
+        history.states["hfp"],
         CoreState {
             boron: Some(1200.0),
             search: None,
@@ -327,7 +328,7 @@ fn fissile_tables_without_heavy_metal_cannot_deplete() {
     let error = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &Options::default(),
@@ -396,7 +397,7 @@ fn reflector_sites_take_no_burnup() {
     let history = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &tight(),
@@ -517,7 +518,7 @@ fn core_average_burnups_do_not_drift_over_many_steps() {
     let history = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &Options::default(),
@@ -543,7 +544,7 @@ fn points_are_reported_as_they_are_solved() {
     let result = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &tight(),
@@ -557,7 +558,7 @@ fn points_are_reported_as_they_are_solved() {
     let history = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &tight(),
@@ -602,9 +603,10 @@ fn searched_points_are_critical_and_record_their_boron() {
     );
     let history = run(&case, MIXED).unwrap();
     // 履歴の状態は探索の設定を持ち、与えた濃度を持たない
-    assert_eq!(history.state.boron, None);
+    let state = &history.states["hfp"];
+    assert_eq!(state.boron, None);
     assert_eq!(
-        history.state.search,
+        state.search,
         Some(BoronSearch {
             bracket: [1000.0, 1500.0],
             k: 1.0,
@@ -640,7 +642,7 @@ fn searched_points_match_the_state_search_at_the_same_uniform_burnup() {
     let history = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &tight(),
@@ -683,7 +685,7 @@ fn searched_midpoints_keep_second_order() {
         let history = deplete(
             &layout,
             &tables,
-            &case.states[0],
+            &case.states,
             case.depletion.as_ref().unwrap(),
             None,
             &tight(),
@@ -707,7 +709,7 @@ fn searches_that_do_not_bracket_stop_at_the_step() {
     let error = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &tight(),
@@ -731,7 +733,7 @@ fn search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving()
     let error = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         None,
         &Options::default(),
@@ -756,32 +758,38 @@ fn history_states_hold_either_the_boron_or_the_search() {
         assert_eq!(&CoreHistory::from_msgpack(&bytes).unwrap(), history);
     }
     // 両方を持つ状態、どちらもない状態は読めない
-    let both = CoreHistory {
-        state: CoreState {
-            boron: Some(1200.0),
-            ..searched.state.clone()
-        },
-        ..searched.clone()
+    let with_state = |history: &CoreHistory, state: CoreState| CoreHistory {
+        states: [("hfp".to_string(), state)].into(),
+        ..history.clone()
     };
+    let both = with_state(
+        &searched,
+        CoreState {
+            boron: Some(1200.0),
+            ..searched.states["hfp"].clone()
+        },
+    );
     assert!(CoreHistory::from_msgpack(&both.to_msgpack().unwrap()).is_err());
-    let neither = CoreHistory {
-        state: CoreState {
+    let neither = with_state(
+        &given,
+        CoreState {
             boron: None,
             search: None,
-            ..given.state.clone()
+            ..given.states["hfp"].clone()
         },
-        ..given
-    };
+    );
     assert!(CoreHistory::from_msgpack(&neither.to_msgpack().unwrap()).is_err());
     // 探索の設定は入力と同じ検査を通る（範囲の下端 < 上端、正の目標と許容、両端と間の 1 点を解ける回数）
-    let bad = |search: BoronSearch| CoreHistory {
-        state: CoreState {
-            search: Some(search),
-            ..searched.state.clone()
-        },
-        ..searched.clone()
+    let bad = |search: BoronSearch| {
+        with_state(
+            &searched,
+            CoreState {
+                search: Some(search),
+                ..searched.states["hfp"].clone()
+            },
+        )
     };
-    let good = searched.state.search.unwrap();
+    let good = searched.states["hfp"].search.unwrap();
     for search in [
         BoronSearch {
             bracket: [1500.0, 1000.0],
@@ -858,7 +866,7 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
         let history = deplete(
             &layout,
             &tables,
-            state,
+            &case.states,
             case.depletion.as_ref().unwrap(),
             None,
             &options,
@@ -1014,7 +1022,7 @@ fn micro_run(cycle: &str, nuclides: [&[&str]; 2]) -> Result<CoreHistory, CaseErr
     deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
         &tight(),
@@ -1080,7 +1088,7 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
     let error = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         depletion,
         Some(&small_chain()),
         &tight(),
@@ -1097,7 +1105,7 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
         deplete(
             &layout,
             &micro_tables,
-            &case.states[0],
+            &case.states,
             depletion,
             None,
             &tight(),
@@ -1110,7 +1118,7 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
         deplete(
             &layout,
             &micro_tables,
-            &plain.states[0],
+            &plain.states,
             plain.depletion.as_ref().unwrap(),
             Some(&small_chain()),
             &tight(),
@@ -1143,7 +1151,7 @@ fn micro_corrector_rates_take_the_cross_sections_at_the_midpoint_burnup() {
     let history = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
         &tight(),
@@ -1246,7 +1254,7 @@ fn fissile_tables_off_the_depleted_nodes_are_errors() {
     let error = deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         micro_case(CASE).depletion.as_ref().unwrap(),
         Some(&small_chain()),
         &tight(),
@@ -1374,7 +1382,7 @@ fn rodded_micro_run_with(case: &str, step: u32) -> CoreHistory {
     deplete(
         &layout,
         &tables,
-        &case.states[0],
+        &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
         &tight(),
@@ -1442,4 +1450,411 @@ fn partial_node_micro_depletion_is_monotonic_in_the_insertion() {
         .map(|s| rodded_micro_run(s).points.last().unwrap().k)
         .collect();
     assert!(ks.windows(2).all(|w| w[1] < w[0]), "{ks:?}");
+}
+
+// サイクルのステップ（ADR-0218）: 出力の割合、崩壊だけのステップ、ステップごとの状態
+
+use xlc_depletion::chain::{Decay, DecayEnergy, DecayMode};
+
+/// I-135 と Xe-135 の半減期 (s)
+const I135_HALF_LIFE: f64 = 6.57 * 3600.0;
+const XE135_HALF_LIFE: f64 = 9.14 * 3600.0;
+/// U-235 の核分裂あたりの I-135 と Xe-135 の独立収率
+const YIELD_I135: f64 = 0.06;
+const YIELD_XE135: f64 = 0.003;
+/// Xe-135 の捕獲 / U-235 の核分裂の微視的断面積の比（群ごとに同じなので、Xe-135 の 1 原子あたりの捕獲率は U-235 の核分裂率の
+/// この倍で、中性子束の形によらない）
+const XE_TO_FISSION: f64 = 1.0e4;
+
+/// 半減期 `half_life` (s) の β- 崩壊で `product` になる
+fn beta_to(half_life: f64, product: usize) -> Decay {
+    Decay {
+        half_life,
+        energy: DecayEnergy {
+            light: 0.0,
+            electromagnetic: 0.0,
+            heavy: 0.0,
+        },
+        modes: vec![DecayMode {
+            mode: "beta-".into(),
+            ratio: 1.0,
+            products: vec![Product {
+                nuclide: product,
+                count: 1,
+            }],
+        }],
+    }
+}
+
+/// `small_chain` の核種に、I-135（β- で Xe-135）、Xe-135（捕獲で Xe-136、β- で Cs-135）、Xe-136、Cs-135 を足し、U-235 の核分裂の
+/// 収率に I-135 と Xe-135 を足したチェーン（核種は (Z, A) の順）
+fn xenon_chain() -> Chain {
+    let mut nuclides = vec![
+        chain_nuclide("I-135", 53, 135),
+        chain_nuclide("Xe-135", 54, 135),
+        chain_nuclide("Xe-136", 54, 136),
+        chain_nuclide("Cs-135", 55, 135),
+        chain_nuclide("Ba-140", 56, 140),
+        chain_nuclide("U-235", 92, 235),
+        chain_nuclide("U-236", 92, 236),
+        chain_nuclide("U-237", 92, 237),
+    ];
+    nuclides[0].decay = Some(beta_to(I135_HALF_LIFE, 1));
+    nuclides[1].decay = Some(beta_to(XE135_HALF_LIFE, 3));
+    nuclides[1].reactions = vec![capture_to(2)];
+    nuclides[5].reactions = vec![capture_to(6)];
+    nuclides[6].reactions = vec![capture_to(7)];
+    let yields = vec![
+        Yield {
+            nuclide: 0,
+            value: YIELD_I135,
+        },
+        Yield {
+            nuclide: 1,
+            value: YIELD_XE135,
+        },
+        Yield {
+            nuclide: 4,
+            value: 0.06,
+        },
+    ];
+    nuclides[5].fission = Some(Fission {
+        q: Q,
+        yield_source: "U-235".into(),
+        energies: vec![0.0253, 5.0e5],
+        yields: vec![yields.clone(), yields],
+    });
+    let chain = Chain { nuclides };
+    chain.check().unwrap();
+    chain
+}
+
+/// U-235 の核分裂の微視的断面積（`with_micro` と同じ）
+const U235_FISSION: [f64; 2] = [1.0, 50.0];
+
+/// テーブルに、U-235、U-236（`with_micro` と同じ）、I-135（反応なし）、Xe-135（捕獲は U-235 の核分裂の `XE_TO_FISSION` 倍）の
+/// 状態によらない微視的断面積と、燃焼度の点ごとの数密度（I-135 と Xe-135 は 0）を足す
+fn with_xenon(table: Table) -> Table {
+    let mut table = with_micro(table, &TRACKED);
+    let micro = table.micro.as_mut().unwrap();
+    micro.nuclides.extend(["I-135".into(), "Xe-135".into()]);
+    for densities in &mut micro.densities {
+        densities.extend([0.0, 0.0]);
+    }
+    let iodine = MicroNuclide {
+        total: vec![4.0, 10.0],
+        nu_fission: vec![0.0; 2],
+        fission: vec![0.0; 2],
+        scatter: vec![vec![3.9, 0.1], vec![0.0, 10.0]],
+        reactions: Vec::new(),
+        thermal_fission: None,
+    };
+    let xenon = micro_nuclide([0.0, 0.0], U235_FISSION.map(|f| XE_TO_FISSION * f), None);
+    for nuclides in &mut micro.states {
+        nuclides.extend([iodine.clone(), xenon.clone()]);
+    }
+    table.validate().unwrap();
+    table
+}
+
+/// 追う核種 U-235、U-236、I-135、Xe-135 の数密度 `n` を、U-235 の 1 原子あたりの核分裂率 `r` (1/s) で時間 `t` (s) 進めた解析解
+/// （反応率が一定の 1 つのステップ。`r` = 0 は崩壊だけ）
+fn xenon_bateman(n: [f64; 4], r: f64, t: f64) -> [f64; 4] {
+    let [u235, u236, i0, x0] = n;
+    let (li, lx) = (
+        std::f64::consts::LN_2 / I135_HALF_LIFE,
+        std::f64::consts::LN_2 / XE135_HALF_LIFE,
+    );
+    // U-235 の消滅の率、Xe-135 の消滅の率
+    let a = (1.0 + CAPTURE_TO_FISSION) * r;
+    let b = lx + XE_TO_FISSION * r;
+    let u = u235 * (-a * t).exp();
+    let iodine = i0 * (-li * t).exp()
+        + YIELD_I135 * r * u235 * ((-a * t).exp() - (-li * t).exp()) / (li - a);
+    // Xe-135 の源は e^(−a t) と e^(−λ_I t) の項の和: s_a e^(−a t) + s_i e^(−λ_I t)
+    let s_a = YIELD_XE135 * r * u235 + li * YIELD_I135 * r * u235 / (li - a);
+    let s_i = li * i0 - li * YIELD_I135 * r * u235 / (li - a);
+    let xenon = x0 * (-b * t).exp()
+        + s_a * ((-a * t).exp() - (-b * t).exp()) / (b - a)
+        + s_i * ((-li * t).exp() - (-b * t).exp()) / (b - li);
+    [
+        u,
+        u236 + CAPTURE_TO_FISSION / (1.0 + CAPTURE_TO_FISSION) * (u235 - u),
+        iodine,
+        xenon,
+    ]
+}
+
+/// 一様な炉心（`UNIFORM`）を、Xe のチェーンとステップ `steps` でミクロ燃焼させる
+fn xenon_run(steps: &str) -> Result<CoreHistory, CaseError> {
+    let case = CASE
+        .replace(
+            "[depletion]",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+        )
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            steps,
+        );
+    let (layout, tables, case) = core(&case, UNIFORM, Some(400.0));
+    let tables: Vec<Table> = tables.into_iter().map(with_xenon).collect();
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&xenon_chain()),
+        &tight(),
+        |_| {},
+    )
+}
+
+/// 一様な炉心のノードの定格の出力密度 (W/cm³): 40 W/g × 400 g/cm / (20 cm × 20 cm)
+const UNIFORM_POWER: f64 = 40.0 * 400.0 / (20.0 * 20.0);
+
+/// ノードの組成 `n` の CE/CM の 1 ステップ（出力の割合 `power`、時間 `t` (s)）の解析の参照: 初めの組成で規格化した率で中点の
+/// 組成へ、中点の組成で規格化した率で初めの組成から終わりへ（ADR-0216 の案 S1。核分裂するのは U-235 だけなので、1 原子あたりの
+/// 核分裂率は 出力密度 / (N₂₃₅ Q)）
+fn xenon_cecm(n: [f64; 4], power: f64, t: f64) -> [f64; 4] {
+    let rate = |n: [f64; 4]| power * UNIFORM_POWER * 1.0e-24 / (n[0] * Q * EV);
+    let half = xenon_bateman(n, rate(n), 0.5 * t);
+    xenon_bateman(n, rate(half), t)
+}
+
+/// 点のノードの数密度がすべて `expected` に、`scale` に対して相対 `tolerance` で近い
+fn assert_densities(point: &CorePoint, expected: [f64; 4], tolerance: f64) {
+    for node in point.densities.as_ref().unwrap().iter().flatten() {
+        for (i, (&got, &want)) in node.iter().zip(&expected).enumerate() {
+            // Xe と I は、U-235 の数密度の大きさの丸め（CRAM の誤差）を受ける。それぞれの大きさか、その 1e-6 倍の U-235 の大きさ
+            let scale = want.abs().max(1.0e-6 * expected[0]);
+            assert!(
+                (got - want).abs() <= tolerance * scale,
+                "{} days, nuclide {i}: {got} vs {want}",
+                point.days
+            );
+        }
+    }
+}
+
+#[test]
+fn power_fractions_stretch_the_step_time_and_keep_the_burnup() {
+    // 出力の割合 0.5 のステップは、同じ EFPD で燃焼度の増分が同じで、時間が 2 倍、ノードの出力密度が半分（ADR-0218）
+    let half = xenon_run("[{ efpd = 50.0, power = 0.5 }, { efpd = 125.0 }]").unwrap();
+    let full = xenon_run("[{ efpd = 50.0 }, { efpd = 125.0 }]").unwrap();
+    let days: Vec<f64> = half.points.iter().map(|p| p.days).collect();
+    assert_eq!(days, [0.0, 100.0, 175.0]);
+    let powers: Vec<Option<f64>> = half.points.iter().map(|p| p.power).collect();
+    assert_eq!(powers, [None, Some(0.5), Some(1.0)]);
+    let mut n = [U235, 0.0, 0.0, 0.0];
+    let mut efpd = 0.0;
+    for (h, f) in half.points.iter().zip(&full.points).skip(1) {
+        assert_eq!(h.efpd, f.efpd);
+        // 燃焼度は EFPD だけで決まる
+        let burnup = 40.0 * h.efpd * 1.0e-3;
+        assert!(
+            (h.burnup - burnup).abs() <= 1.0e-12 * burnup,
+            "{}",
+            h.burnup
+        );
+        assert!((h.burnup - f.burnup).abs() <= 1.0e-12 * burnup);
+        let power = h.power.unwrap();
+        n = xenon_cecm(n, power, (h.efpd - efpd) / power * 86400.0);
+        efpd = h.efpd;
+        assert_densities(h, n, 1.0e-9);
+    }
+    // U-235 は燃焼度で決まるので同じで、出力の水準の低いステップの終わりの Xe-135 は少ない
+    let node = |h: &CoreHistory, k: usize| h.points[k].densities.as_ref().unwrap()[0][0].clone();
+    assert!((node(&half, 1)[0] / node(&full, 1)[0] - 1.0).abs() < 1.0e-12);
+    assert!(node(&half, 1)[3] < 0.9 * node(&full, 1)[3]);
+}
+
+#[test]
+fn decay_steps_keep_the_burnup_and_decay_iodine_and_xenon() {
+    // 崩壊だけのステップ（ADR-0218）は燃焼度と EFPD を進めず、I-135 と Xe-135 を崩壊で進める（反応率 0 の解析解）
+    let history = xenon_run(
+        "[{ efpd = 50.0 }, { decay-days = 0.25 }, { decay-days = 18.0 }, { efpd = 60.0 }]",
+    )
+    .unwrap();
+    let efpd: Vec<f64> = history.points.iter().map(|p| p.efpd).collect();
+    assert_eq!(efpd, [0.0, 50.0, 50.0, 50.0, 60.0]);
+    let days: Vec<f64> = history.points.iter().map(|p| p.days).collect();
+    assert_eq!(days, [0.0, 50.0, 50.25, 68.25, 78.25]);
+    let powers: Vec<Option<f64>> = history.points.iter().map(|p| p.power).collect();
+    assert_eq!(powers, [None, Some(1.0), Some(0.0), Some(0.0), Some(1.0)]);
+    let burnups: Vec<f64> = history.points.iter().map(|p| p.burnup).collect();
+    assert_eq!(burnups[1], burnups[2]);
+    assert_eq!(burnups[2], burnups[3]);
+    let mut n = xenon_cecm([U235, 0.0, 0.0, 0.0], 1.0, 50.0 * 86400.0);
+    assert_densities(&history.points[1], n, 1.0e-9);
+    // 停止の 6 時間後は I-135 の崩壊で Xe-135 が増え、18 日の後は I-135 も Xe-135 も崩壊で消える
+    let node = |k: usize| history.points[k].densities.as_ref().unwrap()[0][0].clone();
+    assert!(node(2)[3] > node(1)[3], "{:?} {:?}", node(1), node(2));
+    for (k, d) in [(2, 0.25), (3, 18.0)] {
+        n = xenon_bateman(n, 0.0, d * 86400.0);
+        assert_densities(&history.points[k], n, 1.0e-10);
+    }
+    assert!(node(3)[3] < 1.0e-12 * node(1)[3]);
+    // Xe-135 が抜けると k は上がる（Xe-135 の公称の数密度は 0 で、線形の補正が吸収を足す）
+    assert!(history.points[3].k > history.points[1].k);
+    // 出力のステップに戻ると、崩壊した組成から CE/CM で進む
+    n = xenon_cecm(n, 1.0, 10.0 * 86400.0);
+    assert_densities(&history.points[4], n, 1.0e-9);
+}
+
+#[test]
+fn decay_steps_need_micro_depletion() {
+    // 組成を持たない燃焼に、崩壊だけのステップで変わるものはない（入力の検査を通らない形を直接渡しても止まる）
+    let case = CASE
+        .replace(
+            "[depletion]",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+        )
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            "[{ efpd = 50.0 }, { decay-days = 1.0 }]",
+        );
+    let (layout, tables, case) = core(&case, UNIFORM, Some(400.0));
+    let mut depletion = case.depletion.clone().unwrap();
+    depletion.micro = None;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        &depletion,
+        None,
+        &tight(),
+        |_| {},
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("decay step"), "{error}");
+}
+
+/// `ROD_CASE` の状態を、バンク D の位置の違う 2 つ（out は抜いた位置、in は上のノードの半分まで）にしたもの
+fn two_rod_states(steps: &str) -> String {
+    ROD_CASE
+        .replace(
+            "[state.hfp]\nboron = 1200\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = { D = 20000 }\n",
+            "[state.out]\nboron = 1200\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = { D = 20000 }\n\n\
+             [state.in]\nboron = 1200\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = { D = 15000 }\n",
+        )
+        .replace(
+            "[depletion]",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+        )
+        .replace("[{ efpd = 50.0 }, { efpd = 125.0 }]", steps)
+}
+
+/// `rodded_micro_run_with` と同じ集合体 1 体を、ケース `case` の状態とステップで燃焼させる。並び、テーブル、ケースも返す
+fn rod_states_run(case: &str) -> (CoreHistory, Layout, Vec<Table>, Case) {
+    let base = Path::new("dir");
+    let case = Case::parse(case, base).unwrap();
+    let cycle = Cycle::parse(ROD_CYCLE, base).unwrap();
+    let plant = Plant::parse(ROD_PLANT, base).unwrap();
+    let inventory = Inventory::parse(ROD_INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = vec![with_rod_axis(with_micro(table(1.0, Some(400.0)), &TRACKED))];
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    (history, layout, tables, case)
+}
+
+#[test]
+fn steps_solve_in_the_states_they_name() {
+    // バンク D を途中で入れて抜く。点は、そこから始まるステップの状態で解く（最後の点は最後のステップの状態。ADR-0218 の案 P2）
+    let steps = "[{ efpd = 50.0, state = \"out\" }, { efpd = 125.0, state = \"in\" }, { efpd = 200.0, state = \"out\" }]";
+    let (history, layout, tables, case) = rod_states_run(&two_rod_states(steps));
+    let states: Vec<&str> = history.points.iter().map(|p| p.state.as_str()).collect();
+    assert_eq!(states, ["out", "in", "out", "out"]);
+    assert_eq!(history.states.keys().collect::<Vec<_>>(), ["in", "out"]);
+    assert_eq!(history.states["in"].banks["D"], 15000);
+    // 点の k は、その状態の並びで、点のノードの燃焼度と組成を解いた値
+    let micro = tables[0].micro.as_ref().unwrap();
+    let chain = MicroChain::new(&small_chain(), &micro.nuclides, &micro.states[0]).unwrap();
+    for point in &history.points {
+        let state = case.states.iter().find(|s| s.name == point.state).unwrap();
+        let banked = layout.with_banks(&state.banks).unwrap();
+        let burnups: Vec<f64> = point.burnups[0].clone();
+        let densities: Vec<Option<Vec<f64>>> = point.densities.as_ref().unwrap()[0]
+            .iter()
+            .map(|n| Some(chain.initial(n)))
+            .collect();
+        let solved = crate::case::solve_compositions(
+            &banked,
+            &tables,
+            &state.at(1200.0),
+            &burnups,
+            Some(&Compositions {
+                chain: &chain,
+                densities: &densities,
+            }),
+            &tight(),
+        )
+        .unwrap();
+        assert_eq!(point.k, solved.solution.k, "{} EFPD", point.efpd);
+    }
+    // 棒を入れたステップは、すべて抜いた燃焼より上のノードの燃焼度を下げ、入れた状態で解いた点の k は低い
+    let (out, ..) = rod_states_run(&two_rod_states(
+        "[{ efpd = 50.0, state = \"out\" }, { efpd = 200.0 }, { efpd = 201.0, state = \"in\" }]",
+    ));
+    assert_eq!(history.points[0].k, out.points[0].k);
+    assert!(1.0e5 * (out.points[1].k - history.points[1].k) > 100.0);
+    let upper = |h: &CoreHistory| h.points.last().unwrap().burnups[0][1];
+    assert!(upper(&history) < upper(&out));
+    // 状態を省いたステップは、前のステップの状態
+    let (omitted, ..) = rod_states_run(&two_rod_states(
+        "[{ efpd = 50.0, state = \"out\" }, { efpd = 125.0, state = \"in\" }, { efpd = 200.0 }]",
+    ));
+    let (named, ..) = rod_states_run(&two_rod_states(
+        "[{ efpd = 50.0, state = \"out\" }, { efpd = 125.0, state = \"in\" }, { efpd = 200.0, state = \"in\" }]",
+    ));
+    assert_eq!(omitted, named);
+}
+
+#[test]
+fn history_points_name_their_state_and_step_power() {
+    let history = xenon_run("[{ efpd = 50.0, power = 0.5 }, { decay-days = 2.0 }]").unwrap();
+    let bytes = history.to_msgpack().unwrap();
+    assert_eq!(CoreHistory::from_msgpack(&bytes).unwrap(), history);
+    // 点の状態は履歴の状態にあること。燃焼点 0 だけが出力の割合を持たない
+    let with_point = |k: usize, edit: &dyn Fn(&mut CorePoint)| {
+        let mut h = history.clone();
+        edit(&mut h.points[k]);
+        CoreHistory::from_msgpack(&h.to_msgpack().unwrap())
+    };
+    assert!(with_point(1, &|p| p.state = "cold".into()).is_err());
+    assert!(with_point(0, &|p| p.power = Some(1.0)).is_err());
+    assert!(with_point(2, &|p| p.power = None).is_err());
+    // 出力の割合は 0 以上の有限の値で、0 は EFPD の進まない崩壊だけのステップだけ。EFPD と日数は減らない
+    assert!(with_point(1, &|p| p.power = Some(-1.0)).is_err());
+    assert!(with_point(1, &|p| p.power = Some(f64::NAN)).is_err());
+    assert!(with_point(1, &|p| p.power = Some(0.0)).is_err());
+    assert!(with_point(2, &|p| p.power = Some(1.0)).is_err());
+    assert!(with_point(2, &|p| p.days = 1.0).is_err());
+    // 丸めで日数の増えない短いステップの履歴も、書いたものを読める
+    assert!(with_point(2, &|p| p.days = 100.0).is_ok());
+    assert!(with_point(2, &|p| p.efpd = 1.0).is_err());
+}
+
+#[test]
+fn depletions_without_states_or_steps_are_errors() {
+    // 入力の検査を通らない形を直接渡しても、添字で止まらずにエラーを返す
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let mut empty = case.depletion.clone().unwrap();
+    empty.steps.clear();
+    for (states, depletion) in [
+        (&[][..], case.depletion.as_ref().unwrap()),
+        (&[][..], &empty),
+        (&case.states[..], &empty),
+    ] {
+        assert!(deplete(&layout, &tables, states, depletion, None, &tight(), |_| {}).is_err());
+    }
 }
