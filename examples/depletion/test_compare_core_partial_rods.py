@@ -169,6 +169,21 @@ class Summary(unittest.TestCase):
         swapped = [(0.0, partial[0][1]), (0.5, partial[2][1]), (1.0, partial[1][1])]
         with self.assertRaises(SystemExit):
             compare_core_partial_rods.summarize(out, rodded, swapped)
+        # 割合を逆に付けると、ステップが割合について増える（棒は上から入り、ステップが少ないほど深い）
+        out, rodded, partial = inputs()
+        reversed_ = [(f, c) for (f, _), (_, c) in zip(partial, reversed(partial))]
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(out, rodded, reversed_)
+        # どの割合の燃焼もバンクを持たなければ、取り違えを確かめられない
+        out, rodded, partial = inputs()
+        for _, c in partial:
+            c["state"]["banks"] = {}
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(out, rodded, partial)
+        # 棒のない燃焼と棒の入った燃焼を取り違えると、棒の入った燃焼の最初の点の k が大きい
+        out, rodded, partial = inputs()
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(rodded, out, partial)
         # 比べる先の燃焼はバンクを持たない
         out, rodded, partial = inputs()
         rodded["state"]["banks"] = {"D": 0}
@@ -205,6 +220,8 @@ class Summary(unittest.TestCase):
             lambda c: c.update(axial_mesh=[0.0, 10.0, 21.5]),
             lambda c: c.pop("nuclides"),
             lambda c: c.update(assemblies=["A01", "A02"]),
+            lambda c: c.update(heavy_metal=[[4500.0, 4400.0]]),
+            lambda c: c["points"][1].update(densities=[[[], [6.6e-4, 0.8e-8]]]),
         ):
             out, rodded, partial = inputs()
             change(partial[1][1])
