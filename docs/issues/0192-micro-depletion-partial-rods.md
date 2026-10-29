@@ -50,3 +50,4 @@ Problem 9 のサイクルの燃焼は D バンクを部分挿入で運転する�
   table-2A-micro-rods.msgpack（md5 70b204f3）の `micro.densities` の 527 個のうち 500 個がビットで違い、相対差の最大は 2.0e-14
   （手元の Python で msgpack を読んで比べた。記録のツールでは出していない）。rod_table.py の `DENSITY_ROUNDING`（1e-12）より 2 桁小さい。
   コメントの「数個の ulp」（約 4500 ulp）は直していない
+- 2026-10-29: 数密度が割合について単調でないことと、上のレビューの残りは #0197 に移した
