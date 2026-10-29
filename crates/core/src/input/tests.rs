@@ -1353,7 +1353,7 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
     let text = edited(
         &depleting(),
         "history = \"out/history.msgpack\"\n",
-        "history = \"out/history.msgpack\"\nmicro = { chain = \"../chain.msgpack\" }\n",
+        "history = \"out/history.msgpack\"\nmicro = { chain = \"../chain.msgpack\", xenon = \"tracked\" }\n",
     );
     let d = Case::parse(&text, base()).unwrap().depletion.unwrap();
     assert_eq!(
@@ -1391,7 +1391,8 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
         micro("chain = \"c.msgpack\", xenon = \"tracked\"").unwrap(),
         Xenon::Tracked
     );
-    // 知らない扱いと項目は受けない
+    // Xe の扱いは必ず書く（ステップの幅で正しい扱いが違い、どちらも黙った既定にしない。ADR-0219）。知らない扱いと項目は受けない
+    assert!(micro("chain = \"c.msgpack\"").is_err());
     assert!(micro("chain = \"c.msgpack\", xenon = \"none\"").is_err());
     assert!(micro("chain = \"c.msgpack\", samarium = \"equilibrium\"").is_err());
 }
@@ -1502,7 +1503,7 @@ fn cycling(steps: &str) -> String {
             .replace(
                 "[depletion]",
                 "[state.cool]\nboron = 1300\nb10 = 0.199\nmoderator = 565\nfuel = 560\n\n[depletion]\n\
-                 micro = { chain = \"chain.msgpack\" }"
+                 micro = { chain = \"chain.msgpack\", xenon = \"tracked\" }"
             )
             .replace("[{ efpd = 9.0 }, { efpd = 32.0 }]", steps)
     )
