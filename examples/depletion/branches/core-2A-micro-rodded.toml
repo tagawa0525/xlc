@@ -1,7 +1,8 @@
-# 部分挿入のノードのミクロ燃焼（ADR-0217、#0192）の挿入の割合 1 の極限の比べる先: core-2A-micro.toml と同じ集合体 1 体、出力密度、
-# 40 のステップ、公称の状態で、制御棒を入れた組のテーブル（core-2A-micro-rodded-assemblies.toml。制御棒の軸なし）をミクロ燃焼させる。
+# 部分挿入のノードのミクロ燃焼（ADR-0217、#0192）の挿入の割合 1 の極限の比べる先: core-2A-micro-rods-100.toml と同じノード、出力密度、
+# 52 MWd/kg までの 38 のステップ、公称の状態で、上のノードを制御棒を入れた組のテーブルの層にした集合体（core-2A-micro-rodded-assemblies.toml）を燃焼させる。
+# （56、60 MWd/kg まで進めると、下のノードの燃焼度がテーブルの最後の点 60 MWd/kg を超える）
 cycle = "core-2A-micro-rodded-cycle.toml"
-axial-mesh = [0.0, 21.5]
+axial-mesh = [0.0, 10.75, 21.5]
 radial-nodes = 1
 boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
 
@@ -55,6 +56,4 @@ steps = [
   { efpd = 1145.5350169226763 },  # 44 MWd/kg
   { efpd = 1249.674563915647 },  # 48 MWd/kg
   { efpd = 1353.8141109086175 },  # 52 MWd/kg
-  { efpd = 1457.953657901588 },  # 56 MWd/kg
-  { efpd = 1562.0932048945588 },  # 60 MWd/kg
 ]
