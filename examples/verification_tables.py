@@ -1923,6 +1923,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A-cycle-decay.json",
     "examples/depletion/branches/compare-core-2A-cycle-rods.json",
     "examples/depletion/branches/compare-core-small-steps.json",
+    "examples/depletion/branches/compare-core-small-restart.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
