@@ -149,6 +149,17 @@ class Merge(unittest.TestCase):
                 with_micro(1.2, [[7e-4], [6e-4]]),
                 with_micro(1.0, [[7e-4], [6e-4]], ("U-238",)),
             )
+        # 数密度の NaN は、どちらの側にあっても合わないものとして止める
+        with self.assertRaises(SystemExit):
+            merge(
+                with_micro(1.2, [[7e-4], [6e-4]]),
+                with_micro(1.0, [[7e-4], [float("nan")]]),
+            )
+        with self.assertRaises(SystemExit):
+            merge(
+                with_micro(1.2, [[7e-4], [float("nan")]]),
+                with_micro(1.0, [[7e-4], [6e-4]]),
+            )
         # 同じ燃焼度の数密度が違う（同じ履歴なら丸めの外で違わない）
         with self.assertRaises(SystemExit):
             merge(
