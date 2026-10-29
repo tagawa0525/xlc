@@ -10,7 +10,7 @@
     その相対差（解析値が 0 の点は 0）、軸方向のノードごとの燃焼度
   - 点の EFPD、燃焼点 0 からの日数、その点で終わるステップの出力の割合（崩壊だけのステップは 0、燃焼点 0 は null）、点を解いた状態の名前、k
   - 数密度: I-135、Xe-135、Sm-149 の軸方向のノードごとの数密度
-  - 参照: 参照ごとに、同じ EFPD の点の k と反応度の差 Δρ = (1/k_参照 − 1/k) × 1e5 pcm、その点の数密度。崩壊だけのステップの点と、参照に
+  - 参照: 参照ごとに、同じ EFPD の点の k と反応度の差 Δρ = (1/k_参照 − 1/k) × 1e5 pcm、その点のノードの燃焼度と数密度。崩壊だけのステップの点と、参照に
     同じ EFPD の点がない点は null
   `inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -77,6 +77,7 @@ def summarize(cycle: dict, references: dict[str, dict]) -> dict:
             paired[name] = {
                 "k": q["k"],
                 "rho_pcm": rho_pcm(q["k"], p["k"]),
+                "node_burnups": q["burnups"][0],
                 "densities": densities(core, q),
             }
         points.append(
