@@ -41,6 +41,9 @@
 //! ```toml
 //! plant = "plant.toml"
 //! inventory = "assemblies.toml"
+//! # 前のサイクルの燃焼の履歴（このファイルのあるディレクトリから）の最後の点から、集合体の ID で燃焼度と組成を引き継ぐ。`fresh` は
+//! # 履歴にない新しい集合体（省けば空）。燃焼のケースだけが使える。省けば、すべての集合体が新しい燃料（ADR-0220）
+//! restart = { history = "cycle-0.msgpack", fresh = ["J01"] }
 //! loading = ["J01@90  ."]
 //! ```
 //!
