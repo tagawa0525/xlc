@@ -72,7 +72,7 @@ def check_micro(path, value, micro, first_micro, own, burnups, points):
         sys.exit(f"{path} ({value}): {len(micro['states'])} micro states for {len(points)} points")
     for burnup, row in zip(own, micro['densities']):
         expected = first_micro['densities'][burnups.index(burnup)]
-        if len(row) != len(expected) or any((abs(a - b) > DENSITY_ROUNDING * max(abs(a), abs(b)) for a, b in zip(row, expected))):
+        if len(row) != len(expected) or not all((abs(a - b) <= DENSITY_ROUNDING * max(abs(a), abs(b)) for a, b in zip(row, expected))):
             sys.exit(f'{path} ({value}): the micro densities at burnup {burnup} differ from the first table')
 
 def main():
