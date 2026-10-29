@@ -1023,25 +1023,34 @@ def core_steps_ratio(r: float | None) -> str:
     return "–" if r is None else f"{r:.2f}".replace("-", "−")
 
 
-def core_steps(method: str, sources: list[dict]) -> str:
-    """ステップの幅を変えた core の燃焼（compare_core_steps.py）の、中点のホウ素 `method` の燃焼の、基準の燃焼点ごとのホウ素濃度、
-    隣り合う分割の差（ホウ素、ノードの燃焼度の差の最大、ノードの出力の割合の相対差の最大）とその比"""
+def core_steps(
+    method: str, sources: list[dict], splits: list[int] | None = None
+) -> str:
+    """ステップの幅を変えた core の燃焼（compare_core_steps.py）の、方式 `method` の燃焼の、基準の燃焼点ごとのホウ素濃度、
+    隣り合う分割の差（ホウ素、ノードの燃焼度の差の最大、ノードの出力の割合の相対差の最大）とその比。`splits` があれば、その分割
+    （要約の分割の連続した一部）の組だけ"""
     s = core_steps_summary(sources)
     if method not in s["steps"]:
         raise TableError(f"the summary has no {method} depletions")
-    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(s["splits"][method])]
-    finest = s["splits"][method][-1]
+    every = s["splits"][method]
+    chosen = every if splits is None else splits
+    start = every.index(chosen[0]) if chosen and chosen[0] in every else -1
+    if start < 0 or every[start : start + len(chosen)] != chosen:
+        raise TableError(f"the splits {chosen} are not a run of {every}")
+    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(chosen)]
+    finest = chosen[-1]
+    at = start + len(chosen)
     rows = []
     for p in s["steps"][method]:
-        d = p["differences"]
-        r = p["ratios"]
+        d = p["differences"][start : at - 1]
+        r = p["ratios"][start : max(start, at - 2)]
         rows.append(
             [
                 f"{p['burnup']:.4f}",
                 f"{p['days']:.4f}",
                 "–" if p["power"] is None else f"{p['power']:g}",
                 p["state"],
-                f"{p['boron'][-1]:.4f}",
+                f"{p['boron'][at - 1]:.4f}",
                 *(signed(x["boron"], 4) for x in d),
                 *(core_steps_ratio(x["boron"]) for x in r),
                 *(f"{x['burnup']:.2e}" for x in d),
@@ -1126,17 +1135,20 @@ def core_steps_solves(sources: list[dict]) -> str:
 def core_steps_axial(
     reference: tuple[str, int],
     columns: list[tuple[str, int]],
-    since: float,
+    days: tuple[float, float],
     sources: list[dict],
 ) -> str:
-    """燃焼ごとの軸方向の出力の偏り（compare_core_steps.py の `axial`）を、燃焼 `reference`（方式、分割）の `since` 日からの点に
-    並べる。列は燃焼 `columns` で、その点（同じ EFPD と、1e-6 日に丸めた日数）の無い燃焼は –"""
+    """燃焼ごとの軸方向の出力の偏り（compare_core_steps.py の `axial`）を、燃焼 `reference`（方式、分割）の日数 `days`（両端を含む）の
+    点に並べる。列は燃焼 `columns` で、その点（同じ EFPD と、1e-6 日に丸めた日数）の無い燃焼は –"""
     s = core_steps_summary(sources)
     runs = {(r["method"], r["split"]): r["points"] for r in s.get("axial", [])}
     missing = [c for c in [reference, *columns] if c not in runs]
     if missing:
         raise TableError(f"the summary has no axial offsets of {missing}")
-    key = lambda p: (p["efpd"], round(p["days"], 6))
+
+    def key(p: dict) -> tuple[float, float]:
+        return (p["efpd"], round(p["days"], 6))
+
     by = {c: {key(p): p["offset"] for p in runs[c]} for c in columns}
     rows = [
         [
@@ -1148,7 +1160,7 @@ def core_steps_axial(
             ),
         ]
         for p in runs[reference]
-        if p["days"] >= since
+        if days[0] <= p["days"] <= days[1]
     ]
     return markdown_table(
         ["日数", "EFPD", *(f"{m} 分割 {n}" for m, n in columns)],
