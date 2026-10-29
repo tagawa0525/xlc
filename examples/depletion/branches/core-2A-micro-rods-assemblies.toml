@@ -1,0 +1,8 @@
+# 微視的断面積を持つ細かい燃焼度の軸のテーブルの、棒のない組（branch-2A-micro.toml）と制御棒を入れた組（branch-2A-micro-rods.toml）を
+# ../../core/rod_table.py で制御棒の軸（out、aic）を持つ 1 つにまとめたもの。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A-micro-rod-axis.msgpack"]
+
+[assembly.A01]
+design = "2A"

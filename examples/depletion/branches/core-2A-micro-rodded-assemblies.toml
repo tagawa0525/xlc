@@ -1,0 +1,7 @@
+# 微視的断面積を持つ細かい燃焼度の軸のテーブルの、制御棒を入れた組（branch-2A-micro-rods.toml）。制御棒の軸を持たない。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A-micro-rods.msgpack"]
+
+[assembly.A01]
+design = "2A"
