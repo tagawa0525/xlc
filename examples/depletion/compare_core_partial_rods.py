@@ -4,7 +4,7 @@
           <割合>=<部分挿入の core の履歴> ...
         python3 compare_core_partial_rods.py --report <要約の JSON>
 
-- `--json`: どの core の履歴も、集合体 1 体のミクロ燃焼で、軸方向のメッシュ、追う核種、出力密度、燃焼点（EFPD と燃焼度）と、制御棒の
+- `--json`: どの core の履歴も、集合体 1 体のミクロ燃焼で、軸方向のメッシュ、追う核種、出力密度、燃焼点（EFPD と、相対 1e-9 で燃焼度）と、制御棒の
   バンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
   含むこと。次を書く。
   - 燃焼点ごとの k: 割合ごとの k、割合 0 の k の棒のない燃焼の k からの反応度の差、割合 1 の k の棒の入った燃焼の k からの差
@@ -24,6 +24,13 @@ import sys
 from pathlib import Path
 
 import msgpack
+
+# 燃焼点の燃焼度の一致の許容（集合体の燃焼度はノードの燃焼度の和なので、ノードの出力が違う燃焼では丸めが違う）
+BURNUP_TOLERANCE = 1e-9
+
+
+def same_burnup(a: float, b: float) -> bool:
+    return abs(a - b) <= BURNUP_TOLERANCE * max(1.0, abs(b))
 
 
 def rho_pcm(base: float, k: float) -> float:
@@ -63,9 +70,10 @@ def check_core(name: str, core: dict, first: dict) -> None:
     state = {k: v for k, v in core["state"].items() if k != "banks"}
     if state != {k: v for k, v in first["state"].items() if k != "banks"}:
         raise SystemExit(f"{name}: the state differs beyond the banks")
-    ours = [(p["efpd"], p["burnup"]) for p in core["points"]]
-    theirs = [(p["efpd"], p["burnup"]) for p in first["points"]]
-    if ours != theirs:
+    if len(core["points"]) != len(first["points"]) or any(
+        p["efpd"] != q["efpd"] or not same_burnup(p["burnup"], q["burnup"])
+        for p, q in zip(core["points"], first["points"])
+    ):
         raise SystemExit(f"{name}: the points differ in EFPD or burnup")
 
 
