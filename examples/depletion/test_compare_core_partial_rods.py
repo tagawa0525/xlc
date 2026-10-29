@@ -15,8 +15,9 @@ NUCLIDES = ["U-235", "Xe-135"]
 LOWER = [7.0e-4, 1.0e-8]
 
 
-def core(points, banks=None):
-    """集合体 1 体・軸方向のノード 2 つのミクロ燃焼の core の履歴。`points` は (k, 上のノードの数密度) で、燃焼度 0、1、2 の点"""
+def core(points, banks=None, shift=0.0):
+    """集合体 1 体・軸方向のノード 2 つのミクロ燃焼の core の履歴。`points` は (k, 上のノードの数密度) で、燃焼度 0、1、2 の点。
+    ノードの燃焼度は、下が集合体の (1 + `shift`) 倍、上が (1 − `shift`) 倍"""
     return {
         "format": "xlc-core-history",
         "specific_power": 40.0,
@@ -36,6 +37,7 @@ def core(points, banks=None):
                 "efpd": 25.0 * b,
                 "burnup": float(b),
                 "k": k,
+                "burnups": [[b * (1 + shift), b * (1 - shift)]],
                 "densities": [[list(LOWER), n]],
             }
             for b, (k, n) in enumerate(points)
@@ -72,6 +74,7 @@ def inputs():
                     (0.98, [6.3e-4, 1.6e-8]),
                 ],
                 {"D": 86},
+                0.1,
             ),
         ),
         (
@@ -83,6 +86,7 @@ def inputs():
                     (0.86, [6.6e-4, 1.0e-8]),
                 ],
                 {"D": 0},
+                0.2,
             ),
         ),
     ]
@@ -111,6 +115,18 @@ class Summary(unittest.TestCase):
         xe = s["densities"]["Xe-135"]
         self.assertEqual(xe["zero_limit"]["relative"], 0.0)
         self.assertAlmostEqual(xe["last_change"][1], -0.5, places=14)
+
+    def test_node_burnups_of_every_fraction_are_kept_with_their_monotonicity(self):
+        s = compare_core_partial_rods.summarize(*inputs())
+        last = s["points"][2]
+        self.assertEqual(last["node_burnups"], [[2.0, 2.0], [2.2, 1.8], [2.4, 1.6]])
+        self.assertTrue(all(p["node_burnups_monotonic"] for p in s["points"]))
+        out, rodded, partial = inputs()
+        partial[1][1]["points"][2]["burnups"] = [[2.5, 1.5]]
+        s = compare_core_partial_rods.summarize(out, rodded, partial)
+        self.assertEqual(
+            [p["node_burnups_monotonic"] for p in s["points"]], [True, True, False]
+        )
 
     def test_monotonicity_counts_equal_neighbors_on_both_sides(self):
         s = compare_core_partial_rods.summarize(*inputs())
