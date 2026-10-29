@@ -20,6 +20,7 @@ use xlc_numeric::nem::{Inflow, Line, is_fissile, outflow};
 use crate::nem::{
     Boundary, NemError, NodeSnapshot, Options, Problem, Refresh, Solution, solve, solve_with,
 };
+use crate::state::MicroAt;
 
 /// 部分挿入のノードの、制御棒の状態が一様な区間。
 #[derive(Debug, Clone, PartialEq)]
@@ -101,15 +102,18 @@ pub(crate) fn windows(partial: &[bool]) -> Result<Vec<Window>, String> {
     Ok(out)
 }
 
+/// 部分挿入のノードの [区間][群] の重み（混ぜた定数を作った中性子束の積分か、体積の重みなら区間の長さ）。`partial` の順
+pub type SegmentWeights = Vec<Vec<Vec<f64>>>;
+
 /// 部分挿入のノードを `weighting` で扱って炉心を解く。`fine` は細かいメッシュの幅の上限 (cm)。解と、混ぜた定数を
-/// 入れた物質の並びを返す。
+/// 入れた物質の並びと、その定数を混ぜた重みを返す。
 pub fn solve_rodded(
     problem: &Problem,
     partial: Vec<PartialNode>,
     weighting: Weighting,
     fine: f64,
     options: &Options,
-) -> Result<(Solution, Vec<FewGroup>), NemError> {
+) -> Result<(Solution, Vec<FewGroup>, SegmentWeights), NemError> {
     let invalid = NemError::InvalidProblem;
     check_partial(problem, &partial).map_err(invalid)?;
     let mut initial = problem.clone();
@@ -131,7 +135,7 @@ pub fn solve_rodded(
     match weighting {
         Weighting::Volume => {
             let solution = solve(&initial, options)?;
-            Ok((solution, initial.materials))
+            Ok((solution, initial.materials, Vec::new()))
         }
         Weighting::Flux => {
             if !(fine > 0.0 && fine.is_finite()) {
@@ -140,7 +144,8 @@ pub fn solve_rodded(
                 )));
             }
             let mut cusping = Cusping::new(problem, &partial, fine).map_err(invalid)?;
-            solve_with(&initial, options, &mut cusping)
+            let (solution, materials) = solve_with(&initial, options, &mut cusping)?;
+            Ok((solution, materials, Vec::new()))
         }
     }
 }
@@ -345,6 +350,11 @@ fn mix(segments: &[Segment], flux: &[Vec<f64>]) -> Result<FewGroup, String> {
     }
     mixed.validate().map_err(|e| e.to_string())?;
     Ok(mixed)
+}
+
+/// 区間ごとの追う核種の微視的断面積 `micro` を、[区間][群] の重み `weights` で混ぜる
+pub(crate) fn mix_micro(_micro: &[MicroAt], _weights: &[Vec<f64>]) -> Result<MicroAt, String> {
+    Err("mixing the micro cross sections of the segments is not implemented".into())
 }
 
 /// 窓の中のノード。
