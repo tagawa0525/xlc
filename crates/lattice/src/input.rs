@@ -92,6 +92,7 @@
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
+//! shielding-file = "other.msgpack" # 燃焼の領域を自己遮蔽する組成の履歴（同じ燃焼度の点。省略すると状態の組成。#0191）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -413,6 +414,7 @@ struct HistoryEntry {
     burnup: Vec<f64>,
     off_nominal_burnup: Option<Vec<f64>>,
     micro: Option<Vec<String>>,
+    shielding_file: Option<PathBuf>,
 }
 
 /// 燃焼の条件（ADR-0173）
@@ -1243,6 +1245,7 @@ impl LatticeInput {
                     burnup: h.burnup,
                     off_nominal,
                     micro,
+                    shielding_file: h.shielding_file,
                 })
             })
             .transpose()

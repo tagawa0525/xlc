@@ -1179,7 +1179,8 @@ fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
         let s = setup(&text);
         let fixed = shield_with(&text, &history, Some(&previous), &library);
         let at_previous = shield_with(&text, &previous, None, &library);
-        let branches = branches_of(&text, &history, &library).unwrap();
+        let mut branches = branches_of(&text, &history, &library).unwrap();
+        branches.shield_with(&previous).unwrap();
         let fuel = regions_of(&branches.region_materials, |n| n.starts_with("fuel@"));
         assert!(!fuel.is_empty());
         let ones = vec![vec![1.0; library.groups.len()]; s.tracking.lattice.regions()];
@@ -1204,7 +1205,7 @@ fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
                 expected,
                 &s.tracking.lattice,
                 &branches.region_materials,
-                &branches.remixed().to_vec(),
+                branches.remixed(),
                 &at_previous_state(&text, &previous, &library, index),
                 &branches.state(index),
             )
