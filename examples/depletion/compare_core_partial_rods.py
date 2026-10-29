@@ -190,7 +190,7 @@ def report(summary: dict) -> list[str]:
     ]
     for key, label in [("zero_pcm", "割合 0 − 棒なし"), ("one_pcm", "割合 1 − 棒あり")]:
         values = [p[key] for p in points]
-        lines.append(f"{label}: {min(values):+.6f}〜{max(values):+.6f} pcm")
+        lines.append(f"{label}: {min(values):+.3e}〜{max(values):+.3e} pcm")
     bad = [p["burnup"] for p in points if not p["k_monotonic"]]
     lines.append(f"k が割合について単調でない燃焼点: {bad or 'なし'}")
     bad = [p["burnup"] for p in points if not p["node_burnups_monotonic"]]
@@ -201,6 +201,19 @@ def report(summary: dict) -> list[str]:
         + "、".join(
             "/".join(f"{b:.4f}" for b in burnups) for burnups in last["node_burnups"]
         )
+    )
+    densities = summary["densities"].values()
+    for key, label in [
+        ("zero_limit", "割合 0 − 棒なし"),
+        ("one_limit", "割合 1 − 棒あり"),
+    ]:
+        values = [
+            abs(d[key]["relative"]) for d in densities if d[key]["relative"] is not None
+        ]
+        lines.append(f"数密度の{label}の相対差の絶対値の最大: {max(values):.3e}")
+    bad = [name for name, d in summary["densities"].items() if d["not_monotonic"]]
+    lines.append(
+        f"数密度が割合について単調でない点を持つ核種: {len(bad)} / {len(summary['densities'])}（{' '.join(bad)}）"
     )
     lines.append(
         "核種 | 割合 0 − 棒なし（相対） | 燃焼度, ノード | 割合 1 − 棒あり（相対） | 燃焼度, ノード | 最後の点の 1 / 0 − 1、ノードごと (%) "
