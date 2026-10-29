@@ -58,9 +58,14 @@ def close(a: float, b: float) -> bool:
     return abs(a - b) <= TIME_TOLERANCE * max(abs(a), abs(b), 1.0)
 
 
-def relative_density_differences(got: list, want: list) -> float:
+def relative_density_differences(what: str, got, want) -> float:
     """ノードの数密度 [集合体][軸方向のノード][核種] の差の絶対値の最大（核種ごとの `want` の炉心の最大の数密度に対する比。最大が 0 の核種は
-    差の絶対値）"""
+    差の絶対値）。どちらかが数密度を持たないか、形が違えば止める（比べずに差 0 と書かない）"""
+    if got is None or want is None:
+        raise SystemExit(f"{what}: the densities are missing")
+    shape = lambda d: [[len(n) for n in a] for a in d]
+    if shape(got) != shape(want):
+        raise SystemExit(f"{what}: the densities differ in shape")
     nodes = [(g, w) for ga, wa in zip(got, want) for g, w in zip(ga, wa) if w]
     if not nodes:
         return 0.0
@@ -119,7 +124,9 @@ def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
                     for a, b in zip(ra, rb)
                 ),
                 "density_max_relative": relative_density_differences(
-                    p.get("densities") or [], q.get("densities") or []
+                    f"{name} at {q['efpd']} EFPD",
+                    p.get("densities"),
+                    q.get("densities"),
                 ),
             }
         )
@@ -131,8 +138,9 @@ def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
         ),
         "points": points,
         "auxiliary_max_relative": relative_density_differences(
-            second.get("auxiliary_densities") or [],
-            full.get("auxiliary_densities") or [],
+            f"{name} auxiliary",
+            second.get("auxiliary_densities"),
+            full.get("auxiliary_densities"),
         ),
     }
 
@@ -141,17 +149,25 @@ def compare_reload(previous: dict, reload: dict) -> dict:
     """前のサイクル `previous` の履歴から装荷を替えた燃焼 `reload` の要約"""
     check_format("previous", previous)
     check_format("reload", reload)
-    if reload["axial_mesh"] != previous["axial_mesh"]:
-        raise SystemExit("reload: the axial mesh differs from the previous cycle")
+    for key in ["axial_mesh", "nuclides", "auxiliary"]:
+        if reload.get(key) != previous.get(key):
+            raise SystemExit(f"reload: the {key} differs from the previous cycle")
     last = previous["points"][-1]
     start = reload["points"][0]
     inherited, fresh = [], []
     for a, id in enumerate(reload["assemblies"]):
         if id in previous["assemblies"]:
             b = previous["assemblies"].index(id)
+            if reload["heavy_metal"][a] != previous["heavy_metal"][b]:
+                raise SystemExit(
+                    f"reload: assembly {id} has other heavy metal than in the previous cycle"
+                )
+            # ミクロ燃焼の履歴は、引き継いだ追う核種の数密度も前のサイクルの最後の点と同じ（ミクロ燃焼でなければどちらも持たない）
+            densities = (start.get("densities"), last.get("densities"))
+            if (densities[0] is None) != (densities[1] is None):
+                raise SystemExit("reload: the densities are missing on one side")
             same = start["burnups"][a] == last["burnups"][b] and (
-                start.get("densities") is None
-                or start["densities"][a] == last["densities"][b]
+                densities[0] is None or densities[0][a] == densities[1][b]
             )
             if not same:
                 raise SystemExit(
