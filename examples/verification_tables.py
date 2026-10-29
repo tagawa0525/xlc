@@ -963,6 +963,54 @@ def core_partial_rods_densities(sources: list[dict]) -> str:
     )
 
 
+def core_cycle_points(sources: list[dict]) -> str:
+    """サイクルのステップの core の燃焼（集合体 1 体。ADR-0218）: 燃焼点ごとのステップ（EFPD、日数、出力の割合、状態）、燃焼度と
+    その解析値（定格の出力密度 × EFPD）との相対差、ノードの燃焼度、k、同じ EFPD の参照からの反応度の差、I-135、Xe-135、Sm-149 の
+    ノードの数密度（ノードの値は下から / で区切る）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-cycle":
+        raise TableError("not an xlc-compare-core-cycle summary")
+
+    def nodes(values: list[float], fmt: str) -> str:
+        return " / ".join(format(v, fmt) for v in values)
+
+    rows = [
+        [
+            f"{p['efpd']:.4f}",
+            f"{p['days']:.4f}",
+            "–" if p["power"] is None else f"{p['power']:g}",
+            p["state"],
+            f"{p['burnup']:.6f}",
+            signed_exponent(p["burnup_relative"]),
+            nodes(p["node_burnups"], ".6g"),
+            f"{p['k']:.8f}",
+            *(
+                "–"
+                if p["references"][r] is None
+                else signed(p["references"][r]["rho_pcm"], 3)
+                for r in s["references"]
+            ),
+            *(nodes(p["densities"][n], ".3e") for n in s["nuclides"]),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "EFPD",
+            "日数",
+            "出力の割合",
+            "状態",
+            "燃焼度 (MWd/kg)",
+            "解析値との相対差",
+            "ノードの燃焼度 (MWd/kg)",
+            "k",
+            *(f"k − {r} (pcm)" for r in s["references"]),
+            *(f"{n} (1/(barn cm))" for n in s["nuclides"]),
+        ],
+        rows,
+    )
+
+
 def burnup_interpolation_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-burnup-interpolation":
