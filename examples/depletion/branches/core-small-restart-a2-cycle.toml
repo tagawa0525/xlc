@@ -1,0 +1,10 @@
+# 小さな炉心の restart の確認（ADR-0220）: core-small-cycle.toml と同じ装荷で、core-small-restart-a1.toml の燃焼の履歴の
+# 最後の点から続ける
+plant = "core-small-plant.toml"
+inventory = "core-small-assemblies.toml"
+restart = { history = "core-small-restart-a1.msgpack" }
+loading = [
+  ".    .    .",
+  "A01  A02  .",
+  "A03  A04  .",
+]
