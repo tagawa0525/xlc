@@ -272,6 +272,56 @@ pub fn interpolate(
         }
         return Ok(table.states.clone());
     };
+    let weights = state_weights(table, state, rod)?;
+
+    let mut out: Vec<FewGroup> = (0..sub)
+        .map(|q| table.states.get(q).map(|s| scaled(s, 0.0)))
+        .collect::<Option<_>>()
+        .ok_or("the table has no states")?;
+    // 点の順（軸の直積なら、最初の軸がいちばん遅く変わる順）に、部分ノードごとに足す
+    for &(point, weight) in &weights.points {
+        if weight != 0.0 {
+            for (q, acc) in out.iter_mut().enumerate() {
+                let s = table
+                    .states
+                    .get(point * sub + q)
+                    .ok_or_else(|| format!("the table has no state {point} sub-node {q}"))?;
+                accumulate(acc, weight, s)?;
+            }
+        }
+    }
+    // 燃焼度の 3 次 Hermite と cut-HDMR の組み立ては凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで
+    // 組み立てたときは、値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも負の重みの出どころと
+    // 示唆を添える（折れ曲がりの近くや、解いていない格子点の近くの 0 に近い量が負になりうる。ADR-0192、ADR-0200）
+    for f in &out {
+        f.validate().map_err(|e| weights.hint(e.to_string()))?;
+        if !weights.causes.is_empty() {
+            non_negative(f).map_err(|e| weights.hint(e))?;
+        }
+    }
+    Ok(out)
+}
+
+/// 内挿に使うテーブルの点の重みと、負の重みの出どころ（負の重みで組み立てたときだけ。値の検査のエラーに添える）
+struct Weights {
+    /// [点] の重み（点の順。同じ点の重みはまとめる）
+    points: Vec<(usize, f64)>,
+    causes: Vec<String>,
+}
+
+impl Weights {
+    /// エラーに、負の重みの出どころと示唆を添える
+    fn hint(&self, e: String) -> String {
+        if self.causes.is_empty() {
+            e
+        } else {
+            format!("{e}; {}", self.causes.join("; "))
+        }
+    }
+}
+
+/// 炉心の状態 `state` と制御棒の値 `rod` での、テーブルの点の重み（モジュールの説明の組み立て）
+fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weights, String> {
     // 軸がないことを、ほかの軸の範囲の外より先に示す（テーブルの検査で同じ軸は2つない）
     for name in ["boron", "moderator", "fuel"] {
         if !table.axes.iter().any(|a| a.name() == name) {
@@ -338,27 +388,9 @@ pub fn interpolate(
         });
     }
     let mut assembly = Assembly::new(table, &terms, burnup);
-    let weights = assembly.weights()?;
+    let points = assembly.weights()?;
 
-    let mut out: Vec<FewGroup> = (0..sub)
-        .map(|q| table.states.get(q).map(|s| scaled(s, 0.0)))
-        .collect::<Option<_>>()
-        .ok_or("the table has no states")?;
-    // 点の順（軸の直積なら、最初の軸がいちばん遅く変わる順）に、部分ノードごとに足す
-    for &(point, weight) in &weights {
-        if weight != 0.0 {
-            for (q, acc) in out.iter_mut().enumerate() {
-                let s = table
-                    .states
-                    .get(point * sub + q)
-                    .ok_or_else(|| format!("the table has no state {point} sub-node {q}"))?;
-                accumulate(acc, weight, s)?;
-            }
-        }
-    }
-    // 燃焼度の 3 次 Hermite と cut-HDMR の組み立ては凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで
-    // 組み立てたときは、値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも負の重みの出どころと
-    // 示唆を添える（折れ曲がりの近くや、解いていない格子点の近くの 0 に近い量が負になりうる。ADR-0192、ADR-0200）
+    // 負の重みの出どころと示唆（ADR-0192、ADR-0200）
     let mut causes = Vec::new();
     if assembly.negative_burnup {
         causes.push(format!(
@@ -380,20 +412,7 @@ pub fn interpolate(
                 .to_string(),
         );
     }
-    for f in &out {
-        let hint = |e: String| {
-            if causes.is_empty() {
-                e
-            } else {
-                format!("{e}; {}", causes.join("; "))
-            }
-        };
-        f.validate().map_err(|e| hint(e.to_string()))?;
-        if !causes.is_empty() {
-            non_negative(f).map_err(hint)?;
-        }
-    }
-    Ok(out)
+    Ok(Weights { points, causes })
 }
 
 /// テーブルの点の、状態の値に掛ける重みの組み立て（モジュールの説明の cut-HDMR と、燃焼度の公称との差の内挿）
