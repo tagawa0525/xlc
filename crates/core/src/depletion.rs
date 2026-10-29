@@ -10,7 +10,7 @@
 //! 状態）ので、ステップの初めの点、中点、修正子はどれもそのステップの状態の解になる。出力の割合はステップの時間（EFPD の増分 /
 //! 割合）とノードの出力密度を決め、燃焼度の増分は変えない。崩壊だけのステップは、ミクロ燃焼の組成を崩壊の項だけで進める。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -53,6 +53,13 @@ pub struct CoreHistory {
     /// ミクロ燃焼の Xe-135 と I-135 の扱い（ケースの `micro` の `xenon`）。ミクロ燃焼しなければ `None`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub xenon: Option<Xenon>,
+    /// ミクロ燃焼の補助の核種（追う核種へ崩壊で流れ込む核種）の名前（解く核種の順。ADR-0220）。ミクロ燃焼しなければ `None`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auxiliary: Option<Vec<String>>,
+    /// 最後の点のノードの補助の核種の数密度 (1/(barn cm)。[集合体][軸方向のノード][補助の核種]。核分裂のないノードは空)。次の
+    /// サイクルの restart が、最後の点の `densities` と合わせて読む（ADR-0220）。ミクロ燃焼しなければ `None`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auxiliary_densities: Option<Vec<Vec<Vec<f64>>>>,
     pub points: Vec<CorePoint>,
 }
 
@@ -131,13 +138,18 @@ struct FileIn {
     midpoint_boron: String,
     #[serde(default)]
     xenon: Option<String>,
+    #[serde(default)]
+    auxiliary: Option<Vec<String>>,
+    #[serde(default)]
+    auxiliary_densities: Option<Vec<Vec<Vec<f64>>>>,
     points: Vec<CorePoint>,
 }
 
 impl CoreHistory {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, states: {<名前>: {boron | search:
     /// {boron: [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}}, axial_mesh, assemblies, heavy_metal,
-    /// nuclides?, midpoint_boron: "search" | "start", xenon?: "tracked" | "equilibrium", points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
+    /// nuclides?, midpoint_boron: "search" | "start", xenon?: "tracked" | "equilibrium", auxiliary?, auxiliary_densities?, points: [{efpd,
+    /// days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
             format: FORMAT,
@@ -237,6 +249,35 @@ impl CoreHistory {
                 )));
             }
         }
+        // ミクロ燃焼の履歴は、最後の点の補助の核種の数密度を、追う核種の数密度を持つノード（核分裂のあるノード）に持つ（ADR-0220）
+        let last = file.points.last().and_then(|p| p.densities.as_ref());
+        let fits = match (
+            &file.nuclides,
+            &file.auxiliary,
+            &file.auxiliary_densities,
+            last,
+        ) {
+            (None, None, None, _) => true,
+            (Some(_), Some(names), Some(rows), Some(tracked)) => {
+                rows.len() == file.assemblies.len()
+                    && rows.iter().all(|r| r.len() == layers)
+                    && rows
+                        .iter()
+                        .flatten()
+                        .zip(tracked.iter().flatten())
+                        .all(|(a, t)| {
+                            a.len() == if t.is_empty() { 0 } else { names.len() }
+                                && a.iter().all(|v| v.is_finite())
+                        })
+            }
+            _ => false,
+        };
+        if !fits {
+            return Err(CaseError::Depletion(
+                "the auxiliary densities must match the micro nuclides and the last point of the history (ADR-0220)"
+                    .into(),
+            ));
+        }
         Ok(Self {
             specific_power: file.specific_power,
             states: file.states,
@@ -246,6 +287,8 @@ impl CoreHistory {
             nuclides: file.nuclides,
             midpoint_boron,
             xenon,
+            auxiliary: file.auxiliary,
+            auxiliary_densities: file.auxiliary_densities,
             points: file.points,
         })
     }
@@ -340,15 +383,21 @@ fn core_state(state: &CaseState) -> CoreState {
     }
 }
 
-/// ケースの燃焼（ADR-0190、ADR-0218）: 状態 `states`（ケースの名前つきの状態。ステップが番号で指す）で、ノードの燃焼度を 0 から
-/// `depletion` のステップに沿って進め、燃焼点ごとの値を返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）。点は
-/// 解くたびに `on_point` にも渡す（後のステップで止まっても、それまでの点を出せるように）
+/// ケースの燃焼（ADR-0190、ADR-0218）: 状態 `states`（ケースの名前つきの状態。ステップが番号で指す）で、ノードの燃焼度を
+/// `depletion` のステップに沿って進め、燃焼点ごとの値を返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）。初めの
+/// 燃焼度と組成は、サイクルが restart するなら前のサイクルの燃焼の履歴 `restart` の最後の点から集合体の ID で引き継ぎ（ADR-0220）、
+/// ほかの集合体は 0 とテーブルの燃焼度 0 の組成。点は解くたびに `on_point` にも渡す（後のステップで止まっても、それまでの点を出せるように）
+#[allow(
+    clippy::too_many_arguments,
+    reason = "入力の 4 つのファイルから作る並び、テーブル、状態、燃焼の入力、チェーン、前のサイクルの履歴は出どころが別で、まとめる型を作るより読みやすい"
+)]
 pub fn deplete(
     layout: &Layout,
     tables: &[Table],
     states: &[CaseState],
     depletion: &DepletionInput,
     chain: Option<&Chain>,
+    restart: Option<&CoreHistory>,
     options: &Options,
     mut on_point: impl FnMut(&CorePoint),
 ) -> Result<CoreHistory, CaseError> {
@@ -500,6 +549,66 @@ pub fn deplete(
         .as_ref()
         .map(|m| m.initial(point_state(0), &layouts, tables))
         .transpose()?;
+    // 初めの燃焼度。restart するサイクルは、引き継ぐ集合体の燃焼度と組成を前のサイクルの履歴から置く（ADR-0220）
+    let mut burnups = vec![0.0; sites];
+    match (layout.restart(), restart) {
+        (None, None) => {}
+        (Some(input), Some(history)) => {
+            let ids: Vec<&str> = placed.keys().copied().collect();
+            let inherited = inherit(
+                history,
+                &input.fresh,
+                &ids,
+                first.axial_mesh(),
+                &heavy_metal,
+                micro.as_ref().map(|m| &m.chain),
+            )?;
+            for (&id, state) in placed.keys().zip(inherited) {
+                let Some((node_burnups, node_densities)) = state else {
+                    continue;
+                };
+                let [x, y] = placed[id];
+                for z in 0..nz {
+                    let site = mesh.site([x, y, z]);
+                    burnups[site] = node_burnups[z];
+                    match (densities.as_mut().map(|n| &mut n[site]), &node_densities) {
+                        (None, None) => {}
+                        (Some(n), Some(rows)) if n.is_some() == rows[z].is_some() => {
+                            if let Some(v) = &rows[z] {
+                                *n = Some(v.clone());
+                            }
+                        }
+                        _ => {
+                            return fail(format!(
+                                "assembly {id}: the restart history densities of node {z} do not match the micro \
+                                 depleted nodes of the case (ADR-0220)"
+                            ));
+                        }
+                    }
+                }
+            }
+            let discharged: Vec<&str> = history
+                .assemblies
+                .iter()
+                .map(String::as_str)
+                .filter(|id| !placed.contains_key(id))
+                .collect();
+            tracing::info!(
+                inherited = ids.len() - input.fresh.len(),
+                fresh = input.fresh.len(),
+                ?discharged,
+                "restart"
+            );
+        }
+        (Some(_), None) => {
+            return fail("the cycle restarts from a history, but no history is given".into());
+        }
+        (None, Some(_)) => {
+            return fail("a restart history is given, but the cycle does not restart".into());
+        }
+    }
+    // 燃焼点 0 の炉心の平均の燃焼度。ステップの炉心の平均の燃焼度の目標は、これに定格の出力密度 × 累積の EFPD を足した値（ADR-0220）
+    let start_burnup = weighted(&burnups, &masses);
     if let Some(m) = &micro {
         tracing::info!(
             tracked = m.chain.nuclides.len(),
@@ -765,7 +874,6 @@ pub fn deplete(
         );
     };
 
-    let mut burnups = vec![0.0; sites];
     let mut efpd = 0.0;
     let mut days = 0.0;
     let mut solve_at_point = solve(
@@ -806,8 +914,9 @@ pub fn deplete(
                 let _span = tracing::info_span!("depletion step", efpd = end).entered();
                 // 炉心の平均の燃焼度の増分 (MWd/kg。W/g × d = 1e-3 MWd/kg)。ステップの EFPD の差を足し合わせず、終わりの累積の
                 // EFPD の燃焼度と今の炉心の平均の差にする（ステップの丸めの誤差を積み上げない。積み上げると、テーブルの最後の点で
-                // 終わるケースがその点を越えて止まる）。出力の割合によらない（EFPD は割合を含む。ADR-0218）
-                let target = depletion.specific_power * end * 1.0e-3;
+                // 終わるケースがその点を越えて止まる）。出力の割合によらない（EFPD は割合を含む。ADR-0218）。restart したサイクルは
+                // 燃焼点 0 の炉心の平均から数える（ADR-0220）
+                let target = start_burnup + depletion.specific_power * end * 1.0e-3;
                 let increment = target - weighted(&burnups, &masses);
                 // ステップの時間 (s)。EFPD の差を出力の割合で割った日数
                 let step_days = (end - efpd) / fraction;
@@ -937,6 +1046,21 @@ pub fn deplete(
         report(&point);
         points.push(point);
     }
+    // 最後の点の補助の核種（次のサイクルの restart が読む。ADR-0220）
+    let auxiliary_densities = micro.as_ref().zip(densities.as_ref()).map(|(m, n)| {
+        placed
+            .values()
+            .map(|&[x, y]| {
+                (0..nz)
+                    .map(|z| {
+                        n[mesh.site([x, y, z])]
+                            .as_ref()
+                            .map_or_else(Vec::new, |v| m.chain.auxiliary_densities(v))
+                    })
+                    .collect()
+            })
+            .collect()
+    });
     Ok(CoreHistory {
         specific_power: depletion.specific_power,
         states: used
@@ -946,6 +1070,8 @@ pub fn deplete(
         axial_mesh: first.axial_mesh().to_vec(),
         assemblies: placed.keys().map(|id| id.to_string()).collect(),
         heavy_metal,
+        auxiliary: micro.as_ref().map(|m| m.chain.auxiliary_nuclides()),
+        auxiliary_densities,
         nuclides: micro.map(|m| m.chain.nuclides),
         midpoint_boron: depletion.midpoint_boron,
         xenon,
@@ -955,6 +1081,135 @@ pub fn deplete(
 
 /// 1 日 (s)
 const DAY: f64 = 86_400.0;
+
+/// restart で引き継ぐ 1 体の集合体の状態: 軸方向のノードの燃焼度と、ミクロ燃焼なら軸方向のノードの解く核種の数密度（核分裂のない
+/// ノードは `None`）
+type Inherited = (Vec<f64>, Option<Vec<Option<Vec<f64>>>>);
+
+/// 前のサイクルの燃焼の履歴 `history` の最後の点から、装荷した集合体 `ids`（名前の順）の状態を引き継ぐ（ADR-0220）。`fresh` の
+/// 集合体は新しい燃料で `None`。`axial_mesh` はケースの軸方向のメッシュ、`heavy_metal` は `ids` の順のノードの初めの重金属の質量、
+/// `chain` はミクロ燃焼の解く核種（ミクロ燃焼しなければ `None`）。履歴と食い違えば推測せずにエラー
+fn inherit(
+    history: &CoreHistory,
+    fresh: &BTreeSet<String>,
+    ids: &[&str],
+    axial_mesh: &[f64],
+    heavy_metal: &[Vec<f64>],
+    chain: Option<&MicroChain>,
+) -> Result<Vec<Option<Inherited>>, CaseError> {
+    fn fail<T>(m: String) -> Result<T, CaseError> {
+        Err(CaseError::Depletion(m))
+    }
+    let Some(last) = history.points.last() else {
+        return fail("the restart history has no point".into());
+    };
+    if history.axial_mesh != axial_mesh {
+        return fail(format!(
+            "the axial mesh {axial_mesh:?} differs from the axial mesh {:?} of the restart history",
+            history.axial_mesh
+        ));
+    }
+    // ミクロ燃焼の有無と、追う核種と補助の核種の並び
+    let micro = match (chain, &history.nuclides, &history.auxiliary) {
+        (None, None, None) => None,
+        (Some(c), Some(tracked), Some(auxiliary)) => {
+            if tracked != &c.nuclides {
+                return fail(format!(
+                    "the restart history tracks the nuclides {tracked:?}, but the tables track {:?}",
+                    c.nuclides
+                ));
+            }
+            if auxiliary != &c.auxiliary_nuclides() {
+                return fail(format!(
+                    "the restart history has the auxiliary nuclides {auxiliary:?}, but the chain solves {:?}",
+                    c.auxiliary_nuclides()
+                ));
+            }
+            match (&last.densities, &history.auxiliary_densities) {
+                (Some(t), Some(a)) => Some((c, t, a)),
+                _ => {
+                    return fail(
+                        "the restart history has no densities of the tracked and auxiliary nuclides at its last point"
+                            .into(),
+                    );
+                }
+            }
+        }
+        (None, Some(_), _) => {
+            return fail(
+                "the restart history is a micro depletion, but the case does not micro deplete"
+                    .into(),
+            );
+        }
+        _ => {
+            return fail(
+                "the case micro depletes, but the restart history is not a micro depletion".into(),
+            );
+        }
+    };
+    let nz = axial_mesh.len().saturating_sub(1);
+    ids.iter()
+        .zip(heavy_metal)
+        .map(|(&id, masses)| {
+            let at = history.assemblies.iter().position(|a| a == id);
+            let a = match (at, fresh.contains(id)) {
+                (None, true) => return Ok(None),
+                (Some(a), false) => a,
+                (Some(_), true) => {
+                    return fail(format!(
+                        "assembly {id} is in the restart history but named fresh"
+                    ));
+                }
+                (None, false) => {
+                    return fail(format!(
+                        "assembly {id} is neither in the restart history nor named fresh"
+                    ));
+                }
+            };
+            if history.heavy_metal.get(a) != Some(masses) {
+                return fail(format!(
+                    "assembly {id}: the heavy metal {masses:?} g of its nodes differs from {:?} g of the restart history",
+                    history.heavy_metal.get(a)
+                ));
+            }
+            let burnups = match last.burnups.get(a) {
+                Some(b) if b.len() == nz => b.clone(),
+                _ => {
+                    return fail(format!(
+                        "assembly {id}: the restart history has no burnups of its {nz} nodes"
+                    ));
+                }
+            };
+            let densities = micro
+                .map(|(c, tracked, auxiliary)| {
+                    let (Some(t), Some(x)) = (tracked.get(a), auxiliary.get(a)) else {
+                        return fail(format!("assembly {id}: the restart history has no densities"));
+                    };
+                    t.iter()
+                        .zip(x)
+                        .map(|(t, x)| {
+                            if t.is_empty() && x.is_empty() {
+                                Ok(None)
+                            } else {
+                                c.compose(t, x).map(Some).map_err(|e| {
+                                    CaseError::Depletion(format!(
+                                        "assembly {id}: the restart history densities: {e}"
+                                    ))
+                                })
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?;
+            if densities.as_ref().is_some_and(|d| d.len() != nz) {
+                return fail(format!(
+                    "assembly {id}: the restart history densities do not have its {nz} nodes"
+                ));
+            }
+            Ok(Some((burnups, densities)))
+        })
+        .collect()
+}
 
 /// 位置ごとの解く核種の数密度（ミクロ燃焼しない位置は `None`）
 type Densities = Vec<Option<Vec<f64>>>;

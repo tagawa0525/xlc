@@ -8,7 +8,7 @@
 //!
 //! 燃焼のケース（`[depletion]`。ADR-0190）は、燃焼点ごとに `point <EFPD> <炉心の平均の燃焼度 (MWd/kg)> <k> <ホウ素濃度 (ppm)>
 //! <固有値計算の回数>` の行を出し（探索の状態は、点で求めたホウ素濃度と探索の回数。ADR-0191）、燃焼の履歴をケースの `history` の
-//! ファイルに書く。
+//! ファイルに書く。サイクルが前のサイクルの燃焼の履歴（`restart`）を指せば、その最後の点から集合体の状態を引き継ぐ（ADR-0220）。
 //!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 
@@ -26,7 +26,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::case::{CaseError, check_search, solve_at, solve_states};
-use xlc_core::depletion::deplete;
+use xlc_core::depletion::{CoreHistory, deplete};
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{axial_rows, core_rows, reconstruct};
@@ -113,12 +113,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 Chain::from_msgpack(&bytes).with_context(|| shown(&m.chain))
             })
             .transpose()?;
+        // 前のサイクルの燃焼の履歴（ADR-0220）
+        let restart = layout
+            .restart()
+            .map(|r| -> anyhow::Result<CoreHistory> {
+                let bytes = std::fs::read(&r.history).with_context(|| shown(&r.history))?;
+                CoreHistory::from_msgpack(&bytes).with_context(|| shown(&r.history))
+            })
+            .transpose()?;
         let history = deplete(
             &layout,
             &tables,
             &case.states,
             depletion,
             chain.as_ref(),
+            restart.as_ref(),
             &options,
             |point| {
                 println!(
