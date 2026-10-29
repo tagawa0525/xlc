@@ -844,9 +844,12 @@ CORE_MICRO_MAJOR = [
 
 def core_micro_densities(sources: list[dict]) -> str:
     """core のミクロ燃焼の追う核種の数密度の、テーブルの燃焼度の点ごとのテーブルの均質化した数密度に対する相対差 (%)。主要な核種
-    （`CORE_MICRO_MAJOR` のうち要約にあるもの）"""
+    （`CORE_MICRO_MAJOR`。要約がどれかを追わなければエラー）"""
     s = core_micro_summary(sources)
-    names = [n for n in CORE_MICRO_MAJOR if n in s["nuclides"]] or s["nuclides"]
+    missing = [n for n in CORE_MICRO_MAJOR if n not in s["nuclides"]]
+    if missing:
+        raise TableError(f"the summary does not track the major nuclides {missing}")
+    names = CORE_MICRO_MAJOR
     rows = [
         [
             burnup_label(d["burnup"]),
