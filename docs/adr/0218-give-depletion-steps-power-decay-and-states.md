@@ -5,7 +5,7 @@ requires: [ADR-0105, ADR-0127, ADR-0145, ADR-0146, ADR-0173, ADR-0190, ADR-0191,
 supersedes: []
 superseded-by:
 amends: [ADR-0190, ADR-0191]
-issues: ["#0190", "#0193", "#0156"]
+issues: ["#0190", "#0193", "#0156", "#0198"]
 ---
 
 # ADR-0218: core の燃焼のステップに、出力の割合、崩壊だけのステップ、ステップごとの状態を持たせる
