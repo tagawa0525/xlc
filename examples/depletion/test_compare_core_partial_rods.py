@@ -157,11 +157,38 @@ class Summary(unittest.TestCase):
         self.assertEqual(u235["per_burnup_not_monotonic"], [{"burnup": 2.0, "node": 1}])
 
     def test_burnups_of_the_points_agree_to_rounding(self):
-        # 集合体の燃焼度はノードの燃焼度の和なので、燃焼によって丸めが違う
+        # 集合体の燃焼度はノードの燃焼度の重金属の質量の重みの平均なので、燃焼によって丸めが違う
         out, rodded, partial = inputs()
         rodded["points"][1]["burnup"] = 1.0 + 2.2e-16
         s = compare_core_partial_rods.summarize(out, rodded, partial)
         self.assertEqual([p["burnup"] for p in s["points"]], [0.0, 1.0, 2.0])
+
+    def test_banks_must_move_one_way_with_the_fraction(self):
+        # 履歴と割合の組を取り違えると、バンクの位置が割合について単調でなくなる
+        out, rodded, partial = inputs()
+        swapped = [(0.0, partial[0][1]), (0.5, partial[2][1]), (1.0, partial[1][1])]
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(out, rodded, swapped)
+        # 比べる先の燃焼はバンクを持たない
+        out, rodded, partial = inputs()
+        rodded["state"]["banks"] = {"D": 0}
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(out, rodded, partial)
+
+    def test_no_fractions_is_an_error(self):
+        out, rodded, _ = inputs()
+        with self.assertRaises(SystemExit):
+            compare_core_partial_rods.summarize(out, rodded, [])
+
+    def test_the_report_of_a_summary_without_comparable_densities_is_drawn(self):
+        out, rodded, partial = inputs()
+        for core in [out, rodded] + [c for _, c in partial]:
+            for p in core["points"]:
+                p["densities"] = [[[0.0, 0.0], [0.0, 0.0]]]
+        s = compare_core_partial_rods.summarize(out, rodded, partial)
+        s["inputs"] = []
+        lines = compare_core_partial_rods.report(s)
+        self.assertTrue(any("相対差の絶対値の最大: –" in line for line in lines))
 
     def test_fractions_must_run_from_zero_to_one(self):
         out, rodded, partial = inputs()
