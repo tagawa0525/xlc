@@ -16,7 +16,8 @@ BRANCHES = Path(__file__).resolve().parent / "branches"
 # 定格の出力密度 (W/g)
 SPECIFIC_POWER = 38.41
 
-# 基準のサイクル: (炉心の平均の燃焼度 (MWd/kg) か停止の日数, 出力の割合, 状態, コメント)。燃焼度は EFPD = 燃焼度 × 1000 / 出力密度
+# 基準のサイクル: (種類（"burnup" か "decay"）, 炉心の平均の燃焼度 (MWd/kg) か停止の日数, 出力の割合（None は書かない）, 状態（None は前と
+# 同じ）, コメント)。燃焼度は EFPD = 燃焼度 × 1000 / 出力密度
 CYCLE = [
     ("burnup", 0.25, None, "aro", "0.25 MWd/kg"),
     ("burnup", 1.0, None, None, "1 MWd/kg"),
