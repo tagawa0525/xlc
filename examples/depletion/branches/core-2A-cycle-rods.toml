@@ -1,0 +1,59 @@
+# サイクルのステップ（ADR-0218）の確認 (iii): core-2A-micro-rods-050.toml と同じ集合体 1 体（軸方向のノード 2 つ）、テーブル、
+# 出力密度で、バンク D を 10 MWd/kg まで抜き（out、172 ステップ）、20 MWd/kg まで上のノードの挿入の割合 0.5（half、86 ステップ）に
+# 入れ、30 MWd/kg まで抜く。比べる先は、抜いたままの core-2A-micro-rods-000.toml と、割合 0.5 のままの core-2A-micro-rods-050.toml。
+cycle = "core-2A-micro-rods-cycle.toml"
+axial-mesh = [0.0, 10.75, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.out]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 172 }
+
+[state.half]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 86 }
+
+[depletion]
+specific-power = 38.41
+history = "core-2A-cycle-rods.msgpack"
+# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+micro = { chain = "../chain.msgpack" }
+steps = [
+  { efpd = 2.603488674824265, state = "out" },  # 0.1 MWd/kg
+  { efpd = 6.508721687060661 },  # 0.25 MWd/kg
+  { efpd = 13.017443374121326 },  # 0.5 MWd/kg
+  { efpd = 19.526165061181988 },  # 0.75 MWd/kg
+  { efpd = 26.034886748242652 },  # 1 MWd/kg
+  { efpd = 39.052330122363976 },  # 1.5 MWd/kg
+  { efpd = 52.069773496485304 },  # 2 MWd/kg
+  { efpd = 65.08721687060662 },  # 2.5 MWd/kg
+  { efpd = 78.10466024472794 },  # 3 MWd/kg
+  { efpd = 91.12210361884927 },  # 3.5 MWd/kg
+  { efpd = 104.13954699297058 },  # 4 MWd/kg
+  { efpd = 130.17443374121325 },  # 5 MWd/kg
+  { efpd = 156.20932048945588 },  # 6 MWd/kg
+  { efpd = 182.24420723769853 },  # 7 MWd/kg
+  { efpd = 208.27909398594116 },  # 8 MWd/kg
+  { efpd = 234.31398073418382 },  # 9 MWd/kg
+  { efpd = 260.34886748242644 },  # 10 MWd/kg
+  { efpd = 286.38375423066907, state = "half" },  # 11 MWd/kg
+  { efpd = 312.41864097891175 },  # 12 MWd/kg
+  { efpd = 338.4535277271544 },  # 13 MWd/kg
+  { efpd = 364.488414475397 },  # 14 MWd/kg
+  { efpd = 390.5233012236397 },  # 15 MWd/kg
+  { efpd = 416.5581879718823 },  # 16 MWd/kg
+  { efpd = 468.62796146836763 },  # 18 MWd/kg
+  { efpd = 520.6977349648529 },  # 20 MWd/kg
+  { efpd = 572.7675084613381, state = "out" },  # 22 MWd/kg
+  { efpd = 624.8372819578235 },  # 24 MWd/kg
+  { efpd = 676.9070554543088 },  # 26 MWd/kg
+  { efpd = 728.976828950794 },  # 28 MWd/kg
+  { efpd = 781.0466024472794 },  # 30 MWd/kg
+]

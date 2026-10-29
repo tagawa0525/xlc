@@ -5,7 +5,7 @@
 
 - `--json`: core の履歴が集合体 1 体・軸方向のノード 1 つ（反射境界で k∞ を解くケース）であることと、core の燃焼点の燃焼度が
   格子計算の履歴の燃焼点のどれかと相対 1e-9 で一致することを確かめ、燃焼点ごとに反応度の差 Δρ = (1/k_履歴 − 1/k_core) × 1e5 pcm と、
-  その燃焼度がテーブルの燃焼度の点か（点の上は内挿の誤差がない）を書く。テーブルの点では、core の状態（履歴の `state`。テーブルの
+  その燃焼度がテーブルの燃焼度の点か（点の上は内挿の誤差がない）を書く。テーブルの点では、core の状態（履歴の `states` のただ 1 つの状態。テーブルの
   格子点であること）のテーブルの状態の k∞（分岐の格子計算の k∞）との差 (1/k_分岐 − 1/k_core) × 1e5 pcm も書く（ADR-0187 の確認と
   同じ比べ方。分岐と履歴の差を除いた、テーブルの読み書きと内挿の差）。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+from core_history import single_state
 
 # core の燃焼度と履歴の燃焼点の一致の許容（core は出力密度 × EFPD で、履歴は燃焼度の点から時間を求めて燃焼させる）
 BURNUP_TOLERANCE = 1e-9
@@ -60,11 +61,12 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
     formats = (lattice.get("format"), table.get("format"), core.get("format"))
     if formats != ("xlc-depletion-history", "xlc-table", "xlc-core-history"):
         raise SystemExit(f"unexpected formats {formats}")
-    if "search" in core["state"]:
+    state = single_state(core)
+    if "search" in state:
         raise SystemExit(
             "the core history searches the boron; compare it with compare_core_boron.py"
         )
-    if "boron" not in core["state"]:
+    if "boron" not in state:
         raise SystemExit("the core history state has neither boron nor search")
     if len(core["assemblies"]) != 1 or len(core["axial_mesh"]) != 2:
         raise SystemExit(
@@ -87,7 +89,7 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
             raise SystemExit(f"core burnup {b} is not a point of the history")
         (h,) = matched
         on_table = h["burnup"] in table_burnups
-        branch = branch_k(table, core["state"], h["burnup"]) if on_table else None
+        branch = branch_k(table, state, h["burnup"]) if on_table else None
         points.append(
             {
                 "efpd": p["efpd"],
