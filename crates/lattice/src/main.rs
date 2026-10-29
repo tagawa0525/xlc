@@ -320,17 +320,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let file = base.join(&history.file);
             let bytes = read("history", &file)?;
             let history_file = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
-            Some(
-                xlc_lattice::history::history_branches(
-                    &input,
-                    &history_file,
-                    library,
-                    &lattice,
-                    &region_materials,
-                    &chosen,
-                )
-                .with_context(|| format!("{}: history", shown(path)))?,
+            let mut branches = xlc_lattice::history::history_branches(
+                &input,
+                &history_file,
+                library,
+                &lattice,
+                &region_materials,
+                &chosen,
             )
+            .with_context(|| format!("{}: history", shown(path)))?;
+            if let Some(shielding) = &history.shielding_file {
+                let file = base.join(shielding);
+                let bytes = read("shielding history", &file)?;
+                let shielding = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
+                branches.shield_with(&shielding).with_context(|| {
+                    format!("{}: shielding history {}", shown(path), shown(&file))
+                })?;
+            }
+            Some(branches)
         }
         (Some(_), Source::Macroscopic(_)) => {
             return Err(anyhow!("{}: [history] needs a library", shown(path)));
@@ -383,11 +390,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .collect();
     // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
-    let varied = input.branches.as_ref().map_or(&[][..], |b| b.varied());
+    // 自己遮蔽の履歴があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す（`HistoryBranches::shield_with`）
+    let varied: Vec<String> = input
+        .branches
+        .as_ref()
+        .map_or(&[][..], |b| b.varied())
+        .iter()
+        .chain(history_branches.iter().flat_map(|h| h.remixed()))
+        .cloned()
+        .collect();
     let mut shielder = BranchShielder::new(
         &tracking,
         solved_materials,
-        varied,
+        &varied,
         chosen.shielding(),
         input.shielding_options(),
     );
