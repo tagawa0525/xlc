@@ -1235,3 +1235,24 @@ fn histories_hold_densities_exactly_when_they_name_nuclides() {
     unnamed.nuclides = None;
     assert!(CoreHistory::from_msgpack(&unnamed.to_msgpack().unwrap()).is_err());
 }
+
+#[test]
+fn fissile_tables_off_the_depleted_nodes_are_errors() {
+    // 燃焼度で引かない使い方（反射体の位置など）の核分裂のあるテーブルは、補正も燃焼もしないので止める
+    let (mut layout, tables, case, _) = micro_layout();
+    let m = layout.node_material[0].unwrap();
+    let t = layout.materials[m].table;
+    layout.tables[t].node = None;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        micro_case(CASE).depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("not a depleted node"), "{error}");
+}
