@@ -646,8 +646,11 @@ pub fn deplete(
         ) else {
             return solve(k, burnups, n.as_deref(), given, at).map(|s| (s, n));
         };
+        // 点の固有値計算の回数は、固定点のすべての解の和
+        let mut solves = 0;
         equilibrate(n, |n| {
             let solved = solve(k, burnups, Some(n), given, at)?;
+            solves += solved.solves;
             let balanced = (0..sites)
                 .into_par_iter()
                 .map(|site| {
@@ -661,7 +664,7 @@ pub fn deplete(
                 .map_err(|e| locate(CaseError::Depletion(e), at))?;
             Ok((solved, balanced))
         })
-        .map(|(s, n)| (s, Some(n)))
+        .map(|(s, n)| (Solve { solves, ..s }, Some(n)))
         .map_err(|e| locate(e, at))
     };
     // 崩壊だけのステップ: 組成 `n` を、崩壊の項だけの行列で時間 `t` (s) だけ進める（ADR-0218）
