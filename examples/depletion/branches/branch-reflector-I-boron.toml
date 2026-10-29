@@ -2,7 +2,7 @@
 # （../../vera/p5/reflector-I.toml と同じ形、離散化、組成。燃料の右に反射体、右は真空、ほかは鏡面反射）を、2A のミクロ燃焼の
 # テーブル（branch-2A-micro-boron.toml）と同じライブラリ（../p2/depletion.msgpack）と状態で解く。分岐はホウ素 0、300、600、1000、
 # 1300 ppm × 燃料 565 K（減速材は 565 K、0.743 g/cc）の 5 状態で、燃料は新しい燃料のまま（反射体は燃焼しない。ADR-0190）。
-# 反射体のノードの定数だけを書く。
+# 炉心は反射体のノードの定数だけを使う（燃料のノードは、ノードが格子のすべてのマスを覆うために書く）。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26
@@ -10,6 +10,7 @@ azimuthal = 30
 spacing = 0.03
 boundary = { right = "vacuum" }
 few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
+  { output = "table-reflector-I-boron-fuel.msgpack", columns = [1, 19], rows = [1, 19] },
   { output = "table-reflector-I-boron.msgpack", columns = [20, 47], rows = [1, 19], reflector = true },
 ] }
 widths = [
