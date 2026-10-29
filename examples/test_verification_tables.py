@@ -1317,6 +1317,126 @@ class DrawCoreMicro(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawCorePartialRods(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_core_partial_rods.py の要約（燃焼点 2 つ、割合 3 つ、追う核種 2 つ）"""
+        return {
+            "format": "xlc-compare-core-partial-rods",
+            "specific_power": 38.41,
+            "fractions": [0.0, 0.5, 1.0],
+            "banks": [{"D": 172}, {"D": 86}, {"D": 0}],
+            "nuclides": ["U-235", "Xe-135"],
+            "points": [
+                {
+                    "efpd": 0.0,
+                    "burnup": 0.0,
+                    "out_k": 1.18308830,
+                    "rodded_k": 0.85,
+                    "k": [1.18308830, 1.0, 0.85],
+                    "zero_pcm": 0.0,
+                    "one_pcm": 0.0,
+                    "k_monotonic": True,
+                },
+                {
+                    "efpd": 2.6034886,
+                    "burnup": 0.1,
+                    "out_k": 1.14569915,
+                    "rodded_k": 0.83,
+                    "k": [1.14569915, 0.99, 0.83],
+                    "zero_pcm": -1.5e-7,
+                    "one_pcm": 2.26e-6,
+                    "k_monotonic": False,
+                },
+            ],
+            "densities": {
+                "U-235": {
+                    "zero_limit": {"relative": -1.2e-12, "burnup": 0.1},
+                    "one_limit": {"relative": 3.4e-11, "burnup": 0.1},
+                    "last_change": 1.23e-3,
+                    "not_monotonic": [],
+                },
+                "Xe-135": {
+                    "zero_limit": {"relative": 0.0, "burnup": 0.1},
+                    "one_limit": {"relative": None, "burnup": None},
+                    "last_change": None,
+                    "not_monotonic": [0.1, 10.0],
+                },
+            },
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_k_rows_show_every_fraction_and_the_limits(self):
+        table = vt.core_partial_rods_k([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "EFPD",
+                "k（割合 0）",
+                "k（割合 0.5）",
+                "k（割合 1）",
+                "割合 0 − 棒なし (pcm)",
+                "割合 1 − 棒あり (pcm)",
+                "割合について単調",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "0",
+                    "0.00",
+                    "1.18308830",
+                    "1.00000000",
+                    "0.85000000",
+                    "0.0e+00",
+                    "0.0e+00",
+                    "○",
+                ],
+                [
+                    "0.1",
+                    "2.60",
+                    "1.14569915",
+                    "0.99000000",
+                    "0.83000000",
+                    "−1.5e-07",
+                    "+2.3e-06",
+                    "×",
+                ],
+            ],
+        )
+
+    def test_density_rows_are_by_nuclide(self):
+        table = vt.core_partial_rods_densities([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["U-235", "−1.2e-12", "+3.4e-11", "+0.1230", "なし"],
+                ["Xe-135", "0.0e+00", "–", "–", "0.1, 10"],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (vt.core_partial_rods_k, vt.core_partial_rods_densities):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-core-micro"}])
+
+    def test_the_2a_comparison_is_a_git_tracked_json(self):
+        for name in (
+            "depletion-2a-core-partial-rods-k",
+            "depletion-2a-core-partial-rods-densities",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertEqual(
+                sources,
+                ["examples/depletion/branches/compare-core-2A-partial-rods.json"],
+            )
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawMicroLinearization(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
