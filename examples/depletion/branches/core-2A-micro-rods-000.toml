@@ -1,0 +1,61 @@
+# 部分挿入のノードのミクロ燃焼（ADR-0217、#0192）の確認: core-2A-micro.toml と同じ集合体 1 体、出力密度、52 MWd/kg までの 38 のステップ、公称の状態を、
+# 軸方向のノード 2 つ（0〜10.75、10.75〜21.5 cm）で、制御棒の軸を持つテーブル（core-2A-micro-rods-assemblies.toml）を使い、バンク D を
+# 上のノードの挿入の割合 0（172 ステップ）で入れて燃焼させる。
+# （56、60 MWd/kg まで進めると、下のノードの燃焼度がテーブルの最後の点 60 MWd/kg を超える）
+cycle = "core-2A-micro-rods-cycle.toml"
+axial-mesh = [0.0, 10.75, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.nominal]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 172 }
+
+[depletion]
+specific-power = 38.41
+history = "core-2A-micro-rods-000.msgpack"
+# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+micro = { chain = "../chain.msgpack" }
+steps = [
+  { efpd = 2.603488674824265 },  # 0.1 MWd/kg
+  { efpd = 6.508721687060661 },  # 0.25 MWd/kg
+  { efpd = 13.017443374121326 },  # 0.5 MWd/kg
+  { efpd = 19.526165061181988 },  # 0.75 MWd/kg
+  { efpd = 26.034886748242652 },  # 1 MWd/kg
+  { efpd = 39.052330122363976 },  # 1.5 MWd/kg
+  { efpd = 52.069773496485304 },  # 2 MWd/kg
+  { efpd = 65.08721687060662 },  # 2.5 MWd/kg
+  { efpd = 78.10466024472794 },  # 3 MWd/kg
+  { efpd = 91.12210361884927 },  # 3.5 MWd/kg
+  { efpd = 104.13954699297058 },  # 4 MWd/kg
+  { efpd = 130.17443374121325 },  # 5 MWd/kg
+  { efpd = 156.20932048945588 },  # 6 MWd/kg
+  { efpd = 182.24420723769853 },  # 7 MWd/kg
+  { efpd = 208.27909398594116 },  # 8 MWd/kg
+  { efpd = 234.31398073418382 },  # 9 MWd/kg
+  { efpd = 260.34886748242644 },  # 10 MWd/kg
+  { efpd = 286.38375423066907 },  # 11 MWd/kg
+  { efpd = 312.41864097891175 },  # 12 MWd/kg
+  { efpd = 338.4535277271544 },  # 13 MWd/kg
+  { efpd = 364.488414475397 },  # 14 MWd/kg
+  { efpd = 390.5233012236397 },  # 15 MWd/kg
+  { efpd = 416.5581879718823 },  # 16 MWd/kg
+  { efpd = 468.62796146836763 },  # 18 MWd/kg
+  { efpd = 520.6977349648529 },  # 20 MWd/kg
+  { efpd = 572.7675084613381 },  # 22 MWd/kg
+  { efpd = 624.8372819578235 },  # 24 MWd/kg
+  { efpd = 676.9070554543088 },  # 26 MWd/kg
+  { efpd = 728.976828950794 },  # 28 MWd/kg
+  { efpd = 781.0466024472794 },  # 30 MWd/kg
+  { efpd = 833.1163759437646 },  # 32 MWd/kg
+  { efpd = 885.1861494402499 },  # 34 MWd/kg
+  { efpd = 937.2559229367353 },  # 36 MWd/kg
+  { efpd = 989.3256964332205 },  # 38 MWd/kg
+  { efpd = 1041.3954699297058 },  # 40 MWd/kg
+  { efpd = 1145.5350169226763 },  # 44 MWd/kg
+  { efpd = 1249.674563915647 },  # 48 MWd/kg
+  { efpd = 1353.8141109086175 },  # 52 MWd/kg
+]

@@ -12,6 +12,7 @@
 
 import difflib
 import hashlib
+import itertools
 import json
 import math
 import re
@@ -879,6 +880,89 @@ def core_micro_largest(sources: list[dict]) -> str:
     return markdown_table(["核種", "相対差 (%)", "燃焼度 (MWd/kg)"], rows)
 
 
+def core_partial_rods_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-partial-rods":
+        raise TableError("not an xlc-compare-core-partial-rods summary")
+    return s
+
+
+def core_partial_rods_k(sources: list[dict]) -> str:
+    """部分挿入のノードのミクロ燃焼（集合体 1 体。ADR-0217）: 燃焼点ごとの挿入の割合ごとの k と、割合 0 の棒のない燃焼からの、割合 1 の
+    棒の入った燃焼からの反応度の差と、k が割合について単調か"""
+    s = core_partial_rods_summary(sources)
+    rows = [
+        [
+            burnup_label(p["burnup"]),
+            f"{p['efpd']:.2f}",
+            *(f"{k:.8f}" for k in p["k"]),
+            signed_exponent(p["zero_pcm"]),
+            signed_exponent(p["one_pcm"]),
+            "○" if p["k_monotonic"] else "×",
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "EFPD",
+            *(f"k（割合 {f:g}）" for f in s["fractions"]),
+            "割合 0 − 棒なし (pcm)",
+            "割合 1 − 棒あり (pcm)",
+            "割合について単調",
+        ],
+        rows,
+    )
+
+
+def core_partial_rods_densities(sources: list[dict]) -> str:
+    """部分挿入のノードのミクロ燃焼の追う核種ごとの、割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の数密度の相対差の絶対値の
+    最大、最後の燃焼点の軸方向のノードごとの割合 1 の割合 0 に対する相対差 (%)、数密度が割合について単調でない燃焼点のノードごとの数と
+    燃焼度 (MWd/kg) の範囲"""
+    s = core_partial_rods_summary(sources)
+    mesh = s["axial_mesh"]
+
+    def limit(x):
+        return "–" if x is None else signed_exponent(x)
+
+    def points_of(burnups):
+        if not burnups:
+            return "0"
+        if len(burnups) == 1:
+            return f"1（{burnup_label(burnups[0])}）"
+        return f"{len(burnups)}（{burnup_label(min(burnups))}〜{burnup_label(max(burnups))}）"
+
+    rows = [
+        [
+            n,
+            limit(d["zero_limit"]["relative"]),
+            limit(d["one_limit"]["relative"]),
+            *(micro_percent(c) for c in d["last_change"]),
+            *(
+                points_of([m["burnup"] for m in d["not_monotonic"] if m["node"] == z])
+                for z in range(len(mesh) - 1)
+            ),
+        ]
+        for n, d in s["densities"].items()
+    ]
+    return markdown_table(
+        [
+            "核種",
+            "割合 0 − 棒なし（相対）",
+            "割合 1 − 棒あり（相対）",
+            *(
+                f"最後の点の割合 1 − 割合 0、{a:g}〜{b:g} cm (%)"
+                for a, b in itertools.pairwise(mesh)
+            ),
+            *(
+                f"単調でない燃焼点、{a:g}〜{b:g} cm"
+                for a, b in itertools.pairwise(mesh)
+            ),
+        ],
+        rows,
+    )
+
+
 def burnup_interpolation_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-burnup-interpolation":
@@ -1551,6 +1635,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-burnup-interpolation.json",
     "examples/depletion/branches/compare-core-2A-boron.json",
     "examples/depletion/branches/compare-core-2A-micro.json",
+    "examples/depletion/branches/compare-core-2A-partial-rods.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -2003,6 +2088,14 @@ TABLES = {
     "depletion-2a-core-micro-largest": (
         ["examples/depletion/branches/compare-core-2A-micro.json"],
         core_micro_largest,
+    ),
+    "depletion-2a-core-partial-rods-k": (
+        ["examples/depletion/branches/compare-core-2A-partial-rods.json"],
+        core_partial_rods_k,
+    ),
+    "depletion-2a-core-partial-rods-densities": (
+        ["examples/depletion/branches/compare-core-2A-partial-rods.json"],
+        core_partial_rods_densities,
     ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],
