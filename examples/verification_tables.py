@@ -1028,8 +1028,8 @@ def core_steps(method: str, sources: list[dict]) -> str:
     s = core_steps_summary(sources)
     if method not in s["steps"]:
         raise TableError(f"the summary has no {method} depletions")
-    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(s["splits"])]
-    finest = s["splits"][-1]
+    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(s["splits"][method])]
+    finest = s["splits"][method][-1]
     rows = []
     for p in s["steps"][method]:
         d = p["differences"]
@@ -1074,7 +1074,7 @@ def core_steps_midpoint(sources: list[dict]) -> str:
     s = core_steps_summary(sources)
     if s["midpoint"] is None:
         raise TableError("the summary has no start and search depletions")
-    splits = [str(x) for x in s["splits"]]
+    splits = sorted(s["midpoint"], key=int)
     base = s["steps"]["search"]
     rows = []
     for i, p in enumerate(base):
