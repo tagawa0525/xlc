@@ -12,7 +12,8 @@
     ついて単調か
   - 追う核種ごと: 割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の、数密度の相対差 N / N_基準 − 1 の絶対値の最大とその燃焼度と
     軸方向のノードの番号（下から。基準が 0 の点は比べない）、最後の燃焼点のノードごとの割合 1 の割合 0 に対する相対差（割合 0 の
-    値が 0 なら null）、数密度が割合について単調でない燃焼点の燃焼度とノード
+    値が 0 なら null）、数密度が割合について単調でない燃焼点の燃焼度とノード、数密度の燃焼度 0 からの変化をノードの燃焼度で割った
+    値が割合について単調でない燃焼点（燃焼度 0 の点を除く）の燃焼度とノード
   単調は、割合の順に並べた値の隣どうしの差が、どれも 0 以上か、どれも 0 以下であること（等しい値は両方に数える）。
   `inputs` は読んだファイルのパスと md5、`banks` は割合ごとの履歴の制御棒のバンクの位置
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -116,6 +117,10 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     names = out["nuclides"]
     burnups = [p["burnup"] for p in out["points"]]
     dens = [node_densities(core) for _, core in partial]
+    # [割合][点][ノード] のノードの燃焼度
+    fraction_burnups = [
+        [p["burnups"][0] for p in core["points"]] for _, core in partial
+    ]
     zero, one = dens[0], dens[-1]
     points = []
     for j, p in enumerate(out["points"]):
@@ -155,6 +160,18 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
                 for j, b in enumerate(burnups)
                 for z in nodes
                 if not monotonic([d[j][z][i] for d in dens])
+            ],
+            "per_burnup_not_monotonic": [
+                {"burnup": b, "node": z}
+                for j, b in enumerate(burnups)
+                for z in nodes
+                if j > 0
+                and not monotonic(
+                    [
+                        (d[j][z][i] - d[0][z][i]) / nb[j][z]
+                        for d, nb in zip(dens, fraction_burnups)
+                    ]
+                )
             ],
         }
     return {
@@ -214,6 +231,15 @@ def report(summary: dict) -> list[str]:
     bad = [name for name, d in summary["densities"].items() if d["not_monotonic"]]
     lines.append(
         f"数密度が割合について単調でない点を持つ核種: {len(bad)} / {len(summary['densities'])}（{' '.join(bad)}）"
+    )
+    bad = [
+        name
+        for name, d in summary["densities"].items()
+        if d["per_burnup_not_monotonic"]
+    ]
+    lines.append(
+        f"ノードの燃焼度あたりの数密度の変化が割合について単調でない点を持つ核種: {len(bad)} / {len(summary['densities'])}"
+        f"（{' '.join(bad)}）"
     )
     lines.append(
         "核種 | 割合 0 − 棒なし（相対） | 燃焼度, ノード | 割合 1 − 棒あり（相対） | 燃焼度, ノード | 最後の点の 1 / 0 − 1、ノードごと (%) "
