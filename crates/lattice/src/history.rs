@@ -60,7 +60,7 @@ pub struct HistoryBranches {
     pub region_materials: Vec<String>,
     /// 初めの重金属の質量 (g/cm、格子全体の高さ 1 cm あたり)。テーブルの `heavy_metal`（ADR-0190）
     pub heavy_metal: f64,
-    /// 履歴の燃焼の領域
+    /// 入力の格子の燃焼の領域（MOC の領域の番号は入力の格子のもの）
     regions: Vec<DepletionRegion>,
     /// 選んだ燃焼度の点ごとの、燃焼の領域の数密度（[点][領域][履歴の核種]）
     densities: Vec<Vec<Vec<f64>>>,
@@ -113,8 +113,8 @@ pub fn history_branches(
             depleted.push(d.material.clone());
         }
     }
-    // 入力から求めた燃焼の領域が、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じこと。MOC の領域の番号は入力のもの
-    // を使う（案内管の中身を変えた格子でも、燃料のセルが同じなら同じ領域になる）
+    // 入力から求めた燃焼の領域が、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じこと。MOC の領域の番号は照合せず、入力の
+    // 格子のものを使う（案内管の中身を変えた格子では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる。#0196）
     let representatives = chosen.shielding().cell_representatives();
     let regions = depletion_regions(lattice, region_materials, &representatives, &depleted);
     let key =
@@ -404,7 +404,7 @@ pub fn history_branches(
         axes,
         region_materials: renamed,
         heavy_metal,
-        regions: history.regions.clone(),
+        regions,
         densities: points
             .iter()
             .map(|&p| history.points[p].densities.clone())
