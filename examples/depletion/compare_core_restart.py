@@ -10,8 +10,9 @@
     質量、追う核種と補助の核種、Xe の扱いが同じで、後の半分の燃焼点 0 のノードの燃焼度と数密度が前の半分の最後の点と同じで、組にした点の
     EFPD と日数が相対 1e-12 で同じであること（違えば止める）。点ごとに、k と切らない燃焼の k、反応度の差
     Δρ = (1/k_切らない − 1/k) × 1e5 pcm、ホウ素の差（後の半分 − 切らない）、ノードの燃焼度の差の絶対値の最大、追う核種の数密度の差の
-    絶対値の最大（核種ごとの、切らない燃焼のその点の炉心の最大の数密度に対する比）。最後の点の補助の核種の数密度の差も同じ比で。前の半分の
-    点と切らない燃焼の初めの点の k の差の絶対値の最大も書く（同じ計算なので 0 の見込み）
+    絶対値の最大（核種ごとの、切らない燃焼のその点の炉心の最大の数密度に対する比。下限は炉心のすべての核種の最大の数密度の 1e-12 倍）。
+    最後の点の補助の核種の数密度の差も同じ比で（下限は追う核種と補助の核種の最大の 1e-12 倍）。前の半分の点と切らない燃焼の初めの点の
+    k の差の絶対値の最大も書く（同じ計算なので 0 の見込み）
   - 装荷替え（`reload`）: 切らない燃焼を前のサイクルとして、装荷替えの燃焼の燃焼点 0 の、前のサイクルの履歴にある集合体（引き継いだ集合体）の
     ノードの燃焼度と数密度が前のサイクルの最後の点のその集合体と同じで、前のサイクルにない集合体（新しい集合体）のノードの燃焼度が 0 である
     こと（違えば止める）。点ごとの EFPD、日数、状態、k、ホウ素、固有値計算の回数、炉心の平均の燃焼度、集合体ごとの燃焼度（`assemblies` の順）
@@ -58,9 +59,21 @@ def close(a: float, b: float) -> bool:
     return abs(a - b) <= TIME_TOLERANCE * max(abs(a), abs(b), 1.0)
 
 
-def relative_density_differences(what: str, got, want) -> float:
-    """ノードの数密度 [集合体][軸方向のノード][核種] の差の絶対値の最大（核種ごとの `want` の炉心の最大の数密度に対する比。最大が 0 の核種は
-    差の絶対値）。どちらかが数密度を持たないか、形が違えば止める（比べずに差 0 と書かない）"""
+# CRAM の近似の誤差の水準の、ノードの最大の数密度に対する大きさ（crates/core/src/depletion.rs の `NEGATIVE_TOLERANCE`）。これより小さい差は
+# 0 に近い値の揺らぎ（30 日の停止で 1e-27 ほどに消えた補助の核種など）で、核種ごとの最大に対する比にすると 1 の大きさになる
+CRAM_ERROR = 1e-12
+
+
+def largest_density(*densities) -> float:
+    """数密度 [集合体][軸方向のノード][核種] の絶対値の最大"""
+    return max(
+        (abs(v) for d in densities for a in d for n in a for v in n), default=0.0
+    )
+
+
+def relative_density_differences(what: str, got, want, scale: float) -> float:
+    """ノードの数密度 [集合体][軸方向のノード][核種] の差の絶対値の最大。核種ごとに、`want` の炉心の最大の数密度と、`scale`（炉心の最大の
+    数密度）の `CRAM_ERROR` 倍の大きい方に対する比。どちらかが数密度を持たないか、形が違えば止める（比べずに差 0 と書かない）"""
     if got is None or want is None:
         raise SystemExit(f"{what}: the densities are missing")
     shape = lambda d: [[len(n) for n in a] for a in d]
@@ -70,7 +83,8 @@ def relative_density_differences(what: str, got, want) -> float:
     if not nodes:
         return 0.0
     count = len(nodes[0][1])
-    largest = [max(abs(w[i]) for _, w in nodes) for i in range(count)]
+    floor = CRAM_ERROR * scale
+    largest = [max(floor, *(abs(w[i]) for _, w in nodes)) for i in range(count)]
     return max(
         (
             abs(g[i] - w[i]) / (largest[i] or 1.0)
@@ -127,6 +141,7 @@ def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
                     f"{name} at {q['efpd']} EFPD",
                     p.get("densities"),
                     q.get("densities"),
+                    largest_density(q.get("densities") or []),
                 ),
             }
         )
@@ -141,6 +156,10 @@ def compare_cut(name: str, full: dict, first: dict, second: dict) -> dict:
             f"{name} auxiliary",
             second.get("auxiliary_densities"),
             full.get("auxiliary_densities"),
+            largest_density(
+                full["points"][-1].get("densities") or [],
+                full.get("auxiliary_densities") or [],
+            ),
         ),
     }
 
