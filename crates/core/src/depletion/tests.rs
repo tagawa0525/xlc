@@ -1759,7 +1759,7 @@ fn decay_steps_need_micro_depletion() {
     let case = CASE
         .replace(
             "[depletion]",
-            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"tracked\" }",
         )
         .replace(
             "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
@@ -1792,7 +1792,7 @@ fn two_rod_states(steps: &str) -> String {
         )
         .replace(
             "[depletion]",
-            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"tracked\" }",
         )
         .replace("[{ efpd = 50.0 }, { efpd = 125.0 }]", steps)
 }
