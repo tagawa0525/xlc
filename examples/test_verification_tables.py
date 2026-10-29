@@ -1645,7 +1645,8 @@ class DrawCoreSteps(unittest.TestCase):
             return {
                 "method": method,
                 "split": split,
-                "points": [{"efpd": d, "days": d, "offset": 0.01 * d} for d in days],
+                "days": days,
+                "offset": [0.01 * d for d in days],
             }
 
         s["axial"] = [
@@ -1661,6 +1662,7 @@ class DrawCoreSteps(unittest.TestCase):
         )
         lines = table.splitlines()
         self.assertIn("search 分割 2", lines[0])
+        self.assertNotIn("EFPD", lines[0])
         self.assertIn("equilibrium 分割 2", lines[0])
         # 2 日からの分割 4 の点（5 つ）。分割 2 の無い点は –
         self.assertEqual(len(lines), 2 + 5)
