@@ -134,6 +134,7 @@ def report(summary: dict) -> list[str]:
         raise SystemExit("the JSON has no inputs; rerun the comparison")
     points = summary["points"]
     on = [p for p in points if p["on_table"]]
+    between = [p for p in points if not p["on_table"]]
     lines = [
         "inputs: "
         + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"]),
@@ -144,7 +145,6 @@ def report(summary: dict) -> list[str]:
         ("plain_pcm", "ミクロ燃焼なし − 履歴"),
         ("correction_pcm", "ミクロ燃焼 − ミクロ燃焼なし"),
     ]:
-        between = [p for p in points if not p["on_table"]]
         for name, subset in [
             ("すべての点", points),
             ("テーブルの点", on),
