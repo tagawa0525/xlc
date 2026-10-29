@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core, depletion]
 opened: 2026-10-29
-closed:
+closed: 2026-10-29
 milestone: M4
-blocked-by: ["#0196"]
-resolution:
+blocked-by: []
+resolution: ADR-0217
 ---
 
 # 部分挿入のノードのミクロ燃焼
@@ -42,3 +42,11 @@ Problem 9 のサイクルの燃焼は D バンクを部分挿入で運転する�
   内挿してから、`mix_micro` が中性子束で重みを付けた率で混ぜるので、1 つの量を 2 つの規則で混ぜる（大きさは測っていない）。
   examples/core/rod_table.py の `DENSITY_ROUNDING`（1e-12）のコメントは「数個の ulp」と書くが約 4500 ulp で、制御棒の組と棒のない組の
   数密度の差は #0196 の後まで測れない。`rods::weighted` は `average` を呼ぶだけで、`mix_micro` は群ごとの重みの和を核種ごとに作り直す
+- 2026-10-29: #0196 を直した後に、2A の制御棒を入れた組のテーブルを作り、集合体 1 体の上のノードの挿入の割合 0〜1 で確かめた
+  （examples/depletion/verification.md の「部分挿入のノードのミクロ燃焼（2A の集合体 1 体）」。ADR-0217 の「確認」）。k は割合について
+  単調で、割合 0 と 1 は一様なノードの燃焼に丸めの範囲で一致する。追う核種の数密度は 31 核種のうち 17 核種が割合について単調でない点を
+  持ち、原因は確かめていない（記録に候補）。部分挿入のノードは同じ列に一様なノードが要るので、集合体 1 体でもノードを 2 つにした
+- 2026-10-29: 上の 3 周目の残りのうち、制御棒の組と棒のない組の均質化した数密度の差を測った。table-2A-micro.msgpack（md5 646d0ec2）と
+  table-2A-micro-rods.msgpack（md5 70b204f3）の `micro.densities` の 527 個のうち 500 個がビットで違い、相対差の最大は 2.0e-14
+  （手元の Python で msgpack を読んで比べた。記録のツールでは出していない）。rod_table.py の `DENSITY_ROUNDING`（1e-12）より 2 桁小さい。
+  コメントの「数個の ulp」（約 4500 ulp）は直していない
