@@ -1346,6 +1346,38 @@ fn depletion_reads_the_specific_power_steps_and_history() {
 }
 
 #[test]
+fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
+    // ミクロ燃焼（ADR-0216）。チェーンのパスはケースのファイルからの相対
+    let text = edited(
+        &depleting(),
+        "history = \"out/history.msgpack\"\n",
+        "history = \"out/history.msgpack\"\nmicro = { chain = \"../chain.msgpack\" }\n",
+    );
+    let d = Case::parse(&text, base()).unwrap().depletion.unwrap();
+    assert_eq!(
+        d.micro,
+        Some(MicroInput {
+            chain: PathBuf::from("chain.msgpack")
+        })
+    );
+    assert_eq!(
+        Case::parse(&depleting(), base())
+            .unwrap()
+            .depletion
+            .unwrap()
+            .micro,
+        None
+    );
+    // 決めていない項目（平衡 Xe など）は受けない
+    let bad = edited(
+        &depleting(),
+        "history = \"out/history.msgpack\"\n",
+        "history = \"out/history.msgpack\"\nmicro = { chain = \"c.msgpack\", xenon = \"equilibrium\" }\n",
+    );
+    assert!(Case::parse(&bad, base()).is_err());
+}
+
+#[test]
 fn depletion_states_may_search_the_boron() {
     // ステップの各解で臨界ホウ素を探す（ADR-0191）。探索の検査は燃焼でない状態と同じ（ADR-0145）
     let search = "search = { boron = [0.0, 1300.0], k = 1.0, tolerance = 1e-5, max-solves = 10 }\n";

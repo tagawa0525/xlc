@@ -785,6 +785,100 @@ def core_depletion_k(sources: list[dict]) -> str:
     )
 
 
+def core_micro_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-micro":
+        raise TableError("not an xlc-compare-core-micro summary")
+    return s
+
+
+def core_micro_k(sources: list[dict]) -> str:
+    """core のミクロ燃焼（集合体 1 体。ADR-0216）: 燃焼点ごとの履歴の k∞、ミクロ燃焼の k と、反応度の差（ミクロ燃焼 − 履歴、ミクロ燃焼
+    しない燃焼 − 履歴（燃焼度の内挿の誤差。ADR-0192）、ミクロ燃焼 − しない燃焼（線形の補正の効き））"""
+    s = core_micro_summary(sources)
+    rows = [
+        [
+            burnup_label(p["burnup"]),
+            f"{p['efpd']:.2f}",
+            "○" if p["on_table"] else "",
+            f"{p['history_k']:.8f}",
+            f"{p['micro_k']:.8f}",
+            signed(p["micro_pcm"], 3),
+            signed(p["plain_pcm"], 3),
+            signed(p["correction_pcm"], 3),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "EFPD",
+            "テーブルの点",
+            "履歴の k∞",
+            "ミクロ燃焼の k",
+            "ミクロ − 履歴 (pcm)",
+            "なし − 履歴 (pcm)",
+            "ミクロ − なし (pcm)",
+        ],
+        rows,
+    )
+
+
+def micro_percent(x) -> str:
+    return "–" if x is None else signed(100 * x, 4)
+
+
+# テーブルの点ごとの表に載せる主要な追う核種（すべての核種の最大は core_micro_largest）
+CORE_MICRO_MAJOR = [
+    "U-235",
+    "U-236",
+    "U-238",
+    "Pu-239",
+    "Pu-240",
+    "Pu-241",
+    "Am-241",
+    "Xe-135",
+    "Sm-149",
+]
+
+
+def core_micro_densities(sources: list[dict]) -> str:
+    """core のミクロ燃焼の追う核種の数密度の、テーブルの燃焼度の点ごとのテーブルの均質化した数密度に対する相対差 (%)。主要な核種
+    （`CORE_MICRO_MAJOR`。要約がどれかを追わなければエラー）"""
+    s = core_micro_summary(sources)
+    missing = [n for n in CORE_MICRO_MAJOR if n not in s["nuclides"]]
+    if missing:
+        raise TableError(f"the summary does not track the major nuclides {missing}")
+    names = CORE_MICRO_MAJOR
+    rows = [
+        [
+            burnup_label(d["burnup"]),
+            *(micro_percent(d["relative"][n]) for n in names),
+        ]
+        for d in s["density_points"]
+    ]
+    return markdown_table(
+        ["燃焼度 (MWd/kg)", *(f"{n} (%)" for n in names)],
+        rows,
+    )
+
+
+def core_micro_largest(sources: list[dict]) -> str:
+    """core のミクロ燃焼の追う核種ごとの、テーブルの燃焼度の点での相対差の絶対値の最大 (%) とその燃焼度"""
+    s = core_micro_summary(sources)
+    rows = [
+        [
+            n,
+            micro_percent(s["density_largest"][n]["relative"]),
+            ""
+            if s["density_largest"][n]["burnup"] is None
+            else burnup_label(s["density_largest"][n]["burnup"]),
+        ]
+        for n in s["nuclides"]
+    ]
+    return markdown_table(["核種", "相対差 (%)", "燃焼度 (MWd/kg)"], rows)
+
+
 def burnup_interpolation_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-burnup-interpolation":
@@ -1456,6 +1550,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
     "examples/depletion/branches/compare-core-2A-boron.json",
+    "examples/depletion/branches/compare-core-2A-micro.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -1896,6 +1991,18 @@ TABLES = {
     "depletion-2a-core-boron": (
         ["examples/depletion/branches/compare-core-2A-boron.json"],
         core_depletion_boron,
+    ),
+    "depletion-2a-core-micro-k": (
+        ["examples/depletion/branches/compare-core-2A-micro.json"],
+        core_micro_k,
+    ),
+    "depletion-2a-core-micro-densities": (
+        ["examples/depletion/branches/compare-core-2A-micro.json"],
+        core_micro_densities,
+    ),
+    "depletion-2a-core-micro-largest": (
+        ["examples/depletion/branches/compare-core-2A-micro.json"],
+        core_micro_largest,
     ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],

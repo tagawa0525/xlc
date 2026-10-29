@@ -4,7 +4,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, Table, product_points};
 
 use super::*;
-use crate::case::solve_at;
+use crate::case::{solve_at, solve_burnups};
 use crate::input::{BoronSearch, Case, CaseState, Cycle, Inventory, Layout, Plant};
 use crate::nem::Options;
 
@@ -174,6 +174,7 @@ fn run(case: &str, cycle: &str) -> Result<CoreHistory, CaseError> {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &tight(),
         |_| {},
     )
@@ -328,6 +329,7 @@ fn fissile_tables_without_heavy_metal_cannot_deplete() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &Options::default(),
         |_| points += 1,
     )
@@ -396,6 +398,7 @@ fn reflector_sites_take_no_burnup() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &tight(),
         |_| {},
     )
@@ -516,6 +519,7 @@ fn core_average_burnups_do_not_drift_over_many_steps() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &Options::default(),
         |_| {},
     )
@@ -541,6 +545,7 @@ fn points_are_reported_as_they_are_solved() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &tight(),
         |p| seen.push(p.efpd),
     );
@@ -554,6 +559,7 @@ fn points_are_reported_as_they_are_solved() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &tight(),
         |p| points.push(p.clone()),
     )
@@ -636,6 +642,7 @@ fn searched_points_match_the_state_search_at_the_same_uniform_burnup() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &tight(),
         |_| {},
     )
@@ -678,6 +685,7 @@ fn searched_midpoints_keep_second_order() {
             &tables,
             &case.states[0],
             case.depletion.as_ref().unwrap(),
+            None,
             &tight(),
             |_| {},
         )
@@ -701,6 +709,7 @@ fn searches_that_do_not_bracket_stop_at_the_step() {
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &tight(),
         |p| seen.push(p.efpd),
     )
@@ -724,6 +733,7 @@ fn search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving()
         &tables,
         &case.states[0],
         case.depletion.as_ref().unwrap(),
+        None,
         &Options::default(),
         |_| points += 1,
     )
@@ -850,6 +860,7 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
             &tables,
             state,
             case.depletion.as_ref().unwrap(),
+            None,
             &options,
             |_| {},
         )
@@ -875,4 +886,373 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
     assert!((1.5..2.5).contains(&ratio), "{ratio} ({s2}, {s4}, {s8})");
     // 中点でも探す形（採用）との差は、8 ステップでも燃焼度の 0.1% を超える
     assert!((s8 - c8).abs() > 1.0e-3 * c8, "{s8} vs {c8} ({c2}, {c4})");
+}
+
+// ミクロ燃焼（ADR-0216）
+
+use xlc_depletion::chain::{Channel, Fission, Nuclide, Product, Reaction, Yield};
+use xlc_format::table::{Micro, MicroNuclide, MicroReaction};
+
+use crate::case::Compositions;
+use crate::input::MicroInput;
+use crate::micro::MicroChain;
+
+/// U-235 の捕獲 / 核分裂の比（群ごとに同じなので、反応率の比は中性子束の形によらない）
+const CAPTURE_TO_FISSION: f64 = 0.2;
+/// U-235 の核分裂の Q 値 (eV)
+const Q: f64 = 193.0e6;
+/// 1 eV (J)
+const EV: f64 = 1.602_176_634e-19;
+
+fn chain_nuclide(name: &str, z: u32, a: u32) -> Nuclide {
+    Nuclide {
+        name: name.into(),
+        z,
+        a,
+        state: 0,
+        excitation: 0.0,
+        decay: None,
+        reactions: Vec::new(),
+        fission: None,
+    }
+}
+
+fn capture_to(nuclide: usize) -> Reaction {
+    Reaction {
+        mt: 102,
+        channels: vec![Channel {
+            final_state: None,
+            products: vec![Product { nuclide, count: 1 }],
+        }],
+    }
+}
+
+/// Ba-140、U-235（捕獲で U-236、核分裂で Ba-140）、U-236（捕獲で U-237）、U-237 のチェーン
+fn small_chain() -> Chain {
+    let mut nuclides = vec![
+        chain_nuclide("Ba-140", 56, 140),
+        chain_nuclide("U-235", 92, 235),
+        chain_nuclide("U-236", 92, 236),
+        chain_nuclide("U-237", 92, 237),
+    ];
+    nuclides[1].reactions = vec![capture_to(2)];
+    nuclides[2].reactions = vec![capture_to(3)];
+    let yields = vec![Yield {
+        nuclide: 0,
+        value: 0.06,
+    }];
+    nuclides[1].fission = Some(Fission {
+        q: Q,
+        yield_source: "U-235".into(),
+        energies: vec![0.0253, 5.0e5],
+        yields: vec![yields.clone(), yields],
+    });
+    let chain = Chain { nuclides };
+    chain.check().unwrap();
+    chain
+}
+
+/// 2 群の微視的断面積。捕獲は核分裂の `capture` 倍
+fn micro_nuclide(fission: [f64; 2], capture: [f64; 2], thermal: Option<f64>) -> MicroNuclide {
+    MicroNuclide {
+        total: vec![
+            fission[0] + capture[0] + 4.0,
+            fission[1] + capture[1] + 10.0,
+        ],
+        nu_fission: fission.iter().map(|f| 2.43 * f).collect(),
+        fission: fission.to_vec(),
+        scatter: vec![vec![3.9, 0.1], vec![0.0, 10.0]],
+        reactions: vec![MicroReaction {
+            mt: 102,
+            channels: vec![capture.to_vec()],
+        }],
+        thermal_fission: thermal,
+    }
+}
+
+/// 燃焼の初めの U-235 の数密度 (1/(barn cm))
+const U235: f64 = 7.0e-4;
+
+/// テーブルに、U-235 と U-236 の状態によらない微視的断面積と、燃焼度の点（0、10、20 MWd/kg）ごとの数密度を足す
+fn with_micro(mut table: Table, nuclides: &[&str]) -> Table {
+    let f = [1.0, 50.0];
+    let u235 = micro_nuclide(f, f.map(|x| CAPTURE_TO_FISSION * x), Some(0.95));
+    let u236 = micro_nuclide([0.0, 0.0], [0.0, 0.0], None);
+    table.micro = Some(Micro {
+        nuclides: nuclides.iter().map(|s| s.to_string()).collect(),
+        densities: vec![vec![U235, 0.0], vec![6.2e-4, 1.4e-5], vec![5.5e-4, 2.6e-5]],
+        states: vec![vec![u235, u236]; table.points.len()],
+    });
+    table.validate().unwrap();
+    table
+}
+
+fn micro_case(case: &str) -> Case {
+    let mut case = Case::parse(case, Path::new("dir")).unwrap();
+    case.depletion.as_mut().unwrap().micro = Some(MicroInput {
+        chain: "chain.msgpack".into(),
+    });
+    case
+}
+
+fn micro_run(cycle: &str, nuclides: [&[&str]; 2]) -> Result<CoreHistory, CaseError> {
+    let (layout, tables, _) = core(CASE, cycle, Some(400.0));
+    let case = micro_case(CASE);
+    let tables: Vec<Table> = layout
+        .files
+        .iter()
+        .zip(tables)
+        .map(|(f, t)| {
+            let n = if f.ends_with("a.msgpack") {
+                nuclides[0]
+            } else {
+                nuclides[1]
+            };
+            with_micro(t, n)
+        })
+        .collect();
+    deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+}
+
+const TRACKED: [&str; 2] = ["U-235", "U-236"];
+
+#[test]
+fn micro_depletion_follows_the_cecm_steps_of_the_power_normalized_rates() {
+    // 一様な炉心の各ノードの出力密度は 40 W/g × 400 g/cm / (20 cm × 20 cm)。核分裂性の追う核種は U-235 だけなので、1 原子あたりの
+    // 核分裂率は 出力密度 / (N₂₃₅ Q) で、消滅の率は (1 + 捕獲 / 核分裂) 倍
+    let history = micro_run(UNIFORM, [&TRACKED, &TRACKED]).unwrap();
+    assert_eq!(history.nuclides, Some(vec!["U-235".into(), "U-236".into()]));
+    let power = 40.0 * 400.0 / (20.0 * 20.0);
+    let loss = |n: f64| (1.0 + CAPTURE_TO_FISSION) * power * 1.0e-24 / (n * Q * EV);
+    let (mut u235, mut u236) = (U235, 0.0);
+    let mut efpd = 0.0;
+    for point in &history.points {
+        // ステップ（ADR-0173 の CE/CM）: 初めの組成の率で中点の組成へ、中点の組成の率で初めの組成から終わりへ
+        let h = (point.efpd - efpd) * 86400.0;
+        let half = u235 * (-loss(u235) * 0.5 * h).exp();
+        let end = u235 * (-loss(half) * h).exp();
+        u236 += CAPTURE_TO_FISSION / (1.0 + CAPTURE_TO_FISSION) * (u235 - end);
+        u235 = end;
+        efpd = point.efpd;
+        let densities = point.densities.as_ref().unwrap();
+        assert_eq!(densities.len(), 4);
+        for node in densities.iter().flatten() {
+            let close = |a: f64, b: f64| (a - b).abs() <= 1e-10 * b.abs().max(1e-30);
+            assert!(close(node[0], u235), "{} {node:?} vs {u235}", point.efpd);
+            assert!(close(node[1], u236), "{} {node:?} vs {u236}", point.efpd);
+        }
+    }
+}
+
+#[test]
+fn micro_depletion_starts_from_the_table_and_keeps_its_constants_there() {
+    // 燃焼度 0 の点は、テーブルの数密度から始めるので補正が 0 で、ミクロ燃焼しない燃焼と同じ k（ADR-0216 の確認 (a)）
+    let micro = micro_run(UNIFORM, [&TRACKED, &TRACKED]).unwrap();
+    let macroscopic = run(CASE, UNIFORM).unwrap();
+    assert_eq!(micro.points[0].k, macroscopic.points[0].k);
+    assert_eq!(
+        micro.points[0].densities.as_ref().unwrap()[0][0],
+        [U235, 0.0]
+    );
+    // 燃焼すると、数密度がテーブルの公称の履歴（ここでは任意の値）から外れた分だけ k が変わる
+    assert_ne!(micro.points[1].k, macroscopic.points[1].k);
+    // ファイルを通して同じ履歴に戻る
+    let bytes = micro.to_msgpack().unwrap();
+    assert_eq!(CoreHistory::from_msgpack(&bytes).unwrap(), micro);
+}
+
+#[test]
+fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
+    // 設計 B のテーブルが別の核種を追う
+    assert!(micro_run(MIXED, [&TRACKED, &["U-235", "U-237"]]).is_err());
+    // ミクロ燃焼の微視的断面積のないテーブル
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let case = micro_case(CASE);
+    let depletion = case.depletion.as_ref().unwrap();
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        depletion,
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("micro"), "{error}");
+    // ミクロ燃焼のケースにチェーンがない。ミクロ燃焼しないケースにチェーンを渡す
+    let micro_tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    assert!(
+        deplete(
+            &layout,
+            &micro_tables,
+            &case.states[0],
+            depletion,
+            None,
+            &tight(),
+            |_| {}
+        )
+        .is_err()
+    );
+    let (_, _, plain) = core(CASE, UNIFORM, Some(400.0));
+    assert!(
+        deplete(
+            &layout,
+            &micro_tables,
+            &plain.states[0],
+            plain.depletion.as_ref().unwrap(),
+            Some(&small_chain()),
+            &tight(),
+            |_| {}
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn micro_corrector_rates_take_the_cross_sections_at_the_midpoint_burnup() {
+    // U-235 の捕獲 / 核分裂の比を燃焼度で 0.2 + 0.01 u（燃焼度の点 0、10、20 の間は線形に内挿される）。予測子は初めの燃焼度の比、修正子は
+    // 中点の燃焼度の比で消滅する
+    let ratio = |u: f64| CAPTURE_TO_FISSION + 0.01 * u;
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let case = micro_case(CASE);
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| {
+            let mut t = with_micro(t, &TRACKED);
+            let points = t.points.clone();
+            for (p, state) in points.iter().zip(&mut t.micro.as_mut().unwrap().states) {
+                let f = [1.0, 50.0];
+                state[0] = micro_nuclide(f, f.map(|x| ratio(BURNUP[p[0]]) * x), Some(0.95));
+            }
+            t.validate().unwrap();
+            t
+        })
+        .collect();
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    let power = 40.0 * 400.0 / (20.0 * 20.0);
+    let loss = |n: f64, u: f64| (1.0 + ratio(u)) * power * 1.0e-24 / (n * Q * EV);
+    let mut u235 = U235;
+    let (mut efpd, mut burnup) = (0.0, 0.0);
+    for point in &history.points[1..] {
+        let h = (point.efpd - efpd) * 86400.0;
+        let middle = burnup + 0.5 * 40.0 * (point.efpd - efpd) / 1000.0;
+        let half = u235 * (-loss(u235, burnup) * 0.5 * h).exp();
+        u235 *= (-loss(half, middle) * h).exp();
+        (efpd, burnup) = (point.efpd, point.burnup);
+        for node in point.densities.as_ref().unwrap().iter().flatten() {
+            assert!(
+                (node[0] - u235).abs() <= 1e-10 * u235,
+                "{} {node:?} vs {u235}",
+                point.efpd
+            );
+        }
+    }
+}
+
+/// 一様な炉心のテーブル（微視的断面積つき）と、その追う核種のチェーン
+fn micro_layout() -> (Layout, Vec<Table>, Case, MicroChain) {
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    let micro = tables[0].micro.as_ref().unwrap();
+    let chain = MicroChain::new(&small_chain(), &micro.nuclides, &micro.states[0]).unwrap();
+    (layout, tables, case, chain)
+}
+
+#[test]
+fn corrected_constants_are_checked_and_compositions_cover_every_site() {
+    let (layout, tables, case, chain) = micro_layout();
+    let sites = layout.node_material.len();
+    let burnups = vec![0.0; sites];
+    let state = case.states[0].at(1200.0);
+    let solve = |densities: &[Option<Vec<f64>>]| {
+        crate::case::solve_compositions(
+            &layout,
+            &tables,
+            &state,
+            &burnups,
+            Some(&Compositions {
+                chain: &chain,
+                densities,
+            }),
+            &tight(),
+        )
+    };
+    // テーブルの数密度なら補正は 0 で解ける
+    let nominal = vec![Some(chain.initial(&[U235, 0.0])); sites];
+    assert!(solve(&nominal).is_ok());
+    // 補正で吸収が負になる組成は、解く前にエラー
+    let negative = vec![Some(chain.initial(&[-1.0, 0.0])); sites];
+    let error = solve(&negative).unwrap_err().to_string();
+    assert!(error.contains("micro"), "{error}");
+    // 位置の数と違う組成
+    assert!(solve(&nominal[1..]).is_err());
+}
+
+#[test]
+fn histories_hold_densities_exactly_when_they_name_nuclides() {
+    let history = micro_run(UNIFORM, [&TRACKED, &TRACKED]).unwrap();
+    let mut missing = history.clone();
+    missing.points[1].densities = None;
+    assert!(CoreHistory::from_msgpack(&missing.to_msgpack().unwrap()).is_err());
+    let mut short = history.clone();
+    short.points[1].densities.as_mut().unwrap()[0][0].pop();
+    assert!(CoreHistory::from_msgpack(&short.to_msgpack().unwrap()).is_err());
+    // 集合体と軸方向のノードの数、有限の値
+    let mut rows = history.clone();
+    rows.points[1].densities.as_mut().unwrap().pop();
+    assert!(CoreHistory::from_msgpack(&rows.to_msgpack().unwrap()).is_err());
+    let mut layers = history.clone();
+    layers.points[1].densities.as_mut().unwrap()[0].pop();
+    assert!(CoreHistory::from_msgpack(&layers.to_msgpack().unwrap()).is_err());
+    let mut nan = history.clone();
+    nan.points[1].densities.as_mut().unwrap()[0][0][0] = f64::NAN;
+    assert!(CoreHistory::from_msgpack(&nan.to_msgpack().unwrap()).is_err());
+    let mut unnamed = history;
+    unnamed.nuclides = None;
+    assert!(CoreHistory::from_msgpack(&unnamed.to_msgpack().unwrap()).is_err());
+}
+
+#[test]
+fn fissile_tables_off_the_depleted_nodes_are_errors() {
+    // 燃焼度で引かない使い方（反射体の位置など）の核分裂のあるテーブルは、補正も燃焼もしないので止める
+    let (mut layout, tables, case, _) = micro_layout();
+    let m = layout.node_material[0].unwrap();
+    let t = layout.materials[m].table;
+    layout.tables[t].node = None;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        micro_case(CASE).depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("not a depleted node"), "{error}");
 }
