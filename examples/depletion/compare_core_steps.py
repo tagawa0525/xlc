@@ -6,12 +6,13 @@
 
 - `<分割>` は、基準のサイクルの出力のあるステップ（`efpd`）を等しい EFPD の何個に分けたか（1、2、4 など）。分割 1 の履歴を基準の
   サイクルとし、ほかの履歴は基準の燃焼点をすべて同じ EFPD と日数（日数は 1e-6 日に丸めて）で持つこと。崩壊だけのステップは分けない。
-  履歴の `midpoint_boron`（`search` か `start`）ごとに、すべての分割がそろうこと
+  履歴の `midpoint_boron`（`search` か `start`）ごとに分割 1 があること（分割の組は中点のホウ素ごとに違ってよい。`splits` は中点の
+  ホウ素 → 分割）
 - `--json`: 履歴がどれも同じ定格の出力密度、状態、軸方向のメッシュ、集合体、重金属の質量を持つことを確かめ、次を書く。
   - `steps`: 中点のホウ素ごとに、基準の燃焼点ごとの分割ごとのホウ素濃度、k、ノードの燃焼度と出力の割合と、隣り合う分割（1 と 2、
     2 と 4 …）の差（ホウ素は分割の粗い方 − 細かい方、燃焼度はノードの差の絶対値の最大、出力の割合はノードの相対差の絶対値の最大）と、
     その比（粗い組の差 / 細かい組の差。中点の形が 2 次なら 4 に近い。細かい組の差が 0 なら null）
-  - `midpoint`: `search` と `start` の両方があれば、分割ごと、基準の燃焼点ごとの `start` − `search` の差（ホウ素、燃焼度の最大、出力の
+  - `midpoint`: `search` と `start` の両方があれば、両方にある分割ごと、基準の燃焼点ごとの `start` − `search` の差（ホウ素、燃焼度の最大、出力の
     割合の相対差の最大）
   - `solves`: 履歴ごとの燃焼点の数、点の固有値計算の回数（履歴の `solves` の和）、中点の固有値計算の回数（ログの `depletion midpoint`
     の行の `solves` の和）とその和
@@ -91,11 +92,6 @@ def check(runs: dict[tuple[str, int], dict]) -> None:
         splits = sorted(s for m, s in runs if m == method)
         if splits[0] != 1:
             raise SystemExit(f"{method}: give the base cycle (split 1)")
-    methods = {m for m, _ in runs}
-    if len(methods) == 2 and sorted(s for m, s in runs if m == "search") != sorted(
-        s for m, s in runs if m == "start"
-    ):
-        raise SystemExit("search and start need the same splits")
 
 
 def summarize(
@@ -104,7 +100,7 @@ def summarize(
     """分割と中点のホウ素ごとの履歴を比べた要約（モジュールの説明の `--json`）。"""
     check(runs)
     methods = sorted({m for m, _ in runs})
-    splits = sorted({s for _, s in runs})
+    splits = {m: sorted(s for n, s in runs if n == m) for m in methods}
     base = runs[(methods[0], 1)]["points"]
     # 基準の燃焼点を、分割ごとの履歴の点に組にする
     matched: dict[tuple[str, int], list[dict]] = {}
@@ -120,10 +116,10 @@ def summarize(
     for method in methods:
         points = []
         for i, p in enumerate(base):
-            at = {s: matched[(method, s)][i] for s in splits}
+            at = {s: matched[(method, s)][i] for s in splits[method]}
             pairs = [
                 {"splits": [a, b], **differences(at[a], at[b])}
-                for a, b in pairwise(splits)
+                for a, b in pairwise(splits[method])
             ]
             points.append(
                 {
@@ -132,8 +128,8 @@ def summarize(
                     "power": p.get("power"),
                     "state": p["state"],
                     "burnup": p["burnup"],
-                    "boron": [at[s]["boron"] for s in splits],
-                    "k": [at[s]["k"] for s in splits],
+                    "boron": [at[s]["boron"] for s in splits[method]],
+                    "k": [at[s]["k"] for s in splits[method]],
                     "differences": pairs,
                     "ratios": [
                         {
@@ -161,7 +157,9 @@ def summarize(
                 }
                 for i, p in enumerate(base)
             ]
-            for split in splits
+            # 両方にある分割
+            for split in splits["search"]
+            if split in splits["start"]
         }
     solves = []
     for (method, split), core in sorted(runs.items()):
@@ -198,7 +196,7 @@ def report(summary: dict) -> list[str]:
     lines = [
         "inputs: "
         + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"]),
-        f"分割 {summary['splits']}、中点のホウ素 {summary['methods']}",
+        f"分割 {summary['splits']}",
     ]
     for method, points in summary["steps"].items():
         lines.append(
