@@ -2320,7 +2320,46 @@ TABLES = {
     ),
     "depletion-small-core-steps": (
         ["examples/depletion/branches/compare-core-small-steps.json"],
-        partial(core_steps, "search"),
+        partial(core_steps, "search", splits=[1, 2, 4, 8, 16]),
+    ),
+    "depletion-small-core-steps-fine": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(core_steps, "search", splits=[16, 32, 64, 128]),
+    ),
+    "depletion-small-core-steps-equilibrium": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(core_steps, "equilibrium"),
+    ),
+    "depletion-small-core-axial-start": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(
+            core_steps_axial,
+            ("search", 32),
+            [
+                ("search", 16),
+                ("search", 32),
+                ("search", 64),
+                ("search", 128),
+                ("equilibrium", 16),
+            ],
+            (3.0, 8.0),
+        ),
+    ),
+    "depletion-small-core-axial-end": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(
+            core_steps_axial,
+            ("search", 16),
+            [
+                ("search", 8),
+                ("search", 16),
+                ("search", 32),
+                ("search", 64),
+                ("equilibrium", 8),
+                ("equilibrium", 16),
+            ],
+            (125.0, 236.0),
+        ),
     ),
     "depletion-small-core-steps-start": (
         ["examples/depletion/branches/compare-core-small-steps.json"],
