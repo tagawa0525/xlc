@@ -127,6 +127,13 @@ class Summary(unittest.TestCase):
         )
         self.assertEqual([p["k_monotonic"] for p in s["points"]], [True, True, False])
 
+    def test_burnups_of_the_points_agree_to_rounding(self):
+        # 集合体の燃焼度はノードの燃焼度の和なので、燃焼によって丸めが違う
+        out, rodded, partial = inputs()
+        rodded["points"][1]["burnup"] = 1.0 + 2.2e-16
+        s = compare_core_partial_rods.summarize(out, rodded, partial)
+        self.assertEqual([p["burnup"] for p in s["points"]], [0.0, 1.0, 2.0])
+
     def test_fractions_must_run_from_zero_to_one(self):
         out, rodded, partial = inputs()
         for bad in (partial[1:], partial[:-1], [partial[1], partial[0], partial[2]]):
