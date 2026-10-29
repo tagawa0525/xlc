@@ -5,7 +5,7 @@
         python3 compare_core_cycle.py --report <要約の JSON>
 
 - `--json`: core の履歴がどれも集合体 1 体で、軸方向のメッシュと定格の出力密度が同じで、サイクルの履歴が I-135、Xe-135、Sm-149 を追う
-  ことを確かめて、サイクルの燃焼点ごとに次を書く。
+  ことと、参照が 1 つの状態の定格のままの燃焼であることを確かめて、サイクルの燃焼点ごとに次を書く。
   - 燃焼度: 炉心の平均の燃焼度と、解析値（定格の出力密度 × 累積の EFPD / 1000。EFPD は出力の割合を含むので、割合によらない）、
     その相対差（解析値が 0 の点は 0）、軸方向のノードごとの燃焼度
   - 点の EFPD、燃焼点 0 からの日数、その点で終わるステップの出力の割合（崩壊だけのステップは 0、燃焼点 0 は null）、点を解いた状態の名前、k
@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+from core_history import single_state
 
 # 追う数密度（Xe-135 とその先行核、停止の間に Pm-149 の崩壊で増える Sm-149）
 NUCLIDES = ["I-135", "Xe-135", "Sm-149"]
@@ -58,6 +59,8 @@ def summarize(cycle: dict, references: dict[str, dict]) -> dict:
     check_core("cycle", cycle, cycle)
     for name, core in references.items():
         check_core(name, core, cycle)
+        # 同じ EFPD の点は、1 つの状態の定格のままの参照でだけ同じ燃焼の時間と状態の比較になる
+        single_state(core)
     power = cycle["specific_power"]
     points = []
     for p in cycle["points"]:
