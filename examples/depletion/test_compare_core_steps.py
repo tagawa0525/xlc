@@ -167,16 +167,16 @@ class Axial(unittest.TestCase):
     def test_offsets_of_every_point_are_the_upper_minus_the_lower_half(self):
         runs = {("search", s): axial_core(s, lambda i: 0.1 * (-1) ** i) for s in (1, 2)}
         s = summarize(runs)
-        by = {(x["method"], x["split"]): x["points"] for x in s["axial"]}
+        by = {(x["method"], x["split"]): x for x in s["axial"]}
         self.assertEqual(sorted(by), [("search", 1), ("search", 2)])
-        self.assertEqual(len(by[("search", 2)]), len(runs[("search", 2)]["points"]))
-        for i, p in enumerate(by[("search", 2)]):
-            self.assertAlmostEqual(p["offset"], 0.1 * (-1) ** i)
-        q = runs[("search", 2)]["points"][3]
+        fine = by[("search", 2)]
+        points = runs[("search", 2)]["points"]
+        # 点ごとの日数（1e-6 日に丸める）と偏り（記録の表の桁の 1e-4 に丸める。要約を数十 KB に収める）
+        self.assertEqual(fine["days"], [round(p["days"], 6) for p in points])
         self.assertEqual(
-            (by[("search", 2)][3]["efpd"], by[("search", 2)][3]["days"]),
-            (q["efpd"], q["days"]),
+            fine["offset"], [round(0.1 * (-1) ** i, 4) for i in range(len(points))]
         )
+        self.assertEqual(set(fine), {"method", "split", "days", "offset"})
 
     def test_the_mesh_needs_a_boundary_at_half_height(self):
         runs = {("search", s): axial_core(s, lambda i: 0.0) for s in (1, 2)}
