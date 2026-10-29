@@ -1839,6 +1839,8 @@ fn history_points_name_their_state_and_step_power() {
     assert!(with_point(1, &|p| p.power = Some(0.0)).is_err());
     assert!(with_point(2, &|p| p.power = Some(1.0)).is_err());
     assert!(with_point(2, &|p| p.days = 1.0).is_err());
+    // 丸めで日数の増えない短いステップの履歴も、書いたものを読める
+    assert!(with_point(2, &|p| p.days = 100.0).is_ok());
     assert!(with_point(2, &|p| p.efpd = 1.0).is_err());
 }
 
