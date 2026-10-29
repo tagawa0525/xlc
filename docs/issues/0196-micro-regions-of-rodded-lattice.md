@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, depletion]
 opened: 2026-10-29
-closed:
+closed: 2026-10-29
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 139ddd8a5
 ---
 
 # 制御棒を入れた格子の履歴からの分岐で、微視的断面積が履歴の MOC の領域の番号を引く
@@ -40,3 +40,11 @@ resolution:
 ## 経緯
 
 - 2026-10-29: #0192 の確認（feat/0192-partial-rod-micro-depletion）で、2A の制御棒を入れた組のテーブルを作る前に 1 状態を手元で測って見つけた
+- 2026-10-29: `HistoryBranches` に、入力の格子から作り直した燃焼の領域（MOC の領域の番号は入力の格子のもの）を入れた（139ddd8a5）。
+  試験（`micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tubes_differ`）は、2 × 2 の格子で案内管の
+  セルの領域を 2 から 5 にし、重みを付ける領域がどれもその燃焼の領域の物質（`fuel@<セル>`）であることと、Σᵢ σᵢ N̄ᵢ が分岐の格子を
+  直接解いた燃料の反応率と合うことを確かめる。ずれた先が別の燃焼の領域（物質か組の代表のセルが違う）なら前者が
+  止め、同じ燃焼の領域の中（対称で同じ組のセルを含む）で重みを付ける領域の集まりが変われば後者が止める（集まりの中の入れ替えは
+  和を変えない）
+- 2026-10-29: 再現の入力（branch-2A-micro-rods.toml を燃焼度 20 MWd/kg、ホウ素 1300 ppm、燃料 565 K の 1 状態に絞ったもの）を
+  dc9700805 の `bin/lattice` で解き、微視的断面積つきのテーブルを書いて終わった（Slurm 593、`-c 16`）
