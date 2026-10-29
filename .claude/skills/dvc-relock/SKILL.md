@@ -140,7 +140,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` の対応表で `commit-refs remap <そのファイル>` を呼び直す
    （詳細は verification-record の「rebase のあと」の節）。手で対応表を作るのは、この対応表が無いときだけ。rebase の前の tip
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
-   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。再実行したステージの新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
+   書き換えるので、推測した対応を渡さない）。再測定はしない（記録の hash は再現のため）。再実行したステージの新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
 6. 作り直した `dvc.lock` を確かめる（`build` か `python-ast` を実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
    読めず、書くこともない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
