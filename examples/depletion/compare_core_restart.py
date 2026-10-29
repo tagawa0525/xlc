@@ -95,11 +95,16 @@ def largest_density_difference(
     largest = [max(floor, p) for p in peak]
     if not count:
         return 0.0, None, 0.0
-    ratio, i = max(
+    # 同じ比なら先の核種。差がすべて 0 なら、差の最大の核種はない
+    pairs = [
         (abs(g[i] - w[i]) / (largest[i] or 1.0), i)
         for g, w in nodes
         for i in range(count)
-    )
+    ]
+    ratio = max(r for r, _ in pairs)
+    if ratio == 0.0:
+        return 0.0, None, 0.0
+    i = min(i for r, i in pairs if r == ratio)
     return ratio, i, peak[i]
 
 
