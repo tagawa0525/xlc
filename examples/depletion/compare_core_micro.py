@@ -144,7 +144,14 @@ def report(summary: dict) -> list[str]:
         ("plain_pcm", "ミクロ燃焼なし − 履歴"),
         ("correction_pcm", "ミクロ燃焼 − ミクロ燃焼なし"),
     ]:
-        for name, subset in [("すべての点", points), ("テーブルの点", on)]:
+        between = [p for p in points if not p["on_table"]]
+        for name, subset in [
+            ("すべての点", points),
+            ("テーブルの点", on),
+            ("点の間", between),
+        ]:
+            if not subset:
+                continue
             values = [p[key] for p in subset]
             worst = max(subset, key=lambda p: abs(p[key]))
             lines.append(
