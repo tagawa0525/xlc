@@ -227,6 +227,18 @@ impl MicroChain {
                 self.solved.len()
             ));
         }
+        if let Some((name, _)) = self
+            .nuclides
+            .iter()
+            .zip(&micro.nuclides)
+            .find(|(_, s)| s.fission.len() != flux.len())
+        {
+            return Err(format!(
+                "{name}: {} groups of micro cross sections for a flux of {} groups",
+                micro.nuclides[0].fission.len(),
+                flux.len()
+            ));
+        }
         let collapse = |sigma: &[f64]| -> f64 { sigma.iter().zip(flux).map(|(s, f)| s * f).sum() };
         // 中性子束の形のままの 1 原子あたりの率（barn × 中性子束）
         let mut power = 0.0;
@@ -234,7 +246,8 @@ impl MicroChain {
         for (t, sigma) in self.tracked.iter().zip(&micro.nuclides) {
             let fission = collapse(&sigma.fission);
             if let Some(f) = &t.fission {
-                power += n[t.column].max(0.0) / BARN * fission * BARN * f.q * ELECTRON_VOLT;
+                // N (1/(barn cm)) × σ (barn) × φ (1/(cm² s)) は 1/(cm³ s)
+                power += n[t.column].max(0.0) * fission * f.q * ELECTRON_VOLT;
             }
             rates.push(TrackedRates {
                 reactions: sigma
