@@ -420,7 +420,7 @@ fn xenon_set(solved: &[usize], chain: &Chain, tracked: &[usize]) -> Option<Vec<u
 }
 
 /// 部分ピボットの Gauss の消去で a x = b を解く（特異なら `None`）
-fn solve_dense(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
+pub(crate) fn solve_dense(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
     let n = b.len();
     for c in 0..n {
         let p = (c..n).max_by(|&i, &j| a[i][c].abs().total_cmp(&a[j][c].abs()))?;
