@@ -1045,3 +1045,72 @@ fn micro_nuclides_must_be_transported_in_the_history() {
         assert!(format!("{err:#}").contains(name), "{err:#}");
     }
 }
+
+/// 案内管の中身が水だけのセル（MOC の領域は 2 つ）
+const WATER_GUIDE: &str = "[cell.gt]\nzones = [{ material = \"water\", radius = 0.56, rings = 1 }, { material = \"water\", rings = 1 }]\n";
+
+/// 案内管に制御棒（物質 rod。B-10 は Xe-135 のデータを借りる）を入れたセル（MOC の領域は 5 つ）
+const ROD_GUIDE: &str = "[material.rod]\ntemperature = 600\nnuclides = { B-10 = 1.0e-2, O-16 = 2.0e-2 }\n\n\
+     [cell.gt]\nzones = [{ material = \"rod\", radius = 0.4, rings = 3 }, \
+     { material = \"water\", radius = 0.56, rings = 1 }, { material = \"water\", rings = 1 }]\n";
+
+/// 入力 `text` のピンセルを、左上を案内管のセル `guide` にした 2 × 2 の格子にしたもの
+fn guided(text: &str, guide: &str) -> String {
+    assert!(text.contains("rows = [\"pin\"]") && text.contains("[cell.pin]\n"));
+    text.replace("rows = [\"pin\"]", "rows = [\"gt pin\", \"pin pin\"]")
+        .replace("[cell.pin]\n", &format!("{guide}\n[cell.pin]\n"))
+}
+
+#[test]
+fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tubes_differ() {
+    // 履歴は案内管が水の格子、分岐は同じ燃料のセルで案内管に制御棒を入れた格子（ADR-0200）。案内管のセルの MOC の領域の数が
+    // 違うので、燃料の MOC の領域の番号が履歴の格子と違う
+    let library = library_with_boron();
+    let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
+    let text = guided(&all_transported(&history, "[0, 2.0]"), ROD_GUIDE);
+    let s = setup(&text);
+    let mut fuel = regions_of(&s.region_materials, |n| n == "fuel");
+    let mut recorded: Vec<usize> = history
+        .regions
+        .iter()
+        .flat_map(|d| d.regions.iter().copied())
+        .collect();
+    fuel.sort_unstable();
+    recorded.sort_unstable();
+    assert_ne!(fuel, recorded);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    // 微視的断面積を重み付ける MOC の領域は、分岐の格子のその燃焼の領域の領域
+    for d in &branches.regions {
+        for &r in &d.regions {
+            assert_eq!(
+                branches.region_materials[r],
+                transport_name(&d.material, d.cell),
+                "region {r}"
+            );
+        }
+    }
+    // 分岐の格子を直接解いた燃料の物質の反応率と、Σᵢ σᵢ N̄ᵢ が同じ
+    for index in 0..branches.len() {
+        let (s, shielded, solution) = solved(&text, &library, &branches, index);
+        let micro = branches
+            .micro(
+                index,
+                &library,
+                &shielded,
+                &s.tracking.lattice,
+                &solution,
+                &BOUNDS,
+            )
+            .unwrap();
+        let point = index / (branches.len() / 2);
+        assert_micro_closes(
+            &micro,
+            &branches.micro_densities()[point],
+            &branches.region_materials,
+            &shielded.materials,
+            &shielded.region_material,
+            &solution,
+            &format!("state {index}"),
+        );
+    }
+}
