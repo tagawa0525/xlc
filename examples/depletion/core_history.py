@@ -2,10 +2,15 @@
 
 
 def default_midpoints(core: dict) -> None:
-    """中点を初めの点のホウ素で解いた燃焼（ADR-0191 の案 S1）なら止める（既定の燃焼を比べるツールで比べない）"""
+    """中点を初めの点のホウ素で解いた燃焼（ADR-0191 の案 S1）と、Xe を平衡にした燃焼（ADR-0219）なら止める（中点でも探し、Xe を時間で
+    追う燃焼を比べるツールで比べない）"""
     if core.get("midpoint_boron") == "start":
         raise SystemExit(
             "the core history solves the midpoints at the start boron (ADR-0191 S1); this tool compares the default search"
+        )
+    if core.get("xenon") == "equilibrium":
+        raise SystemExit(
+            "the core history balances its xenon at each solve (ADR-0219); this tool compares xenon tracked in time"
         )
 
 
