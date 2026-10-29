@@ -1011,6 +1011,93 @@ def core_cycle_points(sources: list[dict]) -> str:
     )
 
 
+def core_restart_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-restart":
+        raise TableError("not an xlc-compare-core-restart summary")
+    return s
+
+
+def difference(x: float) -> str:
+    """差の 3 桁の指数表記（負の符号は U+2212、0 は 0）"""
+    if x == 0:
+        return "0"
+    mantissa, exponent = f"{x:+.2e}".split("e")
+    return f"{mantissa.replace('-', '−')}e{exponent}"
+
+
+def core_restart_differences(sources: list[dict]) -> str:
+    """restart の確認（compare_core_restart.py。ADR-0220）: 切る点ごとに、後の半分の点の、切らない燃焼の同じ EFPD と日数の点からの
+    反応度の差、ホウ素の差、ノードの燃焼度の差の最大、追う核種の数密度の差の最大（核種ごとの炉心の最大に対する比）"""
+    s = core_restart_summary(sources)
+    rows = [
+        [
+            f"{c['cut']['efpd']:.4f}",
+            f"{p['efpd']:.4f}",
+            f"{p['days']:.4f}",
+            p["state"],
+            f"{p['k']:.8f}",
+            difference(p["rho_pcm"]),
+            f"{p['boron']:.4f}",
+            difference(p["boron_diff"]),
+            difference(p["burnup_max_diff"]),
+            difference(p["density_max_relative"]),
+        ]
+        for c in s["cuts"]
+        for p in c["points"]
+    ]
+    return markdown_table(
+        [
+            "切る点 (EFPD)",
+            "EFPD",
+            "日数",
+            "状態",
+            "k",
+            "Δρ (pcm)",
+            "ホウ素 (ppm)",
+            "ホウ素の差 (ppm)",
+            "燃焼度の差の最大 (MWd/kg)",
+            "数密度の差の最大",
+        ],
+        rows,
+    )
+
+
+def core_reload_points(sources: list[dict]) -> str:
+    """装荷替えの 1 サイクル（compare_core_restart.py。ADR-0220）: 点ごとの EFPD、日数、状態、k、ホウ素、固有値計算の回数、炉心の平均の
+    燃焼度、集合体ごとの燃焼度"""
+    s = core_restart_summary(sources)
+    r = s["reload"]
+    if r is None:
+        raise TableError("the summary has no reload")
+    rows = [
+        [
+            f"{p['efpd']:.4f}",
+            f"{p['days']:.4f}",
+            p["state"],
+            f"{p['k']:.8f}",
+            f"{p['boron']:.4f}",
+            str(p["solves"]),
+            f"{p['burnup']:.4f}",
+            *(f"{b:.4f}" for b in p["assembly_burnups"]),
+        ]
+        for p in r["points"]
+    ]
+    return markdown_table(
+        [
+            "EFPD",
+            "日数",
+            "状態",
+            "k",
+            "ホウ素 (ppm)",
+            "固有値計算の回数",
+            "炉心の燃焼度 (MWd/kg)",
+            *(f"{a} (MWd/kg)" for a in r["assemblies"]),
+        ],
+        rows,
+    )
+
+
 def core_steps_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-core-steps":
@@ -2308,6 +2395,14 @@ TABLES = {
     "depletion-2a-core-cycle-rods": (
         ["examples/depletion/branches/compare-core-2A-cycle-rods.json"],
         core_cycle_points,
+    ),
+    "depletion-small-core-restart": (
+        ["examples/depletion/branches/compare-core-small-restart.json"],
+        core_restart_differences,
+    ),
+    "depletion-small-core-reload": (
+        ["examples/depletion/branches/compare-core-small-restart.json"],
+        core_reload_points,
     ),
     "depletion-small-core-steps": (
         ["examples/depletion/branches/compare-core-small-steps.json"],
