@@ -98,6 +98,7 @@ class Summary(unittest.TestCase):
         self.assertAlmostEqual(full[1]["rho_pcm"], (1 / 1.17 - 1 / 1.18) * 1e5)
         self.assertEqual(full[1]["k"], 1.17)
         self.assertEqual(full[1]["densities"]["Xe-135"], [3e-9])
+        self.assertEqual(full[1]["node_burnups"], [0.4])
         self.assertEqual(full[0]["rho_pcm"], 0.0)
 
     def test_points_missing_from_a_reference_have_no_pair(self):
