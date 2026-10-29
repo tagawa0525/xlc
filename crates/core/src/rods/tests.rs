@@ -127,7 +127,7 @@ fn identical_intervals_reproduce_the_uniform_node() {
     let (plain, _) = column(200.0, 1.0, false);
     let expected = solve(&plain, &Options::default()).unwrap();
     let (problem, partial) = column(128.0, 1.0, false);
-    let (solution, materials) =
+    let (solution, materials, _) =
         solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
     // 不連続因子が 1 からずれる分だけ k も動く
     assert!(
@@ -171,7 +171,7 @@ fn f_star_below_a_partial_node_keeps_the_split_mesh_k() {
     let (plain, _) = with_adfs(column(28.0, 1.6, true));
     let expected = solve(&plain, &Options::default()).unwrap();
     let (problem, partial) = with_adfs(column(28.0, 1.6, false));
-    let (solution, _) =
+    let (solution, _, _) =
         solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
     let dk = pcm(solution.k, expected.k);
     assert!(dk.abs() < 10.0, "{dk} pcm");
@@ -180,7 +180,7 @@ fn f_star_below_a_partial_node_keeps_the_split_mesh_k() {
 #[test]
 fn volume_weighting_mixes_by_the_rodded_fraction() {
     let (problem, partial) = column(128.0, 1.6, false);
-    let (_, materials) = solve_rodded(
+    let (_, materials, _) = solve_rodded(
         &problem,
         partial,
         Weighting::Volume,
@@ -207,7 +207,7 @@ fn flux_weighting_reproduces_the_mesh_split_at_the_tip() {
         let expected_rates = coarse_fission(&reference, &reference.materials, &expected);
         let (problem, partial) = column(tip, 1.6, false);
         let run = |weighting: Weighting| {
-            let (solution, materials) = solve_rodded(
+            let (solution, materials, _) = solve_rodded(
                 &problem,
                 partial.clone(),
                 weighting,
@@ -354,7 +354,7 @@ fn partial_nodes_at_both_ends_around_one_uniform_node_match_the_split_mesh() {
         vec![fuel(1.0), fuel(1.6)],
     );
     let expected = solve(&reference, &Options::default()).unwrap();
-    let (solution, _) =
+    let (solution, _, _) =
         solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
     let dk = pcm(solution.k, expected.k);
     assert!(dk.abs() < 10.0, "{dk} pcm");
@@ -428,4 +428,158 @@ fn one_node_z_problems_with_nan_do_not_converge() {
         &snapshot,
     );
     assert!(result.is_err(), "{result:?}");
+}
+
+// 部分挿入のノードのミクロ燃焼（ADR-0217）
+
+use xlc_format::table::{MicroNuclide, MicroReaction};
+
+use crate::micro::correct;
+
+/// 2 群の微視的断面積（barn）。`scale` 倍した値で区間ごとに変える
+fn micro_nuclide(scale: f64, thermal: Option<f64>) -> MicroNuclide {
+    let v = |x: [f64; 2]| x.iter().map(|x| scale * x).collect::<Vec<_>>();
+    MicroNuclide {
+        total: v([5.0, 60.0]),
+        nu_fission: v([2.4, 100.0]),
+        fission: v([1.0, 41.0]),
+        scatter: vec![v([3.9, 0.1]), v([0.0, 10.0])],
+        reactions: vec![MicroReaction {
+            mt: 102,
+            channels: vec![v([0.3, 8.0]), v([0.1, 2.0])],
+        }],
+        thermal_fission: thermal,
+    }
+}
+
+/// 区間ごとの 2 核種の微視的断面積。棒の入った区間（`rodded`）は熱群を小さくし、収率の境界より下の割合も変える
+fn segment_micro(rodded: bool) -> MicroAt {
+    let (scale, thermal) = if rodded { (0.7, 0.8) } else { (1.0, 0.95) };
+    MicroAt {
+        densities: vec![7.0e-4, 1.0e-5],
+        nuclides: vec![
+            micro_nuclide(scale, Some(thermal)),
+            micro_nuclide(0.5 * scale, None),
+        ],
+    }
+}
+
+/// 追う核種の数密度 (1/(barn cm))
+const DENSITIES: [f64; 2] = [6.5e-4, 2.0e-5];
+
+#[test]
+fn mixed_micro_cross_sections_take_the_weights_of_the_mixed_constants() {
+    // 区間の定数が、同じ下地に追う核種の Σᵢ Nᵢ σᵢ を足したものなら、同じ重みで混ぜた定数は、下地に Σᵢ Nᵢ（混ぜた σᵢ）を
+    // 足したものと同じ（少数群定数と微視的断面積を同じ関数で混ぜる。ADR-0217）
+    let zero = |m: &MicroAt| MicroAt {
+        densities: vec![0.0; m.densities.len()],
+        nuclides: m.nuclides.clone(),
+    };
+    let micro = [segment_micro(false), segment_micro(true)];
+    let segments: Vec<Segment> = micro
+        .iter()
+        .map(|m| {
+            let mut constants = fuel(1.0);
+            correct(&mut constants, &zero(m), &DENSITIES);
+            Segment {
+                constants,
+                length: 10.0,
+            }
+        })
+        .collect();
+    let weights = vec![vec![3.0, 1.0], vec![0.5, 0.2]];
+    let mixed = mix(&segments, &weights).unwrap();
+    let flux = [2.0, 0.5];
+    let mixed_micro = mix_micro(&micro, &weights, &flux).unwrap();
+    let mut expected = fuel(1.0);
+    correct(&mut expected, &zero(&mixed_micro), &DENSITIES);
+    let close = |a: &[f64], b: &[f64]| {
+        a.iter()
+            .zip(b)
+            .all(|(x, y)| (x - y).abs() <= 1.0e-13 * y.abs().max(1.0e-30))
+    };
+    assert!(close(&mixed.total, &expected.total), "{mixed:?}");
+    assert!(close(&mixed.absorption, &expected.absorption));
+    assert!(close(&mixed.nu_fission, &expected.nu_fission));
+    assert!(close(&mixed.fission, &expected.fission));
+    for (a, b) in mixed.scatter.iter().zip(&expected.scatter) {
+        assert!(close(a, b));
+    }
+    // 経路の断面積は群の中性子束で混ぜる
+    let u235 = &mixed_micro.nuclides[0];
+    for (c, channel) in u235.reactions[0].channels.iter().enumerate() {
+        for g in 0..2 {
+            let expected = (weights[0][g] * micro[0].nuclides[0].reactions[0].channels[c][g]
+                + weights[1][g] * micro[1].nuclides[0].reactions[0].channels[c][g])
+                / (weights[0][g] + weights[1][g]);
+            assert!((channel[g] - expected).abs() <= 1.0e-13 * expected);
+        }
+    }
+    // 収率の境界より下の割合は、燃焼が使う核分裂率 σ̄f,G φ̄_G のうちの区間の分で混ぜる（熱の核分裂率の和を保つ）
+    let rate = |s: usize| -> f64 {
+        (0..2)
+            .map(|g| {
+                micro[s].nuclides[0].fission[g] * weights[s][g] / (weights[0][g] + weights[1][g])
+                    * flux[g]
+            })
+            .sum()
+    };
+    let rates = [rate(0), rate(1)];
+    let solved_rate: f64 = (0..2).map(|g| u235.fission[g] * flux[g]).sum();
+    assert!((rates[0] + rates[1] - solved_rate).abs() < 1.0e-13 * solved_rate);
+    let thermal = (0.95 * rates[0] + 0.8 * rates[1]) / (rates[0] + rates[1]);
+    assert!((u235.thermal_fission.unwrap() - thermal).abs() < 1.0e-14);
+    assert_eq!(mixed_micro.nuclides[1].thermal_fission, None);
+    // 公称の数密度は区間によらない（同じ層のテーブルの、同じ燃焼度の値）
+    assert_eq!(mixed_micro.densities, micro[0].densities);
+}
+
+#[test]
+fn mixing_micro_cross_sections_needs_matching_segments() {
+    let micro = [segment_micro(false), segment_micro(true)];
+    let flux = [1.0, 1.0];
+    let even = vec![vec![1.0, 1.0]; 2];
+    // 重みの区間と群の数
+    assert!(mix_micro(&micro, &[vec![1.0, 1.0]], &flux).is_err());
+    assert!(mix_micro(&micro, &[vec![1.0], vec![1.0]], &flux).is_err());
+    // 中性子束と群の数の違う微視的断面積（群ごとに引く前に止める）
+    let mut short = segment_micro(true);
+    short.nuclides[1].fission.pop();
+    assert!(mix_micro(&[segment_micro(false), short], &even, &flux).is_err());
+    // 公称の数密度の違う区間（同じ層のテーブルの同じ燃焼度なら同じはず）
+    let mut other = segment_micro(true);
+    other.densities[0] *= 1.1;
+    assert!(mix_micro(&[segment_micro(false), other], &even, &flux).is_err());
+    // 核分裂する区間としない区間の混じった核種
+    let mut fissionless = segment_micro(true);
+    fissionless.nuclides[0].thermal_fission = None;
+    assert!(mix_micro(&[segment_micro(false), fissionless], &even, &flux).is_err());
+}
+
+#[test]
+fn rodded_solutions_return_the_weights_of_their_mixed_constants() {
+    // 返す重みで区間の定数を混ぜると、解いた混ぜた定数（z の面の不連続因子のほか）になる。体積の重みは区間の長さ
+    for weighting in [Weighting::Flux, Weighting::Volume] {
+        let (problem, partial) = column(128.0, 1.6, false);
+        let (_, materials, weights) = solve_rodded(
+            &problem,
+            partial.clone(),
+            weighting,
+            0.5,
+            &Options::default(),
+        )
+        .unwrap();
+        assert_eq!(weights.len(), 1);
+        let solved = &materials[partial[0].material];
+        let mixed = mix(&partial[0].segments, &weights[0]).unwrap();
+        assert_eq!(mixed.total, solved.total, "{weighting:?}");
+        assert_eq!(mixed.absorption, solved.absorption);
+        assert_eq!(mixed.nu_fission, solved.nu_fission);
+        assert_eq!(mixed.scatter, solved.scatter);
+        assert_eq!(mixed.diffusion, solved.diffusion);
+        assert_eq!(mixed.chi, solved.chi);
+        if weighting == Weighting::Volume {
+            assert_eq!(weights[0], vec![vec![8.0; 2], vec![12.0; 2]]);
+        }
+    }
 }

@@ -120,6 +120,61 @@ class Merge(unittest.TestCase):
         with self.assertRaises(SystemExit):
             merge(table(1.2), table(1.0, heavy_metal=1258.0))
 
+    def test_micro_states_follow_the_points_and_keep_the_first_densities(self):
+        # 微視的断面積（ADR-0216）は点ごとに 1 つで、状態と同じく並べ替える。数密度は燃焼度の点ごとで、制御棒の値によらない
+        out = table(1.2, micro=micro(["o0", "o1"], [[7e-4], [6e-4]]))
+        rodded = table(1.0, micro=micro(["r0", "r1"], [[7e-4], [6e-4]]))
+        rodded["axes"][0]["points"] = [10.0]
+        rodded["points"] = [[0]]
+        rodded["states"] = [{"k_inf": 0.5}]
+        rodded["micro"]["states"] = [["r1"]]
+        rodded["micro"]["densities"] = [[6e-4]]
+        merged = merge(out, rodded)
+        self.assertEqual(merged["micro"]["nuclides"], ["U-235"])
+        self.assertEqual(merged["micro"]["densities"], [[7e-4], [6e-4]])
+        self.assertEqual(merged["micro"]["states"], [["o0"], ["o1"], ["r1"]])
+
+    def test_micro_data_must_agree_across_the_tables(self):
+        def with_micro(k, densities, nuclides=("U-235",)):
+            return table(k, micro=micro(["s0", "s1"], densities, list(nuclides)))
+
+        # 片方だけが微視的断面積を持つ
+        with self.assertRaises(SystemExit):
+            merge(with_micro(1.2, [[7e-4], [6e-4]]), table(1.0))
+        with self.assertRaises(SystemExit):
+            merge(table(1.2), with_micro(1.0, [[7e-4], [6e-4]]))
+        # 追う核種が違う
+        with self.assertRaises(SystemExit):
+            merge(
+                with_micro(1.2, [[7e-4], [6e-4]]),
+                with_micro(1.0, [[7e-4], [6e-4]], ("U-238",)),
+            )
+        # 数密度の NaN は、どちらの側にあっても合わないものとして止める
+        with self.assertRaises(SystemExit):
+            merge(
+                with_micro(1.2, [[7e-4], [6e-4]]),
+                with_micro(1.0, [[7e-4], [float("nan")]]),
+            )
+        with self.assertRaises(SystemExit):
+            merge(
+                with_micro(1.2, [[7e-4], [float("nan")]]),
+                with_micro(1.0, [[7e-4], [6e-4]]),
+            )
+        # 同じ燃焼度の数密度が違う（同じ履歴なら丸めの外で違わない）
+        with self.assertRaises(SystemExit):
+            merge(
+                with_micro(1.2, [[7e-4], [6e-4]]), with_micro(1.0, [[7e-4], [6.1e-4]])
+            )
+
+
+def micro(states: list, densities: list, nuclides: list | None = None) -> dict:
+    """1 核種の微視的断面積（状態は名前の文字列で代える）と、燃焼度の点ごとの数密度"""
+    return {
+        "nuclides": nuclides or ["U-235"],
+        "densities": densities,
+        "states": [[s] for s in states],
+    }
+
 
 if __name__ == "__main__":
     unittest.main()

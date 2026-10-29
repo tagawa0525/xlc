@@ -1256,3 +1256,190 @@ fn fissile_tables_off_the_depleted_nodes_are_errors() {
     .to_string();
     assert!(error.contains("not a depleted node"), "{error}");
 }
+
+// 部分挿入のノードのミクロ燃焼（ADR-0217）
+
+/// 集合体 1 体の上から制御棒（バンク D、AIC だけ）を入れる炉心の形。先端は 0.001 × ステップ (cm)
+const ROD_PLANT: &str = r#"
+pitch = 20.0
+height = 20.0
+map = ["*"]
+
+[rods]
+step = 0.001
+bottom = 0.0
+steps = 20000
+top = 20.0
+map = ["D"]
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.type.rcca]
+segments = [{ value = "aic", length = 20.0 }]
+"#;
+
+const ROD_INVENTORY: &str = r#"
+[design.A]
+bounds = [0.0, 20.0]
+layers = ["a.msgpack"]
+
+[assembly.A1]
+design = "A"
+"#;
+
+const ROD_CYCLE: &str = r#"
+plant = "plant.toml"
+inventory = "assemblies.toml"
+loading = ["A1"]
+"#;
+
+/// 軸方向に 2 つのノード（0〜10、10〜20 cm）。上のノードに先端が来る
+const ROD_CASE: &str = r#"
+cycle = "cycle.toml"
+axial-mesh = [0.0, 10.0, 20.0]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.hfp]
+boron = 1200
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 20000 }
+
+[depletion]
+specific-power = 40.0
+steps = [{ efpd = 50.0 }, { efpd = 125.0 }]
+history = "history.msgpack"
+"#;
+
+/// `with_micro` のテーブルに制御棒の軸（`out`、`aic`）を足す。`aic` は熱群の吸収を足し、U-235 の微視的断面積の熱群を小さくする
+fn with_rod_axis(table: Table) -> Table {
+    let micro = table.micro.clone().unwrap();
+    let mut states = Vec::new();
+    let mut micro_states = Vec::new();
+    for (state, nuclides) in table.states.iter().zip(&micro.states) {
+        states.push(state.clone());
+        micro_states.push(nuclides.clone());
+        let mut rodded = state.clone();
+        rodded.absorption[1] += 0.03;
+        rodded.total[1] += 0.03;
+        states.push(rodded);
+        let mut rodded = nuclides.clone();
+        let u235 = &mut rodded[0];
+        // 熱群の核分裂は 0.7 倍、捕獲は 1.5 倍（捕獲 / 核分裂の比が変わり、U-236 の生まれ方が微視的断面積の混ぜ方で変わる）
+        let (fission, capture) = (u235.fission[1], u235.reactions[0].channels[0][1]);
+        u235.fission[1] = 0.7 * fission;
+        u235.nu_fission[1] *= 0.7;
+        u235.reactions[0].channels[0][1] = 1.5 * capture;
+        u235.total[1] += u235.fission[1] - fission + u235.reactions[0].channels[0][1] - capture;
+        u235.thermal_fission = Some(0.9);
+        micro_states.push(rodded);
+    }
+    let mut out = Table {
+        points: Vec::new(),
+        axes: table.axes.clone(),
+        split: table.split,
+        states,
+        heavy_metal: table.heavy_metal,
+        micro: Some(Micro {
+            states: micro_states,
+            ..micro
+        }),
+    };
+    out.axes.push(Axis::Rod {
+        values: vec!["out".into(), "aic".into()],
+    });
+    out.points = product_points(&out.axes);
+    out.validate().unwrap();
+    out
+}
+
+/// バンク D をステップ `step` に置いて、集合体 1 体の 2 つのノードをミクロ燃焼させる
+fn rodded_micro_run(step: u32) -> CoreHistory {
+    rodded_micro_run_with(ROD_CASE, step)
+}
+
+/// `rodded_micro_run` をケース `case` で
+fn rodded_micro_run_with(case: &str, step: u32) -> CoreHistory {
+    let base = Path::new("dir");
+    let mut case = micro_case(case);
+    let cycle = Cycle::parse(ROD_CYCLE, base).unwrap();
+    let plant = Plant::parse(ROD_PLANT, base).unwrap();
+    let inventory = Inventory::parse(ROD_INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = vec![with_rod_axis(with_micro(table(1.0, Some(400.0)), &TRACKED))];
+    case.states[0].banks.insert("D".into(), step);
+    deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap()
+}
+
+/// 上のノードが、燃焼の終わりまでに消えた U-235 の原子あたりに作った U-236 の原子（捕獲の割合）。ノードの出力によらず、
+/// 微視的断面積（とノードの中性子束のスペクトル）で決まる
+fn capture_share(history: &CoreHistory) -> f64 {
+    let n = &history.points.last().unwrap().densities.as_ref().unwrap()[0][1];
+    n[1] / (U235 - n[0])
+}
+
+/// 最後の点の k (pcm)
+fn last_k(history: &CoreHistory) -> f64 {
+    1.0e5 * history.points.last().unwrap().k
+}
+
+#[test]
+fn partial_node_micro_depletion_approaches_the_uniform_nodes_at_the_insertion_limits() {
+    // 上のノードの挿入の割合が 0 と 1 に近づくと、部分挿入のノードのミクロ燃焼は、そのノードを棒のないノードと棒の入った
+    // ノードにした燃焼に、割合の 1 次で近づく（区間の重みが 0 に近づく。ADR-0127 の「境界がノードの面に近づくと」）
+    let out = rodded_micro_run(20000);
+    let rodded = rodded_micro_run(10000);
+    // 棒の効きと、捕獲の割合の違いは区別できる大きさ
+    assert!(last_k(&out) - last_k(&rodded) > 100.0);
+    assert!(capture_share(&rodded) > 1.2 * capture_share(&out));
+    for (limit, near, nearer) in [(&out, 19990, 19999), (&rodded, 10010, 10001)] {
+        let (near, nearer) = (rodded_micro_run(near), rodded_micro_run(nearer));
+        let share = |h: &CoreHistory| capture_share(h) / capture_share(limit) - 1.0;
+        let k = |h: &CoreHistory| last_k(h) - last_k(limit);
+        let shares = format!("{} at 1e-3, {} at 1e-4", share(&near), share(&nearer));
+        let ks = format!("{} pcm at 1e-3, {} pcm at 1e-4", k(&near), k(&nearer));
+        // 割合を 1/10 にすると差もおよそ 1/10 になる（k は、区間の定数の z の面の不連続因子が 1 からずれる分（ADR-0127 の
+        // `identical_intervals_reproduce_the_uniform_node`）を含むので、1/5 より小さいことだけを求める）
+        assert!(share(&nearer).abs() < 1.0e-4, "{shares}");
+        assert!(
+            (5.0..20.0).contains(&(share(&near) / share(&nearer))),
+            "{shares}"
+        );
+        assert!(k(&nearer).abs() < k(&near).abs() / 5.0, "{ks}");
+    }
+}
+
+#[test]
+fn partial_node_micro_rates_weigh_the_rodded_segment_by_its_flux() {
+    // 棒の入った区間は中性子束が低いので、中性子束の重み（既定）は体積の重み（比べるためだけの案）より棒の入った区間の
+    // 微視的断面積を小さく数え、上のノードの捕獲の割合は棒のないノードの値に近い
+    let out = capture_share(&rodded_micro_run(20000));
+    let flux = capture_share(&rodded_micro_run(15000));
+    let volume = capture_share(&rodded_micro_run_with(
+        &format!("{ROD_CASE}\n[partial-rods]\nweighting = \"volume\"\n"),
+        15000,
+    ));
+    assert!(out < flux && flux < volume, "{out} {flux} {volume}");
+}
+
+#[test]
+fn partial_node_micro_depletion_is_monotonic_in_the_insertion() {
+    // 先端を下げる（挿入の割合を増やす）ほど、最後の点の k は下がる
+    let ks: Vec<f64> = [20000, 17500, 15000, 12500, 10000]
+        .into_iter()
+        .map(|s| rodded_micro_run(s).points.last().unwrap().k)
+        .collect();
+    assert!(ks.windows(2).all(|w| w[1] < w[0]), "{ks:?}");
+}
