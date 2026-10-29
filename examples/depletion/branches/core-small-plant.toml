@@ -1,0 +1,34 @@
+# 小さな炉心の core の燃焼（ステップの大きさの誤差と中点の探索の効き）の炉心の形: 2A の集合体 4 × 4 の 1/4（2 × 2。左と下は
+# 鏡面反射）と、燃料の右と上の I 型の反射体（branch-reflector-I-boron.toml。右と上の外は真空の辺の比）。右上の角は反射体を置かず
+# （`-`）、そこに面する反射体の面は Marshak（ケースの outline）。高さは VERA の燃料の 365.76 cm で、軸方向の反射体はない。
+pitch = 21.5
+height = 365.76
+map = [
+  "I@90  I@90  -",
+  "*     *     I",
+  "*     *     I",
+]
+
+# I 型の格子の反射体（燃料が −x）
+[reflector.I]
+bounds = [0.0, 365.76]
+layers = ["table-reflector-I-boron.msgpack"]
+
+# 制御棒のバンク D を 1/4 の中心側の集合体（全炉心の中央の 4 体）に置く。先端の高さは 0.635 + 1.5875 × ステップ (cm) で、
+# 230 ステップで炉心の上端（抜いた状態）。棒は先端から上がすべて AIC（テーブルの制御棒の軸の値 aic）
+[rods]
+step = 1.5875
+bottom = 0.635
+steps = 230
+top = 365.76
+map = [
+  ".  .  .",
+  ".  .  .",
+  "D  .  .",
+]
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.type.rcca]
+segments = [{ value = "aic", length = 365.76 }]

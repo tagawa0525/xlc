@@ -1,0 +1,8 @@
+# 小さな炉心の装荷。A03 が中心側（バンク D の位置）、A04 と A01 が反射体に 1 面で、A02 が 2 面で面する
+plant = "core-small-plant.toml"
+inventory = "core-small-assemblies.toml"
+loading = [
+  ".    .    .",
+  "A01  A02  .",
+  "A03  A04  .",
+]
