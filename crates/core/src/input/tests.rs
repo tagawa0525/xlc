@@ -1336,10 +1336,12 @@ fn depletion_reads_the_specific_power_steps_and_history() {
     let c = Case::parse(&depleting(), base()).unwrap();
     let d = c.depletion.unwrap();
     assert_eq!(d.specific_power, 38.41);
-    assert_eq!(
-        d.steps,
-        vec![DepletionStep { efpd: 9.0 }, DepletionStep { efpd: 32.0 }]
-    );
+    // 出力の割合を省けば定格。状態が 1 つなら、ステップはその状態を指す
+    let power = |efpd| DepletionStep {
+        kind: StepKind::Power { efpd, power: 1.0 },
+        state: 0,
+    };
+    assert_eq!(d.steps, vec![power(9.0), power(32.0)]);
     assert_eq!(d.history, Path::new("dir/out/history.msgpack"));
     assert_eq!(c.states.len(), 1);
     assert_eq!(case().depletion, None);
@@ -1414,10 +1416,14 @@ fn invalid_depletions_are_errors() {
         "[{ efpd = 32.0 }, { efpd = 9.0 }]"
     ));
     assert!(bad("[{ efpd = 9.0 }, { efpd = 32.0 }]", "[{ efpd = inf }]"));
-    // 効かない項目（出力の割合など）は、足すまで受けない
+    // 出力の割合と崩壊だけのステップは、ミクロ燃焼のないケースに効かない（ADR-0218）
     assert!(bad("{ efpd = 9.0 }", "{ efpd = 9.0, power = 0.657 }"));
+    assert!(bad(
+        "{ efpd = 32.0 }",
+        "{ decay-days = 3.0 }, { efpd = 32.0 }"
+    ));
     assert!(bad("history = ", "missing = "));
-    // 状態はちょうど 1 つで、燃焼度は与えない（ADR-0190）
+    // 状態が 2 つ以上なら最初のステップに状態を書く。燃焼度は与えない（ADR-0190、ADR-0218）
     assert!(bad("[depletion]", &format!("{STATES}[depletion]")));
     assert!(bad(
         "[depletion]",
@@ -1441,4 +1447,98 @@ fn invalid_depletions_are_errors() {
         "radial-nodes = 1\naxial-pin-powers = \"p.msgpack\""
     ));
     assert!(bad("radial-nodes = 1", "radial-nodes = 2"));
+}
+
+/// ミクロ燃焼の、状態 2 つ（燃料の温度の違う hfp と cool）の燃焼のケース
+fn cycling(steps: &str) -> String {
+    format!(
+        "{CASE}{}",
+        DEPLETION
+            .replace(
+                "[depletion]",
+                "[state.cool]\nboron = 1300\nb10 = 0.199\nmoderator = 565\nfuel = 560\n\n[depletion]\n\
+                 micro = { chain = \"chain.msgpack\" }"
+            )
+            .replace("[{ efpd = 9.0 }, { efpd = 32.0 }]", steps)
+    )
+}
+
+#[test]
+fn depletion_steps_take_powers_decay_days_and_states() {
+    // 出力の割合、崩壊だけのステップ（ADR-0218）。状態は名前で指し、省けば前のステップと同じ
+    let c = Case::parse(
+        &cycling(
+            "[{ efpd = 9.0, power = 0.657, state = \"cool\" }, { decay-days = 18.0 }, \
+             { efpd = 32.0, state = \"hfp\" }, { efpd = 50.0, power = 1.002 }]",
+        ),
+        base(),
+    )
+    .unwrap();
+    let names: Vec<&str> = c.states.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!(names, ["cool", "hfp"]);
+    let step = |kind, state| DepletionStep { kind, state };
+    assert_eq!(
+        c.depletion.unwrap().steps,
+        vec![
+            step(
+                StepKind::Power {
+                    efpd: 9.0,
+                    power: 0.657
+                },
+                0
+            ),
+            step(StepKind::Decay { days: 18.0 }, 0),
+            step(
+                StepKind::Power {
+                    efpd: 32.0,
+                    power: 1.0
+                },
+                1
+            ),
+            step(
+                StepKind::Power {
+                    efpd: 50.0,
+                    power: 1.002
+                },
+                1
+            ),
+        ]
+    );
+}
+
+#[test]
+fn invalid_cycle_steps_are_errors() {
+    let bad = |steps: &str| Case::parse(&cycling(steps), base()).is_err();
+    let good = "[{ efpd = 9.0, state = \"hfp\" }, { decay-days = 1.0 }, { efpd = 32.0, state = \"cool\" }]";
+    assert!(!bad(good));
+    // efpd か decay-days のどちらか一方
+    assert!(bad(
+        "[{ efpd = 9.0, decay-days = 1.0, state = \"hfp\" }, { efpd = 10.0, state = \"cool\" }]"
+    ));
+    assert!(bad(
+        "[{ state = \"hfp\" }, { efpd = 10.0, state = \"cool\" }]"
+    ));
+    // 崩壊だけのステップは正の日数で、出力の割合を持たない。崩壊だけのステップは EFPD を進めないので、次の efpd はその前の efpd より大きい
+    assert!(bad(&good.replace("decay-days = 1.0", "decay-days = 0.0")));
+    assert!(bad(&good.replace("decay-days = 1.0", "decay-days = nan")));
+    assert!(bad(
+        &good.replace("decay-days = 1.0", "decay-days = 1.0, power = 0.0")
+    ));
+    assert!(bad(&good.replace("efpd = 32.0", "efpd = 9.0")));
+    // 出力の割合は正の有限の値
+    for p in ["0.0", "-0.5", "inf", "nan"] {
+        assert!(bad(
+            &good.replace("efpd = 32.0", &format!("efpd = 32.0, power = {p}"))
+        ));
+    }
+    // 状態: 最初のステップは状態を書き（状態が 2 つ）、名前はケースの状態、どの状態もどれかのステップが使う
+    assert!(bad(
+        &good.replace("{ efpd = 9.0, state = \"hfp\" }", "{ efpd = 9.0 }")
+    ));
+    assert!(bad(&good.replace("state = \"cool\"", "state = \"cold\"")));
+    assert!(bad(&good.replace("state = \"cool\"", "state = \"hfp\"")));
+    // 崩壊だけのステップしかないケース
+    assert!(bad(
+        "[{ decay-days = 1.0, state = \"hfp\" }, { decay-days = 1.0, state = \"cool\" }]"
+    ));
 }
