@@ -388,11 +388,11 @@ OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに�
    3.4 時間。Gd が外側から燃えると展開の外の格子点が増えて遅くなるので、見積もりは多めにとる）:
 
    ```sh
-   cd <worktree> && ~/.claude/scripts/slurm-run.sh -t 130 xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
-     && ~/.claude/scripts/slurm-run.sh -t 140 xlc-2A-density 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-density' \
-     && ~/.claude/scripts/slurm-run.sh -t 160 xlc-2A-rods 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
-     && ~/.claude/scripts/slurm-run.sh -t 300 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
-     && ~/.claude/scripts/slurm-run.sh -t 300 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
+   cd <worktree> && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 130 xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 140 xlc-2A-density 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-density' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 160 xlc-2A-rods 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 300 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 300 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
    ```
 
    `-t`（分）は、1 点の試行（燃焼度 0.1 だけ、輸送 3 回、16 スレッド、排他。2026-10-15、trials のコミット前の入力で記録に書かない）の 1 回の輸送の時間

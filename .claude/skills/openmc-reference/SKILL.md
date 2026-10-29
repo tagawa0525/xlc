@@ -46,7 +46,7 @@ dvc checkout examples/vera/dvc.yaml
 63 ステージを含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
 
 ```sh
-~/.claude/scripts/slurm-run.sh --timed -t 90 vera-reference-stages 'dvc repro examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）
+~/.claude/scripts/slurm-run.sh --class record --ref '- VERA の参照解のステージの作り直し' --purpose 'VERA の OpenMC の参照解と核データのステージを作る' --timed -t 90 vera-reference-stages 'dvc repro examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）。区分と参照と目的はその計算に合わせる
 ```
 
 終わったら `dvc.lock` をコミットする。
