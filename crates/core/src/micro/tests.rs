@@ -398,3 +398,95 @@ fn invalid_rates_are_errors_in_the_matrix() {
         assert!(micro.matrix(&r).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn equilibrium_balances_iodine_and_xenon_with_their_precursors_at_the_rates() {
+    let micro = tracked_chain();
+    let at = micro_at(vec![0.0; 5]);
+    let tracked = [7.0e-4, 1.0e-5, 1.0e-6, 3.0e-9, 2.0e-8];
+    let mut n = micro.initial(&tracked);
+    // 補助の核種 Te-135 にも値を置く（平衡で置き換わる）
+    n[0] = 5.0e-12;
+    let rates = micro.rates(&at, &[3.0e13, 1.0e13], &n, 104.5).unwrap();
+    let got = micro.equilibrium(&rates, &n).unwrap();
+    // 解析的な平衡: Te-135 は収率だけで生まれ、I-135 は収率と Te-135 の崩壊、Xe-135 は収率と I-135 の崩壊で生まれる
+    let lambda = |half_life: f64| std::f64::consts::LN_2 / half_life;
+    let fission = tracked[0] * rates[0].fission;
+    let w = &rates[0].yield_weights;
+    let te_yield = 0.03 * w[0] + 0.03 * 0.8 * w[1];
+    let te = te_yield * fission / lambda(19.0);
+    let iodine =
+        (0.03 * fission + lambda(19.0) * te) / (lambda(6.57 * 3600.0) + rates[4].reactions[0][0]);
+    let xenon = (0.002 * fission + lambda(6.57 * 3600.0) * iodine)
+        / (lambda(9.14 * 3600.0) + rates[3].reactions[0][0]);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs();
+    // 解く核種の順: Te-135、I-135、Xe-135、U-235、U-236、U-237、Np-237
+    assert!(close(got[0], te), "{} vs {te}", got[0]);
+    assert!(close(got[1], iodine), "{} vs {iodine}", got[1]);
+    assert!(close(got[2], xenon), "{} vs {xenon}", got[2]);
+    // ほかの核種は変えない
+    assert_eq!(got[3..], n[3..]);
+    // 平衡の組成では、Te-135、I-135、Xe-135 の時間微分（燃焼行列 × 数密度）が、生成の項に比べて 0
+    let mut derivative = [0.0; 3];
+    let mut production = [0.0; 3];
+    for (row, column, value) in micro.entries(&rates).unwrap() {
+        if row < 3 {
+            let term = value * got[column];
+            derivative[row] += term;
+            production[row] += term.max(0.0);
+        }
+    }
+    for k in 0..3 {
+        assert!(
+            derivative[k].abs() <= 1e-12 * production[k],
+            "{}: {} of {}",
+            micro.solved[k],
+            derivative[k],
+            production[k]
+        );
+    }
+}
+
+#[test]
+fn equilibrium_needs_tracked_xenon_and_solved_iodine() {
+    let reference = micro_at(vec![0.0; 5]).nuclides;
+    // Xe-135 も I-135 も追わない（どちらも解く核種にない）
+    let micro = MicroChain::new(&chain(), &names(&TRACKED[..3]), &reference[..3]).unwrap();
+    let n = micro.initial(&[7.0e-4, 1.0e-5, 1.0e-6]);
+    let at = MicroAt {
+        densities: vec![0.0; 3],
+        nuclides: reference[..3].to_vec(),
+    };
+    let rates = micro.rates(&at, &[3.0e13, 1.0e13], &n, 104.5).unwrap();
+    assert!(micro.equilibrium(&rates, &n).is_err());
+    // Xe-135 を追わず、追う Cs-135 へ流れ込む補助の核種として解くだけでは、平衡の Xe が少数群定数に効かないので解かない
+    let cesium = MicroNuclide {
+        reactions: Vec::new(),
+        ..sigma([0.0, 0.0], [0.0, 0.0], 0.0)
+    };
+    let micro = MicroChain::new(
+        &chain(),
+        &names(&["U-235", "U-236", "Np-237", "Cs-135"]),
+        &[
+            reference[0].clone(),
+            reference[1].clone(),
+            reference[2].clone(),
+            cesium,
+        ],
+    )
+    .unwrap();
+    assert!(micro.solved.contains(&"Xe-135".to_string()));
+    assert!(!micro.balances_xenon());
+    // I-135 を追わなくても、Xe-135 へ流れ込む補助の核種として解けば平衡を解ける
+    let micro = MicroChain::new(&chain(), &names(&TRACKED[..4]), &reference[..4]).unwrap();
+    assert_eq!(micro.solved[..3], names(&["Te-135", "I-135", "Xe-135"]));
+    let n = micro.initial(&[7.0e-4, 1.0e-5, 1.0e-6, 3.0e-9]);
+    let at = MicroAt {
+        densities: vec![0.0; 4],
+        nuclides: reference[..4].to_vec(),
+    };
+    let rates = micro.rates(&at, &[3.0e13, 1.0e13], &n, 104.5).unwrap();
+    assert!(micro.balances_xenon());
+    let got = micro.equilibrium(&rates, &n).unwrap();
+    assert!(got[..3].iter().all(|&v| v > 0.0), "{got:?}");
+}

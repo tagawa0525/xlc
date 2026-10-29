@@ -23,9 +23,9 @@ use crate::case::{
     CaseError, Compositions, Solved, check_search, search_boron, solve_compositions,
 };
 use crate::input::{
-    Boron, BoronSearch, CaseState, DepletionInput, Layout, MidpointBoron, StepKind,
+    Boron, BoronSearch, CaseState, DepletionInput, Layout, MidpointBoron, StepKind, Xenon,
 };
-use crate::micro::MicroChain;
+use crate::micro::{MicroChain, TrackedRates};
 use crate::nem::{Options, fission_rates};
 use crate::rods::mix_micro;
 use crate::state::interpolate_micro;
@@ -50,6 +50,9 @@ pub struct CoreHistory {
     pub nuclides: Option<Vec<String>>,
     /// 探索の状態のステップの中点を解いたホウ素濃度（ADR-0191。ケースの `midpoint-boron`）
     pub midpoint_boron: MidpointBoron,
+    /// ミクロ燃焼の Xe-135 と I-135 の扱い（ケースの `micro` の `xenon`）。ミクロ燃焼しなければ `None`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub xenon: Option<Xenon>,
     pub points: Vec<CorePoint>,
 }
 
@@ -126,13 +129,15 @@ struct FileIn {
     nuclides: Option<Vec<String>>,
     /// rmpv の `from_value` は文字列を単位の列挙子として読まないので、名前で読む
     midpoint_boron: String,
+    #[serde(default)]
+    xenon: Option<String>,
     points: Vec<CorePoint>,
 }
 
 impl CoreHistory {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, states: {<名前>: {boron | search:
     /// {boron: [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}}, axial_mesh, assemblies, heavy_metal,
-    /// nuclides?, midpoint_boron: "search" | "start", points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
+    /// nuclides?, midpoint_boron: "search" | "start", xenon?: "tracked" | "equilibrium", points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
             format: FORMAT,
@@ -158,6 +163,17 @@ impl CoreHistory {
             other => {
                 return Err(CaseError::Depletion(format!(
                     "midpoint_boron must be search or start, found {other}"
+                )));
+            }
+        };
+        // Xe の扱いは、ミクロ燃焼の履歴だけが持つ
+        let xenon = match (file.xenon.as_deref(), &file.nuclides) {
+            (None, None) => None,
+            (Some("tracked"), Some(_)) => Some(Xenon::Tracked),
+            (Some("equilibrium"), Some(_)) => Some(Xenon::Equilibrium),
+            (other, _) => {
+                return Err(CaseError::Depletion(format!(
+                    "xenon must be tracked or equilibrium in a micro depletion history and absent otherwise, found {other:?}"
                 )));
             }
         };
@@ -229,6 +245,7 @@ impl CoreHistory {
             heavy_metal: file.heavy_metal,
             nuclides: file.nuclides,
             midpoint_boron,
+            xenon,
             points: file.points,
         })
     }
@@ -469,6 +486,16 @@ pub fn deplete(
     {
         return fail("a decay step needs micro depletion (ADR-0218)".into());
     }
+    let xenon = depletion.micro.as_ref().map(|m| m.xenon);
+    // 長い計算を始める前に
+    if xenon == Some(Xenon::Equilibrium)
+        && micro.as_ref().is_some_and(|m| !m.chain.balances_xenon())
+    {
+        return fail(
+            "equilibrium xenon needs Xe-135 among the tracked nuclides and I-135 among the solved ones (ADR-0219)"
+                .into(),
+        );
+    }
     let mut densities = micro
         .as_ref()
         .map(|m| m.initial(point_state(0), &layouts, tables))
@@ -523,10 +550,63 @@ pub fn deplete(
             rates,
         })
     };
-    // 解 `solve`（燃焼度 `burnups`、組成 `n`）の反応率で、組成 `from` を時間 `t` (s) だけ進める。ノードの出力密度は出力の割合
-    // `power` × 定格の出力密度 × 解の核分裂率の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギーを、
-    // 割合で伸びた時間で出す。ADR-0218）
+    // 解 `solve`（燃焼度 `burnups`）の位置 `site` の、組成 `n` で規格化した追う核種の反応率。ノードの出力密度は出力の割合 `power` ×
+    // 定格の出力密度 × 解の核分裂率の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギーを、割合で伸びた
+    // 時間で出す。ADR-0218）。ミクロ燃焼しない位置は `None`
     let mass: f64 = masses.iter().sum();
+    // `total` は解の核分裂率の炉心の和（位置ごとに足し直さない）
+    let node_rates = |m: &MicroNodes,
+                      solve: &Solve,
+                      total: f64,
+                      power: f64,
+                      burnups: &[f64],
+                      site: usize,
+                      n: &[f64]|
+     -> Result<Option<Vec<TrackedRates>>, String> {
+        let state = states[solve.state].at(solve.ppm);
+        let (Some(layout), uses) = (&layouts[solve.state], &m.uses[solve.state]) else {
+            return Err(format!(
+                "state {} is not laid out",
+                states[solve.state].name
+            ));
+        };
+        let Some(node_use) = uses[site] else {
+            return Ok(None);
+        };
+        let [x, y, z] = mesh.position(site);
+        let volume = mesh.dx[x] * mesh.dy[y] * mesh.dz[z];
+        let power_density =
+            power * depletion.specific_power * solve.rates[site] / total * mass / volume;
+        let s = crate::state::State {
+            burnup: Some(burnups[site]),
+            ..state
+        };
+        let micro_of = |table_use: usize| {
+            let t_use = &layout.tables[table_use];
+            interpolate_micro(&tables[t_use.file], &s, t_use.rod.as_deref())
+                .map_err(|e| format!("{}: {e}", layout.files[t_use.file].display()))
+        };
+        let sigma = match node_use {
+            NodeUse::Uniform(table_use) => micro_of(table_use)?,
+            // 区間の微視的断面積を、ノードの少数群定数を混ぜた重みで混ぜる（ADR-0217）
+            NodeUse::Partial(index) => {
+                let micro = layout.partial[index]
+                    .segments
+                    .iter()
+                    .map(|&(table_use, _)| micro_of(table_use))
+                    .collect::<Result<Vec<_>, String>>()?;
+                let weights = solve.solved.segment_weights.get(index).ok_or_else(|| {
+                    format!("site {site}: the solve has no weights of the partially rodded node")
+                })?;
+                mix_micro(&micro, weights, &solve.solved.solution.flux[site])
+                    .map_err(|e| format!("site {site}: {e}"))?
+            }
+        };
+        m.chain
+            .rates(&sigma, &solve.solved.solution.flux[site], n, power_density)
+            .map(Some)
+    };
+    // 解 `solve`（燃焼度 `burnups`、組成 `n`）の反応率で、組成 `from` を時間 `t` (s) だけ進める
     let deplete_nodes = |m: &MicroNodes,
                          solve: &Solve,
                          power: f64,
@@ -536,56 +616,17 @@ pub fn deplete(
                          t: f64,
                          at: &dyn Fn() -> String|
      -> Result<Vec<Option<Vec<f64>>>, CaseError> {
-        let total: f64 = solve.rates.iter().sum();
-        let state = states[solve.state].at(solve.ppm);
-        let (Some(layout), uses) = (&layouts[solve.state], &m.uses[solve.state]) else {
-            return Err(CaseError::Depletion(format!(
-                "state {} is not laid out",
-                states[solve.state].name
-            )));
-        };
         let start = std::time::Instant::now();
+        let total: f64 = solve.rates.iter().sum();
         let next = (0..sites)
             .into_par_iter()
             .map(|site| {
-                let (Some(node_use), Some(n), Some(from)) = (uses[site], &n[site], &from[site])
-                else {
+                let (Some(n), Some(from)) = (&n[site], &from[site]) else {
                     return Ok(None);
                 };
-                let [x, y, z] = mesh.position(site);
-                let volume = mesh.dx[x] * mesh.dy[y] * mesh.dz[z];
-                let power_density =
-                    power * depletion.specific_power * solve.rates[site] / total * mass / volume;
-                let s = crate::state::State {
-                    burnup: Some(burnups[site]),
-                    ..state
+                let Some(rates) = node_rates(m, solve, total, power, burnups, site, n)? else {
+                    return Ok(None);
                 };
-                let micro_of = |table_use: usize| {
-                    let t_use = &layout.tables[table_use];
-                    interpolate_micro(&tables[t_use.file], &s, t_use.rod.as_deref())
-                        .map_err(|e| format!("{}: {e}", layout.files[t_use.file].display()))
-                };
-                let sigma = match node_use {
-                    NodeUse::Uniform(table_use) => micro_of(table_use)?,
-                    // 区間の微視的断面積を、ノードの少数群定数を混ぜた重みで混ぜる（ADR-0217）
-                    NodeUse::Partial(index) => {
-                        let micro = layout.partial[index]
-                            .segments
-                            .iter()
-                            .map(|&(table_use, _)| micro_of(table_use))
-                            .collect::<Result<Vec<_>, String>>()?;
-                        let weights = solve.solved.segment_weights.get(index).ok_or_else(|| {
-                            format!(
-                                "site {site}: the solve has no weights of the partially rodded node"
-                            )
-                        })?;
-                        mix_micro(&micro, weights, &solve.solved.solution.flux[site])
-                            .map_err(|e| format!("site {site}: {e}"))?
-                    }
-                };
-                let rates =
-                    m.chain
-                        .rates(&sigma, &solve.solved.solution.flux[site], n, power_density)?;
                 let a = m.chain.matrix(&rates)?;
                 let next =
                     xlc_depletion::deplete(&a, from, t, CRAM_ORDER).map_err(|e| e.to_string())?;
@@ -599,6 +640,45 @@ pub fn deplete(
             "micro depletion of the nodes"
         );
         Ok(next)
+    };
+    // 出力の割合 `power` で運転している解: 状態 `k`、燃焼度 `burnups`、組成 `n` で解く。Xe を平衡にするケース（`xenon` の
+    // `equilibrium`。#0200）は、Xe-135、I-135 とその先行核の補助の核種を、解の反応率で釣り合う値に置き換えて解き直すことを、
+    // 置き換える値が変わらなくなるまで繰り返す（Anderson の加速。`equilibrate`）。解と、解いた組成を返す
+    let solve_operating = |k: usize,
+                           burnups: &[f64],
+                           n: Option<Densities>,
+                           given: Option<f64>,
+                           power: f64,
+                           at: &dyn Fn() -> String|
+     -> Result<(Solve, Option<Densities>), CaseError> {
+        let (Some(m), Some(n)) = (
+            micro.as_ref().filter(|_| xenon == Some(Xenon::Equilibrium)),
+            n.as_ref(),
+        ) else {
+            return solve(k, burnups, n.as_deref(), given, at).map(|s| (s, n));
+        };
+        let n = n.clone();
+        // 点の固有値計算の回数は、固定点のすべての解の和
+        let mut solves = 0;
+        equilibrate(n, |n| {
+            let solved = solve(k, burnups, Some(n), given, at)?;
+            solves += solved.solves;
+            let total: f64 = solved.rates.iter().sum();
+            let balanced = (0..sites)
+                .into_par_iter()
+                .map(|site| {
+                    let Some(n) = &n[site] else { return Ok(None) };
+                    match node_rates(m, &solved, total, power, burnups, site, n)? {
+                        Some(rates) => m.chain.equilibrium(&rates, n).map(Some),
+                        None => Ok(None),
+                    }
+                })
+                .collect::<Result<Vec<_>, String>>()
+                .map_err(|e| locate(CaseError::Depletion(e), at))?;
+            Ok((solved, balanced))
+        })
+        .map(|(s, n)| (Solve { solves, ..s }, Some(n)))
+        .map_err(|e| locate(e, at))
     };
     // 崩壊だけのステップ: 組成 `n` を、崩壊の項だけの行列で時間 `t` (s) だけ進める（ADR-0218）
     let decay_nodes = |m: &MicroNodes,
@@ -756,9 +836,10 @@ pub fn deplete(
                         MidpointBoron::Search => None,
                         MidpointBoron::Start => Some(solve_at_point.ppm),
                     };
-                    let middle = solve(step.state, b, half.as_deref(), given, &|| {
-                        format!("the midpoint of the step to {end} EFPD")
-                    })?;
+                    let (middle, half) =
+                        solve_operating(step.state, b, half, given, fraction, &|| {
+                            format!("the midpoint of the step to {end} EFPD")
+                        })?;
                     tracing::info!(
                         k = middle.solved.solution.k,
                         boron = middle.ppm,
@@ -791,13 +872,59 @@ pub fn deplete(
                 (fraction, format!("the point at {efpd} EFPD"))
             }
         };
-        solve_at_point = solve(
-            point_state(i + 1),
-            &burnups,
-            densities.as_deref(),
-            None,
-            &|| at_point.clone(),
-        )?;
+        // 出力のステップの終わりの点は運転している解。点は次のステップの状態で解く（ADR-0218 の案 P2）ので、次も出力のステップなら
+        // その出力で、次が崩壊だけのステップか最後の点なら終わったステップの出力で運転している。崩壊だけのステップの後の点は、崩壊で
+        // 進めた組成のまま解く（停止の後の Xe は、平衡でなく崩壊の結果）
+        let next = depletion.steps.get(i + 1).map(|s| s.kind);
+        (solve_at_point, densities) = match step.kind {
+            // 崩壊だけのステップの前の点の Xe は、停止の前に運転していた状態（終わったステップの状態）の中性子束で釣り合う。点は
+            // 崩壊だけのステップの状態で、その組成で解く
+            StepKind::Power { power, .. }
+                if xenon == Some(Xenon::Equilibrium)
+                    && matches!(next, Some(StepKind::Decay { .. }))
+                    && point_state(i + 1) != step.state =>
+            {
+                let (operating, balanced) =
+                    solve_operating(step.state, &burnups, densities.take(), None, power, &|| {
+                        at_point.clone()
+                    })?;
+                let point = solve(
+                    point_state(i + 1),
+                    &burnups,
+                    balanced.as_deref(),
+                    None,
+                    &|| at_point.clone(),
+                )?;
+                (
+                    Solve {
+                        solves: operating.solves + point.solves,
+                        ..point
+                    },
+                    balanced,
+                )
+            }
+            StepKind::Power { power, .. } => solve_operating(
+                point_state(i + 1),
+                &burnups,
+                densities.take(),
+                None,
+                match next {
+                    Some(StepKind::Power { power: next, .. }) => next,
+                    _ => power,
+                },
+                &|| at_point.clone(),
+            )?,
+            StepKind::Decay { .. } => (
+                solve(
+                    point_state(i + 1),
+                    &burnups,
+                    densities.as_deref(),
+                    None,
+                    &|| at_point.clone(),
+                )?,
+                densities,
+            ),
+        };
         let point = record(
             efpd,
             days,
@@ -821,12 +948,129 @@ pub fn deplete(
         heavy_metal,
         nuclides: micro.map(|m| m.chain.nuclides),
         midpoint_boron: depletion.midpoint_boron,
+        xenon,
         points,
     })
 }
 
 /// 1 日 (s)
 const DAY: f64 = 86_400.0;
+
+/// 位置ごとの解く核種の数密度（ミクロ燃焼しない位置は `None`）
+type Densities = Vec<Option<Vec<f64>>>;
+
+/// 固定点の反復の組: 並べた組成 x と、その解で平衡にした組成 g
+type Iterate = (Vec<f64>, Vec<f64>);
+
+/// 平衡 Xe の固定点の許容: 置き換える数密度の、解き直す前後の相対の変化（初めの平衡の値に対する比）の最大
+const EQUILIBRIUM_TOLERANCE: f64 = 1.0e-6;
+/// 平衡 Xe の固定点の、解く回数の上限
+const EQUILIBRIUM_SOLVES: usize = 50;
+/// Anderson の加速で使う、前の反復の数
+const ANDERSON_DEPTH: usize = 3;
+
+/// 組成 `n` から、`evaluate`（組成 → 解と、その解の反応率で平衡にした組成）の固定点を Anderson の加速（type II）で求め、固定点の
+/// 組成で解いた解と、その組成を返す。中性子束が Xe に強く応じる炉心では、平衡の組成をそのまま次の組成にする反復は互い違いに振れて
+/// 収束しないことがあるので、前の反復の差の最小二乗で次の組成を選ぶ
+fn equilibrate<S>(
+    n: Densities,
+    mut evaluate: impl FnMut(&[Option<Vec<f64>>]) -> Result<(S, Densities), CaseError>,
+) -> Result<(S, Densities), CaseError> {
+    let flatten =
+        |v: &[Option<Vec<f64>>]| -> Vec<f64> { v.iter().flatten().flatten().copied().collect() };
+    let shape: Vec<Option<usize>> = n.iter().map(|v| v.as_ref().map(Vec::len)).collect();
+    let unflatten = |x: &[f64]| -> Vec<Option<Vec<f64>>> {
+        let mut at = 0;
+        shape
+            .iter()
+            .map(|len| {
+                len.map(|len| {
+                    at += len;
+                    x[at - len..at].to_vec()
+                })
+            })
+            .collect()
+    };
+    let mut x = n;
+    let mut history: Vec<Iterate> = Vec::new();
+    let mut scale: Option<Vec<f64>> = None;
+    for iteration in 1..=EQUILIBRIUM_SOLVES {
+        let (solved, balanced) = evaluate(&x)?;
+        let (xf, gf) = (flatten(&x), flatten(&balanced));
+        if balanced
+            .iter()
+            .map(|v| v.as_ref().map(Vec::len))
+            .ne(shape.iter().copied())
+        {
+            return Err(CaseError::Depletion(
+                "the equilibrium changed the micro depleted sites".into(),
+            ));
+        }
+        let s = scale.get_or_insert_with(|| {
+            gf.iter()
+                .map(|v| if *v != 0.0 { v.abs() } else { 1.0 })
+                .collect()
+        });
+        let residual = gf
+            .iter()
+            .zip(&xf)
+            .zip(s.iter())
+            .map(|((g, x), s)| (g - x).abs() / s)
+            .fold(0.0, f64::max);
+        tracing::debug!(iteration, residual, "equilibrium xenon");
+        if residual <= EQUILIBRIUM_TOLERANCE {
+            tracing::info!(iterations = iteration, residual, "equilibrium xenon");
+            return Ok((solved, x));
+        }
+        let last = (xf, gf);
+        x = unflatten(&anderson(&history, &last, s));
+        history.push(last);
+        if history.len() > ANDERSON_DEPTH {
+            history.remove(0);
+        }
+    }
+    Err(CaseError::Depletion(format!(
+        "the equilibrium xenon did not converge in {EQUILIBRIUM_SOLVES} solves"
+    )))
+}
+
+/// Anderson の加速（type II）の次の点: 前の反復の組（x、g = G(x)）`previous`（古い順）と最後の組 `last` から、残差
+/// f = (g − x) / `scale` の差の最小二乗で γ を求め、g − ΔG γ を返す（負の数密度は 0 にする）。前の反復がないか最小二乗が特異なら、
+/// 最後の g
+fn anderson(previous: &[Iterate], last: &Iterate, scale: &[f64]) -> Vec<f64> {
+    let all: Vec<&Iterate> = previous.iter().chain([last]).collect();
+    let residual = |(x, g): &Iterate| -> Vec<f64> {
+        g.iter()
+            .zip(x)
+            .zip(scale)
+            .map(|((g, x), s)| (g - x) / s)
+            .collect()
+    };
+    let f: Vec<Vec<f64>> = all.iter().map(|i| residual(i)).collect();
+    let m = previous.len();
+    if m == 0 {
+        return last.1.clone();
+    }
+    let df: Vec<Vec<f64>> = (0..m)
+        .map(|j| f[j + 1].iter().zip(&f[j]).map(|(a, b)| a - b).collect())
+        .collect();
+    let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+    let normal: Vec<Vec<f64>> = (0..m)
+        .map(|i| (0..m).map(|j| dot(&df[i], &df[j])).collect())
+        .collect();
+    let right: Vec<f64> = (0..m).map(|i| dot(&df[i], &f[m])).collect();
+    let Some(gamma) = xlc_numeric::lu::solve(normal.concat(), right) else {
+        return last.1.clone();
+    };
+    let mut next = last.1.clone();
+    for (j, g) in gamma.iter().enumerate() {
+        let (a, b) = (&all[j].1, &all[j + 1].1);
+        for ((v, b), a) in next.iter_mut().zip(b).zip(a) {
+            *v -= g * (b - a);
+        }
+    }
+    next.iter().map(|v| v.max(0.0)).collect()
+}
 
 /// 行列指数の次数（格子計算の燃焼と同じ CRAM48。ADR-0173）
 const CRAM_ORDER: CramOrder = CramOrder::Order48;

@@ -56,6 +56,9 @@ pub struct MicroChain {
     decay: Vec<(usize, usize, f64)>,
     /// 追う核種ごと（テーブルの順）
     tracked: Vec<TrackedTerms>,
+    /// 平衡 Xe で解く核種（Xe-135、I-135 と、それらへ崩壊で流れ込む補助の核種）の、解く核種の中の番号。Xe-135 が追う核種でないか、
+    /// I-135 が解く核種になければ `None`
+    xenon: Option<Vec<usize>>,
 }
 
 /// 追う核種 1 つの 1 原子あたりの反応率 (1/s)
@@ -145,6 +148,7 @@ impl MicroChain {
                 }
             }
         }
+        let xenon = xenon_set(&solved, chain, &tracked);
         let tracked = tracked
             .iter()
             .map(|&i| {
@@ -186,7 +190,13 @@ impl MicroChain {
                 .collect(),
             decay,
             tracked,
+            xenon,
         })
+    }
+
+    /// 平衡 Xe（`equilibrium`）を解けるか: Xe-135 が追う核種で、I-135 が解く核種（追う核種か補助の核種）にある
+    pub fn balances_xenon(&self) -> bool {
+        self.xenon.is_some()
     }
 
     /// 補助の核種の数
@@ -296,6 +306,12 @@ impl MicroChain {
     /// 追う核種の反応率 `rates` の、解く核種の燃焼行列（`Chain::matrix_entries` と同じ項。解かない核種への生成物は落とし、
     /// 消滅は対角に残す）
     pub fn matrix(&self, rates: &[TrackedRates]) -> Result<DepletionMatrix, String> {
+        DepletionMatrix::from_triplets(self.solved.len(), &self.entries(rates)?)
+            .map_err(|e| e.to_string())
+    }
+
+    /// `matrix` の項（行、列、値 (1/s)）。同じ位置の項は足し合わせる
+    fn entries(&self, rates: &[TrackedRates]) -> Result<Vec<(usize, usize, f64)>, String> {
         if rates.len() != self.tracked.len() {
             return Err(format!(
                 "{} rates for {} tracked nuclides",
@@ -339,8 +355,77 @@ impl MicroChain {
                 }
             }
         }
-        DepletionMatrix::from_triplets(self.solved.len(), &entries).map_err(|e| e.to_string())
+        Ok(entries)
     }
+
+    /// 反応率 `rates` で、Xe-135、I-135 とそれらへ崩壊で流れ込む補助の核種の生成と消滅が釣り合う数密度に、解く核種の数密度
+    /// `n` のそれらの値を置き換える（ほかの核種の数密度は `n` のまま。平衡 Xe。ADR-0219）。`balances_xenon` でなければエラー
+    pub fn equilibrium(&self, rates: &[TrackedRates], n: &[f64]) -> Result<Vec<f64>, String> {
+        let set = self.xenon.as_ref().ok_or_else(|| {
+            "equilibrium xenon needs Xe-135 among the tracked nuclides and I-135 among the solved ones"
+                .to_string()
+        })?;
+        if n.len() != self.solved.len() {
+            return Err(format!(
+                "{} densities for {} solved nuclides",
+                n.len(),
+                self.solved.len()
+            ));
+        }
+        // 平衡の式: Σ_{j∈S} A_ij N_j = −Σ_{j∉S} A_ij N_j（i ∈ S）
+        let at: BTreeMap<usize, usize> = set.iter().enumerate().map(|(k, &i)| (i, k)).collect();
+        let size = set.len();
+        // 行優先の A_SS
+        let mut a = vec![0.0; size * size];
+        let mut b = vec![0.0; size];
+        for (row, column, value) in self.entries(rates)? {
+            let Some(&i) = at.get(&row) else { continue };
+            match at.get(&column) {
+                Some(&j) => a[i * size + j] += value,
+                None => b[i] -= value * n[column],
+            }
+        }
+        let solution = xlc_numeric::lu::solve(a, b)
+            .ok_or_else(|| "the equilibrium xenon equations are singular".to_string())?;
+        let mut out = n.to_vec();
+        for (&i, v) in set.iter().zip(solution) {
+            out[i] = v;
+        }
+        Ok(out)
+    }
+}
+
+/// 平衡 Xe で解く核種（`MicroChain::xenon`）: 解く核種 `solved`（チェーンの番号）の中の Xe-135、I-135 と、それらへ崩壊で流れ込む
+/// 補助の核種（`solved` の中の番号）。Xe-135 が追う核種でなければ `None`。補助の核種は崩壊だけなので、その平衡は収率と親の崩壊で決まる。追う核種（`tracked`、チェーンの
+/// 番号）は、Xe-135 と I-135 のほかは平衡にしない
+fn xenon_set(solved: &[usize], chain: &Chain, tracked: &[usize]) -> Option<Vec<usize>> {
+    let find = |name: &str| solved.iter().position(|&i| chain.nuclides[i].name == name);
+    let roots = [find("Xe-135")?, find("I-135")?];
+    // 補助の核種は崩壊だけで少数群定数を補正しないので、補助の Xe-135 の平衡は中性子束に効かない
+    if !tracked.contains(&solved[roots[0]]) {
+        return None;
+    }
+    // 崩壊の逆向き（解く核種の中の番号）
+    let mut parents: Vec<Vec<usize>> = vec![Vec::new(); solved.len()];
+    for (k, &i) in solved.iter().enumerate() {
+        for mode in chain.nuclides[i].decay.iter().flat_map(|d| &d.modes) {
+            for p in &mode.products {
+                if let Some(d) = solved.iter().position(|&j| j == p.nuclide) {
+                    parents[d].push(k);
+                }
+            }
+        }
+    }
+    let mut set: BTreeSet<usize> = roots.into_iter().collect();
+    let mut stack: Vec<usize> = roots.to_vec();
+    while let Some(k) = stack.pop() {
+        for &p in &parents[k] {
+            if !tracked.contains(&solved[p]) && set.insert(p) {
+                stack.push(p);
+            }
+        }
+    }
+    Some(set.into_iter().collect())
 }
 
 /// 解く核種（チェーンの番号の昇順）: 追う核種 `tracked` と、追う核種へ崩壊で流れ込む核種（崩壊の逆向きのクロージャ）のうち、

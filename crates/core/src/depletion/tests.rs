@@ -933,7 +933,7 @@ use xlc_depletion::chain::{Channel, Fission, Nuclide, Product, Reaction, Yield};
 use xlc_format::table::{Micro, MicroNuclide, MicroReaction};
 
 use crate::case::Compositions;
-use crate::input::MicroInput;
+use crate::input::{MicroInput, Xenon};
 use crate::micro::MicroChain;
 
 /// U-235 の捕獲 / 核分裂の比（群ごとに同じなので、反応率の比は中性子束の形によらない）
@@ -1030,6 +1030,7 @@ fn micro_case(case: &str) -> Case {
     let mut case = Case::parse(case, Path::new("dir")).unwrap();
     case.depletion.as_mut().unwrap().micro = Some(MicroInput {
         chain: "chain.msgpack".into(),
+        xenon: Xenon::Tracked,
     });
     case
 }
@@ -1270,9 +1271,24 @@ fn histories_hold_densities_exactly_when_they_name_nuclides() {
     let mut nan = history.clone();
     nan.points[1].densities.as_mut().unwrap()[0][0][0] = f64::NAN;
     assert!(CoreHistory::from_msgpack(&nan.to_msgpack().unwrap()).is_err());
-    let mut unnamed = history;
+    let mut unnamed = history.clone();
     unnamed.nuclides = None;
     assert!(CoreHistory::from_msgpack(&unnamed.to_msgpack().unwrap()).is_err());
+    // Xe の扱い（#0200）は、ミクロ燃焼の履歴だけが持つ
+    assert_eq!(
+        CoreHistory::from_msgpack(&history.to_msgpack().unwrap())
+            .unwrap()
+            .xenon,
+        Some(Xenon::Tracked)
+    );
+    let mut no_xenon = history.clone();
+    no_xenon.xenon = None;
+    assert!(CoreHistory::from_msgpack(&no_xenon.to_msgpack().unwrap()).is_err());
+    let plain = run(CASE, UNIFORM).unwrap();
+    assert_eq!(plain.xenon, None);
+    let mut extra = plain;
+    extra.xenon = Some(Xenon::Equilibrium);
+    assert!(CoreHistory::from_msgpack(&extra.to_msgpack().unwrap()).is_err());
 }
 
 #[test]
@@ -1618,16 +1634,21 @@ fn xenon_bateman(n: [f64; 4], r: f64, t: f64) -> [f64; 4] {
 
 /// 一様な炉心（`UNIFORM`）を、Xe のチェーンとステップ `steps` でミクロ燃焼させる
 fn xenon_run(steps: &str) -> Result<CoreHistory, CaseError> {
+    xenon_run_in(UNIFORM, "tracked", steps)
+}
+
+/// `xenon_run` と同じく、装荷 `cycle` と Xe の扱い `xenon`（`micro` の `xenon`）で
+fn xenon_run_in(cycle: &str, xenon: &str, steps: &str) -> Result<CoreHistory, CaseError> {
     let case = CASE
         .replace(
             "[depletion]",
-            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+            &format!("[depletion]\nmicro = {{ chain = \"chain.msgpack\", xenon = \"{xenon}\" }}"),
         )
         .replace(
             "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
             steps,
         );
-    let (layout, tables, case) = core(&case, UNIFORM, Some(400.0));
+    let (layout, tables, case) = core(&case, cycle, Some(400.0));
     let tables: Vec<Table> = tables.into_iter().map(with_xenon).collect();
     deplete(
         &layout,
@@ -1738,7 +1759,7 @@ fn decay_steps_need_micro_depletion() {
     let case = CASE
         .replace(
             "[depletion]",
-            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"tracked\" }",
         )
         .replace(
             "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
@@ -1771,7 +1792,7 @@ fn two_rod_states(steps: &str) -> String {
         )
         .replace(
             "[depletion]",
-            "[depletion]\nmicro = { chain = \"chain.msgpack\" }",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"tracked\" }",
         )
         .replace("[{ efpd = 50.0 }, { efpd = 125.0 }]", steps)
 }
@@ -1888,4 +1909,165 @@ fn depletions_without_states_or_steps_are_errors() {
     ] {
         assert!(deplete(&layout, &tables, states, depletion, None, &tight(), |_| {}).is_err());
     }
+}
+
+/// 一様な炉心のノードの、U-235 の数密度 `u235` と出力の割合 `power` で釣り合う I-135 と Xe-135 の数密度（1 原子あたりの核分裂率は
+/// 出力密度 / (N₂₃₅ Q)）
+fn xenon_equilibrium(u235: f64, power: f64) -> [f64; 2] {
+    let r = power * UNIFORM_POWER * 1.0e-24 / (u235 * Q * EV);
+    let (li, lx) = (
+        std::f64::consts::LN_2 / I135_HALF_LIFE,
+        std::f64::consts::LN_2 / XE135_HALF_LIFE,
+    );
+    let iodine = YIELD_I135 * r * u235 / li;
+    let xenon = (YIELD_XE135 + YIELD_I135) * r * u235 / (lx + XE_TO_FISSION * r);
+    [iodine, xenon]
+}
+
+#[test]
+fn equilibrium_xenon_balances_the_operating_points_and_decays_after_shutdowns() {
+    // 平衡 Xe（#0200）: 崩壊だけのステップの前の出力のステップの終わりの点は I-135 と Xe-135 がそのステップの出力で釣り合い、燃焼点 0 と
+    // 崩壊だけのステップの後の点は、組成を時間で進めた値のまま。ほかの核種はステップの CE/CM（Xe は核分裂しないので、U-235 は時間で追う燃焼と同じ）
+    let steps = "[{ efpd = 50.0, power = 0.5 }, { decay-days = 0.25 }, { efpd = 60.0 }]";
+    let history = xenon_run_in(UNIFORM, "equilibrium", steps).unwrap();
+    let tracked = xenon_run_in(UNIFORM, "tracked", steps).unwrap();
+    assert_eq!(history.xenon, Some(Xenon::Equilibrium));
+    assert_eq!(tracked.xenon, Some(Xenon::Tracked));
+    let node = |h: &CoreHistory, k: usize| h.points[k].densities.as_ref().unwrap()[0][0].clone();
+    assert_densities(&history.points[0], [U235, 0.0, 0.0, 0.0], 0.0);
+    for k in 1..4 {
+        assert!(
+            (node(&history, k)[0] / node(&tracked, k)[0] - 1.0).abs() <= 1.0e-12,
+            "point {k}"
+        );
+    }
+    let at = |k: usize, power: f64| {
+        let n = node(&history, k);
+        let [iodine, xenon] = xenon_equilibrium(n[0], power);
+        [n[0], n[1], iodine, xenon]
+    };
+    let balanced = at(1, 0.5);
+    assert_densities(&history.points[1], balanced, 1.0e-9);
+    // 停止の 6 時間後は、平衡の組成から崩壊で進めた値
+    assert_densities(
+        &history.points[2],
+        xenon_bateman(balanced, 0.0, 0.25 * 86400.0),
+        1.0e-10,
+    );
+    assert_densities(&history.points[3], at(3, 1.0), 1.0e-9);
+    // 点の固有値計算の回数は、平衡の固定点のすべての解の和（一様な炉心の反応率は Xe によらないので、平衡にした組成を 1 度解き直して
+    // 止まる）
+    let solves: Vec<usize> = history.points.iter().map(|p| p.solves).collect();
+    assert_eq!(solves, [1, 2, 1, 2]);
+    // 出力のステップが続く点は、次のステップの出力で釣り合う（点は次のステップの条件で解く。ADR-0218 の案 P2。ステップの初めの
+    // 点、中点、終わりの点が同じ出力の平衡になる）
+    let changed = xenon_run_in(
+        UNIFORM,
+        "equilibrium",
+        "[{ efpd = 50.0, power = 0.5 }, { efpd = 60.0, power = 0.8 }]",
+    )
+    .unwrap();
+    let n = node(&changed, 1);
+    let [iodine, xenon] = xenon_equilibrium(n[0], 0.8);
+    assert_densities(&changed.points[1], [n[0], n[1], iodine, xenon], 1.0e-9);
+    let n = node(&changed, 2);
+    let [iodine, xenon] = xenon_equilibrium(n[0], 0.8);
+    assert_densities(&changed.points[2], [n[0], n[1], iodine, xenon], 1.0e-9);
+}
+
+#[test]
+fn equilibrium_xenon_steps_keep_second_order() {
+    // A と B の炉心は出力の割合が燃焼と Xe で動く。中点と点の解で Xe を平衡にしても、ステップを半分にした燃焼度の差の比は 2 次の 4 に近い
+    let burn = |steps: usize| {
+        let efpd: Vec<String> = (1..=steps)
+            .map(|i| format!("{{ efpd = {:?} }}", 150.0 * i as f64 / steps as f64))
+            .collect();
+        let history =
+            xenon_run_in(MIXED, "equilibrium", &format!("[{}]", efpd.join(", "))).unwrap();
+        history.points.last().unwrap().assembly_burnups[0]
+    };
+    let (b2, b4, b8) = (burn(2), burn(4), burn(8));
+    let ratio = (b2 - b4) / (b4 - b8);
+    assert!((3.5..4.5).contains(&ratio), "{ratio} ({b2}, {b4}, {b8})");
+}
+
+/// `two_rod_states` のケースを、Xe のチェーンと平衡 Xe で燃焼させる（`rod_states_run` と同じ集合体 1 体）
+fn xenon_rod_states_run(steps: &str) -> CoreHistory {
+    let case = two_rod_states(steps).replace("xenon = \"tracked\"", "xenon = \"equilibrium\"");
+    let base = Path::new("dir");
+    let case = Case::parse(&case, base).unwrap();
+    let cycle = Cycle::parse(ROD_CYCLE, base).unwrap();
+    let plant = Plant::parse(ROD_PLANT, base).unwrap();
+    let inventory = Inventory::parse(ROD_INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = vec![with_rod_axis(with_xenon(table(1.0, Some(400.0))))];
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&xenon_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap()
+}
+
+#[test]
+fn equilibrium_before_a_decay_step_balances_in_the_operating_state() {
+    // 崩壊だけのステップの前の点は、崩壊だけのステップの状態で解く（ADR-0218 の案 P2）が、Xe は停止の前に運転していた状態の中性子束で
+    // 釣り合う（停止の状態の中性子束で運転したことはない）
+    let changed = xenon_rod_states_run(
+        "[{ efpd = 50.0, state = \"out\" }, { decay-days = 1.0, state = \"in\" }, { efpd = 60.0 }]",
+    );
+    let kept = xenon_rod_states_run(
+        "[{ efpd = 50.0, state = \"out\" }, { decay-days = 1.0 }, { efpd = 60.0, state = \"in\" }]",
+    );
+    assert_eq!(changed.points[1].state, "in");
+    assert_eq!(kept.points[1].state, "out");
+    let node = |h: &CoreHistory| h.points[1].densities.clone().unwrap();
+    for (a, b) in node(&changed)
+        .iter()
+        .flatten()
+        .zip(node(&kept).iter().flatten())
+    {
+        for (x, y) in a.iter().zip(b) {
+            assert!((x - y).abs() <= 1.0e-9 * y.abs(), "{x} vs {y}");
+        }
+    }
+    // 棒を抜いた状態では上下のノードの Xe-135 が同じ（棒の入った状態の中性子束では上のノードが少ない）
+    let rows = node(&changed);
+    assert!((rows[0][0][3] / rows[0][1][3] - 1.0).abs() <= 1.0e-9);
+}
+
+#[test]
+fn equilibrium_xenon_without_xenon_and_iodine_stops_before_solving() {
+    // 平衡にする Xe-135 と I-135 を解かないチェーンと追う核種は、最初の点を解く前に止める
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let mut case = micro_case(CASE);
+    case.depletion
+        .as_mut()
+        .unwrap()
+        .micro
+        .as_mut()
+        .unwrap()
+        .xenon = Xenon::Equilibrium;
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    let mut points = 0;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| points += 1,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("Xe-135"), "{error}");
+    assert_eq!(points, 0);
 }
