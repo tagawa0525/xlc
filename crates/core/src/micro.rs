@@ -432,8 +432,9 @@ pub(crate) fn solve_dense(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f
         for r in c + 1..n {
             let f = a[r][c] / a[c][c];
             if f != 0.0 {
-                for k in c..n {
-                    a[r][k] -= f * a[c][k];
+                let (upper, lower) = a.split_at_mut(r);
+                for (v, p) in lower[0][c..].iter_mut().zip(&upper[c][c..]) {
+                    *v -= f * p;
                 }
                 b[r] -= f * b[c];
             }
