@@ -1359,7 +1359,8 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
     assert_eq!(
         d.micro,
         Some(MicroInput {
-            chain: PathBuf::from("chain.msgpack")
+            chain: PathBuf::from("chain.msgpack"),
+            xenon: Xenon::Tracked,
         })
     );
     assert_eq!(
@@ -1370,13 +1371,29 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
             .micro,
         None
     );
-    // 決めていない項目（平衡 Xe など）は受けない
-    let bad = edited(
-        &depleting(),
-        "history = \"out/history.msgpack\"\n",
-        "history = \"out/history.msgpack\"\nmicro = { chain = \"c.msgpack\", xenon = \"equilibrium\" }\n",
+    // 平衡 Xe（#0200）
+    let micro = |entry: &str| {
+        Case::parse(
+            &edited(
+                &depleting(),
+                "history = \"out/history.msgpack\"\n",
+                &format!("history = \"out/history.msgpack\"\nmicro = {{ {entry} }}\n"),
+            ),
+            base(),
+        )
+        .map(|c| c.depletion.unwrap().micro.unwrap().xenon)
+    };
+    assert_eq!(
+        micro("chain = \"c.msgpack\", xenon = \"equilibrium\"").unwrap(),
+        Xenon::Equilibrium
     );
-    assert!(Case::parse(&bad, base()).is_err());
+    assert_eq!(
+        micro("chain = \"c.msgpack\", xenon = \"tracked\"").unwrap(),
+        Xenon::Tracked
+    );
+    // 知らない扱いと項目は受けない
+    assert!(micro("chain = \"c.msgpack\", xenon = \"none\"").is_err());
+    assert!(micro("chain = \"c.msgpack\", samarium = \"equilibrium\"").is_err());
 }
 
 #[test]
