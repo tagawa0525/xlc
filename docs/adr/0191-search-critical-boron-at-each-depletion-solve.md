@@ -6,7 +6,7 @@ supersedes: []
 superseded-by:
 amends: [ADR-0190]
 amended-by: [ADR-0218]
-issues: []
+issues: ["#0201"]
 ---
 
 # ADR-0191: core の燃焼は、状態の search でステップの各解（点と中点）の臨界ホウ素を探す
