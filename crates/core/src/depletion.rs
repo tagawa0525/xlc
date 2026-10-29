@@ -22,7 +22,9 @@ use xlc_format::table::{Axis, Micro, Table};
 use crate::case::{
     CaseError, Compositions, Solved, check_search, search_boron, solve_compositions,
 };
-use crate::input::{Boron, BoronSearch, CaseState, DepletionInput, Layout, StepKind};
+use crate::input::{
+    Boron, BoronSearch, CaseState, DepletionInput, Layout, MidpointBoron, StepKind,
+};
 use crate::micro::MicroChain;
 use crate::nem::{Options, fission_rates};
 use crate::rods::mix_micro;
@@ -46,6 +48,8 @@ pub struct CoreHistory {
     /// ミクロ燃焼（ADR-0216）で追う核種の名前（テーブルの順）。ミクロ燃焼しなければ `None`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nuclides: Option<Vec<String>>,
+    /// 探索の状態のステップの中点を解いたホウ素濃度（ADR-0191。ケースの `midpoint-boron`）
+    pub midpoint_boron: MidpointBoron,
     pub points: Vec<CorePoint>,
 }
 
@@ -120,13 +124,15 @@ struct FileIn {
     heavy_metal: Vec<Vec<f64>>,
     #[serde(default)]
     nuclides: Option<Vec<String>>,
+    /// rmpv の `from_value` は文字列を単位の列挙子として読まないので、名前で読む
+    midpoint_boron: String,
     points: Vec<CorePoint>,
 }
 
 impl CoreHistory {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, states: {<名前>: {boron | search:
     /// {boron: [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}}, axial_mesh, assemblies, heavy_metal,
-    /// nuclides?, points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
+    /// nuclides?, midpoint_boron: "search" | "start", points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
             format: FORMAT,
@@ -146,6 +152,15 @@ impl CoreHistory {
                 file.format
             )));
         }
+        let midpoint_boron = match file.midpoint_boron.as_str() {
+            "search" => MidpointBoron::Search,
+            "start" => MidpointBoron::Start,
+            other => {
+                return Err(CaseError::Depletion(format!(
+                    "midpoint_boron must be search or start, found {other}"
+                )));
+            }
+        };
         for (name, state) in &file.states {
             if state.boron.is_some() == state.search.is_some() {
                 return Err(CaseError::Depletion(format!(
@@ -213,6 +228,7 @@ impl CoreHistory {
             assemblies: file.assemblies,
             heavy_metal: file.heavy_metal,
             nuclides: file.nuclides,
+            midpoint_boron,
             points: file.points,
         })
     }
@@ -465,11 +481,12 @@ pub fn deplete(
             "micro depletion"
         );
     }
-    // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で）。`at` は
-    // エラーに添える解の場所
+    // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で。`given` が
+    // あれば、探索の状態もその濃度で解く）。`at` はエラーに添える解の場所
     let solve = |k: usize,
                  burnups: &[f64],
                  n: Option<&[Option<Vec<f64>>]>,
+                 given: Option<f64>,
                  at: &dyn Fn() -> String|
      -> Result<Solve, CaseError> {
         let state = &states[k];
@@ -490,9 +507,10 @@ pub fn deplete(
                 options,
             )
         };
-        let solved = match &state.boron {
-            Boron::Given(ppm) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
-            Boron::Search(search) => search_boron(search, solve_ppm)
+        let solved = match (&state.boron, given) {
+            (Boron::Given(ppm), _) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
+            (Boron::Search(_), Some(ppm)) => solve_ppm(ppm).map(|solved| (solved, ppm, 1)),
+            (Boron::Search(search), None) => search_boron(search, solve_ppm)
                 .map(|(solved, found)| (solved, found.ppm, found.solves)),
         };
         let (solved, ppm, solves) = solved.map_err(|e| locate(e, at))?;
@@ -670,9 +688,13 @@ pub fn deplete(
     let mut burnups = vec![0.0; sites];
     let mut efpd = 0.0;
     let mut days = 0.0;
-    let mut solve_at_point = solve(point_state(0), &burnups, densities.as_deref(), &|| {
-        "the point at 0 EFPD".into()
-    })?;
+    let mut solve_at_point = solve(
+        point_state(0),
+        &burnups,
+        densities.as_deref(),
+        None,
+        &|| "the point at 0 EFPD".into(),
+    )?;
     let mut points = vec![record(
         efpd,
         days,
@@ -729,7 +751,12 @@ pub fn deplete(
                         )?),
                         _ => None,
                     };
-                    let middle = solve(step.state, b, half.as_deref(), &|| {
+                    // 案 S1 の中点は、ステップの初めの点（同じ状態で解いた点）のホウ素濃度で解く
+                    let given = match depletion.midpoint_boron {
+                        MidpointBoron::Search => None,
+                        MidpointBoron::Start => Some(solve_at_point.ppm),
+                    };
+                    let middle = solve(step.state, b, half.as_deref(), given, &|| {
                         format!("the midpoint of the step to {end} EFPD")
                     })?;
                     tracing::info!(
@@ -764,9 +791,13 @@ pub fn deplete(
                 (fraction, format!("the point at {efpd} EFPD"))
             }
         };
-        solve_at_point = solve(point_state(i + 1), &burnups, densities.as_deref(), &|| {
-            at_point.clone()
-        })?;
+        solve_at_point = solve(
+            point_state(i + 1),
+            &burnups,
+            densities.as_deref(),
+            None,
+            &|| at_point.clone(),
+        )?;
         let point = record(
             efpd,
             days,
@@ -789,6 +820,7 @@ pub fn deplete(
         assemblies: placed.keys().map(|id| id.to_string()).collect(),
         heavy_metal,
         nuclides: micro.map(|m| m.chain.nuclides),
+        midpoint_boron: depletion.midpoint_boron,
         points,
     })
 }
