@@ -379,3 +379,19 @@ fn corrections_add_the_tracked_density_differences_to_the_reaction_items() {
         (base.chi, base.diffusion, base.adf, base.k_inf)
     );
 }
+
+#[test]
+fn invalid_rates_are_errors_in_the_matrix() {
+    let micro = tracked_chain();
+    let at = micro_at(vec![0.0; 5]);
+    let n = micro.initial(&[7.0e-4, 1.0e-5, 1.0e-6, 1.0e-9, 1.0e-8]);
+    let rates = micro.rates(&at, &[3.0, 1.0], &n, 104.5).unwrap();
+    for bad in [f64::NAN, -1.0e-9, f64::INFINITY] {
+        let mut r = rates.clone();
+        r[1].reactions[0][0] = bad;
+        assert!(micro.matrix(&r).is_err(), "{bad}");
+        let mut r = rates.clone();
+        r[0].fission = bad;
+        assert!(micro.matrix(&r).is_err(), "{bad}");
+    }
+}

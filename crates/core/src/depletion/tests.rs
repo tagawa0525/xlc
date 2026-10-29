@@ -893,7 +893,9 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
 use xlc_depletion::chain::{Channel, Fission, Nuclide, Product, Reaction, Yield};
 use xlc_format::table::{Micro, MicroNuclide, MicroReaction};
 
+use crate::case::Compositions;
 use crate::input::MicroInput;
+use crate::micro::MicroChain;
 
 /// U-235 の捕獲 / 核分裂の比（群ごとに同じなので、反応率の比は中性子束の形によらない）
 const CAPTURE_TO_FISSION: f64 = 0.2;
@@ -1116,4 +1118,110 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn micro_corrector_rates_take_the_cross_sections_at_the_midpoint_burnup() {
+    // U-235 の捕獲 / 核分裂の比を燃焼度で 0.2 + 0.01 u（燃焼度の点 0、10、20 の間は線形に内挿される）。予測子は初めの燃焼度の比、修正子は
+    // 中点の燃焼度の比で消滅する
+    let ratio = |u: f64| CAPTURE_TO_FISSION + 0.01 * u;
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let case = micro_case(CASE);
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| {
+            let mut t = with_micro(t, &TRACKED);
+            let points = t.points.clone();
+            for (p, state) in points.iter().zip(&mut t.micro.as_mut().unwrap().states) {
+                let f = [1.0, 50.0];
+                state[0] = micro_nuclide(f, f.map(|x| ratio(BURNUP[p[0]]) * x), Some(0.95));
+            }
+            t.validate().unwrap();
+            t
+        })
+        .collect();
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    let power = 40.0 * 400.0 / (20.0 * 20.0);
+    let loss = |n: f64, u: f64| (1.0 + ratio(u)) * power * 1.0e-24 / (n * Q * EV);
+    let mut u235 = U235;
+    let (mut efpd, mut burnup) = (0.0, 0.0);
+    for point in &history.points[1..] {
+        let h = (point.efpd - efpd) * 86400.0;
+        let middle = burnup + 0.5 * 40.0 * (point.efpd - efpd) / 1000.0;
+        let half = u235 * (-loss(u235, burnup) * 0.5 * h).exp();
+        u235 *= (-loss(half, middle) * h).exp();
+        (efpd, burnup) = (point.efpd, point.burnup);
+        for node in point.densities.as_ref().unwrap().iter().flatten() {
+            assert!(
+                (node[0] - u235).abs() <= 1e-10 * u235,
+                "{} {node:?} vs {u235}",
+                point.efpd
+            );
+        }
+    }
+}
+
+/// 一様な炉心のテーブル（微視的断面積つき）と、その追う核種のチェーン
+fn micro_layout() -> (Layout, Vec<Table>, Case, MicroChain) {
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    let micro = tables[0].micro.as_ref().unwrap();
+    let chain = MicroChain::new(&small_chain(), &micro.nuclides, &micro.states[0]).unwrap();
+    (layout, tables, case, chain)
+}
+
+#[test]
+fn corrected_constants_are_checked_and_compositions_cover_every_site() {
+    let (layout, tables, case, chain) = micro_layout();
+    let sites = layout.node_material.len();
+    let burnups = vec![0.0; sites];
+    let state = case.states[0].at(1200.0);
+    let solve = |densities: &[Option<Vec<f64>>]| {
+        crate::case::solve_compositions(
+            &layout,
+            &tables,
+            &state,
+            &burnups,
+            Some(&Compositions {
+                chain: &chain,
+                densities,
+            }),
+            &tight(),
+        )
+    };
+    // テーブルの数密度なら補正は 0 で解ける
+    let nominal = vec![Some(chain.initial(&[U235, 0.0])); sites];
+    assert!(solve(&nominal).is_ok());
+    // 補正で吸収が負になる組成は、解く前にエラー
+    let negative = vec![Some(chain.initial(&[-1.0, 0.0])); sites];
+    let error = solve(&negative).unwrap_err().to_string();
+    assert!(error.contains("micro"), "{error}");
+    // 位置の数と違う組成
+    assert!(solve(&nominal[1..]).is_err());
+}
+
+#[test]
+fn histories_hold_densities_exactly_when_they_name_nuclides() {
+    let history = micro_run(UNIFORM, [&TRACKED, &TRACKED]).unwrap();
+    let mut missing = history.clone();
+    missing.points[1].densities = None;
+    assert!(CoreHistory::from_msgpack(&missing.to_msgpack().unwrap()).is_err());
+    let mut short = history.clone();
+    short.points[1].densities.as_mut().unwrap()[0][0].pop();
+    assert!(CoreHistory::from_msgpack(&short.to_msgpack().unwrap()).is_err());
+    let mut unnamed = history;
+    unnamed.nuclides = None;
+    assert!(CoreHistory::from_msgpack(&unnamed.to_msgpack().unwrap()).is_err());
 }
