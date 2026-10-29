@@ -4,7 +4,7 @@ date: 2026-10-29
 requires: [ADR-0035, ADR-0165, ADR-0172, ADR-0173, ADR-0183, ADR-0187, ADR-0215]
 supersedes: []
 superseded-by:
-issues: ["#0153", "#0190"]
+issues: ["#0153", "#0190", "#0191"]
 ---
 
 # ADR-0216: ミクロ燃焼は ADR-0035 の元素の輸送する核種とその輸送する先行核を追い、テーブルに状態ごとの少数群の微視的断面積と燃焼度の点ごとの均質化した数密度を持つ
@@ -169,9 +169,18 @@ ADR-0033 の遅発中性子のデータと群速度の逆数、冷却計算の�
 
 ## 確認
 
-- 形式（crates/format/src/table/tests.rs）と、lattice の `[history]` の `micro`（crates/lattice/src/micro/tests.rs、crates/lattice/src/input/tests.rs）のテストは実装で書く
-- 測定: 2A の今の既定の履歴の隣り合う燃焼度の点 u₁、u₂ で、点 u₁ の少数群定数に Σᵢ σᵢ(u₁)(N̄ᵢ(u₂) − N̄ᵢ(u₁)) を足した 2 群の k∞ と、追う核種だけを
-  u₂ の値にした組成の格子計算の k∞ を比べる（線形化の誤差。examples/depletion/verification.md）
+- 形式（crates/format/src/table/tests.rs）: `micro_data_round_trip_bit_exactly_and_are_written_only_when_held`、
+  `micro_data_need_a_burnup_axis_one_sub_node_and_matching_sizes`、`micro_reactions_and_yield_fractions_agree_across_states`
+- lattice の入力（crates/lattice/src/input/tests.rs）: `history_micro_nuclides_are_distinct_names_of_an_unsplit_table`
+- 履歴からの分岐（crates/lattice/src/history/tests.rs）: `micro_densities_are_volume_averages_of_the_history_over_the_lattice`、
+  `micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials`（輸送するすべての核種を追えば、Σᵢ σᵢ N̄ᵢ が少数群定数のうち
+  燃焼させた物質の分と相対 1e-12 で同じ）、`micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder`（状態ごとに解いた自己遮蔽と、
+  ホウ素の軸だけを作り直す参照の自己遮蔽の両方で同じ）、`micro_reactions_follow_the_library_chain_reactions_and_split_fissions_at_the_yield_cutoff`、
+  `micro_nuclides_must_be_transported_in_the_history`。チェックポイント（crates/lattice/src/checkpoint/tests.rs）は微視的断面積をビットで同じに読み戻す
+- 測定（examples/depletion/verification.md の「ミクロ燃焼の線形の補正（2A）」。比較は 6d8179c1、2026-10-29）: 2A の今の既定の履歴の隣り合う
+  燃焼度の点 u₁、u₂ の 40 組で、点 u₁ の少数群定数に Σᵢ σᵢ(u₁)(N̄ᵢ(u₂) − N̄ᵢ(u₁)) を足した 2 群の k∞ と、追う 31 核種だけを u₂ の値にした組成の
+  格子計算の k∞ を比べた。線形の補正は輸送の効きの 88.41〜113.43% を再現し、誤差は −95.20〜+171.91 pcm。5 MWd/kg より後の誤差は効きの
+  約 13% までで、数密度の差の 1 乗に比例する（原因の候補は #0191）
 
 ## 帰結
 
@@ -181,3 +190,5 @@ ADR-0033 の遅発中性子のデータと群速度の逆数、冷却計算の�
 - ノードの中性子束の大きさは、core がノードの出力から求める。格子計算の燃焼は核分裂の Q 値で重みを付けた出力で規格化するので、core も同じ
   重みが要る（#0154）
 - ADR-0033 のデータは #0153 に残る
+- 線形の補正は、2A の燃焼のステップの組成の差で輸送の効きの 88〜113% を再現した（「確認」）。誤差は数密度の差に比例する 1 次の差で、
+  ADR-0215 の R に入る。原因（共鳴の自己遮蔽の数密度への依存か、数密度の差の空間の分布）を分け、補正の形を見直すのは #0191
