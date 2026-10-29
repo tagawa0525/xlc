@@ -93,8 +93,8 @@
 //! history = "history.msgpack"                 # 燃焼の履歴の出力
 //! # ミクロ燃焼（ADR-0216。省略するとノードの燃焼度だけを進める）。格子計算の燃焼と同じチェーンで、追う核種と補助の核種を
 //! # ノードごとに解き、少数群定数に線形の補正を足す。核分裂のあるテーブルは `micro` を持つこと。xenon は Xe-135 と I-135 の
-//! # 扱い: tracked（省略したとき。ほかの核種と同じく時間で追う）か equilibrium（中点と出力のステップの終わりの点で、解の
-//! # 中性子束と出力に釣り合う平衡の値。#0200）
+//! # 扱いで、必ず書く（ADR-0219）: tracked（ほかの核種と同じく時間で追う。Xe と I の時間の変化を解くステップの幅で）か
+//! # equilibrium（中点と出力のステップの終わりの点で、解の中性子束と出力に釣り合う平衡の値。サイクルの燃焼のステップで）
 //! micro = { chain = "chain.msgpack", xenon = "equilibrium" }
 //! # 状態が search を持つステップの中点を解くホウ素濃度（ADR-0191）: search（省略したとき。中点でも探す）か start（ステップの
 //! # 初めの点で探した濃度。ADR-0191 の案 S1 との差を測るため。search の状態の efpd のステップがなければエラー）
@@ -777,14 +777,13 @@ pub struct MicroInput {
     pub xenon: Xenon,
 }
 
-/// `micro` の `xenon`: 燃焼のステップの Xe-135 と I-135（とそれらへ崩壊で流れ込む補助の核種）の扱い
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+/// `micro` の `xenon`: 燃焼のステップの Xe-135 と I-135（とそれらへ崩壊で流れ込む補助の核種）の扱い（ADR-0219）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Xenon {
     /// ほかの追う核種と同じく、ステップの CE/CM で時間で追う（ADR-0216）
-    #[default]
     Tracked,
-    /// 出力のある解（中点と、出力のステップの終わりの点）で、解の中性子束と出力に釣り合う平衡の値にする（#0200）
+    /// 出力のある解（中点と、出力のステップの終わりの点）で、解の中性子束と出力に釣り合う平衡の値にする（ADR-0219）
     Equilibrium,
 }
 
@@ -820,7 +819,6 @@ struct DepletionEntry {
 #[serde(deny_unknown_fields)]
 struct MicroEntry {
     chain: PathBuf,
-    #[serde(default)]
     xenon: Xenon,
 }
 
