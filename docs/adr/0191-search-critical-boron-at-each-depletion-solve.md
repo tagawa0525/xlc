@@ -5,7 +5,6 @@ requires: [ADR-0145, ADR-0146, ADR-0187, ADR-0190]
 supersedes: []
 superseded-by:
 amends: [ADR-0190]
-amended-by: [ADR-0218]
 issues: ["#0201"]
 ---
 
@@ -127,8 +126,8 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
 
 - 燃焼の履歴（`xlc-core-history`）の点に、`boron`（その点を解いたホウ素濃度、ppm）と `solves`（その点で解いた固有値計算の回数。
   与えた濃度なら 1、探索なら ADR-0145 の回数（両端を含む））を足す
-- 履歴の `state` は、`boron`（与えた濃度、ppm）か `search`（`{boron: [下端, 上端], k, tolerance, max_solves}`）のどちらか一方を
-  持つ（両方、どちらもない履歴は読むときのエラー）
+- 履歴の `states`（状態の名前 → 状態。[ADR-0218](0218-give-depletion-steps-power-decay-and-states.md)）の各状態は、`boron`（与えた濃度、ppm）か
+  `search`（`{boron: [下端, 上端], k, tolerance, max_solves}`）のどちらか一方を持つ（両方、どちらもない履歴は読むときのエラー）
 - 標準出力の点の行は `point <EFPD> <炉心の平均の燃焼度 (MWd/kg)> <k> <ホウ素濃度 (ppm)> <固有値計算の回数>`
 - 中点で求めたホウ素と回数は、ログ（tracing の info）に出す
 - 履歴は、中点のホウ素の決め方 `midpoint_boron`（`search` か `start`。次の項）を持つ
@@ -152,7 +151,7 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
 ### 確認
 
 - 燃焼の探索（crates/core/src/depletion/tests.rs）: `searched_points_are_critical_and_record_their_boron`（2 種の集合体の 2 × 2 の
-  炉心で、点の k が目標から 1e-9 以内、ホウ素が範囲の中で燃焼で下がり、履歴の `state` が `search` だけを持つ）、
+  炉心で、点の k が目標から 1e-9 以内、ホウ素が範囲の中で燃焼で下がり、履歴の `states` の状態が `search` だけを持つ）、
   `searched_points_match_the_state_search_at_the_same_uniform_burnup`（集合体 1 体で、点のホウ素、回数、k が、ノードの燃焼度を状態に
   与えた ADR-0145 の探索とビットで一致）、`searched_midpoints_keep_second_order`（B のホウ素の係数を A の 4 倍にした炉心で、ステップを
   半分にした燃焼度の差の比が 3.5〜4.5。4.15 になった）、`midpoints_at_the_starting_boron_fall_to_first_order`（同じ炉心で、中点を初めの点で
@@ -180,3 +179,6 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
 - 2026-10-29: 「出力（案 O1）」に履歴の `midpoint_boron` を、「比べるための案 S1 の入力」の節を足した。前は、出力の項目は「中点で求めたホウ素と
   回数は、ログ（tracing の info）に出す」までで、中点のホウ素を選ぶ入力はなかった。帰結の「中点のホウ素の効き（案 S1 と S2 の差）は…炉心では
   測っていない。計画の「進め方」7 の小さな炉心で…測る」の測定に、案 S1 を本番のコードで解く入力が要るため（既定は案 S2 のまま。測った差は「確認」）
+- 2026-10-30: 「出力（案 O1）」の履歴の状態。前は「履歴の `state` は、`boron`（与えた濃度、ppm）か `search`（`{boron: [下端, 上端], k, tolerance, max_solves}`）のどちらか一方を
+  持つ（両方、どちらもない履歴は読むときのエラー）」。ステップごとに状態が変わり、履歴が状態を 1 つしか持てなくなったため、状態の名前ごとの表
+  `states` に移した（各状態の `boron` か `search` の規則は同じ）。比べた案は ADR-0218
