@@ -1364,6 +1364,7 @@ class DrawCorePartialRods(unittest.TestCase):
                     "not_monotonic": [
                         {"burnup": 0.1, "node": 1},
                         {"burnup": 10.0, "node": 0},
+                        {"burnup": 10.0, "node": 1},
                     ],
                 },
             },
@@ -1413,7 +1414,7 @@ class DrawCorePartialRods(unittest.TestCase):
             ],
         )
 
-    def test_density_rows_are_by_nuclide_with_the_change_of_each_node(self):
+    def test_density_rows_count_the_non_monotonic_points_of_each_node(self):
         table = vt.core_partial_rods_densities([self.summary()])
         header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
         self.assertEqual(
@@ -1424,14 +1425,15 @@ class DrawCorePartialRods(unittest.TestCase):
                 "割合 1 − 棒あり（相対）",
                 "最後の点の割合 1 − 割合 0、0〜10.75 cm (%)",
                 "最後の点の割合 1 − 割合 0、10.75〜21.5 cm (%)",
-                "単調でない燃焼点 (MWd/kg、ノードの下端 cm)",
+                "単調でない燃焼点、0〜10.75 cm",
+                "単調でない燃焼点、10.75〜21.5 cm",
             ],
         )
         self.assertEqual(
             self.rows(table),
             [
-                ["U-235", "−1.2e-12", "+3.4e-11", "−0.0450", "+0.1230", "なし"],
-                ["Xe-135", "0.0e+00", "–", "–", "–", "0.1（10.75）, 10（0）"],
+                ["U-235", "−1.2e-12", "+3.4e-11", "−0.0450", "+0.1230", "0", "0"],
+                ["Xe-135", "0.0e+00", "–", "–", "–", "1（10）", "2（0.1〜10）"],
             ],
         )
 
