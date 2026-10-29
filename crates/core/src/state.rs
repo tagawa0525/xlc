@@ -254,13 +254,14 @@ pub fn interpolate(
     rod: Option<&str>,
 ) -> Result<Vec<FewGroup>, String> {
     let sub = table.sub_nodes();
-    check_rod(table, rod)?;
     let Some(state) = state else {
         if !table.axes.is_empty() {
             return Err(
                 "the table has branch axes; give the case named states [state.<name>]".into(),
             );
         }
+        // 軸のないテーブルは制御棒の軸を持たない
+        check_rod(table, rod)?;
         if table.states.len() != sub || sub == 0 {
             return Err("the table has no states".into());
         }
@@ -316,7 +317,6 @@ pub fn interpolate_micro(
         .micro
         .as_ref()
         .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?;
-    check_rod(table, rod)?;
     let weights = state_weights(table, state, rod)?;
     let Some(Axis::Burnup { points }) =
         table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
@@ -464,6 +464,7 @@ impl Weights {
 
 /// 炉心の状態 `state` と制御棒の値 `rod` での、テーブルの点の重み（モジュールの説明の組み立て）
 fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weights, String> {
+    check_rod(table, rod)?;
     // 軸がないことを、ほかの軸の範囲の外より先に示す（テーブルの検査で同じ軸は2つない）
     for name in ["boron", "moderator", "fuel"] {
         if !table.axes.iter().any(|a| a.name() == name) {
