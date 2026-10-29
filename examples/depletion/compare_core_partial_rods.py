@@ -6,7 +6,9 @@
 
 - `--json`: どの core の履歴も、集合体 1 体のミクロ燃焼で、軸方向のメッシュ、追う核種、出力密度、燃焼点（EFPD と、相対 1e-9 で燃焼度）と、制御棒の
   バンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
-  含み、比べる先の 2 つの燃焼はバンクを持たず、どのバンクの位置も割合について一方に動くこと（履歴と割合の取り違えを止める）。
+  含み、比べる先の 2 つの燃焼はバンクを持たず、棒の入った燃焼の最初の点の k が棒のない燃焼より小さく、割合の燃焼のどれかがバンクを
+  持ち、どのバンクのステップも割合が増えると減ること（棒は上から入る。履歴と割合の取り違えを止める）。ノードの重金属の質量も同じで、
+  どのノードも追う核種の数密度を持つこと。
   次を書く。
   - 燃焼点ごとの k: 割合ごとの k、割合 0 の k の棒のない燃焼の k からの反応度の差、割合 1 の k の棒の入った燃焼の k からの差
     （Δρ = (1/k_基準 − 1/k) × 1e5 pcm）、k が割合について単調か、割合ごとの軸方向のノードの燃焼度と、それがノードごとに割合に
@@ -70,6 +72,15 @@ def check_core(name: str, core: dict, first: dict) -> None:
         raise SystemExit(f"{name}: the tracked nuclides differ")
     if core["specific_power"] != first["specific_power"]:
         raise SystemExit(f"{name}: the specific power differs")
+    if core["heavy_metal"] != first["heavy_metal"]:
+        raise SystemExit(f"{name}: the heavy metal of the nodes differs")
+    nodes = len(core["axial_mesh"]) - 1
+    if any(
+        len(column) != nodes or any(len(n) != len(core["nuclides"]) for n in column)
+        for p in core["points"]
+        for column in p["densities"]
+    ):
+        raise SystemExit(f"{name}: a node has no densities of the tracked nuclides")
     state = {k: v for k, v in core["state"].items() if k != "banks"}
     if state != {k: v for k, v in first["state"].items() if k != "banks"}:
         raise SystemExit(f"{name}: the state differs beyond the banks")
@@ -121,17 +132,21 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
             raise SystemExit(
                 f"{name}: the uniform run has banks {core['state']['banks']}"
             )
-    # 割合と履歴の組を取り違えていないこと: どのバンクの位置も割合について一方に動く
+    # 棒のない燃焼と棒の入った燃焼を取り違えていないこと
+    if not rodded["points"][0]["k"] < out["points"][0]["k"]:
+        raise SystemExit(
+            "the rodded run must have a lower first k than the run without rods; are they swapped?"
+        )
+    # 割合と履歴の組を取り違えていないこと: どのバンクも、割合が増えるとステップが減る（棒は上から入り、ステップは先端の高さ）
     banks = [core["state"]["banks"] for _, core in partial]
     names_of_banks = sorted({b for bank in banks for b in bank})
+    if not names_of_banks:
+        raise SystemExit("no fraction has banks, so the labels cannot be checked")
     for b in names_of_banks:
         steps = [bank.get(b) for bank in banks]
-        if None in steps or not (
-            all(x < y for x, y in itertools.pairwise(steps))
-            or all(x > y for x, y in itertools.pairwise(steps))
-        ):
+        if None in steps or not all(x > y for x, y in itertools.pairwise(steps)):
             raise SystemExit(
-                f"bank {b} at {steps} steps does not move one way with the fractions {fractions}"
+                f"bank {b} at {steps} steps does not go in with the fractions {fractions}"
             )
     names = out["nuclides"]
     burnups = [p["burnup"] for p in out["points"]]
@@ -246,8 +261,8 @@ def report(summary: dict) -> list[str]:
         values = [
             abs(d[key]["relative"]) for d in densities if d[key]["relative"] is not None
         ]
-        largest = f"{max(values):.3e}" if values else "–"
-        lines.append(f"数密度の{label}の相対差の絶対値の最大: {largest}")
+        top = f"{max(values):.3e}" if values else "–"
+        lines.append(f"数密度の{label}の相対差の絶対値の最大: {top}")
     bad = [name for name, d in summary["densities"].items() if d["not_monotonic"]]
     lines.append(
         f"数密度が割合について単調でない点を持つ核種: {len(bad)} / {len(summary['densities'])}（{' '.join(bad)}）"
