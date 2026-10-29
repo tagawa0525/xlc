@@ -128,6 +128,10 @@ class Restarts(unittest.TestCase):
         self.assertAlmostEqual(
             cut["auxiliary_max_relative"], 1.0e-30 / (1.0e-12 * 7e-4)
         )
+        # 差の最大の核種と、その核種の炉心の最大の数密度
+        self.assertEqual(
+            cut["auxiliary_max_nuclide"], {"name": "I-135", "largest": 1.0e-30}
+        )
 
     def test_halves_that_do_not_join_the_uncut_depletion_are_errors(self):
         for edit in [
