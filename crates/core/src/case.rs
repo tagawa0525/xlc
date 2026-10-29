@@ -4,10 +4,11 @@ use rayon::prelude::*;
 use xlc_format::table::{Axis, Table};
 
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
+use crate::micro::{MicroChain, correct};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::solve_rodded;
 use crate::search::{SearchError, find};
-use crate::state::{State, interpolate};
+use crate::state::{State, interpolate, interpolate_micro, non_negative};
 
 /// 状態を解いた結果。
 #[derive(Debug, Clone)]
@@ -55,7 +56,14 @@ pub fn solve_at(
     state: Option<&State>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
-    solve_with(layout, tables, |_| state.copied(), options)
+    solve_with(layout, tables, |_| state.copied(), None, options)
+}
+
+/// ミクロ燃焼のノードの組成（ADR-0216）
+pub struct Compositions<'a> {
+    pub chain: &'a MicroChain,
+    /// [直方体の位置] の解く核種の数密度（`MicroChain::solved` の順。ミクロ燃焼しない位置は `None`）
+    pub densities: &'a [Option<Vec<f64>>],
 }
 
 /// `solve_at` と同じく解くが、燃焼のケースのノード（テーブルの使い方が `node` を持つもの）は、直方体の位置ごとの燃焼度
@@ -66,6 +74,19 @@ pub fn solve_burnups(
     tables: &[Table],
     state: &State,
     burnups: &[f64],
+    options: &Options,
+) -> Result<Solved, CaseError> {
+    solve_compositions(layout, tables, state, burnups, None, options)
+}
+
+/// `solve_burnups` と同じく解くが、組成 `compositions` を持つ位置の定数に、ミクロ燃焼の線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) を足す
+/// （ADR-0216。σᵢ はその位置のテーブルの使い方の状態と燃焼度で、N̄ᵢ⁰ は燃焼度で内挿した値）
+pub fn solve_compositions(
+    layout: &Layout,
+    tables: &[Table],
+    state: &State,
+    burnups: &[f64],
+    compositions: Option<&Compositions>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
     if let Some(b) = state.burnup {
@@ -89,6 +110,7 @@ pub fn solve_burnups(
                 ..*state
             })
         },
+        compositions,
         options,
     )
 }
@@ -98,8 +120,18 @@ fn solve_with(
     layout: &Layout,
     tables: &[Table],
     state_of: impl Fn(&TableUse) -> Option<State>,
+    compositions: Option<&Compositions>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
+    if let Some(c) = compositions
+        && c.densities.len() != layout.node_material.len()
+    {
+        return Err(CaseError::Depletion(format!(
+            "{} micro compositions for {} positions",
+            c.densities.len(),
+            layout.node_material.len()
+        )));
+    }
     if tables.len() != layout.files.len() {
         return Err(CaseError::State(format!(
             "{} tables for {} few-group constant files",
@@ -119,8 +151,39 @@ fn solve_with(
                      only where the layer tables have none (ADR-0128)"
                 )));
             }
-            interpolate(table, state_of(t).as_ref(), t.rod.as_deref())
-                .map_err(|e| CaseError::State(format!("{file}: {e}")))
+            let state = state_of(t);
+            let mut constants = interpolate(table, state.as_ref(), t.rod.as_deref())
+                .map_err(|e| CaseError::State(format!("{file}: {e}")))?;
+            if let (Some(c), Some(site)) = (compositions, t.node)
+                && let Some(Some(n)) = c.densities.get(site)
+            {
+                let micro = state
+                    .as_ref()
+                    .ok_or_else(|| {
+                        CaseError::State(format!("{file}: micro depletion needs a state"))
+                    })
+                    .and_then(|s| {
+                        interpolate_micro(table, s, t.rod.as_deref())
+                            .map_err(|e| CaseError::State(format!("{file}: {e}")))
+                    })?;
+                // ミクロ燃焼のテーブルは分けない（格子全体の均質化。ADR-0216）
+                let [f] = &mut constants[..] else {
+                    return Err(CaseError::State(format!(
+                        "{file}: micro data need an unsplit table"
+                    )));
+                };
+                correct(f, &micro, &c.chain.tracked(n));
+                // 補正で数密度の差が大きいと、吸収や全断面積が負になりうる。内挿の後と同じ検査をして、ソルバに渡す前に止める
+                f.validate()
+                    .map_err(|e| e.to_string())
+                    .and_then(|()| non_negative(f))
+                    .map_err(|e| {
+                        CaseError::State(format!(
+                            "{file}: the micro correction at position {site} gave invalid constants: {e}"
+                        ))
+                    })?;
+            }
+            Ok(constants)
         })
         .collect::<Result<Vec<_>, _>>()?;
     let problem = layout.problem(&constants)?;

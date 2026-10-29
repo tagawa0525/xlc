@@ -18,7 +18,7 @@
 use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, ROD_OUT, Table, component};
+use xlc_format::table::{Axis, MicroNuclide, ROD_OUT, Table, component};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -254,6 +254,198 @@ pub fn interpolate(
     rod: Option<&str>,
 ) -> Result<Vec<FewGroup>, String> {
     let sub = table.sub_nodes();
+    let Some(state) = state else {
+        if !table.axes.is_empty() {
+            return Err(
+                "the table has branch axes; give the case named states [state.<name>]".into(),
+            );
+        }
+        // 軸のないテーブルは制御棒の軸を持たない
+        check_rod(table, rod)?;
+        if table.states.len() != sub || sub == 0 {
+            return Err("the table has no states".into());
+        }
+        return Ok(table.states.clone());
+    };
+    let weights = state_weights(table, state, rod)?;
+
+    let mut out: Vec<FewGroup> = (0..sub)
+        .map(|q| table.states.get(q).map(|s| scaled(s, 0.0)))
+        .collect::<Option<_>>()
+        .ok_or("the table has no states")?;
+    // 点の順（軸の直積なら、最初の軸がいちばん遅く変わる順）に、部分ノードごとに足す
+    for &(point, weight) in &weights.points {
+        if weight != 0.0 {
+            for (q, acc) in out.iter_mut().enumerate() {
+                let s = table
+                    .states
+                    .get(point * sub + q)
+                    .ok_or_else(|| format!("the table has no state {point} sub-node {q}"))?;
+                accumulate(acc, weight, s)?;
+            }
+        }
+    }
+    // 燃焼度の 3 次 Hermite と cut-HDMR の組み立ては凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで
+    // 組み立てたときは、値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも負の重みの出どころと
+    // 示唆を添える（折れ曲がりの近くや、解いていない格子点の近くの 0 に近い量が負になりうる。ADR-0192、ADR-0200）
+    for f in &out {
+        f.validate().map_err(|e| weights.hint(e.to_string()))?;
+        if !weights.causes.is_empty() {
+            non_negative(f).map_err(|e| weights.hint(format!("the interpolation gave {e}")))?;
+        }
+    }
+    Ok(out)
+}
+
+/// テーブルの微視的断面積と均質化した数密度を、炉心の状態で内挿した値（ADR-0216）
+#[derive(Debug, Clone, PartialEq)]
+pub struct MicroAt {
+    /// 燃焼度で内挿した、公称の履歴の均質化した数密度 N̄ᵢ⁰ (1/(barn cm)。テーブルの核種の順)
+    pub densities: Vec<f64>,
+    /// 状態と燃焼度で内挿した微視的断面積（テーブルの核種の順）
+    pub nuclides: Vec<MicroNuclide>,
+}
+
+/// テーブルの微視的断面積を、少数群定数と同じ重み（状態の組み立てと燃焼度の内挿）で、均質化した数密度を燃焼度の内挿だけで引く。
+/// テーブルが `micro` を持たなければエラー
+pub fn interpolate_micro(
+    table: &Table,
+    state: &State,
+    rod: Option<&str>,
+) -> Result<MicroAt, String> {
+    let micro = table
+        .micro
+        .as_ref()
+        .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?;
+    let weights = state_weights(table, state, rod)?;
+    let Some(Axis::Burnup { points }) =
+        table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
+    else {
+        return Err("micro data need a burnup axis (ADR-0216)".into());
+    };
+    let burnup = state
+        .burnup
+        .ok_or("the table has a burnup axis; give the state a burnup (ADR-0187)")?;
+    let mut densities = vec![0.0; micro.nuclides.len()];
+    for (k, h) in burnup_terms(points, burnup)? {
+        let row = micro
+            .densities
+            .get(k)
+            .ok_or_else(|| format!("the micro data have no densities at burnup point {k}"))?;
+        add(&mut densities, h, row);
+    }
+    let first = micro
+        .states
+        .first()
+        .ok_or("the micro data have no states")?;
+    let mut nuclides: Vec<MicroNuclide> = first.iter().map(|n| scaled_micro(n, 0.0)).collect();
+    // 少数群定数と同じ点の順に、同じ重みで足す（重みが 0 の点は使わない）
+    for &(point, weight) in &weights.points {
+        if weight != 0.0 {
+            let state = micro
+                .states
+                .get(point)
+                .ok_or_else(|| format!("the micro data have no state {point}"))?;
+            for (acc, n) in nuclides.iter_mut().zip(state) {
+                accumulate_micro(acc, weight, n);
+            }
+        }
+    }
+    for (name, n) in micro.nuclides.iter().zip(&mut nuclides) {
+        // 足したのは境界より下の核分裂の断面積（割合 × 群の和の σf）。同じ重みで足した σf との比を割合にする。割合のまま負の重みで
+        // 足すと、1 に近い割合が 1 を超える（ADR-0183、ADR-0192）
+        let fission: f64 = n.fission.iter().sum();
+        n.thermal_fission = match n.thermal_fission {
+            Some(below) if fission > 0.0 => {
+                let f = below / fission;
+                if !((-FRACTION_ROUNDING)..=1.0 + FRACTION_ROUNDING).contains(&f) {
+                    return Err(weights.hint(format!(
+                        "{name}: the interpolated fraction of fissions below the yield cutoff is {f}"
+                    )));
+                }
+                Some(f.clamp(0.0, 1.0))
+            }
+            _ => None,
+        };
+        if !weights.causes.is_empty() {
+            let negative = [&n.total, &n.nu_fission, &n.fission]
+                .into_iter()
+                .chain(n.reactions.iter().flat_map(|r| &r.channels))
+                .flatten()
+                .find(|&&x| x < 0.0);
+            if let Some(x) = negative {
+                return Err(weights.hint(format!(
+                    "{name}: the interpolation gave a negative micro cross section {x}"
+                )));
+            }
+        }
+    }
+    Ok(MicroAt {
+        densities,
+        nuclides,
+    })
+}
+
+/// 内挿した収率の境界より下の核分裂の割合の、0..1 から外れてよい丸めの大きさ（数個の重みの和の丸め。1 に寄せる）
+const FRACTION_ROUNDING: f64 = 1.0e-9;
+
+/// `w` 倍した微視的断面積。項目を足したらここで扱いを決める（`..` を使わない）
+fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
+    let MicroNuclide {
+        total,
+        nu_fission,
+        fission,
+        scatter,
+        reactions,
+        thermal_fission,
+    } = n;
+    let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
+    MicroNuclide {
+        total: v(total),
+        nu_fission: v(nu_fission),
+        fission: v(fission),
+        scatter: scatter.iter().map(|r| v(r)).collect(),
+        reactions: reactions
+            .iter()
+            .map(|r| xlc_format::table::MicroReaction {
+                mt: r.mt,
+                channels: r.channels.iter().map(|c| v(c)).collect(),
+            })
+            .collect(),
+        // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す（`interpolate_micro` が比に戻す）
+        thermal_fission: thermal_fission.map(|f| w * f * fission.iter().sum::<f64>()),
+    }
+}
+
+/// `acc += w * n`（反応の並びと核分裂の有無はテーブルの検査で状態の間で同じ）。項目を足したらここで扱いを決める
+fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
+    let MicroNuclide {
+        total,
+        nu_fission,
+        fission,
+        scatter,
+        reactions,
+        thermal_fission,
+    } = n;
+    add(&mut acc.total, w, total);
+    add(&mut acc.nu_fission, w, nu_fission);
+    add(&mut acc.fission, w, fission);
+    for (a, x) in acc.scatter.iter_mut().zip(scatter) {
+        add(a, w, x);
+    }
+    for (a, x) in acc.reactions.iter_mut().zip(reactions) {
+        for (a, x) in a.channels.iter_mut().zip(&x.channels) {
+            add(a, w, x);
+        }
+    }
+    // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す
+    if let (Some(a), Some(x)) = (&mut acc.thermal_fission, thermal_fission) {
+        *a += w * x * fission.iter().sum::<f64>();
+    }
+}
+
+/// 棒のある区間（`rod`）は、制御棒の軸を持つテーブルで引く
+fn check_rod(table: &Table, rod: Option<&str>) -> Result<(), String> {
     if let Some(rod) = rod
         && !table.axes.iter().any(|a| matches!(a, Axis::Rod { .. }))
     {
@@ -261,17 +453,30 @@ pub fn interpolate(
             "the rod value {rod:?} is in a layer whose table has no rod axis"
         ));
     }
-    let Some(state) = state else {
-        if !table.axes.is_empty() {
-            return Err(
-                "the table has branch axes; give the case named states [state.<name>]".into(),
-            );
+    Ok(())
+}
+
+/// 内挿に使うテーブルの点の重みと、負の重みの出どころ（負の重みで組み立てたときだけ。値の検査のエラーに添える）
+struct Weights {
+    /// [点] の重み（点の順。同じ点の重みはまとめる）
+    points: Vec<(usize, f64)>,
+    causes: Vec<String>,
+}
+
+impl Weights {
+    /// エラーに、負の重みの出どころと示唆を添える
+    fn hint(&self, e: String) -> String {
+        if self.causes.is_empty() {
+            e
+        } else {
+            format!("{e}; {}", self.causes.join("; "))
         }
-        if table.states.len() != sub || sub == 0 {
-            return Err("the table has no states".into());
-        }
-        return Ok(table.states.clone());
-    };
+    }
+}
+
+/// 炉心の状態 `state` と制御棒の値 `rod` での、テーブルの点の重み（モジュールの説明の組み立て）
+fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weights, String> {
+    check_rod(table, rod)?;
     // 軸がないことを、ほかの軸の範囲の外より先に示す（テーブルの検査で同じ軸は2つない）
     for name in ["boron", "moderator", "fuel"] {
         if !table.axes.iter().any(|a| a.name() == name) {
@@ -338,27 +543,9 @@ pub fn interpolate(
         });
     }
     let mut assembly = Assembly::new(table, &terms, burnup);
-    let weights = assembly.weights()?;
+    let points = assembly.weights()?;
 
-    let mut out: Vec<FewGroup> = (0..sub)
-        .map(|q| table.states.get(q).map(|s| scaled(s, 0.0)))
-        .collect::<Option<_>>()
-        .ok_or("the table has no states")?;
-    // 点の順（軸の直積なら、最初の軸がいちばん遅く変わる順）に、部分ノードごとに足す
-    for &(point, weight) in &weights {
-        if weight != 0.0 {
-            for (q, acc) in out.iter_mut().enumerate() {
-                let s = table
-                    .states
-                    .get(point * sub + q)
-                    .ok_or_else(|| format!("the table has no state {point} sub-node {q}"))?;
-                accumulate(acc, weight, s)?;
-            }
-        }
-    }
-    // 燃焼度の 3 次 Hermite と cut-HDMR の組み立ては凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで
-    // 組み立てたときは、値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも負の重みの出どころと
-    // 示唆を添える（折れ曲がりの近くや、解いていない格子点の近くの 0 に近い量が負になりうる。ADR-0192、ADR-0200）
+    // 負の重みの出どころと示唆（ADR-0192、ADR-0200）
     let mut causes = Vec::new();
     if assembly.negative_burnup {
         causes.push(format!(
@@ -380,20 +567,7 @@ pub fn interpolate(
                 .to_string(),
         );
     }
-    for f in &out {
-        let hint = |e: String| {
-            if causes.is_empty() {
-                e
-            } else {
-                format!("{e}; {}", causes.join("; "))
-            }
-        };
-        f.validate().map_err(|e| hint(e.to_string()))?;
-        if !causes.is_empty() {
-            non_negative(f).map_err(hint)?;
-        }
-    }
-    Ok(out)
+    Ok(Weights { points, causes })
 }
 
 /// テーブルの点の、状態の値に掛ける重みの組み立て（モジュールの説明の cut-HDMR と、燃焼度の公称との差の内挿）
@@ -621,7 +795,7 @@ impl<'a> Assembly<'a> {
 
 /// 断面積と拡散係数が負でないこと（`FewGroup::validate` は有限かどうかだけを見る）。項目を足したらここで扱いを決める
 /// （`..` を使わない）
-fn non_negative(f: &FewGroup) -> Result<(), String> {
+pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
     let FewGroup {
         bounds: _,
         k_inf: _,
@@ -652,7 +826,7 @@ fn non_negative(f: &FewGroup) -> Result<(), String> {
         .chain(scatter.iter().map(|row| ("scatter", row)))
     {
         if let Some(bad) = v.iter().find(|&&x| x < 0.0) {
-            return Err(format!("the interpolation gave a negative {name} {bad}"));
+            return Err(format!("a negative {name} {bad}"));
         }
     }
     Ok(())
