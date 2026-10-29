@@ -70,8 +70,11 @@ Problem 9 のサイクルの燃焼は D バンクを部分挿入で運転する�
   保つ）、`mixing_micro_cross_sections_needs_matching_segments`、`rodded_solutions_return_the_weights_of_their_mixed_constants`（返す重みで
   区間の定数を混ぜると、解いた混ぜた定数とビットで同じ。体積の重みは区間の長さ）
 - 燃焼（crates/core/src/depletion/tests.rs）: `partial_node_micro_depletion_approaches_the_uniform_nodes_at_the_insertion_limits`（集合体 1 体の
-  2 つのノードの上のノードで、挿入の割合が 0 と 1 に 1e-4 まで近づくと、最後の点の k は棒のないノードと棒の入ったノードの燃焼と 0.1 pcm
-  未満、追う核種の数密度は相対 1e-5 未満で一致し、1e-3 のときより近い）、`partial_node_micro_depletion_is_monotonic_in_the_insertion`
+  2 つのノードの上のノードで、挿入の割合を 0 と 1 から 1e-3、1e-4 離すと、上のノードの捕獲の割合（消えた U-235 あたりの U-236。ノードの出力に
+  よらず微視的断面積で決まる）の、棒のないノードと棒の入ったノードの燃焼との相対差は割合のおよそ 1 次で縮み（1e-4 で 1e-4 未満）、最後の
+  点の k の差も 1/5 より小さくなる。k と数密度そのものは、ADR-0127 の z の面の不連続因子が 1 からずれる分で、棒の入った側の極限に
+  割合 1e-4 で燃焼の前の k に 0.7 pcm、最後の点の出力の割合に 1.7e-5 の差を残す）、`partial_node_micro_rates_weigh_the_rodded_segment_by_its_flux`（半分の挿入で、
+  捕獲の割合は棒のないノード < 中性子束の重み < 体積の重み）、`partial_node_micro_depletion_is_monotonic_in_the_insertion`
 - 2A の集合体 1 体（examples/depletion/verification.md）: #0196 の後
 
 ## 帰結
