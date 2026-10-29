@@ -122,6 +122,11 @@ class Restarts(unittest.TestCase):
             lambda f, s: s["points"][1].update(efpd=11.0),
             lambda f, s: f["points"][1].update(burnups=[[0.0, 0.0]] * 2),
             lambda f, s: s.update(xenon="tracked"),
+            # 数密度がない、形が違う（比べずに差 0 と書かない）
+            lambda f, s: [p.pop("densities") for p in s["points"][1:]],
+            lambda f, s: s["points"][2]["densities"][0].pop(),
+            lambda f, s: s.update(auxiliary_densities=None),
+            lambda f, s: s["auxiliary_densities"][0][0].clear(),
         ]:
             first, second = halves()
             edit(first, second)
@@ -160,6 +165,29 @@ class Reloads(unittest.TestCase):
         # 点 0 の A01 が前のサイクルの最後の点の A01 と違う
         with self.assertRaises(SystemExit):
             compare_core_restart.summarize(previous, {}, reload)
+
+    def test_reloads_of_other_nuclides_masses_or_without_densities_are_errors(self):
+        def started():
+            previous = core(FULL)
+            reload = core(RELOAD, assemblies=("A01", "A02", "A05"))
+            last, start = previous["points"][-1], reload["points"][0]
+            start["burnups"] = [*last["burnups"], [0.0, 0.0]]
+            start["densities"] = [*last["densities"], [[7e-4, 0.0], [7e-4, 0.0]]]
+            return previous, reload
+
+        # 直さない組は止まらない
+        previous, reload = started()
+        compare_core_restart.summarize(previous, {}, reload)
+        for edit in [
+            lambda r: r["points"][0].pop("densities"),
+            lambda r: r.update(nuclides=["U-235", "Xe-136"]),
+            lambda r: r.update(auxiliary=["Te-135"]),
+            lambda r: r["heavy_metal"].__setitem__(0, [4000.0, 3999.0]),
+        ]:
+            previous, reload = started()
+            edit(reload)
+            with self.assertRaises(SystemExit):
+                compare_core_restart.summarize(previous, {}, reload)
 
     def test_discharged_assemblies_are_listed(self):
         previous = core(FULL, assemblies=("A01", "A02", "A03"))
