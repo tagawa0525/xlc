@@ -227,7 +227,7 @@ impl MicroChain {
                 self.solved.len()
             ));
         }
-        if let Some((name, _)) = self
+        if let Some((name, s)) = self
             .nuclides
             .iter()
             .zip(&micro.nuclides)
@@ -235,7 +235,7 @@ impl MicroChain {
         {
             return Err(format!(
                 "{name}: {} groups of micro cross sections for a flux of {} groups",
-                micro.nuclides[0].fission.len(),
+                s.fission.len(),
                 flux.len()
             ));
         }
