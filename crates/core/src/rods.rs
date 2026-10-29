@@ -20,6 +20,8 @@ use xlc_numeric::nem::{Inflow, Line, is_fissile, outflow};
 use crate::nem::{
     Boundary, NemError, NodeSnapshot, Options, Problem, Refresh, Solution, solve, solve_with,
 };
+use crate::state::MicroAt;
+use xlc_format::table::{MicroNuclide, MicroReaction};
 
 /// 部分挿入のノードの、制御棒の状態が一様な区間。
 #[derive(Debug, Clone, PartialEq)]
@@ -101,29 +103,29 @@ pub(crate) fn windows(partial: &[bool]) -> Result<Vec<Window>, String> {
     Ok(out)
 }
 
+/// 部分挿入のノードの [区間][群] の、混ぜた定数を作った重み（中性子束の重みでは区間の細かいメッシュの中性子束の積分、体積の
+/// 重みでは区間の長さ）。`partial` の順
+pub type SegmentWeights = Vec<Vec<Vec<f64>>>;
+
 /// 部分挿入のノードを `weighting` で扱って炉心を解く。`fine` は細かいメッシュの幅の上限 (cm)。解と、混ぜた定数を
-/// 入れた物質の並びを返す。
+/// 入れた物質の並びと、その定数を混ぜた重みを返す。
 pub fn solve_rodded(
     problem: &Problem,
     partial: Vec<PartialNode>,
     weighting: Weighting,
     fine: f64,
     options: &Options,
-) -> Result<(Solution, Vec<FewGroup>), NemError> {
+) -> Result<(Solution, Vec<FewGroup>, SegmentWeights), NemError> {
     let invalid = NemError::InvalidProblem;
     check_partial(problem, &partial).map_err(invalid)?;
     let mut initial = problem.clone();
-    for p in &partial {
-        let lengths: Vec<Vec<f64>> = p
-            .segments
-            .iter()
-            .map(|s| vec![s.length; s.constants.groups()])
-            .collect();
-        let mut mixed = mix(&p.segments, &lengths).map_err(invalid)?;
+    let lengths = lengths(&partial);
+    for (p, lengths) in partial.iter().zip(&lengths) {
+        let mut mixed = mix(&p.segments, lengths).map_err(invalid)?;
         // 体積の重みは z の辺の ADF も区間の長さで混ぜる。中性子束の重みでは、最初の反復の前の値
         for side in [4, 5] {
             for g in 0..mixed.groups() {
-                mixed.adf[side][g] = weighted(&p.segments, &lengths, g, |c| c.adf[side][g]);
+                mixed.adf[side][g] = weighted(&p.segments, lengths, g, |c| c.adf[side][g]);
             }
         }
         initial.materials[p.material] = mixed;
@@ -131,7 +133,7 @@ pub fn solve_rodded(
     match weighting {
         Weighting::Volume => {
             let solution = solve(&initial, options)?;
-            Ok((solution, initial.materials))
+            Ok((solution, initial.materials, lengths))
         }
         Weighting::Flux => {
             if !(fine > 0.0 && fine.is_finite()) {
@@ -140,9 +142,23 @@ pub fn solve_rodded(
                 )));
             }
             let mut cusping = Cusping::new(problem, &partial, fine).map_err(invalid)?;
-            solve_with(&initial, options, &mut cusping)
+            let (solution, materials) = solve_with(&initial, options, &mut cusping)?;
+            Ok((solution, materials, cusping.weights))
         }
     }
+}
+
+/// 部分挿入のノードの [区間][群] の長さの重み
+fn lengths(partial: &[PartialNode]) -> SegmentWeights {
+    partial
+        .iter()
+        .map(|p| {
+            p.segments
+                .iter()
+                .map(|s| vec![s.length; s.constants.groups()])
+                .collect()
+        })
+        .collect()
 }
 
 /// 部分挿入のノードの入力を確かめる: 位置にノードがあり、物質がそのノードだけのもので、区間が 2 つ以上、長さが正で
@@ -238,20 +254,40 @@ fn check_partial(problem: &Problem, partial: &[PartialNode]) -> Result<(), Strin
     Ok(())
 }
 
-/// 区間の量 `value` の、[区間][群] の重み `weights` の群 g の重みつき平均
+/// [区間][群] の重みが正で有限なこと（`mix` と `mix_micro` で同じ）
+fn check_weights(weights: &[Vec<f64>]) -> Result<(), String> {
+    if weights
+        .iter()
+        .flatten()
+        .any(|&w| !(w > 0.0 && w.is_finite()))
+    {
+        return Err(format!(
+            "the interval weights of a partially rodded node must be positive, got {weights:?}"
+        ));
+    }
+    Ok(())
+}
+
+/// 区間ごとの量 `value` の、[区間][群] の重み `weights` の群 g の重みつき平均。少数群定数（`mix`）と微視的断面積
+/// （`mix_micro`）の両方をこれで混ぜる（ADR-0217）
+fn average<T>(items: &[T], weights: &[Vec<f64>], g: usize, value: impl Fn(&T) -> f64) -> f64 {
+    let total: f64 = weights.iter().map(|w| w[g]).sum();
+    items
+        .iter()
+        .zip(weights)
+        .map(|(item, w)| w[g] * value(item))
+        .sum::<f64>()
+        / total
+}
+
+/// 区間の定数の量 `value` の、[区間][群] の重み `weights` の群 g の重みつき平均
 fn weighted(
     segments: &[Segment],
     weights: &[Vec<f64>],
     g: usize,
     value: impl Fn(&FewGroup) -> f64,
 ) -> f64 {
-    let total: f64 = weights.iter().map(|w| w[g]).sum();
-    segments
-        .iter()
-        .zip(weights)
-        .map(|(s, w)| w[g] * value(&s.constants))
-        .sum::<f64>()
-        / total
+    average(segments, weights, g, |s| value(&s.constants))
 }
 
 /// 区間の定数を、[区間][群] の中性子束の積分 `flux` を重みに混ぜる（ADR-0127 の「混ぜる量」）。反応の断面積、
@@ -265,11 +301,7 @@ fn mix(segments: &[Segment], flux: &[Vec<f64>]) -> Result<FewGroup, String> {
         .constants;
     let last = &segments[segments.len() - 1].constants;
     let ng = first.groups();
-    if flux.iter().flatten().any(|&w| !(w > 0.0 && w.is_finite())) {
-        return Err(format!(
-            "the interval fluxes of a partially rodded node must be positive, got {flux:?}"
-        ));
-    }
+    check_weights(flux)?;
     let by_flux = |value: &dyn Fn(&FewGroup, usize) -> f64| -> Vec<f64> {
         (0..ng)
             .map(|g| weighted(segments, flux, g, |c| value(c, g)))
@@ -347,6 +379,129 @@ fn mix(segments: &[Segment], flux: &[Vec<f64>]) -> Result<FewGroup, String> {
     Ok(mixed)
 }
 
+/// 区間ごとの追う核種の微視的断面積 `micro` を、[区間][群] の重み `weights`（そのノードの少数群定数を混ぜた重み。
+/// `solve_rodded` が返す）で混ぜる（ADR-0217）。反応の断面積と経路の断面積は群の重みで、散乱行列は入射の群の重みで
+/// （`mix` と同じ）、収率の境界より下の核分裂の割合は、ノード平均の中性子束 `flux` で燃焼が使う核分裂率のうちの区間の分
+/// Σ_G σf,s,G (w_s,G / Σ_s w_s,G) φ̄_G で混ぜる。公称の数密度は区間で同じこと
+pub(crate) fn mix_micro(
+    micro: &[MicroAt],
+    weights: &[Vec<f64>],
+    flux: &[f64],
+) -> Result<MicroAt, String> {
+    let first = micro
+        .first()
+        .ok_or("a partially rodded node has no intervals")?;
+    let ng = flux.len();
+    if weights.len() != micro.len() || weights.iter().any(|w| w.len() != ng) {
+        return Err(format!(
+            "{} interval weights for {} intervals of {ng} groups",
+            weights.len(),
+            micro.len()
+        ));
+    }
+    // 群の数の違う微視的断面積は、群ごとに引く前に止める
+    let shaped = |n: &MicroNuclide| {
+        [&n.total, &n.nu_fission, &n.fission]
+            .into_iter()
+            .chain(&n.scatter)
+            .chain(n.reactions.iter().flat_map(|r| &r.channels))
+            .all(|v| v.len() == ng)
+            && n.scatter.len() == ng
+    };
+    if micro.iter().flat_map(|m| &m.nuclides).any(|n| !shaped(n)) {
+        return Err(format!(
+            "the interval micro cross sections must have the {ng} groups of the node flux"
+        ));
+    }
+    check_weights(weights)?;
+    // 公称の数密度は燃焼度だけの関数で、区間は同じ層のテーブルなので同じ値のはず
+    if micro
+        .iter()
+        .any(|m| m.densities != first.densities || m.nuclides.len() != first.nuclides.len())
+    {
+        return Err(
+            "the intervals of a partially rodded node differ in their nominal micro densities"
+                .into(),
+        );
+    }
+    let nuclides = (0..first.nuclides.len())
+        .map(|i| {
+            let segments: Vec<&MicroNuclide> = micro.iter().map(|m| &m.nuclides[i]).collect();
+            let by_group = |value: &dyn Fn(&MicroNuclide) -> &[f64]| -> Vec<f64> {
+                (0..ng)
+                    .map(|g| average(&segments, weights, g, |n| value(n)[g]))
+                    .collect()
+            };
+            let reference = segments[0];
+            if segments.iter().any(|n| {
+                n.thermal_fission.is_some() != reference.thermal_fission.is_some()
+                    || n.reactions.len() != reference.reactions.len()
+                    || n.reactions
+                        .iter()
+                        .zip(&reference.reactions)
+                        .any(|(a, b)| a.mt != b.mt || a.channels.len() != b.channels.len())
+            }) {
+                return Err(format!(
+                    "micro nuclide {i}: the intervals differ in fission or in the chain reactions"
+                ));
+            }
+            let thermal_fission = match reference.thermal_fission {
+                None => None,
+                Some(_) => {
+                    // 割合は率の比なので、燃焼が使う核分裂率 σ̄f,G φ̄_G のうちの区間の分で混ぜると熱の核分裂率の和を保つ。重み w は
+                    // 群ごとにしか正規化されていない（細かいメッシュの解と NEM の群の比は一致しない。体積の重みは長さ）ので、群ごとの
+                    // 割合 w / Σ_s w に φ̄ を掛ける。割合を持つ区間の σf の群の和は正（`interpolate_micro`）なので、率の和は正のはず
+                    let totals: Vec<f64> = (0..ng)
+                        .map(|g| weights.iter().map(|w| w[g]).sum())
+                        .collect();
+                    let (mut rate, mut thermal) = (0.0, 0.0);
+                    for (n, w) in segments.iter().zip(weights) {
+                        let r: f64 = (0..ng)
+                            .map(|g| n.fission[g] * w[g] / totals[g] * flux[g])
+                            .sum();
+                        rate += r;
+                        thermal += r * n.thermal_fission.unwrap_or(f64::NAN);
+                    }
+                    if rate.is_nan() || rate <= 0.0 {
+                        return Err(format!(
+                            "micro nuclide {i}: the interval fission rates sum to {rate}"
+                        ));
+                    }
+                    Some(thermal / rate)
+                }
+            };
+            Ok(MicroNuclide {
+                total: by_group(&|n| &n.total),
+                nu_fission: by_group(&|n| &n.nu_fission),
+                fission: by_group(&|n| &n.fission),
+                scatter: (0..ng)
+                    .map(|from| {
+                        (0..ng)
+                            .map(|to| average(&segments, weights, from, |n| n.scatter[from][to]))
+                            .collect()
+                    })
+                    .collect(),
+                reactions: reference
+                    .reactions
+                    .iter()
+                    .enumerate()
+                    .map(|(r, reaction)| MicroReaction {
+                        mt: reaction.mt,
+                        channels: (0..reaction.channels.len())
+                            .map(|c| by_group(&|n| &n.reactions[r].channels[c]))
+                            .collect(),
+                    })
+                    .collect(),
+                thermal_fission,
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    Ok(MicroAt {
+        densities: first.densities.clone(),
+        nuclides,
+    })
+}
+
 /// 窓の中のノード。
 struct WindowNode {
     /// 直方体の位置
@@ -389,6 +544,8 @@ struct Cusping {
     sites: Vec<usize>,
     /// [窓] の前の反復の細かいメッシュの [セル][群] の中性子束（核分裂の中性子源に使う。最初はノード平均）
     previous: Vec<Option<Vec<Vec<f64>>>>,
+    /// [部分挿入のノード] の、最後に混ぜた定数の重み（[区間][群] の中性子束の積分。最初の更新の前は区間の長さ）
+    weights: SegmentWeights,
 }
 
 impl Cusping {
@@ -473,6 +630,7 @@ impl Cusping {
             windows: windows_out,
             materials: partial.iter().map(|p| p.material).collect(),
             sites,
+            weights: lengths(partial),
         })
     }
 }
@@ -507,8 +665,9 @@ impl Refresh for Cusping {
                 let Some(i) = node.partial else {
                     continue;
                 };
-                let mixed = solved.constants(window, n, k, &snapshots[n])?;
+                let (mixed, integrals) = solved.constants(window, n, k, &snapshots[n])?;
                 out.push((self.materials[i], mixed));
+                self.weights[i] = integrals;
             }
             *previous = Some(solved.flux);
         }
@@ -785,14 +944,14 @@ impl WindowProblem {
 }
 
 impl FineSolution {
-    /// 窓のノード n（部分挿入のノード）の混ぜた定数と z の面の不連続因子
+    /// 窓のノード n（部分挿入のノード）の混ぜた定数と z の面の不連続因子、混ぜた重み（[区間][群] の中性子束の積分）
     fn constants(
         &self,
         window: &WindowProblem,
         n: usize,
         k: f64,
         snapshot: &NodeSnapshot,
-    ) -> Result<FewGroup, String> {
+    ) -> Result<(FewGroup, Vec<Vec<f64>>), String> {
         let node = &window.nodes[n];
         let ng = node.segments[0].constants.groups();
         let mut integrals = vec![vec![0.0; ng]; node.segments.len()];
@@ -830,7 +989,7 @@ impl FineSolution {
             }
         }
         mixed.validate().map_err(|e| e.to_string())?;
-        Ok(mixed)
+        Ok((mixed, integrals))
     }
 }
 

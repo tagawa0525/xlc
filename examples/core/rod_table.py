@@ -8,6 +8,10 @@
 燃焼度の軸は最初のテーブルのもので、ほかのテーブルの点の燃焼度の番号を付け直す。状態の項目はそのままコピーする（数値の
 ビットを変えない）。
 
+ミクロ燃焼の微視的断面積（`micro`。ADR-0216）は、どのテーブルも持つか、どれも持たないこと。持てば、追う核種が同じで、点ごとの
+微視的断面積を状態と同じく並べ替える。燃焼度の点ごとの均質化した数密度は燃焼の履歴だけで決まり、制御棒の値によらないので、
+最初のテーブルのものを使い、ほかのテーブルの同じ燃焼度の値が丸めの範囲で同じことを確かめる（ADR-0217）。
+
 使い方: python3 rod_table.py <出力> <値>=<テーブル> ...（最初の値は棒のない状態 out）
 """
 
@@ -41,6 +45,7 @@ def merge(pairs):
     others = [a for i, a in enumerate(first["axes"]) if i != b]
     burnups = first["axes"][b]["points"] if b is not None else None
     sub = first["split"] ** 2
+    first_micro = first.get("micro")
     rows = []
     for r, (value, path, table) in enumerate(pairs):
         for key in ("bounds", "split"):
@@ -71,19 +76,62 @@ def merge(pairs):
             sys.exit(
                 f"{path} ({value}): {len(table['states'])} states for {len(table['points'])} points"
             )
+        micro = table.get("micro")
+        check_micro(path, value, micro, first_micro, own, burnups, table["points"])
         for n, point in enumerate(table["points"]):
             point = list(point)
             if tb is not None:
                 point[tb] = burnups.index(own[point[tb]])
-            rows.append((point + [r], table["states"][n * sub : (n + 1) * sub]))
+            rows.append(
+                (
+                    point + [r],
+                    table["states"][n * sub : (n + 1) * sub],
+                    micro["states"][n] if micro is not None else None,
+                )
+            )
     rows.sort(key=lambda row: row[0])
     merged = dict(first)
     merged["axes"] = first["axes"] + [
         {"name": "rod", "values": [v for v, _, _ in pairs]}
     ]
-    merged["points"] = [point for point, _ in rows]
-    merged["states"] = [s for _, states in rows for s in states]
+    merged["points"] = [point for point, _, _ in rows]
+    merged["states"] = [s for _, states, _ in rows for s in states]
+    if first_micro is not None:
+        merged["micro"] = dict(first_micro)
+        merged["micro"]["states"] = [m for _, _, m in rows]
     return merged
+
+
+# 同じ履歴の均質化した数密度の、制御棒の値ごとの格子の違いで許す相対差（格子の体積の和の丸め。数個の ulp の大きさ）
+DENSITY_ROUNDING = 1e-12
+
+
+def check_micro(path, value, micro, first_micro, own, burnups, points):
+    """`micro`（燃焼度の点 `own`、点 `points` のテーブルのもの）が、最初のテーブルの `first_micro`（燃焼度の点 `burnups`）と合うこと"""
+    if (micro is None) != (first_micro is None):
+        sys.exit(f"{path} ({value}): micro data must be in every table or in none")
+    if micro is None:
+        return
+    if micro["nuclides"] != first_micro["nuclides"]:
+        sys.exit(
+            f"{path} ({value}): the micro nuclides {micro['nuclides']} differ from {first_micro['nuclides']}"
+        )
+    if own is None or len(micro["densities"]) != len(own):
+        sys.exit(f"{path} ({value}): micro densities need one row per burnup point")
+    if len(micro["states"]) != len(points):
+        sys.exit(
+            f"{path} ({value}): {len(micro['states'])} micro states for {len(points)} points"
+        )
+    for burnup, row in zip(own, micro["densities"]):
+        expected = first_micro["densities"][burnups.index(burnup)]
+        # 比較を否定して、NaN も合わないものとして止める
+        if len(row) != len(expected) or not all(
+            abs(a - b) <= DENSITY_ROUNDING * max(abs(a), abs(b))
+            for a, b in zip(row, expected)
+        ):
+            sys.exit(
+                f"{path} ({value}): the micro densities at burnup {burnup} differ from the first table"
+            )
 
 
 def main():

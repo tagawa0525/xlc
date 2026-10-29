@@ -166,8 +166,8 @@ stages:
     deps:
     - path: examples/core/rod_table.py
       hash: md5
-      md5: b3e8483efb62651cd152337a799cadb5
-      size: 5190
+      md5: debb7642a3bd77c15479f50a6a630cb2
+      size: 7790
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -175,8 +175,8 @@ stages:
     outs:
     - path: python-ast/examples/core/rod_table.py.ast
       hash: md5
-      md5: 48c4564a6b69075ca4a666b686e82eef
-      size: 3306
+      md5: 6f51f76c2bf3b46d911487c64bfd3302
+      size: 4746
   python-ast@examples/core/rods_cases.py:
     cmd: python3 scripts/normalize_python.py examples/core/rods_cases.py 
       python-ast/examples/core/rods_cases.py.ast

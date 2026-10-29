@@ -21,6 +21,7 @@ use crate::case::{
 use crate::input::{Boron, BoronSearch, CaseState, DepletionInput, Layout};
 use crate::micro::MicroChain;
 use crate::nem::{Options, fission_rates};
+use crate::rods::mix_micro;
 use crate::state::interpolate_micro;
 
 const FORMAT: &str = "xlc-core-history";
@@ -400,7 +401,7 @@ pub fn deplete(
         let next = (0..sites)
             .into_par_iter()
             .map(|site| {
-                let (Some(table_use), Some(n), Some(from)) = (m.uses[site], &n[site], &from[site])
+                let (Some(node_use), Some(n), Some(from)) = (m.uses[site], &n[site], &from[site])
                 else {
                     return Ok(None);
                 };
@@ -408,14 +409,33 @@ pub fn deplete(
                 let volume = mesh.dx[x] * mesh.dy[y] * mesh.dz[z];
                 let power_density =
                     depletion.specific_power * solve.rates[site] / total * mass / volume;
-                let t_use = &layout.tables[table_use];
                 let s = crate::state::State {
                     burnup: Some(burnups[site]),
                     ..state
                 };
-                let file = layout.files[t_use.file].display();
-                let sigma = interpolate_micro(&tables[t_use.file], &s, t_use.rod.as_deref())
-                    .map_err(|e| format!("{file}: {e}"))?;
+                let micro_of = |table_use: usize| {
+                    let t_use = &layout.tables[table_use];
+                    interpolate_micro(&tables[t_use.file], &s, t_use.rod.as_deref())
+                        .map_err(|e| format!("{}: {e}", layout.files[t_use.file].display()))
+                };
+                let sigma = match node_use {
+                    NodeUse::Uniform(table_use) => micro_of(table_use)?,
+                    // 区間の微視的断面積を、ノードの少数群定数を混ぜた重みで混ぜる（ADR-0217）
+                    NodeUse::Partial(index) => {
+                        let micro = layout.partial[index]
+                            .segments
+                            .iter()
+                            .map(|&(table_use, _)| micro_of(table_use))
+                            .collect::<Result<Vec<_>, String>>()?;
+                        let weights = solve.solved.segment_weights.get(index).ok_or_else(|| {
+                            format!(
+                                "site {site}: the solve has no weights of the partially rodded node"
+                            )
+                        })?;
+                        mix_micro(&micro, weights, &solve.solved.solution.flux[site])
+                            .map_err(|e| format!("site {site}: {e}"))?
+                    }
+                };
                 let rates =
                     m.chain
                         .rates(&sigma, &solve.solved.solution.flux[site], n, power_density)?;
@@ -614,8 +634,17 @@ fn check_negative(chain: &MicroChain, n: &[f64]) -> Result<(), String> {
 /// ミクロ燃焼するノード（ADR-0216）
 struct MicroNodes {
     chain: MicroChain,
-    /// [直方体の位置] のテーブルの使い方の番号（ミクロ燃焼する、核分裂のある位置だけ）
-    uses: Vec<Option<usize>>,
+    /// [直方体の位置] のテーブルの使い方（ミクロ燃焼する、核分裂のある位置だけ）
+    uses: Vec<Option<NodeUse>>,
+}
+
+/// ミクロ燃焼するノードの微視的断面積の引き方
+#[derive(Debug, Clone, Copy)]
+enum NodeUse {
+    /// 一様なノード: テーブルの使い方の番号
+    Uniform(usize),
+    /// 部分挿入のノード: `Layout::partial` の番号。区間のテーブルの使い方の微視的断面積を混ぜる（ADR-0217）
+    Partial(usize),
 }
 
 /// テーブルが核分裂するか
@@ -632,44 +661,56 @@ impl MicroNodes {
         let fail = |m: String| Err(CaseError::Depletion(m));
         let mut uses = vec![None; layout.node_material.len()];
         let mut files: BTreeMap<usize, &Micro> = BTreeMap::new();
-        for (site, material) in layout.node_material.iter().enumerate() {
-            let Some(m) = *material else { continue };
-            let Some(material) = layout.materials.get(m) else {
-                // 部分挿入のノードの区間の反応率には、区間ごとの中性子束が要る（ノード平均の中性子束しかない）
-                let partial = &layout.partial[m - layout.materials.len()];
-                if partial
-                    .segments
-                    .iter()
-                    .any(|&(t, _)| fissile(&tables[layout.tables[t].file]))
-                {
-                    return fail(format!(
-                        "site {site} is a partially rodded node; its micro depletion needs the fluxes of the \
-                         segments (#0192)"
-                    ));
-                }
-                continue;
-            };
-            let file = layout.tables[material.table].file;
+        // 位置 `site` のテーブルの使い方 `table` が核分裂するか。核分裂するなら、燃焼度で引く使い方で、テーブルが `micro` を持つこと
+        let mut fissile_use = |site: usize, table: usize| -> Result<bool, CaseError> {
+            let file = layout.tables[table].file;
             if !fissile(&tables[file]) {
-                continue;
+                return Ok(false);
             }
             // 燃焼度で引かない使い方（反射体の位置など）は、補正も燃焼もしないので、核分裂のあるテーブルを置けない
-            if layout.tables[material.table].node.is_none() {
-                return fail(format!(
+            if layout.tables[table].node.is_none() {
+                return Err(CaseError::Depletion(format!(
                     "site {site} uses the fissile table {} but is not a depleted node, so the micro depletion would \
                      neither deplete nor correct it",
                     layout.files[file].display()
-                ));
+                )));
             }
             let Some(micro) = &tables[file].micro else {
-                return fail(format!(
+                return Err(CaseError::Depletion(format!(
                     "{}: the table has no micro data for the micro depletion; make it with [history] micro \
                      (ADR-0216)",
                     layout.files[file].display()
-                ));
+                )));
             };
             files.insert(file, micro);
-            uses[site] = Some(material.table);
+            Ok(true)
+        };
+        for (site, material) in layout.node_material.iter().enumerate() {
+            let Some(m) = *material else { continue };
+            uses[site] = match layout.materials.get(m) {
+                Some(material) => {
+                    fissile_use(site, material.table)?.then_some(NodeUse::Uniform(material.table))
+                }
+                None => {
+                    // 部分挿入のノード: 区間のどれかが核分裂すれば、区間の微視的断面積を混ぜて燃焼させる（ADR-0217）。区間は同じ
+                    // 層のテーブルで、初めの組成と公称の数密度は区間によらない
+                    let index = m - layout.materials.len();
+                    let segments = &layout.partial[index].segments;
+                    if segments
+                        .iter()
+                        .any(|&(t, _)| layout.tables[t].file != layout.tables[segments[0].0].file)
+                    {
+                        return fail(format!(
+                            "site {site}: the intervals of a partially rodded node use different tables"
+                        ));
+                    }
+                    let mut any = false;
+                    for &(table, _) in &layout.partial[index].segments {
+                        any |= fissile_use(site, table)?;
+                    }
+                    any.then_some(NodeUse::Partial(index))
+                }
+            };
         }
         let Some((&first, micro)) = files.iter().next() else {
             return fail("no fissile node to micro deplete".into());
@@ -711,7 +752,12 @@ impl MicroNodes {
             .iter()
             .map(|u| {
                 let Some(u) = u else { return Ok(None) };
-                let file = layout.tables[*u].file;
+                let table = match *u {
+                    NodeUse::Uniform(table) => table,
+                    // 区間は同じ層のテーブル（制御棒の値だけが違う）なので、どの区間も同じ燃焼度 0 の数密度
+                    NodeUse::Partial(index) => layout.partial[index].segments[0].0,
+                };
+                let file = layout.tables[table].file;
                 let table = &tables[file];
                 let zero = table.axes.iter().any(|a| match a {
                     Axis::Burnup { points } => points.first() == Some(&0.0),
