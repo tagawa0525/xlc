@@ -103,8 +103,8 @@ pub(crate) fn windows(partial: &[bool]) -> Result<Vec<Window>, String> {
     Ok(out)
 }
 
-/// 部分挿入のノードの [区間][群] の、混ぜた定数を作った区間の中性子束の積分。`partial` の順。体積の重みでは、区間の中性子束が
-/// ノード平均で一様とした積分（区間の長さ × ノード平均の中性子束。群ごとに正規化して混ぜるので、定数は長さで混ぜたものと同じ）
+/// 部分挿入のノードの [区間][群] の、混ぜた定数を作った重み（中性子束の重みでは区間の細かいメッシュの中性子束の積分、体積の
+/// 重みでは区間の長さ）。`partial` の順
 pub type SegmentWeights = Vec<Vec<Vec<f64>>>;
 
 /// 部分挿入のノードを `weighting` で扱って炉心を解く。`fine` は細かいメッシュの幅の上限 (cm)。解と、混ぜた定数を
@@ -133,24 +133,7 @@ pub fn solve_rodded(
     match weighting {
         Weighting::Volume => {
             let solution = solve(&initial, options)?;
-            // 区間の中性子束をノード平均で一様とした積分。混ぜた定数は群ごとに正規化するので長さの重みと同じで、核分裂率で混ぜる
-            // 量（`mix_micro` の収率の境界より下の割合）には中性子束のスペクトルが入る
-            let weights = partial
-                .iter()
-                .zip(lengths)
-                .map(|(p, lengths)| {
-                    lengths
-                        .into_iter()
-                        .map(|l| {
-                            l.iter()
-                                .zip(&solution.flux[p.site])
-                                .map(|(l, phi)| l * phi)
-                                .collect()
-                        })
-                        .collect()
-                })
-                .collect();
-            Ok((solution, initial.materials, weights))
+            Ok((solution, initial.materials, lengths))
         }
         Weighting::Flux => {
             if !(fine > 0.0 && fine.is_finite()) {
@@ -398,17 +381,36 @@ fn mix(segments: &[Segment], flux: &[Vec<f64>]) -> Result<FewGroup, String> {
 
 /// 区間ごとの追う核種の微視的断面積 `micro` を、[区間][群] の重み `weights`（そのノードの少数群定数を混ぜた重み。
 /// `solve_rodded` が返す）で混ぜる（ADR-0217）。反応の断面積と経路の断面積は群の重みで、散乱行列は入射の群の重みで
-/// （`mix` と同じ）、収率の境界より下の核分裂の割合は区間のその核種の核分裂率で混ぜる。公称の数密度は区間で同じこと
-pub(crate) fn mix_micro(micro: &[MicroAt], weights: &[Vec<f64>]) -> Result<MicroAt, String> {
+/// （`mix` と同じ）、収率の境界より下の核分裂の割合は、ノード平均の中性子束 `flux` で燃焼が使う核分裂率のうちの区間の分
+/// Σ_G σf,s,G (w_s,G / Σ_s w_s,G) φ̄_G で混ぜる。公称の数密度は区間で同じこと
+pub(crate) fn mix_micro(
+    micro: &[MicroAt],
+    weights: &[Vec<f64>],
+    flux: &[f64],
+) -> Result<MicroAt, String> {
     let first = micro
         .first()
         .ok_or("a partially rodded node has no intervals")?;
-    let ng = first.nuclides.first().map_or(0, |n| n.total.len());
+    let ng = flux.len();
     if weights.len() != micro.len() || weights.iter().any(|w| w.len() != ng) {
         return Err(format!(
             "{} interval weights for {} intervals of {ng} groups",
             weights.len(),
             micro.len()
+        ));
+    }
+    // 群の数の違う微視的断面積は、群ごとに引く前に止める
+    let shaped = |n: &MicroNuclide| {
+        [&n.total, &n.nu_fission, &n.fission]
+            .into_iter()
+            .chain(&n.scatter)
+            .chain(n.reactions.iter().flat_map(|r| &r.channels))
+            .all(|v| v.len() == ng)
+            && n.scatter.len() == ng
+    };
+    if micro.iter().flat_map(|m| &m.nuclides).any(|n| !shaped(n)) {
+        return Err(format!(
+            "the interval micro cross sections must have the {ng} groups of the node flux"
         ));
     }
     check_weights(weights)?;
@@ -446,11 +448,17 @@ pub(crate) fn mix_micro(micro: &[MicroAt], weights: &[Vec<f64>]) -> Result<Micro
             let thermal_fission = match reference.thermal_fission {
                 None => None,
                 Some(_) => {
-                    // 割合は率の比なので、区間の核分裂率 Σ_G σf w で混ぜると熱の核分裂率の和を保つ。割合を持つ区間の σf の群の和は
-                    // 正（`interpolate_micro`）で、重みも正なので、率の和は正のはず
+                    // 割合は率の比なので、燃焼が使う核分裂率 σ̄f,G φ̄_G のうちの区間の分で混ぜると熱の核分裂率の和を保つ。重み w は
+                    // 群ごとにしか正規化されていない（細かいメッシュの解と NEM の群の比は一致しない。体積の重みは長さ）ので、群ごとの
+                    // 割合 w / Σ_s w に φ̄ を掛ける。割合を持つ区間の σf の群の和は正（`interpolate_micro`）なので、率の和は正のはず
+                    let totals: Vec<f64> = (0..ng)
+                        .map(|g| weights.iter().map(|w| w[g]).sum())
+                        .collect();
                     let (mut rate, mut thermal) = (0.0, 0.0);
                     for (n, w) in segments.iter().zip(weights) {
-                        let r: f64 = n.fission.iter().zip(w).map(|(s, w)| s * w).sum();
+                        let r: f64 = (0..ng)
+                            .map(|g| n.fission[g] * w[g] / totals[g] * flux[g])
+                            .sum();
                         rate += r;
                         thermal += r * n.thermal_fission.unwrap_or(f64::NAN);
                     }
