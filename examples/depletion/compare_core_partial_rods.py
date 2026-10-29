@@ -4,13 +4,14 @@
           <割合>=<部分挿入の core の履歴> ...
         python3 compare_core_partial_rods.py --report <要約の JSON>
 
-- `--json`: どの core の履歴も、集合体 1 体・軸方向のノード 1 つ（反射境界で k∞ を解くケース）のミクロ燃焼で、追う核種、出力密度、
-  燃焼点（EFPD と燃焼度）と、制御棒のバンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
+- `--json`: どの core の履歴も、集合体 1 体のミクロ燃焼で、軸方向のメッシュ、追う核種、出力密度、燃焼点（EFPD と燃焼度）と、制御棒の
+  バンクの位置を除く状態が同じことを確かめる（違えばエラー）。割合は 0 から 1 へ増え、0 と 1 を
   含むこと。次を書く。
   - 燃焼点ごとの k: 割合ごとの k、割合 0 の k の棒のない燃焼の k からの反応度の差、割合 1 の k の棒の入った燃焼の k からの差
     （Δρ = (1/k_基準 − 1/k) × 1e5 pcm）、k が割合について単調か
-  - 追う核種ごと: 割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の、数密度の相対差 N / N_基準 − 1 の絶対値の最大とその燃焼度
-    （基準が 0 の点は比べない）、最後の燃焼点の割合 1 の割合 0 に対する相対差、数密度が割合について単調でない燃焼点の燃焼度
+  - 追う核種ごと: 割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の、数密度の相対差 N / N_基準 − 1 の絶対値の最大とその燃焼度と
+    軸方向のノードの番号（下から。基準が 0 の点は比べない）、最後の燃焼点のノードごとの割合 1 の割合 0 に対する相対差（割合 0 の
+    値が 0 なら null）、数密度が割合について単調でない燃焼点の燃焼度とノード
   単調は、割合の順に並べた値の隣どうしの差が、どれも 0 以上か、どれも 0 以下であること（等しい値は両方に数える）。
   `inputs` は読んだファイルのパスと md5、`banks` は割合ごとの履歴の制御棒のバンクの位置
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -35,22 +36,24 @@ def monotonic(values: list[float]) -> bool:
     return all(s >= 0.0 for s in steps) or all(s <= 0.0 for s in steps)
 
 
-def node_densities(core: dict) -> list[list[float]]:
-    """燃焼点ごとの、ノードの追う核種の数密度"""
+def node_densities(core: dict) -> list[list[list[float]]]:
+    """燃焼点ごとの、軸方向のノードごとの追う核種の数密度（[点][ノード][核種]）"""
     out = []
     for p in core["points"]:
-        ((node,),) = p["densities"]
-        out.append(node)
+        (column,) = p["densities"]
+        out.append(column)
     return out
 
 
 def check_core(name: str, core: dict, first: dict) -> None:
     if core.get("format") != "xlc-core-history":
         raise SystemExit(f"{name}: unexpected core format {core.get('format')}")
-    if len(core["assemblies"]) != 1 or len(core["axial_mesh"]) != 2:
+    if len(core["assemblies"]) != 1:
         raise SystemExit(
-            f"{name}: the core must be one assembly of one axial node (k-infinity of a reflected assembly)"
+            f"{name}: the core must be one assembly (k-infinity of a reflected assembly)"
         )
+    if core["axial_mesh"] != first["axial_mesh"]:
+        raise SystemExit(f"{name}: the axial mesh differs")
     if "nuclides" not in core:
         raise SystemExit(f"{name}: the core history has no micro depletion")
     if core["nuclides"] != first["nuclides"]:
@@ -69,19 +72,20 @@ def check_core(name: str, core: dict, first: dict) -> None:
 def largest(
     names: list[str],
     burnups: list[float],
-    values: list[list[float]],
-    refs: list[list[float]],
+    values: list[list[list[float]]],
+    refs: list[list[list[float]]],
 ) -> dict:
-    """核種ごとの、相対差 N / N_基準 − 1 の絶対値の最大とその燃焼度（基準が 0 の点は比べない）"""
+    """核種ごとの、相対差 N / N_基準 − 1 の絶対値の最大とその燃焼度とノード（基準が 0 の点は比べない）"""
     out = {}
     for i, name in enumerate(names):
         found = [
-            (abs(v[i] / r[i] - 1.0), v[i] / r[i] - 1.0, b)
-            for b, v, r in zip(burnups, values, refs)
+            (abs(v[i] / r[i] - 1.0), v[i] / r[i] - 1.0, b, z)
+            for b, column, reference in zip(burnups, values, refs)
+            for z, (v, r) in enumerate(zip(column, reference))
             if r[i] != 0.0
         ]
-        _, value, burnup = max(found, default=(None, None, None))
-        out[name] = {"relative": value, "burnup": burnup}
+        _, value, burnup, node = max(found, default=(None, None, None, None))
+        out[name] = {"relative": value, "burnup": burnup, "node": node}
     return out
 
 
@@ -96,6 +100,7 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
         raise SystemExit(
             f"the fractions {fractions} must increase from 0 to 1 without repeats"
         )
+    check_core("out", out, out)
     check_core("rodded", rodded, out)
     for f, core in partial:
         check_core(f"fraction {f}", core, out)
@@ -121,22 +126,27 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     zero_limit = largest(names, burnups, zero, node_densities(out))
     one_limit = largest(names, burnups, one, node_densities(rodded))
     nuclides = {}
+    nodes = range(len(out["axial_mesh"]) - 1)
     for i, name in enumerate(names):
-        last = zero[-1][i]
         nuclides[name] = {
             "zero_limit": zero_limit[name],
             "one_limit": one_limit[name],
-            "last_change": None if last == 0.0 else one[-1][i] / last - 1.0,
+            "last_change": [
+                None if zero[-1][z][i] == 0.0 else one[-1][z][i] / zero[-1][z][i] - 1.0
+                for z in nodes
+            ],
             "not_monotonic": [
-                b
+                {"burnup": b, "node": z}
                 for j, b in enumerate(burnups)
-                if not monotonic([d[j][i] for d in dens])
+                for z in nodes
+                if not monotonic([d[j][z][i] for d in dens])
             ],
         }
     return {
         "specific_power": out["specific_power"],
         "fractions": fractions,
         "banks": [core["state"]["banks"] for _, core in partial],
+        "axial_mesh": out["axial_mesh"],
         "nuclides": names,
         "points": points,
         "densities": nuclides,
@@ -145,6 +155,10 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
 
 def percent(x: float | None) -> str:
     return "–" if x is None else f"{100.0 * x:+.4f}"
+
+
+def relative(x: float | None) -> str:
+    return "–" if x is None else f"{x:+.3e}"
 
 
 def report(summary: dict) -> list[str]:
@@ -165,13 +179,20 @@ def report(summary: dict) -> list[str]:
     bad = [p["burnup"] for p in points if not p["k_monotonic"]]
     lines.append(f"k が割合について単調でない燃焼点: {bad or 'なし'}")
     lines.append(
-        "核種 | 割合 0 − 棒なし (%) | 燃焼度 | 割合 1 − 棒あり (%) | 燃焼度 | 最後の点の 1 / 0 − 1 (%) | 単調でない燃焼点"
+        "核種 | 割合 0 − 棒なし（相対） | 燃焼度, ノード | 割合 1 − 棒あり（相対） | 燃焼度, ノード | 最後の点の 1 / 0 − 1、ノードごと (%) "
+        "| 単調でない (燃焼度, ノード)"
     )
     for name, d in summary["densities"].items():
+        z, o = d["zero_limit"], d["one_limit"]
         lines.append(
-            f"{name} | {percent(d['zero_limit']['relative'])} | {d['zero_limit']['burnup']} | "
-            f"{percent(d['one_limit']['relative'])} | {d['one_limit']['burnup']} | {percent(d['last_change'])} | "
-            f"{d['not_monotonic'] or 'なし'}"
+            f"{name} | {relative(z['relative'])} | {z['burnup']}, {z['node']} | "
+            f"{relative(o['relative'])} | {o['burnup']}, {o['node']} | "
+            + " ".join(percent(c) for c in d["last_change"])
+            + " | "
+            + (
+                " ".join(f"({m['burnup']:g}, {m['node']})" for m in d["not_monotonic"])
+                or "なし"
+            )
         )
     lines.append(
         "燃焼度 (MWd/kg) | EFPD | k 棒なし | k 棒あり | k 割合ごと | 0 − 棒なし | 1 − 棒あり (pcm)"
