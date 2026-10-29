@@ -448,12 +448,12 @@ fn shield_states(
     (branches, shielded, solved)
 }
 
-/// 領域 `region` の物質
 /// 分岐の自己遮蔽の物質の一覧と [領域] のその番号
 fn owned(state: crate::branches::StateShielding) -> Shielding {
     (state.materials().to_vec(), state.region_material().to_vec())
 }
 
+/// 領域 `region` の物質
 fn region_material(shielding: &Shielding, region: usize) -> &Material {
     &shielding.0[shielding.1[region]]
 }
