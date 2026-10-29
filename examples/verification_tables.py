@@ -1019,7 +1019,8 @@ def core_steps_summary(sources: list[dict]) -> dict:
 
 
 def core_steps_ratio(r: float | None) -> str:
-    return "–" if r is None else f"{r:.2f}"
+    """差の比（負の符号は U+2212。比のない差は –）"""
+    return "–" if r is None else f"{r:.2f}".replace("-", "−")
 
 
 def core_steps(method: str, sources: list[dict]) -> str:
