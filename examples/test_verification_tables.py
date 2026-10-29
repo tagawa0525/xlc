@@ -1267,14 +1267,35 @@ class DrawCoreMicro(unittest.TestCase):
             ],
         )
 
-    def test_density_rows_are_the_table_points_and_the_largest_by_nuclide(self):
-        table = vt.core_micro_densities([self.summary()])
+    def test_density_rows_are_the_table_points_of_the_major_nuclides(self):
+        s = self.summary()
+        major = vt.CORE_MICRO_MAJOR
+        s["nuclides"] = major
+        s["density_points"] = [
+            {
+                "burnup": 0.0,
+                "relative": {n: (0.0 if n == "U-235" else None) for n in major},
+            },
+            {
+                "burnup": 10.0,
+                "relative": {n: -1.23e-5 * (k + 1) for k, n in enumerate(major)},
+            },
+        ]
+        table = vt.core_micro_densities([s])
         header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
-        self.assertEqual(header, ["燃焼度 (MWd/kg)", "U-235 (%)", "Xe-135 (%)"])
+        self.assertEqual(header, ["燃焼度 (MWd/kg)", *(f"{n} (%)" for n in major)])
         self.assertEqual(
             self.rows(table),
-            [["0", "0.0000", "–"], ["10", "−0.0012", "+0.0046"]],
+            [
+                ["0", "0.0000", *["–"] * (len(major) - 1)],
+                ["10", *(vt.signed(-1.23e-3 * (k + 1), 4) for k in range(len(major)))],
+            ],
         )
+        # 主要な核種を追わない要約は、列を黙って落とさずエラー
+        with self.assertRaises(vt.TableError):
+            vt.core_micro_densities([self.summary()])
+
+    def test_largest_rows_are_by_nuclide(self):
         table = vt.core_micro_largest([self.summary()])
         self.assertEqual(
             self.rows(table),
