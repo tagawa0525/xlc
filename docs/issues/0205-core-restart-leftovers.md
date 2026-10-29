@@ -31,6 +31,21 @@ ADR-0220 の restart は、前のサイクルの燃焼の履歴 1 本の最後�
 - crates/core/src/micro.rs の `MicroChain::auxiliary_columns` は呼ぶたびに作り直す（ノードごとに 2 回）。`MicroChain::new` で 1 度作って持てる
 - crates/core/src/depletion.rs の restart の組成の置き方は、`placed` を 2 度引き、`inherited` から移せる組成を複製する
 
+2 周目のレビューで挙がり、直さなかったもの:
+
+- 引き継ぐ集合体の重金属の質量は、最初の状態の並びのノードのファイル（部分挿入のノードは最初の区間のファイル）のテーブルから求める。制御棒の区間を
+  別のファイルのテーブルにした炉心で、前のサイクルと違う区間のファイルになる位置へ動かすと、同じ燃料でも最後のビットの違いで止まりうる（今の炉心は
+  制御棒の軸を持つ 1 つのテーブルなので起きない。確かめていない）
+- `inherit` のミクロ燃焼の有無の照合の最後の分岐は、`nuclides` があって `auxiliary` のない履歴（コードで組んだもの）に、ミクロ燃焼でないという
+  誤った文を出す（ファイルからは `CoreHistory::from_msgpack` が先に止める）
+- テスト `reloads_carry_the_states_by_assembly_id` の補助の核種の確かめは、新しい集合体の最後の点の値が 0 でないことだけで、引き継いだ集合体の補助の
+  核種と新しい集合体の燃焼点 0 の補助の核種は確かめていない（同じ装荷の restart は `restarts_continue_the_depletion_of_one_case` と
+  `restarts_without_the_auxiliary_nuclides_would_not_continue` が確かめる）。`restarts_continue_the_depletion_of_one_case` は点の数を EFPD の列で確かめ、
+  比べる繰り返しは点の数を確かめない
+- 記録の表 `depletion-small-core-restart` は切る点を EFPD だけで示し、名前と日数を出さない（b の 182.2442 EFPD は停止の後）
+- 前のサイクルの最後の点と次のサイクルの最初のステップの状態か出力が違う restart（サイクルの途中で切る）は、続けて解いた燃焼と違う燃焼点 0 になる
+  （ADR-0220 の帰結）。エラーにも警告にもしていない
+
 関係する ADR: ADR-0220
 
 ## 完了の条件
