@@ -36,3 +36,13 @@ core のミクロ燃焼（ADR-0216、ブランチ feat/0153-core-micro-depletion
 ## 経緯
 
 - 2026-10-29: レビューの 3 周目の後に残した
+- 2026-10-29: 親の 2 周目（head 08f8aca79、/code-review high）で残した指摘（どれも Medium と判断し、周の上限で直さず残す）:
+  - `solve_compositions`（pub）は、テーブルの `micro` の核種と `Compositions` のチェーンの核種の並びが合うことを確かめず、ずれれば
+    位置で zip され、短ければ `tracked()` が index で panic する。並びと数を確かめてエラーにする
+  - `interpolate_micro` の負の重みの検査が散乱行列を含まない（少数群定数の `non_negative()` は含む）。負に内挿した σ_s が補正に入る
+  - `CoreHistory::from_msgpack` が、`micro` の核種が空か重複し、数密度が全ノードで空の履歴を受ける
+  - `compare_core_micro.py` の `summarize` は、ミクロ燃焼の無いノードで KeyError になる（SystemExit で原因を言うべき）
+  - `rates()` は `fission` の群数しか中性子束と比べず、`total`、`nu_fission`、反応の経路は zip で黙って切れる
+  - σ_f の群の和が 0 以下の核分裂性の核種は `thermal_fission` を nil にし、`rates()` が核分裂しない核種として扱う（黙ったフォールバック）
+  - `deplete_nodes` がノードごとに `solve_with` と同じ σᵢ の内挿を繰り返す（予測子と修正子で 2 回。上の重複の項と同じ）
+  - `MicroNodes::new` が核分裂のあるテーブルのファイルごとに `MicroChain` 全体（3,820 核種の親のクロージャ）を作り、最初のものだけ使う
