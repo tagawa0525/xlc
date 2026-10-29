@@ -33,8 +33,15 @@ import msgpack
 # core のログ（crates/core/src/depletion.rs の tracing）の中点の行の、固有値計算の回数
 MIDPOINT_SOLVES = re.compile(r"\bsolves=(\d+)\b")
 
-# 履歴の、比べる燃焼の共通の項目
-SHARED = ("specific_power", "states", "axial_mesh", "assemblies", "heavy_metal")
+# 履歴の、比べる燃焼の共通の項目（ミクロ燃焼の追う核種 `nuclides` は、ミクロ燃焼しない履歴には無い）
+SHARED = (
+    "specific_power",
+    "states",
+    "axial_mesh",
+    "assemblies",
+    "heavy_metal",
+    "nuclides",
+)
 
 
 def key(point: dict) -> tuple[float, float]:
@@ -90,7 +97,7 @@ def check(runs: dict[tuple[str, int], dict]) -> None:
         if core.get("format") != "xlc-core-history":
             raise SystemExit(f"{name}: unexpected format {core.get('format')}")
         for item in SHARED:
-            if core[item] != first[item]:
+            if core.get(item) != first.get(item):
                 raise SystemExit(f"{name}: {item} differs from the other histories")
     for method in {m for m, _ in runs}:
         splits = sorted(s for m, s in runs if m == method)
