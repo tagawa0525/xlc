@@ -190,6 +190,21 @@ impl CoreHistory {
                     "point {k}: only the first point has no step power"
                 )));
             }
+            // 出力の割合は 0 以上の有限の値で、0 は EFPD の進まない崩壊だけのステップだけ。EFPD と日数は減らない（ADR-0218）
+            if let (Some(power), Some(before)) =
+                (point.power, k.checked_sub(1).map(|j| &file.points[j]))
+                && !(power.is_finite()
+                    && power >= 0.0
+                    && (power == 0.0) == (point.efpd == before.efpd)
+                    && point.efpd >= before.efpd
+                    && point.days > before.days)
+            {
+                return Err(CaseError::Depletion(format!(
+                    "point {k}: the step power {power}, EFPD {} and days {} do not follow the point before \
+                     ({} EFPD, {} days)",
+                    point.efpd, point.days, before.efpd, before.days
+                )));
+            }
         }
         Ok(Self {
             specific_power: file.specific_power,
