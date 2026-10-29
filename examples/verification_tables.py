@@ -1139,33 +1139,24 @@ def core_steps_axial(
     sources: list[dict],
 ) -> str:
     """燃焼ごとの軸方向の出力の偏り（compare_core_steps.py の `axial`）を、燃焼 `reference`（方式、分割）の日数 `days`（両端を含む）の
-    点に並べる。列は燃焼 `columns` で、その点（同じ EFPD と、1e-6 日に丸めた日数）の無い燃焼は –"""
+    点に並べる。列は燃焼 `columns` で、その日数（1e-6 日に丸めた値。燃焼の中で日数は増える）の点の無い燃焼は –"""
     s = core_steps_summary(sources)
-    runs = {(r["method"], r["split"]): r["points"] for r in s.get("axial", [])}
+    runs = {
+        (r["method"], r["split"]): dict(zip(r["days"], r["offset"]))
+        for r in s.get("axial", [])
+    }
     missing = [c for c in [reference, *columns] if c not in runs]
     if missing:
         raise TableError(f"the summary has no axial offsets of {missing}")
-
-    def key(p: dict) -> tuple[float, float]:
-        return (p["efpd"], round(p["days"], 6))
-
-    by = {c: {key(p): p["offset"] for p in runs[c]} for c in columns}
     rows = [
         [
-            f"{p['days']:.4f}",
-            f"{p['efpd']:.4f}",
-            *(
-                "–" if key(p) not in by[c] else signed(by[c][key(p)], 4)
-                for c in columns
-            ),
+            f"{d:.4f}",
+            *("–" if d not in runs[c] else signed(runs[c][d], 4) for c in columns),
         ]
-        for p in runs[reference]
-        if days[0] <= p["days"] <= days[1]
+        for d in runs[reference]
+        if days[0] <= d <= days[1]
     ]
-    return markdown_table(
-        ["日数", "EFPD", *(f"{m} 分割 {n}" for m, n in columns)],
-        rows,
-    )
+    return markdown_table(["日数", *(f"{m} 分割 {n}" for m, n in columns)], rows)
 
 
 def burnup_interpolation_summary(sources: list[dict]) -> dict:

@@ -17,8 +17,8 @@
     割合の相対差の最大）
   - `solves`: 履歴ごとの燃焼点の数、点の固有値計算の回数（履歴の `solves` の和）、中点の固有値計算の回数（ログの `depletion midpoint`
     の行の `solves` の和）とその和
-  - `axial`: 履歴ごとの、すべての燃焼点の軸方向の出力の偏り（炉心の高さの上半分のノードの出力の割合の和 − 下半分の和。割合の炉心の和は
-    1。軸方向のメッシュは高さの半分に境界を持つこと）
+  - `axial`: 履歴ごとの、すべての燃焼点の日数（1e-6 日に丸める）と軸方向の出力の偏り（炉心の高さの上半分のノードの出力の割合の和 −
+    下半分の和。割合の炉心の和は 1。1e-4 に丸める。軸方向のメッシュは高さの半分に境界を持つこと）
   `inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
@@ -246,14 +246,13 @@ def summarize(
                 "total": point + sum(mids),
             }
         )
+    # 日数は点の鍵と同じく 1e-6 日に、偏りは記録の表の桁の 1e-4 に丸める（すべての点を持つので、要約を数十 KB に収める）
     axial = [
         {
             "method": method,
             "split": split,
-            "points": [
-                {"efpd": p["efpd"], "days": p["days"], "offset": axial_offset(core, p)}
-                for p in core["points"]
-            ],
+            "days": [key(p)[1] for p in core["points"]],
+            "offset": [round(axial_offset(core, p), 4) for p in core["points"]],
         }
         for (method, split), core in sorted(runs.items())
     ]
