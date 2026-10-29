@@ -1926,8 +1926,8 @@ fn xenon_equilibrium(u235: f64, power: f64) -> [f64; 2] {
 
 #[test]
 fn equilibrium_xenon_balances_the_operating_points_and_decays_after_shutdowns() {
-    // 平衡 Xe（#0200）: 出力のステップの終わりの点は I-135 と Xe-135 がその点の出力で釣り合い、燃焼点 0 と崩壊だけのステップの後の
-    // 点は、組成を時間で進めた値のまま。ほかの核種はステップの CE/CM（Xe は核分裂しないので、U-235 は時間で追う燃焼と同じ）
+    // 平衡 Xe（#0200）: 崩壊だけのステップの前の出力のステップの終わりの点は I-135 と Xe-135 がそのステップの出力で釣り合い、燃焼点 0 と
+    // 崩壊だけのステップの後の点は、組成を時間で進めた値のまま。ほかの核種はステップの CE/CM（Xe は核分裂しないので、U-235 は時間で追う燃焼と同じ）
     let steps = "[{ efpd = 50.0, power = 0.5 }, { decay-days = 0.25 }, { efpd = 60.0 }]";
     let history = xenon_run_in(UNIFORM, "equilibrium", steps).unwrap();
     let tracked = xenon_run_in(UNIFORM, "tracked", steps).unwrap();
@@ -1959,6 +1959,20 @@ fn equilibrium_xenon_balances_the_operating_points_and_decays_after_shutdowns() 
     // 止まる）
     let solves: Vec<usize> = history.points.iter().map(|p| p.solves).collect();
     assert_eq!(solves, [1, 2, 1, 2]);
+    // 出力のステップが続く点は、次のステップの出力で釣り合う（点は次のステップの条件で解く。ADR-0218 の案 P2。ステップの初めの
+    // 点、中点、終わりの点が同じ出力の平衡になる）
+    let changed = xenon_run_in(
+        UNIFORM,
+        "equilibrium",
+        "[{ efpd = 50.0, power = 0.5 }, { efpd = 60.0, power = 0.8 }]",
+    )
+    .unwrap();
+    let n = node(&changed, 1);
+    let [iodine, xenon] = xenon_equilibrium(n[0], 0.8);
+    assert_densities(&changed.points[1], [n[0], n[1], iodine, xenon], 1.0e-9);
+    let n = node(&changed, 2);
+    let [iodine, xenon] = xenon_equilibrium(n[0], 0.8);
+    assert_densities(&changed.points[2], [n[0], n[1], iodine, xenon], 1.0e-9);
 }
 
 #[test]
