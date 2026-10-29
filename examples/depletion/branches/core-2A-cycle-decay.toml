@@ -1,0 +1,50 @@
+# サイクルのステップ（ADR-0218）の確認 (ii): core-2A-micro.toml と同じ集合体 1 体、テーブル、状態、出力密度で、6 MWd/kg
+# （156.2 EFPD。VERA Problem 9 の表 P9-3 の最長の停止は 157.2 EFPD の 18.0 日）まで定格で燃焼させ、18 日の崩壊だけのステップ
+# （0.25、0.25、0.5、1、2、4、10 日）を入れ、定格に戻して 0.25、0.25、0.5、1、2、4 EFPD の細かいステップで Xe-135 の戻りを追い、
+# 8 MWd/kg まで進める。比べる先は停止のない core-2A-micro.toml。
+cycle = "core-2A-micro-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.nominal]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+
+[depletion]
+specific-power = 38.41
+history = "core-2A-cycle-decay.msgpack"
+# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+micro = { chain = "../chain.msgpack" }
+steps = [
+  { efpd = 2.603488674824265 },  # 0.1 MWd/kg
+  { efpd = 6.508721687060661 },  # 0.25 MWd/kg
+  { efpd = 13.017443374121326 },  # 0.5 MWd/kg
+  { efpd = 19.526165061181988 },  # 0.75 MWd/kg
+  { efpd = 26.034886748242652 },  # 1 MWd/kg
+  { efpd = 39.052330122363976 },  # 1.5 MWd/kg
+  { efpd = 52.069773496485304 },  # 2 MWd/kg
+  { efpd = 65.08721687060662 },  # 2.5 MWd/kg
+  { efpd = 78.10466024472794 },  # 3 MWd/kg
+  { efpd = 91.12210361884927 },  # 3.5 MWd/kg
+  { efpd = 104.13954699297058 },  # 4 MWd/kg
+  { efpd = 130.17443374121325 },  # 5 MWd/kg
+  { efpd = 156.20932048945588 },  # 6 MWd/kg
+  { decay-days = 0.25 },
+  { decay-days = 0.25 },
+  { decay-days = 0.5 },
+  { decay-days = 1 },
+  { decay-days = 2 },
+  { decay-days = 4 },
+  { decay-days = 10 },
+  { efpd = 156.45932048945588 },  # 停止の後 0.25 EFPD
+  { efpd = 156.70932048945588 },  # 停止の後 0.5 EFPD
+  { efpd = 157.20932048945588 },  # 停止の後 1 EFPD
+  { efpd = 158.20932048945588 },  # 停止の後 2 EFPD
+  { efpd = 160.20932048945588 },  # 停止の後 4 EFPD
+  { efpd = 164.20932048945588 },  # 停止の後 8 EFPD
+  { efpd = 182.24420723769853 },  # 7 MWd/kg
+  { efpd = 208.27909398594116 },  # 8 MWd/kg
+]
