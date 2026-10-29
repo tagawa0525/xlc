@@ -123,6 +123,12 @@ class Summary(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 summarize(cycle, references)
 
+    def test_references_must_be_one_state_at_the_rated_power(self):
+        # 同じ EFPD の点を比べるのは、参照が 1 つの状態の定格のままの燃焼のとき
+        for reference in [core(CYCLE), core(REFERENCE, states=("in", "out"))]:
+            with self.assertRaises(SystemExit):
+                summarize(references={"full": reference})
+
     def test_cores_must_track_the_watched_nuclides(self):
         cycle = core(CYCLE)
         cycle["nuclides"] = ["U-235", "I-135", "Xe-135", "Sm-150"]
