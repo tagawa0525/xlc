@@ -1,4 +1,4 @@
-# 制御棒を入れた組のテーブルの集合体 1 体を置くサイクル（ノード全体が制御棒の入った状態）。
+# 上のノードに制御棒を入れた組のテーブルの層を持つ集合体 1 体を置くサイクル（上のノード全体が制御棒の入った状態）。
 plant = "core-plant.toml"
 inventory = "core-2A-micro-rodded-assemblies.toml"
 loading = ["A01"]
