@@ -44,5 +44,19 @@ class SingleState(unittest.TestCase):
         self.assertEqual(single_state(history), STATE)
 
 
+class MidpointBoron(unittest.TestCase):
+    def test_histories_of_the_start_boron_midpoints_are_errors(self):
+        # 中点を初めの点のホウ素で解いた燃焼（ADR-0191 の案 S1）は、既定の燃焼を比べるツールで比べない
+        history = {
+            "states": {"nominal": dict(STATE)},
+            "points": [],
+            "midpoint_boron": "start",
+        }
+        with self.assertRaises(SystemExit):
+            single_state(history)
+        history["midpoint_boron"] = "search"
+        self.assertEqual(single_state(history), STATE)
+
+
 if __name__ == "__main__":
     unittest.main()

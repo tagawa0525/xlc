@@ -109,6 +109,13 @@ class Steps(unittest.TestCase):
         # 崩壊だけのステップの点も比べる
         self.assertEqual(points[3]["power"], 0.0)
 
+    def test_boron_ratios_keep_the_sign_of_the_differences(self):
+        # 隣り合う差の符号が変われば比は負（漸近の範囲の外）
+        runs = search_runs()
+        runs[("search", 4)] = core(4, error=8.0)
+        s = summarize(runs)
+        self.assertLess(s["steps"]["search"][1]["ratios"][0]["boron"], 0.0)
+
     def test_equal_points_give_no_ratio(self):
         s = summarize(search_runs(error=0.0))
         self.assertIsNone(s["steps"]["search"][1]["ratios"][0]["boron"])
@@ -183,6 +190,16 @@ class Errors(unittest.TestCase):
         runs[("search", 2)]["points"][2]["powers"] = [[1.0], [0.0]]
         with self.assertRaises(SystemExit):
             summarize(runs)
+
+    def test_matched_points_must_share_the_state_and_power(self):
+        runs = search_runs()
+        runs[("search", 2)]["points"][2]["state"] = "rodded"
+        with self.assertRaises(SystemExit):
+            summarize(runs)
+
+    def test_splits_must_double(self):
+        with self.assertRaises(SystemExit):
+            summarize(search_runs(splits=(1, 2, 8)))
 
     def test_start_needs_the_base_split(self):
         runs = search_runs()
