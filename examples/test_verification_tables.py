@@ -1223,7 +1223,7 @@ class DrawCoreMicro(unittest.TestCase):
                     "micro_k": 1.05496295,
                     "plain_k": 1.05496347,
                     "micro_pcm": -0.0773,
-                    "plain_pcm": -0.0305,
+                    "plain_pcm": -0.0306,
                     "correction_pcm": -0.0467,
                 },
             ],
