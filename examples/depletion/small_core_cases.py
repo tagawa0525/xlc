@@ -30,7 +30,7 @@ CYCLE = [
     ("burnup", 7.5, None, None, "7.5 MWd/kg"),
 ]
 
-TRACKED = 'micro = { chain = "../chain.msgpack" }'
+TRACKED = 'micro = { chain = "../chain.msgpack", xenon = "tracked" }'
 
 # 燃焼の方式: 名前 → (ヘッダーの 4 行目、`micro` の行、`[depletion]` に足す行)
 METHODS = {

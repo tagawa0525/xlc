@@ -27,7 +27,7 @@ banks = { D = 140 }
 specific-power = 38.41
 history = "core-small-search-8.msgpack"
 # 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
-micro = { chain = "../chain.msgpack" }
+micro = { chain = "../chain.msgpack", xenon = "tracked" }
 steps = [
   { efpd = 0.8135902108825828, state = "aro" },
   { efpd = 1.6271804217651655 },
