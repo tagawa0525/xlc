@@ -129,6 +129,22 @@ class Summary(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 summarize(references={"full": reference})
 
+    def test_references_must_share_the_state_beyond_the_banks_and_the_fuel(self):
+        # 参照との差に、ホウ素、温度、重金属の質量の違いを入れない（バンクの位置は比べる先ごとに違ってよい）
+        reference = core(REFERENCE)
+        reference["states"]["nominal"]["banks"] = {"D": 86}
+        summarize(references={"full": reference})
+        for edit in [
+            lambda c: c["states"]["nominal"].update(boron=1000.0),
+            lambda c: c["states"]["nominal"].update(fuel=600.0),
+            lambda c: c.update(heavy_metal=[[8000.0]]),
+            lambda c: c.update(assemblies=["B01"]),
+        ]:
+            reference = core(REFERENCE)
+            edit(reference)
+            with self.assertRaises(SystemExit):
+                summarize(references={"full": reference})
+
     def test_cores_must_track_the_watched_nuclides(self):
         cycle = core(CYCLE)
         cycle["nuclides"] = ["U-235", "I-135", "Xe-135", "Sm-150"]
