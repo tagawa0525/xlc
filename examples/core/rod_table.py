@@ -124,8 +124,9 @@ def check_micro(path, value, micro, first_micro, own, burnups, points):
         )
     for burnup, row in zip(own, micro["densities"]):
         expected = first_micro["densities"][burnups.index(burnup)]
-        if len(row) != len(expected) or any(
-            abs(a - b) > DENSITY_ROUNDING * max(abs(a), abs(b))
+        # 比較を否定して、NaN も合わないものとして止める
+        if len(row) != len(expected) or not all(
+            abs(a - b) <= DENSITY_ROUNDING * max(abs(a), abs(b))
             for a, b in zip(row, expected)
         ):
             sys.exit(
