@@ -49,7 +49,7 @@ METHODS = {
 
 # ケース: (方式, 分割)
 CASES = (
-    [("search", s) for s in (1, 2, 4, 8, 16, 32, 64)]
+    [("search", s) for s in (1, 2, 4, 8, 16, 32, 64, 128)]
     + [("start", s) for s in (1, 2, 4)]
     + [("equilibrium", s) for s in (1, 2, 4, 8, 16)]
 )
@@ -66,7 +66,7 @@ boundary = { x = ["reflective", "vacuum"], y = ["reflective", "vacuum"], z = ["m
 b10 = 0.199
 moderator = 565
 fuel = 565
-search = { boron = [0.0, 1300.0], k = 1.075, tolerance = 1.0e-6, max-solves = 20 }
+search = { boron = [0.0, 1300.0], k = 1.071, tolerance = 1.0e-6, max-solves = 20 }
 banks = { D = 230 }
 
 # バンク D を 140 ステップ（先端 222.885 cm）まで入れた状態。下から 10 番目のノード（205.74〜228.6 cm）が部分挿入
@@ -74,7 +74,7 @@ banks = { D = 230 }
 b10 = 0.199
 moderator = 565
 fuel = 565
-search = { boron = [0.0, 1300.0], k = 1.075, tolerance = 1.0e-6, max-solves = 20 }
+search = { boron = [0.0, 1300.0], k = 1.071, tolerance = 1.0e-6, max-solves = 20 }
 banks = { D = 140 }
 
 [depletion]
