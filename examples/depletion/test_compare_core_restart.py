@@ -97,6 +97,8 @@ class Restarts(unittest.TestCase):
         self.assertEqual(p["burnup_max_diff"], 0.0)
         self.assertEqual(p["density_max_relative"], 0.0)
         self.assertEqual(cut["auxiliary_max_relative"], 0.0)
+        # 差がなければ、差の最大の核種もない
+        self.assertIsNone(cut["auxiliary_max_nuclide"])
         # 前の半分は、切らない燃焼の初めの点と同じ
         self.assertEqual(cut["first_k_max_diff"], 0.0)
 
