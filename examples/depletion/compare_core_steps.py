@@ -11,7 +11,8 @@
 - `--json`: 履歴がどれも同じ定格の出力密度、状態、軸方向のメッシュ、集合体、重金属の質量を持つことを確かめ、次を書く。
   - `steps`: 中点のホウ素ごとに、基準の燃焼点ごとの分割ごとのホウ素濃度、k、ノードの燃焼度と出力の割合と、隣り合う分割（1 と 2、
     2 と 4 …）の差（ホウ素は分割の粗い方 − 細かい方、燃焼度はノードの差の絶対値の最大、出力の割合はノードの相対差の絶対値の最大）と、
-    その比（粗い組の差 / 細かい組の差。中点の形が 2 次なら 4 に近い。細かい組の差が 0 なら null）
+    その比（粗い組の差 / 細かい組の差。中点の形が 2 次なら 4 に近い。ホウ素は符号を保ち、負なら隣り合う差の符号が変わった。細かい組の差が
+    0 なら null）。分割は倍ずつで、組にした点は基準と同じ状態と出力の割合で解いたものであること
   - `midpoint`: `search` と `start` の両方があれば、両方にある分割ごと、基準の燃焼点ごとの `start` − `search` の差（ホウ素、燃焼度の最大、出力の
     割合の相対差の最大）
   - `solves`: 履歴ごとの燃焼点の数、点の固有値計算の回数（履歴の `solves` の和）、中点の固有値計算の回数（ログの `depletion midpoint`
@@ -78,7 +79,8 @@ def differences(coarse: dict, fine: dict) -> dict:
 
 
 def ratio(coarse: float, fine: float) -> float | None:
-    return None if fine == 0.0 else abs(coarse) / abs(fine)
+    """粗い組の差 / 細かい組の差。符号を保つ（隣り合う差の符号が変われば負で、漸近の範囲の外）"""
+    return None if fine == 0.0 else coarse / fine
 
 
 def check(runs: dict[tuple[str, int], dict]) -> None:
@@ -94,6 +96,9 @@ def check(runs: dict[tuple[str, int], dict]) -> None:
         splits = sorted(s for m, s in runs if m == method)
         if splits[0] != 1:
             raise SystemExit(f"{method}: give the base cycle (split 1)")
+        # 比を次数として読む（2 次なら 4）のは、分割が倍ずつのときだけ
+        if any(b != 2 * a for a, b in pairwise(splits)):
+            raise SystemExit(f"{method}: the splits {splits} must double")
 
 
 def summarize(
@@ -106,10 +111,10 @@ def summarize(
     base = runs[(methods[0], 1)]["points"]
     # 分割 n の履歴は、燃焼点 0、崩壊だけのステップの点、基準の出力のあるステップの n 倍の点を持つ（分割の名前と履歴を取り違えると、
     # 基準の点はそろっても点の数が合わない）
-    powered = sum(1 for a, b in pairwise(base) if b["efpd"] != a["efpd"])
-    decays = len(base) - 1 - powered
+    base_steps = sum(1 for a, b in pairwise(base) if b["efpd"] != a["efpd"])
+    decays = len(base) - 1 - base_steps
     for (method, split), core in runs.items():
-        expected = 1 + decays + split * powered
+        expected = 1 + decays + split * base_steps
         if len(core["points"]) != expected:
             raise SystemExit(
                 f"{method} {split}: {len(core['points'])} points, but split {split} of the base cycle has {expected}"
@@ -124,6 +129,13 @@ def summarize(
         if missing:
             raise SystemExit(f"{method} {split}: no points at (EFPD, days) {missing}")
         matched[(method, split)] = [by_key[key(p)] for p in base]
+        # 同じ点は同じ状態と出力の割合で解いたもの（分けたケースの状態の書き誤りを、ステップの大きさの誤差に混ぜない）
+        for p, q in zip(base, matched[(method, split)]):
+            if (q["state"], q.get("power")) != (p["state"], p.get("power")):
+                raise SystemExit(
+                    f"{method} {split}: the point at {p['efpd']} EFPD is solved in {q['state']} at power "
+                    f"{q.get('power')}, the base in {p['state']} at power {p.get('power')}"
+                )
     steps = {}
     for method in methods:
         points = []
@@ -176,10 +188,12 @@ def summarize(
     solves = []
     for (method, split), core in sorted(runs.items()):
         mids = midpoint_solves(logs[(method, split)])
-        powered = sum(1 for a, b in pairwise(core["points"]) if b["efpd"] != a["efpd"])
-        if len(mids) != powered:
+        run_steps = sum(
+            1 for a, b in pairwise(core["points"]) if b["efpd"] != a["efpd"]
+        )
+        if len(mids) != run_steps:
             raise SystemExit(
-                f"{method} {split}: the log has {len(mids)} midpoints for {powered} efpd steps"
+                f"{method} {split}: the log has {len(mids)} midpoints for {run_steps} efpd steps"
             )
         point = sum(p["solves"] for p in core["points"])
         solves.append(
