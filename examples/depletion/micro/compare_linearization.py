@@ -5,7 +5,7 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは 2 つの分岐のテーブル（`xlc-table`。燃焼度の軸だけを持ち、点ごとに状態 1 つ）: 2A の履歴の点を解いた `table-nominal.msgpack`
+読むのは 2 つの分岐のテーブル（`xlc-table`。燃焼度の軸と 1 点の分岐の軸を持ち、燃焼度の点ごとに状態 1 つ）: 2A の履歴の点を解いた `table-nominal.msgpack`
 （`micro` を持つ）と、点 k の組成を点 k - 1 の組成のうち追う核種だけを点 k の値にしたもので解いた `table-shifted.msgpack`
 （make_shifted.py）。点の組 (k - 1, k) ごとに:
 
@@ -85,12 +85,17 @@ def corrected(state, sigmas, deltas):
 
 
 def burnups(table):
+    """燃焼度の点。燃焼度の軸を最初に持ち、ほかの軸（分岐の軸）は 1 点で、点ごとに状態 1 つのテーブルだけ"""
     axes = table["axes"]
-    if [a["name"] for a in axes] != ["burnup"] or len(table["states"]) != len(
-        axes[0]["points"]
+    single = all(len(a.get("points", a.get("values", []))) == 1 for a in axes[1:])
+    if (
+        not axes
+        or axes[0]["name"] != "burnup"
+        or not single
+        or len(table["states"]) != len(axes[0]["points"])
     ):
         raise SystemExit(
-            "the tables must have only a burnup axis and a state per point"
+            "the tables must have a burnup axis, branch axes of one point and a state per burnup"
         )
     return axes[0]["points"]
 
