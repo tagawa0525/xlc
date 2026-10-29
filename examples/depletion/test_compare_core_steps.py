@@ -15,7 +15,7 @@ BASE = [(10.0, 1.0), (20.0, 0.5), (20.0, 0.0), (30.0, 1.0)]
 
 
 def core(split, method="search", error=1.0, solves=3):
-    """集合体 2 体・ノード 1 つの燃焼の履歴。出力のあるステップを `split` 個に分け、点の値は真の値に誤差 `error` / split² を足したもの
+    """集合体 2 体・軸方向のノード 2 つ（上下で同じ値）の燃焼の履歴。出力のあるステップを `split` 個に分け、点の値は真の値に誤差 `error` / split² を足したもの
     （中点の形が 2 次の燃焼）"""
     points = []
     efpd, days = 0.0, 0.0
@@ -33,8 +33,8 @@ def core(split, method="search", error=1.0, solves=3):
             "boron": 1000.0 - 10.0 * efpd + 2.0 * e,
             "solves": solves,
             "assembly_burnups": [b + e, b - e],
-            "burnups": [[b + e], [b - e]],
-            "powers": [[0.5 * (1.0 + 0.01 * e)], [0.5 * (1.0 - 0.01 * e)]],
+            "burnups": [[b + e] * 2, [b - e] * 2],
+            "powers": [[0.25 * (1.0 + 0.01 * e)] * 2, [0.25 * (1.0 - 0.01 * e)] * 2],
         }
 
     points.append(point(None))
@@ -52,9 +52,9 @@ def core(split, method="search", error=1.0, solves=3):
         "format": "xlc-core-history",
         "specific_power": 40.0,
         "states": {"hfp": {"search": {"boron": [0.0, 1300.0]}, "b10": 0.199}},
-        "axial_mesh": [0.0, 20.0],
+        "axial_mesh": [0.0, 10.0, 20.0],
         "assemblies": ["A1", "A2"],
-        "heavy_metal": [[4000.0], [4000.0]],
+        "heavy_metal": [[2000.0, 2000.0], [2000.0, 2000.0]],
         "midpoint_boron": method,
         "points": points,
     }
@@ -154,6 +154,78 @@ class Steps(unittest.TestCase):
         self.assertEqual(by[("search", 4)]["total"], 14 * 3 + 12 * 5)
 
 
+def axial_core(split, offsets, method="search"):
+    """`core` の点 i の、上（10〜20 cm）と下（0〜10 cm）のノードの出力の割合の差を `offsets(i)` にした履歴"""
+    c = core(split, method)
+    for i, p in enumerate(c["points"]):
+        a = offsets(i)
+        p["powers"] = [[0.25 * (1.0 - a), 0.25 * (1.0 + a)]] * 2
+    return c
+
+
+class Axial(unittest.TestCase):
+    def test_offsets_of_every_point_are_the_upper_minus_the_lower_half(self):
+        runs = {("search", s): axial_core(s, lambda i: 0.1 * (-1) ** i) for s in (1, 2)}
+        s = summarize(runs)
+        by = {(x["method"], x["split"]): x for x in s["axial"]}
+        self.assertEqual(sorted(by), [("search", 1), ("search", 2)])
+        fine = by[("search", 2)]
+        points = runs[("search", 2)]["points"]
+        # 点ごとの日数（1e-6 日に丸める）と偏り（記録の表の桁の 1e-4 に丸める。要約を数十 KB に収める）
+        self.assertEqual(fine["days"], [round(p["days"], 6) for p in points])
+        self.assertEqual(
+            fine["offset"], [round(0.1 * (-1) ** i, 4) for i in range(len(points))]
+        )
+        self.assertEqual(set(fine), {"method", "split", "days", "offset"})
+
+    def test_the_mesh_needs_a_boundary_at_half_height(self):
+        runs = {("search", s): axial_core(s, lambda i: 0.0) for s in (1, 2)}
+        for c in runs.values():
+            c["axial_mesh"] = [0.0, 12.0, 20.0]
+        with self.assertRaises(SystemExit):
+            summarize(runs)
+
+
+class Methods(unittest.TestCase):
+    def test_equilibrium_xenon_histories_are_their_own_method(self):
+        runs = search_runs()
+        runs.update({("start", sp): core(sp, "start") for sp in (1, 2)})
+        runs.update({("equilibrium", sp): core(sp, error=0.5) for sp in (1, 2, 4)})
+        s = summarize(runs)
+        self.assertEqual(s["methods"], ["equilibrium", "search", "start"])
+        self.assertEqual(s["splits"]["equilibrium"], [1, 2, 4])
+        # 探索と案 S1 の差は、平衡 Xe の燃焼があっても出す
+        self.assertEqual(sorted(s["midpoint"]), ["1", "2"])
+        r = s["steps"]["equilibrium"][1]["ratios"][0]
+        self.assertAlmostEqual(r["burnup"], 4.0, places=9)
+
+    def test_methods_are_named_by_the_midpoint_boron_and_the_xenon(self):
+        name = compare_core_steps.method_name
+        micro = {"nuclides": ["Xe-135"]}
+        # ミクロ燃焼しない履歴は Xe の扱いを持たない
+        self.assertEqual(name({"midpoint_boron": "search"}), "search")
+        self.assertEqual(
+            name({"midpoint_boron": "search", "xenon": "tracked", **micro}), "search"
+        )
+        self.assertEqual(
+            name({"midpoint_boron": "start", "xenon": "tracked", **micro}), "start"
+        )
+        self.assertEqual(
+            name({"midpoint_boron": "search", "xenon": "equilibrium", **micro}),
+            "equilibrium",
+        )
+        for bad in (
+            {"midpoint_boron": "start", "xenon": "equilibrium", **micro},
+            {"midpoint_boron": "search", "xenon": "other", **micro},
+            {"midpoint_boron": "other"},
+            # ミクロ燃焼の履歴は Xe の扱いを持ち、ミクロ燃焼しない履歴は持たない（ADR-0219）
+            {"midpoint_boron": "search", **micro},
+            {"midpoint_boron": "search", "xenon": "tracked"},
+        ):
+            with self.assertRaises(SystemExit):
+                name(bad)
+
+
 class Errors(unittest.TestCase):
     def test_runs_need_the_base_split(self):
         with self.assertRaises(SystemExit):
@@ -161,7 +233,7 @@ class Errors(unittest.TestCase):
 
     def test_runs_must_share_the_core(self):
         runs = search_runs()
-        runs[("search", 2)]["heavy_metal"] = [[4000.0], [4001.0]]
+        runs[("search", 2)]["heavy_metal"] = [[2000.0, 2000.0], [2000.0, 2001.0]]
         with self.assertRaises(SystemExit):
             summarize(runs)
 
@@ -193,7 +265,7 @@ class Errors(unittest.TestCase):
 
     def test_power_differences_stop_at_nodes_without_fine_power(self):
         runs = search_runs()
-        runs[("search", 2)]["points"][2]["powers"] = [[1.0], [0.0]]
+        runs[("search", 2)]["points"][2]["powers"] = [[0.5, 0.5], [0.0, 0.0]]
         with self.assertRaises(SystemExit):
             summarize(runs)
 

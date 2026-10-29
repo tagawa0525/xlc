@@ -16,7 +16,7 @@ fuel = 565
 specific-power = 38.41
 history = "core-2A-micro.msgpack"
 # 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
-micro = { chain = "../chain.msgpack" }
+micro = { chain = "../chain.msgpack", xenon = "tracked" }
 steps = [
   { efpd = 2.603488674824265 },  # 0.1 MWd/kg
   { efpd = 6.508721687060661 },  # 0.25 MWd/kg

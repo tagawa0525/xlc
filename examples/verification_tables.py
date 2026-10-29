@@ -1023,25 +1023,34 @@ def core_steps_ratio(r: float | None) -> str:
     return "–" if r is None else f"{r:.2f}".replace("-", "−")
 
 
-def core_steps(method: str, sources: list[dict]) -> str:
-    """ステップの幅を変えた core の燃焼（compare_core_steps.py）の、中点のホウ素 `method` の燃焼の、基準の燃焼点ごとのホウ素濃度、
-    隣り合う分割の差（ホウ素、ノードの燃焼度の差の最大、ノードの出力の割合の相対差の最大）とその比"""
+def core_steps(
+    method: str, sources: list[dict], splits: list[int] | None = None
+) -> str:
+    """ステップの幅を変えた core の燃焼（compare_core_steps.py）の、方式 `method` の燃焼の、基準の燃焼点ごとのホウ素濃度、
+    隣り合う分割の差（ホウ素、ノードの燃焼度の差の最大、ノードの出力の割合の相対差の最大）とその比。`splits` があれば、その分割
+    （要約の分割の連続した一部）の組だけ"""
     s = core_steps_summary(sources)
     if method not in s["steps"]:
         raise TableError(f"the summary has no {method} depletions")
-    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(s["splits"][method])]
-    finest = s["splits"][method][-1]
+    every = s["splits"][method]
+    chosen = every if splits is None else splits
+    start = every.index(chosen[0]) if chosen and chosen[0] in every else -1
+    if start < 0 or every[start : start + len(chosen)] != chosen:
+        raise TableError(f"the splits {chosen} are not a run of {every}")
+    pairs = [f"{a}−{b}" for a, b in itertools.pairwise(chosen)]
+    finest = chosen[-1]
+    at = start + len(chosen)
     rows = []
     for p in s["steps"][method]:
-        d = p["differences"]
-        r = p["ratios"]
+        d = p["differences"][start : at - 1]
+        r = p["ratios"][start : max(start, at - 2)]
         rows.append(
             [
                 f"{p['burnup']:.4f}",
                 f"{p['days']:.4f}",
                 "–" if p["power"] is None else f"{p['power']:g}",
                 p["state"],
-                f"{p['boron'][-1]:.4f}",
+                f"{p['boron'][at - 1]:.4f}",
                 *(signed(x["boron"], 4) for x in d),
                 *(core_steps_ratio(x["boron"]) for x in r),
                 *(f"{x['burnup']:.2e}" for x in d),
@@ -1118,9 +1127,36 @@ def core_steps_solves(sources: list[dict]) -> str:
         for x in s["solves"]
     ]
     return markdown_table(
-        ["中点のホウ素", "分割", "燃焼点", "点の固有値計算", "中点の固有値計算", "計"],
+        ["方式", "分割", "燃焼点", "点の固有値計算", "中点の固有値計算", "計"],
         rows,
     )
+
+
+def core_steps_axial(
+    reference: tuple[str, int],
+    columns: list[tuple[str, int]],
+    days: tuple[float, float],
+    sources: list[dict],
+) -> str:
+    """燃焼ごとの軸方向の出力の偏り（compare_core_steps.py の `axial`）を、燃焼 `reference`（方式、分割）の日数 `days`（両端を含む）の
+    点に並べる。列は燃焼 `columns` で、その日数（1e-6 日に丸めた値。燃焼の中で日数は増える）の点の無い燃焼は –"""
+    s = core_steps_summary(sources)
+    runs = {
+        (r["method"], r["split"]): dict(zip(r["days"], r["offset"]))
+        for r in s.get("axial", [])
+    }
+    missing = [c for c in [reference, *columns] if c not in runs]
+    if missing:
+        raise TableError(f"the summary has no axial offsets of {missing}")
+    rows = [
+        [
+            f"{d:.4f}",
+            *("–" if d not in runs[c] else signed(runs[c][d], 4) for c in columns),
+        ]
+        for d in runs[reference]
+        if days[0] <= d <= days[1]
+    ]
+    return markdown_table(["日数", *(f"{m} 分割 {n}" for m, n in columns)], rows)
 
 
 def burnup_interpolation_summary(sources: list[dict]) -> dict:
@@ -2275,7 +2311,46 @@ TABLES = {
     ),
     "depletion-small-core-steps": (
         ["examples/depletion/branches/compare-core-small-steps.json"],
-        partial(core_steps, "search"),
+        partial(core_steps, "search", splits=[1, 2, 4, 8, 16]),
+    ),
+    "depletion-small-core-steps-fine": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(core_steps, "search", splits=[16, 32, 64, 128]),
+    ),
+    "depletion-small-core-steps-equilibrium": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(core_steps, "equilibrium"),
+    ),
+    "depletion-small-core-axial-start": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(
+            core_steps_axial,
+            ("search", 32),
+            [
+                ("search", 16),
+                ("search", 32),
+                ("search", 64),
+                ("search", 128),
+                ("equilibrium", 16),
+            ],
+            (3.0, 8.0),
+        ),
+    ),
+    "depletion-small-core-axial-end": (
+        ["examples/depletion/branches/compare-core-small-steps.json"],
+        partial(
+            core_steps_axial,
+            ("search", 16),
+            [
+                ("search", 8),
+                ("search", 16),
+                ("search", 32),
+                ("search", 64),
+                ("equilibrium", 8),
+                ("equilibrium", 16),
+            ],
+            (125.0, 236.0),
+        ),
     ),
     "depletion-small-core-steps-start": (
         ["examples/depletion/branches/compare-core-small-steps.json"],

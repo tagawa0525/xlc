@@ -6,8 +6,8 @@
 
 - `<分割>` は、基準のサイクルの出力のあるステップ（`efpd`）を等しい EFPD の何個に分けたか（1、2、4 など）。分割 1 の履歴を基準の
   サイクルとし、ほかの履歴は基準の燃焼点をすべて同じ EFPD と日数（日数は 1e-6 日に丸めて）で持つこと。崩壊だけのステップは分けない。
-  履歴の `midpoint_boron`（`search` か `start`）ごとに分割 1 があること（分割の組は中点のホウ素ごとに違ってよい。`splits` は中点の
-  ホウ素 → 分割）
+  燃焼の方式（`method_name`: Xe を時間で追う燃焼は中点のホウ素 `search` か `start`、Xe を平衡にした燃焼（#0200）は `equilibrium`）
+  ごとに分割 1 があること（分割の組は方式ごとに違ってよい。`splits` は方式 → 分割）
 - `--json`: 履歴がどれも同じ定格の出力密度、状態、軸方向のメッシュ、集合体、重金属の質量を持つことを確かめ、次を書く。
   - `steps`: 中点のホウ素ごとに、基準の燃焼点ごとの分割ごとのホウ素濃度、k、ノードの燃焼度と出力の割合と、隣り合う分割（1 と 2、
     2 と 4 …）の差（ホウ素は分割の粗い方 − 細かい方、燃焼度はノードの差の絶対値の最大、出力の割合はノードの相対差の絶対値の最大）と、
@@ -17,6 +17,8 @@
     割合の相対差の最大）
   - `solves`: 履歴ごとの燃焼点の数、点の固有値計算の回数（履歴の `solves` の和）、中点の固有値計算の回数（ログの `depletion midpoint`
     の行の `solves` の和）とその和
+  - `axial`: 履歴ごとの、すべての燃焼点の日数（1e-6 日に丸める）と軸方向の出力の偏り（炉心の高さの上半分のノードの出力の割合の和 −
+    下半分の和。割合の炉心の和は 1。1e-4 に丸める。軸方向のメッシュは高さの半分に境界を持つこと）
   `inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
@@ -42,6 +44,37 @@ SHARED = (
     "heavy_metal",
     "nuclides",
 )
+
+
+def method_name(core: dict) -> str:
+    """履歴の燃焼の方式の名前: Xe を時間で追う燃焼（`xenon` が `tracked`）とミクロ燃焼しない燃焼は `midpoint_boron`（`search` か
+    `start`）、Xe を平衡にした燃焼は `equilibrium`（中点でも探す燃焼だけ）。ミクロ燃焼の履歴（`nuclides` を持つ）は `xenon` を持ち、
+    ミクロ燃焼しない履歴は持たない（ADR-0219）"""
+    midpoint = core.get("midpoint_boron")
+    if midpoint not in ("search", "start"):
+        raise SystemExit(f"unexpected midpoint_boron {midpoint} of a history")
+    if ("nuclides" in core) != ("xenon" in core):
+        raise SystemExit(
+            "a micro depletion history names its xenon treatment, and only it (ADR-0219)"
+        )
+    xenon = core.get("xenon", "tracked")
+    if xenon not in ("tracked", "equilibrium"):
+        raise SystemExit(f"unexpected xenon {xenon} of a history")
+    if xenon == "tracked":
+        return midpoint
+    if midpoint != "search":
+        raise SystemExit("equilibrium xenon is compared with the midpoint search only")
+    return "equilibrium"
+
+
+def axial_offset(core: dict, point: dict) -> float:
+    """点の軸方向の出力の偏り（上半分のノードの出力の割合の和 − 下半分の和）"""
+    mesh = core["axial_mesh"]
+    half = 0.5 * (mesh[0] + mesh[-1])
+    if half not in mesh:
+        raise SystemExit(f"the axial mesh {mesh} has no boundary at half the height")
+    upper = mesh.index(half)
+    return sum(sum(row[upper:]) - sum(row[:upper]) for row in point["powers"])
 
 
 def key(point: dict) -> tuple[float, float]:
@@ -176,7 +209,7 @@ def summarize(
             )
         steps[method] = points
     midpoint = None
-    if methods == ["search", "start"]:
+    if {"search", "start"} <= set(methods):
         midpoint = {
             str(split): [
                 {
@@ -213,6 +246,16 @@ def summarize(
                 "total": point + sum(mids),
             }
         )
+    # 日数は点の鍵と同じく 1e-6 日に、偏りは記録の表の桁の 1e-4 に丸める（すべての点を持つので、要約を数十 KB に収める）
+    axial = [
+        {
+            "method": method,
+            "split": split,
+            "days": [key(p)[1] for p in core["points"]],
+            "offset": [round(axial_offset(core, p), 4) for p in core["points"]],
+        }
+        for (method, split), core in sorted(runs.items())
+    ]
     return {
         "specific_power": runs[(methods[0], 1)]["specific_power"],
         "splits": splits,
@@ -220,6 +263,7 @@ def summarize(
         "steps": steps,
         "midpoint": midpoint,
         "solves": solves,
+        "axial": axial,
     }
 
 
@@ -284,9 +328,7 @@ def main() -> None:
         files = []
         for split, history, log in map(parse, args[2:]):
             core = msgpack.unpackb(history.read_bytes())
-            method = core.get("midpoint_boron")
-            if method not in ("search", "start"):
-                raise SystemExit(f"{history}: unexpected midpoint_boron {method}")
+            method = method_name(core)
             if (method, split) in runs:
                 raise SystemExit(
                     f"{history}: a second {method} history of split {split}"
