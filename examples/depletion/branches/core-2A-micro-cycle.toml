@@ -1,0 +1,4 @@
+# 微視的断面積を持つ細かい燃焼度の軸のテーブルの集合体 1 体を置くサイクル。
+plant = "core-plant.toml"
+inventory = "core-2A-micro-assemblies.toml"
+loading = ["A01"]

@@ -1,0 +1,7 @@
+# 微視的断面積を持つ細かい燃焼度の軸のテーブル（branch-2A-micro.toml）。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A-micro.msgpack"]
+
+[assembly.A01]
+design = "2A"
