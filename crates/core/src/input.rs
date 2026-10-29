@@ -92,6 +92,9 @@
 //! specific-power = 38.41                      # 定格の出力密度 (W/g、炉心の平均、初めの重金属)
 //! steps = [{ efpd = 9.0 }, { efpd = 32.0 }]   # ステップの終わりの累積の EFPD。0 より大きく増える
 //! history = "history.msgpack"                 # 燃焼の履歴の出力
+//! # ミクロ燃焼（ADR-0216。省略するとノードの燃焼度だけを進める）。格子計算の燃焼と同じチェーンで、追う核種と補助の核種を
+//! # ノードごとに解き、少数群定数に線形の補正を足す。核分裂のあるテーブルは `micro` を持つこと
+//! micro = { chain = "chain.msgpack" }
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -759,6 +762,14 @@ struct DepletionEntry {
     specific_power: f64,
     steps: Vec<StepEntry>,
     history: PathBuf,
+    micro: Option<MicroEntry>,
+}
+
+/// 項目は決めたときに足す（平衡 Xe の入力など。#0193）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MicroEntry {
+    chain: PathBuf,
 }
 
 /// 項目は、効くようになるときに足す（出力の割合、入口の温度など。ADR-0190）
@@ -793,7 +804,9 @@ impl DepletionInput {
                 .map(|efpd| DepletionStep { efpd })
                 .collect(),
             history: normalized(&base.join(entry.history)),
-            micro: None,
+            micro: entry.micro.map(|m| MicroInput {
+                chain: normalized(&base.join(m.chain)),
+            }),
         })
     }
 

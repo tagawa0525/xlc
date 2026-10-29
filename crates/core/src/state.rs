@@ -254,13 +254,7 @@ pub fn interpolate(
     rod: Option<&str>,
 ) -> Result<Vec<FewGroup>, String> {
     let sub = table.sub_nodes();
-    if let Some(rod) = rod
-        && !table.axes.iter().any(|a| matches!(a, Axis::Rod { .. }))
-    {
-        return Err(format!(
-            "the rod value {rod:?} is in a layer whose table has no rod axis"
-        ));
-    }
+    check_rod(table, rod)?;
     let Some(state) = state else {
         if !table.axes.is_empty() {
             return Err(
@@ -314,11 +308,140 @@ pub struct MicroAt {
 /// テーブルの微視的断面積を、少数群定数と同じ重み（状態の組み立てと燃焼度の内挿）で、均質化した数密度を燃焼度の内挿だけで引く。
 /// テーブルが `micro` を持たなければエラー
 pub fn interpolate_micro(
-    _table: &Table,
-    _state: &State,
-    _rod: Option<&str>,
+    table: &Table,
+    state: &State,
+    rod: Option<&str>,
 ) -> Result<MicroAt, String> {
-    Err("not implemented".into())
+    let micro = table
+        .micro
+        .as_ref()
+        .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?;
+    check_rod(table, rod)?;
+    let weights = state_weights(table, state, rod)?;
+    let Some(Axis::Burnup { points }) =
+        table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
+    else {
+        return Err("micro data need a burnup axis (ADR-0216)".into());
+    };
+    let burnup = state
+        .burnup
+        .ok_or("the table has a burnup axis; give the state a burnup (ADR-0187)")?;
+    let mut densities = vec![0.0; micro.nuclides.len()];
+    for (k, h) in burnup_terms(points, burnup)? {
+        let row = micro
+            .densities
+            .get(k)
+            .ok_or_else(|| format!("the micro data have no densities at burnup point {k}"))?;
+        add(&mut densities, h, row);
+    }
+    let first = micro
+        .states
+        .first()
+        .ok_or("the micro data have no states")?;
+    let mut nuclides: Vec<MicroNuclide> = first.iter().map(|n| scaled_micro(n, 0.0)).collect();
+    // 少数群定数と同じ点の順に、同じ重みで足す（重みが 0 の点は使わない）
+    for &(point, weight) in &weights.points {
+        if weight != 0.0 {
+            let state = micro
+                .states
+                .get(point)
+                .ok_or_else(|| format!("the micro data have no state {point}"))?;
+            for (acc, n) in nuclides.iter_mut().zip(state) {
+                accumulate_micro(acc, weight, n);
+            }
+        }
+    }
+    for (name, n) in micro.nuclides.iter().zip(&nuclides) {
+        // 収率の重みの割合は 0..1（負の重みの組み立てで外れうる。ADR-0183）
+        if let Some(f) = n.thermal_fission
+            && !(0.0..=1.0).contains(&f)
+        {
+            return Err(weights.hint(format!(
+                "{name}: the interpolated fraction of fissions below the yield cutoff is {f}"
+            )));
+        }
+        if !weights.causes.is_empty() {
+            let negative = [&n.total, &n.nu_fission, &n.fission]
+                .into_iter()
+                .chain(n.reactions.iter().flat_map(|r| &r.channels))
+                .flatten()
+                .find(|&&x| x < 0.0);
+            if let Some(x) = negative {
+                return Err(weights.hint(format!(
+                    "{name}: the interpolation gave a negative micro cross section {x}"
+                )));
+            }
+        }
+    }
+    Ok(MicroAt {
+        densities,
+        nuclides,
+    })
+}
+
+/// `w` 倍した微視的断面積。項目を足したらここで扱いを決める（`..` を使わない）
+fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
+    let MicroNuclide {
+        total,
+        nu_fission,
+        fission,
+        scatter,
+        reactions,
+        thermal_fission,
+    } = n;
+    let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
+    MicroNuclide {
+        total: v(total),
+        nu_fission: v(nu_fission),
+        fission: v(fission),
+        scatter: scatter.iter().map(|r| v(r)).collect(),
+        reactions: reactions
+            .iter()
+            .map(|r| xlc_format::table::MicroReaction {
+                mt: r.mt,
+                channels: r.channels.iter().map(|c| v(c)).collect(),
+            })
+            .collect(),
+        thermal_fission: thermal_fission.map(|f| w * f),
+    }
+}
+
+/// `acc += w * n`（反応の並びと核分裂の有無はテーブルの検査で状態の間で同じ）。項目を足したらここで扱いを決める
+fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
+    let MicroNuclide {
+        total,
+        nu_fission,
+        fission,
+        scatter,
+        reactions,
+        thermal_fission,
+    } = n;
+    add(&mut acc.total, w, total);
+    add(&mut acc.nu_fission, w, nu_fission);
+    add(&mut acc.fission, w, fission);
+    for (a, x) in acc.scatter.iter_mut().zip(scatter) {
+        add(a, w, x);
+    }
+    for (a, x) in acc.reactions.iter_mut().zip(reactions) {
+        for (a, x) in a.channels.iter_mut().zip(&x.channels) {
+            add(a, w, x);
+        }
+    }
+    if let (Some(a), Some(x)) = (&mut acc.thermal_fission, thermal_fission) {
+        *a += w * x;
+    }
+}
+
+/// 棒のある区間（`rod`）は、制御棒の軸を持つテーブルで引く
+fn check_rod(table: &Table, rod: Option<&str>) -> Result<(), String> {
+    if let Some(rod) = rod
+        && !table.axes.iter().any(|a| matches!(a, Axis::Rod { .. }))
+    {
+        return Err(format!(
+            "the rod value {rod:?} is in a layer whose table has no rod axis"
+        ));
+    }
+    Ok(())
 }
 
 /// 内挿に使うテーブルの点の重みと、負の重みの出どころ（負の重みで組み立てたときだけ。値の検査のエラーに添える）
