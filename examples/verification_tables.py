@@ -1684,6 +1684,9 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A-boron.json",
     "examples/depletion/branches/compare-core-2A-micro.json",
     "examples/depletion/branches/compare-core-2A-partial-rods.json",
+    "examples/depletion/branches/compare-core-2A-cycle-power.json",
+    "examples/depletion/branches/compare-core-2A-cycle-decay.json",
+    "examples/depletion/branches/compare-core-2A-cycle-rods.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -2144,6 +2147,18 @@ TABLES = {
     "depletion-2a-core-partial-rods-densities": (
         ["examples/depletion/branches/compare-core-2A-partial-rods.json"],
         core_partial_rods_densities,
+    ),
+    "depletion-2a-core-cycle-power": (
+        ["examples/depletion/branches/compare-core-2A-cycle-power.json"],
+        core_cycle_points,
+    ),
+    "depletion-2a-core-cycle-decay": (
+        ["examples/depletion/branches/compare-core-2A-cycle-decay.json"],
+        core_cycle_points,
+    ),
+    "depletion-2a-core-cycle-rods": (
+        ["examples/depletion/branches/compare-core-2A-cycle-rods.json"],
+        core_cycle_points,
     ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],
