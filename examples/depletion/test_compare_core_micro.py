@@ -18,7 +18,7 @@ def core(points, nuclides=None):
     history = {
         "format": "xlc-core-history",
         "specific_power": 40.0,
-        "state": dict(STATE),
+        "states": {"nominal": dict(STATE)},
         "axial_mesh": [0.0, 21.5],
         "assemblies": ["A01"],
         "heavy_metal": [[9000.0]],
@@ -105,7 +105,7 @@ class Summary(unittest.TestCase):
         lattice, table, micro, plain = inputs()
         with self.assertRaises(SystemExit):
             compare_core_micro.summarize(lattice, table, plain, micro)
-        plain["state"]["boron"] = 1000.0
+        plain["states"]["nominal"]["boron"] = 1000.0
         with self.assertRaises(SystemExit):
             compare_core_micro.summarize(lattice, table, micro, plain)
         lattice, table, micro, plain = inputs()
