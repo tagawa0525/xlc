@@ -201,6 +201,10 @@ impl CoreHistory {
                     .map_err(|m| CaseError::Depletion(format!("the history state {name}: {m}")))?;
             }
         }
+        // 燃焼は燃焼点 0 を必ず書く
+        if file.points.is_empty() {
+            return Err(CaseError::Depletion("the history has no point".into()));
+        }
         // ミクロ燃焼の履歴は、どの点も [集合体][軸方向のノード] ごとに追う核種の数の有限な数密度（核分裂のないノードは空）を持つ
         let layers = file.axial_mesh.len().saturating_sub(1);
         for (k, point) in file.points.iter().enumerate() {
