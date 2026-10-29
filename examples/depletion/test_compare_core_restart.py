@@ -113,6 +113,22 @@ class Restarts(unittest.TestCase):
         # 補助の核種も、切らない燃焼の最大の数密度（1e-9）に対する比
         self.assertAlmostEqual(cut["auxiliary_max_relative"], 0.1)
 
+    def test_differences_below_the_cram_error_of_the_largest_density_count_at_that_scale(
+        self,
+    ):
+        # 崩壊で消えた核種（1e-30）の差は、炉心の最大の数密度（U-235 の 7e-4）の 1e-12 倍に対する比で数える（CRAM の近似の誤差の水準。
+        # 核種ごとの最大に対する比では、0 に近い値の揺らぎが 1 の大きさになる）
+        first, second = halves()
+        full = core(FULL)
+        full["auxiliary_densities"] = [[[1.0e-30], [1.0e-30]]] * 2
+        second["auxiliary_densities"] = [[[2.0e-30], [1.0e-30]]] * 2
+        (cut,) = compare_core_restart.summarize(full, {"a": (first, second)}, None)[
+            "cuts"
+        ]
+        self.assertAlmostEqual(
+            cut["auxiliary_max_relative"], 1.0e-30 / (1.0e-12 * 7e-4)
+        )
+
     def test_halves_that_do_not_join_the_uncut_depletion_are_errors(self):
         for edit in [
             lambda f, s: s.update(axial_mesh=[0.0, 5.0, 20.0]),
