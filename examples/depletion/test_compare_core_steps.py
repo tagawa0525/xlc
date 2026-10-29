@@ -201,18 +201,26 @@ class Methods(unittest.TestCase):
 
     def test_methods_are_named_by_the_midpoint_boron_and_the_xenon(self):
         name = compare_core_steps.method_name
+        micro = {"nuclides": ["Xe-135"]}
+        # ミクロ燃焼しない履歴は Xe の扱いを持たない
         self.assertEqual(name({"midpoint_boron": "search"}), "search")
         self.assertEqual(
-            name({"midpoint_boron": "search", "xenon": "tracked"}), "search"
+            name({"midpoint_boron": "search", "xenon": "tracked", **micro}), "search"
         )
-        self.assertEqual(name({"midpoint_boron": "start", "xenon": "tracked"}), "start")
         self.assertEqual(
-            name({"midpoint_boron": "search", "xenon": "equilibrium"}), "equilibrium"
+            name({"midpoint_boron": "start", "xenon": "tracked", **micro}), "start"
+        )
+        self.assertEqual(
+            name({"midpoint_boron": "search", "xenon": "equilibrium", **micro}),
+            "equilibrium",
         )
         for bad in (
-            {"midpoint_boron": "start", "xenon": "equilibrium"},
-            {"midpoint_boron": "search", "xenon": "other"},
+            {"midpoint_boron": "start", "xenon": "equilibrium", **micro},
+            {"midpoint_boron": "search", "xenon": "other", **micro},
             {"midpoint_boron": "other"},
+            # ミクロ燃焼の履歴は Xe の扱いを持ち、ミクロ燃焼しない履歴は持たない（ADR-0219）
+            {"midpoint_boron": "search", **micro},
+            {"midpoint_boron": "search", "xenon": "tracked"},
         ):
             with self.assertRaises(SystemExit):
                 name(bad)
