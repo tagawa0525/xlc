@@ -194,6 +194,11 @@ impl MicroChain {
         })
     }
 
+    /// 平衡 Xe（`equilibrium`）を解けるか: Xe-135 と I-135 が解く核種にある
+    pub fn balances_xenon(&self) -> bool {
+        self.xenon.is_some()
+    }
+
     /// 補助の核種の数
     pub fn auxiliary(&self) -> usize {
         self.solved.len() - self.tracked.len()
@@ -371,16 +376,17 @@ impl MicroChain {
         // 平衡の式: Σ_{j∈S} A_ij N_j = −Σ_{j∉S} A_ij N_j（i ∈ S）
         let at: BTreeMap<usize, usize> = set.iter().enumerate().map(|(k, &i)| (i, k)).collect();
         let size = set.len();
-        let mut a = vec![vec![0.0; size]; size];
+        // 行優先の A_SS
+        let mut a = vec![0.0; size * size];
         let mut b = vec![0.0; size];
         for (row, column, value) in self.entries(rates)? {
             let Some(&i) = at.get(&row) else { continue };
             match at.get(&column) {
-                Some(&j) => a[i][j] += value,
+                Some(&j) => a[i * size + j] += value,
                 None => b[i] -= value * n[column],
             }
         }
-        let solution = solve_dense(a, b)
+        let solution = xlc_numeric::lu::solve(a, b)
             .ok_or_else(|| "the equilibrium xenon equations are singular".to_string())?;
         let mut out = n.to_vec();
         for (&i, v) in set.iter().zip(solution) {
@@ -417,35 +423,6 @@ fn xenon_set(solved: &[usize], chain: &Chain, tracked: &[usize]) -> Option<Vec<u
         }
     }
     Some(set.into_iter().collect())
-}
-
-/// 部分ピボットの Gauss の消去で a x = b を解く（特異なら `None`）
-pub(crate) fn solve_dense(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
-    let n = b.len();
-    for c in 0..n {
-        let p = (c..n).max_by(|&i, &j| a[i][c].abs().total_cmp(&a[j][c].abs()))?;
-        if a[p][c] == 0.0 || !a[p][c].is_finite() {
-            return None;
-        }
-        a.swap(c, p);
-        b.swap(c, p);
-        for r in c + 1..n {
-            let f = a[r][c] / a[c][c];
-            if f != 0.0 {
-                let (upper, lower) = a.split_at_mut(r);
-                for (v, p) in lower[0][c..].iter_mut().zip(&upper[c][c..]) {
-                    *v -= f * p;
-                }
-                b[r] -= f * b[c];
-            }
-        }
-    }
-    let mut x = vec![0.0; n];
-    for r in (0..n).rev() {
-        let s: f64 = (r + 1..n).map(|k| a[r][k] * x[k]).sum();
-        x[r] = (b[r] - s) / a[r][r];
-    }
-    Some(x)
 }
 
 /// 解く核種（チェーンの番号の昇順）: 追う核種 `tracked` と、追う核種へ崩壊で流れ込む核種（崩壊の逆向きのクロージャ）のうち、

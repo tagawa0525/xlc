@@ -487,6 +487,15 @@ pub fn deplete(
         return fail("a decay step needs micro depletion (ADR-0218)".into());
     }
     let xenon = depletion.micro.as_ref().map(|m| m.xenon);
+    // 長い計算を始める前に
+    if xenon == Some(Xenon::Equilibrium)
+        && micro.as_ref().is_some_and(|m| !m.chain.balances_xenon())
+    {
+        return fail(
+            "equilibrium xenon needs Xe-135 and I-135 among the solved nuclides (tracked or auxiliary; ADR-0219)"
+                .into(),
+        );
+    }
     let mut densities = micro
         .as_ref()
         .map(|m| m.initial(point_state(0), &layouts, tables))
@@ -545,14 +554,15 @@ pub fn deplete(
     // 定格の出力密度 × 解の核分裂率の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギーを、割合で伸びた
     // 時間で出す。ADR-0218）。ミクロ燃焼しない位置は `None`
     let mass: f64 = masses.iter().sum();
+    // `total` は解の核分裂率の炉心の和（位置ごとに足し直さない）
     let node_rates = |m: &MicroNodes,
                       solve: &Solve,
+                      total: f64,
                       power: f64,
                       burnups: &[f64],
                       site: usize,
                       n: &[f64]|
      -> Result<Option<Vec<TrackedRates>>, String> {
-        let total: f64 = solve.rates.iter().sum();
         let state = states[solve.state].at(solve.ppm);
         let (Some(layout), uses) = (&layouts[solve.state], &m.uses[solve.state]) else {
             return Err(format!(
@@ -607,13 +617,14 @@ pub fn deplete(
                          at: &dyn Fn() -> String|
      -> Result<Vec<Option<Vec<f64>>>, CaseError> {
         let start = std::time::Instant::now();
+        let total: f64 = solve.rates.iter().sum();
         let next = (0..sites)
             .into_par_iter()
             .map(|site| {
                 let (Some(n), Some(from)) = (&n[site], &from[site]) else {
                     return Ok(None);
                 };
-                let Some(rates) = node_rates(m, solve, power, burnups, site, n)? else {
+                let Some(rates) = node_rates(m, solve, total, power, burnups, site, n)? else {
                     return Ok(None);
                 };
                 let a = m.chain.matrix(&rates)?;
@@ -642,20 +653,22 @@ pub fn deplete(
      -> Result<(Solve, Option<Densities>), CaseError> {
         let (Some(m), Some(n)) = (
             micro.as_ref().filter(|_| xenon == Some(Xenon::Equilibrium)),
-            n.clone(),
+            n.as_ref(),
         ) else {
             return solve(k, burnups, n.as_deref(), given, at).map(|s| (s, n));
         };
+        let n = n.clone();
         // 点の固有値計算の回数は、固定点のすべての解の和
         let mut solves = 0;
         equilibrate(n, |n| {
             let solved = solve(k, burnups, Some(n), given, at)?;
             solves += solved.solves;
+            let total: f64 = solved.rates.iter().sum();
             let balanced = (0..sites)
                 .into_par_iter()
                 .map(|site| {
                     let Some(n) = &n[site] else { return Ok(None) };
-                    match node_rates(m, &solved, power, burnups, site, n)? {
+                    match node_rates(m, &solved, total, power, burnups, site, n)? {
                         Some(rates) => m.chain.equilibrium(&rates, n).map(Some),
                         None => Ok(None),
                     }
@@ -862,13 +875,40 @@ pub fn deplete(
         // 出力のステップの終わりの点は運転している解。点は次のステップの状態で解く（ADR-0218 の案 P2）ので、次も出力のステップなら
         // その出力で、次が崩壊だけのステップか最後の点なら終わったステップの出力で運転している。崩壊だけのステップの後の点は、崩壊で
         // 進めた組成のまま解く（停止の後の Xe は、平衡でなく崩壊の結果）
+        let next = depletion.steps.get(i + 1).map(|s| s.kind);
         (solve_at_point, densities) = match step.kind {
+            // 崩壊だけのステップの前の点の Xe は、停止の前に運転していた状態（終わったステップの状態）の中性子束で釣り合う。点は
+            // 崩壊だけのステップの状態で、その組成で解く
+            StepKind::Power { power, .. }
+                if xenon == Some(Xenon::Equilibrium)
+                    && matches!(next, Some(StepKind::Decay { .. }))
+                    && point_state(i + 1) != step.state =>
+            {
+                let (operating, balanced) =
+                    solve_operating(step.state, &burnups, densities.take(), None, power, &|| {
+                        at_point.clone()
+                    })?;
+                let point = solve(
+                    point_state(i + 1),
+                    &burnups,
+                    balanced.as_deref(),
+                    None,
+                    &|| at_point.clone(),
+                )?;
+                (
+                    Solve {
+                        solves: operating.solves + point.solves,
+                        ..point
+                    },
+                    balanced,
+                )
+            }
             StepKind::Power { power, .. } => solve_operating(
                 point_state(i + 1),
                 &burnups,
                 densities.take(),
                 None,
-                match depletion.steps.get(i + 1).map(|s| s.kind) {
+                match next {
                     Some(StepKind::Power { power: next, .. }) => next,
                     _ => power,
                 },
@@ -1019,7 +1059,7 @@ fn anderson(previous: &[Iterate], last: &Iterate, scale: &[f64]) -> Vec<f64> {
         .map(|i| (0..m).map(|j| dot(&df[i], &df[j])).collect())
         .collect();
     let right: Vec<f64> = (0..m).map(|i| dot(&df[i], &f[m])).collect();
-    let Some(gamma) = crate::micro::solve_dense(normal, right) else {
+    let Some(gamma) = xlc_numeric::lu::solve(normal.concat(), right) else {
         return last.1.clone();
     };
     let mut next = last.1.clone();
