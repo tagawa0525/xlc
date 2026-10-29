@@ -1004,7 +1004,7 @@ def core_cycle_points(sources: list[dict]) -> str:
             "解析値との相対差",
             "ノードの燃焼度 (MWd/kg)",
             "k",
-            *(f"k − {r} (pcm)" for r in s["references"]),
+            *(f"Δρ（{r} から） (pcm)" for r in s["references"]),
             *(f"{n} (1/(barn cm))" for n in s["nuclides"]),
         ],
         rows,
