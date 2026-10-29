@@ -290,7 +290,7 @@ pub fn interpolate(
     for f in &out {
         f.validate().map_err(|e| weights.hint(e.to_string()))?;
         if !weights.causes.is_empty() {
-            non_negative(f).map_err(|e| weights.hint(e))?;
+            non_negative(f).map_err(|e| weights.hint(format!("the interpolation gave {e}")))?;
         }
     }
     Ok(out)
@@ -813,7 +813,7 @@ pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
         .chain(scatter.iter().map(|row| ("scatter", row)))
     {
         if let Some(bad) = v.iter().find(|&&x| x < 0.0) {
-            return Err(format!("the interpolation gave a negative {name} {bad}"));
+            return Err(format!("a negative {name} {bad}"));
         }
     }
     Ok(())

@@ -139,14 +139,19 @@ impl CoreHistory {
                 "the history state must hold either boron or search".into(),
             ));
         }
-        // ミクロ燃焼の履歴は、どの点もノードごとに追う核種の数の数密度（核分裂のないノードは空）を持つ
+        // ミクロ燃焼の履歴は、どの点も [集合体][軸方向のノード] ごとに追う核種の数の有限な数密度（核分裂のないノードは空）を持つ
+        let layers = file.axial_mesh.len().saturating_sub(1);
         for (k, point) in file.points.iter().enumerate() {
             let fits = match (&file.nuclides, &point.densities) {
                 (None, None) => true,
-                (Some(names), Some(rows)) => rows
-                    .iter()
-                    .flatten()
-                    .all(|n| n.is_empty() || n.len() == names.len()),
+                (Some(names), Some(rows)) => {
+                    rows.len() == file.assemblies.len()
+                        && rows.iter().all(|r| r.len() == layers)
+                        && rows.iter().flatten().all(|n| {
+                            (n.is_empty() || n.len() == names.len())
+                                && n.iter().all(|v| v.is_finite())
+                        })
+                }
                 _ => false,
             };
             if !fits {
@@ -279,11 +284,7 @@ pub fn deplete(
     let sites = nx * ny * nz;
     // 核分裂するテーブルは質量を持つこと（燃焼度の定義の質量がないので推測しない）。解く前に、ファイルを示して止める
     for (file, table) in layout.files.iter().zip(tables) {
-        let fissile = table
-            .states
-            .iter()
-            .any(|s| s.nu_fission.iter().any(|&v| v > 0.0));
-        if fissile && table.heavy_metal.is_none() {
+        if fissile(table) && table.heavy_metal.is_none() {
             return fail(format!(
                 "{}: the table has fission but no heavy_metal; make it from a depletion history (ADR-0190)",
                 file.display()
@@ -649,7 +650,8 @@ impl MicroNodes {
                 continue;
             };
             let file = layout.tables[material.table].file;
-            if !fissile(&tables[file]) {
+            // 燃焼度で引くのはテーブルの使い方が位置を持つノードだけ（反射体の位置は燃焼せず、補正もしない）
+            if layout.tables[material.table].node.is_none() || !fissile(&tables[file]) {
                 continue;
             }
             let Some(micro) = &tables[file].micro else {
