@@ -110,7 +110,8 @@ class Restarts(unittest.TestCase):
             core(FULL), {"a": (first, second)}, None
         )["cuts"]
         self.assertAlmostEqual(cut["points"][1]["density_max_relative"], 1e-12 / 2e-9)
-        self.assertAlmostEqual(cut["auxiliary_max_relative"], 0.1 / 1.1)
+        # 補助の核種も、切らない燃焼の最大の数密度（1e-9）に対する比
+        self.assertAlmostEqual(cut["auxiliary_max_relative"], 0.1)
 
     def test_halves_that_do_not_join_the_uncut_depletion_are_errors(self):
         for edit in [
