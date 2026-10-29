@@ -492,7 +492,7 @@ pub fn deplete(
         && micro.as_ref().is_some_and(|m| !m.chain.balances_xenon())
     {
         return fail(
-            "equilibrium xenon needs Xe-135 and I-135 among the solved nuclides (tracked or auxiliary; ADR-0219)"
+            "equilibrium xenon needs Xe-135 among the tracked nuclides and I-135 among the solved ones (ADR-0219)"
                 .into(),
         );
     }
@@ -1019,7 +1019,7 @@ fn equilibrate<S>(
             .fold(0.0, f64::max);
         tracing::debug!(iteration, residual, "equilibrium xenon");
         if residual <= EQUILIBRIUM_TOLERANCE {
-            tracing::info!(solves = iteration, residual, "equilibrium xenon");
+            tracing::info!(iterations = iteration, residual, "equilibrium xenon");
             return Ok((solved, x));
         }
         let last = (xf, gf);

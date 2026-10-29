@@ -56,8 +56,8 @@ pub struct MicroChain {
     decay: Vec<(usize, usize, f64)>,
     /// 追う核種ごと（テーブルの順）
     tracked: Vec<TrackedTerms>,
-    /// 平衡 Xe で解く核種（Xe-135、I-135 と、それらへ崩壊で流れ込む補助の核種）の、解く核種の中の番号。Xe-135 か I-135 が
-    /// 解く核種になければ `None`
+    /// 平衡 Xe で解く核種（Xe-135、I-135 と、それらへ崩壊で流れ込む補助の核種）の、解く核種の中の番号。Xe-135 が追う核種でないか、
+    /// I-135 が解く核種になければ `None`
     xenon: Option<Vec<usize>>,
 }
 
@@ -194,7 +194,7 @@ impl MicroChain {
         })
     }
 
-    /// 平衡 Xe（`equilibrium`）を解けるか: Xe-135 と I-135 が解く核種にある
+    /// 平衡 Xe（`equilibrium`）を解けるか: Xe-135 が追う核種で、I-135 が解く核種（追う核種か補助の核種）にある
     pub fn balances_xenon(&self) -> bool {
         self.xenon.is_some()
     }
@@ -359,11 +359,10 @@ impl MicroChain {
     }
 
     /// 反応率 `rates` で、Xe-135、I-135 とそれらへ崩壊で流れ込む補助の核種の生成と消滅が釣り合う数密度に、解く核種の数密度
-    /// `n` のそれらの値を置き換える（ほかの核種の数密度は `n` のまま。平衡 Xe。ADR-0216 の案 E1、#0200）。Xe-135 か I-135 が
-    /// 解く核種になければエラー
+    /// `n` のそれらの値を置き換える（ほかの核種の数密度は `n` のまま。平衡 Xe。ADR-0219）。`balances_xenon` でなければエラー
     pub fn equilibrium(&self, rates: &[TrackedRates], n: &[f64]) -> Result<Vec<f64>, String> {
         let set = self.xenon.as_ref().ok_or_else(|| {
-            "equilibrium xenon needs Xe-135 and I-135 among the solved nuclides (tracked or auxiliary)"
+            "equilibrium xenon needs Xe-135 among the tracked nuclides and I-135 among the solved ones"
                 .to_string()
         })?;
         if n.len() != self.solved.len() {
@@ -397,11 +396,15 @@ impl MicroChain {
 }
 
 /// 平衡 Xe で解く核種（`MicroChain::xenon`）: 解く核種 `solved`（チェーンの番号）の中の Xe-135、I-135 と、それらへ崩壊で流れ込む
-/// 補助の核種（`solved` の中の番号）。補助の核種は崩壊だけなので、その平衡は収率と親の崩壊で決まる。追う核種（`tracked`、チェーンの
+/// 補助の核種（`solved` の中の番号）。Xe-135 が追う核種でなければ `None`。補助の核種は崩壊だけなので、その平衡は収率と親の崩壊で決まる。追う核種（`tracked`、チェーンの
 /// 番号）は、Xe-135 と I-135 のほかは平衡にしない
 fn xenon_set(solved: &[usize], chain: &Chain, tracked: &[usize]) -> Option<Vec<usize>> {
     let find = |name: &str| solved.iter().position(|&i| chain.nuclides[i].name == name);
     let roots = [find("Xe-135")?, find("I-135")?];
+    // 補助の核種は崩壊だけで少数群定数を補正しないので、補助の Xe-135 の平衡は中性子束に効かない
+    if !tracked.contains(&solved[roots[0]]) {
+        return None;
+    }
     // 崩壊の逆向き（解く核種の中の番号）
     let mut parents: Vec<Vec<usize>> = vec![Vec::new(); solved.len()];
     for (k, &i) in solved.iter().enumerate() {
