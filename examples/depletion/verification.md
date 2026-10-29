@@ -4694,7 +4694,7 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
 
 ブランチ feat/0153-core-micro-depletion（分岐点は main の 86ee86ee）、2026-10-29。分岐の格子計算は f42a2d72 の `bin/lattice`（main の
 `dvc.lock` の `build` の出力。Slurm 592、割り込まれうるジョブなので時間は記録に使わない）。テーブル `table-2A-micro.msgpack` は md5 646d0ec2
-（追跡しない生成物）。core の 2 つの燃焼と比較は fb19d2a9（手元）。core の履歴は、ミクロ燃焼が md5 8b84f19e、ミクロ燃焼なしが c67988b2。
+（追跡しない生成物）。core の 2 つの燃焼と比較は ca8d6eff（手元）。core の履歴は、ミクロ燃焼が md5 85801b64、ミクロ燃焼なしが c67988b2。
 ミクロ燃焼なしの core は、テーブルの点で分岐の格子計算の k∞ を 0.00043 pcm 以内で再現する（`compare-core-2A-micro-macro.json`。ADR-0190 の
 確認の 0.0008 pcm と同じ水準）。燃焼度 0 の点は、ミクロ燃焼の core もテーブルの数密度から始めるので補正が 0 で、ミクロ燃焼なしと同じ k に
 なる（ADR-0216 の確認 (a)）。
@@ -4823,6 +4823,9 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
   （燃焼度 0 から生まれ始める核種）。表の主要な核種の 0.1 MWd/kg は Pu-241 −0.6350%、Am-241 −0.6228%、Pu-240 −0.5096%、Xe-135 −0.3139%。
   差は、ステップの離散化（ステップは履歴と同じ点。core の中点の σᵢ は燃焼度で内挿した値）と、追わない輸送する核種の反応の分（ADR-0216）を
   含み、分けていない
+- 表の主要な核種の外では、40 MWd/kg の点だけで Am-243 が −0.3473%、Cm-244 が −0.1597% と、前後の点（32、48 MWd/kg）より大きく外れる
+  （`compare-core-2A-micro.json` の `density_points`）。候補は、テーブルの点 32 と 40 の間の σᵢ の燃焼度の内挿の誤差（Pu-242 と Am-243 の捕獲）で、
+  確かめていない
 - k（確認 (c)）: テーブルの点では、ミクロ燃焼なしの core は履歴を −0.071〜−0.026 pcm で再現し、ミクロ燃焼の core と履歴の差 −4.383〜+7.674 pcm は
   線形の補正の効き（ミクロ − なし −4.313〜+7.713 pcm）。最大は 0.1 MWd/kg の +7.674 pcm（その点で Xe-135 は N̄ᵢ⁰ より 0.3139% 少ない）で、
   20 MWd/kg 以後のテーブルの点は −4.383〜−1.084 pcm
