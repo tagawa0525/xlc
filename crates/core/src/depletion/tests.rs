@@ -1221,6 +1221,16 @@ fn histories_hold_densities_exactly_when_they_name_nuclides() {
     let mut short = history.clone();
     short.points[1].densities.as_mut().unwrap()[0][0].pop();
     assert!(CoreHistory::from_msgpack(&short.to_msgpack().unwrap()).is_err());
+    // 集合体と軸方向のノードの数、有限の値
+    let mut rows = history.clone();
+    rows.points[1].densities.as_mut().unwrap().pop();
+    assert!(CoreHistory::from_msgpack(&rows.to_msgpack().unwrap()).is_err());
+    let mut layers = history.clone();
+    layers.points[1].densities.as_mut().unwrap()[0].pop();
+    assert!(CoreHistory::from_msgpack(&layers.to_msgpack().unwrap()).is_err());
+    let mut nan = history.clone();
+    nan.points[1].densities.as_mut().unwrap()[0][0][0] = f64::NAN;
+    assert!(CoreHistory::from_msgpack(&nan.to_msgpack().unwrap()).is_err());
     let mut unnamed = history;
     unnamed.nuclides = None;
     assert!(CoreHistory::from_msgpack(&unnamed.to_msgpack().unwrap()).is_err());

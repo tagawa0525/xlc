@@ -246,6 +246,9 @@ fn rates_make_the_tracked_fission_power_the_node_power_density() {
     // 出力: Σ N σf φ Q = 出力密度（数密度 1/(barn cm) と BARN で 1/cm³）
     let fission_power = 7.0e-4 / BARN * rates[0].fission * 193.0e6 * EV;
     assert!(close(fission_power, power), "{fission_power}");
+    // 中性子束の群の数が微視的断面積と違う
+    assert!(micro.rates(&at, &[3.0], &n, power).is_err());
+    assert!(micro.rates(&at, &[3.0, 1.0, 0.5], &n, power).is_err());
     // 追う核分裂性の核種の数密度がなければ、出力を出せない
     assert!(
         micro
