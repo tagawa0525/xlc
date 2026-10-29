@@ -1080,9 +1080,8 @@ fn negative_differences_from_the_nominal_state_are_errors() {
 /// 状態ごとに、少数群定数の項目から作った 1 核種の微視的断面積（捕獲の経路は吸収）と、燃焼度の点ごとの数密度 `density(燃焼度)` を
 /// 足したテーブル
 fn with_micro(mut t: Table, density: impl Fn(f64) -> f64) -> Table {
-    let points = match &t.axes[0] {
-        Axis::Burnup { points } => points.clone(),
-        _ => unreachable!("the test tables put the burnup axis first"),
+    let Axis::Burnup { points } = t.axes[0].clone() else {
+        panic!("the test tables put the burnup axis first")
     };
     t.micro = Some(xlc_format::table::Micro {
         nuclides: vec!["U-235".into()],
@@ -1117,7 +1116,7 @@ fn micro_cross_sections_take_the_weights_of_the_few_group_constants() {
         (with_micro(burnup_table_of(&CURVED, curve), curve), 18.0),
     ] {
         let Axis::Burnup { points } = &t.axes[0] else {
-            unreachable!()
+            panic!("the test tables put the burnup axis first")
         };
         let densities = &t.micro.as_ref().unwrap().densities;
         for (bu, ppm, tm, tf) in [
@@ -1139,7 +1138,7 @@ fn micro_cross_sections_take_the_weights_of_the_few_group_constants() {
             assert_eq!(n.fission, f.fission);
             assert_eq!(n.scatter, f.scatter);
             assert_eq!(n.reactions[0].mt, 102);
-            assert_eq!(n.reactions[0].channels, [f.absorption.clone()]);
+            assert_eq!(n.reactions[0].channels, std::slice::from_ref(&f.absorption));
             assert!((n.thermal_fission.unwrap() - 0.9).abs() <= 1e-15);
             // 数密度は公称の履歴の値なので、燃焼度だけで内挿する
             let want: f64 = burnup_terms(points, bu)

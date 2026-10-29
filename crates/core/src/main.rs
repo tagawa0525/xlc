@@ -30,6 +30,7 @@ use xlc_core::depletion::deplete;
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{axial_rows, core_rows, reconstruct};
+use xlc_depletion::chain::Chain;
 use xlc_format::pins::{AxialPinPowers, PinPowers};
 use xlc_format::table::Table;
 
@@ -108,12 +109,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .first()
             .ok_or_else(|| anyhow!("depletion needs one state"))?;
         // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k とホウ素濃度は状態の出力と同じ桁で
+        // ミクロ燃焼のチェーン（ADR-0216）
+        let chain = depletion
+            .micro
+            .as_ref()
+            .map(|m| -> anyhow::Result<Chain> {
+                let bytes = std::fs::read(&m.chain).with_context(|| shown(&m.chain))?;
+                Chain::from_msgpack(&bytes).with_context(|| shown(&m.chain))
+            })
+            .transpose()?;
         let history = deplete(
             &layout,
             &tables,
             state,
             depletion,
-            None,
+            chain.as_ref(),
             &options,
             |point| {
                 println!(

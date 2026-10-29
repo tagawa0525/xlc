@@ -72,7 +72,7 @@ const NP237: usize = 10;
 
 /// 小さなチェーン: U-235 の核分裂は Te-135、I-135、Xe-135、Ba-140 を生み（熱と高速の 2 点の収率）、Te-135 → I-135 → Xe-135 → Cs-135 と
 /// 崩壊する。Sb-135 は Te-135 へ崩壊するが、どこからも生まれない。U-235 の捕獲は U-236、U-236 の捕獲は U-237 で、U-237 は Np-237 へ
-/// 崩壊する。Xe-135 の捕獲は Xe-136
+/// 崩壊する。Xe-135 の捕獲は Xe-136。I-135 と Np-237 の捕獲の生成物はチェーンにない
 fn chain() -> Chain {
     let mut nuclides = vec![
         nuclide("Sb-135", 51, 135),
@@ -95,6 +95,16 @@ fn chain() -> Chain {
     nuclides[U235].reactions = vec![capture(U236)];
     nuclides[U236].reactions = vec![capture(U237)];
     nuclides[U237].decay = beta(6.75 * 86400.0, NP237);
+    // 生成物がチェーンにない捕獲
+    let lost = Reaction {
+        mt: 102,
+        channels: vec![Channel {
+            final_state: None,
+            products: Vec::new(),
+        }],
+    };
+    nuclides[I135].reactions = vec![lost.clone()];
+    nuclides[NP237].reactions = vec![lost];
     let yields = |scale: f64| {
         vec![
             Yield {

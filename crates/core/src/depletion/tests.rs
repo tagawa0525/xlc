@@ -4,7 +4,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, Table, product_points};
 
 use super::*;
-use crate::case::solve_at;
+use crate::case::{solve_at, solve_burnups};
 use crate::input::{BoronSearch, Case, CaseState, Cycle, Inventory, Layout, Plant};
 use crate::nem::Options;
 
