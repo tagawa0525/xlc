@@ -165,6 +165,12 @@ class Errors(unittest.TestCase):
         with self.assertRaises(SystemExit):
             summarize(runs)
 
+    def test_runs_must_track_the_same_nuclides(self):
+        runs = search_runs()
+        runs[("search", 2)]["nuclides"] = ["Xe-135"]
+        with self.assertRaises(SystemExit):
+            summarize(runs)
+
     def test_finer_runs_hold_the_base_points(self):
         runs = search_runs()
         del runs[("search", 2)]["points"][2]
