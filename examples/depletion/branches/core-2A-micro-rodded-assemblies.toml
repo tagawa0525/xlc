@@ -1,0 +1,8 @@
+# 下のノード（0〜10.75 cm）が棒のない組（branch-2A-micro.toml）、上のノードが制御棒を入れた組（branch-2A-micro-rods.toml）の
+# 微視的断面積を持つテーブル。どちらも制御棒の軸を持たない。
+[design.2A]
+bounds = [0.0, 10.75, 21.5]
+layers = ["table-2A-micro.msgpack", "table-2A-micro-rods.msgpack"]
+
+[assembly.A01]
+design = "2A"
