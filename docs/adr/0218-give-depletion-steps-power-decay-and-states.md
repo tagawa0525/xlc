@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-29
 requires: [ADR-0105, ADR-0127, ADR-0145, ADR-0146, ADR-0173, ADR-0190, ADR-0191, ADR-0215, ADR-0216, ADR-0217]
 supersedes: []
@@ -122,7 +122,8 @@ steps = [
 ```
 
 - ステップは `efpd`（ステップの終わりの累積の EFPD）か `decay-days`（崩壊だけのステップの日数）のどちらか一方を持つ。`efpd` は、それまでの
-  `efpd` のステップより大きい（崩壊だけのステップは EFPD を進めない）。最初の `efpd` は 0 より大きい。`decay-days` は 0 より大きい
+  `efpd` のステップより大きい（崩壊だけのステップは EFPD を進めない）。最初の `efpd` は 0 より大きい。`decay-days` は 0 より大きい。
+  `efpd` のステップを 1 つ以上持つ
 - `power` は `efpd` のステップの出力の割合（定格に対する比。0 より大きい有限の値。1 を超えてよい: 表 P9-2 の状態 16、18 は 100.1、100.2 %）。
   省けば 1（定格。ADR-0190 のステップと同じ）。崩壊だけのステップには書けない
 - `state` は名前つきの状態の名前。省けば前のステップと同じ。状態が 2 つ以上のケースは、最初のステップに `state` を書く。状態が 1 つなら
@@ -182,4 +183,23 @@ core は、ステップの状態と出力の割合をステップの中で一定
 
 ## 確認
 
-（実装の後に書く）
+- 入力（crates/core/src/input/tests.rs）: `depletion_steps_take_powers_decay_days_and_states`、`invalid_cycle_steps_are_errors`（`efpd` と
+  `decay-days` のどちらか一方、正の日数と出力の割合、崩壊だけのステップの EFPD、最初のステップの状態、ない状態と使わない状態、崩壊だけの
+  ステップしかないケース）、`invalid_depletions_are_errors`（`micro` のないケースの `power` と `decay-days`）
+- 燃焼（crates/core/src/depletion/tests.rs）: `power_fractions_stretch_the_step_time_and_keep_the_burnup`（出力の割合 0.5 のステップで、
+  燃焼度は定格の出力密度 × EFPD と相対 1e-12、日数は 2 倍、U-235、U-236、I-135、Xe-135 の数密度は、出力の割合で規格化した CE/CM の解析解と
+  相対 1e-9）、`decay_steps_keep_the_burnup_and_decay_iodine_and_xenon`（崩壊だけのステップで燃焼度と EFPD が進まず、I-135 と Xe-135 が
+  反応率 0 の解析解と相対 1e-10。停止の 6 時間後に Xe-135 が増え、18 日の後に消えて k が上がる）、`decay_steps_need_micro_depletion`、
+  `steps_solve_in_the_states_they_name`（点の状態は、そこから始まるステップの状態で、点の k はその状態の並びで点の燃焼度と組成を解いた値と
+  ビットで同じ。棒を入れたステップで上のノードの燃焼度が下がる。省いた状態は前のステップと同じ）、
+  `history_points_name_their_state_and_step_power`
+- 比較のツール（examples/depletion/test_compare_core_cycle.py、test_core_history.py）と記録の表（examples/test_verification_tables.py の
+  `DrawCoreCycle`）
+- 2A の集合体 1 体（examples/depletion/verification.md の「サイクルのステップの core の燃焼（2A の集合体 1 体）」。core は a715ffd0、比較は
+  47ce1225、2026-10-29）: 燃焼度は 3 つの履歴のすべての点で解析値と相対 3.3e-16 以内。(i) 100 % → 50 % → 100 % で、50 % のステップの
+  Xe-135 は 1 MWd/kg で 2.050e-09（100 % のままの燃焼は 2.539e-09）、k は 100 % のままの燃焼より +503.479、+546.713 pcm 高く、100 % に
+  戻して 2 MWd/kg で −2.365 pcm。(ii) 6 MWd/kg の 18 日の停止で、6 時間後に Xe-135 が 2.597e-09 から 4.349e-09 に増え、18 日の後に
+  1.695e-22、戻して 2 EFPD で 2.584e-09。停止のない燃焼との差は 7、8 MWd/kg で −1.612、−4.171 pcm。(iii) バンク D を 10〜20 MWd/kg に
+  上のノードの割合 0.5 まで入れると、抜いたままの燃焼から −6211.621〜−6151.009 pcm、割合 0.5 のままの燃焼から −271.878〜−209.432 pcm、
+  抜いた後は抜いたままの燃焼から +674.384 pcm（20 MWd/kg）〜+524.618 pcm（30 MWd/kg）。残りの差はノードの燃焼度の履歴の違いで、分けて
+  いない
