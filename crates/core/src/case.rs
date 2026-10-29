@@ -8,7 +8,7 @@ use crate::micro::{MicroChain, correct};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::solve_rodded;
 use crate::search::{SearchError, find};
-use crate::state::{State, interpolate, interpolate_micro};
+use crate::state::{State, interpolate, interpolate_micro, non_negative};
 
 /// 状態を解いた結果。
 #[derive(Debug, Clone)]
@@ -123,6 +123,15 @@ fn solve_with(
     compositions: Option<&Compositions>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
+    if let Some(c) = compositions
+        && c.densities.len() != layout.node_material.len()
+    {
+        return Err(CaseError::Depletion(format!(
+            "{} micro compositions for {} positions",
+            c.densities.len(),
+            layout.node_material.len()
+        )));
+    }
     if tables.len() != layout.files.len() {
         return Err(CaseError::State(format!(
             "{} tables for {} few-group constant files",
@@ -164,6 +173,15 @@ fn solve_with(
                     )));
                 };
                 correct(f, &micro, &c.chain.tracked(n));
+                // 補正で数密度の差が大きいと、吸収や全断面積が負になりうる。内挿の後と同じ検査をして、ソルバに渡す前に止める
+                f.validate()
+                    .map_err(|e| e.to_string())
+                    .and_then(|()| non_negative(f))
+                    .map_err(|e| {
+                        CaseError::State(format!(
+                            "{file}: the micro correction at position {site} gave invalid constants: {e}"
+                        ))
+                    })?;
             }
             Ok(constants)
         })

@@ -782,7 +782,7 @@ impl<'a> Assembly<'a> {
 
 /// 断面積と拡散係数が負でないこと（`FewGroup::validate` は有限かどうかだけを見る）。項目を足したらここで扱いを決める
 /// （`..` を使わない）
-fn non_negative(f: &FewGroup) -> Result<(), String> {
+pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
     let FewGroup {
         bounds: _,
         k_inf: _,

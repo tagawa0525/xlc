@@ -285,6 +285,16 @@ impl MicroChain {
                 self.tracked.len()
             ));
         }
+        let valid = |x: f64| x.is_finite() && x >= 0.0;
+        if let Some((name, r)) =
+            self.nuclides.iter().zip(rates).find(|(_, r)| {
+                !valid(r.fission) || !r.reactions.iter().flatten().all(|&x| valid(x))
+            })
+        {
+            return Err(format!(
+                "{name}: the reaction rates must be finite and nonnegative, got {r:?}"
+            ));
+        }
         let mut entries = self.decay.clone();
         for (t, r) in self.tracked.iter().zip(rates) {
             let j = t.column;
