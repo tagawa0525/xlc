@@ -2431,4 +2431,11 @@ fn micro_histories_hold_the_auxiliary_densities_of_their_last_point() {
     let mut h = micro.clone();
     h.auxiliary_densities.as_mut().unwrap()[0][0][0] = f64::NAN;
     assert!(rejected(&h));
+    // 点のない履歴は、補助の核種の形でなく点がないことで止める
+    let mut h = micro.clone();
+    h.points.clear();
+    let error = CoreHistory::from_msgpack(&h.to_msgpack().unwrap())
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("no point"), "{error}");
 }
