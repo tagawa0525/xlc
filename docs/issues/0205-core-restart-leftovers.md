@@ -23,6 +23,14 @@ ADR-0220 の restart は、前のサイクルの燃焼の履歴 1 本の最後�
   だけ（ADR-0190）
 - 挿入物（`inserts`。Pyrex を抜く集合体）と設計の違う集合体（IFBA、WABA、ブランケット）のテーブルの履歴の扱い（ADR-0215、#0190）
 
+レビュー（ブランチ feat/core-restart-reload の 1 周目）で挙がり、結果を変えないので直さなかった整理:
+
+- examples/verification_tables.py の `difference` は `signed_exponent` と桁の数だけ違う複製で、負にならない量（燃焼度と数密度の差の最大）にも
+  `+` を付ける。桁の引数と符号なしの形を `signed_exponent` に足せばまとまる
+- `rho_pcm` が examples の比較のツールに 4 つ目の複製（compare_core_restart.py）。examples/depletion/core_history.py にまとめられる
+- crates/core/src/micro.rs の `MicroChain::auxiliary_columns` は呼ぶたびに作り直す（ノードごとに 2 回）。`MicroChain::new` で 1 度作って持てる
+- crates/core/src/depletion.rs の restart の組成の置き方は、`placed` を 2 度引き、`inherited` から移せる組成を複製する
+
 関係する ADR: ADR-0220
 
 ## 完了の条件
