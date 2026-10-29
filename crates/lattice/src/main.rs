@@ -18,6 +18,7 @@
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
+use std::borrow::Cow;
 use std::env::VarError;
 use std::io::IsTerminal;
 use std::path::Path;
@@ -449,72 +450,71 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
             _ => None,
         };
-        let (unique, region_index): (std::borrow::Cow<'_, [Material]>, Vec<usize>) = match &source {
-            Source::Library(library) => {
-                if let Some(shielded) = &held {
-                    (
-                        std::borrow::Cow::Borrowed(shielded.materials()),
-                        shielded.region_material().to_vec(),
-                    )
-                } else {
-                    let mut named = state_materials
+        // 自己遮蔽した状態は、その自己遮蔽の物質と番号をそのまま使う
+        let (unique, region_index): (Cow<'_, [Material]>, Cow<'_, [usize]>) = match (&held, &source)
+        {
+            (Some(shielded), _) => (
+                Cow::Borrowed(shielded.materials()),
+                Cow::Borrowed(shielded.region_material()),
+            ),
+            (None, Source::Library(library)) => {
+                let mut named = state_materials
+                    .iter()
+                    .map(|m| {
+                        Material::mix(library, &m.composition, m.temperature)
+                            .map(|mixed| (m.name.clone(), mixed))
+                            .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()
+                    .with_context(context)?;
+                // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
+                for mixture in &input.mixtures {
+                    let parts: Vec<(&_, f64)> = mixture
+                        .parts
                         .iter()
-                        .map(|m| {
-                            Material::mix(library, &m.composition, m.temperature)
-                                .map(|mixed| (m.name.clone(), mixed))
+                        .filter(|(part, _)| part != VOID)
+                        .map(|(part, f)| {
+                            state_materials
+                                .iter()
+                                .find(|m| &m.name == part)
+                                .map(|m| (m, *f))
+                                .ok_or_else(|| {
+                                    anyhow!(
+                                        "material `{}`: component `{part}` is not in the state",
+                                        mixture.name
+                                    )
+                                })
+                        })
+                        .collect::<anyhow::Result<_>>()
+                        .with_context(context)?;
+                    let mixed = Material::mixture(library, &parts)
+                        .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
+                        .with_context(context)?;
+                    named.push((mixture.name.clone(), mixed));
+                }
+                // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
+                for (m, medium) in input.media.iter().zip(&media) {
+                    let from = medium
+                        .states
+                        .get(state)
+                        .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
+                        .and_then(|s| {
+                            Material::from_medium(s)
                                 .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                         })
-                        .collect::<anyhow::Result<Vec<_>>>()
                         .with_context(context)?;
-                    // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
-                    for mixture in &input.mixtures {
-                        let parts: Vec<(&_, f64)> = mixture
-                            .parts
-                            .iter()
-                            .filter(|(part, _)| part != VOID)
-                            .map(|(part, f)| {
-                                state_materials
-                                    .iter()
-                                    .find(|m| &m.name == part)
-                                    .map(|m| (m, *f))
-                                    .ok_or_else(|| {
-                                        anyhow!(
-                                            "material `{}`: component `{part}` is not in the state",
-                                            mixture.name
-                                        )
-                                    })
-                            })
-                            .collect::<anyhow::Result<_>>()
-                            .with_context(context)?;
-                        let mixed = Material::mixture(library, &parts)
-                            .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
-                            .with_context(context)?;
-                        named.push((mixture.name.clone(), mixed));
-                    }
-                    // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
-                    for (m, medium) in input.media.iter().zip(&media) {
-                        let from = medium
-                            .states
-                            .get(state)
-                            .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
-                            .and_then(|s| {
-                                Material::from_medium(s)
-                                    .map_err(|e| anyhow!("material `{}`: {e}", m.name))
-                            })
-                            .with_context(context)?;
-                        named.push((m.name.clone(), from));
-                    }
-                    check_orders(&named, &medium_names)
-                        .map_err(|e| anyhow!(e))
-                        .with_context(context)?;
-                    let (materials, region_index) = by_name(named, library.groups.len())?;
-                    (std::borrow::Cow::Owned(materials), region_index)
+                    named.push((m.name.clone(), from));
                 }
+                check_orders(&named, &medium_names)
+                    .map_err(|e| anyhow!(e))
+                    .with_context(context)?;
+                let (materials, region_index) = by_name(named, library.groups.len())?;
+                (Cow::Owned(materials), Cow::Owned(region_index))
             }
-            Source::Macroscopic(named) => {
+            (None, Source::Macroscopic(named)) => {
                 let groups = named.first().map_or(0, |(_, m)| m.groups());
                 let (materials, region_index) = by_name(named.clone(), groups)?;
-                (std::borrow::Cow::Owned(materials), region_index)
+                (Cow::Owned(materials), Cow::Owned(region_index))
             }
         };
         let fuel = held.as_ref().map(|h| h.fuel());
