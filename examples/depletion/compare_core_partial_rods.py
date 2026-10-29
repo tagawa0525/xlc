@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+from core_history import single_state
 
 # 燃焼点の燃焼度の一致の許容（炉心の燃焼度はノードの燃焼度の重金属の質量の重みの平均なので、ノードの出力が違う燃焼では丸めが違う）
 BURNUP_TOLERANCE = 1e-9
@@ -84,8 +85,8 @@ def check_core(name: str, core: dict, first: dict) -> None:
         raise SystemExit(f"{name}: a node has no densities of the tracked nuclides")
     if any(not b > 0.0 for p in core["points"][1:] for b in p["burnups"][0]):
         raise SystemExit(f"{name}: a node has no burnup after the first point")
-    state = {k: v for k, v in core["state"].items() if k != "banks"}
-    if state != {k: v for k, v in first["state"].items() if k != "banks"}:
+    state = {k: v for k, v in single_state(core).items() if k != "banks"}
+    if state != {k: v for k, v in single_state(first).items() if k != "banks"}:
         raise SystemExit(f"{name}: the state differs beyond the banks")
     if len(core["points"]) != len(first["points"]) or any(
         p["efpd"] != q["efpd"] or not same_burnup(p["burnup"], q["burnup"])
@@ -131,9 +132,9 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     for f, core in partial:
         check_core(f"fraction {f}", core, out)
     for name, core in [("out", out), ("rodded", rodded)]:
-        if core["state"]["banks"]:
+        if single_state(core)["banks"]:
             raise SystemExit(
-                f"{name}: the uniform run has banks {core['state']['banks']}"
+                f"{name}: the uniform run has banks {single_state(core)['banks']}"
             )
     # 棒のない燃焼と棒の入った燃焼を取り違えていないこと
     if not rodded["points"][0]["k"] < out["points"][0]["k"]:
@@ -141,7 +142,7 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
             "the rodded run must have a lower first k than the run without rods; are they swapped?"
         )
     # 割合と履歴の組を取り違えていないこと: どのバンクも、割合が増えるとステップが減る（棒は上から入り、ステップは先端の高さ）
-    banks = [core["state"]["banks"] for _, core in partial]
+    banks = [single_state(core)["banks"] for _, core in partial]
     names_of_banks = sorted({b for bank in banks for b in bank})
     if not names_of_banks:
         raise SystemExit("no fraction has banks, so the labels cannot be checked")
@@ -221,7 +222,7 @@ def summarize(out: dict, rodded: dict, partial: list[tuple[float, dict]]) -> dic
     return {
         "specific_power": out["specific_power"],
         "fractions": fractions,
-        "banks": [core["state"]["banks"] for _, core in partial],
+        "banks": [single_state(core)["banks"] for _, core in partial],
         "axial_mesh": out["axial_mesh"],
         "nuclides": names,
         "points": points,
