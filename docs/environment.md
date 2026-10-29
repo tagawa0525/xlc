@@ -118,7 +118,7 @@ OpenMC のライブラリ `references/openmc/endfb80/`（600 K だけ）と `end
 worktree でなく main の flake とスクリプトが使われる。たとえば C5G7 の参照解は、DVC のステージ（`openmc-model`、`openmc`、`openmc-extract`）で作る:
 
 ```sh
-~/.claude/scripts/slurm-run.sh -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
+~/.claude/scripts/slurm-run.sh --class trial --ref '- C5G7 の参照解の例' --purpose 'C5G7 の参照解のステージを作る' -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
 ```
 
 ## 外部の計算機（AWS）
