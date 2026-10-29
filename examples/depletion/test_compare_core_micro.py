@@ -135,6 +135,8 @@ class Summary(unittest.TestCase):
         s["inputs"] = [{"path": "core.msgpack", "md5": "0" * 32}]
         text = "\n".join(compare_core_micro.report(s))
         self.assertIn("ミクロ燃焼 − ミクロ燃焼なし", text)
+        # 点の間だけの範囲（テーブルの点の値を混ぜない）
+        self.assertIn("ミクロ燃焼 − 履歴（点の間）", text)
         self.assertIn("Xe-135 | -1.0000 | 2.0", text)
 
 
