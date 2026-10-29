@@ -1118,7 +1118,40 @@ def core_steps_solves(sources: list[dict]) -> str:
         for x in s["solves"]
     ]
     return markdown_table(
-        ["中点のホウ素", "分割", "燃焼点", "点の固有値計算", "中点の固有値計算", "計"],
+        ["方式", "分割", "燃焼点", "点の固有値計算", "中点の固有値計算", "計"],
+        rows,
+    )
+
+
+def core_steps_axial(
+    reference: tuple[str, int],
+    columns: list[tuple[str, int]],
+    since: float,
+    sources: list[dict],
+) -> str:
+    """燃焼ごとの軸方向の出力の偏り（compare_core_steps.py の `axial`）を、燃焼 `reference`（方式、分割）の `since` 日からの点に
+    並べる。列は燃焼 `columns` で、その点（同じ EFPD と、1e-6 日に丸めた日数）の無い燃焼は –"""
+    s = core_steps_summary(sources)
+    runs = {(r["method"], r["split"]): r["points"] for r in s.get("axial", [])}
+    missing = [c for c in [reference, *columns] if c not in runs]
+    if missing:
+        raise TableError(f"the summary has no axial offsets of {missing}")
+    key = lambda p: (p["efpd"], round(p["days"], 6))
+    by = {c: {key(p): p["offset"] for p in runs[c]} for c in columns}
+    rows = [
+        [
+            f"{p['days']:.4f}",
+            f"{p['efpd']:.4f}",
+            *(
+                "–" if key(p) not in by[c] else signed(by[c][key(p)], 4)
+                for c in columns
+            ),
+        ]
+        for p in runs[reference]
+        if p["days"] >= since
+    ]
+    return markdown_table(
+        ["日数", "EFPD", *(f"{m} 分割 {n}" for m, n in columns)],
         rows,
     )
 
