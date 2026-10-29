@@ -171,6 +171,19 @@ class Errors(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_core_steps.summarize(runs, logs)
 
+    def test_histories_must_hold_the_points_of_their_split(self):
+        # 分割 4 の履歴を分割 2 として渡すと、基準の点はそろうが、点の数が分割 2 のサイクルと合わない
+        runs = search_runs()
+        runs[("search", 2)] = core(4)
+        with self.assertRaises(SystemExit):
+            summarize(runs)
+
+    def test_power_differences_stop_at_nodes_without_fine_power(self):
+        runs = search_runs()
+        runs[("search", 2)]["points"][2]["powers"] = [[1.0], [0.0]]
+        with self.assertRaises(SystemExit):
+            summarize(runs)
+
     def test_start_needs_the_base_split(self):
         runs = search_runs()
         runs[("start", 2)] = core(2, "start")
