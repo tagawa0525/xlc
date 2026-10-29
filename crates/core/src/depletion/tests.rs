@@ -1833,6 +1833,13 @@ fn history_points_name_their_state_and_step_power() {
     assert!(with_point(1, &|p| p.state = "cold".into()).is_err());
     assert!(with_point(0, &|p| p.power = Some(1.0)).is_err());
     assert!(with_point(2, &|p| p.power = None).is_err());
+    // 出力の割合は 0 以上の有限の値で、0 は EFPD の進まない崩壊だけのステップだけ。EFPD と日数は減らない
+    assert!(with_point(1, &|p| p.power = Some(-1.0)).is_err());
+    assert!(with_point(1, &|p| p.power = Some(f64::NAN)).is_err());
+    assert!(with_point(1, &|p| p.power = Some(0.0)).is_err());
+    assert!(with_point(2, &|p| p.power = Some(1.0)).is_err());
+    assert!(with_point(2, &|p| p.days = 1.0).is_err());
+    assert!(with_point(2, &|p| p.efpd = 1.0).is_err());
 }
 
 #[test]
