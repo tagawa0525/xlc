@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-ブランチ feat/small-core-depletion のレビューの 1 周目（/code-review high）で、誤った数値や落ちるテストにならない次の指摘を残した。
+ブランチ feat/small-core-depletion のレビューの 1、2 周目（/code-review high）で、誤った数値や落ちるテストにならない次の指摘を残した。
 
 - `examples/depletion/compare_core_steps.py` は、中点の固有値計算の回数を core のログ（tracing の `depletion midpoint` の行の `solves=`）から読む。
   ログの形（イベントの名前、項目、ANSI の色）が変わると読めず、ログを残さない再実行と比べられない。ADR-0191 の案 O2 は中点の値を履歴に
@@ -25,6 +25,9 @@ resolution:
 - 記録の core の 8 つの燃焼（分割 16 は約 25 分、ほぼ 1 コア）は、依頼の「数分なら手元、数十分なら Slurm」と、リポジトリの CLAUDE.md の
   「xlc の集合体以上は Slurm」に反して手元で流した。結果は決定的で、再実行しても数値は変わらないので再実行していない。#0156 の時間は
   8 つを同時に流した目安
+- `compare_core_steps.py` の `key` は、分割の間の点を日数を 1e-6 日に丸めて組にする。分けた時間の和の丸め（1e-13 ほど）が丸めの境を
+  またぐと、正しい組が「no points at」で止まる（誤った数値にはならない）。点の数を確かめるようにしたので、点の番号で組にして日数の差を
+  許容で確かめる形にできる（2 周目）
 
 関係する ADR: ADR-0191
 
@@ -34,4 +37,4 @@ resolution:
 
 ## 経緯
 
-- 2026-10-29: feat/small-core-depletion のレビューの 1 周目で挙がった
+- 2026-10-29: feat/small-core-depletion のレビューの 1、2 周目で挙がった
