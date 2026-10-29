@@ -635,11 +635,11 @@ pub fn deplete(
     // 置き換える値が変わらなくなるまで繰り返す（Anderson の加速。`equilibrate`）。解と、解いた組成を返す
     let solve_operating = |k: usize,
                            burnups: &[f64],
-                           n: Option<Vec<Option<Vec<f64>>>>,
+                           n: Option<Densities>,
                            given: Option<f64>,
                            power: f64,
                            at: &dyn Fn() -> String|
-     -> Result<(Solve, Option<Vec<Option<Vec<f64>>>>), CaseError> {
+     -> Result<(Solve, Option<Densities>), CaseError> {
         let (Some(m), Some(n)) = (
             micro.as_ref().filter(|_| xenon == Some(Xenon::Equilibrium)),
             n.clone(),
@@ -916,6 +916,12 @@ pub fn deplete(
 /// 1 日 (s)
 const DAY: f64 = 86_400.0;
 
+/// 位置ごとの解く核種の数密度（ミクロ燃焼しない位置は `None`）
+type Densities = Vec<Option<Vec<f64>>>;
+
+/// 固定点の反復の組: 並べた組成 x と、その解で平衡にした組成 g
+type Iterate = (Vec<f64>, Vec<f64>);
+
 /// 平衡 Xe の固定点の許容: 置き換える数密度の、解き直す前後の相対の変化（初めの平衡の値に対する比）の最大
 const EQUILIBRIUM_TOLERANCE: f64 = 1.0e-6;
 /// 平衡 Xe の固定点の、解く回数の上限
@@ -927,9 +933,9 @@ const ANDERSON_DEPTH: usize = 3;
 /// 組成で解いた解と、その組成を返す。中性子束が Xe に強く応じる炉心では、平衡の組成をそのまま次の組成にする反復は互い違いに振れて
 /// 収束しないことがあるので、前の反復の差の最小二乗で次の組成を選ぶ
 fn equilibrate<S>(
-    n: Vec<Option<Vec<f64>>>,
-    mut evaluate: impl FnMut(&[Option<Vec<f64>>]) -> Result<(S, Vec<Option<Vec<f64>>>), CaseError>,
-) -> Result<(S, Vec<Option<Vec<f64>>>), CaseError> {
+    n: Densities,
+    mut evaluate: impl FnMut(&[Option<Vec<f64>>]) -> Result<(S, Densities), CaseError>,
+) -> Result<(S, Densities), CaseError> {
     let flatten =
         |v: &[Option<Vec<f64>>]| -> Vec<f64> { v.iter().flatten().flatten().copied().collect() };
     let shape: Vec<Option<usize>> = n.iter().map(|v| v.as_ref().map(Vec::len)).collect();
@@ -946,7 +952,7 @@ fn equilibrate<S>(
             .collect()
     };
     let mut x = n;
-    let mut history: std::collections::VecDeque<(Vec<f64>, Vec<f64>)> = Default::default();
+    let mut history: Vec<Iterate> = Vec::new();
     let mut scale: Option<Vec<f64>> = None;
     for iteration in 1..=EQUILIBRIUM_SOLVES {
         let (solved, balanced) = evaluate(&x)?;
@@ -976,32 +982,34 @@ fn equilibrate<S>(
             tracing::info!(solves = iteration, residual, "equilibrium xenon");
             return Ok((solved, x));
         }
-        history.push_back((xf, gf));
-        if history.len() > ANDERSON_DEPTH + 1 {
-            history.pop_front();
+        let last = (xf, gf);
+        x = unflatten(&anderson(&history, &last, s));
+        history.push(last);
+        if history.len() > ANDERSON_DEPTH {
+            history.remove(0);
         }
-        x = unflatten(&anderson(&history, s));
     }
     Err(CaseError::Depletion(format!(
         "the equilibrium xenon did not converge in {EQUILIBRIUM_SOLVES} solves"
     )))
 }
 
-/// Anderson の加速（type II）の次の点: 反復の組（x、g = G(x)）の履歴 `history`（古い順）から、残差 f = (g − x) / `scale` の差の
-/// 最小二乗で γ を求め、g − ΔG γ を返す（負の数密度は 0 にする）。差を作れないか最小二乗が特異なら、最後の g
-fn anderson(history: &std::collections::VecDeque<(Vec<f64>, Vec<f64>)>, scale: &[f64]) -> Vec<f64> {
-    let (_, last) = history.back().expect("the history has the last iteration");
-    let residual = |(x, g): &(Vec<f64>, Vec<f64>)| -> Vec<f64> {
+/// Anderson の加速（type II）の次の点: 前の反復の組（x、g = G(x)）`previous`（古い順）と最後の組 `last` から、残差
+/// f = (g − x) / `scale` の差の最小二乗で γ を求め、g − ΔG γ を返す（負の数密度は 0 にする）。前の反復がないか最小二乗が特異なら、
+/// 最後の g
+fn anderson(previous: &[Iterate], last: &Iterate, scale: &[f64]) -> Vec<f64> {
+    let all: Vec<&Iterate> = previous.iter().chain([last]).collect();
+    let residual = |(x, g): &Iterate| -> Vec<f64> {
         g.iter()
             .zip(x)
             .zip(scale)
             .map(|((g, x), s)| (g - x) / s)
             .collect()
     };
-    let f: Vec<Vec<f64>> = history.iter().map(residual).collect();
-    let m = history.len() - 1;
+    let f: Vec<Vec<f64>> = all.iter().map(|i| residual(i)).collect();
+    let m = previous.len();
     if m == 0 {
-        return last.clone();
+        return last.1.clone();
     }
     let df: Vec<Vec<f64>> = (0..m)
         .map(|j| f[j + 1].iter().zip(&f[j]).map(|(a, b)| a - b).collect())
@@ -1012,12 +1020,11 @@ fn anderson(history: &std::collections::VecDeque<(Vec<f64>, Vec<f64>)>, scale: &
         .collect();
     let right: Vec<f64> = (0..m).map(|i| dot(&df[i], &f[m])).collect();
     let Some(gamma) = crate::micro::solve_dense(normal, right) else {
-        return last.clone();
+        return last.1.clone();
     };
-    let mut next = last.clone();
+    let mut next = last.1.clone();
     for (j, g) in gamma.iter().enumerate() {
-        let (_, a) = &history[j];
-        let (_, b) = &history[j + 1];
+        let (a, b) = (&all[j].1, &all[j + 1].1);
         for ((v, b), a) in next.iter_mut().zip(b).zip(a) {
             *v -= g * (b - a);
         }
