@@ -12,9 +12,9 @@
 - 輸送: ρ(shifted の点 k の k∞) − ρ(nominal の点 k - 1 の k∞)。追う核種の組成の差だけの効き
 - 線形: ρ(予測) − ρ(nominal の点 k - 1 の 2 群の k∞)。予測は、点 k - 1 の少数群定数（全断面積、散乱行列、νΣf）に
   Σᵢ σᵢ(k - 1)(N̄ᵢ(k) − N̄ᵢ(k - 1)) を足した定数の 2 群の無限媒質の k
-- 誤差: ρ(予測) − ρ(shifted の点 k の k∞)
+- 誤差: ρ(予測) − ρ(shifted の点 k の k∞)（線形 − 輸送。正なら線形の補正は反応度を高く見積もる）
 
-反応度の差は Δρ = (1/k_a − 1/k_b) × 1e5 pcm（a から b への差）。2 群の k は、少数群定数から無限媒質の固有値として求め、テーブルの
+ρ は反応度 1 − 1/k で、差は pcm（Δρ = (1/k_a − 1/k_b) × 1e5、a から b へ）。2 群の k は、少数群定数から無限媒質の固有値として求め、テーブルの
 k∞ との差（`self_check_pcm`。nominal のすべての状態の最大）を出す（外周が鏡面反射の格子の少数群定数は格子の k∞ を保つ）。
 """
 
@@ -101,6 +101,7 @@ def burnups(table):
 
 
 def rho(k):
+    """1e5/k。反応度 1 − 1/k の差は、この差の向きを逆にしたもの"""
     return 1e5 / k
 
 
@@ -130,7 +131,8 @@ def compare(nominal, shifted):
                 "to": points[k],
                 "tracked_pcm": rho(base["k_inf"]) - rho(transport),
                 "linear_pcm": rho(k_inf(base)) - rho(predicted),
-                "error_pcm": rho(predicted) - rho(transport),
+                # 反応度 1 − 1/k の差なので、1e5/k の差とは逆の向き
+                "error_pcm": rho(transport) - rho(predicted),
                 "density_change_percent": {
                     n: (
                         None
