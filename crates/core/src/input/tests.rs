@@ -316,6 +316,54 @@ fn invalid_cycles_are_errors() {
     assert!(bad("inventory = \"assemblies.toml\"\n", ""));
 }
 
+/// `CYCLE` に restart の行 `restart` を足したもの
+fn restarted(restart: &str) -> String {
+    edited(
+        CYCLE,
+        "inventory = \"assemblies.toml\"\n",
+        &format!("inventory = \"assemblies.toml\"\n{restart}\n"),
+    )
+}
+
+#[test]
+fn cycles_restart_from_a_history_and_name_their_fresh_assemblies() {
+    // 前のサイクルの燃焼の履歴（サイクルのファイルのあるディレクトリから）と、履歴にない新しい集合体の ID（ADR-0220）
+    let c = Cycle::parse(
+        &restarted("restart = { history = \"cycle-0/history.msgpack\", fresh = [\"J02\"] }"),
+        base(),
+    )
+    .unwrap();
+    assert_eq!(
+        c.restart,
+        Some(RestartInput {
+            history: PathBuf::from("dir/cycle-0/history.msgpack"),
+            fresh: BTreeSet::from(["J02".to_string()]),
+        })
+    );
+    // 新しい集合体がなければ `fresh` を省ける。restart のないサイクルは、すべての集合体が新しい燃料
+    let c = Cycle::parse(&restarted("restart = { history = \"h.msgpack\" }"), base()).unwrap();
+    assert_eq!(c.restart.unwrap().fresh, BTreeSet::new());
+    assert_eq!(cycle().restart, None);
+}
+
+#[test]
+fn invalid_restarts_are_errors() {
+    let bad = |restart: &str| Cycle::parse(&restarted(restart), base()).is_err();
+    // 装荷図にない新しい集合体、同じ ID を 2 度、履歴のない restart、知らない項目
+    assert!(bad(
+        "restart = { history = \"h.msgpack\", fresh = [\"J03\"] }"
+    ));
+    assert!(bad(
+        "restart = { history = \"h.msgpack\", fresh = [\"J02\", \"J02\"] }"
+    ));
+    assert!(bad("restart = { fresh = [\"J02\"] }"));
+    assert!(bad("restart = { history = \"h.msgpack\", point = -1 }"));
+    // 燃焼しないケースは、restart の組成を使わない（黙って新しい燃料で解かない）
+    let c = Cycle::parse(&restarted("restart = { history = \"h.msgpack\" }"), base()).unwrap();
+    let error = layout_of(&case(), &c, &plant()).unwrap_err().to_string();
+    assert!(error.contains("restart"), "{error}");
+}
+
 #[test]
 fn parses_case() {
     let c = case();

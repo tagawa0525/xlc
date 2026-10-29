@@ -175,6 +175,7 @@ fn run(case: &str, cycle: &str) -> Result<CoreHistory, CaseError> {
         &case.states,
         case.depletion.as_ref().unwrap(),
         None,
+        None,
         &tight(),
         |_| {},
     )
@@ -331,6 +332,7 @@ fn fissile_tables_without_heavy_metal_cannot_deplete() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         None,
+        None,
         &Options::default(),
         |_| points += 1,
     )
@@ -399,6 +401,7 @@ fn reflector_sites_take_no_burnup() {
         &tables,
         &case.states,
         case.depletion.as_ref().unwrap(),
+        None,
         None,
         &tight(),
         |_| {},
@@ -529,6 +532,7 @@ fn core_average_burnups_do_not_drift_over_many_steps() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         None,
+        None,
         &Options::default(),
         |_| {},
     )
@@ -555,6 +559,7 @@ fn points_are_reported_as_they_are_solved() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         None,
+        None,
         &tight(),
         |p| seen.push(p.efpd),
     );
@@ -568,6 +573,7 @@ fn points_are_reported_as_they_are_solved() {
         &tables,
         &case.states,
         case.depletion.as_ref().unwrap(),
+        None,
         None,
         &tight(),
         |p| points.push(p.clone()),
@@ -653,6 +659,7 @@ fn searched_points_match_the_state_search_at_the_same_uniform_burnup() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         None,
+        None,
         &tight(),
         |_| {},
     )
@@ -696,6 +703,7 @@ fn searched_midpoints_keep_second_order() {
             &case.states,
             case.depletion.as_ref().unwrap(),
             None,
+            None,
             &tight(),
             |_| {},
         )
@@ -720,6 +728,7 @@ fn searches_that_do_not_bracket_stop_at_the_step() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         None,
+        None,
         &tight(),
         |p| seen.push(p.efpd),
     )
@@ -743,6 +752,7 @@ fn search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving()
         &tables,
         &case.states,
         case.depletion.as_ref().unwrap(),
+        None,
         None,
         &Options::default(),
         |_| points += 1,
@@ -879,6 +889,7 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
             &case.states,
             &start,
             None,
+            None,
             &options,
             |_| {},
         )
@@ -899,6 +910,7 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
             &tables,
             &case.states,
             case.depletion.as_ref().unwrap(),
+            None,
             None,
             &options,
             |_| {},
@@ -1057,6 +1069,7 @@ fn micro_run(cycle: &str, nuclides: [&[&str]; 2]) -> Result<CoreHistory, CaseErr
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1123,6 +1136,7 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
         &case.states,
         depletion,
         Some(&small_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1140,6 +1154,7 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
             &case.states,
             depletion,
             None,
+            None,
             &tight(),
             |_| {}
         )
@@ -1153,6 +1168,7 @@ fn micro_depletion_needs_micro_tables_of_the_same_nuclides_and_its_chain() {
             &plain.states,
             plain.depletion.as_ref().unwrap(),
             Some(&small_chain()),
+            None,
             &tight(),
             |_| {}
         )
@@ -1186,6 +1202,7 @@ fn micro_corrector_rates_take_the_cross_sections_at_the_midpoint_burnup() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1304,6 +1321,7 @@ fn fissile_tables_off_the_depleted_nodes_are_errors() {
         &case.states,
         micro_case(CASE).depletion.as_ref().unwrap(),
         Some(&small_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1432,6 +1450,7 @@ fn rodded_micro_run_with(case: &str, step: u32) -> CoreHistory {
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1656,6 +1675,7 @@ fn xenon_run_in(cycle: &str, xenon: &str, steps: &str) -> Result<CoreHistory, Ca
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&xenon_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1774,6 +1794,7 @@ fn decay_steps_need_micro_depletion() {
         &case.states,
         &depletion,
         None,
+        None,
         &tight(),
         |_| {},
     )
@@ -1812,6 +1833,7 @@ fn rod_states_run(case: &str) -> (CoreHistory, Layout, Vec<Table>, Case) {
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -1907,7 +1929,19 @@ fn depletions_without_states_or_steps_are_errors() {
         (&[][..], &empty),
         (&case.states[..], &empty),
     ] {
-        assert!(deplete(&layout, &tables, states, depletion, None, &tight(), |_| {}).is_err());
+        assert!(
+            deplete(
+                &layout,
+                &tables,
+                states,
+                depletion,
+                None,
+                None,
+                &tight(),
+                |_| {}
+            )
+            .is_err()
+        );
     }
 }
 
@@ -2007,6 +2041,7 @@ fn xenon_rod_states_run(steps: &str) -> CoreHistory {
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&xenon_chain()),
+        None,
         &tight(),
         |_| {},
     )
@@ -2063,6 +2098,7 @@ fn equilibrium_xenon_without_xenon_and_iodine_stops_before_solving() {
         &case.states,
         case.depletion.as_ref().unwrap(),
         Some(&small_chain()),
+        None,
         &tight(),
         |_| points += 1,
     )
@@ -2070,4 +2106,336 @@ fn equilibrium_xenon_without_xenon_and_iodine_stops_before_solving() {
     .to_string();
     assert!(error.contains("Xe-135"), "{error}");
     assert_eq!(points, 0);
+}
+
+// restart と装荷替え（ADR-0220）
+
+/// テーブルに、U-235、U-236（`with_micro` と同じ）と Xe-135 を追う微視的断面積を足す。I-135 は追わないので、Xe-135 へ崩壊で流れ込む
+/// 補助の核種になる
+fn with_auxiliary_iodine(table: Table) -> Table {
+    let mut table = with_micro(table, &TRACKED);
+    let micro = table.micro.as_mut().unwrap();
+    micro.nuclides.push("Xe-135".into());
+    for densities in &mut micro.densities {
+        densities.push(0.0);
+    }
+    let xenon = micro_nuclide([0.0, 0.0], U235_FISSION.map(|f| XE_TO_FISSION * f), None);
+    for nuclides in &mut micro.states {
+        nuclides.push(xenon.clone());
+    }
+    table.validate().unwrap();
+    table
+}
+
+/// `cycle` の装荷に restart の行 `restart` を足したもの
+fn restarted_cycle(cycle: &str, restart: &str) -> String {
+    cycle.replace(
+        "inventory = \"assemblies.toml\"\n",
+        &format!("inventory = \"assemblies.toml\"\n{restart}\n"),
+    )
+}
+
+/// 装荷 `cycle` を、Xe の扱い `xenon`（`None` はミクロ燃焼しない）とステップ `steps` で、前のサイクルの履歴 `restart` から燃焼させる。
+/// ミクロ燃焼は `xenon_chain` と、I-135 を補助の核種にするテーブル
+fn cycle_run(
+    cycle: &str,
+    xenon: Option<&str>,
+    steps: &str,
+    restart: Option<&CoreHistory>,
+) -> Result<CoreHistory, CaseError> {
+    let micro = xenon.map_or_else(String::new, |x| {
+        format!("micro = {{ chain = \"chain.msgpack\", xenon = \"{x}\" }}\n")
+    });
+    let case = CASE
+        .replace("[depletion]\n", &format!("[depletion]\n{micro}"))
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            steps,
+        );
+    let (layout, tables, case) = core(&case, cycle, Some(400.0));
+    let (tables, chain): (Vec<Table>, _) = match xenon {
+        Some(_) => (
+            tables.into_iter().map(with_auxiliary_iodine).collect(),
+            Some(xenon_chain()),
+        ),
+        None => (tables, None),
+    };
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        chain.as_ref(),
+        restart,
+        &tight(),
+        |_| {},
+    )
+}
+
+/// 相対 `tolerance` で近い（`scale` は 0 に近い値の比べ方の大きさ）
+fn near(a: f64, b: f64, tolerance: f64, scale: f64) -> bool {
+    (a - b).abs() <= tolerance * b.abs().max(scale)
+}
+
+#[test]
+fn restarts_continue_the_depletion_of_one_case() {
+    // サイクルの途中で履歴に書いて restart した燃焼は、切らずに燃焼させた 1 つのケースの続きと、k、ノードの燃焼度、追う核種と補助の
+    // 核種の数密度が丸めの範囲で一致する（ADR-0220）。A と B の炉心は出力の割合が燃焼で動く
+    for xenon in ["tracked", "equilibrium"] {
+        let full = cycle_run(
+            MIXED,
+            Some(xenon),
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            None,
+        )
+        .unwrap();
+        let first = cycle_run(
+            MIXED,
+            Some(xenon),
+            "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+            None,
+        )
+        .unwrap();
+        // 履歴はファイルを通して読む
+        let first = CoreHistory::from_msgpack(&first.to_msgpack().unwrap()).unwrap();
+        assert_eq!(first.auxiliary, Some(vec!["I-135".to_string()]));
+        let second = cycle_run(
+            &restarted_cycle(MIXED, "restart = { history = \"first.msgpack\" }"),
+            Some(xenon),
+            "[{ efpd = 125.0 }]",
+            Some(&first),
+        )
+        .unwrap();
+        // EFPD と日数は 0 から数え直し、燃焼度はノードごとに引き継ぐ
+        let efpd: Vec<f64> = second.points.iter().map(|p| p.efpd).collect();
+        assert_eq!(efpd, [0.0, 125.0], "{xenon}");
+        assert_eq!(second.assemblies, full.assemblies);
+        assert_eq!(second.heavy_metal, full.heavy_metal);
+        for (got, want) in second.points.iter().zip(&full.points[2..]) {
+            assert!(
+                near(got.k, want.k, 1.0e-12, 1.0),
+                "{xenon}: {} vs {}",
+                got.k,
+                want.k
+            );
+            assert!(near(got.burnup, want.burnup, 1.0e-12, 1.0), "{xenon}");
+            for (g, w) in got
+                .burnups
+                .iter()
+                .flatten()
+                .zip(want.burnups.iter().flatten())
+            {
+                assert!(near(*g, *w, 1.0e-12, 1.0), "{xenon}: {g} vs {w}");
+            }
+            let (g, w) = (
+                got.densities.as_ref().unwrap(),
+                want.densities.as_ref().unwrap(),
+            );
+            for (g, w) in g
+                .iter()
+                .flatten()
+                .flatten()
+                .zip(w.iter().flatten().flatten())
+            {
+                assert!(near(*g, *w, 1.0e-9, 1.0e-20), "{xenon}: {g} vs {w}");
+            }
+        }
+        // 最後の点の補助の核種（I-135）も続きと一致し、運転中の I-135 は 0 でない
+        let (g, w) = (
+            second.auxiliary_densities.as_ref().unwrap(),
+            full.auxiliary_densities.as_ref().unwrap(),
+        );
+        for (g, w) in g
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(w.iter().flatten().flatten())
+        {
+            assert!(
+                *w > 0.0 && near(*g, *w, 1.0e-9, 1.0e-20),
+                "{xenon}: {g} vs {w}"
+            );
+        }
+    }
+}
+
+#[test]
+fn restarts_without_the_auxiliary_nuclides_would_not_continue() {
+    // 補助の核種を 0 に戻すと（今の初めの組成と同じ）、停止の後の Xe-135 が I-135 の崩壊の分だけ違う。restart が補助の核種を
+    // 引き継ぐことの対照
+    let steps = "[{ efpd = 50.0 }, { decay-days = 0.25 }]";
+    let full = cycle_run(MIXED, Some("tracked"), "[{ efpd = 50.0 }]", None).unwrap();
+    let decayed = cycle_run(MIXED, Some("tracked"), steps, None).unwrap();
+    let mut zeroed = full.clone();
+    for v in zeroed
+        .auxiliary_densities
+        .as_mut()
+        .unwrap()
+        .iter_mut()
+        .flatten()
+        .flatten()
+    {
+        *v = 0.0;
+    }
+    let cycle = restarted_cycle(MIXED, "restart = { history = \"first.msgpack\" }");
+    let decay = "[{ decay-days = 0.25 }, { efpd = 1.0 }]";
+    let kept = cycle_run(&cycle, Some("tracked"), decay, Some(&full)).unwrap();
+    let lost = cycle_run(&cycle, Some("tracked"), decay, Some(&zeroed)).unwrap();
+    let xenon = |h: &CoreHistory, k: usize| h.points[k].densities.as_ref().unwrap()[0][0][2];
+    assert!(near(xenon(&kept, 1), xenon(&decayed, 2), 1.0e-9, 1.0e-20));
+    assert!(xenon(&lost, 1) < 0.9 * xenon(&kept, 1));
+}
+
+/// 装荷替えの後の燃焼点 0 の、集合体 `id` のノードの燃焼度と数密度（追う核種）
+fn assembly_state(history: &CoreHistory, k: usize, id: &str) -> (Vec<f64>, Vec<Vec<f64>>) {
+    let a = history.assemblies.iter().position(|a| a == id).unwrap();
+    let point = &history.points[k];
+    (
+        point.burnups[a].clone(),
+        point.densities.as_ref().unwrap()[a].clone(),
+    )
+}
+
+#[test]
+fn reloads_carry_the_states_by_assembly_id() {
+    // A1 と A2 を入れ替えて A2 を回し、B2 を取り出して新しい A3 を装荷する。引き継ぐ集合体は、履歴の最後の点の集合体の状態をその
+    // まま持ち（回転はノードの状態を回さない）、新しい集合体は燃焼度 0 とテーブルの燃焼度 0 の組成（ADR-0220）
+    let first = cycle_run(
+        MIXED,
+        Some("tracked"),
+        "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+        None,
+    )
+    .unwrap();
+    let reloaded = "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\n\
+                    restart = { history = \"first.msgpack\", fresh = [\"A3\"] }\n\
+                    loading = [\"A2@90  B1\", \"A1  A3\"]\n";
+    let second = cycle_run(reloaded, Some("tracked"), "[{ efpd = 50.0 }]", Some(&first)).unwrap();
+    assert_eq!(second.assemblies, ["A1", "A2", "A3", "B1"]);
+    let last = first.points.len() - 1;
+    for id in ["A1", "A2", "B1"] {
+        assert_eq!(
+            assembly_state(&second, 0, id),
+            assembly_state(&first, last, id),
+            "{id}"
+        );
+    }
+    let (burnups, densities) = assembly_state(&second, 0, "A3");
+    assert_eq!(burnups, [0.0, 0.0]);
+    assert_eq!(densities, [[U235, 0.0, 0.0], [U235, 0.0, 0.0]]);
+    // 炉心の平均の燃焼度は装荷した集合体の質量の重みで、ステップの増分は定格の出力密度 × EFPD
+    let mass: f64 = second.heavy_metal.iter().flatten().sum();
+    let start: f64 = second.points[0]
+        .burnups
+        .iter()
+        .flatten()
+        .zip(second.heavy_metal.iter().flatten())
+        .map(|(b, m)| b * m)
+        .sum::<f64>()
+        / mass;
+    assert!(near(second.points[0].burnup, start, 1.0e-15, 1.0));
+    assert!(near(
+        second.points[1].burnup,
+        start + 40.0 * 50.0e-3,
+        1.0e-12,
+        1.0
+    ));
+    // 新しい集合体の補助の核種は 0、引き継いだ集合体は履歴の値から進む
+    let a3 = second.assemblies.iter().position(|a| a == "A3").unwrap();
+    assert!(second.auxiliary_densities.as_ref().unwrap()[a3][0][0] > 0.0);
+}
+
+#[test]
+fn restart_mismatches_are_errors() {
+    // 黙って合わせない（ADR-0220 の「確かめてエラーにするもの」）
+    let steps = "[{ efpd = 50.0 }]";
+    let first = cycle_run(MIXED, Some("tracked"), "[{ efpd = 50.0 }]", None).unwrap();
+    let restart = |fresh: &str| {
+        restarted_cycle(
+            MIXED,
+            &format!("restart = {{ history = \"first.msgpack\", fresh = [{fresh}] }}"),
+        )
+    };
+    let error = |cycle: &str, xenon: Option<&str>, history: Option<&CoreHistory>| {
+        cycle_run(cycle, xenon, steps, history)
+            .unwrap_err()
+            .to_string()
+    };
+    let same = restart("");
+    // サイクルと燃焼の組み合わせ: restart のサイクルに履歴がない、restart のないサイクルに履歴がある
+    assert!(error(&same, Some("tracked"), None).contains("restart"));
+    assert!(error(MIXED, Some("tracked"), Some(&first)).contains("restart"));
+    // 履歴にも fresh にもない ID、両方にある ID
+    let reloaded = "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\n\
+                    restart = { history = \"first.msgpack\" }\nloading = [\"A1  B1\", \"B2  A3\"]\n";
+    assert!(error(reloaded, Some("tracked"), Some(&first)).contains("A3"));
+    assert!(error(&restart("\"A1\""), Some("tracked"), Some(&first)).contains("A1"));
+    // 軸方向のメッシュ、重金属の質量
+    let mut h = first.clone();
+    h.axial_mesh[1] = 10.000000000000002;
+    assert!(error(&same, Some("tracked"), Some(&h)).contains("axial"));
+    let mut h = first.clone();
+    h.heavy_metal[0][0] *= 1.0 + f64::EPSILON;
+    assert!(error(&same, Some("tracked"), Some(&h)).contains("heavy"));
+    // ミクロ燃焼の有無、追う核種、補助の核種
+    let plain = cycle_run(MIXED, None, "[{ efpd = 50.0 }]", None).unwrap();
+    assert!(error(&same, Some("tracked"), Some(&plain)).contains("micro"));
+    assert!(error(&same, None, Some(&first)).contains("micro"));
+    let mut h = first.clone();
+    h.nuclides = Some(vec!["U-235".into(), "U-236".into(), "Xe-136".into()]);
+    assert!(error(&same, Some("tracked"), Some(&h)).contains("nuclides"));
+    let mut h = first.clone();
+    h.auxiliary = Some(vec!["Te-135".into()]);
+    assert!(error(&same, Some("tracked"), Some(&h)).contains("auxiliary"));
+    // 数密度を持つノードがミクロ燃焼するノードと違う、点がない
+    let mut h = first.clone();
+    h.points.last_mut().unwrap().densities.as_mut().unwrap()[0][0].clear();
+    assert!(error(&same, Some("tracked"), Some(&h)).contains("densities"));
+    let mut h = first.clone();
+    h.points.clear();
+    assert!(error(&same, Some("tracked"), Some(&h)).contains("point"));
+    // 燃焼しない restart の燃焼は、重金属の質量と燃焼度だけを引き継ぐ
+    let again = cycle_run(&same, None, "[{ efpd = 50.0 }]", Some(&plain)).unwrap();
+    assert_eq!(again.points[0].burnups, plain.points[1].burnups);
+}
+
+#[test]
+fn micro_histories_hold_the_auxiliary_densities_of_their_last_point() {
+    // ミクロ燃焼の履歴は補助の核種の名前と最後の点の数密度を必ず持ち、ミクロ燃焼しない履歴は持たない（ADR-0220）
+    let micro = cycle_run(MIXED, Some("tracked"), "[{ efpd = 50.0 }]", None).unwrap();
+    let plain = cycle_run(MIXED, None, "[{ efpd = 50.0 }]", None).unwrap();
+    assert_eq!(plain.auxiliary, None);
+    assert_eq!(plain.auxiliary_densities, None);
+    for history in [&micro, &plain] {
+        let bytes = history.to_msgpack().unwrap();
+        assert_eq!(&CoreHistory::from_msgpack(&bytes).unwrap(), history);
+    }
+    let rejected = |h: &CoreHistory| CoreHistory::from_msgpack(&h.to_msgpack().unwrap()).is_err();
+    let mut h = micro.clone();
+    h.auxiliary = None;
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.auxiliary_densities = None;
+    assert!(rejected(&h));
+    let mut h = plain.clone();
+    h.auxiliary = Some(Vec::new());
+    h.auxiliary_densities = Some(Vec::new());
+    assert!(rejected(&h));
+    // 形: [集合体][軸方向のノード][補助の核種]。核分裂のないノードだけが空で、有限の値
+    let mut h = micro.clone();
+    h.auxiliary_densities.as_mut().unwrap()[0].pop();
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.auxiliary_densities.as_mut().unwrap()[0][0].clear();
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.auxiliary_densities.as_mut().unwrap()[0][0][0] = f64::NAN;
+    assert!(rejected(&h));
+    // 点のない履歴は、補助の核種の形でなく点がないことで止める
+    let mut h = micro.clone();
+    h.points.clear();
+    let error = CoreHistory::from_msgpack(&h.to_msgpack().unwrap())
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("no point"), "{error}");
 }

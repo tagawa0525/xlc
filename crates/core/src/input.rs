@@ -41,6 +41,9 @@
 //! ```toml
 //! plant = "plant.toml"
 //! inventory = "assemblies.toml"
+//! # 前のサイクルの燃焼の履歴（このファイルのあるディレクトリから）の最後の点から、集合体の ID で燃焼度と組成を引き継ぐ。`fresh` は
+//! # 履歴にない新しい集合体（省けば空）。燃焼のケースだけが使える。省けば、すべての集合体が新しい燃料（ADR-0220）
+//! restart = { history = "cycle-0.msgpack", fresh = ["J01"] }
 //! loading = ["J01@90  ."]
 //! ```
 //!
@@ -110,7 +113,7 @@
 //! ]
 //! ```
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
 use serde::de::DeserializeOwned;
@@ -661,6 +664,17 @@ pub struct Cycle {
     pub inventory: PathBuf,
     /// 上の行（+y）から。`.` の位置は `None`
     pub loading: Vec<Vec<Option<Placed>>>,
+    /// 前のサイクルの状態（ADR-0220）。`None` なら、すべての集合体が新しい燃料
+    pub restart: Option<RestartInput>,
+}
+
+/// サイクルの `restart`（ADR-0220）
+#[derive(Debug, Clone, PartialEq)]
+pub struct RestartInput {
+    /// 前のサイクルの燃焼の履歴（`xlc-core-history`）。最後の点の集合体ごとの状態を読む
+    pub history: PathBuf,
+    /// 履歴にない新しい集合体の ID（`loading` にあるもの）
+    pub fresh: BTreeSet<String>,
 }
 
 #[derive(Deserialize)]
@@ -669,6 +683,15 @@ struct CycleFile {
     plant: PathBuf,
     inventory: PathBuf,
     loading: Vec<String>,
+    restart: Option<RestartEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RestartEntry {
+    history: PathBuf,
+    #[serde(default)]
+    fresh: Vec<String>,
 }
 
 /// `名前@角度` を名前と反時計回りの 90° の回数に分ける（角度がなければ 0）。
@@ -709,10 +732,31 @@ impl Cycle {
             .into_iter()
             .map(|row| row.into_iter().map(placed).collect::<Result<Vec<_>, _>>())
             .collect::<Result<Vec<_>, _>>()?;
+        let restart = file
+            .restart
+            .map(|entry| -> Result<RestartInput, InputError> {
+                let mut fresh = BTreeSet::new();
+                for id in entry.fresh {
+                    if !loading.iter().flatten().flatten().any(|p| p.id == id) {
+                        return invalid(format!(
+                            "restart: the fresh assembly {id} is not in the loading"
+                        ));
+                    }
+                    if !fresh.insert(id.clone()) {
+                        return invalid(format!("restart: the fresh assembly {id} appears twice"));
+                    }
+                }
+                Ok(RestartInput {
+                    history: base.join(entry.history),
+                    fresh,
+                })
+            })
+            .transpose()?;
         Ok(Self {
             plant: base.join(file.plant),
             inventory: base.join(file.inventory),
             loading,
+            restart,
         })
     }
 }
@@ -1541,7 +1585,18 @@ impl Layout {
         inventory: &Inventory,
     ) -> Result<Self, InputError> {
         check_banks(case, plant)?;
+        // restart の組成は燃焼のケースだけが使う（燃焼しないケースを黙って新しい燃料で解かない。ADR-0220）
+        if cycle.restart.is_some() && case.depletion.is_none() {
+            return invalid(
+                "the cycle restarts from a history, but the case does not deplete (ADR-0220)",
+            );
+        }
         Self::build(case, cycle, plant, inventory, None)
+    }
+
+    /// サイクルの `restart`（ADR-0220）
+    pub fn restart(&self) -> Option<&RestartInput> {
+        self.inputs.cycle.restart.as_ref()
     }
 
     /// バンクの位置 `banks`（ケースの状態の `banks`）で制御棒を入れた並び（ADR-0127）

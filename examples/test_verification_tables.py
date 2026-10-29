@@ -1542,6 +1542,102 @@ class DrawCoreCycle(unittest.TestCase):
             vt.core_cycle_points([{"format": "xlc-compare-core-micro"}])
 
 
+class DrawCoreRestart(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_core_restart.py の要約（切る点 1 つ、後の半分の点 2 つ、装荷替えの点 2 つ）"""
+        point = {
+            "state": "aro",
+            "k": 1.071,
+            "k_full": 1.071,
+            "boron": 671.25,
+            "boron_full": 671.25,
+            "burnup_max_diff": 0.0,
+            "density_max_relative": 0.0,
+        }
+        return {
+            "format": "xlc-compare-core-restart",
+            "cuts": [
+                {
+                    "name": "a",
+                    "cut": {"efpd": 52.0697734964853, "days": 52.0697734964853},
+                    "first_k_max_diff": 0.0,
+                    "auxiliary_max_relative": 3.2e-13,
+                    "points": [
+                        {
+                            **point,
+                            "efpd": 52.0697734964853,
+                            "days": 52.0697734964853,
+                            "rho_pcm": 0.0,
+                            "boron_diff": 0.0,
+                        },
+                        {
+                            **point,
+                            "efpd": 78.10466024472794,
+                            "days": 78.10466024472794,
+                            "state": "rodded",
+                            "rho_pcm": -1.2e-9,
+                            "boron_diff": 2.5e-10,
+                            "burnup_max_diff": 4.4e-16,
+                            "density_max_relative": 1.1e-12,
+                        },
+                    ],
+                }
+            ],
+            "reload": {
+                "assemblies": ["A01", "A02", "A04", "A05"],
+                "inherited": ["A01", "A02", "A04"],
+                "fresh": ["A05"],
+                "discharged": ["A03"],
+                "previous": {"efpd": 195.26, "days": 265.58},
+                "points": [
+                    {
+                        "efpd": 0.0,
+                        "days": 0.0,
+                        "state": "aro",
+                        "k": 1.07099998,
+                        "boron": 1100.5,
+                        "solves": 5,
+                        "burnup": 5.6,
+                        "assembly_burnups": [7.1, 8.2, 7.4, 0.0],
+                    },
+                    {
+                        "efpd": 6.5087,
+                        "days": 6.5087,
+                        "state": "aro",
+                        "k": 1.07099996,
+                        "boron": 800.25,
+                        "solves": 30,
+                        "burnup": 5.85,
+                        "assembly_burnups": [7.3, 8.4, 7.6, 0.4],
+                    },
+                ],
+            },
+        }
+
+    def test_restart_rows_give_the_differences_from_the_uncut_run(self):
+        lines = vt.core_restart_differences([self.summary()]).splitlines()
+        self.assertIn("切る点", lines[0])
+        self.assertIn("Δρ (pcm)", lines[0])
+        # 指数の形で、負の符号は U+2212、0 は 0
+        self.assertIn("−1.20e-09", lines[3])
+        self.assertIn("+2.50e-10", lines[3])
+        self.assertIn("rodded", lines[3])
+        self.assertIn("| 0 ", lines[2])
+
+    def test_reload_rows_give_the_k_boron_and_assembly_burnups(self):
+        lines = vt.core_reload_points([self.summary()]).splitlines()
+        self.assertIn("A05 (MWd/kg)", lines[0])
+        self.assertIn("1100.5000", lines[2])
+        self.assertIn("0.4000", lines[3])
+        self.assertIn("1.07099996", lines[3])
+
+    def test_other_summaries_are_errors(self):
+        for draw in [vt.core_restart_differences, vt.core_reload_points]:
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-core-cycle"}])
+
+
 class DrawCoreSteps(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
