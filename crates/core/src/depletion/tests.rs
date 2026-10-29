@@ -5,7 +5,7 @@ use xlc_format::table::{Axis, Table, product_points};
 
 use super::*;
 use crate::case::{solve_at, solve_burnups};
-use crate::input::{BoronSearch, Case, CaseState, Cycle, Inventory, Layout, Plant};
+use crate::input::{BoronSearch, Case, CaseState, Cycle, Inventory, Layout, MidpointBoron, Plant};
 use crate::nem::Options;
 
 const PLANT: &str = r#"
@@ -453,8 +453,16 @@ fn solve_errors_name_the_point_or_midpoint() {
 #[test]
 fn histories_round_trip_through_their_file() {
     let history = run(CASE, MIXED).unwrap();
+    // 省いた中点のホウ素は、ADR-0191 の探索
+    assert_eq!(history.midpoint_boron, MidpointBoron::Search);
     let bytes = history.to_msgpack().unwrap();
     assert_eq!(CoreHistory::from_msgpack(&bytes).unwrap(), history);
+    let start = CoreHistory {
+        midpoint_boron: MidpointBoron::Start,
+        ..history.clone()
+    };
+    let bytes = start.to_msgpack().unwrap();
+    assert_eq!(CoreHistory::from_msgpack(&bytes).unwrap(), start);
     let value = xlc_format::msgpack::read_value(&bytes).unwrap();
     let format = value
         .as_map()
@@ -862,6 +870,29 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
             .unwrap();
             (rates, ppm) = critical(&burnups);
         }
+        // 入力で案 S1 を選んだ燃焼は、上の組み立てと同じ燃焼度になる（ステップの目標の燃焼度の掛け算の順だけが違う）
+        let mut start = case.depletion.clone().unwrap();
+        start.midpoint_boron = MidpointBoron::Start;
+        let selected = deplete(
+            &layout,
+            &tables,
+            &case.states,
+            &start,
+            None,
+            &options,
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(selected.midpoint_boron, MidpointBoron::Start);
+        let selected_a1 = &selected.points.last().unwrap().burnups[0];
+        for (z, b) in selected_a1.iter().enumerate() {
+            let built = burnups[layout.mesh.site([0, ny - 1, z])];
+            assert!(
+                (b - built).abs() <= 1.0e-12 * built,
+                "node {z}: {b} vs {built}"
+            );
+        }
+        assert_eq!(selected_a1.len(), nz);
         // 集合体 A1 の燃焼度（履歴の `assembly_burnups[0]` と同じ量）
         let history = deplete(
             &layout,

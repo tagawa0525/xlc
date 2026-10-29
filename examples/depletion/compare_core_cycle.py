@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 import msgpack
-from core_history import single_state
+from core_history import default_midpoints, single_state
 
 # 追う数密度（Xe-135 とその先行核、停止の間に Pm-149 の崩壊で増える Sm-149）
 NUCLIDES = ["I-135", "Xe-135", "Sm-149"]
@@ -37,6 +37,7 @@ def rho_pcm(base: float, k: float) -> float:
 def check_core(name: str, core: dict, cycle: dict) -> None:
     if core.get("format") != "xlc-core-history":
         raise SystemExit(f"{name}: unexpected core format {core.get('format')}")
+    default_midpoints(core)
     if len(core["assemblies"]) != 1:
         raise SystemExit(f"{name}: the core must be one assembly")
     if core["axial_mesh"] != cycle["axial_mesh"]:
