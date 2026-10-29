@@ -17,8 +17,6 @@ status: accepted      # proposed | accepted | rejected | superseded | deprecated
 date: 2026-10-08      # 最後に status が変わった日（accepted なら決めた日）
 supersedes: []        # この ADR が置き換えた ADR（例: [ADR-0002]）
 superseded-by:        # この ADR を置き換えた ADR（例: ADR-0007。複数なら [ADR-0068, ADR-0074]）
-amends: []            # この ADR が一部を置き換えた ADR（例: [ADR-0013]）。なければ書かなくてよい
-amended-by: []        # この ADR の一部を置き換えた ADR（例: [ADR-0129]）。なければ書かなくてよい
 issues: []            # きっかけになった、またはこの ADR で解決した issue（例: ["#0001"]）
 requires: []          # 前提にしている ADR（例: [ADR-0068]）。なければ空。design-records check が求める
 ---
@@ -95,6 +93,8 @@ requires: []          # 前提にしている ADR（例: [ADR-0068]）。なけ�
   `- YYYY-MM-DD: <変えた部分>。前は「<前の文の引用>」。<理由>` の 1 項を足す。前の文を引用するので、前の決定は
   ファイルの中に残る。比べた案は、その項に書くか issue に書いて項から指す。`design-records check` は、凍結する部分の
   変更に注意（warning）を出す。止めないので、「## 変更」を書いたかを確かめる合図にする
+  既定ブランチとの分岐点から `amends` に足した ADR は、FILE を渡した `check`（pre-commit）が error にする（nixfiles の
+  PR #532）。新しい ADR に `amends` を書かず、「## 変更」に書く
 - 決定の全体を変えるときだけ、新しい ADR で置き換える。新しい方の `supersedes` と古い方の `superseded-by` で両方向に
   結び、古い方を `status: superseded` にする
 - main にマージする前は、ブランチの上の ADR を status によらず自由に直してよい
