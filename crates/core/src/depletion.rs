@@ -432,7 +432,8 @@ pub fn deplete(
                                 "site {site}: the solve has no weights of the partially rodded node"
                             )
                         })?;
-                        mix_micro(&micro, weights).map_err(|e| format!("site {site}: {e}"))?
+                        mix_micro(&micro, weights, &solve.solved.solution.flux[site])
+                            .map_err(|e| format!("site {site}: {e}"))?
                     }
                 };
                 let rates =
@@ -691,8 +692,18 @@ impl MicroNodes {
                     fissile_use(site, material.table)?.then_some(NodeUse::Uniform(material.table))
                 }
                 None => {
-                    // 部分挿入のノード: 区間のどれかが核分裂すれば、区間の微視的断面積を混ぜて燃焼させる（ADR-0217）
+                    // 部分挿入のノード: 区間のどれかが核分裂すれば、区間の微視的断面積を混ぜて燃焼させる（ADR-0217）。区間は同じ
+                    // 層のテーブルで、初めの組成と公称の数密度は区間によらない
                     let index = m - layout.materials.len();
+                    let segments = &layout.partial[index].segments;
+                    if segments
+                        .iter()
+                        .any(|&(t, _)| layout.tables[t].file != layout.tables[segments[0].0].file)
+                    {
+                        return fail(format!(
+                            "site {site}: the intervals of a partially rodded node use different tables"
+                        ));
+                    }
                     let mut any = false;
                     for &(table, _) in &layout.partial[index].segments {
                         any |= fissile_use(site, table)?;
