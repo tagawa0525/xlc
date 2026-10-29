@@ -6,7 +6,7 @@ use xlc_format::table::{Axis, Table};
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::micro::{MicroChain, correct};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
-use crate::rods::solve_rodded;
+use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{State, interpolate, interpolate_micro, non_negative};
 
@@ -17,6 +17,8 @@ pub struct Solved {
     pub searched: Option<Searched>,
     pub problem: Problem,
     pub solution: Solution,
+    /// 部分挿入のノード（`Layout::partial` の順）の定数を混ぜた [区間][群] の重み（ADR-0127、ADR-0217）
+    pub segment_weights: SegmentWeights,
 }
 
 /// 探索したホウ素濃度と、そのための固有値計算の回数。
@@ -194,9 +196,10 @@ fn solve_with(
             searched: None,
             problem,
             solution,
+            segment_weights: Vec::new(),
         });
     }
-    let (solution, materials, _) = solve_rodded(
+    let (solution, materials, segment_weights) = solve_rodded(
         &problem,
         partial,
         layout.partial_rods.weighting,
@@ -210,6 +213,7 @@ fn solve_with(
             ..problem
         },
         solution,
+        segment_weights,
     })
 }
 
