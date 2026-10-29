@@ -1955,6 +1955,10 @@ fn equilibrium_xenon_balances_the_operating_points_and_decays_after_shutdowns() 
         1.0e-10,
     );
     assert_densities(&history.points[3], at(3, 1.0), 1.0e-9);
+    // 点の固有値計算の回数は、平衡の固定点のすべての解の和（一様な炉心の反応率は Xe によらないので、平衡にした組成を 1 度解き直して
+    // 止まる）
+    let solves: Vec<usize> = history.points.iter().map(|p| p.solves).collect();
+    assert_eq!(solves, [1, 2, 1, 2]);
 }
 
 #[test]
