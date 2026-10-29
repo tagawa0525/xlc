@@ -552,10 +552,11 @@ fn mixing_micro_cross_sections_needs_matching_segments() {
 
 #[test]
 fn rodded_solutions_return_the_weights_of_their_mixed_constants() {
-    // 返す重みで区間の定数を混ぜると、解いた混ぜた定数（z の面の不連続因子のほか）になる。体積の重みは区間の長さ
+    // 返す重みで区間の定数を混ぜると、解いた混ぜた定数（z の面の不連続因子のほか）になる（体積の重みは、長さと比が同じ重みなので
+    // 丸めの範囲で）。体積の重みは、区間の長さ × ノード平均の中性子束
     for weighting in [Weighting::Flux, Weighting::Volume] {
         let (problem, partial) = column(128.0, 1.6, false);
-        let (_, materials, weights) = solve_rodded(
+        let (solution, materials, weights) = solve_rodded(
             &problem,
             partial.clone(),
             weighting,
@@ -566,13 +567,29 @@ fn rodded_solutions_return_the_weights_of_their_mixed_constants() {
         assert_eq!(weights.len(), 1);
         let solved = &materials[partial[0].material];
         let mixed = mix(&partial[0].segments, &weights[0]).unwrap();
-        assert_eq!(mixed.total, solved.total, "{weighting:?}");
-        assert_eq!(mixed.absorption, solved.absorption);
-        assert_eq!(mixed.nu_fission, solved.nu_fission);
-        assert_eq!(mixed.scatter, solved.scatter);
-        assert_eq!(mixed.diffusion, solved.diffusion);
+        let tolerance = match weighting {
+            Weighting::Flux => 0.0,
+            Weighting::Volume => 1.0e-15,
+        };
+        let close = |a: &[f64], b: &[f64]| {
+            a.iter()
+                .zip(b)
+                .all(|(x, y)| (x - y).abs() <= tolerance * y.abs())
+        };
+        assert!(close(&mixed.total, &solved.total), "{weighting:?}");
+        assert!(close(&mixed.absorption, &solved.absorption));
+        assert!(close(&mixed.nu_fission, &solved.nu_fission));
+        for (a, b) in mixed.scatter.iter().zip(&solved.scatter) {
+            assert!(close(a, b));
+        }
+        assert!(close(&mixed.diffusion, &solved.diffusion));
         if weighting == Weighting::Volume {
-            assert_eq!(weights[0], vec![vec![8.0; 2], vec![12.0; 2]]);
+            let phi = &solution.flux[partial[0].site];
+            let expected: Vec<Vec<f64>> = [8.0, 12.0]
+                .iter()
+                .map(|l| phi.iter().map(|f| l * f).collect())
+                .collect();
+            assert_eq!(weights[0], expected);
         }
     }
 }
