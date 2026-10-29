@@ -650,9 +650,16 @@ impl MicroNodes {
                 continue;
             };
             let file = layout.tables[material.table].file;
-            // 燃焼度で引くのはテーブルの使い方が位置を持つノードだけ（反射体の位置は燃焼せず、補正もしない）
-            if layout.tables[material.table].node.is_none() || !fissile(&tables[file]) {
+            if !fissile(&tables[file]) {
                 continue;
+            }
+            // 燃焼度で引かない使い方（反射体の位置など）は、補正も燃焼もしないので、核分裂のあるテーブルを置けない
+            if layout.tables[material.table].node.is_none() {
+                return fail(format!(
+                    "site {site} uses the fissile table {} but is not a depleted node, so the micro depletion would \
+                     neither deplete nor correct it",
+                    layout.files[file].display()
+                ));
             }
             let Some(micro) = &tables[file].micro else {
                 return fail(format!(
