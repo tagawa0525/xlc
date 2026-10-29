@@ -917,12 +917,20 @@ def core_partial_rods_k(sources: list[dict]) -> str:
 
 def core_partial_rods_densities(sources: list[dict]) -> str:
     """部分挿入のノードのミクロ燃焼の追う核種ごとの、割合 0 と棒のない燃焼、割合 1 と棒の入った燃焼の数密度の相対差の絶対値の
-    最大、最後の燃焼点の軸方向のノードごとの割合 1 の割合 0 に対する相対差 (%)、数密度が割合について単調でない燃焼点とノード"""
+    最大、最後の燃焼点の軸方向のノードごとの割合 1 の割合 0 に対する相対差 (%)、数密度が割合について単調でない燃焼点のノードごとの数と
+    燃焼度 (MWd/kg) の範囲"""
     s = core_partial_rods_summary(sources)
     mesh = s["axial_mesh"]
 
     def limit(x):
         return "–" if x is None else signed_exponent(x)
+
+    def points_of(burnups):
+        if not burnups:
+            return "0"
+        if len(burnups) == 1:
+            return f"1（{burnup_label(burnups[0])}）"
+        return f"{len(burnups)}（{burnup_label(min(burnups))}〜{burnup_label(max(burnups))}）"
 
     rows = [
         [
@@ -930,11 +938,10 @@ def core_partial_rods_densities(sources: list[dict]) -> str:
             limit(d["zero_limit"]["relative"]),
             limit(d["one_limit"]["relative"]),
             *(micro_percent(c) for c in d["last_change"]),
-            ", ".join(
-                f"{burnup_label(m['burnup'])}（{mesh[m['node']]:g}）"
-                for m in d["not_monotonic"]
-            )
-            or "なし",
+            *(
+                points_of([m["burnup"] for m in d["not_monotonic"] if m["node"] == z])
+                for z in range(len(mesh) - 1)
+            ),
         ]
         for n, d in s["densities"].items()
     ]
@@ -947,7 +954,10 @@ def core_partial_rods_densities(sources: list[dict]) -> str:
                 f"最後の点の割合 1 − 割合 0、{a:g}〜{b:g} cm (%)"
                 for a, b in itertools.pairwise(mesh)
             ),
-            "単調でない燃焼点 (MWd/kg、ノードの下端 cm)",
+            *(
+                f"単調でない燃焼点、{a:g}〜{b:g} cm"
+                for a, b in itertools.pairwise(mesh)
+            ),
         ],
         rows,
     )
