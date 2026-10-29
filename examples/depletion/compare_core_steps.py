@@ -62,11 +62,13 @@ def differences(coarse: dict, fine: dict) -> dict:
     burnup = max(
         abs(a - b) for a, b in zip(flat(coarse["burnups"]), flat(fine["burnups"]))
     )
-    power = max(
-        abs(a - b) / b
-        for a, b in zip(flat(coarse["powers"]), flat(fine["powers"]))
-        if b > 0.0
-    )
+    pairs = list(zip(flat(coarse["powers"]), flat(fine["powers"])))
+    # 核分裂のないノード（両方 0）だけを除く。片方だけ 0 のノードは相対差を持たない
+    if any((a > 0.0) != (b > 0.0) for a, b in pairs):
+        raise SystemExit(
+            f"the point at {fine['efpd']} EFPD has a node with power in one split only"
+        )
+    power = max((abs(a - b) / b for a, b in pairs if b > 0.0), default=0.0)
     return {
         "boron": coarse["boron"] - fine["boron"],
         "k": coarse["k"] - fine["k"],
@@ -102,6 +104,16 @@ def summarize(
     methods = sorted({m for m, _ in runs})
     splits = {m: sorted(s for n, s in runs if n == m) for m in methods}
     base = runs[(methods[0], 1)]["points"]
+    # 分割 n の履歴は、燃焼点 0、崩壊だけのステップの点、基準の出力のあるステップの n 倍の点を持つ（分割の名前と履歴を取り違えると、
+    # 基準の点はそろっても点の数が合わない）
+    powered = sum(1 for a, b in pairwise(base) if b["efpd"] != a["efpd"])
+    decays = len(base) - 1 - powered
+    for (method, split), core in runs.items():
+        expected = 1 + decays + split * powered
+        if len(core["points"]) != expected:
+            raise SystemExit(
+                f"{method} {split}: {len(core['points'])} points, but split {split} of the base cycle has {expected}"
+            )
     # 基準の燃焼点を、分割ごとの履歴の点に組にする
     matched: dict[tuple[str, int], list[dict]] = {}
     for (method, split), core in runs.items():
