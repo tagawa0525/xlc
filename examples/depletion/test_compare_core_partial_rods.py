@@ -143,6 +143,19 @@ class Summary(unittest.TestCase):
         )
         self.assertEqual([p["k_monotonic"] for p in s["points"]], [True, True, False])
 
+    def test_change_per_node_burnup_is_checked_for_monotonicity_apart(self):
+        # 数密度の燃焼度 0 からの変化をノードの燃焼度で割った値（燃焼度 0 の点は除く）
+        s = compare_core_partial_rods.summarize(*inputs())
+        for d in s["densities"].values():
+            self.assertEqual(d["per_burnup_not_monotonic"], [])
+        out, rodded, partial = inputs()
+        # 割合 0.5 の点 2 の U-235 を、数密度は両端の間のまま、燃焼度あたりの変化は割合 0 より大きく減るようにする
+        partial[1][1]["points"][2]["densities"][0][1][0] = 6.05e-4
+        s = compare_core_partial_rods.summarize(out, rodded, partial)
+        u235 = s["densities"]["U-235"]
+        self.assertEqual(u235["not_monotonic"], [])
+        self.assertEqual(u235["per_burnup_not_monotonic"], [{"burnup": 2.0, "node": 1}])
+
     def test_burnups_of_the_points_agree_to_rounding(self):
         # 集合体の燃焼度はノードの燃焼度の和なので、燃焼によって丸めが違う
         out, rodded, partial = inputs()
