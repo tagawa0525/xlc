@@ -1731,6 +1731,21 @@ fn continuing_needs_the_initial_composition_of_the_history() {
 }
 
 #[test]
+fn a_continued_history_cannot_be_continued_again() {
+    // 履歴は続けた燃焼点を 1 つしか持たないので、続けた履歴から続けると前の条件の切り替えが消える
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let once = continue_simply(
+        &continued("0.05", "[0.5, 2.0]", "4.0e-2"),
+        &library,
+        &nominal,
+    )
+    .unwrap();
+    let err = continue_simply(&continued("0.5", "[2.0]", "4.9e-2"), &library, &once).unwrap_err();
+    assert!(format!("{err:#}").contains("continues"), "{err:#}");
+}
+
+#[test]
 fn continuing_needs_the_few_group_constants_of_the_history() {
     let library = library();
     let nominal = deplete_with(PIN, &library);
