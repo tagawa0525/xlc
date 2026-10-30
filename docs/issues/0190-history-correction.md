@@ -171,7 +171,11 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   やり直す。`index_effect` と `nominal_state` を点と核種ごとに引き直す。`span` と `ratio` は compare_split.py、compare_weight.py の 3 つ目の複製で、
   verification_tables.py の `signed_or_dash` は `core_history_switch` の局所関数 `optional` と同じ。`report` の最後の点の比は 0 で割りうる
   （`span` は除く）、履歴の名前が表（密度 0.702）と要約（0.702）で違う。`switch_rows` は R(1) の点を浮動小数の一致で引き、`check_summaries` は
-  split.json の format を照らさない
+  split.json の format を照らさない。2 周目で残したもの: 表の L/E² の列は None を描けず、行を除く条件（E が 0）と比を出さない条件が
+  compare_index.py と verification_tables.py に分かれる。両方の外れ（w）と w_L、w_U は split.json から写し、成分の外れのようには作り直して
+  照らさない（入力の md5 は compare_split.py のコードの版を見ない）。表のテストの例は続ける点の E の比を None にするが、実データは 0.0。`report` の
+  `at` は密度だけの経路に switch の点が無いと StopIteration で落ちる。`density_ratios` は核種ごとに公称の状態を引き直し、switch の w を 2 か所で引く。
+  index.json を git から読むテスト（7efc0727）は実装（278c2a45）の後にコミットした
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
   超えた比例と重みの見直し（上の候補から選ぶ。測定は済んだ）。examples/core/rod_table.py の `merge` は最初のテーブルの `histories` だけを残し、ほかの制御棒の値のテーブルの
