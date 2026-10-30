@@ -188,5 +188,15 @@ changed のステージの数は、前半の 2 と同じく `nix develop -c scri
 （ADR-0159 の帰結。`dvc repro` で作り直すまで、そのままでよい）。ほかのステージが changed なら、
 出力が足りない、またはキャッシュにない。`scripts/dvc-checkout.py` が失敗したら止めて、原因を調べる（推測で `dvc repro` を実行しない）。
 
+ブランチが `.dvc` ファイル（記録が引く生成物。ADR-0222）を足すか変えたなら、main の置き場もキャッシュに合わせる（`HEAD` は
+マージのコミット）:
+
+```bash
+nix develop -c dvc checkout $(git diff --name-only --diff-filter=AM HEAD^1 HEAD -- '*.dvc')
+```
+
+main の作業ツリーに同じ名前の、キャッシュに無い古い版が残っていると、`dvc checkout` は「Can't remove the following unsaved
+files」で止まる。`--force` を付けると古い版を失うので付けず、記録がその版を md5 で引くかを確かめてユーザーに聞く。
+
 走らせなかったステージの changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
 要るときに HEAD で `dvc repro` すれば再実行する（ADR-0130）。

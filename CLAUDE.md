@@ -72,6 +72,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   foreach にも足す（`scripts/test_normalize_python.py` が食い違いを止める）。
   NJOY と OpenMC を使うステージは cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
+- 記録か ADR が md5 か名前で引く、git で追跡しない生成物（DVC のステージの出力でないもの）は、記録に書く前に置き場で
+  `dvc add` し、`.dvc` ファイルをコミットする（同じ名前で作り直したら `dvc add` をやり直す）。worktree の後片付けで消えず、
+  `scripts/worktree-restore-outputs.sh` で戻り、前の版はキャッシュに残る（ADR-0222）
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
   コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても再実行せず、分岐点から復元する。数秒で終わる
   ステージだけは再実行してよい（ADR-0130）。rebase で hash が変わっても
