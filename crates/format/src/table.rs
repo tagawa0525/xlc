@@ -12,6 +12,11 @@
 //! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない）、`derivative`（自分の数密度による格子全体の少数群定数の微分の `total`、
 //! `nu_fission`、`fission`、`scatter`。数密度が 0 の点は σᵢ。微分を持つ核種だけが書き、ほかはキーを書かない（nil はエラー）。ADR-0221））。燃焼度の軸を持ち、分けない
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
+//! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density`）、公称の燃焼の値 `nominal`（H⁰）、履歴の
+//! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
+//! 含み、テーブルが履歴の分岐の条件の状態を解いた点）、点ごとの `residuals`（`total`、`absorption`、`nu_fission`、`fission`、`chi`、
+//! `diffusion`、`scatter`、`adf`））。履歴の分岐の条件は、変数の軸（減速材の密度は `moderator`）だけが値 `branch` の格子点で、ほかの軸は
+//! 公称の状態。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
@@ -468,6 +473,8 @@ pub struct Table {
     pub heavy_metal: Option<f64>,
     /// ミクロ燃焼の核種の均質化した数密度と微視的断面積（ADR-0187、ADR-0216）。燃焼の履歴から作ったテーブルだけが持てる
     pub micro: Option<Micro>,
+    /// 履歴の変数ごとの、ミクロ燃焼で追わない核種の分の補正の残り R（ADR-0215）。ミクロ燃焼のデータを持つテーブルだけが持てる
+    pub histories: Vec<HistoryCorrection>,
 }
 
 /// ミクロ燃焼で追う核種の、燃焼度の点ごとの格子で均質化した数密度と、状態ごとの少数群の微視的断面積（ADR-0216）。格子全体の
@@ -526,6 +533,51 @@ pub struct MicroReaction {
     pub channels: Vec<Vec<f64>>,
 }
 
+/// 履歴の変数の 1 つの補正（ADR-0215）。core はノードの少数群定数に、w = (H − H⁰) / (Hᵇ − H⁰) を掛けた残り R を足す
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryCorrection {
+    /// 履歴の変数の名前（[`MODERATOR_DENSITY`]）
+    pub variable: String,
+    /// 公称の燃焼の履歴の変数の値 H⁰（減速材の密度は g/cm³）
+    pub nominal: f64,
+    /// 履歴の分岐の変数の値 Hᵇ
+    pub branch: f64,
+    /// 制御棒の値ごとの残り
+    pub rods: Vec<HistoryRod>,
+}
+
+/// 1 つの制御棒の値の、燃焼度の点ごとの残り R（ADR-0215）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryRod {
+    /// 制御棒の値の名前（制御棒の軸の値。軸のないテーブルは [`ROD_OUT`]）
+    pub rod: String,
+    /// R を持つ燃焼度の点 (MWd/kg)。燃焼度の軸の点で、最初と最後の点を含み、テーブルが履歴の分岐の条件の状態を解いた点
+    pub burnup: Vec<f64>,
+    /// `burnup` の点ごとの残り
+    pub residuals: Vec<Residual>,
+}
+
+/// 残り R の少数群定数の項目（状態の少数群定数と同じ単位）。k∞、真空の辺の比、形状関数は持たない
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Residual {
+    pub total: Vec<f64>,
+    pub absorption: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub fission: Vec<f64>,
+    pub chi: Vec<f64>,
+    pub diffusion: Vec<f64>,
+    /// [入射の群][出射の群]
+    pub scatter: Vec<Vec<f64>>,
+    /// [辺][群]
+    pub adf: Vec<Vec<f64>>,
+}
+
+/// 減速材の密度の履歴の変数の名前（ADR-0215）
+pub const MODERATOR_DENSITY: &str = "moderator-density";
+
 /// テーブルのファイルの読み書きのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum TableError {
@@ -558,6 +610,8 @@ struct TableFile {
     states: Vec<StateFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     micro: Option<Micro>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    histories: Vec<HistoryCorrection>,
 }
 
 /// ファイルの軸（テーブルと媒質で共有する。ADR-0128）
@@ -706,6 +760,7 @@ impl Table {
             states: vec![state],
             heavy_metal: None,
             micro: None,
+            histories: Vec::new(),
         }
     }
 
@@ -784,6 +839,176 @@ impl Table {
         }
         if let Some(micro) = &self.micro {
             self.validate_micro(micro).map_err(TableError::Invalid)?;
+        }
+        self.validate_histories().map_err(TableError::Invalid)?;
+        Ok(())
+    }
+
+    /// 履歴の補正（ADR-0215）: ミクロ燃焼のデータを持つテーブルの、重ならない既知の変数で、H⁰ と Hᵇ が減速材の軸の公称と公称でない
+    /// 格子点の密度。制御棒の値ごとの燃焼度の点は、その条件の状態（変数の軸だけが Hᵇ の格子点で、ほかの軸は公称）をテーブルが解いた
+    /// 燃焼度の点で、増え、最初と最後の点を含み、点ごとに状態と同じ群と辺の数の有限の残りを持つ
+    fn validate_histories(&self) -> Result<(), String> {
+        if self.histories.is_empty() {
+            return Ok(());
+        }
+        if self.micro.is_none() {
+            return Err(
+                "history residuals need micro data (they are left after the micro correction. ADR-0215)".into(),
+            );
+        }
+        let position = |f: fn(&Axis) -> bool| self.axes.iter().position(f);
+        let burnup = position(|a| matches!(a, Axis::Burnup { .. }))
+            .ok_or("history residuals need a burnup axis")?;
+        let moderator = position(|a| matches!(a, Axis::Moderator { .. }));
+        let rod = position(|a| matches!(a, Axis::Rod { .. }));
+        let burnups = self.axes[burnup].points();
+        let groups = self.states[0].bounds.len() - 1;
+        let sides = self.states[0].adf.len();
+        for (h, history) in self.histories.iter().enumerate() {
+            let variable = &history.variable;
+            if self.histories[..h].iter().any(|o| &o.variable == variable) {
+                return Err(format!("history variable {variable} appears twice"));
+            }
+            if variable != MODERATOR_DENSITY {
+                return Err(format!(
+                    "unknown history variable {variable:?} ({MODERATOR_DENSITY}. ADR-0215)"
+                ));
+            }
+            // 減速材の密度: H⁰ は公称の格子点の密度、Hᵇ はほかの 1 つの格子点の密度で、その格子点が履歴の分岐の条件
+            let (m, density) = match moderator.map(|m| (m, &self.axes[m])) {
+                Some((m, Axis::Moderator { density, .. })) => (m, density),
+                _ => {
+                    return Err(format!(
+                        "history variable {variable} needs a moderator axis"
+                    ));
+                }
+            };
+            let nominal = self.axes[m].nominal_index().ok_or_else(|| {
+                format!(
+                    "history variable {variable}: the branch condition is the nominal state but for the moderator, \
+                     and the table has no nominal values"
+                )
+            })?;
+            if history.nominal != density[nominal] {
+                return Err(format!(
+                    "history variable {variable}: nominal value {} is not the density {} of the nominal moderator point",
+                    history.nominal, density[nominal]
+                ));
+            }
+            // 変数の差 Hᵇ − H⁰ で core が重みを割る
+            if history.branch == history.nominal {
+                return Err(format!(
+                    "history variable {variable}: branch value {} equals the nominal value",
+                    history.branch
+                ));
+            }
+            let condition = match density
+                .iter()
+                .enumerate()
+                .filter(|&(i, &d)| i != nominal && d == history.branch)
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>()[..]
+            {
+                [only] => only,
+                _ => {
+                    return Err(format!(
+                        "history variable {variable}: branch value {} is not the density of one off-nominal moderator \
+                         point of {density:?}",
+                        history.branch
+                    ));
+                }
+            };
+            if history.rods.is_empty() {
+                return Err(format!("history variable {variable}: no rod values"));
+            }
+            for (r, entry) in history.rods.iter().enumerate() {
+                let at = || format!("history variable {variable}, rod value {}", entry.rod);
+                if history.rods[..r].iter().any(|o| o.rod == entry.rod) {
+                    return Err(format!("{}: the rod value appears twice", at()));
+                }
+                let rod_index = match rod.map(|k| &self.axes[k]) {
+                    Some(Axis::Rod { values }) => {
+                        Some(values.iter().position(|v| v == &entry.rod).ok_or_else(|| {
+                            format!("{}: not a value of the rod axis {values:?}", at())
+                        })?)
+                    }
+                    _ if entry.rod == ROD_OUT => None,
+                    _ => {
+                        return Err(format!(
+                            "{}: tables without a rod axis hold the rod value {ROD_OUT} only",
+                            at()
+                        ));
+                    }
+                };
+                // 条件の状態の点（燃焼度の番号は後で入れる）
+                let mut point = vec![0; self.axes.len()];
+                for (k, axis) in self.axes.iter().enumerate() {
+                    point[k] = match axis {
+                        Axis::Burnup { .. } => 0,
+                        Axis::Rod { .. } => rod_index.unwrap_or(0),
+                        _ if k == m => condition,
+                        _ => axis.nominal_index().unwrap_or(0),
+                    };
+                }
+                if !entry.burnup.windows(2).all(|w| w[0] < w[1]) {
+                    return Err(format!(
+                        "{}: burnup points must increase, got {:?}",
+                        at(),
+                        entry.burnup
+                    ));
+                }
+                for &b in &entry.burnup {
+                    let index = burnups.iter().position(|&p| p == b).ok_or_else(|| {
+                        format!("{}: burnup {b} is not a point of the burnup axis", at())
+                    })?;
+                    point[burnup] = index;
+                    if self.point_index(&point).is_none() {
+                        return Err(format!(
+                            "{}: the table has not solved the branch condition at burnup {b} (the residuals are \
+                             taken where the table holds lattice values. ADR-0215)",
+                            at()
+                        ));
+                    }
+                }
+                if entry.burnup.first() != burnups.first() || entry.burnup.last() != burnups.last()
+                {
+                    return Err(format!(
+                        "{}: the burnup points must include the first and the last of the burnup axis (core does not \
+                         extrapolate the residuals)",
+                        at()
+                    ));
+                }
+                if entry.residuals.len() != entry.burnup.len() {
+                    return Err(format!(
+                        "{}: {} residuals for {} burnup points",
+                        at(),
+                        entry.residuals.len(),
+                        entry.burnup.len()
+                    ));
+                }
+                let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
+                if let Some(k) = entry.residuals.iter().position(|q| {
+                    ![
+                        &q.total,
+                        &q.absorption,
+                        &q.nu_fission,
+                        &q.fission,
+                        &q.chi,
+                        &q.diffusion,
+                    ]
+                    .iter()
+                    .all(|v| sized(v))
+                        || q.scatter.len() != groups
+                        || !q.scatter.iter().all(|row| sized(row))
+                        || q.adf.len() != sides
+                        || !q.adf.iter().all(|side| sized(side))
+                }) {
+                    return Err(format!(
+                        "{}: residual {k} must have {groups} finite groups ({sides} ADF sides)",
+                        at()
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -962,6 +1187,7 @@ impl Table {
             points: self.points.clone(),
             states,
             micro: self.micro.clone(),
+            histories: self.histories.clone(),
         })?)
     }
 
@@ -1011,6 +1237,7 @@ impl Table {
             states,
             heavy_metal: file.heavy_metal,
             micro: file.micro,
+            histories: file.histories,
         };
         table.validate()?;
         Ok(table)

@@ -1123,6 +1123,87 @@ class DrawBranchCrossTerms(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawHistoryResidual(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_residual.py の要約（燃焼度 2 点）"""
+
+        def row(burnup, scale):
+            return {
+                "burnup": burnup,
+                "effect_pcm": 311.944 * scale,
+                "linear_pcm": 316.712 * scale,
+                "residual_pcm": -4.768 * scale,
+                "reproduce_pcm": 0.01234 * scale,
+                "reproduce_constants_pcm": 1e-11,
+                "reverse_residual_pcm": -4.561 * scale,
+                "dependence_pcm": -0.207 * scale,
+                "applied_pcm": 0.198 * scale,
+                "first_term_pcm": -0.0456 * scale,
+            }
+
+        return {
+            "format": "xlc-compare-history-residual",
+            "rows": [row(0.0, 0), row(10.0, 1)],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_rows_split_the_effect_into_the_linear_correction_and_the_residual(self):
+        table = vt.history_residual([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "効き",
+                "線形の補正",
+                "R",
+                "再現",
+                "逆向きの R",
+                "状態への依存",
+                "公称の状態で使った誤差",
+                "第 1 項",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "0",
+                    "0.00",
+                    "0.00",
+                    "0.00",
+                    "0.0000",
+                    "0.00",
+                    "0.00",
+                    "0.00",
+                    "0.000",
+                ],
+                [
+                    "10",
+                    "+311.94",
+                    "+316.71",
+                    "−4.77",
+                    "+0.0123",
+                    "−4.56",
+                    "−0.21",
+                    "+0.20",
+                    "−0.046",
+                ],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.history_residual([{"format": "xlc-compare-history-effect"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        (sources, _) = vt.TABLES["depletion-history-residual-density"]
+        self.assertEqual(sources, ["examples/depletion/history/residual.json"])
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawHistoryEffect(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
