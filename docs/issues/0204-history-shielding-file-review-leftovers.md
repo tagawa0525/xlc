@@ -32,6 +32,8 @@ examples/depletion/micro/make_shifted.py の `--kind` の、ブランチ feat/01
 
 関係する issue: #0191
 
+関係する ADR: なし
+
 ## 完了の条件
 
 - 上の各項を直すか、直さない理由を書いて閉じる
