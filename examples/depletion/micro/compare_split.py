@@ -1,6 +1,6 @@
 """ミクロ燃焼の線形の補正（ADR-0216）の誤差を、#0191 の候補（自己遮蔽の数密度への依存、数密度の差の空間の分布、少数群の重み）に分ける。
 
-    python3 compare_split.py --json split.json   # このディレクトリの出力から JSON を書く
+    python3 compare_split.py --json split.json --single table-split-pu240.msgpack   # このディレクトリの出力から JSON を書く
     python3 compare_split.py --report split.json  # JSON の要約の文章
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
@@ -20,6 +20,10 @@
 - 自己遮蔽: t_fixed − t_shifted。燃焼の領域の実効断面積と SPH 因子が組成の差で変わる分（自分と他の核種の数密度への依存）
 - 空間の分布: t_spread − t_fixed。追う核種の数密度の差の領域の間の分布が、σᵢ の重みにした数密度の分布と違う分
 - 少数群の重み: 線形 − t_spread。残りの、組成の差による中性子束（少数群の中のスペクトルと領域の間の分布）の変化の分
+
+`--single` のテーブル（追う核種 1 つだけを `micro` に持つ。split-pu240.toml）は、その核種の数密度の差だけの組成を、自己遮蔽と空間の
+分布を固定して解いたもので、その核種の線形の補正（点 k - 1 の σᵢ × ΔN̄ᵢ）の誤差を各行の `single` に出す。少数群の重みの分のうち、
+その核種の数密度の差が起こす分（ほかの核種の数密度の差との交差を含まない）。
 
 順を入れ替えた分け方（空間の分布を状態の組成の自己遮蔽で t_spread_live − t_shifted、自己遮蔽を spread の組成で t_spread − t_spread_live）
 も出し、2 つの候補の交差の大きさを示す。
@@ -50,8 +54,7 @@ FRESH_TOLERANCE_PCM = 1e-6
 # 追う核種の均質化した数密度は、置き換えた 4 つの組成で点 k の値（spread は平均を保つ書き換えなので丸めの差だけ）
 DENSITY_TOLERANCE = 1e-12
 # 内訳に核種ごとに出す閾値（どれかの組のどれかの分で効きの絶対値がこれ以上の追う核種。ほかは「ほかの追う核種」にまとめる）
-NUCLIDE_THRESHOLD_PCM = 1.0
-KEYS = ("total", "nu_fission", "scatter")
+NUCLIDE_THRESHOLD_PCM = 10.0
 
 
 def add(state, delta, sign=1.0):
@@ -121,6 +124,33 @@ def split(a, b, sigmas_a, sigmas_b, densities, names):
     }
 
 
+def check_single(single, nominal, names):
+    """1 核種のテーブルが nominal と同じ燃焼度の点で、nominal の追う核種の 1 つだけを追い、燃焼度 0 の k∞ と、その核種の均質化した
+    数密度が nominal と同じこと。その核種の nominal の中の番号を返す"""
+    points = burnups(nominal)
+    if single.get("micro") is None or burnups(single) != points:
+        raise SystemExit(
+            "the single table needs micro data at the nominal burnup points"
+        )
+    tracked = single["micro"]["nuclides"]
+    if len(tracked) != 1 or tracked[0] not in names:
+        raise SystemExit(
+            f"the single table must track one nuclide of the nominal table, got {tracked}"
+        )
+    i = names.index(tracked[0])
+    fresh = rho(single["states"][0]["k_inf"]) - rho(nominal["states"][0]["k_inf"])
+    if abs(fresh) > FRESH_TOLERANCE_PCM:
+        raise SystemExit(f"the fresh point of the single table differs by {fresh} pcm")
+    for k, (got, expected) in enumerate(
+        zip(single["micro"]["densities"], nominal["micro"]["densities"])
+    ):
+        if abs(got[0] - expected[i]) > DENSITY_TOLERANCE * abs(expected[i]):
+            raise SystemExit(
+                f"the single table has {tracked[0]} at {got[0]} for {expected[i]} at burnup {points[k]}"
+            )
+    return i
+
+
 def check(tables):
     """5 つのテーブルが同じ燃焼度の点、同じ追う核種を持ち、燃焼度 0 の k∞ が同じで、置き換えた組成の追う核種の均質化した数密度が
     nominal の点 k の値と同じこと"""
@@ -153,13 +183,15 @@ def check(tables):
 
 
 def compare(tables):
+    tables = dict(tables)
+    single = tables.pop("single", None)
     points, names = check(tables)
+    one = None if single is None else check_single(single, tables["nominal"], names)
     nominal = tables["nominal"]
     micro = nominal["micro"]
+    every = [*tables.values(), *([] if single is None else [single])]
     self_check = max(
-        abs(rho(k_inf(s)) - rho(s["k_inf"]))
-        for t in tables.values()
-        for s in t["states"]
+        abs(rho(k_inf(s)) - rho(s["k_inf"])) for t in every for s in t["states"]
     )
     rows = []
     for k in range(1, len(points)):
@@ -173,6 +205,17 @@ def compare(tables):
             label: rho(tables[label]["states"][k]["k_inf"]) - rho(base["k_inf"])
             for label in ("shifted", "fixed", "spread", "spread_live")
         }
+        extra = {}
+        if single is not None:
+            alone = corrected(base, [sigma0[one]], [deltas[one]])
+            linear_alone = rho(k_inf(alone)) - rho(k_inf(base))
+            transport_alone = rho(single["states"][k]["k_inf"]) - rho(base["k_inf"])
+            extra["single"] = {
+                "nuclide": names[one],
+                "linear_pcm": linear_alone,
+                "transport_pcm": transport_alone,
+                "error_pcm": linear_alone - transport_alone,
+            }
         state = {label: tables[label]["states"][k] for label in t}
         sigma = {label: tables[label]["micro"]["states"][k] for label in t}
         rows.append(
@@ -216,6 +259,7 @@ def compare(tables):
                         names,
                     ),
                 },
+                **extra,
             }
         )
     shown = [
@@ -292,15 +336,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", help="write the summary to this file")
     parser.add_argument("--report", help="print the report of this summary")
+    parser.add_argument(
+        "--single", help="the table of a single-nuclide composition (one micro nuclide)"
+    )
     args = parser.parse_args()
     if args.report:
         with open(args.report, encoding="utf-8") as f:
             print(report(json.load(f)))
         return
     here = Path(__file__).resolve().parent
-    tables = {name: read(here / file) for name, file in FILES.items()}
+    files = {name: here / file for name, file in FILES.items()}
+    if args.single:
+        files["single"] = here / args.single
+    tables = {name: read(path) for name, path in files.items()}
     summary = compare(tables)
-    summary["inputs"] = {name: md5(here / file) for name, file in FILES.items()}
+    summary["inputs"] = {name: md5(path) for name, path in files.items()}
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"
     if args.json:
         Path(args.json).write_text(text, encoding="utf-8")
