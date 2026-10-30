@@ -97,6 +97,7 @@ def switch(estimates):
         "inputs": {
             "table-residual-nominal-histories.msgpack": "aaa",
             "table-switch-density-branch.msgpack": "bbb",
+            "core-2A-residual-switch.msgpack": "ddd",
         },
     }
 
@@ -165,21 +166,38 @@ class Residuals(unittest.TestCase):
             )
 
 
+# 途中で条件を変えた燃焼の core の、R の点の w と w R の効き（core-history.json の switch_rows）
+CORE_SWITCH = [
+    {"burnup": 10.0, "weight": 0.0, "residual_pcm": 0.0},
+    {"burnup": 20.0 + 1e-12, "weight": 0.5, "residual_pcm": -120.0},
+]
+
+
 class Quadratic(unittest.TestCase):
     def test_the_quadratic_changes_the_difference_by_the_excess_of_r_half(self):
         rows = residual_summary(0.6)["rows"]
-        out = c.quadratic(switch([None, 5.0]), rows)
-        (q,) = out
+        (q,) = c.quadratic(switch([None, 5.0]), rows, CORE_SWITCH)
         x = rows[1]
         ratio = x["half_pcm"] / (2.0 * x["one_half_pcm"])
-        change = 4.0 * 0.5 * 0.5 * (ratio - 0.5) * x["temperature_path_pcm"]
+        # core が足した w R(1) の効きを、w R(1) + 4 w (1 − w) (R(0.5) − R(1)/2) に置き換えた変化:
+        # 4 (1 − w) (r − 1/2) × (w R(1) の効き)
+        change = 4.0 * 0.5 * (ratio - 0.5) * -120.0
+        self.assertAlmostEqual(q["ratio"], ratio, delta=1e-15)
         self.assertAlmostEqual(q["change_pcm"], change, delta=1e-12)
         self.assertAlmostEqual(q["estimate_pcm"], 30.0 + change, delta=1e-12)
         self.assertEqual(q["needed_weight"], 0.6)
 
     def test_proportional_residuals_leave_the_difference(self):
-        (q,) = c.quadratic(switch([None, 5.0]), residual_summary(0.5)["rows"])
+        (q,) = c.quadratic(
+            switch([None, 5.0]), residual_summary(0.5)["rows"], CORE_SWITCH
+        )
         self.assertAlmostEqual(q["change_pcm"], 0.0, delta=1e-9)
+
+    def test_core_runs_of_other_weights_are_errors(self):
+        other = [dict(x) for x in CORE_SWITCH]
+        other[1]["weight"] = 0.4
+        with self.assertRaises(SystemExit):
+            c.quadratic(switch([None, 5.0]), residual_summary(0.6)["rows"], other)
 
 
 class Omegas(unittest.TestCase):
@@ -229,11 +247,24 @@ class Omegas(unittest.TestCase):
         md5s = {
             "table-residual-nominal-histories.msgpack": "aaa",
             "table-switch-density-branch.msgpack": "ccc",
+            "core-2A-residual-switch.msgpack": "ddd",
         }
         with self.assertRaises(SystemExit):
             c.check_switch(switch([None, 5.0]), md5s)
         md5s["table-switch-density-branch.msgpack"] = "bbb"
         c.check_switch(switch([None, 5.0]), md5s)
+        # core-history.json も同じ core の途中で条件を変えた燃焼から作ったもの
+        with self.assertRaises(SystemExit):
+            c.check_switch(
+                switch([None, 5.0]),
+                md5s,
+                {"inputs": {"core-2A-residual-switch.msgpack": "eee"}},
+            )
+        c.check_switch(
+            switch([None, 5.0]),
+            md5s,
+            {"inputs": {"core-2A-residual-switch.msgpack": "ddd"}},
+        )
 
 
 if __name__ == "__main__":
