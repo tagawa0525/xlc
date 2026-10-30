@@ -31,7 +31,7 @@ ADR-0221 の実装（ブランチ feat/0221-micro-density-derivative）のレビ
   書き、JSON は ε も置き換えた組成のテーブルも持たないので、別の ε や別の置き換えた組成で作った JSON でも同じ見出しで描く。
   候補: compare_linearization.py が JSON に置き換えた組成のテーブルの md5 を並べて表のツールが 2 つの JSON で同じことを確かめる、テーブルに ε を書く
 
-関係する ADR: ADR-0221、ADR-0216
+関係する ADR: ADR-0221
 
 ## 完了の条件
 
