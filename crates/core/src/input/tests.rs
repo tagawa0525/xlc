@@ -1409,6 +1409,7 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
         Some(MicroInput {
             chain: PathBuf::from("chain.msgpack"),
             xenon: Xenon::Tracked,
+            history_weight: 1.0,
         })
     );
     assert_eq!(
@@ -1443,6 +1444,40 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
     assert!(micro("chain = \"c.msgpack\"").is_err());
     assert!(micro("chain = \"c.msgpack\", xenon = \"none\"").is_err());
     assert!(micro("chain = \"c.msgpack\", samarium = \"equilibrium\"").is_err());
+}
+
+#[test]
+fn depletion_micro_may_weight_the_steps_of_the_history_variables() {
+    // 履歴の変数を進める重み ω（ADR-0215 の検討した案の PARCS の式）。省けば 1（ADR-0215 の決定の燃焼度で重みを付けた平均）
+    let weight = |entry: &str| {
+        Case::parse(
+            &edited(
+                &depleting(),
+                "history = \"out/history.msgpack\"\n",
+                &format!("history = \"out/history.msgpack\"\nmicro = {{ {entry} }}\n"),
+            ),
+            base(),
+        )
+        .map(|c| c.depletion.unwrap().micro.unwrap().history_weight)
+    };
+    assert_eq!(
+        weight("chain = \"c.msgpack\", xenon = \"tracked\"").unwrap(),
+        1.0
+    );
+    assert_eq!(
+        weight("chain = \"c.msgpack\", xenon = \"tracked\", history-weight = 2.5").unwrap(),
+        2.5
+    );
+    // 0 以下と有限でない重みは、履歴の変数を進めないか発散させるので受けない
+    for bad in ["0.0", "-1.0", "nan", "inf"] {
+        assert!(
+            weight(&format!(
+                "chain = \"c.msgpack\", xenon = \"tracked\", history-weight = {bad}"
+            ))
+            .is_err(),
+            "{bad}"
+        );
+    }
 }
 
 #[test]
