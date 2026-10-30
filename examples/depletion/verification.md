@@ -5400,13 +5400,13 @@ python3 compare_weight.py --report weight.json
 
 ### 計算
 
-ブランチ feat/0190-history-weight-split（分岐点は main の 9e2d96c7）、2026-10-31。格子計算の 6 本は 973455e9 でコミットした入力を、main の
+ブランチ feat/0190-history-weight-split（分岐点は main の 9e2d96c7）、2026-10-31。格子計算の 6 本は b4f895dd でコミットした入力を、main の
 `bin/lattice`（md5 22cf3181。分岐点の `dvc.lock` の `build` の出力）で解いた: 履歴の分岐の燃焼（Slurm 630 が 0.702、629 が 0.661 g/cc）、公称の組成の
 条件の状態（631、628）、履歴の分岐の条件の状態（633、632）。どれも割り込まれうるジョブなので時間は記録に使わない。履歴は md5 adfc6a5f（0.702）、
-ceb64105（0.661）、テーブルは公称の組成が 9659e547、4cbc54d1、履歴の分岐が 1096d693、b525e3fb（追跡しない生成物）。core の 4 本は 7a83616f の
-`cargo build --release` の `target/release/core`（md5 79a9cd49。`history-weight` を足した版）で、d4ab3048 でコミットした入力を手元で流した
+ceb64105（0.661）、テーブルは公称の組成が 9659e547、4cbc54d1、履歴の分岐が 1096d693、b525e3fb（追跡しない生成物）。core の 4 本は 310ed006 の
+`cargo build --release` の `target/release/core`（md5 79a9cd49。`history-weight` を足した版）で、cc5cf1ba でコミットした入力を手元で流した
 （ω = 1.25、1.5、2、2.5 の履歴は md5 a65a10e0、fcd9b678、b5804afa、a2954c2e）。同じ `target/release/core` で ω を書かない
-`core-2A-residual-switch.toml` を流し、main の `bin/core` の出力と同じ md5 14c85ae0 になることを確かめた。比較は 1796e54f で手元、2026-10-31。
+`core-2A-residual-switch.toml` を流し、main の `bin/core` の出力と同じ md5 14c85ae0 になることを確かめた。比較は bf7a8af0 で手元、2026-10-31。
 
 ### 結果
 
