@@ -29,8 +29,8 @@ use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{
-    Axis, HistoryCondition, HistoryCorrection, HistoryRod, MODERATOR_DENSITY, ROD_OUT, Residual,
-    Table, add_linear_correction,
+    Axis, HistoryCondition, HistoryCorrection, HistoryRod, ROD_OUT, Residual, Table,
+    add_linear_correction,
 };
 
 use crate::checkpoint::write_synced;
@@ -164,9 +164,6 @@ pub fn residuals(
     rod: &str,
     branch: &Table,
 ) -> anyhow::Result<(f64, f64, HistoryRod)> {
-    if variable != MODERATOR_DENSITY {
-        bail!("unknown history variable {variable:?} ({MODERATOR_DENSITY}. ADR-0215)");
-    }
     let micro = nominal
         .micro
         .as_ref()
