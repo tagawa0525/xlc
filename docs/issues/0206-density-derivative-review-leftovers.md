@@ -31,6 +31,10 @@ ADR-0221 の実装（ブランチ feat/0221-micro-density-derivative）のレビ
   書き、JSON は ε も置き換えた組成のテーブルも持たないので、別の ε や別の置き換えた組成で作った JSON でも同じ見出しで描く。
   候補: compare_linearization.py が JSON に置き換えた組成のテーブルの md5 を並べて表のツールが 2 つの JSON で同じことを確かめる、テーブルに ε を書く
 
+- 重複と無駄（レビューの 2 周目）: crates/core/src/rods.rs の `mix_micro` は、微分の混ぜ方を微視的断面積の `by_group` と散乱の平均の
+  コピーで書き、`held` は型を変えるためだけに作る（clippy の `expect_used` で `expect` を使えない）。crates/lattice/src/history.rs の
+  `perturbed` は、1 核種を変えるために燃焼の領域の全核種の数密度を状態と参照ごとに複製する。どちらも結果は変えない
+
 関係する ADR: ADR-0221
 
 ## 完了の条件
