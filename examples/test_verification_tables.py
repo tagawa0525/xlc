@@ -1992,6 +1992,8 @@ class DrawHistoryIndex(unittest.TestCase):
         for name in ("linearization", "untracked", "switch", "gaps"):
             sources, _ = vt.TABLES[f"depletion-history-index-{name}"]
             self.assertEqual(sources, ["examples/depletion/history/index.json"])
+            # ステージの出力でなく git が追跡する JSON（compare_index.py を手で流す）
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
     def test_other_summaries_are_errors(self):
         with self.assertRaises(vt.TableError):
