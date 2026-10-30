@@ -145,6 +145,11 @@ def check_summary(residual_summary, table_md5):
         )
 
 
+def composition(t, node, first_densities, first_states):
+    """条件 j の燃焼の R の点で、core の数密度と第 1 項のテーブルの数密度 N̄ᵢ^j の違いの効き"""
+    raise NotImplementedError
+
+
 def compare(table, branch_table, nominal, branch, switch, residual_summary, identical):
     """比べた要約（モジュールの説明）"""
     t = Table(table)
