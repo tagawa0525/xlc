@@ -4697,9 +4697,9 @@ python3 compare_split.py --report split.json
 
 ### 計算
 
-ブランチ feat/0191-linearization-error-split（分岐点は main の 3fa838e1）、2026-10-30。lattice は a516b317 の `bin/lattice`（`shielding-file`
-を足したもの。136bc32c の `build` のステージ）、入力は 07a41712（nominal と split-*.toml の 4 つ。Slurm 609〜613）と 2922ec3c（split-pu240.toml。
-Slurm 616）。どれも割り込まれうるジョブなので時間は記録に使わない。比較は a7de215f（手元）。
+ブランチ feat/0191-linearization-error-split（分岐点は main の 3fa838e1）、2026-10-30。lattice は 8b5e3e65 の `bin/lattice`（`shielding-file`
+を足したもの。2373bf3d の `build` のステージ）、入力は 3914f37d（nominal と split-*.toml の 4 つ。Slurm 609〜613）と ebba79b0（split-pu240.toml。
+Slurm 616）。どれも割り込まれうるジョブなので時間は記録に使わない。比較は 5da05e13（手元）。
 
 ### 結果
 

@@ -13,7 +13,7 @@ issues: ["#0191", "#0190"]
 
 [ADR-0216](0216-tabulate-micro-depletion-cross-sections-per-state.md) の線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) は、2A の隣り合う燃焼度の点の 40 組で、追う 31 核種の組成の差の
 輸送の効きの 88.41〜113.43% を再現し、誤差は −171.91〜+95.20 pcm（[#0191](../issues/0191-micro-correction-first-order-error.md)）。誤差を #0191 の 3 つの候補に分けた
-（examples/depletion/verification.md の「ミクロ燃焼の線形の補正の誤差の分け方（2A）」。lattice は a516b317、比較は a7de215f、2026-10-30）:
+（examples/depletion/verification.md の「ミクロ燃焼の線形の補正の誤差の分け方（2A）」。lattice は 8b5e3e65、比較は 5da05e13、2026-10-30）:
 
 - 少数群の重み（自己遮蔽と数密度の差の空間の分布を前の点に固定しても残る、細かい群の中性子束の変化の分）が、誤差の 98.4〜140.2%
   （5 MWd/kg より後の組）と 86.1〜108.6%（前の組）。自己遮蔽の分は −12.49〜+4.45 pcm、空間の分布の分は +0.13〜+11.34 pcm で、5 MWd/kg より
