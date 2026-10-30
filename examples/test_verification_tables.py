@@ -1578,6 +1578,190 @@ class DrawHistoryWeight(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawHistorySplit(unittest.TestCase):
+    @staticmethod
+    def summary():
+        """compare_split.py の要約（R(1) と密度だけの経路は燃焼度 0 と 60、switch は 20 と 60）"""
+
+        def density(burnup, scale):
+            row = {"burnup": burnup}
+            for key, half, share in (
+                ("untracked", -12.346, -10.0),
+                ("linearization", -190.0, -221.75),
+                ("residual", -202.345, -231.75),
+            ):
+                row |= {
+                    f"half_{key}_pcm": half * scale,
+                    f"one_half_{key}_pcm": share * scale,
+                    f"{key}_difference_pcm": (half - share) * scale,
+                    f"{key}_ratio": None if burnup == 0.0 else half / (2.0 * share),
+                }
+            return row
+
+        return {
+            "format": "xlc-compare-history-residual-split",
+            "continued_burnup": 20.0,
+            "one": [
+                {
+                    "burnup": b,
+                    "untracked_pcm": -10.0 * s,
+                    "linearization_pcm": -396.91 * s,
+                    "residual_pcm": -406.91 * s,
+                    "untracked_condition_pcm": -9.876 * s,
+                    "linearization_condition_pcm": -376.634 * s,
+                    "residual_condition_pcm": -386.51 * s,
+                    "split_check": 1e-17,
+                }
+                for b, s in ((0.0, 0.0), (60.0, 1.0))
+            ],
+            "switch": [
+                {
+                    "burnup": 20.0,
+                    "weight": 0.0,
+                    "untracked_pcm": 0.001,
+                    "scaled_untracked_pcm": 0.0,
+                    "one_untracked_pcm": -3.0,
+                    "untracked_weight": -0.000333,
+                    "untracked_gap_pcm": -0.001,
+                    "linearization_pcm": 0.002,
+                    "scaled_linearization_pcm": 0.0,
+                    "one_linearization_pcm": -100.0,
+                    "linearization_weight": -0.00002,
+                    "linearization_gap_pcm": -0.002,
+                    "residual_pcm": 0.003,
+                    "scaled_residual_pcm": 0.0,
+                    "difference_pcm": -1.0156,
+                    "composition_pcm": -1.0141,
+                    "gap_pcm": -0.003,
+                    "remainder_pcm": 0.0015,
+                },
+                {
+                    "burnup": 60.0,
+                    "weight": 2.0 / 3.0,
+                    "untracked_pcm": -6.5,
+                    "scaled_untracked_pcm": -6.667,
+                    "one_untracked_pcm": -10.0,
+                    "untracked_weight": 0.65,
+                    "untracked_gap_pcm": 0.161,
+                    "linearization_pcm": -320.0,
+                    "scaled_linearization_pcm": -264.6,
+                    "one_linearization_pcm": -396.9,
+                    "linearization_weight": 0.80627,
+                    "linearization_gap_pcm": 52.1234,
+                    "residual_pcm": -326.5,
+                    "scaled_residual_pcm": -271.27,
+                    "difference_pcm": 52.2483,
+                    "composition_pcm": -1.513,
+                    "gap_pcm": 52.3,
+                    "remainder_pcm": 1.4613,
+                },
+            ],
+            "density": [density(0.0, 0.0), density(60.0, 1.0)],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def header(self, table):
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_one_rows_set_the_parts_on_the_constant_beside_those_at_the_condition(
+        self,
+    ):
+        table = vt.history_split_one([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "追わない核種の分 U (pcm)",
+                "線形化の誤差 L (pcm)",
+                "R (pcm)",
+                "条件 j での U (pcm)",
+                "条件 j での L (pcm)",
+                "条件 j での R (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            ["60", "−10.00", "−396.91", "−406.91", "−9.88", "−376.63", "−386.51"],
+        )
+
+    def test_switch_rows_set_each_part_beside_its_share_of_r_one(self):
+        table = vt.history_split_switch([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "U (pcm)",
+                "w U(1) (pcm)",
+                "w_U",
+                "L (pcm)",
+                "w L(1) (pcm)",
+                "w_L",
+                "core − 参照 (pcm)",
+                "数密度の効き (pcm)",
+                "U の外れの分 (pcm)",
+                "L の外れの分 (pcm)",
+                "残り (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            [
+                "60",
+                "0.6667",
+                "−6.50",
+                "−6.67",
+                "0.6500",
+                "−320.00",
+                "−264.60",
+                "0.8063",
+                "+52.248",
+                "−1.513",
+                "+0.161",
+                "+52.123",
+                "+1.461",
+            ],
+        )
+
+    def test_density_rows_split_the_gap_of_r_half_by_part(self):
+        table = vt.history_split_density([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "U(0.5) (pcm)",
+                "U(1)/2 (pcm)",
+                "U の差 (pcm)",
+                "U の比",
+                "L(0.5) (pcm)",
+                "L(1)/2 (pcm)",
+                "L の差 (pcm)",
+                "L の比",
+                "R の差 (pcm)",
+                "R の比",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(
+            rows[1],
+            [
+                "60",
+                "−12.35",
+                "−10.00",
+                "−2.35",
+                "0.6173",
+                "−190.00",
+                "−221.75",
+                "+31.75",
+                "0.4284",
+                "+29.40",
+                "0.4366",
+            ],
+        )
+        self.assertEqual(rows[0][4], "–")
+
+
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
