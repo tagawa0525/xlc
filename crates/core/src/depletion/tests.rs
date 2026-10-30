@@ -131,6 +131,7 @@ fn table_with_worth(fissile: f64, heavy_metal: Option<f64>, worth: f64) -> Table
         states,
         heavy_metal,
         micro: None,
+        histories: Vec::new(),
     };
     table.points = product_points(&table.axes);
     table
@@ -1421,6 +1422,7 @@ fn with_rod_axis(table: Table) -> Table {
             states: micro_states,
             ..micro
         }),
+        histories: Vec::new(),
     };
     out.axes.push(Axis::Rod {
         values: vec!["out".into(), "aic".into()],

@@ -301,6 +301,7 @@ pub fn tables(
             states: Vec::with_capacity(points.len() * split * split),
             heavy_metal: None,
             micro: None,
+            histories: Vec::new(),
         })
         .collect();
     for (state, fews) in per_state.into_iter().enumerate() {
