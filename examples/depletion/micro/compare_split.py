@@ -23,15 +23,16 @@
 
 `--single` のテーブル（追う核種 1 つだけを `micro` に持つ。split-pu240.toml）は、その核種の数密度の差だけの組成を、自己遮蔽と空間の
 分布を固定して解いたもので、その核種の線形の補正（点 k - 1 の σᵢ × ΔN̄ᵢ）の誤差を各行の `single` に出す。少数群の重みの分のうち、
-その核種の数密度の差が起こす分（ほかの核種の数密度の差との交差を含まない）。
+その核種の数密度の差が起こす分（ほかの核種の数密度の差との交差を含まない）。その誤差も、下と同じ内訳（その核種の項と残り）に分ける。
 
 順を入れ替えた分け方（空間の分布を状態の組成の自己遮蔽で t_spread_live − t_shifted、自己遮蔽を spread の組成で t_spread − t_spread_live）
 も出し、2 つの候補の交差の大きさを示す。
 
-それぞれの分は、2 群の少数群定数の差を核種ごとに分けて内訳にする。比べる 2 つの状態 A、B の数密度が同じ（自己遮蔽と空間の分布）か、
-A が線形の予測（少数群の重み。追う核種の数密度は点 k の値）なので、B − A は追う核種 i の N̄ᵢ (σᵢ,B − σᵢ,A) と、残り（追わない核種と
-燃焼させない物質の巨視的断面積の差）と、χ の差の和になる。各項の効きは ρ(A) − ρ(A + その項)（2 群の k）で、項の和と ρ(A) − ρ(B) の
-差を交差の項として出す。
+それぞれの分は、2 群の少数群定数の差を核種ごとに分けて内訳にする。比べる 2 つの状態 A、B の追う核種の均質化した数密度 N̄ᵢ は同じ
+（自己遮蔽は組成が同じ。空間の分布は領域ごとの数密度が違い、平均だけが同じ。少数群の重みは A が線形の予測で、追う核種の分は点 k の
+N̄ᵢ × 点 k - 1 の σᵢ）。σᵢ は均質化した反応率を N̄ᵢ と中性子束で割ったものなので、B − A は追う核種 i の N̄ᵢ (σᵢ,B − σᵢ,A) と、残り（追わない
+核種と燃焼させない物質の巨視的断面積の差）と、χ の差の和にちょうどなる。各項の効きは ρ(A) − ρ(A + その項)（2 群の k）で、行の値（表の
+k∞ から求めた分）と各項の和の差を交差の項として出す（2 群の k とテーブルの k∞ の差 `self_check_pcm` もここに入る）。
 
 ρ は反応度 1 − 1/k で、差は pcm（Δρ = (1/k_a − 1/k_b) × 1e5、a から b へ）。
 """
@@ -54,7 +55,7 @@ FRESH_TOLERANCE_PCM = 1e-6
 # 追う核種の均質化した数密度は、置き換えた 4 つの組成で点 k の値（spread は平均を保つ書き換えなので丸めの差だけ）
 DENSITY_TOLERANCE = 1e-12
 # 内訳に核種ごとに出す閾値（どれかの組のどれかの分で効きの絶対値がこれ以上の追う核種。ほかは「ほかの追う核種」にまとめる）
-NUCLIDE_THRESHOLD_PCM = 10.0
+NUCLIDE_THRESHOLD_PCM = 5.0
 
 
 def add(state, delta, sign=1.0):
@@ -100,12 +101,11 @@ def nuclide_delta(density, sigma_b, sigma_a):
     }
 
 
-def split(a, b, sigmas_a, sigmas_b, densities, names):
-    """ρ(A) − ρ(B)（2 群の k）を、追う核種ごと、残り（others）、χ に分ける。B − A のうち追う核種 i の分は
-    N̄ᵢ (σᵢ,B − σᵢ,A)、残りは total、nu_fission、scatter の差のうちその和でない分、χ は A の χ を B の χ にした分。交差の項
-    （cross）は ρ(A) − ρ(B) と各項の和の差"""
+def split(a, b, sigmas_a, sigmas_b, densities, names, whole):
+    """ρ(A) − ρ(B) の分 `whole`（行の値）を、追う核種ごと、残り（others）、χ に分ける。B − A のうち追う核種 i の分は
+    N̄ᵢ (σᵢ,B − σᵢ,A)、残りは total、nu_fission、scatter の差のうちその和でない分、χ は A の χ を B の χ にした分（それぞれ 2 群の k）。
+    交差の項（cross）は `whole` と各項の和の差"""
     rho_a = rho(k_inf(a))
-    whole = rho_a - rho(k_inf(b))
     rest = difference(b, a)
     nuclides = {}
     for name, n, sa, sb in zip(names, densities, sigmas_a, sigmas_b):
@@ -215,6 +215,16 @@ def compare(tables):
                 "linear_pcm": linear_alone,
                 "transport_pcm": transport_alone,
                 "error_pcm": linear_alone - transport_alone,
+                # A = その核種だけの線形の予測、B = 1 核種の組成
+                "split": split(
+                    alone,
+                    single["states"][k],
+                    [sigma0[one]],
+                    single["micro"]["states"][k],
+                    [after[one]],
+                    [names[one]],
+                    linear_alone - transport_alone,
+                ),
             }
         state = {label: tables[label]["states"][k] for label in t}
         sigma = {label: tables[label]["micro"]["states"][k] for label in t}
@@ -239,6 +249,7 @@ def compare(tables):
                         sigma["shifted"],
                         after,
                         names,
+                        t["fixed"] - t["shifted"],
                     ),
                     # 空間の分布: A = spread、B = fixed
                     "spatial": split(
@@ -248,6 +259,7 @@ def compare(tables):
                         sigma["fixed"],
                         after,
                         names,
+                        t["spread"] - t["fixed"],
                     ),
                     # 少数群の重み: A = 線形の予測（σ は点 k - 1 の値）、B = spread
                     "weight": split(
@@ -257,6 +269,7 @@ def compare(tables):
                         sigma["spread"],
                         after,
                         names,
+                        linear - t["spread"],
                     ),
                 },
                 **extra,
