@@ -2664,3 +2664,17 @@ fn micro_tables_hold_the_same_history_residuals() {
     .to_string();
     assert!(error.contains("history residuals"), "{error}");
 }
+
+#[test]
+fn node_histories_that_do_not_match_the_step_values_are_errors() {
+    // 値を持つ位置や変数の数が食い違えば、履歴を黙って落とさない
+    let h = vec![Some(vec![0.743]), None];
+    let start = [1.0, 0.0];
+    let end = [2.0, 0.0];
+    let advanced = advance_histories(&h, &start, &end, &[Some(vec![0.661]), None]).unwrap();
+    assert_eq!(advanced[1], None);
+    assert!(advance_histories(&h, &start, &end, &[None, None]).is_err());
+    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661]), Some(vec![0.7])]).is_err());
+    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661, 0.5]), None]).is_err());
+    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661])]).is_err());
+}
