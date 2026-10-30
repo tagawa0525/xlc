@@ -1,0 +1,5 @@
+outs:
+- md5: deb8646bec76b2535175353fd8b67be4
+  size: 731
+  hash: md5
+  path: core-2A-coarse.msgpack

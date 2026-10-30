@@ -1,0 +1,5 @@
+outs:
+- md5: 1840f666f8c789944f940220767a5a41
+  size: 55150812
+  hash: md5
+  path: lattice-switch-density.msgpack

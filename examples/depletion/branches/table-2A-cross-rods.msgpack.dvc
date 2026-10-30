@@ -1,0 +1,5 @@
+outs:
+- md5: 8e21eb3b4fcfc96e966f007c27562e08
+  size: 5115
+  hash: md5
+  path: table-2A-cross-rods.msgpack

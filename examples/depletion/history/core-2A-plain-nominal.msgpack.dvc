@@ -1,0 +1,5 @@
+outs:
+- md5: 2c05cf249b043072f9a8c0c3da5355ce
+  size: 22842
+  hash: md5
+  path: core-2A-plain-nominal.msgpack

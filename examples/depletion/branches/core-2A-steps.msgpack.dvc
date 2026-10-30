@@ -1,0 +1,5 @@
+outs:
+- md5: 4c42044c61939a3b4011e25f99631a3a
+  size: 4549
+  hash: md5
+  path: core-2A-steps.msgpack
