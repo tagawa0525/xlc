@@ -1574,7 +1574,7 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
             );
             compared += 1;
         }
-        // 熱群の全断面積と散乱は、どちらの核種でも比べる
+        // 比べる項目が 2 つ以上あること（核種の最大の微分の近くの項目。どの項目かは決めない）
         assert!(compared >= 2, "{name}: {compared} items compared");
     }
 }
