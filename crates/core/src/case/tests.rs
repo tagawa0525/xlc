@@ -289,3 +289,24 @@ fn tables_must_match_the_layout_files() {
     tables.truncate(layout.files.len() - 1);
     assert!(solve_at(&layout, &tables, Some(&state.at(1100.0)), &options).is_err());
 }
+
+#[test]
+fn tables_with_history_residuals_are_errors_until_core_adds_them() {
+    // core は履歴の変数をまだ進めず残り R を足さない（ADR-0215、#0190）。黙って無視せず止める
+    let (layout, mut tables) = core();
+    let options = Options::default();
+    let state = given("aro", 1100.0, 565.0);
+    tables[0]
+        .histories
+        .push(xlc_format::table::HistoryCorrection {
+            variable: xlc_format::table::MODERATOR_DENSITY.into(),
+            nominal: 0.75,
+            branch: 0.74,
+            rods: Vec::new(),
+        });
+    let err = solve_at(&layout, &tables, Some(&state.at(1100.0)), &options)
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(err.contains("history"), "{err}");
+}
