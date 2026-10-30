@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-ブランチ feat/0190-history-micro-sigma（#0190）のローカルのレビュー（1 周目、HEAD 23863f7f）で、再現できる誤りでない指摘を残した。
+ブランチ feat/0190-history-micro-sigma（#0190）のローカルのレビュー（1 周目、HEAD 23863f7f。2 周目の分は最後の項）で、再現できる誤りでない指摘を残した。
 どれも出力の数値は変えない。
 
 関係する ADR: ADR-0215
@@ -31,6 +31,11 @@ resolution:
   (MT、経路の数) の形の比べ方が lattice の `rate_difference`、形式の `validate_rate_residuals`、`validate_micro` にある
 - 効率: crates/core/src/depletion.rs の `Solve` が解ごとにノードの履歴の変数のコピーを持つ（平衡 Xe の反復でも解ごと）。反応率を作るときに
   読むだけなので、`n` と同じく引数で渡せる。炉心で効くかは測っていない
+
+- 2 周目（HEAD 375cf059）: `add_rate_residual` は負の σ と割合の範囲を変数ごとに確かめるので、変数が 2 つ以上（制御棒、Pyrex）になると、
+  途中の和で負になり後の変数で戻る σ を止める（すべての変数を足してから確かめる候補）。`node_micro` の `table.micro` の検査は、先に呼ぶ
+  `interpolate_micro` が同じ条件で止めるので通らない。`add_rate_residual` の長さのエラーが `names` の長さを出さない。crates/core/src/rods.rs の
+  `mix_micro` の注釈は σf の和が正である理由を `interpolate_micro` とだけ書き、履歴の補正のノードでは `add_rate_residual` の割合の検査が支える
 
 ## 完了の条件
 
