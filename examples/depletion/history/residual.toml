@@ -1,0 +1,8 @@
+# 履歴の残り R（ADR-0215、#0190）: 公称のテーブル（residual-nominal.toml）に、減速材の密度の履歴の分岐の自分の条件のテーブル
+# （residual-density-branch.toml）から作った R を書き足す。`lattice histories residual.toml` で実行する。
+nominal = "table-residual-nominal.msgpack"
+output = "table-residual-nominal-histories.msgpack"
+
+[[history]]
+variable = "moderator-density"
+branches = { out = "table-residual-density-branch.msgpack" }
