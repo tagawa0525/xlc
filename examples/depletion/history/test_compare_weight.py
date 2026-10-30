@@ -134,6 +134,9 @@ class Residuals(unittest.TestCase):
             r.k_inf(base)
         )
         self.assertAlmostEqual(rows[1]["half_pcm"], expected, delta=1e-9)
+        # 同じ R(1) を w = 0.5 の定数に足した効き（R(1)/2 の効きとの違いは R の大きさだけ、R(1) の効きとの違いは足す定数だけ）
+        whole = r.rho(r.k_inf(r.added(base, R_ONE[1]))) - r.rho(r.k_inf(base))
+        self.assertAlmostEqual(rows[1]["one_on_half_pcm"], whole, delta=1e-9)
 
     def test_the_temperature_path_residual_is_rebuilt_from_the_tables(self):
         rows = residual_summary(0.5)["rows"]
