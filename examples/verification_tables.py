@@ -1740,6 +1740,48 @@ def core_history_switch(sources: list[dict]) -> str:
     )
 
 
+def history_switch(sources: list[dict]) -> str:
+    """途中で条件を変えた燃焼（ADR-0215）: 参照の燃焼度の点ごとの、w、参照の k∞、履歴の補正の core と補正を切った core の k の参照からの
+    差と、そのうちの数密度の効き（pcm）、数密度の相対差の絶対値が最大の核種と相対差（%）、目安の 2 つの差（pcm）、参照の分岐と格子
+    計算の履歴の点の k∞ の差（pcm）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-switch":
+        raise TableError("not an xlc-compare-history-switch summary")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "参照の k∞",
+            "core − 参照 (pcm)",
+            "数密度の効き (pcm)",
+            "数密度の最大の差 (%)",
+            "補正を切った core − 参照 (pcm)",
+            "補正を切った数密度の効き (pcm)",
+            "補正を切った数密度の最大の差 (%)",
+            "一生を条件 j: core − 第 1 項 (pcm)",
+            "公称: core − テーブル (pcm)",
+            "参照 − 格子計算の履歴 (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                f"{r['reference_k_inf']:.8f}",
+                signed(r["difference_pcm"], 3),
+                signed(r["composition_pcm"], 3),
+                f"{signed(r['density_percent'], 3)}（{r['density_nuclide']}）",
+                signed(r["plain_difference_pcm"], 3),
+                signed(r["plain_composition_pcm"], 3),
+                f"{signed(r['plain_density_percent'], 3)}（{r['plain_density_nuclide']}）",
+                signed(r["branch_difference_pcm"], 3),
+                signed(r["nominal_difference_pcm"], 3),
+                signed(r["first_term_pcm"], 3),
+            ]
+            for r in s["rows"]
+        ],
+    )
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2182,6 +2224,7 @@ GIT_TRACKED = {
     "examples/depletion/history/history-effect.json",
     "examples/depletion/history/residual.json",
     "examples/depletion/history/core-history.json",
+    "examples/depletion/history/switch.json",
     "examples/depletion/micro/linearization.json",
     "examples/depletion/micro/linearization-perturbation-5.json",
     "examples/depletion/micro/split.json",
@@ -2762,6 +2805,10 @@ TABLES = {
     "depletion-core-history-switch": (
         ["examples/depletion/history/core-history.json"],
         core_history_switch,
+    ),
+    "depletion-history-switch": (
+        ["examples/depletion/history/switch.json"],
+        history_switch,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],
