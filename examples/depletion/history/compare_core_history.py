@@ -163,10 +163,14 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
             (n, k) for n in nodes if (k := t.residual_index(n["burnup"])) is not None
         ]
 
+    branch_points = at_residual_points(branch_nodes)
+    nominal_points = at_residual_points(nominal_nodes)
+    if [k for _, k in branch_points] != [k for _, k in nominal_points]:
+        raise SystemExit(
+            "the nominal and the branch core runs reach other burnup points of the residuals"
+        )
     branch_rows = []
-    for (n, k), (m, _) in zip(
-        at_residual_points(branch_nodes), at_residual_points(nominal_nodes)
-    ):
+    for (n, k), (m, _) in zip(branch_points, nominal_points):
         u = t.rod["burnup"][k]
         first = next(
             s
