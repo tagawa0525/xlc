@@ -69,6 +69,8 @@ STATE_AXES = ("boron", "moderator", "fuel")
 PARTS = ("untracked", "linearization", "residual")
 # R(1) と core が足す R（`histories`）の項目の差の上限（同じ式の作り直しなので丸めの程度）
 HISTORIES_TOLERANCE = 1e-12
+# 密度だけの経路の密度と H⁰ + w (Hᵇ − H⁰) の差の上限 (g/cc)。入力は 3 桁で書く（0.702 = (0.743 + 0.661) / 2）
+DENSITY_TOLERANCE = 1e-9
 
 
 def values(table, index):
@@ -274,18 +276,22 @@ def check_nominal(nominal, path_nominal, label):
 
 
 def history_condition(nominal):
-    """公称のテーブルの公称の状態と、`histories` の条件 j（減速材の軸だけが Hᵇ の格子点の状態）"""
+    """公称のテーブルの公称の状態と、`histories` の条件 j（減速材の軸だけが Hᵇ の格子点の状態）と、H⁰、Hᵇ"""
     t = Table(nominal)
     moderator = nominal["axes"][2]
     index = list(t.nominal)
     index[1] = moderator["density"].index(t.history["branch"])
-    return values(nominal, t.nominal), values(nominal, index)
+    return (
+        values(nominal, t.nominal),
+        values(nominal, index),
+        (t.history["nominal"], t.history["branch"]),
+    )
 
 
 def compare(tables, summary):
     """要約（モジュールの説明）"""
     nominal = tables["nominal"]
-    nominal_condition, condition_j = history_condition(nominal)
+    nominal_condition, condition_j, (h0, hb) = history_condition(nominal)
     one_condition, one = split(nominal, tables["one"], tables["one_hybrid"], "R(1)")
     switch_condition, switch = split(
         nominal, tables["switch"], tables["switch_hybrid"], "switch"
@@ -302,8 +308,11 @@ def compare(tables, summary):
     full_condition, full = split(
         tables["nominal_full"], tables["full"], tables["full_hybrid"], "w = 1"
     )
-    # 密度だけの経路: 公称の状態と同じホウ素、減速材の温度、燃料
-    for c, label in ((half_condition, "w = 0.5"), (full_condition, "w = 1")):
+    # 密度だけの経路: 公称の状態と同じホウ素、減速材の温度、燃料で、密度が w = 0.5 と 1 の値（H⁰ + w (Hᵇ − H⁰)）
+    for c, label, weight in (
+        (half_condition, "w = 0.5", 0.5),
+        (full_condition, "w = 1", 1.0),
+    ):
         if (c[0], c[1][0], c[2]) != (
             nominal_condition[0],
             nominal_condition[1][0],
@@ -312,6 +321,8 @@ def compare(tables, summary):
             raise SystemExit(
                 f"{label}: the condition changes more than the moderator density"
             )
+        if abs(c[1][1] - (h0 + weight * (hb - h0))) > DENSITY_TOLERANCE:
+            raise SystemExit(f"{label}: the moderator density {c[1][1]} is not at w")
     return {
         "format": "xlc-compare-history-residual-split",
         "continued_burnup": summary["continued_burnup"],
@@ -377,6 +388,14 @@ def report(summary):
     return "\n".join(lines).replace("-", "−")
 
 
+def check_summary(summary, md5s):
+    """`switch.json` が、今の参照のテーブルと、core が使った R と係数を持つ今の公称のテーブルから作られたこと"""
+    for key in ("switch", "nominal"):
+        file = FILES[key]
+        if summary.get("inputs", {}).get(file) != md5s[file]:
+            raise SystemExit(f"the switch summary was not made from this {file}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", help="write the summary to this file")
@@ -390,9 +409,7 @@ def main():
     md5s = {file: md5(here / file) for file in [*FILES.values(), SUMMARY]}
     with open(here / SUMMARY, encoding="utf-8") as f:
         summary = json.load(f)
-    reference = FILES["switch"]
-    if summary.get("inputs", {}).get(reference) != md5s[reference]:
-        raise SystemExit(f"the switch summary was not made from this {reference}")
+    check_summary(summary, md5s)
     tables = {k: read(here / v) for k, v in FILES.items()}
     result = compare(tables, summary)
     result["inputs"] = md5s
