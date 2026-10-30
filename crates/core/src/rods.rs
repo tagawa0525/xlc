@@ -407,6 +407,13 @@ pub(crate) fn mix_micro(
             .chain(n.reactions.iter().flat_map(|r| &r.channels))
             .all(|v| v.len() == ng)
             && n.scatter.len() == ng
+            && n.derivative.as_ref().is_none_or(|d| {
+                [&d.total, &d.nu_fission, &d.fission]
+                    .into_iter()
+                    .chain(&d.scatter)
+                    .all(|v| v.len() == ng)
+                    && d.scatter.len() == ng
+            })
     };
     if micro.iter().flat_map(|m| &m.nuclides).any(|n| !shaped(n)) {
         return Err(format!(
