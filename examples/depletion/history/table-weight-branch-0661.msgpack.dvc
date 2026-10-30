@@ -1,0 +1,5 @@
+outs:
+- md5: b525e3fb41a68500af517c0fdf846f05
+  size: 179463
+  hash: md5
+  path: table-weight-branch-0661.msgpack
