@@ -406,6 +406,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
         chosen.shielding(),
         input.shielding_options(),
     );
+    // 数密度の微分（ADR-0221）の摂動の組成は、微分の核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の
+    // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ
+    let mut perturbed_shielders: Vec<BranchShielder> = history_branches
+        .iter()
+        .flat_map(|h| h.derivative_nuclides())
+        .map(|_| {
+            BranchShielder::new(
+                &tracking,
+                solved_materials,
+                &varied,
+                chosen.shielding(),
+                input.shielding_options(),
+            )
+        })
+        .collect();
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -668,10 +683,65 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     ))
                     .with_context(context);
                 };
-                Some(
-                    h.micro(state, library, fuel, &lattice, &solution, &output.bounds)
-                        .with_context(|| format!("{}: micro cross sections", context()))?,
-                )
+                let mut micro = h
+                    .micro(state, library, fuel, &lattice, &solution, &output.bounds)
+                    .with_context(|| format!("{}: micro cross sections", context()))?;
+                // 数密度の微分（ADR-0221）。摂動の組成を、状態の収束した解から解き直す
+                if !h.derivative_nuclides().is_empty() {
+                    let nominal = outputs
+                        .first()
+                        .and_then(|o| o.first())
+                        .ok_or_else(|| {
+                            anyhow!("the density derivatives need the lattice constants")
+                        })
+                        .with_context(context)?;
+                    let boundaries = tracking.boundaries();
+                    h.add_derivatives(
+                        state,
+                        &mut micro,
+                        nominal,
+                        |j, perturbed, reference, build| {
+                            let started = Instant::now();
+                            let shielded = perturbed_shielders[j]
+                                .shield_state(library, perturbed, reference, build)
+                                .context("self-shielding")?;
+                            let (unique, region_index) =
+                                (shielded.materials(), shielded.region_material());
+                            let materials: Vec<&Material> =
+                                region_index.iter().map(|&i| &unique[i]).collect();
+                            let options = Options {
+                                scattering_order: input
+                                    .scattering_order
+                                    .unwrap_or_else(|| available_order(&materials)),
+                                ..Options::default()
+                            };
+                            let (solution, _) = solve_symmetric_from(
+                                &tracking,
+                                &materials,
+                                &options,
+                                chosen.moc(),
+                                Some(&converged),
+                            )?;
+                            let few = homogenize(
+                                &solution,
+                                &materials,
+                                &library.groups,
+                                &output.bounds,
+                                &boundaries,
+                            )?;
+                            tracing::info!(
+                                state,
+                                nuclide = h.derivative_nuclides()[j].as_str(),
+                                iterations = solution.iterations,
+                                seconds = started.elapsed().as_secs_f64(),
+                                "derivative"
+                            );
+                            Ok(few)
+                        },
+                    )
+                    .with_context(|| format!("{}: density derivatives", context()))?;
+                }
+                Some(micro)
             }
             _ => None,
         };
@@ -734,6 +804,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
             shieldings = shielder.shieldings(),
+            derivative_shieldings = perturbed_shielders
+                .iter()
+                .map(BranchShielder::shieldings)
+                .sum::<usize>(),
             total_seconds = start.elapsed().as_secs_f64(),
             "branches"
         );

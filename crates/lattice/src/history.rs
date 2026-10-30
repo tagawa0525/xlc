@@ -12,17 +12,25 @@
 //! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。公称の状態はすべての点で解く
 //! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
 //! shielding-file = "other.msgpack"    # 燃焼の領域を自己遮蔽する組成の履歴（省略すると状態の組成。#0191）
+//! micro = ["U-235", "Pu-240"]          # ミクロ燃焼で追う核種（ADR-0216）
+//! derivative = ["Pu-240"]              # 数密度の微分を持つ核種（micro から選ぶ。ADR-0221）
+//! perturbation = 0.1                   # 微分の摂動の割合（省略すると 0.1。ADR-0221）
 //! ```
 //!
 //! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。`shielding-file` を
 //! 与えると、燃焼の領域はその履歴の同じ燃焼度の点の組成で自己遮蔽し、物質だけを状態の組成で作り直す（[`HistoryBranches::shield_with`]）。
+//!
+//! 数密度の微分（ADR-0221）は、状態ごとに、燃焼の領域の微分の核種の数密度だけを (1 + ε) 倍した摂動の組成を解いた格子全体の少数群定数
+//! から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成の自己遮蔽は公称の組成と同じ扱い（参照から作る状態は、参照の
+//! 組成も同じく変えた摂動の参照から作る。`shielding-file` を与えれば、自己遮蔽はその履歴の組成のまま）。
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
+use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Shielded};
-use xlc_format::table::{Axis, MicroNuclide, MicroReaction};
+use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, MicroReaction};
 
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, channel_cross_sections, check_negative,
@@ -51,6 +59,10 @@ pub struct HistoryInput {
     pub off_nominal: Vec<f64>,
     /// ミクロ燃焼で追う核種（ADR-0216）。空なら微視的断面積を作らない
     pub micro: Vec<String>,
+    /// 数密度の微分を持つ核種（`micro` の部分集合。ADR-0221）。空なら微分を作らない
+    pub derivative: Vec<String>,
+    /// 微分の摂動の割合 ε（燃焼の領域の数密度を (1 + ε) 倍する。ADR-0221）
+    pub perturbation: f64,
     /// 燃焼の領域を自己遮蔽する組成の燃焼の履歴（入力のファイルのあるディレクトリから。[`HistoryBranches::shield_with`]）。
     /// `None` なら状態の組成で自己遮蔽する
     pub shielding_file: Option<PathBuf>,
@@ -91,6 +103,12 @@ pub struct HistoryBranches {
     micro_positions: Vec<usize>,
     /// [燃焼度の点][追う核種] の均質化した数密度 (1/(barn cm))
     micro_densities: Vec<Vec<f64>>,
+    /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）
+    derivative: Vec<String>,
+    /// 微分の核種の、追う核種（`micro_nuclides`）の中の番号
+    derivative_micro: Vec<usize>,
+    /// 微分の摂動の割合 ε
+    perturbation: f64,
     /// 自己遮蔽の履歴の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with`）
     shielding: Option<Vec<Vec<Vec<f64>>>>,
     /// 自己遮蔽の履歴があるときの、状態の組成で作り直す燃焼の領域の物質の名前（`<物質>@<セル>`）
@@ -406,6 +424,20 @@ pub fn history_branches(
                 .collect()
         })
         .collect();
+    // 微分の核種は追う核種の部分集合（入力の検査）
+    let derivative_micro = selection
+        .derivative
+        .iter()
+        .map(|name| {
+            selection
+                .micro
+                .iter()
+                .position(|m| m == name)
+                .ok_or_else(|| {
+                    anyhow!("derivative nuclide {name} is not a micro nuclide (ADR-0221)")
+                })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let mut axes = vec![Axis::Burnup {
         points: selection.burnup.clone(),
     }];
@@ -434,6 +466,9 @@ pub fn history_branches(
         micro_nuclides: selection.micro.clone(),
         micro_positions,
         micro_densities,
+        derivative: selection.derivative.clone(),
+        derivative_micro,
+        perturbation: selection.perturbation,
         shielding: None,
         remixed: Vec::new(),
     })
@@ -765,6 +800,97 @@ impl HistoryBranches {
         Ok(out)
     }
 
+    /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）
+    pub fn derivative_nuclides(&self) -> &[String] {
+        &self.derivative
+    }
+
+    /// 状態 `index` の、微分の核種 `j`（`derivative_nuclides` の番号）の摂動の組成: 燃焼の領域のその核種の数密度を (1 + ε) 倍した物質
+    pub fn perturbed_state(&self, index: usize, j: usize) -> Vec<MaterialInput> {
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        self.materials_with(&self.perturbed(&self.densities[point], j), &self.branch[b])
+    }
+
+    /// 燃焼度の点 `point` の参照 `reference` の、微分の核種 `j` の摂動の組成（自己遮蔽を公称の組成と同じに扱う。ADR-0221）。自己遮蔽の
+    /// 履歴（`shield_with`）があれば、自己遮蔽はその組成に固定するので `reference_state` と同じ
+    pub fn perturbed_reference_state(
+        &self,
+        point: usize,
+        reference: usize,
+        j: usize,
+    ) -> Vec<MaterialInput> {
+        match &self.shielding {
+            Some(_) => self.reference_state(point, reference),
+            None => {
+                let branch = self
+                    .references
+                    .get(reference)
+                    .unwrap_or_else(|| &self.branch[reference - self.references.len()]);
+                self.materials_with(&self.perturbed(&self.densities[point], j), branch)
+            }
+        }
+    }
+
+    /// 燃焼の領域の数密度 `densities`（[領域][履歴の核種]）のうち、微分の核種 `j` の数密度を (1 + ε) 倍したもの
+    fn perturbed(&self, densities: &[Vec<f64>], j: usize) -> Vec<Vec<f64>> {
+        let i = self.transported[self.micro_positions[self.derivative_micro[j]]];
+        let mut out = densities.to_vec();
+        for row in &mut out {
+            row[i] *= 1.0 + self.perturbation;
+        }
+        out
+    }
+
+    /// 状態 `index` の追う核種の微視的断面積 `micro`（`micro` の返り値）の、微分の核種に数密度の微分 ∂Σ/∂N̄ᵢ を入れる（ADR-0221）。
+    /// `nominal` は状態の格子全体の少数群定数。微分の核種 j ごとに、`solve`（j、摂動の組成、自己遮蔽の参照 `reference` の値、摂動の
+    /// 参照の組成の作り方）で摂動の組成の格子全体の少数群定数を解き、(Σ(摂動) − Σ(状態)) / (ε N̄ᵢ) にする。均質化した数密度 N̄ᵢ が 0 の
+    /// 点は解かず σᵢ（Σ = N σ̄(N) の dΣ/dN は N = 0 で σ̄(0)。ADR-0216 の案 Z1 の σᵢ）
+    pub fn add_derivatives(
+        &self,
+        index: usize,
+        micro: &mut [MicroNuclide],
+        nominal: &FewGroup,
+        mut solve: impl FnMut(
+            usize,
+            &[MaterialInput],
+            Option<(usize, usize)>,
+            &dyn Fn() -> Vec<MaterialInput>,
+        ) -> anyhow::Result<FewGroup>,
+    ) -> anyhow::Result<()> {
+        if micro.len() != self.micro_nuclides.len() {
+            bail!(
+                "{} micro nuclides for {} tracked",
+                micro.len(),
+                self.micro_nuclides.len()
+            );
+        }
+        let point = index / self.branch.len();
+        let reference = self.reference(index);
+        for (j, &m) in self.derivative_micro.iter().enumerate() {
+            let mean = self.micro_densities[point][m];
+            let derivative = if mean > 0.0 {
+                let state = self.perturbed_state(index, j);
+                let build = || {
+                    reference
+                        .map_or_else(Vec::new, |(p, r)| self.perturbed_reference_state(p, r, j))
+                };
+                let perturbed = solve(j, &state, reference, &build)?;
+                density_derivative(nominal, &perturbed, self.perturbation * mean)
+                    .map_err(|e| anyhow!("{}: {e}", self.derivative[j]))?
+            } else {
+                let sigma = &micro[m];
+                MicroDerivative {
+                    total: sigma.total.clone(),
+                    nu_fission: sigma.nu_fission.clone(),
+                    fission: sigma.fission.clone(),
+                    scatter: sigma.scatter.clone(),
+                }
+            };
+            micro[m].derivative = Some(derivative);
+        }
+        Ok(())
+    }
+
     /// 燃焼度の点 `point` の、燃焼させない物質と燃焼の領域の温度が `branch` の状態の解く物質
     fn materials(
         &self,
@@ -793,6 +919,38 @@ impl HistoryBranches {
         }
         materials
     }
+}
+
+/// 格子全体の少数群定数の、均質化した数密度の変化 `change` による前進差分 (Σ(`perturbed`) − Σ(`nominal`)) / `change`（全断面積、νΣf、Σf、
+/// 散乱行列。ADR-0221）。群の数が違えばエラー
+pub fn density_derivative(
+    nominal: &FewGroup,
+    perturbed: &FewGroup,
+    change: f64,
+) -> Result<MicroDerivative, String> {
+    let groups = nominal.total.len();
+    if perturbed.bounds != nominal.bounds
+        || perturbed.scatter.len() != groups
+        || !(change > 0.0 && change.is_finite())
+    {
+        return Err(format!(
+            "the perturbed constants must have the groups of the state and a positive density change, got {change}"
+        ));
+    }
+    let diff = |a: &[f64], b: &[f64]| -> Vec<f64> {
+        a.iter().zip(b).map(|(p, n)| (p - n) / change).collect()
+    };
+    Ok(MicroDerivative {
+        total: diff(&perturbed.total, &nominal.total),
+        nu_fission: diff(&perturbed.nu_fission, &nominal.nu_fission),
+        fission: diff(&perturbed.fission, &nominal.fission),
+        scatter: perturbed
+            .scatter
+            .iter()
+            .zip(&nominal.scatter)
+            .map(|(p, n)| diff(p, n))
+            .collect(),
+    })
 }
 
 #[cfg(test)]
