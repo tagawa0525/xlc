@@ -1889,6 +1889,124 @@ def history_weight_plans(sources: list[dict]) -> str:
     )
 
 
+def split_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-residual-split":
+        raise TableError("not an xlc-compare-history-residual-split summary")
+    return s
+
+
+def ratio_or_dash(x) -> str:
+    return "–" if x is None else f"{x:.4f}".replace("-", "−")
+
+
+def history_split_one(sources: list[dict]) -> str:
+    """履歴の残り R の分け方（ADR-0215）: 一生を条件 j で燃焼させた履歴の R(1) の、追わない核種の分 U と線形化の誤差 L と R の、公称の状態の
+    定数（その履歴の数密度の線形の補正を足したもの）に足した効きと、条件 j での効き（pcm）"""
+    s = split_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "追わない核種の分 U (pcm)",
+            "線形化の誤差 L (pcm)",
+            "R (pcm)",
+            "条件 j での U (pcm)",
+            "条件 j での L (pcm)",
+            "条件 j での R (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                signed(r["untracked_pcm"], 2),
+                signed(r["linearization_pcm"], 2),
+                signed(r["residual_pcm"], 2),
+                signed(r["untracked_condition_pcm"], 2),
+                signed(r["linearization_condition_pcm"], 2),
+                signed(r["residual_condition_pcm"], 2),
+            ]
+            for r in s["one"]
+        ],
+    )
+
+
+def history_split_switch(sources: list[dict]) -> str:
+    """履歴の残り R の分け方（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、U と L と w U(1)、w L(1) の効き（その点の履歴の数密度の
+    線形の補正を足した公称の状態の定数。pcm）、成分ごとの参照に合う重み、core − 参照と、そのうち数密度の効き、成分の比例からの外れの分、残り（pcm）"""
+    s = split_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "U (pcm)",
+            "w U(1) (pcm)",
+            "w_U",
+            "L (pcm)",
+            "w L(1) (pcm)",
+            "w_L",
+            "core − 参照 (pcm)",
+            "数密度の効き (pcm)",
+            "U の外れの分 (pcm)",
+            "L の外れの分 (pcm)",
+            "残り (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                signed(r["untracked_pcm"], 2),
+                signed(r["scaled_untracked_pcm"], 2),
+                ratio_or_dash(r["untracked_weight"]),
+                signed(r["linearization_pcm"], 2),
+                signed(r["scaled_linearization_pcm"], 2),
+                ratio_or_dash(r["linearization_weight"]),
+                signed(r["difference_pcm"], 3),
+                signed(r["composition_pcm"], 3),
+                signed(r["untracked_gap_pcm"], 3),
+                signed(r["linearization_gap_pcm"], 3),
+                signed(r["remainder_pcm"], 3),
+            ]
+            for r in s["switch"]
+        ],
+    )
+
+
+def history_split_density(sources: list[dict]) -> str:
+    """履歴の残り R の分け方（ADR-0215）: 減速材の密度だけの経路の、成分ごとの X(0.5) と X(1)/2 を w = 0.5 の定数に足した効きとその差（pcm）、
+    比 効き(X(0.5)) / (2 効き(X(1)/2))"""
+    s = split_summary(sources)
+    rows = []
+    for r in s["density"]:
+        row = [burnup_label(r["burnup"])]
+        for key in ("untracked", "linearization"):
+            row += [
+                signed(r[f"half_{key}_pcm"], 2),
+                signed(r[f"one_half_{key}_pcm"], 2),
+                signed(r[f"{key}_difference_pcm"], 2),
+                ratio_or_dash(r[f"{key}_ratio"]),
+            ]
+        row += [
+            signed(r["residual_difference_pcm"], 2),
+            ratio_or_dash(r["residual_ratio"]),
+        ]
+        rows.append(row)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "U(0.5) (pcm)",
+            "U(1)/2 (pcm)",
+            "U の差 (pcm)",
+            "U の比",
+            "L(0.5) (pcm)",
+            "L(1)/2 (pcm)",
+            "L の差 (pcm)",
+            "L の比",
+            "R の差 (pcm)",
+            "R の比",
+        ],
+        rows,
+    )
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2315,6 +2433,7 @@ def group_rows_spectrum(sources: list[dict]) -> str:
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
     "examples/depletion/history/weight.json",
+    "examples/depletion/history/split.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
@@ -2929,6 +3048,18 @@ TABLES = {
     "depletion-history-weight-plans": (
         ["examples/depletion/history/weight.json"],
         history_weight_plans,
+    ),
+    "depletion-history-split-one": (
+        ["examples/depletion/history/split.json"],
+        history_split_one,
+    ),
+    "depletion-history-split-switch": (
+        ["examples/depletion/history/split.json"],
+        history_split_switch,
+    ),
+    "depletion-history-split-density": (
+        ["examples/depletion/history/split.json"],
+        history_split_density,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],

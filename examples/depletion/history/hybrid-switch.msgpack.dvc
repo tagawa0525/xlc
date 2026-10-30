@@ -1,0 +1,5 @@
+outs:
+- md5: a982aff3668831ff9e608ebcd0e9d905
+  size: 55150755
+  hash: md5
+  path: hybrid-switch.msgpack

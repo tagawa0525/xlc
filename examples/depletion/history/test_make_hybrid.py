@@ -5,6 +5,7 @@
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -79,6 +80,51 @@ class Hybrid(unittest.TestCase):
         varied["nuclides"] = NUCLIDES[:-1] + ["Ag-107"]
         with self.assertRaises(SystemExit):
             make_hybrid.hybrid(history(1.0, [1, 2]), varied)
+
+
+class MicroNuclides(unittest.TestCase):
+    """R の第 3 項の追う核種（分岐の入力の `[history]` の `micro`）だけを置き換える形"""
+
+    def test_listed_nuclides_take_the_varied_densities_and_the_rest_stay_nominal(self):
+        nominal, varied = history(1.0, [1, 2]), history(2.0, [1, 2])
+        listed = ["U-235", "Cs-133"]
+        result = make_hybrid.hybrid(copy.deepcopy(nominal), varied, listed)
+        for point, n, v in zip(result["points"], nominal["points"], varied["points"]):
+            for densities, n_row, v_row in zip(
+                point["densities"], n["densities"], v["densities"]
+            ):
+                for nuclide, value, n_value, v_value in zip(
+                    NUCLIDES, densities, n_row, v_row
+                ):
+                    self.assertEqual(
+                        value, v_value if nuclide in listed else n_value, nuclide
+                    )
+
+    def test_listed_nuclides_that_the_history_lacks_are_errors(self):
+        with self.assertRaises(SystemExit):
+            make_hybrid.hybrid(
+                history(1.0, [1, 2]), history(2.0, [1, 2]), ["U-235", "Pu-239"]
+            )
+
+    def test_the_list_is_the_micro_of_the_history_section_of_the_input(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
+            f.write(
+                'library = "x"\n[history]\nfile = "h.msgpack"\nburnup = [0]\n'
+                'micro = ["U-235", "Xe-135"]\n'
+            )
+        try:
+            self.assertEqual(make_hybrid.micro_nuclides(f.name), ["U-235", "Xe-135"])
+        finally:
+            Path(f.name).unlink()
+
+    def test_inputs_without_a_micro_list_are_errors(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
+            f.write('[history]\nfile = "h.msgpack"\nburnup = [0]\n')
+        try:
+            with self.assertRaises(SystemExit):
+                make_hybrid.micro_nuclides(f.name)
+        finally:
+            Path(f.name).unlink()
 
 
 if __name__ == "__main__":
