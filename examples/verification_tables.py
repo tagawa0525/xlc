@@ -1664,6 +1664,18 @@ def history_residual(sources: list[dict]) -> str:
     )
 
 
+def core_history_branch(sources: list[dict]) -> str:
+    """履歴の補正の core（ADR-0215）: R の点ごとの、条件 j で一生を燃焼させた core の k と第 1 項のテーブルの k∞ の差、公称の燃焼の
+    core と公称のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）"""
+    raise TableError("not implemented")
+
+
+def core_history_switch(sources: list[dict]) -> str:
+    """履歴の補正の core（ADR-0215）: 途中で条件を変えた燃焼の燃焼点ごとの、ノードの減速材の密度の履歴 H、w、R の効きと誤差の上限
+    （pcm）"""
+    raise TableError("not implemented")
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
