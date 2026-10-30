@@ -5024,7 +5024,7 @@ R(u) = f(履歴の分岐の組成、条件 j) − f(公称の組成、条件 j) 
 - 履歴の分岐（`history/residual-density-history.toml`）: 2A（`p2/lattice-2A.toml`、今の既定）の減速材と被覆管を 600 K、減速材を
   0.661 g/cc（ホウ素 1300 ppm のホウ酸水）にして、同じ 40 点を燃焼させる。燃料は 565 K。テーブルの減速材の軸は温度で内挿し、格子点ごとに
   温度と密度の組を持ち、同じ温度の 2 点を置けない（`xlc-table` の軸の検査）ので、条件 j は温度も変えた格子点にした。「履歴の効き（2A）」の
-  2A-density（565 K、0.661 g/cc）とは条件が違う
+  2A-density（565 K、0.661 g/cc）とは条件が違う。R は減速材と被覆管の温度の履歴の分も含む
 - 公称のテーブル（`history/residual-nominal.toml`）: 2A の今の既定の履歴（`p2/lattice-2A.msgpack`、md5 7efea664）の 17 点
   （`branches/branch-2A-micro.toml` と同じ）を、公称の状態（565 K、0.743 g/cc）と条件 j（600 K、0.661 g/cc）の 2 状態で解く。追う 31 核種と
   Pu-240 の微分は `micro/nominal.toml` と同じ
@@ -5059,7 +5059,10 @@ python3 compare_residual.py --report residual.json
 
 ブランチ feat/0190-history-residual-lattice（分岐点は main の 9a69db2a）、2026-10-30。格子計算の 4 本は 427650f2 でコミットした入力を、
 main の `bin/lattice`（md5 1aff0b5f。分岐点の `dvc.lock` の `build` の出力）で解いた: 履歴の分岐の燃焼（Slurm 621）、公称のテーブル（622）、
-第 1 項（623）、逆向き（624）。どれも割り込まれうるジョブなので時間は記録に使わない。履歴は md5 a30302d3、テーブルは公称が 7b5fa50b、
+第 1 項（623）、逆向き（624）。どれも割り込まれうるジョブなので時間は記録に使わない。公称の履歴（`p2/lattice-2A.msgpack`）は `p2/dvc.lock` の bin/lattice md5
+4ae624f3（69c1e879 の build）で解いたもので、そこから 1aff0b5f（8bfa377d）までの lattice の差は分岐（`history.rs`、`branches.rs`）、入力の
+`[history]` の項目、テーブルの形式で、燃焼の経路（`depletion.rs`、`main.rs` の燃焼の段、`xlc-depletion`）は同じ（git diff で確かめた）。
+履歴は md5 a30302d3、テーブルは公称が 7b5fa50b、
 第 1 項が a8f35287、逆向きが e0b74465（追跡しない生成物）。R の書き足しは a870f559 の `lattice histories`（`cargo build --release` の
 `target/release/lattice`、md5 73c11889）で、出力は md5 3d73faee。比較は a870f559 で手元。
 
