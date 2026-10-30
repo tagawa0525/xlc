@@ -22,8 +22,8 @@
    その条件 j での効きを、密度だけの経路の R(1) の自分の条件での効きと並べる（差が温度の履歴の分）
 4. 案 A の見込み（core を流していない。確かめていない）: R(0) = 0、R(0.5)、R(1) を通る w の 2 次の式は
    R(w) = w R(1) + 4 w (1 − w) (R(0.5) − R(1)/2)。core の w R(1) を置き換えた差の変化を、途中で条件を変えた燃焼の参照の点
-   ごとに 4 w (1 − w) (r − 1/2) E と見込む。r = 効き(R(0.5)) / (2 効き(R(1)/2))（密度だけの経路の、上の比べ方の効きの比。比例なら
-   1/2）、E は 600 K の経路の R(1) の条件 j での効き（途中で条件を変えた燃焼のノードは条件 j にある）、w は ω = 1 の core の w。
+   ごとに 4 (1 − w) (r − 1/2) E と見込む。r = 効き(R(0.5)) / (2 効き(R(1)/2))（密度だけの経路の、上の比べ方の効きの比。比例なら
+   1/2）、E は ω = 1 の core がノードに足した w R(1) の効き（core-history.json の `switch_rows` の `residual_pcm`）、w はその w。
    密度だけの経路の非線形の割合を、温度の履歴を含む経路に当てはめる（ADR-0215 の、ノードの密度と温度の履歴が格子点の組と
    同じ関係で動くという置き方のもとで。確かめていない）。Δσ の非線形は入れていない。残りの差が、案 B（重みの定義）が埋める分の見込み
 
@@ -57,6 +57,9 @@ FILES = {
     "branch_one": "table-weight-branch-0661.msgpack",
     "reference": "table-switch-density-branch.msgpack",
     "switch": "switch.json",
+    "core_history": "core-history.json",
+    # ω = 1 の core の途中で条件を変えた燃焼（読まず、switch.json と core-history.json が同じ燃焼から作られたことを md5 で照らす）
+    "core": "core-2A-residual-switch.msgpack",
 }
 CORES = {
     1.25: "core-2A-residual-switch-omega125.msgpack",
@@ -314,8 +317,9 @@ def compare_omegas(histories, reference, switch, cores):
     return out
 
 
-def quadratic(switch, residual_rows):
-    """4（モジュールの説明）。途中で条件を変えた燃焼の参照の点（続ける点の後）ごとの見込み"""
+def quadratic(switch, residual_rows, core_switch):
+    """4（モジュールの説明）。途中で条件を変えた燃焼の参照の点（続ける点の後）ごとの見込み。`core_switch` は core-history.json の
+    `switch_rows`（ω = 1 の core の燃焼点ごとの w と、ノードに足した w R(1) の効き `residual_pcm`）"""
     by_burnup = {x["burnup"]: x for x in residual_rows}
     out = []
     for row in switch["rows"][1:]:
@@ -323,8 +327,16 @@ def quadratic(switch, residual_rows):
         x = by_burnup.get(u)
         if x is None:
             raise SystemExit(f"no residual at burnup {u}")
+        found = [y for y in core_switch if same_burnup(y["burnup"], u)]
+        if len(found) != 1 or found[0]["weight"] != w:
+            raise SystemExit(
+                f"the core history summary has no single point of w {w} at burnup {u}"
+            )
         ratio = x["half_pcm"] / (2.0 * x["one_half_pcm"])
-        change = 4.0 * w * (1.0 - w) * (ratio - 0.5) * x["temperature_path_pcm"]
+        # w R(1) を w R(1) + 4 w (1 − w) (R(0.5) − R(1)/2) に置き換える。R(0.5) − R(1)/2 を (2 r − 1) R(1)/2 と置き、効きは R に
+        # 1 次とする: 変化 = 4 (1 − w) (r − 1/2) × (core がノードに足した w R(1) の効き)。R(1) の効きは足す定数で変わる（同じ R(1) でも
+        # 60 MWd/kg で w = 0.5 と 1 の公称の状態で 14% 違う）ので、条件 j の格子点の効きでなく、core のノードの効きを使う
+        change = 4.0 * (1.0 - w) * (ratio - 0.5) * found[0]["residual_pcm"]
         out.append(
             {
                 "burnup": u,
@@ -332,6 +344,7 @@ def quadratic(switch, residual_rows):
                 "needed_weight": row["needed_weight"],
                 "difference_pcm": row["difference_pcm"],
                 "ratio": ratio,
+                "residual_pcm": found[0]["residual_pcm"],
                 "change_pcm": change,
                 "estimate_pcm": row["difference_pcm"] + change,
             }
@@ -339,17 +352,24 @@ def quadratic(switch, residual_rows):
     return out
 
 
-def check_switch(switch, md5s):
-    """`switch.json` が、同じ R を持つテーブルと参照から作ったものであること"""
-    for key in ("histories", "reference"):
+def check_switch(switch, md5s, core_history=None):
+    """`switch.json` が、同じ R を持つテーブル、参照、core の途中で条件を変えた燃焼から作ったものであること。`core_history`
+    （core-history.json）があれば、それも同じ core の燃焼から作ったものであること"""
+    for key in ("histories", "reference", "core"):
         made_from = switch.get("inputs", {}).get(FILES[key])
         if made_from != md5s[FILES[key]]:
             raise SystemExit(
                 f"the switch summary was made from {FILES[key]} of md5 {made_from}, not {md5s[FILES[key]]}"
             )
+    if core_history is not None:
+        made_from = core_history.get("inputs", {}).get(FILES["core"])
+        if made_from != md5s[FILES["core"]]:
+            raise SystemExit(
+                f"the core history summary was made from {FILES['core']} of md5 {made_from}, not {md5s[FILES['core']]}"
+            )
 
 
-def compare(tables, switch, cores):
+def compare(tables, switch, core_history, cores):
     """要約（モジュールの説明）"""
     residual = compare_residuals(
         tables["nominal"],
@@ -373,7 +393,7 @@ def compare(tables, switch, cores):
             for x in switch["rows"]
         ],
         "residual": residual,
-        "quadratic": quadratic(switch, residual["rows"]),
+        "quadratic": quadratic(switch, residual["rows"], core_history["switch_rows"]),
     }
 
 
@@ -453,10 +473,16 @@ def main():
     md5s = {file: md5(here / file) for file in [*FILES.values(), *CORES.values()]}
     with open(here / FILES["switch"], encoding="utf-8") as f:
         switch = json.load(f)
-    check_switch(switch, md5s)
-    tables = {k: read(here / v) for k, v in FILES.items() if k != "switch"}
+    with open(here / FILES["core_history"], encoding="utf-8") as f:
+        core_history = json.load(f)
+    check_switch(switch, md5s, core_history)
+    tables = {
+        k: read(here / v)
+        for k, v in FILES.items()
+        if k not in ("switch", "core_history", "core")
+    }
     cores = {omega: read(here / file) for omega, file in CORES.items()}
-    summary = compare(tables, switch, cores)
+    summary = compare(tables, switch, core_history, cores)
     summary["inputs"] = md5s
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"
     if args.json:
