@@ -1138,6 +1138,11 @@ class DrawCoreHistory(unittest.TestCase):
                     "difference_pcm": -0.0404,
                     "nominal_difference_pcm": -0.0398,
                     "reconstruct_pcm": 1.2e-10,
+                    "density_percent": 0.0,
+                    "density_nuclide": "U-235",
+                    "sigma_difference_pcm": -0.0411,
+                    "sigma_density_percent": 0.0,
+                    "sigma_density_nuclide": "U-235",
                 },
                 {
                     "burnup": 19.999999999999996,
@@ -1146,6 +1151,11 @@ class DrawCoreHistory(unittest.TestCase):
                     "difference_pcm": -1.0614,
                     "nominal_difference_pcm": -1.0501,
                     "reconstruct_pcm": -3.4e-9,
+                    "density_percent": -0.4567,
+                    "density_nuclide": "Pu-240",
+                    "sigma_difference_pcm": 2.3456,
+                    "sigma_density_percent": 0.1234,
+                    "sigma_density_nuclide": "Xe-135",
                 },
             ],
             "switch_rows": [
@@ -1196,13 +1206,36 @@ class DrawCoreHistory(unittest.TestCase):
                 "core − 第 1 項 (pcm)",
                 "公称: core − テーブル (pcm)",
                 "組み立ての差 (pcm)",
+                "数密度の最大の差 (%)",
+                "第 1 項で燃焼: core − 第 1 項 (pcm)",
+                "第 1 項で燃焼: 数密度の最大の差 (%)",
             ],
         )
         self.assertEqual(
             self.rows(table),
             [
-                ["0", "1.18300000", "1.18300000", "−0.040", "−0.040", "+1.2e-10"],
-                ["20", "0.97411620", "0.97412627", "−1.061", "−1.050", "−3.4e-09"],
+                [
+                    "0",
+                    "1.18300000",
+                    "1.18300000",
+                    "−0.040",
+                    "−0.040",
+                    "+1.2e-10",
+                    "0.000（U-235）",
+                    "−0.041",
+                    "0.000（U-235）",
+                ],
+                [
+                    "20",
+                    "0.97411620",
+                    "0.97412627",
+                    "−1.061",
+                    "−1.050",
+                    "−3.4e-09",
+                    "−0.457（Pu-240）",
+                    "+2.346",
+                    "+0.123（Xe-135）",
+                ],
             ],
         )
 
@@ -1259,6 +1292,7 @@ class DrawHistoryResidual(unittest.TestCase):
                 "reverse_residual_pcm": -4.561 * scale,
                 "dependence_pcm": -0.207 * scale,
                 "applied_pcm": 0.198 * scale,
+                "applied_whole_pcm": 2.345 * scale,
                 "first_term_pcm": -0.0456 * scale,
             }
 
@@ -1283,6 +1317,7 @@ class DrawHistoryResidual(unittest.TestCase):
                 "逆向きの R",
                 "状態への依存",
                 "公称の状態で使った誤差",
+                "差の全体を公称の状態で使った誤差",
                 "第 1 項",
             ],
         )
@@ -1298,6 +1333,7 @@ class DrawHistoryResidual(unittest.TestCase):
                     "0.00",
                     "0.00",
                     "0.00",
+                    "0.00",
                     "0.000",
                 ],
                 [
@@ -1309,6 +1345,7 @@ class DrawHistoryResidual(unittest.TestCase):
                     "−4.56",
                     "−0.21",
                     "+0.20",
+                    "+2.35",
                     "−0.046",
                 ],
             ],
