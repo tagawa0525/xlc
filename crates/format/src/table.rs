@@ -578,6 +578,25 @@ pub struct Residual {
 /// 減速材の密度の履歴の変数の名前（ADR-0215）
 pub const MODERATOR_DENSITY: &str = "moderator-density";
 
+/// 少数群定数 `f` に、ミクロ燃焼の線形の補正 Σᵢ cᵢ Δᵢ を足す（ADR-0216、ADR-0221）。`micro` は追う核種の微視的断面積で、係数 cᵢ は
+/// 数密度の微分を持つ核種はその微分 ∂Σ/∂N̄ᵢ、ほかは σᵢ。`delta` は核種ごとの数密度の差 Δᵢ (1/(barn cm))。吸収の係数は全断面積の係数から
+/// 散乱の行の和を引いたもの。χ、拡散係数、ADF、形状関数と k∞ は変えない。core のノードの補正と、lattice の履歴の残り R の第 3 項
+/// （ADR-0215）が同じ係数を使うように、どちらもこの関数を呼ぶ
+pub fn add_linear_correction(f: &mut FewGroup, micro: &[MicroNuclide], delta: &[f64]) {
+    let _ = (f, micro, delta);
+}
+
+/// 履歴の分岐の条件の状態の、テーブルの格子点（ADR-0215）
+#[derive(Debug, Clone, PartialEq)]
+pub struct HistoryCondition {
+    /// 公称の燃焼の変数の値 H⁰（減速材の密度は、公称の格子点の密度）
+    pub nominal: f64,
+    /// 条件の状態の、軸の順の格子点の番号（燃焼度の軸は 0。呼ぶ側が燃焼度の点を入れる）
+    pub point: Vec<usize>,
+    /// 燃焼度の軸の番号
+    pub burnup_axis: usize,
+}
+
 /// テーブルのファイルの読み書きのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum TableError {
@@ -842,6 +861,19 @@ impl Table {
         }
         self.validate_histories().map_err(TableError::Invalid)?;
         Ok(())
+    }
+
+    /// 履歴の変数 `variable` の値 `branch`（Hᵇ）の履歴の分岐の条件と、制御棒の値 `rod` の状態の格子点: 変数の軸（減速材の密度は
+    /// `moderator`）だけが公称でない格子点（値が Hᵇ のもの。1 つだけのこと）で、ほかの軸は公称の値、制御棒の軸は `rod`（軸がなければ
+    /// `rod` は `out`）。テーブルの検査と `lattice histories` が、同じ規則で条件を決めるように使う
+    pub fn history_condition(
+        &self,
+        variable: &str,
+        branch: f64,
+        rod: &str,
+    ) -> Result<HistoryCondition, String> {
+        let _ = (variable, branch, rod);
+        Err("not implemented".into())
     }
 
     /// 履歴の補正（ADR-0215）: ミクロ燃焼のデータを持つテーブルの、重ならない既知の変数で、H⁰ と Hᵇ が減速材の軸の公称と公称でない
