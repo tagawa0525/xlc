@@ -1820,8 +1820,8 @@ def history_weight_omega(sources: list[dict]) -> str:
 
 
 def history_weight_residual(sources: list[dict]) -> str:
-    """R の w への依存（ADR-0215）: 燃焼度の点ごとの、密度だけの経路の R(0.5) と R(1)/2 を同じ公称の状態に足した効きとその差、R(1) の
-    公称の状態での効き、それぞれの条件での R の効き、600 K の経路の R(1) の条件 j での効き（pcm）と、主な反応の Δσ(0.5)/Δσ(1)
+    """R の w への依存（ADR-0215）: 燃焼度の点ごとの、密度だけの経路の R(0.5) と R(1)/2 を同じ定数（公称の状態に w = 0.5 の数密度の線形の
+    補正を足したもの）に足した効きとその差、R(1) を w = 1 の定数（公称の状態に w = 1 の線形の補正を足したもの）に足した効き、それぞれの条件での R の効き、600 K の経路の R(1) の条件 j での効き（pcm）と、主な反応の Δσ(0.5)/Δσ(1)
     （群ごと）"""
     s = weight_summary(sources)
     rows = s["residual"]["rows"]
@@ -1829,10 +1829,10 @@ def history_weight_residual(sources: list[dict]) -> str:
     return markdown_table(
         [
             "燃焼度 (MWd/kg)",
-            "R(0.5) の効き (pcm)",
-            "R(1)/2 の効き (pcm)",
+            "w = 0.5 の定数: R(0.5) の効き (pcm)",
+            "w = 0.5 の定数: R(1)/2 の効き (pcm)",
             "差 (pcm)",
-            "R(1) の効き (pcm)",
+            "w = 1 の定数: R(1) の効き (pcm)",
             "条件での R(0.5) (pcm)",
             "条件での R(1) (pcm)",
             "600 K の経路の条件 j での R(1) (pcm)",
