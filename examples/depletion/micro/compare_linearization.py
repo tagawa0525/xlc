@@ -2,6 +2,7 @@
 
     python3 compare_linearization.py --json linearization.json   # このディレクトリの出力から JSON を書く
     python3 compare_linearization.py --report linearization.json  # JSON の要約の文章
+    python3 compare_linearization.py --nominal table-perturbation-5.msgpack --json linearization-perturbation-5.json
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
@@ -13,6 +14,8 @@
 - 線形: ρ(予測) − ρ(nominal の点 k - 1 の少数群定数の 2 群の k)。予測は、点 k - 1 の少数群定数（全断面積、散乱行列、νΣf）に
   Σᵢ σᵢ(k - 1)(N̄ᵢ(k) − N̄ᵢ(k - 1)) を足した定数の 2 群の無限媒質の k
 - 誤差: 線形 − 輸送（2 つの基準が同じなら ρ(予測) − ρ(shifted の点 k の k∞)。正なら線形の補正は反応度を高く見積もる）
+- 微分の線形と誤差: nominal のテーブルが数密度の微分（ADR-0221）を持つ核種の係数を σᵢ から ∂Σ/∂N̄ᵢ に替えた予測の効きと誤差
+  （微分のないテーブルでは出さない）
 
 ρ は反応度 1 − 1/k で、差は pcm（Δρ = (1/k_a − 1/k_b) × 1e5、a から b へ）。2 群の k は、少数群定数から無限媒質の固有値として求め、テーブルの
 k∞ との差（`self_check_pcm`。nominal のすべての状態の最大）を出す（外周が鏡面反射の格子の少数群定数は格子の k∞ を保つ）。
@@ -30,6 +33,8 @@ FRESH_TOLERANCE_PCM = 1e-6
 # 組成の差の相対値を出す核種
 NUCLIDES = ("U-235", "Pu-239", "Pu-241", "Xe-135", "Sm-149")
 FILES = {"nominal": "table-nominal.msgpack", "shifted": "table-shifted.msgpack"}
+# 要約の文章で分ける燃焼度 (MWd/kg)。この点から後の組と前の組で誤差の符号が違う（verification.md）
+LATE_BURNUP = 5.0
 
 
 def read(path):
@@ -84,6 +89,11 @@ def corrected(state, sigmas, deltas):
     return out
 
 
+def coefficients(nuclides):
+    """線形の補正の係数: 数密度の微分（ADR-0221）を持つ核種はそれ、ほかは微視的断面積"""
+    return [n.get("derivative") or n for n in nuclides]
+
+
 def burnups(table):
     """燃焼度の点。燃焼度の軸を最初に持ち、ほかの軸（分岐の軸）は 1 点で、点ごとに状態 1 つのテーブルだけ"""
     axes = table["axes"]
@@ -113,6 +123,8 @@ def compare(nominal, shifted):
         raise SystemExit("the tables have different burnup points")
     micro = nominal["micro"]
     names = micro["nuclides"]
+    # 微分の有無は状態の間で同じ（テーブルの検査）
+    derived = [n for n, s in zip(names, micro["states"][0]) if s.get("derivative")]
     fresh = rho(shifted["states"][0]["k_inf"]) - rho(nominal["states"][0]["k_inf"])
     if abs(fresh) > FRESH_TOLERANCE_PCM:
         raise SystemExit(f"the fresh points differ by {fresh} pcm")
@@ -128,6 +140,13 @@ def compare(nominal, shifted):
         # どちらの効きも自分の基準（テーブルの k∞ と、同じ定数の 2 群の k）からの差なので、基準の収束の差（self_check）は入らない
         tracked = rho(transport) - rho(base["k_inf"])
         linear = rho(predicted) - rho(k_inf(base))
+        row = {}
+        if derived:
+            by_derivative = k_inf(
+                corrected(base, coefficients(micro["states"][k - 1]), deltas)
+            )
+            row["linear_derivative_pcm"] = rho(by_derivative) - rho(k_inf(base))
+            row["error_derivative_pcm"] = row["linear_derivative_pcm"] - tracked
         rows.append(
             {
                 "from": points[k - 1],
@@ -144,11 +163,13 @@ def compare(nominal, shifted):
                     for n in NUCLIDES
                     if n in names
                 },
+                **row,
             }
         )
     return {
         "format": "xlc-compare-micro-linearization",
         "nuclides": len(names),
+        "derivative_nuclides": derived,
         "self_check_pcm": self_check,
         "rows": rows,
     }
@@ -165,28 +186,49 @@ def report(summary):
     shares = [
         r["linear_pcm"] / r["tracked_pcm"] for r in rows if abs(r["tracked_pcm"]) > 1.0
     ]
-    return (
+    text = (
         f"追う核種 {summary['nuclides']}、点の組 {len(rows)}。線形の補正の誤差（線形 − 輸送）は "
         f"{min(errors):+.2f}〜{max(errors):+.2f} pcm（絶対値の最大は {worst['from']:g}→{worst['to']:g} MWd/kg の "
         f"{worst['error_pcm']:+.2f} pcm、そのときの輸送の効き {worst['tracked_pcm']:+.1f} pcm）。効きが 1 pcm を超える組で、線形の補正は "
         f"輸送の効きの {100 * min(shares):.2f}〜{100 * max(shares):.2f}% を再現した。2 群の k とテーブルの k∞ の差は最大 "
         f"{summary['self_check_pcm']:.2e} pcm"
     )
+    derived = summary.get("derivative_nuclides") or []
+    if derived:
+
+        def span(key, late):
+            values = [r[key] for r in rows if (r["from"] >= LATE_BURNUP) == late]
+            return f"{min(values):+.2f}〜{max(values):+.2f}" if values else "なし"
+
+        by = [r["error_derivative_pcm"] for r in rows]
+        text += (
+            f"\n微分の係数（{'、'.join(derived)}）の誤差は {min(by):+.2f}〜{max(by):+.2f} pcm。"
+            f"{LATE_BURNUP:g} MWd/kg より後の組で {span('error_derivative_pcm', True)} pcm（σᵢ の係数で "
+            f"{span('error_pcm', True)} pcm）、前の組で {span('error_derivative_pcm', False)} pcm（σᵢ の係数で "
+            f"{span('error_pcm', False)} pcm）"
+        )
+    return text
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", help="write the summary to this file")
     parser.add_argument("--report", help="print the report of this summary")
+    parser.add_argument(
+        "--nominal",
+        default=FILES["nominal"],
+        help="the nominal table in this directory (default %(default)s)",
+    )
     args = parser.parse_args()
     if args.report:
         with open(args.report, encoding="utf-8") as f:
             print(report(json.load(f)))
         return
     here = Path(__file__).resolve().parent
-    tables = {name: read(here / file) for name, file in FILES.items()}
+    files = dict(FILES, nominal=args.nominal)
+    tables = {name: read(here / file) for name, file in files.items()}
     summary = compare(tables["nominal"], tables["shifted"])
-    summary["inputs"] = {name: md5(here / file) for name, file in FILES.items()}
+    summary["inputs"] = {name: md5(here / file) for name, file in files.items()}
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"
     if args.json:
         Path(args.json).write_text(text, encoding="utf-8")
