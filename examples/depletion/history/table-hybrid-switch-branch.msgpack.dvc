@@ -1,0 +1,5 @@
+outs:
+- md5: 6661fea125caaceb71482f2bfd8018ec
+  size: 74243
+  hash: md5
+  path: table-hybrid-switch-branch.msgpack

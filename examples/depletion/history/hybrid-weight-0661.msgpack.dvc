@@ -1,0 +1,5 @@
+outs:
+- md5: b457c34316426c56b9c971c816744cdf
+  size: 55150755
+  hash: md5
+  path: hybrid-weight-0661.msgpack
