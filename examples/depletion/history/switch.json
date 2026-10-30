@@ -34,7 +34,7 @@
    },
    "branch_difference_pcm": -1.2215457010354385,
    "nominal_difference_pcm": -1.009064215717899,
-   "first_term_pcm": 0.0,
+   "reference_history_pcm": 0.0,
    "needed_weight": null
   },
   {
@@ -67,7 +67,7 @@
    },
    "branch_difference_pcm": -2.6867976177682067,
    "nominal_difference_pcm": -2.530359611952008,
-   "first_term_pcm": -0.005074548337688611,
+   "reference_history_pcm": -0.005074548337688611,
    "needed_weight": 0.2500237639339207
   },
   {
@@ -100,7 +100,7 @@
    },
    "branch_difference_pcm": -2.0701922436765017,
    "nominal_difference_pcm": -2.048755542573417,
-   "first_term_pcm": -0.005818162951982231,
+   "reference_history_pcm": -0.005818162951982231,
    "needed_weight": 0.39419350178285434
   },
   {
@@ -133,7 +133,7 @@
    },
    "branch_difference_pcm": -1.0965587173850508,
    "nominal_difference_pcm": -1.064827397454792,
-   "first_term_pcm": -0.006398457520845113,
+   "reference_history_pcm": -0.006398457520845113,
    "needed_weight": 0.5634827319108905
   },
   {
@@ -166,7 +166,7 @@
    },
    "branch_difference_pcm": -3.787920241647953,
    "nominal_difference_pcm": -3.807685254716489,
-   "first_term_pcm": -0.009587009986717021,
+   "reference_history_pcm": -0.009587009986717021,
    "needed_weight": 0.6807412872771883
   },
   {
@@ -199,7 +199,7 @@
    },
    "branch_difference_pcm": -2.3407106465783727,
    "nominal_difference_pcm": -1.8311272691244085,
-   "first_term_pcm": -0.007832464478269685,
+   "reference_history_pcm": -0.007832464478269685,
    "needed_weight": 0.7735773437609565
   },
   {
@@ -232,7 +232,7 @@
    },
    "branch_difference_pcm": -1.4647574491791602,
    "nominal_difference_pcm": -0.8249053063082101,
-   "first_term_pcm": 0.005545353109482676,
+   "reference_history_pcm": 0.005545353109482676,
    "needed_weight": 0.8065433673107941
   }
  ],
@@ -328,6 +328,7 @@
   "lattice-switch-density.msgpack": "1840f666f8c789944f940220767a5a41",
   "core-2A-residual-switch.msgpack": "14c85ae05f529abf591f0f810d6a6332",
   "core-2A-plain-switch.msgpack": "f334b2d59ce9870174d88925929ec05d",
+  "table-residual-nominal.msgpack": "7b5fa50b0bc5963e1f7515d643c9ba3b",
   "core-history.json": "019024f0219e066be3c8c51659660839"
  }
 }

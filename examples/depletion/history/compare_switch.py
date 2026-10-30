@@ -14,10 +14,11 @@
 - 補正を切った core（`core-2A-plain-switch.toml`。R と Δσ を持たないテーブルで同じ燃焼）
 
 参照の燃焼度の点ごとに、core の k の参照の k∞ からの差と、それを追う核種の数密度の違いで説明する分（数密度の効き）: 参照の定数に、
-core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は参照の微視的断面積。core と同じ選び方）を足した
+core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は参照の微視的断面積。参照は数密度の微分を持たないので、
+core が微分を使う Pu-240 も σᵢ）を足した
 2 群の k と、参照の定数の 2 群の k の差。核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
 続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は ADR-0187 の確認の
-水準（0.06 pcm 程度）のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差（第 1 項）も並べる。目安として、一生を条件 j で燃焼させた
+水準（0.06 pcm 程度）のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
 core と第 1 項のテーブルの差、公称の燃焼の core と公称のテーブルの差（`core-history.json`）を同じ点に並べる。
 ρ = 1 − 1/k で、差は pcm。
 """
@@ -41,6 +42,8 @@ FILES = {
     "history": "lattice-switch-density.msgpack",
     "core": "core-2A-residual-switch.msgpack",
     "plain": "core-2A-plain-switch.msgpack",
+    # 補正を切った core のテーブル（読まず、md5 を残す）
+    "plain_table": "table-residual-nominal.msgpack",
     "core_history": "core-history.json",
 }
 # 数密度の相対差を要約に残す主な核種（記録の本文に書く）
@@ -63,7 +66,7 @@ def omega_weights(t, nodes, omega):
 
 
 def reference_states(reference):
-    """参照のテーブルの、燃焼度ごとの 1 状態（燃焼度、状態の番号）"""
+    """参照のテーブルの、燃焼度ごとの 1 状態（燃焼度、燃焼度の点の番号、状態の番号）。N̄ᵢ は燃焼度の点の順、定数は状態の順"""
     names = [a["name"] for a in reference["axes"]]
     burnups = reference["axes"][0]["points"]
     if names != ["burnup", "boron", "moderator", "fuel"] or any(
@@ -72,7 +75,9 @@ def reference_states(reference):
         raise SystemExit("the reference must be one state per burnup")
     if len(reference["states"]) != len(burnups):
         raise SystemExit("the reference must solve every burnup")
-    return [(u, reference["points"].index([b, 0, 0, 0])) for b, u in enumerate(burnups)]
+    return [
+        (u, b, reference["points"].index([b, 0, 0, 0])) for b, u in enumerate(burnups)
+    ]
 
 
 def at(nodes, burnup, label):
@@ -102,6 +107,17 @@ def composition(state, coeff, reference_densities, node):
     return rho(k_inf(corrected(state, coeff, deltas))) - rho(k_inf(state))
 
 
+def check_core_history(core_history, md5s):
+    """一生を条件 j で燃焼させた比較の要約が、同じ R を持つテーブルと core の途中で条件を変えた燃焼（md5 `md5s`）から作ったもの
+    であること"""
+    for key in ("residual_table", "core"):
+        made_from = core_history.get("inputs", {}).get(FILES[key])
+        if made_from != md5s[FILES[key]]:
+            raise SystemExit(
+                f"the core history summary was made from {FILES[key]} of md5 {made_from}, not {md5s[FILES[key]]}"
+            )
+
+
 def compare(table, reference, history, core, plain, core_history):
     """比べた要約（モジュールの説明）"""
     t = Table(table)
@@ -118,10 +134,10 @@ def compare(table, reference, history, core, plain, core_history):
     plain_nodes = single_node(plain, "plain", nuclides)
     branch_rows = core_history["branch_rows"]
     rows = []
-    for u, p in states:
+    for u, b, p in states:
         state = reference["states"][p]
         micro = reference["micro"]["states"][p]
-        n_ref = reference["micro"]["densities"][p]
+        n_ref = reference["micro"]["densities"][b]
         coeff = coefficients(micro)
 
         n = at(core_nodes, u, "core")
@@ -154,7 +170,7 @@ def compare(table, reference, history, core, plain, core_history):
                 "plain_densities_percent": plain_major,
                 "branch_difference_pcm": whole[0]["difference_pcm"],
                 "nominal_difference_pcm": whole[0]["nominal_difference_pcm"],
-                "first_term_pcm": rho(state["k_inf"]) - rho(lattice["k_inf"]),
+                "reference_history_pcm": rho(state["k_inf"]) - rho(lattice["k_inf"]),
             }
         )
         row = rows[-1]
@@ -166,7 +182,7 @@ def compare(table, reference, history, core, plain, core_history):
             else row["weight"] * row["plain_difference_pcm"] / fill
         )
     # 続ける点の参照と、公称のテーブルの条件 j の状態（同じ組成と状態）
-    u0, p0 = states[0]
+    u0, _, p0 = states[0]
     node = at(core_nodes, u0, "core")
     table_point, _ = t.point(u0, node["moderator"], "core")
     check = rho(reference["states"][p0]["k_inf"]) - rho(
@@ -236,7 +252,7 @@ def report(summary):
     return (
         f"続ける点 {u0:.4g} MWd/kg の参照の k∞ と公称のテーブルの条件 j の状態の k∞ の差は {summary['check_pcm']:+.4f} pcm"
         f"（core − 参照は {rows[0]['difference_pcm']:+.3f} pcm、補正を切った core も {rows[0]['plain_difference_pcm']:+.3f} pcm）。"
-        f"参照の分岐と格子計算の履歴の点の k∞ の差は {span('first_term_pcm', rows)} pcm。"
+        f"参照の分岐と格子計算の履歴の点の k∞ の差は {span('reference_history_pcm', rows)} pcm。"
         f"\n{u0:.4g} MWd/kg より後の参照の点 {len(later)} で、履歴の補正の core − 参照は {span('difference_pcm')} pcm"
         f"（最後の点 {last['burnup']:.4g} MWd/kg で {last['difference_pcm']:+.3f} pcm、w = {last['weight']:.6f}）。"
         f"そのうち数密度の効きは {span('composition_pcm')} pcm（最後の点で {last['composition_pcm']:+.3f} pcm）。"
@@ -269,6 +285,8 @@ def main():
     here = Path(__file__).resolve().parent
     with open(here / FILES["core_history"], encoding="utf-8") as f:
         core_history = json.load(f)
+    md5s = {file: md5(here / file) for file in FILES.values()}
+    check_core_history(core_history, md5s)
     summary = compare(
         read(here / FILES["residual_table"]),
         read(here / FILES["reference"]),
@@ -277,7 +295,7 @@ def main():
         read(here / FILES["plain"]),
         core_history,
     )
-    summary["inputs"] = {file: md5(here / file) for file in FILES.values()}
+    summary["inputs"] = md5s
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"
     if args.json:
         Path(args.json).write_text(text, encoding="utf-8")
