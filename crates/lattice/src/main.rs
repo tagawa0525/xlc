@@ -1,6 +1,7 @@
 //! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
 //! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
 //! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、ピン出力、少数群定数を燃焼の履歴のファイルに書く（ADR-0173、ADR-0181）。
+//! `continue` があれば、その燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（ADR-0215 の確認）。
 //! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
 //!
 //! 使い方: lattice <入力ファイル>
@@ -273,6 +274,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let file = base.join(&depletion.chain);
         let bytes = read("chain", &file)?;
         let chain = Chain::from_msgpack(&bytes).with_context(|| shown(&file))?;
+        // 燃焼を続ける履歴（指紋に足すので、チェックポイントを作る前に読む）
+        let from = depletion
+            .continue_from
+            .as_ref()
+            .map(|c| -> anyhow::Result<History> {
+                let file = base.join(&c.file);
+                let bytes = read("continue", &file)?;
+                History::from_msgpack(&bytes).with_context(|| shown(&file))
+            })
+            .transpose()?;
         let checkpoint = Checkpoint::new(
             Checkpoint::beside(path),
             fingerprint
@@ -290,6 +301,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             &region_materials,
             &chosen,
             &LibraryReactions(library),
+            from.as_ref(),
             resumed,
             &mut |history, next, start| checkpoint.save_depletion(history, next, start),
         )
