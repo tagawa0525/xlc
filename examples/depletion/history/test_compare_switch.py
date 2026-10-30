@@ -230,7 +230,10 @@ class Compare(unittest.TestCase):
         )
         s = c.compare(table(), reference(), history(), same, plain, SUMMARY)
         self.assertIsNone(s["rows"][1]["needed_weight"])
-        self.assertIsNone(s["omegas"][0]["estimate_pcm"][1])
+        # 補正の量が 0 なら、見込みは補正を切った差のまま
+        self.assertEqual(
+            s["omegas"][0]["estimate_pcm"][1], s["rows"][1]["plain_difference_pcm"]
+        )
         c.report(s)
 
     def test_runs_that_do_not_match_the_reference_are_errors(self):
