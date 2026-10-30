@@ -1247,6 +1247,8 @@ fn corrected_constants_are_checked_and_compositions_cover_every_site() {
     let sites = layout.node_material.len();
     let burnups = vec![0.0; sites];
     let state = case.states[0].at(1200.0);
+    // テーブルは履歴の残りを持たないので、ノードの履歴の変数の値は定数を変えない
+    let histories = vec![Some(vec![0.745]); sites];
     let solve = |densities: &[Option<Vec<f64>>]| {
         crate::case::solve_compositions(
             &layout,
@@ -1256,6 +1258,7 @@ fn corrected_constants_are_checked_and_compositions_cover_every_site() {
             Some(&Compositions {
                 chain: &chain,
                 densities,
+                histories: &histories,
             }),
             &tight(),
         )
@@ -1865,6 +1868,10 @@ fn steps_solve_in_the_states_they_name() {
             .iter()
             .map(|n| Some(chain.initial(n)))
             .collect();
+        let histories: Vec<Option<Vec<f64>>> = point.histories.as_ref().unwrap()[0]
+            .iter()
+            .map(|h| Some(h.clone()))
+            .collect();
         let solved = crate::case::solve_compositions(
             &banked,
             &tables,
@@ -1873,6 +1880,7 @@ fn steps_solve_in_the_states_they_name() {
             Some(&Compositions {
                 chain: &chain,
                 densities: &densities,
+                histories: &histories,
             }),
             &tight(),
         )
@@ -2442,4 +2450,217 @@ fn micro_histories_hold_the_auxiliary_densities_of_their_last_point() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("no point"), "{error}");
+}
+
+// 履歴の変数（ADR-0215）
+
+#[test]
+fn history_variables_average_the_step_values_by_burnup() {
+    // 一定の値なら、どの燃焼度でもその値（ビットで同じ）
+    let mut h = advance_history(&[0.743], 0.0, 0.1, &[0.743]);
+    assert_eq!(h, [0.743]);
+    for (start, end) in [(0.1, 0.25), (0.25, 13.7), (13.7, 60.0)] {
+        h = advance_history(&h, start, end, &[0.743]);
+        assert_eq!(h, [0.743]);
+    }
+    // 燃焼度 0 からは、ステップの値（燃焼度 0 の値は瞬時の値）
+    assert_eq!(advance_history(&[0.743], 0.0, 2.0, &[0.661]), [0.661]);
+    // 途中で値を変えると、燃焼度で重みを付けた平均 (1/B) ∫ x dB'
+    let h = advance_history(&[0.743], 0.0, 20.0, &[0.743]);
+    let h = advance_history(&h, 20.0, 30.0, &[0.661]);
+    let h = advance_history(&h, 30.0, 60.0, &[0.661]);
+    let expected = (0.743 * 20.0 + 0.661 * 40.0) / 60.0;
+    assert!((h[0] - expected).abs() <= 1.0e-15, "{h:?} vs {expected}");
+    // 燃焼度が進まなければ（崩壊だけのステップ）、そのまま
+    assert_eq!(advance_history(&[0.7], 12.0, 12.0, &[0.661]), [0.7]);
+}
+
+#[test]
+fn micro_depletion_records_the_moderator_density_history_of_the_nodes() {
+    // ノードの減速材の密度は、テーブルの格子点の（温度、密度）を状態の温度で内挿した値で、一定の状態では一定
+    let history = micro_run(UNIFORM, [&TRACKED, &TRACKED]).unwrap();
+    assert_eq!(
+        history.history_variables,
+        Some(vec!["moderator-density".to_string()])
+    );
+    let (_, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let x = crate::state::moderator_density(&tables[0], 565.0).unwrap();
+    for point in &history.points {
+        for node in point.histories.as_ref().unwrap().iter().flatten() {
+            assert_eq!(node, &[x], "{} EFPD", point.efpd);
+        }
+    }
+    let bytes = history.to_msgpack().unwrap();
+    assert_eq!(CoreHistory::from_msgpack(&bytes).unwrap(), history);
+    // ミクロ燃焼しない燃焼は履歴の変数を持たない
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let plain = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        None,
+        None,
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    assert_eq!(plain.history_variables, None);
+    assert!(plain.points.iter().all(|p| p.histories.is_none()));
+}
+
+#[test]
+fn node_histories_follow_the_states_of_the_steps() {
+    // 560 K（0.75 g/cm³）で燃焼させ、途中から 570 K（0.74 g/cm³）にすると、ノードの値は燃焼度で重みを付けた平均
+    let case = micro_case(
+        &CASE
+            .replace(
+                "[state.hfp]\nboron = 1200\nb10 = 0.199\nmoderator = 565\nfuel = 565\n",
+                "[state.cold]\nboron = 1200\nb10 = 0.199\nmoderator = 560\nfuel = 565\n\n\
+                 [state.hot]\nboron = 1200\nb10 = 0.199\nmoderator = 570\nfuel = 565\n",
+            )
+            .replace(
+                "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+                "[{ efpd = 50.0, state = \"cold\" }, { efpd = 125.0, state = \"hot\" }, { efpd = 250.0 }]",
+            ),
+    );
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        None,
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    let values = |k: usize| -> Vec<(f64, f64)> {
+        let p = &history.points[k];
+        p.burnups
+            .iter()
+            .flatten()
+            .zip(p.histories.as_ref().unwrap().iter().flatten())
+            .map(|(&b, h)| (b, h[0]))
+            .collect()
+    };
+    // 燃焼点 0 は最初のステップの状態の瞬時の値、最初のステップの後もその値
+    assert!(values(0).iter().all(|&(_, h)| h == 0.75));
+    assert!(values(1).iter().all(|&(_, h)| h == 0.75));
+    for ((b1, _), (b3, h3)) in values(1).into_iter().zip(values(3)) {
+        let expected = (0.75 * b1 + 0.74 * (b3 - b1)) / b3;
+        assert!((h3 - expected).abs() <= 1.0e-15, "{h3} vs {expected}");
+    }
+}
+
+#[test]
+fn restarts_carry_the_node_histories_by_assembly() {
+    // 引き継ぐ集合体は前のサイクルの最後の点の履歴の変数を、新しい集合体は燃焼点 0 の瞬時の値を持つ（ADR-0215、ADR-0036）
+    let mut first = cycle_run(
+        MIXED,
+        Some("tracked"),
+        "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+        None,
+    )
+    .unwrap();
+    // 前のサイクルが別の状態で燃焼したことにする
+    let a1 = first.assemblies.iter().position(|a| a == "A1").unwrap();
+    let last = first.points.len() - 1;
+    for node in &mut first.points[last].histories.as_mut().unwrap()[a1] {
+        node[0] = 0.7425;
+    }
+    let first = CoreHistory::from_msgpack(&first.to_msgpack().unwrap()).unwrap();
+    let reloaded = "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\n\
+                    restart = { history = \"first.msgpack\", fresh = [\"A3\"] }\n\
+                    loading = [\"A2@90  B1\", \"A1  A3\"]\n";
+    let second = cycle_run(reloaded, Some("tracked"), "[{ efpd = 50.0 }]", Some(&first)).unwrap();
+    let node_values = |h: &CoreHistory, k: usize, id: &str| -> Vec<Vec<f64>> {
+        let a = h.assemblies.iter().position(|a| a == id).unwrap();
+        h.points[k].histories.as_ref().unwrap()[a].clone()
+    };
+    for id in ["A1", "A2", "B1"] {
+        assert_eq!(
+            node_values(&second, 0, id),
+            node_values(&first, last, id),
+            "{id}"
+        );
+    }
+    assert_eq!(node_values(&second, 0, "A1"), [[0.7425], [0.7425]]);
+    let fresh = node_values(&second, 0, "A3");
+    assert_eq!(fresh, node_values(&second, 0, "A2"));
+    // 履歴の変数が core の変数と違う restart はエラー
+    let mut other = first.clone();
+    other.history_variables = Some(vec!["rods".into()]);
+    let cycle = restarted_cycle(MIXED, "restart = { history = \"first.msgpack\" }");
+    let error = cycle_run(&cycle, Some("tracked"), "[{ efpd = 50.0 }]", Some(&other))
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("history variables"), "{error}");
+}
+
+#[test]
+fn micro_histories_hold_node_histories_of_the_densities_shape() {
+    // 履歴の変数の値は、追う核種の数密度と同じ [集合体][軸方向のノード] の形で、数密度を持つノードだけが変数の数の有限の値を持つ
+    let micro = cycle_run(MIXED, Some("tracked"), "[{ efpd = 50.0 }]", None).unwrap();
+    let rejected = |h: &CoreHistory| CoreHistory::from_msgpack(&h.to_msgpack().unwrap()).is_err();
+    let mut h = micro.clone();
+    h.history_variables = None;
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.points[1].histories = None;
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.points[0].histories.as_mut().unwrap()[0].pop();
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.points[1].histories.as_mut().unwrap()[0][0].clear();
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.points[1].histories.as_mut().unwrap()[0][0].push(0.7);
+    assert!(rejected(&h));
+    let mut h = micro.clone();
+    h.points[1].histories.as_mut().unwrap()[0][0][0] = f64::INFINITY;
+    assert!(rejected(&h));
+}
+
+#[test]
+fn micro_tables_hold_the_same_history_residuals() {
+    // R を持つテーブルと持たないテーブルを混ぜると、持たないテーブルのノードの履歴を補正しない（黙って落とさない。ADR-0215）
+    let (layout, tables, _) = core(CASE, MIXED, Some(400.0));
+    let case = micro_case(CASE);
+    let tables: Vec<Table> = layout
+        .files
+        .iter()
+        .zip(tables)
+        .map(|(f, t)| {
+            let mut t = with_micro(t, &TRACKED);
+            if f.ends_with("a.msgpack") {
+                t.histories = vec![xlc_format::table::HistoryCorrection {
+                    variable: xlc_format::table::MODERATOR_DENSITY.into(),
+                    nominal: 0.75,
+                    branch: 0.74,
+                    rods: Vec::new(),
+                }];
+            }
+            t
+        })
+        .collect();
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        None,
+        &tight(),
+        |_| {},
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("history residuals"), "{error}");
 }

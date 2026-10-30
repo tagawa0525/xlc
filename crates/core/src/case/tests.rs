@@ -310,3 +310,272 @@ fn tables_with_history_residuals_are_errors_until_core_adds_them() {
         .to_string();
     assert!(err.contains("history"), "{err}");
 }
+
+// 履歴の補正（ADR-0215）
+
+use xlc_format::table::{
+    HistoryCorrection, HistoryRod, MODERATOR_DENSITY, Micro, MicroDerivative, MicroNuclide,
+    MicroReaction, ROD_OUT, Residual, add_linear_correction,
+};
+
+use crate::state::State;
+
+/// 2 群の少数群定数（`s` で値を変える。10 進で短く書けない値）
+fn history_few(s: f64) -> FewGroup {
+    let x = |v: f64| v * (1.0 + s / 7.0) / 3.0;
+    FewGroup {
+        bounds: vec![1.0e7, 0.625, 1.0e-5],
+        k_inf: x(3.5),
+        total: vec![x(0.55), x(1.3)],
+        absorption: vec![x(0.01), x(0.1)],
+        nu_fission: vec![x(0.007), x(0.14)],
+        fission: vec![x(0.0028), x(0.057)],
+        chi: vec![1.0 - s / 1000.0, s / 1000.0],
+        diffusion: vec![x(1.4), x(0.4)],
+        scatter: vec![vec![x(0.52), x(0.017)], vec![x(0.0015), x(1.2)]],
+        adf: vec![vec![x(1.0), x(1.01)]; 6],
+        vacuum_ratio: vec![None; 6],
+        normalized_adf: vec![false; 6],
+        height: None,
+        pins: None,
+    }
+}
+
+/// 2 群の微視的断面積（`s` で値を変える）。`derivative` なら数密度の微分も持つ
+fn sigma(s: f64, derivative: bool) -> MicroNuclide {
+    let x = |v: f64| v * (1.0 + s / 5.0) / 3.0;
+    MicroNuclide {
+        total: vec![x(11.0), x(130.0)],
+        nu_fission: vec![x(1.1), x(170.0)],
+        fission: vec![x(0.4), x(70.0)],
+        scatter: vec![vec![x(9.0), x(0.1)], vec![x(0.01), x(8.0)]],
+        reactions: vec![MicroReaction {
+            mt: 102,
+            channels: vec![vec![x(0.3), x(20.0)]],
+        }],
+        thermal_fission: Some(0.9),
+        derivative: derivative.then(|| MicroDerivative {
+            total: vec![x(9.0), x(110.0)],
+            nu_fission: vec![x(1.0), x(-150.0)],
+            fission: vec![x(0.35), x(-60.0)],
+            scatter: vec![vec![x(8.5), x(0.12)], vec![x(0.02), x(7.0)]],
+        }),
+    }
+}
+
+/// 公称の燃焼の均質化した数密度（燃焼度 0、10、20）
+const NOMINAL_DENSITIES: [[f64; 2]; 3] = [[7.0e-4, 0.0], [6.0e-4, 1.0e-5], [5.0e-4, 2.0e-5]];
+/// 履歴の分岐の均質化した数密度（燃焼度 0、20）
+const BRANCH_DENSITIES: [[f64; 2]; 2] = [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]];
+
+/// 履歴の分岐の自分の条件の定数（燃焼度 0、20。燃焼度 0 は公称と同じ組成なので、公称のテーブルの条件の状態と同じ定数）
+fn branch_constants(table: &Table) -> [FewGroup; 2] {
+    let p = table.point_index(&[0, 0, 1, 0]).unwrap();
+    [table.states[p].clone(), history_few(9.5)]
+}
+
+/// 少数群定数の差 `a − b` の残りの項目
+fn difference(a: &FewGroup, b: &FewGroup) -> Residual {
+    let minus = |x: &[f64], y: &[f64]| x.iter().zip(y).map(|(p, q)| p - q).collect::<Vec<_>>();
+    let rows = |x: &[Vec<f64>], y: &[Vec<f64>]| {
+        x.iter()
+            .zip(y)
+            .map(|(p, q)| minus(p, q))
+            .collect::<Vec<_>>()
+    };
+    Residual {
+        total: minus(&a.total, &b.total),
+        absorption: minus(&a.absorption, &b.absorption),
+        nu_fission: minus(&a.nu_fission, &b.nu_fission),
+        fission: minus(&a.fission, &b.fission),
+        chi: minus(&a.chi, &b.chi),
+        diffusion: minus(&a.diffusion, &b.diffusion),
+        scatter: rows(&a.scatter, &b.scatter),
+        adf: rows(&a.adf, &b.adf),
+    }
+}
+
+/// 公称のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（公称）と 600 K と 0.661 g/cm³（履歴の分岐の
+/// 条件）、燃料 565 K。公称でない状態は 0 と 20 で解く。U-235 と Pu-240（数密度の微分を持つ）を追う。`rods` が空でなければ制御棒の軸を
+/// 持つ。減速材の密度の履歴の残り R（制御棒の値 out、燃焼度 0 と 20）は、lattice と同じく分岐の定数 − (条件の状態 + 線形の補正)
+fn history_table(rods: &[&str]) -> Table {
+    let mut axes = vec![
+        Axis::Burnup {
+            points: vec![0.0, 10.0, 20.0],
+        },
+        Axis::boron(vec![1300.0], 0.199).with_nominal(1300.0),
+        Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.661]).with_nominal(565.0),
+        Axis::fuel(vec![565.0]).with_nominal(565.0),
+    ];
+    if !rods.is_empty() {
+        axes.push(Axis::Rod {
+            values: rods.iter().map(|r| r.to_string()).collect(),
+        });
+    }
+    let points: Vec<Vec<usize>> = product_points(&axes)
+        .into_iter()
+        .filter(|p| p[0] != 1 || p[2] == 0)
+        .collect();
+    let n = points.len();
+    let mut table = Table {
+        axes,
+        split: 1,
+        states: (0..n).map(|p| history_few(p as f64)).collect(),
+        heavy_metal: Some(400.0 / 3.0),
+        micro: Some(Micro {
+            nuclides: vec!["U-235".into(), "Pu-240".into()],
+            densities: NOMINAL_DENSITIES.iter().map(|d| d.to_vec()).collect(),
+            states: (0..n)
+                .map(|p| vec![sigma(p as f64, false), sigma(2.0 * p as f64, true)])
+                .collect(),
+        }),
+        histories: Vec::new(),
+        points,
+    };
+    let branch = branch_constants(&table);
+    let micro = table.micro.as_ref().unwrap();
+    let residuals = [0usize, 2]
+        .iter()
+        .zip(&branch)
+        .zip(&BRANCH_DENSITIES)
+        .map(|((&u, fb), nj)| {
+            let mut at = vec![u, 0, 1, 0];
+            if !rods.is_empty() {
+                at.push(0);
+            }
+            let p = table.point_index(&at).unwrap();
+            let delta: Vec<f64> = nj
+                .iter()
+                .zip(&NOMINAL_DENSITIES[u])
+                .map(|(a, b)| a - b)
+                .collect();
+            let mut corrected = table.states[p].clone();
+            add_linear_correction(&mut corrected, &micro.states[p], &delta);
+            difference(fb, &corrected)
+        })
+        .collect();
+    table.histories = vec![HistoryCorrection {
+        variable: MODERATOR_DENSITY.into(),
+        nominal: 0.743,
+        branch: 0.661,
+        rods: vec![HistoryRod {
+            rod: ROD_OUT.into(),
+            burnup: vec![0.0, 20.0],
+            residuals,
+        }],
+    }];
+    table.validate().unwrap();
+    table
+}
+
+fn at(moderator: f64, burnup: f64) -> State {
+    State {
+        boron: 1300.0,
+        b10: 0.199,
+        moderator,
+        fuel: 565.0,
+        burnup: Some(burnup),
+    }
+}
+
+/// 相対 1e-12 で同じ（丸めは項の大きさの範囲）
+fn close(a: &[f64], b: &[f64]) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .zip(b)
+            .all(|(x, y)| (x - y).abs() <= 1.0e-12 * x.abs().max(y.abs()).max(1.0e-6))
+}
+
+#[test]
+fn history_branch_points_return_the_branch_constants() {
+    // w = 1、条件 j、ノードの数密度が履歴の分岐の均質化した数密度なら、第 1 項の格子計算の定数をそのまま返す（ADR-0215 の確認）
+    let table = history_table(&[]);
+    let branch = branch_constants(&table);
+    for (k, &b) in [0.0, 20.0].iter().enumerate() {
+        let f =
+            node_constants(&table, &at(600.0, b), None, &BRANCH_DENSITIES[k], &[0.661]).unwrap();
+        let fb = &branch[k];
+        assert!(
+            close(&f.total, &fb.total),
+            "{b}: {:?} {:?}",
+            f.total,
+            fb.total
+        );
+        assert!(close(&f.absorption, &fb.absorption), "{b}");
+        assert!(close(&f.nu_fission, &fb.nu_fission), "{b}");
+        assert!(close(&f.fission, &fb.fission), "{b}");
+        assert!(close(&f.chi, &fb.chi), "{b}");
+        assert!(close(&f.diffusion, &fb.diffusion), "{b}");
+        assert!(close(&f.scatter.concat(), &fb.scatter.concat()), "{b}");
+        assert!(close(&f.adf.concat(), &fb.adf.concat()), "{b}");
+    }
+}
+
+#[test]
+fn nominal_histories_leave_the_constants_bit_identical() {
+    // w = 0（公称の履歴）では、R を持たないテーブルと同じ定数（ビットで同じ）
+    let with = history_table(&[]);
+    let mut without = with.clone();
+    without.histories.clear();
+    let n = [5.5e-4, 1.6e-5];
+    for state in [
+        at(565.0, 10.0),
+        at(565.0, 20.0),
+        at(600.0, 7.0),
+        at(580.0, 15.0),
+    ] {
+        assert_eq!(
+            node_constants(&with, &state, None, &n, &[0.743]).unwrap(),
+            node_constants(&without, &state, None, &n, &[0.743]).unwrap(),
+            "{state:?}"
+        );
+    }
+}
+
+#[test]
+fn history_residuals_scale_with_the_weight_of_the_variable() {
+    // w = (H − H⁰) / (Hᵇ − H⁰) を掛けた R を足す。H = 0.702 は w = 0.5
+    let table = history_table(&[]);
+    let n = [5.5e-4, 1.6e-5];
+    let state = at(600.0, 20.0);
+    let base = node_constants(&table, &state, None, &n, &[0.743]).unwrap();
+    let half = node_constants(&table, &state, None, &n, &[0.702]).unwrap();
+    let r = &table.histories[0].rods[0].residuals[1];
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let added = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a, b)| a - b).collect::<Vec<_>>();
+    let scaled = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
+    assert!(close(&added(&half.total, &base.total), &scaled(&r.total)));
+    assert!(close(
+        &added(&half.nu_fission, &base.nu_fission),
+        &scaled(&r.nu_fission)
+    ));
+    assert!(close(
+        &added(&half.diffusion, &base.diffusion),
+        &scaled(&r.diffusion)
+    ));
+    assert!(close(
+        &added(&half.scatter.concat(), &base.scatter.concat()),
+        &scaled(&r.scatter.concat())
+    ));
+}
+
+#[test]
+fn history_residuals_that_the_table_lacks_are_errors() {
+    // 制御棒を入れた値の R を持たないテーブルで、制御棒の値 aic のノードが公称でない履歴を持つ
+    let table = history_table(&[ROD_OUT, "aic"]);
+    let n = [5.5e-4, 1.6e-5];
+    let state = at(600.0, 20.0);
+    let err = node_constants(&table, &state, Some("aic"), &n, &[0.70]).unwrap_err();
+    assert!(err.contains("aic"), "{err}");
+    // 公称の履歴なら R は要らない
+    assert!(node_constants(&table, &state, Some("aic"), &n, &[0.743]).is_ok());
+    assert!(node_constants(&table, &state, None, &n, &[0.70]).is_ok());
+    // ノードの履歴の変数の数が core の変数と違う
+    let err = node_constants(&table, &state, None, &n, &[]).unwrap_err();
+    assert!(err.contains("history"), "{err}");
+    // core の持たない履歴の変数の R（検査の後に書き換えたもの）
+    let mut unknown = history_table(&[]);
+    unknown.histories[0].variable = "rods".into();
+    let err = node_constants(&unknown, &state, None, &n, &[0.70]).unwrap_err();
+    assert!(err.contains("rods"), "{err}");
+}

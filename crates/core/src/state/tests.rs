@@ -1242,3 +1242,74 @@ fn thermal_fractions_near_one_stay_in_range_between_burnup_points() {
         assert!((f - want).abs() <= 1e-15, "{bu}: {f} vs {want}");
     }
 }
+
+// 履歴の補正（ADR-0215）
+
+#[test]
+fn moderator_densities_follow_the_temperature_weights_of_the_axis_points() {
+    let mut table = Table::single(few(1000.0, 565.0, 900.0));
+    table.axes = vec![Axis::moderator(
+        vec![560.0, 570.0, 600.0],
+        vec![0.75, 0.74, 0.70],
+    )];
+    // 格子点では、その点の密度そのもの（重みが厳密に 1）
+    assert_eq!(moderator_density(&table, 560.0).unwrap(), 0.75);
+    assert_eq!(moderator_density(&table, 570.0).unwrap(), 0.74);
+    assert_eq!(moderator_density(&table, 600.0).unwrap(), 0.70);
+    // 点の間は、少数群定数と同じく温度について線形
+    let between = moderator_density(&table, 580.0).unwrap();
+    assert!(
+        (between - (0.74 * 2.0 / 3.0 + 0.70 / 3.0)).abs() < 1.0e-15,
+        "{between}"
+    );
+    // 範囲の外は外挿しない
+    for t in [550.0, 610.0, f64::NAN] {
+        let err = moderator_density(&table, t).unwrap_err();
+        assert!(err.contains("moderator"), "{err}");
+    }
+    // 減速材の軸のないテーブル
+    let err = moderator_density(&Table::single(few(1000.0, 565.0, 900.0)), 565.0).unwrap_err();
+    assert!(err.contains("moderator"), "{err}");
+}
+
+/// 燃焼度について `slope` × 燃焼度の残り（2 群、辺 6 つ）
+fn residual_at(burnup: f64, slope: f64) -> Residual {
+    let v = |a: f64| a * slope * burnup;
+    Residual {
+        total: vec![v(1.0), v(-2.0)],
+        absorption: vec![v(0.1), v(-0.3)],
+        nu_fission: vec![v(-0.2), v(0.4)],
+        fission: vec![v(-0.08), v(0.16)],
+        chi: vec![v(0.01), v(-0.01)],
+        diffusion: vec![v(5.0), v(-1.0)],
+        scatter: vec![vec![v(0.9), v(-0.05)], vec![v(0.002), v(-1.7)]],
+        adf: vec![vec![v(0.1), v(-0.2)]; 6],
+    }
+}
+
+#[test]
+fn residuals_are_interpolated_in_burnup_like_the_table_and_not_extrapolated() {
+    let points = [0.0, 10.0, 20.0, 30.0];
+    let rod = HistoryRod {
+        rod: ROD_OUT.into(),
+        burnup: points.to_vec(),
+        residuals: points.iter().map(|&b| residual_at(b, 1.0e-4)).collect(),
+    };
+    // 点では、その点の残りそのもの
+    for (k, &b) in points.iter().enumerate() {
+        assert_eq!(interpolate_residual(&rod, b).unwrap(), rod.residuals[k]);
+    }
+    // 燃焼度について線形な残りは、3 次 Hermite でも線形のまま（ADR-0192 の重み）
+    let r = interpolate_residual(&rod, 17.0).unwrap();
+    let expected = residual_at(17.0, 1.0e-4);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1.0e-15 * b.abs().max(1.0e-6);
+    assert!(close(r.total[1], expected.total[1]), "{r:?}");
+    assert!(close(r.scatter[1][0], expected.scatter[1][0]), "{r:?}");
+    assert!(close(r.adf[5][1], expected.adf[5][1]), "{r:?}");
+    assert!(close(r.diffusion[0], expected.diffusion[0]), "{r:?}");
+    // 点の範囲の外は外挿しない
+    for b in [-1.0, 30.5] {
+        let err = interpolate_residual(&rod, b).unwrap_err();
+        assert!(err.contains("burnup"), "{err}");
+    }
+}

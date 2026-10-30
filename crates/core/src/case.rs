@@ -1,7 +1,8 @@
 //! ケースの状態ごとの固有値計算（ADR-0146）と、臨界ホウ素濃度の探索（ADR-0145）。
 
 use rayon::prelude::*;
-use xlc_format::table::{Axis, Table};
+use xlc_format::fewgroup::FewGroup;
+use xlc_format::table::{Axis, MODERATOR_DENSITY, Table};
 
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::micro::{MicroChain, correct};
@@ -61,11 +62,31 @@ pub fn solve_at(
     solve_with(layout, tables, |_| state.copied(), None, options)
 }
 
-/// ミクロ燃焼のノードの組成（ADR-0216）
+/// core がノードごとに持つ履歴の変数（ADR-0215）。ノードの値の並びはこの順
+pub const HISTORY_VARIABLES: [&str; 1] = [MODERATOR_DENSITY];
+
+/// ミクロ燃焼のノードの組成（ADR-0216）と履歴の変数（ADR-0215）
 pub struct Compositions<'a> {
     pub chain: &'a MicroChain,
     /// [直方体の位置] の解く核種の数密度（`MicroChain::solved` の順。ミクロ燃焼しない位置は `None`）
     pub densities: &'a [Option<Vec<f64>>],
+    /// [直方体の位置] の履歴の変数の値（`HISTORY_VARIABLES` の順。ミクロ燃焼しない位置は `None`）
+    pub histories: &'a [Option<Vec<f64>>],
+}
+
+/// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り Σ_j w_j R_j,r(u)
+/// を足す（ADR-0215）。w_j = (H_j − H_j⁰) / (H_j^b − H_j⁰) で、H_j はノードの履歴の変数の値 `histories`（`HISTORY_VARIABLES` の順）、R は
+/// 制御棒の値 `rod`（棒のない区間は `out`）の、燃焼度 `burnup` で内挿した残り。w_j が 0 の変数は足さない。テーブルが core の持たない
+/// 変数の残りを持つか、w_j が 0 でないのにその制御棒の値の残りを持たないか、燃焼度が残りの点の範囲の外ならエラー
+pub fn add_histories(
+    f: &mut FewGroup,
+    table: &Table,
+    burnup: f64,
+    rod: Option<&str>,
+    histories: &[f64],
+) -> Result<(), String> {
+    let _ = (f, table, burnup, rod, histories);
+    Ok(())
 }
 
 /// `solve_at` と同じく解くが、燃焼のケースのノード（テーブルの使い方が `node` を持つもの）は、直方体の位置ごとの燃焼度
@@ -115,6 +136,20 @@ pub fn solve_compositions(
         compositions,
         options,
     )
+}
+
+/// ミクロ燃焼のノードの少数群定数: テーブル `table` を状態 `state`（ノードの燃焼度を持つ）と制御棒の値 `rod` で内挿した定数に、追う
+/// 核種の数密度 `n`（テーブルの順）の線形の補正（ADR-0216）と、履歴の変数の値 `histories`（`HISTORY_VARIABLES` の順）の残り（ADR-0215。
+/// `add_histories`）を足す。ミクロ燃焼のテーブルは分けない（格子全体の均質化）
+pub fn node_constants(
+    table: &Table,
+    state: &State,
+    rod: Option<&str>,
+    n: &[f64],
+    histories: &[f64],
+) -> Result<FewGroup, String> {
+    let _ = (table, state, rod, n, histories);
+    Err("not implemented".into())
 }
 
 /// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して解く
