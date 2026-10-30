@@ -1300,7 +1300,7 @@ class DrawHistorySwitch(unittest.TestCase):
                 "plain_densities_percent": {"U-235": 0.2},
                 "branch_difference_pcm": -1.222,
                 "nominal_difference_pcm": -1.009,
-                "first_term_pcm": 0.0123 * scale,
+                "reference_history_pcm": 0.0123 * scale,
             }
 
         return {
