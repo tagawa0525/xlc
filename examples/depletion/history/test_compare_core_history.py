@@ -228,6 +228,10 @@ class Compare(unittest.TestCase):
         )
         with self.assertRaises(SystemExit):
             c.compare(t, branch_table(), nominal, off, switch, SUMMARY, True)
+        # 公称の燃焼と条件 j の燃焼の R の点が食い違う
+        shifted = dict(nominal, points=nominal["points"][:2])
+        with self.assertRaises(SystemExit):
+            c.compare(t, branch_table(), shifted, branch, switch, SUMMARY, True)
         # 第 1 項のテーブルが R の点を解いていない
         short = branch_table()
         short["axes"][0]["points"] = [0.0, 15.0]
