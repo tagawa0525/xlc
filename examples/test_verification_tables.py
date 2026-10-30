@@ -1513,10 +1513,10 @@ class DrawHistoryWeight(unittest.TestCase):
             self.header(table),
             [
                 "燃焼度 (MWd/kg)",
-                "R(0.5) の効き (pcm)",
-                "R(1)/2 の効き (pcm)",
+                "w = 0.5 の定数: R(0.5) の効き (pcm)",
+                "w = 0.5 の定数: R(1)/2 の効き (pcm)",
                 "差 (pcm)",
-                "R(1) の効き (pcm)",
+                "w = 1 の定数: R(1) の効き (pcm)",
                 "条件での R(0.5) (pcm)",
                 "条件での R(1) (pcm)",
                 "600 K の経路の条件 j での R(1) (pcm)",
