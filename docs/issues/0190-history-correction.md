@@ -62,4 +62,9 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   結合 examples/core/rod_table.py と絡む）と Pyrex の変数、上の状態への依存による案 C1 の側への見直し、途中で条件を変えた燃焼での比例と
   重みの確認。lattice の線形の補正（crates/lattice/src/residual.rs の `linear`）は core の `micro::correct` のコピーで、共有するコードも突き合わせる
   テストもない（レビューの指摘。core の係数の選び方を変えると R の第 3 項が黙って古いままになる）。core の側の作業で、両方が依存する
-  xlc-format に 1 つの関数として置く
+  xlc-format に 1 つの関数として置く。同じレビューで残したもの: 条件 j の格子点の決め方が、テーブルの検査（密度で 1 つの公称でない
+  格子点）と `lattice histories`（温度と密度の組）で別に書かれている（食い違えばエラーで止まる。core の側で 3 つ目を書く前に xlc-format の
+  1 つの関数にする）。examples/core/rod_table.py の `merge` は最初のテーブルの `histories` だけを残し、ほかの制御棒の値のテーブルの
+  `histories` を黙って捨てる（今は `histories` を持つテーブルを渡す経路が無い。制御棒の履歴の作業で、エラーにするか結合を決める）。
+  比較のツールの 2 群の k と係数の選び方（compare_residual.py、micro/compare_linearization.py、compare_burnup_interpolation.py）が 3 か所に
+  ある（共通のモジュールにまとめる候補）
