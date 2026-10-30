@@ -452,3 +452,30 @@ fn branch_conditions_with_the_nominal_density_are_errors() {
         .to_string();
     assert!(err.contains("density"), "{err}");
 }
+
+#[test]
+fn run_does_not_overwrite_the_tables_it_reads() {
+    let dir = std::env::temp_dir().join(format!("xlc-residual-same-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let nominal_bytes = nominal().to_msgpack().unwrap();
+    let branch_bytes = branch().to_msgpack().unwrap();
+    std::fs::write(dir.join("n.msgpack"), &nominal_bytes).unwrap();
+    std::fs::write(dir.join("b.msgpack"), &branch_bytes).unwrap();
+    let input = dir.join("histories.toml");
+    // 同じファイルを別の書き方で指す出力（公称のテーブル、分岐のテーブル）
+    for output in ["./n.msgpack", "b.msgpack"] {
+        std::fs::write(
+            &input,
+            format!(
+                "nominal = \"n.msgpack\"\noutput = \"{output}\"\n[[history]]\nvariable = \"moderator-density\"\n\
+                 branches = {{ out = \"b.msgpack\" }}\n"
+            ),
+        )
+        .unwrap();
+        let err = run(&input).unwrap_err().to_string();
+        assert!(err.contains("output"), "{err}");
+        assert_eq!(std::fs::read(dir.join("n.msgpack")).unwrap(), nominal_bytes);
+        assert_eq!(std::fs::read(dir.join("b.msgpack")).unwrap(), branch_bytes);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
