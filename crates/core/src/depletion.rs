@@ -390,19 +390,31 @@ pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64]) -> Vec<f64> {
 }
 
 /// 位置ごとの履歴の変数の値 `h`（燃焼度 `start`）を、燃焼度 `end` まで、位置ごとのステップの値 `x` で進める（`advance_history`。値を
-/// 持たない位置は `None` のまま）
+/// 持たない位置は `None` のまま）。値を持つ位置や変数の数が `x` と違えばエラー（履歴を黙って落とさない）
 fn advance_histories(
     h: &[Option<Vec<f64>>],
     start: &[f64],
     end: &[f64],
     x: &[Option<Vec<f64>>],
-) -> Densities {
+) -> Result<Densities, CaseError> {
+    if h.len() != x.len() || h.len() != start.len() || h.len() != end.len() {
+        return Err(CaseError::Depletion(format!(
+            "{} node histories, {} step values and {} burnups",
+            h.len(),
+            x.len(),
+            start.len()
+        )));
+    }
     h.iter()
         .zip(start.iter().zip(end))
         .zip(x)
-        .map(|((h, (&s, &e)), x)| match (h, x) {
-            (Some(h), Some(x)) => Some(advance_history(h, s, e, x)),
-            _ => None,
+        .enumerate()
+        .map(|(site, ((h, (&s, &e)), x))| match (h, x) {
+            (Some(h), Some(x)) if h.len() == x.len() => Ok(Some(advance_history(h, s, e, x))),
+            (None, None) => Ok(None),
+            _ => Err(CaseError::Depletion(format!(
+                "site {site}: the node history variables {h:?} do not match the step values {x:?}"
+            ))),
         })
         .collect()
 }
@@ -736,14 +748,23 @@ pub fn deplete(
         let layout = layouts[k]
             .as_ref()
             .ok_or_else(|| CaseError::Depletion(format!("state {} is not laid out", state.name)))?;
-        let compositions = micro
-            .as_ref()
-            .zip(n.zip(h))
-            .map(|(m, (densities, histories))| Compositions {
+        // 組成と履歴の変数はどちらもミクロ燃焼のノードの状態で、片方だけでは解かない（線形の補正や残りを黙って落とさない）
+        let compositions = match (micro.as_ref(), n, h) {
+            (Some(m), Some(densities), Some(histories)) => Some(Compositions {
                 chain: &m.chain,
                 densities,
                 histories,
-            });
+            }),
+            (_, None, None) => None,
+            _ => {
+                return Err(locate(
+                    CaseError::Depletion(
+                        "the micro compositions and the node history variables must be given together".into(),
+                    ),
+                    at,
+                ));
+            }
+        };
         let solve_ppm = |ppm: f64| {
             solve_compositions(
                 layout,
@@ -1053,11 +1074,15 @@ pub fn deplete(
                 let start = burnups.clone();
                 // ステップの中の状態は一定なので、ノードの履歴の変数のステップの値 x̄ は、ステップの状態の値（ADR-0215）
                 let step_values = node_values(step.state)?;
-                let step_histories = |end: &[f64]| {
-                    histories
-                        .as_deref()
-                        .zip(step_values.as_deref())
-                        .map(|(h, x)| advance_histories(h, &start, end, x))
+                let step_histories = |end: &[f64]| -> Result<Option<Densities>, CaseError> {
+                    match (histories.as_deref(), step_values.as_deref()) {
+                        (Some(h), Some(x)) => advance_histories(h, &start, end, x).map(Some),
+                        (None, None) => Ok(None),
+                        _ => Err(CaseError::Depletion(
+                            "the node history variables and the step values must be given together"
+                                .into(),
+                        )),
+                    }
                 };
                 burnups = midpoint(&burnups, &masses, increment, &solve_at_point.rates, |b| {
                     // 予測子: 初めの解の反応率で、中点の組成へ
@@ -1083,7 +1108,7 @@ pub fn deplete(
                         step.state,
                         b,
                         half,
-                        step_histories(b).as_deref(),
+                        step_histories(b)?.as_deref(),
                         given,
                         fraction,
                         &|| format!("the midpoint of the step to {end} EFPD"),
@@ -1115,7 +1140,7 @@ pub fn deplete(
                         &at_step,
                     )?);
                 }
-                histories = step_histories(&burnups);
+                histories = step_histories(&burnups).map_err(|e| locate(e, &at_step))?;
                 efpd = end;
                 days += step_days;
                 (fraction, format!("the point at {efpd} EFPD"))
