@@ -1775,7 +1775,7 @@ def history_switch(sources: list[dict]) -> str:
                 f"{signed(r['plain_density_percent'], 3)}（{r['plain_density_nuclide']}）",
                 signed(r["branch_difference_pcm"], 3),
                 signed(r["nominal_difference_pcm"], 3),
-                signed(r["first_term_pcm"], 3),
+                signed(r["reference_history_pcm"], 3),
             ]
             for r in s["rows"]
         ],
