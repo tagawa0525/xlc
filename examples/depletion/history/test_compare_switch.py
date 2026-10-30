@@ -172,6 +172,31 @@ class Compare(unittest.TestCase):
         self.assertIn("参照", text)
         self.assertIn("補正を切った", text)
 
+    def test_weights_of_other_omegas_estimate_the_difference(self):
+        # core の H（ω = 1）から各ステップの x を戻し、H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ωΔB) で進め直した w と、補正の量が w に
+        # 比例すると置いた差の見込み: 補正を切った差 − w(ω) / w(1) × (補正を切った差 − 補正した差)
+        s = compared()
+        # 0〜10 MWd/kg は公称（x = 0.743、w の x は 0）、10〜20 は条件 j（w の x は 1）
+        omega = next(x for x in s["omegas"] if x["omega"] == 2.0)
+        w2 = (0.0 * 10.0 + 2.0 * 1.0 * 10.0) / (10.0 + 2.0 * 10.0)
+        self.assertEqual(omega["weights"][0], 0.0)
+        self.assertAlmostEqual(omega["weights"][1], w2, places=12)
+        last = s["rows"][1]
+        fill = last["plain_difference_pcm"] - last["difference_pcm"]
+        self.assertAlmostEqual(
+            omega["estimate_pcm"][1],
+            last["plain_difference_pcm"] - w2 / 0.5 * fill,
+            places=9,
+        )
+        self.assertIsNone(omega["estimate_pcm"][0])
+        # 参照に合う w（補正の量が w に比例すると置いて）
+        self.assertAlmostEqual(
+            last["needed_weight"], 0.5 * last["plain_difference_pcm"] / fill, places=12
+        )
+        self.assertIsNone(s["rows"][0]["needed_weight"])
+        self.assertEqual([x["omega"] for x in s["omegas"]], [1.25, 1.5, 2.0, 2.5])
+        self.assertIn("ω = 2", c.report(s))
+
     def test_runs_that_do_not_match_the_reference_are_errors(self):
         corrected, plain = cores()
         # 続けた点が参照の最初の点でない
