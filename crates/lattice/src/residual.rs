@@ -253,6 +253,8 @@ pub fn residuals(
         .ok_or_else(|| anyhow!("the nominal table has no burnup axis"))?;
     let mut point = vec![0; nominal.axes.len()];
     let mut differs: Vec<&'static str> = Vec::new();
+    // 照らした分岐の値（公称のテーブルに無い軸の値を捨てない）
+    let mut matched: Vec<Value> = Vec::new();
     for (k, axis) in nominal.axes.iter().enumerate() {
         point[k] = match axis {
             Axis::Burnup { .. } => 0,
@@ -274,6 +276,7 @@ pub fn residuals(
                 if i != nominal_index {
                     differs.push(axis.name());
                 }
+                matched.extend(value(axis, i));
                 i
             }
         };
@@ -281,9 +284,20 @@ pub fn residuals(
     if !nominal.axes.iter().any(|a| matches!(a, Axis::Rod { .. })) && rod != ROD_OUT {
         bail!("the nominal table has no rod axis, so its rod value is {ROD_OUT}, not {rod}");
     }
+    if let Some(lost) = condition.iter().find(|v| !matched.contains(v)) {
+        let name = match lost {
+            Value::Boron(..) => "boron",
+            Value::Moderator(..) => "moderator",
+            Value::Fuel(..) => "fuel",
+        };
+        bail!(
+            "the branch condition {lost:?} is on the {name} axis, which the nominal table does not have"
+        );
+    }
     if differs != ["moderator"] {
         bail!(
-            "the branch condition of {variable} must differ from the nominal state on the moderator axis only,              it differs on {differs:?}"
+            "the branch condition of {variable} must differ from the nominal state on the moderator axis only, \
+             it differs on {differs:?}"
         );
     }
     let moderator = nominal
@@ -298,6 +312,12 @@ pub fn residuals(
         .nominal_index()
         .ok_or_else(|| anyhow!("the nominal table has no nominal values"))?;
     let (h0, hb) = (density[nominal_index], density[point[moderator]]);
+    // 変数の差 Hᵇ − H⁰ で core が重みを割る
+    if hb == h0 {
+        bail!(
+            "the branch condition has the nominal moderator density {h0} (only the temperature differs)"
+        );
+    }
     // 公称のテーブルが条件 j を解いた燃焼度の点が、分岐のテーブルの燃焼度の点
     let burnups = nominal.axes[burnup_axis].points();
     let solved: Vec<usize> = (0..burnups.len())
@@ -315,7 +335,8 @@ pub fn residuals(
         .points();
     if branch_burnups != solved_values.as_slice() {
         bail!(
-            "the branch table has the burnup points {branch_burnups:?}, the nominal table solved the branch              condition at {solved_values:?}"
+            "the branch table has the burnup points {branch_burnups:?}, the nominal table solved the branch \
+             condition at {solved_values:?}"
         );
     }
     // 分岐のテーブルは燃焼度の点ごとに状態 1 つで、点は燃焼度の順

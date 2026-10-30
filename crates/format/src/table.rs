@@ -885,13 +885,21 @@ impl Table {
             };
             let nominal = self.axes[m].nominal_index().ok_or_else(|| {
                 format!(
-                    "history variable {variable}: the branch condition is the nominal state but for the moderator,                      and the table has no nominal values"
+                    "history variable {variable}: the branch condition is the nominal state but for the moderator, \
+                     and the table has no nominal values"
                 )
             })?;
             if history.nominal != density[nominal] {
                 return Err(format!(
                     "history variable {variable}: nominal value {} is not the density {} of the nominal moderator point",
                     history.nominal, density[nominal]
+                ));
+            }
+            // 変数の差 Hᵇ − H⁰ で core が重みを割る
+            if history.branch == history.nominal {
+                return Err(format!(
+                    "history variable {variable}: branch value {} equals the nominal value",
+                    history.branch
                 ));
             }
             let condition = match density
@@ -904,7 +912,8 @@ impl Table {
                 [only] => only,
                 _ => {
                     return Err(format!(
-                        "history variable {variable}: branch value {} is not the density of one off-nominal moderator                          point of {density:?}",
+                        "history variable {variable}: branch value {} is not the density of one off-nominal moderator \
+                         point of {density:?}",
                         history.branch
                     ));
                 }
@@ -955,7 +964,8 @@ impl Table {
                     point[burnup] = index;
                     if self.point_index(&point).is_none() {
                         return Err(format!(
-                            "{}: the table has not solved the branch condition at burnup {b} (the residuals are                              taken where the table holds lattice values. ADR-0215)",
+                            "{}: the table has not solved the branch condition at burnup {b} (the residuals are \
+                             taken where the table holds lattice values. ADR-0215)",
                             at()
                         ));
                     }
@@ -963,7 +973,8 @@ impl Table {
                 if entry.burnup.first() != burnups.first() || entry.burnup.last() != burnups.last()
                 {
                     return Err(format!(
-                        "{}: the burnup points must include the first and the last of the burnup axis (core does not                          extrapolate the residuals)",
+                        "{}: the burnup points must include the first and the last of the burnup axis (core does not \
+                         extrapolate the residuals)",
                         at()
                     ));
                 }
