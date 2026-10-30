@@ -242,6 +242,14 @@ class Switch(unittest.TestCase):
             delta=1e-12,
         )
 
+    def test_points_of_no_weight_have_no_weights_of_the_parts(self):
+        t = tables()
+        # R(1) の燃焼度 0 の L を 0 でなくし、比が定義される定数にする
+        t["one_hybrid"] = hybrid(t["nominal"], t["one"], [part(0.3), part(1.0)])
+        first = c.compare(t, summary([0.0, 0.5]))["switch"][0]
+        self.assertIsNone(first["untracked_weight"])
+        self.assertIsNone(first["linearization_weight"])
+
     def test_summaries_of_other_burnups_are_errors(self):
         s = summary([0.0, 0.5])
         s["rows"][1]["burnup"] = 22.0
