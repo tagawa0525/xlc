@@ -1782,6 +1782,113 @@ def history_switch(sources: list[dict]) -> str:
     )
 
 
+def weight_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-weight":
+        raise TableError("not an xlc-compare-history-weight summary")
+    return s
+
+
+def history_weight_omega(sources: list[dict]) -> str:
+    """履歴の重み ω（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、ω = 1 の w と core − 参照（pcm）、ω ごとの core − 参照の実測と、
+    補正の量が w に比例すると置いた見込み（pcm）"""
+    s = weight_summary(sources)
+    omegas = s["omegas"]
+    header = ["燃焼度 (MWd/kg)", "ω = 1: w", "ω = 1: core − 参照 (pcm)"]
+    for o in omegas:
+        header += [
+            f"ω = {o['omega']:g}: 実測 (pcm)",
+            f"ω = {o['omega']:g}: 見込み (pcm)",
+        ]
+    rows = []
+    for k, one in enumerate(s["omega_one"]):
+        row = [
+            burnup_label(one["burnup"]),
+            f"{one['weight']:.4f}",
+            signed(one["difference_pcm"], 3),
+        ]
+        for o in omegas:
+            x = o["rows"][k]
+            if x["burnup"] != one["burnup"]:
+                raise TableError("the omega rows have other burnups")
+            row += [
+                signed(x["difference_pcm"], 3),
+                "–" if x["estimate_pcm"] is None else signed(x["estimate_pcm"], 1),
+            ]
+        rows.append(row)
+    return markdown_table(header, rows)
+
+
+def history_weight_residual(sources: list[dict]) -> str:
+    """R の w への依存（ADR-0215）: 燃焼度の点ごとの、密度だけの経路の R(0.5) と R(1)/2 を同じ公称の状態に足した効きとその差、R(1) の
+    公称の状態での効き、それぞれの条件での R の効き、600 K の経路の R(1) の条件 j での効き（pcm）と、主な反応の Δσ(0.5)/Δσ(1)
+    （群ごと）"""
+    s = weight_summary(sources)
+    rows = s["residual"]["rows"]
+    reactions = list(rows[0]["sigma_ratios"])
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "R(0.5) の効き (pcm)",
+            "R(1)/2 の効き (pcm)",
+            "差 (pcm)",
+            "R(1) の効き (pcm)",
+            "条件での R(0.5) (pcm)",
+            "条件での R(1) (pcm)",
+            "600 K の経路の条件 j での R(1) (pcm)",
+            *(f"Δσ(0.5)/Δσ(1): {n}" for n in reactions),
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                signed(r["half_pcm"], 2),
+                signed(r["one_half_pcm"], 2),
+                signed(r["difference_pcm"], 2),
+                signed(r["one_pcm"], 2),
+                signed(r["half_condition_pcm"], 2),
+                signed(r["one_condition_pcm"], 2),
+                signed(r["temperature_path_pcm"], 2),
+                *(
+                    "/".join(
+                        "–" if v is None else f"{v:.3f}" for v in r["sigma_ratios"][n]
+                    )
+                    for n in reactions
+                ),
+            ]
+            for r in rows
+        ],
+    )
+
+
+def history_weight_plans(sources: list[dict]) -> str:
+    """見直しの案の見込み（ADR-0215、#0190）: 途中で条件を変えた燃焼の参照の点ごとの、ω = 1 の w、補正の量が w に比例すると置いて
+    参照に合う w、core − 参照（pcm）、密度だけの経路の効きの比 r、R を w の 2 次で内挿したときの差の変化と、その後の差（pcm）"""
+    s = weight_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w (ω = 1)",
+            "参照に合う w",
+            "core − 参照 (pcm)",
+            "効きの比 r",
+            "案 A の差の変化 (pcm)",
+            "案 A の後の差 (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                f"{r['needed_weight']:.4f}",
+                signed(r["difference_pcm"], 3),
+                f"{r['ratio']:.4f}",
+                signed(r["change_pcm"], 2),
+                signed(r["estimate_pcm"], 2),
+            ]
+            for r in s["quadratic"]
+        ],
+    )
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2207,6 +2314,7 @@ def group_rows_spectrum(sources: list[dict]) -> str:
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
+    "examples/depletion/history/weight.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
@@ -2809,6 +2917,18 @@ TABLES = {
     "depletion-history-switch": (
         ["examples/depletion/history/switch.json"],
         history_switch,
+    ),
+    "depletion-history-weight-omega": (
+        ["examples/depletion/history/weight.json"],
+        history_weight_omega,
+    ),
+    "depletion-history-weight-residual": (
+        ["examples/depletion/history/weight.json"],
+        history_weight_residual,
+    ),
+    "depletion-history-weight-plans": (
+        ["examples/depletion/history/weight.json"],
+        history_weight_plans,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],
