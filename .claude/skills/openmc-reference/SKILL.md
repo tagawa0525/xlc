@@ -73,7 +73,9 @@ cp references/openmc/vera-2A-results/pins.msgpack examples/vera/p2/openmc-2A.msg
 - `model` は `model.xml` を書く（ライブラリのパスとスレッド数を含まない。ADR-0136）。`run` はそれを解いて作業ディレクトリに
   statepoint を残し、`extract` が k を `k.json` に、2 で始まる問題のピン出力を `pins.msgpack` に書く。抽出だけを変えるときは
   `run` を再実行しない（ADR-0159）
-- `p2/openmc-<問題>.msgpack` は git で追跡しない（ADR-0121）。worktree では main のものをコピーして使う
+- `p2/openmc-<問題>.msgpack` は git で追跡せず、`.dvc` ファイルで DVC に追う（ADR-0121、ADR-0222）。worktree では
+  `scripts/worktree-restore-outputs.sh` で戻る。新しい問題を抜くか作り直したら、記録に書く前に `dvc add examples/vera/p2/openmc-<問題>.msgpack`
+  で `.dvc` を足すか付け直してコミットする（作り直して付け直さないと、`dvc checkout` が「Can't remove the following unsaved files」で止まる）
 - 2E-empty は 2E の Pyrex の棒を抜いたもの。問題の名前は `openmc_model.py` の docstring にある一覧
 - k は `k.json` の `k` と標準偏差 `k-std`（xlc との差は `compare_k.py <lattice の出力> <k.json>`）。記録の書き方は、スキル verification-record
 

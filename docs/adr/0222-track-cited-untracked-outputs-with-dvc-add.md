@@ -4,7 +4,7 @@ date: 2026-10-31
 requires: [ADR-0126, ADR-0130]
 supersedes: []
 superseded-by:
-issues: ["#0207"]
+issues: ["#0207", "#0209"]
 ---
 
 # ADR-0222: 記録と ADR が引く追跡しない生成物は dvc add で DVC に追う
@@ -107,7 +107,10 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
 - `.dvc` を足すか変えたブランチをマージしたあとは、main で `scripts/dvc-checkout.py <その .dvc>` で置き場をキャッシュに合わせる
   （スキル dvc-relock の後半）。ブランチで作り直して `dvc add` をやり直していない生成物があると、`dvc checkout` は
   「Can't remove the following unsaved files」で全体が止まる（ほかの出力も戻らない。スキル dvc-relock の前半 1）
-- 規則の 1 行は CLAUDE.md の「計算」にある
+- `dvc repro` は、目標にした `.dvc` の対象が変わっていると、`.dvc` の md5 を今のファイルに書き直す（コミットはしない。`-P` と上流の扱いは確かめていない。
+  2026-10-31 に `dvc repro examples/mox/openmc-mox2.msgpack.dvc` で確かめた）。前の版はキャッシュに残る
+- 規則の 1 行は CLAUDE.md の「計算」にある。新しい生成物を追うのは記録を書く担当の 1 手に頼り、記録の md5 と `.dvc` を
+  突き合わせる検査は無い（#0209）
 
 ### 確認
 
