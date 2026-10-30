@@ -1542,7 +1542,7 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         let mut perturbed = [new(), new()];
         branches
             .add_derivatives(index, &mut micro, &nominal, |j, state, reference, build| {
-                let shielded = perturbed[j].shield_state(&library, state, reference, || build())?;
+                let shielded = perturbed[j].shield_state(&library, state, reference, build)?;
                 Ok(homogenized(&s, &library, &shielded).0)
             })
             .unwrap();
@@ -1558,10 +1558,13 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
             v
         };
         let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
+        let largest = a.iter().fold(0.0_f64, |x, y| x.max(y.abs()));
+        let mut compared = 0;
         for k in 0..a.len() {
             let (first, second) = (b[k] - a[k], c[k] - b[k]);
-            // 打ち切りの誤差より小さい変化（核分裂のない核種の νΣf の変化など）は比べない
-            if first.abs() <= 1e-6 * a[k].abs().max(1e-30) {
+            // 核種の最大の微分より 6 桁小さい微分（核分裂しない Xe-135 による νΣf の変化など）は、MOC の打ち切りの誤差が ε N̄ᵢ で
+            // 割られて差分の誤差より大きいので比べない
+            if a[k].abs() <= 1e-6 * largest || first == 0.0 {
                 continue;
             }
             let ratio = second / first;
@@ -1569,6 +1572,9 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
                 (ratio - 2.0).abs() <= 0.2,
                 "{name} item {k}: {a:?} {b:?} {c:?} (ratio {ratio})"
             );
+            compared += 1;
         }
+        // 熱群の全断面積と散乱は、どちらの核種でも比べる
+        assert!(compared >= 2, "{name}: {compared} items compared");
     }
 }
