@@ -19,7 +19,8 @@ use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{
-    Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, Residual, Table, component,
+    Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, RateResidual, Residual, Table,
+    component,
 };
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
@@ -891,6 +892,127 @@ pub fn interpolate_residual(rod: &HistoryRod, burnup: f64) -> Result<Residual, S
         }
     }
     out.ok_or_else(|| format!("the history residual of the rod value {} is empty", rod.rod))
+}
+
+/// 反応率の微視的断面積の差（ADR-0215 の案 S2）の 1 つの制御棒の値 `rod` を、燃焼度 `burnup` で R と同じ内挿（ADR-0192。R の燃焼度の
+/// 点で）で引いた値（追う核種の順）。R の燃焼度の点の範囲の外はエラー（外挿しない）
+pub fn interpolate_rate_residual(
+    rod: &HistoryRod,
+    burnup: f64,
+) -> Result<Vec<RateResidual>, String> {
+    let terms = burnup_terms(&rod.burnup, burnup)
+        .map_err(|e| format!("the rate residual of the rod value {}: {e}", rod.rod))?;
+    let mut out: Option<Vec<RateResidual>> = None;
+    for (k, w) in terms {
+        let row = rod.micro.get(k).ok_or_else(|| {
+            format!(
+                "the rate residual of the rod value {} has no burnup point {k}",
+                rod.rod
+            )
+        })?;
+        let acc = out.get_or_insert_with(|| row.iter().map(|r| scaled_rate(r, 0.0)).collect());
+        for (a, r) in acc.iter_mut().zip(row) {
+            add_rate(a, w, r);
+        }
+    }
+    out.ok_or_else(|| format!("the rate residual of the rod value {} is empty", rod.rod))
+}
+
+/// `w` 倍した反応率の微視的断面積の差。項目を足したらここで扱いを決める（`..` を使わない）
+fn scaled_rate(r: &RateResidual, w: f64) -> RateResidual {
+    let RateResidual {
+        fission,
+        reactions,
+        thermal_fission,
+    } = r;
+    let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
+    RateResidual {
+        fission: v(fission),
+        reactions: reactions
+            .iter()
+            .map(|r| xlc_format::table::MicroReaction {
+                mt: r.mt,
+                channels: r.channels.iter().map(|c| v(c)).collect(),
+            })
+            .collect(),
+        thermal_fission: thermal_fission.map(|x| w * x),
+    }
+}
+
+/// `acc += w * r`（同じ形の差どうし。形はテーブルの検査が確かめる）。項目を足したらここで扱いを決める
+fn add_rate(acc: &mut RateResidual, w: f64, r: &RateResidual) {
+    let RateResidual {
+        fission,
+        reactions,
+        thermal_fission,
+    } = r;
+    add(&mut acc.fission, w, fission);
+    for (a, x) in acc.reactions.iter_mut().zip(reactions) {
+        for (a, x) in a.channels.iter_mut().zip(&x.channels) {
+            add(a, w, x);
+        }
+    }
+    if let (Some(a), Some(x)) = (&mut acc.thermal_fission, thermal_fission) {
+        *a += w * x;
+    }
+}
+
+/// ミクロ燃焼の反応率の微視的断面積 `micro`（核種の名前 `names`）に、`w` 倍した差 `r` を足す（ADR-0215 の案 S2）。核分裂、チェーンの
+/// 反応の経路と、収率の境界より下の核分裂の断面積（割合 × 群の和の σf に w Δ を足し、補正した σf の和との比を割合に戻す。
+/// `interpolate_micro` と同じ）。線形の補正の係数（全断面積、νσf、散乱行列、数密度の微分）は変えない。補正した断面積が負か、割合が
+/// 0..1 の外ならエラー（黙って切らない。丸めの大きさだけは 0..1 に寄せる）
+pub fn add_rate_residual(
+    micro: &mut MicroAt,
+    names: &[String],
+    w: f64,
+    r: &[RateResidual],
+) -> Result<(), String> {
+    if r.len() != micro.nuclides.len() || names.len() != micro.nuclides.len() {
+        return Err(format!(
+            "{} rate residuals for {} micro nuclides",
+            r.len(),
+            micro.nuclides.len()
+        ));
+    }
+    for ((n, d), name) in micro.nuclides.iter_mut().zip(r).zip(names) {
+        let below = n.thermal_fission.map(|f| f * n.fission.iter().sum::<f64>());
+        add(&mut n.fission, w, &d.fission);
+        for (a, x) in n.reactions.iter_mut().zip(&d.reactions) {
+            for (a, x) in a.channels.iter_mut().zip(&x.channels) {
+                add(a, w, x);
+            }
+        }
+        let negative = n
+            .fission
+            .iter()
+            .chain(n.reactions.iter().flat_map(|r| r.channels.iter().flatten()))
+            .find(|&&x| !(x >= 0.0 && x.is_finite()));
+        if let Some(x) = negative {
+            return Err(format!(
+                "{name}: the history correction gave a negative or non-finite micro cross section {x} (ADR-0215)"
+            ));
+        }
+        n.thermal_fission = match (below, d.thermal_fission) {
+            (Some(below), Some(delta)) => {
+                let fission: f64 = n.fission.iter().sum();
+                let f = (below + w * delta) / fission;
+                if !((-FRACTION_ROUNDING)..=1.0 + FRACTION_ROUNDING).contains(&f) {
+                    return Err(format!(
+                        "{name}: the history correction gave the fraction of fissions below the yield cutoff {f} \
+                         (ADR-0215)"
+                    ));
+                }
+                Some(f.clamp(0.0, 1.0))
+            }
+            (None, None) => None,
+            _ => {
+                return Err(format!(
+                    "{name}: the rate residual and the micro cross sections differ in fission"
+                ));
+            }
+        };
+    }
+    Ok(())
 }
 
 /// `w` 倍した残り。項目を足したらここで扱いを決める（`..` を使わない）
