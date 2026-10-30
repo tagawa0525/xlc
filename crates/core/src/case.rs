@@ -141,6 +141,18 @@ fn solve_with(
             layout.files.len()
         )));
     }
+    // 履歴の補正（ADR-0215）は、履歴の変数を進めて足す実装がまだない（#0190）。黙って無視しない
+    if let Some((file, _)) = layout
+        .files
+        .iter()
+        .zip(tables)
+        .find(|(_, t)| !t.histories.is_empty())
+    {
+        return Err(CaseError::State(format!(
+            "{}: the table holds history residuals (ADR-0215), which core does not add yet (#0190)",
+            file.display()
+        )));
+    }
     let constants = layout
         .tables
         .iter()
