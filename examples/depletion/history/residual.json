@@ -20,6 +20,7 @@
    "dependence_pcm": 2.454566492815502e-05,
    "residual_nominal_pcm": 3.005663529620506e-05,
    "applied_pcm": 3.005663529620506e-05,
+   "applied_whole_pcm": 3.005663529620506e-05,
    "first_term_pcm": 0.0
   },
   {
@@ -33,6 +34,7 @@
    "dependence_pcm": 0.39356358289114723,
    "residual_nominal_pcm": -3.3904639738739206,
    "applied_pcm": 0.08105961932778882,
+   "applied_whole_pcm": 3.388398074954239,
    "first_term_pcm": 0.008986795219243504
   },
   {
@@ -46,6 +48,7 @@
    "dependence_pcm": 0.5063788025781832,
    "residual_nominal_pcm": -6.039552876736707,
    "applied_pcm": 0.11153151186954346,
+   "applied_whole_pcm": 4.059361407747929,
    "first_term_pcm": -0.010358869638366741
   },
   {
@@ -59,6 +62,7 @@
    "dependence_pcm": 0.6750555922899366,
    "residual_nominal_pcm": -9.364509541064763,
    "applied_pcm": 0.12736758724349784,
+   "applied_whole_pcm": 4.840629555823398,
    "first_term_pcm": -0.012804218918972765
   },
   {
@@ -72,6 +76,7 @@
    "dependence_pcm": 0.9264044056453713,
    "residual_nominal_pcm": -15.421600868194218,
    "applied_pcm": 0.11951589501404669,
+   "applied_whole_pcm": 5.993373835312013,
    "first_term_pcm": -0.01946289932493528
   },
   {
@@ -85,6 +90,7 @@
    "dependence_pcm": 1.2824018601149874,
    "residual_nominal_pcm": -26.71818494229774,
    "applied_pcm": 0.06721540967191686,
+   "applied_whole_pcm": 8.05907277631195,
    "first_term_pcm": -0.013806676523017813
   },
   {
@@ -98,6 +104,7 @@
    "dependence_pcm": 1.5108953191247565,
    "residual_nominal_pcm": -37.63854700702541,
    "applied_pcm": -0.001278407524296199,
+   "applied_whole_pcm": 9.607056093398569,
    "first_term_pcm": -0.007546291470134747
   },
   {
@@ -111,6 +118,7 @@
    "dependence_pcm": 1.6602379142914288,
    "residual_nominal_pcm": -48.39034121305667,
    "applied_pcm": -0.0827388654151946,
+   "applied_whole_pcm": 10.456265496960441,
    "first_term_pcm": 0.0016966891998890787
   },
   {
@@ -124,6 +132,7 @@
    "dependence_pcm": 1.7445881309249671,
    "residual_nominal_pcm": -58.97994878141253,
    "applied_pcm": -0.19901777238465002,
+   "applied_whole_pcm": 10.672375022147207,
    "first_term_pcm": 0.007547782687652216
   },
   {
@@ -137,6 +146,7 @@
    "dependence_pcm": 1.7462283963382106,
    "residual_nominal_pcm": -79.87066060435336,
    "applied_pcm": -0.5945440707309899,
+   "applied_whole_pcm": 9.748590858804619,
    "first_term_pcm": 0.017358586068439763
   },
   {
@@ -150,6 +160,7 @@
    "dependence_pcm": 1.3657167978519738,
    "residual_nominal_pcm": -111.42525079625989,
    "applied_pcm": -1.7130830373580466,
+   "applied_whole_pcm": 6.65618128299343,
    "first_term_pcm": -0.004814153009647271
   },
   {
@@ -163,6 +174,7 @@
    "dependence_pcm": 0.5677052495439057,
    "residual_nominal_pcm": -144.82952645686873,
    "applied_pcm": -3.544472504879195,
+   "applied_whole_pcm": 2.6642200847027198,
    "first_term_pcm": -0.005913214451538806
   },
   {
@@ -176,6 +188,7 @@
    "dependence_pcm": -0.6095975872995041,
    "residual_nominal_pcm": -181.11308797661331,
    "applied_pcm": -6.05797074930706,
+   "applied_whole_pcm": -1.324342731413708,
    "first_term_pcm": -0.006393682893758523
   },
   {
@@ -189,6 +202,7 @@
    "dependence_pcm": -2.510053588732262,
    "residual_nominal_pcm": -235.63563812088069,
    "applied_pcm": -10.073936892542406,
+   "applied_whole_pcm": -5.096848409391896,
    "first_term_pcm": -0.007537631650848198
   },
   {
@@ -202,6 +216,7 @@
    "dependence_pcm": -4.664428318341379,
    "residual_nominal_pcm": -298.17442358215703,
    "applied_pcm": -13.9976687040471,
+   "applied_whole_pcm": -5.435934162400372,
    "first_term_pcm": -0.010358855106460396
   },
   {
@@ -215,6 +230,7 @@
    "dependence_pcm": -6.566200861368998,
    "residual_nominal_pcm": -364.6557213317974,
    "applied_pcm": -17.184923151125986,
+   "applied_whole_pcm": -1.7995736473894794,
    "first_term_pcm": -0.00858090098699904
   },
   {
@@ -228,11 +244,12 @@
    "dependence_pcm": -7.475680549152457,
    "residual_nominal_pcm": -397.53855144988484,
    "applied_pcm": -18.504962483035342,
+   "applied_whole_pcm": 1.1039164796275145,
    "first_term_pcm": 0.006088822781748604
   }
  ],
  "inputs": {
-  "table-residual-nominal-histories.msgpack": "3d73faee7fdadb4eb8cff4d6b3b20e7c",
+  "table-residual-nominal-histories.msgpack": "222fabb0b26b97e21a82846a312b0740",
   "table-residual-density-branch.msgpack": "a8f3528768808a2b4fac83037070ef43",
   "table-residual-density-reverse.msgpack": "e0b74465bf5a3b168ac23a1d6d5ab70d",
   "lattice-residual-density.msgpack": "a30302d3f9cc7bb4d7f94eff757aae51"

@@ -1631,7 +1631,8 @@ def history_effect(case: str, sources: list[dict]) -> str:
 
 def history_residual(sources: list[dict]) -> str:
     """履歴の残り R（ADR-0215）: 燃焼度ごとの、条件の状態での履歴の効き、その線形の補正と R の分（pcm）、R の定義の検査（R を足した
-    定数の 2 群の k と分岐のテーブルの k∞ の差）、逆向きの R、状態への依存、条件の R を公称の状態で使った誤差、第 1 項の再現（pcm）"""
+    定数の 2 群の k と分岐のテーブルの k∞ の差）、逆向きの R、状態への依存、条件の R を公称の状態で使った誤差、線形の補正を引かない
+    定数の差の全体を公称の状態で使った誤差、第 1 項の再現（pcm）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-history-residual":
         raise TableError("not an xlc-compare-history-residual summary")
@@ -1643,6 +1644,7 @@ def history_residual(sources: list[dict]) -> str:
         ("reverse_residual_pcm", 2),
         ("dependence_pcm", 2),
         ("applied_pcm", 2),
+        ("applied_whole_pcm", 2),
         ("first_term_pcm", 3),
     )
     return markdown_table(
@@ -1655,6 +1657,7 @@ def history_residual(sources: list[dict]) -> str:
             "逆向きの R",
             "状態への依存",
             "公称の状態で使った誤差",
+            "差の全体を公称の状態で使った誤差",
             "第 1 項",
         ],
         [
@@ -1666,7 +1669,8 @@ def history_residual(sources: list[dict]) -> str:
 
 def core_history_branch(sources: list[dict]) -> str:
     """履歴の補正の core（ADR-0215）: R の点ごとの、条件 j で一生を燃焼させた core の k と第 1 項のテーブルの k∞ の差、公称の燃焼の
-    core と公称のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）"""
+    core と公称のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）、core の数密度の第 1 項の数密度からの相対差の
+    絶対値が最大の核種と相対差（%）、第 1 項のテーブルで燃焼させた core の同じ量"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-history":
         raise TableError("not an xlc-compare-core-history summary")
@@ -1678,6 +1682,9 @@ def core_history_branch(sources: list[dict]) -> str:
             "core − 第 1 項 (pcm)",
             "公称: core − テーブル (pcm)",
             "組み立ての差 (pcm)",
+            "数密度の最大の差 (%)",
+            "第 1 項で燃焼: core − 第 1 項 (pcm)",
+            "第 1 項で燃焼: 数密度の最大の差 (%)",
         ],
         [
             [
@@ -1687,6 +1694,9 @@ def core_history_branch(sources: list[dict]) -> str:
                 signed(r["difference_pcm"], 3),
                 signed(r["nominal_difference_pcm"], 3),
                 signed_exponent(r["reconstruct_pcm"]),
+                f"{signed(r['density_percent'], 3)}（{r['density_nuclide']}）",
+                signed(r["sigma_difference_pcm"], 3),
+                f"{signed(r['sigma_density_percent'], 3)}（{r['sigma_density_nuclide']}）",
             ]
             for r in s["branch_rows"]
         ],
