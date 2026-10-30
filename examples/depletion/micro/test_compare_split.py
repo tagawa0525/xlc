@@ -186,6 +186,29 @@ class Single(unittest.TestCase):
             row["linear_pcm"] - row["transport_pcm"], row["error_pcm"], delta=1e-9
         )
 
+    def test_the_single_nuclide_error_splits_into_its_term_and_the_rest(self):
+        # 1 核種の組成の点 1 は、線形の予測に追わない核種の熱群の total を足したもの（その核種の σ は変わらない）
+        t = tables()
+        t["single"] = single(t, 1e-3)
+        s = cs.compare(t)["rows"][0]["single"]["split"]
+        self.assertAlmostEqual(
+            s["others_pcm"], cs.compare(t)["rows"][0]["single"]["error_pcm"], delta=1e-9
+        )
+        self.assertAlmostEqual(s["nuclides"]["U-235"], 0.0, delta=1e-9)
+
+    def test_each_part_whole_is_the_row_value(self):
+        # 内訳の全体は表の k∞ から求めた行の値と同じで、2 群の k との差は交差の項に入る
+        t = tables()
+        for state in t["spread"]["states"][1:]:
+            state["k_inf"] *= 1 + 1e-9
+        row = cs.compare(t)["rows"][0]
+        for part, key in (
+            ("shielding", "shielding_pcm"),
+            ("spatial", "spatial_pcm"),
+            ("weight", "weight_pcm"),
+        ):
+            self.assertEqual(row["splits"][part]["whole_pcm"], row[key], part)
+
     def test_without_a_single_table_the_rows_have_no_single_entry(self):
         self.assertNotIn("single", cs.compare(tables())["rows"][0])
 
