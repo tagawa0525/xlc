@@ -21,6 +21,7 @@ pub mod material;
 pub mod medium;
 pub mod moc;
 pub mod power;
+pub mod residual;
 pub mod shielding;
 pub mod sph;
 pub mod symmetry;
