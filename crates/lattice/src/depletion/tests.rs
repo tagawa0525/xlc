@@ -1094,6 +1094,7 @@ fn depleted_materials_share_one_temperature() {
         &chosen,
         &LibraryReactions(&library),
         None,
+        None,
         &mut |_, _, _| Ok(()),
     )
     .unwrap_err()

@@ -86,6 +86,12 @@
 //! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
 //! shielding = "every-transport"  # 自己遮蔽を解く輸送（"every-transport" か "step-start"。省略すると every-transport。ADR-0197）
+//! # 既存の燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（途中で条件を変えた燃焼。ADR-0215 の確認。省略すると燃焼度 0 の
+//! # 入力の組成から）。燃焼の領域とチェーンの核種、輸送する核種、燃焼させる物質の組成（履歴の燃焼度 0 の数密度）、`few-group` の
+//! # 有無と群境界は履歴と同じであること。burnup には続ける点より後の点だけを書き、出力の履歴は続ける点より前の点を履歴から引き継ぐ
+//! # 燃焼度 0 からの 1 本の履歴になる。続ける点は、履歴の組成と時間をこの入力の条件で解き直す（core の燃焼点が、そこから始まる
+//! # ステップの状態で解くのと同じ。ADR-0218）。燃焼度と出力の基準の初めの重金属の質量は、燃焼度 0 の組成（入力と同じ）のもの
+//! # continue = { file = "nominal.msgpack", burnup = 20 }
 //!
 //! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
@@ -111,7 +117,7 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
-use crate::depletion::{DepletionFewGroup, DepletionInput, ShieldingFrequency};
+use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
@@ -437,6 +443,17 @@ struct DepletionEntry {
     few_group: Option<DepletionFewGroupEntry>,
     /// 省略すると輸送のたびに解く（ADR-0197）
     shielding: Option<ShieldingEntry>,
+    /// 省略すると燃焼度 0 の入力の組成から燃焼させる
+    #[serde(rename = "continue")]
+    continue_from: Option<ContinueEntry>,
+}
+
+/// 燃焼を続ける履歴の燃焼点
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContinueEntry {
+    file: PathBuf,
+    burnup: f64,
 }
 
 /// 燃焼の自己遮蔽を解く輸送（ADR-0197）
@@ -1139,6 +1156,16 @@ impl LatticeInput {
                         d.burnup
                     ));
                 }
+                // 続ける点までは履歴の点なので、燃焼度の点はその後だけ
+                if let Some(c) = &d.continue_from
+                    && !(c.burnup >= 0.0 && c.burnup.is_finite() && d.burnup[0] > c.burnup)
+                {
+                    return Err(format!(
+                        "the depletion continues from burnup {} of a history: give a non-negative finite burnup \
+                         below the burnup points {:?}, which follow the continued point",
+                        c.burnup, d.burnup
+                    ));
+                }
                 if d.materials.is_empty() {
                     return Err("depletion needs the materials to deplete".into());
                 }
@@ -1169,6 +1196,10 @@ impl LatticeInput {
                         }
                         Some(ShieldingEntry::StepStart) => ShieldingFrequency::StepStart,
                     },
+                    continue_from: d.continue_from.map(|c| ContinueFrom {
+                        file: c.file,
+                        burnup: c.burnup,
+                    }),
                 })
             })
             .transpose()

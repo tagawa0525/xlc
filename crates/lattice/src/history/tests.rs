@@ -4,14 +4,13 @@ use xlc_format::table::Axis;
 
 use super::*;
 use crate::branches::{BranchShielder, remix_varied};
-use crate::cmfd::CmfdOptions;
 use crate::depletion::tests::{
     PIN, U235, continue_from, deplete_with, deplete_with_moc, library, tight,
 };
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
 use crate::material::Material;
-use crate::moc::{Acceleration, Options, available_order, solve_symmetric};
+use crate::moc::{Options, available_order, solve_symmetric};
 use crate::shielding::shield_fuel_with;
 use crate::symmetry::{Chosen, choose};
 use crate::tracking::Tracking;
