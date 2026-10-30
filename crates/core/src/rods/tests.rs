@@ -449,6 +449,7 @@ fn micro_nuclide(scale: f64, thermal: Option<f64>) -> MicroNuclide {
             channels: vec![v([0.3, 8.0]), v([0.1, 2.0])],
         }],
         thermal_fission: thermal,
+        derivative: None,
     }
 }
 

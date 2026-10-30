@@ -493,6 +493,7 @@ pub(crate) fn mix_micro(
                     })
                     .collect(),
                 thermal_fission,
+                derivative: None,
             })
         })
         .collect::<Result<_, String>>()?;

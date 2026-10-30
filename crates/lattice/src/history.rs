@@ -759,6 +759,7 @@ impl HistoryBranches {
                 scatter,
                 reactions,
                 thermal_fission: (below + above > 0.0).then(|| below / (below + above)),
+                derivative: None,
             });
         }
         Ok(out)
