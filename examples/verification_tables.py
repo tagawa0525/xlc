@@ -1667,13 +1667,67 @@ def history_residual(sources: list[dict]) -> str:
 def core_history_branch(sources: list[dict]) -> str:
     """履歴の補正の core（ADR-0215）: R の点ごとの、条件 j で一生を燃焼させた core の k と第 1 項のテーブルの k∞ の差、公称の燃焼の
     core と公称のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）"""
-    raise TableError("not implemented")
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-history":
+        raise TableError("not an xlc-compare-core-history summary")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "core の k",
+            "第 1 項の k∞",
+            "core − 第 1 項 (pcm)",
+            "公称: core − テーブル (pcm)",
+            "組み立ての差 (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['k']:.8f}",
+                f"{r['table_k_inf']:.8f}",
+                signed(r["difference_pcm"], 3),
+                signed(r["nominal_difference_pcm"], 3),
+                signed_exponent(r["reconstruct_pcm"]),
+            ]
+            for r in s["branch_rows"]
+        ],
+    )
 
 
 def core_history_switch(sources: list[dict]) -> str:
     """履歴の補正の core（ADR-0215）: 途中で条件を変えた燃焼の燃焼点ごとの、ノードの減速材の密度の履歴 H、w、R の効きと誤差の上限
-    （pcm）"""
-    raise TableError("not implemented")
+    （pcm）。R の効きと点ごとの誤差の上限は、R の点の燃焼点だけ（ほかは –）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-history":
+        raise TableError("not an xlc-compare-core-history summary")
+
+    def optional(x, digits):
+        return "–" if x is None else signed(x, digits)
+
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "状態",
+            "H (g/cc)",
+            "w",
+            "R の効き (pcm)",
+            "点の誤差の上限 (pcm)",
+            f"w × {s['applied_max_pcm']:.2f} (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                r["state"],
+                f"{r['history']:.6f}",
+                f"{r['weight']:.4f}",
+                optional(r["residual_pcm"], 2),
+                "–"
+                if r["applied_bound_pcm"] is None
+                else f"{r['applied_bound_pcm']:.2f}",
+                f"{r['bound_pcm']:.2f}",
+            ]
+            for r in s["switch_rows"]
+        ],
+    )
 
 
 def history_effect_densities(case: str, sources: list[dict]) -> str:
