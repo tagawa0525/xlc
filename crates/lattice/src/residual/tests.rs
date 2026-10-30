@@ -120,8 +120,13 @@ fn branch() -> Table {
     table
 }
 
+/// 丸めの範囲で等しい: 差が、足し引きした項の大きさ `scale` の 1e-14 倍以内（足す順が違えば、打ち消し合う項の丸めが残る）
+fn near(a: f64, b: f64, scale: f64) -> bool {
+    (a - b).abs() <= 1e-14 * scale
+}
+
 fn close(a: f64, b: f64) -> bool {
-    (a - b).abs() <= 1e-14 * a.abs().max(b.abs()).max(1e-300)
+    near(a, b, a.abs().max(b.abs()))
 }
 
 #[test]
@@ -144,37 +149,54 @@ fn residuals_are_the_branch_constants_less_the_linearly_corrected_nominal_condit
             .map(|i| branch_micro.densities[k][i] - micro.densities[u][i])
             .collect();
         // U-235 は σᵢ、Pu-240 は数密度の微分（core の補正と同じ係数）
-        let coefficient = |i: usize| -> (&Vec<f64>, &Vec<f64>, &Vec<f64>, &Vec<Vec<f64>>) {
-            match &c[i].derivative {
-                Some(m) => (&m.total, &m.nu_fission, &m.fission, &m.scatter),
-                None => (&c[i].total, &c[i].nu_fission, &c[i].fission, &c[i].scatter),
-            }
+        let coefficient = |i: usize| -> MicroDerivative {
+            c[i].derivative.clone().unwrap_or_else(|| MicroDerivative {
+                total: c[i].total.clone(),
+                nu_fission: c[i].nu_fission.clone(),
+                fission: c[i].fission.clone(),
+                scatter: c[i].scatter.clone(),
+            })
         };
         assert!(c[1].derivative.is_some() && c[0].derivative.is_none());
         let r = &rod.residuals[k];
         for g in 0..2 {
             let sum = |pick: &dyn Fn(usize) -> f64| (0..2).map(|i| d[i] * pick(i)).sum::<f64>();
-            let total = sum(&|i| coefficient(i).0[g]);
+            let total = sum(&|i| coefficient(i).total[g]);
             let absorption =
-                sum(&|i| coefficient(i).0[g] - coefficient(i).3[g].iter().sum::<f64>());
-            assert!(close(r.total[g], fb.total[g] - f0.total[g] - total), "{g}");
-            assert!(close(
+                sum(&|i| coefficient(i).total[g] - coefficient(i).scatter[g].iter().sum::<f64>());
+            // R = 分岐 − 公称 − 補正（丸めは 3 つの項の大きさの範囲）
+            let expect = |r: f64, b: f64, n: f64, c: f64| {
+                assert!(
+                    near(r, b - n - c, b.abs() + n.abs() + c.abs()),
+                    "{g}: {r} {b} {n} {c}"
+                );
+            };
+            expect(r.total[g], fb.total[g], f0.total[g], total);
+            expect(
                 r.absorption[g],
-                fb.absorption[g] - f0.absorption[g] - absorption
-            ));
-            assert!(close(
+                fb.absorption[g],
+                f0.absorption[g],
+                absorption,
+            );
+            expect(
                 r.nu_fission[g],
-                fb.nu_fission[g] - f0.nu_fission[g] - sum(&|i| coefficient(i).1[g])
-            ));
-            assert!(close(
+                fb.nu_fission[g],
+                f0.nu_fission[g],
+                sum(&|i| coefficient(i).nu_fission[g]),
+            );
+            expect(
                 r.fission[g],
-                fb.fission[g] - f0.fission[g] - sum(&|i| coefficient(i).2[g])
-            ));
+                fb.fission[g],
+                f0.fission[g],
+                sum(&|i| coefficient(i).fission[g]),
+            );
             for h in 0..2 {
-                assert!(close(
+                expect(
                     r.scatter[g][h],
-                    fb.scatter[g][h] - f0.scatter[g][h] - sum(&|i| coefficient(i).3[g][h])
-                ));
+                    fb.scatter[g][h],
+                    f0.scatter[g][h],
+                    sum(&|i| coefficient(i).scatter[g][h]),
+                );
             }
             // 線形の補正を持たない項目は 2 つの定数の差
             assert_eq!(r.chi[g], fb.chi[g] - f0.chi[g]);
