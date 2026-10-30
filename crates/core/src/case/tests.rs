@@ -291,8 +291,8 @@ fn tables_must_match_the_layout_files() {
 }
 
 #[test]
-fn tables_with_history_residuals_are_errors_until_core_adds_them() {
-    // core は履歴の変数をまだ進めず残り R を足さない（ADR-0215、#0190）。黙って無視せず止める
+fn tables_with_history_residuals_need_micro_depleted_nodes() {
+    // 残り R は、履歴の変数を進めるミクロ燃焼のノードにだけ足せる（ADR-0215）。燃焼させない状態の解では黙って無視せず止める
     let (layout, mut tables) = core();
     let options = Options::default();
     let state = given("aro", 1100.0, 565.0);
@@ -370,7 +370,10 @@ const BRANCH_DENSITIES: [[f64; 2]; 2] = [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]];
 
 /// 履歴の分岐の自分の条件の定数（燃焼度 0、20。燃焼度 0 は公称と同じ組成なので、公称のテーブルの条件の状態と同じ定数）
 fn branch_constants(table: &Table) -> [FewGroup; 2] {
-    let p = table.point_index(&[0, 0, 1, 0]).unwrap();
+    // 制御棒の軸を持てば、その値 out（最初の値）
+    let mut at = vec![0, 0, 1, 0];
+    at.resize(table.axes.len(), 0);
+    let p = table.point_index(&at).unwrap();
     [table.states[p].clone(), history_few(9.5)]
 }
 
