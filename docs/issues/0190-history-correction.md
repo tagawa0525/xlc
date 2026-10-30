@@ -60,4 +60,6 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   core の読み込みの検査（crates/core/src/case.rs の `solve_with` の `histories` のエラー）を、足す実装で置き換える
 - 残り（この issue）: core の側（履歴の変数の進め方、restart での引き継ぎ、R の足し方）、制御棒の履歴（2A-rods。制御棒の軸のテーブルの
   結合 examples/core/rod_table.py と絡む）と Pyrex の変数、上の状態への依存による案 C1 の側への見直し、途中で条件を変えた燃焼での比例と
-  重みの確認
+  重みの確認。lattice の線形の補正（crates/lattice/src/residual.rs の `linear`）は core の `micro::correct` のコピーで、共有するコードも突き合わせる
+  テストもない（レビューの指摘。core の係数の選び方を変えると R の第 3 項が黙って古いままになる）。core の側の作業で、両方が依存する
+  xlc-format に 1 つの関数として置く
