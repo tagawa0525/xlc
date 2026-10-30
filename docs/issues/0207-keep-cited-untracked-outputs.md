@@ -12,27 +12,36 @@ resolution:
 
 ## 問題
 
-`examples/depletion/micro/*.msgpack` などは DVC の出力でなく、`.gitignore` で無視する生成物で、検証の記録と ADR が md5 で
+`examples/depletion/micro/*.msgpack` などは DVC の出力でなく、`examples/depletion/micro/.gitignore` の `*.msgpack` で無視する生成物で、検証の記録と ADR が md5 で
 引く。作ったブランチの worktree にだけあり、/git-merge の後片付け（`post-merge-cleanup.sh` の `git worktree remove`）が
 無視されたファイルごと消す。DVC の出力はキャッシュから戻り、`examples/vera/p2/openmc-2K.msgpack` は
 `scripts/worktree-restore-outputs.sh` が main からコピーするが、ほかの追跡しない出力には戻す経路が無い。
 
-- 2026-10-30 に、ADR-0221 の依頼が「既存の `shifted-2A.msgpack`（md5 456654d5）をそのまま使う」と書いたが、どの worktree にも
-  残っておらず、担当は置き換えた組成のテーブルを Slurm 618（20 分 9 秒）で作り直した（md5 は一致）
+- 2026-10-30 に、ADR-0221 の依頼が「既存の `shifted.out` と `shifted-2A.msgpack`（md5 456654d5）をそのまま使う」と書いたが、
+  どの worktree にも残っていなかった。担当は履歴 `shifted-2A.msgpack` を `make_shifted.py`（Python、数秒）で作り直して md5 が
+  一致し、依頼が挙げなかった置き換えた組成のテーブル `table-shifted.msgpack` も残っていなかったので、lattice を Slurm 618
+  （20 分 9 秒。新しいテーブルは md5 da7265c2）で解き直した（examples/depletion/verification.md「ミクロ燃焼の線形の補正（2A）」の
+  「計算」、担当の報告）。置き換えた組成の入力 `shifted.toml` は ADR-0221 で変わらず、前のテーブルが残っていれば 618 は
+  要らなかったかは確かめていない（`bin/lattice` は変わった）
 - ADR-0221 のマージ（xlc 9a69db2a9）の後片付けでも、記録と ADR が引く `table-nominal.msgpack`（md5 fde256d9）などの micro の
   テーブルが消え、main にも無い（2026-10-30 に `/home/tagawa/github` の下を `find` で探して 0 件）
+
+出し直しの経路は、コミットした入力を checkout して再実行する形（ADR-0122 の案 E）で、この issue はその時間を省く置き場を
+扱う。追跡しない参照の出力の置き場は #0018。
 
 関係する ADR: なし
 
 ## 完了の条件
 
-記録か ADR が md5 で引く追跡しない出力が、手順を覚えていなくてもマージの後に残るか戻せる。候補（確かめていない）:
+記録か ADR が引く（md5 か名前で）追跡しない出力が、手順を覚えていなくてもマージの後に残るか戻せる。候補（確かめていない）:
 
-- 引く出力を DVC のステージの出力にする（キャッシュを worktree で共有し、`worktree-restore-outputs.sh` で戻る。ADR-0126、
-  ADR-0130）。micro と branches の入力を dvc.yaml にする費用を数える
+- 引く出力を DVC で追う（キャッシュを worktree で共有し、`worktree-restore-outputs.sh` で戻る。ADR-0126、ADR-0130）。
+  `dvc add` でファイルだけを追うか、既存の examples/depletion/dvc.yaml にステージを足すか（examples/depletion/branches には
+  dvc.yaml が無い）の費用を数える
 - `worktree-restore-outputs.sh` の逆向きのスクリプト（ブランチの記録が引く md5 の無視されたファイルを main にコピーする）を
   /git-merge のマージの前に呼ぶ
-- `post-merge-cleanup.sh` が、記録が引く無視されたファイルを持つ worktree の削除を止める
+- マージの前に、記録が引く無視されたファイルを持つ worktree の削除を止める（`post-merge-cleanup.sh` はすべてのリポジトリで
+  共有するので、xlc の側の検査として置く）
 
 ## 経緯
 
