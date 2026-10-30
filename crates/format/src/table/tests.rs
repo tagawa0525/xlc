@@ -1312,3 +1312,107 @@ fn residuals_have_the_groups_and_sides_of_the_states_and_are_finite() {
     // 残りは負になりうる
     history_sample().validate().unwrap();
 }
+
+#[test]
+fn linear_corrections_add_the_coefficients_times_the_density_differences() {
+    // 係数は、数密度の微分を持つ核種はその微分、ほかは σᵢ。吸収の係数は全断面積の係数から散乱の行の和を引いたもの
+    let plain = micro_nuclide(1.0, true);
+    let mut derived = micro_nuclide(2.0, true);
+    derived.derivative = Some(MicroDerivative {
+        total: vec![5.0 / 3.0, 7.0 / 3.0],
+        nu_fission: vec![0.5 / 3.0, -4.0 / 3.0],
+        fission: vec![0.2 / 3.0, -1.5 / 3.0],
+        scatter: vec![vec![4.0 / 3.0, 0.2 / 3.0], vec![0.01 / 3.0, 6.0 / 3.0]],
+    });
+    let base = state(3.0);
+    let delta = [1.0e-5 / 3.0, -2.0e-6 / 7.0];
+    let mut f = base.clone();
+    add_linear_correction(&mut f, &[plain.clone(), derived.clone()], &delta);
+    let c = derived.derivative.as_ref().unwrap();
+    for g in 0..2 {
+        let expected = |base: f64, a: f64, b: f64| base + delta[0] * a + delta[1] * b;
+        assert_eq!(
+            f.total[g],
+            expected(base.total[g], plain.total[g], c.total[g])
+        );
+        let removal = |t: &[f64], s: &[Vec<f64>]| t[g] - s[g].iter().sum::<f64>();
+        assert_eq!(
+            f.absorption[g],
+            expected(
+                base.absorption[g],
+                removal(&plain.total, &plain.scatter),
+                removal(&c.total, &c.scatter)
+            )
+        );
+        assert_eq!(
+            f.nu_fission[g],
+            expected(base.nu_fission[g], plain.nu_fission[g], c.nu_fission[g])
+        );
+        assert_eq!(
+            f.fission[g],
+            expected(base.fission[g], plain.fission[g], c.fission[g])
+        );
+        for h in 0..2 {
+            assert_eq!(
+                f.scatter[g][h],
+                expected(base.scatter[g][h], plain.scatter[g][h], c.scatter[g][h])
+            );
+        }
+    }
+    // 補正を持たない項目は変えない
+    assert_eq!(
+        (&f.chi, &f.diffusion, &f.adf, f.k_inf),
+        (&base.chi, &base.diffusion, &base.adf, base.k_inf)
+    );
+    // 差が 0 なら、定数はビットで同じ
+    let mut same = base.clone();
+    add_linear_correction(&mut same, &[plain, derived], &[0.0, 0.0]);
+    assert_eq!(same, base);
+}
+
+#[test]
+fn history_conditions_are_the_branch_point_of_the_variable_axis_and_nominal_elsewhere() {
+    let table = history_sample();
+    let condition = table
+        .history_condition(MODERATOR_DENSITY, 0.661, ROD_OUT)
+        .unwrap();
+    assert_eq!(
+        condition,
+        HistoryCondition {
+            nominal: 0.743,
+            point: vec![0, 0, 1, 0],
+            burnup_axis: 0,
+        }
+    );
+    let fails = |table: &Table, variable: &str, branch: f64, rod: &str, expected: &str| {
+        let err = table.history_condition(variable, branch, rod).unwrap_err();
+        assert!(err.contains(expected), "{expected:?} not in {err}");
+        assert!(!err.contains("  "), "{err}");
+    };
+    fails(&table, "boron", 0.661, ROD_OUT, "variable");
+    // Hᵇ は公称でない 1 つの格子点の密度
+    fails(&table, MODERATOR_DENSITY, 0.70, ROD_OUT, "branch");
+    fails(&table, MODERATOR_DENSITY, 0.743, ROD_OUT, "branch");
+    // 制御棒の軸のないテーブルの値は out だけ
+    fails(&table, MODERATOR_DENSITY, 0.661, "aic", "rod");
+    // 公称の値のないテーブルには、条件を決める公称の状態がない
+    let mut direct = table.clone();
+    for axis in &mut direct.axes {
+        *axis = axis.clone().without_nominal();
+    }
+    fails(&direct, MODERATOR_DENSITY, 0.661, ROD_OUT, "nominal");
+    // 制御棒の軸を持てば、その値の番号
+    let mut rodded = table.clone();
+    rodded.axes.push(Axis::Rod {
+        values: vec![ROD_OUT.into(), "aic".into()],
+    });
+    let condition = rodded
+        .history_condition(MODERATOR_DENSITY, 0.661, "aic")
+        .unwrap();
+    assert_eq!(condition.point, vec![0, 0, 1, 0, 1]);
+    fails(&rodded, MODERATOR_DENSITY, 0.661, "b4c", "rod");
+    // 燃焼度の軸が要る
+    let mut fresh = table;
+    fresh.axes.remove(0);
+    fails(&fresh, MODERATOR_DENSITY, 0.661, ROD_OUT, "burnup");
+}

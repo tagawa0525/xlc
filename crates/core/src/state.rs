@@ -18,7 +18,9 @@
 use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, ROD_OUT, Table, component};
+use xlc_format::table::{
+    Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, Residual, Table, component,
+};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -847,6 +849,125 @@ pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// テーブル `table` の減速材の軸の、温度 `temperature` (K) での密度 (g/cm³): 格子点の（温度、密度）の組を、少数群定数の温度の内挿と
+/// 同じ重み（軸の内挿の変数で隣の 2 点）で内挿した値。core の状態は密度を持たず、テーブルの格子点の組で決まる（ADR-0215 の履歴の
+/// 変数 H_m の x）。範囲の外はエラー
+pub fn moderator_density(table: &Table, temperature: f64) -> Result<f64, String> {
+    let Some(Axis::Moderator {
+        temperature: points,
+        density,
+        transform,
+        ..
+    }) = table
+        .axes
+        .iter()
+        .find(|a| matches!(a, Axis::Moderator { .. }))
+    else {
+        return Err("the table has no moderator axis for the moderator density (ADR-0215)".into());
+    };
+    let terms = bracket("moderator", points, temperature, |x| transform.apply(x))?;
+    // 格子点では重みが厳密に 1 と 0 なので、その点の密度そのもの
+    Ok(terms.iter().fold(0.0, |acc, &(i, w)| acc + w * density[i]))
+}
+
+/// 履歴の残り R（ADR-0215）の 1 つの制御棒の値 `rod` を、燃焼度 `burnup` で、燃焼度の軸と同じ内挿（ADR-0192。R の燃焼度の点で）で
+/// 引いた値。R の燃焼度の点の範囲の外はエラー（外挿しない）
+pub fn interpolate_residual(rod: &HistoryRod, burnup: f64) -> Result<Residual, String> {
+    let terms = burnup_terms(&rod.burnup, burnup)
+        .map_err(|e| format!("the history residual of the rod value {}: {e}", rod.rod))?;
+    let mut out: Option<Residual> = None;
+    for (k, w) in terms {
+        let r = rod.residuals.get(k).ok_or_else(|| {
+            format!(
+                "the history residual of the rod value {} has no burnup point {k}",
+                rod.rod
+            )
+        })?;
+        match &mut out {
+            None => out = Some(scaled_residual(r, w)),
+            Some(acc) => accumulate_residual(acc, w, r),
+        }
+    }
+    out.ok_or_else(|| format!("the history residual of the rod value {} is empty", rod.rod))
+}
+
+/// `w` 倍した残り。項目を足したらここで扱いを決める（`..` を使わない）
+fn scaled_residual(r: &Residual, w: f64) -> Residual {
+    let Residual {
+        total,
+        absorption,
+        nu_fission,
+        fission,
+        chi,
+        diffusion,
+        scatter,
+        adf,
+    } = r;
+    let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
+    Residual {
+        total: v(total),
+        absorption: v(absorption),
+        nu_fission: v(nu_fission),
+        fission: v(fission),
+        chi: v(chi),
+        diffusion: v(diffusion),
+        scatter: scatter.iter().map(|row| v(row)).collect(),
+        adf: adf.iter().map(|side| v(side)).collect(),
+    }
+}
+
+/// `acc += w * r`（同じ形の残りどうし。形はテーブルの検査が確かめる）。項目を足したらここで扱いを決める
+fn accumulate_residual(acc: &mut Residual, w: f64, r: &Residual) {
+    let Residual {
+        total,
+        absorption,
+        nu_fission,
+        fission,
+        chi,
+        diffusion,
+        scatter,
+        adf,
+    } = r;
+    add(&mut acc.total, w, total);
+    add(&mut acc.absorption, w, absorption);
+    add(&mut acc.nu_fission, w, nu_fission);
+    add(&mut acc.fission, w, fission);
+    add(&mut acc.chi, w, chi);
+    add(&mut acc.diffusion, w, diffusion);
+    for (a, x) in acc.scatter.iter_mut().zip(scatter) {
+        add(a, w, x);
+    }
+    for (a, x) in acc.adf.iter_mut().zip(adf) {
+        add(a, w, x);
+    }
+}
+
+/// 少数群定数 `f` に、`w` 倍した残り `r` を足す（`f += w r`。k∞、真空の辺の比、形状関数は残りが持たないので変えない）
+pub fn add_residual(f: &mut FewGroup, w: f64, r: &Residual) {
+    let Residual {
+        total,
+        absorption,
+        nu_fission,
+        fission,
+        chi,
+        diffusion,
+        scatter,
+        adf,
+    } = r;
+    add(&mut f.total, w, total);
+    add(&mut f.absorption, w, absorption);
+    add(&mut f.nu_fission, w, nu_fission);
+    add(&mut f.fission, w, fission);
+    add(&mut f.chi, w, chi);
+    add(&mut f.diffusion, w, diffusion);
+    for (a, x) in f.scatter.iter_mut().zip(scatter) {
+        add(a, w, x);
+    }
+    for (a, x) in f.adf.iter_mut().zip(adf) {
+        add(a, w, x);
+    }
 }
 
 #[cfg(test)]

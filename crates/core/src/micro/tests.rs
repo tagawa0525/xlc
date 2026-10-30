@@ -573,3 +573,23 @@ fn equilibrium_needs_tracked_xenon_and_solved_iodine() {
     let got = micro.equilibrium(&rates, &n).unwrap();
     assert!(got[..3].iter().all(|&v| v > 0.0), "{got:?}");
 }
+
+#[test]
+fn corrections_are_the_linear_correction_that_the_lattice_residual_subtracts() {
+    // R の第 3 項（lattice histories）と同じ関数で足すので、同じ数密度の差ならビットで同じ定数（ADR-0215）
+    let nominal = vec![7.0e-4, 1.0e-5, 1.0e-6, 1.0e-9, 1.0e-8];
+    let mut at = micro_at(nominal.clone());
+    at.nuclides[1].derivative = Some(xlc_format::table::MicroDerivative {
+        total: vec![9.0, 110.0],
+        nu_fission: vec![1.0, -150.0],
+        fission: vec![0.35, -60.0],
+        scatter: vec![vec![8.5, 0.12], vec![0.02, 7.0]],
+    });
+    let n = [6.0e-4, 2.0e-5, 1.0e-6, 3.0e-9, 1.0e-8];
+    let mut core = constants();
+    correct(&mut core, &at, &n);
+    let delta: Vec<f64> = n.iter().zip(&nominal).map(|(a, b)| a - b).collect();
+    let mut lattice = constants();
+    add_linear_correction(&mut lattice, &at.nuclides, &delta);
+    assert_eq!(core, lattice);
+}

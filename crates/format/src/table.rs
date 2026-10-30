@@ -578,6 +578,48 @@ pub struct Residual {
 /// 減速材の密度の履歴の変数の名前（ADR-0215）
 pub const MODERATOR_DENSITY: &str = "moderator-density";
 
+/// 少数群定数 `f` に、ミクロ燃焼の線形の補正 Σᵢ cᵢ Δᵢ を足す（ADR-0216、ADR-0221）。`micro` は追う核種の微視的断面積で、係数 cᵢ は
+/// 数密度の微分を持つ核種はその微分 ∂Σ/∂N̄ᵢ、ほかは σᵢ。`delta` は核種ごとの数密度の差 Δᵢ (1/(barn cm))。吸収の係数は全断面積の係数から
+/// 散乱の行の和を引いたもの。χ、拡散係数、ADF、形状関数と k∞ は変えない。core のノードの補正と、lattice の履歴の残り R の第 3 項
+/// （ADR-0215）が同じ係数を使うように、どちらもこの関数を呼ぶ
+pub fn add_linear_correction(f: &mut FewGroup, micro: &[MicroNuclide], delta: &[f64]) {
+    for (sigma, &d) in micro.iter().zip(delta) {
+        // 差が 0 の核種を飛ばすので、差がすべて 0 なら定数はビットで同じ（足す 0 が −0 を +0 に変えない）
+        if d == 0.0 {
+            continue;
+        }
+        let (total, nu_fission, fission, scatter) = match &sigma.derivative {
+            Some(c) => (&c.total, &c.nu_fission, &c.fission, &c.scatter),
+            None => (
+                &sigma.total,
+                &sigma.nu_fission,
+                &sigma.fission,
+                &sigma.scatter,
+            ),
+        };
+        for (g, row) in scatter.iter().enumerate() {
+            f.total[g] += d * total[g];
+            f.absorption[g] += d * (total[g] - row.iter().sum::<f64>());
+            f.nu_fission[g] += d * nu_fission[g];
+            f.fission[g] += d * fission[g];
+            for (a, s) in f.scatter[g].iter_mut().zip(row) {
+                *a += d * s;
+            }
+        }
+    }
+}
+
+/// 履歴の分岐の条件の状態の、テーブルの格子点（ADR-0215）
+#[derive(Debug, Clone, PartialEq)]
+pub struct HistoryCondition {
+    /// 公称の燃焼の変数の値 H⁰（減速材の密度は、公称の格子点の密度）
+    pub nominal: f64,
+    /// 条件の状態の、軸の順の格子点の番号（燃焼度の軸は 0。呼ぶ側が燃焼度の点を入れる）
+    pub point: Vec<usize>,
+    /// 燃焼度の軸の番号
+    pub burnup_axis: usize,
+}
+
 /// テーブルのファイルの読み書きのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum TableError {
@@ -844,6 +886,87 @@ impl Table {
         Ok(())
     }
 
+    /// 履歴の変数 `variable` の値 `branch`（Hᵇ）の履歴の分岐の条件と、制御棒の値 `rod` の状態の格子点: 変数の軸（減速材の密度は
+    /// `moderator`）だけが公称でない格子点（値が Hᵇ のもの。1 つだけのこと）で、ほかの軸は公称の値、制御棒の軸は `rod`（軸がなければ
+    /// `rod` は `out`）。テーブルの検査と `lattice histories` が、同じ規則で条件を決めるように使う
+    pub fn history_condition(
+        &self,
+        variable: &str,
+        branch: f64,
+        rod: &str,
+    ) -> Result<HistoryCondition, String> {
+        if variable != MODERATOR_DENSITY {
+            return Err(format!(
+                "unknown history variable {variable:?} ({MODERATOR_DENSITY}. ADR-0215)"
+            ));
+        }
+        let position = |f: fn(&Axis) -> bool| self.axes.iter().position(f);
+        let burnup_axis = position(|a| matches!(a, Axis::Burnup { .. }))
+            .ok_or("history residuals need a burnup axis")?;
+        let Some((m, Axis::Moderator { density, .. })) =
+            position(|a| matches!(a, Axis::Moderator { .. })).map(|m| (m, &self.axes[m]))
+        else {
+            return Err(format!(
+                "history variable {variable} needs a moderator axis"
+            ));
+        };
+        let nominal_index = self.axes[m].nominal_index().ok_or_else(|| {
+            format!(
+                "history variable {variable}: the branch condition is the nominal state but for the moderator, \
+                 and the table has no nominal values"
+            )
+        })?;
+        let nominal = density[nominal_index];
+        // 変数の差 Hᵇ − H⁰ で core が重みを割る
+        if branch == nominal {
+            return Err(format!(
+                "history variable {variable}: branch value {branch} equals the nominal moderator density"
+            ));
+        }
+        let condition = match density
+            .iter()
+            .enumerate()
+            .filter(|&(i, &d)| i != nominal_index && d == branch)
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>()[..]
+        {
+            [only] => only,
+            _ => {
+                return Err(format!(
+                    "history variable {variable}: branch value {branch} is not the density of one off-nominal \
+                     moderator point of {density:?}"
+                ));
+            }
+        };
+        let mut point = Vec::with_capacity(self.axes.len());
+        for (k, axis) in self.axes.iter().enumerate() {
+            point.push(match axis {
+                Axis::Burnup { .. } => 0,
+                Axis::Rod { values } => values.iter().position(|v| v == rod).ok_or_else(|| {
+                    format!(
+                        "history variable {variable}, rod value {rod}: not a value of the rod axis {values:?}"
+                    )
+                })?,
+                _ if k == m => condition,
+                // 公称の値は、部分格子で組み立てる軸のすべてが持つか、どれも持たない（軸の検査）。減速材の軸が持つので、ほかも持つ
+                _ => axis.nominal_index().ok_or_else(|| {
+                    format!("history variable {variable}: the {} axis has no nominal value", axis.name())
+                })?,
+            });
+        }
+        if position(|a| matches!(a, Axis::Rod { .. })).is_none() && rod != ROD_OUT {
+            return Err(format!(
+                "history variable {variable}, rod value {rod}: tables without a rod axis hold the rod value \
+                 {ROD_OUT} only"
+            ));
+        }
+        Ok(HistoryCondition {
+            nominal,
+            point,
+            burnup_axis,
+        })
+    }
+
     /// 履歴の補正（ADR-0215）: ミクロ燃焼のデータを持つテーブルの、重ならない既知の変数で、H⁰ と Hᵇ が減速材の軸の公称と公称でない
     /// 格子点の密度。制御棒の値ごとの燃焼度の点は、その条件の状態（変数の軸だけが Hᵇ の格子点で、ほかの軸は公称）をテーブルが解いた
     /// 燃焼度の点で、増え、最初と最後の点を含み、点ごとに状態と同じ群と辺の数の有限の残りを持つ
@@ -856,12 +979,6 @@ impl Table {
                 "history residuals need micro data (they are left after the micro correction. ADR-0215)".into(),
             );
         }
-        let position = |f: fn(&Axis) -> bool| self.axes.iter().position(f);
-        let burnup = position(|a| matches!(a, Axis::Burnup { .. }))
-            .ok_or("history residuals need a burnup axis")?;
-        let moderator = position(|a| matches!(a, Axis::Moderator { .. }));
-        let rod = position(|a| matches!(a, Axis::Rod { .. }));
-        let burnups = self.axes[burnup].points();
         let groups = self.states[0].bounds.len() - 1;
         let sides = self.states[0].adf.len();
         for (h, history) in self.histories.iter().enumerate() {
@@ -869,55 +986,6 @@ impl Table {
             if self.histories[..h].iter().any(|o| &o.variable == variable) {
                 return Err(format!("history variable {variable} appears twice"));
             }
-            if variable != MODERATOR_DENSITY {
-                return Err(format!(
-                    "unknown history variable {variable:?} ({MODERATOR_DENSITY}. ADR-0215)"
-                ));
-            }
-            // 減速材の密度: H⁰ は公称の格子点の密度、Hᵇ はほかの 1 つの格子点の密度で、その格子点が履歴の分岐の条件
-            let (m, density) = match moderator.map(|m| (m, &self.axes[m])) {
-                Some((m, Axis::Moderator { density, .. })) => (m, density),
-                _ => {
-                    return Err(format!(
-                        "history variable {variable} needs a moderator axis"
-                    ));
-                }
-            };
-            let nominal = self.axes[m].nominal_index().ok_or_else(|| {
-                format!(
-                    "history variable {variable}: the branch condition is the nominal state but for the moderator, \
-                     and the table has no nominal values"
-                )
-            })?;
-            if history.nominal != density[nominal] {
-                return Err(format!(
-                    "history variable {variable}: nominal value {} is not the density {} of the nominal moderator point",
-                    history.nominal, density[nominal]
-                ));
-            }
-            // 変数の差 Hᵇ − H⁰ で core が重みを割る
-            if history.branch == history.nominal {
-                return Err(format!(
-                    "history variable {variable}: branch value {} equals the nominal value",
-                    history.branch
-                ));
-            }
-            let condition = match density
-                .iter()
-                .enumerate()
-                .filter(|&(i, &d)| i != nominal && d == history.branch)
-                .map(|(i, _)| i)
-                .collect::<Vec<_>>()[..]
-            {
-                [only] => only,
-                _ => {
-                    return Err(format!(
-                        "history variable {variable}: branch value {} is not the density of one off-nominal moderator \
-                         point of {density:?}",
-                        history.branch
-                    ));
-                }
-            };
             if history.rods.is_empty() {
                 return Err(format!("history variable {variable}: no rod values"));
             }
@@ -926,30 +994,20 @@ impl Table {
                 if history.rods[..r].iter().any(|o| o.rod == entry.rod) {
                     return Err(format!("{}: the rod value appears twice", at()));
                 }
-                let rod_index = match rod.map(|k| &self.axes[k]) {
-                    Some(Axis::Rod { values }) => {
-                        Some(values.iter().position(|v| v == &entry.rod).ok_or_else(|| {
-                            format!("{}: not a value of the rod axis {values:?}", at())
-                        })?)
-                    }
-                    _ if entry.rod == ROD_OUT => None,
-                    _ => {
-                        return Err(format!(
-                            "{}: tables without a rod axis hold the rod value {ROD_OUT} only",
-                            at()
-                        ));
-                    }
-                };
-                // 条件の状態の点（燃焼度の番号は後で入れる）
-                let mut point = vec![0; self.axes.len()];
-                for (k, axis) in self.axes.iter().enumerate() {
-                    point[k] = match axis {
-                        Axis::Burnup { .. } => 0,
-                        Axis::Rod { .. } => rod_index.unwrap_or(0),
-                        _ if k == m => condition,
-                        _ => axis.nominal_index().unwrap_or(0),
-                    };
+                // H⁰ は公称の格子点の密度、Hᵇ はほかの 1 つの格子点の密度で、その格子点が履歴の分岐の条件
+                let HistoryCondition {
+                    nominal,
+                    mut point,
+                    burnup_axis: burnup,
+                } = self.history_condition(variable, history.branch, &entry.rod)?;
+                if history.nominal != nominal {
+                    return Err(format!(
+                        "history variable {variable}: nominal value {} is not the density {nominal} of the nominal \
+                         moderator point",
+                        history.nominal
+                    ));
                 }
+                let burnups = self.axes[burnup].points();
                 if !entry.burnup.windows(2).all(|w| w[0] < w[1]) {
                     return Err(format!(
                         "{}: burnup points must increase, got {:?}",

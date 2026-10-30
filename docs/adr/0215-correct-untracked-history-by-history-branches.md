@@ -237,7 +237,7 @@ lattice は、履歴の分岐の自分の条件の分岐（`[history]`）のテ�
 値 H^0 と H^b もその格子点の密度から取る（入力に書かせると格子点と食い違いうる）。履歴の分岐のテーブルの燃焼度の点は、公称のテーブルが
 条件 j を解いた燃焼度の点と同じこと、追う核種と初めの重金属が同じことを求め、R を持つ公称のテーブルに重ねて足すとエラー。
 制御棒のテーブルをまとめる examples/core/rod_table.py（#0093 までのつなぎの Python）には倣わず、本番の経路を lattice に置いた。
-core は `histories` を持つテーブルを、足す実装ができるまで解く前にエラーで止める（黙って補正なしで使わない）。
+core は `histories` を持つテーブルの R を、ミクロ燃焼のノードに足す（下の「帰結」）。
 2A の測定の減速材の密度の履歴の分岐は、減速材の軸の格子点が温度と密度の組なので、減速材と被覆管の温度も変えた履歴（565 K から 600 K）で、
 R はその温度の履歴の分も含む。core は変数を密度だけで持つので、ノードの密度の履歴と温度の履歴が格子点の組と同じ関係で動く（一定の圧力の
 飽和に近い関係）と置いている（確かめていない。#0190）。
@@ -266,9 +266,20 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   流し、R をテーブルに書く。R の作成と書き込みは、減速材の密度の変数と制御棒の値 `out` について `lattice histories`（上の「出力の形」）で
   済んだ（ブランチ feat/0190-history-residual-lattice）。制御棒の履歴（制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と
   Pyrex の変数、制御棒を入れた値の R は #0190 に残る
-- core: `histories` を持つテーブルを、足す実装（下の項）ができるまでエラーで止める
-- core: ノードごとに H_m、H_r（Pyrex の集合体は H_p）を燃焼のステップで進め、restart のファイル（計画の「炉心の燃焼」）に持つ。装荷替えで
-  集合体を回しても、ノードの履歴の変数は集合体の状態として引き継ぐ（[ADR-0036](0036-keep-core-state-per-assembly.md)）
+- core: ミクロ燃焼のノードごとに H_m を燃焼のステップで進め（燃焼度 0 の値は燃焼点 0 を解く状態の瞬時の値、出力のステップはステップの状態の
+  値、中点の解は中点の燃焼度までの値。crates/core/src/depletion.rs の `advance_history`）、燃焼の履歴（`xlc-core-history`）の点ごとに
+  `history_variables` と `histories`（集合体、軸方向のノード、変数の順の列）に持ち、restart で最後の点の値を集合体の ID で引き継ぐ（装荷替えで
+  集合体を回しても集合体の状態。[ADR-0036](0036-keep-core-state-per-assembly.md)、ADR-0220）。H_m の x は、core の状態が減速材の密度を
+  持たないので、ノードのテーブルの減速材の軸の格子点の（温度、密度）の組を、状態の減速材の温度で、温度の内挿と同じ重みで内挿した密度
+  （crates/core/src/state.rs の `moderator_density`。ノードの密度と温度の履歴が格子点の組と同じ関係で動くと置く。確かめていない）。
+  H_r と Pyrex の H_p は、その履歴の分岐を作るときに足す（ノードの値は変数の列で、`HISTORY_VARIABLES` に足せる形）
+- core: ノードの定数は、テーブルの内挿 + 線形の補正 + Σ_j w_j R_j,r（crates/core/src/case.rs の `node_constants` と `add_histories`）。
+  w_j が厳密に 0 の変数は足さない（公称の履歴は R を持たないテーブルとビットで同じ定数）。部分挿入のノードは、区間のテーブルの使い方ごとに
+  その制御棒の値の R を足した定数を ADR-0127 の重みで混ぜる。黙って補正なしにせず、次をエラーにする: w_j が 0 でないのにノードの制御棒の
+  値の R がテーブルに無い、R の燃焼度の点の範囲の外、core の持たない変数の R、ミクロ燃焼でない位置（燃焼させない状態の解を含む）に R を
+  持つテーブル、ミクロ燃焼のテーブルのうち R を持つものと持たないものの混在（持たないテーブルのノードの履歴を補正しない）
+- 線形の補正の係数の選び方（`add_linear_correction`）と、履歴の分岐の条件の格子点（`Table::history_condition`）は xlc-format の 1 つの
+  関数で、core のノードの補正、lattice の R の第 3 項、テーブルの検査が同じものを呼ぶ
 - 本番の格子点（熱水力の ADR）の後に、密度の履歴の分岐の値を決める。ホウ素と燃料の温度の履歴は、HFP の範囲で大きさを測ってから
   足すか決める
 - 2A の測定は ADR-0209 の前の既定の組で、履歴の効きの大きさの目安。本番の既定で再測定するかは、比例と重みの確認（#0190）のときに決める
@@ -281,7 +292,23 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
 - 実装のときのテストの観点（#0190）:
   - core: 履歴の分岐の点（w = 1、条件 j、ノードの数密度が履歴の分岐の均質化した数密度）で、履歴の分岐の自分の条件の分岐の定数を
     再現する。w = 0（公称の履歴）では今の定数とビットで同じ。履歴の変数の進め方が、一定の x で H = x、途中で x を変えると燃焼度の
-    重みの平均になる。R の燃焼度の範囲の外と、テーブルに無い履歴の変数を求めるノードはエラー
+    重みの平均になる。R の燃焼度の範囲の外と、テーブルに無い履歴の変数を求めるノードはエラー。実装のテストは crates/core/src/case/tests.rs の
+    `history_branch_points_return_the_branch_constants`（相対 1e-12）、`nominal_histories_leave_the_constants_bit_identical`、
+    `history_residuals_scale_with_the_weight_of_the_variable`、`history_residuals_that_the_table_lacks_are_errors`、
+    `tables_with_history_residuals_need_micro_depleted_nodes`、crates/core/src/state/tests.rs の
+    `moderator_densities_follow_the_temperature_weights_of_the_axis_points`、`residuals_are_interpolated_in_burnup_like_the_table_and_not_extrapolated`、
+    crates/core/src/depletion/tests.rs の `history_variables_average_the_step_values_by_burnup`、`node_histories_follow_the_states_of_the_steps`、
+    `restarts_carry_the_node_histories_by_assembly`（restart の往復と引き継ぎ）、`micro_histories_hold_node_histories_of_the_densities_shape`、
+    `micro_tables_hold_the_same_history_residuals`、係数の共通の関数は crates/core/src/micro/tests.rs の
+    `corrections_are_the_linear_correction_that_the_lattice_residual_subtracts`
+  - core の測定（examples/depletion/verification.md の「履歴の補正の core（2A の集合体 1 体）」。2026-10-30、ブランチ feat/0190-history-core の
+    8e6c0b77、Slurm 625）: R を持つテーブルと持たないテーブルの公称の燃焼の出力はバイトで同じ。一生を条件 j で燃焼させた core（w = 1）の k は、
+    core の数密度で組み立てた定数 + R の 2 群の k と −5.9e-06〜−5.6e-07 pcm の差（R の足し方の誤差はない）で、第 1 項のテーブルの k∞ とは
+    −245.402〜+24.253 pcm 違う（公称の燃焼の core と公称のテーブルの差は −3.808〜+7.714 pcm）。60 MWd/kg の差 −245.402 pcm のうち −245.390 pcm は
+    core と第 1 項の追う核種の数密度の違い（Pu-239 −0.925%、Pu-240 −1.911%、U-235 −1.756% など）で、core のミクロ燃焼の反応率が公称の履歴の
+    組成で解いた条件 j の微視的断面積を使う（第 1 項の σ は Pu-240 の高速群の捕獲で −3.379% 小さい）ことが候補（確かめていない）。
+    20 MWd/kg まで公称、その後を条件 j にした燃焼の w は 60 MWd/kg で 2/3、R の効きは −265.633 pcm、上の R を公称の状態で使った誤差に w を
+    掛けた上限は 12.34 pcm
   - lattice: R の第 1 項の分岐が、履歴の分岐の燃焼の点の k∞ を ADR-0187 の確認と同じ程度（0.06 pcm）で再現する。R の第 3 項が cᵢ と N̄ᵢ の
     積の差で、ミクロ燃焼の補正を持たない項目では 0。実装のテストは crates/lattice/src/residual/tests.rs: R が分岐の定数から、公称の条件 j の
     状態に core と同じ係数（微分を持つ核種は ∂Σ/∂N̄ᵢ、吸収は全断面積の係数から散乱の行の和を引いたもの）の線形の補正を足した定数を引いた
