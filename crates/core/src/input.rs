@@ -99,6 +99,9 @@
 //! # 扱いで、必ず書く（ADR-0219）: tracked（ほかの核種と同じく時間で追う。Xe と I の時間の変化を解くステップの幅で）か
 //! # equilibrium（中点と出力のステップの終わりの点で、解の中性子束と出力に釣り合う平衡の値。サイクルの燃焼のステップで）
 //! micro = { chain = "chain.msgpack", xenon = "equilibrium" }
+//! # ミクロ燃焼のノードの履歴の変数（ADR-0215）をステップで進める重み ω: H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ω ΔB)。
+//! # 省略すると 1（燃焼度で重みを付けた平均。ADR-0215 の決定）。ほかの値は重みの効きを測るため。有限の正の値
+//! # micro = { chain = "chain.msgpack", xenon = "equilibrium", history-weight = 1.5 }
 //! # 状態が search を持つステップの中点を解くホウ素濃度（ADR-0191）: search（省略したとき。中点でも探す）か start（ステップの
 //! # 初めの点で探した濃度。ADR-0191 の案 S1 との差を測るため。search の状態の efpd のステップがなければエラー）
 //! # midpoint-boron = "start"
@@ -819,6 +822,8 @@ pub struct MicroInput {
     pub chain: PathBuf,
     /// Xe-135 と I-135 の扱い
     pub xenon: Xenon,
+    /// 履歴の変数を燃焼のステップで進める重み ω（ADR-0215。1 が決定の燃焼度で重みを付けた平均）
+    pub history_weight: f64,
 }
 
 /// `micro` の `xenon`: 燃焼のステップの Xe-135 と I-135（とそれらへ崩壊で流れ込む補助の核種）の扱い（ADR-0219）
@@ -860,10 +865,11 @@ struct DepletionEntry {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct MicroEntry {
     chain: PathBuf,
     xenon: Xenon,
+    history_weight: Option<f64>,
 }
 
 /// 項目は、効くようになるときに足す（入口の温度など。ADR-0218）
@@ -970,10 +976,23 @@ impl DepletionInput {
             specific_power: p,
             steps,
             history: normalized(&base.join(entry.history)),
-            micro: entry.micro.map(|m| MicroInput {
-                chain: normalized(&base.join(m.chain)),
-                xenon: m.xenon,
-            }),
+            micro: entry
+                .micro
+                .map(|m| {
+                    let history_weight = m.history_weight.unwrap_or(1.0);
+                    if history_weight.is_finite() && history_weight > 0.0 {
+                        Ok(MicroInput {
+                            chain: normalized(&base.join(m.chain)),
+                            xenon: m.xenon,
+                            history_weight,
+                        })
+                    } else {
+                        invalid(format!(
+                            "depletion: micro history-weight must be finite and positive, got {history_weight}"
+                        ))
+                    }
+                })
+                .transpose()?,
             midpoint_boron: entry.midpoint_boron,
         })
     }

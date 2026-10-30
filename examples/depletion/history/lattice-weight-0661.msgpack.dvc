@@ -1,0 +1,5 @@
+outs:
+- md5: ceb641052150f4dadbe17ce3906f9171
+  size: 55150755
+  hash: md5
+  path: lattice-weight-0661.msgpack
