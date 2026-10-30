@@ -119,9 +119,9 @@ class Compare(unittest.TestCase):
         # w = (H − H⁰) / (Hᵇ − H⁰) は 20 MWd/kg で 1/2、続ける点で 0
         self.assertAlmostEqual(last["weight"], 0.5, places=12)
         self.assertEqual(rows[0]["weight"], 0.0)
-        # 参照の分岐は格子計算の履歴の点を再現する（第 1 項）
+        # 参照の分岐は格子計算の履歴の点を再現する
         self.assertAlmostEqual(
-            last["first_term_pcm"],
+            last["reference_history_pcm"],
             r.rho(k_reference) - r.rho(history()["points"][2]["k_inf"]),
             places=9,
         )
@@ -196,6 +196,23 @@ class Compare(unittest.TestCase):
         self.assertIsNone(s["rows"][0]["needed_weight"])
         self.assertEqual([x["omega"] for x in s["omegas"]], [1.25, 1.5, 2.0, 2.5])
         self.assertIn("ω = 2", c.report(s))
+
+    def test_reference_densities_follow_the_burnup_of_each_state(self):
+        # N̄ᵢ は燃焼度の点の順、状態は points の順。状態を燃焼度の逆に並べても同じ要約になる
+        corrected, plain = cores()
+        swapped = reference()
+        swapped["points"] = [[1, 0, 0, 0], [0, 0, 0, 0]]
+        swapped["states"] = swapped["states"][::-1]
+        swapped["micro"]["states"] = swapped["micro"]["states"][::-1]
+        s = c.compare(table(), swapped, history(), corrected, plain, SUMMARY)
+        self.assertEqual(s["rows"], compared()["rows"])
+
+    def test_the_core_history_summary_is_made_from_the_same_table_and_core(self):
+        md5s = {c.FILES["residual_table"]: "a", c.FILES["core"]: "b"}
+        c.check_core_history({"inputs": dict(md5s)}, md5s)
+        for key in md5s:
+            with self.assertRaises(SystemExit):
+                c.check_core_history({"inputs": dict(md5s, **{key: "x"})}, md5s)
 
     def test_runs_that_do_not_match_the_reference_are_errors(self):
         corrected, plain = cores()
