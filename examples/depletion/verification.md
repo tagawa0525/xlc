@@ -5057,14 +5057,14 @@ python3 compare_residual.py --report residual.json
 
 ### 計算
 
-ブランチ feat/0190-history-residual-lattice（分岐点は main の 9a69db2a）、2026-10-30。格子計算の 4 本は 427650f2 でコミットした入力を、
+ブランチ feat/0190-history-residual-lattice（分岐点は main の 9a69db2a）、2026-10-30。格子計算の 4 本は cf6b5b63 でコミットした入力を、
 main の `bin/lattice`（md5 1aff0b5f。分岐点の `dvc.lock` の `build` の出力）で解いた: 履歴の分岐の燃焼（Slurm 621）、公称のテーブル（622）、
 第 1 項（623）、逆向き（624）。どれも割り込まれうるジョブなので時間は記録に使わない。公称の履歴（`p2/lattice-2A.msgpack`）は `p2/dvc.lock` の bin/lattice md5
 4ae624f3（69c1e879 の build）で解いたもので、そこから 1aff0b5f（8bfa377d）までの lattice の差は分岐（`history.rs`、`branches.rs`）、入力の
 `[history]` の項目、テーブルの形式で、燃焼の経路（`depletion.rs`、`main.rs` の燃焼の段、`xlc-depletion`）は同じ（git diff で確かめた）。
 履歴は md5 a30302d3、テーブルは公称が 7b5fa50b、
-第 1 項が a8f35287、逆向きが e0b74465（追跡しない生成物）。R の書き足しは a870f559 の `lattice histories`（`cargo build --release` の
-`target/release/lattice`、md5 73c11889）で、出力は md5 3d73faee。比較は a870f559 で手元。
+第 1 項が a8f35287、逆向きが e0b74465（追跡しない生成物）。R の書き足しは 771cccf3 の `lattice histories`（`cargo build --release` の
+`target/release/lattice`、md5 73c11889）で、出力は md5 3d73faee。比較は 771cccf3 で手元。
 
 ### 結果
 
