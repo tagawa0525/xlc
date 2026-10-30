@@ -17,8 +17,9 @@
   k との差（丸めだけ）
 - 逆向きの R: 公称の条件の状態で同じ式で作った残り R⁰ = f(分岐の組成、公称の条件) − (公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ) の効き
   ρ(逆向きの定数) − ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ)。依存 = R の効き − 逆向きの R の効き
-- 公称の状態で使った誤差: ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ + R) − ρ(逆向きの定数)。core が条件 j の R を公称の状態のノードに足したときの
-  誤差（R は瞬時の状態に依らないと置く。ADR-0215）
+- 公称の状態での R: ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ + R) − ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ)。条件 j の R の、公称の状態での効き
+- 公称の状態で使った誤差: ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ + R) − ρ(逆向きの定数) = 公称の状態での R − 逆向きの R。core が条件 j の R を
+  公称の状態のノードに足したときの誤差（R は瞬時の状態に依らないと置く。ADR-0215）
 - 第 1 項: ρ(分岐のテーブルの k∞) − ρ(履歴の分岐の燃焼の点の k∞)（ADR-0187 の確認と同じ比べ方）
 
 ρ は反応度 1 − 1/k で、差は pcm。2 群の k は少数群定数（全断面積、散乱行列、νΣf、χ）の無限媒質の固有値で、テーブルの k∞ との差
@@ -228,6 +229,7 @@ def compare(nominal, branch, reverse, history):
         k_linear_j = k_inf(linear_j)
         k_with_r = k_inf(added(linear_j, r))
         k_linear_0 = k_inf(linear_0)
+        k_with_r_0 = k_inf(added(linear_0, r))
         residual_pcm = rho(k_with_r) - rho(k_linear_j)
         reverse_pcm = rho(k_inf(fr)) - rho(k_linear_0)
         if u not in history_k:
@@ -242,7 +244,8 @@ def compare(nominal, branch, reverse, history):
                 "reproduce_constants_pcm": rho(k_with_r) - rho(k_inf(fb)),
                 "reverse_residual_pcm": reverse_pcm,
                 "dependence_pcm": residual_pcm - reverse_pcm,
-                "applied_pcm": rho(k_inf(added(linear_0, r))) - rho(k_inf(fr)),
+                "residual_nominal_pcm": rho(k_with_r_0) - rho(k_linear_0),
+                "applied_pcm": rho(k_with_r_0) - rho(k_inf(fr)),
                 "first_term_pcm": rho(fb["k_inf"]) - rho(history_k[u]),
             }
         )
@@ -282,7 +285,9 @@ def report(summary):
         f"R を足した定数の 2 群の k は、分岐のテーブルの k∞ を最大 {largest('reproduce_pcm')}、分岐の定数の 2 群の k を最大 "
         f"{largest('reproduce_constants_pcm')} の差で再現する。"
         f"\n状態への依存（R の効き − 逆向きの R の効き）は {span('dependence_pcm')} pcm（絶対値の最大 {largest('dependence_pcm')}）。"
-        f"条件の R を公称の状態で使った誤差は {span('applied_pcm')} pcm（絶対値の最大 {largest('applied_pcm')}）。"
+        f"条件の R を公称の状態で使った誤差は {span('applied_pcm')} pcm（絶対値の最大 {largest('applied_pcm')}。"
+        f"最後の点の公称の状態での R の効きは {last['residual_nominal_pcm']:+.2f} pcm、逆向きの R は "
+        f"{last['reverse_residual_pcm']:+.2f} pcm）。"
         f"\n第 1 項の分岐は履歴の分岐の燃焼の点の k∞ を最大 {largest('first_term_pcm')} の差で再現する。2 群の k とテーブルの k∞ の"
         f"差は最大 {summary['self_check_pcm']:.2e} pcm"
     )
