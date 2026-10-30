@@ -1517,6 +1517,36 @@ def micro_linearization_part(part: str, sources: list[dict]) -> str:
     )
 
 
+def micro_linearization_single(sources: list[dict]) -> str:
+    """ミクロ燃焼の線形の補正の、1 核種だけの組成の誤差（#0191）の内訳（pcm）: その核種の項、ほかの核種と燃焼させない物質、χ、交差の項"""
+    s = micro_split_summary(sources)
+    name = s["rows"][0]["single"]["nuclide"]
+    rows = []
+    for r in s["rows"]:
+        p = r["single"]["split"]
+        rows.append(
+            [
+                f"{burnup_label(r['from'])} → {burnup_label(r['to'])}",
+                signed(p["whole_pcm"], 2),
+                signed(p["nuclides"][name], 2),
+                signed(p["others_pcm"], 2),
+                signed(p["chi_pcm"], 2),
+                signed(p["cross_pcm"], 2),
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "誤差 (pcm)",
+            name,
+            "ほかの核種と燃焼させない物質",
+            "χ",
+            "交差",
+        ],
+        rows,
+    )
+
+
 def history_effect_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-history-effect":
@@ -2547,6 +2577,10 @@ TABLES = {
     "depletion-micro-linearization-shielding": (
         ["examples/depletion/micro/split.json"],
         partial(micro_linearization_part, "shielding"),
+    ),
+    "depletion-micro-linearization-single": (
+        ["examples/depletion/micro/split.json"],
+        micro_linearization_single,
     ),
     "depletion-history-effect-density": (
         ["examples/depletion/history/history-effect.json"],
