@@ -1,3 +1,4 @@
+use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Resolved, Shielded};
 use xlc_format::table::Axis;
 
@@ -1287,4 +1288,287 @@ fn a_shielding_history_must_match_the_branch_history() {
     // 自己遮蔽の履歴のない分岐は、作り直す物質を持たない
     let plain = branches_of(&text, &history, &library).unwrap();
     assert!(plain.remixed().is_empty());
+}
+
+/// `micro` に U-235 と Xe-135 を挙げ、両方の数密度の微分を摂動の割合 `perturbation` で求める分岐の入力（燃焼度 0 と 2.0）
+fn derivative_input(perturbation: f64) -> String {
+    format!(
+        "{}micro = [\"U-235\", \"Xe-135\"]\nderivative = [\"Xe-135\", \"U-235\"]\nperturbation = {perturbation}\n",
+        branch_input("[0, 2.0]", "[600]")
+    )
+}
+
+/// 物質 `perturbed` が、燃焼の領域（名前に `@` を含む）の核種 `name` の数密度だけを `nominal` の (1 + `fraction`) 倍にしたものであること
+fn assert_scaled(
+    perturbed: &[MaterialInput],
+    nominal: &[MaterialInput],
+    name: &str,
+    fraction: f64,
+) {
+    assert_eq!(perturbed.len(), nominal.len());
+    let mut scaled = 0;
+    for (p, n) in perturbed.iter().zip(nominal) {
+        assert_eq!(p.name, n.name);
+        assert_eq!(p.temperature, n.temperature);
+        if !n.name.contains('@') {
+            assert_eq!(p, n);
+            continue;
+        }
+        assert_eq!(p.composition.len(), n.composition.len());
+        for ((a, x), (b, y)) in p.composition.iter().zip(&n.composition) {
+            assert_eq!(a, b);
+            if a == name {
+                assert_eq!(*x, y * (1.0 + fraction), "{} {a}", n.name);
+                scaled += 1;
+            } else {
+                assert_eq!(x, y, "{} {a}", n.name);
+            }
+        }
+    }
+    assert!(scaled > 0, "no depleted region holds {name}");
+}
+
+#[test]
+fn perturbed_states_scale_only_the_derivative_nuclide_in_the_depletion_regions() {
+    let (history, library) = history();
+    let text = derivative_input(0.25);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    assert_eq!(branches.derivative_nuclides(), ["Xe-135", "U-235"]);
+    for index in 0..branches.len() {
+        for (j, name) in ["Xe-135", "U-235"].into_iter().enumerate() {
+            assert_scaled(
+                &branches.perturbed_state(index, j),
+                &branches.state(index),
+                name,
+                0.25,
+            );
+            // 自己遮蔽の参照（公称のホウ素。ADR-0201）も同じ核種を同じ割合で変えた組成で、摂動の組成を公称の組成と同じに扱う
+            if let Some((point, r)) = branches.reference(index) {
+                assert_scaled(
+                    &branches.perturbed_reference_state(point, r, j),
+                    &branches.reference_state(point, r),
+                    name,
+                    0.25,
+                );
+            }
+        }
+    }
+    // 自己遮蔽の履歴（#0191）を与えた分岐は、自己遮蔽をその履歴の組成に固定するので、摂動の参照もその組成のまま
+    let mut fixed = branches_of(&text, &history, &library).unwrap();
+    fixed.shield_with(&previous_points(&history)).unwrap();
+    for index in 0..fixed.len() {
+        let (point, r) = fixed.reference(index).unwrap();
+        assert_eq!(
+            fixed.perturbed_reference_state(point, r, 1),
+            fixed.reference_state(point, r)
+        );
+    }
+}
+
+/// 2 群の少数群定数の全断面積、νΣf、Σf、散乱行列に、それぞれ `delta` を足したもの
+fn shifted(few: &FewGroup, delta: f64) -> FewGroup {
+    let mut out = few.clone();
+    for g in 0..2 {
+        out.total[g] += delta;
+        out.nu_fission[g] += 2.0 * delta;
+        out.fission[g] += 3.0 * delta;
+        for to in 0..2 {
+            out.scatter[g][to] += 4.0 * delta;
+        }
+    }
+    out
+}
+
+/// 分岐の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
+fn solve_state(
+    s: &Setup,
+    library: &Library,
+    branches: &HistoryBranches,
+    shielder: &mut BranchShielder,
+    index: usize,
+) -> (FewGroup, Vec<xlc_format::table::MicroNuclide>) {
+    let reference = branches.reference(index);
+    let shielded = shielder
+        .shield_state(library, &branches.state(index), reference, || {
+            let (point, r) = reference.unwrap();
+            branches.reference_state(point, r)
+        })
+        .unwrap();
+    let (few, solution) = homogenized(s, library, &shielded);
+    let micro = branches
+        .micro(
+            index,
+            library,
+            shielded.fuel(),
+            &s.tracking.lattice,
+            &solution,
+            &BOUNDS,
+        )
+        .unwrap();
+    (few, micro)
+}
+
+/// 自己遮蔽した状態を MOC（`tight`）で解いた、格子全体の少数群定数と MOC の解
+fn homogenized(
+    s: &Setup,
+    library: &Library,
+    shielded: &crate::branches::StateShielding,
+) -> (FewGroup, crate::moc::Solution) {
+    let (materials, region_material) = (shielded.materials(), shielded.region_material());
+    let regions: Vec<&Material> = region_material.iter().map(|&i| &materials[i]).collect();
+    let options = Options {
+        scattering_order: available_order(&regions),
+        ..tight()
+    };
+    let solution = solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc()).unwrap();
+    let few = crate::fewgroup::homogenize(
+        &solution,
+        &regions,
+        &library.groups,
+        &BOUNDS,
+        &s.tracking.boundaries(),
+    )
+    .unwrap();
+    (few, solution)
+}
+
+#[test]
+fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
+    // ∂Σ/∂N̄ᵢ = (Σ(摂動) − Σ(状態)) / (ε N̄ᵢ)（ADR-0221）。摂動の輸送の代わりに定数を足した少数群定数を返し、割る量と単位を確かめる
+    let (history, library) = history();
+    let text = derivative_input(0.25);
+    let s = setup(&text);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        s.input.branches.as_ref().unwrap().varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    // 燃焼度 2.0 の公称（1000 ppm）の状態。どちらの核種も数密度が正
+    let index = 3;
+    let point = 1;
+    let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let delta = 1.0e-3;
+    let mut solved = Vec::new();
+    branches
+        .add_derivatives(index, &mut micro, &nominal, |j, state, _, _| {
+            assert_scaled(state, &branches.state(index), ["Xe-135", "U-235"][j], 0.25);
+            solved.push(j);
+            Ok(shifted(&nominal, delta))
+        })
+        .unwrap();
+    assert_eq!(solved, [0, 1]);
+    // `micro` の並び（U-235、Xe-135）の核種に、微分の並び（Xe-135、U-235）の微分が入る
+    for (m, name) in ["U-235", "Xe-135"].into_iter().enumerate() {
+        let change = 0.25 * branches.micro_densities()[point][m];
+        assert!(change > 0.0, "{name}");
+        let d = micro[m].derivative.as_ref().unwrap();
+        for g in 0..2 {
+            let close = |got: f64, want: f64, item: &str| {
+                assert!(
+                    (got - want).abs() <= 1e-9 * want.abs(),
+                    "{name} {item} {g}: {got} vs {want}"
+                );
+            };
+            close(d.total[g], delta / change, "total");
+            close(d.nu_fission[g], 2.0 * delta / change, "nu-fission");
+            close(d.fission[g], 3.0 * delta / change, "fission");
+            for to in 0..2 {
+                close(d.scatter[g][to], 4.0 * delta / change, "scatter");
+            }
+        }
+    }
+}
+
+#[test]
+fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent() {
+    // 燃焼度 0 の Xe-135 は N̄ᵢ = 0 で、Σ = N σ̄(N) の dΣ/dN は N = 0 で σ̄(0) に等しいので、摂動を解かず σᵢ（ADR-0216 の案 Z1）
+    let (history, library) = history();
+    let text = derivative_input(0.1);
+    let s = setup(&text);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        s.input.branches.as_ref().unwrap().varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    let index = 1;
+    assert_eq!(branches.micro_densities()[0][1], 0.0);
+    let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let mut solved = Vec::new();
+    branches
+        .add_derivatives(index, &mut micro, &nominal, |j, _, _, _| {
+            solved.push(j);
+            Ok(shifted(&nominal, 1.0e-3))
+        })
+        .unwrap();
+    // U-235（微分の 2 つ目）だけを解く
+    assert_eq!(solved, [1]);
+    let xenon = &micro[1];
+    let d = xenon.derivative.as_ref().unwrap();
+    assert_eq!(d.total, xenon.total);
+    assert_eq!(d.nu_fission, xenon.nu_fission);
+    assert_eq!(d.fission, xenon.fission);
+    assert_eq!(d.scatter, xenon.scatter);
+    assert!(micro[0].derivative.is_some());
+}
+
+#[test]
+fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
+    // 前進差分の誤差は摂動の割合 ε に比例するので、ε を倍にしたときの微分の変わり方は、その前の倍の変わり方の約 2 倍（ADR-0221）。
+    // 摂動の組成は自己遮蔽（公称のホウ素の参照）から解き直す
+    let (history, library) = history();
+    let index = 3;
+    let derivative_at = |fraction: f64| -> Vec<xlc_format::table::MicroDerivative> {
+        let text = derivative_input(fraction);
+        let s = setup(&text);
+        let branches = branches_of(&text, &history, &library).unwrap();
+        let varied = s.input.branches.as_ref().unwrap().varied();
+        let new = || {
+            BranchShielder::new(
+                &s.tracking,
+                &branches.region_materials,
+                varied,
+                s.chosen.shielding(),
+                s.input.shielding_options(),
+            )
+        };
+        let mut shielder = new();
+        let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+        let mut perturbed = [new(), new()];
+        branches
+            .add_derivatives(index, &mut micro, &nominal, |j, state, reference, build| {
+                let shielded = perturbed[j].shield_state(&library, state, reference, || build())?;
+                Ok(homogenized(&s, &library, &shielded).0)
+            })
+            .unwrap();
+        micro.into_iter().map(|m| m.derivative.unwrap()).collect()
+    };
+    let at = [0.02, 0.04, 0.08].map(derivative_at);
+    for (m, name) in ["U-235", "Xe-135"].into_iter().enumerate() {
+        let items = |d: &xlc_format::table::MicroDerivative| -> Vec<f64> {
+            let mut v = Vec::new();
+            v.extend(&d.total);
+            v.extend(&d.nu_fission);
+            v.extend(d.scatter.iter().flatten());
+            v
+        };
+        let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
+        for k in 0..a.len() {
+            let (first, second) = (b[k] - a[k], c[k] - b[k]);
+            // 打ち切りの誤差より小さい変化（核分裂のない核種の νΣf の変化など）は比べない
+            if first.abs() <= 1e-6 * a[k].abs().max(1e-30) {
+                continue;
+            }
+            let ratio = second / first;
+            assert!(
+                (ratio - 2.0).abs() <= 0.2,
+                "{name} item {k}: {a:?} {b:?} {c:?} (ratio {ratio})"
+            );
+        }
+    }
 }
