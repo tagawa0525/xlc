@@ -33,7 +33,8 @@ FRESH_TOLERANCE_PCM = 1e-6
 # 組成の差の相対値を出す核種
 NUCLIDES = ("U-235", "Pu-239", "Pu-241", "Xe-135", "Sm-149")
 FILES = {"nominal": "table-nominal.msgpack", "shifted": "table-shifted.msgpack"}
-# 要約の文章で分ける燃焼度 (MWd/kg)。この点から後の組と前の組で誤差の符号が違う（verification.md）
+# 要約の文章で分ける燃焼度 (MWd/kg)。σᵢ の係数の誤差は、この点から後の組と前の組で符号が違う（verification.md）。微分の係数の誤差も
+# 同じ点で分けて σᵢ の係数と並べる（ADR-0221 の確認が 5 MWd/kg より後の組で見込みを立てたため）
 LATE_BURNUP = 5.0
 
 
