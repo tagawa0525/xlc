@@ -160,6 +160,23 @@ class Split(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(t, summary([0.0, 0.5]))
 
+    def test_density_paths_at_other_weights_than_a_half_and_one_are_errors(self):
+        t = tables()
+        # w = 0.5 と 1 を取り違えた組
+        t["nominal_half"], t["nominal_full"] = t["nominal_full"], t["nominal_half"]
+        t["half"], t["full"] = t["full"], t["half"]
+        t["half_hybrid"], t["full_hybrid"] = t["full_hybrid"], t["half_hybrid"]
+        with self.assertRaises(SystemExit):
+            c.compare(t, summary([0.0, 0.5]))
+
+    def test_switch_summaries_of_another_nominal_table_are_errors(self):
+        md5s = {name: "aaa" for name in c.FILES.values()}
+        made = {"inputs": dict(md5s)}
+        c.check_summary(made, md5s)
+        made["inputs"][c.FILES["nominal"]] = "bbb"
+        with self.assertRaises(SystemExit):
+            c.check_summary(made, md5s)
+
     def test_the_condition_residual_is_the_branch_less_the_linear_correction(self):
         t = tables()
         last = c.compare(t, summary([0.0, 0.5]))["one"][-1]
