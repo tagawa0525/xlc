@@ -1,0 +1,5 @@
+outs:
+- md5: f2547b0037a6737a879831baa4494a44
+  size: 55150755
+  hash: md5
+  path: hybrid-residual-density.msgpack

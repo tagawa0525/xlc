@@ -1,0 +1,5 @@
+outs:
+- md5: b95aa56bbbb777bedc86647dbca644b7
+  size: 179463
+  hash: md5
+  path: table-hybrid-residual-density-branch.msgpack
