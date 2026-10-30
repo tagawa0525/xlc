@@ -287,6 +287,17 @@ def report(summary):
             f"{label}: {last:.4g} MWd/kg で {values}。R(1) の同じ燃焼度の値との比は"
             f" {later[0]:.4g}〜{last:.4g} MWd/kg の {len(later)} 点で {spans}"
         )
+    pairs = [(at("half", u), at("full", u)) for u in later]
+    lines.append(
+        f"密度だけの経路（それぞれの履歴の定数）: L の効きの比 L(0.702)/L(0.661) "
+        f"{span([ratio(h['linearization_pcm'], f['linearization_pcm']) for h, f in pairs], '.4f')}、"
+        f"E の比 {span([ratio(h['index_pcm'], f['index_pcm']) for h, f in pairs], '.4f')}、U の比 "
+        f"{span([ratio(h['untracked_pcm'], f['untracked_pcm']) for h, f in pairs], '.4f')}"
+        f"（{later[0]:.4g}〜{last:.4g} MWd/kg の {len(later)} 点）。最後の点で L の比 "
+        f"{pairs[-1][0]['linearization_pcm'] / pairs[-1][1]['linearization_pcm']:.4f}、E の比 "
+        f"{pairs[-1][0]['index_pcm'] / pairs[-1][1]['index_pcm']:.4f}、U の比 "
+        f"{pairs[-1][0]['untracked_pcm'] / pairs[-1][1]['untracked_pcm']:.4f}"
+    )
     rows = [x for x in summary["switch"] if x["burnup"] > u0]
     s = rows[-1]
     lines.append(
