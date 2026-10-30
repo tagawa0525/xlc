@@ -315,7 +315,7 @@ fn tables_with_history_residuals_need_micro_depleted_nodes() {
 
 use xlc_format::table::{
     HistoryCorrection, HistoryRod, MODERATOR_DENSITY, Micro, MicroDerivative, MicroNuclide,
-    MicroReaction, ROD_OUT, Residual, add_linear_correction,
+    MicroReaction, ROD_OUT, RateResidual, Residual, add_linear_correction,
 };
 
 use crate::state::State;
@@ -465,7 +465,21 @@ fn history_table(rods: &[&str]) -> Table {
             rod: ROD_OUT.into(),
             burnup: vec![0.0, 20.0],
             residuals,
-            micro: Vec::new(),
+            // 反応率の微視的断面積の差は 0（定数の補正だけを確かめる）
+            micro: vec![
+                vec![
+                    RateResidual {
+                        fission: vec![0.0; 2],
+                        reactions: vec![MicroReaction {
+                            mt: 102,
+                            channels: vec![vec![0.0; 2]],
+                        }],
+                        thermal_fission: Some(0.0),
+                    };
+                    2
+                ];
+                2
+            ],
         }],
     }];
     table.validate().unwrap();

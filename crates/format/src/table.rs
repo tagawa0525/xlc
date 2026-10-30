@@ -1085,6 +1085,76 @@ impl Table {
                         at()
                     ));
                 }
+                self.validate_rate_residuals(entry)
+                    .map_err(|e| format!("{}: {e}", at()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// 制御棒の値 `entry` の反応率の微視的断面積の差（ADR-0215 の案 S2）が、R の点ごとに追う核種の数だけあり、核種ごとの反応の並び
+    /// （MT と経路の数）と核分裂の有無がミクロ燃焼のデータ（状態の間で同じ）と同じで、群の数の有限の値であること
+    fn validate_rate_residuals(&self, entry: &HistoryRod) -> Result<(), String> {
+        let micro = self
+            .micro
+            .as_ref()
+            .ok_or("rate residuals need micro data")?;
+        let reference = micro
+            .states
+            .first()
+            .ok_or("the micro data have no states")?;
+        if entry.micro.len() != entry.burnup.len()
+            || entry.micro.iter().any(|row| row.len() != reference.len())
+        {
+            return Err(format!(
+                "the rate residuals must be {} rows of {} tracked nuclides",
+                entry.burnup.len(),
+                reference.len()
+            ));
+        }
+        let groups = self.states[0].bounds.len() - 1;
+        let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
+        for (k, row) in entry.micro.iter().enumerate() {
+            for (i, (r, n)) in row.iter().zip(reference).enumerate() {
+                let at = || format!("rate residual {k}, {}", micro.nuclides[i]);
+                let shape = |reactions: &[MicroReaction]| {
+                    reactions
+                        .iter()
+                        .map(|x| (x.mt, x.channels.len()))
+                        .collect::<Vec<_>>()
+                };
+                if shape(&r.reactions) != shape(&n.reactions) {
+                    return Err(format!(
+                        "{}: the reactions {:?} differ from those of the micro data {:?}",
+                        at(),
+                        shape(&r.reactions),
+                        shape(&n.reactions)
+                    ));
+                }
+                if !sized(&r.fission)
+                    || !r
+                        .reactions
+                        .iter()
+                        .flat_map(|x| &x.channels)
+                        .all(|c| sized(c))
+                {
+                    return Err(format!(
+                        "{}: the differences must have {groups} finite groups",
+                        at()
+                    ));
+                }
+                match (r.thermal_fission, n.thermal_fission) {
+                    (Some(f), Some(_)) if f.is_finite() => {}
+                    (None, None) => {}
+                    _ => {
+                        return Err(format!(
+                            "{}: the difference of the fission below the yield cutoff must be finite for fissile \
+                             nuclides and nil for the others, got {:?}",
+                            at(),
+                            r.thermal_fission
+                        ));
+                    }
+                }
             }
         }
         Ok(())
