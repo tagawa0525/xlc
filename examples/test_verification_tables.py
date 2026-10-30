@@ -1123,6 +1123,126 @@ class DrawBranchCrossTerms(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawCoreHistory(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_core_history.py の要約（R の点 2 つ、燃焼点 3 つ）"""
+        return {
+            "format": "xlc-compare-core-history",
+            "applied_max_pcm": 18.5,
+            "branch_rows": [
+                {
+                    "burnup": 0.0,
+                    "k": 1.183,
+                    "table_k_inf": 1.183,
+                    "difference_pcm": -0.0404,
+                    "nominal_difference_pcm": -0.0398,
+                    "reconstruct_pcm": 1.2e-10,
+                },
+                {
+                    "burnup": 19.999999999999996,
+                    "k": 0.97411620,
+                    "table_k_inf": 0.97412627,
+                    "difference_pcm": -1.0614,
+                    "nominal_difference_pcm": -1.0501,
+                    "reconstruct_pcm": -3.4e-9,
+                },
+            ],
+            "switch_rows": [
+                {
+                    "burnup": 0.0,
+                    "state": "nominal",
+                    "history": 0.743,
+                    "weight": 0.0,
+                    "bound_pcm": 0.0,
+                    "residual_pcm": 0.0,
+                    "applied_bound_pcm": 0.0,
+                    "reconstruct_pcm": 0.0,
+                },
+                {
+                    "burnup": 22.000000000000004,
+                    "state": "branch",
+                    "history": 0.7355454545,
+                    "weight": 0.0909090909,
+                    "bound_pcm": 1.6818,
+                    "residual_pcm": None,
+                    "applied_bound_pcm": None,
+                    "reconstruct_pcm": None,
+                },
+                {
+                    "burnup": 26.0,
+                    "state": "branch",
+                    "history": 0.7240769231,
+                    "weight": 0.2307692308,
+                    "bound_pcm": 4.2692,
+                    "residual_pcm": -32.4567,
+                    "applied_bound_pcm": 0.8169,
+                    "reconstruct_pcm": 2.0e-10,
+                },
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_branch_rows_compare_the_core_with_the_first_term_and_the_nominal(self):
+        table = vt.core_history_branch([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "core の k",
+                "第 1 項の k∞",
+                "core − 第 1 項 (pcm)",
+                "公称: core − テーブル (pcm)",
+                "組み立ての差 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["0", "1.18300000", "1.18300000", "−0.040", "−0.040", "+1.2e-10"],
+                ["20", "0.97411620", "0.97412627", "−1.061", "−1.050", "−3.4e-09"],
+            ],
+        )
+
+    def test_switch_rows_show_the_weight_and_the_bounds_per_point(self):
+        table = vt.core_history_switch([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "状態",
+                "H (g/cc)",
+                "w",
+                "R の効き (pcm)",
+                "点の誤差の上限 (pcm)",
+                "w × 18.50 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["0", "nominal", "0.743000", "0.0000", "0.00", "0.00", "0.00"],
+                ["22", "branch", "0.735545", "0.0909", "–", "–", "1.68"],
+                ["26", "branch", "0.724077", "0.2308", "−32.46", "0.82", "4.27"],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_history_branch([{"format": "xlc-compare-history-residual"}])
+        with self.assertRaises(vt.TableError):
+            vt.core_history_switch([{"format": "xlc-compare-history-residual"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in ("depletion-core-history-branch", "depletion-core-history-switch"):
+            (sources, _) = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/history/core-history.json"])
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod
     def summary() -> dict:

@@ -4,7 +4,7 @@
 //! R(u) = f(履歴の分岐の組成、条件 j) − f(公称の組成、条件 j) − Σᵢ cᵢ(条件 j、u) (N̄ᵢ^j(u) − N̄ᵢ^0(u))
 //!
 //! を作り、公称のテーブルの `histories` に書き足す。第 2 項と係数 cᵢ は公称のテーブルの条件 j の状態の値で、cᵢ は core の線形の補正と
-//! 同じ（数密度の微分を持つ核種は ∂Σ/∂N̄ᵢ、ほかは σᵢ。吸収は全断面積の係数から散乱の行の和を引いたもの。ADR-0216、ADR-0221）。
+//! 同じ関数（`xlc_format::table::add_linear_correction`。数密度の微分を持つ核種は ∂Σ/∂N̄ᵢ、ほかは σᵢ。ADR-0216、ADR-0221）。
 //! N̄ᵢ^j と N̄ᵢ^0 はそれぞれのテーブルの均質化した数密度。補正を持たない項目（χ、拡散係数、ADF）の R は 2 つの定数の差。
 //!
 //! 使い方: lattice histories <入力ファイル>（ファイルのパスは入力ファイルのあるディレクトリから）
@@ -29,7 +29,8 @@ use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{
-    Axis, HistoryCorrection, HistoryRod, MODERATOR_DENSITY, MicroNuclide, ROD_OUT, Residual, Table,
+    Axis, HistoryCondition, HistoryCorrection, HistoryRod, ROD_OUT, Residual, Table,
+    add_linear_correction,
 };
 
 use crate::checkpoint::write_synced;
@@ -103,37 +104,6 @@ impl ResidualInput {
     }
 }
 
-/// 公称の状態の少数群定数 `state` に、線形の補正 Σᵢ cᵢ Δᵢ を足したもの（core の `micro::correct` と同じ式。足す順も同じ）。`micro` は
-/// 追う核種の係数の元（数密度の微分を持てばその微分、なければ微視的断面積）、`delta` は核種ごとの数密度の差 (1/(barn cm))。吸収の係数は
-/// 全断面積の係数から散乱の行の和を引いたもの。χ、拡散係数、ADF、k∞ は変えない
-pub fn linear(state: &FewGroup, micro: &[MicroNuclide], delta: &[f64]) -> FewGroup {
-    let mut f = state.clone();
-    for (sigma, &d) in micro.iter().zip(delta) {
-        if d == 0.0 {
-            continue;
-        }
-        let (total, nu_fission, fission, scatter) = match &sigma.derivative {
-            Some(c) => (&c.total, &c.nu_fission, &c.fission, &c.scatter),
-            None => (
-                &sigma.total,
-                &sigma.nu_fission,
-                &sigma.fission,
-                &sigma.scatter,
-            ),
-        };
-        for (g, row) in scatter.iter().enumerate() {
-            f.total[g] += d * total[g];
-            f.absorption[g] += d * (total[g] - row.iter().sum::<f64>());
-            f.nu_fission[g] += d * nu_fission[g];
-            f.fission[g] += d * fission[g];
-            for (a, s) in f.scatter[g].iter_mut().zip(row) {
-                *a += d * s;
-            }
-        }
-    }
-    f
-}
-
 /// 公称のテーブル `nominal` の、変数 `variable` の履歴の補正を、制御棒の値ごとの履歴の分岐の自分の条件のテーブル `branches` から作る。
 /// 変数の値 H⁰ と Hᵇ は制御棒の値によらず同じこと
 pub fn history_correction(
@@ -194,9 +164,6 @@ pub fn residuals(
     rod: &str,
     branch: &Table,
 ) -> anyhow::Result<(f64, f64, HistoryRod)> {
-    if variable != MODERATOR_DENSITY {
-        bail!("unknown history variable {variable:?} ({MODERATOR_DENSITY}. ADR-0215)");
-    }
     let micro = nominal
         .micro
         .as_ref()
@@ -245,77 +212,46 @@ pub fn residuals(
     if !branch_rod && rod != ROD_OUT {
         bail!("the branch table has no rod axis, so its rod value is {ROD_OUT}, not {rod}");
     }
-    // 公称のテーブルの、条件 j の点（燃焼度の番号は後で入れる）
-    let burnup_axis = nominal
+    // 変数の値 Hᵇ は、分岐のテーブルの条件の減速材の密度
+    let hb = condition
+        .iter()
+        .find_map(|v| match v {
+            Value::Moderator(_, density) => Some(*density),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow!("the branch table has no moderator axis for {variable}"))?;
+    // 公称のテーブルの条件 j の格子点（テーブルの検査と同じ規則）
+    let HistoryCondition {
+        nominal: h0,
+        mut point,
+        burnup_axis,
+    } = nominal
+        .history_condition(variable, hb, rod)
+        .map_err(|e| anyhow!(e))?;
+    // 分岐のテーブルの条件の値（減速材は温度と密度の組）が、その格子点の値と同じこと。公称のテーブルに無い軸の値も、分岐の
+    // テーブルに無い軸の値も推測しない（違う値の効きが R に混ざる）
+    let at_point: Vec<Value> = nominal
         .axes
         .iter()
-        .position(|a| matches!(a, Axis::Burnup { .. }))
-        .ok_or_else(|| anyhow!("the nominal table has no burnup axis"))?;
-    let mut point = vec![0; nominal.axes.len()];
-    let mut differs: Vec<&'static str> = Vec::new();
-    // 照らした分岐の値（公称のテーブルに無い軸の値を捨てない）
-    let mut matched: Vec<Value> = Vec::new();
-    for (k, axis) in nominal.axes.iter().enumerate() {
-        point[k] = match axis {
-            Axis::Burnup { .. } => 0,
-            Axis::Rod { values } => values.iter().position(|v| v == rod).ok_or_else(|| {
-                anyhow!("rod value {rod} is not a value of the nominal rod axis {values:?}")
-            })?,
-            _ => {
-                let i = (0..axis.len())
-                    .find(|&i| value(axis, i).is_some_and(|v| condition.contains(&v)))
-                    .ok_or_else(|| {
-                        anyhow!(
-                            "the branch condition {condition:?} is not at a point of the nominal {} axis",
-                            axis.name()
-                        )
-                    })?;
-                let nominal_index = axis
-                    .nominal_index()
-                    .ok_or_else(|| anyhow!("the nominal table has no nominal values"))?;
-                if i != nominal_index {
-                    differs.push(axis.name());
-                }
-                matched.extend(value(axis, i));
-                i
-            }
-        };
-    }
-    if !nominal.axes.iter().any(|a| matches!(a, Axis::Rod { .. })) && rod != ROD_OUT {
-        bail!("the nominal table has no rod axis, so its rod value is {ROD_OUT}, not {rod}");
-    }
-    if let Some(lost) = condition.iter().find(|v| !matched.contains(v)) {
-        let name = match lost {
-            Value::Boron(..) => "boron",
-            Value::Moderator(..) => "moderator",
-            Value::Fuel(..) => "fuel",
-        };
-        bail!(
-            "the branch condition {lost:?} is on the {name} axis, which the nominal table does not have"
-        );
-    }
-    if differs != ["moderator"] {
-        bail!(
-            "the branch condition of {variable} must differ from the nominal state on the moderator axis only, \
-             it differs on {differs:?}"
-        );
-    }
-    let moderator = nominal
-        .axes
-        .iter()
-        .position(|a| matches!(a, Axis::Moderator { .. }))
-        .ok_or_else(|| anyhow!("the nominal table has no moderator axis"))?;
-    let Axis::Moderator { density, .. } = &nominal.axes[moderator] else {
-        bail!("the nominal table has no moderator axis");
+        .zip(&point)
+        .filter_map(|(axis, &i)| value(axis, i))
+        .collect();
+    let name = |v: &Value| match v {
+        Value::Boron(..) => "boron",
+        Value::Moderator(..) => "moderator",
+        Value::Fuel(..) => "fuel",
     };
-    let nominal_index = nominal.axes[moderator]
-        .nominal_index()
-        .ok_or_else(|| anyhow!("the nominal table has no nominal values"))?;
-    let (h0, hb) = (density[nominal_index], density[point[moderator]]);
-    // 変数の差 Hᵇ − H⁰ で core が重みを割る
-    if hb == h0 {
+    if let Some(lost) = condition.iter().find(|v| !at_point.contains(v)) {
         bail!(
-            "the branch condition has the nominal moderator density {h0} (only the temperature differs)"
+            "the branch condition {lost:?} on the {} axis is not the value at the condition point {at_point:?} of \
+             the nominal table (the moderator at the density {hb}, the other axes nominal)",
+            name(lost)
+        );
+    }
+    if let Some(missing) = at_point.iter().find(|v| !condition.contains(v)) {
+        bail!(
+            "the branch table has no {} axis for the condition value {missing:?} of the nominal table",
+            name(missing)
         );
     }
     // 公称のテーブルが条件 j を解いた燃焼度の点が、分岐のテーブルの燃焼度の点
@@ -353,7 +289,8 @@ pub fn residuals(
                 .zip(&micro.densities[u])
                 .map(|(nj, n0)| nj - n0)
                 .collect();
-            let corrected = linear(&nominal.states[p], &micro.states[p], &delta);
+            let mut corrected = nominal.states[p].clone();
+            add_linear_correction(&mut corrected, &micro.states[p], &delta);
             Ok(difference(&branch.states[k], &corrected))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;

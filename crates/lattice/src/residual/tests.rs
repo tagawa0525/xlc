@@ -1,8 +1,15 @@
 use xlc_format::table::{
-    Axis, MODERATOR_DENSITY, Micro, MicroDerivative, MicroReaction, ROD_OUT, Residual,
+    Axis, MODERATOR_DENSITY, Micro, MicroDerivative, MicroNuclide, MicroReaction, ROD_OUT, Residual,
 };
 
 use super::*;
+
+/// 公称の状態の定数 `state` に、線形の補正を足したもの
+fn linear(state: &FewGroup, micro: &[MicroNuclide], delta: &[f64]) -> FewGroup {
+    let mut f = state.clone();
+    add_linear_correction(&mut f, micro, delta);
+    f
+}
 
 /// 2 群の少数群定数。`s` で値を変える（10 進で短く書けない値）
 fn few(s: f64) -> FewGroup {

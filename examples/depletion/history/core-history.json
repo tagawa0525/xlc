@@ -1,0 +1,2027 @@
+{
+ "format": "xlc-compare-core-history",
+ "variable": "moderator-density",
+ "nominal_value": 0.743,
+ "branch_value": 0.661,
+ "identical": true,
+ "applied_max_pcm": 18.504962483035342,
+ "branch_rows": [
+  {
+   "burnup": 0.0,
+   "k": 1.185458538302395,
+   "table_k_inf": 1.1854585555030503,
+   "difference_pcm": -0.0012239741554367356,
+   "nominal_difference_pcm": -0.0006475469708675519,
+   "reconstruct_pcm": -5.602414603345096e-07,
+   "composition_pcm": 0.0,
+   "nuclides": [
+    {
+     "nuclide": "U-234",
+     "pcm": 0.0,
+     "density_percent": 0.0,
+     "fission_percent": [
+      6.421669640488403e-07,
+      -1.8751745711753642e-07
+     ],
+     "capture_percent": [
+      -9.560557900911704e-07,
+      -1.8750117014576517e-07
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": 0.0,
+     "density_percent": 0.0,
+     "fission_percent": [
+      -8.082088553962308e-07,
+      -1.7904631111065328e-07
+     ],
+     "capture_percent": [
+      -8.849268429145241e-07,
+      -1.6134521496624643e-07
+     ]
+    },
+    {
+     "nuclide": "U-236",
+     "pcm": 0.0,
+     "density_percent": 0.0,
+     "fission_percent": [
+      1.8985175653796205e-07,
+      -1.6062466912103446e-07
+     ],
+     "capture_percent": [
+      -9.386201371697211e-07,
+      -1.6375365508025652e-07
+     ]
+    },
+    {
+     "nuclide": "U-238",
+     "pcm": 0.0,
+     "density_percent": 0.0,
+     "fission_percent": [
+      8.909389226374742e-07,
+      -1.667825988427296e-07
+     ],
+     "capture_percent": [
+      -7.493709652806047e-07,
+      -1.6559771331969841e-07
+     ]
+    },
+    {
+     "nuclide": "Np-237",
+     "pcm": 0.0,
+     "density_percent": null,
+     "fission_percent": [
+      6.67208821525378e-07,
+      -7.545467584080257e-08
+     ],
+     "capture_percent": [
+      -9.707999071295603e-07,
+      1.102147706433243e-07
+     ]
+    },
+    {
+     "nuclide": "Np-239",
+     "pcm": 0.0,
+     "density_percent": null,
+     "fission_percent": [
+      8.463375111844584e-07,
+      -1.6860400853246915e-07
+     ],
+     "capture_percent": [
+      -1.0456532195668444e-06,
+      2.577303259698738e-07
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 0.1,
+   "k": 1.1477202041866261,
+   "table_k_inf": 1.147604029048864,
+   "difference_pcm": 8.82033550322376,
+   "nominal_difference_pcm": 7.713964331402167,
+   "reconstruct_pcm": -1.2097443686798215e-06,
+   "composition_pcm": 8.824034714571098,
+   "nuclides": [
+    {
+     "nuclide": "Xe-135",
+     "pcm": 8.78536333402917,
+     "density_percent": -0.3555523698259955,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.005360499126583207,
+      -0.05357195442170504
+     ]
+    },
+    {
+     "nuclide": "Np-239",
+     "pcm": 0.027668779899613583,
+     "density_percent": -0.06950397855397528,
+     "fission_percent": [
+      0.0007712388426117656,
+      -0.02914174645630707
+     ],
+     "capture_percent": [
+      -0.00262285061056744,
+      0.04674215845466012
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -0.023137481286539696,
+     "density_percent": -0.06700950455194032,
+     "fission_percent": [
+      -0.0017405628621292024,
+      0.0034764342068616116
+     ],
+     "capture_percent": [
+      -0.0017099161299327648,
+      0.012333962544675003
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.022110911146228318,
+     "density_percent": -0.035057366428592474,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.004379571222379308,
+      -0.0513435499164383
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": 0.0040976187665364705,
+     "density_percent": 1.6228172983190348e-05,
+     "fission_percent": [
+      -0.0013525895075972016,
+      -0.031595859489774725
+     ],
+     "capture_percent": [
+      -0.001152441747331867,
+      -0.028186408536579055
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 0.0038917976180528058,
+     "density_percent": -0.5416480399901613,
+     "fission_percent": [
+      -0.000932284603250011,
+      -0.011817205650166418
+     ],
+     "capture_percent": [
+      -0.015551102532018746,
+      -0.01489135226558913
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 0.5,
+   "k": 1.140080244663006,
+   "table_k_inf": 1.1400698888158967,
+   "difference_pcm": 0.7967438765954284,
+   "nominal_difference_pcm": 0.09041896444978192,
+   "reconstruct_pcm": -1.3335102266864851e-06,
+   "composition_pcm": 0.7950487128546229,
+   "nuclides": [
+    {
+     "nuclide": "Xe-135",
+     "pcm": 0.7136067198607634,
+     "density_percent": -0.02887159324412858,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.022531199627739973,
+      -0.0771649255433493
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.18166755419042602,
+     "density_percent": -0.042147597016795046,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.01775639126584405,
+      -0.07265246756488208
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -0.1477545998095593,
+     "density_percent": -0.03411736825612577,
+     "fission_percent": [
+      -0.012981194823358244,
+      -0.018173870140225645
+     ],
+     "capture_percent": [
+      -0.015131171903615126,
+      -0.01002111796953864
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 0.022812308698121342,
+     "density_percent": -0.09281096411982714,
+     "fission_percent": [
+      -0.0013744837245588393,
+      -0.020379840266449012
+     ],
+     "capture_percent": [
+      -0.05634596969305017,
+      -0.02530163156593268
+     ]
+    },
+    {
+     "nuclide": "Np-239",
+     "pcm": 0.01956059628719231,
+     "density_percent": -0.02648839620044141,
+     "fission_percent": [
+      0.006888880821098731,
+      -0.047429477412486154
+     ],
+     "capture_percent": [
+      -0.013489494507645805,
+      0.09264293333979268
+     ]
+    },
+    {
+     "nuclide": "U-236",
+     "pcm": 0.004166348433500389,
+     "density_percent": -0.006769686960739207,
+     "fission_percent": [
+      -0.00437335924429183,
+      -0.04739037657256473
+     ],
+     "capture_percent": [
+      -0.025826569715636793,
+      -0.048226660516448305
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 1.0,
+   "k": 1.136111443775179,
+   "table_k_inf": 1.1361002766247887,
+   "difference_pcm": 0.8651766002749355,
+   "nominal_difference_pcm": -0.03532171519691474,
+   "reconstruct_pcm": -1.3877233868697658e-06,
+   "composition_pcm": 0.8612162484278088,
+   "nuclides": [
+    {
+     "nuclide": "Xe-135",
+     "pcm": 0.8919531170995469,
+     "density_percent": -0.03610769774703426,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.05078623458841802,
+      -0.10770251830826139
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -0.31374933728875476,
+     "density_percent": -0.03192825755968798,
+     "fission_percent": [
+      -0.028291385389422885,
+      -0.04667385227853371
+     ],
+     "capture_percent": [
+      -0.03276346978243749,
+      -0.039467503813650495
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.19644944818719523,
+     "density_percent": -0.0364246538971047,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.03958085438664494,
+      -0.10255183087771735
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 0.06890752026811242,
+     "density_percent": -0.0677645753108358,
+     "fission_percent": [
+      -0.007031329273643472,
+      -0.030867943030421507
+     ],
+     "capture_percent": [
+      -0.16018518855007713,
+      -0.03819546657199968
+     ]
+    },
+    {
+     "nuclide": "Np-239",
+     "pcm": 0.027792740631412016,
+     "density_percent": -0.036665935999080634,
+     "fission_percent": [
+      0.014617020798457503,
+      -0.07140339968171316
+     ],
+     "capture_percent": [
+      -0.029955722534791285,
+      0.15222840932676007
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.023261732383616618,
+     "density_percent": -9.396416966733767e-05,
+     "fission_percent": [
+      -0.018574906026513904,
+      -0.07807506523243024
+     ],
+     "capture_percent": [
+      -0.01574718658777785,
+      -0.07613754849012944
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 2.0,
+   "k": 1.1289838277094184,
+   "table_k_inf": 1.1289720111730692,
+   "difference_pcm": 0.9270844551374466,
+   "nominal_difference_pcm": -0.07201456349139335,
+   "reconstruct_pcm": -1.4642173482570797e-06,
+   "composition_pcm": 0.9204771503336815,
+   "nuclides": [
+    {
+     "nuclide": "Xe-135",
+     "pcm": 1.169438120772611,
+     "density_percent": -0.04728590420701728,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.12150355465736506,
+      -0.16004449771130913
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -0.8236125782714225,
+     "density_percent": -0.04160679993311378,
+     "fission_percent": [
+      -0.05795145615238306,
+      -0.09931401934650808
+     ],
+     "capture_percent": [
+      -0.06439009561295395,
+      -0.09445400095583478
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.3018499625577533,
+     "density_percent": -0.05429603628501756,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.09239980544990534,
+      -0.15317497367640653
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 0.27398753259512887,
+     "density_percent": -0.07505520731851956,
+     "fission_percent": [
+      -0.027851939206524623,
+      -0.04943477372347793
+     ],
+     "capture_percent": [
+      -0.4652705876777685,
+      -0.06087614992341672
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.10348498306120746,
+     "density_percent": -0.0004356212170542051,
+     "fission_percent": [
+      -0.0432938905897684,
+      -0.1240067034122827
+     ],
+     "capture_percent": [
+      -0.033982185385417196,
+      -0.12345932126316406
+     ]
+    },
+    {
+     "nuclide": "Np-239",
+     "pcm": 0.044312245216133306,
+     "density_percent": -0.058041769815020405,
+     "fission_percent": [
+      0.02747443168582553,
+      -0.11321830905348662
+     ],
+     "capture_percent": [
+      -0.06832807298515764,
+      0.25009866549905446
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 4.0,
+   "k": 1.1112668626087134,
+   "table_k_inf": 1.1112417350258113,
+   "difference_pcm": 2.0348097340192908,
+   "nominal_difference_pcm": -0.104035201620718,
+   "reconstruct_pcm": -1.6452613635919988e-06,
+   "composition_pcm": 2.0267838781510363,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -2.568399901359953,
+     "density_percent": -0.06952924592450449,
+     "fission_percent": [
+      -0.10931942812902884,
+      -0.17199814302769623
+     ],
+     "capture_percent": [
+      -0.11685591260121031,
+      -0.16527364336306194
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 1.935894932026713,
+     "density_percent": -0.07770939833739998,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.2603877685157019,
+      -0.2578444150348358
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 1.8565226909468038,
+     "density_percent": -0.1781914510875282,
+     "fission_percent": [
+      -0.06709639155778602,
+      -0.08377538661999973
+     ],
+     "capture_percent": [
+      -1.1005731869194513,
+      -0.10263944761155219
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.5134131189643085,
+     "density_percent": -0.09132232289184028,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.19599975916677614,
+      -0.24465485549036714
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 0.4820523450307519,
+     "density_percent": 0.4563364413349813,
+     "fission_percent": [
+      -0.06415394239602801,
+      -0.21021860529740755
+     ],
+     "capture_percent": [
+      -0.06863234655954953,
+      -0.20120977706401533
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.40532929813707597,
+     "density_percent": -0.0018199334542279288,
+     "fission_percent": [
+      -0.0908271381546144,
+      -0.2075935910079263
+     ],
+     "capture_percent": [
+      -0.06932581725426212,
+      -0.20803731775396184
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 6.0,
+   "k": 1.092508550058388,
+   "table_k_inf": 1.0924429128458293,
+   "difference_pcm": 5.499542130128248,
+   "nominal_difference_pcm": 0.01709074947029876,
+   "reconstruct_pcm": -1.8291593733010814e-06,
+   "composition_pcm": 5.496216530596939,
+   "nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": 5.681856451034037,
+     "density_percent": -0.3407528959300299,
+     "fission_percent": [
+      -0.0842378550629519,
+      -0.1166680056731928
+     ],
+     "capture_percent": [
+      -1.5549734424262884,
+      -0.1425395377800842
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -5.012741991838993,
+     "density_percent": -0.09678737464998699,
+     "fission_percent": [
+      -0.1504871636902938,
+      -0.2276990300750903
+     ],
+     "capture_percent": [
+      -0.16020564208722998,
+      -0.21540752258480955
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 2.732104748569327,
+     "density_percent": -0.10861829684971624,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.3640131897138632,
+      -0.35270718650132205
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 1.948531963646019,
+     "density_percent": 0.6840549864149281,
+     "fission_percent": [
+      -0.09205636987050791,
+      -0.2866047837781549
+     ],
+     "capture_percent": [
+      -0.10111500310830968,
+      -0.27326445432462876
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.9330398165420775,
+     "density_percent": -0.004411609048027287,
+     "fission_percent": [
+      -0.12793947611008383,
+      -0.2867342960414465
+     ],
+     "capture_percent": [
+      -0.10067396763304703,
+      -0.28681179601520723
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.7294777001443435,
+     "density_percent": -0.12832232956802025,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.2760647601698474,
+      -0.33244553316882364
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 8.0,
+   "k": 1.0743350980566408,
+   "table_k_inf": 1.0742140257210693,
+   "difference_pcm": 10.490938415763594,
+   "nominal_difference_pcm": -0.007431721304783423,
+   "reconstruct_pcm": -2.0026982383569703e-06,
+   "composition_pcm": 10.490356062698083,
+   "nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": 10.81451619051586,
+     "density_percent": -0.49525956019653705,
+     "fission_percent": [
+      -0.08537071615822844,
+      -0.14901053103247852
+     ],
+     "capture_percent": [
+      -1.8366602316976843,
+      -0.181714887790263
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -8.055286805219112,
+     "density_percent": -0.12356794772214741,
+     "fission_percent": [
+      -0.1849145421024989,
+      -0.2752669407267816
+     ],
+     "capture_percent": [
+      -0.19818484596384467,
+      -0.2554064632774633
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 4.237605768175854,
+     "density_percent": 0.7754128396693538,
+     "fission_percent": [
+      -0.11841894842652412,
+      -0.3576178884224568
+     ],
+     "capture_percent": [
+      -0.1332777382604955,
+      -0.3389168672641607
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 3.7390090013132067,
+     "density_percent": -0.1471073183480498,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.4388035426577175,
+      -0.44633214113217745
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -1.692936407615889,
+     "density_percent": -0.008377456232611102,
+     "fission_percent": [
+      -0.15716256295033038,
+      -0.3639481123245858
+     ],
+     "capture_percent": [
+      -0.1292054563279077,
+      -0.3629622682320477
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.9845993983353765,
+     "density_percent": -0.171300551096365,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.3366523323853454,
+      -0.41864908975828286
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 10.0,
+   "k": 1.0570678366682098,
+   "table_k_inf": 1.0568915759053283,
+   "difference_pcm": 15.776924614486234,
+   "nominal_difference_pcm": -0.07927515987012157,
+   "reconstruct_pcm": -2.168676473957021e-06,
+   "composition_pcm": 15.778635681506785,
+   "nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": 16.512224825149133,
+     "density_percent": -0.6315489057826751,
+     "fission_percent": [
+      -0.07863566446225656,
+      -0.18107038196352176
+     ],
+     "capture_percent": [
+      -2.0030650433952246,
+      -0.22050326391225283
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -11.641554530095163,
+     "density_percent": -0.15003462314664429,
+     "fission_percent": [
+      -0.21542050424112613,
+      -0.3182431716207357
+     ],
+     "capture_percent": [
+      -0.23293889125443057,
+      -0.28958526334739165
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 6.961795134840941,
+     "density_percent": 0.7925938849891345,
+     "fission_percent": [
+      -0.14363010528997133,
+      -0.4255231338410659
+     ],
+     "capture_percent": [
+      -0.16480901759178268,
+      -0.40093736232046373
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 4.85938097745111,
+     "density_percent": -0.18919789664212372,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.49644794464270836,
+      -0.5389701991140305
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -2.703851375207705,
+     "density_percent": -0.013958900834387666,
+     "fission_percent": [
+      -0.18200501448524253,
+      -0.43998676377517976
+     ],
+     "capture_percent": [
+      -0.15622376926714976,
+      -0.43756525168938687
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 1.2636277684550805,
+     "density_percent": -0.21760318808146106,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.38538890895587485,
+      -0.5035538180962695
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 14.0,
+   "k": 1.0250290605286114,
+   "table_k_inf": 1.024774298747926,
+   "difference_pcm": 24.253246051508995,
+   "nominal_difference_pcm": -0.22676074356013487,
+   "reconstruct_pcm": -2.488431618985487e-06,
+   "composition_pcm": 24.258530572873497,
+   "nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": 28.060507305871397,
+     "density_percent": -0.8490957172691882,
+     "fission_percent": [
+      -0.05947274276166814,
+      -0.24465206412500606
+     ],
+     "capture_percent": [
+      -2.1781930746602396,
+      -0.2973070636401398
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -20.328954681214782,
+     "density_percent": -0.20229441993639963,
+     "fission_percent": [
+      -0.2699291495973699,
+      -0.3968664706740843
+     ],
+     "capture_percent": [
+      -0.29670518686404357,
+      -0.34854113361251216
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 12.267349859540445,
+     "density_percent": 0.7181573207307945,
+     "fission_percent": [
+      -0.19116487621376743,
+      -0.5557785268210269
+     ],
+     "capture_percent": [
+      -0.2251569015517374,
+      -0.5187804637014404
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 7.448650033014928,
+     "density_percent": -0.2841592959271999,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.5845577321942685,
+      -0.7213721207692814
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -5.590805698163422,
+     "density_percent": -0.03128860516407039,
+     "fission_percent": [
+      -0.225164809957068,
+      -0.5894462786061649
+     ],
+     "capture_percent": [
+      -0.20780120007144465,
+      -0.5836209422006133
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 1.9019467289435852,
+     "density_percent": -0.3215632814657976,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.463259639993141,
+      -0.6698983804282022
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 20.0,
+   "k": 0.9813267054100036,
+   "table_k_inf": 0.9810992011667629,
+   "difference_pcm": 23.629958635451658,
+   "nominal_difference_pcm": -1.009064215717899,
+   "reconstruct_pcm": -2.967359705507988e-06,
+   "composition_pcm": 23.628828080890344,
+   "nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": 43.30488777104506,
+     "density_percent": -1.0244962480550401,
+     "fission_percent": [
+      -0.030728152792658392,
+      -0.3379263582288794
+     ],
+     "capture_percent": [
+      -2.227845972867859,
+      -0.4099145276191374
+     ]
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -36.61932826903876,
+     "density_percent": -0.27670722501229594,
+     "fission_percent": [
+      -0.344670752683196,
+      -0.5057895695377068
+     ],
+     "capture_percent": [
+      -0.3845659066275098,
+      -0.42575170154517394
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 14.156527479514125,
+     "density_percent": 0.4350021565606488,
+     "fission_percent": [
+      -0.25690990888993515,
+      -0.7422061741638397
+     ],
+     "capture_percent": [
+      -0.3091468379333717,
+      -0.6865165934218709
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -12.561989096071557,
+     "density_percent": -0.07937108147532124,
+     "fission_percent": [
+      -0.2850708317407302,
+      -0.8068050301453966
+     ],
+     "capture_percent": [
+      -0.2816415412983164,
+      -0.7954981834892072
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 12.066684078870594,
+     "density_percent": -0.44729253528906776,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.6972945379265405,
+      -0.9865035638357611
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 3.041459897046252,
+     "density_percent": -0.5018682459180468,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.562653521208667,
+      -0.9103051229034986
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 26.0,
+   "k": 0.9414164785490643,
+   "table_k_inf": 0.9413734535295284,
+   "difference_pcm": 4.854866958426101,
+   "nominal_difference_pcm": -2.530359611952008,
+   "reconstruct_pcm": -3.4606982808327302e-06,
+   "composition_pcm": 4.85334641810914,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -58.56694145673919,
+     "density_percent": -0.3593446584077564,
+     "fission_percent": [
+      -0.41308471093804977,
+      -0.607584495828084
+     ],
+     "capture_percent": [
+      -0.46534667390486506,
+      -0.4959039986022762
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 56.77475799288277,
+     "density_percent": -1.1164781570470517,
+     "fission_percent": [
+      -0.01175797502412923,
+      -0.426536252822185
+     ],
+     "capture_percent": [
+      -2.2606133473551004,
+      -0.5168618875761255
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -23.02282939790075,
+     "density_percent": -0.16599878021695824,
+     "fission_percent": [
+      -0.3392289530256276,
+      -1.011343280467225
+     ],
+     "capture_percent": [
+      -0.3479182384405366,
+      -0.9947987408691517
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 18.037530604829954,
+     "density_percent": -0.650760083003088,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.7988986099084494,
+      -1.2361062127643985
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 7.04117066398976,
+     "density_percent": 0.1398285663548382,
+     "fission_percent": [
+      -0.31595938744574115,
+      -0.9187323638171097
+     ],
+     "capture_percent": [
+      -0.3853630385835416,
+      -0.8457679243490612
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 4.511241495274589,
+     "density_percent": -0.7292745936164247,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.6501675949250219,
+      -1.136258205207319
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 32.0,
+   "k": 0.9050357153263859,
+   "table_k_inf": 0.9052731715421921,
+   "difference_pcm": -28.982655487343436,
+   "nominal_difference_pcm": -2.048755542573417,
+   "reconstruct_pcm": -3.96775794797577e-06,
+   "composition_pcm": -28.984365223361237,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -87.80512159554019,
+     "density_percent": -0.4549024828513937,
+     "fission_percent": [
+      -0.4737855261062851,
+      -0.7005648009594911
+     ],
+     "capture_percent": [
+      -0.537474553584627,
+      -0.5598125802412479
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 71.00953850442966,
+     "density_percent": -1.2053660676714872,
+     "fission_percent": [
+      -0.0019170548453573133,
+      -0.5066291641745879
+     ],
+     "capture_percent": [
+      -2.34536664636259,
+      -0.6134763051120817
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -36.244128723959875,
+     "density_percent": -0.3040448353719749,
+     "fission_percent": [
+      -0.3847242529970596,
+      -1.1938496726404124
+     ],
+     "capture_percent": [
+      -0.40194529403624335,
+      -1.1728398738302337
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 24.778127057035817,
+     "density_percent": -0.8722293663482872,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.8929423055320407,
+      -1.460204283491573
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -6.909076741456374,
+     "density_percent": -0.09953169364006476,
+     "fission_percent": [
+      -0.3671726055061164,
+      -1.0772220253203901
+     ],
+     "capture_percent": [
+      -0.45301708139406927,
+      -0.9886502366398653
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 6.14573454800302,
+     "density_percent": -0.9760125418383336,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.729206750973177,
+      -1.3392334686597063
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 40.0,
+   "k": 0.8627685110617659,
+   "table_k_inf": 0.8634555124241305,
+   "difference_pcm": -92.219623711022,
+   "nominal_difference_pcm": -1.064827397454792,
+   "reconstruct_pcm": -4.633448043023236e-06,
+   "composition_pcm": -92.22263381571975,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -138.86671528085026,
+     "density_percent": -0.5999446128246766,
+     "fission_percent": [
+      -0.5385619451898527,
+      -0.8053287760565131
+     ],
+     "capture_percent": [
+      -0.6149214216929266,
+      -0.6335320650906695
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 92.30798790205154,
+     "density_percent": -1.3458592773962441,
+     "fission_percent": [
+      0.00041953276843642584,
+      -0.5937707899429712
+     ],
+     "capture_percent": [
+      -2.5573668351852596,
+      -0.7183461442202166
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -54.69816088643529,
+     "density_percent": -0.5848336295884549,
+     "fission_percent": [
+      -0.4241246969354684,
+      -1.3881841170157339
+     ],
+     "capture_percent": [
+      -0.4435320636425044,
+      -1.3628589041526418
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -34.72655407093043,
+     "density_percent": -0.3658458657006203,
+     "fission_percent": [
+      -0.4206339912451895,
+      -1.2510241455353066
+     ],
+     "capture_percent": [
+      -0.5270462334487802,
+      -1.1463941257279564
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 34.214764723894405,
+     "density_percent": -1.1713060453853674,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -1.0057215186675128,
+      -1.7018406816996845
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 8.398388631114358,
+     "density_percent": -1.3078995331909482,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.822203718738268,
+      -1.558932598738616
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 48.0,
+   "k": 0.8284603058655243,
+   "table_k_inf": 0.8295835700775305,
+   "difference_pcm": -163.4368845274439,
+   "nominal_difference_pcm": -3.807685254716489,
+   "reconstruct_pcm": -5.2297291404102e-06,
+   "composition_pcm": -163.43909234186867,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -196.4097997440258,
+     "density_percent": -0.7381887028557022,
+     "fission_percent": [
+      -0.5820030039506041,
+      -0.8821831661558144
+     ],
+     "capture_percent": [
+      -0.6662108546465983,
+      -0.6909170980081147
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 116.86696869927982,
+     "density_percent": -1.5260738540321617,
+     "fission_percent": [
+      -0.004917061877662832,
+      -0.6537619998297051
+     ],
+     "capture_percent": [
+      -2.8662262862423793,
+      -0.7900175489882977
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -70.01136341902384,
+     "density_percent": -0.591323601810334,
+     "fission_percent": [
+      -0.4559285976913574,
+      -1.3722934654373242
+     ],
+     "capture_percent": [
+      -0.5802338525324191,
+      -1.2579579526872386
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -68.23820364316998,
+     "density_percent": -0.9808175803380892,
+     "fission_percent": [
+      -0.4450608586073712,
+      -1.5157283447023384
+     ],
+     "capture_percent": [
+      -0.4596363451241814,
+      -1.4882526683953734
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 42.39655138078524,
+     "density_percent": -1.4209778391210848,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -1.1060278432751036,
+      -1.8641380622577142
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 10.314855376433115,
+     "density_percent": -1.5809372547822553,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.9023550456734641,
+      -1.7076606350205692
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 56.0,
+   "k": 0.8016068823590207,
+   "table_k_inf": 0.8030341008448,
+   "difference_pcm": -221.71498003198576,
+   "nominal_difference_pcm": -1.8311272691244085,
+   "reconstruct_pcm": -5.717360181733966e-06,
+   "composition_pcm": -221.71691572041527,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -256.29572002974237,
+     "density_percent": -0.8676082994999779,
+     "fission_percent": [
+      -0.6074921906659148,
+      -0.9343195398645698
+     ],
+     "capture_percent": [
+      -0.6953526214911743,
+      -0.734095479050012
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 146.953249717164,
+     "density_percent": -1.7736242163029048,
+     "fission_percent": [
+      -0.012602532320749038,
+      -0.6903519135322278
+     ],
+     "capture_percent": [
+      -3.209036197201509,
+      -0.8330915774990788
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -104.01878194892197,
+     "density_percent": -0.7536309964323196,
+     "fission_percent": [
+      -0.4762888747409044,
+      -1.4483245440171988
+     ],
+     "capture_percent": [
+      -0.6153909735094332,
+      -1.3296828103373959
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -72.73981653235023,
+     "density_percent": -1.4777341926735743,
+     "fission_percent": [
+      -0.4496959500363884,
+      -1.587144894051029
+     ],
+     "capture_percent": [
+      -0.45409119686530275,
+      -1.5593160337084022
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 49.17830638524538,
+     "density_percent": -1.6213900226383693,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -1.192704627023522,
+      -1.9574814049180822
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 11.891494363935635,
+     "density_percent": -1.8019183038213815,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.9690914630034242,
+      -1.794841420687221
+     ]
+    }
+   ]
+  },
+  {
+   "burnup": 60.0,
+   "k": 0.7907509231925776,
+   "table_k_inf": 0.7922883728130982,
+   "difference_pcm": -245.40189017390367,
+   "nominal_difference_pcm": -0.8249053063082101,
+   "reconstruct_pcm": -5.915866495342925e-06,
+   "composition_pcm": -245.38956272097494,
+   "nuclides": [
+    {
+     "nuclide": "Pu-239",
+     "pcm": -284.7511760249545,
+     "density_percent": -0.9252402887854672,
+     "fission_percent": [
+      -0.6150877755932482,
+      -0.9524216243538608
+     ],
+     "capture_percent": [
+      -0.7034122161671652,
+      -0.7506922889660483
+     ]
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": 163.15590443070323,
+     "density_percent": -1.9112495797457552,
+     "fission_percent": [
+      -0.016364976199423342,
+      -0.7018025152824792
+     ],
+     "capture_percent": [
+      -3.3787541247622843,
+      -0.8462705538625381
+     ]
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -121.0273881240064,
+     "density_percent": -0.8279184462948064,
+     "fission_percent": [
+      -0.4822694428592844,
+      -1.4726254226069102
+     ],
+     "capture_percent": [
+      -0.6274908344894636,
+      -1.3533168892291614
+     ]
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -71.50027904143644,
+     "density_percent": -1.755846691344809,
+     "fission_percent": [
+      -0.4480885653147082,
+      -1.6068490761719012
+     ],
+     "capture_percent": [
+      -0.4463742394316572,
+      -1.5792967682877745
+     ]
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 51.90020569625631,
+     "density_percent": -1.7000213708964873,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -1.2311494620356966,
+      -1.9836414529575852
+     ]
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 12.525227062276826,
+     "density_percent": -1.8891302482633043,
+     "fission_percent": [
+      null,
+      null
+     ],
+     "capture_percent": [
+      -0.9977772033861187,
+      -1.8198903394570642
+     ]
+    }
+   ]
+  }
+ ],
+ "switch_rows": [
+  {
+   "efpd": 0.0,
+   "burnup": 0.0,
+   "state": "nominal",
+   "k": 1.183088296573385,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -1.8393075151834637e-07
+  },
+  {
+   "efpd": 2.603488674824265,
+   "burnup": 0.10000000000000002,
+   "state": "nominal",
+   "k": 1.1456991659275928,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -5.847650754731148e-07
+  },
+  {
+   "efpd": 6.508721687060661,
+   "burnup": 0.25,
+   "state": "nominal",
+   "k": 1.1419091810393172,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 13.017443374121326,
+   "burnup": 0.5000000000000001,
+   "state": "nominal",
+   "k": 1.1380691520009174,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -6.657573976553977e-07
+  },
+  {
+   "efpd": 19.526165061181988,
+   "burnup": 0.7500000000000001,
+   "state": "nominal",
+   "k": 1.1358367451190259,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 26.034886748242652,
+   "burnup": 1.0,
+   "state": "nominal",
+   "k": 1.1341392692013355,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -6.998179742367938e-07
+  },
+  {
+   "efpd": 39.052330122363976,
+   "burnup": 1.5000000000000002,
+   "state": "nominal",
+   "k": 1.1308388486253116,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 52.069773496485304,
+   "burnup": 2.0,
+   "state": "nominal",
+   "k": 1.1272011204011556,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -7.538856152677909e-07
+  },
+  {
+   "efpd": 65.08721687060662,
+   "burnup": 2.5000000000000004,
+   "state": "nominal",
+   "k": 1.1232345266055812,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 78.10466024472794,
+   "burnup": 3.0,
+   "state": "nominal",
+   "k": 1.1189662971283438,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 91.12210361884927,
+   "burnup": 3.5,
+   "state": "nominal",
+   "k": 1.1145018436174785,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 104.13954699297058,
+   "burnup": 3.9999999999999996,
+   "state": "nominal",
+   "k": 1.109948122201068,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -8.829047146718949e-07
+  },
+  {
+   "efpd": 130.17443374121325,
+   "burnup": 5.000000000000001,
+   "state": "nominal",
+   "k": 1.1006821443807804,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 156.20932048945588,
+   "burnup": 6.0,
+   "state": "nominal",
+   "k": 1.0912880866363748,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -1.0151434253202751e-06
+  },
+  {
+   "efpd": 182.24420723769853,
+   "burnup": 7.0,
+   "state": "nominal",
+   "k": 1.0819951104337344,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 208.27909398594116,
+   "burnup": 7.999999999999999,
+   "state": "nominal",
+   "k": 1.0728173859039782,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -1.1478150554466993e-06
+  },
+  {
+   "efpd": 234.31398073418382,
+   "burnup": 9.0,
+   "state": "nominal",
+   "k": 1.063811712823884,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 260.34886748242644,
+   "burnup": 9.999999999999998,
+   "state": "nominal",
+   "k": 1.0549626258847922,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -1.276867806154769e-06
+  },
+  {
+   "efpd": 286.38375423066907,
+   "burnup": 10.999999999999998,
+   "state": "nominal",
+   "k": 1.0462856261066673,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 312.41864097891175,
+   "burnup": 12.0,
+   "state": "nominal",
+   "k": 1.0377994263726522,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 338.4535277271544,
+   "burnup": 12.999999999999998,
+   "state": "nominal",
+   "k": 1.0294473551910832,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 364.488414475397,
+   "burnup": 13.999999999999998,
+   "state": "nominal",
+   "k": 1.021175792168299,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -1.5316190911107697e-06
+  },
+  {
+   "efpd": 390.5233012236397,
+   "burnup": 14.999999999999998,
+   "state": "nominal",
+   "k": 1.0130144681230446,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 416.5581879718823,
+   "burnup": 15.999999999999998,
+   "state": "nominal",
+   "k": 1.0050109446832929,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 468.62796146836763,
+   "burnup": 18.0,
+   "state": "nominal",
+   "k": 0.9894142954558688,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 520.6977349648529,
+   "burnup": 19.999999999999996,
+   "state": "branch",
+   "k": 0.9736258035837361,
+   "history": 0.743,
+   "weight": 0.0,
+   "bound_pcm": 0.0,
+   "residual_pcm": 0.0,
+   "applied_bound_pcm": 0.0,
+   "reconstruct_pcm": -3.138178271910874e-06
+  },
+  {
+   "efpd": 572.7675084613381,
+   "burnup": 21.999999999999996,
+   "state": "branch",
+   "k": 0.958949373481305,
+   "history": 0.7355454545454545,
+   "weight": 0.0909090909090914,
+   "bound_pcm": 1.6822693166395857,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 624.8372819578235,
+   "burnup": 24.0,
+   "state": "branch",
+   "k": 0.9462653232804455,
+   "history": 0.7293333333333333,
+   "weight": 0.16666666666666735,
+   "bound_pcm": 3.0841604138392364,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 676.9070554543088,
+   "burnup": 25.999999999999996,
+   "state": "branch",
+   "k": 0.9338559734260076,
+   "history": 0.7240769230769231,
+   "weight": 0.23076923076923098,
+   "bound_pcm": 4.2703759576235445,
+   "residual_pcm": -34.88775987263671,
+   "applied_bound_pcm": 0.8179551934336612,
+   "reconstruct_pcm": -3.511302566039376e-06
+  },
+  {
+   "efpd": 728.976828950794,
+   "burnup": 27.999999999999996,
+   "state": "branch",
+   "k": 0.9217350768862127,
+   "history": 0.7195714285714285,
+   "weight": 0.2857142857142863,
+   "bound_pcm": 5.287132138010109,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 781.0466024472794,
+   "burnup": 29.999999999999996,
+   "state": "branch",
+   "k": 0.910010251492266,
+   "history": 0.7156666666666667,
+   "weight": 0.3333333333333333,
+   "bound_pcm": 6.168320827678447,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 833.1163759437646,
+   "burnup": 31.999999999999996,
+   "state": "branch",
+   "k": 0.8986807251782994,
+   "history": 0.71225,
+   "weight": 0.3749999999999995,
+   "bound_pcm": 6.9393609311382445,
+   "residual_pcm": -70.10312142588009,
+   "applied_bound_pcm": 2.2717390309901444,
+   "reconstruct_pcm": -3.920575181837194e-06
+  },
+  {
+   "efpd": 885.1861494402499,
+   "burnup": 33.99999999999999,
+   "state": "branch",
+   "k": 0.8877639971769306,
+   "history": 0.7092352941176471,
+   "weight": 0.41176470588235287,
+   "bound_pcm": 7.619690434191022,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 937.2559229367353,
+   "burnup": 36.0,
+   "state": "branch",
+   "k": 0.8773182987320938,
+   "history": 0.7065555555555556,
+   "weight": 0.444444444444444,
+   "bound_pcm": 8.224427770237922,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 989.3256964332205,
+   "burnup": 38.0,
+   "state": "branch",
+   "k": 0.8673533236642121,
+   "history": 0.7041578947368422,
+   "weight": 0.4736842105263147,
+   "bound_pcm": 8.765508544595669,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 1041.3954699297058,
+   "burnup": 39.99999999999999,
+   "state": "branch",
+   "k": 0.8578595326253153,
+   "history": 0.7020000000000001,
+   "weight": 0.49999999999999933,
+   "bound_pcm": 9.252481241517659,
+   "residual_pcm": -120.12229940079487,
+   "applied_bound_pcm": 5.036968446271196,
+   "reconstruct_pcm": -4.468314728001133e-06
+  },
+  {
+   "efpd": 1145.5350169226763,
+   "burnup": 43.99999999999999,
+   "state": "branch",
+   "k": 0.8404479967927024,
+   "history": 0.6982727272727274,
+   "weight": 0.5454545454545443,
+   "bound_pcm": 10.093615899837438,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 1249.674563915647,
+   "burnup": 48.0,
+   "state": "branch",
+   "k": 0.8249460961505162,
+   "history": 0.6951666666666667,
+   "weight": 0.583333333333333,
+   "bound_pcm": 10.794561448437278,
+   "residual_pcm": -175.78814269894065,
+   "applied_bound_pcm": 8.165306744027472,
+   "reconstruct_pcm": -4.969602741766721e-06
+  },
+  {
+   "efpd": 1353.8141109086175,
+   "burnup": 51.99999999999999,
+   "state": "branch",
+   "k": 0.8112671181844284,
+   "history": 0.6925384615384615,
+   "weight": 0.6153846153846155,
+   "bound_pcm": 11.387669220329444,
+   "residual_pcm": null,
+   "applied_bound_pcm": null,
+   "reconstruct_pcm": null
+  },
+  {
+   "efpd": 1457.953657901588,
+   "burnup": 55.99999999999999,
+   "state": "branch",
+   "k": 0.7993553054242543,
+   "history": 0.6902857142857143,
+   "weight": 0.6428571428571431,
+   "bound_pcm": 11.896047310522725,
+   "residual_pcm": -235.4516420489017,
+   "applied_bound_pcm": 11.047450597152425,
+   "reconstruct_pcm": -5.385514668887481e-06
+  },
+  {
+   "efpd": 1562.0932048945588,
+   "burnup": 59.99999999999999,
+   "state": "branch",
+   "k": 0.7890438910585049,
+   "history": 0.6883333333333334,
+   "weight": 0.6666666666666666,
+   "bound_pcm": 12.336641655356894,
+   "residual_pcm": -265.6334929057557,
+   "applied_bound_pcm": 12.336641655356894,
+   "reconstruct_pcm": -5.557019903790206e-06
+  }
+ ],
+ "inputs": {
+  "table-residual-nominal-histories.msgpack": "3d73faee7fdadb4eb8cff4d6b3b20e7c",
+  "table-residual-nominal.msgpack": "7b5fa50b0bc5963e1f7515d643c9ba3b",
+  "table-residual-density-branch.msgpack": "a8f3528768808a2b4fac83037070ef43",
+  "core-2A-residual-nominal.msgpack": "2c05cf249b043072f9a8c0c3da5355ce",
+  "core-2A-plain-nominal.msgpack": "2c05cf249b043072f9a8c0c3da5355ce",
+  "core-2A-residual-branch.msgpack": "77ac4efbfa473e02003472f8de133ebf",
+  "core-2A-residual-switch.msgpack": "7781aaef99df89513c9c82fd22717f15",
+  "residual.json": "7deed416b77aff015c1b7e68677c2a18"
+ }
+}
