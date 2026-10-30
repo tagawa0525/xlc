@@ -38,6 +38,8 @@ FILES = {
     "residual_summary": "residual.json",
 }
 VARIABLE = "moderator-density"
+# 核種ごとの効きを要約に残す、効きの大きい核種の数
+LARGEST = 6
 
 
 # core の燃焼度とテーブルの燃焼度の点の一致の許容（core は出力密度 × EFPD で燃焼度を進める。compare_core_micro.py と同じ）
@@ -161,7 +163,7 @@ def percent(a, b):
 
 def composition(t, node, first_densities, first_states):
     """条件 j の燃焼の R の点で、core の数密度と第 1 項のテーブルの数密度 N̄ᵢ^j の違いの効き: 基準は第 1 項を組み立てた定数
-    （格子点の定数 + Σᵢ cᵢ (N̄ᵢ^j − N̄ᵢ⁰) + R）で、ρ(基準 + Σᵢ cᵢ (Nᵢ − N̄ᵢ^j)) − ρ(基準) と、核種ごと（その核種だけの差）の効き、
+    （格子点の定数 + Σᵢ cᵢ (N̄ᵢ^j − N̄ᵢ⁰) + R）で、ρ(基準 + Σᵢ cᵢ (Nᵢ − N̄ᵢ^j)) − ρ(基準) と、核種ごと（その核種だけの差）の効きが大きい `LARGEST` 核種の効き、
     数密度の相対差と、第 1 項のテーブルの微視的断面積の公称のテーブルの条件 j の値に対する相対差（核分裂と捕獲、群ごと）"""
     p, b = t.point(node["burnup"], node["moderator"], "branch")
     micro = t.table["micro"]
@@ -194,7 +196,8 @@ def composition(t, node, first_densities, first_states):
             }
         )
     nuclides.sort(key=lambda x: -abs(x["pcm"]))
-    return rho(k_inf(corrected(base, coeff, deltas))) - rho(k_base), nuclides
+    # 要約を数十 KB に収める（記録が書くのは効きの大きい核種だけ）
+    return rho(k_inf(corrected(base, coeff, deltas))) - rho(k_base), nuclides[:LARGEST]
 
 
 def compare(table, branch_table, nominal, branch, switch, residual_summary, identical):
@@ -325,7 +328,7 @@ def report(summary):
         + "；".join(
             f"{x['nuclide']} {x['pcm']:+.2f} pcm（数密度 {groups([x['density_percent']])}%、第 1 項の σ の公称の条件 j に対する差 "
             f"核分裂 {groups(x['fission_percent'])}%、捕獲 {groups(x['capture_percent'])}%）"
-            for x in end["nuclides"][:6]
+            for x in end["nuclides"]
         )
     )
     last = switch[-1]
