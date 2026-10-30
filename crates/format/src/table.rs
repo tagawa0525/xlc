@@ -10,7 +10,7 @@
 //! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）, `micro`（ミクロ燃焼の核種の `nuclides`、燃焼度の点ごとの均質化した
 //! 数密度 `densities`、`points` の点ごとの核種ごとの微視的断面積 `states`（`total`、`nu_fission`、`fission`、`scatter`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない）、`derivative`（自分の数密度による格子全体の少数群定数の微分の `total`、
-//! `nu_fission`、`fission`、`scatter`。微分を持つ核種だけが書き、ほかはキーを書かない。ADR-0221））。燃焼度の軸を持ち、分けない
+//! `nu_fission`、`fission`、`scatter`。数密度が 0 の点は σᵢ。微分を持つ核種だけが書き、ほかはキーを書かない（nil はエラー）。ADR-0221））。燃焼度の軸を持ち、分けない
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
@@ -497,13 +497,17 @@ pub struct MicroNuclide {
     /// 核分裂率のうち、収率の境界（ADR-0183）より下の割合。核分裂しない核種は nil（キーは省けない）
     #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub thermal_fission: Option<f64>,
-    /// 自分の数密度による格子全体の少数群定数の微分（ADR-0221）。微分を持たない核種はキーを書かない
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// 自分の数密度による格子全体の少数群定数の微分（ADR-0221）。微分を持たない核種はキーを書かない（nil はエラー）
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::msgpack::present"
+    )]
     pub derivative: Option<MicroDerivative>,
 }
 
 /// 1 つの状態の、1 つの核種の均質化した数密度 N̄ᵢ による格子全体の少数群定数の微分 ∂Σ/∂N̄ᵢ (barn)（ADR-0221）。すべての核種と
-/// 燃焼させない物質の分を含む
+/// 燃焼させない物質の分を含む。ただし N̄ᵢ が 0 の点は、相対の摂動が解けないので lattice は σᵢ（自分の項だけ）を書く（#0206）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MicroDerivative {
