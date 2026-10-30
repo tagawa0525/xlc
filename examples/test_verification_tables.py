@@ -1861,8 +1861,8 @@ class DrawHistoryIndex(unittest.TestCase):
                 "L/E² (10⁻⁶/pcm)",
                 "L/E の R(1) との比",
                 "L/E² の R(1) との比",
-                "ΔN̄/N̄⁰: U-235 (%)",
-                "ΔN̄/N̄⁰: Pu-239 (%)",
+                "数密度の相対差: U-235 (%)",
+                "数密度の相対差: Pu-239 (%)",
             ],
         )
         rows = self.rows(table)
@@ -1931,8 +1931,8 @@ class DrawHistoryIndex(unittest.TestCase):
                 "条件 j の E の比",
                 "w_L",
                 "w_U",
-                "ΔN̄ の比: U-235",
-                "ΔN̄ の比: Pu-239",
+                "数密度の差の比: U-235",
+                "数密度の差の比: Pu-239",
             ],
         )
         rows = self.rows(table)
