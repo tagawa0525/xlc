@@ -1976,7 +1976,7 @@ class DrawMicroLinearizationSplit(unittest.TestCase):
                 "−150.00",
                 "+1.00",
                 "+60.00",
-                "+0.00",
+                "0.00",
                 "−102.72",
             ],
         )
