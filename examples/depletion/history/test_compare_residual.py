@@ -196,6 +196,20 @@ class Compare(unittest.TestCase):
             places=9,
         )
 
+    def test_the_whole_difference_at_the_nominal_state_is_measured_against_the_reverse(
+        self,
+    ):
+        # 定数の差の全体 f(分岐の組成、条件 j) − f(公称の組成、条件 j) を、公称の状態の定数に足した誤差（ADR-0215 の案 S1 の R'）
+        nominal, branch, reverse, history = self.tables()
+        s = c.compare(nominal, branch, reverse, history)
+        r = s["rows"][1]
+        whole = residual(branch["states"][1], nominal["states"][4])
+        expected = c.rho(c.k_inf(c.added(nominal["states"][3], whole))) - c.rho(
+            c.k_inf(reverse["states"][1])
+        )
+        self.assertAlmostEqual(r["applied_whole_pcm"], expected, places=9)
+        self.assertNotAlmostEqual(r["applied_whole_pcm"], r["applied_pcm"], places=3)
+
     def test_tables_that_do_not_match_are_errors(self):
         nominal, branch, reverse, history = self.tables()
         nominal["histories"] = []

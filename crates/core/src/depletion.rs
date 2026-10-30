@@ -24,7 +24,7 @@ use xlc_format::msgpack::{self, MsgpackError};
 use xlc_format::table::{Axis, Micro, Table};
 
 use crate::case::{
-    CaseError, Compositions, HISTORY_VARIABLES, Solved, check_search, search_boron,
+    CaseError, Compositions, HISTORY_VARIABLES, Solved, check_search, node_micro, search_boron,
     solve_compositions,
 };
 use crate::input::{
@@ -33,7 +33,7 @@ use crate::input::{
 use crate::micro::{MicroChain, TrackedRates};
 use crate::nem::{Options, fission_rates};
 use crate::rods::mix_micro;
-use crate::state::{interpolate_micro, moderator_density};
+use crate::state::moderator_density;
 
 const FORMAT: &str = "xlc-core-history";
 
@@ -444,13 +444,15 @@ fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
     }
 }
 
-/// 燃焼度の分布を 1 回解いた結果: 解いた状態（`states` の番号）、解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率
+/// 燃焼度の分布を 1 回解いた結果: 解いた状態（`states` の番号）、解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率、
+/// 解いたノードの履歴の変数（ミクロ燃焼の反応率の履歴の補正が、定数と同じ値を使う。ADR-0215）
 struct Solve {
     state: usize,
     solved: Solved,
     ppm: f64,
     solves: usize,
     rates: Vec<f64>,
+    histories: Option<Densities>,
 }
 
 /// 質量 `m` の重みの平均の燃焼度
@@ -789,6 +791,7 @@ pub fn deplete(
             ppm,
             solves,
             rates,
+            histories: h.map(<[_]>::to_vec),
         })
     };
     // 解 `solve`（燃焼度 `burnups`）の位置 `site` の、組成 `n` で規格化した追う核種の反応率。ノードの出力密度は出力の割合 `power` ×
@@ -822,9 +825,20 @@ pub fn deplete(
             burnup: Some(burnups[site]),
             ..state
         };
+        // 反応率の σᵢ には、解の定数と同じノードの履歴の変数で、履歴の補正を足す（ADR-0215 の案 S2）
+        let histories = solve
+            .histories
+            .as_ref()
+            .and_then(|h| h.get(site))
+            .and_then(Option::as_ref)
+            .ok_or_else(|| {
+                format!(
+                    "site {site}: the solve has no history variables of the micro depleted node"
+                )
+            })?;
         let micro_of = |table_use: usize| {
             let t_use = &layout.tables[table_use];
-            interpolate_micro(&tables[t_use.file], &s, t_use.rod.as_deref())
+            node_micro(&tables[t_use.file], &s, t_use.rod.as_deref(), histories)
                 .map_err(|e| format!("{}: {e}", layout.files[t_use.file].display()))
         };
         let sigma = match node_use {
@@ -959,6 +973,8 @@ pub fn deplete(
             ppm,
             solves,
             rates,
+            // 点の履歴の変数は、点を解いた値と同じ `h` から書く
+            histories: _,
         } = solve;
         let burnup_rows = by_assembly(burnups);
         let total: f64 = rates.iter().sum();

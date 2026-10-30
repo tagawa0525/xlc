@@ -20,6 +20,9 @@
 - 公称の状態での R: ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ + R) − ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ)。条件 j の R の、公称の状態での効き
 - 公称の状態で使った誤差: ρ(公称の状態 + Σᵢ cᵢ⁰ ΔN̄ᵢ + R) − ρ(逆向きの定数) = 公称の状態での R − 逆向きの R。core が条件 j の R を
   公称の状態のノードに足したときの誤差（R は瞬時の状態に依らないと置く。ADR-0215）
+- 差の全体を公称の状態で使った誤差: ρ(公称の状態 + (分岐の定数 − 公称の条件 j の状態)) − ρ(逆向きの定数)。線形の補正を引かない
+  定数の差の全体を、線形の補正なしに公称の状態のノードに足したときの誤差（ADR-0215 の案 S1 の R'。ノードの数密度が履歴の分岐の値
+  なら案 S1 の線形の補正は 0）
 - 第 1 項: ρ(分岐のテーブルの k∞) − ρ(履歴の分岐の燃焼の点の k∞)（ADR-0187 の確認と同じ比べ方）
 
 ρ は反応度 1 − 1/k で、差は pcm。2 群の k は少数群定数（全断面積、散乱行列、νΣf、χ）の無限媒質の固有値で、テーブルの k∞ との差
@@ -115,6 +118,17 @@ def corrected(state, coefficients, deltas):
         ]
         for g, row in enumerate(state["scatter"])
     ]
+    return out
+
+
+def difference(a, b):
+    """少数群定数の差 a − b（R の項目だけ）"""
+    out = {
+        key: [x - y for x, y in zip(a[key], b[key])]
+        for key in ("total", "absorption", "nu_fission", "fission", "chi", "diffusion")
+    }
+    for key in ("scatter", "adf"):
+        out[key] = [[x - y for x, y in zip(p, q)] for p, q in zip(a[key], b[key])]
     return out
 
 
@@ -246,6 +260,8 @@ def compare(nominal, branch, reverse, history):
                 "dependence_pcm": residual_pcm - reverse_pcm,
                 "residual_nominal_pcm": rho(k_with_r_0) - rho(k_linear_0),
                 "applied_pcm": rho(k_with_r_0) - rho(k_inf(fr)),
+                "applied_whole_pcm": rho(k_inf(added(f0, difference(fb, fj))))
+                - rho(k_inf(fr)),
                 "first_term_pcm": rho(fb["k_inf"]) - rho(history_k[u]),
             }
         )
@@ -288,6 +304,8 @@ def report(summary):
         f"条件の R を公称の状態で使った誤差は {span('applied_pcm')} pcm（絶対値の最大 {largest('applied_pcm')}。"
         f"最後の点の公称の状態での R の効きは {last['residual_nominal_pcm']:+.2f} pcm、逆向きの R は "
         f"{last['reverse_residual_pcm']:+.2f} pcm）。"
+        f"線形の補正を引かない定数の差の全体を公称の状態で使った誤差は {span('applied_whole_pcm')} pcm（絶対値の最大 "
+        f"{largest('applied_whole_pcm')}）。"
         f"\n第 1 項の分岐は履歴の分岐の燃焼の点の k∞ を最大 {largest('first_term_pcm')} の差で再現する。2 群の k とテーブルの k∞ の"
         f"差は最大 {summary['self_check_pcm']:.2e} pcm"
     )

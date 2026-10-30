@@ -15,7 +15,8 @@
 //! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density`）、公称の燃焼の値 `nominal`（H⁰）、履歴の
 //! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
 //! 含み、テーブルが履歴の分岐の条件の状態を解いた点）、点ごとの `residuals`（`total`、`absorption`、`nu_fission`、`fission`、`chi`、
-//! `diffusion`、`scatter`、`adf`））。履歴の分岐の条件は、変数の軸（減速材の密度は `moderator`）だけが値 `branch` の格子点で、ほかの軸は
+//! `diffusion`、`scatter`、`adf`）、点ごとに追う核種の順の、ミクロ燃焼の反応率の微視的断面積の差 `micro`（`fission`、`reactions`（`mt` と
+//! 経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない核種は nil で、キーは省けない））。履歴の分岐の条件は、変数の軸（減速材の密度は `moderator`）だけが値 `branch` の格子点で、ほかの軸は
 //! 公称の状態。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
@@ -557,6 +558,24 @@ pub struct HistoryRod {
     pub burnup: Vec<f64>,
     /// `burnup` の点ごとの残り
     pub residuals: Vec<Residual>,
+    /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、ミクロ燃焼の反応率の微視的断面積の差
+    pub micro: Vec<Vec<RateResidual>>,
+}
+
+/// 1 つの追う核種の、ミクロ燃焼の反応率に使う微視的断面積の、履歴の分岐の組成と公称の組成の差 Δσ（どちらも履歴の分岐の条件の状態。
+/// ADR-0215 の案 S2）。core は反応率の σᵢ に w Δσ を足す。線形の補正の係数（全断面積、νσf、散乱行列、数密度の微分）は補正しないので
+/// 持たない
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RateResidual {
+    /// 核分裂の断面積の差 (barn)
+    pub fission: Vec<f64>,
+    /// チェーンの反応ごとの、経路ごとの断面積の差（MT と経路の並びは `Micro::states` の核種と同じ）
+    pub reactions: Vec<MicroReaction>,
+    /// 収率の境界より下の核分裂の断面積（割合 × 群の和の σf (barn)）の差。割合でなく断面積の差にするのは、core が補正した σf の和との比を
+    /// 割合にするため（ADR-0216 の内挿と同じ）。核分裂しない核種は nil（キーは省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub thermal_fission: Option<f64>,
 }
 
 /// 残り R の少数群定数の項目（状態の少数群定数と同じ単位）。k∞、真空の辺の比、形状関数は持たない
@@ -1065,6 +1084,76 @@ impl Table {
                         "{}: residual {k} must have {groups} finite groups ({sides} ADF sides)",
                         at()
                     ));
+                }
+                self.validate_rate_residuals(entry)
+                    .map_err(|e| format!("{}: {e}", at()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// 制御棒の値 `entry` の反応率の微視的断面積の差（ADR-0215 の案 S2）が、R の点ごとに追う核種の数だけあり、核種ごとの反応の並び
+    /// （MT と経路の数）と核分裂の有無がミクロ燃焼のデータ（状態の間で同じ）と同じで、群の数の有限の値であること
+    fn validate_rate_residuals(&self, entry: &HistoryRod) -> Result<(), String> {
+        let micro = self
+            .micro
+            .as_ref()
+            .ok_or("rate residuals need micro data")?;
+        let reference = micro
+            .states
+            .first()
+            .ok_or("the micro data have no states")?;
+        if entry.micro.len() != entry.burnup.len()
+            || entry.micro.iter().any(|row| row.len() != reference.len())
+        {
+            return Err(format!(
+                "the rate residuals must be {} rows of {} tracked nuclides",
+                entry.burnup.len(),
+                reference.len()
+            ));
+        }
+        let groups = self.states[0].bounds.len() - 1;
+        let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
+        for (k, row) in entry.micro.iter().enumerate() {
+            for (i, (r, n)) in row.iter().zip(reference).enumerate() {
+                let at = || format!("rate residual {k}, {}", micro.nuclides[i]);
+                let shape = |reactions: &[MicroReaction]| {
+                    reactions
+                        .iter()
+                        .map(|x| (x.mt, x.channels.len()))
+                        .collect::<Vec<_>>()
+                };
+                if shape(&r.reactions) != shape(&n.reactions) {
+                    return Err(format!(
+                        "{}: the reactions {:?} differ from those of the micro data {:?}",
+                        at(),
+                        shape(&r.reactions),
+                        shape(&n.reactions)
+                    ));
+                }
+                if !sized(&r.fission)
+                    || !r
+                        .reactions
+                        .iter()
+                        .flat_map(|x| &x.channels)
+                        .all(|c| sized(c))
+                {
+                    return Err(format!(
+                        "{}: the differences must have {groups} finite groups",
+                        at()
+                    ));
+                }
+                match (r.thermal_fission, n.thermal_fission) {
+                    (Some(f), Some(_)) if f.is_finite() => {}
+                    (None, None) => {}
+                    _ => {
+                        return Err(format!(
+                            "{}: the difference of the fission below the yield cutoff must be finite for fissile \
+                             nuclides and nil for the others, got {:?}",
+                            at(),
+                            r.thermal_fission
+                        ));
+                    }
                 }
             }
         }
