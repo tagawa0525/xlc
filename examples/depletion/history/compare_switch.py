@@ -24,6 +24,7 @@ core と第 1 項のテーブルの差、公称の燃焼の core と公称のテ
 
 import argparse
 import json
+from itertools import pairwise
 from pathlib import Path
 
 from compare_core_history import (
@@ -44,6 +45,21 @@ FILES = {
 }
 # 数密度の相対差を要約に残す主な核種（記録の本文に書く）
 MAJOR = ["U-235", "Pu-239", "Pu-240", "Pu-241", "Xe-135"]
+# 重みの見込みを出す ω（PARCS の ω = 2〜2.5 と、その間の値。ADR-0215 の案 V2）
+OMEGAS = [1.25, 1.5, 2.0, 2.5]
+
+
+def omega_weights(t, nodes, omega):
+    """core の燃焼点ごとの w を、H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ωΔB) で進め直したもの。ステップの x の w は、core が ω = 1 で
+    進めた H の差から戻す（w₁(B₁) B₁ − w₁(B₀) B₀) / ΔB）"""
+    first = t.weight(nodes[0]["history"]) + 0.0
+    weights = [first]
+    for a, b in pairwise(nodes):
+        b0, b1 = a["burnup"], b["burnup"]
+        step = b1 - b0
+        x = (t.weight(b["history"]) * b1 - t.weight(a["history"]) * b0) / step
+        weights.append((weights[-1] * b0 + omega * x * step) / (b0 + omega * step))
+    return weights
 
 
 def reference_states(reference):
@@ -141,6 +157,14 @@ def compare(table, reference, history, core, plain, core_history):
                 "first_term_pcm": rho(state["k_inf"]) - rho(lattice["k_inf"]),
             }
         )
+        row = rows[-1]
+        fill = row["plain_difference_pcm"] - row["difference_pcm"]
+        # 補正の量が w に比例すると置いて、参照に合う w
+        row["needed_weight"] = (
+            None
+            if row["weight"] == 0.0
+            else row["weight"] * row["plain_difference_pcm"] / fill
+        )
     # 続ける点の参照と、公称のテーブルの条件 j の状態（同じ組成と状態）
     u0, p0 = states[0]
     node = at(core_nodes, u0, "core")
@@ -148,12 +172,40 @@ def compare(table, reference, history, core, plain, core_history):
     check = rho(reference["states"][p0]["k_inf"]) - rho(
         table["states"][table_point]["k_inf"]
     )
+    omegas = []
+    for omega in OMEGAS:
+        weights = omega_weights(t, core_nodes, omega)
+        at_rows = [
+            next(
+                w
+                for n, w in zip(core_nodes, weights)
+                if same_burnup(n["burnup"], x["burnup"])
+            )
+            for x in rows
+        ]
+        omegas.append(
+            {
+                "omega": omega,
+                "weights": at_rows,
+                # 補正の量が w に比例すると置いた差の見込み（core を再実行していない）
+                "estimate_pcm": [
+                    None
+                    if x["weight"] == 0.0
+                    else x["plain_difference_pcm"]
+                    - w
+                    / x["weight"]
+                    * (x["plain_difference_pcm"] - x["difference_pcm"])
+                    for x, w in zip(rows, at_rows)
+                ],
+            }
+        )
     return {
         "format": "xlc-compare-history-switch",
         "variable": t.history["variable"],
         "continued_burnup": u0,
         "check_pcm": check,
         "rows": rows,
+        "omegas": omegas,
     }
 
 
@@ -175,6 +227,12 @@ def report(summary):
         return "、".join(f"{n} {v:+.3f}%" for n, v in values.items())
 
     u0 = summary["continued_burnup"]
+
+    def omega_text(x):
+        values = [v for v in x["estimate_pcm"] if v is not None]
+        return f"ω = {x['omega']:g} で最後の点の w {x['weights'][-1]:.4f}、見込み {min(values):+.1f}〜{max(values):+.1f} pcm"
+
+    needed = [x for x in later if x["needed_weight"] is not None]
     return (
         f"続ける点 {u0:.4g} MWd/kg の参照の k∞ と公称のテーブルの条件 j の状態の k∞ の差は {summary['check_pcm']:+.4f} pcm"
         f"（core − 参照は {rows[0]['difference_pcm']:+.3f} pcm、補正を切った core も {rows[0]['plain_difference_pcm']:+.3f} pcm）。"
@@ -189,6 +247,13 @@ def report(summary):
         f"\n参照の N̄ᵢ からの数密度の相対差の絶対値の最大は、履歴の補正の core が {largest('density_percent', 'density_nuclide')}、"
         f"補正を切った core が {largest('plain_density_percent', 'plain_density_nuclide')}。最後の点の主な核種: 履歴の補正の core "
         f"{major(last['densities_percent'])}；補正を切った core {major(last['plain_densities_percent'])}"
+        f"\n補正の量が w に比例すると置いた見込み: 参照に合う w は "
+        + "、".join(
+            f"{x['burnup']:.4g} MWd/kg で {x['needed_weight']:.4f}（ω = 1 で {x['weight']:.4f}）"
+            for x in needed
+        )
+        + "。"
+        + "；".join(omega_text(x) for x in summary["omegas"])
     )
 
 
