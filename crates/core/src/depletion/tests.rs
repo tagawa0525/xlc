@@ -1045,6 +1045,7 @@ fn micro_case(case: &str) -> Case {
     case.depletion.as_mut().unwrap().micro = Some(MicroInput {
         chain: "chain.msgpack".into(),
         xenon: Xenon::Tracked,
+        history_weight: 1.0,
     });
     case
 }
@@ -2457,22 +2458,59 @@ fn micro_histories_hold_the_auxiliary_densities_of_their_last_point() {
 #[test]
 fn history_variables_average_the_step_values_by_burnup() {
     // 一定の値なら、どの燃焼度でもその値（ビットで同じ）
-    let mut h = advance_history(&[0.743], 0.0, 0.1, &[0.743]);
+    let mut h = advance_history(&[0.743], 0.0, 0.1, &[0.743], 1.0);
     assert_eq!(h, [0.743]);
     for (start, end) in [(0.1, 0.25), (0.25, 13.7), (13.7, 60.0)] {
-        h = advance_history(&h, start, end, &[0.743]);
+        h = advance_history(&h, start, end, &[0.743], 1.0);
         assert_eq!(h, [0.743]);
     }
     // 燃焼度 0 からは、ステップの値（燃焼度 0 の値は瞬時の値）
-    assert_eq!(advance_history(&[0.743], 0.0, 2.0, &[0.661]), [0.661]);
+    assert_eq!(advance_history(&[0.743], 0.0, 2.0, &[0.661], 1.0), [0.661]);
     // 途中で値を変えると、燃焼度で重みを付けた平均 (1/B) ∫ x dB'
-    let h = advance_history(&[0.743], 0.0, 20.0, &[0.743]);
-    let h = advance_history(&h, 20.0, 30.0, &[0.661]);
-    let h = advance_history(&h, 30.0, 60.0, &[0.661]);
+    let h = advance_history(&[0.743], 0.0, 20.0, &[0.743], 1.0);
+    let h = advance_history(&h, 20.0, 30.0, &[0.661], 1.0);
+    let h = advance_history(&h, 30.0, 60.0, &[0.661], 1.0);
     let expected = (0.743 * 20.0 + 0.661 * 40.0) / 60.0;
     assert!((h[0] - expected).abs() <= 1.0e-15, "{h:?} vs {expected}");
     // 燃焼度が進まなければ（崩壊だけのステップ）、そのまま
-    assert_eq!(advance_history(&[0.7], 12.0, 12.0, &[0.661]), [0.7]);
+    assert_eq!(advance_history(&[0.7], 12.0, 12.0, &[0.661], 1.0), [0.7]);
+}
+
+#[test]
+fn history_steps_weight_the_step_values_by_the_history_weight() {
+    // PARCS の形 H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ω ΔB)（ADR-0215 の検討した案）
+    for omega in [0.5, 1.25, 2.0, 2.5] {
+        let h = advance_history(&[0.743], 20.0, 30.0, &[0.661], omega);
+        let expected = (0.743 * 20.0 + omega * 0.661 * 10.0) / (20.0 + omega * 10.0);
+        assert!(
+            (h[0] - expected).abs() <= 1.0e-15,
+            "{omega}: {h:?} vs {expected}"
+        );
+        // 燃焼度 0 からはステップの値、燃焼度が進まなければそのまま、一定の値ならその値（ビットで同じ）
+        assert_eq!(
+            advance_history(&[0.743], 0.0, 2.0, &[0.661], omega),
+            [0.661]
+        );
+        assert_eq!(advance_history(&[0.7], 12.0, 12.0, &[0.661], omega), [0.7]);
+        assert_eq!(
+            advance_history(&[0.743], 13.7, 60.0, &[0.743], omega),
+            [0.743]
+        );
+    }
+    // ω が大きいほど、最近のステップの値に寄る
+    let h = |omega| advance_history(&[0.743], 20.0, 30.0, &[0.661], omega)[0];
+    assert!(h(2.0) < h(1.25) && h(1.25) < h(1.0));
+    // ω = 1 は燃焼度で重みを付けた平均の形 H + (x − H) ΔB / B とビットで同じ
+    for (hv, start, end, x) in [
+        (0.743, 20.0, 22.0, 0.661),
+        (0.7183, 0.1, 0.25, 0.70212),
+        (0.69, 13.7, 60.0, 0.743),
+    ] {
+        assert_eq!(
+            advance_history(&[hv], start, end, &[x], 1.0),
+            [hv + (x - hv) * ((end - start) / end)]
+        );
+    }
 }
 
 #[test]
@@ -2555,6 +2593,66 @@ fn node_histories_follow_the_states_of_the_steps() {
     for ((b1, _), (b3, h3)) in values(1).into_iter().zip(values(3)) {
         let expected = (0.75 * b1 + 0.74 * (b3 - b1)) / b3;
         assert!((h3 - expected).abs() <= 1.0e-15, "{h3} vs {expected}");
+    }
+}
+
+#[test]
+fn node_histories_step_with_the_history_weight_of_the_micro_input() {
+    // 560 K（0.75 g/cm³）から 570 K（0.74 g/cm³）に変えた燃焼で、ノードの値は燃焼点ごとに ω の式で進む
+    let mut case = micro_case(
+        &CASE
+            .replace(
+                "[state.hfp]\nboron = 1200\nb10 = 0.199\nmoderator = 565\nfuel = 565\n",
+                "[state.cold]\nboron = 1200\nb10 = 0.199\nmoderator = 560\nfuel = 565\n\n\
+                 [state.hot]\nboron = 1200\nb10 = 0.199\nmoderator = 570\nfuel = 565\n",
+            )
+            .replace(
+                "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+                "[{ efpd = 50.0, state = \"cold\" }, { efpd = 125.0, state = \"hot\" }, { efpd = 250.0 }]",
+            ),
+    );
+    let omega = 2.0;
+    case.depletion
+        .as_mut()
+        .unwrap()
+        .micro
+        .as_mut()
+        .unwrap()
+        .history_weight = omega;
+    let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+    let tables: Vec<Table> = tables
+        .into_iter()
+        .map(|t| with_micro(t, &TRACKED))
+        .collect();
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&small_chain()),
+        None,
+        &tight(),
+        |_| {},
+    )
+    .unwrap();
+    let values = |k: usize| -> Vec<(f64, f64)> {
+        let p = &history.points[k];
+        p.burnups
+            .iter()
+            .flatten()
+            .zip(p.histories.as_ref().unwrap().iter().flatten())
+            .map(|(&b, h)| (b, h[0]))
+            .collect()
+    };
+    assert!(values(1).iter().all(|&(_, h)| h == 0.75));
+    for k in 2..=3 {
+        for ((b0, h0), (b1, h1)) in values(k - 1).into_iter().zip(values(k)) {
+            let expected = (h0 * b0 + omega * 0.74 * (b1 - b0)) / (b0 + omega * (b1 - b0));
+            assert!(
+                (h1 - expected).abs() <= 1.0e-15,
+                "point {k}: {h1} vs {expected}"
+            );
+        }
     }
 }
 
