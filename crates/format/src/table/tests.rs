@@ -1096,6 +1096,29 @@ fn residual(scale: f64) -> Residual {
     }
 }
 
+/// `micro_nuclide` と同じ反応の並びの、値を `scale` 倍した反応率の微視的断面積の差（2 群。負の値を含む）
+fn rate_residual(scale: f64, fissile: bool) -> RateResidual {
+    let x = |v: f64| scale * v / 3.0;
+    RateResidual {
+        fission: if fissile {
+            vec![x(-0.004), x(0.29)]
+        } else {
+            vec![0.0; 2]
+        },
+        reactions: vec![
+            MicroReaction {
+                mt: 16,
+                channels: vec![vec![x(0.00002), 0.0]],
+            },
+            MicroReaction {
+                mt: 102,
+                channels: vec![vec![x(-0.003), x(0.02)], vec![x(0.0003), x(-0.002)]],
+            },
+        ],
+        thermal_fission: fissile.then_some(x(-0.01)),
+    }
+}
+
 /// 公称のテーブル: 燃焼度 0、10、20 MWd/kg、ホウ素 1 点、減速材 2 点（公称の 565 K と 0.743 g/cm³、履歴の分岐の条件の 600 K と
 /// 0.661 g/cm³）、燃料 1 点。公称の状態はすべての燃焼度で、減速材の公称でない状態は 0 と 20 で解き、追う核種 1 つと、制御棒のない
 /// 減速材の密度の履歴の補正（0 と 20 の点）を持つ
@@ -1133,6 +1156,10 @@ fn history_sample() -> Table {
                 rod: ROD_OUT.into(),
                 burnup: vec![0.0, 20.0],
                 residuals: vec![residual(1.0), residual(2.0)],
+                micro: vec![
+                    vec![rate_residual(1.0, true)],
+                    vec![rate_residual(2.0, true)],
+                ],
             }],
         }],
         points,
@@ -1311,6 +1338,84 @@ fn residuals_have_the_groups_and_sides_of_the_states_and_are_finite() {
     }
     // 残りは負になりうる
     history_sample().validate().unwrap();
+}
+
+#[test]
+fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
+    let cases: Vec<(fn(&mut HistoryRod), &str)> = vec![
+        // 点ごとに 1 つの列
+        (
+            |r| {
+                r.micro.pop();
+            },
+            "rate",
+        ),
+        // 列は追う核種の数
+        (|r| r.micro[1].push(rate_residual(1.0, true)), "rate"),
+        (
+            |r| {
+                r.micro[0].pop();
+            },
+            "rate",
+        ),
+        // 反応の並び（MT と経路の数）と核分裂の有無はミクロ燃焼のデータと同じ
+        (|r| r.micro[1][0].reactions[0].mt = 17, "reactions"),
+        (
+            |r| {
+                r.micro[1][0].reactions[1].channels.pop();
+            },
+            "reactions",
+        ),
+        (
+            |r| {
+                r.micro[1][0].reactions.pop();
+            },
+            "reactions",
+        ),
+        (|r| r.micro[0][0].thermal_fission = None, "fission"),
+        // 群の数の有限の値
+        (
+            |r| {
+                r.micro[1][0].fission.pop();
+            },
+            "groups",
+        ),
+        (
+            |r| {
+                r.micro[1][0].reactions[1].channels[0].push(0.0);
+            },
+            "groups",
+        ),
+        (|r| r.micro[1][0].fission[0] = f64::NAN, "groups"),
+        (
+            |r| r.micro[0][0].reactions[0].channels[0][1] = f64::INFINITY,
+            "groups",
+        ),
+        (
+            |r| r.micro[1][0].thermal_fission = Some(f64::NAN),
+            "fission",
+        ),
+    ];
+    for (change, expected) in &cases {
+        bad_history(&|t| change(&mut t.histories[0].rods[0]), expected);
+    }
+    // 核分裂しない核種の差は nil
+    let mut table = history_sample();
+    let micro = table.micro.as_mut().unwrap();
+    micro.nuclides.push("Xe-135".into());
+    for (p, state) in micro.states.iter_mut().enumerate() {
+        state.push(micro_nuclide(2.0 + p as f64, false));
+    }
+    for row in &mut micro.densities {
+        row.push(1.0e-9);
+    }
+    for row in &mut table.histories[0].rods[0].micro {
+        row.push(rate_residual(3.0, false));
+    }
+    table.validate().unwrap();
+    table.histories[0].rods[0].micro[1][1].thermal_fission = Some(0.0);
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("fission"), "{err}");
 }
 
 #[test]

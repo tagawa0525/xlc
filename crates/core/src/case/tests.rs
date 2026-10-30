@@ -465,6 +465,7 @@ fn history_table(rods: &[&str]) -> Table {
             rod: ROD_OUT.into(),
             burnup: vec![0.0, 20.0],
             residuals,
+            micro: Vec::new(),
         }],
     }];
     table.validate().unwrap();

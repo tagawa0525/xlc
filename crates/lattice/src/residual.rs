@@ -301,6 +301,7 @@ pub fn residuals(
             rod: rod.into(),
             burnup: solved_values,
             residuals,
+            micro: Vec::new(),
         },
     ))
 }
