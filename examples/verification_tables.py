@@ -1629,6 +1629,41 @@ def history_effect(case: str, sources: list[dict]) -> str:
     )
 
 
+def history_residual(sources: list[dict]) -> str:
+    """履歴の残り R（ADR-0215）: 燃焼度ごとの、条件の状態での履歴の効き、その線形の補正と R の分（pcm）、R の定義の検査（R を足した
+    定数の 2 群の k と分岐のテーブルの k∞ の差）、逆向きの R、状態への依存、条件の R を公称の状態で使った誤差、第 1 項の再現（pcm）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-residual":
+        raise TableError("not an xlc-compare-history-residual summary")
+    columns = (
+        ("effect_pcm", 2),
+        ("linear_pcm", 2),
+        ("residual_pcm", 2),
+        ("reproduce_pcm", 4),
+        ("reverse_residual_pcm", 2),
+        ("dependence_pcm", 2),
+        ("applied_pcm", 2),
+        ("first_term_pcm", 3),
+    )
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "効き",
+            "線形の補正",
+            "R",
+            "再現",
+            "逆向きの R",
+            "状態への依存",
+            "公称の状態で使った誤差",
+            "第 1 項",
+        ],
+        [
+            [burnup_label(r["burnup"]), *(signed(r[key], d) for key, d in columns)]
+            for r in s["rows"]
+        ],
+    )
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2069,6 +2104,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/history/history-effect.json",
+    "examples/depletion/history/residual.json",
     "examples/depletion/micro/linearization.json",
     "examples/depletion/micro/linearization-perturbation-5.json",
     "examples/depletion/micro/split.json",
@@ -2637,6 +2673,10 @@ TABLES = {
     "depletion-history-effect-rods": (
         ["examples/depletion/history/history-effect.json"],
         partial(history_effect, "rods"),
+    ),
+    "depletion-history-residual-density": (
+        ["examples/depletion/history/residual.json"],
+        history_residual,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],
