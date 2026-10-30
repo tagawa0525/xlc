@@ -25,6 +25,12 @@ resolution:
   要らなかったかは確かめていない（`bin/lattice` は変わった）
 - ADR-0221 のマージ（xlc 9a69db2a9）の後片付けでも、記録と ADR が引く `table-nominal.msgpack`（md5 fde256d9）などの micro の
   テーブルが消え、main にも無い（2026-10-30 に `/home/tagawa/github` の下を `find` で探して 0 件）
+- σ の履歴の補正のマージ（xlc fcb8db079。2026-10-30）では、`histories` の形が変わって main の
+  `examples/depletion/history/` の生成物が新しい core で読めなくなったので、親が後片付けの前にブランチの worktree の
+  `*.msgpack` と `*.log` の 19 件を main に `cp` で上書きした。記録（「履歴の残り R（2A の減速材の密度）」の「計算」）が
+  「R は前の版の出力 3d73faee と同じ値」と引く前の形の `table-residual-nominal-histories.msgpack` は、この上書きと
+  worktree の削除で残っていない（`/home/tagawa/github` の下を `find` で探して 222fabb0 の 1 件だけ）。`lattice histories`
+  で数秒で作り直せるので損は小さいが、形が変わるたびに手でコピーし、前の版の md5 を失う形は同じ
 
 出し直しの経路は、コミットした入力を checkout して再実行する形（ADR-0122 の案 E）で、この issue はその時間を省く置き場を
 扱う。追跡しない参照の出力の置き場は #0018。
@@ -36,6 +42,7 @@ resolution:
 記録か ADR が引く（md5 か名前で）追跡しない出力が、手順を覚えていなくてもマージの後に残るか戻せる。候補（確かめていない）:
 
 - 引く出力を DVC で追う（キャッシュを worktree で共有し、`worktree-restore-outputs.sh` で戻る。ADR-0126、ADR-0130）。
+  DVC のキャッシュは中身の md5 で置くので、形が変わって出力を置き換えても前の版がキャッシュに残る。
   `dvc add` でファイルだけを追うか、既存の examples/depletion/dvc.yaml にステージを足すか（examples/depletion/branches には
   dvc.yaml が無い）の費用を数える
 - `worktree-restore-outputs.sh` の逆向きのスクリプト（ブランチの記録が引く md5 の無視されたファイルを main にコピーする）を
