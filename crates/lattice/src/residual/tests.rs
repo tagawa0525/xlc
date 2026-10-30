@@ -269,9 +269,12 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     let fails = |change: &dyn Fn(&mut Table)| {
         let mut b = branch();
         change(&mut b);
-        residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
+        let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
             .unwrap_err()
-            .to_string()
+            .to_string();
+        // 折り返した文の空白が文に入らない
+        assert!(!err.contains("  "), "{err}");
+        err
     };
     // 公称のテーブルの格子点でない
     let err = fails(&|b| b.axes[2] = Axis::moderator(vec![610.0], vec![0.661]).with_nominal(610.0));
@@ -413,4 +416,39 @@ fn run_writes_the_nominal_table_with_the_history_residuals() {
     let err = run(&input).unwrap_err().to_string();
     assert!(err.contains("already"), "{err}");
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn branch_values_on_axes_the_nominal_table_lacks_are_errors() {
+    // 公称のテーブルに燃料の軸が無いと、分岐の燃料の温度を照らせず、温度の差の効きが R に混ざる
+    let mut n = nominal();
+    n.axes.remove(3);
+    for p in &mut n.points {
+        p.pop();
+    }
+    for axis in &mut n.axes {
+        *axis = axis.clone().without_nominal();
+    }
+    n.axes[1] = n.axes[1].clone().with_nominal(1300.0);
+    n.axes[2] = n.axes[2].clone().with_nominal(565.0);
+    n.validate().unwrap();
+    let mut b = branch();
+    b.axes[3] = Axis::fuel(vec![900.0]).with_nominal(900.0);
+    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("fuel"), "{err}");
+}
+
+#[test]
+fn branch_conditions_with_the_nominal_density_are_errors() {
+    // 温度だけが公称と違う格子点では Hᵇ = H⁰ で、core の重みが 0 で割る
+    let mut n = nominal();
+    n.axes[2] = Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.743]).with_nominal(565.0);
+    let mut b = branch();
+    b.axes[2] = Axis::moderator(vec![600.0], vec![0.743]).with_nominal(600.0);
+    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("density"), "{err}");
 }

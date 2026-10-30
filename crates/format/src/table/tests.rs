@@ -1145,6 +1145,8 @@ fn bad_history(change: &dyn Fn(&mut Table), expected: &str) {
     change(&mut table);
     let err = table.validate().unwrap_err().to_string();
     assert!(err.contains(expected), "{expected:?} not in {err}");
+    // 折り返した文の空白が文に入らない
+    assert!(!err.contains("  "), "{err}");
     assert!(table.to_msgpack().is_err());
 }
 
@@ -1189,6 +1191,14 @@ fn history_values_are_the_moderator_densities_of_the_nominal_and_another_point()
     // Hᵇ は公称でない格子点の密度（その格子点が履歴の分岐の条件）
     bad_history(&|t| t.histories[0].branch = 0.70, "branch");
     bad_history(&|t| t.histories[0].branch = 0.743, "branch");
+    // 公称と同じ密度の格子点（温度だけが違う）は変数の差を作らない（core の重み (H − H⁰)/(Hᵇ − H⁰) が 0 で割る）
+    bad_history(
+        &|t| {
+            t.axes[2] = Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.743]).with_nominal(565.0);
+            t.histories[0].branch = 0.743;
+        },
+        "branch",
+    );
     // 公称の値のない（直積の）テーブルには、履歴の分岐の条件を決める公称の状態がない
     bad_history(
         &|t| {
