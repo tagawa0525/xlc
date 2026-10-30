@@ -1484,7 +1484,7 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
 
 #[test]
 fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent() {
-    // 燃焼度 0 の Xe-135 は N̄ᵢ = 0 で、Σ = N σ̄(N) の dΣ/dN は N = 0 で σ̄(0) に等しいので、摂動を解かず σᵢ（ADR-0216 の案 Z1）
+    // 燃焼度 0 の Xe-135 は N̄ᵢ = 0 で、相対の摂動では解けないので、摂動を解かず σᵢ（ADR-0216 の案 Z1。ADR-0221）
     let (history, library) = history();
     let text = derivative_input(0.1);
     let s = setup(&text);
