@@ -28,12 +28,18 @@ ADR-0221 の実装（ブランチ feat/0221-micro-density-derivative）のレビ
   11→12 MWd/kg が +4.62 pcm と前後（+3.84、+3.67 pcm）より大きい。ADR-0221 の D2c の「差が ε に比例するなら」の外挿は、この分を分けていない。
   候補: 摂動の輸送と状態の輸送を細かい判定で解く、εN̄ᵢσ / Σ の下限を置く
 - 記録の表のツール（examples/verification_tables.py の `micro_linearization_derivative`）は、列の見出しの ε（0.1 と 0.05）を表の登録に
-  書き、JSON は ε も置き換えた組成のテーブルも持たないので、別の ε や別の置き換えた組成で作った JSON でも同じ見出しで描く。
-  候補: compare_linearization.py が JSON に置き換えた組成のテーブルの md5 を並べて表のツールが 2 つの JSON で同じことを確かめる、テーブルに ε を書く
+  書き、JSON は ε を持たず、表のツールは 2 つの JSON の置き換えた組成のテーブル（`inputs` の `shifted` の md5。JSON は書いている）が
+  同じことを確かめないので、別の ε や別の置き換えた組成で作った JSON でも同じ見出しで描く。
+  候補: 表のツールが 2 つの JSON の `inputs.shifted` を比べる、テーブルに ε を書く
 
 - 重複と無駄（レビューの 2 周目）: crates/core/src/rods.rs の `mix_micro` は、微分の混ぜ方を微視的断面積の `by_group` と散乱の平均の
   コピーで書き、`held` は型を変えるためだけに作る（clippy の `expect_used` で `expect` を使えない）。crates/lattice/src/history.rs の
   `perturbed` は、1 核種を変えるために燃焼の領域の全核種の数密度を状態と参照ごとに複製する。どちらも結果は変えない
+- 部分挿入のノードの微分（レビューの 3 周目）: core は区間のテーブルごとに線形の補正をしてから少数群定数を混ぜ（crates/core/src/case.rs）、
+  `mix_micro` が混ぜた微分は反応率の経路（crates/core/src/depletion.rs）しか通らず使われない。混ぜずに捨てるか、混ぜた値を使う形にするかを決める
+- `shielding-file` を与えた分岐の摂動の参照は自己遮蔽の履歴の組成のままで、核種ごとの `BranchShielder` が公称と同じ参照の自己遮蔽を燃焼度の点ごとに
+  解き直す（#0191 の測定用の入力だけで、結果は変えない）
+- テーブルの読み込みは、入れ子の `micro` の構造体（`derivative` を含む）が map 形式であることを確かめない（ADR-0011。`MicroNuclide` の前からの穴）
 
 関係する ADR: ADR-0221
 
