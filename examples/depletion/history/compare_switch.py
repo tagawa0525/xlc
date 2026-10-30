@@ -14,11 +14,11 @@
 - 補正を切った core（`core-2A-plain-switch.toml`。R と Δσ を持たないテーブルで同じ燃焼）
 
 参照の燃焼度の点ごとに、core の k の参照の k∞ からの差と、それを追う核種の数密度の違いで説明する分（数密度の効き）: 参照の定数に、
-core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は参照の微視的断面積。参照は数密度の微分を持たないので、
-core が微分を使う Pu-240 も σᵢ）を足した
+core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は core と同じ、R を持つ公称のテーブルの
+同じ燃焼度の条件 j の状態のもの。Pu-240 は数密度の微分）を足した
 2 群の k と、参照の定数の 2 群の k の差。核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
-続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は ADR-0187 の確認の
-水準（0.06 pcm 程度）のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
+続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、ADR-0187 の
+確認の −0.040〜−0.056 pcm 以下のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
 core と第 1 項のテーブルの差、公称の燃焼の core と公称のテーブルの差（`core-history.json`）を同じ点に並べる。
 ρ = 1 − 1/k で、差は pcm。
 """
@@ -108,9 +108,9 @@ def composition(state, coeff, reference_densities, node):
 
 
 def check_core_history(core_history, md5s):
-    """一生を条件 j で燃焼させた比較の要約が、同じ R を持つテーブルと core の途中で条件を変えた燃焼（md5 `md5s`）から作ったもの
-    であること"""
-    for key in ("residual_table", "core"):
+    """一生を条件 j で燃焼させた比較の要約が、同じ R を持つテーブル、core の途中で条件を変えた燃焼、R を持たないテーブル（補正を切った
+    core のテーブル。md5 `md5s`）から作ったものであること"""
+    for key in ("residual_table", "core", "plain_table"):
         made_from = core_history.get("inputs", {}).get(FILES[key])
         if made_from != md5s[FILES[key]]:
             raise SystemExit(
@@ -136,11 +136,11 @@ def compare(table, reference, history, core, plain, core_history):
     rows = []
     for u, b, p in states:
         state = reference["states"][p]
-        micro = reference["micro"]["states"][p]
         n_ref = reference["micro"]["densities"][b]
-        coeff = coefficients(micro)
-
         n = at(core_nodes, u, "core")
+        # 係数は core と同じ、R を持つ公称のテーブルのノードの状態（条件 j）の格子点のもの（微分を持つ核種は微分。ADR-0221）
+        table_point, _ = t.point(u, n["moderator"], "core")
+        coeff = coefficients(table["micro"]["states"][table_point])
         q = at(plain_nodes, u, "plain")
         whole = [x for x in branch_rows if same_burnup(x["burnup"], u)]
         if len(whole) != 1:
@@ -178,7 +178,7 @@ def compare(table, reference, history, core, plain, core_history):
         # 補正の量が w に比例すると置いて、参照に合う w
         row["needed_weight"] = (
             None
-            if row["weight"] == 0.0
+            if row["weight"] == 0.0 or fill == 0.0
             else row["weight"] * row["plain_difference_pcm"] / fill
         )
     # 続ける点の参照と、公称のテーブルの条件 j の状態（同じ組成と状態）
@@ -246,6 +246,8 @@ def report(summary):
 
     def omega_text(x):
         values = [v for v in x["estimate_pcm"] if v is not None]
+        if not values:
+            return f"ω = {x['omega']:g} は見込みなし（補正の効く点が無い）"
         return f"ω = {x['omega']:g} で最後の点の w {x['weights'][-1]:.4f}、見込み {min(values):+.1f}〜{max(values):+.1f} pcm"
 
     needed = [x for x in later if x["needed_weight"] is not None]
