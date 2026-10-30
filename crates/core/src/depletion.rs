@@ -1073,7 +1073,7 @@ pub fn deplete(
                 let mut middle_of_step = None;
                 let start = burnups.clone();
                 // ステップの中の状態は一定なので、ノードの履歴の変数のステップの値 x̄ は、ステップの状態の値（ADR-0215）
-                let step_values = node_values(step.state)?;
+                let step_values = node_values(step.state).map_err(|e| locate(e, &at_step))?;
                 let step_histories = |end: &[f64]| -> Result<Option<Densities>, CaseError> {
                     match (histories.as_deref(), step_values.as_deref()) {
                         (Some(h), Some(x)) => advance_histories(h, &start, end, x).map(Some),
