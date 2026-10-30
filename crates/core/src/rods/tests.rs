@@ -502,6 +502,13 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
     // 持たない核種は持たないまま。区間で持つかが違えばエラー
     assert!(mixed.nuclides[1].derivative.is_none());
     assert!(mix_micro(&[with(false), segment_micro(true)], &weights, &[2.0, 0.5]).is_err());
+    // 微分の群の数が中性子束と違えば、群ごとに引く前にエラー
+    let mut short = with(true);
+    short.nuclides[0].derivative.as_mut().unwrap().scatter[1].pop();
+    assert!(mix_micro(&[with(false), short], &weights, &[2.0, 0.5]).is_err());
+    let mut short = with(true);
+    short.nuclides[0].derivative.as_mut().unwrap().fission.pop();
+    assert!(mix_micro(&[with(false), short], &weights, &[2.0, 0.5]).is_err());
 }
 
 #[test]
