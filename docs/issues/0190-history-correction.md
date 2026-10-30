@@ -165,6 +165,13 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   比例と重みの見直しの候補に、L を線形の補正の効きの比で足す置き方が加わる（決めていない。core がノードの数密度から E を作れるか、U の外れ、E が
   符号を変える燃焼度の前半の扱いは確かめていない）。L が指標に 1 次で近いことは #0191 の、線形の補正の誤差が組成の差の 1 乗に比例するという見方と
   同じ向き
+  レビューで残したもの: index.json の鍵 `untracked_weight` は、履歴の行では U/w（pcm）、switch の行では split.json の w_U（効きの比）で、同じ名前が
+  2 つの量を指す。比を出さない点を E がちょうど 0 かで決めるので、E が 0 の近くを通る燃焼度の前半（2〜4 MWd/kg）の L/E² と R(1) との比が巨大な
+  値のまま表に載る（文章で意味を持たないと書いただけ）。`compare` は検査のために compare_split.py の `compare` を呼んで結果を捨て、`split` を
+  やり直す。`index_effect` と `nominal_state` を点と核種ごとに引き直す。`span` と `ratio` は compare_split.py、compare_weight.py の 3 つ目の複製で、
+  verification_tables.py の `signed_or_dash` は `core_history_switch` の局所関数 `optional` と同じ。`report` の最後の点の比は 0 で割りうる
+  （`span` は除く）、履歴の名前が表（密度 0.702）と要約（0.702）で違う。`switch_rows` は R(1) の点を浮動小数の一致で引き、`check_summaries` は
+  split.json の format を照らさない
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
   超えた比例と重みの見直し（上の候補から選ぶ。測定は済んだ）。examples/core/rod_table.py の `merge` は最初のテーブルの `histories` だけを残し、ほかの制御棒の値のテーブルの
