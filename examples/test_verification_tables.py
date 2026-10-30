@@ -1236,6 +1236,12 @@ class DrawCoreHistory(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.core_history_switch([{"format": "xlc-compare-history-residual"}])
 
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in ("depletion-core-history-branch", "depletion-core-history-switch"):
+            (sources, _) = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/history/core-history.json"])
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
 
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod

@@ -2171,6 +2171,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/history/history-effect.json",
     "examples/depletion/history/residual.json",
+    "examples/depletion/history/core-history.json",
     "examples/depletion/micro/linearization.json",
     "examples/depletion/micro/linearization-perturbation-5.json",
     "examples/depletion/micro/split.json",
@@ -2743,6 +2744,14 @@ TABLES = {
     "depletion-history-residual-density": (
         ["examples/depletion/history/residual.json"],
         history_residual,
+    ),
+    "depletion-core-history-branch": (
+        ["examples/depletion/history/core-history.json"],
+        core_history_branch,
+    ),
+    "depletion-core-history-switch": (
+        ["examples/depletion/history/core-history.json"],
+        core_history_switch,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],
