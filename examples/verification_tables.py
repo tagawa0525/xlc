@@ -2048,7 +2048,7 @@ def history_index_linearization(sources: list[dict]) -> str:
             "L/E² (10⁻⁶/pcm)",
             "L/E の R(1) との比",
             "L/E² の R(1) との比",
-            *(f"ΔN̄/N̄⁰: {n} (%)" for n in s["nuclides"]),
+            *(f"数密度の相対差: {n} (%)" for n in s["nuclides"]),
         ],
         [
             [
@@ -2111,7 +2111,7 @@ def history_index_switch(sources: list[dict]) -> str:
             "条件 j の E の比",
             "w_L",
             "w_U",
-            *(f"ΔN̄ の比: {n}" for n in s["nuclides"]),
+            *(f"数密度の差の比: {n}" for n in s["nuclides"]),
         ],
         [
             [
