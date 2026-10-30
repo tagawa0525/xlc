@@ -5312,7 +5312,7 @@ python3 compare_switch.py --report switch.json
 `target/release/lattice`（md5 73f4ba85。`continue` を足した版）で解いた: 途中で条件を変えた燃焼（Slurm 626）、参照（627）。どちらも割り込まれうる
 ジョブなので時間は記録に使わない。履歴は md5 1840f666、参照のテーブルは 3f74b1d4（追跡しない生成物）。core の 4 は「履歴の補正の core（2A の
 集合体 1 体）」の出力（md5 14c85ae0。main の `bin/core`、md5 9ac76e72 で再実行して同じ md5 を確かめた）、補正を切った対照は d5e35a33 で同じ
-`bin/core` で手元で流した（md5 f334b2d5）。比較は d5e35a33 で手元、2026-10-30。
+`bin/core` で手元で流した（md5 f334b2d5）。比較は b4d2f812 で手元、2026-10-30。
 
 ### 結果
 
