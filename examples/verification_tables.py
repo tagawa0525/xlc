@@ -2433,6 +2433,7 @@ def group_rows_spectrum(sources: list[dict]) -> str:
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
     "examples/depletion/history/weight.json",
+    "examples/depletion/history/split.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
