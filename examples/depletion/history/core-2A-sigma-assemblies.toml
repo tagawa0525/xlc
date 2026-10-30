@@ -1,0 +1,8 @@
+# 第 1 項のテーブル（履歴の分岐の組成を条件 j で解いた分岐。residual-density-branch.toml の出力。`histories` は持たない）の集合体 1 体。
+# core のミクロ燃焼の σᵢ、線形の補正の基準 N̄ᵢ、定数がどれも履歴の分岐のものになる参照（ADR-0215）。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-residual-density-branch.msgpack"]
+
+[assembly.A01]
+design = "2A"

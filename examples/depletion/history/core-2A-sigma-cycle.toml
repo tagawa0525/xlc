@@ -1,0 +1,4 @@
+# 第 1 項のテーブルの集合体 1 体を置くサイクル。
+plant = "../branches/core-plant.toml"
+inventory = "core-2A-sigma-assemblies.toml"
+loading = ["A01"]
