@@ -402,9 +402,9 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     `branch_tables_with_other_reactions_or_fission_are_errors`
 - 実装のときの測定（#0190）: 途中で条件を変えた燃焼（例: 2A を 20 MWd/kg まで公称で燃焼させ、その後を 0.661 g/cc で燃焼させる）で、V1（ω = 1）と
   変数の差に比例する補正の誤差を測り、目安を超えれば重みと、履歴の分岐の数（変数の 3 点）を見直す。Pyrex を抜いた後を燃焼し直した格子計算
-  （案 Q2）で、H_p の比例の誤差を測る。lattice は履歴の途中の組成から条件を変えて燃焼を続けられないので、その入力を足す
+  （案 Q2）で、H_p の比例の誤差を測る。履歴の途中の組成から条件を変えて燃焼を続ける入力は、lattice の `[depletion]` の `continue`（「帰結」）
   - 減速材の密度の測った値（examples/depletion/verification.md の「途中で条件を変えた燃焼（2A）」。lattice は 849b98eb の `continue` を足した
-    `target/release/lattice`、Slurm 626、627、2026-10-30。比較は b4d2f812 の examples/depletion/history/compare_switch.py）: 2A を 20 MWd/kg まで
+    `target/release/lattice`、Slurm 626、627、2026-10-30。比較は b3d3a5de の examples/depletion/history/compare_switch.py）: 2A を 20 MWd/kg まで
     公称、その後を条件 j（600 K、0.661 g/cc）で 60 MWd/kg まで燃焼させた格子計算の、R の点（26〜60 MWd/kg）を条件 j で解いた参照の k∞ と、
     H_m を ω = 1 で進めて R と Δσ を w で足した core の k の差は +3.751〜+52.248 pcm（60 MWd/kg で w = 2/3、+52.248 pcm）で、40 MWd/kg から目安の
     5 pcm を超える（一生を条件 j で燃焼させた core と第 1 項の差は同じ点で −3.788〜−1.097 pcm）。補正を切った core の差は +48.709〜+301.269 pcm で、
