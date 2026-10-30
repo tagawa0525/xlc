@@ -1340,9 +1340,12 @@ fn residuals_have_the_groups_and_sides_of_the_states_and_are_finite() {
     history_sample().validate().unwrap();
 }
 
+/// 制御棒の値の残りを変える関数と、検査のエラーの文に入る語
+type RodChange = (fn(&mut HistoryRod), &'static str);
+
 #[test]
 fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
-    let cases: Vec<(fn(&mut HistoryRod), &str)> = vec![
+    let cases: Vec<RodChange> = vec![
         // 点ごとに 1 つの列
         (
             |r| {
