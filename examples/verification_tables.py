@@ -2586,6 +2586,7 @@ def group_rows_spectrum(sources: list[dict]) -> str:
 GIT_TRACKED = {
     "examples/depletion/history/weight.json",
     "examples/depletion/history/split.json",
+    "examples/depletion/history/index.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
