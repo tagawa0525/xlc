@@ -36,6 +36,9 @@ resolution:
   途中の和で負になり後の変数で戻る σ を止める（すべての変数を足してから確かめる候補）。`node_micro` の `table.micro` の検査は、先に呼ぶ
   `interpolate_micro` が同じ条件で止めるので通らない。`add_rate_residual` の長さのエラーが `names` の長さを出さない。crates/core/src/rods.rs の
   `mix_micro` の注釈は σf の和が正である理由を `interpolate_micro` とだけ書き、履歴の補正のノードでは `add_rate_residual` の割合の検査が支える
+- 3 周目（HEAD 15093f32）: examples/depletion/verification.md の途中で条件を変えた燃焼の表の見出しと本文の「w × 18.50」は、丸める前の
+  18.50496（core-history.json の `applied_max_pcm`）で掛けた値で、2/3 × 18.50 = 12.333 と 12.34 が合わない（見出しを丸める前の値にするか、
+  丸めた値で掛ける。表は main の版から同じ形）
 
 ## 完了の条件
 
