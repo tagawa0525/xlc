@@ -136,6 +136,11 @@ class Table:
         return k_inf(f), k_inf(added(f, scaled))
 
 
+def check_summary(residual_summary, table_md5):
+    """R の比較の要約が、同じ R を持つテーブル（md5 `table_md5`）から作ったものであること"""
+    raise NotImplementedError
+
+
 def compare(table, branch_table, nominal, branch, switch, residual_summary, identical):
     """比べた要約（モジュールの説明）"""
     t = Table(table)

@@ -238,6 +238,34 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(t, short, nominal, branch, switch, SUMMARY, True)
 
+    def test_the_residual_summary_must_cover_the_residual_points_of_the_table(self):
+        t, nominal, branch, switch, _ = self.cores()
+        missing = {"rows": [SUMMARY["rows"][0]]}
+        with self.assertRaises(SystemExit):
+            c.compare(t, branch_table(), nominal, branch, switch, missing, True)
+        # 燃焼度は相対 1e-9 で照らす
+        near = {
+            "rows": [
+                dict(x, burnup=x["burnup"] * (1.0 + 1e-12)) for x in SUMMARY["rows"]
+            ]
+        }
+        s = c.compare(t, branch_table(), nominal, branch, switch, near, True)
+        self.assertAlmostEqual(
+            s["switch_rows"][2]["applied_bound_pcm"],
+            s["switch_rows"][2]["weight"] * 6.0,
+        )
+        # 要約は同じ R を持つテーブルから作ったもの
+        c.check_summary({"inputs": {c.FILES["residual_table"]: "abc"}}, "abc")
+        with self.assertRaises(SystemExit):
+            c.check_summary({"inputs": {c.FILES["residual_table"]: "abc"}}, "abd")
+
+    def test_reports_of_runs_without_a_weight_or_late_points_are_written(self):
+        t, nominal, branch, _, _ = self.cores()
+        s = c.compare(t, branch_table(), nominal, branch, nominal, SUMMARY, True)
+        s["branch_rows"] = [x for x in s["branch_rows"] if x["burnup"] < 15.0]
+        text = c.report(s)
+        self.assertIn("w", text)
+
 
 if __name__ == "__main__":
     unittest.main()
