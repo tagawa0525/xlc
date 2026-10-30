@@ -236,6 +236,19 @@ class Report(unittest.TestCase):
         text = cs.report(summary)
         for word in ("自己遮蔽", "空間の分布", "少数群の重み", "交差"):
             self.assertIn(word, text)
+        self.assertNotIn("だけの組成", text)
+
+    def test_the_report_compares_the_single_nuclide_error_with_the_weight(self):
+        t = tables()
+        t["single"] = single(t, 1e-3)
+        summary = cs.compare(t)
+        late = copy.deepcopy(summary["rows"][0])
+        late["from"], late["to"] = 5.0, 6.0
+        late["single"]["error_pcm"] = late["weight_pcm"] - 2.5
+        summary["rows"].append(late)
+        text = cs.report(summary)
+        self.assertIn("U-235 だけの組成", text)
+        self.assertIn("最大 2.50 pcm", text)
 
 
 if __name__ == "__main__":
