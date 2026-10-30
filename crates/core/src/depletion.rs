@@ -60,6 +60,9 @@ pub struct CoreHistory {
     /// サイクルの restart が、最後の点の `densities` と合わせて読む（ADR-0220）。ミクロ燃焼しなければ `None`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auxiliary_densities: Option<Vec<Vec<Vec<f64>>>>,
+    /// ミクロ燃焼のノードが持つ履歴の変数の名前（ADR-0215。`HISTORY_VARIABLES`）。ミクロ燃焼しなければ `None`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_variables: Option<Vec<String>>,
     pub points: Vec<CorePoint>,
 }
 
@@ -113,6 +116,10 @@ pub struct CorePoint {
     /// ミクロ燃焼しなければ `None`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub densities: Option<Vec<Vec<Vec<f64>>>>,
+    /// ミクロ燃焼のノードの履歴の変数の値（ADR-0215。[集合体][軸方向のノード][変数]。変数は `history_variables` の順で、核分裂のない
+    /// ノードは空）。次のサイクルの restart が最後の点の値を読む。ミクロ燃焼しなければ `None`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub histories: Option<Vec<Vec<Vec<f64>>>>,
 }
 
 /// 書くファイルの形（`CoreHistory` に `format` を足したもの）
@@ -142,6 +149,8 @@ struct FileIn {
     auxiliary: Option<Vec<String>>,
     #[serde(default)]
     auxiliary_densities: Option<Vec<Vec<Vec<f64>>>>,
+    #[serde(default)]
+    history_variables: Option<Vec<String>>,
     points: Vec<CorePoint>,
 }
 
@@ -293,6 +302,7 @@ impl CoreHistory {
             xenon,
             auxiliary: file.auxiliary,
             auxiliary_densities: file.auxiliary_densities,
+            history_variables: file.history_variables,
             points: file.points,
         })
     }
@@ -330,6 +340,13 @@ pub fn advance(
             }
         })
         .collect()
+}
+
+/// 履歴の変数の値 `h`（燃焼度 `start` での値）を、燃焼度 `end` まで、ステップの値 `x` で進める（ADR-0215 の燃焼度で重みを付けた平均）:
+/// H(end) = (H(start) start + x (end − start)) / end。燃焼度 0 から進めると `x`（燃焼度 0 の値は瞬時の値）、燃焼度が進まなければ `h`
+pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64]) -> Vec<f64> {
+    let _ = (start, end, x);
+    h.to_vec()
 }
 
 /// 中点の形の 1 ステップ（ADR-0190）: 初めの燃焼度 `burnups` の核分裂率 `rates` で中点の燃焼度を求め、`solve`（燃焼度 →
@@ -623,6 +640,7 @@ pub fn deplete(
     }
     // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で。`given` が
     // あれば、探索の状態もその濃度で解く）。`at` はエラーに添える解の場所
+    let no_histories: Vec<Option<Vec<f64>>> = vec![None; sites];
     let solve = |k: usize,
                  burnups: &[f64],
                  n: Option<&[Option<Vec<f64>>]>,
@@ -636,6 +654,7 @@ pub fn deplete(
         let compositions = micro.as_ref().zip(n).map(|(m, densities)| Compositions {
             chain: &m.chain,
             densities,
+            histories: &no_histories,
         });
         let solve_ppm = |ppm: f64| {
             solve_compositions(
@@ -864,6 +883,7 @@ pub fn deplete(
             burnups: burnup_rows,
             powers: by_assembly(&shares),
             densities,
+            histories: None,
         }
     };
     let report = |point: &CorePoint| {
@@ -1076,6 +1096,7 @@ pub fn deplete(
         heavy_metal,
         auxiliary: micro.as_ref().map(|m| m.chain.auxiliary_nuclides()),
         auxiliary_densities,
+        history_variables: None,
         nuclides: micro.map(|m| m.chain.nuclides),
         midpoint_boron: depletion.midpoint_boron,
         xenon,

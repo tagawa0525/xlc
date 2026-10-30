@@ -18,7 +18,9 @@
 use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, ROD_OUT, Table, component};
+use xlc_format::table::{
+    Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, Residual, Table, component,
+};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -847,6 +849,21 @@ pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// テーブル `table` の減速材の軸の、温度 `temperature` (K) での密度 (g/cm³): 格子点の（温度、密度）の組を、少数群定数の温度の内挿と
+/// 同じ重み（軸の内挿の変数で隣の 2 点）で内挿した値。core の状態は密度を持たず、テーブルの格子点の組で決まる（ADR-0215 の履歴の
+/// 変数 H_m の x）。範囲の外はエラー
+pub fn moderator_density(table: &Table, temperature: f64) -> Result<f64, String> {
+    let _ = (table, temperature);
+    Err("not implemented".into())
+}
+
+/// 履歴の残り R（ADR-0215）の 1 つの制御棒の値 `rod` を、燃焼度 `burnup` で、燃焼度の軸と同じ内挿（ADR-0192。R の燃焼度の点で）で
+/// 引いた値。R の燃焼度の点の範囲の外はエラー（外挿しない）
+pub fn interpolate_residual(rod: &HistoryRod, burnup: f64) -> Result<Residual, String> {
+    let _ = (rod, burnup);
+    Err("not implemented".into())
 }
 
 #[cfg(test)]
