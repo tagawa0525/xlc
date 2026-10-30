@@ -10,7 +10,8 @@ use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
-    State, add_residual, interpolate, interpolate_micro, interpolate_residual, non_negative,
+    MicroAt, State, add_residual, interpolate, interpolate_micro, interpolate_residual,
+    non_negative,
 };
 
 /// 状態を解いた結果。
@@ -205,6 +206,18 @@ pub fn node_constants(
         .ok_or("the micro depleted node needs a burnup (ADR-0190)")?;
     add_histories(&mut f, table, burnup, rod, histories)?;
     Ok(f)
+}
+
+/// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
+/// `histories` の差を足したもの（ADR-0215 の案 S2）
+pub fn node_micro(
+    table: &Table,
+    state: &State,
+    rod: Option<&str>,
+    histories: &[f64],
+) -> Result<MicroAt, String> {
+    let _ = histories;
+    interpolate_micro(table, state, rod)
 }
 
 /// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して解く

@@ -377,6 +377,37 @@ fn branch_constants(table: &Table) -> [FewGroup; 2] {
     [table.states[p].clone(), history_few(9.5)]
 }
 
+/// 履歴の分岐の自分の条件の、反応率の微視的断面積（燃焼度 0、20 の点 `k`。微分は持たない）。収率の境界より下の割合も公称と違う
+fn branch_sigma(k: usize) -> [MicroNuclide; 2] {
+    let mut out = [sigma(12.0 + k as f64, false), sigma(24.0 + k as f64, false)];
+    out[0].thermal_fission = Some(0.85);
+    out
+}
+
+/// 反応率の微視的断面積の差 `a − b`（lattice histories と同じ式。収率の境界より下は割合 × 群の和の σf の差）
+fn rate_difference(a: &MicroNuclide, b: &MicroNuclide) -> RateResidual {
+    let minus = |x: &[f64], y: &[f64]| x.iter().zip(y).map(|(p, q)| p - q).collect::<Vec<_>>();
+    let below = |n: &MicroNuclide| n.thermal_fission.unwrap() * n.fission.iter().sum::<f64>();
+    RateResidual {
+        fission: minus(&a.fission, &b.fission),
+        reactions: a
+            .reactions
+            .iter()
+            .zip(&b.reactions)
+            .map(|(x, y)| MicroReaction {
+                mt: x.mt,
+                channels: x
+                    .channels
+                    .iter()
+                    .zip(&y.channels)
+                    .map(|(p, q)| minus(p, q))
+                    .collect(),
+            })
+            .collect(),
+        thermal_fission: Some(below(a) - below(b)),
+    }
+}
+
 /// 少数群定数の差 `a − b` の残りの項目
 fn difference(a: &FewGroup, b: &FewGroup) -> Residual {
     let minus = |x: &[f64], y: &[f64]| x.iter().zip(y).map(|(p, q)| p - q).collect::<Vec<_>>();
@@ -457,6 +488,23 @@ fn history_table(rods: &[&str]) -> Table {
             difference(fb, &corrected)
         })
         .collect();
+    // 反応率の微視的断面積の差: 履歴の分岐 − 公称の条件の状態（lattice と同じ）
+    let rates = [0usize, 2]
+        .iter()
+        .enumerate()
+        .map(|(k, &u)| {
+            let mut at = vec![u, 0, 1, 0];
+            if !rods.is_empty() {
+                at.push(0);
+            }
+            let p = table.point_index(&at).unwrap();
+            branch_sigma(k)
+                .iter()
+                .zip(&micro.states[p])
+                .map(|(b, n)| rate_difference(b, n))
+                .collect()
+        })
+        .collect();
     table.histories = vec![HistoryCorrection {
         variable: MODERATOR_DENSITY.into(),
         nominal: 0.743,
@@ -465,21 +513,7 @@ fn history_table(rods: &[&str]) -> Table {
             rod: ROD_OUT.into(),
             burnup: vec![0.0, 20.0],
             residuals,
-            // 反応率の微視的断面積の差は 0（定数の補正だけを確かめる）
-            micro: vec![
-                vec![
-                    RateResidual {
-                        fission: vec![0.0; 2],
-                        reactions: vec![MicroReaction {
-                            mt: 102,
-                            channels: vec![vec![0.0; 2]],
-                        }],
-                        thermal_fission: Some(0.0),
-                    };
-                    2
-                ];
-                2
-            ],
+            micro: rates,
         }],
     }];
     table.validate().unwrap();
@@ -596,4 +630,124 @@ fn history_residuals_that_the_table_lacks_are_errors() {
     unknown.histories[0].variable = "rods".into();
     let err = node_constants(&unknown, &state, None, &n, &[0.70]).unwrap_err();
     assert!(err.contains("rods"), "{err}");
+}
+
+#[test]
+fn history_branch_points_deplete_with_the_branch_rate_cross_sections() {
+    // w = 1、条件 j では、反応率の微視的断面積は履歴の分岐の自分の条件の値（ADR-0215 の案 S2）
+    let table = history_table(&[]);
+    for (k, &b) in [0.0, 20.0].iter().enumerate() {
+        let m = node_micro(&table, &at(600.0, b), None, &[0.661]).unwrap();
+        for (got, want) in m.nuclides.iter().zip(&branch_sigma(k)) {
+            assert!(close(&got.fission, &want.fission), "{b}");
+            assert!(
+                close(
+                    &got.reactions[0].channels[0],
+                    &want.reactions[0].channels[0]
+                ),
+                "{b}"
+            );
+            assert!(
+                close(
+                    &[got.thermal_fission.unwrap()],
+                    &[want.thermal_fission.unwrap()]
+                ),
+                "{b}: {:?} {:?}",
+                got.thermal_fission,
+                want.thermal_fission
+            );
+        }
+        // 基準の数密度は公称の履歴のまま
+        assert_eq!(m.densities, NOMINAL_DENSITIES[2 * k].to_vec());
+    }
+}
+
+#[test]
+fn nominal_histories_leave_the_rate_cross_sections_bit_identical() {
+    // w = 0 では、反応率の微視的断面積も履歴の補正のないテーブルとビットで同じ
+    let with = history_table(&[]);
+    let mut without = with.clone();
+    without.histories.clear();
+    for state in [
+        at(565.0, 10.0),
+        at(565.0, 20.0),
+        at(600.0, 7.0),
+        at(580.0, 15.0),
+    ] {
+        assert_eq!(
+            node_micro(&with, &state, None, &[0.743]).unwrap(),
+            interpolate_micro(&without, &state, None).unwrap(),
+            "{state:?}"
+        );
+    }
+}
+
+#[test]
+fn rate_residuals_scale_with_the_weight_and_leave_the_linear_correction() {
+    // w = 0.5 で σ + w Δσ。収率の境界より下の割合は、境界より下の断面積 + w Δ を補正した σf の和で割ったもの
+    let table = history_table(&[]);
+    let state = at(600.0, 20.0);
+    let base = interpolate_micro(&table, &state, None).unwrap();
+    let half = node_micro(&table, &state, None, &[0.702]).unwrap();
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let rates = &table.histories[0].rods[0].micro[1];
+    for ((h, b), r) in half.nuclides.iter().zip(&base.nuclides).zip(rates) {
+        let expected: Vec<f64> = b
+            .fission
+            .iter()
+            .zip(&r.fission)
+            .map(|(x, d)| x + w * d)
+            .collect();
+        assert!(close(&h.fission, &expected));
+        let capture: Vec<f64> = b.reactions[0].channels[0]
+            .iter()
+            .zip(&r.reactions[0].channels[0])
+            .map(|(x, d)| x + w * d)
+            .collect();
+        assert!(close(&h.reactions[0].channels[0], &capture));
+        let below = b.thermal_fission.unwrap() * b.fission.iter().sum::<f64>()
+            + w * r.thermal_fission.unwrap();
+        let fraction = below / expected.iter().sum::<f64>();
+        assert!(close(&[h.thermal_fission.unwrap()], &[fraction]));
+        // 線形の補正の係数（全断面積、νσf、散乱、微分）は補正しない
+        assert_eq!(h.total, b.total);
+        assert_eq!(h.nu_fission, b.nu_fission);
+        assert_eq!(h.scatter, b.scatter);
+        assert_eq!(h.derivative, b.derivative);
+    }
+    // ノードの少数群定数は反応率の差によらない（線形の補正の係数と R は変えない）
+    let mut zero = table.clone();
+    for row in &mut zero.histories[0].rods[0].micro {
+        for r in row.iter_mut() {
+            r.fission = vec![0.0; 2];
+            r.reactions[0].channels[0] = vec![0.0; 2];
+            r.thermal_fission = Some(0.0);
+        }
+    }
+    let n = [5.5e-4, 1.6e-5];
+    assert_eq!(
+        node_constants(&table, &state, None, &n, &[0.702]).unwrap(),
+        node_constants(&zero, &state, None, &n, &[0.702]).unwrap()
+    );
+}
+
+#[test]
+fn rate_residuals_that_give_negative_cross_sections_or_fractions_are_errors() {
+    let state = at(600.0, 20.0);
+    let mut table = history_table(&[]);
+    table.histories[0].rods[0].micro[1][0].fission[1] = -1.0e3;
+    let err = node_micro(&table, &state, None, &[0.661]).unwrap_err();
+    assert!(err.contains("negative") && err.contains("U-235"), "{err}");
+    let mut table = history_table(&[]);
+    table.histories[0].rods[0].micro[1][1].reactions[0].channels[0][0] = -1.0e3;
+    let err = node_micro(&table, &state, None, &[0.661]).unwrap_err();
+    assert!(err.contains("negative") && err.contains("Pu-240"), "{err}");
+    let mut table = history_table(&[]);
+    table.histories[0].rods[0].micro[1][0].thermal_fission = Some(1.0e3);
+    let err = node_micro(&table, &state, None, &[0.661]).unwrap_err();
+    assert!(err.contains("fraction"), "{err}");
+    // 制御棒の値の残りを持たないのに w が 0 でない
+    let table = history_table(&[ROD_OUT, "aic"]);
+    let err = node_micro(&table, &state, Some("aic"), &[0.70]).unwrap_err();
+    assert!(err.contains("aic"), "{err}");
 }
