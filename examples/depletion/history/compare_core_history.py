@@ -138,7 +138,11 @@ class Table:
 
 def check_summary(residual_summary, table_md5):
     """R の比較の要約が、同じ R を持つテーブル（md5 `table_md5`）から作ったものであること"""
-    raise NotImplementedError
+    made_from = residual_summary.get("inputs", {}).get(FILES["residual_table"])
+    if made_from != table_md5:
+        raise SystemExit(
+            f"the residual summary was made from the table of md5 {made_from}, not {table_md5}"
+        )
 
 
 def compare(table, branch_table, nominal, branch, switch, residual_summary, identical):
@@ -160,8 +164,18 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
         raise SystemExit(
             "the first-term table does not solve the burnups of the residuals"
         )
-    applied = {x["burnup"]: abs(x["applied_pcm"]) for x in residual_summary["rows"]}
-    applied_max = max(applied.values())
+    # 条件 j の R を公称の状態で使った誤差の大きさ（R の点ごと）
+    applied = []
+    for u in t.rod["burnup"]:
+        found = [
+            abs(x["applied_pcm"])
+            for x in residual_summary["rows"]
+            if same_burnup(x["burnup"], u)
+        ]
+        if len(found) != 1:
+            raise SystemExit(f"the residual summary has no single row at burnup {u}")
+        applied.extend(found)
+    applied_max = max(applied)
 
     def at_residual_points(nodes):
         return [
@@ -215,7 +229,7 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
         if k is not None:
             without_r, with_r = t.node_k(n, w, "switch")
             row["residual_pcm"] = rho(with_r) - rho(without_r)
-            row["applied_bound_pcm"] = abs(w) * applied[t.rod["burnup"][k]]
+            row["applied_bound_pcm"] = abs(w) * applied[k]
             row["reconstruct_pcm"] = rho(with_r) - rho(n["k"])
         switch_rows.append(row)
     return {
@@ -235,6 +249,8 @@ def report(summary):
 
     def span(rows, key):
         values = [x[key] for x in rows if x[key] is not None]
+        if not values:
+            return "（点なし）"
         return f"{min(values):+.3f}〜{max(values):+.3f}"
 
     branch = summary["branch_rows"]
@@ -242,6 +258,11 @@ def report(summary):
     later = [x for x in branch if x["burnup"] >= 15.0]
     weighted = [x for x in switch if x["weight"] != 0.0]
     last = switch[-1]
+    first_weight = (
+        f"{weighted[0]['burnup']:.4g} MWd/kg から 0 でなく"
+        if weighted
+        else "どの点も 0"
+    )
     return (
         f"公称の燃焼の R を持つテーブルと持たないテーブルの出力は"
         f"{'バイトで同じ' if summary['identical'] else '違う'}。"
@@ -250,7 +271,9 @@ def report(summary):
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
         f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + R の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm')} pcm。"
-        f"\n途中で条件を変えた燃焼: w は {weighted[0]['burnup']:.4g} MWd/kg から 0 でなく、最後の点 {last['burnup']:.4g} MWd/kg で "
+        f"\n途中で条件を変えた燃焼: w は "
+        f"{first_weight}、"
+        f"最後の点 {last['burnup']:.4g} MWd/kg で "
         f"H = {last['history']:.6f} g/cc、w = {last['weight']:.6f}、誤差の上限 w × {summary['applied_max_pcm']:.2f} = "
         f"{last['bound_pcm']:.2f} pcm。R の点の R の効きは {span(switch, 'residual_pcm')} pcm、点ごとの誤差の上限は "
         f"{span(switch, 'applied_bound_pcm')} pcm、core の k と組み立てた 2 群の k の差は {span(switch, 'reconstruct_pcm')} pcm"
@@ -269,6 +292,7 @@ def main():
     here = Path(__file__).resolve().parent
     with open(here / FILES["residual_summary"], encoding="utf-8") as f:
         residual_summary = json.load(f)
+    check_summary(residual_summary, md5(here / FILES["residual_table"]))
     summary = compare(
         read(here / FILES["residual_table"]),
         read(here / FILES["branch_table"]),
