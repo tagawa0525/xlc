@@ -59,6 +59,29 @@ class Count(unittest.TestCase):
             },
         )
 
+    def test_dvc_files_are_counted_apart_from_the_root_yaml(self):
+        status = {
+            "examples/a/x.msgpack.dvc": [
+                {"changed outs": {"examples/a/x.msgpack": "deleted"}}
+            ],
+            "examples/b/y.msgpack.dvc": [
+                {"changed outs": {"examples/b/y.msgpack": "modified"}}
+            ],
+        }
+        self.assertEqual(
+            cnt.count_changed(status),
+            {
+                "*.dvc": {
+                    "stages": 2,
+                    "changed deps": 0,
+                    "changed outs": 2,
+                    "changed command": 0,
+                    "changed checksum": 0,
+                    "always changed": 0,
+                },
+            },
+        )
+
     def test_empty_status_has_no_yaml(self):
         self.assertEqual(cnt.count_changed({}), {})
 

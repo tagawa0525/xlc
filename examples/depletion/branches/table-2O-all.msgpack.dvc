@@ -1,0 +1,5 @@
+outs:
+- md5: 2debe9a30472c2e38597f67d0566fbe4
+  size: 29422
+  hash: md5
+  path: table-2O-all.msgpack

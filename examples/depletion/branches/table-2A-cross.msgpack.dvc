@@ -1,0 +1,5 @@
+outs:
+- md5: 5f8d48c4741b7198de855cce28c87d86
+  size: 5115
+  hash: md5
+  path: table-2A-cross.msgpack

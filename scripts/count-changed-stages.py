@@ -4,7 +4,8 @@
 使い方: scripts/count-changed-stages.py [<dvc.yaml>...]
 
 引数は dvc status にそのまま渡す。`dvc status` の文字列を grep で数えると、タブで始まる `changed deps:` の行を拾って
-誤るので、JSON の「yaml:ステージ」のキーを yaml ごとに数える。stages は
+誤るので、JSON の「yaml:ステージ」のキーを yaml ごとに数える。`dvc add` の .dvc ファイル（ADR-0222）は `*.dvc` の行に
+まとめる（ステージでないので、stages はその数）。stages は
 changed のステージの数で、種類ごとの数は 1 つのステージが複数の種類を持てば、それぞれに数える。知らない種類の変更
 （not in cache は changed outs の中身で、種類ではない）は ValueError で止める。
 """
@@ -25,7 +26,13 @@ KINDS = (
 def count_changed(status):
     counts = {}
     for key, changes in status.items():
-        yaml_path = key.split(":", 1)[0] if ":" in key else "dvc.yaml"
+        # `dvc add` の .dvc ファイルのキーも、直下の dvc.yaml のステージと同じくコロンを持たないので、拡張子で分ける
+        if key.endswith(".dvc"):
+            yaml_path = "*.dvc"
+        elif ":" in key:
+            yaml_path = key.split(":", 1)[0]
+        else:
+            yaml_path = "dvc.yaml"
         per_yaml = counts.setdefault(
             yaml_path, {"stages": 0, **dict.fromkeys(KINDS, 0)}
         )

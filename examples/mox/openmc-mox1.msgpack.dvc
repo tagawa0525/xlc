@@ -1,0 +1,5 @@
+outs:
+- md5: 2207a50eda084858228fce2b8909bd67
+  size: 47169
+  hash: md5
+  path: openmc-mox1.msgpack

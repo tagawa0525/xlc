@@ -1,0 +1,5 @@
+outs:
+- md5: a30302d3f9cc7bb4d7f94eff757aae51
+  size: 55150755
+  hash: md5
+  path: lattice-residual-density.msgpack

@@ -1,0 +1,5 @@
+outs:
+- md5: 6c9001ed77b1ad0e46667c2cb058f091
+  size: 2683
+  hash: md5
+  path: openmc-2E-empty.msgpack

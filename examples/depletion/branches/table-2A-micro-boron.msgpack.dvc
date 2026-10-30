@@ -1,0 +1,5 @@
+outs:
+- md5: eb7e54ccb28716847f65409c46ef1dbf
+  size: 875139
+  hash: md5
+  path: table-2A-micro-boron.msgpack
