@@ -2007,6 +2007,158 @@ def history_split_density(sources: list[dict]) -> str:
     )
 
 
+def index_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-linearization-index":
+        raise TableError("not an xlc-compare-history-linearization-index summary")
+    return s
+
+
+INDEX_HISTORIES = {
+    "one": "R(1)",
+    "switch": "switch",
+    "half": "密度 0.702",
+    "full": "密度 0.661",
+}
+
+
+def index_rows(s: dict) -> list[tuple[str, dict]]:
+    """履歴の行を燃焼度の順（同じ燃焼度は INDEX_HISTORIES の順）に。指標が 0 の点（公称の組成）は比が無いので除く"""
+    rows = [
+        (INDEX_HISTORIES[name], r)
+        for name in INDEX_HISTORIES
+        for r in s["histories"][name]
+        if r["index_pcm"] != 0.0
+    ]
+    order = list(INDEX_HISTORIES.values())
+    return sorted(rows, key=lambda x: (x[1]["burnup"], order.index(x[0])))
+
+
+def history_index_linearization(sources: list[dict]) -> str:
+    """線形化の誤差と組成の指標（ADR-0215）: 履歴と燃焼度の点ごとの、指標 E（線形の補正の効き）、L、L/E、L/E²、それぞれの R(1) の
+    同じ燃焼度の値との比、主な核種の ΔN̄ᵢ/N̄ᵢ⁰"""
+    s = index_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "履歴",
+            "E (pcm)",
+            "L (pcm)",
+            "L/E",
+            "L/E² (10⁻⁶/pcm)",
+            "L/E の R(1) との比",
+            "L/E² の R(1) との比",
+            *(f"ΔN̄/N̄⁰: {n} (%)" for n in s["nuclides"]),
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                name,
+                signed(r["index_pcm"], 2),
+                signed(r["linearization_pcm"], 2),
+                ratio_or_dash(r["linearization_first"]),
+                signed(1e6 * r["linearization_second"], 3),
+                ratio_or_dash(r["linearization_first_to_one"]),
+                ratio_or_dash(r["linearization_second_to_one"]),
+                *(percent_or_dash(r["densities"][n]) for n in s["nuclides"]),
+            ]
+            for name, r in index_rows(s)
+        ],
+    )
+
+
+def history_index_untracked(sources: list[dict]) -> str:
+    """線形化の誤差と組成の指標（ADR-0215）: 履歴と燃焼度の点ごとの、追わない核種の分 U と、U/w、U/E と、その R(1) の同じ燃焼度の値との比"""
+    s = index_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "履歴",
+            "w",
+            "U (pcm)",
+            "U/w (pcm)",
+            "U/E",
+            "U/w の R(1) との比",
+            "U/E の R(1) との比",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                name,
+                f"{r['weight']:.4f}",
+                signed(r["untracked_pcm"], 2),
+                "–"
+                if r["untracked_weight"] is None
+                else signed(r["untracked_weight"], 2),
+                ratio_or_dash(r["untracked_first"]),
+                ratio_or_dash(r["untracked_weight_to_one"]),
+                ratio_or_dash(r["untracked_first_to_one"]),
+            ]
+            for name, r in index_rows(s)
+        ],
+    )
+
+
+def history_index_switch(sources: list[dict]) -> str:
+    """線形化の誤差と組成の指標（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、w、指標の比 E_switch/E(1)（公称の状態と条件 j）、
+    成分の効きの比 w_L、w_U、主な核種の ΔN̄ᵢ の比"""
+    s = index_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "E の比",
+            "条件 j の E の比",
+            "w_L",
+            "w_U",
+            *(f"ΔN̄ の比: {n}" for n in s["nuclides"]),
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                ratio_or_dash(r["index_ratio"]),
+                ratio_or_dash(r["condition_index_ratio"]),
+                ratio_or_dash(r["linearization_weight"]),
+                ratio_or_dash(r["untracked_weight"]),
+                *(ratio_or_dash(r["density_ratios"][n]) for n in s["nuclides"]),
+            ]
+            for r in s["switch"]
+        ],
+    )
+
+
+def signed_or_dash(x, digits: int) -> str:
+    return "–" if x is None else signed(x, digits)
+
+
+def history_index_gaps(sources: list[dict]) -> str:
+    """線形化の誤差と組成の指標（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、core − 参照と、成分を R(1) の w 倍、指標の比の
+    倍、その 2 乗の倍で足したときの外れの分（pcm）"""
+    s = index_summary(sources)
+    factors = (
+        ("weight", "w"),
+        ("index", "E の比"),
+        ("index_squared", "E の比の 2 乗"),
+    )
+    header = ["燃焼度 (MWd/kg)", "core − 参照 (pcm)"]
+    header += [f"L の外れ: {label} (pcm)" for _, label in factors]
+    header += ["L の外れ: 条件 j の E の比 (pcm)"]
+    header += [f"U の外れ: {label} (pcm)" for _, label in factors]
+    header += ["両方の外れ: w (pcm)", "両方の外れ: U は w、L は E の比 (pcm)"]
+    rows = []
+    for r in s["switch"]:
+        row = [burnup_label(r["burnup"]), signed(r["difference_pcm"], 3)]
+        row += [
+            signed_or_dash(r[f"linearization_gap_{key}_pcm"], 3) for key, _ in factors
+        ]
+        row += [signed_or_dash(r["linearization_gap_condition_index_pcm"], 3)]
+        row += [signed_or_dash(r[f"untracked_gap_{key}_pcm"], 3) for key, _ in factors]
+        row += [signed(r["gap_weight_pcm"], 3), signed_or_dash(r["gap_mixed_pcm"], 3)]
+        rows.append(row)
+    return markdown_table(header, rows)
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -3060,6 +3212,22 @@ TABLES = {
     "depletion-history-split-density": (
         ["examples/depletion/history/split.json"],
         history_split_density,
+    ),
+    "depletion-history-index-linearization": (
+        ["examples/depletion/history/index.json"],
+        history_index_linearization,
+    ),
+    "depletion-history-index-untracked": (
+        ["examples/depletion/history/index.json"],
+        history_index_untracked,
+    ),
+    "depletion-history-index-switch": (
+        ["examples/depletion/history/index.json"],
+        history_index_switch,
+    ),
+    "depletion-history-index-gaps": (
+        ["examples/depletion/history/index.json"],
+        history_index_gaps,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],
