@@ -1294,6 +1294,7 @@ fn residuals_are_interpolated_in_burnup_like_the_table_and_not_extrapolated() {
         rod: ROD_OUT.into(),
         burnup: points.to_vec(),
         residuals: points.iter().map(|&b| residual_at(b, 1.0e-4)).collect(),
+        micro: Vec::new(),
     };
     // 点では、その点の残りそのもの
     for (k, &b) in points.iter().enumerate() {

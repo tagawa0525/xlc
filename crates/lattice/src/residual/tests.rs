@@ -354,6 +354,65 @@ fn branch_tables_hold_the_same_micro_nuclides_and_heavy_metal() {
 }
 
 #[test]
+fn rate_residuals_are_the_branch_less_the_nominal_condition_rate_cross_sections() {
+    let n = nominal();
+    let mut b = branch();
+    // 収率の境界より下の割合も分岐で違う
+    for state in &mut b.micro.as_mut().unwrap().states {
+        state[0].thermal_fission = Some(0.85);
+    }
+    let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).unwrap();
+    let micro = n.micro.as_ref().unwrap();
+    let branch_micro = b.micro.as_ref().unwrap();
+    assert_eq!(rod.micro.len(), 2);
+    for (k, &p) in [1usize, 4].iter().enumerate() {
+        assert_eq!(rod.micro[k].len(), 2);
+        // 微分を持つ Pu-240 も、反応率の σᵢ の差（微分の差でない）
+        for (i, r) in rod.micro[k].iter().enumerate() {
+            let (nj, bj) = (&micro.states[p][i], &branch_micro.states[k][i]);
+            for g in 0..2 {
+                assert_eq!(r.fission[g], bj.fission[g] - nj.fission[g]);
+                assert_eq!(
+                    r.reactions[0].channels[0][g],
+                    bj.reactions[0].channels[0][g] - nj.reactions[0].channels[0][g]
+                );
+            }
+            assert_eq!(r.reactions[0].mt, 102);
+            // 割合 × 群の和の σf の差
+            let below =
+                |x: &MicroNuclide| x.thermal_fission.unwrap() * x.fission.iter().sum::<f64>();
+            assert!(close(r.thermal_fission.unwrap(), below(bj) - below(nj)));
+        }
+    }
+}
+
+#[test]
+fn branch_tables_with_other_reactions_or_fission_are_errors() {
+    let n = nominal();
+    let changes: Vec<fn(&mut MicroNuclide)> = vec![
+        |x| x.reactions[0].mt = 103,
+        |x| x.reactions[0].channels.push(vec![0.0; 2]),
+        |x| x.thermal_fission = None,
+    ];
+    for change in changes {
+        let mut b = branch();
+        for state in &mut b.micro.as_mut().unwrap().states {
+            change(&mut state[0]);
+            if state[0].thermal_fission.is_none() {
+                state[0].fission = vec![0.0; 2];
+                state[0].nu_fission = vec![0.0; 2];
+            }
+        }
+        b.validate().unwrap();
+        let err = format!(
+            "{:#}",
+            residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).unwrap_err()
+        );
+        assert!(err.contains("U-235"), "{err}");
+    }
+}
+
+#[test]
 fn rod_values_of_tables_without_a_rod_axis_are_out() {
     let err = residuals(&nominal(), MODERATOR_DENSITY, "aic", &branch())
         .unwrap_err()

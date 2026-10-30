@@ -2,7 +2,7 @@
 
 use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{Axis, MODERATOR_DENSITY, ROD_OUT, Table};
+use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, Table};
 
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::micro::{MicroChain, correct};
@@ -10,7 +10,8 @@ use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
-    State, add_residual, interpolate, interpolate_micro, interpolate_residual, non_negative,
+    MicroAt, State, add_rate_residual, add_residual, interpolate, interpolate_micro,
+    interpolate_rate_residual, interpolate_residual, non_negative,
 };
 
 /// 状態を解いた結果。
@@ -76,23 +77,21 @@ pub struct Compositions<'a> {
     pub histories: &'a [Option<Vec<f64>>],
 }
 
-/// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り Σ_j w_j R_j,r(u)
-/// を足す（ADR-0215）。w_j = (H_j − H_j⁰) / (H_j^b − H_j⁰) で、H_j はノードの履歴の変数の値 `histories`（`HISTORY_VARIABLES` の順）、R は
-/// 制御棒の値 `rod`（棒のない区間は `out`）の、燃焼度 `burnup` で内挿した残り。w_j が 0 の変数は足さない。テーブルが core の持たない
-/// 変数の残りを持つか、w_j が 0 でないのにその制御棒の値の残りを持たないか、燃焼度が残りの点の範囲の外ならエラー
-pub fn add_histories(
-    f: &mut FewGroup,
-    table: &Table,
-    burnup: f64,
+/// テーブル `table` の履歴の補正のうち、ノードの履歴の変数の値 `histories`（`HISTORY_VARIABLES` の順）の重み
+/// w_j = (H_j − H_j⁰) / (H_j^b − H_j⁰) が 0 でない変数の、重みと制御棒の値 `rod`（棒のない区間は `out`）の補正（変数の名前、w_j、補正）。
+/// テーブルが core の持たない変数の補正を持つか、w_j が 0 でないのにその制御棒の値の補正を持たなければエラー
+fn weighted_histories<'a>(
+    table: &'a Table,
     rod: Option<&str>,
     histories: &[f64],
-) -> Result<(), String> {
+) -> Result<Vec<(&'a str, f64, &'a HistoryRod)>, String> {
     if histories.len() != HISTORY_VARIABLES.len() {
         return Err(format!(
             "{} history variable values for the history variables {HISTORY_VARIABLES:?}",
             histories.len()
         ));
     }
+    let mut out = Vec::new();
     for correction in &table.histories {
         let variable = &correction.variable;
         let k = HISTORY_VARIABLES
@@ -105,7 +104,7 @@ pub fn add_histories(
                 )
             })?;
         let w = (histories[k] - correction.nominal) / (correction.branch - correction.nominal);
-        // 公称の履歴の変数は残りを使わない（R を持たないテーブルとビットで同じにする。0 倍を足すと −0 が +0 になる）
+        // 公称の履歴の変数は補正を使わない（補正を持たないテーブルとビットで同じにする。0 倍を足すと −0 が +0 になる）
         if w == 0.0 {
             continue;
         }
@@ -126,6 +125,22 @@ pub fn add_histories(
                      holds no residuals for that rod value (ADR-0215)"
                 )
             })?;
+        out.push((variable.as_str(), w, entry));
+    }
+    Ok(out)
+}
+
+/// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り Σ_j w_j R_j,r(u)
+/// を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、R は燃焼度 `burnup` で内挿した残り。w_j が 0 の変数は足さない。
+/// 燃焼度が残りの点の範囲の外ならエラー
+pub fn add_histories(
+    f: &mut FewGroup,
+    table: &Table,
+    burnup: f64,
+    rod: Option<&str>,
+    histories: &[f64],
+) -> Result<(), String> {
+    for (variable, w, entry) in weighted_histories(table, rod, histories)? {
         let r = interpolate_residual(entry, burnup)
             .map_err(|e| format!("history variable {variable}: {e}"))?;
         add_residual(f, w, &r);
@@ -205,6 +220,36 @@ pub fn node_constants(
         .ok_or("the micro depleted node needs a burnup (ADR-0190)")?;
     add_histories(&mut f, table, burnup, rod, histories)?;
     Ok(f)
+}
+
+/// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
+/// `histories` の差を足したもの（ADR-0215 の案 S2）
+pub fn node_micro(
+    table: &Table,
+    state: &State,
+    rod: Option<&str>,
+    histories: &[f64],
+) -> Result<MicroAt, String> {
+    let mut micro = interpolate_micro(table, state, rod)?;
+    let weighted = weighted_histories(table, rod, histories)?;
+    if weighted.is_empty() {
+        return Ok(micro);
+    }
+    let burnup = state
+        .burnup
+        .ok_or("the micro depleted node needs a burnup (ADR-0190)")?;
+    let names = &table
+        .micro
+        .as_ref()
+        .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?
+        .nuclides;
+    for (variable, w, entry) in weighted {
+        let r = interpolate_rate_residual(entry, burnup)
+            .map_err(|e| format!("history variable {variable}: {e}"))?;
+        add_rate_residual(&mut micro, names, w, &r)
+            .map_err(|e| format!("history variable {variable}: {e}"))?;
+    }
+    Ok(micro)
 }
 
 /// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して解く
