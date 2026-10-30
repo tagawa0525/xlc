@@ -268,6 +268,15 @@ class Report(unittest.TestCase):
         self.assertNotRegex(text, r"(?<![A-Za-z])-[0-9]")
         self.assertRegex(text, r"−[0-9]")
 
+    def test_report_sets_the_parts_of_the_density_paths_against_their_index(self):
+        result = compared()
+        text = c.report(result)
+        half = result["histories"]["half"][-1]
+        full = result["histories"]["full"][-1]
+        ratio = half["linearization_pcm"] / full["linearization_pcm"]
+        self.assertIn("密度だけの経路", text)
+        self.assertIn(f"{ratio:.4f}".replace("-", "−"), text)
+
     def test_report_keeps_the_hyphens_of_the_nuclide_names(self):
         text = c.report(compared(fixture()))
         self.assertIn("U-235", text)
