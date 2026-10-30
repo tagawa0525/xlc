@@ -11,7 +11,10 @@
 - 公称（`core-2A-residual-nominal.toml`。R を持つテーブル、565 K で一生。w = 0）と、同じ燃焼の R を持たないテーブル
   （`core-2A-plain-nominal.toml`）。2 つのファイルがバイトで同じか（`identical`）
 - 条件 j（`core-2A-residual-branch.toml`。600 K で一生。w = 1）: R の燃焼度の点ごとに、core の k の第 1 項のテーブルの k∞ からの差と、
-  公称の燃焼の core の k の、公称のテーブルの公称の状態の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）
+  公称の燃焼の core の k の、公称のテーブルの公称の状態の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）。core の
+  追う核種の数密度の、第 1 項のテーブルの N̄ᵢ^j からの相対差の絶対値が最大の核種と、その相対差（N̄ᵢ^j が 0 の核種は除く）
+- 第 1 項のテーブルで燃焼させた core（`core-2A-sigma-branch.toml`。条件 j の燃焼と同じで、テーブルだけが第 1 項）: 同じ点の k の第 1 項の
+  k∞ からの差と、数密度の同じ相対差（履歴の補正が目指す水準）
 - 途中で条件を変えた燃焼（`core-2A-residual-switch.toml`。20 MWd/kg まで 565 K、その後 600 K）: 燃焼点ごとに、ノードの減速材の密度の
   履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、誤差の上限 w × max |公称の状態で使った誤差|。R の燃焼度の点では、R の効き
   ρ(f + w R) − ρ(f) と、R の点ごとの誤差の上限 w × |公称の状態で使った誤差(u)|
@@ -35,6 +38,7 @@ FILES = {
     "plain": "core-2A-plain-nominal.msgpack",
     "branch": "core-2A-residual-branch.msgpack",
     "switch": "core-2A-residual-switch.msgpack",
+    "sigma": "core-2A-sigma-branch.msgpack",
     "residual_summary": "residual.json",
 }
 VARIABLE = "moderator-density"
@@ -200,13 +204,26 @@ def composition(t, node, first_densities, first_states):
     return rho(k_inf(corrected(base, coeff, deltas))) - rho(k_base), nuclides[:LARGEST]
 
 
-def compare(table, branch_table, nominal, branch, switch, residual_summary, identical):
+def largest_density_difference(densities, first_densities, nuclides):
+    """数密度の、第 1 項のテーブルの数密度に対する相対差 (%) の絶対値が最大の核種と、その相対差（第 1 項の数密度が 0 の核種は除く）"""
+    values = [
+        (name, (x / y - 1.0) * 100.0)
+        for name, x, y in zip(nuclides, densities, first_densities)
+        if y != 0.0
+    ]
+    return max(values, key=lambda v: abs(v[1]))
+
+
+def compare(
+    table, branch_table, nominal, branch, switch, sigma, residual_summary, identical
+):
     """比べた要約（モジュールの説明）"""
     t = Table(table)
     nuclides = table["micro"]["nuclides"]
     nominal_nodes = single_node(nominal, "nominal", nuclides)
     branch_nodes = single_node(branch, "branch", nuclides)
     switch_nodes = single_node(switch, "switch", nuclides)
+    sigma_nodes = single_node(sigma, "sigma", nuclides)
     first_burnups = branch_table["axes"][0]["points"]
     if [a["name"] for a in branch_table["axes"]] != [
         "burnup",
@@ -239,15 +256,27 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
 
     branch_points = at_residual_points(branch_nodes)
     nominal_points = at_residual_points(nominal_nodes)
-    if [k for _, k in branch_points] != [k for _, k in nominal_points]:
+    sigma_points = at_residual_points(sigma_nodes)
+    if not (
+        [k for _, k in branch_points]
+        == [k for _, k in nominal_points]
+        == [k for _, k in sigma_points]
+    ):
         raise SystemExit(
-            "the nominal and the branch core runs reach other burnup points of the residuals"
+            "the nominal, the branch and the first-term core runs reach other burnup points of the residuals"
         )
     branch_rows = []
-    for (n, k), (m, _) in zip(branch_points, nominal_points):
+    for (n, k), (m, _), (q, _) in zip(branch_points, nominal_points, sigma_points):
         u = t.rod["burnup"][k]
         f = next(i for i, v in enumerate(first_burnups) if same_burnup(u, v))
         first = branch_table["states"][f]
+        first_densities = branch_table["micro"]["densities"][f]
+        name, density_difference = largest_density_difference(
+            n["densities"], first_densities, nuclides
+        )
+        sigma_name, sigma_percent = largest_density_difference(
+            q["densities"], first_densities, nuclides
+        )
         composition_pcm, contributions = composition(
             t,
             n,
@@ -267,6 +296,12 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
                 "reconstruct_pcm": rho(with_r) - rho(n["k"]),
                 "composition_pcm": composition_pcm,
                 "nuclides": contributions,
+                "density_percent": density_difference,
+                "density_nuclide": name,
+                "sigma_k": q["k"],
+                "sigma_difference_pcm": rho(q["k"]) - rho(first["k_inf"]),
+                "sigma_density_percent": sigma_percent,
+                "sigma_density_nuclide": sigma_name,
             }
         )
     switch_rows = []
@@ -315,6 +350,11 @@ def report(summary):
 
     branch = summary["branch_rows"]
     switch = summary["switch_rows"]
+
+    def largest(rows, key, name):
+        worst = max(rows, key=lambda x: abs(x[key]))
+        return f"{worst[key]:+.3f}%（{worst[name]}、{worst['burnup']:.4g} MWd/kg）"
+
     later = [x for x in branch if x["burnup"] >= 15.0]
     weighted = [x for x in switch if x["weight"] != 0.0]
     end = branch[-1]
@@ -345,6 +385,11 @@ def report(summary):
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
         f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + R の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"
+        f"\n第 1 項のテーブルで燃焼させた core の k と第 1 項のテーブルの k∞ の差は {span(branch, 'sigma_difference_pcm')} pcm"
+        f"（15 MWd/kg 以後 {span(later, 'sigma_difference_pcm')} pcm）。"
+        f"core の追う核種の数密度の第 1 項の N̄ᵢ^j からの相対差の絶対値の最大は、R の点のすべてで "
+        f"{largest(branch, 'density_percent', 'density_nuclide')}、第 1 項のテーブルで燃焼させた core は "
+        f"{largest(branch, 'sigma_density_percent', 'sigma_density_nuclide')}。"
         f"\n{composition_text}"
         f"\n途中で条件を変えた燃焼: w は "
         f"{first_weight}、"
@@ -374,6 +419,7 @@ def main():
         read(here / FILES["nominal"]),
         read(here / FILES["branch"]),
         read(here / FILES["switch"]),
+        read(here / FILES["sigma"]),
         residual_summary,
         (here / FILES["nominal"]).read_bytes() == (here / FILES["plain"]).read_bytes(),
     )
