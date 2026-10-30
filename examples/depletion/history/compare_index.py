@@ -29,6 +29,7 @@ switch の参照の点ごとに、R(1) の成分を何倍して足すかで外�
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import compare_split as split
@@ -313,8 +314,8 @@ def report(summary):
         f"{span([x['gap_mixed_pcm'] for x in rows], '+.3f')} pcm（どちらも w で {span([x['gap_weight_pcm'] for x in rows], '+.3f')} pcm、"
         f"core − 参照 {span([x['difference_pcm'] for x in rows], '+.3f')} pcm）"
     )
-    # 記録の表（verification_tables.py の signed）と同じ負の符号
-    return "\n".join(lines).replace("-", "−")
+    # 記録の表（verification_tables.py の signed）と同じ負の符号。核種の名前（U-235）のハイフンは残す
+    return re.sub(r"(?<![A-Za-z])-", "−", "\n".join(lines))
 
 
 def check_summaries(summaries, md5s):
