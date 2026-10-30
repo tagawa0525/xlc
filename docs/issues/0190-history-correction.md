@@ -76,7 +76,8 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   上限は 12.34 pcm
 - 2026-10-30: 一生を条件 j で燃焼させた core の数密度の違い（上）の原因を確かめた。同じ燃焼を第 1 項のテーブル（σᵢ、N̄ᵢ、定数がどれも
   履歴の分岐のもの）ですると、core の k と第 1 項の k∞ の差は −4.284〜+8.549 pcm で、公称の燃焼の core と公称のテーブルの差と同じ水準
-  （examples/depletion/history/core-2A-sigma-branch.toml）。原因は core のミクロ燃焼の反応率の σᵢ が公称の履歴の組成の値であること。
+  （examples/depletion/history/core-2A-sigma-branch.toml）。この比べ方は σᵢ、N̄ᵢ、定数を一度に替えるので、原因は下の、反応率の σᵢ だけを
+  補正した燃焼で確かめた: 原因は core のミクロ燃焼の反応率の σᵢ が公称の履歴の組成の値であること。
   ADR-0215 に、反応率の σᵢ だけを履歴の分岐の差 Δσ で w に比例して補正する案 S2（採用）、係数と基準の数密度も補正し R を定数の差の全体に
   する案 S1（SIMULATE5 の形）、案 C1 の側の S3 を比べて決めた（ブランチ feat/0190-history-micro-sigma）。`lattice histories` が Δσ を
   `histories` の `micro` に書き、core の `node_micro` が反応率に足す。2A の集合体 1 体で、一生を条件 j で燃焼させた core の k と第 1 項の k∞ の差は
