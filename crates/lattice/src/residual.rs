@@ -418,6 +418,25 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
     }
     nominal.histories = corrections;
     let output = base.join(&input.output);
+    // 読んだテーブルを別の書き方のパスで上書きしない（作り直しに格子計算が要る）。まだ無い出力は読んだファイルでない
+    if output.exists() {
+        let canonical = |p: &Path| std::fs::canonicalize(p).with_context(|| shown(p));
+        let target = canonical(&output)?;
+        for file in std::iter::once(&input.nominal).chain(
+            input
+                .histories
+                .iter()
+                .flat_map(|h| h.branches.iter().map(|(_, f)| f)),
+        ) {
+            if canonical(&base.join(file))? == target {
+                bail!(
+                    "{}: the output is the table {}, which it reads",
+                    shown(&output),
+                    shown(file)
+                );
+            }
+        }
+    }
     let bytes = nominal.to_msgpack().with_context(|| shown(&output))?;
     write_synced(&output, &bytes)
 }
