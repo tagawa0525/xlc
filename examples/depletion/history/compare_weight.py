@@ -267,6 +267,7 @@ def compare_residuals(nominal, histories, branch, half_tables, one_tables):
                 "one_half_pcm": one_half_pcm,
                 "difference_pcm": half_pcm - one_half_pcm,
                 "one_pcm": effect(base_one, o["residual"]),
+                "one_on_half_pcm": effect(base_half, o["residual"]),
                 "half_condition_pcm": effect(h["linear"], h["residual"]),
                 "one_condition_pcm": effect(o["linear"], o["residual"]),
                 "temperature_path_pcm": effect(linear_600, residual_600),
@@ -334,8 +335,9 @@ def quadratic(switch, residual_rows, core_switch):
             )
         ratio = x["half_pcm"] / (2.0 * x["one_half_pcm"])
         # w R(1) を w R(1) + 4 w (1 − w) (R(0.5) − R(1)/2) に置き換える。R(0.5) − R(1)/2 を (2 r − 1) R(1)/2 と置き、効きは R に
-        # 1 次とする: 変化 = 4 (1 − w) (r − 1/2) × (core がノードに足した w R(1) の効き)。R(1) の効きは足す定数で変わる（同じ R(1) でも
-        # 60 MWd/kg で w = 0.5 と 1 の公称の状態で 14% 違う）ので、条件 j の格子点の効きでなく、core のノードの効きを使う
+        # 1 次とする: 変化 = 4 (1 − w) (r − 1/2) × (core がノードに足した w R(1) の効き)。R(1) の効きは足す定数で変わる（60 MWd/kg で
+        # 同じ R(1) を w = 0.5 と 1 の公称の状態に足した効きが 15% 違う。R の大きさによる違いは 1% より小さい。`one_on_half_pcm`）ので、
+        # 条件 j の格子点の効きでなく、core のノードの効きを使う
         change = 4.0 * (1.0 - w) * (ratio - 0.5) * found[0]["residual_pcm"]
         out.append(
             {
@@ -429,7 +431,8 @@ def report(summary):
         f"R(0.5) − R(1)/2 の効き（公称の状態 + w = 0.5 の線形の補正に足した効きの差）は {span([x['difference_pcm'] for x in rows])} pcm"
         f"（絶対値の最大 {abs(worst['difference_pcm']):.3f} pcm、{worst['burnup']:.4g} MWd/kg）。最後の点 {last['burnup']:.4g} MWd/kg で "
         f"R(0.5) の効き {last['half_pcm']:+.3f}、R(1)/2 の効き {last['one_half_pcm']:+.3f}、差 {last['difference_pcm']:+.3f} pcm。"
-        f"R(1) の効き（公称の状態）は {span([x['one_pcm'] for x in rows], '+.2f')} pcm"
+        f"R(1) の効き（公称の状態）は {span([x['one_pcm'] for x in rows], '+.2f')} pcm。最後の点で、同じ R(1) を w = 0.5 の定数に足した効き "
+        f"{last['one_on_half_pcm']:+.2f}、R(1)/2 の効きの 2 倍 {2.0 * last['one_half_pcm']:+.2f}、w = 1 の定数に足した効き {last['one_pcm']:+.2f} pcm"
     )
     lines.append(
         f"検算: 600 K の経路の R(1) の作り直しと `histories` の R の差は最大 "
