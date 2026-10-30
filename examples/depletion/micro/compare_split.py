@@ -329,6 +329,15 @@ def report(summary):
         f"順を入れ替えた空間の分布との差は最大 {order:.2f} pcm（2 つの候補の交差）。内訳の交差の項は最大 {cross:.2f} pcm。"
         f"2 群の k とテーブルの k∞ の差は最大 {summary['self_check_pcm']:.2e} pcm"
     )
+    if "single" in rows[0]:
+        name = rows[0]["single"]["nuclide"]
+        late = [r for r in rows if r["from"] >= 5.0]
+        gap = max(abs(r["single"]["error_pcm"] - r["weight_pcm"]) for r in late)
+        errors = [r["single"]["error_pcm"] for r in rows]
+        lines.append(
+            f"{name} だけの組成の誤差は {min(errors):+.2f}〜{max(errors):+.2f} pcm で、5 MWd/kg より後の組の少数群の重みの分との差は"
+            f"最大 {gap:.2f} pcm"
+        )
     return "\n".join(lines)
 
 
