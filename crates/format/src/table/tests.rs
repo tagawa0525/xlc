@@ -999,6 +999,40 @@ fn micro_density_derivatives_round_trip_and_are_written_only_for_the_nuclides_th
 }
 
 #[test]
+fn an_explicit_nil_density_derivative_is_an_error() {
+    // 微分を持たない核種はキーを書かない（ADR-0221）。nil は書き手の誤りなので、持たないと読まない
+    let bytes = micro_sample().to_msgpack().unwrap();
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    let rmpv::Value::Map(top) = &mut value else {
+        panic!("a table is a map")
+    };
+    let (_, micro) = top
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("micro"))
+        .unwrap();
+    let rmpv::Value::Map(micro) = micro else {
+        panic!("micro is a map")
+    };
+    let (_, states) = micro
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("states"))
+        .unwrap();
+    let rmpv::Value::Array(points) = states else {
+        panic!("micro states are an array")
+    };
+    let rmpv::Value::Array(nuclides) = &mut points[0] else {
+        panic!("a micro state is an array")
+    };
+    let rmpv::Value::Map(nuclide) = &mut nuclides[1] else {
+        panic!("a micro nuclide is a map")
+    };
+    nuclide.push((rmpv::Value::from("derivative"), rmpv::Value::Nil));
+    let mut written = Vec::new();
+    rmpv::encode::write_value(&mut written, &value).unwrap();
+    assert!(Table::from_msgpack(&written).is_err());
+}
+
+#[test]
 fn micro_density_derivatives_have_the_groups_and_are_held_in_every_state() {
     let bad = |change: &dyn Fn(&mut Table)| {
         let mut table = derivative_sample();
