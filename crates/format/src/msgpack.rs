@@ -61,6 +61,15 @@ pub fn from_value<T: DeserializeOwned>(value: Value) -> Result<T, MsgpackError> 
     rmpv::ext::from_value(value).map_err(|e| MsgpackError::Decode(e.to_string()))
 }
 
+/// 省けるが nil にできない項目: キーがあれば値として読み（nil はエラー）、ないとき（`#[serde(default)]`）だけ `None`
+pub fn present<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    T::deserialize(d).map(Some)
+}
+
 /// `Option` を、値か nil からだけ読む（`#[serde(deserialize_with = "...")]` に使う）。キーの欠けはエラーにする（ADR-0129。
 /// serde の derive は、省いた `Option` を `None` にするため）
 pub fn nil_or<'de, D, T>(d: D) -> Result<Option<T>, D::Error>

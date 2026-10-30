@@ -152,6 +152,7 @@ fn sigma(capture: [f64; 2], fission: [f64; 2], thermal: f64) -> MicroNuclide {
             channels: vec![capture.to_vec()],
         }],
         thermal_fission: fissile.then_some(thermal),
+        derivative: None,
     }
 }
 
@@ -380,6 +381,88 @@ fn corrections_add_the_tracked_density_differences_to_the_reaction_items() {
     assert_eq!(
         (f.chi, f.diffusion, f.adf, f.k_inf),
         (base.chi, base.diffusion, base.adf, base.k_inf)
+    );
+}
+
+/// 2 群の数密度の微分（barn）。散乱行列の微分は負になりうる
+fn derivative(scale: f64) -> xlc_format::table::MicroDerivative {
+    xlc_format::table::MicroDerivative {
+        total: vec![3.0 * scale, 70.0 * scale],
+        nu_fission: vec![0.2 * scale, -1.5 * scale],
+        fission: vec![0.08 * scale, -0.6 * scale],
+        scatter: vec![vec![2.5 * scale, -0.3 * scale], vec![0.0, 9.0 * scale]],
+    }
+}
+
+#[test]
+fn corrections_take_the_density_derivatives_of_the_nuclides_that_hold_them() {
+    // 微分を持つ核種（U-236 と Xe-135）は、線形の補正の係数を σᵢ から ∂Σ/∂N̄ᵢ に替える（ADR-0221）。吸収の係数は、微分の全断面積から
+    // 微分の散乱の行の和を引いたもの
+    let nominal = vec![7.0e-4, 1.0e-5, 1.0e-6, 1.0e-9, 1.0e-8];
+    let mut at = micro_at(nominal.clone());
+    at.nuclides[1].derivative = Some(derivative(1.0));
+    at.nuclides[3].derivative = Some(derivative(1.0e4));
+    // 係数: 微分を持てば微分、なければ σᵢ
+    let coefficient = |i: usize| -> xlc_format::table::MicroDerivative {
+        let s = &at.nuclides[i];
+        s.derivative
+            .clone()
+            .unwrap_or_else(|| xlc_format::table::MicroDerivative {
+                total: s.total.clone(),
+                nu_fission: s.nu_fission.clone(),
+                fission: s.fission.clone(),
+                scatter: s.scatter.clone(),
+            })
+    };
+    let n = [6.0e-4, 2.0e-5, 1.0e-6, 3.0e-9, 1.0e-8];
+    let mut f = constants();
+    correct(&mut f, &at, &n);
+    let base = constants();
+    let delta: Vec<f64> = n.iter().zip(&nominal).map(|(a, b)| a - b).collect();
+    let sum = |pick: &dyn Fn(&xlc_format::table::MicroDerivative) -> f64| -> f64 {
+        (0..delta.len())
+            .map(|i| pick(&coefficient(i)) * delta[i])
+            .sum()
+    };
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-15 * b.abs().max(1.0);
+    for g in 0..2 {
+        assert!(close(f.total[g], base.total[g] + sum(&|c| c.total[g])));
+        assert!(close(
+            f.nu_fission[g],
+            base.nu_fission[g] + sum(&|c| c.nu_fission[g])
+        ));
+        assert!(close(
+            f.fission[g],
+            base.fission[g] + sum(&|c| c.fission[g])
+        ));
+        let absorption = sum(&|c| c.total[g] - c.scatter[g].iter().sum::<f64>());
+        assert!(close(f.absorption[g], base.absorption[g] + absorption));
+        for h in 0..2 {
+            assert!(close(
+                f.scatter[g][h],
+                base.scatter[g][h] + sum(&|c| c.scatter[g][h])
+            ));
+        }
+    }
+    // σᵢ の補正とは違う（微分の値が効いている）
+    let mut plain = constants();
+    correct(&mut plain, &micro_at(nominal), &n);
+    assert_ne!(f.total, plain.total);
+}
+
+#[test]
+fn rates_take_the_micro_cross_sections_whatever_the_density_derivatives() {
+    // 反応率（燃焼行列と出力の規格化）は σᵢ のままで、微分を使わない（ADR-0221）
+    let micro = tracked_chain();
+    let n = micro.initial(&[7.0e-4, 1.0e-5, 1.0e-6, 1.0e-9, 1.0e-8]);
+    let plain = micro_at(vec![0.0; 5]);
+    let mut held = plain.clone();
+    for (k, s) in held.nuclides.iter_mut().enumerate() {
+        s.derivative = Some(derivative(1.0 + k as f64));
+    }
+    assert_eq!(
+        micro.rates(&held, &[3.0e13, 1.0e13], &n, 104.5).unwrap(),
+        micro.rates(&plain, &[3.0e13, 1.0e13], &n, 104.5).unwrap()
     );
 }
 

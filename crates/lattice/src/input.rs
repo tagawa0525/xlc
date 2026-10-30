@@ -92,6 +92,8 @@
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
+//! derivative = ["Xe-135"]         # 数密度の微分をテーブルに書く核種（micro から選ぶ。省略すると書かない。ADR-0221）
+//! perturbation = 0.1              # 微分の摂動の割合（数密度を (1 + perturbation) 倍する。省略すると 0.1。ADR-0221）
 //! shielding-file = "other.msgpack" # 燃焼の領域を自己遮蔽する組成の履歴（同じ燃焼度の点。省略すると状態の組成。#0191）
 //! ```
 //!
@@ -406,6 +408,9 @@ struct InputFile {
     history: Option<HistoryEntry>,
 }
 
+/// 数密度の微分の摂動の割合の既定（ADR-0221）
+const DEFAULT_PERTURBATION: f64 = 0.1;
+
 /// 燃焼の履歴の燃焼点からの分岐（ADR-0187、ADR-0200）
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
@@ -414,6 +419,8 @@ struct HistoryEntry {
     burnup: Vec<f64>,
     off_nominal_burnup: Option<Vec<f64>>,
     micro: Option<Vec<String>>,
+    derivative: Option<Vec<String>>,
+    perturbation: Option<f64>,
     shielding_file: Option<PathBuf>,
 }
 
@@ -1240,11 +1247,45 @@ impl LatticeInput {
                         list
                     }
                 };
+                // 数密度の微分を持つ核種（ADR-0221）。追う核種の微視的断面積の係数を置き換えるので、`micro` の部分集合
+                let derivative = match h.derivative {
+                    None => Vec::new(),
+                    Some(list) => {
+                        if list.is_empty()
+                            || list.iter().enumerate().any(|(i, n)| {
+                                !micro.contains(n) || list[..i].contains(n)
+                            })
+                        {
+                            return Err(format!(
+                                "[history] derivative must list distinct nuclides of `micro`, got {list:?} (micro {micro:?}. \
+                                 ADR-0221)"
+                            ));
+                        }
+                        list
+                    }
+                };
+                // 摂動の割合。微分の核種がなければ使わないので、書けばエラー（黙って捨てない）
+                let perturbation = match h.perturbation {
+                    None => DEFAULT_PERTURBATION,
+                    Some(_) if derivative.is_empty() => {
+                        return Err(
+                            "[history] perturbation needs `derivative` (ADR-0221)".to_string()
+                        );
+                    }
+                    Some(e) if e > 0.0 && e.is_finite() => e,
+                    Some(e) => {
+                        return Err(format!(
+                            "[history] perturbation must be a positive fraction, got {e} (ADR-0221)"
+                        ));
+                    }
+                };
                 Ok(HistoryInput {
                     file: h.file,
                     burnup: h.burnup,
                     off_nominal,
                     micro,
+                    derivative,
+                    perturbation,
                     shielding_file: h.shielding_file,
                 })
             })

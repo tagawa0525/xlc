@@ -1532,6 +1532,49 @@ fn history_micro_nuclides_are_distinct_names_of_an_unsplit_table() {
 }
 
 #[test]
+fn history_density_derivatives_are_micro_nuclides_perturbed_by_a_positive_fraction() {
+    // 書かなければ数密度の微分を作らず、摂動の割合は ADR-0221 の既定の 0.1
+    let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
+    let history = input.history.unwrap();
+    assert!(history.derivative.is_empty());
+    assert_eq!(history.perturbation, 0.1);
+    let with = |lines: &str| history_branches(&format!("{HISTORY}{lines}"));
+    let micro = "micro = [\"U-235\", \"Pu-240\", \"Xe-135\"]\n";
+    let input = LatticeInput::parse(&with(&format!(
+        "{micro}derivative = [\"Pu-240\", \"Xe-135\"]\n"
+    )))
+    .unwrap();
+    let history = input.history.unwrap();
+    assert_eq!(history.derivative, vec!["Pu-240", "Xe-135"]);
+    assert_eq!(history.perturbation, 0.1);
+    let input = LatticeInput::parse(&with(&format!(
+        "{micro}derivative = [\"Pu-240\"]\nperturbation = 0.05\n"
+    )))
+    .unwrap();
+    assert_eq!(input.history.unwrap().perturbation, 0.05);
+    // 微分の核種は `micro` の部分集合（重ならない名前）。`micro` がなければ持てない
+    for bad in [
+        format!("{micro}derivative = []\n"),
+        format!("{micro}derivative = [\"Pu-239\"]\n"),
+        format!("{micro}derivative = [\"Pu-240\", \"Pu-240\"]\n"),
+        "derivative = [\"Pu-240\"]\n".to_string(),
+    ] {
+        let err = LatticeInput::parse(&with(&bad)).unwrap_err();
+        assert!(err.to_string().contains("derivative"), "{bad}: {err}");
+    }
+    // 摂動の割合は正の有限の値で、微分の核種があるときだけ書ける（黙って使わない値を受けない）
+    for bad in [
+        format!("{micro}derivative = [\"Pu-240\"]\nperturbation = 0.0\n"),
+        format!("{micro}derivative = [\"Pu-240\"]\nperturbation = -0.1\n"),
+        format!("{micro}derivative = [\"Pu-240\"]\nperturbation = inf\n"),
+        format!("{micro}perturbation = 0.1\n"),
+    ] {
+        let err = LatticeInput::parse(&with(&bad)).unwrap_err();
+        assert!(err.to_string().contains("perturbation"), "{bad}: {err}");
+    }
+}
+
+#[test]
 fn history_shielding_file_is_read_only_when_given() {
     // 書かなければ、燃焼の領域は状態の組成で自己遮蔽する
     let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();

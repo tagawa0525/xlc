@@ -1018,6 +1018,7 @@ fn micro_nuclide(fission: [f64; 2], capture: [f64; 2], thermal: Option<f64>) -> 
             channels: vec![capture.to_vec()],
         }],
         thermal_fission: thermal,
+        derivative: None,
     }
 }
 
@@ -1614,6 +1615,7 @@ fn with_xenon(table: Table) -> Table {
         scatter: vec![vec![3.9, 0.1], vec![0.0, 10.0]],
         reactions: Vec::new(),
         thermal_fission: None,
+        derivative: None,
     };
     let xenon = micro_nuclide([0.0, 0.0], U235_FISSION.map(|f| XE_TO_FISSION * f), None);
     for nuclides in &mut micro.states {

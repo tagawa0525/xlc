@@ -1446,6 +1446,46 @@ def micro_linearization(sources: list[dict]) -> str:
     )
 
 
+def micro_linearization_derivative(
+    fractions: tuple[str, str], sources: list[dict]
+) -> str:
+    """ミクロ燃焼の線形の補正の係数を数密度の微分にしたもの（ADR-0221）: 燃焼度の点の組ごとの、輸送の効き、σᵢ の係数の誤差、摂動の割合
+    `fractions` の 2 つのテーブル（`sources` の順）の微分の係数の誤差と、その差（pcm）"""
+    if len(sources) != 2 or any(
+        s.get("format") != "xlc-compare-micro-linearization" for s in sources
+    ):
+        raise TableError("needs two xlc-compare-micro-linearization summaries")
+    first, second = sources
+    names = first.get("derivative_nuclides") or []
+    if not names or second.get("derivative_nuclides") != names:
+        raise TableError("both summaries need the same derivative nuclides")
+    pairs = [[(r["from"], r["to"]) for r in s["rows"]] for s in sources]
+    if pairs[0] != pairs[1]:
+        raise TableError("the summaries compare other burnup pairs")
+    rows = [
+        [
+            f"{burnup_label(a['from'])} → {burnup_label(a['to'])}",
+            signed(a["tracked_pcm"], 2),
+            signed(a["error_pcm"], 2),
+            signed(a["error_derivative_pcm"], 2),
+            signed(b["error_derivative_pcm"], 2),
+            signed(a["error_derivative_pcm"] - b["error_derivative_pcm"], 2),
+        ]
+        for a, b in zip(first["rows"], second["rows"])
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "輸送 (pcm)",
+            "σᵢ の誤差 (pcm)",
+            f"{'、'.join(names)} の微分の誤差、ε = {fractions[0]} (pcm)",
+            f"ε = {fractions[1]} (pcm)",
+            "ε の差 (pcm)",
+        ],
+        rows,
+    )
+
+
 def micro_split_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-micro-linearization-split":
@@ -2030,6 +2070,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-shielding-boron.json",
     "examples/depletion/history/history-effect.json",
     "examples/depletion/micro/linearization.json",
+    "examples/depletion/micro/linearization-perturbation-5.json",
     "examples/depletion/micro/split.json",
     "examples/depletion/issue-0133/swap-candidates.json",
     "examples/depletion/issue-0133/ufg-free-gas/summary.json",
@@ -2565,6 +2606,13 @@ TABLES = {
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],
         micro_linearization,
+    ),
+    "depletion-micro-linearization-derivative": (
+        [
+            "examples/depletion/micro/linearization.json",
+            "examples/depletion/micro/linearization-perturbation-5.json",
+        ],
+        partial(micro_linearization_derivative, ("0.1", "0.05")),
     ),
     "depletion-micro-linearization-split": (
         ["examples/depletion/micro/split.json"],
