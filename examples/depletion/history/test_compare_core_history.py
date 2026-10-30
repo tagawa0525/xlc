@@ -138,6 +138,22 @@ def node_k(t, b, m, n, w):
     return r.k_inf(f)
 
 
+# 第 1 項のテーブルで条件 j の燃焼をした core の 20 MWd/kg の数密度（第 1 項の N̄ᵢ^j = [5.2e-4, 2.6e-5] から +0.5% と −2%）
+SIGMA20 = [5.2e-4 * 1.005, 2.6e-5 * 0.98]
+
+
+def sigma_core():
+    """第 1 項のテーブルで、条件 j で一生を燃焼させた core（R の点 0 と 20 の k は 1.2 と 0.95）"""
+    n0 = [7.0e-4, 0.0]
+    return core(
+        [
+            (0.0, 0.0, "branch", 1.2, n0, 0.661),
+            (5.0, 10.0, "branch", 1.0, [6.0e-4, 1.0e-5], 0.661),
+            (10.0, 20.0, "branch", 0.95, SIGMA20, 0.661),
+        ]
+    )
+
+
 SUMMARY = {
     "rows": [{"burnup": 0.0, "applied_pcm": 0.0}, {"burnup": 20.0, "applied_pcm": -6.0}]
 }
@@ -178,7 +194,9 @@ class Compare(unittest.TestCase):
         self,
     ):
         t, nominal, branch, switch, _ = self.cores()
-        s = c.compare(t, branch_table(), nominal, branch, switch, SUMMARY, True)
+        s = c.compare(
+            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, True
+        )
         self.assertEqual(s["format"], "xlc-compare-core-history")
         self.assertTrue(s["identical"])
         rows = s["branch_rows"]
@@ -206,7 +224,9 @@ class Compare(unittest.TestCase):
         # 条件 j の値との相対差
         t, nominal, branch, switch, _ = self.cores()
         nj = branch_table()["micro"]["densities"][1]
-        s = c.compare(t, branch_table(), nominal, branch, switch, SUMMARY, True)
+        s = c.compare(
+            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, True
+        )
         last = s["branch_rows"][1]
         p = t["points"].index([2, 0, 1, 0])
         micro = t["micro"]
@@ -249,9 +269,38 @@ class Compare(unittest.TestCase):
         # 燃焼度 0 の数密度は同じ
         self.assertAlmostEqual(s["branch_rows"][0]["composition_pcm"], 0.0, places=12)
 
+    def test_the_branch_cores_are_compared_with_the_first_term_densities(self):
+        # 履歴の補正の core と、第 1 項のテーブルで燃焼させた core の、k の第 1 項の k∞ からの差と、数密度の第 1 項の N̄ᵢ^j からの
+        # 相対差の絶対値の最大（N̄ᵢ^j が 0 の核種は除く）
+        t, nominal, branch, switch, _ = self.cores()
+        s = c.compare(
+            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, True
+        )
+        first, last = s["branch_rows"]
+        k_table = branch_table()["states"][1]["k_inf"]
+        self.assertAlmostEqual(
+            last["sigma_difference_pcm"], r.rho(0.95) - r.rho(k_table), places=9
+        )
+        self.assertEqual(last["sigma_k"], 0.95)
+        self.assertAlmostEqual(last["sigma_density_percent"], -2.0, places=9)
+        self.assertEqual(last["sigma_density_nuclide"], "Pu-240")
+        # 履歴の補正の core は N20 = [5.25e-4, 2.5e-5]（U-235 +0.96%、Pu-240 −3.8%）
+        nj = branch_table()["micro"]["densities"][1]
+        self.assertAlmostEqual(
+            last["density_percent"], (N20[1] / nj[1] - 1.0) * 100.0, places=9
+        )
+        self.assertEqual(last["density_nuclide"], "Pu-240")
+        # 燃焼度 0 は Pu-240 が 0 なので U-235 だけ
+        self.assertEqual(first["density_nuclide"], "U-235")
+        self.assertAlmostEqual(first["density_percent"], 0.0, places=12)
+        text = c.report(s)
+        self.assertIn("第 1 項のテーブルで燃焼させた core", text)
+
     def test_the_switched_core_reports_the_weight_and_the_residual_effect(self):
         t, nominal, branch, switch, w = self.cores()
-        s = c.compare(t, branch_table(), nominal, branch, switch, SUMMARY, False)
+        s = c.compare(
+            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, False
+        )
         self.assertFalse(s["identical"])
         self.assertEqual(s["applied_max_pcm"], 6.0)
         rows = s["switch_rows"]
@@ -283,35 +332,45 @@ class Compare(unittest.TestCase):
         t, nominal, branch, switch, _ = self.cores()
         other = dict(branch, nuclides=["U-235", "Pu-239"])
         with self.assertRaises(SystemExit):
-            c.compare(t, branch_table(), nominal, other, switch, SUMMARY, True)
+            c.compare(
+                t, branch_table(), nominal, other, switch, sigma_core(), SUMMARY, True
+            )
         # R の点で、状態の減速材の温度がテーブルの格子点でない
         off = dict(
             branch, states=dict(STATES, branch=dict(STATES["branch"], moderator=590.0))
         )
         with self.assertRaises(SystemExit):
-            c.compare(t, branch_table(), nominal, off, switch, SUMMARY, True)
+            c.compare(
+                t, branch_table(), nominal, off, switch, sigma_core(), SUMMARY, True
+            )
         # 公称の燃焼と条件 j の燃焼の R の点が食い違う
         shifted = dict(nominal, points=nominal["points"][:2])
         with self.assertRaises(SystemExit):
-            c.compare(t, branch_table(), shifted, branch, switch, SUMMARY, True)
+            c.compare(
+                t, branch_table(), shifted, branch, switch, sigma_core(), SUMMARY, True
+            )
         # 第 1 項のテーブルが R の点を解いていない
         short = branch_table()
         short["axes"][0]["points"] = [0.0, 15.0]
         with self.assertRaises(SystemExit):
-            c.compare(t, short, nominal, branch, switch, SUMMARY, True)
+            c.compare(t, short, nominal, branch, switch, sigma_core(), SUMMARY, True)
 
     def test_the_residual_summary_must_cover_the_residual_points_of_the_table(self):
         t, nominal, branch, switch, _ = self.cores()
         missing = {"rows": [SUMMARY["rows"][0]]}
         with self.assertRaises(SystemExit):
-            c.compare(t, branch_table(), nominal, branch, switch, missing, True)
+            c.compare(
+                t, branch_table(), nominal, branch, switch, sigma_core(), missing, True
+            )
         # 燃焼度は相対 1e-9 で照らす
         near = {
             "rows": [
                 dict(x, burnup=x["burnup"] * (1.0 + 1e-12)) for x in SUMMARY["rows"]
             ]
         }
-        s = c.compare(t, branch_table(), nominal, branch, switch, near, True)
+        s = c.compare(
+            t, branch_table(), nominal, branch, switch, sigma_core(), near, True
+        )
         self.assertAlmostEqual(
             s["switch_rows"][2]["applied_bound_pcm"],
             s["switch_rows"][2]["weight"] * 6.0,
@@ -323,7 +382,9 @@ class Compare(unittest.TestCase):
 
     def test_reports_of_runs_without_a_weight_or_late_points_are_written(self):
         t, nominal, branch, _, _ = self.cores()
-        s = c.compare(t, branch_table(), nominal, branch, nominal, SUMMARY, True)
+        s = c.compare(
+            t, branch_table(), nominal, branch, nominal, sigma_core(), SUMMARY, True
+        )
         s["branch_rows"] = [x for x in s["branch_rows"] if x["burnup"] < 15.0]
         text = c.report(s)
         self.assertIn("w", text)
