@@ -2769,12 +2769,14 @@ fn node_histories_that_do_not_match_the_step_values_are_errors() {
     let h = vec![Some(vec![0.743]), None];
     let start = [1.0, 0.0];
     let end = [2.0, 0.0];
-    let advanced = advance_histories(&h, &start, &end, &[Some(vec![0.661]), None]).unwrap();
+    let advanced = advance_histories(&h, &start, &end, &[Some(vec![0.661]), None], 1.0).unwrap();
     assert_eq!(advanced[1], None);
-    assert!(advance_histories(&h, &start, &end, &[None, None]).is_err());
-    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661]), Some(vec![0.7])]).is_err());
-    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661, 0.5]), None]).is_err());
-    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661])]).is_err());
+    assert!(advance_histories(&h, &start, &end, &[None, None], 1.0).is_err());
+    assert!(
+        advance_histories(&h, &start, &end, &[Some(vec![0.661]), Some(vec![0.7])], 1.0).is_err()
+    );
+    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661, 0.5]), None], 1.0).is_err());
+    assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661])], 1.0).is_err());
 }
 
 /// `with_micro` のテーブルに、減速材の密度の履歴の補正（H⁰ = 0.75 の 560 K、Hᵇ = 0.74 の 570 K。燃焼度 0、10、20 の点）を持たせる。
