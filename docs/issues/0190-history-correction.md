@@ -86,3 +86,7 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   （ホウ素の探索と平衡 Xe の反復で同じ燃焼度と履歴を繰り返し引く。2A の集合体 1 体の 40 ステップは 1 本 0.14 秒で、炉心で効くかは
   測っていない）。燃焼の履歴の形に `history_variables` と点の `histories` を足したので、前の版の core が書いたミクロ燃焼の履歴は restart に
   読めない（examples/depletion/branches の core-small-restart-* などの追跡しない生成物。読む作業のときに再実行する。時間は測っていない）
+  ほかに 3 周目で残したもの: R の内挿が中間の `Residual` を作る（`burnup_terms` の項ごとに `add_residual` で足せば `scaled_residual` と
+  `accumulate_residual` が要らない）、`node_values` を同じ状態のステップでも引き直す、`advance_histories` の長さのエラーが `end` の長さを
+  出さない、compare_core_history.py の `same_burnup` が examples/depletion の比較のツールの 6 つ目のコピーで、燃焼度の点にない core の点で
+  `StopIteration` になり、文章の「15 MWd/kg 以後」の境が要約の JSON に無い
