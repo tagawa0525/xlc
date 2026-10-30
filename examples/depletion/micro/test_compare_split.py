@@ -157,6 +157,49 @@ class Split(unittest.TestCase):
         self.assertAlmostEqual(s["other_tracked_pcm"], s["whole_pcm"], delta=1e-9)
 
 
+def single(t, dt):
+    """追う核種 1 つだけの差の組成のテーブル: 点 1 は、点 0 の定数にその核種の線形の補正を足し、熱群の total を `dt` 足したもの"""
+    base = t["nominal"]["states"][0]
+    n0, n1 = DENSITIES[0][0], DENSITIES[1][0]
+    predicted = cl.corrected(base, [SIGMA], [n1 - n0])
+    point1 = constants(
+        [predicted["total"][0], predicted["total"][1] + dt],
+        predicted["scatter"],
+        predicted["nu_fission"],
+    )
+    return table(point1, SIGMA)
+
+
+class Single(unittest.TestCase):
+    def test_a_single_nuclide_composition_gives_its_own_linearization_error(self):
+        t = tables()
+        t["single"] = single(t, 1e-3)
+        row = cs.compare(t)["rows"][0]["single"]
+        self.assertEqual(row["nuclide"], "U-235")
+        base = t["nominal"]["states"][0]
+        expected = cl.rho(cl.k_inf(cl.corrected(base, [SIGMA], [-1e-5]))) - cl.rho(
+            t["single"]["states"][1]["k_inf"]
+        )
+        self.assertAlmostEqual(row["error_pcm"], expected, delta=1e-9)
+        self.assertGreater(row["error_pcm"], 1.0)
+        self.assertAlmostEqual(
+            row["linear_pcm"] - row["transport_pcm"], row["error_pcm"], delta=1e-9
+        )
+
+    def test_without_a_single_table_the_rows_have_no_single_entry(self):
+        self.assertNotIn("single", cs.compare(tables())["rows"][0])
+
+    def test_the_single_table_must_track_one_nuclide_of_the_nominal_table(self):
+        t = tables()
+        t["single"] = single(t, 1e-3)
+        t["single"]["micro"]["nuclides"] = ["Pu-239"]
+        with self.assertRaises(SystemExit):
+            cs.compare(t)
+        t["single"]["micro"]["nuclides"] = ["U-235", "U-235"]
+        with self.assertRaises(SystemExit):
+            cs.compare(t)
+
+
 class Checks(unittest.TestCase):
     def test_the_replaced_compositions_must_keep_the_tracked_densities(self):
         t = tables()
