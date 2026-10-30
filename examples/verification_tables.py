@@ -1897,7 +1897,7 @@ def split_summary(sources: list[dict]) -> dict:
 
 
 def ratio_or_dash(x) -> str:
-    return "–" if x is None else f"{x:.4f}"
+    return "–" if x is None else f"{x:.4f}".replace("-", "−")
 
 
 def history_split_one(sources: list[dict]) -> str:
