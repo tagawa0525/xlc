@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use xlc_depletion::DepletionMatrix;
 use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::MicroNuclide;
+use xlc_format::table::{MicroNuclide, add_linear_correction};
 
 use crate::state::MicroAt;
 
@@ -575,33 +575,14 @@ pub fn yield_weights(energies: &[f64], thermal: f64) -> Vec<f64> {
 }
 
 /// 少数群定数 `f` に、線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) を足す（`n` は追う核種の数密度、テーブルの順）。係数 cᵢ は、数密度の微分を持つ核種は
-/// ∂Σ/∂N̄ᵢ（ADR-0221）、ほかは σᵢ（ADR-0216）。吸収の係数は全断面積の係数から散乱の行の和を引いたもの。χ、拡散係数、ADF、形状関数と
-/// k∞ は補正しない
+/// ∂Σ/∂N̄ᵢ（ADR-0221）、ほかは σᵢ（ADR-0216）。lattice の履歴の残り R の第 3 項と同じ関数（`add_linear_correction`）で足す
 pub fn correct(f: &mut FewGroup, micro: &MicroAt, n: &[f64]) {
-    for ((sigma, &nominal), &density) in micro.nuclides.iter().zip(&micro.densities).zip(n) {
-        let d = density - nominal;
-        if d == 0.0 {
-            continue;
-        }
-        let (total, nu_fission, fission, scatter) = match &sigma.derivative {
-            Some(c) => (&c.total, &c.nu_fission, &c.fission, &c.scatter),
-            None => (
-                &sigma.total,
-                &sigma.nu_fission,
-                &sigma.fission,
-                &sigma.scatter,
-            ),
-        };
-        for (g, row) in scatter.iter().enumerate() {
-            f.total[g] += d * total[g];
-            f.absorption[g] += d * (total[g] - row.iter().sum::<f64>());
-            f.nu_fission[g] += d * nu_fission[g];
-            f.fission[g] += d * fission[g];
-            for (a, s) in f.scatter[g].iter_mut().zip(row) {
-                *a += d * s;
-            }
-        }
-    }
+    let delta: Vec<f64> = n
+        .iter()
+        .zip(&micro.densities)
+        .map(|(density, nominal)| density - nominal)
+        .collect();
+    add_linear_correction(f, &micro.nuclides, &delta);
 }
 
 #[cfg(test)]
