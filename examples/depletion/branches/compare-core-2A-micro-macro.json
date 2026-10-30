@@ -7,11 +7,11 @@
   },
   {
    "path": "examples/depletion/branches/table-2A-micro.msgpack",
-   "md5": "646d0ec26cd91eef7aa161429f8796fa"
+   "md5": "be25725e63519e15dd0fe9e9c6e2c3c1"
   },
   {
    "path": "examples/depletion/branches/core-2A-micro-macro.msgpack",
-   "md5": "c67988b2613116714d0b9d3100b29728"
+   "md5": "f78e08220f429c2c7d7f6778f37a3491"
   }
  ],
  "specific_power": 38.41,
