@@ -1588,7 +1588,7 @@ class DrawHistorySplit(unittest.TestCase):
             for key, half, share in (
                 ("untracked", -12.346, -10.0),
                 ("linearization", -190.0, -221.75),
-                ("residual", -202.345, -231.75),
+                ("residual", -202.346, -231.75),
             ):
                 row |= {
                     f"half_{key}_pcm": half * scale,
