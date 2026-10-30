@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [tooling, dvc]
 opened: 2026-10-30
-closed:
+closed: 2026-10-31
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0222
 ---
 
 # 記録が md5 で引く追跡しない出力が worktree の後片付けで消える
@@ -35,7 +35,7 @@ resolution:
 出し直しの経路は、コミットした入力を checkout して再実行する形（ADR-0122 の案 E）で、この issue はその時間を省く置き場を
 扱う。追跡しない参照の出力の置き場は #0018。
 
-関係する ADR: なし
+関係する ADR: [ADR-0222](../adr/0222-track-cited-untracked-outputs-with-dvc-add.md)
 
 ## 完了の条件
 

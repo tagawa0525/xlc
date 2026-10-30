@@ -1,0 +1,5 @@
+outs:
+- md5: 222fabb0b26b97e21a82846a312b0740
+  size: 477321
+  hash: md5
+  path: table-residual-nominal-histories.msgpack

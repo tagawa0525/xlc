@@ -1,0 +1,5 @@
+outs:
+- md5: f334b2d59ce9870174d88925929ec05d
+  size: 22902
+  hash: md5
+  path: core-2A-plain-switch.msgpack

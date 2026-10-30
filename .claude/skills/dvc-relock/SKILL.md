@@ -62,6 +62,9 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `references` が main の `references/` を指すかは `realpath references` と main の `references/` の `realpath`
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流のステージを所有するブランチか main の記録を確かめてから、ユーザーに聞く。
+   dvc が「Can't remove the following unsaved files」で止まったときは、ほかの出力も戻っていない（checkout 全体が止まる）。
+   並んだファイルが `.dvc` で追う生成物（ADR-0222）で、このブランチで作り直したものなら、`dvc add <ファイル>` で `.dvc` を
+   付け直してコミットしてから 1 をやり直す。`--force` は作り直した版を失うので付けない。
 
 2. 実行ファイルと Python の正規形を作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock`
    か `python-ast/` が衝突したら、main の版を取って rebase を終え、ここで `build` と `python-ast` を実行して書き直す。手で行を
@@ -187,6 +190,18 @@ changed のステージの数は、前半の 2 と同じく `nix develop -c scri
 （`always_changed`）は常に出るので数えない。ブランチが `build` を実行せずにコードを変えたなら、`build` とその下流も出る
 （ADR-0159 の帰結。`dvc repro` で作り直すまで、そのままでよい）。ほかのステージが changed なら、
 出力が足りない、またはキャッシュにない。`scripts/dvc-checkout.py` が失敗したら止めて、原因を調べる（推測で `dvc repro` を実行しない）。
+
+ブランチが `.dvc` ファイル（記録が引く生成物。ADR-0222）を足すか変えたなら、main の置き場もキャッシュに合わせる（`HEAD` は
+マージのコミット。名前を変えた `.dvc` は新しい名前で並ぶ）。並べたものが空なら実行しない（引数なしの checkout は、すべての
+dvc.yaml の出力を対象にする）:
+
+```bash
+git diff --name-only --diff-filter=AMR HEAD^1 HEAD -- '*.dvc'
+nix develop -c scripts/dvc-checkout.py <上で並んだ .dvc>
+```
+
+main の作業ツリーに同じ名前の、キャッシュに無い古い版が残っていると、dvc は「Can't remove the following unsaved
+files」で止まる。`--force` を付けると古い版を失うので付けず、記録がその版を md5 で引くかを確かめてユーザーに聞く。
 
 走らせなかったステージの changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
 要るときに HEAD で `dvc repro` すれば再実行する（ADR-0130）。

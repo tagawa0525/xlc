@@ -1,0 +1,5 @@
+outs:
+- md5: 7b5fa50b0bc5963e1f7515d643c9ba3b
+  size: 358185
+  hash: md5
+  path: table-residual-nominal.msgpack

@@ -1,0 +1,5 @@
+outs:
+- md5: 3f74b1d4d7ec49111fddce387b98420d
+  size: 74243
+  hash: md5
+  path: table-switch-density-branch.msgpack
