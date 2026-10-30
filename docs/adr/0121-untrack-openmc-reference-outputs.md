@@ -50,7 +50,8 @@ OpenMC の参照解の出力（VERA 2B〜2I のピン出力 `examples/vera/p2/op
 
 ## 帰結
 
-- worktree では、xlc のライブラリと同じく、main の参照解の出力をコピーして使う
+- 参照解の出力は git で追跡せず、`.dvc` ファイルで DVC に追う（ADR-0222）。worktree では `scripts/worktree-restore-outputs.sh`
+  の `dvc checkout` でキャッシュから戻す
 - 追跡をやめるマージで、main の作業ツリーからも参照解の出力が消える。マージの前にコピーを取り、マージの後に戻す。
   VERA は references/openmc/ の作業ディレクトリの `pins.msgpack` にも残る。MOX は作業ディレクトリに残っていないので、
   失ったら examples/mox/verification.md の手順で作り直す
