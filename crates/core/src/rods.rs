@@ -21,7 +21,7 @@ use crate::nem::{
     Boundary, NemError, NodeSnapshot, Options, Problem, Refresh, Solution, solve, solve_with,
 };
 use crate::state::MicroAt;
-use xlc_format::table::{MicroNuclide, MicroReaction};
+use xlc_format::table::{MicroDerivative, MicroNuclide, MicroReaction};
 
 /// 部分挿入のノードの、制御棒の状態が一様な区間。
 #[derive(Debug, Clone, PartialEq)]
@@ -435,6 +435,7 @@ pub(crate) fn mix_micro(
             let reference = segments[0];
             if segments.iter().any(|n| {
                 n.thermal_fission.is_some() != reference.thermal_fission.is_some()
+                    || n.derivative.is_some() != reference.derivative.is_some()
                     || n.reactions.len() != reference.reactions.len()
                     || n.reactions
                         .iter()
@@ -442,7 +443,7 @@ pub(crate) fn mix_micro(
                         .any(|(a, b)| a.mt != b.mt || a.channels.len() != b.channels.len())
             }) {
                 return Err(format!(
-                    "micro nuclide {i}: the intervals differ in fission or in the chain reactions"
+                    "micro nuclide {i}: the intervals differ in fission, in the chain reactions or in the density derivative"
                 ));
             }
             let thermal_fission = match reference.thermal_fission {
@@ -493,7 +494,29 @@ pub(crate) fn mix_micro(
                     })
                     .collect(),
                 thermal_fission,
-                derivative: None,
+                // 数密度の微分（ADR-0221）も少数群定数と同じ重み
+                derivative: reference.derivative.as_ref().map(|_| {
+                    // どの区間も持つ（上の検査）
+                    let held: Vec<&MicroDerivative> =
+                        segments.iter().filter_map(|n| n.derivative.as_ref()).collect();
+                    let by = |value: &dyn Fn(&MicroDerivative) -> &[f64]| -> Vec<f64> {
+                        (0..ng)
+                            .map(|g| average(&held, weights, g, |d| value(d)[g]))
+                            .collect()
+                    };
+                    MicroDerivative {
+                        total: by(&|d| &d.total),
+                        nu_fission: by(&|d| &d.nu_fission),
+                        fission: by(&|d| &d.fission),
+                        scatter: (0..ng)
+                            .map(|from| {
+                                (0..ng)
+                                    .map(|to| average(&held, weights, from, |d| d.scatter[from][to]))
+                                    .collect()
+                            })
+                            .collect(),
+                    }
+                }),
             })
         })
         .collect::<Result<_, String>>()?;
