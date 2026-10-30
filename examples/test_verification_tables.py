@@ -1762,6 +1762,244 @@ class DrawHistorySplit(unittest.TestCase):
         self.assertEqual(rows[0][4], "–")
 
 
+class DrawHistoryIndex(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_index.py の要約（R(1) は燃焼度 0 と 60、switch は 20 と 60。密度だけの経路は 60 だけ）"""
+
+        def row(burnup, weight, index, linearization, untracked, to_one=1.0):
+            nominal = index == 0.0
+            return {
+                "burnup": burnup,
+                "weight": weight,
+                "index_pcm": index,
+                "linearization_pcm": linearization,
+                "untracked_pcm": untracked,
+                "linearization_first": None if nominal else linearization / index,
+                "linearization_second": None if nominal else linearization / index**2,
+                "untracked_first": None if nominal else untracked / index,
+                "untracked_weight": None if weight == 0.0 else untracked / weight,
+                "densities": {
+                    "U-235": None if nominal else 0.27392,
+                    "Pu-239": None if nominal else 0.10256,
+                },
+                **{
+                    f"{key}_to_one": None if nominal else to_one
+                    for key in (
+                        "linearization_first",
+                        "linearization_second",
+                        "untracked_first",
+                        "untracked_weight",
+                    )
+                },
+            }
+
+        def switch(burnup, weight, index):
+            return {
+                "burnup": burnup,
+                "weight": weight,
+                "difference_pcm": 52.2483,
+                "index_ratio": index,
+                "condition_index_ratio": None if index is None else index + 0.0011,
+                "linearization_weight": None if weight == 0.0 else 0.88313,
+                "untracked_weight": None if weight == 0.0 else 0.70282,
+                "density_ratios": {
+                    "U-235": None if index is None else 0.66621,
+                    "Pu-239": None if index is None else 0.90661,
+                },
+                "untracked_gap_weight_pcm": 5.3581,
+                "untracked_gap_index_pcm": None if index is None else -30.3771,
+                "untracked_gap_index_squared_pcm": None if index is None else -10.9902,
+                "linearization_gap_weight_pcm": 48.3884,
+                "linearization_gap_index_pcm": None if index is None else 2.1304,
+                "linearization_gap_index_squared_pcm": None
+                if index is None
+                else 27.2481,
+                "linearization_gap_condition_index_pcm": None
+                if index is None
+                else 1.8712,
+                "gap_mixed_pcm": None if index is None else 7.4851,
+                "gap_weight_pcm": 53.7262,
+            }
+
+        return {
+            "format": "xlc-compare-history-linearization-index",
+            "continued_burnup": 20.0,
+            "nuclides": ["U-235", "Pu-239"],
+            "histories": {
+                "one": [
+                    row(0.0, 1.0, 0.0, 0.0, 0.0),
+                    row(60.0, 1.0, 4633.22, -229.466, -166.485),
+                ],
+                "switch": [
+                    row(20.0, 0.0, 0.0, 0.0, 0.0),
+                    row(60.0, 2.0 / 3.0, 4040.95, -210.63, -118.58, 1.0525),
+                ],
+                "half": [row(60.0, 0.5, 2683.38, -119.91, -81.99, 0.9033)],
+                "full": [row(60.0, 1.0, 5511.26, -248.12, -157.09, 0.9091)],
+            },
+            "switch": [switch(20.0, 0.0, None), switch(60.0, 2.0 / 3.0, 0.87217)],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def header(self, table):
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_linearization_rows_go_by_burnup_and_leave_out_the_nominal_composition(
+        self,
+    ):
+        table = vt.history_index_linearization([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "履歴",
+                "E (pcm)",
+                "L (pcm)",
+                "L/E",
+                "L/E² (10⁻⁶/pcm)",
+                "L/E の R(1) との比",
+                "L/E² の R(1) との比",
+                "数密度の相対差: U-235 (%)",
+                "数密度の相対差: Pu-239 (%)",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(
+            [r[:2] for r in rows],
+            [
+                ["60", "R(1)"],
+                ["60", "switch"],
+                ["60", "密度 0.702"],
+                ["60", "密度 0.661"],
+            ],
+        )
+        self.assertEqual(
+            rows[1],
+            [
+                "60",
+                "switch",
+                "+4040.95",
+                "−210.63",
+                "−0.0521",
+                "−12.899",
+                "1.0525",
+                "1.0525",
+                "+27.39",
+                "+10.26",
+            ],
+        )
+
+    def test_untracked_rows_set_the_part_against_w_and_the_index(self):
+        table = vt.history_index_untracked([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "履歴",
+                "w",
+                "U (pcm)",
+                "U/w (pcm)",
+                "U/E",
+                "U/w の R(1) との比",
+                "U/E の R(1) との比",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            [
+                "60",
+                "switch",
+                "0.6667",
+                "−118.58",
+                "−177.87",
+                "−0.0293",
+                "1.0525",
+                "1.0525",
+            ],
+        )
+
+    def test_switch_rows_set_the_index_ratio_beside_w_and_the_part_weights(self):
+        table = vt.history_index_switch([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "E の比",
+                "条件 j の E の比",
+                "w_L",
+                "w_U",
+                "数密度の差の比: U-235",
+                "数密度の差の比: Pu-239",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(rows[0], ["20", "0.0000", "–", "–", "–", "–", "–", "–"])
+        self.assertEqual(
+            rows[1],
+            [
+                "60",
+                "0.6667",
+                "0.8722",
+                "0.8733",
+                "0.8831",
+                "0.7028",
+                "0.6662",
+                "0.9066",
+            ],
+        )
+
+    def test_gap_rows_set_the_gaps_of_each_factor(self):
+        table = vt.history_index_gaps([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "core − 参照 (pcm)",
+                "L の外れ: w (pcm)",
+                "L の外れ: E の比 (pcm)",
+                "L の外れ: E の比の 2 乗 (pcm)",
+                "L の外れ: 条件 j の E の比 (pcm)",
+                "U の外れ: w (pcm)",
+                "U の外れ: E の比 (pcm)",
+                "U の外れ: E の比の 2 乗 (pcm)",
+                "両方の外れ: w (pcm)",
+                "両方の外れ: U は w、L は E の比 (pcm)",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(rows[0][3], "–")
+        self.assertEqual(
+            rows[1],
+            [
+                "60",
+                "+52.248",
+                "+48.388",
+                "+2.130",
+                "+27.248",
+                "+1.871",
+                "+5.358",
+                "−30.377",
+                "−10.990",
+                "+53.726",
+                "+7.485",
+            ],
+        )
+
+    def test_the_tables_are_registered_for_the_index_json(self):
+        for name in ("linearization", "untracked", "switch", "gaps"):
+            sources, _ = vt.TABLES[f"depletion-history-index-{name}"]
+            self.assertEqual(sources, ["examples/depletion/history/index.json"])
+            # ステージの出力でなく git が追跡する JSON（compare_index.py を手で流す）
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+    def test_other_summaries_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.history_index_gaps([{"format": "xlc-compare-history-residual-split"}])
+
+
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
