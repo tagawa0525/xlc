@@ -9,8 +9,9 @@
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）, `heavy_metal`（初めの重金属の質量 (g/cm、高さ 1 cm あたり)。燃焼の履歴から
 //! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）, `micro`（ミクロ燃焼の核種の `nuclides`、燃焼度の点ごとの均質化した
 //! 数密度 `densities`、`points` の点ごとの核種ごとの微視的断面積 `states`（`total`、`nu_fission`、`fission`、`scatter`、`reactions`（`mt` と
-//! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない））。燃焼度の軸を持ち、分けないテーブルだけが書き、ほかはキーを
-//! 書かない。ADR-0216）,
+//! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない）、`derivative`（自分の数密度による格子全体の少数群定数の微分の `total`、
+//! `nu_fission`、`fission`、`scatter`。微分を持つ核種だけが書き、ほかはキーを書かない。ADR-0221））。燃焼度の軸を持ち、分けない
+//! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
@@ -783,8 +784,8 @@ impl Table {
         Ok(())
     }
 
-    /// ミクロ燃焼のデータ（ADR-0216）が、燃焼度の軸と点と群の数に合い、値が有限で、核種ごとの反応の並びと核分裂の有無が状態の間で
-    /// 同じこと（状態の間で内挿するため）
+    /// ミクロ燃焼のデータ（ADR-0216）が、燃焼度の軸と点と群の数に合い、値が有限で、核種ごとの反応の並びと核分裂の有無と数密度の
+    /// 微分（ADR-0221）の有無が状態の間で同じこと（状態の間で内挿するため）
     fn validate_micro(&self, micro: &Micro) -> Result<(), String> {
         let burnups = self
             .axes
@@ -832,7 +833,7 @@ impl Table {
         let groups = self.states[0].bounds.len() - 1;
         let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
         let nonnegative = |v: &[f64]| sized(v) && v.iter().all(|&x| x >= 0.0);
-        // 状態の間で比べる、核種ごとの反応の MT と経路の数、核分裂の有無
+        // 状態の間で比べる、核種ごとの反応の MT と経路の数、核分裂の有無、微分の有無
         let shape = |n: &MicroNuclide| {
             (
                 n.reactions
@@ -840,6 +841,7 @@ impl Table {
                     .map(|r| (r.mt, r.channels.len()))
                     .collect::<Vec<_>>(),
                 n.thermal_fission.is_some(),
+                n.derivative.is_some(),
             )
         };
         for (p, state) in micro.states.iter().enumerate() {
@@ -861,6 +863,19 @@ impl Table {
                 {
                     return Err(format!(
                         "{}: cross sections must have {groups} finite groups (total and fission nonnegative)",
+                        at()
+                    ));
+                }
+                // 微分は負になりうる（組成が増えると減る少数群定数）ので、群の数と有限だけを確かめる
+                if let Some(d) = &n.derivative
+                    && !(sized(&d.total)
+                        && sized(&d.nu_fission)
+                        && sized(&d.fission)
+                        && d.scatter.len() == groups
+                        && d.scatter.iter().all(|row| sized(row)))
+                {
+                    return Err(format!(
+                        "{}: density derivatives must have {groups} finite groups",
                         at()
                     ));
                 }
@@ -890,7 +905,7 @@ impl Table {
                 }
                 if shape(n) != shape(&micro.states[0][i]) {
                     return Err(format!(
-                        "{}: the reactions and the fission differ from those of state 0",
+                        "{}: the reactions, the fission and the density derivative differ from those of state 0",
                         at()
                     ));
                 }
