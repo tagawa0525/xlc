@@ -126,7 +126,39 @@ class Split(unittest.TestCase):
                 x["residual_condition_pcm"],
                 delta=1e-9,
             )
-            self.assertLess(x["split_check"], 1e-15)
+
+    def test_r_one_is_checked_against_the_residuals_that_the_core_adds(self):
+        result = c.compare(tables(), summary([0.0, 0.5]))
+        for x in result["one"]:
+            self.assertLess(x["histories_check"], 1e-15)
+
+    def test_r_one_other_than_the_residuals_that_the_core_adds_is_an_error(self):
+        t = tables()
+        t["nominal"]["histories"][0]["rods"][0]["residuals"][1]["total"][0] += 1e-6
+        with self.assertRaises(SystemExit):
+            c.compare(t, summary([0.0, 0.5]))
+
+    def test_r_one_at_another_condition_than_the_history_branch_is_an_error(self):
+        t = tables()
+        for table in ("one", "one_hybrid"):
+            t[table]["axes"][1]["points"] = [1200.0]
+        with self.assertRaises(SystemExit):
+            c.compare(t, summary([0.0, 0.5]))
+
+    def test_the_switch_at_another_condition_than_r_one_is_an_error(self):
+        t = tables()
+        for table in ("switch", "switch_hybrid"):
+            t[table]["axes"][3]["points"] = [600.0]
+        with self.assertRaises(SystemExit):
+            c.compare(t, summary([0.0, 0.5]))
+
+    def test_density_paths_that_change_more_than_the_density_are_errors(self):
+        t = tables()
+        for table in ("nominal_full", "full", "full_hybrid"):
+            t[table] = copy.deepcopy(t[table])
+            t[table]["axes"][2]["points"] = [600.0]
+        with self.assertRaises(SystemExit):
+            c.compare(t, summary([0.0, 0.5]))
 
     def test_the_condition_residual_is_the_branch_less_the_linear_correction(self):
         t = tables()
@@ -284,6 +316,9 @@ class Report(unittest.TestCase):
         text = c.report(result)
         self.assertIn("追わない核種の分", text)
         self.assertIn("線形化の誤差", text)
+        # 記録の本文にコピーする数値は、表と同じ U+2212 の負の符号
+        self.assertNotRegex(text, r"-[0-9]")
+        self.assertRegex(text, r"−[0-9]")
 
 
 if __name__ == "__main__":

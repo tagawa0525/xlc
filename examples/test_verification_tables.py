@@ -1610,7 +1610,7 @@ class DrawHistorySplit(unittest.TestCase):
                     "untracked_condition_pcm": -9.876 * s,
                     "linearization_condition_pcm": -376.634 * s,
                     "residual_condition_pcm": -386.51 * s,
-                    "split_check": 1e-17,
+                    "histories_check": 1e-17,
                 }
                 for b, s in ((0.0, 0.0), (60.0, 1.0))
             ],
@@ -1641,7 +1641,7 @@ class DrawHistorySplit(unittest.TestCase):
                     "untracked_pcm": -6.5,
                     "scaled_untracked_pcm": -6.667,
                     "one_untracked_pcm": -10.0,
-                    "untracked_weight": 0.65,
+                    "untracked_weight": -0.12854,
                     "untracked_gap_pcm": 0.161,
                     "linearization_pcm": -320.0,
                     "scaled_linearization_pcm": -264.6,
@@ -1712,7 +1712,7 @@ class DrawHistorySplit(unittest.TestCase):
                 "0.6667",
                 "−6.50",
                 "−6.67",
-                "0.6500",
+                "−0.1285",
                 "−320.00",
                 "−264.60",
                 "0.8063",
