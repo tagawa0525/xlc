@@ -1898,6 +1898,13 @@ class DrawMicroLinearizationSplit(unittest.TestCase):
                     "linear_pcm": 1.0,
                     "transport_pcm": 1.0 - alone,
                     "error_pcm": alone,
+                    "split": {
+                        "whole_pcm": alone,
+                        "nuclides": {"Pu-240": 2 * alone},
+                        "others_pcm": -alone - 0.5,
+                        "chi_pcm": 0.0,
+                        "cross_pcm": 0.5,
+                    },
                 }
             return out
 
@@ -1981,6 +1988,24 @@ class DrawMicroLinearizationSplit(unittest.TestCase):
             ],
         )
 
+    def test_the_single_rows_split_the_nuclide_term_and_the_rest(self):
+        table = vt.micro_linearization_single([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "誤差 (pcm)",
+                "Pu-240",
+                "ほかの核種と燃焼させない物質",
+                "χ",
+                "交差",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            ["16 → 18", "−150.50", "−301.00", "+150.00", "0.00", "+0.50"],
+        )
+
     def test_a_summary_of_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
             vt.micro_linearization_split(
@@ -1994,6 +2019,7 @@ class DrawMicroLinearizationSplit(unittest.TestCase):
             "depletion-micro-linearization-split",
             "depletion-micro-linearization-weight",
             "depletion-micro-linearization-shielding",
+            "depletion-micro-linearization-single",
         ):
             (sources, _) = vt.TABLES[name]
             self.assertTrue(set(sources) <= vt.GIT_TRACKED, name)
