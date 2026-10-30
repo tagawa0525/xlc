@@ -1859,6 +1859,172 @@ class DrawMicroLinearization(unittest.TestCase):
         self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawMicroLinearizationSplit(unittest.TestCase):
+    @staticmethod
+    def summary(single=True) -> dict:
+        """compare_split.py の要約（点の組 2 つ、内訳に出す核種 2 つ）"""
+
+        def part(whole, u235, pu240, other, others, chi):
+            return {
+                "whole_pcm": whole,
+                "nuclides": {"U-235": u235, "Pu-240": pu240},
+                "other_tracked_pcm": other,
+                "others_pcm": others,
+                "chi_pcm": chi,
+                "cross_pcm": whole - (u235 + pu240 + other + others + chi),
+            }
+
+        def row(a, b, tracked, shielding, spatial, weight, alone):
+            out = {
+                "from": a,
+                "to": b,
+                "tracked_pcm": tracked,
+                "linear_pcm": tracked + shielding + spatial + weight,
+                "error_pcm": shielding + spatial + weight,
+                "shielding_pcm": shielding,
+                "spatial_pcm": spatial,
+                "weight_pcm": weight,
+                "spatial_live_pcm": spatial,
+                "shielding_spread_pcm": shielding,
+                "splits": {
+                    "shielding": part(shielding, 0.5, 0.25, 0.0, 0.0, 0.0),
+                    "spatial": part(spatial, 0.0, 0.0, 0.0, 0.0, 0.0),
+                    "weight": part(weight, 20.0, -150.0, 1.0, 60.0, 0.0),
+                },
+            }
+            if single:
+                out["single"] = {
+                    "nuclide": "Pu-240",
+                    "linear_pcm": 1.0,
+                    "transport_pcm": 1.0 - alone,
+                    "error_pcm": alone,
+                    "split": {
+                        "whole_pcm": alone,
+                        "nuclides": {"Pu-240": 2 * alone},
+                        "others_pcm": -alone - 0.5,
+                        "chi_pcm": 0.0,
+                        "cross_pcm": 0.5,
+                    },
+                }
+            return out
+
+        return {
+            "format": "xlc-compare-micro-linearization-split",
+            "nuclides": 31,
+            "shown_nuclides": ["U-235", "Pu-240"],
+            "self_check_pcm": 1e-9,
+            "rows": [
+                row(0.0, 0.1, -2761.85, -8.32, 0.13, 103.39, 1.234),
+                row(16.0, 18.0, -1280.0, -6.23, 6.05, -171.72, -150.5),
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    @staticmethod
+    def header(table):
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_rows_give_the_candidates_and_the_single_nuclide_error(self):
+        table = vt.micro_linearization_split([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "誤差 (pcm)",
+                "自己遮蔽 (pcm)",
+                "空間の分布 (pcm)",
+                "少数群の重み (pcm)",
+                "重み / 効き (%)",
+                "Pu-240 だけ (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["0 → 0.1", "+95.20", "−8.32", "+0.13", "+103.39", "−3.74", "+1.23"],
+                [
+                    "16 → 18",
+                    "−171.90",
+                    "−6.23",
+                    "+6.05",
+                    "−171.72",
+                    "+13.42",
+                    "−150.50",
+                ],
+            ],
+        )
+
+    def test_without_a_single_nuclide_composition_the_column_is_left_out(self):
+        table = vt.micro_linearization_split([self.summary(single=False)])
+        self.assertNotIn("だけ", self.header(table)[-1])
+
+    def test_the_weight_rows_split_by_nuclide_others_chi_and_cross(self):
+        table = vt.micro_linearization_part("weight", [self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "全体 (pcm)",
+                "U-235",
+                "Pu-240",
+                "ほかの追う核種",
+                "追わない核種と燃焼させない物質",
+                "χ",
+                "交差",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            [
+                "16 → 18",
+                "−171.72",
+                "+20.00",
+                "−150.00",
+                "+1.00",
+                "+60.00",
+                "0.00",
+                "−102.72",
+            ],
+        )
+
+    def test_the_single_rows_split_the_nuclide_term_and_the_rest(self):
+        table = vt.micro_linearization_single([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "誤差 (pcm)",
+                "Pu-240",
+                "ほかの核種と燃焼させない物質",
+                "χ",
+                "交差",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            ["16 → 18", "−150.50", "−301.00", "+150.00", "0.00", "+0.50"],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.micro_linearization_split(
+                [{"format": "xlc-compare-micro-linearization"}]
+            )
+        with self.assertRaises(vt.TableError):
+            vt.micro_linearization_part("weight", [{"format": "xlc-table"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in (
+            "depletion-micro-linearization-split",
+            "depletion-micro-linearization-weight",
+            "depletion-micro-linearization-shielding",
+            "depletion-micro-linearization-single",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED, name)
+
+
 class DrawCoreBoron(unittest.TestCase):
     def summary(self) -> dict:
         """compare_core_boron.py の要約（燃焼点 2 つ）"""

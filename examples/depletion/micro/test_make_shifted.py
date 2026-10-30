@@ -81,5 +81,77 @@ class Shifted(unittest.TestCase):
             make_shifted.tracked('[history]\nfile = "h.msgpack"\nburnup = [0]\n')
 
 
+def mean(history, p, i):
+    """点 p の核種 i の、燃焼の領域の体積で重みを付けた数密度（負は 0）"""
+    regions = history["regions"]
+    densities = history["points"][p]["densities"]
+    total = sum(d["volume"] for d in regions)
+    return sum(d["volume"] * max(n[i], 0.0) for d, n in zip(regions, densities)) / total
+
+
+class Spread(unittest.TestCase):
+    def test_tracked_nuclides_keep_the_mean_of_the_point_and_the_spread_of_the_point_before(
+        self,
+    ):
+        original = history()
+        spread = make_shifted.spread(copy.deepcopy(original), ["U-235", "Xe-135"])
+        self.assertEqual(spread["points"][0], original["points"][0])
+        for p in (1, 2):
+            before = original["points"][p - 1]["densities"]
+            got = spread["points"][p]["densities"]
+            for i in (1, 2):
+                self.assertAlmostEqual(
+                    mean(spread, p, i),
+                    mean(original, p, i),
+                    delta=1e-12 * mean(original, p, i),
+                )
+                # 領域の間の比は前の点のもの
+                self.assertAlmostEqual(
+                    got[1][i] / got[0][i], before[1][i] / before[0][i], delta=1e-12
+                )
+            # 追わない核種は前の点のまま
+            for r in range(2):
+                self.assertEqual(got[r][0], before[r][0])
+                self.assertEqual(got[r][3], before[r][3])
+
+    def test_tracked_nuclides_absent_at_the_point_before_spread_uniformly(self):
+        # 前の点で 0 の核種（燃焼度 0 の Xe-135 など）は、燃焼の領域で一様（微視的断面積の重み 1。ADR-0216 の案 Z1）
+        original = history()
+        for r in range(2):
+            original["points"][0]["densities"][r][2] = 0.0
+        spread = make_shifted.spread(copy.deepcopy(original), ["Xe-135"])
+        got = spread["points"][1]["densities"]
+        self.assertEqual(got[0][2], got[1][2])
+        self.assertAlmostEqual(got[0][2], mean(original, 1, 2), delta=1e-12 * got[0][2])
+
+    def test_negative_densities_count_as_zero(self):
+        # lattice は負の数密度を 0 として輸送し、均質化する
+        original = history()
+        original["points"][0]["densities"][0][1] = -1e-30
+        spread = make_shifted.spread(copy.deepcopy(original), ["U-235"])
+        got = spread["points"][1]["densities"]
+        self.assertEqual(got[0][1], 0.0)
+        self.assertAlmostEqual(mean(spread, 1, 1), mean(original, 1, 1), delta=1e-9)
+
+
+class Previous(unittest.TestCase):
+    def test_each_point_takes_the_densities_of_the_point_before(self):
+        original = history()
+        previous = make_shifted.previous(copy.deepcopy(original))
+        self.assertEqual(previous["points"][0], original["points"][0])
+        for p in (1, 2):
+            self.assertEqual(
+                previous["points"][p]["densities"],
+                original["points"][p - 1]["densities"],
+            )
+            self.assertEqual(
+                previous["points"][p]["burnup"], original["points"][p]["burnup"]
+            )
+        other = history()
+        other["format"] = "xlc-table"
+        with self.assertRaises(SystemExit):
+            make_shifted.previous(other)
+
+
 if __name__ == "__main__":
     unittest.main()
