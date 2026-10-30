@@ -398,6 +398,7 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
         scatter,
         reactions,
         thermal_fission,
+        derivative: _,
     } = n;
     let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
     MicroNuclide {
@@ -414,6 +415,7 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
             .collect(),
         // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す（`interpolate_micro` が比に戻す）
         thermal_fission: thermal_fission.map(|f| w * f * fission.iter().sum::<f64>()),
+        derivative: None,
     }
 }
 
@@ -426,6 +428,7 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
         scatter,
         reactions,
         thermal_fission,
+        derivative: _,
     } = n;
     add(&mut acc.total, w, total);
     add(&mut acc.nu_fission, w, nu_fission);

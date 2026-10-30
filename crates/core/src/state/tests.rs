@@ -1100,6 +1100,7 @@ fn with_micro(mut t: Table, density: impl Fn(f64) -> f64) -> Table {
                         channels: vec![s.absorption.clone()],
                     }],
                     thermal_fission: Some(0.9),
+                    derivative: None,
                 }]
             })
             .collect(),

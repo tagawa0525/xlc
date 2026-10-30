@@ -496,6 +496,21 @@ pub struct MicroNuclide {
     /// 核分裂率のうち、収率の境界（ADR-0183）より下の割合。核分裂しない核種は nil（キーは省けない）
     #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub thermal_fission: Option<f64>,
+    /// 自分の数密度による格子全体の少数群定数の微分（ADR-0221）。微分を持たない核種はキーを書かない
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derivative: Option<MicroDerivative>,
+}
+
+/// 1 つの状態の、1 つの核種の均質化した数密度 N̄ᵢ による格子全体の少数群定数の微分 ∂Σ/∂N̄ᵢ (barn)（ADR-0221）。すべての核種と
+/// 燃焼させない物質の分を含む
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MicroDerivative {
+    pub total: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub fission: Vec<f64>,
+    /// P0 の散乱行列 [入射の群][出射の群]
+    pub scatter: Vec<Vec<f64>>,
 }
 
 /// チェーンの反応の代表の MT と、経路（ライブラリとチェーンの経路の並び）ごとの少数群の断面積 (barn)

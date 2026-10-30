@@ -152,6 +152,7 @@ fn sigma(capture: [f64; 2], fission: [f64; 2], thermal: f64) -> MicroNuclide {
             channels: vec![capture.to_vec()],
         }],
         thermal_fission: fissile.then_some(thermal),
+        derivative: None,
     }
 }
 
