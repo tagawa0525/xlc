@@ -325,6 +325,13 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   済んだ（ブランチ feat/0190-history-residual-lattice）。同じ点の反応率の微視的断面積の差 Δσ（案 S2）も `lattice histories` が書く
   （ブランチ feat/0190-history-micro-sigma。crates/lattice/src/residual.rs の `rate_difference`）。制御棒の履歴（制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と
   Pyrex の変数、制御棒を入れた値の R は #0190 に残る
+- lattice: 途中で条件を変えた燃焼（「確認」）は、`[depletion]` の `continue = { file, burnup }` で、既存の燃焼の履歴の燃焼点から
+  この入力の条件で燃焼を続ける（crates/lattice/src/depletion.rs の `continued_start`、入力の説明は crates/lattice/src/input.rs。ブランチ
+  feat/0190-history-switch-lattice）。続ける点より前の点を履歴から引き継ぎ、続ける点の組成と時間（燃焼度と出力の基準の初めの重金属の質量は
+  燃焼度 0 の組成のもの）からチェックポイントの再開（ADR-0196）と同じく CE/CM を進め、燃焼度 0 からの 1 本の履歴（`[history]` で分岐を
+  解ける）を書く。続ける点は、core の燃焼点がそこから始まるステップの状態で解く（ADR-0218）のと同じく、この入力の条件で解き直す。
+  履歴は続けた燃焼点を `continued` に持つ（続けない燃焼の履歴はキーを書かず、今の出力のバイトは変わらない）。燃焼の領域、チェーンの
+  核種、輸送する核種、燃焼度 0 の組成、少数群定数の有無と群境界が履歴と違えばエラー
 - core: ミクロ燃焼のノードごとに H_m を燃焼のステップで進め（燃焼度 0 の値は燃焼点 0 を解く状態の瞬時の値、出力のステップはステップの状態の
   値、中点の解は中点の燃焼度までの値。crates/core/src/depletion.rs の `advance_history`）、燃焼の履歴（`xlc-core-history`）の点ごとに
   `history_variables` と `histories`（集合体、軸方向のノード、変数の順の列）に持ち、restart で最後の点の値を集合体の ID で引き継ぐ（装荷替えで
