@@ -1,0 +1,5 @@
+outs:
+- md5: e20de3eb5c70c11afdec64fa6980b341
+  size: 179463
+  hash: md5
+  path: table-hybrid-weight-0661.msgpack
