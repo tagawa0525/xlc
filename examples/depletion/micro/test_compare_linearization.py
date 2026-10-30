@@ -146,6 +146,52 @@ class Compare(unittest.TestCase):
             row["error_pcm"], row["linear_pcm"] - row["tracked_pcm"], places=10
         )
 
+    def test_density_derivatives_replace_the_coefficients_of_their_nuclides(self):
+        # 微分を持つ核種（ADR-0221）は、σᵢ の代わりに ∂Σ/∂N̄ᵢ を係数にした線形の予測も出す。σᵢ の予測はそのまま並べる
+        densities = [[1.0e-4], [3.0e-4]]
+        delta = 2.0e-4
+        derivative = {
+            "total": [12.0, 300.0],
+            "scatter": [[10.0, 0.5], [0.0, 9.0]],
+            "nu_fission": [1.2, 600.0],
+            "fission": [0.5, 250.0],
+        }
+        nominal = table(densities)
+        nominal["micro"]["states"] = [
+            [dict(SIGMA, derivative=derivative)] for _ in range(2)
+        ]
+        predicted = two_group_k(
+            [t + s * delta for t, s in zip(TOTAL, derivative["total"])],
+            [
+                [x + s * delta for x, s in zip(r, sr)]
+                for r, sr in zip(SCATTER, derivative["scatter"])
+            ],
+            [n + s * delta for n, s in zip(NU_FISSION, derivative["nu_fission"])],
+        )
+        base = two_group_k(TOTAL, SCATTER, NU_FISSION)
+        transport = 1.0 / (1.0 / predicted + 5.0e-5)
+        summary = cl.compare(nominal, table(None, transport))
+        self.assertEqual(summary["derivative_nuclides"], ["U-235"])
+        (row,) = summary["rows"]
+        self.assertAlmostEqual(
+            row["linear_derivative_pcm"], (1 / base - 1 / predicted) * 1e5, places=9
+        )
+        self.assertAlmostEqual(row["error_derivative_pcm"], 5.0, places=9)
+        # σᵢ の係数の予測は、微分のないテーブルと同じ
+        plain = cl.compare(table(densities), table(None, transport))["rows"][0]
+        self.assertEqual(row["linear_pcm"], plain["linear_pcm"])
+        self.assertEqual(row["error_pcm"], plain["error_pcm"])
+        # 微分のないテーブルは微分の予測を出さない
+        self.assertEqual(
+            cl.compare(table(densities), table(None, transport))["derivative_nuclides"],
+            [],
+        )
+        self.assertNotIn("error_derivative_pcm", plain)
+        # 要約の文章は、5 MWd/kg より後の組の誤差を 2 つの係数で並べる
+        text = cl.report(summary)
+        self.assertIn("微分の係数（U-235）", text)
+        self.assertIn("+5.00", text)
+
     def test_branch_axes_with_one_point_are_allowed(self):
         nominal, shifted = table([[1.0e-4], [3.0e-4]]), table(None)
         for t in (nominal, shifted):

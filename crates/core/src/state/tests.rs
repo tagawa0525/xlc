@@ -1100,6 +1100,7 @@ fn with_micro(mut t: Table, density: impl Fn(f64) -> f64) -> Table {
                         channels: vec![s.absorption.clone()],
                     }],
                     thermal_fission: Some(0.9),
+                    derivative: None,
                 }]
             })
             .collect(),
@@ -1149,6 +1150,59 @@ fn micro_cross_sections_take_the_weights_of_the_few_group_constants() {
             assert_eq!(m.densities, [want], "{bu}");
         }
     }
+}
+
+#[test]
+fn density_derivatives_take_the_weights_of_the_few_group_constants() {
+    // 数密度の微分（ADR-0221）は σᵢ と同じ重みで状態と燃焼度で内挿する。微分は負になりうる（負の値で内挿のエラーにしない）
+    for (t, last) in [
+        (with_micro(burnup_table(), curve), 20.0),
+        (with_micro(burnup_table_of(&CURVED, curve), curve), 18.0),
+    ] {
+        let mut t = t;
+        let states = t.states.clone();
+        for (state, few) in t.micro.as_mut().unwrap().states.iter_mut().zip(&states) {
+            let neg = |v: &[f64]| v.iter().map(|x| -2.0 * x).collect::<Vec<_>>();
+            state[0].derivative = Some(xlc_format::table::MicroDerivative {
+                total: neg(&few.total),
+                nu_fission: neg(&few.nu_fission),
+                fission: neg(&few.fission),
+                scatter: few.scatter.iter().map(|r| neg(r)).collect(),
+            });
+        }
+        t.validate().unwrap();
+        for (bu, ppm, tm, tf) in [
+            (0.0, 1300.0, 565.0, 550.0),
+            (3.0, 1700.0, 580.0, 900.0),
+            (14.0, 900.0, 575.0, 820.0),
+            (last, 1300.0, 565.0, 565.0),
+        ] {
+            let s = at_burnup(bu, ppm, tm, tf);
+            let f = interpolate(&t, Some(&s), None).unwrap().remove(0);
+            let m = interpolate_micro(&t, &s, None).unwrap();
+            let d = m.nuclides[0].derivative.as_ref().unwrap();
+            let close = |a: &[f64], b: &[f64]| {
+                a.iter()
+                    .zip(b)
+                    .all(|(x, y)| (x + 2.0 * y).abs() <= 1e-14 * y.abs().max(1e-300))
+            };
+            assert!(
+                close(&d.total, &f.total),
+                "{bu}: {:?} {:?}",
+                d.total,
+                f.total
+            );
+            assert!(close(&d.nu_fission, &f.nu_fission), "{bu}");
+            assert!(close(&d.fission, &f.fission), "{bu}");
+            for (a, b) in d.scatter.iter().zip(&f.scatter) {
+                assert!(close(a, b), "{bu}");
+            }
+        }
+    }
+    // 微分を持たないテーブルは、内挿しても持たない
+    let t = with_micro(burnup_table(), curve);
+    let m = interpolate_micro(&t, &at_burnup(3.0, 1700.0, 580.0, 900.0), None).unwrap();
+    assert!(m.nuclides[0].derivative.is_none());
 }
 
 #[test]

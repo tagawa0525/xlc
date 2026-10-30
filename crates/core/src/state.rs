@@ -18,7 +18,7 @@
 use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, MicroNuclide, ROD_OUT, Table, component};
+use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, ROD_OUT, Table, component};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -398,6 +398,7 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
         scatter,
         reactions,
         thermal_fission,
+        derivative,
     } = n;
     let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
     MicroNuclide {
@@ -414,6 +415,12 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
             .collect(),
         // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す（`interpolate_micro` が比に戻す）
         thermal_fission: thermal_fission.map(|f| w * f * fission.iter().sum::<f64>()),
+        derivative: derivative.as_ref().map(|d| MicroDerivative {
+            total: v(&d.total),
+            nu_fission: v(&d.nu_fission),
+            fission: v(&d.fission),
+            scatter: d.scatter.iter().map(|r| v(r)).collect(),
+        }),
     }
 }
 
@@ -426,6 +433,7 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
         scatter,
         reactions,
         thermal_fission,
+        derivative,
     } = n;
     add(&mut acc.total, w, total);
     add(&mut acc.nu_fission, w, nu_fission);
@@ -441,6 +449,15 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
     // 割合でなく、境界より下の核分裂の断面積（割合 × 群の和の σf）を足す
     if let (Some(a), Some(x)) = (&mut acc.thermal_fission, thermal_fission) {
         *a += w * x * fission.iter().sum::<f64>();
+    }
+    // 微分の有無も状態の間で同じ（テーブルの検査）
+    if let (Some(a), Some(x)) = (&mut acc.derivative, derivative) {
+        add(&mut a.total, w, &x.total);
+        add(&mut a.nu_fission, w, &x.nu_fission);
+        add(&mut a.fission, w, &x.fission);
+        for (a, x) in a.scatter.iter_mut().zip(&x.scatter) {
+            add(a, w, x);
+        }
     }
 }
 

@@ -802,6 +802,7 @@ fn micro_nuclide(scale: f64, fissile: bool) -> MicroNuclide {
             },
         ],
         thermal_fission: fissile.then_some(0.8 + scale / 1000.0),
+        derivative: None,
     }
 }
 
@@ -926,4 +927,154 @@ fn micro_reactions_and_yield_fractions_agree_across_states() {
     bad(&|t| t.micro.as_mut().unwrap().states[0][0].thermal_fission = None);
     bad(&|t| t.micro.as_mut().unwrap().states[0][0].thermal_fission = Some(1.5));
     bad(&|t| t.micro.as_mut().unwrap().states[0][1].thermal_fission = Some(0.5));
+}
+
+/// 核種 `scale` 倍の値の数密度の微分（2 群。散乱行列の微分は負になりうる）
+fn micro_derivative(scale: f64) -> MicroDerivative {
+    let x = |v: f64| scale * v / 7.0;
+    MicroDerivative {
+        total: vec![x(12.0), x(15.0)],
+        nu_fission: vec![x(1.3), x(-0.5)],
+        fission: vec![x(0.5), x(-0.2)],
+        scatter: vec![vec![x(9.5), x(-0.3)], vec![x(0.02), x(8.5)]],
+    }
+}
+
+/// `micro_sample` の核分裂する核種（U-235）に、すべての状態で数密度の微分を持たせたもの
+fn derivative_sample() -> Table {
+    let mut table = micro_sample();
+    for (p, state) in table.micro.as_mut().unwrap().states.iter_mut().enumerate() {
+        state[0].derivative = Some(micro_derivative(1.0 + p as f64));
+    }
+    table
+}
+
+#[test]
+fn micro_density_derivatives_round_trip_and_are_written_only_for_the_nuclides_that_hold_them() {
+    let table = derivative_sample();
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    // 微分を持たない核種（Xe-135）は `derivative` のキーを書かない（ADR-0221）
+    let value = msgpack::read_value(&bytes).unwrap();
+    let keys_of = |nuclide: usize| -> Vec<String> {
+        let micro = value
+            .as_map()
+            .unwrap()
+            .iter()
+            .find(|(k, _)| k.as_str() == Some("micro"))
+            .unwrap()
+            .1
+            .clone();
+        let states = micro
+            .as_map()
+            .unwrap()
+            .iter()
+            .find(|(k, _)| k.as_str() == Some("states"))
+            .unwrap()
+            .1
+            .clone();
+        states.as_array().unwrap()[0].as_array().unwrap()[nuclide]
+            .as_map()
+            .unwrap()
+            .iter()
+            .filter_map(|(k, _)| k.as_str().map(String::from))
+            .collect()
+    };
+    assert!(
+        keys_of(0).contains(&"derivative".to_string()),
+        "{:?}",
+        keys_of(0)
+    );
+    assert!(
+        !keys_of(1).contains(&"derivative".to_string()),
+        "{:?}",
+        keys_of(1)
+    );
+    // 微分を持たないテーブルは、微分の項目を足す前と同じバイト
+    let plain = micro_sample();
+    assert_eq!(
+        Table::from_msgpack(&plain.to_msgpack().unwrap()).unwrap(),
+        plain
+    );
+}
+
+#[test]
+fn an_explicit_nil_density_derivative_is_an_error() {
+    // 微分を持たない核種はキーを書かない（ADR-0221）。nil は書き手の誤りなので、持たないと読まない
+    let bytes = micro_sample().to_msgpack().unwrap();
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    let rmpv::Value::Map(top) = &mut value else {
+        panic!("a table is a map")
+    };
+    let (_, micro) = top
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("micro"))
+        .unwrap();
+    let rmpv::Value::Map(micro) = micro else {
+        panic!("micro is a map")
+    };
+    let (_, states) = micro
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("states"))
+        .unwrap();
+    let rmpv::Value::Array(points) = states else {
+        panic!("micro states are an array")
+    };
+    let rmpv::Value::Array(nuclides) = &mut points[0] else {
+        panic!("a micro state is an array")
+    };
+    let rmpv::Value::Map(nuclide) = &mut nuclides[1] else {
+        panic!("a micro nuclide is a map")
+    };
+    nuclide.push((rmpv::Value::from("derivative"), rmpv::Value::Nil));
+    let mut written = Vec::new();
+    rmpv::encode::write_value(&mut written, &value).unwrap();
+    assert!(Table::from_msgpack(&written).is_err());
+}
+
+#[test]
+fn micro_density_derivatives_have_the_groups_and_are_held_in_every_state() {
+    let bad = |change: &dyn Fn(&mut Table)| {
+        let mut table = derivative_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+        assert!(table.to_msgpack().is_err());
+    };
+    fn derivative(t: &mut Table, p: usize) -> &mut MicroDerivative {
+        t.micro.as_mut().unwrap().states[p][0]
+            .derivative
+            .as_mut()
+            .unwrap()
+    }
+    bad(&|t| {
+        derivative(t, 0).total.pop();
+    });
+    bad(&|t| {
+        derivative(t, 1).nu_fission.push(0.0);
+    });
+    bad(&|t| {
+        derivative(t, 2).fission.pop();
+    });
+    bad(&|t| {
+        derivative(t, 0).scatter.pop();
+    });
+    bad(&|t| {
+        derivative(t, 0).scatter[1].pop();
+    });
+    bad(&|t| derivative(t, 3).total[1] = f64::NAN);
+    bad(&|t| derivative(t, 3).scatter[0][1] = f64::INFINITY);
+    // 状態の間で内挿するので、微分を持つ核種はどの状態でも持つ
+    bad(&|t| t.micro.as_mut().unwrap().states[2][0].derivative = None);
+    bad(&|t| t.micro.as_mut().unwrap().states[1][1].derivative = Some(micro_derivative(1.0)));
+    // 負の微分（組成が増えると減る少数群定数）は持てる
+    let table = derivative_sample();
+    assert!(
+        table.micro.as_ref().unwrap().states[0][0]
+            .derivative
+            .as_ref()
+            .unwrap()
+            .nu_fission[1]
+            < 0.0
+    );
+    table.validate().unwrap();
 }

@@ -55,6 +55,7 @@ fn states(count: usize) -> Vec<SavedState> {
                             channels: vec![vec![0.1, 1.0 / 7.0]],
                         }],
                         thermal_fission: None,
+                        derivative: None,
                     },
                     MicroNuclide {
                         total: vec![12.0, 100.0 / 3.0],
@@ -63,6 +64,7 @@ fn states(count: usize) -> Vec<SavedState> {
                         scatter: vec![vec![9.0, 0.1], vec![0.0, 8.0]],
                         reactions: vec![],
                         thermal_fission: Some(0.8 + i as f64 / 100.0),
+                        derivative: None,
                     },
                 ]),
             }

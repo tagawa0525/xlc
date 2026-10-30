@@ -6,7 +6,8 @@
 //! 決める（追う核種の核分裂率 × チェーンの Q 値の和が出力密度になる。格子計算の燃焼と同じ規格化。ADR-0173）。補助の核種は崩壊
 //! だけ。核分裂の収率の重みは、テーブルの収率の境界より下の核分裂の割合から ADR-0183 の点の選び方で作る。
 //!
-//! ノードの少数群定数には線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) を足す（全断面積、吸収、νΣf、Σf、散乱行列。ADR-0216）。
+//! ノードの少数群定数には線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) を足す（全断面積、吸収、νΣf、Σf、散乱行列。ADR-0216）。テーブルに数密度の微分を持つ
+//! 核種は、係数を σᵢ から ∂Σ/∂N̄ᵢ に替える（ADR-0221）。反応率はどの核種も σᵢ。
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -573,19 +574,29 @@ pub fn yield_weights(energies: &[f64], thermal: f64) -> Vec<f64> {
     weights
 }
 
-/// 少数群定数 `f` に、線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) を足す（`n` は追う核種の数密度、テーブルの順）。吸収の σ は全断面積から散乱の
-/// 行の和を引いたもの。χ、拡散係数、ADF、形状関数と k∞ は補正しない（ADR-0216）
+/// 少数群定数 `f` に、線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) を足す（`n` は追う核種の数密度、テーブルの順）。係数 cᵢ は、数密度の微分を持つ核種は
+/// ∂Σ/∂N̄ᵢ（ADR-0221）、ほかは σᵢ（ADR-0216）。吸収の係数は全断面積の係数から散乱の行の和を引いたもの。χ、拡散係数、ADF、形状関数と
+/// k∞ は補正しない
 pub fn correct(f: &mut FewGroup, micro: &MicroAt, n: &[f64]) {
     for ((sigma, &nominal), &density) in micro.nuclides.iter().zip(&micro.densities).zip(n) {
         let d = density - nominal;
         if d == 0.0 {
             continue;
         }
-        for (g, row) in sigma.scatter.iter().enumerate() {
-            f.total[g] += d * sigma.total[g];
-            f.absorption[g] += d * (sigma.total[g] - row.iter().sum::<f64>());
-            f.nu_fission[g] += d * sigma.nu_fission[g];
-            f.fission[g] += d * sigma.fission[g];
+        let (total, nu_fission, fission, scatter) = match &sigma.derivative {
+            Some(c) => (&c.total, &c.nu_fission, &c.fission, &c.scatter),
+            None => (
+                &sigma.total,
+                &sigma.nu_fission,
+                &sigma.fission,
+                &sigma.scatter,
+            ),
+        };
+        for (g, row) in scatter.iter().enumerate() {
+            f.total[g] += d * total[g];
+            f.absorption[g] += d * (total[g] - row.iter().sum::<f64>());
+            f.nu_fission[g] += d * nu_fission[g];
+            f.fission[g] += d * fission[g];
             for (a, s) in f.scatter[g].iter_mut().zip(row) {
                 *a += d * s;
             }

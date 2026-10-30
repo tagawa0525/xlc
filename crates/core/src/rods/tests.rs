@@ -449,6 +449,7 @@ fn micro_nuclide(scale: f64, thermal: Option<f64>) -> MicroNuclide {
             channels: vec![v([0.3, 8.0]), v([0.1, 2.0])],
         }],
         thermal_fission: thermal,
+        derivative: None,
     }
 }
 
@@ -466,6 +467,49 @@ fn segment_micro(rodded: bool) -> MicroAt {
 
 /// 追う核種の数密度 (1/(barn cm))
 const DENSITIES: [f64; 2] = [6.5e-4, 2.0e-5];
+
+#[test]
+fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
+    // 数密度の微分（ADR-0221）も、少数群定数と同じ重みで混ぜる（全断面積、νΣf、Σf は群の重み、散乱行列は入射の群の重み）
+    let with = |rodded: bool| {
+        let mut m = segment_micro(rodded);
+        let scale = if rodded { -0.4 } else { 1.0 };
+        m.nuclides[0].derivative = Some(xlc_format::table::MicroDerivative {
+            total: vec![3.0 * scale, 70.0],
+            nu_fission: vec![0.2, -1.5 * scale],
+            fission: vec![0.08, -0.6],
+            scatter: vec![vec![2.5 * scale, -0.3], vec![0.0, 9.0 * scale]],
+        });
+        m
+    };
+    let micro = [with(false), with(true)];
+    let weights = vec![vec![3.0, 1.0], vec![0.5, 0.2]];
+    let mixed = mix_micro(&micro, &weights, &[2.0, 0.5]).unwrap();
+    let d = mixed.nuclides[0].derivative.as_ref().unwrap();
+    let average = |value: &dyn Fn(&xlc_format::table::MicroDerivative) -> f64, g: usize| {
+        let of = |s: usize| value(micro[s].nuclides[0].derivative.as_ref().unwrap());
+        (weights[0][g] * of(0) + weights[1][g] * of(1)) / (weights[0][g] + weights[1][g])
+    };
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-13 * b.abs().max(1e-30);
+    for g in 0..2 {
+        assert!(close(d.total[g], average(&|d| d.total[g], g)));
+        assert!(close(d.nu_fission[g], average(&|d| d.nu_fission[g], g)));
+        assert!(close(d.fission[g], average(&|d| d.fission[g], g)));
+        for h in 0..2 {
+            assert!(close(d.scatter[g][h], average(&|d| d.scatter[g][h], g)));
+        }
+    }
+    // 持たない核種は持たないまま。区間で持つかが違えばエラー
+    assert!(mixed.nuclides[1].derivative.is_none());
+    assert!(mix_micro(&[with(false), segment_micro(true)], &weights, &[2.0, 0.5]).is_err());
+    // 微分の群の数が中性子束と違えば、群ごとに引く前にエラー
+    let mut short = with(true);
+    short.nuclides[0].derivative.as_mut().unwrap().scatter[1].pop();
+    assert!(mix_micro(&[with(false), short], &weights, &[2.0, 0.5]).is_err());
+    let mut short = with(true);
+    short.nuclides[0].derivative.as_mut().unwrap().fission.pop();
+    assert!(mix_micro(&[with(false), short], &weights, &[2.0, 0.5]).is_err());
+}
 
 #[test]
 fn mixed_micro_cross_sections_take_the_weights_of_the_mixed_constants() {
