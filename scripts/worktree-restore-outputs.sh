@@ -5,8 +5,9 @@
 #
 # 新しい worktree は DVC の出力が空なので、dvc.lock と .dvc ファイルの hash に合わせてキャッシュ（references/dvc-cache。
 # main と共有で reflink。ADR-0126）から戻す。引数なしの dvc checkout はすべての dvc.yaml と、記録が引く生成物を追う
-# .dvc ファイル（ADR-0222）を対象にする。手元（btrfs、reflink）で約 10 秒、追加の使用量は約 14 MB（2026-10-21、
-# 379e81d6a）。reflink が効かない場所では全体のコピーになる。
+# .dvc ファイル（ADR-0222）を対象にする。手元（btrfs、reflink）で約 11 秒（2026-10-31、6d017d7a8。.dvc の 41 件を含む）。
+# 追加の使用量は、.dvc で追う前に約 14 MB（2026-10-21、379e81d6a）で、.dvc の分は測っていない。reflink が効かない場所では
+# 全体のコピーになり、.dvc の 43 件だけで約 544 MB を足す。
 #
 # 終了コード: dvc.lock か .dvc ファイルに hash がある出力を戻せなければ 0 でない。checkout は scripts/dvc-checkout.py で行い、hash の
 # まだ無いステージ（未実行。No file hash info）の出力は数えるだけにする（#0184）。キャッシュに無い出力（OpenMC の結果
