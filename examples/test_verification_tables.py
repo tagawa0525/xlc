@@ -1859,6 +1859,63 @@ class DrawMicroLinearization(unittest.TestCase):
         self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawMicroLinearizationDerivative(unittest.TestCase):
+    @staticmethod
+    def summary(shift: float) -> dict:
+        """数密度の微分を持つテーブルの compare_linearization.py の要約（点の組 2 つ）。微分の誤差を `shift` だけずらす"""
+        s = DrawMicroLinearization.summary()
+        s["derivative_nuclides"] = ["Pu-240"]
+        for r, d in zip(s["rows"], [0.5, -2.25]):
+            r["linear_derivative_pcm"] = r["tracked_pcm"] + d + shift
+            r["error_derivative_pcm"] = d + shift
+        return s
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_rows_put_the_errors_of_the_two_coefficients_and_the_perturbations_side_by_side(
+        self,
+    ):
+        table = vt.micro_linearization_derivative(
+            ("0.1", "0.05"), [self.summary(0.0), self.summary(0.125)]
+        )
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "輸送 (pcm)",
+                "σᵢ の誤差 (pcm)",
+                "Pu-240 の微分の誤差、ε = 0.1 (pcm)",
+                "ε = 0.05 (pcm)",
+                "ε の差 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["0 → 0.1", "−3.04", "+0.04", "+0.50", "+0.62", "−0.12"],
+                ["56 → 60", "−1234.56", "+4.56", "−2.25", "−2.12", "−0.12"],
+            ],
+        )
+
+    def test_summaries_without_derivatives_or_with_other_pairs_are_errors(self):
+        plain = DrawMicroLinearization.summary()
+        with self.assertRaises(vt.TableError):
+            vt.micro_linearization_derivative(
+                ("0.1", "0.05"), [plain, self.summary(0.0)]
+            )
+        other = self.summary(0.0)
+        other["rows"][1]["to"] = 58.0
+        with self.assertRaises(vt.TableError):
+            vt.micro_linearization_derivative(
+                ("0.1", "0.05"), [self.summary(0.0), other]
+            )
+
+    def test_the_comparisons_are_git_tracked_jsons(self):
+        (sources, _) = vt.TABLES["depletion-micro-linearization-derivative"]
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawMicroLinearizationSplit(unittest.TestCase):
     @staticmethod
     def summary(single=True) -> dict:
