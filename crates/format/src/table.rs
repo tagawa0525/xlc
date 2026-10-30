@@ -12,6 +12,11 @@
 //! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない）、`derivative`（自分の数密度による格子全体の少数群定数の微分の `total`、
 //! `nu_fission`、`fission`、`scatter`。数密度が 0 の点は σᵢ。微分を持つ核種だけが書き、ほかはキーを書かない（nil はエラー）。ADR-0221））。燃焼度の軸を持ち、分けない
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
+//! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density`）、公称の燃焼の値 `nominal`（H⁰）、履歴の
+//! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
+//! 含み、テーブルが履歴の分岐の条件の状態を解いた点）、点ごとの `residuals`（`total`、`absorption`、`nu_fission`、`fission`、`chi`、
+//! `diffusion`、`scatter`、`adf`））。履歴の分岐の条件は、変数の軸（減速材の密度は `moderator`）だけが値 `branch` の格子点で、ほかの軸は
+//! 公称の状態。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
@@ -468,6 +473,8 @@ pub struct Table {
     pub heavy_metal: Option<f64>,
     /// ミクロ燃焼の核種の均質化した数密度と微視的断面積（ADR-0187、ADR-0216）。燃焼の履歴から作ったテーブルだけが持てる
     pub micro: Option<Micro>,
+    /// 履歴の変数ごとの、ミクロ燃焼で追わない核種の分の補正の残り R（ADR-0215）。ミクロ燃焼のデータを持つテーブルだけが持てる
+    pub histories: Vec<HistoryCorrection>,
 }
 
 /// ミクロ燃焼で追う核種の、燃焼度の点ごとの格子で均質化した数密度と、状態ごとの少数群の微視的断面積（ADR-0216）。格子全体の
@@ -526,6 +533,51 @@ pub struct MicroReaction {
     pub channels: Vec<Vec<f64>>,
 }
 
+/// 履歴の変数の 1 つの補正（ADR-0215）。core はノードの少数群定数に、w = (H − H⁰) / (Hᵇ − H⁰) を掛けた残り R を足す
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryCorrection {
+    /// 履歴の変数の名前（[`MODERATOR_DENSITY`]）
+    pub variable: String,
+    /// 公称の燃焼の履歴の変数の値 H⁰（減速材の密度は g/cm³）
+    pub nominal: f64,
+    /// 履歴の分岐の変数の値 Hᵇ
+    pub branch: f64,
+    /// 制御棒の値ごとの残り
+    pub rods: Vec<HistoryRod>,
+}
+
+/// 1 つの制御棒の値の、燃焼度の点ごとの残り R（ADR-0215）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryRod {
+    /// 制御棒の値の名前（制御棒の軸の値。軸のないテーブルは [`ROD_OUT`]）
+    pub rod: String,
+    /// R を持つ燃焼度の点 (MWd/kg)。燃焼度の軸の点で、最初と最後の点を含み、テーブルが履歴の分岐の条件の状態を解いた点
+    pub burnup: Vec<f64>,
+    /// `burnup` の点ごとの残り
+    pub residuals: Vec<Residual>,
+}
+
+/// 残り R の少数群定数の項目（状態の少数群定数と同じ単位）。k∞、真空の辺の比、形状関数は持たない
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Residual {
+    pub total: Vec<f64>,
+    pub absorption: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub fission: Vec<f64>,
+    pub chi: Vec<f64>,
+    pub diffusion: Vec<f64>,
+    /// [入射の群][出射の群]
+    pub scatter: Vec<Vec<f64>>,
+    /// [辺][群]
+    pub adf: Vec<Vec<f64>>,
+}
+
+/// 減速材の密度の履歴の変数の名前（ADR-0215）
+pub const MODERATOR_DENSITY: &str = "moderator-density";
+
 /// テーブルのファイルの読み書きのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum TableError {
@@ -558,6 +610,8 @@ struct TableFile {
     states: Vec<StateFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     micro: Option<Micro>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    histories: Vec<HistoryCorrection>,
 }
 
 /// ファイルの軸（テーブルと媒質で共有する。ADR-0128）
@@ -706,6 +760,7 @@ impl Table {
             states: vec![state],
             heavy_metal: None,
             micro: None,
+            histories: Vec::new(),
         }
     }
 
@@ -962,6 +1017,7 @@ impl Table {
             points: self.points.clone(),
             states,
             micro: self.micro.clone(),
+            histories: self.histories.clone(),
         })?)
     }
 
@@ -1011,6 +1067,7 @@ impl Table {
             states,
             heavy_metal: file.heavy_metal,
             micro: file.micro,
+            histories: file.histories,
         };
         table.validate()?;
         Ok(table)

@@ -21,6 +21,7 @@ fn sample() -> Table {
         states: (0..4).map(|i| state(3.0 + f64::from(i))).collect(),
         heavy_metal: None,
         micro: None,
+        histories: Vec::new(),
     }
 }
 
@@ -591,6 +592,7 @@ fn pairs() -> Table {
         split: 1,
         heavy_metal: None,
         micro: None,
+        histories: Vec::new(),
     }
 }
 
@@ -1077,4 +1079,226 @@ fn micro_density_derivatives_have_the_groups_and_are_held_in_every_state() {
             < 0.0
     );
     table.validate().unwrap();
+}
+
+/// 値を `scale` 倍した残り（2 群、6 つの辺）
+fn residual(scale: f64) -> Residual {
+    let x = |v: f64| scale * v / 3.0;
+    Residual {
+        total: vec![x(0.01), x(-0.02)],
+        absorption: vec![x(0.001), x(-0.003)],
+        nu_fission: vec![x(-0.002), x(0.004)],
+        fission: vec![x(-0.0008), x(0.0016)],
+        chi: vec![0.0, 0.0],
+        diffusion: vec![x(0.05), x(-0.01)],
+        scatter: vec![vec![x(0.009), x(-0.0005)], vec![x(0.00002), x(-0.017)]],
+        adf: vec![vec![x(0.001), x(-0.002)]; 6],
+    }
+}
+
+/// 公称のテーブル: 燃焼度 0、10、20 MWd/kg、ホウ素 1 点、減速材 2 点（公称の 565 K と 0.743 g/cm³、履歴の分岐の条件の 600 K と
+/// 0.661 g/cm³）、燃料 1 点。公称の状態はすべての燃焼度で、減速材の公称でない状態は 0 と 20 で解き、追う核種 1 つと、制御棒のない
+/// 減速材の密度の履歴の補正（0 と 20 の点）を持つ
+fn history_sample() -> Table {
+    let axes = vec![
+        Axis::Burnup {
+            points: vec![0.0, 10.0, 20.0],
+        },
+        Axis::boron(vec![1300.0], 0.199).with_nominal(1300.0),
+        Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.661]).with_nominal(565.0),
+        Axis::fuel(vec![565.0]).with_nominal(565.0),
+    ];
+    let points: Vec<Vec<usize>> = product_points(&axes)
+        .into_iter()
+        .filter(|p| p[0] != 1 || p[2] == 0)
+        .collect();
+    let n = points.len();
+    Table {
+        axes,
+        split: 1,
+        states: (0..n).map(|i| state(3.0 + i as f64)).collect(),
+        heavy_metal: Some(400.0 / 3.0),
+        micro: Some(Micro {
+            nuclides: vec!["U-235".into()],
+            densities: vec![vec![7.0e-4 / 3.0], vec![6.0e-4 / 3.0], vec![5.0e-4 / 3.0]],
+            states: (0..n)
+                .map(|p| vec![micro_nuclide(1.0 + p as f64, true)])
+                .collect(),
+        }),
+        histories: vec![HistoryCorrection {
+            variable: MODERATOR_DENSITY.into(),
+            nominal: 0.743,
+            branch: 0.661,
+            rods: vec![HistoryRod {
+                rod: ROD_OUT.into(),
+                burnup: vec![0.0, 20.0],
+                residuals: vec![residual(1.0), residual(2.0)],
+            }],
+        }],
+        points,
+    }
+}
+
+/// 変えると検査で落ちる（書く前にも確かめる）。エラーの文は `expected` を含む
+fn bad_history(change: &dyn Fn(&mut Table), expected: &str) {
+    let mut table = history_sample();
+    change(&mut table);
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains(expected), "{expected:?} not in {err}");
+    assert!(table.to_msgpack().is_err());
+}
+
+#[test]
+fn history_corrections_round_trip_bit_exactly_and_are_written_only_when_held() {
+    let table = history_sample();
+    table.validate().unwrap();
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    // 持たないテーブルはキーを書かない（ADR-0215）
+    let mut none = history_sample();
+    none.histories.clear();
+    let value = msgpack::read_value(&none.to_msgpack().unwrap()).unwrap();
+    let keys: Vec<&str> = value
+        .as_map()
+        .unwrap()
+        .iter()
+        .filter_map(|(k, _)| k.as_str())
+        .collect();
+    assert!(!keys.contains(&"histories"), "{keys:?}");
+}
+
+#[test]
+fn history_corrections_need_micro_data_and_a_known_distinct_variable() {
+    // R はミクロ燃焼の線形の補正を引いた残りなので、補正のデータを持つテーブルだけが持てる
+    bad_history(&|t| t.micro = None, "micro");
+    // 履歴の変数は減速材の密度だけ（制御棒と Pyrex は、それぞれの履歴の分岐を作るときに足す）
+    bad_history(&|t| t.histories[0].variable = "boron".into(), "variable");
+    bad_history(
+        &|t| {
+            let again = t.histories[0].clone();
+            t.histories.push(again);
+        },
+        "twice",
+    );
+}
+
+#[test]
+fn history_values_are_the_moderator_densities_of_the_nominal_and_another_point() {
+    // H⁰ は公称の格子点の密度
+    bad_history(&|t| t.histories[0].nominal = 0.75, "nominal");
+    // Hᵇ は公称でない格子点の密度（その格子点が履歴の分岐の条件）
+    bad_history(&|t| t.histories[0].branch = 0.70, "branch");
+    bad_history(&|t| t.histories[0].branch = 0.743, "branch");
+    // 公称の値のない（直積の）テーブルには、履歴の分岐の条件を決める公称の状態がない
+    bad_history(
+        &|t| {
+            for axis in &mut t.axes {
+                *axis = axis.clone().without_nominal();
+            }
+            t.points = product_points(&t.axes);
+            t.states = (0..t.points.len()).map(|i| state(3.0 + i as f64)).collect();
+            let micro = t.micro.as_mut().unwrap();
+            micro.states = (0..t.points.len())
+                .map(|p| vec![micro_nuclide(1.0 + p as f64, true)])
+                .collect();
+        },
+        "nominal",
+    );
+}
+
+#[test]
+fn history_rods_are_distinct_values_of_the_rod_axis() {
+    bad_history(&|t| t.histories[0].rods.clear(), "rod");
+    bad_history(
+        &|t| {
+            let again = t.histories[0].rods[0].clone();
+            t.histories[0].rods.push(again);
+        },
+        "rod",
+    );
+    // 制御棒の軸のないテーブルの値は out だけ
+    bad_history(&|t| t.histories[0].rods[0].rod = "aic".into(), "rod");
+}
+
+#[test]
+fn history_burnups_are_solved_points_of_the_condition_from_first_to_last() {
+    // 公称でない状態を解いていない燃焼度の点（10 MWd/kg）の定数は内挿で、格子計算の値でない
+    bad_history(
+        &|t| {
+            let rod = &mut t.histories[0].rods[0];
+            rod.burnup = vec![0.0, 10.0, 20.0];
+            rod.residuals.push(residual(3.0));
+        },
+        "solved",
+    );
+    // 燃焼度の軸の点でない
+    bad_history(&|t| t.histories[0].rods[0].burnup[1] = 15.0, "burnup");
+    // core は外挿しないので、最初と最後の点を含む
+    bad_history(
+        &|t| {
+            let rod = &mut t.histories[0].rods[0];
+            rod.burnup.remove(0);
+            rod.residuals.remove(0);
+        },
+        "first and the last",
+    );
+    bad_history(
+        &|t| {
+            let rod = &mut t.histories[0].rods[0];
+            rod.burnup.reverse();
+        },
+        "burnup",
+    );
+    // 点ごとに 1 つの残り
+    bad_history(
+        &|t| {
+            t.histories[0].rods[0].residuals.pop();
+        },
+        "residual",
+    );
+}
+
+#[test]
+fn residuals_have_the_groups_and_sides_of_the_states_and_are_finite() {
+    let cases: Vec<Box<dyn Fn(&mut Residual)>> = vec![
+        Box::new(|r| {
+            r.total.pop();
+        }),
+        Box::new(|r| r.absorption.push(0.0)),
+        Box::new(|r| {
+            r.nu_fission.pop();
+        }),
+        Box::new(|r| {
+            r.fission.pop();
+        }),
+        Box::new(|r| {
+            r.chi.pop();
+        }),
+        Box::new(|r| {
+            r.diffusion.pop();
+        }),
+        Box::new(|r| {
+            r.scatter.pop();
+        }),
+        Box::new(|r| {
+            r.scatter[1].pop();
+        }),
+        Box::new(|r| {
+            r.adf.pop();
+        }),
+        Box::new(|r| {
+            r.adf[2].pop();
+        }),
+        Box::new(|r| r.total[0] = f64::NAN),
+        Box::new(|r| r.scatter[0][1] = f64::INFINITY),
+        Box::new(|r| r.adf[5][1] = f64::NAN),
+    ];
+    for change in &cases {
+        bad_history(
+            &|t| change(&mut t.histories[0].rods[0].residuals[1]),
+            "residual",
+        );
+    }
+    // 残りは負になりうる
+    history_sample().validate().unwrap();
 }
