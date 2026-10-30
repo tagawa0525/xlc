@@ -27,6 +27,13 @@ examples/depletion/micro/make_shifted.py の `--kind` の、ブランチ feat/01
 - `a_shielding_history_must_match_the_branch_history` の燃焼度の点のない場合は、エラーの文が "2" を含むことだけを見る。核種の並びの
   検査は、それだけを外しても輸送する核種の検査で止まるので、単独で確かめていない
 - make_shifted.py の `--kind previous` は追う核種を使わないが、`micro` のある入力を求める
+- examples/verification_tables.py の `micro_linearization_single` は、`--single` なしの要約で TableError でなく KeyError で止まる
+- compare_split.py の `report` は、1 核種の組成の内訳の交差の項（最大 0.84 pcm）を出さない
+- compare_split.py の `NUCLIDE_THRESHOLD_PCM`（5 pcm）に理由を書いていない。Am-243 は最大 5.04 pcm で閾値の近くにあり、再計算で
+  0.05 pcm 変われば表の列が消える
+- compare_split.py は各分の値（行の値と `split` の全体）を同じ式で 2 度書く。1 度求めて両方に渡せば食い違わない
+- test_compare_split.py の `test_the_single_nuclide_error_splits_into_its_term_and_the_rest` は `compare` を 2 度呼び、1 核種の内訳の
+  χ と交差の項を確かめない
 - `shielding-file` の形（ADR-0201 のホウ素の軸の参照の仕組みで燃焼の領域の物質を作り直す）を ADR にしていない。#0191 の検査のための
   入力の項目で、既定の挙動は変えない
 
@@ -40,6 +47,6 @@ examples/depletion/micro/make_shifted.py の `--kind` の、ブランチ feat/01
 
 ## 経緯
 
-- 2026-10-30: ブランチ feat/0191-linearization-error-split の /code-review の 1 周目で挙がった。「自己遮蔽なしで `shielding-file` を
+- 2026-10-30: ブランチ feat/0191-linearization-error-split の /code-review の 1 周目と 3 周目で挙がった。「自己遮蔽なしで `shielding-file` を
   黙って無視する」は、`[history]` が自己遮蔽を求める（crates/lattice/src/input.rs）ので前提が誤り、「compare_split.py がコミット
   されていない」は、レビューの後にコミットした
