@@ -145,9 +145,56 @@ def check_summary(residual_summary, table_md5):
         )
 
 
+def capture(sigma):
+    """群ごとの捕獲の微視的断面積（MT 102 の経路の和）"""
+    groups = len(sigma["fission"])
+    return [
+        sum(ch[g] for m in sigma["reactions"] if m["mt"] == 102 for ch in m["channels"])
+        for g in range(groups)
+    ]
+
+
+def percent(a, b):
+    """群ごとの相対差 a / b − 1 (%)。b が 0 の群は None"""
+    return [(x / y - 1.0) * 100.0 if y != 0.0 else None for x, y in zip(a, b)]
+
+
 def composition(t, node, first_densities, first_states):
-    """条件 j の燃焼の R の点で、core の数密度と第 1 項のテーブルの数密度 N̄ᵢ^j の違いの効き"""
-    raise NotImplementedError
+    """条件 j の燃焼の R の点で、core の数密度と第 1 項のテーブルの数密度 N̄ᵢ^j の違いの効き: 基準は第 1 項を組み立てた定数
+    （格子点の定数 + Σᵢ cᵢ (N̄ᵢ^j − N̄ᵢ⁰) + R）で、ρ(基準 + Σᵢ cᵢ (Nᵢ − N̄ᵢ^j)) − ρ(基準) と、核種ごと（その核種だけの差）の効き、
+    数密度の相対差と、第 1 項のテーブルの微視的断面積の公称のテーブルの条件 j の値に対する相対差（核分裂と捕獲、群ごと）"""
+    p, b = t.point(node["burnup"], node["moderator"], "branch")
+    micro = t.table["micro"]
+    coeff = coefficients(micro["states"][p])
+    k = t.residual_index(node["burnup"])
+    base = added(
+        corrected(
+            t.table["states"][p],
+            coeff,
+            [x - y for x, y in zip(first_densities, micro["densities"][b])],
+        ),
+        t.rod["residuals"][k],
+    )
+    k_base = k_inf(base)
+    deltas = [x - y for x, y in zip(node["densities"], first_densities)]
+    nuclides = []
+    for i, name in enumerate(micro["nuclides"]):
+        only = [d if j == i else 0.0 for j, d in enumerate(deltas)]
+        own, first = micro["states"][p][i], first_states[i]
+        nuclides.append(
+            {
+                "nuclide": name,
+                "pcm": rho(k_inf(corrected(base, coeff, only))) - rho(k_base),
+                "density_percent": (node["densities"][i] / first_densities[i] - 1.0)
+                * 100.0
+                if first_densities[i] != 0.0
+                else None,
+                "fission_percent": percent(first["fission"], own["fission"]),
+                "capture_percent": percent(capture(first), capture(own)),
+            }
+        )
+    nuclides.sort(key=lambda x: -abs(x["pcm"]))
+    return rho(k_inf(corrected(base, coeff, deltas))) - rho(k_base), nuclides
 
 
 def compare(table, branch_table, nominal, branch, switch, residual_summary, identical):
@@ -196,10 +243,13 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
     branch_rows = []
     for (n, k), (m, _) in zip(branch_points, nominal_points):
         u = t.rod["burnup"][k]
-        first = next(
-            s
-            for v, s in zip(first_burnups, branch_table["states"])
-            if same_burnup(u, v)
+        f = next(i for i, v in enumerate(first_burnups) if same_burnup(u, v))
+        first = branch_table["states"][f]
+        composition_pcm, contributions = composition(
+            t,
+            n,
+            branch_table["micro"]["densities"][f],
+            branch_table["micro"]["states"][f],
         )
         p0, _ = t.point(u, m["moderator"], "nominal")
         _, with_r = t.node_k(n, t.weight(n["history"]), "branch")
@@ -212,6 +262,8 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
                 "nominal_difference_pcm": rho(m["k"])
                 - rho(table["states"][p0]["k_inf"]),
                 "reconstruct_pcm": rho(with_r) - rho(n["k"]),
+                "composition_pcm": composition_pcm,
+                "nuclides": contributions,
             }
         )
     switch_rows = []
@@ -252,16 +304,30 @@ def compare(table, branch_table, nominal, branch, switch, residual_summary, iden
 def report(summary):
     """要約の文章（記録の本文の数値はここからコピーする。ADR-0176）"""
 
-    def span(rows, key):
+    def span(rows, key, form="+.3f"):
         values = [x[key] for x in rows if x[key] is not None]
         if not values:
             return "（点なし）"
-        return f"{min(values):+.3f}〜{max(values):+.3f}"
+        return f"{min(values):{form}}〜{max(values):{form}}"
 
     branch = summary["branch_rows"]
     switch = summary["switch_rows"]
     later = [x for x in branch if x["burnup"] >= 15.0]
     weighted = [x for x in switch if x["weight"] != 0.0]
+    end = branch[-1]
+
+    def groups(values):
+        return "、".join("–" if v is None else f"{v:+.3f}" for v in values)
+
+    composition_text = (
+        f"最後の R の点 {end['burnup']:.4g} MWd/kg で、core と第 1 項のテーブルの数密度の違いの効きは "
+        f"{end['composition_pcm']:+.3f} pcm（core − 第 1 項 {end['difference_pcm']:+.3f} pcm）。効きの大きい核種: "
+        + "；".join(
+            f"{x['nuclide']} {x['pcm']:+.2f} pcm（数密度 {groups([x['density_percent']])}%、第 1 項の σ の公称の条件 j に対する差 "
+            f"核分裂 {groups(x['fission_percent'])}%、捕獲 {groups(x['capture_percent'])}%）"
+            for x in end["nuclides"][:6]
+        )
+    )
     last = switch[-1]
     first_weight = (
         f"{weighted[0]['burnup']:.4g} MWd/kg から 0 でなく"
@@ -275,13 +341,14 @@ def report(summary):
         f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。公称の燃焼の core と公称の"
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
         f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + R の 2 群の k の差は "
-        f"{span(branch, 'reconstruct_pcm')} pcm。"
+        f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"
+        f"\n{composition_text}"
         f"\n途中で条件を変えた燃焼: w は "
         f"{first_weight}、"
         f"最後の点 {last['burnup']:.4g} MWd/kg で "
         f"H = {last['history']:.6f} g/cc、w = {last['weight']:.6f}、誤差の上限 w × {summary['applied_max_pcm']:.2f} = "
         f"{last['bound_pcm']:.2f} pcm。R の点の R の効きは {span(switch, 'residual_pcm')} pcm、点ごとの誤差の上限は "
-        f"{span(switch, 'applied_bound_pcm')} pcm、core の k と組み立てた 2 群の k の差は {span(switch, 'reconstruct_pcm')} pcm"
+        f"{span(switch, 'applied_bound_pcm')} pcm、core の k と組み立てた 2 群の k の差は {span(switch, 'reconstruct_pcm', '+.1e')} pcm"
     )
 
 
