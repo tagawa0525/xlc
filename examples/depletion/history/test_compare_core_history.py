@@ -10,7 +10,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_core_history as c
 import compare_residual as r
-from test_compare_residual import NUCLIDES, axes, few, residual, sigma
+from test_compare_residual import NUCLIDES, axes, few, residual
+from test_compare_residual import sigma as plain_sigma
+
+
+def sigma(s: float, derivative: bool) -> dict:
+    """2 群の微視的断面積に、捕獲（MT 102）の経路 1 つを足したもの"""
+    out = plain_sigma(s, derivative)
+    out["reactions"] = [
+        {"mt": 102, "channels": [[0.3 * (1.0 + s / 5.0), 20.0 * (1.0 + s / 5.0)]]}
+    ]
+    return out
+
 
 STATES = {
     "nominal": {
@@ -77,7 +88,10 @@ def branch_table():
         "micro": {
             "nuclides": NUCLIDES,
             "densities": [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]],
-            "states": [[sigma(9, False), sigma(9, False)]] * 2,
+            "states": [
+                [sigma(9, False), sigma(9, False)],
+                [sigma(10, False), sigma(11, False)],
+            ],
         },
     }
 
@@ -186,6 +200,54 @@ class Compare(unittest.TestCase):
         # core の k は、格子点の定数 + 線形の補正 + R の 2 群の k
         for x in rows:
             self.assertAlmostEqual(x["reconstruct_pcm"], 0.0, places=9)
+
+    def test_the_branch_difference_is_split_by_the_tracked_densities(self):
+        # core の数密度と第 1 項のテーブルの数密度の違いの効き（核種ごと）と、第 1 項のテーブルの微視的断面積の公称のテーブルの
+        # 条件 j の値との相対差
+        t, nominal, branch, switch, _ = self.cores()
+        nj = branch_table()["micro"]["densities"][1]
+        s = c.compare(t, branch_table(), nominal, branch, switch, SUMMARY, True)
+        last = s["branch_rows"][1]
+        p = t["points"].index([2, 0, 1, 0])
+        micro = t["micro"]
+        coeff = r.coefficients(micro["states"][p])
+        base = r.added(
+            r.corrected(
+                t["states"][p],
+                coeff,
+                [a - b for a, b in zip(nj, micro["densities"][2])],
+            ),
+            t["histories"][0]["rods"][0]["residuals"][1],
+        )
+        whole = r.corrected(base, coeff, [a - b for a, b in zip(N20, nj)])
+        self.assertAlmostEqual(
+            last["composition_pcm"],
+            r.rho(r.k_inf(whole)) - r.rho(r.k_inf(base)),
+            places=9,
+        )
+        names = [x["nuclide"] for x in last["nuclides"]]
+        self.assertEqual(sorted(names), sorted(NUCLIDES))
+        u235 = next(x for x in last["nuclides"] if x["nuclide"] == "U-235")
+        self.assertAlmostEqual(u235["density_percent"], (N20[0] / nj[0] - 1.0) * 100.0)
+        only = r.corrected(base, coeff, [N20[0] - nj[0], 0.0])
+        self.assertAlmostEqual(
+            u235["pcm"], r.rho(r.k_inf(only)) - r.rho(r.k_inf(base)), places=9
+        )
+        # 微視的断面積の相対差（第 1 項 / 公称の条件 j − 1、群ごと。捕獲は MT 102 の経路の和）
+        first = branch_table()["micro"]["states"][1][0]
+        own = micro["states"][p][0]
+        self.assertAlmostEqual(
+            u235["fission_percent"][1],
+            (first["fission"][1] / own["fission"][1] - 1.0) * 100.0,
+        )
+        capture = lambda x: sum(
+            ch[0] for m in x["reactions"] if m["mt"] == 102 for ch in m["channels"]
+        )
+        self.assertAlmostEqual(
+            u235["capture_percent"][0], (capture(first) / capture(own) - 1.0) * 100.0
+        )
+        # 燃焼度 0 の数密度は同じ
+        self.assertAlmostEqual(s["branch_rows"][0]["composition_pcm"], 0.0, places=12)
 
     def test_the_switched_core_reports_the_weight_and_the_residual_effect(self):
         t, nominal, branch, switch, w = self.cores()
