@@ -4,12 +4,13 @@ use xlc_format::table::Axis;
 
 use super::*;
 use crate::branches::{BranchShielder, remix_varied};
-use crate::cmfd::CmfdOptions;
-use crate::depletion::tests::{PIN, U235, deplete_with, deplete_with_moc, library};
+use crate::depletion::tests::{
+    PIN, U235, continue_from, deplete_with, deplete_with_moc, library, tight,
+};
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
 use crate::material::Material;
-use crate::moc::{Acceleration, Options, available_order, solve_symmetric};
+use crate::moc::{Options, available_order, solve_symmetric};
 use crate::shielding::shield_fuel_with;
 use crate::symmetry::{Chosen, choose};
 use crate::tracking::Tracking;
@@ -139,20 +140,6 @@ fn history() -> (History, Library) {
     (deplete_with(&borated(PIN), &library), library)
 }
 
-/// MOC の判定を既定（k 1e-7、中性子束 1e-6）より 4 桁細かくした条件。CMFD は既定と同じ比で MOC より細かく解く（ADR-0110）
-fn tight() -> Options {
-    Options {
-        k_tolerance: 1e-11,
-        flux_tolerance: 1e-10,
-        acceleration: Acceleration::Cmfd(CmfdOptions {
-            k_tolerance: 1e-14,
-            flux_tolerance: 1e-12,
-            ..CmfdOptions::default()
-        }),
-        ..Options::default()
-    }
-}
-
 #[test]
 fn nominal_branches_reproduce_the_history_points() {
     // 履歴の燃焼度 0 より後の輸送は前の輸送の解から、分岐は平らな初期値から反復を始める（ADR-0195）ので、k は収束の誤差の
@@ -196,6 +183,41 @@ fn nominal_branches_reproduce_the_history_points() {
             &tight(),
         );
         assert!(diluted > nominal, "{diluted} vs {nominal}");
+    }
+}
+
+#[test]
+fn branches_at_the_continued_conditions_reproduce_the_points_of_a_continued_history() {
+    // 燃焼度 0.5 から減速材のホウ素を 500 ppm にして続けた履歴（燃焼度 0、0.05 は 1000 ppm の元の履歴の点）。分岐の 500 ppm の状態は
+    // 続けた点を、1000 ppm の状態は元の点を再現する。続ける点の輸送も分岐も平らな初期値から反復を始め、2.0 の点は前の輸送の解から
+    // 始めるので、`nominal_branches_reproduce_the_history_points` と同じく判定を 1e-11 にして相対 1e-8 で比べる
+    let library = library_with_boron();
+    let nominal = deplete_with_moc(&borated(PIN), &library, &tight());
+    let text = borated(PIN).replace("boron = 1000", "boron = 500").replace(
+        "burnup = [0.05, 0.5, 2.0]",
+        "burnup = [2.0]\ncontinue = { file = \"nominal.msgpack\", burnup = 0.5 }",
+    );
+    let history = continue_from(&text, &library, &tight(), &nominal, None, &mut |_, _, _| {
+        Ok(())
+    })
+    .unwrap();
+    let text = branch_input("[0, 0.05, 0.5, 2.0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    // 状態は燃焼度ごとに 500 ppm、1000 ppm の順
+    for (point, state) in [(0, 1), (1, 3), (2, 4), (3, 6)] {
+        let k = k_of(
+            &text,
+            &library,
+            &branches.state(state),
+            &branches.region_materials,
+            &tight(),
+        );
+        let want = history.points[point].k;
+        assert!(
+            (k - want).abs() <= 1e-8 * want,
+            "burnup {}: {k} vs {want}",
+            history.points[point].burnup
+        );
     }
 }
 

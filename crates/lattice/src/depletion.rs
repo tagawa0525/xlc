@@ -13,6 +13,10 @@
 //! 等しくなるよう規格化する。2 次元の格子なので、体積と質量は高さ 1 cm あたり。
 //!
 //! 燃焼の履歴は、燃焼点ごとに、その点の組成で解いた輸送の k∞、ピン出力（`pin-powers` と同じ定義。ADR-0181）、少数群定数を持つ。
+//!
+//! `[depletion]` の `continue` があれば、既存の燃焼の履歴の燃焼点の組成と時間から、この入力の条件で燃焼を続ける（途中で条件を
+//! 変えた燃焼。ADR-0215 の確認）。続ける点より前の点は履歴のまま引き継ぎ、続ける点はこの入力の条件で解き直す。チェックポイントの
+//! 再開（ADR-0196）と同じく、履歴の点の後に次の点の組成から CE/CM を進める。
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -57,6 +61,18 @@ pub struct DepletionInput {
     pub few_group: Option<DepletionFewGroup>,
     /// 自己遮蔽を解く輸送（ADR-0197）
     pub shielding: ShieldingFrequency,
+    /// 燃焼を続ける履歴の燃焼点。`None` なら燃焼度 0 の入力の組成から
+    pub continue_from: Option<ContinueFrom>,
+}
+
+/// 燃焼を続ける燃焼の履歴の燃焼点
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContinueFrom {
+    /// 燃焼の履歴のファイル（入力のファイルのあるディレクトリから）
+    pub file: PathBuf,
+    /// 続ける点の燃焼度 (MWd/kg)。履歴の燃焼度のどれかと等しい
+    pub burnup: f64,
 }
 
 /// 燃焼の自己遮蔽を解く輸送（ADR-0197）
@@ -683,6 +699,8 @@ pub struct History {
     pub solves: usize,
     /// 自己遮蔽を解いた回数（ADR-0197）
     pub shieldings: usize,
+    /// 燃焼を続けた履歴の燃焼点。その燃焼度から後の点は、この履歴の燃焼で解いた。続けない燃焼は `None`
+    pub continued: Option<ContinueFrom>,
 }
 
 const FORMAT: &str = "xlc-depletion-history";
@@ -697,6 +715,9 @@ struct HistoryFile<'a> {
     seconds: SecondsFile,
     solves: usize,
     shieldings: usize,
+    /// 続けない燃焼の履歴はキーを書かない
+    #[serde(skip_serializing_if = "Option::is_none")]
+    continued: Option<&'a ContinueFrom>,
 }
 
 /// 時間の内訳 (s)
@@ -732,6 +753,9 @@ struct HistoryFileIn {
     seconds: SecondsFileIn,
     solves: usize,
     shieldings: usize,
+    /// キーが無ければ続けない燃焼の履歴
+    #[serde(default)]
+    continued: Option<ContinueFrom>,
 }
 
 #[derive(Deserialize)]
@@ -843,11 +867,12 @@ impl History {
             },
             solves: file.solves,
             shieldings: file.shieldings,
+            continued: file.continued,
         })
     }
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
     /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
-    /// matrix, cram}（時間の内訳 (s)）, solves, shieldings}`
+    /// matrix, cram}（時間の内訳 (s)）, solves, shieldings, continued: {file, burnup}（続けた燃焼だけ）}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
             .points
@@ -886,6 +911,7 @@ impl History {
             },
             solves: self.solves,
             shieldings: self.shieldings,
+            continued: self.continued.as_ref(),
         })?)
     }
 }
@@ -1033,8 +1059,9 @@ pub(crate) fn remix_depleted(
 }
 
 /// 格子を `[depletion]` の条件で燃焼させる（ADR-0173）。`region_materials` は入力の領域ごとの物質の名前、`chosen` はその
-/// 名前で選んだ対称操作。反応ごとの断面積は `reactions` から引く。`resumed` があれば、その点に続けて次の点の組成から進め、
-/// ステップを解き終えるたびに、それまでの履歴と次の点の組成で `saved` を呼ぶ（ADR-0196）
+/// 名前で選んだ対称操作。反応ごとの断面積は `reactions` から引く。`from` は `continue` が指す燃焼の履歴（`continue` があるときだけ
+/// 与える）。`resumed` があれば、その点に続けて次の点の組成から進め、ステップを解き終えるたびに、それまでの履歴と次の点の組成で
+/// `saved` を呼ぶ（ADR-0196）
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     input: &LatticeInput,
@@ -1045,6 +1072,7 @@ pub fn run(
     region_materials: &[String],
     chosen: &Chosen,
     reactions: &dyn ReactionSource,
+    from: Option<&History>,
     resumed: Option<Partial>,
     saved: &mut SavePoints<'_>,
 ) -> anyhow::Result<History> {
@@ -1058,9 +1086,91 @@ pub fn run(
         chosen,
         reactions,
         &Options::default(),
+        from,
         resumed,
         saved,
     )
+}
+
+/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域、チェーンの核種、輸送する
+/// 核種、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
+/// 少数群定数の有無と群境界が、この燃焼と同じこと。`from` は続けた履歴でないこと
+fn continued_start(
+    from: &History,
+    at: &ContinueFrom,
+    regions: &[DepletionRegion],
+    nuclides: &[String],
+    transportable: &[String],
+    initial: &[Vec<f64>],
+    few_group: Option<&DepletionFewGroup>,
+) -> anyhow::Result<(Vec<HistoryPoint>, Beginning)> {
+    let file = at.file.display();
+    // 履歴は続けた燃焼点を 1 つだけ持つので、続けた履歴から続けると、前の条件の切り替えが出力から消える
+    if let Some(earlier) = &from.continued {
+        bail!(
+            "the history {file} continues {} from burnup {} MWd/kg; continue from a history that does not continue another",
+            earlier.file.display(),
+            earlier.burnup
+        );
+    }
+    if from.regions != regions {
+        bail!(
+            "the depletion regions of the lattice differ from those of the history {file}; give the lattice of the history"
+        );
+    }
+    if from.nuclides != nuclides {
+        bail!(
+            "the chain nuclides differ from the nuclides of the history {file}; give the chain of the history"
+        );
+    }
+    if from.transportable != transportable {
+        bail!(
+            "the library transports {} chain nuclides at the depletion temperature, the history {file} transported {}; \
+             give the library and the fuel temperature of the history",
+            transportable.len(),
+            from.transportable.len()
+        );
+    }
+    let first = from
+        .points
+        .first()
+        .filter(|p| p.burnup == 0.0)
+        .ok_or_else(|| anyhow!("the history {file} does not start at burnup 0"))?;
+    if first.densities != initial {
+        bail!(
+            "the composition of the depleted materials differs from the initial densities of the history {file}; \
+             give the depleted materials of the history"
+        );
+    }
+    let Some(c) = from.points.iter().position(|p| p.burnup == at.burnup) else {
+        bail!(
+            "burnup {} MWd/kg is not a point of the history {file} (points {:?})",
+            at.burnup,
+            from.points.iter().map(|p| p.burnup).collect::<Vec<_>>()
+        );
+    };
+    // 1 本の履歴の点が同じ少数群定数を持つように
+    let wanted = few_group.map(|f| (f.bounds.as_slice(), f.pins));
+    if let Some(p) = from.points[..=c].iter().find(|p| {
+        p.few_group
+            .as_ref()
+            .map(|f| (f.bounds.as_slice(), f.pins.is_some()))
+            != wanted
+    }) {
+        bail!(
+            "the point at {} MWd/kg of the history {file} has other few-group constants than the `few-group` of \
+             [depletion] (bounds and pins)",
+            p.burnup
+        );
+    }
+    let point = &from.points[c];
+    Ok((
+        from.points[..c].to_vec(),
+        Beginning {
+            densities: point.densities.clone(),
+            time: point.time,
+        },
+    ))
 }
 
 /// `run` と同じく燃焼させ、MOC を `moc` の打ち切り条件と加速で解く（散乱の次数は `run` と同じく入力か物質から）
@@ -1075,6 +1185,7 @@ pub(crate) fn run_with_moc(
     chosen: &Chosen,
     reactions: &dyn ReactionSource,
     moc: &Options,
+    from: Option<&History>,
     resumed: Option<Partial>,
     saved: &mut SavePoints<'_>,
 ) -> anyhow::Result<History> {
@@ -1153,7 +1264,8 @@ pub(crate) fn run_with_moc(
                     .all(|&t| has_data_at(library, &n.name, t))
         })
         .collect();
-    // 初めの重金属の質量 (g、高さ 1 cm あたり)
+    // 初めの重金属の質量 (g、高さ 1 cm あたり)。燃焼を続けるなら、続ける履歴の燃焼度 0 の数密度が `initial` と同じことを
+    // 確かめる（`continued_start`）ので、履歴の燃焼の質量と同じ
     let mass = heavy_metal_mass(&regions, &initial, |i| {
         let nuclide = &chain.nuclides[i];
         if nuclide.z < HEAVY_METAL_Z {
@@ -1433,10 +1545,6 @@ pub(crate) fn run_with_moc(
             },
         })
     };
-    let steps = step_times(depletion.power, &depletion.burnup);
-    let burnups: Vec<f64> = std::iter::once(0.0)
-        .chain(depletion.burnup.iter().copied())
-        .collect();
     let nuclides: Vec<String> = chain.nuclides.iter().map(|n| n.name.clone()).collect();
     let transportable: Vec<String> = chain
         .nuclides
@@ -1445,12 +1553,46 @@ pub(crate) fn run_with_moc(
         .filter(|(_, t)| **t)
         .map(|(n, _)| n.name.clone())
         .collect();
+    // 燃焼を続けるなら、続ける点より前の履歴の点と、続ける点の組成と時間。履歴の点は続ける点より前の点、続いて続ける点と
+    // 入力の燃焼度の点で、ステップは続ける点から（それより前のステップの長さは使わない）
+    let started = match (&depletion.continue_from, from) {
+        (None, None) => None,
+        (Some(at), Some(from)) => Some(continued_start(
+            from,
+            at,
+            &regions,
+            &nuclides,
+            &transportable,
+            &initial,
+            depletion.few_group.as_ref(),
+        )?),
+        (Some(at), None) => bail!(
+            "the depletion continues from the history {} that was not read",
+            at.file.display()
+        ),
+        (None, Some(_)) => {
+            bail!("a history to continue was given to a depletion without `continue`")
+        }
+    };
+    let burnups: Vec<f64> = match (&started, &depletion.continue_from) {
+        (Some((points, _)), Some(at)) => points
+            .iter()
+            .map(|p| p.burnup)
+            .chain(std::iter::once(at.burnup))
+            .chain(depletion.burnup.iter().copied())
+            .collect(),
+        _ => std::iter::once(0.0)
+            .chain(depletion.burnup.iter().copied())
+            .collect(),
+    };
+    let steps = step_times(depletion.power, &burnups[1..]);
     let (mut history, beginning) = match resumed {
         Some((history, next)) => {
             // 指紋が同じなら同じになる。違えば壊れたチェックポイントなので、輸送の前に止める
             if history.nuclides != nuclides
                 || history.regions != regions
                 || history.transportable != transportable
+                || history.continued != depletion.continue_from
                 || next.len() != regions.len()
                 || next.iter().any(|n| n.len() != nuclides.len())
             {
@@ -1489,23 +1631,26 @@ pub(crate) fn run_with_moc(
             )
         }
         None => {
-            let history = History {
-                nuclides,
-                regions: regions.clone(),
-                transportable,
-                points: Vec::new(),
-                transport: TransportTimes::default(),
-                depletion: DepletionTimes::default(),
-                solves: 0,
-                shieldings: 0,
-            };
-            (
-                history,
+            let (points, beginning) = started.unwrap_or((
+                Vec::new(),
                 Beginning {
                     densities: initial,
                     time: 0.0,
                 },
-            )
+            ));
+            // 時間の内訳と輸送の回数は、続けた燃焼でもこの燃焼の分
+            let history = History {
+                nuclides,
+                regions: regions.clone(),
+                transportable,
+                points,
+                transport: TransportTimes::default(),
+                depletion: DepletionTimes::default(),
+                solves: 0,
+                shieldings: 0,
+                continued: depletion.continue_from.clone(),
+            };
+            (history, beginning)
         }
     };
     // 前の実行の時間と回数に、この実行の分を足す
