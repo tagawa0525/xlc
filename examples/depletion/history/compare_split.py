@@ -212,7 +212,8 @@ def switch_rows(nominal, switch, one, summary):
                 f"{key}_pcm": own,
                 f"scaled_{key}_pcm": effect(state, scaled(o[key], weight)),
                 f"one_{key}_pcm": whole,
-                f"{key}_weight": ratio(own, whole),
+                # w = 0 の点（続ける点）は成分も w の分も 0 で、比は丸めの値
+                f"{key}_weight": None if weight == 0.0 else ratio(own, whole),
                 f"{key}_gap_pcm": rho(k_inf(moved)) - rho(k_inf(reference)),
             }
         row |= {
