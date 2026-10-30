@@ -371,9 +371,14 @@ pub fn advance(
         .collect()
 }
 
-/// 履歴の変数の値 `h`（燃焼度 `start` での値）を、燃焼度 `end` まで、ステップの値 `x` で進める（ADR-0215 の燃焼度で重みを付けた平均）:
-/// H(end) = (H(start) start + x (end − start)) / end。燃焼度 0 から進めると `x`（燃焼度 0 の値は瞬時の値）、燃焼度が進まなければ `h`
-pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64]) -> Vec<f64> {
+/// 履歴の変数の値 `h`（燃焼度 `start` での値）を、燃焼度 `end` まで、ステップの値 `x` と重み `weight`（ω）で進める（ADR-0215 の
+/// 検討した案の PARCS の形）: H(end) = (H(start) start + ω x (end − start)) / (start + ω (end − start))。ω = 1 が ADR-0215 の燃焼度で
+/// 重みを付けた平均。燃焼度 0 から進めると `x`（燃焼度 0 の値は瞬時の値）、燃焼度が進まなければ `h`
+pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64], weight: f64) -> Vec<f64> {
+    let step = end - start;
+    // 分母を start + ω ΔB でなく end + (ω − 1) ΔB と書く: ω = 1 で (ω − 1) ΔB が厳密に 0 になり、分母が end、分子が ΔB のまま
+    // で、燃焼度で重みを付けた平均の形とビットで同じ（start + ΔB は end と丸めが違いうる）
+    let fraction = (weight * step) / (end + (weight - 1.0) * step);
     h.iter()
         .zip(x)
         .map(|(&h, &x)| {
@@ -382,20 +387,22 @@ pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64]) -> Vec<f64> {
             } else if start == 0.0 {
                 x
             } else {
-                // H + (x − H) ΔB / B と書く（(H B₀ + x ΔB) / B と同じ値）。x が H と同じなら、H のまま（ビットで同じ。公称の履歴の w が厳密に 0）
-                h + (x - h) * ((end - start) / end)
+                // H + (x − H) ω ΔB / (B₀ + ω ΔB) と書く（(H B₀ + ω x ΔB) / (B₀ + ω ΔB) と同じ値）。x が H と同じなら、H のまま
+                // （ビットで同じ。公称の履歴の w が厳密に 0）
+                h + (x - h) * fraction
             }
         })
         .collect()
 }
 
-/// 位置ごとの履歴の変数の値 `h`（燃焼度 `start`）を、燃焼度 `end` まで、位置ごとのステップの値 `x` で進める（`advance_history`。値を
-/// 持たない位置は `None` のまま）。値を持つ位置や変数の数が `x` と違えばエラー（履歴を黙って落とさない）
+/// 位置ごとの履歴の変数の値 `h`（燃焼度 `start`）を、燃焼度 `end` まで、位置ごとのステップの値 `x` と重み `weight` で進める
+/// （`advance_history`。値を持たない位置は `None` のまま）。値を持つ位置や変数の数が `x` と違えばエラー（履歴を黙って落とさない）
 fn advance_histories(
     h: &[Option<Vec<f64>>],
     start: &[f64],
     end: &[f64],
     x: &[Option<Vec<f64>>],
+    weight: f64,
 ) -> Result<Densities, CaseError> {
     if h.len() != x.len() || h.len() != start.len() || h.len() != end.len() {
         return Err(CaseError::Depletion(format!(
@@ -410,7 +417,9 @@ fn advance_histories(
         .zip(x)
         .enumerate()
         .map(|(site, ((h, (&s, &e)), x))| match (h, x) {
-            (Some(h), Some(x)) if h.len() == x.len() => Ok(Some(advance_history(h, s, e, x))),
+            (Some(h), Some(x)) if h.len() == x.len() => {
+                Ok(Some(advance_history(h, s, e, x, weight)))
+            }
             (None, None) => Ok(None),
             _ => Err(CaseError::Depletion(format!(
                 "site {site}: the node history variables {h:?} do not match the step values {x:?}"
@@ -1092,7 +1101,18 @@ pub fn deplete(
                 let step_values = node_values(step.state).map_err(|e| locate(e, &at_step))?;
                 let step_histories = |end: &[f64]| -> Result<Option<Densities>, CaseError> {
                     match (histories.as_deref(), step_values.as_deref()) {
-                        (Some(h), Some(x)) => advance_histories(h, &start, end, x).map(Some),
+                        (Some(h), Some(x)) => {
+                            let weight = depletion
+                                .micro
+                                .as_ref()
+                                .map(|m| m.history_weight)
+                                .ok_or_else(|| {
+                                    CaseError::Depletion(
+                                        "the node history variables need micro depletion".into(),
+                                    )
+                                })?;
+                            advance_histories(h, &start, end, x, weight).map(Some)
+                        }
                         (None, None) => Ok(None),
                         _ => Err(CaseError::Depletion(
                             "the node history variables and the step values must be given together"

@@ -1376,6 +1376,208 @@ class DrawHistorySwitch(unittest.TestCase):
         self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawHistoryWeight(unittest.TestCase):
+    @staticmethod
+    def summary():
+        def omega(value, scale):
+            return {
+                "omega": value,
+                "rows": [
+                    {
+                        "burnup": 20.0,
+                        "weight": 0.0,
+                        "difference_pcm": -1.0156,
+                        "estimate_pcm": None,
+                    },
+                    {
+                        "burnup": 60.0,
+                        "weight": 0.7,
+                        "difference_pcm": 12.3456 * scale,
+                        "estimate_pcm": 10.04 * scale,
+                    },
+                ],
+            }
+
+        return {
+            "format": "xlc-compare-history-weight",
+            "continued_burnup": 20.0,
+            "omega_one": [
+                {"burnup": 20.0, "weight": 0.0, "difference_pcm": -1.0156},
+                {"burnup": 60.0, "weight": 2.0 / 3.0, "difference_pcm": 52.2483},
+            ],
+            "omegas": [
+                omega(1.25, 1.0),
+                omega(1.5, -1.0),
+                omega(2.0, -2.0),
+                omega(2.5, -3.0),
+            ],
+            "residual": {
+                "rows": [
+                    {
+                        "burnup": 0.0,
+                        "half_pcm": 0.0,
+                        "one_half_pcm": 0.0,
+                        "difference_pcm": 0.0,
+                        "one_pcm": 0.0,
+                        "half_condition_pcm": 0.0,
+                        "one_condition_pcm": 0.0,
+                        "temperature_path_pcm": 0.0,
+                        "temperature_path_rebuilt": 0.0,
+                        "sigma_ratios": {"U-235 fission": [None, None]},
+                    },
+                    {
+                        "burnup": 60.0,
+                        "half_pcm": -201.234,
+                        "one_half_pcm": -190.111,
+                        "difference_pcm": -11.123,
+                        "one_pcm": -380.0,
+                        "half_condition_pcm": -199.0,
+                        "one_condition_pcm": -381.0,
+                        "temperature_path_pcm": -386.509,
+                        "temperature_path_rebuilt": 1e-17,
+                        "sigma_ratios": {"U-235 fission": [0.51234, 0.49876]},
+                    },
+                ]
+            },
+            "quadratic": [
+                {
+                    "burnup": 60.0,
+                    "weight": 2.0 / 3.0,
+                    "needed_weight": 0.80654,
+                    "difference_pcm": 52.2483,
+                    "ratio": 0.52926,
+                    "change_pcm": -10.0567,
+                    "estimate_pcm": 42.1916,
+                }
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def header(self, table):
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_omega_rows_set_the_measured_differences_beside_the_estimates(self):
+        table = vt.history_weight_omega([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "ω = 1: w",
+                "ω = 1: core − 参照 (pcm)",
+                "ω = 1.25: 実測 (pcm)",
+                "ω = 1.25: 見込み (pcm)",
+                "ω = 1.5: 実測 (pcm)",
+                "ω = 1.5: 見込み (pcm)",
+                "ω = 2: 実測 (pcm)",
+                "ω = 2: 見込み (pcm)",
+                "ω = 2.5: 実測 (pcm)",
+                "ω = 2.5: 見込み (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "20",
+                    "0.0000",
+                    "−1.016",
+                    "−1.016",
+                    "–",
+                    "−1.016",
+                    "–",
+                    "−1.016",
+                    "–",
+                    "−1.016",
+                    "–",
+                ],
+                [
+                    "60",
+                    "0.6667",
+                    "+52.248",
+                    "+12.346",
+                    "+10.0",
+                    "−12.346",
+                    "−10.0",
+                    "−24.691",
+                    "−20.1",
+                    "−37.037",
+                    "−30.1",
+                ],
+            ],
+        )
+
+    def test_residual_rows_set_r_half_beside_half_of_r_one(self):
+        table = vt.history_weight_residual([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w = 0.5 の定数: R(0.5) の効き (pcm)",
+                "w = 0.5 の定数: R(1)/2 の効き (pcm)",
+                "差 (pcm)",
+                "w = 1 の定数: R(1) の効き (pcm)",
+                "条件での R(0.5) (pcm)",
+                "条件での R(1) (pcm)",
+                "600 K の経路の条件 j での R(1) (pcm)",
+                "Δσ(0.5)/Δσ(1): U-235 fission",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            [
+                "60",
+                "−201.23",
+                "−190.11",
+                "−11.12",
+                "−380.00",
+                "−199.00",
+                "−381.00",
+                "−386.51",
+                "0.512/0.499",
+            ],
+        )
+        self.assertEqual(self.rows(table)[0][-1], "–/–")
+
+    def test_plan_rows_set_the_quadratic_beside_the_measured_difference(self):
+        table = vt.history_weight_plans([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w (ω = 1)",
+                "参照に合う w",
+                "core − 参照 (pcm)",
+                "効きの比 r",
+                "案 A の差の変化 (pcm)",
+                "案 A の後の差 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [["60", "0.6667", "0.8065", "+52.248", "0.5293", "−10.06", "+42.19"]],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (
+            vt.history_weight_omega,
+            vt.history_weight_residual,
+            vt.history_weight_plans,
+        ):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-history-switch"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in (
+            "depletion-history-weight-omega",
+            "depletion-history-weight-residual",
+            "depletion-history-weight-plans",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/history/weight.json"])
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod
     def summary() -> dict:

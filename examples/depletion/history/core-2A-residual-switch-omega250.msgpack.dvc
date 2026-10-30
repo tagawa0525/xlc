@@ -1,0 +1,5 @@
+outs:
+- md5: a2954c2e7c84e5b475b13b8b09eaf50e
+  size: 22902
+  hash: md5
+  path: core-2A-residual-switch-omega250.msgpack

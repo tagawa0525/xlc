@@ -1,0 +1,5 @@
+outs:
+- md5: 9659e54703033ecb506b03ba4de4fb5b
+  size: 181860
+  hash: md5
+  path: table-weight-nominal-0702.msgpack
