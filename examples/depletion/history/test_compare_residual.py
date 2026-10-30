@@ -155,9 +155,9 @@ class Compare(unittest.TestCase):
                 r["residual_pcm"] - r["reverse_residual_pcm"],
                 places=9,
             )
-        # 第 1 項の分岐は履歴の k∞ を再現する（20 で 1/k に 2e-6 の差 = −0.2 pcm）
+        # 第 1 項の分岐は履歴の k∞ を再現する（20 で履歴の 1/k が 2e-6 大きい = 分岐が +0.2 pcm）
         self.assertAlmostEqual(s["rows"][0]["first_term_pcm"], 0.0, places=9)
-        self.assertAlmostEqual(s["rows"][1]["first_term_pcm"], -0.2, places=6)
+        self.assertAlmostEqual(s["rows"][1]["first_term_pcm"], 0.2, places=6)
 
     def test_the_reverse_residual_uses_the_nominal_state_and_the_same_formula(self):
         nominal, branch, reverse, history = self.tables()
