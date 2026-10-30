@@ -44,9 +44,9 @@ symlink がないと、DVC は worktree の中に別のキャッシュを黙っ�
 
 ## 生成物を戻す
 
-git で追跡しない出力（`bin/` の実行ファイル、`examples/vera/vera.msgpack`、各例の出力、参照解のピン出力）は worktree に無い。
-キャッシュ（main と共有。reflink）から `dvc.lock` の hash に合わせて戻し、DVC の出力でない
-`examples/vera/p2/openmc-2K.msgpack`（ADR-0121）は main からコピーする。約 10 秒で、使用量は十数 MB:
+git で追跡しない出力（`bin/` の実行ファイル、`examples/vera/vera.msgpack`、各例の出力、記録が引く生成物と参照解のピン出力）は
+worktree に無い。キャッシュ（main と共有。reflink）から `dvc.lock` と `.dvc` ファイル（記録が引く生成物。ADR-0222）の hash に
+合わせて戻す。約 10 秒で、使用量は十数 MB:
 
 ```sh
 scripts/worktree-restore-outputs.sh
