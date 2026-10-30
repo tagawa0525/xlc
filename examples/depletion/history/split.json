@@ -10,7 +10,7 @@
    "untracked_condition_pcm": 0.0,
    "linearization_condition_pcm": 2.454566492815502e-05,
    "residual_condition_pcm": 2.454566492815502e-05,
-   "split_check": 0.0
+   "histories_check": 0.0
   },
   {
    "burnup": 0.1,
@@ -20,7 +20,7 @@
    "untracked_condition_pcm": -0.02411961381767469,
    "linearization_condition_pcm": -3.0538403964710596,
    "residual_condition_pcm": -3.0779600102887343,
-   "split_check": 0.0
+   "histories_check": 2.220446049250313e-16
   },
   {
    "burnup": 0.5,
@@ -30,7 +30,7 @@
    "untracked_condition_pcm": -0.0914949037196493,
    "linearization_condition_pcm": -5.553210682241115,
    "residual_condition_pcm": -5.644705585960764,
-   "split_check": 0.0
+   "histories_check": 2.220446049250313e-16
   },
   {
    "burnup": 1.0,
@@ -40,7 +40,7 @@
    "untracked_condition_pcm": -0.18546928640716942,
    "linearization_condition_pcm": -8.63135224942198,
    "residual_condition_pcm": -8.816821535829149,
-   "split_check": 0.0
+   "histories_check": 4.440892098500626e-16
   },
   {
    "burnup": 2.0,
@@ -50,7 +50,7 @@
    "untracked_condition_pcm": -0.4376136191203841,
    "linearization_condition_pcm": -14.177098739221037,
    "residual_condition_pcm": -14.614712358341421,
-   "split_check": 0.0
+   "histories_check": 2.220446049250313e-16
   },
   {
    "burnup": 4.0,
@@ -60,7 +60,7 @@
    "untracked_condition_pcm": -1.1226408034181077,
    "linearization_condition_pcm": -24.38035768698137,
    "residual_condition_pcm": -25.502998490399477,
-   "split_check": 0.0
+   "histories_check": 2.220446049250313e-16
   },
   {
    "burnup": 6.0,
@@ -70,7 +70,7 @@
    "untracked_condition_pcm": -1.9268277627652424,
    "linearization_condition_pcm": -34.19954551791125,
    "residual_condition_pcm": -36.12637328067649,
-   "split_check": 0.0
+   "histories_check": 4.440892098500626e-16
   },
   {
    "burnup": 8.0,
@@ -80,7 +80,7 @@
    "untracked_condition_pcm": -2.8097342765095163,
    "linearization_condition_pcm": -43.83763015666227,
    "residual_condition_pcm": -46.64736443317179,
-   "split_check": 0.0
+   "histories_check": 4.440892098500626e-16
   },
   {
    "burnup": 10.0,
@@ -90,7 +90,7 @@
    "untracked_condition_pcm": -3.7117512490240188,
    "linearization_condition_pcm": -53.32459162792384,
    "residual_condition_pcm": -57.036342876947856,
-   "split_check": 0.0
+   "histories_check": 3.3306690738754696e-16
   },
   {
    "burnup": 14.0,
@@ -100,7 +100,7 @@
    "untracked_condition_pcm": -5.597475287888301,
    "linearization_condition_pcm": -71.93241284905162,
    "residual_condition_pcm": -77.52988813693992,
-   "split_check": 0.0
+   "histories_check": 4.440892098500626e-16
   },
   {
    "burnup": 20.0,
@@ -110,7 +110,7 @@
    "untracked_condition_pcm": -9.27738101437194,
    "linearization_condition_pcm": -99.06906994676683,
    "residual_condition_pcm": -108.34645096113877,
-   "split_check": 0.0
+   "histories_check": 8.881784197001252e-16
   },
   {
    "burnup": 26.0,
@@ -120,7 +120,7 @@
    "untracked_condition_pcm": -15.929519954283023,
    "linearization_condition_pcm": -124.78782874716399,
    "residual_condition_pcm": -140.717348701447,
-   "split_check": 0.0
+   "histories_check": 6.661338147750939e-16
   },
   {
    "burnup": 32.0,
@@ -130,7 +130,7 @@
    "untracked_condition_pcm": -27.815418815003795,
    "linearization_condition_pcm": -147.849295999069,
    "residual_condition_pcm": -175.6647148140728,
-   "split_check": 0.0
+   "histories_check": 1.1102230246251565e-16
   },
   {
    "burnup": 40.0,
@@ -140,7 +140,7 @@
    "untracked_condition_pcm": -54.85494771089179,
    "linearization_condition_pcm": -173.21680710367036,
    "residual_condition_pcm": -228.07175481456215,
-   "split_check": 0.0
+   "histories_check": 6.661338147750939e-16
   },
   {
    "burnup": 48.0,
@@ -150,7 +150,7 @@
    "untracked_condition_pcm": -95.1770335103829,
    "linearization_condition_pcm": -193.6641496851371,
    "residual_condition_pcm": -288.84118319552,
-   "split_check": 0.0
+   "histories_check": 2.220446049250313e-16
   },
   {
    "burnup": 56.0,
@@ -160,7 +160,7 @@
    "untracked_condition_pcm": -145.2675509548535,
    "linearization_condition_pcm": -208.769448087387,
    "residual_condition_pcm": -354.0369990422405,
-   "split_check": 0.0
+   "histories_check": 2.220446049250313e-16
   },
   {
    "burnup": 60.0,
@@ -170,7 +170,7 @@
    "untracked_condition_pcm": -171.81668312100373,
    "linearization_condition_pcm": -214.6925863968827,
    "residual_condition_pcm": -386.5092695178864,
-   "split_check": 0.0
+   "histories_check": 4.440892098500626e-16
   }
  ],
  "switch": [
@@ -573,7 +573,7 @@
   }
  ],
  "inputs": {
-  "table-residual-nominal.msgpack": "7b5fa50b0bc5963e1f7515d643c9ba3b",
+  "table-residual-nominal-histories.msgpack": "222fabb0b26b97e21a82846a312b0740",
   "table-residual-density-branch.msgpack": "a8f3528768808a2b4fac83037070ef43",
   "table-hybrid-residual-density-branch.msgpack": "b95aa56bbbb777bedc86647dbca644b7",
   "table-switch-density-branch.msgpack": "3f74b1d4d7ec49111fddce387b98420d",

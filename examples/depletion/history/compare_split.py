@@ -17,7 +17,7 @@
 
 効きは次の 2 つ（ρ = 1 − 1/k の差の pcm。k は少数群定数の 2 群の無限媒質の k。compare_residual.py の `k_inf`）:
 
-- 公称の状態の定数での効き: 公称のテーブル（`table-residual-nominal.msgpack`）の公称の状態（565 K、0.743 g/cc）に、その履歴の数密度の
+- 公称の状態の定数での効き: 公称のテーブル（R を書き足した `table-residual-nominal-histories.msgpack`）の公称の状態（565 K、0.743 g/cc）に、その履歴の数密度の
   線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ を足した定数に、成分を足した効き（compare_weight.py の比べ方。同じ定数に足すので、成分どうしを比べられる）
 - 条件での効き: ρ(f(X)) − ρ(f(H_X))、ρ(f(H_X)) − ρ(f(公称) + Σᵢ cᵢ ΔN̄ᵢ)、ρ(f(X)) − ρ(f(公称) + Σᵢ cᵢ ΔN̄ᵢ)。和が閉じる
 
@@ -37,7 +37,7 @@ import argparse
 import json
 from pathlib import Path
 
-from compare_core_history import same_burnup
+from compare_core_history import Table, same_burnup
 from compare_residual import (
     added,
     coefficients,
@@ -51,7 +51,8 @@ from compare_residual import (
 from compare_weight import condition_table, effect, largest_difference, scaled
 
 FILES = {
-    "nominal": "table-residual-nominal.msgpack",
+    # R を書き足した公称のテーブル（定数とミクロ燃焼のデータは R を持たないテーブルと同じ。R(1) を core が足す R と照らす）
+    "nominal": "table-residual-nominal-histories.msgpack",
     "one": "table-residual-density-branch.msgpack",
     "one_hybrid": "table-hybrid-residual-density-branch.msgpack",
     "switch": "table-switch-density-branch.msgpack",
@@ -66,6 +67,8 @@ FILES = {
 SUMMARY = "switch.json"
 STATE_AXES = ("boron", "moderator", "fuel")
 PARTS = ("untracked", "linearization", "residual")
+# R(1) と core が足す R（`histories`）の項目の差の上限（同じ式の作り直しなので丸めの程度）
+HISTORIES_TOLERANCE = 1e-12
 
 
 def values(table, index):
@@ -103,7 +106,7 @@ def nominal_state(table, burnup):
 
 
 def split(nominal, branch, hybrid, label):
-    """条件の 1 状態の分岐とハイブリッドのテーブルと、同じ条件の状態を持つ公称の組成のテーブルから、燃焼度の点ごとの U、L、R と、
+    """条件の 1 状態の分岐とハイブリッドのテーブルと、同じ条件の状態を持つ公称の組成のテーブルから、条件と、燃焼度の点ごとの U、L、R と、
     条件の線形の補正の後の定数、ΔN̄ᵢ、分岐とハイブリッドの定数"""
     condition, burnups, states = condition_table(branch, f"{label} branch")
     h_condition, h_burnups, h_states = condition_table(hybrid, f"{label} hybrid")
@@ -146,7 +149,7 @@ def split(nominal, branch, hybrid, label):
                 "hybrid": fh,
             }
         )
-    return rows
+    return condition, rows
 
 
 def base(nominal, burnup, densities):
@@ -159,9 +162,18 @@ def base(nominal, burnup, densities):
 
 
 def one_rows(nominal, rows):
-    """1（モジュールの説明）"""
+    """1（モジュールの説明）。R(1) は core が足す R（公称のテーブルの `histories`）と同じであること"""
+    rod = Table(nominal).rod
     out = []
     for x in rows:
+        found = [k for k, u in enumerate(rod["burnup"]) if same_burnup(u, x["burnup"])]
+        if len(found) != 1:
+            raise SystemExit(f"the histories have no single R at {x['burnup']}")
+        check = largest_difference(x["residual"], rod["residuals"][found[0]])
+        if check > HISTORIES_TOLERANCE:
+            raise SystemExit(
+                f"R(1) at {x['burnup']} differs by {check:.2e} from the R that the core adds"
+            )
         state = base(nominal, x["burnup"], x["densities"])
         rho_x, rho_h = rho(k_inf(x["branch"])), rho(k_inf(x["hybrid"]))
         rho_linear = rho(k_inf(x["linear"]))
@@ -172,9 +184,7 @@ def one_rows(nominal, rows):
                 "untracked_condition_pcm": rho_x - rho_h,
                 "linearization_condition_pcm": rho_h - rho_linear,
                 "residual_condition_pcm": rho_x - rho_linear,
-                "split_check": largest_difference(
-                    added(x["untracked"], x["linearization"]), x["residual"]
-                ),
+                "histories_check": check,
             }
         )
     return out
@@ -263,17 +273,45 @@ def check_nominal(nominal, path_nominal, label):
             )
 
 
+def history_condition(nominal):
+    """公称のテーブルの公称の状態と、`histories` の条件 j（減速材の軸だけが Hᵇ の格子点の状態）"""
+    t = Table(nominal)
+    moderator = nominal["axes"][2]
+    index = list(t.nominal)
+    index[1] = moderator["density"].index(t.history["branch"])
+    return values(nominal, t.nominal), values(nominal, index)
+
+
 def compare(tables, summary):
     """要約（モジュールの説明）"""
     nominal = tables["nominal"]
-    one = split(nominal, tables["one"], tables["one_hybrid"], "R(1)")
-    switch = split(nominal, tables["switch"], tables["switch_hybrid"], "switch")
+    nominal_condition, condition_j = history_condition(nominal)
+    one_condition, one = split(nominal, tables["one"], tables["one_hybrid"], "R(1)")
+    switch_condition, switch = split(
+        nominal, tables["switch"], tables["switch_hybrid"], "switch"
+    )
+    if one_condition != condition_j or switch_condition != condition_j:
+        raise SystemExit(
+            "R(1) and the switch must be at the condition j of the histories"
+        )
     check_nominal(nominal, tables["nominal_half"], "w = 0.5")
     check_nominal(nominal, tables["nominal_full"], "w = 1")
-    half = split(
+    half_condition, half = split(
         tables["nominal_half"], tables["half"], tables["half_hybrid"], "w = 0.5"
     )
-    full = split(tables["nominal_full"], tables["full"], tables["full_hybrid"], "w = 1")
+    full_condition, full = split(
+        tables["nominal_full"], tables["full"], tables["full_hybrid"], "w = 1"
+    )
+    # 密度だけの経路: 公称の状態と同じホウ素、減速材の温度、燃料
+    for c, label in ((half_condition, "w = 0.5"), (full_condition, "w = 1")):
+        if (c[0], c[1][0], c[2]) != (
+            nominal_condition[0],
+            nominal_condition[1][0],
+            nominal_condition[2],
+        ):
+            raise SystemExit(
+                f"{label}: the condition changes more than the moderator density"
+            )
     return {
         "format": "xlc-compare-history-residual-split",
         "continued_burnup": summary["continued_burnup"],
@@ -299,7 +337,7 @@ def report(summary):
             f"最後の点 {last['burnup']:.4g} MWd/kg で U {last['untracked_pcm']:+.2f}、L {last['linearization_pcm']:+.2f}、"
             f"R {last['residual_pcm']:+.2f} pcm。条件 j での効きは U {last['untracked_condition_pcm']:+.2f}、L "
             f"{last['linearization_condition_pcm']:+.2f}、R {last['residual_condition_pcm']:+.2f} pcm。"
-            f"R − (U + L) の定数の差は最大 {max(x['split_check'] for x in one):.2e}"
+            f"core が足す R（`histories`）との項目の差は最大 {max(x['histories_check'] for x in one):.2e}"
         )
     ]
     u0 = summary["continued_burnup"]
@@ -315,9 +353,9 @@ def report(summary):
         f"core の差 {span([x['difference_pcm'] for x in later], '+.3f')} pcm のうち、U の外れの分 "
         f"{span([x['untracked_gap_pcm'] for x in later])}、L の外れの分 {span([x['linearization_gap_pcm'] for x in later])}、"
         f"両方 {span([x['gap_pcm'] for x in later])} pcm、数密度の効き {span([x['composition_pcm'] for x in later], '+.3f')} pcm、"
-        f"残り {span([x['remainder_pcm'] for x in later], '+.3f')} pcm。最後の点で差 {s['difference_pcm']:+.3f} = U の外れ "
-        f"{s['untracked_gap_pcm']:+.3f}、L の外れ {s['linearization_gap_pcm']:+.3f}（両方 {s['gap_pcm']:+.3f}）、"
-        f"数密度の効き {s['composition_pcm']:+.3f}、残り {s['remainder_pcm']:+.3f} pcm"
+        f"残り {span([x['remainder_pcm'] for x in later], '+.3f')} pcm。最後の点で差 {s['difference_pcm']:+.3f} = 両方の外れ "
+        f"{s['gap_pcm']:+.3f} + 数密度の効き {s['composition_pcm']:+.3f} + 残り {s['remainder_pcm']:+.3f} pcm（外れは反応度で"
+        f"足し合わず、U の外れだけ {s['untracked_gap_pcm']:+.3f}、L の外れだけ {s['linearization_gap_pcm']:+.3f} pcm）"
     )
     density = summary["density"]
     d = density[-1]
@@ -335,7 +373,8 @@ def report(summary):
         + f"。最後の点 {d['burnup']:.4g} MWd/kg で U {d['untracked_difference_pcm']:+.2f}、L "
         f"{d['linearization_difference_pcm']:+.2f}、R {d['residual_difference_pcm']:+.2f} pcm"
     )
-    return "\n".join(lines)
+    # 記録の表（verification_tables.py の signed）と同じ負の符号
+    return "\n".join(lines).replace("-", "−")
 
 
 def main():
