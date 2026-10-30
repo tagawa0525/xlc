@@ -104,8 +104,9 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
   の元も消していない
 - `.dvc` ファイルは `dvc status` に出る（ファイルが無いか変わったとき）。`scripts/count-changed-stages.py` は、コロンを持たない
   `.dvc` のキーを直下の dvc.yaml のステージと分けて `*.dvc` の行に数える
-- `.dvc` を足すか変えたブランチをマージしたあとは、main で `dvc checkout <その .dvc>` で置き場をキャッシュに合わせる
-  （スキル dvc-relock の後半）
+- `.dvc` を足すか変えたブランチをマージしたあとは、main で `scripts/dvc-checkout.py <その .dvc>` で置き場をキャッシュに合わせる
+  （スキル dvc-relock の後半）。ブランチで作り直して `dvc add` をやり直していない生成物があると、`dvc checkout` は
+  「Can't remove the following unsaved files」で全体が止まる（ほかの出力も戻らない。スキル dvc-relock の前半 1）
 - 規則の 1 行は CLAUDE.md の「計算」にある
 
 ### 確認
