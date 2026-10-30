@@ -173,7 +173,22 @@ class Compare(unittest.TestCase):
         linear = c.corrected(f0, c.coefficients(nominal["micro"]["states"][3]), deltas)
         expected = c.rho(c.k_inf(reverse["states"][1])) - c.rho(c.k_inf(linear))
         self.assertAlmostEqual(r["reverse_residual_pcm"], expected, places=9)
-        # 条件の R を公称の状態で使った誤差
+        # 条件の R の公称の状態での効きと、それを公称の状態で使った誤差（= 公称の状態での R の効き − 逆向きの R の効き）
+        self.assertAlmostEqual(
+            r["residual_nominal_pcm"],
+            c.rho(
+                c.k_inf(
+                    c.added(linear, nominal["histories"][0]["rods"][0]["residuals"][1])
+                )
+            )
+            - c.rho(c.k_inf(linear)),
+            places=9,
+        )
+        self.assertAlmostEqual(
+            r["applied_pcm"],
+            r["residual_nominal_pcm"] - r["reverse_residual_pcm"],
+            places=8,
+        )
         with_r = c.added(linear, nominal["histories"][0]["rods"][0]["residuals"][1])
         self.assertAlmostEqual(
             r["applied_pcm"],
