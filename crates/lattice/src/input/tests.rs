@@ -1348,6 +1348,43 @@ fn depletion_shields_at_every_transport_unless_told_to_shield_at_the_step_start(
 }
 
 #[test]
+fn depletion_continues_from_a_point_of_a_history_when_told_to() {
+    assert!(
+        depleting(DEPLETION)
+            .unwrap()
+            .depletion
+            .unwrap()
+            .continue_from
+            .is_none()
+    );
+    let text = format!("{DEPLETION}continue = {{ file = \"nominal.msgpack\", burnup = 0.05 }}\n");
+    let depletion = depleting(&text).unwrap().depletion.unwrap();
+    assert_eq!(
+        depletion.continue_from,
+        Some(ContinueFrom {
+            file: PathBuf::from("nominal.msgpack"),
+            burnup: 0.05,
+        })
+    );
+    // 続ける点 0 は、燃焼度 0 の組成から条件を変えて燃焼させる
+    let text = format!("{DEPLETION}continue = {{ file = \"nominal.msgpack\", burnup = 0 }}\n");
+    assert!(depleting(&text).is_ok());
+}
+
+#[test]
+fn continued_burnup_points_come_after_the_continued_point() {
+    // 燃焼度の点は続ける点より後だけを書く（続ける点までは元の履歴の点）
+    for burnup in ["0.1", "0.5", "1", "-1", "nan", "inf"] {
+        let text =
+            format!("{DEPLETION}continue = {{ file = \"nominal.msgpack\", burnup = {burnup} }}\n");
+        let err = depleting(&text).unwrap_err().to_string();
+        assert!(err.contains("continue"), "{burnup}: {err}");
+    }
+    let text = format!("{DEPLETION}continue = {{ file = \"nominal.msgpack\" }}\n");
+    assert!(depleting(&text).is_err());
+}
+
+#[test]
 fn rejects_burnup_points_that_do_not_increase_from_zero() {
     for burnup in ["[]", "[0, 1]", "[1, 1]", "[2, 1]", "[-1]"] {
         let text = DEPLETION.replace("[0.1, 0.5, 2]", burnup);

@@ -263,6 +263,29 @@ pub(crate) fn deplete_from(
     resumed: Option<Partial>,
     saved: &mut SavePoints<'_>,
 ) -> anyhow::Result<History> {
+    run_text(text, library, moc, None, resumed, saved)
+}
+
+/// `deplete_from` と同じく、入力 `text` の `continue` が指す履歴を `from` として燃焼を続ける
+pub(crate) fn continue_from(
+    text: &str,
+    library: &Library,
+    moc: &Options,
+    from: &History,
+    resumed: Option<Partial>,
+    saved: &mut SavePoints<'_>,
+) -> anyhow::Result<History> {
+    run_text(text, library, moc, Some(from), resumed, saved)
+}
+
+fn run_text(
+    text: &str,
+    library: &Library,
+    moc: &Options,
+    from: Option<&History>,
+    resumed: Option<Partial>,
+    saved: &mut SavePoints<'_>,
+) -> anyhow::Result<History> {
     let input = LatticeInput::parse(text).unwrap();
     let depletion = input.depletion.clone().unwrap();
     let (lattice, region_materials) = input.geometry().unwrap();
@@ -282,9 +305,24 @@ pub(crate) fn deplete_from(
         &chosen,
         &LibraryReactions(library),
         moc,
+        from,
         resumed,
         saved,
     )
+}
+
+/// MOC の判定を既定（k 1e-7、中性子束 1e-6）より 4 桁細かくした条件。CMFD は既定と同じ比で MOC より細かく解く（ADR-0110）
+pub(crate) fn tight() -> Options {
+    Options {
+        k_tolerance: 1e-11,
+        flux_tolerance: 1e-10,
+        acceleration: crate::moc::Acceleration::Cmfd(crate::cmfd::CmfdOptions {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-12,
+            ..crate::cmfd::CmfdOptions::default()
+        }),
+        ..Options::default()
+    }
 }
 
 /// MOC の解のコピー（`Start` は大きいので `Clone` を持たない。テストでだけ、チェックポイントと同じ serde でコピーする）
@@ -1056,6 +1094,7 @@ fn depleted_materials_share_one_temperature() {
         &chosen,
         &LibraryReactions(&library),
         None,
+        None,
         &mut |_, _, _| Ok(()),
     )
     .unwrap_err()
@@ -1544,4 +1583,263 @@ fn step_start_shielding_keeps_the_start_cross_sections_at_the_midpoint() {
     for (s, e) in start.points.iter().zip(&every.points).skip(1) {
         assert_ne!(s.k, e.k, "at {} MWd/kg", s.burnup);
     }
+}
+
+/// `PIN` の燃焼を、履歴 nominal.msgpack の燃焼度 `at` の点から燃焼度の点 `burnup` まで、減速材の H-1 の数密度を `water` にして続ける
+/// 入力
+fn continued(at: &str, burnup: &str, water: &str) -> String {
+    PIN.replace(
+        "burnup = [0.05, 0.5, 2.0]",
+        &format!("burnup = {burnup}\ncontinue = {{ file = \"nominal.msgpack\", burnup = {at} }}"),
+    )
+    .replace("H-1 = 4.9e-2", &format!("H-1 = {water}"))
+}
+
+fn continue_simply(text: &str, library: &Library, from: &History) -> anyhow::Result<History> {
+    continue_from(
+        text,
+        library,
+        &Options::default(),
+        from,
+        None,
+        &mut |_, _, _| Ok(()),
+    )
+}
+
+#[test]
+fn continued_runs_keep_the_earlier_points_and_solve_the_continued_point_at_the_new_conditions() {
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let history = continue_simply(
+        &continued("0.5", "[1.0, 2.0]", "4.0e-2"),
+        &library,
+        &nominal,
+    )
+    .unwrap();
+    let burnups: Vec<f64> = history.points.iter().map(|p| p.burnup).collect();
+    assert_eq!(burnups, [0.0, 0.05, 0.5, 1.0, 2.0]);
+    assert_eq!(
+        history.continued,
+        Some(ContinueFrom {
+            file: PathBuf::from("nominal.msgpack"),
+            burnup: 0.5,
+        })
+    );
+    // 続ける点より前の点は元の履歴のまま
+    for (p, q) in history.points[..2].iter().zip(&nominal.points) {
+        assert_eq!(p.time.to_bits(), q.time.to_bits());
+        assert_eq!(p.k.to_bits(), q.k.to_bits());
+        assert_eq!(p.densities, q.densities);
+        assert_eq!(p.pin_powers, q.pin_powers);
+    }
+    // 続ける点は元の組成と時間を、この入力の条件（減速材の少ない格子）で解き直す
+    let (point, original) = (&history.points[2], &nominal.points[2]);
+    assert_eq!(point.densities, original.densities);
+    assert_eq!(point.time.to_bits(), original.time.to_bits());
+    assert!(point.k < original.k, "{} vs {}", point.k, original.k);
+    // 時間は続ける点から、この入力の出力密度で進む
+    let step = |from: f64, to: f64| (to - from) * 1.0e3 / 40.0 * DAY;
+    assert_eq!(history.points[3].time, point.time + step(0.5, 1.0));
+    assert_eq!(
+        history.points[4].time,
+        history.points[3].time + step(1.0, 2.0)
+    );
+    // 時間の内訳と輸送の回数はこの実行の分（2 ステップの 4 回と最後の点）
+    assert_eq!(history.solves, 5);
+}
+
+#[test]
+fn a_run_continued_at_the_same_conditions_follows_the_straight_run() {
+    // 初めの重金属の質量（出力の規格化）、時間、組成を引き継げば、同じ条件で続けた点は一気に流したものと、MOC の反復の始まりの
+    // 違いの分だけ違う（続ける点の輸送は平らな初期値から、一気に流したものは前の輸送の解から始める。ADR-0195）。判定を 1e-11 に
+    // した MOC で、k は相対 1e-8、数密度は相対 1e-8（領域の最大の数密度に対して）で比べる
+    let library = library();
+    let nominal = deplete_with_moc(PIN, &library, &tight());
+    let history = continue_from(
+        &continued("0.05", "[0.5, 2.0]", "4.9e-2"),
+        &library,
+        &tight(),
+        &nominal,
+        None,
+        &mut |_, _, _| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(history.points.len(), nominal.points.len());
+    for (p, q) in history.points.iter().zip(&nominal.points) {
+        assert_eq!(p.burnup, q.burnup);
+        assert!(
+            (p.time - q.time).abs() <= 1e-12 * q.time,
+            "{} vs {}",
+            p.time,
+            q.time
+        );
+        assert!(
+            (p.k - q.k).abs() <= 1e-8 * q.k,
+            "{}: {} vs {}",
+            p.burnup,
+            p.k,
+            q.k
+        );
+        for (a, b) in p.densities.iter().zip(&q.densities) {
+            let largest = b.iter().fold(0.0_f64, |m, &x| m.max(x));
+            for (x, y) in a.iter().zip(b) {
+                assert!((x - y).abs() <= 1e-8 * largest, "{}: {x} vs {y}", p.burnup);
+            }
+        }
+    }
+}
+
+#[test]
+fn continuing_needs_a_point_of_the_history() {
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let err =
+        continue_simply(&continued("0.3", "[1.0]", "4.9e-2"), &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("not a point"), "{err:#}");
+}
+
+#[test]
+fn continuing_needs_the_regions_nuclides_and_transported_nuclides_of_the_history() {
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let text = continued("0.5", "[1.0]", "4.9e-2");
+    // 燃料を 2 つのリングに分けた格子は燃焼の領域が違う
+    let rings = text.replace(
+        "{ material = \"fuel\", radius = 0.4096, rings = 1 }",
+        "{ material = \"fuel\", radius = 0.4096, rings = 2 }",
+    );
+    let err = continue_simply(&rings, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("regions"), "{err:#}");
+    let mut renamed = nominal.clone();
+    renamed.nuclides[0] = "Kr-83".into();
+    let err = continue_simply(&text, &library, &renamed).unwrap_err();
+    assert!(format!("{err:#}").contains("nuclides"), "{err:#}");
+    let mut fewer = nominal.clone();
+    fewer.transportable.pop();
+    let err = continue_simply(&text, &library, &fewer).unwrap_err();
+    assert!(format!("{err:#}").contains("transport"), "{err:#}");
+}
+
+#[test]
+fn continuing_needs_the_initial_composition_of_the_history() {
+    // 燃焼度と出力の基準（初めの重金属の質量）は、元の履歴の燃焼度 0 の組成のもの
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let text = continued("0.5", "[1.0]", "4.9e-2").replace("U-235 = 7.0e-4", "U-235 = 7.1e-4");
+    let err = continue_simply(&text, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("composition"), "{err:#}");
+}
+
+#[test]
+fn a_continued_history_cannot_be_continued_again() {
+    // 履歴は続けた燃焼点を 1 つしか持たないので、続けた履歴から続けると前の条件の切り替えが消える
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let once = continue_simply(
+        &continued("0.05", "[0.5, 2.0]", "4.0e-2"),
+        &library,
+        &nominal,
+    )
+    .unwrap();
+    let err = continue_simply(&continued("0.5", "[2.0]", "4.9e-2"), &library, &once).unwrap_err();
+    assert!(format!("{err:#}").contains("continues"), "{err:#}");
+}
+
+#[test]
+fn continuing_needs_the_few_group_constants_of_the_history() {
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let text = format!(
+        "{}few-group = {{ bounds = [1e7, 0.625, 1e-5] }}\n",
+        continued("0.5", "[1.0]", "4.9e-2")
+    );
+    let err = continue_simply(&text, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("few-group"), "{err:#}");
+}
+
+#[test]
+fn continued_histories_name_the_history_they_continue() {
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let history =
+        continue_simply(&continued("0.5", "[1.0]", "4.0e-2"), &library, &nominal).unwrap();
+    let field = |history: &History| {
+        let value: rmpv::Value = rmp_serde::from_slice(&history.to_msgpack().unwrap()).unwrap();
+        value
+            .as_map()
+            .unwrap()
+            .iter()
+            .find(|(k, _)| k.as_str() == Some("continued"))
+            .map(|(_, v)| v.clone())
+    };
+    let written = field(&history).unwrap();
+    let keys: Vec<&str> = written
+        .as_map()
+        .unwrap()
+        .iter()
+        .filter_map(|(k, _)| k.as_str())
+        .collect();
+    assert_eq!(keys, ["file", "burnup"]);
+    let read = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read.continued, history.continued);
+    // 続けない燃焼の履歴は、この項目を書かない
+    assert!(field(&nominal).is_none());
+    assert!(
+        History::from_msgpack(&nominal.to_msgpack().unwrap())
+            .unwrap()
+            .continued
+            .is_none()
+    );
+}
+
+#[test]
+fn a_continued_run_resumes_from_its_checkpoint_bit_for_bit() {
+    let library = library();
+    let nominal = deplete_with(PIN, &library);
+    let text = continued("0.05", "[0.5, 2.0]", "4.0e-2");
+    let run = |resumed: Option<Partial>, saved: &mut SavePoints<'_>| {
+        continue_from(
+            &text,
+            &library,
+            &Options::default(),
+            &nominal,
+            resumed,
+            saved,
+        )
+    };
+    let straight = run(None, &mut |_, _, _| Ok(())).unwrap();
+    let dir = std::env::temp_dir().join(format!(
+        "xlc-depletion-continue-resume-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    for stop in [1, 2] {
+        let checkpoint =
+            Checkpoint::new(dir.join(format!("stop-{stop}.checkpoint")), "same".into());
+        let mut written = 0;
+        let error = run(None, &mut |h, next, start| {
+            checkpoint.save_depletion(h, next, start)?;
+            written += 1;
+            if written == stop {
+                anyhow::bail!("killed");
+            }
+            Ok(())
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("killed"), "{error:#}");
+        let resumed = checkpoint.depletion().unwrap().unwrap();
+        // 元の履歴の 1 点と、この実行で解いた点
+        assert_eq!(resumed.history.points.len(), 1 + stop);
+        let history = run(Some(resumed), &mut |h, next, start| {
+            checkpoint.save_depletion(h, next, start)
+        })
+        .unwrap();
+        assert_eq!(history.solves, straight.solves);
+        assert_eq!(
+            without_times(&history),
+            without_times(&straight),
+            "stop {stop}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
 }
