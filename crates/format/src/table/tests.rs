@@ -1260,38 +1260,38 @@ fn history_burnups_are_solved_points_of_the_condition_from_first_to_last() {
 
 #[test]
 fn residuals_have_the_groups_and_sides_of_the_states_and_are_finite() {
-    let cases: Vec<Box<dyn Fn(&mut Residual)>> = vec![
-        Box::new(|r| {
+    let cases: Vec<fn(&mut Residual)> = vec![
+        |r| {
             r.total.pop();
-        }),
-        Box::new(|r| r.absorption.push(0.0)),
-        Box::new(|r| {
+        },
+        |r| r.absorption.push(0.0),
+        |r| {
             r.nu_fission.pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.fission.pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.chi.pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.diffusion.pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.scatter.pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.scatter[1].pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.adf.pop();
-        }),
-        Box::new(|r| {
+        },
+        |r| {
             r.adf[2].pop();
-        }),
-        Box::new(|r| r.total[0] = f64::NAN),
-        Box::new(|r| r.scatter[0][1] = f64::INFINITY),
-        Box::new(|r| r.adf[5][1] = f64::NAN),
+        },
+        |r| r.total[0] = f64::NAN,
+        |r| r.scatter[0][1] = f64::INFINITY,
+        |r| r.adf[5][1] = f64::NAN,
     ];
     for change in &cases {
         bad_history(
