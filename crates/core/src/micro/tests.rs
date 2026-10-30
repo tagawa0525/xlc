@@ -402,47 +402,45 @@ fn corrections_take_the_density_derivatives_of_the_nuclides_that_hold_them() {
     let mut at = micro_at(nominal.clone());
     at.nuclides[1].derivative = Some(derivative(1.0));
     at.nuclides[3].derivative = Some(derivative(1.0e4));
-    let coefficient = |i: usize| -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<Vec<f64>>) {
+    // 係数: 微分を持てば微分、なければ σᵢ
+    let coefficient = |i: usize| -> xlc_format::table::MicroDerivative {
         let s = &at.nuclides[i];
-        match &s.derivative {
-            Some(d) => (
-                d.total.clone(),
-                d.nu_fission.clone(),
-                d.fission.clone(),
-                d.scatter.clone(),
-            ),
-            None => (
-                s.total.clone(),
-                s.nu_fission.clone(),
-                s.fission.clone(),
-                s.scatter.clone(),
-            ),
-        }
+        s.derivative
+            .clone()
+            .unwrap_or_else(|| xlc_format::table::MicroDerivative {
+                total: s.total.clone(),
+                nu_fission: s.nu_fission.clone(),
+                fission: s.fission.clone(),
+                scatter: s.scatter.clone(),
+            })
     };
     let n = [6.0e-4, 2.0e-5, 1.0e-6, 3.0e-9, 1.0e-8];
     let mut f = constants();
     correct(&mut f, &at, &n);
     let base = constants();
     let delta: Vec<f64> = n.iter().zip(&nominal).map(|(a, b)| a - b).collect();
-    let sum = |pick: &dyn Fn(&(Vec<f64>, Vec<f64>, Vec<f64>, Vec<Vec<f64>>)) -> f64| -> f64 {
+    let sum = |pick: &dyn Fn(&xlc_format::table::MicroDerivative) -> f64| -> f64 {
         (0..delta.len())
             .map(|i| pick(&coefficient(i)) * delta[i])
             .sum()
     };
     let close = |a: f64, b: f64| (a - b).abs() <= 1e-15 * b.abs().max(1.0);
     for g in 0..2 {
-        assert!(close(f.total[g], base.total[g] + sum(&|c| c.0[g])));
+        assert!(close(f.total[g], base.total[g] + sum(&|c| c.total[g])));
         assert!(close(
             f.nu_fission[g],
-            base.nu_fission[g] + sum(&|c| c.1[g])
+            base.nu_fission[g] + sum(&|c| c.nu_fission[g])
         ));
-        assert!(close(f.fission[g], base.fission[g] + sum(&|c| c.2[g])));
-        let absorption = sum(&|c| c.0[g] - c.3[g].iter().sum::<f64>());
+        assert!(close(
+            f.fission[g],
+            base.fission[g] + sum(&|c| c.fission[g])
+        ));
+        let absorption = sum(&|c| c.total[g] - c.scatter[g].iter().sum::<f64>());
         assert!(close(f.absorption[g], base.absorption[g] + absorption));
         for h in 0..2 {
             assert!(close(
                 f.scatter[g][h],
-                base.scatter[g][h] + sum(&|c| c.3[g][h])
+                base.scatter[g][h] + sum(&|c| c.scatter[g][h])
             ));
         }
     }
