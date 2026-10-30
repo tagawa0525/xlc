@@ -7,6 +7,9 @@
 //! 同じ関数（`xlc_format::table::add_linear_correction`。数密度の微分を持つ核種は ∂Σ/∂N̄ᵢ、ほかは σᵢ。ADR-0216、ADR-0221）。
 //! N̄ᵢ^j と N̄ᵢ^0 はそれぞれのテーブルの均質化した数密度。補正を持たない項目（χ、拡散係数、ADF）の R は 2 つの定数の差。
 //!
+//! 同じ点ごとに、追う核種のミクロ燃焼の反応率の微視的断面積の差 Δσᵢ(u) = σᵢ(履歴の分岐の組成、条件 j) − σᵢ(公称の組成、条件 j) も書く
+//! （ADR-0215 の案 S2。核分裂、チェーンの反応の経路、収率の境界より下の核分裂の断面積）。
+//!
 //! 使い方: lattice histories <入力ファイル>（ファイルのパスは入力ファイルのあるディレクトリから）
 //!
 //! ```toml
@@ -29,8 +32,8 @@ use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{
-    Axis, HistoryCondition, HistoryCorrection, HistoryRod, ROD_OUT, Residual, Table,
-    add_linear_correction,
+    Axis, HistoryCondition, HistoryCorrection, HistoryRod, MicroNuclide, MicroReaction, ROD_OUT,
+    RateResidual, Residual, Table, add_linear_correction,
 };
 
 use crate::checkpoint::write_synced;
@@ -276,6 +279,24 @@ pub fn residuals(
         );
     }
     // 分岐のテーブルは燃焼度の点ごとに状態 1 つで、点は燃焼度の順
+    let rates = solved
+        .iter()
+        .enumerate()
+        .map(|(k, &u)| {
+            point[burnup_axis] = u;
+            let p = nominal
+                .point_index(&point)
+                .ok_or_else(|| anyhow!("no nominal point {point:?}"))?;
+            branch_micro.states[k]
+                .iter()
+                .zip(&micro.states[p])
+                .zip(&micro.nuclides)
+                .map(|((b, n), name)| {
+                    rate_difference(b, n).with_context(|| format!("burnup {}, {name}", burnups[u]))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let residuals = solved
         .iter()
         .enumerate()
@@ -301,9 +322,54 @@ pub fn residuals(
             rod: rod.into(),
             burnup: solved_values,
             residuals,
-            micro: Vec::new(),
+            micro: rates,
         },
     ))
+}
+
+/// 反応率の微視的断面積の差 `a − b`（`a` は履歴の分岐、`b` は公称の条件 j の状態）。収率の境界より下の割合は、割合 × 群の和の σf の
+/// 差にする（core が補正した σf の和との比を割合にする）。反応の並び（MT と経路の数）か核分裂の有無が違えばエラー
+fn rate_difference(a: &MicroNuclide, b: &MicroNuclide) -> anyhow::Result<RateResidual> {
+    let shape = |n: &MicroNuclide| {
+        n.reactions
+            .iter()
+            .map(|r| (r.mt, r.channels.len()))
+            .collect::<Vec<_>>()
+    };
+    if shape(a) != shape(b) {
+        bail!(
+            "the branch table has the reactions {:?}, the nominal table {:?}",
+            shape(a),
+            shape(b)
+        );
+    }
+    let minus = |x: &[f64], y: &[f64]| x.iter().zip(y).map(|(p, q)| p - q).collect::<Vec<_>>();
+    let below = |n: &MicroNuclide, f: f64| f * n.fission.iter().sum::<f64>();
+    let thermal_fission = match (a.thermal_fission, b.thermal_fission) {
+        (Some(fa), Some(fb)) => Some(below(a, fa) - below(b, fb)),
+        (None, None) => None,
+        (fa, fb) => bail!(
+            "the branch table has the fraction of fissions below the yield cutoff {fa:?}, the nominal table {fb:?}"
+        ),
+    };
+    Ok(RateResidual {
+        fission: minus(&a.fission, &b.fission),
+        reactions: a
+            .reactions
+            .iter()
+            .zip(&b.reactions)
+            .map(|(x, y)| MicroReaction {
+                mt: x.mt,
+                channels: x
+                    .channels
+                    .iter()
+                    .zip(&y.channels)
+                    .map(|(p, q)| minus(p, q))
+                    .collect(),
+            })
+            .collect(),
+        thermal_fission,
+    })
 }
 
 /// 少数群定数の差 `a − b` の、残りの項目
