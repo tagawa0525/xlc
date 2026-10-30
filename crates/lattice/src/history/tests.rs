@@ -1114,3 +1114,177 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
         );
     }
 }
+
+/// 燃焼点 k の数密度を点 k − 1 のものにした履歴（燃焼度は元のまま。燃焼度 0 の点はそのまま）
+fn previous_points(history: &History) -> History {
+    let mut previous = history.clone();
+    for k in 1..previous.points.len() {
+        previous.points[k].densities = history.points[k - 1].densities.clone();
+    }
+    previous
+}
+
+/// 入力 `text` の履歴 `history` からの分岐を、自己遮蔽の履歴 `shielding`（`None` なら状態の組成）で `BranchShielder` で自己遮蔽した
+/// 状態ごとの燃料の自己遮蔽と物質
+fn shield_with(
+    text: &str,
+    history: &History,
+    shielding: Option<&History>,
+    library: &Library,
+) -> Vec<(crate::shielding::FuelShielding, Shielding)> {
+    let s = setup(text);
+    let mut branches = branches_of(text, history, library).unwrap();
+    if let Some(h) = shielding {
+        branches.shield_with(h).unwrap();
+    }
+    let varied: Vec<String> = s
+        .input
+        .branches
+        .as_ref()
+        .unwrap()
+        .varied()
+        .iter()
+        .chain(branches.remixed())
+        .cloned()
+        .collect();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        &varied,
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    (0..branches.len())
+        .map(|i| {
+            let reference = branches.reference(i);
+            let state = shielder
+                .shield_state(library, &branches.state(i), reference, || {
+                    let (point, r) = reference.unwrap();
+                    branches.reference_state(point, r)
+                })
+                .unwrap();
+            (state.fuel().clone(), owned(state))
+        })
+        .collect()
+}
+
+#[test]
+fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
+    // 自己遮蔽の履歴を与えた状態は、燃焼の領域の実効断面積と SPH 因子を、その履歴の同じ燃焼度の点の組成の状態で解いたものと同じに
+    // し、燃焼の領域の物質だけを状態の組成で作り直す。ホウ素の軸の参照（nominal-boron）でも、状態ごと（every-state）でも
+    let (history, library) = history();
+    let previous = previous_points(&history);
+    let base = branch_input("[0, 2.0]", "[600]");
+    for text in [base.clone(), every_state(&base)] {
+        let s = setup(&text);
+        let fixed = shield_with(&text, &history, Some(&previous), &library);
+        let at_previous = shield_with(&text, &previous, None, &library);
+        let mut branches = branches_of(&text, &history, &library).unwrap();
+        branches.shield_with(&previous).unwrap();
+        let fuel = regions_of(&branches.region_materials, |n| n.starts_with("fuel@"));
+        assert!(!fuel.is_empty());
+        let ones = vec![vec![1.0; library.groups.len()]; s.tracking.lattice.regions()];
+        for (index, ((shielded, materials), (expected, _))) in
+            fixed.iter().zip(&at_previous).enumerate()
+        {
+            for &r in &fuel {
+                assert_eq!(
+                    shielded.region_cross_sections(r),
+                    expected.region_cross_sections(r),
+                    "state {index} region {r}"
+                );
+            }
+            assert_eq!(
+                shielded.physical_flux(&s.tracking.lattice, &ones).unwrap(),
+                expected.physical_flux(&s.tracking.lattice, &ones).unwrap(),
+                "state {index}"
+            );
+            // 燃焼の領域の物質は、前の点の自己遮蔽から状態の組成で作り直したもの
+            let rebuilt = remix_varied(
+                &library,
+                expected,
+                &s.tracking.lattice,
+                &branches.region_materials,
+                branches.remixed(),
+                &at_previous_state(&text, &previous, &library, index),
+                &branches.state(index),
+            )
+            .unwrap();
+            for &r in &fuel {
+                let m = expected.region_material[r];
+                let (_, material) = rebuilt.iter().find(|(i, _)| *i == m).unwrap();
+                assert_eq!(
+                    region_material(materials, r),
+                    material,
+                    "state {index} region {r}"
+                );
+            }
+        }
+        // 燃焼度 2.0 の点の組成は前の点と違うので、作り直した燃料の物質は状態の組成で解いたものと違う
+        let own = shield_with(&text, &history, None, &library);
+        let last = fixed.len() - 1;
+        assert_ne!(
+            region_material(&fixed[last].1, fuel[0]),
+            region_material(&own[last].1, fuel[0])
+        );
+    }
+}
+
+/// 入力 `text` の履歴 `history` からの分岐の状態 `index` の物質
+fn at_previous_state(
+    text: &str,
+    history: &History,
+    library: &Library,
+    index: usize,
+) -> Vec<MaterialInput> {
+    branches_of(text, history, library).unwrap().state(index)
+}
+
+#[test]
+fn shielding_at_the_history_itself_reproduces_the_shielded_materials() {
+    // 自己遮蔽の履歴が分岐の履歴そのものなら、物質は自己遮蔽の履歴のない分岐とビットで同じ
+    let (history, library) = history();
+    let base = branch_input("[0, 2.0]", "[600]");
+    for text in [base.clone(), every_state(&base)] {
+        let fixed = shield_with(&text, &history, Some(&history), &library);
+        let own = shield_with(&text, &history, None, &library);
+        for (index, ((_, a), (_, b))) in fixed.iter().zip(&own).enumerate() {
+            let regions = a.1.len();
+            assert_eq!(regions, b.1.len());
+            for r in 0..regions {
+                assert_eq!(
+                    region_material(a, r),
+                    region_material(b, r),
+                    "state {index} region {r}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_shielding_history_must_match_the_branch_history() {
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]");
+    let mut branches = branches_of(&text, &history, &library).unwrap();
+    // 分岐の燃焼点を持たない
+    let mut short = history.clone();
+    short.points.retain(|p| p.burnup != 2.0);
+    let err = branches.shield_with(&short).unwrap_err();
+    assert!(format!("{err:#}").contains("2"), "{err:#}");
+    // 燃焼の領域が違う
+    let mut moved = history.clone();
+    moved.regions[0].volume *= 2.0;
+    assert!(branches.shield_with(&moved).is_err());
+    // 核種の並びが違う
+    let mut renamed = history.clone();
+    renamed.nuclides.reverse();
+    assert!(branches.shield_with(&renamed).is_err());
+    // 輸送する核種が違う
+    let mut fewer = history.clone();
+    fewer.transportable.pop();
+    assert!(branches.shield_with(&fewer).is_err());
+    // 自己遮蔽の履歴のない分岐は、作り直す物質を持たない
+    let plain = branches_of(&text, &history, &library).unwrap();
+    assert!(plain.remixed().is_empty());
+}

@@ -11,9 +11,11 @@
 //! file = "history.msgpack"   # 燃焼の履歴（入力のファイルのあるディレクトリから）
 //! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。公称の状態はすべての点で解く
 //! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
+//! shielding-file = "other.msgpack"    # 燃焼の領域を自己遮蔽する組成の履歴（省略すると状態の組成。#0191）
 //! ```
 //!
-//! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。
+//! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。`shielding-file` を
+//! 与えると、燃焼の領域はその履歴の同じ燃焼度の点の組成で自己遮蔽し、物質だけを状態の組成で作り直す（[`HistoryBranches::shield_with`]）。
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -25,7 +27,7 @@ use xlc_format::table::{Axis, MicroNuclide, MicroReaction};
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, channel_cross_sections, check_negative,
     check_region_names, depletion_regions, has_data_at, heavy_metal_mass, region_material,
-    solved_names, split_at, yield_cutoff,
+    solved_names, split_at, transport_name, yield_cutoff,
 };
 use crate::fewgroup::coarse_groups;
 use crate::geometry::Lattice;
@@ -49,6 +51,9 @@ pub struct HistoryInput {
     pub off_nominal: Vec<f64>,
     /// ミクロ燃焼で追う核種（ADR-0216）。空なら微視的断面積を作らない
     pub micro: Vec<String>,
+    /// 燃焼の領域を自己遮蔽する組成の燃焼の履歴（入力のファイルのあるディレクトリから。[`HistoryBranches::shield_with`]）。
+    /// `None` なら状態の組成で自己遮蔽する
+    pub shielding_file: Option<PathBuf>,
 }
 
 /// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
@@ -86,6 +91,10 @@ pub struct HistoryBranches {
     micro_positions: Vec<usize>,
     /// [燃焼度の点][追う核種] の均質化した数密度 (1/(barn cm))
     micro_densities: Vec<Vec<f64>>,
+    /// 自己遮蔽の履歴の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with`）
+    shielding: Option<Vec<Vec<Vec<f64>>>>,
+    /// 自己遮蔽の履歴があるときの、状態の組成で作り直す燃焼の領域の物質の名前（`<物質>@<セル>`）
+    remixed: Vec<String>,
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
@@ -425,6 +434,8 @@ pub fn history_branches(
         micro_nuclides: selection.micro.clone(),
         micro_positions,
         micro_densities,
+        shielding: None,
+        remixed: Vec::new(),
     })
 }
 
@@ -453,15 +464,93 @@ impl HistoryBranches {
             && (self.nominal == Some(b) || self.off_nominal.get(point).copied().unwrap_or(false))
     }
 
-    /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点と参照の番号（ADR-0201）
-    pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
-        let (point, b) = (index / self.branch.len(), index % self.branch.len());
-        self.reference_of[b].map(|r| (point, r))
+    /// 燃焼の領域を、履歴 `shielding` の同じ燃焼度の点の組成で自己遮蔽する（#0191 の線形の補正の誤差を候補に分ける検査）。
+    /// 状態はすべて参照から作り、参照の物質の燃焼の領域は `shielding` の数密度にする。燃焼の領域の実効断面積、UFG の範囲の移行、
+    /// SPH 因子は参照のもので、燃焼の領域の物質（`remixed`）だけを状態の組成で作り直す（`BranchShielder` に `remixed` をホウ素の
+    /// 軸の物質と合わせて渡す）。`shielding` の核種、燃焼の領域、輸送する核種が分岐の履歴と違うか、選んだ燃焼度の点がなければエラー
+    pub fn shield_with(&mut self, shielding: &History) -> anyhow::Result<()> {
+        if shielding.nuclides != self.nuclides {
+            bail!("the shielding history has other nuclides than the history");
+        }
+        let key = |d: &DepletionRegion| (d.material.clone(), d.cell, d.volume.to_bits());
+        if shielding.regions.len() != self.regions.len()
+            || shielding
+                .regions
+                .iter()
+                .map(key)
+                .ne(self.regions.iter().map(key))
+        {
+            bail!(
+                "the shielding history has other depletion regions (material, cell, volume) than the lattice"
+            );
+        }
+        let transported: Vec<usize> = shielding
+            .transportable
+            .iter()
+            .map(|n| self.nuclides.iter().position(|m| m == n))
+            .collect::<Option<_>>()
+            .ok_or_else(|| anyhow!("the shielding history transports nuclides it does not have"))?;
+        if transported != self.transported {
+            bail!("the shielding history transported other nuclides than the history");
+        }
+        let densities = self
+            .axes
+            .first()
+            .and_then(|a| match a {
+                Axis::Burnup { points } => Some(points),
+                _ => None,
+            })
+            .ok_or_else(|| anyhow!("the history branches have no burnup axis"))?
+            .iter()
+            .map(|&b| {
+                let point = shielding
+                    .points
+                    .iter()
+                    .find(|p| p.burnup == b)
+                    .ok_or_else(|| {
+                        anyhow!("burnup {b} MWd/kg is not a point of the shielding history")
+                    })?;
+                check_negative(&shielding.regions, &point.densities, |i| {
+                    self.nuclides[i].clone()
+                })?;
+                Ok(point.densities.clone())
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        self.shielding = Some(densities);
+        self.remixed = self
+            .regions
+            .iter()
+            .map(|d| transport_name(&d.material, d.cell))
+            .collect();
+        Ok(())
     }
 
-    /// 燃焼度の点 `point` の、参照 `reference`（ホウ素が公称）の解く物質
+    /// 自己遮蔽の履歴（`shield_with`）があるときの、状態の組成で作り直す燃焼の領域の物質の名前。なければ空
+    pub fn remixed(&self) -> &[String] {
+        &self.remixed
+    }
+
+    /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点と参照の番号（ADR-0201）。自己遮蔽の履歴があれば、どの状態も
+    /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後に分岐の状態の番号を続けた番号
+    pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        match (self.reference_of[b], &self.shielding) {
+            (Some(r), _) => Some((point, r)),
+            (None, Some(_)) => Some((point, self.references.len() + b)),
+            (None, None) => None,
+        }
+    }
+
+    /// 燃焼度の点 `point` の、参照 `reference`（`reference` の番号）の解く物質。自己遮蔽の履歴があれば、燃焼の領域はその数密度
     pub fn reference_state(&self, point: usize, reference: usize) -> Vec<MaterialInput> {
-        self.materials(point, &self.references[reference])
+        let branch = self
+            .references
+            .get(reference)
+            .unwrap_or_else(|| &self.branch[reference - self.references.len()]);
+        match &self.shielding {
+            Some(densities) => self.materials_with(&densities[point], branch),
+            None => self.materials(point, branch),
+        }
     }
 
     /// ミクロ燃焼で追う核種の名前（入力の `micro` の順）
@@ -681,14 +770,18 @@ impl HistoryBranches {
         point: usize,
         branch: &(Vec<MaterialInput>, Vec<f64>),
     ) -> Vec<MaterialInput> {
+        self.materials_with(&self.densities[point], branch)
+    }
+
+    /// 燃焼の領域の数密度が `densities`（[領域][履歴の核種]）で、燃焼させない物質と燃焼の領域の温度が `branch` の状態の解く物質
+    fn materials_with(
+        &self,
+        densities: &[Vec<f64>],
+        branch: &(Vec<MaterialInput>, Vec<f64>),
+    ) -> Vec<MaterialInput> {
         let (kept, temperatures) = branch;
         let mut materials = kept.clone();
-        for ((d, densities), &temperature) in self
-            .regions
-            .iter()
-            .zip(&self.densities[point])
-            .zip(temperatures)
-        {
+        for ((d, densities), &temperature) in self.regions.iter().zip(densities).zip(temperatures) {
             materials.push(region_material(
                 d,
                 temperature,
