@@ -143,7 +143,9 @@ class Compare(unittest.TestCase):
         s = compared()
         last = s["rows"][1]
         ref = reference()
-        coeff = r.coefficients(ref["micro"]["states"][1])
+        # 係数は core と同じ、R を持つ公称のテーブルの同じ燃焼度の条件 j の状態のもの（微分を持つ核種は微分）
+        t = table()
+        coeff = r.coefficients(t["micro"]["states"][t["points"].index([2, 0, 1, 0])])
         base = ref["states"][1]
         for key, n in (("composition_pcm", N20), ("plain_composition_pcm", PLAIN20)):
             whole = r.corrected(base, coeff, [a - b for a, b in zip(n, REFERENCE20)])
@@ -208,11 +210,28 @@ class Compare(unittest.TestCase):
         self.assertEqual(s["rows"], compared()["rows"])
 
     def test_the_core_history_summary_is_made_from_the_same_table_and_core(self):
-        md5s = {c.FILES["residual_table"]: "a", c.FILES["core"]: "b"}
+        md5s = {
+            c.FILES["residual_table"]: "a",
+            c.FILES["core"]: "b",
+            c.FILES["plain_table"]: "c",
+        }
         c.check_core_history({"inputs": dict(md5s)}, md5s)
         for key in md5s:
             with self.assertRaises(SystemExit):
                 c.check_core_history({"inputs": dict(md5s, **{key: "x"})}, md5s)
+
+    def test_points_where_the_correction_does_nothing_have_no_needed_weight(self):
+        corrected, plain = cores()
+        same = dict(
+            corrected,
+            points=[
+                dict(p, k=q["k"]) for p, q in zip(corrected["points"], plain["points"])
+            ],
+        )
+        s = c.compare(table(), reference(), history(), same, plain, SUMMARY)
+        self.assertIsNone(s["rows"][1]["needed_weight"])
+        self.assertIsNone(s["omegas"][0]["estimate_pcm"][1])
+        c.report(s)
 
     def test_runs_that_do_not_match_the_reference_are_errors(self):
         corrected, plain = cores()
