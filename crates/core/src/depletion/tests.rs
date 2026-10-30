@@ -2678,3 +2678,104 @@ fn node_histories_that_do_not_match_the_step_values_are_errors() {
     assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661, 0.5]), None]).is_err());
     assert!(advance_histories(&h, &start, &end, &[Some(vec![0.661])]).is_err());
 }
+
+/// `with_micro` のテーブルに、減速材の密度の履歴の補正（H⁰ = 0.75 の 560 K、Hᵇ = 0.74 の 570 K。燃焼度 0、10、20 の点）を持たせる。
+/// R は 0、反応率の微視的断面積の差は U-235 の熱群の捕獲だけ `capture`。軸に公称の値（ホウ素 1000 ppm、560 K、560 K）を置く
+fn with_histories(mut table: Table, capture: f64) -> Table {
+    table.axes[1] = table.axes[1].clone().with_nominal(1000.0);
+    table.axes[2] = table.axes[2].clone().with_nominal(560.0);
+    table.axes[3] = table.axes[3].clone().with_nominal(560.0);
+    let zero = xlc_format::table::Residual {
+        total: vec![0.0; 2],
+        absorption: vec![0.0; 2],
+        nu_fission: vec![0.0; 2],
+        fission: vec![0.0; 2],
+        chi: vec![0.0; 2],
+        diffusion: vec![0.0; 2],
+        scatter: vec![vec![0.0; 2]; 2],
+        adf: vec![vec![0.0; 2]; 6],
+    };
+    let rate = |capture: [f64; 2], thermal: Option<f64>| xlc_format::table::RateResidual {
+        fission: vec![0.0; 2],
+        reactions: vec![MicroReaction {
+            mt: 102,
+            channels: vec![capture.to_vec()],
+        }],
+        thermal_fission: thermal,
+    };
+    table.histories = vec![xlc_format::table::HistoryCorrection {
+        variable: xlc_format::table::MODERATOR_DENSITY.into(),
+        nominal: 0.75,
+        branch: 0.74,
+        rods: vec![xlc_format::table::HistoryRod {
+            rod: xlc_format::table::ROD_OUT.into(),
+            burnup: BURNUP.to_vec(),
+            residuals: vec![zero; 3],
+            micro: vec![vec![rate([0.0, capture], Some(0.0)), rate([0.0, 0.0], None)]; 3],
+        }],
+    }];
+    table.validate().unwrap();
+    table
+}
+
+#[test]
+fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
+    // 565 K のノードは H = 0.745 g/cm³ で w = 0.5。反応率の U-235 の熱群の捕獲は σ + w Δσ で、補正のないテーブルの捕獲を
+    // 0.5 Δσ 増やした燃焼と同じ数密度になる（R は 0 で、線形の補正の係数は補正しないので定数も同じ。ADR-0215 の案 S2）
+    let capture = 4.0;
+    let deplete_with = |case: &str, change: &dyn Fn(Table) -> Table| {
+        let (layout, tables, _) = core(case, UNIFORM, Some(400.0));
+        let case = micro_case(case);
+        let tables: Vec<Table> = tables
+            .into_iter()
+            .map(|t| change(with_micro(t, &TRACKED)))
+            .collect();
+        deplete(
+            &layout,
+            &tables,
+            &case.states,
+            case.depletion.as_ref().unwrap(),
+            Some(&small_chain()),
+            None,
+            &tight(),
+            |_| {},
+        )
+        .unwrap()
+    };
+    let corrected = deplete_with(CASE, &|t| with_histories(t, capture));
+    let shifted = deplete_with(CASE, &|mut t| {
+        for state in &mut t.micro.as_mut().unwrap().states {
+            state[0].reactions[0].channels[0][1] += 0.5 * capture;
+        }
+        t
+    });
+    let last = |h: &CoreHistory| h.points.last().unwrap().densities.clone().unwrap();
+    for (a, b) in last(&corrected)
+        .iter()
+        .flatten()
+        .zip(last(&shifted).iter().flatten())
+    {
+        for (x, y) in a.iter().zip(b) {
+            assert!((x - y).abs() <= 1e-10 * y.abs(), "{a:?} vs {b:?}");
+        }
+    }
+    // 補正しない燃焼とは違う（U-236 が増える）
+    let plain = deplete_with(CASE, &|t| t);
+    assert!(last(&corrected)[0][0][1] > 1.001 * last(&plain)[0][0][1]);
+    // 公称の履歴（560 K。w = 0）の燃焼は、補正のないテーブルとビットで同じ
+    let nominal = CASE.replace("moderator = 565", "moderator = 560");
+    let with = deplete_with(&nominal, &|t| with_histories(t, capture));
+    let reference = deplete_with(&nominal, &|t| {
+        let mut t = with_histories(t, capture);
+        t.histories[0].rods[0]
+            .micro
+            .iter_mut()
+            .flatten()
+            .for_each(|r| {
+                r.reactions[0].channels[0] = vec![0.0; 2];
+                r.thermal_fission = r.thermal_fission.map(|_| 0.0);
+            });
+        t
+    });
+    assert_eq!(with.points, reference.points);
+}
