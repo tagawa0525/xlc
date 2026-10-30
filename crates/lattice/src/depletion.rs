@@ -1094,7 +1094,7 @@ pub fn run(
 
 /// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域、チェーンの核種、輸送する
 /// 核種、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
-/// 少数群定数の有無と群境界が、この燃焼と同じこと
+/// 少数群定数の有無と群境界が、この燃焼と同じこと。`from` は続けた履歴でないこと
 fn continued_start(
     from: &History,
     at: &ContinueFrom,
@@ -1105,6 +1105,14 @@ fn continued_start(
     few_group: Option<&DepletionFewGroup>,
 ) -> anyhow::Result<(Vec<HistoryPoint>, Beginning)> {
     let file = at.file.display();
+    // 履歴は続けた燃焼点を 1 つだけ持つので、続けた履歴から続けると、前の条件の切り替えが出力から消える
+    if let Some(earlier) = &from.continued {
+        bail!(
+            "the history {file} continues {} from burnup {} MWd/kg; continue from a history that does not continue another",
+            earlier.file.display(),
+            earlier.burnup
+        );
+    }
     if from.regions != regions {
         bail!(
             "the depletion regions of the lattice differ from those of the history {file}; give the lattice of the history"
