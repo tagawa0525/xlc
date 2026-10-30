@@ -9,6 +9,10 @@
 //! ステップは状態と出力の割合を持つ（ADR-0218）。燃焼点は、そこから始まるステップの状態で解く（最後の点は最後のステップの
 //! 状態）ので、ステップの初めの点、中点、修正子はどれもそのステップの状態の解になる。出力の割合はステップの時間（EFPD の増分 /
 //! 割合）とノードの出力密度を決め、燃焼度の増分は変えない。崩壊だけのステップは、ミクロ燃焼の組成を崩壊の項だけで進める。
+//!
+//! ミクロ燃焼のノードは、履歴の変数（減速材の密度 H_m）を燃焼度で重みを付けた平均で進める（ADR-0215）: 燃焼度 0 の値は燃焼点 0 を
+//! 解く状態の瞬時の値で、出力のステップでは、ステップの状態の値 x̄ で H(B₀ + ΔB) = (H(B₀) B₀ + x̄ ΔB) / (B₀ + ΔB)。中点の解は中点の
+//! 燃焼度まで進めた値で解く。崩壊だけのステップは燃焼度が進まないので変えない。restart は最後の点の値を集合体の ID で引き継ぐ。
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -20,7 +24,8 @@ use xlc_format::msgpack::{self, MsgpackError};
 use xlc_format::table::{Axis, Micro, Table};
 
 use crate::case::{
-    CaseError, Compositions, Solved, check_search, search_boron, solve_compositions,
+    CaseError, Compositions, HISTORY_VARIABLES, Solved, check_search, search_boron,
+    solve_compositions,
 };
 use crate::input::{
     Boron, BoronSearch, CaseState, DepletionInput, Layout, MidpointBoron, StepKind, Xenon,
@@ -28,7 +33,7 @@ use crate::input::{
 use crate::micro::{MicroChain, TrackedRates};
 use crate::nem::{Options, fission_rates};
 use crate::rods::mix_micro;
-use crate::state::interpolate_micro;
+use crate::state::{interpolate_micro, moderator_density};
 
 const FORMAT: &str = "xlc-core-history";
 
@@ -157,8 +162,8 @@ struct FileIn {
 impl CoreHistory {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-core-history", specific_power, states: {<名前>: {boron | search:
     /// {boron: [下端, 上端], k, tolerance, max_solves}, b10, moderator, fuel, banks}}, axial_mesh, assemblies, heavy_metal,
-    /// nuclides?, midpoint_boron: "search" | "start", xenon?: "tracked" | "equilibrium", auxiliary?, auxiliary_densities?, points: [{efpd,
-    /// days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?}]}`
+    /// nuclides?, midpoint_boron: "search" | "start", xenon?: "tracked" | "equilibrium", auxiliary?, auxiliary_densities?, history_variables?,
+    /// points: [{efpd, days, power?, state, burnup, k, boron, solves, assembly_burnups, burnups, powers, densities?, histories?}]}`
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FileOut {
             format: FORMAT,
@@ -291,6 +296,30 @@ impl CoreHistory {
                     .into(),
             ));
         }
+        // ミクロ燃焼の履歴は、履歴の変数の名前と、どの点も数密度を持つノードに変数の数の有限な値を持つ（ADR-0215）
+        for (k, point) in file.points.iter().enumerate() {
+            let fits = match (&file.history_variables, &point.histories, &point.densities) {
+                (None, None, _) => file.nuclides.is_none(),
+                (Some(names), Some(rows), Some(tracked)) => {
+                    rows.len() == file.assemblies.len()
+                        && rows.iter().all(|r| r.len() == layers)
+                        && rows
+                            .iter()
+                            .flatten()
+                            .zip(tracked.iter().flatten())
+                            .all(|(h, t)| {
+                                h.len() == if t.is_empty() { 0 } else { names.len() }
+                                    && h.iter().all(|v| v.is_finite())
+                            })
+                }
+                _ => false,
+            };
+            if !fits {
+                return Err(CaseError::Depletion(format!(
+                    "point {k}: the history variables must match the micro depleted nodes of the history (ADR-0215)"
+                )));
+            }
+        }
         Ok(Self {
             specific_power: file.specific_power,
             states: file.states,
@@ -345,8 +374,37 @@ pub fn advance(
 /// 履歴の変数の値 `h`（燃焼度 `start` での値）を、燃焼度 `end` まで、ステップの値 `x` で進める（ADR-0215 の燃焼度で重みを付けた平均）:
 /// H(end) = (H(start) start + x (end − start)) / end。燃焼度 0 から進めると `x`（燃焼度 0 の値は瞬時の値）、燃焼度が進まなければ `h`
 pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64]) -> Vec<f64> {
-    let _ = (start, end, x);
-    h.to_vec()
+    h.iter()
+        .zip(x)
+        .map(|(&h, &x)| {
+            if end == start {
+                h
+            } else if start == 0.0 {
+                x
+            } else {
+                // H + (x − H) ΔB / B と書く（(H B₀ + x ΔB) / B と同じ値）。x が H と同じなら、H のまま（ビットで同じ。公称の履歴の w が厳密に 0）
+                h + (x - h) * ((end - start) / end)
+            }
+        })
+        .collect()
+}
+
+/// 位置ごとの履歴の変数の値 `h`（燃焼度 `start`）を、燃焼度 `end` まで、位置ごとのステップの値 `x` で進める（`advance_history`。値を
+/// 持たない位置は `None` のまま）
+fn advance_histories(
+    h: &[Option<Vec<f64>>],
+    start: &[f64],
+    end: &[f64],
+    x: &[Option<Vec<f64>>],
+) -> Densities {
+    h.iter()
+        .zip(start.iter().zip(end))
+        .zip(x)
+        .map(|((h, (&s, &e)), x)| match (h, x) {
+            (Some(h), Some(x)) => Some(advance_history(h, s, e, x)),
+            _ => None,
+        })
+        .collect()
 }
 
 /// 中点の形の 1 ステップ（ADR-0190）: 初めの燃焼度 `burnups` の核分裂率 `rates` で中点の燃焼度を求め、`solve`（燃焼度 →
@@ -570,6 +628,14 @@ pub fn deplete(
         .as_ref()
         .map(|m| m.initial(point_state(0), &layouts, tables))
         .transpose()?;
+    // ノードの履歴の変数の値（ADR-0215）。燃焼度 0 のノードは、燃焼点 0 を解く状態の瞬時の値
+    let node_values = |k: usize| -> Result<Option<Densities>, CaseError> {
+        micro
+            .as_ref()
+            .map(|m| m.history_values(k, &layouts, tables, &states[k]))
+            .transpose()
+    };
+    let mut histories = node_values(point_state(0))?;
     // 初めの燃焼度。restart するサイクルは、引き継ぐ集合体の燃焼度と組成を前のサイクルの履歴から置く（ADR-0220）
     let mut burnups = vec![0.0; sites];
     match (layout.restart(), restart) {
@@ -585,13 +651,32 @@ pub fn deplete(
                 micro.as_ref().map(|m| &m.chain),
             )?;
             for (&id, state) in placed.keys().zip(inherited) {
-                let Some((node_burnups, node_densities)) = state else {
+                let Some(Inherited {
+                    burnups: node_burnups,
+                    densities: node_densities,
+                    histories: node_histories,
+                }) = state
+                else {
                     continue;
                 };
                 let [x, y] = placed[id];
                 for z in 0..nz {
                     let site = mesh.site([x, y, z]);
                     burnups[site] = node_burnups[z];
+                    match (histories.as_mut().map(|h| &mut h[site]), &node_histories) {
+                        (None, None) => {}
+                        (Some(h), Some(rows)) if h.is_some() == rows[z].is_some() => {
+                            if let Some(v) = &rows[z] {
+                                *h = Some(v.clone());
+                            }
+                        }
+                        _ => {
+                            return fail(format!(
+                                "assembly {id}: the restart history variables of node {z} do not match the micro \
+                                 depleted nodes of the case (ADR-0215)"
+                            ));
+                        }
+                    }
                     match (densities.as_mut().map(|n| &mut n[site]), &node_densities) {
                         (None, None) => {}
                         (Some(n), Some(rows)) if n.is_some() == rows[z].is_some() => {
@@ -640,10 +725,10 @@ pub fn deplete(
     }
     // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で。`given` が
     // あれば、探索の状態もその濃度で解く）。`at` はエラーに添える解の場所
-    let no_histories: Vec<Option<Vec<f64>>> = vec![None; sites];
     let solve = |k: usize,
                  burnups: &[f64],
                  n: Option<&[Option<Vec<f64>>]>,
+                 h: Option<&[Option<Vec<f64>>]>,
                  given: Option<f64>,
                  at: &dyn Fn() -> String|
      -> Result<Solve, CaseError> {
@@ -651,11 +736,14 @@ pub fn deplete(
         let layout = layouts[k]
             .as_ref()
             .ok_or_else(|| CaseError::Depletion(format!("state {} is not laid out", state.name)))?;
-        let compositions = micro.as_ref().zip(n).map(|(m, densities)| Compositions {
-            chain: &m.chain,
-            densities,
-            histories: &no_histories,
-        });
+        let compositions = micro
+            .as_ref()
+            .zip(n.zip(h))
+            .map(|(m, (densities, histories))| Compositions {
+                chain: &m.chain,
+                densities,
+                histories,
+            });
         let solve_ppm = |ppm: f64| {
             solve_compositions(
                 layout,
@@ -779,6 +867,7 @@ pub fn deplete(
     let solve_operating = |k: usize,
                            burnups: &[f64],
                            n: Option<Densities>,
+                           h: Option<&[Option<Vec<f64>>]>,
                            given: Option<f64>,
                            power: f64,
                            at: &dyn Fn() -> String|
@@ -787,13 +876,13 @@ pub fn deplete(
             micro.as_ref().filter(|_| xenon == Some(Xenon::Equilibrium)),
             n.as_ref(),
         ) else {
-            return solve(k, burnups, n.as_deref(), given, at).map(|s| (s, n));
+            return solve(k, burnups, n.as_deref(), h, given, at).map(|s| (s, n));
         };
         let n = n.clone();
         // 点の固有値計算の回数は、固定点のすべての解の和
         let mut solves = 0;
         equilibrate(n, |n| {
-            let solved = solve(k, burnups, Some(n), given, at)?;
+            let solved = solve(k, burnups, Some(n), h, given, at)?;
             solves += solved.solves;
             let total: f64 = solved.rates.iter().sum();
             let balanced = (0..sites)
@@ -841,7 +930,8 @@ pub fn deplete(
                   power: Option<f64>,
                   burnups: &[f64],
                   solve: &Solve,
-                  n: Option<&[Option<Vec<f64>>]>| {
+                  n: Option<&[Option<Vec<f64>>]>,
+                  h: Option<&[Option<Vec<f64>>]>| {
         let Solve {
             state,
             solved,
@@ -866,6 +956,16 @@ pub fn deplete(
                 })
                 .collect()
         });
+        let histories = h.map(|h| {
+            placed
+                .values()
+                .map(|&[x, y]| {
+                    (0..nz)
+                        .map(|z| h[mesh.site([x, y, z])].clone().unwrap_or_default())
+                        .collect()
+                })
+                .collect()
+        });
         CorePoint {
             efpd,
             days,
@@ -883,7 +983,7 @@ pub fn deplete(
             burnups: burnup_rows,
             powers: by_assembly(&shares),
             densities,
-            histories: None,
+            histories,
         }
     };
     let report = |point: &CorePoint| {
@@ -904,6 +1004,7 @@ pub fn deplete(
         point_state(0),
         &burnups,
         densities.as_deref(),
+        histories.as_deref(),
         None,
         &|| "the point at 0 EFPD".into(),
     )?;
@@ -914,6 +1015,7 @@ pub fn deplete(
         &burnups,
         &solve_at_point,
         densities.as_deref(),
+        histories.as_deref(),
     )];
     on_point(&points[0]);
     report(&points[0]);
@@ -949,6 +1051,14 @@ pub fn deplete(
                 // 中点の解と、その燃焼度と組成（ミクロ燃焼の修正子の反応率に使う。ADR-0173 の CE/CM）
                 let mut middle_of_step = None;
                 let start = burnups.clone();
+                // ステップの中の状態は一定なので、ノードの履歴の変数のステップの値 x̄ は、ステップの状態の値（ADR-0215）
+                let step_values = node_values(step.state)?;
+                let step_histories = |end: &[f64]| {
+                    histories
+                        .as_deref()
+                        .zip(step_values.as_deref())
+                        .map(|(h, x)| advance_histories(h, &start, end, x))
+                };
                 burnups = midpoint(&burnups, &masses, increment, &solve_at_point.rates, |b| {
                     // 予測子: 初めの解の反応率で、中点の組成へ
                     let half = match (&micro, &densities) {
@@ -969,10 +1079,15 @@ pub fn deplete(
                         MidpointBoron::Search => None,
                         MidpointBoron::Start => Some(solve_at_point.ppm),
                     };
-                    let (middle, half) =
-                        solve_operating(step.state, b, half, given, fraction, &|| {
-                            format!("the midpoint of the step to {end} EFPD")
-                        })?;
+                    let (middle, half) = solve_operating(
+                        step.state,
+                        b,
+                        half,
+                        step_histories(b).as_deref(),
+                        given,
+                        fraction,
+                        &|| format!("the midpoint of the step to {end} EFPD"),
+                    )?;
                     tracing::info!(
                         k = middle.solved.solution.k,
                         boron = middle.ppm,
@@ -1000,6 +1115,7 @@ pub fn deplete(
                         &at_step,
                     )?);
                 }
+                histories = step_histories(&burnups);
                 efpd = end;
                 days += step_days;
                 (fraction, format!("the point at {efpd} EFPD"))
@@ -1017,14 +1133,20 @@ pub fn deplete(
                     && matches!(next, Some(StepKind::Decay { .. }))
                     && point_state(i + 1) != step.state =>
             {
-                let (operating, balanced) =
-                    solve_operating(step.state, &burnups, densities.take(), None, power, &|| {
-                        at_point.clone()
-                    })?;
+                let (operating, balanced) = solve_operating(
+                    step.state,
+                    &burnups,
+                    densities.take(),
+                    histories.as_deref(),
+                    None,
+                    power,
+                    &|| at_point.clone(),
+                )?;
                 let point = solve(
                     point_state(i + 1),
                     &burnups,
                     balanced.as_deref(),
+                    histories.as_deref(),
                     None,
                     &|| at_point.clone(),
                 )?;
@@ -1040,6 +1162,7 @@ pub fn deplete(
                 point_state(i + 1),
                 &burnups,
                 densities.take(),
+                histories.as_deref(),
                 None,
                 match next {
                     Some(StepKind::Power { power: next, .. }) => next,
@@ -1052,6 +1175,7 @@ pub fn deplete(
                     point_state(i + 1),
                     &burnups,
                     densities.as_deref(),
+                    histories.as_deref(),
                     None,
                     &|| at_point.clone(),
                 )?,
@@ -1065,6 +1189,7 @@ pub fn deplete(
             &burnups,
             &solve_at_point,
             densities.as_deref(),
+            histories.as_deref(),
         );
         on_point(&point);
         report(&point);
@@ -1096,7 +1221,9 @@ pub fn deplete(
         heavy_metal,
         auxiliary: micro.as_ref().map(|m| m.chain.auxiliary_nuclides()),
         auxiliary_densities,
-        history_variables: None,
+        history_variables: micro
+            .as_ref()
+            .map(|_| HISTORY_VARIABLES.iter().map(|v| v.to_string()).collect()),
         nuclides: micro.map(|m| m.chain.nuclides),
         midpoint_boron: depletion.midpoint_boron,
         xenon,
@@ -1107,9 +1234,15 @@ pub fn deplete(
 /// 1 日 (s)
 const DAY: f64 = 86_400.0;
 
-/// restart で引き継ぐ 1 体の集合体の状態: 軸方向のノードの燃焼度と、ミクロ燃焼なら軸方向のノードの解く核種の数密度（核分裂のない
-/// ノードは `None`）
-type Inherited = (Vec<f64>, Option<Vec<Option<Vec<f64>>>>);
+/// restart で引き継ぐ 1 体の集合体の状態
+struct Inherited {
+    /// 軸方向のノードの燃焼度
+    burnups: Vec<f64>,
+    /// ミクロ燃焼なら、軸方向のノードの解く核種の数密度（核分裂のないノードは `None`）
+    densities: Option<Densities>,
+    /// ミクロ燃焼なら、軸方向のノードの履歴の変数の値（ADR-0215。核分裂のないノードは `None`）
+    histories: Option<Densities>,
+}
 
 /// 前のサイクルの燃焼の履歴 `history` の最後の点から、装荷した集合体 `ids`（名前の順）の状態を引き継ぐ（ADR-0220）。`fresh` の
 /// 集合体は新しい燃料で `None`。`axial_mesh` はケースの軸方向のメッシュ、`heavy_metal` は `ids` の順のノードの初めの重金属の質量、
@@ -1150,11 +1283,27 @@ fn inherit(
                     c.auxiliary_nuclides()
                 ));
             }
-            match (&last.densities, &history.auxiliary_densities) {
-                (Some(t), Some(a)) => Some((c, t, a)),
+            if history
+                .history_variables
+                .as_deref()
+                .is_none_or(|v| v != HISTORY_VARIABLES)
+            {
+                return fail(format!(
+                    "the restart history has the history variables {:?}, but core tracks {HISTORY_VARIABLES:?} \
+                     (ADR-0215)",
+                    history.history_variables
+                ));
+            }
+            match (
+                &last.densities,
+                &history.auxiliary_densities,
+                &last.histories,
+            ) {
+                (Some(t), Some(a), Some(h)) => Some((c, t, a, h)),
                 _ => {
                     return fail(
-                        "the restart history has no densities of the tracked and auxiliary nuclides at its last point"
+                        "the restart history has no densities of the tracked and auxiliary nuclides or no history \
+                         variables at its last point"
                             .into(),
                     );
                 }
@@ -1206,7 +1355,7 @@ fn inherit(
                 }
             };
             let densities = micro
-                .map(|(c, tracked, auxiliary)| {
+                .map(|(c, tracked, auxiliary, _)| {
                     let (Some(t), Some(x)) = (tracked.get(a), auxiliary.get(a)) else {
                         return fail(format!("assembly {id}: the restart history has no densities"));
                     };
@@ -1231,7 +1380,25 @@ fn inherit(
                     "assembly {id}: the restart history densities do not have its {nz} nodes"
                 ));
             }
-            Ok(Some((burnups, densities)))
+            // 履歴の変数は、数密度を持つノード（核分裂のあるノード）だけが持つ（形は履歴を読むときに確かめた）
+            let histories = micro
+                .map(|(_, _, _, rows)| {
+                    let Some(rows) = rows.get(a).filter(|r| r.len() == nz) else {
+                        return fail(format!(
+                            "assembly {id}: the restart history has no history variables of its {nz} nodes"
+                        ));
+                    };
+                    Ok(rows
+                        .iter()
+                        .map(|h| (!h.is_empty()).then(|| h.clone()))
+                        .collect())
+                })
+                .transpose()?;
+            Ok(Some(Inherited {
+                burnups,
+                densities,
+                histories,
+            }))
         })
         .collect()
 }
@@ -1516,7 +1683,61 @@ impl MicroNodes {
             built.get_or_insert(c);
         }
         let chain = built.ok_or_else(|| CaseError::Depletion("no micro table".into()))?;
+        // 履歴の補正（ADR-0215）は、どのミクロ燃焼のテーブルも同じ変数の残りを持つこと。持たないテーブルのノードの履歴を黙って
+        // 補正なしにしない
+        let variables = |file: usize| -> Vec<&str> {
+            tables[file]
+                .histories
+                .iter()
+                .map(|h| h.variable.as_str())
+                .collect()
+        };
+        if let Some(&file) = files.keys().find(|&&f| variables(f) != variables(first)) {
+            return fail(format!(
+                "{} holds the history residuals of {:?}, but {} holds those of {:?}; the micro depleted tables must \
+                 hold the same history residuals (ADR-0215)",
+                name(file),
+                variables(file),
+                name(first),
+                variables(first)
+            ));
+        }
         Ok(Self { chain, uses })
+    }
+
+    /// 状態 `k` の位置ごとの履歴の変数の瞬時の値（`HISTORY_VARIABLES` の順。ミクロ燃焼しない位置は `None`）: 減速材の密度は、位置の
+    /// テーブルの減速材の軸の格子点の組を、状態の減速材の温度で内挿した値（ADR-0215。core の状態は密度を持たない）
+    fn history_values(
+        &self,
+        k: usize,
+        layouts: &[Option<Layout>],
+        tables: &[Table],
+        state: &CaseState,
+    ) -> Result<Densities, CaseError> {
+        let layout = layouts[k]
+            .as_ref()
+            .ok_or_else(|| CaseError::Depletion(format!("state {} is not laid out", state.name)))?;
+        self.uses[k]
+            .iter()
+            .map(|u| {
+                let Some(u) = u else { return Ok(None) };
+                let table = match *u {
+                    NodeUse::Uniform(table) => table,
+                    // 区間は同じ層のテーブル（制御棒の値だけが違う）なので、どの区間も同じ減速材の軸
+                    NodeUse::Partial(index) => layout.partial[index].segments[0].0,
+                };
+                let file = layout.tables[table].file;
+                moderator_density(&tables[file], state.moderator)
+                    .map(|x| Some(vec![x]))
+                    .map_err(|e| {
+                        CaseError::Depletion(format!(
+                            "{}: state {}: {e}",
+                            layout.files[file].display(),
+                            state.name
+                        ))
+                    })
+            })
+            .collect()
     }
 
     /// 初めの組成: テーブルの燃焼度 0 の点の均質化した数密度（補助の核種は 0）。状態 `k` の並びのテーブルで引く

@@ -2,14 +2,16 @@
 
 use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{Axis, MODERATOR_DENSITY, Table};
+use xlc_format::table::{Axis, MODERATOR_DENSITY, ROD_OUT, Table};
 
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::micro::{MicroChain, correct};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
-use crate::state::{State, interpolate, interpolate_micro, non_negative};
+use crate::state::{
+    State, add_residual, interpolate, interpolate_micro, interpolate_residual, non_negative,
+};
 
 /// 状態を解いた結果。
 #[derive(Debug, Clone)]
@@ -85,7 +87,49 @@ pub fn add_histories(
     rod: Option<&str>,
     histories: &[f64],
 ) -> Result<(), String> {
-    let _ = (f, table, burnup, rod, histories);
+    if histories.len() != HISTORY_VARIABLES.len() {
+        return Err(format!(
+            "{} history variable values for the history variables {HISTORY_VARIABLES:?}",
+            histories.len()
+        ));
+    }
+    for correction in &table.histories {
+        let variable = &correction.variable;
+        let k = HISTORY_VARIABLES
+            .iter()
+            .position(|v| v == variable)
+            .ok_or_else(|| {
+                format!(
+                    "the table holds the residuals of the history variable {variable:?}, which core does not \
+                     track ({HISTORY_VARIABLES:?}. ADR-0215)"
+                )
+            })?;
+        let w = (histories[k] - correction.nominal) / (correction.branch - correction.nominal);
+        // 公称の履歴の変数は残りを使わない（R を持たないテーブルとビットで同じにする。0 倍を足すと −0 が +0 になる）
+        if w == 0.0 {
+            continue;
+        }
+        if !w.is_finite() {
+            return Err(format!(
+                "history variable {variable}: the value {} gives the weight {w}",
+                histories[k]
+            ));
+        }
+        let rod = rod.unwrap_or(ROD_OUT);
+        let entry = correction
+            .rods
+            .iter()
+            .find(|r| r.rod == rod)
+            .ok_or_else(|| {
+                format!(
+                    "history variable {variable}: the node has the rod value {rod} and the weight {w}, but the table \
+                     holds no residuals for that rod value (ADR-0215)"
+                )
+            })?;
+        let r = interpolate_residual(entry, burnup)
+            .map_err(|e| format!("history variable {variable}: {e}"))?;
+        add_residual(f, w, &r);
+    }
     Ok(())
 }
 
@@ -103,7 +147,9 @@ pub fn solve_burnups(
 }
 
 /// `solve_burnups` と同じく解くが、組成 `compositions` を持つ位置の定数に、ミクロ燃焼の線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) を足す
-/// （ADR-0216。σᵢ はその位置のテーブルの使い方の状態と燃焼度で、N̄ᵢ⁰ は燃焼度で内挿した値）
+/// （ADR-0216。σᵢ はその位置のテーブルの使い方の状態と燃焼度で、N̄ᵢ⁰ は燃焼度で内挿した値）。テーブルが履歴の残りを持てば、
+/// 位置の履歴の変数で重みを付けた残りも足す（ADR-0215。`node_constants`）。部分挿入のノードは、区間のテーブルの使い方ごとに
+/// 足した定数を混ぜるので、残りも少数群定数と同じ重みで混ざる（ADR-0127）
 pub fn solve_compositions(
     layout: &Layout,
     tables: &[Table],
@@ -148,8 +194,17 @@ pub fn node_constants(
     n: &[f64],
     histories: &[f64],
 ) -> Result<FewGroup, String> {
-    let _ = (table, state, rod, n, histories);
-    Err("not implemented".into())
+    let mut constants = interpolate(table, Some(state), rod)?;
+    let micro = interpolate_micro(table, state, rod)?;
+    let (Some(mut f), true) = (constants.pop(), constants.is_empty()) else {
+        return Err("micro data need an unsplit table".into());
+    };
+    correct(&mut f, &micro, n);
+    let burnup = state
+        .burnup
+        .ok_or("the micro depleted node needs a burnup (ADR-0190)")?;
+    add_histories(&mut f, table, burnup, rod, histories)?;
+    Ok(f)
 }
 
 /// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して解く
@@ -161,11 +216,13 @@ fn solve_with(
     options: &Options,
 ) -> Result<Solved, CaseError> {
     if let Some(c) = compositions
-        && c.densities.len() != layout.node_material.len()
+        && (c.densities.len() != layout.node_material.len()
+            || c.histories.len() != layout.node_material.len())
     {
         return Err(CaseError::Depletion(format!(
-            "{} micro compositions for {} positions",
+            "{} micro compositions and {} node histories for {} positions",
             c.densities.len(),
+            c.histories.len(),
             layout.node_material.len()
         )));
     }
@@ -174,18 +231,6 @@ fn solve_with(
             "{} tables for {} few-group constant files",
             tables.len(),
             layout.files.len()
-        )));
-    }
-    // 履歴の補正（ADR-0215）は、履歴の変数を進めて足す実装がまだない（#0190）。黙って無視しない
-    if let Some((file, _)) = layout
-        .files
-        .iter()
-        .zip(tables)
-        .find(|(_, t)| !t.histories.is_empty())
-    {
-        return Err(CaseError::State(format!(
-            "{}: the table holds history residuals (ADR-0215), which core does not add yet (#0190)",
-            file.display()
         )));
     }
     let constants = layout
@@ -201,38 +246,48 @@ fn solve_with(
                 )));
             }
             let state = state_of(t);
-            let mut constants = interpolate(table, state.as_ref(), t.rod.as_deref())
-                .map_err(|e| CaseError::State(format!("{file}: {e}")))?;
-            if let (Some(c), Some(site)) = (compositions, t.node)
-                && let Some(Some(n)) = c.densities.get(site)
-            {
-                let micro = state
-                    .as_ref()
-                    .ok_or_else(|| {
-                        CaseError::State(format!("{file}: micro depletion needs a state"))
-                    })
-                    .and_then(|s| {
-                        interpolate_micro(table, s, t.rod.as_deref())
-                            .map_err(|e| CaseError::State(format!("{file}: {e}")))
-                    })?;
-                // ミクロ燃焼のテーブルは分けない（格子全体の均質化。ADR-0216）
-                let [f] = &mut constants[..] else {
+            // ミクロ燃焼のノード: 組成と履歴の変数を持つ位置（ADR-0216、ADR-0215）
+            let node = compositions.zip(t.node).and_then(|(c, site)| {
+                c.densities
+                    .get(site)
+                    .and_then(Option::as_ref)
+                    .map(|n| (c, site, n))
+            });
+            let Some((c, site, n)) = node else {
+                // 履歴の残りは、履歴の変数を進めるミクロ燃焼のノードにだけ足せる。黙って補正なしで使わない
+                if !table.histories.is_empty() {
                     return Err(CaseError::State(format!(
-                        "{file}: micro data need an unsplit table"
+                        "{file}: the table holds history residuals (ADR-0215), which core adds only to micro depleted \
+                         nodes, whose history variables it advances"
                     )));
-                };
-                correct(f, &micro, &c.chain.tracked(n));
-                // 補正で数密度の差が大きいと、吸収や全断面積が負になりうる。内挿の後と同じ検査をして、ソルバに渡す前に止める
-                f.validate()
-                    .map_err(|e| e.to_string())
-                    .and_then(|()| non_negative(f))
-                    .map_err(|e| {
-                        CaseError::State(format!(
-                            "{file}: the micro correction at position {site} gave invalid constants: {e}"
-                        ))
-                    })?;
-            }
-            Ok(constants)
+                }
+                return interpolate(table, state.as_ref(), t.rod.as_deref())
+                    .map_err(|e| CaseError::State(format!("{file}: {e}")));
+            };
+            let s = state.as_ref().ok_or_else(|| {
+                CaseError::State(format!("{file}: micro depletion needs a state"))
+            })?;
+            let histories = c
+                .histories
+                .get(site)
+                .and_then(Option::as_ref)
+                .ok_or_else(|| {
+                    CaseError::State(format!(
+                        "{file}: the micro depleted position {site} has no history variables"
+                    ))
+                })?;
+            let f = node_constants(table, s, t.rod.as_deref(), &c.chain.tracked(n), histories)
+                .map_err(|e| CaseError::State(format!("{file}: {e}")))?;
+            // 補正で数密度の差が大きいと、吸収や全断面積が負になりうる。内挿の後と同じ検査をして、ソルバに渡す前に止める
+            f.validate()
+                .map_err(|e| e.to_string())
+                .and_then(|()| non_negative(&f))
+                .map_err(|e| {
+                    CaseError::State(format!(
+                        "{file}: the micro and history corrections at position {site} gave invalid constants: {e}"
+                    ))
+                })?;
+            Ok(vec![f])
         })
         .collect::<Result<Vec<_>, _>>()?;
     let problem = layout.problem(&constants)?;
