@@ -18,6 +18,7 @@
    "reproduce_constants_pcm": 0.0,
    "reverse_residual_pcm": 0.0,
    "dependence_pcm": 2.454566492815502e-05,
+   "residual_nominal_pcm": 3.005663529620506e-05,
    "applied_pcm": 3.005663529620506e-05,
    "first_term_pcm": 0.0
   },
@@ -30,6 +31,7 @@
    "reproduce_constants_pcm": -2.1827872842550278e-11,
    "reverse_residual_pcm": -3.4715235932017094,
    "dependence_pcm": 0.39356358289114723,
+   "residual_nominal_pcm": -3.3904639738739206,
    "applied_pcm": 0.08105961932778882,
    "first_term_pcm": 0.008986795219243504
   },
@@ -42,6 +44,7 @@
    "reproduce_constants_pcm": -6.730260793119669e-11,
    "reverse_residual_pcm": -6.15108438860625,
    "dependence_pcm": 0.5063788025781832,
+   "residual_nominal_pcm": -6.039552876736707,
    "applied_pcm": 0.11153151186954346,
    "first_term_pcm": -0.010358869638366741
   },
@@ -54,6 +57,7 @@
    "reproduce_constants_pcm": -1.8917489796876907e-10,
    "reverse_residual_pcm": -9.49187712830826,
    "dependence_pcm": 0.6750555922899366,
+   "residual_nominal_pcm": -9.364509541064763,
    "applied_pcm": 0.12736758724349784,
    "first_term_pcm": -0.012804218918972765
   },
@@ -66,6 +70,7 @@
    "reproduce_constants_pcm": 7.785274647176266e-10,
    "reverse_residual_pcm": -15.541116763208265,
    "dependence_pcm": 0.9264044056453713,
+   "residual_nominal_pcm": -15.421600868194218,
    "applied_pcm": 0.11951589501404669,
    "first_term_pcm": -0.01946289932493528
   },
@@ -78,6 +83,7 @@
    "reproduce_constants_pcm": -1.4551915228366852e-09,
    "reverse_residual_pcm": -26.785400351969656,
    "dependence_pcm": 1.2824018601149874,
+   "residual_nominal_pcm": -26.71818494229774,
    "applied_pcm": 0.06721540967191686,
    "first_term_pcm": -0.013806676523017813
   },
@@ -90,6 +96,7 @@
    "reproduce_constants_pcm": 3.001332515850663e-10,
    "reverse_residual_pcm": -37.63726859950111,
    "dependence_pcm": 1.5108953191247565,
+   "residual_nominal_pcm": -37.63854700702541,
    "applied_pcm": -0.001278407524296199,
    "first_term_pcm": -0.007546291470134747
   },
@@ -102,6 +109,7 @@
    "reproduce_constants_pcm": -1.7826096154749393e-10,
    "reverse_residual_pcm": -48.30760234764148,
    "dependence_pcm": 1.6602379142914288,
+   "residual_nominal_pcm": -48.39034121305667,
    "applied_pcm": -0.0827388654151946,
    "first_term_pcm": 0.0016966891998890787
   },
@@ -114,6 +122,7 @@
    "reproduce_constants_pcm": -1.1550582712516189e-09,
    "reverse_residual_pcm": -58.78093100902788,
    "dependence_pcm": 1.7445881309249671,
+   "residual_nominal_pcm": -58.97994878141253,
    "applied_pcm": -0.19901777238465002,
    "first_term_pcm": 0.007547782687652216
   },
@@ -126,6 +135,7 @@
    "reproduce_constants_pcm": -3.4424374462105334e-10,
    "reverse_residual_pcm": -79.27611653362237,
    "dependence_pcm": 1.7462283963382106,
+   "residual_nominal_pcm": -79.87066060435336,
    "applied_pcm": -0.5945440707309899,
    "first_term_pcm": 0.017358586068439763
   },
@@ -138,6 +148,7 @@
    "reproduce_constants_pcm": 8.890310709830374e-11,
    "reverse_residual_pcm": -109.71216775890184,
    "dependence_pcm": 1.3657167978519738,
+   "residual_nominal_pcm": -111.42525079625989,
    "applied_pcm": -1.7130830373580466,
    "first_term_pcm": -0.004814153009647271
   },
@@ -150,6 +161,7 @@
    "reproduce_constants_pcm": -9.986251825466752e-10,
    "reverse_residual_pcm": -141.28505395198954,
    "dependence_pcm": 0.5677052495439057,
+   "residual_nominal_pcm": -144.82952645686873,
    "applied_pcm": -3.544472504879195,
    "first_term_pcm": -0.005913214451538806
   },
@@ -162,6 +174,7 @@
    "reproduce_constants_pcm": -5.329638952389359e-10,
    "reverse_residual_pcm": -175.05511722730625,
    "dependence_pcm": -0.6095975872995041,
+   "residual_nominal_pcm": -181.11308797661331,
    "applied_pcm": -6.05797074930706,
    "first_term_pcm": -0.006393682893758523
   },
@@ -174,6 +187,7 @@
    "reproduce_constants_pcm": -2.508386387489736e-09,
    "reverse_residual_pcm": -225.56170122833828,
    "dependence_pcm": -2.510053588732262,
+   "residual_nominal_pcm": -235.63563812088069,
    "applied_pcm": -10.073936892542406,
    "first_term_pcm": -0.007537631650848198
   },
@@ -186,6 +200,7 @@
    "reproduce_constants_pcm": -9.313225746154785e-10,
    "reverse_residual_pcm": -284.17675487810993,
    "dependence_pcm": -4.664428318341379,
+   "residual_nominal_pcm": -298.17442358215703,
    "applied_pcm": -13.9976687040471,
    "first_term_pcm": -0.010358855106460396
   },
@@ -198,6 +213,7 @@
    "reproduce_constants_pcm": 2.000888343900442e-10,
    "reverse_residual_pcm": -347.4707981806714,
    "dependence_pcm": -6.566200861368998,
+   "residual_nominal_pcm": -364.6557213317974,
    "applied_pcm": -17.184923151125986,
    "first_term_pcm": -0.00858090098699904
   },
@@ -210,6 +226,7 @@
    "reproduce_constants_pcm": 1.8844730220735073e-09,
    "reverse_residual_pcm": -379.0335889668495,
    "dependence_pcm": -7.475680549152457,
+   "residual_nominal_pcm": -397.53855144988484,
    "applied_pcm": -18.504962483035342,
    "first_term_pcm": 0.006088822781748604
   }
