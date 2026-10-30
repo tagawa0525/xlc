@@ -46,7 +46,7 @@ symlink がないと、DVC は worktree の中に別のキャッシュを黙っ�
 
 git で追跡しない出力（`bin/` の実行ファイル、`examples/vera/vera.msgpack`、各例の出力、記録が引く生成物と参照解のピン出力）は
 worktree に無い。キャッシュ（main と共有。reflink）から `dvc.lock` と `.dvc` ファイル（記録が引く生成物。ADR-0222）の hash に
-合わせて戻す。約 10 秒で、使用量は十数 MB:
+合わせて戻す。約 11 秒（使用量と測った日はスクリプトの冒頭のコメント）:
 
 ```sh
 scripts/worktree-restore-outputs.sh
