@@ -265,8 +265,13 @@ class Report(unittest.TestCase):
         text = c.report(compared())
         self.assertIn("L/E", text)
         self.assertIn("指標の比", text)
-        self.assertNotRegex(text, r"-[0-9]")
+        self.assertNotRegex(text, r"(?<![A-Za-z])-[0-9]")
         self.assertRegex(text, r"−[0-9]")
+
+    def test_report_keeps_the_hyphens_of_the_nuclide_names(self):
+        text = c.report(compared(fixture()))
+        self.assertIn("U-235", text)
+        self.assertNotIn("U−235", text)
 
     def test_summaries_of_other_tables_are_errors(self):
         md5s = {name: "aaa" for name in c.INPUTS}
