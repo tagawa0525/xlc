@@ -4,6 +4,7 @@
 //! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
 //!
 //! 使い方: lattice <入力ファイル>
+//!         lattice histories <入力ファイル>（履歴の補正の残り R を公称のテーブルに書き足す。`xlc_lattice::residual`。ADR-0215）
 //!
 //! 入力ファイル中のライブラリと出力のパスは、入力ファイルのあるディレクトリからの相対パス。
 //!
@@ -59,7 +60,13 @@ fn main() -> ExitCode {
         [input] => init_logging()
             .and_then(|()| use_allowed_cpus())
             .and_then(|()| run(Path::new(input))),
-        _ => Err(anyhow!("usage: lattice <input>")),
+        // 履歴の補正の残り R を公称のテーブルに書き足す（ADR-0215。格子計算は解かない）
+        [command, input] if command == "histories" => {
+            init_logging().and_then(|()| xlc_lattice::residual::run(Path::new(input)))
+        }
+        _ => Err(anyhow!(
+            "usage: lattice <input> | lattice histories <input>"
+        )),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
