@@ -1276,6 +1276,106 @@ class DrawCoreHistory(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawHistorySwitch(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_switch.py の要約（参照の点 2 つ）"""
+
+        def row(burnup, weight, scale):
+            return {
+                "burnup": burnup,
+                "weight": weight,
+                "reference_k_inf": 0.98110123,
+                "k": 0.981,
+                "plain_k": 0.982,
+                "difference_pcm": -1.2345 * scale,
+                "plain_difference_pcm": 30.456 * scale,
+                "composition_pcm": -0.5678 * scale,
+                "plain_composition_pcm": 25.5 * scale,
+                "density_percent": -0.0123 * scale,
+                "density_nuclide": "Am-241",
+                "plain_density_percent": -1.5 * scale,
+                "plain_density_nuclide": "Pu-240",
+                "densities_percent": {"U-235": 0.01},
+                "plain_densities_percent": {"U-235": 0.2},
+                "branch_difference_pcm": -1.222,
+                "nominal_difference_pcm": -1.009,
+                "first_term_pcm": 0.0123 * scale,
+            }
+
+        return {
+            "format": "xlc-compare-history-switch",
+            "continued_burnup": 20.0,
+            "check_pcm": 0.0012,
+            "rows": [row(20.0, 0.0, 0.0), row(60.0, 2.0 / 3.0, 1.0)],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def test_rows_compare_the_cores_with_the_reference(self):
+        table = vt.history_switch([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "参照の k∞",
+                "core − 参照 (pcm)",
+                "数密度の効き (pcm)",
+                "数密度の最大の差 (%)",
+                "補正を切った core − 参照 (pcm)",
+                "補正を切った数密度の効き (pcm)",
+                "補正を切った数密度の最大の差 (%)",
+                "一生を条件 j: core − 第 1 項 (pcm)",
+                "公称: core − テーブル (pcm)",
+                "参照 − 格子計算の履歴 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "20",
+                    "0.0000",
+                    "0.98110123",
+                    "0.000",
+                    "0.000",
+                    "0.000（Am-241）",
+                    "0.000",
+                    "0.000",
+                    "0.000（Pu-240）",
+                    "−1.222",
+                    "−1.009",
+                    "0.000",
+                ],
+                [
+                    "60",
+                    "0.6667",
+                    "0.98110123",
+                    "−1.234",
+                    "−0.568",
+                    "−0.012（Am-241）",
+                    "+30.456",
+                    "+25.500",
+                    "−1.500（Pu-240）",
+                    "−1.222",
+                    "−1.009",
+                    "+0.012",
+                ],
+            ],
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.history_switch([{"format": "xlc-compare-core-history"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        (sources, _) = vt.TABLES["depletion-history-switch"]
+        self.assertEqual(sources, ["examples/depletion/history/switch.json"])
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
