@@ -5,13 +5,14 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, Table};
 
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
-use crate::micro::{MicroChain, correct};
+use crate::micro::{MicroChain, correct, production_index};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
-    MicroAt, State, add_rate_residual, add_residual, interpolate, interpolate_micro,
-    interpolate_rate_residual, interpolate_residual, non_negative,
+    MicroAt, State, add_rate_residual, add_residual, interpolate, interpolate_branch_difference,
+    interpolate_micro, interpolate_rate_residual, interpolate_residual, non_negative,
+    residual_is_zero,
 };
 
 /// 状態を解いた結果。
@@ -130,20 +131,62 @@ fn weighted_histories<'a>(
     Ok(out)
 }
 
-/// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り Σ_j w_j R_j,r(u)
-/// を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、R は燃焼度 `burnup` で内挿した残り。w_j が 0 の変数は足さない。
-/// 燃焼度が残りの点の範囲の外ならエラー
+/// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り
+/// Σ_j [w_j U_j,r(u) + (E / E_j,r(u)) L_j,r(u)] を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
+/// `burnup` で内挿した値。E は熱群の νΣf の線形の補正（`production_index`）の、ノードの数密度 `n` と状態で内挿した基準の数密度
+/// （`micro`）の差のもの、E_j は同じ係数の、履歴の分岐の数密度の差（`interpolate_branch_difference`）のもの。w_j が 0 の変数は足さない。
+/// L がすべて 0 の点（燃焼度 0。履歴の分岐の組成が公称と同じ）は E_j も 0 なので足さない。燃焼度が残りの点の範囲の外か、L が 0 で
+/// ないのに E_j が 0 ならエラー
 pub fn add_histories(
     f: &mut FewGroup,
     table: &Table,
     burnup: f64,
     rod: Option<&str>,
     histories: &[f64],
+    micro: &MicroAt,
+    n: &[f64],
 ) -> Result<(), String> {
-    for (variable, w, entry) in weighted_histories(table, rod, histories)? {
-        let r = interpolate_residual(entry, burnup)
-            .map_err(|e| format!("history variable {variable}: {e}"))?;
-        add_residual(f, w, &r);
+    let weighted = weighted_histories(table, rod, histories)?;
+    if weighted.is_empty() {
+        return Ok(());
+    }
+    let Some(Axis::Burnup { points: axis }) =
+        table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
+    else {
+        return Err("history residuals need a burnup axis (ADR-0215)".into());
+    };
+    let nominal = &table
+        .micro
+        .as_ref()
+        .ok_or("history residuals need micro data (ADR-0215)")?
+        .densities;
+    let node: Vec<f64> = n
+        .iter()
+        .zip(&micro.densities)
+        .map(|(density, nominal)| density - nominal)
+        .collect();
+    for (variable, w, entry) in weighted {
+        let at = |e: String| format!("history variable {variable}: {e}");
+        let untracked = interpolate_residual(entry, &entry.untracked, burnup).map_err(at)?;
+        add_residual(f, w, &untracked);
+        let linearization =
+            interpolate_residual(entry, &entry.linearization, burnup).map_err(at)?;
+        if residual_is_zero(&linearization) {
+            continue;
+        }
+        let branch = interpolate_branch_difference(entry, axis, nominal, burnup).map_err(at)?;
+        let own = production_index(&micro.nuclides, &node);
+        let of_branch = production_index(&micro.nuclides, &branch);
+        let ratio = own / of_branch;
+        // 比を作れない点で L を w などで足すと、どの近似かが入力から読めない。黙って置き換えない
+        if of_branch == 0.0 || !ratio.is_finite() {
+            return Err(at(format!(
+                "the linearization error is not zero at burnup {burnup}, but the branch index (the thermal \
+                 nu-fission of its linear correction) is {of_branch}, so its ratio {own} / {of_branch} is not a \
+                 weight (ADR-0215)"
+            )));
+        }
+        add_residual(f, ratio, &linearization);
     }
     Ok(())
 }
@@ -218,7 +261,7 @@ pub fn node_constants(
     let burnup = state
         .burnup
         .ok_or("the micro depleted node needs a burnup (ADR-0190)")?;
-    add_histories(&mut f, table, burnup, rod, histories)?;
+    add_histories(&mut f, table, burnup, rod, histories, &micro, n)?;
     Ok(f)
 }
 
