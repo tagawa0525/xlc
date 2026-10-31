@@ -39,8 +39,8 @@ PYTHONS = re.compile(r"python(3(\.\d+)?)?")
 class _Parser:
     """bash のコマンドの文字列を、実行される単純なコマンドの語の並びに分ける。
 
-    引用、`\\`、コメント、ヒアドキュメントの本文（実行されない）を読み分け、`$(…)` と `"…"` の中の `$(…)` は中の
-    コマンドも並びに入れる。バッククォート、算術式、`case` の `)` は読み分けない（区切りとして扱う）。
+    引用（`'…'`、`"…"`、`$'…'`、`\\`）、コメント、ヒアドキュメントの本文（実行されない）を読み分け、`$(…)`、`<(…)`、
+    `>(…)` と `"…"` の中の `$(…)` は中のコマンドも並びに入れる。バッククォート、算術式、`case` の `)` は読み分けない（区切りとして扱う）。
     """
 
     def __init__(self, text):
@@ -66,8 +66,10 @@ class _Parser:
             word = None
 
         def end_command():
-            nonlocal words
+            # `<(…)` と `>(…)` の `(` で、リダイレクトの先の語を待つのをやめる（中の最初の語はコマンド名）
+            nonlocal words, redirect_target
             end_word()
+            redirect_target = False
             if words:
                 self.commands.append(words)
             words = []
