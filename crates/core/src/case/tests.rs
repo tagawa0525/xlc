@@ -1078,7 +1078,7 @@ fn production_index_rate_residuals_of_nominal_branch_densities_after_burnup_zero
         RateResidualWeight::ProductionIndex,
     )
     .unwrap_err();
-    assert!(err.contains("index"), "{err}");
+    assert!(err.contains("equal the nominal"), "{err}");
 }
 
 #[test]

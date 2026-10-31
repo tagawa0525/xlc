@@ -2927,7 +2927,7 @@ fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
     };
     let index = RateResidualWeight::ProductionIndex;
     let err = deplete_with(index, &|t| with_histories(t, capture)).unwrap_err();
-    assert!(err.to_string().contains("index"), "{err}");
+    assert!(err.to_string().contains("equal the nominal"), "{err}");
     // 同じテーブルでも w の重みは比を使わない
     assert!(deplete_with(RateResidualWeight::History, &|t| with_histories(t, capture)).is_ok());
     // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。比 P / P_j が Δσ で断面積を負にしない大きさ）
