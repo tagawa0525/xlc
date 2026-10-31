@@ -193,23 +193,13 @@ class Gaps(unittest.TestCase):
         nominal = table()
         rod = nominal["histories"][0]["rods"][0]
         rod["densities"][1] = list(nominal["micro"]["densities"][2])
-        x = parts_at_20()
-        row = c.compare(tables() | {"nominal": nominal}, switch_summary())["rows"][1]
-        self.assertIsNone(row["index_ratio"])
-        self.assertIsNone(row["linearization_weight"])
-        self.assertEqual(row["scaled_linearization_pcm"], 0.0)
-        ref = x["reference"]
-        self.assertAlmostEqual(
-            row["linearization_gap_pcm"],
-            rho(r.added(ref, w.scaled(x["linearization"], -1.0))) - rho(ref),
-            places=9,
+        node = {"burnup": 20.0, "densities": N20}
+        untracked, linearization, index = c.core_parts(
+            c.Table(nominal), j_state(nominal, 2), 2, node, WEIGHT
         )
-        self.assertAlmostEqual(
-            row["untracked_gap_pcm"],
-            rho(r.added(ref, r.difference(x["core_untracked"], x["untracked"])))
-            - rho(ref),
-            places=9,
-        )
+        self.assertEqual(untracked, w.scaled(rod["untracked"][1], WEIGHT))
+        self.assertIsNone(linearization)
+        self.assertIsNone(index)
 
 
 class Closure(unittest.TestCase):
@@ -281,6 +271,18 @@ class Inputs(unittest.TestCase):
             summary["rows"][1][key] += 1e-6
             with self.assertRaises(SystemExit, msg=key):
                 c.compare(tables(), summary)
+
+    def test_a_switch_summary_that_adds_l_where_the_tool_adds_none_is_an_error(self):
+        # switch.json は L を足した点の比を持ち、このテーブルでは L を足さない（どちらかが違う入力）
+        nominal = table()
+        rod = nominal["histories"][0]["rods"][0]
+        rod["densities"][1] = list(nominal["micro"]["densities"][2])
+        with self.assertRaises(SystemExit):
+            c.compare(tables() | {"nominal": nominal}, switch_summary())
+        summary = switch_summary()
+        summary["rows"][1]["index_ratio"] = None
+        with self.assertRaises(SystemExit):
+            c.compare(tables(), summary)
 
     def test_a_switch_summary_of_other_inputs_is_an_error(self):
         md5s = {f: f"md5-{f}" for f in c.FILES.values()}
