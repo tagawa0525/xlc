@@ -613,6 +613,11 @@ pub struct Residual {
     pub adf: Vec<Vec<f64>>,
 }
 
+/// 履歴の分岐の数密度が公称と同じ点の L と Δσ_L の、条件 j の状態の値（項目ごとの絶対値の最大）に対する許容。その点の L と Δσ_L は
+/// 同じ組成と状態の 2 つの格子計算の解の差で、lattice の MOC の中性子束の収束の判定（相対 1e-6。crates/lattice/src/moc.rs の
+/// `Options::default`）の大きさ。2A の燃焼度 0 で測った値は L が 1.5e-7、Δσ_L が 1.3e-8（ADF と Pu-238 の (n,2n)）
+pub const NOMINAL_POINT_TOLERANCE: f64 = 1.0e-6;
+
 /// 減速材の密度の履歴の変数の名前（ADR-0215）
 pub const MODERATOR_DENSITY: &str = "moderator-density";
 
@@ -1149,6 +1154,80 @@ impl Table {
                 }
                 self.validate_rate_residuals(entry)
                     .map_err(|e| format!("{}: {e}", at()))?;
+                self.validate_nominal_points(entry, &mut point, burnup)
+                    .map_err(|e| format!("{}: {e}", at()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// 履歴の分岐の追う核種の数密度が公称と同じ R の点（燃焼度 0 など）の、線形化の誤差 L と Δσ_L が、条件 j の状態（`point`、燃焼度の軸
+    /// `burnup`）の値に対して `NOMINAL_POINT_TOLERANCE` 以内であること。その点のハイブリッドは公称の組成そのもので、L と Δσ_L は 2 つの
+    /// 格子計算の解の差の大きさ。core はその点の L と Δσ_L を足さないので（比 P / P_j を作れない）、ほかの組成から作った値を黙って捨てない
+    fn validate_nominal_points(
+        &self,
+        entry: &HistoryRod,
+        point: &mut [usize],
+        burnup: usize,
+    ) -> Result<(), String> {
+        let micro = self
+            .micro
+            .as_ref()
+            .ok_or("history residuals need micro data")?;
+        let burnups = self.axes[burnup].points();
+        // 項目の値 `x` が、同じ項目の基準 `of` の絶対値の最大に対して許容の中
+        let small = |x: &[f64], of: &[f64]| {
+            let scale = of.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+            x.iter().all(|v| v.abs() <= NOMINAL_POINT_TOLERANCE * scale)
+        };
+        for (k, &b) in entry.burnup.iter().enumerate() {
+            let u = burnups
+                .iter()
+                .position(|&p| p == b)
+                .ok_or_else(|| format!("burnup {b} is not a point of the burnup axis"))?;
+            if entry.densities[k] != micro.densities[u] {
+                continue;
+            }
+            point[burnup] = u;
+            let p = self.point_index(point).ok_or_else(|| {
+                format!("the table has not solved the branch condition at burnup {b}")
+            })?;
+            let (l, f) = (&entry.linearization[k], &self.states[p]);
+            let constants = [
+                (&l.total, &f.total),
+                (&l.absorption, &f.absorption),
+                (&l.nu_fission, &f.nu_fission),
+                (&l.fission, &f.fission),
+                (&l.chi, &f.chi),
+                (&l.diffusion, &f.diffusion),
+            ];
+            let flat = |x: &[Vec<f64>]| x.concat();
+            let fine = constants.iter().all(|(x, of)| small(x, of))
+                && small(&flat(&l.scatter), &flat(&f.scatter))
+                && small(&flat(&l.adf), &flat(&f.adf));
+            let rates_fine = entry.micro.linearization[k]
+                .iter()
+                .zip(&micro.states[p])
+                .all(|(d, n)| {
+                    small(&d.fission, &n.fission)
+                        && d.reactions.iter().zip(&n.reactions).all(|(x, y)| {
+                            x.channels
+                                .iter()
+                                .zip(&y.channels)
+                                .all(|(c, of)| small(c, of))
+                        })
+                        && match (d.thermal_fission, n.thermal_fission) {
+                            // 差は割合 × 群の和の σf なので、基準は群の和の σf
+                            (Some(x), Some(_)) => small(&[x], &[n.fission.iter().sum::<f64>()]),
+                            _ => true,
+                        }
+                });
+            if !(fine && rates_fine) {
+                return Err(format!(
+                    "the branch densities equal the nominal densities at burnup {b}, so the linearization residuals \
+                     there must be the difference of two lattice solves of the same composition (within \
+                     {NOMINAL_POINT_TOLERANCE} of the branch condition values), not of another composition (ADR-0215)"
+                ));
             }
         }
         Ok(())
