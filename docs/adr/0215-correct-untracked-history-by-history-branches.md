@@ -202,8 +202,11 @@ L_X = f(H_X) − f(公称) − Σᵢ cᵢ ΔN̄ᵢ^X（R_X = U_X + L_X）。外�
   最大は τ = −500 MWd/kg の 8.968 pcm が最小で、∞（V1）の 9.181 pcm とほぼ同じ。最近の燃焼に重みを付ける正の τ はどれも外れが大きい
   （10 MWd/kg で 49.845 pcm）。U は条件を変えた直後に w U(1) と逆の符号で、最近の条件に早く寄せる重みに合わない。採らない
 - 案 R6（反応率の Δσ も L と同じ指標の比で足す）: 案 R4 の core の途中で条件を変えた燃焼で、数密度の効きが大きくなった（「確認」）ので、
-  試行（Δσ を R の点で a / w 倍したテーブル。規則に沿わない作り方で、残していない。Δσ の足し方を入力で選べる機能として足してから再測定する）で測った。48〜60 MWd/kg の数密度の効きは −14.702〜+1.470 pcm に縮み、26〜40 MWd/kg は
-  −28.657〜−13.251 pcm のまま。決めていない（#0190）
+  core の入力 `rate-residual-weight = "production-index"` で Δσ を P / P_j で足して測った（「確認」）。core − 参照は −37.614〜+11.347 pcm（w は
+  −32.314〜−17.018 pcm）で、6 点のうち 56 MWd/kg のほかは目安の 5 pcm を超える。数密度の効きは 48〜60 MWd/kg で −14.246〜+2.991 pcm に縮む
+  （w は −35.013〜−31.155 pcm）が、26〜40 MWd/kg は −27.916〜−14.357 pcm で w（−27.239〜−9.733 pcm）と同じ程度か大きい。60 MWd/kg の
+  数密度の効きは、w の Pu-239 −50.71 pcm が +2.54 pcm に縮むが、Pu-240 −11.98、Pu-241 +12.17 pcm が残る。目安に入らないので採らず、既定は w
+  のまま、入力で選べる形で残す（#0190）
 
 履歴の変数の数:
 
@@ -319,6 +322,8 @@ core は、ミクロ燃焼のノードの追う核種の反応率（ADR-0216 の
 - Δσ は R と同じく連続の軸の瞬時の状態に依らない（条件 j の値）。状態への依存は測っていない（R と一緒に #0190 で見直す）
 - w_j が厳密に 0 の変数は足さない（公称の履歴の反応率は、補正のないテーブルとビットで同じ）。補正した断面積が負か、割合が 0〜1 の外なら
   エラー（黙って切らない）
+- Δσ の重みは core の入力（`[depletion]` の `micro` の `rate-residual-weight`）で選べ、既定は w_j（`history`）。L と同じ P / P_j で足す
+  `production-index`（案 R6）は、途中で条件を変えた燃焼で目安に入らなかったので既定にしない（「確認」）
 
 ### Pyrex を抜いた集合体（案 Q1）
 
@@ -422,13 +427,17 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   ΔN̄ᵢ^j が 0 でないのに P_j が 0、core の持たない変数の補正、ミクロ燃焼でない位置（燃焼させない状態の解を含む）に補正を持つテーブル、
   ミクロ燃焼のテーブルのうち補正を持つものと持たないものの混在（持たないテーブルのノードの履歴を補正しない）
 - core: ミクロ燃焼の反応率の σᵢ は、テーブルの内挿 + Σ_j w_j Δσ_j,r（案 S2。crates/core/src/case.rs の `node_micro`。w_j と制御棒の値の
-  選び方は定数の R と同じ関数 `weighted_histories`。燃焼の反応率は、その解の定数を作ったノードの履歴の変数で引く）。ADR-0216 の「追う核種の反応率は、テーブルの微視的断面積 ×
+  選び方は定数の R と同じ関数 `weighted_histories`。燃焼の反応率は、その解の定数を作ったノードの履歴の変数で引く）。`rate-residual-weight =
+  "production-index"`（crates/core/src/input.rs の `RateResidualWeight`）では w_j の代わりに L と同じ P / P_j（同じ関数 `production_ratio`。履歴の分岐の
+  数密度の差がすべて 0 の燃焼度は足さない。P_j が 0 ならエラー）を掛ける。P は反応率を規格化する組成、つまりその解の定数を作った組成で作る
+  （予測子は点の組成、修正子は中点の組成。平衡 Xe の反復ではその反復の組成。crates/core/src/depletion.rs の `node_rates`）。解の定数の L と同じ
+  P になり、反応率の組成と定数の組成を分けない。係数は Δσ を足す前の内挿の値（線形の補正の係数は Δσ で変わらない）。ADR-0216 の「追う核種の反応率は、テーブルの微視的断面積 ×
   ノードの中性子束」の σᵢ はこの補正を足したもので、ADR-0216 の帰結の「σᵢ を燃焼度で引くので…自己遮蔽の変化も燃焼度の関数として入る」は
   公称の燃焼の変化で、履歴の分岐の組成のスペクトルと自己遮蔽の違いは、この補正が w に比例して足す（ADR-0216 の本文は変えない）
 - 線形の補正の係数の選び方（`linear_coefficients`。`add_linear_correction` と core の P が呼ぶ）と、履歴の分岐の条件の格子点
   （`Table::history_condition`）は xlc-format の 1 つの関数で、core のノードの補正と P、lattice の L の線形の補正の項、テーブルの検査が同じものを呼ぶ
-- 途中で条件を変えた燃焼の core の差は −32.314〜−17.018 pcm で目安に入らない（「確認」）。差の大半は core の数密度の効きで、反応率の Δσ の
-  足し方（案 R6）が候補。この決定の status は、その見直し（#0190）の後に決める
+- 途中で条件を変えた燃焼の core の差は −32.314〜−17.018 pcm で目安に入らない（「確認」）。差の大半は core の数密度の効きで、反応率の Δσ を
+  L と同じ P / P_j で足しても（案 R6）−37.614〜+11.347 pcm で入らない。この決定の status は、数密度の効きの見直し（#0190）の後に決める
 - 本番の格子点（熱水力の ADR）の後に、密度の履歴の分岐の値を決める。ホウ素と燃料の温度の履歴は、HFP の範囲で大きさを測ってから
   足すか決める
 - 2A の測定は ADR-0209 の前の既定の組で、履歴の効きの大きさの目安。本番の既定で再測定するかは、比例と重みの確認（#0190）のときに決める
@@ -461,7 +470,12 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     `history_branch_points_deplete_with_the_branch_rate_cross_sections`、`nominal_histories_leave_the_rate_cross_sections_bit_identical`、
     `rate_residuals_scale_with_the_weight_and_leave_the_linear_correction`、`rate_residuals_that_give_negative_cross_sections_or_fractions_are_errors`、
     燃焼の反応率に使うことは crates/core/src/depletion/tests.rs の `micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history`
-    （w = 0.5 の燃焼が、捕獲を 0.5 Δσ ずらしたテーブルの燃焼と同じ数密度、w = 0 の燃焼が Δσ を 0 にしたテーブルとビットで同じ）
+    （w = 0.5 の燃焼が、捕獲を 0.5 Δσ ずらしたテーブルの燃焼と同じ数密度、w = 0 の燃焼が Δσ を 0 にしたテーブルとビットで同じ）。
+    Δσ の重み P / P_j（案 R6）: crates/core/src/case/tests.rs の `rate_residuals_scale_with_the_production_index_when_chosen`（σᵢ + (P / P_j) Δσᵢ で、
+    w によらない）、`production_index_rate_residuals_reproduce_the_branch_at_its_point_and_skip_nominal_compositions`（履歴の分岐の点で第 1 項の
+    σᵢ、燃焼度 0 は足さない）、`production_index_rate_residuals_without_a_branch_index_are_errors`、`nominal_histories_leave_the_rate_cross_sections_bit_identical`
+    （w = 0 は重みによらずビットで同じ）、燃焼は crates/core/src/depletion/tests.rs の `micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input`、
+    入力は crates/core/src/input/tests.rs の `depletion_micro_may_choose_the_weight_of_the_rate_residuals`
   - core の測定（examples/depletion/verification.md の「履歴の補正の core（2A の集合体 1 体）」。2026-10-31、ブランチ feat/0190-split-residual-core の
     ea96610a の core、c17cbeee のテーブル、比較は 72c17133、手元）: U、L、Δσ を持つテーブルと持たないテーブルの公称の燃焼の出力はバイトで同じ。
     一生を条件 j で燃焼させた core（w = 1）の k は、core の数密度で組み立てた定数 + w U + (P / P_j) L の 2 群の k と −5.7e-06〜−5.6e-07 pcm の差で、
@@ -545,9 +559,15 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     core − 参照は −32.314〜−17.018 pcm（60 MWd/kg で −22.987 pcm）で、6 点のすべてで目安の 5 pcm を超える（前の版は +3.751〜+52.248 pcm）。
     数密度の効きを除いた残り（定数の側）は −9.184〜+12.026 pcm で、格子計算の組成で見込んだ両方の外れの分（−9.914〜+9.247 pcm）と同じ程度。
     差の大半は数密度の効き（−35.013〜−9.733 pcm。前の版は −15.313〜−1.513 pcm）で、60 MWd/kg の大きい核種は Pu-239 −50.71、Pu-240 +21.83 pcm。
-    原因は確かめていない。反応率の Δσ を w で足し、L の係数（core の組成の P / P_j、60 MWd/kg で 0.8521）と違うことが候補で、試行
-    （Δσ を R の点で a / w 倍したテーブル。b5cf8891、b4c893b8 でコミットし、規則に沿わない作り方で、残していない。Δσ の足し方を入力で選べる機能として足してから再測定する）では 48〜60 MWd/kg の数密度の効きが −14.702〜+1.470 pcm に縮み、
-    26〜40 MWd/kg は −28.657〜−13.251 pcm のまま（「検討した案」の案 R6。#0190）
+    原因は確かめていない。反応率の Δσ を w で足し、L の係数（core の組成の P / P_j、60 MWd/kg で 0.8521）と違うことを候補として、次で測った
+  - Δσ を P / P_j で足す core の測った値（「検討した案」の案 R6。examples/depletion/verification.md の「途中で条件を変えた燃焼（2A）」の表
+    `depletion-history-switch-rate-weight` と「履歴の補正の core（2A の集合体 1 体）」。ブランチ feat/0190-rate-residual-weight の 7ecd6d0c の core
+    （`rate-residual-weight = "production-index"`）、c17cbeee のテーブル、比較は eca157a4、2026-10-31、手元）: 途中で条件を変えた燃焼の core − 参照は
+    −37.614〜+11.347 pcm（60 MWd/kg で +11.347 pcm）、数密度の効きは −27.916〜+2.991 pcm、定数の側は −9.698〜+8.355 pcm（w は −9.184〜+12.026 pcm）。
+    公称の燃焼の出力は補正を持たないテーブルとバイトで同じ。一生を条件 j で燃焼させた core と第 1 項の差は −4.095〜+10.429 pcm（15 MWd/kg 以後
+    −4.095〜−1.282 pcm。w は −3.928〜+8.132 pcm）。同じ core で w の 5 本の出力は前の版とバイトで同じ。規則に沿わない前の試行（Δσ をテーブルの
+    R の点で a / w 倍した b5cf8891、b4c893b8）は比を R の点で掛けて燃焼度で内挿し、core は解ごとの組成で比を作るので、値は同じでない
+    （違いの内訳は確かめていない）
   - U の指数の重みの測った値（examples/depletion/verification.md の「追わない核種の分 U の指数の重み（2A）」。比較は 1ec382aa の
     examples/depletion/history/compare_forgetting.py、2026-10-31）: 「検討した案」の案 R5。U の外れの絶対値の最大が最小の τ は −500 MWd/kg の
     8.968 pcm で、∞（V1）の 9.181 pcm とほぼ同じ
