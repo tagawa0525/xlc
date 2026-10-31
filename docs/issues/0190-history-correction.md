@@ -405,6 +405,9 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   - このブランチのレビューで残したもの（直していない）: P / P_j の作り方が compare_switch.py の `rate_outliers`、compare_core_history.py の
     `Table.node_k`、compare_split_core.py の `core_parts` の 3 か所にあり、core のノードの定数の組み立ても `Table.node_k` と重なる（`Table` の
     メソッドにまとめる候補。`rate_outliers` は履歴の分岐の数密度が公称と同じ点でエラーにし、ほかの 2 つは L を足さない）
+    2 周目で残したもの: `core_parts` は P_j が 0 のときだけ止め、core の `production_ratio` のように比が有限でないとき（P_j が非正規化数、NaN の
+    数密度）は止めない（JSON に Infinity か NaN を書く）。行ごとに R の点の番号と係数を `core_parts` と `compare` で 2 度引く。`report` は続ける点より
+    後の点が無いと `min()` の空の列で止まる
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
   超えた差（自分の数密度の項（候補 (e)、ADR-0215 の案 R9）で数密度の効きは −5.350〜−0.900 pcm に縮み、残りの大半は定数の側で、
