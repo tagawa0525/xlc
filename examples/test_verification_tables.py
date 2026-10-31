@@ -1314,11 +1314,15 @@ class DrawHistorySwitch(unittest.TestCase):
                         "nuclide": "Pu-239",
                         "untracked_percent": [0.01234, -0.0456],
                         "linearization_percent": [-0.1234, 0.0789],
+                        "linearization_ratio": [0.86381, 0.89412],
+                        "density_ratio": 0.90663,
                     },
                     {
                         "nuclide": "Pu-240",
                         "untracked_percent": [-0.3456, 0.0012],
                         "linearization_percent": [0.5678, -0.0034],
+                        "linearization_ratio": [0.85112, 0.85809],
+                        "density_ratio": 0.85731,
                     },
                 ],
             }
@@ -1416,7 +1420,8 @@ class DrawHistorySwitch(unittest.TestCase):
     def test_rows_split_the_rate_outliers_into_the_untracked_part_and_the_linearization(
         self,
     ):
-        # 補正を足す点（w が 0 でない）の核種ごとの、反応率の σ の外れ（参照の σ に対する %）を、Δσ_U と Δσ_L の群ごとに
+        # 補正を足す点（w が 0 でない）の核種ごとの、反応率の σ の外れ（参照の σ に対する %）を、Δσ_U と Δσ_L の群ごとに。参照の
+        # Δσ_L の実効の比と、その核種の数密度の比を P / P_j と並べる
         table = vt.history_switch_rate_outliers([self.summary()])
         header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
         self.assertEqual(
@@ -1430,6 +1435,8 @@ class DrawHistorySwitch(unittest.TestCase):
                 "高速群 Δσ_L (%)",
                 "熱群 Δσ_U (%)",
                 "熱群 Δσ_L (%)",
+                "Δσ_L の実効の比（高速群、熱群）",
+                "数密度の比",
             ],
         )
         self.assertEqual(
@@ -1444,6 +1451,8 @@ class DrawHistorySwitch(unittest.TestCase):
                     "−0.1234",
                     "−0.0456",
                     "+0.0789",
+                    "0.8638、0.8941",
+                    "0.9066",
                 ],
                 [
                     "60",
@@ -1454,6 +1463,8 @@ class DrawHistorySwitch(unittest.TestCase):
                     "+0.5678",
                     "+0.0012",
                     "−0.0034",
+                    "0.8511、0.8581",
+                    "0.8573",
                 ],
             ],
         )

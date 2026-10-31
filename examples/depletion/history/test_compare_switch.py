@@ -440,6 +440,16 @@ class Compare(unittest.TestCase):
                     (index * dl[g] - (hyb[g] - nom[g])) / ref[g] * 100.0,
                     places=9,
                 )
+            # 参照の Δσ_L,switch の Δσ_L に対する実効の比（群ごと）と、参照の数密度の差の履歴の分岐の差に対する比（この核種だけの指標）
+            for g in range(2):
+                self.assertAlmostEqual(
+                    x["linearization_ratio"][g], (hyb[g] - nom[g]) / dl[g], places=12
+                )
+            self.assertAlmostEqual(
+                x["density_ratio"],
+                (REFERENCE20[i] - nominal[i]) / (branch[i] - nominal[i]),
+                places=12,
+            )
         # 続ける点（w = 0）は外れを持たない（core は補正を足さない）
         self.assertIsNone(s["rows"][0]["rate_outliers"])
         text = c.report(s)
