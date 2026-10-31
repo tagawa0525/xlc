@@ -338,7 +338,9 @@ def main():
             if payload.get("tool_name") == "Bash"
             else ""
         )
-    except (json.JSONDecodeError, AttributeError) as e:
+        if not isinstance(command, str):
+            raise TypeError(f"tool_input.command が文字列でない: {command!r}")
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
         print(f"block-raw-dvc-checkout: hook の入力を読めない: {e}", file=sys.stderr)
         return 1
     try:
