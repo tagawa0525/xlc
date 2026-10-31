@@ -50,7 +50,7 @@ issues: ["#0184", "#0210", "#0211"]
 
 - 置き場: `.claude/settings.json` の `hooks.PreToolUse` に `matcher: "Bash"` の command の hook を置き、`.claude/hooks/block-raw-dvc-checkout.py`
   を環境変数 `CLAUDE_PROJECT_DIR` から呼ぶ（command はシェルの 1 行で、スクリプトのファイルが無ければ終了コード 1 で知らせて
-  通す。stdin に `checkout` の文字列が無ければ python3 を起動せずに終了コード 0 で終える。hook はすべての Bash の呼び出しの前に
+  通す。stdin に `check` の文字列（Python の判定より広い語）が無ければ python3 を起動せずに終了コード 0 で終える。hook はすべての Bash の呼び出しの前に
   走るため）。スクリプトは標準ライブラリだけで書き、`nix develop` の外の PATH の python3 で動く
   （hook はシェルから実行され、devShell に入っていない）。home の settings の PreToolUse（`claude-hooks pre-tool-use`）とは
   別の設定の階層の hook で、両方が走る（Claude Code は設定の階層の hook を置き換えずに足し合わせる）

@@ -26,6 +26,9 @@ True を返すことを示した。また、出力に触れない `dvc checkout 
 `nix-shell --run '…'`、`taskset --cpu-list=0 …`、`python3 -u -m dvc checkout`（インタプリタのオプションが `-m` の前）を挙げた
 （ADR-0223 の帰結の既知の抜け道にも書いた）。
 
+親の 3 周目（同日）は構造を挙げた: `_unwrap` が語の並び（list）と `bash -c` の文字列（str）の 2 種類を返し、`_is_dvc_checkout` が
+isinstance で振り分ける。`bash -c` の分岐で文字列を `simple_commands` に展開し、常に語の並びのリストを返す形にすれば分岐が消える。
+
 どれも普段の書き方ではないので、レビューの基準（直すのは普段の書き方の誤り）で直さなかった。
 
 関係する ADR: ADR-0223
