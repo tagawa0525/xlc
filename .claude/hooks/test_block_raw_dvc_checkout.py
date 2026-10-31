@@ -5,6 +5,7 @@
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -51,6 +52,10 @@ BLOCKED = [
     "bash --norc -c 'dvc checkout'",
     "while read l; do echo $l; done < <(dvc checkout 2>&1)",
     "grep -c failed <(dvc checkout 2>&1)",
+    "nix develop --command bash -c 'dvc checkout'",
+    "nix develop .#references --command bash -c 'cd x && dvc checkout'",
+    "nix develop -c -- dvc checkout",
+    "env -iC /x dvc checkout",
     "echo $'don\\'t'; dvc checkout",
 ]
 
@@ -141,6 +146,12 @@ class HookProcessTest(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("読めない", r.stderr)
 
+    def test_non_string_command_fails_without_blocking(self):
+        r = run_hook({"tool_name": "Bash", "tool_input": {"command": None}})
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("hook の入力を読めない", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
     def test_malformed_input_fails(self):
         r = subprocess.run(
             [sys.executable, str(HOOK)],
@@ -151,6 +162,42 @@ class HookProcessTest(unittest.TestCase):
         )
         self.assertEqual(r.returncode, 1)
         self.assertNotEqual(r.stderr, "")
+
+
+SETTINGS = HOOK.parent.parent / "settings.json"
+
+
+def run_settings_command(payload, project_dir):
+    """.claude/settings.json の PreToolUse の Bash の command を、Claude Code と同じくシェルで実行する。"""
+    (entry,) = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+    (handler,) = entry["hooks"]
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+    if project_dir is not None:
+        env["CLAUDE_PROJECT_DIR"] = project_dir
+    return subprocess.run(
+        ["sh", "-c", handler["command"]],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+
+BLOCKED_PAYLOAD = {"tool_name": "Bash", "tool_input": {"command": "dvc checkout"}}
+
+
+class SettingsCommandTest(unittest.TestCase):
+    def test_settings_command_runs_the_hook(self):
+        r = run_settings_command(BLOCKED_PAYLOAD, str(HOOK.parent.parent.parent))
+        self.assertEqual(r.returncode, 2)
+
+    def test_missing_project_dir_reports_without_blocking(self):
+        for project_dir in (None, "", "/nonexistent"):
+            with self.subTest(project_dir=project_dir):
+                r = run_settings_command(BLOCKED_PAYLOAD, project_dir)
+                self.assertEqual(r.returncode, 1)
+                self.assertNotEqual(r.stderr, "")
 
 
 if __name__ == "__main__":
