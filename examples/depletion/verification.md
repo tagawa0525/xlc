@@ -6145,12 +6145,13 @@ python3 compare_forgetting.py --report forgetting.json
 その点の `histories` と `densities`。P_j = Σᵢ cᵢ_νf,G ΔN̄ᵢ^j で、係数は core と同じ公称のテーブル（`table-residual-nominal-histories.msgpack`）の
 条件 j の状態の格子点のもの（core の `production_ratio`）。U(1) と L(1) は同じテーブルの `histories` で、core が足すもの。点の `densities` は、
 その点の解の組成（crates/core/src/depletion.rs の `solve_operating` は、平衡 Xe でなければ（この入力は `xenon = "tracked"`）修正子で進めた
-組成のまま点を解き、その組成を記録する）で、core の k はこの組成の P / P_j で組み立てた定数の 2 群の k と 3.6e−06〜5.8e−06 pcm で同じ
-（下の再構成）。
+組成のまま点を解き、その組成を記録する）で、26〜60 MWd/kg の core の k はこの組成の P / P_j で組み立てた定数の 2 群の k と 3.6e−06〜5.8e−06 pcm で
+同じ（下の再構成）。
 
 core のノードの定数 f_core = f(公称、j) + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) + w U(1) + (P / P_j) L(1) は、参照の定数 f(switch) = f(公称、j) + Σᵢ cᵢ ΔN̄ᵢ^switch +
 U_switch + L_switch を使うと、線形の補正が数密度の差に 1 次なので f(switch) + Σᵢ cᵢ (Nᵢ − N̄ᵢ^switch) + δ_U + δ_L になる。第 2 項が
-「途中で条件を変えた燃焼（2A）」の数密度の効きの量なので、定数の側は δ_U + δ_L を参照の定数に足した効きで、外れの分は「履歴の残り R の分け方（2A）」と
+「途中で条件を変えた燃焼（2A）」の数密度の効きの量なので、定数の側は δ_U + δ_L を参照の定数に足した効きと、下の残り（反応度で足し合わない分、
+k の基準など）だけ違い、外れの分は「履歴の残り R の分け方（2A）」と
 同じく参照の定数に足した効き ρ(f(switch) + δ) − ρ(f(switch)) とする（Δρ は ρ = 1 − 1/k の差の pcm、k は 2 群の無限媒質の k。
 `history/compare_split_core.py`）。U と L の外れの分は反応度で足し合わないので、両方の外れの分（δ_U + δ_L を足した効き）も並べ、残り = 定数の側 −
 両方の外れの分を、再構成 ρ(core の k) − ρ(f_core)、恒等 ρ(f_core) − ρ(f(switch) + 数密度の差 + δ_U + δ_L)、非加法（数密度の効きと両方の外れの分の
