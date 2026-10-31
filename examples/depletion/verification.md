@@ -5333,8 +5333,8 @@ python3 compare_switch.py --report switch.json
 ブランチ feat/0190-history-switch-lattice（分岐点は main の cf4ab563）、2026-10-30。格子計算の 2 本は 849b98eb の `cargo build --release` の
 `target/release/lattice`（md5 73f4ba85。`continue` を足した版）で解いた: 途中で条件を変えた燃焼（Slurm 626）、参照（627）。どちらも割り込まれうる
 ジョブなので時間は記録に使わない。履歴は md5 1840f666、参照のテーブルは 3f74b1d4（追跡しない生成物）。core の 4 は「履歴の補正の core（2A の
-集合体 1 体）」の 4 と 8 の出力（ブランチ feat/0190-rate-residual-weight（分岐点は main の aa37f3ed）の 7ecd6d0c の `target/release/core`、
-md5 14538960 と ee100704、2026-10-31）、補正を切った対照は d5e35a33 の main の `bin/core`（md5 9ac76e72）で手元で流した（md5 f334b2d5。7ecd6d0c の
+集合体 1 体）」の 4 と 8 の出力（ブランチ feat/0190-rate-residual-weight（分岐点は main の aa37f3ed）の 7ecd6d0c の `target/release/core`（md5 71f91466）。
+core の履歴は md5 14538960 と ee100704、2026-10-31）、補正を切った対照は d5e35a33 の main の `bin/core`（md5 9ac76e72）で手元で流した（md5 f334b2d5。7ecd6d0c の
 core で再実行して同じ md5）。比較は eca157a4 で手元、2026-10-31。
 
 ### 結果
