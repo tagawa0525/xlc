@@ -41,6 +41,15 @@ BLOCKED = [
     "echo ok # comment\ndvc checkout",
     "cat <<'EOF' > f\nhello\nEOF\ndvc checkout",
     "dvc \\\n  checkout",
+    "for y in examples/*/dvc.yaml; do dvc checkout $y; done",
+    "if dvc checkout; then echo ok; fi",
+    "if true; then echo ok; else dvc checkout; fi",
+    "while false; do :; done; { dvc checkout; } 2>&1 | tail",
+    "! dvc checkout",
+    "bash -o pipefail -c 'dvc checkout'",
+    "bash -euo pipefail -c 'dvc checkout dvc.yaml'",
+    "bash --norc -c 'dvc checkout'",
+    "echo $'don\\'t'; dvc checkout",
 ]
 
 ALLOWED = [
@@ -64,6 +73,9 @@ ALLOWED = [
     "git commit -m \"$(cat <<'EOF'\ndocs: replace dvc checkout\nEOF\n)\"",
     "cat > f <<'EOF'\ndvc checkout\nEOF",
     "cat > f <<-EOF\n\tdvc checkout\n\tEOF",
+    "bash -o pipefail -c 'echo dvc checkout'",
+    "echo $'dvc checkout\\n'",
+    "for f in a b; do echo dvc checkout $f; done",
     "nix develop",
     "dvc",
     "",
