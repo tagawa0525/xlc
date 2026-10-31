@@ -2235,7 +2235,8 @@ def history_forgetting(sources: list[dict]) -> str:
     for r in s["rows"]:
         if [p["burnup"] for p in r["points"]] != burnups:
             raise TableError("the time constants have other burnup points")
-        row = ["∞" if r["tau"] is None else f"{r['tau']:g}", f"{r['largest_pcm']:.3f}"]
+        tau = "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−")
+        row = [tau, f"{r['largest_pcm']:.3f}"]
         for p in r["points"]:
             row += [f"{p['weight']:.4f}", signed(p["gap_pcm"], 3)]
         rows.append(row)
