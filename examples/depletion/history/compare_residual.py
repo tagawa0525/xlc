@@ -144,6 +144,11 @@ def added(state, residual):
     return out
 
 
+def residual(rod, k):
+    """制御棒の値 `rod` の R の点 `k` の残り R = U + L（テーブルは追わない核種の分 U と線形化の誤差 L に分けて持つ。ADR-0215）"""
+    return added(rod["untracked"][k], rod["linearization"][k])
+
+
 def axis(table, name):
     found = [a for a in table["axes"] if a["name"] == name]
     if len(found) != 1:
@@ -235,7 +240,7 @@ def compare(nominal, branch, reverse, history):
             x - y
             for x, y in zip(branch["micro"]["densities"][k], micro["densities"][b])
         ]
-        r = rod["residuals"][k]
+        r = residual(rod, k)
         fj, f0 = nominal["states"][pj], nominal["states"][p0]
         fb, fr = branch["states"][k], reverse["states"][k]
         linear_j = corrected(fj, coefficients(micro["states"][pj]), deltas)

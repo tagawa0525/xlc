@@ -44,6 +44,7 @@ from compare_residual import (
     k_inf,
     md5,
     read,
+    residual,
     rho,
 )
 from compare_switch import at, reference_states
@@ -273,7 +274,7 @@ def compare_residuals(nominal, histories, branch, half_tables, one_tables):
                 "one_condition_pcm": effect(o["linear"], o["residual"]),
                 "temperature_path_pcm": effect(linear_600, residual_600),
                 "temperature_path_rebuilt": largest_difference(
-                    residual_600, rod["residuals"][k]
+                    residual_600, residual(rod, k)
                 ),
                 "sigma_ratios": sigma_ratios(h, o, nuclides),
             }
