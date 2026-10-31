@@ -2218,6 +2218,30 @@ def history_index_density(sources: list[dict]) -> str:
     )
 
 
+def history_forgetting(sources: list[dict]) -> str:
+    """追わない核種の分 U の指数の重み（ADR-0215）: τ ごとの、途中で条件を変えた燃焼の参照の点の w_τ と、U(1) を w_τ 倍して足した外れの分
+    （pcm）と、その絶対値の最大"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-forgetting":
+        raise TableError("not an xlc-compare-history-forgetting summary")
+    burnups = [p["burnup"] for p in s["rows"][0]["points"]]
+    header = ["τ (MWd/kg)", "外れの絶対値の最大 (pcm)"]
+    for u in burnups:
+        header += [
+            f"{burnup_label(u)} MWd/kg の w",
+            f"{burnup_label(u)} MWd/kg の外れ (pcm)",
+        ]
+    rows = []
+    for r in s["rows"]:
+        if [p["burnup"] for p in r["points"]] != burnups:
+            raise TableError("the time constants have other burnup points")
+        row = ["∞" if r["tau"] is None else f"{r['tau']:g}", f"{r['largest_pcm']:.3f}"]
+        for p in r["points"]:
+            row += [f"{p['weight']:.4f}", signed(p["gap_pcm"], 3)]
+        rows.append(row)
+    return markdown_table(header, rows)
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2646,6 +2670,7 @@ GIT_TRACKED = {
     "examples/depletion/history/weight.json",
     "examples/depletion/history/split.json",
     "examples/depletion/history/index.json",
+    "examples/depletion/history/forgetting.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
@@ -3288,6 +3313,10 @@ TABLES = {
     "depletion-history-index-gaps": (
         ["examples/depletion/history/index.json"],
         history_index_gaps,
+    ),
+    "depletion-history-forgetting": (
+        ["examples/depletion/history/forgetting.json"],
+        history_forgetting,
     ),
     "depletion-history-index-groups": (
         ["examples/depletion/history/index.json"],
