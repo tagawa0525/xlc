@@ -2042,6 +2042,81 @@ def history_split_switch(sources: list[dict]) -> str:
     )
 
 
+def split_core_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-split-core":
+        raise TableError("not an xlc-compare-history-split-core summary")
+    return s
+
+
+def history_split_core_parts(sources: list[dict]) -> str:
+    """途中で条件を変えた燃焼の定数の側の、今の core の組成での分け直し（ADR-0215）: 参照の点ごとの、参照の組成の U と L と、core が
+    足す w U(1)、(P / P_j) L(1) の効き（その点の参照の数密度の線形の補正を足した公称の状態の定数。pcm）と、成分ごとの参照に合う重み"""
+    s = split_core_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "P / P_j",
+            "U (pcm)",
+            "w U(1) (pcm)",
+            "w_U",
+            "L (pcm)",
+            "(P / P_j) L(1) (pcm)",
+            "w_L",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                ratio_or_dash(r["index_ratio"]),
+                signed(r["untracked_pcm"], 2),
+                signed(r["scaled_untracked_pcm"], 2),
+                ratio_or_dash(r["untracked_weight"]),
+                signed(r["linearization_pcm"], 2),
+                signed(r["scaled_linearization_pcm"], 2),
+                ratio_or_dash(r["linearization_weight"]),
+            ]
+            for r in s["rows"]
+        ],
+    )
+
+
+def history_split_core_gaps(sources: list[dict]) -> str:
+    """途中で条件を変えた燃焼の定数の側の、今の core の組成での分け直し（ADR-0215）: core − 参照、数密度の効き、定数の側と、そのうち
+    U の外れ（w U(1) − U）と L の外れ（(P / P_j) L(1) − L）の分（参照の定数に足した効き）、残りと、外れの片方を 0 にした core − 参照の見込み（pcm）"""
+    s = split_core_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "core − 参照 (pcm)",
+            "数密度の効き (pcm)",
+            "定数の側 (pcm)",
+            "U の外れの分 (pcm)",
+            "L の外れの分 (pcm)",
+            "両方の外れの分 (pcm)",
+            "残り (pcm)",
+            "見込み: U の外れを 0 (pcm)",
+            "見込み: L の外れを 0 (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                signed(r["difference_pcm"], 3),
+                signed(r["composition_pcm"], 3),
+                signed(r["constant_pcm"], 3),
+                signed(r["untracked_gap_pcm"], 3),
+                signed(r["linearization_gap_pcm"], 3),
+                signed(r["gap_pcm"], 3),
+                signed(r["remainder_pcm"], 3),
+                signed(r["without_untracked_pcm"], 3),
+                signed(r["without_linearization_pcm"], 3),
+            ]
+            for r in s["rows"]
+        ],
+    )
+
+
 def history_split_density(sources: list[dict]) -> str:
     """履歴の残り R の分け方（ADR-0215）: 減速材の密度だけの経路の、成分ごとの X(0.5) と X(1)/2 を w = 0.5 の定数に足した効きとその差（pcm）、
     比 効き(X(0.5)) / (2 効き(X(1)/2))"""
@@ -2742,6 +2817,7 @@ def group_rows_spectrum(sources: list[dict]) -> str:
 GIT_TRACKED = {
     "examples/depletion/history/weight.json",
     "examples/depletion/history/split.json",
+    "examples/depletion/history/split-core.json",
     "examples/depletion/history/index.json",
     "examples/depletion/history/forgetting.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
@@ -3378,6 +3454,14 @@ TABLES = {
     "depletion-history-split-density": (
         ["examples/depletion/history/split.json"],
         history_split_density,
+    ),
+    "depletion-history-split-core-parts": (
+        ["examples/depletion/history/split-core.json"],
+        history_split_core_parts,
+    ),
+    "depletion-history-split-core-gaps": (
+        ["examples/depletion/history/split-core.json"],
+        history_split_core_gaps,
     ),
     "depletion-history-index-linearization": (
         ["examples/depletion/history/index.json"],

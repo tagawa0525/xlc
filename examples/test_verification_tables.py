@@ -1876,6 +1876,113 @@ class DrawHistorySplit(unittest.TestCase):
         self.assertEqual(rows[0][4], "–")
 
 
+class DrawHistorySplitCore(unittest.TestCase):
+    @staticmethod
+    def summary():
+        """compare_split_core.py の要約（続ける点 20 と 60 MWd/kg）"""
+
+        def row(burnup, weight, index, scale):
+            return {
+                "burnup": burnup,
+                "weight": weight,
+                "index_ratio": index,
+                "untracked_pcm": -118.5814 * scale,
+                "scaled_untracked_pcm": -112.4796 * scale,
+                "one_untracked_pcm": -168.7216,
+                "untracked_weight": None if index is None else 0.70284,
+                "linearization_pcm": -210.6328 * scale,
+                "scaled_linearization_pcm": -206.3031 * scale,
+                "one_linearization_pcm": -238.5078,
+                "linearization_weight": None if index is None else 0.88313,
+                "difference_pcm": 6.7776 if scale else -1.0156,
+                "composition_pcm": -2.0622 if scale else -1.0141,
+                "constant_pcm": 8.8398 if scale else -0.0015,
+                "untracked_gap_pcm": 5.3581 * scale,
+                "linearization_gap_pcm": 3.4974 * scale,
+                "gap_pcm": 8.8526 * scale,
+                "remainder_pcm": -0.0127 if scale else -0.0015,
+                "without_untracked_pcm": 1.4234 if scale else -1.0156,
+                "without_linearization_pcm": 3.2838 if scale else -1.0156,
+            }
+
+        return {
+            "format": "xlc-compare-history-split-core",
+            "continued_burnup": 20.0,
+            "rows": [row(20.0, 0.0, None, 0.0), row(60.0, 2.0 / 3.0, 0.86610, 1.0)],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    def header(self, table):
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_parts_rows_set_what_the_core_adds_beside_the_parts_of_the_switch(self):
+        table = vt.history_split_core_parts([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "P / P_j",
+                "U (pcm)",
+                "w U(1) (pcm)",
+                "w_U",
+                "L (pcm)",
+                "(P / P_j) L(1) (pcm)",
+                "w_L",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(
+            rows[1],
+            [
+                "60",
+                "0.6667",
+                "0.8661",
+                "−118.58",
+                "−112.48",
+                "0.7028",
+                "−210.63",
+                "−206.30",
+                "0.8831",
+            ],
+        )
+        self.assertEqual([rows[0][2], rows[0][5], rows[0][8]], ["–", "–", "–"])
+
+    def test_gap_rows_split_the_constant_side_by_part(self):
+        table = vt.history_split_core_gaps([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "core − 参照 (pcm)",
+                "数密度の効き (pcm)",
+                "定数の側 (pcm)",
+                "U の外れの分 (pcm)",
+                "L の外れの分 (pcm)",
+                "両方の外れの分 (pcm)",
+                "残り (pcm)",
+                "見込み: U の外れを 0 (pcm)",
+                "見込み: L の外れを 0 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table)[1],
+            [
+                "60",
+                "+6.778",
+                "−2.062",
+                "+8.840",
+                "+5.358",
+                "+3.497",
+                "+8.853",
+                "−0.013",
+                "+1.423",
+                "+3.284",
+            ],
+        )
+
+
 class DrawHistoryIndex(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
