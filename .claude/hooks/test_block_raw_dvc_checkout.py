@@ -49,6 +49,8 @@ BLOCKED = [
     "bash -o pipefail -c 'dvc checkout'",
     "bash -euo pipefail -c 'dvc checkout dvc.yaml'",
     "bash --norc -c 'dvc checkout'",
+    "while read l; do echo $l; done < <(dvc checkout 2>&1)",
+    "grep -c failed <(dvc checkout 2>&1)",
     "echo $'don\\'t'; dvc checkout",
 ]
 
