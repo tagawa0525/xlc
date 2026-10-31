@@ -269,6 +269,10 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
     ZeroDivisionError で止まり、verification_tables.py の表は熱群を `[1]`、要約の文章は `[-1]` で引く（2 群では同じ）。記録の周（直していない）:
     split.json、index.json、weight.json は前のテーブル（8d692a1a などの md5）と前の switch.json から作った要約のままで、今の HEAD で
     compare_index.py は md5 の照合で止まる（各節の記録は前の core の値。作り直すかはそれぞれの節を見直すときに決める）
+    2 周目で残したもの: residual.json を今のテーブル（b5469810）の md5 で作り直した（値は同じ）が、記録の「履歴の残り R（2A の減速材の密度）」の
+    「計算」はテーブル 8d692a1a と比較 285e0a96 のまま（記録の周。節を見直すときに出どころを書き直す）。`add_rate_residual` の重み `w` は呼ぶ側が
+    1.0 しか渡さず、`accumulate_rate_residuals` と `interpolate_rate_residual` が同じ足し方を 2 か所に持つ。compare_switch.py の
+    `composition_groups` は `composition_nuclides` が出した核種ごとの効きを作り直す
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
   超えた差（Δσ を U と L と同じく分けた後も数密度の効きが大半で、Pu-240 と Pu-241。残りの最大の候補は Pu-240 の共鳴の捕獲の Δσ_L の重み。
