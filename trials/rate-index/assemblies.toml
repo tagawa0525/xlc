@@ -1,7 +1,0 @@
-# 履歴の残り R を持つ公称のテーブル（residual.toml の出力。ADR-0215）の集合体 1 体。
-[design.2A]
-bounds = [0.0, 21.5]
-layers = ["table-rate-index.msgpack"]
-
-[assembly.A01]
-design = "2A"
