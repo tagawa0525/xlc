@@ -16,7 +16,8 @@ L_switch = f(H_switch) − f(公称、j) − Σᵢ cᵢ ΔN̄ᵢ^switch を作�
 - L の外れ δ_L = (P / P_j) L(1) − L_switch（P = Σᵢ cᵢ_νf,G (Nᵢ − N̄ᵢ⁰)、P_j = Σᵢ cᵢ_νf,G ΔN̄ᵢ^j。Nᵢ は core の点の数密度、cᵢ は core と同じ
   公称のテーブルの条件 j の状態の格子点の係数。core の `production_ratio`）
 
-とする。w が 0 の点は core が U も L も足さない（外れは −U_switch と −L_switch）。
+とする。w が 0 の点は core が U も L も、履歴の分岐の数密度が公称と同じ点は L を足さず（core の `production_ratio`）、足さない成分の外れは
+−U_switch か −L_switch（下の f_core もその項を持たない）。
 
 core のノードの定数 f_core = f(公称、j) + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) + w U(1) + (P / P_j) L(1) は、参照の定数
 f(switch) = f(公称、j) + Σᵢ cᵢ ΔN̄ᵢ^switch + U_switch + L_switch を使うと、線形の補正が数密度の差に 1 次なので
@@ -109,15 +110,12 @@ def core_parts(t, point, b, node, weight):
 
 def check_values(row, s, u):
     """switch.json の点 `s` が、同じ入力でここで作った値と同じこと"""
-    pairs = [
-        ("weight", row["weight"]),
-        ("difference_pcm", row["difference_pcm"]),
-        ("composition_pcm", row["composition_pcm"]),
-    ]
-    if row["index_ratio"] is not None:
-        pairs.append(("index_ratio", row["index_ratio"]))
-    for key, value in pairs:
-        if s[key] is None or abs(s[key] - value) > SUMMARY_TOLERANCE:
+    for key in ("weight", "difference_pcm", "composition_pcm", "index_ratio"):
+        mine, theirs = row[key], s[key]
+        # P / P_j は L を足さない点で両方とも None（片方だけなら、L を足すかが食い違う）
+        if (mine is None) != (theirs is None) or (
+            mine is not None and abs(theirs - mine) > SUMMARY_TOLERANCE
+        ):
             raise SystemExit(f"the switch summary has another {key} at {u}")
 
 
@@ -212,7 +210,7 @@ def compare(tables, summary):
                 if added_part is None
                 else effect(state, added_part),
                 f"one_{key}_pcm": one,
-                # w = 0 の点（続ける点）は core が足さず、参照に合う重みを出さない
+                # core が足さない成分（w = 0 の点の U と L、履歴の分岐の数密度が公称と同じ点の L）は、参照に合う重みを出さない
                 f"{key}_weight": None
                 if added_part is None or one is None
                 else ratio(own, one),
@@ -266,7 +264,7 @@ def report(summary):
         ),
         (
             f"定数の側（core − 参照 − 数密度の効き）{points(column('constant_pcm'))} pcm に対し、U の外れの分 + L の外れの分は "
-            f"{points(both)} pcm（定数の側との差 {span(unadded)} pcm）、両方の外れの分との残り "
+            f"{points(both)} pcm（定数の側 − この和 {span(unadded)} pcm）、両方の外れの分との残り "
             f"{span(column('remainder_pcm'))} pcm（再構成 {span(column('reconstruct_pcm'), '+.1e')}、恒等 "
             f"{span(column('identity_pcm'), '+.1e')}、非加法 {span(column('additivity_pcm'))}、k の基準 "
             f"{span(column('basis_pcm'))} pcm）"
