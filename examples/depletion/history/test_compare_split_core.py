@@ -188,6 +188,29 @@ class Gaps(unittest.TestCase):
             places=12,
         )
 
+    def test_branch_densities_at_the_nominal_ones_add_no_linearization(self):
+        # core の `production_ratio` は、履歴の分岐の数密度が公称と同じ点で L を足さない（U は w で足す）
+        nominal = table()
+        rod = nominal["histories"][0]["rods"][0]
+        rod["densities"][1] = list(nominal["micro"]["densities"][2])
+        x = parts_at_20()
+        row = c.compare(tables() | {"nominal": nominal}, switch_summary())["rows"][1]
+        self.assertIsNone(row["index_ratio"])
+        self.assertIsNone(row["linearization_weight"])
+        self.assertEqual(row["scaled_linearization_pcm"], 0.0)
+        ref = x["reference"]
+        self.assertAlmostEqual(
+            row["linearization_gap_pcm"],
+            rho(r.added(ref, w.scaled(x["linearization"], -1.0))) - rho(ref),
+            places=9,
+        )
+        self.assertAlmostEqual(
+            row["untracked_gap_pcm"],
+            rho(r.added(ref, r.difference(x["core_untracked"], x["untracked"])))
+            - rho(ref),
+            places=9,
+        )
+
 
 class Closure(unittest.TestCase):
     def test_the_remainder_splits_into_reconstruction_identity_additivity_and_basis(
@@ -275,6 +298,12 @@ class Report(unittest.TestCase):
         self.assertIn("L の外れ", text)
         self.assertIn("定数の側", text)
         self.assertNotIn("-", text)
+
+    def test_later_points_without_a_correction_are_reported_with_dashes(self):
+        summary = c.compare(tables(), switch_summary())
+        summary["continued_burnup"] = 0.0
+        text = c.report(summary)
+        self.assertIn("P / P_j –、", text)
 
 
 if __name__ == "__main__":
