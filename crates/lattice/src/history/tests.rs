@@ -1560,6 +1560,34 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
 }
 
 #[test]
+fn perturbed_solves_with_other_micro_nuclides_are_errors() {
+    // 摂動の解の微視的断面積が追う核種の数と違えば、前進差分がほかの核種の差になりうるので止める
+    let (history, library) = history();
+    let text = derivative_input(0.25);
+    let s = setup(&text);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        s.input.branches.as_ref().unwrap().varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    let index = 3;
+    let (nominal, micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    for sigma in [micro[..1].to_vec(), [micro.clone(), micro.clone()].concat()] {
+        let mut m = micro.clone();
+        let err = branches
+            .add_derivatives(index, &mut m, &nominal, |_, _, _, _| {
+                Ok((shifted(&nominal, 1.0e-3), sigma.clone()))
+            })
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("micro nuclides"), "{err}");
+    }
+}
+
+#[test]
 fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent() {
     // 燃焼度 0 の Xe-135 は N̄ᵢ = 0 で、相対の摂動では解けないので、摂動を解かず σᵢ（ADR-0216 の案 Z1。ADR-0221）
     let (history, library) = history();
@@ -1662,6 +1690,7 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
                     .iter()
                     .flat_map(|r| r.channels.iter().flatten()),
             );
+            v.extend(d.rate.thermal_fission);
             v
         };
         let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
