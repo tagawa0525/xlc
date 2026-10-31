@@ -1,4 +1,0 @@
-# R を持つ公称のテーブルの集合体 1 体を置くサイクル。
-plant = "../../examples/depletion/branches/core-plant.toml"
-inventory = "assemblies.toml"
-loading = ["A01"]
