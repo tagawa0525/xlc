@@ -1,11 +1,13 @@
-//! 履歴の補正の残り R（ADR-0215）。公称の燃焼のテーブルと、履歴の分岐の燃焼の履歴を自分の条件で解いた分岐のテーブル（`[history]`）
-//! から、燃焼度の点 u ごとに
+//! 履歴の補正の残り R（ADR-0215）。公称の燃焼のテーブルと、履歴の分岐の燃焼の履歴を自分の条件で解いた分岐のテーブル（`[history]`）と、
+//! 公称の燃焼の組成のうち追う核種だけを履歴の分岐の値にした組成（ハイブリッド）を同じ条件で解いたテーブルから、燃焼度の点 u ごとに
 //!
-//! R(u) = f(履歴の分岐の組成、条件 j) − f(公称の組成、条件 j) − Σᵢ cᵢ(条件 j、u) (N̄ᵢ^j(u) − N̄ᵢ^0(u))
+//! U(u) = f(履歴の分岐の組成、条件 j) − f(ハイブリッドの組成、条件 j)（追わない核種の分）
+//! L(u) = f(ハイブリッドの組成、条件 j) − f(公称の組成、条件 j) − Σᵢ cᵢ(条件 j、u) (N̄ᵢ^j(u) − N̄ᵢ^0(u))（線形化の誤差）
 //!
-//! を作り、公称のテーブルの `histories` に書き足す。第 2 項と係数 cᵢ は公称のテーブルの条件 j の状態の値で、cᵢ は core の線形の補正と
-//! 同じ関数（`xlc_format::table::add_linear_correction`。数密度の微分を持つ核種は ∂Σ/∂N̄ᵢ、ほかは σᵢ。ADR-0216、ADR-0221）。
-//! N̄ᵢ^j と N̄ᵢ^0 はそれぞれのテーブルの均質化した数密度。補正を持たない項目（χ、拡散係数、ADF）の R は 2 つの定数の差。
+//! を作り（和が残り R）、履歴の分岐の均質化した数密度 N̄ᵢ^j(u) と一緒に公称のテーブルの `histories` に書き足す。L の第 2 項と係数 cᵢ は
+//! 公称のテーブルの条件 j の状態の値で、cᵢ は core の線形の補正と同じ関数（`xlc_format::table::add_linear_correction`。数密度の微分を
+//! 持つ核種は ∂Σ/∂N̄ᵢ、ほかは σᵢ。ADR-0216、ADR-0221）。N̄ᵢ^j と N̄ᵢ^0 はそれぞれのテーブルの均質化した数密度（ハイブリッドの N̄ᵢ は
+//! 分岐と同じ）。補正を持たない項目（χ、拡散係数、ADF）の L は 2 つの定数の差。
 //!
 //! 同じ点ごとに、追う核種のミクロ燃焼の反応率の微視的断面積の差 Δσᵢ(u) = σᵢ(履歴の分岐の組成、条件 j) − σᵢ(公称の組成、条件 j) も書く
 //! （ADR-0215 の案 S2。核分裂、チェーンの反応の経路、収率の境界より下の核分裂の断面積）。
@@ -18,12 +20,14 @@
 //!
 //! [[history]]
 //! variable = "moderator-density"               # 履歴の変数
-//! branches = { out = "table-density-branch.msgpack" }   # 制御棒の値ごとの、履歴の分岐の自分の条件のテーブル
+//! # 制御棒の値ごとの、履歴の分岐の自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
+//! branches = { out = { branch = "table-density-branch.msgpack", hybrid = "table-hybrid-density-branch.msgpack" } }
 //! ```
 //!
 //! 履歴の分岐のテーブルは、燃焼度の軸と、点が 1 つの分岐の軸（制御棒の軸は持てば値が 1 つ）を持ち、その状態（条件 j）が公称の
 //! テーブルの格子点で、変数の軸（減速材の密度は `moderator`）だけが公称と違うこと。燃焼度の点は、公称のテーブルが条件 j の状態を
-//! 解いた燃焼度の点と同じこと。変数の値は、公称の燃焼が公称の格子点の値 H⁰、履歴の分岐が条件 j の格子点の値 Hᵇ。
+//! 解いた燃焼度の点と同じこと。ハイブリッドのテーブルは、分岐のテーブルと同じ軸と点、追う核種、初めの重金属、群境界と、同じ均質化した
+//! 数密度を持つこと。変数の値は、公称の燃焼が公称の格子点の値 H⁰、履歴の分岐が条件 j の格子点の値 Hᵇ。
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -53,8 +57,23 @@ pub struct ResidualInput {
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryEntry {
     pub variable: String,
-    /// (制御棒の値, 履歴の分岐の自分の条件のテーブル)。制御棒の値の名前の順
-    pub branches: Vec<(String, PathBuf)>,
+    /// (制御棒の値, その値のテーブル)。制御棒の値の名前の順
+    pub branches: Vec<(String, BranchFiles)>,
+}
+
+/// 1 つの制御棒の値の、履歴の分岐の自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BranchFiles {
+    pub branch: PathBuf,
+    pub hybrid: PathBuf,
+}
+
+/// 1 つの制御棒の値の、履歴の分岐の自分の条件のテーブルと、追う核種だけを履歴の分岐の値にした公称の組成を同じ条件で解いたテーブル
+#[derive(Debug, Clone, PartialEq)]
+pub struct BranchTables {
+    pub branch: Table,
+    pub hybrid: Table,
 }
 
 #[derive(Deserialize)]
@@ -69,7 +88,7 @@ struct InputFile {
 #[serde(deny_unknown_fields)]
 struct HistoryFile {
     variable: String,
-    branches: BTreeMap<String, PathBuf>,
+    branches: BTreeMap<String, BranchFiles>,
 }
 
 impl ResidualInput {
@@ -107,12 +126,12 @@ impl ResidualInput {
     }
 }
 
-/// 公称のテーブル `nominal` の、変数 `variable` の履歴の補正を、制御棒の値ごとの履歴の分岐の自分の条件のテーブル `branches` から作る。
-/// 変数の値 H⁰ と Hᵇ は制御棒の値によらず同じこと
+/// 公称のテーブル `nominal` の、変数 `variable` の履歴の補正を、制御棒の値ごとの履歴の分岐の自分の条件のテーブルとハイブリッドの
+/// テーブル `branches` から作る。変数の値 H⁰ と Hᵇ は制御棒の値によらず同じこと
 pub fn history_correction(
     nominal: &Table,
     variable: &str,
-    branches: &[(String, Table)],
+    branches: &[(String, BranchTables)],
 ) -> anyhow::Result<HistoryCorrection> {
     let mut values: Option<(f64, f64)> = None;
     let mut rods = Vec::with_capacity(branches.len());
@@ -160,13 +179,15 @@ fn value(axis: &Axis, i: usize) -> Option<Value> {
     }
 }
 
-/// 公称のテーブル `nominal` の制御棒の値 `rod` の残りを、履歴の分岐の自分の条件のテーブル `branch` から作る。返すのは (H⁰, Hᵇ, 残り)
+/// 公称のテーブル `nominal` の制御棒の値 `rod` の残りを、履歴の分岐の自分の条件のテーブルとハイブリッドのテーブル `tables` から作る。
+/// 返すのは (H⁰, Hᵇ, 残り)
 pub fn residuals(
     nominal: &Table,
     variable: &str,
     rod: &str,
-    branch: &Table,
+    tables: &BranchTables,
 ) -> anyhow::Result<(f64, f64, HistoryRod)> {
+    let BranchTables { branch, hybrid } = tables;
     let micro = nominal
         .micro
         .as_ref()
@@ -193,6 +214,7 @@ pub fn residuals(
     if branch.states[0].bounds != nominal.states[0].bounds {
         bail!("the branch and the nominal tables have other group bounds");
     }
+    check_hybrid(branch, hybrid)?;
     // 分岐のテーブルの条件 j: 燃焼度のほかの軸の点が 1 つ（制御棒の軸は持てば値が `rod`）
     let mut condition: Vec<Value> = Vec::new();
     for axis in &branch.axes {
@@ -297,7 +319,7 @@ pub fn residuals(
                 .collect::<anyhow::Result<Vec<_>>>()
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let residuals = solved
+    let linearization = solved
         .iter()
         .enumerate()
         .map(|(k, &u)| {
@@ -312,19 +334,65 @@ pub fn residuals(
                 .collect();
             let mut corrected = nominal.states[p].clone();
             add_linear_correction(&mut corrected, &micro.states[p], &delta);
-            Ok(difference(&branch.states[k], &corrected))
+            Ok(difference(&hybrid.states[k], &corrected))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
+    let untracked = branch
+        .states
+        .iter()
+        .zip(&hybrid.states)
+        .map(|(b, h)| difference(b, h))
+        .collect();
     Ok((
         h0,
         hb,
         HistoryRod {
             rod: rod.into(),
             burnup: solved_values,
-            residuals,
+            untracked,
+            linearization,
+            densities: branch_micro.densities.clone(),
             micro: rates,
         },
     ))
+}
+
+/// ハイブリッドのテーブル `hybrid` が、分岐のテーブル `branch` と同じ条件と燃焼度の点（軸と点）、追う核種、初めの重金属、群境界と、
+/// 同じ均質化した数密度を持つこと（U と L は同じ状態の 2 つの定数の差で、ハイブリッドは追う核種が分岐と同じ組成。体積の平均の
+/// N̄ᵢ が違えば、置き換えた核種か履歴が違う）
+fn check_hybrid(branch: &Table, hybrid: &Table) -> anyhow::Result<()> {
+    if hybrid.axes != branch.axes || hybrid.points != branch.points {
+        bail!("the hybrid table solves other conditions or burnup points than the branch table");
+    }
+    let micro = hybrid
+        .micro
+        .as_ref()
+        .ok_or_else(|| anyhow!("the hybrid table has no micro data (ADR-0216)"))?;
+    let branch_micro = branch
+        .micro
+        .as_ref()
+        .ok_or_else(|| anyhow!("the branch table has no micro data (ADR-0216)"))?;
+    if micro.nuclides != branch_micro.nuclides {
+        bail!(
+            "the hybrid table tracks the micro nuclides {:?}, the branch table {:?}",
+            micro.nuclides,
+            branch_micro.nuclides
+        );
+    }
+    if micro.densities != branch_micro.densities {
+        bail!("the hybrid table holds other tracked densities than the branch table");
+    }
+    if hybrid.heavy_metal != branch.heavy_metal {
+        bail!(
+            "the hybrid table has the initial heavy metal {:?} g/cm, the branch table {:?}",
+            hybrid.heavy_metal,
+            branch.heavy_metal
+        );
+    }
+    if hybrid.states[0].bounds != branch.states[0].bounds {
+        bail!("the hybrid and the branch tables have other group bounds");
+    }
+    Ok(())
 }
 
 /// 反応率の微視的断面積の差 `a − b`（`a` は履歴の分岐、`b` は公称の条件 j の状態）。収率の境界より下の割合は、割合 × 群の和の σf の
@@ -416,7 +484,15 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
         let branches = history
             .branches
             .iter()
-            .map(|(rod, file)| Ok((rod.clone(), read(file)?)))
+            .map(|(rod, files)| {
+                Ok((
+                    rod.clone(),
+                    BranchTables {
+                        branch: read(&files.branch)?,
+                        hybrid: read(&files.hybrid)?,
+                    },
+                ))
+            })
             .collect::<anyhow::Result<Vec<_>>>()?;
         corrections.push(history_correction(&nominal, &history.variable, &branches)?);
     }
@@ -430,7 +506,8 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
             input
                 .histories
                 .iter()
-                .flat_map(|h| h.branches.iter().map(|(_, f)| f)),
+                .flat_map(|h| h.branches.iter())
+                .flat_map(|(_, f)| [&f.branch, &f.hybrid]),
         ) {
             if canonical(&base.join(file))? == target {
                 bail!(
