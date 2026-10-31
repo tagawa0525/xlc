@@ -1156,7 +1156,8 @@ fn history_sample() -> Table {
                 rod: ROD_OUT.into(),
                 burnup: vec![0.0, 20.0],
                 untracked: vec![residual(1.0), residual(2.0)],
-                linearization: vec![residual(3.0), residual(4.0)],
+                // 燃焼度 0 は履歴の分岐の数密度が公称と同じで、線形化の誤差は 2 つの格子計算の解の差の大きさ
+                linearization: vec![residual(3.0e-9), residual(4.0)],
                 densities: vec![vec![7.0e-4 / 3.0], vec![5.5e-4 / 3.0]],
                 micro: RateResiduals {
                     untracked: vec![
@@ -1164,7 +1165,7 @@ fn history_sample() -> Table {
                         vec![rate_residual(2.0, true)],
                     ],
                     linearization: vec![
-                        vec![rate_residual(-0.5, true)],
+                        vec![rate_residual(-0.5e-9, true)],
                         vec![rate_residual(0.75, true)],
                     ],
                 },
@@ -1473,9 +1474,11 @@ fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
     for row in &mut micro.densities {
         row.push(1.0e-9);
     }
-    for (part, _) in RATE_PARTS {
-        for row in part(&mut table.histories[0].rods[0]) {
-            row.push(rate_residual(3.0, false));
+    for (part, name) in RATE_PARTS {
+        for (k, row) in part(&mut table.histories[0].rods[0]).iter_mut().enumerate() {
+            // 線形化の誤差の燃焼度 0 は、数密度が公称と同じ点の 0 の大きさ
+            let tiny = name == "linearization" && k == 0;
+            row.push(rate_residual(if tiny { 3.0e-9 } else { 3.0 }, false));
         }
     }
     for row in &mut table.histories[0].rods[0].densities {
@@ -1488,6 +1491,32 @@ fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
         let err = changed.validate().unwrap_err().to_string();
         assert!(err.contains("fission"), "{err}");
     }
+}
+
+#[test]
+fn branch_points_at_the_nominal_densities_hold_no_linearization() {
+    // 履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成そのもので、線形化の誤差 L と Δσ_L は 2 つの格子計算の
+    // 解の差の大きさ（core はその点の L と Δσ_L を足さないので、ほかの組成から作った値を黙って捨てない）
+    history_sample().validate().unwrap();
+    bad_history(
+        &|t| t.histories[0].rods[0].linearization[0] = residual(3.0),
+        "nominal densities",
+    );
+    bad_history(
+        &|t| t.histories[0].rods[0].micro.linearization[0] = vec![rate_residual(1.0, true)],
+        "nominal densities",
+    );
+    // 収率の境界より下の核分裂の断面積の差も
+    bad_history(
+        &|t| {
+            t.histories[0].rods[0].micro.linearization[0][0].thermal_fission = Some(0.01);
+        },
+        "nominal densities",
+    );
+    // 追わない核種の分は、同じ組成でも 0 とは限らない（燃焼度 0 の residual(1.0)）。数密度が公称と違う点の L は大きくてよい
+    let mut table = history_sample();
+    table.histories[0].rods[0].linearization[1] = residual(400.0);
+    table.validate().unwrap();
 }
 
 #[test]
