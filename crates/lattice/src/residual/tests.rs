@@ -127,6 +127,26 @@ fn branch() -> Table {
     table
 }
 
+/// 履歴の分岐の組成のうち追う核種だけを公称の組成に足したハイブリッドを、同じ条件で解いたテーブル: 分岐と同じ軸、点、追う核種、
+/// 均質化した数密度で、定数と微視的断面積が違う
+fn hybrid() -> Table {
+    let mut table = branch();
+    table.states = vec![few(1.5), few(3.5)];
+    table.micro.as_mut().unwrap().states = (0..2)
+        .map(|p| vec![sigma(30.0 + p as f64, false), sigma(40.0 + p as f64, false)])
+        .collect();
+    table.validate().unwrap();
+    table
+}
+
+/// 制御棒の値 out の、分岐とハイブリッドのテーブルの組
+fn pair() -> BranchTables {
+    BranchTables {
+        branch: branch(),
+        hybrid: hybrid(),
+    }
+}
+
 /// 丸めの範囲で等しい: 差が、足し引きした項の大きさ `scale` の 1e-14 倍以内（足す順が違えば、打ち消し合う項の丸めが残る）
 fn near(a: f64, b: f64, scale: f64) -> bool {
     (a - b).abs() <= 1e-14 * scale
@@ -137,10 +157,11 @@ fn close(a: f64, b: f64) -> bool {
 }
 
 #[test]
-fn residuals_are_the_branch_constants_less_the_linearly_corrected_nominal_condition() {
+fn linearizations_are_the_hybrid_less_the_linearly_corrected_nominal_condition() {
     let n = nominal();
     let b = branch();
-    let (h0, hb, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).unwrap();
+    let h = hybrid();
+    let (h0, hb, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
     assert_eq!((h0, hb), (0.743, 0.661));
     assert_eq!(rod.rod, ROD_OUT);
     // 公称のテーブルが条件の状態を解いた燃焼度の点
@@ -150,7 +171,8 @@ fn residuals_are_the_branch_constants_less_the_linearly_corrected_nominal_condit
     // 公称のテーブルの条件の状態の点（燃焼度 0 と 20）と、分岐のテーブルの点
     for (k, (&p, &u)) in [1usize, 4].iter().zip(&[0usize, 2]).enumerate() {
         let f0 = &n.states[p];
-        let fb = &b.states[k];
+        // L は、追う核種だけが分岐と同じハイブリッドの定数から、線形の補正を足した公称の条件の定数を引いたもの
+        let fb = &h.states[k];
         let c = &micro.states[p];
         let d: Vec<f64> = (0..2)
             .map(|i| branch_micro.densities[k][i] - micro.densities[u][i])
@@ -165,13 +187,13 @@ fn residuals_are_the_branch_constants_less_the_linearly_corrected_nominal_condit
             })
         };
         assert!(c[1].derivative.is_some() && c[0].derivative.is_none());
-        let r = &rod.residuals[k];
+        let r = &rod.linearization[k];
         for g in 0..2 {
             let sum = |pick: &dyn Fn(usize) -> f64| (0..2).map(|i| d[i] * pick(i)).sum::<f64>();
             let total = sum(&|i| coefficient(i).total[g]);
             let absorption =
                 sum(&|i| coefficient(i).total[g] - coefficient(i).scatter[g].iter().sum::<f64>());
-            // R = 分岐 − 公称 − 補正（丸めは 3 つの項の大きさの範囲）
+            // L = ハイブリッド − 公称 − 補正（丸めは 3 つの項の大きさの範囲）
             let expect = |r: f64, b: f64, n: f64, c: f64| {
                 assert!(
                     near(r, b - n - c, b.abs() + n.abs() + c.abs()),
@@ -216,18 +238,58 @@ fn residuals_are_the_branch_constants_less_the_linearly_corrected_nominal_condit
 }
 
 #[test]
-fn the_nominal_condition_with_the_correction_and_the_residual_is_the_branch() {
-    // core が履歴の分岐の点（w = 1、ノードの数密度が分岐のもの）で返す定数は、分岐の格子計算の定数（ADR-0215）
+fn untracked_parts_are_the_branch_less_the_hybrid() {
+    let (_, _, rod) = residuals(&nominal(), MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
+    let (b, h) = (branch(), hybrid());
+    assert_eq!(rod.untracked.len(), 2);
+    for (k, u) in rod.untracked.iter().enumerate() {
+        let (fb, fh) = (&b.states[k], &h.states[k]);
+        for g in 0..2 {
+            assert_eq!(u.total[g], fb.total[g] - fh.total[g]);
+            assert_eq!(u.absorption[g], fb.absorption[g] - fh.absorption[g]);
+            assert_eq!(u.nu_fission[g], fb.nu_fission[g] - fh.nu_fission[g]);
+            assert_eq!(u.fission[g], fb.fission[g] - fh.fission[g]);
+            assert_eq!(u.chi[g], fb.chi[g] - fh.chi[g]);
+            assert_eq!(u.diffusion[g], fb.diffusion[g] - fh.diffusion[g]);
+            for h in 0..2 {
+                assert_eq!(u.scatter[g][h], fb.scatter[g][h] - fh.scatter[g][h]);
+            }
+            for side in 0..6 {
+                assert_eq!(u.adf[side][g], fb.adf[side][g] - fh.adf[side][g]);
+            }
+        }
+    }
+}
+
+#[test]
+fn branch_densities_are_held_at_each_residual_point() {
+    // core が L の重みの指標を作る、履歴の分岐の均質化した数密度 N̄ᵢ^j
+    let (_, _, rod) = residuals(&nominal(), MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
+    assert_eq!(rod.densities, branch().micro.unwrap().densities);
+}
+
+#[test]
+fn the_nominal_condition_with_the_correction_and_both_parts_is_the_branch() {
+    // core が履歴の分岐の点（w = 1、ノードの数密度が分岐のもの、L の指標の比が 1）で返す定数は、分岐の格子計算の定数（ADR-0215）
     let n = nominal();
     let b = branch();
-    let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).unwrap();
+    let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
     let micro = n.micro.as_ref().unwrap();
     for (k, (&p, &u)) in [1usize, 4].iter().zip(&[0usize, 2]).enumerate() {
         let d: Vec<f64> = (0..2)
             .map(|i| b.micro.as_ref().unwrap().densities[k][i] - micro.densities[u][i])
             .collect();
         let corrected = linear(&n.states[p], &micro.states[p], &d);
-        let r: &Residual = &rod.residuals[k];
+        let mut r: Residual = rod.untracked[k].clone();
+        let l = &rod.linearization[k];
+        for g in 0..2 {
+            r.total[g] += l.total[g];
+            r.absorption[g] += l.absorption[g];
+            r.nu_fission[g] += l.nu_fission[g];
+            for h in 0..2 {
+                r.scatter[g][h] += l.scatter[g][h];
+            }
+        }
         let fb = &b.states[k];
         for g in 0..2 {
             assert!(close(corrected.total[g] + r.total[g], fb.total[g]));
@@ -262,7 +324,7 @@ fn the_nominal_condition_with_the_correction_and_the_residual_is_the_branch() {
 fn history_corrections_are_written_to_a_valid_nominal_table() {
     let mut n = nominal();
     let correction =
-        history_correction(&n, MODERATOR_DENSITY, &[(ROD_OUT.into(), branch())]).unwrap();
+        history_correction(&n, MODERATOR_DENSITY, &[(ROD_OUT.into(), pair())]).unwrap();
     assert_eq!(correction.variable, MODERATOR_DENSITY);
     assert_eq!((correction.nominal, correction.branch), (0.743, 0.661));
     assert_eq!(correction.rods.len(), 1);
@@ -276,9 +338,20 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     let fails = |change: &dyn Fn(&mut Table)| {
         let mut b = branch();
         change(&mut b);
-        let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
-            .unwrap_err()
-            .to_string();
+        // ハイブリッドも同じ条件（分岐の条件の検査を確かめる）
+        let mut h = hybrid();
+        change(&mut h);
+        let err = residuals(
+            &n,
+            MODERATOR_DENSITY,
+            ROD_OUT,
+            &BranchTables {
+                branch: b,
+                hybrid: h,
+            },
+        )
+        .unwrap_err()
+        .to_string();
         // 折り返した文の空白が文に入らない
         assert!(!err.contains("  "), "{err}");
         err
@@ -297,9 +370,19 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     let mut b = branch();
     b.axes[3] = Axis::fuel(vec![600.0]).with_nominal(600.0);
     b.axes[2] = Axis::moderator(vec![565.0], vec![0.743]).with_nominal(565.0);
-    let err = residuals(&n2, MODERATOR_DENSITY, ROD_OUT, &b)
-        .unwrap_err()
-        .to_string();
+    let mut h = hybrid();
+    h.axes = b.axes.clone();
+    let err = residuals(
+        &n2,
+        MODERATOR_DENSITY,
+        ROD_OUT,
+        &BranchTables {
+            branch: b,
+            hybrid: h,
+        },
+    )
+    .unwrap_err()
+    .to_string();
     assert!(err.contains("moderator"), "{err}");
     // 分岐のテーブルは状態 1 つ
     let err = fails(&|b| {
@@ -307,7 +390,7 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     });
     assert!(err.contains("one"), "{err}");
     // 知らない変数
-    let err = residuals(&n, "boron", ROD_OUT, &branch())
+    let err = residuals(&n, "boron", ROD_OUT, &pair())
         .unwrap_err()
         .to_string();
     assert!(err.contains("variable"), "{err}");
@@ -326,31 +409,50 @@ fn branch_burnups_are_those_solved_at_the_condition() {
     micro.densities.insert(1, vec![6.1e-4, 1.2e-5]);
     micro.states.push(micro.states[1].clone());
     b.validate().unwrap();
+    let mut h = b.clone();
+    h.states = vec![few(1.5), few(6.0), few(3.5)];
     // 公称のテーブルは条件の状態を 10 で解いていない
-    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
-        .unwrap_err()
-        .to_string();
+    let err = residuals(
+        &n,
+        MODERATOR_DENSITY,
+        ROD_OUT,
+        &BranchTables {
+            branch: b,
+            hybrid: h,
+        },
+    )
+    .unwrap_err()
+    .to_string();
     assert!(err.contains("burnup"), "{err}");
 }
 
 #[test]
 fn branch_tables_hold_the_same_micro_nuclides_and_heavy_metal() {
     let n = nominal();
-    let mut b = branch();
-    b.micro.as_mut().unwrap().nuclides[1] = "Pu-239".into();
-    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
+    let with = |change: &dyn Fn(&mut Table)| {
+        let mut b = branch();
+        change(&mut b);
+        let mut h = hybrid();
+        change(&mut h);
+        residuals(
+            &n,
+            MODERATOR_DENSITY,
+            ROD_OUT,
+            &BranchTables {
+                branch: b,
+                hybrid: h,
+            },
+        )
+    };
+    let err = with(&|b| b.micro.as_mut().unwrap().nuclides[1] = "Pu-239".into())
         .unwrap_err()
         .to_string();
     assert!(err.contains("nuclides"), "{err}");
-    let mut b = branch();
-    b.heavy_metal = Some(401.0);
-    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
+    let err = with(&|b| b.heavy_metal = Some(401.0))
         .unwrap_err()
         .to_string();
     assert!(err.contains("heavy metal"), "{err}");
-    let mut b = branch();
-    b.micro = None;
-    assert!(residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).is_err());
+    assert!(with(&|b| b.micro = None).is_err());
 }
 
 #[test]
@@ -361,7 +463,11 @@ fn rate_residuals_are_the_branch_less_the_nominal_condition_rate_cross_sections(
     for state in &mut b.micro.as_mut().unwrap().states {
         state[0].thermal_fission = Some(0.85);
     }
-    let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).unwrap();
+    let tables = BranchTables {
+        branch: b.clone(),
+        hybrid: hybrid(),
+    };
+    let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &tables).unwrap();
     let micro = n.micro.as_ref().unwrap();
     let branch_micro = b.micro.as_ref().unwrap();
     assert_eq!(rod.micro.len(), 2);
@@ -404,9 +510,13 @@ fn branch_tables_with_other_reactions_or_fission_are_errors() {
             }
         }
         b.validate().unwrap();
+        let tables = BranchTables {
+            branch: b,
+            hybrid: hybrid(),
+        };
         let err = format!(
             "{:#}",
-            residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b).unwrap_err()
+            residuals(&n, MODERATOR_DENSITY, ROD_OUT, &tables).unwrap_err()
         );
         assert!(err.contains("U-235"), "{err}");
     }
@@ -414,7 +524,7 @@ fn branch_tables_with_other_reactions_or_fission_are_errors() {
 
 #[test]
 fn rod_values_of_tables_without_a_rod_axis_are_out() {
-    let err = residuals(&nominal(), MODERATOR_DENSITY, "aic", &branch())
+    let err = residuals(&nominal(), MODERATOR_DENSITY, "aic", &pair())
         .unwrap_err()
         .to_string();
     assert!(err.contains("rod"), "{err}");
@@ -428,7 +538,7 @@ nominal = "n.msgpack"
 output = "out.msgpack"
 [[history]]
 variable = "moderator-density"
-branches = { out = "b.msgpack" }
+branches = { out = { branch = "b.msgpack", hybrid = "h.msgpack" } }
 "#,
     )
     .unwrap();
@@ -439,7 +549,13 @@ branches = { out = "b.msgpack" }
             output: "out.msgpack".into(),
             histories: vec![HistoryEntry {
                 variable: MODERATOR_DENSITY.into(),
-                branches: vec![(ROD_OUT.into(), "b.msgpack".into())],
+                branches: vec![(
+                    ROD_OUT.into(),
+                    BranchFiles {
+                        branch: "b.msgpack".into(),
+                        hybrid: "h.msgpack".into(),
+                    }
+                )],
             }],
         }
     );
@@ -449,9 +565,13 @@ branches = { out = "b.msgpack" }
         // 分岐のテーブルがない
         "nominal = \"n\"\noutput = \"o\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = {}\n",
         // 知らない項目
-        "nominal = \"n\"\noutput = \"o\"\nextra = 1\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = \"b\" }\n",
+        "nominal = \"n\"\noutput = \"o\"\nextra = 1\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = { branch = \"b\", hybrid = \"h\" } }\n",
         // 出力が公称のテーブル（読んだファイルを上書きしない）
-        "nominal = \"n\"\noutput = \"n\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = \"b\" }\n",
+        "nominal = \"n\"\noutput = \"n\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = { branch = \"b\", hybrid = \"h\" } }\n",
+        // ハイブリッドのテーブルがない（U と L に分けられない）
+        "nominal = \"n\"\noutput = \"o\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = { branch = \"b\" } }\n",
+        // 分岐のテーブルだけの形（R を 1 つで持つ前の形）
+        "nominal = \"n\"\noutput = \"o\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = \"b\" }\n",
     ] {
         assert!(ResidualInput::parse(bad).is_err(), "{bad}");
     }
@@ -463,18 +583,19 @@ fn run_writes_the_nominal_table_with_the_history_residuals() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("n.msgpack"), nominal().to_msgpack().unwrap()).unwrap();
     std::fs::write(dir.join("b.msgpack"), branch().to_msgpack().unwrap()).unwrap();
+    std::fs::write(dir.join("h.msgpack"), hybrid().to_msgpack().unwrap()).unwrap();
     let input = dir.join("histories.toml");
     std::fs::write(
         &input,
         "nominal = \"n.msgpack\"\noutput = \"o.msgpack\"\n[[history]]\nvariable = \"moderator-density\"\n\
-         branches = { out = \"b.msgpack\" }\n",
+         branches = { out = { branch = \"b.msgpack\", hybrid = \"h.msgpack\" } }\n",
     )
     .unwrap();
     run(&input).unwrap();
     let written = Table::from_msgpack(&std::fs::read(dir.join("o.msgpack")).unwrap()).unwrap();
     let mut expected = nominal();
     expected.histories = vec![
-        history_correction(&expected, MODERATOR_DENSITY, &[(ROD_OUT.into(), branch())]).unwrap(),
+        history_correction(&expected, MODERATOR_DENSITY, &[(ROD_OUT.into(), pair())]).unwrap(),
     ];
     assert_eq!(written, expected);
     // R を持つ公称のテーブルに重ねて足さない
@@ -500,9 +621,19 @@ fn branch_values_on_axes_the_nominal_table_lacks_are_errors() {
     n.validate().unwrap();
     let mut b = branch();
     b.axes[3] = Axis::fuel(vec![900.0]).with_nominal(900.0);
-    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
-        .unwrap_err()
-        .to_string();
+    let mut h = hybrid();
+    h.axes = b.axes.clone();
+    let err = residuals(
+        &n,
+        MODERATOR_DENSITY,
+        ROD_OUT,
+        &BranchTables {
+            branch: b,
+            hybrid: h,
+        },
+    )
+    .unwrap_err()
+    .to_string();
     assert!(err.contains("fuel"), "{err}");
 }
 
@@ -513,9 +644,19 @@ fn branch_conditions_with_the_nominal_density_are_errors() {
     n.axes[2] = Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.743]).with_nominal(565.0);
     let mut b = branch();
     b.axes[2] = Axis::moderator(vec![600.0], vec![0.743]).with_nominal(600.0);
-    let err = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &b)
-        .unwrap_err()
-        .to_string();
+    let mut h = hybrid();
+    h.axes = b.axes.clone();
+    let err = residuals(
+        &n,
+        MODERATOR_DENSITY,
+        ROD_OUT,
+        &BranchTables {
+            branch: b,
+            hybrid: h,
+        },
+    )
+    .unwrap_err()
+    .to_string();
     assert!(err.contains("density"), "{err}");
 }
 
@@ -527,14 +668,16 @@ fn run_does_not_overwrite_the_tables_it_reads() {
     let branch_bytes = branch().to_msgpack().unwrap();
     std::fs::write(dir.join("n.msgpack"), &nominal_bytes).unwrap();
     std::fs::write(dir.join("b.msgpack"), &branch_bytes).unwrap();
+    let hybrid_bytes = hybrid().to_msgpack().unwrap();
+    std::fs::write(dir.join("h.msgpack"), &hybrid_bytes).unwrap();
     let input = dir.join("histories.toml");
-    // 同じファイルを別の書き方で指す出力（公称のテーブル、分岐のテーブル）
-    for output in ["./n.msgpack", "b.msgpack"] {
+    // 同じファイルを別の書き方で指す出力（公称のテーブル、分岐のテーブル、ハイブリッドのテーブル）
+    for output in ["./n.msgpack", "b.msgpack", "./h.msgpack"] {
         std::fs::write(
             &input,
             format!(
                 "nominal = \"n.msgpack\"\noutput = \"{output}\"\n[[history]]\nvariable = \"moderator-density\"\n\
-                 branches = {{ out = \"b.msgpack\" }}\n"
+                 branches = {{ out = {{ branch = \"b.msgpack\", hybrid = \"h.msgpack\" }} }}\n"
             ),
         )
         .unwrap();
@@ -542,6 +685,50 @@ fn run_does_not_overwrite_the_tables_it_reads() {
         assert!(err.contains("output"), "{err}");
         assert_eq!(std::fs::read(dir.join("n.msgpack")).unwrap(), nominal_bytes);
         assert_eq!(std::fs::read(dir.join("b.msgpack")).unwrap(), branch_bytes);
+        assert_eq!(std::fs::read(dir.join("h.msgpack")).unwrap(), hybrid_bytes);
     }
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn hybrids_solve_the_branch_points_with_the_branch_tracked_densities() {
+    // U と L は同じ条件と燃焼度の点の 2 つの定数の差で、ハイブリッドの追う核種は分岐と同じ数密度（ADR-0215）
+    let n = nominal();
+    let changes: Vec<(fn(&mut Table), &str)> = vec![
+        (
+            |h| h.axes[2] = Axis::moderator(vec![565.0], vec![0.743]).with_nominal(565.0),
+            "hybrid",
+        ),
+        (
+            |h| {
+                h.axes[0] = Axis::Burnup {
+                    points: vec![0.0, 10.0],
+                }
+            },
+            "hybrid",
+        ),
+        (
+            |h| h.micro.as_mut().unwrap().densities[1][0] = 5.3e-4,
+            "densities",
+        ),
+        (
+            |h| h.micro.as_mut().unwrap().nuclides[1] = "Pu-239".into(),
+            "nuclides",
+        ),
+        (|h| h.heavy_metal = Some(401.0), "heavy metal"),
+        (|h| h.micro = None, "micro"),
+    ];
+    for (change, expected) in changes {
+        let mut h = hybrid();
+        change(&mut h);
+        let tables = BranchTables {
+            branch: branch(),
+            hybrid: h,
+        };
+        let err = format!(
+            "{:#}",
+            residuals(&n, MODERATOR_DENSITY, ROD_OUT, &tables).unwrap_err()
+        );
+        assert!(err.contains(expected), "{expected:?} not in {err}");
+    }
 }
