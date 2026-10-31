@@ -1520,6 +1520,139 @@ fn branch_points_at_the_nominal_densities_hold_no_linearization() {
 }
 
 #[test]
+fn each_linearization_item_at_the_nominal_densities_is_checked() {
+    // L と Δσ_L の項目のどれか 1 つだけが 2 つの格子計算の解の差より大きくても止める（燃焼度 0 の点。ほかの項目は 0 の大きさのまま）
+    type Change = fn(&mut HistoryRod);
+    let items: [(&str, Change); 12] = [
+        ("total", |r| r.linearization[0].total[1] = 1.0e-3),
+        ("absorption", |r| r.linearization[0].absorption[0] = 1.0e-3),
+        ("nu_fission", |r| r.linearization[0].nu_fission[1] = 1.0e-3),
+        ("fission", |r| r.linearization[0].fission[0] = 1.0e-3),
+        ("chi", |r| r.linearization[0].chi[0] = 1.0e-3),
+        ("diffusion", |r| r.linearization[0].diffusion[1] = 1.0e-3),
+        ("scatter", |r| r.linearization[0].scatter[1][0] = 1.0e-3),
+        ("adf", |r| r.linearization[0].adf[0][0] = 1.0e-3),
+        ("micro fission", |r| {
+            r.micro.linearization[0][0].fission[1] = 1.0e-3
+        }),
+        ("micro reactions", |r| {
+            r.micro.linearization[0][0].reactions[0].channels[0][0] = 1.0e-3;
+        }),
+        ("micro capture channel", |r| {
+            r.micro.linearization[0][0].reactions[1].channels[1][1] = 1.0e-3;
+        }),
+        ("micro thermal fission", |r| {
+            r.micro.linearization[0][0].thermal_fission = Some(1.0e-3);
+        }),
+    ];
+    for (name, change) in items {
+        let mut table = history_sample();
+        change(&mut table.histories[0].rods[0]);
+        // 落ちない項目の名前を出す（`bad_history` の文は項目を書かない）
+        assert!(table.validate().is_err(), "{name}: not checked");
+        bad_history(
+            &|t| change(&mut t.histories[0].rods[0]),
+            "nominal densities",
+        );
+    }
+}
+
+#[test]
+fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_each_item() {
+    // 許容は項目ごとに、条件 j の状態の同じ項目の絶対値の最大の `NOMINAL_POINT_TOLERANCE` 倍（境界の内は通り、外は止める）
+    let condition = |t: &Table| {
+        let mut at = t
+            .history_condition(MODERATOR_DENSITY, 0.661, ROD_OUT)
+            .unwrap()
+            .point;
+        at[0] = 0;
+        let p = t.point_index(&at).unwrap();
+        (
+            t.states[p].clone(),
+            t.micro.as_ref().unwrap().states[p][0].clone(),
+        )
+    };
+    let largest = |x: &[f64]| x.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    let (f, sigma) = condition(&history_sample());
+    let total = largest(&f.total);
+    type Set = fn(&mut HistoryRod, f64);
+    let items: [(&str, f64, Set); 4] = [
+        ("total", total, |r, x| r.linearization[0].total[0] = x),
+        // 散乱は行列の全体の最大（行の最大でない）。0 行目の最大より大きい値で、1 行目の最大の許容の内は通る
+        ("scatter", largest(&f.scatter.concat()), |r, x| {
+            r.linearization[0].scatter[0][1] = x
+        }),
+        // 捕獲は経路ごと（反応の全体の最大でない）。1 つ目の経路の最大より小さい 2 つ目の経路で
+        (
+            "capture",
+            largest(&sigma.reactions[1].channels[1]),
+            |r, x| r.micro.linearization[0][0].reactions[1].channels[1][1] = -x,
+        ),
+        // 収率の境界より下の核分裂の差は割合 × 群の和の σf なので、基準は群の和の σf（群の最大でない）
+        ("thermal fission", sigma.fission.iter().sum(), |r, x| {
+            r.micro.linearization[0][0].thermal_fission = Some(x)
+        }),
+    ];
+    assert!(largest(&f.scatter[0]) < 0.99 * largest(&f.scatter.concat()));
+    assert!(largest(&sigma.fission) < 0.99 * sigma.fission.iter().sum::<f64>());
+    assert!(
+        largest(&sigma.reactions[1].channels[1]) < 0.99 * largest(&sigma.reactions[1].channels[0])
+    );
+    for (name, scale, set) in items {
+        for (factor, fine) in [(0.99, true), (1.01, false)] {
+            let mut table = history_sample();
+            set(
+                &mut table.histories[0].rods[0],
+                factor * NOMINAL_POINT_TOLERANCE * scale,
+            );
+            assert_eq!(table.validate().is_ok(), fine, "{name} {factor}");
+        }
+    }
+    // 基準は項目ごとの最大: 吸収の最大の許容を超える吸収は、全断面積の最大の許容に入っても止める
+    let absorption = largest(&f.absorption);
+    let value = 2.0 * NOMINAL_POINT_TOLERANCE * absorption;
+    assert!(value < NOMINAL_POINT_TOLERANCE * total, "{value} {total}");
+    bad_history(
+        &|t| t.histories[0].rods[0].linearization[0].absorption[1] = value,
+        "nominal densities",
+    );
+}
+
+#[test]
+fn linearizations_at_the_nominal_densities_of_items_that_are_zero_must_be_zero() {
+    // 基準が 0 の項目（核分裂しない核種の σf）は、0 でない差を許さない
+    let with_xenon = |table: &mut Table| {
+        let micro = table.micro.as_mut().unwrap();
+        micro.nuclides.push("Xe-135".into());
+        for (p, state) in micro.states.iter_mut().enumerate() {
+            state.push(micro_nuclide(2.0 + p as f64, false));
+        }
+        for row in &mut micro.densities {
+            row.push(1.0e-9);
+        }
+        let rod = &mut table.histories[0].rods[0];
+        for part in [&mut rod.micro.untracked, &mut rod.micro.linearization] {
+            for row in part.iter_mut() {
+                row.push(rate_residual(0.0, false));
+            }
+        }
+        for row in &mut rod.densities {
+            row.push(1.0e-9);
+        }
+    };
+    let mut table = history_sample();
+    with_xenon(&mut table);
+    table.validate().unwrap();
+    bad_history(
+        &|t| {
+            with_xenon(t);
+            t.histories[0].rods[0].micro.linearization[0][1].fission[0] = 1.0e-30;
+        },
+        "nominal densities",
+    );
+}
+
+#[test]
 fn rate_residuals_of_one_unsplit_list_are_not_read() {
     // 反応率の微視的断面積の差は、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。分けない 1 つの列（前の形）は読まない
     let bytes = history_sample().to_msgpack().unwrap();
