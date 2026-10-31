@@ -946,7 +946,7 @@ use xlc_depletion::chain::{Channel, Fission, Nuclide, Product, Reaction, Yield};
 use xlc_format::table::{Micro, MicroNuclide, MicroReaction};
 
 use crate::case::Compositions;
-use crate::input::{MicroInput, Xenon};
+use crate::input::{MicroInput, RateResidualWeight, Xenon};
 use crate::micro::MicroChain;
 
 /// U-235 の捕獲 / 核分裂の比（群ごとに同じなので、反応率の比は中性子束の形によらない）
@@ -1046,6 +1046,7 @@ fn micro_case(case: &str) -> Case {
         chain: "chain.msgpack".into(),
         xenon: Xenon::Tracked,
         history_weight: 1.0,
+        rate_residual_weight: RateResidualWeight::History,
     });
     case
 }
@@ -2880,4 +2881,68 @@ fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
         t
     });
     assert_eq!(with.points, reference.points);
+}
+
+#[test]
+fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
+    // `rate-residual-weight = "production-index"` の燃焼は、Δσ を P / P_j で足す（ADR-0215 の案 R6）。履歴の分岐の数密度が公称と同じ
+    // テーブルでは P_j の差が 0 で Δσ を足さず、w = 0.5 のノードでも Δσ を 0 にしたテーブルとビットで同じ。数密度が違えば
+    // 補正しない燃焼と違う
+    let capture = 4.0;
+    let deplete_with = |weight: RateResidualWeight, change: &dyn Fn(Table) -> Table| {
+        let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
+        let mut case = micro_case(CASE);
+        case.depletion
+            .as_mut()
+            .unwrap()
+            .micro
+            .as_mut()
+            .unwrap()
+            .rate_residual_weight = weight;
+        let tables: Vec<Table> = tables
+            .into_iter()
+            .map(|t| change(with_micro(t, &TRACKED)))
+            .collect();
+        deplete(
+            &layout,
+            &tables,
+            &case.states,
+            case.depletion.as_ref().unwrap(),
+            Some(&small_chain()),
+            None,
+            &tight(),
+            |_| {},
+        )
+        .unwrap()
+    };
+    let zeroed = |mut t: Table| {
+        t.histories[0].rods[0]
+            .micro
+            .iter_mut()
+            .flatten()
+            .for_each(|r| {
+                r.reactions[0].channels[0] = vec![0.0; 2];
+                r.thermal_fission = r.thermal_fission.map(|_| 0.0);
+            });
+        t
+    };
+    let index = RateResidualWeight::ProductionIndex;
+    let nominal_branch = deplete_with(index, &|t| with_histories(t, capture));
+    let reference = deplete_with(index, &|t| zeroed(with_histories(t, capture)));
+    assert_eq!(nominal_branch.points, reference.points);
+    // 同じテーブルでも w の重みでは Δσ を足す
+    let by_history = deplete_with(RateResidualWeight::History, &|t| with_histories(t, capture));
+    assert_ne!(by_history.points, reference.points);
+    // 履歴の分岐の U-235 が公称より少ない（燃焼度 0 は公称と同じ）
+    let shifted = |t: Table| {
+        let mut t = with_histories(t, capture);
+        for row in t.histories[0].rods[0].densities.iter_mut().skip(1) {
+            row[0] *= 0.99;
+        }
+        t.validate().unwrap();
+        t
+    };
+    let by_index = deplete_with(index, &|t| shifted(t));
+    let plain = deplete_with(index, &|t| zeroed(shifted(t)));
+    assert_ne!(by_index.points, plain.points);
 }
