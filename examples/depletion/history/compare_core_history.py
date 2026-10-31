@@ -13,9 +13,6 @@
 - 条件 j（`core-2A-residual-branch.toml`。600 K で一生。w = 1）: R の燃焼度の点ごとに、core の k の第 1 項のテーブルの k∞ からの差と、
   公称の燃焼の core の k の、公称のテーブルの公称の状態の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）。core の
   追う核種の数密度の、第 1 項のテーブルの N̄ᵢ^j からの相対差の絶対値が最大の核種と、その相対差（N̄ᵢ^j が 0 の核種は除く）
-- 条件 j の燃焼を、反応率の Δσ を P / P_j で足して（`core-2A-residual-branch-index.toml`。`rate-residual-weight = "production-index"`）:
-  同じ点の k の第 1 項の k∞ からの差と、数密度の同じ相対差。同じく P / P_j で足した公称の燃焼（`core-2A-residual-nominal-index.toml`）が
-  R を持たないテーブルの出力とバイトで同じか（`identical_index`）
 - 第 1 項のテーブルで燃焼させた core（`core-2A-sigma-branch.toml`。条件 j の燃焼と同じで、テーブルだけが第 1 項）: 同じ点の k の第 1 項の
   k∞ からの差と、数密度の同じ相対差（履歴の補正が目指す水準）
 - 途中で条件を変えた燃焼（`core-2A-residual-switch.toml`。20 MWd/kg まで 565 K、その後 600 K）: 燃焼点ごとに、ノードの減速材の密度の
@@ -51,8 +48,6 @@ FILES = {
     "nominal": "core-2A-residual-nominal.msgpack",
     "plain": "core-2A-plain-nominal.msgpack",
     "branch": "core-2A-residual-branch.msgpack",
-    "nominal_index": "core-2A-residual-nominal-index.msgpack",
-    "branch_index": "core-2A-residual-branch-index.msgpack",
     "switch": "core-2A-residual-switch.msgpack",
     "sigma": "core-2A-sigma-branch.msgpack",
     "residual_summary": "residual.json",
@@ -261,15 +256,12 @@ def compare(
     sigma,
     residual_summary,
     identical,
-    branch_index,
-    identical_index,
 ):
     """比べた要約（モジュールの説明）"""
     t = Table(table)
     nuclides = table["micro"]["nuclides"]
     nominal_nodes = single_node(nominal, "nominal", nuclides)
     branch_nodes = single_node(branch, "branch", nuclides)
-    index_nodes = single_node(branch_index, "branch_index", nuclides)
     switch_nodes = single_node(switch, "switch", nuclides)
     sigma_nodes = single_node(sigma, "sigma", nuclides)
     first_burnups = branch_table["axes"][0]["points"]
@@ -305,21 +297,16 @@ def compare(
     branch_points = at_residual_points(branch_nodes)
     nominal_points = at_residual_points(nominal_nodes)
     sigma_points = at_residual_points(sigma_nodes)
-    index_points = at_residual_points(index_nodes)
     if not (
         [k for _, k in branch_points]
         == [k for _, k in nominal_points]
         == [k for _, k in sigma_points]
-        == [k for _, k in index_points]
     ):
         raise SystemExit(
-            "the nominal, the branch, the production-index branch and the first-term core runs reach other burnup "
-            "points of the residuals"
+            "the nominal, the branch and the first-term core runs reach other burnup points of the residuals"
         )
     branch_rows = []
-    for (n, k), (m, _), (q, _), (x, _) in zip(
-        branch_points, nominal_points, sigma_points, index_points
-    ):
+    for (n, k), (m, _), (q, _) in zip(branch_points, nominal_points, sigma_points):
         u = t.rod["burnup"][k]
         f = next(i for i, v in enumerate(first_burnups) if same_burnup(u, v))
         first = branch_table["states"][f]
@@ -329,9 +316,6 @@ def compare(
         )
         sigma_name, sigma_percent = largest_density_difference(
             q["densities"], first_densities, nuclides
-        )
-        index_name, index_percent = largest_density_difference(
-            x["densities"], first_densities, nuclides
         )
         composition_pcm, contributions = composition(
             t,
@@ -358,10 +342,6 @@ def compare(
                 "sigma_difference_pcm": rho(q["k"]) - rho(first["k_inf"]),
                 "sigma_density_percent": sigma_percent,
                 "sigma_density_nuclide": sigma_name,
-                "index_k": x["k"],
-                "index_difference_pcm": rho(x["k"]) - rho(first["k_inf"]),
-                "index_density_percent": index_percent,
-                "index_density_nuclide": index_name,
             }
         )
     switch_rows = []
@@ -393,7 +373,6 @@ def compare(
         "nominal_value": t.history["nominal"],
         "branch_value": t.history["branch"],
         "identical": identical,
-        "identical_index": identical_index,
         "applied_max_pcm": applied_max,
         "branch_rows": branch_rows,
         "switch_rows": switch_rows,
@@ -446,11 +425,6 @@ def report(summary):
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
         f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + w U + (P / P_j) L の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"
-        f"\n反応率の Δσ を P / P_j で足した公称の燃焼の出力は、R を持たないテーブルの出力と"
-        f"{'バイトで同じ' if summary['identical_index'] else '違う'}。"
-        f"条件 j の燃焼の core の k と第 1 項のテーブルの k∞ の差は {span(branch, 'index_difference_pcm')} pcm（15 MWd/kg 以後 "
-        f"{span(later, 'index_difference_pcm')} pcm、最後の R の点 {end['burnup']:.4g} MWd/kg で {end['index_difference_pcm']:+.3f} pcm）、"
-        f"数密度の第 1 項の N̄ᵢ^j からの相対差の絶対値の最大は {largest(branch, 'index_density_percent', 'index_density_nuclide')}。"
         f"\n第 1 項のテーブルで燃焼させた core の k と第 1 項のテーブルの k∞ の差は {span(branch, 'sigma_difference_pcm')} pcm"
         f"（15 MWd/kg 以後 {span(later, 'sigma_difference_pcm')} pcm）。"
         f"core の追う核種の数密度の第 1 項の N̄ᵢ^j からの相対差の絶対値の最大は、R の点のすべてで "
@@ -488,9 +462,6 @@ def main():
         read(here / FILES["sigma"]),
         residual_summary,
         (here / FILES["nominal"]).read_bytes() == (here / FILES["plain"]).read_bytes(),
-        read(here / FILES["branch_index"]),
-        (here / FILES["nominal_index"]).read_bytes()
-        == (here / FILES["plain"]).read_bytes(),
     )
     summary["inputs"] = {file: md5(here / file) for file in FILES.values()}
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"

@@ -946,7 +946,7 @@ use xlc_depletion::chain::{Channel, Fission, Nuclide, Product, Reaction, Yield};
 use xlc_format::table::{Micro, MicroNuclide, MicroReaction};
 
 use crate::case::Compositions;
-use crate::input::{MicroInput, RateResidualWeight, Xenon};
+use crate::input::{MicroInput, Xenon};
 use crate::micro::MicroChain;
 
 /// U-235 の捕獲 / 核分裂の比（群ごとに同じなので、反応率の比は中性子束の形によらない）
@@ -1046,7 +1046,6 @@ fn micro_case(case: &str) -> Case {
         chain: "chain.msgpack".into(),
         xenon: Xenon::Tracked,
         history_weight: 1.0,
-        rate_residual_weight: RateResidualWeight::History,
     });
     case
 }
@@ -2781,8 +2780,9 @@ fn node_histories_that_do_not_match_the_step_values_are_errors() {
 }
 
 /// `with_micro` のテーブルに、減速材の密度の履歴の補正（H⁰ = 0.75 の 560 K、Hᵇ = 0.74 の 570 K。燃焼度 0、10、20 の点）を持たせる。
-/// U と L は 0（履歴の分岐の数密度は公称のもの）、反応率の微視的断面積の差は U-235 の熱群の捕獲だけ `capture`。軸に公称の値（ホウ素 1000 ppm、560 K、560 K）を置く
-fn with_histories(mut table: Table, capture: f64) -> Table {
+/// U と L は 0（履歴の分岐の数密度は公称のもの）、反応率の微視的断面積の差は U-235 の熱群の捕獲だけで、追わない核種の分が
+/// `capture`、線形化の誤差が燃焼度 0 より後の点で `linearization`（燃焼度 0 は 0）。軸に公称の値（ホウ素 1000 ppm、560 K、560 K）を置く
+fn with_histories(mut table: Table, capture: f64, linearization: f64) -> Table {
     table.axes[1] = table.axes[1].clone().with_nominal(1000.0);
     table.axes[2] = table.axes[2].clone().with_nominal(560.0);
     table.axes[3] = table.axes[3].clone().with_nominal(560.0);
@@ -2814,7 +2814,13 @@ fn with_histories(mut table: Table, capture: f64) -> Table {
             untracked: vec![zero.clone(); 3],
             linearization: vec![zero; 3],
             densities: table.micro.as_ref().unwrap().densities.clone(),
-            micro: vec![vec![rate([0.0, capture], Some(0.0)), rate([0.0, 0.0], None)]; 3],
+            micro: xlc_format::table::RateResiduals {
+                untracked: vec![vec![rate([0.0, capture], Some(0.0)), rate([0.0, 0.0], None)]; 3],
+                // 燃焼度 0 は組成が公称と同じで、線形化の誤差は 0
+                linearization: [0.0, linearization, linearization]
+                    .map(|x| vec![rate([0.0, x], Some(0.0)), rate([0.0, 0.0], None)])
+                    .to_vec(),
+            },
         }],
     }];
     table.validate().unwrap();
@@ -2845,7 +2851,7 @@ fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
         )
         .unwrap()
     };
-    let corrected = deplete_with(CASE, &|t| with_histories(t, capture));
+    let corrected = deplete_with(CASE, &|t| with_histories(t, capture, 0.0));
     let shifted = deplete_with(CASE, &|mut t| {
         for state in &mut t.micro.as_mut().unwrap().states {
             state[0].reactions[0].channels[0][1] += 0.5 * capture;
@@ -2867,11 +2873,12 @@ fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
     assert!(last(&corrected)[0][0][1] > 1.001 * last(&plain)[0][0][1]);
     // 公称の履歴（560 K。w = 0）の燃焼は、補正のないテーブルとビットで同じ
     let nominal = CASE.replace("moderator = 565", "moderator = 560");
-    let with = deplete_with(&nominal, &|t| with_histories(t, capture));
+    let with = deplete_with(&nominal, &|t| with_histories(t, capture, 0.0));
     let reference = deplete_with(&nominal, &|t| {
-        let mut t = with_histories(t, capture);
+        let mut t = with_histories(t, capture, 0.0);
         t.histories[0].rods[0]
             .micro
+            .untracked
             .iter_mut()
             .flatten()
             .for_each(|r| {
@@ -2884,21 +2891,14 @@ fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
 }
 
 #[test]
-fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
-    // `rate-residual-weight = "production-index"` の燃焼は、Δσ を P / P_j で足す（ADR-0215 の案 R6）。履歴の分岐の追う核種の数密度が
-    // 燃焼度 0 より後も公称と同じテーブルでは、P_j が 0 で比を作れないので止める（Δσ は追わない核種の違いも含み、0 とは限らない）。
-    // 数密度が違えば補正しない燃焼と違う
+fn micro_depletion_rates_add_the_rate_linearization_only_where_the_branch_densities_differ() {
+    // 反応率の Δσ_L は P / P_j で足す（ADR-0215）。履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成で
+    // Δσ_L は 2 つの格子計算の解の差の大きさなので足さず、その大きさの Δσ_L のテーブルと Δσ_L が 0 のテーブルはビットで同じ燃焼。
+    // 数密度が違えば Δσ_L で燃焼が変わる
     let capture = 4.0;
-    let deplete_with = |weight: RateResidualWeight, change: &dyn Fn(Table) -> Table| {
+    let deplete_with = |change: &dyn Fn(Table) -> Table| {
         let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
-        let mut case = micro_case(CASE);
-        case.depletion
-            .as_mut()
-            .unwrap()
-            .micro
-            .as_mut()
-            .unwrap()
-            .rate_residual_weight = weight;
+        let case = micro_case(CASE);
         let tables: Vec<Table> = tables
             .into_iter()
             .map(|t| change(with_micro(t, &TRACKED)))
@@ -2913,33 +2913,25 @@ fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
             &tight(),
             |_| {},
         )
+        .unwrap()
     };
-    let zeroed = |mut t: Table| {
-        t.histories[0].rods[0]
-            .micro
-            .iter_mut()
-            .flatten()
-            .for_each(|r| {
-                r.reactions[0].channels[0] = vec![0.0; 2];
-                r.thermal_fission = r.thermal_fission.map(|_| 0.0);
-            });
-        t
-    };
-    let index = RateResidualWeight::ProductionIndex;
-    let err = deplete_with(index, &|t| with_histories(t, capture)).unwrap_err();
-    assert!(err.to_string().contains("equal the nominal"), "{err}");
-    // 同じテーブルでも w の重みは比を使わない
-    assert!(deplete_with(RateResidualWeight::History, &|t| with_histories(t, capture)).is_ok());
-    // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。比 P / P_j が Δσ で断面積を負にしない大きさ）
-    let shifted = |t: Table| {
-        let mut t = with_histories(t, capture);
-        for row in t.histories[0].rods[0].densities.iter_mut().skip(1) {
+    let nominal_densities = deplete_with(&|t| with_histories(t, capture, 1.5e-9));
+    let without = deplete_with(&|t| with_histories(t, capture, 0.0));
+    assert_eq!(nominal_densities.points, without.points);
+    // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。比 P / P_j が Δσ_L で断面積を負にしない大きさ）
+    let shifted = |t: Table, linearization: f64| {
+        let mut t = with_histories(t, capture, 0.0);
+        let rod = &mut t.histories[0].rods[0];
+        for row in rod.densities.iter_mut().skip(1) {
             row[0] *= 0.5;
+        }
+        for row in rod.micro.linearization.iter_mut().skip(1) {
+            row[0].reactions[0].channels[0][1] = linearization;
         }
         t.validate().unwrap();
         t
     };
-    let by_index = deplete_with(index, &|t| shifted(t)).unwrap();
-    let plain = deplete_with(index, &|t| zeroed(shifted(t))).unwrap();
-    assert_ne!(by_index.points, plain.points);
+    let with = deplete_with(&|t| shifted(t, 1.5));
+    let zero = deplete_with(&|t| shifted(t, 0.0));
+    assert_ne!(with.points, zero.points);
 }

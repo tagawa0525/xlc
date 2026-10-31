@@ -941,17 +941,18 @@ pub fn interpolate_branch_difference(
     })
 }
 
-/// 反応率の微視的断面積の差（ADR-0215 の案 S2）の 1 つの制御棒の値 `rod` を、燃焼度 `burnup` で R と同じ内挿（ADR-0192。R の燃焼度の
-/// 点で）で引いた値（追う核種の順）。R の燃焼度の点の範囲の外はエラー（外挿しない）
+/// 反応率の微視的断面積の差（ADR-0215 の案 S2）の 1 つの制御棒の値 `rod` の 1 つの部分 `rates`（追わない核種の分か線形化の誤差）を、
+/// 燃焼度 `burnup` で R と同じ内挿（ADR-0192。R の燃焼度の点で）で引いた値（追う核種の順）。R の燃焼度の点の範囲の外はエラー（外挿しない）
 pub fn interpolate_rate_residual(
     rod: &HistoryRod,
+    rates: &[Vec<RateResidual>],
     burnup: f64,
 ) -> Result<Vec<RateResidual>, String> {
     let terms = burnup_terms(&rod.burnup, burnup)
         .map_err(|e| format!("the rate residual of the rod value {}: {e}", rod.rod))?;
     let mut out: Option<Vec<RateResidual>> = None;
     for (k, w) in terms {
-        let row = rod.micro.get(k).ok_or_else(|| {
+        let row = rates.get(k).ok_or_else(|| {
             format!(
                 "the rate residual of the rod value {} has no burnup point {k}",
                 rod.rod
@@ -963,6 +964,19 @@ pub fn interpolate_rate_residual(
         }
     }
     out.ok_or_else(|| format!("the rate residual of the rod value {} is empty", rod.rod))
+}
+
+/// 反応率の微視的断面積の差の和 `acc` に、`w` 倍した差 `r`（追う核種の順）を足す（`acc` が空なら `w r`）。補正した断面積の検査は、
+/// 和を足すとき（`add_rate_residual`）に一度だけ行う
+pub fn accumulate_rate_residuals(acc: &mut Option<Vec<RateResidual>>, w: f64, r: &[RateResidual]) {
+    match acc {
+        None => *acc = Some(r.iter().map(|x| scaled_rate(x, w)).collect()),
+        Some(sum) => {
+            for (a, x) in sum.iter_mut().zip(r) {
+                add_rate(a, w, x);
+            }
+        }
+    }
 }
 
 /// `w` 倍した反応率の微視的断面積の差。項目を足したらここで扱いを決める（`..` を使わない）

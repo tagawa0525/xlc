@@ -1156,12 +1156,19 @@ fn history_sample() -> Table {
                 rod: ROD_OUT.into(),
                 burnup: vec![0.0, 20.0],
                 untracked: vec![residual(1.0), residual(2.0)],
-                linearization: vec![residual(3.0), residual(4.0)],
+                // 燃焼度 0 は履歴の分岐の数密度が公称と同じで、線形化の誤差は 2 つの格子計算の解の差の大きさ
+                linearization: vec![residual(3.0e-9), residual(4.0)],
                 densities: vec![vec![7.0e-4 / 3.0], vec![5.5e-4 / 3.0]],
-                micro: vec![
-                    vec![rate_residual(1.0, true)],
-                    vec![rate_residual(2.0, true)],
-                ],
+                micro: RateResiduals {
+                    untracked: vec![
+                        vec![rate_residual(1.0, true)],
+                        vec![rate_residual(2.0, true)],
+                    ],
+                    linearization: vec![
+                        vec![rate_residual(-0.5e-9, true)],
+                        vec![rate_residual(0.75, true)],
+                    ],
+                },
             }],
         }],
         points,
@@ -1383,67 +1390,79 @@ fn history_densities_are_finite_non_negative_rows_of_the_tracked_nuclides() {
     );
 }
 
-/// 制御棒の値の残りを変える関数と、検査のエラーの文に入る語
-type RodChange = (fn(&mut HistoryRod), &'static str);
+/// 反応率の微視的断面積の差の 1 つの部分（追わない核種の分か線形化の誤差）を変える関数と、検査のエラーの文に入る語
+type RatePartChange = (fn(&mut Vec<Vec<RateResidual>>), &'static str);
+
+/// 制御棒の値の残りの、反応率の微視的断面積の差の部分を選ぶ関数と、その部分の名前
+type RatePart = (
+    fn(&mut HistoryRod) -> &mut Vec<Vec<RateResidual>>,
+    &'static str,
+);
+
+const RATE_PARTS: [RatePart; 2] = [
+    (|r| &mut r.micro.untracked, "untracked"),
+    (|r| &mut r.micro.linearization, "linearization"),
+];
 
 #[test]
 fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
-    let cases: Vec<RodChange> = vec![
+    // 追わない核種の分と線形化の誤差のどちらも、同じ形の検査を受け、エラーの文は部分の名前を含む
+    let cases: Vec<RatePartChange> = vec![
         // 点ごとに 1 つの列
         (
-            |r| {
-                r.micro.pop();
+            |m| {
+                m.pop();
             },
             "rate",
         ),
         // 列は追う核種の数
-        (|r| r.micro[1].push(rate_residual(1.0, true)), "rate"),
+        (|m| m[1].push(rate_residual(1.0, true)), "rate"),
         (
-            |r| {
-                r.micro[0].pop();
+            |m| {
+                m[0].pop();
             },
             "rate",
         ),
         // 反応の並び（MT と経路の数）と核分裂の有無はミクロ燃焼のデータと同じ
-        (|r| r.micro[1][0].reactions[0].mt = 17, "reactions"),
+        (|m| m[1][0].reactions[0].mt = 17, "reactions"),
         (
-            |r| {
-                r.micro[1][0].reactions[1].channels.pop();
+            |m| {
+                m[1][0].reactions[1].channels.pop();
             },
             "reactions",
         ),
         (
-            |r| {
-                r.micro[1][0].reactions.pop();
+            |m| {
+                m[1][0].reactions.pop();
             },
             "reactions",
         ),
-        (|r| r.micro[0][0].thermal_fission = None, "fission"),
+        (|m| m[0][0].thermal_fission = None, "fission"),
         // 群の数の有限の値
         (
-            |r| {
-                r.micro[1][0].fission.pop();
+            |m| {
+                m[1][0].fission.pop();
             },
             "groups",
         ),
         (
-            |r| {
-                r.micro[1][0].reactions[1].channels[0].push(0.0);
+            |m| {
+                m[1][0].reactions[1].channels[0].push(0.0);
             },
             "groups",
         ),
-        (|r| r.micro[1][0].fission[0] = f64::NAN, "groups"),
+        (|m| m[1][0].fission[0] = f64::NAN, "groups"),
         (
-            |r| r.micro[0][0].reactions[0].channels[0][1] = f64::INFINITY,
+            |m| m[0][0].reactions[0].channels[0][1] = f64::INFINITY,
             "groups",
         ),
-        (
-            |r| r.micro[1][0].thermal_fission = Some(f64::NAN),
-            "fission",
-        ),
+        (|m| m[1][0].thermal_fission = Some(f64::NAN), "fission"),
     ];
-    for (change, expected) in &cases {
-        bad_history(&|t| change(&mut t.histories[0].rods[0]), expected);
+    for (part, name) in RATE_PARTS {
+        for (change, expected) in &cases {
+            bad_history(&|t| change(part(&mut t.histories[0].rods[0])), expected);
+            bad_history(&|t| change(part(&mut t.histories[0].rods[0])), name);
+        }
     }
     // 核分裂しない核種の差は nil
     let mut table = history_sample();
@@ -1455,16 +1474,99 @@ fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
     for row in &mut micro.densities {
         row.push(1.0e-9);
     }
-    for row in &mut table.histories[0].rods[0].micro {
-        row.push(rate_residual(3.0, false));
+    for (part, name) in RATE_PARTS {
+        for (k, row) in part(&mut table.histories[0].rods[0]).iter_mut().enumerate() {
+            // 線形化の誤差の燃焼度 0 は、数密度が公称と同じ点の 0 の大きさ
+            let tiny = name == "linearization" && k == 0;
+            row.push(rate_residual(if tiny { 3.0e-9 } else { 3.0 }, false));
+        }
     }
     for row in &mut table.histories[0].rods[0].densities {
         row.push(1.0e-9);
     }
     table.validate().unwrap();
-    table.histories[0].rods[0].micro[1][1].thermal_fission = Some(0.0);
-    let err = table.validate().unwrap_err().to_string();
-    assert!(err.contains("fission"), "{err}");
+    for (part, _) in RATE_PARTS {
+        let mut changed = table.clone();
+        part(&mut changed.histories[0].rods[0])[1][1].thermal_fission = Some(0.0);
+        let err = changed.validate().unwrap_err().to_string();
+        assert!(err.contains("fission"), "{err}");
+    }
+}
+
+#[test]
+fn branch_points_at_the_nominal_densities_hold_no_linearization() {
+    // 履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成そのもので、線形化の誤差 L と Δσ_L は 2 つの格子計算の
+    // 解の差の大きさ（core はその点の L と Δσ_L を足さないので、ほかの組成から作った値を黙って捨てない）
+    history_sample().validate().unwrap();
+    bad_history(
+        &|t| t.histories[0].rods[0].linearization[0] = residual(3.0),
+        "nominal densities",
+    );
+    bad_history(
+        &|t| t.histories[0].rods[0].micro.linearization[0] = vec![rate_residual(1.0, true)],
+        "nominal densities",
+    );
+    // 収率の境界より下の核分裂の断面積の差も
+    bad_history(
+        &|t| {
+            t.histories[0].rods[0].micro.linearization[0][0].thermal_fission = Some(0.01);
+        },
+        "nominal densities",
+    );
+    // 追わない核種の分は、同じ組成でも 0 とは限らない（燃焼度 0 の residual(1.0)）。数密度が公称と違う点の L は大きくてよい
+    let mut table = history_sample();
+    table.histories[0].rods[0].linearization[1] = residual(400.0);
+    table.validate().unwrap();
+}
+
+#[test]
+fn rate_residuals_of_one_unsplit_list_are_not_read() {
+    // 反応率の微視的断面積の差は、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。分けない 1 つの列（前の形）は読まない
+    let bytes = history_sample().to_msgpack().unwrap();
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    let rmpv::Value::Map(entries) = &mut value else {
+        panic!()
+    };
+    let (_, histories) = entries
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("histories"))
+        .unwrap();
+    let rmpv::Value::Array(histories) = histories else {
+        panic!()
+    };
+    let rmpv::Value::Map(history) = &mut histories[0] else {
+        panic!()
+    };
+    let (_, rods) = history
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("rods"))
+        .unwrap();
+    let rmpv::Value::Array(rods) = rods else {
+        panic!()
+    };
+    let rmpv::Value::Map(rod) = &mut rods[0] else {
+        panic!()
+    };
+    let (_, micro) = rod
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("micro"))
+        .unwrap();
+    let rmpv::Value::Map(parts) = micro else {
+        panic!("{micro:?}")
+    };
+    let mut keys: Vec<&str> = parts.iter().filter_map(|(k, _)| k.as_str()).collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["linearization", "untracked"]);
+    let untracked = parts
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("untracked"))
+        .unwrap()
+        .1
+        .clone();
+    *micro = untracked;
+    let mut out = Vec::new();
+    rmpv::encode::write_value(&mut out, &value).unwrap();
+    assert!(Table::from_msgpack(&out).is_err());
 }
 
 #[test]
