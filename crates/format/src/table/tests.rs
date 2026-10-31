@@ -1121,7 +1121,7 @@ fn rate_residual(scale: f64, fissile: bool) -> RateResidual {
 
 /// 公称のテーブル: 燃焼度 0、10、20 MWd/kg、ホウ素 1 点、減速材 2 点（公称の 565 K と 0.743 g/cm³、履歴の分岐の条件の 600 K と
 /// 0.661 g/cm³）、燃料 1 点。公称の状態はすべての燃焼度で、減速材の公称でない状態は 0 と 20 で解き、追う核種 1 つと、制御棒のない
-/// 減速材の密度の履歴の補正（0 と 20 の点）を持つ
+/// 減速材の密度の履歴の補正（0 と 20 の点。追わない核種の分、線形化の誤差、履歴の分岐の均質化した数密度）を持つ
 fn history_sample() -> Table {
     let axes = vec![
         Axis::Burnup {
@@ -1155,7 +1155,9 @@ fn history_sample() -> Table {
             rods: vec![HistoryRod {
                 rod: ROD_OUT.into(),
                 burnup: vec![0.0, 20.0],
-                residuals: vec![residual(1.0), residual(2.0)],
+                untracked: vec![residual(1.0), residual(2.0)],
+                linearization: vec![residual(3.0), residual(4.0)],
+                densities: vec![vec![7.0e-4 / 3.0], vec![5.5e-4 / 3.0]],
                 micro: vec![
                     vec![rate_residual(1.0, true)],
                     vec![rate_residual(2.0, true)],
@@ -1264,7 +1266,9 @@ fn history_burnups_are_solved_points_of_the_condition_from_first_to_last() {
         &|t| {
             let rod = &mut t.histories[0].rods[0];
             rod.burnup = vec![0.0, 10.0, 20.0];
-            rod.residuals.push(residual(3.0));
+            rod.untracked.push(residual(3.0));
+            rod.linearization.push(residual(3.0));
+            rod.densities.push(vec![5.0e-4 / 3.0]);
         },
         "solved",
     );
@@ -1275,7 +1279,9 @@ fn history_burnups_are_solved_points_of_the_condition_from_first_to_last() {
         &|t| {
             let rod = &mut t.histories[0].rods[0];
             rod.burnup.remove(0);
-            rod.residuals.remove(0);
+            rod.untracked.remove(0);
+            rod.linearization.remove(0);
+            rod.densities.remove(0);
         },
         "first and the last",
     );
@@ -1286,12 +1292,24 @@ fn history_burnups_are_solved_points_of_the_condition_from_first_to_last() {
         },
         "burnup",
     );
-    // 点ごとに 1 つの残り
+    // 点ごとに 1 つの追わない核種の分、線形化の誤差、数密度の列
     bad_history(
         &|t| {
-            t.histories[0].rods[0].residuals.pop();
+            t.histories[0].rods[0].untracked.pop();
         },
-        "residual",
+        "untracked",
+    );
+    bad_history(
+        &|t| {
+            t.histories[0].rods[0].linearization.pop();
+        },
+        "linearization",
+    );
+    bad_history(
+        &|t| {
+            t.histories[0].rods[0].densities.pop();
+        },
+        "densities",
     );
 }
 
@@ -1332,12 +1350,37 @@ fn residuals_have_the_groups_and_sides_of_the_states_and_are_finite() {
     ];
     for change in &cases {
         bad_history(
-            &|t| change(&mut t.histories[0].rods[0].residuals[1]),
-            "residual",
+            &|t| change(&mut t.histories[0].rods[0].untracked[1]),
+            "untracked",
+        );
+        bad_history(
+            &|t| change(&mut t.histories[0].rods[0].linearization[1]),
+            "linearization",
         );
     }
     // 残りは負になりうる
     history_sample().validate().unwrap();
+}
+
+#[test]
+fn history_densities_are_finite_non_negative_rows_of_the_tracked_nuclides() {
+    // core が線形化の誤差の指標を作る、履歴の分岐の均質化した数密度 N̄ᵢ^j（追う核種の順）
+    bad_history(
+        &|t| t.histories[0].rods[0].densities[1].push(0.0),
+        "densities",
+    );
+    bad_history(
+        &|t| t.histories[0].rods[0].densities[1].clear(),
+        "densities",
+    );
+    bad_history(
+        &|t| t.histories[0].rods[0].densities[1][0] = f64::NAN,
+        "densities",
+    );
+    bad_history(
+        &|t| t.histories[0].rods[0].densities[1][0] = -1.0e-9,
+        "densities",
+    );
 }
 
 /// 制御棒の値の残りを変える関数と、検査のエラーの文に入る語
@@ -1414,6 +1457,9 @@ fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
     }
     for row in &mut table.histories[0].rods[0].micro {
         row.push(rate_residual(3.0, false));
+    }
+    for row in &mut table.histories[0].rods[0].densities {
+        row.push(1.0e-9);
     }
     table.validate().unwrap();
     table.histories[0].rods[0].micro[1][1].thermal_fission = Some(0.0);
