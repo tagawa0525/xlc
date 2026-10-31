@@ -12,6 +12,8 @@
 
 - 履歴の補正の core（`core-2A-residual-switch.toml`。H_m を燃焼度で重みを付けた平均で進め、R と Δσ を w で足す）
 - 補正を切った core（`core-2A-plain-switch.toml`。R と Δσ を持たないテーブルで同じ燃焼）
+- 反応率の Δσ を P / P_j で足した core（`core-2A-residual-switch-index.toml`。`rate-residual-weight = "production-index"`。履歴の補正の
+  core と同じ燃焼で、H も同じ）
 
 参照の燃焼度の点ごとに、core の k の参照の k∞ からの差と、それを追う核種の数密度の違いで説明する分（数密度の効き）: 参照の定数に、
 core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は core と同じ、R を持つ公称のテーブルの
@@ -43,6 +45,7 @@ FILES = {
     "history": "lattice-switch-density.msgpack",
     "core": "core-2A-residual-switch.msgpack",
     "plain": "core-2A-plain-switch.msgpack",
+    "index": "core-2A-residual-switch-index.msgpack",
     # 補正を切った core のテーブル（読まず、md5 を残す）
     "plain_table": "table-residual-nominal.msgpack",
     "core_history": "core-history.json",
@@ -133,8 +136,8 @@ def check_core_history(core_history, md5s):
             )
 
 
-def compare(table, reference, history, core, plain, core_history):
-    """比べた要約（モジュールの説明）"""
+def compare(table, reference, history, core, plain, core_history, index):
+    """比べた要約（モジュールの説明）。`index` は反応率の Δσ を P / P_j で足した core"""
     t = Table(table)
     nuclides = table["micro"]["nuclides"]
     if reference["micro"]["nuclides"] != nuclides:
@@ -147,6 +150,7 @@ def compare(table, reference, history, core, plain, core_history):
         )
     core_nodes = single_node(core, "core", nuclides)
     plain_nodes = single_node(plain, "plain", nuclides)
+    index_nodes = single_node(index, "index", nuclides)
     branch_rows = core_history["branch_rows"]
     rows = []
     for u, b, p in states:
@@ -157,6 +161,13 @@ def compare(table, reference, history, core, plain, core_history):
         table_point, _ = t.point(u, n["moderator"], "core")
         coeff = coefficients(table["micro"]["states"][table_point])
         q = at(plain_nodes, u, "plain")
+        x_index = at(index_nodes, u, "index")
+        # Δσ の重みだけが違う 2 つの燃焼（同じ状態のステップと同じ H）
+        if x_index["history"] != n["history"]:
+            raise SystemExit(
+                f"the production-index core has the history {x_index['history']} at burnup {u}, not "
+                f"{n['history']} of the core"
+            )
         whole = [x for x in branch_rows if same_burnup(x["burnup"], u)]
         if len(whole) != 1:
             raise SystemExit(
@@ -165,6 +176,7 @@ def compare(table, reference, history, core, plain, core_history):
         lattice = at(history["points"], u, "lattice history")
         name, largest, major = densities(n, n_ref, nuclides)
         plain_name, plain_largest, plain_major = densities(q, n_ref, nuclides)
+        index_name, index_largest, index_major = densities(x_index, n_ref, nuclides)
         rows.append(
             {
                 "burnup": u,
@@ -189,6 +201,15 @@ def compare(table, reference, history, core, plain, core_history):
                 "branch_difference_pcm": whole[0]["difference_pcm"],
                 "nominal_difference_pcm": whole[0]["nominal_difference_pcm"],
                 "reference_history_pcm": rho(state["k_inf"]) - rho(lattice["k_inf"]),
+                "index_k": x_index["k"],
+                "index_difference_pcm": rho(x_index["k"]) - rho(state["k_inf"]),
+                "index_composition_pcm": composition(state, coeff, n_ref, x_index),
+                "index_composition_nuclides": composition_nuclides(
+                    state, coeff, n_ref, x_index, nuclides
+                ),
+                "index_density_percent": index_largest,
+                "index_density_nuclide": index_name,
+                "index_densities_percent": index_major,
             }
         )
         row = rows[-1]
@@ -286,6 +307,19 @@ def report(summary):
         + " pcm。"
         f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、公称の燃焼の core − 公称の"
         f"テーブル {span('nominal_difference_pcm')} pcm。"
+        f"\n反応率の Δσ を P / P_j で足した core − 参照は {span('index_difference_pcm')} pcm（最後の点で "
+        f"{last['index_difference_pcm']:+.3f} pcm）、数密度の効きは {span('index_composition_pcm')} pcm（最後の点で "
+        f"{last['index_composition_pcm']:+.3f} pcm）、定数の側は "
+        f"{min(x['index_difference_pcm'] - x['index_composition_pcm'] for x in later):+.3f}〜"
+        f"{max(x['index_difference_pcm'] - x['index_composition_pcm'] for x in later):+.3f} pcm。"
+        f"参照の N̄ᵢ からの数密度の相対差の絶対値の最大は {largest('index_density_percent', 'index_density_nuclide')}。"
+        f"最後の点の数密度の効きの大きい核種: "
+        + "、".join(
+            f"{x['nuclide']} {x['pcm']:+.2f}"
+            for x in last["index_composition_nuclides"]
+        )
+        + " pcm。主な核種の相対差: "
+        f"{major(last['index_densities_percent'])}"
         f"\n補正を切った core − 参照は {span('plain_difference_pcm')} pcm（最後の点で {last['plain_difference_pcm']:+.3f} pcm）、"
         f"数密度の効きは {span('plain_composition_pcm')} pcm（最後の点で {last['plain_composition_pcm']:+.3f} pcm）。"
         f"\n参照の N̄ᵢ からの数密度の相対差の絶対値の最大は、履歴の補正の core が {largest('density_percent', 'density_nuclide')}、"
@@ -322,6 +356,7 @@ def main():
         read(here / FILES["core"]),
         read(here / FILES["plain"]),
         core_history,
+        read(here / FILES["index"]),
     )
     summary["inputs"] = md5s
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"

@@ -845,10 +845,24 @@ pub fn deplete(
                     "site {site}: the solve has no history variables of the micro depleted node"
                 )
             })?;
+        let rate_weight = depletion
+            .micro
+            .as_ref()
+            .map(|m| m.rate_residual_weight)
+            .ok_or("the micro depleted nodes need the micro input of the depletion")?;
+        // Δσ の重みの組成の指標 P は、反応率を規格化する組成（その解の組成。予測子は点の、修正子は中点の組成）で作る（ADR-0215）
+        let tracked = m.chain.tracked(n);
         let micro_of = |table_use: usize| {
             let t_use = &layout.tables[table_use];
-            node_micro(&tables[t_use.file], &s, t_use.rod.as_deref(), histories)
-                .map_err(|e| format!("{}: {e}", layout.files[t_use.file].display()))
+            node_micro(
+                &tables[t_use.file],
+                &s,
+                t_use.rod.as_deref(),
+                histories,
+                &tracked,
+                rate_weight,
+            )
+            .map_err(|e| format!("{}: {e}", layout.files[t_use.file].display()))
         };
         let sigma = match node_use {
             NodeUse::Uniform(table_use) => micro_of(table_use)?,

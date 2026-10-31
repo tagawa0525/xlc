@@ -102,6 +102,9 @@
 //! # ミクロ燃焼のノードの履歴の変数（ADR-0215）をステップで進める重み ω: H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ω ΔB)。
 //! # 省略すると 1（燃焼度で重みを付けた平均。ADR-0215 の決定）。ほかの値は重みの効きを測るため。有限の正の値
 //! # micro = { chain = "chain.msgpack", xenon = "equilibrium", history-weight = 1.5 }
+//! # テーブルの履歴の分岐の反応率の微視的断面積の差 Δσ（ADR-0215）を足す重み: history（省略したとき。履歴の変数の w）か
+//! # production-index（L と同じ熱群の νΣf の線形の補正の比 P / P_j。P は反応率を規格化する、その解の組成で作る）
+//! # micro = { chain = "chain.msgpack", xenon = "equilibrium", rate-residual-weight = "production-index" }
 //! # 状態が search を持つステップの中点を解くホウ素濃度（ADR-0191）: search（省略したとき。中点でも探す）か start（ステップの
 //! # 初めの点で探した濃度。ADR-0191 の案 S1 との差を測るため。search の状態の efpd のステップがなければエラー）
 //! # midpoint-boron = "start"
@@ -824,6 +827,19 @@ pub struct MicroInput {
     pub xenon: Xenon,
     /// 履歴の変数を燃焼のステップで進める重み ω（ADR-0215。1 が決定の燃焼度で重みを付けた平均）
     pub history_weight: f64,
+    /// 反応率の微視的断面積の差 Δσ の重み（ADR-0215）
+    pub rate_residual_weight: RateResidualWeight,
+}
+
+/// `micro` の `rate-residual-weight`: 反応率の微視的断面積に足す履歴の分岐の差 Δσ の重み（ADR-0215）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RateResidualWeight {
+    /// 履歴の変数の重み w_j（ADR-0215 の案 S2）
+    #[default]
+    History,
+    /// L と同じ熱群の νΣf の線形の補正の比 P / P_j（ADR-0215 の案 R6）。P は反応率を規格化する組成（その解の組成）で作る
+    ProductionIndex,
 }
 
 /// `micro` の `xenon`: 燃焼のステップの Xe-135 と I-135（とそれらへ崩壊で流れ込む補助の核種）の扱い（ADR-0219）
@@ -870,6 +886,8 @@ struct MicroEntry {
     chain: PathBuf,
     xenon: Xenon,
     history_weight: Option<f64>,
+    #[serde(default)]
+    rate_residual_weight: RateResidualWeight,
 }
 
 /// 項目は、効くようになるときに足す（入口の温度など。ADR-0218）
@@ -985,6 +1003,7 @@ impl DepletionInput {
                             chain: normalized(&base.join(m.chain)),
                             xenon: m.xenon,
                             history_weight,
+                            rate_residual_weight: m.rate_residual_weight,
                         })
                     } else {
                         invalid(format!(

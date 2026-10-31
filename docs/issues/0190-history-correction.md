@@ -211,9 +211,31 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   熱群の νΣf の補正の和もテストと試行にコピーがある。core の `add_histories` はノードの P を変数のループの中で求め直す。
   verification_tables.py の `history_forgetting` は行が無い要約で TableError でなく IndexError になる。試行の compare.py は DVC のキャッシュの
   パス（md5 14c85ae0）を直接読み、`dvc gc` の後は読めない
+- 2026-10-31: 反応率の Δσ の重みを core の入力 `[depletion] micro` の `rate-residual-weight`（`history` = w、既定。`production-index` = L と同じ
+  P / P_j。ADR-0215 の案 R6）で選べるようにし（ブランチ feat/0190-rate-residual-weight）、2A の集合体 1 体で両方を測った（examples/depletion/verification.md の
+  「途中で条件を変えた燃焼（2A）」の表 `depletion-history-switch-rate-weight`、「履歴の補正の core（2A の集合体 1 体）」）。P は反応率を規格化する、
+  その解の組成（予測子は点、修正子は中点）で作り、L の比と同じ関数で、燃焼度 0 は足さない。途中で条件を変えた燃焼の core − 参照は
+  P / P_j で −37.614〜+11.347 pcm（w は −32.314〜−17.018 pcm）で目安に入らず、既定は w のまま。数密度の効きは 48〜60 MWd/kg で −14.246〜+2.991 pcm に
+  縮む（w は −35.013〜−31.155 pcm）が、26〜40 MWd/kg は −27.916〜−14.357 pcm で w（−27.239〜−9.733 pcm）と同じ程度か大きい（26、32 MWd/kg で大きく、40 MWd/kg で −27.239 から −24.751 pcm）。60 MWd/kg では w の Pu-239 −50.71 pcm が +2.54 pcm に
+  縮み、Pu-240 −11.98、Pu-241 +12.17 pcm が残る。定数の側は −9.698〜+8.355 pcm（w は −9.184〜+12.026 pcm）。一生を条件 j の燃焼は第 1 項から
+  −4.095〜+10.429 pcm（w は −3.928〜+8.132 pcm。0.1 MWd/kg で大きい）。公称の燃焼はどちらの重みも補正を持たないテーブルとバイトで同じ。
+  数密度の効きの原因（Δσ の w への非線形と状態への依存、核種ごとに違う指標の要否、Δσ を U と L のように追わない核種の分（分岐 −
+  ハイブリッドの σᵢ）と組成の分に分けて重みを変えること）は確かめていない。Δσ を分けるには、ハイブリッドの反応率の σᵢ もテーブルに要る
+  レビューで残したもの: 燃焼のテスト（`micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input`）は P を作る組成（予測子は点、
+  修正子は中点）を固定しない。`node_micro` は比を先に集めてから足す 2 段のループで、`add_rate_residual` が P の使う熱群の νσf、数密度の微分と基準の数密度を変えないので 1 段で
+  足りる。`node_rates` は位置と呼び出しごとに重みを引き直し、`history` でも使わない `tracked` の Vec を作る。compare_core_history.py は P / P_j の
+  条件 j の燃焼の H と状態が w の燃焼と同じかを照らさない（compare_switch.py は照らす）。`production_ratio` の数密度の長さの検査が、分岐の差が
+  すべて 0 のときの早期の return の後にある。表 `depletion-history-switch-rate-weight` の w の 3 列は表 `depletion-history-switch` と同じ値の複製。
+  2 周目で残したもの: `production-index` の Δσ の係数 P / P_j は w の大きさによらないので、w がちょうど 0 か丸めの大きさで 0 でないかで Δσ の全体が
+  入るか入らないかが跳ぶ（L と同じ扱いだが、Δσ は追わない核種の分も含むので、ほかの原因の組成の違いを密度の履歴に割り当てる。2A の 1 変数の
+  ケースには現れない）
+  3 周目で残したもの: `production-index` は燃焼度 0 の Δσ を、定義から 0 として足さないが、2A のテーブルの燃焼度 0 の Δσ は 2 つの格子計算の解の差で
+  絶対値の最大 0.0036 barn（0.1 MWd/kg の点は 712.9 barn）あり、w の経路は足す。燃焼度 0⁺ の近くでは P_j と Δσ が燃焼度に比例して小さくなるのに P は
+  core と格子計算の組成の差で残るので、(P / P_j) Δσ が燃焼度 0 ちょうどの 0 と不連続になりうる（0.1 MWd/kg の 7 の +10.429 pcm の候補。確かめて
+  いない）。燃焼のテストの最後の比較（`assert_ne`）は、Δσ が P / P_j で足されたことを w と区別して確かめない
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
-  超えた差（U と L に分けた後は数密度の効きが大半。反応率の Δσ の足し方が候補。ADR-0215 の案 R6。Δσ の重みを入力で選べる形（w、P / P_j）にして再測定する）、ハイブリッドの組成を作る本番の経路、
+  超えた差（U と L に分けた後は数密度の効きが大半。Δσ を P / P_j で足しても 26〜40 MWd/kg の効きは w と同じ程度か大きい。ADR-0215 の案 R6。原因は確かめていない）、ハイブリッドの組成を作る本番の経路、
   履歴の変数が複数のときの L の分け方。examples/core/rod_table.py の `merge` は最初のテーブルの `histories` だけを残し、ほかの制御棒の値のテーブルの
   `histories` を黙って捨てる（今は `histories` を持つテーブルを渡す経路が無い。制御棒の履歴の作業で、エラーにするか結合を決める）。
   比較のツールの 2 群の k と係数の選び方（compare_residual.py、micro/compare_linearization.py、compare_burnup_interpolation.py）が 3 か所に

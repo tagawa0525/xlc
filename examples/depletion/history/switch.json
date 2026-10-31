@@ -61,6 +61,44 @@
    "branch_difference_pcm": -1.112680806358867,
    "nominal_difference_pcm": -1.009064215717899,
    "reference_history_pcm": 0.0,
+   "index_k": 0.9736258035837361,
+   "index_difference_pcm": -1.0156246300853127,
+   "index_composition_pcm": -1.0140746770971418,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": -0.5761731993293324
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -0.45833557515970824
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.13257013322663624
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": 0.07108699358059312
+    },
+    {
+     "nuclide": "Pu-242",
+     "pcm": 0.02326053747401602
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.01660576804943048
+    }
+   ],
+   "index_density_percent": -0.018607707080864344,
+   "index_density_nuclide": "Am-241",
+   "index_densities_percent": {
+    "U-235": -0.0008116467147378792,
+    "Pu-239": 0.0005338926599929295,
+    "Pu-240": 0.013913408796506488,
+    "Pu-241": -0.01442204838195682,
+    "Xe-135": -0.00047291340116162317
+   },
    "needed_weight": null
   },
   {
@@ -120,6 +158,44 @@
    "branch_difference_pcm": -2.55861640177136,
    "nominal_difference_pcm": -2.530359611952008,
    "reference_history_pcm": -0.005074548337688611,
+   "index_k": 0.9335711573226719,
+   "index_difference_pcm": -21.73639817102321,
+   "index_composition_pcm": -14.357060198121872,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-241",
+     "pcm": -9.231180086377208
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": -7.427981003815148
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": 1.870935655246285
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.7672895379946567
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": 0.6229425066449039
+    },
+    {
+     "nuclide": "Sm-149",
+     "pcm": 0.2153108899392464
+    }
+   ],
+   "index_density_percent": -0.18274927398952423,
+   "index_density_nuclide": "Pu-241",
+   "index_densities_percent": {
+    "U-235": -0.005444802946474869,
+    "Pu-239": 0.011237678711650823,
+    "Pu-240": 0.14820055198390136,
+    "Pu-241": -0.18274927398952423,
+    "Xe-135": -0.022460578756766658
+   },
    "needed_weight": 0.1710194640180748
   },
   {
@@ -179,6 +255,44 @@
    "branch_difference_pcm": -2.0149442251149594,
    "nominal_difference_pcm": -2.048755542573417,
    "reference_history_pcm": -0.005818162951982231,
+   "index_k": 0.898245284802591,
+   "index_difference_pcm": -37.61407066720312,
+   "index_composition_pcm": -27.916029463725863,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": -15.260970051955155
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -13.25624460173458
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.9501938020857779
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": 0.6938765053419047
+    },
+    {
+     "nuclide": "Pu-242",
+     "pcm": 0.6301017337445955
+    },
+    {
+     "nuclide": "Am-241",
+     "pcm": 0.23056765858746076
+    }
+   ],
+   "index_density_percent": 0.2609909609434302,
+   "index_density_nuclide": "Pu-240",
+   "index_densities_percent": {
+    "U-235": -0.007971634376269243,
+    "Pu-239": 0.003511410834922124,
+    "Pu-240": 0.2609909609434302,
+    "Pu-241": -0.18909200172904095,
+    "Xe-135": 0.002734804764625842
+   },
    "needed_weight": 0.28407148389093007
   },
   {
@@ -238,6 +352,44 @@
    "branch_difference_pcm": -1.0833233796474815,
    "nominal_difference_pcm": -1.064827397454792,
    "reference_history_pcm": -0.006398457520845113,
+   "index_k": 0.8574932856710956,
+   "index_difference_pcm": -31.230028643025435,
+   "index_composition_pcm": -24.751044154694682,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": -18.53988717759421
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": -5.363474906098418
+    },
+    {
+     "nuclide": "Am-243",
+     "pcm": 1.9601807695653406
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": -1.4971997488028137
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": -0.8651671518782678
+    },
+    {
+     "nuclide": "U-235",
+     "pcm": -0.6160759024278377
+    }
+   ],
+   "index_density_percent": -0.5320851897780199,
+   "index_density_nuclide": "Am-243",
+   "index_densities_percent": {
+    "U-235": -0.006708906599783848,
+    "Pu-239": -0.006331680919713367,
+    "Pu-240": 0.270684057060655,
+    "Pu-241": -0.05583239743456314,
+    "Xe-135": 0.02962529848160589
+   },
    "needed_weight": 0.41856977658626493
   },
   {
@@ -297,6 +449,44 @@
    "branch_difference_pcm": -3.9281071516634256,
    "nominal_difference_pcm": -3.807685254716489,
    "reference_history_pcm": -0.009587009986717021,
+   "index_k": 0.8248210260486712,
+   "index_difference_pcm": -16.14992032896771,
+   "index_composition_pcm": -14.24579390636427,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": -17.707244241435546
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 3.4470365141605726
+    },
+    {
+     "nuclide": "Am-243",
+     "pcm": 1.6140824796748348
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": -1.5526057560709887
+    },
+    {
+     "nuclide": "Np-237",
+     "pcm": 0.5835096351911488
+    },
+    {
+     "nuclide": "Sm-152",
+     "pcm": -0.5227567362089758
+    }
+   ],
+   "index_density_percent": -0.36411582748010485,
+   "index_density_nuclide": "Cm-244",
+   "index_densities_percent": {
+    "U-235": 0.002756224357880477,
+    "Pu-239": -0.0008230396206454493,
+    "Pu-240": 0.23095813959841394,
+    "Pu-241": 0.028809639407612053,
+    "Xe-135": 0.052062379809059145
+   },
    "needed_weight": 0.5132190274671481
   },
   {
@@ -356,6 +546,44 @@
    "branch_difference_pcm": -2.5728429797527497,
    "nominal_difference_pcm": -1.8311272691244085,
    "reference_history_pcm": -0.007832464478269685,
+   "index_k": 0.7995137751542047,
+   "index_difference_pcm": 3.7100353254900256,
+   "index_composition_pcm": -0.9958036335519864,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-240",
+     "pcm": -13.870616723132116
+    },
+    {
+     "nuclide": "Pu-241",
+     "pcm": 10.844632035579707
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": -1.8851822524593445
+    },
+    {
+     "nuclide": "Am-243",
+     "pcm": 1.8297522998327622
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": 1.7608054648553662
+    },
+    {
+     "nuclide": "Np-237",
+     "pcm": 1.026393758253107
+    }
+   ],
+   "index_density_percent": -0.3332980110367645,
+   "index_density_nuclide": "Cm-244",
+   "index_densities_percent": {
+    "U-235": 0.01987520350037464,
+    "Pu-239": 0.0058968574600637425,
+    "Pu-240": 0.16714645520514715,
+    "Pu-241": 0.07798540466785742,
+    "Xe-135": 0.06219190616747472
+   },
    "needed_weight": 0.5904713243791816
   },
   {
@@ -415,6 +643,44 @@
    "branch_difference_pcm": -1.7530624542705482,
    "nominal_difference_pcm": -0.8249053063082101,
    "reference_history_pcm": 0.005545353109482676,
+   "index_k": 0.7893375142666429,
+   "index_difference_pcm": 11.346548919722409,
+   "index_composition_pcm": 2.9911835214043094,
+   "index_composition_nuclides": [
+    {
+     "nuclide": "Pu-241",
+     "pcm": 12.171737143649807
+    },
+    {
+     "nuclide": "Pu-240",
+     "pcm": -11.97890654305229
+    },
+    {
+     "nuclide": "Pu-239",
+     "pcm": 2.543488889150467
+    },
+    {
+     "nuclide": "Xe-135",
+     "pcm": -1.8816531327502162
+    },
+    {
+     "nuclide": "Am-243",
+     "pcm": 1.7868616949417628
+    },
+    {
+     "nuclide": "Np-237",
+     "pcm": 1.260998483721778
+    }
+   ],
+   "index_density_percent": -0.3147070447209521,
+   "index_density_nuclide": "Cm-244",
+   "index_densities_percent": {
+    "U-235": 0.02989869842311421,
+    "Pu-239": 0.008198436114903451,
+    "Pu-240": 0.14012824474149976,
+    "Pu-241": 0.08278025728012395,
+    "Xe-135": 0.06167469524924751
+   },
    "needed_weight": 0.6194062744544416
   }
  ],
@@ -510,7 +776,8 @@
   "lattice-switch-density.msgpack": "1840f666f8c789944f940220767a5a41",
   "core-2A-residual-switch.msgpack": "14538960c80be895f994ec6475c50dda",
   "core-2A-plain-switch.msgpack": "f334b2d59ce9870174d88925929ec05d",
+  "core-2A-residual-switch-index.msgpack": "ee1007048cb23b62d256c9adff3bdbcb",
   "table-residual-nominal.msgpack": "7b5fa50b0bc5963e1f7515d643c9ba3b",
-  "core-history.json": "700de1d48d2b61fde46c4b6c3d1b6709"
+  "core-history.json": "637f63c105c16ecce6fcb4f8823ec4b8"
  }
 }
