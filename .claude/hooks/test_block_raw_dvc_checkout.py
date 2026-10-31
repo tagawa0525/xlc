@@ -6,6 +6,7 @@
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -170,6 +171,9 @@ class HookProcessTest(unittest.TestCase):
 
 
 SETTINGS = HOOK.parent.parent / "settings.json"
+PROJECT = str(HOOK.parent.parent.parent)
+# PATH を絞るテストでも同じシェルで実行するため、絶対パスで持つ
+SH = shutil.which("sh")
 
 
 def run_settings_command(payload, project_dir, path=None):
@@ -182,7 +186,7 @@ def run_settings_command(payload, project_dir, path=None):
     if path is not None:
         env["PATH"] = path
     return subprocess.run(
-        ["sh", "-c", handler["command"]],
+        [SH, "-c", handler["command"]],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
@@ -198,6 +202,36 @@ class SettingsCommandTest(unittest.TestCase):
     def test_settings_command_runs_the_hook(self):
         r = run_settings_command(BLOCKED_PAYLOAD, str(HOOK.parent.parent.parent))
         self.assertEqual(r.returncode, 2)
+
+    def test_settings_command_blocks_usual_forms(self):
+        for command in (
+            "nix develop -c dvc checkout dvc.yaml",
+            "cd /home/tagawa/github/xlc-x && dvc checkout",
+            "bash -c 'dvc checkout'",
+            "for y in examples/*/dvc.yaml; do dvc checkout $y; done",
+        ):
+            with self.subTest(command=command):
+                payload = {"tool_name": "Bash", "tool_input": {"command": command}}
+                self.assertEqual(run_settings_command(payload, PROJECT).returncode, 2)
+
+    def test_commands_mentioning_check_reach_python(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = Path(d) / "python3"
+            fake.write_text("#!/bin/sh\nexit 99\n")
+            fake.chmod(0o755)
+            path = f"{d}{os.pathsep}{os.environ['PATH']}"
+            payload = {"tool_name": "Bash", "tool_input": {"command": "dvc 'check'out"}}
+            self.assertEqual(
+                run_settings_command(payload, PROJECT, path).returncode, 99
+            )
+
+    def test_missing_python_reports_without_blocking(self):
+        with tempfile.TemporaryDirectory() as d:
+            for tool in ("sh", "cat"):
+                os.symlink(shutil.which(tool), Path(d) / tool)
+            r = run_settings_command(BLOCKED_PAYLOAD, PROJECT, d)
+            self.assertEqual(r.returncode, 127)
+            self.assertNotEqual(r.stderr, "")
 
     def test_commands_without_checkout_skip_python(self):
         with tempfile.TemporaryDirectory() as d:
