@@ -1166,11 +1166,27 @@ fn density_derivatives_take_the_weights_of_the_few_group_constants() {
         let states = t.states.clone();
         for (state, few) in t.micro.as_mut().unwrap().states.iter_mut().zip(&states) {
             let neg = |v: &[f64]| v.iter().map(|x| -2.0 * x).collect::<Vec<_>>();
+            // 反応率の微分（ADR-0215）は −2 σᵢ。境界より下の核分裂は断面積（割合 × 群の和の σf）の微分
+            let sigma = state[0].clone();
             state[0].derivative = Some(xlc_format::table::MicroDerivative {
                 total: neg(&few.total),
                 nu_fission: neg(&few.nu_fission),
                 fission: neg(&few.fission),
                 scatter: few.scatter.iter().map(|r| neg(r)).collect(),
+                rate: xlc_format::table::RateResidual {
+                    fission: neg(&sigma.fission),
+                    reactions: sigma
+                        .reactions
+                        .iter()
+                        .map(|r| xlc_format::table::MicroReaction {
+                            mt: r.mt,
+                            channels: r.channels.iter().map(|c| neg(c)).collect(),
+                        })
+                        .collect(),
+                    thermal_fission: sigma
+                        .thermal_fission
+                        .map(|f| -2.0 * f * sigma.fission.iter().sum::<f64>()),
+                },
             });
         }
         t.validate().unwrap();
@@ -1200,6 +1216,16 @@ fn density_derivatives_take_the_weights_of_the_few_group_constants() {
             for (a, b) in d.scatter.iter().zip(&f.scatter) {
                 assert!(close(a, b), "{bu}");
             }
+            // 反応率の微分も σᵢ と同じ重みで内挿する
+            let sigma = &m.nuclides[0];
+            assert!(close(&d.rate.fission, &sigma.fission), "{bu}");
+            for (a, b) in d.rate.reactions.iter().zip(&sigma.reactions) {
+                for (a, b) in a.channels.iter().zip(&b.channels) {
+                    assert!(close(a, b), "{bu}");
+                }
+            }
+            let below = sigma.thermal_fission.unwrap() * sigma.fission.iter().sum::<f64>();
+            assert!(close(&[d.rate.thermal_fission.unwrap()], &[below]), "{bu}");
         }
     }
     // 微分を持たないテーブルは、内挿しても持たない

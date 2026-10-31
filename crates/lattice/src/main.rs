@@ -748,6 +748,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 &output.bounds,
                                 &boundaries,
                             )?;
+                            // 反応率の微分（ADR-0215）の摂動の σᵢ。燃焼の領域の数密度は状態のもので重みを付けるが、摂動は核種の数密度を
+                            // 領域によらず同じ割合で変えるので、自分の σᵢ の重み（領域の数密度 / 均質化した数密度）は摂動の組成と同じ
+                            let sigma = h.micro(
+                                state,
+                                library,
+                                shielded.fuel(),
+                                &lattice,
+                                &solution,
+                                &output.bounds,
+                            )?;
                             tracing::info!(
                                 state,
                                 nuclide = h.derivative_nuclides()[j].as_str(),
@@ -755,7 +765,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 seconds = started.elapsed().as_secs_f64(),
                                 "derivative"
                             );
-                            Ok(few)
+                            Ok((few, sigma))
                         },
                     )
                     .with_context(|| format!("{}: density derivatives", context()))?;

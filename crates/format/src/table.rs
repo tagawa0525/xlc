@@ -10,7 +10,8 @@
 //! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）, `micro`（ミクロ燃焼の核種の `nuclides`、燃焼度の点ごとの均質化した
 //! 数密度 `densities`、`points` の点ごとの核種ごとの微視的断面積 `states`（`total`、`nu_fission`、`fission`、`scatter`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない）、`derivative`（自分の数密度による格子全体の少数群定数の微分の `total`、
-//! `nu_fission`、`fission`、`scatter`。数密度が 0 の点は σᵢ。微分を持つ核種だけが書き、ほかはキーを書かない（nil はエラー）。ADR-0221））。燃焼度の軸を持ち、分けない
+//! `nu_fission`、`fission`、`scatter`。数密度が 0 の点は σᵢ。ADR-0221）と、同じ摂動の自分の反応率の微視的断面積の微分 `rate`（`fission`、
+//! `reactions`、`thermal_fission`。数密度が 0 の点は 0。ADR-0215）。微分を持つ核種だけが書き、ほかはキーを書かない（nil はエラー））。燃焼度の軸を持ち、分けない
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
 //! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density`）、公称の燃焼の値 `nominal`（H⁰）、履歴の
 //! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
@@ -526,6 +527,9 @@ pub struct MicroDerivative {
     pub fission: Vec<f64>,
     /// P0 の散乱行列 [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
+    /// 同じ摂動の、この核種のミクロ燃焼の反応率の微視的断面積の微分 ∂σᵢ/∂N̄ᵢ (barn² cm)（ADR-0215 の自分の数密度の項）。自己遮蔽と
+    /// スペクトルによる自分の σᵢ の変化だけで、ほかの核種の項を含まない。N̄ᵢ が 0 の点は 0
+    pub rate: RateResidual,
 }
 
 /// チェーンの反応の代表の MT と、経路（ライブラリとチェーンの経路の並び）ごとの少数群の断面積 (barn)
@@ -582,19 +586,57 @@ pub struct RateResiduals {
     pub linearization: Vec<Vec<RateResidual>>,
 }
 
-/// 1 つの追う核種の、ミクロ燃焼の反応率に使う微視的断面積の、2 つの組成の差（どちらも履歴の分岐の条件の状態。ADR-0215 の案 S2。
-/// [`RateResiduals`]）。線形の補正の係数（全断面積、νσf、散乱行列、数密度の微分）は補正しないので持たない
+/// 1 つの追う核種の、ミクロ燃焼の反応率に使う微視的断面積の変化: 2 つの組成の差（どちらも履歴の分岐の条件の状態。ADR-0215 の案 S2。
+/// [`RateResiduals`]）か、自分の数密度による微分（[`MicroDerivative::rate`]）。線形の補正の係数（全断面積、νσf、散乱行列、数密度の
+/// 微分）は補正しないので持たない
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RateResidual {
-    /// 核分裂の断面積の差 (barn)
+    /// 核分裂の断面積の変化
     pub fission: Vec<f64>,
-    /// チェーンの反応ごとの、経路ごとの断面積の差（MT と経路の並びは `Micro::states` の核種と同じ）
+    /// チェーンの反応ごとの、経路ごとの断面積の変化（MT と経路の並びは `Micro::states` の核種と同じ）
     pub reactions: Vec<MicroReaction>,
-    /// 収率の境界より下の核分裂の断面積（割合 × 群の和の σf (barn)）の差。割合でなく断面積の差にするのは、core が補正した σf の和との比を
-    /// 割合にするため（ADR-0216 の内挿と同じ）。核分裂しない核種は nil（キーは省けない）
+    /// 収率の境界より下の核分裂の断面積（割合 × 群の和の σf (barn)）の変化。割合でなく断面積の変化にするのは、core が補正した σf の和との
+    /// 比を割合にするため（ADR-0216 の内挿と同じ）。核分裂しない核種は nil（キーは省けない）
     #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub thermal_fission: Option<f64>,
+}
+
+impl RateResidual {
+    /// 核種の微視的断面積 `n` と同じ反応の並び（MT と経路の数）と核分裂の有無で、`groups` 群の有限の値であること
+    fn check_shape(&self, n: &MicroNuclide, groups: usize) -> Result<(), String> {
+        let shape = |reactions: &[MicroReaction]| {
+            reactions
+                .iter()
+                .map(|x| (x.mt, x.channels.len()))
+                .collect::<Vec<_>>()
+        };
+        if shape(&self.reactions) != shape(&n.reactions) {
+            return Err(format!(
+                "the reactions {:?} differ from those of the micro data {:?}",
+                shape(&self.reactions),
+                shape(&n.reactions)
+            ));
+        }
+        let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
+        if !sized(&self.fission)
+            || !self
+                .reactions
+                .iter()
+                .flat_map(|x| &x.channels)
+                .all(|c| sized(c))
+        {
+            return Err(format!("the values must have {groups} finite groups"));
+        }
+        match (self.thermal_fission, n.thermal_fission) {
+            (Some(f), Some(_)) if f.is_finite() => Ok(()),
+            (None, None) => Ok(()),
+            _ => Err(format!(
+                "the fission below the yield cutoff must be finite for fissile nuclides and nil for the others, got {:?}",
+                self.thermal_fission
+            )),
+        }
+    }
 }
 
 /// 残り R の少数群定数の項目（状態の少数群定数と同じ単位）。k∞、真空の辺の比、形状関数は持たない
@@ -1269,48 +1311,10 @@ impl Table {
             ));
         }
         let groups = self.states[0].bounds.len() - 1;
-        let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
         for (k, row) in part.iter().enumerate() {
             for (i, (r, n)) in row.iter().zip(reference).enumerate() {
-                let at = || format!("rate residual {k}, {}", micro.nuclides[i]);
-                let shape = |reactions: &[MicroReaction]| {
-                    reactions
-                        .iter()
-                        .map(|x| (x.mt, x.channels.len()))
-                        .collect::<Vec<_>>()
-                };
-                if shape(&r.reactions) != shape(&n.reactions) {
-                    return Err(format!(
-                        "{}: the reactions {:?} differ from those of the micro data {:?}",
-                        at(),
-                        shape(&r.reactions),
-                        shape(&n.reactions)
-                    ));
-                }
-                if !sized(&r.fission)
-                    || !r
-                        .reactions
-                        .iter()
-                        .flat_map(|x| &x.channels)
-                        .all(|c| sized(c))
-                {
-                    return Err(format!(
-                        "{}: the differences must have {groups} finite groups",
-                        at()
-                    ));
-                }
-                match (r.thermal_fission, n.thermal_fission) {
-                    (Some(f), Some(_)) if f.is_finite() => {}
-                    (None, None) => {}
-                    _ => {
-                        return Err(format!(
-                            "{}: the difference of the fission below the yield cutoff must be finite for fissile \
-                             nuclides and nil for the others, got {:?}",
-                            at(),
-                            r.thermal_fission
-                        ));
-                    }
-                }
+                r.check_shape(n, groups)
+                    .map_err(|e| format!("rate residual {k}, {}: {e}", micro.nuclides[i]))?;
             }
         }
         Ok(())
@@ -1410,6 +1414,11 @@ impl Table {
                         "{}: density derivatives must have {groups} finite groups",
                         at()
                     ));
+                }
+                if let Some(d) = &n.derivative {
+                    d.rate
+                        .check_shape(n, groups)
+                        .map_err(|e| format!("{}: rate derivative: {e}", at()))?;
                 }
                 let mts: Vec<u32> = n.reactions.iter().map(|r| r.mt).collect();
                 if mts.iter().enumerate().any(|(k, mt)| mts[..k].contains(mt))
