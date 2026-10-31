@@ -1401,6 +1401,25 @@ fn shifted(few: &FewGroup, delta: f64) -> FewGroup {
     out
 }
 
+/// 微視的断面積の核分裂に `5 delta`、反応の経路に `6 delta` を足したもの（収率の境界より下の割合は変えない）
+fn shifted_micro(
+    micro: &[xlc_format::table::MicroNuclide],
+    delta: f64,
+) -> Vec<xlc_format::table::MicroNuclide> {
+    let mut out = micro.to_vec();
+    for n in &mut out {
+        for f in &mut n.fission {
+            *f += 5.0 * delta;
+        }
+        for c in n.reactions.iter_mut().flat_map(|r| &mut r.channels) {
+            for x in c {
+                *x += 6.0 * delta;
+            }
+        }
+    }
+    out
+}
+
 /// 分岐の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
 fn solve_state(
     s: &Setup,
@@ -1472,13 +1491,14 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
     let index = 3;
     let point = 1;
     let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let sigma = micro.clone();
     let delta = 1.0e-3;
     let mut solved = Vec::new();
     branches
         .add_derivatives(index, &mut micro, &nominal, |j, state, _, _| {
             assert_scaled(state, &branches.state(index), ["Xe-135", "U-235"][j], 0.25);
             solved.push(j);
-            Ok(shifted(&nominal, delta))
+            Ok((shifted(&nominal, delta), shifted_micro(&sigma, delta)))
         })
         .unwrap();
     assert_eq!(solved, [0, 1]);
@@ -1500,6 +1520,23 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
             for to in 0..2 {
                 close(d.scatter[g][to], 4.0 * delta / change, "scatter");
             }
+            // 反応率の項目は、同じ摂動の自分の微視的断面積の差を同じ量で割る（ADR-0215 の自分の数密度の項）
+            close(d.rate.fission[g], 5.0 * delta / change, "rate fission");
+            for c in d.rate.reactions.iter().flat_map(|r| &r.channels) {
+                close(c[g], 6.0 * delta / change, "rate channel");
+            }
+        }
+        // 境界より下の核分裂は断面積（割合 × 群の和の σf）の差。割合を変えずに σf の和が 2 × 5 delta 増えた
+        match (sigma[m].thermal_fission, d.rate.thermal_fission) {
+            (Some(f), Some(got)) => {
+                let want = f * 10.0 * delta / change;
+                assert!(
+                    (got - want).abs() <= 1e-9 * want.abs(),
+                    "{name}: {got} vs {want}"
+                );
+            }
+            (None, None) => {}
+            other => panic!("{name}: {other:?}"),
         }
     }
 }
@@ -1522,10 +1559,11 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     assert_eq!(branches.micro_densities()[0][1], 0.0);
     let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
     let mut solved = Vec::new();
+    let sigma = micro.clone();
     branches
         .add_derivatives(index, &mut micro, &nominal, |j, _, _, _| {
             solved.push(j);
-            Ok(shifted(&nominal, 1.0e-3))
+            Ok((shifted(&nominal, 1.0e-3), shifted_micro(&sigma, 1.0e-3)))
         })
         .unwrap();
     // U-235（微分の 2 つ目）だけを解く
@@ -1536,6 +1574,19 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     assert_eq!(d.nu_fission, xenon.nu_fission);
     assert_eq!(d.fission, xenon.fission);
     assert_eq!(d.scatter, xenon.scatter);
+    // 反応率の項目の微分は 0（自分の数密度による自己遮蔽の変化を持たない）で、反応の並びと核分裂の有無は核種と同じ
+    assert!(d.rate.fission.iter().all(|&x| x == 0.0));
+    assert_eq!(d.rate.reactions.len(), xenon.reactions.len());
+    for (r, n) in d.rate.reactions.iter().zip(&xenon.reactions) {
+        assert_eq!(r.mt, n.mt);
+        assert_eq!(r.channels.len(), n.channels.len());
+        assert!(r.channels.iter().flatten().all(|&x| x == 0.0));
+    }
+    assert_eq!(
+        d.rate.thermal_fission.is_some(),
+        xenon.thermal_fission.is_some()
+    );
+    assert!(d.rate.thermal_fission.is_none_or(|x| x == 0.0));
     assert!(micro[0].derivative.is_some());
 }
 
@@ -1565,18 +1616,40 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         branches
             .add_derivatives(index, &mut micro, &nominal, |j, state, reference, build| {
                 let shielded = perturbed[j].shield_state(&library, state, reference, build)?;
-                Ok(homogenized(&s, &library, &shielded).0)
+                let (few, solution) = homogenized(&s, &library, &shielded);
+                let sigma = branches.micro(
+                    index,
+                    &library,
+                    shielded.fuel(),
+                    &s.tracking.lattice,
+                    &solution,
+                    &BOUNDS,
+                )?;
+                Ok((few, sigma))
             })
             .unwrap();
         micro.into_iter().map(|m| m.derivative.unwrap()).collect()
     };
     let at = [0.02, 0.04, 0.08].map(derivative_at);
+    // U-235 の共鳴の群（高速群）の反応率の σᵢ は、自分の数密度が増えると自己遮蔽で減る
+    for d in &at {
+        assert!(d[0].rate.fission[0] < 0.0, "{:?}", d[0].rate);
+        let capture = d[0].rate.reactions.iter().find(|r| r.mt == 102).unwrap();
+        assert!(capture.channels[0][0] < 0.0, "{capture:?}");
+    }
     for (m, name) in ["U-235", "Xe-135"].into_iter().enumerate() {
         let items = |d: &xlc_format::table::MicroDerivative| -> Vec<f64> {
             let mut v = Vec::new();
             v.extend(&d.total);
             v.extend(&d.nu_fission);
             v.extend(d.scatter.iter().flatten());
+            v.extend(&d.rate.fission);
+            v.extend(
+                d.rate
+                    .reactions
+                    .iter()
+                    .flat_map(|r| r.channels.iter().flatten()),
+            );
             v
         };
         let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
