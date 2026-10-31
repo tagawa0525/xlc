@@ -12,7 +12,6 @@ use crate::search::{SearchError, find};
 use crate::state::{
     MicroAt, State, add_rate_residual, add_residual, interpolate, interpolate_branch_difference,
     interpolate_micro, interpolate_rate_residual, interpolate_residual, non_negative,
-    residual_is_zero,
 };
 
 /// 状態を解いた結果。
@@ -135,8 +134,8 @@ fn weighted_histories<'a>(
 /// Σ_j [w_j U_j,r(u) + (E / E_j,r(u)) L_j,r(u)] を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
 /// `burnup` で内挿した値。E は熱群の νΣf の線形の補正（`production_index`）の、ノードの数密度 `n` と状態で内挿した基準の数密度
 /// （`micro`）の差のもの、E_j は同じ係数の、履歴の分岐の数密度の差（`interpolate_branch_difference`）のもの。w_j が 0 の変数は足さない。
-/// L がすべて 0 の点（燃焼度 0。履歴の分岐の組成が公称と同じ）は E_j も 0 なので足さない。燃焼度が残りの点の範囲の外か、L が 0 で
-/// ないのに E_j が 0 ならエラー
+/// 履歴の分岐の数密度の差がすべて 0 の燃焼度（燃焼度 0）では、ハイブリッドは公称の組成そのもので L は定義から 0 なので、L を足さない
+/// （テーブルの値は 2 つの格子計算の解の差）。燃焼度が残りの点の範囲の外か、数密度の差が 0 でないのに E_j が 0 ならエラー
 pub fn add_histories(
     f: &mut FewGroup,
     table: &Table,
@@ -169,21 +168,21 @@ pub fn add_histories(
         let at = |e: String| format!("history variable {variable}: {e}");
         let untracked = interpolate_residual(entry, &entry.untracked, burnup).map_err(at)?;
         add_residual(f, w, &untracked);
-        let linearization =
-            interpolate_residual(entry, &entry.linearization, burnup).map_err(at)?;
-        if residual_is_zero(&linearization) {
+        let branch = interpolate_branch_difference(entry, axis, nominal, burnup).map_err(at)?;
+        if branch.iter().all(|&d| d == 0.0) {
             continue;
         }
-        let branch = interpolate_branch_difference(entry, axis, nominal, burnup).map_err(at)?;
+        let linearization =
+            interpolate_residual(entry, &entry.linearization, burnup).map_err(at)?;
         let own = production_index(&micro.nuclides, &node);
         let of_branch = production_index(&micro.nuclides, &branch);
         let ratio = own / of_branch;
         // 比を作れない点で L を w などで足すと、どの近似かが入力から読めない。黙って置き換えない
         if of_branch == 0.0 || !ratio.is_finite() {
             return Err(at(format!(
-                "the linearization error is not zero at burnup {burnup}, but the branch index (the thermal \
-                 nu-fission of its linear correction) is {of_branch}, so its ratio {own} / {of_branch} is not a \
-                 weight (ADR-0215)"
+                "the branch densities differ from the nominal ones at burnup {burnup}, but the branch index (the \
+                 thermal nu-fission of their linear correction) is {of_branch}, so its ratio {own} / {of_branch} is \
+                 not a weight of the linearization error (ADR-0215)"
             )));
         }
         add_residual(f, ratio, &linearization);
