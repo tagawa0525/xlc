@@ -27,8 +27,8 @@ MESSAGE = """\
 scripts/worktree-restore-outputs.sh（中で同じスクリプトを呼ぶ）。
 """
 
-# 単純なコマンドを区切る記号。リダイレクト（< と >）は別に扱う
-SEPARATORS = set(";&|\n")
+# 単純なコマンドを区切る記号。改行（ヒアドキュメントの本文を飛ばす）とリダイレクト（< と >）は別に扱う
+SEPARATORS = set(";&|")
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 SHELLS = {"bash", "sh", "zsh", "dash"}
 # 次の語をコマンドとして実行する予約語（`for`、`case` などの後の語はコマンドでない）
