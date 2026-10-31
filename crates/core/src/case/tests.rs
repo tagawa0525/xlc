@@ -1062,6 +1062,26 @@ fn production_index_rate_residuals_reproduce_the_branch_at_its_point_and_skip_no
 }
 
 #[test]
+fn production_index_rate_residuals_of_nominal_branch_densities_after_burnup_zero_are_errors() {
+    // 燃焼度 0 より後で履歴の分岐の追う核種の数密度が公称と同じでも、Δσ は追わない核種の違いを含み 0 とは限らない。P_j が 0 で
+    // 比を作れないので止める（L は定義から 0 なので足さないが、Δσ は黙って落とさない）
+    let mut table = history_table(&[]);
+    table.histories[0].rods[0].densities[1] = NOMINAL_DENSITIES[2].to_vec();
+    table.validate().unwrap();
+    let n = [5.5e-4, 1.6e-5];
+    let err = node_micro(
+        &table,
+        &at(600.0, 20.0),
+        None,
+        &[0.702],
+        &n,
+        RateResidualWeight::ProductionIndex,
+    )
+    .unwrap_err();
+    assert!(err.contains("index"), "{err}");
+}
+
+#[test]
 fn production_index_rate_residuals_without_a_branch_index_are_errors() {
     // 履歴の分岐の数密度は公称と違うのに P_j が 0 なら、Δσ の比を作れないので止める（黙って w にしない）
     let mut table = history_table(&[]);
