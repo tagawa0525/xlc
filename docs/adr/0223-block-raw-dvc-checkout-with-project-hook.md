@@ -4,7 +4,7 @@ date: 2026-10-31
 requires: []
 supersedes: []
 superseded-by:
-issues: ["#0184"]
+issues: ["#0184", "#0210"]
 ---
 
 # ADR-0223: 生の dvc checkout を xlc のプロジェクトの hook で止め、scripts/dvc-checkout.py を使わせる
@@ -69,6 +69,7 @@ issues: ["#0184"]
 - 判定はシェルの文法の一部だけを読む。`"…"` の中の `$(…)` は読むが、バッククォートの中、`slurm-run.sh` などに文字列として渡す
   コマンド、`eval` は読まない（止め損なうが、誤って止めることはない）
 - スキル（/openmc-reference）と docs の手順に残っていた生の `dvc checkout` のコマンドを、スクリプトの形に直した
+- examples/ の記録の手順、dvc.yaml のコメント、スクリプトのエラーの文言に残る生の `dvc checkout` は #0210
 
 ### 確認
 
