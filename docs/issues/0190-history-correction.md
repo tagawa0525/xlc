@@ -206,6 +206,10 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
   `production` の複製。compare_forgetting.py は B₀ を参照のテーブルの軸 0 の最初の点から取り、軸が燃焼度であることと switch.json の
   `continued_burnup` との一致を照らさない。試行（trials/rate-index）は本番のコードでなく Python でテーブルの Δσ を書き換えて作っていて、
   CLAUDE.md の試行の規則（選べない選択肢は入力で選べる機能として足す）に沿わない。Δσ の足し方を入力で選べる機能にするときに作り直す
+  2 周目で残したもの: 残りを w 倍する関数が compare_weight.py の `scaled`、compare_core_history.py の `scaled`、テストの 2 つと 4 つあり、
+  熱群の νΣf の補正の和もテストと試行にコピーがある。core の `add_histories` はノードの P を変数のループの中で求め直す。
+  verification_tables.py の `history_forgetting` は行が無い要約で TableError でなく IndexError になる。試行の compare.py は DVC のキャッシュの
+  パス（md5 14c85ae0）を直接読み、`dvc gc` の後は読めない
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
   超えた差（U と L に分けた後は数密度の効きが大半。反応率の Δσ の足し方が候補。ADR-0215 の案 R6）、ハイブリッドの組成を作る本番の経路、
