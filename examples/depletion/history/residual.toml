@@ -1,8 +1,8 @@
-# 履歴の残り R（ADR-0215、#0190）: 公称のテーブル（residual-nominal.toml）に、減速材の密度の履歴の分岐の自分の条件のテーブル
+# 履歴の残り R（ADR-0215、#0190）: 公称のテーブル（residual-nominal-rate.toml。反応率の σᵢ の数密度の微分も持つ）に、減速材の密度の履歴の分岐の自分の条件のテーブル
 # （residual-density-branch.toml）と、追う核種だけを履歴の分岐の値にした公称の組成を同じ条件で解いたハイブリッドのテーブル
 # （hybrid-residual-density-branch.toml）から作った、追わない核種の分 U と線形化の誤差 L を書き足す。
 # `lattice histories residual.toml` で実行する。
-nominal = "table-residual-nominal.msgpack"
+nominal = "table-residual-nominal-rate.msgpack"
 output = "table-residual-nominal-histories.msgpack"
 
 [[history]]
