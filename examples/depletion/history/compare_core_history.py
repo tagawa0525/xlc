@@ -16,12 +16,14 @@
 - 第 1 項のテーブルで燃焼させた core（`core-2A-sigma-branch.toml`。条件 j の燃焼と同じで、テーブルだけが第 1 項）: 同じ点の k の第 1 項の
   k∞ からの差と、数密度の同じ相対差（履歴の補正が目指す水準）
 - 途中で条件を変えた燃焼（`core-2A-residual-switch.toml`。20 MWd/kg まで 565 K、その後 600 K）: 燃焼点ごとに、ノードの減速材の密度の
-  履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、誤差の上限 w × max |公称の状態で使った誤差|。R の燃焼度の点では、R の効き
-  ρ(f + w R) − ρ(f) と、R の点ごとの誤差の上限 w × |公称の状態で使った誤差(u)|
+  履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、R の状態への依存の目安 w × max |公称の状態で使った誤差|（R の全体を w で足すと置いた値。core は L を
+  w でなく P / P_j で足すので、L の分の目安にならない）。R の燃焼度の点では、履歴の補正の効き ρ(f + w U + (P / P_j) L) − ρ(f) と、R の点ごとの
+  目安 w × |公称の状態で使った誤差(u)|
 
-f はノードの定数のうち R の前まで（テーブルのその状態の格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)。Nᵢ は core の数密度。core と同じ係数）で、
-R の燃焼度の点の、状態が格子点の燃焼点だけで組み立てる。`reconstruct_pcm` は ρ(f + w R) の 2 群の k と core の k の差（core が R を
-足したことの検査。1 ノードの反射境界の k は 2 群の無限媒質の k）。ρ = 1 − 1/k で、差は pcm。
+f はノードの定数のうち履歴の補正の前まで（テーブルのその状態の格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)。Nᵢ は core の数密度。core と同じ係数）で、
+R の燃焼度の点の、状態が格子点の燃焼点だけで組み立てる。U は w、L は熱群の νΣf の線形の補正の比 P / P_j で足す（`Table.node_k`）。
+`reconstruct_pcm` は f + w U + (P / P_j) L の 2 群の k と core の k の差（core が補正を足したことの検査。1 ノードの反射境界の k は 2 群の
+無限媒質の k）。ρ = 1 − 1/k で、差は pcm。
 """
 
 import argparse
@@ -414,7 +416,7 @@ def report(summary):
         f"\n条件 j の燃焼（w = 1）の core の k と第 1 項のテーブルの k∞ の差は、R の点 {len(branch)} で "
         f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。公称の燃焼の core と公称の"
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
-        f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + R の 2 群の k の差は "
+        f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + w U + (P / P_j) L の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"
         f"\n第 1 項のテーブルで燃焼させた core の k と第 1 項のテーブルの k∞ の差は {span(branch, 'sigma_difference_pcm')} pcm"
         f"（15 MWd/kg 以後 {span(later, 'sigma_difference_pcm')} pcm）。"
@@ -425,8 +427,8 @@ def report(summary):
         f"\n途中で条件を変えた燃焼: w は "
         f"{first_weight}、"
         f"最後の点 {last['burnup']:.4g} MWd/kg で "
-        f"H = {last['history']:.6f} g/cc、w = {last['weight']:.6f}、誤差の上限 w × {summary['applied_max_pcm']:.2f} = "
-        f"{last['bound_pcm']:.2f} pcm。R の点の R の効きは {span(switch, 'residual_pcm')} pcm、点ごとの誤差の上限は "
+        f"H = {last['history']:.6f} g/cc、w = {last['weight']:.6f}、R の状態への依存の目安 w × {summary['applied_max_pcm']:.2f} = "
+        f"{last['bound_pcm']:.2f} pcm。R の点の履歴の補正の効きは {span(switch, 'residual_pcm')} pcm、点ごとの目安は "
         f"{span(switch, 'applied_bound_pcm')} pcm、core の k と組み立てた 2 群の k の差は {span(switch, 'reconstruct_pcm', '+.1e')} pcm"
     )
 
