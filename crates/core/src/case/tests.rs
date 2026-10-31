@@ -970,6 +970,29 @@ fn rate_linearizations_without_a_branch_index_are_errors() {
 }
 
 #[test]
+fn rate_residual_parts_are_checked_only_as_their_sum() {
+    // Δσ_U と Δσ_L の和が正しい断面積と割合を与えれば、片方だけを足した途中の値が負か 0..1 の外でも止めない（和を一度に足す）
+    let mut table = history_table(&[]);
+    let parts = &mut table.histories[0].rods[0].micro;
+    parts.untracked[1][0].fission[1] -= 1.0e3;
+    parts.linearization[1][0].fission[1] += 1.0e3;
+    *parts.untracked[1][1].thermal_fission.as_mut().unwrap() += 1.0e3;
+    *parts.linearization[1][1].thermal_fission.as_mut().unwrap() -= 1.0e3;
+    table.validate().unwrap();
+    let m = node_micro(
+        &table,
+        &at(600.0, 20.0),
+        None,
+        &[0.661],
+        &BRANCH_DENSITIES[1],
+    )
+    .unwrap();
+    for (got, want) in m.nuclides.iter().zip(&branch_sigma(1)) {
+        assert!(same_rates(got, &with_rate(want, &[])), "{got:?} {want:?}");
+    }
+}
+
+#[test]
 fn rate_residuals_that_give_negative_cross_sections_or_fractions_are_errors() {
     let state = at(600.0, 20.0);
     let n = BRANCH_DENSITIES[1];
