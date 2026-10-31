@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_core_history as c
 import compare_residual as r
-from test_compare_residual import NUCLIDES, axes, few, residual
+from test_compare_residual import NUCLIDES, axes, few, history_rod, residual
 from test_compare_residual import sigma as plain_sigma
 
 
@@ -72,7 +72,9 @@ def table():
                 "variable": "moderator-density",
                 "nominal": 0.743,
                 "branch": 0.661,
-                "rods": [{"rod": "out", "burnup": [0.0, 20.0], "residuals": rs}],
+                "rods": [
+                    history_rod([0.0, 20.0], rs, [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]])
+                ],
             }
         ],
     }
@@ -120,21 +122,35 @@ def core(points):
     }
 
 
+def scaled(x, w):
+    return {
+        k: [w * a for a in v]
+        if not isinstance(v[0], list)
+        else [[w * a for a in row] for row in v]
+        for k, v in x.items()
+    }
+
+
 def node_k(t, b, m, n, w):
-    """テーブル `t` の燃焼度の点 `b`、減速材の点 `m` の定数 + 線形の補正（数密度 `n`）+ w R の 2 群の k"""
+    """テーブル `t` の燃焼度の点 `b`、減速材の点 `m` の定数 + 線形の補正（数密度 `n`）+ w U + (P / P_j) L の 2 群の k。P は熱群の νΣf の
+    線形の補正（ノードの数密度の差）、P_j は同じ係数の履歴の分岐の数密度の差のもの。履歴の分岐の数密度が公称と同じ点は L を足さない"""
     p = t["points"].index([b, 0, m, 0])
-    deltas = [x - y for x, y in zip(n, t["micro"]["densities"][b])]
-    f = r.corrected(t["states"][p], r.coefficients(t["micro"]["states"][p]), deltas)
+    densities = t["micro"]["densities"][b]
+    coefficients = r.coefficients(t["micro"]["states"][p])
+    deltas = [x - y for x, y in zip(n, densities)]
+    f = r.corrected(t["states"][p], coefficients, deltas)
     rod = t["histories"][0]["rods"][0]
     u = t["axes"][0]["points"][b]
     if w != 0.0:
-        scaled = {
-            k: [w * x for x in v]
-            if not isinstance(v[0], list)
-            else [[w * x for x in row] for row in v]
-            for k, v in rod["residuals"][rod["burnup"].index(u)].items()
-        }
-        f = r.added(f, scaled)
+        k = rod["burnup"].index(u)
+        f = r.added(f, scaled(rod["untracked"][k], w))
+        branch = [x - y for x, y in zip(rod["densities"][k], densities)]
+        if any(d != 0.0 for d in branch):
+            own = sum(c["nu_fission"][-1] * d for c, d in zip(coefficients, deltas))
+            of_branch = sum(
+                c["nu_fission"][-1] * d for c, d in zip(coefficients, branch)
+            )
+            f = r.added(f, scaled(rod["linearization"][k], own / of_branch))
     return r.k_inf(f)
 
 
@@ -237,7 +253,7 @@ class Compare(unittest.TestCase):
                 coeff,
                 [a - b for a, b in zip(nj, micro["densities"][2])],
             ),
-            t["histories"][0]["rods"][0]["residuals"][1],
+            r.residual(t["histories"][0]["rods"][0], 1),
         )
         whole = r.corrected(base, coeff, [a - b for a, b in zip(N20, nj)])
         self.assertAlmostEqual(
