@@ -10,8 +10,9 @@
 //! 作ったテーブルだけが書き、ほかはキーを書かない。ADR-0190）, `micro`（ミクロ燃焼の核種の `nuclides`、燃焼度の点ごとの均質化した
 //! 数密度 `densities`、`points` の点ごとの核種ごとの微視的断面積 `states`（`total`、`nu_fission`、`fission`、`scatter`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（nil か値。キーは省けない）、`derivative`（自分の数密度による格子全体の少数群定数の微分の `total`、
-//! `nu_fission`、`fission`、`scatter`。数密度が 0 の点は σᵢ。ADR-0221）と、同じ摂動の自分の反応率の微視的断面積の微分 `rate`（`fission`、
-//! `reactions`、`thermal_fission`。数密度が 0 の点は 0。ADR-0215）。微分を持つ核種だけが書き、ほかはキーを書かない（nil はエラー））。燃焼度の軸を持ち、分けない
+//! `nu_fission`、`fission`、`scatter`（数密度が 0 の点は σᵢ。ADR-0221）と、`derivative` の中に、同じ摂動の自分の反応率の微視的断面積の微分
+//! `rate`（`fission`、`reactions`、`thermal_fission`。数密度が 0 の点は 0。ADR-0215）。微分を持つ核種だけが書き、ほかはキーを書かない（nil は
+//! エラー））。燃焼度の軸を持ち、分けない
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
 //! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density`）、公称の燃焼の値 `nominal`（H⁰）、履歴の
 //! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
