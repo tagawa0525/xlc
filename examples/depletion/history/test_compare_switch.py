@@ -6,6 +6,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_residual as r
@@ -18,16 +19,66 @@ from test_compare_residual import NUCLIDES, axes, few
 N10 = [6.0e-4, 1.0e-5]
 N20 = [5.25e-4, 2.5e-5]
 PLAIN20 = [5.3e-4, 2.4e-5]
-INDEX20 = [5.22e-4, 2.55e-5]
 REFERENCE20 = [5.2e-4, 2.6e-5]
 
 
+def rate(a, b):
+    """反応率の微視的断面積の差 a − b（lattice histories の形。収率の境界より下は割合 × 群の和の σf の差）"""
+    below = lambda x: 0.9 * sum(x["fission"])
+    return {
+        "fission": [p - q for p, q in zip(a["fission"], b["fission"])],
+        "reactions": [
+            {
+                "mt": 102,
+                "channels": [
+                    [
+                        p - q
+                        for p, q in zip(
+                            a["reactions"][0]["channels"][0],
+                            b["reactions"][0]["channels"][0],
+                        )
+                    ]
+                ],
+            }
+        ],
+        "thermal_fission": below(a) - below(b),
+    }
+
+
+# 履歴の分岐（一生を条件 j）の R の点 0、20 の、追う核種ごとの反応率の微視的断面積の差 Δσ_U（分岐 − ハイブリッド）と Δσ_L（ハイブリッド −
+# 公称の条件 j）
+RATE_UNTRACKED = [
+    [
+        rate(sigma(1.5, False), sigma(1.0, False)),
+        rate(sigma(2.5, True), sigma(2.0, True)),
+    ],
+    [
+        rate(sigma(4.5, False), sigma(4.25, False)),
+        rate(sigma(8.5, True), sigma(8.25, True)),
+    ],
+]
+RATE_LINEARIZATION = [
+    [
+        rate(sigma(1.0, False), sigma(1.0, False)),
+        rate(sigma(2.0, True), sigma(2.0, True)),
+    ],
+    [
+        rate(sigma(4.25, False), sigma(4.0, False)),
+        rate(sigma(8.25, True), sigma(8.0, True)),
+    ],
+]
+
+
 def table():
-    """R を持つ公称のテーブルに、10 MWd/kg の条件 j の状態を足したもの"""
+    """R を持つ公称のテーブルに、10 MWd/kg の条件 j の状態と、反応率の微視的断面積の差を足したもの"""
     t = residual_table()
     t["points"].append([1, 0, 1, 0])
     t["states"].append(few(2.6))
     t["micro"]["states"].append([sigma(7, False), sigma(8, True)])
+    t["histories"][0]["rods"][0]["micro"] = {
+        "untracked": RATE_UNTRACKED,
+        "linearization": RATE_LINEARIZATION,
+    }
     return t
 
 
@@ -49,6 +100,17 @@ def reference():
     }
 
 
+def hybrid():
+    """参照の追う核種だけを公称の履歴に入れた組成（ハイブリッド）を、参照と同じ点と条件 j で解いた分岐"""
+    out = reference()
+    out["states"] = [few(2.45), few(4.3)]
+    out["micro"]["states"] = [
+        [sigma(2.1, False), sigma(3.2, True)],
+        [sigma(4.1, False), sigma(4.6, True)],
+    ]
+    return out
+
+
 def history():
     """途中で条件を変えた格子計算の燃焼の履歴（10 MWd/kg の点から続けた）"""
     return {
@@ -66,7 +128,7 @@ H20 = (0.743 * 10.0 + 0.661 * 10.0) / 20.0
 
 
 def cores():
-    """履歴の補正の core（k は 20 MWd/kg で 0.95）、補正を切った core（0.96）と、反応率の Δσ を P / P_j で足した core（0.952）"""
+    """履歴の補正の core（k は 20 MWd/kg で 0.95）と、補正を切った core（0.96）"""
     n0 = [7.0e-4, 0.0]
     corrected = core(
         [
@@ -82,14 +144,7 @@ def cores():
             (10.0, 20.0, "branch", 0.96, PLAIN20, H20),
         ]
     )
-    index = core(
-        [
-            (0.0, 0.0, "nominal", 1.2, n0, 0.743),
-            (5.0, 10.0, "branch", 1.01, N10, 0.743),
-            (10.0, 20.0, "branch", 0.952, INDEX20, H20),
-        ]
-    )
-    return corrected, plain, index
+    return corrected, plain
 
 
 SUMMARY = {
@@ -103,11 +158,29 @@ SUMMARY = {
 
 
 def compared():
-    corrected, plain, index = cores()
-    return c.compare(table(), reference(), history(), corrected, plain, SUMMARY, index)
+    corrected, plain = cores()
+    return c.compare(
+        table(), reference(), history(), corrected, plain, SUMMARY, hybrid()
+    )
+
+
+def absorption(x):
+    """核分裂と捕獲（MT 102）の和の、群ごとの微視的断面積"""
+    return [f + ch for f, ch in zip(x["fission"], x["reactions"][0]["channels"][0])]
+
+
+def rate_absorption(d):
+    """反応率の微視的断面積の差の、核分裂と捕獲の和"""
+    return [f + ch for f, ch in zip(d["fission"], d["reactions"][0]["channels"][0])]
 
 
 class Compare(unittest.TestCase):
+    def setUp(self):
+        # fixture の追う核種は U-235 と Pu-240 だけ
+        patcher = mock.patch.object(c, "GROUPS", ["U-235", "Pu-240"])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_the_cores_are_compared_with_the_reference_at_its_burnups(self):
         s = compared()
         self.assertEqual(s["format"], "xlc-compare-history-switch")
@@ -239,12 +312,18 @@ class Compare(unittest.TestCase):
 
     def test_reference_densities_follow_the_burnup_of_each_state(self):
         # N̄ᵢ は燃焼度の点の順、状態は points の順。状態を燃焼度の逆に並べても同じ要約になる
-        corrected, plain, index = cores()
+        corrected, plain = cores()
         swapped = reference()
         swapped["points"] = [[1, 0, 0, 0], [0, 0, 0, 0]]
         swapped["states"] = swapped["states"][::-1]
         swapped["micro"]["states"] = swapped["micro"]["states"][::-1]
-        s = c.compare(table(), swapped, history(), corrected, plain, SUMMARY, index)
+        swapped_hybrid = hybrid()
+        swapped_hybrid["points"] = swapped["points"]
+        swapped_hybrid["states"] = swapped_hybrid["states"][::-1]
+        swapped_hybrid["micro"]["states"] = swapped_hybrid["micro"]["states"][::-1]
+        s = c.compare(
+            table(), swapped, history(), corrected, plain, SUMMARY, swapped_hybrid
+        )
         self.assertEqual(s["rows"], compared()["rows"])
 
     def test_the_core_history_summary_is_made_from_the_same_table_and_core(self):
@@ -259,14 +338,14 @@ class Compare(unittest.TestCase):
                 c.check_core_history({"inputs": dict(md5s, **{key: "x"})}, md5s)
 
     def test_points_where_the_correction_does_nothing_have_no_needed_weight(self):
-        corrected, plain, index = cores()
+        corrected, plain = cores()
         same = dict(
             corrected,
             points=[
                 dict(p, k=q["k"]) for p, q in zip(corrected["points"], plain["points"])
             ],
         )
-        s = c.compare(table(), reference(), history(), same, plain, SUMMARY, index)
+        s = c.compare(table(), reference(), history(), same, plain, SUMMARY, hybrid())
         self.assertIsNone(s["rows"][1]["needed_weight"])
         # 補正の量が 0 なら、見込みは補正を切った差のまま
         self.assertEqual(
@@ -275,72 +354,106 @@ class Compare(unittest.TestCase):
         c.report(s)
 
     def test_runs_that_do_not_match_the_reference_are_errors(self):
-        corrected, plain, index = cores()
+        corrected, plain = cores()
+        h = hybrid()
         # 続けた点が参照の最初の点でない
         other = dict(history(), continued={"file": "x", "burnup": 5.0})
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), other, corrected, plain, SUMMARY, index)
+            c.compare(table(), reference(), other, corrected, plain, SUMMARY, h)
         # 続けない履歴
         plain_history = {k: v for k, v in history().items() if k != "continued"}
         with self.assertRaises(SystemExit):
-            c.compare(
-                table(), reference(), plain_history, corrected, plain, SUMMARY, index
-            )
+            c.compare(table(), reference(), plain_history, corrected, plain, SUMMARY, h)
         # 参照の燃焼度の点を core が通らない
         short = dict(plain, points=plain["points"][:2])
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), history(), corrected, short, SUMMARY, index)
+            c.compare(table(), reference(), history(), corrected, short, SUMMARY, h)
         # 参照は燃焼度ごとに 1 状態
         two = reference()
         two["axes"][2]["points"] = [565.0, 600.0]
         with self.assertRaises(SystemExit):
-            c.compare(table(), two, history(), corrected, plain, SUMMARY, index)
+            c.compare(table(), two, history(), corrected, plain, SUMMARY, h)
         # 一生を条件 j で燃焼させた比較の要約が参照の点を持たない
         missing = dict(SUMMARY, branch_rows=SUMMARY["branch_rows"][:2])
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), history(), corrected, plain, missing, index)
+            c.compare(table(), reference(), history(), corrected, plain, missing, h)
 
-    def test_the_core_with_the_rate_residuals_at_the_production_index_is_compared_too(
-        self,
-    ):
-        # 反応率の Δσ を P / P_j で足した core（`rate-residual-weight = "production-index"`）も、参照からの差と数密度の効きに分ける
-        s = compared()
+    def test_the_composition_is_split_by_the_named_nuclides_and_the_rest(self):
+        # 数密度の効きを、名前を挙げた核種ごと（その核種だけの差）と、残りの核種をまとめた差に分ける
+        with mock.patch.object(c, "GROUPS", ["Pu-240"]):
+            s = compared()
         last = s["rows"][1]
-        k_reference = few(4.4)["k_inf"]
-        self.assertEqual(last["index_k"], 0.952)
-        self.assertAlmostEqual(
-            last["index_difference_pcm"], r.rho(0.952) - r.rho(k_reference), places=9
-        )
         t = table()
         coeff = r.coefficients(t["micro"]["states"][t["points"].index([2, 0, 1, 0])])
         base = reference()["states"][1]
-        whole = r.corrected(base, coeff, [a - b for a, b in zip(INDEX20, REFERENCE20)])
-        self.assertAlmostEqual(
-            last["index_composition_pcm"],
-            r.rho(r.k_inf(whole)) - r.rho(r.k_inf(base)),
-            places=9,
-        )
-        self.assertEqual(
-            {x["nuclide"] for x in last["index_composition_nuclides"]}, set(NUCLIDES)
-        )
-        self.assertEqual(last["index_density_nuclide"], "Pu-240")
-        self.assertAlmostEqual(
-            last["index_densities_percent"]["U-235"],
-            (INDEX20[0] / REFERENCE20[0] - 1.0) * 100.0,
-            places=9,
-        )
-        self.assertIn("P / P_j", c.report(s))
+        deltas = [a - b for a, b in zip(N20, REFERENCE20)]
 
-    def test_a_production_index_core_of_another_history_is_an_error(self):
-        # 2 つの core は同じ燃焼（同じ H）で、Δσ の重みだけが違う
-        corrected, plain, index = cores()
-        other = dict(
-            index,
-            points=[
-                dict(p, histories=[[[0.7]]]) if i == 2 else p
-                for i, p in enumerate(index["points"])
-            ],
+        def effect(mask):
+            only = [d if m else 0.0 for d, m in zip(deltas, mask)]
+            return r.rho(r.k_inf(r.corrected(base, coeff, only))) - r.rho(r.k_inf(base))
+
+        groups = last["composition_groups"]
+        self.assertEqual([x["group"] for x in groups], ["Pu-240", "rest"])
+        self.assertAlmostEqual(groups[0]["pcm"], effect([False, True]), places=9)
+        self.assertAlmostEqual(groups[1]["pcm"], effect([True, False]), places=9)
+        # 追わない核種を挙げるのはエラー（黙って 0 にしない）
+        with mock.patch.object(c, "GROUPS", ["Pu-239"]), self.assertRaises(SystemExit):
+            compared()
+
+    def test_the_rate_residual_outliers_are_split_into_the_untracked_part_and_the_linearization(
+        self,
+    ):
+        # core の反応率は σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L、参照は σ(参照)。外れを、ハイブリッドで分けた参照の
+        # Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(公称、条件 j) からの差に分ける（核分裂と
+        # 捕獲の和、群ごと、参照の σ に対する %）
+        with mock.patch.object(c, "GROUPS", ["U-235", "Pu-240"]):
+            s = compared()
+        last = s["rows"][1]
+        t = table()
+        point = t["points"].index([2, 0, 1, 0])
+        coeff = r.coefficients(t["micro"]["states"][point])
+        nominal = t["micro"]["densities"][2]
+        branch = t["histories"][0]["rods"][0]["densities"][1]
+        production = lambda d: sum(x["nu_fission"][-1] * y for x, y in zip(coeff, d))
+        index = production([a - b for a, b in zip(N20, nominal)]) / production(
+            [a - b for a, b in zip(branch, nominal)]
         )
+        self.assertAlmostEqual(last["index_ratio"], index, places=12)
+        w = last["weight"]
+        self.assertGreater(abs(index - w), 0.05)
+        outliers = last["rate_outliers"]
+        self.assertEqual([x["nuclide"] for x in outliers], ["U-235", "Pu-240"])
+        for i, x in enumerate(outliers):
+            ref = absorption(reference()["micro"]["states"][1][i])
+            hyb = absorption(hybrid()["micro"]["states"][1][i])
+            nom = absorption(t["micro"]["states"][point][i])
+            du = rate_absorption(RATE_UNTRACKED[1][i])
+            dl = rate_absorption(RATE_LINEARIZATION[1][i])
+            for g in range(2):
+                self.assertAlmostEqual(
+                    x["untracked_percent"][g],
+                    (w * du[g] - (ref[g] - hyb[g])) / ref[g] * 100.0,
+                    places=9,
+                )
+                self.assertAlmostEqual(
+                    x["linearization_percent"][g],
+                    (index * dl[g] - (hyb[g] - nom[g])) / ref[g] * 100.0,
+                    places=9,
+                )
+        # 続ける点（w = 0）は外れを持たない（core は補正を足さない）
+        self.assertIsNone(s["rows"][0]["rate_outliers"])
+        text = c.report(s)
+        self.assertIn("Δσ_U", text)
+        self.assertIn("Δσ_L", text)
+
+    def test_a_hybrid_of_other_points_or_densities_is_an_error(self):
+        corrected, plain = cores()
+        other = hybrid()
+        other["micro"]["densities"] = [N10, N20]
+        with self.assertRaises(SystemExit):
+            c.compare(table(), reference(), history(), corrected, plain, SUMMARY, other)
+        other = hybrid()
+        other["axes"] = axes([10.0, 20.0], [565.0], [0.743], 565.0)
         with self.assertRaises(SystemExit):
             c.compare(table(), reference(), history(), corrected, plain, SUMMARY, other)
 

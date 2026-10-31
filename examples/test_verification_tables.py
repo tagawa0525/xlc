@@ -1143,9 +1143,6 @@ class DrawCoreHistory(unittest.TestCase):
                     "sigma_difference_pcm": -0.0411,
                     "sigma_density_percent": 0.0,
                     "sigma_density_nuclide": "U-235",
-                    "index_difference_pcm": -0.0412,
-                    "index_density_percent": 0.0,
-                    "index_density_nuclide": "U-235",
                 },
                 {
                     "burnup": 19.999999999999996,
@@ -1159,9 +1156,6 @@ class DrawCoreHistory(unittest.TestCase):
                     "sigma_difference_pcm": 2.3456,
                     "sigma_density_percent": 0.1234,
                     "sigma_density_nuclide": "Xe-135",
-                    "index_difference_pcm": -1.5678,
-                    "index_density_percent": -0.789,
-                    "index_density_nuclide": "Cm-244",
                 },
             ],
             "switch_rows": [
@@ -1215,8 +1209,6 @@ class DrawCoreHistory(unittest.TestCase):
                 "数密度の最大の差 (%)",
                 "第 1 項で燃焼: core − 第 1 項 (pcm)",
                 "第 1 項で燃焼: 数密度の最大の差 (%)",
-                "Δσ を P / P_j: core − 第 1 項 (pcm)",
-                "Δσ を P / P_j: 数密度の最大の差 (%)",
             ],
         )
         self.assertEqual(
@@ -1232,8 +1224,6 @@ class DrawCoreHistory(unittest.TestCase):
                     "0.000（U-235）",
                     "−0.041",
                     "0.000（U-235）",
-                    "−0.041",
-                    "0.000（U-235）",
                 ],
                 [
                     "20",
@@ -1245,8 +1235,6 @@ class DrawCoreHistory(unittest.TestCase):
                     "−0.457（Pu-240）",
                     "+2.346",
                     "+0.123（Xe-135）",
-                    "−1.568",
-                    "−0.789（Cm-244）",
                 ],
             ],
         )
@@ -1313,11 +1301,26 @@ class DrawHistorySwitch(unittest.TestCase):
                 "branch_difference_pcm": -1.222,
                 "nominal_difference_pcm": -1.009,
                 "reference_history_pcm": 0.0123 * scale,
-                "index_k": 0.983,
-                "index_difference_pcm": 11.3467 * scale,
-                "index_composition_pcm": 2.9911 * scale,
-                "index_density_percent": -0.2345 * scale,
-                "index_density_nuclide": "Pu-241",
+                "composition_groups": [
+                    {"group": "Pu-239", "pcm": 2.7012 * scale},
+                    {"group": "Pu-240", "pcm": -11.3801 * scale},
+                    {"group": "rest", "pcm": 0.4567 * scale},
+                ],
+                "index_ratio": None if weight == 0.0 else 0.8521,
+                "rate_outliers": None
+                if weight == 0.0
+                else [
+                    {
+                        "nuclide": "Pu-239",
+                        "untracked_percent": [0.01234, -0.0456],
+                        "linearization_percent": [-0.1234, 0.0789],
+                    },
+                    {
+                        "nuclide": "Pu-240",
+                        "untracked_percent": [-0.3456, 0.0012],
+                        "linearization_percent": [0.5678, -0.0034],
+                    },
+                ],
             }
 
         return {
@@ -1383,55 +1386,82 @@ class DrawHistorySwitch(unittest.TestCase):
             ],
         )
 
-    def test_rows_compare_the_rate_residual_weights(self):
-        # 反応率の Δσ を w で足した core と P / P_j で足した core の、参照からの差、数密度の効き、定数の側（差 − 数密度の効き）
-        table = vt.history_switch_rate_weight([self.summary()])
+    def test_rows_split_the_composition_effect_by_nuclide(self):
+        # 数密度の効きを、名前を挙げた核種ごとと残りの核種と、全体に分ける（pcm）
+        table = vt.history_switch_composition([self.summary()])
         header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
         self.assertEqual(
             header,
             [
                 "燃焼度 (MWd/kg)",
                 "w",
-                "w: core − 参照 (pcm)",
-                "P / P_j: core − 参照 (pcm)",
-                "w: 数密度の効き (pcm)",
-                "P / P_j: 数密度の効き (pcm)",
-                "w: 定数の側 (pcm)",
-                "P / P_j: 定数の側 (pcm)",
-                "P / P_j: 数密度の最大の差 (%)",
+                "Pu-239 (pcm)",
+                "Pu-240 (pcm)",
+                "残り (pcm)",
+                "全体 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["20", "0.0000", "0.00", "0.00", "0.00", "0.00"],
+                ["60", "0.6667", "+2.70", "−11.38", "+0.46", "−0.57"],
+            ],
+        )
+        with self.assertRaises(vt.TableError):
+            vt.history_switch_composition([{"format": "xlc-compare-core-history"}])
+        (sources, _) = vt.TABLES["depletion-history-switch-composition"]
+        self.assertEqual(sources, ["examples/depletion/history/switch.json"])
+
+    def test_rows_split_the_rate_outliers_into_the_untracked_part_and_the_linearization(
+        self,
+    ):
+        # 補正を足す点（w が 0 でない）の核種ごとの、反応率の σ の外れ（参照の σ に対する %）を、Δσ_U と Δσ_L の群ごとに
+        table = vt.history_switch_rate_outliers([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "P / P_j",
+                "核種",
+                "高速群 Δσ_U (%)",
+                "高速群 Δσ_L (%)",
+                "熱群 Δσ_U (%)",
+                "熱群 Δσ_L (%)",
             ],
         )
         self.assertEqual(
             self.rows(table),
             [
                 [
-                    "20",
-                    "0.0000",
-                    "0.000",
-                    "0.000",
-                    "0.000",
-                    "0.000",
-                    "0.000",
-                    "0.000",
-                    "0.000（Pu-241）",
+                    "60",
+                    "0.6667",
+                    "0.8521",
+                    "Pu-239",
+                    "+0.0123",
+                    "−0.1234",
+                    "−0.0456",
+                    "+0.0789",
                 ],
                 [
                     "60",
                     "0.6667",
-                    "−1.234",
-                    "+11.347",
-                    "−0.568",
-                    "+2.991",
-                    "−0.667",
-                    "+8.356",
-                    "−0.234（Pu-241）",
+                    "0.8521",
+                    "Pu-240",
+                    "−0.3456",
+                    "+0.5678",
+                    "+0.0012",
+                    "−0.0034",
                 ],
             ],
         )
         with self.assertRaises(vt.TableError):
-            vt.history_switch_rate_weight([{"format": "xlc-compare-core-history"}])
-        (sources, _) = vt.TABLES["depletion-history-switch-rate-weight"]
+            vt.history_switch_rate_outliers([{"format": "xlc-compare-core-history"}])
+        (sources, _) = vt.TABLES["depletion-history-switch-rate-outliers"]
         self.assertEqual(sources, ["examples/depletion/history/switch.json"])
+        self.assertNotIn("depletion-history-switch-rate-weight", vt.TABLES)
 
     def test_a_summary_of_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
