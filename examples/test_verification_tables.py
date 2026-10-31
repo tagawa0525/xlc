@@ -2079,6 +2079,57 @@ class DrawHistoryIndex(unittest.TestCase):
             vt.history_index_gaps([{"format": "xlc-compare-history-residual-split"}])
 
 
+class DrawHistoryForgetting(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_forgetting.py の要約（τ は ∞ と 15、switch の点は 26 と 60）"""
+
+        def row(tau, gaps):
+            return {
+                "tau": tau,
+                "points": [
+                    {"burnup": u, "weight": w, "gap_pcm": g}
+                    for (u, w), g in zip(((26.0, 0.23077), (60.0, 0.66667)), gaps)
+                ],
+                "largest_pcm": max(abs(g) for g in gaps),
+            }
+
+        return {
+            "format": "xlc-compare-history-forgetting",
+            "continued_burnup": 20.0,
+            "best": None,
+            "rows": [row(None, [-6.3781, 5.3581]), row(15.0, [-9.1612, -43.5421])],
+        }
+
+    def test_rows_set_the_gaps_of_each_time_constant(self):
+        table = vt.history_forgetting([self.summary()])
+        rows = DrawBurnupInterpolation.rows(table)
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "τ (MWd/kg)",
+                "外れの絶対値の最大 (pcm)",
+                "26 MWd/kg の w",
+                "26 MWd/kg の外れ (pcm)",
+                "60 MWd/kg の w",
+                "60 MWd/kg の外れ (pcm)",
+            ],
+        )
+        self.assertEqual(
+            rows,
+            [
+                ["∞", "6.378", "0.2308", "−6.378", "0.6667", "+5.358"],
+                ["15", "43.542", "0.2308", "−9.161", "0.6667", "−43.542"],
+            ],
+        )
+
+    def test_the_table_is_registered_for_the_git_tracked_json(self):
+        sources, _ = vt.TABLES["depletion-history-forgetting"]
+        self.assertEqual(sources, ["examples/depletion/history/forgetting.json"])
+        self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 class DrawHistoryResidual(unittest.TestCase):
     @staticmethod
     def summary() -> dict:
