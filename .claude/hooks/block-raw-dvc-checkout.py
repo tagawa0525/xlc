@@ -104,6 +104,11 @@ class _Parser:
                 self.i = len(s) if end < 0 else end
             elif c == "$" and s.startswith("$'", self.i):
                 word = (word or "") + self._ansi_c_quoted()
+            elif c == "$" and s.startswith("$((", self.i):
+                self.i += 1
+                word = (word or "") + self._arithmetic()
+            elif c == "(" and s.startswith("((", self.i) and word is None and not words:
+                word = self._arithmetic()
             elif c == "$" and s.startswith("$(", self.i):
                 end_command()
                 self.i += 2
@@ -163,6 +168,9 @@ class _Parser:
                 elif s[self.i + 1] != "\n":
                     out += c + s[self.i + 1]
                 self.i += 2
+            elif s.startswith("$((", self.i):
+                self.i += 1
+                out += self._arithmetic()
             elif s.startswith("$(", self.i):
                 self.i += 2
                 self.parse(close_paren=True)
@@ -170,6 +178,25 @@ class _Parser:
                 out += c
                 self.i += 1
         raise ValueError('閉じていない " がある')
+
+    def _arithmetic(self):
+        """`((` から対応する `))` までを読み、そのまま返す。
+
+        中の `<<` はシフトで、ヒアドキュメントとして読むと後の行をすべて本文として飛ばす。中の置換は読まない。
+        """
+        s = self.s
+        start = self.i
+        depth = 0
+        while self.i < len(s):
+            if s[self.i] == "(":
+                depth += 1
+            elif s[self.i] == ")":
+                depth -= 1
+                if depth == 0:
+                    self.i += 1
+                    return s[start : self.i]
+            self.i += 1
+        raise ValueError("閉じていない (( がある")
 
     def _ansi_c_quoted(self):
         """`$'` から閉じる `'` までを読み、中身を返す（`\\` の後の 1 文字は引用を閉じない。エスケープは展開しない）。"""
