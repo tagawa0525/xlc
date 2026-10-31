@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -56,6 +57,9 @@ BLOCKED = [
     "nix develop .#references --command bash -c 'cd x && dvc checkout'",
     "nix develop -c -- dvc checkout",
     "env -iC /x dvc checkout",
+    "echo $((1<<2))\ndvc checkout",
+    "((x = 1 << 2))\ndvc checkout",
+    "echo $(( (1 + 2) << 1 )); dvc checkout",
     "echo $'don\\'t'; dvc checkout",
 ]
 
@@ -83,6 +87,7 @@ ALLOWED = [
     "bash -o pipefail -c 'echo dvc checkout'",
     "echo $'dvc checkout\\n'",
     "for f in a b; do echo dvc checkout $f; done",
+    "echo $((1 + 2)) dvc",
     "nix develop",
     "dvc",
     "",
@@ -167,13 +172,15 @@ class HookProcessTest(unittest.TestCase):
 SETTINGS = HOOK.parent.parent / "settings.json"
 
 
-def run_settings_command(payload, project_dir):
+def run_settings_command(payload, project_dir, path=None):
     """.claude/settings.json の PreToolUse の Bash の command を、Claude Code と同じくシェルで実行する。"""
     (entry,) = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
     (handler,) = entry["hooks"]
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
     if project_dir is not None:
         env["CLAUDE_PROJECT_DIR"] = project_dir
+    if path is not None:
+        env["PATH"] = path
     return subprocess.run(
         ["sh", "-c", handler["command"]],
         input=json.dumps(payload),
@@ -191,6 +198,19 @@ class SettingsCommandTest(unittest.TestCase):
     def test_settings_command_runs_the_hook(self):
         r = run_settings_command(BLOCKED_PAYLOAD, str(HOOK.parent.parent.parent))
         self.assertEqual(r.returncode, 2)
+
+    def test_commands_without_checkout_skip_python(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = Path(d) / "python3"
+            fake.write_text("#!/bin/sh\nexit 99\n")
+            fake.chmod(0o755)
+            path = f"{d}{os.pathsep}{os.environ['PATH']}"
+            project = str(HOOK.parent.parent.parent)
+            payload = {"tool_name": "Bash", "tool_input": {"command": "dvc status"}}
+            r = run_settings_command(payload, project, path)
+            self.assertEqual((r.returncode, r.stderr), (0, ""))
+            r = run_settings_command(BLOCKED_PAYLOAD, project, path)
+            self.assertEqual(r.returncode, 99)
 
     def test_missing_project_dir_reports_without_blocking(self):
         for project_dir in (None, "", "/nonexistent"):
