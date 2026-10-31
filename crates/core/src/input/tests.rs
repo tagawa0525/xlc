@@ -1410,6 +1410,7 @@ fn depletion_micro_names_the_chain_of_the_lattice_depletion() {
             chain: PathBuf::from("chain.msgpack"),
             xenon: Xenon::Tracked,
             history_weight: 1.0,
+            rate_residual_weight: RateResidualWeight::History,
         })
     );
     assert_eq!(
@@ -1478,6 +1479,42 @@ fn depletion_micro_may_weight_the_steps_of_the_history_variables() {
             "{bad}"
         );
     }
+}
+
+#[test]
+fn depletion_micro_may_choose_the_weight_of_the_rate_residuals() {
+    // 反応率の微視的断面積の差 Δσ の重み（ADR-0215 の案 S2 と案 R6）。省けば履歴の変数の w（ADR-0215 の決定）
+    let weight = |entry: &str| {
+        Case::parse(
+            &edited(
+                &depleting(),
+                "history = \"out/history.msgpack\"\n",
+                &format!("history = \"out/history.msgpack\"\nmicro = {{ {entry} }}\n"),
+            ),
+            base(),
+        )
+        .map(|c| c.depletion.unwrap().micro.unwrap().rate_residual_weight)
+    };
+    assert_eq!(
+        weight("chain = \"c.msgpack\", xenon = \"tracked\"").unwrap(),
+        RateResidualWeight::History
+    );
+    assert_eq!(
+        weight("chain = \"c.msgpack\", xenon = \"tracked\", rate-residual-weight = \"history\"")
+            .unwrap(),
+        RateResidualWeight::History
+    );
+    assert_eq!(
+        weight(
+            "chain = \"c.msgpack\", xenon = \"tracked\", rate-residual-weight = \"production-index\""
+        )
+        .unwrap(),
+        RateResidualWeight::ProductionIndex
+    );
+    assert!(
+        weight("chain = \"c.msgpack\", xenon = \"tracked\", rate-residual-weight = \"index\"")
+            .is_err()
+    );
 }
 
 #[test]
