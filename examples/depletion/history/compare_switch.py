@@ -58,7 +58,7 @@ FILES = {
     "plain": "core-2A-plain-switch.msgpack",
     "hybrid": "table-hybrid-switch-branch.msgpack",
     # 補正を切った core のテーブル（読まず、md5 を残す）
-    "plain_table": "table-residual-nominal.msgpack",
+    "plain_table": "table-residual-nominal-rate.msgpack",
     "core_history": "core-history.json",
 }
 # 数密度の相対差を要約に残す主な核種（記録の本文に書く）

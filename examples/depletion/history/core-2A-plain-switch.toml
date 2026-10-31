@@ -1,5 +1,5 @@
 # 途中で条件を変えた燃焼（ADR-0215 の確認、#0190）の補正を切った対照: core-2A-residual-switch.toml と同じ燃焼（20 MWd/kg までは公称の
-# 状態（減速材 565 K）、その後を条件 j（600 K、0.661 g/cc））を、R と Δσ を持たない公称のテーブル（table-residual-nominal.msgpack）の
+# 状態（減速材 565 K）、その後を条件 j（600 K、0.661 g/cc））を、R と Δσ を持たない公称のテーブル（table-residual-nominal-rate.msgpack）の
 # 集合体 1 体でする。ノードの H_m は同じく進むが、テーブルに R と Δσ が無いので、定数と反応率は補正しない。
 # ステップは ../branches/core-2A-micro.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。
 cycle = "core-2A-nominal-cycle.toml"
