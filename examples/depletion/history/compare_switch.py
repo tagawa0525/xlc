@@ -10,15 +10,23 @@
 その燃焼点を条件 j で解いた参照（`switch-density-branch.toml`。燃焼度ごとに 1 状態）、core の 2 つの燃焼の履歴（どちらも 20 MWd/kg
 まで公称の状態、その後を条件 j）と、一生を条件 j で燃焼させた core の比較の要約（`core-history.json`）:
 
-- 履歴の補正の core（`core-2A-residual-switch.toml`。H_m を燃焼度で重みを付けた平均で進め、R と Δσ を w で足す）
+- 履歴の補正の core（`core-2A-residual-switch.toml`。H_m を燃焼度で重みを付けた平均で進め、U と Δσ_U を w、L と Δσ_L を P / P_j で足す）
 - 補正を切った core（`core-2A-plain-switch.toml`。R と Δσ を持たないテーブルで同じ燃焼）
-- 反応率の Δσ を P / P_j で足した core（`core-2A-residual-switch-index.toml`。`rate-residual-weight = "production-index"`。履歴の補正の
-  core と同じ燃焼で、H も同じ）
+
+と、参照の追う核種だけを公称の履歴に入れた組成（ハイブリッド）を参照と同じ点と条件 j で解いた分岐（`hybrid-switch-branch.toml`）。
 
 参照の燃焼度の点ごとに、core の k の参照の k∞ からの差と、それを追う核種の数密度の違いで説明する分（数密度の効き）: 参照の定数に、
 core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は core と同じ、R を持つ公称のテーブルの
 同じ燃焼度の条件 j の状態のもの。Pu-240 は数密度の微分）を足した
-2 群の k と、参照の定数の 2 群の k の差。核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
+2 群の k と、参照の定数の 2 群の k の差。核種ごと（その核種だけの差）の効きと、`GROUPS` の核種ごとと残りの核種をまとめた効き。
+核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
+
+補正を足す点（w が 0 でない）では、core の反応率の微視的断面積 σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L（Δσ_U と Δσ_L はテーブルの R の点の
+値、P / P_j は core の点の数密度で作った熱群の νΣf の線形の補正の比）の、参照の σ からの外れを、ハイブリッドで分けた参照の
+Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(公称、条件 j) からの差 w Δσ_U − Δσ_U,switch と
+(P / P_j) Δσ_L − Δσ_L,switch に分ける（`GROUPS` の核種の、核分裂と捕獲（MT 102）の和、群ごと、参照の σ に対する %）。参照が求める
+Δσ_L の重み Δσ_L,switch / Δσ_L（群ごと）と、その核種の数密度の比 (N̄ᵢ − N̄ᵢ⁰) / (N̄ᵢ^j − N̄ᵢ⁰)（N̄ᵢ は参照）も並べる。core は P / P_j を
+解ごとの組成（予測子は点、修正子は中点）で作るので、点の組成の比は目安。
 続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
 状態の 2 つの分岐の解の差なので、MOC の収束の程度で 0 のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
 core と第 1 項のテーブルの差、公称の燃焼の core と公称のテーブルの差（`core-history.json`）を同じ点に並べる。
@@ -33,7 +41,9 @@ from pathlib import Path
 from compare_core_history import (
     LARGEST,
     Table,
+    capture,
     largest_density_difference,
+    production,
     same_burnup,
     single_node,
 )
@@ -45,13 +55,15 @@ FILES = {
     "history": "lattice-switch-density.msgpack",
     "core": "core-2A-residual-switch.msgpack",
     "plain": "core-2A-plain-switch.msgpack",
-    "index": "core-2A-residual-switch-index.msgpack",
+    "hybrid": "table-hybrid-switch-branch.msgpack",
     # 補正を切った core のテーブル（読まず、md5 を残す）
     "plain_table": "table-residual-nominal.msgpack",
     "core_history": "core-history.json",
 }
 # 数密度の相対差を要約に残す主な核種（記録の本文に書く）
 MAJOR = ["U-235", "Pu-239", "Pu-240", "Pu-241", "Xe-135"]
+# 数密度の効きを分け、反応率の σ の外れを出す核種（残りはまとめる。#0190 で 60 MWd/kg の数密度の効きの大きい核種と、毒物）
+GROUPS = ["Pu-239", "Pu-240", "Pu-241", "U-235", "Xe-135", "Sm-149"]
 # 重みの見込みを出す ω（PARCS の ω = 2〜2.5 と、その間の値。ADR-0215 の案 V2）
 OMEGAS = [1.25, 1.5, 2.0, 2.5]
 
@@ -125,6 +137,91 @@ def composition_nuclides(state, coeff, reference_densities, node, nuclides):
     return out[:LARGEST]
 
 
+def composition_groups(state, coeff, reference_densities, node, nuclides):
+    """`GROUPS` の核種ごと（その核種だけの差）と、残りの核種をまとめた差の数密度の効き (pcm)。追わない核種を挙げればエラー"""
+    missing = [n for n in GROUPS if n not in nuclides]
+    if missing:
+        raise SystemExit(f"the nuclides {missing} are not tracked")
+    deltas = [x - y for x, y in zip(node["densities"], reference_densities)]
+    k0 = rho(k_inf(state))
+
+    def effect(names):
+        only = [d if n in names else 0.0 for d, n in zip(deltas, nuclides)]
+        return rho(k_inf(corrected(state, coeff, only))) - k0
+
+    rest = [n for n in nuclides if n not in GROUPS]
+    return [{"group": n, "pcm": effect({n})} for n in GROUPS] + [
+        {"group": "rest", "pcm": effect(set(rest))}
+    ]
+
+
+def absorption(sigma):
+    """核分裂と捕獲（MT 102）の和の、群ごとの微視的断面積（反応率の微視的断面積の差にも使う）"""
+    return [f + c for f, c in zip(sigma["fission"], capture(sigma))]
+
+
+def check_hybrid(hybrid, reference):
+    """ハイブリッドのテーブルが、参照と同じ軸と点、追う核種と数密度を持つこと（追う核種が参照と同じ組成を、同じ条件で解いた）"""
+    if (
+        hybrid["axes"] != reference["axes"]
+        or hybrid["points"] != reference["points"]
+        or hybrid["micro"]["nuclides"] != reference["micro"]["nuclides"]
+        or hybrid["micro"]["densities"] != reference["micro"]["densities"]
+    ):
+        raise SystemExit(
+            "the hybrid table must solve the points of the reference with its tracked densities"
+        )
+
+
+def rate_outliers(
+    t, table_point, b, node, weight, reference_sigma, hybrid_sigma, reference_densities
+):
+    """補正を足す点の、熱群の νΣf の線形の補正の比 P / P_j と、`GROUPS` の核種の反応率の σ の外れ（モジュールの説明）"""
+    k = t.residual_index(node["burnup"])
+    if k is None:
+        raise SystemExit(f"the burnup {node['burnup']} is not a residual point")
+    micro = t.table["micro"]
+    factors = coefficients(micro["states"][table_point])
+    nominal = micro["densities"][b]
+    own = production(factors, [x - y for x, y in zip(node["densities"], nominal)])
+    of_branch = production(
+        factors, [x - y for x, y in zip(t.rod["densities"][k], nominal)]
+    )
+    if of_branch == 0.0:
+        raise SystemExit(f"the branch index is 0 at {node['burnup']}")
+    index = own / of_branch
+    rates = t.rod.get("micro")
+    if rates is None:
+        raise SystemExit("the history residuals hold no rate residuals")
+    nuclides = micro["nuclides"]
+    out = []
+    for name in GROUPS:
+        i = nuclides.index(name)
+        ref = absorption(reference_sigma[i])
+        hyb = absorption(hybrid_sigma[i])
+        nom = absorption(micro["states"][table_point][i])
+        du = absorption(rates["untracked"][k][i])
+        dl = absorption(rates["linearization"][k][i])
+        branch_difference = t.rod["densities"][k][i] - nominal[i]
+        out.append(
+            {
+                "nuclide": name,
+                # 参照が求める Δσ_L の重み（群ごと）と、この核種だけの組成の比
+                "linearization_ratio": [(h - n) / d for d, h, n in zip(dl, hyb, nom)],
+                "density_ratio": (reference_densities[i] - nominal[i])
+                / branch_difference,
+                "untracked_percent": [
+                    (weight * d - (x - h)) / x * 100.0 for d, x, h in zip(du, ref, hyb)
+                ],
+                "linearization_percent": [
+                    (index * d - (h - n)) / x * 100.0
+                    for d, x, h, n in zip(dl, ref, hyb, nom)
+                ],
+            }
+        )
+    return index, out
+
+
 def check_core_history(core_history, md5s):
     """一生を条件 j で燃焼させた比較の要約が、同じ R を持つテーブル、core の途中で条件を変えた燃焼、R を持たないテーブル（補正を切った
     core のテーブル。md5 `md5s`）から作ったものであること"""
@@ -136,13 +233,14 @@ def check_core_history(core_history, md5s):
             )
 
 
-def compare(table, reference, history, core, plain, core_history, index):
-    """比べた要約（モジュールの説明）。`index` は反応率の Δσ を P / P_j で足した core"""
+def compare(table, reference, history, core, plain, core_history, hybrid):
+    """比べた要約（モジュールの説明）。`hybrid` は参照の追う核種だけを公称の履歴に入れた組成を、参照と同じ点と条件で解いた分岐"""
     t = Table(table)
     nuclides = table["micro"]["nuclides"]
     if reference["micro"]["nuclides"] != nuclides:
         raise SystemExit("the reference tracks other nuclides than the table")
     states = reference_states(reference)
+    check_hybrid(hybrid, reference)
     continued = history.get("continued")
     if continued is None or not same_burnup(continued["burnup"], states[0][0]):
         raise SystemExit(
@@ -150,7 +248,6 @@ def compare(table, reference, history, core, plain, core_history, index):
         )
     core_nodes = single_node(core, "core", nuclides)
     plain_nodes = single_node(plain, "plain", nuclides)
-    index_nodes = single_node(index, "index", nuclides)
     branch_rows = core_history["branch_rows"]
     rows = []
     for u, b, p in states:
@@ -158,16 +255,9 @@ def compare(table, reference, history, core, plain, core_history, index):
         n_ref = reference["micro"]["densities"][b]
         n = at(core_nodes, u, "core")
         # 係数は core と同じ、R を持つ公称のテーブルのノードの状態（条件 j）の格子点のもの（微分を持つ核種は微分。ADR-0221）
-        table_point, _ = t.point(u, n["moderator"], "core")
+        table_point, table_burnup = t.point(u, n["moderator"], "core")
         coeff = coefficients(table["micro"]["states"][table_point])
         q = at(plain_nodes, u, "plain")
-        x_index = at(index_nodes, u, "index")
-        # Δσ の重みだけが違う 2 つの燃焼（同じ状態のステップと同じ H）
-        if x_index["history"] != n["history"]:
-            raise SystemExit(
-                f"the production-index core has the history {x_index['history']} at burnup {u}, not "
-                f"{n['history']} of the core"
-            )
         whole = [x for x in branch_rows if same_burnup(x["burnup"], u)]
         if len(whole) != 1:
             raise SystemExit(
@@ -176,12 +266,26 @@ def compare(table, reference, history, core, plain, core_history, index):
         lattice = at(history["points"], u, "lattice history")
         name, largest, major = densities(n, n_ref, nuclides)
         plain_name, plain_largest, plain_major = densities(q, n_ref, nuclides)
-        index_name, index_largest, index_major = densities(x_index, n_ref, nuclides)
+        # 公称の履歴の w は −0 になりうる（H − H⁰ = 0 を負の数で割る）
+        weight = t.weight(n["history"]) + 0.0
+        index, outliers = (
+            (None, None)
+            if weight == 0.0
+            else rate_outliers(
+                t,
+                table_point,
+                table_burnup,
+                n,
+                weight,
+                reference["micro"]["states"][p],
+                hybrid["micro"]["states"][p],
+                n_ref,
+            )
+        )
         rows.append(
             {
                 "burnup": u,
-                # 公称の履歴の w は −0 になりうる（H − H⁰ = 0 を負の数で割る）
-                "weight": t.weight(n["history"]) + 0.0,
+                "weight": weight,
                 "reference_k_inf": state["k_inf"],
                 "k": n["k"],
                 "plain_k": q["k"],
@@ -201,15 +305,11 @@ def compare(table, reference, history, core, plain, core_history, index):
                 "branch_difference_pcm": whole[0]["difference_pcm"],
                 "nominal_difference_pcm": whole[0]["nominal_difference_pcm"],
                 "reference_history_pcm": rho(state["k_inf"]) - rho(lattice["k_inf"]),
-                "index_k": x_index["k"],
-                "index_difference_pcm": rho(x_index["k"]) - rho(state["k_inf"]),
-                "index_composition_pcm": composition(state, coeff, n_ref, x_index),
-                "index_composition_nuclides": composition_nuclides(
-                    state, coeff, n_ref, x_index, nuclides
+                "composition_groups": composition_groups(
+                    state, coeff, n_ref, n, nuclides
                 ),
-                "index_density_percent": index_largest,
-                "index_density_nuclide": index_name,
-                "index_densities_percent": index_major,
+                "index_ratio": index,
+                "rate_outliers": outliers,
             }
         )
         row = rows[-1]
@@ -307,19 +407,27 @@ def report(summary):
         + " pcm。"
         f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、公称の燃焼の core − 公称の"
         f"テーブル {span('nominal_difference_pcm')} pcm。"
-        f"\n反応率の Δσ を P / P_j で足した core − 参照は {span('index_difference_pcm')} pcm（最後の点で "
-        f"{last['index_difference_pcm']:+.3f} pcm）、数密度の効きは {span('index_composition_pcm')} pcm（最後の点で "
-        f"{last['index_composition_pcm']:+.3f} pcm）、定数の側は "
-        f"{min(x['index_difference_pcm'] - x['index_composition_pcm'] for x in later):+.3f}〜"
-        f"{max(x['index_difference_pcm'] - x['index_composition_pcm'] for x in later):+.3f} pcm。"
-        f"参照の N̄ᵢ からの数密度の相対差の絶対値の最大は {largest('index_density_percent', 'index_density_nuclide')}。"
-        f"最後の点の数密度の効きの大きい核種: "
-        + "、".join(
-            f"{x['nuclide']} {x['pcm']:+.2f}"
-            for x in last["index_composition_nuclides"]
+        f"\n数密度の効きの核種ごとと残り: "
+        + "；".join(
+            f"{x['burnup']:.4g} MWd/kg "
+            + "、".join(
+                f"{g['group']} {g['pcm']:+.2f}" for g in x["composition_groups"]
+            )
+            for x in later
         )
-        + " pcm。主な核種の相対差: "
-        f"{major(last['index_densities_percent'])}"
+        + " pcm。"
+        "\n反応率の σ の外れ（参照の σ に対する %、核分裂 + 捕獲、高速群と熱群）の Δσ_U と Δσ_L: "
+        + "；".join(
+            f"{x['burnup']:.4g} MWd/kg（P / P_j {x['index_ratio']:.4f}）"
+            + "、".join(
+                f"{o['nuclide']} Δσ_U {o['untracked_percent'][0]:+.3f}/{o['untracked_percent'][-1]:+.3f}、"
+                f"Δσ_L {o['linearization_percent'][0]:+.3f}/{o['linearization_percent'][-1]:+.3f}"
+                for o in x["rate_outliers"]
+            )
+            for x in later
+            if x["rate_outliers"] is not None
+        )
+        + "。"
         f"\n補正を切った core − 参照は {span('plain_difference_pcm')} pcm（最後の点で {last['plain_difference_pcm']:+.3f} pcm）、"
         f"数密度の効きは {span('plain_composition_pcm')} pcm（最後の点で {last['plain_composition_pcm']:+.3f} pcm）。"
         f"\n参照の N̄ᵢ からの数密度の相対差の絶対値の最大は、履歴の補正の core が {largest('density_percent', 'density_nuclide')}、"
@@ -356,7 +464,7 @@ def main():
         read(here / FILES["core"]),
         read(here / FILES["plain"]),
         core_history,
-        read(here / FILES["index"]),
+        read(here / FILES["hybrid"]),
     )
     summary["inputs"] = md5s
     text = json.dumps(summary, ensure_ascii=False, indent=1) + "\n"
