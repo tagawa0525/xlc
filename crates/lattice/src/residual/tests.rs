@@ -455,70 +455,120 @@ fn branch_tables_hold_the_same_micro_nuclides_and_heavy_metal() {
     assert!(with(&|b| b.micro = None).is_err());
 }
 
+/// 反応率の微視的断面積の差 `a − b` の核分裂、捕獲、収率の境界より下の核分裂の断面積（割合 × 群の和の σf）
+fn rate_parts(a: &MicroNuclide, b: &MicroNuclide) -> (Vec<f64>, Vec<f64>, f64) {
+    let below = |x: &MicroNuclide| x.thermal_fission.unwrap() * x.fission.iter().sum::<f64>();
+    (
+        (0..2).map(|g| a.fission[g] - b.fission[g]).collect(),
+        (0..2)
+            .map(|g| a.reactions[0].channels[0][g] - b.reactions[0].channels[0][g])
+            .collect(),
+        below(a) - below(b),
+    )
+}
+
 #[test]
-fn rate_residuals_are_the_branch_less_the_nominal_condition_rate_cross_sections() {
+fn rate_residuals_split_at_the_hybrid_like_the_constants() {
+    // 追わない核種の分は分岐 − ハイブリッド、線形化の誤差はハイブリッド − 公称の条件 j の状態の、反応率の微視的断面積の差
+    // （U と L と同じハイブリッドで分ける。ADR-0215）
     let n = nominal();
     let mut b = branch();
-    // 収率の境界より下の割合も分岐で違う
+    let mut h = hybrid();
+    // 収率の境界より下の割合も 3 つで違う
     for state in &mut b.micro.as_mut().unwrap().states {
         state[0].thermal_fission = Some(0.85);
     }
+    for state in &mut h.micro.as_mut().unwrap().states {
+        state[0].thermal_fission = Some(0.875);
+    }
     let tables = BranchTables {
         branch: b.clone(),
-        hybrid: hybrid(),
+        hybrid: h.clone(),
     };
     let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &tables).unwrap();
     let micro = n.micro.as_ref().unwrap();
-    let branch_micro = b.micro.as_ref().unwrap();
-    assert_eq!(rod.micro.len(), 2);
+    let (branch_micro, hybrid_micro) = (b.micro.as_ref().unwrap(), h.micro.as_ref().unwrap());
+    assert_eq!(rod.micro.untracked.len(), 2);
+    assert_eq!(rod.micro.linearization.len(), 2);
     for (k, &p) in [1usize, 4].iter().enumerate() {
-        assert_eq!(rod.micro[k].len(), 2);
+        assert_eq!(rod.micro.untracked[k].len(), 2);
+        assert_eq!(rod.micro.linearization[k].len(), 2);
         // 微分を持つ Pu-240 も、反応率の σᵢ の差（微分の差でない）
-        for (i, r) in rod.micro[k].iter().enumerate() {
-            let (nj, bj) = (&micro.states[p][i], &branch_micro.states[k][i]);
-            for g in 0..2 {
-                assert_eq!(r.fission[g], bj.fission[g] - nj.fission[g]);
-                assert_eq!(
-                    r.reactions[0].channels[0][g],
-                    bj.reactions[0].channels[0][g] - nj.reactions[0].channels[0][g]
-                );
+        for i in 0..2 {
+            let (nj, bj, hj) = (
+                &micro.states[p][i],
+                &branch_micro.states[k][i],
+                &hybrid_micro.states[k][i],
+            );
+            for (r, (a, c)) in [
+                (&rod.micro.untracked[k][i], (bj, hj)),
+                (&rod.micro.linearization[k][i], (hj, nj)),
+            ] {
+                let (fission, capture, below) = rate_parts(a, c);
+                assert_eq!(r.fission, fission);
+                assert_eq!(r.reactions[0].channels[0], capture);
+                assert_eq!(r.reactions[0].mt, 102);
+                assert!(close(r.thermal_fission.unwrap(), below));
             }
-            assert_eq!(r.reactions[0].mt, 102);
-            // 割合 × 群の和の σf の差
-            let below =
-                |x: &MicroNuclide| x.thermal_fission.unwrap() * x.fission.iter().sum::<f64>();
-            assert!(close(r.thermal_fission.unwrap(), below(bj) - below(nj)));
+            // 2 つの和は分岐 − 公称の条件 j の状態の差（分けない差の検算）
+            let (fission, capture, below) = rate_parts(bj, nj);
+            let (u, l) = (&rod.micro.untracked[k][i], &rod.micro.linearization[k][i]);
+            for g in 0..2 {
+                assert!(near(
+                    u.fission[g] + l.fission[g],
+                    fission[g],
+                    bj.fission[g].abs() + hj.fission[g].abs() + nj.fission[g].abs()
+                ));
+                assert!(near(
+                    u.reactions[0].channels[0][g] + l.reactions[0].channels[0][g],
+                    capture[g],
+                    bj.reactions[0].channels[0][g].abs()
+                        + hj.reactions[0].channels[0][g].abs()
+                        + nj.reactions[0].channels[0][g].abs()
+                ));
+            }
+            assert!(near(
+                u.thermal_fission.unwrap() + l.thermal_fission.unwrap(),
+                below,
+                below.abs() + bj.fission.iter().sum::<f64>() + nj.fission.iter().sum::<f64>()
+            ));
         }
     }
 }
 
 #[test]
 fn branch_tables_with_other_reactions_or_fission_are_errors() {
+    // 分岐かハイブリッドのどちらかの反応の並びか核分裂の有無が、公称のテーブルと違えばエラー
     let n = nominal();
     let changes: Vec<fn(&mut MicroNuclide)> = vec![
         |x| x.reactions[0].mt = 103,
         |x| x.reactions[0].channels.push(vec![0.0; 2]),
         |x| x.thermal_fission = None,
     ];
-    for change in changes {
-        let mut b = branch();
-        for state in &mut b.micro.as_mut().unwrap().states {
+    let change_table = |t: &mut Table, change: fn(&mut MicroNuclide)| {
+        for state in &mut t.micro.as_mut().unwrap().states {
             change(&mut state[0]);
             if state[0].thermal_fission.is_none() {
                 state[0].fission = vec![0.0; 2];
                 state[0].nu_fission = vec![0.0; 2];
             }
         }
-        b.validate().unwrap();
-        let tables = BranchTables {
-            branch: b,
-            hybrid: hybrid(),
-        };
-        let err = format!(
-            "{:#}",
-            residuals(&n, MODERATOR_DENSITY, ROD_OUT, &tables).unwrap_err()
-        );
-        assert!(err.contains("U-235"), "{err}");
+        t.validate().unwrap();
+    };
+    for change in changes {
+        for in_hybrid in [false, true] {
+            let mut tables = pair();
+            if in_hybrid {
+                change_table(&mut tables.hybrid, change);
+            } else {
+                change_table(&mut tables.branch, change);
+            }
+            let err = format!(
+                "{:#}",
+                residuals(&n, MODERATOR_DENSITY, ROD_OUT, &tables).unwrap_err()
+            );
+            assert!(err.contains("U-235"), "{in_hybrid}: {err}");
+        }
     }
 }
 
