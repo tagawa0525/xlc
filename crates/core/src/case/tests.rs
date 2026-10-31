@@ -934,20 +934,27 @@ fn rate_residuals_add_the_untracked_part_at_w_and_the_linearization_at_the_produ
     // 2 つの重みを区別できる組成
     assert!((index - w).abs() > 0.05, "{index} {w}");
     let rates = &table.histories[0].rods[0].micro;
+    // 自分の数密度の微分を持つ Pu-240 は、それに (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) を掛けて足す（下の
+    // `rate_derivatives_add_the_own_density_beyond_the_production_index`）
+    let own = own_parts(&base, &n, index);
     for (i, (h, b)) in half.nuclides.iter().zip(&base.nuclides).enumerate() {
         let (u, l) = (&rates.untracked[1][i], &rates.linearization[1][i]);
-        assert!(same_rates(h, &with_rate(b, &[(w, u), (index, l)])), "{i}");
+        let mut parts = vec![(w, u), (index, l)];
+        parts.extend(own[i].iter().map(|(a, r)| (*a, r)));
+        assert!(same_rates(h, &with_rate(b, &parts)), "{i}");
         assert_eq!(h.total, b.total);
         assert_eq!(h.nu_fission, b.nu_fission);
         assert_eq!(h.scatter, b.scatter);
         assert_eq!(h.derivative, b.derivative);
     }
-    // w が 0 でない 2 つの履歴の差は、追わない核種の分の w の差の分だけ（線形化の誤差は組成の指標で決まる）
+    // w が 0 でない 2 つの履歴の差は、追わない核種の分の w の差の分だけ（線形化の誤差と自分の数密度の項は組成の指標で決まる）
     let other = node_micro(&table, &state, None, &[0.68], &n).unwrap();
     let w2 = (0.68 - 0.743) / (0.661 - 0.743);
     for (i, (o, b)) in other.nuclides.iter().zip(&base.nuclides).enumerate() {
         let (u, l) = (&rates.untracked[1][i], &rates.linearization[1][i]);
-        assert!(same_rates(o, &with_rate(b, &[(w2, u), (index, l)])), "{i}");
+        let mut parts = vec![(w2, u), (index, l)];
+        parts.extend(own[i].iter().map(|(a, r)| (*a, r)));
+        assert!(same_rates(o, &with_rate(b, &parts)), "{i}");
     }
     // ノードの少数群定数は反応率の差によらない（線形の補正の係数と R は変えない）
     let mut zero = table.clone();
@@ -966,6 +973,63 @@ fn rate_residuals_add_the_untracked_part_at_w_and_the_linearization_at_the_produ
         node_constants(&table, &state, None, &n, &[0.702]).unwrap(),
         node_constants(&zero, &state, None, &n, &[0.702]).unwrap()
     );
+}
+
+/// 燃焼度 20 の点の、核種ごとの自分の数密度の項 (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ の係数と反応率の微分（微分を持たない核種は
+/// 空）。`base` は状態で内挿した微視的断面積、`n` はノードの数密度、`index` は P / P_j
+fn own_parts(base: &MicroAt, n: &[f64], index: f64) -> Vec<Option<(f64, RateResidual)>> {
+    base.nuclides
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            b.derivative.as_ref().map(|d| {
+                let branch = BRANCH_DENSITIES[1][i] - NOMINAL_DENSITIES[2][i];
+                (
+                    n[i] - NOMINAL_DENSITIES[2][i] - index * branch,
+                    d.rate.clone(),
+                )
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn rate_derivatives_add_the_own_density_beyond_the_production_index() {
+    // #0190 の候補 (e): Δσ_L を P / P_j で足したうえで、自分の数密度の微分を持つ核種は、Δσ_L が含む自分の数密度の分
+    // (P / P_j) ΔN̄ᵢ^j を超えた分 (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) に ∂σᵢ/∂N̄ᵢ を掛けて足す（ADR-0215）。微分を持たない核種は
+    // σᵢ + w Δσ_U + (P / P_j) Δσ_L のまま
+    let table = history_table(&[]);
+    let state = at(600.0, 20.0);
+    let base = interpolate_micro(&table, &state, None).unwrap();
+    assert!(base.nuclides[0].derivative.is_none() && base.nuclides[1].derivative.is_some());
+    let rates = &table.histories[0].rods[0].micro;
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    // Pu-240 だけを変えた 2 つの組成。P / P_j も変わる
+    for n in [[5.5e-4, 1.6e-5], [5.5e-4, 3.1e-5]] {
+        let got = node_micro(&table, &state, None, &[0.702], &n).unwrap();
+        let index = index_ratio(&table, &state, &n, 1);
+        let own = own_parts(&base, &n, index);
+        // 自分の数密度の項が 0 でない組成
+        let (delta, _) = own[1].as_ref().unwrap();
+        assert!(delta.abs() > 1e-7, "{delta}");
+        let (u, l) = (&rates.untracked[1][0], &rates.linearization[1][0]);
+        assert!(same_rates(
+            &got.nuclides[0],
+            &with_rate(&base.nuclides[0], &[(w, u), (index, l)])
+        ));
+        let (u, l) = (&rates.untracked[1][1], &rates.linearization[1][1]);
+        let (delta, d) = own[1].as_ref().unwrap();
+        assert!(same_rates(
+            &got.nuclides[1],
+            &with_rate(&base.nuclides[1], &[(w, u), (index, l), (*delta, d)])
+        ));
+    }
+    // 履歴の分岐の数密度（P = P_j）では、自分の数密度の項は 0（`history_branch_points_deplete_with_the_branch_rate_cross_sections`）
+    let n = BRANCH_DENSITIES[1];
+    let index = index_ratio(&table, &state, &n, 1);
+    assert_eq!(index, 1.0);
+    let (delta, _) = own_parts(&base, &n, index)[1].clone().unwrap();
+    assert_eq!(delta, 0.0);
 }
 
 #[test]
