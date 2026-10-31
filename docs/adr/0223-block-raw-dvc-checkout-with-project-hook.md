@@ -36,6 +36,13 @@ issues: ["#0184", "#0210", "#0211"]
   足す。共通の hook に 1 つのリポジトリの事情（スクリプトの名前と使い方）を入れることになり、xlc でスクリプトの形を変えると
   別のリポジトリを直すことになる
 - 案 C: スキルの文言だけで守る。/dvc-relock と /topic-start は既にスクリプトを指していたが、上の背景のとおり止まらなかった
+- 案 D: default の devShell の PATH の `dvc`（flake.nix の `dvc`。`.dvc-wrapped` を呼ぶラッパー）に、`checkout` を、
+  `scripts/dvc-checkout.py` が立てる環境変数が無ければ拒む分岐を足す。コマンドの文字列を読まずに済み、Claude Code の外（人の
+  シェル）でも止まる。ただし、devShell の外の dvc（`references` の devShell には dvc が無いので、別の dvc を PATH に置いたシェルや
+  store のパスの直接の呼び出し）は守れず、スクリプトがラッパーを迂回する環境変数の取り決めが要り、人の手の `dvc checkout`
+  （`--force` を付けて意図して戻すなど）まで止める。ラッパーは default の devShell と、その dvc を使う flake の検査
+  （`dvc-stage-python`）の derivation を変える。`references` の devShell は dvc を含まないので、その store のパス（参照解の deps。
+  ADR-0212）は変わらない（flake.nix の `devShells`、2026-10-31 に確かめた）
 
 ## 決定と理由
 
@@ -43,7 +50,8 @@ issues: ["#0184", "#0210", "#0211"]
 
 - 置き場: `.claude/settings.json` の `hooks.PreToolUse` に `matcher: "Bash"` の command の hook を置き、`.claude/hooks/block-raw-dvc-checkout.py`
   を環境変数 `CLAUDE_PROJECT_DIR` から呼ぶ（command はシェルの 1 行で、スクリプトのファイルが無ければ終了コード 1 で知らせて
-  通す）。スクリプトは標準ライブラリだけで書き、`nix develop` の外の PATH の python3 で動く
+  通す。stdin に `checkout` の文字列が無ければ python3 を起動せずに終了コード 0 で終える。hook はすべての Bash の呼び出しの前に
+  走るため）。スクリプトは標準ライブラリだけで書き、`nix develop` の外の PATH の python3 で動く
   （hook はシェルから実行され、devShell に入っていない）。home の settings の PreToolUse（`claude-hooks pre-tool-use`）とは
   別の設定の階層の hook で、両方が走る（Claude Code は設定の階層の hook を置き換えずに足し合わせる）
 - 判定: stdin の JSON の `tool_input.command` を、シェルの引用（`'…'`、`"…"`、`$'…'`、`\`）、コメント、ヒアドキュメントの本文を
@@ -60,6 +68,8 @@ issues: ["#0184", "#0210", "#0211"]
 理由:
 
 - 案 C は既に試して守られなかった。止めるには、コマンドを実行する前に機械で判定する hook が要る
+- 案 D と比べ、守りたいのは Claude Code のセッションの手順で、人のシェルの意図した `dvc checkout` は止めなくてよい。迂回の
+  環境変数の取り決めも要らない
 - 案 B と比べ、スクリプトの名前と使い方はこのリポジトリの事情で、xlc の中に置けば `scripts/dvc-checkout.py` と同じブランチで
   一緒に変えられる
 - 語の検索（`dvc checkout` の文字列を含むか）では、スキルを直す作業の `grep 'dvc checkout'` やコミットの本文を止めるので、
@@ -67,7 +77,9 @@ issues: ["#0184", "#0210", "#0211"]
 
 ### 帰結
 
-- 生の `dvc checkout` は、Claude Code の Bash ツールからは実行できない。スクリプトの中（`scripts/dvc-checkout.py` 自身など）の
+- 生の `dvc checkout` を止めることは hook のテストで確かめた。実際の Claude Code の Bash ツールで止まること（プロジェクトの
+  settings.json の hook の読み込み、`CLAUDE_PROJECT_DIR`、1 行を実行するシェル）は、マージの後に親のセッションで確かめる
+  （確かめていない）。スクリプトの中（`scripts/dvc-checkout.py` 自身など）の
   `dvc checkout` は Bash ツールのコマンドに現れないので止めない
 - 前提: Claude Code が hook の環境に `CLAUDE_PROJECT_DIR`（セッションを始めたプロジェクトの直下）を渡し、PATH に python3 が
   あること。PreToolUse の終了コード 2 はツールの呼び出しを止めるので、`python3 <無いパス>` の「can't open file」（終了コード 2）が
@@ -75,9 +87,10 @@ issues: ["#0184", "#0210", "#0211"]
   終わる。python3 が無ければ終了コード 127 で、止めずに知らせる
 - 判定はシェルの文法の一部だけを読む。`"…"` の中の `$(…)` は読むが、`"…"` の中のバッククォート、`slurm-run.sh` などに文字列
   として渡すコマンド、`eval`、上の一覧の外の包むコマンド（`xargs`、`find -exec`、`direnv exec`、`srun`、値を取る `sudo` の
-  オプションと `exec -a`、`function`、`coproc` など）、ヒアドキュメント、ヒア文字列かパイプで渡すシェル（`bash <<'EOF'`、`bash <<< '…'`、`… | bash`）、区切りの語を
+  オプションと `exec -a`、`function`、`coproc`、nix のグローバルオプションが先に来る `nix --offline develop -c …`、
+  `nix-shell --run '…'`、`taskset --cpu-list=0 …`、インタプリタのオプションが `-m` の前に来る `python3 -u -m dvc checkout` など）、ヒアドキュメント、ヒア文字列かパイプで渡すシェル（`bash <<'EOF'`、`bash <<< '…'`、`… | bash`）、区切りの語を
   引用しないヒアドキュメント（`<<EOF`）の本文の `$(…)` とバッククォート、
-  算術式の中の `<<`、fd の番号から始まるリダイレクト、`-o` が最後でない bash のオプションの束（`-oe pipefail`）、`$$'…'` は
+  fd の番号から始まるリダイレクト、`-o` が最後でない bash のオプションの束（`-oe pipefail`）、`$$'…'` は
   読まず、止め損なう。普段の書き方（`cd … &&`、
   前置きの `env` や `timeout`、`bash -c`、`nix develop -c`、`for … do`）を止めることを優先し、それ以外は塞がない
 - 引用の外の `$(…)`、バッククォート、`(` が単純なコマンドを区切るので、その後の語が `dvc checkout` で始まると、dvc を
