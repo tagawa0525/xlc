@@ -363,7 +363,8 @@ lattice は、履歴の分岐の自分の条件の分岐（`[history]`）のテ�
 1 つの格子点の密度で、制御棒の値が軸の値（軸がなければ `out`）、燃焼度の点がその条件の状態（変数の軸だけが H^b の格子点で、ほかの軸は
 公称）をテーブルが解いた燃焼度の点で増え、最初と最後を含むこと、U と L が点ごとに状態と同じ群と辺の数の有限の値であること、N̄ᵢ^j が点ごとに
 追う核種の数の有限の負でない値であること、Δσ_U と Δσ_L のそれぞれが点ごとに追う核種の数だけあり、反応の並びと核分裂の有無がミクロ
-燃焼のデータと同じで、群の数の有限の値であること。変数は今は `moderator-density` だけを受け、`rods` と `pyrex` は、その
+燃焼のデータと同じで、群の数の有限の値であること、ΔN̄ᵢ^j がすべて 0 の点（core が L と Δσ_L を足さない点）の L と Δσ_L が条件 j の状態の
+値（項目ごとの絶対値の最大）の 1e-6 以内（同じ組成と状態の 2 つの格子計算の解の差。MOC の中性子束の収束の判定の大きさ）であること。変数は今は `moderator-density` だけを受け、`rods` と `pyrex` は、その
 履歴の分岐を作る作業で検査と一緒に足す。結合は lattice の副コマンド `lattice histories <入力>`（crates/lattice/src/residual.rs）で、
 入力（TOML）は公称のテーブル `nominal`、出力 `output`、`[[history]]` ごとの `variable` と制御棒の値ごとの履歴の分岐の自分の条件の
 テーブルとハイブリッドのテーブル `branches`（`{ out = { branch = "…", hybrid = "…" } }`）。ハイブリッドのテーブルは、分岐のテーブルと同じ軸と
@@ -516,7 +517,8 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     U と L のそれぞれ）と、N̄ᵢ^j の形の `history_densities_are_finite_non_negative_rows_of_the_tracked_nuclides`。
     core が `histories` を持つテーブルを止めるテストは crates/core/src/case/tests.rs。Δσ_U と Δσ_L の検査（点ごとに追う核種の数、反応の並びと
     核分裂の有無、群の数の有限の値）は `rate_residuals_match_the_micro_nuclides_and_their_reactions`、分けない前の形を読まないことは
-    `rate_residuals_of_one_unsplit_list_are_not_read`。lattice の Δσ_U と Δσ_L は crates/lattice/src/residual/tests.rs の
+    `rate_residuals_of_one_unsplit_list_are_not_read`、ΔN̄ᵢ^j がすべて 0 の点の L と Δσ_L は
+    `branch_points_at_the_nominal_densities_hold_no_linearization`。lattice の Δσ_U と Δσ_L は crates/lattice/src/residual/tests.rs の
     `rate_residuals_split_at_the_hybrid_like_the_constants`（Δσ_U は分岐 − ハイブリッド、Δσ_L はハイブリッド − 公称の条件 j の σᵢ の差で、微分を
     持つ核種も σᵢ の差。和が分岐 − 公称の差）と `branch_tables_with_other_reactions_or_fission_are_errors`（分岐かハイブリッドの反応の並びか
     核分裂の有無が違えばエラー）
