@@ -18,6 +18,7 @@ from test_compare_residual import NUCLIDES, axes, few
 N10 = [6.0e-4, 1.0e-5]
 N20 = [5.25e-4, 2.5e-5]
 PLAIN20 = [5.3e-4, 2.4e-5]
+INDEX20 = [5.22e-4, 2.55e-5]
 REFERENCE20 = [5.2e-4, 2.6e-5]
 
 
@@ -65,7 +66,7 @@ H20 = (0.743 * 10.0 + 0.661 * 10.0) / 20.0
 
 
 def cores():
-    """履歴の補正の core（k は 20 MWd/kg で 0.95）と補正を切った core（0.96）"""
+    """履歴の補正の core（k は 20 MWd/kg で 0.95）、補正を切った core（0.96）と、反応率の Δσ を P / P_j で足した core（0.952）"""
     n0 = [7.0e-4, 0.0]
     corrected = core(
         [
@@ -81,7 +82,14 @@ def cores():
             (10.0, 20.0, "branch", 0.96, PLAIN20, H20),
         ]
     )
-    return corrected, plain
+    index = core(
+        [
+            (0.0, 0.0, "nominal", 1.2, n0, 0.743),
+            (5.0, 10.0, "branch", 1.01, N10, 0.743),
+            (10.0, 20.0, "branch", 0.952, INDEX20, H20),
+        ]
+    )
+    return corrected, plain, index
 
 
 SUMMARY = {
@@ -95,8 +103,8 @@ SUMMARY = {
 
 
 def compared():
-    corrected, plain = cores()
-    return c.compare(table(), reference(), history(), corrected, plain, SUMMARY)
+    corrected, plain, index = cores()
+    return c.compare(table(), reference(), history(), corrected, plain, SUMMARY, index)
 
 
 class Compare(unittest.TestCase):
@@ -231,12 +239,12 @@ class Compare(unittest.TestCase):
 
     def test_reference_densities_follow_the_burnup_of_each_state(self):
         # N̄ᵢ は燃焼度の点の順、状態は points の順。状態を燃焼度の逆に並べても同じ要約になる
-        corrected, plain = cores()
+        corrected, plain, index = cores()
         swapped = reference()
         swapped["points"] = [[1, 0, 0, 0], [0, 0, 0, 0]]
         swapped["states"] = swapped["states"][::-1]
         swapped["micro"]["states"] = swapped["micro"]["states"][::-1]
-        s = c.compare(table(), swapped, history(), corrected, plain, SUMMARY)
+        s = c.compare(table(), swapped, history(), corrected, plain, SUMMARY, index)
         self.assertEqual(s["rows"], compared()["rows"])
 
     def test_the_core_history_summary_is_made_from_the_same_table_and_core(self):
@@ -251,14 +259,14 @@ class Compare(unittest.TestCase):
                 c.check_core_history({"inputs": dict(md5s, **{key: "x"})}, md5s)
 
     def test_points_where_the_correction_does_nothing_have_no_needed_weight(self):
-        corrected, plain = cores()
+        corrected, plain, index = cores()
         same = dict(
             corrected,
             points=[
                 dict(p, k=q["k"]) for p, q in zip(corrected["points"], plain["points"])
             ],
         )
-        s = c.compare(table(), reference(), history(), same, plain, SUMMARY)
+        s = c.compare(table(), reference(), history(), same, plain, SUMMARY, index)
         self.assertIsNone(s["rows"][1]["needed_weight"])
         # 補正の量が 0 なら、見込みは補正を切った差のまま
         self.assertEqual(
@@ -267,28 +275,74 @@ class Compare(unittest.TestCase):
         c.report(s)
 
     def test_runs_that_do_not_match_the_reference_are_errors(self):
-        corrected, plain = cores()
+        corrected, plain, index = cores()
         # 続けた点が参照の最初の点でない
         other = dict(history(), continued={"file": "x", "burnup": 5.0})
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), other, corrected, plain, SUMMARY)
+            c.compare(table(), reference(), other, corrected, plain, SUMMARY, index)
         # 続けない履歴
         plain_history = {k: v for k, v in history().items() if k != "continued"}
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), plain_history, corrected, plain, SUMMARY)
+            c.compare(
+                table(), reference(), plain_history, corrected, plain, SUMMARY, index
+            )
         # 参照の燃焼度の点を core が通らない
         short = dict(plain, points=plain["points"][:2])
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), history(), corrected, short, SUMMARY)
+            c.compare(table(), reference(), history(), corrected, short, SUMMARY, index)
         # 参照は燃焼度ごとに 1 状態
         two = reference()
         two["axes"][2]["points"] = [565.0, 600.0]
         with self.assertRaises(SystemExit):
-            c.compare(table(), two, history(), corrected, plain, SUMMARY)
+            c.compare(table(), two, history(), corrected, plain, SUMMARY, index)
         # 一生を条件 j で燃焼させた比較の要約が参照の点を持たない
         missing = dict(SUMMARY, branch_rows=SUMMARY["branch_rows"][:2])
         with self.assertRaises(SystemExit):
-            c.compare(table(), reference(), history(), corrected, plain, missing)
+            c.compare(table(), reference(), history(), corrected, plain, missing, index)
+
+    def test_the_core_with_the_rate_residuals_at_the_production_index_is_compared_too(
+        self,
+    ):
+        # 反応率の Δσ を P / P_j で足した core（`rate-residual-weight = "production-index"`）も、参照からの差と数密度の効きに分ける
+        s = compared()
+        last = s["rows"][1]
+        k_reference = few(4.4)["k_inf"]
+        self.assertEqual(last["index_k"], 0.952)
+        self.assertAlmostEqual(
+            last["index_difference_pcm"], r.rho(0.952) - r.rho(k_reference), places=9
+        )
+        t = table()
+        coeff = r.coefficients(t["micro"]["states"][t["points"].index([2, 0, 1, 0])])
+        base = reference()["states"][1]
+        whole = r.corrected(base, coeff, [a - b for a, b in zip(INDEX20, REFERENCE20)])
+        self.assertAlmostEqual(
+            last["index_composition_pcm"],
+            r.rho(r.k_inf(whole)) - r.rho(r.k_inf(base)),
+            places=9,
+        )
+        self.assertEqual(
+            {x["nuclide"] for x in last["index_composition_nuclides"]}, set(NUCLIDES)
+        )
+        self.assertEqual(last["index_density_nuclide"], "Pu-240")
+        self.assertAlmostEqual(
+            last["index_densities_percent"]["U-235"],
+            (INDEX20[0] / REFERENCE20[0] - 1.0) * 100.0,
+            places=9,
+        )
+        self.assertIn("P / P_j", c.report(s))
+
+    def test_a_production_index_core_of_another_history_is_an_error(self):
+        # 2 つの core は同じ燃焼（同じ H）で、Δσ の重みだけが違う
+        corrected, plain, index = cores()
+        other = dict(
+            index,
+            points=[
+                dict(p, histories=[[[0.7]]]) if i == 2 else p
+                for i, p in enumerate(index["points"])
+            ],
+        )
+        with self.assertRaises(SystemExit):
+            c.compare(table(), reference(), history(), corrected, plain, SUMMARY, other)
 
 
 if __name__ == "__main__":
