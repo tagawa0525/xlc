@@ -5168,13 +5168,13 @@ git で追跡する。
 
 ### 計算
 
-ブランチ feat/0190-rate-residual-split（分岐点は main の 175d652c）、2026-10-31。テーブルは c83b84f2 の `cargo build --release` の
+ブランチ feat/0190-rate-residual-split（分岐点は main の 175d652c）、2026-10-31。テーブルは 7543ce19 の `cargo build --release` の
 `target/release/lattice`（md5 e0fa3aa2）の `lattice histories residual.toml`（公称 7b5fa50b、第 1 項 a8f35287、ハイブリッド b95aa56b から。
-U、L、N̄ᵢ^j は前のテーブル 8d692a1a とバイトで同じで、Δσ_U + Δσ_L は前の Δσ と同じ値）。1、3、4 は a9cd4d37 の `cargo build --release` の
-`target/release/core`（md5 684dbbbe。Δσ_U と Δσ_L を和にして一度に足す版）で手元で流した（時間は記録に使わない）。2 と 5 は c83b84f2 の core で
+U、L、N̄ᵢ^j は前のテーブル 8d692a1a とバイトで同じで、Δσ_U + Δσ_L は前の Δσ と同じ値）。1、3、4 は 0181ec9a の `cargo build --release` の
+`target/release/core`（md5 684dbbbe。Δσ_U と Δσ_L を和にして一度に足す版）で手元で流した（時間は記録に使わない）。2 と 5 は 7543ce19 の core で
 再実行して、main の aa37f3ed の core の出力とバイトで同じ（R を持たないテーブルと、`histories` を持たない第 1 項のテーブル）。core の履歴は
 1、2 が md5 2c05cf24、3 が 23a64901、4 が 2bce3db0、5 が 7cde651f
-（追跡しない生成物で、`.dvc` で追う）。比較は 8c142a5a で手元、2026-10-31。
+（追跡しない生成物で、`.dvc` で追う）。比較は 501687dd で手元、2026-10-31。
 
 ### 結果
 
@@ -5333,9 +5333,9 @@ python3 compare_switch.py --report switch.json
 `target/release/lattice`（md5 73f4ba85。`continue` を足した版）で解いた: 途中で条件を変えた燃焼（Slurm 626）、参照（627）。どちらも割り込まれうる
 ジョブなので時間は記録に使わない。履歴は md5 1840f666、参照のテーブルは 3f74b1d4（追跡しない生成物）。ハイブリッドのテーブル 6661fea1 は
 「履歴の残り R の分け方（2A）」の「計算」（Slurm 634）。core の 4 は「履歴の補正の core（2A の集合体 1 体）」の 4 の出力（ブランチ
-feat/0190-rate-residual-split（分岐点は main の 175d652c）の a9cd4d37 の `target/release/core`（md5 684dbbbe）。core の履歴は md5 2bce3db0、
-2026-10-31）、補正を切った対照は d5e35a33 の main の `bin/core`（md5 9ac76e72）で手元で流した（md5 f334b2d5。c83b84f2 の core で再実行して同じ
-出力）。比較は 8c142a5a で手元、2026-10-31。
+feat/0190-rate-residual-split（分岐点は main の 175d652c）の 0181ec9a の `target/release/core`（md5 684dbbbe）。core の履歴は md5 2bce3db0、
+2026-10-31）、補正を切った対照は d5e35a33 の main の `bin/core`（md5 9ac76e72）で手元で流した（md5 f334b2d5。7543ce19 の core で再実行して同じ
+出力）。比較は 501687dd で手元、2026-10-31。
 
 ### 結果
 
