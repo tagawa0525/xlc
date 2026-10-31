@@ -1820,6 +1820,11 @@ class DrawHistoryIndex(unittest.TestCase):
                 else 1.8712,
                 "gap_mixed_pcm": None if index is None else 7.4851,
                 "gap_weight_pcm": 53.7262,
+                "production_ratio": None if index is None else 0.86441,
+                "absorption_ratio": None if index is None else 0.86907,
+                "linearization_gap_production_pcm": None if index is None else 3.8901,
+                "linearization_gap_absorption_pcm": None if index is None else 2.8312,
+                "gap_production_pcm": None if index is None else 9.2513,
             }
 
         return {
@@ -1839,6 +1844,22 @@ class DrawHistoryIndex(unittest.TestCase):
                 "full": [row(60.0, 1.0, 5511.26, -248.12, -157.09, 0.9091)],
             },
             "switch": [switch(20.0, 0.0, None), switch(60.0, 2.0 / 3.0, 0.87217)],
+            "density_pairs": [
+                {
+                    "burnup": 0.0,
+                    "index_ratio": None,
+                    "production_ratio": None,
+                    "absorption_ratio": None,
+                    "linearization_ratio": None,
+                },
+                {
+                    "burnup": 2.0,
+                    "index_ratio": -0.17751,
+                    "production_ratio": 0.47441,
+                    "absorption_ratio": 0.47302,
+                    "linearization_ratio": 0.47722,
+                },
+            ],
         }
 
     rows = staticmethod(DrawBurnupInterpolation.rows)
@@ -1988,8 +2009,66 @@ class DrawHistoryIndex(unittest.TestCase):
             ],
         )
 
+    def test_group_rows_set_the_gaps_of_the_thermal_indices_beside_e(self):
+        table = vt.history_index_groups([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "E の比",
+                "熱群の νΣf の補正の比",
+                "熱群の吸収の補正の比",
+                "L の外れ: E の比 (pcm)",
+                "L の外れ: 熱群の νΣf の補正の比 (pcm)",
+                "L の外れ: 熱群の吸収の補正の比 (pcm)",
+                "両方の外れ: U は w、L は E の比 (pcm)",
+                "両方の外れ: U は w、L は熱群の νΣf の補正の比 (pcm)",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(rows[0], ["20", "0.0000", *["–"] * 8])
+        self.assertEqual(
+            rows[1],
+            [
+                "60",
+                "0.6667",
+                "0.8722",
+                "0.8644",
+                "0.8691",
+                "+2.130",
+                "+3.890",
+                "+2.831",
+                "+7.485",
+                "+9.251",
+            ],
+        )
+
+    def test_density_rows_set_the_index_ratios_beside_the_ratio_of_l(self):
+        table = vt.history_index_density([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "E の比",
+                "熱群の νΣf の補正の比",
+                "熱群の吸収の補正の比",
+                "L の比",
+            ],
+        )
+        rows = self.rows(table)
+        self.assertEqual(rows[0], ["0", "–", "–", "–", "–"])
+        self.assertEqual(rows[1], ["2", "−0.1775", "0.4744", "0.4730", "0.4772"])
+
     def test_the_tables_are_registered_for_the_index_json(self):
-        for name in ("linearization", "untracked", "switch", "gaps"):
+        for name in (
+            "linearization",
+            "untracked",
+            "switch",
+            "gaps",
+            "groups",
+            "density",
+        ):
             sources, _ = vt.TABLES[f"depletion-history-index-{name}"]
             self.assertEqual(sources, ["examples/depletion/history/index.json"])
             # ステージの出力でなく git が追跡する JSON（compare_index.py を手で流す）
