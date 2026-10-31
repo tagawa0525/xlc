@@ -77,9 +77,11 @@ issues: ["#0184", "#0210", "#0211"]
 
 ### 帰結
 
-- 生の `dvc checkout` を止めることは hook のテストで確かめた。実際の Claude Code の Bash ツールで止まること（プロジェクトの
-  settings.json の hook の読み込み、`CLAUDE_PROJECT_DIR`、1 行を実行するシェル）は、マージの後に親のセッションで確かめる
-  （確かめていない）。スクリプトの中（`scripts/dvc-checkout.py` 自身など）の
+- 生の `dvc checkout` を止めることは hook のテストと、実際の Claude Code の Bash ツールで確かめた。マージ（5a78f7fa0、2026-10-31 11:53）の
+  直後に、マージの前に始めていた親のセッションで `nix develop -c dvc checkout dvc.yaml` を実行すると、PreToolUse の hook が終了コード 2 と
+  修正方法で止めた（settings.json の変更はセッションの再起動なしに拾われ、`CLAUDE_PROJECT_DIR` は main の作業ツリーを指した）。同じ
+  セッションで `nix develop -c scripts/dvc-checkout.py` は通った（UNRUN: 7、終了コード 0）。home の claude-hooks も同じ呼び出しで走ることは
+  確かめていない。スクリプトの中（`scripts/dvc-checkout.py` 自身など）の
   `dvc checkout` は Bash ツールのコマンドに現れないので止めない
 - 前提: Claude Code が hook の環境に `CLAUDE_PROJECT_DIR`（セッションを始めたプロジェクトの直下）を渡し、PATH に python3 が
   あること。PreToolUse の終了コード 2 はツールの呼び出しを止めるので、`python3 <無いパス>` の「can't open file」（終了コード 2）が
@@ -102,4 +104,4 @@ issues: ["#0184", "#0210", "#0211"]
 
 - `.claude/hooks/test_block_raw_dvc_checkout.py` が、止めるコマンドと通すコマンドの例、hook のプロセスの終了コードと stderr を
   確かめる（`scripts/run-python-tests.sh` が実行する）
-- Claude Code の Bash ツールで実際に止まるかは、マージの後に親のセッションで確かめる
+- Claude Code の Bash ツールで実際に止まることは、マージの直後に親のセッションで確かめた（上の帰結）
