@@ -22,6 +22,10 @@ True を返すことを示した。また、出力に触れない `dvc checkout 
 挙げた。3 周目（同日）は、リダイレクトの待ちを区切りで解く直しが止めるようにした `tee >(dvc checkout)` と
 `echo x > $(mktemp) && dvc checkout` にテストが無いことを挙げた。
 
+親の 2 周目（同日、rebase の後）は、止め損なう形として `nix --offline develop -c …`（nix のグローバルオプションが先）、
+`nix-shell --run '…'`、`taskset --cpu-list=0 …`、`python3 -u -m dvc checkout`（インタプリタのオプションが `-m` の前）を挙げた
+（ADR-0223 の帰結の既知の抜け道にも書いた）。
+
 どれも普段の書き方ではないので、レビューの基準（直すのは普段の書き方の誤り）で直さなかった。
 
 関係する ADR: ADR-0223
