@@ -966,6 +966,19 @@ pub fn interpolate_rate_residual(
     out.ok_or_else(|| format!("the rate residual of the rod value {} is empty", rod.rod))
 }
 
+/// 反応率の微視的断面積の差の和 `acc` に、`w` 倍した差 `r`（追う核種の順）を足す（`acc` が空なら `w r`）。補正した断面積の検査は、
+/// 和を足すとき（`add_rate_residual`）に一度だけ行う
+pub fn accumulate_rate_residuals(acc: &mut Option<Vec<RateResidual>>, w: f64, r: &[RateResidual]) {
+    match acc {
+        None => *acc = Some(r.iter().map(|x| scaled_rate(x, w)).collect()),
+        Some(sum) => {
+            for (a, x) in sum.iter_mut().zip(r) {
+                add_rate(a, w, x);
+            }
+        }
+    }
+}
+
 /// `w` 倍した反応率の微視的断面積の差。項目を足したらここで扱いを決める（`..` を使わない）
 fn scaled_rate(r: &RateResidual, w: f64) -> RateResidual {
     let RateResidual {
