@@ -205,10 +205,15 @@ L_X = f(H_X) − f(公称) − Σᵢ cᵢ ΔN̄ᵢ^X（R_X = U_X + L_X）。外�
   core の入力 `rate-residual-weight = "production-index"` で Δσ を P / P_j で足して測った（「確認」）。core − 参照は −37.614〜+11.347 pcm（w は
   −32.314〜−17.018 pcm）で、6 点のうち 56 MWd/kg のほかは目安の 5 pcm を超える。数密度の効きは 48〜60 MWd/kg で −14.246〜+2.991 pcm に縮む
   （w は −35.013〜−31.155 pcm）が、26〜40 MWd/kg は −27.916〜−14.357 pcm で w（−27.239〜−9.733 pcm）と同じ程度か大きい。60 MWd/kg の
-  数密度の効きは、w の Pu-239 −50.71 pcm が +2.54 pcm に縮むが、Pu-240 −11.98、Pu-241 +12.17 pcm が残る。目安に入らないので採らず、既定は w
-  のまま、入力で選べる形で残す（#0190）。Δσ の全体に P / P_j を掛けるので、R を U（w）と L（P / P_j）に分けた案 R4 と違い、Δσ の中の追わない
-  核種の分（分岐 − ハイブリッドの σᵢ）まで P / P_j で足す。Δσ を同じく分けて追わない核種の分を w で足す形は測っていない（26〜40 MWd/kg の
-  数密度の効きの候補。確かめていない）
+  数密度の効きは、w の Pu-239 −50.71 pcm が +2.54 pcm に縮むが、Pu-240 −11.98、Pu-241 +12.17 pcm が残る。Δσ の全体に P / P_j を掛けるので、
+  R を U（w）と L（P / P_j）に分けた案 R4 と違い、Δσ の中の追わない核種の分（分岐 − ハイブリッドの σᵢ）まで P / P_j で足す。下の案 R7 に置き換えた
+- 案 R7（反応率の Δσ も U と L と同じハイブリッドで分け、Δσ_U を w、Δσ_L を P / P_j で足す。採用）: Δσ = σᵢ(分岐) − σᵢ(公称、条件 j) を、
+  ハイブリッドの σᵢ で Δσ_U = σᵢ(分岐) − σᵢ(ハイブリッド)（追わない核種の分）と Δσ_L = σᵢ(ハイブリッド) − σᵢ(公称、条件 j)（追う核種の組成の分）に
+  分ける。定数の U と L と同じ分け方と重みで、テーブルに足すのはハイブリッドの分岐が既に持つ σᵢ の差だけ（2A のテーブルでは U、L、N̄ᵢ^j が
+  前のテーブルとバイトで同じで、Δσ_U + Δσ_L は前の Δσ と同じ値）。途中で条件を変えた燃焼の core − 参照は −37.497〜+12.157 pcm で、案 R6 と
+  +0.044〜+0.810 pcm しか違わず、目安に入らない（「確認」）。Δσ_U の外れは参照の σ の 0.016% 以下で、残りは Δσ_L の側（Pu-240 の高速群の
+  捕獲の外れ −0.489〜−0.058%）。案 S2 の w と案 R6 の P / P_j の 1 つの重みは、追う核種の組成の分と追わない核種の分のどちらかを違う重みで足すので
+  採らず、core の入力で選ぶ形（前の `rate-residual-weight`）も残さない（後方互換を作らない。測った値は「確認」とコミットに残る）
 
 履歴の変数の数:
 
@@ -311,21 +316,26 @@ P = Σᵢ cᵢ_νf,G(x, u, r) (Nᵢ − N̄ᵢ^0(u))、P_j,r(u) = Σᵢ cᵢ_νf
 core は、ミクロ燃焼のノードの追う核種の反応率（ADR-0216 の反応率と、中性子束の大きさの規格化）に使う微視的断面積を、テーブルを状態と
 燃焼度で内挿した σᵢ(x, u, r) に、履歴の変数ごとの差を足したものにする:
 
-σᵢ^rate(x, u, r) = σᵢ(x, u, r) + Σ_j w_j Δσᵢ,j,r(u)、Δσᵢ,j,r(u) = σᵢ(履歴の分岐 j の組成、条件 j、r、u) − σᵢ(公称の組成、条件 j、r、u)
+σᵢ^rate(x, u, r) = σᵢ(x, u, r) + Σ_j [w_j Δσᵢ_U,j,r(u) + (P / P_j,r(u)) Δσᵢ_L,j,r(u)]
 
-- 第 1 項は R の第 1 項と同じ分岐（`[history]`）の微視的断面積、第 2 項は公称のテーブルの条件 j の状態（格子点）の値。燃焼度の点、制御棒の
+Δσᵢ_U,j,r(u) = σᵢ(履歴の分岐 j の組成、条件 j、r、u) − σᵢ(H_j、条件 j、r、u)（追わない核種の分）
+Δσᵢ_L,j,r(u) = σᵢ(H_j、条件 j、r、u) − σᵢ(公称の組成、条件 j、r、u)（追う核種の組成の分）
+
+- H_j は U と L のハイブリッド、w_j と P / P_j は定数の U と L と同じ（「検討した案」の案 R7）。和 Δσᵢ_U + Δσᵢ_L は履歴の分岐と公称の組成の
+  差 σᵢ(履歴の分岐 j の組成、条件 j) − σᵢ(公称の組成、条件 j)
+
+- 差の第 1 項は R の第 1 項と同じ分岐（`[history]`）の微視的断面積、最後の項は公称のテーブルの条件 j の状態（格子点）の値。燃焼度の点、制御棒の
   値、w_j、燃焼度の内挿（ADR-0192。範囲の外はエラー）、部分挿入のノードの混ぜ方（区間ごとに足してから ADR-0217 の重みで混ぜる）は R と同じ
 - 補正する項目は反応率に使うものだけ: チェーンの反応の経路ごとの断面積、核分裂の断面積、収率の境界より下の核分裂の断面積（割合 × 群の和の
   σf。ADR-0216 の内挿と同じく断面積で足し、補正した σf の群の和との比を割合にする）。線形の補正の係数 cᵢ（全断面積、νσf、σf、散乱行列、
-  数密度の微分）、基準 N̄ᵢ^0、R の定義は変えない。履歴の分岐の点（w_j = 1、条件 j、ノードの数密度が N̄ᵢ^j）で、反応率は第 1 項の
+  数密度の微分）、基準 N̄ᵢ^0、R の定義は変えない。履歴の分岐の点（w_j = 1、条件 j、ノードの数密度が N̄ᵢ^j で P = P_j）で、反応率は第 1 項の
   σᵢ^j、定数は f(j) + Σᵢ cᵢ(j) ΔN̄ᵢ + R = f^j になる。係数まで補正すると、その点に Σᵢ (cᵢ^j − cᵢ(j)) ΔN̄ᵢ が残る
 - 数密度の微分を持つ核種（ADR-0221）も、反応率の σᵢ はほかの核種と同じく補正し、係数の微分は公称のテーブルの値のまま（履歴の分岐の点の
   微分との違いの分は R に入る）。第 1 項の分岐は微分を持たなくてよい
 - Δσ は R と同じく連続の軸の瞬時の状態に依らない（条件 j の値）。状態への依存は測っていない（R と一緒に #0190 で見直す）
-- w_j が厳密に 0 の変数は足さない（公称の履歴の反応率は、補正のないテーブルとビットで同じ）。補正した断面積が負か、割合が 0〜1 の外なら
+- w_j が厳密に 0 の変数は足さない（公称の履歴の反応率は、補正のないテーブルとビットで同じ）。ΔN̄ᵢ^j がすべて 0 の燃焼度は、L と同じく
+  ハイブリッドが公称の組成そのもので Δσ_L は定義から 0 なので、Δσ_L を足さない。補正した断面積が負か、割合が 0〜1 の外なら
   エラー（黙って切らない）
-- Δσ の重みは core の入力（`[depletion]` の `micro` の `rate-residual-weight`）で選べ、既定は w_j（`history`）。L と同じ P / P_j で足す
-  `production-index`（案 R6）は、途中で条件を変えた燃焼で目安に入らなかったので既定にしない（「確認」）
 
 ### Pyrex を抜いた集合体（案 Q1）
 
@@ -341,23 +351,25 @@ Pyrex を抜いた格子で解いた分岐（案内管の中身を変えた格�
 値 H^b、制御棒の値ごとの、R を持つ燃焼度の点（上の規則で選んだ点）と、その点ごとの U と L（状態の少数群定数の項目のうち、全断面積、吸収、
 νΣf、核分裂、χ、拡散係数、散乱行列、ADF。k∞、真空の辺の比、ピン出力の形状関数は持たない）と、履歴の分岐の均質化した数密度 N̄ᵢ^j（core が
 P_j を作る）。ミクロ燃焼の補正を持たない項目（χ、拡散係数、ADF）の L は線形の補正の項が 0 で、2 つの定数の差（履歴の分岐の点で core が第 1 項の
-定数を返すため）。R の点ごとに、追う核種ごとの反応率の微視的断面積の差 Δσ（上の案 S2）も持つ。ミクロ燃焼の σᵢ と N̄ᵢ は ADR-0187 の置き場（#0153）。
-lattice は、履歴の分岐の自分の条件の分岐（`[history]`）のテーブル、同じ条件のハイブリッドのテーブルと、公称のテーブルから U、L、Δσ を作り、
+定数を返すため）。R の点ごとに、追う核種ごとの反応率の微視的断面積の差 Δσ_U と Δσ_L（上の案 S2 と案 R7）も持つ。ミクロ燃焼の σᵢ と N̄ᵢ は ADR-0187 の置き場（#0153）。
+lattice は、履歴の分岐の自分の条件の分岐（`[history]`）のテーブル、同じ条件のハイブリッドのテーブルと、公称のテーブルから U、L、Δσ_U、Δσ_L を作り、
 公称のテーブルに書く。R を 1 つで持つ前の形は読まない（後方互換を作らない）。
 
 実装（#0190）: ファイルの形は `histories` の列で、項目ごとに `variable`、`nominal`（H^0）、`branch`（H^b）、`rods`（`rod`、`burnup`（MWd/kg）、
 `untracked` と `linearization`（どちらも `total`、`absorption`、`nu_fission`、`fission`、`chi`、`diffusion`、`scatter`、`adf`）、`densities`（R の
-点ごとの、追う核種の順の N̄ᵢ^j）、`micro`（R の点ごとの、追う核種の
-順の Δσ: `fission`、`reactions`（`mt` と経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない
-核種は nil で、キーは省けない））。持たないテーブルはキーを書かない（crates/format/src/table.rs）。テーブルの検査は、ミクロ燃焼のデータを持つこと、変数が重ならず、H^0 と H^b が減速材の軸の公称と公称でない
+点ごとの、追う核種の順の N̄ᵢ^j）、`micro`（`untracked`（Δσ_U）と `linearization`（Δσ_L）の map で、どちらも R の点ごとの、追う核種の
+順の `fission`、`reactions`（`mt` と経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない
+核種は nil で、キーは省けない）。分けない 1 つの列の前の形は読まない））。持たないテーブルはキーを書かない（crates/format/src/table.rs）。テーブルの検査は、ミクロ燃焼のデータを持つこと、変数が重ならず、H^0 と H^b が減速材の軸の公称と公称でない
 1 つの格子点の密度で、制御棒の値が軸の値（軸がなければ `out`）、燃焼度の点がその条件の状態（変数の軸だけが H^b の格子点で、ほかの軸は
 公称）をテーブルが解いた燃焼度の点で増え、最初と最後を含むこと、U と L が点ごとに状態と同じ群と辺の数の有限の値であること、N̄ᵢ^j が点ごとに
-追う核種の数の有限の負でない値であること、Δσ が点ごとに追う核種の数だけあり、反応の並びと核分裂の有無がミクロ
-燃焼のデータと同じで、群の数の有限の値であること。変数は今は `moderator-density` だけを受け、`rods` と `pyrex` は、その
+追う核種の数の有限の負でない値であること、Δσ_U と Δσ_L のそれぞれが点ごとに追う核種の数だけあり、反応の並びと核分裂の有無がミクロ
+燃焼のデータと同じで、群の数の有限の値であること、ΔN̄ᵢ^j がすべて 0 の点（core が L と Δσ_L を足さない点）の L と Δσ_L が条件 j の状態の
+値（項目ごとの絶対値の最大）の 1e-6 以内（同じ組成と状態の 2 つの格子計算の解の差。MOC の中性子束の収束の判定の大きさ）であること。変数は今は `moderator-density` だけを受け、`rods` と `pyrex` は、その
 履歴の分岐を作る作業で検査と一緒に足す。結合は lattice の副コマンド `lattice histories <入力>`（crates/lattice/src/residual.rs）で、
 入力（TOML）は公称のテーブル `nominal`、出力 `output`、`[[history]]` ごとの `variable` と制御棒の値ごとの履歴の分岐の自分の条件の
 テーブルとハイブリッドのテーブル `branches`（`{ out = { branch = "…", hybrid = "…" } }`）。ハイブリッドのテーブルは、分岐のテーブルと同じ軸と
-点、追う核種、初めの重金属、群境界と、同じ均質化した数密度を持つこと（違えばエラー）。条件 j は履歴の分岐のテーブル（燃焼度の軸のほかは点が 1 つ）の値を公称のテーブルの格子点に引いて決め、変数の
+点、追う核種、初めの重金属、群境界と、同じ均質化した数密度を持ち、ミクロ燃焼の σᵢ の反応の並びと核分裂の有無が分岐と公称のテーブルと
+同じこと（違えばエラー）。条件 j は履歴の分岐のテーブル（燃焼度の軸のほかは点が 1 つ）の値を公称のテーブルの格子点に引いて決め、変数の
 値 H^0 と H^b もその格子点の密度から取る（入力に書かせると格子点と食い違いうる）。履歴の分岐のテーブルの燃焼度の点は、公称のテーブルが
 条件 j を解いた燃焼度の点と同じこと、追う核種と初めの重金属が同じことを求め、R を持つ公称のテーブルに重ねて足すとエラー。
 制御棒のテーブルをまとめる examples/core/rod_table.py（#0093 までのつなぎの Python）には倣わず、本番の経路を lattice に置いた。
@@ -384,6 +396,9 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   ミクロ燃焼の補正だけが担う」をそのまま保ち、テーブルに足すのは反応率の項目の差だけで、2A の第 1 項の分岐（Pu-240 の微分を持たない）を
   解き直さずに作れる。基準と係数も履歴で補正する案 S1 との差は、x = j では係数の違いとノードの数密度の S1 の基準からの外れの積で、
   ノードが見込みの数密度にあれば 0。公称の状態で使った誤差は S1 が最大 10.67 pcm（10 MWd/kg）、S2 が最大 −18.50 pcm（60 MWd/kg）で、どちらが良いとは決まらない（「検討した案」）
+- Δσ を U と L と同じハイブリッドで分けて同じ重みで足す（案 R7）のは、Δσ が追わない核種の分（w に比例すると置く U と同じ）と追う核種の
+  組成の分（組成の指標の比で足す L と同じ）を含み、1 つの重みでは片方を違う重みで足すため。追加の格子計算は無い（ハイブリッドの分岐が σᵢ を
+  持つ）。途中で条件を変えた燃焼では案 R6 とほとんど変わらず目安に入らないが、Δσ_U の外れは小さく、残りの外れが Δσ_L の側にあると分けて示せる
 - 費用は、毒物のない集合体 1 種あたり燃焼 2 回と、R の状態（履歴の分岐 2 本 × 制御棒の値 2 の 4 組、組ごとに燃焼点の数）。前の既定と
   16 スレッドの時間で、燃焼は 2A-density が 18 分 55 秒（Slurm 522）、2A-rods が 39 分 27 秒（Slurm 523。どちらも比較のステージを含むので
   少し多い）。R の状態は ADR-0200 の 1 状態の目安（制御棒なし 15 秒、あり 32 秒。割り込まれうるジョブの目安）で、制御棒を入れた 2 組と
@@ -428,19 +443,19 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   次をエラーにする: w_j が 0 でないのにノードの制御棒の値の補正がテーブルに無い、R の燃焼度の点の範囲の外、R の点が燃焼度の軸の点でない、
   ΔN̄ᵢ^j が 0 でないのに P_j が 0、core の持たない変数の補正、ミクロ燃焼でない位置（燃焼させない状態の解を含む）に補正を持つテーブル、
   ミクロ燃焼のテーブルのうち補正を持つものと持たないものの混在（持たないテーブルのノードの履歴を補正しない）
-- core: ミクロ燃焼の反応率の σᵢ は、テーブルの内挿 + Σ_j w_j Δσ_j,r（案 S2。crates/core/src/case.rs の `node_micro`。w_j と制御棒の値の
-  選び方は定数の R と同じ関数 `weighted_histories`。燃焼の反応率は、その解の定数を作ったノードの履歴の変数で引く）。`rate-residual-weight =
-  "production-index"`（crates/core/src/input.rs の `RateResidualWeight`）では w_j の代わりに L と同じ P / P_j（同じ関数 `production_ratio`。P_j が 0 なら
-  エラー）を掛ける。履歴の分岐の追う核種の数密度の差がすべて 0 なら、燃焼度 0 は足さず（組成の全体が公称と同じで Δσ は定義から 0）、ほかの燃焼度は
-  エラー（Δσ は追わない核種の違いも含み、ハイブリッドで定義から 0 になる L と違って 0 とは限らない）。P は反応率を規格化する組成、つまりその解の定数を作った組成で作る
+- core: ミクロ燃焼の反応率の σᵢ は、テーブルの内挿 + Σ_j [w_j Δσ_U,j,r + (P / P_j,r) Δσ_L,j,r]（案 S2、案 R7。crates/core/src/case.rs の
+  `node_micro`。w_j と制御棒の値の選び方は定数の R と同じ関数 `weighted_histories`、P / P_j は L と同じ関数 `production_ratio`（P_j が 0 なら
+  エラー）。燃焼の反応率は、その解の定数を作ったノードの履歴の変数で引く）。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度は、L と
+  同じく Δσ_L を足さない（ハイブリッドが公称の組成そのもので定義から 0）。P は反応率を規格化する組成、つまりその解の定数を作った組成で作る
   （予測子は点の組成、修正子は中点の組成。平衡 Xe の反復ではその反復の組成。crates/core/src/depletion.rs の `node_rates`）。解の定数の L と同じ
   P になり、反応率の組成と定数の組成を分けない。係数は Δσ を足す前の内挿の値（P が使う熱群の νσf と数密度の微分は Δσ で変わらないが、微分を持たない核種の σf の係数は変わる）。ADR-0216 の「追う核種の反応率は、テーブルの微視的断面積 ×
   ノードの中性子束」の σᵢ はこの補正を足したもので、ADR-0216 の帰結の「σᵢ を燃焼度で引くので…自己遮蔽の変化も燃焼度の関数として入る」は
-  公称の燃焼の変化で、履歴の分岐の組成のスペクトルと自己遮蔽の違いは、この補正が w に比例して足す（ADR-0216 の本文は変えない）
+  公称の燃焼の変化で、履歴の分岐の組成のスペクトルと自己遮蔽の違いは、この補正が足す（ADR-0216 の本文は変えない）
 - 線形の補正の係数の選び方（`linear_coefficients`。`add_linear_correction` と core の P が呼ぶ）と、履歴の分岐の条件の格子点
   （`Table::history_condition`）は xlc-format の 1 つの関数で、core のノードの補正と P、lattice の L の線形の補正の項、テーブルの検査が同じものを呼ぶ
-- 途中で条件を変えた燃焼の core の差は −32.314〜−17.018 pcm で目安に入らない（「確認」）。差の大半は core の数密度の効きで、反応率の Δσ を
-  L と同じ P / P_j で足しても（案 R6）−37.614〜+11.347 pcm で入らない。この決定の status は、数密度の効きの見直し（#0190）の後に決める
+- 途中で条件を変えた燃焼の core の差は −37.497〜+12.157 pcm で目安に入らない（「確認」）。差の大半は core の数密度の効き（Pu-240 と Pu-241）で、
+  反応率の Δσ を w で足しても（−32.314〜−17.018 pcm）、P / P_j で足しても（案 R6。−37.614〜+11.347 pcm）、Δσ_U と Δσ_L に分けても（案 R7）入らない。
+  残りの最大の候補は Pu-240 の高速群の捕獲の Δσ_L の重み（「確認」）。この決定の status は、数密度の効きの見直し（#0190）の後に決める
 - 本番の格子点（熱水力の ADR）の後に、密度の履歴の分岐の値を決める。ホウ素と燃料の温度の履歴は、HFP の範囲で大きさを測ってから
   足すか決める
 - 2A の測定は ADR-0209 の前の既定の組で、履歴の効きの大きさの目安。本番の既定で再測定するかは、比例と重みの確認（#0190）のときに決める
@@ -467,19 +482,18 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     `restarts_carry_the_node_histories_by_assembly`（restart の往復と引き継ぎ）、`micro_histories_hold_node_histories_of_the_densities_shape`、
     `micro_tables_hold_the_same_history_residuals`、係数の共通の関数は crates/core/src/micro/tests.rs の
     `corrections_are_the_linear_correction_that_the_lattice_residual_subtracts`
-  - core の反応率（案 S2）: 履歴の分岐の点（w = 1、条件 j）で、反応率の σᵢ が第 1 項の分岐の σᵢ を再現し、基準の数密度は公称の履歴のまま。
-    w = 0 では補正のないテーブルとビットで同じ。w = 0.5 で σᵢ + w Δσᵢ（収率の境界より下の割合は断面積で足した比）で、線形の補正の係数と
-    ノードの定数は Δσ によらない。補正した断面積が負か割合が 0..1 の外ならエラー。実装のテストは crates/core/src/case/tests.rs の
-    `history_branch_points_deplete_with_the_branch_rate_cross_sections`、`nominal_histories_leave_the_rate_cross_sections_bit_identical`、
-    `rate_residuals_scale_with_the_weight_and_leave_the_linear_correction`、`rate_residuals_that_give_negative_cross_sections_or_fractions_are_errors`、
-    燃焼の反応率に使うことは crates/core/src/depletion/tests.rs の `micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history`
-    （w = 0.5 の燃焼が、捕獲を 0.5 Δσ ずらしたテーブルの燃焼と同じ数密度、w = 0 の燃焼が Δσ を 0 にしたテーブルとビットで同じ）。
-    Δσ の重み P / P_j（案 R6）: crates/core/src/case/tests.rs の `rate_residuals_scale_with_the_production_index_when_chosen`（σᵢ + (P / P_j) Δσᵢ で、
-    w によらない）、`production_index_rate_residuals_reproduce_the_branch_at_its_point_and_skip_nominal_compositions`（履歴の分岐の点で第 1 項の
-    σᵢ、燃焼度 0 は足さない）、`production_index_rate_residuals_without_a_branch_index_are_errors`、
-    `production_index_rate_residuals_of_nominal_branch_densities_after_burnup_zero_are_errors`、`nominal_histories_leave_the_rate_cross_sections_bit_identical`
-    （w = 0 は重みによらずビットで同じ）、燃焼は crates/core/src/depletion/tests.rs の `micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input`、
-    入力は crates/core/src/input/tests.rs の `depletion_micro_may_choose_the_weight_of_the_rate_residuals`
+  - core の反応率（案 S2、案 R7）: 履歴の分岐の点（w = 1、条件 j、P = P_j）で、反応率の σᵢ が第 1 項の分岐の σᵢ を再現し、基準の数密度は公称の
+    履歴のまま。w = 0 では補正のないテーブルとビットで同じ。σᵢ + w Δσᵢ_U + (P / P_j) Δσᵢ_L（収率の境界より下の割合は断面積で足した比）で、
+    w が 0 でない 2 つの履歴の差は Δσ_U の w の差の分だけ、線形の補正の係数とノードの定数は Δσ によらない。ΔN̄ᵢ^j がすべて 0 の燃焼度は Δσ_L を
+    足さず、ΔN̄ᵢ^j が 0 でないのに P_j が 0 ならエラー。補正した断面積が負か割合が 0..1 の外ならエラー（Δσ_U と Δσ_L のどちらでも）。実装のテストは
+    crates/core/src/case/tests.rs の `history_branch_points_deplete_with_the_branch_rate_cross_sections`、
+    `nominal_histories_leave_the_rate_cross_sections_bit_identical`、
+    `rate_residuals_add_the_untracked_part_at_w_and_the_linearization_at_the_production_index`、
+    `rate_linearizations_of_nominal_branch_densities_are_not_added`、`rate_linearizations_without_a_branch_index_are_errors`、
+    `rate_residuals_that_give_negative_cross_sections_or_fractions_are_errors`、燃焼の反応率に使うことは crates/core/src/depletion/tests.rs の
+    `micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history`（w = 0.5 の燃焼が、捕獲を 0.5 Δσ_U ずらしたテーブルの燃焼と同じ数密度、
+    w = 0 の燃焼が Δσ_U を 0 にしたテーブルとビットで同じ）と `micro_depletion_rates_add_the_rate_linearization_only_where_the_branch_densities_differ`、
+    重みを選ぶ入力が無いことは crates/core/src/input/tests.rs の `depletion_micro_has_no_choice_of_the_rate_residual_weight`
   - core の測定（examples/depletion/verification.md の「履歴の補正の core（2A の集合体 1 体）」。2026-10-31、ブランチ feat/0190-split-residual-core の
     ea96610a の core、c17cbeee のテーブル、比較は 72c17133、手元）: U、L、Δσ を持つテーブルと持たないテーブルの公称の燃焼の出力はバイトで同じ。
     一生を条件 j で燃焼させた core（w = 1）の k は、core の数密度で組み立てた定数 + w U + (P / P_j) L の 2 群の k と −5.7e-06〜−5.6e-07 pcm の差で、
@@ -501,10 +515,13 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   - 形式: `histories` の読み書きと、燃焼度の点がテーブルの点であること。実装のテストは crates/format/src/table/tests.rs の `history_` と
     `residuals_` で始まるもの（往復、キーを書かないこと、ミクロ燃焼のデータ、変数、H^0 と H^b、制御棒の値、条件を解いた燃焼度の点、群と辺の数。
     U と L のそれぞれ）と、N̄ᵢ^j の形の `history_densities_are_finite_non_negative_rows_of_the_tracked_nuclides`。
-    core が `histories` を持つテーブルを止めるテストは crates/core/src/case/tests.rs。Δσ の検査（点ごとに追う核種の数、反応の並びと核分裂の
-    有無、群の数の有限の値）は `rate_residuals_match_the_micro_nuclides_and_their_reactions`。lattice の Δσ は crates/lattice/src/residual/tests.rs の
-    `rate_residuals_are_the_branch_less_the_nominal_condition_rate_cross_sections`（微分を持つ核種も σᵢ の差）と
-    `branch_tables_with_other_reactions_or_fission_are_errors`
+    core が `histories` を持つテーブルを止めるテストは crates/core/src/case/tests.rs。Δσ_U と Δσ_L の検査（点ごとに追う核種の数、反応の並びと
+    核分裂の有無、群の数の有限の値）は `rate_residuals_match_the_micro_nuclides_and_their_reactions`、分けない前の形を読まないことは
+    `rate_residuals_of_one_unsplit_list_are_not_read`、ΔN̄ᵢ^j がすべて 0 の点の L と Δσ_L は
+    `branch_points_at_the_nominal_densities_hold_no_linearization`。lattice の Δσ_U と Δσ_L は crates/lattice/src/residual/tests.rs の
+    `rate_residuals_split_at_the_hybrid_like_the_constants`（Δσ_U は分岐 − ハイブリッド、Δσ_L はハイブリッド − 公称の条件 j の σᵢ の差で、微分を
+    持つ核種も σᵢ の差。和が分岐 − 公称の差）と `branch_tables_with_other_reactions_or_fission_are_errors`（分岐かハイブリッドの反応の並びか
+    核分裂の有無が違えばエラー）
 - 実装のときの測定（#0190）: 途中で条件を変えた燃焼（例: 2A を 20 MWd/kg まで公称で燃焼させ、その後を 0.661 g/cc で燃焼させる）で、V1（ω = 1）と
   変数の差に比例する補正の誤差を測り、目安を超えれば重みと、履歴の分岐の数（変数の 3 点）を見直す。Pyrex を抜いた後を燃焼し直した格子計算
   （案 Q2）で、H_p の比例の誤差を測る。履歴の途中の組成から条件を変えて燃焼を続ける入力は、lattice の `[depletion]` の `continue`（「帰結」）
@@ -564,7 +581,7 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     数密度の効きを除いた残り（定数の側）は −9.184〜+12.026 pcm で、格子計算の組成で見込んだ両方の外れの分（−9.914〜+9.247 pcm）と同じ程度。
     差の大半は数密度の効き（−35.013〜−9.733 pcm。前の版は −15.313〜−1.513 pcm）で、60 MWd/kg の大きい核種は Pu-239 −50.71、Pu-240 +21.83 pcm。
     原因は確かめていない。反応率の Δσ を w で足し、L の係数（core の組成の P / P_j、60 MWd/kg で 0.8521）と違うことを候補として、次で測った
-  - Δσ を P / P_j で足す core の測った値（「検討した案」の案 R6。examples/depletion/verification.md の「途中で条件を変えた燃焼（2A）」の表
+  - Δσ を P / P_j で足す core の測った値（「検討した案」の案 R6。main 175d652c の examples/depletion/verification.md の「途中で条件を変えた燃焼（2A）」の表
     `depletion-history-switch-rate-weight` と「履歴の補正の core（2A の集合体 1 体）」。ブランチ feat/0190-rate-residual-weight の 7ecd6d0c の core
     （`rate-residual-weight = "production-index"`）、c17cbeee のテーブル、比較は eca157a4、2026-10-31、手元）: 途中で条件を変えた燃焼の core − 参照は
     −37.614〜+11.347 pcm（60 MWd/kg で +11.347 pcm）、数密度の効きは −27.916〜+2.991 pcm、定数の側は −9.698〜+8.355 pcm（w は −9.184〜+12.026 pcm）。
@@ -572,6 +589,15 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     −4.095〜−1.282 pcm。w は −3.928〜+8.132 pcm）。同じ core で w の 5 本の出力は前の版とバイトで同じ。規則に沿わない前の試行（Δσ をテーブルの
     R の点で a / w 倍した b5cf8891、b4c893b8）は比を R の点で掛けて燃焼度で内挿し、core は解ごとの組成で比を作るので、値は同じでない
     （違いの内訳は確かめていない）
+  - Δσ を U と L と同じハイブリッドで分けた core の測った値（「検討した案」の案 R7。examples/depletion/verification.md の「途中で条件を変えた
+    燃焼（2A）」と「履歴の補正の core（2A の集合体 1 体）」。ブランチ feat/0190-rate-residual-split の 0181ec9a の core、7543ce19 の lattice、テーブル b5469810、
+    比較は 501687dd、2026-10-31、手元）: 途中で条件を変えた燃焼の core − 参照は −37.497〜+12.157 pcm（26〜60 MWd/kg で −21.692、−37.497、−31.003、
+    −15.762、+4.358、+12.157 pcm）で、56 MWd/kg のほかは目安の 5 pcm を超え、案 R6 と +0.044〜+0.810 pcm しか違わない。数密度の効きは
+    −27.799〜+3.796 pcm、定数の側は −9.698〜+8.361 pcm。数密度の効きの大半は Pu-240（−18.38〜−7.41 pcm）と Pu-241（−13.22〜+11.99 pcm）で、
+    Pu-239、U-235、Xe-135、Sm-149 はどの点も 2.70 pcm 以下。反応率の σ（核分裂と捕獲の和）の外れは、Δσ_U の側が参照の σ の 0.016% 以下、Δσ_L の側の
+    最大が Pu-240 の高速群の −0.489〜−0.058% で、参照が求めるその Δσ_L の重み（0.1526〜0.8511）は P / P_j（0.3707〜0.8682）より Pu-240 の数密度の比
+    （0.1137〜0.8573）に近い。熱群の Δσ_L の重みはどの核種も P / P_j に近い。公称の燃焼の出力は補正を持たないテーブルとバイトで同じ。一生を条件 j で
+    燃焼させた core と第 1 項の差は −4.087〜+10.428 pcm（15 MWd/kg 以後 −4.087〜−1.280 pcm）
   - U の指数の重みの測った値（examples/depletion/verification.md の「追わない核種の分 U の指数の重み（2A）」。比較は 1ec382aa の
     examples/depletion/history/compare_forgetting.py、2026-10-31）: 「検討した案」の案 R5。U の外れの絶対値の最大が最小の τ は −500 MWd/kg の
     8.968 pcm で、∞（V1）の 9.181 pcm とほぼ同じ
