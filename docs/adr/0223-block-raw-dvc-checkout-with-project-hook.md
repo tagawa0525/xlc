@@ -4,7 +4,7 @@ date: 2026-10-31
 requires: []
 supersedes: []
 superseded-by:
-issues: ["#0184", "#0210"]
+issues: ["#0184", "#0210", "#0211"]
 ---
 
 # ADR-0223: 生の dvc checkout を xlc のプロジェクトの hook で止め、scripts/dvc-checkout.py を使わせる
@@ -46,13 +46,14 @@ issues: ["#0184", "#0210"]
   （hook はシェルから実行され、devShell に入っていない）。home の settings の PreToolUse（`claude-hooks pre-tool-use`）とは
   別の設定の階層の hook で、両方が走る（Claude Code は設定の階層の hook を置き換えずに足し合わせる）
 - 判定: stdin の JSON の `tool_input.command` を、シェルの引用（`'…'`、`"…"`、`\`）、コメント、ヒアドキュメントの本文を
-  読み分けて単純なコマンドに分け（`;`、`&&`、`||`、`|`、`&`、改行、`(…)`、`$(…)`）、各コマンドの先頭の代入と包むコマンド
-  （`env`、`time`、`nice`、`timeout`、`taskset`、`nix develop`/`nix shell` の `-c`/`--command`、`bash -c` などの文字列）を
+  読み分けて単純なコマンドに分け（`;`、`&&`、`||`、`|`、`&`、改行、`(…)`、`$(…)`）、各コマンドの先頭の代入、予約語（`if`、
+  `then`、`do`、`{`、`!` など）と包むコマンド（`env`、`time`、`nice`、`timeout`、`taskset`、`nix develop`/`nix shell` の
+  `-c`/`--command`、`bash -c` などの文字列）を
   外した先が `dvc`（または `python -m dvc`）で、最初のサブコマンドが `checkout` なら止める。引用の中の語（`grep 'dvc checkout'`、
   `echo "dvc checkout"`）、コメント、ヒアドキュメントの本文は実行されないので止めない
 - 拒否の文言: 理由（未実行の出力でいつも 255 になり、本当の失敗が埋もれる）と、代わりに使う
   `nix develop -c scripts/dvc-checkout.py [<dvc.yaml か .dvc の指定>...]` を stderr に出す
-- 読めないコマンド（閉じていない引用）は、止めずに終了コード 1 で知らせる（bash もそのコマンドを実行できないため）
+- 読めないコマンド（閉じていない引用や `$(`）は、止めずに終了コード 1 で知らせる（bash もそのコマンドを実行できないため）
 
 理由:
 
@@ -66,8 +67,12 @@ issues: ["#0184", "#0210"]
 
 - 生の `dvc checkout` は、Claude Code の Bash ツールからは実行できない。スクリプトの中（`scripts/dvc-checkout.py` 自身など）の
   `dvc checkout` は Bash ツールのコマンドに現れないので止めない
-- 判定はシェルの文法の一部だけを読む。`"…"` の中の `$(…)` は読むが、バッククォートの中、`slurm-run.sh` などに文字列として渡す
-  コマンド、`eval` は読まない（止め損なうが、誤って止めることはない）
+- 判定はシェルの文法の一部だけを読む。`"…"` の中の `$(…)` は読むが、`"…"` の中のバッククォート、`slurm-run.sh` などに文字列
+  として渡すコマンド、`eval`、上の一覧の外の包むコマンド（`xargs`、`find -exec`、`direnv exec`、`srun`、値を取る `sudo` の
+  オプションなど）、算術式の中の `<<`、fd の番号から始まるリダイレクトは読まず、止め損なう。普段の書き方（`cd … &&`、
+  前置きの `env` や `timeout`、`bash -c`、`nix develop -c`、`for … do`）を止めることを優先し、それ以外は塞がない
+- 引用の外の `$(…)`、バッククォート、`(` が単純なコマンドを区切るので、その後の語が `dvc checkout` で始まると、dvc を
+  実行しないコマンド（`echo $(date) dvc checkout`）も止める。`dvc checkout --help` も止める（#0211）
 - スキル（/openmc-reference）と docs の手順に残っていた生の `dvc checkout` のコマンドを、スクリプトの形に直した
 - examples/ の記録の手順、dvc.yaml のコメント、スクリプトのエラーの文言に残る生の `dvc checkout` は #0210
 
