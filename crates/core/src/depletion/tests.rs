@@ -2933,11 +2933,11 @@ fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
     // 同じテーブルでも w の重みでは Δσ を足す
     let by_history = deplete_with(RateResidualWeight::History, &|t| with_histories(t, capture));
     assert_ne!(by_history.points, reference.points);
-    // 履歴の分岐の U-235 が公称より少ない（燃焼度 0 は公称と同じ）
+    // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。比 P / P_j が Δσ で断面積を負にしない大きさ）
     let shifted = |t: Table| {
         let mut t = with_histories(t, capture);
         for row in t.histories[0].rods[0].densities.iter_mut().skip(1) {
-            row[0] *= 0.99;
+            row[0] *= 0.5;
         }
         t.validate().unwrap();
         t

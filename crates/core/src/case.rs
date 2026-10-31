@@ -4,7 +4,9 @@ use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, Table};
 
-use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
+use crate::input::{
+    Boron, BoronSearch, CaseState, InputError, Layout, RateResidualWeight, TableUse,
+};
 use crate::micro::{MicroChain, correct, production_index};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
@@ -130,10 +132,60 @@ fn weighted_histories<'a>(
     Ok(out)
 }
 
+/// 履歴の補正 `entry` の、燃焼度 `burnup` の組成の指標の比 P / P_j（ADR-0215）。P は熱群の νΣf の線形の補正（`production_index`）の、
+/// ノードの数密度 `n` と状態で内挿した基準の数密度（`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差
+/// （`interpolate_branch_difference`）のもの。履歴の分岐の数密度の差がすべて 0 の燃焼度（燃焼度 0）では、比を作れず、その点で比を
+/// 掛ける項（L と P / P_j の Δσ）は定義から 0 なので `None`。数密度の差が 0 でないのに P_j が 0 ならエラー
+fn production_ratio(
+    table: &Table,
+    entry: &HistoryRod,
+    burnup: f64,
+    micro: &MicroAt,
+    n: &[f64],
+) -> Result<Option<f64>, String> {
+    let Some(Axis::Burnup { points: axis }) =
+        table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
+    else {
+        return Err("history residuals need a burnup axis (ADR-0215)".into());
+    };
+    let nominal = &table
+        .micro
+        .as_ref()
+        .ok_or("history residuals need micro data (ADR-0215)")?
+        .densities;
+    let branch = interpolate_branch_difference(entry, axis, nominal, burnup)?;
+    if branch.iter().all(|&d| d == 0.0) {
+        return Ok(None);
+    }
+    if n.len() != micro.densities.len() {
+        return Err(format!(
+            "{} node densities for {} micro nuclides",
+            n.len(),
+            micro.densities.len()
+        ));
+    }
+    let node: Vec<f64> = n
+        .iter()
+        .zip(&micro.densities)
+        .map(|(density, nominal)| density - nominal)
+        .collect();
+    let own = production_index(&micro.nuclides, &node);
+    let of_branch = production_index(&micro.nuclides, &branch);
+    let ratio = own / of_branch;
+    // 比を作れない点で w などで足すと、どの近似かが入力から読めない。黙って置き換えない
+    if of_branch == 0.0 || !ratio.is_finite() {
+        return Err(format!(
+            "the branch densities differ from the nominal ones at burnup {burnup}, but the branch index (the \
+             thermal nu-fission of their linear correction) is {of_branch}, so its ratio {own} / {of_branch} is \
+             not a weight of the history correction (ADR-0215)"
+        ));
+    }
+    Ok(Some(ratio))
+}
+
 /// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り
 /// Σ_j [w_j U_j,r(u) + (P / P_j,r(u)) L_j,r(u)] を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
-/// `burnup` で内挿した値。P は熱群の νΣf の線形の補正（`production_index`）の、ノードの数密度 `n` と状態で内挿した基準の数密度
-/// （`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差（`interpolate_branch_difference`）のもの。w_j が 0 の変数は足さない。
+/// `burnup` で内挿した値、P / P_j はノードの数密度 `n` と状態で内挿した `micro` の `production_ratio`。w_j が 0 の変数は足さない。
 /// 履歴の分岐の数密度の差がすべて 0 の燃焼度（燃焼度 0）では、ハイブリッドは公称の組成そのもので L は定義から 0 なので、L を足さない
 /// （テーブルの値は 2 つの格子計算の解の差）。燃焼度が残りの点の範囲の外か、数密度の差が 0 でないのに P_j が 0 ならエラー
 pub fn add_histories(
@@ -145,46 +197,15 @@ pub fn add_histories(
     micro: &MicroAt,
     n: &[f64],
 ) -> Result<(), String> {
-    let weighted = weighted_histories(table, rod, histories)?;
-    if weighted.is_empty() {
-        return Ok(());
-    }
-    let Some(Axis::Burnup { points: axis }) =
-        table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
-    else {
-        return Err("history residuals need a burnup axis (ADR-0215)".into());
-    };
-    let nominal = &table
-        .micro
-        .as_ref()
-        .ok_or("history residuals need micro data (ADR-0215)")?
-        .densities;
-    let node: Vec<f64> = n
-        .iter()
-        .zip(&micro.densities)
-        .map(|(density, nominal)| density - nominal)
-        .collect();
-    for (variable, w, entry) in weighted {
+    for (variable, w, entry) in weighted_histories(table, rod, histories)? {
         let at = |e: String| format!("history variable {variable}: {e}");
         let untracked = interpolate_residual(entry, &entry.untracked, burnup).map_err(at)?;
         add_residual(f, w, &untracked);
-        let branch = interpolate_branch_difference(entry, axis, nominal, burnup).map_err(at)?;
-        if branch.iter().all(|&d| d == 0.0) {
+        let Some(ratio) = production_ratio(table, entry, burnup, micro, n).map_err(at)? else {
             continue;
-        }
+        };
         let linearization =
             interpolate_residual(entry, &entry.linearization, burnup).map_err(at)?;
-        let own = production_index(&micro.nuclides, &node);
-        let of_branch = production_index(&micro.nuclides, &branch);
-        let ratio = own / of_branch;
-        // 比を作れない点で L を w などで足すと、どの近似かが入力から読めない。黙って置き換えない
-        if of_branch == 0.0 || !ratio.is_finite() {
-            return Err(at(format!(
-                "the branch densities differ from the nominal ones at burnup {burnup}, but the branch index (the \
-                 thermal nu-fission of their linear correction) is {of_branch}, so its ratio {own} / {of_branch} is \
-                 not a weight of the linearization error (ADR-0215)"
-            )));
-        }
         add_residual(f, ratio, &linearization);
     }
     Ok(())
@@ -265,12 +286,16 @@ pub fn node_constants(
 }
 
 /// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
-/// `histories` の差を足したもの（ADR-0215 の案 S2）
+/// `histories` の差 Δσ を重み `weight` で足したもの（ADR-0215 の案 S2）。`History` は w_j、`ProductionIndex` は追う核種の数密度 `n`
+/// （テーブルの順）の `production_ratio`（L と同じ P / P_j。燃焼度 0 のように履歴の分岐の数密度の差がすべて 0 なら足さない）。
+/// P は、Δσ を足す前の係数で作る（線形の補正の係数は Δσ で変わらない）
 pub fn node_micro(
     table: &Table,
     state: &State,
     rod: Option<&str>,
     histories: &[f64],
+    n: &[f64],
+    weight: RateResidualWeight,
 ) -> Result<MicroAt, String> {
     let mut micro = interpolate_micro(table, state, rod)?;
     let weighted = weighted_histories(table, rod, histories)?;
@@ -285,10 +310,24 @@ pub fn node_micro(
         .as_ref()
         .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?
         .nuclides;
+    // 比は補正の前の `micro` で、変数ごとに作ってから足す
+    let mut scaled = Vec::with_capacity(weighted.len());
     for (variable, w, entry) in weighted {
-        let r = interpolate_rate_residual(entry, burnup)
-            .map_err(|e| format!("history variable {variable}: {e}"))?;
-        add_rate_residual(&mut micro, names, w, &r)
+        let at = |e: String| format!("history variable {variable}: {e}");
+        let scale = match weight {
+            RateResidualWeight::History => w,
+            RateResidualWeight::ProductionIndex => {
+                match production_ratio(table, entry, burnup, &micro, n).map_err(at)? {
+                    Some(ratio) => ratio,
+                    None => continue,
+                }
+            }
+        };
+        let r = interpolate_rate_residual(entry, burnup).map_err(at)?;
+        scaled.push((variable, scale, r));
+    }
+    for (variable, scale, r) in scaled {
+        add_rate_residual(&mut micro, names, scale, &r)
             .map_err(|e| format!("history variable {variable}: {e}"))?;
     }
     Ok(micro)
