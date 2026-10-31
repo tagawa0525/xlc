@@ -386,10 +386,10 @@ AWS（c7a のスポット。$0.015〜0.023/物理コア時間。ADR-0151）の�
 ### 流すだけの手順（集合体 8 本の燃焼の参照解と xlc。ADR-0178）
 
 入力は examples/depletion/p2/（`p2_inputs.py` が OpenMC の `openmc-<ジョブ>.toml` と xlc の `lattice-<ジョブ>.toml` を同じ表から書く）。ジョブは
-`2A`、`2F`、`2M`、`2N`、`2O`、`2P`、`2A-density`、`2A-rods`。ライブラリは作ってある（`dvc checkout examples/depletion/p2/dvc.yaml` で戻す）。
+`2A`、`2F`、`2M`、`2N`、`2O`、`2P`、`2A-density`、`2A-rods`。ライブラリは作ってある（`scripts/dvc-checkout.py examples/depletion/p2/dvc.yaml` で戻す）。
 OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに独立なので同時に進めてよい。
 
-1. 前提: `aws login`（約 12 時間で切れる）。worktree で `dvc checkout dvc.yaml examples/depletion/dvc.yaml examples/depletion/p2/dvc.yaml`（`bin/`、チェーン、ライブラリ）
+1. 前提: `aws login`（約 12 時間で切れる）。worktree で `scripts/dvc-checkout.py dvc.yaml examples/depletion/dvc.yaml examples/depletion/p2/dvc.yaml`（`bin/`、チェーン、ライブラリ）
 2. OpenMC を AWS に流す（リポジトリの直下から。名前 `m4-assembly` は比較のステージの deps が決める）。最初に `--dry-run`:
 
    ```sh

@@ -1,0 +1,43 @@
+---
+status: open
+labels: [tooling]
+opened: 2026-10-31
+closed:
+milestone:
+blocked-by: []
+resolution:
+---
+
+# dvc checkout の hook が dvc を実行しない形を止める
+
+## 問題
+
+`.claude/hooks/block-raw-dvc-checkout.py`（ADR-0223）は、引用の外の `$(…)`、バッククォート、`(` で単純なコマンドを区切るので、
+置換の後の語が `dvc checkout` で始まると、dvc を実行しないコマンドも止める。feat/dvc-checkout-hook の 1 周目の /code-review
+（2026-10-31）が、`echo $(date) dvc checkout`、``echo `date` dvc checkout``、`a=(dvc checkout)` で `runs_raw_dvc_checkout` が
+True を返すことを示した。また、出力に触れない `dvc checkout --help` と `-h` も止め、`scripts/dvc-checkout.py` が dvc checkout に
+渡す引数を読む手段がない（`nix develop -c dvc checkout --help` も止まる）。
+
+2 周目（同日）は、bash の値を取るオプションのうち、テストの無いもの（`-O`、`--rcfile`、`--init-file`、`-c -- '…'`）を
+挙げた。3 周目（同日）は、リダイレクトの待ちを区切りで解く直しが止めるようにした `tee >(dvc checkout)` と
+`echo x > $(mktemp) && dvc checkout` にテストが無いことを挙げた。
+
+親の 2 周目（同日、rebase の後）は、止め損なう形として `nix --offline develop -c …`（nix のグローバルオプションが先）、
+`nix-shell --run '…'`、`taskset --cpu-list=0 …`、`python3 -u -m dvc checkout`（インタプリタのオプションが `-m` の前）を挙げた
+（ADR-0223 の帰結の既知の抜け道にも書いた）。
+
+親の 3 周目（同日）は構造を挙げた: `_unwrap` が語の並び（list）と `bash -c` の文字列（str）の 2 種類を返し、`_is_dvc_checkout` が
+isinstance で振り分ける。`bash -c` の分岐で文字列を `simple_commands` に展開し、常に語の並びのリストを返す形にすれば分岐が消える。
+
+どれも普段の書き方ではないので、レビューの基準（直すのは普段の書き方の誤り）で直さなかった。
+
+関係する ADR: ADR-0223
+
+## 完了の条件
+
+置換を語の一部として読み（中のコマンドは並びに入れ、外のコマンドを区切らない）、`--help` と `-h` だけの `dvc checkout` を
+通す。テストに上の例と、bash の値を取るオプションの例、`>(…)` と `> $(…)` の後のコマンドの例を足す。
+
+## 経緯
+
+- 2026-10-31: feat/dvc-checkout-hook の 1〜3 周目のレビューの指摘から書いた
