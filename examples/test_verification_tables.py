@@ -2098,7 +2098,11 @@ class DrawHistoryForgetting(unittest.TestCase):
             "format": "xlc-compare-history-forgetting",
             "continued_burnup": 20.0,
             "best": None,
-            "rows": [row(None, [-6.3781, 5.3581]), row(15.0, [-9.1612, -43.5421])],
+            "rows": [
+                row(None, [-6.3781, 5.3581]),
+                row(15.0, [-9.1612, -43.5421]),
+                row(-500.0, [-6.3031, 7.6912]),
+            ],
         }
 
     def test_rows_set_the_gaps_of_each_time_constant(self):
@@ -2121,6 +2125,8 @@ class DrawHistoryForgetting(unittest.TestCase):
             [
                 ["∞", "6.378", "0.2308", "−6.378", "0.6667", "+5.358"],
                 ["15", "43.542", "0.2308", "−9.161", "0.6667", "−43.542"],
+                # 負の τ も記録の表と同じ負の符号
+                ["−500", "7.691", "0.2308", "−6.303", "0.6667", "+7.691"],
             ],
         )
 
