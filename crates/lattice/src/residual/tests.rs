@@ -50,6 +50,14 @@ fn sigma(s: f64, derivative: bool) -> MicroNuclide {
             nu_fission: vec![x(1.0), x(-150.0)],
             fission: vec![x(0.35), x(-60.0)],
             scatter: vec![vec![x(8.5), x(0.12)], vec![x(0.02), x(7.0)]],
+            rate: RateResidual {
+                fission: vec![x(-0.1), x(-2.0)],
+                reactions: vec![MicroReaction {
+                    mt: 102,
+                    channels: vec![vec![x(-0.2), x(-1.0)]],
+                }],
+                thermal_fission: Some(x(-1.5)),
+            },
         }),
     }
 }
@@ -186,6 +194,11 @@ fn linearizations_are_the_hybrid_less_the_linearly_corrected_nominal_condition()
                 nu_fission: c[i].nu_fission.clone(),
                 fission: c[i].fission.clone(),
                 scatter: c[i].scatter.clone(),
+                rate: RateResidual {
+                    fission: Vec::new(),
+                    reactions: Vec::new(),
+                    thermal_fission: None,
+                },
             })
         };
         assert!(c[1].derivative.is_some() && c[0].derivative.is_none());

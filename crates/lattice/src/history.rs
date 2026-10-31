@@ -21,7 +21,7 @@
 //! 与えると、燃焼の領域はその履歴の同じ燃焼度の点の組成で自己遮蔽し、物質だけを状態の組成で作り直す（[`HistoryBranches::shield_with`]）。
 //!
 //! 数密度の微分（ADR-0221）は、状態ごとに、燃焼の領域の微分の核種の数密度だけを (1 + ε) 倍した摂動の組成を解いた格子全体の少数群定数
-//! から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成の自己遮蔽は公称の組成と同じ扱い（参照から作る状態は、参照の
+//! と、その核種の反応率の微視的断面積（ADR-0215 の自分の数密度の項）から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成の自己遮蔽は公称の組成と同じ扱い（参照から作る状態は、参照の
 //! 組成も同じく変えた摂動の参照から作る。`shielding-file` を与えれば、自己遮蔽はその履歴の組成のまま）。
 
 use std::collections::HashMap;
@@ -30,7 +30,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, bail};
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Shielded};
-use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, MicroReaction};
+use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, MicroReaction, RateResidual};
 
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, channel_cross_sections, check_negative,
@@ -843,9 +843,10 @@ impl HistoryBranches {
 
     /// 状態 `index` の追う核種の微視的断面積 `micro`（`micro` の返り値）の、微分の核種に数密度の微分 ∂Σ/∂N̄ᵢ を入れる（ADR-0221）。
     /// `nominal` は状態の格子全体の少数群定数。微分の核種 j ごとに、`solve`（j、摂動の組成、自己遮蔽の参照 `reference` の値、摂動の
-    /// 参照の組成の作り方）で摂動の組成の格子全体の少数群定数を解き、(Σ(摂動) − Σ(状態)) / (ε N̄ᵢ) にする。均質化した数密度 N̄ᵢ が 0 の
-    /// 点は、相対の摂動が 0 で解けないので σᵢ（ADR-0216 の案 Z1）にする。σᵢ は自分の項だけで、ほかの核種と物質の少数群定数がその核種で
-    /// 変わる分を含まない（ADR-0221 の確認）
+    /// 参照の組成の作り方）で摂動の組成の格子全体の少数群定数と追う核種の微視的断面積を解き、(Σ(摂動) − Σ(状態)) / (ε N̄ᵢ) にする。
+    /// 同じ摂動のその核種の反応率の微視的断面積の差 (σᵢ(摂動) − σᵢ(状態)) / (ε N̄ᵢ) を、反応率の微分 ∂σᵢ/∂N̄ᵢ（ADR-0215 の自分の
+    /// 数密度の項）にする。均質化した数密度 N̄ᵢ が 0 の点は、相対の摂動が 0 で解けないので、∂Σ/∂N̄ᵢ を σᵢ（ADR-0216 の案 Z1）、
+    /// ∂σᵢ/∂N̄ᵢ を 0 にする。σᵢ は自分の項だけで、ほかの核種と物質の少数群定数がその核種で変わる分を含まない（ADR-0221 の確認）
     pub fn add_derivatives(
         &self,
         index: usize,
@@ -856,7 +857,7 @@ impl HistoryBranches {
             &[MaterialInput],
             Option<(usize, usize)>,
             &dyn Fn() -> Vec<MaterialInput>,
-        ) -> anyhow::Result<FewGroup>,
+        ) -> anyhow::Result<(FewGroup, Vec<MicroNuclide>)>,
     ) -> anyhow::Result<()> {
         if micro.len() != self.micro_nuclides.len() {
             bail!(
@@ -875,16 +876,42 @@ impl HistoryBranches {
                     reference
                         .map_or_else(Vec::new, |(p, r)| self.perturbed_reference_state(p, r, j))
                 };
-                let perturbed = solve(j, &state, reference, &build)?;
-                density_derivative(nominal, &perturbed, self.perturbation * mean)
-                    .map_err(|e| anyhow!("{}: {e}", self.derivative[j]))?
+                let (perturbed, sigma) = solve(j, &state, reference, &build)?;
+                if sigma.len() != micro.len() {
+                    bail!(
+                        "{}: the perturbed solve has {} micro nuclides for {}",
+                        self.derivative[j],
+                        sigma.len(),
+                        micro.len()
+                    );
+                }
+                let perturbed_sigma = &sigma[m];
+                density_derivative(
+                    (nominal, &micro[m]),
+                    (&perturbed, perturbed_sigma),
+                    self.perturbation * mean,
+                )
+                .map_err(|e| anyhow!("{}: {e}", self.derivative[j]))?
             } else {
                 let sigma = &micro[m];
+                let zero = |v: &[f64]| vec![0.0; v.len()];
                 MicroDerivative {
                     total: sigma.total.clone(),
                     nu_fission: sigma.nu_fission.clone(),
                     fission: sigma.fission.clone(),
                     scatter: sigma.scatter.clone(),
+                    rate: RateResidual {
+                        fission: zero(&sigma.fission),
+                        reactions: sigma
+                            .reactions
+                            .iter()
+                            .map(|r| MicroReaction {
+                                mt: r.mt,
+                                channels: r.channels.iter().map(|c| zero(c)).collect(),
+                            })
+                            .collect(),
+                        thermal_fission: sigma.thermal_fission.map(|_| 0.0),
+                    },
                 }
             };
             micro[m].derivative = Some(derivative);
@@ -922,13 +949,16 @@ impl HistoryBranches {
     }
 }
 
-/// 格子全体の少数群定数の、均質化した数密度の変化 `change` による前進差分 (Σ(`perturbed`) − Σ(`nominal`)) / `change`（全断面積、νΣf、Σf、
-/// 散乱行列。ADR-0221）。群の数が違えばエラー
+/// 格子全体の少数群定数と、核種の反応率の微視的断面積の、均質化した数密度の変化 `change` による前進差分（ADR-0221、ADR-0215）。
+/// `nominal` と `perturbed` は状態と摂動の組成の（少数群定数、その核種の微視的断面積）。少数群定数は全断面積、νΣf、Σf、散乱行列の
+/// (Σ(摂動) − Σ(状態)) / `change`、反応率は核分裂、チェーンの反応の経路、収率の境界より下の核分裂の断面積（割合 × 群の和の σf）の
+/// (σᵢ(摂動) − σᵢ(状態)) / `change`。群の数か、反応の並びか核分裂の有無が違えばエラー
 pub fn density_derivative(
-    nominal: &FewGroup,
-    perturbed: &FewGroup,
+    nominal: (&FewGroup, &MicroNuclide),
+    perturbed: (&FewGroup, &MicroNuclide),
     change: f64,
 ) -> Result<MicroDerivative, String> {
+    let ((nominal, sigma), (perturbed, perturbed_sigma)) = (nominal, perturbed);
     let groups = nominal.total.len();
     if perturbed.bounds != nominal.bounds
         || perturbed.scatter.len() != groups
@@ -941,6 +971,24 @@ pub fn density_derivative(
     let diff = |a: &[f64], b: &[f64]| -> Vec<f64> {
         a.iter().zip(b).map(|(p, n)| (p - n) / change).collect()
     };
+    let shape = |n: &MicroNuclide| -> Vec<(u32, usize)> {
+        n.reactions
+            .iter()
+            .map(|r| (r.mt, r.channels.len()))
+            .collect()
+    };
+    if shape(perturbed_sigma) != shape(sigma)
+        || perturbed_sigma.fission.len() != sigma.fission.len()
+    {
+        return Err("the perturbed micro cross sections have other reactions or groups".into());
+    }
+    // 割合でなく境界より下の核分裂の断面積の差（core が補正した σf の和との比を割合にする。ADR-0216 の内挿と同じ）
+    let below = |n: &MicroNuclide| n.thermal_fission.map(|f| f * n.fission.iter().sum::<f64>());
+    let thermal_fission = match (below(perturbed_sigma), below(sigma)) {
+        (Some(p), Some(n)) => Some((p - n) / change),
+        (None, None) => None,
+        _ => return Err("the perturbed micro cross sections differ in fission".into()),
+    };
     Ok(MicroDerivative {
         total: diff(&perturbed.total, &nominal.total),
         nu_fission: diff(&perturbed.nu_fission, &nominal.nu_fission),
@@ -951,6 +999,24 @@ pub fn density_derivative(
             .zip(&nominal.scatter)
             .map(|(p, n)| diff(p, n))
             .collect(),
+        rate: RateResidual {
+            fission: diff(&perturbed_sigma.fission, &sigma.fission),
+            reactions: perturbed_sigma
+                .reactions
+                .iter()
+                .zip(&sigma.reactions)
+                .map(|(p, n)| MicroReaction {
+                    mt: n.mt,
+                    channels: p
+                        .channels
+                        .iter()
+                        .zip(&n.channels)
+                        .map(|(a, b)| diff(a, b))
+                        .collect(),
+                })
+                .collect(),
+            thermal_fission,
+        },
     })
 }
 

@@ -1401,6 +1401,25 @@ fn shifted(few: &FewGroup, delta: f64) -> FewGroup {
     out
 }
 
+/// 微視的断面積の核分裂に `5 delta`、反応の経路に `6 delta` を足したもの（収率の境界より下の割合は変えない）
+fn shifted_micro(
+    micro: &[xlc_format::table::MicroNuclide],
+    delta: f64,
+) -> Vec<xlc_format::table::MicroNuclide> {
+    let mut out = micro.to_vec();
+    for n in &mut out {
+        for f in &mut n.fission {
+            *f += 5.0 * delta;
+        }
+        for c in n.reactions.iter_mut().flat_map(|r| &mut r.channels) {
+            for x in c {
+                *x += 6.0 * delta;
+            }
+        }
+    }
+    out
+}
+
 /// 分岐の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
 fn solve_state(
     s: &Setup,
@@ -1472,13 +1491,14 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
     let index = 3;
     let point = 1;
     let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let sigma = micro.clone();
     let delta = 1.0e-3;
     let mut solved = Vec::new();
     branches
         .add_derivatives(index, &mut micro, &nominal, |j, state, _, _| {
             assert_scaled(state, &branches.state(index), ["Xe-135", "U-235"][j], 0.25);
             solved.push(j);
-            Ok(shifted(&nominal, delta))
+            Ok((shifted(&nominal, delta), shifted_micro(&sigma, delta)))
         })
         .unwrap();
     assert_eq!(solved, [0, 1]);
@@ -1500,7 +1520,70 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
             for to in 0..2 {
                 close(d.scatter[g][to], 4.0 * delta / change, "scatter");
             }
+            // 反応率の項目は、同じ摂動の自分の微視的断面積の差を同じ量で割る（ADR-0215 の自分の数密度の項）。差は σᵢ の丸めの
+            // 大きさだけずれる（Xe-135 の熱群の捕獲は 1e6 barn の桁）
+            let rounded = |got: f64, want: f64, sigma: f64, item: &str| {
+                assert!(
+                    (got - want).abs() <= 1e-9 * want.abs() + 4.0 * f64::EPSILON * sigma / change,
+                    "{name} {item} {g}: {got} vs {want}"
+                );
+            };
+            rounded(
+                d.rate.fission[g],
+                5.0 * delta / change,
+                sigma[m].fission[g],
+                "rate fission",
+            );
+            for (c, s) in d
+                .rate
+                .reactions
+                .iter()
+                .flat_map(|r| &r.channels)
+                .zip(sigma[m].reactions.iter().flat_map(|r| &r.channels))
+            {
+                rounded(c[g], 6.0 * delta / change, s[g], "rate channel");
+            }
         }
+        // 境界より下の核分裂は断面積（割合 × 群の和の σf）の差。割合を変えずに σf の和が 2 × 5 delta 増えた
+        match (sigma[m].thermal_fission, d.rate.thermal_fission) {
+            (Some(f), Some(got)) => {
+                let want = f * 10.0 * delta / change;
+                assert!(
+                    (got - want).abs() <= 1e-9 * want.abs(),
+                    "{name}: {got} vs {want}"
+                );
+            }
+            (None, None) => {}
+            other => panic!("{name}: {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn perturbed_solves_with_other_micro_nuclides_are_errors() {
+    // 摂動の解の微視的断面積が追う核種の数と違えば、前進差分がほかの核種の差になりうるので止める
+    let (history, library) = history();
+    let text = derivative_input(0.25);
+    let s = setup(&text);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        &branches.region_materials,
+        s.input.branches.as_ref().unwrap().varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    let index = 3;
+    let (nominal, micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    for sigma in [micro[..1].to_vec(), [micro.clone(), micro.clone()].concat()] {
+        let mut m = micro.clone();
+        let err = branches
+            .add_derivatives(index, &mut m, &nominal, |_, _, _, _| {
+                Ok((shifted(&nominal, 1.0e-3), sigma.clone()))
+            })
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("micro nuclides"), "{err}");
     }
 }
 
@@ -1522,10 +1605,11 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     assert_eq!(branches.micro_densities()[0][1], 0.0);
     let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
     let mut solved = Vec::new();
+    let sigma = micro.clone();
     branches
         .add_derivatives(index, &mut micro, &nominal, |j, _, _, _| {
             solved.push(j);
-            Ok(shifted(&nominal, 1.0e-3))
+            Ok((shifted(&nominal, 1.0e-3), shifted_micro(&sigma, 1.0e-3)))
         })
         .unwrap();
     // U-235（微分の 2 つ目）だけを解く
@@ -1536,6 +1620,19 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     assert_eq!(d.nu_fission, xenon.nu_fission);
     assert_eq!(d.fission, xenon.fission);
     assert_eq!(d.scatter, xenon.scatter);
+    // 反応率の項目の微分は 0（自分の数密度による自己遮蔽の変化を持たない）で、反応の並びと核分裂の有無は核種と同じ
+    assert!(d.rate.fission.iter().all(|&x| x == 0.0));
+    assert_eq!(d.rate.reactions.len(), xenon.reactions.len());
+    for (r, n) in d.rate.reactions.iter().zip(&xenon.reactions) {
+        assert_eq!(r.mt, n.mt);
+        assert_eq!(r.channels.len(), n.channels.len());
+        assert!(r.channels.iter().flatten().all(|&x| x == 0.0));
+    }
+    assert_eq!(
+        d.rate.thermal_fission.is_some(),
+        xenon.thermal_fission.is_some()
+    );
+    assert!(d.rate.thermal_fission.is_none_or(|x| x == 0.0));
     assert!(micro[0].derivative.is_some());
 }
 
@@ -1565,38 +1662,76 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         branches
             .add_derivatives(index, &mut micro, &nominal, |j, state, reference, build| {
                 let shielded = perturbed[j].shield_state(&library, state, reference, build)?;
-                Ok(homogenized(&s, &library, &shielded).0)
+                let (few, solution) = homogenized(&s, &library, &shielded);
+                let sigma = branches.micro(
+                    index,
+                    &library,
+                    shielded.fuel(),
+                    &s.tracking.lattice,
+                    &solution,
+                    &BOUNDS,
+                )?;
+                Ok((few, sigma))
             })
             .unwrap();
         micro.into_iter().map(|m| m.derivative.unwrap()).collect()
     };
     let at = [0.02, 0.04, 0.08].map(derivative_at);
+    // 格子全体の定数の微分 ∂Σ/∂N̄ᵢ (barn) と反応率の微分 ∂σᵢ/∂N̄ᵢ (barn² cm) は単位と桁が違うので、項目の組ごとに比べる。比べる
+    // 項目の数の下限は、定数が 2、反応率が 1（核分裂しない Xe-135 の反応率は捕獲の 2 群だけで、高速群は 6 桁の閾値の下）
+    type Items = fn(&xlc_format::table::MicroDerivative) -> Vec<f64>;
+    let families: [(&str, Items, usize); 2] = [
+        (
+            "constants",
+            |d| {
+                let mut v = Vec::new();
+                v.extend(&d.total);
+                v.extend(&d.nu_fission);
+                v.extend(d.scatter.iter().flatten());
+                v
+            },
+            2,
+        ),
+        (
+            "rate",
+            |d| {
+                let mut v = d.rate.fission.clone();
+                v.extend(
+                    d.rate
+                        .reactions
+                        .iter()
+                        .flat_map(|r| r.channels.iter().flatten()),
+                );
+                v.extend(d.rate.thermal_fission);
+                v
+            },
+            1,
+        ),
+    ];
     for (m, name) in ["U-235", "Xe-135"].into_iter().enumerate() {
-        let items = |d: &xlc_format::table::MicroDerivative| -> Vec<f64> {
-            let mut v = Vec::new();
-            v.extend(&d.total);
-            v.extend(&d.nu_fission);
-            v.extend(d.scatter.iter().flatten());
-            v
-        };
-        let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
-        let largest = a.iter().fold(0.0_f64, |x, y| x.max(y.abs()));
-        let mut compared = 0;
-        for k in 0..a.len() {
-            let (first, second) = (b[k] - a[k], c[k] - b[k]);
-            // 核種の最大の微分より 6 桁小さい微分（核分裂しない Xe-135 による νΣf の変化など）は、MOC の打ち切りの誤差が ε N̄ᵢ で
-            // 割られて差分の誤差より大きいので比べない
-            if a[k].abs() <= 1e-6 * largest || first == 0.0 {
-                continue;
+        for (family, items, least) in families {
+            let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
+            let largest = a.iter().fold(0.0_f64, |x, y| x.max(y.abs()));
+            let mut compared = 0;
+            for k in 0..a.len() {
+                let (first, second) = (b[k] - a[k], c[k] - b[k]);
+                // 組の最大の微分より 6 桁小さい微分（核分裂しない Xe-135 による νΣf の変化など）は、MOC の打ち切りの誤差が ε N̄ᵢ で
+                // 割られて差分の誤差より大きいので比べない
+                if a[k].abs() <= 1e-6 * largest || first == 0.0 {
+                    continue;
+                }
+                let ratio = second / first;
+                assert!(
+                    (ratio - 2.0).abs() <= 0.2,
+                    "{name} {family} item {k}: {a:?} {b:?} {c:?} (ratio {ratio})"
+                );
+                compared += 1;
             }
-            let ratio = second / first;
+            // 組ごとに比べる項目が下限以上あること（組の最大の微分の近くの項目。どの項目かは決めない）
             assert!(
-                (ratio - 2.0).abs() <= 0.2,
-                "{name} item {k}: {a:?} {b:?} {c:?} (ratio {ratio})"
+                compared >= least,
+                "{name} {family}: {compared} items compared"
             );
-            compared += 1;
         }
-        // 比べる項目が 2 つ以上あること（核種の最大の微分の近くの項目。どの項目かは決めない）
-        assert!(compared >= 2, "{name}: {compared} items compared");
     }
 }

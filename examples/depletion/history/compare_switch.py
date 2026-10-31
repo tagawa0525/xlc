@@ -22,9 +22,10 @@ core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の�
 核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
 
 補正を足す点（w が 0 でない）では、core の反応率の微視的断面積 σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L（Δσ_U と Δσ_L はテーブルの R の点の
-値、P / P_j は core の点の数密度で作った熱群の νΣf の線形の補正の比）の、参照の σ からの外れを、ハイブリッドで分けた参照の
+値、P / P_j は core の点の数密度で作った熱群の νΣf の線形の補正の比。反応率の微分 ∂σᵢ/∂N̄ᵢ を持つ核種は、さらに自分の数密度の項
+(Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ。Nᵢ は core の点の数密度）の、参照の σ からの外れを、ハイブリッドで分けた参照の
 Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(公称、条件 j) からの差 w Δσ_U − Δσ_U,switch と
-(P / P_j) Δσ_L − Δσ_L,switch に分ける（`GROUPS` の核種の、核分裂と捕獲（MT 102）の和、群ごと、参照の σ に対する %）。参照が求める
+(P / P_j) Δσ_L + 自分の数密度の項 − Δσ_L,switch に分け、自分の数密度の項も並べる（`GROUPS` の核種の、核分裂と捕獲（MT 102）の和、群ごと、参照の σ に対する %）。参照が求める
 Δσ_L の重み Δσ_L,switch / Δσ_L（群ごと）と、その核種の数密度の比 (N̄ᵢ − N̄ᵢ⁰) / (N̄ᵢ^j − N̄ᵢ⁰)（N̄ᵢ は参照）も並べる。core は P / P_j を
 解ごとの組成（予測子は点、修正子は中点）で作るので、点の組成の比は目安。
 続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
@@ -57,7 +58,7 @@ FILES = {
     "plain": "core-2A-plain-switch.msgpack",
     "hybrid": "table-hybrid-switch-branch.msgpack",
     # 補正を切った core のテーブル（読まず、md5 を残す）
-    "plain_table": "table-residual-nominal.msgpack",
+    "plain_table": "table-residual-nominal-rate.msgpack",
     "core_history": "core-history.json",
 }
 # 数密度の相対差を要約に残す主な核種（記録の本文に書く）
@@ -203,6 +204,20 @@ def rate_outliers(
         du = absorption(rates["untracked"][k][i])
         dl = absorption(rates["linearization"][k][i])
         branch_difference = t.rod["densities"][k][i] - nominal[i]
+        # 反応率の微分を持つ核種の自分の数密度の項 (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ（core の `accumulate_own_density_rates`）。
+        # 微分を持つ核種は `rate` を必ず持つ（テーブルの検査）ので、無ければ KeyError で止める
+        derivative = micro["states"][table_point][i].get("derivative")
+        own = (
+            [
+                (node["densities"][i] - nominal[i] - index * branch_difference) * d
+                for d in absorption(derivative["rate"])
+            ]
+            if derivative is not None
+            else None
+        )
+        core_linearization = [
+            index * d + (own[g] if own is not None else 0.0) for g, d in enumerate(dl)
+        ]
         out.append(
             {
                 "nuclide": name,
@@ -214,9 +229,12 @@ def rate_outliers(
                     (weight * d - (x - h)) / x * 100.0 for d, x, h in zip(du, ref, hyb)
                 ],
                 "linearization_percent": [
-                    (index * d - (h - n)) / x * 100.0
-                    for d, x, h, n in zip(dl, ref, hyb, nom)
+                    (c - (h - n)) / x * 100.0
+                    for c, x, h, n in zip(core_linearization, ref, hyb, nom)
                 ],
+                "own_density_percent": None
+                if own is None
+                else [o / x * 100.0 for o, x in zip(own, ref)],
             }
         )
     return index, out
