@@ -287,8 +287,9 @@ pub fn node_constants(
 
 /// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
 /// `histories` の差 Δσ を重み `weight` で足したもの（ADR-0215 の案 S2）。`History` は w_j、`ProductionIndex` は追う核種の数密度 `n`
-/// （テーブルの順）の `production_ratio`（L と同じ P / P_j。燃焼度 0 のように履歴の分岐の数密度の差がすべて 0 なら足さない）。
-/// P は、Δσ を足す前の係数で作る（線形の補正の係数は Δσ で変わらない）
+/// （テーブルの順）の `production_ratio`（L と同じ P / P_j）。P は、Δσ を足す前の係数で作る（線形の補正の係数は Δσ で変わらない）。
+/// 履歴の分岐の追う核種の数密度の差がすべて 0 で比を作れないとき、燃焼度 0（組成の全体が公称と同じで、Δσ は定義から 0）は足さず、
+/// ほかの燃焼度はエラー（Δσ は追わない核種の違いも含むので 0 とは限らない。L のように定義から 0 とは言えない）
 pub fn node_micro(
     table: &Table,
     state: &State,
@@ -319,7 +320,14 @@ pub fn node_micro(
             RateResidualWeight::ProductionIndex => {
                 match production_ratio(table, entry, burnup, &micro, n).map_err(at)? {
                     Some(ratio) => ratio,
-                    None => continue,
+                    None if burnup == 0.0 => continue,
+                    None => {
+                        return Err(at(format!(
+                            "the branch densities of the tracked nuclides equal the nominal ones at burnup {burnup}, \
+                             so there is no branch index to weight the rate residual, which also carries the \
+                             untracked nuclides (ADR-0215)"
+                        )));
+                    }
                 }
             }
         };
