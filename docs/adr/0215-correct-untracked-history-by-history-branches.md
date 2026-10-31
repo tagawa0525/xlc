@@ -206,7 +206,9 @@ L_X = f(H_X) − f(公称) − Σᵢ cᵢ ΔN̄ᵢ^X（R_X = U_X + L_X）。外�
   −32.314〜−17.018 pcm）で、6 点のうち 56 MWd/kg のほかは目安の 5 pcm を超える。数密度の効きは 48〜60 MWd/kg で −14.246〜+2.991 pcm に縮む
   （w は −35.013〜−31.155 pcm）が、26〜40 MWd/kg は −27.916〜−14.357 pcm で w（−27.239〜−9.733 pcm）と同じ程度か大きい。60 MWd/kg の
   数密度の効きは、w の Pu-239 −50.71 pcm が +2.54 pcm に縮むが、Pu-240 −11.98、Pu-241 +12.17 pcm が残る。目安に入らないので採らず、既定は w
-  のまま、入力で選べる形で残す（#0190）
+  のまま、入力で選べる形で残す（#0190）。Δσ の全体に P / P_j を掛けるので、R を U（w）と L（P / P_j）に分けた案 R4 と違い、Δσ の中の追わない
+  核種の分（分岐 − ハイブリッドの σᵢ）まで P / P_j で足す。Δσ を同じく分けて追わない核種の分を w で足す形は測っていない（26〜40 MWd/kg の
+  数密度の効きの候補。確かめていない）
 
 履歴の変数の数:
 
@@ -428,8 +430,9 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   ミクロ燃焼のテーブルのうち補正を持つものと持たないものの混在（持たないテーブルのノードの履歴を補正しない）
 - core: ミクロ燃焼の反応率の σᵢ は、テーブルの内挿 + Σ_j w_j Δσ_j,r（案 S2。crates/core/src/case.rs の `node_micro`。w_j と制御棒の値の
   選び方は定数の R と同じ関数 `weighted_histories`。燃焼の反応率は、その解の定数を作ったノードの履歴の変数で引く）。`rate-residual-weight =
-  "production-index"`（crates/core/src/input.rs の `RateResidualWeight`）では w_j の代わりに L と同じ P / P_j（同じ関数 `production_ratio`。履歴の分岐の
-  数密度の差がすべて 0 の燃焼度は足さない。P_j が 0 ならエラー）を掛ける。P は反応率を規格化する組成、つまりその解の定数を作った組成で作る
+  "production-index"`（crates/core/src/input.rs の `RateResidualWeight`）では w_j の代わりに L と同じ P / P_j（同じ関数 `production_ratio`。P_j が 0 なら
+  エラー）を掛ける。履歴の分岐の追う核種の数密度の差がすべて 0 なら、燃焼度 0 は足さず（組成の全体が公称と同じで Δσ は定義から 0）、ほかの燃焼度は
+  エラー（Δσ は追わない核種の違いも含み、ハイブリッドで定義から 0 になる L と違って 0 とは限らない）。P は反応率を規格化する組成、つまりその解の定数を作った組成で作る
   （予測子は点の組成、修正子は中点の組成。平衡 Xe の反復ではその反復の組成。crates/core/src/depletion.rs の `node_rates`）。解の定数の L と同じ
   P になり、反応率の組成と定数の組成を分けない。係数は Δσ を足す前の内挿の値（線形の補正の係数は Δσ で変わらない）。ADR-0216 の「追う核種の反応率は、テーブルの微視的断面積 ×
   ノードの中性子束」の σᵢ はこの補正を足したもので、ADR-0216 の帰結の「σᵢ を燃焼度で引くので…自己遮蔽の変化も燃焼度の関数として入る」は
@@ -473,7 +476,8 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     （w = 0.5 の燃焼が、捕獲を 0.5 Δσ ずらしたテーブルの燃焼と同じ数密度、w = 0 の燃焼が Δσ を 0 にしたテーブルとビットで同じ）。
     Δσ の重み P / P_j（案 R6）: crates/core/src/case/tests.rs の `rate_residuals_scale_with_the_production_index_when_chosen`（σᵢ + (P / P_j) Δσᵢ で、
     w によらない）、`production_index_rate_residuals_reproduce_the_branch_at_its_point_and_skip_nominal_compositions`（履歴の分岐の点で第 1 項の
-    σᵢ、燃焼度 0 は足さない）、`production_index_rate_residuals_without_a_branch_index_are_errors`、`nominal_histories_leave_the_rate_cross_sections_bit_identical`
+    σᵢ、燃焼度 0 は足さない）、`production_index_rate_residuals_without_a_branch_index_are_errors`、
+    `production_index_rate_residuals_of_nominal_branch_densities_after_burnup_zero_are_errors`、`nominal_histories_leave_the_rate_cross_sections_bit_identical`
     （w = 0 は重みによらずビットで同じ）、燃焼は crates/core/src/depletion/tests.rs の `micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input`、
     入力は crates/core/src/input/tests.rs の `depletion_micro_may_choose_the_weight_of_the_rate_residuals`
   - core の測定（examples/depletion/verification.md の「履歴の補正の core（2A の集合体 1 体）」。2026-10-31、ブランチ feat/0190-split-residual-core の
