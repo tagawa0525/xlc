@@ -31,6 +31,8 @@ scripts/worktree-restore-outputs.sh（中で同じスクリプトを呼ぶ）。
 SEPARATORS = set(";&|\n")
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 SHELLS = {"bash", "sh", "zsh", "dash"}
+# 次の語をコマンドとして実行する予約語（`for`、`case` などの後の語はコマンドでない）
+RESERVED = {"if", "then", "elif", "else", "while", "until", "do", "{", "!"}
 PYTHONS = re.compile(r"python(3(\.\d+)?)?")
 
 
@@ -96,6 +98,8 @@ class _Parser:
             elif c == "#" and word is None:
                 end = s.find("\n", self.i)
                 self.i = len(s) if end < 0 else end
+            elif c == "$" and s.startswith("$'", self.i):
+                word = (word or "") + self._ansi_c_quoted()
             elif c == "$" and s.startswith("$(", self.i):
                 end_command()
                 self.i += 2
@@ -163,6 +167,21 @@ class _Parser:
                 self.i += 1
         raise ValueError('閉じていない " がある')
 
+    def _ansi_c_quoted(self):
+        """`$'` から閉じる `'` までを読み、中身を返す（`\\` の後の 1 文字は引用を閉じない。エスケープは展開しない）。"""
+        s = self.s
+        start = self.i + 2
+        self.i = start
+        while self.i < len(s):
+            if s[self.i] == "\\":
+                self.i += 2
+            elif s[self.i] == "'":
+                self.i += 1
+                return s[start : self.i - 1]
+            else:
+                self.i += 1
+        raise ValueError("閉じていない $' がある")
+
     def _delimiter(self):
         """`<<` の後の区切りの語を、引用を外して読む。"""
         s = self.s
@@ -216,13 +235,38 @@ def _drop_options(argv, with_value=()):
     return argv
 
 
+def _shell_command_string(args):
+    """`bash` の引数から `-c` の文字列を返す。`-c` が無ければ空の並び。
+
+    `-c` の文字列は、オプションの後の最初の語（bash(1) の `-c`）。`-o`、`-O`（`+o`、`+O`）と `--rcfile`、`--init-file` は
+    次の語を値に取る。
+    """
+    command_string = False
+    k = 0
+    while k < len(args):
+        arg = args[k]
+        if arg == "--":
+            k += 1
+            break
+        if arg in ("--rcfile", "--init-file"):
+            k += 2
+        elif arg.startswith("--"):
+            k += 1
+        elif arg[:1] in "-+" and len(arg) > 1:
+            command_string = command_string or "c" in arg[1:]
+            k += 2 if arg[-1] in "oO" else 1
+        else:
+            break
+    return args[k] if command_string and k < len(args) else []
+
+
 def _unwrap(argv):
     """先頭の代入と包むコマンドを外した語の並びを返す。中のコマンドが文字列（bash -c）なら、その文字列を返す。
 
     包むコマンドの下に実行するコマンドが無ければ（`nix develop` だけ、`bash` だけ）、空の並びを返す。
     """
     while argv:
-        if ASSIGNMENT.match(argv[0]):
+        if ASSIGNMENT.match(argv[0]) or argv[0] in RESERVED:
             argv = argv[1:]
             continue
         name = os.path.basename(argv[0])
@@ -247,12 +291,7 @@ def _unwrap(argv):
             else:
                 return []
         elif name in SHELLS:
-            for k, arg in enumerate(rest):
-                if not arg.startswith("-") or arg.startswith("--"):
-                    return []
-                if "c" in arg[1:]:
-                    return rest[k + 1] if k + 1 < len(rest) else []
-            return []
+            return _shell_command_string(rest)
         elif PYTHONS.fullmatch(name) and rest[:2] == ["-m", "dvc"]:
             return ["dvc", *rest[2:]]
         else:
