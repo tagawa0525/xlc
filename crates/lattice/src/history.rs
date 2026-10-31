@@ -877,14 +877,15 @@ impl HistoryBranches {
                         .map_or_else(Vec::new, |(p, r)| self.perturbed_reference_state(p, r, j))
                 };
                 let (perturbed, sigma) = solve(j, &state, reference, &build)?;
-                let perturbed_sigma = sigma.get(m).ok_or_else(|| {
-                    anyhow!(
+                if sigma.len() != micro.len() {
+                    bail!(
                         "{}: the perturbed solve has {} micro nuclides for {}",
                         self.derivative[j],
                         sigma.len(),
                         micro.len()
-                    )
-                })?;
+                    );
+                }
+                let perturbed_sigma = &sigma[m];
                 density_derivative(
                     (nominal, &micro[m]),
                     (&perturbed, perturbed_sigma),
