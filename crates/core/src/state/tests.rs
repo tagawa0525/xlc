@@ -1296,7 +1296,10 @@ fn residuals_are_interpolated_in_burnup_like_the_table_and_not_extrapolated() {
         untracked: points.iter().map(|&b| residual_at(b, 1.0e-4)).collect(),
         linearization: points.iter().map(|&b| residual_at(b, -3.0e-4)).collect(),
         densities: vec![Vec::new(); points.len()],
-        micro: Vec::new(),
+        micro: xlc_format::table::RateResiduals {
+            untracked: Vec::new(),
+            linearization: Vec::new(),
+        },
     };
     // 点では、その点の残りそのもの（追わない核種の分と線形化の誤差のどちらも）
     for (k, &b) in points.iter().enumerate() {
@@ -1343,7 +1346,10 @@ fn branch_density_differences_are_interpolated_like_the_residuals() {
             .iter()
             .map(|&b| vec![1.0 - 0.01 * b + 2.0e-3 * b, 0.02 * b - 1.0e-3 * b])
             .collect(),
-        micro: Vec::new(),
+        micro: xlc_format::table::RateResiduals {
+            untracked: Vec::new(),
+            linearization: Vec::new(),
+        },
     };
     for &b in &points {
         let d = interpolate_branch_difference(&rod, &axis, &nominal, b).unwrap();

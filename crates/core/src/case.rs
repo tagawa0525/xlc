@@ -4,9 +4,7 @@ use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, Table};
 
-use crate::input::{
-    Boron, BoronSearch, CaseState, InputError, Layout, RateResidualWeight, TableUse,
-};
+use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::micro::{MicroChain, correct, production_index};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
@@ -134,8 +132,8 @@ fn weighted_histories<'a>(
 
 /// 履歴の補正 `entry` の、燃焼度 `burnup` の組成の指標の比 P / P_j（ADR-0215）。P は熱群の νΣf の線形の補正（`production_index`）の、
 /// ノードの数密度 `n` と状態で内挿した基準の数密度（`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差
-/// （`interpolate_branch_difference`）のもの。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では比を作れず `None`（その点の扱いは
-/// 呼ぶ側が決める: L はどの燃焼度でも定義から 0、Δσ は燃焼度 0 だけ定義から 0）。数密度の差が 0 でないのに P_j が 0 ならエラー
+/// （`interpolate_branch_difference`）のもの。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では比を作れず `None`（その点の L と
+/// Δσ_L は、ハイブリッドが公称の組成そのものなので定義から 0）。数密度の差が 0 でないのに P_j が 0 ならエラー
 fn production_ratio(
     table: &Table,
     entry: &HistoryRod,
@@ -286,17 +284,16 @@ pub fn node_constants(
 }
 
 /// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
-/// `histories` の差 Δσ を重み `weight` で足したもの（ADR-0215 の案 S2）。`History` は w_j、`ProductionIndex` は追う核種の数密度 `n`
-/// （テーブルの順）の `production_ratio`（L と同じ P / P_j）。P は、Δσ を足す前の係数で作る（P が使う熱群の νσf と数密度の微分は Δσ で変わらないが、微分を持たない核種の σf の係数は変わる）。
-/// 履歴の分岐の追う核種の数密度の差がすべて 0 で比を作れないとき、燃焼度 0（組成の全体が公称と同じで、Δσ は定義から 0）は足さず、
-/// ほかの燃焼度はエラー（Δσ は追わない核種の違いも含むので 0 とは限らない。L のように定義から 0 とは言えない）
+/// `histories` の差 Σ_j [w_j Δσ_U,j + (P / P_j) Δσ_L,j] を足したもの（ADR-0215 の案 S2。重みは定数の U と L と同じ）。P / P_j は追う核種の
+/// 数密度 `n`（テーブルの順）の `production_ratio` で、Δσ を足す前の係数で作る（P が使う熱群の νσf と数密度の微分は Δσ で変わらないが、
+/// 微分を持たない核種の σf の係数は変わる）。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では、ハイブリッドは公称の組成
+/// そのもので Δσ_L は定義から 0 なので、Δσ_L を足さない（L と同じ）
 pub fn node_micro(
     table: &Table,
     state: &State,
     rod: Option<&str>,
     histories: &[f64],
     n: &[f64],
-    weight: RateResidualWeight,
 ) -> Result<MicroAt, String> {
     let mut micro = interpolate_micro(table, state, rod)?;
     let weighted = weighted_histories(table, rod, histories)?;
@@ -312,27 +309,18 @@ pub fn node_micro(
         .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?
         .nuclides;
     // 比は補正の前の `micro` で、変数ごとに作ってから足す
-    let mut scaled = Vec::with_capacity(weighted.len());
+    let mut scaled = Vec::with_capacity(2 * weighted.len());
     for (variable, w, entry) in weighted {
         let at = |e: String| format!("history variable {variable}: {e}");
-        let scale = match weight {
-            RateResidualWeight::History => w,
-            RateResidualWeight::ProductionIndex => {
-                match production_ratio(table, entry, burnup, &micro, n).map_err(at)? {
-                    Some(ratio) => ratio,
-                    None if burnup == 0.0 => continue,
-                    None => {
-                        return Err(at(format!(
-                            "the branch densities of the tracked nuclides equal the nominal ones at burnup {burnup}, \
-                             so there is no branch index to weight the rate residual, which also carries the \
-                             untracked nuclides (ADR-0215)"
-                        )));
-                    }
-                }
-            }
+        let untracked =
+            interpolate_rate_residual(entry, &entry.micro.untracked, burnup).map_err(at)?;
+        scaled.push((variable, w, untracked));
+        let Some(ratio) = production_ratio(table, entry, burnup, &micro, n).map_err(at)? else {
+            continue;
         };
-        let r = interpolate_rate_residual(entry, burnup).map_err(at)?;
-        scaled.push((variable, scale, r));
+        let linearization =
+            interpolate_rate_residual(entry, &entry.micro.linearization, burnup).map_err(at)?;
+        scaled.push((variable, ratio, linearization));
     }
     for (variable, scale, r) in scaled {
         add_rate_residual(&mut micro, names, scale, &r)
