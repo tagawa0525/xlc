@@ -231,50 +231,58 @@ def compare(tables, summary):
 def report(summary):
     """要約の文章（記録の本文の数値はここからコピーする。ADR-0176）"""
 
-    def span(key, items, form="+.3f"):
-        values = [x[key] for x in items if x[key] is not None]
+    def span(values, form="+.3f"):
+        values = [v for v in values if v is not None]
         return f"{min(values):{form}}〜{max(values):{form}}"
 
-    def points(key, items, form="+.3f"):
-        return "、".join(f"{x[key]:{form}}" for x in items)
+    def points(values, form="+.3f"):
+        return "、".join(f"{v:{form}}" for v in values)
 
     u0 = summary["continued_burnup"]
     later = [x for x in summary["rows"] if x["burnup"] > u0]
+
+    def column(key):
+        return [x[key] for x in later]
+
     burnups = "、".join(f"{x['burnup']:.4g}" for x in later)
+    both = [x["untracked_gap_pcm"] + x["linearization_gap_pcm"] for x in later]
+    unadded = [c - b for c, b in zip(column("constant_pcm"), both)]
+    node = max(
+        abs(x[f"node_{key}_pcm"] - x[f"{key}_pcm"])
+        for x in later
+        for key in ("untracked_gap", "linearization_gap", "gap")
+    )
     lines = [
         (
-            f"{u0:.4g} MWd/kg より後の点 {len(later)}（{burnups} MWd/kg）: w {points('weight', later, '.4f')}、"
-            f"P / P_j {points('index_ratio', later, '.4f')}"
+            f"{u0:.4g} MWd/kg より後の点 {len(later)}（{burnups} MWd/kg）: w {points(column('weight'), '.4f')}、"
+            f"P / P_j {points(column('index_ratio'), '.4f')}"
         ),
         (
-            f"U の外れの分 {points('untracked_gap_pcm', later)} pcm（{span('untracked_gap_pcm', later)}）、"
-            f"L の外れの分 {points('linearization_gap_pcm', later)} pcm（{span('linearization_gap_pcm', later)}）、"
-            f"両方の外れの分 {points('gap_pcm', later)} pcm（参照の定数に足した効き）"
+            f"U の外れの分 {points(column('untracked_gap_pcm'))} pcm（{span(column('untracked_gap_pcm'))}）、"
+            f"L の外れの分 {points(column('linearization_gap_pcm'))} pcm（{span(column('linearization_gap_pcm'))}）、"
+            f"両方の外れの分 {points(column('gap_pcm'))} pcm（参照の定数に足した効き）"
         ),
         (
-            f"core のノードの定数から引いた効きでは U の外れ {span('node_untracked_gap_pcm', later)}、"
-            f"L の外れ {span('node_linearization_gap_pcm', later)}、両方 {span('node_gap_pcm', later)} pcm"
+            f"core のノードの定数から引いた効きでは U の外れ {span(column('node_untracked_gap_pcm'))}、"
+            f"L の外れ {span(column('node_linearization_gap_pcm'))}、両方 {span(column('node_gap_pcm'))} pcm"
+            f"（参照の定数に足した効きとの差の絶対値の最大 {node:.4f} pcm）"
         ),
         (
-            f"定数の側（core − 参照 − 数密度の効き）{points('constant_pcm', later)} pcm に対し、"
-            f"U の外れの分 + L の外れの分は "
-            + "、".join(
-                f"{x['untracked_gap_pcm'] + x['linearization_gap_pcm']:+.3f}"
-                for x in later
-            )
-            + f" pcm、両方の外れの分との残り {span('remainder_pcm', later)} pcm（再構成 "
-            f"{span('reconstruct_pcm', later, '+.1e')}、恒等 {span('identity_pcm', later, '+.1e')}、非加法 "
-            f"{span('additivity_pcm', later)}、k の基準 {span('basis_pcm', later)} pcm）"
+            f"定数の側（core − 参照 − 数密度の効き）{points(column('constant_pcm'))} pcm に対し、U の外れの分 + L の外れの分は "
+            f"{points(both)} pcm（定数の側との差 {span(unadded)} pcm）、両方の外れの分との残り "
+            f"{span(column('remainder_pcm'))} pcm（再構成 {span(column('reconstruct_pcm'), '+.1e')}、恒等 "
+            f"{span(column('identity_pcm'), '+.1e')}、非加法 {span(column('additivity_pcm'))}、k の基準 "
+            f"{span(column('basis_pcm'))} pcm）"
         ),
         (
             f"成分の大きさ（公称の状態の定数に参照の数密度の線形の補正を足した定数）: 参照に合う重み w_U "
-            f"{points('untracked_weight', later, '.4f')}（w {points('weight', later, '.4f')}）、w_L "
-            f"{points('linearization_weight', later, '.4f')}（P / P_j {points('index_ratio', later, '.4f')}）"
+            f"{points(column('untracked_weight'), '.4f')}（w {points(column('weight'), '.4f')}）、w_L "
+            f"{points(column('linearization_weight'), '.4f')}（P / P_j {points(column('index_ratio'), '.4f')}）"
         ),
         (
             f"見込み（core を流していない。数密度は今の core のまま）: U の外れを 0 にした core − 参照 "
-            f"{points('without_untracked_pcm', later)} pcm、L の外れを 0 にした core − 参照 "
-            f"{points('without_linearization_pcm', later)} pcm（今の core − 参照 {points('difference_pcm', later)} pcm）"
+            f"{points(column('without_untracked_pcm'))} pcm、L の外れを 0 にした core − 参照 "
+            f"{points(column('without_linearization_pcm'))} pcm（今の core − 参照 {points(column('difference_pcm'))} pcm）"
         ),
     ]
     # 記録の表（verification_tables.py の signed）と同じ負の符号
