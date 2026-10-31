@@ -1520,6 +1520,103 @@ fn branch_points_at_the_nominal_densities_hold_no_linearization() {
 }
 
 #[test]
+fn each_linearization_item_at_the_nominal_densities_is_checked() {
+    // L と Δσ_L の項目のどれか 1 つだけが 2 つの格子計算の解の差より大きくても止める（燃焼度 0 の点。ほかの項目は 0 の大きさのまま）
+    type Change = fn(&mut HistoryRod);
+    let items: [(&str, Change); 12] = [
+        ("total", |r| r.linearization[0].total[1] = 1.0e-3),
+        ("absorption", |r| r.linearization[0].absorption[0] = 1.0e-3),
+        ("nu_fission", |r| r.linearization[0].nu_fission[1] = 1.0e-3),
+        ("fission", |r| r.linearization[0].fission[0] = 1.0e-3),
+        ("chi", |r| r.linearization[0].chi[0] = 1.0e-3),
+        ("diffusion", |r| r.linearization[0].diffusion[1] = 1.0e-3),
+        ("scatter", |r| r.linearization[0].scatter[1][0] = 1.0e-3),
+        ("adf", |r| r.linearization[0].adf[0][0] = 1.0e-3),
+        ("micro fission", |r| {
+            r.micro.linearization[0][0].fission[1] = 1.0e-3
+        }),
+        ("micro reactions", |r| {
+            r.micro.linearization[0][0].reactions[0].channels[0][0] = 1.0e-3;
+        }),
+        ("micro capture channel", |r| {
+            r.micro.linearization[0][0].reactions[1].channels[1][1] = 1.0e-3;
+        }),
+        ("micro thermal fission", |r| {
+            r.micro.linearization[0][0].thermal_fission = Some(1.0e-3);
+        }),
+    ];
+    for (name, change) in items {
+        let mut table = history_sample();
+        change(&mut table.histories[0].rods[0]);
+        let err = table
+            .validate()
+            .err()
+            .unwrap_or_else(|| panic!("{name}: not checked"))
+            .to_string();
+        assert!(err.contains("nominal densities"), "{name}: {err}");
+    }
+}
+
+#[test]
+fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_each_item() {
+    // 許容は項目ごとに、条件 j の状態の同じ項目の絶対値の最大の `NOMINAL_POINT_TOLERANCE` 倍（境界の内は通り、外は止める）
+    let condition = |t: &Table| {
+        let p = t.point_index(&[0, 0, 1, 0]).unwrap();
+        (
+            t.states[p].clone(),
+            t.micro.as_ref().unwrap().states[p][0].clone(),
+        )
+    };
+    let largest = |x: &[f64]| x.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    let (f, sigma) = condition(&history_sample());
+    let total = largest(&f.total);
+    let capture = largest(&sigma.reactions[1].channels[0]);
+    for (factor, fine) in [(0.9, true), (1.1, false)] {
+        let mut table = history_sample();
+        let rod = &mut table.histories[0].rods[0];
+        rod.linearization[0].total[0] = factor * NOMINAL_POINT_TOLERANCE * total;
+        rod.micro.linearization[0][0].reactions[1].channels[0][1] =
+            -factor * NOMINAL_POINT_TOLERANCE * capture;
+        assert_eq!(table.validate().is_ok(), fine, "{factor}");
+    }
+    // 基準は項目ごとの最大: 吸収の最大の許容を超える吸収は、全断面積の最大の許容に入っても止める
+    let absorption = largest(&f.absorption);
+    let value = 2.0 * NOMINAL_POINT_TOLERANCE * absorption;
+    assert!(value < NOMINAL_POINT_TOLERANCE * total, "{value} {total}");
+    bad_history(
+        &|t| t.histories[0].rods[0].linearization[0].absorption[1] = value,
+        "nominal densities",
+    );
+}
+
+#[test]
+fn linearizations_at_the_nominal_densities_of_items_that_are_zero_must_be_zero() {
+    // 基準が 0 の項目（核分裂しない核種の σf）は、0 でない差を許さない
+    let mut table = history_sample();
+    let micro = table.micro.as_mut().unwrap();
+    micro.nuclides.push("Xe-135".into());
+    for (p, state) in micro.states.iter_mut().enumerate() {
+        state.push(micro_nuclide(2.0 + p as f64, false));
+    }
+    for row in &mut micro.densities {
+        row.push(1.0e-9);
+    }
+    let rod = &mut table.histories[0].rods[0];
+    for part in [&mut rod.micro.untracked, &mut rod.micro.linearization] {
+        for row in part.iter_mut() {
+            row.push(rate_residual(0.0, false));
+        }
+    }
+    for row in &mut rod.densities {
+        row.push(1.0e-9);
+    }
+    table.validate().unwrap();
+    table.histories[0].rods[0].micro.linearization[0][1].fission[0] = 1.0e-30;
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("nominal densities"), "{err}");
+}
+
+#[test]
 fn rate_residuals_of_one_unsplit_list_are_not_read() {
     // 反応率の微視的断面積の差は、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。分けない 1 つの列（前の形）は読まない
     let bytes = history_sample().to_msgpack().unwrap();
