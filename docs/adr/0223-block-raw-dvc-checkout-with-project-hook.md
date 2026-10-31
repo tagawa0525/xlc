@@ -42,7 +42,8 @@ issues: ["#0184", "#0210", "#0211"]
 案 A にする。
 
 - 置き場: `.claude/settings.json` の `hooks.PreToolUse` に `matcher: "Bash"` の command の hook を置き、`.claude/hooks/block-raw-dvc-checkout.py`
-  を `"${CLAUDE_PROJECT_DIR}"` から呼ぶ。スクリプトは標準ライブラリだけで書き、`nix develop` の外の PATH の python3 で動く
+  を環境変数 `CLAUDE_PROJECT_DIR` から呼ぶ（command はシェルの 1 行で、スクリプトのファイルが無ければ終了コード 1 で知らせて
+  通す）。スクリプトは標準ライブラリだけで書き、`nix develop` の外の PATH の python3 で動く
   （hook はシェルから実行され、devShell に入っていない）。home の settings の PreToolUse（`claude-hooks pre-tool-use`）とは
   別の設定の階層の hook で、両方が走る（Claude Code は設定の階層の hook を置き換えずに足し合わせる）
 - 判定: stdin の JSON の `tool_input.command` を、シェルの引用（`'…'`、`"…"`、`$'…'`、`\`）、コメント、ヒアドキュメントの本文を
@@ -68,6 +69,10 @@ issues: ["#0184", "#0210", "#0211"]
 
 - 生の `dvc checkout` は、Claude Code の Bash ツールからは実行できない。スクリプトの中（`scripts/dvc-checkout.py` 自身など）の
   `dvc checkout` は Bash ツールのコマンドに現れないので止めない
+- 前提: Claude Code が hook の環境に `CLAUDE_PROJECT_DIR`（セッションを始めたプロジェクトの直下）を渡し、PATH に python3 が
+  あること。PreToolUse の終了コード 2 はツールの呼び出しを止めるので、`python3 <無いパス>` の「can't open file」（終了コード 2）が
+  すべての Bash を止めないよう、settings.json の command がファイルの有無を確かめ、無ければ終了コード 1（止めずに知らせる）で
+  終わる。python3 が無ければ終了コード 127 で、止めずに知らせる
 - 判定はシェルの文法の一部だけを読む。`"…"` の中の `$(…)` は読むが、`"…"` の中のバッククォート、`slurm-run.sh` などに文字列
   として渡すコマンド、`eval`、上の一覧の外の包むコマンド（`xargs`、`find -exec`、`direnv exec`、`srun`、値を取る `sudo` の
   オプションと `exec -a`、`function`、`coproc` など）、ヒアドキュメント、ヒア文字列かパイプで渡すシェル（`bash <<'EOF'`、`bash <<< '…'`、`… | bash`）、区切りの語を
