@@ -134,7 +134,7 @@ class Split(unittest.TestCase):
 
     def test_r_one_other_than_the_residuals_that_the_core_adds_is_an_error(self):
         t = tables()
-        t["nominal"]["histories"][0]["rods"][0]["residuals"][1]["total"][0] += 1e-6
+        t["nominal"]["histories"][0]["rods"][0]["linearization"][1]["total"][0] += 1e-6
         with self.assertRaises(SystemExit):
             c.compare(t, summary([0.0, 0.5]))
 
