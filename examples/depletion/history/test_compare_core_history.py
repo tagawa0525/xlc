@@ -20,6 +20,14 @@ def sigma(s: float, derivative: bool) -> dict:
     out["reactions"] = [
         {"mt": 102, "channels": [[0.3 * (1.0 + s / 5.0), 20.0 * (1.0 + s / 5.0)]]}
     ]
+    if derivative:
+        # 反応率の項目の自分の数密度の微分（自己遮蔽で負。ADR-0215）
+        x = lambda v: -v * (1.0 + s / 5.0)
+        out["derivative"]["rate"] = {
+            "fission": [x(40.0), x(900.0)],
+            "reactions": [{"mt": 102, "channels": [[x(30.0), x(600.0)]]}],
+            "thermal_fission": x(700.0),
+        }
     return out
 
 

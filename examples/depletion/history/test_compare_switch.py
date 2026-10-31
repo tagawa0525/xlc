@@ -403,9 +403,10 @@ class Compare(unittest.TestCase):
     def test_the_rate_residual_outliers_are_split_into_the_untracked_part_and_the_linearization(
         self,
     ):
-        # core の反応率は σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L、参照は σ(参照)。外れを、ハイブリッドで分けた参照の
+        # core の反応率は σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L（反応率の微分を持つ核種は、さらに
+        # (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ）、参照は σ(参照)。外れを、ハイブリッドで分けた参照の
         # Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(公称、条件 j) からの差に分ける（核分裂と
-        # 捕獲の和、群ごと、参照の σ に対する %）
+        # 捕獲の和、群ごと、参照の σ に対する %）。自分の数密度の項は Δσ_L の側に入れ、その分も並べる
         with mock.patch.object(c, "GROUPS", ["U-235", "Pu-240"]):
             s = compared()
         last = s["rows"][1]
@@ -429,6 +430,15 @@ class Compare(unittest.TestCase):
             nom = absorption(t["micro"]["states"][point][i])
             du = rate_absorption(RATE_UNTRACKED[1][i])
             dl = rate_absorption(RATE_LINEARIZATION[1][i])
+            derivative = t["micro"]["states"][point][i].get("derivative")
+            excess = N20[i] - nominal[i] - index * (branch[i] - nominal[i])
+            own = (
+                [excess * d for d in rate_absorption(derivative["rate"])]
+                if derivative
+                else [0.0, 0.0]
+            )
+            # Pu-240 だけが微分を持ち、項は 0 でない
+            self.assertEqual(derivative is not None, i == 1)
             for g in range(2):
                 self.assertAlmostEqual(
                     x["untracked_percent"][g],
@@ -437,9 +447,16 @@ class Compare(unittest.TestCase):
                 )
                 self.assertAlmostEqual(
                     x["linearization_percent"][g],
-                    (index * dl[g] - (hyb[g] - nom[g])) / ref[g] * 100.0,
+                    (index * dl[g] + own[g] - (hyb[g] - nom[g])) / ref[g] * 100.0,
                     places=9,
                 )
+                if derivative:
+                    self.assertNotEqual(own[g], 0.0)
+                    self.assertAlmostEqual(
+                        x["own_density_percent"][g], own[g] / ref[g] * 100.0, places=9
+                    )
+            if not derivative:
+                self.assertIsNone(x["own_density_percent"])
             # 参照の Δσ_L,switch の Δσ_L に対する実効の比（群ごと）と、参照の数密度の差の履歴の分岐の差に対する比（この核種だけの指標）
             for g in range(2):
                 self.assertAlmostEqual(
