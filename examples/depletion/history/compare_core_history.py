@@ -28,7 +28,16 @@ import argparse
 import json
 from pathlib import Path
 
-from compare_residual import added, coefficients, corrected, k_inf, md5, read, rho
+from compare_residual import (
+    added,
+    coefficients,
+    corrected,
+    k_inf,
+    md5,
+    read,
+    residual,
+    rho,
+)
 
 FILES = {
     "residual_table": "table-residual-nominal-histories.msgpack",
@@ -125,21 +134,43 @@ class Table:
         return self.points[index], b
 
     def node_k(self, node, w, label):
-        """ノードの定数（格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)）の 2 群の k と、w R を足した 2 群の k"""
+        """ノードの定数（格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)）の 2 群の k と、core と同じく w U + (P / P_j) L を足した 2 群の k（ADR-0215）。
+        P は熱群（最後の群）の νΣf の線形の補正のノードの数密度の差のもの、P_j は同じ係数の履歴の分岐の数密度の差のもの。履歴の分岐の
+        数密度が公称と同じ点は L を足さない（L は定義から 0）"""
         p, b = self.point(node["burnup"], node["moderator"], label)
         micro = self.table["micro"]
+        factors = coefficients(micro["states"][p])
         deltas = [x - y for x, y in zip(node["densities"], micro["densities"][b])]
-        f = corrected(self.table["states"][p], coefficients(micro["states"][p]), deltas)
+        f = corrected(self.table["states"][p], factors, deltas)
         if w == 0.0:
             return k_inf(f), k_inf(f)
-        r = self.rod["residuals"][self.residual_index(node["burnup"])]
-        scaled = {
-            key: [[w * x for x in row] for row in value]
-            if key in ("scatter", "adf")
-            else [w * x for x in value]
-            for key, value in r.items()
-        }
-        return k_inf(f), k_inf(added(f, scaled))
+        k = self.residual_index(node["burnup"])
+        g = added(f, scaled(self.rod["untracked"][k], w))
+        branch = [
+            x - y for x, y in zip(self.rod["densities"][k], micro["densities"][b])
+        ]
+        if any(d != 0.0 for d in branch):
+            own = production(factors, deltas)
+            of_branch = production(factors, branch)
+            if of_branch == 0.0:
+                raise SystemExit(f"{label}: the branch index is 0 at {node['burnup']}")
+            g = added(g, scaled(self.rod["linearization"][k], own / of_branch))
+        return k_inf(f), k_inf(g)
+
+
+def production(factors, deltas):
+    """熱群（最後の群）の νΣf の線形の補正 Σᵢ cᵢ_νf,G Δᵢ（core の `production_index`）"""
+    return sum(c["nu_fission"][-1] * d for c, d in zip(factors, deltas))
+
+
+def scaled(r, w):
+    """w 倍した残り"""
+    return {
+        key: [[w * x for x in row] for row in value]
+        if key in ("scatter", "adf")
+        else [w * x for x in value]
+        for key, value in r.items()
+    }
 
 
 def check_summary(residual_summary, table_md5):
@@ -179,7 +210,7 @@ def composition(t, node, first_densities, first_states):
             coeff,
             [x - y for x, y in zip(first_densities, micro["densities"][b])],
         ),
-        t.rod["residuals"][k],
+        residual(t.rod, k),
     )
     k_base = k_inf(base)
     deltas = [x - y for x, y in zip(node["densities"], first_densities)]
