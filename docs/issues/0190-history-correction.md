@@ -273,6 +273,11 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
     「計算」はテーブル 8d692a1a と比較 285e0a96 のまま（記録の周。節を見直すときに出どころを書き直す）。`add_rate_residual` の重み `w` は呼ぶ側が
     1.0 しか渡さず、`accumulate_rate_residuals` と `interpolate_rate_residual` が同じ足し方を 2 か所に持つ。compare_switch.py の
     `composition_groups` は `composition_nuclides` が出した核種ごとの効きを作り直す
+    3 周目で残したもの（直していない）: compare_switch.py の `rate_outliers` の 0 除算（今のデータでは起きない）。P_j が 0 の扱いが
+    compare_core_history.py の `node_k`（ちょうど 0 だけ止める）と core の `production_ratio`（非有限の比も止める）で違う（共通の関数にする候補）。
+    `node_micro` と `add_histories` が U と L の変数のループと `production_ratio` を別々に回す。residual.rs の条件 j の点の引き直しの重複と、
+    `check_hybrid` の後で到達しないハイブリッドのミクロ燃焼のデータのエラー文。P / P_j の燃焼度 0⁺ での発散（条件 j の燃焼の 0.1 MWd/kg で
+    +8.132 から +10.428 pcm）は、ADR-0215 で L と同じ扱いと決めたもので、上の記載のまま
 - 残り（この issue）: R と Δσ の瞬時の状態への依存による見直し（案 C1 の側。上の R の測定と、案 S1 の R' の誤差。Δσ の依存は測っていない）、
   制御棒の履歴（2A-rods。制御棒の軸のテーブルの結合 examples/core/rod_table.py と絡む）と Pyrex の変数、途中で条件を変えた燃焼で目安を
   超えた差（Δσ を U と L と同じく分けた後も数密度の効きが大半で、Pu-240 と Pu-241。残りの最大の候補は Pu-240 の共鳴の捕獲の Δσ_L の重み。
