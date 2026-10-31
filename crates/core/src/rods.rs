@@ -21,7 +21,7 @@ use crate::nem::{
     Boundary, NemError, NodeSnapshot, Options, Problem, Refresh, Solution, solve, solve_with,
 };
 use crate::state::MicroAt;
-use xlc_format::table::{MicroDerivative, MicroNuclide, MicroReaction};
+use xlc_format::table::{MicroDerivative, MicroNuclide, MicroReaction, RateResidual};
 
 /// 部分挿入のノードの、制御棒の状態が一様な区間。
 #[derive(Debug, Clone, PartialEq)]
@@ -408,11 +408,19 @@ pub(crate) fn mix_micro(
             .all(|v| v.len() == ng)
             && n.scatter.len() == ng
             && n.derivative.as_ref().is_none_or(|d| {
-                [&d.total, &d.nu_fission, &d.fission]
+                [&d.total, &d.nu_fission, &d.fission, &d.rate.fission]
                     .into_iter()
                     .chain(&d.scatter)
+                    .chain(d.rate.reactions.iter().flat_map(|r| &r.channels))
                     .all(|v| v.len() == ng)
                     && d.scatter.len() == ng
+                    && d.rate.reactions.len() == n.reactions.len()
+                    && d.rate
+                        .reactions
+                        .iter()
+                        .zip(&n.reactions)
+                        .all(|(a, b)| a.mt == b.mt && a.channels.len() == b.channels.len())
+                    && d.rate.thermal_fission.is_some() == n.thermal_fission.is_some()
             })
     };
     if micro.iter().flat_map(|m| &m.nuclides).any(|n| !shaped(n)) {
@@ -453,7 +461,8 @@ pub(crate) fn mix_micro(
                     "micro nuclide {i}: the intervals differ in fission, in the chain reactions or in the density derivative"
                 ));
             }
-            let thermal_fission = match reference.thermal_fission {
+            // 区間の核分裂率の割合（核分裂する核種だけ）
+            let shares = match reference.thermal_fission {
                 None => None,
                 Some(_) => {
                     // 割合は率の比なので、燃焼が使う核分裂率 σ̄f,G φ̄_G のうちの区間の分で混ぜると熱の核分裂率の和を保つ。重み w は
@@ -462,22 +471,34 @@ pub(crate) fn mix_micro(
                     let totals: Vec<f64> = (0..ng)
                         .map(|g| weights.iter().map(|w| w[g]).sum())
                         .collect();
-                    let (mut rate, mut thermal) = (0.0, 0.0);
-                    for (n, w) in segments.iter().zip(weights) {
-                        let r: f64 = (0..ng)
-                            .map(|g| n.fission[g] * w[g] / totals[g] * flux[g])
-                            .sum();
-                        rate += r;
-                        thermal += r * n.thermal_fission.unwrap_or(f64::NAN);
-                    }
+                    let rates: Vec<f64> = segments
+                        .iter()
+                        .zip(weights)
+                        .map(|(n, w)| {
+                            (0..ng)
+                                .map(|g| n.fission[g] * w[g] / totals[g] * flux[g])
+                                .sum()
+                        })
+                        .collect();
+                    let rate: f64 = rates.iter().sum();
                     if rate.is_nan() || rate <= 0.0 {
                         return Err(format!(
                             "micro nuclide {i}: the interval fission rates sum to {rate}"
                         ));
                     }
-                    Some(thermal / rate)
+                    Some(rates.iter().map(|r| r / rate).collect::<Vec<f64>>())
                 }
             };
+            let by_share = |value: &dyn Fn(&MicroNuclide) -> f64| -> Option<f64> {
+                shares.as_ref().map(|shares| {
+                    shares
+                        .iter()
+                        .zip(&segments)
+                        .map(|(s, n)| s * value(n))
+                        .sum()
+                })
+            };
+            let thermal_fission = by_share(&|n| n.thermal_fission.unwrap_or(f64::NAN));
             Ok(MicroNuclide {
                 total: by_group(&|n| &n.total),
                 nu_fission: by_group(&|n| &n.nu_fission),
@@ -522,6 +543,28 @@ pub(crate) fn mix_micro(
                                     .collect()
                             })
                             .collect(),
+                        // 反応率の微分（ADR-0215）は σᵢ と同じ重み。境界より下の核分裂の断面積の微分は、割合と同じく区間の
+                        // 核分裂率の割合で混ぜる
+                        rate: RateResidual {
+                            fission: by(&|d| &d.rate.fission),
+                            reactions: reference
+                                .reactions
+                                .iter()
+                                .enumerate()
+                                .map(|(r, reaction)| MicroReaction {
+                                    mt: reaction.mt,
+                                    channels: (0..reaction.channels.len())
+                                        .map(|c| by(&|d| &d.rate.reactions[r].channels[c]))
+                                        .collect(),
+                                })
+                                .collect(),
+                            thermal_fission: by_share(&|n| {
+                                n.derivative
+                                    .as_ref()
+                                    .and_then(|d| d.rate.thermal_fission)
+                                    .unwrap_or(f64::NAN)
+                            }),
+                        },
                     }
                 }),
             })

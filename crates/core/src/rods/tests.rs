@@ -474,11 +474,28 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
     let with = |rodded: bool| {
         let mut m = segment_micro(rodded);
         let scale = if rodded { -0.4 } else { 1.0 };
+        let sigma = m.nuclides[0].clone();
         m.nuclides[0].derivative = Some(xlc_format::table::MicroDerivative {
             total: vec![3.0 * scale, 70.0],
             nu_fission: vec![0.2, -1.5 * scale],
             fission: vec![0.08, -0.6],
             scatter: vec![vec![2.5 * scale, -0.3], vec![0.0, 9.0 * scale]],
+            rate: xlc_format::table::RateResidual {
+                fission: vec![-0.1 * scale, -2.0],
+                reactions: sigma
+                    .reactions
+                    .iter()
+                    .map(|r| xlc_format::table::MicroReaction {
+                        mt: r.mt,
+                        channels: r
+                            .channels
+                            .iter()
+                            .map(|c| c.iter().map(|x| -0.5 * scale * x).collect())
+                            .collect(),
+                    })
+                    .collect(),
+                thermal_fission: Some(-3.0 * scale),
+            },
         });
         m
     };
@@ -498,7 +515,34 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
         for h in 0..2 {
             assert!(close(d.scatter[g][h], average(&|d| d.scatter[g][h], g)));
         }
+        // 反応率の微分（ADR-0215）も σᵢ と同じ群の重み
+        assert!(close(d.rate.fission[g], average(&|d| d.rate.fission[g], g)));
+        for (r, reaction) in d.rate.reactions.iter().enumerate() {
+            for (c, channel) in reaction.channels.iter().enumerate() {
+                assert!(close(
+                    channel[g],
+                    average(&|d| d.rate.reactions[r].channels[c][g], g)
+                ));
+            }
+        }
     }
+    // 境界より下の核分裂の断面積の微分は、割合と同じ区間の核分裂率の割合で混ぜる: 割合の混ぜ方と同じ線形結合
+    let fraction = |s: usize| micro[s].nuclides[0].thermal_fission.unwrap();
+    let share =
+        (mixed.nuclides[0].thermal_fission.unwrap() - fraction(1)) / (fraction(0) - fraction(1));
+    let of = |s: usize| {
+        micro[s].nuclides[0]
+            .derivative
+            .as_ref()
+            .unwrap()
+            .rate
+            .thermal_fission
+            .unwrap()
+    };
+    assert!(close(
+        d.rate.thermal_fission.unwrap(),
+        share * of(0) + (1.0 - share) * of(1)
+    ));
     // 持たない核種は持たないまま。区間で持つかが違えばエラー
     assert!(mixed.nuclides[1].derivative.is_none());
     assert!(mix_micro(&[with(false), segment_micro(true)], &weights, &[2.0, 0.5]).is_err());

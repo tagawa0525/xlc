@@ -391,6 +391,16 @@ fn derivative(scale: f64) -> xlc_format::table::MicroDerivative {
         nu_fission: vec![0.2 * scale, -1.5 * scale],
         fission: vec![0.08 * scale, -0.6 * scale],
         scatter: vec![vec![2.5 * scale, -0.3 * scale], vec![0.0, 9.0 * scale]],
+        rate: unused_rate(),
+    }
+}
+
+/// 線形の補正と指標が使わない反応率の微分（ADR-0215。反応率にだけ足す）
+fn unused_rate() -> xlc_format::table::RateResidual {
+    xlc_format::table::RateResidual {
+        fission: vec![0.0; 2],
+        reactions: Vec::new(),
+        thermal_fission: None,
     }
 }
 
@@ -412,6 +422,7 @@ fn corrections_take_the_density_derivatives_of_the_nuclides_that_hold_them() {
                 nu_fission: s.nu_fission.clone(),
                 fission: s.fission.clone(),
                 scatter: s.scatter.clone(),
+                rate: unused_rate(),
             })
     };
     let n = [6.0e-4, 2.0e-5, 1.0e-6, 3.0e-9, 1.0e-8];
@@ -584,6 +595,7 @@ fn corrections_are_the_linear_correction_that_the_lattice_residual_subtracts() {
         nu_fission: vec![1.0, -150.0],
         fission: vec![0.35, -60.0],
         scatter: vec![vec![8.5, 0.12], vec![0.02, 7.0]],
+        rate: unused_rate(),
     });
     let n = [6.0e-4, 2.0e-5, 1.0e-6, 3.0e-9, 1.0e-8];
     let mut core = constants();

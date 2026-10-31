@@ -423,6 +423,8 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
             nu_fission: v(&d.nu_fission),
             fission: v(&d.fission),
             scatter: d.scatter.iter().map(|r| v(r)).collect(),
+            // 境界より下の核分裂は、テーブルが断面積の微分で持つ（割合ではない）ので、ほかの項目と同じく足す
+            rate: scaled_rate(&d.rate, w),
         }),
     }
 }
@@ -461,6 +463,7 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
         for (a, x) in a.scatter.iter_mut().zip(&x.scatter) {
             add(a, w, x);
         }
+        add_rate(&mut a.rate, w, &x.rate);
     }
 }
 
