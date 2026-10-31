@@ -1548,12 +1548,11 @@ fn each_linearization_item_at_the_nominal_densities_is_checked() {
     for (name, change) in items {
         let mut table = history_sample();
         change(&mut table.histories[0].rods[0]);
-        let err = table
-            .validate()
-            .err()
-            .unwrap_or_else(|| panic!("{name}: not checked"))
-            .to_string();
-        assert!(err.contains("nominal densities"), "{name}: {err}");
+        assert!(table.validate().is_err(), "{name}: not checked");
+        bad_history(
+            &|t| change(&mut t.histories[0].rods[0]),
+            "nominal densities",
+        );
     }
 }
 
@@ -1570,14 +1569,35 @@ fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_e
     let largest = |x: &[f64]| x.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
     let (f, sigma) = condition(&history_sample());
     let total = largest(&f.total);
-    let capture = largest(&sigma.reactions[1].channels[0]);
-    for (factor, fine) in [(0.9, true), (1.1, false)] {
-        let mut table = history_sample();
-        let rod = &mut table.histories[0].rods[0];
-        rod.linearization[0].total[0] = factor * NOMINAL_POINT_TOLERANCE * total;
-        rod.micro.linearization[0][0].reactions[1].channels[0][1] =
-            -factor * NOMINAL_POINT_TOLERANCE * capture;
-        assert_eq!(table.validate().is_ok(), fine, "{factor}");
+    type Set = fn(&mut HistoryRod, f64);
+    let items: [(&str, f64, Set); 4] = [
+        ("total", total, |r, x| r.linearization[0].total[0] = x),
+        // 散乱は行列の全体の最大（行の最大でない）。0 行目の最大より大きい値で、1 行目の最大の許容の内は通る
+        ("scatter", largest(&f.scatter.concat()), |r, x| {
+            r.linearization[0].scatter[0][1] = x
+        }),
+        // 捕獲は経路ごと
+        (
+            "capture",
+            largest(&sigma.reactions[1].channels[0]),
+            |r, x| r.micro.linearization[0][0].reactions[1].channels[0][1] = -x,
+        ),
+        // 収率の境界より下の核分裂の差は割合 × 群の和の σf なので、基準は群の和の σf（群の最大でない）
+        ("thermal fission", sigma.fission.iter().sum(), |r, x| {
+            r.micro.linearization[0][0].thermal_fission = Some(x)
+        }),
+    ];
+    assert!(largest(&f.scatter[0]) < 0.99 * largest(&f.scatter.concat()));
+    assert!(largest(&sigma.fission) < 0.99 * sigma.fission.iter().sum::<f64>());
+    for (name, scale, set) in items {
+        for (factor, fine) in [(0.99, true), (1.01, false)] {
+            let mut table = history_sample();
+            set(
+                &mut table.histories[0].rods[0],
+                factor * NOMINAL_POINT_TOLERANCE * scale,
+            );
+            assert_eq!(table.validate().is_ok(), fine, "{name} {factor}");
+        }
     }
     // 基準は項目ごとの最大: 吸収の最大の許容を超える吸収は、全断面積の最大の許容に入っても止める
     let absorption = largest(&f.absorption);
