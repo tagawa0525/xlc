@@ -614,15 +614,12 @@ pub fn add_linear_correction(f: &mut FewGroup, micro: &[MicroNuclide], delta: &[
         if d == 0.0 {
             continue;
         }
-        let (total, nu_fission, fission, scatter) = match &sigma.derivative {
-            Some(c) => (&c.total, &c.nu_fission, &c.fission, &c.scatter),
-            None => (
-                &sigma.total,
-                &sigma.nu_fission,
-                &sigma.fission,
-                &sigma.scatter,
-            ),
-        };
+        let LinearCoefficients {
+            total,
+            nu_fission,
+            fission,
+            scatter,
+        } = linear_coefficients(sigma);
         for (g, row) in scatter.iter().enumerate() {
             f.total[g] += d * total[g];
             f.absorption[g] += d * (total[g] - row.iter().sum::<f64>());
@@ -632,6 +629,35 @@ pub fn add_linear_correction(f: &mut FewGroup, micro: &[MicroNuclide], delta: &[
                 *a += d * s;
             }
         }
+    }
+}
+
+/// 1 つの追う核種の、線形の補正の係数 cᵢ（ADR-0216、ADR-0221）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LinearCoefficients<'a> {
+    pub total: &'a [f64],
+    pub nu_fission: &'a [f64],
+    pub fission: &'a [f64],
+    /// [入射の群][出射の群]
+    pub scatter: &'a [Vec<f64>],
+}
+
+/// 線形の補正の係数 cᵢ: 数密度の微分を持つ核種はその微分 ∂Σ/∂N̄ᵢ、ほかは σᵢ。線形の補正（`add_linear_correction`）と、core が
+/// 線形の補正から作る量（ADR-0215 の線形化の誤差の指標）が同じ係数を使うように、どちらもこの関数を呼ぶ
+pub fn linear_coefficients(sigma: &MicroNuclide) -> LinearCoefficients<'_> {
+    match &sigma.derivative {
+        Some(c) => LinearCoefficients {
+            total: &c.total,
+            nu_fission: &c.nu_fission,
+            fission: &c.fission,
+            scatter: &c.scatter,
+        },
+        None => LinearCoefficients {
+            total: &sigma.total,
+            nu_fission: &sigma.nu_fission,
+            fission: &sigma.fission,
+            scatter: &sigma.scatter,
+        },
     }
 }
 
