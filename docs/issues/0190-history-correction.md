@@ -371,6 +371,11 @@ ADR-0215 は、ADR-0035 の履歴の補正を、燃焼度で重みを付けた�
     `node_micro` で足し終えている）。lattice は摂動の解ごとに追う核種のすべての σᵢ を作り、使うのは微分の核種の 1 つ。
     history/residual-nominal-rate.toml は residual-nominal.toml と出力の名前だけが違う複製（前の入力は読めない形式の出力を指す）。比較の
     コミット 88ae0e437 の本文の core − 参照の範囲は「−8.720 to +6.778 pcm」で、最小の −14.036 pcm（32 MWd/kg）が抜けている（記録と ADR の値が正）
+    2 周目で残したもの（直していない）: 反応率の微分は +N の側の前進差分（ε = 0.1）で、core は 26〜40 MWd/kg で自分の数密度の項の係数
+    Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j が負の側で使う（σ ∝ N^−a、a 0.3〜0.5 と置くと傾きを 6〜8% 小さく取り、26 MWd/kg の Pu-240 の高速群の項 +0.449% に
+    約 −0.03%。残りの外れ −0.047% と同じ向きと桁の見込み。確かめていない。中心差分か ε と 2ε の外挿が候補）。core は N̄ᵢ⁰ を燃焼度の軸で、
+    ΔN̄ᵢ^j を R の点で内挿するので、R の点が軸の点の一部のテーブルでは、R の点の間の履歴の分岐の数密度で自分の数密度の項が 0 にならない
+    （P = P_j も同じ。2A は 17 点とも同じ点で起きない）
   - 形式を変えたので、`rate` を持たない前の、微分を持つテーブルは読めない: history/table-residual-nominal.msgpack（7b5fa50b。この記録の前の
     公称のテーブル）、history/table-weight-nominal-0661.msgpack と 0702（「履歴の重みと R の w への依存（2A）」）、branches/branch-2A-micro.toml
     と micro/nominal.toml、micro/perturbation-5.toml の出力（worktree には戻らなかった。確かめた md5 は無い）。読む作業のときに解き直す（1 本
