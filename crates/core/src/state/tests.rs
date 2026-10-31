@@ -1293,15 +1293,24 @@ fn residuals_are_interpolated_in_burnup_like_the_table_and_not_extrapolated() {
     let rod = HistoryRod {
         rod: ROD_OUT.into(),
         burnup: points.to_vec(),
-        residuals: points.iter().map(|&b| residual_at(b, 1.0e-4)).collect(),
+        untracked: points.iter().map(|&b| residual_at(b, 1.0e-4)).collect(),
+        linearization: points.iter().map(|&b| residual_at(b, -3.0e-4)).collect(),
+        densities: vec![Vec::new(); points.len()],
         micro: Vec::new(),
     };
-    // 点では、その点の残りそのもの
+    // 点では、その点の残りそのもの（追わない核種の分と線形化の誤差のどちらも）
     for (k, &b) in points.iter().enumerate() {
-        assert_eq!(interpolate_residual(&rod, b).unwrap(), rod.residuals[k]);
+        assert_eq!(
+            interpolate_residual(&rod, &rod.untracked, b).unwrap(),
+            rod.untracked[k]
+        );
+        assert_eq!(
+            interpolate_residual(&rod, &rod.linearization, b).unwrap(),
+            rod.linearization[k]
+        );
     }
     // 燃焼度について線形な残りは、3 次 Hermite でも線形のまま（ADR-0192 の重み）
-    let r = interpolate_residual(&rod, 17.0).unwrap();
+    let r = interpolate_residual(&rod, &rod.untracked, 17.0).unwrap();
     let expected = residual_at(17.0, 1.0e-4);
     let close = |a: f64, b: f64| (a - b).abs() <= 1.0e-15 * b.abs().max(1.0e-6);
     assert!(close(r.total[1], expected.total[1]), "{r:?}");
@@ -1310,7 +1319,44 @@ fn residuals_are_interpolated_in_burnup_like_the_table_and_not_extrapolated() {
     assert!(close(r.diffusion[0], expected.diffusion[0]), "{r:?}");
     // 点の範囲の外は外挿しない
     for b in [-1.0, 30.5] {
-        let err = interpolate_residual(&rod, b).unwrap_err();
+        let err = interpolate_residual(&rod, &rod.untracked, b).unwrap_err();
         assert!(err.contains("burnup"), "{err}");
     }
+}
+
+#[test]
+fn branch_density_differences_are_interpolated_like_the_residuals() {
+    // ΔN̄ᵢ^j = N̄ᵢ^j − N̄ᵢ⁰ を R の点で作り、R と同じ重み（ADR-0192。R の点で）で引く。N̄ᵢ⁰ はテーブルの燃焼度の軸の点の値
+    let axis = [0.0, 5.0, 10.0, 20.0, 30.0];
+    let nominal: Vec<Vec<f64>> = axis
+        .iter()
+        .map(|&b| vec![1.0 - 0.01 * b, 0.02 * b])
+        .collect();
+    let points = [0.0, 10.0, 20.0, 30.0];
+    // 燃焼度について線形な差（ΔN̄ = (2e-3 b, −1e-3 b)）
+    let rod = HistoryRod {
+        rod: ROD_OUT.into(),
+        burnup: points.to_vec(),
+        untracked: Vec::new(),
+        linearization: Vec::new(),
+        densities: points
+            .iter()
+            .map(|&b| vec![1.0 - 0.01 * b + 2.0e-3 * b, 0.02 * b - 1.0e-3 * b])
+            .collect(),
+        micro: Vec::new(),
+    };
+    for &b in &points {
+        let d = interpolate_branch_difference(&rod, &axis, &nominal, b).unwrap();
+        assert!(
+            (d[0] - 2.0e-3 * b).abs() < 1e-15 && (d[1] + 1.0e-3 * b).abs() < 1e-15,
+            "{b}: {d:?}"
+        );
+    }
+    let d = interpolate_branch_difference(&rod, &axis, &nominal, 17.0).unwrap();
+    assert!((d[0] - 2.0e-3 * 17.0).abs() < 1e-15, "{d:?}");
+    // 範囲の外は外挿しない。R の点がテーブルの燃焼度の軸の点でなければエラー
+    assert!(interpolate_branch_difference(&rod, &axis, &nominal, 30.5).is_err());
+    let err = interpolate_branch_difference(&rod, &[0.0, 10.0, 20.0, 25.0], &nominal[..4], 17.0)
+        .unwrap_err();
+    assert!(err.contains("burnup"), "{err}");
 }

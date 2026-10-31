@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use xlc_depletion::DepletionMatrix;
 use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{MicroNuclide, add_linear_correction};
+use xlc_format::table::{MicroNuclide, add_linear_correction, linear_coefficients};
 
 use crate::state::MicroAt;
 
@@ -585,6 +585,19 @@ pub fn correct(f: &mut FewGroup, micro: &MicroAt, n: &[f64]) {
         .map(|(density, nominal)| density - nominal)
         .collect();
     add_linear_correction(f, &micro.nuclides, &delta);
+}
+
+/// 熱群（最後の群）の νΣf の線形の補正 Σᵢ cᵢ_νf,G Δᵢ（係数は `add_linear_correction` と同じ）。履歴の補正の線形化の誤差 L を足す
+/// 比の指標（ADR-0215）
+pub fn production_index(micro: &[MicroNuclide], delta: &[f64]) -> f64 {
+    micro
+        .iter()
+        .zip(delta)
+        .map(|(sigma, d)| {
+            let nu_fission = linear_coefficients(sigma).nu_fission;
+            d * nu_fission[nu_fission.len() - 1]
+        })
+        .sum()
 }
 
 #[cfg(test)]

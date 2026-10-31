@@ -25,6 +25,16 @@ switch の参照の点ごとに、R(1) の成分を何倍して足すかで外�
 
 ほかに、U を w、L を指標の比で足したときの両方の外れの分（compare_split.py の両方の外れと同じ式）と、主な核種の ΔN̄ᵢ の比
 ΔN̄ᵢ^switch / ΔN̄ᵢ^(1) を出す。
+
+E は燃焼度の前半で符号を変えるので、その近くでは比を指標に使えない。符号を変えない候補として、群ごとの線形の補正の量の指標を 2 つ
+比べる（公称の状態の係数 cᵢ⁰ で、熱群（最後の群）の値。1/cm）:
+
+- P（熱群の νΣf の補正）: Σᵢ cᵢ⁰_νf,G ΔN̄ᵢ
+- A（熱群の吸収の補正）: Σᵢ (cᵢ⁰_t,G − Σ_g' cᵢ⁰_s,G→g') ΔN̄ᵢ
+
+switch の参照の点ごとに、L を P と A の比で R(1) から内挿した外れの分と、U を w、L を P の比で足した両方の外れの分を出す。密度だけの
+経路の 2 本（w = 0.5 と 1）は、燃焼度の点ごとに、E、P、A、L の比（0.702 / 0.661）を並べる（L は 2 本でほぼ同じ比に乗るので、
+指標の比がそこから外れる点では、その指標で L を内挿できない）。
 """
 
 import argparse
@@ -34,7 +44,7 @@ from pathlib import Path
 
 import compare_split as split
 from compare_core_history import same_burnup
-from compare_residual import added, difference, k_inf, md5, read, rho
+from compare_residual import added, coefficients, difference, k_inf, md5, read, rho
 from compare_weight import effect, scaled
 
 SUMMARIES = ("switch.json", "split.json")
@@ -57,6 +67,18 @@ def index_effect(nominal, burnup, densities):
     return rho(k_inf(split.base(nominal, burnup, densities))) - rho(
         k_inf(nominal["states"][p])
     )
+
+
+def group_indices(nominal, burnup, densities):
+    """熱群（最後の群）の線形の補正の量 (P, A)（モジュールの説明）。係数は公称の状態の値"""
+    b, p = split.nominal_state(nominal, burnup)
+    deltas = [x - y for x, y in zip(densities, nominal["micro"]["densities"][b])]
+    factors = coefficients(nominal["micro"]["states"][p])
+    production = sum(c["nu_fission"][-1] * d for c, d in zip(factors, deltas))
+    absorption = sum(
+        (c["total"][-1] - sum(c["scatter"][-1])) * d for c, d in zip(factors, deltas)
+    )
+    return production, absorption
 
 
 def positions(nominal, names):
@@ -83,11 +105,14 @@ def history_rows(nominal, rows, weights, at):
         e = index_effect(nominal, u, x["densities"])
         linearization = effect(state, x["linearization"])
         untracked = effect(state, x["untracked"])
+        production, absorption = group_indices(nominal, u, x["densities"])
         out.append(
             {
                 "burnup": u,
                 "weight": w,
                 "index_pcm": e,
+                "production": production,
+                "thermal_absorption": absorption,
                 "linearization_pcm": linearization,
                 "untracked_pcm": untracked,
                 "linearization_first": ratio(linearization, e),
@@ -151,6 +176,10 @@ def switch_rows(nominal, condition, switch, one, summary, split_summary, at):
         one_index = index_effect(nominal, u, o["densities"])
         # R(1) が公称の組成の点（燃焼度 0）では比を出さない
         index = ratio(own_index, one_index)
+        own_groups = group_indices(nominal, u, x["densities"])
+        one_groups = group_indices(nominal, u, o["densities"])
+        production = ratio(own_groups[0], one_groups[0])
+        absorption = ratio(own_groups[1], one_groups[1])
         j = rho(k_inf(nominal["states"][states[u][1]]))
         condition_index = ratio(
             rho(k_inf(x["linear"])) - j, rho(k_inf(o["linear"])) - j
@@ -162,6 +191,8 @@ def switch_rows(nominal, condition, switch, one, summary, split_summary, at):
             "difference_pcm": s["difference_pcm"],
             "index_ratio": index,
             "condition_index_ratio": condition_index,
+            "production_ratio": production,
+            "absorption_ratio": absorption,
             "linearization_weight": check["linearization_weight"],
             "untracked_weight": check["untracked_weight"],
             "density_ratios": {
@@ -188,19 +219,50 @@ def switch_rows(nominal, condition, switch, one, summary, split_summary, at):
         row["linearization_gap_condition_index_pcm"] = gap(
             reference, x["linearization"], o["linearization"], condition_index
         )
-        row["gap_mixed_pcm"] = (
-            None
-            if index is None
-            else removed(
-                reference,
-                added(
-                    difference(x["untracked"], scaled(o["untracked"], w)),
-                    difference(x["linearization"], scaled(o["linearization"], index)),
-                ),
+        for name, factor in (("production", production), ("absorption", absorption)):
+            row[f"linearization_gap_{name}_pcm"] = gap(
+                reference, x["linearization"], o["linearization"], factor
             )
-        )
+        row["gap_production_pcm"] = mixed(reference, x, o, w, production)
+        row["gap_mixed_pcm"] = mixed(reference, x, o, w, index)
         row["gap_weight_pcm"] = check["gap_pcm"]
         out.append(row)
+    return out
+
+
+def mixed(reference, own, one, w, factor):
+    """U を w、L を `factor` で R(1) から内挿した両方の外れの分 (pcm)。factor が無ければ None"""
+    if factor is None:
+        return None
+    return removed(
+        reference,
+        added(
+            difference(own["untracked"], scaled(one["untracked"], w)),
+            difference(own["linearization"], scaled(one["linearization"], factor)),
+        ),
+    )
+
+
+def density_pairs(half, full):
+    """密度だけの経路の燃焼度の点ごとの、E、P、A、L の比（0.702 / 0.661）。公称の組成の点は比を出さない"""
+    out = []
+    for h, f in zip(half, full, strict=True):
+        if not same_burnup(h["burnup"], f["burnup"]):
+            raise SystemExit("the density paths have other burnup points")
+        out.append(
+            {
+                "burnup": h["burnup"],
+                **{
+                    name: ratio(h[key], f[key])
+                    for key, name in (
+                        ("index_pcm", "index_ratio"),
+                        ("production", "production_ratio"),
+                        ("thermal_absorption", "absorption_ratio"),
+                        ("linearization_pcm", "linearization_ratio"),
+                    )
+                },
+            }
+        )
     return out
 
 
@@ -246,6 +308,7 @@ def compare(tables, summary, split_summary, names=NUCLIDES):
         "continued_burnup": summary["continued_burnup"],
         "nuclides": list(names),
         "histories": histories,
+        "density_pairs": density_pairs(histories["half"], histories["full"]),
         "switch": switch_rows(
             nominal, condition, switch, one, summary, split_summary, at
         ),
@@ -324,6 +387,21 @@ def report(summary):
         f"{span([x['untracked_gap_index_squared_pcm'] for x in rows], '+.3f')} pcm。両方の外れの分は、U を w、L を指標の比で "
         f"{span([x['gap_mixed_pcm'] for x in rows], '+.3f')} pcm（どちらも w で {span([x['gap_weight_pcm'] for x in rows], '+.3f')} pcm、"
         f"core − 参照 {span([x['difference_pcm'] for x in rows], '+.3f')} pcm）"
+    )
+    lines.append(
+        f"熱群の νΣf の補正の比と熱群の吸収の補正の比（switch の {len(rows)} 点）: "
+        f"{span([x['production_ratio'] for x in rows], '.4f')}、{span([x['absorption_ratio'] for x in rows], '.4f')}。"
+        f"L の外れの分は {span([x['linearization_gap_production_pcm'] for x in rows], '+.3f')}、"
+        f"{span([x['linearization_gap_absorption_pcm'] for x in rows], '+.3f')} pcm。U を w、L を熱群の νΣf の補正の比で足した"
+        f"両方の外れの分は {span([x['gap_production_pcm'] for x in rows], '+.3f')} pcm"
+    )
+    pairs = [x for x in summary["density_pairs"] if x["index_ratio"] is not None]
+    lines.append(
+        f"密度だけの経路の比（0.702 / 0.661、燃焼度 0 を除く {len(pairs)} 点）: E {span([x['index_ratio'] for x in pairs], '.4f')}、"
+        f"熱群の νΣf の補正 {span([x['production_ratio'] for x in pairs], '.4f')}、熱群の吸収の補正 "
+        f"{span([x['absorption_ratio'] for x in pairs], '.4f')}、L {span([x['linearization_ratio'] for x in pairs], '.4f')}。"
+        f"R(1) の E の符号は {', '.join(f'{x['burnup']:.4g}: {x['index_pcm']:+.2f}' for x in histories['one'] if 0 < x['burnup'] <= 6)} pcm、"
+        f"熱群の νΣf の補正は {span([x['production'] for x in histories['one'] if x['burnup'] > 0], '.4e')} 1/cm"
     )
     # 記録の表（verification_tables.py の signed）と同じ負の符号。核種の名前（U-235）のハイフンは残す
     return re.sub(r"(?<![A-Za-z])-", "−", "\n".join(lines))

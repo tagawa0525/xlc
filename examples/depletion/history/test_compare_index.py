@@ -260,7 +260,100 @@ class Switch(unittest.TestCase):
         self.assertEqual(last["untracked_weight"], split["untracked_weight"])
 
 
+def group_index(t, table, burnup, key):
+    """`table` の燃焼度 `burnup`（燃焼度の点の番号）の数密度の、公称の状態の係数での熱群（最後の群）の線形の補正（`key` は
+    `nu_fission` か `absorption`）"""
+    nominal = t["nominal"]
+    densities = t[table]["micro"]["densities"][burnup]
+    u = t[table]["axes"][0]["points"][burnup]
+    b, p = s.nominal_state(nominal, u)
+    deltas = [x - y for x, y in zip(densities, nominal["micro"]["densities"][b])]
+    coefficients = r.coefficients(nominal["micro"]["states"][p])
+    if key == "absorption":
+        return sum(
+            (x["total"][-1] - sum(x["scatter"][-1])) * d
+            for x, d in zip(coefficients, deltas)
+        )
+    return sum(x[key][-1] * d for x, d in zip(coefficients, deltas))
+
+
+def production_tables():
+    """switch の L が R(1) の L の、熱群の νΣf の補正の比 P_switch / P(1) 倍のテーブル（20 MWd/kg）"""
+    t = fixture()
+    ratio = group_index(t, "switch", 1, "nu_fission") / group_index(
+        t, "one", 1, "nu_fission"
+    )
+    return fixture(ratio), ratio
+
+
+class GroupIndices(unittest.TestCase):
+    def test_group_indices_are_the_thermal_linear_corrections_of_the_nominal_state(
+        self,
+    ):
+        t = fixture()
+        result = compared(t)
+        for name in ("one", "switch"):
+            last = result["histories"][name][-1]
+            self.assertAlmostEqual(
+                last["production"], group_index(t, name, 1, "nu_fission"), delta=1e-15
+            )
+            self.assertAlmostEqual(
+                last["thermal_absorption"],
+                group_index(t, name, 1, "absorption"),
+                delta=1e-15,
+            )
+        # 公称の組成の点は 0
+        self.assertEqual(result["histories"]["one"][0]["production"], 0.0)
+
+    def test_a_part_proportional_to_the_production_index_leaves_no_gap(self):
+        t, ratio = production_tables()
+        last = compared(t)["switch"][-1]
+        self.assertAlmostEqual(last["production_ratio"], ratio, delta=1e-15)
+        self.assertAlmostEqual(
+            last["linearization_gap_production_pcm"], 0.0, delta=1e-9
+        )
+        self.assertGreater(abs(last["linearization_gap_index_pcm"]), 1e-3)
+        # 両方の外れ（U は w、L は熱群の νΣf の補正の比）は U の w の外れだけ
+        self.assertAlmostEqual(
+            last["gap_production_pcm"], last["untracked_gap_weight_pcm"], delta=1e-9
+        )
+
+    def test_the_absorption_index_gap_takes_the_ratio_of_the_thermal_absorption(self):
+        t = fixture()
+        last = compared(t)["switch"][-1]
+        ratio = group_index(t, "switch", 1, "absorption") / group_index(
+            t, "one", 1, "absorption"
+        )
+        self.assertAlmostEqual(last["absorption_ratio"], ratio, delta=1e-15)
+        ref = t["switch"]["states"][1]
+        expected = rho(r.added(ref, thermal(ratio - 0.4))) - rho(ref)
+        self.assertAlmostEqual(
+            last["linearization_gap_absorption_pcm"], expected, delta=1e-9
+        )
+
+    def test_density_pairs_set_the_index_ratios_against_the_ratio_of_the_parts(self):
+        result = compared()
+        pairs = result["density_pairs"]
+        half, full = result["histories"]["half"], result["histories"]["full"]
+        self.assertEqual([x["burnup"] for x in pairs], [x["burnup"] for x in half])
+        last, h, f = pairs[-1], half[-1], full[-1]
+        for key, name in (
+            ("index_pcm", "index_ratio"),
+            ("production", "production_ratio"),
+            ("thermal_absorption", "absorption_ratio"),
+            ("linearization_pcm", "linearization_ratio"),
+        ):
+            self.assertAlmostEqual(last[name], h[key] / f[key], delta=1e-15)
+        # 公称の組成の点は比を出さない
+        self.assertIsNone(pairs[0]["production_ratio"])
+
+
 class Report(unittest.TestCase):
+    def test_report_names_the_group_indices(self):
+        text = c.report(compared(fixture()))
+        self.assertIn("熱群の νΣf の補正の比", text)
+        self.assertIn("熱群の吸収の補正の比", text)
+
     def test_report_names_the_index_and_the_gaps(self):
         text = c.report(compared())
         self.assertIn("L/E", text)

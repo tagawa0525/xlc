@@ -873,14 +873,18 @@ pub fn moderator_density(table: &Table, temperature: f64) -> Result<f64, String>
     Ok(terms.iter().fold(0.0, |acc, &(i, w)| acc + w * density[i]))
 }
 
-/// 履歴の残り R（ADR-0215）の 1 つの制御棒の値 `rod` を、燃焼度 `burnup` で、燃焼度の軸と同じ内挿（ADR-0192。R の燃焼度の点で）で
-/// 引いた値。R の燃焼度の点の範囲の外はエラー（外挿しない）
-pub fn interpolate_residual(rod: &HistoryRod, burnup: f64) -> Result<Residual, String> {
+/// 履歴の残りの成分 `residuals`（ADR-0215。制御棒の値 `rod` の追わない核種の分か線形化の誤差）を、燃焼度 `burnup` で、燃焼度の軸と
+/// 同じ内挿（ADR-0192。R の燃焼度の点で）で引いた値。R の燃焼度の点の範囲の外はエラー（外挿しない）
+pub fn interpolate_residual(
+    rod: &HistoryRod,
+    residuals: &[Residual],
+    burnup: f64,
+) -> Result<Residual, String> {
     let terms = burnup_terms(&rod.burnup, burnup)
         .map_err(|e| format!("the history residual of the rod value {}: {e}", rod.rod))?;
     let mut out: Option<Residual> = None;
     for (k, w) in terms {
-        let r = rod.residuals.get(k).ok_or_else(|| {
+        let r = residuals.get(k).ok_or_else(|| {
             format!(
                 "the history residual of the rod value {} has no burnup point {k}",
                 rod.rod
@@ -892,6 +896,49 @@ pub fn interpolate_residual(rod: &HistoryRod, burnup: f64) -> Result<Residual, S
         }
     }
     out.ok_or_else(|| format!("the history residual of the rod value {} is empty", rod.rod))
+}
+
+/// 履歴の分岐の均質化した数密度と公称の数密度の差 ΔN̄ᵢ^j = N̄ᵢ^j − N̄ᵢ⁰ を、制御棒の値 `rod` の R の点で作り、燃焼度 `burnup` で R と同じ
+/// 内挿（ADR-0192。R の燃焼度の点で）で引いた値（追う核種の順。ADR-0215 の線形化の誤差の指標）。N̄ᵢ⁰ はテーブルの燃焼度の軸 `axis` の
+/// 点の数密度 `nominal`。R の点が軸の点でないか、範囲の外ならエラー（外挿しない）。差を R の点で作ってから引くのは、R の点が軸の点の一部の
+/// とき、2 つの数密度を別々の点で内挿した差にしないため
+pub fn interpolate_branch_difference(
+    rod: &HistoryRod,
+    axis: &[f64],
+    nominal: &[Vec<f64>],
+    burnup: f64,
+) -> Result<Vec<f64>, String> {
+    let terms = burnup_terms(&rod.burnup, burnup)
+        .map_err(|e| format!("the branch densities of the rod value {}: {e}", rod.rod))?;
+    let mut out: Option<Vec<f64>> = None;
+    for (k, w) in terms {
+        let (b, densities) = rod.burnup.get(k).zip(rod.densities.get(k)).ok_or_else(|| {
+            format!(
+                "the branch densities of the rod value {} have no burnup point {k}",
+                rod.rod
+            )
+        })?;
+        let n0 = axis
+            .iter()
+            .position(|&p| p == *b)
+            .and_then(|i| nominal.get(i))
+            .ok_or_else(|| {
+                format!(
+                    "the residual burnup {b} of the rod value {} is not a point of the burnup axis",
+                    rod.rod
+                )
+            })?;
+        let acc = out.get_or_insert_with(|| vec![0.0; densities.len()]);
+        for ((a, nj), n) in acc.iter_mut().zip(densities).zip(n0) {
+            *a += w * (nj - n);
+        }
+    }
+    out.ok_or_else(|| {
+        format!(
+            "the branch densities of the rod value {} are empty",
+            rod.rod
+        )
+    })
 }
 
 /// 反応率の微視的断面積の差（ADR-0215 の案 S2）の 1 つの制御棒の値 `rod` を、燃焼度 `burnup` で R と同じ内挿（ADR-0192。R の燃焼度の
