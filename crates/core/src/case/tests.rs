@@ -1102,7 +1102,7 @@ fn production_index_rate_residuals_without_a_branch_index_are_errors() {
         RateResidualWeight::ProductionIndex,
     )
     .unwrap_err();
-    assert!(err.contains("index"), "{err}");
+    assert!(err.contains("differ from the nominal"), "{err}");
     // w の重みは比を使わない
     assert!(
         node_micro(
