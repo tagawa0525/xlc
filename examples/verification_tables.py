@@ -2159,6 +2159,90 @@ def history_index_gaps(sources: list[dict]) -> str:
     return markdown_table(header, rows)
 
 
+def history_index_groups(sources: list[dict]) -> str:
+    """線形化の誤差と組成の指標（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、w、E の比と熱群の線形の補正の量の比、L をそれぞれの
+    比で R(1) から内挿した外れの分と、U を w で足した両方の外れの分（pcm）"""
+    s = index_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "E の比",
+            "熱群の νΣf の補正の比",
+            "熱群の吸収の補正の比",
+            "L の外れ: E の比 (pcm)",
+            "L の外れ: 熱群の νΣf の補正の比 (pcm)",
+            "L の外れ: 熱群の吸収の補正の比 (pcm)",
+            "両方の外れ: U は w、L は E の比 (pcm)",
+            "両方の外れ: U は w、L は熱群の νΣf の補正の比 (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                ratio_or_dash(r["index_ratio"]),
+                ratio_or_dash(r["production_ratio"]),
+                ratio_or_dash(r["absorption_ratio"]),
+                signed_or_dash(r["linearization_gap_index_pcm"], 3),
+                signed_or_dash(r["linearization_gap_production_pcm"], 3),
+                signed_or_dash(r["linearization_gap_absorption_pcm"], 3),
+                signed_or_dash(r["gap_mixed_pcm"], 3),
+                signed_or_dash(r["gap_production_pcm"], 3),
+            ]
+            for r in s["switch"]
+        ],
+    )
+
+
+def history_index_density(sources: list[dict]) -> str:
+    """線形化の誤差と組成の指標（ADR-0215）: 密度だけの経路の燃焼度の点ごとの、E、熱群の線形の補正の量、L の比（0.702 / 0.661）"""
+    s = index_summary(sources)
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "E の比",
+            "熱群の νΣf の補正の比",
+            "熱群の吸収の補正の比",
+            "L の比",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                ratio_or_dash(r["index_ratio"]),
+                ratio_or_dash(r["production_ratio"]),
+                ratio_or_dash(r["absorption_ratio"]),
+                ratio_or_dash(r["linearization_ratio"]),
+            ]
+            for r in s["density_pairs"]
+        ],
+    )
+
+
+def history_forgetting(sources: list[dict]) -> str:
+    """追わない核種の分 U の指数の重み（ADR-0215）: τ ごとの、途中で条件を変えた燃焼の参照の点の w_τ と、U(1) を w_τ 倍して足した外れの分
+    （pcm）と、その絶対値の最大"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-forgetting":
+        raise TableError("not an xlc-compare-history-forgetting summary")
+    burnups = [p["burnup"] for p in s["rows"][0]["points"]]
+    header = ["τ (MWd/kg)", "外れの絶対値の最大 (pcm)"]
+    for u in burnups:
+        header += [
+            f"{burnup_label(u)} MWd/kg の w",
+            f"{burnup_label(u)} MWd/kg の外れ (pcm)",
+        ]
+    rows = []
+    for r in s["rows"]:
+        if [p["burnup"] for p in r["points"]] != burnups:
+            raise TableError("the time constants have other burnup points")
+        tau = "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−")
+        row = [tau, f"{r['largest_pcm']:.3f}"]
+        for p in r["points"]:
+            row += [f"{p['weight']:.4f}", signed(p["gap_pcm"], 3)]
+        rows.append(row)
+    return markdown_table(header, rows)
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2587,6 +2671,7 @@ GIT_TRACKED = {
     "examples/depletion/history/weight.json",
     "examples/depletion/history/split.json",
     "examples/depletion/history/index.json",
+    "examples/depletion/history/forgetting.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
@@ -3229,6 +3314,18 @@ TABLES = {
     "depletion-history-index-gaps": (
         ["examples/depletion/history/index.json"],
         history_index_gaps,
+    ),
+    "depletion-history-forgetting": (
+        ["examples/depletion/history/forgetting.json"],
+        history_forgetting,
+    ),
+    "depletion-history-index-groups": (
+        ["examples/depletion/history/index.json"],
+        history_index_groups,
+    ),
+    "depletion-history-index-density": (
+        ["examples/depletion/history/index.json"],
+        history_index_density,
     ),
     "depletion-history-densities-density": (
         ["examples/depletion/history/history-effect.json"],

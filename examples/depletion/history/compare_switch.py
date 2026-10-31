@@ -29,6 +29,7 @@ from itertools import pairwise
 from pathlib import Path
 
 from compare_core_history import (
+    LARGEST,
     Table,
     largest_density_difference,
     same_burnup,
@@ -107,6 +108,20 @@ def composition(state, coeff, reference_densities, node):
     return rho(k_inf(corrected(state, coeff, deltas))) - rho(k_inf(state))
 
 
+def composition_nuclides(state, coeff, reference_densities, node, nuclides):
+    """核種ごとの数密度の効き（その核種だけの差を足した効き）の、絶対値の大きい `LARGEST` 核種"""
+    deltas = [x - y for x, y in zip(node["densities"], reference_densities)]
+    k0 = rho(k_inf(state))
+    out = []
+    for i, name in enumerate(nuclides):
+        only = [d if j == i else 0.0 for j, d in enumerate(deltas)]
+        out.append(
+            {"nuclide": name, "pcm": rho(k_inf(corrected(state, coeff, only))) - k0}
+        )
+    out.sort(key=lambda x: -abs(x["pcm"]))
+    return out[:LARGEST]
+
+
 def check_core_history(core_history, md5s):
     """一生を条件 j で燃焼させた比較の要約が、同じ R を持つテーブル、core の途中で条件を変えた燃焼、R を持たないテーブル（補正を切った
     core のテーブル。md5 `md5s`）から作ったものであること"""
@@ -161,6 +176,9 @@ def compare(table, reference, history, core, plain, core_history):
                 "difference_pcm": rho(n["k"]) - rho(state["k_inf"]),
                 "plain_difference_pcm": rho(q["k"]) - rho(state["k_inf"]),
                 "composition_pcm": composition(state, coeff, n_ref, n),
+                "composition_nuclides": composition_nuclides(
+                    state, coeff, n_ref, n, nuclides
+                ),
                 "plain_composition_pcm": composition(state, coeff, n_ref, q),
                 "density_percent": largest,
                 "density_nuclide": name,
@@ -257,7 +275,15 @@ def report(summary):
         f"参照の分岐と格子計算の履歴の点の k∞ の差は {span('reference_history_pcm', rows)} pcm。"
         f"\n{u0:.4g} MWd/kg より後の参照の点 {len(later)} で、履歴の補正の core − 参照は {span('difference_pcm')} pcm"
         f"（最後の点 {last['burnup']:.4g} MWd/kg で {last['difference_pcm']:+.3f} pcm、w = {last['weight']:.6f}）。"
-        f"そのうち数密度の効きは {span('composition_pcm')} pcm（最後の点で {last['composition_pcm']:+.3f} pcm）。"
+        f"そのうち数密度の効きは {span('composition_pcm')} pcm（最後の点で {last['composition_pcm']:+.3f} pcm）、"
+        f"数密度の効きを除いた残り（core − 参照 − 数密度の効き）は "
+        f"{min(x['difference_pcm'] - x['composition_pcm'] for x in later):+.3f}〜"
+        f"{max(x['difference_pcm'] - x['composition_pcm'] for x in later):+.3f} pcm。"
+        f"最後の点の数密度の効きの大きい核種: "
+        + "、".join(
+            f"{x['nuclide']} {x['pcm']:+.2f}" for x in last["composition_nuclides"]
+        )
+        + " pcm。"
         f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、公称の燃焼の core − 公称の"
         f"テーブル {span('nominal_difference_pcm')} pcm。"
         f"\n補正を切った core − 参照は {span('plain_difference_pcm')} pcm（最後の点で {last['plain_difference_pcm']:+.3f} pcm）、"

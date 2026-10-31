@@ -70,6 +70,31 @@ def residual(branch: dict, linear: dict) -> dict:
     return out
 
 
+# 追わない核種の分 U の、残り R に占める割合（fixture の R を U と L に分ける。U + L = R）
+UNTRACKED_SHARE = 0.25
+
+
+def history_rod(burnup, rs, densities):
+    """R の列 `rs` を U = 0.25 R と L = R − U に分けた、制御棒の値 out の履歴の補正（lattice histories と同じ形）"""
+
+    def part(x, share):
+        return {
+            k: [[share * a for a in row] for row in v]
+            if k in ("scatter", "adf")
+            else [share * a for a in v]
+            for k, v in x.items()
+        }
+
+    untracked = [part(x, UNTRACKED_SHARE) for x in rs]
+    return {
+        "rod": "out",
+        "burnup": burnup,
+        "untracked": untracked,
+        "linearization": [residual(x, u) for x, u in zip(rs, untracked)],
+        "densities": densities,
+    }
+
+
 class Compare(unittest.TestCase):
     def tables(self):
         """公称（燃焼度 0、10、20。減速材の公称 565 K と条件 600 K。条件は 0 と 20 で解く）、条件の分岐、逆向き、履歴"""
@@ -100,10 +125,11 @@ class Compare(unittest.TestCase):
                     "variable": "moderator-density",
                     "nominal": 0.743,
                     "branch": 0.661,
-                    "rods": [{"rod": "out", "burnup": [0.0, 20.0], "residuals": rs}],
+                    "rods": [history_rod([0.0, 20.0], rs, branch_densities)],
                 }
             ],
         }
+        self.rs = rs
 
         def single(states, temperature, density):
             return {
@@ -176,12 +202,7 @@ class Compare(unittest.TestCase):
         # 条件の R の公称の状態での効きと、それを公称の状態で使った誤差（= 公称の状態での R の効き − 逆向きの R の効き）
         self.assertAlmostEqual(
             r["residual_nominal_pcm"],
-            c.rho(
-                c.k_inf(
-                    c.added(linear, nominal["histories"][0]["rods"][0]["residuals"][1])
-                )
-            )
-            - c.rho(c.k_inf(linear)),
+            c.rho(c.k_inf(c.added(linear, self.rs[1]))) - c.rho(c.k_inf(linear)),
             places=9,
         )
         self.assertAlmostEqual(
@@ -189,7 +210,7 @@ class Compare(unittest.TestCase):
             r["residual_nominal_pcm"] - r["reverse_residual_pcm"],
             places=8,
         )
-        with_r = c.added(linear, nominal["histories"][0]["rods"][0]["residuals"][1])
+        with_r = c.added(linear, self.rs[1])
         self.assertAlmostEqual(
             r["applied_pcm"],
             c.rho(c.k_inf(with_r)) - c.rho(c.k_inf(reverse["states"][1])),
@@ -240,3 +261,23 @@ class Compare(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Residual(unittest.TestCase):
+    def test_the_residual_is_the_untracked_part_and_the_linearization(self):
+        nominal, *_ = Compare().tables()
+        rod = nominal["histories"][0]["rods"][0]
+        x = c.residual(rod, 1)
+        for key in ("total", "absorption", "nu_fission", "chi"):
+            for g in range(2):
+                self.assertAlmostEqual(
+                    x[key][g],
+                    rod["untracked"][1][key][g] + rod["linearization"][1][key][g],
+                    delta=1e-18,
+                )
+        self.assertAlmostEqual(
+            x["scatter"][1][0],
+            rod["untracked"][1]["scatter"][1][0]
+            + rod["linearization"][1]["scatter"][1][0],
+            delta=1e-18,
+        )

@@ -16,19 +16,30 @@
 - 第 1 項のテーブルで燃焼させた core（`core-2A-sigma-branch.toml`。条件 j の燃焼と同じで、テーブルだけが第 1 項）: 同じ点の k の第 1 項の
   k∞ からの差と、数密度の同じ相対差（履歴の補正が目指す水準）
 - 途中で条件を変えた燃焼（`core-2A-residual-switch.toml`。20 MWd/kg まで 565 K、その後 600 K）: 燃焼点ごとに、ノードの減速材の密度の
-  履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、誤差の上限 w × max |公称の状態で使った誤差|。R の燃焼度の点では、R の効き
-  ρ(f + w R) − ρ(f) と、R の点ごとの誤差の上限 w × |公称の状態で使った誤差(u)|
+  履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、R の状態への依存の目安 w × max |公称の状態で使った誤差|（R の全体を w で足すと置いた値。core は L を
+  w でなく P / P_j で足すので、L の分の目安にならない）。R の燃焼度の点では、履歴の補正の効き ρ(f + w U + (P / P_j) L) − ρ(f) と、R の点ごとの
+  目安 w × |公称の状態で使った誤差(u)|
 
-f はノードの定数のうち R の前まで（テーブルのその状態の格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)。Nᵢ は core の数密度。core と同じ係数）で、
-R の燃焼度の点の、状態が格子点の燃焼点だけで組み立てる。`reconstruct_pcm` は ρ(f + w R) の 2 群の k と core の k の差（core が R を
-足したことの検査。1 ノードの反射境界の k は 2 群の無限媒質の k）。ρ = 1 − 1/k で、差は pcm。
+f はノードの定数のうち履歴の補正の前まで（テーブルのその状態の格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)。Nᵢ は core の数密度。core と同じ係数）で、
+R の燃焼度の点の、状態が格子点の燃焼点だけで組み立てる。U は w、L は熱群の νΣf の線形の補正の比 P / P_j で足す（`Table.node_k`）。
+`reconstruct_pcm` は f + w U + (P / P_j) L の 2 群の k と core の k の差（core が補正を足したことの検査。1 ノードの反射境界の k は 2 群の
+無限媒質の k）。ρ = 1 − 1/k で、差は pcm。
 """
 
 import argparse
 import json
 from pathlib import Path
 
-from compare_residual import added, coefficients, corrected, k_inf, md5, read, rho
+from compare_residual import (
+    added,
+    coefficients,
+    corrected,
+    k_inf,
+    md5,
+    read,
+    residual,
+    rho,
+)
 
 FILES = {
     "residual_table": "table-residual-nominal-histories.msgpack",
@@ -125,21 +136,43 @@ class Table:
         return self.points[index], b
 
     def node_k(self, node, w, label):
-        """ノードの定数（格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)）の 2 群の k と、w R を足した 2 群の k"""
+        """ノードの定数（格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)）の 2 群の k と、core と同じく w U + (P / P_j) L を足した 2 群の k（ADR-0215）。
+        P は熱群（最後の群）の νΣf の線形の補正のノードの数密度の差のもの、P_j は同じ係数の履歴の分岐の数密度の差のもの。履歴の分岐の
+        数密度が公称と同じ点は L を足さない（L は定義から 0）"""
         p, b = self.point(node["burnup"], node["moderator"], label)
         micro = self.table["micro"]
+        factors = coefficients(micro["states"][p])
         deltas = [x - y for x, y in zip(node["densities"], micro["densities"][b])]
-        f = corrected(self.table["states"][p], coefficients(micro["states"][p]), deltas)
+        f = corrected(self.table["states"][p], factors, deltas)
         if w == 0.0:
             return k_inf(f), k_inf(f)
-        r = self.rod["residuals"][self.residual_index(node["burnup"])]
-        scaled = {
-            key: [[w * x for x in row] for row in value]
-            if key in ("scatter", "adf")
-            else [w * x for x in value]
-            for key, value in r.items()
-        }
-        return k_inf(f), k_inf(added(f, scaled))
+        k = self.residual_index(node["burnup"])
+        g = added(f, scaled(self.rod["untracked"][k], w))
+        branch = [
+            x - y for x, y in zip(self.rod["densities"][k], micro["densities"][b])
+        ]
+        if any(d != 0.0 for d in branch):
+            own = production(factors, deltas)
+            of_branch = production(factors, branch)
+            if of_branch == 0.0:
+                raise SystemExit(f"{label}: the branch index is 0 at {node['burnup']}")
+            g = added(g, scaled(self.rod["linearization"][k], own / of_branch))
+        return k_inf(f), k_inf(g)
+
+
+def production(factors, deltas):
+    """熱群（最後の群）の νΣf の線形の補正 Σᵢ cᵢ_νf,G Δᵢ（core の `production_index`）"""
+    return sum(c["nu_fission"][-1] * d for c, d in zip(factors, deltas))
+
+
+def scaled(r, w):
+    """w 倍した残り"""
+    return {
+        key: [[w * x for x in row] for row in value]
+        if key in ("scatter", "adf")
+        else [w * x for x in value]
+        for key, value in r.items()
+    }
 
 
 def check_summary(residual_summary, table_md5):
@@ -179,7 +212,7 @@ def composition(t, node, first_densities, first_states):
             coeff,
             [x - y for x, y in zip(first_densities, micro["densities"][b])],
         ),
-        t.rod["residuals"][k],
+        residual(t.rod, k),
     )
     k_base = k_inf(base)
     deltas = [x - y for x, y in zip(node["densities"], first_densities)]
@@ -383,7 +416,7 @@ def report(summary):
         f"\n条件 j の燃焼（w = 1）の core の k と第 1 項のテーブルの k∞ の差は、R の点 {len(branch)} で "
         f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。公称の燃焼の core と公称の"
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
-        f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + R の 2 群の k の差は "
+        f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + w U + (P / P_j) L の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"
         f"\n第 1 項のテーブルで燃焼させた core の k と第 1 項のテーブルの k∞ の差は {span(branch, 'sigma_difference_pcm')} pcm"
         f"（15 MWd/kg 以後 {span(later, 'sigma_difference_pcm')} pcm）。"
@@ -394,8 +427,8 @@ def report(summary):
         f"\n途中で条件を変えた燃焼: w は "
         f"{first_weight}、"
         f"最後の点 {last['burnup']:.4g} MWd/kg で "
-        f"H = {last['history']:.6f} g/cc、w = {last['weight']:.6f}、誤差の上限 w × {summary['applied_max_pcm']:.2f} = "
-        f"{last['bound_pcm']:.2f} pcm。R の点の R の効きは {span(switch, 'residual_pcm')} pcm、点ごとの誤差の上限は "
+        f"H = {last['history']:.6f} g/cc、w = {last['weight']:.6f}、R の状態への依存の目安 w × {summary['applied_max_pcm']:.2f} = "
+        f"{last['bound_pcm']:.2f} pcm。R の点の履歴の補正の効きは {span(switch, 'residual_pcm')} pcm、点ごとの目安は "
         f"{span(switch, 'applied_bound_pcm')} pcm、core の k と組み立てた 2 群の k の差は {span(switch, 'reconstruct_pcm', '+.1e')} pcm"
     )
 

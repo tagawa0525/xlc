@@ -46,6 +46,7 @@ from compare_residual import (
     k_inf,
     md5,
     read,
+    residual,
     rho,
 )
 from compare_weight import condition_table, effect, largest_difference, scaled
@@ -171,7 +172,7 @@ def one_rows(nominal, rows):
         found = [k for k, u in enumerate(rod["burnup"]) if same_burnup(u, x["burnup"])]
         if len(found) != 1:
             raise SystemExit(f"the histories have no single R at {x['burnup']}")
-        check = largest_difference(x["residual"], rod["residuals"][found[0]])
+        check = largest_difference(x["residual"], residual(rod, found[0]))
         if check > HISTORIES_TOLERANCE:
             raise SystemExit(
                 f"R(1) at {x['burnup']} differs by {check:.2e} from the R that the core adds"
