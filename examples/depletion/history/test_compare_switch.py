@@ -174,6 +174,36 @@ class Compare(unittest.TestCase):
         self.assertIn("参照", text)
         self.assertIn("補正を切った", text)
 
+    def test_the_composition_is_split_by_nuclide(self):
+        # 数密度の効きを核種ごと（その核種だけの差）に分け、効きの大きい順に並べる
+        s = compared()
+        last = s["rows"][1]
+        ref = reference()
+        t = table()
+        coeff = r.coefficients(t["micro"]["states"][t["points"].index([2, 0, 1, 0])])
+        base = ref["states"][1]
+        expected = {}
+        for i, name in enumerate(NUCLIDES):
+            only = [
+                a - b if j == i else 0.0
+                for j, (a, b) in enumerate(zip(N20, REFERENCE20))
+            ]
+            expected[name] = r.rho(r.k_inf(r.corrected(base, coeff, only))) - r.rho(
+                r.k_inf(base)
+            )
+        got = last["composition_nuclides"]
+        self.assertEqual(
+            [x["nuclide"] for x in got],
+            sorted(NUCLIDES, key=lambda n: -abs(expected[n])),
+        )
+        for x in got:
+            self.assertAlmostEqual(x["pcm"], expected[x["nuclide"]], places=9)
+        text = c.report(s)
+        # 数密度の効きを除いた残り（定数の側）と、最後の点の核種ごとの効き
+        rest = last["difference_pcm"] - last["composition_pcm"]
+        self.assertIn(f"{rest:+.3f}".replace("-", "−"), text.replace("-", "−"))
+        self.assertIn(got[0]["nuclide"], text)
+
     def test_weights_of_other_omegas_estimate_the_difference(self):
         # core の H（ω = 1）から各ステップの x を戻し、H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ωΔB) で進め直した w と、補正の量が w に
         # 比例すると置いた差の見込み: 補正を切った差 − w(ω) / w(1) × (補正を切った差 − 補正した差)
