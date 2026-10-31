@@ -714,15 +714,45 @@ fn linearization_indices_between_residual_points_take_the_interpolated_branch_di
 
 #[test]
 fn linearizations_without_a_branch_index_are_errors() {
-    // 履歴の分岐の数密度が公称と同じ点（指標が 0）で L が 0 でなければ、比を作れないので止める（黙って w にしない）
+    // 履歴の分岐の数密度は公称と違うのに、指標（熱群の νΣf の線形の補正）が 0 なら、比を作れないので止める（黙って w にしない）。
+    // 違うのは熱群の νσf が 0 の核種だけ
+    let mut table = history_table(&[]);
+    let state = at(600.0, 20.0);
+    for nuclides in &mut table.micro.as_mut().unwrap().states {
+        nuclides[0].nu_fission[1] = 0.0;
+    }
+    table.histories[0].rods[0].densities[1] =
+        vec![NOMINAL_DENSITIES[2][0] + 1.0e-5, NOMINAL_DENSITIES[2][1]];
+    table.validate().unwrap();
+    let n = [5.5e-4, 1.6e-5];
+    let err = node_constants(&table, &state, None, &n, &[0.702]).unwrap_err();
+    assert!(err.contains("index"), "{err}");
+    // 公称の履歴（w = 0）は補正を使わない
+    assert!(node_constants(&table, &state, None, &n, &[0.743]).is_ok());
+}
+
+#[test]
+fn linearizations_of_branch_compositions_at_the_nominal_densities_are_zero() {
+    // 履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成そのもので、L は定義から 0（テーブルの値は 2 つの格子
+    // 計算の解の差）。L を足さず、U だけを w で足す
     let mut table = history_table(&[]);
     table.histories[0].rods[0].densities[1] = NOMINAL_DENSITIES[2].to_vec();
     table.validate().unwrap();
     let n = [5.5e-4, 1.6e-5];
-    let err = node_constants(&table, &at(600.0, 20.0), None, &n, &[0.702]).unwrap_err();
-    assert!(err.contains("index"), "{err}");
-    // 公称の履歴（w = 0）は補正を使わない
-    assert!(node_constants(&table, &at(600.0, 20.0), None, &n, &[0.743]).is_ok());
+    let state = at(600.0, 20.0);
+    let base = node_constants(&table, &state, None, &n, &[0.743]).unwrap();
+    let half = node_constants(&table, &state, None, &n, &[0.702]).unwrap();
+    let u = &table.histories[0].rods[0].untracked[1];
+    assert!(table.histories[0].rods[0].linearization[1].total[1] != 0.0);
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let diff: Vec<f64> = half
+        .total
+        .iter()
+        .zip(&base.total)
+        .map(|(x, y)| x - y)
+        .collect();
+    let expected: Vec<f64> = u.total.iter().map(|x| w * x).collect();
+    assert!(close(&diff, &expected), "{diff:?} {expected:?}");
 }
 
 #[test]
