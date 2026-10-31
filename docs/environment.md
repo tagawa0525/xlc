@@ -385,7 +385,7 @@ c7a.4xlarge は起動していない。
 2. 手元（リポジトリの直下）から送る。`--dry-run` は、クロージャのパス（62 個、約 800 MB）と rsync の一覧だけ出して何も送らない:
 
    ```sh
-   dvc checkout examples/vera/dvc.yaml          # examples/vera/openmc-library（約 630 MB）
+   scripts/dvc-checkout.py examples/vera/dvc.yaml  # examples/vera/openmc-library（約 630 MB）
    examples/vera/remote_send.sh --dry-run <ssh の接続先> <VM の作業ディレクトリ>
    examples/vera/remote_send.sh <ssh の接続先> <VM の作業ディレクトリ>
    ```

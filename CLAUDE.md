@@ -65,7 +65,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml のステージの
-  出力で、git で追跡しない。worktree では `scripts/worktree-restore-outputs.sh`（中身は `dvc checkout`）でキャッシュから戻す（ADR-0130）。ステージが呼ぶ
+  出力で、git で追跡しない。worktree では `scripts/worktree-restore-outputs.sh`（中身は `scripts/dvc-checkout.py`）でキャッシュから戻す（ADR-0130）。
+  一部だけ戻すときも `scripts/dvc-checkout.py [<dvc.yaml か .dvc の指定>...]` を使い、生の `dvc checkout` は `.claude/settings.json`
+  の hook が止める（未実行の参照解でいつも 255 で終わり、キャッシュに無い出力が埋もれる。ADR-0223）。ステージが呼ぶ
   `bin/` の実行ファイルは、リポジトリの直下の `dvc.yaml` の `build` の出力で、同じスクリプトで戻る（ADR-0159）。
   ステージの deps の .py は、元のファイルでなく、直下の `dvc.yaml` の `python-ast` が書く正規形（docstring とコメントを除いた形。
   `python-ast/<パス>.ast`、git で追跡）にする（cmd は元の .py を呼ぶ。ADR-0210）。.py を deps に足すときは、`python-ast` の
