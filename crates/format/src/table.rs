@@ -16,7 +16,8 @@
 //! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
 //! 含み、テーブルが履歴の分岐の条件の状態を解いた点）、点ごとの追わない核種の分 `untracked` と線形化の誤差 `linearization`（どちらも
 //! `total`、`absorption`、`nu_fission`、`fission`、`chi`、`diffusion`、`scatter`、`adf`。和が残り R）、点ごとに追う核種の順の履歴の分岐の均質化した
-//! 数密度 `densities`、点ごとに追う核種の順の、ミクロ燃焼の反応率の微視的断面積の差 `micro`（`fission`、`reactions`（`mt` と
+//! 数密度 `densities`、ミクロ燃焼の反応率の微視的断面積の差 `micro`（追う核種だけを履歴の分岐の値にした公称の組成（ハイブリッド）で
+//! 分けた、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。どちらも点ごとに追う核種の順の `fission`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない核種は nil で、キーは省けない））。履歴の分岐の条件は、変数の軸（減速材の密度は `moderator`）だけが値 `branch` の格子点で、ほかの軸は
 //! 公称の状態。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
@@ -565,13 +566,24 @@ pub struct HistoryRod {
     /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、履歴の分岐の均質化した数密度 N̄ᵢ^j (1/(barn cm))。core が L の重みの
     /// 指標（熱群の νΣf の線形の補正）を作る
     pub densities: Vec<Vec<f64>>,
-    /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、ミクロ燃焼の反応率の微視的断面積の差
-    pub micro: Vec<Vec<RateResidual>>,
+    /// ミクロ燃焼の反応率の微視的断面積の差を、U と L と同じハイブリッドで 2 つに分けたもの
+    pub micro: RateResiduals,
 }
 
-/// 1 つの追う核種の、ミクロ燃焼の反応率に使う微視的断面積の、履歴の分岐の組成と公称の組成の差 Δσ（どちらも履歴の分岐の条件の状態。
-/// ADR-0215 の案 S2）。core は反応率の σᵢ に w Δσ を足す。線形の補正の係数（全断面積、νσf、散乱行列、数密度の微分）は補正しないので
-/// 持たない
+/// 1 つの制御棒の値の、ミクロ燃焼の反応率の微視的断面積の差 Δσ（ADR-0215 の案 S2）を、追う核種だけを履歴の分岐の値にした公称の
+/// 組成（ハイブリッド）で分けたもの。和が履歴の分岐の組成と公称の組成の差。core は反応率の σᵢ に、U と同じ w を掛けた
+/// `untracked` と、L と同じ P / P_j を掛けた `linearization` を足す
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RateResiduals {
+    /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、σᵢ(履歴の分岐の組成) − σᵢ(ハイブリッドの組成)（どちらも条件 j）
+    pub untracked: Vec<Vec<RateResidual>>,
+    /// [`burnup` の点][追う核種] の、σᵢ(ハイブリッドの組成) − σᵢ(公称の組成)（どちらも条件 j）
+    pub linearization: Vec<Vec<RateResidual>>,
+}
+
+/// 1 つの追う核種の、ミクロ燃焼の反応率に使う微視的断面積の、2 つの組成の差（どちらも履歴の分岐の条件の状態。ADR-0215 の案 S2。
+/// [`RateResiduals`]）。線形の補正の係数（全断面積、νσf、散乱行列、数密度の微分）は補正しないので持たない
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RateResidual {
@@ -1142,9 +1154,26 @@ impl Table {
         Ok(())
     }
 
-    /// 制御棒の値 `entry` の反応率の微視的断面積の差（ADR-0215 の案 S2）が、R の点ごとに追う核種の数だけあり、核種ごとの反応の並び
-    /// （MT と経路の数）と核分裂の有無がミクロ燃焼のデータ（状態の間で同じ）と同じで、群の数の有限の値であること
+    /// 制御棒の値 `entry` の反応率の微視的断面積の差（ADR-0215 の案 S2）の 2 つの部分が、R の点ごとに追う核種の数だけあり、核種ごとの
+    /// 反応の並び（MT と経路の数）と核分裂の有無がミクロ燃焼のデータ（状態の間で同じ）と同じで、群の数の有限の値であること
     fn validate_rate_residuals(&self, entry: &HistoryRod) -> Result<(), String> {
+        let RateResiduals {
+            untracked,
+            linearization,
+        } = &entry.micro;
+        for (name, part) in [("untracked", untracked), ("linearization", linearization)] {
+            self.validate_rate_part(entry, part)
+                .map_err(|e| format!("{name} rate residuals: {e}"))?;
+        }
+        Ok(())
+    }
+
+    /// 反応率の微視的断面積の差の 1 つの部分 `part`（`validate_rate_residuals`）
+    fn validate_rate_part(
+        &self,
+        entry: &HistoryRod,
+        part: &[Vec<RateResidual>],
+    ) -> Result<(), String> {
         let micro = self
             .micro
             .as_ref()
@@ -1153,9 +1182,7 @@ impl Table {
             .states
             .first()
             .ok_or("the micro data have no states")?;
-        if entry.micro.len() != entry.burnup.len()
-            || entry.micro.iter().any(|row| row.len() != reference.len())
-        {
+        if part.len() != entry.burnup.len() || part.iter().any(|row| row.len() != reference.len()) {
             return Err(format!(
                 "the rate residuals must be {} rows of {} tracked nuclides",
                 entry.burnup.len(),
@@ -1164,7 +1191,7 @@ impl Table {
         }
         let groups = self.states[0].bounds.len() - 1;
         let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
-        for (k, row) in entry.micro.iter().enumerate() {
+        for (k, row) in part.iter().enumerate() {
             for (i, (r, n)) in row.iter().zip(reference).enumerate() {
                 let at = || format!("rate residual {k}, {}", micro.nuclides[i]);
                 let shape = |reactions: &[MicroReaction]| {
