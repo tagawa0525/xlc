@@ -1677,40 +1677,61 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         micro.into_iter().map(|m| m.derivative.unwrap()).collect()
     };
     let at = [0.02, 0.04, 0.08].map(derivative_at);
+    // 格子全体の定数の微分 ∂Σ/∂N̄ᵢ (barn) と反応率の微分 ∂σᵢ/∂N̄ᵢ (barn² cm) は単位と桁が違うので、項目の組ごとに比べる。比べる
+    // 項目の数の下限は、定数が 2、反応率が 1（核分裂しない Xe-135 の反応率は捕獲の 2 群だけで、高速群は 6 桁の閾値の下）
+    type Items = fn(&xlc_format::table::MicroDerivative) -> Vec<f64>;
+    let families: [(&str, Items, usize); 2] = [
+        (
+            "constants",
+            |d| {
+                let mut v = Vec::new();
+                v.extend(&d.total);
+                v.extend(&d.nu_fission);
+                v.extend(d.scatter.iter().flatten());
+                v
+            },
+            2,
+        ),
+        (
+            "rate",
+            |d| {
+                let mut v = d.rate.fission.clone();
+                v.extend(
+                    d.rate
+                        .reactions
+                        .iter()
+                        .flat_map(|r| r.channels.iter().flatten()),
+                );
+                v.extend(d.rate.thermal_fission);
+                v
+            },
+            1,
+        ),
+    ];
     for (m, name) in ["U-235", "Xe-135"].into_iter().enumerate() {
-        let items = |d: &xlc_format::table::MicroDerivative| -> Vec<f64> {
-            let mut v = Vec::new();
-            v.extend(&d.total);
-            v.extend(&d.nu_fission);
-            v.extend(d.scatter.iter().flatten());
-            v.extend(&d.rate.fission);
-            v.extend(
-                d.rate
-                    .reactions
-                    .iter()
-                    .flat_map(|r| r.channels.iter().flatten()),
-            );
-            v.extend(d.rate.thermal_fission);
-            v
-        };
-        let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
-        let largest = a.iter().fold(0.0_f64, |x, y| x.max(y.abs()));
-        let mut compared = 0;
-        for k in 0..a.len() {
-            let (first, second) = (b[k] - a[k], c[k] - b[k]);
-            // 核種の最大の微分より 6 桁小さい微分（核分裂しない Xe-135 による νΣf の変化など）は、MOC の打ち切りの誤差が ε N̄ᵢ で
-            // 割られて差分の誤差より大きいので比べない
-            if a[k].abs() <= 1e-6 * largest || first == 0.0 {
-                continue;
+        for (family, items, least) in families {
+            let (a, b, c) = (items(&at[0][m]), items(&at[1][m]), items(&at[2][m]));
+            let largest = a.iter().fold(0.0_f64, |x, y| x.max(y.abs()));
+            let mut compared = 0;
+            for k in 0..a.len() {
+                let (first, second) = (b[k] - a[k], c[k] - b[k]);
+                // 組の最大の微分より 6 桁小さい微分（核分裂しない Xe-135 による νΣf の変化など）は、MOC の打ち切りの誤差が ε N̄ᵢ で
+                // 割られて差分の誤差より大きいので比べない
+                if a[k].abs() <= 1e-6 * largest || first == 0.0 {
+                    continue;
+                }
+                let ratio = second / first;
+                assert!(
+                    (ratio - 2.0).abs() <= 0.2,
+                    "{name} {family} item {k}: {a:?} {b:?} {c:?} (ratio {ratio})"
+                );
+                compared += 1;
             }
-            let ratio = second / first;
+            // 組ごとに比べる項目が下限以上あること（組の最大の微分の近くの項目。どの項目かは決めない）
             assert!(
-                (ratio - 2.0).abs() <= 0.2,
-                "{name} item {k}: {a:?} {b:?} {c:?} (ratio {ratio})"
+                compared >= least,
+                "{name} {family}: {compared} items compared"
             );
-            compared += 1;
         }
-        // 比べる項目が 2 つ以上あること（核種の最大の微分の近くの項目。どの項目かは決めない）
-        assert!(compared >= 2, "{name}: {compared} items compared");
     }
 }
