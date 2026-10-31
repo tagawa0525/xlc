@@ -77,10 +77,6 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   `bin/lattice` で再実行する（今の 1C の xlc の結果は ADR-0205 の前のライブラリのもの）。`compare_depletion.py` の数密度を比べる核種
   （`NUCLIDES`）は U-235、U-238、Pu-239、Xe-135、Sm-149 だけなので、MOX-1 の比較の前に Pu-240、Pu-241、Pu-242、Am-241 を比べる形にする
   （`compare-mox1` は数秒で、参照解を流し直さずに作り直せる）
-- 2026-10-31: MOX-1 の参照解（OpenMC の燃焼。`openmc-mox1`、`openmc-mox1-extract`）を流した（Slurm 639、1 時間 13 分 38 秒。割り込まれうる
-  ジョブなので時間は記録に使わない。ブランチ feat/0152-mox1-reference の dvc.lock）。目標は `openmc-mox1-extract`（`compare-mox1` を目標にすると
-  bin/xs の変更で changed の xs-nuclide 65 本が走る）。xlc との比較（`compare-mox1`。lattice-mox1 と 1C の再実行、compare_depletion.py の
-  核種の追加）はこれから
 - 2026-10-28: 散乱核を変えても残る k の差の増え（新しい燃料から 2A-40 へ +62.5 pcm）のうち、減速材の 27 群の移行の置き換えの寄与が
   状態で +48 pcm 違う（1C の 0 MWd/kg −3.8、2A-40 +44.5 pcm）原因を、OpenMC の群の行を群の中の細かい入射の区間の核と区間の中性子束に
   分けて切り分けた（ブランチ feat/0152-moderator-group-27-transfer。examples/depletion/verification.md「群の移行の行の群の中の重み
@@ -109,3 +105,9 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
 - 2026-10-29: ADR-0206 を受理するときに、2026-10-27 の項の「今の 1C の xlc の結果は ADR-0205 の前のライブラリのもの」が逆になったと
   分かった。examples/depletion/dvc.lock では、`lattice-1C` が ADR-0211 の誤差関数で作り直したライブラリ（md5 d86514f8）で、`lattice-mox1` が
   その前のライブラリ（md5 cbc33de9）。MOX-1 の参照解と比べる前に、`lattice-mox1` を再実行する（91 秒。Slurm 555）
+- 2026-10-31: MOX-1 の参照解（OpenMC の燃焼。`openmc-mox1`、`openmc-mox1-extract`）を流した（Slurm 639、1 時間 13 分 38 秒。割り込まれうる
+  ジョブなので時間は記録に使わない。ブランチ feat/0152-mox1-reference の bed0e5de6（分岐点は main の b29e4a539。入力と OpenMC の
+  ライブラリは分岐点と同じ）の dvc.lock。出力 openmc-mox1-rings1.msgpack の md5 は 6171eec9）。目標は `openmc-mox1-extract`（`compare-mox1` を
+  目標にすると bin/xs の変更で changed の xs-nuclide 65 本が走る）。OpenMC のログに「Negative value(s) found on probability table for nuclide
+  Zr96 at 600K」の警告が出る（1C の参照解のログにも同じ警告。openmc-library の Zr96 の確率テーブルの候補で、k への影響は確かめていない）。
+  xlc との比較（`compare-mox1`。lattice-mox1 と 1C の再実行、compare_depletion.py の核種の追加）はこれから
