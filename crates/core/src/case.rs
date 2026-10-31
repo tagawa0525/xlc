@@ -10,9 +10,9 @@ use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
-    MicroAt, State, accumulate_rate_residuals, add_rate_residual, add_residual, interpolate,
-    interpolate_branch_difference, interpolate_micro, interpolate_rate_residual,
-    interpolate_residual, non_negative,
+    MicroAt, State, accumulate_own_density_rates, accumulate_rate_residuals, add_rate_residual,
+    add_residual, interpolate, interpolate_branch_difference, interpolate_micro,
+    interpolate_rate_residual, interpolate_residual, non_negative,
 };
 
 /// 状態を解いた結果。
@@ -133,15 +133,16 @@ fn weighted_histories<'a>(
 
 /// 履歴の補正 `entry` の、燃焼度 `burnup` の組成の指標の比 P / P_j（ADR-0215）。P は熱群の νΣf の線形の補正（`production_index`）の、
 /// ノードの数密度 `n` と状態で内挿した基準の数密度（`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差
-/// （`interpolate_branch_difference`）のもの。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では比を作れず `None`（その点の L と
-/// Δσ_L は、ハイブリッドが公称の組成そのものなので定義から 0）。数密度の差が 0 でないのに P_j が 0 ならエラー
+/// （`interpolate_branch_difference`）のもの。比と、その数密度の差 ΔN̄ᵢ^j（追う核種の順）を返す。履歴の分岐の追う核種の数密度の差が
+/// すべて 0 の燃焼度では比を作れず `None`（その点の L と Δσ_L は、ハイブリッドが公称の組成そのものなので定義から 0）。数密度の差が
+/// 0 でないのに P_j が 0 ならエラー
 fn production_ratio(
     table: &Table,
     entry: &HistoryRod,
     burnup: f64,
     micro: &MicroAt,
     n: &[f64],
-) -> Result<Option<f64>, String> {
+) -> Result<Option<(f64, Vec<f64>)>, String> {
     let Some(Axis::Burnup { points: axis }) =
         table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
     else {
@@ -179,7 +180,7 @@ fn production_ratio(
              not a weight of the history correction (ADR-0215)"
         ));
     }
-    Ok(Some(ratio))
+    Ok(Some((ratio, branch)))
 }
 
 /// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り
@@ -200,7 +201,7 @@ pub fn add_histories(
         let at = |e: String| format!("history variable {variable}: {e}");
         let untracked = interpolate_residual(entry, &entry.untracked, burnup).map_err(at)?;
         add_residual(f, w, &untracked);
-        let Some(ratio) = production_ratio(table, entry, burnup, micro, n).map_err(at)? else {
+        let Some((ratio, _)) = production_ratio(table, entry, burnup, micro, n).map_err(at)? else {
             continue;
         };
         let linearization =
@@ -285,10 +286,11 @@ pub fn node_constants(
 }
 
 /// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
-/// `histories` の差 Σ_j [w_j Δσ_U,j + (P / P_j) Δσ_L,j] を足したもの（ADR-0215 の案 S2。重みは定数の U と L と同じ）。P / P_j は追う核種の
-/// 数密度 `n`（テーブルの順）の `production_ratio` で、Δσ を足す前の係数で作る（P が使う熱群の νσf と数密度の微分は Δσ で変わらないが、
-/// 微分を持たない核種の σf の係数は変わる）。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では、ハイブリッドは公称の組成
-/// そのもので Δσ_L は定義から 0 なので、Δσ_L を足さない（L と同じ）
+/// `histories` の差 Σ_j [w_j Δσ_U,j + (P / P_j) Δσ_L,j] を足したもの（ADR-0215 の案 S2。重みは定数の U と L と同じ）。反応率の微分
+/// ∂σᵢ/∂N̄ᵢ を持つ核種は、さらに (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ を足す（Δσ_L が含む自分の数密度の分を超えた分。ADR-0215）。
+/// P / P_j は追う核種の数密度 `n`（テーブルの順）の `production_ratio` で、Δσ を足す前の係数で作る（P が使う熱群の νσf と数密度の
+/// 微分は Δσ で変わらないが、微分を持たない核種の σf の係数は変わる）。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では、
+/// ハイブリッドは公称の組成そのもので Δσ_L は定義から 0 なので、Δσ_L も自分の数密度の項も足さない（L と同じ）
 pub fn node_micro(
     table: &Table,
     state: &State,
@@ -317,12 +319,15 @@ pub fn node_micro(
         let untracked =
             interpolate_rate_residual(entry, &entry.micro.untracked, burnup).map_err(at)?;
         accumulate_rate_residuals(&mut total, w, &untracked);
-        let Some(ratio) = production_ratio(table, entry, burnup, &micro, n).map_err(at)? else {
+        let Some((ratio, branch)) =
+            production_ratio(table, entry, burnup, &micro, n).map_err(at)?
+        else {
             continue;
         };
         let linearization =
             interpolate_rate_residual(entry, &entry.micro.linearization, burnup).map_err(at)?;
         accumulate_rate_residuals(&mut total, ratio, &linearization);
+        accumulate_own_density_rates(&mut total, &micro, n, ratio, &branch).map_err(at)?;
     }
     if let Some(total) = total {
         add_rate_residual(&mut micro, names, 1.0, &total)
