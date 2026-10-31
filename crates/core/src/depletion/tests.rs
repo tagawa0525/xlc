@@ -2885,9 +2885,9 @@ fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
 
 #[test]
 fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
-    // `rate-residual-weight = "production-index"` の燃焼は、Δσ を P / P_j で足す（ADR-0215 の案 R6）。履歴の分岐の数密度が公称と同じ
-    // テーブルでは P_j の差が 0 で Δσ を足さず、w = 0.5 のノードでも Δσ を 0 にしたテーブルとビットで同じ。数密度が違えば
-    // 補正しない燃焼と違う
+    // `rate-residual-weight = "production-index"` の燃焼は、Δσ を P / P_j で足す（ADR-0215 の案 R6）。履歴の分岐の追う核種の数密度が
+    // 燃焼度 0 より後も公称と同じテーブルでは、P_j が 0 で比を作れないので止める（Δσ は追わない核種の違いも含み、0 とは限らない）。
+    // 数密度が違えば補正しない燃焼と違う
     let capture = 4.0;
     let deplete_with = |weight: RateResidualWeight, change: &dyn Fn(Table) -> Table| {
         let (layout, tables, _) = core(CASE, UNIFORM, Some(400.0));
@@ -2913,7 +2913,6 @@ fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
             &tight(),
             |_| {},
         )
-        .unwrap()
     };
     let zeroed = |mut t: Table| {
         t.histories[0].rods[0]
@@ -2927,12 +2926,10 @@ fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
         t
     };
     let index = RateResidualWeight::ProductionIndex;
-    let nominal_branch = deplete_with(index, &|t| with_histories(t, capture));
-    let reference = deplete_with(index, &|t| zeroed(with_histories(t, capture)));
-    assert_eq!(nominal_branch.points, reference.points);
-    // 同じテーブルでも w の重みでは Δσ を足す
-    let by_history = deplete_with(RateResidualWeight::History, &|t| with_histories(t, capture));
-    assert_ne!(by_history.points, reference.points);
+    let err = deplete_with(index, &|t| with_histories(t, capture)).unwrap_err();
+    assert!(err.to_string().contains("index"), "{err}");
+    // 同じテーブルでも w の重みは比を使わない
+    assert!(deplete_with(RateResidualWeight::History, &|t| with_histories(t, capture)).is_ok());
     // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。比 P / P_j が Δσ で断面積を負にしない大きさ）
     let shifted = |t: Table| {
         let mut t = with_histories(t, capture);
@@ -2942,7 +2939,7 @@ fn micro_depletion_rates_take_the_rate_residual_weight_of_the_micro_input() {
         t.validate().unwrap();
         t
     };
-    let by_index = deplete_with(index, &|t| shifted(t));
-    let plain = deplete_with(index, &|t| zeroed(shifted(t)));
+    let by_index = deplete_with(index, &|t| shifted(t)).unwrap();
+    let plain = deplete_with(index, &|t| zeroed(shifted(t))).unwrap();
     assert_ne!(by_index.points, plain.points);
 }
