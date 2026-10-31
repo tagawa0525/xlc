@@ -1,4 +1,4 @@
-# 履歴の補正の core（ADR-0215）の確認 2: R を書き足す前の公称のテーブル（table-residual-nominal.msgpack）で、
+# 履歴の補正の core（ADR-0215）の確認 2: R を書き足す前の公称のテーブル（table-residual-nominal-rate.msgpack）で、
 # core-2A-residual-nominal.toml と同じ燃焼をする（出力が同じことの対照）。
 # ステップは ../branches/core-2A-micro.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。
 cycle = "core-2A-nominal-cycle.toml"
