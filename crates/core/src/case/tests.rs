@@ -761,13 +761,41 @@ fn linearizations_without_a_branch_index_are_errors() {
     assert!(node_constants(&table, &state, None, &n, &[0.743]).is_ok());
 }
 
+/// 燃焼度 20 の点の履歴の分岐の数密度を公称のものにし、その点の L と Δσ_L を 2 つの格子計算の解の差の大きさ（1e-9 倍）にする
+fn nominal_branch_densities_at_20(table: &mut Table) {
+    let rod = &mut table.histories[0].rods[0];
+    rod.densities[1] = NOMINAL_DENSITIES[2].to_vec();
+    let tiny = |x: &mut f64| *x *= 1.0e-9;
+    let l = &mut rod.linearization[1];
+    for v in [
+        &mut l.total,
+        &mut l.absorption,
+        &mut l.nu_fission,
+        &mut l.fission,
+        &mut l.chi,
+        &mut l.diffusion,
+    ] {
+        v.iter_mut().for_each(tiny);
+    }
+    l.scatter.iter_mut().flatten().for_each(tiny);
+    l.adf.iter_mut().flatten().for_each(tiny);
+    for r in &mut rod.micro.linearization[1] {
+        r.fission.iter_mut().for_each(tiny);
+        r.reactions
+            .iter_mut()
+            .flat_map(|x| x.channels.iter_mut().flatten())
+            .for_each(tiny);
+        r.thermal_fission.iter_mut().for_each(tiny);
+    }
+    table.validate().unwrap();
+}
+
 #[test]
 fn linearizations_of_branch_compositions_at_the_nominal_densities_are_zero() {
     // 履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成そのもので、L は定義から 0（テーブルの値は 2 つの格子
     // 計算の解の差）。L を足さず、U だけを w で足す
     let mut table = history_table(&[]);
-    table.histories[0].rods[0].densities[1] = NOMINAL_DENSITIES[2].to_vec();
-    table.validate().unwrap();
+    nominal_branch_densities_at_20(&mut table);
     let n = [5.5e-4, 1.6e-5];
     let state = at(600.0, 20.0);
     let base = node_constants(&table, &state, None, &n, &[0.743]).unwrap();
@@ -937,8 +965,7 @@ fn rate_linearizations_of_nominal_branch_densities_are_not_added() {
     // 履歴の分岐の追う核種の数密度が公称と同じ燃焼度では、ハイブリッドは公称の組成そのもので Δσ_L は定義から 0。比を作れないので
     // 足さない（L と同じ扱い）。追わない核種の分は w で足す
     let mut table = history_table(&[]);
-    table.histories[0].rods[0].densities[1] = NOMINAL_DENSITIES[2].to_vec();
-    table.validate().unwrap();
+    nominal_branch_densities_at_20(&mut table);
     let state = at(600.0, 20.0);
     let base = interpolate_micro(&table, &state, None).unwrap();
     let n = [5.5e-4, 1.6e-5];

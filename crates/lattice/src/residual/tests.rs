@@ -128,13 +128,15 @@ fn branch() -> Table {
 }
 
 /// 履歴の分岐の組成のうち追う核種だけを公称の組成に足したハイブリッドを、同じ条件で解いたテーブル: 分岐と同じ軸、点、追う核種、
-/// 均質化した数密度で、定数と微視的断面積が違う
+/// 均質化した数密度で、定数と微視的断面積が違う。燃焼度 0 は組成が公称と同じなので、公称のテーブルの条件の状態（点 1）と同じ定数と
+/// 反応率の微視的断面積
 fn hybrid() -> Table {
     let mut table = branch();
-    table.states = vec![few(1.5), few(3.5)];
-    table.micro.as_mut().unwrap().states = (0..2)
-        .map(|p| vec![sigma(30.0 + p as f64, false), sigma(40.0 + p as f64, false)])
-        .collect();
+    table.states = vec![few(1.0), few(3.5)];
+    table.micro.as_mut().unwrap().states = vec![
+        vec![sigma(1.0, false), sigma(2.0, false)],
+        vec![sigma(31.0, false), sigma(41.0, false)],
+    ];
     table.validate().unwrap();
     table
 }
