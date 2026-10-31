@@ -231,11 +231,25 @@ def simple_commands(text):
 
 
 def _drop_options(argv, with_value=()):
-    """先頭の `-` で始まる語（with_value の語は次の値も）を外す。`--` で終わる。"""
+    """先頭の `-` で始まる語（with_value の語は次の値も）を外す。`--` で終わる。
+
+    短いオプションの束（`-iC`）は、束の最後の文字が値を取る短いオプションなら次の語も値として外す（束の途中なら、
+    値は束の残りに付いている）。
+    """
+    short_with_value = {o[1] for o in with_value if len(o) == 2}
     while argv and argv[0].startswith("-") and argv[0] != "-":
-        if argv[0] == "--":
+        arg = argv[0]
+        if arg == "--":
             return argv[1:]
-        argv = argv[2:] if argv[0] in with_value else argv[1:]
+        if arg in with_value:
+            takes_next = True
+        elif arg.startswith("--"):
+            takes_next = False
+        else:
+            flags = arg[1:]
+            k = next((k for k, f in enumerate(flags) if f in short_with_value), None)
+            takes_next = k == len(flags) - 1
+        argv = argv[2:] if takes_next else argv[1:]
     return argv
 
 
@@ -288,12 +302,10 @@ def _unwrap(argv):
         elif name == "taskset":
             argv = _drop_options(rest)[1:]
         elif name == "nix" and rest[:1] in (["develop"], ["shell"]):
-            for flag in ("-c", "--command"):
-                if flag in rest:
-                    argv = rest[rest.index(flag) + 1 :]
-                    break
-            else:
+            k = next((k for k, a in enumerate(rest) if a in ("-c", "--command")), None)
+            if k is None:
                 return []
+            argv = _drop_options(rest[k + 1 :])
         elif name in SHELLS:
             return _shell_command_string(rest)
         elif PYTHONS.fullmatch(name) and rest[:2] == ["-m", "dvc"]:
