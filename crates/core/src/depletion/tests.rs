@@ -2892,7 +2892,7 @@ fn micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history() {
 
 #[test]
 fn micro_depletion_rates_add_the_rate_linearization_only_where_the_branch_densities_differ() {
-    // 反応率の Δσ_L は核種ごとの数密度の比で足す（ADR-0215）。履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成で
+    // 反応率の Δσ_L は P / P_j で足す（ADR-0215）。履歴の分岐の追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成で
     // Δσ_L は 2 つの格子計算の解の差の大きさなので足さず、その大きさの Δσ_L のテーブルと Δσ_L が 0 のテーブルはビットで同じ燃焼。
     // 数密度が違えば Δσ_L で燃焼が変わる
     let capture = 4.0;
@@ -2918,7 +2918,7 @@ fn micro_depletion_rates_add_the_rate_linearization_only_where_the_branch_densit
     let nominal_densities = deplete_with(&|t| with_histories(t, capture, 1.5e-9));
     let without = deplete_with(&|t| with_histories(t, capture, 0.0));
     assert_eq!(nominal_densities.points, without.points);
-    // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。U-235 の比が Δσ_L で断面積を負にしない大きさ。ほかの核種は P / P_j）
+    // 履歴の分岐の U-235 が公称の半分（燃焼度 0 は公称と同じ。比 P / P_j が Δσ_L で断面積を負にしない大きさ）
     let shifted = |t: Table, linearization: f64| {
         let mut t = with_histories(t, capture, 0.0);
         let rod = &mut t.histories[0].rods[0];
