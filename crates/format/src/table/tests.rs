@@ -939,6 +939,27 @@ fn micro_derivative(scale: f64) -> MicroDerivative {
         nu_fission: vec![x(1.3), x(-0.5)],
         fission: vec![x(0.5), x(-0.2)],
         scatter: vec![vec![x(9.5), x(-0.3)], vec![x(0.02), x(8.5)]],
+        rate: rate_derivative(scale),
+    }
+}
+
+/// `micro_nuclide` の核分裂する核種の反応率の項目の、値を `scale` 倍した数密度の微分（自己遮蔽で σᵢ は自分の数密度とともに減るので
+/// 負になりうる）
+fn rate_derivative(scale: f64) -> RateResidual {
+    let x = |v: f64| scale * v / 11.0;
+    RateResidual {
+        fission: vec![x(-0.4), x(-2.0)],
+        reactions: vec![
+            MicroReaction {
+                mt: 16,
+                channels: vec![vec![x(-0.001), 0.0]],
+            },
+            MicroReaction {
+                mt: 102,
+                channels: vec![vec![x(-0.5), x(-1.0)], vec![x(-0.05), x(0.1)]],
+            },
+        ],
+        thermal_fission: Some(x(-1.5)),
     }
 }
 
@@ -1032,6 +1053,68 @@ fn an_explicit_nil_density_derivative_is_an_error() {
     let mut written = Vec::new();
     rmpv::encode::write_value(&mut written, &value).unwrap();
     assert!(Table::from_msgpack(&written).is_err());
+}
+
+#[test]
+fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
+    // 反応率の項目の微分は、core が反応率の σᵢ に足すので、その核種の反応の並びと核分裂の有無に合い、群の数の有限の値を持つ（ADR-0215）
+    let bad = |change: &dyn Fn(&mut RateResidual)| {
+        let mut table = derivative_sample();
+        change(
+            &mut table.micro.as_mut().unwrap().states[1][0]
+                .derivative
+                .as_mut()
+                .unwrap()
+                .rate,
+        );
+        let err = table.validate().unwrap_err().to_string();
+        assert!(err.contains("rate derivative"), "{err}");
+        assert!(table.to_msgpack().is_err());
+    };
+    bad(&|r| {
+        r.fission.pop();
+    });
+    bad(&|r| r.fission[0] = f64::NAN);
+    bad(&|r| r.reactions[1].channels[0][1] = f64::INFINITY);
+    bad(&|r| {
+        r.reactions[1].channels.pop();
+    });
+    bad(&|r| r.reactions[0].mt = 17);
+    bad(&|r| {
+        r.reactions.pop();
+    });
+    bad(&|r| r.thermal_fission = None);
+    bad(&|r| r.thermal_fission = Some(f64::NAN));
+    // 核分裂しない核種の微分は、収率の境界より下の核分裂の微分を持たない
+    let mut table = micro_sample();
+    for (p, state) in table.micro.as_mut().unwrap().states.iter_mut().enumerate() {
+        let mut d = micro_derivative(1.0 + p as f64);
+        d.rate.thermal_fission = None;
+        state[1].derivative = Some(d);
+    }
+    table.validate().unwrap();
+    table.micro.as_mut().unwrap().states[0][1]
+        .derivative
+        .as_mut()
+        .unwrap()
+        .rate
+        .thermal_fission = Some(0.0);
+    assert!(table.validate().is_err());
+    // 負の微分（自己遮蔽で減る σᵢ）は持て、往復でビットで同じ
+    let table = derivative_sample();
+    assert!(
+        table.micro.as_ref().unwrap().states[0][0]
+            .derivative
+            .as_ref()
+            .unwrap()
+            .rate
+            .fission[1]
+            < 0.0
+    );
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
 }
 
 #[test]
@@ -1712,6 +1795,7 @@ fn linear_corrections_add_the_coefficients_times_the_density_differences() {
         nu_fission: vec![0.5 / 3.0, -4.0 / 3.0],
         fission: vec![0.2 / 3.0, -1.5 / 3.0],
         scatter: vec![vec![4.0 / 3.0, 0.2 / 3.0], vec![0.01 / 3.0, 6.0 / 3.0]],
+        rate: rate_derivative(1.0),
     });
     let base = state(3.0);
     let delta = [1.0e-5 / 3.0, -2.0e-6 / 7.0];

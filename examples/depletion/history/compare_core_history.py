@@ -43,7 +43,7 @@ from compare_residual import (
 
 FILES = {
     "residual_table": "table-residual-nominal-histories.msgpack",
-    "plain_table": "table-residual-nominal.msgpack",
+    "plain_table": "table-residual-nominal-rate.msgpack",
     "branch_table": "table-residual-density-branch.msgpack",
     "nominal": "core-2A-residual-nominal.msgpack",
     "plain": "core-2A-plain-nominal.msgpack",

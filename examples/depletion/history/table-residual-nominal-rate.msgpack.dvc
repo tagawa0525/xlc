@@ -1,0 +1,5 @@
+outs:
+- md5: 6a57c271b88d04c72879b7be509cb9ba
+  size: 365155
+  hash: md5
+  path: table-residual-nominal-rate.msgpack

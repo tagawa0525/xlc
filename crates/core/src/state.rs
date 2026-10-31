@@ -423,6 +423,8 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
             nu_fission: v(&d.nu_fission),
             fission: v(&d.fission),
             scatter: d.scatter.iter().map(|r| v(r)).collect(),
+            // 境界より下の核分裂は、テーブルが断面積の微分で持つ（割合ではない）ので、ほかの項目と同じく足す
+            rate: scaled_rate(&d.rate, w),
         }),
     }
 }
@@ -461,6 +463,7 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
         for (a, x) in a.scatter.iter_mut().zip(&x.scatter) {
             add(a, w, x);
         }
+        add_rate(&mut a.rate, w, &x.rate);
     }
 }
 
@@ -977,6 +980,39 @@ pub fn accumulate_rate_residuals(acc: &mut Option<Vec<RateResidual>>, w: f64, r:
             }
         }
     }
+}
+
+/// 反応率の微視的断面積の差の和 `acc`（`accumulate_rate_residuals` で Δσ を足したもの）に、自分の数密度の微分 ∂σᵢ/∂N̄ᵢ を持つ
+/// 核種の (Nᵢ − N̄ᵢ⁰ − `ratio` ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ を足す（#0190 の候補 (e)、ADR-0215）。`micro` は状態で内挿した微視的断面積と N̄ᵢ⁰、`n` は
+/// ノードの数密度、`ratio` は P / P_j、`branch` は ΔN̄ᵢ^j（どれも追う核種の順）。(P / P_j) Δσ_L は自分の数密度の変化
+/// (P / P_j) ΔN̄ᵢ^j の分を含むので、微分にはそれを超えた分だけを掛ける
+pub fn accumulate_own_density_rates(
+    acc: &mut Option<Vec<RateResidual>>,
+    micro: &MicroAt,
+    n: &[f64],
+    ratio: f64,
+    branch: &[f64],
+) -> Result<(), String> {
+    let sum = acc
+        .as_mut()
+        .ok_or("the own-density term adds to the rate residuals of the history")?;
+    let count = micro.nuclides.len();
+    if [sum.len(), n.len(), micro.densities.len(), branch.len()] != [count; 4] {
+        return Err(format!(
+            "{} rate residuals, {} node densities, {} nominal densities and {} branch differences for {count} micro nuclides",
+            sum.len(),
+            n.len(),
+            micro.densities.len(),
+            branch.len()
+        ));
+    }
+    for (i, nuclide) in micro.nuclides.iter().enumerate() {
+        if let Some(d) = &nuclide.derivative {
+            let excess = n[i] - micro.densities[i] - ratio * branch[i];
+            add_rate(&mut sum[i], excess, &d.rate);
+        }
+    }
+    Ok(())
 }
 
 /// `w` 倍した反応率の微視的断面積の差。項目を足したらここで扱いを決める（`..` を使わない）

@@ -1811,8 +1811,9 @@ def history_switch_composition(sources: list[dict]) -> str:
 
 def history_switch_rate_outliers(sources: list[dict]) -> str:
     """途中で条件を変えた燃焼（ADR-0215）: 補正を足す参照の点（w が 0 でない）の核種ごとの、core の反応率の微視的断面積の参照からの
-    外れを、追わない核種の分 w Δσ_U − Δσ_U,switch と線形化の誤差 (P / P_j) Δσ_L − Δσ_L,switch に分けたもの（核分裂と捕獲の和の、参照の
-    σ に対する %、群ごと）と、参照が求める Δσ_L の重み（群ごと）、その核種の数密度の比"""
+    外れを、追わない核種の分 w Δσ_U − Δσ_U,switch と線形化の誤差 (P / P_j) Δσ_L + 自分の数密度の項 − Δσ_L,switch に分けたもの（核分裂と
+    捕獲の和の、参照の σ に対する %、群ごと）と、自分の数密度の項（反応率の微分を持つ核種だけ）、参照が求める Δσ_L の重み（群ごと）、
+    その核種の数密度の比"""
     (s,) = sources
     if s.get("format") != "xlc-compare-history-switch":
         raise TableError("not an xlc-compare-history-switch summary")
@@ -1826,6 +1827,7 @@ def history_switch_rate_outliers(sources: list[dict]) -> str:
             "高速群 Δσ_L (%)",
             "熱群 Δσ_U (%)",
             "熱群 Δσ_L (%)",
+            "自分の数密度の項（高速群、熱群） (%)",
             "Δσ_L の実効の比（高速群、熱群）",
             "数密度の比",
         ],
@@ -1839,6 +1841,9 @@ def history_switch_rate_outliers(sources: list[dict]) -> str:
                 signed(o["linearization_percent"][0], 4),
                 signed(o["untracked_percent"][1], 4),
                 signed(o["linearization_percent"][1], 4),
+                "–"
+                if o["own_density_percent"] is None
+                else "、".join(signed(x, 4) for x in o["own_density_percent"]),
                 "、".join(f"{x:.4f}" for x in o["linearization_ratio"]),
                 f"{o['density_ratio']:.4f}",
             ]
