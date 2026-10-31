@@ -131,11 +131,11 @@ fn weighted_histories<'a>(
 }
 
 /// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り
-/// Σ_j [w_j U_j,r(u) + (E / E_j,r(u)) L_j,r(u)] を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
-/// `burnup` で内挿した値。E は熱群の νΣf の線形の補正（`production_index`）の、ノードの数密度 `n` と状態で内挿した基準の数密度
-/// （`micro`）の差のもの、E_j は同じ係数の、履歴の分岐の数密度の差（`interpolate_branch_difference`）のもの。w_j が 0 の変数は足さない。
+/// Σ_j [w_j U_j,r(u) + (P / P_j,r(u)) L_j,r(u)] を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
+/// `burnup` で内挿した値。P は熱群の νΣf の線形の補正（`production_index`）の、ノードの数密度 `n` と状態で内挿した基準の数密度
+/// （`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差（`interpolate_branch_difference`）のもの。w_j が 0 の変数は足さない。
 /// 履歴の分岐の数密度の差がすべて 0 の燃焼度（燃焼度 0）では、ハイブリッドは公称の組成そのもので L は定義から 0 なので、L を足さない
-/// （テーブルの値は 2 つの格子計算の解の差）。燃焼度が残りの点の範囲の外か、数密度の差が 0 でないのに E_j が 0 ならエラー
+/// （テーブルの値は 2 つの格子計算の解の差）。燃焼度が残りの点の範囲の外か、数密度の差が 0 でないのに P_j が 0 ならエラー
 pub fn add_histories(
     f: &mut FewGroup,
     table: &Table,
