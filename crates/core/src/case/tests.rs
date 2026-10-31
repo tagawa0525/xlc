@@ -912,34 +912,50 @@ fn nominal_histories_leave_the_rate_cross_sections_bit_identical() {
     }
 }
 
+/// ノードの数密度 `n` の、燃焼度 20 の履歴の分岐の点の核種ごとの数密度の比 (Nᵢ − N̄ᵢ⁰) / (N̄ᵢ^j − N̄ᵢ⁰)
+fn own_ratios(n: &[f64]) -> Vec<f64> {
+    n.iter()
+        .zip(&BRANCH_DENSITIES[1])
+        .zip(&NOMINAL_DENSITIES[2])
+        .map(|((x, j), o)| (x - o) / (j - o))
+        .collect()
+}
+
 #[test]
-fn rate_residuals_add_the_untracked_part_at_w_and_the_linearization_at_the_production_index() {
-    // σ + w Δσ_U + (P / P_j) Δσ_L（U と L と同じ重み。ADR-0215）。収率の境界より下の割合は、境界より下の断面積に 2 つを足し、補正した
-    // σf の和で割ったもの。線形の補正の係数（全断面積、νσf、散乱、微分）は補正しない
+fn rate_residuals_add_the_untracked_part_at_w_and_the_linearization_at_the_own_density_ratio() {
+    // σᵢ + w Δσᵢ_U + rᵢ Δσᵢ_L、rᵢ = (Nᵢ − N̄ᵢ⁰) / (N̄ᵢ^j − N̄ᵢ⁰)（核種 i 自身の数密度の比。ADR-0215）。収率の境界より下の割合は、境界より
+    // 下の断面積に 2 つを足し、補正した σf の和で割ったもの。線形の補正の係数（全断面積、νσf、散乱、微分）は補正しない
     let table = history_table(&[]);
     let state = at(600.0, 20.0);
     let base = interpolate_micro(&table, &state, None).unwrap();
-    let n = [5.5e-4, 1.6e-5];
+    let n = [5.05e-4, 2.45e-5];
     let half = node_micro(&table, &state, None, &[0.702], &n).unwrap();
     let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let own = own_ratios(&n);
     let index = index_ratio(&table, &state, &n, 1);
-    // 2 つの重みを区別できる組成
-    assert!((index - w).abs() > 0.05, "{index} {w}");
+    // 核種ごとの比が、互いに、w と、組成の全体の指標 P / P_j と区別できる組成
+    assert!((own[0] - own[1]).abs() > 0.05, "{own:?}");
+    for r in &own {
+        assert!(
+            (r - w).abs() > 0.05 && (r - index).abs() > 0.05,
+            "{r} {w} {index}"
+        );
+    }
     let rates = &table.histories[0].rods[0].micro;
     for (i, (h, b)) in half.nuclides.iter().zip(&base.nuclides).enumerate() {
         let (u, l) = (&rates.untracked[1][i], &rates.linearization[1][i]);
-        assert!(same_rates(h, &with_rate(b, &[(w, u), (index, l)])), "{i}");
+        assert!(same_rates(h, &with_rate(b, &[(w, u), (own[i], l)])), "{i}");
         assert_eq!(h.total, b.total);
         assert_eq!(h.nu_fission, b.nu_fission);
         assert_eq!(h.scatter, b.scatter);
         assert_eq!(h.derivative, b.derivative);
     }
-    // w が 0 でない 2 つの履歴の差は、追わない核種の分の w の差の分だけ（線形化の誤差は組成の指標で決まる）
+    // w が 0 でない 2 つの履歴の差は、追わない核種の分の w の差の分だけ（線形化の誤差は数密度の比で決まる）
     let other = node_micro(&table, &state, None, &[0.68], &n).unwrap();
     let w2 = (0.68 - 0.743) / (0.661 - 0.743);
     for (i, (o, b)) in other.nuclides.iter().zip(&base.nuclides).enumerate() {
         let (u, l) = (&rates.untracked[1][i], &rates.linearization[1][i]);
-        assert!(same_rates(o, &with_rate(b, &[(w2, u), (index, l)])), "{i}");
+        assert!(same_rates(o, &with_rate(b, &[(w2, u), (own[i], l)])), "{i}");
     }
     // ノードの少数群定数は反応率の差によらない（線形の補正の係数と R は変えない）
     let mut zero = table.clone();
@@ -958,6 +974,42 @@ fn rate_residuals_add_the_untracked_part_at_w_and_the_linearization_at_the_produ
         node_constants(&table, &state, None, &n, &[0.702]).unwrap(),
         node_constants(&zero, &state, None, &n, &[0.702]).unwrap()
     );
+}
+
+#[test]
+fn rate_linearizations_of_nuclides_at_their_nominal_branch_density_take_the_production_index() {
+    // 履歴の分岐の数密度が公称と同じ核種（ほかの核種は違う）は自分の比を作れないので、その核種の Δσ_L は組成の全体の指標 P / P_j で
+    // 足す（ADR-0215。Δσ_L はほかの核種の組成の違いによるスペクトルの変化で 0 でない）。ほかの核種は自分の比
+    let mut table = history_table(&[]);
+    table.histories[0].rods[0].densities[1][1] = NOMINAL_DENSITIES[2][1];
+    table.validate().unwrap();
+    let state = at(600.0, 20.0);
+    let base = interpolate_micro(&table, &state, None).unwrap();
+    let n = [5.05e-4, 2.45e-5];
+    let got = node_micro(&table, &state, None, &[0.702], &n).unwrap();
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let branch = [BRANCH_DENSITIES[1][0], NOMINAL_DENSITIES[2][1]];
+    let delta = |x: &[f64]| -> Vec<f64> {
+        x.iter()
+            .zip(&NOMINAL_DENSITIES[2])
+            .map(|(a, b)| a - b)
+            .collect()
+    };
+    let index =
+        production(&table, &state, &delta(&n)) / production(&table, &state, &delta(&branch));
+    let own = (n[0] - NOMINAL_DENSITIES[2][0]) / (branch[0] - NOMINAL_DENSITIES[2][0]);
+    assert!((own - index).abs() > 0.05, "{own} {index}");
+    let rates = &table.histories[0].rods[0].micro;
+    for (i, ratio) in [own, index].into_iter().enumerate() {
+        let (u, l) = (&rates.untracked[1][i], &rates.linearization[1][i]);
+        assert!(
+            same_rates(
+                &got.nuclides[i],
+                &with_rate(&base.nuclides[i], &[(w, u), (ratio, l)])
+            ),
+            "{i}"
+        );
+    }
 }
 
 #[test]
