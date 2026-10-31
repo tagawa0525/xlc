@@ -83,7 +83,8 @@ def node_gap_effect(node, gap):
 
 
 def core_parts(t, point, b, node, weight):
-    """core が足す w U(1) と (P / P_j) L(1) と P / P_j。w が 0 なら足さない（None）"""
+    """core が足す w U(1) と (P / P_j) L(1) と P / P_j。w が 0 なら U も L も、履歴の分岐の数密度が公称と同じ点なら L を足さない（None。
+    core の `production_ratio`）"""
     if weight == 0.0:
         return None, None, None
     k = t.residual_index(node["burnup"])
@@ -93,10 +94,9 @@ def core_parts(t, point, b, node, weight):
     factors = coefficients(micro["states"][point])
     nominal = micro["densities"][b]
     branch = [x - y for x, y in zip(t.rod["densities"][k], nominal)]
+    untracked = scaled(t.rod["untracked"][k], weight)
     if all(d == 0.0 for d in branch):
-        raise SystemExit(
-            f"the branch densities equal the nominal ones at {node['burnup']}"
-        )
+        return untracked, None, None
     of_branch = production(factors, branch)
     if of_branch == 0.0:
         raise SystemExit(f"the branch index is 0 at {node['burnup']}")
@@ -104,11 +104,7 @@ def core_parts(t, point, b, node, weight):
         production(factors, [x - y for x, y in zip(node["densities"], nominal)])
         / of_branch
     )
-    return (
-        scaled(t.rod["untracked"][k], weight),
-        scaled(t.rod["linearization"][k], index),
-        index,
-    )
+    return untracked, scaled(t.rod["linearization"][k], index), index
 
 
 def check_values(row, s, u):
@@ -170,8 +166,9 @@ def compare(tables, summary):
             coeff,
             [a - c for a, c in zip(n["densities"], nominal["micro"]["densities"][b])],
         )
-        if core_untracked is not None:
-            node = added(added(node, core_untracked), core_linearization)
+        for part in (core_untracked, core_linearization):
+            if part is not None:
+                node = added(node, part)
         both = added(untracked_gap, linearization_gap)
         whole = added(dense, both)
         rho_reference = rho(k_inf(reference))
@@ -236,7 +233,7 @@ def report(summary):
         return f"{min(values):{form}}〜{max(values):{form}}"
 
     def points(values, form="+.3f"):
-        return "、".join(f"{v:{form}}" for v in values)
+        return "、".join("–" if v is None else f"{v:{form}}" for v in values)
 
     u0 = summary["continued_burnup"]
     later = [x for x in summary["rows"] if x["burnup"] > u0]
