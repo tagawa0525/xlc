@@ -1548,6 +1548,7 @@ fn each_linearization_item_at_the_nominal_densities_is_checked() {
     for (name, change) in items {
         let mut table = history_sample();
         change(&mut table.histories[0].rods[0]);
+        // 落ちない項目の名前を出す（`bad_history` の文は項目を書かない）
         assert!(table.validate().is_err(), "{name}: not checked");
         bad_history(
             &|t| change(&mut t.histories[0].rods[0]),
@@ -1560,7 +1561,12 @@ fn each_linearization_item_at_the_nominal_densities_is_checked() {
 fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_each_item() {
     // 許容は項目ごとに、条件 j の状態の同じ項目の絶対値の最大の `NOMINAL_POINT_TOLERANCE` 倍（境界の内は通り、外は止める）
     let condition = |t: &Table| {
-        let p = t.point_index(&[0, 0, 1, 0]).unwrap();
+        let mut at = t
+            .history_condition(MODERATOR_DENSITY, 0.661, ROD_OUT)
+            .unwrap()
+            .point;
+        at[0] = 0;
+        let p = t.point_index(&at).unwrap();
         (
             t.states[p].clone(),
             t.micro.as_ref().unwrap().states[p][0].clone(),
@@ -1576,11 +1582,11 @@ fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_e
         ("scatter", largest(&f.scatter.concat()), |r, x| {
             r.linearization[0].scatter[0][1] = x
         }),
-        // 捕獲は経路ごと
+        // 捕獲は経路ごと（反応の全体の最大でない）。1 つ目の経路の最大より小さい 2 つ目の経路で
         (
             "capture",
-            largest(&sigma.reactions[1].channels[0]),
-            |r, x| r.micro.linearization[0][0].reactions[1].channels[0][1] = -x,
+            largest(&sigma.reactions[1].channels[1]),
+            |r, x| r.micro.linearization[0][0].reactions[1].channels[1][1] = -x,
         ),
         // 収率の境界より下の核分裂の差は割合 × 群の和の σf なので、基準は群の和の σf（群の最大でない）
         ("thermal fission", sigma.fission.iter().sum(), |r, x| {
@@ -1589,6 +1595,9 @@ fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_e
     ];
     assert!(largest(&f.scatter[0]) < 0.99 * largest(&f.scatter.concat()));
     assert!(largest(&sigma.fission) < 0.99 * sigma.fission.iter().sum::<f64>());
+    assert!(
+        largest(&sigma.reactions[1].channels[1]) < 0.99 * largest(&sigma.reactions[1].channels[0])
+    );
     for (name, scale, set) in items {
         for (factor, fine) in [(0.99, true), (1.01, false)] {
             let mut table = history_sample();
@@ -1612,28 +1621,35 @@ fn linearizations_at_the_nominal_densities_are_bounded_by_the_largest_value_of_e
 #[test]
 fn linearizations_at_the_nominal_densities_of_items_that_are_zero_must_be_zero() {
     // 基準が 0 の項目（核分裂しない核種の σf）は、0 でない差を許さない
-    let mut table = history_sample();
-    let micro = table.micro.as_mut().unwrap();
-    micro.nuclides.push("Xe-135".into());
-    for (p, state) in micro.states.iter_mut().enumerate() {
-        state.push(micro_nuclide(2.0 + p as f64, false));
-    }
-    for row in &mut micro.densities {
-        row.push(1.0e-9);
-    }
-    let rod = &mut table.histories[0].rods[0];
-    for part in [&mut rod.micro.untracked, &mut rod.micro.linearization] {
-        for row in part.iter_mut() {
-            row.push(rate_residual(0.0, false));
+    let with_xenon = |table: &mut Table| {
+        let micro = table.micro.as_mut().unwrap();
+        micro.nuclides.push("Xe-135".into());
+        for (p, state) in micro.states.iter_mut().enumerate() {
+            state.push(micro_nuclide(2.0 + p as f64, false));
         }
-    }
-    for row in &mut rod.densities {
-        row.push(1.0e-9);
-    }
+        for row in &mut micro.densities {
+            row.push(1.0e-9);
+        }
+        let rod = &mut table.histories[0].rods[0];
+        for part in [&mut rod.micro.untracked, &mut rod.micro.linearization] {
+            for row in part.iter_mut() {
+                row.push(rate_residual(0.0, false));
+            }
+        }
+        for row in &mut rod.densities {
+            row.push(1.0e-9);
+        }
+    };
+    let mut table = history_sample();
+    with_xenon(&mut table);
     table.validate().unwrap();
-    table.histories[0].rods[0].micro.linearization[0][1].fission[0] = 1.0e-30;
-    let err = table.validate().unwrap_err().to_string();
-    assert!(err.contains("nominal densities"), "{err}");
+    bad_history(
+        &|t| {
+            with_xenon(t);
+            t.histories[0].rods[0].micro.linearization[0][1].fission[0] = 1.0e-30;
+        },
+        "nominal densities",
+    );
 }
 
 #[test]
