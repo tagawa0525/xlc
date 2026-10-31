@@ -10,8 +10,9 @@ use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
-    MicroAt, State, add_rate_residual, add_residual, interpolate, interpolate_branch_difference,
-    interpolate_micro, interpolate_rate_residual, interpolate_residual, non_negative,
+    MicroAt, State, accumulate_rate_residuals, add_rate_residual, add_residual, interpolate,
+    interpolate_branch_difference, interpolate_micro, interpolate_rate_residual,
+    interpolate_residual, non_negative,
 };
 
 /// 状態を解いた結果。
@@ -308,23 +309,24 @@ pub fn node_micro(
         .as_ref()
         .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?
         .nuclides;
-    // 比は補正の前の `micro` で、変数ごとに作ってから足す
-    let mut scaled = Vec::with_capacity(2 * weighted.len());
+    // 比は補正の前の `micro` で作る。Δσ_U と Δσ_L は和を一度に足し、補正した断面積と割合の検査を和にだけ掛ける（片方だけの途中の値は
+    // 負や 0..1 の外になりうる）
+    let mut total = None;
     for (variable, w, entry) in weighted {
         let at = |e: String| format!("history variable {variable}: {e}");
         let untracked =
             interpolate_rate_residual(entry, &entry.micro.untracked, burnup).map_err(at)?;
-        scaled.push((variable, w, untracked));
+        accumulate_rate_residuals(&mut total, w, &untracked);
         let Some(ratio) = production_ratio(table, entry, burnup, &micro, n).map_err(at)? else {
             continue;
         };
         let linearization =
             interpolate_rate_residual(entry, &entry.micro.linearization, burnup).map_err(at)?;
-        scaled.push((variable, ratio, linearization));
+        accumulate_rate_residuals(&mut total, ratio, &linearization);
     }
-    for (variable, scale, r) in scaled {
-        add_rate_residual(&mut micro, names, scale, &r)
-            .map_err(|e| format!("history variable {variable}: {e}"))?;
+    if let Some(total) = total {
+        add_rate_residual(&mut micro, names, 1.0, &total)
+            .map_err(|e| format!("history corrections: {e}"))?;
     }
     Ok(micro)
 }
