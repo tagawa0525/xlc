@@ -1113,26 +1113,6 @@ fn accumulate_residual(acc: &mut Residual, w: f64, r: &Residual) {
     }
 }
 
-/// 残り `r` のすべての項目が 0 か
-pub fn residual_is_zero(r: &Residual) -> bool {
-    let Residual {
-        total,
-        absorption,
-        nu_fission,
-        fission,
-        chi,
-        diffusion,
-        scatter,
-        adf,
-    } = r;
-    [total, absorption, nu_fission, fission, chi, diffusion]
-        .into_iter()
-        .chain(scatter)
-        .chain(adf)
-        .flatten()
-        .all(|&x| x == 0.0)
-}
-
 /// 少数群定数 `f` に、`w` 倍した残り `r` を足す（`f += w r`。k∞、真空の辺の比、形状関数は残りが持たないので変えない）
 pub fn add_residual(f: &mut FewGroup, w: f64, r: &Residual) {
     let Residual {
