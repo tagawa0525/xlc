@@ -1670,7 +1670,7 @@ def history_residual(sources: list[dict]) -> str:
 def core_history_branch(sources: list[dict]) -> str:
     """履歴の補正の core（ADR-0215）: R の点ごとの、条件 j で一生を燃焼させた core の k と第 1 項のテーブルの k∞ の差、公称の燃焼の
     core と公称のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）、core の数密度の第 1 項の数密度からの相対差の
-    絶対値が最大の核種と相対差（%）、第 1 項のテーブルで燃焼させた core の同じ量"""
+    絶対値が最大の核種と相対差（%）、第 1 項のテーブルで燃焼させた core と、反応率の Δσ を P / P_j で足した core の同じ量"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-history":
         raise TableError("not an xlc-compare-core-history summary")
@@ -1685,6 +1685,8 @@ def core_history_branch(sources: list[dict]) -> str:
             "数密度の最大の差 (%)",
             "第 1 項で燃焼: core − 第 1 項 (pcm)",
             "第 1 項で燃焼: 数密度の最大の差 (%)",
+            "Δσ を P / P_j: core − 第 1 項 (pcm)",
+            "Δσ を P / P_j: 数密度の最大の差 (%)",
         ],
         [
             [
@@ -1697,6 +1699,8 @@ def core_history_branch(sources: list[dict]) -> str:
                 f"{signed(r['density_percent'], 3)}（{r['density_nuclide']}）",
                 signed(r["sigma_difference_pcm"], 3),
                 f"{signed(r['sigma_density_percent'], 3)}（{r['sigma_density_nuclide']}）",
+                signed(r["index_difference_pcm"], 3),
+                f"{signed(r['index_density_percent'], 3)}（{r['index_density_nuclide']}）",
             ]
             for r in s["branch_rows"]
         ],
@@ -1776,6 +1780,41 @@ def history_switch(sources: list[dict]) -> str:
                 signed(r["branch_difference_pcm"], 3),
                 signed(r["nominal_difference_pcm"], 3),
                 signed(r["reference_history_pcm"], 3),
+            ]
+            for r in s["rows"]
+        ],
+    )
+
+
+def history_switch_rate_weight(sources: list[dict]) -> str:
+    """途中で条件を変えた燃焼（ADR-0215）: 参照の燃焼度の点ごとの、反応率の Δσ を w で足した core と P / P_j で足した core の、参照からの差、
+    そのうちの数密度の効き、定数の側（差 − 数密度の効き）（pcm）と、P / P_j の core の数密度の相対差の絶対値が最大の核種と相対差（%）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-history-switch":
+        raise TableError("not an xlc-compare-history-switch summary")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "w: core − 参照 (pcm)",
+            "P / P_j: core − 参照 (pcm)",
+            "w: 数密度の効き (pcm)",
+            "P / P_j: 数密度の効き (pcm)",
+            "w: 定数の側 (pcm)",
+            "P / P_j: 定数の側 (pcm)",
+            "P / P_j: 数密度の最大の差 (%)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                signed(r["difference_pcm"], 3),
+                signed(r["index_difference_pcm"], 3),
+                signed(r["composition_pcm"], 3),
+                signed(r["index_composition_pcm"], 3),
+                signed(r["difference_pcm"] - r["composition_pcm"], 3),
+                signed(r["index_difference_pcm"] - r["index_composition_pcm"], 3),
+                f"{signed(r['index_density_percent'], 3)}（{r['index_density_nuclide']}）",
             ]
             for r in s["rows"]
         ],
@@ -3274,6 +3313,10 @@ TABLES = {
     "depletion-history-switch": (
         ["examples/depletion/history/switch.json"],
         history_switch,
+    ),
+    "depletion-history-switch-rate-weight": (
+        ["examples/depletion/history/switch.json"],
+        history_switch_rate_weight,
     ),
     "depletion-history-weight-omega": (
         ["examples/depletion/history/weight.json"],
