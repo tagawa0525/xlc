@@ -1324,7 +1324,7 @@ class DrawHistorySwitch(unittest.TestCase):
                         "linearization_percent": [0.5678, -0.0034],
                         "linearization_ratio": [0.85112, 0.85809],
                         "density_ratio": 0.85731,
-                        "own_density_percent": [-0.43215, 0.00213],
+                        "own_density_percent": [-0.43218, 0.00213],
                     },
                 ],
             }
