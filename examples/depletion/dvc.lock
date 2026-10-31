@@ -5576,3 +5576,92 @@ stages:
       hash: md5
       md5: 2273cd479c828cfdaf4cc7e0edd53f6c
       size: 144
+  openmc-mox1:
+    cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py run 
+      openmc-mox1-rings1.toml openmc-mox1-rings1
+    deps:
+    - path: ../../python-ast/examples/depletion/openmc_depletion.py.ast
+      hash: md5
+      md5: b98b611a4c9b98ae08db96eac383ffad
+      size: 7461
+    - path: ../../python-ast/examples/depletion/openmc_depletion_mox.py.ast
+      hash: md5
+      md5: 54531cb8b7e190b904ad2fc44068f397
+      size: 6424
+    - path: ../../python-ast/examples/mox/openmc_model.py.ast
+      hash: md5
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+    - path: ../../python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+    - path: ../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+    - path: ../../python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+    - path: openmc-chain.xml
+      hash: md5
+      md5: 2a2bc167be1a6ba81a132ab5c25204bf
+      size: 27513870
+    - path: openmc-library
+      hash: md5
+      md5: 09fa81bf0a6c05bc58967e223c9e53a7.dir
+      size: 451672617
+      nfiles: 70
+    - path: openmc-mox1-rings1.toml
+      hash: md5
+      md5: c33d4ea78984e4c0afa0292b9fecbf52
+      size: 847
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-mox1-rings1
+      hash: md5
+      md5: b648f46dd964b92854bb9872ce1a6f92.dir
+      size: 24917803
+      nfiles: 13
+  openmc-mox1-extract:
+    cmd: nix develop ../..#references -c python3 openmc_depletion_mox.py extract
+      openmc-mox1-rings1.toml openmc-mox1-rings1 openmc-mox1-rings1.msgpack
+    deps:
+    - path: ../../python-ast/examples/depletion/openmc_depletion_mox.py.ast
+      hash: md5
+      md5: 54531cb8b7e190b904ad2fc44068f397
+      size: 6424
+    - path: ../../python-ast/examples/mox/openmc_model.py.ast
+      hash: md5
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+    - path: openmc-mox1-rings1
+      hash: md5
+      md5: b648f46dd964b92854bb9872ce1a6f92.dir
+      size: 24917803
+      nfiles: 13
+    - path: openmc-mox1-rings1.toml
+      hash: md5
+      md5: c33d4ea78984e4c0afa0292b9fecbf52
+      size: 847
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-mox1-rings1.msgpack
+      hash: md5
+      md5: 6171eec95eca8e75d3fc117985f84ecf
+      size: 268977
