@@ -211,7 +211,16 @@ class Compare(unittest.TestCase):
     ):
         t, nominal, branch, switch, _ = self.cores()
         s = c.compare(
-            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, True
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            switch,
+            sigma_core(),
+            SUMMARY,
+            True,
+            branch,
+            True,
         )
         self.assertEqual(s["format"], "xlc-compare-core-history")
         self.assertTrue(s["identical"])
@@ -241,7 +250,16 @@ class Compare(unittest.TestCase):
         t, nominal, branch, switch, _ = self.cores()
         nj = branch_table()["micro"]["densities"][1]
         s = c.compare(
-            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, True
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            switch,
+            sigma_core(),
+            SUMMARY,
+            True,
+            branch,
+            True,
         )
         last = s["branch_rows"][1]
         p = t["points"].index([2, 0, 1, 0])
@@ -290,7 +308,16 @@ class Compare(unittest.TestCase):
         # 相対差の絶対値の最大（N̄ᵢ^j が 0 の核種は除く）
         t, nominal, branch, switch, _ = self.cores()
         s = c.compare(
-            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, True
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            switch,
+            sigma_core(),
+            SUMMARY,
+            True,
+            branch,
+            True,
         )
         first, last = s["branch_rows"]
         k_table = branch_table()["states"][1]["k_inf"]
@@ -315,7 +342,16 @@ class Compare(unittest.TestCase):
     def test_the_switched_core_reports_the_weight_and_the_residual_effect(self):
         t, nominal, branch, switch, w = self.cores()
         s = c.compare(
-            t, branch_table(), nominal, branch, switch, sigma_core(), SUMMARY, False
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            switch,
+            sigma_core(),
+            SUMMARY,
+            False,
+            branch,
+            True,
         )
         self.assertFalse(s["identical"])
         self.assertEqual(s["applied_max_pcm"], 6.0)
@@ -349,7 +385,16 @@ class Compare(unittest.TestCase):
         other = dict(branch, nuclides=["U-235", "Pu-239"])
         with self.assertRaises(SystemExit):
             c.compare(
-                t, branch_table(), nominal, other, switch, sigma_core(), SUMMARY, True
+                t,
+                branch_table(),
+                nominal,
+                other,
+                switch,
+                sigma_core(),
+                SUMMARY,
+                True,
+                branch,
+                True,
             )
         # R の点で、状態の減速材の温度がテーブルの格子点でない
         off = dict(
@@ -357,26 +402,64 @@ class Compare(unittest.TestCase):
         )
         with self.assertRaises(SystemExit):
             c.compare(
-                t, branch_table(), nominal, off, switch, sigma_core(), SUMMARY, True
+                t,
+                branch_table(),
+                nominal,
+                off,
+                switch,
+                sigma_core(),
+                SUMMARY,
+                True,
+                branch,
+                True,
             )
         # 公称の燃焼と条件 j の燃焼の R の点が食い違う
         shifted = dict(nominal, points=nominal["points"][:2])
         with self.assertRaises(SystemExit):
             c.compare(
-                t, branch_table(), shifted, branch, switch, sigma_core(), SUMMARY, True
+                t,
+                branch_table(),
+                shifted,
+                branch,
+                switch,
+                sigma_core(),
+                SUMMARY,
+                True,
+                branch,
+                True,
             )
         # 第 1 項のテーブルが R の点を解いていない
         short = branch_table()
         short["axes"][0]["points"] = [0.0, 15.0]
         with self.assertRaises(SystemExit):
-            c.compare(t, short, nominal, branch, switch, sigma_core(), SUMMARY, True)
+            c.compare(
+                t,
+                short,
+                nominal,
+                branch,
+                switch,
+                sigma_core(),
+                SUMMARY,
+                True,
+                branch,
+                True,
+            )
 
     def test_the_residual_summary_must_cover_the_residual_points_of_the_table(self):
         t, nominal, branch, switch, _ = self.cores()
         missing = {"rows": [SUMMARY["rows"][0]]}
         with self.assertRaises(SystemExit):
             c.compare(
-                t, branch_table(), nominal, branch, switch, sigma_core(), missing, True
+                t,
+                branch_table(),
+                nominal,
+                branch,
+                switch,
+                sigma_core(),
+                missing,
+                True,
+                branch,
+                True,
             )
         # 燃焼度は相対 1e-9 で照らす
         near = {
@@ -385,7 +468,16 @@ class Compare(unittest.TestCase):
             ]
         }
         s = c.compare(
-            t, branch_table(), nominal, branch, switch, sigma_core(), near, True
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            switch,
+            sigma_core(),
+            near,
+            True,
+            branch,
+            True,
         )
         self.assertAlmostEqual(
             s["switch_rows"][2]["applied_bound_pcm"],
@@ -399,11 +491,72 @@ class Compare(unittest.TestCase):
     def test_reports_of_runs_without_a_weight_or_late_points_are_written(self):
         t, nominal, branch, _, _ = self.cores()
         s = c.compare(
-            t, branch_table(), nominal, branch, nominal, sigma_core(), SUMMARY, True
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            nominal,
+            sigma_core(),
+            SUMMARY,
+            True,
+            branch,
+            True,
         )
         s["branch_rows"] = [x for x in s["branch_rows"] if x["burnup"] < 15.0]
         text = c.report(s)
         self.assertIn("w", text)
+
+    def test_the_branch_core_with_the_rate_residuals_at_the_production_index_is_compared_too(
+        self,
+    ):
+        # 反応率の Δσ を P / P_j で足した core（`rate-residual-weight = "production-index"`）の、同じ点の k の第 1 項の k∞ からの差と、
+        # 数密度の第 1 項の N̄ᵢ^j からの相対差の絶対値の最大。公称の燃焼の出力がバイトで同じかも持つ
+        t, nominal, branch, switch, _ = self.cores()
+        n20 = [5.2e-4 * 1.002, 2.6e-5 * 0.99]
+        index = core(
+            [
+                (0.0, 0.0, "branch", 1.2, [7.0e-4, 0.0], 0.661),
+                (5.0, 10.0, "branch", 1.0, [6.0e-4, 1.0e-5], 0.661),
+                (10.0, 20.0, "branch", 0.951, n20, 0.661),
+            ]
+        )
+        s = c.compare(
+            t,
+            branch_table(),
+            nominal,
+            branch,
+            switch,
+            sigma_core(),
+            SUMMARY,
+            True,
+            index,
+            False,
+        )
+        self.assertFalse(s["identical_index"])
+        last = s["branch_rows"][1]
+        k_table = branch_table()["states"][1]["k_inf"]
+        self.assertEqual(last["index_k"], 0.951)
+        self.assertAlmostEqual(
+            last["index_difference_pcm"], r.rho(0.951) - r.rho(k_table), places=9
+        )
+        self.assertAlmostEqual(last["index_density_percent"], -1.0, places=9)
+        self.assertEqual(last["index_density_nuclide"], "Pu-240")
+        self.assertIn("P / P_j", c.report(s))
+        # 同じ R の点を通らない燃焼はエラー
+        short = dict(index, points=index["points"][:2])
+        with self.assertRaises(SystemExit):
+            c.compare(
+                t,
+                branch_table(),
+                nominal,
+                branch,
+                switch,
+                sigma_core(),
+                SUMMARY,
+                True,
+                short,
+                True,
+            )
 
 
 if __name__ == "__main__":
