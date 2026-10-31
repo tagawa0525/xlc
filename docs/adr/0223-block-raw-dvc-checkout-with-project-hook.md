@@ -45,8 +45,8 @@ issues: ["#0184", "#0210", "#0211"]
   を `"${CLAUDE_PROJECT_DIR}"` から呼ぶ。スクリプトは標準ライブラリだけで書き、`nix develop` の外の PATH の python3 で動く
   （hook はシェルから実行され、devShell に入っていない）。home の settings の PreToolUse（`claude-hooks pre-tool-use`）とは
   別の設定の階層の hook で、両方が走る（Claude Code は設定の階層の hook を置き換えずに足し合わせる）
-- 判定: stdin の JSON の `tool_input.command` を、シェルの引用（`'…'`、`"…"`、`\`）、コメント、ヒアドキュメントの本文を
-  読み分けて単純なコマンドに分け（`;`、`&&`、`||`、`|`、`&`、改行、`(…)`、`$(…)`）、各コマンドの先頭の代入、予約語（`if`、
+- 判定: stdin の JSON の `tool_input.command` を、シェルの引用（`'…'`、`"…"`、`$'…'`、`\`）、コメント、ヒアドキュメントの本文を
+  読み分けて単純なコマンドに分け（`;`、`&&`、`||`、`|`、`&`、改行、`(…)`、`$(…)`、`<(…)`）、各コマンドの先頭の代入、予約語（`if`、
   `then`、`do`、`{`、`!` など）と包むコマンド（`env`、`time`、`nice`、`timeout`、`taskset`、`nix develop`/`nix shell` の
   `-c`/`--command`、`bash -c` などの文字列）を
   外した先が `dvc`（または `python -m dvc`）で、最初のサブコマンドが `checkout` なら止める。引用の中の語（`grep 'dvc checkout'`、
@@ -69,7 +69,9 @@ issues: ["#0184", "#0210", "#0211"]
   `dvc checkout` は Bash ツールのコマンドに現れないので止めない
 - 判定はシェルの文法の一部だけを読む。`"…"` の中の `$(…)` は読むが、`"…"` の中のバッククォート、`slurm-run.sh` などに文字列
   として渡すコマンド、`eval`、上の一覧の外の包むコマンド（`xargs`、`find -exec`、`direnv exec`、`srun`、値を取る `sudo` の
-  オプションなど）、算術式の中の `<<`、fd の番号から始まるリダイレクトは読まず、止め損なう。普段の書き方（`cd … &&`、
+  オプションと `exec -a`、`function`、`coproc` など）、ヒアドキュメントかパイプで渡すシェル（`bash <<'EOF'`、`… | bash`）、
+  算術式の中の `<<`、fd の番号から始まるリダイレクト、`-o` が最後でない bash のオプションの束（`-oe pipefail`）、`$$'…'` は
+  読まず、止め損なう。普段の書き方（`cd … &&`、
   前置きの `env` や `timeout`、`bash -c`、`nix develop -c`、`for … do`）を止めることを優先し、それ以外は塞がない
 - 引用の外の `$(…)`、バッククォート、`(` が単純なコマンドを区切るので、その後の語が `dvc checkout` で始まると、dvc を
   実行しないコマンド（`echo $(date) dvc checkout`）も止める。`dvc checkout --help` も止める（#0211）
