@@ -5665,7 +5665,8 @@ main の `bin/lattice`（md5 22cf3181。分岐点の `dvc.lock` の `build` の�
 どれも割り込まれうるジョブなので時間は記録に使わない。U の f(X) は既にあるテーブルで、R(1) の第 1 項は `bin/lattice` md5 1aff0b5f、switch の参照は
 `target/release/lattice` md5 73f4ba85、密度だけの経路は同じ 22cf3181 で解いたもの。組成が公称と同じ点（R(1) の燃焼度 0、switch の 20 MWd/kg）では、
 ハイブリッドと分岐のテーブルの定数がビットで同じ（U が 0）で、この 2 点では bin の違いは分岐の解に効いていない（条件 j で燃えた組成では確かめていない）。テーブルは md5 6661fea1、b95aa56b、6faf3b63、e20de3eb（追跡しない生成物。`.dvc` で追う）。
-比較は 5674b3a6 で手元、2026-10-31。
+比較は 5674b3a6 で手元、2026-10-31。`split.json` は R を 1 つで持つ前の形の公称のテーブル（222fabb0）と前の `switch.json`（2a22546c）から作ったもので、
+テーブルの形を変えた後は作り直していない。再現は f44385c6 で（同じテーブルと `switch.json` を持つ）。
 
 ### 結果
 
@@ -5802,7 +5803,9 @@ JSON（`history/index.json`）を git で追跡する。
 
 ブランチ feat/0190-linearization-index（分岐点は main の f44385c6）、2026-10-31。格子計算は足していない。比較は 6726b7a4 で手元、2026-10-31。
 P と A の比較は、ブランチ feat/0190-split-residual-core（分岐点は main の f4c5a4f97）の 618b3f9c で、同じテーブルと `split.json`、`switch.json` から手元、
-2026-10-31（`index.json` を書き直した。ほかの鍵の値は 6726b7a4 のものと同じ）。
+2026-10-31（`index.json` を書き直した。ほかの鍵の値は 6726b7a4 のものと同じ）。`index.json` は前の形の公称のテーブル（222fabb0）と前の
+`switch.json`（2a22546c）、`split.json` から作ったもので、テーブルの形を変えた後は作り直していない。再現は fa2801d7 で（同じ入力と、
+`compare_index.py` と今の `index.json` を持つ。f44385c6 は `compare_index.py` を持たない）。
 
 ### 結果
 
