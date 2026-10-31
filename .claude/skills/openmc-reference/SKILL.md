@@ -18,10 +18,10 @@ main のスクリプトが使われる（`references` は main への symlink）
 DVC の出力（`examples/vera/openmc-library/` など）は worktree では空なので、`dvc.lock` が指す版を戻す:
 
 ```sh
-dvc checkout examples/vera/dvc.yaml
+scripts/dvc-checkout.py examples/vera/dvc.yaml
 ```
 
-キャッシュ（`references/dvc-cache`）に出力がなければ戻せない。そのときは、下の `dvc repro` で作る。
+キャッシュ（`references/dvc-cache`）に出力がなければ戻せない（スクリプトが `MISSING:` に並べて終了コード 1 で止まる。生の `dvc checkout` は hook が止める。ADR-0223）。そのときは、下の `dvc repro` で作る。
 
 ## ライブラリ
 

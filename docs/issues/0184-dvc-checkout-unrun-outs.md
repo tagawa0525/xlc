@@ -37,3 +37,4 @@ hash の無い出力（未実行）と、それ以外の失敗（キャッシュ
 - 2026-10-28: `scripts/dvc-checkout.py` が dvc checkout の失敗の一覧から `No file hash info found` の出力を除き、残りがあれば
   止める形にし、/dvc-relock の手順 1 と後半、`scripts/worktree-restore-outputs.sh` から呼んだ。main 7e0dd7a51 の上の worktree で
   `UNRUN: 7`、終了コード 0
+- 2026-10-31: 生の `dvc checkout` を Bash ツールで実行し続けていた（/retro の 35 回目が数えた）ので、`.claude/settings.json` の hook で止め、`scripts/dvc-checkout.py` を使わせる（ADR-0223）

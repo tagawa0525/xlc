@@ -32,7 +32,7 @@ error: state half: node 150 next to a vacuum face has a flux -0.0000097898329782
 格子と平板の出力は main の dvc.lock にある（入力は境界によらない）。リポジトリの直下で:
 
 ```sh
-dvc checkout examples/vera/p5/dvc.yaml
+scripts/dvc-checkout.py examples/vera/p5/dvc.yaml
 for f in small-half small-cycle small-plant small-assemblies; do
   git show 8ff11f3d:examples/vera/p5/hzp/$f.toml > examples/vera/p5/hzp/$f.toml
 done
