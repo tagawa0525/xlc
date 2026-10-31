@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{Axis, product_points};
+use xlc_format::table::{Axis, linear_coefficients, product_points};
 
 use super::*;
 use crate::input::{Boron, BoronSearch, Case, Cycle, Inventory, Plant};
@@ -368,6 +368,12 @@ const NOMINAL_DENSITIES: [[f64; 2]; 3] = [[7.0e-4, 0.0], [6.0e-4, 1.0e-5], [5.0e
 /// 履歴の分岐の均質化した数密度（燃焼度 0、20）
 const BRANCH_DENSITIES: [[f64; 2]; 2] = [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]];
 
+/// ハイブリッド（公称の組成の追う核種だけを履歴の分岐の値にしたもの）の自分の条件の定数（燃焼度 0、20。燃焼度 0 は公称と同じ組成）
+fn hybrid_constants(table: &Table) -> [FewGroup; 2] {
+    let [first, _] = branch_constants(table);
+    [first, history_few(7.25)]
+}
+
 /// 履歴の分岐の自分の条件の定数（燃焼度 0、20。燃焼度 0 は公称と同じ組成なので、公称のテーブルの条件の状態と同じ定数）
 fn branch_constants(table: &Table) -> [FewGroup; 2] {
     // 制御棒の軸を持てば、その値 out（最初の値）
@@ -431,7 +437,8 @@ fn difference(a: &FewGroup, b: &FewGroup) -> Residual {
 
 /// 公称のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（公称）と 600 K と 0.661 g/cm³（履歴の分岐の
 /// 条件）、燃料 565 K。公称でない状態は 0 と 20 で解く。U-235 と Pu-240（数密度の微分を持つ）を追う。`rods` が空でなければ制御棒の軸を
-/// 持つ。減速材の密度の履歴の残り R（制御棒の値 out、燃焼度 0 と 20）は、lattice と同じく分岐の定数 − (条件の状態 + 線形の補正)
+/// 持つ。減速材の密度の履歴の残り（制御棒の値 out、燃焼度 0 と 20）は、lattice と同じく、追わない核種の分 U = 分岐 − ハイブリッドの
+/// 定数、線形化の誤差 L = ハイブリッドの定数 − (条件の状態 + 線形の補正)
 fn history_table(rods: &[&str]) -> Table {
     let mut axes = vec![
         Axis::Burnup {
@@ -467,10 +474,16 @@ fn history_table(rods: &[&str]) -> Table {
         points,
     };
     let branch = branch_constants(&table);
+    let hybrid = hybrid_constants(&table);
     let micro = table.micro.as_ref().unwrap();
-    let residuals = [0usize, 2]
+    let untracked = branch
         .iter()
-        .zip(&branch)
+        .zip(&hybrid)
+        .map(|(b, h)| difference(b, h))
+        .collect();
+    let linearization = [0usize, 2]
+        .iter()
+        .zip(&hybrid)
         .zip(&BRANCH_DENSITIES)
         .map(|((&u, fb), nj)| {
             let mut at = vec![u, 0, 1, 0];
@@ -512,7 +525,9 @@ fn history_table(rods: &[&str]) -> Table {
         rods: vec![HistoryRod {
             rod: ROD_OUT.into(),
             burnup: vec![0.0, 20.0],
-            residuals,
+            untracked,
+            linearization,
+            densities: BRANCH_DENSITIES.iter().map(|d| d.to_vec()).collect(),
             micro: rates,
         }],
     }];
@@ -584,31 +599,130 @@ fn nominal_histories_leave_the_constants_bit_identical() {
     }
 }
 
+/// 熱群（最後の群）の νΣf の線形の補正 Σᵢ cᵢ_νf,G Δᵢ（係数は状態 `state` で内挿した値。線形の補正と同じ係数）
+fn production(table: &Table, state: &State, delta: &[f64]) -> f64 {
+    let micro = interpolate_micro(table, state, None).unwrap();
+    micro
+        .nuclides
+        .iter()
+        .zip(delta)
+        .map(|(sigma, d)| d * linear_coefficients(sigma).nu_fission.last().unwrap())
+        .sum()
+}
+
 #[test]
-fn history_residuals_scale_with_the_weight_of_the_variable() {
-    // w = (H − H⁰) / (Hᵇ − H⁰) を掛けた R を足す。H = 0.702 は w = 0.5
+fn untracked_parts_scale_with_w_and_linearizations_with_the_production_index() {
+    // U は w = (H − H⁰) / (Hᵇ − H⁰) を、L は熱群の νΣf の線形の補正の、ノードの数密度の差と履歴の分岐の数密度の差の比を掛けて足す
+    // （ADR-0215）。H = 0.702 は w = 0.5
     let table = history_table(&[]);
     let n = [5.5e-4, 1.6e-5];
     let state = at(600.0, 20.0);
     let base = node_constants(&table, &state, None, &n, &[0.743]).unwrap();
     let half = node_constants(&table, &state, None, &n, &[0.702]).unwrap();
-    let r = &table.histories[0].rods[0].residuals[1];
+    let rod = &table.histories[0].rods[0];
+    let (u, l) = (&rod.untracked[1], &rod.linearization[1]);
     let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let node: Vec<f64> = n
+        .iter()
+        .zip(&NOMINAL_DENSITIES[2])
+        .map(|(a, b)| a - b)
+        .collect();
+    let branch: Vec<f64> = BRANCH_DENSITIES[1]
+        .iter()
+        .zip(&NOMINAL_DENSITIES[2])
+        .map(|(a, b)| a - b)
+        .collect();
+    let index = production(&table, &state, &node) / production(&table, &state, &branch);
+    // 指標の比は w と違う（2 つの重みを区別する）
+    assert!((index - w).abs() > 0.05, "{index} {w}");
     let added = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a, b)| a - b).collect::<Vec<_>>();
-    let scaled = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
-    assert!(close(&added(&half.total, &base.total), &scaled(&r.total)));
+    let both = |x: &[f64], y: &[f64]| {
+        x.iter()
+            .zip(y)
+            .map(|(x, y)| w * x + index * y)
+            .collect::<Vec<_>>()
+    };
+    assert!(close(
+        &added(&half.total, &base.total),
+        &both(&u.total, &l.total)
+    ));
     assert!(close(
         &added(&half.nu_fission, &base.nu_fission),
-        &scaled(&r.nu_fission)
+        &both(&u.nu_fission, &l.nu_fission)
     ));
     assert!(close(
         &added(&half.diffusion, &base.diffusion),
-        &scaled(&r.diffusion)
+        &both(&u.diffusion, &l.diffusion)
     ));
     assert!(close(
         &added(&half.scatter.concat(), &base.scatter.concat()),
-        &scaled(&r.scatter.concat())
+        &both(&u.scatter.concat(), &l.scatter.concat())
     ));
+}
+
+#[test]
+fn linearizations_do_not_depend_on_w_once_the_history_is_off_nominal() {
+    // w が 0 でない 2 つの履歴の定数の差は、U の w の差の分だけ（L は組成の指標で決まる）
+    let table = history_table(&[]);
+    let n = [5.5e-4, 1.6e-5];
+    let state = at(600.0, 20.0);
+    let a = node_constants(&table, &state, None, &n, &[0.702]).unwrap();
+    let b = node_constants(&table, &state, None, &n, &[0.68]).unwrap();
+    let u = &table.histories[0].rods[0].untracked[1];
+    let dw = (0.68 - 0.702) / (0.661 - 0.743);
+    let diff: Vec<f64> = b.total.iter().zip(&a.total).map(|(x, y)| x - y).collect();
+    let expected: Vec<f64> = u.total.iter().map(|x| dw * x).collect();
+    assert!(close(&diff, &expected), "{diff:?} {expected:?}");
+}
+
+#[test]
+fn linearization_indices_between_residual_points_take_the_interpolated_branch_differences() {
+    // R の点（0 と 20）の間の燃焼度 10: 履歴の分岐の数密度の差は R と同じ重みで内挿する（2 点なので線形。燃焼度 0 の差は 0）
+    let table = history_table(&[]);
+    let n = [6.2e-4, 1.4e-5];
+    let state = at(600.0, 10.0);
+    let base = node_constants(&table, &state, None, &n, &[0.743]).unwrap();
+    let half = node_constants(&table, &state, None, &n, &[0.702]).unwrap();
+    let rod = &table.histories[0].rods[0];
+    let node: Vec<f64> = n
+        .iter()
+        .zip(&NOMINAL_DENSITIES[1])
+        .map(|(a, b)| a - b)
+        .collect();
+    let branch: Vec<f64> = BRANCH_DENSITIES[1]
+        .iter()
+        .zip(&NOMINAL_DENSITIES[2])
+        .map(|(a, b)| 0.5 * (a - b))
+        .collect();
+    let index = production(&table, &state, &node) / production(&table, &state, &branch);
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    // 燃焼度 0 の U と L は 0 なので、R の点の間の残りは 20 の値の半分
+    let expected: Vec<f64> = rod.untracked[1]
+        .total
+        .iter()
+        .zip(&rod.linearization[1].total)
+        .map(|(u, l)| 0.5 * (w * u + index * l))
+        .collect();
+    let diff: Vec<f64> = half
+        .total
+        .iter()
+        .zip(&base.total)
+        .map(|(x, y)| x - y)
+        .collect();
+    assert!(close(&diff, &expected), "{diff:?} {expected:?}");
+}
+
+#[test]
+fn linearizations_without_a_branch_index_are_errors() {
+    // 履歴の分岐の数密度が公称と同じ点（指標が 0）で L が 0 でなければ、比を作れないので止める（黙って w にしない）
+    let mut table = history_table(&[]);
+    table.histories[0].rods[0].densities[1] = NOMINAL_DENSITIES[2].to_vec();
+    table.validate().unwrap();
+    let n = [5.5e-4, 1.6e-5];
+    let err = node_constants(&table, &at(600.0, 20.0), None, &n, &[0.702]).unwrap_err();
+    assert!(err.contains("index"), "{err}");
+    // 公称の履歴（w = 0）は補正を使わない
+    assert!(node_constants(&table, &at(600.0, 20.0), None, &n, &[0.743]).is_ok());
 }
 
 #[test]

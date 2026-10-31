@@ -2780,7 +2780,7 @@ fn node_histories_that_do_not_match_the_step_values_are_errors() {
 }
 
 /// `with_micro` のテーブルに、減速材の密度の履歴の補正（H⁰ = 0.75 の 560 K、Hᵇ = 0.74 の 570 K。燃焼度 0、10、20 の点）を持たせる。
-/// R は 0、反応率の微視的断面積の差は U-235 の熱群の捕獲だけ `capture`。軸に公称の値（ホウ素 1000 ppm、560 K、560 K）を置く
+/// U と L は 0（履歴の分岐の数密度は公称のもの）、反応率の微視的断面積の差は U-235 の熱群の捕獲だけ `capture`。軸に公称の値（ホウ素 1000 ppm、560 K、560 K）を置く
 fn with_histories(mut table: Table, capture: f64) -> Table {
     table.axes[1] = table.axes[1].clone().with_nominal(1000.0);
     table.axes[2] = table.axes[2].clone().with_nominal(560.0);
@@ -2810,7 +2810,9 @@ fn with_histories(mut table: Table, capture: f64) -> Table {
         rods: vec![xlc_format::table::HistoryRod {
             rod: xlc_format::table::ROD_OUT.into(),
             burnup: BURNUP.to_vec(),
-            residuals: vec![zero; 3],
+            untracked: vec![zero.clone(); 3],
+            linearization: vec![zero; 3],
+            densities: table.micro.as_ref().unwrap().densities.clone(),
             micro: vec![vec![rate([0.0, capture], Some(0.0)), rate([0.0, 0.0], None)]; 3],
         }],
     }];
