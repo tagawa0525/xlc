@@ -14,8 +14,9 @@
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
 //! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density`）、公称の燃焼の値 `nominal`（H⁰）、履歴の
 //! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
-//! 含み、テーブルが履歴の分岐の条件の状態を解いた点）、点ごとの `residuals`（`total`、`absorption`、`nu_fission`、`fission`、`chi`、
-//! `diffusion`、`scatter`、`adf`）、点ごとに追う核種の順の、ミクロ燃焼の反応率の微視的断面積の差 `micro`（`fission`、`reactions`（`mt` と
+//! 含み、テーブルが履歴の分岐の条件の状態を解いた点）、点ごとの追わない核種の分 `untracked` と線形化の誤差 `linearization`（どちらも
+//! `total`、`absorption`、`nu_fission`、`fission`、`chi`、`diffusion`、`scatter`、`adf`。和が残り R）、点ごとに追う核種の順の履歴の分岐の均質化した
+//! 数密度 `densities`、点ごとに追う核種の順の、ミクロ燃焼の反応率の微視的断面積の差 `micro`（`fission`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない核種は nil で、キーは省けない））。履歴の分岐の条件は、変数の軸（減速材の密度は `moderator`）だけが値 `branch` の格子点で、ほかの軸は
 //! 公称の状態。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
@@ -534,7 +535,8 @@ pub struct MicroReaction {
     pub channels: Vec<Vec<f64>>,
 }
 
-/// 履歴の変数の 1 つの補正（ADR-0215）。core はノードの少数群定数に、w = (H − H⁰) / (Hᵇ − H⁰) を掛けた残り R を足す
+/// 履歴の変数の 1 つの補正（ADR-0215）。core はノードの少数群定数に、w = (H − H⁰) / (Hᵇ − H⁰) を掛けた追わない核種の分 U と、熱群の
+/// νΣf の線形の補正の比を掛けた線形化の誤差 L を足す
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryCorrection {
@@ -548,7 +550,7 @@ pub struct HistoryCorrection {
     pub rods: Vec<HistoryRod>,
 }
 
-/// 1 つの制御棒の値の、燃焼度の点ごとの残り R（ADR-0215）
+/// 1 つの制御棒の値の、燃焼度の点ごとの残り R = U + L（ADR-0215）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryRod {
@@ -556,8 +558,13 @@ pub struct HistoryRod {
     pub rod: String,
     /// R を持つ燃焼度の点 (MWd/kg)。燃焼度の軸の点で、最初と最後の点を含み、テーブルが履歴の分岐の条件の状態を解いた点
     pub burnup: Vec<f64>,
-    /// `burnup` の点ごとの残り
-    pub residuals: Vec<Residual>,
+    /// `burnup` の点ごとの追わない核種の分 U = f(履歴の分岐の組成) − f(追う核種だけを履歴の分岐の値にした公称の組成)（どちらも条件 j）
+    pub untracked: Vec<Residual>,
+    /// `burnup` の点ごとの線形化の誤差 L = f(追う核種だけを履歴の分岐の値にした公称の組成) − f(公称の組成) − Σᵢ cᵢ ΔN̄ᵢ（どちらも条件 j）
+    pub linearization: Vec<Residual>,
+    /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、履歴の分岐の均質化した数密度 N̄ᵢ^j (1/(barn cm))。core が L の重みの
+    /// 指標（熱群の νΣf の線形の補正）を作る
+    pub densities: Vec<Vec<f64>>,
     /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、ミクロ燃焼の反応率の微視的断面積の差
     pub micro: Vec<Vec<RateResidual>>,
 }
@@ -1055,34 +1062,51 @@ impl Table {
                         at()
                     ));
                 }
-                if entry.residuals.len() != entry.burnup.len() {
-                    return Err(format!(
-                        "{}: {} residuals for {} burnup points",
-                        at(),
-                        entry.residuals.len(),
-                        entry.burnup.len()
-                    ));
-                }
                 let sized = |v: &[f64]| v.len() == groups && v.iter().all(|x| x.is_finite());
-                if let Some(k) = entry.residuals.iter().position(|q| {
-                    ![
-                        &q.total,
-                        &q.absorption,
-                        &q.nu_fission,
-                        &q.fission,
-                        &q.chi,
-                        &q.diffusion,
-                    ]
-                    .iter()
-                    .all(|v| sized(v))
-                        || q.scatter.len() != groups
-                        || !q.scatter.iter().all(|row| sized(row))
-                        || q.adf.len() != sides
-                        || !q.adf.iter().all(|side| sized(side))
-                }) {
+                for (name, parts) in [
+                    ("untracked", &entry.untracked),
+                    ("linearization", &entry.linearization),
+                ] {
+                    if parts.len() != entry.burnup.len() {
+                        return Err(format!(
+                            "{}: {} {name} residuals for {} burnup points",
+                            at(),
+                            parts.len(),
+                            entry.burnup.len()
+                        ));
+                    }
+                    if let Some(k) = parts.iter().position(|q| {
+                        ![
+                            &q.total,
+                            &q.absorption,
+                            &q.nu_fission,
+                            &q.fission,
+                            &q.chi,
+                            &q.diffusion,
+                        ]
+                        .iter()
+                        .all(|v| sized(v))
+                            || q.scatter.len() != groups
+                            || !q.scatter.iter().all(|row| sized(row))
+                            || q.adf.len() != sides
+                            || !q.adf.iter().all(|side| sized(side))
+                    }) {
+                        return Err(format!(
+                            "{}: {name} residual {k} must have {groups} finite groups ({sides} ADF sides)",
+                            at()
+                        ));
+                    }
+                }
+                let tracked = self.micro.as_ref().map_or(0, |m| m.nuclides.len());
+                if entry.densities.len() != entry.burnup.len()
+                    || entry.densities.iter().any(|row| {
+                        row.len() != tracked || !row.iter().all(|&x| x >= 0.0 && x.is_finite())
+                    })
+                {
                     return Err(format!(
-                        "{}: residual {k} must have {groups} finite groups ({sides} ADF sides)",
-                        at()
+                        "{}: the branch densities must be {} rows of {tracked} finite non-negative densities",
+                        at(),
+                        entry.burnup.len()
                     ));
                 }
                 self.validate_rate_residuals(entry)
