@@ -690,11 +690,14 @@ fn run_does_not_overwrite_the_tables_it_reads() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// ハイブリッドのテーブルを変える関数と、エラーの文に入る語
+type HybridChange = (fn(&mut Table), &'static str);
+
 #[test]
 fn hybrids_solve_the_branch_points_with_the_branch_tracked_densities() {
     // U と L は同じ条件と燃焼度の点の 2 つの定数の差で、ハイブリッドの追う核種は分岐と同じ数密度（ADR-0215）
     let n = nominal();
-    let changes: Vec<(fn(&mut Table), &str)> = vec![
+    let changes: Vec<HybridChange> = vec![
         (
             |h| h.axes[2] = Axis::moderator(vec![565.0], vec![0.743]).with_nominal(565.0),
             "hybrid",
