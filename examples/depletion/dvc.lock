@@ -5082,8 +5082,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/compare_depletion.py.ast
       hash: md5
-      md5: a27b2028dc60cac3d435a9c01a68bf97
-      size: 5911
+      md5: 235136be79f70150a8dd4a59c76dead4
+      size: 5951
     - path: lattice-1C-rings1.msgpack
       hash: md5
       md5: 8e76694fb7289c94b309066857cc24d8
@@ -5095,8 +5095,8 @@ stages:
     outs:
     - path: compare-1C-rings1.json
       hash: md5
-      md5: 4fe6d49b29d672d3185cf89f86608315
-      size: 3127
+      md5: d4f7d2f9bd99b84813a36ac4de0afd22
+      size: 4006
   lattice-1C@rings4:
     cmd: ../../bin/lattice lattice-1C-rings4.toml > lattice-1C-rings4.out 2> 
       lattice-1C-rings4.log
@@ -5137,8 +5137,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/compare_depletion.py.ast
       hash: md5
-      md5: a27b2028dc60cac3d435a9c01a68bf97
-      size: 5911
+      md5: 235136be79f70150a8dd4a59c76dead4
+      size: 5951
     - path: lattice-1C-rings4.msgpack
       hash: md5
       md5: 3b565010734082ff2e08d3ea3a23b8c9
@@ -5150,8 +5150,8 @@ stages:
     outs:
     - path: compare-1C-rings4.json
       hash: md5
-      md5: de26384c8ce7952743723c4bb73c84b0
-      size: 3702
+      md5: aab6b66c5b14aba18cef9977986810ad
+      size: 5013
   xs-nuclide@Eu-151:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-151 
       xs-nuclides/Eu-151.msgpack
@@ -5671,8 +5671,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/compare_depletion.py.ast
       hash: md5
-      md5: a27b2028dc60cac3d435a9c01a68bf97
-      size: 5911
+      md5: 235136be79f70150a8dd4a59c76dead4
+      size: 5951
     - path: lattice-mox1-rings1.msgpack
       hash: md5
       md5: 6fe00e52fac269e86b3a2a4a3c30b8f0
@@ -5684,5 +5684,5 @@ stages:
     outs:
     - path: compare-mox1-rings1.json
       hash: md5
-      md5: b18f026ac77123ec875592b737494496
-      size: 3140
+      md5: 719cd15acd5ef5a6ed639757c5f38684
+      size: 4054
