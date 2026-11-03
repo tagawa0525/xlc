@@ -1060,6 +1060,46 @@ impl LatticeInput {
         if rows.is_empty() || rows.iter().any(Vec::is_empty) {
             return Err(invalid("`rows` needs cell names in every row".into()));
         }
+        // 制御棒の値の置き換え（ADR-0224）: 置き換えられるセルは基準の形状の行にあり、置き換えるセルは定義されていて基準の
+        // 形状の行にない（あれば棒のない状態にも棒が残る）
+        let in_rows = |name: &str| rows.iter().flatten().any(|c| c == name);
+        // ノードごとの出力は、どのノードのテーブルも制御棒の軸を持つ。棒の入らないノード（径方向の反射体のノード。ADR-0127。
+        // 平板の棒の入らない層。ADR-0128）のテーブルは制御棒の軸を持てないので、ノードごとに軸を付け分ける仕組みを作るまで
+        // （平板は #0030、径方向の反射体の格子は #0213。ADR-0224）組まない
+        if branches.as_ref().is_some_and(|b| !b.rods().is_empty())
+            && matches!(
+                &output,
+                Some(FewGroupOutput {
+                    files: FewGroupFiles::Nodes(_),
+                    ..
+                })
+            )
+        {
+            return Err(invalid(
+                "branches.rod: few-group nodes cannot have rod values yet; the lattice would give the rod axis to \
+                 every node table, including nodes that rods never enter (ADR-0224; #0030, #0213)"
+                    .into(),
+            ));
+        }
+        for (value, replaced) in branches.iter().flat_map(|b| b.rods()) {
+            for (from, to) in replaced {
+                if !in_rows(from) {
+                    return Err(invalid(format!(
+                        "branches.rod.{value}: the cell `{from}` is not in the rows"
+                    )));
+                }
+                if !cells.iter().any(|c| &c.name == to) {
+                    return Err(invalid(format!(
+                        "branches.rod.{value}: the cell `{to}` is not defined"
+                    )));
+                }
+                if in_rows(to) {
+                    return Err(invalid(format!(
+                        "branches.rod.{value}: the cell `{to}` is in the rows of the base geometry"
+                    )));
+                }
+            }
+        }
         if let Some(gap) = &file.gap {
             if !positive(gap.width) {
                 return Err(invalid(format!(
@@ -1369,6 +1409,34 @@ impl LatticeInput {
 
     /// 形状と、領域ごとの物質の名前。
     pub fn geometry(&self) -> Result<(Lattice, Vec<String>), InputError> {
+        self.geometry_replacing(&BTreeMap::new())
+    }
+
+    /// 制御棒の軸の値の名前（`out` と `[branches.rod]` の値。制御棒の分岐がなければ `out` だけ。ADR-0224）
+    pub fn rod_values(&self) -> Vec<String> {
+        self.branches.as_ref().map_or_else(
+            || vec![xlc_format::table::ROD_OUT.to_string()],
+            Branches::rod_values,
+        )
+    }
+
+    /// 制御棒の値 `rod`（`rod_values` の番号。0 は基準の形状）の形状と、領域ごとの物質の名前
+    pub fn rod_geometry(&self, rod: usize) -> Result<(Lattice, Vec<String>), InputError> {
+        if rod == 0 {
+            return self.geometry();
+        }
+        let rods = self.branches.as_ref().map_or(&[][..], |b| b.rods());
+        let (_, replaced) = rods
+            .get(rod - 1)
+            .ok_or_else(|| InputError::Invalid(format!("no rod value {rod}")))?;
+        self.geometry_replacing(replaced)
+    }
+
+    /// `rows` のセルの名前を `replaced`（セル → 置き換えるセル）で置き換えた形状と、領域ごとの物質の名前
+    fn geometry_replacing(
+        &self,
+        replaced: &BTreeMap<String, String>,
+    ) -> Result<(Lattice, Vec<String>), InputError> {
         let mut types = Vec::with_capacity(self.cells.len());
         let mut region_materials = Vec::with_capacity(self.cells.len());
         // [セルの種類] の、ピッチに合わないマスに置くときの長方形のセル（均質なセルだけ）
@@ -1468,6 +1536,7 @@ impl LatticeInput {
             .iter()
             .map(|row| {
                 row.iter()
+                    .map(|name| replaced.get(name).unwrap_or(name))
                     .map(|name| {
                         self.cells
                             .iter()

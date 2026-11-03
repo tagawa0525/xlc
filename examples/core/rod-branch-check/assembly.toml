@@ -1,7 +1,11 @@
-# 制御棒の部分挿入の例（ADR-0127）の燃料の層の、制御棒の値ごとの格子計算。値 b4c: VERA Problem 2H（examples/vera/p2/assembly-2H.toml）の
-# 形状と組成。ホウ酸水は ADR-0106 の書き方（600 K、0.743 g/cm³、1300 ppm、B-10 19.9 at%）。
-library = "rods.msgpack"
-few-group = { output = "fg-b4c.msgpack", bounds = [1e7, 0.625, 1e-5] }
+# 制御棒の分岐（ADR-0224）と値ごとの格子計算の結合の一致の確認（../verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致」）の入力。
+# ../assembly.toml のライブラリを今の形式の ../../depletion/p2/depletion.msgpack に、出力を table-branch.msgpack に替えたもの。
+# 制御棒の部分挿入の例（ADR-0127）の燃料の層の格子計算。基準の形状（制御棒の値 out、棒のない状態）は VERA Problem 2G の
+# 案内管から制御棒を抜いたもの（2B の形状と組成で、温度と密度は 2G）。制御棒の分岐（ADR-0224）の値 aic は 2G
+# （examples/vera/p2/assembly-2G.toml）、b4c は 2H（examples/vera/p2/assembly-2H.toml）の制御棒を、案内管 gt に入れる。
+# ホウ酸水は ADR-0106 の書き方（600 K、0.743 g/cm³、1300 ppm、B-10 19.9 at%）。
+library = "../../depletion/p2/depletion.msgpack"
+few-group = { output = "table-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
@@ -9,19 +13,19 @@ gap = { width = 0.04, material = "water" }
 rows = [
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin pin pin pin cr  pin pin cr  pin pin cr  pin pin pin pin pin",
-  "pin pin pin cr  pin pin pin pin pin pin pin pin pin cr  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin",
-  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin cr  pin pin cr  pin pin it  pin pin cr  pin pin cr  pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin pin cr  pin pin pin pin pin pin pin pin pin cr  pin pin pin",
-  "pin pin pin pin pin cr  pin pin cr  pin pin cr  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
 ]
@@ -61,6 +65,23 @@ Sn-124 = 2.79392e-05
 [material.water]
 temperature = 600
 water = { density = 0.743, boron = 1300, b10 = 0.199 }
+
+[material.aic]
+temperature = 600
+
+[material.aic.nuclides]
+Ag-107 = 2.36159e-02
+Ag-109 = 2.19403e-02
+Cd-106 = 3.41523e-05
+Cd-108 = 2.43165e-05
+Cd-110 = 3.41250e-04
+Cd-111 = 3.49720e-04
+Cd-112 = 6.59276e-04
+Cd-113 = 3.33873e-04
+Cd-114 = 7.84957e-04
+Cd-116 = 2.04641e-04
+In-113 = 3.44262e-04
+In-115 = 7.68050e-03
 
 [material.b4c]
 temperature = 600
@@ -117,8 +138,31 @@ zones = [
 ]
 sectors = 8
 
+# 案内管（中は減速材。examples/vera/p2/assembly-2B.toml と同じ）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# AIC の制御棒を入れた案内管（吸収体と被覆管の間は真空）
+[cell.gt-aic]
+zones = [
+  { material = "aic", radius = 0.382, rings = 5 },
+  { material = "void", radius = 0.386, rings = 1 },
+  { material = "ss304", radius = 0.484, rings = 1 },
+  { material = "water", radius = 0.561, rings = 1 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
 # B4C の制御棒を入れた案内管（吸収体と被覆管の間は真空）
-[cell.cr]
+[cell.gt-b4c]
 zones = [
   { material = "b4c", radius = 0.373, rings = 5 },
   { material = "void", radius = 0.386, rings = 1 },
@@ -130,8 +174,12 @@ zones = [
 ]
 sectors = 8
 
-# 制御棒の値ごとの格子計算のテーブルを rod_table.py で 1 つにまとめるので、連続の軸は 1 点ずつ（2G の状態）
+# 連続の軸は 1 点ずつ（2G の状態）。制御棒の値ごとに案内管 gt を棒を入れたセルに置き換える（ADR-0224）
 [branches]
 boron = { ppm = [1300], materials = ["water"] }
 moderator = { temperature = [600], density = [0.743], materials = ["water", "zircaloy"] }
 fuel = { temperature = [600], materials = ["fuel"] }
+
+[branches.rod]
+aic = { gt = "gt-aic" }
+b4c = { gt = "gt-b4c" }

@@ -92,7 +92,9 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 7. core: 制御棒の部分挿入、ピン出力の再構成 — 作業中（ピン出力の再構成は ADR-0096 で、検証は #0043。制御棒の部分挿入
    （ADR-0127。テーブルの制御棒の軸、炉心の形の `[rods]` と状態の `banks`、1D の細かいメッシュの重みと z の面の不連続因子）は
    済み（#0063。燃料の列でメッシュを先端で分けた参照に k 4.3 pcm 以内。examples/core/verification.md）。格子計算の制御棒の
-   分岐は #0093、上の層の制御棒の軸は #0030、Problem 4 と 5 の比較は #0098）
+   分岐（ADR-0224。値ごとにセルを置き換える）は燃焼のない格子で済み、examples/core の燃料の層をそれに置き換えた（#0093）。
+   履歴からの分岐との組み合わせと、examples/vera/p5 と examples/depletion の rod_table.py の置き換えは #0213、上の層の制御棒の
+   軸は #0030、Problem 4 と 5 の比較は #0098）
 8. Problem 3〜5 の入力と、炉心の結果のまとめ — 作業中（Problem 3A と 3B の入力とステージ（examples/vera/p3。支持格子の層は
    [ADR-0140](../adr/0140-place-spacer-grids-as-axial-layers-of-framed-lattices.md)、平板の燃料のノードの D は
    [ADR-0141](../adr/0141-use-medium-b1-diffusion-in-slab-fuel-nodes.md)）と KENO との比較は済み（examples/vera/verification.md の
