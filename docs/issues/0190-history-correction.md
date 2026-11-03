@@ -503,11 +503,11 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
   いない）。案内管の中身の変更で格子の対称性が変わると、燃料の組が変わってエラーで止まる。`DepletionRegion` の `cell` は
   組の代表の番号で、`cells` の最初の位置と同じセルを指すが、履歴が列の数を持たないので照らさない。テストの案内管のセルと 2 × 2 の
   格子の補助（`WATER_GUIDE`、`guided`）が depletion/tests.rs と history/tests.rs に重複する。
-  記録の周（HEAD 6d7b27396）で残したもの（直していない）: `region_mismatch` が組の代表のセルの番号も比べるので、燃料のセルの位置が同じで列を足した格子
+  記録の周（HEAD 8c948616d）で残したもの（直していない）: `region_mismatch` が組の代表のセルの番号も比べるので、燃料のセルの位置が同じで列を足した格子
   （2 × 2 に燃料でない列を足した 2 × 3）は止まる（安全の側の誤り）。`from_msgpack` は `cell` と `cells`、`cells` と MOC の領域の
   食い違いを確かめない。`cells` を持たない前の履歴は serde の「missing field `cells`」で止まり、形式の変更を示さない。
   `depletion_regions` の `cells` の並べ替えは、領域を番号の順にたどるので要らない。テストの `cells_of` は `cells` を返さない名前で、
   負のテストは「depletion regions」の語だけを確かめる。ADR-0215 は比べ方を ADR-0226 に任せる（ADR-0215 の本文は直していない）。
-  make_hybrid.py の直しの周（HEAD d2c546616）で残したもの: `identity` は lattice の `region_mismatch` の比べ方を手で写し、食い違いを
+  make_hybrid.py の直しの周（HEAD 774d0dc6c）で残したもの: `identity` は lattice の `region_mismatch` の比べ方を手で写し、食い違いを
   確かめるものが無い（本番の経路は上の「残り」の 3）。違うときに、どの領域のどの項目かと、`cells` の無い履歴が公称か変えた方かを
   示さない。`tuple` への変換は要らない。テストの履歴の代表の番号（20、21）は `cells` の位置と合う列の数が無い
