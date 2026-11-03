@@ -84,7 +84,7 @@ dvc repro examples/core/dvc.yaml
 - 固有値の反復の回数（116 ステップ）は、中性子束の重みが 563 回、体積の重みが 560 回、参照が 570 回で、外側の反復の
   たびに定数を作り直しても増えない（92f84aa6、分岐点 bf5f08ef の手元の実行、2026-10-14。`bin/core` は d10f5069 の `dvc.lock` と同じ md5、定数は同じステージの出力）
 
-## 制御棒の分岐と値ごとの格子計算の結合の一致（0eda439e、分岐点 b29e4a53、2026-11-03）
+## 制御棒の分岐と値ごとの格子計算の結合の一致（9855342f、分岐点 b29e4a53、2026-11-03）
 
 1 つの入力の制御棒の分岐（ADR-0224。`assembly.toml`）のテーブルと、ADR-0224 の前の形（分岐点の `assembly-out.toml`、
 `assembly-aic.toml`、`assembly-b4c.toml` を別々に解き、rod_table.py でまとめたもの）のテーブルを、同じ実行ファイルと同じ
@@ -96,6 +96,6 @@ dvc repro examples/core/dvc.yaml
   （md5 e84310aff668e474fa68d822168b4538。600 K の AIC、B4C、SS304 の核種を持つ）に替えたもの。`rods.msgpack` は `capture` の
   無い前の形式のまま（examples/core のステージは bin の変更で再実行していない）で読めない）。手順は `compare_rod_branch.py` の
   説明。比べ方は 2 つのテーブルを Python の msgpack で読んだ値の `==`（浮動小数点の値の厳密な一致）
-- 計算: xlc 0eda439e（分岐点 b29e4a53）を `cargo build --release` した `target/release/lattice` を、Slurm の排他のジョブ 651
-  （区分 decision、32 スレッド、割り込まれうるので時間は記録に使わない）で実行した。実行した入力は `rod-branch-check/` の入力と、
-  先頭の説明の行、ライブラリの相対パス、分岐のテーブルの名前（`table-rods.msgpack`）だけが違う手元の写し
+- 計算: xlc 9855342f（分岐点 b29e4a53）を `cargo build --release` した `target/release/lattice` で、`rod-branch-check/` の入力を
+  `compare_rod_branch.py` の説明の手順のとおり、Slurm の排他のジョブ 654（区分 decision、32 スレッド、割り込まれうるので時間は
+  記録に使わない）で実行した
