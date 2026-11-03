@@ -733,24 +733,8 @@ fn invalid_rod_branches_are_errors() {
 }
 
 #[test]
-fn tables_put_the_rod_axis_last_in_lexicographic_order() {
+fn rod_states_are_ordered_lexicographically_with_the_rod_axis_last() {
     // 値ごとに解いた状態（値 0 の 2 点、値 1 の 2 点）を、点の辞書式の順に並べる
-    let axes = vec![
-        Axis::boron(vec![900.0, 1700.0], 0.199),
-        Axis::Rod {
-            values: vec!["out".into(), "aic".into()],
-        },
-    ];
     let points = vec![vec![0, 0], vec![1, 0], vec![0, 1], vec![1, 1]];
-    let per_state = [1.0, 2.0, 3.0, 4.0]
-        .iter()
-        .map(|&k| vec![vec![few(k)]])
-        .collect();
-    let tables = tables(&axes, 1, &points, per_state).unwrap();
-    assert_eq!(
-        tables[0].points,
-        vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]]
-    );
-    let ks: Vec<f64> = tables[0].states.iter().map(|s| s.k_inf).collect();
-    assert_eq!(ks, vec![1.0, 3.0, 2.0, 4.0]);
+    assert_eq!(lexicographic(&points), vec![0, 2, 1, 3]);
 }

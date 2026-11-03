@@ -306,9 +306,17 @@ fn check_all_waters(
     }
 }
 
+/// 点 `points`（解いた順）を辞書式の順に並べる番号の列（`order[n]` は n 番目の点の、解いた順の番号）。制御棒の値ごとに解いた
+/// 状態は、値の軸がテーブルの最後の軸なので、解いた順と点の順が違う（ADR-0224）。状態ごとの量（少数群定数、微視的断面積）は
+/// すべてこの並びで並べ替える
+pub fn lexicographic(points: &[Vec<usize>]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..points.len()).collect();
+    order.sort_by(|&a, &b| points[a].cmp(&points[b]));
+    order
+}
+
 /// 解いた状態ごとの出力の部分ノードの少数群定数（[状態][出力][部分ノード]。分けていなければ部分ノードは1つ）を、出力
-/// ごとのテーブルにまとめる。`points` は解いた状態の、軸の順の格子点の番号（テーブルの点）で、テーブルには点の辞書式の順に
-/// 並べる（制御棒の値ごとに解いた状態は、値の軸が最後なので点の順と違う。ADR-0224）。
+/// ごとのテーブルにまとめる。`points` は解いた状態の、軸の順の格子点の番号（テーブルの点。辞書式の順）。
 pub fn tables(
     axes: &[Axis],
     split: usize,
@@ -322,16 +330,12 @@ pub fn tables(
             points.len()
         ));
     }
-    let mut solved: Vec<(&Vec<usize>, Vec<Vec<FewGroup>>)> = points.iter().zip(per_state).collect();
-    solved.sort_by(|a, b| a.0.cmp(b.0));
-    let (points, per_state): (Vec<Vec<usize>>, Vec<_>) =
-        solved.into_iter().map(|(p, s)| (p.clone(), s)).unzip();
     let outputs = per_state.first().map_or(0, Vec::len);
     let mut tables: Vec<Table> = (0..outputs)
         .map(|_| Table {
             axes: axes.to_vec(),
             split,
-            points: points.clone(),
+            points: points.to_vec(),
             states: Vec::with_capacity(points.len() * split * split),
             heavy_metal: None,
             micro: None,
