@@ -33,14 +33,17 @@ ADR-0184 の `-s` の 2 つ目の例外（「## 変更」の 2026-11-03）を足
 
 - openmc-reference の `-s` を、ADR-0184 の例外に足すか、`-s` を使わない手順に直す
 - 例外の確かめ方を機械で判定するツールを足すか、足さない理由を書く
+- 経緯の 2026-11-03 の 2 つ目の項の 3 つを、直すか直さない理由を書く
 
 ## 経緯
 
 - 2026-11-03: ブランチ docs/0184-skip-upstream-for-quick-downstream のレビュー（1 周目、2 周目）の指摘から起こした
 - 2026-11-03: 同じブランチの、親の判断で足した周で出た直していない指摘（どれも事実の誤りでなく、ADR-0184 の決定とも食い違わない）:
-  - 例外の「deps だけ」は TOML の値や params の変更も通すが、理由は `bin/` の差だけを論じる（main a0fd48c0e で lattice-1B を目標に
+  - 例外の「deps だけ」は TOML の値や params の変更も通す。ADR-0184 の理由は「今の deps（`bin/` など）」と書くが、きっかけと
+    ユーザーの判断は `bin/` の差の場合で、入力の値の変更まで許すかは論じていない（main a0fd48c0e で lattice-1B を目標に
     `dvc status --with-deps --json` を実行すると、xs と xs-range に `examples/vera/xs.toml` と `bin/xs` が出る。今の xs.toml の差は
     4aa33c0c9 のコメントだけ）
   - ADR-0184 の理由の「後に `-s` を付けずに `dvc repro` すると…下流も作り直される」は、上流が同じバイトの出力を書けば下流は飛ぶ
-  - dvc-relock の 3 の「examples/vera では xs、xs-nuclide、xs-range」は `bin/xs` が変わったときの例で、xs.toml だけの変更では
-    xs-nuclide は出ない。3 の出どころの文は 5 の「走らせなかったステージ」と重なる
+  - dvc-relock の 3 の「examples/vera では xs、xs-nuclide、xs-range」は `bin/xs` が変わったときの例で、xs.toml のコメントだけの
+    変更（4aa33c0c9）では xs-nuclide は出ない（xs-nuclide は xs.toml の `sigma0`、`scattering-order`、`nuclide.<核種>` を params に
+    持つので、その値の変更では出る）。3 の出どころの文は 5 の「走らせなかったステージ」と重なる
