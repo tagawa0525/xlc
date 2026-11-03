@@ -732,6 +732,13 @@ fn invalid_rod_branches_are_errors() {
     );
     let err = LatticeInput::parse(&text).unwrap_err().to_string();
     assert!(err.contains("#0030"), "{err}");
+    let err = LatticeInput::parse(&text.replace(
+        "bounds = [1e7, 0.625, 1e-5], nodes",
+        "bounds = [1e7, 0.625, 1e-5], axial = true, nodes",
+    ))
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("#0030"), "{err}");
     // 燃焼の履歴からの分岐と制御棒の軸はまだ組めない（#0213）
     let text = with_rods(
         "\n[branches.rod]\naic = { gt = \"rod\" }\n\n[history]\nfile = \"h.msgpack\"\nburnup = [0]\n",
