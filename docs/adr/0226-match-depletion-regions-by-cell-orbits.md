@@ -86,9 +86,13 @@ issues: ["#0190", "#0196"]
   で数秒。合計はおよそ 9.4 時間（ログのあるもの）と、見込みの 5 本で 3.1〜3.5 時間
 - 分岐のテーブル（`xlc-table`）と core の履歴は燃焼の領域を持たないので、形式は変わらない
 - `cells` の有無で結果が変わる Python のツール（2026-11-03 に `"regions"` を grep して見つけたもの。ほかは確かめていない）:
-  examples/depletion/p2/compare_checkpoint.py（続けて流した履歴と本番の履歴の `nuclides`、`regions`、`transportable` の一致）と
-  examples/depletion/issue-0134/compare.py（2 つの履歴の `regions` の一致）は、前の形式と今の形式の履歴を比べると違うとして止まり、
-  issue-0137/compare.py は `regions` を DIFFERS と出す。examples/depletion/micro/make_shifted.py は、前の履歴からは前の形式の履歴を書き、lattice が読むときに止まる
+  examples/depletion/p2/compare_checkpoint.py（再開した履歴と一気に流した履歴のバイトの一致、一気に流した履歴と本番の履歴の
+  `nuclides`、`regions`、`transportable` の一致）と examples/depletion/issue-0134/compare.py（2 つの履歴の `nuclides` と `regions` の
+  一致）は、前の形式と今の形式の履歴を比べると違うとして止まり、issue-0137/compare.py は `regions` を DIFFERS と出す。
+  examples/depletion/micro/make_shifted.py は `regions` を比べずにそのまま書き出すので、前の履歴からは前の形式の履歴を書き、lattice が
+  読むときに止まる
+- lattice のチェックポイントは燃焼の履歴を埋め込むが、前の実行ファイルのチェックポイントは、履歴を読む前に実行ファイルの指紋
+  （crates/lattice/src/checkpoint.rs の `Checkpoint::read`）で止まるので、この形式の変更で新しく読めなくなるものはない
 - examples/depletion/history/make_hybrid.py の `identity` も同じ項目（物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数）で
   2 つの履歴を比べ、組のセルを持たない前の履歴を止める（ハイブリッドを作る経路で、組成を別の位置に置かないため）
 
