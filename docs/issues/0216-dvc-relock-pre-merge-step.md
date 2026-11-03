@@ -52,6 +52,13 @@ pre-merge-commit の hook に止まる。dvc-relock の「マージが止まっ�
   扱わない。allowed-tools に `git check-ignore`、`examples/` の外のパス（`bin/` など）の `dvc status`、`cd <main の worktree> && …`
   の形も無い（3 周目のレビューの指摘）
 
+記録の周（2026-11-03、HEAD 3d78377bb）が挙げた blocking（歯止めの外なので直していない。マージはユーザーの判断）:
+
+- 手順 2 の `md5sum` の方法に `cache: false` の除外が無い。`dvc.lock` の md5 と同じ版が前の版としてキャッシュにあると、
+  `dvc status` の方法では残す `cache: false` の出力を消してよいと読め、`dvc checkout` は `cache: false` の出力を戻さない
+- 節は「/git-merge は hook の拒否を「ブランチで直す」と扱う」と書くが、/git-merge がそう書くのは品質チェックの拒否だけで、
+  作業ツリーの変更による拒否には触れない（/git-merge からこの節への入口も無い）
+
 捨てた方式: 前もって `.gitignore` の差を手で読んで消す方式（2 周目までの版）は、相対パス、`.dvc` ファイル、直下のパターン、
 消して足し直した行で漏れ、`cache: false` の出力は消す要が無いのに消して戻せないことがある（2 周目と 3 周目の指摘）ので捨てた。
 hook の一覧を `.gitignore` の差と手で照合し、`dvc status` で戻せるかを見る方式（a98fdbbe3 までの版）は、記録の周の上の
