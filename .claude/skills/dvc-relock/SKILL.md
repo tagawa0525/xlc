@@ -7,7 +7,6 @@ allowed-tools:
   - Bash(nix develop -c dvc status --json*)
   - Bash(nix develop -c dvc status --with-deps examples/*)
   - Bash(nix develop -c dvc status examples/*)
-  - Bash(md5sum*)
   - Bash(nix develop -c scripts/check-dvc-lock.sh*)
   - Bash(nix develop -c scripts/compare-dvc-lock.py*)
   - Bash(nix develop -c scripts/count-changed-stages.py*)
@@ -173,8 +172,9 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
 examples/core の `lattice` のステージ（`foreach: [out, aic, b4c]`）を消し、その出力の `fg-{out,aic,b4c}.msgpack` と
 `lattice-{out,aic,b4c}.out` の 6 本で止まった）。この節は、その一覧の DVC の出力について、消してよいかの決め方を書く。
 
-/git-merge は hook の拒否を「ブランチで直す」と扱い、/topic-start は main の作業ツリーで dvc を実行しないとするが、この一覧の
-ファイルは main の作業ツリーにだけある追跡しないファイルで、ブランチでは直せない。下の手順（main の worktree での
+/git-merge が「ブランチで直す」と書くのは品質チェックで拒まれたときだけで、作業ツリーにマージ結果以外の変更があるという
+拒否はこの節が扱う。/topic-start は main の作業ツリーで dvc を実行しないとするが、この一覧のファイルは main の作業ツリーにだけ
+ある追跡しないファイルで、ブランチでは直せない。下の手順（main の worktree での
 `git merge --abort`、`dvc status`、消すこと）はその例外で、ブランチは変わらないので rebase、レビュー、チェックはやり直さない。
 一覧のほかの行（見出しの前の変更と未追跡のファイル）は hook の修正方法と /git-merge のとおりに扱う。
 
@@ -202,11 +202,8 @@ examples/core の `lattice` のステージ（`foreach: [out, aic, b4c]`）を�
      main の記録からは戻らないので、消さずに何の出力でなぜ違うかを調べる
    - `not in cache:`: `dvc.lock` の md5 の版がキャッシュに無い。中身が同じでも消すと戻らないので、消さずに原因を調べる
 
-   1 本のファイルの出力は、dvc を使わずにも確かめられる: `md5sum <パス>` が main の `dvc.lock` のその出力の `md5:`（`.dvc` で
-   追う生成物は、その `.dvc` の `md5:`）と同じで、
-   キャッシュ（`.dvc/config` の `cache.dir` で `references/dvc-cache`。`.dvc/cache` ではない）に
-   `files/md5/<md5 の最初の 2 文字>/<残り>` があること。ディレクトリの出力（`md5:` が `.dir` で終わる）は中のファイルごとの md5 が
-   キャッシュの `.dir` のファイルにあるので、`dvc status` で見る
+   1 本のファイルの md5 で確かめる方法（`md5sum` とキャッシュの置き場）は、`cache: false` の出力と前の版の区別ができないので
+   使わない
 3. 消してよいと決めたパスだけを main の worktree で消し、同じ `git merge` をやり直す。消さないパスが残れば、マージせずに
    原因と一緒にユーザーに聞く。マージをやめたら、消したパス（ディレクトリの出力なら、そのディレクトリ）だけを指定して
    `nix develop -c scripts/dvc-checkout.py <パス>...` で戻す（例の `dvc.yaml` を指定すると、ほかの出力も置き換える）
