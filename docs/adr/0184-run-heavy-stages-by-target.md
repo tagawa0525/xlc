@@ -5,7 +5,7 @@ requires: [ADR-0159, ADR-0130]
 supersedes: []
 superseded-by:
 amends: [ADR-0159]
-issues: []
+issues: ["#0220"]
 ---
 
 # ADR-0184: 重いステージは、目標のステージを指定して 1 本ずつ Slurm に流す
@@ -108,3 +108,4 @@ lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見てい
     上流の履歴が作り直され、記録のほかの数値（ADR-0226 の前の履歴から出したもの）と出どころが混ざる
   - 上流を `dvc commit` で付け直す: `bin/` のバイトの差は ADR-0212 の (b) の付け直してよい条件に当たらない（同じ計算かを
     機械で示せない）
+  残り（openmc-reference の `-s`、確かめ方の機械の判定）は #0220
