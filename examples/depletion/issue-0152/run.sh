@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # #0152 の切り分け: 0 MWd/kg の MOX-1 と 1C の格子の k を設定ごとに解き（bin/lattice）、1C の形状のピンセルで燃料の吸収と物質の移行を
-# OpenMC の値に置き換える（swap_absorption）。リポジトリの直下で、`cargo build --release -p xlc-lattice --example swap_absorption` の後に実行する。
+# OpenMC の値に置き換える（swap_absorption）。リポジトリの直下で、bin/lattice を scripts/worktree-restore-outputs.sh で戻し、
+# `cargo build --release -p xlc-lattice --example swap_absorption --example fuel_xs` の後に実行する。ログの `elapsed` の行は
+# 割り込まれうるジョブで測ったもので、時間の記録に使わない
 #
 # 使い方: run.sh lattice <入力の名前>...   （examples/depletion/issue-0152/<名前>.toml を解き、logs/<名前>.{out,log} に書く）
 #         run.sh swap                      （logs/swap-{MOX1,1C-0}.{txt,err} に書く）
@@ -37,6 +39,8 @@ case $1 in
     echo "elapsed $((SECONDS - t)) s" >>"$here/logs/swap-1C-0.err"
     ;;
   fuel-xs)
+    [[ $# -eq 2 ]] || { echo "usage: run.sh fuel-xs <作業ディレクトリ>" >&2; exit 2; }
+    mkdir -p "$2"
     target/release/examples/fuel_xs "$here/pin-MOX1-ring.toml" "$2/xlc-fuel-xs-MOX1.msgpack" 2>"$here/logs/fuel-xs-MOX1.err"
     nix develop .#references -c python3 "$here/fuel_xs_compare.py" references/openmc/pin-transfer-1C/MOX1-fine/transfer.msgpack \
       "$2/xlc-fuel-xs-MOX1.msgpack" Pu-242,Pu-240,Pu-239,Pu-241,U-238 28,29,30,33,37 >"$here/logs/fuel-xs-MOX1.txt"
