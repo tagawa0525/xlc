@@ -4988,8 +4988,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 36cf148684a3fefabaf0ab131e58a78c
-      size: 9300216
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5006,12 +5006,12 @@ stages:
     outs:
     - path: lattice-2A.log
       hash: md5
-      md5: 9cc3acb33ae5c913463edac03f9a56c8
-      size: 5721
+      md5: 904a97ded04b8b4e1f111f5a28091b5b
+      size: 5720
     - path: lattice-2A.msgpack
       hash: md5
-      md5: b7ba869a3e6139e6b85ff64419a03e74
-      size: 2748316
+      md5: 9453aafef0541c5b02ace9bc7a4fe31f
+      size: 2749381
     - path: lattice-2A.out
       hash: md5
       md5: c77845819da6c20192cc91d63bfd0ef7
@@ -5022,8 +5022,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 36cf148684a3fefabaf0ab131e58a78c
-      size: 9300216
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5040,12 +5040,12 @@ stages:
     outs:
     - path: lattice-1C-rings1.log
       hash: md5
-      md5: 74361a3436e2006ec41eb93b55483ce8
-      size: 23260
+      md5: 0fa4e9e06b391ba8bb2041fc3e022c46
+      size: 23268
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 8e76694fb7289c94b309066857cc24d8
-      size: 271324
+      md5: aab6871b7eb202957b5240eb683d1c65
+      size: 271334
     - path: lattice-1C-rings1.out
       hash: md5
       md5: dccb8cab79a0e79df54a208172ad34ea
@@ -5086,8 +5086,8 @@ stages:
       size: 5951
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 8e76694fb7289c94b309066857cc24d8
-      size: 271324
+      md5: aab6871b7eb202957b5240eb683d1c65
+      size: 271334
     - path: openmc-1C-rings1.msgpack
       hash: md5
       md5: 2c7d0331dc501952109992e17b2c856a
@@ -5095,16 +5095,16 @@ stages:
     outs:
     - path: compare-1C-rings1.json
       hash: md5
-      md5: d4f7d2f9bd99b84813a36ac4de0afd22
-      size: 4006
+      md5: a6e9f08f9fb2091d9055570490fae2ca
+      size: 4007
   lattice-1C@rings4:
     cmd: ../../bin/lattice lattice-1C-rings4.toml > lattice-1C-rings4.out 2> 
       lattice-1C-rings4.log
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 36cf148684a3fefabaf0ab131e58a78c
-      size: 9300216
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5121,12 +5121,12 @@ stages:
     outs:
     - path: lattice-1C-rings4.log
       hash: md5
-      md5: 4e45ca878eb857f0c22c06577bca7620
-      size: 23261
+      md5: 7040583b1b2cb91699989885cfae82ad
+      size: 23268
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: 3b565010734082ff2e08d3ea3a23b8c9
-      size: 993543
+      md5: bb0fb50f496ed806feee56ea77a0763d
+      size: 993583
     - path: lattice-1C-rings4.out
       hash: md5
       md5: 5b8e48405eb1d5a13ebb5dae44b30381
@@ -5141,8 +5141,8 @@ stages:
       size: 5951
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: 3b565010734082ff2e08d3ea3a23b8c9
-      size: 993543
+      md5: bb0fb50f496ed806feee56ea77a0763d
+      size: 993583
     - path: openmc-1C-rings4.msgpack
       hash: md5
       md5: 011dfabbb6da7747e8168f8d84c389b2
@@ -5150,8 +5150,8 @@ stages:
     outs:
     - path: compare-1C-rings4.json
       hash: md5
-      md5: aab6b66c5b14aba18cef9977986810ad
-      size: 5013
+      md5: e445f3bfcece0d197d588a8c2a9e57ae
+      size: 5021
   xs-nuclide@Eu-151:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-151 
       xs-nuclides/Eu-151.msgpack
@@ -5548,8 +5548,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 36cf148684a3fefabaf0ab131e58a78c
-      size: 9300216
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5566,12 +5566,12 @@ stages:
     outs:
     - path: lattice-mox1-rings1.log
       hash: md5
-      md5: cb2fd047902de48546dea9dfd9b0f5c1
-      size: 23223
+      md5: 54f036a121333bae631a461dc6d8ad2c
+      size: 23226
     - path: lattice-mox1-rings1.msgpack
       hash: md5
-      md5: 6fe00e52fac269e86b3a2a4a3c30b8f0
-      size: 271324
+      md5: 2b55bcc7ea3d20dc2c3588e5b1351c33
+      size: 271334
     - path: lattice-mox1-rings1.out
       hash: md5
       md5: 49d03be198cc9ddd6641cb18f4aa8ac4
@@ -5675,8 +5675,8 @@ stages:
       size: 5951
     - path: lattice-mox1-rings1.msgpack
       hash: md5
-      md5: 6fe00e52fac269e86b3a2a4a3c30b8f0
-      size: 271324
+      md5: 2b55bcc7ea3d20dc2c3588e5b1351c33
+      size: 271334
     - path: openmc-mox1-rings1.msgpack
       hash: md5
       md5: 6171eec95eca8e75d3fc117985f84ecf
@@ -5684,5 +5684,5 @@ stages:
     outs:
     - path: compare-mox1-rings1.json
       hash: md5
-      md5: 719cd15acd5ef5a6ed639757c5f38684
-      size: 4054
+      md5: 16fcf8615881f008b31e2def2ac3268e
+      size: 4053
