@@ -36,18 +36,24 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
   JSON と食い違う表を止める。`seconds` は比較のステージの deps（格子計算の燃焼の履歴の msgpack と OpenMC の出力）からコピーした値なので、
   その上流を `--timed` を付けずに流すと、記録に書かないはずの時間が、表を描き直すだけで黙って記録に入る。出どころが timed の
   ジョブかはチェックが確かめない（#0217）。このため、時間の表の xlc の行の出どころの JSON の `seconds` を書き換える再実行
-  （上流の格子計算の燃焼を実行するもの）は、次を守る。上流が changed でなく比較のステージだけが走る再実行は、同じ `seconds` を
-  コピーするだけなので、どのジョブで流してもよい
+  （上流の格子計算の燃焼を実行するもの）は、次を守る:
   - 区分 timed か `--timed` で流す
   - 始めから測る。残っている `.checkpoint` を先に消す（下の項。再開した履歴の `seconds` は前の実行との和で、前の実行が
     main のジョブなら、その時間が入る）
-  - ログで、上流が `Running stage` で走ったことを確かめる。`is cached - skipping run, checking out outputs` は run-cache から
-    前の実行の出力を戻しただけで、`seconds` は前のジョブのもの。そうなったら、その格子計算のステージを目標に `dvc repro --no-run-cache <yaml>:<ステージ>` で再実行する
-  - 描く関数が OpenMC の `seconds` も読む表の OpenMC の行は、CLAUDE.md の「計算」が数時間の参照解を AWS に回すので、この規則で
-    揃わない。扱いは #0217 で決める
+  - 格子計算のステージを目標に `dvc repro --no-run-cache <yaml>:<ステージ>` で流す。run-cache に同じ deps の実行があると、
+    DVC はステージを実行せず前の出力を戻して dvc.lock に書くので、`seconds` は前のジョブのものになり、その後は changed でなく
+    `--no-run-cache` を付けても走らない。`--no-run-cache` は目標の上流の changed のステージも実行するので、上流（xs など）は
+    先に揃えておく。ログに目標の `Running stage` が出たことを確かめる（`is cached - skipping run` なら前の出力）
+  - 比較のステージだけが走る再実行（上流が走らない）は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。上流が
+    走らないことは、CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
+    確かめる。`dvc status` だけでは、上流が出力を書き換えた後に走る下流が出ない
+  - 描く関数が OpenMC の `seconds` も読む表の OpenMC の行は、上の項（OpenMC の total も `--timed`）と、CLAUDE.md の「計算」の
+    数時間の参照解を AWS に回す規則とが両立しない。今の行は timed のパーティションができる前の main のジョブの値で、扱いは
+    #0217 で決める
 - どの表が時間を描くかは、表の名前でなく描く関数から数える（一覧をここにコピーすると古くなる）。リポジトリの直下で、
   描く関数の本文が `"seconds"` を読む表の名前と出どころの JSON を出す（`TABLES` の値は `(JSON の一覧, 関数)` で、関数は
-  `functools.partial` のこともある）:
+  `functools.partial` のこともある）。関数の本文だけを見るので、補助の関数を通して `seconds` を読む表は拾わない。時間を描く表を
+  足すときは、`seconds` を描く関数の本文で読む:
 
   ```sh
   python3 -c 'import inspect, sys; sys.path.insert(0, "examples"); import verification_tables as v; [print(n, s) for n, (s, f) in v.TABLES.items() if "\"seconds\"" in inspect.getsource(getattr(f, "func", f))]'
