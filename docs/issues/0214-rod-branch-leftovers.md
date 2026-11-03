@@ -31,7 +31,7 @@ resolution:
 - 標準出力の `state <番号>` はテーブルの軸の直積の順だが、エラーの文脈とログ（`lattice` の `state=`）は解く順（値が最初の軸）の
   番号で、同じ状態に 2 つの番号が付く。標準出力の番号のテストもない
 - 制御棒の軸の有無を、main.rs の 3 か所（`solve_counts` と `solved_points` の `rods > 1`、ログとエラーの `values` の
-  `rod_values.len() > 1`）と `Branches::table_axes` で決め、点の並べ替えは番号の列
+  `rod_values.len() > 1`）、`Branches::table_axes`、input.rs のノードの出力の検査（`!b.rods().is_empty()`）で決め、点の並べ替えは番号の列
   （`lexicographic`）と `Option` の取り出しで行う（点と状態の組を並べ替える形のほうが短い）
 - 媒質を出力する格子で、棒のある値の状態も細かい群の媒質を作ってチェックポイントに書き、最後に捨てる（計算と書き出しの無駄）
 
