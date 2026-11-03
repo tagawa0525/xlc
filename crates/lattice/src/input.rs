@@ -1077,7 +1077,7 @@ impl LatticeInput {
         {
             return Err(invalid(
                 "branches.rod: few-group nodes cannot have rod values yet; the lattice would give the rod axis to \
-                 every node table, including nodes that rods never enter (ADR-0224)"
+                 every node table, including nodes that rods never enter (ADR-0224; #0030, #0213)"
                     .into(),
             ));
         }
