@@ -1014,7 +1014,9 @@ pub(crate) fn remix_varied(
 /// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。最初に解く状態は始める解
 /// がなく、ほかの状態は、添字が 0 でない最後の軸を 1 つ戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に解いた
 /// 状態）の解から始める。直前に解いた状態は、その軸に加えて後の軸もすべて違う。部分格子の状態だけを解き（ADR-0200）、その状態を
-/// 解いていなければ、直前に解いた状態の解から始める（平らな初期値より近い）。
+/// 解いていなければ、直前に解いた状態の解から始める（平らな初期値より近い）。戻す点は、前の軸が同じ解いた状態がその軸に持つ点の
+/// うち 1 つ前のもの（制御棒の値が燃焼点を間引けば、その値の 1 つ前の燃焼点。燃焼点を間引いた別の入力の格子計算と同じ始める解。
+/// ADR-0225）。前の軸が同じ状態がその軸のどの点も持つ形（直積、部分格子、棒のない値の燃焼点）では 1 つ前の点
 #[derive(Debug)]
 pub struct Starts<T> {
     /// [軸] の格子点の数
@@ -1048,12 +1050,21 @@ impl<T> Starts<T> {
         let state = *self.present.get(self.next)?;
         let at = state_indices(&self.counts, state);
         let axis = at.iter().rposition(|&i| i > 0)?;
-        let mut back = at;
-        back[axis] -= 1;
-        back[axis + 1..].iter_mut().for_each(|i| *i = 0);
-        let back = state_index(&self.counts, &back);
-        match &self.saved[axis] {
-            Some((solved, value)) if *solved == back => Some(value),
+        // 前の軸が同じ、解いた状態のその軸の点のうち、この状態の点より前の最後のもの（解いた状態は番号の順なので、それより前にある）
+        let previous = self.present[..self.next]
+            .iter()
+            .map(|&s| state_indices(&self.counts, s))
+            .filter(|s| s[..axis] == at[..axis] && s[axis] < at[axis])
+            .map(|s| s[axis])
+            .max();
+        let back = previous.map(|point| {
+            let mut back = at.clone();
+            back[axis] = point;
+            back[axis + 1..].iter_mut().for_each(|i| *i = 0);
+            state_index(&self.counts, &back)
+        });
+        match (&self.saved[axis], back) {
+            (Some((solved, value)), Some(back)) if *solved == back => Some(value),
             _ => self.saved.last()?.as_ref().map(|(_, value)| &**value),
         }
     }
