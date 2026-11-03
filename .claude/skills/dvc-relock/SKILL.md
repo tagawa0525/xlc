@@ -171,10 +171,14 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 assembly-* を置き換えて、`fg-*.msgpack` と `lattice-*.out` の 6 本で止まった。2026-10-15 にも p5 と p3 の `compare-*.out` で 2 回
 止まった。そのときの止まり方は確かめていない）。
 
-マージの前に、ブランチで `.gitignore` から外れたパス（`git diff main...HEAD -- '*.gitignore'`）が main の作業ツリーに残っていないかを
+マージの前に、ブランチの worktree で `git diff main...HEAD -- '*.gitignore'` を見て、消えた行（`-/fg-out.msgpack` など）を拾う。
+行はその `.gitignore` のディレクトリからの相対で、先頭の `/` を外してディレクトリを前に付けたものがリポジトリの直下からのパスになる
+（examples/core/.gitignore の `/fg-out.msgpack` は `examples/core/fg-out.msgpack`）。そのパスが main の作業ツリーに残っていないかを
 `git -C <main の worktree> status --short --ignored <パス>`（マージの前の main では無視されているので `--ignored` が要る）と `ls` で見て、
 あれば main 側で消す。消すのは、作り直せる古い出力（DVC のキャッシュにあるもの、ブランチが git で追跡するもの）だけである。
-追跡するようにした出力はマージが git から置き、どのステージも持たなくなった出力は置き直されない。
+追跡するようにした出力はマージが git から置き、どのステージも持たなくなった出力は置き直されない。消した後にマージを `git merge --abort`
+で取り消したら、main で `nix develop -c scripts/dvc-checkout.py examples/<問題>/dvc.yaml` を実行して戻す（main の dvc.yaml はまだ
+そのステージを持つ）。
 
 ## 後半: マージのあと（main の worktree で）
 

@@ -87,7 +87,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 
 - GitHub のリモートはない。PR の代わりに /git-merge でマージする（rebase、チェック、/code-review と指摘への対応、
   `git merge --no-ff`、後片付けを含む）
-- `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock の前半、マージの直前に同スキルの「マージの前に」（main の worktree で、`.gitignore` から外れた古い出力を消す）、マージのあとに後半
+- `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock の前半、マージの直前に同スキルの「マージの前に」（ブランチで `.gitignore` から外れたパスを、main の worktree から消す）、マージのあとに後半
 - 1 つのトピックの始めからマージまでは /topic-start に従う。委任を受けた担当も作業の前に読む（記録用の長い計算の前に
   rebase とレビューを済ませるなど、/delegate の手順の順と違うところがある）
 - チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
