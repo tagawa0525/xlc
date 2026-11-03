@@ -183,8 +183,8 @@ stages:
     deps:
     - path: examples/core/rods_cases.py
       hash: md5
-      md5: 1824f544789f75342dcb39301328b527
-      size: 7469
+      md5: a38614fecbd2ca1297cba6c33d3f13d0
+      size: 7106
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -192,8 +192,8 @@ stages:
     outs:
     - path: python-ast/examples/core/rods_cases.py.ast
       hash: md5
-      md5: fa9fc433f6299d6776548e45c15fe578
-      size: 5297
+      md5: ca9c615f345c7ce05b34f0d1e6716c3a
+      size: 4892
   python-ast@examples/depletion/compare_depletion.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/compare_depletion.py 
