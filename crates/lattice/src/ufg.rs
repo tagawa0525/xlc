@@ -43,6 +43,7 @@ mod hold;
 mod transfer;
 
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
+use hold::cells_beside_work;
 pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
 pub use transfer::ShareCellCache;
 use xlc_numeric::lu::solve;
@@ -333,7 +334,8 @@ pub fn slowing_down(
 
 /// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引き（[`thin`]。
 /// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））、
-/// 散乱核の標的の扱いを `scattering` で選ぶもの。スイープの間で持つ区間は `hold` 個まで（[`held_cells`]。ADR-0213）。
+/// 散乱核の標的の扱いを `scattering` で選ぶもの。`hold` は作業の配列とスイープの間で持つ区間を合わせた量（1 区間の大きさで数えた数。
+/// [`held_cells`]。ADR-0213）で、作業の配列の分を除いた区間を持つ。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_with(
     library: &Library,
@@ -360,8 +362,7 @@ pub struct NuclideTransfer {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、[リング][核種（物質の組成の順）] の弾性散乱の移行の行も返す（ADR-0207）。
-/// 自由ガスの核の移行の割合の区間は `shares` から引き、無ければ作って入れる。スイープの間で持つ区間は `hold` 個まで（[`held_cells`]。
-/// ADR-0213）。
+/// 自由ガスの核の移行の割合の区間は `shares` から引き、無ければ作って入れる。`hold` は [`slowing_down_with`] と同じ。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_transfers(
     library: &Library,
@@ -400,8 +401,8 @@ pub struct FineFlux {
 }
 
 /// [`slowing_down_with`] と同じ減速計算を解き、格子点ごとのリングの中性子束も返す（群の中の重みを参照解の細かい
-/// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。スイープの間で持つ区間は
-/// `hold` 個まで（[`held_cells`]）。
+/// 中性子束と比べるため。格子点の数 × リングの数の中性子束を保つので、自己遮蔽の経路では使わない）。`hold` は
+/// [`slowing_down_with`] と同じ。
 #[allow(clippy::too_many_arguments)]
 pub fn slowing_down_fine(
     library: &Library,
@@ -553,6 +554,9 @@ fn solve_cell(
     energies.dedup();
     // 核種の格子の和（群の境界を含む）の点の数。ここから窓の点を足したものが格子
     let union = energies.len();
+    // この減速計算の格子点の数に比例する作業の配列 (B)。持つ区間の上限（`hold`）から除く（[`cells_beside_work`]）。下で名前を
+    // 付け直した配列も、この関数の終わりまで残るので数える
+    let mut work = heap_bytes(&energies);
     if tracing::enabled!(tracing::Level::DEBUG) {
         log_nuclide_points(&data, group_bounds, inside);
     }
@@ -575,6 +579,9 @@ fn solve_cell(
             group_bounds.contains(&e) || jumps.binary_search_by(|x| x.total_cmp(&e)).is_ok()
         })?,
     };
+    if thinning.is_some() {
+        work += heap_bytes(&energies);
+    }
     let step = data
         .iter()
         .map(|d| d.width / WINDOW_POINTS as f64)
@@ -583,6 +590,7 @@ fn solve_cell(
     let (u, energies) = lethargy_grid(&energies, high, step, |e| {
         group_bounds.contains(&e) || floors.contains(&e)
     });
+    work += heap_bytes(&u) + heap_bytes(&energies);
     // （エネルギー、低い側の極限か）
     let mut points: Vec<(f64, bool)> = Vec::with_capacity(energies.len() + jumps.len());
     let mut lethargies: Vec<f64> = Vec::with_capacity(energies.len() + jumps.len());
@@ -596,6 +604,7 @@ fn solve_cell(
         }
     }
     let u = lethargies;
+    work += heap_bytes(&points) + heap_bytes(&u);
 
     let ng = bottom - top;
     let above = Above { bounds, top, high };
@@ -631,6 +640,12 @@ fn solve_cell(
         thermal: None,
         extra: (vec![0.0; n], vec![0.0; n]),
     };
+    work += sweep
+        .elastic
+        .iter()
+        .chain(&sweep.flux)
+        .map(heap_bytes)
+        .sum::<u64>();
 
     // 表で内挿するなら、軸ごとの全断面積の範囲を格子点の全体で先に求めて表を作る（表で衝突確率が減らないセルは作らない）
     let grid_done = Instant::now();
@@ -695,6 +710,11 @@ fn solve_cell(
                 .iter()
                 .map(|&(k, gas)| gas.floor().and(data[k].table.sab_transfer.as_ref()))
                 .collect();
+            work += heap_bytes(&energies)
+                + sigma
+                    .iter()
+                    .map(|(_, column)| heap_bytes(column))
+                    .sum::<u64>();
             let thermal = Thermal::new(
                 gases.iter().map(|&(_, gas)| gas).collect(),
                 sigma,
@@ -704,7 +724,11 @@ fn solve_cell(
                 &energies,
                 n,
                 // スイープが 1 回なら、持った区間を使うスイープがない
-                if options.sweeps == Some(1) { 0 } else { hold },
+                if options.sweeps == Some(1) {
+                    0
+                } else {
+                    cells_beside_work(hold, work)
+                },
             );
             (thermal, options.sweeps)
         }
@@ -1777,6 +1801,11 @@ fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize, weights: &mut 
         x = y;
         q += 1;
     }
+}
+
+/// 配列 `v` が確保したヒープの大きさ (B)
+fn heap_bytes<T>(v: &Vec<T>) -> u64 {
+    (v.capacity() * std::mem::size_of::<T>()) as u64
 }
 
 #[cfg(test)]
