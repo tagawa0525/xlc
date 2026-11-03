@@ -1092,7 +1092,7 @@ pub fn run(
     )
 }
 
-/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域、チェーンの核種、輸送する
+/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域（物質、組の代表のセル、体積）、チェーンの核種、輸送する
 /// 核種、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
 /// 少数群定数の有無と群境界が、この燃焼と同じこと。`from` は続けた履歴でないこと
 fn continued_start(
@@ -1113,9 +1113,33 @@ fn continued_start(
             earlier.burnup
         );
     }
-    if from.regions != regions {
+    // 燃焼の領域は（物質、組の代表のセル、体積）で比べ、MOC の領域の番号はこの入力の格子のものを使う。案内管の中身を変えた
+    // 格子（Pyrex を抜いた燃焼、制御棒）では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる
+    let key = |d: &DepletionRegion| (d.material.clone(), d.cell, d.volume.to_bits());
+    if let Some(detail) = match regions
+        .iter()
+        .zip(&from.regions)
+        .position(|(a, b)| key(a) != key(b))
+    {
+        Some(k) => Some(format!(
+            "region {k}: {:?} in the lattice, {:?} in the history (material, cell, volume)",
+            (&regions[k].material, regions[k].cell, regions[k].volume),
+            (
+                &from.regions[k].material,
+                from.regions[k].cell,
+                from.regions[k].volume
+            )
+        )),
+        None if regions.len() != from.regions.len() => Some(format!(
+            "{} regions in the lattice, {} in the history",
+            regions.len(),
+            from.regions.len()
+        )),
+        None => None,
+    } {
         bail!(
-            "the depletion regions of the lattice differ from those of the history {file}; give the lattice of the history"
+            "the depletion regions of the lattice differ from those of the history {file}: {detail}; give a lattice \
+             whose depleted cells are those of the history"
         );
     }
     if from.nuclides != nuclides {
