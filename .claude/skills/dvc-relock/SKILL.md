@@ -161,24 +161,24 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 
 この後は /git-merge の「チェック」に進む。
 
-### マージの前に: main の作業ツリーに残る古い出力
+### マージが止まったら: main の作業ツリーに残る古い出力
 
 ブランチが DVC の outs のパスを `.gitignore` から外したとき、main の作業ツリーには以前の `dvc checkout` / `dvc repro` が置いた
-古い出力が、まだ無視されたファイルとして残っている。外れるのは、`cache: false` に変えて git で追跡するようにしたときと、どのステージも
-そのパスを outs に持たなくなったとき（ステージを消した、outs の名前を変えた）である。前者の出力は、git がマージで上書きする（無視された
-ファイルは消してよいものとして扱い、止まらない）ので、古い版との差はどこにも出ない。後者の出力は、マージで持ち主の無い未追跡の
-ファイルになり、pre-merge の hook（作業ツリーにマージ結果以外の変更がある）が止まる（2026-11-03 に #0093 が examples/core の
-assembly-* を置き換えて、`fg-*.msgpack` と `lattice-*.out` の 6 本で止まった。2026-10-15 にも p5 と p3 の `compare-*.out` で 2 回
-止まった。そのときの止まり方は確かめていない）。
+古い出力が、まだ無視されたファイルとして残っている。`cache: false` に変えて git で追跡するようにした出力は、git がマージで
+上書きする（無視されたファイルは消してよいものとして扱い、止まらない）。どのステージも持たなくなった出力（ステージを消した、outs の
+名前を変えた）は、マージで持ち主の無い未追跡のファイルになり、pre-merge の hook（作業ツリーにマージ結果以外の変更がある）が、
+検査を始める前にそのパスを並べて止まる（2026-11-03 に #0093 が examples/core の assembly-* を置き換えて、`fg-*.msgpack` と
+`lattice-*.out` の 6 本で止まった。2026-10-15 にも p5 と p3 の `compare-*.out` で 2 回止まった。そのときの止まり方は確かめていない）。
 
-マージの前に、ブランチの worktree で `git diff main...HEAD -- '*.gitignore'` を見て、消えた行（`-/fg-out.msgpack` など）を拾う。
-行はその `.gitignore` のディレクトリからの相対で、先頭の `/` を外してディレクトリを前に付けたものがリポジトリの直下からのパスになる
-（examples/core/.gitignore の `/fg-out.msgpack` は `examples/core/fg-out.msgpack`）。そのパスが main の作業ツリーに残っていないかを
-`git -C <main の worktree> status --short --ignored <パス>`（マージの前の main では無視されているので `--ignored` が要る）と `ls` で見て、
-あれば main 側で消す。消すのは、作り直せる古い出力（DVC のキャッシュにあるもの、ブランチが git で追跡するもの）だけである。
-追跡するようにした出力はマージが git から置き、どのステージも持たなくなった出力は置き直されない。消した後にマージを `git merge --abort`
-で取り消したら、main で `nix develop -c scripts/dvc-checkout.py examples/<問題>/dvc.yaml` を実行して戻す（main の dvc.yaml はまだ
-そのステージを持つ）。
+前もって探さず、hook の一覧を使う（マージの後に未追跡になるパスを git が正確に出す。`.gitignore` の差を手で読むと、相対パス、
+`.dvc` ファイル、直下のパターンで漏れる）。止まったら:
+
+1. 並んだパスが、ブランチで `.gitignore` から外れたもの（ブランチの worktree で `git diff main...HEAD -- '*.gitignore'`）かを確かめる。
+   ほかのパスが混じれば、消さずに原因を調べる
+2. main の worktree で `git merge --abort` し、並んだパスを消す。消すのは、main の dvc.lock か `.dvc` が md5 を持ち、キャッシュから
+   戻せる古い出力だけ（`nix develop -c dvc status` で見る）。戻せないもの（手で流した出力など）は消さず、ユーザーに聞く
+3. もう一度マージする。マージをやめたら、消した出力を持っていた main の dvc.yaml か `.dvc` を指定して
+   `nix develop -c scripts/dvc-checkout.py <指定>` で戻す
 
 ## 後半: マージのあと（main の worktree で）
 
