@@ -6587,7 +6587,7 @@ python3 ../../core/rod-branch-check/compare_rod_branch.py fg-branch.msgpack fg-m
 
 ### 計算
 
-xlc a0de3041（分岐点は main の dcc9036a）、2026-11-03。上の格子計算を Slurm の排他のジョブ 656（区分 decision、32 スレッド。
+xlc fb90a10d（分岐点は main の dcc9036a）、2026-11-03。上の格子計算を Slurm の排他のジョブ 656（区分 decision、32 スレッド。
 割り込まれうるジョブで止められていたので、時間は記録に使わない）で実行し、rod_table.py と比べるツールは手元で実行した。
 
 ## サイクルのステップの core の燃焼（2A の集合体 1 体）
