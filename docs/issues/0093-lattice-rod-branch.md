@@ -40,7 +40,7 @@ issue で済み、スクリプトの削除は #0213 に移した）。軸方向�
 - 2026-11-03: 入力の形を ADR-0224 に決めた（`[branches.rod]` に値ごとに基準の形状のセルを置き換えるセルを書き、値ごとに形状を
   作り直して連続の軸の同じ状態を解く。テーブルは制御棒の軸を最後に持つ）。格子計算に実装し、examples/core の燃料の層を 1 つの
   入力に置き換えた。2G と 2H の棒の値で、分岐のテーブルと値ごとの格子計算を rod_table.py でまとめたテーブルはビットまで等しい
-  （examples/core/verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致」、9855342f、2026-11-03）。軸方向の平板の
+  （examples/core/verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致」、33c2ecd4、2026-11-03）。軸方向の平板の
   上の層も同じ書き方で書ける（`rod_branches_of_a_slab_use_the_same_medium_state_for_every_value`）が、上の層の値の定数と core の
   扱いは #0030。燃焼の履歴からの分岐と制御棒の軸の組み合わせ、examples/vera/p5 と examples/depletion の rod_table.py の置き換えと
   rod_table.py の削除は #0213 に分けた（履歴の領域と値ごとの形状の対応、制御棒を入れた組の燃焼点の書き方が要り、燃焼のない
