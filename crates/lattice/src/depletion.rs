@@ -484,14 +484,53 @@ pub fn has_data_at(library: &Library, name: &str, temperature: f64) -> bool {
         .is_some_and(|n| n.temperatures.iter().any(|t| t.temperature == temperature))
 }
 
-/// 燃焼の領域: 物質と、組の代表のセル、MOC の領域（組のすべてのセルの分）と、その体積の和 (cm²)
+/// 燃焼の領域: 物質と、組の代表のセル、組のセル（昇順。最初が代表）、MOC の領域（組のすべてのセルの分）と、その体積の和 (cm²)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DepletionRegion {
     pub material: String,
     pub cell: usize,
+    pub cells: Vec<usize>,
     pub regions: Vec<usize>,
     pub volume: f64,
+}
+
+/// 入力の格子から求めた燃焼の領域 `found` が、履歴の燃焼の領域 `recorded` と（物質、組のセル、体積（ビット）、MOC の領域の数）で
+/// 順に同じこと（ADR-0226）。違えば、最初に違う領域か領域の数を示す文。MOC の領域の番号は比べない（案内管の中身を変えた格子では、
+/// 燃料のセルが同じでも番号がずれる）
+pub(crate) fn region_mismatch(
+    found: &[DepletionRegion],
+    recorded: &[DepletionRegion],
+) -> Option<String> {
+    fn key(d: &DepletionRegion) -> (&str, &[usize], u64, usize) {
+        (&d.material, &d.cells, d.volume.to_bits(), d.regions.len())
+    }
+    fn shown(d: &DepletionRegion) -> String {
+        format!(
+            "({:?}, cells {:?}, volume {}, {} MOC regions)",
+            d.material,
+            d.cells,
+            d.volume,
+            d.regions.len()
+        )
+    }
+    match found
+        .iter()
+        .zip(recorded)
+        .position(|(a, b)| key(a) != key(b))
+    {
+        Some(k) => Some(format!(
+            "region {k}: {} in the lattice, {} in the history",
+            shown(&found[k]),
+            shown(&recorded[k])
+        )),
+        None if found.len() != recorded.len() => Some(format!(
+            "{} regions in the lattice, {} in the history",
+            found.len(),
+            recorded.len()
+        )),
+        None => None,
+    }
 }
 
 /// 燃焼の領域を自己遮蔽と MOC で解くときの物質の名前
@@ -614,22 +653,30 @@ pub fn depletion_regions(
         if !depleted.contains(name) {
             continue;
         }
-        let cell = representatives[lattice.region_cell(r)];
+        let member = lattice.region_cell(r);
+        let cell = representatives[member];
         match found
             .iter_mut()
             .find(|d| d.cell == cell && &d.material == name)
         {
             Some(d) => {
+                if !d.cells.contains(&member) {
+                    d.cells.push(member);
+                }
                 d.regions.push(r);
                 d.volume += volumes[r];
             }
             None => found.push(DepletionRegion {
                 material: name.clone(),
                 cell,
+                cells: vec![member],
                 regions: vec![r],
                 volume: volumes[r],
             }),
         }
+    }
+    for d in &mut found {
+        d.cells.sort_unstable();
     }
     found
 }
@@ -799,6 +846,16 @@ impl History {
         if regions.is_empty() {
             bail!("the history has no depletion regions");
         }
+        // 組のセルは昇順で重なりがなく、最初が組の代表（`cell_representatives` の最小の番号）
+        for (k, d) in regions.iter().enumerate() {
+            if d.cells.first() != Some(&d.cell) || !d.cells.windows(2).all(|w| w[0] < w[1]) {
+                bail!(
+                    "depletion region {k} of cell {}: the cells {:?} must increase from the representative cell",
+                    d.cell,
+                    d.cells
+                );
+            }
+        }
         // 数密度の列は核種の名前で引く
         for (k, name) in nuclides.iter().enumerate() {
             if nuclides[..k].contains(name) {
@@ -871,7 +928,7 @@ impl History {
         })
     }
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
-    /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
+    /// cells, regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
     /// matrix, cram}（時間の内訳 (s)）, solves, shieldings, continued: {file, burnup}（続けた燃焼だけ）}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
@@ -1092,7 +1149,7 @@ pub fn run(
     )
 }
 
-/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域（物質、組の代表のセル、体積、MOC の領域の数）、チェーンの核種、輸送する
+/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域（物質、組のセル、体積、MOC の領域の数。ADR-0226）、チェーンの核種、輸送する
 /// 核種、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
 /// 少数群定数の有無と群境界が、この燃焼と同じこと。`from` は続けた履歴でないこと
 fn continued_start(
@@ -1113,33 +1170,7 @@ fn continued_start(
             earlier.burnup
         );
     }
-    // 燃焼の領域は（物質、組の代表のセル、体積、MOC の領域の数）で比べ、MOC の領域の番号はこの入力の格子のものを使う。案内管の
-    // 中身を変えた格子（Pyrex を抜いた燃焼、制御棒）では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる（#0190）。
-    // 領域の数も比べるのは、燃料のリングの数を変えた格子を止めるため（体積は MOC の領域の体積の和なので、組に複数のセルがあると
-    // リングの分け方で丸めが変わり、続けられるかが丸め次第になる）。組の代表でないセルは履歴に無いので比べない（#0190）
-    fn key(d: &DepletionRegion) -> (&str, usize, u64, usize) {
-        (&d.material, d.cell, d.volume.to_bits(), d.regions.len())
-    }
-    fn shown(d: &DepletionRegion) -> (&str, usize, f64, usize) {
-        (&d.material, d.cell, d.volume, d.regions.len())
-    }
-    if let Some(detail) = match regions
-        .iter()
-        .zip(&from.regions)
-        .position(|(a, b)| key(a) != key(b))
-    {
-        Some(k) => Some(format!(
-            "region {k}: {:?} in the lattice, {:?} in the history (material, cell, volume, MOC regions)",
-            shown(&regions[k]),
-            shown(&from.regions[k])
-        )),
-        None if regions.len() != from.regions.len() => Some(format!(
-            "{} regions in the lattice, {} in the history",
-            regions.len(),
-            from.regions.len()
-        )),
-        None => None,
-    } {
+    if let Some(detail) = region_mismatch(regions, &from.regions) {
         bail!(
             "the depletion regions of the lattice differ from those of the history {file}: {detail}; give a lattice \
              whose depleted cells are those of the history"
