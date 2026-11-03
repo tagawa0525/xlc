@@ -51,6 +51,9 @@ resolution:
   1 つの入力と別の入力のビットの一致は、`rod-burnup` が `off-nominal-burnup` より多くの点を持つ場合と、2 軸以上を変える部分格子では
   比べていない。`HistoryBranches::micro` は値の格子を引数でもう一度受け、値の均質化した数密度の体積と同じ格子かを確かめない。
   値ごとの形状の `ValueGeometry`（history.rs）は main.rs の `Geometry` のコピーで、`burnups` の値 0 の分岐は `rod_burnup` と同じ
+  3 周目: history.rs のモジュール、`ValueShape`、`history_branches` の説明は、燃焼の領域の照合を（物質、組の代表のセル、体積）と
+  書くが、コードは ADR-0226 の `region_mismatch`（組のセルの位置と MOC の領域の数も比べる）を使う。
+  `rod_burnups_are_history_burnups_of_rod_values` は `is_err()` だけを見て、どの検査で止まったかを確かめない
 
 関係する ADR: ADR-0224、ADR-0225
 

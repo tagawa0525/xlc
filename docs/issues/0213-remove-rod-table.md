@@ -53,3 +53,11 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
 - 径方向の反射体の格子のノードごとの出力で、反射体のノードのテーブルに制御棒の軸を入れない仕組み（ADR-0224。#0214 の
   ノードごとの付け分けの項）と、examples/vera/p5 の HZP のテーブルの置き換え
 - rod_table.py とそのテスト（examples/core/test_rod_table.py）の削除と、直下の `dvc.yaml` の `python-ast` の foreach からの削除
+- 前半のレビューの 3 周目（2026-11-03）で、直さずに残した指摘: examples/depletion/verification.md の「制御棒の分岐と値ごとの
+  格子計算の結合の一致（燃焼の履歴からの分岐）」と ADR-0225 の確認は、rebase で付け替えたコミット（ADR-0226 の後）を書くが、
+  計算は分岐点 3dda2078 の上の ADR-0226 の前のコードで流した。そのコミットでは使った燃焼の履歴（前の形式）を読めず、2A の比較は
+  ADR-0226 の `region_mismatch` を値ごとに通す経路を通っていない（単体テスト `rod_values_that_change_the_fuel_orbits_are_errors` が
+  通す）。テーブルを作り直すときに、今の形式の履歴で比較を再実行して記録を書き直す。core-2A-micro-rods-assemblies.toml と
+  core-small-assemblies.toml の説明は新しい入力を出どころに書くが、今あるテーブルは rod_table.py でまとめた前のもの（テーブルを
+  作り直せば合う）。examples/core/rod_table.py の説明は「#0213 まで」のつなぎと書くが、今は p5 のノードのテーブルだけが使う
+  （rod_table.py を消すときに一緒に消える）
