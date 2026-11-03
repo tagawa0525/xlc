@@ -166,8 +166,8 @@ stages:
     deps:
     - path: examples/core/rod_table.py
       hash: md5
-      md5: debb7642a3bd77c15479f50a6a630cb2
-      size: 7790
+      md5: bdd8492889088c5a99c33392ba9e0eb6
+      size: 7807
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
