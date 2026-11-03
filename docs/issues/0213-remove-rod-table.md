@@ -48,7 +48,8 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   `table-2A-micro-rods.msgpack` を、今の bin で作り直し、それを読む記録（examples/depletion/verification.md の「部分挿入のノードの
   ミクロ燃焼（2A の集合体 1 体）」と、`branch-2A-micro-boron-rods.toml` を使う小さな炉心の節）の手順と数値を書き直す。どちらも
   ステージではなく（「燃焼度の軸を持つテーブル（2A）」と同じ理由）、今の記録の数値は rod_table.py でまとめた前の形のもの。
-  置き換えた値 aic は数密度の微分を持つ（前の制御棒の組は持たなかった）ので、部分挿入のノードの数値は変わりうる
+  置き換えた値 aic は数密度の微分を持つ（前の制御棒の組は持たなかった）ので、部分挿入のノードの数値は変わりうる。読む燃焼の履歴
+  `p2/lattice-2A.msgpack` は ADR-0226 の前の形式（燃焼の領域の `cells` が無い）で今の lattice では読めないので、先に作り直す
 - 径方向の反射体の格子のノードごとの出力で、反射体のノードのテーブルに制御棒の軸を入れない仕組み（ADR-0224。#0214 の
   ノードごとの付け分けの項）と、examples/vera/p5 の HZP のテーブルの置き換え
 - rod_table.py とそのテスト（examples/core/test_rod_table.py）の削除と、直下の `dvc.yaml` の `python-ast` の foreach からの削除
