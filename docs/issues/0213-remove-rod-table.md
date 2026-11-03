@@ -23,7 +23,7 @@ resolution:
   制御棒の分岐と組む入力はエラーになる（反射体のノードのテーブルは制御棒の軸を持てない。ADR-0127、ADR-0224）。ノードごとに
   制御棒の軸を持たせる扱いが要る
 
-関係する ADR: ADR-0224
+関係する ADR: ADR-0224、ADR-0225
 
 ## 完了の条件
 
@@ -36,3 +36,19 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
 - 2026-11-03: #0093 で格子計算の制御棒の分岐（燃焼なし）と examples/core の置き換えを行い、履歴からの分岐と残りの例を分けた
 - 2026-11-03: #0093 を分岐の部分で閉じた。ADR-0200（213 行目）と ADR-0215（423 行目）の「#0093 まで」の rod_table.py の
   つなぎは、凍結する部分なので直さず、この issue が引き継ぐ
+- 2026-11-03: 前半（`[history]` と `[branches.rod]` の組み合わせ、値ごとの燃焼点 `rod-burnup`、値ごとの形状の燃焼の領域の照合）を
+  ADR-0225 で行い、examples/depletion の制御棒の組の入力を 1 つの入力（`branches/branch-2A-micro-rod-axis.toml`、
+  `branch-2A-micro-boron-rod-axis.toml`）に置き換え、`branch-2A-micro-boron-rods.toml` を消した。`branch-2A-micro-rods.toml` は、
+  core-2A-micro-rodded の一様に棒の入った層の比べる先（制御棒の軸を持たないテーブル）として残し、値 aic と同じ問題になるよう
+  Pu-240 の数密度の微分（`derivative`）を足した
+
+## 残り
+
+- 置き換えた入力のテーブル（`table-2A-micro-rod-axis.msgpack`、`table-2A-micro-boron-rod-axis.msgpack`。後者は `dvc add` で追跡）と
+  `table-2A-micro-rods.msgpack` を、今の bin で作り直し、それを読む記録（examples/depletion/verification.md の「部分挿入のノードの
+  ミクロ燃焼（2A の集合体 1 体）」と、`branch-2A-micro-boron-rods.toml` を使う小さな炉心の節）の手順と数値を書き直す。どちらも
+  ステージではなく（「燃焼度の軸を持つテーブル（2A）」と同じ理由）、今の記録の数値は rod_table.py でまとめた前の形のもの。
+  置き換えた値 aic は数密度の微分を持つ（前の制御棒の組は持たなかった）ので、部分挿入のノードの数値は変わりうる
+- 径方向の反射体の格子のノードごとの出力で、反射体のノードのテーブルに制御棒の軸を入れない仕組み（ADR-0224。#0214 の
+  ノードごとの付け分けの項）と、examples/vera/p5 の HZP のテーブルの置き換え
+- rod_table.py とそのテスト（examples/core/test_rod_table.py）の削除と、直下の `dvc.yaml` の `python-ast` の foreach からの削除
