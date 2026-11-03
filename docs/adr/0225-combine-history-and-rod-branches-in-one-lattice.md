@@ -115,7 +115,8 @@ aic = { gt = "gt-aic" }
   値をそのまま結合していた。branch-2A-micro-rods.toml は、部分挿入のノードの確認の一様に棒の入った層の比べる先として残し、値 aic と
   同じ問題になるよう `derivative` を足した
 - rod_table.py は、examples/vera/p5 の HZP のテーブル（dvc.yaml の 8 本。燃料と支持格子の層の 6 本と、径方向の反射体の格子の
-  ノードごとの出力の 2 本。ADR-0224）と、この ADR の確認の手順（examples/depletion/rod-axis-check）が使うので残す。p5 の層の
+  ノードごとの出力の 2 本。ADR-0224）と、確認の手順（ADR-0224 の examples/core/rod-branch-check、この ADR の examples/depletion/rod-axis-check）、examples/depletion の
+  記録の前の形のテーブルの手順が使うので残す。p5 の層の
   テーブルの制御棒の分岐への置き換え、ノードごとに制御棒の軸を付け分ける仕組み、rod_table.py の削除は #0213 の残り
 - 制御棒の履歴の補正（[ADR-0215](0215-correct-untracked-history-by-history-branches.md) の制御棒の変数。#0190）は、この組み合わせの上に作る別のトピック
 
@@ -133,5 +134,6 @@ aic = { gt = "gt-aic" }
 - VERA 2A（自己遮蔽あり、32 スレッド）: 燃焼度 0、10、40 MWd/kg（値 aic は 0 と 40）の 1 つの入力のテーブルと、値ごとの 2 つの
   入力を rod_table.py でまとめたテーブルは、軸、点、少数群定数、微視的断面積と数密度の微分のすべての項目でビットまで等しい
   （examples/depletion/verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」、2026-11-03）。
-  計算は ADR-0226 の前のコード（a0de3041、分岐点 dcc9036a）と前の形式の燃焼の履歴で流し、ADR-0226 の値ごとの `region_mismatch` の
-  経路は通っていない（単体テストが通す）。今のコードは使った履歴を読めない
+  計算は ADR-0226 の前のコード（a0de3041。タグ `record/adr-0225-rod-axis-check`、分岐点 dcc9036a）と前の形式の燃焼の履歴
+  （md5 7efea664）で流し、ADR-0226 の値ごとの `region_mismatch` の経路は通っていない（単体テストが通す）。今のコードは使った履歴を
+  読めない（再現の手順は記録の「計算」）
