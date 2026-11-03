@@ -503,4 +503,11 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
   `["pin gt", "gt pin"]` の変えた履歴）からハイブリッドを作ると、変えた履歴の組成が公称の組のセルの下に書かれ、ADR-0226 の照合を
   通る（3 周目のレビュー。examples の DVC のステージの deps を変えるので、このブランチでは直さない）。`DepletionRegion` の `cell` は
   組の代表の番号で、`cells` の最初の位置と同じセルを指すが、履歴が列の数を持たないので照らさない。テストの案内管のセルと 2 × 2 の
-  格子の補助（`WATER_GUIDE`、`guided`）が depletion/tests.rs と history/tests.rs に重複する。ADR-0215 は比べ方を ADR-0226 に任せる（ADR-0215 の本文は直していない）
+  格子の補助（`WATER_GUIDE`、`guided`）が depletion/tests.rs と history/tests.rs に重複する。
+  記録の周（HEAD 6d7b27396）で残したもの（直していない）: 上の make_hybrid.py の `identity` は今の形式の履歴でも組のセルの位置と
+  MOC の領域の数を比べず、組のセルの違う 2 つの履歴のハイブリッドが `region_mismatch` を通る（組成を別の位置のセルに置く。再現の
+  手順は上と同じで、作ってはいない）。`region_mismatch` が組の代表のセルの番号も比べるので、燃料のセルの位置が同じで列を足した格子
+  （2 × 2 に燃料でない列を足した 2 × 3）は止まる（安全の側の誤り）。`from_msgpack` は `cell` と `cells`、`cells` と MOC の領域の
+  食い違いを確かめない。`cells` を持たない前の履歴は serde の「missing field `cells`」で止まり、形式の変更を示さない。
+  `depletion_regions` の `cells` の並べ替えは、領域を番号の順にたどるので要らない。テストの `cells_of` は `cells` を返さない名前で、
+  負のテストは「depletion regions」の語だけを確かめる。ADR-0226 の背景が引くブランチのコミット aa256db8c は、rebase で hash が変わるADR-0215 は比べ方を ADR-0226 に任せる（ADR-0215 の本文は直していない）
