@@ -11,6 +11,7 @@
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `xs.toml`              | 多群ライブラリ（`rods.msgpack`）。examples/reflector の核種から Ti を除き、AIC の Ag、In、Cd を足したもの。600 K だけ                                                                       |
 | `assembly.toml`        | 燃料の層の格子計算（基準の形状は棒なし、制御棒の分岐（ADR-0224）の値 aic、b4c は VERA 2G、2H の棒。600 K、0.743 g/cm³、1300 ppm）。連続の軸は 1 点ずつで、制御棒の軸（out、aic、b4c）を持つ |
+| `rod-branch-check/`    | 制御棒の分岐と、値ごとの格子計算を rod_table.py でまとめた形の一致を確かめる入力と比べるツール（下の「制御棒の分岐と値ごとの格子計算の結合の一致」）                                        |
 | `rods_cases.py`        | 炉心の形、台帳、サイクル、ケース（`cases/`）、`cases.yaml`、`dvc.yaml` を書く                                                                                                               |
 | `compare_rods.py`      | 炉心の結果（`out/`）を比べる表を書く（`compare.out`）                                                                                                                                       |
 | `dvc.yaml`、`dvc.lock` | ステージ（xs → 格子 → 炉心のケース → 比較。ADR-0159）                                                                                                                                       |
@@ -90,9 +91,11 @@ dvc repro examples/core/dvc.yaml
 ライブラリで作って比べた。2 つのテーブルを MessagePack から読んだ値は、軸、点、3 つの状態（out、aic、b4c）の少数群定数の
 すべての項目でビットまで等しい（k∞ は out 1.1816772181491253、aic 0.8496450218997933、b4c 0.789500451749501）。
 
+- 入力と比べるツール: `rod-branch-check/`（値ごとの入力 `assembly-<値>.toml` は分岐点 f86d7fda の examples/core の入力、分岐の
+  入力 `assembly.toml` はこの記録の `assembly.toml` で、どれもライブラリを今の形式の examples/depletion/p2/depletion.msgpack
+  （md5 e84310aff668e474fa68d822168b4538。600 K の AIC、B4C、SS304 の核種を持つ）に替えたもの。`rods.msgpack` は `capture` の
+  無い前の形式のまま（examples/core のステージは bin の変更で再実行していない）で読めない）。手順は `compare_rod_branch.py` の
+  説明。比べ方は 2 つのテーブルを Python の msgpack で読んだ値の `==`（浮動小数点の値の厳密な一致）
 - 計算: xlc 0eda439e（分岐点 f86d7fda）を `cargo build --release` した `target/release/lattice` を、Slurm の排他のジョブ 651
-  （区分 decision、32 スレッド、割り込まれうるので時間は記録に使わない）で実行した。ライブラリは `rods.msgpack` が今の形式でない
-  （`capture` の無い前の形式のまま。examples/core のステージは bin の変更で再実行していない）ので、今の形式の
-  examples/depletion/p2/depletion.msgpack（md5 e84310aff668e474fa68d822168b4538。600 K の AIC、B4C、SS304 の核種を持つ）に
-  入力の `library` を替えた。値ごとの入力は `git show f86d7fda:examples/core/assembly-<値>.toml`、分岐の入力は `assembly.toml`
-- 比べ方: 2 つのテーブルを Python の msgpack で読んだ値の `==`（浮動小数点の値の厳密な一致）
+  （区分 decision、32 スレッド、割り込まれうるので時間は記録に使わない）で実行した。実行した入力は `rod-branch-check/` の入力と、
+  先頭の説明の行、ライブラリの相対パス、分岐のテーブルの名前（`table-rods.msgpack`）だけが違う手元の写し
