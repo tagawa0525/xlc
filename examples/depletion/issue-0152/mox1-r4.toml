@@ -1,0 +1,53 @@
+# #0152 の切り分け: mox1-r1.toml の燃料を、1C の 4 リング（../lattice-1C-rings4.toml）と同じく等しい面積の 4 つの物質
+# （各 2 つの MOC のリング）に分けたもの。燃料の MOC のリングは 5 から 8 になり、飛程の表を使わない（track-table = false）。
+# 組成、温度、ほかの領域の形状は mox1-r1.toml と同じ（1C の 1 リングと 4 リングの入力の違いと同じ）
+library = "../depletion.msgpack"
+# 燃料のリングの物質が 4 つあると、飛程の表（ADR-0156）は物質ごとの軸の直積で格子点より大きくなるので、格子点ごとに求める
+track-table = false
+pitch = 1.26
+azimuthal = 64
+spacing = 0.02
+rows = ["pin"]
+
+[material.fuel-0]
+temperature = 900
+nuclides = { U-235 = 5.1050e-05, U-238 = 2.0370e-02, Pu-238 = 4.6690e-05, Pu-239 = 1.4650e-03, Pu-240 = 5.6910e-04, Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }
+
+[material.fuel-1]
+temperature = 900
+nuclides = { U-235 = 5.1050e-05, U-238 = 2.0370e-02, Pu-238 = 4.6690e-05, Pu-239 = 1.4650e-03, Pu-240 = 5.6910e-04, Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }
+
+[material.fuel-2]
+temperature = 900
+nuclides = { U-235 = 5.1050e-05, U-238 = 2.0370e-02, Pu-238 = 4.6690e-05, Pu-239 = 1.4650e-03, Pu-240 = 5.6910e-04, Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }
+
+[material.fuel-3]
+temperature = 900
+nuclides = { U-235 = 5.1050e-05, U-238 = 2.0370e-02, Pu-238 = 4.6690e-05, Pu-239 = 1.4650e-03, Pu-240 = 5.6910e-04, Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }
+
+[material.zirconium]
+temperature = 600
+
+[material.zirconium.nuclides]
+Zr-90 = 1.99626e-02
+Zr-91 = 4.35336e-03
+Zr-92 = 6.65420e-03
+Zr-94 = 6.74344e-03
+Zr-96 = 1.08640e-03
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.744e-02, O-16 = 2.372e-02 }
+
+[cell.pin]
+zones = [
+  { material = "fuel-0", radius = 0.205, rings = 2 },
+  { material = "fuel-1", radius = 0.2899137802864845, rings = 2 },
+  { material = "fuel-2", radius = 0.3550704155516198, rings = 2 },
+  { material = "fuel-3", radius = 0.41, rings = 2 },
+  { material = "zirconium", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
