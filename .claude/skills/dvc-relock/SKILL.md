@@ -115,10 +115,10 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    nix develop -c dvc repro -s <ステージ>
    ```
 
-   CLAUDE.md の「計算」は `-s` を、/dvc-relock と、relock の外で上流の changed が deps だけ（`changed outs` が無い）のときに数秒の下流を
-   分岐点の出力で再実行する例外だけに限る（ADR-0184）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
-   巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed のステージには使わない
-   （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、xs を実行しないので lattice-1B も
+   CLAUDE.md の「計算」は `-s` を、/dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに数秒の下流を
+   `dvc.lock` の上流の出力で再実行する例外だけに限る（確かめ方は ADR-0184 の決定）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
+   巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed のステージには、その例外のほかは使わない
+   （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、例外に当たらなければ xs を実行しないので lattice-1B も
    実行しない（xs を含む約 9 分は、数秒のステージにならない）。実行したステージの出力を deps にする下流のステージ（lattice-1B なら `compare-1B`）も
    changed になるので、同じように数秒なら続けて実行し、重いなら実行しない。
 
