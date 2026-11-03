@@ -725,6 +725,13 @@ fn invalid_rod_branches_are_errors() {
     rejects("aic = { gt = \"bar\" }", "`bar` is not defined");
     // 基準の形状の行にあるセルに置き換えると、棒のない状態に棒が残る
     rejects("aic = { gt = \"pin\" }", "`pin` is in the rows");
+    // ノードごとの出力（軸方向の平板）は、置き換えのないノードのテーブルに制御棒の軸を持たせる扱いが決まるまで組めない（#0030）
+    let text = with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n").replace(
+        "few-group = { output = \"fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+        "few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [{ output = \"a.msgpack\", columns = [1, 2], rows = [1, 1] }] }",
+    );
+    let err = LatticeInput::parse(&text).unwrap_err().to_string();
+    assert!(err.contains("#0030"), "{err}");
     // 燃焼の履歴からの分岐と制御棒の軸はまだ組めない（#0213）
     let text = with_rods(
         "\n[branches.rod]\naic = { gt = \"rod\" }\n\n[history]\nfile = \"h.msgpack\"\nburnup = [0]\n",
