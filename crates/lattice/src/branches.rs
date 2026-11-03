@@ -98,12 +98,18 @@ impl Branches {
         let mut axes = self.axes.clone();
         if !self.rods.is_empty() {
             axes.push(Axis::Rod {
-                values: std::iter::once(ROD_OUT.to_string())
-                    .chain(self.rods.iter().map(|(value, _)| value.clone()))
-                    .collect(),
+                values: self.rod_values(),
             });
         }
         axes
+    }
+
+    /// 制御棒の軸の値の名前（`out` を先に、`[branches.rod]` の値を名前の順に。制御棒の分岐がなければ `out` だけ）。解く順の値の
+    /// 番号とテーブルの軸の値の番号は、どちらもこの列の番号
+    pub fn rod_values(&self) -> Vec<String> {
+        std::iter::once(ROD_OUT.to_string())
+            .chain(self.rods.iter().map(|(value, _)| value.clone()))
+            .collect()
     }
 
     /// 棒のない状態のほかの制御棒の値と、その値で置き換えるセル（基準の形状のセル → 置き換えるセル）
@@ -409,6 +415,10 @@ impl BranchesEntry {
         media: &[MediumInput],
         history: bool,
     ) -> Result<Branches, String> {
+        // 空の `[branches.rod]` は、値を書き損ねた入力として止める（黙って制御棒の軸のないテーブルにしない）
+        if self.rod.as_ref().is_some_and(BTreeMap::is_empty) {
+            return Err("branches.rod: give the rod values and the cells they replace".into());
+        }
         // 値ごとの形状の燃焼の領域を履歴の領域に対応させる書き方は決めていない（ADR-0224）
         if history && self.rod.is_some() {
             return Err("[history] cannot be combined with [branches.rod] yet (#0213)".into());
