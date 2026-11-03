@@ -183,7 +183,7 @@ fn nominal_branches_reproduce_the_history_points() {
             &text,
             &library,
             &branches.state(2 * i + 1),
-            &branches.region_materials,
+            branches.region_materials(0),
             &tight(),
         );
         let want = history.points[point].k;
@@ -197,7 +197,7 @@ fn nominal_branches_reproduce_the_history_points() {
             &text,
             &library,
             &branches.state(2 * i),
-            &branches.region_materials,
+            branches.region_materials(0),
             &tight(),
         );
         assert!(diluted > nominal, "{diluted} vs {nominal}");
@@ -227,7 +227,7 @@ fn branches_at_the_continued_conditions_reproduce_the_points_of_a_continued_hist
             &text,
             &library,
             &branches.state(state),
-            &branches.region_materials,
+            branches.region_materials(0),
             &tight(),
         );
         let want = history.points[point].k;
@@ -246,8 +246,8 @@ fn branch_regions_take_the_history_densities() {
     let branches = branches_of(&text, &history, &library).unwrap();
     let region = &history.regions[0];
     let name = transport_name(&region.material, region.cell);
-    assert!(branches.region_materials.contains(&name));
-    assert!(!branches.region_materials.contains(&"fuel".to_string()));
+    assert!(branches.region_materials(0).contains(&name));
+    assert!(!branches.region_materials(0).contains(&"fuel".to_string()));
     for state in (0..branches.len()).map(|i| branches.state(i)) {
         let fuel = state.iter().find(|m| m.name == name).unwrap();
         assert_eq!(fuel.temperature, 600.0);
@@ -459,20 +459,22 @@ fn shield_states(
         &s.input,
         history,
         library,
-        &s.tracking.lattice,
-        &s.region_materials,
-        &s.chosen,
+        &[ValueGeometry {
+            lattice: &s.tracking.lattice,
+            region_materials: &s.region_materials,
+            chosen: &s.chosen,
+        }],
     )
     .unwrap();
     let mut shielder = BranchShielder::new(
         &s.tracking,
-        &branches.region_materials,
+        branches.region_materials(0),
         s.input.branches.as_ref().unwrap().varied(),
         s.chosen.shielding(),
         s.input.shielding_options(),
     );
     let shielded = (0..branches.len())
-        .filter(|&i| branches.solved(i))
+        .filter(|&i| branches.solved(0, i))
         .map(|i| {
             let reference = branches.reference(i);
             owned(
@@ -521,8 +523,8 @@ fn nominal_boron_shielding_solves_once_per_burnup_moderator_and_fuel_point() {
     assert_eq!(solves, 8);
     // 既定は燃焼度、減速材、燃料の点ごとに 1 回（公称の 1000 ppm は軸の点）
     assert_eq!(reuses, 4);
-    let fuel = regions_of(&branches.region_materials, |n| n.contains('@'));
-    let water = regions_of(&branches.region_materials, |n| n == "water");
+    let fuel = regions_of(branches.region_materials(0), |n| n.contains('@'));
+    let water = regions_of(branches.region_materials(0), |n| n == "water");
     assert!(!fuel.is_empty() && !water.is_empty());
     for point in 0..2 {
         for moderator in 0..2 {
@@ -617,9 +619,11 @@ fn framed_nominal(
         &s.input,
         &history,
         library,
-        &s.tracking.lattice,
-        &s.region_materials,
-        &s.chosen,
+        &[ValueGeometry {
+            lattice: &s.tracking.lattice,
+            region_materials: &s.region_materials,
+            chosen: &s.chosen,
+        }],
     )
     .unwrap();
     let nominal = branches.state(2);
@@ -627,7 +631,7 @@ fn framed_nominal(
         library,
         &s.tracking,
         &nominal,
-        &branches.region_materials,
+        branches.region_materials(0),
         s.chosen.shielding(),
         &s.input.shielding_options(),
     )
@@ -645,7 +649,7 @@ fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
         &library,
         &shielded,
         &s.tracking.lattice,
-        &branches.region_materials,
+        branches.region_materials(0),
         &["water".to_string(), "zirc".to_string()],
         &nominal,
         &nominal,
@@ -662,7 +666,7 @@ fn remixed_materials_take_the_state_densities_at_the_nominal_temperature() {
     let library = library_for_reuse();
     let (s, branches, nominal, shielded) = framed_nominal(&library);
     let varied = ["zirc".to_string()];
-    let frame = regions_of(&branches.region_materials, |n| n == "zirc")[0];
+    let frame = regions_of(branches.region_materials(0), |n| n == "zirc")[0];
     // 枠の数密度を 2 倍にした状態は、同じ実効断面積で、巨視的断面積が 2 倍
     let mut state = nominal.clone();
     let zirc = state.iter_mut().find(|m| m.name == "zirc").unwrap();
@@ -671,7 +675,7 @@ fn remixed_materials_take_the_state_densities_at_the_nominal_temperature() {
         &library,
         &shielded,
         &s.tracking.lattice,
-        &branches.region_materials,
+        branches.region_materials(0),
         &varied,
         &nominal,
         &state,
@@ -693,7 +697,7 @@ fn remixed_materials_take_the_state_densities_at_the_nominal_temperature() {
             &library,
             &shielded,
             &s.tracking.lattice,
-            &branches.region_materials,
+            branches.region_materials(0),
             &varied,
             &nominal,
             &hot,
@@ -712,15 +716,17 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
         &s.input,
         &history,
         &library,
-        &s.tracking.lattice,
-        &s.region_materials,
-        &s.chosen,
+        &[ValueGeometry {
+            lattice: &s.tracking.lattice,
+            region_materials: &s.region_materials,
+            chosen: &s.chosen,
+        }],
     )
     .unwrap();
     let varied = s.input.branches.as_ref().unwrap().varied();
     let mut shielder = BranchShielder::new(
         &s.tracking,
-        &branches.region_materials,
+        branches.region_materials(0),
         varied,
         s.chosen.shielding(),
         s.input.shielding_options(),
@@ -745,7 +751,7 @@ fn off_nominal_states_are_solved_at_their_burnups_only() {
     );
     let branches = branches_of(&text, &history, &library).unwrap();
     assert_eq!(branches.len(), 3 * 4);
-    let solved: Vec<usize> = (0..12).filter(|&i| branches.solved(i)).collect();
+    let solved: Vec<usize> = (0..12).filter(|&i| branches.solved(0, i)).collect();
     // 状態の番号は燃焼度 × 4 + (ホウ素 × 2 + 減速材)。公称は (1, 0)
     assert_eq!(solved, vec![0, 1, 2, 3, 6, 8, 9, 10, 11]);
     // 公称の状態が格子点にないと、公称でない状態の燃焼点を間引けない
@@ -774,7 +780,7 @@ fn pair_subgrid_states_shield_like_the_product_states() {
     let (branches, pairs, pair_solves) = shield_states(&text, &history, &library);
     let (_, all, all_solves) = shield_states(&product, &history, &library);
     let solved: Vec<usize> = (0..branches.len())
-        .filter(|&i| branches.solved(i))
+        .filter(|&i| branches.solved(0, i))
         .collect();
     // 2 × 2 × 2 の 8 状態から、3 つの軸がどれも公称でない状態（ホウ素 500 ppm、650 K、650 K）を除く
     assert_eq!(solved.len(), 2 * 7);
@@ -797,7 +803,7 @@ fn solved(
         library,
         &s.tracking,
         &branches.state(index),
-        &branches.region_materials,
+        branches.region_materials(0),
         s.chosen.shielding(),
         &s.input.shielding_options(),
     )
@@ -933,6 +939,7 @@ fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() 
         let (s, shielded, solution) = solved(&text, &library, &branches, index);
         let micro = branches
             .micro(
+                0,
                 index,
                 &library,
                 &shielded,
@@ -945,7 +952,7 @@ fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() 
         assert_micro_closes(
             &micro,
             &branches.micro_densities()[point],
-            &branches.region_materials,
+            branches.region_materials(0),
             &shielded.materials,
             &shielded.region_material,
             &solution,
@@ -967,7 +974,7 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
         let branches = branches_of(&text, &history, &library).unwrap();
         let mut shielder = BranchShielder::new(
             &s.tracking,
-            &branches.region_materials,
+            branches.region_materials(0),
             s.input.branches.as_ref().unwrap().varied(),
             s.chosen.shielding(),
             s.input.shielding_options(),
@@ -994,6 +1001,7 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
                 solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc()).unwrap();
             let micro = branches
                 .micro(
+                    0,
                     index,
                     &library,
                     fuel,
@@ -1006,7 +1014,7 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
             assert_micro_closes(
                 &micro,
                 &branches.micro_densities()[point],
-                &branches.region_materials,
+                branches.region_materials(0),
                 materials,
                 region_material,
                 &solution,
@@ -1029,6 +1037,7 @@ fn micro_reactions_follow_the_library_chain_reactions_and_split_fissions_at_the_
     let (s, shielded, solution) = solved(&text, &library, &branches, index);
     let micro = branches
         .micro(
+            0,
             index,
             &library,
             &shielded,
@@ -1121,10 +1130,10 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
     assert_ne!(fuel, recorded);
     let branches = branches_of(&text, &history, &library).unwrap();
     // 微視的断面積を重み付ける MOC の領域は、分岐の格子のその燃焼の領域の領域
-    for d in &branches.regions {
+    for d in branches.regions(0) {
         for &r in &d.regions {
             assert_eq!(
-                branches.region_materials[r],
+                branches.region_materials(0)[r],
                 transport_name(&d.material, d.cell),
                 "region {r}"
             );
@@ -1135,6 +1144,7 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
         let (s, shielded, solution) = solved(&text, &library, &branches, index);
         let micro = branches
             .micro(
+                0,
                 index,
                 &library,
                 &shielded,
@@ -1147,7 +1157,7 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
         assert_micro_closes(
             &micro,
             &branches.micro_densities()[point],
-            &branches.region_materials,
+            branches.region_materials(0),
             &shielded.materials,
             &shielded.region_material,
             &solution,
@@ -1190,7 +1200,7 @@ fn shield_with(
         .collect();
     let mut shielder = BranchShielder::new(
         &s.tracking,
-        &branches.region_materials,
+        branches.region_materials(0),
         &varied,
         s.chosen.shielding(),
         s.input.shielding_options(),
@@ -1222,7 +1232,7 @@ fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
         let at_previous = shield_with(&text, &previous, None, &library);
         let mut branches = branches_of(&text, &history, &library).unwrap();
         branches.shield_with(&previous).unwrap();
-        let fuel = regions_of(&branches.region_materials, |n| n.starts_with("fuel@"));
+        let fuel = regions_of(branches.region_materials(0), |n| n.starts_with("fuel@"));
         assert!(!fuel.is_empty());
         let ones = vec![vec![1.0; library.groups.len()]; s.tracking.lattice.regions()];
         for (index, ((shielded, materials), (expected, _))) in
@@ -1245,7 +1255,7 @@ fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
                 &library,
                 expected,
                 &s.tracking.lattice,
-                &branches.region_materials,
+                branches.region_materials(0),
                 branches.remixed(),
                 &at_previous_state(&text, &previous, &library, index),
                 &branches.state(index),
@@ -1456,6 +1466,7 @@ fn solve_state(
     let (few, solution) = homogenized(s, library, &shielded);
     let micro = branches
         .micro(
+            0,
             index,
             library,
             shielded.fuel(),
@@ -1500,7 +1511,7 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
     let branches = branches_of(&text, &history, &library).unwrap();
     let mut shielder = BranchShielder::new(
         &s.tracking,
-        &branches.region_materials,
+        branches.region_materials(0),
         s.input.branches.as_ref().unwrap().varied(),
         s.chosen.shielding(),
         s.input.shielding_options(),
@@ -1513,7 +1524,7 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
     let delta = 1.0e-3;
     let mut solved = Vec::new();
     branches
-        .add_derivatives(index, &mut micro, &nominal, |j, state, _, _| {
+        .add_derivatives(0, index, &mut micro, &nominal, |j, state, _, _| {
             assert_scaled(state, &branches.state(index), ["Xe-135", "U-235"][j], 0.25);
             solved.push(j);
             Ok((shifted(&nominal, delta), shifted_micro(&sigma, delta)))
@@ -1586,7 +1597,7 @@ fn perturbed_solves_with_other_micro_nuclides_are_errors() {
     let branches = branches_of(&text, &history, &library).unwrap();
     let mut shielder = BranchShielder::new(
         &s.tracking,
-        &branches.region_materials,
+        branches.region_materials(0),
         s.input.branches.as_ref().unwrap().varied(),
         s.chosen.shielding(),
         s.input.shielding_options(),
@@ -1596,7 +1607,7 @@ fn perturbed_solves_with_other_micro_nuclides_are_errors() {
     for sigma in [micro[..1].to_vec(), [micro.clone(), micro.clone()].concat()] {
         let mut m = micro.clone();
         let err = branches
-            .add_derivatives(index, &mut m, &nominal, |_, _, _, _| {
+            .add_derivatives(0, index, &mut m, &nominal, |_, _, _, _| {
                 Ok((shifted(&nominal, 1.0e-3), sigma.clone()))
             })
             .unwrap_err()
@@ -1614,7 +1625,7 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     let branches = branches_of(&text, &history, &library).unwrap();
     let mut shielder = BranchShielder::new(
         &s.tracking,
-        &branches.region_materials,
+        branches.region_materials(0),
         s.input.branches.as_ref().unwrap().varied(),
         s.chosen.shielding(),
         s.input.shielding_options(),
@@ -1625,7 +1636,7 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     let mut solved = Vec::new();
     let sigma = micro.clone();
     branches
-        .add_derivatives(index, &mut micro, &nominal, |j, _, _, _| {
+        .add_derivatives(0, index, &mut micro, &nominal, |j, _, _, _| {
             solved.push(j);
             Ok((shifted(&nominal, 1.0e-3), shifted_micro(&sigma, 1.0e-3)))
         })
@@ -1668,7 +1679,7 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         let new = || {
             BranchShielder::new(
                 &s.tracking,
-                &branches.region_materials,
+                branches.region_materials(0),
                 varied,
                 s.chosen.shielding(),
                 s.input.shielding_options(),
@@ -1678,19 +1689,26 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
         let mut perturbed = [new(), new()];
         branches
-            .add_derivatives(index, &mut micro, &nominal, |j, state, reference, build| {
-                let shielded = perturbed[j].shield_state(&library, state, reference, build)?;
-                let (few, solution) = homogenized(&s, &library, &shielded);
-                let sigma = branches.micro(
-                    index,
-                    &library,
-                    shielded.fuel(),
-                    &s.tracking.lattice,
-                    &solution,
-                    &BOUNDS,
-                )?;
-                Ok((few, sigma))
-            })
+            .add_derivatives(
+                0,
+                index,
+                &mut micro,
+                &nominal,
+                |j, state, reference, build| {
+                    let shielded = perturbed[j].shield_state(&library, state, reference, build)?;
+                    let (few, solution) = homogenized(&s, &library, &shielded);
+                    let sigma = branches.micro(
+                        0,
+                        index,
+                        &library,
+                        shielded.fuel(),
+                        &s.tracking.lattice,
+                        &solution,
+                        &BOUNDS,
+                    )?;
+                    Ok((few, sigma))
+                },
+            )
             .unwrap();
         micro.into_iter().map(|m| m.derivative.unwrap()).collect()
     };

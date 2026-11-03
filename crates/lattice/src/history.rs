@@ -6,11 +6,16 @@
 //! 各燃焼度の点の中は分岐の軸の直積の順。解くのは、公称の状態（`[branches]` の公称）をすべての燃焼点で、ほかの部分格子の状態を
 //! `off-nominal-burnup` の燃焼点で（ADR-0200）。
 //!
+//! 制御棒の分岐（`[branches.rod]`。ADR-0224）があれば、値ごとに、その値の形状（基準の形状のセルを置き換えたもの）から燃焼の領域を
+//! 求め、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じことを確かめ、その形状の MOC の領域で同じ燃焼度の点の組成を解く。
+//! 制御棒の値のすべての状態（公称を含む）は、その値の `rod-burnup`（書かなければ `off-nominal-burnup`）の燃焼点で解く（ADR-0225）。
+//!
 //! ```toml
 //! [history]
 //! file = "history.msgpack"   # 燃焼の履歴（入力のファイルのあるディレクトリから）
 //! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。公称の状態はすべての点で解く
 //! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
+//! rod-burnup = { aic = [0, 40] }       # 制御棒の値ごとの、その値の状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! shielding-file = "other.msgpack"    # 燃焼の領域を自己遮蔽する組成の履歴（省略すると状態の組成。#0191）
 //! micro = ["U-235", "Pu-240"]          # ミクロ燃焼で追う核種（ADR-0216）
 //! derivative = ["Pu-240"]              # 数密度の微分を持つ核種（micro から選ぶ。ADR-0221）
@@ -24,13 +29,15 @@
 //! と、その核種の反応率の微視的断面積（ADR-0215 の自分の数密度の項）から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成の自己遮蔽は公称の組成と同じ扱い（参照から作る状態は、参照の
 //! 組成も同じく変えた摂動の参照から作る。`shielding-file` を与えれば、自己遮蔽はその履歴の組成のまま）。
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Shielded};
-use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, MicroReaction, RateResidual};
+use xlc_format::table::{
+    Axis, MicroDerivative, MicroNuclide, MicroReaction, ROD_OUT, RateResidual,
+};
 
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, channel_cross_sections, check_negative,
@@ -57,6 +64,9 @@ pub struct HistoryInput {
     pub burnup: Vec<f64>,
     /// 公称でない状態を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
     pub off_nominal: Vec<f64>,
+    /// 制御棒の値（`[branches.rod]` の値）ごとの、その値のすべての状態を解く燃焼点 (MWd/kg)。`burnup` から選び、最初と最後の点を
+    /// 含んで増える。書かない値は `off_nominal`（ADR-0225）
+    pub rod_burnup: BTreeMap<String, Vec<f64>>,
     /// ミクロ燃焼で追う核種（ADR-0216）。空なら微視的断面積を作らない
     pub micro: Vec<String>,
     /// 数密度の微分を持つ核種（`micro` の部分集合。ADR-0221）。空なら微分を作らない
@@ -68,17 +78,43 @@ pub struct HistoryInput {
     pub shielding_file: Option<PathBuf>,
 }
 
+impl HistoryInput {
+    /// 制御棒の値 `value` のすべての状態を解く燃焼点（`rod-burnup` に書いた点か、`off_nominal`。ADR-0225）
+    pub fn rod_burnup(&self, value: &str) -> &[f64] {
+        self.rod_burnup.get(value).unwrap_or(&self.off_nominal)
+    }
+}
+
+/// 制御棒の値の形状（ADR-0224）: 格子、領域ごとの入力の物質の名前、その名前で選んだ対称操作
+#[derive(Clone, Copy)]
+pub struct ValueGeometry<'a> {
+    pub lattice: &'a Lattice,
+    pub region_materials: &'a [String],
+    pub chosen: &'a Chosen,
+}
+
+/// 制御棒の値の形状での燃焼の領域と、解く燃焼点
+#[derive(Debug, Clone, PartialEq)]
+struct ValueShape {
+    /// 燃焼の領域（物質、組の代表のセル、体積は履歴と同じ。MOC の領域の番号はこの値の形状のもの）
+    regions: Vec<DepletionRegion>,
+    /// 領域ごとの解く物質の名前（燃焼の領域は `<物質>@<セル>`）
+    region_materials: Vec<String>,
+    /// [燃焼度の点][追う核種] の、この値の格子で均質化した数密度 (1/(barn cm))
+    micro_densities: Vec<Vec<f64>>,
+    /// 燃焼度の点ごとに、この値の公称でない状態（制御棒の値はすべての状態）を解くか
+    burnups: Vec<bool>,
+}
+
 /// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryBranches {
-    /// テーブルの軸（燃焼度、続いて分岐の軸）
+    /// 連続の軸（燃焼度、続いて分岐の軸）。テーブルは制御棒の値があれば制御棒の軸を最後に足す（ADR-0224）
     pub axes: Vec<Axis>,
-    /// 領域ごとの解く物質の名前（燃焼の領域は `<物質>@<セル>`）
-    pub region_materials: Vec<String>,
     /// 初めの重金属の質量 (g/cm、格子全体の高さ 1 cm あたり)。テーブルの `heavy_metal`（ADR-0190）
     pub heavy_metal: f64,
-    /// 入力の格子の燃焼の領域（MOC の領域の番号は入力の格子のもの）
-    regions: Vec<DepletionRegion>,
+    /// 制御棒の値（`LatticeInput::rod_values` の順。0 は基準の形状）ごとの燃焼の領域と解く燃焼点
+    values: Vec<ValueShape>,
     /// 選んだ燃焼度の点ごとの、燃焼の領域の数密度（[点][領域][履歴の核種]）
     densities: Vec<Vec<Vec<f64>>>,
     /// 履歴の核種の名前
@@ -95,14 +131,10 @@ pub struct HistoryBranches {
     solved: Vec<bool>,
     /// 公称の分岐の状態（`Branches::nominal_state`）
     nominal: Option<usize>,
-    /// 燃焼度の点ごとに、公称でない状態を解くか
-    off_nominal: Vec<bool>,
     /// ミクロ燃焼で追う核種の名前（ADR-0216）
     micro_nuclides: Vec<String>,
     /// 追う核種の、輸送する核種（`transported`。燃焼の領域の物質の核種の並び）の中の番号
     micro_positions: Vec<usize>,
-    /// [燃焼度の点][追う核種] の均質化した数密度 (1/(barn cm))
-    micro_densities: Vec<Vec<f64>>,
     /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）
     derivative: Vec<String>,
     /// 微分の核種の、追う核種（`micro_nuclides`）の中の番号
@@ -115,16 +147,15 @@ pub struct HistoryBranches {
     remixed: Vec<String>,
 }
 
-/// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
-/// 入力の領域ごとの物質の名前、`chosen` はその名前で選んだ対称操作。入力の格子の燃焼の領域（物質、組の代表のセル、体積）が履歴の
-/// ものと違えばエラー。燃焼させない物質のセル（案内管の中身など）は履歴の格子と違ってよく、MOC の領域の番号は入力の格子のもの
+/// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`geometries` は制御棒の値
+/// （`LatticeInput::rod_values` の順。0 は基準の形状）ごとの形状。どの値の形状の燃焼の領域（物質、組の代表のセル、体積）も履歴の
+/// ものと同じでなければエラー。燃焼させない物質のセル（案内管の中身など）は履歴の格子と違ってよく、MOC の領域の番号は値ごとの
+/// 形状のもの
 pub fn history_branches(
     input: &LatticeInput,
     history: &History,
     library: &Library,
-    lattice: &Lattice,
-    region_materials: &[String],
-    chosen: &Chosen,
+    geometries: &[ValueGeometry],
 ) -> anyhow::Result<HistoryBranches> {
     let selection = input
         .history
@@ -141,43 +172,71 @@ pub fn history_branches(
             depleted.push(d.material.clone());
         }
     }
-    // 入力から求めた燃焼の領域が、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じこと。MOC の領域の番号は照合せず、入力の
-    // 格子のものを使う（案内管の中身を変えた格子では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる。#0196）
-    let representatives = chosen.shielding().cell_representatives();
-    let regions = depletion_regions(lattice, region_materials, &representatives, &depleted);
+    let rod_values = input.rod_values();
+    if geometries.len() != rod_values.len() {
+        bail!(
+            "{} geometries for the rod values {rod_values:?}",
+            geometries.len()
+        );
+    }
+    // 値ごとの形状から求めた燃焼の領域が、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じこと。MOC の領域の番号は照合せず、
+    // その形状のものを使う（案内管の中身を変えた格子では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる。
+    // #0196。制御棒の値の形状も同じ。ADR-0225）
     let key =
         |material: &str, cell: usize, volume: f64| (material.to_string(), cell, volume.to_bits());
-    let found: Vec<_> = regions
-        .iter()
-        .map(|d| key(&d.material, d.cell, d.volume))
-        .collect();
     let recorded: Vec<_> = history
         .regions
         .iter()
         .map(|d| key(&d.material, d.cell, d.volume))
         .collect();
-    if found != recorded {
-        let at = found.iter().zip(&recorded).position(|(a, b)| a != b);
-        let detail = match at {
-            Some(k) => format!(
-                "region {k}: {:?} in the lattice, {:?} in the history (material, cell, volume)",
-                (&regions[k].material, regions[k].cell, regions[k].volume),
-                (
-                    &history.regions[k].material,
-                    history.regions[k].cell,
-                    history.regions[k].volume
-                )
-            ),
-            None => format!(
-                "{} regions in the lattice, {} in the history",
-                regions.len(),
-                history.regions.len()
-            ),
-        };
-        bail!(
-            "the depletion regions of the lattice differ from those of the history: {detail}; give a lattice \
-             whose depleted cells are those of the history (ADR-0187)"
+    let mut shapes = Vec::with_capacity(geometries.len());
+    for (geometry, value) in geometries.iter().zip(&rod_values) {
+        let representatives = geometry.chosen.shielding().cell_representatives();
+        let regions = depletion_regions(
+            geometry.lattice,
+            geometry.region_materials,
+            &representatives,
+            &depleted,
         );
+        let found: Vec<_> = regions
+            .iter()
+            .map(|d| key(&d.material, d.cell, d.volume))
+            .collect();
+        if found != recorded {
+            let at = found.iter().zip(&recorded).position(|(a, b)| a != b);
+            let detail = match at {
+                Some(k) => format!(
+                    "region {k}: {:?} in the lattice, {:?} in the history (material, cell, volume)",
+                    (&regions[k].material, regions[k].cell, regions[k].volume),
+                    (
+                        &history.regions[k].material,
+                        history.regions[k].cell,
+                        history.regions[k].volume
+                    )
+                ),
+                None => format!(
+                    "{} regions in the lattice, {} in the history",
+                    regions.len(),
+                    history.regions.len()
+                ),
+            };
+            let lattice = if value == ROD_OUT {
+                "the lattice".to_string()
+            } else {
+                format!("the lattice of rod value {value}")
+            };
+            bail!(
+                "the depletion regions of {lattice} differ from those of the history: {detail}; give a lattice \
+                 whose depleted cells are those of the history (ADR-0187, ADR-0225)"
+            );
+        }
+        let names = solved_names(
+            geometry.lattice,
+            geometry.region_materials,
+            &representatives,
+            &depleted,
+        );
+        shapes.push((geometry, regions, names));
     }
     let index: HashMap<&str, usize> = history
         .nuclides
@@ -277,7 +336,6 @@ pub fn history_branches(
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     check_region_names(&input.materials, &history.regions)?;
-    let renamed = solved_names(lattice, region_materials, &representatives, &depleted);
     for &p in &points {
         check_negative(&history.regions, &history.points[p].densities, |i| {
             history.nuclides[i].clone()
@@ -376,13 +434,25 @@ pub fn history_branches(
         .iter()
         .map(|state| split(state))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    // 公称でない状態の燃焼点を間引くと、その差を公称の状態から内挿するので、公称の状態が要る（ADR-0200）
-    let off_nominal: Vec<bool> = selection
-        .burnup
+    // 値ごとの解く燃焼点: 棒のない値は公称でない状態の燃焼点、制御棒の値はその値の燃焼点（ADR-0225）。燃焼点を間引くと、その差を
+    // 公称の状態から内挿するので、公称の状態が要る（ADR-0200）
+    let burnups: Vec<Vec<bool>> = rod_values
         .iter()
-        .map(|b| selection.off_nominal.contains(b))
+        .enumerate()
+        .map(|(rod, value)| {
+            let points = if rod == 0 {
+                &selection.off_nominal[..]
+            } else {
+                selection.rod_burnup(value)
+            };
+            selection
+                .burnup
+                .iter()
+                .map(|b| points.contains(b))
+                .collect()
+        })
         .collect();
-    if off_nominal.contains(&false) && branches.nominal_state().is_none() {
+    if burnups.iter().flatten().any(|&solved| !solved) && branches.nominal_state().is_none() {
         bail!(
             "off-nominal-burnup: the off-nominal states are interpolated from the nominal state, the input materials, \
              which are not at a point of every branch axis (ADR-0200)"
@@ -404,26 +474,30 @@ pub fn history_branches(
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    // 均質化した数密度は、燃焼の領域の数密度（負は輸送と同じく 0）を体積で重みを付けて格子の体積で割ったもの
-    let lattice_volume: f64 = lattice.volumes().iter().sum();
-    let micro_densities = points
-        .iter()
-        .map(|&p| {
-            micro_positions
-                .iter()
-                .map(|&k| {
-                    let i = transported[k];
-                    history
-                        .regions
-                        .iter()
-                        .zip(&history.points[p].densities)
-                        .map(|(d, n)| d.volume * n[i].max(0.0))
-                        .sum::<f64>()
-                        / lattice_volume
-                })
-                .collect()
-        })
-        .collect();
+    // 均質化した数密度は、燃焼の領域の数密度（負は輸送と同じく 0）を体積で重みを付けて格子の体積で割ったもの。格子の体積は値の
+    // 形状の領域の体積の和で、値ごとに丸めの程度で違う。値の微視的断面積はその値の数密度で割る（セルを置き換えた別の入力の
+    // 格子計算と同じ値にする。ADR-0225）
+    let micro_densities = |lattice: &Lattice| -> Vec<Vec<f64>> {
+        let lattice_volume: f64 = lattice.volumes().iter().sum();
+        points
+            .iter()
+            .map(|&p| {
+                micro_positions
+                    .iter()
+                    .map(|&k| {
+                        let i = transported[k];
+                        history
+                            .regions
+                            .iter()
+                            .zip(&history.points[p].densities)
+                            .map(|(d, n)| d.volume * n[i].max(0.0))
+                            .sum::<f64>()
+                            / lattice_volume
+                    })
+                    .collect()
+            })
+            .collect()
+    };
     // 微分の核種は追う核種の部分集合（入力の検査）
     let derivative_micro = selection
         .derivative
@@ -442,11 +516,22 @@ pub fn history_branches(
         points: selection.burnup.clone(),
     }];
     axes.extend(branches.axes().iter().cloned());
+    let values = shapes
+        .into_iter()
+        .zip(burnups)
+        .map(
+            |((geometry, regions, region_materials), burnups)| ValueShape {
+                regions,
+                region_materials,
+                micro_densities: micro_densities(geometry.lattice),
+                burnups,
+            },
+        )
+        .collect();
     Ok(HistoryBranches {
         axes,
-        region_materials: renamed,
         heavy_metal,
-        regions,
+        values,
         densities: points
             .iter()
             .map(|&p| history.points[p].densities.clone())
@@ -462,10 +547,8 @@ pub fn history_branches(
             .map(|b| branches.solved(b))
             .collect(),
         nominal: branches.nominal_state(),
-        off_nominal,
         micro_nuclides: selection.micro.clone(),
         micro_positions,
-        micro_densities,
         derivative: selection.derivative.clone(),
         derivative_micro,
         perturbation: selection.perturbation,
@@ -492,11 +575,32 @@ impl HistoryBranches {
         self.materials(point, &self.branch[b])
     }
 
-    /// 状態 `index`（軸の直積の順）を解くか: 分岐の部分格子の状態で、公称の状態か、公称でない状態を解く燃焼点のもの（ADR-0200）
-    pub fn solved(&self, index: usize) -> bool {
+    /// 制御棒の値の数（棒のない値を含む）
+    pub fn rods(&self) -> usize {
+        self.values.len()
+    }
+
+    /// 制御棒の値 `rod` の形状の燃焼の領域
+    pub fn regions(&self, rod: usize) -> &[DepletionRegion] {
+        &self.values[rod].regions
+    }
+
+    /// 制御棒の値 `rod` の形状の、領域ごとの解く物質の名前（燃焼の領域は `<物質>@<セル>`）
+    pub fn region_materials(&self, rod: usize) -> &[String] {
+        &self.values[rod].region_materials
+    }
+
+    /// 制御棒の値 `rod` の状態 `index`（軸の直積の順）を解くか: 分岐の部分格子の状態で、棒のない値は公称の状態か公称でない状態を
+    /// 解く燃焼点のもの（ADR-0200）、制御棒の値はその値の燃焼点のもの（ADR-0225）
+    pub fn solved(&self, rod: usize, index: usize) -> bool {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        let at = self.values[rod]
+            .burnups
+            .get(point)
+            .copied()
+            .unwrap_or(false);
         self.solved.get(b).copied().unwrap_or(false)
-            && (self.nominal == Some(b) || self.off_nominal.get(point).copied().unwrap_or(false))
+            && ((rod == 0 && self.nominal == Some(b)) || at)
     }
 
     /// 燃焼の領域を、履歴 `shielding` の同じ燃焼度の点の組成で自己遮蔽する（#0191 の線形の補正の誤差を候補に分ける検査）。
@@ -508,12 +612,12 @@ impl HistoryBranches {
             bail!("the shielding history has other nuclides than the history");
         }
         let key = |d: &DepletionRegion| (d.material.clone(), d.cell, d.volume.to_bits());
-        if shielding.regions.len() != self.regions.len()
+        if shielding.regions.len() != self.regions(0).len()
             || shielding
                 .regions
                 .iter()
                 .map(key)
-                .ne(self.regions.iter().map(key))
+                .ne(self.regions(0).iter().map(key))
         {
             bail!(
                 "the shielding history has other depletion regions (material, cell, volume) than the lattice"
@@ -553,7 +657,7 @@ impl HistoryBranches {
             .collect::<anyhow::Result<Vec<_>>>()?;
         self.shielding = Some(densities);
         self.remixed = self
-            .regions
+            .regions(0)
             .iter()
             .map(|d| transport_name(&d.material, d.cell))
             .collect();
@@ -593,17 +697,19 @@ impl HistoryBranches {
         &self.micro_nuclides
     }
 
-    /// [燃焼度の点][追う核種] の、格子で均質化した数密度 (1/(barn cm))
+    /// [燃焼度の点][追う核種] の、棒のない値の格子で均質化した数密度 (1/(barn cm))。テーブルの数密度
     pub fn micro_densities(&self) -> &[Vec<f64>] {
-        &self.micro_densities
+        &self.values[0].micro_densities
     }
 
-    /// 状態 `index` の追う核種の、少数群（境界 `bounds`）の微視的断面積 (barn)（ADR-0216）。`shielding` は状態の燃料の自己遮蔽、
-    /// `solution` はその MOC の解。少数群定数（`fewgroup::homogenize`）と同じく MOC の中性子束と体積で重みを付け、物質と同じく SPH
+    /// 制御棒の値 `rod` の状態 `index` の追う核種の、少数群（境界 `bounds`）の微視的断面積 (barn)（ADR-0216）。`shielding` は状態の
+    /// 燃料の自己遮蔽、`lattice` はその値の形状、`solution` はその MOC の解。少数群定数（`fewgroup::homogenize`）と同じく MOC の中性子束と体積で重みを付け、物質と同じく SPH
     /// 因子を掛けた核種の群定数を、燃焼の領域の数密度で重みを付けて足し、均質化した数密度と少数群の中性子束で割る。均質化した
     /// 数密度が 0 の核種は、燃焼の領域で 1 として重みを付ける
+    #[allow(clippy::too_many_arguments)]
     pub fn micro(
         &self,
+        rod: usize,
         index: usize,
         library: &Library,
         shielding: &FuelShielding,
@@ -635,12 +741,13 @@ impl HistoryBranches {
         if flux.iter().any(|&f| !(f > 0.0 && f.is_finite())) {
             bail!("the few-group fluxes {flux:?} must be positive");
         }
+        let shape = &self.values[rod];
         let lattice_volume: f64 = lattice.volumes().iter().sum();
-        let depleted_volume: f64 = self.regions.iter().map(|d| d.volume).sum();
+        let depleted_volume: f64 = shape.regions.iter().map(|d| d.volume).sum();
         let mut out = Vec::with_capacity(self.micro_positions.len());
         for (j, &k) in self.micro_positions.iter().enumerate() {
             let name = &self.nuclides[self.transported[k]];
-            let mean = self.micro_densities[point][j];
+            let mean = shape.micro_densities[point][j];
             let mut total = vec![0.0; coarse];
             let mut nu_fission = vec![0.0; coarse];
             let mut fission = vec![0.0; coarse];
@@ -648,7 +755,7 @@ impl HistoryBranches {
             // 細かい群の核分裂率（収率の重み。ADR-0183）
             let mut fine_fission = vec![0.0; fine];
             let mut reactions: Option<Vec<MicroReaction>> = None;
-            for ((d, n), &temperature) in self
+            for ((d, n), &temperature) in shape
                 .regions
                 .iter()
                 .zip(&self.densities[point])
@@ -841,7 +948,8 @@ impl HistoryBranches {
         out
     }
 
-    /// 状態 `index` の追う核種の微視的断面積 `micro`（`micro` の返り値）の、微分の核種に数密度の微分 ∂Σ/∂N̄ᵢ を入れる（ADR-0221）。
+    /// 制御棒の値 `rod` の状態 `index` の追う核種の微視的断面積 `micro`（`micro` の返り値）の、微分の核種に数密度の微分 ∂Σ/∂N̄ᵢ を
+    /// 入れる（ADR-0221）。均質化した数密度はその値の格子のもの。
     /// `nominal` は状態の格子全体の少数群定数。微分の核種 j ごとに、`solve`（j、摂動の組成、自己遮蔽の参照 `reference` の値、摂動の
     /// 参照の組成の作り方）で摂動の組成の格子全体の少数群定数と追う核種の微視的断面積を解き、(Σ(摂動) − Σ(状態)) / (ε N̄ᵢ) にする。
     /// 同じ摂動のその核種の反応率の微視的断面積の差 (σᵢ(摂動) − σᵢ(状態)) / (ε N̄ᵢ) を、反応率の微分 ∂σᵢ/∂N̄ᵢ（ADR-0215 の自分の
@@ -849,6 +957,7 @@ impl HistoryBranches {
     /// ∂σᵢ/∂N̄ᵢ を 0 にする。σᵢ は自分の項だけで、ほかの核種と物質の少数群定数がその核種で変わる分を含まない（ADR-0221 の確認）
     pub fn add_derivatives(
         &self,
+        rod: usize,
         index: usize,
         micro: &mut [MicroNuclide],
         nominal: &FewGroup,
@@ -869,7 +978,7 @@ impl HistoryBranches {
         let point = index / self.branch.len();
         let reference = self.reference(index);
         for (j, &m) in self.derivative_micro.iter().enumerate() {
-            let mean = self.micro_densities[point][m];
+            let mean = self.values[rod].micro_densities[point][m];
             let derivative = if mean > 0.0 {
                 let state = self.perturbed_state(index, j);
                 let build = || {
@@ -936,7 +1045,10 @@ impl HistoryBranches {
     ) -> Vec<MaterialInput> {
         let (kept, temperatures) = branch;
         let mut materials = kept.clone();
-        for ((d, densities), &temperature) in self.regions.iter().zip(densities).zip(temperatures) {
+        // 燃焼の領域の物質、組の代表のセル、体積はどの値の形状でも同じ（`history_branches`）
+        for ((d, densities), &temperature) in
+            self.regions(0).iter().zip(densities).zip(temperatures)
+        {
             materials.push(region_material(
                 d,
                 temperature,
