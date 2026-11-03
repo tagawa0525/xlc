@@ -719,6 +719,7 @@ fn invalid_rod_branches_are_errors() {
     // out は基準の形状の値
     rejects("out = { gt = \"rod\" }", "`out`");
     rejects("aic = {}", "replaces no cell");
+    rejects("", "give the rod values");
     rejects("\"a b\" = { gt = \"rod\" }", "without spaces");
     rejects("aic = { box = \"rod\" }", "`box` is not in the rows");
     rejects("aic = { gt = \"bar\" }", "`bar` is not defined");

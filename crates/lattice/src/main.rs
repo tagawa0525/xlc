@@ -496,8 +496,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
-    let report = |state: usize, k: f64| {
+    // 状態の番号は、テーブルの軸（制御棒の軸があれば最後）の直積の順の番号で出す（解く順の番号 `solved` は値が最初の軸）
+    let report = |solved: usize, k: f64| {
         if input.branches.is_some() {
+            let state = (solved % count) * rods + solved / count;
             println!("state {state} k {k:.6}");
         } else {
             println!("k {k:.6}");

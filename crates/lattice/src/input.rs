@@ -1396,14 +1396,10 @@ impl LatticeInput {
 
     /// 制御棒の軸の値の名前（`out` と `[branches.rod]` の値。制御棒の分岐がなければ `out` だけ。ADR-0224）
     pub fn rod_values(&self) -> Vec<String> {
-        std::iter::once(xlc_format::table::ROD_OUT.to_string())
-            .chain(
-                self.branches
-                    .iter()
-                    .flat_map(|b| b.rods())
-                    .map(|(value, _)| value.clone()),
-            )
-            .collect()
+        self.branches.as_ref().map_or_else(
+            || vec![xlc_format::table::ROD_OUT.to_string()],
+            Branches::rod_values,
+        )
     }
 
     /// 制御棒の値 `rod`（`rod_values` の番号。0 は基準の形状）の形状と、領域ごとの物質の名前
