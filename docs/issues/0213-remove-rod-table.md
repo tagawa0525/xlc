@@ -59,5 +59,5 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   ADR-0226 の `region_mismatch` を値ごとに通す経路を通っていない（単体テスト `rod_values_that_change_the_fuel_orbits_are_errors` が
   通す）。テーブルを作り直すときに、今の形式の履歴で比較を再実行して記録を書き直す。core-2A-micro-rods-assemblies.toml と
   core-small-assemblies.toml の説明は新しい入力を出どころに書くが、今あるテーブルは rod_table.py でまとめた前のもの（テーブルを
-  作り直せば合う）。examples/core/rod_table.py の説明は「#0213 まで」のつなぎと書くが、今は p5 のノードのテーブルだけが使う
-  （rod_table.py を消すときに一緒に消える）
+  作り直せば合う）。examples/core/rod_table.py の説明は「#0213 まで」のつなぎと書くが、今は p5 の 8 本のテーブル（燃料と支持格子の層の 6 本と、
+  反射体の格子の 2 本）と examples/depletion/rod-axis-check の確認の手順が使う（rod_table.py を消すときに一緒に消える）
