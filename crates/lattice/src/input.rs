@@ -99,6 +99,7 @@
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
+//! rod-burnup = { aic = [0, 20] }  # 制御棒の値ごとの、その値のすべての状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
 //! derivative = ["Xe-135"]         # 数密度の微分をテーブルに書く核種（micro から選ぶ。省略すると書かない。ADR-0221）
 //! perturbation = 0.1              # 微分の摂動の割合（数密度を (1 + perturbation) 倍する。省略すると 0.1。ADR-0221）
@@ -427,6 +428,7 @@ struct HistoryEntry {
     file: PathBuf,
     burnup: Vec<f64>,
     off_nominal_burnup: Option<Vec<f64>>,
+    rod_burnup: Option<BTreeMap<String, Vec<f64>>>,
     micro: Option<Vec<String>>,
     derivative: Option<Vec<String>>,
     perturbation: Option<f64>,
@@ -1284,18 +1286,37 @@ impl LatticeInput {
                         h.burnup
                     ));
                 }
+                // core は公称の状態との差を外挿しないので、最初と最後の燃焼点を含む
+                let thinned = |points: &[f64]| {
+                    points.first() == h.burnup.first()
+                        && points.last() == h.burnup.last()
+                        && points.iter().all(|b| h.burnup.contains(b))
+                        && points.windows(2).all(|w| w[0] < w[1])
+                };
                 // 公称でない状態を解く燃焼点。書かなければすべての燃焼点（ADR-0200 の案 B1）
                 let off_nominal = h.off_nominal_burnup.unwrap_or_else(|| h.burnup.clone());
-                // core は公称の状態との差を外挿しないので、最初と最後の燃焼点を含む
-                if off_nominal.first() != h.burnup.first()
-                    || off_nominal.last() != h.burnup.last()
-                    || !off_nominal.iter().all(|b| h.burnup.contains(b))
-                    || !off_nominal.windows(2).all(|w| w[0] < w[1])
-                {
+                if !thinned(&off_nominal) {
                     return Err(format!(
                         "the off-nominal burnup points must be increasing points of `burnup` from its first to its \
                          last, got {off_nominal:?}"
                     ));
+                }
+                // 制御棒の値ごとの、その値のすべての状態を解く燃焼点（ADR-0225）。書かない値は off-nominal-burnup
+                let rod_values = branches.as_ref().map_or_else(Vec::new, Branches::rod_values);
+                let rod_burnup = h.rod_burnup.unwrap_or_default();
+                for (value, points) in &rod_burnup {
+                    if value == xlc_format::table::ROD_OUT || !rod_values.contains(value) {
+                        return Err(format!(
+                            "[history] rod-burnup: `{value}` is not a value of [branches.rod] {:?} (ADR-0225)",
+                            rod_values.iter().skip(1).collect::<Vec<_>>()
+                        ));
+                    }
+                    if !thinned(points) {
+                        return Err(format!(
+                            "[history] rod-burnup.{value} must be increasing points of `burnup` from its first to its \
+                             last, got {points:?} (ADR-0225)"
+                        ));
+                    }
                 }
                 // ミクロ燃焼で追う核種（ADR-0216）。微視的断面積は格子全体で均質化するので、部分ノードに分けないテーブルだけ
                 let micro = match h.micro {
@@ -1357,6 +1378,7 @@ impl LatticeInput {
                     file: h.file,
                     burnup: h.burnup,
                     off_nominal,
+                    rod_burnup,
                     micro,
                     derivative,
                     perturbation,
