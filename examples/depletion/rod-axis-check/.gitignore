@@ -1,0 +1,4 @@
+fg-*.msgpack
+lattice*.out
+lattice*.log
+compare.out
