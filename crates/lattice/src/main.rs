@@ -29,7 +29,6 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 use anyhow::{Context, anyhow};
-use std::cell::OnceCell;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
@@ -40,7 +39,7 @@ use xlc_format::medium::{Medium, MediumState};
 use xlc_format::table::Axis;
 use xlc_format::table::{Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{BranchShielder, state_indices, tables};
+use xlc_lattice::branches::{BranchShielder, lexicographic, state_indices, tables};
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
 };
@@ -450,8 +449,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let present: Vec<usize> = (0..rods)
         .flat_map(|rod| present_states.iter().map(move |&state| rod * count + state))
         .collect();
-    // 基準の形状でない値の形状は、その値の最初の状態を解く前に作り、実行の終わりまで持つ（自己遮蔽がそれを借りる）
-    let rod_geometries: Vec<OnceCell<Geometry>> = (1..rods).map(|_| OnceCell::new()).collect();
+    // 基準の形状でない値の形状。入力の誤り（置き換えたセルの形状、強制した対称性）を、状態を解く前にすべての値で見つける
+    let rod_geometries: Vec<Geometry> = (1..rods)
+        .map(|rod| -> anyhow::Result<Geometry> {
+            let context = || format!("{}: rod {}", shown(path), rod_values[rod]);
+            let (lattice, region_materials) = input.rod_geometry(rod).with_context(context)?;
+            let (tracking, chosen) =
+                track_and_choose(&lattice, &region_materials).with_context(context)?;
+            Ok(Geometry {
+                lattice,
+                region_materials,
+                tracking,
+                chosen,
+            })
+        })
+        .collect::<anyhow::Result<_>>()?;
     // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
     // 自己遮蔽の履歴があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す（`HistoryBranches::shield_with`）
@@ -463,8 +475,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .chain(history_branches.iter().flat_map(|h| h.remixed()))
         .cloned()
         .collect();
-    // [制御棒の値] の自己遮蔽（形状ごと。値の最初の状態で作る）
-    let mut shielders: Vec<Option<BranchShielder>> = (0..rods).map(|_| None).collect();
+    // 今の制御棒の値の自己遮蔽（形状ごと。値の最初の状態で作り、値を解き終えたら捨てる）と、捨てた値の自己遮蔽の回数
+    let mut shielder: Option<(usize, BranchShielder)> = None;
+    let mut finished_shieldings = 0;
     // 数密度の微分（ADR-0221）の摂動の組成は、微分の核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の
     // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ
     let mut perturbed_shielders: Vec<BranchShielder> = history_branches
@@ -495,25 +508,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let (rod, state) = (solved / count, solved % count);
         let geometry: &Geometry = match rod.checked_sub(1) {
             None => &base_geometry,
-            Some(r) => {
-                let cell = &rod_geometries[r];
-                if cell.get().is_none() {
-                    let (lattice, region_materials) = input
-                        .rod_geometry(rod)
-                        .with_context(|| format!("{}: rod {}", shown(path), rod_values[rod]))?;
-                    let (tracking, chosen) = track_and_choose(&lattice, &region_materials)
-                        .with_context(|| format!("rod {}", rod_values[rod]))?;
-                    // 今は空なので置ける（`get_or_try_init` は安定版にない）
-                    let _ = cell.set(Geometry {
-                        lattice,
-                        region_materials,
-                        tracking,
-                        chosen,
-                    });
-                }
-                cell.get()
-                    .ok_or_else(|| anyhow!("the geometry of rod {} is not set", rod_values[rod]))?
-            }
+            Some(r) => &rod_geometries[r],
         };
         // 値の最初の状態は、形状の違う前の値の解から始めない（領域が違う。値の中の並びは、セルを置き換えた別の入力の格子計算と同じ
         // 始める解になる。ADR-0224）
@@ -522,17 +517,25 @@ fn run(path: &Path) -> anyhow::Result<()> {
         } else {
             from
         };
-        let shielder = shielders[rod].get_or_insert_with(|| {
-            BranchShielder::new(
-                &geometry.tracking,
-                if rod == 0 {
-                    solved_materials
-                } else {
-                    &geometry.region_materials
-                },
-                &varied,
-                geometry.chosen.shielding(),
-                input.shielding_options(),
+        if shielder.as_ref().is_some_and(|(r, _)| *r != rod)
+            && let Some((_, done)) = shielder.take()
+        {
+            finished_shieldings += done.shieldings();
+        }
+        let (_, shielder) = shielder.get_or_insert_with(|| {
+            (
+                rod,
+                BranchShielder::new(
+                    &geometry.tracking,
+                    if rod == 0 {
+                        solved_materials
+                    } else {
+                        &geometry.region_materials
+                    },
+                    &varied,
+                    geometry.chosen.shielding(),
+                    input.shielding_options(),
+                ),
             )
         });
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
@@ -931,11 +934,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     if input.branches.is_some() && input.self_shielding {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
-            shieldings = shielders
-                .iter()
-                .flatten()
-                .map(BranchShielder::shieldings)
-                .sum::<usize>(),
+            shieldings = finished_shieldings + shielder.as_ref().map_or(0, |(_, s)| s.shieldings()),
             derivative_shieldings = perturbed_shielders
                 .iter()
                 .map(BranchShielder::shieldings)
@@ -944,21 +943,36 @@ fn run(path: &Path) -> anyhow::Result<()> {
             "branches"
         );
     }
+    // 媒質は棒のない値の状態だけを書く（解く順の最初の値。ADR-0128、ADR-0224）
+    let written: Vec<MediumState> = states
+        .iter()
+        .take(present_states.len())
+        .filter_map(|s| s.medium.clone())
+        .collect();
+    // テーブルの点は、連続の軸の格子点の番号と、制御棒の軸があれば最後に値の番号。状態は点の辞書式の順に並べ替える
+    let solved_points: Vec<Vec<usize>> = present
+        .iter()
+        .map(|&solved| {
+            let mut point = state_indices(&counts, solved % count);
+            if rods > 1 {
+                point.push(solved / count);
+            }
+            point
+        })
+        .collect();
+    let order = lexicographic(&solved_points);
+    let points: Vec<Vec<usize>> = order.iter().map(|&i| solved_points[i].clone()).collect();
+    let mut by_solve: Vec<Option<SavedState>> = states.into_iter().map(Some).collect();
     let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
-    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) = states
-        .into_iter()
+    let per_state: Vec<Vec<Vec<FewGroup>>> = order
+        .iter()
+        .filter_map(|&i| by_solve[i].take())
         .map(|s| {
             if let Some(m) = s.micro {
                 micro_states.push(m);
             }
-            (s.outputs, s.medium)
+            s.outputs
         })
-        .unzip();
-    // 媒質は棒のない値の状態だけを書く（解く順の最初の値。ADR-0128、ADR-0224）
-    let written: Vec<MediumState> = written
-        .into_iter()
-        .take(present_states.len())
-        .flatten()
         .collect();
 
     let _write = tracing::debug_span!("write").entered();
@@ -984,17 +998,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        // テーブルの点は、連続の軸の格子点の番号と、制御棒の軸があれば最後に値の番号
-        let points: Vec<Vec<usize>> = present
-            .iter()
-            .map(|&solved| {
-                let mut point = state_indices(&counts, solved % count);
-                if rods > 1 {
-                    point.push(solved / count);
-                }
-                point
-            })
-            .collect();
         let table_axes = match (&history_branches, &input.branches) {
             (None, Some(b)) => b.table_axes(),
             _ => axes.to_vec(),
