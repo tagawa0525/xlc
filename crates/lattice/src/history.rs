@@ -35,7 +35,7 @@ use xlc_format::table::{Axis, MicroDerivative, MicroNuclide, MicroReaction, Rate
 use crate::depletion::{
     DepletionRegion, HEAVY_METAL_Z, History, channel_cross_sections, check_negative,
     check_region_names, depletion_regions, has_data_at, heavy_metal_mass, region_material,
-    solved_names, split_at, transport_name, yield_cutoff,
+    region_mismatch, solved_names, split_at, transport_name, yield_cutoff,
 };
 use crate::fewgroup::coarse_groups;
 use crate::geometry::Lattice;
@@ -141,39 +141,11 @@ pub fn history_branches(
             depleted.push(d.material.clone());
         }
     }
-    // 入力から求めた燃焼の領域が、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じこと。MOC の領域の番号は照合せず、入力の
-    // 格子のものを使う（案内管の中身を変えた格子では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる。#0196）
+    // 入力から求めた燃焼の領域が、履歴の燃焼の領域と同じこと（`region_mismatch`）。MOC の領域の番号は照合せず、入力の格子のものを
+    // 使う（案内管の中身を変えた格子では、燃料のセルが同じでも、案内管のセルの領域の数が違えば番号がずれる。#0196）
     let representatives = chosen.shielding().cell_representatives();
     let regions = depletion_regions(lattice, region_materials, &representatives, &depleted);
-    let key =
-        |material: &str, cell: usize, volume: f64| (material.to_string(), cell, volume.to_bits());
-    let found: Vec<_> = regions
-        .iter()
-        .map(|d| key(&d.material, d.cell, d.volume))
-        .collect();
-    let recorded: Vec<_> = history
-        .regions
-        .iter()
-        .map(|d| key(&d.material, d.cell, d.volume))
-        .collect();
-    if found != recorded {
-        let at = found.iter().zip(&recorded).position(|(a, b)| a != b);
-        let detail = match at {
-            Some(k) => format!(
-                "region {k}: {:?} in the lattice, {:?} in the history (material, cell, volume)",
-                (&regions[k].material, regions[k].cell, regions[k].volume),
-                (
-                    &history.regions[k].material,
-                    history.regions[k].cell,
-                    history.regions[k].volume
-                )
-            ),
-            None => format!(
-                "{} regions in the lattice, {} in the history",
-                regions.len(),
-                history.regions.len()
-            ),
-        };
+    if let Some(detail) = region_mismatch(&regions, &history.regions) {
         bail!(
             "the depletion regions of the lattice differ from those of the history: {detail}; give a lattice \
              whose depleted cells are those of the history (ADR-0187)"
@@ -507,17 +479,8 @@ impl HistoryBranches {
         if shielding.nuclides != self.nuclides {
             bail!("the shielding history has other nuclides than the history");
         }
-        let key = |d: &DepletionRegion| (d.material.clone(), d.cell, d.volume.to_bits());
-        if shielding.regions.len() != self.regions.len()
-            || shielding
-                .regions
-                .iter()
-                .map(key)
-                .ne(self.regions.iter().map(key))
-        {
-            bail!(
-                "the shielding history has other depletion regions (material, cell, volume) than the lattice"
-            );
+        if let Some(detail) = region_mismatch(&shielding.regions, &self.regions) {
+            bail!("the shielding history has other depletion regions than the lattice: {detail}");
         }
         let transported: Vec<usize> = shielding
             .transportable
