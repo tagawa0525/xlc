@@ -106,7 +106,7 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   分かった。examples/depletion/dvc.lock では、`lattice-1C` が ADR-0211 の誤差関数で作り直したライブラリ（md5 d86514f8）で、`lattice-mox1` が
   その前のライブラリ（md5 cbc33de9）。MOX-1 の参照解と比べる前に、`lattice-mox1` を再実行する（91 秒。Slurm 555）
 - 2026-10-31: MOX-1 の参照解（OpenMC の燃焼。`openmc-mox1`、`openmc-mox1-extract`）を流した（Slurm 639、1 時間 13 分 38 秒。割り込まれうる
-  ジョブなので時間は記録に使わない。ブランチ feat/0152-mox1-reference の bed0e5de6（分岐点は main の f86d7fda8。入力と OpenMC の
+  ジョブなので時間は記録に使わない。ブランチ feat/0152-mox1-reference の ca69889f2（分岐点は main の f86d7fda8。入力と OpenMC の
   ライブラリは分岐点と同じ）の dvc.lock。出力 openmc-mox1-rings1.msgpack の md5 は 6171eec9）。目標は `openmc-mox1-extract`（`compare-mox1` を
   目標にすると bin/xs の変更で changed の xs-nuclide 65 本が走る）。OpenMC のログに「Negative value(s) found on probability table for nuclide
   Zr96 at 600K」の警告が出る（1C の参照解のログにも同じ警告。openmc-library の Zr96 の確率テーブルの候補で、k への影響は確かめていない）。
