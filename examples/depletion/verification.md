@@ -197,14 +197,13 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 OpenMC は 8dcacf81、分岐点は main の 64a04368、2026-10-16（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、
 Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、OpenMC とライブラリのステージは再実行せずに `dvc commit` で付け直した
 （3517e466。deps の差はコメントだけ。#0145）。その後の `openmc_depletion.py` の docstring の変更（3baba57c）も、再実行せずに
-`dvc commit` で付け直した（acfe57b0）。xlc の格子（`lattice-1C`）と比較（`compare-1C`）は 228bf1806（ブランチ perf/0067-smt-thread-default）、分岐点は main の
-7b8bae1b2、2026-10-28（Slurm の timed のジョブ 581。時間の表の xlc の行はこの実行の値。ADR-0213 の自由ガスの散乱源の区間を持つ形で、
-ADR-0214 の既定の 32 スレッド（ログの `thread pool threads=32`））。履歴は、前の lock の出力（ADR-0213 の版、16 スレッド）と `seconds` の
-ほかはバイトで同じ。
+`dvc commit` で付け直した（acfe57b0）。xlc の格子（`lattice-1C`）と比較（`compare-1C`）は 31ab2528（ブランチ feat/0152-mox1-reference）、分岐点は main の
+dcc9036a2、2026-11-03（Slurm の timed のジョブ 658。時間の表の xlc の行はこの実行の値。ADR-0214 の既定の 32 スレッド（ログの
+`thread pool threads=32`））。比較の JSON は、前の実行（228bf1806、Slurm 581）と `seconds` と入力の md5 のほかは同じ。
 自己遮蔽の UFG の減速計算は ADR-0209 の既定
 （散乱核は ADR-0205 の速い方法、移行はリングの中性子束。入力は `ufg-*` を書かない）で、誤差関数は ADR-0211。ライブラリは ADR-0211 の
 誤差関数で作り直したもの（`depletion.msgpack` md5 d86514f8）。比較の入力は `lattice-1C-rings1.msgpack`
-md5 116cc780、`openmc-1C-rings1.msgpack` md5 2c7d0331、`lattice-1C-rings4.msgpack` md5 a79dffe9、`openmc-1C-rings4.msgpack` md5 011dfabb
+md5 8e76694f、`openmc-1C-rings1.msgpack` md5 2c7d0331、`lattice-1C-rings4.msgpack` md5 3b565010、`openmc-1C-rings4.msgpack` md5 011dfabb
 （JSON の `inputs`）。
 
 ### 輸送する核種
@@ -1494,21 +1493,18 @@ k∞ の差（xlc − OpenMC、pcm）と、0 の点からの変化。
 ### 時間の内訳
 
 xlc は履歴の `seconds`（全体は内訳の和）、OpenMC は `transport-seconds.json`（輸送 13 回）と `depletion_results.h5` の CRAM の時間。
-xlc は Slurm の timed のジョブ 581（32 スレッド）、OpenMC は排他のジョブ 409（16 スレッド）の中（どちらも「計算」のジョブ）。秒。
+xlc は Slurm の timed のジョブ 658（32 スレッド）、OpenMC は排他のジョブ 409（16 スレッド）の中（どちらも「計算」のジョブ）。秒。
 
 <!-- table: depletion-1c-times -->
 
 | 計算             | 輸送の回数 | 全体   | 自己遮蔽（OpenMC は輸送） | MOC | 反応率と規格化 | 燃焼行列 | CRAM48 |
 | ---------------- | ---------- | ------ | ------------------------- | --- | -------------- | -------- | ------ |
-| xlc、1 リング    | 13         | 476.3  | 473.6                     | 2.2 | 0.04           | 0.18     | 0.33   |
+| xlc、1 リング    | 13         | 452.6  | 449.9                     | 2.1 | 0.04           | 0.19     | 0.33   |
 | OpenMC、1 リング | 13         | 5,368  | 5,362（1 回 409〜417）    |     |                |          | 5.26   |
-| xlc、4 リング    | 13         | 647.2  | 644.2                     | 2.4 | 0.05           | 0.21     | 0.34   |
+| xlc、4 リング    | 13         | 694.7  | 691.7                     | 2.5 | 0.06           | 0.19     | 0.34   |
 | OpenMC、4 リング | 13         | 11,973 | 11,960（1 回 908〜931）   |     |                |          | 3.53   |
 
 <!-- /table -->
-
-xlc の 1 リングの行は、2026-10-31 の bin の変更による再実行（Slurm 644、割り込まれうるジョブ）の値で、時間の記録には使わない（ADR-0130 の
-再実行。timed で再測定するまで、時間の比較は前の値（全体 447.9 秒、自己遮蔽 445.2 秒。Slurm 409）で読む）。
 
 2A（燃焼の領域 39、輸送 81 回）の時間は「集合体の燃焼」の節。
 
