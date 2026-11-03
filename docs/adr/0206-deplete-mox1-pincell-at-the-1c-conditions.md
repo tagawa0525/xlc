@@ -61,20 +61,19 @@ issues: ["#0001", "#0152"]
   `openmc-1C` が古くなり、再実行が要る（#0132 と同じ理由。`dvc commit` で付け直すのは、コメントだけの変更のとき（acfe57b0）に限る）。
   温度は入力の項目（`fuel-temperature`、`moderator-temperature`）にし、温度のモードはライブラリの表の温度だけを使う `nearest` にする。
   初めの燃料の核種のどれかを燃料の温度で輸送できなければ、輸送の前に止める
-- 参照解を流すまで、MOX-1 の燃焼の k の差の推移は無く、#0152 と #0001 の切り分けに使えない（#0152）
-- 1C と MOX-1 の燃焼の k の差の推移を比べるときは、両方の xlc を同じライブラリと `bin/lattice` で流す。2026-10-29 の examples/depletion/dvc.lock
-  では、1C の xlc（`lattice-1C`）が今のライブラリ（ADR-0211 の誤差関数で作り直したもの、md5 d86514f8）で、MOX-1 の xlc（`lattice-mox1`）は
-  その前のライブラリ（md5 cbc33de9）なので、比べる前に `lattice-mox1` を再実行する
+- MOX-1 の燃焼の k の差の推移は、参照解（Slurm 639）との比較で得た（examples/depletion/verification.md の「MOX-1 のピンセルの燃焼（準備）」）。
+  #0152 と #0001 の切り分けに使う（#0152）
+- 1C と MOX-1 の燃焼の k の差の推移を比べるときは、両方の xlc を同じライブラリと `bin/lattice` で流す。今の examples/depletion/dvc.lock
+  では、`lattice-1C` と `lattice-mox1` はどちらもライブラリ md5 d86514f8（ADR-0211 の誤差関数で作り直したもの）と、main の dcc9036a2 を
+  分岐点とする同じ `bin/lattice` の実行（Slurm 658 と 655）
 
 ### 確認
 
 - examples/depletion/test_openmc_depletion_mox.py: 入力の検査、等しい面積のリング、MOX-1 の組成と温度、ギャップのない形状、
   温度のモード、初めの燃料の核種が輸送されないときに止めること。main 681c14f9b で 10 本が通る（2026-10-29、python-tests の devShell）
 - 粒子数を落とした OpenMC の試しの実行（Slurm 556、1 ステップ。出力は残さない）で燃焼の 1 ステップが回り、燃料で輸送する核種は
-  xlc と同じ 54（examples/depletion/verification.md の「MOX-1 のピンセルの燃焼（準備）」）
-- xlc の燃焼（ステージ `lattice-mox1`。xlc 8db246fa5、分岐点は main の f2e30c51c、2026-10-27、Slurm 555）の k∞ は、0 MWd/kg で 1.195979、
-  5 MWd/kg で 1.157291（同じ節。ライブラリは ADR-0211 の前の md5 cbc33de9）
-- 参照解（ステージ `openmc-mox1`）は流していない。準備だけにして、流すのは後回しにする（ユーザー 2026-10-27。週の使用量の
-  枠が余るときに流す）。流し方と見積もり（1 時間 30 分ほど）、その前に `compare_depletion.py`
-  の比べる核種に Pu-240、Pu-241、Pu-242、Am-241 を足すことは #0152 の 2026-10-27 の項にある。流したら、`compare-mox1` の要約を
-  examples/depletion/verification.md に書く
+  xlc と同じ 54。参照解の燃焼でも、輸送する核種は両方で同じ 54（`compare_depletion.py` が確かめる。examples/depletion/verification.md の
+  「MOX-1 のピンセルの燃焼（準備）」）
+- 参照解（ステージ `openmc-mox1`、`openmc-mox1-extract`）は 03947e64（分岐点は main の b29e4a539）、2026-10-31、Slurm 639 で流した。
+  xlc の燃焼（`lattice-mox1`）は a68a0df8（分岐点は main の dcc9036a2）、2026-11-03、Slurm 655。比べた k∞ の差（xlc − OpenMC）は
+  −254〜−141 pcm（0 の点 −254 ± 16 pcm）で、ADR-0032 の目標 ±100 pcm を超える。数密度の差と比較のコミットは同じ節
