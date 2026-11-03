@@ -12,46 +12,50 @@ resolution:
 
 ## 問題
 
-b83289912 は、CLAUDE.md の作業の流れに dvc-relock の「マージの前に」（main の作業ツリーに残る古い
-出力を消す段。b33deca17 で「マージが止まったら」に改めた）を足した。その /code-review（2026-11-03 の 1〜3 周目）が挙げた次の点は、手順のとおりに実行して
-失敗する誤りではないので直していない。
+ブランチがステージを消すか outs の名前を変えると、main の作業ツリーに残る古い出力がマージの結果で未追跡になり、
+pre-merge-commit の hook に止まる。dvc-relock の「マージが止まったら」は、nixfiles #569（2026-11-03）の hook が分けて出す
+「マージするブランチが .gitignore から外した生成物」の一覧を受け、main の HEAD の記録（`dvc status` の `changed outs`、
+`md5sum` とキャッシュ）で消してよいかを決める。前の版の /code-review（2026-11-03 の 1〜3 周目と記録の周、HEAD 9a911d605）が
+挙げた点のうち、次は節の作り直しと hook で解いた:
 
-- /topic-start（委任を受けた担当も読む）は dvc-relock の後半だけを挙げ、マージの直前の段に触れない。同じスキルの「作業中は
-  main の作業ツリーに触らない」とも、例外を書かずに食い違う
-- dvc-relock の入口の文（前半と後半を worktree とマージ済みかで選ぶ）とフロントマターの description が、マージの直前の段を
-  含まない。「マージが止まったら」の節は `## 前半` の下の `###` で、「この後は /git-merge の「チェック」に進む。」の後に置かれている
-- dvc-relock の allowed-tools に、main の worktree での `git -C … status`、`ls`、`rm` が無い
-- dvc.yaml を手で直して `.gitignore` の行が残ったとき、持ち主の無い出力は無視されたまま main に残る（マージは止まらない）
-- `cache: false` に変えた出力で、main の無視された版がブランチの追跡する版と違っても、git は黙って上書きする（前の手順の
-  「差があるファイルは消さず原因を調べる」は、上書きが止まる前提で書かれていた）
+- `modified` の出力も消す対象に読めた（消すと戻らない）: 節が `dvc status` の `modified:`、`not in cache:`、記録が無い、を
+  消さないものとして分けた（`Output.status` は dvc 3.67.1 の dvc/output.py）
+- hook のパスを `.gitignore` の消えた行と手で照合し、ディレクトリの outs で迷う: hook が HEAD の `.gitignore` で無視されて
+  いたファイルに印を付ける（ディレクトリのパターンの中のファイルも印が付く。`git check-ignore --stdin` で試した）。古い hook には、
+  `git merge --abort` の後の `git status --short --ignored` の `!!` で同じ判定をする
+- hook の一覧に前からある未追跡のファイルや変更が混じる: hook が印の付いたものを別の一覧に分ける
+- `dvc status` と /topic-start の「main の作業ツリーでは dvc を実行しない」、/git-merge の「hook の拒否はブランチで直す」との
+  食い違い: 節が、ブランチでは直せない main の作業ツリーの追跡しないファイルを扱う例外と書いた
+- スキルの入口の文と description が段を含まず、節が前半の `###` だった: 前半と後半の間の `##` にし、入口と description に足した
 
-3 周の後の記録の周（2026-11-03、HEAD 9a911d605）が、直さずに残った blocking を挙げた（歯止めの外なので直していない。マージは
-ユーザーの判断）:
+残る点（直していない。手順のとおりに実行して失敗する誤りではない）:
 
-- 手順 2 は「キャッシュから戻せる」を `dvc status` で見るが、`modified`（main の古い出力の中身が dvc.lock の md5 と違う。後半の節の
-  とおり DVC を入れる前の出力が main に残りうる）の出力も消す対象に読める。消すと中身は git にもキャッシュにも無く、手順 3 は
-  lock の版を置き、消したものは戻らない
-- 手順 1 は hook のパスを `.gitignore` の消えた行と手で突き合わせるので、ディレクトリの outs（`-/outdir` に対して
-  `outdir/a` などが並ぶ）で迷う。`git merge --abort` の後の `git status --short --ignored <パス>` で `!!`（main で無視されていた）
-  かを見れば機械的に分かる
-- 節は hook の一覧を「マージの後に未追跡になるパスそのもの」と書くが、hook は `git diff --name-only` と無視されない未追跡の
-  全部を並べるので、前からある未追跡のファイルや変更も混じる
-- 手順 2 の `dvc status` は、/topic-start の「main の作業ツリーでは dvc を実行しない」と食い違う
-- /git-merge は hook の拒否に「abort、ブランチで直し、rebase とレビューとチェックからやり直す」を求め、この節に向かわない
+- /topic-start（委任を受けた担当も読む）は dvc-relock の後半だけを挙げ、マージが止まったときの段に触れない（CLAUDE.md の
+  作業の流れからはたどれる）
+- dvc-relock の allowed-tools に `dvc status examples/*` と `md5sum` は足したが、main の worktree での `git merge --abort` と `rm` は
+  無い（`rm` を許可に入れると、ほかの場面の削除も確認なしに通る）
+- dvc.yaml を手で直して `.gitignore` の行が残ったとき、持ち主の無い出力は無視されたまま main に残る（`.gitignore` が変わらない
+  ので hook は止まらない）
+- `cache: false` に変えて git で追跡するようにした出力は、main の無視された版がブランチの追跡する版と違っても、git がマージで黙って
+  上書きする（マージの結果と作業ツリーが同じになるので hook は止まらない）
 
-捨てた方式: 前もって `.gitignore` の差を手で読む方式（2 周目までの版）は、相対パス、`.dvc` ファイル、直下のパターン、消して
-足し直した行で漏れ、`cache: false` の出力は消す要が無いのに消して戻せないことがある（2 周目と 3 周目の指摘）ので捨てた。main と
-ブランチの dvc.lock の outs を比べる案は、`.dvc` ファイルとディレクトリの outs を別に扱う手間と、hook の一覧で足りるかの見込みから
-試していない（確かめていない）。
+捨てた方式: 前もって `.gitignore` の差を手で読んで消す方式（2 周目までの版）は、相対パス、`.dvc` ファイル、直下のパターン、
+消して足し直した行で漏れ、`cache: false` の出力は消す要が無いのに消して戻せないことがある（2 周目と 3 周目の指摘）ので捨てた。
+hook の一覧を `.gitignore` の差と手で照合し、`dvc status` で戻せるかを見る方式（4710ed575 までの版）は、記録の周の上の
+blocking（`modified` を消しうる、照合で迷う、規則との食い違い）で捨て、hook の印と `dvc status` の状態ごとの扱いに替えた。
+main とブランチの dvc.lock の outs を比べる案は、`.dvc` ファイルとディレクトリの outs を別に扱う手間と、hook の一覧で足りる
+かの見込みから試していない（確かめていない）。
 
 関係する ADR: なし
 
 ## 完了の条件
 
-- /topic-start とスキルの入口からマージの直前の段にたどれ、その段の操作が許可の確認なしに実行できる
-- 上の残りの 2 点を、直すか、直さない理由を書いて閉じる
+- /topic-start からマージが止まったときの段にたどれ、その段の操作（`git merge --abort`、消すこと）の許可を決める
+- 手で直した dvc.yaml と `cache: false` の上書きの 2 点を、直すか、直さない理由を書いて閉じる
 
 ## 経緯
 
 - 2026-11-03: #0093 のマージ（dcc9036a2）が、examples/core の持ち主の無くなった古い出力 6 本で pre-merge の hook に止まった。
   /retro の docs/dvc-relock-removed-stage-outs で dvc-relock の節を hook の一覧を使う形に直し、残りをここに書いた
+- 2026-11-03: nixfiles #569 で hook が `.gitignore` から外れた生成物を分けて示すようになったので、節を hook の一覧を受けて
+  DVC の記録で決める形に作り直し、解いた点と残る点を分けた
