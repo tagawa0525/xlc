@@ -766,7 +766,8 @@ fn solve_cell(
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
     let [free_gas, sab] = sweep.thermal.as_ref().map_or([0.0; 2], Thermal::elapsed);
     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成。
-    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源。held はスイープの間で持った区間の数
+    // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源。held はスイープの間で持った区間の数、work は
+    // 持つ区間の上限から除いた作業の配列 (B)
     tracing::debug!(
         points = u.len(),
         union,
@@ -782,6 +783,7 @@ fn solve_cell(
         free_gas,
         sab,
         held,
+        work,
         "UFG slowing down"
     );
 
