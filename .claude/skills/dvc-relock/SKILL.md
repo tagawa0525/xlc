@@ -163,12 +163,14 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 
 ### マージの前に: main の作業ツリーに残る古い出力
 
-ブランチが DVC の outs を `.gitignore` から外したとき（`cache: false` に変えて git で追跡するようにしたときなど）、main の作業ツリーには
-以前の `dvc checkout` / `dvc repro` が置いた古い出力が、まだ無視されたファイルとして残っている。マージでブランチ側の追跡されたファイルが
-同じ場所に入ると、main では未追跡のファイルが上書きされる形になり、pre-merge の hook（未追跡の衝突）が止まる（2026-10-15 に
-p5 と p3 の `compare-*.out` で 2 回起きた）。マージの前に、ブランチで `.gitignore` から外れた出力（`git diff main...HEAD -- '*.gitignore'`）が
+ブランチが DVC の outs を `.gitignore` から外したとき、main の作業ツリーには以前の `dvc checkout` / `dvc repro` が置いた
+古い出力が、まだ無視されたファイルとして残っている。外れるのは、`cache: false` に変えて git で追跡するようにしたときと、ステージを
+消すか名前を変えたとき（DVC が `.gitignore` の行も消す）である。前者はマージでブランチ側の追跡されたファイルが同じ場所に入って
+未追跡の衝突で止まり、後者は古い出力が持ち主の無い未追跡のファイルになって pre-merge の hook（作業ツリーにマージ結果以外の
+変更がある）が止まる（2026-10-15 に p5 と p3 の `compare-*.out` で 2 回、2026-11-03 に #0093 が examples/core の assembly-* を置き換えて
+`fg-*.msgpack` と `lattice-*.out` の 6 本で 1 回）。マージの前に、ブランチで `.gitignore` から外れた出力（`git diff main...HEAD -- '*.gitignore'`）が
 main の作業ツリーに残っていないかを `git -C <main の worktree> status --short <パス>` と `ls` で見て、あれば main 側で消す。消すのは
-DVC のキャッシュから戻せる古い出力だけで、マージのあとに後半の `dvc checkout` が置き直す。追跡されている版に差があるファイルは消さず、原因を調べる。
+DVC のキャッシュから戻せる古い出力だけで、追跡するようにした出力は、マージのあとに後半の `dvc checkout` が置き直す（消したステージの出力は置き直さない）。追跡されている版に差があるファイルは消さず、原因を調べる。
 
 ## 後半: マージのあと（main の worktree で）
 
