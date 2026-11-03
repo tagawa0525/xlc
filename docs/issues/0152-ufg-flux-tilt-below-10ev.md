@@ -111,3 +111,8 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   目標にすると bin/xs の変更で changed の xs-nuclide 65 本が走る）。OpenMC のログに「Negative value(s) found on probability table for nuclide
   Zr96 at 600K」の警告が出る（1C の参照解のログにも同じ警告。openmc-library の Zr96 の確率テーブルの候補で、k への影響は確かめていない）。
   xlc との比較（`compare-mox1`。lattice-mox1 と 1C の再実行、compare_depletion.py の核種の追加）はこれから
+- 2026-11-03: main（3dda20789。#0212 の修正と #0093 の制御棒の分岐で bin/lattice が変わった）に rebase し、examples/depletion の
+  changed のステージを今の bin で流した。`lattice-2A` と `lattice-mox1` は 31ab2528 で Slurm 655（割り込まれうるジョブ）、
+  `lattice-1C` と `compare-1C` は同じコミットで Slurm 658（timed。時間の表の値）。658 のために lock を戻したので、655 の 2A と
+  MOX-1 の出力は Slurm 659 で run-cache から戻し、`compare-mox1` は 659 で流した。1C の比較の JSON は `seconds` と入力の md5 のほか
+  前と同じ。`compare-mox1-rings1.json` は今の compare_depletion.py の核種のままで、Pu-240、Pu-241、Pu-242、Am-241 の追加と記録の本文はこれから
