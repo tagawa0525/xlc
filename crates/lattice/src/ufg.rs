@@ -613,8 +613,12 @@ fn solve_cell(
         entries: &entries,
         volumes: &volumes,
         u: &u,
-        elastic: vec![Vec::with_capacity(u.len()); data.len()],
-        flux: vec![Vec::with_capacity(u.len()); n],
+        // 列は格子点ごとに伸びて格子点の数に達するので、先にその長さを確保する（`vec![Vec::with_capacity(..); k]` は複製が
+        // 確保を引き継がず、倍に伸ばすと最大で 2 倍を確保する。確保した量は持つ区間の上限から除く作業の配列に数える）
+        elastic: (0..data.len())
+            .map(|_| Vec::with_capacity(u.len()))
+            .collect(),
+        flux: (0..n).map(|_| Vec::with_capacity(u.len())).collect(),
         above,
         lower: vec![0; data.len()],
         // 範囲の上端での窓の積分（範囲の上の中性子束は 1/E）
