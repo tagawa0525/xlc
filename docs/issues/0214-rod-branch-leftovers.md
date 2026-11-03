@@ -46,7 +46,11 @@ resolution:
   値の燃焼点（`rod-burnup`）だけが燃焼点を間引いて公称の状態がないときのエラーの文が `off-nominal-burnup` を名指しする。
   数密度の微分のログ（`derivative`）の `state=` は値の中の番号で、`lattice` のログ（解く順の番号）と標準出力（テーブルの順の番号）と
   合わない。main.rs の値ごとの自己遮蔽と摂動の自己遮蔽を 2 つの `Option` で持ち、値の切り替えを 2 か所で書く（1 つにまとめれば
-  食い違わない）。`HistoryBranches::rods` はテストだけが使う
+  食い違わない）。`HistoryBranches::rods` はテストだけが使う。2 周目: `rod-burnup` を書かない値は `off-nominal-burnup` を使うので、棒のない値の
+  公称でない状態を間引くと制御棒の値も黙って間引く（ADR-0200 は制御棒を入れた組を測るまですべての燃焼点で解く。ADR-0225 の既定）。
+  1 つの入力と別の入力のビットの一致は、`rod-burnup` が `off-nominal-burnup` より多くの点を持つ場合と、2 軸以上を変える部分格子では
+  比べていない。`HistoryBranches::micro` は値の格子を引数でもう一度受け、値の均質化した数密度の体積と同じ格子かを確かめない。
+  値ごとの形状の `ValueGeometry`（history.rs）は main.rs の `Geometry` のコピーで、`burnups` の値 0 の分岐は `rod_burnup` と同じ
 
 関係する ADR: ADR-0224、ADR-0225
 
