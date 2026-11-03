@@ -1699,17 +1699,10 @@ fn continuing_needs_a_point_of_the_history() {
 }
 
 #[test]
-fn continuing_needs_the_regions_nuclides_and_transported_nuclides_of_the_history() {
+fn continuing_needs_the_nuclides_and_transported_nuclides_of_the_history() {
     let library = library();
     let nominal = deplete_with(PIN, &library);
     let text = continued("0.5", "[1.0]", "4.9e-2");
-    // 燃料を 2 つのリングに分けた格子は燃焼の領域が違う
-    let rings = text.replace(
-        "{ material = \"fuel\", radius = 0.4096, rings = 1 }",
-        "{ material = \"fuel\", radius = 0.4096, rings = 2 }",
-    );
-    let err = continue_simply(&rings, &library, &nominal).unwrap_err();
-    assert!(format!("{err:#}").contains("regions"), "{err:#}");
     let mut renamed = nominal.clone();
     renamed.nuclides[0] = "Kr-83".into();
     let err = continue_simply(&text, &library, &renamed).unwrap_err();
@@ -1842,4 +1835,242 @@ fn a_continued_run_resumes_from_its_checkpoint_bit_for_bit() {
         );
     }
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// 案内管の中身が水だけのセル（MOC の領域は 2 つ）
+const WATER_GUIDE: &str = "[cell.gt]\nzones = [{ material = \"water\", radius = 0.56, rings = 1 }, { material = \"water\", rings = 1 }]\n";
+
+/// 案内管に吸収体の棒（物質 rod。燃焼させない）を入れたセル（MOC の領域は 5 つ）
+const ROD_GUIDE: &str = "[material.rod]\ntemperature = 600\nnuclides = { Xe-135 = 1.0e-4, O-16 = 2.0e-2 }\n\n\
+     [cell.gt]\nzones = [{ material = \"rod\", radius = 0.4, rings = 3 }, \
+     { material = \"water\", radius = 0.56, rings = 1 }, { material = \"water\", rings = 1 }]\n";
+
+/// 入力 `text` のピンセルを、案内管のセル `guide` を `rows` の `gt` に置いた 2 × 2 の格子にしたもの
+fn guided(text: &str, rows: &str, guide: &str) -> String {
+    assert!(text.contains("rows = [\"pin\"]") && text.contains("[cell.pin]\n"));
+    text.replace("rows = [\"pin\"]", &format!("rows = {rows}"))
+        .replace("[cell.pin]\n", &format!("{guide}\n[cell.pin]\n"))
+}
+
+/// 左上を案内管にした 2 × 2 の格子の行
+const TOP_LEFT_GUIDE: &str = "[\"gt pin\", \"pin pin\"]";
+
+/// 燃焼の領域ごとの（物質、組の代表のセル、体積）
+fn cells_of(history: &History) -> Vec<(String, usize, u64)> {
+    history
+        .regions
+        .iter()
+        .map(|d| (d.material.clone(), d.cell, d.volume.to_bits()))
+        .collect()
+}
+
+#[test]
+fn continuing_with_other_guide_tube_contents_keeps_the_fuel_regions_of_the_history() {
+    // 履歴は案内管が水の格子、続ける入力は同じ燃料のセルで案内管に棒を入れた格子（Pyrex を抜いた燃焼の案 Q2、制御棒）。案内管の
+    // セルの MOC の領域の数が違うので、燃料の MOC の領域の番号が履歴の格子と違う
+    let library = library();
+    let nominal = deplete_with(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE), &library);
+    let text = guided(
+        &continued("0.5", "[1.0, 2.0]", "4.9e-2"),
+        TOP_LEFT_GUIDE,
+        ROD_GUIDE,
+    );
+    let history = continue_simply(&text, &library, &nominal).unwrap();
+    assert_eq!(cells_of(&history), cells_of(&nominal));
+    let numbers =
+        |h: &History| -> Vec<Vec<usize>> { h.regions.iter().map(|d| d.regions.clone()).collect() };
+    assert_ne!(numbers(&history), numbers(&nominal));
+    // 燃焼の領域の MOC の領域の番号は、続ける入力の格子の、その物質の領域
+    let (_, region_materials) = LatticeInput::parse(&text).unwrap().geometry().unwrap();
+    for d in &history.regions {
+        for &r in &d.regions {
+            assert_eq!(region_materials[r], d.material, "region {r}");
+        }
+    }
+    // 続ける点より前の点は元の履歴のまま、続ける点は元の組成を棒を入れた格子で解き直す
+    for (p, q) in history.points[..2].iter().zip(&nominal.points) {
+        assert_eq!(p.k.to_bits(), q.k.to_bits());
+        assert_eq!(p.densities, q.densities);
+    }
+    let (point, original) = (&history.points[2], &nominal.points[2]);
+    assert_eq!(point.densities, original.densities);
+    assert!(point.k < original.k, "{} vs {}", point.k, original.k);
+}
+
+#[test]
+fn continuing_needs_the_fuel_materials_cells_volumes_and_rings_of_the_history() {
+    let library = library();
+    let nominal = deplete_with(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE), &library);
+    let text = continued("0.5", "[1.0]", "4.9e-2");
+    // 燃料の半径を変えた格子は、MOC の領域の数が同じでも燃焼の領域の体積が違う
+    let thinner = guided(
+        &text.replace("radius = 0.4096", "radius = 0.4"),
+        TOP_LEFT_GUIDE,
+        ROD_GUIDE,
+    );
+    // 案内管を右上に移した格子は、燃焼の領域の組の代表のセルが違う
+    let moved = guided(&text, "[\"pin gt\", \"pin pin\"]", WATER_GUIDE);
+    // 燃料の物質の名前を変えた格子は、組成が同じでも燃焼の領域の物質が違う
+    let renamed = guided(
+        &text
+            .replace("[material.fuel]", "[material.oxide]")
+            .replace("material = \"fuel\"", "material = \"oxide\"")
+            .replace("materials = [\"fuel\"]", "materials = [\"oxide\"]"),
+        TOP_LEFT_GUIDE,
+        WATER_GUIDE,
+    );
+    // 燃料を 2 つのリングに分けた格子は、燃焼の領域の物質、セル、体積が同じでも、燃焼の領域の MOC の領域の数が違う
+    let rings = guided(
+        &text.replace(
+            "{ material = \"fuel\", radius = 0.4096, rings = 1 }",
+            "{ material = \"fuel\", radius = 0.4096, rings = 2 }",
+        ),
+        TOP_LEFT_GUIDE,
+        WATER_GUIDE,
+    );
+    for (name, input) in [
+        ("thinner", thinner),
+        ("moved", moved),
+        ("renamed", renamed),
+        ("rings", rings),
+    ] {
+        let err = continue_simply(&input, &library, &nominal).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("depletion regions"),
+            "{name}: {err:#}"
+        );
+    }
+}
+
+#[test]
+fn continuing_needs_the_cells_of_each_depletion_region_of_the_history() {
+    // 履歴の格子は左の列の燃料のセル {0, 2} が 1 つの組、続ける格子は対角の燃料のセル {0, 3} が 1 つの組で、組の代表のセル、
+    // 体積、MOC の領域の数が同じでも、履歴の組成を別の位置のセルに置くことになる
+    let library = library();
+    let nominal = deplete_with(
+        &guided(PIN, "[\"pin gt\", \"pin gt\"]", WATER_GUIDE),
+        &library,
+    );
+    let diagonal = guided(
+        &continued("0.5", "[1.0]", "4.9e-2"),
+        "[\"pin gt\", \"gt pin\"]",
+        WATER_GUIDE,
+    );
+    let err = continue_simply(&diagonal, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("depletion regions"), "{err:#}");
+}
+
+/// 履歴の msgpack の燃焼の領域（map の列）
+fn written_regions(history: &History) -> Vec<rmpv::Value> {
+    let bytes = history.to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    value
+        .as_map()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("regions"))
+        .and_then(|(_, v)| v.as_array())
+        .unwrap()
+        .clone()
+}
+
+/// 燃焼の領域の map の項目 `key`
+fn region_field<'a>(region: &'a rmpv::Value, key: &str) -> &'a rmpv::Value {
+    region
+        .as_map()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.as_str() == Some(key))
+        .map(|(_, v)| v)
+        .unwrap_or_else(|| panic!("no {key} in {region}"))
+}
+
+#[test]
+fn histories_write_the_cells_of_each_depletion_region() {
+    // 左上を案内管にした 2 × 2 の格子は、燃料のセルの組 {1, 2}（代表 1）と {3}。組のセルは [行, 列] の位置で書く
+    let history = deplete_input(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE));
+    let cells: Vec<Vec<Vec<u64>>> = written_regions(&history)
+        .iter()
+        .map(|r| {
+            region_field(r, "cells")
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| {
+                    c.as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|x| x.as_u64().unwrap())
+                        .collect()
+                })
+                .collect()
+        })
+        .collect();
+    assert_eq!(cells, [vec![vec![0, 1], vec![1, 0]], vec![vec![1, 1]]]);
+    let read = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read.regions, history.regions);
+}
+
+#[test]
+fn histories_whose_region_cells_are_not_increasing_positions_are_errors() {
+    // 組のセルの位置 [行, 列] は、行の順（上から、左から）に増え、重ならず、空でないこと
+    let history = deplete_input(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE));
+    let bytes = history.to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    let pairs = |cells: &[[u64; 2]]| -> Vec<rmpv::Value> {
+        cells
+            .iter()
+            .map(|c| rmpv::Value::Array(c.iter().map(|&x| x.into()).collect()))
+            .collect()
+    };
+    for wrong in [
+        pairs(&[[1, 0], [0, 1]]),
+        pairs(&[[0, 1], [0, 1]]),
+        pairs(&[]),
+    ] {
+        let replaced = match value.clone() {
+            rmpv::Value::Map(entries) => rmpv::Value::Map(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| {
+                        if k.as_str() != Some("regions") {
+                            return (k, v);
+                        }
+                        let mut regions = v.as_array().unwrap().clone();
+                        if let rmpv::Value::Map(fields) = &mut regions[0] {
+                            for (name, field) in fields.iter_mut() {
+                                if name.as_str() == Some("cells") {
+                                    *field = rmpv::Value::Array(wrong.clone());
+                                }
+                            }
+                        }
+                        (k, rmpv::Value::Array(regions))
+                    })
+                    .collect(),
+            ),
+            other => other,
+        };
+        let mut out = Vec::new();
+        rmpv::encode::write_value(&mut out, &replaced).unwrap();
+        let err = History::from_msgpack(&out).unwrap_err();
+        assert!(format!("{err:#}").contains("cells"), "{wrong:?}: {err:#}");
+    }
+}
+
+#[test]
+fn continuing_needs_the_positions_of_the_cells_of_the_history() {
+    // 対称性を使わない 2 × 2 の格子と 1 × 4 の格子は、セルの番号 0〜3 と体積が同じでも、セル 2 の位置（2 行目の 1 列目と
+    // 1 行目の 3 列目）が違う
+    let library = library();
+    let square = PIN.replace(
+        "rows = [\"pin\"]",
+        "rows = [\"pin pin\", \"pin pin\"]\nsymmetry = \"none\"",
+    );
+    let nominal = deplete_with(&square, &library);
+    let row = continued("0.5", "[1.0]", "4.9e-2").replace(
+        "rows = [\"pin\"]",
+        "rows = [\"pin pin pin pin\"]\nsymmetry = \"none\"",
+    );
+    let err = continue_simply(&row, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("depletion regions"), "{err:#}");
 }
