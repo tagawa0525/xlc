@@ -92,7 +92,8 @@ lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見てい
 - この ADR は ADR-0159 の実行の形の一文だけを置き換える。ADR 全体の置き換えではないので、ADR-0159 のフロントマターは
   変えない（ADR-0134 と同じ扱い）。ADR-0123 は ADR-0159 が置き換え済みである
 - CLAUDE.md の「計算」と docs/plans/m4-depletion.md の「流すだけの手順」は、この ADR に合わせた
-- 2 つ目の `-s` の例外（「## 変更」の 2026-11-03）は、CLAUDE.md の「計算」と .claude/skills/dvc-relock/SKILL.md の 3 に合わせた
+- 2 つ目の `-s` の例外（「## 変更」の 2026-11-03）は、CLAUDE.md の「計算」と .claude/skills/dvc-relock/SKILL.md の 3 に合わせた。
+  .claude/skills/openmc-reference/SKILL.md の `-s` と、確かめ方を機械で判定しないことは #0220
 
 ## 変更
 
@@ -102,10 +103,9 @@ lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見てい
   核種を足して `compare-1C@rings1`、`compare-1C@rings4`、`compare-mox1`（数秒）を再実行するとき、上流の `lattice-1C@rings1`、
   `lattice-1C@rings4`、`lattice-mox1` が main の `bin/` と食い違って changed だったが、作業ツリーの lattice の出力は
   `dvc.lock` の記録（上流を実行したブランチの分岐点は main の 3dda20789。examples/depletion/verification.md）どおりで、`-s` で
-  再実行した（比較を実行したコミットは 374fa19e、記録の分岐点は main の e04aa5ecc）。例外を許すことはユーザーが決めた（ユーザー 2026-11-03）。
+  再実行した（比較を実行したコミットは 374fa19e、記録の分岐点は main の e04aa5ecc）。例外を許すことはユーザーが決めた（ユーザー 2026-11-03）。残り（openmc-reference の `-s`、確かめ方の機械の判定）は #0220 に書いた。
   比べて採らなかった案:
   - 規則どおり `-s` を付けずに上流も流す: 新しい `bin/` は ADR-0226 で燃焼の履歴の形式（`cells`）が変わった後の版で、
     上流の履歴が作り直され、記録のほかの数値（ADR-0226 の前の履歴から出したもの）と出どころが混ざる
   - 上流を `dvc commit` で付け直す: `bin/` のバイトの差は ADR-0212 の (b) の付け直してよい条件に当たらない（同じ計算かを
     機械で示せない）
-  残り（openmc-reference の `-s`、確かめ方の機械の判定）は #0220
