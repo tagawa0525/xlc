@@ -1,11 +1,10 @@
-# #0152 の切り分け: 1c-r1.toml に ADR-0209 の前の既定（静止した標的、無限希釈の形の移行） を書いたもの（ほかは同じ）
-# #0152 の切り分け: ../../examples/depletion/lattice-1C-rings1.toml の燃焼の部分を除いた 0 MWd/kg の 1 状態（ほかは同じ）
+# #0152 の切り分け: 1c-r1.toml に ADR-0209 の自由ガスの散乱核の参照の条件（ADR-0209 の「参照」） を書いたもの（ほかは同じ）
+# #0152 の切り分け: ../lattice-1C-rings1.toml の燃焼の部分を除いた 0 MWd/kg の 1 状態（ほかは同じ）
 # 格子計算の燃焼の検証（ADR-0173）: VERA Problem 1C のピンセル（燃料 900 K、被覆管と減速材 600 K、ホウ素 1300 ppm。
-# ../vera/p1/pincell-1C.toml と同じ形状、組成、離散化）を、燃料 1 リングの燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。
-# OpenMC の参照解は openmc-1C-rings1.toml。出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。
-library = "../../examples/depletion/depletion.msgpack"
-ufg-scattering = "static"
-ufg-transfer = "infinite-dilution"
+# ../../vera/p1/pincell-1C.toml と同じ形状、組成、離散化）を、燃料 1 リングの燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。
+# OpenMC の参照解は ../openmc-1C-rings1.toml。出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。
+library = "../depletion.msgpack"
+ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02

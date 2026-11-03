@@ -18,7 +18,7 @@ ADR-0209 は、UFG の散乱核の既定（速い方法 `{ upper = 400, cells = 
 （`"ring-flux"`、ADR-0207）では測っていなかった。
 
 リングの中性子束の移行のまま散乱核だけを参照にすると、0 MWd/kg の k は 1C の 1 リングで 1.172387 → 1.172111（−27.6 pcm）、MOX-1 の
-1 リングで 1.196631 → 1.196167（−46.4 pcm）動く（`trials/0152-mox1-gap/` の `1c-r1.toml` と `1c-r1-ref.toml`、`mox1-r1.toml` と
+1 リングで 1.196631 → 1.196167（−46.4 pcm）動く（examples/depletion/issue-0152/ の `1c-r1.toml` と `1c-r1-ref.toml`、`mox1-r1.toml` と
 `mox1-r1-ref.toml`。xlc は e5969df2a（ブランチ feat/0152-mox1-gap、分岐点は main の 54ab434ff）、2026-11-03、Slurm 661、662。#0152 の
 2026-11-03 の項）。どちらも OpenMC との差を負の側へ動かす（1C の 1 リングの 0 の点 +52.7 ± 22.0 pcm、MOX-1 −253.5 ± 16.4 pcm。
 examples/depletion/compare-1C-rings1.json、compare-mox1-rings1.json）。

@@ -1,8 +1,8 @@
-# #0152 の切り分け: ../../examples/depletion/lattice-mox1-rings1.toml の燃焼の部分を除いた 0 MWd/kg の 1 状態（ほかは同じ）
-# 格子計算の燃焼の検証（ADR-0173）の MOX 版: LWR MOX ピンセル MOX-1（../mox/pincell-mox1.toml と同じ形状、組成、離散化）を、燃料 1 リングの
-# 燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。OpenMC の参照解は openmc-mox1-rings1.toml。温度、出力密度、燃焼度の点は 1C
-# （lattice-1C-rings1.toml）と同じ（ADR-0206。燃料は 900 K で、../mox の 600 K と違う）
-library = "../../examples/depletion/depletion.msgpack"
+# #0152 の切り分け: ../lattice-mox1-rings1.toml の燃焼の部分を除いた 0 MWd/kg の 1 状態（ほかは同じ）
+# 格子計算の燃焼の検証（ADR-0173）の MOX 版: LWR MOX ピンセル MOX-1（../../mox/pincell-mox1.toml と同じ形状、組成、離散化）を、燃料 1 リングの
+# 燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。OpenMC の参照解は ../openmc-mox1-rings1.toml。温度、出力密度、燃焼度の点は 1C
+# （../lattice-1C-rings1.toml）と同じ（ADR-0206。燃料は 900 K で、../../mox の 600 K と違う）
+library = "../depletion.msgpack"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02

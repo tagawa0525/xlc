@@ -1,9 +1,9 @@
-# #0152 の切り分け: ../../examples/depletion/issue-0133/pin-MOX1.toml を ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの中性子束）で解くもの。
-# 既定の値は ../../examples/depletion/issue-0133/ufg-transfer/pin-1C-0-ring.toml と同じく明示する（ほかは pin-MOX1.toml と同じ）
+# #0152 の切り分け: ../issue-0133/pin-MOX1.toml を ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの中性子束）で解くもの。
+# 既定の値は ../issue-0133/ufg-transfer/pin-1C-0-ring.toml と同じく明示する（ほかは pin-MOX1.toml と同じ）
 # #0152 の試行: VERA 1C のピンセル（../../vera/p1/pincell-1C.toml と同じ形状、温度、離散化。燃料は 1 リング）に、LWR MOX ピンセル（NEA）の MOX-1 の
 # 燃料の組成（../../mox/pincell-mox1.toml と同じ個数密度）を置いた 1 つの状態。ほかの状態と形状、温度、減速材を揃え、燃料の組成だけを変える。
 # OpenMC の移行（openmc_pin_transfer.py）と同じ組成。
-library = "../../examples/depletion/depletion.msgpack"
+library = "../depletion.msgpack"
 ufg-scattering = "free-gas"
 ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400, sab = true }
 ufg-transfer = "ring-flux"
