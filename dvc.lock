@@ -201,8 +201,8 @@ stages:
     deps:
     - path: examples/depletion/compare_depletion.py
       hash: md5
-      md5: a0ef119fbb988c641f84cb98914ae336
-      size: 8791
+      md5: 288a2bb96e08b71d1c186d9182f48c58
+      size: 8968
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -210,8 +210,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_depletion.py.ast
       hash: md5
-      md5: a27b2028dc60cac3d435a9c01a68bf97
-      size: 5911
+      md5: 235136be79f70150a8dd4a59c76dead4
+      size: 5951
   python-ast@examples/depletion/compare_depletion_assembly.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/compare_depletion_assembly.py 

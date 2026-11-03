@@ -19,7 +19,18 @@ from pathlib import Path
 
 import msgpack
 
-NUCLIDES = ["U-235", "U-238", "Pu-239", "Xe-135", "Sm-149"]
+# Pu-240〜Am-241 は MOX の初めの組成にある核種（MOX-1 の燃焼の比較。#0152）
+NUCLIDES = [
+    "U-235",
+    "U-238",
+    "Pu-239",
+    "Pu-240",
+    "Pu-241",
+    "Pu-242",
+    "Am-241",
+    "Xe-135",
+    "Sm-149",
+]
 # 燃焼度とリングの体積の一致の許容（燃焼度は入力の同じ値、体積は xlc の格子の円の面積と OpenMC の面積）
 BURNUP_TOLERANCE = 1e-9
 VOLUME_TOLERANCE = 1e-6

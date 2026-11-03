@@ -4,7 +4,7 @@ import re
 import sys
 from pathlib import Path
 import msgpack
-NUCLIDES = ['U-235', 'U-238', 'Pu-239', 'Xe-135', 'Sm-149']
+NUCLIDES = ['U-235', 'U-238', 'Pu-239', 'Pu-240', 'Pu-241', 'Pu-242', 'Am-241', 'Xe-135', 'Sm-149']
 BURNUP_TOLERANCE = 1e-09
 VOLUME_TOLERANCE = 1e-06
 
