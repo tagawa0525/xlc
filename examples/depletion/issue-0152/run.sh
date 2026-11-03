@@ -15,7 +15,7 @@
 set -euo pipefail
 here=examples/depletion/issue-0152
 mkdir -p "$here/logs"
-case $1 in
+case ${1-} in
   lattice)
     shift
     for name in "$@"; do
@@ -45,5 +45,5 @@ case $1 in
     nix develop .#references -c python3 "$here/fuel_xs_compare.py" references/openmc/pin-transfer-1C/MOX1-fine/transfer.msgpack \
       "$2/xlc-fuel-xs-MOX1.msgpack" Pu-242,Pu-240,Pu-239,Pu-241,U-238 28,29,30,33,37 >"$here/logs/fuel-xs-MOX1.txt"
     ;;
-  *) echo "unknown command: $1" >&2; exit 2 ;;
+  *) echo "unknown command: ${1-}" >&2; exit 2 ;;
 esac
