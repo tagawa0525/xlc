@@ -27,7 +27,7 @@
   ADR-0140）で、どの格子と平板も分岐のテーブル（ADR-0097。ホウ素、減速材と燃料の温度）
   - `<種類>-<層>[-<制御棒>].toml`: 集合体の種類と層の種類（支持格子、Pyrex の棒の挿入物の高さ）ごとの単一集合体の格子。
     支持格子のない層は平板の燃料の媒質（`media/`）も書く。制御棒の値（aic、b4c）ごとの格子は、棒のない格子と
-    `tables/<…>-rods.msgpack` に結合する（examples/core/rod_table.py。#0093 までのつなぎ）
+    `tables/<…>-rods.msgpack` に結合する（examples/core/rod_table.py。#0213 で格子計算の制御棒の分岐（ADR-0224）に置き換えるまでのつなぎ）
   - `reflector-<形>-<種類>-<層>[-<制御棒>].toml`: 外周の燃料の層ごとの反射体の格子（ADR-0153）。代表の燃料の支持格子の
     ない層の反射体のノードの定数を、径方向の反射体の列のバッフルのある高さに置く
   - `axial-<種類>[-rcca].toml`: 集合体の種類（と制御棒の入る位置）ごとの軸方向の反射体の平板（ADR-0128）
@@ -2055,7 +2055,7 @@ def hzp_design_name(design: str, rodded: bool, shape: str | None) -> str:
 
 def fuel_file(design: str, rodded: bool, shape: str | None, kind: str) -> str:
     """燃料の層の少数群定数: 単一集合体の格子か、外周は反射体の格子の燃料のノード（ADR-0153）。制御棒の入る層は、
-    制御棒の値ごとの格子を結合したテーブル（examples/core/rod_table.py。#0093 までのつなぎ）"""
+    制御棒の値ごとの格子を結合したテーブル（examples/core/rod_table.py。#0213 で格子計算の制御棒の分岐（ADR-0224）に置き換えるまでのつなぎ）"""
     stem = lattice_stem(shape, design, kind, None) + ("-fuel" if shape else "")
     if rodded and kind in RODDED_KINDS:
         return f"tables/{stem}-rods.msgpack"

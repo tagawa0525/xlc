@@ -50,7 +50,7 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
      格子点の組と同じ関係で動くと置く。確かめていない）
 2. 制御棒の履歴 H_r と Pyrex の H_p
    - 制御棒: 2A-rods の履歴の分岐から、制御棒を入れた値と抜いた値（逆向き）の U と L を作り、`histories` の変数 `rods` を format の検査と core の
-     `HISTORY_VARIABLES` に足す。制御棒の軸のテーブルの結合 examples/core/rod_table.py（#0093 までのつなぎ）の `merge` は最初のテーブルの
+     `HISTORY_VARIABLES` に足す。制御棒の軸のテーブルの結合 examples/core/rod_table.py（#0213 までのつなぎ）の `merge` は最初のテーブルの
      `histories` だけを残し、ほかの制御棒の値のテーブルの `histories` を黙って捨てるので、エラーにするか結合を決める（今は `histories` を
      持つテーブルを渡す経路が無い）
    - Pyrex: 案 Q1 を作り、案 Q2（Pyrex を抜いた後を燃焼し直した格子計算）で H_p の比例の誤差を測る。その前に、lattice の `continued_start` が

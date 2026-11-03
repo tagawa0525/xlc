@@ -43,3 +43,5 @@ resolution:
   扱いは #0030。燃焼の履歴からの分岐と制御棒の軸の組み合わせ、examples/vera/p5 と examples/depletion の rod_table.py の置き換えと
   rod_table.py の削除は #0213 に分けた（履歴の領域と値ごとの形状の対応、制御棒を入れた組の燃焼点の書き方が要り、燃焼のない
   この issue の範囲を超えるため）
+- 2026-11-03: 分岐は ADR-0224（accepted）で済み、残り（履歴からの分岐との組み合わせ、examples/vera/p5 と examples/depletion の
+  置き換え、rod_table.py の削除）は #0213

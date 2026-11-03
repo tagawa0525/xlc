@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-03
 requires: [ADR-0097, ADR-0127, ADR-0128, ADR-0195, ADR-0196, ADR-0200]
 supersedes: []
@@ -90,8 +90,12 @@ b4c = { gt = "gt-b4c" }
 
 ### 確認
 
-- 入力: `rod_branches_replace_cells_of_the_base_rows`、`invalid_rod_branches_are_errors`（crates/lattice/src/branches/tests.rs）
+- 入力: `rod_branches_replace_cells_of_the_base_rows`、`invalid_rod_branches_are_errors`、点の並び
+  `rod_states_are_ordered_lexicographically_with_the_rod_axis_last`（crates/lattice/src/branches/tests.rs）
 - 結合の形との一致: `rod_branches_match_separate_lattices`（crates/lattice/tests/rod_branch.rs）。2 群の合成のライブラリの
-  小さい格子で、制御棒の分岐のテーブルの各状態が、セルを置き換えた別の入力の格子計算の状態とビットで一致する
-- VERA の集合体（examples/core の 2G と 2H の定数）: 1 つの入力の制御棒の分岐のテーブルと、3 つの格子計算を rod_table.py で
-  まとめたテーブルの比較は examples/core/verification.md
+  小さい格子（自己遮蔽なし、直積）で、制御棒の分岐のテーブルの各状態が、セルを置き換えた別の入力の格子計算の状態とビットで
+  一致する。媒質を読む平板は `rod_branches_of_a_slab_use_the_same_medium_state_for_every_value`
+- VERA の集合体（examples/core の 2G と 2H の棒、自己遮蔽あり、32 スレッド）: 1 つの入力の制御棒の分岐のテーブルと、3 つの
+  格子計算を rod_table.py でまとめたテーブルは、軸、点、少数群定数のすべての項目でビットまで等しい（examples/core/verification.md
+  の「制御棒の分岐と値ごとの格子計算の結合の一致」、9855342f、2026-11-03）。自己遮蔽、部分格子、チェックポイントの再開を通る
+  自動テストは #0214
