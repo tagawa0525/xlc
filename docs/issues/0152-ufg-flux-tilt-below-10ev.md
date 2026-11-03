@@ -106,13 +106,13 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   分かった。examples/depletion/dvc.lock では、`lattice-1C` が ADR-0211 の誤差関数で作り直したライブラリ（md5 d86514f8）で、`lattice-mox1` が
   その前のライブラリ（md5 cbc33de9）。MOX-1 の参照解と比べる前に、`lattice-mox1` を再実行する（91 秒。Slurm 555）
 - 2026-10-31: MOX-1 の参照解（OpenMC の燃焼。`openmc-mox1`、`openmc-mox1-extract`）を流した（Slurm 639、1 時間 13 分 38 秒。割り込まれうる
-  ジョブなので時間は記録に使わない。ブランチ feat/0152-mox1-reference の ca69889f2（分岐点は main の f86d7fda8。入力と OpenMC の
+  ジョブなので時間は記録に使わない。ブランチ feat/0152-mox1-reference の 55aac8a35（分岐点は main の f86d7fda8。入力と OpenMC の
   ライブラリは分岐点と同じ）の dvc.lock。出力 openmc-mox1-rings1.msgpack の md5 は 6171eec9）。目標は `openmc-mox1-extract`（`compare-mox1` を
   目標にすると bin/xs の変更で changed の xs-nuclide 65 本が走る）。OpenMC のログに「Negative value(s) found on probability table for nuclide
   Zr96 at 600K」の警告が出る（1C の参照解のログにも同じ警告。openmc-library の Zr96 の確率テーブルの候補で、k への影響は確かめていない）。
   xlc との比較（`compare-mox1`。lattice-mox1 と 1C の再実行、compare_depletion.py の核種の追加）はこれから
 - 2026-11-03: main（3dda20789。#0212 の修正と #0093 の制御棒の分岐で bin/lattice が変わった）に rebase し、examples/depletion の
-  changed のステージを今の bin で流した。`lattice-2A` と `lattice-mox1` は 31ab2528 で Slurm 655（割り込まれうるジョブ）、
+  changed のステージを今の bin で流した。`lattice-2A` と `lattice-mox1` は d4a6832c で Slurm 655（割り込まれうるジョブ）、
   `lattice-1C` と `compare-1C` は同じコミットで Slurm 658（timed。時間の表の値）。658 のために lock を戻したので、655 の 2A と
   MOX-1 の出力は Slurm 659 で run-cache から戻し、`compare-mox1` は 659 で流した。1C の比較の JSON は `seconds` と入力の md5 のほか
   前と同じ。`compare-mox1-rings1.json` は今の compare_depletion.py の核種のままで、Pu-240、Pu-241、Pu-242、Am-241 の追加と記録の本文はこれから
