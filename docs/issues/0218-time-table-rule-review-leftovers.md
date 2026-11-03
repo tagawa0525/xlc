@@ -31,11 +31,17 @@ resolution:
   `changed_stage()` でなく deps が揃い dvc.lock に outs の hash があれば、run-cache の有無（`--no-run-cache`）より前に dvc.lock から
   ステージを作り、キャッシュの前の出力を戻す（確かめた: インストールされた DVC のソース）。`seconds` は前のジョブのままになる。
   Slurm 658 が走ったのは lock を戻したため（#0152）。代わりの候補は `dvc repro -f --downstream <yaml>:<格子計算のステージ>`
-  （force が目標とその下流だけに掛かるかは確かめていない）か、#0152 のように lock を戻す形
+  （force が目標とその下流だけに掛かるかは確かめていない）か、#0152 のように lock を戻す形。
+  対応: 項を消し、格子計算のステージの `Running stage` をログで確かめる項に替えた。restore の条件は、ステージの cmd
+  （`PipelineStage.changed_stage`）と deps（`deps_cached`）が dvc.lock と同じで outs の hash があること（確かめた: DVC 3.67.1 の
+  dvc/stage/cache.py、dvc/stage/__init__.py）。Slurm 657 のログに `lattice-1C@rings1` の `is cached - skipping run, checking out outputs`
+  が出ている。再実行のコマンド（`-f --downstream` か lock を戻す形）は確かめていないので、スキルに書いていない
 - 続けて流す比較のステージは、上流の OpenMC のステージが changed なら、数時間の参照解を timed のジョブの中で実行しうる。
   この 2 段にも CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py`）を求めていない
 - 「`--no-run-cache` は上流の changed のステージも実行する」の下で上流に changed の xs-nuclide があると、CLAUDE.md の「計算」が
-  `examples/stage_runner.py` で流すとする xs-nuclide を `dvc repro` で実行する（上の 1 項目目の揃え方の欠けと同じ根）
+  `examples/stage_runner.py` で流すとする xs-nuclide を `dvc repro` で実行する（上の 1 項目目の揃え方の欠けと同じ根）。
+  対応: 上の項を消したので、スキルはこの 2 段の手順と「上流（xs など）は先に揃えておく」を書いていない。1 つ目の直さなかった指摘
+  （揃え方）も同じ。再実行のコマンドを確かめてスキルに書くときに、比較のステージの上流の数え方と xs-nuclide の流し方を合わせて書く
 
 関係する ADR: なし
 
@@ -46,3 +52,5 @@ resolution:
 ## 経緯
 
 - 2026-11-03: ブランチ docs/timed-for-time-tables のレビューの 3 周で残した
+- 2026-11-03: 記録の周の blocking の 1 項目目を、再実行のコマンドの項を消して直した（同じブランチ）。2、3 項目目と直さなかった指摘の
+  1 つ目は、その項とともに対象が消えた
