@@ -133,7 +133,7 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   - #0001 の 2026-10-27 の項に足した 2026-11-03 の参照が日付の順を崩し、#0152 の 2026-11-03 の項が 2 つあって指す先が曖昧
 - 2026-11-03: MOX-1 の燃焼の 0 の点の k の差（−253.5 ± 16.4 pcm。1C の 1 リングの +52.7 ± 22.0 pcm より 306.3 ± 27.4 pcm 低い。
   examples/depletion/compare-mox1-rings1.json と compare-1C-rings1.json の `k` の最初の点）を、燃焼させない 0 MWd/kg の 1 状態で切り分けた
-  （ブランチ feat/0152-mox1-gap。入力とログは `trials/0152-mox1-gap/`。xlc は e5969df2a、分岐点は main の d2cf5859d、2026-11-03、Slurm 661、662
+  （ブランチ feat/0152-mox1-gap。入力とログは `examples/depletion/issue-0152/`（e5969df2a の `trials/0152-mox1-gap/` で計算し、`library` のパスだけを直して移した）。xlc は e5969df2a、分岐点は main の d2cf5859d、2026-11-03、Slurm 661、662
   （割り込まれうるジョブ）と手元の `fuel_xs`）。差の大半はこの issue（UFG の範囲の燃料の中性子束の傾き）でなく、4 eV より下の Pu-242 の
   2.67 eV の共鳴の自己遮蔽（#0001）による。燃焼の入力から燃焼の部分を除いた `mox1-r1.toml`、`1c-r1.toml` の k（1.196631、1.172387）は、
   燃焼の 0 の点（1.196628、1.172382）と 0.3、0.5 pcm 違う（1C の 0.5 pcm は #0133 の「計算」の候補と同じ）
@@ -148,7 +148,7 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
     被覆管と減速材 600 K）で、減速材は c_H_in_H2O、ライブラリは 1C と同じ `openmc-library`（ENDF/B-VIII.0。Pu-238〜242 と Am-241 は 900 K）。
     MOX-1 だけの条件の違いは見つからなかった
   - 置き換え（ADR-0202 の方法）: 燃焼の模型の OpenMC の出力は群ごとの反応率を持たないので、1C の形状のピンセルに MOX-1 の燃料を置いた
-    `issue-0133/pin-MOX1.toml` を ADR-0209 の既定にした `trials/0152-mox1-gap/pin-MOX1-ring.toml` を、OpenMC の Slurm 558（`openmc_pin_transfer.py`、
+    `issue-0133/pin-MOX1.toml` を ADR-0209 の既定にした `issue-0152/pin-MOX1-ring.toml` を、OpenMC の Slurm 558（`openmc_pin_transfer.py`、
     k 1.163082 ± 0.000161）の燃料の反応率と移行で置き換えた（`swap_absorption`。1C の 0 MWd/kg は同じ一覧を `issue-0133/ufg-transfer/pin-1C-0-ring.toml`
     と Slurm 534（k 1.171998 ± 0.000174）で解き直した）。このピンセルの差は MOX-1 −211.0 ± 16.1、1C +38.9 ± 17.4 pcm で、MOX-1 が 249.9 ± 23.7 pcm
     低い（燃焼の模型の 306.3 ± 27.4 pcm と 56 ± 36 pcm 違う。統計で区別できる差かは決めていない）。寄与（置き換えた k の変化の符号を変えたもの）は
@@ -166,7 +166,7 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
       −56.6 ± 23.7 pcm の内訳は確かめていない
   - Pu-242 の 29 群（2.6〜3.3 eV）の実効の吸収（捕獲 + 核分裂）は xlc が OpenMC より +11.29%（OpenMC の反応率の相対標準偏差 0.13%）、
     同じ群の Pu-240 +7.62%、Pu-239 +1.79%、U-238 −1.24%、Pu-240 の 33 群（1.15〜1.3 eV）+2.44%、37 群（1.06 eV の共鳴）+0.01%
-    （`trials/0152-mox1-gap/fuel_xs_compare.py`、ログは `logs/fuel-xs-MOX1.txt`）。examples/mox/verification.md の 600 K の MOX-1 の値
+    （`issue-0152/fuel_xs_compare.py`、ログは `logs/fuel-xs-MOX1.txt`）。examples/mox/verification.md の 600 K の MOX-1 の値
     （Pu-242 +11.1%、Pu-240 +7.2%、Pu-239 +1.9%、U-238 −1.2%）と同じで、#0001 の誤差（σ0 の表と等価原理で 2.67 eV の共鳴と核種の間の干渉を
     扱えない）が燃料 900 K の燃焼の模型にも残る
   - この issue の傾き（UFG の範囲）の寄与は、燃料の全核種の吸収の 4 eV〜15 keV の置き換えで MOX-1 − 1C −4.2 pcm と小さく、リングの数でも

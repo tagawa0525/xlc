@@ -1,6 +1,6 @@
-# #0152 の切り分け: mox1-r1.toml の燃料を、1C の 4 リング（../../examples/depletion/lattice-1C-rings4.toml）と同じく等しい面積の 4 つの物質
+# #0152 の切り分け: mox1-r1.toml の燃料を、1C の 4 リング（../lattice-1C-rings4.toml）と同じく等しい面積の 4 つの物質
 # （各 2 つの MOC のリング）に分けたもの。組成、温度、形状のほかは mox1-r1.toml と同じ
-library = "../../examples/depletion/depletion.msgpack"
+library = "../depletion.msgpack"
 # 燃料のリングの物質が 4 つあると、飛程の表（ADR-0156）は物質ごとの軸の直積で格子点より大きくなるので、格子点ごとに求める
 track-table = false
 pitch = 1.26

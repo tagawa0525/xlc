@@ -2,13 +2,13 @@
 # #0152 の切り分け: 0 MWd/kg の MOX-1 と 1C の格子の k を設定ごとに解き（bin/lattice）、1C の形状のピンセルで燃料の吸収と物質の移行を
 # OpenMC の値に置き換える（swap_absorption）。リポジトリの直下で、`cargo build --release -p xlc-lattice --example swap_absorption` の後に実行する。
 #
-# 使い方: run.sh lattice <入力の名前>...   （trials/0152-mox1-gap/<名前>.toml を解き、logs/<名前>.{out,log} に書く）
+# 使い方: run.sh lattice <入力の名前>...   （examples/depletion/issue-0152/<名前>.toml を解き、logs/<名前>.{out,log} に書く）
 #         run.sh swap                      （logs/swap-{MOX1,1C-0}.{txt,err} に書く）
 #
 # 置き換えの OpenMC は、MOX-1 が Slurm 558（references/openmc/pin-transfer-1C/MOX1-fine）、1C の 0 MWd/kg が Slurm 534
 # （references/openmc/pin-transfer-1C/1C-0）の openmc_pin_transfer.py の出力
 set -euo pipefail
-here=trials/0152-mox1-gap
+here=examples/depletion/issue-0152
 mkdir -p "$here/logs"
 case $1 in
   lattice)
