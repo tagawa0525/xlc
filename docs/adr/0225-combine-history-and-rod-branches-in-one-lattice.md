@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-11-03
-requires: [ADR-0187, ADR-0195, ADR-0200, ADR-0216, ADR-0221, ADR-0224]
+requires: [ADR-0187, ADR-0195, ADR-0200, ADR-0216, ADR-0221, ADR-0224, ADR-0226]
 supersedes: []
 superseded-by:
 issues: ["#0213", "#0214"]
@@ -39,9 +39,10 @@ ADR-0224 の `[branches.rod]` の書き方を変えないこと。
 
 - 案 R1: 基準の形状の燃焼の領域（MOC の領域の番号）を、すべての値に使う: 案内管のセルの帯の数が値で違うと、燃料の MOC の領域の
   番号がずれ、制御棒の値の状態で燃料でない領域に燃焼の組成を置く
-- 案 R2: 値ごとの形状から燃焼の領域を求め直し、物質、組の代表のセル、体積が履歴と同じことを確かめ、MOC の領域の番号はその形状の
-  ものを使う（採用）。燃焼の輸送と違う格子の分岐で、MOC の領域の番号を入力の格子から求めている（ADR-0187、#0196）のと同じ扱い。
-  燃料のセルを置き換える値や、対称性の違う値は、組の代表のセルか体積が違ってエラーになる
+- 案 R2: 値ごとの形状から燃焼の領域を求め直し、[ADR-0226](0226-match-depletion-regions-by-cell-orbits.md) の比べ方（物質、組の代表のセル、組のセルの位置、体積、MOC の
+  領域の数。`region_mismatch`）で履歴と同じことを確かめ、MOC の領域の番号はその形状のものを使う（採用）。燃焼の輸送と違う格子の
+  分岐で、MOC の領域の番号を入力の格子から求めている（ADR-0187、ADR-0226、#0196）のと同じ扱い。燃料のセルを置き換える値や、
+  燃料のセルの組（対称性）を変える値はエラーになる
 
 値ごとの燃焼点の書き方:
 
@@ -83,8 +84,10 @@ rod-burnup = { aic = [0, 0.1, 0.5, 10, 20, 40, 60] }  # 値 aic のすべての�
 aic = { gt = "gt-aic" }
 ```
 
-- 燃焼の領域（案 R2）: 値ごとの形状とその形状で選んだ対称操作から燃焼の領域を求め、物質、組の代表のセル、体積が履歴の燃焼の領域と
-  ビットで同じことを確かめる（違えば値の名前を添えたエラー）。燃焼の組成を置く MOC の領域、自己遮蔽と MOC に渡す物質の名前
+- 燃焼の領域（案 R2）: 値ごとの形状とその形状で選んだ対称操作から燃焼の領域を求め、ADR-0226 の比べ方（物質、組の代表のセル、
+  組のセルの位置、体積（ビット）、MOC の領域の数）で履歴の燃焼の領域と同じことを確かめる（違えば値の名前を添えたエラー）。
+  一部の案内管にだけ棒を入れて燃料のセルの組を分ける値は、組のセルの位置が違って止まる（値ごとに対称性を揃えて履歴の組成を
+  分けて当てることはしない。履歴の組の数密度は組の平均で、組を分けた位置ごとの組成を持たない）。燃焼の組成を置く MOC の領域、自己遮蔽と MOC に渡す物質の名前
   （`<物質>@<セル>`）、微視的断面積を重み付ける領域は、その値の形状のもの
 - 値ごとの燃焼点（案 B3）: `rod-burnup` は `[branches.rod]` の値（`out` でない）ごとに、`burnup` から選んだ増える列で、最初と最後の点を
   含む（core は公称の状態との差を外挿しない。ADR-0200）。棒のない値は今のとおり、公称の状態をすべての燃焼点で、ほかの状態を
@@ -108,7 +111,9 @@ aic = { gt = "gt-aic" }
   branch-2A-micro-boron-rods.toml を rod_table.py でまとめたテーブル）は、1 つの入力（`branch-2A-micro-rod-axis.toml`、
   `branch-2A-micro-boron-rod-axis.toml`）に置き換えた。置き換えた入力のテーブルはまだ作り直しておらず、記録の数値は前の形のもの（#0213）
 - 置き換えた `branch-2A-micro-rod-axis.toml` は、棒のない組の入力（branch-2A-micro.toml）の数密度の微分（ADR-0221 の `derivative`）を
-  制御棒の値にも持つ。前の制御棒の組の入力（branch-2A-micro-rods.toml）は `derivative` を持たない
+  制御棒の値にも持つ。前の制御棒の組の入力（branch-2A-micro-rods.toml）は `derivative` を持たず、rod_table.py は持つ値と持たない
+  値をそのまま結合していた。branch-2A-micro-rods.toml は、部分挿入のノードの確認の一様に棒の入った層の比べる先として残し、値 aic と
+  同じ問題になるよう `derivative` を足した
 - rod_table.py は、examples/vera/p5 の HZP のテーブル（径方向の反射体の格子のノードごとの出力。ADR-0224）が使うので残す。
   ノードごとに制御棒の軸を付け分ける仕組みと p5 の置き換え、rod_table.py の削除は #0213 の残り
 - 制御棒の履歴の補正（[ADR-0215](0215-correct-untracked-history-by-history-branches.md) の制御棒の変数。#0190）は、この組み合わせの上に作る別のトピック
@@ -117,7 +122,8 @@ aic = { gt = "gt-aic" }
 
 - 入力: `history_branches_take_the_rod_axis`、`rod_burnups_are_history_burnups_of_rod_values`（crates/lattice/src/branches/tests.rs）
 - 燃焼の領域と燃焼点: `rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry`、
-  `rod_values_are_solved_at_their_own_burnups`、`rod_values_must_keep_the_depletion_regions_of_the_history`（crates/lattice/src/history/tests.rs）
+  `rod_values_are_solved_at_their_own_burnups`、`rod_values_must_keep_the_depletion_regions_of_the_history`、
+  `rod_values_that_change_the_fuel_orbits_are_errors`（crates/lattice/src/history/tests.rs）
 - 反復を始める解: `states_step_back_to_the_previous_point_their_value_solves`、`states_outside_the_subgrids_start_from_the_last_solved_state`
   （crates/lattice/src/branches/tests.rs）
 - 別の入力との一致: `history_rod_branches_match_separate_lattices`（crates/lattice/tests/history_rod_branch.rs）。合成のライブラリの
