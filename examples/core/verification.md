@@ -82,3 +82,17 @@ dvc repro examples/core/dvc.yaml
   ADR-0127 の幅は 0.5 cm にした
 - 固有値の反復の回数（116 ステップ）は、中性子束の重みが 563 回、体積の重みが 560 回、参照が 570 回で、外側の反復の
   たびに定数を作り直しても増えない（92f84aa6、分岐点 bf5f08ef の手元の実行、2026-10-14。`bin/core` は d10f5069 の `dvc.lock` と同じ md5、定数は同じステージの出力）
+
+## 制御棒の分岐と値ごとの格子計算の結合の一致（0eda439e、分岐点 b29e4a53、2026-11-03）
+
+1 つの入力の制御棒の分岐（ADR-0224。`assembly.toml`）のテーブルと、ADR-0224 の前の形（分岐点の `assembly-out.toml`、
+`assembly-aic.toml`、`assembly-b4c.toml` を別々に解き、rod_table.py でまとめたもの）のテーブルを、同じ実行ファイルと同じ
+ライブラリで作って比べた。2 つのテーブルを MessagePack から読んだ値は、軸、点、3 つの状態（out、aic、b4c）の少数群定数の
+すべての項目でビットまで等しい（k∞ は out 1.1816772181491253、aic 0.8496450218997933、b4c 0.789500451749501）。
+
+- 計算: xlc 0eda439e（分岐点 b29e4a53）を `cargo build --release` した `target/release/lattice` を、Slurm の排他のジョブ 651
+  （区分 decision、32 スレッド、割り込まれうるので時間は記録に使わない）で実行した。ライブラリは `rods.msgpack` が今の形式でない
+  （`capture` の無い前の形式のまま。examples/core のステージは bin の変更で再実行していない）ので、今の形式の
+  examples/depletion/p2/depletion.msgpack（md5 e84310aff668e474fa68d822168b4538。600 K の AIC、B4C、SS304 の核種を持つ）に
+  入力の `library` を替えた。値ごとの入力は `git show b29e4a53:examples/core/assembly-<値>.toml`、分岐の入力は `assembly.toml`
+- 比べ方: 2 つのテーブルを Python の msgpack で読んだ値の `==`（浮動小数点の値の厳密な一致）
