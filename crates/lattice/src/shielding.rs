@@ -59,7 +59,8 @@ pub struct ShieldingOptions {
     /// 燃料のピンと棒の UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は
     /// 間引かない。ADR-0185）
     pub thinning: Option<f64>,
-    /// 自由ガスの散乱源の区間をスイープの間で持つ量の全体 (B)（`None` は自己遮蔽のたびに使用可能メモリから求める。ADR-0213）
+    /// 自由ガスの散乱源の区間をスイープの間で持つ上限を決める全体の量 (B)。減速計算の数えた作業の配列を除いた残りで持つ（`None` は
+    /// 自己遮蔽のたびに使用可能メモリから求める。ADR-0213）
     pub hold_memory: Option<u64>,
     /// 燃料のピンと棒の UFG の減速計算の散乱核の標的の扱い（ADR-0203）
     pub scattering: Scattering,
@@ -1363,7 +1364,8 @@ struct PinRings<'a> {
     scattering: Scattering,
     /// リングの物質の UFG の範囲の群の散乱行列の移行の形
     transfer: UfgTransfer,
-    /// 移行の計数の自由ガスの核の割合の区間の表と、スイープの間で持つ区間の数の上限（[`held_cells`]。ADR-0213）
+    /// 移行の計数の自由ガスの核の割合の区間の表と、1 回の減速計算の作業の配列とスイープの間で持つ区間を合わせた量（[`held_cells`]。
+    /// ADR-0213）
     shares: &'a ShareCellCache,
     hold: usize,
 }

@@ -1,4 +1,4 @@
-use super::hold::{available_from, cgroup_limits};
+use super::hold::{available_from, cells_beside_work, cgroup_limits};
 use super::*;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
@@ -2244,6 +2244,18 @@ fn held_cells_divide_the_budget_among_the_solves_at_once() {
     for at_once in 1..=40 {
         assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 40 <= 10 * gib + 7);
     }
+}
+
+#[test]
+fn held_cells_leave_room_for_the_work_arrays_of_the_solve() {
+    // 1 回の減速計算の量（`held_cells` の区間の数）は、その減速計算の作業の配列と持つ区間を合わせたもの（ADR-0213 の「## 変更」）。
+    // 作業の配列の分（40 B を 1 区間として切り上げ）を除いた残りを持ち、作業の配列が量を超えれば持たない
+    assert_eq!(cells_beside_work(1000, 0), 1000);
+    assert_eq!(cells_beside_work(1000, 40 * 300), 700);
+    assert_eq!(cells_beside_work(1000, 40 * 300 + 1), 699);
+    assert_eq!(cells_beside_work(1000, 40 * 1000), 0);
+    assert_eq!(cells_beside_work(1000, 40 * 1000 + 1), 0);
+    assert_eq!(cells_beside_work(1000, u64::MAX), 0);
 }
 
 #[test]

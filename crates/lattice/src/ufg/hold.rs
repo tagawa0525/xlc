@@ -1,7 +1,8 @@
 //! 自由ガスの散乱源の区間を、減速計算のスイープの間で持つ量の上限（ADR-0213）。
 //!
 //! 自己遮蔽の全体で持つ量は、入力（`ufg-hold-memory`）が無ければ、自己遮蔽を呼ぶたびに使用可能メモリから求め（[`hold_budget`]）、
-//! 同時に解きうる減速計算の数で分ける（[`held_cells`]）。
+//! 同時に解きうる減速計算の数で分ける（[`held_cells`]）。1 回の減速計算の量は、その減速計算の作業の配列と持つ区間を合わせたもので、
+//! 作業の配列の分を除いた残りの区間を持つ（[`cells_beside_work`]）。
 
 use std::path::{Path, PathBuf};
 
@@ -43,10 +44,18 @@ pub fn hold_total(given: Option<u64>) -> Result<u64, MemoryError> {
     }
 }
 
-/// 全体で持つ量 `total` (B) を、同時に解きうる `at_once` 個の減速計算で分けたときの、1 回の減速計算が持つ区間の数
+/// 全体で持つ量 `total` (B) を、同時に解きうる `at_once` 個の減速計算で分けたときの、1 回の減速計算の量（1 区間の大きさで数えた
+/// 数。作業の配列を含む。[`cells_beside_work`]）
 pub fn held_cells(total: u64, at_once: usize) -> usize {
     let cells = total / at_once.max(1) as u64 / HELD_CELL_BYTES as u64;
     usize::try_from(cells).unwrap_or(usize::MAX)
+}
+
+/// 1 回の減速計算の量 `hold`（[`held_cells`]）から、その減速計算の作業の配列 `work` (B) の分（1 区間の大きさで切り上げ）を除いた、
+/// 持てる区間の数。作業の配列が量を超えれば 0
+pub(super) fn cells_beside_work(hold: usize, work: u64) -> usize {
+    let work = work.div_ceil(HELD_CELL_BYTES as u64);
+    usize::try_from(work).map_or(0, |work| hold.saturating_sub(work))
 }
 
 /// このプロセスの使用可能メモリ (B): /proc/meminfo の MemAvailable と、このプロセスの cgroup（v2）とその祖先の memory.max と
