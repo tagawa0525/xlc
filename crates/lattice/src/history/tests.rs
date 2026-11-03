@@ -1735,3 +1735,33 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         }
     }
 }
+
+#[test]
+fn the_branch_lattice_must_hold_the_cells_and_rings_of_the_history_regions() {
+    // 履歴の格子は左の列の燃料のセル {0, 2} が 1 つの組。対角の燃料のセル {0, 3} を組にする格子は、組の代表のセル、体積、
+    // MOC の領域の数が同じでも、履歴の組成を別の位置のセルに置く。燃料を 2 つのリングに分けた格子は、燃焼の領域の MOC の
+    // 領域の数が違う
+    let library = library_with_boron();
+    let columns = |text: &str| {
+        text.replace("rows = [\"pin\"]", "rows = [\"pin gt\", \"pin gt\"]")
+            .replace("[cell.pin]\n", &format!("{WATER_GUIDE}\n[cell.pin]\n"))
+    };
+    let history = deplete_with(&columns(&borated(PIN)), &library);
+    let text = columns(&branch_input("[0.5]", "[600]"));
+    assert!(branches_of(&text, &history, &library).is_ok());
+    let diagonal = text.replace(
+        "rows = [\"pin gt\", \"pin gt\"]",
+        "rows = [\"pin gt\", \"gt pin\"]",
+    );
+    let rings = text.replace(
+        "{ material = \"fuel\", radius = 0.4096, rings = 1 }",
+        "{ material = \"fuel\", radius = 0.4096, rings = 2 }",
+    );
+    for (name, input) in [("diagonal", diagonal), ("rings", rings)] {
+        let err = branches_of(&input, &history, &library).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("depletion regions"),
+            "{name}: {err:#}"
+        );
+    }
+}
