@@ -21,9 +21,12 @@ pre-merge-commit の hook に止まる。dvc-relock の「マージが止まっ�
 - `modified` の出力も消す対象に読めた（消すと戻らない）: 節が `dvc status` の `modified:`、`not in cache:`、記録が無い、を
   消さないものとして分けた（`Output.status` は dvc 3.67.1 の dvc/output.py）
 - hook のパスを `.gitignore` の消えた行と手で照合し、ディレクトリの outs で迷う: hook が HEAD の `.gitignore` で無視されて
-  いたファイルに印を付ける（ディレクトリのパターンの中のファイルも印が付く。`git check-ignore --stdin` で試した）。古い hook には、
-  `git merge --abort` の後の `git status --short --ignored` の `!!` で同じ判定をする
-- hook の一覧に前からある未追跡のファイルや変更が混じる: hook が印の付いたものを別の一覧に分ける
+  いたファイルを別の一覧に出す（ディレクトリのパターンの中のファイルも入る。`git check-ignore --stdin` で試した）。hook が別の
+  一覧を出せないとき（判定の失敗、古い hook）は、`git merge --abort` の後の `git check-ignore` で同じ判定をする
+  （`git status --short --ignored` はディレクトリの中のファイルを `!! <ディレクトリ>/` とまとめて出すので使わない）
+- hook の一覧に前からある未追跡のファイルや変更が混じる: hook が生成物を別の一覧に分ける
+- 記録の無いファイルを消しうる（例の `dvc.yaml` 全体の `dvc status` は、出力でないパスに何も出さない）: パスごとの
+  `dvc status <パス>` にし、出力でなければ失敗することで分けた（examples/core で試した）。戻すときもパスだけを指定する
 - `dvc status` と /topic-start の「main の作業ツリーでは dvc を実行しない」、/git-merge の「hook の拒否はブランチで直す」との
   食い違い: 節が、ブランチでは直せない main の作業ツリーの追跡しないファイルを扱う例外と書いた
 - スキルの入口の文と description が段を含まず、節が前半の `###` だった: 前半と後半の間の `##` にし、入口と description に足した
@@ -37,7 +40,10 @@ pre-merge-commit の hook に止まる。dvc-relock の「マージが止まっ�
 - dvc.yaml を手で直して `.gitignore` の行が残ったとき、持ち主の無い出力は無視されたまま main に残る（`.gitignore` が変わらない
   ので hook は止まらない）
 - `cache: false` に変えて git で追跡するようにした出力は、main の無視された版がブランチの追跡する版と違っても、git がマージで黙って
-  上書きする（マージの結果と作業ツリーが同じになるので hook は止まらない）
+  上書きする（マージの結果と作業ツリーが同じになるので hook は止まらない）。前の版の節は前もって `.gitignore` の差を読んで
+  これを見ていたが、hook の一覧を受ける形にしたので見なくなった（作り直した版のレビューの指摘）
+- `dvc status` の状態の読み分けを手で行う。パスを受けて消してよいかを出すスクリプトにする案がある（作り直した版のレビューの
+  指摘。試していない）
 
 捨てた方式: 前もって `.gitignore` の差を手で読んで消す方式（2 周目までの版）は、相対パス、`.dvc` ファイル、直下のパターン、
 消して足し直した行で漏れ、`cache: false` の出力は消す要が無いのに消して戻せないことがある（2 周目と 3 周目の指摘）ので捨てた。
