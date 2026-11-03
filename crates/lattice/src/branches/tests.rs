@@ -624,6 +624,36 @@ fn states_outside_the_subgrids_start_from_the_last_solved_state() {
 }
 
 #[test]
+fn states_step_back_to_the_previous_point_their_value_solves() {
+    // 制御棒の値 × 燃焼度 3 点 × ホウ素 2 点で、棒のない値はすべて、値 1 は燃焼度 0 と 2 だけを解く（ADR-0225）。値 1 の燃焼度 2 の
+    // 状態は、その値の 1 つ前の燃焼点（0）の同じ状態から始め、燃焼度だけを間引いた別の入力の格子計算と同じ始める解になる
+    let counts = [2, 3, 2];
+    let present: Vec<usize> = (0..12)
+        .filter(|&s| {
+            let at = state_indices(&counts, s);
+            at[0] == 0 || at[1] != 1
+        })
+        .collect();
+    let mut starts = Starts::over(&counts, present.clone());
+    let mut seen = Vec::new();
+    for &s in &present {
+        seen.push((state_indices(&counts, s), starts.start().copied()));
+        starts.solved(s).unwrap();
+    }
+    let index = |at: [usize; 3]| state_index(&counts, &at);
+    let start_of = |at: [usize; 3]| {
+        seen.iter()
+            .find(|(a, _)| a[..] == at[..])
+            .map(|(_, start)| *start)
+            .unwrap()
+    };
+    assert_eq!(start_of([1, 2, 0]), Some(index([1, 0, 0])));
+    assert_eq!(start_of([1, 2, 1]), Some(index([1, 2, 0])));
+    // 棒のない値はすべての燃焼点を解くので、1 つ前の燃焼点から
+    assert_eq!(start_of([0, 2, 0]), Some(index([0, 1, 0])));
+}
+
+#[test]
 fn restored_starts_follow_the_solved_states() {
     // 書いた解の番号は、解く状態の並びから決まる軸ごとの状態と合うこと
     let counts = [3, 3, 3];
