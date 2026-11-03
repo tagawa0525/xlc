@@ -561,6 +561,54 @@ class DrawDepletion(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.depletion_k([{"format": "xlc-compare-p3"}])
 
+    def test_a_single_case_k_rows_give_both_codes_and_the_difference(self):
+        table = vt.depletion_single_k([depletion([0.0, -30.0])])
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+        self.assertEqual(
+            rows[1], ["1", "1.170000", "1.171000", "\u2212130 ± 20", "\u221230"]
+        )
+
+    def test_mox_density_rows_add_the_plutonium_and_americium(self):
+        s = depletion([0.0, 0.0])
+        s["pin"].update(
+            {
+                "Pu-240": [0.0, -0.0004],
+                "Pu-241": [0.0, 0.0001],
+                "Pu-242": [0.0, -0.0031],
+                "Am-241": [0.0, 0.0017],
+            }
+        )
+        table = vt.depletion_mox_densities([s])
+        lines = table.split("\n")
+        header = [c.strip() for c in lines[0].strip("|").split("|")]
+        self.assertEqual(
+            header[1:],
+            [
+                "U-235",
+                "U-238",
+                "Pu-239",
+                "Pu-240",
+                "Pu-241",
+                "Pu-242",
+                "Am-241",
+                "Xe-135",
+                "Sm-149",
+            ],
+        )
+        row = [c.strip() for c in lines[3].strip("|").split("|")]
+        self.assertEqual(row[4:8], ["\u22120.04", "+0.01", "\u22120.31", "+0.17"])
+
+    def test_the_mox1_tables_read_the_mox1_summary(self):
+        source = ["examples/depletion/compare-mox1-rings1.json"]
+        self.assertEqual(vt.TABLES["depletion-mox1-k"], (source, vt.depletion_single_k))
+        self.assertEqual(
+            vt.TABLES["depletion-mox1-densities"],
+            (source, vt.depletion_mox_densities),
+        )
+
 
 class DrawAwsDepletion(unittest.TestCase):
     def summary(self) -> dict:
