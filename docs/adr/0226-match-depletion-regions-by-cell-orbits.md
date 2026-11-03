@@ -68,8 +68,7 @@ issues: ["#0190", "#0196"]
 - 読むときに、組のセルの位置が空でなく、行の順に増えて重ならないことを確かめる。組の代表の番号は、格子の列の数を履歴が持たない
   ので、位置と照らさない
 - 後方互換を作らない（CLAUDE.md の「方針」）。`cells` を持たない前の履歴は読めない（`DepletionRegion` は欠けたキーをエラーに
-  する）。燃焼の履歴を埋め込む lattice のチェックポイントも同じ。Python のツールは履歴を map のキーで読むので読めるが、`cells` の
-  有無で結果が変わるものがある（帰結）
+  する）。Python のツールへの影響は帰結に書く
 
 ### 帰結
 
@@ -86,9 +85,10 @@ issues: ["#0190", "#0196"]
   2O-fg のログは見つけておらず、2A の燃焼と同じ程度（各 2221〜2489 秒）と置いた（確かめていない）。hybrid の 4 本は make_hybrid.py
   で数秒。合計はおよそ 9.4 時間（ログのあるもの）と、見込みの 5 本で 3.1〜3.5 時間
 - 分岐のテーブル（`xlc-table`）と core の履歴は燃焼の領域を持たないので、形式は変わらない
-- `cells` の有無で結果が変わる Python のツール（2026-11-03 に見つけたもの）: examples/depletion/p2/compare_checkpoint.py は燃焼の
-  領域の map を丸ごと比べるので、前の形式と今の形式の履歴を同じとしない。examples/depletion/micro/make_shifted.py は、前の履歴からは
-  前の形式の履歴を書き、lattice が読むときに止まる
+- `cells` の有無で結果が変わる Python のツール（2026-11-03 に `"regions"` を grep して見つけたもの。ほかは確かめていない）:
+  examples/depletion/p2/compare_checkpoint.py（続けて流した履歴と本番の履歴の `nuclides`、`regions`、`transportable` の一致）と
+  examples/depletion/issue-0134/compare.py（2 つの履歴の `regions` の一致）は、前の形式と今の形式の履歴を比べると違うとして止まり、
+  issue-0137/compare.py は `regions` を DIFFERS と出す。examples/depletion/micro/make_shifted.py は、前の履歴からは前の形式の履歴を書き、lattice が読むときに止まる
 - examples/depletion/history/make_hybrid.py の `identity` も同じ項目（物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数）で
   2 つの履歴を比べ、組のセルを持たない前の履歴を止める（ハイブリッドを作る経路で、組成を別の位置に置かないため）
 
