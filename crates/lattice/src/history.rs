@@ -148,7 +148,7 @@ pub fn history_branches(
     if let Some(detail) = region_mismatch(&regions, &history.regions) {
         bail!(
             "the depletion regions of the lattice differ from those of the history: {detail}; give a lattice \
-             whose depleted cells are those of the history (ADR-0187)"
+             whose depleted cells are those of the history (ADR-0187, ADR-0226)"
         );
     }
     let index: HashMap<&str, usize> = history
@@ -479,7 +479,7 @@ impl HistoryBranches {
         if shielding.nuclides != self.nuclides {
             bail!("the shielding history has other nuclides than the history");
         }
-        if let Some(detail) = region_mismatch(&shielding.regions, &self.regions) {
+        if let Some(detail) = region_mismatch(&self.regions, &shielding.regions) {
             bail!("the shielding history has other depletion regions than the lattice: {detail}");
         }
         let transported: Vec<usize> = shielding
