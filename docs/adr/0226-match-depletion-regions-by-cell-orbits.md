@@ -25,8 +25,8 @@ issues: ["#0190", "#0196"]
 止まった（#0190 の 2026-10-30 の項）。`history_branches` は（物質、組の代表のセル、体積）で比べ、番号は入力の格子のものを
 使っていた（#0196）。ADR-0215 は「燃焼の領域…が履歴と違うならエラー」と書くが、何が同じなら同じ燃焼の領域かを決めていない。
 
-組の代表のセルと体積で比べる形には反例がある（2026-11-03、ブランチ fix/0190-continued-start-regions の HEAD aa256db8c で、手元の
-テストの格子）。2 × 2 の格子で、履歴を `rows = ["pin gt", "pin gt"]`（燃料の組 {0, 2}、MOC の領域 [0, 4]）で燃焼させ、
+組の代表のセルと体積で比べる形には反例がある（2026-11-03、#0190 の 2026-11-03 の項。今はテスト
+`continuing_needs_the_cells_of_each_depletion_region_of_the_history` の格子）。2 × 2 の格子で、履歴を `rows = ["pin gt", "pin gt"]`（燃料の組 {0, 2}、MOC の領域 [0, 4]）で燃焼させ、
 `rows = ["pin gt", "gt pin"]`（組 {0, 3}、[0, 6]）で続けると、組の代表 0、体積、MOC の領域の数が同じなのでエラーにならず、
 セル 2 で燃焼させた組成をセル 3 に置いて続けた。燃料の組成を別の位置に当てる誤りを、黙って出す経路である。
 
@@ -85,8 +85,8 @@ issues: ["#0190", "#0196"]
   2O-fg のログは見つけておらず、2A の燃焼と同じ程度（各 2221〜2489 秒）と置いた（確かめていない）。hybrid の 4 本は make_hybrid.py
   で数秒。合計はおよそ 9.4 時間（ログのあるもの）と、見込みの 5 本で 3.1〜3.5 時間
 - 分岐のテーブル（`xlc-table`）と core の履歴は燃焼の領域を持たないので、形式は変わらない
-- examples/depletion/history/make_hybrid.py の `identity` は（物質、組の代表のセル、体積）で 2 つの履歴を比べ、組のセルと MOC の
-  領域の数を比べない（#0190）
+- examples/depletion/history/make_hybrid.py の `identity` も同じ項目（物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数）で
+  2 つの履歴を比べ、組のセルを持たない前の履歴を止める（ハイブリッドを作る経路で、組成を別の位置に置かないため）
 
 ### 確認
 
@@ -94,5 +94,7 @@ issues: ["#0190", "#0196"]
   中身を変えて続く）、`continuing_needs_the_fuel_materials_cells_volumes_and_rings_of_the_history`、
   `continuing_needs_the_cells_of_each_depletion_region_of_the_history`（上の反例）、`histories_write_the_cells_of_each_depletion_region`、
   `continuing_needs_the_positions_of_the_cells_of_the_history`、`histories_whose_region_cells_are_not_increasing_positions_are_errors`
+- examples/depletion/history/test_make_hybrid.py: `test_histories_with_other_depletion_regions_are_errors`、
+  `test_histories_without_the_cells_of_the_regions_are_errors`
 - crates/lattice/src/history/tests.rs: `the_branch_lattice_must_hold_the_cells_and_rings_of_the_history_regions`、
   `micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tubes_differ`（#0196）
