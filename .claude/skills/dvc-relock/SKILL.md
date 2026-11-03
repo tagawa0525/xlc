@@ -178,6 +178,9 @@ examples/core の `lattice` のステージ（`foreach: [out, aic, b4c]`）を�
 `git merge --abort`、`dvc status`、消すこと）はその例外で、ブランチは変わらないので rebase、レビュー、チェックはやり直さない。
 一覧のほかの行（見出しの前の変更と未追跡のファイル）は hook の修正方法と /git-merge のとおりに扱う。
 
+コマンドは main の worktree の直下で実行する（`cd <main の worktree> && …`。ブランチの worktree の `dvc.lock` には消えたステージが
+無く、出力でないと判定される）。
+
 1. main の worktree で `git merge --abort` する。この後は main の HEAD の `dvc.lock` と `.dvc` で判断する（マージの途中の
    作業ツリーにはブランチの `dvc.lock` があり、消えたステージが載っていない）。hook が別の一覧を出さず、1 つの一覧だけを出した
    とき（「判定に失敗した」と出たとき、rebuild の前の古い hook）は、その一覧のパスのうち、`git check-ignore -- <パス>...` が
@@ -193,12 +196,16 @@ examples/core の `lattice` のステージ（`foreach: [out, aic, b4c]`）を�
    - `does not exist as an output or a stage name` で失敗する: どのステージの出力でも `.dvc` でもなく、記録が無い。消さずに
      原因を調べる
    - `changed outs` にそのパスが無い（ディレクトリの出力の中のファイルは、そのディレクトリの行で見る。`changed deps` は
-     見ない）: 中身が main の `dvc.lock` の md5 と同じで、キャッシュにある。消してよい
-   - `modified:`: 中身が `dvc.lock` の md5 と違う（DVC を入れる前の出力、手で流した出力など）。消すと git にもキャッシュにも無く、
-     戻らないので、消さずに何の出力でなぜ違うかを調べる
+     見ない）: 中身が main の `dvc.lock` の md5 と同じで、キャッシュにある。消してよい。ただし `dvc.yaml` の outs に
+     `cache: false` のある出力は、dvc がキャッシュを確かめず、キャッシュに無くても何も出ないので、git で追跡していなければ消さずに
+     原因を調べる
+   - `modified:`: 中身が `dvc.lock` の md5 と違う（DVC を入れる前の出力、手で流した出力、後半を行わなかった前のマージの版など）。
+     main の記録からは戻らないので、消さずに何の出力でなぜ違うかを調べる（前の `dvc.lock` の版なら、下の `md5sum` の方法で
+     キャッシュにあるかを見られる）
    - `not in cache:`: `dvc.lock` の md5 の版がキャッシュに無い。中身が同じでも消すと戻らないので、消さずに原因を調べる
 
-   1 本のファイルの出力は、dvc を使わずにも確かめられる: `md5sum <パス>` が main の `dvc.lock` のその出力の `md5:` と同じで、
+   1 本のファイルの出力は、dvc を使わずにも確かめられる: `md5sum <パス>` が main の `dvc.lock` のその出力の `md5:`（`.dvc` で
+   追う生成物は、その `.dvc` の `md5:`）と同じで、
    キャッシュ（`.dvc/config` の `cache.dir` で `references/dvc-cache`。`.dvc/cache` ではない）に
    `files/md5/<md5 の最初の 2 文字>/<残り>` があること。ディレクトリの出力（`md5:` が `.dir` で終わる）は中のファイルごとの md5 が
    キャッシュの `.dir` のファイルにあるので、`dvc status` で見る
