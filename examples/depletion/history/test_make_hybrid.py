@@ -78,16 +78,16 @@ class Hybrid(unittest.TestCase):
     def test_histories_with_other_depletion_regions_are_errors(self):
         # ADR-0226: 物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数のどれかが違う
         changes = {
-            "material": ("material", "oxide"),
-            "cell": ("cell", 22),
-            # 組の大きさが同じで位置が違う（ADR-0226 の反例と同じ形）
-            "cells": ("cells", [[3, 4]]),
-            "volume": ("volume", 4.5),
-            "MOC regions": ("regions", [1, 2, 3]),
+            "material": (1, "material", "oxide"),
+            "cell": (1, "cell", 22),
+            # 組の代表の位置と組の大きさが同じで、ほかのセルの位置が違う（ADR-0226 の反例と同じ形）
+            "cells": (0, "cells", [[2, 3], [3, 3]]),
+            "volume": (1, "volume", 4.5),
+            "MOC regions": (1, "regions", [1, 2, 3]),
         }
-        for name, (key, value) in changes.items():
+        for name, (region, key, value) in changes.items():
             varied = history(2.0, [1, 2])
-            varied["regions"][1][key] = value
+            varied["regions"][region][key] = value
             with self.subTest(name), self.assertRaises(SystemExit):
                 make_hybrid.hybrid(history(1.0, [1, 2]), varied)
 
