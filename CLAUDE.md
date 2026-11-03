@@ -50,7 +50,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
   数秒のステージを再実行する /dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、数秒の下流を
-  `dvc.lock` の上流の出力で再実行するときだけに使う（確かめ方は ADR-0184 の決定。`dvc status --with-deps --json` で上流が `changed deps` だけを持つ）。実行したら `dvc.lock` をコミットする（上流の `build` と `python-ast` が書き換えたリポジトリの直下の `dvc.lock` と `python-ast/` も。ADR-0159、ADR-0210）
+  `dvc.lock` の上流の出力で再実行するときだけに使う（確かめ方と除く項目は ADR-0184 の決定の `-s` の項）。実行したら `dvc.lock` をコミットする（上流の `build` と `python-ast` が書き換えたリポジトリの直下の `dvc.lock` と `python-ast/` も。ADR-0159、ADR-0210）
 - 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
   ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `dvc repro <yaml>:xs`。ADR-0193）。
   runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
