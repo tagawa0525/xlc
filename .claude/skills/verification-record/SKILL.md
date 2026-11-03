@@ -34,15 +34,27 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
   時間が total に入るため）
 - 時間の列を持つ表は、比較の JSON の `seconds` から `examples/verification_tables.py` が描き、`--check`（hook と `cargo test`）は
   JSON と食い違う表を止める。`seconds` は比較のステージの deps（格子計算の燃焼の履歴の msgpack と OpenMC の出力）からコピーした値なので、
-  その上流を `--timed` を付けずに流すと、記録に書かないはずの時間が、表を描き直すだけで黙って記録に入る。時間の表の出どころの
-  JSON の `seconds` を書き換える再実行（上流の格子計算か OpenMC を実行するもの）は、区分 timed か `--timed` で流す。上流が
-  changed でなく比較のステージだけが走る再実行は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。出どころが timed のジョブかは
-  チェックが確かめない（#0217）
-- どの表が時間を描くかは、表の名前でなく描く関数から数える（一覧をここにコピーすると古くなる）。
-  `grep -n '\["seconds"\]' examples/verification_tables.py` が当たる行を含む関数が時間を描く関数で、その関数名で
-  `grep -n -B6 '<関数名>,$' examples/verification_tables.py` を引くと、`TABLES` の中の表の名前と出どころの JSON の一覧が出る。
-  JSON を書く比較のステージとその上流は、その例の `dvc.yaml` の deps で見る。
-  2026-11-03 の再実行では、担当が依頼の外で、1C の格子計算と比較を timed のジョブ（Slurm 658）で再実行した（#0152 の経過）
+  その上流を `--timed` を付けずに流すと、記録に書かないはずの時間が、表を描き直すだけで黙って記録に入る。出どころが timed の
+  ジョブかはチェックが確かめない（#0217）。このため、時間の表の xlc の行の出どころの JSON の `seconds` を書き換える再実行
+  （上流の格子計算の燃焼を実行するもの）は、次を守る。上流が changed でなく比較のステージだけが走る再実行は、同じ `seconds` を
+  コピーするだけなので、どのジョブで流してもよい
+  - 区分 timed か `--timed` で流す
+  - 始めから測る。残っている `.checkpoint` を先に消す（下の項。再開した履歴の `seconds` は前の実行との和で、前の実行が
+    main のジョブなら、その時間が入る）
+  - ログで、上流が `Running stage` で走ったことを確かめる。`is cached - skipping run, checking out outputs` は run-cache から
+    前の実行の出力を戻しただけで、`seconds` は前のジョブのもの。そうなったら、その格子計算のステージを目標に `dvc repro --no-run-cache <yaml>:<ステージ>` で再実行する
+  - 描く関数が OpenMC の `seconds` も読む表の OpenMC の行は、CLAUDE.md の「計算」が数時間の参照解を AWS に回すので、この規則で
+    揃わない。扱いは #0217 で決める
+- どの表が時間を描くかは、表の名前でなく描く関数から数える（一覧をここにコピーすると古くなる）。リポジトリの直下で、
+  描く関数の本文が `"seconds"` を読む表の名前と出どころの JSON を出す（`TABLES` の値は `(JSON の一覧, 関数)` で、関数は
+  `functools.partial` のこともある）:
+
+  ```sh
+  python3 -c 'import inspect, sys; sys.path.insert(0, "examples"); import verification_tables as v; [print(n, s) for n, (s, f) in v.TABLES.items() if "\"seconds\"" in inspect.getsource(getattr(f, "func", f))]'
+  ```
+
+  JSON を書く比較のステージとその上流は、その例の `dvc.yaml` の deps で見る。2026-11-03 の再実行では、担当が依頼の外で、1C の
+  格子計算と比較を timed のジョブ（Slurm 658）で再実行した（#0152 の経過）
 - 格子計算の燃焼と分岐（`[depletion]`、`[branches]`、`[history]`）は、点と状態を解くたびに入力の拡張子を `.checkpoint` にしたファイル（`lattice-2A.toml` なら
   `lattice-2A.checkpoint`）を書く。取り消したジョブや止まったジョブは、同じコマンドで投げ直せば続きから解く（一気に流した結果とビットで同じになるよう作ってある。2A の燃焼で確かめたのは MOC の解を
   持たせる前のコードで、分岐は単体テストだけ。ADR-0196。急ぐ計算を
