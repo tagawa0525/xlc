@@ -81,7 +81,9 @@ class Hybrid(unittest.TestCase):
             "material": (1, "material", "oxide"),
             "cell": (1, "cell", 22),
             # 組の代表の位置と組の大きさが同じで、ほかのセルの位置が違う（ADR-0226 の反例と同じ形）
-            "cells": (0, "cells", [[2, 3], [3, 3]]),
+            "later cells": (0, "cells", [[2, 3], [3, 3]]),
+            # 組の代表の番号が同じで、その位置が違う（形の違う格子）
+            "first cell": (1, "cells", [[3, 4]]),
             "volume": (1, "volume", 4.5),
             "MOC regions": (1, "regions", [1, 2, 3]),
         }
