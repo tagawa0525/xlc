@@ -6589,8 +6589,10 @@ python3 ../../core/rod-branch-check/compare_rod_branch.py fg-branch.msgpack fg-m
 
 xlc b588ab8d（分岐点は main の 3dda2078。ADR-0226 の前）、2026-11-03。上の格子計算を Slurm の排他のジョブ 656（区分 decision、
 32 スレッド。割り込まれうるジョブで止められていたので、時間は記録に使わない）で実行し、rod_table.py と比べるツールは手元で実行した。
-b588ab8d はブランチの rebase の前のコミットで、rebase の後の同じ変更のコミットは 7d8a998a。7d8a998a は ADR-0226 の後で、使った
-燃焼の履歴（前の形式。燃焼の領域の `cells` が無い）を読めないので、この結果は 7d8a998a では再現できない（作り直しは #0213）。
+b588ab8d はブランチの rebase の前のコミットで、タグ `record/adr-0225-rod-axis-check` で残す。rebase の後の同じ変更のコミットは
+7d8a998a。7d8a998a は ADR-0226 の後で、使った燃焼の履歴（`p2/lattice-2A.msgpack` md5 7efea664。前の形式で、燃焼の領域の `cells` が
+無い）を読めないので、この結果は 7d8a998a では再現できない。今のコードで再実行するには、先に p2 の履歴を今の形式で作り直す
+（ADR-0226 の帰結）。テーブルの作り直しは #0213。
 
 ## サイクルのステップの core の燃焼（2A の集合体 1 体）
 
