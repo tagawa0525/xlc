@@ -21,12 +21,12 @@ OOM killer が lattice のプロセスを止めた（Slurm 644、2026-10-31。sa
   Slurm の制限ではない（r995 の `TaskPlugin = (null)`、`JobAcctGatherParams = (null)`。ReqMem 86,000M は要求の値で、超えても止めない。
   2026-11-03 に `scontrol show config` で確かめた）。r995 の MemTotal は 96,462,276 kB（92.0 GiB）
 - Slurm 644 の MaxRSS 88,276,164K（84.2 GiB。sacct の K は KiB）
-- 同じ入力の前の実行（Slurm 457、2026-10-23、ADR-0213 と ADR-0214 の前の bin、16 スレッド）の MaxRSS は 12,959,824K（12.4 GiB。ジョブの全体。
+- 同じ入力の前の実行（Slurm 457、2026-10-23 JST、ADR-0213 と ADR-0214 の前の bin、16 スレッド）の MaxRSS は 12,959,824K（12.4 GiB。ジョブの全体。
   `lattice-2A` を含む）
 
 2A の一生の燃焼（examples/depletion/p2/lattice-2A.toml）と history/ の入力（Slurm 582、617、621、629、630、638 など。MaxRSS 20,300,752〜25,878,580K、
 19.4〜24.7 GiB）は `ufg-tolerance = 1e-4` の間引いた格子で、この入力とは違う。この入力の前の実行からの bin の違い（dvc.lock の
-`lattice-2A` の deps の bin は 7cf252f4、2026-10-22 の実行）には ADR-0213 と ADR-0214 が入り、増えたのはその違いによる（下の「原因」）。
+`lattice-2A` の deps の bin は 7cf252f4、Slurm 457 の 2026-10-23 02:46 JST（2026-10-22T17:46Z）の実行）には ADR-0213 と ADR-0214 が入り、増えたのはその違いによる（下の「原因」）。
 依頼が挙げた 2 つの bin の間の違いによるのではない（bin の二分は流していない）:
 
 - 間の bin（40662a570 の 22cf3181 と 2649911d4 の 36667823）の lattice の差は history.rs、residual.rs、main.rs の摂動の解の `h.micro`
@@ -44,7 +44,7 @@ ADR-0213 の量は持つ区間だけを数え、減速計算の作業の配列�
 examples/depletion/lattice-2A.toml（653 は examples/depletion/p2/lattice-2A.toml の燃焼度を 0.1 だけにしたもの）のライブラリと
 chain を、試行の場所からの相対パスにしたもの。手元の 1 本のピン（pin-full-h0.toml、pin-full-h4.toml、pin-full-h0-reserve.toml）は
 examples/depletion/issue-0181/pin-2A-1step-full.toml と同じく、ライブラリと chain を main の作業ツリーの絶対パスで引き、流したときの
-md5 は examples/depletion/p2/depletion.msgpack e84310af（2A の試行の examples/depletion/depletion.msgpack d86514f8 とは別の
+md5 は examples/depletion/p2/depletion.msgpack e84310af（653 と同じ。646〜652 の examples/depletion/depletion.msgpack d86514f8 とは別の
 ライブラリ）、chain.msgpack 1f1de180。ログは `RUST_LOG=info,xlc_lattice::shielding=debug`（652、653 と手元は
 `xlc_lattice::ufg=debug` も）。ジョブは decision の区分の排他の Slurm のジョブで、時間は記録に使わない。メモリは GiB（2^30 B）で書く
 （sacct の K と /proc の kB は KiB）。
@@ -54,9 +54,11 @@ md5 は examples/depletion/p2/depletion.msgpack e84310af（2A の試行の examp
 | 646    | main（36667823） | `ufg-hold-memory = 0` | 0                                 | 完了、MaxRSS 28,065,412K（26.8 GiB）、k は 1.183079 と 1.145585                        |
 | 647    | main（36667823） | 既定                  | 67,098,918,912 B（62.5 GiB）      | 自己遮蔽の始めから 39 秒で VmRSS 64,244,956 kB（61.3 GiB）に増え続け、OOM の前に止めた |
 
-量 62.5 GiB は、使用可能メモリ（（62.5 / 0.8）+ 2 ≈ 80.1 GiB）の 8 割から 2 GiB を除いた分で、残りの 17.6 GiB に、持たないときの
-26.8 GiB（作業の配列と、自己遮蔽の前からの常駐の分。列が倍に伸びる分を含む）は収まらない。644 で OOM killer が止めたときの anon-rss は
-84.7 GiB（88,861,200 kB）で、使用可能メモリを超えていた。
+量 62.5 GiB は（使用可能メモリ A − 2 GiB）× 0.8 で、A =（62.5 / 0.8）+ 2 ≈ 80.1 GiB は、自己遮蔽の始めの常駐の分 B を除いた値。持つと
+プロセスは B + 作業の配列 W + 62.5 GiB まで増え、使えるのは B + 80.1 GiB ほどなので、W が 17.6 GiB を超えれば足りない。持たないときの
+MaxRSS 26.8 GiB（646）を B + W とみると、W > 17.6 GiB は B < 9.2 GiB と同じ。同じ入力の 652 の自己遮蔽の始めから 4 秒の VmRSS は
+6,638,148 kB（6.3 GiB）で、増えている途中なので B はそれ以下で、足りない。644 で OOM killer が止めたときの anon-rss は 84.7 GiB
+（88,861,200 kB。MemTotal は 92.0 GiB）。W は列が倍に伸びる分を含む。
 
 1 回の減速計算の作業の配列のうち、スイープの核種ごとの弾性散乱とリングごとの中性子束の列は、`vec![Vec::with_capacity(n); k]` で
 作っていた。複製した Vec は確保を引き継がないので、列は空から倍に伸び、格子点の数の最大 2 倍を確保していた。
