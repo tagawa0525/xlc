@@ -1063,8 +1063,9 @@ impl LatticeInput {
         // 制御棒の値の置き換え（ADR-0224）: 置き換えられるセルは基準の形状の行にあり、置き換えるセルは定義されていて基準の
         // 形状の行にない（あれば棒のない状態にも棒が残る）
         let in_rows = |name: &str| rows.iter().flatten().any(|c| c == name);
-        // ノードごとの出力は、どのノードのテーブルも制御棒の軸を持つ。棒を切る高さより上の層のテーブルは制御棒の軸を持てない
-        // （ADR-0128）ので、置き換えのないノードの扱いを決めるまで（#0030）組まない
+        // ノードごとの出力は、どのノードのテーブルも制御棒の軸を持つ。径方向の反射体のノード（ADR-0127）と、平板の棒の入らない
+        // 層のノード（ADR-0128）のテーブルは制御棒の軸を持てないので、ノードごとの扱いを決めるまで（平板は #0030、径方向の
+        // 反射体の格子は #0213）組まない
         if branches.as_ref().is_some_and(|b| !b.rods().is_empty())
             && matches!(
                 &output,
@@ -1075,8 +1076,8 @@ impl LatticeInput {
             )
         {
             return Err(invalid(
-                "branches.rod: few-group nodes cannot have rod values yet; the nodes without replaced cells \
-                 would carry a rod axis (#0030)"
+                "branches.rod: few-group nodes cannot have rod values yet; every node table would carry the rod \
+                 axis, which radial reflector nodes and slab layers without rods must not have (#0030, #0213)"
                     .into(),
             ));
         }
