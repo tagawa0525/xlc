@@ -123,4 +123,6 @@ aic = { gt = "gt-aic" }
 - 別の入力との一致: `history_rod_branches_match_separate_lattices`（crates/lattice/tests/history_rod_branch.rs）。合成のライブラリの
   2 × 2 の格子で燃焼させた履歴から作った、制御棒の値の燃焼点を間引いた 1 つの入力のテーブルの各状態（少数群定数、追う核種の微視的
   断面積と数密度の微分）が、棒のない入力と、案内管を置き換えてその値の燃焼点だけを読む入力の格子計算の状態とビットで一致する
-- VERA 2A（自己遮蔽あり）: examples/depletion/verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」
+- VERA 2A（自己遮蔽あり、32 スレッド）: 燃焼度 0、10、40 MWd/kg（値 aic は 0 と 40）の 1 つの入力のテーブルと、値ごとの 2 つの
+  入力を rod_table.py でまとめたテーブルは、軸、点、少数群定数、微視的断面積と数密度の微分のすべての項目でビットまで等しい
+  （examples/depletion/verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」、a0de3041、2026-11-03）
