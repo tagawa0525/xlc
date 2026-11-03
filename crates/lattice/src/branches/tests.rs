@@ -662,3 +662,95 @@ fn solving_past_the_last_state_is_an_error() {
     let err = starts.solved(1.5).unwrap_err();
     assert!(err.contains("solved"), "{err}");
 }
+
+/// INPUT の格子を、燃料のピンと案内管の 1 行にし、案内管に入れる棒のセルと制御棒の分岐を足したもの
+fn with_rods(rods: &str) -> String {
+    let text = INPUT.replace("rows = [\"pin\"]", "rows = [\"pin gt\"]").replace(
+        "[branches]",
+        "[material.absorber]\ntemperature = 565\nnuclides = { U-238 = 1.0e-2 }\n\n\
+         [cell.gt]\nzones = [{ material = \"water\", radius = 0.56, rings = 2 }, { material = \"water\", rings = 1 }]\n\n\
+         [cell.rod]\nzones = [{ material = \"absorber\", radius = 0.38, rings = 2 }, { material = \"clad\", radius = 0.56, rings = 1 },\n\
+                  { material = \"water\", rings = 1 }]\n\n\
+         [cell.other]\nzones = [{ material = \"clad\", rings = 1 }]\n\n[branches]",
+    );
+    format!("{text}{rods}")
+}
+
+#[test]
+fn rod_branches_replace_cells_of_the_base_rows() {
+    let input = LatticeInput::parse(&with_rods(
+        "\n[branches.rod]\nb4c = { gt = \"other\" }\naic = { gt = \"rod\", pin = \"other\" }\n",
+    ))
+    .unwrap();
+    let branches = input.branches.as_ref().unwrap();
+    // 連続の軸の状態は今のまま、テーブルの軸は制御棒の軸（out を先に、値の名前の順）を最後に足す
+    assert_eq!(branches.axes().len(), 3);
+    let values: Vec<String> = ["out", "aic", "b4c"].map(String::from).to_vec();
+    assert_eq!(
+        branches.table_axes().last(),
+        Some(&Axis::Rod {
+            values: values.clone()
+        })
+    );
+    assert_eq!(input.rod_values(), values);
+    // 値 0 は基準の形状、ほかの値は置き換えたセルを並べた形状
+    let base = input.geometry().unwrap();
+    assert_eq!(input.rod_geometry(0).unwrap(), base);
+    let rows = |cells: &str| {
+        let text = with_rods("").replace("rows = [\"pin gt\"]", &format!("rows = [\"{cells}\"]"));
+        LatticeInput::parse(&text).unwrap().geometry().unwrap()
+    };
+    assert_eq!(input.rod_geometry(1).unwrap(), rows("other rod"));
+    assert_eq!(input.rod_geometry(2).unwrap(), rows("pin other"));
+    // 制御棒の分岐のない入力は値 out だけ
+    let plain = LatticeInput::parse(&with_rods("")).unwrap();
+    assert_eq!(plain.rod_values(), vec!["out".to_string()]);
+    assert_eq!(plain.branches.as_ref().unwrap().table_axes().len(), 3);
+}
+
+#[test]
+fn invalid_rod_branches_are_errors() {
+    let rejects = |rods: &str, needle: &str| {
+        let err = LatticeInput::parse(&with_rods(&format!("\n[branches.rod]\n{rods}\n")))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(needle), "{rods}: {err}");
+    };
+    // out は基準の形状の値
+    rejects("out = { gt = \"rod\" }", "`out`");
+    rejects("aic = {}", "replaces no cell");
+    rejects("\"a b\" = { gt = \"rod\" }", "without spaces");
+    rejects("aic = { box = \"rod\" }", "`box` is not in the rows");
+    rejects("aic = { gt = \"bar\" }", "`bar` is not defined");
+    // 基準の形状の行にあるセルに置き換えると、棒のない状態に棒が残る
+    rejects("aic = { gt = \"pin\" }", "`pin` is in the rows");
+    // 燃焼の履歴からの分岐と制御棒の軸はまだ組めない（#0213）
+    let text = with_rods(
+        "\n[branches.rod]\naic = { gt = \"rod\" }\n\n[history]\nfile = \"h.msgpack\"\nburnup = [0]\n",
+    );
+    let err = LatticeInput::parse(&text).unwrap_err().to_string();
+    assert!(err.contains("#0213"), "{err}");
+}
+
+#[test]
+fn tables_put_the_rod_axis_last_in_lexicographic_order() {
+    // 値ごとに解いた状態（値 0 の 2 点、値 1 の 2 点）を、点の辞書式の順に並べる
+    let axes = vec![
+        Axis::boron(vec![900.0, 1700.0], 0.199),
+        Axis::Rod {
+            values: vec!["out".into(), "aic".into()],
+        },
+    ];
+    let points = vec![vec![0, 0], vec![1, 0], vec![0, 1], vec![1, 1]];
+    let per_state = [1.0, 2.0, 3.0, 4.0]
+        .iter()
+        .map(|&k| vec![vec![few(k)]])
+        .collect();
+    let tables = tables(&axes, 1, &points, per_state).unwrap();
+    assert_eq!(
+        tables[0].points,
+        vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]]
+    );
+    let ks: Vec<f64> = tables[0].states.iter().map(|s| s.k_inf).collect();
+    assert_eq!(ks, vec![1.0, 3.0, 2.0, 4.0]);
+}
