@@ -1,6 +1,8 @@
+# 制御棒の分岐（ADR-0224）と値ごとの格子計算の結合の一致の確認（../verification.md の「制御棒の分岐と値ごとの格子計算の結合の一致」）の入力。
+# 分岐点 f86d7fda の examples/core/assembly-aic.toml（制御棒の値ごとの格子計算）のライブラリを、今の形式の ../../depletion/p2/depletion.msgpack に替えたもの。
 # 制御棒の部分挿入の例（ADR-0127）の燃料の層の、制御棒の値ごとの格子計算。値 aic: VERA Problem 2G（examples/vera/p2/assembly-2G.toml）の
 # 形状と組成。ホウ酸水は ADR-0106 の書き方（600 K、0.743 g/cm³、1300 ppm、B-10 19.9 at%）。
-library = "rods.msgpack"
+library = "../../depletion/p2/depletion.msgpack"
 few-group = { output = "fg-aic.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30

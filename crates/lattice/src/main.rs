@@ -1,5 +1,6 @@
 //! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
 //! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
+//! 制御棒の分岐（`[branches.rod]`）があれば、値ごとにセルを置き換えた形状で同じ状態を解き、制御棒の軸を最後に足す（ADR-0224）。
 //! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、ピン出力、少数群定数を燃焼の履歴のファイルに書く（ADR-0173、ADR-0181）。
 //! `continue` があれば、その燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（ADR-0215 の確認）。
 //! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
@@ -35,14 +36,16 @@ use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
+use xlc_format::table::Axis;
 use xlc_format::table::{Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{BranchShielder, state_indices, tables};
+use xlc_lattice::branches::{BranchShielder, lexicographic, state_indices, tables};
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
 };
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
+use xlc_lattice::geometry::Lattice;
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{
     CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput, VOID,
@@ -54,6 +57,14 @@ use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
+
+/// 制御棒の値の 1 つの形状（ADR-0224）: 形状、領域ごとの物質の名前、トラッキング、使う対称操作
+struct Geometry {
+    lattice: Lattice,
+    region_materials: Vec<String>,
+    tracking: Tracking,
+    chosen: Chosen,
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -175,23 +186,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
     }
 
     drop(reading);
-    let track_and_choose = || -> anyhow::Result<(Tracking, Chosen)> {
-        let tracking = tracing::debug_span!("tracking").in_scope(|| {
-            Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)
-        })?;
-        // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は分岐の状態によらないので、解く前に一度だけ
-        // 求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
-        // 対称性は、その結果から取り出し、成り立たない操作があれば、自己遮蔽の前にその操作の名前と理由を示して止める。"none" は
-        // 検証の基準なので判定せず、自己遮蔽も MOC も対称性なしで解く
-        let forced = match input.symmetry {
-            SymmetryChoice::Detect => None,
-            SymmetryChoice::Force(symmetry) => Some(symmetry),
+    let track_and_choose =
+        |lattice: &Lattice, region_materials: &[String]| -> anyhow::Result<(Tracking, Chosen)> {
+            let tracking = tracing::debug_span!("tracking").in_scope(|| {
+                Tracking::with_boundaries(lattice, input.azimuthal, input.spacing, input.boundaries)
+            })?;
+            // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は連続の軸の状態によらないので、解く前に形状
+            // （制御棒の値。ADR-0224）ごとに一度だけ求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
+            // 対称性は、その結果から取り出し、成り立たない操作があれば、自己遮蔽の前にその操作の名前と理由を示して止める。"none" は
+            // 検証の基準なので判定せず、自己遮蔽も MOC も対称性なしで解く
+            let forced = match input.symmetry {
+                SymmetryChoice::Detect => None,
+                SymmetryChoice::Force(symmetry) => Some(symmetry),
+            };
+            let chosen = tracing::debug_span!("symmetry")
+                .in_scope(|| choose(&tracking, region_materials, forced))
+                .with_context(|| format!("{}: symmetry", shown(path)))?;
+            Ok((tracking, chosen))
         };
-        let chosen = tracing::debug_span!("symmetry")
-            .in_scope(|| choose(&tracking, &region_materials, forced))
-            .with_context(|| format!("{}: symmetry", shown(path)))?;
-        Ok((tracking, chosen))
-    };
     // 断面積の出どころは一度だけ読む。巨視的断面積は分岐を持たない（入力の読み込みで確かめてある）
     enum Source {
         Library(Library),
@@ -226,13 +238,25 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 失敗したときは、トラッキングと対称操作のエラーを先に返す。読むスレッドの panic は、そのまま呼び出し側で続ける
     let (geometry, source) = std::thread::scope(|scope| {
         let reader = scope.spawn(|| tracing::debug_span!("library").in_scope(load));
-        let geometry = track_and_choose();
+        let geometry = track_and_choose(&lattice, &region_materials);
         let source = reader
             .join()
             .unwrap_or_else(|payload| std::panic::resume_unwind(payload));
         (geometry, source)
     });
     let (tracking, chosen) = geometry?;
+    let base_geometry = Geometry {
+        lattice,
+        region_materials,
+        tracking,
+        chosen,
+    };
+    let Geometry {
+        lattice,
+        region_materials,
+        tracking,
+        chosen,
+    } = &base_geometry;
     let (source, label, source_digest) = source?;
     if let (Some(f), Some(d)) = (&mut fingerprint, source_digest) {
         f.add(label, &d);
@@ -245,9 +269,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         }
         Ok(bytes)
     };
-    // 物質の一覧と、領域ごとのその番号
+    // 物質の一覧と、領域（物質の名前が `region_materials`）ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
-                   groups: usize|
+                   groups: usize,
+                   region_materials: &[String]|
      -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
         // 真空の帯の物質。名前は予約語で、断面積のファイルにも同じ名前の物質があってはならない
         if named.iter().any(|(n, _)| n == VOID) {
@@ -297,9 +322,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
             depletion,
             library,
             &chain,
-            &tracking,
-            &region_materials,
-            &chosen,
+            tracking,
+            region_materials,
+            chosen,
             &LibraryReactions(library),
             from.as_ref(),
             resumed,
@@ -343,9 +368,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 &input,
                 &history_file,
                 library,
-                &lattice,
-                &region_materials,
-                &chosen,
+                lattice,
+                region_materials,
+                chosen,
             )
             .with_context(|| format!("{}: history", shown(path)))?;
             if let Some(shielding) = &history.shielding_file {
@@ -387,11 +412,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let medium_names: Vec<String> = input.media.iter().map(|m| m.name.clone()).collect();
-    let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
-    let values = |state: usize| -> String {
+    // 連続の軸（と燃焼度の軸）の点の数。状態の番号はこの軸の直積の順
+    let counts: Vec<usize> = axes.iter().map(Axis::len).collect();
+    // 制御棒の軸の値（ADR-0224）。値ごとに連続の軸の同じ状態を解く
+    let rod_values = input.rod_values();
+    let values = |rod: usize, state: usize| -> String {
         axes.iter()
             .zip(state_indices(&counts, state))
             .filter_map(|(a, i)| a.points().get(i).map(|p| format!("{} {p}", a.name())))
+            .chain((rod_values.len() > 1).then(|| format!("rod {}", rod_values[rod])))
             .collect::<Vec<_>>()
             .join(", ")
     };
@@ -400,13 +429,41 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
     // 解く状態（軸の直積の順の番号）: 部分格子の状態と、公称でない状態を解く燃焼点（ADR-0200）
-    let present: Vec<usize> = (0..count)
+    let present_states: Vec<usize> = (0..count)
         .filter(|&state| match (&history_branches, &input.branches) {
             (Some(h), _) => h.solved(state),
             (None, Some(b)) => b.solved(state),
             (None, None) => true,
         })
         .collect();
+    // 制御棒の値ごとに（`out` から）同じ状態を解く。解く状態の通しの番号は 値 × 状態の数 + 状態で、制御棒の値の軸を最初の軸に
+    // 足した直積の順（チェックポイントと反復を始める解はこの番号で引く。ADR-0224）
+    let rods = rod_values.len();
+    let solve_counts: Vec<usize> = if rods > 1 {
+        std::iter::once(rods)
+            .chain(counts.iter().copied())
+            .collect()
+    } else {
+        counts.clone()
+    };
+    let present: Vec<usize> = (0..rods)
+        .flat_map(|rod| present_states.iter().map(move |&state| rod * count + state))
+        .collect();
+    // 基準の形状でない値の形状。入力の誤り（置き換えたセルの形状、強制した対称性）を、状態を解く前にすべての値で見つける
+    let rod_geometries: Vec<Geometry> = (1..rods)
+        .map(|rod| -> anyhow::Result<Geometry> {
+            let context = || format!("{}: rod {}", shown(path), rod_values[rod]);
+            let (lattice, region_materials) = input.rod_geometry(rod).with_context(context)?;
+            let (tracking, chosen) =
+                track_and_choose(&lattice, &region_materials).with_context(context)?;
+            Ok(Geometry {
+                lattice,
+                region_materials,
+                tracking,
+                chosen,
+            })
+        })
+        .collect::<anyhow::Result<_>>()?;
     // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
     // 自己遮蔽の履歴があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す（`HistoryBranches::shield_with`）
@@ -418,13 +475,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .chain(history_branches.iter().flat_map(|h| h.remixed()))
         .cloned()
         .collect();
-    let mut shielder = BranchShielder::new(
-        &tracking,
-        solved_materials,
-        &varied,
-        chosen.shielding(),
-        input.shielding_options(),
-    );
+    // 今の制御棒の値の自己遮蔽（形状ごと。値の最初の状態で作り、値を解き終えたら捨てる）と、捨てた値の自己遮蔽の回数
+    let mut shielder: Option<(usize, BranchShielder)> = None;
+    let mut finished_shieldings = 0;
     // 数密度の微分（ADR-0221）の摂動の組成は、微分の核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の
     // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ
     let mut perturbed_shielders: Vec<BranchShielder> = history_branches
@@ -432,7 +485,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .flat_map(|h| h.derivative_nuclides())
         .map(|_| {
             BranchShielder::new(
-                &tracking,
+                tracking,
                 solved_materials,
                 &varied,
                 chosen.shielding(),
@@ -443,15 +496,50 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
-    let report = |state: usize, k: f64| {
+    // 状態の番号は、テーブルの軸（制御棒の軸があれば最後）の直積の順の番号で出す（解く順の番号 `solved` は値が最初の軸）
+    let report = |solved: usize, k: f64| {
         if input.branches.is_some() {
+            let state = (solved % count) * rods + solved / count;
             println!("state {state} k {k:.6}");
         } else {
             println!("k {k:.6}");
         }
     };
     // 状態ごとに、前に解いた近い状態の MOC の収束した状態 `from` から反復を始める（ADR-0195。`solve_states` が持つ）
-    let solve = |state: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
+    let solve = |solved: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
+        let (rod, state) = (solved / count, solved % count);
+        let geometry: &Geometry = match rod.checked_sub(1) {
+            None => &base_geometry,
+            Some(r) => &rod_geometries[r],
+        };
+        // 値の最初の状態は、形状の違う前の値の解から始めない（領域が違う。値の中の並びは、セルを置き換えた別の入力の格子計算と同じ
+        // 始める解になる。ADR-0224）
+        let from = if present_states.first() == Some(&state) {
+            None
+        } else {
+            from
+        };
+        if shielder.as_ref().is_some_and(|(r, _)| *r != rod)
+            && let Some((_, done)) = shielder.take()
+        {
+            finished_shieldings += done.shieldings();
+        }
+        let (_, shielder) = shielder.get_or_insert_with(|| {
+            (
+                rod,
+                BranchShielder::new(
+                    &geometry.tracking,
+                    if rod == 0 {
+                        solved_materials
+                    } else {
+                        &geometry.region_materials
+                    },
+                    &varied,
+                    geometry.chosen.shielding(),
+                    input.shielding_options(),
+                ),
+            )
+        });
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
@@ -462,7 +550,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             None => &plain[state],
         };
         let state_start = Instant::now();
-        let context = || format!("{}: state {state} ({})", shown(path), values(state));
+        let context = || format!("{}: state {solved} ({})", shown(path), values(rod, state));
         // 自己遮蔽した状態の物質と、履歴からの分岐の微視的断面積（ADR-0216）に使う燃料の自己遮蔽
         let held = match &source {
             Source::Library(library) if input.self_shielding => {
@@ -557,19 +645,22 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 check_orders(&named, &medium_names)
                     .map_err(|e| anyhow!(e))
                     .with_context(context)?;
-                let (materials, region_index) = by_name(named, library.groups.len())?;
+                let (materials, region_index) =
+                    by_name(named, library.groups.len(), &geometry.region_materials)?;
                 (Cow::Owned(materials), Cow::Owned(region_index))
             }
             (None, Source::Macroscopic(named)) => {
                 let groups = named.first().map_or(0, |(_, m)| m.groups());
-                let (materials, region_index) = by_name(named.clone(), groups)?;
+                let (materials, region_index) =
+                    by_name(named.clone(), groups, &geometry.region_materials)?;
                 (Cow::Owned(materials), Cow::Owned(region_index))
             }
         };
         let fuel = held.as_ref().map(|h| h.fuel());
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
         // 媒質（ADR-0128）の領域。領域がすべて1つの核分裂のある媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
-        let media_regions: Vec<Option<usize>> = region_materials
+        let media_regions: Vec<Option<usize>> = geometry
+            .region_materials
             .iter()
             .map(|name| input.media.iter().position(|m| &m.name == name))
             .collect();
@@ -580,9 +671,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .unwrap_or_else(|| available_order(&materials)),
             ..Options::default()
         };
-        let (solution, converged) =
-            solve_symmetric_from(&tracking, &materials, &options, chosen.moc(), from)
-                .with_context(context)?;
+        let (solution, converged) = solve_symmetric_from(
+            &geometry.tracking,
+            &materials,
+            &options,
+            geometry.chosen.moc(),
+            from,
+        )
+        .with_context(context)?;
         let emitting = tracing::debug_span!("output").entered();
         let outputs = if let Some(FewGroupOutput {
             bounds,
@@ -595,7 +691,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let groups = groups
                 .as_ref()
                 .ok_or_else(|| anyhow!("few-group output needs a library"))?;
-            let boundaries = tracking.boundaries();
+            let boundaries = geometry.tracking.boundaries();
             let fews = match files {
                 FewGroupFiles::Lattice(_) => {
                     let mut few = homogenize(&solution, &materials, groups, bounds, &boundaries)?;
@@ -604,7 +700,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         few.pins = Some(
                             pin_shapes(
                                 &solution,
-                                &lattice,
+                                &geometry.lattice,
                                 &materials,
                                 groups,
                                 bounds,
@@ -619,7 +715,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             split_constants(
                                 &few,
                                 &solution,
-                                &lattice,
+                                &geometry.lattice,
                                 &materials,
                                 groups,
                                 bounds,
@@ -636,7 +732,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
                     homogenize_nodes(
                         &solution,
-                        &lattice,
+                        &geometry.lattice,
                         &materials,
                         groups,
                         bounds,
@@ -652,7 +748,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             };
             // 格子の x を炉心の z にした定数。z の厚さはノードの x の幅（ADR-0128）
             if *along_z {
-                let widths = lattice.widths();
+                let widths = geometry.lattice.widths();
                 let node_widths: Vec<f64> = match files {
                     FewGroupFiles::Lattice(_) => vec![widths.iter().sum()],
                     FewGroupFiles::Nodes(entries) => entries
@@ -679,7 +775,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // 状態ごとの細かい群の媒質の出力（ADR-0128）
         let medium = if input.medium.is_some() {
             Some(
-                homogenize_medium(&solution, &materials, &tracking.boundaries())
+                homogenize_medium(&solution, &materials, &geometry.tracking.boundaries())
                     .with_context(context)?,
             )
         } else {
@@ -687,9 +783,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
         if let Some(file) = &input.pin_powers {
-            let rates = cell_fission_rates(&solution, &lattice, &materials)?;
+            let rates = cell_fission_rates(&solution, &geometry.lattice, &materials)?;
             let file = base.join(file);
-            std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
+            std::fs::write(&file, to_msgpack(&rates, &geometry.lattice)?)
+                .with_context(|| shown(&file))?;
         }
         // 追う核種の微視的断面積（ADR-0216）。`[history]` は自己遮蔽と格子全体の少数群定数のファイルを求める（入力の検査）
         let micro = match &history_branches {
@@ -703,7 +800,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .with_context(context);
                 };
                 let mut micro = h
-                    .micro(state, library, fuel, &lattice, &solution, &output.bounds)
+                    .micro(
+                        state,
+                        library,
+                        fuel,
+                        &geometry.lattice,
+                        &solution,
+                        &output.bounds,
+                    )
                     .with_context(|| format!("{}: micro cross sections", context()))?;
                 // 数密度の微分（ADR-0221）。摂動の組成を、状態の収束した解から解き直す
                 if !h.derivative_nuclides().is_empty() {
@@ -714,7 +818,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             anyhow!("the density derivatives need the lattice constants")
                         })
                         .with_context(context)?;
-                    let boundaries = tracking.boundaries();
+                    let boundaries = geometry.tracking.boundaries();
                     h.add_derivatives(
                         state,
                         &mut micro,
@@ -735,10 +839,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 ..Options::default()
                             };
                             let (solution, _) = solve_symmetric_from(
-                                &tracking,
+                                &geometry.tracking,
                                 &materials,
                                 &options,
-                                chosen.moc(),
+                                geometry.chosen.moc(),
                                 Some(&converged),
                             )?;
                             let few = homogenize(
@@ -754,7 +858,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 state,
                                 library,
                                 shielded.fuel(),
-                                &lattice,
+                                &geometry.lattice,
                                 &solution,
                                 &output.bounds,
                             )?;
@@ -774,12 +878,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
             _ => None,
         };
-        report(state, solution.k);
+        report(solved, solution.k);
         drop(emitting);
         tracing::info!(
-            state,
+            state = solved,
             iterations = solution.iterations,
-            tracks = tracking.tracks.len(),
+            tracks = geometry.tracking.tracks.len(),
             seconds = state_start.elapsed().as_secs_f64(),
             total_seconds = start.elapsed().as_secs_f64(),
             "lattice"
@@ -828,11 +932,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
         report(state, saved.k);
         Ok(())
     };
-    let states = solve_states(&present, &counts, checkpoint.as_ref(), fits, solve)?;
+    let states = solve_states(&present, &solve_counts, checkpoint.as_ref(), fits, solve)?;
     if input.branches.is_some() && input.self_shielding {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
-            shieldings = shielder.shieldings(),
+            shieldings = finished_shieldings + shielder.as_ref().map_or(0, |(_, s)| s.shieldings()),
             derivative_shieldings = perturbed_shielders
                 .iter()
                 .map(BranchShielder::shieldings)
@@ -841,17 +945,37 @@ fn run(path: &Path) -> anyhow::Result<()> {
             "branches"
         );
     }
+    // 媒質は棒のない値の状態だけを書く（解く順の最初の値。ADR-0128、ADR-0224）
+    let written: Vec<MediumState> = states
+        .iter()
+        .take(present_states.len())
+        .filter_map(|s| s.medium.clone())
+        .collect();
+    // テーブルの点は、連続の軸の格子点の番号と、制御棒の軸があれば最後に値の番号。状態は点の辞書式の順に並べ替える
+    let solved_points: Vec<Vec<usize>> = present
+        .iter()
+        .map(|&solved| {
+            let mut point = state_indices(&counts, solved % count);
+            if rods > 1 {
+                point.push(solved / count);
+            }
+            point
+        })
+        .collect();
+    let order = lexicographic(&solved_points);
+    let points: Vec<Vec<usize>> = order.iter().map(|&i| solved_points[i].clone()).collect();
+    let mut by_solve: Vec<Option<SavedState>> = states.into_iter().map(Some).collect();
     let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
-    let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) = states
-        .into_iter()
+    let per_state: Vec<Vec<Vec<FewGroup>>> = order
+        .iter()
+        .filter_map(|&i| by_solve[i].take())
         .map(|s| {
             if let Some(m) = s.micro {
                 micro_states.push(m);
             }
-            (s.outputs, s.medium)
+            s.outputs
         })
-        .unzip();
-    let written: Vec<MediumState> = written.into_iter().flatten().collect();
+        .collect();
 
     let _write = tracing::debug_span!("write").entered();
     if let Some(output) = &input.medium {
@@ -876,11 +1000,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        let points: Vec<Vec<usize>> = present
-            .iter()
-            .map(|&state| state_indices(&counts, state))
-            .collect();
-        let mut tables = tables(axes, *split, &points, per_state)
+        let table_axes = match (&history_branches, &input.branches) {
+            (None, Some(b)) => b.table_axes(),
+            _ => axes.to_vec(),
+        };
+        let mut tables = tables(&table_axes, *split, &points, per_state)
             .map_err(|e| anyhow!("{}: {e}", shown(path)))?;
         // 履歴からの分岐は格子全体の 1 つのテーブル（入力の検査）で、初めの重金属の質量を持つ（ADR-0190）
         if let Some(h) = &history_branches {

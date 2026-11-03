@@ -7,14 +7,17 @@
 
 この記録の格子計算（自己遮蔽のある lattice）の値と、それから作った定数は、自己遮蔽の UFG の減速計算の古い既定（静止した標的、無限希釈の形）のもので、既定を切り替えた [ADR-0209](../../docs/adr/0209-default-ufg-to-physical-kernels.md) の後に作り直していない。
 
-| ファイル                                                      | 内容                                                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `xs.toml`                                                     | 多群ライブラリ（`rods.msgpack`）。examples/reflector の核種から Ti を除き、AIC の Ag、In、Cd を足したもの。600 K だけ     |
-| `assembly-out.toml`、`assembly-aic.toml`、`assembly-b4c.toml` | 制御棒の値ごとの格子計算（棒なし、VERA 2G、2H の形状と組成。600 K、0.743 g/cm³、1300 ppm）。連続の軸は 1 点ずつ           |
-| `rod_table.py`                                                | 3 つのテーブルを、制御棒の軸（out、aic、b4c）を持つ 1 つのテーブルにまとめる（格子計算の制御棒の分岐 #0093 までのつなぎ） |
-| `rods_cases.py`                                               | 炉心の形、台帳、サイクル、ケース（`cases/`）、`cases.yaml`、`dvc.yaml` を書く                                             |
-| `compare_rods.py`                                             | 炉心の結果（`out/`）を比べる表を書く（`compare.out`）                                                                     |
-| `dvc.yaml`、`dvc.lock`                                        | ステージ（xs → 格子 → テーブル → 炉心のケース → 比較。ADR-0123）                                                          |
+| ファイル               | 内容                                                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `xs.toml`              | 多群ライブラリ（`rods.msgpack`）。examples/reflector の核種から Ti を除き、AIC の Ag、In、Cd を足したもの。600 K だけ                                                                       |
+| `assembly.toml`        | 燃料の層の格子計算（基準の形状は棒なし、制御棒の分岐（ADR-0224）の値 aic、b4c は VERA 2G、2H の棒。600 K、0.743 g/cm³、1300 ppm）。連続の軸は 1 点ずつで、制御棒の軸（out、aic、b4c）を持つ |
+| `rod-branch-check/`    | 制御棒の分岐と、値ごとの格子計算を rod_table.py でまとめた形の一致を確かめる入力と比べるツール（下の「制御棒の分岐と値ごとの格子計算の結合の一致」）                                        |
+| `rods_cases.py`        | 炉心の形、台帳、サイクル、ケース（`cases/`）、`cases.yaml`、`dvc.yaml` を書く                                                                                                               |
+| `compare_rods.py`      | 炉心の結果（`out/`）を比べる表を書く（`compare.out`）                                                                                                                                       |
+| `dvc.yaml`、`dvc.lock` | ステージ（xs → 格子 → 炉心のケース → 比較。ADR-0159）                                                                                                                                       |
+
+下の「方式の誤差と微分価値」の計算（6a88a865）は、ADR-0224 の前の形（制御棒の値ごとの 3 つの格子計算の入力 `assembly-out.toml`、
+`assembly-aic.toml`、`assembly-b4c.toml` のテーブルを、examples/core/rod_table.py で 1 つにまとめたもの）で作った。
 
 炉心は集合体1体（径方向は鏡面反射、ピッチ 21.5 cm）の燃料の列（365.76 cm）を 16 ノード（22.86 cm）に分け、z の両端は
 Marshak。制御棒は VERA の棒（仕様書の表 8: 先端から AIC 101.6 cm、その上に B4C 259.08 cm、ステップ 1.5875 cm）で、0
@@ -80,3 +83,19 @@ dvc repro examples/core/dvc.yaml
   ADR-0127 の幅は 0.5 cm にした
 - 固有値の反復の回数（116 ステップ）は、中性子束の重みが 563 回、体積の重みが 560 回、参照が 570 回で、外側の反復の
   たびに定数を作り直しても増えない（8c7c62ed、分岐点 f2cd615d の手元の実行、2026-10-14。`bin/core` は a0ca37be の `dvc.lock` と同じ md5、定数は同じステージの出力）
+
+## 制御棒の分岐と値ごとの格子計算の結合の一致（c984cefb、分岐点 f86d7fda、2026-11-03）
+
+1 つの入力の制御棒の分岐（ADR-0224。`assembly.toml`）のテーブルと、ADR-0224 の前の形（分岐点の `assembly-out.toml`、
+`assembly-aic.toml`、`assembly-b4c.toml` を別々に解き、rod_table.py でまとめたもの）のテーブルを、同じ実行ファイルと同じ
+ライブラリで作って比べた。2 つのテーブルを MessagePack から読んだ値は、軸、点、3 つの状態（out、aic、b4c）の少数群定数の
+すべての項目でビットまで等しい（k∞ は out 1.1816772181491253、aic 0.8496450218997933、b4c 0.789500451749501）。
+
+- 入力と比べるツール: `rod-branch-check/`（値ごとの入力 `assembly-<値>.toml` は分岐点 f86d7fda の examples/core の入力、分岐の
+  入力 `assembly.toml` はこの記録の `assembly.toml` で、どれもライブラリを今の形式の examples/depletion/p2/depletion.msgpack
+  （md5 e84310aff668e474fa68d822168b4538。600 K の AIC、B4C、SS304 の核種を持つ）に替えたもの。`rods.msgpack` は `capture` の
+  無い前の形式のまま（examples/core のステージは bin の変更で再実行していない）で読めない）。手順は `compare_rod_branch.py` の
+  説明。比べ方は 2 つのテーブルを Python の msgpack で読んだ値の `==`（浮動小数点の値の厳密な一致）
+- 計算: xlc c984cefb（分岐点 f86d7fda）を `cargo build --release` した `target/release/lattice` で、`rod-branch-check/` の入力を
+  `compare_rod_branch.py` の説明の手順のとおり、Slurm の排他のジョブ 654（区分 decision、32 スレッド、割り込まれうるので時間は
+  記録に使わない）で実行した
