@@ -21,8 +21,20 @@ def history(scale: float, moc_regions: list[int]) -> dict:
         "format": "xlc-depletion-history",
         "nuclides": NUCLIDES,
         "regions": [
-            {"material": "fuel", "cell": 20, "regions": moc_regions, "volume": 2.0},
-            {"material": "fuel", "cell": 21, "regions": moc_regions, "volume": 4.0},
+            {
+                "material": "fuel",
+                "cell": 20,
+                "cells": [[2, 3], [3, 2]],
+                "regions": moc_regions,
+                "volume": 2.0,
+            },
+            {
+                "material": "fuel",
+                "cell": 21,
+                "cells": [[2, 4]],
+                "regions": moc_regions,
+                "volume": 4.0,
+            },
         ],
         "transportable": NUCLIDES,
         "points": [
@@ -60,14 +72,34 @@ class Hybrid(unittest.TestCase):
         self.assertEqual([p["k_inf"] for p in result["points"]], [2.0, 2.0])
 
     def test_moc_region_numbers_may_differ_between_lattices(self):
-        result = make_hybrid.hybrid(history(1.0, [1, 2]), history(2.0, [5, 6, 7]))
+        result = make_hybrid.hybrid(history(1.0, [1, 2]), history(2.0, [5, 6]))
         self.assertEqual(result["regions"][0]["regions"], [1, 2])
 
     def test_histories_with_other_depletion_regions_are_errors(self):
-        varied = history(2.0, [1, 2])
-        varied["regions"][1]["volume"] = 4.5
+        # ADR-0226: 物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数のどれかが違う
+        changes = {
+            "material": (1, "material", "oxide"),
+            "cell": (1, "cell", 22),
+            # 組の代表の位置と組の大きさが同じで、ほかのセルの位置が違う（ADR-0226 の反例と同じ形）
+            "later cells": (0, "cells", [[2, 3], [3, 3]]),
+            # 組の代表の番号が同じで、その位置が違う（形の違う格子）
+            "first cell": (1, "cells", [[3, 4]]),
+            "volume": (1, "volume", 4.5),
+            "MOC regions": (1, "regions", [1, 2, 3]),
+        }
+        for name, (region, key, value) in changes.items():
+            varied = history(2.0, [1, 2])
+            varied["regions"][region][key] = value
+            with self.subTest(name), self.assertRaises(SystemExit):
+                make_hybrid.hybrid(history(1.0, [1, 2]), varied)
+
+    def test_histories_without_the_cells_of_the_regions_are_errors(self):
+        # 組のセルを書く前の形式の履歴（ADR-0226）
+        nominal, varied = history(1.0, [1, 2]), history(2.0, [1, 2])
+        for region in nominal["regions"] + varied["regions"]:
+            del region["cells"]
         with self.assertRaises(SystemExit):
-            make_hybrid.hybrid(history(1.0, [1, 2]), varied)
+            make_hybrid.hybrid(nominal, varied)
 
     def test_histories_with_other_burnup_points_are_errors(self):
         varied = history(2.0, [1, 2])

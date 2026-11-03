@@ -4,7 +4,8 @@
     python3 make_hybrid.py <公称の履歴> <条件を変えた履歴> <出力> --micro <分岐の入力>
 
 履歴は lattice の燃焼の履歴（`xlc-depletion-history`。ADR-0173）。2 つの履歴は、同じ核種の並び、同じ燃焼の領域、同じ燃焼点を
-持つこと（違えば止まる。燃焼の領域は物質、セル、体積で比べる）。置き換えるのは各燃焼点の各領域の数密度だけで、k∞ などのほかの項目は公称の履歴のまま
+持つこと（違えば止まる。燃焼の領域は lattice と同じく物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数で比べる。
+ADR-0226）。置き換えるのは各燃焼点の各領域の数密度だけで、k∞ などのほかの項目は公称の履歴のまま
 （`[history]` の分岐は数密度だけを読む。ADR-0187）。置き換える核種は、`--micro` が無ければ ADR-0035 の候補の元素（U、Np、Pu、Am、
 Xe、Sm、Gd）の核種のすべて（「履歴の効き（2A）」）、あれば分岐の入力（TOML）の `[history]` の `micro` の核種（履歴の残り R の第 3 項と
 同じ追う核種。ADR-0215、ADR-0216）。
@@ -24,8 +25,19 @@ def element(nuclide):
 
 
 def identity(region):
-    """燃焼の領域の物質、セル、体積。MOC の領域の番号は格子（案内管の中身）で変わり、lattice は入力から求め直すので比べない（ADR-0187）"""
-    return (region["material"], region["cell"], region["volume"])
+    """燃焼の領域の物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数（lattice の `region_mismatch` と同じ。ADR-0226）。
+    MOC の領域の番号は格子（案内管の中身）で変わり、lattice は入力から求め直すので比べない"""
+    if "cells" not in region:
+        raise SystemExit(
+            "the history has no cells of the depletion regions (written before ADR-0226); deplete it again"
+        )
+    return (
+        region["material"],
+        region["cell"],
+        [tuple(c) for c in region["cells"]],
+        region["volume"],
+        len(region["regions"]),
+    )
 
 
 def tracked_indices(nuclides):
