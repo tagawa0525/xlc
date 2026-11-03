@@ -203,7 +203,7 @@ Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、Open
 （db574cfb。deps の差はコメントだけ。#0145）。その後の `openmc_depletion.py` の docstring の変更（01f33be9）も、再実行せずに
 `dvc commit` で付け直した（92a332fd）。xlc の格子（`lattice-1C`）は d4a6832c（ブランチ feat/0152-mox1-reference）、分岐点は main の
 3dda20789、2026-11-03（Slurm の timed のジョブ 658。時間の表の xlc の行はこの実行の値。ADR-0214 の既定の 32 スレッド（ログの
-`thread pool threads=32`））。比較（`compare-1C`）は、Pu-240、Pu-241、Pu-242、Am-241 を足した 174281d6（ブランチ docs/0152-mox1-record、
+`thread pool threads=32`））。比較（`compare-1C`）は、Pu-240、Pu-241、Pu-242、Am-241 を足した 374fa19e（ブランチ docs/0152-mox1-record、
 分岐点は main の e04aa5ecc）、2026-11-03（手元。数秒のステージ）。比較の JSON は、前の実行（2d9d9f44c、Slurm 581）と `seconds`、
 入力の md5、足した 4 核種の列のほかは同じ。
 自己遮蔽の UFG の減速計算は ADR-0209 の既定
@@ -1592,7 +1592,7 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 OpenMC（`openmc-mox1`、`openmc-mox1-extract`）は 55aac8a3（ブランチ feat/0152-mox1-reference）、分岐点は main の f86d7fda8、
 2026-10-31（Slurm 639。割り込まれうるジョブなので時間は書かない）。xlc の格子（`lattice-mox1`）は d4a6832c（同じブランチ）、
 分岐点は main の 3dda20789、2026-11-03（Slurm 655。割り込まれうるジョブで、時間は書かない。出力は Slurm 659 で run-cache から戻した）。
-比較（`compare-mox1`）は 174281d6（ブランチ docs/0152-mox1-record、分岐点は main の e04aa5ecc）、2026-11-03（手元。数秒のステージ）。
+比較（`compare-mox1`）は 374fa19e（ブランチ docs/0152-mox1-record、分岐点は main の e04aa5ecc）、2026-11-03（手元。数秒のステージ）。
 自己遮蔽の UFG の減速計算は 1C と同じ ADR-0209 の既定、ライブラリは 1C と同じ `depletion.msgpack`（md5 d86514f8）。燃料で輸送する
 核種は両方で同じ 54（`compare_depletion.py` が確かめる）。比較の入力は `lattice-mox1-rings1.msgpack` md5 6fe00e52、
 `openmc-mox1-rings1.msgpack` md5 6171eec9（JSON の `inputs`）。OpenMC のログに「Negative value(s) found on probability table for nuclide
