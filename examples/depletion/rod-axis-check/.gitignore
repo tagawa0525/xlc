@@ -1,4 +1,4 @@
-fg-*.msgpack
-lattice*.out
-lattice*.log
-compare.out
+/fg-*.msgpack
+/lattice*.out
+/lattice*.log
+/compare.out
