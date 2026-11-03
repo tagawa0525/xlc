@@ -40,13 +40,11 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
   - 区分 timed か `--timed` で流す
   - 始めから測る。残っている `.checkpoint` を先に消す（下の項。再開した履歴の `seconds` は前の実行との和で、前の実行が
     main のジョブなら、その時間が入る）
-  - 格子計算のステージの出力（その `dvc.yaml` の outs）を消してから、そのステージを目標に `dvc repro --no-run-cache <yaml>:<ステージ>`
-    で流し、続けて比較のステージを `dvc repro <yaml>:<比較のステージ>` で流す。changed でないステージは `--no-run-cache` を付けても
-    走らない（`Stage '…' didn't change, skipping`）ので、出力を消して changed にする。`--no-run-cache` を付けないと、run-cache に
-    同じ deps の実行があれば、DVC はステージを実行せず前の出力を戻して dvc.lock に書き（`is cached - skipping run`）、`seconds` は
-    前のジョブのものになる。`--no-run-cache` は目標の上流の changed のステージも実行するので、上流（xs など）は先に揃えておく。
-    比較のステージには付けない（上流の OpenMC の出力が戻っていなければ、参照解を作り直す）。ログに格子計算のステージの
-    `Running stage` が出たことを確かめる
+  - ログに格子計算のステージの `Running stage` が出たことを確かめる。`is cached - skipping run, checking out outputs` は
+    実行せずに前の出力を戻したもので、`seconds` は前のジョブのまま。DVC 3.67.1 の `StageCache.restore`（dvc/stage/cache.py）は、
+    ステージの cmd と deps が dvc.lock と同じで、dvc.lock に outs の hash があれば（出力を消しても）、`--no-run-cache` を付けても dvc.lock から
+    前の出力を戻す（#0218）。2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
+    格子計算を戻すだけで終わり、depletion の dvc.lock を戻して changed にしてから流した Slurm 658 で走った（#0152）
   - 比較のステージだけが走る再実行（上流が走らない）は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。上流が
     走らないことは、CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
     確かめる。`dvc status` だけでは、上流が出力を書き換えた後に走る下流が出ない
