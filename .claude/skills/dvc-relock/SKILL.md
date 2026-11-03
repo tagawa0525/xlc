@@ -1,11 +1,13 @@
 ---
 name: dvc-relock
-description: DVC のステージ（examples/*/dvc.yaml）を含むブランチのマージの前後の手順。rebase のあとに dvc.lock を整え、マージのあとに main の出力を置き換える。/git-merge の rebase の段の後とマージの後に使う。
+description: DVC のステージ（examples/*/dvc.yaml）を含むブランチのマージの前後の手順。rebase のあとに dvc.lock を整え、マージが .gitignore から外れた古い出力で止まったら main の出力を消してよいかを決め、マージのあとに main の出力を置き換える。/git-merge の rebase の段の後、マージの hook がその一覧で止まったとき、マージの後に使う。
 allowed-tools:
   - Bash(nix develop -c scripts/dvc-checkout.py*)
   - Bash(nix develop -c dvc status)
   - Bash(nix develop -c dvc status --json*)
   - Bash(nix develop -c dvc status --with-deps examples/*)
+  - Bash(nix develop -c dvc status examples/*)
+  - Bash(md5sum*)
   - Bash(nix develop -c scripts/check-dvc-lock.sh*)
   - Bash(nix develop -c scripts/compare-dvc-lock.py*)
   - Bash(nix develop -c scripts/count-changed-stages.py*)
@@ -37,7 +39,8 @@ ADR-0130 の「帰結」、規則は CLAUDE.md の「計算」にある。
 - 数秒で終わるステージだけは再実行してよい
 
 手順は前半（rebase のあと。ブランチの worktree）と後半（マージのあと。main の worktree）に分かれる。呼ばれたときの
-worktree と、マージ済みかどうかで、どちらかを選ぶ。
+worktree と、マージ済みかどうかで、どちらかを選ぶ。マージが pre-merge-commit の hook の「.gitignore から外した生成物」の
+一覧で止まったときは、その間の「マージが止まったら」（main の worktree）を行う。
 
 /git-merge のレビューの指摘を直して再び rebase したときは、前半をもう一度行う（分岐点が変わるので、下の 5 も直す）。
 
@@ -161,23 +164,44 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 
 この後は /git-merge の「チェック」に進む。
 
-### マージが止まったら: main の作業ツリーに残る古い出力
+## マージが止まったら: ブランチが .gitignore から外した古い出力（main の worktree で）
 
-ブランチが DVC の outs のパスを `.gitignore` から外したとき、main の作業ツリーには以前の `dvc checkout` / `dvc repro` が置いた
-古い出力が、まだ無視されたファイルとして残っている。`cache: false` に変えて git で追跡するようにした出力は、git がマージで
-上書きする（無視されたファイルは消してよいものとして扱い、止まらない）。どのステージも持たなくなった出力（ステージを消した、outs の
-名前を変えた）は、マージで持ち主の無い未追跡のファイルになり、pre-merge の hook（作業ツリーにマージ結果以外の変更がある）が、
-検査を始める前にそのパスを並べて止まる（2026-11-03 に #0093 が examples/core の assembly-* を置き換えて、`fg-*.msgpack` と
-`lattice-*.out` の 6 本で止まった。2026-10-15 にも p5 と p3 の `compare-*.out` で 2 回止まった。そのときの止まり方は確かめていない）。
+ブランチがステージを消すか outs の名前を変えると、DVC が書いた `.gitignore` の行も消え、main の作業ツリーに残る古い出力
+（以前の `dvc checkout` / `dvc repro` が置いたもの）がマージの結果では未追跡のファイルになる。pre-merge-commit の hook は
+それを「マージするブランチが .gitignore から外した生成物」の一覧に分けて止まり、記録された版（DVC のキャッシュなど）と中身が
+同じで戻せるなら消す、違うか記録が無ければ原因を調べる、と示す（2026-11-03 に #0093 が examples/core の assembly-* のステージを
+1 本の lattice に置き換え、`fg-{out,aic,b4c}.msgpack` と `lattice-{out,aic,b4c}.out` の 6 本で止まった）。この節は、
+その一覧の DVC の出力について、消してよいかの決め方を書く。
 
-前もって探さず、hook の一覧を使う（マージの後に未追跡になるパスを git が正確に出す。`.gitignore` の差を手で読むと、相対パス、
-`.dvc` ファイル、直下のパターンで漏れる）。止まったら:
+/git-merge は hook の拒否を「ブランチで直す」と扱い、/topic-start は main の作業ツリーで dvc を実行しないとするが、この一覧の
+ファイルは main の作業ツリーにだけある追跡しないファイルで、ブランチでは直せない。下の手順（main の worktree での
+`git merge --abort`、`dvc status`、消すこと）はその例外で、ブランチは変わらないので rebase、レビュー、チェックはやり直さない。
+一覧のほかの行（印の無い変更と未追跡のファイル）は hook の修正方法と /git-merge のとおりに扱う。
 
-1. 並んだパスが、ブランチで `.gitignore` から外れたもの（ブランチの worktree で `git diff main...HEAD -- '*.gitignore'`）かを確かめる。
-   ほかのパスが混じれば、消さずに原因を調べる
-2. main の worktree で `git merge --abort` し、並んだパスを消す。消すのは、main の dvc.lock か `.dvc` が md5 を持ち、キャッシュから
-   戻せる古い出力だけ（`nix develop -c dvc status` で見る）。戻せないもの（手で流した出力など）は消さず、ユーザーに聞く
-3. もう一度マージする。マージをやめたら、消した出力を持っていた main の dvc.yaml か `.dvc` を指定して
+1. main の worktree で `git merge --abort` する。この後は main の HEAD の `dvc.lock` と `.dvc` で判断する（マージの途中の
+   作業ツリーにはブランチの `dvc.lock` があり、消えたステージが載っていない）。hook の一覧に印が無い（古い版の hook）ときは、
+   `git status --short --ignored -- <パス>` で `!!`（main で無視されている）と出るパスを同じく扱う
+2. パスごとに、main の記録と比べる。パスのある例の `dvc.yaml`（`.dvc` で追う生成物なら、その `.dvc`）を指定して:
+
+   ```bash
+   nix develop -c dvc status examples/<問題>/dvc.yaml
+   ```
+
+   `changed outs` の行の見方（dvc 3.67.1 の `Output.status`。パスはリポジトリの直下から）:
+
+   - パスが出ない（ステージの `outs` にあって、`changed outs` に無い。ディレクトリの出力の中のファイルは、そのディレクトリで見る）: 中身が main の `dvc.lock` の md5 と同じで、キャッシュに
+     ある。消してよい（戻すときは `scripts/dvc-checkout.py` で同じ版が戻る）
+   - `modified:`: 中身が `dvc.lock` の md5 と違う（DVC を入れる前の出力、手で流した出力など）。消すと git にもキャッシュにも無く、
+     戻らないので、消さずに何の出力でなぜ違うかを調べる
+   - `not in cache:`: `dvc.lock` の md5 の版がキャッシュに無い。中身が同じでも消すと戻らないので、消さずに原因を調べる
+   - どのステージの `outs` にも、どの `.dvc` にも無い: 記録が無い。消さずに原因を調べる
+
+   1 本のファイルの出力は、dvc を使わずにも確かめられる: `md5sum <パス>` が `dvc.lock` のその出力の `md5:` と同じで、
+   キャッシュ（`.dvc/config` の `cache.dir` で `references/dvc-cache`。`.dvc/cache` ではない）に
+   `files/md5/<md5 の最初の 2 文字>/<残り>` があること。ディレクトリの出力（`md5:` が `.dir` で終わる）は中のファイルごとの md5 が
+   キャッシュの `.dir` のファイルにあるので、`dvc status` で見る
+3. 消してよいと決めたパスだけを main の worktree で消し、同じ `git merge` をやり直す。消さないパスが残れば、マージせずに
+   原因と一緒にユーザーに聞く。マージをやめたら、消した出力は消したパスの例の `dvc.yaml`（か `.dvc`）を指定した
    `nix develop -c scripts/dvc-checkout.py <指定>` で戻す
 
 ## 後半: マージのあと（main の worktree で）
