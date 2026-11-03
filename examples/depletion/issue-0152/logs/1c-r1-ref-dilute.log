@@ -1,0 +1,13 @@
+2026-11-03T12:08:50.665267Z  INFO lattice: thread pool threads=32 from="default"
+2026-11-03T12:08:50.671842Z  INFO xlc_lattice::symmetry: symmetry symmetry="all eight operations (1/8)" operations=8
+2026-11-03T12:08:51.543745Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=1.70ms time.idle=4.09µs
+2026-11-03T12:08:51.633483Z  INFO shielding:dancoff: xlc_lattice::shielding: close time.busy=89.7ms time.idle=2.31µs
+2026-11-03T12:10:37.903180Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=0.0 solved=0.000126958
+2026-11-03T12:10:37.903243Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=11.1µs time.idle=2.28µs
+2026-11-03T12:10:37.903254Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=902ns time.idle=411ns
+2026-11-03T12:10:37.903260Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=1 solved=1 points_min=Some(325657) points_max=Some(325657) points_sum=325657
+2026-11-03T12:10:37.903267Z  INFO shielding: xlc_lattice::shielding: close time.busy=106s time.idle=2.50µs
+2026-11-03T12:10:37.904138Z  INFO moc{regions=104 tracks=5188}: xlc_lattice::moc::symmetric: symmetry tracks=5188 representative_tracks=651 regions=104 representative_regions=13 cells=1 representative_cells=1
+2026-11-03T12:10:38.151859Z  INFO moc{regions=104 tracks=5188}: xlc_lattice::moc: close time.busy=249ms time.idle=1.84µs
+2026-11-03T12:10:38.151913Z  INFO lattice: lattice state=0 iterations=109 tracks=5188 seconds=106.609905651 total_seconds=107.486624039
+elapsed 108 s
