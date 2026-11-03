@@ -23,6 +23,7 @@
 | `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`）。記録の表は `../verification_tables.py` が描く                |
 | `branches/`                                        | 2A の燃焼の履歴の燃焼点からの分岐のテーブル（`branch-2A.toml`）と、それを内挿する core の集合体 1 体（`core-2A.toml`） |
 | `warm-start/`                                      | MOC を前の輸送の解から始めた（ADR-0195）2A の燃焼の最初の 10 点と分岐の 12 状態、平らな初期値からの出力との比較        |
+| `rod-axis-check/`                                  | 1 つの入力の履歴からの分岐の制御棒の組（ADR-0225）と、値ごとの入力を rod_table.py でまとめた形の一致を確かめる入力     |
 
 誤差と差は、絶対値の最大を初期の数密度の最大で割ったもの（ADR-0161 の「確認」）。
 
@@ -6554,6 +6555,44 @@ python3 examples/depletion/compare_core_partial_rods.py --report $B/compare-core
   U-238 では割合について単調だが、数密度が単調な U-234、U-235 などを含む 26 核種で単調でない点を持つ（`--report`）。生成と消滅が燃焼度に
   ついて線形でない核種では燃焼度で割っても燃焼度の差を除けないので、この値は候補を確かめも否定もしない（同じノードの燃焼度で比べる
   方法は #0197）
+
+## 制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）
+
+燃焼の履歴からの分岐と制御棒の分岐を組んだ 1 つの入力（ADR-0225。`rod-axis-check/branch.toml`）のテーブルと、ADR-0225 の前の形
+（棒のない値の入力 `branch-out.toml` と、案内管を制御棒を入れたセルにした値 aic の入力 `branch-aic.toml` を別々に解き、
+`../core/rod_table.py` でまとめたもの）のテーブルを、同じ実行ファイルで作って比べた。格子、組成、状態（ホウ素 1000、1300 ppm ×
+燃料 565、600 K）、追う核種、Pu-240 の数密度の微分は `branches/branch-2A-micro-rod-axis.toml` と同じで、燃焼度の点を 0、10、
+40 MWd/kg に絞り、値 aic は 0 と 40 MWd/kg だけで解く（`rod-burnup`。燃焼点を間引いた値の反復を始める解を通す）。棒のない値は
+3 点 × 4 状態、値 aic は 2 点 × 4 状態で、テーブルは 20 の点を持つ。
+
+2 つのテーブルを MessagePack から読んだ値は、軸（burnup、boron、moderator、fuel、rod）、点、少数群定数、追う核種の燃焼度の点ごとの
+均質化した数密度、状態ごとの微視的断面積と数密度の微分のすべての項目でビットまで等しく、2 つのファイルはバイト列まで同じ
+（公称の状態（ホウ素 1300 ppm、燃料 565 K）の k∞ は、棒のない値が燃焼度 0、10、40 MWd/kg で 1.1830883018086626、1.0549634687809895、
+0.843262101234505、値 aic が燃焼度 0、40 MWd/kg で 0.8531162951597093、0.6187480380961269）。自己遮蔽（値ごとの形状、ホウ素の参照の再利用。
+ADR-0201）、値ごとの形状の燃焼の領域、数密度の微分の摂動の自己遮蔽、点の並べ替え、値の燃焼点の始める解のどれでも、1 つの入力は
+値ごとの別の入力と同じ問題を解く。
+
+```sh
+cargo build --release -p xlc-lattice
+cd examples/depletion/rod-axis-check
+for v in out aic; do ../../../target/release/lattice branch-$v.toml > lattice-$v.out 2> lattice-$v.log; done
+../../../target/release/lattice branch.toml > lattice.out 2> lattice.log
+python3 ../../core/rod_table.py fg-merged.msgpack out=fg-out.msgpack aic=fg-aic.msgpack
+python3 ../../core/rod-branch-check/compare_rod_branch.py fg-branch.msgpack fg-merged.msgpack
+```
+
+比べ方は 2 つのテーブルを Python の msgpack で読んだ値の `==`（浮動小数点の値の厳密な一致）。ライブラリは `p2/depletion.msgpack`
+（md5 e84310aff668e474fa68d822168b4538）、燃焼の履歴は `p2/lattice-2A.msgpack`（md5 7efea6648225ba815eb831ad73a431aa）で、どちらも
+分岐点の `p2/dvc.lock` のもの。
+
+### 計算
+
+xlc b588ab8d（分岐点は main の 3dda2078。ADR-0226 の前）、2026-11-03。上の格子計算を Slurm の排他のジョブ 656（区分 decision、
+32 スレッド。割り込まれうるジョブで止められていたので、時間は記録に使わない）で実行し、rod_table.py と比べるツールは手元で実行した。
+b588ab8d はブランチの rebase の前のコミットで、タグ `record/adr-0225-rod-axis-check` で残す。rebase の後の同じ変更のコミットは
+7d8a998a。7d8a998a は ADR-0226 の後で、使った燃焼の履歴（`p2/lattice-2A.msgpack` md5 7efea664。前の形式で、燃焼の領域の `cells` が
+無い）を読めないので、この結果は 7d8a998a では再現できない。今のコードで再実行するには、先に p2 の履歴を今の形式で作り直す
+（ADR-0226 の帰結）。テーブルの作り直しは #0213。
 
 ## サイクルのステップの core の燃焼（2A の集合体 1 体）
 

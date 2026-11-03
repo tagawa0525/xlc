@@ -624,6 +624,36 @@ fn states_outside_the_subgrids_start_from_the_last_solved_state() {
 }
 
 #[test]
+fn states_step_back_to_the_previous_point_their_value_solves() {
+    // 制御棒の値 × 燃焼度 3 点 × ホウ素 2 点で、棒のない値はすべて、値 1 は燃焼度 0 と 2 だけを解く（ADR-0225）。値 1 の燃焼度 2 の
+    // 状態は、その値の 1 つ前の燃焼点（0）の同じ状態から始め、燃焼度だけを間引いた別の入力の格子計算と同じ始める解になる
+    let counts = [2, 3, 2];
+    let present: Vec<usize> = (0..12)
+        .filter(|&s| {
+            let at = state_indices(&counts, s);
+            at[0] == 0 || at[1] != 1
+        })
+        .collect();
+    let mut starts = Starts::over(&counts, present.clone());
+    let mut seen = Vec::new();
+    for &s in &present {
+        seen.push((state_indices(&counts, s), starts.start().copied()));
+        starts.solved(s).unwrap();
+    }
+    let index = |at: [usize; 3]| state_index(&counts, &at);
+    let start_of = |at: [usize; 3]| {
+        seen.iter()
+            .find(|(a, _)| a[..] == at[..])
+            .map(|(_, start)| *start)
+            .unwrap()
+    };
+    assert_eq!(start_of([1, 2, 0]), Some(index([1, 0, 0])));
+    assert_eq!(start_of([1, 2, 1]), Some(index([1, 2, 0])));
+    // 棒のない値はすべての燃焼点を解くので、1 つ前の燃焼点から
+    assert_eq!(start_of([0, 2, 0]), Some(index([0, 1, 0])));
+}
+
+#[test]
 fn restored_starts_follow_the_solved_states() {
     // 書いた解の番号は、解く状態の並びから決まる軸ごとの状態と合うこと
     let counts = [3, 3, 3];
@@ -746,12 +776,73 @@ fn invalid_rod_branches_are_errors() {
     );
     let err = LatticeInput::parse(&axial).unwrap_err().to_string();
     assert!(err.contains("nodes that rods never enter"), "{err}");
-    // 燃焼の履歴からの分岐と制御棒の軸はまだ組めない（#0213）
+}
+
+/// 制御棒の分岐（値 aic と b4c）と、燃焼の履歴からの分岐（燃焼点 0、10、20、40）の入力。連続の軸は入力の物質を公称の格子点に
+/// 持つ（ADR-0200 の部分格子）。`history` は `[history]` に足す行
+fn history_with_rods(history: &str) -> String {
     let text = with_rods(
-        "\n[branches.rod]\naic = { gt = \"rod\" }\n\n[history]\nfile = \"h.msgpack\"\nburnup = [0]\n",
+        "\n[branches.rod]\naic = { gt = \"rod\" }\nb4c = { gt = \"other\" }\n\n[history]\nfile = \"h.msgpack\"\n\
+         burnup = [0, 10, 20, 40]\n",
+    )
+    .replace("ppm = [900, 1700]", "ppm = [900, 1300]")
+    .replace("temperature = [550, 580]", "temperature = [565, 580]");
+    format!("{text}{history}")
+}
+
+#[test]
+fn history_branches_take_the_rod_axis() {
+    // 燃焼の履歴からの分岐も制御棒の軸を持つ（ADR-0225）。値ごとの燃焼点を書かなければ、制御棒の値の状態は公称でない状態の
+    // 燃焼点で解く
+    let input =
+        LatticeInput::parse(&history_with_rods("off-nominal-burnup = [0, 20, 40]\n")).unwrap();
+    assert_eq!(
+        input.rod_values(),
+        ["out", "aic", "b4c"].map(String::from).to_vec()
     );
-    let err = LatticeInput::parse(&text).unwrap_err().to_string();
-    assert!(err.contains("#0213"), "{err}");
+    let history = input.history.as_ref().unwrap();
+    assert_eq!(history.off_nominal, vec![0.0, 20.0, 40.0]);
+    assert_eq!(history.rod_burnup("aic"), &[0.0, 20.0, 40.0][..]);
+    assert_eq!(history.rod_burnup("b4c"), &[0.0, 20.0, 40.0][..]);
+    // 値ごとに燃焼点を選べる（ADR-0200 の「組ごとに燃焼点を入力で選ぶ」）
+    let input = LatticeInput::parse(&history_with_rods(
+        "off-nominal-burnup = [0, 40]\nrod-burnup = { aic = [0, 10, 20, 40] }\n",
+    ))
+    .unwrap();
+    let history = input.history.as_ref().unwrap();
+    assert_eq!(history.rod_burnup("aic"), &[0.0, 10.0, 20.0, 40.0][..]);
+    assert_eq!(history.rod_burnup("b4c"), &[0.0, 40.0][..]);
+}
+
+#[test]
+fn rod_burnups_are_history_burnups_of_rod_values() {
+    for (bad, why) in [
+        (
+            "rod-burnup = { pyrex = [0, 40] }\n",
+            "not a value of [branches.rod]",
+        ),
+        (
+            "rod-burnup = { out = [0, 40] }\n",
+            "not a value of [branches.rod]",
+        ),
+        ("rod-burnup = { aic = [0, 20] }\n", "the last point"),
+        ("rod-burnup = { aic = [10, 40] }\n", "the first point"),
+        ("rod-burnup = { aic = [0, 15, 40] }\n", "not a point"),
+        ("rod-burnup = { aic = [0, 20, 10, 40] }\n", "not increasing"),
+        ("rod-burnup = { aic = [] }\n", "empty"),
+    ] {
+        assert!(
+            LatticeInput::parse(&history_with_rods(bad)).is_err(),
+            "{why}: {bad}"
+        );
+    }
+    // 制御棒の分岐のない入力の値ごとの燃焼点は、解く値がないので書けない
+    let text = history_with_rods("rod-burnup = { aic = [0, 40] }\n").replace(
+        "[branches.rod]\naic = { gt = \"rod\" }\nb4c = { gt = \"other\" }\n",
+        "",
+    );
+    assert!(!text.contains("[branches.rod]"));
+    assert!(LatticeInput::parse(&text).is_err());
 }
 
 #[test]

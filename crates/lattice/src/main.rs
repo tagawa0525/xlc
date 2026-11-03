@@ -4,6 +4,7 @@
 //! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、ピン出力、少数群定数を燃焼の履歴のファイルに書く（ADR-0173、ADR-0181）。
 //! `continue` があれば、その燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（ADR-0215 の確認）。
 //! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
+//! 制御棒の分岐と組めば、値ごとの形状の燃焼の領域で同じ組成を解き、制御棒の値はその値の燃焼点だけで解く（ADR-0225）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!         lattice histories <入力ファイル>（履歴の補正の残り R を公称のテーブルに書き足す。`xlc_lattice::residual`。ADR-0215）
@@ -46,6 +47,7 @@ use xlc_lattice::checkpoint::{
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::geometry::Lattice;
+use xlc_lattice::history::ValueGeometry;
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{
     CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput, VOID,
@@ -252,10 +254,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         chosen,
     };
     let Geometry {
-        lattice,
         region_materials,
         tracking,
         chosen,
+        ..
     } = &base_geometry;
     let (source, label, source_digest) = source?;
     if let (Some(f), Some(d)) = (&mut fingerprint, source_digest) {
@@ -358,21 +360,50 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Source::Library(library) => Some(library.groups.clone()),
         Source::Macroscopic(_) => None,
     };
-    // 燃焼の履歴の燃焼点からの分岐（ADR-0187）: 解く状態、燃焼の領域の物質の名前、燃焼度の軸を足した軸
+    // 制御棒の軸の値（ADR-0224）。値ごとに連続の軸の同じ状態を解く
+    let rod_values = input.rod_values();
+    let rods = rod_values.len();
+    // 基準の形状でない値の形状。入力の誤り（置き換えたセルの形状、強制した対称性）を、状態を解く前にすべての値で見つける
+    let rod_geometries: Vec<Geometry> = (1..rods)
+        .map(|rod| -> anyhow::Result<Geometry> {
+            let context = || format!("{}: rod {}", shown(path), rod_values[rod]);
+            let (lattice, region_materials) = input.rod_geometry(rod).with_context(context)?;
+            let (tracking, chosen) =
+                track_and_choose(&lattice, &region_materials).with_context(context)?;
+            Ok(Geometry {
+                lattice,
+                region_materials,
+                tracking,
+                chosen,
+            })
+        })
+        .collect::<anyhow::Result<_>>()?;
+    // 値 `rod` の形状（0 は基準の形状）
+    let geometry_of = |rod: usize| -> &Geometry {
+        match rod.checked_sub(1) {
+            None => &base_geometry,
+            Some(r) => &rod_geometries[r],
+        }
+    };
+    // 燃焼の履歴の燃焼点からの分岐（ADR-0187）: 解く状態、値ごとの燃焼の領域の物質の名前、燃焼度の軸を足した軸
     let history_branches = match (&input.history, &source) {
         (Some(history), Source::Library(library)) => {
             let file = base.join(&history.file);
             let bytes = read("history", &file)?;
             let history_file = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
-            let mut branches = xlc_lattice::history::history_branches(
-                &input,
-                &history_file,
-                library,
-                lattice,
-                region_materials,
-                chosen,
-            )
-            .with_context(|| format!("{}: history", shown(path)))?;
+            let geometries: Vec<ValueGeometry> = (0..rods)
+                .map(|rod| {
+                    let g = geometry_of(rod);
+                    ValueGeometry {
+                        lattice: &g.lattice,
+                        region_materials: &g.region_materials,
+                        chosen: &g.chosen,
+                    }
+                })
+                .collect();
+            let mut branches =
+                xlc_lattice::history::history_branches(&input, &history_file, library, &geometries)
+                    .with_context(|| format!("{}: history", shown(path)))?;
             if let Some(shielding) = &history.shielding_file {
                 let file = base.join(shielding);
                 let bytes = read("shielding history", &file)?;
@@ -393,10 +424,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Some(h) => &h.axes[..],
         None => input.branches.as_ref().map_or(&[][..], |b| b.axes()),
     };
-    // 自己遮蔽と MOC に渡す領域ごとの物質の名前（燃焼の領域は `<物質>@<セル>`）
-    let solved_materials = history_branches
-        .as_ref()
-        .map_or(&region_materials[..], |h| &h.region_materials[..]);
+    // 値 `rod` の自己遮蔽と MOC に渡す領域ごとの物質の名前（燃焼の領域は `<物質>@<セル>`）
+    let solved_materials = |rod: usize| -> &[String] {
+        match &history_branches {
+            Some(h) => h.region_materials(rod),
+            None => &geometry_of(rod).region_materials,
+        }
+    };
     // 平板の物質の媒質（ADR-0128）。ライブラリの群境界と分岐の軸に合うことを解く前に確かめる
     let media = input
         .media
@@ -414,8 +448,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let medium_names: Vec<String> = input.media.iter().map(|m| m.name.clone()).collect();
     // 連続の軸（と燃焼度の軸）の点の数。状態の番号はこの軸の直積の順
     let counts: Vec<usize> = axes.iter().map(Axis::len).collect();
-    // 制御棒の軸の値（ADR-0224）。値ごとに連続の軸の同じ状態を解く
-    let rod_values = input.rod_values();
     let values = |rod: usize, state: usize| -> String {
         axes.iter()
             .zip(state_indices(&counts, state))
@@ -428,17 +460,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
-    // 解く状態（軸の直積の順の番号）: 部分格子の状態と、公称でない状態を解く燃焼点（ADR-0200）
-    let present_states: Vec<usize> = (0..count)
-        .filter(|&state| match (&history_branches, &input.branches) {
-            (Some(h), _) => h.solved(state),
-            (None, Some(b)) => b.solved(state),
-            (None, None) => true,
+    // 値ごとの解く状態（軸の直積の順の番号）: 部分格子の状態と、公称でない状態を解く燃焼点（ADR-0200）。履歴からの分岐の制御棒の
+    // 値は、その値の燃焼点（ADR-0225）。履歴のない分岐は、どの値も同じ状態
+    let present_states: Vec<Vec<usize>> = (0..rods)
+        .map(|rod| {
+            (0..count)
+                .filter(|&state| match (&history_branches, &input.branches) {
+                    (Some(h), _) => h.solved(rod, state),
+                    (None, Some(b)) => b.solved(state),
+                    (None, None) => true,
+                })
+                .collect()
         })
         .collect();
-    // 制御棒の値ごとに（`out` から）同じ状態を解く。解く状態の通しの番号は 値 × 状態の数 + 状態で、制御棒の値の軸を最初の軸に
-    // 足した直積の順（チェックポイントと反復を始める解はこの番号で引く。ADR-0224）
-    let rods = rod_values.len();
+    // 制御棒の値ごとに（`out` から）解く。解く状態の通しの番号は 値 × 状態の数 + 状態で、制御棒の値の軸を最初の軸に足した直積の順
+    // （チェックポイントと反復を始める解はこの番号で引く。ADR-0224）
     let solve_counts: Vec<usize> = if rods > 1 {
         std::iter::once(rods)
             .chain(counts.iter().copied())
@@ -446,24 +482,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
     } else {
         counts.clone()
     };
-    let present: Vec<usize> = (0..rods)
-        .flat_map(|rod| present_states.iter().map(move |&state| rod * count + state))
+    let present: Vec<usize> = present_states
+        .iter()
+        .enumerate()
+        .flat_map(|(rod, states)| states.iter().map(move |&state| rod * count + state))
         .collect();
-    // 基準の形状でない値の形状。入力の誤り（置き換えたセルの形状、強制した対称性）を、状態を解く前にすべての値で見つける
-    let rod_geometries: Vec<Geometry> = (1..rods)
-        .map(|rod| -> anyhow::Result<Geometry> {
-            let context = || format!("{}: rod {}", shown(path), rod_values[rod]);
-            let (lattice, region_materials) = input.rod_geometry(rod).with_context(context)?;
-            let (tracking, chosen) =
-                track_and_choose(&lattice, &region_materials).with_context(context)?;
-            Ok(Geometry {
-                lattice,
-                region_materials,
-                tracking,
-                chosen,
-            })
-        })
-        .collect::<anyhow::Result<_>>()?;
     // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
     // 自己遮蔽の履歴があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す（`HistoryBranches::shield_with`）
@@ -479,20 +502,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut shielder: Option<(usize, BranchShielder)> = None;
     let mut finished_shieldings = 0;
     // 数密度の微分（ADR-0221）の摂動の組成は、微分の核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の
-    // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ
-    let mut perturbed_shielders: Vec<BranchShielder> = history_branches
-        .iter()
-        .flat_map(|h| h.derivative_nuclides())
-        .map(|_| {
-            BranchShielder::new(
-                tracking,
-                solved_materials,
-                &varied,
-                chosen.shielding(),
-                input.shielding_options(),
-            )
-        })
-        .collect();
+    // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、
+    // 今の値の形状のものだけを持つ
+    let derivatives = history_branches
+        .as_ref()
+        .map_or(0, |h| h.derivative_nuclides().len());
+    let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
+    let mut finished_derivative_shieldings = 0;
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -508,13 +524,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 状態ごとに、前に解いた近い状態の MOC の収束した状態 `from` から反復を始める（ADR-0195。`solve_states` が持つ）
     let solve = |solved: usize, from: Option<&Start>| -> anyhow::Result<(SavedState, Start)> {
         let (rod, state) = (solved / count, solved % count);
-        let geometry: &Geometry = match rod.checked_sub(1) {
-            None => &base_geometry,
-            Some(r) => &rod_geometries[r],
-        };
+        let geometry = geometry_of(rod);
         // 値の最初の状態は、形状の違う前の値の解から始めない（領域が違う。値の中の並びは、セルを置き換えた別の入力の格子計算と同じ
         // 始める解になる。ADR-0224）
-        let from = if present_states.first() == Some(&state) {
+        let from = if present_states[rod].first() == Some(&state) {
             None
         } else {
             from
@@ -524,22 +537,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
         {
             finished_shieldings += done.shieldings();
         }
-        let (_, shielder) = shielder.get_or_insert_with(|| {
-            (
-                rod,
-                BranchShielder::new(
-                    &geometry.tracking,
-                    if rod == 0 {
-                        solved_materials
-                    } else {
-                        &geometry.region_materials
-                    },
-                    &varied,
-                    geometry.chosen.shielding(),
-                    input.shielding_options(),
-                ),
+        if perturbed_shielders.as_ref().is_some_and(|(r, _)| *r != rod)
+            && let Some((_, done)) = perturbed_shielders.take()
+        {
+            finished_derivative_shieldings +=
+                done.iter().map(BranchShielder::shieldings).sum::<usize>();
+        }
+        let new_shielder = || {
+            BranchShielder::new(
+                &geometry.tracking,
+                solved_materials(rod),
+                &varied,
+                geometry.chosen.shielding(),
+                input.shielding_options(),
             )
-        });
+        };
+        let (_, perturbed_shielders) = perturbed_shielders
+            .get_or_insert_with(|| (rod, (0..derivatives).map(|_| new_shielder()).collect()));
+        let (_, shielder) = shielder.get_or_insert_with(|| (rod, new_shielder()));
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
@@ -801,6 +816,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 };
                 let mut micro = h
                     .micro(
+                        rod,
                         state,
                         library,
                         fuel,
@@ -820,6 +836,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         .with_context(context)?;
                     let boundaries = geometry.tracking.boundaries();
                     h.add_derivatives(
+                        rod,
                         state,
                         &mut micro,
                         nominal,
@@ -855,6 +872,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             // 反応率の微分（ADR-0215）の摂動の σᵢ。燃焼の領域の数密度は状態のもので重みを付けるが、摂動は核種の数密度を
                             // 領域によらず同じ割合で変えるので、自分の σᵢ の重み（領域の数密度 / 均質化した数密度）は摂動の組成と同じ
                             let sigma = h.micro(
+                                rod,
                                 state,
                                 library,
                                 shielded.fuel(),
@@ -937,10 +955,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
             shieldings = finished_shieldings + shielder.as_ref().map_or(0, |(_, s)| s.shieldings()),
-            derivative_shieldings = perturbed_shielders
-                .iter()
-                .map(BranchShielder::shieldings)
-                .sum::<usize>(),
+            derivative_shieldings = finished_derivative_shieldings
+                + perturbed_shielders.as_ref().map_or(0, |(_, s)| {
+                    s.iter().map(BranchShielder::shieldings).sum::<usize>()
+                }),
             total_seconds = start.elapsed().as_secs_f64(),
             "branches"
         );
@@ -948,7 +966,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 媒質は棒のない値の状態だけを書く（解く順の最初の値。ADR-0128、ADR-0224）
     let written: Vec<MediumState> = states
         .iter()
-        .take(present_states.len())
+        .take(present_states[0].len())
         .filter_map(|s| s.medium.clone())
         .collect();
     // テーブルの点は、連続の軸の格子点の番号と、制御棒の軸があれば最後に値の番号。状態は点の辞書式の順に並べ替える
@@ -1000,8 +1018,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
+        // 制御棒の軸は最後の軸（ADR-0224）
         let table_axes = match (&history_branches, &input.branches) {
             (None, Some(b)) => b.table_axes(),
+            (Some(_), _) if rods > 1 => axes
+                .iter()
+                .cloned()
+                .chain(std::iter::once(Axis::Rod {
+                    values: rod_values.clone(),
+                }))
+                .collect(),
             _ => axes.to_vec(),
         };
         let mut tables = tables(&table_axes, *split, &points, per_state)
