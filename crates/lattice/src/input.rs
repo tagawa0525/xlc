@@ -1064,8 +1064,8 @@ impl LatticeInput {
         // 形状の行にない（あれば棒のない状態にも棒が残る）
         let in_rows = |name: &str| rows.iter().flatten().any(|c| c == name);
         // ノードごとの出力は、どのノードのテーブルも制御棒の軸を持つ。棒の入らないノード（径方向の反射体のノード。ADR-0127。
-        // 平板の棒の入らない層。ADR-0128）のテーブルは制御棒の軸を持てないので、どのノードに持たせるかを決めるまで（平板は
-        // #0030、径方向の反射体の格子は #0213。ADR-0224）組まない
+        // 平板の棒の入らない層。ADR-0128）のテーブルは制御棒の軸を持てないので、ノードごとに軸を付け分ける仕組みを作るまで
+        // （平板は #0030、径方向の反射体の格子は #0213。ADR-0224）組まない
         if branches.as_ref().is_some_and(|b| !b.rods().is_empty())
             && matches!(
                 &output,
@@ -1076,8 +1076,8 @@ impl LatticeInput {
             )
         {
             return Err(invalid(
-                "branches.rod: few-group nodes cannot have rod values yet; every node table would carry the rod \
-                 axis, also the nodes without rods (ADR-0224; #0030, #0213)"
+                "branches.rod: few-group nodes cannot have rod values yet; the lattice would give the rod axis to \
+                 every node table, including nodes that rods never enter (ADR-0224)"
                     .into(),
             ));
         }

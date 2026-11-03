@@ -725,20 +725,27 @@ fn invalid_rod_branches_are_errors() {
     rejects("aic = { gt = \"bar\" }", "`bar` is not defined");
     // 基準の形状の行にあるセルに置き換えると、棒のない状態に棒が残る
     rejects("aic = { gt = \"pin\" }", "`pin` is in the rows");
-    // ノードごとの出力（径方向の反射体の格子、軸方向の平板）は、ノードごとに制御棒の軸を持たせる扱いが決まるまで組めない
+    // ノードごとの出力（どの格子でも。平板の `axial = true` も）は、ノードごとに制御棒の軸を付け分ける仕組みができるまで組めない
     let text = with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n").replace(
         "few-group = { output = \"fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
         "few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [{ output = \"a.msgpack\", columns = [1, 2], rows = [1, 1] }] }",
     );
+    assert!(
+        text.contains("nodes = ["),
+        "the node output replaced the lattice output"
+    );
     let err = LatticeInput::parse(&text).unwrap_err().to_string();
-    assert!(err.contains("#0030"), "{err}");
-    let err = LatticeInput::parse(&text.replace(
+    assert!(err.contains("nodes that rods never enter"), "{err}");
+    let axial = text.replace(
         "bounds = [1e7, 0.625, 1e-5], nodes",
         "bounds = [1e7, 0.625, 1e-5], axial = true, nodes",
-    ))
-    .unwrap_err()
-    .to_string();
-    assert!(err.contains("#0030"), "{err}");
+    );
+    assert!(
+        axial.contains("axial = true"),
+        "the slab output replaced the node output"
+    );
+    let err = LatticeInput::parse(&axial).unwrap_err().to_string();
+    assert!(err.contains("nodes that rods never enter"), "{err}");
     // 燃焼の履歴からの分岐と制御棒の軸はまだ組めない（#0213）
     let text = with_rods(
         "\n[branches.rod]\naic = { gt = \"rod\" }\n\n[history]\nfile = \"h.msgpack\"\nburnup = [0]\n",
