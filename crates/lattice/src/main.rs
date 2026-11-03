@@ -191,8 +191,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let tracking = tracing::debug_span!("tracking").in_scope(|| {
                 Tracking::with_boundaries(lattice, input.azimuthal, input.spacing, input.boundaries)
             })?;
-            // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は分岐の状態によらないので、解く前に一度だけ
-            // 求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
+            // 成り立つ対称操作（ADR-0112）。形状、トラック、領域ごとの入力の物質の名前は連続の軸の状態によらないので、解く前に形状
+            // （制御棒の値。ADR-0224）ごとに一度だけ求め、自己遮蔽のピンと塊の組（ADR-0112）と MOC に再利用する（使った対称性と、外した操作の理由をログに出す）。強制した
             // 対称性は、その結果から取り出し、成り立たない操作があれば、自己遮蔽の前にその操作の名前と理由を示して止める。"none" は
             // 検証の基準なので判定せず、自己遮蔽も MOC も対称性なしで解く
             let forced = match input.symmetry {
