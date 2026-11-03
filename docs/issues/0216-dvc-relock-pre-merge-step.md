@@ -15,7 +15,7 @@ resolution:
 ブランチがステージを消すか outs の名前を変えると、main の作業ツリーに残る古い出力がマージの結果で未追跡になり、
 pre-merge-commit の hook に止まる。dvc-relock の「マージが止まったら」は、nixfiles #569（2026-11-03）の hook が分けて出す
 「マージするブランチが .gitignore から外した生成物」の一覧を受け、main の HEAD の記録（`dvc status` の `changed outs`、
-`md5sum` とキャッシュ）で消してよいかを決める。前の版の /code-review（2026-11-03 の 1〜3 周目と記録の周、HEAD 9a911d605）が
+キャッシュ）で消してよいかを決める。前の版の /code-review（2026-11-03 の 1〜3 周目と記録の周、HEAD 9a911d605）が
 挙げた点のうち、次は節の作り直しと hook で解いた:
 
 - `modified` の出力も消す対象に読めた（消すと戻らない）: 節が `dvc status` の `modified:`、`not in cache:`、記録が無い、を
@@ -35,7 +35,7 @@ pre-merge-commit の hook に止まる。dvc-relock の「マージが止まっ�
 
 - /topic-start（委任を受けた担当も読む）は dvc-relock の後半だけを挙げ、マージが止まったときの段に触れない（CLAUDE.md の
   作業の流れからはたどれる）
-- dvc-relock の allowed-tools に `dvc status examples/*` と `md5sum` は足したが、main の worktree での `git merge --abort` と `rm` は
+- dvc-relock の allowed-tools に `dvc status examples/*` は足したが、main の worktree での `git merge --abort` と `rm` は
   無い（`rm` を許可に入れると、ほかの場面の削除も確認なしに通る）
 - dvc.yaml を手で直して `.gitignore` の行が残ったとき、持ち主の無い出力は無視されたまま main に残る（`.gitignore` が変わらない
   ので hook は止まらない）
@@ -52,12 +52,9 @@ pre-merge-commit の hook に止まる。dvc-relock の「マージが止まっ�
   扱わない。allowed-tools に `git check-ignore`、`examples/` の外のパス（`bin/` など）の `dvc status`、`cd <main の worktree> && …`
   の形も無い（3 周目のレビューの指摘）
 
-記録の周（2026-11-03、HEAD f29077a67）が挙げた blocking（歯止めの外なので直していない。マージはユーザーの判断）:
-
-- 手順 2 の `md5sum` の方法に `cache: false` の除外が無い。`dvc.lock` の md5 と同じ版が前の版としてキャッシュにあると、
-  `dvc status` の方法では残す `cache: false` の出力を消してよいと読め、`dvc checkout` は `cache: false` の出力を戻さない
-- 節は「/git-merge は hook の拒否を「ブランチで直す」と扱う」と書くが、/git-merge がそう書くのは品質チェックの拒否だけで、
-  作業ツリーの変更による拒否には触れない（/git-merge からこの節への入口も無い）
+記録の周（2026-11-03、HEAD f29077a67）が挙げた blocking 2 件（`md5sum` の方法に `cache: false` の除外が無い、/git-merge の
+扱いの誤り）は、親の判断で直した（`md5sum` の方法は外した）。残る点: /git-merge（nixfiles のスキル）は作業ツリーの変更による
+拒否に触れず、この節への入口が無い。
 
 捨てた方式: 前もって `.gitignore` の差を手で読んで消す方式（2 周目までの版）は、相対パス、`.dvc` ファイル、直下のパターン、
 消して足し直した行で漏れ、`cache: false` の出力は消す要が無いのに消して戻せないことがある（2 周目と 3 周目の指摘）ので捨てた。
