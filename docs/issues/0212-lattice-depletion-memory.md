@@ -35,8 +35,10 @@ OOM killer が lattice のプロセスを止めた（Slurm 644、2026-10-31。sa
 ### 原因
 
 ADR-0213 の量は持つ区間だけを数え、減速計算の作業の配列は残りの 2 割と 2 GiB に収まる前提だった。間引かない格子の 2A の 1 ステップ
-（32 スレッドで 39 本の解くピン）では、作業の配列と量の和が機械のメモリを超える。測った値（試行は trials/0212/ の入力で、ログは
-`RUST_LOG=info,xlc_lattice::shielding=debug`。ジョブは decision の区分の排他の Slurm のジョブで、時間は記録に使わない）:
+（32 スレッドで 39 本の解くピン）では、作業の配列と量の和が機械のメモリを超える。測った値（試行の入力はコミット ac7fa356e の trials/0212/ の下: 646 は 2A-hold0.toml、
+647 は 2A-default.toml、652 は 2A-fixed2.toml（648 は出力の名前だけが違う同じ入力）、653 は 2A-thin-main.toml と 2A-thin-fixed.toml、
+手元の 1 本のピンは pin-full-h0.toml、pin-full-h4.toml、pin-full-h0-reserve.toml。ログは `RUST_LOG=info,xlc_lattice::shielding=debug`
+（652、653 と手元は `xlc_lattice::ufg=debug` も）。ジョブは decision の区分の排他の Slurm のジョブで、時間は記録に使わない）:
 
 | ジョブ | bin              | 入力                  | 自己遮蔽の量（`UFG held memory`） | 結果                                                                               |
 | ------ | ---------------- | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
