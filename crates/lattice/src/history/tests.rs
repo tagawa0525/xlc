@@ -87,20 +87,38 @@ fn setup(text: &str) -> Setup {
     }
 }
 
+/// 入力の制御棒の値（`rod_values` の順。0 は基準の形状）ごとの、格子、領域ごとの物質の名前、対称操作
+fn value_setups(input: &LatticeInput) -> Vec<(Tracking, Vec<String>, Chosen)> {
+    (0..input.rod_values().len())
+        .map(|rod| {
+            let (lattice, region_materials) = input.rod_geometry(rod).unwrap();
+            let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
+            let forced = match input.symmetry {
+                SymmetryChoice::Detect => None,
+                SymmetryChoice::Force(s) => Some(s),
+            };
+            let chosen = choose(&tracking, &region_materials, forced).unwrap();
+            (tracking, region_materials, chosen)
+        })
+        .collect()
+}
+
 fn branches_of(
     text: &str,
     history: &History,
     library: &Library,
 ) -> anyhow::Result<HistoryBranches> {
-    let s = setup(text);
-    history_branches(
-        &s.input,
-        history,
-        library,
-        &s.tracking.lattice,
-        &s.region_materials,
-        &s.chosen,
-    )
+    let input = LatticeInput::parse(text).unwrap();
+    let setups = value_setups(&input);
+    let geometries: Vec<ValueGeometry> = setups
+        .iter()
+        .map(|(tracking, region_materials, chosen)| ValueGeometry {
+            lattice: &tracking.lattice,
+            region_materials,
+            chosen,
+        })
+        .collect();
+    history_branches(&input, history, library, &geometries)
 }
 
 /// 分岐の状態の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
@@ -1734,4 +1752,90 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
             );
         }
     }
+}
+
+/// 案内管 gt を、制御棒を入れたセル gt-rod に置き換える制御棒の値 a（ADR-0224）のセルと物質
+const ROD_CELL: &str = "[material.rod]\ntemperature = 600\nnuclides = { B-10 = 1.0e-2, O-16 = 2.0e-2 }\n\n\
+     [cell.gt-rod]\nzones = [{ material = \"rod\", radius = 0.4, rings = 3 }, \
+     { material = \"water\", radius = 0.56, rings = 1 }, { material = \"water\", rings = 1 }]\n";
+
+/// 案内管が水の格子の履歴からの分岐に、制御棒の値 a を足した入力。`history` は `[history]` に足す行
+fn rodded(history: &History, burnup: &str, extra: &str) -> String {
+    let text = guided(
+        &format!("{}{extra}", all_transported(history, burnup)),
+        &format!("{WATER_GUIDE}\n{ROD_CELL}"),
+    );
+    format!("{text}\n[branches.rod]\na = {{ gt = \"gt-rod\" }}\n")
+}
+
+#[test]
+fn rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry() {
+    // 制御棒の値の形状は案内管のセルの MOC の領域の数が違い、燃料の MOC の領域の番号がずれる。燃焼の領域（物質、組の代表のセル、
+    // 体積）は履歴と同じで、値ごとに、その形状の MOC の領域で履歴の数密度を解く（ADR-0225）
+    let library = library_with_boron();
+    let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
+    let text = rodded(&history, "[0, 0.5, 2.0]", "");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    assert_eq!(branches.rods(), 2);
+    let key = |d: &DepletionRegion| (d.material.clone(), d.cell, d.volume.to_bits());
+    let fuel: Vec<Vec<usize>> = (0..2)
+        .map(|rod| {
+            let regions = branches.regions(rod);
+            assert_eq!(
+                regions.iter().map(key).collect::<Vec<_>>(),
+                history.regions.iter().map(key).collect::<Vec<_>>(),
+                "rod value {rod}"
+            );
+            let names = branches.region_materials(rod);
+            for d in regions {
+                for &r in &d.regions {
+                    assert_eq!(
+                        names[r],
+                        transport_name(&d.material, d.cell),
+                        "rod value {rod}, region {r}"
+                    );
+                }
+            }
+            regions.iter().flat_map(|d| d.regions.clone()).collect()
+        })
+        .collect();
+    assert_ne!(fuel[0], fuel[1]);
+    assert!(branches.region_materials(1).contains(&"rod".to_string()));
+}
+
+#[test]
+fn rod_values_are_solved_at_their_own_burnups() {
+    // 棒のない値は公称の状態をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（公称を含む）を
+    // その値の燃焼点で解く（ADR-0200 の制御棒を入れた組。ADR-0225）。状態の番号は燃焼度 × 2 + ホウ素で、公称は 1000 ppm
+    let library = library_with_boron();
+    let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
+    let solved = |text: &str, rod: usize| -> Vec<usize> {
+        let branches = branches_of(text, &history, &library).unwrap();
+        (0..branches.len())
+            .filter(|&i| branches.solved(rod, i))
+            .collect()
+    };
+    let text = rodded(&history, "[0, 0.5, 2.0]", "off-nominal-burnup = [0, 2.0]\n");
+    assert_eq!(solved(&text, 0), vec![0, 1, 3, 4, 5]);
+    assert_eq!(solved(&text, 1), vec![0, 1, 4, 5]);
+    let text = rodded(
+        &history,
+        "[0, 0.5, 2.0]",
+        "off-nominal-burnup = [0, 2.0]\nrod-burnup = { a = [0, 0.5, 2.0] }\n",
+    );
+    assert_eq!(solved(&text, 0), vec![0, 1, 3, 4, 5]);
+    assert_eq!(solved(&text, 1), vec![0, 1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn rod_values_must_keep_the_depletion_regions_of_the_history() {
+    // 燃料のセルを置き換える値は、燃焼の領域（体積）が履歴と違う
+    let library = library_with_boron();
+    let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
+    let text = rodded(&history, "[0, 2.0]", "")
+        .replace("a = { gt = \"gt-rod\" }", "a = { pin = \"thin\" }")
+        + "\n[cell.thin]\nzones = [{ material = \"fuel\", radius = 0.39, rings = 1 }, { material = \"water\", rings = 1 }]\n";
+    let err = format!("{:#}", branches_of(&text, &history, &library).unwrap_err());
+    assert!(err.contains("rod value a"), "{err}");
+    assert!(err.contains("depletion regions"), "{err}");
 }
