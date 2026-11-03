@@ -1898,7 +1898,7 @@ fn continuing_with_other_guide_tube_contents_keeps_the_fuel_regions_of_the_histo
 }
 
 #[test]
-fn continuing_needs_the_fuel_materials_cells_and_volumes_of_the_history() {
+fn continuing_needs_the_fuel_materials_cells_volumes_and_rings_of_the_history() {
     let library = library();
     let nominal = deplete_with(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE), &library);
     let text = continued("0.5", "[1.0]", "4.9e-2");
@@ -1919,27 +1919,25 @@ fn continuing_needs_the_fuel_materials_cells_and_volumes_of_the_history() {
         TOP_LEFT_GUIDE,
         WATER_GUIDE,
     );
-    for (name, input) in [("thinner", thinner), ("moved", moved), ("renamed", renamed)] {
+    // 燃料を 2 つのリングに分けた格子は、燃焼の領域の物質、セル、体積が同じでも、燃焼の領域の MOC の領域の数が違う
+    let rings = guided(
+        &text.replace(
+            "{ material = \"fuel\", radius = 0.4096, rings = 1 }",
+            "{ material = \"fuel\", radius = 0.4096, rings = 2 }",
+        ),
+        TOP_LEFT_GUIDE,
+        WATER_GUIDE,
+    );
+    for (name, input) in [
+        ("thinner", thinner),
+        ("moved", moved),
+        ("renamed", renamed),
+        ("rings", rings),
+    ] {
         let err = continue_simply(&input, &library, &nominal).unwrap_err();
         assert!(
             format!("{err:#}").contains("depletion regions"),
             "{name}: {err:#}"
         );
     }
-}
-
-#[test]
-fn continuing_with_more_fuel_rings_keeps_the_depletion_region_of_the_cell() {
-    // 燃焼の領域は物質とセルの組ごとに 1 つで、リングに分けても（物質、組の代表のセル、体積）は同じ。続ける入力の MOC の
-    // 領域の番号（2 つのリング）を使う
-    let library = library();
-    let nominal = deplete_with(PIN, &library);
-    let rings = continued("0.5", "[1.0]", "4.9e-2").replace(
-        "{ material = \"fuel\", radius = 0.4096, rings = 1 }",
-        "{ material = \"fuel\", radius = 0.4096, rings = 2 }",
-    );
-    let history = continue_simply(&rings, &library, &nominal).unwrap();
-    assert_eq!(cells_of(&history), cells_of(&nominal));
-    assert_eq!(history.regions[0].regions, [0, 1]);
-    assert_eq!(nominal.regions[0].regions, [0]);
 }
