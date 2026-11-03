@@ -43,6 +43,21 @@ resolution:
   対応: 上の項を消したので、スキルはこの 2 段の手順と「上流（xs など）は先に揃えておく」を書いていない。1 つ目の直さなかった指摘
   （揃え方）も同じ。再実行のコマンドを確かめてスキルに書くときに、比較のステージの上流の数え方と xs-nuclide の流し方を合わせて書く
 
+上の対応（00129562a、3e7fa1474）に回した周（事実の誤りだけを見た。HEAD 3e7fa1474）が挙げた、直さずに残した指摘:
+
+- restore の条件は、スキルと上の対応に書いた cmd、deps、outs の hash のほか、`_can_hash(stage)`（persist の outs が無く、deps が
+  ローカルで hash を持つ）と、戻すステージの `outs_cached()`（キャッシュに outs の実体がある）も要る（dvc/stage/cache.py の
+  `restore`）。キャッシュに出力が無ければステージは走る。スキルの条件は十分条件として読めるので、狭めて書くとよい
+- `-f --downstream` は「確かめていない」としたが、指摘はソースで確かめられるとする: `dvc/repo/reproduce.py` の `plan_repro` は
+  `downstream=True` で目標とその下流だけを残し、`_reproduce` は `force_state = dict.fromkeys(stages, force)` で force をそれらだけに
+  掛け、`run_stage` は force なら `stage_cache.restore` を呼ばない（指摘の内容。実機では確かめていない）。再実行のコマンドを書くときの候補
+- cmd を dvc.lock と比べる箇所は `dvc/stage/loader.py` の `stage.cmd_changed = lock_data.get(Stage.PARAM_CMD) != stage.cmd` で、
+  上の対応が挙げた `dvc/stage/__init__.py` は旗を返すだけ
+- 上の 2 項目目（比較のステージの上流の数え方）に、それ自身の対応の行が無い。3 項目目の対応の「この 2 段の手順」と経緯の行だけが
+  扱いを示す
+- Slurm 657 のログで戻されたのは `lattice-1C@rings1` だけでなく `lattice-1C@rings4` も（`compare-1C@rings1`、`@rings4` は
+  `didn't change, skipping`）。両方とも 658 で走った
+
 関係する ADR: なし
 
 ## 完了の条件
