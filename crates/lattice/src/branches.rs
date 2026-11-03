@@ -10,6 +10,10 @@
 //! shielding = "nominal-boron" # 自己遮蔽（"nominal-boron" か "every-state"。省略すると nominal-boron。ADR-0201）
 //! # 解く部分格子の軸の組（cut-HDMR。ADR-0200）。省略すると、[history] があれば 2 軸の組すべて、なければ 3 つの軸（直積。ADR-0097）
 //! subgrids = [["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]
+//!
+//! [branches.rod]              # 制御棒の離散の軸（ADR-0224。省略すると軸なし）。値ごとに、基準の形状の `rows` のセルを置き換えるセル
+//! aic = { gt = "gt-aic" }
+//! b4c = { gt = "gt-b4c" }
 //! ```
 //!
 //! 軸は boron、moderator、fuel の順に並べ、3つとも書く（core は状態を与えるとき3つの軸をすべて求める）。温度の軸が変える物質は名前で挙げ、物質の種類から
@@ -22,6 +26,10 @@
 //!
 //! 体積の割合で混ぜた物質（ADR-0128）は、軸が変える成分を持てばその軸に挙げ、持たなければ挙げない（混ぜた物質は
 //! 状態ごとの成分から作る）。細かい群の媒質は燃料の温度の軸にだけ挙げ、分岐の状態ごとに媒質の同じ状態を使う。
+//!
+//! 制御棒の軸の値は、棒のない状態 `out`（基準の形状）と、`[branches.rod]` に書いた値（名前の順）。値ごとに置き換えた形状で、
+//! 連続の軸の同じ状態を解き、テーブルは制御棒の軸を最後の軸に持つ（ADR-0224）。置き換えるセルが `rows` と定義に合うことは
+//! 入力（`input`）が確かめる。
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -30,7 +38,7 @@ use anyhow::{Context, anyhow, bail};
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, LookupError};
-use xlc_format::table::{Axis, Table, component};
+use xlc_format::table::{Axis, ROD_OUT, Table, component};
 
 use crate::depletion::{same_cross_sections, same_transfers};
 use crate::geometry::Lattice;
@@ -75,12 +83,32 @@ pub struct Branches {
     nominal: Option<Vec<usize>>,
     /// [状態（軸の直積の順）] を解くか
     solved: Vec<bool>,
+    /// 棒のない状態のほかの制御棒の値（名前の順）と、その値で置き換えるセル（基準の形状のセル → 置き換えるセル）
+    rods: Vec<(String, BTreeMap<String, String>)>,
 }
 
 impl Branches {
-    /// テーブルの軸（boron、moderator、fuel の順）
+    /// 連続の軸（boron、moderator、fuel の順）。状態の番号はこの軸の直積の順
     pub fn axes(&self) -> &[Axis] {
         &self.axes
+    }
+
+    /// テーブルの軸: 連続の軸と、制御棒の値があれば最後に制御棒の軸（`out` を先に。ADR-0224）
+    pub fn table_axes(&self) -> Vec<Axis> {
+        let mut axes = self.axes.clone();
+        if !self.rods.is_empty() {
+            axes.push(Axis::Rod {
+                values: std::iter::once(ROD_OUT.to_string())
+                    .chain(self.rods.iter().map(|(value, _)| value.clone()))
+                    .collect(),
+            });
+        }
+        axes
+    }
+
+    /// 棒のない状態のほかの制御棒の値と、その値で置き換えるセル（基準の形状のセル → 置き換えるセル）
+    pub fn rods(&self) -> &[(String, BTreeMap<String, String>)] {
+        &self.rods
     }
 
     /// 軸の直積の順の物質の組
@@ -149,6 +177,7 @@ pub(crate) struct BranchesEntry {
     fuel: Option<FuelEntry>,
     shielding: Option<ShieldingEntry>,
     subgrids: Option<Vec<Vec<String>>>,
+    rod: Option<BTreeMap<String, BTreeMap<String, String>>>,
 }
 
 /// 分岐の状態の自己遮蔽の解き方（ADR-0201）
@@ -278,7 +307,8 @@ fn check_all_waters(
 }
 
 /// 解いた状態ごとの出力の部分ノードの少数群定数（[状態][出力][部分ノード]。分けていなければ部分ノードは1つ）を、出力
-/// ごとのテーブルにまとめる。`points` は解いた状態の、軸の順の格子点の番号（テーブルの点）。
+/// ごとのテーブルにまとめる。`points` は解いた状態の、軸の順の格子点の番号（テーブルの点）で、テーブルには点の辞書式の順に
+/// 並べる（制御棒の値ごとに解いた状態は、値の軸が最後なので点の順と違う。ADR-0224）。
 pub fn tables(
     axes: &[Axis],
     split: usize,
@@ -292,12 +322,16 @@ pub fn tables(
             points.len()
         ));
     }
+    let mut solved: Vec<(&Vec<usize>, Vec<Vec<FewGroup>>)> = points.iter().zip(per_state).collect();
+    solved.sort_by(|a, b| a.0.cmp(b.0));
+    let (points, per_state): (Vec<Vec<usize>>, Vec<_>) =
+        solved.into_iter().map(|(p, s)| (p.clone(), s)).unzip();
     let outputs = per_state.first().map_or(0, Vec::len);
     let mut tables: Vec<Table> = (0..outputs)
         .map(|_| Table {
             axes: axes.to_vec(),
             split,
-            points: points.to_vec(),
+            points: points.clone(),
             states: Vec::with_capacity(points.len() * split * split),
             heavy_metal: None,
             micro: None,
@@ -371,6 +405,10 @@ impl BranchesEntry {
         media: &[MediumInput],
         history: bool,
     ) -> Result<Branches, String> {
+        // 値ごとの形状の燃焼の領域を履歴の領域に対応させる書き方は決めていない（ADR-0224）
+        if history && self.rod.is_some() {
+            return Err("[history] cannot be combined with [branches.rod] yet (#0213)".into());
+        }
         let mut axes = Vec::new();
         let mut changes = Vec::new();
         if let Some(b) = self.boron {
@@ -590,6 +628,28 @@ impl BranchesEntry {
                 .collect(),
             None => axes,
         };
+        let rods = self
+            .rod
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(value, cells)| {
+                // `out` は基準の形状の値。名前はテーブルの軸の値で、core の制御棒の型の区間が空白で区切らずに書く
+                if value == ROD_OUT {
+                    return Err(format!(
+                        "branches.rod: `{ROD_OUT}` is the base geometry; name the rod values otherwise"
+                    ));
+                }
+                if value.is_empty() || value.chars().any(char::is_whitespace) {
+                    return Err(format!(
+                        "branches.rod: values must be names without spaces, got `{value}`"
+                    ));
+                }
+                if cells.is_empty() {
+                    return Err(format!("branches.rod: `{value}` replaces no cell"));
+                }
+                Ok((value, cells))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Branches {
             axes,
             states,
@@ -601,6 +661,7 @@ impl BranchesEntry {
             varied,
             nominal,
             solved,
+            rods,
         })
     }
 }

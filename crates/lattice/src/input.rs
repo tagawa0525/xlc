@@ -1060,6 +1060,28 @@ impl LatticeInput {
         if rows.is_empty() || rows.iter().any(Vec::is_empty) {
             return Err(invalid("`rows` needs cell names in every row".into()));
         }
+        // 制御棒の値の置き換え（ADR-0224）: 置き換えられるセルは基準の形状の行にあり、置き換えるセルは定義されていて基準の
+        // 形状の行にない（あれば棒のない状態にも棒が残る）
+        let in_rows = |name: &str| rows.iter().flatten().any(|c| c == name);
+        for (value, replaced) in branches.iter().flat_map(|b| b.rods()) {
+            for (from, to) in replaced {
+                if !in_rows(from) {
+                    return Err(invalid(format!(
+                        "branches.rod.{value}: the cell `{from}` is not in the rows"
+                    )));
+                }
+                if !cells.iter().any(|c| &c.name == to) {
+                    return Err(invalid(format!(
+                        "branches.rod.{value}: the cell `{to}` is not defined"
+                    )));
+                }
+                if in_rows(to) {
+                    return Err(invalid(format!(
+                        "branches.rod.{value}: the cell `{to}` is in the rows of the base geometry"
+                    )));
+                }
+            }
+        }
         if let Some(gap) = &file.gap {
             if !positive(gap.width) {
                 return Err(invalid(format!(
@@ -1369,6 +1391,38 @@ impl LatticeInput {
 
     /// 形状と、領域ごとの物質の名前。
     pub fn geometry(&self) -> Result<(Lattice, Vec<String>), InputError> {
+        self.geometry_replacing(&BTreeMap::new())
+    }
+
+    /// 制御棒の軸の値の名前（`out` と `[branches.rod]` の値。制御棒の分岐がなければ `out` だけ。ADR-0224）
+    pub fn rod_values(&self) -> Vec<String> {
+        std::iter::once(xlc_format::table::ROD_OUT.to_string())
+            .chain(
+                self.branches
+                    .iter()
+                    .flat_map(|b| b.rods())
+                    .map(|(value, _)| value.clone()),
+            )
+            .collect()
+    }
+
+    /// 制御棒の値 `rod`（`rod_values` の番号。0 は基準の形状）の形状と、領域ごとの物質の名前
+    pub fn rod_geometry(&self, rod: usize) -> Result<(Lattice, Vec<String>), InputError> {
+        if rod == 0 {
+            return self.geometry();
+        }
+        let rods = self.branches.as_ref().map_or(&[][..], |b| b.rods());
+        let (_, replaced) = rods
+            .get(rod - 1)
+            .ok_or_else(|| InputError::Invalid(format!("no rod value {rod}")))?;
+        self.geometry_replacing(replaced)
+    }
+
+    /// `rows` のセルの名前を `replaced`（セル → 置き換えるセル）で置き換えた形状と、領域ごとの物質の名前
+    fn geometry_replacing(
+        &self,
+        replaced: &BTreeMap<String, String>,
+    ) -> Result<(Lattice, Vec<String>), InputError> {
         let mut types = Vec::with_capacity(self.cells.len());
         let mut region_materials = Vec::with_capacity(self.cells.len());
         // [セルの種類] の、ピッチに合わないマスに置くときの長方形のセル（均質なセルだけ）
@@ -1468,6 +1522,7 @@ impl LatticeInput {
             .iter()
             .map(|row| {
                 row.iter()
+                    .map(|name| replaced.get(name).unwrap_or(name))
                     .map(|name| {
                         self.cells
                             .iter()
