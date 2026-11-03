@@ -38,6 +38,17 @@ issue #0212 の直し（ADR-0213 の「## 変更」、2026-11-03）は、1 回�
   あったので候補でない。試行の入力は 4b17e939f で外したので、
   完了の条件の入力は f965ef569 から戻す（残すなら examples/depletion/ に `git mv`）
 
+08d24a419 の記録のための周（2026-11-03）の指摘のうち、マージの後に文書のブランチで直すもの:
+
+- #0212 の bin の違いの ADR の列挙が、出典に挙げた `git log --first-parent 559fdbed3..b29e4a539 -- crates/lattice/src/ufg* crates/lattice/src/shielding.rs`
+  の出力と合わない（ADR-0214 は main.rs の変更でこのコマンドに出ない。出力の ADR-0194 の 457529c55、ADR-0208 の d90bcdf8f、ADR-0211 の
+  1ed9b10a8、#0180 の S(α, β) の散乱源の並列化の 00d789a1f が列挙に無い）。上の増え方の候補にも 00d789a1f と ADR-0194 が無い
+- GB と GiB の不揃い: ADR-0213 の決定の「MemAvailable 76 GB … 全体 59 GB」（`free -g` は GiB）と帰結の 59 GiB、確認の Slurm 580 の
+  「MaxRSS 6.4 → 12.0 GB」（sacct の K を kB と読んだ値。帰結は 12,024,784K = 11.5 GiB）とほかの確認の MaxRSS
+- #0212 の 647 の「自己遮蔽の始めから 39 秒」と 648 の「51 秒」の起点は、量を求めた時（`UFG held memory`）で、652 の 4 秒と書き方が揃って
+  いない
+- Slurm 457 の 12.4 GiB はジョブ全体（xs、1C も流した）の MaxRSS で、2A だけの上限。#0212 と上の増え方の比べ方にその注が無い
+
 関係する ADR: ADR-0213
 
 ## 完了の条件
