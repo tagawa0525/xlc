@@ -48,6 +48,9 @@ pre-merge-commit の hook に止まる。dvc-relock の「マージが止まっ�
   行えば止められる候補がある（2 周目のレビューの指摘。確かめていない。/git-merge は nixfiles のスキル）
 - main の作業ツリーの古い出力を消す判断と、/topic-start と /git-merge の規則の例外は、スキルの節にだけあり ADR に無い
   （2 周目のレビューの指摘）
+- 残すと決めた出力（`modified:` でユーザーが残すものなど）について、hook の示す「ブランチの .gitignore に行を戻す」を節が
+  扱わない。allowed-tools に `git check-ignore`、`examples/` の外のパス（`bin/` など）の `dvc status`、`cd <main の worktree> && …`
+  の形も無い（3 周目のレビューの指摘）
 
 捨てた方式: 前もって `.gitignore` の差を手で読んで消す方式（2 周目までの版）は、相対パス、`.dvc` ファイル、直下のパターン、
 消して足し直した行で漏れ、`cache: false` の出力は消す要が無いのに消して戻せないことがある（2 周目と 3 周目の指摘）ので捨てた。
