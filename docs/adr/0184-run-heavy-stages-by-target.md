@@ -53,34 +53,47 @@ ADR-0159 は ADR-0123 から、DVC のステージを実行する形を引き継
 - 比較のステージなどが参照解の待ちで失敗する例では、全体を流せないので、目標のステージを指定する
 - `-s` は次の 2 つの例外だけにする
   - /dvc-relock の rebase のあとに数秒で終わり、上流が changed でないと分かっているステージ
-  - 数秒で終わる下流のステージを、上流の出力を分岐点のまま（記録の出どころを分岐点の出力にして）再実行するとき。上流の
-    changed が deps（`bin/` の実行ファイルなど）だけで、作業ツリーの上流の outs が `dvc.lock` の記録と同じときに限る。確かめ方は、
-    `dvc status --with-deps <yaml>:<ステージ>` の出力で、目標の上流のステージがどれも `changed deps` だけを出し、`changed outs`
-    を出さないこと（目標のステージ自身の `changed deps` は再実行の理由なので数えない）。上流は changed のまま `dvc.lock` に残る
+  - 数秒で終わる下流のステージを、上流の出力を `dvc.lock` の記録のまま使って再実行するとき。上流の changed が deps
+    （`bin/` の実行ファイルなど）だけで、作業ツリーの上流の outs が `dvc.lock` の記録と同じときに限る。確かめ方は、
+    `dvc status --with-deps --json <yaml>:<ステージ>` の出力で、目標の上流のステージがどれも `changed deps` だけを持ち、ほかの種類
+    （`changed outs`、`changed command`、`changed checksum`）を持たないこと。目標のステージ自身の `changed deps` は再実行の理由
+    なので数えず、`always_changed` のステージ（`references-shell`。いつも `always changed` を出す）も、出力を
+    `dvc.lock` から変えないので数えない。上流は changed のまま `dvc.lock` に残る
 
-2 つ目の例外は、規則が守りたいこと（古い上流の出力から作った md5 を `dvc.lock` に書かない）に反しない。上流の outs が
-`dvc.lock` の記録と同じなので、下流が `dvc.lock` に書く deps の md5 は、上流の `dvc.lock` の outs の md5 と一致し、記録の出どころ
-（実行したコミットと分岐点。ADR-0130）は分岐点の上流の出力で一貫する。上流の deps の changed は、上流を流すまで残る別の差である。
+規則が守りたいのは、上流の出力のうち `dvc.lock` の記録と違うもの（`-s` で上流を飛ばしたときに作業ツリーに残った古い出力）から
+作った md5 を `dvc.lock` に書かないことである。2 つ目の例外の上流は、今の deps（`bin/`）で流せば変わりうる出力ではあるが、
+outs は `dvc.lock` の記録と同じなので、下流が `dvc.lock` に書く deps の md5 は上流の `dvc.lock` の outs の md5 と一致し、
+`dvc.lock` は上流の記録とつながったまま残る。記録の出どころ（実行したコミットと分岐点。ADR-0130）は、上流と下流で別の
+コミットになるので、記録には両方を書く。後に `-s` を付けずに `dvc repro` すると、上流が今の deps で流れ、下流も作り直される。
 
 ## 確認
 
 確かめるものがない約束事である。DVC が目標の上流の changed を実行することは、ADR-0159 の確認 (d) と、2026-10-22 の
 lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見ている。
 
+2 つ目の `-s` の例外の前提は、2026-11-03 に次で見ている:
+
+- `dvc status --with-deps --json examples/depletion/dvc.yaml:compare-mox1`（main a0fd48c0e の作業ツリー）は、上流の `lattice-mox1` に
+  `{"changed deps": {"bin/lattice": "modified"}}` だけを、`references-shell` に `always changed` を出し、ほかの種類を出さない
+- `-s` で再実行したコミット a0cb82d30 の examples/depletion/dvc.lock で、`compare-1C@rings1` の deps の
+  `lattice-1C-rings1.msgpack` の md5（8e76694f）は再実行の前後で変わらず、`compare-1C@rings4` の `lattice-1C-rings4.msgpack`（3b565010）も同じ
+
 ## 帰結
 
 - この ADR は ADR-0159 の実行の形の一文だけを置き換える。ADR 全体の置き換えではないので、ADR-0159 のフロントマターは
   変えない（ADR-0134 と同じ扱い）。ADR-0123 は ADR-0159 が置き換え済みである
 - CLAUDE.md の「計算」と docs/plans/m4-depletion.md の「流すだけの手順」は、この ADR に合わせた
+- 2 つ目の `-s` の例外（「## 変更」の 2026-11-03）は、CLAUDE.md の「計算」と .claude/skills/dvc-relock/SKILL.md の 3 に合わせた
 
 ## 変更
 
 - 2026-11-03: 決定と理由の `-s` の項に、上流の changed が deps だけで outs が `dvc.lock` と同じとき、数秒の下流のステージに
   `-s` を許す例外を足した。前は「`-s` は、/dvc-relock の rebase のあとに数秒で終わり、上流が changed でないと分かっているステージの
   例外だけにする」。きっかけは 2026-11-03 の MOX-1 の記録（main のマージ 54ab434ff、コミット a0cb82d30）で、compare_depletion.py に
-  核種を足して compare-1C（rings1、rings4）と compare-mox1（数秒）を再実行するとき、上流の lattice（lattice-1C-rings1、
-  lattice-1C-rings4、lattice-mox1-rings1）が main の `bin/` と食い違って changed だったが、作業ツリーの lattice の出力は
-  `dvc.lock` の記録（分岐点 3dda20789）どおりで、`-s` で再実行した。例外を許すことはユーザーが決めた（ユーザー 2026-11-03）。
+  核種を足して `compare-1C@rings1`、`compare-1C@rings4`、`compare-mox1`（数秒）を再実行するとき、上流の `lattice-1C@rings1`、
+  `lattice-1C@rings4`、`lattice-mox1` が main の `bin/` と食い違って changed だったが、作業ツリーの lattice の出力は
+  `dvc.lock` の記録（上流を実行したブランチの分岐点は main の 3dda20789。examples/depletion/verification.md）どおりで、`-s` で
+  再実行した（比較の分岐点は main の e04aa5ecc）。例外を許すことはユーザーが決めた（ユーザー 2026-11-03）。
   比べて採らなかった案:
   - 規則どおり `-s` を付けずに上流も流す: 新しい `bin/` は ADR-0226 で燃焼の履歴の形式（`cells`）が変わった後の版で、
     上流の履歴が作り直され、記録のほかの数値（ADR-0226 の前の履歴から出したもの）と出どころが混ざる
