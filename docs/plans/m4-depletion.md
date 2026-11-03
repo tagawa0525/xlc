@@ -330,7 +330,7 @@ AWS（c7a のスポット。$0.015〜0.023/物理コア時間。ADR-0151）の�
    補正（ADR-0215、accepted。減速材の密度の変数は lattice の `lattice histories`、`xlc-table` の `histories`、core で済み、制御棒と Pyrex の
    変数、ハイブリッドの組成を作る本番の経路、U の外れの候補と状態への依存の見直しが #0190 に残る。上の「格子計算の燃焼」の「履歴」）。分岐のテーブルの状態の取り方は ADR-0200（proposed。直積を、公称の状態と 1 軸ずつの分岐と 2 軸の組の部分格子に改め、
    公称でない状態は燃焼点の一部だけで解く。実装と残りの測定は #0176）。制御棒を入れた組は、`[history]` と `[branches.rod]`（ADR-0224）を
-   1 つの入力で組み、値ごとの形状で燃焼の領域を履歴と照合し、値ごとの燃焼点を `[history]` の `rod-burnup` に書く（ADR-0225、proposed）。
+   1 つの入力で組み、値ごとの形状で燃焼の領域を履歴と照合し、値ごとの燃焼点を `[history]` の `rod-burnup` に書く（ADR-0225）。
    examples/depletion の制御棒の組の入力は置き換え、テーブルの作り直しと examples/vera/p5 の置き換え、rod_table.py の削除は #0213
 7. core の燃焼: ミクロ燃焼、サイクルの入力、崩壊のステップ、restart、臨界ホウ素の探索の繰り返し — 作業中。最初の縦切りは ADR-0190
    （ブランチ feat/core-depletion-steps）: ケースの `[depletion]`（定格の出力密度 W/g と累積の EFPD のステップ）で、ノードの燃焼度を
