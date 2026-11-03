@@ -1941,3 +1941,104 @@ fn continuing_needs_the_fuel_materials_cells_volumes_and_rings_of_the_history() 
         );
     }
 }
+
+#[test]
+fn continuing_needs_the_cells_of_each_depletion_region_of_the_history() {
+    // 履歴の格子は左の列の燃料のセル {0, 2} が 1 つの組、続ける格子は対角の燃料のセル {0, 3} が 1 つの組で、組の代表のセル、
+    // 体積、MOC の領域の数が同じでも、履歴の組成を別の位置のセルに置くことになる
+    let library = library();
+    let nominal = deplete_with(
+        &guided(PIN, "[\"pin gt\", \"pin gt\"]", WATER_GUIDE),
+        &library,
+    );
+    let diagonal = guided(
+        &continued("0.5", "[1.0]", "4.9e-2"),
+        "[\"pin gt\", \"gt pin\"]",
+        WATER_GUIDE,
+    );
+    let err = continue_simply(&diagonal, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("depletion regions"), "{err:#}");
+}
+
+/// 履歴の msgpack の燃焼の領域（map の列）
+fn written_regions(history: &History) -> Vec<rmpv::Value> {
+    let bytes = history.to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    value
+        .as_map()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("regions"))
+        .and_then(|(_, v)| v.as_array())
+        .unwrap()
+        .clone()
+}
+
+/// 燃焼の領域の map の項目 `key`
+fn region_field<'a>(region: &'a rmpv::Value, key: &str) -> &'a rmpv::Value {
+    region
+        .as_map()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.as_str() == Some(key))
+        .map(|(_, v)| v)
+        .unwrap_or_else(|| panic!("no {key} in {region}"))
+}
+
+#[test]
+fn histories_write_the_cells_of_each_depletion_region() {
+    // 左上を案内管にした 2 × 2 の格子は、燃料のセルの組 {1, 2}（代表 1）と {3}
+    let history = deplete_input(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE));
+    let cells: Vec<Vec<u64>> = written_regions(&history)
+        .iter()
+        .map(|r| {
+            region_field(r, "cells")
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| c.as_u64().unwrap())
+                .collect()
+        })
+        .collect();
+    assert_eq!(cells, [vec![1, 2], vec![3]]);
+    let read = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read.regions, history.regions);
+}
+
+#[test]
+fn histories_whose_region_cells_do_not_start_at_the_representative_are_errors() {
+    // 組の代表のセルは組のセルの最小の番号（`cell_representatives`）。昇順で重なりのない列であること
+    let history = deplete_input(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE));
+    let bytes = history.to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    for wrong in [vec![2, 1], vec![2], vec![1, 1, 2], vec![]] {
+        let replaced = match value.clone() {
+            rmpv::Value::Map(entries) => rmpv::Value::Map(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| {
+                        if k.as_str() != Some("regions") {
+                            return (k, v);
+                        }
+                        let mut regions = v.as_array().unwrap().clone();
+                        if let rmpv::Value::Map(fields) = &mut regions[0] {
+                            for (name, field) in fields.iter_mut() {
+                                if name.as_str() == Some("cells") {
+                                    *field = rmpv::Value::Array(
+                                        wrong.iter().map(|&c: &u64| c.into()).collect(),
+                                    );
+                                }
+                            }
+                        }
+                        (k, rmpv::Value::Array(regions))
+                    })
+                    .collect(),
+            ),
+            other => other,
+        };
+        let mut out = Vec::new();
+        rmpv::encode::write_value(&mut out, &replaced).unwrap();
+        let err = History::from_msgpack(&out).unwrap_err();
+        assert!(format!("{err:#}").contains("cells"), "{wrong:?}: {err:#}");
+    }
+}
