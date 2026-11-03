@@ -1987,31 +1987,47 @@ fn region_field<'a>(region: &'a rmpv::Value, key: &str) -> &'a rmpv::Value {
 
 #[test]
 fn histories_write_the_cells_of_each_depletion_region() {
-    // 左上を案内管にした 2 × 2 の格子は、燃料のセルの組 {1, 2}（代表 1）と {3}
+    // 左上を案内管にした 2 × 2 の格子は、燃料のセルの組 {1, 2}（代表 1）と {3}。組のセルは [行, 列] の位置で書く
     let history = deplete_input(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE));
-    let cells: Vec<Vec<u64>> = written_regions(&history)
+    let cells: Vec<Vec<Vec<u64>>> = written_regions(&history)
         .iter()
         .map(|r| {
             region_field(r, "cells")
                 .as_array()
                 .unwrap()
                 .iter()
-                .map(|c| c.as_u64().unwrap())
+                .map(|c| {
+                    c.as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|x| x.as_u64().unwrap())
+                        .collect()
+                })
                 .collect()
         })
         .collect();
-    assert_eq!(cells, [vec![1, 2], vec![3]]);
+    assert_eq!(cells, [vec![vec![0, 1], vec![1, 0]], vec![vec![1, 1]]]);
     let read = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap();
     assert_eq!(read.regions, history.regions);
 }
 
 #[test]
-fn histories_whose_region_cells_do_not_start_at_the_representative_are_errors() {
-    // 組の代表のセルは組のセルの最小の番号（`cell_representatives`）。昇順で重なりのない列であること
+fn histories_whose_region_cells_are_not_increasing_positions_are_errors() {
+    // 組のセルの位置 [行, 列] は、行の順（上から、左から）に増え、重ならず、空でないこと
     let history = deplete_input(&guided(PIN, TOP_LEFT_GUIDE, WATER_GUIDE));
     let bytes = history.to_msgpack().unwrap();
     let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
-    for wrong in [vec![2, 1], vec![2], vec![1, 1, 2], vec![]] {
+    let pairs = |cells: &[[u64; 2]]| -> Vec<rmpv::Value> {
+        cells
+            .iter()
+            .map(|c| rmpv::Value::Array(c.iter().map(|&x| x.into()).collect()))
+            .collect()
+    };
+    for wrong in [
+        pairs(&[[1, 0], [0, 1]]),
+        pairs(&[[0, 1], [0, 1]]),
+        pairs(&[]),
+    ] {
         let replaced = match value.clone() {
             rmpv::Value::Map(entries) => rmpv::Value::Map(
                 entries
@@ -2024,9 +2040,7 @@ fn histories_whose_region_cells_do_not_start_at_the_representative_are_errors() 
                         if let rmpv::Value::Map(fields) = &mut regions[0] {
                             for (name, field) in fields.iter_mut() {
                                 if name.as_str() == Some("cells") {
-                                    *field = rmpv::Value::Array(
-                                        wrong.iter().map(|&c: &u64| c.into()).collect(),
-                                    );
+                                    *field = rmpv::Value::Array(wrong.clone());
                                 }
                             }
                         }
@@ -2041,4 +2055,22 @@ fn histories_whose_region_cells_do_not_start_at_the_representative_are_errors() 
         let err = History::from_msgpack(&out).unwrap_err();
         assert!(format!("{err:#}").contains("cells"), "{wrong:?}: {err:#}");
     }
+}
+
+#[test]
+fn continuing_needs_the_positions_of_the_cells_of_the_history() {
+    // 対称性を使わない 2 × 2 の格子と 1 × 4 の格子は、セルの番号 0〜3 と体積が同じでも、セル 2 の位置（2 行目の 1 列目と
+    // 1 行目の 3 列目）が違う
+    let library = library();
+    let square = PIN.replace(
+        "rows = [\"pin\"]",
+        "rows = [\"pin pin\", \"pin pin\"]\nsymmetry = \"none\"",
+    );
+    let nominal = deplete_with(&square, &library);
+    let row = continued("0.5", "[1.0]", "4.9e-2").replace(
+        "rows = [\"pin\"]",
+        "rows = [\"pin pin pin pin\"]\nsymmetry = \"none\"",
+    );
+    let err = continue_simply(&row, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("depletion regions"), "{err:#}");
 }
