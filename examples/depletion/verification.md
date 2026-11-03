@@ -1661,7 +1661,7 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 
 ### 計算
 
-8 本の xlc の格子（`lattice`）と比較（`compare`）は 24a26e32（ブランチ chore/rerun-after-adr-0226、分岐点は main の a0fd48c0）、
+8 本の xlc の格子（`lattice`）と比較（`compare`）は e04ffba2（ブランチ chore/rerun-after-adr-0226、分岐点は main の a0fd48c0）、
 2026-11-03〜04（Slurm で 1 本ずつ。2A、2F、2N は timed のジョブ 664、666、667、2M、2O、2P、2A-density、2A-rods は割り込まれうるジョブ
 668〜672）。自己遮蔽の UFG の減速計算は 8 本とも ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの中性子束）と ADR-0211 の
 誤差関数、ADR-0213 の自由ガスの散乱源の区間を持つ形で、ADR-0214 の既定の 32 スレッド（ログの `thread pool threads=32`）。
