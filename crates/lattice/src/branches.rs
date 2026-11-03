@@ -419,10 +419,6 @@ impl BranchesEntry {
         if self.rod.as_ref().is_some_and(BTreeMap::is_empty) {
             return Err("branches.rod: give the rod values and the cells they replace".into());
         }
-        // 値ごとの形状の燃焼の領域を履歴の領域に対応させる書き方は決めていない（ADR-0224）
-        if history && self.rod.is_some() {
-            return Err("[history] cannot be combined with [branches.rod] yet (#0213)".into());
-        }
         let mut axes = Vec::new();
         let mut changes = Vec::new();
         if let Some(b) = self.boron {
@@ -1012,9 +1008,12 @@ pub(crate) fn remix_varied(
 }
 
 /// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。最初に解く状態は始める解
-/// がなく、ほかの状態は、添字が 0 でない最後の軸を 1 つ戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に解いた
-/// 状態）の解から始める。直前に解いた状態は、その軸に加えて後の軸もすべて違う。部分格子の状態だけを解き（ADR-0200）、その状態を
-/// 解いていなければ、直前に解いた状態の解から始める（平らな初期値より近い）。
+/// がなく、ほかの状態は、添字が 0 でない最後の軸を前の点に戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に
+/// 解いた状態）の解から始める。前の点は、前の軸が同じ解いた状態がその軸に持つ点のうち、この状態の点の 1 つ前のもので、前の軸が
+/// 同じ状態がその軸のどの点も持つ形（直積、部分格子、棒のない値の燃焼点）では添字を 1 つ戻した点、制御棒の値が燃焼点を間引けば
+/// その値の 1 つ前の燃焼点になる（燃焼点を間引いた別の入力の格子計算と同じ始める解。ADR-0225）。直前に解いた状態は、その軸に
+/// 加えて後の軸もすべて違う。部分格子の状態だけを解き（ADR-0200）、戻した状態を解いていなければ、直前に解いた状態の解から始める
+/// （平らな初期値より近い）。
 #[derive(Debug)]
 pub struct Starts<T> {
     /// [軸] の格子点の数
@@ -1048,12 +1047,21 @@ impl<T> Starts<T> {
         let state = *self.present.get(self.next)?;
         let at = state_indices(&self.counts, state);
         let axis = at.iter().rposition(|&i| i > 0)?;
-        let mut back = at;
-        back[axis] -= 1;
-        back[axis + 1..].iter_mut().for_each(|i| *i = 0);
-        let back = state_index(&self.counts, &back);
-        match &self.saved[axis] {
-            Some((solved, value)) if *solved == back => Some(value),
+        // 前の軸が同じ、解いた状態のその軸の点のうち、この状態の点より前の最後のもの（解いた状態は番号の順なので、それより前にある）
+        let previous = self.present[..self.next]
+            .iter()
+            .map(|&s| state_indices(&self.counts, s))
+            .filter(|s| s[..axis] == at[..axis] && s[axis] < at[axis])
+            .map(|s| s[axis])
+            .max();
+        let back = previous.map(|point| {
+            let mut back = at.clone();
+            back[axis] = point;
+            back[axis + 1..].iter_mut().for_each(|i| *i = 0);
+            state_index(&self.counts, &back)
+        });
+        match (&self.saved[axis], back) {
+            (Some((solved, value)), Some(back)) if *solved == back => Some(value),
             _ => self.saved.last()?.as_ref().map(|(_, value)| &**value),
         }
     }
