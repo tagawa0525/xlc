@@ -61,6 +61,8 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
 3. ハイブリッドの組成を作る本番の経路: 今は examples/depletion/history/make_hybrid.py（`--micro`）が燃焼の履歴を書き換えて作る。lattice の入力で
    選べる形にする
 4. 形式を変えて読めなくなった出力の作り直し（読む作業のときに）
+   - 燃焼の領域の組のセル `cells` を持たない前の燃焼の履歴は lattice（`[history]`、`continue`、`shielding-file`）と make_hybrid.py で
+     読めない（DVC で追跡する 23 本。一覧と時間の見込みは ADR-0226 の「帰結」）
    - `rate` を持たない、数密度の微分を持つ前のテーブル: history/table-residual-nominal.msgpack（7b5fa50b）、history/table-weight-nominal-0661.msgpack と
      0702、branches/branch-2A-micro.toml、micro/nominal.toml、micro/perturbation-5.toml の出力。1 本約 35 分（Slurm 617 は 37 分 24 秒、622 は 34 分 15 秒）
    - `history_variables` と点の `histories` を持たない前の版の core のミクロ燃焼の履歴は restart に読めない（examples/depletion/branches の
@@ -70,6 +72,7 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
    - 計算なしで直すもの: 記録の「履歴の残り R（2A の減速材の密度）」の「計算」は比較をテーブル 8d692a1a と 285e0a96 で書き直したと書くが、
      `residual.json` の `inputs` は今のテーブル 180a500f で、88ae0e437 で作り直されている（記録の出どころを 180a500f と 88ae0e437 に直す）
 5. 残ったレビューの指摘（直していない。要旨だけ。詳しくは経緯の各項）
+   - 燃焼の領域の照合（ADR-0226）: make_hybrid.py の `identity` は lattice の `region_mismatch` を手でコピーしている。ほかは 2026-11-03 の項
    - core の不連続と上限: w がちょうど 0 の変数は U、L、Δσ、自分の数密度の項を足さないが、P / P_j は w によらないので w = 0 と 0⁺ で定数と反応率が跳ぶ。
      P / P_j に上限が無く、燃焼度 0⁺ の近くと、P_j が P よりずっと小さい点（数 ulp だけ公称と違う分岐の数密度）で巨大な係数になりうる（ちょうど 0 と
      非有限だけをエラーにする）。w < 0 は測っていない。燃焼度 0 と 0⁺ の間で L(0) と Δσ(0) が不連続に入る（2026-10-31 の U と L、案 R6、R7、案 (a) の項）
