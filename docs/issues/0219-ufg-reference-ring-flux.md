@@ -21,7 +21,7 @@ ADR-0209 は、UFG の散乱核の既定（速い方法 `{ upper = 400, cells = 
 1 リングで 1.196631 → 1.196167（−46.4 pcm）動く（examples/depletion/issue-0152/ の `1c-r1.toml` と `1c-r1-ref.toml`、`mox1-r1.toml` と
 `mox1-r1-ref.toml`。xlc は e5969df2a（ブランチ feat/0152-mox1-gap、分岐点は main の 54ab434ff）、2026-11-03、Slurm 661、662。#0152 の
 2026-11-03 の項のうち、ブランチ feat/0152-mox1-gap の切り分けの項）。どちらも OpenMC との差を負の側へ動かす（1C の 1 リングの 0 の点 +52.7 ± 22.0 pcm、MOX-1 −253.5 ± 16.4 pcm。
-examples/depletion/compare-1C-rings1.json、compare-mox1-rings1.json）。
+examples/depletion/compare-1C-rings1.json、compare-mox1-rings1.json。比較は 374fa19e、分岐点は main の e04aa5ecc、2026-11-03）。
 
 同じ bin で移行を無限希釈の形にすると、参照と既定の差は 1C +4.3 pcm（1.172316 → 1.172359）、MOX-1 +5.2 pcm（1.196523 → 1.196575）で、
 ADR-0205 の差（参照 − 速い方法 +4.3 pcm）と同じ（`1c-r1-dilute.toml`、`1c-r1-ref-dilute.toml`、`mox1-r1-dilute.toml`、`mox1-r1-ref-dilute.toml`。
