@@ -24,6 +24,19 @@ resolution:
   超える項では表の名前が切れるので、`TABLES` の関数の本文を `inspect.getsource` で読む 1 行の Python に替えた（1 周目の指摘）。
   その 1 行も、補助の関数を通して `seconds` を読む表は拾わない（スキルに書いた）
 
+3 周目の直し（564419355）に回した記録の周が挙げた blocking（/git-merge の「直す指摘の基準」の歯止めで直さず、ユーザーの判断に回す）:
+
+- スキルの「格子計算のステージの出力を消してから `dvc repro --no-run-cache <yaml>:<ステージ>`」は、格子計算を実行しない。DVC 3.67.1
+  の `run_stage`（dvc/stage/run.py）は force でなければ `stage_cache.restore` を呼び、`restore`（dvc/stage/cache.py 198〜203 行）は
+  `changed_stage()` でなく deps が揃い dvc.lock に outs の hash があれば、run-cache の有無（`--no-run-cache`）より前に dvc.lock から
+  ステージを作り、キャッシュの前の出力を戻す（確かめた: インストールされた DVC のソース）。`seconds` は前のジョブのままになる。
+  Slurm 658 が走ったのは lock を戻したため（#0152）。代わりの候補は `dvc repro -f --downstream <yaml>:<格子計算のステージ>`
+  （force が目標とその下流だけに掛かるかは確かめていない）か、#0152 のように lock を戻す形
+- 続けて流す比較のステージは、上流の OpenMC のステージが changed なら、数時間の参照解を timed のジョブの中で実行しうる。
+  この 2 段にも CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py`）を求めていない
+- 「`--no-run-cache` は上流の changed のステージも実行する」の下で上流に changed の xs-nuclide があると、CLAUDE.md の「計算」が
+  `examples/stage_runner.py` で流すとする xs-nuclide を `dvc repro` で実行する（上の 1 項目目の揃え方の欠けと同じ根）
+
 関係する ADR: なし
 
 ## 完了の条件
