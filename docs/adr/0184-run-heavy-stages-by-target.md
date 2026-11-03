@@ -59,8 +59,9 @@ ADR-0159 は ADR-0123 から、DVC のステージを実行する形を引き継
     （`changed outs`、`changed command`、`changed checksum`）を持たないこと。目標のステージ自身の `changed deps` は再実行の理由
     なので数えない。`always_changed` のステージ（`references-shell`）がいつも出す `always changed` の項目は、deps と outs の
     差を表さないので数えないが、同じステージの `changed outs` は数える。`references-shell.txt` は devShell が変わっても
-    `dvc status` に出ないので、`scripts/check-references-shell.sh` で確かめる（/dvc-relock の 3 と同じ）。上流は changed のまま
-    `dvc.lock` に残る
+    `dvc status` に出ないので、`scripts/check-references-shell.sh` で確かめる（/dvc-relock の 3 と同じ）。`python-ast` は、
+    下流の cmd が出力（`.ast`）でなく元の .py を実行するので、changed なら先に実行して changed でなくする（ADR-0210）。上流は
+    changed のまま `dvc.lock` に残り、記録には上流の出どころ（上流を実行したコミットと分岐点）を下流と別に書く
 
 2 つ目の例外は、背景と案 C が防ぐ危険の一部を、条件を付けて受け入れる。上流の deps が changed なので、上流の outs は
 今の deps（`bin/` など）から見れば古く、今の deps で流せば変わりうる。一方、outs は `dvc.lock` の記録と同じなので、下流が
@@ -73,7 +74,7 @@ ADR-0159 は ADR-0123 から、DVC のステージを実行する形を引き継
 
 ## 確認
 
-1 つ目から 3 つ目の項は、確かめるものがない約束事である。DVC が目標の上流の changed を実行することは、ADR-0159 の確認 (d) と、2026-10-22 の
+1 つ目から 3 つ目の項と `-s` の 1 つ目の例外は、確かめるものがない約束事である。DVC が目標の上流の changed を実行することは、ADR-0159 の確認 (d) と、2026-10-22 の
 lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見ている。
 
 2 つ目の `-s` の例外の前提は、2026-11-03 に次で見ている（`-s` で実行した時点の作業ツリーの `dvc status` は残っていない）:
