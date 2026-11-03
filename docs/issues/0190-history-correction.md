@@ -53,9 +53,8 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
      `HISTORY_VARIABLES` に足す。制御棒の軸のテーブルの結合 examples/core/rod_table.py（#0213 までのつなぎ）の `merge` は最初のテーブルの
      `histories` だけを残し、ほかの制御棒の値のテーブルの `histories` を黙って捨てるので、エラーにするか結合を決める（今は `histories` を
      持つテーブルを渡す経路が無い）
-   - Pyrex: 案 Q1 を作り、案 Q2（Pyrex を抜いた後を燃焼し直した格子計算）で H_p の比例の誤差を測る。その前に、lattice の `continued_start` が
-     燃焼の領域を MOC の領域の番号まで比べ、案内管の中身を変える続き（Q2、制御棒）がエラーで止まるのを、物質、セル、体積で比べる形に直す
-     （2026-10-30 の項）
+   - Pyrex: 案 Q1 を作り、案 Q2（Pyrex を抜いた後を燃焼し直した格子計算）で H_p の比例の誤差を測る。lattice の `continued_start` は燃焼の
+     領域を（物質、組の代表のセル、体積）で比べ、案内管の中身を変える続き（Q2、制御棒）を続けられる（2026-11-03 の項）
    - 履歴の変数が複数になると、P がノードの組成の差の全体なので、L、Δσ_L、自分の数密度の項を変数ごとに重ねて足す。変数の間の分け方を、
      2 つ目の変数を足すときに決める（ADR-0215 の「テーブルに持つ補正」）
 3. ハイブリッドの組成を作る本番の経路: 今は examples/depletion/history/make_hybrid.py（`--micro`）が燃焼の履歴を書き換えて作る。lattice の入力で
@@ -174,7 +173,7 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
   （4a035f46）で、見込みが定義される（補正を切った差）期待に実装と一緒に変えた。記録の周で残したもの（ブランチ
   feat/0190-history-switch-lattice）: lattice の `continued_start` は燃焼の領域（`DepletionRegion`）を MOC の領域の番号まで比べるので、
   案内管の中身を変える続き（Pyrex を抜いた燃焼の案 Q2、制御棒）は、燃料のセルの物質、セル、体積が同じでもエラーで止まる
-  （history.rs の `history_branches` は番号を外して比べる）。Q2 の前に、物質、セル、体積で比べ、番号は新しい格子のものを使うよう直す。
+  （history.rs の `history_branches` は番号を外して比べる）。Q2 の前に、物質、セル、体積で比べ、番号は新しい格子のものを使うよう直す（2026-11-03 に直した）。
   燃料の温度を変えて続けると、輸送する核種（ライブラリがその温度で持つ核種）が履歴と違い、エラーで止まりうる（燃料の温度の履歴の
   測定の前に扱いを決める）。続ける実行の間、main は元の履歴（2A で 55 MB）を持ち続け、`continued_start` は引き継ぐ点を複製する
 - 2026-10-31: 見直しの候補を分ける測定（ブランチ feat/0190-history-weight-split。examples/depletion/verification.md の「履歴の重みと R の w への
@@ -488,3 +487,9 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
   `accumulate_residual` が要らない）、`node_values` を同じ状態のステップでも引き直す、`advance_histories` の長さのエラーが `end` の長さを
   出さない、compare_core_history.py の `same_burnup` が examples/depletion の比較のツールの 6 つ目のコピーで、燃焼度の点にない core の点で
   `StopIteration` になり、文章の「15 MWd/kg 以後」の境が要約の JSON に無い
+- 2026-11-03: lattice の `continued_start` を、燃焼の領域の（物質、組の代表のセル、体積）で比べる形に直した（ブランチ
+  fix/0190-continued-start-regions）。MOC の領域の番号は続ける入力の格子のものを使い、どれかが違えばエラーで止めて最初に違う領域を示す
+  （履歴からの分岐の `history_branches` と同じ比べ方。#0196）。案内管の中身を変えて続ける燃焼（Q2、制御棒）が続けられる。燃焼の領域は
+  物質とセルの組ごとに 1 つなので、燃料のリングの数を変えた格子も同じ燃焼の領域として続けられる（続ける点はこの入力の格子で解き直す）。
+  テストは crates/lattice/src/depletion/tests.rs の `continuing_with_other_guide_tube_contents_keeps_the_fuel_regions_of_the_history`、
+  `continuing_needs_the_fuel_materials_cells_and_volumes_of_the_history`、`continuing_with_more_fuel_rings_keeps_the_depletion_region_of_the_cell`
