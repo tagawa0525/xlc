@@ -1,7 +1,7 @@
-# branch-2A-micro.toml の 17 の燃焼度の点と 4 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く（制御棒の組。ADR-0200 の
-# 制御棒を入れた組。#0192 の部分挿入のノードのミクロ燃焼の確認）。制御棒、被覆管（SS304）、吸収体と被覆管の間の真空の形と組成は
-# branch-2A-cross-rods.toml（../p2/lattice-2A-rods.toml）と同じ。制御棒の物質は 565 K のまま。棒のない組（table-2A-micro.msgpack）と
-# ../../core/rod_table.py で制御棒の軸を持つ 1 つのテーブルにまとめる。
+# branch-2A-micro.toml の 17 の燃焼度の点と 4 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く、制御棒の軸を持たない
+# テーブル（#0192 の部分挿入のノードのミクロ燃焼の確認で、上のノードを一様に棒の入った層にする比べる先。core-2A-micro-rodded）。
+# 制御棒、被覆管（SS304）、吸収体と被覆管の間の真空の形と組成は branch-2A-cross-rods.toml（../p2/lattice-2A-rods.toml）と同じ。
+# 制御棒の物質は 565 K のまま。branch-2A-micro-rod-axis.toml の値 aic と同じ問題（Pu-240 の数密度の微分を含む）を解く。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-2A-micro-rods.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
@@ -158,3 +158,5 @@ micro = [
   "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160",
   "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
 ]
+# 線形の補正の係数を σᵢ から数密度の微分にする核種（ADR-0221）
+derivative = ["Pu-240"]

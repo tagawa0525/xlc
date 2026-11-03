@@ -1,8 +1,8 @@
-# branch-2A-micro-boron.toml の 17 の燃焼度の点と 5 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く（制御棒の組。
-# 格子と制御棒は branch-2A-micro-rods.toml と同じ）。棒のない組（table-2A-micro-boron.msgpack）と ../../core/rod_table.py で
-# 制御棒の軸を持つ 1 つのテーブルにまとめる。
+# branch-2A-micro-boron.toml の棒のない組と、同じ 17 の燃焼度の点と 5 状態を案内管 24 本すべてに AIC の制御棒を入れた格子で解く
+# 制御棒を入れた組（格子と制御棒は branch-2A-micro-rod-axis.toml と同じ）を、1 つの入力で解き、制御棒の軸（out、aic）を持つテーブルに
+# する（ADR-0224、ADR-0225）。小さな炉心の core の燃焼（#0156）に使う。
 library = "../p2/depletion.msgpack"
-few-group = { output = "table-2A-micro-boron-rods.msgpack", bounds = [1e7, 0.625, 1e-5] }
+few-group = { output = "table-2A-micro-boron-rod-axis.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
 pitch = 1.26
 azimuthal = 30
@@ -11,19 +11,19 @@ gap = { width = 0.04, material = "water" }
 rows = [
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin pin pin pin cr  pin pin cr  pin pin cr  pin pin pin pin pin",
-  "pin pin pin cr  pin pin pin pin pin pin pin pin pin cr  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin",
-  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin cr  pin pin cr  pin pin it  pin pin cr  pin pin cr  pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin cr  pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
-  "pin pin pin cr  pin pin pin pin pin pin pin pin pin cr  pin pin pin",
-  "pin pin pin pin pin cr  pin pin cr  pin pin cr  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
 ]
@@ -119,6 +119,16 @@ zones = [
 ]
 sectors = 8
 
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
 # 計装管（中は減速材）
 [cell.it]
 zones = [
@@ -146,6 +156,9 @@ sectors = 8
 boron = { ppm = [0, 300, 600, 1000, 1300], materials = ["water"] }
 moderator = { temperature = [565], density = [0.743], materials = ["water", "zircaloy"] }
 fuel = { temperature = [565], materials = ["fuel"] }
+
+[branches.rod]
+aic = { gt = "cr" }
 
 [history]
 file = "../p2/lattice-2A.msgpack"
