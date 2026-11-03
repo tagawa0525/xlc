@@ -426,6 +426,18 @@ def endfb70_p3_distributions(sources: list[dict]) -> str:
 
 
 DEPLETION_NUCLIDES = ["U-235", "U-238", "Pu-239", "Xe-135", "Sm-149"]
+# MOX の初めの組成にある Pu と Am も並べる（compare_depletion.py の NUCLIDES と同じ順）
+DEPLETION_MOX_NUCLIDES = [
+    "U-235",
+    "U-238",
+    "Pu-239",
+    "Pu-240",
+    "Pu-241",
+    "Pu-242",
+    "Am-241",
+    "Xe-135",
+    "Sm-149",
+]
 
 
 def depletion_summaries(sources: list[dict]) -> list[dict]:
@@ -473,15 +485,43 @@ def depletion_k(sources: list[dict]) -> str:
     )
 
 
+def depletion_single_k(sources: list[dict]) -> str:
+    """格子計算の燃焼（1 つの比較）: 燃焼点ごとの両方の k∞、差（xlc − OpenMC）とその 0 の点からの変化"""
+    (s,) = depletion_summaries(sources)
+    rows = [
+        [
+            burnup_label(b),
+            f"{k['xlc']:.6f}",
+            f"{k['openmc']:.6f}",
+            f"{signed(k['diff_pcm'], 0)} ± {k['openmc_std_pcm']:.0f}",
+            signed(k["change_pcm"], 0),
+        ]
+        for b, k in zip(s["burnup"], s["k"])
+    ]
+    return markdown_table(
+        ["燃焼度 (MWd/kg)", "xlc の k∞", "OpenMC の k∞", "差 (pcm)", "変化 (pcm)"],
+        rows,
+    )
+
+
+def density_rows(s: dict, nuclides: list[str]) -> str:
+    rows = [
+        [burnup_label(b)] + [percent_or_dash(s["pin"][n][i]) for n in nuclides]
+        for i, b in enumerate(s["burnup"])
+    ]
+    return markdown_table(["燃焼度 (MWd/kg)", *nuclides], rows)
+
+
 def depletion_densities(sources: list[dict]) -> str:
     """格子計算の燃焼: 燃料のピン全体の数密度の相対差（%）"""
     (s,) = depletion_summaries(sources)
-    rows = [
-        [burnup_label(b)]
-        + [percent_or_dash(s["pin"][n][i]) for n in DEPLETION_NUCLIDES]
-        for i, b in enumerate(s["burnup"])
-    ]
-    return markdown_table(["燃焼度 (MWd/kg)", *DEPLETION_NUCLIDES], rows)
+    return density_rows(s, DEPLETION_NUCLIDES)
+
+
+def depletion_mox_densities(sources: list[dict]) -> str:
+    """格子計算の燃焼（MOX）: 燃料のピン全体の数密度の相対差（%）。Pu-240〜Am-241 を加える"""
+    (s,) = depletion_summaries(sources)
+    return density_rows(s, DEPLETION_MOX_NUCLIDES)
 
 
 def depletion_rings(sources: list[dict]) -> str:
@@ -3130,6 +3170,14 @@ TABLES = {
             "examples/depletion/compare-1C-rings4.json",
         ],
         depletion_times,
+    ),
+    "depletion-mox1-k": (
+        ["examples/depletion/compare-mox1-rings1.json"],
+        depletion_single_k,
+    ),
+    "depletion-mox1-densities": (
+        ["examples/depletion/compare-mox1-rings1.json"],
+        depletion_mox_densities,
     ),
     "aws-depletion-1c-k": (
         ["examples/depletion/aws-check/compare-aws-1C-rings1.json"],
