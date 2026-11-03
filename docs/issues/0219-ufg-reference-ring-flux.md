@@ -22,11 +22,11 @@ ADR-0209 は、UFG の散乱核の既定（速い方法 `{ upper = 400, cells = 
 `mox1-r1-ref.toml`。xlc は e5969df2a（ブランチ feat/0152-mox1-gap、分岐点は main の 54ab434ff）、2026-11-03、Slurm 661、662。#0152 の
 2026-11-03 の項のうち、ブランチ feat/0152-mox1-gap の切り分けの項）。どちらも OpenMC との差を負の側へ動かす（1C の 1 リングの 0 の点 +52.7 ± 22.0 pcm、MOX-1 −253.5 ± 16.4 pcm。
 examples/depletion/compare-1C-rings1.json、compare-mox1-rings1.json。比較は 374fa19e、分岐点は main の e04aa5ecc、2026-11-03。xlc の格子は d4a6832c、分岐点は main の 3dda20789、
-2026-11-03（Slurm 655、658）、OpenMC は 1C が 4e9cc7f7（分岐点は main の 2ce95c95、2026-10-16、Slurm 409）、MOX-1 が 55aac8a3（分岐点は
+2026-11-03（1C は Slurm 658、MOX-1 は 655）、OpenMC は 1C が 4e9cc7f7（分岐点は main の 2ce95c95、2026-10-16、Slurm 409）、MOX-1 が 55aac8a3（分岐点は
 main の f86d7fda8、2026-10-31、Slurm 639）。examples/depletion/verification.md の「格子計算の燃焼」と「MOX-1 のピンセルの燃焼（準備）」の「計算」）。
 
 同じ bin で移行を無限希釈の形にすると、参照 − 既定は 1C +4.3 pcm（1.172359 − 1.172316）、MOX-1 +5.2 pcm（1.196575 − 1.196523）で、
-ADR-0205 の差（参照 − 速い方法 +4.3 pcm）と同じ（`1c-r1-dilute.toml`、`1c-r1-ref-dilute.toml`、`mox1-r1-dilute.toml`、`mox1-r1-ref-dilute.toml`。
+1C は ADR-0205 の 1C の新しい燃料の差（参照 − 速い方法 +4.3 pcm）と同じ、MOX-1 も同じ大きさ（ADR-0205 に MOX-1 の値は無い。`1c-r1-dilute.toml`、`1c-r1-ref-dilute.toml`、`mox1-r1-dilute.toml`、`mox1-r1-ref-dilute.toml`。
 xlc は d7b7c0a9e（同じブランチ、分岐点は同じ）、2026-11-03、Slurm 665）。参照 − 既定が −27.6、−46.4 pcm と符号が逆になり開くのは、リングの中性子束の
 移行と組んだときだけである。移行の形の差（リングの中性子束 − 無限希釈の形）は、既定の散乱核で 1C +7.1、MOX-1 +10.8 pcm、参照の散乱核で
 1C −24.8、MOX-1 −40.8 pcm。
