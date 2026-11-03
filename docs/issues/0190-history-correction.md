@@ -487,9 +487,17 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
   `accumulate_residual` が要らない）、`node_values` を同じ状態のステップでも引き直す、`advance_histories` の長さのエラーが `end` の長さを
   出さない、compare_core_history.py の `same_burnup` が examples/depletion の比較のツールの 6 つ目のコピーで、燃焼度の点にない core の点で
   `StopIteration` になり、文章の「15 MWd/kg 以後」の境が要約の JSON に無い
-- 2026-11-03: lattice の `continued_start` を、燃焼の領域の（物質、組の代表のセル、体積）で比べる形に直した（ブランチ
-  fix/0190-continued-start-regions）。MOC の領域の番号は続ける入力の格子のものを使い、どれかが違えばエラーで止めて最初に違う領域を示す
-  （履歴からの分岐の `history_branches` と同じ比べ方。#0196）。案内管の中身を変えて続ける燃焼（Q2、制御棒）が続けられる。燃焼の領域は
-  物質とセルの組ごとに 1 つなので、燃料のリングの数を変えた格子も同じ燃焼の領域として続けられる（続ける点はこの入力の格子で解き直す）。
-  テストは crates/lattice/src/depletion/tests.rs の `continuing_with_other_guide_tube_contents_keeps_the_fuel_regions_of_the_history`、
-  `continuing_needs_the_fuel_materials_cells_and_volumes_of_the_history`、`continuing_with_more_fuel_rings_keeps_the_depletion_region_of_the_cell`
+- 2026-11-03: lattice の `continued_start` を、燃焼の領域の（物質、組の代表のセル、体積、MOC の領域の数）で比べる形に直した（ブランチ
+  fix/0190-continued-start-regions）。MOC の領域の番号は続ける入力の格子のものを使い、どれかが違えばエラーで止めて最初に違う領域を示す。
+  案内管の中身を変えて続ける燃焼（Q2、制御棒）が続けられる。MOC の領域の数も比べるのは、燃料のリングの数を変えた格子を止めるため
+  （燃焼の領域は物質とセルの組ごとに 1 つで、体積は MOC の領域の体積の和なので、組に複数のセルがあるとリングの分け方で丸めが変わり、
+  ビットで比べる体積が合うかが丸め次第になる。レビューの指摘）。テストは crates/lattice/src/depletion/tests.rs の
+  `continuing_with_other_guide_tube_contents_keeps_the_fuel_regions_of_the_history` と
+  `continuing_needs_the_fuel_materials_cells_volumes_and_rings_of_the_history`。
+  レビューで残したもの: 履歴は燃焼の領域の組の代表のセルしか持たないので、組のセルの集まりを比べない。対称性の位数が同じで別の操作の
+  格子（強制した `symmetry` か、別の配置の Pyrex）では、組の代表と体積が同じで組のセルが違う燃焼の領域を通しうる（作った例は無い。
+  2 × 2 の燃料だけの格子の上下の鏡映と 180° の回転は、組 {0, 2}、{1, 3} と {0, 3}、{1, 2} で代表と大きさが同じ。組を比べるには、履歴に
+  組のセルを書く形式の変更が要る）。履歴からの分岐の `history_branches`（history.rs）と `History::shield_with` は（物質、組の代表のセル、
+  体積）で比べ、MOC の領域の数を比べないので、リングの数を変えた格子が丸め次第で通る。同じキーと食い違いの文が 3 か所にあり、
+  共通の関数にまとめていない（feat/0213-history-rod-branches が history.rs を変えているので、このブランチでは触らない）。ADR-0215 は
+  「燃焼の領域…が履歴と違う」の比べ方を書かない
