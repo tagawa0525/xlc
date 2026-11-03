@@ -197,7 +197,7 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 OpenMC は 8dcacf81、分岐点は main の 64a04368、2026-10-16（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、
 Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、OpenMC とライブラリのステージは再実行せずに `dvc commit` で付け直した
 （3517e466。deps の差はコメントだけ。#0145）。その後の `openmc_depletion.py` の docstring の変更（3baba57c）も、再実行せずに
-`dvc commit` で付け直した（acfe57b0）。xlc の格子（`lattice-1C`）と比較（`compare-1C`）は 31ab2528（ブランチ feat/0152-mox1-reference）、分岐点は main の
+`dvc commit` で付け直した（acfe57b0）。xlc の格子（`lattice-1C`）と比較（`compare-1C`）は a68a0df8（ブランチ feat/0152-mox1-reference）、分岐点は main の
 dcc9036a2、2026-11-03（Slurm の timed のジョブ 658。時間の表の xlc の行はこの実行の値。ADR-0214 の既定の 32 スレッド（ログの
 `thread pool threads=32`））。比較の JSON は、前の実行（228bf1806、Slurm 581）と `seconds` と入力の md5 のほかは同じ。
 自己遮蔽の UFG の減速計算は ADR-0209 の既定
