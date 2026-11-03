@@ -116,3 +116,7 @@ U-238 の UFG の範囲は −89.9、−57.0 pcm（群の断面積は +0.3%）�
   `lattice-1C` と `compare-1C` は同じコミットで Slurm 658（timed。時間の表の値）。658 のために lock を戻したので、655 の 2A と
   MOX-1 の出力は Slurm 659 で run-cache から戻し、`compare-mox1` は 659 で流した。1C の比較の JSON は `seconds` と入力の md5 のほか
   前と同じ。`compare-mox1-rings1.json` は今の compare_depletion.py の核種のままで、Pu-240、Pu-241、Pu-242、Am-241 の追加と記録の本文はこれから
+- 2026-11-03: `compare_depletion.py` に Pu-240、Pu-241、Pu-242、Am-241 を足し、`compare-1C`（rings1、rings4）と `compare-mox1` を
+  再実行した（ブランチ docs/0152-mox1-record。数秒のステージ）。MOX-1 の参照解との差を examples/depletion/verification.md「MOX-1 の
+  ピンセルの燃焼（準備）」に書いた。k の差は −254〜−141 pcm（0 の点 −254 ± 16 pcm。1C の 1 リングの 0 の点は +53 ± 22 pcm）、5 MWd/kg の
+  数密度の差は Pu-242 −0.31%、Am-241 +0.17%、Sm-149 +1.24% で、Pu-239、Pu-240、Pu-241 は 0.05% 以内。差の原因は確かめていない
