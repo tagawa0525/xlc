@@ -49,3 +49,5 @@ examples/depletion/verification.md の 1C の時間の段落を直し、最終�
 ## 経緯
 
 - 2026-10-28: ADR-0214 の 1C の測定で見つけ、/retro で issue にした
+- 2026-11-03: 今の bin（分岐点は main の 3dda20789）の 32 スレッドの timed の実行（Slurm 658）では、1 リングの最初の自己遮蔽が 34.8 秒で、
+  581 の 41.0 秒は再現しなかった（examples/depletion/verification.md の 1C の時間の段落）
