@@ -1887,3 +1887,45 @@ fn rod_values_must_keep_the_depletion_regions_of_the_history() {
     assert!(err.contains("rod value a"), "{err}");
     assert!(err.contains("depletion regions"), "{err}");
 }
+
+#[test]
+fn rod_values_that_change_the_fuel_orbits_are_errors() {
+    // 履歴の格子は右の列の 2 本の案内管（gt と、同じ形の gt2）が上下の鏡映で移り合い、左の列の燃料のセル {0, 2} が 1 つの組。
+    // 上の gt だけに棒を入れる値は上下の鏡映を壊し、燃料の組が {0} と {2} に分かれる。履歴の組成を組の代表のセルの組に当てると
+    // 別の組成の領域になるので、値の形状の燃焼の領域の組のセルの位置が履歴と違って止まる（ADR-0225、ADR-0226）。両方の案内管に
+    // 棒を入れる値は対称性を変えず、通る
+    let library = library_with_boron();
+    let columns = |text: &str| {
+        let gt2 = WATER_GUIDE.replace("[cell.gt]", "[cell.gt2]");
+        text.replace("rows = [\"pin\"]", "rows = [\"pin gt\", \"pin gt2\"]")
+            .replace(
+                "[cell.pin]\n",
+                &format!("{WATER_GUIDE}\n{gt2}\n{ROD_CELL}\n[cell.pin]\n"),
+            )
+    };
+    let history = deplete_with(&columns(&borated(PIN)), &library);
+    let text = |rod: &str| {
+        format!(
+            "{}\n[branches.rod]\na = {rod}\n",
+            columns(&all_transported(&history, "[0, 2.0]"))
+        )
+    };
+    assert!(
+        branches_of(
+            &text("{ gt = \"gt-rod\", gt2 = \"gt-rod\" }"),
+            &history,
+            &library
+        )
+        .is_ok()
+    );
+    let err = format!(
+        "{:#}",
+        branches_of(&text("{ gt = \"gt-rod\" }"), &history, &library).unwrap_err()
+    );
+    assert!(err.contains("rod value a"), "{err}");
+    // 値の形状では左上の燃料のセルだけが組（履歴は左の列の 2 つ）
+    assert!(
+        err.contains("cells at [[0, 0]],") && err.contains("cells at [[0, 0], [1, 0]]"),
+        "{err}"
+    );
+}
