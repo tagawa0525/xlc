@@ -13,7 +13,18 @@ import compare_depletion
 
 def histories(rings: int = 1):
     """2 点の燃焼の、xlc と OpenMC の履歴（体積 1 と 3 のリング）"""
-    names = ["U-235", "U-238", "Pu-239", "Xe-135", "Sm-149", "Am-242m"]
+    names = [
+        "U-235",
+        "U-238",
+        "Pu-239",
+        "Pu-240",
+        "Pu-241",
+        "Pu-242",
+        "Am-241",
+        "Xe-135",
+        "Sm-149",
+        "Am-242m",
+    ]
     volumes = [1.0, 3.0][:rings]
     xlc = {
         "format": "xlc-depletion-history",
@@ -34,8 +45,11 @@ def histories(rings: int = 1):
             {
                 "burnup": b,
                 "k_inf": k,
-                # [リング][核種]: U-235 だけが値を持ち、リング r は 1 + r 倍
-                "densities": [[d * (1 + r), 0, 0, 0, 0, 0] for r in range(rings)],
+                # [リング][核種]: U-235 と Pu-240 だけが値を持ち、リング r は 1 + r 倍
+                "densities": [
+                    [d * (1 + r), 0, 0, 0.5 * d * (1 + r), 0, 0, 0, 0, 0, 0]
+                    for r in range(rings)
+                ],
             }
             for b, k, d in [(0.0, 1.17, 2.0), (1.0, 1.12, 1.0)]
         ],
@@ -57,6 +71,10 @@ def histories(rings: int = 1):
                     "U235": [2.0 * (1 + r), 0.8 * (1 + r)],
                     "U238": [0.0, 0.0],
                     "Pu239": [0.0, 0.0],
+                    "Pu240": [1.0 * (1 + r), 0.4 * (1 + r)],
+                    "Pu241": [0.0, 0.0],
+                    "Pu242": [0.0, 0.0],
+                    "Am241": [0.0, 0.0],
                     "Xe135": [0.0, 0.0],
                     "Sm149": [0.0, 0.0],
                 },
@@ -95,6 +113,28 @@ class Summary(unittest.TestCase):
         # OpenMC が 0 の量は比べない
         self.assertIsNone(s["pin"]["Xe-135"][1])
         self.assertAlmostEqual(s["rings"][1]["U-235"], 2.0 / 1.6 - 1.0, places=12)
+
+    def test_the_plutonium_and_americium_of_mox_fuel_are_compared(self):
+        s = compare_depletion.summarize(*histories(rings=2))
+        self.assertEqual(
+            list(s["pin"]),
+            [
+                "U-235",
+                "U-238",
+                "Pu-239",
+                "Pu-240",
+                "Pu-241",
+                "Pu-242",
+                "Am-241",
+                "Xe-135",
+                "Sm-149",
+            ],
+        )
+        # xlc: (1·0.5 + 3·1) / 4 = 0.875、OpenMC: (1·0.4 + 3·0.8) / 4 = 0.7
+        self.assertAlmostEqual(s["pin"]["Pu-240"][1], 0.875 / 0.7 - 1.0, places=12)
+        self.assertIsNone(s["pin"]["Am-241"][1])
+        self.assertAlmostEqual(s["rings"][1]["Pu-240"], 1.0 / 0.8 - 1.0, places=12)
+        self.assertEqual(list(s["rings"][0]), list(s["pin"]))
 
     def test_the_transported_nuclides_must_agree(self):
         xlc, omc = histories()
