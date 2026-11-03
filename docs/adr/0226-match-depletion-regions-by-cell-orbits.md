@@ -7,7 +7,7 @@ superseded-by:
 issues: ["#0190", "#0196"]
 ---
 
-# ADR-0226: 続ける燃焼と履歴からの分岐は、燃焼の領域を物質、組のセルの集合、体積、MOC の領域の数で比べ、MOC の領域の番号は比べない
+# ADR-0226: 続ける燃焼と履歴からの分岐は、燃焼の領域を物質、組のセルの位置、体積、MOC の領域の数で比べ、MOC の領域の番号は比べない
 
 ## 背景
 
@@ -45,22 +45,28 @@ issues: ["#0190", "#0196"]
 - 代表のセルで比べ、組のセルの違う格子は使う側の運用で避ける（Q2 と制御棒の入力で対称性が変わらないことを、流す前に確かめる）:
   形式を変えずに済むが、確かめ忘れた入力は誤った組成で黙って流れる。強制する対称性（`symmetry`）や、Pyrex の配置で、対称性の
   位数が同じで別の操作になる格子は、入力を読むだけでは気づきにくい
-- 履歴に組のセルを書き、物質、組のセルの集合、体積（ビット）、MOC の領域の数で比べる（採用）
+- 履歴に組のセルの番号を書き、物質、組のセルの番号の集合、体積（ビット）、MOC の領域の数で比べる（このブランチの 2 つ目の版）:
+  形の違う格子では同じ番号のセルが別の位置にあり、対称性を使わない（`symmetry = "none"`）2 × 2 の格子の履歴を 1 × 4 の格子で
+  続けると、番号 0〜3、体積、MOC の領域の数が同じで通り、セル 2 の組成を 2 行目の 1 列目から 1 行目の 3 列目に移した（3 周目の
+  レビュー、2026-11-03。テスト `continuing_needs_the_positions_of_the_cells_of_the_history`）
+- 履歴に組のセルの位置（[行, 列]）を書き、物質、組の代表のセル、組のセルの位置、体積（ビット）、MOC の領域の数で比べる（採用）
 
 ## 決定と理由
 
-燃焼の領域は、物質、組の代表のセルに加えて組のセル（昇順。最初が代表）を持ち、燃焼の履歴に `cells` として書く。続ける燃焼
-（`continued_start`）と履歴からの分岐（`history_branches` と、履歴の組成で自己遮蔽する `History::shield_with`）は、入力の格子から
-求めた燃焼の領域と履歴の燃焼の領域を、順に（物質、組のセルの集合、体積（ビット）、MOC の領域の数）で比べ、1 つの関数
+燃焼の領域は、物質、組の代表のセル（番号）に加えて組のセルの位置（[行, 列]、上から、左から。行の順）を持ち、燃焼の履歴に
+`cells` として書く。続ける燃焼（`continued_start`）と履歴からの分岐（`history_branches` と、履歴の組成で自己遮蔽する
+`History::shield_with`）は、入力の格子から求めた燃焼の領域と履歴の燃焼の領域を、順に（物質、組の代表のセル、組のセルの位置、
+体積（ビット）、MOC の領域の数）で比べ、1 つの関数
 （depletion.rs の `region_mismatch`）を使う。MOC の領域の番号は比べず、入力の格子のものを使う。どれかが違うか、燃焼の領域の
 数が違えばエラーで止め、最初に違う燃焼の領域を両方の値で示す。
 
-- 組のセルの集合を比べるので、組の代表と大きさが同じで組のセルの違う格子（上の反例）を止める。燃料のセルの組が同じなら、
-  案内管の中身を変えた格子（Q2、制御棒）は通る
+- 組のセルの位置を比べるので、組の代表と大きさが同じで組のセルの違う格子（上の反例）と、番号が同じで位置の違う形の格子を
+  止める。燃料のセルの組が同じなら、案内管の中身を変えた格子（Q2、制御棒）は通る
 - MOC の領域の数を比べるので、燃料のリングの数を変えた格子は、体積の和の丸めによらず止まる。燃焼の領域の中の離散化が違う格子は、
   同じ燃焼の領域とみなさない
 - 体積はビットで比べる。同じセルの同じ帯なら、体積は解析的な面積（`Pin::volumes`）の同じ順の和で、ビットで同じになる
-- 読むときに、組のセルが昇順で重なりがなく、最初が組の代表であることを確かめる
+- 読むときに、組のセルの位置が空でなく、行の順に増えて重ならないことを確かめる。組の代表の番号は、格子の列の数を履歴が持たない
+  ので、位置と照らさない
 - 後方互換を作らない（CLAUDE.md の「方針」）。`cells` を持たない前の履歴は読めない（`DepletionRegion` は欠けたキーをエラーに
   する）。Python の比較のツールは map のキーで読むので、前の履歴も今の履歴も読める
 
@@ -87,6 +93,6 @@ issues: ["#0190", "#0196"]
 - crates/lattice/src/depletion/tests.rs: `continuing_with_other_guide_tube_contents_keeps_the_fuel_regions_of_the_history`（案内管の
   中身を変えて続く）、`continuing_needs_the_fuel_materials_cells_volumes_and_rings_of_the_history`、
   `continuing_needs_the_cells_of_each_depletion_region_of_the_history`（上の反例）、`histories_write_the_cells_of_each_depletion_region`、
-  `histories_whose_region_cells_do_not_start_at_the_representative_are_errors`
+  `continuing_needs_the_positions_of_the_cells_of_the_history`、`histories_whose_region_cells_are_not_increasing_positions_are_errors`
 - crates/lattice/src/history/tests.rs: `the_branch_lattice_must_hold_the_cells_and_rings_of_the_history_regions`、
   `micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tubes_differ`（#0196）
