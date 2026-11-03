@@ -80,7 +80,8 @@ class Hybrid(unittest.TestCase):
         changes = {
             "material": ("material", "oxide"),
             "cell": ("cell", 22),
-            "cells": ("cells", [[2, 3], [3, 3]]),
+            # 組の大きさが同じで位置が違う（ADR-0226 の反例と同じ形）
+            "cells": ("cells", [[3, 4]]),
             "volume": ("volume", 4.5),
             "MOC regions": ("regions", [1, 2, 3]),
         }
