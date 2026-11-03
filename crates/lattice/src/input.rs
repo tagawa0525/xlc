@@ -1063,6 +1063,23 @@ impl LatticeInput {
         // 制御棒の値の置き換え（ADR-0224）: 置き換えられるセルは基準の形状の行にあり、置き換えるセルは定義されていて基準の
         // 形状の行にない（あれば棒のない状態にも棒が残る）
         let in_rows = |name: &str| rows.iter().flatten().any(|c| c == name);
+        // ノードごとの出力は、どのノードのテーブルも制御棒の軸を持つ。棒を切る高さより上の層のテーブルは制御棒の軸を持てない
+        // （ADR-0128）ので、置き換えのないノードの扱いを決めるまで（#0030）組まない
+        if branches.as_ref().is_some_and(|b| !b.rods().is_empty())
+            && matches!(
+                &output,
+                Some(FewGroupOutput {
+                    files: FewGroupFiles::Nodes(_),
+                    ..
+                })
+            )
+        {
+            return Err(invalid(
+                "branches.rod: few-group nodes cannot have rod values yet; the nodes without replaced cells \
+                 would carry a rod axis (#0030)"
+                    .into(),
+            ));
+        }
         for (value, replaced) in branches.iter().flat_map(|b| b.rods()) {
             for (from, to) in replaced {
                 if !in_rows(from) {
