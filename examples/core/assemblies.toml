@@ -1,4 +1,4 @@
-# このファイルは rods_cases.py が書く。燃料の層は制御棒の軸を持つテーブル（rod_table.py）
+# このファイルは rods_cases.py が書く。燃料の層は制御棒の軸を持つテーブル（格子計算の制御棒の分岐。ADR-0224）
 [design.fuel]
 bounds = [0.0, 365.76]
 layers = ["table-rods.msgpack"]

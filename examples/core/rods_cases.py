@@ -3,7 +3,8 @@
 集合体1体（径方向は鏡面反射）の燃料の列（高さ 365.76 cm、VERA の燃料の長さ）を 16 ノード（22.86 cm）に分け、z の
 両端は Marshak とする。制御棒は VERA の棒（仕様書の表 8: 先端から AIC 101.6 cm、その上に B4C 259.08 cm。ステップは
 1.5875 cm）で、0 ステップの先端を燃料の下端に置く（VERA の全挿入の先端は燃料の下端の 5.08 cm 上だが、ここでは方式の
-比較だけが目的なので、燃料の列に合わせる）。燃料の層のテーブルは rod_table.py が作る制御棒の軸（out、aic、b4c）を持つ。
+比較だけが目的なので、燃料の列に合わせる）。燃料の層のテーブルは、格子計算の制御棒の分岐（ADR-0224）の制御棒の軸
+（out、aic、b4c）を持つ。
 
 ケースは棒の位置（ステップ）ごとに 3 つ:
 - `flux-<ステップ>`: 部分挿入のノードを ADR-0127 の中性子束の重みと z の面の不連続因子で扱う
@@ -90,7 +91,7 @@ segments = [{{ value = "aic", length = {AIC!r} }}, {{ value = "b4c", length = {B
 """
     )
     (HERE / "assemblies.toml").write_text(
-        f"""{NOTE}燃料の層は制御棒の軸を持つテーブル（rod_table.py）
+        f"""{NOTE}燃料の層は制御棒の軸を持つテーブル（格子計算の制御棒の分岐。ADR-0224）
 [design.fuel]
 bounds = [0.0, {HEIGHT!r}]
 layers = ["table-rods.msgpack"]
@@ -144,8 +145,8 @@ def write_dvc(names):
         for t in sorted(set(thermal))
     ]
     text = f"""# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）のステージ（ADR-0159）: ENDF → 多群ライブラリ（xs）→
-# 制御棒の値ごとの格子計算（lattice-<値>）→ 制御棒の軸を持つ 1 つのテーブル（table。#0093 までのつなぎ）→ ケースごとの
-# 炉心（core-<ケース>）→ 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`
+# 制御棒の分岐（ADR-0224）の格子計算（lattice。制御棒の軸を持つテーブル）→ ケースごとの炉心（core-<ケース>）→
+# 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`
 vars:
   - cases.yaml
 stages:
@@ -156,25 +157,14 @@ stages:
 {listed(endf_deps + code("xs"), 6)}    outs:
       - rods.msgpack
   lattice:
-    foreach: [out, aic, b4c]
-    do:
-      # 結果の k∞ は標準出力に出るので、ファイルに受ける
-      cmd: ../../bin/lattice assembly-${{item}}.toml > lattice-${{item}}.out
-      deps:
-        - assembly-${{item}}.toml
-        - rods.msgpack
-{listed(code("lattice"), 8)}      outs:
-        - fg-${{item}}.msgpack
-        - lattice-${{item}}.out
-  table:
-    cmd: python3 rod_table.py table-rods.msgpack out=fg-out.msgpack aic=fg-aic.msgpack b4c=fg-b4c.msgpack
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/lattice assembly.toml > lattice.out
     deps:
-      - ../../python-ast/examples/core/rod_table.py.ast
-      - fg-out.msgpack
-      - fg-aic.msgpack
-      - fg-b4c.msgpack
-    outs:
+      - assembly.toml
+      - rods.msgpack
+{listed(code("lattice"), 6)}    outs:
       - table-rods.msgpack
+      - lattice.out
   core:
     foreach: ${{cases}}
     do:
