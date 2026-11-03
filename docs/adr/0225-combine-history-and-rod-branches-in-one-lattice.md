@@ -4,7 +4,7 @@ date: 2026-11-03
 requires: [ADR-0187, ADR-0195, ADR-0200, ADR-0216, ADR-0221, ADR-0224]
 supersedes: []
 superseded-by:
-issues: ["#0213"]
+issues: ["#0213", "#0214"]
 ---
 
 # ADR-0225: 燃焼の履歴からの分岐と制御棒の分岐を 1 つの格子計算の入力で組み、値ごとの形状で燃焼の領域を履歴と照合し、値ごとの燃焼点を [history] に書く
