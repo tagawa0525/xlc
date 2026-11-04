@@ -15,7 +15,7 @@ resolution:
 VERA の Problem 6〜9 は HFP で、仕様書（CASL-U-2012-0131-004、Problem 9 の節、85 ページ）は「Thermal-hydraulic feedback is required
 for at-power conditions」とし、燃料の温度を、温度、照射、燃焼度とともに変わる燃料棒のモデルで求めることを求める。Problem 9 の入力は
 定格の流量 131.7 Mlbs/hr（バイパスの 9% を除いた値で、サイクルを通じて一定）、圧力 2250 psia（表 P9-1）と、ステップごとの入口の温度
-（表 P9-2、554.9〜558.8 °F）で、熱水力の物性は与えない（docs/plans/m4-depletion.md の「熱水力のフィードバック」）。
+（表 P9-2、554.9〜558.8 °F）で、熱水力の物性は与えない（Problem 6 の MATERIAL PROPERTIES。docs/plans/m4-depletion.md の「熱水力のフィードバック」）。
 
 今の xlc には熱水力のモデルが無く、決める ADR も無い（[ADR-0029](../adr/0029-defer-thermal-hydraulic-feedback.md) は初期のマイルストーンで
 扱わないと決めた）。core はケースの状態ごとに減速材の温度と燃料の温度を 1 つずつ持ち、炉心のすべてのノードで同じ値を使う
