@@ -45,10 +45,11 @@ VIII.0 の 1C と 2A の xlc の k の変化（+97.7、+54.0 pcm）は、ADR-020
 
 xlc の 0 の点の k（vera は `compare-keno-<問題>.json` の `k.xlc`、depletion は 1C が `compare-1C-rings1.json` の `k[0].xlc`、2A が
 `p2/compare-2A.json` の `k[0].xlc`。表の括弧は値を入れた JSON のコミット。数値を出した xlc のコミットと日付は、vera の前が 05714cea
-（2026-10-23、記録の「計算」）、今が 4cfe4f58（2026-11-04）、depletion の 1C の前が da2224ff（分岐点 6822de4c、Slurm 457、2026-10-23。
-13826a2b9 の本文。examples/depletion/verification.md は Slurm 457 を xlc adacf8b4 と書き、食い違う。確かめていない）、2A の前が 2c2b8c60
+（2026-10-23、記録の「計算」）、今が 4cfe4f58（2026-11-04）、depletion の 1C の前が adacf8b4（13826a2b9 の本文の da2224ff と同じパッチ。rebase 前の hash で main から辿れない。分岐点 6822de4c、Slurm 457、
+2026-10-23）、2A の前が 2c2b8c60
 （Slurm 520、50f94ebfa の本文、2026-10-24）、ADR-0209 のときの 1C と 2A が xlc 73d03d37c（2026-10-28、ADR-0209 の「確認」。値は ae6fdf7fc の
-JSON）、今が ADR-0226 の bin で、1C は Slurm 660（06d6bd719 の本文、2026-11-03）、2A は Slurm 664（8488f5dfa の本文、2026-11-04））:
+JSON）、今が ADR-0226 の bin で、1C は Slurm 660（流したコミットと分岐点は main の 54ab434ff。06d6bd719 の本文、2026-11-03）、2A は Slurm 664
+（流したコミット 24a26e32、分岐点 main の a0fd48c0。8488f5dfa の本文、2026-11-03。sacct の Start））:
 
 | 問題 | 実行                                 | 前（ADR-0209 の前の既定） | 今                     | 変化（pcm） |
 | ---- | ------------------------------------ | ------------------------- | ---------------------- | ----------- |
