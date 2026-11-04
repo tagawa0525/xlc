@@ -1780,6 +1780,71 @@ def core_history_switch(sources: list[dict]) -> str:
     )
 
 
+def history_rods_switch(sources: list[dict]) -> str:
+    """制御棒を途中まで入れて抜く燃焼（ADR-0215、ADR-0228）: 参照の燃焼度の点ごとの、制御棒の挿入の割合の履歴の重み w、参照の k∞、
+    履歴の補正の core と補正を切った core の k の参照からの差（pcm）と、主な核種の数密度の相対差（%）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-rods-switch":
+        raise TableError("not an xlc-compare-rods-switch summary")
+    nuclides = ["Pu-239", "Pu-240", "Pu-241"]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "参照の k∞",
+            "core − 参照 (pcm)",
+            "補正を切った core − 参照 (pcm)",
+            *(f"{n} の差 (%)" for n in nuclides),
+            *(f"補正を切った {n} の差 (%)" for n in nuclides),
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                f"{r['reference_k']:.6f}",
+                signed(r["core_pcm"], 3),
+                signed(r["plain_pcm"], 3),
+                *(signed(r["core_densities"][n], 3) for n in nuclides),
+                *(signed(r["plain_densities"][n], 3) for n in nuclides),
+            ]
+            for r in s["switch_rows"]
+        ],
+    )
+
+
+def history_rods_split(sources: list[dict]) -> str:
+    """2 つの履歴の変数の L の分け方（ADR-0228）: R の点ごとに、見込みの組成のノードの、ADR-0228 の重み a_j と変数ごとの P / P_j、
+    それぞれの L の効きと、P / P_j で重ねた形と ADR-0228 の形の k の差（pcm）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-rods-switch":
+        raise TableError("not an xlc-compare-rods-switch summary")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "a_m",
+            "a_r",
+            "P / P_m",
+            "P / P_r",
+            "w L_m の効き (pcm)",
+            "w L_r の効き (pcm)",
+            "重ねた形 − ADR-0228 (pcm)",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['shares'][0]:.4f}",
+                f"{r['shares'][1]:.4f}",
+                f"{r['independent'][0]:.4f}",
+                f"{r['independent'][1]:.4f}",
+                signed(r["density_l_pcm"], 3),
+                signed(r["rods_l_pcm"], 3),
+                signed(r["overcount_pcm"], 3),
+            ]
+            for r in s["split_rows"]
+        ],
+    )
+
+
 def history_switch(sources: list[dict]) -> str:
     """途中で条件を変えた燃焼（ADR-0215）: 参照の燃焼度の点ごとの、w、参照の k∞、履歴の補正の core と補正を切った core の k の参照からの
     差と、そのうちの数密度の効き（pcm）、数密度の相対差の絶対値が最大の核種と相対差（%）、目安の 2 つの差（pcm）、参照の分岐と格子
@@ -3478,6 +3543,14 @@ TABLES = {
     "depletion-history-switch-rate-outliers": (
         ["examples/depletion/history/switch.json"],
         history_switch_rate_outliers,
+    ),
+    "depletion-history-rods-switch": (
+        ["examples/depletion/history/rods-switch.json"],
+        history_rods_switch,
+    ),
+    "depletion-history-rods-split": (
+        ["examples/depletion/history/rods-switch.json"],
+        history_rods_split,
     ),
     "depletion-history-weight-omega": (
         ["examples/depletion/history/weight.json"],
