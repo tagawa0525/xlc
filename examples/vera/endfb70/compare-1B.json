@@ -2,10 +2,10 @@
  "format": "xlc-compare-keno-lattice",
  "problem": "1B",
  "k": {
-  "xlc": 1.183826,
+  "xlc": 1.184172,
   "keno": 1.182149,
   "keno_std": 6.8e-05,
-  "diff_pcm": 167.70000000001505
+  "diff_pcm": 202.3000000000108
  },
  "pins": null
 }
