@@ -2925,6 +2925,7 @@ GIT_TRACKED = {
     "examples/depletion/history/split-core.json",
     "examples/depletion/history/index.json",
     "examples/depletion/history/forgetting.json",
+    "examples/depletion/history/rods-switch.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
