@@ -664,6 +664,9 @@ pub const NOMINAL_POINT_TOLERANCE: f64 = 1.0e-6;
 /// 減速材の密度の履歴の変数の名前（ADR-0215）
 pub const MODERATOR_DENSITY: &str = "moderator-density";
 
+/// 制御棒の挿入の割合の履歴の変数の名前（ADR-0215）
+pub const RODS: &str = "rods";
+
 /// 少数群定数 `f` に、ミクロ燃焼の線形の補正 Σᵢ cᵢ Δᵢ を足す（ADR-0216、ADR-0221）。`micro` は追う核種の微視的断面積で、係数 cᵢ は
 /// 数密度の微分を持つ核種はその微分 ∂Σ/∂N̄ᵢ、ほかは σᵢ。`delta` は核種ごとの数密度の差 Δᵢ (1/(barn cm))。吸収の係数は全断面積の係数から
 /// 散乱の行の和を引いたもの。χ、拡散係数、ADF、形状関数と k∞ は変えない。core のノードの補正と、lattice の履歴の残り R の第 3 項
