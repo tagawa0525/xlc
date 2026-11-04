@@ -6394,7 +6394,7 @@ python3 compare_rods_parts.py --report rods-parts.json
 
 ### 計算
 
-ブランチ trial/0190-rods-forgetting（feat/0190-rod-history の 86b121de から。分岐点は main の c31baa86）の ec3d59a9 で手元、2026-11-04。格子計算と
+ブランチ trial/0190-rods-forgetting（feat/0190-rod-history の 86b121de から。分岐点は main の c31baa86）の 0e2bba7c で手元、2026-11-05。格子計算と
 core は足していない。入力はテーブル 2854d05b、参照 4dab578d、core の履歴 efa805c4、`rods-switch.json` 08f23290。
 
 ### 結果
