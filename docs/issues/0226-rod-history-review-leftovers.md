@@ -34,6 +34,8 @@ resolution:
   止まる。`test_the_overcount_adds_the_extra_weights_on_the_linearizations` は値を見ず符号だけを見る
 - 2 周目: 2 つの変数のテーブル（residual-rods.toml）は減速材の密度の残りを制御棒の値 out だけで持つので、制御棒を入れたノードで w_m が 0 でないと
   core が止まる（ADR-0228 の分け方を制御棒を入れたノードで使えない。減速材の密度の履歴の分岐を制御棒を入れた値でも解けば足せる）
+- 3 周目: 記録の「制御棒を途中まで入れて抜く燃焼（2A）」の表は Pu-239〜241 だけを描き、本文の 5 核種の最大（Xe-135 の 0.459%）は JSON にだけある。
+  core の `add_histories` と `node_micro` は同じノードの a_j を 2 度作る
 
 関係する ADR: ADR-0228
 
@@ -43,4 +45,4 @@ resolution:
 
 ## 経緯
 
-- 2026-11-04: feat/0190-rod-history のレビュー 1 周目と 2 周目で残した
+- 2026-11-04: feat/0190-rod-history のレビュー 1〜3 周目で残した
