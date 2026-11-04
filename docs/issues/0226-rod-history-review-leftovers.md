@@ -28,7 +28,7 @@ resolution:
 - core の `node_micro` の Σ_j a_j ΔN̄ᵢ^j は最初の変数の長さで zip する（長さはテーブルの検査が揃える）。`expected` の名前が
   `linearization_weights` の Σ w_k P_k と重なる
 
-関係する ADR: ADR-0215、ADR-0228
+関係する ADR: ADR-0228
 
 ## 完了の条件
 
