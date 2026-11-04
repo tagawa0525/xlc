@@ -1366,6 +1366,40 @@ def signed_exponent(x: float) -> str:
     return f"{mantissa.replace('-', '−')}e{exponent}"
 
 
+def p5_rodless_states(sources: list[dict]) -> str:
+    """Problem 5 の 3D の格子の、制御棒の分岐を解いた格子の値 out の状態と棒のない格子の状態の比較（compare_rodless.py。#0225）:
+    出力（hzp/ から）、種類、比べた状態の数、ビットまで同じ状態の数、最大の相対差（項目）、k∞ の差の最大（pcm。媒質は空欄）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-rodless":
+        raise TableError("not an xlc-compare-rodless summary")
+    rows = []
+    for o in s["outputs"]:
+        if o["kind"] == "medium":
+            kind = "媒質"
+        else:
+            kind = "テーブル（制御棒の軸）" if o["rod_axis"] else "テーブル"
+        worst = (
+            "0"
+            if o["field"] is None
+            else f"{o['max_relative_difference']:.1e}（{o['field']}）"
+        )
+        k = o["max_k_inf_pcm"]
+        rows.append(
+            [
+                o["name"].removeprefix("hzp/"),
+                kind,
+                str(o["states"]),
+                str(o["bit_equal"]),
+                worst,
+                "" if k is None else ("0" if k == 0 else f"{k:.1e}"),
+            ]
+        )
+    return markdown_table(
+        ["出力", "種類", "状態", "ビットで同じ", "最大の相対差", "k∞ の差の最大 (pcm)"],
+        rows,
+    )
+
+
 def core_depletion_boron(sources: list[dict]) -> str:
     """core の燃焼（集合体 1 体）で点ごとに探した臨界ホウ素（ADR-0191）と、同じ燃焼度の一様な状態の探索（ADR-0145）"""
     (s,) = sources
@@ -3360,6 +3394,10 @@ TABLES = {
     "p5-keno-comparison": (
         [f"examples/vera/p5/compare-{p}.json" for p in ("5A", "5B", "5C")],
         p5_keno_comparison,
+    ),
+    "p5-rodless-states": (
+        ["examples/vera/p5/hzp/compare-rodless.json"],
+        p5_rodless_states,
     ),
     "p3-openmc-comparison": (
         [
