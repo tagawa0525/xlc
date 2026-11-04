@@ -386,15 +386,11 @@ pub fn residuals(
 /// （値は `out` だけ。呼ぶ側が確かめる）。制御棒の履歴の分岐を `[branches.rod]` で解くと、1 つのテーブルが制御棒を入れた値（履歴の
 /// 分岐の条件）と `out`（逆向きの分岐）の状態を持つ（ADR-0215）
 fn rod_value(table: &Table, rod: &str) -> anyhow::Result<Table> {
-    let Some(a) = table
-        .axes
-        .iter()
-        .position(|x| matches!(x, Axis::Rod { .. }))
-    else {
+    let Some((a, values)) = table.axes.iter().enumerate().find_map(|(i, x)| match x {
+        Axis::Rod { values } => Some((i, values)),
+        _ => None,
+    }) else {
         return Ok(table.clone());
-    };
-    let Axis::Rod { values } = &table.axes[a] else {
-        unreachable!("the rod axis position holds a rod axis")
     };
     let r = values
         .iter()
