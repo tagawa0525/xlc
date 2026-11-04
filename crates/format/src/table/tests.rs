@@ -1292,7 +1292,7 @@ fn history_corrections_round_trip_bit_exactly_and_are_written_only_when_held() {
 fn history_corrections_need_micro_data_and_a_known_distinct_variable() {
     // R はミクロ燃焼の線形の補正を引いた残りなので、補正のデータを持つテーブルだけが持てる
     bad_history(&|t| t.micro = None, "micro");
-    // 履歴の変数は減速材の密度だけ（制御棒と Pyrex は、それぞれの履歴の分岐を作るときに足す）
+    // 履歴の変数は減速材の密度と制御棒（Pyrex は、その履歴の分岐を作るときに足す）
     bad_history(&|t| t.histories[0].variable = "boron".into(), "variable");
     bad_history(
         &|t| {
