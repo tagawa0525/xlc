@@ -38,7 +38,7 @@ resolution:
   core の `add_histories` と `node_micro` は同じノードの a_j を 2 度作る
 - trial/0190-rods-forgetting の 1 周目: examples/depletion/history/compare_rods_parts.py は燃焼度の軸を最初の軸と置き（`node`。軸の順を照らさない）、
   core の燃焼度の内挿（ADR-0192）を `burnup_terms` で手でコピーする（examples/depletion/compare_burnup_interpolation.py の `hermite` に続く 2 つ目のコピー。
-  ずれは再構成の検査だけが止める）。参照に合う重み（`reference_weight`）は、定数の側と違い再構成の差を含まない目標で解く（2A では 4e−06 pcm 以下）
+  ずれは再構成の検査だけが止める）。`state_point` は compare_rods_switch.py の `state_index` の複製
 
 関係する ADR: ADR-0228
 
