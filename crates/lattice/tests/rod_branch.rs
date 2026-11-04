@@ -341,3 +341,71 @@ fn rod_branches_of_a_slab_use_the_same_medium_state_for_every_value() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// 径方向の反射体の格子の形（ADR-0095）: 2 × 2 の燃料のピンと案内管の右に水の反射体の列を置き、右の辺は真空。燃料のノードと
+/// 反射体のノードの定数を書く
+fn reflector_lattice(text: &str) -> String {
+    let from = r#"rows = ["pin gt", "gt pin"]"#;
+    let output = r#"few-group = { output = "fg.msgpack", bounds = [1e7, 0.625, 1e-5] }"#;
+    assert!(text.contains(from) && text.contains(output));
+    text.replace(from, r#"rows = ["pin gt w", "gt pin w"]"#)
+        .replace(
+            output,
+            "few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [\n  \
+             { output = \"fuel.msgpack\", columns = [1, 2], rows = [1, 2] },\n  \
+             { output = \"reflector.msgpack\", columns = [3, 3], rows = [1, 2], reflector = true }] }\n\
+             boundary = { right = \"vacuum\" }",
+        )
+        .replace("medium = \"medium.msgpack\"\n", "")
+        .replace(
+            "\n[branches]\n",
+            "\n[cell.w]\nzones = [{ material = \"water\", rings = 1 }]\n\n[branches]\n",
+        )
+}
+
+#[test]
+fn nodes_without_replaced_cells_hold_the_rodless_states() {
+    // 案内管は燃料のノードにだけあるので、燃料のノードのテーブルは制御棒の軸を持ち、反射体のノードのテーブルは棒のない値の
+    // 状態だけを持つ（ADR-0227）
+    let dir = scratch("reflector");
+    let combined = dir.join("combined");
+    std::fs::create_dir_all(&combined).unwrap();
+    let base = reflector_lattice(ASSEMBLY);
+    run(&combined, &format!("{base}{RODS}"));
+    let fuel = table(&combined, "fuel.msgpack");
+    let reflector = table(&combined, "reflector.msgpack");
+    let values = ["out", "a", "b"];
+    assert_eq!(
+        fuel.axes.last(),
+        Some(&Axis::Rod {
+            values: values.iter().map(|v| v.to_string()).collect()
+        })
+    );
+    assert_eq!(fuel.points.len(), 2 * values.len());
+    for (r, cell) in ["gt", "gt-a", "gt-b"].iter().enumerate() {
+        let separate = dir.join(values[r]);
+        std::fs::create_dir_all(&separate).unwrap();
+        let from = r#"rows = ["pin gt w", "gt pin w"]"#;
+        assert!(base.contains(from));
+        run(
+            &separate,
+            &base.replace(from, &format!(r#"rows = ["pin {cell} w", "{cell} pin w"]"#)),
+        );
+        let one = table(&separate, "fuel.msgpack");
+        assert_eq!(fuel.axes[..3], one.axes[..], "the continuous axes");
+        for (point, state) in one.points.iter().zip(&one.states) {
+            let mut at = point.clone();
+            at.push(r);
+            let n = fuel.points.iter().position(|p| *p == at).unwrap();
+            assert_eq!(
+                &fuel.states[n], state,
+                "rod value {} at {point:?}",
+                values[r]
+            );
+        }
+    }
+    // 反射体のノードのテーブルは、基準の形状の別の入力のものと同じ
+    assert_eq!(reflector, table(&dir.join("out"), "reflector.msgpack"));
+    assert!(!reflector.axes.iter().any(|a| matches!(a, Axis::Rod { .. })));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

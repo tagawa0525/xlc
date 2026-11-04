@@ -755,27 +755,106 @@ fn invalid_rod_branches_are_errors() {
     rejects("aic = { gt = \"bar\" }", "`bar` is not defined");
     // 基準の形状の行にあるセルに置き換えると、棒のない状態に棒が残る
     rejects("aic = { gt = \"pin\" }", "`pin` is in the rows");
-    // ノードごとの出力（どの格子でも。平板の `axial = true` も）は、ノードごとに制御棒の軸を付け分ける仕組みができるまで組めない
-    let text = with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n").replace(
-        "few-group = { output = \"fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
-        "few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [{ output = \"a.msgpack\", columns = [1, 2], rows = [1, 1] }] }",
+}
+
+/// 径方向の反射体の格子の形（2 × 2 の燃料のピンと案内管の右に反射体の列）に、制御棒の分岐（値 aic は案内管 gt を棒に置き換える）と
+/// ノードごとの出力 `nodes`（`few-group` の `nodes` の中身）を組んだ入力。`head` は先頭に足す行
+fn reflector_with_rods(head: &str, nodes: &str) -> String {
+    let text = with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n")
+        .replace(
+            "rows = [\"pin gt\"]",
+            "rows = [\"pin gt box\", \"gt pin box\"]",
+        )
+        .replace(
+            "few-group = { output = \"fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+            &format!("few-group = {{ bounds = [1e7, 0.625, 1e-5], nodes = [{nodes}] }}"),
+        )
+        .replace(
+            "\n[branches]\n",
+            "\n[cell.box]\nzones = [{ material = \"water\", rings = 1 }]\n\n[branches]\n",
+        );
+    assert!(text.contains("nodes = [") && text.contains("[cell.box]"));
+    format!("{head}{text}")
+}
+
+const FUEL_AND_REFLECTOR: &str = "{ output = \"fuel.msgpack\", columns = [1, 2], rows = [1, 2] }, \
+     { output = \"reflector.msgpack\", columns = [3, 3], rows = [1, 2], reflector = true }";
+
+#[test]
+fn rod_axes_go_to_nodes_with_replaced_cells() {
+    // 案内管は燃料のノードにだけあるので、燃料のノードのテーブルだけが制御棒の軸を持つ（ADR-0227）
+    let input = LatticeInput::parse(&reflector_with_rods("", FUEL_AND_REFLECTOR)).unwrap();
+    assert_eq!(input.rod_axes(), vec![true, false]);
+    // 余白の薄い行と列もノードの範囲に数える（余白の列 1、燃料の列 2〜3、反射体の列 4 と余白の列 5）
+    let gap = reflector_with_rods(
+        "gap = { width = 0.04, material = \"water\" }\n",
+        "{ output = \"fuel.msgpack\", columns = [1, 3], rows = [1, 4] }, \
+         { output = \"reflector.msgpack\", columns = [4, 5], rows = [1, 4], reflector = true }",
     );
-    assert!(
-        text.contains("nodes = ["),
-        "the node output replaced the lattice output"
+    assert_eq!(
+        LatticeInput::parse(&gap).unwrap().rod_axes(),
+        vec![true, false]
     );
-    let err = LatticeInput::parse(&text).unwrap_err().to_string();
-    assert!(err.contains("nodes that rods never enter"), "{err}");
-    let axial = text.replace(
-        "bounds = [1e7, 0.625, 1e-5], nodes",
-        "bounds = [1e7, 0.625, 1e-5], axial = true, nodes",
+    // 制御棒の分岐がなければ、どのノードも軸を持たない
+    let plain = reflector_with_rods("", FUEL_AND_REFLECTOR)
+        .replace("[branches.rod]\naic = { gt = \"rod\" }\n", "");
+    assert!(!plain.contains("[branches.rod]"));
+    assert_eq!(
+        LatticeInput::parse(&plain).unwrap().rod_axes(),
+        vec![false, false]
     );
-    assert!(
-        axial.contains("axial = true"),
-        "the slab output replaced the node output"
+    // 格子全体の 1 つのテーブルは、制御棒の分岐があれば軸を持つ
+    let lattice =
+        LatticeInput::parse(&with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n")).unwrap();
+    assert_eq!(lattice.rod_axes(), vec![true]);
+    assert_eq!(
+        LatticeInput::parse(&with_rods("")).unwrap().rod_axes(),
+        vec![false]
     );
-    let err = LatticeInput::parse(&axial).unwrap_err().to_string();
-    assert!(err.contains("nodes that rods never enter"), "{err}");
+}
+
+#[test]
+fn node_rod_branches_outside_the_radial_reflector_lattice_are_errors() {
+    let rejects = |text: String, needle: &str| {
+        let err = LatticeInput::parse(&text).unwrap_err().to_string();
+        assert!(err.contains(needle), "{needle}: {err}");
+    };
+    // 平板は上の層の値の定数とともに #0030 で通す
+    rejects(
+        reflector_with_rods("", FUEL_AND_REFLECTOR).replace(
+            "bounds = [1e7, 0.625, 1e-5], nodes",
+            "bounds = [1e7, 0.625, 1e-5], axial = true, nodes",
+        ),
+        "#0030",
+    );
+    // 反射体でないノードが 2 つ（カラーセット）
+    rejects(
+        reflector_with_rods(
+            "",
+            "{ output = \"a.msgpack\", columns = [1, 1], rows = [1, 2] }, \
+             { output = \"b.msgpack\", columns = [2, 2], rows = [1, 2] }, \
+             { output = \"reflector.msgpack\", columns = [3, 3], rows = [1, 2], reflector = true }",
+        ),
+        "#0214",
+    );
+    // 反射体のノードが置き換えるセルを含む（余白の列を数えないと、反射体のノードの列 3 は box の列に見える）
+    rejects(
+        reflector_with_rods(
+            "gap = { width = 0.04, material = \"water\" }\n",
+            "{ output = \"fuel.msgpack\", columns = [1, 2], rows = [1, 4] }, \
+             { output = \"reflector.msgpack\", columns = [3, 5], rows = [1, 4], reflector = true }",
+        ),
+        "reflector node",
+    );
+    // 燃料のノードが置き換えるセルを含まない
+    rejects(
+        reflector_with_rods(
+            "",
+            "{ output = \"fuel.msgpack\", columns = [1, 1], rows = [1, 1] }, \
+             { output = \"reflector.msgpack\", columns = [3, 3], rows = [1, 2], reflector = true }",
+        ),
+        "no cell",
+    );
 }
 
 /// 制御棒の分岐（値 aic と b4c）と、燃焼の履歴からの分岐（燃焼点 0、10、20、40）の入力。連続の軸は入力の物質を公称の格子点に
