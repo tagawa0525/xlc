@@ -1,0 +1,5 @@
+outs:
+- md5: 271fd61073a45bd11c28e1e478bf0833
+  size: 23093
+  hash: md5
+  path: core-2A-rods-branch.msgpack

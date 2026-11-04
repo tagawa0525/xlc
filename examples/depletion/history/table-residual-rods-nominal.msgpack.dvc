@@ -1,0 +1,5 @@
+outs:
+- md5: f5096b52588d4fdc12e854b08baf1adc
+  size: 724833
+  hash: md5
+  path: table-residual-rods-nominal.msgpack

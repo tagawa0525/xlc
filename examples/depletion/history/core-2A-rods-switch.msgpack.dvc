@@ -1,0 +1,5 @@
+outs:
+- md5: efa805c47a7a36cdb206fd075cba2466
+  size: 23153
+  hash: md5
+  path: core-2A-rods-switch.msgpack
