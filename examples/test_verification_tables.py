@@ -4023,7 +4023,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
     def summary() -> dict:
         """compare_rods_parts.py の要約（切り替えの後の点は 22 と 60 MWd/kg、追う核種は 2 つ、τ は ∞ と 10）"""
 
-        def row(u, w, a, values, nuclides, needed):
+        def row(u, w, a, b, values, nuclides, needed):
             keys = (
                 "difference_pcm",
                 "composition_pcm",
@@ -4037,6 +4037,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
                 "burnup": u,
                 "weight": w,
                 "index_ratio": a,
+                "reference_index_ratio": b,
                 **dict(zip(keys, values)),
                 "untracked_weight": needed[0],
                 "linearization_weight": needed[1],
@@ -4053,6 +4054,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
                     22.0,
                     0.90909,
                     0.84521,
+                    0.84577,
                     [-21.3511, -7.5712, -13.7799, -33.9512, -348.3, -31.0251, 334.5181],
                     [("Pu-239", -0.01712, -2.4213), ("Gd-155", None, 0.0)],
                     (0.54008, None),
@@ -4061,6 +4063,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
                     60.0,
                     0.33333,
                     0.10701,
+                    0.10953,
                     [
                         -175.2461,
                         -28.0372,
@@ -4075,6 +4078,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
                 ),
             ],
             "best": 10.0,
+            "best_at_edge": False,
             "forgetting": [
                 {
                     "tau": None,
@@ -4106,7 +4110,8 @@ class DrawHistoryRodsParts(unittest.TestCase):
             [
                 "燃焼度 (MWd/kg)",
                 "w",
-                "P / P_j",
+                "core の P / P_j",
+                "参照の組成の P / P_j",
                 "core − 参照 (pcm)",
                 "数密度の効き (pcm)",
                 "定数の側 (pcm)",
@@ -4125,6 +4130,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
                     "22",
                     "0.9091",
                     "0.8452",
+                    "0.8458",
                     "−21.351",
                     "−7.571",
                     "−13.780",
@@ -4140,6 +4146,7 @@ class DrawHistoryRodsParts(unittest.TestCase):
                     "60",
                     "0.3333",
                     "0.1070",
+                    "0.1095",
                     "−175.246",
                     "−28.037",
                     "−147.209",
