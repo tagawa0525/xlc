@@ -1,0 +1,5 @@
+outs:
+- md5: b100f7674cb576266a1e56aed68e9528
+  size: 74243
+  hash: md5
+  path: table-switch-rods-branch.msgpack
