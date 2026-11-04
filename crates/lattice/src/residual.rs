@@ -22,15 +22,22 @@
 //! output = "table-nominal-histories.msgpack"   # R を書き足した公称のテーブル
 //!
 //! [[history]]
-//! variable = "moderator-density"               # 履歴の変数
+//! variable = "moderator-density"               # 履歴の変数（moderator-density か rods）
 //! # 制御棒の値ごとの、履歴の分岐の自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
 //! branches = { out = { branch = "table-density-branch.msgpack", hybrid = "table-hybrid-density-branch.msgpack" } }
+//!
+//! [[history]]
+//! variable = "rods"
+//! branches.out = { branch = "table-rods-branch.msgpack", hybrid = "table-hybrid-rods-branch.msgpack" }
+//! branches.aic = { branch = "table-rods-branch.msgpack", hybrid = "table-hybrid-rods-branch.msgpack" }
 //! ```
 //!
-//! 履歴の分岐のテーブルは、燃焼度の軸と、点が 1 つの分岐の軸（制御棒の軸は持てば値が 1 つ）を持ち、その状態（条件 j）が公称の
-//! テーブルの格子点で、変数の軸（減速材の密度は `moderator`）だけが公称と違うこと。燃焼度の点は、公称のテーブルが条件 j の状態を
-//! 解いた燃焼度の点と同じこと。ハイブリッドのテーブルは、分岐のテーブルと同じ軸と点、追う核種、初めの重金属、群境界と、同じ均質化した
-//! 数密度を持つこと。変数の値は、公称の燃焼が公称の格子点の値 H⁰、履歴の分岐が条件 j の格子点の値 Hᵇ。
+//! 履歴の分岐のテーブルは、燃焼度の軸と、点が 1 つの分岐の軸を持ち（制御棒の軸は持てば値 `rod` を含み、その値の状態を使う）、その
+//! 状態（条件 j）が公称のテーブルの格子点であること。条件 j は、減速材の密度（`moderator-density`）は `moderator` の軸だけが公称と
+//! 違い、制御棒の挿入の割合（`rods`）はどの連続の軸も公称の状態（制御棒を入れた値が履歴の分岐の条件で、`out` は逆向きの分岐。
+//! `[branches.rod]` で解いた 1 つのテーブルを両方の値に渡せる）。燃焼度の点は、公称のテーブルが条件 j の状態を解いた燃焼度の点と同じ
+//! こと。ハイブリッドのテーブルは、分岐のテーブルと同じ軸と点、追う核種、初めの重金属、群境界と、同じ均質化した数密度を持つこと。
+//! 変数の値は、減速材の密度は公称の燃焼が公称の格子点の値 H⁰、履歴の分岐が条件 j の格子点の値 Hᵇ、制御棒は H⁰ = 0、Hᵇ = 1。
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -40,7 +47,7 @@ use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{
     Axis, HistoryCondition, HistoryCorrection, HistoryRod, MicroNuclide, MicroReaction, ROD_OUT,
-    RateResidual, RateResiduals, Residual, Table, add_linear_correction,
+    RODS, RateResidual, RateResiduals, Residual, Table, add_linear_correction,
 };
 
 use crate::checkpoint::write_synced;
@@ -190,7 +197,8 @@ pub fn residuals(
     rod: &str,
     tables: &BranchTables,
 ) -> anyhow::Result<(f64, f64, HistoryRod)> {
-    let BranchTables { branch, hybrid } = tables;
+    let branch = &rod_value(&tables.branch, rod).map_err(|e| anyhow!("the branch table: {e:#}"))?;
+    let hybrid = &rod_value(&tables.hybrid, rod).map_err(|e| anyhow!("the hybrid table: {e:#}"))?;
     let micro = nominal
         .micro
         .as_ref()
@@ -240,14 +248,18 @@ pub fn residuals(
     if !branch_rod && rod != ROD_OUT {
         bail!("the branch table has no rod axis, so its rod value is {ROD_OUT}, not {rod}");
     }
-    // 変数の値 Hᵇ は、分岐のテーブルの条件の減速材の密度
-    let hb = condition
-        .iter()
-        .find_map(|v| match v {
-            Value::Moderator(_, density) => Some(*density),
-            _ => None,
-        })
-        .ok_or_else(|| anyhow!("the branch table has no moderator axis for {variable}"))?;
+    // 変数の値 Hᵇ: 減速材の密度は分岐のテーブルの条件の密度、制御棒の挿入の割合は一生を制御棒を入れた 1（ADR-0215）
+    let hb = if variable == RODS {
+        1.0
+    } else {
+        condition
+            .iter()
+            .find_map(|v| match v {
+                Value::Moderator(_, density) => Some(*density),
+                _ => None,
+            })
+            .ok_or_else(|| anyhow!("the branch table has no moderator axis for {variable}"))?
+    };
     // 公称のテーブルの条件 j の格子点（テーブルの検査と同じ規則）
     let HistoryCondition {
         nominal: h0,
@@ -368,6 +380,51 @@ pub fn residuals(
             },
         },
     ))
+}
+
+/// テーブル `table` のうち制御棒の値 `rod` の状態だけを持つテーブル（制御棒の軸は値 `rod` だけ）。制御棒の軸のないテーブルはそのまま
+/// （値は `out` だけ。呼ぶ側が確かめる）。制御棒の履歴の分岐を `[branches.rod]` で解くと、1 つのテーブルが制御棒を入れた値（履歴の
+/// 分岐の条件）と `out`（逆向きの分岐）の状態を持つ（ADR-0215）
+fn rod_value(table: &Table, rod: &str) -> anyhow::Result<Table> {
+    let Some(a) = table
+        .axes
+        .iter()
+        .position(|x| matches!(x, Axis::Rod { .. }))
+    else {
+        return Ok(table.clone());
+    };
+    let Axis::Rod { values } = &table.axes[a] else {
+        unreachable!("the rod axis position holds a rod axis")
+    };
+    let r = values
+        .iter()
+        .position(|v| v == rod)
+        .ok_or_else(|| anyhow!("the table holds the rod values {values:?}, not {rod}"))?;
+    // 状態は点ごとに split² の部分ノード。ミクロ燃焼のデータを持つテーブルは分けない（テーブルの検査）
+    if table.split != 1 {
+        bail!("the table is split into {0} x {0} sub-nodes", table.split);
+    }
+    let kept: Vec<usize> = (0..table.points.len())
+        .filter(|&p| table.points[p][a] == r)
+        .collect();
+    let mut selected = table.clone();
+    selected.axes[a] = Axis::Rod {
+        values: vec![rod.to_string()],
+    };
+    selected.points = kept
+        .iter()
+        .map(|&p| {
+            let mut point = table.points[p].clone();
+            point[a] = 0;
+            point
+        })
+        .collect();
+    selected.states = kept.iter().map(|&p| table.states[p].clone()).collect();
+    if let Some(micro) = selected.micro.as_mut() {
+        micro.states = kept.iter().map(|&p| micro.states[p].clone()).collect();
+    }
+    selected.validate()?;
+    Ok(selected)
 }
 
 /// ハイブリッドのテーブル `hybrid` が、分岐のテーブル `branch` と同じ条件と燃焼度の点（軸と点）、追う核種、初めの重金属、群境界と、
