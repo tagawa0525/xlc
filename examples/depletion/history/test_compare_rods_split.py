@@ -235,6 +235,32 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(*tables(), direction_nuclides=("Pu-239",))
 
+    def test_a_branch_density_where_the_table_has_none_is_an_error(self):
+        # 表の N̄ᵢ^j が 0 の核種（燃焼度 0 の Pu-240 など）に分岐が数密度を持てば、同じ組成ではない
+        t, reference, branch, hybrid, core = tables()
+        out = t["histories"][1]["rods"][1]
+        out["densities"] = [list(d) for d in out["densities"]]
+        out["densities"][1][2] = 0.0
+        with self.assertRaises(SystemExit):
+            compare(t, reference, branch, hybrid, core)
+
+    def test_a_negative_production_ratio_is_an_error(self):
+        # P / P_j が負なら (P / P_j)^p は定義できない
+        t, reference, branch, hybrid, core = tables()
+        mirrored = [2.0 * n - b for n, b in zip(NOMINAL[2], BRANCH[2])]
+        f, _, a = expected_node(t, 2, mirrored, 0.5)
+        self.assertLess(a, 0.0)
+        core["points"][2]["densities"] = [[mirrored]]
+        core["points"][2]["k"] = k_inf(f)
+        with self.assertRaises(SystemExit):
+            compare(t, reference, branch, hybrid, core)
+
+    def test_a_reference_without_the_point_is_an_error(self):
+        t, reference, branch, hybrid, core = tables()
+        reference["points"] = reference["points"][:2]
+        with self.assertRaises(SystemExit):
+            compare(t, reference, branch, hybrid, core)
+
 
 class Forgetting(unittest.TestCase):
     def test_the_infinite_time_constant_is_the_core(self):
@@ -270,6 +296,17 @@ class Report(unittest.TestCase):
         for word in ("U の外れ", "L の外れ", "定数の側", "τ"):
             self.assertIn(word, text)
         self.assertNotRegex(text, r"(?<![A-Za-z])-[0-9]")
+
+    def test_report_writes_missing_ratios_as_dashes_and_exponents_with_minus_signs(
+        self,
+    ):
+        result = compare(*tables(0.2, 0.1), taus=[None, 5.0])
+        result["rows"][-1]["directions"]["nuclides"]["U-235"] = None
+        result["switch_point"]["untracked"] = 2.07e-09
+        text = c.report(result)
+        self.assertIn("U-235 –", text)
+        self.assertIn("2.07e−09", text)
+        self.assertNotIn("e-", text)
 
 
 if __name__ == "__main__":
