@@ -207,9 +207,10 @@ def compare(table, branch, reference, core, plain, life):
     names = [h["variable"] for h in table["histories"]]
     if names != VARIABLES:
         raise SystemExit(f"the table holds the history variables {names}")
-    switch = reference.get("continued")
-    if switch is None:
+    continued = reference.get("continued")
+    if continued is None:
         raise SystemExit("the reference is not a continued history")
+    switch = continued["burnup"]
     ref = homogenized(reference, nuclides, table["micro"]["densities"][0])
     core_nodes = nodes(core, "core", nuclides)
     plain_nodes = nodes(plain, "plain", nuclides)
