@@ -21,18 +21,21 @@ f(公称、out)、係数 cᵢ（数密度の微分を持つ核種は微分）、
 参照の定数（参照の組成を制御棒を抜いた状態で解いた少数群定数）は格子計算の燃焼の履歴に無いので、効きは core のノードの定数で測る
 （ρ = 1 − 1/k の差の pcm、k は 2 群の無限媒質の k）:
 
-- 数密度の効き ρ(f_core) − ρ(f_ref)。f_ref = f_core − Σᵢ cᵢ (Nᵢ − N̄ᵢ) は、core の定数の数密度を参照の均質化した数密度 N̄ᵢ にしたもの。
-  核種ごとの効き（その核種の差だけを引いたもの）と数密度の相対差も並べる
+- 数密度の効き ρ(f_core) − ρ(f_ref)。f_ref は、同じ式のノードの定数を参照の均質化した数密度 N̄ᵢ で組み立て直したもの（線形の補正と
+  P / P_j の両方が N̄ᵢ のもの。P / P_j の参照の組成の値も並べる）。核種ごとの効き（その核種だけを参照の数密度にして組み立て直したもの）と
+  数密度の相対差も並べる
 - 定数の側 = core − 参照 − 数密度の効き（= ρ(f_ref) − ρ(参照の k∞) + 再構成）。参照の組成での R_switch と core の R の違いと、
   2 群の k と格子計算の k∞ の違いを含む
-- w U(1) の効き ρ(f_ref) − ρ(f_ref − w U(1))、(P / P_j) L(1) の効きも同じ形。それを引いた定数の側（見込み。core を流していない）
-- 参照に合う重み: f_ref の U(1) の重みだけを変えて ρ が参照の k∞ に合う重み（L の重みも同じ）。`WEIGHT_RANGE` で探し、無ければ None
+- w U(1) の効き ρ(f_ref) − ρ(f_ref − w U(1))、(P / P_j) L(1) の効きも同じ形（P / P_j は参照の組成の値）。それを引いた定数の側（見込み。
+  core を流していない）
+- 参照に合う重み: f_ref の U(1) の重みだけを変えて定数の側が 0 になる重み（L の重みも同じ）。`WEIGHT_RANGE` で探し、無ければ None
 
 U_switch と L_switch（参照の組成の U と L）は、参照の組成とそのハイブリッドを制御棒を抜いた状態で解いたテーブルが要るので出さない。
 
 指数で忘れる重み: 制御棒の履歴を H_τ（compare_forgetting.py の H_τ）にすると、燃焼度 B₀ まで制御棒を入れ、その後を抜いた履歴の重みは
 1 − compare_forgetting.weight(B, B₀, τ)（τ → ∞ が今の core の w = B₀ / B）。τ ごとに、f_ref の U(1) の重みを w から w_τ にした定数の側
-ρ(f_ref + (w_τ − w) U(1)) − ρ(参照の k∞) + 再構成（L と core の数密度は今のまま）と、その絶対値の最大。最大が最小の τ を `best` にする。
+ρ(f_ref + (w_τ − w) U(1)) − ρ(参照の k∞) + 再構成（L と core の数密度は今のまま）と、その絶対値の最大。最大が最小の τ を `best` にし、
+それが 0 の側の隣の τ（正の最小か負の最大）なら `best_at_edge`（その先を比べておらず、最小を挟んでいない）。
 """
 
 import argparse
@@ -59,7 +62,8 @@ FILES = {
     "core": "core-2A-rods-switch.msgpack",
 }
 SUMMARY = "rods-switch.json"
-TAUS = forgetting.TAUS
+# compare_forgetting.py の τ に、10 MWd/kg より小さい正の τ を足す（制御棒の経路は 10 でもまだ縮むので、最小を挟むため）
+TAUS = [*forgetting.TAUS, 7, 5, 3, 2, 1]
 ROD = "out"
 # core の k と組み立て直した定数の 2 群の k の差の上限 (pcm)。同じ式なので丸めの程度（2A の 15 点で 4.1e−06 pcm）
 RECONSTRUCT_TOLERANCE = 1e-3
@@ -268,30 +272,38 @@ def compare(table, reference, core, taus=TAUS):
             raise SystemExit(
                 f"core: the moderator density history at {r['burnup']} is not nominal"
             )
-        f, factors, untracked, linearization, index = node(
+        f, _, untracked, linearization, index = node(
             table, n["burnup"], n["densities"], weight
         )
-        u, lin = scaled(untracked, weight), scaled(linearization, index)
         reconstruct = rho(n["k"]) - rho(k_inf(f))
         if abs(reconstruct) > RECONSTRUCT_TOLERANCE:
             raise SystemExit(
                 f"core: the k at {r['burnup']} differs by {reconstruct} pcm from its constants"
             )
-        diffs = [x - y for x, y in zip(n["densities"], r["densities"])]
-        at_reference = corrected(f, factors, [-d for d in diffs])
+        # P / P_j もノードの数密度で決まるので、参照の数密度でノードの定数を組み立て直す（線形の補正だけを動かすと、P / P_j の変わる分が
+        # 定数の側に入る）
+        at_reference, _, _, _, reference_index = node(
+            table, n["burnup"], r["densities"], weight
+        )
+        u = scaled(untracked, weight)
+        lin = scaled(linearization, reference_index)
         target = rho(r["k_inf"])
         difference = rho(n["k"]) - target
         composition = rho(k_inf(f)) - rho(k_inf(at_reference))
+        # 定数の側を 0 にする ρ（定数の側 = ρ(f_ref) − ρ(参照の k∞) + 再構成）
+        zero = target - reconstruct
         per_nuclide = []
         for i, name in enumerate(nuclides):
-            only = [-d if j == i else 0.0 for j, d in enumerate(diffs)]
+            only = list(n["densities"])
+            only[i] = r["densities"][i]
+            g, _, _, _, _ = node(table, n["burnup"], only, weight)
             per_nuclide.append(
                 {
                     "nuclide": name,
                     "percent": None
                     if r["densities"][i] == 0.0
                     else percent(n["densities"][i], r["densities"][i]),
-                    "pcm": rho(k_inf(f)) - rho(k_inf(corrected(f, factors, only))),
+                    "pcm": rho(k_inf(f)) - rho(k_inf(g)),
                 }
             )
         rows.append(
@@ -299,6 +311,7 @@ def compare(table, reference, core, taus=TAUS):
                 "burnup": r["burnup"],
                 "weight": weight,
                 "index_ratio": index,
+                "reference_index_ratio": reference_index,
                 "reference_k": r["k_inf"],
                 "difference_pcm": difference,
                 "reconstruct_pcm": reconstruct,
@@ -309,36 +322,32 @@ def compare(table, reference, core, taus=TAUS):
                 "without_untracked_pcm": rho(
                     k_inf(added(at_reference, scaled(u, -1.0)))
                 )
-                - target
-                + reconstruct,
+                - zero,
                 "without_linearization_pcm": rho(
                     k_inf(added(at_reference, scaled(lin, -1.0)))
                 )
-                - target
-                + reconstruct,
+                - zero,
                 "untracked_weight": reference_weight(
-                    at_reference, untracked, weight, target
+                    at_reference, untracked, weight, zero
                 ),
                 "linearization_weight": reference_weight(
-                    at_reference, linearization, index, target
+                    at_reference, linearization, reference_index, zero
                 ),
                 "nuclides": per_nuclide,
             }
         )
-        bases.append(
-            (r["burnup"], weight, at_reference, untracked, target, reconstruct)
-        )
+        bases.append((r["burnup"], weight, at_reference, untracked, zero))
     scan = []
     for tau in taus:
         points = []
-        for burnup, weight, at_reference, untracked, target, reconstruct in bases:
+        for burnup, weight, at_reference, untracked, zero in bases:
             w = 1.0 - forgetting.weight(burnup, switch, tau)
             moved = added(at_reference, scaled(untracked, w - weight))
             points.append(
                 {
                     "burnup": burnup,
                     "weight": w,
-                    "constant_pcm": rho(k_inf(moved)) - target + reconstruct,
+                    "constant_pcm": rho(k_inf(moved)) - zero,
                 }
             )
         scan.append(
@@ -350,12 +359,17 @@ def compare(table, reference, core, taus=TAUS):
                 ),
             }
         )
-    best = min(scan, key=lambda x: x["largest_pcm"])
+    best = min(scan, key=lambda x: x["largest_pcm"])["tau"]
+    # 0 の側の隣の τ（正の最小、負の最大）が最小なら、その先を比べておらず最小を挟んでいない
+    positive = [t for t in taus if t is not None and t > 0]
+    negative = [t for t in taus if t is not None and t < 0]
+    edges = {min(positive, default=None), max(negative, default=None)} - {None}
     return {
         "format": "xlc-compare-rods-parts",
         "switch": switch,
         "rows": rows,
-        "best": best["tau"],
+        "best": best,
+        "best_at_edge": best in edges,
         "forgetting": scan,
     }
 
@@ -398,7 +412,8 @@ def report(summary):
         ),
         (
             f"参照に合う U の重み {span(rows, 'untracked_weight', '+.4f')}（w {span(rows, 'weight', '.4f')}）、"
-            f"L の重み {span(rows, 'linearization_weight', '+.4f')}（P / P_j {span(rows, 'index_ratio', '.4f')}）"
+            f"L の重み {span(rows, 'linearization_weight', '+.4f')}（参照の組成の P / P_j {span(rows, 'reference_index_ratio', '.4f')}、"
+            f"core の P / P_j {span(rows, 'index_ratio', '.4f')}）"
         ),
     ]
     scan = summary["forgetting"]
@@ -407,8 +422,13 @@ def report(summary):
     values = [p["constant_pcm"] for p in best["points"]]
     lines.append(
         f"U の重みを指数で忘れる w_τ にした定数の側の絶対値の最大が最小の τ は {name(best['tau'])} MWd/kg で "
-        f"{min(values):+.3f}〜{max(values):+.3f} pcm（最大 {best['largest_pcm']:.3f} pcm。∞ は {infinite['largest_pcm']:.3f} pcm）。"
-        "τ ごとの最大 (pcm): "
+        f"{min(values):+.3f}〜{max(values):+.3f} pcm（最大 {best['largest_pcm']:.3f} pcm。∞ は {infinite['largest_pcm']:.3f} pcm）"
+        + (
+            "。この τ は比べた列の 0 の側の端で、最小を挟んでいない。"
+            if summary["best_at_edge"]
+            else "。"
+        )
+        + "τ ごとの最大 (pcm): "
         + "、".join(f"{name(x['tau'])} {x['largest_pcm']:.3f}" for x in scan)
     )
     # 核種の名前の - は残す
