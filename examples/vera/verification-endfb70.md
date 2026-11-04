@@ -102,6 +102,6 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 xlc は ad3e25e1（ブランチ chore/rerun-after-adr-0226、分岐点は main の 84439609）、2026-11-04。Slurm の割り込まれうる排他のジョブ（時間は
 記録に使わない）で、核種ごとのライブラリは `stage_runner.py`（ADR-0193）、ほかは `dvc repro` で実行した: VII.0 のライブラリと格子と 3A、3B は
 681（`xlc-rerun-0226-endfb70`）、VIII.0 のライブラリは 678（`xlc-rerun-0226-vera-library`）、VIII.0 の格子（本番の `keno-*` のステージ）は
-679（`xlc-rerun-0226-vera-lattices`）。VIII.0 の 3A、3B の JSON は verification.md の「OpenMC との比較」の実行（ジョブ 680）のもの。ステージの入力と出力の md5 は
+679（`xlc-rerun-0226-vera-lattices`）。VIII.0 の 3A、3B の JSON は `p3/dvc.yaml` の比較のステージをジョブ 680 で流したもの。ステージの入力と出力の md5 は
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`、`p3/dvc.lock`。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
 （[ADR-0176](../../docs/adr/0176-generate-verification-tables.md)）。

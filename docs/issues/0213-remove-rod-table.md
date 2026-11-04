@@ -64,10 +64,8 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   格子計算の結合の一致（燃焼の履歴からの分岐）」と ADR-0225 の確認の計算は、分岐点 dcc9036a の上の ADR-0226 の前のコード
   （a0de3041。タグ `record/adr-0225-rod-axis-check`）で流した。今のコードでは使った燃焼の履歴（前の形式）を読めず、2A の比較は
   ADR-0226 の `region_mismatch` を値ごとに通す経路を通っていない（単体テスト `rod_values_that_change_the_fuel_orbits_are_errors` が
-  通す）。テーブルを作り直すときに、今の形式の履歴で比較を再実行して記録を書き直す。core-2A-micro-rods-assemblies.toml と
-  core-small-assemblies.toml の説明は新しい入力を出どころに書くが、今あるテーブルは rod_table.py でまとめた前のもの（テーブルを
-  作り直せば合う）。examples/core/rod_table.py の説明は「#0213 まで」のつなぎと書くが、今は p5 の 8 本のテーブル（燃料と支持格子の層の 6 本と、
+  通す）。今の形式の履歴（2026-11-04 に作り直した）で比較を再実行して記録を書き直す。examples/core/rod_table.py の説明は「#0213 まで」のつなぎと書くが、今は p5 の 8 本のテーブル（燃料と支持格子の層の 6 本と、
   反射体の格子の 2 本）、確認の手順（examples/core/rod-branch-check、examples/depletion/rod-axis-check）、examples/depletion の記録の
-  前の形のテーブルの手順（「部分挿入のノードのミクロ燃焼」と小さな炉心の節）、examples/core/verification.md の「方式の誤差と
+  前の形のテーブルを引く節（「サイクルのステップの core の燃焼」）、examples/core/verification.md の「方式の誤差と
   微分価値」の前の形の説明、examples/core/dvc.lock に残る前の形の `table` のステージの記載（#0214）が使うか指す（rod_table.py を
   消すときに、これらの手順と記載も書き直す）
