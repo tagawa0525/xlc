@@ -1477,6 +1477,52 @@ fn last_k(history: &CoreHistory) -> f64 {
 }
 
 #[test]
+fn node_rod_histories_hold_the_inserted_fraction_of_the_node_height() {
+    // 制御棒の挿入の割合の瞬時の値は、ノードの高さのうち制御棒が入った割合（ADR-0215）。先端が上のノード（10〜20 cm）の 15 cm なら
+    // 上のノードの半分、10 cm なら上のノードの全部、下のノードは入らない
+    for (step, upper) in [(20000, 0.0), (15000, 0.5), (10000, 1.0)] {
+        let history = rodded_micro_run(step);
+        assert_eq!(
+            history.history_variables,
+            Some(vec!["moderator-density".to_string(), "rods".to_string()])
+        );
+        for point in &history.points {
+            let nodes = &point.histories.as_ref().unwrap()[0];
+            assert_eq!(nodes[0][1], 0.0, "{step}");
+            assert!(
+                (nodes[1][1] - upper).abs() <= 1e-12,
+                "{step}: {:?}",
+                nodes[1]
+            );
+        }
+    }
+}
+
+#[test]
+fn node_rod_histories_average_the_insertion_of_the_steps_by_burnup() {
+    // 最初のステップは制御棒を上のノードの全部に入れ、次のステップで抜くと、上のノードの値は燃焼度で重みを付けた平均 B₁ / B₂
+    let case = ROD_CASE
+        .replace(
+            "banks = { D = 20000 }\n",
+            "banks = { D = 20000 }\n\n[state.out]\nboron = 1200\nb10 = 0.199\nmoderator = 565\nfuel = 565\n\
+             banks = { D = 20000 }\n",
+        )
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+            "[{ efpd = 50.0, state = \"hfp\" }, { efpd = 125.0, state = \"out\" }]",
+        );
+    let history = rodded_micro_run_with(&case, 10000);
+    let upper = |k: usize| {
+        let p = &history.points[k];
+        (p.burnups[0][1], p.histories.as_ref().unwrap()[0][1][1])
+    };
+    assert_eq!(upper(0).1, 1.0);
+    assert_eq!(upper(1).1, 1.0);
+    let ((b1, _), (b2, h2)) = (upper(1), upper(2));
+    assert!((h2 - b1 / b2).abs() <= 1e-14, "{h2} vs {}", b1 / b2);
+}
+
+#[test]
 fn partial_node_micro_depletion_approaches_the_uniform_nodes_at_the_insertion_limits() {
     // 上のノードの挿入の割合が 0 と 1 に近づくと、部分挿入のノードのミクロ燃焼は、そのノードを棒のないノードと棒の入った
     // ノードにした燃焼に、割合の 1 次で近づく（区間の重みが 0 に近づく。ADR-0127 の「境界がノードの面に近づくと」）
@@ -2519,13 +2565,14 @@ fn micro_depletion_records_the_moderator_density_history_of_the_nodes() {
     let history = micro_run(UNIFORM, [&TRACKED, &TRACKED]).unwrap();
     assert_eq!(
         history.history_variables,
-        Some(vec!["moderator-density".to_string()])
+        Some(vec!["moderator-density".to_string(), "rods".to_string()])
     );
     let (_, tables, _) = core(CASE, UNIFORM, Some(400.0));
     let x = crate::state::moderator_density(&tables[0], 565.0).unwrap();
+    // 制御棒のない炉心の制御棒の挿入の割合は 0
     for point in &history.points {
         for node in point.histories.as_ref().unwrap().iter().flatten() {
-            assert_eq!(node, &[x], "{} EFPD", point.efpd);
+            assert_eq!(node, &[x, 0.0], "{} EFPD", point.efpd);
         }
     }
     let bytes = history.to_msgpack().unwrap();
@@ -2688,12 +2735,15 @@ fn restarts_carry_the_node_histories_by_assembly() {
             "{id}"
         );
     }
-    assert_eq!(node_values(&second, 0, "A1"), [[0.7425], [0.7425]]);
+    assert_eq!(
+        node_values(&second, 0, "A1"),
+        [[0.7425, 0.0], [0.7425, 0.0]]
+    );
     let fresh = node_values(&second, 0, "A3");
     assert_eq!(fresh, node_values(&second, 0, "A2"));
     // 履歴の変数が core の変数と違う restart はエラー
     let mut other = first.clone();
-    other.history_variables = Some(vec!["rods".into()]);
+    other.history_variables = Some(vec!["moderator-density".into()]);
     let cycle = restarted_cycle(MIXED, "restart = { history = \"first.msgpack\" }");
     let error = cycle_run(&cycle, Some("tracked"), "[{ efpd = 50.0 }]", Some(&other))
         .unwrap_err()
