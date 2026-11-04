@@ -61,6 +61,10 @@ LARGEST = 6
 BURNUP_TOLERANCE = 1e-9
 
 
+# core がノードごとに持つ履歴の変数（crates/core/src/case.rs の `HISTORY_VARIABLES`）。減速材の密度は最初
+CORE_VARIABLES = [VARIABLE, "rods"]
+
+
 def same_burnup(a, b):
     return abs(a - b) <= BURNUP_TOLERANCE * max(1.0, abs(b))
 
@@ -73,8 +77,10 @@ def single_node(core, label, nuclides):
         raise SystemExit(f"{label}: the core must be one assembly of one axial node")
     if core.get("nuclides") != nuclides:
         raise SystemExit(f"{label}: the core tracks other nuclides than the table")
-    if core.get("history_variables") != [VARIABLE]:
-        raise SystemExit(f"{label}: the core holds no {VARIABLE} history")
+    if core.get("history_variables") != CORE_VARIABLES:
+        raise SystemExit(
+            f"{label}: the core holds the history variables {core.get('history_variables')}, not {CORE_VARIABLES}"
+        )
     return [
         {
             "efpd": p["efpd"],
