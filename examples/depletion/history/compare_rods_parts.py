@@ -37,6 +37,7 @@ U_switch と L_switch（参照の組成の U と L）は、参照の組成とそ
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import compare_forgetting as forgetting
@@ -64,6 +65,19 @@ ROD = "out"
 RECONSTRUCT_TOLERANCE = 1e-3
 # rods-switch.json の core − 参照と、ここで作った値の差の上限 (pcm)（同じ入力と式なので丸めの程度）
 SUMMARY_TOLERANCE = 1e-9
+# 内挿する項目: 少数群定数は 2 群の k と線形の補正、残りの足し算が使うもの（compare_residual の `corrected`、`added`）、係数は
+# `corrected` が使うもの。テーブルのほかの項目（vacuum_ratio、pins、反応の一覧など）は値の無いものを含み、k に効かない
+STATE_KEYS = (
+    "total",
+    "absorption",
+    "nu_fission",
+    "fission",
+    "chi",
+    "diffusion",
+    "scatter",
+    "adf",
+)
+FACTOR_KEYS = ("total", "nu_fission", "fission", "scatter")
 # 参照に合う重みを探す範囲
 WEIGHT_RANGE = (-2.0, 2.0)
 
@@ -122,16 +136,11 @@ def burnup_terms(points, x):
     return [(first + base + m, w) for m, w in enumerate(weights) if w != 0.0]
 
 
-def combined(items):
-    """（重み、値）の組の和 Σ w x。値は数、数の入れ子のリスト、それらを値に持つ dict（数でない値の項目は捨てる）"""
+def combined(items, keys=None):
+    """（重み、値）の組の和 Σ w x。値は数か、数の入れ子のリスト。`keys` を渡すと値は dict で、その項目だけを足した dict"""
+    if keys is not None:
+        return {key: combined([(w, x[key]) for w, x in items]) for key in keys}
     _, first = items[0]
-    if isinstance(first, dict):
-        return {
-            key: combined([(w, x[key]) for w, x in items])
-            for key, value in first.items()
-            if isinstance(value, (int, float, list, dict))
-            and not isinstance(value, bool)
-        }
     if isinstance(first, list):
         return [combined([(w, x[i]) for w, x in items]) for i in range(len(first))]
     return sum(w * x for w, x in items)
@@ -164,15 +173,23 @@ def node(table, burnup, densities, weight):
     axis = table["axes"][0]["points"]
     micro = table["micro"]
     terms = burnup_terms(axis, burnup)
-    state = combined([(w, table["states"][state_point(table, b)]) for b, w in terms])
-    factors = combined(
-        [(w, coefficients(micro["states"][state_point(table, b)])) for b, w in terms]
+    state = combined(
+        [(w, table["states"][state_point(table, b)]) for b, w in terms], STATE_KEYS
     )
+    by_point = [
+        (w, coefficients(micro["states"][state_point(table, b)])) for b, w in terms
+    ]
+    factors = [
+        combined([(w, c[i]) for w, c in by_point], FACTOR_KEYS)
+        for i in range(len(micro["nuclides"]))
+    ]
     nominal = combined([(w, micro["densities"][b]) for b, w in terms])
     rod = entry(table, VARIABLES[1], ROD)
     r_terms = burnup_terms(rod["burnup"], burnup)
-    untracked = combined([(w, rod["untracked"][k]) for k, w in r_terms])
-    linearization = combined([(w, rod["linearization"][k]) for k, w in r_terms])
+    untracked = combined([(w, rod["untracked"][k]) for k, w in r_terms], STATE_KEYS)
+    linearization = combined(
+        [(w, rod["linearization"][k]) for k, w in r_terms], STATE_KEYS
+    )
     branch = combined(
         [
             (
@@ -394,7 +411,8 @@ def report(summary):
         "τ ごとの最大 (pcm): "
         + "、".join(f"{name(x['tau'])} {x['largest_pcm']:.3f}" for x in scan)
     )
-    return "\n".join(lines).replace("-", "−")
+    # 核種の名前の - は残す
+    return re.sub(r"(?<![A-Za-z])-", "−", "\n".join(lines))
 
 
 def check_summary(summary, md5s, result):
