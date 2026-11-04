@@ -3,7 +3,7 @@
  "inputs": [
   {
    "path": "lattice-mox1-rings1.msgpack",
-   "md5": "6fe00e52fac269e86b3a2a4a3c30b8f0"
+   "md5": "2b55bcc7ea3d20dc2c3588e5b1351c33"
   },
   {
    "path": "openmc-mox1-rings1.msgpack",
@@ -22,11 +22,11 @@
  "transported": 54,
  "seconds": {
   "xlc": {
-   "shielding": 418.837374068,
-   "moc": 1.696414689,
-   "rates": 0.036164089,
-   "matrix": 0.187569674,
-   "cram": 0.322345281,
+   "shielding": 404.149553231,
+   "moc": 1.647882976,
+   "rates": 0.036780125,
+   "matrix": 0.185997087,
+   "cram": 0.31822101,
    "solves": 13
   },
   "openmc": {
