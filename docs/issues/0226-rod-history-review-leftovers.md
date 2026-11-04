@@ -36,6 +36,12 @@ resolution:
   core が止まる（ADR-0228 の分け方を制御棒を入れたノードで使えない。減速材の密度の履歴の分岐を制御棒を入れた値でも解けば足せる）
 - 3 周目: 記録の「制御棒を途中まで入れて抜く燃焼（2A）」の表は Pu-239〜241 だけを描き、本文の 5 核種の最大（Xe-135 の 0.459%）は JSON にだけある。
   core の `add_histories` と `node_micro` は同じノードの a_j を 2 度作る
+- trial/0190-rods-forgetting の 1 周目: examples/depletion/history/compare_rods_parts.py は燃焼度の軸を最初の軸と置き（`node`。軸の順を照らさない）、
+  core の燃焼度の内挿（ADR-0192）を `burnup_terms` で手でコピーする（examples/depletion/compare_burnup_interpolation.py の `hermite` に続く 2 つ目のコピー。
+  ずれは再構成の検査だけが止める）。`state_point` は compare_rods_switch.py の `state_index` の複製
+- trial/0190-rods-forgetting の 3 周目: compare_rods_parts.py は core の状態の名前（`[state.out]`）を制御棒の値 out と比べ、名前が同じことに頼る。
+  切り替えの後の点が無いと `report()` と verification_tables.py の `history_rods_parts_nuclides` が空の列で止まる（TableError でなく IndexError）。
+  表の関数の直し（両方の P / P_j の列）は、記録の表の検査の hook が JSON と記録を同じコミットに求めるので、記録のコミット 45f520d1 に入った
 
 関係する ADR: ADR-0228
 
