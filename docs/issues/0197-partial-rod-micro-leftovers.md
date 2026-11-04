@@ -25,7 +25,7 @@ resolution:
   - 区間の収率の境界より下の割合は、`interpolate_micro` が群の和の σf で内挿してから、`mix_micro` が中性子束で重みを付けた率で
     混ぜるので、1 つの量を 2 つの規則で混ぜる（大きさは測っていない）
   - examples/core/rod_table.py の `DENSITY_ROUNDING`（1e-12）のコメントは「数個の ulp」と書くが約 4500 ulp。2A の制御棒の組と
-    棒のない組の差は相対 2.0e-14（#0192 の「経緯」）
+    棒のない組の差は相対 2.0e-14（#0192 の「経緯」）。2026-11-04 に #0213 で rod_table.py を消したので、この項は無くなった
   - `rods::weighted` は `average` を呼ぶだけで、`mix_micro` は群ごとの重みの和を核種ごとに作り直す
 - examples/depletion の比較のツールは、燃焼度の一致の許容 `BURNUP_TOLERANCE`（1e-9）と `same_burnup`、`rho_pcm` を
   compare_core_depletion.py、compare_depletion.py、compare_depletion_assembly.py、compare_core_micro.py、compare_core_partial_rods.py の
