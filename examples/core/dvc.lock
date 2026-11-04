@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: d6fdf60dd3f2f88e7105c0906b3db322
-      size: 2738928
+      md5: 953c587b5c04b9f5f09a155d87a3b442
+      size: 2929808
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -239,8 +239,8 @@ stages:
     outs:
     - path: rods.msgpack
       hash: md5
-      md5: 4548878d7ca3ef29368b873aee572ff3
-      size: 59383555
+      md5: 148bcfe65eb64bb05025760110404e78
+      size: 76427170
   lattice@out:
     cmd: ../../bin/lattice assembly-out.toml > lattice-out.out
     deps:
@@ -346,13 +346,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-20.toml
       hash: md5
       md5: 2e674600ee63ea1b88a8027f7f680b6b
@@ -367,12 +367,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-20.out
       hash: md5
-      md5: 92b4dd1aee9d1c827f1620d89725831d
+      md5: 8607df10590f7c86a87c9dde4eb5cab2
       size: 830
   core@volume-180:
     cmd: mkdir -p out && ../../bin/core cases/volume-180.toml > 
@@ -380,13 +380,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-180.toml
       hash: md5
       md5: 90dcc81b7df84b9605bbe11b07e3a867
@@ -401,25 +401,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-180.out
       hash: md5
-      md5: dc3c0ae481b6f0c1d083e5c1ee4711fe
+      md5: b6f9d11c518fa62bc80094a9eac599e5
       size: 830
   core@split-124:
     cmd: mkdir -p out && ../../bin/core cases/split-124.toml > out/split-124.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-124.toml
       hash: md5
       md5: 51d6a7d39a329beb1242f207cce9208b
@@ -434,12 +434,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-124.out
       hash: md5
-      md5: cd6cd08682ceffef953509c3e711dba9
+      md5: 0c5b1696d85f6c6db42e2febace5c850
       size: 902
   core@volume-116:
     cmd: mkdir -p out && ../../bin/core cases/volume-116.toml > 
@@ -447,13 +447,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-116.toml
       hash: md5
       md5: a6fedbcf34556bd587eccd8d6dde6c85
@@ -468,12 +468,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-116.out
       hash: md5
-      md5: 10958042da086a9e2523ca927360832f
+      md5: 094f461bd14922a47358d96595c4f3b4
       size: 830
   core@volume-126:
     cmd: mkdir -p out && ../../bin/core cases/volume-126.toml > 
@@ -481,13 +481,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-126.toml
       hash: md5
       md5: c8a3c2a22a450b85b6b2ef44098799cb
@@ -502,12 +502,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-126.out
       hash: md5
-      md5: c9b931964222fc8b6cc38eedfc21536c
+      md5: c50c210683335c2487ffb733ca761098
       size: 830
   core@volume-118:
     cmd: mkdir -p out && ../../bin/core cases/volume-118.toml > 
@@ -515,13 +515,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-118.toml
       hash: md5
       md5: a2222057dd2fcbd9b82ed041b03c8cdc
@@ -536,25 +536,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-118.out
       hash: md5
-      md5: f5fd982c81dae8e0fe7af55aeb9496e1
+      md5: feb75707b6465891ec3f121b9f28179d
       size: 830
   core@flux-120:
     cmd: mkdir -p out && ../../bin/core cases/flux-120.toml > out/flux-120.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-120.toml
       hash: md5
       md5: 01ab8e656e1c925cd50fff24c8971a14
@@ -569,25 +569,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-120.out
       hash: md5
-      md5: 70f9f732bc4ed51f5bdd6e7c982267e1
+      md5: 0ad359f506c2a416bdefbd1f3b53286d
       size: 830
   core@volume-90:
     cmd: mkdir -p out && ../../bin/core cases/volume-90.toml > out/volume-90.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-90.toml
       hash: md5
       md5: 4499fda45b4f101488396aa00ae2c4cb
@@ -602,25 +602,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-90.out
       hash: md5
-      md5: 4d75ab737465277e050d0017c3f98264
+      md5: fa0b0ae4d4df10cade057b6cc83901a6
       size: 830
   core@flux-118:
     cmd: mkdir -p out && ../../bin/core cases/flux-118.toml > out/flux-118.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-118.toml
       hash: md5
       md5: 2cf5091e3a9fad0e4208e49ec3334714
@@ -635,12 +635,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-118.out
       hash: md5
-      md5: ed16b1f539fdc7f8736e49863e1311b6
+      md5: d2dff0aaa552a0db1adb366c021a364b
       size: 830
   core@volume-120:
     cmd: mkdir -p out && ../../bin/core cases/volume-120.toml > 
@@ -648,13 +648,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-120.toml
       hash: md5
       md5: 43abee5f9f04337e6359749af39960ee
@@ -669,25 +669,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-120.out
       hash: md5
-      md5: d76a9eb74a4fdd4d063700cdc9466cfe
+      md5: 587ce6c9096284a66e85b3dfb0357d82
       size: 830
   core@flux-124:
     cmd: mkdir -p out && ../../bin/core cases/flux-124.toml > out/flux-124.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-124.toml
       hash: md5
       md5: 65407278bd05bed9b62ea3fda0176b3d
@@ -702,25 +702,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-124.out
       hash: md5
-      md5: dcc89a4354849413924066f6dc1d75ea
+      md5: d9c60700bb3563c2c6326952f1897270
       size: 830
   core@split-120:
     cmd: mkdir -p out && ../../bin/core cases/split-120.toml > out/split-120.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-120.toml
       hash: md5
       md5: 07af20e74861eb17cf65b725739ae2c4
@@ -735,25 +735,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-120.out
       hash: md5
-      md5: adb1b1f4ebfc03269b2c6238ac4b4ce9
+      md5: b4a994236efbdd177304bfd7df29fc72
       size: 902
   core@flux-126:
     cmd: mkdir -p out && ../../bin/core cases/flux-126.toml > out/flux-126.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-126.toml
       hash: md5
       md5: 36d5cf3fabd59b3631e62be7e93e295b
@@ -768,25 +768,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-126.out
       hash: md5
-      md5: 3a41bf98ec94d03fcef609f4adae1330
+      md5: 0db99413cd07e4c62cc2905f5ae86594
       size: 830
   core@split-126:
     cmd: mkdir -p out && ../../bin/core cases/split-126.toml > out/split-126.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-126.toml
       hash: md5
       md5: 163d01d52568b10a35c38557b184b6b4
@@ -801,12 +801,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-126.out
       hash: md5
-      md5: fb30c1a08156996721dbcba961bae492
+      md5: aef8e0b6e52fcab18294820601e82171
       size: 902
   core@fine-2-122:
     cmd: mkdir -p out && ../../bin/core cases/fine-2-122.toml > 
@@ -814,13 +814,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-2-122.toml
       hash: md5
       md5: 77ea1d6decfb23361b524986c5129a2a
@@ -835,12 +835,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-2-122.out
       hash: md5
-      md5: 6e150ca558b8ace4dfb0e88a4c71a854
+      md5: 260c2823fadbfb75132085c030f31080
       size: 830
   core@fine-1-116:
     cmd: mkdir -p out && ../../bin/core cases/fine-1-116.toml > 
@@ -848,13 +848,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-1-116.toml
       hash: md5
       md5: e7ca1c982f9025198bf5e4578fee712b
@@ -869,12 +869,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-1-116.out
       hash: md5
-      md5: 44e783313839d2bfa0e2d6f455e6109d
+      md5: 1b7ea42b9343f488e6a434a23309ba62
       size: 830
   core@volume-122:
     cmd: mkdir -p out && ../../bin/core cases/volume-122.toml > 
@@ -882,13 +882,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-122.toml
       hash: md5
       md5: 275cb6113aec7d61199998d3f7096e74
@@ -903,25 +903,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-122.out
       hash: md5
-      md5: 32246d18c9c3e951cf18b4493d954893
+      md5: d2e4c4fab85e2ab2cec202d258dbfbac
       size: 830
   core@split-116:
     cmd: mkdir -p out && ../../bin/core cases/split-116.toml > out/split-116.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-116.toml
       hash: md5
       md5: bd76ac02895bc24c34ecc77b39db7a5b
@@ -936,25 +936,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-116.out
       hash: md5
-      md5: d9de312c39c4ecf22e7901d455535a47
+      md5: 0d21149aacd224919c6cbb4735e570a9
       size: 902
   core@split-128:
     cmd: mkdir -p out && ../../bin/core cases/split-128.toml > out/split-128.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-128.toml
       hash: md5
       md5: d25f738aa65ad5e5276e57d758e4462f
@@ -969,12 +969,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-128.out
       hash: md5
-      md5: d566a499d2296294fe86f35bc46f3f04
+      md5: 0e37d6b0260bf8e1f5d81e4bb034e2b9
       size: 902
   core@fine-0.125-122:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.125-122.toml > 
@@ -982,13 +982,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-0.125-122.toml
       hash: md5
       md5: f6664f600c54701315102cd040bbfdd4
@@ -1003,25 +1003,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-0.125-122.out
       hash: md5
-      md5: 2e4dbdf2c853e56e23c5501e1296731f
+      md5: 291892484c406bfc9dc7a5d7b04b714b
       size: 830
   core@split-20:
     cmd: mkdir -p out && ../../bin/core cases/split-20.toml > out/split-20.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-20.toml
       hash: md5
       md5: 10f5fbdfaae98b01bb5e6538e4d3a2ee
@@ -1036,25 +1036,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-20.out
       hash: md5
-      md5: c85d773045ca7699486eb7409b3796b5
+      md5: 5003094e6f6eb2df2b233d7bdc86f066
       size: 900
   core@flux-128:
     cmd: mkdir -p out && ../../bin/core cases/flux-128.toml > out/flux-128.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-128.toml
       hash: md5
       md5: 1a785fcc63e4d73e361be2d4943628e3
@@ -1069,25 +1069,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-128.out
       hash: md5
-      md5: 8814f7886963b773f242a0b9db101b46
+      md5: 470689be4e7f627094d97e51c62331cb
       size: 830
   core@split-150:
     cmd: mkdir -p out && ../../bin/core cases/split-150.toml > out/split-150.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-150.toml
       hash: md5
       md5: d3dd549e4ce767e6ab8f103664241815
@@ -1102,12 +1102,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-150.out
       hash: md5
-      md5: fb6956d447ae9deb623cc2c94a1805d7
+      md5: 3e0f0ff33e0249eba5dcc8b18d40feba
       size: 902
   core@fine-0.25-122:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.25-122.toml > 
@@ -1115,13 +1115,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-0.25-122.toml
       hash: md5
       md5: cc036f770b39cd0771046cddd4dd3143
@@ -1136,25 +1136,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-0.25-122.out
       hash: md5
-      md5: e17840425076f275af9b8edcb681d60f
+      md5: a4c2f6de4dab99be66a7bc43e62c9a7d
       size: 830
   core@split-122:
     cmd: mkdir -p out && ../../bin/core cases/split-122.toml > out/split-122.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-122.toml
       hash: md5
       md5: 297d0de24430e4741e5aa0655c283416
@@ -1169,25 +1169,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-122.out
       hash: md5
-      md5: 6061e1899f2959602b8cfe8baca476c3
+      md5: 2c9fa14ed3bec97c6c80854c2b148643
       size: 902
   core@flux-116:
     cmd: mkdir -p out && ../../bin/core cases/flux-116.toml > out/flux-116.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-116.toml
       hash: md5
       md5: a2dd44749a2b85426c29f107a4503383
@@ -1202,25 +1202,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-116.out
       hash: md5
-      md5: fab701173be22d527f54c9c25c123da7
+      md5: cb13d2f1bbfe2aa765657be0682ff42f
       size: 830
   core@split-118:
     cmd: mkdir -p out && ../../bin/core cases/split-118.toml > out/split-118.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-118.toml
       hash: md5
       md5: 3e61208ac5644956989fa687af4782f7
@@ -1235,25 +1235,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-118.out
       hash: md5
-      md5: 3dab77e0616f918030ad42b380f94b0b
+      md5: 7c1e7cfe4fce44e6a6afef929b619758
       size: 902
   core@flux-122:
     cmd: mkdir -p out && ../../bin/core cases/flux-122.toml > out/flux-122.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-122.toml
       hash: md5
       md5: ada5dde1c254aa1a1973409e4ebea012
@@ -1268,12 +1268,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-122.out
       hash: md5
-      md5: 48bece2b81277eec9ff9fdce3bfd9712
+      md5: 9bf7e31b0efd622a1d1f260e0b7e846e
       size: 830
   core@volume-124:
     cmd: mkdir -p out && ../../bin/core cases/volume-124.toml > 
@@ -1281,13 +1281,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-124.toml
       hash: md5
       md5: 16d83246b371861c7fd74cdb156a42cf
@@ -1302,12 +1302,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-124.out
       hash: md5
-      md5: c3c1009b3d4bb8e2ac2f32a53bd77bc1
+      md5: 46aecb1e03f51e9100d477c1110bdd04
       size: 830
   core@volume-128:
     cmd: mkdir -p out && ../../bin/core cases/volume-128.toml > 
@@ -1315,13 +1315,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-128.toml
       hash: md5
       md5: 7aab5d7d416b432c7119d8e636e094e0
@@ -1336,25 +1336,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-128.out
       hash: md5
-      md5: 791b10ead46817049bbe3784ca492978
+      md5: cc908d9f06e825ab15e3743e133aea53
       size: 830
   core@flux-20:
     cmd: mkdir -p out && ../../bin/core cases/flux-20.toml > out/flux-20.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-20.toml
       hash: md5
       md5: 1c617582d3167404889a6dfdac17c574
@@ -1369,25 +1369,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-20.out
       hash: md5
-      md5: fd7c6c82e27dc3943116bb75223f7e29
+      md5: 39a0bbd115fec80ac1bd8adfe507a0ba
       size: 830
   core@flux-60:
     cmd: mkdir -p out && ../../bin/core cases/flux-60.toml > out/flux-60.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-60.toml
       hash: md5
       md5: 72493cf75c6b6a97c275776ebe964379
@@ -1402,25 +1402,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-60.out
       hash: md5
-      md5: 75173b4064d8fe3fe0e917f2eb454217
+      md5: 94f0ab780c38f9092ff1a44da09c5d28
       size: 831
   core@volume-60:
     cmd: mkdir -p out && ../../bin/core cases/volume-60.toml > out/volume-60.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-60.toml
       hash: md5
       md5: f55fa4b77668a572fa9f1e30496d10f3
@@ -1435,25 +1435,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-60.out
       hash: md5
-      md5: 993e50bee2ddd8c632b3fbf6817c5a9c
+      md5: 1fc8e11ec833e2a50ebaebb0713a6ae9
       size: 831
   core@split-60:
     cmd: mkdir -p out && ../../bin/core cases/split-60.toml > out/split-60.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-60.toml
       hash: md5
       md5: 39bf5290d911f9c19764c92089260b77
@@ -1468,25 +1468,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-60.out
       hash: md5
-      md5: 6bc4d2780a4a8c294992736c47f2ded2
+      md5: 4552d7b03a8d8cac03e20919a2b139ae
       size: 901
   core@flux-90:
     cmd: mkdir -p out && ../../bin/core cases/flux-90.toml > out/flux-90.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-90.toml
       hash: md5
       md5: 52f76a6eae50a17116679eb0a6647d7c
@@ -1501,25 +1501,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-90.out
       hash: md5
-      md5: f6dc2aaf3e734843a63f9c8149b34880
+      md5: 4c02293368a8509617ea29dc3c752028
       size: 830
   core@split-90:
     cmd: mkdir -p out && ../../bin/core cases/split-90.toml > out/split-90.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-90.toml
       hash: md5
       md5: 37d32ed80fe76d2102ad9faa2e977323
@@ -1534,25 +1534,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-90.out
       hash: md5
-      md5: 8a48c501ae34e5cd06349a025a4c6587
+      md5: 4f54e66143abf55fd7e2fe71152640d0
       size: 902
   core@flux-150:
     cmd: mkdir -p out && ../../bin/core cases/flux-150.toml > out/flux-150.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-150.toml
       hash: md5
       md5: ebd81020af9278fbfbdb78263af9002e
@@ -1567,12 +1567,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-150.out
       hash: md5
-      md5: 6902d2367da57410cfb573836b6a8d8b
+      md5: 82f6b4d2b0d3cd9d3836c5db86ce403c
       size: 830
   core@volume-150:
     cmd: mkdir -p out && ../../bin/core cases/volume-150.toml > 
@@ -1580,13 +1580,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-150.toml
       hash: md5
       md5: 1ea999090e442c7036ae0fdb5faf1bf1
@@ -1601,25 +1601,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-150.out
       hash: md5
-      md5: ce25dd26e88c49b06bb9b3caba57f7eb
+      md5: 176ef1e3fbead751b6193459c5b00a35
       size: 830
   core@flux-180:
     cmd: mkdir -p out && ../../bin/core cases/flux-180.toml > out/flux-180.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-180.toml
       hash: md5
       md5: 70a8840677a0f63abfa3a3f9a85e9e92
@@ -1634,25 +1634,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-180.out
       hash: md5
-      md5: 918754bdecb609d165c0f6077cea61c0
+      md5: a22f506ffdbcea7ff64582a2e171bc70
       size: 830
   core@split-180:
     cmd: mkdir -p out && ../../bin/core cases/split-180.toml > out/split-180.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-180.toml
       hash: md5
       md5: 4a0c5f686cbd706b3e5d84b1c2fbcbf4
@@ -1667,25 +1667,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-180.out
       hash: md5
-      md5: d8622e54e1dbccda737a05b9111a93a3
+      md5: a970f4cc1cba468e8edc4a57d0ef3c0f
       size: 866
   core@flux-200:
     cmd: mkdir -p out && ../../bin/core cases/flux-200.toml > out/flux-200.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/flux-200.toml
       hash: md5
       md5: 9e26a966d16202bef3a632f11d27c477
@@ -1700,12 +1700,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/flux-200.out
       hash: md5
-      md5: 7aaa4e7af03aea11009d02f1c7db1347
+      md5: e0fc91a7a48fa4dc9e500d5981c89fb0
       size: 830
   core@volume-200:
     cmd: mkdir -p out && ../../bin/core cases/volume-200.toml > 
@@ -1713,13 +1713,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/volume-200.toml
       hash: md5
       md5: a01735e830d080fa5f4cc15565ea28e2
@@ -1734,25 +1734,25 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/volume-200.out
       hash: md5
-      md5: 7c02c42d565de1e7df2bde22f2830d4c
+      md5: bc6edbf3a9b21f7e8a0e9b0cef6d0fe7
       size: 830
   core@split-200:
     cmd: mkdir -p out && ../../bin/core cases/split-200.toml > out/split-200.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/split-200.toml
       hash: md5
       md5: 3b9c1619953b72bab2fde5ad0decb3ca
@@ -1767,12 +1767,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/split-200.out
       hash: md5
-      md5: d260ef8ac8b6cf292a232eedd9a97b91
+      md5: 68be1878b70e79ee7adedf516b353157
       size: 866
   core@fine-2-116:
     cmd: mkdir -p out && ../../bin/core cases/fine-2-116.toml > 
@@ -1780,13 +1780,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-2-116.toml
       hash: md5
       md5: 74d22c16e433dd09daf662c115f5c995
@@ -1801,12 +1801,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-2-116.out
       hash: md5
-      md5: 2a1ce35b3bbb9fef01170489eb72c57b
+      md5: 5e3af84e535cb9443eca9b80a755acab
       size: 830
   core@fine-2-180:
     cmd: mkdir -p out && ../../bin/core cases/fine-2-180.toml > 
@@ -1814,13 +1814,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-2-180.toml
       hash: md5
       md5: f78f91ba99ebdd217e4574fb7c47d343
@@ -1835,12 +1835,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-2-180.out
       hash: md5
-      md5: 31e4bb86b2fed1927986c2be2f9e76ed
+      md5: 3475034f53ae2b597835d47a9dedcb80
       size: 830
   core@fine-1-122:
     cmd: mkdir -p out && ../../bin/core cases/fine-1-122.toml > 
@@ -1848,13 +1848,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-1-122.toml
       hash: md5
       md5: 001d0fb704c99a371d291ba872fa32a8
@@ -1869,12 +1869,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-1-122.out
       hash: md5
-      md5: 950907b67ff28517b327da13a5a22c58
+      md5: 3fad0ebad42a9631e11da8d54d804b89
       size: 830
   core@fine-1-180:
     cmd: mkdir -p out && ../../bin/core cases/fine-1-180.toml > 
@@ -1882,13 +1882,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-1-180.toml
       hash: md5
       md5: 2392a179a22d8abb470785c1682082d3
@@ -1903,12 +1903,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-1-180.out
       hash: md5
-      md5: 6ce0b4283e3b331bc086273699edb647
+      md5: f93f71abc7d4fa23b197749cc4cb57ef
       size: 830
   core@fine-0.25-116:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.25-116.toml > 
@@ -1916,13 +1916,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-0.25-116.toml
       hash: md5
       md5: f2a25f061f6389e485981a9c203ad8e1
@@ -1937,12 +1937,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-0.25-116.out
       hash: md5
-      md5: f6a3fcfc571c439f5343617af226722e
+      md5: b78635a685524b6ceec26a7aeb026305
       size: 830
   core@fine-0.25-180:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.25-180.toml > 
@@ -1950,13 +1950,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-0.25-180.toml
       hash: md5
       md5: 788a351abe8309f9da4f81bb1fc79c82
@@ -1971,12 +1971,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-0.25-180.out
       hash: md5
-      md5: 42ed1b3a94af44f4758b66df66e3e799
+      md5: 091af994812d8bdd3687fe90f39d08bd
       size: 830
   core@fine-0.125-116:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.125-116.toml > 
@@ -1984,13 +1984,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-0.125-116.toml
       hash: md5
       md5: 97a03d08567f4aafa71e6bda79970fb4
@@ -2005,12 +2005,12 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-0.125-116.out
       hash: md5
-      md5: 994a18e748e9d0de06d0d1066fda5469
+      md5: d662038683addf5f7cfd4c53445c4ea1
       size: 830
   core@fine-0.125-180:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.125-180.toml > 
@@ -2018,13 +2018,13 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
-      md5: f6df9986be1ab0f21159506e5ef20f83
-      size: 221
+      md5: 5d2a12d03674b76654fca7dc8d3cef58
+      size: 253
     - path: cases/fine-0.125-180.toml
       hash: md5
       md5: f459935b84077f1c9bdd82016f9a8022
@@ -2039,230 +2039,255 @@ stages:
       size: 366
     - path: table-rods.msgpack
       hash: md5
-      md5: 68e59a3718f58f105caefc6260e37172
-      size: 1431
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
     outs:
     - path: out/fine-0.125-180.out
       hash: md5
-      md5: 702a83c9a08ee8a759c2c3f92896c080
+      md5: 6b549ed384ba7dbb777053dfd8ceed69
       size: 830
   compare:
     cmd: python3 compare_rods.py > compare.out
     deps:
-    - path: compare_rods.py
+    - path: ../../python-ast/examples/core/compare_rods.py.ast
       hash: md5
-      md5: b030674c93a69cef662aa0773fa337dd
-      size: 4757
+      md5: 20e17a9ef5a223439c267b733648f052
+      size: 3682
+    - path: ../../python-ast/examples/core/rods_cases.py.ast
+      hash: md5
+      md5: ca9c615f345c7ce05b34f0d1e6716c3a
+      size: 4892
     - path: out/fine-0.125-116.out
       hash: md5
-      md5: 994a18e748e9d0de06d0d1066fda5469
+      md5: d662038683addf5f7cfd4c53445c4ea1
       size: 830
     - path: out/fine-0.125-122.out
       hash: md5
-      md5: 2e4dbdf2c853e56e23c5501e1296731f
+      md5: 291892484c406bfc9dc7a5d7b04b714b
       size: 830
     - path: out/fine-0.125-180.out
       hash: md5
-      md5: 702a83c9a08ee8a759c2c3f92896c080
+      md5: 6b549ed384ba7dbb777053dfd8ceed69
       size: 830
     - path: out/fine-0.25-116.out
       hash: md5
-      md5: f6a3fcfc571c439f5343617af226722e
+      md5: b78635a685524b6ceec26a7aeb026305
       size: 830
     - path: out/fine-0.25-122.out
       hash: md5
-      md5: e17840425076f275af9b8edcb681d60f
+      md5: a4c2f6de4dab99be66a7bc43e62c9a7d
       size: 830
     - path: out/fine-0.25-180.out
       hash: md5
-      md5: 42ed1b3a94af44f4758b66df66e3e799
+      md5: 091af994812d8bdd3687fe90f39d08bd
       size: 830
     - path: out/fine-1-116.out
       hash: md5
-      md5: 44e783313839d2bfa0e2d6f455e6109d
+      md5: 1b7ea42b9343f488e6a434a23309ba62
       size: 830
     - path: out/fine-1-122.out
       hash: md5
-      md5: 950907b67ff28517b327da13a5a22c58
+      md5: 3fad0ebad42a9631e11da8d54d804b89
       size: 830
     - path: out/fine-1-180.out
       hash: md5
-      md5: 6ce0b4283e3b331bc086273699edb647
+      md5: f93f71abc7d4fa23b197749cc4cb57ef
       size: 830
     - path: out/fine-2-116.out
       hash: md5
-      md5: 2a1ce35b3bbb9fef01170489eb72c57b
+      md5: 5e3af84e535cb9443eca9b80a755acab
       size: 830
     - path: out/fine-2-122.out
       hash: md5
-      md5: 6e150ca558b8ace4dfb0e88a4c71a854
+      md5: 260c2823fadbfb75132085c030f31080
       size: 830
     - path: out/fine-2-180.out
       hash: md5
-      md5: 31e4bb86b2fed1927986c2be2f9e76ed
+      md5: 3475034f53ae2b597835d47a9dedcb80
       size: 830
     - path: out/flux-116.out
       hash: md5
-      md5: fab701173be22d527f54c9c25c123da7
+      md5: cb13d2f1bbfe2aa765657be0682ff42f
       size: 830
     - path: out/flux-118.out
       hash: md5
-      md5: ed16b1f539fdc7f8736e49863e1311b6
+      md5: d2dff0aaa552a0db1adb366c021a364b
       size: 830
     - path: out/flux-120.out
       hash: md5
-      md5: 70f9f732bc4ed51f5bdd6e7c982267e1
+      md5: 0ad359f506c2a416bdefbd1f3b53286d
       size: 830
     - path: out/flux-122.out
       hash: md5
-      md5: 48bece2b81277eec9ff9fdce3bfd9712
+      md5: 9bf7e31b0efd622a1d1f260e0b7e846e
       size: 830
     - path: out/flux-124.out
       hash: md5
-      md5: dcc89a4354849413924066f6dc1d75ea
+      md5: d9c60700bb3563c2c6326952f1897270
       size: 830
     - path: out/flux-126.out
       hash: md5
-      md5: 3a41bf98ec94d03fcef609f4adae1330
+      md5: 0db99413cd07e4c62cc2905f5ae86594
       size: 830
     - path: out/flux-128.out
       hash: md5
-      md5: 8814f7886963b773f242a0b9db101b46
+      md5: 470689be4e7f627094d97e51c62331cb
       size: 830
     - path: out/flux-150.out
       hash: md5
-      md5: 6902d2367da57410cfb573836b6a8d8b
+      md5: 82f6b4d2b0d3cd9d3836c5db86ce403c
       size: 830
     - path: out/flux-180.out
       hash: md5
-      md5: 918754bdecb609d165c0f6077cea61c0
+      md5: a22f506ffdbcea7ff64582a2e171bc70
       size: 830
     - path: out/flux-20.out
       hash: md5
-      md5: fd7c6c82e27dc3943116bb75223f7e29
+      md5: 39a0bbd115fec80ac1bd8adfe507a0ba
       size: 830
     - path: out/flux-200.out
       hash: md5
-      md5: 7aaa4e7af03aea11009d02f1c7db1347
+      md5: e0fc91a7a48fa4dc9e500d5981c89fb0
       size: 830
     - path: out/flux-60.out
       hash: md5
-      md5: 75173b4064d8fe3fe0e917f2eb454217
+      md5: 94f0ab780c38f9092ff1a44da09c5d28
       size: 831
     - path: out/flux-90.out
       hash: md5
-      md5: f6dc2aaf3e734843a63f9c8149b34880
+      md5: 4c02293368a8509617ea29dc3c752028
       size: 830
     - path: out/split-116.out
       hash: md5
-      md5: d9de312c39c4ecf22e7901d455535a47
+      md5: 0d21149aacd224919c6cbb4735e570a9
       size: 902
     - path: out/split-118.out
       hash: md5
-      md5: 3dab77e0616f918030ad42b380f94b0b
+      md5: 7c1e7cfe4fce44e6a6afef929b619758
       size: 902
     - path: out/split-120.out
       hash: md5
-      md5: adb1b1f4ebfc03269b2c6238ac4b4ce9
+      md5: b4a994236efbdd177304bfd7df29fc72
       size: 902
     - path: out/split-122.out
       hash: md5
-      md5: 6061e1899f2959602b8cfe8baca476c3
+      md5: 2c9fa14ed3bec97c6c80854c2b148643
       size: 902
     - path: out/split-124.out
       hash: md5
-      md5: cd6cd08682ceffef953509c3e711dba9
+      md5: 0c5b1696d85f6c6db42e2febace5c850
       size: 902
     - path: out/split-126.out
       hash: md5
-      md5: fb30c1a08156996721dbcba961bae492
+      md5: aef8e0b6e52fcab18294820601e82171
       size: 902
     - path: out/split-128.out
       hash: md5
-      md5: d566a499d2296294fe86f35bc46f3f04
+      md5: 0e37d6b0260bf8e1f5d81e4bb034e2b9
       size: 902
     - path: out/split-150.out
       hash: md5
-      md5: fb6956d447ae9deb623cc2c94a1805d7
+      md5: 3e0f0ff33e0249eba5dcc8b18d40feba
       size: 902
     - path: out/split-180.out
       hash: md5
-      md5: d8622e54e1dbccda737a05b9111a93a3
+      md5: a970f4cc1cba468e8edc4a57d0ef3c0f
       size: 866
     - path: out/split-20.out
       hash: md5
-      md5: c85d773045ca7699486eb7409b3796b5
+      md5: 5003094e6f6eb2df2b233d7bdc86f066
       size: 900
     - path: out/split-200.out
       hash: md5
-      md5: d260ef8ac8b6cf292a232eedd9a97b91
+      md5: 68be1878b70e79ee7adedf516b353157
       size: 866
     - path: out/split-60.out
       hash: md5
-      md5: 6bc4d2780a4a8c294992736c47f2ded2
+      md5: 4552d7b03a8d8cac03e20919a2b139ae
       size: 901
     - path: out/split-90.out
       hash: md5
-      md5: 8a48c501ae34e5cd06349a025a4c6587
+      md5: 4f54e66143abf55fd7e2fe71152640d0
       size: 902
     - path: out/volume-116.out
       hash: md5
-      md5: 10958042da086a9e2523ca927360832f
+      md5: 094f461bd14922a47358d96595c4f3b4
       size: 830
     - path: out/volume-118.out
       hash: md5
-      md5: f5fd982c81dae8e0fe7af55aeb9496e1
+      md5: feb75707b6465891ec3f121b9f28179d
       size: 830
     - path: out/volume-120.out
       hash: md5
-      md5: d76a9eb74a4fdd4d063700cdc9466cfe
+      md5: 587ce6c9096284a66e85b3dfb0357d82
       size: 830
     - path: out/volume-122.out
       hash: md5
-      md5: 32246d18c9c3e951cf18b4493d954893
+      md5: d2e4c4fab85e2ab2cec202d258dbfbac
       size: 830
     - path: out/volume-124.out
       hash: md5
-      md5: c3c1009b3d4bb8e2ac2f32a53bd77bc1
+      md5: 46aecb1e03f51e9100d477c1110bdd04
       size: 830
     - path: out/volume-126.out
       hash: md5
-      md5: c9b931964222fc8b6cc38eedfc21536c
+      md5: c50c210683335c2487ffb733ca761098
       size: 830
     - path: out/volume-128.out
       hash: md5
-      md5: 791b10ead46817049bbe3784ca492978
+      md5: cc908d9f06e825ab15e3743e133aea53
       size: 830
     - path: out/volume-150.out
       hash: md5
-      md5: ce25dd26e88c49b06bb9b3caba57f7eb
+      md5: 176ef1e3fbead751b6193459c5b00a35
       size: 830
     - path: out/volume-180.out
       hash: md5
-      md5: dc3c0ae481b6f0c1d083e5c1ee4711fe
+      md5: b6f9d11c518fa62bc80094a9eac599e5
       size: 830
     - path: out/volume-20.out
       hash: md5
-      md5: 92b4dd1aee9d1c827f1620d89725831d
+      md5: 8607df10590f7c86a87c9dde4eb5cab2
       size: 830
     - path: out/volume-200.out
       hash: md5
-      md5: 7c02c42d565de1e7df2bde22f2830d4c
+      md5: bc6edbf3a9b21f7e8a0e9b0cef6d0fe7
       size: 830
     - path: out/volume-60.out
       hash: md5
-      md5: 993e50bee2ddd8c632b3fbf6817c5a9c
+      md5: 1fc8e11ec833e2a50ebaebb0713a6ae9
       size: 831
     - path: out/volume-90.out
       hash: md5
-      md5: 4d75ab737465277e050d0017c3f98264
+      md5: fa0b0ae4d4df10cade057b6cc83901a6
       size: 830
-    - path: rods_cases.py
-      hash: md5
-      md5: 18f9060a40893014dd0461a33649b7ac
-      size: 7334
     outs:
     - path: compare.out
       hash: md5
-      md5: 90a30446ad4744c11c1b1df857acb5e0
+      md5: 50869f7dfc71c37bab1e4d07c1501f1e
       size: 2329
+  lattice:
+    cmd: ../../bin/lattice assembly.toml > lattice.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
+      isexec: true
+    - path: assembly.toml
+      hash: md5
+      md5: 88b0ccab614e1e68764dd87af80bdc71
+      size: 5955
+    - path: rods.msgpack
+      hash: md5
+      md5: 148bcfe65eb64bb05025760110404e78
+      size: 76427170
+    outs:
+    - path: lattice.out
+      hash: md5
+      md5: f8968f28a9bd5057d6e674dc829eb5b2
+      size: 57
+    - path: table-rods.msgpack
+      hash: md5
+      md5: 1e6770cf34aaceba8f468fd9832788df
+      size: 1554
