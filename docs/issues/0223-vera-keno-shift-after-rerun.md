@@ -14,7 +14,8 @@ resolution:
 
 examples/vera と examples/vera/endfb70 のライブラリと格子を、ブランチ chore/rerun-after-adr-0226（流したコミットは 4a22de28、分岐点は
 main の 84439609、2026-11-04、Slurm 678〜681）で今の bin で作り直すと、xlc の k が一様に上がり、KENO-VI との差が大きくなった。
-前の実行は 1f650c35（2026-10-23。examples/vera/verification-endfb70.md の前の版の「計算」）。
+前の実行は 1f650c35（2026-10-23。examples/vera/verification-endfb70.md の前の版の「計算」）で、結果は 583798a60 でコミットした。
+その dvc.lock の `bin/lattice` は 457aae7a で、1f650c35 の dvc.lock の値と違う（どのコミットで作った bin かは dvc.lock からは決まらない）。
 
 xlc − KENO-VI（pcm。比較の JSON の `k.diff_pcm`、P3 は `k.diff_keno_pcm`。前 → 今）:
 
@@ -34,29 +35,82 @@ xlc − KENO-VI（pcm。比較の JSON の `k.diff_pcm`、P3 は `k.diff_keno_pc
 
 関係する ADR: なし
 
+## 原因（1C と 2A）
+
+VIII.0 の 1C と 2A の xlc の k の変化（+97.7、+54.0 pcm）は、ADR-0209 が決定のときに既定の切り替えの前後の k の動きとして記録した値と、
+同じ問題、同じ期間の変化で、0.1 pcm 以内で一致する。ADR-0209 の「確認」は、1C の燃焼で「xlc の k は 0 の点で +97.7（1 リング）、+97.2 pcm
+（4 リング）…動き」、2A の集合体の燃焼で「xlc の k は 0 の点で +54.0 pcm…動き」と書く。前の実行は ADR-0209 の前の既定（静止した標的、
+無限希釈の形）、今の実行は ADR-0209 の既定（`ufg-scattering = "free-gas"`、`ufg-free-gas` の速い方法と `sab = true`、
+`ufg-transfer = "ring-flux"`）で解いている。
+
+xlc の 0 の点の k（vera は `compare-keno-<問題>.json` の `k.xlc`、前は 583798a60、今は 3c5beb983。depletion は 1C が
+`compare-1C-rings1.json` の `k[0].xlc`、2A が `p2/compare-2A.json` の `k[0].xlc`）:
+
+| 問題 | 実行                                 | 前（ADR-0209 の前の既定）                 | 今                     | 変化（pcm） |
+| ---- | ------------------------------------ | ----------------------------------------- | ---------------------- | ----------- |
+| 1C   | examples/vera の keno-pincell        | 1.171410                                  | 1.172387（4a22de28）   | +97.7       |
+| 1C   | examples/depletion の 1 リング       | 1.1714054（Slurm 457。JSON は 559fdbed3） | 1.1723822（9069e1cb2） | +97.68      |
+| 2A   | examples/vera の keno-assembly       | 1.182543                                  | 1.183083（4a22de28）   | +54.0       |
+| 2A   | examples/depletion/p2 の集合体の燃焼 | 1.1825485（02f354916）                    | 1.1830889（a1ae3b0a7） | +54.03      |
+
+depletion の今の値は、vera の今の実行と同じ `bin/lattice` 48387d65 で解き直したもの（main の dvc.lock）で、ADR-0209 のときの値（008ece556、
+f434af311）と 1e−12 以内で同じ。ADR-0209 の後から ADR-0226 の bin までの変更は、この 2 つの k を動かさない。vera と depletion の差は、1C で
+前 +0.46、今 +0.48 pcm、2A で前 −0.55、今 −0.59 pcm で、ほぼ一定（ライブラリが違い、depletion の 2A は `ufg-tolerance = 1e-4` の間引いた格子）。
+vera の出力は小数点以下 6 桁なので、差の差（0.02、0.04 pcm）は丸めの中。
+
+- 同じ問題: examples/vera/p1/pincell-1C.toml と examples/depletion/lattice-1C-rings1.toml、examples/vera/p2/assembly-2A.toml と
+  examples/depletion/p2/lattice-2A.toml は、形状、組成、温度、離散化が同じで、どれも UFG の散乱核と移行の項目を書かない（既定で解く）。
+  違いはライブラリ（vera.msgpack と depletion.msgpack。どちらも ENDF/B-VIII.0、WIMS 69 群、同じ σ0）、depletion の燃焼の節、depletion の 2A の
+  `ufg-tolerance`、vera の 2A のピン出力の出力（`pin-powers`）だけ
+- 前の実行は、UFG の散乱核と移行の項目より前の bin: vera の前の結果のコミット 583798a60 の作成の日時は 2026-10-23 22:56、depletion の 2A の
+  前の値のコミット 02f354916 は 2026-10-24 02:53、1C の 559fdbed3 は 2026-10-23 02:51。`ufg-scattering` を lattice に入れた最初のコミット
+  （ADR-0203 の RED の 43d293d0c）は 2026-10-24 13:35、`ring-flux` は 2026-10-28 00:55（22fba4177）、ADR-0209 のマージは bcc78ee0b
+  （2026-10-28 06:30）。どの日時も作成の日時（author date）
+- 確かめていないこと: 上の一致は、vera と depletion が同じ期間に同じだけ動いたことを示し、ADR-0209 の値もその期間の差である。期間の中の
+  既定の切り替えでない変更（2026-10-23 から 2026-10-28 のほかのマージ、ライブラリの作り直し）の効きは、ADR-0209 も分けていない。既定の
+  結果を変えないことを、ADR-0203、ADR-0204、ADR-0207 はそれぞれの変更について、ADR-0209 は前の既定を書いた入力について確かめた
+
+ADR-0209 はこの動きを OpenMC に対して測って受け入れた（k の差 xlc − OpenMC は、1C の 1 リングで −61〜+73 → +29〜+136 pcm、2A で
++5〜+203 → +56〜+164 pcm）。1C と 2A の KENO-VI に対する差の変化は、この既知の動きの再掲で、新しい未解明の差ではない。
+
+ADR-0205 は別の候補から外す。ADR-0205 は `ufg-free-gas` に `sab`（省略すると false）を足しただけで、既定では使わない。ADR-0205 の
+S(α,β) の移行の効き（ADR-0205 の決定の「k を自由ガスから 1C の 0 MWd/kg で +12.5、5 MWd/kg で +10.0、2A-40 で +7.5 pcm 動かし」）は、
+ADR-0209 が `sab = true` を既定にしたことで入り、上の +97.7 の中に含まれる。ライブラリの形式の変更（`sab_transfer`）については、ADR-0205 の
+帰結が「既定（静止した標的）と `sab` を書かない `"free-gas"` の結果は変わらない」と書き、確かめたのは 1C の 0 と 5 MWd/kg の static、
+heavy-cap、heavy-fast3 の `swap_absorption` の出力が ADR-0204 の記録のログと文字まで同じこと。
+
 ## 候補（確かめていない）
 
-前の実行と今の実行の間で、格子の k を動かしうる決定は次で、どれがどれだけ効くかは分けていない。
+1C と 2A 以外の問題は、ADR-0209 が測っていない。同じ既定の切り替えを候補とするが、効きは分けていない。
 
-- ADR-0205（H in H2O の S(α,β) を UFG の散乱核にする。ライブラリの `sab_transfer`）
-- ADR-0209（自己遮蔽の UFG の既定を物理的な散乱核に切り替える）。examples/depletion の p2 の 2F など 7 本は、同じ切り替えの前後で
-  xlc の k∞ が −39.1〜+58.2 pcm 動いた（examples/depletion/verification.md の「集合体の燃焼」の「計算」、ブランチ chore/rerun-after-adr-0226）
+- 既定の切り替えの効きが問題（温度、組成、可燃性吸収体、制御棒、集合体の形状）で違う大きさ: VIII.0 の変化は +34〜+154 pcm で、1D（燃料 1200 K）の +153.5 pcm が大きい理由は分けていない。examples/depletion の p2 の 2F など 7 本は、同じ切り替えの前後で xlc の k∞ が
+  −39.1〜+58.2 pcm 動いた（examples/depletion/verification.md の「集合体の燃焼」の「計算」、ブランチ chore/rerun-after-adr-0226）
+- VII.0 の変化: 1C は +79.8 pcm で、VIII.0 の +97.7 と違う。ADR-0209 は VII.0 のライブラリで測っていない。評価（S(α,β) を含む）の違いで
+  同じ切り替えの効きが変わることが候補
+- 1f650c35 から 4a22de28 の間の、既定の切り替えでない変更: 上の「確かめていないこと」のとおり、1C と 2A でも分けていない
 
 既に挙がっている見方（open の issue と ADR の「候補」「確かめていない」の行を「散乱核」「自己遮蔽」「KENO」で検索した）:
 
 - #0131: VII.0 の xlc − KENO-VI が VIII.0 の xlc − OpenMC より約 +130 pcm 大きい。候補は VII.0 のファイルの扱い、AMPX と NJOY の処理の差、
-  KENO-VI のモデルの解釈、565 K の S(α,β) の温度の補正。今回の動きは VIII.0 と VII.0 の両方で同じ向きなので、#0131 の差とは別に、
-  両方のライブラリに共通の処理か格子の手法の変化が候補
+  KENO-VI のモデルの解釈、565 K の S(α,β) の温度の補正。今回の動きは VIII.0 と VII.0 の両方で同じ向きで、1C と 2A は ADR-0209 が記録した動きなので、
+  #0131 の差とは別
 - #0040: 565 K の集合体の k∞ が KENO の 2A より約 170 pcm 大きい（前の版の値）
 - #0005: k の差のうち、散乱の移行（共鳴の範囲の自己遮蔽を含む）が未解明で最も大きな候補
 - #0001: 散乱核を熱中性子の範囲まで扱えば、#0152 の候補の 1 つ（H の S(α,β)）も扱う
 
 ## 完了の条件
 
-ADR-0205 と ADR-0209 のそれぞれの効きを、今の bin で入力の項目（ADR-0209 の既定でない経路など）を切り替えて分け、VIII.0 の
-xlc − KENO-VI と xlc − OpenMC（examples/vera/verification.md の「OpenMC との比較」）の今の値で、どちらに近づいた（離れた）かを
-記録に書く。
+1C と 2A 以外の問題（VIII.0 の 1B、1D、2B〜2Q、VII.0 の全問題、P3）で、ADR-0209 の既定の切り替えとそのほかの変更の効きを、今の bin で ADR-0209 の
+前の既定（`ufg-scattering = "static"`、`ufg-transfer = "infinite-dilution"`）を書いた入力を解いて分け、VIII.0 の xlc − KENO-VI と xlc − OpenMC
+（examples/vera/verification.md の「OpenMC との比較」）の今の値で、どちらに近づいた（離れた）かを記録に書く。
+
+この計算は後回しにする。1C と 2A の変化は ADR-0209 が OpenMC に対して測って受け入れた差の再掲で、精度の作業より機能の拡充を進めるユーザーの
+方針に従う:
+「精度が重要なのは理解しますが、OpenMCでも同じ傾向が出るなら、機能の拡充を進めた方が良いのでは？」（ユーザー 2026-11-04）。
+OpenMC でも同じ傾向かを確かめたのは 1C と 2A だけで、ほかの問題（1D の +153.5 pcm を含む）は確かめていない。ほかの問題の差を詰める
+作業が来たら、その問題で上の入力を解く。
 
 ## 経緯
 
 - 2026-11-04: ADR-0226 の後の再実行（ブランチ chore/rerun-after-adr-0226）で見つけた
+- 2026-11-04: 1C と 2A の変化が ADR-0209 の記録した既定の切り替えの前後の動きと一致することを確かめ、ADR-0205 を別の候補から外した（計算なし）。ほかの問題の切り分けは後回し
