@@ -480,6 +480,82 @@ def depletion(changes: list[float], rings: int = 1) -> dict:
     }
 
 
+def rodless_output(name: str, **k) -> dict:
+    return {
+        "name": name,
+        "reference": name.replace("hzp/", "hzp/rodless/", 1),
+        "kind": "table",
+        "rod_axis": True,
+        "states": 8,
+        "bit_equal": 8,
+        "max_relative_difference": 0.0,
+        "field": None,
+        "max_k_inf_pcm": 0.0,
+        **k,
+    }
+
+
+class DrawRodless(unittest.TestCase):
+    def rows(self, outputs: list[dict]) -> list[list[str]]:
+        summary = {"format": "xlc-compare-rodless", "outputs": outputs}
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in vt.p5_rodless_states([summary]).split("\n")[2:]
+        ]
+
+    def test_rows_name_the_output_its_kind_and_the_bit_equal_states(self):
+        rows = self.rows(
+            [
+                rodless_output("hzp/lattice/21-fuel.msgpack"),
+                rodless_output(
+                    "hzp/lattice/reflector-I-31-fuel.msgpack", rod_axis=False
+                ),
+                rodless_output(
+                    "hzp/media/21-fuel.msgpack",
+                    kind="medium",
+                    rod_axis=False,
+                    bit_equal=7,
+                    max_relative_difference=2.5e-16,
+                    field="total",
+                    max_k_inf_pcm=None,
+                ),
+            ]
+        )
+        self.assertEqual(
+            rows,
+            [
+                [
+                    "lattice/21-fuel.msgpack",
+                    "テーブル（制御棒の軸）",
+                    "8",
+                    "8",
+                    "0",
+                    "0",
+                ],
+                ["lattice/reflector-I-31-fuel.msgpack", "テーブル", "8", "8", "0", "0"],
+                ["media/21-fuel.msgpack", "媒質", "8", "7", "2.5e-16（total）", ""],
+            ],
+        )
+
+    def test_a_k_difference_is_shown_as_an_exponent(self):
+        rows = self.rows(
+            [
+                rodless_output(
+                    "hzp/lattice/21-fuel.msgpack",
+                    bit_equal=6,
+                    max_relative_difference=1.2e-15,
+                    field="scatter",
+                    max_k_inf_pcm=3.4e-11,
+                )
+            ]
+        )
+        self.assertEqual(rows[0][4:], ["1.2e-15（scatter）", "3.4e-11"])
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.p5_rodless_states([{"format": "xlc-compare-p5", "outputs": []}])
+
+
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):
         table = vt.depletion_k(
