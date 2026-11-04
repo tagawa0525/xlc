@@ -2470,6 +2470,11 @@ def history_index_density(sources: list[dict]) -> str:
     )
 
 
+def tau_label(tau: float | None) -> str:
+    """指数で忘れる重みの τ (MWd/kg) の表示。None は ∞"""
+    return "∞" if tau is None else f"{tau:g}".replace("-", "−")
+
+
 def history_forgetting(sources: list[dict]) -> str:
     """追わない核種の分 U の指数の重み（ADR-0215）: τ ごとの、途中で条件を変えた燃焼の参照の点の w_τ と、U(1) を w_τ 倍して足した外れの分
     （pcm）と、その絶対値の最大"""
@@ -2487,7 +2492,7 @@ def history_forgetting(sources: list[dict]) -> str:
     for r in s["rows"]:
         if [p["burnup"] for p in r["points"]] != burnups:
             raise TableError("the time constants have other burnup points")
-        tau = "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−")
+        tau = tau_label(r["tau"])
         row = [tau, f"{r['largest_pcm']:.3f}"]
         for p in r["points"]:
             row += [f"{p['weight']:.4f}", signed(p["gap_pcm"], 3)]
@@ -2616,7 +2621,7 @@ def history_rods_gaps_forgetting(sources: list[dict]) -> str:
         ],
         [
             [
-                "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−"),
+                tau_label(r["tau"]),
                 f"{r['largest_pcm']:.3f}",
                 f"{r['largest_untracked_pcm']:.3f}",
             ]
@@ -2657,7 +2662,7 @@ def history_rods_forgetting(sources: list[dict]) -> str:
     for r in s["forgetting"]:
         if [p["burnup"] for p in r["points"]] != burnups:
             raise TableError("the time constants have other burnup points")
-        tau = "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−")
+        tau = tau_label(r["tau"])
         rows.append(
             [
                 tau,
