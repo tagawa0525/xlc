@@ -182,6 +182,9 @@ fn production_ratio(
     Ok(Some((ratio, of_branch, branch)))
 }
 
+/// 1 つの履歴の変数の、線形化の誤差 L と Δσ_L の重み a_j と履歴の分岐の数密度の差 ΔN̄ᵢ^j（足さない変数は `None`）
+type LinearizationWeight = Option<(f64, Vec<f64>)>;
+
 /// `weighted_histories` の変数ごとの、線形化の誤差 L と Δσ_L の重み a_j と、履歴の分岐の数密度の差 ΔN̄ᵢ^j（ADR-0228）:
 /// a_j = (P / P_j) × (w_j P_j / Σ_k w_k P_k)。j と k は、燃焼度 `burnup` の履歴の分岐の数密度の差が 0 でない変数（`production_ratio`
 /// が比を返すもの。ほかの変数は `None`）。Σ_j a_j P_j = P で、ノードの組成の差の指標 P を変数ごとの見込み w_j P_j の割合で分ける。
@@ -193,7 +196,7 @@ fn linearization_weights(
     burnup: f64,
     micro: &MicroAt,
     n: &[f64],
-) -> Result<Vec<Option<(f64, Vec<f64>)>>, String> {
+) -> Result<Vec<LinearizationWeight>, String> {
     let ratios = weighted
         .iter()
         .map(|&(variable, _, entry)| {
