@@ -1292,7 +1292,7 @@ fn history_corrections_round_trip_bit_exactly_and_are_written_only_when_held() {
 fn history_corrections_need_micro_data_and_a_known_distinct_variable() {
     // R はミクロ燃焼の線形の補正を引いた残りなので、補正のデータを持つテーブルだけが持てる
     bad_history(&|t| t.micro = None, "micro");
-    // 履歴の変数は減速材の密度だけ（制御棒と Pyrex は、それぞれの履歴の分岐を作るときに足す）
+    // 履歴の変数は減速材の密度と制御棒（Pyrex は、その履歴の分岐を作るときに足す）
     bad_history(&|t| t.histories[0].variable = "boron".into(), "variable");
     bad_history(
         &|t| {
@@ -1888,4 +1888,109 @@ fn history_conditions_are_the_branch_point_of_the_variable_axis_and_nominal_else
     let mut fresh = table;
     fresh.axes.remove(0);
     fails(&fresh, MODERATOR_DENSITY, 0.661, ROD_OUT, "burnup");
+}
+
+/// `history_sample` に制御棒の軸（out、aic）を足し、どちらの値も同じ点を解いたテーブルに、制御棒の履歴の補正（H⁰ = 0、Hᵇ = 1。
+/// 制御棒を入れた値 aic と、逆向きの抜いた値 out の、どちらも公称の状態を解いた 0、10、20 の点）を足したもの。減速材の密度の
+/// 履歴の補正（制御棒のない値の 0 と 20 の点）も持つ
+fn rods_history_sample() -> Table {
+    let mut table = history_sample();
+    table.axes.push(Axis::Rod {
+        values: vec![ROD_OUT.into(), "aic".into()],
+    });
+    let points: Vec<Vec<usize>> = product_points(&table.axes)
+        .into_iter()
+        .filter(|p| p[0] != 1 || p[2] == 0)
+        .collect();
+    let n = points.len();
+    table.points = points;
+    table.states = (0..n).map(|i| state(3.0 + i as f64)).collect();
+    let micro = table.micro.as_mut().unwrap();
+    micro.states = (0..n)
+        .map(|p| vec![micro_nuclide(1.0 + p as f64, true)])
+        .collect();
+    let entry = |rod: &str| HistoryRod {
+        rod: rod.into(),
+        burnup: vec![0.0, 10.0, 20.0],
+        untracked: vec![residual(1.0), residual(2.0), residual(3.0)],
+        linearization: vec![residual(3.0e-9), residual(4.0), residual(5.0)],
+        densities: vec![vec![7.0e-4 / 3.0], vec![6.5e-4 / 3.0], vec![5.5e-4 / 3.0]],
+        micro: RateResiduals {
+            untracked: (1..=3)
+                .map(|k| vec![rate_residual(f64::from(k), true)])
+                .collect(),
+            linearization: vec![
+                vec![rate_residual(-0.5e-9, true)],
+                vec![rate_residual(0.5, true)],
+                vec![rate_residual(0.75, true)],
+            ],
+        },
+    };
+    table.histories.push(HistoryCorrection {
+        variable: RODS.into(),
+        nominal: 0.0,
+        branch: 1.0,
+        rods: vec![entry(ROD_OUT), entry("aic")],
+    });
+    table
+}
+
+#[test]
+fn rod_history_conditions_are_the_rod_value_at_the_nominal_state() {
+    let table = rods_history_sample();
+    // 制御棒の履歴の分岐の条件は制御棒を入れた値の公称の状態で、ほかの値（逆向き）も公称の状態
+    let condition = table.history_condition(RODS, 1.0, "aic").unwrap();
+    assert_eq!(
+        condition,
+        HistoryCondition {
+            nominal: 0.0,
+            point: vec![0, 0, 0, 0, 1],
+            burnup_axis: 0,
+        }
+    );
+    let reverse = table.history_condition(RODS, 1.0, ROD_OUT).unwrap();
+    assert_eq!(reverse.point, vec![0, 0, 0, 0, 0]);
+    let fails = |table: &Table, branch: f64, rod: &str, expected: &str| {
+        let err = table.history_condition(RODS, branch, rod).unwrap_err();
+        assert!(err.contains(expected), "{expected:?} not in {err}");
+        assert!(!err.contains("  "), "{err}");
+    };
+    // Hᵇ は一生を制御棒を入れて燃焼させた割合 1
+    fails(&table, 0.5, "aic", "branch");
+    fails(&table, 1.0, "b4c", "rod");
+    // 制御棒を入れた状態を持たないテーブルには、制御棒の履歴の分岐の条件がない
+    fails(&history_sample(), 1.0, ROD_OUT, "rod axis");
+    // 公称の値のないテーブルには、条件を決める公称の状態がない
+    let mut direct = table;
+    for axis in &mut direct.axes {
+        *axis = axis.clone().without_nominal();
+    }
+    fails(&direct, 1.0, "aic", "nominal");
+}
+
+#[test]
+fn rod_histories_validate_with_the_moderator_density_history_and_round_trip() {
+    let table = rods_history_sample();
+    table.validate().unwrap();
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    let bad = |change: &dyn Fn(&mut Table), expected: &str| {
+        let mut t = rods_history_sample();
+        change(&mut t);
+        let err = t.validate().unwrap_err().to_string();
+        assert!(err.contains(expected), "{expected:?} not in {err}");
+        assert!(!err.contains("  "), "{err}");
+    };
+    // H⁰ は制御棒を入れなかった割合 0、Hᵇ は一生を入れた割合 1
+    bad(&|t| t.histories[1].nominal = 0.25, "nominal");
+    bad(&|t| t.histories[1].branch = 0.5, "branch");
+    // 燃焼度の点は、その制御棒の値の公称の状態を解いた点
+    bad(
+        &|t| {
+            t.axes[4] = Axis::Rod {
+                values: vec![ROD_OUT.into(), "b4c".into()],
+            };
+        },
+        "rod",
+    );
 }

@@ -1,0 +1,5 @@
+outs:
+- md5: 4dab578d787235840afe344ae009254d
+  size: 55151882
+  hash: md5
+  path: lattice-switch-rods.msgpack

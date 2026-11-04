@@ -1,0 +1,4 @@
+# core-2A-rods-plain-assemblies.toml の集合体 1 体を、制御棒のバンク D のある炉心（core-2A-rods-plant.toml）に置くサイクル。
+plant = "core-2A-rods-plant.toml"
+inventory = "core-2A-rods-plain-assemblies.toml"
+loading = ["A01"]

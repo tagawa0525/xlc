@@ -1,0 +1,5 @@
+outs:
+- md5: f2b660ddada8a144563df643745b2212
+  size: 353433
+  hash: md5
+  path: table-residual-rods-branch.msgpack

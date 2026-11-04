@@ -1,0 +1,5 @@
+outs:
+- md5: 038bec29e5656e81a6db5984042ef630
+  size: 55151820
+  hash: md5
+  path: hybrid-residual-rods.msgpack
