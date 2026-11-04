@@ -273,6 +273,15 @@ def compare(
     ref = homogenized(reference, nuclides, table["micro"]["densities"][0])
     core_nodes = nodes(core, "core", nuclides)
     split = switch_rows(table, switch, switch_hybrid)
+    # 切り替えの後の制御棒の履歴の R の点をすべて解いていること（抜けた点を黙って比べる範囲から落とさない）
+    rod = entry(table, VARIABLES[1], ROD)
+    needed = [u for u in rod["burnup"] if u > start and not same_burnup(u, start)]
+    solved = [x["burnup"] for x in split]
+    missing = [u for u in needed if not any(same_burnup(u, v) for v in solved)]
+    if missing:
+        raise SystemExit(
+            f"the branch does not solve the rods residual points {missing}"
+        )
     at_switch = [x for x in split if same_burnup(x["burnup"], start)]
     if len(at_switch) != 1:
         raise SystemExit(f"the branch does not solve the switch point {start}")
