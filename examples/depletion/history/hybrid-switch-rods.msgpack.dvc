@@ -1,0 +1,5 @@
+outs:
+- md5: 7a629faff029ab293998314f8c812e5a
+  size: 55151820
+  hash: md5
+  path: hybrid-switch-rods.msgpack
