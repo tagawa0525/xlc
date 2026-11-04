@@ -32,7 +32,8 @@ U の重みを指数で忘れる重みにした外れ: 制御棒の履歴を H_�
 δ_U(τ) = w_τ U(1) − U_switch、τ ごとに U の外れの分と両方の外れの分（L は今のまま）と、その絶対値の最大。
 
 切り替えの点（20 MWd/kg）の分岐は 2A-rods の組成を制御棒を抜いて解いたもので、テーブルの値 out の U(1)、L(1)、N̄ᵢ^j と同じ組成と状態なので、
-その差を `switch_point` に出す（2 つの格子計算の再現の程度）。
+その差を `switch_point` に出し、上限（`SWITCH_POINT_TOLERANCE`、`SWITCH_DENSITY_TOLERANCE`）を超えれば止める（分岐かハイブリッドが制御棒を
+抜いた参照の組成を解いていない）。
 """
 
 import argparse
@@ -77,10 +78,11 @@ SUMMARY = "rods-switch.json"
 SUMMARY_TOLERANCE = 1e-9
 # 分岐のテーブルの N̄ᵢ と、参照の燃焼の履歴を均質化した数密度の相対差の上限（同じ組成を lattice と Python で体積の平均にした丸めの程度）
 DENSITY_TOLERANCE = 1e-9
-# 切り替えの点の分岐の U、L とテーブルの値 out の U(1)、L(1) の差の絶対値の上限 (1/cm)。同じ組成と状態を別の 2 本の格子計算（分岐と
-# ハイブリッド、残りのテーブルの分岐とハイブリッド）で解いた中性子束の収束の程度（2A で 5.3e−08）。分岐かハイブリッドが別の履歴か制御棒を
-# 入れた状態を解けば、残りの大きさ（1e−04 の程度）で外れる
-SWITCH_POINT_TOLERANCE = 1e-6
+# 切り替えの点の分岐の U、L とテーブルの値 out の U(1)、L(1) の差の、項目ごとの相対の上限（項目の差の絶対値の最大 / その項目の U(1) か L(1) の
+# 絶対値の最大。項目は単位も大きさも違うので項目ごとに測る）。同じ組成と状態を別の 2 本の格子計算（分岐とハイブリッド、残りのテーブルの分岐と
+# ハイブリッド）で解いた中性子束の収束の程度（2A で U 1.8e−06、L 1.4e−06）。分岐かハイブリッドが別の履歴か制御棒を入れた状態を解けば、
+# 残りそのものの大きさ（相対で 1 の程度）で外れる
+SWITCH_POINT_TOLERANCE = 1e-4
 # 切り替えの点の分岐の N̄ᵢ とテーブルの値 out の N̄ᵢ^j の相対差の上限（同じ履歴の同じ点を lattice が同じく均質化したもの）
 SWITCH_DENSITY_TOLERANCE = 1e-12
 # L(1) の重みを (P / P_j)^p にした外れを比べる p（1 が今の core。#0190 の候補 (j)）
@@ -146,6 +148,30 @@ def switch_rows(table, branch, hybrid):
     return rows
 
 
+def relative_difference(a, b):
+    """残りの項目ごとの、差の絶対値の最大 / `b` の絶対値の最大の、項目の中の最大（`b` の項目が 0 なら、差が 0 でなければ ∞）"""
+    worst = 0.0
+    for key in (
+        "total",
+        "absorption",
+        "nu_fission",
+        "fission",
+        "chi",
+        "diffusion",
+        "scatter",
+        "adf",
+    ):
+        x, y = a[key], b[key]
+        if isinstance(y[0], list):
+            x, y = [v for r in x for v in r], [v for r in y for v in r]
+        scale = max(abs(v) for v in y)
+        gap = max(abs(p - q) for p, q in zip(x, y))
+        worst = max(
+            worst, gap / scale if scale > 0.0 else (math.inf if gap > 0.0 else 0.0)
+        )
+    return worst
+
+
 def check_switch_point(table, row):
     """切り替えの点の U_switch、L_switch、N̄ᵢ^switch と、テーブルの値 out の U(1)、L(1)、N̄ᵢ^j の差の絶対値の最大。上限
     （`SWITCH_POINT_TOLERANCE`、`SWITCH_DENSITY_TOLERANCE`）を超えれば、分岐かハイブリッドが制御棒を抜いた参照の組成を解いていないので止める"""
@@ -160,14 +186,24 @@ def check_switch_point(table, row):
         "linearization": largest_difference(
             row["linearization"], rod["linearization"][k]
         ),
+        "untracked_relative": relative_difference(
+            row["untracked"], rod["untracked"][k]
+        ),
+        "linearization_relative": relative_difference(
+            row["linearization"], rod["linearization"][k]
+        ),
+        # 表の N̄ᵢ^j が 0 の核種は、分岐も 0 でなければ外れ（∞）
         "densities": max(
-            abs(x - y) / abs(y)
-            for x, y in zip(row["densities"], rod["densities"][k])
-            if y != 0.0
+            (
+                abs(x - y) / abs(y) if y != 0.0 else (math.inf if x != 0.0 else 0.0)
+                for x, y in zip(row["densities"], rod["densities"][k], strict=True)
+            ),
+            default=0.0,
         ),
     }
     if (
-        max(out["untracked"], out["linearization"]) > SWITCH_POINT_TOLERANCE
+        max(out["untracked_relative"], out["linearization_relative"])
+        > SWITCH_POINT_TOLERANCE
         or out["densities"] > SWITCH_DENSITY_TOLERANCE
     ):
         raise SystemExit(
@@ -182,7 +218,10 @@ def directions(table, x, listed):
     b = x["point"]
     nominal = table["micro"]["densities"][b]
     rod = entry(table, VARIABLES[1], ROD)
-    (k,) = [i for i, v in enumerate(rod["burnup"]) if same_burnup(v, x["burnup"])]
+    found = [i for i, v in enumerate(rod["burnup"]) if same_burnup(v, x["burnup"])]
+    if len(found) != 1:
+        raise SystemExit(f"the table has no single rods residual at {x['burnup']}")
+    (k,) = found
     branch = [a - c for a, c in zip(rod["densities"][k], nominal)]
     own = [a - c for a, c in zip(x["densities"], nominal)]
     factors = x["factors"]
@@ -244,7 +283,10 @@ def compare(
         # 切り替えの点は at_switch と同じ許容で除く（後の点は制御棒を抜いた core のノードと比べる）
         if u <= start or same_burnup(u, start):
             continue
-        (r,) = [r for r in ref if same_burnup(r["burnup"], u)]
+        found = [r for r in ref if same_burnup(r["burnup"], u)]
+        if len(found) != 1:
+            raise SystemExit(f"the reference has no single point at burnup {u}")
+        (r,) = found
         for a, b in zip(x["densities"], r["densities"]):
             if abs(a - b) > DENSITY_TOLERANCE * max(abs(b), 1e-30):
                 raise SystemExit(
@@ -285,7 +327,7 @@ def compare(
         difference_pcm = rho(n["k"]) - rho(r["k_inf"])
         composition = rho(k_inf(dense)) - rho_reference
         gap = effect(reference_f, both)
-        whole = added(dense, both)
+        moved = added(dense, both)
         row = {
             "burnup": u,
             "weight": weight,
@@ -299,9 +341,9 @@ def compare(
             "remainder_pcm": difference_pcm - composition - gap,
             # 残り = 再構成 + 恒等 + 非加法 + k の基準（定義から閉じる。compare_split_core.py と同じ 4 つ）
             "reconstruct_pcm": reconstruct,
-            "identity_pcm": rho(k_inf(f)) - rho(k_inf(whole)),
+            "identity_pcm": rho(k_inf(f)) - rho(k_inf(moved)),
             "basis_pcm": rho_reference - rho(r["k_inf"]),
-            "additivity_pcm": rho(k_inf(whole)) - rho_reference - composition - gap,
+            "additivity_pcm": rho(k_inf(moved)) - rho_reference - composition - gap,
             "without_untracked_pcm": rho(k_inf(added(dense, linearization_gap)))
             - rho(r["k_inf"]),
             "without_linearization_pcm": rho(k_inf(added(dense, untracked_gap)))
@@ -313,12 +355,12 @@ def compare(
             ("linearization", linearization_one, core_linearization),
         ):
             own = effect(state, x[key])
-            whole = effect(state, one)
+            of_one = effect(state, one)
             row |= {
                 f"{key}_pcm": own,
                 f"scaled_{key}_pcm": effect(state, added_part),
-                f"one_{key}_pcm": whole,
-                f"{key}_weight": ratio(own, whole),
+                f"one_{key}_pcm": of_one,
+                f"{key}_weight": ratio(own, of_one),
             }
         w_l = row["linearization_weight"]
         # 参照に合う L の重みを (P / P_j)^p と見た点ごとの p（重みか P / P_j が 0〜1 の外なら None）
@@ -329,39 +371,39 @@ def compare(
         )
         row["directions"] = directions(table, x, direction_nuclides)
         rows.append(row)
-        bases.append(
-            (
-                u,
-                reference_f,
-                untracked_one,
-                x["untracked"],
-                linearization_gap,
-                untracked_gap,
-                linearization_one,
-                index,
-                x["linearization"],
+        # (P / P_j)^p は P / P_j が負だと定義できない（L の符号が履歴の分岐と逆の組成）
+        if index <= 0.0:
+            raise SystemExit(
+                f"core: P / P_j at {u} is {index}; its powers are not defined"
             )
+        bases.append(
+            {
+                "burnup": u,
+                "reference": reference_f,
+                "untracked_one": untracked_one,
+                "untracked_switch": x["untracked"],
+                "untracked_gap": untracked_gap,
+                "linearization_one": linearization_one,
+                "linearization_switch": x["linearization"],
+                "linearization_gap": linearization_gap,
+                "index": index,
+            }
         )
     scan = []
     for tau in taus:
         points = []
-        for (
-            u,
-            reference_f,
-            untracked_one,
-            untracked_switch,
-            linearization_gap,
-            *_,
-        ) in bases:
-            w = 1.0 - forgetting.weight(u, start, tau)
-            untracked_gap = difference(scaled(untracked_one, w), untracked_switch)
+        for x in bases:
+            w = 1.0 - forgetting.weight(x["burnup"], start, tau)
+            untracked_gap = difference(
+                scaled(x["untracked_one"], w), x["untracked_switch"]
+            )
             points.append(
                 {
-                    "burnup": u,
+                    "burnup": x["burnup"],
                     "weight": w,
-                    "untracked_gap_pcm": effect(reference_f, untracked_gap),
+                    "untracked_gap_pcm": effect(x["reference"], untracked_gap),
                     "gap_pcm": effect(
-                        reference_f, added(untracked_gap, linearization_gap)
+                        x["reference"], added(untracked_gap, x["linearization_gap"])
                     ),
                 }
             )
@@ -378,25 +420,16 @@ def compare(
     powers = []
     for power in POWERS:
         points = []
-        for (
-            u,
-            reference_f,
-            _,
-            _,
-            _,
-            untracked_gap,
-            linearization_one,
-            index,
-            linearization_switch,
-        ) in bases:
+        for x in bases:
             gap = difference(
-                scaled(linearization_one, index**power), linearization_switch
+                scaled(x["linearization_one"], x["index"] ** power),
+                x["linearization_switch"],
             )
             points.append(
                 {
-                    "burnup": u,
-                    "linearization_gap_pcm": effect(reference_f, gap),
-                    "gap_pcm": effect(reference_f, added(untracked_gap, gap)),
+                    "burnup": x["burnup"],
+                    "linearization_gap_pcm": effect(x["reference"], gap),
+                    "gap_pcm": effect(x["reference"], added(x["untracked_gap"], gap)),
                 }
             )
         powers.append(
@@ -435,6 +468,9 @@ def report(summary):
     def points(values, form="+.3f"):
         return "、".join("–" if v is None else f"{v:{form}}" for v in values)
 
+    def value(v, form=".4f"):
+        return "–" if v is None else f"{v:{form}}"
+
     def name(tau):
         return "∞" if tau is None else f"{tau:g}"
 
@@ -450,8 +486,9 @@ def report(summary):
     infinite = next(x for x in scan if x["tau"] is None)
     lines = [
         (
-            f"切り替えの点 {s['burnup']:g} MWd/kg の分岐とテーブルの値 out の差の絶対値の最大: U {s['untracked']:.2e}、L "
-            f"{s['linearization']:.2e} 1/cm、N̄ᵢ の相対 {s['densities']:.2e}"
+            f"切り替えの点 {s['burnup']:g} MWd/kg の分岐とテーブルの値 out の差の絶対値の最大（項目の単位のまま）: U {s['untracked']:.2e}、L "
+            f"{s['linearization']:.2e}（項目ごとの相対で U {s['untracked_relative']:.2e}、L {s['linearization_relative']:.2e}）、"
+            f"N̄ᵢ の相対 {s['densities']:.2e}"
         ),
         (
             f"{summary['switch']:g} MWd/kg より後の R の点 {len(rows)}（{burnups} MWd/kg）: w {points(column('weight'), '.4f')}、"
@@ -511,12 +548,13 @@ def report(summary):
     last = rows[-1]["directions"]
     lines.append(
         f"{rows[-1]['burnup']:g} MWd/kg の参照の組成の ΔN̄ᵢ / ΔN̄ᵢ^j: "
-        + "、".join(f"{n} {v:.3f}" for n, v in last["nuclides"].items())
-        + f"。指標の比: 熱群の νΣf {last['thermal_nu_fission']:.4f}、高速群の νΣf {last['fast_nu_fission']:.4f}、"
-        f"熱群の全断面積 {last['thermal_total']:.4f}、線形の補正の反応度 {last['reactivity']:.4f}"
-        f"（参照に合う L の重み {rows[-1]['linearization_weight']:.4f}）"
+        + "、".join(f"{n} {value(v, '.3f')}" for n, v in last["nuclides"].items())
+        + f"。指標の比: 熱群の νΣf {value(last['thermal_nu_fission'])}、高速群の νΣf {value(last['fast_nu_fission'])}、"
+        f"熱群の全断面積 {value(last['thermal_total'])}、線形の補正の反応度 {value(last['reactivity'])}"
+        f"（参照に合う L の重み {value(rows[-1]['linearization_weight'])}）"
     )
-    return re.sub(r"(?<![A-Za-z])-", "−", "\n".join(lines))
+    # 核種の名前の - は残し、指数の e の後の - は負の符号にする（記録の表記）
+    return re.sub(r"(?<![A-Za-z])-|(?<=[0-9]e)-", "−", "\n".join(lines))
 
 
 def check_summary(summary, md5s, result):

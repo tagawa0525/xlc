@@ -5,6 +5,8 @@
   "burnup": 20.0,
   "untracked": 2.066127380295768e-09,
   "linearization": 5.3320074910878645e-08,
+  "untracked_relative": 1.7772440055420782e-06,
+  "linearization_relative": 1.3800878716622087e-06,
   "densities": 0.0
  },
  "rows": [
