@@ -41,7 +41,7 @@ resolution:
   ずれは再構成の検査だけが止める）。`state_point` は compare_rods_switch.py の `state_index` の複製
 - trial/0190-rods-forgetting の 3 周目: compare_rods_parts.py は core の状態の名前（`[state.out]`）を制御棒の値 out と比べ、名前が同じことに頼る。
   切り替えの後の点が無いと `report()` と verification_tables.py の `history_rods_parts_nuclides` が空の列で止まる（TableError でなく IndexError）。
-  表の関数の直し（両方の P / P_j の列）は、記録の表の検査の hook が JSON と記録を同じコミットに求めるので、記録のコミット 0e2bba7c に入った
+  表の関数の直し（両方の P / P_j の列）は、記録の表の検査の hook が JSON と記録を同じコミットに求めるので、記録のコミット 45f520d1 に入った
 
 関係する ADR: ADR-0228
 
