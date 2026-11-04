@@ -715,6 +715,13 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
   - U の指数の重みの測った値（examples/depletion/verification.md の「追わない核種の分 U の指数の重み（2A）」。比較は 1ec382aa の
     examples/depletion/history/compare_forgetting.py、2026-10-31）: 「検討した案」の案 R5。U の外れの絶対値の最大が最小の τ は −500 MWd/kg の
     8.968 pcm で、∞（V1）の 9.181 pcm とほぼ同じ
+  - 制御棒の挿入の割合 H_r の測った値（examples/depletion/verification.md の「制御棒を途中まで入れて抜く燃焼（2A）」。ブランチ feat/0190-rod-history
+    （分岐点は main の e2fa46b6）、lattice は 8e115b8b の bin/lattice、入力 8a8cb621 と a5ee7400、Slurm 686〜688、690、core と比較は a5ee7400 と c38a67cc、
+    2026-11-04）: 2A-rods の履歴の 20 MWd/kg の点から制御棒を抜いて続けた格子計算の参照に対し、H_r を燃焼度で重みを付けた平均で進めて制御棒の
+    値 out の（逆向きの）R と Δσ を足した core は 22〜60 MWd/kg で −175.246〜−21.351 pcm（w = H_r は 0.9091〜0.3333）、補正を切った core は
+    −88.126〜+348.982 pcm。絶対値の最大は 349.0 pcm から 175.2 pcm に縮むが、44〜60 MWd/kg の 5 点は補正を切ったほうが小さく、どの点も目安の
+    5 pcm に入らない。追う核種の数密度は補正ありで参照と 0.5% 以内。原因の候補は #0190（確かめていない）。一生を制御棒を入れた core と第 1 項の
+    差は −3.071〜+10.438 pcm（0.5 MWd/kg 以後 −3.071〜+0.375 pcm）
 - 実装のときの測定（#0190）: #0153 で選んだ追う核種と σᵢ で R を作り、その大きさと、連続の軸の瞬時の状態（密度の履歴の分岐を 2A の
   条件で解いた逆向き）への依存を測る。依存が目安の 5 pcm を超えれば、R を連続の軸の点ごとにも持つ（案 C1 の側へ）
   - 測った値（examples/depletion/verification.md の「履歴の残り R（2A の減速材の密度）」。lattice は main の 9a69db2a の bin/lattice、入力 cf6b5b63、

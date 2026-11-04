@@ -1,10 +1,10 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-04
 requires: [ADR-0215]
 supersedes: []
 superseded-by:
-issues: ["#0190"]
+issues: ["#0190", "#0226"]
 ---
 
 # ADR-0228: 履歴の変数が複数のとき、線形化の誤差 L、Δσ_L と自分の数密度の項を、ノードの組成の指標 P を変数ごとの見込み w_j P_j の割合で分けて足す
@@ -29,7 +29,7 @@ issues: ["#0190"]
 - 案 A（変数ごとに独立に P / P_j を掛けて重ねる）: Σ_j (P / P_j) L_j。ADR-0215 は L を組成の差の大きさに 1 次で近いとみた（ADR-0215 の案 R4）。
   そのとおりなら、ノードの組成の差が Σ_k w_k ΔN̄ᵢ^k のとき L の見込みは Σ_j w_j L_j で、案 A は変数 j の L に (Σ_k w_k P_k) / P_j を掛けるので、
   ほかの変数の分 Σ_{k≠j} w_k P_k / P_j を余分に足す。自分の数密度の項も (Nᵢ − N̄ᵢ⁰) を変数の数だけ足す（#0190 の「残ったレビューの指摘」）。
-  2A の値での大きさは「補足」
+  2A の値での大きさは「確認」
 - 案 B（交差の項を持つ: 2 つの変数を同時に変えた履歴の分岐を流し、交差の残り R_{m,r} − R_m − R_r を持つ）: 交差の大きさを測れるが、集合体の
   種類ごとに燃焼 1 本（2A-rods の燃焼の実績で 59 分、Slurm 672）と、その自分の条件とハイブリッドの分岐（制御棒の値ごと）が増え、変数が増えると
   組の数で増える。ADR-0215 は変数の間の交差を持たない（測っていない）とした。交差の大きさは測っていない。交差の項を足しても、2 つの変数の
@@ -65,15 +65,18 @@ P_j を持たない）。自分の数密度の項は、そのような変数が 
 - core は変数ごとの P / P_j と w_j P_j から a_j を作り（crates/core/src/case.rs の `linearization_weights`）、定数の L と反応率の Δσ_L に掛ける。
   自分の数密度の項は変数のループの外で 1 度足す（crates/core/src/state.rs の `accumulate_own_density_rates`）
 - 見込みの指標が打ち消し合う（Σ_k w_k P_k が 0 に近い）ノードでは a_j が大きくなる。上限は置かない（ADR-0215 の P / P_j の上限と同じく #0190 の
-  「残ったレビューの指摘」）
+  「残ったレビューの指摘」と #0226）
 - 交差の項（案 B）は持たない。大きさを測るなら、2 つの変数を同時に変えた履歴の分岐が要る（#0190）
 
 ### 確認
 
+- 2A の値での案 A との違い（examples/depletion/verification.md の「制御棒を途中まで入れて抜く燃焼（2A）」の表 `depletion-history-rods-split`。
+  テーブルは減速材の密度と制御棒の残りを持つ 2854d05b、比較は c38a67cc の examples/depletion/history/compare_rods_switch.py、2026-11-04）: 2 つの
+  変数の R の点ごとに、組成の差が見込み 0.5 ΔN̄ᵢ^m + 0.5 ΔN̄ᵢ^r のノード（案 C の a_j は 0.5）で、案 A は P / P_m = 2.92〜3.09、P / P_r = 0.596〜0.603 を
+  掛け、案 C との k の差は −9.784〜−494.144 pcm（60 MWd/kg で −494.144 pcm）。制御棒の履歴の組成の差が減速材の密度の履歴より大きく、案 A は
+  減速材の密度の L に見込みの約 6 倍の重みを掛ける
+- 制御棒を途中まで入れて抜く燃焼（同じ節。1 つの変数だけが公称でないので、a_j は P / P_j）は ADR-0215 の確認（H_r）で、この決定の分け方を
+  使わない
 - テスト: crates/core/src/case/tests.rs の `linearizations_of_two_variables_share_the_production_index_by_their_expected_parts`（a_j の L と、1 つの変数
   だけが公称でないときの P / P_j）、`rate_linearizations_of_two_variables_share_the_index_and_add_the_own_density_once`（Δσ_L と自分の数密度の項）、
   `expected_indices_that_cancel_over_the_variables_are_errors`
-
-## 補足
-
-- 2A の値での案 A と案 C の違い: 制御棒の履歴の残りを作った後に書く
