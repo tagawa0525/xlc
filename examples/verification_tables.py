@@ -2495,6 +2495,106 @@ def history_forgetting(sources: list[dict]) -> str:
     return markdown_table(header, rows)
 
 
+def rods_parts_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-rods-parts":
+        raise TableError("not an xlc-compare-rods-parts summary")
+    return s
+
+
+def history_rods_parts(sources: list[dict]) -> str:
+    """制御棒を途中まで入れて抜く燃焼の core − 参照の分け方（ADR-0215、#0190）: 切り替えの後の点ごとの、w、P / P_j、core − 参照、数密度の
+    効き、定数の側、core が足す w U(1) と (P / P_j) L(1) の効きと、それぞれを引いた定数の側（pcm）、参照に合う U と L の重み"""
+    s = rods_parts_summary(sources)
+
+    def weight(x):
+        return "–" if x is None else signed(x, 4)
+
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "P / P_j",
+            "core − 参照 (pcm)",
+            "数密度の効き (pcm)",
+            "定数の側 (pcm)",
+            "w U(1) の効き (pcm)",
+            "(P / P_j) L(1) の効き (pcm)",
+            "U を引いた定数の側 (pcm)",
+            "L を引いた定数の側 (pcm)",
+            "参照に合う U の重み",
+            "参照に合う L の重み",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                f"{r['index_ratio']:.4f}",
+                signed(r["difference_pcm"], 3),
+                signed(r["composition_pcm"], 3),
+                signed(r["constant_pcm"], 3),
+                signed(r["untracked_pcm"], 2),
+                signed(r["linearization_pcm"], 2),
+                signed(r["without_untracked_pcm"], 3),
+                signed(r["without_linearization_pcm"], 3),
+                weight(r["untracked_weight"]),
+                weight(r["linearization_weight"]),
+            ]
+            for r in s["rows"]
+        ],
+    )
+
+
+def history_rods_parts_nuclides(kind: str, sources: list[dict]) -> str:
+    """制御棒を途中まで入れて抜く燃焼の追う核種ごとの、切り替えの後の点の core − 参照の数密度の相対差（`kind` が percent、%。参照が 0 なら
+    –）か、その差の効き（pcm）"""
+    s = rods_parts_summary(sources)
+    rows = s["rows"]
+    names = [n["nuclide"] for n in rows[0]["nuclides"]]
+    for r in rows:
+        if [n["nuclide"] for n in r["nuclides"]] != names:
+            raise TableError("the points have other nuclides")
+
+    def cell(n):
+        if kind == "percent":
+            return signed_or_dash(n["percent"], 3)
+        return signed(n["pcm"], 2)
+
+    return markdown_table(
+        ["核種", *(f"{burnup_label(r['burnup'])} MWd/kg" for r in rows)],
+        [
+            [name, *(cell(r["nuclides"][i]) for r in rows)]
+            for i, name in enumerate(names)
+        ],
+    )
+
+
+def history_rods_forgetting(sources: list[dict]) -> str:
+    """制御棒を途中まで入れて抜く燃焼の、U(1) の重みを指数で忘れる w_τ にした定数の側（pcm）の τ ごとの絶対値の最大と点ごとの値"""
+    s = rods_parts_summary(sources)
+    burnups = [p["burnup"] for p in s["forgetting"][0]["points"]]
+    rows = []
+    for r in s["forgetting"]:
+        if [p["burnup"] for p in r["points"]] != burnups:
+            raise TableError("the time constants have other burnup points")
+        tau = "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−")
+        rows.append(
+            [
+                tau,
+                f"{r['largest_pcm']:.3f}",
+                *(signed(p["constant_pcm"], 3) for p in r["points"]),
+            ]
+        )
+    return markdown_table(
+        [
+            "τ (MWd/kg)",
+            "定数の側の絶対値の最大 (pcm)",
+            *(f"{burnup_label(u)} MWd/kg (pcm)" for u in burnups),
+        ],
+        rows,
+    )
+
+
 def history_effect_densities(case: str, sources: list[dict]) -> str:
     """履歴の効き（ADR-0215）: 燃焼度ごとの、条件を変えた履歴の 2A の履歴に対する数密度の相対差（%。燃料の体積の重み）"""
     rows = history_effect_summary(sources)["cases"][case]
@@ -2926,6 +3026,7 @@ GIT_TRACKED = {
     "examples/depletion/history/index.json",
     "examples/depletion/history/forgetting.json",
     "examples/depletion/history/rods-switch.json",
+    "examples/depletion/history/rods-parts.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
@@ -3604,6 +3705,22 @@ TABLES = {
     "depletion-history-forgetting": (
         ["examples/depletion/history/forgetting.json"],
         history_forgetting,
+    ),
+    "depletion-history-rods-parts": (
+        ["examples/depletion/history/rods-parts.json"],
+        history_rods_parts,
+    ),
+    "depletion-history-rods-parts-percent": (
+        ["examples/depletion/history/rods-parts.json"],
+        partial(history_rods_parts_nuclides, "percent"),
+    ),
+    "depletion-history-rods-parts-pcm": (
+        ["examples/depletion/history/rods-parts.json"],
+        partial(history_rods_parts_nuclides, "pcm"),
+    ),
+    "depletion-history-rods-forgetting": (
+        ["examples/depletion/history/rods-parts.json"],
+        history_rods_forgetting,
     ),
     "depletion-history-index-groups": (
         ["examples/depletion/history/index.json"],
