@@ -6581,9 +6581,9 @@ python3 compare_rods_split.py --report rods-split.json
 
 ### 計算
 
-ブランチ feat/0190-rods-untracked-weight（分岐点は main の b6e58475）、2026-11-05。lattice は main の `bin/lattice`（md5 7e959698）、入力は 9c5f1d2a で
+ブランチ feat/0190-rods-untracked-weight（分岐点は main の b6e58475）、2026-11-05。lattice は main の `bin/lattice`（md5 7e959698）、入力は e50b969b で
 コミットしたもの。格子計算は Slurm の既定のジョブ 692（分岐 b100f767）と 693（ハイブリッド bf17cec5）。割り込まれうるジョブなので時間は記録に使わない。
-ハイブリッドの組成 7a629faf は 692 より前に手元で作った。比較は 363fd618 の `compare_rods_split.py`（手元）で、入力はテーブル 2854d05b、参照 4dab578d、
+ハイブリッドの組成 7a629faf は 692 より前に手元で作った。比較は 822366d5 の `compare_rods_split.py`（手元）で、入力はテーブル 2854d05b、参照 4dab578d、
 core の履歴 efa805c4、`rods-switch.json` 08f23290。
 
 ### 結果
