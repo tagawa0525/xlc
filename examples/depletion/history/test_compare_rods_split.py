@@ -261,6 +261,18 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare(t, reference, branch, hybrid, core)
 
+    def test_a_branch_without_a_rods_residual_point_is_an_error(self):
+        # 切り替えの後の制御棒の履歴の R の点を分岐が解いていなければ、その点を黙って落とさない
+        t, reference, branch, hybrid, core = tables()
+        for table in (branch, hybrid):
+            table["axes"][0]["points"] = table["axes"][0]["points"][:1]
+            table["points"] = table["points"][:1]
+            table["states"] = table["states"][:1]
+            table["micro"]["densities"] = table["micro"]["densities"][:1]
+            table["micro"]["states"] = table["micro"]["states"][:1]
+        with self.assertRaises(SystemExit):
+            compare(t, reference, branch, hybrid, core)
+
 
 class Forgetting(unittest.TestCase):
     def test_the_infinite_time_constant_is_the_core(self):
