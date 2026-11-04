@@ -589,3 +589,7 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
   - 新しい ADR は書いていない（決める置き方が見つかっていない）
   - レビューで残した指摘: `compare_rods_split.py` の `switch_rows` は compare_split.py の `split` のコピー（`split` の `solved` と `nominal_state` が制御棒の軸の
     あるテーブルを受けないため）。U と L の分け方の 3 つ目の複製で、`split` に制御棒の値 out の公称の点を選ばせてまとめる候補（「残り」の 5 の比較のツールの項と同じ）
+    ほかに: `relative_difference` は残りの項目の一覧を compare_rods_parts.py の `STATE_KEYS` と別に持つ。`directions` と `check_switch_point` が同じ
+    R の点の引き方を 2 か所に持つ。τ の最小が端かの判定は compare_rods_parts.py のコピー。分岐と参照の数密度の照合と `relative_difference` の zip は
+    長さの違いを止めない（核種の並びは別に照らす）。この項の「親の依頼の案 (b)、(c)」は依頼の文の記号で、文書に無い（(b) は ADR-0215 の案 R5 の形、
+    (c) は抜いた燃焼度ごとの履歴の分岐）。修正の 59eb77b9 は、切り替えの点の検査と、恒等の分、冪と向きの出力を 1 つのコミットに入れた
