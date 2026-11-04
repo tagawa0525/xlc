@@ -27,6 +27,13 @@ resolution:
   テーブルを分岐に渡すと、選んだ値の軸に無い `out` の残りで検査が誤った文で止まる
 - core の `node_micro` の Σ_j a_j ΔN̄ᵢ^j は最初の変数の長さで zip する（長さはテーブルの検査が揃える）。`expected` の名前が
   `linearization_weights` の Σ w_k P_k と重なる
+- 2 周目: examples/depletion/history/compare_rods_switch.py の `compare()` と `report()` を呼ぶテストが無い（`continued` の読み方の直しも
+  テストなし）。比較のツールのテストと実装は 1 つのコミット（7c8fa1869）。`compare()` は core が参照の `continued` の燃焼度で切り替えたこと、
+  20 MWd/kg まで H_r が 1、減速材の密度の重みが 0 であることを照らさず、JSON の `density_weight` は w_m でなく H_m。`nodes`、`at_burnup`、
+  `production`、`scaled` は compare_core_history.py などの複製。燃焼度の軸を最初の軸と置く。切り替えの後の点が無いと `report()` が空の列で
+  止まる。`test_the_overcount_adds_the_extra_weights_on_the_linearizations` は値を見ず符号だけを見る
+- 2 周目: 2 つの変数のテーブル（residual-rods.toml）は減速材の密度の残りを制御棒の値 out だけで持つので、制御棒を入れたノードで w_m が 0 でないと
+  core が止まる（ADR-0228 の分け方を制御棒を入れたノードで使えない。減速材の密度の履歴の分岐を制御棒を入れた値でも解けば足せる）
 
 関係する ADR: ADR-0228
 
@@ -36,4 +43,4 @@ resolution:
 
 ## 経緯
 
-- 2026-11-04: feat/0190-rod-history のレビュー 1 周目で残した
+- 2026-11-04: feat/0190-rod-history のレビュー 1 周目と 2 周目で残した
