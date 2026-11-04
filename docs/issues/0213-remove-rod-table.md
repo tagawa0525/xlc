@@ -65,7 +65,8 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   引く文が残る
 - examples/vera/p5 の HZP のステージ（置き換えた 8 本の格子とその下流）を今の bin とライブラリで流し直し、`dvc.lock` と
   examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」を書き直す（読む作業が来たとき。2026-11-04 に 21-fuel の 1 つの入力
-  だけを試行で解いた。下の「rod_table.py を消した後の指す先」）
+  だけを試行で解き（ブランチ feat/0213-node-rod-axis の 29f7eb69、分岐点 7cd58518 を `cargo build --release` した `target/release/lattice`、
+  Slurm 685、区分 decision、32 スレッド）、制御棒の軸（out、aic、b4c）を最後に持つ 24 点のテーブルと媒質を書いた。記録には使わない。下の「rod_table.py を消した後の指す先」）
 - 前半のレビューの 3 周目（2026-11-03）で、直さずに残した指摘: examples/depletion/verification.md の「制御棒の分岐と値ごとの
   格子計算の結合の一致（燃焼の履歴からの分岐）」と ADR-0225 の確認の計算は、分岐点 dcc9036a の上の ADR-0226 の前のコード
   （a0de3041。タグ `record/adr-0225-rod-axis-check`）で流した。今のコードでは使った燃焼の履歴（前の形式）を読めず、2A の比較は
