@@ -2514,10 +2514,13 @@ def hzp_pipeline(
     slabs: list[tuple],
 ) -> str:
     """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、分岐のテーブル）→ 平板 → 炉心 → 比較。入力と出力は hzp/ の中で、
-    ステージは hzp/ に移って実行する"""
+    ステージは hzp/ に移って実行する。制御棒の分岐を解く格子の出力は、hzp/rodless/ の同じパスの棒のない格子の出力と比べる
+    （#0225。hzp/rodless/ は、同じ層の棒のない入力（`rodded` を偽にした `hzp_single` と `hzp_reflector`）を解いた出力を
+    `dvc add` したもの。ADR-0222）"""
     stages = []
     media = {}
-    for shape, design, kind, _ in lattices:
+    rod_outputs = []
+    for shape, design, kind, rodded in lattices:
         stem = lattice_stem(shape, design, kind)
         if shape is None:
             outs = [f"hzp/lattice/{stem}.msgpack"]
@@ -2527,6 +2530,8 @@ def hzp_pipeline(
                 outs.append(media[(design, kind)])
         else:
             outs = [f"hzp/lattice/{stem}{n}.msgpack" for n, *_ in LATTICE_NODES[shape]]
+        if rodded:
+            rod_outputs += outs
         stages.append(
             stage(
                 f"hzp-{stem}",
@@ -2584,6 +2589,16 @@ def hzp_pipeline(
                 outs,
             )
         )
+    rodless = [o.replace("hzp/", "hzp/rodless/", 1) for o in rod_outputs]
+    stages.append(
+        stage(
+            "hzp-compare-rodless",
+            "python3 compare_rodless.py --json hzp/compare-rodless.json "
+            + " ".join(f"{a}={b}" for a, b in zip(rod_outputs, rodless)),
+            ["compare_rodless.py", *rod_outputs, *rodless],
+            ["git:hzp/compare-rodless.json"],
+        )
+    )
     stages.append(
         stage(
             "hzp-compare-interp-31",

@@ -57,6 +57,7 @@ stages:
       - examples/vera/openmc_model.py
       - examples/vera/openmc_tallies.py
       - examples/vera/p5/compare_hzp.py
+      - examples/vera/p5/compare_rodless.py
     do:
       cmd: python3 scripts/normalize_python.py ${item} python-ast/${item}.ast
       deps:
