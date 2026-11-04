@@ -2,7 +2,7 @@
 
 use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, Table};
+use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, RODS, Table};
 
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
 use crate::micro::{MicroChain, correct, production_index};
@@ -66,8 +66,8 @@ pub fn solve_at(
     solve_with(layout, tables, |_| state.copied(), None, options)
 }
 
-/// core がノードごとに持つ履歴の変数（ADR-0215）。ノードの値の並びはこの順
-pub const HISTORY_VARIABLES: [&str; 1] = [MODERATOR_DENSITY];
+/// core がノードごとに持つ履歴の変数（ADR-0215）: 減速材の密度と制御棒の挿入の割合。ノードの値の並びはこの順
+pub const HISTORY_VARIABLES: [&str; 2] = [MODERATOR_DENSITY, RODS];
 
 /// ミクロ燃焼のノードの組成（ADR-0216）と履歴の変数（ADR-0215）
 pub struct Compositions<'a> {
@@ -131,18 +131,17 @@ fn weighted_histories<'a>(
     Ok(out)
 }
 
-/// 履歴の補正 `entry` の、燃焼度 `burnup` の組成の指標の比 P / P_j（ADR-0215）。P は熱群の νΣf の線形の補正（`production_index`）の、
-/// ノードの数密度 `n` と状態で内挿した基準の数密度（`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差
-/// （`interpolate_branch_difference`）のもの。比と、その数密度の差 ΔN̄ᵢ^j（追う核種の順）を返す。履歴の分岐の追う核種の数密度の差が
-/// すべて 0 の燃焼度では比を作れず `None`（その点の L と Δσ_L は、ハイブリッドが公称の組成そのものなので定義から 0）。数密度の差が
-/// 0 でないのに P_j が 0 ならエラー
+/// 履歴の補正 `entry` の、燃焼度 `burnup` の組成の指標（ADR-0215）。P は熱群の νΣf の線形の補正（`production_index`）の、ノードの
+/// 数密度 `n` と状態で内挿した基準の数密度（`micro`）の差のもの、P_j は同じ係数の、履歴の分岐の数密度の差（`interpolate_branch_difference`）
+/// のもの。比 P / P_j、P_j と、その数密度の差 ΔN̄ᵢ^j（追う核種の順）を返す。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では比を
+/// 作れず `None`（その点の L と Δσ_L は、ハイブリッドが公称の組成そのものなので定義から 0）。数密度の差が 0 でないのに P_j が 0 ならエラー
 fn production_ratio(
     table: &Table,
     entry: &HistoryRod,
     burnup: f64,
     micro: &MicroAt,
     n: &[f64],
-) -> Result<Option<(f64, Vec<f64>)>, String> {
+) -> Result<Option<(f64, f64, Vec<f64>)>, String> {
     let Some(Axis::Burnup { points: axis }) =
         table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
     else {
@@ -180,14 +179,62 @@ fn production_ratio(
              not a weight of the history correction (ADR-0215)"
         ));
     }
-    Ok(Some((ratio, branch)))
+    Ok(Some((ratio, of_branch, branch)))
+}
+
+/// 1 つの履歴の変数の、線形化の誤差 L と Δσ_L の重み a_j と履歴の分岐の数密度の差 ΔN̄ᵢ^j（足さない変数は `None`）
+type LinearizationWeight = Option<(f64, Vec<f64>)>;
+
+/// `weighted_histories` の変数ごとの、線形化の誤差 L と Δσ_L の重み a_j と、履歴の分岐の数密度の差 ΔN̄ᵢ^j（ADR-0228）:
+/// a_j = (P / P_j) × (w_j P_j / Σ_k w_k P_k)。j と k は、燃焼度 `burnup` の履歴の分岐の数密度の差が 0 でない変数（`production_ratio`
+/// が比を返すもの。ほかの変数は `None`）。Σ_j a_j P_j = P で、ノードの組成の差の指標 P を変数ごとの見込み w_j P_j の割合で分ける。
+/// 1 つの変数だけなら w_j P_j / (w_j P_j) が厳密に 1 で、a_j は P / P_j（ADR-0215）とビットで同じ。Σ_k w_k P_k が 0 か、a_j が有限で
+/// なければエラー
+fn linearization_weights(
+    table: &Table,
+    weighted: &[(&str, f64, &HistoryRod)],
+    burnup: f64,
+    micro: &MicroAt,
+    n: &[f64],
+) -> Result<Vec<LinearizationWeight>, String> {
+    let ratios = weighted
+        .iter()
+        .map(|&(variable, _, entry)| {
+            production_ratio(table, entry, burnup, micro, n)
+                .map_err(|e| format!("history variable {variable}: {e}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let expected: f64 = weighted
+        .iter()
+        .zip(&ratios)
+        .filter_map(|(&(_, w, _), r)| r.as_ref().map(|(_, p, _)| w * p))
+        .sum();
+    weighted
+        .iter()
+        .zip(ratios)
+        .map(|(&(variable, w, _), r)| {
+            let Some((ratio, p, branch)) = r else {
+                return Ok(None);
+            };
+            let share = ratio * ((w * p) / expected);
+            // 見込みの指標が打ち消し合うと、ノードの組成の差を変数に配れない。黙ってほかの重みにしない
+            if expected == 0.0 || !share.is_finite() {
+                return Err(format!(
+                    "history variable {variable}: the expected indices w_j P_j of the history variables sum to \
+                     {expected}, so the node index cannot be shared among them (ADR-0228)"
+                ));
+            }
+            Ok(Some((share, branch)))
+        })
+        .collect()
 }
 
 /// ミクロ燃焼のノードの少数群定数 `f`（テーブルを状態で内挿し、線形の補正を足したもの）に、テーブルの履歴の残り
-/// Σ_j [w_j U_j,r(u) + (P / P_j,r(u)) L_j,r(u)] を足す（ADR-0215）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
-/// `burnup` で内挿した値、P / P_j はノードの数密度 `n` と状態で内挿した `micro` の `production_ratio`。w_j が 0 の変数は足さない。
-/// 履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度（燃焼度 0 など）では、ハイブリッドは公称の組成そのもので L は定義から 0 なので、L を足さない
-/// （テーブルの値は 2 つの格子計算の解の差）。燃焼度が残りの点の範囲の外か、数密度の差が 0 でないのに P_j が 0 ならエラー
+/// Σ_j [w_j U_j,r(u) + a_j L_j,r(u)] を足す（ADR-0215、ADR-0228）。w_j と制御棒の値の選び方は `weighted_histories`、U と L は燃焼度
+/// `burnup` で内挿した値、a_j はノードの数密度 `n` と状態で内挿した `micro` の `linearization_weights`（変数が 1 つなら P / P_j）。w_j が
+/// 0 の変数は足さない。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度（燃焼度 0 など）では、ハイブリッドは公称の組成そのもので L は
+/// 定義から 0 なので、L を足さない（テーブルの値は 2 つの格子計算の解の差）。燃焼度が残りの点の範囲の外か、数密度の差が 0 でないのに
+/// P_j が 0 ならエラー
 pub fn add_histories(
     f: &mut FewGroup,
     table: &Table,
@@ -197,16 +244,18 @@ pub fn add_histories(
     micro: &MicroAt,
     n: &[f64],
 ) -> Result<(), String> {
-    for (variable, w, entry) in weighted_histories(table, rod, histories)? {
+    let weighted = weighted_histories(table, rod, histories)?;
+    let weights = linearization_weights(table, &weighted, burnup, micro, n)?;
+    for (&(variable, w, entry), weight) in weighted.iter().zip(&weights) {
         let at = |e: String| format!("history variable {variable}: {e}");
         let untracked = interpolate_residual(entry, &entry.untracked, burnup).map_err(at)?;
         add_residual(f, w, &untracked);
-        let Some((ratio, _)) = production_ratio(table, entry, burnup, micro, n).map_err(at)? else {
+        let Some((share, _)) = weight else {
             continue;
         };
         let linearization =
             interpolate_residual(entry, &entry.linearization, burnup).map_err(at)?;
-        add_residual(f, ratio, &linearization);
+        add_residual(f, *share, &linearization);
     }
     Ok(())
 }
@@ -286,11 +335,12 @@ pub fn node_constants(
 }
 
 /// ミクロ燃焼のノードの反応率の微視的断面積: テーブル `table` を状態 `state` と制御棒の値 `rod` で内挿した値に、履歴の変数の値
-/// `histories` の差 Σ_j [w_j Δσ_U,j + (P / P_j) Δσ_L,j] を足したもの（ADR-0215 の案 S2。重みは定数の U と L と同じ）。反応率の微分
-/// ∂σᵢ/∂N̄ᵢ を持つ核種は、さらに (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ を足す（Δσ_L が含む自分の数密度の分を超えた分。ADR-0215）。
-/// P / P_j は追う核種の数密度 `n`（テーブルの順）の `production_ratio` で、Δσ を足す前の係数で作る（P が使う熱群の νσf と数密度の
-/// 微分は Δσ で変わらないが、微分を持たない核種の σf の係数は変わる）。履歴の分岐の追う核種の数密度の差がすべて 0 の燃焼度では、
-/// ハイブリッドは公称の組成そのもので Δσ_L は定義から 0 なので、Δσ_L も自分の数密度の項も足さない（L と同じ）
+/// `histories` の差 Σ_j [w_j Δσ_U,j + a_j Δσ_L,j] を足したもの（ADR-0215 の案 S2。重みは定数の U と L と同じで、a_j は
+/// `linearization_weights`。ADR-0228）。反応率の微分 ∂σᵢ/∂N̄ᵢ を持つ核種は、さらに (Nᵢ − N̄ᵢ⁰ − Σ_j a_j ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ を 1 度だけ
+/// 足す（Δσ_L が含む自分の数密度の分を超えた分）。a_j は追う核種の数密度 `n`（テーブルの順）と、Δσ を足す前の係数で作る（P が使う
+/// 熱群の νσf と数密度の微分は Δσ で変わらないが、微分を持たない核種の σf の係数は変わる）。履歴の分岐の追う核種の数密度の差がすべて 0 の
+/// 燃焼度では、ハイブリッドは公称の組成そのもので Δσ_L は定義から 0 なので、その変数の Δσ_L を足さない（L と同じ）。Δσ_L を足す変数が
+/// なければ、自分の数密度の項も足さない
 pub fn node_micro(
     table: &Table,
     state: &State,
@@ -311,23 +361,31 @@ pub fn node_micro(
         .as_ref()
         .ok_or("the table has no micro data for the micro depletion (ADR-0216)")?
         .nuclides;
-    // 比は補正の前の `micro` で作る。Δσ_U と Δσ_L は和を一度に足し、補正した断面積と割合の検査を和にだけ掛ける（片方だけの途中の値は
+    // 重みは補正の前の `micro` で作る。Δσ_U と Δσ_L は和を一度に足し、補正した断面積と割合の検査を和にだけ掛ける（片方だけの途中の値は
     // 負や 0..1 の外になりうる）
+    let weights = linearization_weights(table, &weighted, burnup, &micro, n)?;
     let mut total = None;
-    for (variable, w, entry) in weighted {
+    // Σ_j a_j ΔN̄ᵢ^j（Δσ_L を足す変数があるときだけ）
+    let mut expected: Option<Vec<f64>> = None;
+    for (&(variable, w, entry), weight) in weighted.iter().zip(&weights) {
         let at = |e: String| format!("history variable {variable}: {e}");
         let untracked =
             interpolate_rate_residual(entry, &entry.micro.untracked, burnup).map_err(at)?;
         accumulate_rate_residuals(&mut total, w, &untracked);
-        let Some((ratio, branch)) =
-            production_ratio(table, entry, burnup, &micro, n).map_err(at)?
-        else {
+        let Some((share, branch)) = weight else {
             continue;
         };
         let linearization =
             interpolate_rate_residual(entry, &entry.micro.linearization, burnup).map_err(at)?;
-        accumulate_rate_residuals(&mut total, ratio, &linearization);
-        accumulate_own_density_rates(&mut total, &micro, n, ratio, &branch).map_err(at)?;
+        accumulate_rate_residuals(&mut total, *share, &linearization);
+        let sum = expected.get_or_insert_with(|| vec![0.0; branch.len()]);
+        for (s, d) in sum.iter_mut().zip(branch) {
+            *s += share * d;
+        }
+    }
+    if let Some(expected) = &expected {
+        accumulate_own_density_rates(&mut total, &micro, n, expected)
+            .map_err(|e| format!("history corrections: {e}"))?;
     }
     if let Some(total) = total {
         add_rate_residual(&mut micro, names, 1.0, &total)

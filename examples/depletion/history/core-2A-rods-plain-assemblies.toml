@@ -1,0 +1,7 @@
+# 履歴の残りを持たない、制御棒の軸の公称のテーブル（residual-rods-nominal.toml の出力。補正を切った core に使う）の集合体 1 体。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-residual-rods-nominal.msgpack"]
+
+[assembly.A01]
+design = "2A"

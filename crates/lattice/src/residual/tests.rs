@@ -1,5 +1,6 @@
 use xlc_format::table::{
-    Axis, MODERATOR_DENSITY, Micro, MicroDerivative, MicroNuclide, MicroReaction, ROD_OUT, Residual,
+    Axis, MODERATOR_DENSITY, Micro, MicroDerivative, MicroNuclide, MicroReaction, ROD_OUT, RODS,
+    Residual,
 };
 
 use super::*;
@@ -799,4 +800,153 @@ fn hybrids_solve_the_branch_points_with_the_branch_tracked_densities() {
         );
         assert!(err.contains(expected), "{expected:?} not in {err}");
     }
+}
+
+/// `table` に制御棒の軸（out、aic）を足し、どの点もどちらの値でも解いたもの。値 aic の状態と微視的断面積は `s` だけずらす
+fn with_rod_axis(table: &Table, s: f64) -> Table {
+    let mut rodded = table.clone();
+    rodded.axes.push(Axis::Rod {
+        values: vec![ROD_OUT.into(), "aic".into()],
+    });
+    let n = table.points.len();
+    let mut points = Vec::with_capacity(2 * n);
+    let mut states = Vec::with_capacity(2 * n);
+    let mut micro_states = Vec::with_capacity(2 * n);
+    let micro = table.micro.as_ref().unwrap();
+    for (p, point) in table.points.iter().enumerate() {
+        for rod in 0..2 {
+            points.push([point.clone(), vec![rod]].concat());
+            let shift = if rod == 0 { 0.0 } else { s };
+            let mut f = table.states[p].clone();
+            f.k_inf *= 1.0 + shift / 100.0;
+            for v in f.total.iter_mut().chain(&mut f.absorption) {
+                *v *= 1.0 + shift / 50.0;
+            }
+            states.push(f);
+            let mut m = micro.states[p].clone();
+            for nuclide in &mut m {
+                for c in nuclide
+                    .reactions
+                    .iter_mut()
+                    .flat_map(|r| r.channels.iter_mut())
+                {
+                    for v in c {
+                        *v *= 1.0 + shift / 40.0;
+                    }
+                }
+            }
+            micro_states.push(m);
+        }
+    }
+    rodded.points = points;
+    rodded.states = states;
+    rodded.micro.as_mut().unwrap().states = micro_states;
+    rodded.validate().unwrap();
+    rodded
+}
+
+/// 制御棒の履歴の分岐（一生を制御棒を入れて燃焼させた組成）の、公称の状態を制御棒の値 out と aic で解いたテーブルと、その追う核種を
+/// 公称の組成に入れたハイブリッドの、同じ条件のテーブル（燃焼度 0、10、20。燃焼度 0 は組成が公称と同じなので、`with_rod_axis(&nominal(), 4.0)`
+/// の公称の状態と同じ定数）
+fn rod_pair() -> BranchTables {
+    let single = |states: [f64; 3], sigmas: [f64; 3]| {
+        let axes = vec![
+            Axis::Burnup {
+                points: vec![0.0, 10.0, 20.0],
+            },
+            Axis::boron(vec![1300.0], 0.199).with_nominal(1300.0),
+            Axis::moderator(vec![565.0], vec![0.743]).with_nominal(565.0),
+            Axis::fuel(vec![565.0]).with_nominal(565.0),
+        ];
+        let table = Table {
+            axes,
+            split: 1,
+            points: (0..3).map(|b| vec![b, 0, 0, 0]).collect(),
+            states: states.iter().map(|&s| few(s)).collect(),
+            heavy_metal: Some(400.0 / 3.0),
+            micro: Some(Micro {
+                nuclides: NUCLIDES.iter().map(|&s| s.into()).collect(),
+                densities: vec![
+                    vec![7.0e-4, 0.0],
+                    vec![5.8e-4, 1.4e-5],
+                    vec![5.2e-4, 2.6e-5],
+                ],
+                states: sigmas
+                    .iter()
+                    .map(|&s| vec![sigma(s, false), sigma(2.0 * s, false)])
+                    .collect(),
+            }),
+            histories: Vec::new(),
+        };
+        table.validate().unwrap();
+        table
+    };
+    BranchTables {
+        branch: with_rod_axis(&single([0.0, 2.5, 5.5], [0.0, 12.0, 21.0]), 4.0),
+        hybrid: with_rod_axis(&single([0.0, 2.0, 5.0], [0.0, 11.0, 20.0]), 4.0),
+    }
+}
+
+#[test]
+fn rod_histories_take_each_rod_value_of_the_branch_at_the_nominal_state() {
+    let nominal = with_rod_axis(&nominal(), 4.0);
+    let tables = rod_pair();
+    for (r, rod) in [ROD_OUT, "aic"].into_iter().enumerate() {
+        let (h0, hb, entry) = residuals(&nominal, RODS, rod, &tables).unwrap();
+        // 履歴の分岐は一生を制御棒を入れて燃焼させた割合 1、公称の燃焼は 0
+        assert_eq!((h0, hb), (0.0, 1.0));
+        assert_eq!(entry.rod, rod);
+        // 公称の状態はどの燃焼度でも解いてある
+        assert_eq!(entry.burnup, vec![0.0, 10.0, 20.0]);
+        let micro = nominal.micro.as_ref().unwrap();
+        let branch_micro = tables.branch.micro.as_ref().unwrap();
+        for k in 0..3 {
+            // 分岐とハイブリッドのテーブルの、その制御棒の値の状態
+            let at = |t: &Table| t.point_index(&[k, 0, 0, 0, r]).unwrap();
+            let (b, h) = (
+                &tables.branch.states[at(&tables.branch)],
+                &tables.hybrid.states[at(&tables.hybrid)],
+            );
+            assert_eq!(entry.untracked[k], difference(b, h));
+            // 公称のテーブルの、その制御棒の値の公称の状態に線形の補正を足した定数との差が L
+            let p = nominal.point_index(&[k, 0, 0, 0, r]).unwrap();
+            let delta: Vec<f64> = (0..2)
+                .map(|i| branch_micro.densities[k][i] - micro.densities[k][i])
+                .collect();
+            let corrected = linear(&nominal.states[p], &micro.states[p], &delta);
+            assert_eq!(entry.linearization[k], difference(h, &corrected));
+            assert_eq!(entry.densities[k], branch_micro.densities[k]);
+        }
+    }
+    // 2 つの値の補正を書き足したテーブルは検査を通る
+    let correction = history_correction(
+        &nominal,
+        RODS,
+        &[
+            (ROD_OUT.to_string(), tables.clone()),
+            ("aic".to_string(), tables),
+        ],
+    )
+    .unwrap();
+    let mut written = nominal;
+    written.histories = vec![correction];
+    written.validate().unwrap();
+}
+
+#[test]
+fn rod_values_missing_from_the_branch_rod_axis_are_errors() {
+    let nominal = with_rod_axis(&nominal(), 4.0);
+    let err = residuals(&nominal, RODS, "b4c", &rod_pair())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("b4c"), "{err}");
+    // 制御棒の履歴の分岐の条件は、どの連続の軸も公称の状態
+    let mut off = rod_pair();
+    for t in [&mut off.branch, &mut off.hybrid] {
+        t.axes[2] = Axis::moderator(vec![600.0], vec![0.661]).with_nominal(600.0);
+    }
+    let err = residuals(&nominal, RODS, "aic", &off)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("moderator"), "{err}");
 }

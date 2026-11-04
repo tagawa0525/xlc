@@ -1775,7 +1775,9 @@ impl MicroNodes {
     }
 
     /// 状態 `k` の位置ごとの履歴の変数の瞬時の値（`HISTORY_VARIABLES` の順。ミクロ燃焼しない位置は `None`）: 減速材の密度は、位置の
-    /// テーブルの減速材の軸の格子点の組を、状態の減速材の温度で内挿した値（ADR-0215。core の状態は密度を持たない）
+    /// テーブルの減速材の軸の格子点の組を、状態の減速材の温度で内挿した値（ADR-0215。core の状態は密度を持たない）。制御棒の挿入の
+    /// 割合は、ノードの高さのうち制御棒の値（棒のない区間と棒を切った区間でない）の区間の長さの割合（ADR-0215。部分挿入のノードは区間の
+    /// 長さから、一様なノードは 0 か 1）
     fn history_values(
         &self,
         k: usize,
@@ -1790,14 +1792,24 @@ impl MicroNodes {
             .iter()
             .map(|u| {
                 let Some(u) = u else { return Ok(None) };
-                let table = match *u {
-                    NodeUse::Uniform(table) => table,
+                let rodded = |table: usize| layout.tables[table].rod.is_some();
+                let (table, rods) = match *u {
+                    NodeUse::Uniform(table) => (table, if rodded(table) { 1.0 } else { 0.0 }),
                     // 区間は同じ層のテーブル（制御棒の値だけが違う）なので、どの区間も同じ減速材の軸
-                    NodeUse::Partial(index) => layout.partial[index].segments[0].0,
+                    NodeUse::Partial(index) => {
+                        let segments = &layout.partial[index].segments;
+                        let height: f64 = segments.iter().map(|&(_, l)| l).sum();
+                        let inserted: f64 = segments
+                            .iter()
+                            .filter(|&&(t, _)| rodded(t))
+                            .map(|&(_, l)| l)
+                            .sum();
+                        (segments[0].0, inserted / height)
+                    }
                 };
                 let file = layout.tables[table].file;
                 moderator_density(&tables[file], state.moderator)
-                    .map(|x| Some(vec![x]))
+                    .map(|x| Some(vec![x, rods]))
                     .map_err(|e| {
                         CaseError::Depletion(format!(
                             "{}: state {}: {e}",

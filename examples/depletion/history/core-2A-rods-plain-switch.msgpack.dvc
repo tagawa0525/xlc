@@ -1,0 +1,5 @@
+outs:
+- md5: 7fcd126faf6680141b10e06fea377244
+  size: 23153
+  hash: md5
+  path: core-2A-rods-plain-switch.msgpack
