@@ -293,7 +293,7 @@ k の差は 2B で +6 pcm、2E で +66 pcm、2F で +87 pcm（「参照解」）
 ### OpenMC との比較
 
 OpenMC の本番（「Problem 3 の参照解」）の 3A と 3B の結果と比べる。xlc の値と比較（ステージ `compare-3A-openmc`、`compare-3B-openmc`）は
-ad3e25e1（ブランチ chore/rerun-after-adr-0226、分岐点は main の 84439609）、2026-11-04（Slurm 680。ライブラリは Slurm 678 で作り直したもの）、OpenMC は eb667f66 の実行（「Problem 3 の参照解」）、比較のツールは `compare_p3.py`。ツールは k、軸方向の出力、全長で積分したピン出力、層ごとのピン出力を、KENO-VI と OpenMC の両方と比べ、
+4a22de28（ブランチ chore/rerun-after-adr-0226、分岐点は main の 84439609）、2026-11-04（Slurm 680。ライブラリは Slurm 678 で作り直したもの）、OpenMC は eb667f66 の実行（「Problem 3 の参照解」）、比較のツールは `compare_p3.py`。ツールは k、軸方向の出力、全長で積分したピン出力、層ごとのピン出力を、KENO-VI と OpenMC の両方と比べ、
 xlc と OpenMC の差が OpenMC の統計誤差の何倍かも出す。倍率の分母は、軸方向とそのオフセットは層の誤差を独立とした値（規格化の誤差と層の間の相関を含まない）、
 ピンと層ごとのピンは `pins-std.msgpack` と `layers-std` の標準偏差。
 

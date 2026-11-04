@@ -1660,7 +1660,7 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 
 ### 計算
 
-8 本の xlc の格子（`lattice`）と比較（`compare`）は e04ffba2（ブランチ chore/rerun-after-adr-0226、分岐点は main の 16167a05）、
+8 本の xlc の格子（`lattice`）と比較（`compare`）は 9069e1cb（ブランチ chore/rerun-after-adr-0226、分岐点は main の 16167a05）、
 2026-11-03〜04（Slurm で 1 本ずつ。2A、2F、2N は timed のジョブ 664、666、667、2M、2O、2P、2A-density、2A-rods は割り込まれうるジョブ
 668〜672）。自己遮蔽の UFG の減速計算は 8 本とも ADR-0209 の既定（散乱核は ADR-0205 の速い方法、移行はリングの中性子束）と ADR-0211 の
 誤差関数、ADR-0213 の自由ガスの散乱源の区間を持つ形で、ADR-0214 の既定の 32 スレッド（ログの `thread pool threads=32`）。
@@ -6495,12 +6495,12 @@ python3 examples/depletion/compare_core_partial_rods.py --report $B/compare-core
 
 ### 計算
 
-ブランチ chore/rerun-after-adr-0226（分岐点は main の 84439609）、2026-11-04。分岐の格子計算は 85814f8a の `bin/lattice`（`dvc.lock` の
+ブランチ chore/rerun-after-adr-0226（分岐点は main の 84439609）、2026-11-04。分岐の格子計算は de011a5d の `bin/lattice`（`dvc.lock` の
 `build` の出力。Slurm 673 が棒のない組、674 が制御棒を入れた組、675 が制御棒の軸を持つ組。割り込まれうるジョブなので時間は記録に使わない）。
 燃焼の履歴は「集合体の燃焼」の 2A（`p2/lattice-2A.msgpack` md5 a2cc87df）、ライブラリは `p2/depletion.msgpack`（md5 e84310af）。
 テーブルは、棒のない組 `table-2A-micro.msgpack` が md5 a0776f62、制御棒を入れた組 `table-2A-micro-rods.msgpack` が dd5ed4fe、制御棒の軸を
-持つ組 `table-2A-micro-rod-axis.msgpack` が a33f1edf。core の 7 つの燃焼は 85814f8a の `bin/core`（Slurm 677。`RAYON_NUM_THREADS=1` で同時に
-流した）、比較は 85814f8a のツール（手元）。
+持つ組 `table-2A-micro-rod-axis.msgpack` が a33f1edf。core の 7 つの燃焼は de011a5d の `bin/core`（Slurm 677。`RAYON_NUM_THREADS=1` で同時に
+流した）、比較は de011a5d のツール（手元）。
 
 ### 結果
 
@@ -6863,11 +6863,11 @@ python3 examples/depletion/compare_core_steps.py --report $B/compare-core-small-
 ### 計算
 
 ブランチ chore/rerun-after-adr-0226（分岐点は main の 84439609）、2026-11-04。2A のテーブル `table-2A-micro-boron-rod-axis.msgpack` は
-1 つの入力を 85814f8a の `bin/lattice` で解いたもの（Slurm 676。燃焼の履歴は `p2/lattice-2A.msgpack` md5 a2cc87df）で、md5 283e440b は
+1 つの入力を de011a5d の `bin/lattice` で解いたもの（Slurm 676。燃焼の履歴は `p2/lattice-2A.msgpack` md5 a2cc87df）で、md5 283e440b は
 前の形（棒のない組と制御棒の組を rod_table.py でまとめたもの。main の 4549c690 の `bin/lattice`、Slurm 598）とバイトまで同じ。反射体の
 テーブル `table-reflector-I-boron.msgpack`（md5 1c35212f）は 4549c690 の `bin/lattice` で作ったもの（Slurm 598）で、作り直していない。core の
-16 本の燃焼は 85814f8a の `bin/core`（Slurm 677。`RAYON_NUM_THREADS=1` で同時に流した。割り込まれうるジョブなので時間は記録に使わない）、
-比較は 85814f8a のツール（手元）。core の履歴の md5 は、探索の分割 1、2、4、8、16、32、64、128 の順に d5f75506、daf1b1ff、c1af2ef7、
+16 本の燃焼は de011a5d の `bin/core`（Slurm 677。`RAYON_NUM_THREADS=1` で同時に流した。割り込まれうるジョブなので時間は記録に使わない）、
+比較は de011a5d のツール（手元）。core の履歴の md5 は、探索の分割 1、2、4、8、16、32、64、128 の順に d5f75506、daf1b1ff、c1af2ef7、
 3fcacf2c、f106c291、dd291079、e2e2e826、5de7397a、案 S1 の 1、2、4 が 5d103276、280eb400、9f8524d9、平衡 Xe の 1、2、4、8、16 が
 acd7ab67、027fb127、ff276fbb、474ce49f、86039764。前の記録の core（d875964f と eeda9407 の `target/release/core`、2026-10-29）からのホウ素の変化は、
 探索の分割 1〜8 と案 S1 で 0、平衡 Xe で 1e-8 ppm 未満、探索の分割 16〜128 の 4 MWd/kg からの点で最大 0.003 ppm（分割 128 の 7 MWd/kg、
