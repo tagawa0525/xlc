@@ -2547,6 +2547,84 @@ def history_rods_parts(sources: list[dict]) -> str:
     )
 
 
+def rods_gaps_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-rods-split":
+        raise TableError("not an xlc-compare-rods-split summary")
+    return s
+
+
+def history_rods_gaps(sources: list[dict]) -> str:
+    """制御棒を途中まで入れて抜く燃焼の定数の側の U と L の外れ（ADR-0215、#0190）: 切り替えの後の R の点ごとの、w、P / P_j、core − 参照、
+    数密度の効き、定数の側、U と L と両方の外れの分と残り（pcm）、参照の組成の U と L と core が足す量の効き（pcm）と参照に合う重み"""
+    s = rods_gaps_summary(sources)
+
+    def weight(x):
+        return "–" if x is None else signed(x, 4)
+
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "w",
+            "P / P_j",
+            "core − 参照 (pcm)",
+            "数密度の効き (pcm)",
+            "定数の側 (pcm)",
+            "U の外れの分 (pcm)",
+            "L の外れの分 (pcm)",
+            "両方の外れの分 (pcm)",
+            "残り (pcm)",
+            "U_switch (pcm)",
+            "w U(1) (pcm)",
+            "参照に合う U の重み",
+            "L_switch (pcm)",
+            "(P / P_j) L(1) (pcm)",
+            "参照に合う L の重み",
+        ],
+        [
+            [
+                burnup_label(r["burnup"]),
+                f"{r['weight']:.4f}",
+                f"{r['index_ratio']:.4f}",
+                signed(r["difference_pcm"], 3),
+                signed(r["composition_pcm"], 3),
+                signed(r["constant_pcm"], 3),
+                signed(r["untracked_gap_pcm"], 3),
+                signed(r["linearization_gap_pcm"], 3),
+                signed(r["gap_pcm"], 3),
+                signed(r["remainder_pcm"], 3),
+                signed(r["untracked_pcm"], 2),
+                signed(r["scaled_untracked_pcm"], 2),
+                weight(r["untracked_weight"]),
+                signed(r["linearization_pcm"], 2),
+                signed(r["scaled_linearization_pcm"], 2),
+                weight(r["linearization_weight"]),
+            ]
+            for r in s["rows"]
+        ],
+    )
+
+
+def history_rods_gaps_forgetting(sources: list[dict]) -> str:
+    """U の重みを指数で忘れる w_τ にした、両方の外れの分と U の外れの分の絶対値の最大（τ ごと。pcm）"""
+    s = rods_gaps_summary(sources)
+    return markdown_table(
+        [
+            "τ (MWd/kg)",
+            "両方の外れの分の絶対値の最大 (pcm)",
+            "U の外れの分の絶対値の最大 (pcm)",
+        ],
+        [
+            [
+                "∞" if r["tau"] is None else f"{r['tau']:g}".replace("-", "−"),
+                f"{r['largest_pcm']:.3f}",
+                f"{r['largest_untracked_pcm']:.3f}",
+            ]
+            for r in s["forgetting"]
+        ],
+    )
+
+
 def history_rods_parts_nuclides(kind: str, sources: list[dict]) -> str:
     """制御棒を途中まで入れて抜く燃焼の追う核種ごとの、切り替えの後の点の core − 参照の数密度の相対差（`kind` が percent、%。参照が 0 なら
     –）か、その差の効き（pcm）"""
@@ -3029,6 +3107,7 @@ GIT_TRACKED = {
     "examples/depletion/history/forgetting.json",
     "examples/depletion/history/rods-switch.json",
     "examples/depletion/history/rods-parts.json",
+    "examples/depletion/history/rods-split.json",
     "examples/depletion/aws-check/compare-aws-1C-rings1.json",
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
@@ -3719,6 +3798,14 @@ TABLES = {
     "depletion-history-rods-parts-pcm": (
         ["examples/depletion/history/rods-parts.json"],
         partial(history_rods_parts_nuclides, "pcm"),
+    ),
+    "depletion-history-rods-gaps": (
+        ["examples/depletion/history/rods-split.json"],
+        history_rods_gaps,
+    ),
+    "depletion-history-rods-gaps-forgetting": (
+        ["examples/depletion/history/rods-split.json"],
+        history_rods_gaps_forgetting,
     ),
     "depletion-history-rods-forgetting": (
         ["examples/depletion/history/rods-parts.json"],
