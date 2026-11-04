@@ -4211,5 +4211,195 @@ class DrawHistoryRodsParts(unittest.TestCase):
                 draw([{"format": "xlc-compare-rods-switch"}])
 
 
+class DrawHistoryRodsGaps(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_rods_split.py の要約（切り替えの後の点は 26 と 60 MWd/kg、τ は ∞ と 10）"""
+        keys = (
+            "difference_pcm",
+            "composition_pcm",
+            "constant_pcm",
+            "untracked_gap_pcm",
+            "linearization_gap_pcm",
+            "gap_pcm",
+            "remainder_pcm",
+            "untracked_pcm",
+            "scaled_untracked_pcm",
+            "linearization_pcm",
+            "scaled_linearization_pcm",
+        )
+
+        def row(u, w, a, values, needed):
+            return {
+                "burnup": u,
+                "weight": w,
+                "index_ratio": a,
+                **dict(zip(keys, values)),
+                "untracked_weight": needed[0],
+                "linearization_weight": needed[1],
+            }
+
+        return {
+            "format": "xlc-compare-rods-split",
+            "switch": 20.0,
+            "switch_point": {
+                "burnup": 20.0,
+                "untracked": 2e-9,
+                "linearization": 5e-8,
+                "densities": 0.0,
+            },
+            "rows": [
+                row(
+                    26.0,
+                    0.76923,
+                    0.61876,
+                    [
+                        -54.7281,
+                        -9.2911,
+                        -45.4371,
+                        25.6151,
+                        -70.9821,
+                        -45.3491,
+                        -0.0881,
+                        -67.661,
+                        -42.371,
+                        -265.031,
+                        -335.891,
+                    ],
+                    (1.22831, 0.48261),
+                ),
+                row(
+                    60.0,
+                    0.33333,
+                    0.10701,
+                    [
+                        -175.2461,
+                        -27.6371,
+                        -147.6081,
+                        45.8511,
+                        -192.9951,
+                        -147.1391,
+                        -0.4691,
+                        -255.841,
+                        -210.141,
+                        -23.871,
+                        -216.221,
+                    ],
+                    (None, 0.01111),
+                ),
+            ],
+            "best": 10.0,
+            "best_at_edge": False,
+            "forgetting": [
+                {
+                    "tau": None,
+                    "points": [],
+                    "largest_pcm": 150.7401,
+                    "largest_untracked_pcm": 67.7501,
+                },
+                {
+                    "tau": -60.0,
+                    "points": [],
+                    "largest_pcm": 220.2041,
+                    "largest_untracked_pcm": 47.2431,
+                },
+            ],
+        }
+
+    def test_rows_set_the_gaps_and_the_parts_of_each_point(self):
+        table = vt.history_rods_gaps([self.summary()])
+        self.assertEqual(
+            DrawHistoryRodsParts.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "P / P_j",
+                "core − 参照 (pcm)",
+                "数密度の効き (pcm)",
+                "定数の側 (pcm)",
+                "U の外れの分 (pcm)",
+                "L の外れの分 (pcm)",
+                "両方の外れの分 (pcm)",
+                "残り (pcm)",
+                "U_switch (pcm)",
+                "w U(1) (pcm)",
+                "参照に合う U の重み",
+                "L_switch (pcm)",
+                "(P / P_j) L(1) (pcm)",
+                "参照に合う L の重み",
+            ],
+        )
+        self.assertEqual(
+            DrawBurnupInterpolation.rows(table),
+            [
+                [
+                    "26",
+                    "0.7692",
+                    "0.6188",
+                    "−54.728",
+                    "−9.291",
+                    "−45.437",
+                    "+25.615",
+                    "−70.982",
+                    "−45.349",
+                    "−0.088",
+                    "−67.66",
+                    "−42.37",
+                    "+1.2283",
+                    "−265.03",
+                    "−335.89",
+                    "+0.4826",
+                ],
+                [
+                    "60",
+                    "0.3333",
+                    "0.1070",
+                    "−175.246",
+                    "−27.637",
+                    "−147.608",
+                    "+45.851",
+                    "−192.995",
+                    "−147.139",
+                    "−0.469",
+                    "−255.84",
+                    "−210.14",
+                    "–",
+                    "−23.87",
+                    "−216.22",
+                    "+0.0111",
+                ],
+            ],
+        )
+
+    def test_forgetting_rows_set_the_largest_gaps_of_each_time_constant(self):
+        table = vt.history_rods_gaps_forgetting([self.summary()])
+        self.assertEqual(
+            DrawHistoryRodsParts.header(table),
+            [
+                "τ (MWd/kg)",
+                "両方の外れの分の絶対値の最大 (pcm)",
+                "U の外れの分の絶対値の最大 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            DrawBurnupInterpolation.rows(table),
+            [["∞", "150.740", "67.750"], ["−60", "220.204", "47.243"]],
+        )
+
+    def test_the_tables_read_the_git_tracked_summary(self):
+        for name in (
+            "depletion-history-rods-gaps",
+            "depletion-history-rods-gaps-forgetting",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/history/rods-split.json"])
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.history_rods_gaps, vt.history_rods_gaps_forgetting):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-rods-parts"}])
+
+
 if __name__ == "__main__":
     unittest.main()
