@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: 953c587b5c04b9f5f09a155d87a3b442
+      size: 2929808
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
       hash: md5
@@ -131,5 +131,5 @@ stages:
     outs:
     - path: m3-nuclides.msgpack
       hash: md5
-      md5: 74489d64cd0fc71836118de89526ef8d
-      size: 115987187
+      md5: c168b2053dc9d082876b9ddadcd28968
+      size: 115988811

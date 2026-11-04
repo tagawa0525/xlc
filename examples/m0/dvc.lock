@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: d6fdf60dd3f2f88e7105c0906b3db322
-      size: 2738928
+      md5: 953c587b5c04b9f5f09a155d87a3b442
+      size: 2929808
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -31,15 +31,15 @@ stages:
     outs:
     - path: wims69.msgpack
       hash: md5
-      md5: 1943d0c43e0a5023686b829cc4029967
-      size: 11516910
+      md5: 727f25ee63e9bdf9a7ded4e3919c73e1
+      size: 13692345
   lattice:
     cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: pincell.toml
       hash: md5
@@ -47,24 +47,24 @@ stages:
       size: 638
     - path: wims69.msgpack
       hash: md5
-      md5: 1943d0c43e0a5023686b829cc4029967
-      size: 11516910
+      md5: 727f25ee63e9bdf9a7ded4e3919c73e1
+      size: 13692345
     outs:
     - path: lattice.out
       hash: md5
-      md5: ae957188e66b2b3d0bb9e636274aa42a
+      md5: 53445db5c6161d533882e68730cb6dce
       size: 11
     - path: pincell-fg.msgpack
       hash: md5
-      md5: b444ca6b2da5e1f77bd688e79cb018fb
-      size: 476
+      md5: 09abc432ac0aa03a24f7a016c971812a
+      size: 485
   core:
     cmd: ../../bin/core core.toml > core.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: d96dad3a9317e0bce17bcbb7cca81f80
-      size: 3023896
+      md5: 5d1efe564c088c30b9a6582f93350f17
+      size: 6767584
       isexec: true
     - path: assemblies.toml
       hash: md5
@@ -80,8 +80,8 @@ stages:
       size: 1504
     - path: pincell-fg.msgpack
       hash: md5
-      md5: b444ca6b2da5e1f77bd688e79cb018fb
-      size: 476
+      md5: 09abc432ac0aa03a24f7a016c971812a
+      size: 485
     - path: plant.toml
       hash: md5
       md5: d06c9dd69d1a936e1c61c3fcd3a685f2
@@ -89,5 +89,5 @@ stages:
     outs:
     - path: core.out
       hash: md5
-      md5: dfbdff691e609a602afcbc1ac74051ed
+      md5: 7994484377fe0cb3439ccb447865ace7
       size: 2677
