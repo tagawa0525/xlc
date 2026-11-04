@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-examples/vera と examples/vera/endfb70 のライブラリと格子を、ブランチ chore/rerun-after-adr-0226（流したコミットは ad3e25e1、分岐点は
+examples/vera と examples/vera/endfb70 のライブラリと格子を、ブランチ chore/rerun-after-adr-0226（流したコミットは 4cfe4f58、分岐点は
 main の b4e9b2cd、2026-11-04、Slurm 678〜681）で今の bin で作り直すと、xlc の k が一様に上がり、KENO-VI との差が大きくなった。
 前の実行は 05714cea（2026-10-23。examples/vera/verification-endfb70.md の前の版の「計算」）。
 

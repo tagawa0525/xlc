@@ -99,7 +99,7 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 ## 計算
 
 両方のライブラリは、χ に遅発中性子をそれぞれの分布で数える（[ADR-0186](../../docs/adr/0186-include-delayed-neutrons-in-chi.md)）。
-xlc は ad3e25e1（ブランチ chore/rerun-after-adr-0226、分岐点は main の b4e9b2cd）、2026-11-04。Slurm の割り込まれうる排他のジョブ（時間は
+xlc は 4cfe4f58（ブランチ chore/rerun-after-adr-0226、分岐点は main の b4e9b2cd）、2026-11-04。Slurm の割り込まれうる排他のジョブ（時間は
 記録に使わない）で、核種ごとのライブラリは `stage_runner.py`（ADR-0193）、ほかは `dvc repro` で実行した: VII.0 のライブラリと格子と 3A、3B は
 681（`xlc-rerun-0226-endfb70`）、VIII.0 のライブラリは 678（`xlc-rerun-0226-vera-library`）、VIII.0 の格子（本番の `keno-*` のステージ）は
 679（`xlc-rerun-0226-vera-lattices`）。VIII.0 の 3A、3B の JSON は `p3/dvc.yaml` の比較のステージをジョブ 680 で流したもの。ステージの入力と出力の md5 は
