@@ -983,14 +983,13 @@ pub fn accumulate_rate_residuals(acc: &mut Option<Vec<RateResidual>>, w: f64, r:
 }
 
 /// 反応率の微視的断面積の差の和 `acc`（`accumulate_rate_residuals` で Δσ を足したもの）に、自分の数密度の微分 ∂σᵢ/∂N̄ᵢ を持つ
-/// 核種の (Nᵢ − N̄ᵢ⁰ − `ratio` ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ を足す（#0190 の候補 (e)、ADR-0215）。`micro` は状態で内挿した微視的断面積と N̄ᵢ⁰、`n` は
-/// ノードの数密度、`ratio` は P / P_j、`branch` は ΔN̄ᵢ^j（どれも追う核種の順）。(P / P_j) Δσ_L は自分の数密度の変化
-/// (P / P_j) ΔN̄ᵢ^j の分を含むので、微分にはそれを超えた分だけを掛ける
+/// 核種の (Nᵢ − N̄ᵢ⁰ − Σ_j a_j ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ を足す（#0190 の候補 (e)、ADR-0215、ADR-0228）。`micro` は状態で内挿した微視的断面積と
+/// N̄ᵢ⁰、`n` はノードの数密度、`branch` は Σ_j a_j ΔN̄ᵢ^j（a_j は変数ごとの Δσ_L の重み。どれも追う核種の順）。a_j Δσ_L は自分の数密度の
+/// 変化 a_j ΔN̄ᵢ^j の分を含むので、微分にはそれを超えた分だけを掛ける。変数の数によらず 1 度だけ呼ぶ（(Nᵢ − N̄ᵢ⁰) を重ねて数えない）
 pub fn accumulate_own_density_rates(
     acc: &mut Option<Vec<RateResidual>>,
     micro: &MicroAt,
     n: &[f64],
-    ratio: f64,
     branch: &[f64],
 ) -> Result<(), String> {
     let sum = acc
@@ -1008,7 +1007,7 @@ pub fn accumulate_own_density_rates(
     }
     for (i, nuclide) in micro.nuclides.iter().enumerate() {
         if let Some(d) = &nuclide.derivative {
-            let excess = n[i] - micro.densities[i] - ratio * branch[i];
+            let excess = n[i] - micro.densities[i] - branch[i];
             add_rate(&mut sum[i], excess, &d.rate);
         }
     }

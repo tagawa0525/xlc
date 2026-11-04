@@ -1249,7 +1249,7 @@ fn corrected_constants_are_checked_and_compositions_cover_every_site() {
     let burnups = vec![0.0; sites];
     let state = case.states[0].at(1200.0);
     // テーブルは履歴の残りを持たないので、ノードの履歴の変数の値は定数を変えない
-    let histories = vec![Some(vec![0.745]); sites];
+    let histories = vec![Some(vec![0.745, 0.0]); sites];
     let solve = |densities: &[Option<Vec<f64>>]| {
         crate::case::solve_compositions(
             &layout,
