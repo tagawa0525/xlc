@@ -280,6 +280,18 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(t, reference, core)
 
+    def test_table_items_outside_the_constants_are_not_interpolated(self):
+        # 格子計算のテーブルの状態は、k の組み立てに使わない項目（値の無い vacuum_ratio、真偽の normalized_adf、None の pins）と、
+        # 微視的断面積の反応の一覧を持つ
+        t, reference, core = histories()
+        for state in t["states"]:
+            state |= {"vacuum_ratio": [None], "normalized_adf": [False], "pins": None}
+        for nuclides in t["micro"]["states"]:
+            for n in nuclides:
+                n["reactions"] = [{"mt": 16, "channels": [[0.0, None]]}]
+        (row,) = c.compare(t, reference, core)["rows"]
+        self.assertAlmostEqual(row["reconstruct_pcm"], 0.0, delta=1e-9)
+
 
 class Forgetting(unittest.TestCase):
     def test_the_infinite_time_constant_is_the_core(self):
