@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [depletion, verification]
 opened: 2026-10-24
-closed:
+closed: 2026-11-05
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット a1ae3b0a7
 ---
 
 # 2M の集合体の燃焼を今の履歴の形式で再実行する
@@ -33,3 +33,6 @@ resolution:
 ## 経緯
 
 - 2026-10-24: p2 の再実行で、2P の後に続けて投げた 2M（Slurm 527）を、ステージを始める前に取り消した
+- 2026-11-05: 完了の条件を満たしていたので閉じた（ブランチ docs/m4-plan-progress）。2M は ADR-0226 の後の 8 本の再実行で今の `bin/lattice` で
+  流され（a1ae3b0a7、ブランチ chore/rerun-after-adr-0226 の 9069e1cb、Slurm 668。マージ 029d2958c）、`compare-2M.json` と
+  examples/depletion/p2/dvc.lock が更新され、記録（examples/depletion/verification.md）の「集合体の燃焼」の「計算」と「2M」の節がその実行を引く
