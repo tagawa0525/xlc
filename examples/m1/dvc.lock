@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: a316fea4a04ca212bca9ebc66ca32b46
-      size: 2817712
+      md5: 953c587b5c04b9f5f09a155d87a3b442
+      size: 2929808
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -75,21 +75,21 @@ stages:
     outs:
     - path: m1.msgpack
       hash: md5
-      md5: e91c9dbbbaeadc8a8cf90f7907f18898
-      size: 85947487
+      md5: 8a5df7668085bcf964b38dbcb9b5a65f
+      size: 99630507
   lattice-temperatures@f293.6-m293.6:
     cmd: ../../bin/lattice pincell-f293.6-m293.6.toml > 
       lattice-f293.6-m293.6.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: ef447401a6cd36d404303db5c128554d
-      size: 7140456
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: m1.msgpack
       hash: md5
-      md5: e91c9dbbbaeadc8a8cf90f7907f18898
-      size: 85947487
+      md5: 8a5df7668085bcf964b38dbcb9b5a65f
+      size: 99630507
     - path: pincell-f293.6-m293.6.toml
       hash: md5
       md5: 843a58b5708b6ef0cf49c71650853900
@@ -97,24 +97,24 @@ stages:
     outs:
     - path: lattice-f293.6-m293.6.out
       hash: md5
-      md5: e31bc82900edf32098bbf1c58ee5d321
+      md5: 59c5dd9498ad813d4969e6116643f752
       size: 11
     - path: pincell-fg-f293.6-m293.6.msgpack
       hash: md5
-      md5: 379445733ba44807f050859b0413989d
-      size: 476
+      md5: 5fb81473d8adf6af175a58e1cd62f410
+      size: 485
   lattice-temperatures@f293.6-m600:
     cmd: ../../bin/lattice pincell-f293.6-m600.toml > lattice-f293.6-m600.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: ef447401a6cd36d404303db5c128554d
-      size: 7140456
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: m1.msgpack
       hash: md5
-      md5: e91c9dbbbaeadc8a8cf90f7907f18898
-      size: 85947487
+      md5: 8a5df7668085bcf964b38dbcb9b5a65f
+      size: 99630507
     - path: pincell-f293.6-m600.toml
       hash: md5
       md5: 66b9c234427516e64ecd01c6102553dc
@@ -122,24 +122,24 @@ stages:
     outs:
     - path: lattice-f293.6-m600.out
       hash: md5
-      md5: 77aee2d9808ba0b943c5964418d8b215
+      md5: a481c9339d4eeabf4ad572ac39368bcc
       size: 11
     - path: pincell-fg-f293.6-m600.msgpack
       hash: md5
-      md5: d4f8b3861c5aa26969d30d0b2b21c882
-      size: 476
+      md5: c08b9a9c8626e5ac2844c955fc49bb2b
+      size: 485
   lattice-temperatures@f900-m293.6:
     cmd: ../../bin/lattice pincell-f900-m293.6.toml > lattice-f900-m293.6.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: ef447401a6cd36d404303db5c128554d
-      size: 7140456
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: m1.msgpack
       hash: md5
-      md5: e91c9dbbbaeadc8a8cf90f7907f18898
-      size: 85947487
+      md5: 8a5df7668085bcf964b38dbcb9b5a65f
+      size: 99630507
     - path: pincell-f900-m293.6.toml
       hash: md5
       md5: 511c28c4235a6a49635d2dbd9f7de4fd
@@ -147,24 +147,24 @@ stages:
     outs:
     - path: lattice-f900-m293.6.out
       hash: md5
-      md5: 5903c70c308c68fbaeb2bbc254ea2806
+      md5: 57cbaa75916873c43076b2aa2efe1a78
       size: 11
     - path: pincell-fg-f900-m293.6.msgpack
       hash: md5
-      md5: be7886406c48029ab4835ff70ca3b3a2
-      size: 476
+      md5: f83b6b53bed2f3c7bcabc9dc6a0c360f
+      size: 485
   lattice:
     cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: ef447401a6cd36d404303db5c128554d
-      size: 7140456
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: m1.msgpack
       hash: md5
-      md5: e91c9dbbbaeadc8a8cf90f7907f18898
-      size: 85947487
+      md5: 8a5df7668085bcf964b38dbcb9b5a65f
+      size: 99630507
     - path: pincell.toml
       hash: md5
       md5: 5103ff250af838c7eec685ea10efaab4
@@ -172,9 +172,9 @@ stages:
     outs:
     - path: lattice.out
       hash: md5
-      md5: 0109b0fc100f473e47a8d521d3f00c21
+      md5: a26f6cd7e62d79a78132d337fd552ddb
       size: 11
     - path: pincell-fg.msgpack
       hash: md5
-      md5: d1b9b7ac61ea14eb6a33d04f8fd5fd70
-      size: 476
+      md5: 90845c049d49e5eb49bb7e9e256608bd
+      size: 485
