@@ -114,7 +114,8 @@ def core(points):
         "axial_mesh": [0.0, 21.5],
         "states": STATES,
         "nuclides": NUCLIDES,
-        "history_variables": ["moderator-density"],
+        # core の履歴の変数（減速材の密度と制御棒の挿入の割合。制御棒のない燃焼の割合は 0）
+        "history_variables": ["moderator-density", "rods"],
         "points": [
             {
                 "efpd": e,
@@ -123,7 +124,7 @@ def core(points):
                 "k": k,
                 "burnups": [[b]],
                 "densities": [[n]],
-                "histories": [[[h]]],
+                "histories": [[[h, 0.0]]],
             }
             for e, b, s, k, n, h in points
         ],
@@ -382,6 +383,11 @@ class Compare(unittest.TestCase):
 
     def test_cores_that_do_not_match_the_table_are_errors(self):
         t, nominal, branch, switch, _ = self.cores()
+        # 減速材の密度だけを持つ前の形の core の履歴は読まない
+        with self.assertRaises(SystemExit):
+            c.single_node(
+                dict(branch, history_variables=["moderator-density"]), "old", NUCLIDES
+            )
         other = dict(branch, nuclides=["U-235", "Pu-239"])
         with self.assertRaises(SystemExit):
             c.compare(
