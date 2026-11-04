@@ -846,7 +846,8 @@ fn with_rod_axis(table: &Table, s: f64) -> Table {
 }
 
 /// 制御棒の履歴の分岐（一生を制御棒を入れて燃焼させた組成）の、公称の状態を制御棒の値 out と aic で解いたテーブルと、その追う核種を
-/// 公称の組成に入れたハイブリッドの、同じ条件のテーブル（燃焼度 0、10、20）
+/// 公称の組成に入れたハイブリッドの、同じ条件のテーブル（燃焼度 0、10、20。燃焼度 0 は組成が公称と同じなので、`with_rod_axis(&nominal(), 4.0)`
+/// の公称の状態と同じ定数）
 fn rod_pair() -> BranchTables {
     let single = |states: [f64; 3], sigmas: [f64; 3]| {
         let axes = vec![
@@ -881,8 +882,8 @@ fn rod_pair() -> BranchTables {
         table
     };
     BranchTables {
-        branch: with_rod_axis(&single([0.0, 2.5, 5.5], [0.0, 12.0, 21.0]), 3.0),
-        hybrid: with_rod_axis(&single([0.0, 2.0, 5.0], [0.0, 11.0, 20.0]), 2.0),
+        branch: with_rod_axis(&single([0.0, 2.5, 5.5], [0.0, 12.0, 21.0]), 4.0),
+        hybrid: with_rod_axis(&single([0.0, 2.0, 5.0], [0.0, 11.0, 20.0]), 4.0),
     }
 }
 
