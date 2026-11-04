@@ -52,7 +52,8 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
    - 制御棒: 2A-rods の履歴の分岐から、制御棒を入れた値と抜いた値（逆向き）の U と L を作り、`histories` の変数 `rods` を format の検査と core の
      `HISTORY_VARIABLES` に足す。制御棒の軸のテーブルの結合 examples/core/rod_table.py（#0213 までのつなぎ）の `merge` は最初のテーブルの
      `histories` だけを残し、ほかの制御棒の値のテーブルの `histories` を黙って捨てるので、エラーにするか結合を決める（今は `histories` を
-     持つテーブルを渡す経路が無い）
+     持つテーブルを渡す経路が無い）。2026-11-04 に #0213 で rod_table.py を消したので、`merge` についてのこの文は無くなった（制御棒の値ごとの履歴の残差は
+     format の `HistoryCorrection` の `rods` と `lattice histories`（crates/lattice/src/residual.rs）が持つ）
    - Pyrex: 案 Q1 を作り、案 Q2（Pyrex を抜いた後を燃焼し直した格子計算）で H_p の比例の誤差を測る。lattice の `continued_start` は燃焼の
      領域を（物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数）で比べ、燃料のセルの組が同じなら案内管の中身を変える続き（Q2、制御棒）を続けられる
      （ADR-0226、2026-11-03 の項）

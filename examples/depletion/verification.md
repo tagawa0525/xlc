@@ -23,7 +23,6 @@
 | `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`、`compare-mox1-rings1.json`）。表は `../verification_tables.py` |
 | `branches/`                                        | 2A の燃焼の履歴の燃焼点からの分岐のテーブル（`branch-2A.toml`）と、それを内挿する core の集合体 1 体（`core-2A.toml`） |
 | `warm-start/`                                      | MOC を前の輸送の解から始めた（ADR-0195）2A の燃焼の最初の 10 点と分岐の 12 状態、平らな初期値からの出力との比較        |
-| `rod-axis-check/`                                  | 1 つの入力の履歴からの分岐の制御棒の組（ADR-0225）と、値ごとの入力を rod_table.py でまとめた形の一致を確かめる入力     |
 
 誤差と差は、絶対値の最大を初期の数密度の最大で割ったもの（ADR-0161 の「確認」）。
 

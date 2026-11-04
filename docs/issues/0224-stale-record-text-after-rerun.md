@@ -25,6 +25,9 @@ resolution:
   「サイクルのステップ」、「制御棒の分岐と値ごとの格子計算の結合の一致」の節は #0213 の残りに書いた
 - examples/mox、examples/m0、examples/m1、examples/core、examples/reflector、examples/colorset、examples/split の verification.md の
   k と表、冒頭の ADR-0209 の文
+- rod_table.py と、それを使う確認の手順（examples/core/rod-branch-check、examples/depletion/rod-axis-check）を #0213 で消した
+  （2026-11-04）。examples/core/verification.md、examples/depletion/verification.md、examples/vera/verification.md の本文がそれらを
+  今の場所で引く箇所と、引く先のコミットは #0213 の「残り」の「rod_table.py を消した後の指す先」
 
 関係する ADR: なし
 

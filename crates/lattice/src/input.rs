@@ -31,6 +31,8 @@
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
 //! # ADF と、燃料のノードに接する角の点の CDF を燃料の値で割る。燃料に角の点だけで接するノードにも付ける。
 //! # 省略すると false）
+//! # 制御棒の分岐（[branches.rod]）と組むと、制御棒の値が置き換えるセルを含むノードのテーブルだけが制御棒の軸を持ち、ほかの
+//! # ノードのテーブルは棒のない値の状態だけを持つ。組めるのは径方向の反射体の格子（平板でなく、燃料のノードが 1 つ）だけ（ADR-0227）
 //! # few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
 //! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
 //! #   { output = "reflector.msgpack", columns = [20, 30], rows = [1, 19], reflector = true } ] }
@@ -527,6 +529,30 @@ struct NodeEntry {
     rows: Vec<usize>,
     /// 省略すると false
     reflector: Option<bool>,
+}
+
+/// ノードごとに、`rods` の値のどれかが置き換えるセルを、ノードの範囲の `rows` のセルに含むか（ADR-0227）。ノードの列と行は
+/// 格子のセルの番号で、余白（`gap`）があれば `rows` の (行, 列) は格子のセルの (行 + 1, 列 + 1)
+fn nodes_with_replaced_cells(
+    rows: &[Vec<String>],
+    gap: bool,
+    nodes: &[Node],
+    rods: &[(String, BTreeMap<String, String>)],
+) -> Vec<bool> {
+    let offset = usize::from(gap);
+    let replaced = |name: &str| rods.iter().any(|(_, cells)| cells.contains_key(name));
+    nodes
+        .iter()
+        .map(|node| {
+            rows.iter().enumerate().any(|(i, row)| {
+                node.rows.contains(&(i + offset))
+                    && row
+                        .iter()
+                        .enumerate()
+                        .any(|(j, cell)| node.columns.contains(&(j + offset)) && replaced(cell))
+            })
+        })
+        .collect()
 }
 
 impl FewGroupEntry {
@@ -1066,24 +1092,6 @@ impl LatticeInput {
         // 制御棒の値の置き換え（ADR-0224）: 置き換えられるセルは基準の形状の行にあり、置き換えるセルは定義されていて基準の
         // 形状の行にない（あれば棒のない状態にも棒が残る）
         let in_rows = |name: &str| rows.iter().flatten().any(|c| c == name);
-        // ノードごとの出力は、どのノードのテーブルも制御棒の軸を持つ。棒の入らないノード（径方向の反射体のノード。ADR-0127。
-        // 平板の棒の入らない層。ADR-0128）のテーブルは制御棒の軸を持てないので、ノードごとに軸を付け分ける仕組みを作るまで
-        // （平板は #0030、径方向の反射体の格子は #0213。ADR-0224）組まない
-        if branches.as_ref().is_some_and(|b| !b.rods().is_empty())
-            && matches!(
-                &output,
-                Some(FewGroupOutput {
-                    files: FewGroupFiles::Nodes(_),
-                    ..
-                })
-            )
-        {
-            return Err(invalid(
-                "branches.rod: few-group nodes cannot have rod values yet; the lattice would give the rod axis to \
-                 every node table, including nodes that rods never enter (ADR-0224; #0030, #0213)"
-                    .into(),
-            ));
-        }
         for (value, replaced) in branches.iter().flat_map(|b| b.rods()) {
             for (from, to) in replaced {
                 if !in_rows(from) {
@@ -1146,6 +1154,50 @@ impl LatticeInput {
             width: g.width,
             material: g.material,
         });
+        // ノードごとの出力の制御棒の軸は、置き換えるセルを含むノードのテーブルだけが持つ（ADR-0227）。ADR が軸の有無を決めて
+        // いるのは径方向の反射体の格子（燃料のノードが 1 つで、棒は燃料のノードにだけ入る。ADR-0127）だけなので、ほかの形は止める
+        if let (
+            Some(b),
+            Some(FewGroupOutput {
+                files: FewGroupFiles::Nodes(entries),
+                axial,
+                ..
+            }),
+        ) = (&branches, &output)
+            && !b.rods().is_empty()
+        {
+            if *axial {
+                return Err(invalid(
+                    "branches.rod: few-group nodes of an axial slab cannot have rod values yet; the rod values of \
+                     the upper layers come with #0030 (ADR-0227)"
+                        .into(),
+                ));
+            }
+            let fuel = entries.iter().filter(|(_, n)| !n.reflector).count();
+            if fuel != 1 {
+                return Err(invalid(format!(
+                    "branches.rod: few-group nodes take rod values only in a radial reflector lattice with one \
+                     fuel node (reflector = false), got {fuel}; colorsets are not decided (#0214, ADR-0227)"
+                )));
+            }
+            let nodes: Vec<Node> = entries.iter().map(|(_, n)| n.clone()).collect();
+            let rodded = nodes_with_replaced_cells(&rows, gap.is_some(), &nodes, b.rods());
+            for ((path, node), rodded) in entries.iter().zip(rodded) {
+                if node.reflector && rodded {
+                    return Err(invalid(format!(
+                        "branches.rod: the reflector node {} contains a cell that the rod values replace; radial \
+                         reflector tables have no rod axis (ADR-0127, ADR-0227)",
+                        path.display()
+                    )));
+                }
+                if !node.reflector && !rodded {
+                    return Err(invalid(format!(
+                        "branches.rod: the fuel node {} contains no cell that the rod values replace (ADR-0227)",
+                        path.display()
+                    )));
+                }
+            }
+        }
         let depletion = file
             .depletion
             .map(|d| {
@@ -1441,6 +1493,26 @@ impl LatticeInput {
             || vec![xlc_format::table::ROD_OUT.to_string()],
             Branches::rod_values,
         )
+    }
+
+    /// 少数群定数の出力のファイルごとに、テーブルが制御棒の軸を持つか（ADR-0224、ADR-0227）。格子全体のテーブルは制御棒の分岐が
+    /// あれば持ち、ノードのテーブルは制御棒の値が置き換えるセルを含めば持つ
+    pub fn rod_axes(&self) -> Vec<bool> {
+        let rods = self.branches.as_ref().map_or(&[][..], |b| b.rods());
+        match &self.output {
+            None => Vec::new(),
+            Some(FewGroupOutput {
+                files: FewGroupFiles::Lattice(_),
+                ..
+            }) => vec![!rods.is_empty()],
+            Some(FewGroupOutput {
+                files: FewGroupFiles::Nodes(entries),
+                ..
+            }) => {
+                let nodes: Vec<Node> = entries.iter().map(|(_, n)| n.clone()).collect();
+                nodes_with_replaced_cells(&self.rows, self.gap.is_some(), &nodes, rods)
+            }
+        }
     }
 
     /// 制御棒の値 `rod`（`rod_values` の番号。0 は基準の形状）の形状と、領域ごとの物質の名前
