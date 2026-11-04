@@ -1,0 +1,16 @@
+# 履歴の残り R（ADR-0215、#0190）を減速材の密度と制御棒の 2 つの履歴の変数で持つテーブル: 制御棒の軸を持つ公称のテーブル
+# （residual-rods-nominal.toml）に、減速材の密度の履歴の分岐の自分の条件のテーブルとハイブリッドのテーブル（residual.toml と同じ、制御棒の値 out）と、
+# 制御棒の履歴の分岐のテーブル（residual-rods-branch.toml）とハイブリッドのテーブル（hybrid-residual-rods-branch.toml）から作った、追わない核種の分 U
+# と線形化の誤差 L を書き足す。制御棒の履歴は、制御棒を入れた値 aic（履歴の分岐の条件）と抜いた値 out（逆向き）の両方を、制御棒の軸を持つ
+# 同じテーブルから取る。`lattice histories residual-rods.toml` で実行する。
+nominal = "table-residual-rods-nominal.msgpack"
+output = "table-residual-rods-histories.msgpack"
+
+[[history]]
+variable = "moderator-density"
+branches = { out = { branch = "table-residual-density-branch.msgpack", hybrid = "table-hybrid-residual-density-branch.msgpack" } }
+
+[[history]]
+variable = "rods"
+branches.out = { branch = "table-residual-rods-branch.msgpack", hybrid = "table-hybrid-residual-rods-branch.msgpack" }
+branches.aic = { branch = "table-residual-rods-branch.msgpack", hybrid = "table-hybrid-residual-rods-branch.msgpack" }
