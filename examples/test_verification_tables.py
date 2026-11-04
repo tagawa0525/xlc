@@ -4018,5 +4018,198 @@ class DrawUfgTransfer(unittest.TestCase):
             vt.ufg_transfer_k([{"format": "xlc-group-rows"}])
 
 
+class DrawHistoryRodsParts(unittest.TestCase):
+    @staticmethod
+    def summary() -> dict:
+        """compare_rods_parts.py の要約（切り替えの後の点は 22 と 60 MWd/kg、追う核種は 2 つ、τ は ∞ と 10）"""
+
+        def row(u, w, a, b, values, nuclides, needed):
+            keys = (
+                "difference_pcm",
+                "composition_pcm",
+                "constant_pcm",
+                "untracked_pcm",
+                "linearization_pcm",
+                "without_untracked_pcm",
+                "without_linearization_pcm",
+            )
+            return {
+                "burnup": u,
+                "weight": w,
+                "index_ratio": a,
+                "reference_index_ratio": b,
+                **dict(zip(keys, values)),
+                "untracked_weight": needed[0],
+                "linearization_weight": needed[1],
+                "nuclides": [
+                    {"nuclide": n, "percent": p, "pcm": c} for n, p, c in nuclides
+                ],
+            }
+
+        return {
+            "format": "xlc-compare-rods-parts",
+            "switch": 20.0,
+            "rows": [
+                row(
+                    22.0,
+                    0.90909,
+                    0.84521,
+                    0.84577,
+                    [-21.3511, -7.5712, -13.7799, -33.9512, -348.3, -31.0251, 334.5181],
+                    [("Pu-239", -0.01712, -2.4213), ("Gd-155", None, 0.0)],
+                    (0.54008, None),
+                ),
+                row(
+                    60.0,
+                    0.33333,
+                    0.10701,
+                    0.10953,
+                    [
+                        -175.2461,
+                        -28.0372,
+                        -147.2089,
+                        -211.5412,
+                        -217.6101,
+                        64.3288,
+                        70.4006,
+                    ],
+                    [("Pu-239", -0.12634, -41.3612), ("Gd-155", -0.6432, 0.0012)],
+                    (0.10138, 0.03477),
+                ),
+            ],
+            "best": 10.0,
+            "best_at_edge": False,
+            "forgetting": [
+                {
+                    "tau": None,
+                    "points": [
+                        {"burnup": 22.0, "weight": 0.90909, "constant_pcm": -13.7799},
+                        {"burnup": 60.0, "weight": 0.33333, "constant_pcm": -147.2089},
+                    ],
+                    "largest_pcm": 147.2089,
+                },
+                {
+                    "tau": -10.0,
+                    "points": [
+                        {"burnup": 22.0, "weight": 0.95, "constant_pcm": -15.1},
+                        {"burnup": 60.0, "weight": 0.86, "constant_pcm": -485.9091},
+                    ],
+                    "largest_pcm": 485.9091,
+                },
+            ],
+        }
+
+    @staticmethod
+    def header(table: str) -> list[str]:
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_rows_set_the_parts_of_each_point(self):
+        table = vt.history_rods_parts([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "燃焼度 (MWd/kg)",
+                "w",
+                "core の P / P_j",
+                "参照の組成の P / P_j",
+                "core − 参照 (pcm)",
+                "数密度の効き (pcm)",
+                "定数の側 (pcm)",
+                "w U(1) の効き (pcm)",
+                "(P / P_j) L(1) の効き (pcm)",
+                "U を引いた定数の側 (pcm)",
+                "L を引いた定数の側 (pcm)",
+                "参照に合う U の重み",
+                "参照に合う L の重み",
+            ],
+        )
+        self.assertEqual(
+            DrawBurnupInterpolation.rows(table),
+            [
+                [
+                    "22",
+                    "0.9091",
+                    "0.8452",
+                    "0.8458",
+                    "−21.351",
+                    "−7.571",
+                    "−13.780",
+                    "−33.95",
+                    "−348.30",
+                    "−31.025",
+                    "+334.518",
+                    "+0.5401",
+                    # 範囲の中で参照に合わない重みは –
+                    "–",
+                ],
+                [
+                    "60",
+                    "0.3333",
+                    "0.1070",
+                    "0.1095",
+                    "−175.246",
+                    "−28.037",
+                    "−147.209",
+                    "−211.54",
+                    "−217.61",
+                    "+64.329",
+                    "+70.401",
+                    "+0.1014",
+                    "+0.0348",
+                ],
+            ],
+        )
+
+    def test_nuclide_rows_set_each_point(self):
+        for kind, cells in (
+            ("percent", [["Pu-239", "−0.017", "−0.126"], ["Gd-155", "–", "−0.643"]]),
+            ("pcm", [["Pu-239", "−2.42", "−41.36"], ["Gd-155", "0.00", "0.00"]]),
+        ):
+            table = vt.history_rods_parts_nuclides(kind, [self.summary()])
+            self.assertEqual(
+                self.header(table), ["核種", "22 MWd/kg", "60 MWd/kg"], kind
+            )
+            self.assertEqual(DrawBurnupInterpolation.rows(table), cells, kind)
+
+    def test_forgetting_rows_set_the_constant_side_of_each_time_constant(self):
+        table = vt.history_rods_forgetting([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "τ (MWd/kg)",
+                "定数の側の絶対値の最大 (pcm)",
+                "22 MWd/kg (pcm)",
+                "60 MWd/kg (pcm)",
+            ],
+        )
+        self.assertEqual(
+            DrawBurnupInterpolation.rows(table),
+            [
+                ["∞", "147.209", "−13.780", "−147.209"],
+                ["−10", "485.909", "−15.100", "−485.909"],
+            ],
+        )
+
+    def test_the_tables_read_the_git_tracked_summary(self):
+        for name in (
+            "depletion-history-rods-parts",
+            "depletion-history-rods-parts-percent",
+            "depletion-history-rods-parts-pcm",
+            "depletion-history-rods-forgetting",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/history/rods-parts.json"])
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+    def test_other_summaries_are_errors(self):
+        for draw in (
+            vt.history_rods_parts,
+            vt.history_rods_forgetting,
+            lambda s: vt.history_rods_parts_nuclides("pcm", s),
+        ):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-rods-switch"}])
+
+
 if __name__ == "__main__":
     unittest.main()
