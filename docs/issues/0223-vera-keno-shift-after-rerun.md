@@ -43,19 +43,23 @@ VIII.0 の 1C と 2A の xlc の k の変化（+97.7、+54.0 pcm）は、ADR-020
 無限希釈の形）、今の実行は ADR-0209 の既定（`ufg-scattering = "free-gas"`、`ufg-free-gas` の速い方法と `sab = true`、
 `ufg-transfer = "ring-flux"`）で解いている。
 
-xlc の 0 の点の k（vera は `compare-keno-<問題>.json` の `k.xlc`、前は 583798a60、今は 3c5beb983。depletion は 1C が
-`compare-1C-rings1.json` の `k[0].xlc`、2A が `p2/compare-2A.json` の `k[0].xlc`）:
+xlc の 0 の点の k（vera は `compare-keno-<問題>.json` の `k.xlc`、depletion は 1C が `compare-1C-rings1.json` の `k[0].xlc`、2A が
+`p2/compare-2A.json` の `k[0].xlc`。表の括弧は値を入れた JSON のコミット。数値を出した xlc のコミットと日付は、vera の前が 1f650c35
+（2026-10-23、記録の「計算」）、今が 4a22de28（2026-11-04）、depletion の 1C の前が Slurm 457（2026-10-23）、ADR-0209 のときの 1C と 2A が
+xlc f434af311（2026-10-28、ADR-0209 の「確認」。値は 008ece556 の JSON）、今が ADR-0226 の bin（2026-11-03〜04）。
+depletion の 2A の前の実行のコミットは確かめていない）:
 
-| 問題 | 実行                                 | 前（ADR-0209 の前の既定）                 | 今                     | 変化（pcm） |
-| ---- | ------------------------------------ | ----------------------------------------- | ---------------------- | ----------- |
-| 1C   | examples/vera の keno-pincell        | 1.171410                                  | 1.172387（4a22de28）   | +97.7       |
-| 1C   | examples/depletion の 1 リング       | 1.1714054（Slurm 457。JSON は 559fdbed3） | 1.1723822（9069e1cb2） | +97.68      |
-| 2A   | examples/vera の keno-assembly       | 1.182543                                  | 1.183083（4a22de28）   | +54.0       |
-| 2A   | examples/depletion/p2 の集合体の燃焼 | 1.1825485（02f354916）                    | 1.1830889（a1ae3b0a7） | +54.03      |
+| 問題 | 実行                                 | 前（ADR-0209 の前の既定） | 今                     | 変化（pcm） |
+| ---- | ------------------------------------ | ------------------------- | ---------------------- | ----------- |
+| 1C   | examples/vera の keno-pincell        | 1.171410（583798a60）     | 1.172387（3c5beb983）  | +97.7       |
+| 1C   | examples/depletion の 1 リング       | 1.1714054（559fdbed3）    | 1.1723822（9069e1cb2） | +97.68      |
+| 2A   | examples/vera の keno-assembly       | 1.182543（583798a60）     | 1.183083（3c5beb983）  | +54.0       |
+| 2A   | examples/depletion/p2 の集合体の燃焼 | 1.1825485（02f354916）    | 1.1830889（a1ae3b0a7） | +54.03      |
 
-depletion の今の値は、vera の今の実行と同じ `bin/lattice` 48387d65 で解き直したもの（main の dvc.lock）で、ADR-0209 のときの値（008ece556、
-f434af311）と 1e−12 以内で同じ。ADR-0209 の後から ADR-0226 の bin までの変更は、この 2 つの k を動かさない。vera と depletion の差は、1C で
-前 +0.46、今 +0.48 pcm、2A で前 −0.55、今 −0.59 pcm で、ほぼ一定（ライブラリが違い、depletion の 2A は `ufg-tolerance = 1e-4` の間引いた格子）。
+depletion の今の値は、vera の今の実行と同じ `bin/lattice` 48387d65 で解き直したもの（main の dvc.lock）で、ADR-0209 のときの値（008ece556 の JSON）と
+1e−12 以内で同じ。ADR-0209 の後から ADR-0226 の bin までの変更は、この 2 つの k を動かさない。vera と depletion の差は、1C で
+前 +0.46、今 +0.48 pcm、2A で前 −0.55、今 −0.59 pcm で、ほぼ一定（ライブラリが違い、depletion の 2A は `ufg-tolerance = 1e-4` の間引いた格子。前は `bin/lattice` の md5 も違い、vera は
+457aae7a、depletion の 1C の 559fdbed3 の dvc.lock は 7cf252f4）。
 vera の出力は小数点以下 6 桁なので、差の差（0.02、0.04 pcm）は丸めの中。
 
 - 同じ問題: examples/vera/p1/pincell-1C.toml と examples/depletion/lattice-1C-rings1.toml、examples/vera/p2/assembly-2A.toml と
@@ -67,7 +71,7 @@ vera の出力は小数点以下 6 桁なので、差の差（0.02、0.04 pcm）
   （ADR-0203 の RED の 43d293d0c）は 2026-10-24 13:35、`ring-flux` は 2026-10-28 00:55（22fba4177）、ADR-0209 のマージは bcc78ee0b
   （2026-10-28 06:30）。どの日時も作成の日時（author date）
 - 確かめていないこと: 上の一致は、vera と depletion が同じ期間に同じだけ動いたことを示し、ADR-0209 の値もその期間の差である。期間の中の
-  既定の切り替えでない変更（2026-10-23 から 2026-10-28 のほかのマージ、ライブラリの作り直し）の効きは、ADR-0209 も分けていない。既定の
+  既定の切り替えでない変更（2026-10-23 から 2026-10-28 のほかのマージ、ADR-0205 の形式を含むライブラリの作り直し）の効きは、ADR-0209 も分けていない。既定の
   結果を変えないことを、ADR-0203、ADR-0204、ADR-0207 はそれぞれの変更について、ADR-0209 は前の既定を書いた入力について確かめた
 
 ADR-0209 はこの動きを OpenMC に対して測って受け入れた（k の差 xlc − OpenMC は、1C の 1 リングで −61〜+73 → +29〜+136 pcm、2A で
@@ -92,8 +96,8 @@ heavy-cap、heavy-fast3 の `swap_absorption` の出力が ADR-0204 の記録の
 既に挙がっている見方（open の issue と ADR の「候補」「確かめていない」の行を「散乱核」「自己遮蔽」「KENO」で検索した）:
 
 - #0131: VII.0 の xlc − KENO-VI が VIII.0 の xlc − OpenMC より約 +130 pcm 大きい。候補は VII.0 のファイルの扱い、AMPX と NJOY の処理の差、
-  KENO-VI のモデルの解釈、565 K の S(α,β) の温度の補正。今回の動きは VIII.0 と VII.0 の両方で同じ向きで、1C と 2A は ADR-0209 が記録した動きなので、
-  #0131 の差とは別
+  KENO-VI のモデルの解釈、565 K の S(α,β) の温度の補正。今回の動きは VIII.0 と VII.0 の両方で同じ向きで、VIII.0 の 1C と 2A は ADR-0209 が記録した動きなので、
+  #0131 の差とは別（VII.0 は上の候補）
 - #0040: 565 K の集合体の k∞ が KENO の 2A より約 170 pcm 大きい（前の版の値）
 - #0005: k の差のうち、散乱の移行（共鳴の範囲の自己遮蔽を含む）が未解明で最も大きな候補
 - #0001: 散乱核を熱中性子の範囲まで扱えば、#0152 の候補の 1 つ（H の S(α,β)）も扱う
