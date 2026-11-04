@@ -32,7 +32,7 @@ xlc − KENO-VI（pcm。比較の JSON の `k.diff_pcm`、P3 は `k.diff_keno_pc
 ライブラリは今の `bin/lattice` で読めない（`missing field sab_transfer`。ADR-0205 の後の形式）ので、ライブラリと格子の効きを今の bin で
 分けることはできない。
 
-関係する ADR: なし（候補として ADR-0205、ADR-0209 を引く）
+関係する ADR: なし
 
 ## 候補（確かめていない）
 
