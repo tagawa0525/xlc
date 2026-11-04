@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: ef447401a6cd36d404303db5c128554d
-      size: 7140456
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: c5g7-xs.toml
       hash: md5
@@ -149,8 +149,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: ef447401a6cd36d404303db5c128554d
-      size: 7140456
+      md5: 48387d6581bcea121b2b9ec7f52223a9
+      size: 9367080
       isexec: true
     - path: c5g7-fine.toml
       hash: md5
