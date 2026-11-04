@@ -45,9 +45,10 @@ VIII.0 の 1C と 2A の xlc の k の変化（+97.7、+54.0 pcm）は、ADR-020
 
 xlc の 0 の点の k（vera は `compare-keno-<問題>.json` の `k.xlc`、depletion は 1C が `compare-1C-rings1.json` の `k[0].xlc`、2A が
 `p2/compare-2A.json` の `k[0].xlc`。表の括弧は値を入れた JSON のコミット。数値を出した xlc のコミットと日付は、vera の前が 05714cea
-（2026-10-23、記録の「計算」）、今が 4cfe4f58（2026-11-04）、depletion の 1C の前が Slurm 457（2026-10-23）、ADR-0209 のときの 1C と 2A が
-xlc 73d03d37c（2026-10-28、ADR-0209 の「確認」。値は ae6fdf7fc の JSON）、今が ADR-0226 の bin（2026-11-03〜04）。
-depletion の 2A の前の実行のコミットは確かめていない）:
+（2026-10-23、記録の「計算」）、今が 4cfe4f58（2026-11-04）、depletion の 1C の前が da2224ff（分岐点 6822de4c、Slurm 457、2026-10-23。
+13826a2b9 の本文。examples/depletion/verification.md は Slurm 457 を xlc adacf8b4 と書き、食い違う。確かめていない）、2A の前が 2c2b8c60
+（Slurm 520、50f94ebfa の本文、2026-10-24）、ADR-0209 のときの 1C と 2A が xlc 73d03d37c（2026-10-28、ADR-0209 の「確認」。値は ae6fdf7fc の
+JSON）、今が ADR-0226 の bin で、1C は Slurm 660（06d6bd719 の本文、2026-11-03）、2A は Slurm 664（8488f5dfa の本文、2026-11-04））:
 
 | 問題 | 実行                                 | 前（ADR-0209 の前の既定） | 今                     | 変化（pcm） |
 | ---- | ------------------------------------ | ------------------------- | ---------------------- | ----------- |
@@ -65,7 +66,8 @@ vera の出力は小数点以下 6 桁なので、差の差（0.02、0.04 pcm）
 - 同じ問題: examples/vera/p1/pincell-1C.toml と examples/depletion/lattice-1C-rings1.toml、examples/vera/p2/assembly-2A.toml と
   examples/depletion/p2/lattice-2A.toml は、形状、組成、温度、離散化が同じで、どれも UFG の散乱核と移行の項目を書かない（既定で解く）。
   違いはライブラリ（vera.msgpack と depletion.msgpack。どちらも ENDF/B-VIII.0、WIMS 69 群、同じ σ0）、depletion の燃焼の節、depletion の 2A の
-  `ufg-tolerance`、vera の 2A のピン出力の出力（`pin-powers`）だけ
+  `ufg-tolerance`、vera の 2A のピン出力の出力（`pin-powers`）、2A の減速材の核種の順（examples/vera/p2/assembly-2A.toml は H-1 が先、
+  examples/depletion/p2/lattice-2A.toml は O-16 が先）だけ
 - 前の実行は、UFG の散乱核と移行の項目より前の bin: vera の前の結果のコミット 4ad8d9fbc の作成の日時は 2026-10-23 22:56、depletion の 2A の
   前の値のコミット 50f94ebfa は 2026-10-24 02:53、1C の 13826a2b9 は 2026-10-23 02:51。`ufg-scattering` を lattice に入れた最初のコミット
   （ADR-0203 の RED の 316052c1a）は 2026-10-24 13:35、`ring-flux` は 2026-10-28 00:55（0a377fa14）、ADR-0209 のマージは eba3a023b
@@ -104,7 +106,7 @@ heavy-cap、heavy-fast3 の `swap_absorption` の出力が ADR-0204 の記録の
 
 ## 完了の条件
 
-1C と 2A 以外の問題（VIII.0 の 1B、1D、2B〜2Q、VII.0 の全問題、P3）で、ADR-0209 の既定の切り替えとそのほかの変更の効きを、今の bin で ADR-0209 の
+1C と 2A 以外の問題（VIII.0 の 1B、1D、2B〜2K と 2Q、VII.0 の全問題、P3）で、ADR-0209 の既定の切り替えとそのほかの変更の効きを、今の bin で ADR-0209 の
 前の既定（`ufg-scattering = "static"`、`ufg-transfer = "infinite-dilution"`）を書いた入力を解いて分け、VIII.0 の xlc − KENO-VI と xlc − OpenMC
 （examples/vera/verification.md の「OpenMC との比較」）の今の値で、どちらに近づいた（離れた）かを記録に書く。
 
