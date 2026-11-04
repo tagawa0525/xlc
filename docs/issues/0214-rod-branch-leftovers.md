@@ -57,7 +57,7 @@ resolution:
   書くが、コードは ADR-0226 の `region_mismatch`（組のセルの位置と MOC の領域の数も比べる）を使う。
   `rod_burnups_are_history_burnups_of_rod_values` は `is_err()` だけを見て、どの検査で止まったかを確かめない。
 
-関係する ADR: ADR-0224、ADR-0225
+関係する ADR: ADR-0224、ADR-0225、ADR-0227
 
 ## 完了の条件
 
