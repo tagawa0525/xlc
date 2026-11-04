@@ -41,15 +41,17 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   `branch-2A-micro-boron-rod-axis.toml`）に置き換え、`branch-2A-micro-boron-rods.toml` を消した。`branch-2A-micro-rods.toml` は、
   core-2A-micro-rodded の一様に棒の入った層の比べる先（制御棒の軸を持たないテーブル）として残し、値 aic と同じ問題になるよう
   Pu-240 の数密度の微分（`derivative`）を足した
+- 2026-11-04: p2 の 2A の履歴を今の形式で作り直し（chore/rerun-after-adr-0226、Slurm 664）、置き換えた入力のテーブルと棒のない組、
+  制御棒を入れた組を今の bin で作り直して `dvc add` した（Slurm 673〜676。`table-2A-micro.msgpack` a0776f62、`table-2A-micro-rods.msgpack`
+  dd5ed4fe、`table-2A-micro-rod-axis.msgpack` a33f1edf、`table-2A-micro-boron-rod-axis.msgpack` 283e440b は前のまとめた形とバイトまで同じ）。
+  記録の「部分挿入のノードのミクロ燃焼（2A の集合体 1 体）」と「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」の手順と
+  数値を、作り直したテーブルの core の燃焼（Slurm 677）で書き直した。部分挿入のノードの棒の入った燃焼の k は、前の記録から 52 MWd/kg で
+  +100.9 pcm（0.73414963 → 0.73515853）動いた（値 aic が数密度の微分を持つようになったことが候補で、確かめていない）
 
 ## 残り
 
-- 置き換えた入力のテーブル（`table-2A-micro-rod-axis.msgpack`、`table-2A-micro-boron-rod-axis.msgpack`。後者は `dvc add` で追跡）と
-  `table-2A-micro-rods.msgpack` を、今の bin で作り直し、それを読む記録（examples/depletion/verification.md の「部分挿入のノードの
-  ミクロ燃焼（2A の集合体 1 体）」と、`branch-2A-micro-boron-rods.toml` を使う小さな炉心の節）の手順と数値を書き直す。どちらも
-  ステージではなく（「燃焼度の軸を持つテーブル（2A）」と同じ理由）、今の記録の数値は rod_table.py でまとめた前の形のもの。
-  置き換えた値 aic は数密度の微分を持つ（前の制御棒の組は持たなかった）ので、部分挿入のノードの数値は変わりうる。読む燃焼の履歴
-  `p2/lattice-2A.msgpack` は ADR-0226 の前の形式（燃焼の領域の `cells` が無い）で今の lattice では読めないので、先に作り直す
+- examples/depletion/verification.md の「サイクルのステップの core の燃焼（2A の集合体 1 体）」は、前の形のテーブル（646d0ec2、
+  70b204f3、まとめたもの 9689f898）の数値のまま。作り直したテーブル（下の経緯の 2026-11-04）で core を再実行して書き直す
 - 径方向の反射体の格子のノードごとの出力で、反射体のノードのテーブルに制御棒の軸を入れない仕組み（ADR-0224。#0214 の
   ノードごとの付け分けの項）と、examples/vera/p5 の HZP のテーブルの置き換え
 - rod_table.py とそのテスト（examples/core/test_rod_table.py）の削除と、直下の `dvc.yaml` の `python-ast` の foreach からの削除
