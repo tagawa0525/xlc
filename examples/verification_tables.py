@@ -2503,8 +2503,8 @@ def rods_parts_summary(sources: list[dict]) -> dict:
 
 
 def history_rods_parts(sources: list[dict]) -> str:
-    """制御棒を途中まで入れて抜く燃焼の core − 参照の分け方（ADR-0215、#0190）: 切り替えの後の点ごとの、w、P / P_j、core − 参照、数密度の
-    効き、定数の側、core が足す w U(1) と (P / P_j) L(1) の効きと、それぞれを引いた定数の側（pcm）、参照に合う U と L の重み"""
+    """制御棒を途中まで入れて抜く燃焼の core − 参照の分け方（ADR-0215、#0190）: 切り替えの後の点ごとの、w、core と参照の組成の P / P_j、
+    core − 参照、数密度の効き、定数の側、core が足す w U(1) と (P / P_j) L(1) の効きと、それぞれを引いた定数の側（pcm）、参照に合う U と L の重み"""
     s = rods_parts_summary(sources)
 
     def weight(x):
@@ -2514,7 +2514,8 @@ def history_rods_parts(sources: list[dict]) -> str:
         [
             "燃焼度 (MWd/kg)",
             "w",
-            "P / P_j",
+            "core の P / P_j",
+            "参照の組成の P / P_j",
             "core − 参照 (pcm)",
             "数密度の効き (pcm)",
             "定数の側 (pcm)",
@@ -2530,6 +2531,7 @@ def history_rods_parts(sources: list[dict]) -> str:
                 burnup_label(r["burnup"]),
                 f"{r['weight']:.4f}",
                 f"{r['index_ratio']:.4f}",
+                f"{r['reference_index_ratio']:.4f}",
                 signed(r["difference_pcm"], 3),
                 signed(r["composition_pcm"], 3),
                 signed(r["constant_pcm"], 3),
