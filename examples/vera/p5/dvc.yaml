@@ -676,24 +676,6 @@ stages:
       - hzp/lattice/21-fuel.msgpack
       - hzp/media/21-fuel.msgpack
       - hzp/21-fuel.out
-  hzp-21-fuel-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel-aic.toml > 21-fuel-aic.out
-    deps:
-      - hzp/21-fuel-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/21-fuel-aic.msgpack
-      - hzp/21-fuel-aic.out
-  hzp-21-fuel-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel-b4c.toml > 21-fuel-b4c.out
-    deps:
-      - hzp/21-fuel-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/21-fuel-b4c.msgpack
-      - hzp/21-fuel-b4c.out
   hzp-21-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-igrid.toml > 21-igrid.out
     deps:
@@ -712,24 +694,6 @@ stages:
     outs:
       - hzp/lattice/21-zgrid.msgpack
       - hzp/21-zgrid.out
-  hzp-21-zgrid-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-zgrid-aic.toml > 21-zgrid-aic.out
-    deps:
-      - hzp/21-zgrid-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/21-zgrid-aic.msgpack
-      - hzp/21-zgrid-aic.out
-  hzp-21-zgrid-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-zgrid-b4c.toml > 21-zgrid-b4c.out
-    deps:
-      - hzp/21-zgrid-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/21-zgrid-b4c.msgpack
-      - hzp/21-zgrid-b4c.out
   hzp-26-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel.toml > 26-fuel.out
     deps:
@@ -740,24 +704,6 @@ stages:
       - hzp/lattice/26-fuel.msgpack
       - hzp/media/26-fuel.msgpack
       - hzp/26-fuel.out
-  hzp-26-fuel-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel-aic.toml > 26-fuel-aic.out
-    deps:
-      - hzp/26-fuel-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/26-fuel-aic.msgpack
-      - hzp/26-fuel-aic.out
-  hzp-26-fuel-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel-b4c.toml > 26-fuel-b4c.out
-    deps:
-      - hzp/26-fuel-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/26-fuel-b4c.msgpack
-      - hzp/26-fuel-b4c.out
   hzp-26-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-igrid.toml > 26-igrid.out
     deps:
@@ -776,24 +722,6 @@ stages:
     outs:
       - hzp/lattice/26-zgrid.msgpack
       - hzp/26-zgrid.out
-  hzp-26-zgrid-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-zgrid-aic.toml > 26-zgrid-aic.out
-    deps:
-      - hzp/26-zgrid-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/26-zgrid-aic.msgpack
-      - hzp/26-zgrid-aic.out
-  hzp-26-zgrid-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-zgrid-b4c.toml > 26-zgrid-b4c.out
-    deps:
-      - hzp/26-zgrid-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/26-zgrid-b4c.msgpack
-      - hzp/26-zgrid-b4c.out
   hzp-26-p16-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-empty.toml > 26-p16-empty.out
     deps:
@@ -1005,24 +933,6 @@ stages:
       - hzp/lattice/31-fuel.msgpack
       - hzp/media/31-fuel.msgpack
       - hzp/31-fuel.out
-  hzp-31-fuel-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-fuel-aic.toml > 31-fuel-aic.out
-    deps:
-      - hzp/31-fuel-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/31-fuel-aic.msgpack
-      - hzp/31-fuel-aic.out
-  hzp-31-fuel-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-fuel-b4c.toml > 31-fuel-b4c.out
-    deps:
-      - hzp/31-fuel-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/31-fuel-b4c.msgpack
-      - hzp/31-fuel-b4c.out
   hzp-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-igrid.toml > 31-igrid.out
     deps:
@@ -1041,24 +951,6 @@ stages:
     outs:
       - hzp/lattice/31-zgrid.msgpack
       - hzp/31-zgrid.out
-  hzp-31-zgrid-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-zgrid-aic.toml > 31-zgrid-aic.out
-    deps:
-      - hzp/31-zgrid-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/31-zgrid-aic.msgpack
-      - hzp/31-zgrid-aic.out
-  hzp-31-zgrid-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-zgrid-b4c.toml > 31-zgrid-b4c.out
-    deps:
-      - hzp/31-zgrid-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/31-zgrid-b4c.msgpack
-      - hzp/31-zgrid-b4c.out
   hzp-31-p12-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-empty.toml > 31-p12-empty.out
     deps:
@@ -1310,26 +1202,6 @@ stages:
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
       - hzp/reflector-I-31-fuel.out
-  hzp-reflector-I-31-fuel-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-fuel-aic.toml > reflector-I-31-fuel-aic.out
-    deps:
-      - hzp/reflector-I-31-fuel-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
-      - hzp/lattice/reflector-I-31-fuel-aic.msgpack
-      - hzp/reflector-I-31-fuel-aic.out
-  hzp-reflector-I-31-fuel-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-fuel-b4c.toml > reflector-I-31-fuel-b4c.out
-    deps:
-      - hzp/reflector-I-31-fuel-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
-      - hzp/lattice/reflector-I-31-fuel-b4c.msgpack
-      - hzp/reflector-I-31-fuel-b4c.out
   hzp-reflector-I-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-igrid.toml > reflector-I-31-igrid.out
     deps:
@@ -1350,26 +1222,6 @@ stages:
       - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-zgrid.msgpack
       - hzp/reflector-I-31-zgrid.out
-  hzp-reflector-I-31-zgrid-aic:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-zgrid-aic.toml > reflector-I-31-zgrid-aic.out
-    deps:
-      - hzp/reflector-I-31-zgrid-aic.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
-      - hzp/lattice/reflector-I-31-zgrid-aic.msgpack
-      - hzp/reflector-I-31-zgrid-aic.out
-  hzp-reflector-I-31-zgrid-b4c:
-    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-zgrid-b4c.toml > reflector-I-31-zgrid-b4c.out
-    deps:
-      - hzp/reflector-I-31-zgrid-b4c.toml
-      - ../vera.msgpack
-      - ../../../bin/lattice
-    outs:
-      - hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
-      - hzp/lattice/reflector-I-31-zgrid-b4c.msgpack
-      - hzp/reflector-I-31-zgrid-b4c.out
   hzp-reflector-I-31-p12-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-empty-igrid.toml > reflector-I-31-p12-empty-igrid.out
     deps:
@@ -1506,78 +1358,6 @@ stages:
       - hzp/lattice/reflector-corner-31-zgrid-top.msgpack
       - hzp/lattice/reflector-corner-31-zgrid.msgpack
       - hzp/reflector-corner-31-zgrid.out
-  hzp-table-21-fuel:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/21-fuel-rods.msgpack out=lattice/21-fuel.msgpack aic=lattice/21-fuel-aic.msgpack b4c=lattice/21-fuel-b4c.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/21-fuel.msgpack
-      - hzp/lattice/21-fuel-aic.msgpack
-      - hzp/lattice/21-fuel-b4c.msgpack
-    outs:
-      - hzp/tables/21-fuel-rods.msgpack
-  hzp-table-21-zgrid:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/21-zgrid-rods.msgpack out=lattice/21-zgrid.msgpack aic=lattice/21-zgrid-aic.msgpack b4c=lattice/21-zgrid-b4c.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/21-zgrid.msgpack
-      - hzp/lattice/21-zgrid-aic.msgpack
-      - hzp/lattice/21-zgrid-b4c.msgpack
-    outs:
-      - hzp/tables/21-zgrid-rods.msgpack
-  hzp-table-26-fuel:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/26-fuel-rods.msgpack out=lattice/26-fuel.msgpack aic=lattice/26-fuel-aic.msgpack b4c=lattice/26-fuel-b4c.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/26-fuel.msgpack
-      - hzp/lattice/26-fuel-aic.msgpack
-      - hzp/lattice/26-fuel-b4c.msgpack
-    outs:
-      - hzp/tables/26-fuel-rods.msgpack
-  hzp-table-26-zgrid:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/26-zgrid-rods.msgpack out=lattice/26-zgrid.msgpack aic=lattice/26-zgrid-aic.msgpack b4c=lattice/26-zgrid-b4c.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/26-zgrid.msgpack
-      - hzp/lattice/26-zgrid-aic.msgpack
-      - hzp/lattice/26-zgrid-b4c.msgpack
-    outs:
-      - hzp/tables/26-zgrid-rods.msgpack
-  hzp-table-31-fuel:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/31-fuel-rods.msgpack out=lattice/31-fuel.msgpack aic=lattice/31-fuel-aic.msgpack b4c=lattice/31-fuel-b4c.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/31-fuel.msgpack
-      - hzp/lattice/31-fuel-aic.msgpack
-      - hzp/lattice/31-fuel-b4c.msgpack
-    outs:
-      - hzp/tables/31-fuel-rods.msgpack
-  hzp-table-31-zgrid:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/31-zgrid-rods.msgpack out=lattice/31-zgrid.msgpack aic=lattice/31-zgrid-aic.msgpack b4c=lattice/31-zgrid-b4c.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/31-zgrid.msgpack
-      - hzp/lattice/31-zgrid-aic.msgpack
-      - hzp/lattice/31-zgrid-b4c.msgpack
-    outs:
-      - hzp/tables/31-zgrid-rods.msgpack
-  hzp-table-reflector-I-31-fuel-fuel:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/reflector-I-31-fuel-fuel-rods.msgpack out=lattice/reflector-I-31-fuel-fuel.msgpack aic=lattice/reflector-I-31-fuel-aic-fuel.msgpack b4c=lattice/reflector-I-31-fuel-b4c-fuel.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
-      - hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
-      - hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
-    outs:
-      - hzp/tables/reflector-I-31-fuel-fuel-rods.msgpack
-  hzp-table-reflector-I-31-zgrid-fuel:
-    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/reflector-I-31-zgrid-fuel-rods.msgpack out=lattice/reflector-I-31-zgrid-fuel.msgpack aic=lattice/reflector-I-31-zgrid-aic-fuel.msgpack b4c=lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
-    deps:
-      - ../../../python-ast/examples/core/rod_table.py.ast
-      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
-      - hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
-      - hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
-    outs:
-      - hzp/tables/reflector-I-31-zgrid-fuel-rods.msgpack
   hzp-axial-21:
     cmd: cd hzp && mkdir -p axial-21 && ../../../../bin/lattice axial-21.toml > axial-21.out 2> axial-21.log
     deps:
@@ -1752,7 +1532,9 @@ stages:
       - hzp/small-assemblies.toml
       - hzp/axial-31
       - hzp/axial-31-rcca
+      - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/31-igrid.msgpack
+      - hzp/lattice/31-zgrid.msgpack
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
       - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
@@ -1763,8 +1545,6 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
-      - hzp/tables/31-fuel-rods.msgpack
-      - hzp/tables/31-zgrid-rods.msgpack
       - ../../../bin/core
     outs:
       - hzp/small.out
@@ -1778,7 +1558,9 @@ stages:
       - hzp/small-assemblies.toml
       - hzp/axial-31
       - hzp/axial-31-rcca
+      - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/31-igrid.msgpack
+      - hzp/lattice/31-zgrid.msgpack
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
       - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
@@ -1789,8 +1571,6 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
-      - hzp/tables/31-fuel-rods.msgpack
-      - hzp/tables/31-zgrid-rods.msgpack
       - ../../../bin/core
     outs:
       - hzp/small-half.out
@@ -1803,13 +1583,13 @@ stages:
       - hzp/small-2d-aic-cycle.toml
       - hzp/small-2d-aic-plant.toml
       - hzp/small-2d-assemblies.toml
+      - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-corner-31-fuel-right.msgpack
       - hzp/lattice/reflector-corner-31-fuel-top.msgpack
       - hzp/lattice/reflector-corner-31-fuel.msgpack
-      - hzp/tables/31-fuel-rods.msgpack
       - ../../../bin/core
     outs:
       - hzp/small-2d-aic.out
@@ -1821,13 +1601,13 @@ stages:
       - hzp/small-2d-b4c-cycle.toml
       - hzp/small-2d-b4c-plant.toml
       - hzp/small-2d-assemblies.toml
+      - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-corner-31-fuel-right.msgpack
       - hzp/lattice/reflector-corner-31-fuel-top.msgpack
       - hzp/lattice/reflector-corner-31-fuel.msgpack
-      - hzp/tables/31-fuel-rods.msgpack
       - ../../../bin/core
     outs:
       - hzp/small-2d-b4c.out
@@ -1854,6 +1634,7 @@ stages:
       - hzp/lattice/21-fuel.msgpack
       - hzp/lattice/21-igrid.msgpack
       - hzp/lattice/21-zgrid.msgpack
+      - hzp/lattice/26-fuel.msgpack
       - hzp/lattice/26-igrid.msgpack
       - hzp/lattice/26-p16-empty-igrid.msgpack
       - hzp/lattice/26-p16-plenum.msgpack
@@ -1870,6 +1651,7 @@ stages:
       - hzp/lattice/26-p24-plug-igrid.msgpack
       - hzp/lattice/26-p24-poison-zgrid.msgpack
       - hzp/lattice/26-p24-poison.msgpack
+      - hzp/lattice/26-zgrid.msgpack
       - hzp/lattice/31-p12-empty-igrid.msgpack
       - hzp/lattice/31-p12-plenum.msgpack
       - hzp/lattice/31-p12-plug-igrid.msgpack
@@ -1905,12 +1687,6 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
-      - hzp/tables/21-fuel-rods.msgpack
-      - hzp/tables/21-zgrid-rods.msgpack
-      - hzp/tables/26-fuel-rods.msgpack
-      - hzp/tables/26-zgrid-rods.msgpack
-      - hzp/tables/reflector-I-31-fuel-fuel-rods.msgpack
-      - hzp/tables/reflector-I-31-zgrid-fuel-rods.msgpack
       - ../../../bin/core
     outs:
       - hzp/core-hzp.out

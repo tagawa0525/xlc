@@ -114,10 +114,9 @@ aic = { gt = "gt-aic" }
   制御棒の値にも持つ。前の制御棒の組の入力（branch-2A-micro-rods.toml）は `derivative` を持たず、rod_table.py は持つ値と持たない
   値をそのまま結合していた。branch-2A-micro-rods.toml は、部分挿入のノードの確認の一様に棒の入った層の比べる先として残し、値 aic と
   同じ問題になるよう `derivative` を足した
-- rod_table.py は、examples/vera/p5 の HZP のテーブル（dvc.yaml の 8 本。燃料と支持格子の層の 6 本と、径方向の反射体の格子の
-  ノードごとの出力の 2 本。ADR-0224）と、確認の手順（ADR-0224 の examples/core/rod-branch-check、この ADR の examples/depletion/rod-axis-check）、examples/depletion の
-  記録の前の形のテーブルの手順が使うので残す。p5 の層の
-  テーブルの制御棒の分岐への置き換え、ノードごとに制御棒の軸を付け分ける仕組み、rod_table.py の削除は #0213 の残り
+- rod_table.py は、examples/vera/p5 の HZP のテーブルを 1 つの入力の格子に置き換え（ノードごとに制御棒の軸を付け分ける仕組みは
+  [ADR-0227](0227-give-the-rod-axis-to-nodes-with-replaced-cells.md)）、確認の手順（ADR-0224 の examples/core/rod-branch-check、この ADR の examples/depletion/rod-axis-check）とともに
+  消した（#0213、2026-11-04）。この ADR の確認の計算の入力と手順は、タグ `record/adr-0225-rod-axis-check` にある
 - 制御棒の履歴の補正（[ADR-0215](0215-correct-untracked-history-by-history-branches.md) の制御棒の変数。#0190）は、この組み合わせの上に作る別のトピック
 
 ### 確認

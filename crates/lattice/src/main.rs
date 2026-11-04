@@ -40,7 +40,9 @@ use xlc_format::medium::{Medium, MediumState};
 use xlc_format::table::Axis;
 use xlc_format::table::{Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::{BranchShielder, lexicographic, state_indices, tables};
+use xlc_lattice::branches::{
+    BranchShielder, lexicographic, state_indices, tables, without_rod_axis,
+};
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
 };
@@ -1032,6 +1034,30 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let mut tables = tables(&table_axes, *split, &points, per_state)
             .map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        // 制御棒の値が置き換えるセルを含まないノードのテーブルは、棒のない値の状態だけを持つ（ADR-0227）
+        if rods > 1 {
+            let rod_axes = input.rod_axes();
+            if rod_axes.len() != tables.len() {
+                return Err(anyhow!(
+                    "{}: {} tables for {} few-group outputs",
+                    shown(path),
+                    tables.len(),
+                    rod_axes.len()
+                ));
+            }
+            tables = tables
+                .into_iter()
+                .zip(rod_axes)
+                .map(|(table, rodded)| {
+                    if rodded {
+                        Ok(table)
+                    } else {
+                        without_rod_axis(table)
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        }
         // 履歴からの分岐は格子全体の 1 つのテーブル（入力の検査）で、初めの重金属の質量を持つ（ADR-0190）
         if let Some(h) = &history_branches {
             for table in &mut tables {

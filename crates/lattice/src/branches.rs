@@ -28,7 +28,8 @@
 //! 状態ごとの成分から作る）。細かい群の媒質は燃料の温度の軸にだけ挙げ、分岐の状態ごとに媒質の同じ状態を使う。
 //!
 //! 制御棒の軸の値は、棒のない状態 `out`（基準の形状）と、`[branches.rod]` に書いた値（名前の順）。値ごとに置き換えた形状で、
-//! 連続の軸の同じ状態を解き、テーブルは制御棒の軸を最後の軸に持つ（ADR-0224）。置き換えるセルが `rows` と定義に合うことは
+//! 連続の軸の同じ状態を解き、テーブルは制御棒の軸を最後の軸に持つ（ADR-0224）。ノードごとの出力では、置き換えるセルを含まない
+//! ノードのテーブルは制御棒の軸を持たず、棒のない値の状態だけを持つ（ADR-0227）。置き換えるセルが `rows` と定義に合うことは
 //! 入力（`input`）が確かめる。
 
 use std::collections::BTreeMap;
@@ -367,6 +368,38 @@ pub fn tables(
         }
     }
     Ok(tables)
+}
+
+/// 制御棒の軸（最後の軸）を持つテーブルから、棒のない値 `out`（値の番号 0）の点と状態だけを残し、制御棒の軸を除いたテーブル
+/// （制御棒の値が置き換えるセルを含まないノードのテーブル。ADR-0227）。点は辞書式の順のまま
+pub fn without_rod_axis(table: Table) -> Result<Table, String> {
+    let Some(Axis::Rod { .. }) = table.axes.last() else {
+        return Err("the table has no rod axis as its last axis".into());
+    };
+    let sub = table.split * table.split;
+    if table.states.len() != table.points.len() * sub {
+        return Err(format!(
+            "{} states for {} points of {sub} sub-nodes",
+            table.states.len(),
+            table.points.len()
+        ));
+    }
+    let mut axes = table.axes;
+    axes.pop();
+    let mut points = Vec::new();
+    let mut states = Vec::new();
+    for (mut point, subs) in table.points.into_iter().zip(table.states.chunks(sub)) {
+        if point.pop() == Some(0) {
+            points.push(point);
+            states.extend_from_slice(subs);
+        }
+    }
+    Ok(Table {
+        axes,
+        points,
+        states,
+        ..table
+    })
 }
 
 /// 軸の名前の組の bit（boron、moderator、fuel の順）
