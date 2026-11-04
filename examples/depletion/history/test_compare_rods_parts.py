@@ -108,11 +108,8 @@ REFERENCE_WEIGHT = 0.3
 
 
 def reference_k(t):
-    """燃焼度 20 の参照の k∞: core のノードの定数の数密度を参照のものにし、U(1) の重みを `REFERENCE_WEIGHT` にした定数の 2 群の k"""
-    f, factors, _ = expected_node(t, 2, CORE_DENSITIES[2], 0.5)
-    at_reference = corrected(
-        f, factors, [y - x for x, y in zip(CORE_DENSITIES[2], REFERENCE_DENSITIES[2])]
-    )
+    """燃焼度 20 の参照の k∞: 参照の数密度で組み立てたノードの定数の U(1) の重みを `REFERENCE_WEIGHT` にした定数の 2 群の k"""
+    at_reference, _, _ = expected_node(t, 2, REFERENCE_DENSITIES[2], 0.5)
     u = t["histories"][1]["rods"][1]["untracked"][2]
     return k_inf(added(at_reference, c.scaled(u, REFERENCE_WEIGHT - 0.5)))
 
@@ -202,15 +199,14 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             c.compare(t, reference, core)
 
-    def test_the_composition_effect_removes_the_density_differences(self):
+    def test_the_composition_effect_rebuilds_the_node_at_the_reference(self):
+        # 数密度の効きは、線形の補正だけでなく P / P_j も参照の数密度で作り直したノードの定数との差
         t, reference, core = histories()
         (row,) = c.compare(t, reference, core)["rows"]
-        f, factors, _ = expected_node(t, 2, CORE_DENSITIES[2], 0.5)
-        at_reference = corrected(
-            f,
-            factors,
-            [y - x for x, y in zip(CORE_DENSITIES[2], REFERENCE_DENSITIES[2])],
-        )
+        f, _, _ = expected_node(t, 2, CORE_DENSITIES[2], 0.5)
+        at_reference, _, a = expected_node(t, 2, REFERENCE_DENSITIES[2], 0.5)
+        self.assertNotAlmostEqual(a, row["index_ratio"], delta=1e-6)
+        self.assertAlmostEqual(row["reference_index_ratio"], a, delta=1e-12)
         self.assertAlmostEqual(
             row["composition_pcm"],
             rho(k_inf(f)) - rho(k_inf(at_reference)),
@@ -231,6 +227,16 @@ class Compare(unittest.TestCase):
             self.assertEqual(n["percent"], 0.0)
             self.assertEqual(n["pcm"], 0.0)
 
+    def test_nuclide_effects_rebuild_the_node_with_that_nuclide_at_the_reference(self):
+        t, reference, core = histories()
+        (row,) = c.compare(t, reference, core)["rows"]
+        f, _, _ = expected_node(t, 2, CORE_DENSITIES[2], 0.5)
+        for i, n in enumerate(row["nuclides"]):
+            only = list(CORE_DENSITIES[2])
+            only[i] = REFERENCE_DENSITIES[2][i]
+            g, _, _ = expected_node(t, 2, only, 0.5)
+            self.assertAlmostEqual(n["pcm"], rho(k_inf(f)) - rho(k_inf(g)), delta=1e-9)
+
     def test_nuclide_rows_hold_every_tracked_nuclide(self):
         (row,) = self.compare()["rows"]
         self.assertEqual([n["nuclide"] for n in row["nuclides"]], NUCLIDES)
@@ -244,18 +250,13 @@ class Compare(unittest.TestCase):
     def test_reference_weights_bring_the_node_to_the_reference(self):
         t, reference, core = histories()
         (row,) = c.compare(t, reference, core)["rows"]
-        f, factors, _ = expected_node(t, 2, CORE_DENSITIES[2], 0.5)
-        at_reference = corrected(
-            f,
-            factors,
-            [y - x for x, y in zip(CORE_DENSITIES[2], REFERENCE_DENSITIES[2])],
-        )
+        at_reference, _, _ = expected_node(t, 2, REFERENCE_DENSITIES[2], 0.5)
         self.assertAlmostEqual(row["untracked_weight"], REFERENCE_WEIGHT, delta=1e-9)
         out = t["histories"][1]["rods"][1]
         u, l = out["untracked"][2], out["linearization"][2]
         for key, part, now in (
             ("untracked_weight", u, row["weight"]),
-            ("linearization_weight", l, row["index_ratio"]),
+            ("linearization_weight", l, row["reference_index_ratio"]),
         ):
             moved = added(at_reference, c.scaled(part, row[key] - now))
             self.assertAlmostEqual(rho(k_inf(moved)), rho(reference_k(t)), delta=1e-6)
@@ -316,6 +317,15 @@ class Forgetting(unittest.TestCase):
         result = c.compare(*histories(), taus=[None, 5.0, -5.0, 50.0])
         best = min(result["forgetting"], key=lambda r: r["largest_pcm"])
         self.assertEqual(result["best"], best["tau"])
+
+    def test_a_best_time_constant_next_to_zero_is_at_the_edge(self):
+        # 列の正の最小か負の最大の τ は、0 の側に比べた τ が無く、最小を挟んでいない
+        for taus in ([None, 5.0, 50.0], [None, -5.0, -50.0], [None, 5.0, -5.0, 50.0]):
+            result = c.compare(*histories(), taus=taus)
+            positive = [t for t in taus if t is not None and t > 0]
+            negative = [t for t in taus if t is not None and t < 0]
+            edges = {min(positive, default=None), max(negative, default=None)} - {None}
+            self.assertEqual(result["best_at_edge"], result["best"] in edges, taus)
 
 
 class Report(unittest.TestCase):
