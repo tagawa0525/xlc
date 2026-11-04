@@ -76,13 +76,12 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   直接比べる形（crates/lattice/tests/history_rod_branch.rs と同じ照らし方）で作り直す
 - rod_table.py を消した後の指す先（2026-11-04。記録の数値と ADR の凍結する部分は直さない）: 次の記録の本文は、消したファイルを
   今の場所で引く。消したファイルは、分岐点の main 7cd58518c と、下に挙げる計算のコミットにある
-  - examples/core/verification.md: ファイルの表の `rod-branch-check/` の行（14 行目）、「方式の誤差と微分価値」の前の形の説明
-    （20 行目。60cf97d0 の値ごとの入力と rod_table.py）、「制御棒の分岐と値ごとの格子計算の結合の一致」（87〜101 行目。入力、
+  - examples/core/verification.md: 「方式の誤差と微分価値」の前の形の説明（18〜19 行目。60cf97d0 の値ごとの入力と rod_table.py）、「制御棒の分岐と値ごとの格子計算の結合の一致」（86〜100 行目。入力、
     `compare_rod_branch.py` と手順は 33c2ecd4 の `examples/core/rod-branch-check/`）
-  - examples/depletion/verification.md: ファイルの表の `rod-axis-check/` の行（26 行目）、「制御棒の分岐と値ごとの格子計算の結合の
-    一致（燃焼の履歴からの分岐）」（6607 行目から。入力と手順はタグ `record/adr-0225-rod-axis-check` の `examples/depletion/rod-axis-check/`）、
-    「サイクルのステップの core の燃焼（2A の集合体 1 体）」（6687 行目。rod_table.py でまとめた 9689f898）と「ステップの大きさの誤差と
-    中点の臨界ホウ素（小さな炉心）」（6867 行目。前の形のテーブル）の前の形のテーブルの作り方
+  - examples/depletion/verification.md: 「制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」（6606 行目から。入力と手順はタグ `record/adr-0225-rod-axis-check` の `examples/depletion/rod-axis-check/`）、
+    「サイクルのステップの core の燃焼（2A の集合体 1 体）」（6686 行目。rod_table.py でまとめた 9689f898）と「ステップの大きさの誤差と
+    中点の臨界ホウ素（小さな炉心）」（6866 行目。前の形のテーブル）の前の形のテーブルの作り方
   - examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」の「計算」: 「制御棒のテーブル 2」は消した結合のステージ
     （`hzp-table-*`）で、値ごとの格子は 1 つの入力の格子に替わった
-  - examples/core/dvc.lock の前の形の `table` と `lattice@<値>` の記載は消した（#0214）
+  - examples/core/dvc.lock の前の形の `table` と `lattice@<値>` の記載と、2 つの記録のファイルの表の `rod-branch-check/` と
+    `rod-axis-check/` の行は消した
