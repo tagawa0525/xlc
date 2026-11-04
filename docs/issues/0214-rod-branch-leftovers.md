@@ -29,8 +29,8 @@ resolution:
   形状の燃焼の領域の名前にすることは、#0213 の ADR-0225 で済んだ）
 - 標準出力の `state <番号>` はテーブルの軸の直積の順だが、エラーの文脈とログ（`lattice` の `state=`）は解く順（値が最初の軸）の
   番号で、同じ状態に 2 つの番号が付く。標準出力の番号のテストもない
-- 制御棒の軸の有無を、main.rs の 4 か所（`solve_counts` と `solved_points` とノードのテーブルから軸を除く箇所の `rods > 1`、
-  ログとエラーの `values` の `rod_values.len() > 1`）、`Branches::table_axes`、input.rs のノードの出力の検査（`!b.rods().is_empty()`）と `LatticeInput::rod_axes` で決め、点の並べ替えは番号の列
+- 制御棒の軸の有無を、main.rs の 5 か所（`solve_counts` と `solved_points` と履歴からの分岐の `table_axes` の腕とノードのテーブルから軸を除く箇所の
+  `rods > 1`、ログとエラーの `values` の `rod_values.len() > 1`）、`Branches::table_axes`、input.rs のノードの出力の検査（`!b.rods().is_empty()`）と `LatticeInput::rod_axes` で決め、点の並べ替えは番号の列
   （`lexicographic`）と `Option` の取り出しで行う（点と状態の組を並べ替える形のほうが短い）
 - ノードごとの出力と制御棒の分岐を組む入力は、ADR-0227 で、置き換えるセルを含むノードのテーブルだけが軸を持つ形にし、径方向の
   反射体の格子（平板でなく、燃料のノードが 1 つ）だけを通した（#0213）。カラーセット（反射体でないノードが 2 つ以上。どのノードにも
