@@ -25,11 +25,12 @@
     f* の辺の向きを変えた 2 つ
 - `hzp/`: Problem 5（3D の全炉心の零出力試験。表 P5-1、P5-2）の入力。軸方向の層は Problem 3 と同じ形（ADR-0128、
   ADR-0140）で、どの格子と平板も分岐のテーブル（ADR-0097。ホウ素、減速材と燃料の温度）
-  - `<種類>-<層>[-<制御棒>].toml`: 集合体の種類と層の種類（支持格子、Pyrex の棒の挿入物の高さ）ごとの単一集合体の格子。
-    支持格子のない層は平板の燃料の媒質（`media/`）も書く。制御棒の値（aic、b4c）ごとの格子は、棒のない格子と
-    `tables/<…>-rods.msgpack` に結合する（examples/core/rod_table.py。#0213 で格子計算の制御棒の分岐（ADR-0224）に置き換えるまでのつなぎ）
-  - `reflector-<形>-<種類>-<層>[-<制御棒>].toml`: 外周の燃料の層ごとの反射体の格子（ADR-0153）。代表の燃料の支持格子の
-    ない層の反射体のノードの定数を、径方向の反射体の列のバッフルのある高さに置く
+  - `<種類>-<層>.toml`: 集合体の種類と層の種類（支持格子、Pyrex の棒の挿入物の高さ）ごとの単一集合体の格子。
+    支持格子のない層は平板の燃料の媒質（`media/`）も書く。制御棒の入る位置の層は、制御棒の分岐（ADR-0224。値 aic と b4c）を
+    同じ入力で解き、テーブルに制御棒の軸を持つ
+  - `reflector-<形>-<種類>-<層>.toml`: 外周の燃料の層ごとの反射体の格子（ADR-0153）。代表の燃料の支持格子の
+    ない層の反射体のノードの定数を、径方向の反射体の列のバッフルのある高さに置く。制御棒の入る位置の層は制御棒の分岐を
+    同じ入力で解き、燃料のノードのテーブルだけが制御棒の軸を持つ（ADR-0227）
   - `axial-<種類>[-rcca].toml`: 集合体の種類（と制御棒の入る位置）ごとの軸方向の反射体の平板（ADR-0128）
   - `core-hzp*.toml`: 全炉心のケース（表 P5-2 の 32 の場合と、場合 1、2 の臨界ホウ素濃度の探索。ADR-0145、ADR-0146）
   - `small*.toml`: 最小の入力（3.10% の 3 × 3 と反射体の輪、中央に D バンク）の 3D と、同じ定数の 2D
@@ -306,10 +307,10 @@ sectors = 8""",
 }
 
 
-def rod_cell(rod: str) -> str:
+def rod_cell(rod: str, name: str = "cr") -> str:
     title, _, radius = RODS[rod]
     return f"""# {title} の制御棒を入れた案内管（表 8。吸収体と被覆管の間は真空。ADR-0120）
-[cell.cr]
+[cell.{name}]
 zones = [
   {{ material = "{rod}", radius = {radius}, rings = 5 }},
   {{ material = "void", radius = 0.386, rings = 1 }},
@@ -1670,20 +1671,30 @@ sectors = 8""",
 }
 
 
-def hzp_rows(fuel: str, pyrex: int, rod: str | None, kind: str) -> list[list[str]]:
-    """層の種類の 17 × 17 のセルの名前。Pyrex の棒の位置は層の種類のセル"""
+def hzp_rows(fuel: str, pyrex: int, kind: str) -> list[list[str]]:
+    """層の種類の 17 × 17 のセルの名前（棒のない基準の形状）。Pyrex の棒の位置は層の種類のセル"""
     insert = kinds_of(pyrex)[kind][0]
-    return [
-        [insert if c == "py" else c for c in row] for row in pin_rows(fuel, pyrex, rod)
-    ]
+    return [[insert if c == "py" else c for c in row] for row in pin_rows(fuel, pyrex)]
+
+
+def rod_cell_name(rod: str) -> str:
+    """制御棒の値 `rod` で案内管 gt を置き換えるセルの名前"""
+    return f"cr-{rod}"
+
+
+def hzp_rod_branches() -> str:
+    """制御棒の分岐（ADR-0224）: 値ごとに、24 本の案内管 gt を棒を入れた案内管に置き換える（D バンク。計装管には入らない）"""
+    return "\n\n[branches.rod]\n" + "".join(
+        f'{rod} = {{ gt = "{rod_cell_name(rod)}" }}\n' for rod in RODS
+    ).rstrip("\n")
 
 
 def hzp_parts(
-    fuel: str, pyrex: int, rod: str | None, kind: str, rows: list[list[str]]
+    fuel: str, pyrex: int, rodded: bool, kind: str, rows: list[list[str]]
 ) -> tuple[str, list[str], list[str]]:
-    """層の種類の説明、物質の名前、セル（支持格子の枠つき）"""
+    """層の種類の説明、物質の名前、セル（支持格子の枠つき）。`rodded` なら制御棒の値ごとの棒を入れた案内管のセルと物質も足す"""
     _, grid, _ = kinds_of(pyrex)[kind]
-    what = assembly_parts(fuel, pyrex, rod)[0].replace("（D バンク）", "")
+    what = assembly_parts(fuel, pyrex, None)[0]
     what += {
         "fuel": "",
         "zgrid": "、中間の支持格子（Zircaloy-4）の高さ",
@@ -1697,14 +1708,17 @@ def hzp_parts(
         "empty": "、Pyrex の棒の下の端栓より下（案内管は空。平板の媒質だけに使う）",
         "plug": "、Pyrex の棒の下の端栓（平板の媒質だけに使う）",
     }[kind]
+    if rodded:
+        values = "と ".join(f"{RODS[rod][0]}（値 {rod}）" for rod in RODS)
+        what += f"。制御棒の分岐は、24 本の案内管に入れる {values}の制御棒（D バンク）"
     used = {c for row in rows for c in row}
     names = [f"fuel{fuel}", "zircaloy", "water"]
-    if used & {"py", "pl", "pp", "cr"}:
+    if rodded or used & {"py", "pl", "pp"}:
         names.append("ss304")
     if "py" in used:
         names.append("pyrex")
-    if rod:
-        names.append(rod)
+    if rodded:
+        names.extend(RODS)
     if grid == "inconel":
         names.append("inconel")
     cells = [pin_cell(fuel), TUBE_CELLS["gt"], TUBE_CELLS["it"]]
@@ -1713,8 +1727,8 @@ def hzp_parts(
     for c in ("pl", "pp"):
         if c in used:
             cells.append(PLUG_CELLS[c])
-    if rod:
-        cells.append(rod_cell(rod))
+    if rodded:
+        cells.extend(rod_cell(rod, rod_cell_name(rod)) for rod in RODS)
     if grid:
         frame = (
             f'\nframe = {{ thickness = {GRID_FRAMES[grid]:.6f}, material = "{grid}" }}'
@@ -1732,23 +1746,20 @@ def moderated(names: list[str]) -> list[str]:
     return [n for n in names if not n.startswith("fuel")]
 
 
-def lattice_stem(shape: str | None, design: str, kind: str, rod: str | None) -> str:
-    """2D の格子の名前: 単一集合体は `<種類>-<層>`、反射体の格子は `reflector-<形>-<種類>-<層>`、制御棒は `-<値>`"""
-    stem = f"{design}-{kind}" + (f"-{rod}" if rod else "")
+def lattice_stem(shape: str | None, design: str, kind: str) -> str:
+    """2D の格子の名前: 単一集合体は `<種類>-<層>`、反射体の格子は `reflector-<形>-<種類>-<層>`"""
+    stem = f"{design}-{kind}"
     return stem if shape is None else f"reflector-{shape}-{stem}"
 
 
-def hzp_single(design: str, kind: str, rod: str | None) -> str:
+def hzp_single(design: str, kind: str, rodded: bool) -> str:
     fuel, pyrex, _ = assembly_types()[design]
-    rows = hzp_rows(fuel, pyrex, rod, kind)
-    what, names, cells = hzp_parts(fuel, pyrex, rod, kind, rows)
-    stem = lattice_stem(None, design, kind, rod)
+    rows = hzp_rows(fuel, pyrex, kind)
+    what, names, cells = hzp_parts(fuel, pyrex, rodded, kind, rows)
+    stem = lattice_stem(None, design, kind)
     _, grid, _ = kinds_of(pyrex)[kind]
-    medium = (
-        f'medium = "media/{design}-{kind}.msgpack"\n'
-        if grid is None and rod is None
-        else ""
-    )
+    # 媒質は棒のない値の状態だけを書く（ADR-0128、ADR-0224）
+    medium = f'medium = "media/{design}-{kind}.msgpack"\n' if grid is None else ""
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 # VERA Problem 5 の集合体（{what}）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
 # 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
@@ -1762,13 +1773,13 @@ gap = {{ width = 0.04, material = "water" }}
 
 {hzp_materials(names)}
 
-{hzp_branches(moderated(names), [names[0]])}
+{hzp_branches(moderated(names), [names[0]])}{hzp_rod_branches() if rodded else ""}
 
 {chr(10).join(cells)}
 """
 
 
-def hzp_reflector(shape: str, design: str, kind: str, rod: str | None) -> str:
+def hzp_reflector(shape: str, design: str, kind: str, rodded: bool) -> str:
     """反射体の格子（ADR-0095、ADR-0132）の層の種類。燃料のノードの定数を外周のこの種類の位置のその高さに、代表の燃料の
     支持格子のない層の反射体のノードの定数を径方向の反射体の列に置く（ADR-0153）"""
     fuel, pyrex, _ = assembly_types()[design]
@@ -1776,13 +1787,13 @@ def hzp_reflector(shape: str, design: str, kind: str, rod: str | None) -> str:
     n_rows, n_cols = len(kinds), len(kinds[0])
     col_fuel = [any(kinds[i][j] == "F" for i in range(n_rows)) for j in range(n_cols)]
     row_fuel = [any(kinds[i][j] == "F" for j in range(n_cols)) for i in range(n_rows)]
-    fuel_rows = hzp_rows(fuel, pyrex, rod, kind)
+    fuel_rows = hzp_rows(fuel, pyrex, kind)
     rows = core_lattice_rows(fuel_rows, kinds)
-    what, names, cells = hzp_parts(fuel, pyrex, rod, kind, fuel_rows)
+    what, names, cells = hzp_parts(fuel, pyrex, rodded, kind, fuel_rows)
     if "ss304" not in names:
         names.append("ss304")
     cells.append(REFLECTOR_CELLS)
-    stem = lattice_stem(shape, design, kind, rod)
+    stem = lattice_stem(shape, design, kind)
     if shape == "I":
         cols, rws = node_ranges(["fuel", "after"]), node_ranges(["fuel"])
         boundary = '{ right = "vacuum" }'
@@ -1804,10 +1815,16 @@ def hzp_reflector(shape: str, design: str, kind: str, rod: str | None) -> str:
         )
         + "], pins = true }\n"
     )
+    rod_note = (
+        "\n# 制御棒の値が置き換える案内管は燃料のノードにだけあるので、燃料のノードのテーブルだけが制御棒の軸を持ち、反射体の\n"
+        "# ノードのテーブルは棒のない値の状態だけを持つ（ADR-0227）"
+        if rodded
+        else ""
+    )
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 # VERA Problem 5 の{title}。燃料は{what}。
 # 反射体は燃料側から、隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm（1.13 節の表 16。5-2D と同じ形）。
-# 分岐のテーブル（ADR-0097）で、ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。
+# 分岐のテーブル（ADR-0097）で、ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。{rod_note}
 library = "../../vera.msgpack"
 pitch = 1.26
 azimuthal = {AZIMUTHAL}
@@ -1819,7 +1836,7 @@ heights = {grid_widths(side_list(row_fuel))}
 
 {hzp_materials(names)}
 
-{hzp_branches(moderated(names), [names[0]])}
+{hzp_branches(moderated(names), [names[0]])}{hzp_rod_branches() if rodded else ""}
 
 {chr(10).join(cells)}
 """
@@ -2054,11 +2071,9 @@ def hzp_design_name(design: str, rodded: bool, shape: str | None) -> str:
 
 
 def fuel_file(design: str, rodded: bool, shape: str | None, kind: str) -> str:
-    """燃料の層の少数群定数: 単一集合体の格子か、外周は反射体の格子の燃料のノード（ADR-0153）。制御棒の入る層は、
-    制御棒の値ごとの格子を結合したテーブル（examples/core/rod_table.py。#0213 で格子計算の制御棒の分岐（ADR-0224）に置き換えるまでのつなぎ）"""
-    stem = lattice_stem(shape, design, kind, None) + ("-fuel" if shape else "")
-    if rodded and kind in RODDED_KINDS:
-        return f"tables/{stem}-rods.msgpack"
+    """燃料の層の少数群定数: 単一集合体の格子か、外周は反射体の格子の燃料のノード（ADR-0153）。制御棒の入る位置の層
+    （`rodded` で `RODDED_KINDS` の層）も同じファイルで、その格子は制御棒の分岐を解き、テーブルに制御棒の軸を持つ（`hzp_lattices`）"""
+    stem = lattice_stem(shape, design, kind) + ("-fuel" if shape else "")
     return f"lattice/{stem}.msgpack"
 
 
@@ -2427,39 +2442,48 @@ def hzp_layer_files(files: dict[str, str]) -> set[str]:
     """台帳と炉心の形が読む少数群定数のファイル"""
     out = set()
     for text in files.values():
-        out |= set(
-            re.findall(r'"((?:lattice|tables|axial-[\w-]+)/[\w.-]+\.msgpack)"', text)
-        )
+        out |= set(re.findall(r'"((?:lattice|axial-[\w-]+)/[\w.-]+\.msgpack)"', text))
     return out
 
 
-def hzp_lattices(used: set[str]) -> tuple[list[tuple], list[tuple], list[tuple]]:
-    """読む定数から、作る 2D の格子 (形, 種類, 層, 制御棒の値)、結合するテーブル (形, 種類, 層)、平板 (種類, 制御棒)"""
-    lattices, tables, slabs = set(), set(), set()
+def hzp_rodded_files(files: dict[str, str]) -> set[str]:
+    """台帳の、制御棒の入る位置の設計（`-rcca`。`hzp_design_name`）の層が読むファイル"""
+    out = set()
+    for text in files.values():
+        for name, design in tomllib.loads(text).get("design", {}).items():
+            if "-rcca" in name:
+                out |= {f for f in design["layers"] if isinstance(f, str)}
+    return out
+
+
+def hzp_lattices(used: set[str], rodded: set[str]) -> tuple[list[tuple], list[tuple]]:
+    """読む定数から、作る 2D の格子 (形, 種類, 層, 制御棒の分岐を解くか) と平板 (種類, 制御棒)。制御棒の入る位置の設計の
+    `RODDED_KINDS` の層（`fuel_file`）が読む格子は、制御棒の分岐を解く（ADR-0224、ADR-0227）"""
+    lattices: dict[tuple, bool] = {}
+    slabs = set()
     for f in used:
         if f.startswith("axial-"):
             stem = f.split("/")[0].removeprefix("axial-")
-            rodded = stem.endswith("-rcca")
-            slabs.add((stem.removesuffix("-rcca"), rodded))
-    for design, rodded in slabs:
+            slabs.add((stem.removesuffix("-rcca"), stem.endswith("-rcca")))
+    for design, _ in slabs:
         pyrex = assembly_types()[design][1]
         # 平板の燃料の媒質（支持格子のない層の単一集合体の格子）
         for kind, (_, grid, _) in kinds_of(pyrex).items():
             if grid is None:
-                lattices.add((None, design, kind, None))
+                lattices.setdefault((None, design, kind), False)
     for shape in (None, "I", "corner"):
         for design in assembly_types():
             if assembly_types()[design][2]:
                 continue
             for kind in kinds_of(assembly_types()[design][1]):
-                stem = lattice_stem(shape, design, kind, None)
-                node = "-fuel" if shape else ""
-                if f"tables/{stem}{node}-rods.msgpack" in used:
-                    tables.add((shape, design, kind))
-                    for rod in (None, *RODS):
-                        lattices.add((shape, design, kind, rod))
-                if f"lattice/{stem}{node}.msgpack" in used:
-                    lattices.add((shape, design, kind, None))
+                f = fuel_file(design, False, shape, kind)
+                if f in used:
+                    lattices.setdefault((shape, design, kind), False)
+                if (
+                    kind in RODDED_KINDS
+                    and fuel_file(design, True, shape, kind) in rodded
+                ):
+                    lattices[(shape, design, kind)] = True
     for shape, n in (
         ("I", ""),
         ("corner", ""),
@@ -2467,43 +2491,38 @@ def hzp_lattices(used: set[str]) -> tuple[list[tuple], list[tuple], list[tuple]]
         ("corner", "-top"),
     ):
         if f"lattice/reflector-{shape}-{REPRESENTATIVE}-fuel{n}.msgpack" in used:
-            lattices.add((shape, REPRESENTATIVE, "fuel", None))
+            lattices.setdefault((shape, REPRESENTATIVE, "fuel"), False)
     made = {f"axial-{d}" + ("-rcca" if r else "") for d, r in slabs}
-    for shape, design, kind, rod in lattices:
-        stem = lattice_stem(shape, design, kind, rod)
+    for shape, design, kind in lattices:
+        stem = lattice_stem(shape, design, kind)
         if shape is None:
             made.add(f"lattice/{stem}.msgpack")
         else:
             made |= {f"lattice/{stem}{n}.msgpack" for n, *_ in LATTICE_NODES[shape]}
-    made |= {
-        f"tables/{lattice_stem(s, d, k, None)}{'-fuel' if s else ''}-rods.msgpack"
-        for s, d, k in tables
-    }
     missing = sorted(f for f in used if not (f in made or f.split("/")[0] in made))
     if missing:
         raise SystemExit(
             f"the 3D core inputs read constants that no stage writes: {missing}"
         )
     key = lambda t: tuple("" if x is None else str(x) for x in t)
-    return sorted(lattices, key=key), sorted(tables, key=key), sorted(slabs)
+    return sorted(((*k, r) for k, r in lattices.items()), key=key), sorted(slabs)
 
 
 def hzp_pipeline(
     files: dict[str, str],
     lattices: list[tuple],
-    tables: list[tuple],
     slabs: list[tuple],
 ) -> str:
-    """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、分岐のテーブル）→ 制御棒の値のテーブルの結合 → 平板 → 炉心 →
-    比較。入力と出力は hzp/ の中で、ステージは hzp/ に移って実行する"""
+    """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、分岐のテーブル）→ 平板 → 炉心 → 比較。入力と出力は hzp/ の中で、
+    ステージは hzp/ に移って実行する"""
     stages = []
     media = {}
-    for shape, design, kind, rod in lattices:
-        stem = lattice_stem(shape, design, kind, rod)
+    for shape, design, kind, _ in lattices:
+        stem = lattice_stem(shape, design, kind)
         if shape is None:
             outs = [f"hzp/lattice/{stem}.msgpack"]
             pyrex = assembly_types()[design][1]
-            if kinds_of(pyrex)[kind][1] is None and rod is None:
+            if kinds_of(pyrex)[kind][1] is None:
                 media[(design, kind)] = f"hzp/media/{design}-{kind}.msgpack"
                 outs.append(media[(design, kind)])
         else:
@@ -2514,21 +2533,6 @@ def hzp_pipeline(
                 f"cd hzp && mkdir -p lattice media && ../../../../bin/lattice {stem}.toml > {stem}.out",
                 [f"hzp/{stem}.toml", "../vera.msgpack", *code("lattice")],
                 [*outs, f"hzp/{stem}.out"],
-            )
-        )
-    for shape, design, kind in tables:
-        stem = lattice_stem(shape, design, kind, None) + ("-fuel" if shape else "")
-        parts = []
-        for rod in (None, *RODS):
-            s = lattice_stem(shape, design, kind, rod) + ("-fuel" if shape else "")
-            parts.append((rod or "out", f"lattice/{s}.msgpack"))
-        stages.append(
-            stage(
-                f"hzp-table-{stem}",
-                f"cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/{stem}-rods.msgpack "
-                + " ".join(f"{v}={p}" for v, p in parts),
-                ["../../core/rod_table.py", *(f"hzp/{p}" for _, p in parts)],
-                [f"hzp/tables/{stem}-rods.msgpack"],
             )
         )
     for design, rodded in slabs:
@@ -2562,9 +2566,7 @@ def hzp_pipeline(
         constants = sorted(hzp_layer_files({0: files[plant_file], 1: files[inv_file]}))
         deps = sorted(
             {
-                f"hzp/{c}"
-                if c.startswith(("lattice", "tables"))
-                else f"hzp/{c.split('/')[0]}"
+                f"hzp/{c}" if c.startswith("lattice") else f"hzp/{c.split('/')[0]}"
                 for c in constants
             }
         )
@@ -2632,17 +2634,17 @@ def hzp_files() -> tuple[dict[str, str], str]:
     """hzp/ の入力（名前 → 中身）と、dvc.yaml に足すステージ"""
     files = {**hzp_core_files(), **hzp_small_files()}
     used = hzp_layer_files(files)
-    lattices, tables, slabs = hzp_lattices(used)
-    for shape, design, kind, rod in lattices:
-        stem = lattice_stem(shape, design, kind, rod)
+    lattices, slabs = hzp_lattices(used, hzp_rodded_files(files))
+    for shape, design, kind, rodded in lattices:
+        stem = lattice_stem(shape, design, kind)
         files[f"{stem}.toml"] = (
-            hzp_single(design, kind, rod)
+            hzp_single(design, kind, rodded)
             if shape is None
-            else hzp_reflector(shape, design, kind, rod)
+            else hzp_reflector(shape, design, kind, rodded)
         )
     for design, rodded in slabs:
         files[f"{slab_name(design, rodded)}.toml"] = hzp_slab(design, rodded)
-    return files, hzp_pipeline(files, lattices, tables, slabs)
+    return files, hzp_pipeline(files, lattices, slabs)
 
 
 def main() -> None:
