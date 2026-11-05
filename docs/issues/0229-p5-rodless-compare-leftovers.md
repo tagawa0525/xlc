@@ -27,8 +27,9 @@ resolution:
 - examples/vera/p5/p5_inputs.py の `hzp_pipeline` は、棒のない出力のパスを 2 回求める。支持格子の層と反射体の格子の棒のない格子の
   ステージも、媒質を書かないのに `rodless/media` を作る（制御棒の分岐を解く格子の `mkdir -p lattice media` も同じ）
 - examples/verification_tables.py の `TABLES` の JSON の置き場を確かめるテストが無い。`GIT_TRACKED` に無い JSON は、同じディレクトリの
-  dvc.lock から md5 を読む（`TableError` の `<dvc.lock> does not exist`）ので、同じディレクトリの dvc.yaml がその JSON を出力に宣言して
-  いるかを確かめるテストを足す。あわせて、そのエラーの文言に置き場の制約（JSON は、md5 を持つ dvc.lock と同じディレクトリに置く）を書く。
+  dvc.lock から md5 を読む（`locked_md5`。dvc.lock が無ければ `<dvc.lock> does not exist`、あってもその JSON の出力が 1 つでなければ
+  `<dvc.lock> has N outputs named <JSON> (expected 1)` の `TableError`）ので、同じディレクトリの dvc.yaml がその JSON を出力に宣言して
+  いるかを確かめるテストを足す。あわせて、その 2 つのエラーの文言に置き場の制約（JSON は、md5 を持つ dvc.lock と同じディレクトリに置く）を書く。
   a18991012 で、置き場の誤り（examples/vera/p5/hzp/compare-rodless.json）が、記録用の計算（Slurm 695、696）を流し終えた後の記録を書く
   段で `examples/vera/p5/hzp/dvc.lock does not exist` として分かり、最後のレビューの周より後の挙動の変更になった。テストがあれば、
   `TABLES` に足したコミットの時点で止まる。急がない
