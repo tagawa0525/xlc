@@ -237,3 +237,49 @@ fn negative_or_misplaced_powers_are_errors() {
     powers[nozzle] = 1.0;
     assert!(channels.solve(th, 565.0, &powers, None).is_err());
 }
+
+/// 核分裂のある層のない集合体の位置（水の集合体など）は流路にならず、流量は燃料の集合体だけに分ける（ADR-0229）
+#[test]
+fn positions_without_fuel_take_no_channel_and_no_flow() {
+    let inventory = format!(
+        "{INVENTORY}\n[design.W]\nbounds = [0.0, 30.0]\nlayers = [\"water.msgpack\"]\n\n[assembly.W1]\ndesign = \"W\"\n"
+    );
+    let plant = SPLIT_PLANT.replace("map = [\"*  *\"]", "map = [\"*  *  *\"]");
+    let cycle = SPLIT_CYCLE.replace("loading = [\"A1  A2\"]", "loading = [\"A1  A2  W1\"]");
+    let base = Path::new("dir");
+    let case = Case::parse(CASE, base).unwrap();
+    let cycle = Cycle::parse(&cycle, base).unwrap();
+    let plant = Plant::parse(&plant, base).unwrap();
+    let inventory = Inventory::parse(&inventory, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables: Vec<Table> = layout
+        .files
+        .iter()
+        .map(|f| {
+            table(if f.ends_with("fuel.msgpack") {
+                1.0
+            } else {
+                0.0
+            })
+        })
+        .collect();
+    let channels = Channels::new(&layout, &tables).unwrap();
+    assert_eq!(channels.count(), 2);
+    let th = layout.thermal().unwrap();
+    let mut powers = vec![0.0; layout.node_material.len()];
+    for (site, power) in powers.iter_mut().enumerate() {
+        if channels.channel_of(site).is_some() && channels.fissile(site) {
+            *power = 10.0e3;
+        }
+    }
+    let solved = channels.solve(th, 565.0, &powers, None).unwrap();
+    // 2 kg/s を燃料の 2 体に: 流路あたり 1 kg/s、2 層の燃料の 20 kW で 20 kJ/kg
+    for channel in &solved.channels {
+        assert!((channel.rise - 20.0).abs() < 1e-9, "{}", channel.rise);
+    }
+    // 水の集合体の位置は入口の温度
+    let water = (0..powers.len())
+        .find(|&s| layout.node_material[s].is_some() && channels.channel_of(s).is_none())
+        .unwrap();
+    assert_eq!(solved.nodes[water].unwrap().moderator, 565.0);
+}
