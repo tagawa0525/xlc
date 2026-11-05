@@ -14,3 +14,4 @@ pub mod pins;
 pub mod rods;
 pub mod search;
 pub mod state;
+pub mod thermal;
