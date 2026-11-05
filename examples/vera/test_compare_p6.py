@@ -90,6 +90,13 @@ class ParseCore(unittest.TestCase):
     def test_a_solve_without_thermal_hydraulics_has_no_thermal_summary(self):
         self.assertIsNone(compare_p6.parse_core(ISOTHERMAL)["thermal"])
 
+    def test_thermal_lines_before_the_iteration_line_are_an_error(self):
+        text = (
+            ISOTHERMAL + "fuel temperature volume average 900.0000 K max 1000.0000 K\n"
+        )
+        with self.assertRaises(SystemExit):
+            compare_p6.parse_core(text)
+
     def test_missing_eigenvalue_is_an_error(self):
         with self.assertRaises(SystemExit):
             compare_p6.parse_core(HFP.replace("k-eff 1.16000000\n", ""))
@@ -136,12 +143,12 @@ class Summary(unittest.TestCase):
         )
         self.assertEqual(s["channel"]["outlet"], 600.5)
 
-    def test_reports_convergence_against_the_input_tolerance(self):
-        s = self.summary()
-        self.assertEqual(s["thermal"]["tolerance"], 1e-5)
-        self.assertTrue(s["thermal"]["converged"])
-        s = self.summary(HFP.replace("change 3.000e-6", "change 2.000e-5"))
-        self.assertFalse(s["thermal"]["converged"])
+    def test_reports_the_last_change_and_the_input_tolerance(self):
+        """収束しなければ core がエラーで止まるので、要約は 2 つの値だけをコピーする（出力の変化は 4 桁に丸めてあり、
+        収束の判定に使えない）"""
+        t = self.summary()["thermal"]
+        self.assertEqual((t["change"], t["tolerance"]), (3e-6, 1e-5))
+        self.assertNotIn("converged", t)
 
     def test_compares_the_low_power_solve_with_the_isothermal_solve_in_pcm(self):
         s = self.summary()

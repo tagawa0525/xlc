@@ -564,7 +564,6 @@ def p6_summary(**k) -> dict:
             "iterations": 9,
             "change": 4.2e-6,
             "tolerance": 1e-5,
-            "converged": True,
             "fuel_average": 880.04,
             "fuel_max": 1101.96,
             "density_error": 4.4e-4,
@@ -619,7 +618,7 @@ class DrawP6(unittest.TestCase):
         )
         self.assertEqual(
             rows["エンタルピーの上昇"],
-            "205.541 kJ/kg（出力 / 流量 205.541 kJ/kg、相対差 2e-16）",
+            "205.541 kJ/kg（出力 / 流量 205.541 kJ/kg、相対差 +2.0e-16）",
         )
         self.assertEqual(rows["出口の温度"], "600.495 K")
         self.assertEqual(
@@ -628,14 +627,14 @@ class DrawP6(unittest.TestCase):
         # 丸めて 0 になる差に符号を付けない
         self.assertEqual(
             rows["出力を 1e-6 倍にした解と熱水力なしの入口の温度の解"],
-            "k 1.17000123 と 1.17000123（差 0.0000 pcm、出口 565.0000 K、燃料の最大 565.0000 K）",
+            "k 1.17000123 と 1.17000123（差 0.000 pcm、出口 565.0000 K、燃料の最大 565.0000 K）",
         )
 
     def test_layers_dash_the_fuel_of_layers_without_fission(self):
         self.assertEqual(
             self.rows(vt.p6_layers([p6_summary()])),
             [
-                ["0.000〜50.000", "565.00", "0.74271", "−", "0.00000"],
+                ["0.000〜50.000", "565.00", "0.74271", "–", "0.00000"],
                 ["66.951〜70.817", "565.43", "0.74187", "640.0", "0.00512"],
             ],
         )
