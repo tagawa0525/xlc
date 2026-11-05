@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import tomllib
 NUMBER = '[-+0-9.eE]+'
+THERMAL_LINES = ('fuel temperature', 'moderator density', 'channel outlets', 'thermal layers')
 
 def parse_core(text: str) -> dict:
     lines = text.splitlines()
@@ -26,6 +27,8 @@ def parse_core(text: str) -> dict:
             thermal = {'iterations': int(m.group(1)), 'change': float(m.group(2)), 'channels': [], 'layers': []}
             section = None
             continue
+        if thermal is None and line.startswith(THERMAL_LINES):
+            raise SystemExit(f'{line!r} comes before the thermal-hydraulics iterations line')
         if (m := re.match(f'^fuel temperature volume average ({NUMBER}) K max ({NUMBER}) K$', line)):
             thermal['fuel_average'], thermal['fuel_max'] = map(float, m.groups())
             continue
@@ -83,11 +86,11 @@ def compare(paths: list[str]) -> dict:
         if z not in fractions:
             raise SystemExit(f'the thermal layer {z} is not an axial fission layer')
         layers.append({**layer, 'density': table_density(grid, layer['moderator']), 'fraction': fractions[z]})
-    return {'format': 'xlc-compare-p6', 'inputs': [{'path': str(p), 'md5': hashlib.md5(p.read_bytes()).hexdigest()} for p in (lattice_toml, core_toml, hfp_out, low_out, iso_out)], 'k': hfp['k'], 'thermal': {'iterations': t['iterations'], 'change': t['change'], 'tolerance': th['tolerance'], 'converged': t['change'] < th['tolerance'], 'fuel_average': t['fuel_average'], 'fuel_max': t['fuel_max'], 'density_error': t['density_error']}, 'channel': {'rise': channel['rise'], 'expected_rise': expected, 'rise_relative_diff': channel['rise'] / expected - 1, 'outlet': channel['outlet']}, 'low_power': {'k': low['k'], 'iterations': low['thermal']['iterations'], 'outlet': low['thermal']['channels'][0]['outlet'], 'fuel_max': low['thermal']['fuel_max']}, 'isothermal': {'k': iso['k']}, 'low_power_vs_isothermal_pcm': (low['k'] - iso['k']) * 100000.0, 'layers': layers}
+    return {'format': 'xlc-compare-p6', 'inputs': [{'path': str(p), 'md5': hashlib.md5(p.read_bytes()).hexdigest()} for p in (lattice_toml, core_toml, hfp_out, low_out, iso_out)], 'k': hfp['k'], 'thermal': {'iterations': t['iterations'], 'change': t['change'], 'tolerance': th['tolerance'], 'fuel_average': t['fuel_average'], 'fuel_max': t['fuel_max'], 'density_error': t['density_error']}, 'channel': {'rise': channel['rise'], 'expected_rise': expected, 'rise_relative_diff': channel['rise'] / expected - 1, 'outlet': channel['outlet']}, 'low_power': {'k': low['k'], 'iterations': low['thermal']['iterations'], 'outlet': low['thermal']['channels'][0]['outlet'], 'fuel_max': low['thermal']['fuel_max']}, 'isothermal': {'k': iso['k']}, 'low_power_vs_isothermal_pcm': (low['k'] - iso['k']) * 100000.0, 'layers': layers}
 
 def report(s: dict) -> list[str]:
     t, c = (s['thermal'], s['channel'])
-    lines = ['inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in s['inputs'])), f"k {s['k']:.8f}", f"thermal-hydraulics: {t['iterations']} iterations, last change {t['change']:.3e} (tolerance {t['tolerance']:.1e}, {('converged' if t['converged'] else 'NOT converged')})", f"fuel temperature: volume average {t['fuel_average']:.2f} K, max {t['fuel_max']:.2f} K", f"moderator density interpolation error max {t['density_error']:.3e} g/cc", f"enthalpy rise {c['rise']:.6f} kJ/kg, power / flow {c['expected_rise']:.6f} kJ/kg (relative {c['rise_relative_diff']:.3e}), outlet {c['outlet']:.4f} K", f"low power: k {s['low_power']['k']:.8f} ({s['low_power']['iterations']} iterations, outlet {s['low_power']['outlet']:.6f} K, fuel max {s['low_power']['fuel_max']:.6f} K); isothermal k {s['isothermal']['k']:.8f}; difference {s['low_power_vs_isothermal_pcm']:.4f} pcm", 'layers (z from, z to (cm), moderator (K), table density (g/cc), fuel (K), fission fraction):']
+    lines = ['inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in s['inputs'])), f"k {s['k']:.8f}", f"thermal-hydraulics: {t['iterations']} iterations, last change {t['change']:.3e} (tolerance {t['tolerance']:.1e})", f"fuel temperature: volume average {t['fuel_average']:.2f} K, max {t['fuel_max']:.2f} K", f"moderator density interpolation error max {t['density_error']:.3e} g/cc", f"enthalpy rise {c['rise']:.6f} kJ/kg, power / flow {c['expected_rise']:.6f} kJ/kg (relative {c['rise_relative_diff']:.3e}), outlet {c['outlet']:.4f} K", f"low power: k {s['low_power']['k']:.8f} ({s['low_power']['iterations']} iterations, outlet {s['low_power']['outlet']:.6f} K, fuel max {s['low_power']['fuel_max']:.6f} K); isothermal k {s['isothermal']['k']:.8f}; difference {s['low_power_vs_isothermal_pcm']:.3f} pcm", 'layers (z from, z to (cm), moderator (K), table density (g/cc), fuel (K), fission fraction):']
     for layer in s['layers']:
         fuel = '-' if layer['fuel'] is None else f"{layer['fuel']:.2f}"
         lines.append(f"  {layer['z'][0]:.4f} {layer['z'][1]:.4f} {layer['moderator']:.4f} {layer['density']:.6f} {fuel} {layer['fraction']:.6e}")
