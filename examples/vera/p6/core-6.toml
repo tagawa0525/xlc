@@ -7,7 +7,7 @@ radial-nodes = 1
 boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["vacuum", "vacuum"] }
 
 [thermal-hydraulics]
-# 表 P6-1: 出力 (MW)、流量 0.6823 Mlbs/hr (kg/s)、圧力 2250 psia (MPa)。燃料の発熱の割合は表 18
+# 出力 (MW) は表 P6-1 の定格。表 P6-1 の流量 0.6823 Mlbs/hr (kg/s)、圧力 2250 psia (MPa)。燃料の発熱の割合は表 18
 power = 17.67
 flow = 85.9684
 pressure = 15.513204
