@@ -559,7 +559,7 @@ class DrawRodless(unittest.TestCase):
 def p6_summary(**k) -> dict:
     return {
         "format": "xlc-compare-p6",
-        "k": 1.1612345,
+        "k": 1.16123456,
         "thermal": {
             "iterations": 9,
             "change": 4.2e-6,
