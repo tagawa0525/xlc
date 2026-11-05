@@ -644,3 +644,20 @@ stages:
       hash: md5
       md5: 6cf7439870f18be4f42b2bc60c29ddae
       size: 3769
+  python-ast@examples/vera/compare_p6.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/compare_p6.py 
+      python-ast/examples/vera/compare_p6.py.ast
+    deps:
+    - path: examples/vera/compare_p6.py
+      hash: md5
+      md5: 8aa08620286979313c0162e67e4267ea
+      size: 11191
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_p6.py.ast
+      hash: md5
+      md5: 1c619453ac6d193fb5e3c33d968ef908
+      size: 7334
