@@ -1,5 +1,5 @@
 # このファイルは p5_inputs.py が書く。手で直さない。
-# VERA Problem 5 の径方向の反射体の I 型の格子（ADR-0095）: 燃料の集合体の右に反射体。左、上、下は鏡面反射、右は真空。燃料は濃縮度 3.10%。
+# VERA Problem 5 の径方向の反射体の I 型の格子（ADR-0095）: 燃料の集合体の右に反射体。左、上、下は鏡面反射、右は真空。燃料は濃縮度 3.10%、中間の支持格子（Zircaloy-4）の高さ。支持格子は 875 g / 6.56 g/cm³ / 3.81 cm を 289 のセルに等しく分けた、セルの外周の厚さ 0.024512 cm の枠（表 3。Problem 3 と同じ置き方。ADR-0140）。
 # 反射体は燃料側から、隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm（1.13 節の表 16。5-2D と同じ形）。
 # 分岐のテーブル（ADR-0097）で、ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。
 library = "../../vera.msgpack"
@@ -8,8 +8,8 @@ azimuthal = 30
 spacing = 0.03
 boundary = { right = "vacuum" }
 few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
-  { output = "lattice/reflector-I-31-fuel-fuel.msgpack", columns = [1, 19], rows = [1, 19] },
-  { output = "lattice/reflector-I-31-fuel.msgpack", columns = [20, 47], rows = [1, 19], reflector = true },
+  { output = "rodless/lattice/reflector-I-31-zgrid-fuel.msgpack", columns = [1, 19], rows = [1, 19] },
+  { output = "rodless/lattice/reflector-I-31-zgrid.msgpack", columns = [20, 47], rows = [1, 19], reflector = true },
 ], pins = true }
 widths = [
   { size = 0.04 },
@@ -122,6 +122,7 @@ zones = [
   { material = "water", rings = 1 },
 ]
 sectors = 8
+frame = { thickness = 0.024512, material = "zircaloy" }
 # 案内管（中は減速材）
 [cell.gt]
 zones = [
@@ -131,6 +132,7 @@ zones = [
   { material = "water", rings = 1 },
 ]
 sectors = 8
+frame = { thickness = 0.024512, material = "zircaloy" }
 # 計装管（中は減速材。シンブルは入れない。仕様書の問題 5-2D）
 [cell.it]
 zones = [
@@ -140,6 +142,7 @@ zones = [
   { material = "water", rings = 1 },
 ]
 sectors = 8
+frame = { thickness = 0.024512, material = "zircaloy" }
 # 反射体の均質なマス（ピッチに合わないマスは長方形のセルになる）
 [cell.w]
 zones = [{ material = "water", rings = 1 }]
