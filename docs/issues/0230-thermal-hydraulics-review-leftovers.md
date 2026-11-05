@@ -49,6 +49,15 @@ feat/0228-problem-6（ADR-0230）のローカルのレビューの non-blocking 
   ノードごとにそのノードのテーブル（平板、支持格子の格子）の格子点で内挿する。今は p6_inputs.py がすべてのテーブルに同じ格子点を
   書くので同じ値になる。core が層ごとにテーブルの密度を出せば、Python の内挿（ADR-0229 の案 T1 の写し）は要らない
 - examples/record_provenance.py の `REPORTS` の形式と比較のツールの対応に、テストが無い
+- 3 周目: crates/core/src/thermal.rs は入口のエンタルピーそのもののノードだけを入口の温度にする。ノードの出力が丸めほど小さい
+  （定格の 1e-12 ほど）と、Newton 法の解が入口の温度の格子点の下に出うる。`water::temperature` に初めの値（入口か下の層の温度）を
+  渡せば、この場合分けも要らず、全炉心の内側のループの評価も減る（今は毎回 550 K から始める）
+- 3 周目: crates/core/src/thermal/tests.rs の `channel_nodes_without_power_below_take_the_inlet_temperature` は出力がすべて 0 で、出力の
+  ある流路の下の反射体のノードを直接は確かめない。テストのコメントに前の挙動（564.9999999999999 K）を書いている
+- 3 周目: compare_p6.py は出力を下げた解と熱水力なしの解の状態（入口の温度、ホウ素）が同じかを確かめない。verification_tables.py の
+  `p6_summary` は JSON の数の違いを `TableError` でなく `ValueError` で止める。p6-checks の表は出力を下げた解の出口を小数 4 桁
+  （565.0000 K）で出し、記録の本文の 565.00004 K を表から読めない。記録の Problem 6 の節は「4 つの確認」と書き、箇条は密度の内挿の
+  差を足して 5 つある
 
 関係する ADR: ADR-0230
 
