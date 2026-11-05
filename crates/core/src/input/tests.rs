@@ -1828,6 +1828,18 @@ fn invalid_thermal_hydraulics_are_errors() {
     }
 }
 
+/// 熱水力は状態ごとの入口の温度で解くので、名前つきの状態のないケースに書けばエラー（黙って熱水力なしで解かない）
+#[test]
+fn thermal_hydraulics_need_named_states() {
+    let text = format!("{CASE}{THERMAL}");
+    let stateless = &text[..text.find("[state.hfp]").unwrap()];
+    let e = Case::parse(stateless, base()).unwrap_err().to_string();
+    assert!(
+        e.contains("thermal-hydraulics") && e.contains("state"),
+        "{e}"
+    );
+}
+
 /// 燃焼のケースの熱水力は未実装（ADR-0229 の「燃焼のステップ」）
 #[test]
 fn depletion_with_thermal_hydraulics_is_an_error() {
