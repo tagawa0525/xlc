@@ -83,10 +83,10 @@ P3_PROBLEM = f"VERA Problem 3A（{p3.PROBLEMS['3A']['description']}"
 PROBLEM = "VERA Problem 6（Problem 3A の集合体の HFP の分岐のテーブル。状態は表 P6-1 と ADR-0230 の格子点（ADR-0097）"
 
 
-def replaced(text: str, old: str, new: str, count: int | None = 1) -> str:
-    """`old` を `new` に置き換える。`count` があれば、その回数だけ現れること（無ければ 1 回以上）"""
+def replaced(text: str, old: str, new: str) -> str:
+    """`old`（1 回だけ現れること）を `new` に置き換える"""
     n = text.count(old)
-    if n == 0 or (count is not None and n != count):
+    if n != 1:
         raise SystemExit(f"p3_inputs.py wrote {n} copies of {old[:60]!r}")
     return text.replace(old, new)
 
@@ -99,8 +99,7 @@ def renamed(text: str) -> str:
         ("medium-3A-", "medium-6-"),
         ("axial-3A/", "axial-6/"),
     ]:
-        if old in text:
-            text = text.replace(old, new)
+        text = text.replace(old, new)
     if "-3A" in text or "3A/" in text:
         raise SystemExit("a Problem 3A path is left")
     return text
