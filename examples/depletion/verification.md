@@ -7634,7 +7634,7 @@ dvc repro examples/depletion/p9-timing/dvc.yaml:timing-p9
 
 ### 計算
 
-ブランチ chore/0156-p9-timing（分岐点は main の 75291fb2）の 63dd493c、2026-11-06。Slurm 697（区分 timed、排他、`elapsed=01:13:42`）でステージ
+ブランチ chore/0156-p9-timing（分岐点は main の 75291fb2）の 35e6eead、2026-11-06。Slurm 697（区分 timed、排他、`elapsed=01:13:42`）でステージ
 `core-p9` と `timing-p9` を流した。`bin/core` は md5 18e0d9da、燃焼の履歴 `core-p9.msgpack` は 1f46a131。固有値計算（NEM）は 1 回の解を 1 スレッドで
 解き、ミクロ燃焼のノードの計算は rayon の 32 スレッド（r995 の排他のジョブの既定）。固有値計算の時間は span `nem` のフィールド `seconds`（time.busy は
 3 桁に丸まる）で、ほかの部分は span の time.busy。
@@ -7642,9 +7642,9 @@ dvc repro examples/depletion/p9-timing/dvc.yaml:timing-p9
 目安（区分なしの手元の試行、1 コア）:
 
 - BOC の固有値計算 1 回: 118 秒（外側の反復 4,165〜4,183 回。燃焼度 0 の一様な状態、Xe なし、平らな初期値）。ホウ素の効きは、1100 ppm で k 1.19007534、
-  1300 ppm で 1.16656173 で、11.8 pcm/ppm（Δk）。入力は 1b154f6c の `trials/p9-timing/boc-1100.toml` と `boc-1300.toml`（試行は同じ台帳とサイクルを
+  1300 ppm で 1.16656173 で、11.8 pcm/ppm（Δk）。入力は c68d6320 の `trials/p9-timing/boc-1100.toml` と `boc-1300.toml`（試行は同じ台帳とサイクルを
   絶対パスで指した）、core は main の c641da760、2026-11-06
-- 目標の k を決めた試行（d31981359 の `core-p9.toml`。場合 2、3 の 2 つの出力のステップにホウ素 1200 ppm を与え、燃焼点 1 で止めた）: 固有値計算
+- 目標の k を決めた試行（5a08046ce の `core-p9.toml`。場合 2、3 の 2 つの出力のステップにホウ素 1200 ppm を与え、燃焼点 1 で止めた）: 固有値計算
   17 回の 1 回は 129〜192 秒で、平衡 Xe の解き直しはステップ 1 の中点と燃焼点 1 でどちらも 8 回
 
 ### 結果
