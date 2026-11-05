@@ -75,5 +75,13 @@ class Inputs(unittest.TestCase):
             )
 
 
+class TomlList(unittest.TestCase):
+    def test_numbers_stay_numbers_and_strings_are_quoted(self):
+        self.assertEqual(inputs.toml_list([0, 1.5, "a"]), '[0, 1.5, "a"]')
+        self.assertEqual(
+            tomllib.loads(f"x = {inputs.toml_list([0, 50.0])}")["x"], [0, 50.0]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
