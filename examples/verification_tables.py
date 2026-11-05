@@ -3150,10 +3150,10 @@ def core_timing_parts(sources: list[dict]) -> str:
     rows = [
         [name, f"{s[key]:.1f}", f"{100 * s[key] / total:.1f}"]
         for name, key in [
-            ("固有値計算", "eigenvalue"),
-            ("テーブルの内挿とミクロ燃焼の補正", "interpolation"),
-            ("ミクロ燃焼（反応率と CRAM48）", "micro"),
-            ("平衡 Xe の値と Anderson の加速", "xenon"),
+            ("固有値計算（部分挿入のノードの定数の作り直しを含む）", "eigenvalue"),
+            ("少数群定数の内挿とミクロ燃焼の補正", "interpolation"),
+            ("ミクロ燃焼（微視的断面積の内挿、反応率、CRAM48）", "micro"),
+            ("平衡 Xe（微視的断面積の内挿、平衡の値、Anderson の加速）", "xenon"),
             ("その他", "other"),
             ("全体", "total"),
             ("臨界ホウ素の探索（上の内訳と重なる）", "search"),
