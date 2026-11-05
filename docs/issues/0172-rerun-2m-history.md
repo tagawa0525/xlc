@@ -12,6 +12,8 @@ resolution:
 
 ## 問題
 
+（開いた 2026-10-24 の時点の記述。今の状態は経緯の 2026-11-05 の項）
+
 履歴の形式に `shieldings` が足された（ADR-0197）ので、`examples/depletion/p2/lattice-2M.msgpack`（前の本番。8ad00b1c、Slurm 480）は
 今の lattice の `[history]` で読めない。ほかの 7 本（2A、2F、2N、2O、2P、2A-density、2A-rods）は 2026-10-24 に今の `bin/lattice` で
 再実行した（ブランチ chore/p2-rerun-after-speedups）が、2M は流していない（約 2 時間。ユーザーの判断で、要るときまで後回し）。
@@ -34,7 +36,7 @@ resolution:
 
 - 2026-10-24: p2 の再実行で、2P の後に続けて投げた 2M（Slurm 527）を、ステージを始める前に取り消した
 - 2026-11-05: 2M は ADR-0226 の後の 8 本の再実行で流された（8488f5dfa。ジョブを実行したコミットはブランチ chore/rerun-after-adr-0226 の 06d6bd71、
-  Slurm 668。マージ 2b2a7e622）。`compare-2M.json` と examples/depletion/p2/dvc.lock が更新され、記録（examples/depletion/verification.md）の
+  分岐点は main の a0fd48c0、Slurm 668。マージ 2b2a7e622）。`compare-2M.json` と examples/depletion/p2/dvc.lock が更新され、記録（examples/depletion/verification.md）の
   「集合体の燃焼」の「計算」と「2M」の節がその実行を引く。ただし、その後に `bin/lattice` が作り直された（2927836cb、ffdac94e7。直下の dvc.lock の
   `build` の md5 7e959698 と、p2 の dvc.lock の `lattice@*` の md5 48387d65）ので、`lattice@2M` はほかの `lattice@*` とともに再び deps の changed で、完了の条件の
   「今の `bin/lattice` で relock」は満たさない。668 は割り込まれうるジョブで、2M の時間は記録の「時間」に無い（記録の「時間」の節の本文）。閉じずに残す
