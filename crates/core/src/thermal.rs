@@ -253,6 +253,15 @@ impl Channels {
         let h_in = water::region_one(p, inlet)
             .map_err(|e| format!("the inlet: {e}"))?
             .enthalpy;
+        // 入口のエンタルピーのままのノード（下に出力がない）は、逆に解かず入口の温度にする。Newton 法の解は丸めで入口の
+        // 温度の前後に出て、入口の温度の格子点のテーブルの外になりうる
+        let temperature = |h: f64| {
+            if h == h_in {
+                Ok(inlet)
+            } else {
+                water::temperature(p, h)
+            }
+        };
         let area = th.flow_area * 1e-4;
         let mass_flux = flow / area;
         let diameter = 4.0 * th.flow_area / th.wetted_perimeter * 1e-2;
@@ -285,7 +294,7 @@ impl Channels {
                 let layer_power: f64 = layer_sites.iter().map(|&s| powers[s]).sum();
                 // kJ/kg
                 let gain = layer_power / flow * 1e-3;
-                let moderator = water::temperature(p, h + gain / 2.0).map_err(|e| {
+                let moderator = temperature(h + gain / 2.0).map_err(|e| {
                     format!("channel at assembly position {position:?}, layer {layer}: {e}")
                 })?;
                 for &site in layer_sites {
@@ -317,7 +326,7 @@ impl Channels {
                 h += gain;
                 start = end;
             }
-            let outlet = water::temperature(p, h)
+            let outlet = temperature(h)
                 .map_err(|e| format!("the outlet at assembly position {position:?}: {e}"))?;
             channels.push(ChannelReport {
                 position,
