@@ -1366,6 +1366,65 @@ def signed_exponent(x: float) -> str:
     return f"{mantissa.replace('-', '−')}e{exponent}"
 
 
+def p6_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-p6":
+        raise TableError("not an xlc-compare-p6 summary")
+    return s
+
+
+def p6_checks(sources: list[dict]) -> str:
+    """Problem 6 の熱水力のフィードバックの解（compare_p6.py）: k と、確認の量（エンタルピーの上昇と出力 / 流量、繰り返しの
+    収束、燃料の実効温度、減速材の密度の内挿の差、出力を 1e-6 倍にした解と熱水力なしの入口の温度の解の k）"""
+    s = p6_summary(sources)
+    t, c = s["thermal"], s["channel"]
+    low, iso = s["low_power"], s["isothermal"]
+    rows = [
+        ["k（HFP）", f"{s['k']:.6f}"],
+        [
+            "熱水力の繰り返し",
+            f"{t['iterations']} 回、最後の変化 {t['change']:.1e}（許容 {t['tolerance']:.0e}）",
+        ],
+        [
+            "エンタルピーの上昇",
+            f"{c['rise']:.3f} kJ/kg（出力 / 流量 {c['expected_rise']:.3f} kJ/kg、相対差 {c['rise_relative_diff']:.0e}）",
+        ],
+        ["出口の温度", f"{c['outlet']:.3f} K"],
+        [
+            "燃料の実効温度（体積平均）",
+            f"平均 {t['fuel_average']:.1f} K、最大 {t['fuel_max']:.1f} K",
+        ],
+        ["減速材の密度の内挿の差の最大", f"{t['density_error']:.1e} g/cc"],
+        [
+            "出力を 1e-6 倍にした解と熱水力なしの入口の温度の解",
+            (
+                f"k {low['k']:.8f} と {iso['k']:.8f}（差 {signed(s['low_power_vs_isothermal_pcm'], 4)} pcm、"
+                f"出口 {low['outlet']:.4f} K、燃料の最大 {low['fuel_max']:.4f} K）"
+            ),
+        ],
+    ]
+    return markdown_table(["量", "値"], rows)
+
+
+def p6_layers(sources: list[dict]) -> str:
+    """Problem 6 の層ごとの熱水力の解（compare_p6.py）: 高さ（炉心の下端から）、減速材の温度、テーブルの密度（格子点の密度を
+    温度で線形に内挿したもの）、燃料の実効温度（核分裂のある層だけ）、核分裂率の割合"""
+    s = p6_summary(sources)
+    rows = [
+        [
+            f"{layer['z'][0]:.3f}〜{layer['z'][1]:.3f}",
+            f"{layer['moderator']:.2f}",
+            f"{layer['density']:.5f}",
+            "−" if layer["fuel"] is None else f"{layer['fuel']:.1f}",
+            f"{layer['fraction']:.5f}",
+        ]
+        for layer in s["layers"]
+    ]
+    return markdown_table(
+        ["高さ (cm)", "減速材 (K)", "密度 (g/cc)", "燃料 (K)", "核分裂率の割合"], rows
+    )
+
+
 def p5_rodless_states(sources: list[dict]) -> str:
     """Problem 5 の 3D の格子の、制御棒の分岐を解いた格子の値 out の状態と棒のない格子の状態の比較（compare_rodless.py。#0225）:
     出力（hzp/ から）、種類、比べた状態の数、ビットまで同じ状態の数、最大の相対差（項目）、k∞ の差の最大（pcm。媒質は空欄）"""
@@ -3462,6 +3521,8 @@ TABLES = {
         ["examples/vera/p5/compare-rodless.json"],
         p5_rodless_states,
     ),
+    "p6-checks": (["examples/vera/p6/compare-6.json"], p6_checks),
+    "p6-layers": (["examples/vera/p6/compare-6.json"], p6_layers),
     "p3-openmc-comparison": (
         [
             "examples/vera/p3/compare-3A-openmc.json",
