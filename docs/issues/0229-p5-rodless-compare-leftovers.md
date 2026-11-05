@@ -26,6 +26,13 @@ resolution:
   ならない）。k∞ が 0 の状態で 0 で割る。文字列に直すと同じになるキー（整数の 1 と文字列の "1"）を持つ map は、片方を比べない
 - examples/vera/p5/p5_inputs.py の `hzp_pipeline` は、棒のない出力のパスを 2 回求める。支持格子の層と反射体の格子の棒のない格子の
   ステージも、媒質を書かないのに `rodless/media` を作る（制御棒の分岐を解く格子の `mkdir -p lattice media` も同じ）
+- examples/verification_tables.py の `TABLES` の JSON の置き場を確かめるテストが無い。`GIT_TRACKED` に無い JSON は、同じディレクトリの
+  dvc.lock から md5 を読む（`locked_md5`。dvc.lock が無ければ `<dvc.lock> does not exist`、あってもその JSON の出力が 1 つでなければ
+  `<dvc.lock> has N outputs named <JSON> (expected 1)` の `TableError`）ので、同じディレクトリの dvc.yaml がその JSON を出力に宣言して
+  いるかを確かめるテストを足す。あわせて、その 2 つのエラーの文言に置き場の制約（JSON は、md5 を持つ dvc.lock と同じディレクトリに置く）を書く。
+  3fd28562f で、置き場の誤り（examples/vera/p5/hzp/compare-rodless.json）が、記録用の計算（Slurm 695、696）を流し終えた後の記録を書く
+  段で `examples/vera/p5/hzp/dvc.lock does not exist` として分かり、最後のレビューの周より後の挙動の変更になった。テストがあれば、
+  `TABLES` に足したコミットの時点で止まる。急がない
 
 関係する ADR: なし
 
@@ -36,3 +43,4 @@ resolution:
 ## 経緯
 
 - 2026-11-05: chore/0213-rerun-p5-hzp のレビューの指摘のうち、通常の入力と流れで落ちるテストか誤った数値を示せないものをまとめた
+- 2026-11-06: `TABLES` の JSON の置き場を確かめるテストの項を足した（3fd28562f の置き場の直しから。/retro の提案）
