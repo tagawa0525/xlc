@@ -3153,7 +3153,7 @@ def core_timing_parts(sources: list[dict]) -> str:
             ("固有値計算", "eigenvalue"),
             ("テーブルの内挿とミクロ燃焼の補正", "interpolation"),
             ("ミクロ燃焼（反応率と CRAM48）", "micro"),
-            ("平衡 Xe の釣り合い", "xenon"),
+            ("平衡 Xe の値と Anderson の加速", "xenon"),
             ("その他", "other"),
             ("全体", "total"),
             ("臨界ホウ素の探索（上の内訳と重なる）", "search"),

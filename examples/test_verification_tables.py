@@ -4512,7 +4512,7 @@ class DrawCoreTiming(unittest.TestCase):
         self.assertEqual(rows[0], ["固有値計算", "190.0", "95.0"])
         self.assertEqual(rows[1], ["テーブルの内挿とミクロ燃焼の補正", "4.0", "2.0"])
         self.assertEqual(rows[2], ["ミクロ燃焼（反応率と CRAM48）", "2.0", "1.0"])
-        self.assertEqual(rows[3], ["平衡 Xe の釣り合い", "1.0", "0.5"])
+        self.assertEqual(rows[3], ["平衡 Xe の値と Anderson の加速", "1.0", "0.5"])
         self.assertEqual(rows[4], ["その他", "3.0", "1.5"])
         self.assertEqual(rows[5], ["全体", "200.0", "100.0"])
         self.assertEqual(
