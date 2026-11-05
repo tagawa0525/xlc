@@ -407,8 +407,10 @@ fn named(name: &str, boron: f64, temperature: f64) -> CaseState {
         name: name.into(),
         boron: Boron::Given(boron),
         b10: 0.199,
-        moderator: temperature,
-        fuel: temperature,
+        temperatures: Temperatures::Uniform {
+            moderator: temperature,
+            fuel: temperature,
+        },
         burnup: None,
         banks: Default::default(),
     }
@@ -436,8 +438,10 @@ fn parses_boron_searches() {
                 max_solves: 20,
             }),
             b10: 0.199,
-            moderator: 565.0,
-            fuel: 565.0,
+            temperatures: Temperatures::Uniform {
+                moderator: 565.0,
+                fuel: 565.0,
+            },
             burnup: None,
             banks: Default::default(),
         }]
@@ -1694,4 +1698,142 @@ fn invalid_cycle_steps_are_errors() {
     assert!(bad(
         "[{ decay-days = 1.0, state = \"hfp\" }, { decay-days = 1.0, state = \"cool\" }]"
     ));
+}
+
+/// 熱水力のフィードバック（ADR-0229）の入力
+const THERMAL: &str = r#"
+[thermal-hydraulics]
+power = 17.67
+flow = 85.968
+pressure = 15.5132
+fuel-heat-fraction = 0.974
+effective-temperature = "volume-average"
+rod = { pellet-radius = 0.4096, clad-inner-radius = 0.418, clad-outer-radius = 0.475, pellet-density = 10.257, gap-conductance = 1.0e4, rods = 264 }
+channel = { flow-area = 246.65, wetted-perimeter = 882.49 }
+
+[state.hfp]
+boron = 1300
+b10 = 0.199
+inlet = 565
+"#;
+
+#[test]
+fn parses_thermal_hydraulics_with_inlet_states() {
+    let c = Case::parse(&format!("{CASE}{THERMAL}"), base()).unwrap();
+    assert_eq!(
+        c.thermal,
+        Some(ThermalHydraulics {
+            power: 17.67,
+            flow: 85.968,
+            pressure: 15.5132,
+            fuel_heat_fraction: 0.974,
+            effective: Effective::VolumeAverage,
+            tolerance: crate::thermal::TOLERANCE,
+            max_iterations: crate::thermal::MAX_ITERATIONS,
+            rod: Rod {
+                pellet_radius: 0.4096,
+                clad_inner_radius: 0.418,
+                clad_outer_radius: 0.475,
+                density_fraction: 10.257 / UO2_THEORETICAL_DENSITY,
+                gap_conductance: 1.0e4,
+            },
+            rods: 264,
+            flow_area: 246.65,
+            wetted_perimeter: 882.49,
+        })
+    );
+    // ADR-0229 の既定
+    assert_eq!(crate::thermal::TOLERANCE, 1.0e-5);
+    assert_eq!(crate::thermal::MAX_ITERATIONS, 50);
+    assert_eq!(c.states[0].temperatures, Temperatures::Inlet(565.0));
+    // 入口の温度の一様な状態（流路のない位置と、熱水力の解の前に使う）
+    assert_eq!(c.states[0].at(1300.0).moderator, 565.0);
+    assert_eq!(c.states[0].at(1300.0).fuel, 565.0);
+    let rowlands = edited(
+        &format!("{CASE}{THERMAL}"),
+        "\"volume-average\"",
+        "\"rowlands\"\ntolerance = 1.0e-6\nmax-iterations = 80",
+    );
+    let t = Case::parse(&rowlands, base()).unwrap().thermal.unwrap();
+    assert_eq!(t.effective, Effective::Rowlands);
+    assert_eq!(t.tolerance, 1.0e-6);
+    assert_eq!(t.max_iterations, 80);
+    // 熱水力のないケースの状態は減速材と燃料の温度
+    let plain = Case::parse(&with_states(), base()).unwrap();
+    assert_eq!(plain.thermal, None);
+    assert_eq!(
+        plain.states[0].temperatures,
+        Temperatures::Uniform {
+            moderator: 565.0,
+            fuel: 565.0
+        }
+    );
+}
+
+#[test]
+fn invalid_thermal_hydraulics_are_errors() {
+    let text = format!("{CASE}{THERMAL}");
+    let error = |from: &str, to: &str| {
+        Case::parse(&edited(&text, from, to), base())
+            .unwrap_err()
+            .to_string()
+    };
+    // 熱水力のケースの状態は inlet だけ、ないケースは moderator と fuel だけ
+    assert!(error("inlet = 565", "inlet = 565\nmoderator = 565").contains("inlet"));
+    assert!(error("inlet = 565", "moderator = 565\nfuel = 565").contains("inlet"));
+    let e = Case::parse(
+        &edited(&with_states(), "moderator = 560\n", "inlet = 560\n"),
+        base(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("thermal-hydraulics"), "{e}");
+    // 実効温度は既定を持たない
+    assert!(
+        Case::parse(
+            &edited(&text, "effective-temperature = \"volume-average\"\n", ""),
+            base()
+        )
+        .is_err()
+    );
+    assert!(Case::parse(&edited(&text, "\"volume-average\"", "\"surface\""), base()).is_err());
+    // 正の有限の値、燃料の発熱の割合は (0, 1]、半径は内から外へ、密度は理論密度まで
+    for (from, to) in [
+        ("power = 17.67", "power = 0"),
+        ("flow = 85.968", "flow = -1"),
+        ("pressure = 15.5132", "pressure = 0"),
+        ("fuel-heat-fraction = 0.974", "fuel-heat-fraction = 1.1"),
+        ("fuel-heat-fraction = 0.974", "fuel-heat-fraction = 0"),
+        ("clad-inner-radius = 0.418", "clad-inner-radius = 0.4"),
+        ("clad-outer-radius = 0.475", "clad-outer-radius = 0.41"),
+        ("pellet-density = 10.257", "pellet-density = 11.0"),
+        ("gap-conductance = 1.0e4", "gap-conductance = 0"),
+        ("rods = 264", "rods = 0"),
+        ("flow-area = 246.65", "flow-area = 0"),
+        ("wetted-perimeter = 882.49", "wetted-perimeter = nan"),
+        (
+            "effective-temperature",
+            "tolerance = 0\neffective-temperature",
+        ),
+        (
+            "effective-temperature",
+            "max-iterations = 0\neffective-temperature",
+        ),
+        ("inlet = 565", "inlet = -1"),
+    ] {
+        assert!(
+            Case::parse(&edited(&text, from, to), base()).is_err(),
+            "{from} -> {to}"
+        );
+    }
+}
+
+/// 燃焼のケースの熱水力は未実装（ADR-0229 の「燃焼のステップ」）
+#[test]
+fn depletion_with_thermal_hydraulics_is_an_error() {
+    let text = format!(
+        "{CASE}{THERMAL}\n[depletion]\nspecific-power = 38.4\nsteps = [{{ efpd = 10 }}]\nhistory = \"h.msgpack\"\n"
+    );
+    let e = Case::parse(&text, base()).unwrap_err().to_string();
+    assert!(e.contains("thermal-hydraulics"), "{e}");
 }
