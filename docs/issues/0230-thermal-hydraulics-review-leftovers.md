@@ -43,6 +43,13 @@ resolution:
   `thermal-hydraulics iterations` は最後の濃度の回数だけ
 - 1 周目の直しのコミット（e799f80ad）は、テストの入力の `[state.hfp]` の追加を実装と同じコミットに入れた（TDD のコミットの分け方）
 
+feat/0228-problem-6（ADR-0230）のローカルのレビューの non-blocking の指摘:
+
+- examples/vera/compare_p6.py は層ごとのテーブルの密度を、支持格子のない格子の TOML の減速材の格子点だけから内挿する。core は
+  ノードごとにそのノードのテーブル（平板、支持格子の格子）の格子点で内挿する。今は p6_inputs.py がすべてのテーブルに同じ格子点を
+  書くので同じ値になる。core が層ごとにテーブルの密度を出せば、Python の内挿（ADR-0229 の案 T1 の写し）は要らない
+- examples/record_provenance.py の `REPORTS` の形式と比較のツールの対応に、テストが無い
+
 関係する ADR: ADR-0230
 
 ## 完了の条件
