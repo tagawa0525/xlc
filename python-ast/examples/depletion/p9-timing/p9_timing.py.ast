@@ -1,0 +1,81 @@
+import json
+import re
+import sys
+CLOSE = re.compile('INFO (?P<spans>.+?): (?P<target>[\\w:]+): close time\\.busy=(?P<busy>\\S+) ')
+EVENT = re.compile('INFO (?:.+?: )?(?P<target>[\\w:]+): (?P<message>[a-z ]+?) (?P<fields>\\w+=.*)$')
+PER_SECOND = {'ns': 1000000000.0, 'µs': 1000000.0, 'ms': 1000.0, 's': 1.0}
+PARTS = {'nem': 'eigenvalue', 'constants': 'interpolation', 'micro depletion': 'micro', 'micro decay': 'micro', 'xenon balance': 'xenon', 'xenon anderson': 'xenon'}
+
+def seconds(text: str) -> float:
+    m = re.fullmatch('([0-9.]+)(ns|µs|ms|s)', text)
+    if not m:
+        raise ValueError(f'not a duration: {text}')
+    return float(m.group(1)) / PER_SECOND[m.group(2)]
+
+def fields_of(text: str) -> dict[str, str]:
+    return dict((f.split('=', 1) for f in text.split() if '=' in f))
+
+def leaf(spans: str) -> tuple[str, dict[str, str]]:
+    m = re.search('(?:^|:)([^:{}]+)(?:\\{([^{}]*)\\})?$', spans)
+    if not m:
+        raise ValueError(f'not a span list: {spans}')
+    return (m.group(1), fields_of(m.group(2) or ''))
+
+def summarize(log: str) -> dict:
+    parts = {name: 0.0 for name in PARTS.values()}
+    search = 0.0
+    nem_iterations: list[int] = []
+    nem_seconds: list[float] = []
+    solves = []
+    xenon = None
+    total = None
+    for line in log.splitlines():
+        if (m := CLOSE.search(line)):
+            name, fields = leaf(m.group('spans'))
+            busy = seconds(m.group('busy'))
+            if name == 'nem' and 'seconds' in fields:
+                busy = float(fields['seconds'])
+            if name in PARTS:
+                parts[PARTS[name]] += busy
+            if name == 'search':
+                search += busy
+            if name == 'nem':
+                nem_seconds.append(busy)
+                if 'iterations' in fields:
+                    nem_iterations.append(int(fields['iterations']))
+            continue
+        m = EVENT.search(line)
+        if not m:
+            continue
+        fields = fields_of(m.group('fields'))
+        message = m.group('message')
+        if message in ('depletion point', 'depletion midpoint'):
+            if message == 'depletion point':
+                kind, efpd = ('point', float(fields['efpd']))
+            else:
+                step = re.search('depletion step\\{([^{}]*)\\}', line)
+                step_fields = fields_of(step.group(1) if step else '')
+                if 'efpd' not in step_fields:
+                    raise ValueError(f'a midpoint outside a depletion step: {line}')
+                kind, efpd = ('midpoint', float(step_fields['efpd']))
+            solves.append({'kind': kind, 'efpd': efpd, 'boron': float(fields['boron']), 'solves': int(fields['solves']), 'xenon': xenon})
+            xenon = None
+        elif message == 'equilibrium xenon' and 'iterations' in fields:
+            xenon = int(fields['iterations'])
+        elif message == 'core' and 'seconds' in fields:
+            total = float(fields['seconds'])
+    if total is None:
+        raise ValueError('the log has no total time (core seconds=)')
+    if not nem_seconds:
+        raise ValueError('the log has no eigenvalue solves (span nem)')
+    return {'format': 'xlc-core-timing', 'seconds': {'total': total, **parts, 'other': total - sum(parts.values()), 'search': search}, 'nem': {'count': len(nem_seconds), 'iterations': [min(nem_iterations), max(nem_iterations)] if nem_iterations else None, 'seconds': [min(nem_seconds), max(nem_seconds)]}, 'solves': solves}
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        sys.exit('usage: python3 p9_timing.py <core log>')
+    with open(sys.argv[1], encoding='utf-8') as f:
+        summary = summarize(f.read())
+    json.dump(summary, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write('\n')
+if __name__ == '__main__':
+    main()

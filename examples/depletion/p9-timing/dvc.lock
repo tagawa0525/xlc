@@ -1,0 +1,139 @@
+schema: '2.0'
+stages:
+  core-p9:
+    cmd: ../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: 18e0d9dae2987d307b4961424d7316c8
+      size: 6940392
+      isexec: true
+    - path: ../../vera/p5/hzp/axial-21
+      hash: md5
+      md5: 15899f59d1ccf0e3f78909e0e37731da.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-21-rcca
+      hash: md5
+      md5: eaaa5240ce1216015f76b48b2ba15c69.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-26-p16
+      hash: md5
+      md5: 6044f3bb44d1345d1cabf67805d00e1e.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-26-p20
+      hash: md5
+      md5: 6e0af7a50b0f689bc74103d5a5bf8037.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-26-p24
+      hash: md5
+      md5: 9bd04eaa2d4bdc9ce0786e52a3eb10d5.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-26-rcca
+      hash: md5
+      md5: 753f4aa98ded8a0d6de6148b1b0cdf6c.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-31
+      hash: md5
+      md5: d0a2f1ded6f9a4731eb6fb883e9d778f.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-31-p12
+      hash: md5
+      md5: 81d3ccb29dc2c25d930f490bec4d3def.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-31-p16
+      hash: md5
+      md5: 80ebd165ce0f7a3e53e94a6679000b39.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-31-p24
+      hash: md5
+      md5: deb7df7addd92f380fbd6cfe74ca4590.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-31-p8
+      hash: md5
+      md5: 78c21a04660765da07abee02c07024da.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/axial-31-rcca
+      hash: md5
+      md5: 424cfc5cfb2e18bd93bed80f70adeeed.dir
+      size: 219888
+      nfiles: 61
+    - path: ../../vera/p5/hzp/core-hzp-plant.toml
+      hash: md5
+      md5: a6b2125964584172e70506f4309e8595
+      size: 6320
+    - path: ../../vera/p5/hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: def700d96f83c2ee9c15fe2445713183
+      size: 85744
+    - path: ../../vera/p5/hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 79aaef55a4cc81b6eaba0965a16f2e3f
+      size: 85744
+    - path: ../../vera/p5/hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 69b34cbf9b6d794913bd362551607e0d
+      size: 86176
+    - path: ../../vera/p5/hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: 103301e25946cecdd8e42f095f503e7c
+      size: 123256
+    - path: ../branches/table-2A-micro-boron-rod-axis.msgpack
+      hash: md5
+      md5: 283e440b2d6a0bea62f03bfd7da77cb1
+      size: 1744885
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: core-p9-assemblies.toml
+      hash: md5
+      md5: 8d2bf2b43d5d10e2686633d7e7320657
+      size: 29161
+    - path: core-p9-cycle.toml
+      hash: md5
+      md5: 7426420530c46f6a4e66b4c8143bd6d8
+      size: 2473
+    - path: core-p9.toml
+      hash: md5
+      md5: c8c8def3b3d6f8cdf0446893fccea33b
+      size: 1951
+    outs:
+    - path: core-p9.log
+      hash: md5
+      md5: c765ea163299063346f3f3b381f901b0
+      size: 11483
+    - path: core-p9.msgpack
+      hash: md5
+      md5: 1f46a131ed64346f1b421952652c2274
+      size: 22344291
+    - path: core-p9.out
+      hash: md5
+      md5: 10ca7aa3dc52f82c84bb60664a03f4a1
+      size: 127
+  timing-p9:
+    cmd: python3 p9_timing.py core-p9.log > timing-p9.json
+    deps:
+    - path: ../../../python-ast/examples/depletion/p9-timing/p9_timing.py.ast
+      hash: md5
+      md5: 6cf7439870f18be4f42b2bc60c29ddae
+      size: 3769
+    - path: core-p9.log
+      hash: md5
+      md5: c765ea163299063346f3f3b381f901b0
+      size: 11483
+    outs:
+    - path: timing-p9.json
+      hash: md5
+      md5: e9448f5271f5d092310b84993b11bca9
+      size: 912

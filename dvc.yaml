@@ -37,6 +37,7 @@ stages:
       - examples/depletion/openmc_chain.py
       - examples/depletion/openmc_depletion.py
       - examples/depletion/openmc_depletion_mox.py
+      - examples/depletion/p9-timing/p9_timing.py
       - examples/mox/compare_capture.py
       - examples/mox/openmc_model.py
       - examples/openmc_common.py
