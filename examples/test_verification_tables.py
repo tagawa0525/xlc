@@ -4509,10 +4509,18 @@ def cells(table: str) -> list[list[str]]:
 class DrawCoreTiming(unittest.TestCase):
     def test_the_parts_give_seconds_and_shares_of_the_total(self):
         rows = cells(vt.core_timing_parts([p9_timing_summary()]))
-        self.assertEqual(rows[0], ["固有値計算", "190.0", "95.0"])
-        self.assertEqual(rows[1], ["テーブルの内挿とミクロ燃焼の補正", "4.0", "2.0"])
-        self.assertEqual(rows[2], ["ミクロ燃焼（反応率と CRAM48）", "2.0", "1.0"])
-        self.assertEqual(rows[3], ["平衡 Xe の値と Anderson の加速", "1.0", "0.5"])
+        self.assertEqual(
+            rows[0],
+            ["固有値計算（部分挿入のノードの定数の作り直しを含む）", "190.0", "95.0"],
+        )
+        self.assertEqual(rows[1], ["少数群定数の内挿とミクロ燃焼の補正", "4.0", "2.0"])
+        self.assertEqual(
+            rows[2], ["ミクロ燃焼（微視的断面積の内挿、反応率、CRAM48）", "2.0", "1.0"]
+        )
+        self.assertEqual(
+            rows[3],
+            ["平衡 Xe（微視的断面積の内挿、平衡の値、Anderson の加速）", "1.0", "0.5"],
+        )
         self.assertEqual(rows[4], ["その他", "3.0", "1.5"])
         self.assertEqual(rows[5], ["全体", "200.0", "100.0"])
         self.assertEqual(
