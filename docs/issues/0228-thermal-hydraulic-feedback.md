@@ -17,9 +17,10 @@ for at-power conditions」とし、燃料の温度を、温度、照射、燃焼
 定格の流量 131.7 Mlbs/hr（バイパスの 9% を除いた値で、サイクルを通じて一定）、圧力 2250 psia（表 P9-1）と、ステップごとの入口の温度
 （表 P9-2、554.9〜558.8 °F）で、熱水力の物性は与えない（Problem 6 の MATERIAL PROPERTIES。docs/plans/m4-depletion.md の「熱水力のフィードバック」）。
 
-今の xlc には熱水力のモデルが無く、決める ADR も無い（[ADR-0029](../adr/0029-defer-thermal-hydraulic-feedback.md) は初期のマイルストーンで
-扱わないと決めた）。core はケースの状態ごとに減速材の温度と燃料の温度を 1 つずつ持ち、炉心のすべてのノードで同じ値を使う
+起こした時点（2026-11-05）の xlc には熱水力のモデルが無く、決める ADR も無かった（初期のマイルストーンで扱わないと決めた ADR は、
+[ADR-0229](../adr/0229-couple-assembly-channels-and-fuel-rods-to-core.md) が置き換えた）。core はケースの状態ごとに減速材の温度と燃料の温度を 1 つずつ持ち、炉心のすべてのノードで同じ値を使う
 （crates/core/src/input.rs の `CaseState`、crates/core/src/state.rs の `State`。減速材の密度はテーブルの格子点の組で決まる）。
+熱水力のあるケースのノードごとの状態は ADR-0229 で入った（「残り」）。
 分岐のテーブルの温度の格子点は、M3 の HZP のテーブルが 550〜580 K（ADR-0097）、燃焼の分岐の入力の燃料の温度が 565 と 600 K
 （examples/depletion/branches の `fuel = { temperature = [565, 600] }`）で、HFP の燃料の温度と減速材の密度の範囲を持たない。
 
