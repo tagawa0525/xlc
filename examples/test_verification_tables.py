@@ -556,6 +556,103 @@ class DrawRodless(unittest.TestCase):
             vt.p5_rodless_states([{"format": "xlc-compare-p5", "outputs": []}])
 
 
+def p6_summary(**k) -> dict:
+    return {
+        "format": "xlc-compare-p6",
+        "k": 1.16123456,
+        "thermal": {
+            "iterations": 9,
+            "change": 4.2e-6,
+            "tolerance": 1e-5,
+            "effective": "volume-average",
+            "fuel_average": 880.04,
+            "fuel_max": 1101.96,
+            "density_error": 4.4e-4,
+        },
+        "channel": {
+            "rise": 205.5411,
+            "expected_rise": 205.5411,
+            "rise_relative_diff": 2e-16,
+            "outlet": 600.4951,
+        },
+        "low_power": {
+            "k": 1.17000123,
+            "power_ratio": 1e-6,
+            "iterations": 2,
+            "outlet": 565.0000002,
+            "fuel_max": 565.0000004,
+        },
+        "isothermal": {"k": 1.17000123, "moderator": 565, "fuel": 565},
+        "low_power_vs_isothermal_pcm": -0.00004,
+        "layers": [
+            {
+                "z": [0.0, 50.0],
+                "moderator": 565.0,
+                "density": 0.742713,
+                "fuel": None,
+                "fraction": 0.0,
+            },
+            {
+                "z": [66.951, 70.817],
+                "moderator": 565.4321,
+                "density": 0.7418679,
+                "fuel": 640.04,
+                "fraction": 0.0051234,
+            },
+        ],
+        **k,
+    }
+
+
+class DrawP6(unittest.TestCase):
+    @staticmethod
+    def rows(table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+
+    def test_checks_put_each_quantity_on_a_row(self):
+        rows = dict(self.rows(vt.p6_checks([p6_summary()])))
+        self.assertEqual(rows["k（HFP）"], "1.161235")
+        self.assertEqual(
+            rows["熱水力の繰り返し"], "9 回、最後の変化 4.2e-06（許容 1e-05）"
+        )
+        self.assertEqual(
+            rows["エンタルピーの上昇"],
+            "205.541 kJ/kg（出力 / 流量 205.541 kJ/kg、相対差 +2.0e-16）",
+        )
+        self.assertEqual(rows["出口の温度"], "600.495 K")
+        self.assertEqual(
+            rows["燃料の実効温度（体積平均）"], "平均 880.0 K、最大 1102.0 K"
+        )
+        # 丸めて 0 になる差に符号を付けない
+        self.assertEqual(
+            rows[
+                "出力を 1e-06 倍にした解と、熱水力なしの減速材 565 K、燃料 565 K の解"
+            ],
+            "k 1.17000123 と 1.17000123（差 0.000 pcm、出口 565.0000 K、燃料の最大 565.0000 K）",
+        )
+
+    def test_the_effective_temperature_label_names_the_input_method(self):
+        s = p6_summary()
+        s["thermal"]["effective"] = "rowlands"
+        self.assertIn("燃料の実効温度（Rowlands）", dict(self.rows(vt.p6_checks([s]))))
+
+    def test_layers_dash_the_fuel_of_layers_without_fission(self):
+        self.assertEqual(
+            self.rows(vt.p6_layers([p6_summary()])),
+            [
+                ["0.000〜50.000", "565.00", "0.74271", "–", "0.00000"],
+                ["66.951〜70.817", "565.43", "0.74187", "640.0", "0.00512"],
+            ],
+        )
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.p6_checks([{"format": "xlc-compare-p3"}])
+
+
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):
         table = vt.depletion_k(

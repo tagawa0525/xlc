@@ -2112,8 +2112,8 @@ stages:
       isexec: true
     - path: xs-nuclides
       hash: md5
-      md5: 3d7394b572570378f3ab3f6ccc0babff.dir
-      size: 344476154
+      md5: d74e6b442bf774c281f9edef47a28df4.dir
+      size: 552114046
       nfiles: 61
     - path: xs-range.toml
       hash: md5
@@ -2121,13 +2121,13 @@ stages:
       size: 35
     - path: xs.toml
       hash: md5
-      md5: 44666a21279ff86aa2b7d4fc504329ef
-      size: 6467
+      md5: ffa0f726c15ccd8b1130d0d2b84db1c5
+      size: 7773
     outs:
     - path: vera.msgpack
       hash: md5
-      md5: 0dfa3aca7be456e1019311672a92438c
-      size: 344427865
+      md5: db5c15e8089d89b46b192eed2b412bd4
+      size: 552065757
   xs-range:
     cmd: ../../bin/xs range xs.toml xs-range.toml
     deps:
@@ -2143,8 +2143,8 @@ stages:
       nfiles: 561
     - path: xs.toml
       hash: md5
-      md5: 44666a21279ff86aa2b7d4fc504329ef
-      size: 6467
+      md5: ffa0f726c15ccd8b1130d0d2b84db1c5
+      size: 7773
     outs:
     - path: xs-range.toml
       hash: md5
@@ -2180,7 +2180,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2195,8 +2198,8 @@ stages:
     outs:
     - path: xs-nuclides/Ni-58.msgpack
       hash: md5
-      md5: ffd5264b0687f21b44f606460d35b833
-      size: 9850676
+      md5: 7646fac9de428c14feca416c1b9cedd8
+      size: 17223875
   xs-nuclide@U-235:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-235 
       xs-nuclides/U-235.msgpack
@@ -2228,7 +2231,9 @@ stages:
           - 565
           - 570
           - 600
+          - 750
           - 900
+          - 1050
           - 1200
         scattering-order: 3
         sigma0:
@@ -2244,8 +2249,8 @@ stages:
     outs:
     - path: xs-nuclides/U-235.msgpack
       hash: md5
-      md5: ead47634e9b016b04cd8352e3d769700
-      size: 21591856
+      md5: 618c7b0a8485250e8179275c4cc0c8d9
+      size: 28393706
   xs-nuclide@B-11:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-11 
       xs-nuclides/B-11.msgpack
@@ -2276,7 +2281,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2291,8 +2299,8 @@ stages:
     outs:
     - path: xs-nuclides/B-11.msgpack
       hash: md5
-      md5: c016eb6d22da7e2faecf56473be87511
-      size: 902843
+      md5: 01e424e2caaef8c1fb75731822c150b1
+      size: 1579016
   xs-nuclide@Zr-92:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-92 
       xs-nuclides/Zr-92.msgpack
@@ -2323,7 +2331,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2338,8 +2349,8 @@ stages:
     outs:
     - path: xs-nuclides/Zr-92.msgpack
       hash: md5
-      md5: ab886512b9be2e1f19b6f9a7e326c6ed
-      size: 3923334
+      md5: cf073d96dca2589d4e5b0746e74376e8
+      size: 6859734
   xs-nuclide@Si-28:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Si-28 
       xs-nuclides/Si-28.msgpack
@@ -2370,7 +2381,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2385,8 +2399,8 @@ stages:
     outs:
     - path: xs-nuclides/Si-28.msgpack
       hash: md5
-      md5: 083ed3dec71a3348f08492346b01347a
-      size: 1550606
+      md5: 2016dda158c37e6a2b92cd43b57457a2
+      size: 2712185
   xs-nuclide@Zr-90:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-90 
       xs-nuclides/Zr-90.msgpack
@@ -2417,7 +2431,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2432,8 +2449,8 @@ stages:
     outs:
     - path: xs-nuclides/Zr-90.msgpack
       hash: md5
-      md5: 955b7a7f18c82e7daab09f7b811ee0b6
-      size: 3805518
+      md5: b312e5f4c7185384d98e1c2fb69e8bfa
+      size: 6652611
   xs-nuclide@Cd-116:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-116 
       xs-nuclides/Cd-116.msgpack
@@ -2464,7 +2481,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2479,8 +2499,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-116.msgpack
       hash: md5
-      md5: 42c72834136c5845e1ff830a6b0844b5
-      size: 2791927
+      md5: 9adb70c6ee5cf1c5804a4fb65fe40f82
+      size: 4883551
   xs-nuclide@O-16:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml O-16 
       xs-nuclides/O-16.msgpack
@@ -2511,8 +2531,13 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
+          - 750
           - 900
+          - 1050
           - 1200
         scattering-order: 3
         sigma0:
@@ -2528,8 +2553,8 @@ stages:
     outs:
     - path: xs-nuclides/O-16.msgpack
       hash: md5
-      md5: 5eadde8b759477fe7897f4a9bd3ade02
-      size: 1283677
+      md5: e3e5ba3c268735a25b82cde63c73848a
+      size: 2352672
   xs-nuclide@Sn-116:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-116 
       xs-nuclides/Sn-116.msgpack
@@ -2560,7 +2585,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2575,8 +2603,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-116.msgpack
       hash: md5
-      md5: 451f0e377fe05e30df9fa129827112b3
-      size: 7105015
+      md5: ecdfb65730e14e86353df8e7ece89f12
+      size: 12419413
   xs-nuclide@Fe-57:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-57 
       xs-nuclides/Fe-57.msgpack
@@ -2607,7 +2635,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2622,8 +2653,8 @@ stages:
     outs:
     - path: xs-nuclides/Fe-57.msgpack
       hash: md5
-      md5: 7b57a491036e6edc4856f795cce996d3
-      size: 3398864
+      md5: 6f02bf071bdbf604b86ee1e643c37983
+      size: 5943923
   xs-nuclide@Cr-52:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-52 
       xs-nuclides/Cr-52.msgpack
@@ -2654,7 +2685,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2669,8 +2703,8 @@ stages:
     outs:
     - path: xs-nuclides/Cr-52.msgpack
       hash: md5
-      md5: 6dd00c22cc1c33fea0ee7e995ef90a76
-      size: 6840932
+      md5: 4be28351733ce34bfdba2090f27fd0b7
+      size: 11964977
   xs-nuclide@Mn-55:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Mn-55 
       xs-nuclides/Mn-55.msgpack
@@ -2701,7 +2735,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2716,8 +2753,8 @@ stages:
     outs:
     - path: xs-nuclides/Mn-55.msgpack
       hash: md5
-      md5: 44626157db9c173e0602e4a1bce08801
-      size: 3735038
+      md5: aa7213b7db81c287619c9d2b01bb20c7
+      size: 6529757
   xs-nuclide@Cr-53:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-53 
       xs-nuclides/Cr-53.msgpack
@@ -2748,7 +2785,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2763,8 +2803,8 @@ stages:
     outs:
     - path: xs-nuclides/Cr-53.msgpack
       hash: md5
-      md5: 01ec99658e19a9c2cd9ffcabf930fdd7
-      size: 5724050
+      md5: 76fc3125311f146fb117dbec6df08023
+      size: 10008665
   xs-nuclide@Cd-114:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-114 
       xs-nuclides/Cd-114.msgpack
@@ -2795,7 +2835,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2810,8 +2853,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-114.msgpack
       hash: md5
-      md5: 354f98a8db863f34330acd0bb31c3b81
-      size: 3962485
+      md5: 5bea23cd7c2e08789a5c71c6219419c4
+      size: 6928963
   xs-nuclide@Si-29:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Si-29 
       xs-nuclides/Si-29.msgpack
@@ -2842,7 +2885,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2857,8 +2903,8 @@ stages:
     outs:
     - path: xs-nuclides/Si-29.msgpack
       hash: md5
-      md5: 4033b4dad2ca2bb00542252bf7b2dd54
-      size: 1280282
+      md5: 1cdbb64eebda02d84e70d670081bdb70
+      size: 2239793
   xs-nuclide@Cd-106:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-106 
       xs-nuclides/Cd-106.msgpack
@@ -2889,7 +2935,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2904,8 +2953,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-106.msgpack
       hash: md5
-      md5: 2f23ab418649ae62885122af6d682915
-      size: 2758339
+      md5: 24dac5b0b969a76fe0d8c1ea3bc064cb
+      size: 4819993
   xs-nuclide@Fe-56:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-56 
       xs-nuclides/Fe-56.msgpack
@@ -2936,7 +2985,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2951,8 +3003,8 @@ stages:
     outs:
     - path: xs-nuclides/Fe-56.msgpack
       hash: md5
-      md5: 3b016b88176fdf2b20f006d19d673340
-      size: 7812446
+      md5: 9353a8c368e1e3db01f3b243edf8b0e8
+      size: 13665005
   xs-nuclide@Zr-91:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-91 
       xs-nuclides/Zr-91.msgpack
@@ -2983,7 +3035,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -2998,8 +3053,8 @@ stages:
     outs:
     - path: xs-nuclides/Zr-91.msgpack
       hash: md5
-      md5: 0402c357e21eb9f8c1c9c3aba8579f98
-      size: 4807832
+      md5: 4d15ceeda67f441f2d575ab0042ce78e
+      size: 8404433
   xs-nuclide@Cd-112:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-112 
       xs-nuclides/Cd-112.msgpack
@@ -3030,7 +3085,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3045,8 +3103,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-112.msgpack
       hash: md5
-      md5: 6fc64bcd3b3f9ee22d322337f0bc51a3
-      size: 5004685
+      md5: ffc77ee81e3d3a2cb69a8be37737c794
+      size: 8749519
   xs-nuclide@Cr-50:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-50 
       xs-nuclides/Cr-50.msgpack
@@ -3077,7 +3135,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3092,8 +3153,8 @@ stages:
     outs:
     - path: xs-nuclides/Cr-50.msgpack
       hash: md5
-      md5: 06328ff09e78e4da3082f024e3386c7a
-      size: 7941830
+      md5: d37962cb3f1af5c561e191b339796a7f
+      size: 13884569
   xs-nuclide@Sn-119:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-119 
       xs-nuclides/Sn-119.msgpack
@@ -3124,7 +3185,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3139,8 +3203,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-119.msgpack
       hash: md5
-      md5: c077962e6a02adc8399bc7c09732aad2
-      size: 1897795
+      md5: 2abdfbcd96150cb6df1f9dfd21917283
+      size: 3317173
   xs-nuclide@Ag-107:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ag-107 
       xs-nuclides/Ag-107.msgpack
@@ -3171,7 +3235,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3186,8 +3253,8 @@ stages:
     outs:
     - path: xs-nuclides/Ag-107.msgpack
       hash: md5
-      md5: 4061689c8a04526fce1e7725b1a9216b
-      size: 9785089
+      md5: 6f33a66d3750e64cf650825b8637f9f1
+      size: 17088361
   xs-nuclide@Sn-117:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-117 
       xs-nuclides/Sn-117.msgpack
@@ -3218,7 +3285,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3233,8 +3303,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-117.msgpack
       hash: md5
-      md5: 871f89dfe0eebc16d8b7e0ed32b37362
-      size: 3046915
+      md5: 687ba2f7c77b711f4eb306e99e2c34ff
+      size: 5326621
   xs-nuclide@Zr-94:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-94 
       xs-nuclides/Zr-94.msgpack
@@ -3265,7 +3335,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3280,8 +3353,8 @@ stages:
     outs:
     - path: xs-nuclides/Zr-94.msgpack
       hash: md5
-      md5: 9ea33393852e9066954ac256a3a8dbb4
-      size: 3247686
+      md5: aa89df0ce0c982fed26dd8919605e322
+      size: 5679834
   xs-nuclide@B-10:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-10 
       xs-nuclides/B-10.msgpack
@@ -3312,7 +3385,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3327,8 +3403,8 @@ stages:
     outs:
     - path: xs-nuclides/B-10.msgpack
       hash: md5
-      md5: e0a70ca2076da052afb08f6661644c41
-      size: 911515
+      md5: 0833a6b6afdc992338a94a6342a3796d
+      size: 1594489
   xs-nuclide@Ni-64:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ni-64 
       xs-nuclides/Ni-64.msgpack
@@ -3359,7 +3435,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3374,8 +3453,8 @@ stages:
     outs:
     - path: xs-nuclides/Ni-64.msgpack
       hash: md5
-      md5: 4ed6d4119677f968da5c5abdc2925c8c
-      size: 2731608
+      md5: aff5e46b1a481e6cc8c98e8473631a85
+      size: 4779114
   xs-nuclide@Ni-62:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ni-62 
       xs-nuclides/Ni-62.msgpack
@@ -3406,7 +3485,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3421,8 +3503,8 @@ stages:
     outs:
     - path: xs-nuclides/Ni-62.msgpack
       hash: md5
-      md5: eeb0f90e198074cdd156751a8c149aa9
-      size: 2862234
+      md5: 0134d09babce027898f45738258d3b3b
+      size: 5007318
   xs-nuclide@Cd-113:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-113 
       xs-nuclides/Cd-113.msgpack
@@ -3453,7 +3535,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3468,8 +3553,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-113.msgpack
       hash: md5
-      md5: 246a32cd31bf0ddc0d093e0b73cb43ee
-      size: 7487443
+      md5: f83644f6e6a0d558034bd11dd4bb9dc1
+      size: 13085989
   xs-nuclide@Cr-54:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-54 
       xs-nuclides/Cr-54.msgpack
@@ -3500,7 +3585,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3515,8 +3603,8 @@ stages:
     outs:
     - path: xs-nuclides/Cr-54.msgpack
       hash: md5
-      md5: 87bafff3157f4762f113560ae829eba4
-      size: 3769898
+      md5: 7e79193251ab215fc84f40207ee6139d
+      size: 6594947
   xs-nuclide@P-31:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml P-31 
       xs-nuclides/P-31.msgpack
@@ -3547,7 +3635,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3562,8 +3653,8 @@ stages:
     outs:
     - path: xs-nuclides/P-31.msgpack
       hash: md5
-      md5: f78ce1a4721114a793e56fed42468703
-      size: 885869
+      md5: 199fb2667a6be854cc56cefd8f7119ae
+      size: 1549919
   xs-nuclide@Sn-115:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-115 
       xs-nuclides/Sn-115.msgpack
@@ -3594,7 +3685,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3609,8 +3703,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-115.msgpack
       hash: md5
-      md5: 7a87d3b05d77476056e213cd2c455c48
-      size: 1211617
+      md5: 1513c9e03decd8f8cdb4f94d4edfb283
+      size: 2120047
   xs-nuclide@Fe-54:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-54 
       xs-nuclides/Fe-54.msgpack
@@ -3641,7 +3735,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3656,8 +3753,8 @@ stages:
     outs:
     - path: xs-nuclides/Fe-54.msgpack
       hash: md5
-      md5: 74ec7e41834eccb51696b909ab824a03
-      size: 8529998
+      md5: 8e2a4eba4b0d8c50d19d19786363e909
+      size: 14916401
   xs-nuclide@Si-30:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Si-30 
       xs-nuclides/Si-30.msgpack
@@ -3688,7 +3785,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3703,8 +3803,8 @@ stages:
     outs:
     - path: xs-nuclides/Si-30.msgpack
       hash: md5
-      md5: 64bf4d257779a0c63eb4c079985566bb
-      size: 1466960
+      md5: 198da54ec2a214f8dcaf1f754cd667fc
+      size: 2566547
   xs-nuclide@Cd-110:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-110 
       xs-nuclides/Cd-110.msgpack
@@ -3735,7 +3835,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3750,8 +3853,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-110.msgpack
       hash: md5
-      md5: 4e600e5e96a8a9ae21c3277cf10e3aa2
-      size: 4036357
+      md5: 0c2fe985fef2292faa48f544bb660682
+      size: 7058833
   xs-nuclide@Sn-112:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-112 
       xs-nuclides/Sn-112.msgpack
@@ -3782,7 +3885,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3797,8 +3903,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-112.msgpack
       hash: md5
-      md5: ea16bcb517fcbf804e98c8bef085ac68
-      size: 1698481
+      md5: 45dbc6d021c847db19cae5651a965488
+      size: 2969575
   xs-nuclide@Sn-124:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-124 
       xs-nuclides/Sn-124.msgpack
@@ -3829,7 +3935,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3844,8 +3953,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-124.msgpack
       hash: md5
-      md5: df0e74311e0565d79eb76444f678b959
-      size: 5985217
+      md5: 04907122dbb9c7bbb8bd1d779e9413e9
+      size: 10467313
   xs-nuclide@Ni-61:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ni-61 
       xs-nuclides/Ni-61.msgpack
@@ -3876,7 +3985,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3891,8 +4003,8 @@ stages:
     outs:
     - path: xs-nuclides/Ni-61.msgpack
       hash: md5
-      md5: 74eb1929deec41e771402ce5f9b77427
-      size: 2443842
+      md5: a3d396d6610c21aa3dfa6e409bf96453
+      size: 4275240
   xs-nuclide@U-238:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-238 
       xs-nuclides/U-238.msgpack
@@ -3924,7 +4036,9 @@ stages:
           - 565
           - 570
           - 600
+          - 750
           - 900
+          - 1050
           - 1200
         scattering-order: 3
         sigma0:
@@ -3940,8 +4054,8 @@ stages:
     outs:
     - path: xs-nuclides/U-238.msgpack
       hash: md5
-      md5: 74525938e6f62ca73e5a83905b5c195b
-      size: 58384684
+      md5: 6b7e86371aa11c2d17b497117e6c2c30
+      size: 77184548
   xs-nuclide@In-113:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml In-113 
       xs-nuclides/In-113.msgpack
@@ -3972,7 +4086,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -3987,8 +4104,8 @@ stages:
     outs:
     - path: xs-nuclides/In-113.msgpack
       hash: md5
-      md5: f08aea76b5ad649252712f550ac64242
-      size: 2895499
+      md5: 54beedb953d5a421f8d475a8c53ab9e9
+      size: 5058943
   xs-nuclide@Sn-120:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-120 
       xs-nuclides/Sn-120.msgpack
@@ -4019,7 +4136,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4034,8 +4154,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-120.msgpack
       hash: md5
-      md5: 5c4e5d5968e0849b0f5f579514f42c8b
-      size: 6053721
+      md5: daf7329369e36267316fa8d12c7a8212
+      size: 10584468
   xs-nuclide@C-13:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml C-13 
       xs-nuclides/C-13.msgpack
@@ -4066,7 +4186,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4081,8 +4204,8 @@ stages:
     outs:
     - path: xs-nuclides/C-13.msgpack
       hash: md5
-      md5: e4a4289c9fafd76861afd3006d8dc2a2
-      size: 850959
+      md5: a16e6dc1b41bdf8da8ac3ee8b0420c13
+      size: 1488516
   xs-nuclide@Ni-60:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ni-60 
       xs-nuclides/Ni-60.msgpack
@@ -4113,7 +4236,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4128,8 +4254,8 @@ stages:
     outs:
     - path: xs-nuclides/Ni-60.msgpack
       hash: md5
-      md5: 52739cdaca29c63ec5cabfac41ecf97d
-      size: 9196358
+      md5: b50d5ec0ec98351f1b6d799642e7d572
+      size: 16077833
   xs-nuclide@Cd-108:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-108 
       xs-nuclides/Cd-108.msgpack
@@ -4160,7 +4286,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4175,8 +4304,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-108.msgpack
       hash: md5
-      md5: 24165e756f3f059c24b188ba176e6373
-      size: 3006631
+      md5: aa05fc0cc405f7197e2c64d081321c8c
+      size: 5258095
   xs-nuclide@U-234:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-234 
       xs-nuclides/U-234.msgpack
@@ -4208,7 +4337,9 @@ stages:
           - 565
           - 570
           - 600
+          - 750
           - 900
+          - 1050
           - 1200
         scattering-order: 3
         sigma0:
@@ -4224,8 +4355,8 @@ stages:
     outs:
     - path: xs-nuclides/U-234.msgpack
       hash: md5
-      md5: ab7a8ecc7ad2f0038d36cd7b0182b5c7
-      size: 8733334
+      md5: 16bb91cc1aba768585a0bc8faa8561e7
+      size: 11586126
   xs-nuclide@H-1:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml H-1 xs-nuclides/H-1.msgpack
     deps:
@@ -4255,6 +4386,7 @@ stages:
           - 550
           - 573.6
           - 600
+          - 623.6
           thermal: tsl-HinH2O.endf
           sab-upper: evaluated
           sab-outside: sct
@@ -4273,8 +4405,8 @@ stages:
     outs:
     - path: xs-nuclides/H-1.msgpack
       hash: md5
-      md5: 9c3c24bff0d695948f58aa0096dece06
-      size: 21159108
+      md5: d0bd9f7ff807b622d583f6235a5c4369
+      size: 28211850
   xs-nuclide@Sn-122:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-122 
       xs-nuclides/Sn-122.msgpack
@@ -4305,7 +4437,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4320,8 +4455,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-122.msgpack
       hash: md5
-      md5: d5157af9aaddf46f4fb970889356d785
-      size: 9612397
+      md5: ac86315ec7f1718494d954e53538f369
+      size: 16808155
   xs-nuclide@Ag-109:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ag-109 
       xs-nuclides/Ag-109.msgpack
@@ -4352,7 +4487,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4367,8 +4505,8 @@ stages:
     outs:
     - path: xs-nuclides/Ag-109.msgpack
       hash: md5
-      md5: 65443d703215cabeee3112ca653a621f
-      size: 10785385
+      md5: 9cd1dc9d9180914979a61e6b21d5578f
+      size: 18833047
   xs-nuclide@Zr-96:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-96 
       xs-nuclides/Zr-96.msgpack
@@ -4399,7 +4537,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4414,8 +4555,8 @@ stages:
     outs:
     - path: xs-nuclides/Zr-96.msgpack
       hash: md5
-      md5: c2b602899e4198e3a27ee0083013386c
-      size: 2054124
+      md5: 53e81b361f4d49862cc8d3505edde40f
+      size: 3593004
   xs-nuclide@Cd-111:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cd-111 
       xs-nuclides/Cd-111.msgpack
@@ -4446,7 +4587,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4461,8 +4605,8 @@ stages:
     outs:
     - path: xs-nuclides/Cd-111.msgpack
       hash: md5
-      md5: 6781fe422558e6a33f2d614abc78ad54
-      size: 5298229
+      md5: f98c4d7f9ee218d8f1f7e8ac52cdc7c1
+      size: 9257281
   xs-nuclide@U-236:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-236 
       xs-nuclides/U-236.msgpack
@@ -4494,7 +4638,9 @@ stages:
           - 565
           - 570
           - 600
+          - 750
           - 900
+          - 1050
           - 1200
         scattering-order: 3
         sigma0:
@@ -4510,8 +4656,8 @@ stages:
     outs:
     - path: xs-nuclides/U-236.msgpack
       hash: md5
-      md5: 127d5fce6c1f94f9ede0f4a4c01d90ad
-      size: 8388274
+      md5: d4117f057a70615436cc16f483726749
+      size: 11134470
   xs-nuclide@Sn-114:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-114 
       xs-nuclides/Sn-114.msgpack
@@ -4542,7 +4688,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4557,8 +4706,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-114.msgpack
       hash: md5
-      md5: c6e92e47d121177bb34237975eb9882b
-      size: 1626229
+      md5: 5ac9c926bc5f6ff7e90511380c78e8ef
+      size: 2844295
   xs-nuclide@Sn-118:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-118 
       xs-nuclides/Sn-118.msgpack
@@ -4589,7 +4738,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4604,8 +4756,8 @@ stages:
     outs:
     - path: xs-nuclides/Sn-118.msgpack
       hash: md5
-      md5: be1854f3d67d53d03c297c71eba099b9
-      size: 1388899
+      md5: 852ff00050d6b15d7165ad2de6962d70
+      size: 2428711
   xs-nuclide@Fe-58:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-58 
       xs-nuclides/Fe-58.msgpack
@@ -4636,7 +4788,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4651,8 +4806,8 @@ stages:
     outs:
     - path: xs-nuclides/Fe-58.msgpack
       hash: md5
-      md5: b4987a72e7f8e7b3948557b246038908
-      size: 5625858
+      md5: f4151a8f0cbc20cef15b3cde4ffce35f
+      size: 9835371
   xs-nuclide@C-12:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml C-12 
       xs-nuclides/C-12.msgpack
@@ -4683,7 +4838,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4698,8 +4856,8 @@ stages:
     outs:
     - path: xs-nuclides/C-12.msgpack
       hash: md5
-      md5: 93e0087145ad37ed02ea421057bed204
-      size: 829651
+      md5: 966fb424261be9269898ab22f46d4595
+      size: 1451227
   xs-nuclide@In-115:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml In-115 
       xs-nuclides/In-115.msgpack
@@ -4730,7 +4888,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -4745,8 +4906,8 @@ stages:
     outs:
     - path: xs-nuclides/In-115.msgpack
       hash: md5
-      md5: 4d1667f5377c161bb88167a01ecdf271
-      size: 6727859
+      md5: 99d7605259a266868e0b1b34f2b15fd6
+      size: 11747537
   lattice-1B:
     cmd: ../../bin/lattice p1/pincell-1B.toml > p1/lattice-1B.out
     deps:
@@ -5027,7 +5188,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -5042,8 +5206,8 @@ stages:
     outs:
     - path: xs-nuclides/Ti-49.msgpack
       hash: md5
-      md5: 9630501086b2d18882737fd74cc92889
-      size: 2225552
+      md5: 256a24dd21d815d57a3135dc3f8f927d
+      size: 3893435
   xs-nuclide@Ti-46:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ti-46 
       xs-nuclides/Ti-46.msgpack
@@ -5074,7 +5238,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -5089,8 +5256,8 @@ stages:
     outs:
     - path: xs-nuclides/Ti-46.msgpack
       hash: md5
-      md5: 85205e4c30364ee37d9f4548dcad9799
-      size: 4052534
+      md5: b8de9fd18f11830871adfa75cf15757e
+      size: 7087643
   xs-nuclide@Ti-47:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ti-47 
       xs-nuclides/Ti-47.msgpack
@@ -5121,7 +5288,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -5136,8 +5306,8 @@ stages:
     outs:
     - path: xs-nuclides/Ti-47.msgpack
       hash: md5
-      md5: 1f4d54df618ead51b3051aae76739770
-      size: 1923530
+      md5: a28551bf9f6ea22e820a2785a1f255e9
+      size: 3364451
   xs-nuclide@Ti-48:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ti-48 
       xs-nuclides/Ti-48.msgpack
@@ -5168,7 +5338,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -5183,8 +5356,8 @@ stages:
     outs:
     - path: xs-nuclides/Ti-48.msgpack
       hash: md5
-      md5: 796c72c2daeb41438458bc651b6030b4
-      size: 3764606
+      md5: 2179da7d97c82f0123ab0d26844a1bbf
+      size: 6584363
   xs-nuclide@Ti-50:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ti-50 
       xs-nuclides/Ti-50.msgpack
@@ -5215,7 +5388,10 @@ stages:
           - 560
           - 565
           - 570
+          - 580
+          - 590
           - 600
+          - 610
         scattering-order: 3
         sigma0:
         - 10000000000.0
@@ -5230,8 +5406,8 @@ stages:
     outs:
     - path: xs-nuclides/Ti-50.msgpack
       hash: md5
-      md5: 1f4f158a3547a7ac6780e41217fecc38
-      size: 1821060
+      md5: 3609e90f7b8b1e19845c163927d46ad1
+      size: 3185682
   openmc-1B-model:
     cmd: nix develop ../..#references -c python3 openmc_model.py model 
       p1/openmc-1B.toml p1/openmc-1B-model

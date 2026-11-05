@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REPORTS = {
     "xlc-compare-p3": "examples/vera/compare_p3.py",
     "xlc-compare-p5": "examples/vera/compare_p5.py",
+    "xlc-compare-p6": "examples/vera/compare_p6.py",
 }
 
 
