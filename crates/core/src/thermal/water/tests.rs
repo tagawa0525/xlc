@@ -116,7 +116,7 @@ fn states_outside_the_liquid_region_are_errors() {
     assert!(temperature(15.5, f64::INFINITY).is_err());
 }
 
-/// IAPWS R12-08 の表 4（μ₂ = 1 の式 (10)。工業用の推奨の 3 節）
+/// IAPWS R12-08 の表 4（μ₂ = 1 の式 (10)。工業用の推奨の 3 節。小数 6 桁）
 #[test]
 fn viscosity_matches_the_r12_verification_table() {
     // (T K, ρ kg/m³, μ μPa s)
@@ -133,8 +133,13 @@ fn viscosity_matches_the_r12_verification_table() {
         (1173.15, 100.0, 47.640433),
         (1173.15, 400.0, 64.154608),
     ];
+    // 表は小数 6 桁なので、丸めの半分の 5e-7 μPa s まで
     for (t, rho, mu) in table {
-        close(viscosity(t, rho) * 1e6, mu, 1e-8);
+        let value = viscosity(t, rho) * 1e6;
+        assert!(
+            (value - mu).abs() <= 5e-7,
+            "{t} K, {rho} kg/m3: {value} vs {mu}"
+        );
     }
 }
 
