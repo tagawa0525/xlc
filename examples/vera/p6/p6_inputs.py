@@ -171,9 +171,10 @@ def slab() -> str:
     return renamed(text)
 
 
-def thermal(power: float) -> str:
+def thermal(power: float, what: str) -> str:
+    """`what` は出力の出どころ（入力のコメントに書く）"""
     return f"""[thermal-hydraulics]
-# 表 P6-1: 出力 (MW)、流量 0.6823 Mlbs/hr (kg/s)、圧力 2250 psia (MPa)。燃料の発熱の割合は表 18
+# 出力 (MW) は{what}。表 P6-1 の流量 0.6823 Mlbs/hr (kg/s)、圧力 2250 psia (MPa)。燃料の発熱の割合は表 18
 power = {power:g}
 flow = {FLOW:.4f}
 pressure = {PRESSURE:.6f}
@@ -197,11 +198,11 @@ inlet = {INLET}
 CASES = {
     "core-6": (
         "表 P6-1 の HFP の熱水力のフィードバックの解（ADR-0229）",
-        thermal(POWER),
+        thermal(POWER, "表 P6-1 の定格"),
     ),
     "core-6-low-power": (
         "core-6 の出力だけを 1e-6 倍にした熱水力の解（ノードの温度はほぼ入口の温度。core-6-isothermal と k を比べる）",
-        thermal(POWER * 1e-6),
+        thermal(POWER * 1e-6, "表 P6-1 の定格の 1e-6 倍"),
     ),
     "core-6-isothermal": (
         "熱水力なしで、減速材と燃料を入口の温度にした解（core-6-low-power と k を比べる）",
