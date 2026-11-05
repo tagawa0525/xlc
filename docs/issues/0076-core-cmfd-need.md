@@ -36,6 +36,6 @@ Problem 3〜5 を CMFD なしで解いた反復の回数と時間を記録し、
   - Problem 5 の 3D の全炉心の HZP（examples/vera/p5/hzp/core-hzp.log、Slurm 696、3575aff8、2026-11-05）: 34 状態の外側の反復は 4,226〜9,215 回、
     span `nem` 42 個（探索の解を含む）の time.busy は 156〜532 秒、全体は `core seconds=1082.67`。パーティション main のジョブで、34 状態を 32 スレッドで
     並列に解いたので、時間は目安
-  - Problem 9 の形の全炉心の燃焼（examples/depletion/verification.md の「全炉心の燃焼の時間の内訳（Problem 9 の形）」、63dd493c、Slurm 697 の timed、
+  - Problem 9 の形の全炉心の燃焼（examples/depletion/verification.md の「全炉心の燃焼の時間の内訳（Problem 9 の形）」、ca59c64b、Slurm 697 の timed、
     2026-11-06）: 固有値計算 25 回の外側の反復は 4,213〜6,068 回、1 回 132〜203 秒（全体の 99.8 %）。BOC の 1 回は 118 秒、反復 4,165〜4,183 回
     （区分なしの手元の試行で目安）。30 ステップの燃焼は約 2,300 回の固有値計算で、約 113 時間の見積もり（#0156）
