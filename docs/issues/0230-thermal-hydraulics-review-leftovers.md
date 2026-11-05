@@ -28,6 +28,19 @@ resolution:
 - 重複: `ThermalReport` は `ChannelSolution` の項目を写し、`EffectiveEntry` は `Effective` の写し。核分裂のあるテーブルの判定
   （`thermal::fissile`）は crates/core/src/state.rs の重みの判定と同じ式で、テーブルか state.rs に置く方が依存の向きに合う
 
+2 周目（同じ日）の non-blocking の指摘:
+
+- `Channels::new` は反射体の位置を核分裂の判定の前に外すので、反射体の位置が核分裂のあるテーブルを使う入力は、2 回目の繰り返しで
+  「流路のない位置の出力」のエラーになる（止まるが、入力の誤りを指さない）。作るときに止める
+- `solve_thermal` の「流路に核分裂のあるノードがない」のエラーは、`Channels::new` が核分裂のある流路だけを作るので届かない。
+  `Channels::present` は呼ばれていない
+- 物質の番号から部分挿入のノードの区間のテーブルを引く書き方が、`density_error`、`Channels::new`、燃焼の `node_uses` の 3 か所にある
+  （`Layout` のメソッドにまとめる）
+- `report_thermal` の層ごとの燃料の温度の平均は、出力が正のノードで数え、`fuel_average` は核分裂のあるテーブルで数える
+- 探索のある熱水力の状態の標準出力の「searched in N solves」はホウ素濃度の数で、各濃度の熱水力の繰り返しの固有値計算の回数を含まない。
+  `thermal-hydraulics iterations` は最後の濃度の回数だけ
+- 1 周目の直しのコミット（d95c64bc6）は、テストの入力の `[state.hfp]` の追加を実装と同じコミットに入れた（TDD のコミットの分け方）
+
 関係する ADR: なし
 
 ## 完了の条件
