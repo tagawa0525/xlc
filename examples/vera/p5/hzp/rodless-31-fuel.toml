@@ -1,8 +1,9 @@
 # このファイルは p5_inputs.py が書く。手で直さない。
-# VERA Problem 5 の集合体（濃縮度 3.10%、中間の支持格子（Zircaloy-4）の高さ。支持格子は 875 g / 6.56 g/cm³ / 3.81 cm を 289 のセルに等しく分けた、セルの外周の厚さ 0.024512 cm の枠（表 3。Problem 3 と同じ置き方。ADR-0140））の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
+# VERA Problem 5 の集合体（濃縮度 3.10%）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
 # 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
 library = "../../vera.msgpack"
-few-group = { output = "lattice/31-zgrid.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+few-group = { output = "rodless/lattice/31-fuel.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+medium = "rodless/media/31-fuel.msgpack"
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
@@ -78,7 +79,6 @@ zones = [
   { material = "water", rings = 1 },
 ]
 sectors = 8
-frame = { thickness = 0.024512, material = "zircaloy" }
 # 案内管（中は減速材）
 [cell.gt]
 zones = [
@@ -88,7 +88,6 @@ zones = [
   { material = "water", rings = 1 },
 ]
 sectors = 8
-frame = { thickness = 0.024512, material = "zircaloy" }
 # 計装管（中は減速材。シンブルは入れない。仕様書の問題 5-2D）
 [cell.it]
 zones = [
@@ -98,4 +97,3 @@ zones = [
   { material = "water", rings = 1 },
 ]
 sectors = 8
-frame = { thickness = 0.024512, material = "zircaloy" }

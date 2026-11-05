@@ -1752,19 +1752,22 @@ def lattice_stem(shape: str | None, design: str, kind: str) -> str:
     return stem if shape is None else f"reflector-{shape}-{stem}"
 
 
-def hzp_single(design: str, kind: str, rodded: bool) -> str:
+def hzp_single(design: str, kind: str, rodded: bool, prefix: str = "") -> str:
+    """単一集合体の格子。出力は hzp/ からの `prefix` の下（棒のない比べる先の格子は `rodless/`。`hzp_pipeline`）"""
     fuel, pyrex, _ = assembly_types()[design]
     rows = hzp_rows(fuel, pyrex, kind)
     what, names, cells = hzp_parts(fuel, pyrex, rodded, kind, rows)
     stem = lattice_stem(None, design, kind)
     _, grid, _ = kinds_of(pyrex)[kind]
     # 媒質は棒のない値の状態だけを書く（ADR-0128、ADR-0224）
-    medium = f'medium = "media/{design}-{kind}.msgpack"\n' if grid is None else ""
+    medium = (
+        f'medium = "{prefix}media/{design}-{kind}.msgpack"\n' if grid is None else ""
+    )
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 # VERA Problem 5 の集合体（{what}）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
 # 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
 library = "../../vera.msgpack"
-few-group = {{ output = "lattice/{stem}.msgpack", bounds = {BOUNDS}, pins = true }}
+few-group = {{ output = "{prefix}lattice/{stem}.msgpack", bounds = {BOUNDS}, pins = true }}
 {medium}pitch = 1.26
 azimuthal = {AZIMUTHAL}
 spacing = {SPACING}
@@ -1779,9 +1782,11 @@ gap = {{ width = 0.04, material = "water" }}
 """
 
 
-def hzp_reflector(shape: str, design: str, kind: str, rodded: bool) -> str:
+def hzp_reflector(
+    shape: str, design: str, kind: str, rodded: bool, prefix: str = ""
+) -> str:
     """反射体の格子（ADR-0095、ADR-0132）の層の種類。燃料のノードの定数を外周のこの種類の位置のその高さに、代表の燃料の
-    支持格子のない層の反射体のノードの定数を径方向の反射体の列に置く（ADR-0153）"""
+    支持格子のない層の反射体のノードの定数を径方向の反射体の列に置く（ADR-0153）。出力は hzp/ からの `prefix` の下"""
     fuel, pyrex, _ = assembly_types()[design]
     kinds = [["F", "R"]] if shape == "I" else [["R", "R"], ["F", "R"]]
     n_rows, n_cols = len(kinds), len(kinds[0])
@@ -1808,7 +1813,7 @@ def hzp_reflector(shape: str, design: str, kind: str, rodded: bool) -> str:
     fg = (
         f"few-group = {{ bounds = {BOUNDS}, nodes = [\n"
         + "".join(
-            f'  {{ output = "lattice/{stem}{n}.msgpack", columns = [{cols[c][0]}, {cols[c][1]}], rows = [{rws[r][0]}, {rws[r][1]}]'
+            f'  {{ output = "{prefix}lattice/{stem}{n}.msgpack", columns = [{cols[c][0]}, {cols[c][1]}], rows = [{rws[r][0]}, {rws[r][1]}]'
             + (", reflector = true" if refl else "")
             + " },\n"
             for n, c, r, refl in LATTICE_NODES[shape]
@@ -2508,15 +2513,19 @@ def hzp_lattices(used: set[str], rodded: set[str]) -> tuple[list[tuple], list[tu
     return sorted(((*k, r) for k, r in lattices.items()), key=key), sorted(slabs)
 
 
+def rodless_path(output: str) -> str:
+    """制御棒の分岐を解く格子の出力（hzp/ の下）に対する、棒のない格子の出力"""
+    return output.replace("hzp/", "hzp/rodless/", 1)
+
+
 def hzp_pipeline(
     files: dict[str, str],
     lattices: list[tuple],
     slabs: list[tuple],
 ) -> str:
     """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、分岐のテーブル）→ 平板 → 炉心 → 比較。入力と出力は hzp/ の中で、
-    ステージは hzp/ に移って実行する。制御棒の分岐を解く格子の出力は、hzp/rodless/ の同じパスの棒のない格子の出力と比べる
-    （#0225。hzp/rodless/ は、同じ層の棒のない入力（`rodded` を偽にした `hzp_single` と `hzp_reflector`）を解いた出力を
-    `dvc add` したもの。ADR-0222）"""
+    ステージは hzp/ に移って実行する。制御棒の分岐を解く格子は、同じ層の棒のない格子（`rodless-<名前>.toml`。出力は
+    hzp/rodless/ の同じパス）も同じ bin とライブラリで解き、値 out の状態を比べる（#0225）"""
     stages = []
     media = {}
     rod_outputs = []
@@ -2530,8 +2539,6 @@ def hzp_pipeline(
                 outs.append(media[(design, kind)])
         else:
             outs = [f"hzp/lattice/{stem}{n}.msgpack" for n, *_ in LATTICE_NODES[shape]]
-        if rodded:
-            rod_outputs += outs
         stages.append(
             stage(
                 f"hzp-{stem}",
@@ -2540,6 +2547,16 @@ def hzp_pipeline(
                 [*outs, f"hzp/{stem}.out"],
             )
         )
+        if rodded:
+            rod_outputs += outs
+            stages.append(
+                stage(
+                    f"hzp-rodless-{stem}",
+                    f"cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-{stem}.toml > rodless-{stem}.out",
+                    [f"hzp/rodless-{stem}.toml", "../vera.msgpack", *code("lattice")],
+                    [*map(rodless_path, outs), f"hzp/rodless-{stem}.out"],
+                )
+            )
     for design, rodded in slabs:
         name = slab_name(design, rodded)
         pyrex = assembly_types()[design][1]
@@ -2589,16 +2606,17 @@ def hzp_pipeline(
                 outs,
             )
         )
-    rodless = [o.replace("hzp/", "hzp/rodless/", 1) for o in rod_outputs]
-    stages.append(
-        stage(
-            "hzp-compare-rodless",
-            "python3 compare_rodless.py --json hzp/compare-rodless.json "
-            + " ".join(f"{a}={b}" for a, b in zip(rod_outputs, rodless)),
-            ["compare_rodless.py", *rod_outputs, *rodless],
-            ["git:hzp/compare-rodless.json"],
+    if rod_outputs:
+        rodless = [rodless_path(o) for o in rod_outputs]
+        stages.append(
+            stage(
+                "hzp-compare-rodless",
+                "python3 compare_rodless.py --json hzp/compare-rodless.json "
+                + " ".join(f"{a}={b}" for a, b in zip(rod_outputs, rodless)),
+                ["compare_rodless.py", *rod_outputs, *rodless],
+                ["git:hzp/compare-rodless.json"],
+            )
         )
-    )
     stages.append(
         stage(
             "hzp-compare-interp-31",
@@ -2657,6 +2675,12 @@ def hzp_files() -> tuple[dict[str, str], str]:
             if shape is None
             else hzp_reflector(shape, design, kind, rodded)
         )
+        if rodded:
+            files[f"rodless-{stem}.toml"] = (
+                hzp_single(design, kind, False, "rodless/")
+                if shape is None
+                else hzp_reflector(shape, design, kind, False, "rodless/")
+            )
     for design, rodded in slabs:
         files[f"{slab_name(design, rodded)}.toml"] = hzp_slab(design, rodded)
     return files, hzp_pipeline(files, lattices, slabs)
