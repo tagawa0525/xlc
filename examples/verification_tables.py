@@ -1387,7 +1387,7 @@ def p6_checks(sources: list[dict]) -> str:
         ],
         [
             "エンタルピーの上昇",
-            f"{c['rise']:.3f} kJ/kg（出力 / 流量 {c['expected_rise']:.3f} kJ/kg、相対差 {c['rise_relative_diff']:.0e}）",
+            f"{c['rise']:.3f} kJ/kg（出力 / 流量 {c['expected_rise']:.3f} kJ/kg、相対差 {signed_exponent(c['rise_relative_diff'])}）",
         ],
         ["出口の温度", f"{c['outlet']:.3f} K"],
         [
@@ -1398,7 +1398,7 @@ def p6_checks(sources: list[dict]) -> str:
         [
             "出力を 1e-6 倍にした解と熱水力なしの入口の温度の解",
             (
-                f"k {low['k']:.8f} と {iso['k']:.8f}（差 {signed(s['low_power_vs_isothermal_pcm'], 4)} pcm、"
+                f"k {low['k']:.8f} と {iso['k']:.8f}（差 {signed(s['low_power_vs_isothermal_pcm'], 3)} pcm、"
                 f"出口 {low['outlet']:.4f} K、燃料の最大 {low['fuel_max']:.4f} K）"
             ),
         ],
@@ -1415,7 +1415,7 @@ def p6_layers(sources: list[dict]) -> str:
             f"{layer['z'][0]:.3f}〜{layer['z'][1]:.3f}",
             f"{layer['moderator']:.2f}",
             f"{layer['density']:.5f}",
-            "−" if layer["fuel"] is None else f"{layer['fuel']:.1f}",
+            "–" if layer["fuel"] is None else f"{layer['fuel']:.1f}",
             f"{layer['fraction']:.5f}",
         ]
         for layer in s["layers"]

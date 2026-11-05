@@ -8,7 +8,8 @@ Problem 6 には参照解が無い（仕様書の REFERENCE SOLUTION）ので、
 検証の記録の表を描くツール（examples/verification_tables.py）も読む（ADR-0176）。
 
 - 流路のエンタルピーの上昇と、出力 / 流量（core の TOML の `[thermal-hydraulics]` の power と flow）。相対差
-- 熱水力の繰り返しの回数と最後の変化を、TOML の `tolerance` と比べる
+- 熱水力の繰り返しの回数と最後の変化と、TOML の `tolerance`（収束しなければ core がエラーで止まるので、判定はしない。
+  出力の変化は 4 桁に丸めてあり、許容の近くでは判定に使えない）
 - 出力を 1e-6 倍にした解（ノードの温度はほぼ入口の温度）と、熱水力なしで減速材と燃料を入口の温度にした解の k の差 (pcm)
 - 層ごとの減速材の温度、燃料の実効温度（核分裂のある層だけ）、核分裂率の割合と、減速材の温度でのテーブルの密度
   （格子の TOML の `[branches]` の moderator の格子点の密度を温度で線形に内挿したもの。core の内挿と同じ。ADR-0229 の案 T1）
@@ -25,6 +26,13 @@ from pathlib import Path
 import tomllib
 
 NUMBER = r"[-+0-9.eE]+"
+# 熱水力の要約の、`thermal-hydraulics iterations` の行の後に出る行の頭
+THERMAL_LINES = (
+    "fuel temperature",
+    "moderator density",
+    "channel outlets",
+    "thermal layers",
+)
 
 
 def parse_core(text: str) -> dict:
@@ -58,6 +66,10 @@ def parse_core(text: str) -> dict:
             }
             section = None
             continue
+        if thermal is None and line.startswith(THERMAL_LINES):
+            raise SystemExit(
+                f"{line!r} comes before the thermal-hydraulics iterations line"
+            )
         if m := re.match(
             rf"^fuel temperature volume average ({NUMBER}) K max ({NUMBER}) K$", line
         ):
@@ -157,7 +169,6 @@ def compare(paths: list[str]) -> dict:
             "iterations": t["iterations"],
             "change": t["change"],
             "tolerance": th["tolerance"],
-            "converged": t["change"] < th["tolerance"],
             "fuel_average": t["fuel_average"],
             "fuel_max": t["fuel_max"],
             "density_error": t["density_error"],
@@ -187,7 +198,7 @@ def report(s: dict) -> list[str]:
         f"k {s['k']:.8f}",
         (
             f"thermal-hydraulics: {t['iterations']} iterations, last change {t['change']:.3e} "
-            f"(tolerance {t['tolerance']:.1e}, {'converged' if t['converged'] else 'NOT converged'})"
+            f"(tolerance {t['tolerance']:.1e})"
         ),
         f"fuel temperature: volume average {t['fuel_average']:.2f} K, max {t['fuel_max']:.2f} K",
         f"moderator density interpolation error max {t['density_error']:.3e} g/cc",
@@ -198,7 +209,7 @@ def report(s: dict) -> list[str]:
         (
             f"low power: k {s['low_power']['k']:.8f} ({s['low_power']['iterations']} iterations, outlet "
             f"{s['low_power']['outlet']:.6f} K, fuel max {s['low_power']['fuel_max']:.6f} K); isothermal k "
-            f"{s['isothermal']['k']:.8f}; difference {s['low_power_vs_isothermal_pcm']:.4f} pcm"
+            f"{s['isothermal']['k']:.8f}; difference {s['low_power_vs_isothermal_pcm']:.3f} pcm"
         ),
         "layers (z from, z to (cm), moderator (K), table density (g/cc), fuel (K), fission fraction):",
     ]
