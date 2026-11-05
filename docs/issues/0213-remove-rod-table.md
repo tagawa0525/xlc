@@ -55,6 +55,11 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   格子 16 本と rod_table.py の結合 8 本を消した）、rod_table.py、そのテスト、正規形（`python-ast`）、それを使う確認の手順
   （examples/core/rod-branch-check、examples/depletion/rod-axis-check）を消した。p5 のステージは再実行していない（main の時点で
   bin とライブラリの変更で changed。下の「残り」）
+- 2026-11-05: examples/vera/p5 の HZP のすべてのステージ（と、それが読む 5-2D の `assembly-31`）を今の bin とライブラリで再実行し
+  （ブランチ chore/0213-rerun-p5-hzp、分岐点 main の 0d188c0e、Slurm 695 と 696）、examples/vera/verification.md の「Problem 5 の 3D の
+  炉心の計算」を書き直した。置き換えた 8 本の格子の値 out の状態は、同じ層の棒のない格子とビットまで同じ（#0225）。32 の場合の k は前の
+  記録から +25.0〜+32.9 pcm 動き、KENO-VI との差は +174.4〜+222.7 pcm。同じ dvc.yaml の 5-2D のステージ（`assembly-21` などの単一集合体（`assembly-31` は `hzp-compare-interp-31` が読むので流した）、`reflector-*`、
+  `core-5A` など 30 本）は changed のまま
 
 ## 残り
 
@@ -63,10 +68,6 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   作り直したテーブル（経緯の 2026-11-04）で core を再実行して書き直す。「制御棒の分岐と値ごとの格子計算の結合の一致」も、今の形式の
   2A の履歴（`p2/lattice-2A.msgpack` a2cc87df）で再実行して書き直す（下の項）。記録のほかの節にも、2A の履歴を前の md5 7efea664 で
   引く文が残る
-- examples/vera/p5 の HZP のステージ（置き換えた 8 本の格子とその下流）を今の bin とライブラリで流し直し、`dvc.lock` と
-  examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」を書き直す（読む作業が来たとき。2026-11-04 に 21-fuel の 1 つの入力
-  だけを試行で解き（再実行で値 out の状態を前の棒のない格子と比べることは #0225。ブランチ feat/0213-node-rod-axis の afcd526f、分岐点 a12925c4 を `cargo build --release` した `target/release/lattice`、
-  Slurm 685、区分 decision、32 スレッド）、制御棒の軸（out、aic、b4c）を最後に持つ 24 点のテーブルと媒質を書いた。記録には使わない。下の「rod_table.py を消した後の指す先」）
 - 前半のレビューの 3 周目（2026-11-03）で、直さずに残した指摘: examples/depletion/verification.md の「制御棒の分岐と値ごとの
   格子計算の結合の一致（燃焼の履歴からの分岐）」と ADR-0225 の確認の計算は、分岐点 3dda2078 の上の ADR-0226 の前のコード
   （b588ab8d。タグ `record/adr-0225-rod-axis-check`）で流した。今のコードでは使った燃焼の履歴（前の形式）を読めず、2A の比較は
@@ -81,7 +82,5 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   - examples/depletion/verification.md: 「制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」（6606 行目から。入力と手順はタグ `record/adr-0225-rod-axis-check` の `examples/depletion/rod-axis-check/`）、
     「サイクルのステップの core の燃焼（2A の集合体 1 体）」（6686 行目。rod_table.py でまとめた 9689f898）と「ステップの大きさの誤差と
     中点の臨界ホウ素（小さな炉心）」（6866 行目。前の形のテーブル）の前の形のテーブルの作り方
-  - examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」の「計算」: 「制御棒のテーブル 2」は消した結合のステージ
-    （`hzp-table-*`）で、値ごとの格子は 1 つの入力の格子に替わった
   - examples/core/dvc.lock の前の形の `table` と `lattice@<値>` の記載と、2 つの記録のファイルの表の `rod-branch-check/` と
     `rod-axis-check/` の行は消した

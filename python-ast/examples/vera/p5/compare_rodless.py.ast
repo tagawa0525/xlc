@@ -1,0 +1,156 @@
+import hashlib
+import json
+import math
+import struct
+import sys
+from pathlib import Path
+import msgpack
+FORMAT = 'xlc-compare-rodless'
+DEPLETION_KEYS = ('heavy_metal', 'micro', 'histories')
+
+def read(path: str) -> dict:
+    with open(path, 'rb') as f:
+        return msgpack.unpackb(f.read(), raw=False, strict_map_key=False)
+
+def leaves(x, path: str=''):
+    if isinstance(x, dict):
+        for k in sorted(x, key=str):
+            yield from leaves(x[k], f'{path}/{k}')
+    elif isinstance(x, list):
+        for i, v in enumerate(x):
+            yield from leaves(v, f'{path}[{i}]')
+    if isinstance(x, (dict, list)):
+        if not x:
+            yield (path, type(x))
+    else:
+        yield (path, x)
+
+def bits(x):
+    if isinstance(x, float):
+        return (float, struct.pack('<d', x))
+    return (type(x), x)
+
+def differences(a: dict, b: dict) -> tuple[bool, float, str | None]:
+    la, lb = (dict(leaves(a)), dict(leaves(b)))
+    if la.keys() != lb.keys():
+        raise SystemExit(f'the states hold different items: {sorted(la.keys() ^ lb.keys())[:5]}')
+    same = True
+    worst, field = (0.0, None)
+    for k, x in la.items():
+        y = lb[k]
+        for v in (x, y):
+            if isinstance(v, float) and (not math.isfinite(v)):
+                raise SystemExit(f'a non-finite value {v} at {k}')
+        if bits(x) == bits(y):
+            continue
+        same = False
+        if not (isinstance(x, (int, float)) and isinstance(y, (int, float))):
+            raise SystemExit(f'items of different kinds at {k}: {x!r} and {y!r}')
+        scale = max(abs(x), abs(y))
+        d = abs(x - y) / scale if scale else 0.0
+        if field is None or d > worst:
+            worst, field = (d, k.split('/')[1].split('[')[0])
+    return (same, worst, field)
+
+def pairs_of_table(rod: dict, rodless: dict, expected: bool) -> list[tuple[dict, dict]]:
+    for key in ('bounds', 'split'):
+        if rod[key] != rodless[key]:
+            raise SystemExit(f'{key} differs: {rod[key]} and {rodless[key]}')
+    for t in (rod, rodless):
+        if any((key in t for key in DEPLETION_KEYS)):
+            raise SystemExit(f'a table with depletion data ({[k for k in DEPLETION_KEYS if k in t]})')
+    axes = rod['axes']
+    rod_axis = bool(axes) and axes[-1]['name'] == 'rod'
+    if rod_axis != expected:
+        raise SystemExit(f"the table {('has' if rod_axis else 'lacks')} the rod axis, expected {('it' if expected else 'none')}")
+    if rod_axis:
+        if axes[-1]['values'][0] != 'out':
+            raise SystemExit(f"the first rod value is {axes[-1]['values'][0]!r}, not 'out'")
+        axes = axes[:-1]
+    if axes != rodless['axes']:
+        raise SystemExit(f"the continuous axes differ: {axes} and {rodless['axes']}")
+    if not rod_axis and rod['points'] != rodless['points']:
+        raise SystemExit('the points differ')
+    n = rod['split'] ** 2
+    for t in (rod, rodless):
+        if len(t['states']) != len(t['points']) * n:
+            raise SystemExit(f"{len(t['states'])} states for {len(t['points'])} points of {n} nodes")
+    if rod_axis:
+        outs = sorted((p[:-1] for p in rod['points'] if p[-1] == 0))
+        if outs != sorted(rodless['points']):
+            raise SystemExit('the value out points differ from the rodless points')
+    index = {tuple(p): i for i, p in enumerate(rod['points'])}
+    pairs = []
+    for j, point in enumerate(rodless['points']):
+        at = (*point, 0) if rod_axis else tuple(point)
+        if at not in index:
+            raise SystemExit(f'no point {list(at)} in the rod branch table')
+        i = index[at]
+        pairs += zip(rod['states'][i * n:(i + 1) * n], rodless['states'][j * n:(j + 1) * n])
+    return pairs
+
+def compare(rod_path: str, rodless_path: str, rod_axis: bool) -> dict:
+    rod, rodless = (read(rod_path), read(rodless_path))
+    if rod.get('format') != rodless.get('format'):
+        raise SystemExit(f"{rod_path} is {rod.get('format')} but {rodless_path} is {rodless.get('format')}")
+    if rod['format'] == 'xlc-table':
+        pairs = pairs_of_table(rod, rodless, rod_axis)
+    elif rod['format'] == 'xlc-medium':
+        for key in ('bounds', 'axes'):
+            if rod[key] != rodless[key]:
+                raise SystemExit(f'the media have different {key}')
+        if len(rod['states']) != len(rodless['states']):
+            raise SystemExit('the media have different numbers of states')
+        if rod_axis:
+            raise SystemExit(f'{rod_path}: a medium has no rod axis')
+        pairs = list(zip(rod['states'], rodless['states']))
+    else:
+        raise SystemExit(f"{rod_path}: unknown format {rod.get('format')}")
+    equal, worst, field = (0, 0.0, None)
+    k_pcm = 0.0 if rod['format'] == 'xlc-table' else None
+    for a, b in pairs:
+        same, d, f = differences(a, b)
+        equal += same
+        if f is not None and (field is None or d > worst):
+            worst, field = (d, f)
+        if k_pcm is not None:
+            k_pcm = max(k_pcm, abs(a['k_inf'] - b['k_inf']) / b['k_inf'] * 100000.0)
+    return {'name': rod_path, 'reference': rodless_path, 'kind': 'table' if rod['format'] == 'xlc-table' else 'medium', 'rod_axis': rod_axis, 'states': len(pairs), 'bit_equal': equal, 'max_relative_difference': worst, 'field': field, 'max_k_inf_pcm': k_pcm}
+
+def md5_inputs(paths: list[str]) -> list[dict]:
+    return [{'path': p, 'md5': hashlib.md5(Path(p).read_bytes()).hexdigest()} for p in paths]
+
+def report(summary: dict) -> list[str]:
+    if summary.get('format') != FORMAT:
+        raise SystemExit(f'not an {FORMAT} summary')
+    lines = []
+    for o in summary['outputs']:
+        what = 'table with the rod axis' if o['rod_axis'] else 'table' if o['kind'] == 'table' else 'medium'
+        line = f"{o['name']}: {what}, {o['bit_equal']} of {o['states']} states bit-equal to {o['reference']}"
+        if o['field'] is not None:
+            line += f"; max relative difference {o['max_relative_difference']:.3e} in {o['field']}"
+        if o['max_k_inf_pcm']:
+            line += f", k_inf {o['max_k_inf_pcm']:.3e} pcm"
+        lines.append(line)
+    lines.append(f"all bit-equal: {('yes' if summary['all_bit_equal'] else 'no')}")
+    return lines
+
+def main(argv: list[str]) -> None:
+    if len(argv) == 2 and argv[0] == '--report':
+        print('\n'.join(report(json.loads(Path(argv[1]).read_text()))))
+        return
+    if len(argv) < 3 or argv[0] != '--json':
+        raise SystemExit(__doc__)
+    pairs = []
+    for arg in argv[2:]:
+        rod, sep, rodless = arg.partition('=')
+        axis = rod.startswith('rod:')
+        rod = rod.removeprefix('rod:')
+        if not sep or not rod or (not rodless):
+            raise SystemExit(f'expected [rod:]<rod branch output>=<rodless output>, got {arg!r}')
+        pairs.append((rod, rodless, axis))
+    outputs = [compare(a, b, axis) for a, b, axis in pairs]
+    summary = {'format': FORMAT, 'inputs': md5_inputs([p for a, b, _ in pairs for p in (a, b)]), 'outputs': outputs, 'all_bit_equal': all((o['bit_equal'] == o['states'] for o in outputs))}
+    Path(argv[1]).write_text(json.dumps(summary, indent=1) + '\n')
+if __name__ == '__main__':
+    main(sys.argv[1:])

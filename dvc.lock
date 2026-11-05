@@ -609,3 +609,20 @@ stages:
       hash: md5
       md5: d4c5b67de76bdba19d84989a50a2791e
       size: 15338
+  python-ast@examples/vera/p5/compare_rodless.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/p5/compare_rodless.py
+      python-ast/examples/vera/p5/compare_rodless.py.ast
+    deps:
+    - path: examples/vera/p5/compare_rodless.py
+      hash: md5
+      md5: ac9da441788f9c1c75a1cff551cfabac
+      size: 11470
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/p5/compare_rodless.py.ast
+      hash: md5
+      md5: 84bdb73cb92a08c451f399cb6fee8ad4
+      size: 7133

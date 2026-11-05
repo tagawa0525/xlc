@@ -676,6 +676,16 @@ stages:
       - hzp/lattice/21-fuel.msgpack
       - hzp/media/21-fuel.msgpack
       - hzp/21-fuel.out
+  hzp-rodless-21-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-21-fuel.toml > rodless-21-fuel.out
+    deps:
+      - hzp/rodless-21-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/21-fuel.msgpack
+      - hzp/rodless/media/21-fuel.msgpack
+      - hzp/rodless-21-fuel.out
   hzp-21-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-igrid.toml > 21-igrid.out
     deps:
@@ -694,6 +704,15 @@ stages:
     outs:
       - hzp/lattice/21-zgrid.msgpack
       - hzp/21-zgrid.out
+  hzp-rodless-21-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-21-zgrid.toml > rodless-21-zgrid.out
+    deps:
+      - hzp/rodless-21-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/21-zgrid.msgpack
+      - hzp/rodless-21-zgrid.out
   hzp-26-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel.toml > 26-fuel.out
     deps:
@@ -704,6 +723,16 @@ stages:
       - hzp/lattice/26-fuel.msgpack
       - hzp/media/26-fuel.msgpack
       - hzp/26-fuel.out
+  hzp-rodless-26-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-26-fuel.toml > rodless-26-fuel.out
+    deps:
+      - hzp/rodless-26-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/26-fuel.msgpack
+      - hzp/rodless/media/26-fuel.msgpack
+      - hzp/rodless-26-fuel.out
   hzp-26-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-igrid.toml > 26-igrid.out
     deps:
@@ -722,6 +751,15 @@ stages:
     outs:
       - hzp/lattice/26-zgrid.msgpack
       - hzp/26-zgrid.out
+  hzp-rodless-26-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-26-zgrid.toml > rodless-26-zgrid.out
+    deps:
+      - hzp/rodless-26-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/26-zgrid.msgpack
+      - hzp/rodless-26-zgrid.out
   hzp-26-p16-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-empty.toml > 26-p16-empty.out
     deps:
@@ -933,6 +971,16 @@ stages:
       - hzp/lattice/31-fuel.msgpack
       - hzp/media/31-fuel.msgpack
       - hzp/31-fuel.out
+  hzp-rodless-31-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-31-fuel.toml > rodless-31-fuel.out
+    deps:
+      - hzp/rodless-31-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/31-fuel.msgpack
+      - hzp/rodless/media/31-fuel.msgpack
+      - hzp/rodless-31-fuel.out
   hzp-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-igrid.toml > 31-igrid.out
     deps:
@@ -951,6 +999,15 @@ stages:
     outs:
       - hzp/lattice/31-zgrid.msgpack
       - hzp/31-zgrid.out
+  hzp-rodless-31-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-31-zgrid.toml > rodless-31-zgrid.out
+    deps:
+      - hzp/rodless-31-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/31-zgrid.msgpack
+      - hzp/rodless-31-zgrid.out
   hzp-31-p12-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-empty.toml > 31-p12-empty.out
     deps:
@@ -1202,6 +1259,16 @@ stages:
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
       - hzp/reflector-I-31-fuel.out
+  hzp-rodless-reflector-I-31-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-reflector-I-31-fuel.toml > rodless-reflector-I-31-fuel.out
+    deps:
+      - hzp/rodless-reflector-I-31-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/rodless/lattice/reflector-I-31-fuel.msgpack
+      - hzp/rodless-reflector-I-31-fuel.out
   hzp-reflector-I-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-igrid.toml > reflector-I-31-igrid.out
     deps:
@@ -1222,6 +1289,16 @@ stages:
       - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-zgrid.msgpack
       - hzp/reflector-I-31-zgrid.out
+  hzp-rodless-reflector-I-31-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-reflector-I-31-zgrid.toml > rodless-reflector-I-31-zgrid.out
+    deps:
+      - hzp/rodless-reflector-I-31-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
+      - hzp/rodless-reflector-I-31-zgrid.out
   hzp-reflector-I-31-p12-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-empty-igrid.toml > reflector-I-31-p12-empty-igrid.out
     deps:
@@ -1691,6 +1768,39 @@ stages:
     outs:
       - hzp/core-hzp.out
       - hzp/core-hzp.log
+  hzp-compare-rodless:
+    cmd: python3 compare_rodless.py --json compare-rodless.json rod:hzp/lattice/21-fuel.msgpack=hzp/rodless/lattice/21-fuel.msgpack hzp/media/21-fuel.msgpack=hzp/rodless/media/21-fuel.msgpack rod:hzp/lattice/21-zgrid.msgpack=hzp/rodless/lattice/21-zgrid.msgpack rod:hzp/lattice/26-fuel.msgpack=hzp/rodless/lattice/26-fuel.msgpack hzp/media/26-fuel.msgpack=hzp/rodless/media/26-fuel.msgpack rod:hzp/lattice/26-zgrid.msgpack=hzp/rodless/lattice/26-zgrid.msgpack rod:hzp/lattice/31-fuel.msgpack=hzp/rodless/lattice/31-fuel.msgpack hzp/media/31-fuel.msgpack=hzp/rodless/media/31-fuel.msgpack rod:hzp/lattice/31-zgrid.msgpack=hzp/rodless/lattice/31-zgrid.msgpack rod:hzp/lattice/reflector-I-31-fuel-fuel.msgpack=hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack hzp/lattice/reflector-I-31-fuel.msgpack=hzp/rodless/lattice/reflector-I-31-fuel.msgpack rod:hzp/lattice/reflector-I-31-zgrid-fuel.msgpack=hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack hzp/lattice/reflector-I-31-zgrid.msgpack=hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
+    deps:
+      - ../../../python-ast/examples/vera/p5/compare_rodless.py.ast
+      - hzp/lattice/21-fuel.msgpack
+      - hzp/media/21-fuel.msgpack
+      - hzp/lattice/21-zgrid.msgpack
+      - hzp/lattice/26-fuel.msgpack
+      - hzp/media/26-fuel.msgpack
+      - hzp/lattice/26-zgrid.msgpack
+      - hzp/lattice/31-fuel.msgpack
+      - hzp/media/31-fuel.msgpack
+      - hzp/lattice/31-zgrid.msgpack
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid.msgpack
+      - hzp/rodless/lattice/21-fuel.msgpack
+      - hzp/rodless/media/21-fuel.msgpack
+      - hzp/rodless/lattice/21-zgrid.msgpack
+      - hzp/rodless/lattice/26-fuel.msgpack
+      - hzp/rodless/media/26-fuel.msgpack
+      - hzp/rodless/lattice/26-zgrid.msgpack
+      - hzp/rodless/lattice/31-fuel.msgpack
+      - hzp/rodless/media/31-fuel.msgpack
+      - hzp/rodless/lattice/31-zgrid.msgpack
+      - hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/rodless/lattice/reflector-I-31-fuel.msgpack
+      - hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
+    outs:
+      - compare-rodless.json:
+          cache: false
   hzp-compare-interp-31:
     cmd: python3 ../compare_p5.py k assembly-31.out hzp/interp-31.out > hzp/compare-interp-31.out
     deps:
