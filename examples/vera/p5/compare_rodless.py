@@ -9,10 +9,11 @@
 - 分岐のテーブル（`xlc-table`）: 制御棒の軸を最後に持てば、その最初の値が `out` で、ほかの軸が棒のないテーブルの軸と同じことを
   確かめ、棒のないテーブルの点ごとに、点に値 `out` の番号 0 を足した点の状態（split² の部分ノード）と比べる
   （crates/lattice/tests/history_rod_branch.rs と同じ照らし方）。軸を持たなければ（反射体のノード）、軸と点が同じことを確かめ、
-  点ごとに比べる。`bounds` と `split` は同じでなければならず、`heavy_metal`、`micro`、`histories` は持たない（燃焼のない格子）
+  点ごとに比べる。値 out の点の集合と棒のない点の集合、点と状態の数（split²）が合わなければエラー。`bounds` と `split` は同じでなければならず、`heavy_metal`、`micro`、`histories` は持たない（燃焼のない格子）
 - 媒質（`xlc-medium`）: `bounds` と軸が同じことを確かめ、状態を順に比べる
 
-状態は、すべての数がビットまで同じとき（`struct` の倍精度の表現で比べる）に同じと数える。違う状態があれば、項目（状態の
+状態は、すべての数がビットまで同じとき（型と、浮動小数点は `struct` の倍精度の表現で比べる）に同じと数える。NaN と無限大は
+エラーにする。0.0 と −0.0 は違う状態に数え、相対差は 0 とする。違う状態があれば、項目（状態の
 最上位のキー）ごとの最大の相対差 |a − b| / max(|a|, |b|) のうち最大のものと、テーブルでは k∞ の差の最大 |Δk∞| / k∞ × 1e5（pcm）を出す。
 
 JSON は `{"format": "xlc-compare-rodless", "inputs": [読んだファイルのパスと md5], "outputs": [組ごとの name（制御棒の分岐の出力の
@@ -23,6 +24,7 @@ max_relative_difference、field（その項目。すべて同じなら null）�
 
 import hashlib
 import json
+import math
 import struct
 import sys
 from pathlib import Path
@@ -52,10 +54,10 @@ def leaves(x, path: str = ""):
 
 
 def bits(x):
-    # == は 0.0 と −0.0 を同じとし、NaN を自分と違うとするので、倍精度の表現で比べる
+    # == は 0.0 と −0.0 を同じとし、True と 1 を同じとするので、型と倍精度の表現で比べる
     if isinstance(x, float):
-        return struct.pack("<d", x)
-    return x
+        return float, struct.pack("<d", x)
+    return type(x), x
 
 
 def differences(a: dict, b: dict) -> tuple[bool, float, str | None]:
@@ -69,11 +71,17 @@ def differences(a: dict, b: dict) -> tuple[bool, float, str | None]:
     worst, field = 0.0, None
     for k, x in la.items():
         y = lb[k]
+        for v in (x, y):
+            # 定数に NaN や無限大は無いはずで、相対差の最大の比べ方も壊すので止める
+            if isinstance(v, float) and not math.isfinite(v):
+                raise SystemExit(f"a non-finite value {v} at {k}")
         if bits(x) == bits(y):
             continue
         same = False
         if isinstance(x, (int, float)) and isinstance(y, (int, float)):
-            d = abs(x - y) / max(abs(x), abs(y))
+            # 0.0 と −0.0 は符号だけの違いで、差は 0
+            scale = max(abs(x), abs(y))
+            d = abs(x - y) / scale if scale else 0.0
         else:
             d = float("inf")
         if field is None or d > worst:
@@ -104,6 +112,15 @@ def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dic
     if not rod_axis and rod["points"] != rodless["points"]:
         raise SystemExit("the points differ")
     n = rod["split"] ** 2
+    for t in (rod, rodless):
+        if len(t["states"]) != len(t["points"]) * n:
+            raise SystemExit(
+                f"{len(t['states'])} states for {len(t['points'])} points of {n} nodes"
+            )
+    if rod_axis:
+        outs = sorted(p[:-1] for p in rod["points"] if p[-1] == 0)
+        if outs != sorted(rodless["points"]):
+            raise SystemExit("the value out points differ from the rodless points")
     index = {tuple(p): i for i, p in enumerate(rod["points"])}
     pairs = []
     for j, point in enumerate(rodless["points"]):
