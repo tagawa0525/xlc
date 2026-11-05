@@ -191,6 +191,57 @@ class Compare(unittest.TestCase):
         self.assertIn(f"{rod}: table with the rod axis, 4 of 4 states bit-equal", text)
         self.assertIn("all bit-equal: yes", text)
 
+    def test_a_zero_of_the_other_sign_counts_as_a_difference_of_zero(self):
+        rod, rodless = rod_table(KS), rodless_table(KS)
+        rod["states"][0]["scatter"][1][0] = -0.0
+        result = compare_rodless.compare(
+            self.write("rod.msgpack", rod), self.write("rodless.msgpack", rodless)
+        )
+        self.assertEqual((result["states"], result["bit_equal"]), (4, 3))
+        self.assertEqual(result["field"], "scatter")
+        self.assertEqual(result["max_relative_difference"], 0.0)
+
+    def test_a_bool_and_an_int_are_different_items(self):
+        rod, rodless = rod_table(KS), rodless_table(KS)
+        rod["states"][0]["pins"] = True
+        rodless["states"][0]["pins"] = 1
+        result = compare_rodless.compare(
+            self.write("rod.msgpack", rod), self.write("rodless.msgpack", rodless)
+        )
+        self.assertEqual((result["bit_equal"], result["field"]), (3, "pins"))
+
+    def test_non_finite_values_are_errors(self):
+        rodless = self.write("rodless.msgpack", rodless_table(KS))
+        for x in (float("nan"), float("inf")):
+            rod = rod_table(KS)
+            rod["states"][3]["total"][0] = x
+            with self.subTest(x), self.assertRaises(SystemExit):
+                compare_rodless.compare(self.write("rod.msgpack", rod), rodless)
+
+    def test_states_not_matching_the_points_are_errors(self):
+        rodless = self.write("rodless.msgpack", rodless_table(KS))
+        short = rod_table(KS)
+        short["states"] = short["states"][:-1]
+        with self.assertRaises(SystemExit):
+            compare_rodless.compare(self.write("rod.msgpack", short), rodless)
+        with self.assertRaises(SystemExit):
+            compare_rodless.compare(
+                self.write("rod.msgpack", rod_table(KS)),
+                self.write(
+                    "r.msgpack", {**rodless_table(KS), "states": [state(1.0)] * 3}
+                ),
+            )
+
+    def test_out_points_without_a_rodless_point_are_errors(self):
+        rodless = rodless_table(KS)
+        rodless["points"] = rodless["points"][1:]
+        rodless["states"] = rodless["states"][1:]
+        with self.assertRaises(SystemExit):
+            compare_rodless.compare(
+                self.write("rod.msgpack", rod_table(KS)),
+                self.write("rodless.msgpack", rodless),
+            )
+
     def test_a_pair_without_equals_is_an_error(self):
         with self.assertRaises(SystemExit):
             compare_rodless.main(["--json", str(self.root / "c.json"), "a.msgpack"])
