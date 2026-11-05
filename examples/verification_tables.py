@@ -1366,6 +1366,10 @@ def signed_exponent(x: float) -> str:
     return f"{mantissa.replace('-', '−')}e{exponent}"
 
 
+# core の入力の effective-temperature の値の名前（ADR-0229）
+P6_EFFECTIVE = {"volume-average": "体積平均", "rowlands": "Rowlands"}
+
+
 def p6_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-p6":
@@ -1391,12 +1395,12 @@ def p6_checks(sources: list[dict]) -> str:
         ],
         ["出口の温度", f"{c['outlet']:.3f} K"],
         [
-            "燃料の実効温度（体積平均）",
+            f"燃料の実効温度（{P6_EFFECTIVE[t['effective']]}）",
             f"平均 {t['fuel_average']:.1f} K、最大 {t['fuel_max']:.1f} K",
         ],
         ["減速材の密度の内挿の差の最大", f"{t['density_error']:.1e} g/cc"],
         [
-            "出力を 1e-6 倍にした解と熱水力なしの入口の温度の解",
+            f"出力を {low['power_ratio']:.0e} 倍にした解と、熱水力なしの減速材 {iso['moderator']} K、燃料 {iso['fuel']} K の解",
             (
                 f"k {low['k']:.8f} と {iso['k']:.8f}（差 {signed(s['low_power_vs_isothermal_pcm'], 3)} pcm、"
                 f"出口 {low['outlet']:.4f} K、燃料の最大 {low['fuel_max']:.4f} K）"

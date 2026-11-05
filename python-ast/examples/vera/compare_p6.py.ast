@@ -64,10 +64,12 @@ def table_density(grid: list[tuple[float, float]], t: float) -> float:
     raise SystemExit(f'{t} K is outside the moderator grid {grid[0][0]}〜{grid[-1][0]} K')
 
 def compare(paths: list[str]) -> dict:
-    lattice_toml, core_toml, hfp_out, low_out, iso_out = map(Path, paths)
+    lattice_toml, core_toml, low_toml, iso_toml, hfp_out, low_out, iso_out = map(Path, paths)
     moderator = tomllib.loads(lattice_toml.read_text())['branches']['moderator']
     grid = list(zip(map(float, moderator['temperature']), moderator['density']))
     th = tomllib.loads(core_toml.read_text())['thermal-hydraulics']
+    low_th = tomllib.loads(low_toml.read_text())['thermal-hydraulics']
+    iso_state, = tomllib.loads(iso_toml.read_text())['state'].values()
     if 'tolerance' not in th:
         raise SystemExit(f'{core_toml}: write the tolerance (the record quotes it)')
     hfp, low, iso = (parse_core(p.read_text()) for p in (hfp_out, low_out, iso_out))
@@ -86,7 +88,7 @@ def compare(paths: list[str]) -> dict:
         if z not in fractions:
             raise SystemExit(f'the thermal layer {z} is not an axial fission layer')
         layers.append({**layer, 'density': table_density(grid, layer['moderator']), 'fraction': fractions[z]})
-    return {'format': 'xlc-compare-p6', 'inputs': [{'path': str(p), 'md5': hashlib.md5(p.read_bytes()).hexdigest()} for p in (lattice_toml, core_toml, hfp_out, low_out, iso_out)], 'k': hfp['k'], 'thermal': {'iterations': t['iterations'], 'change': t['change'], 'tolerance': th['tolerance'], 'fuel_average': t['fuel_average'], 'fuel_max': t['fuel_max'], 'density_error': t['density_error']}, 'channel': {'rise': channel['rise'], 'expected_rise': expected, 'rise_relative_diff': channel['rise'] / expected - 1, 'outlet': channel['outlet']}, 'low_power': {'k': low['k'], 'iterations': low['thermal']['iterations'], 'outlet': low['thermal']['channels'][0]['outlet'], 'fuel_max': low['thermal']['fuel_max']}, 'isothermal': {'k': iso['k']}, 'low_power_vs_isothermal_pcm': (low['k'] - iso['k']) * 100000.0, 'layers': layers}
+    return {'format': 'xlc-compare-p6', 'inputs': [{'path': str(p), 'md5': hashlib.md5(p.read_bytes()).hexdigest()} for p in (lattice_toml, core_toml, low_toml, iso_toml, hfp_out, low_out, iso_out)], 'k': hfp['k'], 'thermal': {'iterations': t['iterations'], 'change': t['change'], 'tolerance': th['tolerance'], 'effective': th['effective-temperature'], 'fuel_average': t['fuel_average'], 'fuel_max': t['fuel_max'], 'density_error': t['density_error']}, 'channel': {'rise': channel['rise'], 'expected_rise': expected, 'rise_relative_diff': channel['rise'] / expected - 1, 'outlet': channel['outlet']}, 'low_power': {'k': low['k'], 'power_ratio': low_th['power'] / th['power'], 'iterations': low['thermal']['iterations'], 'outlet': low['thermal']['channels'][0]['outlet'], 'fuel_max': low['thermal']['fuel_max']}, 'isothermal': {'k': iso['k'], 'moderator': iso_state['moderator'], 'fuel': iso_state['fuel']}, 'low_power_vs_isothermal_pcm': (low['k'] - iso['k']) * 100000.0, 'layers': layers}
 
 def report(s: dict) -> list[str]:
     t, c = (s['thermal'], s['channel'])
@@ -103,7 +105,7 @@ def main() -> None:
         if summary.get('format') != 'xlc-compare-p6':
             raise SystemExit(f'{args[1]}: not xlc-compare-p6')
         print('\n'.join(report(summary)))
-    elif len(args) == 7 and args[0] == '--json':
+    elif len(args) == 9 and args[0] == '--json':
         Path(args[1]).write_text(json.dumps(compare(args[2:]), indent=1) + '\n')
     else:
         raise SystemExit(__doc__)

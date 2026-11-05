@@ -1,7 +1,7 @@
 """VERA Problem 6 の xlc の炉心の解（熱水力のフィードバック。ADR-0229）を、確認の量の要約にする。
 
-使い方: python3 compare_p6.py --json <要約の出力先> <格子の TOML> <HFP の core の TOML> <HFP の core の標準出力>
-        <出力を 1e-6 倍にした core の標準出力> <熱水力なしの入口の温度の core の標準出力>
+使い方: python3 compare_p6.py --json <要約の出力先> <格子の TOML> <HFP の core の TOML> <出力を下げた core の TOML>
+        <熱水力なしの core の TOML> <HFP の core の標準出力> <出力を下げた core の標準出力> <熱水力なしの core の標準出力>
         python3 compare_p6.py --report <要約の JSON>
 
 Problem 6 には参照解が無い（仕様書の REFERENCE SOLUTION）ので、比べるのは次の確認の量。結果は JSON だけに書き、JSON は
@@ -10,7 +10,8 @@ Problem 6 には参照解が無い（仕様書の REFERENCE SOLUTION）ので、
 - 流路のエンタルピーの上昇と、出力 / 流量（core の TOML の `[thermal-hydraulics]` の power と flow）。相対差
 - 熱水力の繰り返しの回数と最後の変化と、TOML の `tolerance`（収束しなければ core がエラーで止まるので、判定はしない。
   出力の変化は 4 桁に丸めてあり、許容の近くでは判定に使えない）
-- 出力を 1e-6 倍にした解（ノードの温度はほぼ入口の温度）と、熱水力なしで減速材と燃料を入口の温度にした解の k の差 (pcm)
+- 出力を下げた解（ノードの温度はほぼ入口の温度）と、熱水力なしの解の k の差 (pcm)。出力の比（HFP の power との比）と、熱水力なしの
+  解の状態の減速材と燃料の温度も、表の行の名前に使うので TOML から取る（実効温度の方式も同じ）
 - 層ごとの減速材の温度、燃料の実効温度（核分裂のある層だけ）、核分裂率の割合と、減速材の温度でのテーブルの密度
   （格子の TOML の `[branches]` の moderator の格子点の密度を温度で線形に内挿したもの。core の内挿と同じ。ADR-0229 の案 T1）
 - `--report`: JSON から文章の報告を標準出力に描く。1 行目は読んだファイルのパスと md5 の先頭 8 桁（`inputs`）
@@ -128,10 +129,14 @@ def table_density(grid: list[tuple[float, float]], t: float) -> float:
 
 
 def compare(paths: list[str]) -> dict:
-    lattice_toml, core_toml, hfp_out, low_out, iso_out = map(Path, paths)
+    lattice_toml, core_toml, low_toml, iso_toml, hfp_out, low_out, iso_out = map(
+        Path, paths
+    )
     moderator = tomllib.loads(lattice_toml.read_text())["branches"]["moderator"]
     grid = list(zip(map(float, moderator["temperature"]), moderator["density"]))
     th = tomllib.loads(core_toml.read_text())["thermal-hydraulics"]
+    low_th = tomllib.loads(low_toml.read_text())["thermal-hydraulics"]
+    (iso_state,) = tomllib.loads(iso_toml.read_text())["state"].values()
     if "tolerance" not in th:
         raise SystemExit(f"{core_toml}: write the tolerance (the record quotes it)")
     hfp, low, iso = (parse_core(p.read_text()) for p in (hfp_out, low_out, iso_out))
@@ -162,13 +167,22 @@ def compare(paths: list[str]) -> dict:
         # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
         "inputs": [
             {"path": str(p), "md5": hashlib.md5(p.read_bytes()).hexdigest()}
-            for p in (lattice_toml, core_toml, hfp_out, low_out, iso_out)
+            for p in (
+                lattice_toml,
+                core_toml,
+                low_toml,
+                iso_toml,
+                hfp_out,
+                low_out,
+                iso_out,
+            )
         ],
         "k": hfp["k"],
         "thermal": {
             "iterations": t["iterations"],
             "change": t["change"],
             "tolerance": th["tolerance"],
+            "effective": th["effective-temperature"],
             "fuel_average": t["fuel_average"],
             "fuel_max": t["fuel_max"],
             "density_error": t["density_error"],
@@ -181,11 +195,16 @@ def compare(paths: list[str]) -> dict:
         },
         "low_power": {
             "k": low["k"],
+            "power_ratio": low_th["power"] / th["power"],
             "iterations": low["thermal"]["iterations"],
             "outlet": low["thermal"]["channels"][0]["outlet"],
             "fuel_max": low["thermal"]["fuel_max"],
         },
-        "isothermal": {"k": iso["k"]},
+        "isothermal": {
+            "k": iso["k"],
+            "moderator": iso_state["moderator"],
+            "fuel": iso_state["fuel"],
+        },
         "low_power_vs_isothermal_pcm": (low["k"] - iso["k"]) * 1e5,
         "layers": layers,
     }
@@ -229,7 +248,7 @@ def main() -> None:
         if summary.get("format") != "xlc-compare-p6":
             raise SystemExit(f"{args[1]}: not xlc-compare-p6")
         print("\n".join(report(summary)))
-    elif len(args) == 7 and args[0] == "--json":
+    elif len(args) == 9 and args[0] == "--json":
         Path(args[1]).write_text(json.dumps(compare(args[2:]), indent=1) + "\n")
     else:
         raise SystemExit(__doc__)
