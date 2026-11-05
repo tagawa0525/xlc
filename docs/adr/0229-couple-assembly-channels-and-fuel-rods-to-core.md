@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-06
 requires: [ADR-0036, ADR-0097, ADR-0145, ADR-0146, ADR-0218]
 supersedes: [ADR-0029]
@@ -228,4 +228,26 @@ h(p, T) = h_k を温度について解いた温度と、その温度の IF97 の
 
 ### 確認
 
-実装の後に書く。
+- 水の物性（crates/core/src/thermal/water/tests.rs）: `region_one_matches_the_if97_verification_table`（IF97 の表 5 の 3 点の v、h、cp が
+  相対 1e-8）、`region_one_derivatives_match_the_conductivity_verification_table`（R15-11 の表 7 の領域 1 の 2 点の ρ、(∂ρ/∂p)_T、cp、cv が
+  相対 1e-8）、`saturation_matches_the_if97_verification_tables`（表 35、36 が相対 1e-8）、`densities_at_2250_psia_round_to_the_vera_table_g2`
+  （付録 G の表 G-2 の 7 点と 5e-6 g/cc 以内）、`viscosity_matches_the_r12_verification_table`（R12-08 の表 4 の 11 点と表の小数 6 桁の
+  丸めの半分 5e-7 μPa s 以内）、`conductivity_matches_the_r15_verification_tables`（R15-11 の表 4 の 2 点と表 7 の 2 点の λ、λ₁、λ₂、ξ、Z(y)、
+  μ が相対 1e-7〜1e-8）、`temperatures_invert_the_enthalpy`、`states_outside_the_liquid_region_are_errors`
+- 燃料棒（crates/core/src/thermal/rod/tests.rs）: `uo2_conductivity_follows_matlib`、`zircaloy_conductivity_follows_matlib`、
+  `inverse_kirchhoff_integrals_solve_linear_conductivities`（線形の熱伝導度の 2 次方程式の根と 1e-9 K）、
+  `constant_conductivity_pellets_follow_the_parabola`（中心と表面の差 q′/(4πk)、体積平均がその半分と 1e-9 K）、
+  `effective_temperatures_weigh_the_centre_and_the_surface`、`walls_take_the_cooler_of_convection_and_nucleate_boiling`、
+  `film_coefficients_follow_dittus_boelter`、`rods_heat_up_from_the_coolant_inwards`（ギャップと被覆管の熱流束の式を相対 1e-12、1e-10 で
+  満たす）
+- 流路（crates/core/src/thermal/tests.rs）: `assembly_positions_become_channels`（`radial-nodes` = 2 の流路の上昇が出力 / 流量、ノードの
+  減速材の温度が中点のエンタルピーの IF97 の温度と 1e-9 K）、`reflector_positions_take_the_inlet_temperature`、
+  `rods_take_the_fuel_share_of_the_node_power`、`negative_or_misplaced_powers_are_errors`
+- 入力（crates/core/src/input/tests.rs）: `parses_thermal_hydraulics_with_inlet_states`、`invalid_thermal_hydraulics_are_errors`、
+  `depletion_with_thermal_hydraulics_is_an_error`
+- 繰り返し（crates/core/src/case/tests.rs）: `thermal_feedback_converges_and_balances_the_channel_enthalpy`（2 × 2 の集合体の炉心で
+  収束し、位置の出力の和が熱出力と相対 1e-12、流路の上昇が流路の出力 / 流量と相対 1e-12、出口の温度が IF97 の逆と 1e-9 K、解が最後の
+  ノードの状態で解き直したものとビットで同じ）、`uniform_node_states_match_the_solve_without_feedback`（すべてのノードを 575 K と 700 K に
+  した解の k が、熱水力のない並びの一様な状態の解と 1e-12 以内）、`boron_search_converges_with_thermal_feedback`、
+  `thermal_feedback_errors_are_reported`（IF97 と違うテーブルの密度、テーブルの外の減速材の温度、沸騰、入口の温度のない状態）
+- Problem 6 は、帰結の 1 項目のとおりライブラリの温度の点が足りず、まだ解いていない（#0228）
