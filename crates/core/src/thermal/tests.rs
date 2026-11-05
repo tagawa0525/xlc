@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use xlc_format::fewgroup::FewGroup;
-use xlc_format::table::{Axis, Table, product_points};
+use xlc_format::table::{Table, product_points};
 
 use super::*;
 use crate::input::{Case, Cycle, Inventory, Layout, Plant};
@@ -14,6 +14,19 @@ map = ["R  *  *"]
 [reflector.R]
 bounds = [0.0, 30.0]
 layers = ["r.msgpack"]
+"#;
+
+/// 反射体の位置のない炉心（`radial-nodes` で分けられる）
+const SPLIT_PLANT: &str = r#"
+pitch = 20.0
+height = 30.0
+map = ["*  *"]
+"#;
+
+const SPLIT_CYCLE: &str = r#"
+plant = "plant.toml"
+inventory = "assemblies.toml"
+loading = ["A1  A2"]
 "#;
 
 /// 下の層は核分裂のない層（ノズル）、上の 2 層は燃料
@@ -37,7 +50,7 @@ loading = [".  A1  A2"]
 const CASE: &str = r#"
 cycle = "cycle.toml"
 axial-mesh = [0.0, 10.0, 20.0, 30.0]
-radial-nodes = 2
+radial-nodes = 1
 boundary = { x = ["vacuum", "reflective"], y = ["reflective", "reflective"], z = ["vacuum", "vacuum"] }
 
 [thermal-hydraulics]
@@ -84,10 +97,20 @@ fn table(fissile: f64) -> Table {
 }
 
 fn channels() -> (Layout, Channels) {
+    layout_channels(CASE, CYCLE, PLANT)
+}
+
+/// 反射体のない 2 体を `radial-nodes` = 2 で分けた並び
+fn split_channels() -> (Layout, Channels) {
+    let case = CASE.replace("radial-nodes = 1", "radial-nodes = 2");
+    layout_channels(&case, SPLIT_CYCLE, SPLIT_PLANT)
+}
+
+fn layout_channels(case: &str, cycle: &str, plant: &str) -> (Layout, Channels) {
     let base = Path::new("dir");
-    let case = Case::parse(CASE, base).unwrap();
-    let cycle = Cycle::parse(CYCLE, base).unwrap();
-    let plant = Plant::parse(PLANT, base).unwrap();
+    let case = Case::parse(case, base).unwrap();
+    let cycle = Cycle::parse(cycle, base).unwrap();
+    let plant = Plant::parse(plant, base).unwrap();
     let inventory = Inventory::parse(INVENTORY, base).unwrap();
     let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
     let tables: Vec<Table> = layout
@@ -105,18 +128,18 @@ fn channels() -> (Layout, Channels) {
     (layout, channels)
 }
 
-/// 2 体の集合体の位置が流路になり、`radial-nodes` = 2 の 4 つのノードが同じ層の状態を持つ。反射体の位置は流路にならない
+/// 2 体の集合体の位置が流路になり、`radial-nodes` = 2 の 4 つのノードが同じ層の状態を持つ
 #[test]
 fn assembly_positions_become_channels() {
-    let (layout, channels) = channels();
+    let (layout, channels) = split_channels();
     assert_eq!(channels.count(), 2);
     let th = layout.thermal().unwrap();
     // 位置ごとの出力: 燃料のノードだけ。下の燃料の層は 1 ノード 5 kW、上は 10 kW（流路あたり 4 × 5 + 4 × 10 = 60 kW）
     let mut powers = vec![0.0; layout.node_material.len()];
-    for site in 0..powers.len() {
+    for (site, power) in powers.iter_mut().enumerate() {
         let [_, _, z] = layout.mesh.position(site);
         if channels.channel_of(site).is_some() && channels.fissile(site) {
-            powers[site] = if z == 1 { 5.0e3 } else { 10.0e3 };
+            *power = if z == 1 { 5.0e3 } else { 10.0e3 };
         }
     }
     let solved = channels.solve(th, 565.0, &powers, None).unwrap();
@@ -143,7 +166,16 @@ fn assembly_positions_become_channels() {
             }
         }
     }
-    // 反射体の位置は入口の温度
+}
+
+/// 反射体の位置は流路にならず、入口の温度
+#[test]
+fn reflector_positions_take_the_inlet_temperature() {
+    let (layout, channels) = channels();
+    assert_eq!(channels.count(), 2);
+    let th = layout.thermal().unwrap();
+    let powers = vec![0.0; layout.node_material.len()];
+    let solved = channels.solve(th, 565.0, &powers, None).unwrap();
     let reflector = (0..powers.len())
         .find(|&s| layout.node_material[s].is_some() && channels.channel_of(s).is_none())
         .unwrap();
@@ -159,7 +191,7 @@ fn assembly_positions_become_channels() {
 /// 線出力はノードの出力 × 燃料の発熱の割合 / (棒の本数 / radial-nodes² × 高さ)
 #[test]
 fn rods_take_the_fuel_share_of_the_node_power() {
-    let (layout, channels) = channels();
+    let (layout, channels) = split_channels();
     let th = layout.thermal().unwrap();
     let site = (0..layout.node_material.len())
         .find(|&s| channels.channel_of(s).is_some() && channels.fissile(s))
