@@ -31,6 +31,8 @@
   - `reflector-<形>-<種類>-<層>.toml`: 外周の燃料の層ごとの反射体の格子（ADR-0153）。代表の燃料の支持格子の
     ない層の反射体のノードの定数を、径方向の反射体の列のバッフルのある高さに置く。制御棒の入る位置の層は制御棒の分岐を
     同じ入力で解き、燃料のノードのテーブルだけが制御棒の軸を持つ（ADR-0227）
+  - `rodless-<名前>.toml`: 制御棒の分岐を解く格子と同じ層の、棒のない格子（出力は `rodless/` の下）。炉心は読まず、ステージ
+    `hzp-compare-rodless` が制御棒の分岐を解く格子の値 out の状態と比べるだけに使う（#0225）
   - `axial-<種類>[-rcca].toml`: 集合体の種類（と制御棒の入る位置）ごとの軸方向の反射体の平板（ADR-0128）
   - `core-hzp*.toml`: 全炉心のケース（表 P5-2 の 32 の場合と、場合 1、2 の臨界ホウ素濃度の探索。ADR-0145、ADR-0146）
   - `small*.toml`: 最小の入力（3.10% の 3 × 3 と反射体の輪、中央に D バンク）の 3D と、同じ定数の 2D
@@ -1752,6 +1754,13 @@ def lattice_stem(shape: str | None, design: str, kind: str) -> str:
     return stem if shape is None else f"reflector-{shape}-{stem}"
 
 
+def rodless_note(prefix: str) -> str:
+    """棒のない比べる先の格子（`prefix` が空でない）の入力の注記"""
+    if not prefix:
+        return ""
+    return "\n# 炉心は読まない。同じ層の制御棒の分岐を解く格子の値 out の状態と比べる先（ステージ hzp-compare-rodless。#0225）"
+
+
 def hzp_single(design: str, kind: str, rodded: bool, prefix: str = "") -> str:
     """単一集合体の格子。出力は hzp/ からの `prefix` の下（棒のない比べる先の格子は `rodless/`。`hzp_pipeline`）"""
     fuel, pyrex, _ = assembly_types()[design]
@@ -1763,7 +1772,7 @@ def hzp_single(design: str, kind: str, rodded: bool, prefix: str = "") -> str:
     medium = (
         f'medium = "{prefix}media/{design}-{kind}.msgpack"\n' if grid is None else ""
     )
-    return f"""# このファイルは p5_inputs.py が書く。手で直さない。
+    return f"""# このファイルは p5_inputs.py が書く。手で直さない。{rodless_note(prefix)}
 # VERA Problem 5 の集合体（{what}）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
 # 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
 library = "../../vera.msgpack"
@@ -1826,7 +1835,7 @@ def hzp_reflector(
         if rodded
         else ""
     )
-    return f"""# このファイルは p5_inputs.py が書く。手で直さない。
+    return f"""# このファイルは p5_inputs.py が書く。手で直さない。{rodless_note(prefix)}
 # VERA Problem 5 の{title}。燃料は{what}。
 # 反射体は燃料側から、隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm（1.13 節の表 16。5-2D と同じ形）。
 # 分岐のテーブル（ADR-0097）で、ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。{rod_note}
@@ -2548,7 +2557,13 @@ def hzp_pipeline(
             )
         )
         if rodded:
-            rod_outputs += outs
+            # 制御棒の軸を持つのは燃料のノードのテーブルで、反射体のノードのテーブルと媒質は持たない（ADR-0227）
+            axis = (
+                [True] + [False] * (len(outs) - 1)
+                if shape is None
+                else [not refl for *_, refl in LATTICE_NODES[shape]]
+            )
+            rod_outputs += zip(outs, axis)
             stages.append(
                 stage(
                     f"hzp-rodless-{stem}",
@@ -2607,13 +2622,17 @@ def hzp_pipeline(
             )
         )
     if rod_outputs:
-        rodless = [rodless_path(o) for o in rod_outputs]
+        rod_files = [o for o, _ in rod_outputs]
+        rodless = [rodless_path(o) for o in rod_files]
         stages.append(
             stage(
                 "hzp-compare-rodless",
                 "python3 compare_rodless.py --json hzp/compare-rodless.json "
-                + " ".join(f"{a}={b}" for a, b in zip(rod_outputs, rodless)),
-                ["compare_rodless.py", *rod_outputs, *rodless],
+                + " ".join(
+                    f"{'rod:' if axis else ''}{o}={rodless_path(o)}"
+                    for o, axis in rod_outputs
+                ),
+                ["compare_rodless.py", *rod_files, *rodless],
                 ["git:hzp/compare-rodless.json"],
             )
         )
