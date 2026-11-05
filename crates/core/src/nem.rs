@@ -180,10 +180,13 @@ pub enum NemError {
     NotConverged { iterations: usize, k: f64 },
 }
 
-#[tracing::instrument(name = "nem", skip_all)]
+// 外側の反復の回数を span の閉じる行に出す（#0156、#0076）
+#[tracing::instrument(name = "nem", skip_all, fields(iterations))]
 pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
     let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
-    iterate(&mut core, options, None).map(|(solution, _)| solution)
+    let (solution, _) = iterate(&mut core, options, None)?;
+    tracing::Span::current().record("iterations", solution.iterations);
+    Ok(solution)
 }
 
 /// 外側の反復のたびに、いくつかの物質の定数を作り直すもの（制御棒の部分挿入のノード。ADR-0127）。
@@ -212,7 +215,7 @@ pub struct NodeSnapshot {
 
 /// `solve` に、外側の反復（全群のスイープ）の前ごとに `refresh` で物質を置き換えることを加えたもの。解と、最後に
 /// 置き換えたあとの物質の定数（`Problem::materials` の並び）を返す。
-#[tracing::instrument(name = "nem", skip_all)]
+#[tracing::instrument(name = "nem", skip_all, fields(iterations))]
 pub fn solve_with(
     problem: &Problem,
     options: &Options,
@@ -224,6 +227,7 @@ pub fn solve_with(
             .map_err(NemError::InvalidProblem)?;
     }
     let (solution, _) = iterate(&mut core, options, Some(refresh))?;
+    tracing::Span::current().record("iterations", solution.iterations);
     Ok((solution, core.materials))
 }
 
