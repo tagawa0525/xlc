@@ -1,0 +1,255 @@
+{
+ "format": "xlc-compare-rodless",
+ "inputs": [
+  {
+   "path": "hzp/lattice/21-fuel.msgpack",
+   "md5": "dfdbaacaa839acf6f5714b76927a3a51"
+  },
+  {
+   "path": "hzp/rodless/lattice/21-fuel.msgpack",
+   "md5": "f83445a2ae1b2b12b6a5f74a5c3547d8"
+  },
+  {
+   "path": "hzp/media/21-fuel.msgpack",
+   "md5": "ecf0d63e4c4b8d1ae00d9122c6538f3c"
+  },
+  {
+   "path": "hzp/rodless/media/21-fuel.msgpack",
+   "md5": "ecf0d63e4c4b8d1ae00d9122c6538f3c"
+  },
+  {
+   "path": "hzp/lattice/21-zgrid.msgpack",
+   "md5": "ab32768ed6b6f7f179aaf6125bf35f40"
+  },
+  {
+   "path": "hzp/rodless/lattice/21-zgrid.msgpack",
+   "md5": "381b74b7605e22bbdd48220c02a6f889"
+  },
+  {
+   "path": "hzp/lattice/26-fuel.msgpack",
+   "md5": "597f61ab78b640b2db1648556cd1330b"
+  },
+  {
+   "path": "hzp/rodless/lattice/26-fuel.msgpack",
+   "md5": "01a3f165816868146e97a0276df779b6"
+  },
+  {
+   "path": "hzp/media/26-fuel.msgpack",
+   "md5": "fbdea638bfa3c14affc561140edb9cce"
+  },
+  {
+   "path": "hzp/rodless/media/26-fuel.msgpack",
+   "md5": "fbdea638bfa3c14affc561140edb9cce"
+  },
+  {
+   "path": "hzp/lattice/26-zgrid.msgpack",
+   "md5": "91e5c8470580dce848b1c0af8740811d"
+  },
+  {
+   "path": "hzp/rodless/lattice/26-zgrid.msgpack",
+   "md5": "dbfbbe7c9712972b06c4dfa36ab0aa95"
+  },
+  {
+   "path": "hzp/lattice/31-fuel.msgpack",
+   "md5": "4bf8b80443fd873c6a991899acb69626"
+  },
+  {
+   "path": "hzp/rodless/lattice/31-fuel.msgpack",
+   "md5": "bd4af0c3f6c6d3026a41f6d646193ff8"
+  },
+  {
+   "path": "hzp/media/31-fuel.msgpack",
+   "md5": "9e61f9d8f2b7fd1ccb7190467986d245"
+  },
+  {
+   "path": "hzp/rodless/media/31-fuel.msgpack",
+   "md5": "9e61f9d8f2b7fd1ccb7190467986d245"
+  },
+  {
+   "path": "hzp/lattice/31-zgrid.msgpack",
+   "md5": "8294940af9cf27ac08ef0197df31dee9"
+  },
+  {
+   "path": "hzp/rodless/lattice/31-zgrid.msgpack",
+   "md5": "8bf75fc22c529bcfb2944e0687a14d9c"
+  },
+  {
+   "path": "hzp/lattice/reflector-I-31-fuel-fuel.msgpack",
+   "md5": "26b9b405e37c79903041a9591064a5c7"
+  },
+  {
+   "path": "hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack",
+   "md5": "3cc4fd2ce9c95264492eaf1298cf4584"
+  },
+  {
+   "path": "hzp/lattice/reflector-I-31-fuel.msgpack",
+   "md5": "def700d96f83c2ee9c15fe2445713183"
+  },
+  {
+   "path": "hzp/rodless/lattice/reflector-I-31-fuel.msgpack",
+   "md5": "def700d96f83c2ee9c15fe2445713183"
+  },
+  {
+   "path": "hzp/lattice/reflector-I-31-zgrid-fuel.msgpack",
+   "md5": "d4ea3f5a2ab9ca3ce27ea49a59c7cc76"
+  },
+  {
+   "path": "hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack",
+   "md5": "9ffe79f894ee11c9aec23836264036c2"
+  },
+  {
+   "path": "hzp/lattice/reflector-I-31-zgrid.msgpack",
+   "md5": "3480eb9745f0fdb00ac656de9fb102ba"
+  },
+  {
+   "path": "hzp/rodless/lattice/reflector-I-31-zgrid.msgpack",
+   "md5": "3480eb9745f0fdb00ac656de9fb102ba"
+  }
+ ],
+ "outputs": [
+  {
+   "name": "hzp/lattice/21-fuel.msgpack",
+   "reference": "hzp/rodless/lattice/21-fuel.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/media/21-fuel.msgpack",
+   "reference": "hzp/rodless/media/21-fuel.msgpack",
+   "kind": "medium",
+   "rod_axis": false,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": null
+  },
+  {
+   "name": "hzp/lattice/21-zgrid.msgpack",
+   "reference": "hzp/rodless/lattice/21-zgrid.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/lattice/26-fuel.msgpack",
+   "reference": "hzp/rodless/lattice/26-fuel.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/media/26-fuel.msgpack",
+   "reference": "hzp/rodless/media/26-fuel.msgpack",
+   "kind": "medium",
+   "rod_axis": false,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": null
+  },
+  {
+   "name": "hzp/lattice/26-zgrid.msgpack",
+   "reference": "hzp/rodless/lattice/26-zgrid.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/lattice/31-fuel.msgpack",
+   "reference": "hzp/rodless/lattice/31-fuel.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/media/31-fuel.msgpack",
+   "reference": "hzp/rodless/media/31-fuel.msgpack",
+   "kind": "medium",
+   "rod_axis": false,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": null
+  },
+  {
+   "name": "hzp/lattice/31-zgrid.msgpack",
+   "reference": "hzp/rodless/lattice/31-zgrid.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/lattice/reflector-I-31-fuel-fuel.msgpack",
+   "reference": "hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/lattice/reflector-I-31-fuel.msgpack",
+   "reference": "hzp/rodless/lattice/reflector-I-31-fuel.msgpack",
+   "kind": "table",
+   "rod_axis": false,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/lattice/reflector-I-31-zgrid-fuel.msgpack",
+   "reference": "hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack",
+   "kind": "table",
+   "rod_axis": true,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  },
+  {
+   "name": "hzp/lattice/reflector-I-31-zgrid.msgpack",
+   "reference": "hzp/rodless/lattice/reflector-I-31-zgrid.msgpack",
+   "kind": "table",
+   "rod_axis": false,
+   "states": 8,
+   "bit_equal": 8,
+   "max_relative_difference": 0.0,
+   "field": null,
+   "max_k_inf_pcm": 0.0
+  }
+ ],
+ "all_bit_equal": true
+}
