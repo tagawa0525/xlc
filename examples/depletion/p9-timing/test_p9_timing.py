@@ -55,12 +55,29 @@ class Summary(unittest.TestCase):
         self.assertEqual(nem["iterations"], [1000, 4165])
         self.assertEqual(nem["seconds"], [30.0, 118.0])
 
-    def test_points_and_midpoints_give_their_solves(self):
+    def test_points_and_midpoints_give_their_solves_in_order(self):
         self.assertEqual(
-            self.summary["points"], [{"efpd": 0.0, "boron": 1200.0, "solves": 1}]
+            self.summary["solves"],
+            [
+                {
+                    "kind": "point",
+                    "efpd": 0.0,
+                    "boron": 1200.0,
+                    "solves": 1,
+                    "xenon": None,
+                },
+                {
+                    "kind": "midpoint",
+                    "efpd": 32.0,
+                    "boron": 1150.0,
+                    "solves": 2,
+                    "xenon": 1,
+                },
+            ],
         )
-        self.assertEqual(self.summary["midpoints"], [{"boron": 1150.0, "solves": 2}])
-        self.assertEqual(self.summary["xenon_iterations"], [1])
+
+    def test_the_summary_names_its_format(self):
+        self.assertEqual(self.summary["format"], "xlc-core-timing")
 
     def test_durations_read_every_unit(self):
         self.assertEqual(p9_timing.seconds("3.45µs"), 3.45e-6)
