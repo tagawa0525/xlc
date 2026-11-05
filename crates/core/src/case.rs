@@ -425,8 +425,8 @@ fn solve_with(
         )));
     }
     // テーブルの内挿（ミクロ燃焼の補正を含む）の時間を、固有値計算（`nem`）と分けてログに出す（#0156）
-    let interpolation = tracing::info_span!("constants").entered();
-    let constants = layout
+    let constants = tracing::info_span!("constants").in_scope(|| {
+        layout
         .tables
         .iter()
         .map(|t| {
@@ -482,8 +482,8 @@ fn solve_with(
                 })?;
             Ok(vec![f])
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    drop(interpolation);
+        .collect::<Result<Vec<_>, _>>()
+    })?;
     let problem = layout.problem(&constants)?;
     let partial = layout.partial_nodes(&constants)?;
     if partial.is_empty() {

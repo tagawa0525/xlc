@@ -180,13 +180,21 @@ pub enum NemError {
     NotConverged { iterations: usize, k: f64 },
 }
 
-// 外側の反復の回数を span の閉じる行に出す（#0156、#0076）
-#[tracing::instrument(name = "nem", skip_all, fields(iterations))]
+// 外側の反復の回数と秒を span の閉じる行に出す（#0156、#0076）。秒を別に持つのは、閉じる行の time.busy が 3 桁に丸まるため
+#[tracing::instrument(name = "nem", skip_all, fields(iterations, seconds))]
 pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
+    let start = std::time::Instant::now();
     let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
     let (solution, _) = iterate(&mut core, options, None)?;
-    tracing::Span::current().record("iterations", solution.iterations);
+    record_solve(solution.iterations, start);
     Ok(solution)
+}
+
+/// 固有値計算の span（`nem`）に、外側の反復の回数と `start` からの秒を記録する
+fn record_solve(iterations: usize, start: std::time::Instant) {
+    let span = tracing::Span::current();
+    span.record("iterations", iterations);
+    span.record("seconds", start.elapsed().as_secs_f64());
 }
 
 /// 外側の反復のたびに、いくつかの物質の定数を作り直すもの（制御棒の部分挿入のノード。ADR-0127）。
@@ -215,19 +223,20 @@ pub struct NodeSnapshot {
 
 /// `solve` に、外側の反復（全群のスイープ）の前ごとに `refresh` で物質を置き換えることを加えたもの。解と、最後に
 /// 置き換えたあとの物質の定数（`Problem::materials` の並び）を返す。
-#[tracing::instrument(name = "nem", skip_all, fields(iterations))]
+#[tracing::instrument(name = "nem", skip_all, fields(iterations, seconds))]
 pub fn solve_with(
     problem: &Problem,
     options: &Options,
     refresh: &mut dyn Refresh,
 ) -> Result<(Solution, Vec<FewGroup>), NemError> {
+    let start = std::time::Instant::now();
     let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
     for (material, adfs) in refresh.f_star_partners() {
         core.set_f_star_partner(material, adfs)
             .map_err(NemError::InvalidProblem)?;
     }
     let (solution, _) = iterate(&mut core, options, Some(refresh))?;
-    tracing::Span::current().record("iterations", solution.iterations);
+    record_solve(solution.iterations, start);
     Ok((solution, core.materials))
 }
 
