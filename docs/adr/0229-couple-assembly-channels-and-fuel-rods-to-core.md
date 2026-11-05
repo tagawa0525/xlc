@@ -242,9 +242,10 @@ h(p, T) = h_k を温度について解いた温度と、その温度の IF97 の
   満たす）
 - 流路（crates/core/src/thermal/tests.rs）: `assembly_positions_become_channels`（`radial-nodes` = 2 の流路の上昇が出力 / 流量、ノードの
   減速材の温度が中点のエンタルピーの IF97 の温度と 1e-9 K）、`reflector_positions_take_the_inlet_temperature`、
-  `rods_take_the_fuel_share_of_the_node_power`、`negative_or_misplaced_powers_are_errors`
+  `rods_take_the_fuel_share_of_the_node_power`、`negative_or_misplaced_powers_are_errors`、`positions_without_fuel_take_no_channel_and_no_flow`
+  （核分裂のある層のない集合体の位置は流路にならず、流量は燃料の 2 体に分ける）
 - 入力（crates/core/src/input/tests.rs）: `parses_thermal_hydraulics_with_inlet_states`、`invalid_thermal_hydraulics_are_errors`、
-  `depletion_with_thermal_hydraulics_is_an_error`
+  `thermal_hydraulics_need_named_states`（名前つきの状態のないケースはエラー）、`depletion_with_thermal_hydraulics_is_an_error`
 - 繰り返し（crates/core/src/case/tests.rs）: `thermal_feedback_converges_and_balances_the_channel_enthalpy`（2 × 2 の集合体の炉心で
   収束し、位置の出力の和が熱出力と相対 1e-12、流路の上昇が流路の出力 / 流量と相対 1e-12、出口の温度が IF97 の逆と 1e-9 K、解が最後の
   ノードの状態で解き直したものとビットで同じ）、`uniform_node_states_match_the_solve_without_feedback`（すべてのノードを 575 K と 700 K に
