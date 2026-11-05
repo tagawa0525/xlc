@@ -19,6 +19,9 @@ def leaves(x, path: str=''):
     elif isinstance(x, list):
         for i, v in enumerate(x):
             yield from leaves(v, f'{path}[{i}]')
+    if isinstance(x, (dict, list)):
+        if not x:
+            yield (path, type(x))
     else:
         yield (path, x)
 
@@ -41,16 +44,15 @@ def differences(a: dict, b: dict) -> tuple[bool, float, str | None]:
         if bits(x) == bits(y):
             continue
         same = False
-        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
-            scale = max(abs(x), abs(y))
-            d = abs(x - y) / scale if scale else 0.0
-        else:
-            d = float('inf')
+        if not (isinstance(x, (int, float)) and isinstance(y, (int, float))):
+            raise SystemExit(f'items of different kinds at {k}: {x!r} and {y!r}')
+        scale = max(abs(x), abs(y))
+        d = abs(x - y) / scale if scale else 0.0
         if field is None or d > worst:
             worst, field = (d, k.split('/')[1].split('[')[0])
     return (same, worst, field)
 
-def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dict]]]:
+def pairs_of_table(rod: dict, rodless: dict, expected: bool) -> list[tuple[dict, dict]]:
     for key in ('bounds', 'split'):
         if rod[key] != rodless[key]:
             raise SystemExit(f'{key} differs: {rod[key]} and {rodless[key]}')
@@ -59,6 +61,8 @@ def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dic
             raise SystemExit(f'a table with depletion data ({[k for k in DEPLETION_KEYS if k in t]})')
     axes = rod['axes']
     rod_axis = bool(axes) and axes[-1]['name'] == 'rod'
+    if rod_axis != expected:
+        raise SystemExit(f"the table {('has' if rod_axis else 'lacks')} the rod axis, expected {('it' if expected else 'none')}")
     if rod_axis:
         if axes[-1]['values'][0] != 'out':
             raise SystemExit(f"the first rod value is {axes[-1]['values'][0]!r}, not 'out'")
@@ -83,21 +87,23 @@ def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dic
             raise SystemExit(f'no point {list(at)} in the rod branch table')
         i = index[at]
         pairs += zip(rod['states'][i * n:(i + 1) * n], rodless['states'][j * n:(j + 1) * n])
-    return (rod_axis, pairs)
+    return pairs
 
-def compare(rod_path: str, rodless_path: str) -> dict:
+def compare(rod_path: str, rodless_path: str, rod_axis: bool) -> dict:
     rod, rodless = (read(rod_path), read(rodless_path))
     if rod.get('format') != rodless.get('format'):
         raise SystemExit(f"{rod_path} is {rod.get('format')} but {rodless_path} is {rodless.get('format')}")
     if rod['format'] == 'xlc-table':
-        rod_axis, pairs = pairs_of_table(rod, rodless)
+        pairs = pairs_of_table(rod, rodless, rod_axis)
     elif rod['format'] == 'xlc-medium':
         for key in ('bounds', 'axes'):
             if rod[key] != rodless[key]:
                 raise SystemExit(f'the media have different {key}')
         if len(rod['states']) != len(rodless['states']):
             raise SystemExit('the media have different numbers of states')
-        rod_axis, pairs = (False, list(zip(rod['states'], rodless['states'])))
+        if rod_axis:
+            raise SystemExit(f'{rod_path}: a medium has no rod axis')
+        pairs = list(zip(rod['states'], rodless['states']))
     else:
         raise SystemExit(f"{rod_path}: unknown format {rod.get('format')}")
     equal, worst, field = (0, 0.0, None)
@@ -138,11 +144,13 @@ def main(argv: list[str]) -> None:
     pairs = []
     for arg in argv[2:]:
         rod, sep, rodless = arg.partition('=')
+        axis = rod.startswith('rod:')
+        rod = rod.removeprefix('rod:')
         if not sep or not rod or (not rodless):
-            raise SystemExit(f'expected <rod branch output>=<rodless output>, got {arg!r}')
-        pairs.append((rod, rodless))
-    outputs = [compare(a, b) for a, b in pairs]
-    summary = {'format': FORMAT, 'inputs': md5_inputs([p for pair in pairs for p in pair]), 'outputs': outputs, 'all_bit_equal': all((o['bit_equal'] == o['states'] for o in outputs))}
+            raise SystemExit(f'expected [rod:]<rod branch output>=<rodless output>, got {arg!r}')
+        pairs.append((rod, rodless, axis))
+    outputs = [compare(a, b, axis) for a, b, axis in pairs]
+    summary = {'format': FORMAT, 'inputs': md5_inputs([p for a, b, _ in pairs for p in (a, b)]), 'outputs': outputs, 'all_bit_equal': all((o['bit_equal'] == o['states'] for o in outputs))}
     Path(argv[1]).write_text(json.dumps(summary, indent=1) + '\n')
 if __name__ == '__main__':
     main(sys.argv[1:])

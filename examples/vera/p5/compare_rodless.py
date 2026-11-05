@@ -1,19 +1,20 @@
 """制御棒の分岐を解いた格子（`[branches.rod]`。ADR-0224、ADR-0227）の値 out の状態を、同じ層の棒のない格子の状態と比べる（#0225）。
 
 使い方（examples/vera/p5 で）:
-    python3 compare_rodless.py --json <JSON> <制御棒の分岐の出力>=<棒のない出力> ...
+    python3 compare_rodless.py --json <JSON> [rod:]<制御棒の分岐の出力>=<棒のない出力> ...
     python3 compare_rodless.py --report <JSON>
 
-出力の組ごとに、`format` で種類を決める。
+出力の組ごとに、`format` で種類を決める。`rod:` を付けた組の制御棒の分岐の出力は制御棒の軸を持ち（燃料のノードのテーブル）、付けない
+組は持たない（反射体のノードのテーブルと媒質。ADR-0227）。食い違えばエラー。
 
-- 分岐のテーブル（`xlc-table`）: 制御棒の軸を最後に持てば、その最初の値が `out` で、ほかの軸が棒のないテーブルの軸と同じことを
+- 分岐のテーブル（`xlc-table`）: 制御棒の軸を最後に持つなら、その最初の値が `out` で、ほかの軸が棒のないテーブルの軸と同じことを
   確かめ、棒のないテーブルの点ごとに、点に値 `out` の番号 0 を足した点の状態（split² の部分ノード）と比べる
   （crates/lattice/tests/history_rod_branch.rs と同じ照らし方）。軸を持たなければ（反射体のノード）、軸と点が同じことを確かめ、
   点ごとに比べる。値 out の点の集合と棒のない点の集合、点と状態の数（split²）が合わなければエラー。`bounds` と `split` は同じでなければならず、`heavy_metal`、`micro`、`histories` は持たない（燃焼のない格子）
 - 媒質（`xlc-medium`）: `bounds` と軸が同じことを確かめ、状態を順に比べる
 
 状態は、すべての数がビットまで同じとき（型と、浮動小数点は `struct` の倍精度の表現で比べる）に同じと数える。NaN と無限大は
-エラーにする。0.0 と −0.0 は違う状態に数え、相対差は 0 とする。違う状態があれば、項目（状態の
+エラーにする。0.0 と −0.0 は違う状態に数え、相対差は 0 とする。数でない項目の違い（nil と数、空の列と空の map など）はエラー。違う状態があれば、項目（状態の
 最上位のキー）ごとの最大の相対差 |a − b| / max(|a|, |b|) のうち最大のものと、テーブルでは k∞ の差の最大 |Δk∞| / k∞ × 1e5（pcm）を出す。
 
 JSON は `{"format": "xlc-compare-rodless", "inputs": [読んだファイルのパスと md5], "outputs": [組ごとの name（制御棒の分岐の出力の
@@ -49,6 +50,10 @@ def leaves(x, path: str = ""):
     elif isinstance(x, list):
         for i, v in enumerate(x):
             yield from leaves(v, f"{path}[{i}]")
+    if isinstance(x, (dict, list)):
+        # 空の入れ子にも末端を出し、[] と {} を同じ（末端のない）項目としない
+        if not x:
+            yield path, type(x)
     else:
         yield path, x
 
@@ -78,19 +83,18 @@ def differences(a: dict, b: dict) -> tuple[bool, float, str | None]:
         if bits(x) == bits(y):
             continue
         same = False
-        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
-            # 0.0 と −0.0 は符号だけの違いで、差は 0
-            scale = max(abs(x), abs(y))
-            d = abs(x - y) / scale if scale else 0.0
-        else:
-            d = float("inf")
+        if not (isinstance(x, (int, float)) and isinstance(y, (int, float))):
+            raise SystemExit(f"items of different kinds at {k}: {x!r} and {y!r}")
+        # 0.0 と −0.0 は符号だけの違いで、差は 0
+        scale = max(abs(x), abs(y))
+        d = abs(x - y) / scale if scale else 0.0
         if field is None or d > worst:
             worst, field = d, k.split("/")[1].split("[")[0]
     return same, worst, field
 
 
-def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dict]]]:
-    """制御棒の軸を持つか、比べる (制御棒の分岐の状態, 棒のない状態) の組"""
+def pairs_of_table(rod: dict, rodless: dict, expected: bool) -> list[tuple[dict, dict]]:
+    """比べる (制御棒の分岐の状態, 棒のない状態) の組。`expected` は制御棒の軸を持つべきか"""
     for key in ("bounds", "split"):
         if rod[key] != rodless[key]:
             raise SystemExit(f"{key} differs: {rod[key]} and {rodless[key]}")
@@ -101,6 +105,10 @@ def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dic
             )
     axes = rod["axes"]
     rod_axis = bool(axes) and axes[-1]["name"] == "rod"
+    if rod_axis != expected:
+        raise SystemExit(
+            f"the table {'has' if rod_axis else 'lacks'} the rod axis, expected {'it' if expected else 'none'}"
+        )
     if rod_axis:
         if axes[-1]["values"][0] != "out":
             raise SystemExit(
@@ -131,24 +139,28 @@ def pairs_of_table(rod: dict, rodless: dict) -> tuple[bool, list[tuple[dict, dic
         pairs += zip(
             rod["states"][i * n : (i + 1) * n], rodless["states"][j * n : (j + 1) * n]
         )
-    return rod_axis, pairs
+    return pairs
 
 
-def compare(rod_path: str, rodless_path: str) -> dict:
+def compare(rod_path: str, rodless_path: str, rod_axis: bool) -> dict:
+    """1 つの組の比較。`rod_axis` は、制御棒の分岐の出力が制御棒の軸を持つべきか（燃料のノードのテーブル。反射体のノードの
+    テーブルと媒質は持たない。ADR-0227）"""
     rod, rodless = read(rod_path), read(rodless_path)
     if rod.get("format") != rodless.get("format"):
         raise SystemExit(
             f"{rod_path} is {rod.get('format')} but {rodless_path} is {rodless.get('format')}"
         )
     if rod["format"] == "xlc-table":
-        rod_axis, pairs = pairs_of_table(rod, rodless)
+        pairs = pairs_of_table(rod, rodless, rod_axis)
     elif rod["format"] == "xlc-medium":
         for key in ("bounds", "axes"):
             if rod[key] != rodless[key]:
                 raise SystemExit(f"the media have different {key}")
         if len(rod["states"]) != len(rodless["states"]):
             raise SystemExit("the media have different numbers of states")
-        rod_axis, pairs = False, list(zip(rod["states"], rodless["states"]))
+        if rod_axis:
+            raise SystemExit(f"{rod_path}: a medium has no rod axis")
+        pairs = list(zip(rod["states"], rodless["states"]))
     else:
         raise SystemExit(f"{rod_path}: unknown format {rod.get('format')}")
     equal, worst, field = 0, 0.0, None
@@ -209,15 +221,17 @@ def main(argv: list[str]) -> None:
     pairs = []
     for arg in argv[2:]:
         rod, sep, rodless = arg.partition("=")
+        axis = rod.startswith("rod:")
+        rod = rod.removeprefix("rod:")
         if not sep or not rod or not rodless:
             raise SystemExit(
-                f"expected <rod branch output>=<rodless output>, got {arg!r}"
+                f"expected [rod:]<rod branch output>=<rodless output>, got {arg!r}"
             )
-        pairs.append((rod, rodless))
-    outputs = [compare(a, b) for a, b in pairs]
+        pairs.append((rod, rodless, axis))
+    outputs = [compare(a, b, axis) for a, b, axis in pairs]
     summary = {
         "format": FORMAT,
-        "inputs": md5_inputs([p for pair in pairs for p in pair]),
+        "inputs": md5_inputs([p for a, b, _ in pairs for p in (a, b)]),
         "outputs": outputs,
         "all_bit_equal": all(o["bit_equal"] == o["states"] for o in outputs),
     }
