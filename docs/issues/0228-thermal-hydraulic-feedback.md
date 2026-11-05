@@ -8,7 +8,7 @@ blocked-by: []
 resolution:
 ---
 
-# 熱水力のフィードバック（Problem 6、7、9）の ADR と実装
+# 熱水力のフィードバック（Problem 6〜9）の ADR と実装
 
 ## 問題
 
@@ -20,7 +20,8 @@ for at-power conditions」とし、燃料の温度を、温度、照射、燃焼
 今の xlc には熱水力のモデルが無く、決める ADR も無い（[ADR-0029](../adr/0029-defer-thermal-hydraulic-feedback.md) は初期のマイルストーンで
 扱わないと決めた）。core はケースの状態ごとに減速材の温度と燃料の温度を 1 つずつ持ち、炉心のすべてのノードで同じ値を使う
 （crates/core/src/input.rs の `CaseState`、crates/core/src/state.rs の `State`。減速材の密度はテーブルの格子点の組で決まる）。
-分岐のテーブルの温度の格子点は HZP の 550〜580 K（ADR-0097）で、HFP の燃料の温度と減速材の密度の範囲を持たない。
+分岐のテーブルの温度の格子点は、M3 の HZP のテーブルが 550〜580 K（ADR-0097）、燃焼の分岐の入力の燃料の温度が 565 と 600 K
+（examples/depletion/branches の `fuel = { temperature = [565, 600] }`）で、HFP の燃料の温度と減速材の密度の範囲を持たない。
 
 これを待つもの（docs/plans/m4-depletion.md の「進め方」）:
 
