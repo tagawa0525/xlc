@@ -2,9 +2,9 @@
 
 使い方: python3 p9_timing.py <core のログ> > <JSON>
 
-- 時間（秒）: `total` は core の全体（`core seconds=`）。`eigenvalue`（span `nem` の和）、`interpolation`（span `constants` の和。
-  テーブルの内挿とミクロ燃焼の補正）、`micro`（span `micro depletion` の和。反応率と CRAM）、`xenon`（span `xenon balance` の和。
-  平衡の Xe と I）は互いに重ならない部分で、`other` は全体からそれらを引いた残り（入力の読み込み、出力など）。`search`（span
+- 時間（秒）: `total` は core の全体（`core seconds=`）。`eigenvalue`（span `nem` のフィールド `seconds` の和）、`interpolation`（span `constants` の和。
+  テーブルの内挿とミクロ燃焼の補正）、`micro`（span `micro depletion` と `micro decay` の和。反応率と CRAM）、`xenon`（span
+  `xenon balance` と `xenon anderson` の和。平衡の Xe と I の値と Anderson の加速）は互いに重ならない部分で、`other` は全体からそれらを引いた残り（入力の読み込み、出力など）。`search`（span
   `search` の和）は臨界ホウ素の探索の全体で、その中の固有値計算と内挿を含む（ほかの部分と重なる）
 - `nem`: 固有値計算の span の数と、外側の反復の回数と時間の最小と最大
 - `solves`: ログの順の燃焼点と中点ごとの EFPD（中点はそのステップの終わり）、ホウ素濃度、固有値計算の回数（平衡 Xe の解き直しを
@@ -25,11 +25,14 @@ EVENT = re.compile(
 # 1 秒あたりの単位の数（掛けずに割る: 12 × 1e-9 は 1.2e-8 に丸まらない）
 PER_SECOND = {"ns": 1e9, "µs": 1e6, "ms": 1e3, "s": 1.0}
 
+# span の名前 → 部分。`nem` は time.busy でなくフィールド `seconds` を足す（time.busy は 3 桁に丸まる）
 PARTS = {
     "nem": "eigenvalue",
     "constants": "interpolation",
     "micro depletion": "micro",
+    "micro decay": "micro",
     "xenon balance": "xenon",
+    "xenon anderson": "xenon",
 }
 
 
@@ -63,6 +66,8 @@ def summarize(log: str) -> dict:
         if m := CLOSE.search(line):
             name, fields = leaf(m.group("spans"))
             busy = seconds(m.group("busy"))
+            if name == "nem" and "seconds" in fields:
+                busy = float(fields["seconds"])
             if name in PARTS:
                 parts[PARTS[name]] += busy
             if name == "search":
@@ -82,10 +87,15 @@ def summarize(log: str) -> dict:
                 kind, efpd = "point", float(fields["efpd"])
             else:
                 # 中点の行は EFPD を持たないので、ステップの span の終わりの EFPD
-                step = re.search(r"depletion step\{efpd=([^ }]+)", line)
-                if not step:
+                step = re.search(r"depletion step\{([^{}]*)\}", line)
+                step_fields = dict(
+                    f.split("=", 1)
+                    for f in (step.group(1) if step else "").split()
+                    if "=" in f
+                )
+                if "efpd" not in step_fields:
                     raise ValueError(f"a midpoint outside a depletion step: {line}")
-                kind, efpd = "midpoint", float(step.group(1))
+                kind, efpd = "midpoint", float(step_fields["efpd"])
             solves.append(
                 {
                     "kind": kind,

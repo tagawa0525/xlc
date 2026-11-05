@@ -4,7 +4,7 @@ import sys
 CLOSE = re.compile('INFO (?P<spans>.+?): (?P<target>[\\w:]+): close time\\.busy=(?P<busy>\\S+) ')
 EVENT = re.compile('INFO (?:.+?: )?(?P<target>[\\w:]+): (?P<message>[a-z ]+?) (?P<fields>\\w+=.*)$')
 PER_SECOND = {'ns': 1000000000.0, 'µs': 1000000.0, 'ms': 1000.0, 's': 1.0}
-PARTS = {'nem': 'eigenvalue', 'constants': 'interpolation', 'micro depletion': 'micro', 'xenon balance': 'xenon'}
+PARTS = {'nem': 'eigenvalue', 'constants': 'interpolation', 'micro depletion': 'micro', 'micro decay': 'micro', 'xenon balance': 'xenon', 'xenon anderson': 'xenon'}
 
 def seconds(text: str) -> float:
     m = re.fullmatch('([0-9.]+)(ns|µs|ms|s)', text)
@@ -31,6 +31,8 @@ def summarize(log: str) -> dict:
         if (m := CLOSE.search(line)):
             name, fields = leaf(m.group('spans'))
             busy = seconds(m.group('busy'))
+            if name == 'nem' and 'seconds' in fields:
+                busy = float(fields['seconds'])
             if name in PARTS:
                 parts[PARTS[name]] += busy
             if name == 'search':
@@ -49,10 +51,11 @@ def summarize(log: str) -> dict:
             if message == 'depletion point':
                 kind, efpd = ('point', float(fields['efpd']))
             else:
-                step = re.search('depletion step\\{efpd=([^ }]+)', line)
-                if not step:
+                step = re.search('depletion step\\{([^{}]*)\\}', line)
+                step_fields = dict((f.split('=', 1) for f in (step.group(1) if step else '').split() if '=' in f))
+                if 'efpd' not in step_fields:
                     raise ValueError(f'a midpoint outside a depletion step: {line}')
-                kind, efpd = ('midpoint', float(step.group(1)))
+                kind, efpd = ('midpoint', float(step_fields['efpd']))
             solves.append({'kind': kind, 'efpd': efpd, 'boron': float(fields['boron']), 'solves': int(fields['solves']), 'xenon': xenon})
             xenon = None
         elif message == 'equilibrium xenon' and 'iterations' in fields:
