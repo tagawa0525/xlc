@@ -1,8 +1,8 @@
 ---
-status: accepted
-date: 2026-10-06
+status: superseded
+date: 2026-11-06
 supersedes: []
-superseded-by:
+superseded-by: ADR-0229
 issues: []
 requires: []
 ---
@@ -30,3 +30,8 @@ requires: []
 
 - 熱水力のフィードバックを含む BEAVRS との比較は、M4 の後に検討する
 - 分岐の軸は、燃料温度や減速材密度を足せる形にしておく（[ADR-0033](0033-store-kinetics-and-cooling-data-in-m4-tables.md)）
+
+## 変更
+
+- 2026-11-06: [ADR-0229](0229-couple-assembly-channels-and-fuel-rods-to-core.md) が置き換えた。熱水力のフィードバックを M4 で入れ（Problem 9 の臨界ホウ素濃度の
+  実測との比較をこの ADR の「燃焼後の結果を実機データと比べる段階」とみた）、`[thermal-hydraulics]` のないケースは入力の温度を使う
