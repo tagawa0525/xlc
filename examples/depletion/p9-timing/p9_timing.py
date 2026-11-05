@@ -45,13 +45,17 @@ def seconds(text: str) -> float:
     return float(m.group(1)) / PER_SECOND[m.group(2)]
 
 
+def fields_of(text: str) -> dict[str, str]:
+    """tracing のフィールドの並び（`x=1 y=2`）。値は空白を含まないもの"""
+    return dict(f.split("=", 1) for f in text.split() if "=" in f)
+
+
 def leaf(spans: str) -> tuple[str, dict[str, str]]:
     """span の並び（`a{x=1}:b:c{y=2}`）の最後の span の名前とフィールド"""
     m = re.search(r"(?:^|:)([^:{}]+)(?:\{([^{}]*)\})?$", spans)
     if not m:
         raise ValueError(f"not a span list: {spans}")
-    fields = dict(f.split("=", 1) for f in (m.group(2) or "").split() if "=" in f)
-    return m.group(1), fields
+    return m.group(1), fields_of(m.group(2) or "")
 
 
 def summarize(log: str) -> dict:
@@ -81,7 +85,7 @@ def summarize(log: str) -> dict:
         m = EVENT.search(line)
         if not m:
             continue
-        fields = dict(f.split("=", 1) for f in m.group("fields").split() if "=" in f)
+        fields = fields_of(m.group("fields"))
         message = m.group("message")
         if message in ("depletion point", "depletion midpoint"):
             if message == "depletion point":
@@ -89,11 +93,7 @@ def summarize(log: str) -> dict:
             else:
                 # 中点の行は EFPD を持たないので、ステップの span の終わりの EFPD
                 step = re.search(r"depletion step\{([^{}]*)\}", line)
-                step_fields = dict(
-                    f.split("=", 1)
-                    for f in (step.group(1) if step else "").split()
-                    if "=" in f
-                )
+                step_fields = fields_of(step.group(1) if step else "")
                 if "efpd" not in step_fields:
                     raise ValueError(f"a midpoint outside a depletion step: {line}")
                 kind, efpd = "midpoint", float(step_fields["efpd"])
