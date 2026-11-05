@@ -91,7 +91,8 @@ pub fn region_one(p: f64, t: f64) -> Result<Liquid, String> {
              {REGION_ONE_MAX_P} MPa)"
         ));
     }
-    if p < saturation_pressure(t) {
+    // 式 (30) と (31) は同じ式 (29) の解だが、飽和温度で丸めが 1e-13 ほど食い違う
+    if p < saturation_pressure(t) * (1.0 - 1e-12) {
         return Err(format!(
             "water at {p} MPa and {t} K is not liquid: the saturation pressure is {} MPa (boiling is not modelled. \
              ADR-0229)",

@@ -1320,7 +1320,7 @@ use crate::thermal::{NodeTemperatures, water};
 /// 熱水力の圧力 (MPa)
 const PRESSURE: f64 = 15.5132;
 const HOT_TM: [f64; 3] = [560.0, 580.0, 600.0];
-const HOT_TF: [f64; 3] = [560.0, 900.0, 1500.0];
+const HOT_TF: [f64; 3] = [560.0, 900.0, 2500.0];
 
 /// `CASE` に熱水力を足したもの: 集合体あたり 1 kg/s、0.1 MW（入口 565 K から出口は約 586 K）、30 本の棒の 10 cm の層の線出力は
 /// 約 17 kW/m
@@ -1426,8 +1426,13 @@ fn thermal_feedback_converges_and_balances_the_channel_enthalpy() {
     // 解は、最後のノードの状態で内挿して解いたものと同じ
     let again = solve_nodes(&layout, &tables, &state.at(1100.0), &report.nodes, &options).unwrap();
     assert_eq!(again.solution.k, solved.solution.k);
-    // 減速材の密度の内挿の差は格子点の間隔 20 K で 1e-3 g/cc より小さい
-    assert!(report.density_error < 1.0e-3, "{}", report.density_error);
+    // 減速材の密度の内挿の差: 580〜600 K の 20 K の間隔の中点で、IF97 の密度の 2 階微分（約 −2.5e-5 g/(cc K²)）× 20² / 8 の
+    // 1.3e-3 g/cc ほど
+    assert!(
+        0.0 < report.density_error && report.density_error < 2.0e-3,
+        "{}",
+        report.density_error
+    );
 }
 
 /// すべてのノードの状態が同じなら、熱水力を切った（状態の温度の）解と同じ
@@ -1509,8 +1514,8 @@ fn thermal_feedback_errors_are_reported() {
         .unwrap_err()
         .to_string();
     assert!(e.contains("IF97"), "{e}");
-    // 出口がテーブルの減速材の格子点の上 600 K を超える（上昇 250 kJ/kg で約 607 K）
-    let hot = edited_case(&format!("{CASE}{THERMAL}"), "power = 0.4", "power = 1.0");
+    // 出口がテーブルの減速材の格子点の上 600 K を超える（平均の上昇 200 kJ/kg の出口は約 599.6 K で、核分裂の強い A の流路が超える）
+    let hot = edited_case(&format!("{CASE}{THERMAL}"), "power = 0.4", "power = 0.8");
     let (layout, tables) = hot_core(&hot);
     let e = solve_state(&layout, &tables, &state, &options)
         .unwrap_err()

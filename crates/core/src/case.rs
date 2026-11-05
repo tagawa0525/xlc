@@ -4,16 +4,18 @@ use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, RODS, Table};
 
-use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse};
+use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse, Temperatures};
 use crate::micro::{MicroChain, correct, production_index};
+use crate::nem::fission_rates;
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
     MicroAt, State, accumulate_own_density_rates, accumulate_rate_residuals, add_rate_residual,
     add_residual, interpolate, interpolate_branch_difference, interpolate_micro,
-    interpolate_rate_residual, interpolate_residual, non_negative,
+    interpolate_rate_residual, interpolate_residual, moderator_density, non_negative,
 };
+use crate::thermal::{Channels, NodeTemperatures, ThermalHydraulics, ThermalReport, water};
 
 /// 状態を解いた結果。
 #[derive(Debug, Clone)]
@@ -24,6 +26,8 @@ pub struct Solved {
     pub solution: Solution,
     /// 部分挿入のノード（`Layout::partial` の順）の定数を混ぜた [区間][群] の重み（ADR-0127、ADR-0217）
     pub segment_weights: SegmentWeights,
+    /// 熱水力の繰り返しの解（熱水力のケースだけ。ADR-0229）
+    pub thermal: Option<ThermalReport>,
 }
 
 /// 探索したホウ素濃度と、そのための固有値計算の回数。
@@ -486,6 +490,7 @@ fn solve_with(
             problem,
             solution,
             segment_weights: Vec::new(),
+            thermal: None,
         });
     }
     let (solution, materials, segment_weights) = solve_rodded(
@@ -503,6 +508,7 @@ fn solve_with(
         },
         solution,
         segment_weights,
+        thermal: None,
     })
 }
 
@@ -520,7 +526,197 @@ pub fn check_search(state: &CaseState, options: &Options) -> Result<(), CaseErro
     Ok(())
 }
 
-/// ケースの状態を1つ解く。探索の状態は、k が目標になるホウ素濃度を探す（ADR-0145）。
+/// 位置ごとのノードの温度 `nodes`（`None` の位置と、ノードごとに引かない使い方は `base`）で、ほかの状態は `base` でテーブルを内挿して
+/// 解く（熱水力のノードの状態。ADR-0229）
+pub fn solve_nodes(
+    layout: &Layout,
+    tables: &[Table],
+    base: &State,
+    nodes: &[Option<NodeTemperatures>],
+    options: &Options,
+) -> Result<Solved, CaseError> {
+    if nodes.len() != layout.node_material.len() {
+        return Err(CaseError::State(format!(
+            "{} node temperatures for {} positions",
+            nodes.len(),
+            layout.node_material.len()
+        )));
+    }
+    solve_with(
+        layout,
+        tables,
+        |t| {
+            Some(match t.node.and_then(|site| nodes[site]) {
+                Some(n) => State {
+                    moderator: n.moderator,
+                    fuel: n.fuel,
+                    ..*base
+                },
+                None => *base,
+            })
+        },
+        None,
+        options,
+    )
+}
+
+/// テーブルの減速材の軸の格子点の密度は、熱水力の圧力 `pressure` の IF97 の密度と、テーブルの入力の小数 5 桁の丸め（5e-6 g/cc）の中で
+/// 一致すること（ADR-0229 の案 T1。熱水力とテーブルが別の水を表さないため）
+fn check_densities(layout: &Layout, tables: &[Table], pressure: f64) -> Result<(), CaseError> {
+    for (table, file) in tables.iter().zip(&layout.files) {
+        for axis in &table.axes {
+            let Axis::Moderator {
+                temperature,
+                density,
+                ..
+            } = axis
+            else {
+                continue;
+            };
+            for (&t, &d) in temperature.iter().zip(density) {
+                let at = |e: String| {
+                    CaseError::State(format!(
+                        "{}: the moderator point {t} K: {e}",
+                        file.display()
+                    ))
+                };
+                let expected = water::region_one(pressure, t).map_err(at)?.density / 1000.0;
+                if (d - expected).abs() > 5.0e-6 {
+                    return Err(at(format!(
+                        "the table density {d} g/cc is not the IF97 density {expected:.6} g/cc at the \
+                         thermal-hydraulic pressure {pressure} MPa (ADR-0229)"
+                    )));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 流路のノードの、テーブルの減速材の格子点の密度を温度で内挿した密度と IF97 の密度の差の最大 (g/cc)
+fn density_error(
+    layout: &Layout,
+    tables: &[Table],
+    channels: &Channels,
+    pressure: f64,
+    nodes: &[Option<NodeTemperatures>],
+) -> Result<f64, CaseError> {
+    let mut worst: f64 = 0.0;
+    for (site, node) in nodes.iter().enumerate() {
+        let (Some(n), Some(_), Some(m)) =
+            (node, channels.channel_of(site), layout.node_material[site])
+        else {
+            continue;
+        };
+        let table = match layout.materials.get(m) {
+            Some(material) => material.table,
+            None => layout.partial[m - layout.materials.len()].segments[0].0,
+        };
+        let file = layout.tables[table].file;
+        let interpolated =
+            moderator_density(&tables[file], n.moderator).map_err(CaseError::State)?;
+        let exact = water::region_one(pressure, n.moderator)
+            .map_err(CaseError::State)?
+            .density
+            / 1000.0;
+        worst = worst.max((interpolated - exact).abs());
+    }
+    Ok(worst)
+}
+
+/// 熱水力の状態 `state`（入口の温度）を、ホウ素濃度 `ppm` で、出力と熱水力の繰り返しで解く（ADR-0229 の案 I1）。初めの出力は
+/// `start`（位置ごとの W）、なければ流路の核分裂のあるノードに一様な出力密度
+pub fn solve_thermal(
+    layout: &Layout,
+    tables: &[Table],
+    th: &ThermalHydraulics,
+    state: &CaseState,
+    ppm: f64,
+    start: Option<&[f64]>,
+    options: &Options,
+) -> Result<Solved, CaseError> {
+    let Temperatures::Inlet(inlet) = state.temperatures else {
+        return Err(CaseError::State(format!(
+            "state {}: a case with [thermal-hydraulics] needs the inlet temperature (ADR-0229)",
+            state.name
+        )));
+    };
+    let channels = Channels::new(layout, tables).map_err(CaseError::State)?;
+    check_densities(layout, tables, th.pressure)?;
+    let base = state.at(ppm);
+    let total = th.power * 1e6;
+    let heated: Vec<usize> = (0..layout.node_material.len())
+        .filter(|&s| channels.channel_of(s).is_some() && channels.fissile(s))
+        .collect();
+    if heated.is_empty() {
+        return Err(CaseError::State(
+            "the thermal-hydraulic channels have no fissile node".into(),
+        ));
+    }
+    let mut powers = match start {
+        Some(p) => p.to_vec(),
+        None => {
+            let volume: f64 = heated.iter().map(|&s| channels.volume(s)).sum();
+            let mut p = vec![0.0; layout.node_material.len()];
+            for &s in &heated {
+                p[s] = total * channels.volume(s) / volume;
+            }
+            p
+        }
+    };
+    for iteration in 1..=th.max_iterations {
+        let solution = channels
+            .solve(th, inlet, &powers, base.burnup)
+            .map_err(CaseError::State)?;
+        let solved = solve_nodes(layout, tables, &base, &solution.nodes, options)?;
+        let rates = fission_rates(&solved.problem, &solved.solution);
+        let sum: f64 = rates.iter().sum();
+        if !(sum > 0.0 && sum.is_finite()) {
+            return Err(CaseError::State(format!(
+                "the fission rates sum to {sum}, so they give no node powers"
+            )));
+        }
+        let next: Vec<f64> = rates.iter().map(|r| r * total / sum).collect();
+        let mean = total / heated.len() as f64;
+        let change = next
+            .iter()
+            .zip(&powers)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f64::max)
+            / mean;
+        tracing::debug!(
+            iteration,
+            change,
+            k = solved.solution.k,
+            "thermal-hydraulics"
+        );
+        if change < th.tolerance {
+            let density_error =
+                density_error(layout, tables, &channels, th.pressure, &solution.nodes)?;
+            return Ok(Solved {
+                thermal: Some(ThermalReport {
+                    iterations: iteration,
+                    change,
+                    nodes: solution.nodes,
+                    channels: solution.channels,
+                    powers,
+                    fuel_average: solution.fuel_average,
+                    fuel_max: solution.fuel_max,
+                    density_error,
+                }),
+                ..solved
+            });
+        }
+        powers = next;
+    }
+    Err(CaseError::State(format!(
+        "state {}: the thermal-hydraulic feedback did not converge to {} in {} iterations (ADR-0229)",
+        state.name, th.tolerance, th.max_iterations
+    )))
+}
+
+/// ケースの状態を1つ解く。探索の状態は、k が目標になるホウ素濃度を探す（ADR-0145）。熱水力のケースは、各ホウ素濃度で出力と熱水力の
+/// 繰り返しを収束させる（ADR-0229 の案 B1。前の濃度の収束した出力から始める）
 pub fn solve_state(
     layout: &Layout,
     tables: &[Table],
@@ -530,6 +726,26 @@ pub fn solve_state(
     // 状態のバンクの位置で制御棒を入れた並び（ADR-0127）
     let rodded = layout.with_banks(&state.banks)?;
     let layout = &rodded;
+    if let Some(th) = layout.thermal() {
+        let search = match &state.boron {
+            Boron::Given(ppm) => {
+                return solve_thermal(layout, tables, th, state, *ppm, None, options);
+            }
+            Boron::Search(search) => search,
+        };
+        check_search(state, options)?;
+        let mut last: Option<Vec<f64>> = None;
+        let (solved, searched) = search_boron(search, |ppm| {
+            let solved = solve_thermal(layout, tables, th, state, ppm, last.as_deref(), options)?;
+            last = solved.thermal.as_ref().map(|t| t.powers.clone());
+            Ok(solved)
+        })?;
+        return Ok(Solved {
+            searched: Some(searched),
+            ..solved
+        });
+    }
+    state.uniform().map_err(CaseError::State)?;
     let search = match &state.boron {
         Boron::Given(ppm) => return solve_at(layout, tables, Some(&state.at(*ppm)), options),
         Boron::Search(search) => search,

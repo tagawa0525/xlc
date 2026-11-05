@@ -34,6 +34,7 @@ use crate::micro::{MicroChain, TrackedRates};
 use crate::nem::{Options, fission_rates};
 use crate::rods::mix_micro;
 use crate::state::moderator_density;
+use crate::thermal::fissile;
 
 const FORMAT: &str = "xlc-core-history";
 
@@ -470,19 +471,20 @@ fn weighted(b: &[f64], m: &[f64]) -> f64 {
 }
 
 /// 状態 `state` の、燃焼の履歴の形
-fn core_state(state: &CaseState) -> CoreState {
+fn core_state(state: &CaseState) -> Result<CoreState, CaseError> {
     let (boron, search) = match state.boron {
         Boron::Given(ppm) => (Some(ppm), None),
         Boron::Search(search) => (None, Some(search)),
     };
-    CoreState {
+    let (moderator, fuel) = state.uniform().map_err(CaseError::Depletion)?;
+    Ok(CoreState {
         boron,
         search,
         b10: state.b10,
-        moderator: state.moderator,
-        fuel: state.fuel,
+        moderator,
+        fuel,
         banks: state.banks.clone(),
-    }
+    })
 }
 
 /// ケースの燃焼（ADR-0190、ADR-0218）: 状態 `states`（ケースの名前つきの状態。ステップが番号で指す）で、ノードの燃焼度を
@@ -1283,8 +1285,8 @@ pub fn deplete(
         specific_power: depletion.specific_power,
         states: used
             .iter()
-            .map(|&k| (states[k].name.clone(), core_state(&states[k])))
-            .collect(),
+            .map(|&k| Ok((states[k].name.clone(), core_state(&states[k])?)))
+            .collect::<Result<_, CaseError>>()?,
         axial_mesh: first.axial_mesh().to_vec(),
         assemblies: placed.keys().map(|id| id.to_string()).collect(),
         heavy_metal,
@@ -1626,14 +1628,6 @@ enum NodeUse {
     Partial(usize),
 }
 
-/// テーブルが核分裂するか
-fn fissile(table: &Table) -> bool {
-    table
-        .states
-        .iter()
-        .any(|s| s.nu_fission.iter().any(|&v| v > 0.0))
-}
-
 /// 並び `layout` の位置ごとのミクロ燃焼の使い方。核分裂するテーブルは、燃焼度で引く使い方で `micro` を持つこと。使った
 /// テーブルの `micro` を `files` に集める
 fn node_uses<'a>(
@@ -1808,7 +1802,8 @@ impl MicroNodes {
                     }
                 };
                 let file = layout.tables[table].file;
-                moderator_density(&tables[file], state.moderator)
+                let (moderator, _) = state.uniform().map_err(CaseError::Depletion)?;
+                moderator_density(&tables[file], moderator)
                     .map(|x| Some(vec![x, rods]))
                     .map_err(|e| {
                         CaseError::Depletion(format!(
