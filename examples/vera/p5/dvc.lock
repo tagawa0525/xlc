@@ -5663,7 +5663,7 @@ stages:
       md5: 3480eb9745f0fdb00ac656de9fb102ba
       size: 85744
   hzp-compare-rodless:
-    cmd: python3 compare_rodless.py --json hzp/compare-rodless.json 
+    cmd: python3 compare_rodless.py --json compare-rodless.json 
       rod:hzp/lattice/21-fuel.msgpack=hzp/rodless/lattice/21-fuel.msgpack 
       hzp/media/21-fuel.msgpack=hzp/rodless/media/21-fuel.msgpack 
       rod:hzp/lattice/21-zgrid.msgpack=hzp/rodless/lattice/21-zgrid.msgpack 
@@ -5787,7 +5787,7 @@ stages:
       md5: 9e61f9d8f2b7fd1ccb7190467986d245
       size: 1399047
     outs:
-    - path: hzp/compare-rodless.json
+    - path: compare-rodless.json
       hash: md5
       md5: 05fcbcca72a323d2a9eb85781e9b79f0
       size: 6300

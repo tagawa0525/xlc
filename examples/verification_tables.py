@@ -3396,7 +3396,7 @@ TABLES = {
         p5_keno_comparison,
     ),
     "p5-rodless-states": (
-        ["examples/vera/p5/hzp/compare-rodless.json"],
+        ["examples/vera/p5/compare-rodless.json"],
         p5_rodless_states,
     ),
     "p3-openmc-comparison": (

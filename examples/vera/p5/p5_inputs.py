@@ -2627,13 +2627,13 @@ def hzp_pipeline(
         stages.append(
             stage(
                 "hzp-compare-rodless",
-                "python3 compare_rodless.py --json hzp/compare-rodless.json "
+                "python3 compare_rodless.py --json compare-rodless.json "
                 + " ".join(
                     f"{'rod:' if axis else ''}{o}={rodless_path(o)}"
                     for o, axis in rod_outputs
                 ),
                 ["compare_rodless.py", *rod_files, *rodless],
-                ["git:hzp/compare-rodless.json"],
+                ["git:compare-rodless.json"],
             )
         )
     stages.append(
