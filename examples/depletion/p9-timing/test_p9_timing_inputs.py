@@ -47,18 +47,19 @@ class Inputs(unittest.TestCase):
         self,
     ):
         case = tomllib.loads(inputs.case(1.05))
-        first, second = (case["state"][name] for name, *_ in inputs.STEPS)
+        first, second = (case["state"][name] for name, *_ in inputs.STATES)
         self.assertEqual(first["boron"], inputs.GIVEN_BORON)
         self.assertEqual(second["search"]["boron"], [1100.0, 1300.0])
         self.assertEqual(second["search"]["k"], 1.05)
-        self.assertEqual(
-            [s["state"] for s in case["depletion"]["steps"]], ["case-2", "case-3"]
-        )
+        power, decay = case["depletion"]["steps"]
+        self.assertEqual(power, {"efpd": 9.0, "power": 0.657, "state": "case-2"})
+        # 探索は、ホウ素を与えた出力のステップの後の点と、崩壊だけのステップの後の点
+        self.assertEqual(decay, {"decay-days": inputs.DECAY_DAYS, "state": "case-3"})
         self.assertEqual(case["depletion"]["micro"]["xenon"], "equilibrium")
 
     def test_without_a_target_both_steps_give_the_boron(self):
         case = tomllib.loads(inputs.case(None))
-        for name, *_ in inputs.STEPS:
+        for name, *_ in inputs.STATES:
             self.assertEqual(case["state"][name]["boron"], inputs.GIVEN_BORON)
             self.assertNotIn("search", case["state"][name])
 
