@@ -2383,30 +2383,30 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/21-fuel.toml
       hash: md5
-      md5: 3469dee3cd1f61ff27599914048ed43a
-      size: 4426
+      md5: 3c171492cce206d4fdcd55c0ef1df846
+      size: 6528
     outs:
     - path: hzp/21-fuel.out
       hash: md5
-      md5: 1b693ec1c1e98ff6eb43b5c260c7d1bf
-      size: 152
+      md5: 1a285349c2623da5f49991c06a2c2d0a
+      size: 470
     - path: hzp/lattice/21-fuel.msgpack
       hash: md5
-      md5: 33a12af8b287af3024bb0a442e32ced1
-      size: 60239
+      md5: dfdbaacaa839acf6f5714b76927a3a51
+      size: 180466
     - path: hzp/media/21-fuel.msgpack
       hash: md5
-      md5: c86e2b23fc28761c8182890f7918f085
-      size: 1398998
+      md5: ecf0d63e4c4b8d1ae00d9122c6538f3c
+      size: 1399047
   hzp-21-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       21-igrid.toml > 21-igrid.out
@@ -2439,56 +2439,56 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/21-zgrid.toml
       hash: md5
-      md5: f796964b925b4989e62138613af1f22c
-      size: 4797
+      md5: d1d8f8f109016b3a0786466e4300b5f0
+      size: 7011
     outs:
     - path: hzp/21-zgrid.out
       hash: md5
-      md5: 62498ee2252f26234e6a0e21c977e321
-      size: 152
+      md5: 5bd94354c2234fef32664b556201e5d5
+      size: 470
     - path: hzp/lattice/21-zgrid.msgpack
       hash: md5
-      md5: cf9ae0c3dfa7a72909336b5789db059f
-      size: 60239
+      md5: ab32768ed6b6f7f179aaf6125bf35f40
+      size: 180466
   hzp-26-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       26-fuel.toml > 26-fuel.out
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/26-fuel.toml
       hash: md5
-      md5: 9a1e1b1879f18daa9acab1f8d6f26993
-      size: 4427
+      md5: 632a0f2c301a1db2603f61bcd1f527e8
+      size: 6529
     outs:
     - path: hzp/26-fuel.out
       hash: md5
-      md5: 5076bf1ec224af51027b547a9393894f
-      size: 152
+      md5: 4aed4c4088c5a00280375b102868fff8
+      size: 470
     - path: hzp/lattice/26-fuel.msgpack
       hash: md5
-      md5: 8572948b3e589f8499b472f79aa6b2e4
-      size: 60239
+      md5: 597f61ab78b640b2db1648556cd1330b
+      size: 180466
     - path: hzp/media/26-fuel.msgpack
       hash: md5
-      md5: 491045954b19834a051dcd7cae3338ba
-      size: 1398998
+      md5: fbdea638bfa3c14affc561140edb9cce
+      size: 1399047
   hzp-26-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       26-igrid.toml > 26-igrid.out
@@ -2521,26 +2521,26 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/26-zgrid.toml
       hash: md5
-      md5: 6de8785e3355a27e8cdea310215bdc14
-      size: 4798
+      md5: 61959b3748254167a48ad7e4c984d209
+      size: 7012
     outs:
     - path: hzp/26-zgrid.out
       hash: md5
-      md5: a38e5da678f2f998a1d196bd3a163573
-      size: 152
+      md5: 0855e8715b9b095a656a3e600d131e9c
+      size: 470
     - path: hzp/lattice/26-zgrid.msgpack
       hash: md5
-      md5: 0c41aa9959c34d1fb42544652b823c28
-      size: 60239
+      md5: 91e5c8470580dce848b1c0af8740811d
+      size: 180466
   hzp-26-p16-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       26-p16-empty.toml > 26-p16-empty.out
@@ -3141,30 +3141,30 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/31-fuel.toml
       hash: md5
-      md5: 6db79485287c51b0360bcf1b08b05457
-      size: 4426
+      md5: 4a70b861dcdd699291c1e0b13f3031df
+      size: 6528
     outs:
     - path: hzp/31-fuel.out
       hash: md5
-      md5: c3eaafefa9776c5def14de80cde58e2c
-      size: 152
+      md5: 0733c3cb4805c3500a3e13ec0a731a6d
+      size: 470
     - path: hzp/lattice/31-fuel.msgpack
       hash: md5
-      md5: 3a2eef2a05163fe195a14ddb67042cce
-      size: 60239
+      md5: 4bf8b80443fd873c6a991899acb69626
+      size: 180466
     - path: hzp/media/31-fuel.msgpack
       hash: md5
-      md5: 0f78bf61bed8e6bfc7c498a906eae54f
-      size: 1398998
+      md5: 9e61f9d8f2b7fd1ccb7190467986d245
+      size: 1399047
   hzp-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       31-igrid.toml > 31-igrid.out
@@ -3197,26 +3197,26 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/31-zgrid.toml
       hash: md5
-      md5: 9004d15e4f9508f5e3b84de228f7734a
-      size: 4797
+      md5: 95027b36f10b1352dce6fdc99bc13b13
+      size: 7011
     outs:
     - path: hzp/31-zgrid.out
       hash: md5
-      md5: bc35a03d73cc3827c6fe363d9461500e
-      size: 152
+      md5: 87ae8f28fb417e2b127cb1e322404e33
+      size: 470
     - path: hzp/lattice/31-zgrid.msgpack
       hash: md5
-      md5: 6e06a5e640d62ed05ca358e10c1d1060
-      size: 60239
+      md5: 8294940af9cf27ac08ef0197df31dee9
+      size: 180466
   hzp-31-p12-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       31-p12-empty.toml > 31-p12-empty.out
@@ -3937,30 +3937,30 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/reflector-I-31-fuel.toml
       hash: md5
-      md5: e52772745626a14cda5e421ac7d6b5d8
-      size: 9461
+      md5: 60f59c2cd9bc50a5cd82001e3675989e
+      size: 11348
     outs:
     - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       hash: md5
-      md5: 9809e8dd3df24480adf11c17a849f1b5
-      size: 60239
+      md5: 26b9b405e37c79903041a9591064a5c7
+      size: 180466
     - path: hzp/lattice/reflector-I-31-fuel.msgpack
       hash: md5
-      md5: 016d2181c5604d2423af6291a13b63d7
-      size: 85655
+      md5: def700d96f83c2ee9c15fe2445713183
+      size: 85744
     - path: hzp/reflector-I-31-fuel.out
       hash: md5
-      md5: f7ba801c9716ed1c6a015b50e61b5777
-      size: 152
+      md5: 0c13d97de3bf5d107c1ca119a6980ebd
+      size: 470
   hzp-reflector-I-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       reflector-I-31-igrid.toml > reflector-I-31-igrid.out
@@ -3997,30 +3997,30 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: bd5af095c59d41754c783538a0189202
-      size: 4120976
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
       isexec: true
     - path: ../vera.msgpack
       hash: md5
-      md5: d2215543520cbdd851b743eb081cfe98
-      size: 276235024
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
     - path: hzp/reflector-I-31-zgrid.toml
       hash: md5
-      md5: 17f547fa8ee105ddcff45324aa4641c4
-      size: 9866
+      md5: d499d67ab7b35339c99cfb83d8e443b0
+      size: 11865
     outs:
     - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
       hash: md5
-      md5: 8cebc6f3cb2f36d5a10d42172c082759
-      size: 60239
+      md5: d4ea3f5a2ab9ca3ce27ea49a59c7cc76
+      size: 180466
     - path: hzp/lattice/reflector-I-31-zgrid.msgpack
       hash: md5
-      md5: d2db27e69913f349b7ffde25983923e0
-      size: 85655
+      md5: 3480eb9745f0fdb00ac656de9fb102ba
+      size: 85744
     - path: hzp/reflector-I-31-zgrid.out
       hash: md5
-      md5: 538633f47037192db4f4367e07df987c
-      size: 152
+      md5: 5e9b9483380ac552aefce0e8cbbbbcc9
+      size: 470
   hzp-reflector-I-31-p12-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
       reflector-I-31-p12-empty-igrid.toml > reflector-I-31-p12-empty-igrid.out
@@ -5448,3 +5448,362 @@ stages:
       hash: md5
       md5: b3627d1dc721ea576407adab1dbf5a43
       size: 6351
+  hzp-rodless-31-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-31-fuel.toml > rodless-31-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-31-fuel.toml
+      hash: md5
+      md5: 0fc43a618a6f1bd2105438884b34afd8
+      size: 4595
+    outs:
+    - path: hzp/rodless-31-fuel.out
+      hash: md5
+      md5: cf4eef535157f42d6ed7a7b0f23741c9
+      size: 152
+    - path: hzp/rodless/lattice/31-fuel.msgpack
+      hash: md5
+      md5: bd4af0c3f6c6d3026a41f6d646193ff8
+      size: 60328
+    - path: hzp/rodless/media/31-fuel.msgpack
+      hash: md5
+      md5: 9e61f9d8f2b7fd1ccb7190467986d245
+      size: 1399047
+  hzp-rodless-31-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-31-zgrid.toml > rodless-31-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-31-zgrid.toml
+      hash: md5
+      md5: 275b1140ea114ef4f861894bcde67cc1
+      size: 4958
+    outs:
+    - path: hzp/rodless-31-zgrid.out
+      hash: md5
+      md5: 4bc34e058d6543dab487761f19fe571d
+      size: 152
+    - path: hzp/rodless/lattice/31-zgrid.msgpack
+      hash: md5
+      md5: 8bf75fc22c529bcfb2944e0687a14d9c
+      size: 60328
+  hzp-rodless-21-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-21-fuel.toml > rodless-21-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-21-fuel.toml
+      hash: md5
+      md5: 28f745bd8c853a1bef0fdcb9cb9f8d79
+      size: 4595
+    outs:
+    - path: hzp/rodless-21-fuel.out
+      hash: md5
+      md5: 8cfdfca22bbb5f6454950152789720f3
+      size: 152
+    - path: hzp/rodless/lattice/21-fuel.msgpack
+      hash: md5
+      md5: f83445a2ae1b2b12b6a5f74a5c3547d8
+      size: 60328
+    - path: hzp/rodless/media/21-fuel.msgpack
+      hash: md5
+      md5: ecf0d63e4c4b8d1ae00d9122c6538f3c
+      size: 1399047
+  hzp-rodless-21-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-21-zgrid.toml > rodless-21-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-21-zgrid.toml
+      hash: md5
+      md5: cfa04f3a23ccd24a5c7265c164ac38b5
+      size: 4958
+    outs:
+    - path: hzp/rodless-21-zgrid.out
+      hash: md5
+      md5: 0289c8174c28eed4ddb8eb7d6811b604
+      size: 152
+    - path: hzp/rodless/lattice/21-zgrid.msgpack
+      hash: md5
+      md5: 381b74b7605e22bbdd48220c02a6f889
+      size: 60328
+  hzp-rodless-26-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-26-fuel.toml > rodless-26-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-26-fuel.toml
+      hash: md5
+      md5: eb286f7621cd852e75835b78b97d96c4
+      size: 4596
+    outs:
+    - path: hzp/rodless-26-fuel.out
+      hash: md5
+      md5: 0b33c972c8ee346fba69c41171ce72b6
+      size: 152
+    - path: hzp/rodless/lattice/26-fuel.msgpack
+      hash: md5
+      md5: 01a3f165816868146e97a0276df779b6
+      size: 60328
+    - path: hzp/rodless/media/26-fuel.msgpack
+      hash: md5
+      md5: fbdea638bfa3c14affc561140edb9cce
+      size: 1399047
+  hzp-rodless-26-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-26-zgrid.toml > rodless-26-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-26-zgrid.toml
+      hash: md5
+      md5: 91be6f2220e382027b6876c13a96c7e8
+      size: 4959
+    outs:
+    - path: hzp/rodless-26-zgrid.out
+      hash: md5
+      md5: c05a1351918a794e2a7386783cc5f60f
+      size: 152
+    - path: hzp/rodless/lattice/26-zgrid.msgpack
+      hash: md5
+      md5: dbfbbe7c9712972b06c4dfa36ab0aa95
+      size: 60328
+  hzp-rodless-reflector-I-31-fuel:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-reflector-I-31-fuel.toml > 
+      rodless-reflector-I-31-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-reflector-I-31-fuel.toml
+      hash: md5
+      md5: 609ad5249d4e87a1e712c3c4935120ff
+      size: 9630
+    outs:
+    - path: hzp/rodless-reflector-I-31-fuel.out
+      hash: md5
+      md5: 37c9cd435f600d46365202776b76c80b
+      size: 152
+    - path: hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 3cc4fd2ce9c95264492eaf1298cf4584
+      size: 60328
+    - path: hzp/rodless/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: def700d96f83c2ee9c15fe2445713183
+      size: 85744
+  hzp-rodless-reflector-I-31-zgrid:
+    cmd: cd hzp && mkdir -p rodless/lattice rodless/media && 
+      ../../../../bin/lattice rodless-reflector-I-31-zgrid.toml > 
+      rodless-reflector-I-31-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 0dfa3aca7be456e1019311672a92438c
+      size: 344427865
+    - path: hzp/rodless-reflector-I-31-zgrid.toml
+      hash: md5
+      md5: d1f7aacbbf89f1cc453b2fb87d67f181
+      size: 10035
+    outs:
+    - path: hzp/rodless-reflector-I-31-zgrid.out
+      hash: md5
+      md5: b00ed5d2dc5c812d844e9c89028afb7f
+      size: 152
+    - path: hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 9ffe79f894ee11c9aec23836264036c2
+      size: 60328
+    - path: hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
+      hash: md5
+      md5: 3480eb9745f0fdb00ac656de9fb102ba
+      size: 85744
+  hzp-compare-rodless:
+    cmd: python3 compare_rodless.py --json hzp/compare-rodless.json 
+      rod:hzp/lattice/21-fuel.msgpack=hzp/rodless/lattice/21-fuel.msgpack 
+      hzp/media/21-fuel.msgpack=hzp/rodless/media/21-fuel.msgpack 
+      rod:hzp/lattice/21-zgrid.msgpack=hzp/rodless/lattice/21-zgrid.msgpack 
+      rod:hzp/lattice/26-fuel.msgpack=hzp/rodless/lattice/26-fuel.msgpack 
+      hzp/media/26-fuel.msgpack=hzp/rodless/media/26-fuel.msgpack 
+      rod:hzp/lattice/26-zgrid.msgpack=hzp/rodless/lattice/26-zgrid.msgpack 
+      rod:hzp/lattice/31-fuel.msgpack=hzp/rodless/lattice/31-fuel.msgpack 
+      hzp/media/31-fuel.msgpack=hzp/rodless/media/31-fuel.msgpack 
+      rod:hzp/lattice/31-zgrid.msgpack=hzp/rodless/lattice/31-zgrid.msgpack 
+      rod:hzp/lattice/reflector-I-31-fuel-fuel.msgpack=hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack
+      hzp/lattice/reflector-I-31-fuel.msgpack=hzp/rodless/lattice/reflector-I-31-fuel.msgpack
+      rod:hzp/lattice/reflector-I-31-zgrid-fuel.msgpack=hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hzp/lattice/reflector-I-31-zgrid.msgpack=hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
+    deps:
+    - path: ../../../python-ast/examples/vera/p5/compare_rodless.py.ast
+      hash: md5
+      md5: 84bdb73cb92a08c451f399cb6fee8ad4
+      size: 7133
+    - path: hzp/lattice/21-fuel.msgpack
+      hash: md5
+      md5: dfdbaacaa839acf6f5714b76927a3a51
+      size: 180466
+    - path: hzp/lattice/21-zgrid.msgpack
+      hash: md5
+      md5: ab32768ed6b6f7f179aaf6125bf35f40
+      size: 180466
+    - path: hzp/lattice/26-fuel.msgpack
+      hash: md5
+      md5: 597f61ab78b640b2db1648556cd1330b
+      size: 180466
+    - path: hzp/lattice/26-zgrid.msgpack
+      hash: md5
+      md5: 91e5c8470580dce848b1c0af8740811d
+      size: 180466
+    - path: hzp/lattice/31-fuel.msgpack
+      hash: md5
+      md5: 4bf8b80443fd873c6a991899acb69626
+      size: 180466
+    - path: hzp/lattice/31-zgrid.msgpack
+      hash: md5
+      md5: 8294940af9cf27ac08ef0197df31dee9
+      size: 180466
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 26b9b405e37c79903041a9591064a5c7
+      size: 180466
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: def700d96f83c2ee9c15fe2445713183
+      size: 85744
+    - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: d4ea3f5a2ab9ca3ce27ea49a59c7cc76
+      size: 180466
+    - path: hzp/lattice/reflector-I-31-zgrid.msgpack
+      hash: md5
+      md5: 3480eb9745f0fdb00ac656de9fb102ba
+      size: 85744
+    - path: hzp/media/21-fuel.msgpack
+      hash: md5
+      md5: ecf0d63e4c4b8d1ae00d9122c6538f3c
+      size: 1399047
+    - path: hzp/media/26-fuel.msgpack
+      hash: md5
+      md5: fbdea638bfa3c14affc561140edb9cce
+      size: 1399047
+    - path: hzp/media/31-fuel.msgpack
+      hash: md5
+      md5: 9e61f9d8f2b7fd1ccb7190467986d245
+      size: 1399047
+    - path: hzp/rodless/lattice/21-fuel.msgpack
+      hash: md5
+      md5: f83445a2ae1b2b12b6a5f74a5c3547d8
+      size: 60328
+    - path: hzp/rodless/lattice/21-zgrid.msgpack
+      hash: md5
+      md5: 381b74b7605e22bbdd48220c02a6f889
+      size: 60328
+    - path: hzp/rodless/lattice/26-fuel.msgpack
+      hash: md5
+      md5: 01a3f165816868146e97a0276df779b6
+      size: 60328
+    - path: hzp/rodless/lattice/26-zgrid.msgpack
+      hash: md5
+      md5: dbfbbe7c9712972b06c4dfa36ab0aa95
+      size: 60328
+    - path: hzp/rodless/lattice/31-fuel.msgpack
+      hash: md5
+      md5: bd4af0c3f6c6d3026a41f6d646193ff8
+      size: 60328
+    - path: hzp/rodless/lattice/31-zgrid.msgpack
+      hash: md5
+      md5: 8bf75fc22c529bcfb2944e0687a14d9c
+      size: 60328
+    - path: hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 3cc4fd2ce9c95264492eaf1298cf4584
+      size: 60328
+    - path: hzp/rodless/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: def700d96f83c2ee9c15fe2445713183
+      size: 85744
+    - path: hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 9ffe79f894ee11c9aec23836264036c2
+      size: 60328
+    - path: hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
+      hash: md5
+      md5: 3480eb9745f0fdb00ac656de9fb102ba
+      size: 85744
+    - path: hzp/rodless/media/21-fuel.msgpack
+      hash: md5
+      md5: ecf0d63e4c4b8d1ae00d9122c6538f3c
+      size: 1399047
+    - path: hzp/rodless/media/26-fuel.msgpack
+      hash: md5
+      md5: fbdea638bfa3c14affc561140edb9cce
+      size: 1399047
+    - path: hzp/rodless/media/31-fuel.msgpack
+      hash: md5
+      md5: 9e61f9d8f2b7fd1ccb7190467986d245
+      size: 1399047
+    outs:
+    - path: hzp/compare-rodless.json
+      hash: md5
+      md5: 05fcbcca72a323d2a9eb85781e9b79f0
+      size: 6300
