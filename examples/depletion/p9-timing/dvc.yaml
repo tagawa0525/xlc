@@ -1,0 +1,42 @@
+# Problem 9 の形の全炉心の燃焼の時間の内訳（#0156。examples/depletion/verification.md の「全炉心の燃焼の時間の内訳（Problem 9 の
+# 形）」）: core の燃焼（ケースは p9_timing_inputs.py が書く）→ ログから時間の内訳の JSON（p9_timing.py）。実行するのは `dvc repro`
+# （ADR-0159）。時間を記録するので、core のステージは Slurm の区分 timed で流す
+stages:
+  core-p9:
+    cmd: ../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
+    deps:
+      - ../../../bin/core
+      - core-p9.toml
+      - core-p9-cycle.toml
+      - core-p9-assemblies.toml
+      - ../branches/table-2A-micro-boron-rod-axis.msgpack
+      - ../chain.msgpack
+      - ../../vera/p5/hzp/core-hzp-plant.toml
+      - ../../vera/p5/hzp/axial-21
+      - ../../vera/p5/hzp/axial-21-rcca
+      - ../../vera/p5/hzp/axial-26-p16
+      - ../../vera/p5/hzp/axial-26-p20
+      - ../../vera/p5/hzp/axial-26-p24
+      - ../../vera/p5/hzp/axial-26-rcca
+      - ../../vera/p5/hzp/axial-31
+      - ../../vera/p5/hzp/axial-31-p12
+      - ../../vera/p5/hzp/axial-31-p16
+      - ../../vera/p5/hzp/axial-31-p24
+      - ../../vera/p5/hzp/axial-31-p8
+      - ../../vera/p5/hzp/axial-31-rcca
+      - ../../vera/p5/hzp/lattice/reflector-I-31-fuel.msgpack
+      - ../../vera/p5/hzp/lattice/reflector-corner-31-fuel.msgpack
+      - ../../vera/p5/hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - ../../vera/p5/hzp/lattice/reflector-corner-31-fuel-top.msgpack
+    outs:
+      - core-p9.msgpack
+      - core-p9.out
+      - core-p9.log
+  timing-p9:
+    cmd: python3 p9_timing.py core-p9.log > timing-p9.json
+    deps:
+      - ../../../python-ast/examples/depletion/p9-timing/p9_timing.py.ast
+      - core-p9.log
+    outs:
+      - timing-p9.json:
+          cache: false

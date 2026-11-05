@@ -17,9 +17,9 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 1fcd5b7ab0a8b7a0171b73221089c5fd.dir
-      size: 4440029
-      nfiles: 247
+      md5: e3e810f15d083824542b6e96af39b534.dir
+      size: 4533394
+      nfiles: 253
     - path: flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
@@ -45,8 +45,8 @@ stages:
       isexec: true
     - path: bin/core
       hash: md5
-      md5: fc30776036fdc42b8d57cf24db3bce34
-      size: 6780376
+      md5: 18e0d9dae2987d307b4961424d7316c8
+      size: 6940392
       isexec: true
     - path: bin/lattice
       hash: md5
@@ -626,3 +626,21 @@ stages:
       hash: md5
       md5: 84bdb73cb92a08c451f399cb6fee8ad4
       size: 7133
+  python-ast@examples/depletion/p9-timing/p9_timing.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/p9-timing/p9_timing.py 
+      python-ast/examples/depletion/p9-timing/p9_timing.py.ast
+    deps:
+    - path: examples/depletion/p9-timing/p9_timing.py
+      hash: md5
+      md5: ff76794d58d3a994c83b5b6662290d8c
+      size: 6411
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/p9-timing/p9_timing.py.ast
+      hash: md5
+      md5: 6cf7439870f18be4f42b2bc60c29ddae
+      size: 3769

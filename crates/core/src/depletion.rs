@@ -791,8 +791,12 @@ pub fn deplete(
         let solved = match (&state.boron, given) {
             (Boron::Given(ppm), _) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
             (Boron::Search(_), Some(ppm)) => solve_ppm(ppm).map(|solved| (solved, ppm, 1)),
-            (Boron::Search(search), None) => search_boron(search, solve_ppm)
-                .map(|(solved, found)| (solved, found.ppm, found.solves)),
+            (Boron::Search(search), None) => {
+                // 探索の全体（両端を含む固有値計算と内挿）の時間をログに出す（#0156）
+                let _span = tracing::info_span!("search").entered();
+                search_boron(search, solve_ppm)
+                    .map(|(solved, found)| (solved, found.ppm, found.solves))
+            }
         };
         let (solved, ppm, solves) = solved.map_err(|e| locate(e, at))?;
         let rates = fission_rates(&solved.problem, &solved.solution);
@@ -890,7 +894,8 @@ pub fn deplete(
                          t: f64,
                          at: &dyn Fn() -> String|
      -> Result<Vec<Option<Vec<f64>>>, CaseError> {
-        let start = std::time::Instant::now();
+        // ミクロ燃焼（反応率と CRAM）の時間をログに出す（#0156）
+        let _span = tracing::info_span!("micro depletion").entered();
         let total: f64 = solve.rates.iter().sum();
         let next = (0..sites)
             .into_par_iter()
@@ -909,10 +914,6 @@ pub fn deplete(
             })
             .collect::<Result<Vec<_>, String>>()
             .map_err(|e| locate(CaseError::Depletion(e), at))?;
-        tracing::debug!(
-            seconds = start.elapsed().as_secs_f64(),
-            "micro depletion of the nodes"
-        );
         Ok(next)
     };
     // 出力の割合 `power` で運転している解: 状態 `k`、燃焼度 `burnups`、組成 `n` で解く。Xe を平衡にするケース（`xenon` の
@@ -939,6 +940,8 @@ pub fn deplete(
             let solved = solve(k, burnups, Some(n), h, given, at)?;
             solves += solved.solves;
             let total: f64 = solved.rates.iter().sum();
+            // 平衡の Xe と I の値を求める時間をログに出す（#0156）
+            let _span = tracing::info_span!("xenon balance").entered();
             let balanced = (0..sites)
                 .into_par_iter()
                 .map(|site| {
@@ -961,6 +964,8 @@ pub fn deplete(
                        t: f64,
                        at: &dyn Fn() -> String|
      -> Result<Vec<Option<Vec<f64>>>, CaseError> {
+        // 崩壊（CRAM）の時間をログに出す（#0156）
+        let _span = tracing::info_span!("micro decay").entered();
         let a = m
             .chain
             .decay_matrix()
@@ -1541,7 +1546,9 @@ fn equilibrate<S>(
             return Ok((solved, x));
         }
         let last = (xf, gf);
-        x = unflatten(&anderson(&history, &last, s));
+        // Anderson の加速の時間を、平衡の値の計算（`xenon balance`）とは別にログに出す（#0156）
+        x = tracing::info_span!("xenon anderson")
+            .in_scope(|| unflatten(&anderson(&history, &last, s)));
         history.push(last);
         if history.len() > ANDERSON_DEPTH {
             history.remove(0);

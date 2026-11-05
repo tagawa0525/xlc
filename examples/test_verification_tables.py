@@ -4477,5 +4477,86 @@ class DrawHistoryRodsGaps(unittest.TestCase):
                 draw([{"format": "xlc-compare-rods-parts"}])
 
 
+def p9_timing_summary() -> dict:
+    return {
+        "format": "xlc-core-timing",
+        "seconds": {
+            "total": 200.0,
+            "eigenvalue": 190.0,
+            "interpolation": 4.0,
+            "micro": 2.0,
+            "xenon": 1.0,
+            "other": 3.0,
+            "search": 120.0,
+        },
+        "nem": {"count": 3, "iterations": [1000, 4165], "seconds": [30.0, 118.0]},
+        "solves": [
+            {"kind": "point", "efpd": 0.0, "boron": 1200.0, "solves": 1, "xenon": None},
+            {"kind": "midpoint", "efpd": 9.0, "boron": 1200.0, "solves": 6, "xenon": 6},
+            {"kind": "point", "efpd": 9.0, "boron": 1187.25, "solves": 30, "xenon": 5},
+        ],
+    }
+
+
+def cells(table: str) -> list[list[str]]:
+    """Markdown の表の本文の行のセル"""
+    return [
+        [c.strip() for c in line.strip("|").split("|")]
+        for line in table.splitlines()[2:]
+    ]
+
+
+class DrawCoreTiming(unittest.TestCase):
+    def test_the_parts_give_seconds_and_shares_of_the_total(self):
+        rows = cells(vt.core_timing_parts([p9_timing_summary()]))
+        self.assertEqual(
+            rows[0],
+            ["固有値計算（部分挿入のノードの定数の作り直しを含む）", "190.0", "95.0"],
+        )
+        self.assertEqual(rows[1], ["少数群定数の内挿とミクロ燃焼の補正", "4.0", "2.0"])
+        self.assertEqual(
+            rows[2], ["ミクロ燃焼（微視的断面積の内挿、反応率、CRAM48）", "2.0", "1.0"]
+        )
+        self.assertEqual(
+            rows[3],
+            ["平衡 Xe（微視的断面積の内挿、平衡の値、Anderson の加速）", "1.0", "0.5"],
+        )
+        self.assertEqual(rows[4], ["その他", "3.0", "1.5"])
+        self.assertEqual(rows[5], ["全体", "200.0", "100.0"])
+        self.assertEqual(
+            rows[6], ["臨界ホウ素の探索（上の内訳と重なる）", "120.0", "60.0"]
+        )
+
+    def test_the_solves_list_each_point_and_midpoint(self):
+        rows = cells(vt.core_timing_solves([p9_timing_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                ["燃焼点", "0.0", "1200.0", "1", "−"],
+                ["中点", "9.0", "1200.0", "6", "6"],
+                ["燃焼点", "9.0", "1187.2", "30", "5"],
+                ["計", "", "", "37", ""],
+            ],
+        )
+
+    def test_the_eigenvalue_solves_give_their_ranges(self):
+        rows = cells(vt.core_timing_nem([p9_timing_summary()]))
+        self.assertEqual(rows, [["3", "30.0〜118.0", "1,000〜4,165"]])
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.core_timing_parts, vt.core_timing_solves, vt.core_timing_nem):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-rods-parts"}])
+
+    def test_the_tables_read_the_p9_timing_summary(self):
+        for name in (
+            "core-p9-timing-parts",
+            "core-p9-timing-solves",
+            "core-p9-timing-nem",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/p9-timing/timing-p9.json"])
+
+
 if __name__ == "__main__":
     unittest.main()
