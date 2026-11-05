@@ -564,6 +564,7 @@ def p6_summary(**k) -> dict:
             "iterations": 9,
             "change": 4.2e-6,
             "tolerance": 1e-5,
+            "effective": "volume-average",
             "fuel_average": 880.04,
             "fuel_max": 1101.96,
             "density_error": 4.4e-4,
@@ -576,11 +577,12 @@ def p6_summary(**k) -> dict:
         },
         "low_power": {
             "k": 1.17000123,
+            "power_ratio": 1e-6,
             "iterations": 2,
             "outlet": 565.0000002,
             "fuel_max": 565.0000004,
         },
-        "isothermal": {"k": 1.17000123},
+        "isothermal": {"k": 1.17000123, "moderator": 565, "fuel": 565},
         "low_power_vs_isothermal_pcm": -0.00004,
         "layers": [
             {
@@ -626,9 +628,16 @@ class DrawP6(unittest.TestCase):
         )
         # 丸めて 0 になる差に符号を付けない
         self.assertEqual(
-            rows["出力を 1e-6 倍にした解と熱水力なしの入口の温度の解"],
+            rows[
+                "出力を 1e-06 倍にした解と、熱水力なしの減速材 565 K、燃料 565 K の解"
+            ],
             "k 1.17000123 と 1.17000123（差 0.000 pcm、出口 565.0000 K、燃料の最大 565.0000 K）",
         )
+
+    def test_the_effective_temperature_label_names_the_input_method(self):
+        s = p6_summary()
+        s["thermal"]["effective"] = "rowlands"
+        self.assertIn("燃料の実効温度（Rowlands）", dict(self.rows(vt.p6_checks([s]))))
 
     def test_layers_dash_the_fuel_of_layers_without_fission(self):
         self.assertEqual(

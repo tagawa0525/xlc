@@ -61,8 +61,18 @@ power = 17.67
 flow = 85.9684
 pressure = 15.513204
 tolerance = 1.0e-05
+effective-temperature = "volume-average"
 [state.hfp]
 inlet = 565
+"""
+
+LOW_CORE = CORE.replace("power = 17.67", "power = 1.767e-05")
+
+ISOTHERMAL_CORE = """cycle = "c.toml"
+[state.inlet]
+boron = 1300
+moderator = 565
+fuel = 565
 """
 
 
@@ -126,6 +136,8 @@ class Summary(unittest.TestCase):
             for name, text in [
                 ("lattice.toml", LATTICE),
                 ("core.toml", CORE),
+                ("low.toml", LOW_CORE),
+                ("iso.toml", ISOTHERMAL_CORE),
                 ("hfp.out", hfp),
                 ("low.out", LOW),
                 ("iso.out", ISOTHERMAL),
@@ -155,6 +167,15 @@ class Summary(unittest.TestCase):
         self.assertAlmostEqual(s["low_power_vs_isothermal_pcm"], 0.1, places=9)
         self.assertEqual(s["low_power"]["iterations"], 2)
 
+    def test_records_the_power_ratio_the_isothermal_state_and_the_method(self):
+        """表の行の名前に書く条件は、入力から取る（入力を変えて表の文が古くならないため）"""
+        s = self.summary()
+        self.assertAlmostEqual(s["low_power"]["power_ratio"], 1e-6, places=15)
+        self.assertEqual(
+            (s["isothermal"]["moderator"], s["isothermal"]["fuel"]), (565, 565)
+        )
+        self.assertEqual(s["thermal"]["effective"], "volume-average")
+
     def test_layers_carry_the_table_density_and_the_fission_fraction(self):
         layer = self.summary()["layers"][1]
         self.assertAlmostEqual(layer["density"], (0.732936 + 0.711901) / 2, 12)
@@ -163,7 +184,7 @@ class Summary(unittest.TestCase):
 
     def test_records_the_inputs_with_their_md5(self):
         s = self.summary()
-        self.assertEqual(len(s["inputs"]), 5)
+        self.assertEqual(len(s["inputs"]), 7)
         self.assertEqual(len(s["inputs"][0]["md5"]), 32)
 
     def test_report_names_the_inputs_first(self):
