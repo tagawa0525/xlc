@@ -104,8 +104,8 @@ def state(name: str, bank_d: int, boron: str) -> str:
     return f"\n[state.{name}]\n{boron}\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = {{ {banks} }}\n"
 
 
-def case(target_k: float | None) -> str:
-    """燃焼のケース。`target_k` が None なら、ステップ 2 にもホウ素を与える（目標の k を決める試行）"""
+def case(target_k: float) -> str:
+    """燃焼のケース。`target_k` は探索の目標の k"""
     p5 = tomllib.loads((HERE / P5 / "core-hzp.toml").read_text())
     boundary = p5["boundary"]
     sides = ", ".join(
@@ -114,11 +114,7 @@ def case(target_k: float | None) -> str:
     )
     given = f"boron = {GIVEN_BORON}"
     low, high = SEARCH_RANGE
-    search = (
-        given
-        if target_k is None
-        else f"search = {{ boron = [{low}, {high}], k = {target_k}, tolerance = 1.0e-6, max-solves = 20 }}"
-    )
+    search = f"search = {{ boron = [{low}, {high}], k = {target_k}, tolerance = 1.0e-6, max-solves = 20 }}"
     text = (
         HEADER
         + "# Problem 9 の形の全炉心の燃焼（表 P9-2 の場合 2 と、場合 3 の状態の崩壊だけのステップ）の時間の内訳を測る（#0156）。炉心と軸方向の\n"

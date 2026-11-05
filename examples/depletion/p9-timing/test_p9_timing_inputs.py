@@ -57,12 +57,6 @@ class Inputs(unittest.TestCase):
         self.assertEqual(decay, {"decay-days": inputs.DECAY_DAYS, "state": "case-3"})
         self.assertEqual(case["depletion"]["micro"]["xenon"], "equilibrium")
 
-    def test_without_a_target_both_steps_give_the_boron(self):
-        case = tomllib.loads(inputs.case(None))
-        for name, *_ in inputs.STATES:
-            self.assertEqual(case["state"][name]["boron"], inputs.GIVEN_BORON)
-            self.assertNotIn("search", case["state"][name])
-
     def test_states_take_the_bank_D_of_table_P9_2_and_the_moderator_of_the_table(self):
         case = tomllib.loads(inputs.case(1.05))
         self.assertEqual(case["state"]["case-2"]["banks"]["D"], 192)
