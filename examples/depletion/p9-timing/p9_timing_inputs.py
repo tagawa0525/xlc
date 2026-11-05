@@ -56,7 +56,7 @@ HEADER = "# このファイルは p9_timing_inputs.py が書く。手で直さ�
 def toml_list(values: list) -> str:
     return (
         "["
-        + ", ".join(repr(v) if isinstance(v, float) else f'"{v}"' for v in values)
+        + ", ".join(f'"{v}"' if isinstance(v, str) else repr(v) for v in values)
         + "]"
     )
 
