@@ -1,0 +1,6 @@
+outs:
+- md5: 14a7a9b14e3c13f9edd189bfd153d2e8.dir
+  size: 4851253
+  nfiles: 13
+  hash: md5
+  path: rodless
