@@ -49,7 +49,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 - 手法: [ADR-0027](../adr/0027-solve-core-with-nem.md)
 - 固有値の加速: [ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)
 - 燃焼度と核種の追跡: [ADR-0035](../adr/0035-track-history-by-micro-depletion.md)
-- 熱水力のフィードバック: [ADR-0029](../adr/0029-defer-thermal-hydraulic-feedback.md)
+- 熱水力のフィードバック: [ADR-0229](../adr/0229-couple-assembly-channels-and-fuel-rods-to-core.md)
 
 ## 進め方
 
@@ -63,7 +63,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 | M3 炉心 HZP     | 3D NEM、CMFD、ADF、ピン出力の再構成                                                                  | VERA Problem 3–5                            | 作業中（docs/plans/m3-core-hzp.md）                           |
 | M4 燃焼         | 格子計算の燃焼と分岐計算（可燃性毒物を含む）、炉心での燃焼度追跡とミクロ燃焼（燃焼履歴の補正を含む） | VERA Problem 6 以降、格子燃焼のベンチマーク | 計画の下書き（docs/plans/m4-depletion.md）                    |
 
-「燃焼まで」（M4）を最初の到達目標とする。熱水力のフィードバックを含む BEAVRS との比較は、その後に検討する。
+「燃焼まで」（M4）を最初の到達目標とする。BEAVRS との比較は、その後に検討する（熱水力のフィードバックは ADR-0229 で M4 に入れた）。
 
 格子計算の精度の目標は、同じ核データで作ったモンテカルロ計算の参照解に対して、燃焼を通じて k の差が ±100 pcm
 （許容の上限は ±150 pcm）、ピン出力の差が rms 0.2% 以内とする（[ADR-0032](../adr/0032-target-lattice-accuracy.md)）。達成の状況は検証の例
