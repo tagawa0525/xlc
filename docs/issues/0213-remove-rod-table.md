@@ -58,7 +58,7 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
 - 2026-11-05: examples/vera/p5 の HZP のすべてのステージ（と、それが読む 5-2D の `assembly-31`）を今の bin とライブラリで再実行し
   （ブランチ chore/0213-rerun-p5-hzp、分岐点 main の d9c0c1bb、Slurm 695 と 696）、examples/vera/verification.md の「Problem 5 の 3D の
   炉心の計算」を書き直した。置き換えた 8 本の格子の値 out の状態は、同じ層の棒のない格子とビットまで同じ（#0225）。32 の場合の k は前の
-  記録から +25.0〜+32.9 pcm 動き、KENO-VI との差は +174.4〜+222.7 pcm。同じ dvc.yaml の 5-2D のステージ（`assembly-*`、`reflector-*`、
+  記録から +25.0〜+32.9 pcm 動き、KENO-VI との差は +174.4〜+222.7 pcm。同じ dvc.yaml の 5-2D のステージ（`assembly-21` などの単一集合体（`assembly-31` は `hzp-compare-interp-31` が読むので流した）、`reflector-*`、
   `core-5A` など 30 本）は changed のまま
 
 ## 残り
