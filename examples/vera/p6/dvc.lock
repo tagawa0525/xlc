@@ -1,0 +1,170 @@
+schema: '2.0'
+stages:
+  lattice-6-fuel:
+    cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-fuel.toml > 
+      lattice-6-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: db5c15e8089d89b46b192eed2b412bd4
+      size: 552065757
+    - path: lattice-6-fuel.toml
+      hash: md5
+      md5: 0109ed27c573060a6aa4e3fb0d9e26d3
+      size: 3941
+    outs:
+    - path: lattice-6-fuel.out
+      hash: md5
+      md5: 4bfe3b4b116435bfa431287ec08cfb28
+      size: 710
+    - path: lattice-6/fuel.msgpack
+      hash: md5
+      md5: 7c155ea4453f9d0f388e92e5640caacd
+      size: 270622
+    - path: medium-6-fuel.msgpack
+      hash: md5
+      md5: c0632f21744b1863da414df0cf5e5f15
+      size: 6292736
+  axial-6:
+    cmd: mkdir -p axial-6 && RUST_LOG=debug ../../../bin/lattice axial-6.toml > 
+      axial-6.out 2> axial-6.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: db5c15e8089d89b46b192eed2b412bd4
+      size: 552065757
+    - path: axial-6.toml
+      hash: md5
+      md5: 686197f2a8cd671f4bcc824fcab68892
+      size: 20389
+    - path: medium-6-fuel.msgpack
+      hash: md5
+      md5: c0632f21744b1863da414df0cf5e5f15
+      size: 6292736
+    outs:
+    - path: axial-6
+      hash: md5
+      md5: 98cf4c25339d5ec2e1f026920b9d2b16.dir
+      size: 888406
+      nfiles: 58
+    - path: axial-6.log
+      hash: md5
+      md5: 111ba96bcb930d773555a2f944a5ccf2
+      size: 5902335
+    - path: axial-6.out
+      hash: md5
+      md5: ab616cc93d0368e7eb8168271676dd32
+      size: 710
+  lattice-6-zgrid:
+    cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-zgrid.toml > 
+      lattice-6-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: db5c15e8089d89b46b192eed2b412bd4
+      size: 552065757
+    - path: lattice-6-zgrid.toml
+      hash: md5
+      md5: 035589ed80d1039daf39dc7f3ab450f3
+      size: 4282
+    outs:
+    - path: lattice-6-zgrid.out
+      hash: md5
+      md5: a6977b3e5d3fda73bbb0a65d7a87051e
+      size: 710
+    - path: lattice-6/zgrid.msgpack
+      hash: md5
+      md5: 2d3d5d0a197a42cc418ed8ea46c1fc1a
+      size: 270622
+  lattice-6-igrid:
+    cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-igrid.toml > 
+      lattice-6-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: 7e95969896ce832aef0b7feae7a57b9f
+      size: 9414040
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: db5c15e8089d89b46b192eed2b412bd4
+      size: 552065757
+    - path: lattice-6-igrid.toml
+      hash: md5
+      md5: 5f05f9310050cdca9721d9b842ddac2a
+      size: 4783
+    outs:
+    - path: lattice-6-igrid.out
+      hash: md5
+      md5: 8f06dc5535bb1388dd7574cdde1046a1
+      size: 710
+    - path: lattice-6/igrid.msgpack
+      hash: md5
+      md5: bd4b7259b269eb357e04d1a09c58870d
+      size: 270622
+  core-6-isothermal:
+    cmd: RUST_LOG=debug ../../../bin/core core-6-isothermal.toml > 
+      core-6-isothermal.out 2> core-6-isothermal.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: 18e0d9dae2987d307b4961424d7316c8
+      size: 6940392
+      isexec: true
+    - path: axial-6
+      hash: md5
+      md5: 98cf4c25339d5ec2e1f026920b9d2b16.dir
+      size: 888406
+      nfiles: 58
+    - path: core-6-assemblies.toml
+      hash: md5
+      md5: 872f70b953721f29c490d4574bb4083b
+      size: 2290
+    - path: core-6-cycle.toml
+      hash: md5
+      md5: d4288823d6f3413b642577412d276703
+      size: 128
+    - path: core-6-isothermal.toml
+      hash: md5
+      md5: 357b92a00c32a4b7406579d1fed239e1
+      size: 1203
+    - path: core-6-plant.toml
+      hash: md5
+      md5: 1c5c58a074448f09f28fb6704a3238f7
+      size: 161
+    - path: lattice-6/fuel.msgpack
+      hash: md5
+      md5: 7c155ea4453f9d0f388e92e5640caacd
+      size: 270622
+    - path: lattice-6/igrid.msgpack
+      hash: md5
+      md5: bd4b7259b269eb357e04d1a09c58870d
+      size: 270622
+    - path: lattice-6/zgrid.msgpack
+      hash: md5
+      md5: 2d3d5d0a197a42cc418ed8ea46c1fc1a
+      size: 270622
+    outs:
+    - path: core-6-isothermal.log
+      hash: md5
+      md5: 5c9824a82bb49964a413ff2b7b17dbd7
+      size: 541781
+    - path: core-6-isothermal.out
+      hash: md5
+      md5: 190ab376d660da2c17119ac71e0a0ef6
+      size: 2327
