@@ -3136,6 +3136,69 @@ def group_rows_spectrum(sources: list[dict]) -> str:
     return markdown_table(["状態", "物質", *header], rows)
 
 
+def core_timing_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-core-timing":
+        raise TableError("not an xlc-core-timing summary")
+    return s
+
+
+def core_timing_parts(sources: list[dict]) -> str:
+    """core の燃焼の時間の内訳（#0156）: 互いに重ならない部分と残りの時間 (s) と全体に対する割合 (%)、それと重なる探索の全体"""
+    s = core_timing_summary(sources)["seconds"]
+    total = s["total"]
+    rows = [
+        [name, f"{s[key]:.1f}", f"{100 * s[key] / total:.1f}"]
+        for name, key in [
+            ("固有値計算", "eigenvalue"),
+            ("テーブルの内挿とミクロ燃焼の補正", "interpolation"),
+            ("ミクロ燃焼（反応率と CRAM48）", "micro"),
+            ("平衡 Xe の釣り合い", "xenon"),
+            ("その他", "other"),
+            ("全体", "total"),
+            ("臨界ホウ素の探索（上の内訳と重なる）", "search"),
+        ]
+    ]
+    return markdown_table(["部分", "時間 (s)", "全体に対する割合 (%)"], rows)
+
+
+def core_timing_solves(sources: list[dict]) -> str:
+    """core の燃焼の解ごとの固有値計算の回数（#0156）: 燃焼点と中点（EFPD は中点ではそのステップの終わり）、ホウ素濃度、固有値計算の
+    回数（平衡 Xe の解き直しを含む）、平衡 Xe の解き直しの回数"""
+    solves = core_timing_summary(sources)["solves"]
+    rows = [
+        [
+            "燃焼点" if v["kind"] == "point" else "中点",
+            f"{v['efpd']:.1f}",
+            f"{v['boron']:.1f}",
+            str(v["solves"]),
+            "−" if v["xenon"] is None else str(v["xenon"]),
+        ]
+        for v in solves
+    ]
+    rows.append(["計", "", "", str(sum(v["solves"] for v in solves)), ""])
+    return markdown_table(
+        ["解", "EFPD", "ホウ素 (ppm)", "固有値計算の回数", "平衡 Xe の解き直し"], rows
+    )
+
+
+def core_timing_nem(sources: list[dict]) -> str:
+    """core の燃焼の固有値計算（span nem）の数、1 回の時間 (s) と外側の反復の回数の範囲（#0156）"""
+    nem = core_timing_summary(sources)["nem"]
+    low, high = nem["seconds"]
+    iterations = nem["iterations"]
+    return markdown_table(
+        ["固有値計算の数", "1 回の時間 (s)", "外側の反復の回数"],
+        [
+            [
+                str(nem["count"]),
+                f"{low:.1f}〜{high:.1f}",
+                "" if iterations is None else f"{iterations[0]:,}〜{iterations[1]:,}",
+            ]
+        ],
+    )
+
+
 # dvc.yaml のステージの出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）。
 # 燃焼度の軸を持つテーブルの確認は、履歴のステージを deps にすると重いステージが走るのでステージにしない（examples/depletion/verification.md）
 GIT_TRACKED = {
@@ -3900,6 +3963,17 @@ TABLES = {
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
         depletion_assembly_times,
     ),
+    **{
+        f"core-p9-timing-{part}": (
+            ["examples/depletion/p9-timing/timing-p9.json"],
+            draw,
+        )
+        for part, draw in [
+            ("parts", core_timing_parts),
+            ("solves", core_timing_solves),
+            ("nem", core_timing_nem),
+        ]
+    },
 }
 
 

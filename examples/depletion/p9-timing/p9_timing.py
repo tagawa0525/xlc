@@ -7,8 +7,8 @@
   平衡の Xe と I）は互いに重ならない部分で、`other` は全体からそれらを引いた残り（入力の読み込み、出力など）。`search`（span
   `search` の和）は臨界ホウ素の探索の全体で、その中の固有値計算と内挿を含む（ほかの部分と重なる）
 - `nem`: 固有値計算の span の数と、外側の反復の回数と時間の最小と最大
-- `points` と `midpoints`: 燃焼点と中点ごとのホウ素濃度と固有値計算の回数（平衡 Xe の解き直しを含む）。`xenon_iterations`: 平衡 Xe の
-  解ごとの解き直しの回数
+- `solves`: ログの順の燃焼点と中点ごとの EFPD（中点はそのステップの終わり）、ホウ素濃度、固有値計算の回数（平衡 Xe の解き直しを
+  含む）、平衡 Xe の解き直しの回数（平衡 Xe でない解は null）
 """
 
 import json
@@ -55,7 +55,9 @@ def summarize(log: str) -> dict:
     search = 0.0
     nem_iterations: list[int] = []
     nem_seconds: list[float] = []
-    points, midpoints, xenon = [], [], []
+    solves = []
+    # 平衡 Xe の解き直しの回数は、その解の点か中点の行の前に出る
+    xenon = None
     total = None
     for line in log.splitlines():
         if m := CLOSE.search(line):
@@ -75,20 +77,27 @@ def summarize(log: str) -> dict:
             continue
         fields = dict(f.split("=", 1) for f in m.group("fields").split() if "=" in f)
         message = m.group("message")
-        if message == "depletion point":
-            points.append(
+        if message in ("depletion point", "depletion midpoint"):
+            if message == "depletion point":
+                kind, efpd = "point", float(fields["efpd"])
+            else:
+                # 中点の行は EFPD を持たないので、ステップの span の終わりの EFPD
+                step = re.search(r"depletion step\{efpd=([^ }]+)", line)
+                if not step:
+                    raise ValueError(f"a midpoint outside a depletion step: {line}")
+                kind, efpd = "midpoint", float(step.group(1))
+            solves.append(
                 {
-                    "efpd": float(fields["efpd"]),
+                    "kind": kind,
+                    "efpd": efpd,
                     "boron": float(fields["boron"]),
                     "solves": int(fields["solves"]),
+                    "xenon": xenon,
                 }
             )
-        elif message == "depletion midpoint":
-            midpoints.append(
-                {"boron": float(fields["boron"]), "solves": int(fields["solves"])}
-            )
+            xenon = None
         elif message == "equilibrium xenon" and "iterations" in fields:
-            xenon.append(int(fields["iterations"]))
+            xenon = int(fields["iterations"])
         elif message == "core" and "seconds" in fields:
             total = float(fields["seconds"])
     if total is None:
@@ -96,6 +105,7 @@ def summarize(log: str) -> dict:
     if not nem_seconds:
         raise ValueError("the log has no eigenvalue solves (span nem)")
     return {
+        "format": "xlc-core-timing",
         "seconds": {
             "total": total,
             **parts,
@@ -109,9 +119,7 @@ def summarize(log: str) -> dict:
             else None,
             "seconds": [min(nem_seconds), max(nem_seconds)],
         },
-        "points": points,
-        "midpoints": midpoints,
-        "xenon_iterations": xenon,
+        "solves": solves,
     }
 
 
