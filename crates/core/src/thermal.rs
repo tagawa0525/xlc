@@ -2,3 +2,6 @@
 
 pub mod rod;
 pub mod water;
+
+#[cfg(test)]
+mod tests;

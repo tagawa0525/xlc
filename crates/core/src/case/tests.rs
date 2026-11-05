@@ -4,7 +4,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, linear_coefficients, product_points};
 
 use super::*;
-use crate::input::{Boron, BoronSearch, Case, Cycle, Inventory, Plant};
+use crate::input::{Boron, BoronSearch, Case, Cycle, Inventory, Plant, Temperatures};
 
 const PLANT: &str = r#"
 pitch = 20.0
@@ -121,8 +121,10 @@ fn given(name: &str, boron: f64, temperature: f64) -> CaseState {
         name: name.into(),
         boron: Boron::Given(boron),
         b10: 0.199,
-        moderator: temperature,
-        fuel: temperature,
+        temperatures: Temperatures::Uniform {
+            moderator: temperature,
+            fuel: temperature,
+        },
         burnup: None,
         banks: Default::default(),
     }
@@ -138,8 +140,10 @@ fn searching(bracket: [f64; 2], tolerance: f64) -> CaseState {
             max_solves: 20,
         }),
         b10: 0.199,
-        moderator: 565.0,
-        fuel: 565.0,
+        temperatures: Temperatures::Uniform {
+            moderator: 565.0,
+            fuel: 565.0,
+        },
         burnup: None,
         banks: Default::default(),
     }
@@ -1307,4 +1311,224 @@ fn expected_indices_that_cancel_over_the_variables_are_errors() {
     assert!(err.contains("expected"), "{err}");
     let err = node_micro(&table, &state, None, &[0.702, -wm], &n).unwrap_err();
     assert!(err.contains("expected"), "{err}");
+}
+
+// 熱水力のフィードバック（ADR-0229）
+
+use crate::thermal::{NodeTemperatures, water};
+
+/// 熱水力の圧力 (MPa)
+const PRESSURE: f64 = 15.5132;
+const HOT_TM: [f64; 3] = [560.0, 580.0, 600.0];
+const HOT_TF: [f64; 3] = [560.0, 900.0, 1500.0];
+
+/// `CASE` に熱水力を足したもの: 集合体あたり 1 kg/s、0.1 MW（入口 565 K から出口は約 586 K）、30 本の棒の 10 cm の層の線出力は
+/// 約 17 kW/m
+const THERMAL: &str = r#"
+[thermal-hydraulics]
+power = 0.4
+flow = 4.0
+pressure = 15.5132
+fuel-heat-fraction = 0.974
+effective-temperature = "volume-average"
+rod = { pellet-radius = 0.4096, clad-inner-radius = 0.418, clad-outer-radius = 0.475, pellet-density = 10.257, gap-conductance = 1.0e4, rods = 30 }
+channel = { flow-area = 2.86, wetted-perimeter = 10.4 }
+"#;
+
+/// 減速材の軸の密度を、熱水力の圧力の IF97 の密度（g/cc、小数 5 桁）にしたテーブル
+fn hot_table(fissile: f64) -> Table {
+    let density: Vec<f64> = HOT_TM
+        .iter()
+        .map(|&t| (water::region_one(PRESSURE, t).unwrap().density / 1000.0 * 1e5).round() / 1e5)
+        .collect();
+    let mut states = Vec::new();
+    for ppm in PPM {
+        for tm in HOT_TM {
+            for tf in HOT_TF {
+                states.push(few(fissile, ppm, tm, tf));
+            }
+        }
+    }
+    let mut table = Table {
+        points: Vec::new(),
+        split: 1,
+        heavy_metal: None,
+        micro: None,
+        histories: Vec::new(),
+        axes: vec![
+            Axis::boron(PPM.to_vec(), 0.199),
+            Axis::moderator(HOT_TM.to_vec(), density),
+            Axis::fuel(HOT_TF.to_vec()),
+        ],
+        states,
+    };
+    table.points = product_points(&table.axes);
+    table
+}
+
+/// `case` の炉心の並びと、`hot_table` のテーブル
+fn hot_core(case: &str) -> (Layout, Vec<Table>) {
+    let base = Path::new("dir");
+    let case = Case::parse(case, base).unwrap();
+    let cycle = Cycle::parse(CYCLE, base).unwrap();
+    let plant = Plant::parse(PLANT, base).unwrap();
+    let inventory = Inventory::parse(INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables = layout
+        .files
+        .iter()
+        .map(|f| hot_table(if f.ends_with("a.msgpack") { 1.0 } else { 0.9 }))
+        .collect();
+    (layout, tables)
+}
+
+fn inlet(name: &str, boron: Boron, temperature: f64) -> CaseState {
+    CaseState {
+        name: name.into(),
+        boron,
+        b10: 0.199,
+        temperatures: Temperatures::Inlet(temperature),
+        burnup: None,
+        banks: Default::default(),
+    }
+}
+
+#[test]
+fn thermal_feedback_converges_and_balances_the_channel_enthalpy() {
+    let (layout, tables) = hot_core(&format!("{CASE}{THERMAL}"));
+    let options = Options::default();
+    let state = inlet("hfp", Boron::Given(1100.0), 565.0);
+    let solved = solve_state(&layout, &tables, &state, &options).unwrap();
+    let report = solved.thermal.as_ref().unwrap();
+    assert!(report.change < 1.0e-5, "{}", report.change);
+    assert!(report.iterations >= 2, "{}", report.iterations);
+    // 位置ごとの出力の和は熱出力
+    let total: f64 = report.powers.iter().sum();
+    assert!((total / 0.4e6 - 1.0).abs() < 1e-12, "{total}");
+    // 流路ごとのエンタルピーの上昇は流路の出力 / 流量（集合体あたり 1 kg/s）。出口の温度は IF97 の逆
+    let h_in = water::region_one(PRESSURE, 565.0).unwrap().enthalpy;
+    assert_eq!(report.channels.len(), 4);
+    for channel in &report.channels {
+        let power: f64 = channel.sites.iter().map(|&s| report.powers[s]).sum();
+        assert!((channel.rise / (power / 1.0 / 1e3) - 1.0).abs() < 1e-12);
+        let outlet = water::temperature(PRESSURE, h_in + channel.rise).unwrap();
+        assert!((channel.outlet - outlet).abs() < 1e-9);
+        // 減速材の温度は下から上へ上がり、燃料の温度は減速材より高い
+        let nodes: Vec<NodeTemperatures> = channel
+            .sites
+            .iter()
+            .map(|&s| report.nodes[s].unwrap())
+            .collect();
+        assert!(nodes[0].moderator < nodes[1].moderator);
+        assert!(565.0 < nodes[0].moderator && nodes[1].moderator < channel.outlet);
+        assert!(nodes.iter().all(|n| n.fuel > n.moderator + 100.0));
+    }
+    // 解は、最後のノードの状態で内挿して解いたものと同じ
+    let again = solve_nodes(&layout, &tables, &state.at(1100.0), &report.nodes, &options).unwrap();
+    assert_eq!(again.solution.k, solved.solution.k);
+    // 減速材の密度の内挿の差は格子点の間隔 20 K で 1e-3 g/cc より小さい
+    assert!(report.density_error < 1.0e-3, "{}", report.density_error);
+}
+
+/// すべてのノードの状態が同じなら、熱水力を切った（状態の温度の）解と同じ
+#[test]
+fn uniform_node_states_match_the_solve_without_feedback() {
+    let (thermal_layout, tables) = hot_core(&format!("{CASE}{THERMAL}"));
+    let (plain_layout, plain_tables) = hot_core(CASE);
+    let options = Options::default();
+    let nodes: Vec<Option<NodeTemperatures>> = thermal_layout
+        .node_material
+        .iter()
+        .map(|m| {
+            m.map(|_| NodeTemperatures {
+                moderator: 575.0,
+                fuel: 700.0,
+            })
+        })
+        .collect();
+    let uniform = State {
+        boron: 1100.0,
+        b10: 0.199,
+        moderator: 575.0,
+        fuel: 700.0,
+        burnup: None,
+    };
+    let a = solve_nodes(&thermal_layout, &tables, &uniform, &nodes, &options).unwrap();
+    let b = solve_at(&plain_layout, &plain_tables, Some(&uniform), &options).unwrap();
+    assert!(
+        (a.solution.k - b.solution.k).abs() <= 1e-12,
+        "{} {}",
+        a.solution.k,
+        b.solution.k
+    );
+}
+
+#[test]
+fn boron_search_converges_with_thermal_feedback() {
+    let (layout, tables) = hot_core(&format!("{CASE}{THERMAL}"));
+    let options = Options::default();
+    let search = BoronSearch {
+        bracket: [1000.0, 1500.0],
+        k: 1.0,
+        tolerance: 1.0e-7,
+        max_solves: 20,
+    };
+    let state = inlet("critical", Boron::Search(search), 565.0);
+    let solved = solve_state(&layout, &tables, &state, &options).unwrap();
+    assert!(
+        (solved.solution.k - 1.0).abs() <= 1.0e-7,
+        "{}",
+        solved.solution.k
+    );
+    let ppm = solved.searched.unwrap().ppm;
+    // 探したホウ素濃度で熱水力を解き直しても、許容の中で同じ k
+    let again = solve_state(
+        &layout,
+        &tables,
+        &inlet("again", Boron::Given(ppm), 565.0),
+        &options,
+    )
+    .unwrap();
+    assert!(
+        (again.solution.k - 1.0).abs() <= 2.0e-7,
+        "{}",
+        again.solution.k
+    );
+}
+
+#[test]
+fn thermal_feedback_errors_are_reported() {
+    let options = Options::default();
+    let state = inlet("hfp", Boron::Given(1100.0), 565.0);
+    // テーブルの格子点の密度が熱水力の圧力の IF97 と違う
+    let (layout, mut tables) = hot_core(&format!("{CASE}{THERMAL}"));
+    if let Axis::Moderator { density, .. } = &mut tables[0].axes[1] {
+        density[1] += 1.0e-4;
+    }
+    let e = solve_state(&layout, &tables, &state, &options)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("IF97"), "{e}");
+    // 出口がテーブルの減速材の格子点の上 600 K を超える（上昇 250 kJ/kg で約 607 K）
+    let hot = edited_case(&format!("{CASE}{THERMAL}"), "power = 0.4", "power = 1.0");
+    let (layout, tables) = hot_core(&hot);
+    let e = solve_state(&layout, &tables, &state, &options)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("moderator") && e.contains("outside"), "{e}");
+    // 沸騰
+    let boiling = edited_case(&format!("{CASE}{THERMAL}"), "power = 0.4", "power = 4.0");
+    let (layout, tables) = hot_core(&boiling);
+    let e = solve_state(&layout, &tables, &state, &options)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("boiling"), "{e}");
+    // 熱水力のケースの状態は入口の温度
+    let (layout, tables) = hot_core(&format!("{CASE}{THERMAL}"));
+    assert!(solve_state(&layout, &tables, &given("plain", 1100.0, 565.0), &options).is_err());
+}
+
+fn edited_case(text: &str, from: &str, to: &str) -> String {
+    assert!(text.contains(from), "{from}");
+    text.replace(from, to)
 }
