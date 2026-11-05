@@ -1,0 +1,103 @@
+# このファイルは p6_inputs.py が書く。手で直さない。
+# VERA Problem 6 を xlc で解くステージ: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子の分岐のテーブル（層ごと。
+# 平板の燃料の媒質も）→ 軸方向の反射体の平板の分岐のテーブル（axial-6）→ 炉心（熱水力のフィードバックの core-6 と、
+# 確認の core-6-low-power、core-6-isothermal）→ 比較（compare-6.json）。実行するのは `dvc repro`（ADR-0159）
+stages:
+  lattice-6-fuel:
+    cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-fuel.toml > lattice-6-fuel.out
+    deps:
+      - lattice-6-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - lattice-6/fuel.msgpack
+      - lattice-6-fuel.out
+      - medium-6-fuel.msgpack
+  lattice-6-zgrid:
+    cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-zgrid.toml > lattice-6-zgrid.out
+    deps:
+      - lattice-6-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - lattice-6/zgrid.msgpack
+      - lattice-6-zgrid.out
+  lattice-6-igrid:
+    cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-igrid.toml > lattice-6-igrid.out
+    deps:
+      - lattice-6-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - lattice-6/igrid.msgpack
+      - lattice-6-igrid.out
+  axial-6:
+    cmd: mkdir -p axial-6 && RUST_LOG=debug ../../../bin/lattice axial-6.toml > axial-6.out 2> axial-6.log
+    deps:
+      - axial-6.toml
+      - ../vera.msgpack
+      - medium-6-fuel.msgpack
+      - ../../../bin/lattice
+    outs:
+      - axial-6
+      - axial-6.out
+      - axial-6.log
+  core-6:
+    cmd: RUST_LOG=debug ../../../bin/core core-6.toml > core-6.out 2> core-6.log
+    deps:
+      - core-6.toml
+      - core-6-cycle.toml
+      - core-6-plant.toml
+      - core-6-assemblies.toml
+      - axial-6
+      - lattice-6/fuel.msgpack
+      - lattice-6/zgrid.msgpack
+      - lattice-6/igrid.msgpack
+      - ../../../bin/core
+    outs:
+      - core-6.out
+      - core-6.log
+  core-6-low-power:
+    cmd: RUST_LOG=debug ../../../bin/core core-6-low-power.toml > core-6-low-power.out 2> core-6-low-power.log
+    deps:
+      - core-6-low-power.toml
+      - core-6-cycle.toml
+      - core-6-plant.toml
+      - core-6-assemblies.toml
+      - axial-6
+      - lattice-6/fuel.msgpack
+      - lattice-6/zgrid.msgpack
+      - lattice-6/igrid.msgpack
+      - ../../../bin/core
+    outs:
+      - core-6-low-power.out
+      - core-6-low-power.log
+  core-6-isothermal:
+    cmd: RUST_LOG=debug ../../../bin/core core-6-isothermal.toml > core-6-isothermal.out 2> core-6-isothermal.log
+    deps:
+      - core-6-isothermal.toml
+      - core-6-cycle.toml
+      - core-6-plant.toml
+      - core-6-assemblies.toml
+      - axial-6
+      - lattice-6/fuel.msgpack
+      - lattice-6/zgrid.msgpack
+      - lattice-6/igrid.msgpack
+      - ../../../bin/core
+    outs:
+      - core-6-isothermal.out
+      - core-6-isothermal.log
+  compare-6:
+    cmd: python3 ../compare_p6.py --json compare-6.json lattice-6-fuel.toml core-6.toml core-6-low-power.toml core-6-isothermal.toml core-6.out core-6-low-power.out core-6-isothermal.out
+    deps:
+      - ../../../python-ast/examples/vera/compare_p6.py.ast
+      - lattice-6-fuel.toml
+      - core-6.toml
+      - core-6-low-power.toml
+      - core-6-isothermal.toml
+      - core-6.out
+      - core-6-low-power.out
+      - core-6-isothermal.out
+    outs:
+      - compare-6.json:
+          cache: false

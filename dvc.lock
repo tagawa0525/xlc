@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: e3e810f15d083824542b6e96af39b534.dir
-      size: 4533394
+      md5: 3786fc827c1a97e3b4805eb8fdcba640.dir
+      size: 4534995
       nfiles: 253
     - path: flake.lock
       hash: md5
@@ -45,8 +45,8 @@ stages:
       isexec: true
     - path: bin/core
       hash: md5
-      md5: 18e0d9dae2987d307b4961424d7316c8
-      size: 6940392
+      md5: be76ed46f4346e4fed15e26bffe69ca6
+      size: 6940328
       isexec: true
     - path: bin/lattice
       hash: md5
@@ -644,3 +644,20 @@ stages:
       hash: md5
       md5: 6cf7439870f18be4f42b2bc60c29ddae
       size: 3769
+  python-ast@examples/vera/compare_p6.py:
+    cmd: python3 scripts/normalize_python.py examples/vera/compare_p6.py 
+      python-ast/examples/vera/compare_p6.py.ast
+    deps:
+    - path: examples/vera/compare_p6.py
+      hash: md5
+      md5: 8aa08620286979313c0162e67e4267ea
+      size: 11191
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/vera/compare_p6.py.ast
+      hash: md5
+      md5: 1c619453ac6d193fb5e3c33d968ef908
+      size: 7334
