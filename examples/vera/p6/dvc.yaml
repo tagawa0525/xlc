@@ -88,11 +88,13 @@ stages:
       - core-6-isothermal.out
       - core-6-isothermal.log
   compare-6:
-    cmd: python3 ../compare_p6.py --json compare-6.json lattice-6-fuel.toml core-6.toml core-6.out core-6-low-power.out core-6-isothermal.out
+    cmd: python3 ../compare_p6.py --json compare-6.json lattice-6-fuel.toml core-6.toml core-6-low-power.toml core-6-isothermal.toml core-6.out core-6-low-power.out core-6-isothermal.out
     deps:
       - ../../../python-ast/examples/vera/compare_p6.py.ast
       - lattice-6-fuel.toml
       - core-6.toml
+      - core-6-low-power.toml
+      - core-6-isothermal.toml
       - core-6.out
       - core-6-low-power.out
       - core-6-isothermal.out

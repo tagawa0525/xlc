@@ -323,12 +323,14 @@ def pipeline() -> str:
     stages.append(
         stage(
             "compare-6",
-            "python3 ../compare_p6.py --json compare-6.json lattice-6-fuel.toml core-6.toml core-6.out "
-            "core-6-low-power.out core-6-isothermal.out",
+            "python3 ../compare_p6.py --json compare-6.json lattice-6-fuel.toml core-6.toml core-6-low-power.toml "
+            "core-6-isothermal.toml core-6.out core-6-low-power.out core-6-isothermal.out",
             [
                 "../compare_p6.py",
                 "lattice-6-fuel.toml",
                 "core-6.toml",
+                "core-6-low-power.toml",
+                "core-6-isothermal.toml",
                 "core-6.out",
                 "core-6-low-power.out",
                 "core-6-isothermal.out",
