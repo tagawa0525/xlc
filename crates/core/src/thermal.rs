@@ -55,7 +55,7 @@ pub fn fissile(table: &Table) -> bool {
         .any(|s| s.nu_fission.iter().any(|&v| v > 0.0))
 }
 
-/// 並びの流路: 集合体の位置（反射体の位置を除く）ごとに 1 本
+/// 並びの流路: 核分裂のある層を持つ集合体の位置（反射体の位置を除く）ごとに 1 本
 #[derive(Debug, Clone, PartialEq)]
 pub struct Channels {
     /// 位置ごとの流路の番号（流路のない位置は `None`）
@@ -133,7 +133,7 @@ impl Channels {
         let mut fissile_site = vec![false; n];
         let mut present = vec![false; n];
         let mut layers = vec![(0, 0.0, 0.0); n];
-        let mut index: BTreeMap<[usize; 2], usize> = BTreeMap::new();
+        let mut columns: BTreeMap<[usize; 2], Vec<usize>> = BTreeMap::new();
         let mut sites: Vec<Vec<usize>> = Vec::new();
         let mut positions = Vec::new();
         for (site, material) in layout.node_material.iter().enumerate() {
@@ -163,17 +163,23 @@ impl Channels {
                 }
             };
             fissile_site[site] = files.iter().any(|&f| fissile(&tables[f]));
-            if reflector {
+            if !reflector {
+                columns
+                    .entry([x / split, y / split])
+                    .or_default()
+                    .push(site);
+            }
+        }
+        // 核分裂のある層を持つ集合体の位置だけが流路（流量は燃料の集合体に分ける。ADR-0229）。ほかの位置は入口の温度
+        for (key, column) in columns {
+            if !column.iter().any(|&s| fissile_site[s]) {
                 continue;
             }
-            let key = [x / split, y / split];
-            let c = *index.entry(key).or_insert_with(|| {
-                sites.push(Vec::new());
-                positions.push(key);
-                sites.len() - 1
-            });
-            sites[c].push(site);
-            channel[site] = Some(c);
+            for &site in &column {
+                channel[site] = Some(sites.len());
+            }
+            sites.push(column);
+            positions.push(key);
         }
         if sites.is_empty() {
             return Err("the core has no assembly position for a thermal-hydraulic channel".into());

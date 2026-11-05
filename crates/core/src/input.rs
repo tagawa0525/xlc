@@ -1366,6 +1366,12 @@ impl Case {
             .thermal_hydraulics
             .map(ThermalEntry::check)
             .transpose()?;
+        // 熱水力は状態の入口の温度で解く。状態がなければ解く経路が熱水力を通らないので、黙って熱水力なしで解かない
+        if thermal.is_some() && states.is_empty() {
+            return invalid(
+                "[thermal-hydraulics] needs a named state ([state.<name>]) with the inlet temperature (ADR-0229)",
+            );
+        }
         let depletion = match file.depletion {
             // 燃焼のステップの熱水力は ADR-0229 で決めたが、まだ実装していない（#0228）
             Some(_) if thermal.is_some() => {

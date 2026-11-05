@@ -61,6 +61,11 @@ fuel-heat-fraction = 0.974
 effective-temperature = "rowlands"
 rod = { pellet-radius = 0.4096, clad-inner-radius = 0.418, clad-outer-radius = 0.475, pellet-density = 10.257, gap-conductance = 1.0e4, rods = 120 }
 channel = { flow-area = 2.86, wetted-perimeter = 10.4 }
+
+[state.hfp]
+boron = 1100
+b10 = 0.199
+inlet = 565
 "#;
 
 fn few(fissile: f64) -> FewGroup {
