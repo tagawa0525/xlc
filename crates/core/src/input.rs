@@ -127,6 +127,9 @@ use xlc_format::table::ROD_OUT;
 use crate::nem::{Boundary, Mesh, Problem, Solution, fission_rates};
 use crate::rods::{PartialNode, Segment, Weighting};
 use crate::state::State;
+use crate::thermal::{
+    Effective, MAX_ITERATIONS, Rod, TOLERANCE, ThermalHydraulics, UO2_THEORETICAL_DENSITY,
+};
 
 /// 入力ファイルの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
@@ -787,6 +790,8 @@ pub struct Case {
     pub axial_pin_powers: Option<PathBuf>,
     /// 燃焼のステップ（ADR-0190）
     pub depletion: Option<DepletionInput>,
+    /// 熱水力のフィードバック（ADR-0229）
+    pub thermal: Option<ThermalHydraulics>,
 }
 
 /// ケースの `[depletion]`（ADR-0190）。
@@ -1048,6 +1053,116 @@ struct CaseFile {
     partial_rods: Option<PartialRodsEntry>,
     axial_pin_powers: Option<PathBuf>,
     depletion: Option<DepletionEntry>,
+    thermal_hydraulics: Option<ThermalEntry>,
+}
+
+/// `[thermal-hydraulics]`（ADR-0229）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct ThermalEntry {
+    power: f64,
+    flow: f64,
+    pressure: f64,
+    fuel_heat_fraction: f64,
+    effective_temperature: EffectiveEntry,
+    tolerance: Option<f64>,
+    max_iterations: Option<usize>,
+    rod: RodEntry,
+    channel: ChannelEntry,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum EffectiveEntry {
+    VolumeAverage,
+    Rowlands,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct RodEntry {
+    pellet_radius: f64,
+    clad_inner_radius: f64,
+    clad_outer_radius: f64,
+    pellet_density: f64,
+    gap_conductance: f64,
+    rods: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct ChannelEntry {
+    flow_area: f64,
+    wetted_perimeter: f64,
+}
+
+impl ThermalEntry {
+    fn check(self) -> Result<ThermalHydraulics, InputError> {
+        let what = |m: String| invalid(format!("thermal-hydraulics: {m}"));
+        let positive = [
+            ("power", self.power),
+            ("flow", self.flow),
+            ("pressure", self.pressure),
+            ("pellet-radius", self.rod.pellet_radius),
+            ("pellet-density", self.rod.pellet_density),
+            ("gap-conductance", self.rod.gap_conductance),
+            ("flow-area", self.channel.flow_area),
+            ("wetted-perimeter", self.channel.wetted_perimeter),
+            ("tolerance", self.tolerance.unwrap_or(TOLERANCE)),
+        ];
+        if let Some((name, value)) = positive.iter().find(|(_, v)| !(*v > 0.0 && v.is_finite())) {
+            return what(format!("{name} must be positive, got {value}"));
+        }
+        let f = self.fuel_heat_fraction;
+        if !(f > 0.0 && f <= 1.0) {
+            return what(format!("fuel-heat-fraction must be in (0, 1], got {f}"));
+        }
+        let r = &self.rod;
+        if !(r.pellet_radius < r.clad_inner_radius
+            && r.clad_inner_radius < r.clad_outer_radius
+            && r.clad_outer_radius.is_finite())
+        {
+            return what(format!(
+                "the radii must grow from the pellet to the cladding outside, got {}, {}, {}",
+                r.pellet_radius, r.clad_inner_radius, r.clad_outer_radius
+            ));
+        }
+        if r.pellet_density > UO2_THEORETICAL_DENSITY {
+            return what(format!(
+                "pellet-density {} is above the UO2 theoretical density {UO2_THEORETICAL_DENSITY} g/cc",
+                r.pellet_density
+            ));
+        }
+        if r.rods == 0 {
+            return what("rods must be positive".into());
+        }
+        let max_iterations = self.max_iterations.unwrap_or(MAX_ITERATIONS);
+        if max_iterations == 0 {
+            return what("max-iterations must be positive".into());
+        }
+        Ok(ThermalHydraulics {
+            power: self.power,
+            flow: self.flow,
+            pressure: self.pressure,
+            fuel_heat_fraction: f,
+            effective: match self.effective_temperature {
+                EffectiveEntry::VolumeAverage => Effective::VolumeAverage,
+                EffectiveEntry::Rowlands => Effective::Rowlands,
+            },
+            tolerance: self.tolerance.unwrap_or(TOLERANCE),
+            max_iterations,
+            rod: Rod {
+                pellet_radius: r.pellet_radius,
+                clad_inner_radius: r.clad_inner_radius,
+                clad_outer_radius: r.clad_outer_radius,
+                density_fraction: r.pellet_density / UO2_THEORETICAL_DENSITY,
+                gap_conductance: r.gap_conductance,
+            },
+            rods: r.rods,
+            flow_area: self.channel.flow_area,
+            wetted_perimeter: self.channel.wetted_perimeter,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -1055,8 +1170,10 @@ struct CaseFile {
 struct StateEntry {
     boron: Option<f64>,
     b10: f64,
-    moderator: f64,
-    fuel: f64,
+    moderator: Option<f64>,
+    fuel: Option<f64>,
+    /// 熱水力のケースの入口の温度 (K)（ADR-0229）
+    inlet: Option<f64>,
     burnup: Option<f64>,
     search: Option<SearchEntry>,
     /// バンク → 位置（ステップ）。棒のない炉心は書かない（`Layout::new` が確かめる）
@@ -1109,7 +1226,8 @@ struct SearchEntry {
 }
 
 impl CaseState {
-    fn new(name: String, entry: StateEntry) -> Result<Self, InputError> {
+    /// `thermal` は、ケースが熱水力を持つか（状態は入口の温度を書く。ADR-0229）
+    fn new(name: String, entry: StateEntry, thermal: bool) -> Result<Self, InputError> {
         check_name("state", &name)?;
         let what = |message: String| invalid(format!("state {name}: {message}"));
         let boron = match (entry.boron, entry.search) {
@@ -1134,12 +1252,31 @@ impl CaseState {
         {
             return what(format!("burnup must be non-negative, got {b}"));
         }
+        let temperatures = match (thermal, entry.moderator, entry.fuel, entry.inlet) {
+            (false, Some(moderator), Some(fuel), None) => Temperatures::Uniform { moderator, fuel },
+            (false, _, _, Some(_)) => {
+                return what("inlet needs [thermal-hydraulics] (ADR-0229)".into());
+            }
+            (false, ..) => return what("give moderator and fuel".into()),
+            (true, None, None, Some(t)) => {
+                if !(t > 0.0 && t.is_finite()) {
+                    return what(format!("inlet must be positive, got {t}"));
+                }
+                Temperatures::Inlet(t)
+            }
+            (true, ..) => {
+                return what(
+                    "with [thermal-hydraulics] give the inlet temperature inlet, not moderator and fuel \
+                     (ADR-0229)"
+                        .into(),
+                );
+            }
+        };
         Ok(Self {
             name,
             boron,
             b10: entry.b10,
-            moderator: entry.moderator,
-            fuel: entry.fuel,
+            temperatures,
             burnup: entry.burnup,
             banks: entry.banks,
         })
@@ -1198,7 +1335,7 @@ impl Case {
             }
             Some(states) => states
                 .into_iter()
-                .map(|(name, entry)| CaseState::new(name, entry))
+                .map(|(name, entry)| CaseState::new(name, entry, file.thermal_hydraulics.is_some()))
                 .collect::<Result<Vec<_>, InputError>>()?,
         };
         let mut partial_rods = PartialRods::default();
@@ -1225,7 +1362,23 @@ impl Case {
                 partial_rods.fine_mesh = fine;
             }
         }
+        let thermal = file
+            .thermal_hydraulics
+            .map(ThermalEntry::check)
+            .transpose()?;
+        // 熱水力は状態の入口の温度で解く。状態がなければ解く経路が熱水力を通らないので、黙って熱水力なしで解かない
+        if thermal.is_some() && states.is_empty() {
+            return invalid(
+                "[thermal-hydraulics] needs a named state ([state.<name>]) with the inlet temperature (ADR-0229)",
+            );
+        }
         let depletion = match file.depletion {
+            // 燃焼のステップの熱水力は ADR-0229 で決めたが、まだ実装していない（#0228）
+            Some(_) if thermal.is_some() => {
+                return invalid(
+                    "depletion with [thermal-hydraulics] is not implemented yet (ADR-0229, #0228)",
+                );
+            }
             Some(entry) => {
                 if states.is_empty() {
                     return invalid("depletion needs a named state ([state.<name>])");
@@ -1274,6 +1427,7 @@ impl Case {
             partial_rods_given,
             axial_pin_powers,
             depletion,
+            thermal,
         })
     }
 }
@@ -1285,14 +1439,20 @@ pub struct CaseState {
     pub boron: Boron,
     /// ホウ素の中の B-10 の原子分率（テーブルと同じ値）
     pub b10: f64,
-    /// 減速材の温度 (K)
-    pub moderator: f64,
-    /// 燃料の温度 (K)
-    pub fuel: f64,
+    pub temperatures: Temperatures,
     /// 燃焼度 (MWd/kg)。炉心のすべての集合体に同じ値（ADR-0187）。燃焼していない炉心は `None`
     pub burnup: Option<f64>,
     /// バンク → 位置（ステップ）。炉心の形に制御棒があれば、そのバンクをすべて書く（ADR-0127）
     pub banks: BTreeMap<String, u32>,
+}
+
+/// 状態の温度: 炉心のすべてのノードに同じ温度か、熱水力の入口の温度（ADR-0229）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Temperatures {
+    /// 減速材と燃料の温度 (K)
+    Uniform { moderator: f64, fuel: f64 },
+    /// 入口の温度 (K)
+    Inlet(f64),
 }
 
 /// 状態のホウ素濃度: 与えた値か、探索（ADR-0145）。
@@ -1350,13 +1510,30 @@ impl BoronSearch {
 }
 
 impl CaseState {
-    /// ホウ素濃度を `boron` (ppm) にした、テーブルを内挿する状態。
+    /// 炉心のすべてのノードに同じ減速材と燃料の温度。熱水力の状態（入口の温度）はエラー
+    pub fn uniform(&self) -> Result<(f64, f64), String> {
+        match self.temperatures {
+            Temperatures::Uniform { moderator, fuel } => Ok((moderator, fuel)),
+            Temperatures::Inlet(_) => Err(format!(
+                "state {} gives the inlet temperature of the thermal-hydraulics, not one moderator and fuel \
+                 temperature (ADR-0229)",
+                self.name
+            )),
+        }
+    }
+
+    /// ホウ素濃度を `boron` (ppm) にした、テーブルを内挿する状態。熱水力の状態は入口の温度の一様な状態（流路のない位置と、
+    /// 熱水力の解の前に使う）
     pub fn at(&self, boron: f64) -> State {
+        let (moderator, fuel) = match self.temperatures {
+            Temperatures::Uniform { moderator, fuel } => (moderator, fuel),
+            Temperatures::Inlet(t) => (t, t),
+        };
         State {
             boron,
             b10: self.b10,
-            moderator: self.moderator,
-            fuel: self.fuel,
+            moderator,
+            fuel,
             burnup: self.burnup,
         }
     }
@@ -1613,6 +1790,11 @@ impl Layout {
         Self::build(case, cycle, plant, inventory, None)
     }
 
+    /// ケースの熱水力（ADR-0229）
+    pub fn thermal(&self) -> Option<&ThermalHydraulics> {
+        self.inputs.case.thermal.as_ref()
+    }
+
     /// サイクルの `restart`（ADR-0220）
     pub fn restart(&self) -> Option<&RestartInput> {
         self.inputs.cycle.restart.as_ref()
@@ -1855,7 +2037,9 @@ impl Layout {
                             RodState::Out | RodState::Cut => None,
                         },
                         cut: *state == RodState::Cut,
-                        node: (case.depletion.is_some() && !is_reflector).then_some(site),
+                        node: ((case.depletion.is_some() || case.thermal.is_some())
+                            && !is_reflector)
+                            .then_some(site),
                     };
                     *table_index.entry(key.clone()).or_insert_with(|| {
                         tables.push(key);

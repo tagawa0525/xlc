@@ -10,6 +10,9 @@
 //! <固有値計算の回数>` の行を出し（探索の状態は、点で求めたホウ素濃度と探索の回数。ADR-0191）、燃焼の履歴をケースの `history` の
 //! ファイルに書く。サイクルが前のサイクルの燃焼の履歴（`restart`）を指せば、その最後の点から集合体の状態を引き継ぐ（ADR-0220）。
 //!
+//! 熱水力のケース（`[thermal-hydraulics]`。ADR-0229）は、状態ごとに繰り返しの回数、燃料の温度、流路の出口の温度と、層ごとの減速材と燃料の
+//! 温度を `thermal-hydraulics` の行から出す。
+//!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
@@ -30,6 +33,7 @@ use xlc_core::depletion::{CoreHistory, deplete};
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{axial_rows, core_rows, reconstruct};
+use xlc_core::thermal::ThermalReport;
 use xlc_depletion::chain::Chain;
 use xlc_format::pins::{AxialPinPowers, PinPowers};
 use xlc_format::table::Table;
@@ -177,6 +181,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         );
                     }
                     report(&layout, &s.problem, &s.solution);
+                    if let Some(thermal) = &s.thermal {
+                        report_thermal(&layout, thermal);
+                    }
                     write_pin_powers(&case, &s.problem, &s.solution)?;
                 }
                 Err(e) => errors.push(format!(
@@ -247,6 +254,62 @@ fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
         }
     }
     tracing::info!(iterations = solution.iterations, "eigenvalue");
+}
+
+/// 熱水力の繰り返しの解（ADR-0229）を標準出力に出す: 回数と最後の変化、燃料の温度の体積平均と最大、減速材の密度の内挿の差の最大、
+/// 流路ごとのエンタルピーの上昇と出口の温度、層ごとの流路のノードの減速材と燃料の温度の平均
+fn report_thermal(layout: &Layout, t: &ThermalReport) {
+    println!(
+        "thermal-hydraulics iterations {} change {:.3e}",
+        t.iterations, t.change
+    );
+    println!(
+        "fuel temperature volume average {:.4} K max {:.4} K",
+        t.fuel_average, t.fuel_max
+    );
+    println!(
+        "moderator density interpolation error max {:.3e} g/cc",
+        t.density_error
+    );
+    println!(
+        "channel outlets (assembly position x y from the -x -y corner: rise (kJ/kg), outlet (K))"
+    );
+    for c in &t.channels {
+        println!(
+            "{} {} {:.6} {:.6}",
+            c.position[0], c.position[1], c.rise, c.outlet
+        );
+    }
+    // 層ごとの平均（流路のノードの単純平均。燃料の温度は核分裂のあるノードだけ）
+    println!(
+        "thermal layers (bottom first: z from, z to (cm), moderator (K), fuel (K) or - without fission)"
+    );
+    let dz = &layout.mesh.dz;
+    let mut layers = vec![(0.0, 0, 0.0, 0); dz.len()];
+    for c in &t.channels {
+        for &site in &c.sites {
+            let [_, _, z] = layout.mesh.position(site);
+            let Some(n) = t.nodes[site] else { continue };
+            layers[z].0 += n.moderator;
+            layers[z].1 += 1;
+            if t.powers[site] > 0.0 {
+                layers[z].2 += n.fuel;
+                layers[z].3 += 1;
+            }
+        }
+    }
+    let mut z = 0.0;
+    for ((moderator, m, fuel, f), dz) in layers.iter().zip(dz) {
+        if *m > 0 {
+            let fuel = if *f > 0 {
+                format!("{:.4}", fuel / *f as f64)
+            } else {
+                "-".into()
+            };
+            println!("{z:.6} {:.6} {:.4} {fuel}", z + dz, moderator / *m as f64);
+        }
+        z += dz;
+    }
 }
 
 /// 再構成したピン出力（ADR-0096）を、ケースが指定していれば書く。全体で積分したものと層ごとのもの
