@@ -1,0 +1,219 @@
+2026-11-06T17:31:18.476771Z  INFO core: thread pool threads=1 from="input"
+2026-11-06T17:31:18.564368Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=19.6ms time.idle=2.22µs
+2026-11-06T17:31:18.568704Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=4.30ms time.idle=1.03µs
+2026-11-06T17:31:18.568709Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=10 k=1.0601061780881789
+2026-11-06T17:31:18.571741Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=270ns
+2026-11-06T17:31:18.617492Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=1.04µs
+2026-11-06T17:31:18.619701Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=2.18ms time.idle=781ns
+2026-11-06T17:31:18.619707Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=5 k=1.1576689683414851
+2026-11-06T17:31:18.622684Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=2.98ms time.idle=171ns
+2026-11-06T17:31:18.668423Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.0ms time.idle=701ns
+2026-11-06T17:31:18.670211Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=1.77ms time.idle=491ns
+2026-11-06T17:31:18.670215Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=4 k=1.1634202615243927
+2026-11-06T17:31:18.673188Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=2.97ms time.idle=520ns
+2026-11-06T17:31:18.718985Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=962ns
+2026-11-06T17:31:18.811945Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=92.9ms time.idle=1.09µs
+2026-11-06T17:31:18.811952Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=218 k=1.1757717979870146
+2026-11-06T17:31:18.814977Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.02ms time.idle=241ns
+2026-11-06T17:31:18.860876Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=1.14µs
+2026-11-06T17:31:18.909874Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=49.0ms time.idle=961ns
+2026-11-06T17:31:18.909880Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=115 k=1.1825279444157177
+2026-11-06T17:31:18.912913Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=271ns
+2026-11-06T17:31:18.958750Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=1.18µs
+2026-11-06T17:31:19.004736Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=46.0ms time.idle=982ns
+2026-11-06T17:31:19.004743Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=108 k=1.1857455085392052
+2026-11-06T17:31:19.007759Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.02ms time.idle=331ns
+2026-11-06T17:31:19.053483Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.9ms time.idle=912ns
+2026-11-06T17:31:19.121305Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=67.8ms time.idle=611ns
+2026-11-06T17:31:19.121312Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=159 k=1.1875061998912486
+2026-11-06T17:31:19.124358Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.05ms time.idle=310ns
+2026-11-06T17:31:19.170465Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.0ms time.idle=1.06µs
+2026-11-06T17:31:19.263526Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=93.0ms time.idle=821ns
+2026-11-06T17:31:19.263537Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=218 k=1.1885007060148225
+2026-11-06T17:31:19.266568Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=510ns
+2026-11-06T17:31:19.311249Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.22µs
+2026-11-06T17:31:19.361637Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=50.4ms time.idle=1.02µs
+2026-11-06T17:31:19.361662Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=118 k=1.1890688833926435
+2026-11-06T17:31:19.364704Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.04ms time.idle=762ns
+2026-11-06T17:31:19.409162Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.1ms time.idle=2.63µs
+2026-11-06T17:31:19.512873Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=104ms time.idle=882ns
+2026-11-06T17:31:19.512883Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=243 k=1.1894248584710065
+2026-11-06T17:31:19.515918Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.04ms time.idle=692ns
+2026-11-06T17:31:19.560560Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=872ns
+2026-11-06T17:31:19.636634Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=76.0ms time.idle=591ns
+2026-11-06T17:31:19.636643Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=178 k=1.1896482237051293
+2026-11-06T17:31:19.639698Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.06ms time.idle=581ns
+2026-11-06T17:31:19.684506Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.56µs
+2026-11-06T17:31:19.722562Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=38.0ms time.idle=1.16µs
+2026-11-06T17:31:19.722569Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=89 k=1.189787901527621
+2026-11-06T17:31:19.725593Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.02ms time.idle=271ns
+2026-11-06T17:31:19.770196Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.3ms time.idle=1.19µs
+2026-11-06T17:31:19.799268Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=29.0ms time.idle=721ns
+2026-11-06T17:31:19.799275Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=68 k=1.189877789875149
+2026-11-06T17:31:19.802289Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=310ns
+2026-11-06T17:31:19.847094Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.5ms time.idle=1.10µs
+2026-11-06T17:31:19.872868Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=25.8ms time.idle=670ns
+2026-11-06T17:31:19.872879Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=60 k=1.1899377118421564
+2026-11-06T17:31:19.875885Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=510ns
+2026-11-06T17:31:19.920765Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.6ms time.idle=1.19µs
+2026-11-06T17:31:19.921703Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=918µs time.idle=771ns
+2026-11-06T17:31:19.921708Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=2 k=1.189954099386668
+2026-11-06T17:31:19.924715Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=220ns
+2026-11-06T17:31:19.969319Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=932ns
+2026-11-06T17:31:20.028400Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=59.1ms time.idle=691ns
+2026-11-06T17:31:20.028408Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=138 k=1.1899825390775094
+2026-11-06T17:31:20.031439Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=470ns
+2026-11-06T17:31:20.076091Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.36µs
+2026-11-06T17:31:20.077881Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=1.76ms time.idle=571ns
+2026-11-06T17:31:20.077886Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=4 k=1.18999912092478
+2026-11-06T17:31:20.080939Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.05ms time.idle=280ns
+2026-11-06T17:31:20.125465Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=952ns
+2026-11-06T17:31:20.169477Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=44.0ms time.idle=590ns
+2026-11-06T17:31:20.169482Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=103 k=1.1900146138246848
+2026-11-06T17:31:20.172489Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=240ns
+2026-11-06T17:31:20.217109Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.15µs
+2026-11-06T17:31:20.218896Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=1.77ms time.idle=762ns
+2026-11-06T17:31:20.218900Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=4 k=1.1900269977329232
+2026-11-06T17:31:20.221909Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=251ns
+2026-11-06T17:31:20.266461Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=701ns
+2026-11-06T17:31:20.312586Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=46.1ms time.idle=681ns
+2026-11-06T17:31:20.312593Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=108 k=1.1900358358682188
+2026-11-06T17:31:20.315589Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.00ms time.idle=390ns
+2026-11-06T17:31:20.360108Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.3ms time.idle=641ns
+2026-11-06T17:31:20.390464Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=30.3ms time.idle=502ns
+2026-11-06T17:31:20.390469Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=71 k=1.19004808081075
+2026-11-06T17:31:20.393479Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=391ns
+2026-11-06T17:31:20.438180Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.5ms time.idle=1.27µs
+2026-11-06T17:31:20.486428Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=48.2ms time.idle=932ns
+2026-11-06T17:31:20.486434Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=113 k=1.1900571329955132
+2026-11-06T17:31:20.489467Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=360ns
+2026-11-06T17:31:20.533978Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.3ms time.idle=1.53µs
+2026-11-06T17:31:20.573692Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=39.7ms time.idle=621ns
+2026-11-06T17:31:20.573698Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=93 k=1.1900630839203512
+2026-11-06T17:31:20.576710Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=311ns
+2026-11-06T17:31:20.621479Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.6ms time.idle=1.60µs
+2026-11-06T17:31:20.664602Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=43.1ms time.idle=661ns
+2026-11-06T17:31:20.664610Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=101 k=1.1900671566310148
+2026-11-06T17:31:20.667625Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=781ns
+2026-11-06T17:31:20.712380Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.05µs
+2026-11-06T17:31:20.758876Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=46.5ms time.idle=711ns
+2026-11-06T17:31:20.758885Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=109 k=1.190069918723913
+2026-11-06T17:31:20.761899Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.01ms time.idle=460ns
+2026-11-06T17:31:20.806327Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.3ms time.idle=671ns
+2026-11-06T17:31:20.854582Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=48.2ms time.idle=892ns
+2026-11-06T17:31:20.854590Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=113 k=1.1900717767520996
+2026-11-06T17:31:20.857606Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.02ms time.idle=241ns
+2026-11-06T17:31:20.903164Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.3ms time.idle=902ns
+2026-11-06T17:31:20.953157Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=50.0ms time.idle=1.14µs
+2026-11-06T17:31:20.953172Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=117 k=1.190073022962824
+2026-11-06T17:31:20.956331Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.16ms time.idle=1.01µs
+2026-11-06T17:31:21.002275Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.3ms time.idle=2.07µs
+2026-11-06T17:31:21.053603Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=51.3ms time.idle=1.36µs
+2026-11-06T17:31:21.053617Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=120 k=1.1900738523441659
+2026-11-06T17:31:21.056804Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.19ms time.idle=1.04µs
+2026-11-06T17:31:21.102459Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=1.31µs
+2026-11-06T17:31:21.155139Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=52.7ms time.idle=1.36µs
+2026-11-06T17:31:21.155152Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=123 k=1.190074400370447
+2026-11-06T17:31:21.158320Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.17ms time.idle=1.05µs
+2026-11-06T17:31:21.203284Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.6ms time.idle=1.05µs
+2026-11-06T17:31:21.258167Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=54.9ms time.idle=2.42µs
+2026-11-06T17:31:21.258191Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=127 k=1.1900747595384535
+2026-11-06T17:31:21.261557Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.37ms time.idle=1.51µs
+2026-11-06T17:31:21.309934Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=18.7ms time.idle=2.23µs
+2026-11-06T17:31:21.368531Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=58.6ms time.idle=1.49µs
+2026-11-06T17:31:21.368552Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=140 k=1.1900749952700487
+2026-11-06T17:31:21.371653Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.10ms time.idle=1.10µs
+2026-11-06T17:31:21.415580Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.2ms time.idle=1.61µs
+2026-11-06T17:31:21.470566Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=55.0ms time.idle=781ns
+2026-11-06T17:31:21.470583Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=132 k=1.190075140016471
+2026-11-06T17:31:21.473615Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=1.09µs
+2026-11-06T17:31:21.518541Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.4ms time.idle=1.28µs
+2026-11-06T17:31:21.574549Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=56.0ms time.idle=1.07µs
+2026-11-06T17:31:21.574567Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=134 k=1.1900752313067378
+2026-11-06T17:31:21.577721Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.15ms time.idle=1.05µs
+2026-11-06T17:31:21.623006Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.9ms time.idle=2.17µs
+2026-11-06T17:31:21.679899Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=56.9ms time.idle=681ns
+2026-11-06T17:31:21.679917Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=136 k=1.190075286735254
+2026-11-06T17:31:21.683038Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.12ms time.idle=1.00µs
+2026-11-06T17:31:21.728392Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.7ms time.idle=1.64µs
+2026-11-06T17:31:21.786217Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=57.8ms time.idle=1.13µs
+2026-11-06T17:31:21.786233Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=139 k=1.1900753194167752
+2026-11-06T17:31:21.789267Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=1.08µs
+2026-11-06T17:31:21.835223Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.7ms time.idle=841ns
+2026-11-06T17:31:21.894406Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=59.2ms time.idle=921ns
+2026-11-06T17:31:21.894420Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=142 k=1.1900753377014421
+2026-11-06T17:31:21.897479Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.06ms time.idle=982ns
+2026-11-06T17:31:21.941445Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.3ms time.idle=1.75µs
+2026-11-06T17:31:22.001347Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=59.9ms time.idle=921ns
+2026-11-06T17:31:22.001365Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=144 k=1.1900753470538536
+2026-11-06T17:31:22.004427Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.06ms time.idle=821ns
+2026-11-06T17:31:22.048117Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.2ms time.idle=1.46µs
+2026-11-06T17:31:22.109051Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=60.9ms time.idle=2.36µs
+2026-11-06T17:31:22.109084Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=146 k=1.1900753511260056
+2026-11-06T17:31:22.112140Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.06ms time.idle=1.67µs
+2026-11-06T17:31:22.157093Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.6ms time.idle=1.73µs
+2026-11-06T17:31:22.218289Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.2ms time.idle=1.22µs
+2026-11-06T17:31:22.218305Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=147 k=1.1900753521605287
+2026-11-06T17:31:22.221360Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.05ms time.idle=851ns
+2026-11-06T17:31:22.265656Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.55µs
+2026-11-06T17:31:22.327647Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=62.0ms time.idle=1.34µs
+2026-11-06T17:31:22.327661Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=149 k=1.1900753516391107
+2026-11-06T17:31:22.330655Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=2.99ms time.idle=720ns
+2026-11-06T17:31:22.374433Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.1ms time.idle=1.99µs
+2026-11-06T17:31:22.436079Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.6ms time.idle=1.02µs
+2026-11-06T17:31:22.436097Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=148 k=1.190075350327816
+2026-11-06T17:31:22.439137Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.04ms time.idle=661ns
+2026-11-06T17:31:22.482413Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=15.8ms time.idle=1.41µs
+2026-11-06T17:31:22.543467Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.0ms time.idle=1.33µs
+2026-11-06T17:31:22.543477Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=147 k=1.1900753487854652
+2026-11-06T17:31:22.546447Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=2.97ms time.idle=520ns
+2026-11-06T17:31:22.590501Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.4ms time.idle=1.21µs
+2026-11-06T17:31:22.651756Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.2ms time.idle=1.03µs
+2026-11-06T17:31:22.651771Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=147 k=1.190075347293179
+2026-11-06T17:31:22.654804Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=852ns
+2026-11-06T17:31:22.698567Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.1ms time.idle=1.67µs
+2026-11-06T17:31:22.759297Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=60.7ms time.idle=1.09µs
+2026-11-06T17:31:22.759311Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=146 k=1.190075345959838
+2026-11-06T17:31:22.762474Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.16ms time.idle=1.04µs
+2026-11-06T17:31:22.809053Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.3ms time.idle=941ns
+2026-11-06T17:31:22.869854Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=60.8ms time.idle=812ns
+2026-11-06T17:31:22.869872Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=146 k=1.1900753448470403
+2026-11-06T17:31:22.873214Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.34ms time.idle=1.11µs
+2026-11-06T17:31:22.918316Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.8ms time.idle=591ns
+2026-11-06T17:31:22.979226Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=60.9ms time.idle=1.05µs
+2026-11-06T17:31:22.979239Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=146 k=1.1900753439499356
+2026-11-06T17:31:22.982336Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.10ms time.idle=871ns
+2026-11-06T17:31:23.028001Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=1.09µs
+2026-11-06T17:31:23.088938Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=60.9ms time.idle=1.36µs
+2026-11-06T17:31:23.088953Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=146 k=1.1900753432481186
+2026-11-06T17:31:23.092134Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.18ms time.idle=821ns
+2026-11-06T17:31:23.138393Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.1ms time.idle=1.57µs
+2026-11-06T17:31:23.199679Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.3ms time.idle=1.02µs
+2026-11-06T17:31:23.199692Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=147 k=1.1900753427147435
+2026-11-06T17:31:23.202785Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.09ms time.idle=951ns
+2026-11-06T17:31:23.248072Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=17.0ms time.idle=1.00µs
+2026-11-06T17:31:23.309612Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.5ms time.idle=1.19µs
+2026-11-06T17:31:23.309629Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=147 k=1.19007534231461
+2026-11-06T17:31:23.312787Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.16ms time.idle=1.23µs
+2026-11-06T17:31:23.357775Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.9ms time.idle=2.71µs
+2026-11-06T17:31:23.419687Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=61.9ms time.idle=1.21µs
+2026-11-06T17:31:23.419702Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=148 k=1.1900753420226073
+2026-11-06T17:31:23.422864Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.16ms time.idle=821ns
+2026-11-06T17:31:23.467666Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.9ms time.idle=1.54µs
+2026-11-06T17:31:23.528003Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=60.3ms time.idle=1.30µs
+2026-11-06T17:31:23.528021Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=145 k=1.1900753418090744
+2026-11-06T17:31:23.531246Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.23ms time.idle=891ns
+2026-11-06T17:31:23.576230Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.9ms time.idle=851ns
+2026-11-06T17:31:23.578368Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=2.12ms time.idle=732ns
+2026-11-06T17:31:23.578374Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=5 k=1.190075343587456
+2026-11-06T17:31:23.581409Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=3.03ms time.idle=420ns
+2026-11-06T17:31:23.625926Z TRACE state{name=boc}:nem:homogenize: xlc_core::nem::cmfd: close time.busy=16.8ms time.idle=1.40µs
+2026-11-06T17:31:23.626832Z TRACE state{name=boc}:nem:coarse: xlc_core::nem::cmfd: close time.busy=890µs time.idle=772ns
+2026-11-06T17:31:23.626838Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: coarse-mesh eigenvalue iterations=2 k=1.1900753426850554
+2026-11-06T17:31:23.629819Z TRACE state{name=boc}:nem:scale: xlc_core::nem::cmfd: close time.busy=2.98ms time.idle=412ns
+2026-11-06T17:31:23.633412Z  INFO state{name=boc}:nem{iterations=53 seconds=5.126293951}: xlc_core::nem: close time.busy=5.13s time.idle=461ns
+2026-11-06T17:31:23.633714Z  INFO state{name=boc}:constants: xlc_core::case: close time.busy=298µs time.idle=5.13s
+2026-11-06T17:31:23.633749Z  INFO state{name=boc}: xlc_core::case: close time.busy=5.13s time.idle=2.77µs
+2026-11-06T17:31:23.634530Z  INFO report{state=boc}: core: eigenvalue iterations=53
+2026-11-06T17:31:23.634544Z  INFO report{state=boc}: core: close time.busy=720µs time.idle=4.28µs
+2026-11-06T17:31:23.639402Z  INFO core: core seconds=5.16284543
