@@ -98,6 +98,26 @@ pub enum Axis {
 /// 制御棒の軸の、棒のない状態の値の名前
 pub const ROD_OUT: &str = "out";
 
+/// AME2020 の原子質量 (u)（M. Wang et al., Chinese Phys. C 45, 030003 (2021)。ADR-0106）。lattice のホウ酸水の組成と、core の B-10 の割合の
+/// 換算（ADR-0237）が同じ値を使う
+pub const MASS_B10: f64 = 10.012_936_95;
+pub const MASS_B11: f64 = 11.009_305_36;
+
+/// 同じホウ素の質量（ppm と密度が同じホウ酸水）で、B-10 の原子分率が `b10` の B-10 の個数密度の、`table` のときの個数密度に対する比
+/// (b10 / M(b10)) / (table / M(table))（M はホウ素の平均の原子質量。ADR-0106、ADR-0237）。割合が 0..1 の外か、`table` が 0 ならエラー
+pub fn b10_density_ratio(b10: f64, table: f64) -> Result<f64, String> {
+    for b in [b10, table] {
+        if !(0.0..=1.0).contains(&b) {
+            return Err(format!("invalid B-10 atom fraction {b}"));
+        }
+    }
+    if table == 0.0 {
+        return Err("a table without B-10 (b10 0) has no ppm of the same B-10 density".into());
+    }
+    let per_mass = |b: f64| b / (b * MASS_B10 + (1.0 - b) * MASS_B11);
+    Ok(per_mass(b10) / per_mass(table))
+}
+
 impl Axis {
     /// ホウ素の軸。内挿の変数は ppm（ADR-0097）
     pub fn boron(ppm: Vec<f64>, b10: f64) -> Self {

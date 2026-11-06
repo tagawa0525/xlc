@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{
     Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, RateResidual, Residual, Table,
-    component,
+    b10_density_ratio, component,
 };
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
@@ -28,7 +28,7 @@ use xlc_format::table::{
 pub struct State {
     /// ホウ素濃度 (ppm)
     pub boron: f64,
-    /// ホウ素の中の B-10 の原子分率（テーブルの値と同じであること）
+    /// ホウ素の中の B-10 の原子分率。テーブルの値と違えば、B-10 の個数密度が同じになるテーブルの割合の ppm で引く（ADR-0237）
     pub b10: f64,
     /// 減速材の温度 (K)。密度はテーブルの格子点の組で決まる
     pub moderator: f64,
@@ -536,13 +536,23 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
             Axis::Boron {
                 ppm, b10, transform, ..
             } => {
-                if *b10 != state.b10 {
-                    return Err(format!(
-                        "boron: the table has b10 {b10} and the state {}; they must be exactly equal",
-                        state.b10
-                    ));
-                }
-                bracket("boron", ppm, state.boron, |x| transform.apply(x))?
+                // B-10 の割合がテーブルと違えば、B-10 の個数密度が同じになるテーブルの割合の ppm で引く（ADR-0237）。同じなら換算しない
+                let boron = if *b10 == state.b10 {
+                    state.boron
+                } else {
+                    state.boron
+                        * b10_density_ratio(state.b10, *b10).map_err(|e| format!("boron: {e}"))?
+                };
+                bracket("boron", ppm, boron, |x| transform.apply(x)).map_err(|e| {
+                    if *b10 == state.b10 {
+                        e
+                    } else {
+                        format!(
+                            "{e} ({} ppm at b10 {} is {boron} ppm at the table's b10 {b10}; ADR-0237)",
+                            state.boron, state.b10
+                        )
+                    }
+                })?
             }
             Axis::Moderator {
                 temperature,

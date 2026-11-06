@@ -1762,6 +1762,35 @@ def core_depletion_boron(sources: list[dict]) -> str:
     )
 
 
+def core_b10(sources: list[dict]) -> str:
+    """B-10 の割合がテーブルと違う状態（ADR-0237）: 直接の格子計算の k∞ と、B-10 を変えた効き、ppm を換算した core の差"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-b10":
+        raise TableError("not an xlc-compare-core-b10 summary")
+    rows = [
+        [
+            f"{p['b10'] * 100:g}",
+            f"{p['boron']:g}",
+            burnup_label(p["burnup"]),
+            f"{p['direct']:.6f}",
+            signed(p["effect"], 1),
+            signed(p["converted"], 2),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "B-10 (at%)",
+            "ホウ素 (ppm)",
+            "燃焼度 (MWd/kg)",
+            "直接の k∞",
+            "効き (pcm)",
+            "換算 − 直接 (pcm)",
+        ],
+        rows,
+    )
+
+
 def branch_cross_terms_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-branch-cross-terms":
@@ -3541,6 +3570,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
     "examples/depletion/branches/compare-core-2A-boron.json",
+    "examples/depletion/branches/compare-core-2A-b10.json",
     "examples/depletion/branches/compare-core-2A-micro.json",
     "examples/depletion/branches/compare-core-2A-partial-rods.json",
     "examples/depletion/branches/compare-core-2A-cycle-power.json",
@@ -4026,6 +4056,10 @@ TABLES = {
     "depletion-2a-core-boron": (
         ["examples/depletion/branches/compare-core-2A-boron.json"],
         core_depletion_boron,
+    ),
+    "depletion-2a-core-b10": (
+        ["examples/depletion/branches/compare-core-2A-b10.json"],
+        core_b10,
     ),
     "depletion-2a-core-micro-k": (
         ["examples/depletion/branches/compare-core-2A-micro.json"],

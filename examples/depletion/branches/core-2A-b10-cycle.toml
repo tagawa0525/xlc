@@ -1,0 +1,4 @@
+# B-10 19.9 at% のテーブル（table-2A-b10-199.msgpack）の集合体 1 体を置くサイクル（core-2A-b10.toml）。
+plant = "core-plant.toml"
+inventory = "core-2A-b10-assemblies.toml"
+loading = ["A01"]
