@@ -23,8 +23,10 @@ ADR-0237（B-10 の割合の ppm の換算）の実装のレビューで出た�
 - compare_core_b10.py の `summarize` は、直接の格子計算の点に当たる状態がケースに無いと、`SystemExit` でなく `KeyError` で止まる（nominal の
   状態が無いときも同じ）。`table_k` は、テーブルの軸に無い ppm か燃焼度で `ValueError` で止まる
 - 原子質量の定数の置き場が分かれる: B-10 と B-11 は `xlc_format::table`、H-1 と O-16 は crates/lattice/src/water.rs
-- ADR の番号 0236 は欠番で、docs/adr/README.md の「飛び番は未マージか放棄のブランチの番号」に当たらない。0236 は案 3 を ADR-0237 に畳んで
-  消した番号で、全文は 6ce990f7b の docs/adr/0236-correct-coolant-boron-10-by-micro-cross-sections.md（履歴。blob 611ba069a）
+- ADR の番号 0236 は欠番で、マージの後は docs/adr/README.md の「main に残る飛び番は、未マージや放棄のブランチの番号である。」が成り立たない。
+  0236 は案 3 を ADR-0237 に畳んで消した番号で、全文は履歴の docs/adr/0236-correct-coolant-boron-10-by-micro-cross-sections.md（blob 611ba069a）
+- examples/depletion/compare_core_b10.py の docstring に、状態の名前の例（`b18-p1300-u0` など）が無い
+- core の換算の判定（crates/core/src/state.rs の `state_weights` の `*b10 == state.b10`）を、換算と範囲の外のエラーの注記で 2 回評価する
 
 関係する ADR: なし
 
