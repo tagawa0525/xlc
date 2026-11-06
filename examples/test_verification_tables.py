@@ -4658,6 +4658,19 @@ class DrawCoreTiming(unittest.TestCase):
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
+    def test_the_joint_tables_read_the_power_step_trial(self):
+        # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）
+        for name in (
+            "core-p9-joint-timing-parts",
+            "core-p9-joint-timing-solves",
+            "core-p9-joint-timing-nem",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources, ["examples/depletion/p9-timing/trial-0156/timing-p9.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
 
 def core_guess_summary():
     """compare_core_guess.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
