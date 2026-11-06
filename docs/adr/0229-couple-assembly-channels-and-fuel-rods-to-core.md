@@ -221,7 +221,22 @@ h(p, T) = h_k を温度について解いた温度と、その温度の IF97 の
   減速材の物質の核種（H-1 を除く被覆管、ホウ素、構造材）の温度の上限 600 K を超える。ライブラリに 600 K より高い温度を足すまで、
   Problem 6 の分岐のテーブルは作れない（#0228）
 - ギャップのコンダクタンスと実効温度の式は入力で選ぶ。機構のモデル（案 H2）と、実効温度の格子計算との比較（案 E3）は #0228 に残す
-- 燃焼のケースの熱水力は未実装（#0228）。ADR-0218 の `micro` のないケースの出力の割合（案 M1）は、燃焼の熱水力を入れるときに開く
+- 燃焼のケースの熱水力は、ブランチ feat/0228-depletion-thermal-hydraulics で「燃焼のステップ」のとおりに入れた（crates/core/src/depletion.rs の
+  `deplete`）。決定が決めていない部分は、実装で次のようにした:
+  - 繰り返しの置き場所: 点と中点のすべての解で、繰り返しを固有値計算のすぐ外に置く。探索は各ホウ素濃度で（案 B1）、平衡 Xe の解き直し
+    （ADR-0219。同時の反復を含む）は各組成で繰り返しを収束させる。固有値計算の初期値は ADR-0231 のとおり、同じ点か中点の直前の固有値計算
+    （繰り返しの前の回を含む）から。繰り返しの初めの出力は、直前に収束した繰り返しの位置の出力の割合に、その解の熱出力を掛けたもの
+    （案 B1 の「前の濃度の収束した出力」を、Xe の解き直しと、点と中点の間にも当てる。最初の解だけ一様な出力密度）
+  - 解の熱出力: `power` に、その解が運転している出力の割合を掛ける。中点はステップの割合、点はそこから始まる出力のステップの割合（そこから
+    崩壊だけのステップが始まる点と最後の点は、その前の最も近い出力のステップの割合）。これは平衡 Xe の点の反応率の出力の水準と同じ割合
+    （ADR-0218）で、停止の前後の点も運転の温度で解く
+  - 燃料棒の燃焼度はノードの燃焼度。ADR-0215 の減速材の密度の履歴の変数は、ノードの減速材の温度の、熱水力の圧力の IF97 の密度にし
+    （熱水力の状態は状態の減速材の温度を持たない）、燃焼度 0 のノードの値は燃焼点 0 の解の値、ステップの値 x̄ は中点の解の値にした
+  - 点の固有値計算の回数（燃焼の履歴の `solves`）は、繰り返しのすべての回を数える。燃焼の履歴の状態は `moderator` と `fuel` の代わりに
+    `inlet` を持ち、点はノードの減速材と燃料の温度 `temperatures` を持つ。点と中点ごとに、繰り返しの回数、出口の温度の最大、燃料の温度の
+    平均と最大、密度の内挿の差の最大をログに出す
+- ADR-0218 の `micro` のないケースの出力の割合（案 M1）は、燃焼の熱水力を入れても開いていない（`micro` のない熱水力の燃焼は、どのステップも
+  定格の熱出力で解く）。開くかは #0228 に残す
 - 流路は集合体ごとに閉じ、流量は等分する。全炉心（Problem 7、9）の流量の再配分の効きは確かめていない
 - 減速材の温度の内挿の誤差は格子点の間隔で決まる。600 K までの今のライブラリの温度の点（560、565、570、600 K）では、570〜600 K の間で
   約 0.003 g/cc（案 T1）。ライブラリに点を足すとき、間隔をこの誤差で選ぶか、案 T2 を見直す
@@ -243,12 +258,23 @@ h(p, T) = h_k を温度について解いた温度と、その温度の IF97 の
 - 流路（crates/core/src/thermal/tests.rs）: `assembly_positions_become_channels`（`radial-nodes` = 2 の流路の上昇が出力 / 流量、ノードの
   減速材の温度が中点のエンタルピーの IF97 の温度と 1e-9 K）、`reflector_positions_take_the_inlet_temperature`、
   `rods_take_the_fuel_share_of_the_node_power`、`negative_or_misplaced_powers_are_errors`、`positions_without_fuel_take_no_channel_and_no_flow`
-  （核分裂のある層のない集合体の位置は流路にならず、流量は燃料の 2 体に分ける）
+  （核分裂のある層のない集合体の位置は流路にならず、流量は燃料の 2 体に分ける）、`rods_take_the_burnup_of_their_node`（燃料棒の熱伝導度は
+  ノードの燃焼度で引き、燃焼した UO2 のノードが熱い）
 - 入力（crates/core/src/input/tests.rs）: `parses_thermal_hydraulics_with_inlet_states`、`invalid_thermal_hydraulics_are_errors`、
-  `thermal_hydraulics_need_named_states`（名前つきの状態のないケースはエラー）、`depletion_with_thermal_hydraulics_is_an_error`
+  `thermal_hydraulics_need_named_states`（名前つきの状態のないケースはエラー）、`depletion_takes_thermal_hydraulics_with_inlet_states`
+  （燃焼のケースの熱水力の状態も入口の温度を書く）
 - 繰り返し（crates/core/src/case/tests.rs）: `thermal_feedback_converges_and_balances_the_channel_enthalpy`（2 × 2 の集合体の炉心で
   収束し、位置の出力の和が熱出力と相対 1e-12、流路の上昇が流路の出力 / 流量と相対 1e-12、出口の温度が IF97 の逆と 1e-9 K、解が最後の
   ノードの状態で解き直したものとビットで同じ）、`uniform_node_states_match_the_solve_without_feedback`（すべてのノードを 575 K と 700 K に
   した解の k が、熱水力のない並びの一様な状態の解と 1e-12 以内）、`boron_search_converges_with_thermal_feedback`、
   `thermal_feedback_errors_are_reported`（IF97 と違うテーブルの密度、テーブルの外の減速材の温度、沸騰、入口の温度のない状態）
+- 燃焼のステップ（crates/core/src/depletion/tests.rs）: `thermal_depletion_without_temperature_effects_matches_the_depletion_without_feedback`
+  （定数が温度によらないテーブルでは、出力の割合 0.5 のステップを含む燃焼の k が入口の温度の一様な燃焼と 1e-11、燃焼度と数密度が相対
+  1e-9 以内で、点の固有値計算の回数は 2 以上）、`thermal_depletion_points_heat_the_channels_at_their_operating_power`（点のノードの減速材の
+  温度が、熱出力 × 運転している出力の割合（1、0.5、0.5）を位置の出力の割合で分けた流路の中点のエンタルピーの IF97 の温度と 1e-3 K）、
+  `thermal_depletion_histories_take_the_if97_density_of_the_node_moderator`（燃焼点 0 の減速材の密度の履歴の変数が、ノードの減速材の温度の
+  IF97 の密度とビットで同じ）、`thermal_depletion_converges_with_equilibrium_xenon_and_the_joint_boron_search`（平衡 Xe とホウ素の同時の
+  反復、崩壊だけのステップ、出力の割合 0.8 の燃焼が、既定の固有値計算（CMFD、色の順、前の解からの初期値）で臨界になり、1 と 2 スレッドで
+  ビットで同じ。履歴は状態の入口の温度を持ち、MessagePack を往復する）、`history_variables_average_the_step_values_by_burnup`（燃焼度 0 の
+  まま解く点の履歴の変数は、その解の瞬時の値）
 - Problem 6 は、帰結の 1 項目のとおりライブラリの温度の点が足りず、まだ解いていない（#0228）
