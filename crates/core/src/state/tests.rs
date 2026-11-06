@@ -163,11 +163,11 @@ fn invalid_states_are_errors() {
     assert!(err(Some(&state(1300.0, 590.0, 600.0)), &t).contains("moderator"));
     assert!(err(Some(&state(1300.0, 565.0, 1000.0)), &t).contains("fuel"));
     assert!(err(Some(&state(f64::NAN, 565.0, 600.0)), &t).contains("boron"));
-    // B-10 の割合が違う
+    // B-10 の割合が違い、テーブルが B-10 の微視的断面積を持たない（ADR-0236）
     let mut s = state(1300.0, 565.0, 600.0);
     s.b10 = 0.2;
     assert!(err(Some(&s), &t).contains("b10"));
-    assert!(err(Some(&s), &t).contains("exactly"));
+    assert!(err(Some(&s), &t).contains("ADR-0236"));
     // 状態があるのに軸がない、状態がないのに軸がある
     let mut two = t.clone();
     two.axes.pop();
@@ -1394,4 +1394,118 @@ fn branch_density_differences_are_interpolated_like_the_residuals() {
     let err = interpolate_branch_difference(&rod, &[0.0, 10.0, 20.0, 25.0], &nominal[..4], 17.0)
         .unwrap_err();
     assert!(err.contains("burnup"), "{err}");
+}
+
+/// 冷却材の B-10 の均質化した個数密度と微視的断面積（ADR-0236）。どちらも状態の多重線形な関数
+fn b10_density(ppm: f64, tm: f64, tf: f64) -> f64 {
+    1.0e-8 * ppm * (1.0 - 1.0e-4 * tm) + 1.0e-9 * tf.sqrt()
+}
+
+fn b10_sigma(ppm: f64, tm: f64, tf: f64) -> (Vec<f64>, Vec<Vec<f64>>) {
+    let v = value(ppm, tm, tf);
+    (
+        vec![3.0 * v, 700.0 * v],
+        vec![vec![1.5 * v, 0.2 * v], vec![0.01 * v, 2.5 * v]],
+    )
+}
+
+fn table_with_b10() -> Table {
+    let mut t = table();
+    let mut b = Vec::new();
+    for ppm in PPM {
+        for tm in TM {
+            for tf in TF {
+                let (total, scatter) = b10_sigma(ppm, tm, tf);
+                b.push(xlc_format::table::Boron10 {
+                    density: b10_density(ppm, tm, tf),
+                    total,
+                    scatter,
+                });
+            }
+        }
+    }
+    t.boron10 = Some(b);
+    t
+}
+
+#[test]
+fn differing_b10_adds_the_b10_density_difference_times_its_micro_cross_sections() {
+    let t = table_with_b10();
+    for (ppm, tm, tf) in [
+        (1300.0, 580.0, 900.0),
+        (1000.0, 560.0, 700.0),
+        (1650.0, 551.0, 899.0),
+    ] {
+        let nominal = interpolate(&t, Some(&state(ppm, tm, tf)), None)
+            .unwrap()
+            .remove(0);
+        for b10 in [0.18, 0.30] {
+            let mut s = state(ppm, tm, tf);
+            s.b10 = b10;
+            let got = interpolate(&t, Some(&s), None).unwrap().remove(0);
+            let ratio = xlc_format::table::boron10_density_ratio(b10, 0.199).unwrap();
+            let delta = (ratio - 1.0) * b10_density(ppm, tm, tf);
+            let (total, scatter) = b10_sigma(ppm, tm, tf);
+            let near = |g: f64, w: f64, what: &str| {
+                assert!(
+                    (g - w).abs() <= 1e-12 * w.abs(),
+                    "{ppm} {tm} {tf} {b10} {what}: {g} vs {w}"
+                );
+            };
+            for g in 0..2 {
+                near(got.total[g], nominal.total[g] + delta * total[g], "total");
+                let absorption = total[g] - scatter[g].iter().sum::<f64>();
+                near(
+                    got.absorption[g],
+                    nominal.absorption[g] + delta * absorption,
+                    "absorption",
+                );
+                for h in 0..2 {
+                    near(
+                        got.scatter[g][h],
+                        nominal.scatter[g][h] + delta * scatter[g][h],
+                        "scatter",
+                    );
+                }
+            }
+            // B-10 に値のない項目と、補正しない項目は変えない
+            let unchanged = |f: &FewGroup| {
+                (
+                    f.k_inf,
+                    f.nu_fission.clone(),
+                    f.fission.clone(),
+                    f.chi.clone(),
+                    f.diffusion.clone(),
+                    f.adf.clone(),
+                    f.vacuum_ratio.clone(),
+                    f.pins.clone(),
+                )
+            };
+            assert_eq!(unchanged(&got), unchanged(&nominal));
+        }
+    }
+}
+
+#[test]
+fn table_b10_leaves_the_constants_bit_identical_with_or_without_b10_data() {
+    let s = state(1291.0, 570.0, 565.0);
+    assert_eq!(
+        interpolate(&table_with_b10(), Some(&s), None).unwrap(),
+        interpolate(&table(), Some(&s), None).unwrap()
+    );
+}
+
+#[test]
+fn b10_outside_its_range_is_an_error() {
+    let t = table_with_b10();
+    for b10 in [-0.1, 1.5, f64::NAN] {
+        let mut s = state(1300.0, 565.0, 600.0);
+        s.b10 = b10;
+        assert!(
+            interpolate(&t, Some(&s), None)
+                .unwrap_err()
+                .contains("B-10"),
+            "{b10}"
+        );
+    }
 }
