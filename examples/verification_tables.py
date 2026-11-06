@@ -1347,20 +1347,20 @@ def core_acceleration_summary(sources: list[dict]) -> dict:
     return s
 
 
-def core_acceleration_runs(sources: list[dict]) -> str:
+def core_acceleration_runs(sources: list[dict], label: str = "CMFD（ADR-0232）") -> str:
     """固有値計算の加速（ADR-0232）ごとの、固有値計算の数、外側の反復の回数の和と 1 回の範囲、固有値計算の時間の和と 1 回の範囲、全体の
-    時間と、CMFD / 加速なしの比（compare_core_acceleration.py）"""
+    時間と、CMFD / 加速なしの比（compare_core_acceleration.py）。`label` は CMFD の行の版の名前"""
     s = core_acceleration_summary(sources)
     rows = []
     for name, c in s["cases"].items():
-        for label, key in [("加速なし", "none"), ("CMFD（ADR-0232）", "cmfd")]:
+        for version, key in [("加速なし", "none"), (label, "cmfd")]:
             r = c["runs"][key]
             low, high = r["per_solve"]["iterations"]
             fast, slow = r["per_solve"]["seconds"]
             rows.append(
                 [
                     name,
-                    label,
+                    version,
                     str(r["solves"]),
                     f"{r['iterations']:,}",
                     f"{low:,}〜{high:,}",
@@ -3489,6 +3489,8 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-small-guess.json",
     "examples/depletion/branches/compare-core-small-xenon-boron.json",
     "examples/depletion/branches/compare-core-small-acceleration.json",
+    # 粗メッシュの許容を詰める前の bin/core の CMFD（#0244）
+    "examples/depletion/branches/compare-core-small-acceleration-loose-coarse.json",
     # p9-timing のステージの上流（p5 の格子計算）が changed なので、試行で流した結果（#0235）
     "examples/depletion/p9-timing/trial-0231/timing-p9.json",
     # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）。ステージの出力でない
@@ -4073,6 +4075,18 @@ TABLES = {
     ),
     "depletion-small-core-acceleration-differences": (
         ["examples/depletion/branches/compare-core-small-acceleration.json"],
+        core_acceleration_differences,
+    ),
+    "depletion-small-core-acceleration-loose-coarse-runs": (
+        [
+            "examples/depletion/branches/compare-core-small-acceleration-loose-coarse.json"
+        ],
+        partial(core_acceleration_runs, label="CMFD（#0244 の前）"),
+    ),
+    "depletion-small-core-acceleration-loose-coarse-differences": (
+        [
+            "examples/depletion/branches/compare-core-small-acceleration-loose-coarse.json"
+        ],
         core_acceleration_differences,
     ),
     "core-p9-cmfd-runs": (
