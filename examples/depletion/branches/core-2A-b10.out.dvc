@@ -1,0 +1,5 @@
+outs:
+- md5: b80f3690c84fd3818ce524c4e3c00c05
+  size: 9443
+  hash: md5
+  path: core-2A-b10.out
