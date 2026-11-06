@@ -285,6 +285,7 @@ fn single_reflective_node_direction_stays_bounded() {
         flux_tolerance: 0.0,
         max_iterations: 2000,
         acceleration: Acceleration::None,
+        order: Order::RedBlack,
     };
     match iterate(&mut core, &long, None, None) {
         Err(NemError::NotConverged { k, .. }) => assert!(
@@ -1116,7 +1117,7 @@ fn no_flux_next_to_a_vacuum_face_is_error() {
         let mut state = State::new(6, 2);
         state.flux[0][1] = bad;
         let err = core
-            .sweep_group(&mut state, 1, 1.0)
+            .sweep_group(&mut state, 1, 1.0, Order::RedBlack)
             .unwrap_err()
             .to_string();
         assert!(err.contains("vacuum"), "{err}");
@@ -1131,7 +1132,10 @@ fn no_flux_next_to_a_vacuum_face_is_error() {
     let core = Core::new(&p).unwrap();
     let mut state = State::new(6, 2);
     state.flux[0][1] = 0.0;
-    assert!(core.sweep_group(&mut state, 1, 1.0).is_ok());
+    assert!(
+        core.sweep_group(&mut state, 1, 1.0, Order::RedBlack)
+            .is_ok()
+    );
 }
 
 /// 細かいノードの解を参照（不均質な解）とし、粗いノード（x, y に `blocks` 個ずつの細かいノードの
