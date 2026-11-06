@@ -105,6 +105,10 @@
 //! # 状態が search を持つステップの中点を解くホウ素濃度（ADR-0191）: search（省略したとき。中点でも探す）か start（ステップの
 //! # 初めの点で探した濃度。ADR-0191 の案 S1 との差を測るため。search の状態の efpd のステップがなければエラー）
 //! # midpoint-boron = "start"
+//! # 平衡 Xe でホウ素を探す状態の Xe とホウ素の収束のさせ方（ADR-0219）: joint（省略したとき。最初の解き直しでホウ素を探し、
+//! # その後は固有値計算ごとに Xe とホウ素を同時に進める）か nested（Xe の解き直しのたびにホウ素を探す。比べるため。平衡 Xe で
+//! # ホウ素を探すケースのほかではエラー）
+//! # xenon-boron = "nested"
 //! # ステップ（ADR-0218）: efpd（ステップの終わりの累積の EFPD。それまでの efpd より大きい）か decay-days（崩壊だけのステップの
 //! # 日数。micro のあるケースだけ）のどちらか一方。power は efpd のステップの出力の割合（定格に対する比。省略すると 1。micro の
 //! # あるケースだけ）。state は状態の名前（省略すると前のステップと同じ。状態が 2 つ以上なら最初のステップに書く）
@@ -809,6 +813,8 @@ pub struct DepletionInput {
     pub midpoint_boron: MidpointBoron,
     /// 固有値計算の初期値（ADR-0231）
     pub initial_guess: InitialGuess,
+    /// 平衡 Xe と臨界ホウ素の探索の収束のさせ方（ADR-0219）
+    pub xenon_boron: XenonBoron,
 }
 
 /// `[depletion]` の `midpoint-boron`: 状態が `search` を持つステップの中点を解くホウ素濃度（ADR-0191）
@@ -832,6 +838,17 @@ pub enum InitialGuess {
     Previous,
     /// どの解も平らな初期値（中性子束 1、k = 1）から（前の解からの反復と比べるため）
     Flat,
+}
+
+/// `[depletion]` の `xenon-boron`: 平衡 Xe でホウ素を探す状態の、点と中点の 1 回の解で Xe とホウ素を収束させる形（ADR-0219）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum XenonBoron {
+    /// 最初の解き直しでホウ素を探し、その後は 1 回の固有値計算ごとに Xe とホウ素を同時に進める（ADR-0219 の決定）
+    #[default]
+    Joint,
+    /// Xe の解き直しのたびにホウ素を探し直す（同時の反復と比べるため）
+    Nested,
 }
 
 /// `[depletion]` の `micro`（ADR-0216）。
@@ -883,6 +900,8 @@ struct DepletionEntry {
     midpoint_boron: MidpointBoron,
     #[serde(default)]
     initial_guess: InitialGuess,
+    #[serde(default)]
+    xenon_boron: XenonBoron,
 }
 
 #[derive(Deserialize)]
@@ -1016,6 +1035,7 @@ impl DepletionInput {
                 .transpose()?,
             midpoint_boron: entry.midpoint_boron,
             initial_guess: entry.initial_guess,
+            xenon_boron: entry.xenon_boron,
         })
     }
 
@@ -1052,6 +1072,15 @@ impl DepletionInput {
         {
             return invalid(
                 "depletion: midpoint-boron = \"start\" has no effect; no efpd step solves a state that searches the boron (ADR-0191)",
+            );
+        }
+        // Xe とホウ素の収束のさせ方を選ぶのは、平衡 Xe でホウ素を探す状態を解くケースだけ
+        if self.xenon_boron == XenonBoron::Nested
+            && !(self.micro.as_ref().map(|m| m.xenon) == Some(Xenon::Equilibrium)
+                && states.iter().any(|s| matches!(s.boron, Boron::Search(_))))
+        {
+            return invalid(
+                "depletion: xenon-boron = \"nested\" has no effect; the case does not search the boron with equilibrium xenon (ADR-0219)",
             );
         }
         Ok(())
