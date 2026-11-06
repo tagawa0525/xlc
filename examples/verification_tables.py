@@ -3495,8 +3495,7 @@ GIT_TRACKED = {
     "examples/depletion/p9-timing/trial-0231/timing-p9.json",
     # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）。ステージの出力でない
     "examples/depletion/p9-timing/trial-0156/timing-p9.json",
-    # trial-0156 の入力を CMFD で解いた試行（ADR-0232、#0076）と、trial-0156 との比較。ステージの出力でない
-    "examples/depletion/p9-timing/trial-0076/timing-p9.json",
+    # trial-0156 の入力を、粗メッシュの許容を詰める前の CMFD で解いた試行（ADR-0232、#0076）と、trial-0156 との比較。ステージの出力でない
     "examples/depletion/p9-timing/trial-0076/compare-acceleration.json",
     # 同じ入力を、粗メッシュの許容を詰めた CMFD（#0244）で解いた試行と、trial-0156 との比較。ステージの出力でない
     "examples/depletion/p9-timing/trial-0244/timing-p9.json",
