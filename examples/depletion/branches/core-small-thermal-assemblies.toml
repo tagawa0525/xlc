@@ -1,0 +1,17 @@
+# 熱水力のある core の燃焼（#0228）の小さな炉心の集合体の台帳: core-small-assemblies.toml の 2A のテーブルを、減速材と燃料の
+# 格子点を 565〜600 K に広げたミクロ燃焼のテーブル（branch-2A-micro-thermal-rod-axis.toml）にしたもの。
+[design.2A]
+bounds = [0.0, 365.76]
+layers = ["table-2A-micro-thermal-rod-axis.msgpack"]
+
+[assembly.A01]
+design = "2A"
+[assembly.A02]
+design = "2A"
+[assembly.A03]
+design = "2A"
+[assembly.A04]
+design = "2A"
+# 装荷替え（core-small-reload-cycle.toml）で装荷する新しい集合体
+[assembly.A05]
+design = "2A"

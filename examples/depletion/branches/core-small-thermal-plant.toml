@@ -1,0 +1,34 @@
+# 熱水力のある core の燃焼（#0228）の小さな炉心の形: core-small-plant.toml の径方向の反射体を、熱水力の圧力の IF97 の密度の格子点を
+# 持つ反射体のテーブル（branch-reflector-I-thermal.toml）にしたもの。ほかは同じ（2A の集合体 4 × 4 の 1/4 と I 型の反射体、
+# 軸方向の反射体なし、バンク D）。
+pitch = 21.5
+height = 365.76
+map = [
+  "I@90  I@90  -",
+  "*     *     I",
+  "*     *     I",
+]
+
+# I 型の格子の反射体（燃料が −x）
+[reflector.I]
+bounds = [0.0, 365.76]
+layers = ["table-reflector-I-thermal.msgpack"]
+
+# 制御棒のバンク D を 1/4 の中心側の集合体（全炉心の中央の 4 体）に置く。先端の高さは 0.635 + 1.5875 × ステップ (cm) で、
+# 230 ステップで炉心の上端（抜いた状態）。棒は先端から上がすべて AIC（テーブルの制御棒の軸の値 aic）
+[rods]
+step = 1.5875
+bottom = 0.635
+steps = 230
+top = 365.76
+map = [
+  ".  .  .",
+  ".  .  .",
+  "D  .  .",
+]
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.type.rcca]
+segments = [{ value = "aic", length = 365.76 }]
