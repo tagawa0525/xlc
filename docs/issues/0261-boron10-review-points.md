@@ -23,7 +23,6 @@ ADR-0237（B-10 の割合の ppm の換算）の実装のレビューで出た�
 - compare_core_b10.py の `summarize` は、直接の格子計算の点に当たる状態がケースに無いと、`SystemExit` でなく `KeyError` で止まる（nominal の
   状態が無いときも同じ）。`table_k` は、テーブルの軸に無い ppm か燃焼度で `ValueError` で止まる
 - 原子質量の定数の置き場が分かれる: B-10 と B-11 は `xlc_format::table`、H-1 と O-16 は crates/lattice/src/water.rs
-- ホウ素 0 の状態のときの換算のエラーの文言（親のレビューの指摘。文言の中身は確かめていない）
 - crates/core/src/state/tests.rs の `table_b10_is_not_converted` は、割合が同じときの比が厳密に 1 なので、割合が同じでも換算する実装でも落ちない
 
 関係する ADR: なし

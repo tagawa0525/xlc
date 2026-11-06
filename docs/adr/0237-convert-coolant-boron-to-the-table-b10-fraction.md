@@ -12,7 +12,7 @@ issues: ["#0036"]
 ## 背景
 
 分岐のテーブルは B-10 の割合（ホウ素の中の B-10 の原子分率）をテーブルごとに 1 つ持ち、core はケースの状態の `b10` がテーブルと違えば
-エラーにする（[ADR-0097](0097-tabulate-branches-on-a-full-grid.md) の「決定と理由」）。冷却材の B-10 は (n,α) で減り、補給するホウ酸で一部は
+エラーにしていた（[ADR-0097](0097-tabulate-branches-on-a-full-grid.md) の 2026-11-07 の「## 変更」の前の決定）。冷却材の B-10 は (n,α) で減り、補給するホウ酸で一部は
 戻るので、サイクルの途中の B-10 の割合は天然の値と違う（#0036）。Problem 9 は BOC の B-10 の割合を仕様書の値で置く（docs/plans/m4-depletion.md の
 「冷却材の B-10 の割合の燃焼（#0036）」の項）。濃縮ホウ酸（B-10 を天然より多くしたもの）を使う炉もあるので、天然より大きい割合も扱う（#0036 の起こした時点の
 「懸念」の節。経緯は git）。
@@ -94,7 +94,8 @@ b10 / M(b10) に比例するので、ρ は B-10 の個数密度の比で、ppm'
 - 形式（crates/format/src/table/tests.rs）: `b10_density_ratio_follows_the_atoms_per_boron_mass`
 - core（crates/core/src/state/tests.rs）: `differing_b10_interpolates_at_the_ppm_of_the_same_b10_density`（換算した ppm の状態をテーブルの割合で
   引いたものとビットで同じで、多重線形な量を再現する）、`converted_ppm_outside_the_boron_points_is_an_error`、`table_b10_is_not_converted`、
-  `invalid_states_are_errors`（割合が範囲の外）
+  `invalid_states_are_errors`（割合が範囲の外）、`zero_ppm_of_another_b10_outside_the_boron_points_names_the_conversion`（0 ppm でも、範囲の外の
+  エラーに換算を添える）
 - 測定（examples/depletion/verification.md の「冷却材の B-10 の割合がテーブルと違う状態（2A の集合体 1 体）」。直接の格子計算は c24cb657（分岐点は
   main の 8af94417）、19.9 at% のテーブルは ecdc4d9c、core は ef616079（どちらも分岐点は main の dd5941ee）、比較は d0c5320a（分岐点は 8af94417）、
   2026-11-07）: 2A の燃焼度 0、20、40 MWd/kg、600 と 1300 ppm で、換算した core の k と
