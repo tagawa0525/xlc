@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-06
 requires: [ADR-0003, ADR-0028, ADR-0110, ADR-0231]
 supersedes: []
@@ -148,20 +148,27 @@ current CMFD を解いて更新する（案 M1、C3、F1、U1、J2）。
 - core のステージの結果は、加速の有無で許容の中の丸めの桁が変わる。examples の core のステージは `bin/core` が変わるので、次に読む作業で再実行する
 - 外側の反復の縮小率は加速しても 0.6〜0.85 ほど残る（crates/core の均質な直方体と平板で、許容を詰めた外側の反復 64〜114 回）。CMFD が何もしない 1 つの
   ノードの問題でも 1 群で 21 回かかり、スイープの数と向き、D̃ の大きさ、更新の形を変えても大きく変わらなかった。原因は確かめていない（候補は #0242）
-- 全炉心の 1 回の固有値計算の時間は、粗メッシュの固有値問題（ブロック Gauss-Seidel のべき乗法）が NEM のスイープと同じ程度を占める。Wielandt のシフトや
-  Krylov 法などの解き方は #0242
+- 全炉心の外側の反復 1 回は平均 77 ms で、加速しない反復の 31 ms の約 2.5 倍（「確認」の全炉心）。差は粗メッシュの問題を作って解く時間（ブロック
+  Gauss-Seidel のべき乗法）で、Wielandt のシフトや Krylov 法などの解き方は #0242
+- 全炉心の燃焼で、同じ解の直前の固有値計算から解く固有値計算（ADR-0231）の外側の反復が 201〜384 回になるものがあり（8 回）、平らな初期値から解く
+  点と中点の解の最初の固有値計算（燃焼点 0 のほかは 49〜52 回）より多い。CMFD の下での ADR-0231 の初期値の利得は確かめていない（#0242）
 - 強い吸収体（Σt h ≈ 1000）のノードでは、CMFD の更新の後の反復でノードの熱群の中性子束が負になり、エラーで止まる（`cmfd_needs_positive_node_fluxes`）。
   入力の `acceleration = "none"` で解ける
 - 燃焼の固有値計算の初期値（ADR-0231）と、Xe とホウ素の同時の反復（ADR-0219）はそのまま使う。前の解から始める固有値計算も加速する
 
 ### 確認
 
-実装のブランチで、測った値と計算のコミットに置き換える。
-
 - `crates/cmfd` のテスト: 1 つのセルの k∞、平板の固有値が密な逆反復と一致、解から始めると数回で止まる、反復の上限、特異なブロック、
   核分裂なし、負の解のエラー
 - `crates/core` のテスト: 加速の有無の k と中性子束が許容の 2 倍の中で一致し、反復が減る（`cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations`。
   反射体と ADF の跳び、外形の面、集合体ほどのノード）、バランスと面の連続（`cmfd_keeps_the_balance_and_face_currents`）、前の解からの反復
-  （`cmfd_starts_from_a_nearby_solution`）、負の中性子束のエラー、燃焼の点の一致（`cmfd_keeps_the_unaccelerated_points`）、入力
-  （`eigenvalue_solves_may_go_unaccelerated`）
-- 小さな炉心と全炉心の燃焼の、加速の有無の点の差と、固有値計算ごとの外側の反復と時間（examples/depletion/verification.md）
+  （`cmfd_starts_from_a_nearby_solution`）、負の中性子束のエラー（`cmfd_needs_positive_node_fluxes`）、探索の許容を詰めた燃焼の点の一致
+  （`cmfd_keeps_the_unaccelerated_points`）、入力（`eigenvalue_solves_may_go_unaccelerated`）
+- 小さな炉心（examples/depletion/verification.md の「固有値計算の CMFD（小さな炉心と全炉心）」の「小さな炉心」。fe80c6ee5、`bin/core` md5 3ca5ed51、手元の
+  目安、2026-11-06）: 外側の反復の和は Xe を時間で追う探索の分割 1 で 226,775 回から 8,076 回（0.036 倍）、平衡 Xe の分割 1 で 545,060 回から 16,002 回
+  （0.029 倍）、固有値計算の時間は 57.3 s から 4.3 s、134.9 s から 9.0 s。点と中点の k の差は最大 3.1e-9 と 8.6e-8、ホウ素の差は最大 1.0e-3 ppm と
+  7.6e-4 ppm（探索の許容の中）。加速しない燃焼の履歴は、CMFD の前の `bin/core` の履歴とバイトで同じ
+- 全炉心（同じ節の「全炉心（Problem 9 の形）」。77a720cd6、Slurm 704 の timed、elapsed 00:06:15、2026-11-06）: Slurm 703（加速なし、elapsed 01:17:45）の
+  同じ入力と比べ、全体 4,664.7 s から 374.2 s（0.080 倍）、外側の反復の和 151,099 回から 4,638 回、固有値計算 1 回の外側の反復 888〜5,674 回から
+  27〜384 回。点と中点の k の差は最大 1.4e-8、ホウ素の差は最大 1.4e-4 ppm、燃焼度と出力の割合の相対差は最大 6.7e-8 と 1.9e-7
+- `xlc-cmfd` に置いた build のステージで、`bin/xs`、`bin/lattice`、`bin/chain` の md5 は main（e46b8639 の dvc.lock）と同じ（a7e474e26 の dvc.lock）

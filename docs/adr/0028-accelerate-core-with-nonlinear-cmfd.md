@@ -23,8 +23,11 @@ requires: []
 
 ## 確認
 
-まだ実装していない（M3）。実装したら、加速の有無で固有値と中性子束が一致し、反復が減ることをテストで確かめる。
+[ADR-0232](0232-accelerate-nem-with-node-cmfd.md) で実装した。加速の有無で固有値と中性子束が許容の 2 倍の中で一致し、反復が減ることは
+`cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations`（crates/core）が確かめる。
 
 ## 帰結
 
-演算子と固有値の反復は分けておく（[ADR-0037](0037-separate-operators-from-iterations.md)）。
+演算子と固有値の反復は分けておく（[ADR-0037](0037-separate-operators-from-iterations.md)）。粗メッシュの単位、補正、ADF と外周、粗メッシュの固有値問題と
+許容、既定値、lattice との共有は [ADR-0232](0232-accelerate-nem-with-node-cmfd.md) で決めた。粗メッシュのソルバは共通のクレート `xlc-cmfd` に置き、lattice は
+次に lattice の実行ファイルが変わる作業で移す（#0241）。
