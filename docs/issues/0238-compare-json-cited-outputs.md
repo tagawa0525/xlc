@@ -61,6 +61,13 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
     「帰結」の棚卸しの行と、1 の数（main d8eb8a668 で数えたもの）は、棚卸しのときに今の main で数え直す
 15. main の `examples/depletion/p9-timing/trial-0156/.gitignore` の注は、隣に `core-p9.msgpack.dvc` があるのに「追跡しない」と書く
     （このブランチは `trial-0231/.gitignore` の注だけを直した）
+16. 1 の例の「main の作業ツリーに `.msgpack` が無い（`.toml` だけ）」は main d8eb8a668 の時点のもので、2026-11-07（main afd692dda）
+    には `core-small-search-1.msgpack` と `core-small-equilibrium-1.msgpack`（別の版。11）がある。`.toml` だけなのは `-flat-1` の 2 件
+17. 11 は `compare-core-small-guess.json` が引く `.msgpack` だけを挙げ、同じ JSON が md5 で引くログ 4 件（`core-small-search-flat-1.log`
+    e1794956 など）を挙げていない（2 の境が決まるまで、棚卸しに入れるかは決めていない）
+18. 2026-11-07 の経緯の行は 13〜15 を足したことだけを書き、3 と 11 を直したこと（135a705c6）を書かない
+19. 15 の `trial-0156/.gitignore` の注は、`trial-0076` と `trial-0244` の `compare-acceleration.json` が `trial-0156/core-p9.msgpack` を
+    md5 で引くことも書かない（9 の `trial-0231` と同じ抜け）
 
 ## 完了の条件
 
@@ -70,4 +77,4 @@ ADR-0222 の「## 変更」）。4 は #0209 で扱う。
 ## 経緯
 
 - 2026-11-06: ブランチ docs/0222-compare-json-generated のレビューの 1 周目の指摘から起こし、2 周目の指摘（8〜10）と 3 周目の指摘（11、12）を足した
-- 2026-11-07: 記録の周の後の例外の周の指摘（13〜15）を足した
+- 2026-11-07: 記録の周の後の例外の周の指摘で 3 と 11 を直し、直さない指摘（13〜15）を足した。例外の 2 周目の指摘（16〜19）を足した
