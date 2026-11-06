@@ -238,8 +238,9 @@ fn uniform_cores_burn_at_the_specific_power() {
             boron: Some(1200.0),
             search: None,
             b10: 0.199,
-            moderator: 565.0,
-            fuel: 565.0,
+            moderator: Some(565.0),
+            fuel: Some(565.0),
+            inlet: None,
             banks: Default::default(),
         }
     );
@@ -2903,6 +2904,8 @@ fn history_variables_average_the_step_values_by_burnup() {
     assert!((h[0] - expected).abs() <= 1.0e-15, "{h:?} vs {expected}");
     // 燃焼度が進まなければ（崩壊だけのステップ）、そのまま
     assert_eq!(advance_history(&[0.7], 12.0, 12.0, &[0.661], 1.0), [0.7]);
+    // 燃焼度 0 のまま解く点は、その解の瞬時の値（熱水力のノードの状態は解くたびに変わる）
+    assert_eq!(advance_history(&[0.743], 0.0, 0.0, &[0.661], 1.0), [0.661]);
 }
 
 #[test]
@@ -3454,4 +3457,276 @@ fn red_black_order_keeps_the_lexicographic_points() {
             assert!((x - y).abs() <= flux * y.abs(), "{at}: density {x} vs {y}");
         }
     }
+}
+
+// 熱水力のある燃焼（ADR-0229 の燃焼のステップ）
+
+use crate::thermal::water;
+
+/// 熱水力の圧力 (MPa)
+const PRESSURE: f64 = 15.5132;
+const HOT_TM: [f64; 3] = [560.0, 580.0, 600.0];
+const HOT_TF: [f64; 3] = [560.0, 900.0, 2500.0];
+
+/// 4 体の熱出力は 40 W/g × 400 g/cm × 20 cm × 4 = 1.28 MW（燃焼度の定格の出力密度と同じ）。集合体あたり 2.5 kg/s（入口 565 K から
+/// 出口は約 588 K）。264 本の棒の 10 cm の層の線出力は約 5.9 kW/m
+const THERMAL: &str = r#"
+[thermal-hydraulics]
+power = 1.28
+flow = 10.0
+pressure = 15.5132
+fuel-heat-fraction = 0.974
+effective-temperature = "volume-average"
+rod = { pellet-radius = 0.4096, clad-inner-radius = 0.418, clad-outer-radius = 0.475, pellet-density = 10.257, gap-conductance = 1.0e4, rods = 264 }
+channel = { flow-area = 7.15, wetted-perimeter = 26.0 }
+"#;
+
+/// 燃焼の熱出力 (W) と流路あたりの流量 (kg/s)
+const THERMAL_POWER: f64 = 1.28e6;
+const CHANNEL_FLOW: f64 = 2.5;
+
+/// `CASE` を、Xe のチェーンでミクロ燃焼（`micro` の `xenon` を `xenon`）させ、ステップを `steps` にしたもの
+fn hot_case(xenon: &str, steps: &str) -> String {
+    CASE.replace(
+        "[depletion]",
+        &format!("[depletion]\nmicro = {{ chain = \"chain.msgpack\", xenon = \"{xenon}\" }}"),
+    )
+    .replace(
+        "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+        steps,
+    )
+}
+
+/// ケースの状態を入口の温度 565 K にして、熱水力を足したもの
+fn thermal_case(case: &str) -> String {
+    let case = case.replace("moderator = 565\nfuel = 565\n", "inlet = 565\n");
+    format!("{case}{THERMAL}")
+}
+
+/// `few` の定数に、減速材の温度 `tm` で減る減速と、燃料の温度 `tf` で増える速群の吸収を足す（`feedback` のときだけ）
+fn hot_few(fissile: f64, burnup: f64, ppm: f64, tm: f64, tf: f64, feedback: bool) -> FewGroup {
+    let mut f = few(fissile, burnup, ppm, WORTH);
+    if feedback {
+        f.absorption[0] += 1.0e-6 * (tf - 565.0);
+        f.scatter[0][1] = 0.02 - 1.0e-5 * (tm - 565.0);
+        f.total[0] = f.absorption[0] + 0.5 + f.scatter[0][1];
+    }
+    f
+}
+
+/// 減速材の軸の密度を熱水力の圧力の IF97 の密度（g/cc、小数 5 桁）にした、燃焼度の軸を持つテーブル
+fn hot_table(fissile: f64, heavy_metal: f64, feedback: bool) -> Table {
+    let density: Vec<f64> = HOT_TM
+        .iter()
+        .map(|&t| (water::region_one(PRESSURE, t).unwrap().density / 1000.0 * 1e5).round() / 1e5)
+        .collect();
+    let mut states = Vec::new();
+    for burnup in BURNUP {
+        for ppm in PPM {
+            for tm in HOT_TM {
+                for tf in HOT_TF {
+                    states.push(hot_few(fissile, burnup, ppm, tm, tf, feedback));
+                }
+            }
+        }
+    }
+    let mut table = Table {
+        points: Vec::new(),
+        axes: vec![
+            Axis::Burnup {
+                points: BURNUP.to_vec(),
+            },
+            Axis::boron(PPM.to_vec(), 0.199),
+            Axis::moderator(HOT_TM.to_vec(), density),
+            Axis::fuel(HOT_TF.to_vec()),
+        ],
+        split: 1,
+        states,
+        heavy_metal: Some(heavy_metal),
+        micro: None,
+        histories: Vec::new(),
+    };
+    table.points = product_points(&table.axes);
+    with_xenon(table)
+}
+
+/// `case` を装荷 `cycle` の炉心で、`hot_table`（A は核分裂 1.0、B は 0.8。重金属は A が 400、B が 380 g/cm）と Xe のチェーンで燃焼
+/// させる
+fn hot_run(
+    case: &str,
+    cycle: &str,
+    feedback: bool,
+    options: &Options,
+) -> Result<CoreHistory, CaseError> {
+    let base = Path::new("dir");
+    let case = Case::parse(case, base).unwrap();
+    let cycle = Cycle::parse(cycle, base).unwrap();
+    let plant = Plant::parse(PLANT, base).unwrap();
+    let inventory = Inventory::parse(INVENTORY, base).unwrap();
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+    let tables: Vec<Table> = layout
+        .files
+        .iter()
+        .map(|f| {
+            if f.ends_with("a.msgpack") {
+                hot_table(1.0, 400.0, feedback)
+            } else {
+                hot_table(0.8, 380.0, feedback)
+            }
+        })
+        .collect();
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&xenon_chain()),
+        None,
+        options,
+        |_| {},
+    )
+}
+
+#[test]
+fn thermal_depletion_without_temperature_effects_matches_the_depletion_without_feedback() {
+    // 定数が減速材と燃料の温度によらなければ、熱水力の繰り返しは解を変えない: k、燃焼度、数密度は、入口の温度の一様な状態で解いた
+    // 熱水力のない燃焼と、固有値計算の許容の中で同じ（出力の割合 0.5 のステップを含む）
+    let case = hot_case(
+        "tracked",
+        "[{ efpd = 50.0 }, { efpd = 125.0, power = 0.5 }, { efpd = 150.0 }]",
+    );
+    let plain = hot_run(&case, MIXED, false, &tight()).unwrap();
+    let thermal = hot_run(&thermal_case(&case), MIXED, false, &tight()).unwrap();
+    assert_eq!(plain.points.len(), 4);
+    assert_eq!(thermal.points.len(), plain.points.len());
+    for (a, b) in thermal.points.iter().zip(&plain.points) {
+        let at = format!("{} EFPD", b.efpd);
+        assert!((a.k - b.k).abs() <= 1.0e-11, "{at}: k {} vs {}", a.k, b.k);
+        for (x, y) in a.burnups.iter().flatten().zip(b.burnups.iter().flatten()) {
+            assert!((x - y).abs() <= 1.0e-9 * y.abs(), "{at}: burnup {x} vs {y}");
+        }
+        let densities = |h: &CorePoint| h.densities.clone().unwrap();
+        for (x, y) in densities(a)
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(densities(b).iter().flatten().flatten())
+        {
+            assert!(
+                (x - y).abs() <= 1.0e-9 * y.abs(),
+                "{at}: density {x} vs {y}"
+            );
+        }
+        // 熱水力の燃焼の点はノードの温度を持ち、出力の繰り返しの固有値計算をすべて数える
+        assert!(a.temperatures.is_some() && b.temperatures.is_none(), "{at}");
+        assert!(a.solves >= 2 && b.solves == 1, "{at}: {} solves", a.solves);
+    }
+}
+
+#[test]
+fn thermal_depletion_points_heat_the_channels_at_their_operating_power() {
+    // 点は、そこから始まるステップの出力の割合で運転している（最後の点は最後のステップ。ADR-0218 の案 P2）: 熱出力
+    // 1.28 MW × 割合を位置の出力の割合で分け、流路（集合体あたり 2.5 kg/s）のノードの中点のエンタルピーの IF97 の温度が減速材の
+    // 温度（ADR-0229 の燃焼のステップ）
+    let case = thermal_case(&hot_case(
+        "tracked",
+        "[{ efpd = 50.0 }, { efpd = 125.0, power = 0.5 }]",
+    ));
+    let history = hot_run(&case, MIXED, true, &tight()).unwrap();
+    let operating = [1.0, 0.5, 0.5];
+    assert_eq!(history.points.len(), operating.len());
+    let h_in = water::region_one(PRESSURE, 565.0).unwrap().enthalpy;
+    for (point, fraction) in history.points.iter().zip(operating) {
+        let at = format!("{} EFPD", point.efpd);
+        let temperatures = point.temperatures.as_ref().unwrap();
+        assert_eq!(temperatures.len(), 4, "{at}");
+        for (nodes, shares) in temperatures.iter().zip(&point.powers) {
+            let mut h = h_in;
+            for (node, share) in nodes.iter().zip(shares) {
+                // kJ/kg
+                let gain = share * THERMAL_POWER * fraction / CHANNEL_FLOW * 1e-3;
+                let moderator = water::temperature(PRESSURE, h + gain / 2.0).unwrap();
+                // 位置の出力の割合は、温度を求めた出力から繰り返しの許容（1e-5）の分だけ動きうる
+                assert!(
+                    (node[0] - moderator).abs() < 1.0e-3,
+                    "{at}: moderator {} vs {moderator}",
+                    node[0]
+                );
+                assert!(node[1] > node[0] + 10.0, "{at}: fuel {node:?}");
+                h += gain;
+            }
+        }
+        assert!(point.solves >= 2, "{at}: {} solves", point.solves);
+    }
+}
+
+#[test]
+fn thermal_depletion_histories_take_the_if97_density_of_the_node_moderator() {
+    // 減速材の密度の履歴の変数（ADR-0215）は、熱水力のノードの減速材の温度の、熱水力の圧力の IF97 の密度 (g/cc)。燃焼度 0 の値は
+    // 燃焼点 0 の解の瞬時の値。後の点は中点の値の燃焼度で重みを付けた平均で、下のノードの水は上より密で、入口と出口の上限 600 K の
+    // 密度の間
+    let case = thermal_case(&hot_case("tracked", "[{ efpd = 50.0 }, { efpd = 125.0 }]"));
+    let history = hot_run(&case, UNIFORM, true, &tight()).unwrap();
+    let density = |t: f64| water::region_one(PRESSURE, t).unwrap().density / 1000.0;
+    let first = &history.points[0];
+    let temperatures = first.temperatures.as_ref().unwrap();
+    for (h, t) in first
+        .histories
+        .as_ref()
+        .unwrap()
+        .iter()
+        .flatten()
+        .zip(temperatures.iter().flatten())
+    {
+        assert_eq!(h, &[density(t[0]), 0.0]);
+    }
+    for point in &history.points[1..] {
+        for nodes in point.histories.as_ref().unwrap() {
+            assert!(nodes[0][0] > nodes[1][0], "{} EFPD: {nodes:?}", point.efpd);
+            for node in nodes {
+                assert!(
+                    density(600.0) < node[0] && node[0] < density(565.0),
+                    "{} EFPD: {node:?}",
+                    point.efpd
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn thermal_depletion_converges_with_equilibrium_xenon_and_the_joint_boron_search() {
+    // 平衡 Xe とホウ素を 1 つの反復で収束させる燃焼（ADR-0219）で、探索の各ホウ素濃度で熱水力の繰り返しを収束させる（ADR-0229 の
+    // 案 B1）。既定の固有値計算（CMFD、市松の 2 色の順、前の解からの初期値。ADR-0232、ADR-0234、ADR-0231）で、どの点も臨界で、
+    // スレッドの数によらずビットで同じ
+    let case = thermal_case(&searching(
+        &hot_case(
+            "equilibrium",
+            "[{ efpd = 50.0 }, { decay-days = 2.0 }, { efpd = 125.0, power = 0.8 }]",
+        ),
+        1.0e-8,
+    ));
+    let options = Options::default();
+    let on = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| hot_run(&case, MIXED, true, &options).unwrap())
+    };
+    let history = on(1);
+    assert_eq!(on(2), history);
+    assert_eq!(history.points.len(), 4);
+    for point in &history.points {
+        assert!((point.k - 1.0).abs() <= 1.0e-8, "{point:?}");
+        assert!(point.temperatures.is_some());
+    }
+    // 熱水力の状態は入口の温度を書き、減速材と燃料の温度を持たない
+    let state = &history.states["hfp"];
+    assert_eq!(
+        (state.inlet, state.moderator, state.fuel),
+        (Some(565.0), None, None)
+    );
+    let bytes = history.to_msgpack().unwrap();
+    assert_eq!(CoreHistory::from_msgpack(&bytes).unwrap(), history);
 }
