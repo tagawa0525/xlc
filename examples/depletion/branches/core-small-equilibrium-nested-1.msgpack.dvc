@@ -1,0 +1,5 @@
+outs:
+- md5: 0c3828aed68db6e9633cecfca7d7e678
+  size: 312326
+  hash: md5
+  path: core-small-equilibrium-nested-1.msgpack
