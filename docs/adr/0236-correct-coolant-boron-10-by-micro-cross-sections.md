@@ -74,13 +74,13 @@ core が燃焼で追うか）は別に決める（#0036 の「方針の案」の
   定義」の σᵢ,G の式で、燃焼の領域の代わりにホウ酸水の領域で足す（MOC の中性子束 × SPH 因子 × 体積 × 個数密度で重みを付けた B-10 の群定数を、
   N̄ と少数群の中性子束で割る）。B-10 の群定数は、その領域の物質を作ったものと同じ（自己遮蔽した物質は領域の実効断面積と UFG の範囲の移行、
   自己遮蔽の組成にない B-10 は無限希釈）。N̄ が 0 の点（ホウ素 0 ppm）は、ADR-0216 の案 Z1 と同じく領域で 1 として重みを付け、ホウ酸水の
-  体積の割合で割る
+  体積の割合で割る。ホウ酸水の領域のないノード（燃料や構造材だけ）は、個数密度も断面積も 0（補正は 0）
 
 吸収は少数群定数と同じく全断面積から散乱の行の和を引いたもの。B-10 は核分裂しないので、νΣf と Σf の項目を持たない。
 
-lattice は、テーブルがホウ素の軸を持ち、部分ノードに分けず（`split` が 1）、混ぜた物質（ADR-0128）の成分にホウ酸水がないときに書く（どの出力の
-テーブルにも、ノードごとの出力ではノードごとに）。部分ノードに分けたテーブルと、ホウ酸水を混ぜた物質の B-10 は、部分ノードごとの領域と、
-混ぜた物質の中のホウ酸水の分を分けて作る形が要り、使う例がまだないので書かない（#0260）。
+lattice は、テーブルがホウ素の軸を持ち、部分ノードに分けず（`split` が 1）、混ぜた物質（ADR-0128）の成分にホウ酸水がなく、媒質（ADR-0128）が
+ないときに書く（どの出力のテーブルにも、ノードごとの出力ではノードごとに）。部分ノードに分けたテーブルと、ホウ酸水を混ぜた物質と媒質の B-10 は、
+部分ノードごとの領域と、混ぜた物質と媒質の中のホウ酸水の分（媒質の状態はホウ素の軸に従う）を分けて作る形が要り、使う例がまだないので書かない（#0260）。
 
 ### core の補正
 
@@ -102,7 +102,7 @@ ADR-0106 の AME2020 の原子質量）。ppm と密度が同じなら、ホウ�
 ### 帰結
 
 - ADR-0097 の「core の状態と B-10 の割合が違えばエラーにする」を、この補正に置き換える（ADR-0097 の「## 変更」）
-- 部分ノードに分けたテーブルと、ホウ酸水を混ぜた物質を持つ格子のテーブルは `boron10` を持たず、core はそのテーブルで `b10` が違えばエラーにする（#0260）
+- 部分ノードに分けたテーブルと、ホウ酸水を混ぜた物質か媒質を持つ格子のテーブルは `boron10` を持たず、core はそのテーブルで `b10` が違えばエラーにする（#0260）
 - B-10 の割合を core が燃焼で追う形は #0036 に残る。そのときは N̄_c をノードの B-10 の個数密度にし、反応率に `boron10` の吸収を使えるかを
   決める
 - 直接の格子計算と比べた差は、採らなかった案 1 の換算より大きい（「確認」）。補正の形を変えるか（ホウ素の軸の微分で、B-10 の個数密度による
@@ -114,11 +114,12 @@ ADR-0106 の AME2020 の原子質量）。ppm と密度が同じなら、ホウ�
   `boron10_data_need_a_boron_axis_one_sub_node_and_matching_sizes`、`boron10_density_ratio_follows_the_atoms_per_boron_mass`
 - lattice（crates/lattice/src/history/tests.rs）: `coolant_micro_cross_sections_close_the_homogenized_rates_of_the_borated_water`（ホウ酸水の
   すべての核種の Σᵢ σᵢ N̄ᵢ が、少数群定数のうちホウ酸水の分と相対 1e-12 で同じ。状態ごとの自己遮蔽でも、ホウ素の軸の物質を参照から作り直す
-  自己遮蔽でも）、`coolant_micro_cross_sections_without_the_nuclide_weight_the_water_by_volume`（0 ppm の点）。テーブル
+  自己遮蔽でも）、`coolant_micro_cross_sections_without_the_nuclide_weight_the_water_by_volume`（0 ppm の点）、
+  `coolant_micro_data_of_regions_without_the_borated_water_are_zero`。テーブル
   （crates/lattice/tests/rod_branch.rs）: `rod_branches_match_separate_lattices` と `nodes_without_replaced_cells_hold_the_rodless_states`
   （制御棒の値とノードごとのテーブルが、別の入力の格子計算と同じ `boron10` を持つ）、`tables_hold_the_b10_of_the_borated_water_alone`
   （吸収体の棒の B-10 を数えない）、`split_tables_hold_no_b10`、`rod_branches_of_a_slab_use_the_same_medium_state_for_every_value`（ホウ酸水を
-  混ぜた物質のある格子は書かない）
+  混ぜた物質のある格子は書かない）、`lattices_with_media_hold_no_b10`
 - core（crates/core/src/state/tests.rs）: `differing_b10_adds_the_b10_density_difference_times_its_micro_cross_sections`、
   `table_b10_leaves_the_constants_bit_identical_with_or_without_b10_data`、`b10_outside_its_range_is_an_error`、`invalid_states_are_errors`
 - 測定（examples/depletion/verification.md の「冷却材の B-10 の割合がテーブルと違う状態（2A の集合体 1 体）」。格子計算は c044e4bc、core と

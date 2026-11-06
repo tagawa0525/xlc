@@ -4,7 +4,7 @@
 //! 足す。定義はミクロ燃焼の微視的断面積（ADR-0216 の「微視的断面積の項目と定義」）の、燃焼の領域をホウ酸水の領域にしたもの:
 //! N̄ = Σ_r V_r N_r / V、σ_G = Σ_r Σ_{g∈G} V_r μ_r,g φ_r,g N_r s_r,g / (N̄ Φ_G)、Φ_G = Σ_r Σ_{g∈G} V_r φ_r,g（r はノードの領域のうち
 //! ホウ酸水のもの、Φ と V はノードのすべての領域の和、φ は MOC の中性子束、μ は SPH 因子、s はその領域の物質を作った核種の群定数）。
-//! N̄ が 0 なら N_r の代わりに 1 で重みを付け、ホウ酸水の体積の割合で割る（ADR-0216 の案 Z1）。
+//! N̄ が 0 なら N_r の代わりに 1 で重みを付け、ホウ酸水の体積の割合で割る（ADR-0216 の案 Z1）。ホウ酸水の領域がなければ、個数密度も断面積も 0。
 
 use std::collections::HashMap;
 
@@ -102,8 +102,13 @@ impl Coolant<'_> {
             atoms += v * n;
             waters.push((r, n, m));
         }
+        // ホウ酸水のない領域（燃料や構造材だけのノード）は B-10 を持たず、補正は 0
         if waters.is_empty() {
-            bail!("the regions have no borated water of the boron axis");
+            return Ok(Boron10 {
+                density: 0.0,
+                total: vec![0.0; coarse],
+                scatter: vec![vec![0.0; coarse]; coarse],
+            });
         }
         if flux.iter().any(|&f| !(f > 0.0 && f.is_finite())) {
             bail!("the few-group fluxes {flux:?} must be positive");

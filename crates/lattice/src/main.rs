@@ -504,11 +504,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .cloned()
         .collect();
     // 冷却材の B-10 の微視的断面積（ADR-0236）を作るホウ素の軸のホウ酸水。ホウ素の軸のないテーブル、部分ノードに分けた出力、ホウ酸水を
-    // 混ぜた物質のある格子は書かない（部分ノードの領域と、混ぜた物質の中のホウ酸水の分を分けられない。#0260）
+    // 混ぜた物質か媒質（ADR-0128。状態がホウ素の軸に従う）のある格子は書かない（部分ノードの領域と、混ぜた物質と媒質の中のホウ酸水の分を
+    // 分けられない。#0260）
     let coolant_waters: Option<Vec<String>> = match (&input.branches, &input.output) {
         (Some(b), Some(output))
             if b.axes().iter().any(|a| matches!(a, Axis::Boron { .. }))
                 && output.split == 1
+                && input.media.is_empty()
                 && !input.mixtures.iter().any(|m| {
                     b.varied().contains(&m.name)
                         || m.parts.iter().any(|(part, _)| b.varied().contains(part))
