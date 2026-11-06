@@ -80,9 +80,10 @@ default の devShell の中（標準ライブラリだけのツールだが、`-
    - 出るコミットは dvc.lock のコミット（実行したコミットの次）。記録の「計算」の欄に書くのは実行したコミット（下）
    - `dvc add` で追う生成物（ADR-0222）は、`.dvc` を渡す: `python3 examples/record_provenance.py <パス>.dvc...`。outs ごとに
      今の md5 と、`.dvc` の履歴の md5 ごとにそれを入れたコミットと日付が新しい順に出る。同じ名前で作り直した生成物は md5 が
-     版ごとに違うので、記録の「コミット X で出した md5 Y」の Y は、手で `git show` せずにこの出力で X の時点の版を確かめる。
-     `unknown` / `uncommitted` は上と同じく、書かずに原因を直す（`.dvc` をコミットしていない、など）。出るコミットは `.dvc` の
-     コミット（作ったコミットの後）で、生成物の中身が `.dvc` と合うかは見ない
+     版ごとに違う。出るコミットは `.dvc` のコミットで、生成物を作ったコミットの後にある。記録の「コミット X で出した md5 Y」は、
+     この出力で Y の行を探し、そのコミットが X と同じか X より後にあることで確かめる。X の時点の `.dvc`（`git show X:<パス>.dvc`）は、`dvc add` を X より後にコミットしたときは前の版を指すので使わない。
+     `unknown` / `uncommitted` は上と同じく、書かずに原因を直す（`.dvc` をコミットしていない、など）。生成物の中身が `.dvc` と
+     合うかは見ない
 2. **表**: 手で打たない。比較のツールに `--json` があれば、`<!-- table: <名前> -->` 〜 `<!-- /table -->` の目印をつけ、
    `examples/verification_tables.py` の `TABLES` に名前と描く関数を足して、`python3 examples/verification_tables.py
    examples/<問題>/verification.md` で描く。目印の中は丸ごと置き換わるので、脚注は目印の外に書く。`--check` は hook と
