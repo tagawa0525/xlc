@@ -15,7 +15,7 @@ resolution:
 ブランチ perf/0156-xenon-boron-joint（ADR-0219 の Xe とホウ素の同時の反復）に親が回したローカルのレビューの 3 周目で、再現を書けず直さなかった指摘
 （/git-merge の「直す指摘の基準」の non-blocking）。
 
-関係する ADR: ADR-0219
+関係する ADR: なし
 
 1. 「固有値計算の初期値（小さな炉心）」の `compare-core-small-guess.json` が引く `core-small-equilibrium-1.log`（md5 02a10843）は、ADR-0231 の
    ブランチの worktree の後片付けで消えていて（`dvc add` していなかった）、同時の反復のブランチの `core-small-equilibrium-1.log.dvc` が追うのは
@@ -38,4 +38,5 @@ resolution:
 
 ## 経緯
 
-- 2026-11-06: 親の 3 周目（HEAD 33749b7b7）の指摘から起こした。1 周目の指摘は親が直し（#0236 の経緯）、2 周目の指摘も直した
+- 2026-11-06: 親の 3 周目（HEAD 33749b7b7）の指摘から起こした。関係する ADR を「なし」にしたのは、ADR-0219 の `issues` に入れると ADR の変更になり、
+  マージの前のレビューをやり直すため（#0236 と同じ扱い）。1 周目の指摘は親が直し（#0236 の経緯）、2 周目の指摘も直した
