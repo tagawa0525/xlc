@@ -105,7 +105,24 @@ ADR-0106 の AME2020 の原子質量）。ppm と密度が同じなら、ホウ�
 - 部分ノードに分けたテーブルと、ホウ酸水を混ぜた物質を持つ格子のテーブルは `boron10` を持たず、core はそのテーブルで `b10` が違えばエラーにする（#0260）
 - B-10 の割合を core が燃焼で追う形は #0036 に残る。そのときは N̄_c をノードの B-10 の個数密度にし、反応率に `boron10` の吸収を使えるかを
   決める
+- 直接の格子計算と比べた差は、採らなかった案 1 の換算より大きい（「確認」）。補正の形を変えるか（ホウ素の軸の微分で、B-10 の個数密度による
+  ほかの核種の変化も入れる、など）は #0036 に残る
 
 ### 確認
 
-（実装と測定の後に書く）
+- 形式（crates/format/src/table/tests.rs）: `boron10_data_round_trip_bit_exactly_and_are_written_only_when_held`、
+  `boron10_data_need_a_boron_axis_one_sub_node_and_matching_sizes`、`boron10_density_ratio_follows_the_atoms_per_boron_mass`
+- lattice（crates/lattice/src/history/tests.rs）: `coolant_micro_cross_sections_close_the_homogenized_rates_of_the_borated_water`（ホウ酸水の
+  すべての核種の Σᵢ σᵢ N̄ᵢ が、少数群定数のうちホウ酸水の分と相対 1e-12 で同じ。状態ごとの自己遮蔽でも、ホウ素の軸の物質を参照から作り直す
+  自己遮蔽でも）、`coolant_micro_cross_sections_without_the_nuclide_weight_the_water_by_volume`（0 ppm の点）。テーブル
+  （crates/lattice/tests/rod_branch.rs）: `rod_branches_match_separate_lattices` と `nodes_without_replaced_cells_hold_the_rodless_states`
+  （制御棒の値とノードごとのテーブルが、別の入力の格子計算と同じ `boron10` を持つ）、`tables_hold_the_b10_of_the_borated_water_alone`
+  （吸収体の棒の B-10 を数えない）、`split_tables_hold_no_b10`、`rod_branches_of_a_slab_use_the_same_medium_state_for_every_value`（ホウ酸水を
+  混ぜた物質のある格子は書かない）
+- core（crates/core/src/state/tests.rs）: `differing_b10_adds_the_b10_density_difference_times_its_micro_cross_sections`、
+  `table_b10_leaves_the_constants_bit_identical_with_or_without_b10_data`、`b10_outside_its_range_is_an_error`、`invalid_states_are_errors`
+- 測定（examples/depletion/verification.md の「冷却材の B-10 の割合がテーブルと違う状態（2A の集合体 1 体）」。格子計算は c044e4bc、core と
+  比較は 069878b6、2026-11-07）: 2A の燃焼度 0、20、40 MWd/kg、600 と 1300 ppm で、19.9 at% のテーブルを補正した core の k と、直接の格子計算の
+  k∞ の差は、18 at% で −17.641〜+34.929 pcm（B-10 の割合を変えた効きの最大 2.51%）、30 at% で −266.950〜+86.568 pcm（最大 3.64%）。
+  案 1 の ppm の換算は、同じ点で 18 at% が +4.389〜+13.705 pcm（最大 0.99%）、30 at% が −7.532〜+17.490 pcm（最大 0.55%）で、補正より小さい。
+  補正の差は 18 at% と 30 at% で符号が逆で、B-10 の個数密度の差の 1 次の項がある（スペクトルの変化を持たないことが候補で、確かめていない）
