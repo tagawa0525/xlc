@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-06
 requires: []
 supersedes: []
@@ -87,5 +87,6 @@ hook の中の cargo は、claude-hooks の guard-exclusive-slurm（Bash のツ�
 
 ### 確認
 
-- 実装のコミットの上の、ブランチに残さない一時のコミットで、issue の「関係する ADR:」に ADR を足して ADR の `issues` を変えない
-  コミットが止まり、両方を直したコミットが通ることを確かめる
+- 2026-11-06（20c956ff1 の上の、ブランチに残さない一時のコミット）: #0239 の「関係する ADR:」を ADR-0222 にして ADR-0222 の
+  `issues` を変えないコミットは「lists ADR-0222, whose `issues` does not name #0239」で止まった（`git commit -a` でも同じ）。
+  ADR-0222 の `issues` に #0239 を足してステージしないまま残したコミットも止まり（ステージした中身を見る）、ステージすると通った
