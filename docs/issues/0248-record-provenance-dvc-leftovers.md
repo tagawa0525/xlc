@@ -30,7 +30,8 @@ resolution:
   出さない）
 - `uncommitted` の判定は outs の (パス, md5) だけを比べ、docstring の「作業ツリーの `.dvc` の outs が HEAD と違えば今の md5 の
   行に `uncommitted`」より狭い
-- md5 を先頭 8 桁で出すので、ディレクトリの出力の `.dir` の印が出ない（dvc.lock のステージの出力も同じ）
+- md5 を先頭 8 桁で出すので、ディレクトリの出力の `.dir` の印が出ない（dvc.lock のステージの出力も同じ）。スキルの Y の行の
+  確認も先頭 8 桁だけを比べることになり、9 桁目より後だけが違う Y を見分けない
 - `git log -- <名前>` と `git show <コミット>:./<名前>` は名前を pathspec として読むので、`[`、`*`、`?` を含む名前は別のファイルに
   当たる（`--literal-pathspecs` が候補。xlc の生成物の名前には無い）
 - `parse_dvc` と `parse_stage` は手で書いた YAML の読み手で、dvc の書き方ごとに扱いが要る。PyYAML（default の devShell にある）の
