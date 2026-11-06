@@ -1,4 +1,4 @@
-"""compare_core_b10.py の要約（B-10 の割合を変えた状態の core の k と、直接の格子計算の k∞。ADR-0236）。
+"""compare_core_b10.py の要約（B-10 の割合を変えた状態の core の k と、直接の格子計算の k∞。ADR-0237）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_compare_core_b10.py'
 """
@@ -31,22 +31,10 @@ def nominal_k(ppm: float, u: float) -> float:
 
 
 def case_and_out(k_of) -> tuple[dict, str]:
-    """18 at% の 1300 ppm の状態の、3 つの組のケースと、`k_of(名前, 状態)` の k を書いた標準出力"""
+    """18 at% の 1300 ppm の状態と、テーブルの割合の同じ ppm の状態のケースと、`k_of(名前, 状態)` の k を書いた標準出力"""
     states = {}
     for u in [0, 20]:
-        converted = (
-            1300 * compare_core_b10.per_mass(0.18) / compare_core_b10.per_mass(0.199)
-        )
-        states[f"corrected-b180-p1300-u{u}"] = {
-            "boron": 1300.0,
-            "b10": 0.18,
-            "burnup": u,
-        }
-        states[f"converted-b180-p1300-u{u}"] = {
-            "boron": converted,
-            "b10": 0.199,
-            "burnup": u,
-        }
+        states[f"b180-p1300-u{u}"] = {"boron": 1300.0, "b10": 0.18, "burnup": u}
         states[f"nominal-p1300-u{u}"] = {"boron": 1300.0, "b10": 0.199, "burnup": u}
     for s in states.values():
         s.update({"moderator": 565, "fuel": 565})
@@ -63,9 +51,7 @@ class Summary(unittest.TestCase):
 
         def k_of(name: str, s: dict) -> float:
             k = nominal_k(1300.0, s["burnup"])
-            return {"corrected": k + 0.0099, "converted": k + 0.0098, "nominal": k}[
-                name.split("-")[0]
-            ]
+            return k if name.startswith("nominal") else k + 0.0098
 
         case, out = case_and_out(k_of)
         summary = compare_core_b10.summarize(base, case, out, [direct])
@@ -76,12 +62,12 @@ class Summary(unittest.TestCase):
         )
         for p in summary["points"]:
             k = nominal_k(1300.0, p["burnup"])
+            self.assertEqual(
+                set(p), {"b10", "boron", "burnup", "direct", "effect", "converted"}
+            )
             self.assertAlmostEqual(p["direct"], k + 0.01, places=12)
             self.assertAlmostEqual(
                 p["effect"], (1 / k - 1 / (k + 0.01)) * 1e5, places=3
-            )
-            self.assertAlmostEqual(
-                p["corrected"], (1 / (k + 0.01) - 1 / (k + 0.0099)) * 1e5, places=3
             )
             self.assertAlmostEqual(
                 p["converted"], (1 / (k + 0.01) - 1 / (k + 0.0098)) * 1e5, places=3
@@ -95,8 +81,8 @@ class Summary(unittest.TestCase):
             return nominal_k(1300.0, s["burnup"])
 
         for change in [
-            lambda c: c["state"]["corrected-b180-p1300-u0"].update(b10=0.199),
-            lambda c: c["state"]["converted-b180-p1300-u0"].update(boron=1174.0),
+            lambda c: c["state"]["b180-p1300-u0"].update(b10=0.199),
+            lambda c: c["state"]["b180-p1300-u0"].update(boron=1174.0),
             lambda c: c["state"]["nominal-p1300-u20"].update(burnup=0),
             lambda c: c["state"]["nominal-p1300-u20"].update(moderator=580),
         ]:
