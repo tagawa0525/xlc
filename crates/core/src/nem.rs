@@ -152,19 +152,37 @@ impl Default for Options {
             k_tolerance: 1.0e-8,
             flux_tolerance: 1.0e-7,
             max_iterations: 10_000,
-            acceleration: Acceleration::Cmfd,
+            acceleration: Acceleration::Cmfd(CoarseRatios::default()),
             order: Order::RedBlack,
         }
     }
 }
 
 /// 外側の反復の加速（ADR-0232）。収束の判定（`Options` の許容）はどちらも同じで、NEM のスイープによる変化で判定する
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Acceleration {
     /// 加速しない（スイープごとに生成率の比で k を更新する）
     None,
-    /// スイープごとに、ノードを粗メッシュとする CMFD を解き、k とノードの量を更新する（`cmfd`）
-    Cmfd,
+    /// スイープごとに、ノードを粗メッシュとする CMFD を解き、k とノードの量を更新する（`cmfd`）。粗メッシュの固有値問題は
+    /// その比で決めた許容で解く
+    Cmfd(CoarseRatios),
+}
+
+/// 粗メッシュの固有値問題の許容の、NEM の許容（かスイープによる変化）に対する比（ADR-0232）。k と中性子束で別に持つ
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoarseRatios {
+    pub k: f64,
+    pub flux: f64,
+}
+
+impl Default for CoarseRatios {
+    /// ADR-0232 の「## 変更」の 2026-11-06 の比
+    fn default() -> Self {
+        Self {
+            k: 1.0e-2,
+            flux: 1.0e-2,
+        }
+    }
 }
 
 /// スイープと粗メッシュの固有値問題でノードを解く順（ADR-0234）。どちらも収束の判定は同じ
@@ -410,10 +428,10 @@ fn iterate(
                 .fold(0.0, f64::max)
         };
         let mut change = largest_change(&state);
-        if options.acceleration == Acceleration::Cmfd {
+        if let Acceleration::Cmfd(ratios) = options.acceleration {
             // 粗メッシュの問題を解く精度は、スイープによる変化（CMFD の誤差を含まない）で決める。収束の判定は、CMFD の更新を
             // 含めた外側の反復の 1 回による変化で行う（加速した反復の変化の縮小率で残りを見積もる）
-            let tolerances = cmfd::tolerances(options, (new_k - k).abs(), change);
+            let tolerances = cmfd::tolerances(options, ratios, (new_k - k).abs(), change);
             new_k = core
                 .accelerate(&mut state, new_k, &tolerances, options.order)
                 .map_err(|source| NemError::Cmfd { iteration, source })?;
