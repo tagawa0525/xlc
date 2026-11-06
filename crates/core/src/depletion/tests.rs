@@ -9,7 +9,7 @@ use crate::input::{
     BoronSearch, Case, CaseState, Cycle, InitialGuess, Inventory, Layout, MidpointBoron, Plant,
     XenonBoron,
 };
-use crate::nem::{Acceleration, Options};
+use crate::nem::{Acceleration, Options, Order};
 
 const PLANT: &str = r#"
 pitch = 20.0
@@ -3367,4 +3367,91 @@ fn micro_depletion_rates_add_the_rate_linearization_only_where_the_branch_densit
     let with = deplete_with(&|t| shifted(t, 1.5));
     let zero = deplete_with(&|t| shifted(t, 0.0));
     assert_ne!(with.points, zero.points);
+}
+
+/// 平衡 Xe でホウ素を探し、状態を変え、崩壊だけのステップを含む燃焼（`cmfd_keeps_the_unaccelerated_points` と同じ）を `options` で解く
+fn equilibrium_search_run(options: &Options, tolerance: f64) -> CoreHistory {
+    let case = searching(CASE, tolerance).replace(
+        "[depletion]",
+        "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"equilibrium\" }",
+    );
+    let case = case.replace(
+        "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+        "[{ efpd = 50.0 }, { decay-days = 2.0 }, { efpd = 125.0, power = 0.8 }]",
+    );
+    let (layout, tables, case) = core(&case, MIXED, Some(400.0));
+    let tables: Vec<Table> = tables.into_iter().map(with_xenon).collect();
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        Some(&xenon_chain()),
+        None,
+        options,
+        |_| {},
+    )
+    .unwrap()
+}
+
+#[test]
+fn depletion_does_not_depend_on_the_thread_count() {
+    // ADR-0234: 固有値計算を市松の 2 色の順で並列に解いても、燃焼の履歴はスレッドの数によらずビットで同じ
+    let options = Options::default();
+    assert_eq!(options.order, Order::RedBlack);
+    let on = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| equilibrium_search_run(&options, 1.0e-6))
+    };
+    let one = on(1);
+    for threads in [2, 4] {
+        assert_eq!(on(threads), one, "{threads} threads");
+    }
+}
+
+#[test]
+fn red_black_order_keeps_the_lexicographic_points() {
+    // ADR-0234: 市松の 2 色の順で解いた燃焼の点は、直方体の並びの順に解いた燃焼の点と、k は許容の 2 倍、ホウ素、燃焼度、数密度は
+    // 中性子束の許容の 2 倍の相対差の中で一致する（`cmfd_keeps_the_unaccelerated_points` と同じ探索の許容を詰めた燃焼）
+    let options = tight();
+    let red_black = equilibrium_search_run(&options, 1.0e-10);
+    let lexicographic = equilibrium_search_run(
+        &Options {
+            order: Order::Lexicographic,
+            ..options
+        },
+        1.0e-10,
+    );
+    let flux = 2.0 * options.flux_tolerance;
+    assert_eq!(red_black.points.len(), lexicographic.points.len());
+    for (a, b) in red_black.points.iter().zip(&lexicographic.points) {
+        let at = format!("{} EFPD, {} days", b.efpd, b.days);
+        assert!(
+            (a.k - b.k).abs() < 2.0 * options.k_tolerance,
+            "{at}: k {} vs {}",
+            a.k,
+            b.k
+        );
+        assert!(
+            (a.boron - b.boron).abs() <= flux * b.boron,
+            "{at}: boron {} vs {}",
+            a.boron,
+            b.boron
+        );
+        for (x, y) in a.burnups.iter().flatten().zip(b.burnups.iter().flatten()) {
+            assert!((x - y).abs() <= flux * y.abs(), "{at}: burnup {x} vs {y}");
+        }
+        let densities = |h: &CorePoint| h.densities.clone().unwrap();
+        for (x, y) in densities(a)
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(densities(b).iter().flatten().flatten())
+        {
+            assert!((x - y).abs() <= flux * y.abs(), "{at}: density {x} vs {y}");
+        }
+    }
 }
