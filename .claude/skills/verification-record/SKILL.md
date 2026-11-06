@@ -151,6 +151,7 @@ python3 examples/vera/compare_balance.py xlc-2K.msgpack references/openmc/balanc
    main から辿れる）。残ったままだと、マージのコミットの前の hook が実行する `cargo test`（`main_reports_trials_left_by_a_merge`）が止める
 3. 繰り返し比べるツールと、採用した入力は `git mv trials/<入力> examples/<問題>/` で移し、記録のパスと hash を移した先と
    移したコミットに書き換える。計算（コード、入力、環境）を変えていなければ再測定しない
-4. 試行の出力のうち `dvc add` で追うもの（対象と時機は CLAUDE.md の「計算」の `dvc add` の項と、ADR-0222 の「決定と理由」。
-   比較の JSON だけが md5 で引く生成物を含む）は、3 で `examples/<問題>/` に移してから `dvc add` し、`.dvc` を移すコミットに
-   入れる（`trials/` は無視されるので、その中では `.dvc` が無視されるファイルになり、`dvc add` が止まる）
+4. 試行の出力のうち `dvc add` で追うもの（対象と時機は CLAUDE.md の「計算」の `dvc add` の項と、ADR-0222 の「決定と理由」）は、
+   3 で入力を移すときに `mv` で `examples/<問題>/` に移し（追跡しない出力は `git mv` では移らない）、そこで `dvc add` して `.dvc` を
+   移すコミットに入れる（`trials/` は無視されるので、その中では `.dvc` が無視されるファイルになり、`dvc add` が止まる）。比較の
+   JSON は、引く生成物のパスを書くので、移した後の置き場の出力から書く
