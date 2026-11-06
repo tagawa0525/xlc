@@ -9,6 +9,8 @@ pub struct Found<T> {
     pub value: f64,
     /// 評価の回数（範囲の両端を含む）
     pub solves: usize,
+    /// 根の前に評価した点の位置と値（最初の評価が根ならない）
+    pub previous: Option<(f64, f64)>,
     /// その位置の評価が返したもの
     pub at: T,
 }
@@ -77,15 +79,16 @@ pub fn find<T, E>(
         }
         Ok((value - target, value, t))
     };
-    let found = |x, value, solves, at| Found {
+    let found = |x, value, solves, previous, at| Found {
         x,
         value,
         solves,
+        previous,
         at,
     };
     let (mut f_low, value, t) = at(low, &mut solves)?;
     if f_low.abs() <= tolerance {
-        return Ok(found(low, value, solves, t));
+        return Ok(found(low, value, solves, None, t));
     }
     // エラーで示す端の値は評価した値（Illinois 法が半分にした f ではない）
     // 入れ替えのあとの `low` は残った端で、`high` より大きいことがあるので、示すときに並べ直す
@@ -108,7 +111,7 @@ pub fn find<T, E>(
     let mut value_low = value;
     let (mut f_high, mut value_high, t) = at(high, &mut solves)?;
     if f_high.abs() <= tolerance {
-        return Ok(found(high, value_high, solves, t));
+        return Ok(found(high, value_high, solves, Some((low, value_low)), t));
     }
     if f_low.signum() == f_high.signum() {
         return Err(SearchError::NotBracketed {
@@ -129,7 +132,8 @@ pub fn find<T, E>(
         let x = high - f_high * (high - low) / (f_high - f_low);
         let (f, value, t) = at(x, &mut solves)?;
         if f.abs() <= tolerance {
-            return Ok(found(x, value, solves, t));
+            // 直前に評価した点は `high`
+            return Ok(found(x, value, solves, Some((high, value_high)), t));
         }
         if f.signum() == f_high.signum() {
             f_low /= 2.0;
