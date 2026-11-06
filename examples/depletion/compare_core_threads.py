@@ -5,7 +5,8 @@
         python3 compare_core_threads.py --report <要約の JSON>
 
 - 履歴とログ、差の取り方は compare_core_guess.py と同じ（差は最初の色の順の燃焼 − 直方体の並びの順の燃焼）。スレッドの数はログの
-  `thread pool threads=` の行から読む
+  `thread pool threads=` の行から読む。最初の燃焼のログにその行が無ければ、ADR-0234 の前の bin/core（固有値計算は 1 スレッドの
+  直方体の並びの順）の燃焼とし、順を `before`、スレッドの数を null にする
 - `--json`: 名前ごとに `points`、`midpoints`（compare_core_guess.py と同じ形）と、`runs` の燃焼ごとの順（`lexicographic` か `red-black`）、
   スレッドの数、最初の色の順の履歴とバイトで同じか（`same_bytes`。直方体の並びの順は null）、固有値計算（span `nem`）の数、外側の反復の
   回数の和、固有値計算の時間の和（フィールド `seconds`）、core の全体の時間（`core seconds=`）、`per_solve` の固有値計算 1 回の外側の
@@ -25,21 +26,33 @@ import msgpack
 
 POOL = re.compile(r"thread pool threads=(\d+) from=")
 
-ORDERS = {"lexicographic": "直方体の並びの順", "red-black": "色の順"}
+ORDERS = {
+    "lexicographic": "直方体の並びの順",
+    "red-black": "色の順",
+    "before": "ADR-0234 の前の bin/core",
+}
 
 
-def threads_of(log: str) -> int:
+def threads_of(log: str) -> int | None:
+    """ログのスレッドのプールの行のスレッドの数。行が無ければ None（ADR-0234 の前の bin/core）"""
     pools = POOL.findall(log)
-    if len(pools) != 1:
-        raise SystemExit("the log needs one thread pool line (thread pool threads=)")
-    return int(pools[0])
+    if len(pools) > 1:
+        raise SystemExit("the log has more than one thread pool line")
+    return int(pools[0]) if pools else None
 
 
 def run_of(order: str, history: bytes, log: str, first: bytes | None) -> dict:
     core = msgpack.unpackb(history)
+    threads = threads_of(log)
+    if threads is None:
+        if order != "lexicographic":
+            raise SystemExit(
+                "a red-black log needs a thread pool line (thread pool threads=)"
+            )
+        order = "before"
     return {
         "order": order,
-        "threads": threads_of(log),
+        "threads": threads,
         "same_bytes": None if first is None else history == first,
         **compare_core_guess.run_of(core, log),
         "per_solve": compare_core_acceleration.per_solve(log),
@@ -79,8 +92,9 @@ def report(summary: dict) -> list[str]:
             f"出力の割合の相対差の最大 {power:.2e}"
         )
         for r in c["runs"]:
+            threads = "" if r["threads"] is None else f" {r['threads']} スレッド"
             lines.append(
-                f"{name}: {ORDERS[r['order']]} {r['threads']} スレッド: 固有値計算 {r['solves']} 回、外側の反復 {r['iterations']:,} 回、"
+                f"{name}: {ORDERS[r['order']]}{threads}: 固有値計算 {r['solves']} 回、外側の反復 {r['iterations']:,} 回、"
                 f"固有値計算の時間 {r['eigenvalue_seconds']:.1f} s、全体 {r['seconds']:.1f} s"
             )
         same = all(r["same_bytes"] for r in c["runs"] if r["same_bytes"] is not None)
