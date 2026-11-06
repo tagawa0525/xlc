@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{
     Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, RateResidual, Residual, Table,
-    component,
+    boron10_density_ratio, component,
 };
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
@@ -28,7 +28,7 @@ use xlc_format::table::{
 pub struct State {
     /// ホウ素濃度 (ppm)
     pub boron: f64,
-    /// ホウ素の中の B-10 の原子分率（テーブルの値と同じであること）
+    /// ホウ素の中の B-10 の原子分率。テーブルの値と違えば、テーブルの B-10 の微視的断面積で個数密度の差を補正する（ADR-0236）
     pub b10: f64,
     /// 減速材の温度 (K)。密度はテーブルの格子点の組で決まる
     pub moderator: f64,
@@ -288,6 +288,21 @@ pub fn interpolate(
             }
         }
     }
+    // 状態の B-10 の割合がテーブルと違えば、B-10 の個数密度の差を補正する（ADR-0236）。同じなら足さず、ビットで同じ
+    if let Some(b10) = table.axes.iter().find_map(|a| match a {
+        Axis::Boron { b10, .. } => Some(*b10),
+        _ => None,
+    }) && state.b10 != b10
+    {
+        let [few] = out.as_mut_slice() else {
+            return Err(format!(
+                "boron: the table has b10 {b10} and the state {}; a split table has no B-10 cross sections to \
+                 correct the difference (ADR-0236, #0260)",
+                state.b10
+            ));
+        };
+        add_boron10(few, table, &weights, state.b10, b10)?;
+    }
     // 燃焼度の 3 次 Hermite と cut-HDMR の組み立ては凸結合でない（重みに負がある）ので、ソルバに渡す前に値を確かめる。負の重みで
     // 組み立てたときは、値の検査（validate）に加えて断面積と拡散係数が負でないことを確かめ、どちらのエラーにも負の重みの出どころと
     // 示唆を添える（折れ曲がりの近くや、解いていない格子点の近くの 0 に近い量が負になりうる。ADR-0192、ADR-0200）
@@ -298,6 +313,50 @@ pub fn interpolate(
         }
     }
     Ok(out)
+}
+
+/// 少数群定数 `few` に、冷却材の B-10 の個数密度の差の補正 σ_B10 (N̄_c − N̄_t) を足す（ADR-0236）。σ_B10 と N̄_t はテーブルの `boron10` を
+/// 少数群定数と同じ重み `weights` で足した値、N̄_c は N̄_t に、状態の `b10` とテーブルの `table_b10` の同じホウ素の質量の B-10 の個数密度の比を
+/// 掛けた値。吸収の係数は全断面積から散乱の行の和を引いたもの。B-10 は核分裂しないので、νΣf と Σf は足さない
+fn add_boron10(
+    few: &mut FewGroup,
+    table: &Table,
+    weights: &Weights,
+    b10: f64,
+    table_b10: f64,
+) -> Result<(), String> {
+    let data = table.boron10.as_ref().ok_or_else(|| {
+        format!(
+            "boron: the table has b10 {table_b10} and the state {b10}, and the table has no B-10 micro cross \
+             sections (boron10) to correct the difference (ADR-0236)"
+        )
+    })?;
+    let ratio = boron10_density_ratio(b10, table_b10).map_err(|e| format!("boron: {e}"))?;
+    let groups = few.total.len();
+    let mut density = 0.0;
+    let mut total = vec![0.0; groups];
+    let mut scatter = vec![vec![0.0; groups]; groups];
+    for &(point, weight) in &weights.points {
+        if weight != 0.0 {
+            let b = data
+                .get(point)
+                .ok_or_else(|| format!("the B-10 data have no state {point}"))?;
+            density += weight * b.density;
+            add(&mut total, weight, &b.total);
+            for (a, x) in scatter.iter_mut().zip(&b.scatter) {
+                add(a, weight, x);
+            }
+        }
+    }
+    let delta = (ratio - 1.0) * density;
+    for (g, row) in scatter.iter().enumerate() {
+        few.total[g] += delta * total[g];
+        few.absorption[g] += delta * (total[g] - row.iter().sum::<f64>());
+        for (a, s) in few.scatter[g].iter_mut().zip(row) {
+            *a += delta * s;
+        }
+    }
+    Ok(())
 }
 
 /// テーブルの微視的断面積と均質化した数密度を、炉心の状態で内挿した値（ADR-0216）
@@ -527,21 +586,13 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
     for (a, axis) in table.axes.iter().enumerate() {
         terms.push(match axis {
             Axis::Burnup { points } => {
-                let value = state.burnup.ok_or(
-                    "the table has a burnup axis; give the state a burnup (ADR-0187)",
-                )?;
+                let value = state
+                    .burnup
+                    .ok_or("the table has a burnup axis; give the state a burnup (ADR-0187)")?;
                 burnup = Some((a, points.as_slice(), value));
                 burnup_terms(points, value)?
             }
-            Axis::Boron {
-                ppm, b10, transform, ..
-            } => {
-                if *b10 != state.b10 {
-                    return Err(format!(
-                        "boron: the table has b10 {b10} and the state {}; they must be exactly equal",
-                        state.b10
-                    ));
-                }
+            Axis::Boron { ppm, transform, .. } => {
                 bracket("boron", ppm, state.boron, |x| transform.apply(x))?
             }
             Axis::Moderator {
