@@ -39,7 +39,7 @@ class Compare(unittest.TestCase):
             [(r["order"], r["threads"], r["same_bytes"]) for r in c["runs"]],
             [
                 ("lexicographic", 1, None),
-                ("red-black", 1, True),
+                ("red-black", 1, None),
                 ("red-black", 4, True),
             ],
         )
@@ -64,7 +64,21 @@ class Compare(unittest.TestCase):
             run(core(k=1.0 + 1e-15), [50, 20, 10, 30], 16, 0.5),
         ]
         c = compare_core_threads.compare(lexicographic, runs)
-        self.assertEqual([r["same_bytes"] for r in c["runs"]], [None, True, False])
+        self.assertEqual([r["same_bytes"] for r in c["runs"]], [None, None, False])
+
+    def test_one_red_black_run_claims_no_byte_match(self):
+        # 比べる相手の無い 1 本の色の順の燃焼は、バイトの一致を書かない
+        c = compare_core_threads.compare(
+            run(core(), [60, 20, 15, 40], 1, 2.0),
+            [run(core(), [50, 20, 10, 30], 16, 0.5)],
+        )
+        self.assertEqual([r["same_bytes"] for r in c["runs"]], [None, None])
+        text = "\n".join(compare_core_threads.report({"cases": {"p9": c}}))
+        self.assertNotIn("バイト", text)
+
+    def test_empty_paths_are_errors(self):
+        with self.assertRaises(SystemExit):
+            compare_core_threads.parse("p9=a.msgpack,,b.msgpack,b.log")
 
     def test_red_black_runs_need_a_thread_pool_line(self):
         history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
