@@ -38,7 +38,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
 use xlc_format::table::Axis;
-use xlc_format::table::{Micro, MicroNuclide};
+use xlc_format::table::{Boron10, Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::{
     BranchShielder, lexicographic, state_indices, tables, without_rod_axis,
@@ -46,8 +46,11 @@ use xlc_lattice::branches::{
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
 };
+use xlc_lattice::coolant::{Coolant, Shielding};
 use xlc_lattice::depletion::{History, LibraryReactions};
-use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
+use xlc_lattice::fewgroup::{
+    Node, homogenize, homogenize_nodes, node_regions, pin_shapes, split_constants,
+};
 use xlc_lattice::geometry::Lattice;
 use xlc_lattice::history::ValueGeometry;
 use xlc_lattice::input::SymmetryChoice;
@@ -500,6 +503,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .chain(history_branches.iter().flat_map(|h| h.remixed()))
         .cloned()
         .collect();
+    // 冷却材の B-10 の微視的断面積（ADR-0236）を作るホウ素の軸のホウ酸水。ホウ素の軸のないテーブル、部分ノードに分けた出力、ホウ酸水を
+    // 混ぜた物質のある格子は書かない（部分ノードの領域と、混ぜた物質の中のホウ酸水の分を分けられない。#0260）
+    let coolant_waters: Option<Vec<String>> = match (&input.branches, &input.output) {
+        (Some(b), Some(output))
+            if b.axes().iter().any(|a| matches!(a, Axis::Boron { .. }))
+                && output.split == 1
+                && !input.mixtures.iter().any(|m| {
+                    b.varied().contains(&m.name)
+                        || m.parts.iter().any(|(part, _)| b.varied().contains(part))
+                }) =>
+        {
+            Some(b.varied().to_vec())
+        }
+        _ => None,
+    };
     // 今の制御棒の値の自己遮蔽（形状ごと。値の最初の状態で作り、値を解き終えたら捨てる）と、捨てた値の自己遮蔽の回数
     let mut shielder: Option<(usize, BranchShielder)> = None;
     let mut finished_shieldings = 0;
@@ -898,6 +916,39 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
             _ => None,
         };
+        // 冷却材の B-10 の、出力（格子全体かノード）ごとの均質化した個数密度と微視的断面積（ADR-0236）
+        let boron10 = match (&coolant_waters, &source, &input.output) {
+            (Some(waters), Source::Library(library), Some(output)) => {
+                let coolant = Coolant {
+                    library,
+                    shielding: held.as_ref().map(|h| Shielding {
+                        fuel: h.fuel(),
+                        materials: h.solved_with(),
+                    }),
+                    state: state_materials,
+                    region_materials: solved_materials(rod),
+                    waters,
+                    lattice: &geometry.lattice,
+                    solution: &solution,
+                    bounds: &output.bounds,
+                };
+                let regions: Vec<Vec<usize>> = match &output.files {
+                    FewGroupFiles::Lattice(_) => vec![(0..geometry.lattice.regions()).collect()],
+                    FewGroupFiles::Nodes(entries) => entries
+                        .iter()
+                        .map(|(_, node)| node_regions(&geometry.lattice, node))
+                        .collect(),
+                };
+                Some(
+                    regions
+                        .iter()
+                        .map(|r| coolant.micro("B-10", r))
+                        .collect::<anyhow::Result<Vec<_>>>()
+                        .with_context(|| format!("{}: B-10 micro cross sections", context()))?,
+                )
+            }
+            _ => None,
+        };
         report(solved, solution.k);
         drop(emitting);
         tracing::info!(
@@ -914,6 +965,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 outputs,
                 medium,
                 micro,
+                boron10,
             },
             converged,
         ))
@@ -941,6 +993,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
         if saved_shape != shape
             || saved.medium.is_some() != input.medium.is_some()
             || saved_micro != micro_nuclides
+            || saved.boron10.as_ref().map(Vec::len)
+                != coolant_waters.as_ref().map(|_| saved_shape.len())
         {
             return Err(anyhow!(
                 "the saved outputs {saved_shape:?} (medium {}, {saved_micro} micro nuclides) do not fit this run's \
@@ -986,12 +1040,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let points: Vec<Vec<usize>> = order.iter().map(|&i| solved_points[i].clone()).collect();
     let mut by_solve: Vec<Option<SavedState>> = states.into_iter().map(Some).collect();
     let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
+    // [点][出力] の冷却材の B-10（ADR-0236）
+    let mut boron10_states: Vec<Vec<Boron10>> = Vec::new();
     let per_state: Vec<Vec<Vec<FewGroup>>> = order
         .iter()
         .filter_map(|&i| by_solve[i].take())
         .map(|s| {
             if let Some(m) = s.micro {
                 micro_states.push(m);
+            }
+            if let Some(b) = s.boron10 {
+                boron10_states.push(b);
             }
             s.outputs
         })
@@ -1034,6 +1093,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let mut tables = tables(&table_axes, *split, &points, per_state)
             .map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        if coolant_waters.is_some() {
+            if boron10_states.len() != points.len() {
+                return Err(anyhow!(
+                    "{}: B-10 micro cross sections of {} states for {} points",
+                    shown(path),
+                    boron10_states.len(),
+                    points.len()
+                ));
+            }
+            for (o, table) in tables.iter_mut().enumerate() {
+                table.boron10 = Some(
+                    boron10_states
+                        .iter()
+                        .map(|outputs| outputs[o].clone())
+                        .collect(),
+                );
+            }
+        }
         // 制御棒の値が置き換えるセルを含まないノードのテーブルは、棒のない値の状態だけを持つ（ADR-0227）
         if rods > 1 {
             let rod_axes = input.rod_axes();
