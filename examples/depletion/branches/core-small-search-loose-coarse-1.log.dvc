@@ -1,0 +1,5 @@
+outs:
+- md5: d0d48d366a1d00e60104ed9258a2ad6e
+  size: 43418
+  hash: md5
+  path: core-small-search-loose-coarse-1.log
