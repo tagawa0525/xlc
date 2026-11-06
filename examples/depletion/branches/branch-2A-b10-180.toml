@@ -1,4 +1,4 @@
-# ADR-0236 の補正と比べる直接の格子計算: branch-2A-b10-199.toml の B-10 の割合を 18 at% にし、ホウ素を 600 と 1300 ppm にしたもの
+# ADR-0237 の換算と比べる直接の格子計算（compare_core_b10.py）: branch-2A-b10-199.toml の B-10 の割合を 18 at% にし、ホウ素を 600 と 1300 ppm にしたもの
 # （6 回の輸送）。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
