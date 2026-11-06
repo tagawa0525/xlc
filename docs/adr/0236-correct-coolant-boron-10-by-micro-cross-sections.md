@@ -4,7 +4,7 @@ date: 2026-11-07
 requires: [ADR-0097, ADR-0106, ADR-0216]
 supersedes: []
 superseded-by:
-issues: ["#0036", "#0260"]
+issues: ["#0036"]
 ---
 
 # ADR-0236: 冷却材の B-10 の割合がテーブルと違う状態は、テーブルの B-10 の微視的断面積で個数密度の差を補正する
