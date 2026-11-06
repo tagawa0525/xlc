@@ -4,7 +4,7 @@ labels: [docs]
 opened: 2026-11-07
 closed:
 milestone:
-blocked-by: []
+blocked-by: ["#0254"]
 resolution:
 ---
 
@@ -12,11 +12,11 @@ resolution:
 
 ## 問題
 
-CLAUDE.md の「計算」の節の、ADR の「検討した案」の目安の時間の文が添えさせるもの（コミットと、/slurm-run の「ログと時間」の節の
-TIME 行の規則の印）に対して、ADR-0234 に残る点:
+CLAUDE.md の「計算」の節の、ADR の「検討した案」の目安の時間の文が添えさせるもの（ジョブの版と、/slurm-run の「ログと時間」の節の
+TIME 行の印）に対して、ADR-0234 に残る点:
 
 - 「検討した案」の冒頭の段落は、Slurm 708、709、710（`sacct` でどれもパーティション main、`Suspended` は 00:00:00）の時間を
-  「目安」として引き、版を書くが、TIME 行の規則の印（`preemptible:`）が付くジョブであることを書いていない
+  「目安」として引き、版を書くが、ログの TIME 行の印（3 本とも `preemptible:`）を書いていない
 - 709 の版は「作業中の版（コミットしていない）」とだけ書く。709 のジョブのコメント（`sacct` の SubmitLine の `--comment`）には
   ブランチ perf/0156-nem-threads と worktree のパスがあり、`commit=` は無い（`commit=` を付ける前に投げた）
 - 「決定と理由」も 709 と 710 の時間を理由に使う
