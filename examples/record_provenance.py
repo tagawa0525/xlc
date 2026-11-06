@@ -141,6 +141,9 @@ def parse_dvc(text: str) -> list[tuple[str, str]]:
                     f".dvc outs: a key before the first item: {line!r}"
                 )
             items[-1][m.group(2)] = m.group(3).strip()
+        elif items and items[-1].get("path") == "" and line.startswith("   "):
+            # dvc は長いパスを `path:` の次の、より深く字下げした行に折る
+            items[-1]["path"] = line.strip()
     outs = []
     for item in items:
         path, md5 = item.get("path"), item.get("md5", "")
