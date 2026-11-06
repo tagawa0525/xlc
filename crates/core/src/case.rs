@@ -1,6 +1,5 @@
 //! ケースの状態ごとの固有値計算（ADR-0146）と、臨界ホウ素濃度の探索（ADR-0145）。
 
-use rayon::prelude::*;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, RODS, Table};
 
@@ -57,6 +56,9 @@ pub enum CaseError {
     /// 燃焼のステップのエラー（ADR-0190）
     #[error("depletion: {0}")]
     Depletion(String),
+    /// 状態を並列に解くスレッドのプールを作れない（ADR-0234）
+    #[error("thread pool: {0}")]
+    Threads(String),
     /// 燃焼のステップのどの解（点か中点）か、どのステップで起きたか（ADR-0191）
     /// 表示が原因を含むので、原因をエラーの source にしない（連鎖の表示で繰り返さない）
     #[error("{at}: {cause}")]
@@ -811,20 +813,58 @@ pub fn search_boron(
     Ok((found.at, searched))
 }
 
-/// ケースの状態を並列に解く（結果は `states` の順）。各状態の固有値計算もノードを並列に解くが、結果はスレッドの数によらない（ADR-0234）。
+/// ケースの状態を並列に解く（結果は `states` の順）。同時に解く状態の数とそれぞれのスレッドの数は `state_workers` で決め、状態ごとの
+/// 固有値計算は自分のスレッドのプールでノードを並列に解く。結果はスレッドの数によらない（ADR-0234）
 pub fn solve_states(
     layout: &Layout,
     tables: &[Table],
     states: &[CaseState],
     options: &Options,
 ) -> Vec<Result<Solved, CaseError>> {
-    states
-        .par_iter()
-        .map(|state| {
-            let _span = tracing::info_span!("state", name = %state.name).entered();
-            solve_state(layout, tables, state, options)
+    let (workers, threads) = state_workers(rayon::current_num_threads(), states.len());
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results: Vec<std::sync::OnceLock<Result<Solved, CaseError>>> =
+        states.iter().map(|_| std::sync::OnceLock::new()).collect();
+    // 1 つの rayon のプールで状態を並列に解くと、色の順のスイープの終わりを待つスレッドがほかの状態の解を丸ごと盗んで解き、
+    // 固有値計算の時間（`nem` の `seconds`）とログの区間がその状態の分を含む。プールの外のスレッドから `install` で待つと盗まない
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                let pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .map_err(|e| e.to_string());
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(state) = states.get(i) else {
+                        break;
+                    };
+                    let result = match &pool {
+                        Ok(pool) => pool.install(|| {
+                            let _span = tracing::info_span!("state", name = %state.name).entered();
+                            solve_state(layout, tables, state, options)
+                        }),
+                        Err(e) => Err(CaseError::Threads(e.clone())),
+                    };
+                    let _ = results[i].set(result);
+                }
+            });
+        }
+    });
+    results
+        .into_iter()
+        .map(|r| {
+            r.into_inner()
+                .unwrap_or_else(|| Err(CaseError::Threads("a state was not solved".into())))
         })
         .collect()
+}
+
+/// `threads` のスレッドで `states` の状態を並列に解くときの、同時に解く状態の数と、それぞれのスレッドの数（どちらも 1 以上）。余る
+/// スレッドは使わない
+pub fn state_workers(threads: usize, states: usize) -> (usize, usize) {
+    let workers = threads.min(states).max(1);
+    (workers, (threads / workers).max(1))
 }
 
 #[cfg(test)]
