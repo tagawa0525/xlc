@@ -13,7 +13,7 @@ resolution: ADR-0232
 ## 問題
 
 炉心の NEM をノードの CMFD で加速する案は、ブランチ feat/core-cmfd（2026-11-06 に消し、タグ archive/feat-core-cmfd で残す）の ADR の下書き（proposed、未マージ。de5b93436）にあった。
-ユーザーの方針で、この作業は 2026-10-12 から止めていた。CMFD なしで VERA Problem 3〜5 を解き、外側の反復の回数と時間を測ってから
+ユーザーの方針で、この作業は止めていた。CMFD なしで VERA Problem 3〜5 を解き、外側の反復の回数と時間を測ってから
 要否を決めることにしていて、Problem 3〜5 の入力（docs/plans/m3-core-hzp.md の項目 8）が先に要った。2026-11-06 に CMFD を入れると決め、
 実装した（ADR-0232、6bf685f7c。経緯）。
 
