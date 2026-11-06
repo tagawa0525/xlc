@@ -30,6 +30,9 @@ issue #0245 で粗メッシュの固有値問題の許容の比をケースの `
 - `input::acceleration` は `AccelerationEntry::None` を 2 か所で見る。`Case::parse` の中の変数 `acceleration` が同じ名前の関数を隠す
 - `CoarseRatios` の `Default` の説明が「## 変更」の日付の項を指す（今の決定だけを書く形にするか）
 
+- #0244 の BOC の時間を出した Slurm 712 は、区分 decision に `--timed` を付けて投げた（依頼が区分を decision と書いた）。パーティション timed で割り込まれずに測ったので
+  時間は使うが、時間を記録する測定の区分は timed（CLAUDE.md の「計算」）で、待ち行列の区分からは時間の記録と分からない
+
 関係する ADR: なし
 
 ## 完了の条件
