@@ -105,7 +105,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
             Table::from_msgpack(&bytes).with_context(|| shown(file))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let options = Options::default();
+    let options = Options {
+        acceleration: case.acceleration,
+        ..Options::default()
+    };
     if let Some(depletion) = &case.depletion {
         // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k とホウ素濃度は状態の出力と同じ桁で
         // ミクロ燃焼のチェーン（ADR-0216）
