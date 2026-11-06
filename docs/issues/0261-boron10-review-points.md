@@ -24,7 +24,8 @@ ADR-0236（冷却材の B-10 の割合の補正）の実装のレビューで出
 - examples/depletion/compare_core_b10.py は、B-10 の割合を変えた効きが 0 の点（0 ppm、テーブルと同じ割合）で 0 で割る。状態の名前の B-10 の
   割合は 3 桁（`b198`）までで、19.78 at% を書けない
 - `boron10_density_ratio`（crates/format/src/table.rs）の、割合が同じときの早い返り値は、比が 1 になるので要らない。ホウ素の平均の原子質量の
-  式は、`boron10_density_ratio` と crates/lattice/src/water.rs の `borated_water` の 2 か所にある
+  式は、`boron10_density_ratio`、crates/lattice/src/water.rs の `borated_water`、examples/depletion/compare_core_b10.py の `per_mass` の 3 か所に
+  あり、compare_core_b10.py は B-10 と B-11 の原子質量も手でコピーしている
 - `Coolant::micro` は、ホウ酸水の領域がなければ 0 を返す。ノードでなく格子全体の出力でも、ホウ素の軸の物質をどの領域にも置かない入力は、
   エラーでなく 0 の補正になる。0 の早い返り値の前に、使わない SPH 因子を作る
 - 媒質を置いた入力は、どの領域にも使わない媒質でも `boron10` を書かない（crates/lattice/src/main.rs の `coolant_waters`）
