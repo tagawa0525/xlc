@@ -2451,13 +2451,38 @@ fn joint_iterations_search_again_until_the_worth_is_known() {
 
 #[test]
 fn joint_iterations_that_leave_the_search_bracket_are_errors() {
-    // 固定点の p（約 714 ppm）が範囲の外なら、範囲の下端で組成が釣り合い、そこでも k が目標より大きいので、範囲が解を挟まないエラー
+    // 固定点の p（約 714 ppm）が範囲の外なら、範囲の下端の 800 ppm で組成が釣り合う値になり（x = 0.101 / 0.7）、そこでも k が目標より小さく
+    // （k − 1 = −0.00886）、k を目標に寄せる濃度は 800 + (k − 1) / 1e-4 ≈ 711.43 ppm で範囲の外なので、範囲が解を挟まないエラー。
+    // エラーは釣り合った濃度と、k を目標に寄せる濃度を示す
     let error = equilibrate(vec![Some(vec![0.0])], Some([800.0, 1200.0]), |x, ppm| {
         Ok(linear_balance(x, ppm))
     })
     .unwrap_err()
     .to_string();
     assert!(error.contains("bracket"), "{error}");
+    assert!(error.contains("at 800 ppm"), "{error}");
+    assert!(error.contains("711.4"), "{error}");
+}
+
+#[test]
+fn joint_iterations_with_a_k_that_is_not_finite_are_errors() {
+    // 濃度を与えた解の k が有限でなければ、次の濃度も有限でない。加速（負の値を 0 にする）に通さず、エラーにする
+    let mut evaluations = 0;
+    let error = equilibrate(vec![Some(vec![0.0])], Some([0.0, 2000.0]), |x, ppm| {
+        evaluations += 1;
+        let mut balanced = linear_balance(x, ppm);
+        if ppm.is_some()
+            && let Some(b) = balanced.boron.as_mut()
+        {
+            b.next = f64::NAN;
+            b.critical = false;
+        }
+        Ok(balanced)
+    })
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("not finite"), "{error}");
+    assert_eq!(evaluations, 2);
 }
 
 // restart と装荷替え（ADR-0220）
