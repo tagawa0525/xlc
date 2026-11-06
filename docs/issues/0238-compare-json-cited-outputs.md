@@ -65,7 +65,7 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
     には `core-small-search-1.msgpack` と `core-small-equilibrium-1.msgpack`（別の版。11）がある。`.toml` だけなのは `-flat-1` の 2 件
 17. 11 は `compare-core-small-guess.json` が引く `.msgpack` だけを挙げ、同じ JSON が md5 で引くログ 4 件（`core-small-search-flat-1.log`
     e1794956 など）を挙げていない（2 の境が決まるまで、棚卸しに入れるかは決めていない）
-18. 2026-11-07 の経緯の行は 13〜15 を足したことだけを書き、3 と 11 を直したこと（135a705c6）を書かない
+18. 2026-11-07 の経緯の行は 13〜15 を足したことだけを書き、3 と 11 を直したこと（1fad68d30）を書かない
 19. 15 の `trial-0156/.gitignore` の注は、`trial-0076` と `trial-0244` の `compare-acceleration.json` が `trial-0156/core-p9.msgpack` を
     md5 で引くことも書かない（9 の `trial-0231` と同じ抜け）
 
