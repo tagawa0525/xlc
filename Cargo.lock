@@ -1126,6 +1126,7 @@ name = "xlc-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "num_cpus",
  "rayon",
  "serde",
  "thiserror 2.0.21",
