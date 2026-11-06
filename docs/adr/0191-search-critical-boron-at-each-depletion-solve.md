@@ -5,7 +5,7 @@ requires: [ADR-0145, ADR-0146, ADR-0187, ADR-0190]
 supersedes: []
 superseded-by:
 amends: [ADR-0190]
-issues: ["#0201"]
+issues: ["#0201", "#0251"]
 ---
 
 # ADR-0191: core の燃焼は、状態の search でステップの各解（点と中点）の臨界ホウ素を探す
@@ -141,8 +141,8 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
 ### 帰結
 
 - 探索のケースは、1 ステップに解く回数が「探索の回数 × 2」になる。探索ごとに範囲の両端を解き直す。探索の評価は同じ解の直前の評価の
-  解から反復する（[ADR-0231](0231-start-depletion-eigenvalue-solves-from-previous-solution.md)）。全炉心の燃焼の時間（#0156）で探索の回数が効くと分かれば、範囲の動かし方（案 B2、B3）を
-  測ってから決める
+  解から反復する（[ADR-0231](0231-start-depletion-eigenvalue-solves-from-previous-solution.md)）。全炉心の燃焼（examples/depletion/verification.md の「固有値計算の複数のスレッド（小さな炉心と全炉心）」の「全炉心（Problem 9 の形）」、29563b884、Slurm 711 の timed、2026-11-06）で、臨界ホウ素の探索（span `search` の和）は全体 106.2 s の 28.9 %。範囲の
+  動かし方（案 B2、B3）は #0251 で測ってから決める
 - 中点のホウ素の効き（案 S1 と S2 の差）は、集合体 1 体では 0。小さな炉心で測った差は「確認」の最後の項（案 S1 は比べるための入力の
   項目 `midpoint-boron = "start"` で選べる。既定は案 S2）
 - 0 ppm で臨界にならないサイクルの終わり（コーストダウン）は、出力の割合と熱水力の項目を足すまでエラーになる
