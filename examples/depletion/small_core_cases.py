@@ -89,10 +89,40 @@ METHODS = {
     ),
 }
 
-# ケースの初めに足す行: 方式 → 行（ケースの `acceleration` は `[depletion]` の外に書く）
+# 色の順（ADR-0234 の既定）をスレッドの数を変えて解く燃焼と、直方体の並びの順を 1 スレッドで解く燃焼（上の search と equilibrium と
+# 比べる）: 方式の名前の後半 → (コメントに足す文, ケースの初めに足す行)
+VARIANTS = {
+    "threads-1": (
+        "固有値計算は色の順で 1 スレッド（ADR-0234 の時間を比べる）。",
+        ["threads = 1"],
+    ),
+    "threads-4": (
+        "固有値計算は色の順で 4 スレッド（ADR-0234 の時間を比べる）。",
+        ["threads = 4"],
+    ),
+    "threads-16": (
+        "固有値計算は色の順で 16 スレッド（ADR-0234 の時間を比べる）。",
+        ["threads = 16"],
+    ),
+    "lexicographic": (
+        "固有値計算は直方体の並びの順で 1 スレッド（ADR-0234 と比べる）。",
+        ['node-order = "lexicographic"', "threads = 1"],
+    ),
+}
+METHODS |= {
+    f"{base}-{variant}": (METHODS[base][0] + sentence, *METHODS[base][1:])
+    for base in ("search", "equilibrium")
+    for variant, (sentence, _) in VARIANTS.items()
+}
+
+# ケースの初めに足す行: 方式 → 行（ケースの `acceleration`、`node-order`、`threads` は `[depletion]` の外に書く）
 TOP = {
     "search-none": 'acceleration = "none"',
     "equilibrium-none": 'acceleration = "none"',
+} | {
+    f"{base}-{variant}": "\n".join(lines)
+    for base in ("search", "equilibrium")
+    for variant, (_, lines) in VARIANTS.items()
 }
 
 # ケース: (方式, 分割)
@@ -102,6 +132,7 @@ CASES = (
     + [("equilibrium", s) for s in (1, 2, 4, 8, 16)]
     + [("search-flat", 1), ("equilibrium-flat", 1), ("equilibrium-nested", 1)]
     + [("search-none", 1), ("equilibrium-none", 1)]
+    + [(f"{b}-{v}", 1) for b in ("search", "equilibrium") for v in VARIANTS]
 )
 
 
