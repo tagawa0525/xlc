@@ -959,10 +959,9 @@ pub fn deplete(
         };
         // 点の固有値計算の回数は、固定点のすべての解の和
         let mut solves = 0;
-        // 探索の割線のホウ素の効き。分かるまでは解き直しのたびに探す（探索が範囲の端の 1 回で終わったとき）
+        // 探索の割線のホウ素の効き。分かるまではホウ素の成分を返さず、解き直しのたびに探す（探索が範囲の端の 1 回で終わったとき）
         let mut worth = None;
         equilibrate(n, search.map(|s| s.bracket), |n, ppm| {
-            let ppm = ppm.filter(|_| worth.is_some());
             let solved = solve(k, burnups, Some(n), h, ppm.or(given), at)?;
             solves += solved.solves;
             worth = solved.worth.or(worth);
@@ -980,15 +979,15 @@ pub fn deplete(
                 })
                 .collect::<Result<Vec<_>, String>>()
                 .map_err(|e| locate(CaseError::Depletion(e), at))?;
-            let boron = search.map(|s| {
+            let boron = search.zip(worth).map(|(s, w)| {
                 let f = solved.solved.solution.k - s.k;
                 BoronStep {
                     ppm: solved.ppm,
                     // ホウ素の効きで k の目標との差を打ち消す濃度（Newton の一歩。効きは探索の割線で固定）
-                    next: worth.map_or(solved.ppm, |w| solved.ppm - f / w),
+                    next: solved.ppm - f / w,
                     critical: f.abs() <= s.tolerance,
                     // 残差 |next − ppm| = |k − 目標| / |効き| が探索の許容に当たるとき、Xe の残差の許容と同じ大きさになる尺度
-                    scale: worth.map_or(1.0, |w| s.tolerance / w.abs() / EQUILIBRIUM_TOLERANCE),
+                    scale: s.tolerance / w.abs() / EQUILIBRIUM_TOLERANCE,
                 }
             });
             Ok(Balanced {
@@ -1594,12 +1593,24 @@ fn equilibrate<S>(
     let mut accelerated_boron = None;
     let mut history: Vec<Iterate> = Vec::new();
     let mut scale: Option<Vec<f64>> = None;
+    // 組成の尺度の末尾にホウ素の尺度を足したもの
+    let mut joint_scale: Vec<f64> = Vec::new();
     for iteration in 1..=EQUILIBRIUM_SOLVES {
         let Balanced {
             solved,
             densities: balanced,
             boron,
         } = evaluate(&x, ppm)?;
+        if let Some(b) = &boron
+            && !b.next.is_finite()
+        {
+            // 加速は負の値を 0 にするので、NaN を通すと黙って範囲の下端で解く
+            return Err(CaseError::Depletion(format!(
+                "the joint equilibrium xenon and boron iteration solved {} ppm and its next boron is not finite \
+                 (ADR-0219)",
+                b.ppm
+            )));
+        }
         let bracket = match (bracket, &boron) {
             (Some(bracket), Some(_)) => Some(bracket),
             (None, Some(_)) => {
@@ -1651,9 +1662,8 @@ fn equilibrate<S>(
         {
             return Err(CaseError::Depletion(format!(
                 "the critical boron of the equilibrium xenon is outside the search bracket {low} to {high} ppm: \
-                 the xenon balances at {} ppm with k {} off the target (ADR-0219)",
-                b.ppm,
-                if b.next < low { "above" } else { "below" },
+                 the xenon balances at {} ppm, where the k asks for {} ppm (ADR-0219)",
+                b.ppm, b.next,
             )));
         }
         // 端に留めた濃度は加速に入れない（入れると、縮まない濃度の残差が最小二乗を占め、組成が釣り合わない）。成分の有無が変われば
@@ -1663,13 +1673,17 @@ fn equilibrate<S>(
             history.clear();
         }
         accelerated_boron = Some(active.is_some());
-        let boron_scale;
         let s: &[f64] = match active {
             Some(b) => {
                 xf.push(b.ppm);
                 gf.push(b.next);
-                boron_scale = s.iter().copied().chain([b.scale]).collect::<Vec<_>>();
-                &boron_scale
+                // 組成の尺度は最初の評価で決まるので、末尾のホウ素の尺度だけを書き換える
+                if joint_scale.len() != s.len() + 1 {
+                    joint_scale = s.iter().copied().chain([b.scale]).collect();
+                } else if let Some(last) = joint_scale.last_mut() {
+                    *last = b.scale;
+                }
+                &joint_scale
             }
             None => s,
         };
@@ -1680,12 +1694,9 @@ fn equilibrate<S>(
         ppm = match (active, bracket) {
             (None, _) if pinned => boron.as_ref().map(|b| b.ppm),
             (Some(_), Some([low, high])) => {
-                let p = next.pop().unwrap_or(f64::NAN);
-                if p.is_nan() {
-                    return Err(CaseError::Depletion(
-                        "the joint equilibrium xenon and boron iteration gave a boron that is not a number".into(),
-                    ));
-                }
+                let p = next.pop().ok_or_else(|| {
+                    CaseError::Depletion("the joint iteration lost its boron component".into())
+                })?;
                 // 加速が範囲の外を選んだら、その端で解く。固定点が範囲の中なら、次の反復で戻る
                 Some(p.clamp(low, high))
             }
