@@ -258,6 +258,18 @@ class DvcFile(Git):
             rp.parse_dvc(text), [("a.log", H["1"]), ("d", H["2"] + ".dir")]
         )
 
+    def test_reads_a_path_that_dvc_folded_onto_the_next_line(self):
+        """`dvc add` は 80 字ほどを超える名前を `path:` の次の行に折る（dvc 3.67.1 で 100 字の名前の .dvc を書いて確かめた）"""
+        name = "a" * 100 + ".log"
+        text = (
+            "outs:\n- md5: "
+            + H["1"]
+            + "\n  size: 2\n  hash: md5\n  path: \n    "
+            + name
+            + "\n"
+        )
+        self.assertEqual(rp.parse_dvc(text), [(name, H["1"])])
+
     def test_an_out_without_md5_is_an_error(self):
         with self.assertRaises(rp.ProvenanceError):
             rp.parse_dvc("outs:\n- path: a.log\n  size: 1\n")
