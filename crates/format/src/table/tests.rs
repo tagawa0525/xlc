@@ -22,6 +22,7 @@ fn sample() -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        boron10: None,
     }
 }
 
@@ -593,6 +594,7 @@ fn pairs() -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        boron10: None,
     }
 }
 
@@ -1993,4 +1995,110 @@ fn rod_histories_validate_with_the_moderator_density_history_and_round_trip() {
         },
         "rod",
     );
+}
+
+/// 点ごとの冷却材の B-10 の個数密度と微視的断面積（ADR-0236）を持たせた `sample`
+fn boron10_sample() -> Table {
+    let mut table = sample();
+    let groups = table.states[0].bounds.len() - 1;
+    table.boron10 = Some(
+        (0..table.points.len())
+            .map(|p| {
+                let p = 1.0 + p as f64;
+                Boron10 {
+                    density: 1.0e-5 * p / 3.0,
+                    total: (0..groups)
+                        .map(|g| (2.0 + p) * (1.0 + g as f64) / 7.0)
+                        .collect(),
+                    scatter: (0..groups)
+                        .map(|g| {
+                            (0..groups)
+                                .map(|h| 0.1 * (p + (g + h) as f64) / 3.0)
+                                .collect()
+                        })
+                        .collect(),
+                }
+            })
+            .collect(),
+    );
+    table
+}
+
+#[test]
+fn boron10_data_round_trip_bit_exactly_and_are_written_only_when_held() {
+    let table = boron10_sample();
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+    // 持たないテーブルはキーを書かない
+    let value = msgpack::read_value(&sample().to_msgpack().unwrap()).unwrap();
+    let keys: Vec<&str> = value
+        .as_map()
+        .unwrap()
+        .iter()
+        .filter_map(|(k, _)| k.as_str())
+        .collect();
+    assert!(!keys.contains(&"boron10"), "{keys:?}");
+}
+
+#[test]
+fn boron10_data_need_a_boron_axis_one_sub_node_and_matching_sizes() {
+    let bad = |change: &dyn Fn(&mut Table)| {
+        let mut table = boron10_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+        assert!(table.to_msgpack().is_err());
+    };
+    // ホウ素の軸のないテーブル
+    bad(&|t| {
+        t.axes[0] = Axis::fuel(vec![600.0]);
+        t.axes.swap(0, 2);
+        t.axes.swap(0, 1);
+        t.points = product_points(&t.axes);
+        t.states.truncate(t.points.len());
+        t.boron10.as_mut().unwrap().truncate(t.points.len());
+    });
+    // 部分ノードに分けたテーブル
+    bad(&|t| {
+        t.split = 2;
+        t.states = t.states.iter().flat_map(|s| vec![s.clone(); 4]).collect();
+    });
+    // 点の数、群の数
+    bad(&|t| {
+        t.boron10.as_mut().unwrap().pop();
+    });
+    bad(&|t| {
+        t.boron10.as_mut().unwrap()[1].total.pop();
+    });
+    bad(&|t| {
+        t.boron10.as_mut().unwrap()[1].scatter.pop();
+    });
+    bad(&|t| {
+        t.boron10.as_mut().unwrap()[1].scatter[0].pop();
+    });
+    // 個数密度は 0 以上の有限の値、断面積は 0 以上の有限の値
+    bad(&|t| t.boron10.as_mut().unwrap()[2].density = -1.0e-30);
+    bad(&|t| t.boron10.as_mut().unwrap()[2].density = f64::INFINITY);
+    bad(&|t| t.boron10.as_mut().unwrap()[2].total[0] = -1.0);
+    bad(&|t| t.boron10.as_mut().unwrap()[2].scatter[1][0] = f64::NAN);
+}
+
+#[test]
+fn boron10_density_ratio_follows_the_atoms_per_boron_mass() {
+    // 同じ ppm と密度のホウ酸水の B-10 の個数密度は b10 / M(b10) に比例する（ADR-0106 の原子質量。ADR-0236）
+    let mass = |b: f64| b * MASS_B10 + (1.0 - b) * MASS_B11;
+    for (b10, table) in [(0.18, 0.199), (0.30, 0.199), (0.199, 0.199), (0.5, 0.18)] {
+        let want = (b10 / mass(b10)) / (table / mass(table));
+        let got = boron10_density_ratio(b10, table).unwrap();
+        assert!(
+            (got - want).abs() <= 1e-15 * want,
+            "{b10} {table}: {got} vs {want}"
+        );
+    }
+    assert_eq!(boron10_density_ratio(0.199, 0.199).unwrap(), 1.0);
+    assert_eq!(boron10_density_ratio(0.0, 0.199).unwrap(), 0.0);
+    // テーブルの B-10 が 0 なら比は決まらない
+    assert!(boron10_density_ratio(0.18, 0.0).is_err());
+    assert!(boron10_density_ratio(1.5, 0.199).is_err());
 }
