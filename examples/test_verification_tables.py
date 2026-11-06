@@ -5042,7 +5042,7 @@ class DrawCoreThreads(unittest.TestCase):
 
 
 class CoreB10(unittest.TestCase):
-    """B-10 の割合がテーブルと違う状態の補正（ADR-0236）の表"""
+    """B-10 の割合がテーブルと違う状態の ppm の換算（ADR-0237）の表"""
 
     def test_rows_are_the_points_with_signed_differences(self):
         summary = {
@@ -5055,15 +5055,14 @@ class CoreB10(unittest.TestCase):
                     "burnup": 20.0,
                     "direct": 1.0123456789,
                     "effect": 812.345,
-                    "corrected": -1.234,
-                    "converted": 0.004,
+                    "converted": -1.234,
                 }
             ],
         }
         lines = vt.core_b10([summary]).splitlines()
         self.assertEqual(
             [c.strip() for c in lines[2].strip("|").split("|")],
-            ["18", "1300", "20", "1.012346", "+812.3", "\u22121.23", "0.00"],
+            ["18", "1300", "20", "1.012346", "+812.3", "\u22121.23"],
         )
         self.assertEqual(
             vt.TABLES["depletion-2a-core-b10"],
