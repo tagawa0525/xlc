@@ -1,0 +1,98 @@
+{
+ "format": "xlc-compare-core-acceleration",
+ "inputs": [
+  {
+   "path": "examples/depletion/p9-timing/trial-0156/core-p9.msgpack",
+   "md5": "99dfd2eea6eb2c09e710eedb92239e76"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0156/core-p9.log",
+   "md5": "69e385902abaf896c35263d1245be916"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0244/core-p9.msgpack",
+   "md5": "76b450bbe5bb826813cc95b932ea3c86"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0244/core-p9.log",
+   "md5": "4fe61bc903a28ee6186a26666e83cac0"
+  }
+ ],
+ "cases": {
+  "p9": {
+   "points": [
+    {
+     "efpd": 0.0,
+     "days": 0.0,
+     "state": "case-2",
+     "k": 2.464077830666156e-10,
+     "boron": 0.0,
+     "burnup": 0.0,
+     "power": 1.671430269150838e-07
+    },
+    {
+     "efpd": 9.0,
+     "days": 13.698630136986301,
+     "state": "case-3",
+     "k": -5.405764724741857e-10,
+     "boron": 5.02721854900301e-06,
+     "burnup": 1.1611451978358524e-07,
+     "power": 1.3901457849990025e-07
+    },
+    {
+     "efpd": 32.0,
+     "days": 36.767837759854906,
+     "state": "case-3",
+     "k": -7.628120357594526e-12,
+     "boron": 3.7010522646596655e-08,
+     "burnup": 1.1546129975718679e-07,
+     "power": 3.328670329929971e-08
+    }
+   ],
+   "midpoints": [
+    {
+     "k": -4.128919428580957e-11,
+     "boron": 0.0
+    },
+    {
+     "k": 1.3106626894909823e-11,
+     "boron": -9.63827915256843e-08
+    }
+   ],
+   "runs": {
+    "none": {
+     "solves": 43,
+     "iterations": 151099,
+     "eigenvalue_seconds": 4650.069412626,
+     "seconds": 4664.74332196,
+     "per_solve": {
+      "iterations": [
+       888,
+       5674
+      ],
+      "seconds": [
+       27.308713048,
+       216.612081281
+      ]
+     }
+    },
+    "cmfd": {
+     "solves": 43,
+     "iterations": 1581,
+     "eigenvalue_seconds": 491.733278287,
+     "seconds": 506.347466964,
+     "per_solve": {
+      "iterations": [
+       30,
+       59
+      ],
+      "seconds": [
+       6.931913146,
+       19.383752233
+      ]
+     }
+    }
+   }
+  }
+ }
+}

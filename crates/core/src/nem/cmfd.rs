@@ -27,16 +27,17 @@ use xlc_cmfd::{Coarse, Spectrum, Tolerances};
 use super::{CmfdError, Core, Face, Options, State};
 
 /// 粗メッシュの固有値問題の k の許容の、NEM の k の許容（かスイープによる k の変化）に対する比（ADR-0232）
-const K_FRACTION: f64 = 3.0e-1;
+const K_FRACTION: f64 = 1.0e-2;
 /// 粗メッシュの固有値問題の中性子束の許容の、NEM の中性子束の許容（かスイープによる中性子束の変化）に対する比（ADR-0232）
-const FLUX_FRACTION: f64 = 1.0;
+const FLUX_FRACTION: f64 = 1.0e-2;
 /// 粗メッシュの固有値問題の反復の上限
 const MAX_ITERATIONS: usize = 100_000;
 
 /// CMFD を解く精度。NEM の許容と、スイープによる k と中性子束の変化（`k_change`、`flux_change`）の大きい方に、決めた比を
 /// 掛ける（NEM がまだ収束から遠いうちは、CMFD を細かく解いても次のスイープで崩れる。lattice と同じ考え方。ADR-0110）。
-/// 比は 1 以下で、緩めた精度はスイープによる変化を超えない。CMFD の精度は収束した解を変えない（収束は、CMFD の更新を含めた
-/// 外側の反復の変化で判定する）
+/// 比は 1 より十分小さくする。粗メッシュの反復は組み立てた中性子束から始まり、最初の数回の変化の縮小率は遅いモードの縮小率より
+/// 小さいので、許容がスイープによる変化と同じ桁だと、遅いモードを直さないまま数回で止まり、外側の反復の変化が急に小さくなって
+/// 許容の外で止まる（#0244）。CMFD の精度は収束した解を変えない（収束は、CMFD の更新を含めた外側の反復の変化で判定する）
 pub(super) fn tolerances(nem: &Options, k_change: f64, flux_change: f64) -> Tolerances {
     Tolerances {
         k: K_FRACTION * nem.k_tolerance.max(k_change),

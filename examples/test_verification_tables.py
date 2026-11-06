@@ -4659,7 +4659,7 @@ class DrawCoreTiming(unittest.TestCase):
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
     def test_the_cmfd_tables_read_the_cmfd_trial(self):
-        # trial-0156 の入力を CMFD で解いた試行（ADR-0232、#0076）
+        # trial-0156 の入力を、粗メッシュの許容を詰めた CMFD で解いた試行（ADR-0232、#0244）
         for name in (
             "core-p9-cmfd-timing-parts",
             "core-p9-cmfd-timing-solves",
@@ -4667,16 +4667,32 @@ class DrawCoreTiming(unittest.TestCase):
         ):
             sources, _ = vt.TABLES[name]
             self.assertEqual(
-                sources, ["examples/depletion/p9-timing/trial-0076/timing-p9.json"]
+                sources, ["examples/depletion/p9-timing/trial-0244/timing-p9.json"]
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
         for name in ("core-p9-cmfd-runs", "core-p9-cmfd-differences"):
             sources, _ = vt.TABLES[name]
             self.assertEqual(
                 sources,
+                ["examples/depletion/p9-timing/trial-0244/compare-acceleration.json"],
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
+    def test_the_loose_coarse_tables_read_the_cmfd_trial_before_0244(self):
+        # 同じ入力を、粗メッシュの許容を詰める前の CMFD で解いた試行（ADR-0232、#0076）
+        for name in (
+            "core-p9-cmfd-loose-coarse-runs",
+            "core-p9-cmfd-loose-coarse-differences",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources,
                 ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
+        _, draw = vt.TABLES["core-p9-cmfd-loose-coarse-runs"]
+        rows = cells(draw([core_acceleration_summary()]))
+        self.assertEqual(rows[1][1], "CMFD（#0244 の前）")
 
     def test_the_joint_tables_read_the_power_step_trial(self):
         # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）
@@ -4819,6 +4835,16 @@ class DrawCoreAcceleration(unittest.TestCase):
             ],
         )
 
+    def test_runs_name_the_cmfd_version_given(self):
+        rows = cells(
+            vt.core_acceleration_runs(
+                [core_acceleration_summary()], label="CMFD（#0244 の前）"
+            )
+        )
+        self.assertEqual(
+            [r[1] for r in rows], ["加速なし", "CMFD（#0244 の前）", "CMFD / 加速なし"]
+        )
+
     def test_differences_take_the_largest_over_points_and_midpoints(self):
         rows = cells(vt.core_acceleration_differences([core_acceleration_summary()]))
         self.assertEqual(rows, [["search", "5.0e-10", "4.0e-04", "2.0e-06", "3.0e-07"]])
@@ -4839,6 +4865,27 @@ class DrawCoreAcceleration(unittest.TestCase):
                 ["examples/depletion/branches/compare-core-small-acceleration.json"],
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
+
+    def test_the_loose_coarse_tables_read_the_summary_before_0244(self):
+        # 粗メッシュの許容を詰める前の bin/core の CMFD（#0244）
+        for name in (
+            "depletion-small-core-acceleration-loose-coarse-runs",
+            "depletion-small-core-acceleration-loose-coarse-differences",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources,
+                [
+                    (
+                        "examples/depletion/branches/"
+                        "compare-core-small-acceleration-loose-coarse.json"
+                    )
+                ],
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+        _, draw = vt.TABLES["depletion-small-core-acceleration-loose-coarse-runs"]
+        rows = cells(draw([core_acceleration_summary()]))
+        self.assertEqual(rows[1][1], "CMFD（#0244 の前）")
 
 
 class DrawCoreGuess(unittest.TestCase):

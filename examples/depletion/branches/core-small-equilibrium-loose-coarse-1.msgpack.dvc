@@ -1,0 +1,5 @@
+outs:
+- md5: 7a3317f765f83133c525979fbcf69f5b
+  size: 312326
+  hash: md5
+  path: core-small-equilibrium-loose-coarse-1.msgpack
