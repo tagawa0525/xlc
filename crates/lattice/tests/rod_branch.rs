@@ -508,3 +508,31 @@ fn lattices_with_media_hold_no_b10() {
     assert_eq!(table(&slab, "fg.msgpack").boron10, None);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn lattices_mixing_the_borated_water_hold_no_b10() {
+    // 混ぜた物質の B-10 のうちホウ酸水の分を分けられないので、ホウ酸水を混ぜた物質のある格子は（媒質がなくても）冷却材の B-10 の微視的
+    // 断面積を書かない（ADR-0236、#0260）
+    let dir = scratch("mixture");
+    let from = r#"rows = ["pin gt", "gt pin"]"#;
+    assert!(ASSEMBLY.contains(from));
+    let text = ASSEMBLY
+        .replace(from, r#"rows = ["pin layer", "layer pin"]"#)
+        .replace("medium = \"medium.msgpack\"\n", "")
+        .replace(
+            "\n[branches]\n",
+            "\n[material.layer]\nmix = [{ material = \"water\", volume = 0.9 }, { material = \"absorber\", volume = 0.1 }]\n\n\
+             [cell.layer]\nzones = [{ material = \"layer\", rings = 1 }]\n\n[branches]\n",
+        )
+        .replace(
+            "boron = { ppm = [600, 1300], materials = [\"water\"] }",
+            "boron = { ppm = [600, 1300], materials = [\"water\", \"layer\"] }",
+        )
+        .replace(
+            "moderator = { temperature = [600], density = [0.743], materials = [\"water\"] }",
+            "moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"layer\"] }",
+        );
+    run(&dir, &text);
+    assert_eq!(table(&dir, "fg.msgpack").boron10, None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
