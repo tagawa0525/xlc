@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 `examples/record_provenance.py`（ADR-0176 と ADR-0222 の帰結のツール）に `.dvc` の md5 の履歴を出す機能（`parse_dvc`、
-`dvc_history`、`show_dvc`）を足したブランチ `feat/record-provenance-dvc` のレビューの 1〜3 周目（2026-11-06）で、
+`dvc_history`、`show_dvc`）を足したブランチ `feat/record-provenance-dvc` のレビューの 1〜3 周目と記録の周（2026-11-06）で、
 直さずに残した指摘:
 
 - `dvc_history` は `.dvc` を触ったコミットの版をすべて `git show` して `parse_dvc` で読んでから履歴をさかのぼる。`.dvc` を消した
@@ -38,6 +38,9 @@ resolution:
 - （3 周目）ディレクトリ（`.dvc` の設定のディレクトリなど）を渡すと `IsADirectoryError` の traceback で止まり、残りの引数を読まない
 - （3 周目）`outs:` の中の 1 桁目の注釈の行で `parse_dvc` が読むのをやめる（dvc は注釈を書かない）
 - （3 周目）テストの `contextlib` と `io` の import が関数の中に 3 か所ある
+- （記録の周）スキル verification-record の .dvc の項は、d03a12687 で足した「md5 が前の版と同じなら行は X より前のコミットを
+  指す」と、同じ段落の「作り直した生成物は md5 が版ごとに違う」「出るコミットは…生成物を作ったコミットの後にある」が食い違う。
+  record_provenance.py の docstring の「生成物を作ったコミット（その前）ではない」も同じ。段落の 1 行が折り返されていない
 
 関係する ADR: なし
 
