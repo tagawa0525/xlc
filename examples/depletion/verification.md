@@ -4240,6 +4240,66 @@ core の 2 ケースは 1 秒未満）。
 - 回数: 点の探索は 5〜6 回（計 101 回）、中点の探索は 16 ステップとも 6 回（計 96 回。ログの `depletion midpoint`）で、ケース全体で
   197 回の固有値計算（ホウ素を与えたケースの 2 × 16 + 1 = 33 回の約 6 倍。ADR-0191 の帰結、#0156）
 
+## 冷却材の B-10 の割合がテーブルと違う状態（2A の集合体 1 体）
+
+状態の B-10 の割合がテーブルと違うとき、core は B-10 の個数密度が同じになるテーブルの割合の ppm に換算してホウ素の軸を引く
+（[ADR-0237](../../docs/adr/0237-convert-coolant-boron-to-the-table-b10-fraction.md)）。これを、その割合で直接解いた格子計算と比べる（#0036 の完了の条件）。
+比べるのは、B-10 19.9 at% のテーブルを 18 at% と 30 at% の状態で引いた core の k と、B-10 を 18 at% と 30 at% にした直接の格子計算の k∞ で、
+集合体 1 体（反射境界、ノード 1 つ）の core の k は少数群定数の k∞ になる。「効き」は、テーブルの 19.9 at% の同じ ppm の core の k から、直接の
+格子計算の k∞ への反応度の差で、B-10 の割合を変えた大きさ。
+
+テーブルは、2A の燃焼の履歴（`p2/lattice-2A.msgpack`、md5 a2cc87df）の燃焼度 0、20、40 MWd/kg で、ホウ素 0、600、1300、2000 ppm、
+減速材と燃料は 565 K の 1 点（`branches/branch-2A-b10-199.toml`。2000 ppm は 30 at% の 1300 ppm の換算の約 1978 ppm を引くため）。
+直接の格子計算は、ホウ酸水の `b10` だけを 0.18 と 0.30 にし、ホウ素を 600 と 1300 ppm にしたもの（`branches/branch-2A-b10-180.toml`、
+`branches/branch-2A-b10-300.toml`）。core のケースは `branches/core-2A-b10.toml`。
+
+```sh
+cargo build --release -p xlc-lattice -p xlc-core
+cd examples/depletion/branches
+for f in 199 180 300; do ../../../target/release/lattice branch-2A-b10-$f.toml > branch-2A-b10-$f.out 2> branch-2A-b10-$f.log; done
+../../../target/release/core core-2A-b10.toml > core-2A-b10.out 2> core-2A-b10.log
+cd ../../..
+python3 examples/depletion/compare_core_b10.py --json examples/depletion/branches/compare-core-2A-b10.json \
+  examples/depletion/branches/table-2A-b10-199.msgpack examples/depletion/branches/core-2A-b10.toml \
+  examples/depletion/branches/core-2A-b10.out examples/depletion/branches/table-2A-b10-180.msgpack \
+  examples/depletion/branches/table-2A-b10-300.msgpack
+```
+
+テーブルと core の出力は `dvc add` で追い（ADR-0222）、比較の JSON（`branches/compare-core-2A-b10.json`）は git で追跡する。
+
+### 計算
+
+直接の格子計算（18 at% と 30 at%）は c044e4bc（分岐点は main の dd5941ee）、2026-11-07（Slurm の既定のジョブ 713。割り込まれうるジョブなので
+時間は記録に使わない）で、テーブルは md5 4df530ab（18 at%）と 1351b785（30 at%）。19.9 at% のテーブルは 7ee658a5、2026-11-07（Slurm の既定の
+ジョブ 714）で、md5 c5c9963d。core と比較は aa29c09e、2026-11-07（手元）で、core の出力は md5 d7e1c80d。
+
+### 結果
+
+<!-- table: depletion-2a-core-b10 -->
+
+| B-10 (at%) | ホウ素 (ppm) | 燃焼度 (MWd/kg) | 直接の k∞ | 効き (pcm) | 換算 − 直接 (pcm) |
+| ---------- | ------------ | --------------- | --------- | ---------- | ----------------- |
+| 18         | 600          | 0               | 1.279572  | +494.4     | +4.39             |
+| 18         | 600          | 20              | 1.044691  | +540.3     | +4.89             |
+| 18         | 600          | 40              | 0.908424  | +665.0     | +6.17             |
+| 18         | 1300         | 0               | 1.197971  | +1050.0    | +10.00            |
+| 18         | 1300         | 20              | 0.985035  | +1137.0    | +11.01            |
+| 18         | 1300         | 40              | 0.853267  | +1390.5    | +13.70            |
+| 30         | 600          | 0               | 1.230187  | −2643.0    | +14.63            |
+| 30         | 600          | 20              | 1.008640  | −2880.9    | +14.26            |
+| 30         | 600          | 40              | 0.875005  | −3539.3    | +17.49            |
+| 30         | 1300         | 0               | 1.109836  | −5578.8    | −2.75             |
+| 30         | 1300         | 20              | 0.920251  | −6009.9    | −5.69             |
+| 30         | 1300         | 40              | 0.794208  | −7324.5    | −7.53             |
+
+<!-- /table -->
+
+- 換算 − 直接: 18 at% で +4.389〜+13.705 pcm（効き +494.397〜+1390.536 pcm の最大 0.99%）、30 at% で −7.532〜+17.490 pcm（効き
+  −7324.513〜−2642.971 pcm の最大 0.55%）
+- 換算した ppm は、600 と 1300 ppm のどの状態でもテーブルのホウ素の格子点の間にあるので、差は
+  ホウ素の軸の内挿の誤差を含む
+- B-11 の個数密度の差は、換算に入らず、直接の格子計算には入るので、差に含まれる。B-11 だけの効きは分けていない
+
 ## 分岐のテーブルの交差の項
 
 燃焼度の軸を持つ分岐のテーブルの状態の取り方（[ADR-0200](../../docs/adr/0200-tabulate-burnup-branches-by-cut-hdmr.md)）を決めるため、直積で解いたテーブルから、公称の状態と
