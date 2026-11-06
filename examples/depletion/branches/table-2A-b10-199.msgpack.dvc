@@ -1,0 +1,5 @@
+outs:
+- md5: 12b9a28a3a47505e7181593cf5d8b007
+  size: 6372
+  hash: md5
+  path: table-2A-b10-199.msgpack
