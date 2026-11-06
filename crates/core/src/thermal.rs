@@ -220,19 +220,28 @@ impl Channels {
         self.present.get(site).copied().unwrap_or(false)
     }
 
-    /// 位置ごとの出力 `powers` (W) と入口の温度 `inlet` (K) の、流路の減速材と燃料棒の解。燃料棒の燃焼度は `burnup`（MWd/kg。
-    /// なければ 0）。流路のない位置（径方向の反射体）は入口の温度。出力は流路の核分裂のある位置だけが持てる
+    /// 位置ごとの出力 `powers` (W) と入口の温度 `inlet` (K) の、流路の減速材と燃料棒の解。燃料棒の燃焼度は位置ごとの `burnups`
+    /// （MWd/kg。なければ 0）。流路のない位置（径方向の反射体）は入口の温度。出力は流路の核分裂のある位置だけが持てる
     pub fn solve(
         &self,
         th: &ThermalHydraulics,
         inlet: f64,
         powers: &[f64],
-        burnup: Option<f64>,
+        burnups: Option<&[f64]>,
     ) -> Result<ChannelSolution, String> {
         if powers.len() != self.channel.len() {
             return Err(format!(
                 "{} node powers for {} positions",
                 powers.len(),
+                self.channel.len()
+            ));
+        }
+        if let Some(b) = burnups
+            && b.len() != self.channel.len()
+        {
+            return Err(format!(
+                "{} node burnups for {} positions",
+                b.len(),
                 self.channel.len()
             ));
         }
@@ -266,7 +275,6 @@ impl Channels {
         let mass_flux = flow / area;
         let diameter = 4.0 * th.flow_area / th.wetted_perimeter * 1e-2;
         let rods = th.rods as f64 / (self.split * self.split) as f64;
-        let burnup = burnup.unwrap_or(0.0);
         let mut nodes: Vec<Option<NodeTemperatures>> = self
             .present
             .iter()
@@ -309,7 +317,7 @@ impl Channels {
                                 p,
                                 mass_flux,
                                 diameter,
-                                burnup,
+                                burnups.map_or(0.0, |b| b[site]),
                                 th.effective,
                             )
                             .map_err(|e| format!("site {site}: the fuel rod: {e}"))?;

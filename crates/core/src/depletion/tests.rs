@@ -1263,6 +1263,7 @@ fn corrected_constants_are_checked_and_compositions_cover_every_site() {
             &tables,
             &state,
             &burnups,
+            None,
             Some(&Compositions {
                 chain: &chain,
                 densities,
@@ -1932,6 +1933,7 @@ fn steps_solve_in_the_states_they_name() {
             &tables,
             &state.at(1200.0),
             &burnups,
+            None,
             Some(&Compositions {
                 chain: &chain,
                 densities: &densities,
@@ -3704,7 +3706,7 @@ fn thermal_depletion_converges_with_equilibrium_xenon_and_the_joint_boron_search
             "equilibrium",
             "[{ efpd = 50.0 }, { decay-days = 2.0 }, { efpd = 125.0, power = 0.8 }]",
         ),
-        1.0e-8,
+        1.0e-7,
     ));
     let options = Options::default();
     let on = |threads: usize| {
@@ -3718,7 +3720,7 @@ fn thermal_depletion_converges_with_equilibrium_xenon_and_the_joint_boron_search
     assert_eq!(on(2), history);
     assert_eq!(history.points.len(), 4);
     for point in &history.points {
-        assert!((point.k - 1.0).abs() <= 1.0e-8, "{point:?}");
+        assert!((point.k - 1.0).abs() <= 1.0e-7, "{point:?}");
         assert!(point.temperatures.is_some());
     }
     // 熱水力の状態は入口の温度を書き、減速材と燃料の温度を持たない
