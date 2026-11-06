@@ -66,13 +66,27 @@ class Compare(unittest.TestCase):
         c = compare_core_threads.compare(lexicographic, runs)
         self.assertEqual([r["same_bytes"] for r in c["runs"]], [None, True, False])
 
-    def test_runs_need_a_thread_pool_line(self):
+    def test_red_black_runs_need_a_thread_pool_line(self):
         history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
         bare = text.split("\n", 1)[1]
         with self.assertRaises(SystemExit):
             compare_core_threads.compare(
-                (history, bare), [run(core(), [1, 1, 1, 1], 1, 1.0)]
+                run(core(), [1, 1, 1, 1], 1, 1.0), [(history, bare)]
             )
+
+    def test_a_base_without_a_thread_pool_line_is_the_bin_core_before(self):
+        # ADR-0234 の前の bin/core はスレッドのプールの行を出さない（固有値計算は 1 スレッドの直方体の並びの順）
+        history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
+        bare = text.split("\n", 1)[1]
+        c = compare_core_threads.compare(
+            (history, bare), [run(core(), [50, 20, 10, 30], 16, 0.5)]
+        )
+        self.assertEqual(
+            [(r["order"], r["threads"]) for r in c["runs"]],
+            [("before", None), ("red-black", 16)],
+        )
+        text = "\n".join(compare_core_threads.report({"cases": {"p9": c}}))
+        self.assertIn("ADR-0234 の前の bin/core: 固有値計算 4 回", text)
 
     def test_report_gives_the_time_per_thread_count(self):
         c = compare_core_threads.compare(
