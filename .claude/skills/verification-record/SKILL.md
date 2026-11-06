@@ -78,6 +78,16 @@ default の devShell の中（標準ライブラリだけのツールだが、`-
    - `unknown` / `uncommitted` と出たら、書かずに原因を直す（dvc.lock をコミットしていない、など）。`MISMATCH` は、JSON の
      `inputs` が dvc.lock の deps と違う（古い JSON）ので、ステージを再実行して relock する
    - 出るコミットは dvc.lock のコミット（実行したコミットの次）。記録の「計算」の欄に書くのは実行したコミット（下）
+   - `dvc add` で追う生成物（ADR-0222）は、`.dvc` を渡す: `python3 examples/record_provenance.py <パス>.dvc...`。outs ごとに
+     今の md5 と、`.dvc` の履歴の md5 ごとにそれを入れたコミットと日付が新しい順に出る。出るコミットは `.dvc` のコミットで、
+     生成物を作ったコミットではない。記録の「コミット X で出した md5 Y」は、この出力に Y の行があることを確かめる（無ければ、
+     下の `unknown` / `uncommitted` と同じく書かずに原因を直す。原因の候補は、作り直した後の `dvc add` の漏れと、記録の Y の
+     誤りの 2 つ）。md5 が前の版と同じまま作り直すと、`dvc add` は `.dvc` を変えず、行は前の版を入れたコミットを指す（中身は
+     同じ）。そのため、X で作り直したかは、この履歴からは決められない。出る日付は author の日付で、rebase の後は
+     前後を決められないので使わない。X の時点の `.dvc`
+     （`git show X:<パス>.dvc`）は、`dvc add` を X より後にコミットしたときは前の版を指すので使わない。
+     `unknown` / `uncommitted` は上と同じく、書かずに原因を直す（`.dvc` をコミットしていない、など）。生成物の中身が `.dvc` と
+     合うかは見ない
 2. **表**: 手で打たない。比較のツールに `--json` があれば、`<!-- table: <名前> -->` 〜 `<!-- /table -->` の目印をつけ、
    `examples/verification_tables.py` の `TABLES` に名前と描く関数を足して、`python3 examples/verification_tables.py
    examples/<問題>/verification.md` で描く。目印の中は丸ごと置き換わるので、脚注は目印の外に書く。`--check` は hook と
