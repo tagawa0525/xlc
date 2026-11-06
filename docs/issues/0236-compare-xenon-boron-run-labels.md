@@ -20,7 +20,7 @@ examples/depletion/compare_core_xenon_boron.py（ADR-0219 の `xenon-boron` の 
 燃焼の履歴は `xenon-boron` と `initial-guess` を書かない（ADR-0231 と同じく、どちらも同じ収束の判定を満たす解で履歴の形を変えない）ので、比較の
 ツールは引数の順だけで 2 本を見分ける。joint と nested を入れ替えて渡すと、`SHARED` の項目の確認を通り、差の符号と固有値計算の比が逆の要約になる。
 
-関係する ADR: なし（ADR-0219 と ADR-0231 は比べる入力を決めた）
+関係する ADR: なし
 
 ## 完了の条件
 
