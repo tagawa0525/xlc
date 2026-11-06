@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core]
 opened: 2026-10-12
-closed:
+closed: 2026-11-06
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0232
 ---
 
 # 炉心の CMFD の要否を Problem 3〜5 の反復の回数と時間で決める
@@ -45,3 +45,8 @@ Problem 3〜5 を CMFD なしで解いた反復の回数と時間を記録し、
   examples/depletion/verification.md の「固有値計算の CMFD（小さな炉心と全炉心）」: Problem 9 の形の全炉心の燃焼（Slurm 704 の timed、77a720cd6）で、
   全体 4,664.7 s から 374.2 s、外側の反復の和 151,099 回から 4,638 回、固有値計算 1 回の外側の反復 27〜384 回。残りはブランチ feat/core-cmfd と
   worktree の片付けで、マージの後に行う
+- 2026-11-06: 「古いCMFDは消しても良い。」（ユーザー 2026-11-06）を受け、親が worktree xlc-feat-core-cmfd とブランチ feat/core-cmfd を消し、
+  先端 4d82b4ce8 にタグ archive/feat-core-cmfd を付けた（ADR-0232 の検討した案が引く de5b93436 を履歴に残すため。docs/branches.md）。
+  未コミットの `crates/numeric/src/cmfd.rs` と `lib.rs` の変更はタグに入らない。そこから取り込んだのは、lattice の粗メッシュの固有値問題の
+  ソルバ（ブロック Gauss-Seidel のべき乗法）を切り出す試し（ADR-0232 の案 S1）で、置き場を新しいクレート `xlc-cmfd` に変えて core が使う
+  （案 S3。6bf685f7c のマージの本文の「旧 worktree の未コミットの cmfd.rs から取り込んだ形」。lattice は #0241）。完了の条件を満たしたので閉じる
