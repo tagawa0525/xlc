@@ -807,6 +807,8 @@ pub struct DepletionInput {
     pub micro: Option<MicroInput>,
     /// 探索の状態のステップの中点を解くホウ素濃度（ADR-0191）
     pub midpoint_boron: MidpointBoron,
+    /// 固有値計算の初期値（ADR-0231）
+    pub initial_guess: InitialGuess,
 }
 
 /// `[depletion]` の `midpoint-boron`: 状態が `search` を持つステップの中点を解くホウ素濃度（ADR-0191）
@@ -818,6 +820,18 @@ pub enum MidpointBoron {
     Search,
     /// ステップの初めの点で探したホウ素濃度で解く（ADR-0191 の案 S1。採用した探索との差を測るため）
     Start,
+}
+
+/// `[depletion]` の `initial-guess`: 燃焼の固有値計算の外側の反復を始める値（ADR-0231）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum InitialGuess {
+    /// 同じケースの直前の固有値計算（探索の評価、平衡 Xe の解き直し、点、中点のどれでも）の収束した解から。ケースの最初の解は平らな
+    /// 初期値から（ADR-0231 の決定）
+    #[default]
+    Previous,
+    /// どの解も平らな初期値（中性子束 1、k = 1）から（前の解からの反復と比べるため）
+    Flat,
 }
 
 /// `[depletion]` の `micro`（ADR-0216）。
@@ -867,6 +881,8 @@ struct DepletionEntry {
     micro: Option<MicroEntry>,
     #[serde(default)]
     midpoint_boron: MidpointBoron,
+    #[serde(default)]
+    initial_guess: InitialGuess,
 }
 
 #[derive(Deserialize)]
@@ -999,6 +1015,7 @@ impl DepletionInput {
                 })
                 .transpose()?,
             midpoint_boron: entry.midpoint_boron,
+            initial_guess: entry.initial_guess,
         })
     }
 
