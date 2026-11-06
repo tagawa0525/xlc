@@ -7,7 +7,7 @@ use xlc_format::table::{Axis, HistoryRod, MODERATOR_DENSITY, ROD_OUT, RODS, Tabl
 use crate::input::{Boron, BoronSearch, CaseState, InputError, Layout, TableUse, Temperatures};
 use crate::micro::{MicroChain, correct, production_index};
 use crate::nem::fission_rates;
-use crate::nem::{NemError, Options, Problem, Solution, solve};
+use crate::nem::{Guess, NemError, Options, Problem, Solution, solve_from};
 use crate::rods::{SegmentWeights, solve_rodded};
 use crate::search::{SearchError, find};
 use crate::state::{
@@ -28,6 +28,8 @@ pub struct Solved {
     pub segment_weights: SegmentWeights,
     /// 熱水力の繰り返しの解（熱水力のケースだけ。ADR-0229）
     pub thermal: Option<ThermalReport>,
+    /// 次の固有値計算の初期値にできる、この解の収束した状態（ADR-0231）
+    pub guess: Guess,
 }
 
 /// 探索したホウ素濃度と、そのための固有値計算の回数。
@@ -67,7 +69,7 @@ pub fn solve_at(
     state: Option<&State>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
-    solve_with(layout, tables, |_| state.copied(), None, options)
+    solve_with(layout, tables, |_| state.copied(), None, None, options)
 }
 
 /// core がノードごとに持つ履歴の変数（ADR-0215）: 減速材の密度と制御棒の挿入の割合。ノードの値の並びはこの順
@@ -274,19 +276,21 @@ pub fn solve_burnups(
     burnups: &[f64],
     options: &Options,
 ) -> Result<Solved, CaseError> {
-    solve_compositions(layout, tables, state, burnups, None, options)
+    solve_compositions(layout, tables, state, burnups, None, None, options)
 }
 
 /// `solve_burnups` と同じく解くが、組成 `compositions` を持つ位置の定数に、ミクロ燃焼の線形の補正 Σᵢ σᵢ (Nᵢ − N̄ᵢ⁰) を足す
 /// （ADR-0216。σᵢ はその位置のテーブルの使い方の状態と燃焼度で、N̄ᵢ⁰ は燃焼度で内挿した値）。テーブルが履歴の残りを持てば、
 /// 位置の履歴の変数で重みを付けた残りも足す（ADR-0215。`node_constants`）。部分挿入のノードは、区間のテーブルの使い方ごとに
-/// 足した定数を混ぜるので、残りも少数群定数と同じ重みで混ざる（ADR-0127）
+/// 足した定数を混ぜるので、残りも少数群定数と同じ重みで混ざる（ADR-0127）。固有値計算は `start`（`None` なら平らな初期値）から
+/// 反復する（ADR-0231）
 pub fn solve_compositions(
     layout: &Layout,
     tables: &[Table],
     state: &State,
     burnups: &[f64],
     compositions: Option<&Compositions>,
+    start: Option<&Guess>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
     if let Some(b) = state.burnup {
@@ -311,6 +315,7 @@ pub fn solve_compositions(
             })
         },
         compositions,
+        start,
         options,
     )
 }
@@ -398,12 +403,13 @@ pub fn node_micro(
     Ok(micro)
 }
 
-/// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して解く
+/// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して、`start`（`None` なら平らな初期値）から反復して解く
 fn solve_with(
     layout: &Layout,
     tables: &[Table],
     state_of: impl Fn(&TableUse) -> Option<State>,
     compositions: Option<&Compositions>,
+    start: Option<&Guess>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
     if let Some(c) = compositions
@@ -489,21 +495,23 @@ fn solve_with(
     let problem = layout.problem(&constants)?;
     let partial = layout.partial_nodes(&constants)?;
     if partial.is_empty() {
-        let solution = solve(&problem, options)?;
+        let (solution, guess) = solve_from(&problem, options, start)?;
         return Ok(Solved {
             searched: None,
             problem,
             solution,
             segment_weights: Vec::new(),
             thermal: None,
+            guess,
         });
     }
-    let (solution, materials, segment_weights) = solve_rodded(
+    let (solution, materials, segment_weights, guess) = solve_rodded(
         &problem,
         partial,
         layout.partial_rods.weighting,
         layout.partial_rods.fine_mesh,
         options,
+        start,
     )?;
     Ok(Solved {
         searched: None,
@@ -514,6 +522,7 @@ fn solve_with(
         solution,
         segment_weights,
         thermal: None,
+        guess,
     })
 }
 
@@ -560,6 +569,7 @@ pub fn solve_nodes(
                 None => *base,
             })
         },
+        None,
         None,
         options,
     )

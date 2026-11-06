@@ -7603,13 +7603,82 @@ python3 examples/depletion/compare_core_restart.py --report $B/compare-core-smal
 - BOC（燃焼点 0）の臨界ホウ素は 975.8429 ppm で、3 MWd/kg の増分の点で 226.7141 ppm に下がる。中心側の新しい A05 は 3 MWd/kg の増分の点で 5.2318 MWd/kg と、
   炉心の平均の増分（3 MWd/kg）より速く燃える
 
+## 固有値計算の初期値（小さな炉心）
+
+燃焼の固有値計算の初期値（[ADR-0231](../../docs/adr/0231-start-depletion-eigenvalue-solves-from-previous-solution.md)）を、「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ
+炉心、テーブル、サイクルの分割 1 で比べる（#0156）。既定（点と中点の解の中の探索の評価と平衡 Xe の解き直しを、同じ解の直前の固有値計算から
+反復し、点と中点の解の最初の固有値計算は平らな初期値から）の燃焼は `branches/core-small-search-1.toml`（Xe を時間で追い、中点でも探す）と
+`core-small-equilibrium-1.toml`（平衡 Xe）、比べる平らな初期値の燃焼は同じケースに `initial-guess = "flat"` を足した `core-small-search-flat-1.toml` と
+`core-small-equilibrium-flat-1.toml`（`small_core_cases.py` が書く）。比べるのは `compare_core_guess.py` で、差は既定 − 平らな初期値、k とホウ素は点と中点
+（中点はログの行）の差の絶対値の最大、燃焼度と出力の割合は点のノードの相対差の絶対値の最大。固有値計算の時間は span `nem` のフィールド `seconds` の和、
+全体は `core seconds=`。
+
+```sh
+cd examples/depletion/branches
+for c in search-1 search-flat-1 equilibrium-1 equilibrium-flat-1; do
+  RAYON_NUM_THREADS=1 ../../../bin/core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
+done
+cd ../../..
+B=examples/depletion/branches
+python3 examples/depletion/compare_core_guess.py --json $B/compare-core-small-guess.json \
+  search=$B/core-small-search-flat-1.msgpack,$B/core-small-search-flat-1.log,$B/core-small-search-1.msgpack,$B/core-small-search-1.log \
+  equilibrium=$B/core-small-equilibrium-flat-1.msgpack,$B/core-small-equilibrium-flat-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
+```
+
+「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-guess.json`）は git で
+追跡する。
+
+### 計算
+
+ブランチ perf/0156-warm-start-nem（分岐点は main の 322f2808）の fabec146、2026-11-06。`bin/core` は md5 798e955b。4 本を手元で、`RAYON_NUM_THREADS=1` と
+`taskset` で別々のコアに置いて同時に流した（区分なしの手元の試行。Slurm のジョブは無かった）。時間は目安で、`--timed` のジョブの値ではない。
+
+### 結果
+
+<!-- table: depletion-small-core-guess-runs -->
+
+| 燃焼        | 初期値              | 固有値計算の数 | 外側の反復の回数の和 | 固有値計算の時間 (s) | 全体の時間 (s) |
+| ----------- | ------------------- | -------------- | -------------------- | -------------------- | -------------- |
+| search      | 平らな初期値        | 119            | 334,499              | 85.3                 | 86.4           |
+| search      | 既定（ADR-0231）    | 119            | 226,775              | 58.2                 | 59.4           |
+| search      | 既定 / 平らな初期値 |                | 0.678                | 0.683                | 0.687          |
+| equilibrium | 平らな初期値        | 796            | 2,966,033            | 750.8                | 753.4          |
+| equilibrium | 既定（ADR-0231）    | 796            | 1,831,243            | 459.3                | 462.1          |
+| equilibrium | 既定 / 平らな初期値 |                | 0.617                | 0.612                | 0.613          |
+
+<!-- /table -->
+
+<!-- table: depletion-small-core-guess-differences -->
+
+| 燃焼        | k の差の最大 | ホウ素の差の最大 (ppm) | 燃焼度の相対差の最大 | 出力の割合の相対差の最大 |
+| ----------- | ------------ | ---------------------- | -------------------- | ------------------------ |
+| search      | 3.3e-10      | 5.1e-04                | 1.2e-06              | 4.1e-06                  |
+| equilibrium | 2.7e-09      | 8.1e-06                | 8.1e-08              | 2.8e-07                  |
+
+<!-- /table -->
+
+- 既定の初期値で、固有値計算の数（探索の回数と平衡 Xe の解き直しの回数）はどちらの燃焼も平らな初期値と同じで、外側の反復の回数の和は Xe を時間で
+  追う探索で 0.678 倍、平衡 Xe で 0.617 倍、固有値計算の時間は 85.3 s から 58.2 s、750.8 s から 459.3 s
+- k の差は点と中点で 3.3e-10 と 2.7e-9 で、固有値計算の k の許容（見積もった残り 1e-8。`nem::Options` の既定）の中。ホウ素の差（5.1e-4 ppm と
+  8.1e-6 ppm）は、探索の許容（k の 1e-6）をホウ素の効きで割った幅（燃焼点 0 の探索の評価の 1287.8 ppm と 1290.5 ppm の k の差から 10.55 pcm/ppm、
+  約 0.0095 ppm。効きは同じケースを `RUST_LOG=xlc_core::case=debug` で流した探索の評価の行から）の中。燃焼度と出力の割合の相対差は、Xe を時間で追う
+  探索で 1.2e-6 と 4.1e-6、平衡 Xe で 8.1e-8 と 2.8e-7。探索の許容の中で違うホウ素で解いた点の差がステップを重ねて伝わることが原因の候補で、
+  確かめていない
+- 前の点の解から反復した形（ADR-0231 の検討した案）は、Xe を時間で追う探索の 18 日の停止の後の中点（7.5 MWd/kg のステップ）で、最初の固有値計算が
+  外側の反復の上限 10,000 回で収束しなかった（平らな初期値は 9,584 回）。数値は ADR-0231 の「検討した案」
+
 ## 全炉心の燃焼の時間の内訳（Problem 9 の形）
 
 全炉心の core の燃焼の時間が固有値計算、テーブルの内挿、ミクロ燃焼、平衡 Xe、臨界ホウ素の探索にどう分かれるかを測る（#0156）。精度の比較ではない
 （本番のテーブルと熱水力が無い）。炉心の形、反射体、装荷図、軸方向のメッシュは Problem 5 の 3D の全炉心（`../vera/p5/hzp/core-hzp.toml`）と同じで、
 台帳は p5 の台帳の格子計算の層（燃料のある層）を 2A のミクロ燃焼のテーブル（`branches/table-2A-micro-boron-rod-axis.msgpack`）に替えたもの。
 濃縮度、可燃性毒物、反射体に面する位置の違いは無視する。ケースは `p9-timing/p9_timing_inputs.py` が書き、内訳は `p9-timing/p9_timing.py` が
-core のログ（tracing の span）から取る。ステージは `p9-timing/dvc.yaml`。
+core のログ（tracing の span）から取る。ステージは `p9-timing/dvc.yaml` だが、下の結果はステージでなく試行で流した（`p9-timing/trial-0231/`）。
+ステージの上流の p5 の格子計算のステージが changed（p5 の dvc.lock がライブラリの前の版を指す。#0235）で、ステージを流すと p5 の格子計算が巻き込まれる
+ため。試行の入力 `trial-0231/core-p9.toml` は、ステージの `core-p9.toml` の cycle と chain のパスだけをその置き場から引くように直したもので、
+台帳、サイクル、テーブルはステージと同じファイル（p5 の反射体と軸方向の平板は p5 の dvc.lock のとおりの出力で、そのステージの deps のライブラリは
+`vera.msgpack` md5 0dfa3aca）。ステージの出力（`p9-timing/timing-p9.json` など）は前の `bin/core` の結果のまま残してある（前との比較は ADR-0231 の
+「確認」）。
 
 テーブルの軸の制約で、表 P9-2 の形から次を変えた:
 
@@ -7629,13 +7698,16 @@ B-10 の 19.78 at%（references/vera/spec.txt の 1645 行。扱いは #0036）�
 ```sh
 # リポジトリの直下で、default の devShell の中。時間を記録するので Slurm の区分 timed で流す（下の「計算」）
 python3 examples/depletion/p9-timing/p9_timing_inputs.py --check
-dvc repro examples/depletion/p9-timing/dvc.yaml:timing-p9
+cd examples/depletion/p9-timing/trial-0231
+../../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
+python3 ../p9_timing.py core-p9.log > timing-p9.json
 ```
 
 ### 計算
 
-ブランチ chore/0156-p9-timing（分岐点は main の 00c2494c）の ca59c64b、2026-11-06。Slurm 697（区分 timed、排他、`elapsed=01:13:42`）でステージ
-`core-p9` と `timing-p9` を流した。`bin/core` は md5 18e0d9da、燃焼の履歴 `core-p9.msgpack` は 1f46a131。固有値計算（NEM）は 1 回の解を 1 スレッドで
+ブランチ perf/0156-warm-start-nem（分岐点は main の 322f2808）の ebdc31a7、2026-11-06。Slurm 702（区分 timed、排他、`elapsed=00:47:53`）で、試行の
+入力を `trials/p9-timing/`（cycle と chain のパスはそこから引く形）に置いて流し、後で `p9-timing/trial-0231/` に移してパスを直した。`bin/core` は
+md5 798e955b（ADR-0231 の初期値。既定の `initial-guess`）。固有値計算（NEM）は 1 回の解を 1 スレッドで
 解き、ミクロ燃焼のノードの計算は rayon の 32 スレッド（r995 の排他のジョブの既定）。固有値計算の時間は span `nem` のフィールド `seconds`（time.busy は
 3 桁に丸まる）で、ほかの部分は span の time.busy。
 
@@ -7653,13 +7725,13 @@ dvc repro examples/depletion/p9-timing/dvc.yaml:timing-p9
 
 | 部分                                                     | 時間 (s) | 全体に対する割合 (%) |
 | -------------------------------------------------------- | -------- | -------------------- |
-| 固有値計算（部分挿入のノードの定数の作り直しを含む）     | 4400.0   | 99.8                 |
-| 少数群定数の内挿とミクロ燃焼の補正                       | 5.3      | 0.1                  |
+| 固有値計算（部分挿入のノードの定数の作り直しを含む）     | 2862.8   | 99.7                 |
+| 少数群定数の内挿とミクロ燃焼の補正                       | 5.3      | 0.2                  |
 | ミクロ燃焼（微視的断面積の内挿、反応率、CRAM48）         | 1.0      | 0.0                  |
 | 平衡 Xe（微視的断面積の内挿、平衡の値、Anderson の加速） | 0.7      | 0.0                  |
-| その他                                                   | 1.0      | 0.0                  |
-| 全体                                                     | 4408.0   | 100.0                |
-| 臨界ホウ素の探索（上の内訳と重なる）                     | 1794.0   | 40.7                 |
+| その他                                                   | 1.1      | 0.0                  |
+| 全体                                                     | 2870.9   | 100.0                |
+| 臨界ホウ素の探索（上の内訳と重なる）                     | 1202.0   | 41.9                 |
 
 <!-- /table -->
 
@@ -7679,17 +7751,20 @@ dvc repro examples/depletion/p9-timing/dvc.yaml:timing-p9
 
 | 固有値計算の数 | 1 回の時間 (s) | 外側の反復の回数 |
 | -------------- | -------------- | ---------------- |
-| 25             | 131.9〜203.0   | 4,213〜6,068     |
+| 25             | 43.2〜212.3    | 1,419〜6,078     |
 
 <!-- /table -->
 
-- 時間の 99.8 % は固有値計算で、テーブルの内挿（ノードごとの少数群定数とミクロ燃焼の補正）は 1 回の解あたり約 0.2 秒、ミクロ燃焼と平衡 Xe の値の
+- 時間の 99.7 % は固有値計算で、テーブルの内挿（ノードごとの少数群定数とミクロ燃焼の補正）は 1 回の解あたり約 0.2 秒、ミクロ燃焼と平衡 Xe の値の
   計算はどちらも全体の 0.1 % 未満
+- 固有値計算の外側の反復は、点と中点の解の最初の固有値計算（平らな初期値。燃焼点 0、中点、出力のステップの終わりの点の場合 2 と場合 3 の状態の解、
+  崩壊の後の点の 5 回）で 4,213〜6,078 回、同じ解の直前の固有値計算から解いた 20 回で 1,419〜4,891 回。中点の平衡 Xe の解き直しは 5,388 回（1 回目）
+  から 1,419 回（8 回目）へ減る。1 回の固有値計算の時間は外側の反復 1 回あたり 29〜43 ms（`trial-0231/core-p9.log` の span `nem` の `iterations` と
+  `seconds`）
 - 解の表の 2 つの「燃焼点 9.0」は、出力のステップの終わりの点と、0.01 日の崩壊の後の点。前者の 11 回は、場合 2 の状態の平衡 Xe の解き直し 6 回と、
   場合 3 の状態の探索 5 回の和（「平衡 Xe の解き直し」の列はこの点の場合 2 の解の回数）。探索は、どちらの点も両端を含めて 5 回（範囲 1100〜1300 ppm、
   許容 1e-6）
 - 30 ステップの見積もり（確かめていない）: 表 P9-2 の出力のステップ 29 個は 1 + 2 × 29 = 59 回の解で、燃焼点 0 のほかの 58 回は平衡 Xe の解で、
-  探索の状態では 1 回の解が「Xe の解き直しの回数 × 探索の回数」の固有値計算になる。Xe の 8 回と探索の 5 回で 1 + 8 × 5 × 58 = 2,321 回、1 回 176 秒
-  （この測定の固有値計算の平均。4,400 秒 / 25 回）で約 408,000 秒（約 113 時間）。Xe の回数は点で 6 回の解もあり、8 回は多い側。手元の試行の値
-  （1 回 170 秒）に小さな炉心の探索の比 5.5 回（#0156。全炉心の測定は 5 回）を掛けると約 120 時間。前に出した約 57 時間は、Xe の回数を小さな炉心の 5.5 回、1 回を BOC の 118 秒とした値で、全炉心の
-  平衡 Xe の解の 6〜8 回と 132〜203 秒に合わないので使わない
+  探索の状態では 1 回の解が「Xe の解き直しの回数 × 探索の回数」の固有値計算になる。Xe の 8 回と探索の 5 回で 1 + 8 × 5 × 58 = 2,321 回、1 回 114.5 秒
+  （この測定の固有値計算の平均。2,862.8 秒 / 25 回）で約 266,000 秒（約 74 時間）。Xe の回数は点で 6 回の解もあり、8 回は多い側。この測定の 25 回のうち
+  平らな初期値から解いたのは 5 回で、探索の状態の解では 1 回の解の固有値計算が多いほど前の解から解く割合が増えるので、平均は 30 ステップで変わりうる
