@@ -1257,6 +1257,7 @@ fn history_sample() -> Table {
             }],
         }],
         points,
+        boron10: None,
     }
 }
 
