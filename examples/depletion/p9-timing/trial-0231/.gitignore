@@ -1,2 +1,2 @@
-# 試行の燃焼の履歴（大きいので追跡しない。記録は timing-p9.json と compare-guess.json を引く）
+# 試行の燃焼の履歴（大きいので git では追跡せず、compare-guess.json が md5 で引くので core-p9.msgpack.dvc で DVC に追う。ADR-0222）
 core-p9.msgpack
