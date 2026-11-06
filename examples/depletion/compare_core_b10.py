@@ -1,18 +1,17 @@
-"""冷却材の B-10 の割合がテーブルと違う状態の補正（ADR-0236）を、直接の格子計算の k∞ と比べる。
+"""冷却材の B-10 の割合がテーブルと違う状態の ppm の換算（ADR-0237）を、直接の格子計算の k∞ と比べる。
 
 使い方: python3 compare_core_b10.py --json <要約の出力先> <テーブル（msgpack）> <core のケース（toml）> <core の標準出力>
           <直接の格子計算のテーブル（msgpack）>...
         python3 compare_core_b10.py --report <要約の JSON>
 
 - `--json`: core のケース（branches/core-2A-b10.toml の形）は、集合体 1 体で、状態の名前が
-  `corrected-b<割合 ×1000>-p<ppm>-u<燃焼度>`（状態の b10 で補正）、`converted-b…-p…-u…`（テーブルの b10 で、B-10 の個数密度が同じになる
-  ppm に直したもの。ADR-0236 の案 1）、`nominal-p<ppm>-u<燃焼度>`（テーブルの b10 の同じ ppm）。直接の格子計算のテーブルごとに、その
-  b10 とホウ素の軸の点、燃焼度の軸の点の組の状態（減速材と燃料はテーブルの 1 点）を比べ、次を書く。
+  `b<割合の小数点の後の数字>-p<ppm>-u<燃焼度>`（その b10 の状態。core がテーブルの b10 の ppm に換算して引く）と
+  `nominal-p<ppm>-u<燃焼度>`（テーブルの b10 の同じ ppm）。直接の格子計算のテーブルごとに、その b10 とホウ素の軸の点、燃焼度の軸の点の組の
+  状態（減速材と燃料はテーブルの 1 点）を比べ、次を書く。
   - `direct`: 直接の格子計算のテーブルの k∞
-  - `corrected`、`converted`: core の k の、直接の格子計算からの反応度の差 Δρ = (1/k_直接 − 1/k) × 1e5 pcm
+  - `converted`: core の k の、直接の格子計算からの反応度の差 Δρ = (1/k_直接 − 1/k) × 1e5 pcm
   - `effect`: B-10 の割合を変えた効き（nominal の k から直接の格子計算の k への反応度の差）
-  ケースの状態の b10、ppm、燃焼度、温度が名前とテーブルに合うこと（converted の ppm は ADR-0106 の原子質量で換算した値と相対 1e-12）を
-  確かめる。`inputs` は読んだファイルのパスと md5
+  ケースの状態の b10、ppm、燃焼度、温度が名前とテーブルに合うことを確かめる。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く
 """
 
@@ -25,19 +24,10 @@ from pathlib import Path
 import msgpack
 import tomllib
 
-# AME2020 の原子質量 (u)（ADR-0106。crates/format/src/table.rs の MASS_B10、MASS_B11）
-MASS_B10 = 10.01293695
-MASS_B11 = 11.00930536
-STATE = re.compile(r"(corrected|converted)-b(\d+)-p(\d+)-u(\d+)|nominal-p(\d+)-u(\d+)")
+STATE = re.compile(r"b(\d+)-p(\d+)-u(\d+)|nominal-p(\d+)-u(\d+)")
 K_LINE = re.compile(r"k-eff (\S+)")
-CONVERTED_TOLERANCE = 1e-12
 # テーブルの格子点の状態の core の k と k∞ の差の許容 (pcm)
 NOMINAL_TOLERANCE = 0.01
-
-
-def per_mass(b10: float) -> float:
-    """ホウ素の単位質量あたりの B-10 の原子の数（比だけを使う）"""
-    return b10 / (b10 * MASS_B10 + (1.0 - b10) * MASS_B11)
 
 
 def rho_pcm(base: float, k: float) -> float:
@@ -95,25 +85,17 @@ def summarize(table: dict, case: dict, out: str, directs: list[dict]) -> dict:
         m = STATE.fullmatch(name)
         if m is None:
             raise SystemExit(f"state {name}: unexpected name")
+        # b<数字> は割合の小数点の後（b180 は 0.18、b1978 は 0.1978）
         kind, b, ppm, u = (
-            (m[1], int(m[2]) / 1000, float(m[3]), float(m[4]))
+            ("b10", float(f"0.{m[1]}"), float(m[2]), float(m[3]))
             if m[1]
-            else ("nominal", table_b10, float(m[5]), float(m[6]))
+            else ("nominal", table_b10, float(m[4]), float(m[5]))
         )
         if (s["moderator"], s["fuel"], s["burnup"]) != (moderator, fuel, u):
             raise SystemExit(
                 f"state {name}: temperatures or burnup differ from its name and the table"
             )
-        if kind == "converted":
-            want = ppm * per_mass(b) / per_mass(table_b10)
-            if (
-                s["b10"] != table_b10
-                or abs(s["boron"] - want) > CONVERTED_TOLERANCE * want
-            ):
-                raise SystemExit(
-                    f"state {name}: boron {s['boron']} b10 {s['b10']}, want {want} at {table_b10}"
-                )
-        elif (s["b10"], s["boron"]) != ((b if kind == "corrected" else table_b10), ppm):
+        if (s["b10"], s["boron"]) != (b, ppm):
             raise SystemExit(f"state {name}: b10 or boron differ from its name")
         by[(kind, b, ppm, u)] = ks[name]
     points = []
@@ -129,7 +111,7 @@ def summarize(table: dict, case: dict, out: str, directs: list[dict]) -> dict:
             for u in d_axes["burnup"]["points"]:
                 k = table_k(direct, ppm, u)
                 nominal = by[("nominal", table_b10, ppm, u)]
-                # 補正のない状態の core の k は、テーブルの格子点の k∞ と同じ（ADR-0190 の確認の 0.00043 pcm の水準）
+                # テーブルの b10 の状態の core の k は、テーブルの格子点の k∞ と同じ（ADR-0190 の確認の 0.00043 pcm の水準）
                 if abs(rho_pcm(table_k(table, ppm, u), nominal)) > NOMINAL_TOLERANCE:
                     raise SystemExit(
                         f"the nominal core k at {ppm} ppm {u} MWd/kg is not the table's"
@@ -141,8 +123,7 @@ def summarize(table: dict, case: dict, out: str, directs: list[dict]) -> dict:
                         "burnup": u,
                         "direct": k,
                         "effect": rho_pcm(nominal, k),
-                        "corrected": rho_pcm(k, by[("corrected", b10, ppm, u)]),
-                        "converted": rho_pcm(k, by[("converted", b10, ppm, u)]),
+                        "converted": rho_pcm(k, by[("b10", b10, ppm, u)]),
                     }
                 )
     return {"table_b10": table_b10, "points": points}
@@ -152,21 +133,24 @@ def report(summary: dict) -> list[str]:
     p = summary["points"]
     lines = [
         f"テーブルの b10 {summary['table_b10']}、{len(p)} 点",
-        "| b10 | ppm | 燃焼度 | 直接の k∞ | 効き (pcm) | 補正 − 直接 (pcm) | 換算 − 直接 (pcm) |",
+        "| b10 | ppm | 燃焼度 | 直接の k∞ | 効き (pcm) | 換算 − 直接 (pcm) |",
     ]
     lines += [
         f"| {x['b10']} | {x['boron']:g} | {x['burnup']:g} | {x['direct']:.6f} | {x['effect']:+.1f} | "
-        f"{x['corrected']:+.2f} | {x['converted']:+.2f} |"
+        f"{x['converted']:+.2f} |"
         for x in p
     ]
     for b10 in sorted({x["b10"] for x in p}):
         group = [x for x in p if x["b10"] == b10]
-        for key in ["effect", "corrected", "converted"]:
+        for key in ["effect", "converted"]:
             values = [x[key] for x in group]
             lines.append(f"b10 {b10} {key}: {min(values):+.3f}〜{max(values):+.3f} pcm")
-        for key in ["corrected", "converted"]:
-            share = max(abs(x[key] / x["effect"]) for x in group)
-            lines.append(f"b10 {b10} |{key}| / |effect| の最大: {share * 100:.2f}%")
+        # 効きが 0 の点（0 ppm）は割合を持たない
+        shares = [abs(x["converted"] / x["effect"]) for x in group if x["effect"] != 0]
+        if shares:
+            lines.append(
+                f"b10 {b10} |converted| / |effect| の最大: {max(shares) * 100:.2f}%"
+            )
     return lines
 
 

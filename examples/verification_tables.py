@@ -1763,7 +1763,7 @@ def core_depletion_boron(sources: list[dict]) -> str:
 
 
 def core_b10(sources: list[dict]) -> str:
-    """B-10 の割合がテーブルと違う状態（ADR-0236）: 直接の格子計算の k∞ と、B-10 を変えた効き、補正した core と ppm を換算した core の差"""
+    """B-10 の割合がテーブルと違う状態（ADR-0237）: 直接の格子計算の k∞ と、B-10 を変えた効き、ppm を換算した core の差"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-b10":
         raise TableError("not an xlc-compare-core-b10 summary")
@@ -1774,7 +1774,6 @@ def core_b10(sources: list[dict]) -> str:
             burnup_label(p["burnup"]),
             f"{p['direct']:.6f}",
             signed(p["effect"], 1),
-            signed(p["corrected"], 2),
             signed(p["converted"], 2),
         ]
         for p in s["points"]
@@ -1786,7 +1785,6 @@ def core_b10(sources: list[dict]) -> str:
             "燃焼度 (MWd/kg)",
             "直接の k∞",
             "効き (pcm)",
-            "補正 − 直接 (pcm)",
             "換算 − 直接 (pcm)",
         ],
         rows,

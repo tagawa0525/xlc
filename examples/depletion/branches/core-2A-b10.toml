@@ -1,220 +1,133 @@
-# 冷却材の B-10 の割合がテーブルと違う状態（ADR-0236）: B-10 19.9 at% のテーブル（table-2A-b10-199.msgpack。branch-2A-b10-199.toml）の
-# 集合体 1 体（反射境界）の k∞ を、18 と 30 at% の状態で求める。状態の名前は <組>-b<B-10 の割合 ×1000>-p<ppm>-u<燃焼度>:
-# - corrected: 状態の b10 を 18 か 30 at% にし、テーブルの B-10 の微視的断面積で補正する（ADR-0236 の決定）
-# - converted: b10 をテーブルの 19.9 at% にし、ホウ素を B-10 の個数密度が同じになる ppm に直す（ADR-0236 の案 1。ppm は
-#   ppm × (b10 / M(b10)) × (M(0.199) / 0.199)、M は ADR-0106 の AME2020 の原子質量の重み。repr で書く）
-# - nominal: b10 をテーブルの 19.9 at% にした同じ ppm の状態（B-10 の割合を変えた効きの基準）
+# 冷却材の B-10 の割合がテーブルと違う状態（ADR-0237）: B-10 19.9 at% のテーブル（table-2A-b10-199.msgpack。branch-2A-b10-199.toml）の
+# 集合体 1 体（反射境界）の k∞ を、18 と 30 at% の状態で求める。状態の名前は b<割合の小数点の後>-p<ppm>-u<燃焼度>（core が B-10 の個数密度の
+# 同じになる 19.9 at% の ppm に換算して引く）と、nominal-p<ppm>-u<燃焼度>（19.9 at% の同じ ppm。B-10 の割合を変えた効きの基準）。
 # 比べる直接の格子計算は branch-2A-b10-180.toml と branch-2A-b10-300.toml（compare_core_b10.py）。
 cycle = "core-2A-b10-cycle.toml"
 axial-mesh = [0.0, 21.5]
 radial-nodes = 1
 boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
 
-[state.corrected-b180-p600-u0]
-boron = 600.0
+[state.b18-p600-u0]
+boron = 600
 b10 = 0.18
 moderator = 565
 fuel = 565
 burnup = 0
 
-[state.corrected-b180-p600-u20]
-boron = 600.0
+[state.b18-p600-u20]
+boron = 600
 b10 = 0.18
 moderator = 565
 fuel = 565
 burnup = 20
 
-[state.corrected-b180-p600-u40]
-boron = 600.0
+[state.b18-p600-u40]
+boron = 600
 b10 = 0.18
 moderator = 565
 fuel = 565
 burnup = 40
 
-[state.corrected-b180-p1300-u0]
-boron = 1300.0
+[state.b18-p1300-u0]
+boron = 1300
 b10 = 0.18
 moderator = 565
 fuel = 565
 burnup = 0
 
-[state.corrected-b180-p1300-u20]
-boron = 1300.0
+[state.b18-p1300-u20]
+boron = 1300
 b10 = 0.18
 moderator = 565
 fuel = 565
 burnup = 20
 
-[state.corrected-b180-p1300-u40]
-boron = 1300.0
+[state.b18-p1300-u40]
+boron = 1300
 b10 = 0.18
 moderator = 565
 fuel = 565
 burnup = 40
 
-[state.corrected-b300-p600-u0]
-boron = 600.0
-b10 = 0.3
+[state.b30-p600-u0]
+boron = 600
+b10 = 0.30
 moderator = 565
 fuel = 565
 burnup = 0
 
-[state.corrected-b300-p600-u20]
-boron = 600.0
-b10 = 0.3
+[state.b30-p600-u20]
+boron = 600
+b10 = 0.30
 moderator = 565
 fuel = 565
 burnup = 20
 
-[state.corrected-b300-p600-u40]
-boron = 600.0
-b10 = 0.3
+[state.b30-p600-u40]
+boron = 600
+b10 = 0.30
 moderator = 565
 fuel = 565
 burnup = 40
 
-[state.corrected-b300-p1300-u0]
-boron = 1300.0
-b10 = 0.3
+[state.b30-p1300-u0]
+boron = 1300
+b10 = 0.30
 moderator = 565
 fuel = 565
 burnup = 0
 
-[state.corrected-b300-p1300-u20]
-boron = 1300.0
-b10 = 0.3
+[state.b30-p1300-u20]
+boron = 1300
+b10 = 0.30
 moderator = 565
 fuel = 565
 burnup = 20
 
-[state.corrected-b300-p1300-u40]
-boron = 1300.0
-b10 = 0.3
-moderator = 565
-fuel = 565
-burnup = 40
-
-[state.converted-b180-p600-u0]
-boron = 541.7648929277797
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 0
-
-[state.converted-b180-p600-u20]
-boron = 541.7648929277797
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 20
-
-[state.converted-b180-p600-u40]
-boron = 541.7648929277797
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 40
-
-[state.converted-b180-p1300-u0]
-boron = 1173.823934676856
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 0
-
-[state.converted-b180-p1300-u20]
-boron = 1173.823934676856
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 20
-
-[state.converted-b180-p1300-u40]
-boron = 1173.823934676856
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 40
-
-[state.converted-b300-p600-u0]
-boron = 913.0213673056677
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 0
-
-[state.converted-b300-p600-u20]
-boron = 913.0213673056677
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 20
-
-[state.converted-b300-p600-u40]
-boron = 913.0213673056677
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 40
-
-[state.converted-b300-p1300-u0]
-boron = 1978.2129624956133
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 0
-
-[state.converted-b300-p1300-u20]
-boron = 1978.2129624956133
-b10 = 0.199
-moderator = 565
-fuel = 565
-burnup = 20
-
-[state.converted-b300-p1300-u40]
-boron = 1978.2129624956133
-b10 = 0.199
+[state.b30-p1300-u40]
+boron = 1300
+b10 = 0.30
 moderator = 565
 fuel = 565
 burnup = 40
 
 [state.nominal-p600-u0]
-boron = 600.0
+boron = 600
 b10 = 0.199
 moderator = 565
 fuel = 565
 burnup = 0
 
 [state.nominal-p600-u20]
-boron = 600.0
+boron = 600
 b10 = 0.199
 moderator = 565
 fuel = 565
 burnup = 20
 
 [state.nominal-p600-u40]
-boron = 600.0
+boron = 600
 b10 = 0.199
 moderator = 565
 fuel = 565
 burnup = 40
 
 [state.nominal-p1300-u0]
-boron = 1300.0
+boron = 1300
 b10 = 0.199
 moderator = 565
 fuel = 565
 burnup = 0
 
 [state.nominal-p1300-u20]
-boron = 1300.0
+boron = 1300
 b10 = 0.199
 moderator = 565
 fuel = 565
 burnup = 20
 
 [state.nominal-p1300-u40]
-boron = 1300.0
+boron = 1300
 b10 = 0.199
 moderator = 565
 fuel = 565
