@@ -544,7 +544,7 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
                         * b10_density_ratio(state.b10, *b10).map_err(|e| format!("boron: {e}"))?
                 };
                 bracket("boron", ppm, boron, |x| transform.apply(x)).map_err(|e| {
-                    if boron == state.boron {
+                    if *b10 == state.b10 {
                         e
                     } else {
                         format!(
