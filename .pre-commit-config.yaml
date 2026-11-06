@@ -48,3 +48,13 @@ repos:
         files: ^(flake\.(nix|lock)|docs/patches/.*|(.*/)?references-shell\.txt)$
         pass_filenames: false # 渡されたファイルでなく、追跡しているすべての references-shell.txt を見る
         verbose: true
+      - id: docs-consistency
+        name: documents are consistent (issue and ADR numbers, links, both directions)
+        # 検査は追跡しているすべてのファイルのパスを読む（リンク先のパスの有無、消した issue への参照）ので、消すだけ
+        # のコミットや .md 以外のコミットでも実行する（ADR-0233）
+        entry: scripts/check-docs-consistency.sh
+        language: system
+        always_run: true
+        pass_filenames: false # 渡されたファイルでなく、追跡しているすべてのファイルを見る
+        require_serial: true
+        verbose: true
