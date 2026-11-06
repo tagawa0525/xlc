@@ -21,9 +21,9 @@ ADR-0232 の実装（ブランチ perf/0076-core-cmfd）のローカルのレビ
   補正から外すか、そのノードだけ比を 1 にする形などは測っていない（#0242 と同じ枝）
 - `stepped_core_converges_with_refinement` の吸収体で埋めた比較は加速しない反復で解く（CMFD のこの問題でのエラーは `cmfd_needs_positive_node_fluxes`
   が確かめる）。上の扱いを直したら既定に戻す
-- 変化の見積もり `Remaining` が `crates/core/src/nem.rs`、`crates/numeric/src/cmfd.rs`、`crates/lattice/src/moc.rs` に 3 つある。`xlc_numeric` の
+- 変化の見積もり `Remaining` が `crates/core/src/nem.rs`、`crates/cmfd/src/lib.rs`、`crates/lattice/src/moc.rs` に 3 つある。`xlc-cmfd` の
   ものを公開して core と lattice が使う形（#0241 で lattice を移すときにまとめる）
-- `xlc_numeric::cmfd::Coarse::new` は `labels`、`matrices`、`fission`、`neighbors`、`flux` の長さを確かめない（今の呼び出しは core だけで長さは揃う）
+- `xlc_cmfd::Coarse::new` は `labels`、`matrices`、`fission`、`neighbors`、`flux` の長さを確かめない（今の呼び出しは core だけで長さは揃う）
 - `Core::coarse` は外側の反復ごとにノードごとの `Vec` を作り、`Coarse::new` が平らな配列にコピーする。D̃ と ADF の平均は物質を置き換えるまで
   変わらないが、毎回求め直す（全炉心の BOC で 1 回 12 ms、外側の反復 1 回のスイープの約半分）
 - `Spectrum::chi_sum` は χ の和で、呼び出し側が求める。core の呼び出しはセルに 1 つの項だけを渡す（lattice の移行に備えた形）
