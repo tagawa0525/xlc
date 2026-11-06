@@ -32,6 +32,14 @@ git worktree move <worktree> <リポジトリの親>/xlc-fix-0004-frame-gap   # 
 
 既にある issue の番号で始めるなら、1 から番号の入った名前で作る。
 
+その issue がまだマージしていない別のブランチにしか無いとき（main に無い `#NNNN` を本文に書くと、docs の検査の
+hook `docs-consistency` の `check_mentions` が「#NNNN does not exist」で止める）は、main から worktree を作ったあと、
+そのブランチで issue を足したコミットだけを `git cherry-pick` で取り込んでから作業を始める。コミットは
+`git log --oneline <元のブランチ> -- docs/issues/NNNN-*.md` で探す。元のブランチを後で main に rebase するとき、
+内容の同じ取り込んだコミットは git が飛ばす。ただし元のブランチがその issue を後のコミットで書き換えていて、
+こちらのブランチも同じ issue を書き換えた（閉じるなど）ときは、その後のコミットが衝突する。元のブランチの担当に、
+rebase で衝突しうることをマージの連絡に書く。
+
 worktree の出力に `SHARED: references` が出ていることを確かめる。出ていなければ、`ls -l references` で main への
 symlink かを見て、なければ worktree の直下で手で張る（ADR-0126）:
 
