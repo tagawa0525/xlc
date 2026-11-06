@@ -157,13 +157,5 @@ worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡
 ## 後片付け
 
 - 後片付け（worktree とブランチの削除、予約のタグの解放）は /git-merge が行う
-- 核種を足すなどして作り直した `examples/vera/vera.msgpack` は、main の同じ場所にも置く。ほかの worktree は main の
-  ものをコピーして使うので、置き換えないと古いライブラリで計算が始まる。追跡しない生成物なので、main の作業ツリーは
-  汚れない。/git-merge は worktree を消すので、マージの前に（rebase とチェックのあと）コピーしておく:
-
-  ```sh
-  cp --reflink=auto examples/vera/vera.msgpack ~/github/xlc/examples/vera/vera.msgpack
-  ```
-
-  DVC のステージの出力を入れたブランチをマージしたあとは、main で `scripts/dvc-checkout.py dvc.yaml` と `scripts/dvc-checkout.py examples/vera/dvc.yaml`
+- DVC のステージの出力を入れたブランチをマージしたあとは、main で `scripts/dvc-checkout.py dvc.yaml` と `scripts/dvc-checkout.py examples/vera/dvc.yaml`
   をして `dvc.lock` の出力に合わせる（ADR-0130、ADR-0159。手順はスキル dvc-relock の後半）
