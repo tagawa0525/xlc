@@ -35,4 +35,4 @@ docs/plans/m2-assembly.md、226bdb6 と a60c037、2026-10-08）。
 
 ## 帰結
 
-なし。
+- core の既定のスレッドの数も、同じ規則（物理コアの数を、このプロセスに許された論理 CPU の数で抑えたもの）にした（[ADR-0234](0234-solve-nem-on-threads-in-red-black-order.md)）
