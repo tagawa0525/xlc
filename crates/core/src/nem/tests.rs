@@ -2153,7 +2153,10 @@ fn cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations() {
     // ADR-0232: CMFD は収束した解を変えない加速で、加速しない反復と同じ収束の判定（見積もった残りが許容の中）を満たすので、差は
     // 許容の 2 倍の中。反射体と ADF の跳び、外形の面、集合体ほどのノード、Marshak の外周と小さいノードを含む
     let accelerated = Options::default();
-    assert_eq!(accelerated.acceleration, Acceleration::Cmfd);
+    assert_eq!(
+        accelerated.acceleration,
+        Acceleration::Cmfd(CoarseRatios::default())
+    );
     let unaccelerated = Options {
         acceleration: Acceleration::None,
         ..accelerated
@@ -2192,6 +2195,20 @@ fn cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations() {
             plain.iterations
         );
     }
+}
+
+#[test]
+fn coarse_mesh_tolerances_take_the_ratios_of_the_larger_of_the_nem_tolerance_and_the_sweep_change()
+{
+    // ADR-0232: 粗メッシュの固有値問題の許容は、比 × max(NEM の許容, スイープによる変化)。k と中性子束で別の比を使う
+    let options = Options::default();
+    let ratios = CoarseRatios { k: 0.3, flux: 0.5 };
+    let small = cmfd::tolerances(&options, ratios, 1.0e-12, 1.0e-12);
+    assert_eq!(small.k, 0.3 * options.k_tolerance);
+    assert_eq!(small.flux, 0.5 * options.flux_tolerance);
+    let large = cmfd::tolerances(&options, ratios, 2.0e-6, 4.0e-5);
+    assert_eq!(large.k, 0.3 * 2.0e-6);
+    assert_eq!(large.flux, 0.5 * 4.0e-5);
 }
 
 #[test]
@@ -2312,7 +2329,10 @@ fn red_black_solutions_do_not_depend_on_the_thread_count() {
 fn red_black_order_agrees_with_the_lexicographic_order() {
     // ADR-0234: 解く順は収束した解を変えない。どちらの順も同じ収束の判定（見積もった残りが許容の中）を満たすので、差は許容の 2 倍の中
     let red_black = Options::default();
-    for acceleration in [Acceleration::Cmfd, Acceleration::None] {
+    for acceleration in [
+        Acceleration::Cmfd(CoarseRatios::default()),
+        Acceleration::None,
+    ] {
         let red_black = Options {
             acceleration,
             ..red_black
