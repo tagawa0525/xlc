@@ -1,0 +1,134 @@
+# 冷却材の B-10 の割合がテーブルと違う状態（ADR-0237）: B-10 19.9 at% のテーブル（table-2A-b10-199.msgpack。branch-2A-b10-199.toml）の
+# 集合体 1 体（反射境界）の k∞ を、18 と 30 at% の状態で求める。状態の名前は b<割合の小数点の後>-p<ppm>-u<燃焼度>（core が B-10 の個数密度の
+# 同じになる 19.9 at% の ppm に換算して引く）と、nominal-p<ppm>-u<燃焼度>（19.9 at% の同じ ppm。B-10 の割合を変えた効きの基準）。
+# 比べる直接の格子計算は branch-2A-b10-180.toml と branch-2A-b10-300.toml（compare_core_b10.py）。
+cycle = "core-2A-b10-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.b18-p600-u0]
+boron = 600
+b10 = 0.18
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.b18-p600-u20]
+boron = 600
+b10 = 0.18
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.b18-p600-u40]
+boron = 600
+b10 = 0.18
+moderator = 565
+fuel = 565
+burnup = 40
+
+[state.b18-p1300-u0]
+boron = 1300
+b10 = 0.18
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.b18-p1300-u20]
+boron = 1300
+b10 = 0.18
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.b18-p1300-u40]
+boron = 1300
+b10 = 0.18
+moderator = 565
+fuel = 565
+burnup = 40
+
+[state.b30-p600-u0]
+boron = 600
+b10 = 0.30
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.b30-p600-u20]
+boron = 600
+b10 = 0.30
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.b30-p600-u40]
+boron = 600
+b10 = 0.30
+moderator = 565
+fuel = 565
+burnup = 40
+
+[state.b30-p1300-u0]
+boron = 1300
+b10 = 0.30
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.b30-p1300-u20]
+boron = 1300
+b10 = 0.30
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.b30-p1300-u40]
+boron = 1300
+b10 = 0.30
+moderator = 565
+fuel = 565
+burnup = 40
+
+[state.nominal-p600-u0]
+boron = 600
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.nominal-p600-u20]
+boron = 600
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.nominal-p600-u40]
+boron = 600
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 40
+
+[state.nominal-p1300-u0]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.nominal-p1300-u20]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.nominal-p1300-u40]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 40

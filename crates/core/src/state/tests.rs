@@ -162,11 +162,10 @@ fn invalid_states_are_errors() {
     assert!(err(Some(&state(1300.0, 590.0, 600.0)), &t).contains("moderator"));
     assert!(err(Some(&state(1300.0, 565.0, 1000.0)), &t).contains("fuel"));
     assert!(err(Some(&state(f64::NAN, 565.0, 600.0)), &t).contains("boron"));
-    // B-10 の割合が違う
+    // B-10 の割合が範囲の外（ADR-0237）
     let mut s = state(1300.0, 565.0, 600.0);
-    s.b10 = 0.2;
-    assert!(err(Some(&s), &t).contains("b10"));
-    assert!(err(Some(&s), &t).contains("exactly"));
+    s.b10 = 1.5;
+    assert!(err(Some(&s), &t).contains("B-10"));
     // 状態があるのに軸がない、状態がないのに軸がある
     let mut two = t.clone();
     two.axes.pop();
@@ -1391,4 +1390,72 @@ fn branch_density_differences_are_interpolated_like_the_residuals() {
     let err = interpolate_branch_difference(&rod, &[0.0, 10.0, 20.0, 25.0], &nominal[..4], 17.0)
         .unwrap_err();
     assert!(err.contains("burnup"), "{err}");
+}
+
+/// 同じ B-10 の個数密度になる、テーブルの B-10 の割合（0.199）の ppm（ADR-0237）
+fn converted(ppm: f64, b10: f64) -> f64 {
+    ppm * xlc_format::table::b10_density_ratio(b10, 0.199).unwrap()
+}
+
+#[test]
+fn differing_b10_interpolates_at_the_ppm_of_the_same_b10_density() {
+    let t = table();
+    for (ppm, b10, tm, tf) in [
+        (1300.0, 0.18, 580.0, 900.0),
+        (1000.0, 0.18, 560.0, 700.0),
+        (1000.0, 0.30, 551.0, 899.0),
+    ] {
+        let mut s = state(ppm, tm, tf);
+        s.b10 = b10;
+        let got = interpolate(&t, Some(&s), None).unwrap().remove(0);
+        // 換算した ppm の状態を、テーブルの割合で引いたものとビットで同じ
+        let same = interpolate(&t, Some(&state(converted(ppm, b10), tm, tf)), None)
+            .unwrap()
+            .remove(0);
+        assert_eq!(got, same, "{ppm} ppm at {b10}");
+        // 多重線形な量は、換算した ppm の値を再現する
+        let want = few(converted(ppm, b10), tm, tf).k_inf;
+        assert!(
+            close(got.k_inf, want),
+            "{ppm} ppm at {b10}: {} vs {want}",
+            got.k_inf
+        );
+    }
+}
+
+#[test]
+fn converted_ppm_outside_the_boron_points_is_an_error() {
+    // 1300 ppm の 30 at% は、19.9 at% で約 1978 ppm で、テーブルの上端 1700 ppm の外
+    let t = table();
+    let mut s = state(1300.0, 565.0, 600.0);
+    s.b10 = 0.30;
+    let e = interpolate(&t, Some(&s), None).unwrap_err();
+    assert!(e.contains("boron") && e.contains("b10"), "{e}");
+    assert!(e.contains(&format!("{}", converted(1300.0, 0.30))), "{e}");
+}
+
+#[test]
+fn table_b10_is_not_converted() {
+    // B-10 のないテーブル（b10 0）は換算の比が決まらない（ADR-0237）が、状態も b10 0 なら換算せずに引き、b10 だけが違う同じテーブルを
+    // その b10 で引いたものとビットで同じ
+    let t = table();
+    let mut none = t.clone();
+    let Axis::Boron { b10, .. } = &mut none.axes[0] else {
+        panic!("the first axis is boron");
+    };
+    *b10 = 0.0;
+    let mut s = state(1291.0, 570.0, 565.0);
+    let want = interpolate(&t, Some(&s), None).unwrap();
+    s.b10 = 0.0;
+    assert_eq!(interpolate(&none, Some(&s), None).unwrap(), want);
+}
+
+#[test]
+fn zero_ppm_of_another_b10_outside_the_boron_points_names_the_conversion() {
+    // 0 ppm は換算しても 0 ppm で、テーブルの下端 900 ppm の外。B-10 の割合が違えば、エラーに換算の値を添える（ADR-0237）
+    let t = table();
+    let mut s = state(0.0, 565.0, 600.0);
+    s.b10 = 0.18;
+    let e = interpolate(&t, Some(&s), None).unwrap_err();
+    assert!(e.contains("ADR-0237") && e.contains("b10 0.18"), "{e}");
 }

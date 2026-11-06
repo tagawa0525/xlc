@@ -1,0 +1,7 @@
+# B-10 19.9 at% の、燃焼度の軸を持つテーブル（ADR-0237 の確認）。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A-b10-199.msgpack"]
+
+[assembly.A01]
+design = "2A"
