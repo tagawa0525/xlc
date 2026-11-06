@@ -785,6 +785,7 @@ pub fn deplete(
                 &state.at(ppm),
                 burnups,
                 compositions.as_ref(),
+                None,
                 options,
             )
         };

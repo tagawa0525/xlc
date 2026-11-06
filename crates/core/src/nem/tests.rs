@@ -285,7 +285,7 @@ fn single_reflective_node_direction_stays_bounded() {
         flux_tolerance: 0.0,
         max_iterations: 2000,
     };
-    match iterate(&mut core, &long, None) {
+    match iterate(&mut core, &long, None, None) {
         Err(NemError::NotConverged { k, .. }) => assert!(
             (k - converged.k).abs() < 1e-12 * converged.k,
             "{k} vs {}",
@@ -340,6 +340,99 @@ fn inconsistent_problem_is_error() {
             .to_string()
             .contains("finite")
     );
+}
+
+/// 中心の側（x の前半）の燃料と、外側（x の後半）の吸収を `absorber` 倍にした燃料の直方体。-x と -y は対称面、ほかは中性子束 0
+fn two_zone(absorber: f64) -> Problem {
+    let mut p = cuboid(
+        [80.0, 80.0, 120.0],
+        [4, 4, 4],
+        [
+            Boundary::Reflective,
+            Boundary::ZeroFlux,
+            Boundary::Reflective,
+            Boundary::ZeroFlux,
+            Boundary::ZeroFlux,
+            Boundary::ZeroFlux,
+        ],
+    );
+    let mut outer = material();
+    for g in 0..2 {
+        let added = outer.absorption[g] * (absorber - 1.0);
+        outer.absorption[g] += added;
+        outer.total[g] += added;
+    }
+    p.materials.push(outer);
+    for (site, m) in p.node_material.iter_mut().enumerate() {
+        if p.mesh.position(site)[0] >= 2 {
+            *m = Some(1);
+        }
+    }
+    p
+}
+
+/// 2 つの解の k の差と、ノードの中性子束の相対差の最大
+fn differences(a: &Solution, b: &Solution) -> (f64, f64) {
+    let flux = a
+        .flux
+        .iter()
+        .flatten()
+        .zip(b.flux.iter().flatten())
+        .map(|(x, y)| ((x - y) / y).abs())
+        .fold(0.0, f64::max);
+    ((a.k - b.k).abs(), flux)
+}
+
+#[test]
+fn starting_from_a_nearby_solution_converges_to_the_flat_start_answer_in_fewer_iterations() {
+    // 外側の吸収を 10 % 増やした問題（臨界ホウ素の探索の次の評価や、燃焼の次の解に当たる）を、増やす前の解から解く。どちらの解も
+    // 同じ収束の判定（見積もった残りが許容の中）を満たすので、差は許容の 2 倍の中
+    let options = Options::default();
+    let (_, guess) = solve_from(&two_zone(1.3), &options, None).unwrap();
+    let problem = two_zone(1.43);
+    let flat = solve(&problem, &options).unwrap();
+    let (warm, _) = solve_from(&problem, &options, Some(&guess)).unwrap();
+    let (dk, dflux) = differences(&warm, &flat);
+    assert!(dk < 2.0 * options.k_tolerance, "k {} vs {}", warm.k, flat.k);
+    assert!(dflux < 2.0 * options.flux_tolerance, "flux {dflux}");
+    assert!(
+        warm.iterations < flat.iterations,
+        "{} iterations from the previous solution, {} from the flat start",
+        warm.iterations,
+        flat.iterations
+    );
+}
+
+#[test]
+fn starting_from_its_own_solution_converges_at_once() {
+    // 収束した解は、同じ問題の外側の反復でほとんど変わらない。見積もった残りは 2 回目の変化から出るので、2 回で止まる
+    let options = Options::default();
+    let problem = two_zone(1.3);
+    let (flat, guess) = solve_from(&problem, &options, None).unwrap();
+    let (again, _) = solve_from(&problem, &options, Some(&guess)).unwrap();
+    let (dk, dflux) = differences(&again, &flat);
+    assert!(
+        dk < 2.0 * options.k_tolerance,
+        "k {} vs {}",
+        again.k,
+        flat.k
+    );
+    assert!(dflux < 2.0 * options.flux_tolerance, "flux {dflux}");
+    assert!(again.iterations <= 2, "{} iterations", again.iterations);
+}
+
+#[test]
+fn guesses_of_other_node_layouts_are_errors() {
+    // ノードの数か群の数の違う解は、中性子束をノードに当てられない。黙って平らな初期値にしない
+    let options = Options::default();
+    let (_, guess) = solve_from(&two_zone(1.3), &options, None).unwrap();
+    let smaller = cuboid([80.0, 80.0, 120.0], [4, 4, 3], [Boundary::ZeroFlux; 6]);
+    let err = solve_from(&smaller, &options, Some(&guess)).unwrap_err();
+    assert!(matches!(err, NemError::InvalidProblem(_)), "{err}");
+    let mut one = cuboid([80.0, 80.0, 120.0], [4, 4, 4], [Boundary::ZeroFlux; 6]);
+    one.materials = vec![one_group()];
+    let err = solve_from(&one, &options, Some(&guess)).unwrap_err();
+    assert!(matches!(err, NemError::InvalidProblem(_)), "{err}");
 }
 
 /// 1群の均質な物質（拡散係数 1 cm）
@@ -452,7 +545,7 @@ fn two_material_slab(adf_a: Vec<Vec<f64>>, adf_b: Vec<Vec<f64>>) -> Problem {
 /// 収束した状態も返す
 fn solve_state(p: &Problem) -> (Core<'_>, Solution, State) {
     let mut core = Core::new(p).unwrap();
-    let (s, state) = iterate(&mut core, &Options::default(), None).unwrap();
+    let (s, state) = iterate(&mut core, &Options::default(), None, None).unwrap();
     (core, s, state)
 }
 

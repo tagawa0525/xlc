@@ -1261,6 +1261,7 @@ fn corrected_constants_are_checked_and_compositions_cover_every_site() {
                 densities,
                 histories: &histories,
             }),
+            None,
             &tight(),
         )
     };
@@ -1929,6 +1930,7 @@ fn steps_solve_in_the_states_they_name() {
                 densities: &densities,
                 histories: &histories,
             }),
+            None,
             &tight(),
         )
         .unwrap();
