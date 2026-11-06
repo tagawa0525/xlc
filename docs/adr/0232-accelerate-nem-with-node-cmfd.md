@@ -104,13 +104,18 @@ CMFD の後の NEM の状態の更新（r はノードと群ごとの比）:
 
 比を 1e-3 と 1e-2 にした前の版（粗メッシュのセルごとの `Vec` をたどる形）は 58 回、粗メッシュの反復 27,165 回、20.4 秒だった。
 
-粗メッシュの固有値問題のソルバの置き場（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）:
+粗メッシュの固有値問題のソルバの置き場（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）。lattice の CMFD を同じソルバに移すと、lattice の
+実行ファイルが変わり、`bin/lattice` を deps にするステージ（15 の dvc.yaml の dvc.lock に約 380 行。うち examples/vera/p5 が 218）がすべて changed に
+なる:
 
-- 案 S1: lattice の `cmfd::Coarse` のブロック Gauss-Seidel のべき乗法を `xlc_numeric::cmfd` に移し、lattice と core が使う（下書きと旧 worktree の試し）。
-  lattice の実行ファイルが変わり、`bin/lattice` を deps にするステージ（15 の dvc.yaml の dvc.lock に約 380 行。うち examples/vera/p5 が 218）がすべて
-  changed になる
-- 案 S2（採用）: 形状に依存しない固有値問題の反復（ブロック Gauss-Seidel のべき乗法、核分裂のスペクトルの項、残りの見積もり）を `xlc_numeric::cmfd` に
-  置いて core が使い、lattice は、次に lattice の実行ファイルが変わる作業で同じソルバに移す（#0241）
+- 案 S1: lattice の `cmfd::Coarse` のブロック Gauss-Seidel のべき乗法を `xlc_numeric::cmfd` に移し、lattice と core が使う（下書きと旧 worktree の試し）
+- 案 S2: 形状に依存しない固有値問題の反復を `xlc_numeric::cmfd` に置いて core だけが使い、lattice は後で移す: lattice のコードを変えなくても、
+  `xlc-numeric` に依存する xs と lattice の実行ファイルのバイトが変わった（build のステージで、main の e46b8639 の `bin/xs` md5 953c587b、`bin/lattice`
+  7e959698 が、このブランチの 45c0749e で 4d196da7、18ad5c55。main のソースを別の場所でビルドしても main の dvc.lock の md5 と同じだった）。xs と
+  lattice のステージがすべて changed になる
+- 案 S3（採用）: 形状に依存しない固有値問題の反復（ブロック Gauss-Seidel のべき乗法、核分裂のスペクトルの項、残りの見積もり）を新しい共通の
+  クレート `xlc-cmfd`（`xlc-numeric` の LU 分解を使う）に置いて core が使い、lattice は、次に lattice の実行ファイルが変わる作業で同じクレートに
+  移す（#0241）。xs と lattice の実行ファイルは main と同じバイトのまま（同じ build のステージで md5 953c587b と 7e959698）
 
 ## 決定と理由
 
@@ -123,20 +128,20 @@ current CMFD を解いて更新する（案 M1、C3、F1、U1、J2）。
 - **更新**: CMFD の k と、ノードと群ごとの比 r で、ノードの平均中性子束と展開係数の a3、a4 に r を掛け、出ていく部分中性子流を補正の式から求め直し、
   a1、a2 を面の中性子束とノードの平均から求め直す。そのあと生成率 1 に規格化する
 - **収束の判定**: `nem::Options` の許容のまま、CMFD の更新を含めた外側の反復の 1 回による k と中性子束の変化から見積もった残りで判定する
-- **粗メッシュの固有値問題**: ブロック Gauss-Seidel のべき乗法（`xlc_numeric::cmfd::Coarse`）を、k と組み立てた中性子束から解き始める。許容は k が
+- **粗メッシュの固有値問題**: ブロック Gauss-Seidel のべき乗法（`xlc_cmfd::Coarse`）を、k と組み立てた中性子束から解き始める。許容は k が
   0.3 × max(NEM の k の許容, スイープによる k の変化)、中性子束が 1 × max(NEM の中性子束の許容, スイープによる中性子束の変化)、反復の上限は 100,000
   （[ADR-0110](0110-solve-cmfd-as-finely-as-the-moc-change.md) の考え方で、比は 1 以下）。変化の見積もりは、丸め（相対 1e-14）以下の変化を収束とみなす
 - **エラー**: 補正を作るときにノードの中性子束が正でないとき、粗メッシュの解が正でないとき、粗メッシュの反復が上限に届いたときは、外側の反復の番号を
   付けたエラー（`NemError::Cmfd`）で止める。加速しない反復に替えない
 - **入力**: ケースの `acceleration`（既定 `cmfd`）。`none` は加速しない（比べるため）。燃焼の履歴には書かない（どちらも同じ収束の判定を満たす解）
-- **共有**: 案 S2。`xlc_numeric::cmfd` に置き、lattice は #0241 で移す
+- **共有**: 案 S3。`xlc-cmfd` に置き、lattice は #0241 で移す
 
 理由: 案 C3 は面の両側で同じ値の部分中性子流を使い、部分中性子流とノードの中性子束が正なら行列の対角が正、隣との結合が負になる（案 C1、C2 で解が
 負になった問題も解ける）。ADF を平均で割るのは、NEM の面の条件が ADF の比だけで決まるのと同じく、CMFD の反復も比だけで決めるため。案 J2 は、加速した
 反復の残りを、加速しない反復と同じ見積もり方（変化の縮小率）で求めるため（案 J1 は見積もりが外れた）。粗メッシュの許容の比は、BOC で時間の最も短い
-組（0.3、1）にした。案 S2 にするのは、lattice を今移すと約 380 の lattice のステージが changed になり、出力を変えない変更のために再実行か `dvc commit` の
-判断（[ADR-0212](0212-separate-reference-stage-python.md) の条件に当たらない）が要るためで、CLAUDE.md の「保守性が上がる変更は、実行ファイルが
-どのみち変わるときなどに費用を数えて行う」に従う。
+組（0.3、1）にした。案 S3 にするのは、lattice を今移すか `xlc-numeric` を変えると、xs か lattice のステージが changed になり、出力を変えない変更の
+ために再実行か `dvc commit` の判断（[ADR-0212](0212-separate-reference-stage-python.md) の条件に当たらない）が要るためで、CLAUDE.md の「保守性が
+上がる変更は、実行ファイルがどのみち変わるときなどに費用を数えて行う」に従う。ADR-0003 は共通のクレートを `xlc-numeric` に限らない。
 
 ### 帰結
 
@@ -153,7 +158,7 @@ current CMFD を解いて更新する（案 M1、C3、F1、U1、J2）。
 
 実装のブランチで、測った値と計算のコミットに置き換える。
 
-- `crates/numeric` の `cmfd` のテスト: 1 つのセルの k∞、平板の固有値が密な逆反復と一致、解から始めると数回で止まる、反復の上限、特異なブロック、
+- `crates/cmfd` のテスト: 1 つのセルの k∞、平板の固有値が密な逆反復と一致、解から始めると数回で止まる、反復の上限、特異なブロック、
   核分裂なし、負の解のエラー
 - `crates/core` のテスト: 加速の有無の k と中性子束が許容の 2 倍の中で一致し、反復が減る（`cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations`。
   反射体と ADF の跳び、外形の面、集合体ほどのノード）、バランスと面の連続（`cmfd_keeps_the_balance_and_face_currents`）、前の解からの反復
