@@ -33,7 +33,7 @@ tagawa0525/xlc-history-backup にある。そのときのツール（規則、fi
 
 - 2026-10-11: 書き換えの後、しばらく様子を見ることにした（メモリに置いていたものを 2026-10-12 に issue にした）
 - 2026-10-21: 2 度目の書き換え（#0141）をした。掃除は 2 回分をまとめて行う
-- 2026-11-06: feat/core-cmfd の未コミットの変更（控えのパッチ `worktree-2.patch` の lib.rs の 1 行と、パッチでなく別に控えた `cmfd.rs.before`
+- 2026-11-06: feat/core-cmfd の未コミットの変更（控えのパッチ `worktree-2.patch` と `worktree-2.after.patch` の lib.rs の 1 行（書き換えの前と後）と、パッチでなく別に控えた `cmfd.rs.before`
   の `crates/numeric/src/cmfd.rs`）は、そのままはコミットしていない。
   ソルバの切り出しの試しは ADR-0232 の案 S1 に書き、新しいクレート `xlc-cmfd` に取り込んだ（6bf685f7c）。ブランチと worktree は
   ユーザーの判断で片付けた（#0076）
