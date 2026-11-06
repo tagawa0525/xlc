@@ -2377,9 +2377,77 @@ fn joint_iterations_converge_the_composition_and_the_boron_together() {
     assert!(evaluations <= 6, "{evaluations} evaluations");
 }
 
+/// 曲がった k の固定点: k − 1 = 0.1 − 1e-4 p − 2e-8 p² − 0.2 x、平衡の組成 0.1 + 0.5 x + 3e-4 (p − 700)。ホウ素を与えなければ、その組成で
+/// k が 1 になる p を 0〜2000 ppm の二分法で解く。ホウ素の効きは −0.4e-4（p = 0 の傾きの 0.4 倍。割線の誤差を大きくして、Anderson の
+/// 加速が固定点の p を一度越える）。固定点は約 619.64 ppm
+fn curved_balance(x: &[Option<Vec<f64>>], ppm: Option<f64>) -> Balanced<((f64, f64), usize)> {
+    let x = x[0].as_ref().unwrap()[0];
+    let f = |p: f64| 0.1 - 1.0e-4 * p - 2.0e-8 * p * p - 0.2 * x;
+    let (p, solves) = match ppm {
+        Some(p) => (p, 1),
+        None => {
+            let (mut low, mut high) = (0.0, 2000.0);
+            for _ in 0..200 {
+                let middle = 0.5 * (low + high);
+                if f(middle) > 0.0 {
+                    low = middle;
+                } else {
+                    high = middle;
+                }
+            }
+            (0.5 * (low + high), 3)
+        }
+    };
+    let worth = -0.4e-4;
+    Balanced {
+        solved: ((p, 1.0 + f(p)), solves),
+        densities: vec![Some(vec![0.1 + 0.5 * x + 3.0e-4 * (p - 700.0)])],
+        boron: Some(BoronStep {
+            ppm: p,
+            next: p - f(p) / worth,
+            critical: f(p).abs() <= 1.0e-9,
+            scale: 1.0e-9 / 0.4e-4 / EQUILIBRIUM_TOLERANCE,
+        }),
+    }
+}
+
+#[test]
+fn joint_iterations_that_overshoot_the_bracket_end_solve_at_the_end_and_converge() {
+    // 固定点（約 619.64 ppm）が範囲の中なら、Anderson の加速が一度範囲の下端の外（約 618.1 ppm）を選んでも止めず、その回は下端で
+    // 解いて続け、固定点に着く
+    let mut solved_at = Vec::new();
+    let (((p, k), _), _) = equilibrate(vec![Some(vec![0.0])], Some([619.0, 2000.0]), |x, ppm| {
+        solved_at.extend(ppm);
+        Ok(curved_balance(x, ppm))
+    })
+    .unwrap();
+    assert!(solved_at.contains(&619.0), "{solved_at:?}");
+    assert!((k - 1.0).abs() <= 1.0e-9, "{k}");
+    assert!((p - 619.64).abs() <= 0.01, "{p}");
+}
+
+#[test]
+fn joint_iterations_search_again_until_the_worth_is_known() {
+    // 探索が効きを返さない間（範囲の端の 1 回で終わったとき）は、ホウ素の成分を持たず、次の評価でも探す。効きが分かってからは
+    // 1 回の評価ごとに組成とホウ素を進める
+    let mut asked = Vec::new();
+    let (((_, k), _), _) = equilibrate(vec![Some(vec![0.0])], Some([0.0, 2000.0]), |x, ppm| {
+        asked.push(ppm);
+        let mut balanced = linear_balance(x, ppm);
+        if asked.len() <= 2 {
+            assert_eq!(ppm, None, "evaluation {}", asked.len());
+            balanced.boron = None;
+        }
+        Ok(balanced)
+    })
+    .unwrap();
+    assert!((k - 1.0).abs() <= 1.0e-9, "{k}");
+    assert!(asked[2..].iter().all(Option::is_some), "{asked:?}");
+}
+
 #[test]
 fn joint_iterations_that_leave_the_search_bracket_are_errors() {
-    // 範囲の中で探した最初のホウ素から、反復が範囲の外（固定点の p は約 714 ppm）へ出たら、範囲の端に止めずエラーにする
+    // 固定点の p（約 714 ppm）が範囲の外なら、範囲の下端で組成が釣り合い、そこでも k が目標より大きいので、範囲が解を挟まないエラー
     let error = equilibrate(vec![Some(vec![0.0])], Some([800.0, 1200.0]), |x, ppm| {
         Ok(linear_balance(x, ppm))
     })
