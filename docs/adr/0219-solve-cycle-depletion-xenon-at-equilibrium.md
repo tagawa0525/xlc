@@ -128,7 +128,7 @@ Xe-135 は追う核種で、I-135 は追う核種か補助の核種であるこ�
 - 解き直しと探索の固有値計算は、ノードの CMFD で加速する（[ADR-0232](0232-accelerate-nem-with-node-cmfd.md)）。固有値計算の回数は加速の有無で違う（小さな炉心の
   平衡 Xe の分割 1 で、加速なしの 267 回と CMFD の 239 回。examples/depletion/verification.md の「固有値計算の CMFD（小さな炉心と全炉心）」、b5ae956a6、
   2026-11-06）。差の 28 回はすべて解き直しにある（探索の下の固有値計算は 118 回と 118 回、解き直しは 149 回と 121 回。examples/depletion/branches の
-  core-small-equilibrium-none-1.log と core-small-equilibrium-1.log の span `nem`）。解き直しの数は、
+  core-small-equilibrium-none-1.log と core-small-equilibrium-1.log の span `nem`。5ada71fa5 の `.dvc` の md5 ce5ceca4 と 659aed69）。解き直しの数は、
   平衡 Xe で探す 18 回の解ごとの同時の反復の回数（同じログの `equilibrium xenon iterations`）から 1 を引いた数の和（167 − 18 = 149 回と
   139 − 18 = 121 回）で、差は同時の反復の回数の差。同時の反復の回数が、許容の中で違う固有値計算の解で変わることが候補で、確かめていない
 - 時間で追う燃焼の、細かいステップで育つ軸方向の振動が物理か時間の進め方かは確かめていない（#0200 の残り）
