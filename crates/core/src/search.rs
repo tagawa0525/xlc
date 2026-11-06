@@ -9,8 +9,8 @@ pub struct Found<T> {
     pub value: f64,
     /// 評価の回数（範囲の両端を含む）
     pub solves: usize,
-    /// 根の前に評価した点の位置と値（最初の評価が根ならない）
-    pub previous: Option<(f64, f64)>,
+    /// 根のほかの評価のうち、根から最も遠い点の位置と値（最初の評価が根ならない）
+    pub farthest: Option<(f64, f64)>,
     /// その位置の評価が返したもの
     pub at: T,
 }
@@ -79,17 +79,23 @@ pub fn find<T, E>(
         }
         Ok((value - target, value, t))
     };
-    let found = |x, value, solves, previous, at| Found {
+    // 根のほかに評価した点の位置と値
+    let mut evaluated: Vec<(f64, f64)> = Vec::new();
+    let found = |x: f64, value, solves, evaluated: &[(f64, f64)], at| Found {
         x,
         value,
         solves,
-        previous,
+        farthest: evaluated
+            .iter()
+            .copied()
+            .max_by(|a, b| (a.0 - x).abs().total_cmp(&(b.0 - x).abs())),
         at,
     };
     let (mut f_low, value, t) = at(low, &mut solves)?;
     if f_low.abs() <= tolerance {
-        return Ok(found(low, value, solves, None, t));
+        return Ok(found(low, value, solves, &evaluated, t));
     }
+    evaluated.push((low, value));
     // エラーで示す端の値は評価した値（Illinois 法が半分にした f ではない）
     // 入れ替えのあとの `low` は残った端で、`high` より大きいことがあるので、示すときに並べ直す
     let not_converged = |solves, a: f64, b: f64, at_a, at_b| {
@@ -111,8 +117,9 @@ pub fn find<T, E>(
     let mut value_low = value;
     let (mut f_high, mut value_high, t) = at(high, &mut solves)?;
     if f_high.abs() <= tolerance {
-        return Ok(found(high, value_high, solves, Some((low, value_low)), t));
+        return Ok(found(high, value_high, solves, &evaluated, t));
     }
+    evaluated.push((high, value_high));
     if f_low.signum() == f_high.signum() {
         return Err(SearchError::NotBracketed {
             low,
@@ -132,9 +139,9 @@ pub fn find<T, E>(
         let x = high - f_high * (high - low) / (f_high - f_low);
         let (f, value, t) = at(x, &mut solves)?;
         if f.abs() <= tolerance {
-            // 直前に評価した点は `high`
-            return Ok(found(x, value, solves, Some((high, value_high)), t));
+            return Ok(found(x, value, solves, &evaluated, t));
         }
+        evaluated.push((x, value));
         if f.signum() == f_high.signum() {
             f_low /= 2.0;
         } else {

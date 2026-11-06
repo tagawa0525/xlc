@@ -2434,15 +2434,19 @@ fn joint_iterations_search_again_until_the_worth_is_known() {
     let (((_, k), _), _) = equilibrate(vec![Some(vec![0.0])], Some([0.0, 2000.0]), |x, ppm| {
         asked.push(ppm);
         let mut balanced = linear_balance(x, ppm);
-        if asked.len() <= 2 {
-            assert_eq!(ppm, None, "evaluation {}", asked.len());
+        if asked.len() == 1 {
             balanced.boron = None;
         }
         Ok(balanced)
     })
     .unwrap();
     assert!((k - 1.0).abs() <= 1.0e-9, "{k}");
-    assert!(asked[2..].iter().all(Option::is_some), "{asked:?}");
+    // 2 回目も探し、その評価の効きで 3 回目から濃度を渡す
+    assert_eq!(asked[..2], [None, None], "{asked:?}");
+    assert!(
+        asked.len() > 2 && asked[2..].iter().all(Option::is_some),
+        "{asked:?}"
+    );
 }
 
 #[test]
