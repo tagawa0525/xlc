@@ -24,6 +24,8 @@ fn linear_values_reach_the_root_one_solve_after_the_ends() {
     assert!((found.value - 1.0).abs() <= 1.0e-12);
     // 最後に評価した点のものを返す
     assert_eq!(found.at, found.x);
+    // 根から最も遠い評価（上の端）と、その値
+    assert_eq!(found.farthest, Some((1300.0, 1.1 - 1.0e-4 * 1300.0)));
 }
 
 #[test]
@@ -34,6 +36,13 @@ fn curved_values_converge_within_the_tolerance() {
     assert_eq!(found.value, curved(found.x));
     // Illinois 法は超 1 次で収束する（この関数と範囲で、片方の端が残る regula falsi は 16 回、二分法は 33 回）
     assert!(found.solves <= 12, "{} solves", found.solves);
+}
+
+#[test]
+fn the_farthest_evaluation_is_one_of_the_bracket_ends() {
+    // 根に近い評価との割線は、k の差が固有値計算の許容に近いと効きを誤る。根から最も遠い評価は範囲の端（ここでは上の端）
+    let found = find([0.0, 3000.0], 1.0, 1.0e-10, 30, values(curved)).unwrap();
+    assert_eq!(found.farthest, Some((3000.0, curved(3000.0))));
 }
 
 #[test]
@@ -48,8 +57,11 @@ fn decreasing_and_increasing_values_both_converge() {
 fn an_end_within_the_tolerance_is_the_root() {
     let found = find([1000.0, 1300.0], 1.0, 1.0e-9, 10, values(curved)).unwrap();
     assert_eq!((found.x, found.solves), (1000.0, 1));
+    // 最初の評価が根なら、ほかの評価はない
+    assert_eq!(found.farthest, None);
     let found = find([500.0, 1000.0], 1.0, 1.0e-9, 10, values(curved)).unwrap();
     assert_eq!((found.x, found.solves), (1000.0, 2));
+    assert_eq!(found.farthest, Some((500.0, curved(500.0))));
 }
 
 #[test]

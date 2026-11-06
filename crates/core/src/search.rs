@@ -9,6 +9,8 @@ pub struct Found<T> {
     pub value: f64,
     /// 評価の回数（範囲の両端を含む）
     pub solves: usize,
+    /// 根のほかの評価のうち、根から最も遠い点の位置と値（最初の評価が根ならない）。探索の点はいつも範囲の中なので、範囲の端のどちらか
+    pub farthest: Option<(f64, f64)>,
     /// その位置の評価が返したもの
     pub at: T,
 }
@@ -77,16 +79,23 @@ pub fn find<T, E>(
         }
         Ok((value - target, value, t))
     };
-    let found = |x, value, solves, at| Found {
+    // 根のほかに評価した範囲の端の位置と値
+    let mut ends: Vec<(f64, f64)> = Vec::new();
+    let found = |x: f64, value, solves, ends: &[(f64, f64)], at| Found {
         x,
         value,
         solves,
+        farthest: ends
+            .iter()
+            .copied()
+            .max_by(|a, b| (a.0 - x).abs().total_cmp(&(b.0 - x).abs())),
         at,
     };
     let (mut f_low, value, t) = at(low, &mut solves)?;
     if f_low.abs() <= tolerance {
-        return Ok(found(low, value, solves, t));
+        return Ok(found(low, value, solves, &ends, t));
     }
+    ends.push((low, value));
     // エラーで示す端の値は評価した値（Illinois 法が半分にした f ではない）
     // 入れ替えのあとの `low` は残った端で、`high` より大きいことがあるので、示すときに並べ直す
     let not_converged = |solves, a: f64, b: f64, at_a, at_b| {
@@ -108,8 +117,9 @@ pub fn find<T, E>(
     let mut value_low = value;
     let (mut f_high, mut value_high, t) = at(high, &mut solves)?;
     if f_high.abs() <= tolerance {
-        return Ok(found(high, value_high, solves, t));
+        return Ok(found(high, value_high, solves, &ends, t));
     }
+    ends.push((high, value_high));
     if f_low.signum() == f_high.signum() {
         return Err(SearchError::NotBracketed {
             low,
@@ -129,7 +139,7 @@ pub fn find<T, E>(
         let x = high - f_high * (high - low) / (f_high - f_low);
         let (f, value, t) = at(x, &mut solves)?;
         if f.abs() <= tolerance {
-            return Ok(found(x, value, solves, t));
+            return Ok(found(x, value, solves, &ends, t));
         }
         if f.signum() == f_high.signum() {
             f_low /= 2.0;

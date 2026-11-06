@@ -7,6 +7,7 @@ use super::*;
 use crate::case::{solve_at, solve_burnups};
 use crate::input::{
     BoronSearch, Case, CaseState, Cycle, InitialGuess, Inventory, Layout, MidpointBoron, Plant,
+    XenonBoron,
 };
 use crate::nem::Options;
 
@@ -2259,6 +2260,229 @@ fn equilibrium_xenon_without_xenon_and_iodine_stops_before_solving() {
     .to_string();
     assert!(error.contains("Xe-135"), "{error}");
     assert_eq!(points, 0);
+}
+
+/// 平衡 Xe でホウ素を探す MIXED の燃焼（崩壊だけのステップと出力の割合の変わるステップを含む）を、Xe とホウ素の収束の形 `joint` で
+fn joint_run(joint: XenonBoron) -> CoreHistory {
+    let case = searching(CASE, 1.0e-10)
+        .replace(
+            "[depletion]",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"equilibrium\" }",
+        )
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            "[{ efpd = 50.0 }, { decay-days = 2.0 }, { efpd = 125.0, power = 0.8 }]",
+        );
+    let (layout, tables, case) = core(&case, MIXED, Some(400.0));
+    let tables: Vec<Table> = tables.into_iter().map(with_xenon).collect();
+    let mut depletion = case.depletion.clone().unwrap();
+    depletion.xenon_boron = joint;
+    deplete(
+        &layout,
+        &tables,
+        &case.states,
+        &depletion,
+        Some(&xenon_chain()),
+        None,
+        &tight(),
+        |_| {},
+    )
+    .unwrap()
+}
+
+#[test]
+fn joint_xenon_and_boron_match_the_nested_points_with_fewer_solves() {
+    // ADR-0219: Xe とホウ素を 1 つの反復で収束させた点は、Xe の解き直しのたびにホウ素を探した点と同じ判定（|k − 目標| ≤ 探索の
+    // 許容、Xe の相対の変化 ≤ 1e-6）を満たすので、k は探索の許容の 2 倍、ホウ素、燃焼度、数密度は Xe の固定点の許容の 2 倍の
+    // 相対差の中で一致する。固有値計算は少ない
+    let nested = joint_run(XenonBoron::Nested);
+    let joint = joint_run(XenonBoron::Joint);
+    assert_eq!(nested.points.len(), joint.points.len());
+    let relative = 2.0 * EQUILIBRIUM_TOLERANCE;
+    for (a, b) in joint.points.iter().zip(&nested.points) {
+        let at = format!("{} EFPD, {} days", b.efpd, b.days);
+        assert!((a.k - 1.0).abs() <= 1.0e-10, "{at}: k {}", a.k);
+        assert!((a.k - b.k).abs() <= 2.0e-10, "{at}: k {} vs {}", a.k, b.k);
+        assert!(
+            (a.boron - b.boron).abs() <= relative * b.boron,
+            "{at}: boron {} vs {}",
+            a.boron,
+            b.boron
+        );
+        for (x, y) in a.burnups.iter().flatten().zip(b.burnups.iter().flatten()) {
+            assert!(
+                (x - y).abs() <= relative * y.abs(),
+                "{at}: burnup {x} vs {y}"
+            );
+        }
+        let densities = |h: &CorePoint| h.densities.clone().unwrap();
+        for (x, y) in densities(a)
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(densities(b).iter().flatten().flatten())
+        {
+            assert!(
+                (x - y).abs() <= relative * y.abs(),
+                "{at}: density {x} vs {y}"
+            );
+        }
+    }
+    let total = |h: &CoreHistory| h.points.iter().map(|p| p.solves).sum::<usize>();
+    assert!(
+        total(&joint) < total(&nested),
+        "{} vs {} solves",
+        total(&joint),
+        total(&nested)
+    );
+}
+
+/// 1 つの位置の組成 x とホウ素 p (ppm) の線形の固定点: k − 1 = 0.1 − 1e-4 p − 0.2 x、平衡の組成 0.1 + 0.3 x + 1e-5 (p − 700)。
+/// ホウ素を与えなければ、その組成で k が 1 になる p を（3 回の固有値計算で探したとして）解く。解は (p, k) と固有値計算の回数
+fn linear_balance(x: &[Option<Vec<f64>>], ppm: Option<f64>) -> Balanced<((f64, f64), usize)> {
+    let x = x[0].as_ref().unwrap()[0];
+    let (p, solves) = match ppm {
+        Some(p) => (p, 1),
+        None => ((0.1 - 0.2 * x) / 1.0e-4, 3),
+    };
+    let f = 0.1 - 1.0e-4 * p - 0.2 * x;
+    Balanced {
+        solved: ((p, 1.0 + f), solves),
+        densities: vec![Some(vec![0.1 + 0.3 * x + 1.0e-5 * (p - 700.0)])],
+        boron: Some(BoronStep {
+            ppm: p,
+            next: p + f / 1.0e-4,
+            critical: f.abs() <= 1.0e-9,
+            scale: 1.0e-9 / 1.0e-4 / EQUILIBRIUM_TOLERANCE,
+        }),
+    }
+}
+
+#[test]
+fn joint_iterations_converge_the_composition_and_the_boron_together() {
+    // 最初の評価だけホウ素を探し、その後は 1 回の評価ごとに組成とホウ素を同時に進める。線形の固定点
+    // x = 0.103 / 0.72、p = 1000 − 2000 x に、どちらの判定も満たして着く
+    let mut evaluations = 0;
+    let (((p, k), _), n) = equilibrate(vec![Some(vec![0.0])], Some([0.0, 2000.0]), |x, ppm| {
+        evaluations += 1;
+        assert_eq!(ppm.is_none(), evaluations == 1, "evaluation {evaluations}");
+        Ok(linear_balance(x, ppm))
+    })
+    .unwrap();
+    let x = 0.103 / 0.72;
+    let found = n[0].as_ref().unwrap()[0];
+    assert!((found - x).abs() <= 2.0e-6 * x, "{found} vs {x}");
+    assert!((k - 1.0).abs() <= 1.0e-9, "{k}");
+    assert!((p - (1000.0 - 2000.0 * x)).abs() <= 1.0e-2, "{p}");
+    assert!(evaluations <= 6, "{evaluations} evaluations");
+}
+
+/// 曲がった k の固定点: k − 1 = 0.1 − 1e-4 p − 2e-8 p² − 0.2 x、平衡の組成 0.1 + 0.5 x + 3e-4 (p − 700)。ホウ素を与えなければ、その組成で
+/// k が 1 になる p を 0〜2000 ppm の二分法で解く。ホウ素の効きは −0.4e-4（p = 0 の傾きの 0.4 倍。割線の誤差を大きくして、Anderson の
+/// 加速が固定点の p を一度越える）。固定点は約 619.64 ppm
+fn curved_balance(x: &[Option<Vec<f64>>], ppm: Option<f64>) -> Balanced<((f64, f64), usize)> {
+    let x = x[0].as_ref().unwrap()[0];
+    let f = |p: f64| 0.1 - 1.0e-4 * p - 2.0e-8 * p * p - 0.2 * x;
+    let (p, solves) = match ppm {
+        Some(p) => (p, 1),
+        None => {
+            let (mut low, mut high) = (0.0, 2000.0);
+            for _ in 0..200 {
+                let middle = 0.5 * (low + high);
+                if f(middle) > 0.0 {
+                    low = middle;
+                } else {
+                    high = middle;
+                }
+            }
+            (0.5 * (low + high), 3)
+        }
+    };
+    let worth = -0.4e-4;
+    Balanced {
+        solved: ((p, 1.0 + f(p)), solves),
+        densities: vec![Some(vec![0.1 + 0.5 * x + 3.0e-4 * (p - 700.0)])],
+        boron: Some(BoronStep {
+            ppm: p,
+            next: p - f(p) / worth,
+            critical: f(p).abs() <= 1.0e-9,
+            scale: 1.0e-9 / 0.4e-4 / EQUILIBRIUM_TOLERANCE,
+        }),
+    }
+}
+
+#[test]
+fn joint_iterations_that_overshoot_the_bracket_end_solve_at_the_end_and_converge() {
+    // 固定点（約 619.64 ppm）が範囲の中なら、Anderson の加速が一度範囲の下端の外（約 618.1 ppm）を選んでも止めず、その回は下端で
+    // 解いて続け、固定点に着く
+    let mut solved_at = Vec::new();
+    let (((p, k), _), _) = equilibrate(vec![Some(vec![0.0])], Some([619.0, 2000.0]), |x, ppm| {
+        solved_at.extend(ppm);
+        Ok(curved_balance(x, ppm))
+    })
+    .unwrap();
+    assert!(solved_at.contains(&619.0), "{solved_at:?}");
+    assert!((k - 1.0).abs() <= 1.0e-9, "{k}");
+    assert!((p - 619.64).abs() <= 0.01, "{p}");
+}
+
+#[test]
+fn joint_iterations_search_again_until_the_worth_is_known() {
+    // 探索が効きを返さない間（範囲の端の 1 回で終わったとき）は、ホウ素の成分を持たず、次の評価でも探す。効きが分かってからは
+    // 1 回の評価ごとに組成とホウ素を進める
+    let mut asked = Vec::new();
+    let (((_, k), _), _) = equilibrate(vec![Some(vec![0.0])], Some([0.0, 2000.0]), |x, ppm| {
+        asked.push(ppm);
+        let mut balanced = linear_balance(x, ppm);
+        if asked.len() == 1 {
+            balanced.boron = None;
+        }
+        Ok(balanced)
+    })
+    .unwrap();
+    assert!((k - 1.0).abs() <= 1.0e-9, "{k}");
+    // 2 回目も探し、その評価の効きで 3 回目から濃度を渡す
+    assert_eq!(asked[..2], [None, None], "{asked:?}");
+    assert!(
+        asked.len() > 2 && asked[2..].iter().all(Option::is_some),
+        "{asked:?}"
+    );
+}
+
+#[test]
+fn joint_iterations_that_leave_the_search_bracket_are_errors() {
+    // 固定点の p（約 714 ppm）が範囲の外なら、範囲の下端の 800 ppm で組成が釣り合う値になり（x = 0.101 / 0.7）、そこでも k が目標より小さく
+    // （k − 1 = −0.00886）、k を目標に寄せる濃度は 800 + (k − 1) / 1e-4 ≈ 711.43 ppm で範囲の外なので、範囲が解を挟まないエラー。
+    // エラーは釣り合った濃度と、k を目標に寄せる濃度を示す
+    let error = equilibrate(vec![Some(vec![0.0])], Some([800.0, 1200.0]), |x, ppm| {
+        Ok(linear_balance(x, ppm))
+    })
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("bracket"), "{error}");
+    assert!(error.contains("at 800 ppm"), "{error}");
+    assert!(error.contains("711.4"), "{error}");
+}
+
+#[test]
+fn joint_iterations_with_a_k_that_is_not_finite_are_errors() {
+    // 濃度を与えた解の k が有限でなければ、次の濃度も有限でない。加速（負の値を 0 にする）に通さず、エラーにする
+    let mut evaluations = 0;
+    let error = equilibrate(vec![Some(vec![0.0])], Some([0.0, 2000.0]), |x, ppm| {
+        evaluations += 1;
+        let mut balanced = linear_balance(x, ppm);
+        if ppm.is_some()
+            && let Some(b) = balanced.boron.as_mut()
+        {
+            b.next = f64::NAN;
+            b.critical = false;
+        }
+        Ok(balanced)
+    })
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("not finite"), "{error}");
+    assert_eq!(evaluations, 2);
 }
 
 // restart と装荷替え（ADR-0220）

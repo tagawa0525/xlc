@@ -29,7 +29,7 @@ use crate::case::{
 };
 use crate::input::{
     Boron, BoronSearch, CaseState, DepletionInput, InitialGuess, Layout, MidpointBoron, StepKind,
-    Xenon,
+    Xenon, XenonBoron,
 };
 use crate::micro::{MicroChain, TrackedRates};
 use crate::nem::{Guess, Options, fission_rates};
@@ -455,13 +455,15 @@ fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
     }
 }
 
-/// 燃焼度の分布を 1 回解いた結果: 解いた状態（`states` の番号）、解、そのホウ素濃度 (ppm) と固有値計算の回数、位置ごとの核分裂率、
-/// 解いたノードの履歴の変数（ミクロ燃焼の反応率の履歴の補正が、定数と同じ値を使う。ADR-0215）
+/// 燃焼度の分布を 1 回解いた結果: 解いた状態（`states` の番号）、解、そのホウ素濃度 (ppm) と固有値計算の回数、探索したときは
+/// 探索の割線のホウ素の効き (k/ppm)、位置ごとの核分裂率、解いたノードの履歴の変数（ミクロ燃焼の反応率の履歴の補正が、定数と同じ値を
+/// 使う。ADR-0215）
 struct Solve {
     state: usize,
     solved: Solved,
     ppm: f64,
     solves: usize,
+    worth: Option<f64>,
     rates: Vec<f64>,
     histories: Option<Densities>,
 }
@@ -801,22 +803,23 @@ pub fn deplete(
             Ok(solved)
         };
         let solved = match (&state.boron, given) {
-            (Boron::Given(ppm), _) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
-            (Boron::Search(_), Some(ppm)) => solve_ppm(ppm).map(|solved| (solved, ppm, 1)),
+            (Boron::Given(ppm), _) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1, None)),
+            (Boron::Search(_), Some(ppm)) => solve_ppm(ppm).map(|solved| (solved, ppm, 1, None)),
             (Boron::Search(search), None) => {
                 // 探索の全体（両端を含む固有値計算と内挿）の時間をログに出す（#0156）
                 let _span = tracing::info_span!("search").entered();
                 search_boron(search, solve_ppm)
-                    .map(|(solved, found)| (solved, found.ppm, found.solves))
+                    .map(|(solved, found)| (solved, found.ppm, found.solves, found.worth))
             }
         };
-        let (solved, ppm, solves) = solved.map_err(|e| locate(e, at))?;
+        let (solved, ppm, solves, worth) = solved.map_err(|e| locate(e, at))?;
         let rates = fission_rates(&solved.problem, &solved.solution);
         Ok(Solve {
             state: k,
             solved,
             ppm,
             solves,
+            worth,
             rates,
             histories: h.map(<[_]>::to_vec),
         })
@@ -930,7 +933,9 @@ pub fn deplete(
     };
     // 出力の割合 `power` で運転している解: 状態 `k`、燃焼度 `burnups`、組成 `n` で解く。Xe を平衡にするケース（`xenon` の
     // `equilibrium`。#0200）は、Xe-135、I-135 とその先行核の補助の核種を、解の反応率で釣り合う値に置き換えて解き直すことを、
-    // 置き換える値が変わらなくなるまで繰り返す（Anderson の加速。`equilibrate`）。解と、解いた組成を返す
+    // 置き換える値が変わらなくなるまで繰り返す（Anderson の加速。`equilibrate`）。ホウ素を探す状態は、`xenon-boron` の `joint` なら
+    // 最初の解き直しだけで探し、その後は解き直すごとにホウ素も同じ反復で進める（`nested` なら解き直すたびに探す。ADR-0219）。
+    // 解と、解いた組成を返す
     let solve_operating = |k: usize,
                            burnups: &[f64],
                            n: Option<Densities>,
@@ -947,11 +952,19 @@ pub fn deplete(
             return solve(k, burnups, n.as_deref(), h, given, at).map(|s| (s, n));
         };
         let n = n.clone();
+        // Xe と同じ反復で収束させる探索
+        let search = match (&states[k].boron, given, depletion.xenon_boron) {
+            (Boron::Search(search), None, XenonBoron::Joint) => Some(*search),
+            _ => None,
+        };
         // 点の固有値計算の回数は、固定点のすべての解の和
         let mut solves = 0;
-        equilibrate(n, |n| {
-            let solved = solve(k, burnups, Some(n), h, given, at)?;
+        // 探索の割線のホウ素の効き。分かるまではホウ素の成分を返さず、解き直しのたびに探す（探索が範囲の端の 1 回で終わったとき）
+        let mut worth = None;
+        equilibrate(n, search.map(|s| s.bracket), |n, ppm| {
+            let solved = solve(k, burnups, Some(n), h, ppm.or(given), at)?;
             solves += solved.solves;
+            worth = solved.worth.or(worth);
             let total: f64 = solved.rates.iter().sum();
             // 平衡の Xe と I の値を求める時間をログに出す（#0156）
             let _span = tracing::info_span!("xenon balance").entered();
@@ -966,7 +979,22 @@ pub fn deplete(
                 })
                 .collect::<Result<Vec<_>, String>>()
                 .map_err(|e| locate(CaseError::Depletion(e), at))?;
-            Ok((solved, balanced))
+            let boron = search.zip(worth).map(|(s, w)| {
+                let f = solved.solved.solution.k - s.k;
+                BoronStep {
+                    ppm: solved.ppm,
+                    // ホウ素の効きで k の目標との差を打ち消す濃度（Newton の一歩。効きは探索の割線で固定）
+                    next: solved.ppm - f / w,
+                    critical: f.abs() <= s.tolerance,
+                    // 残差 |next − ppm| = |k − 目標| / |効き| が探索の許容に当たるとき、Xe の残差の許容と同じ大きさになる尺度
+                    scale: s.tolerance / w.abs() / EQUILIBRIUM_TOLERANCE,
+                }
+            });
+            Ok(Balanced {
+                solved,
+                densities: balanced,
+                boron,
+            })
         })
         .map(|(s, n)| (Solve { solves, ..s }, Some(n)))
         .map_err(|e| locate(e, at))
@@ -1012,6 +1040,7 @@ pub fn deplete(
             rates,
             // 点の履歴の変数は、点を解いた値と同じ `h` から書く
             histories: _,
+            worth: _,
         } = solve;
         let burnup_rows = by_assembly(burnups);
         let total: f64 = rates.iter().sum();
@@ -1499,8 +1528,28 @@ fn inherit(
 /// 位置ごとの解く核種の数密度（ミクロ燃焼しない位置は `None`）
 type Densities = Vec<Option<Vec<f64>>>;
 
-/// 固定点の反復の組: 並べた組成 x と、その解で平衡にした組成 g
+/// 固定点の反復の組: 並べた組成 x と、その解で平衡にした組成 g（ホウ素を同時に収束させるときは、末尾に解いた濃度と次の濃度）
 type Iterate = (Vec<f64>, Vec<f64>);
+
+/// 固定点の 1 回の評価: 解、その解の反応率で平衡にした組成と、ホウ素を同時に収束させるときはホウ素の成分
+struct Balanced<S> {
+    solved: S,
+    densities: Densities,
+    boron: Option<BoronStep>,
+}
+
+/// 同時の反復のホウ素の成分（ADR-0219）
+#[derive(Debug)]
+struct BoronStep {
+    /// 解いたホウ素濃度 (ppm)
+    ppm: f64,
+    /// 次に解くホウ素濃度 (ppm): 解の k と目標の差をホウ素の効きで打ち消す濃度
+    next: f64,
+    /// 解の k が目標から探索の許容の中か
+    critical: bool,
+    /// Anderson の加速の残差の、`next − ppm` を割る尺度
+    scale: f64,
+}
 
 /// 平衡 Xe の固定点の許容: 置き換える数密度の、解き直す前後の相対の変化（初めの平衡の値に対する比）の最大
 const EQUILIBRIUM_TOLERANCE: f64 = 1.0e-6;
@@ -1509,12 +1558,19 @@ const EQUILIBRIUM_SOLVES: usize = 50;
 /// Anderson の加速で使う、前の反復の数
 const ANDERSON_DEPTH: usize = 3;
 
-/// 組成 `n` から、`evaluate`（組成 → 解と、その解の反応率で平衡にした組成）の固定点を Anderson の加速（type II）で求め、固定点の
-/// 組成で解いた解と、その組成を返す。中性子束が Xe に強く応じる炉心では、平衡の組成をそのまま次の組成にする反復は互い違いに振れて
-/// 収束しないことがあるので、前の反復の差の最小二乗で次の組成を選ぶ
+/// 組成 `n` から、`evaluate`（組成とホウ素濃度 → 解と、その解の反応率で平衡にした組成）の固定点を Anderson の加速（type II）で
+/// 求め、固定点の組成で解いた解と、その組成を返す。中性子束が Xe に強く応じる炉心では、平衡の組成をそのまま次の組成にする反復は
+/// 互い違いに振れて収束しないことがあるので、前の反復の差の最小二乗で次の組成を選ぶ。
+///
+/// 探索の範囲 `bracket` を渡すと、ホウ素濃度を組成と同じ反復の成分にする（ADR-0219）: 評価がホウ素の成分（`BoronStep`）を返す
+/// 間は、それを組成と一緒に加速して次の濃度を渡す。返さない評価（ホウ素を探した評価で、効きが分からない）の次は、濃度を渡さず
+/// 探させる。成分の有無が変わったら、加速の履歴を捨てる（ホウ素の写像が違う）。組成の変化が許容の中で、かつ解の k が目標から探索の
+/// 許容の中の評価で止める。次の濃度が範囲の外なら範囲の端で解く（範囲の外のテーブルを内挿しない。加速が固定点を一度越えても止めない）。
+/// 範囲の端で組成が釣り合い、k を目標に寄せる濃度がその端の外なら、範囲が解を挟まないのでエラー
 fn equilibrate<S>(
     n: Densities,
-    mut evaluate: impl FnMut(&[Option<Vec<f64>>]) -> Result<(S, Densities), CaseError>,
+    bracket: Option<[f64; 2]>,
+    mut evaluate: impl FnMut(&[Option<Vec<f64>>], Option<f64>) -> Result<Balanced<S>, CaseError>,
 ) -> Result<(S, Densities), CaseError> {
     let flatten =
         |v: &[Option<Vec<f64>>]| -> Vec<f64> { v.iter().flatten().flatten().copied().collect() };
@@ -1532,11 +1588,40 @@ fn equilibrate<S>(
             .collect()
     };
     let mut x = n;
+    let mut ppm = None;
+    // 前の反復が加速にホウ素の成分を入れたか
+    let mut accelerated_boron = None;
     let mut history: Vec<Iterate> = Vec::new();
     let mut scale: Option<Vec<f64>> = None;
+    // 組成の尺度の末尾にホウ素の尺度を足したもの
+    let mut joint_scale: Vec<f64> = Vec::new();
     for iteration in 1..=EQUILIBRIUM_SOLVES {
-        let (solved, balanced) = evaluate(&x)?;
-        let (xf, gf) = (flatten(&x), flatten(&balanced));
+        let Balanced {
+            solved,
+            densities: balanced,
+            boron,
+        } = evaluate(&x, ppm)?;
+        if let Some(b) = &boron
+            && !b.next.is_finite()
+        {
+            // 加速は負の値を 0 にするので、NaN を通すと黙って範囲の下端で解く
+            return Err(CaseError::Depletion(format!(
+                "the joint equilibrium xenon and boron iteration solved {} ppm and its next boron is not finite \
+                 (ADR-0219)",
+                b.ppm
+            )));
+        }
+        let bracket = match (bracket, &boron) {
+            (Some(bracket), Some(_)) => Some(bracket),
+            (None, Some(_)) => {
+                return Err(CaseError::Depletion(
+                    "the equilibrium evaluation gave a boron component without a search bracket"
+                        .into(),
+                ));
+            }
+            (_, None) => None,
+        };
+        let (mut xf, mut gf) = (flatten(&x), flatten(&balanced));
         if balanced
             .iter()
             .map(|v| v.as_ref().map(Vec::len))
@@ -1557,15 +1642,67 @@ fn equilibrate<S>(
             .zip(s.iter())
             .map(|((g, x), s)| (g - x).abs() / s)
             .fold(0.0, f64::max);
-        tracing::debug!(iteration, residual, "equilibrium xenon");
-        if residual <= EQUILIBRIUM_TOLERANCE {
+        // ホウ素を探した評価（成分なし）は、k が目標から許容の中
+        let critical = boron.as_ref().is_none_or(|b| b.critical);
+        tracing::debug!(iteration, residual, ?boron, "equilibrium xenon");
+        if residual <= EQUILIBRIUM_TOLERANCE && critical {
             tracing::info!(iterations = iteration, residual, "equilibrium xenon");
             return Ok((solved, x));
         }
+        // 範囲の端で解き、k を目標に寄せる濃度がその端の外: 濃度を端に留めて組成だけを進める
+        let pinned = match (&boron, bracket) {
+            (Some(b), Some([low, high])) => {
+                (b.ppm == low && b.next < low) || (b.ppm == high && b.next > high)
+            }
+            _ => false,
+        };
+        if let (Some(b), Some([low, high])) = (&boron, bracket)
+            && pinned
+            && residual <= EQUILIBRIUM_TOLERANCE
+        {
+            return Err(CaseError::Depletion(format!(
+                "the critical boron of the equilibrium xenon is outside the search bracket {low} to {high} ppm: \
+                 the xenon balances at {} ppm, where the k asks for {} ppm (ADR-0219)",
+                b.ppm, b.next,
+            )));
+        }
+        // 端に留めた濃度は加速に入れない（入れると、縮まない濃度の残差が最小二乗を占め、組成が釣り合わない）。成分の有無が変われば
+        // 写像が違うので、加速の履歴を捨てる
+        let active = boron.as_ref().filter(|_| !pinned);
+        if accelerated_boron.is_some_and(|a| a != active.is_some()) {
+            history.clear();
+        }
+        accelerated_boron = Some(active.is_some());
+        let s: &[f64] = match active {
+            Some(b) => {
+                xf.push(b.ppm);
+                gf.push(b.next);
+                // 組成の尺度は最初の評価で決まるので、末尾のホウ素の尺度だけを書き換える
+                if joint_scale.len() != s.len() + 1 {
+                    joint_scale = s.iter().copied().chain([b.scale]).collect();
+                } else if let Some(last) = joint_scale.last_mut() {
+                    *last = b.scale;
+                }
+                &joint_scale
+            }
+            None => s,
+        };
         let last = (xf, gf);
         // Anderson の加速の時間を、平衡の値の計算（`xenon balance`）とは別にログに出す（#0156）
-        x = tracing::info_span!("xenon anderson")
-            .in_scope(|| unflatten(&anderson(&history, &last, s)));
+        let mut next =
+            tracing::info_span!("xenon anderson").in_scope(|| anderson(&history, &last, s));
+        ppm = match (active, bracket) {
+            (None, _) if pinned => boron.as_ref().map(|b| b.ppm),
+            (Some(_), Some([low, high])) => {
+                let p = next.pop().ok_or_else(|| {
+                    CaseError::Depletion("the joint iteration lost its boron component".into())
+                })?;
+                // 加速が範囲の外を選んだら、その端で解く。固定点が範囲の中なら、次の反復で戻る
+                Some(p.clamp(low, high))
+            }
+            _ => None,
+        };
+        x = unflatten(&next);
         history.push(last);
         if history.len() > ANDERSON_DEPTH {
             history.remove(0);

@@ -1573,6 +1573,47 @@ fn depletion_eigenvalue_solves_may_start_flat() {
 }
 
 #[test]
+fn depletion_xenon_and_boron_may_converge_nested() {
+    // ADR-0219: 平衡 Xe と臨界ホウ素は、省けば 1 つの反復で同時に収束させる。`nested` は Xe の解き直しのたびにホウ素を探す
+    // （比べるため）。平衡 Xe でホウ素を探すケースのほかでは効かないのでエラー
+    let search = "search = { boron = [0.0, 1300.0], k = 1.0, tolerance = 1e-5, max-solves = 10 }\n";
+    let micro = |xenon: &str| {
+        format!(
+            "history = \"out/history.msgpack\"\nmicro = {{ chain = \"chain.msgpack\", xenon = \"{xenon}\" }}\n"
+        )
+    };
+    let equilibrium = edited(
+        &edited(&depleting(), "boron = 1300\n", search),
+        "history = \"out/history.msgpack\"\n",
+        &micro("equilibrium"),
+    );
+    let with = |text: &str, value: &str| {
+        let line = format!("xenon-boron = \"{value}\"\nhistory = ");
+        edited(text, "history = ", &line)
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.depletion.unwrap().xenon_boron);
+    assert_eq!(read(&equilibrium).unwrap(), XenonBoron::Joint);
+    assert_eq!(
+        read(&with(&equilibrium, "joint")).unwrap(),
+        XenonBoron::Joint
+    );
+    assert_eq!(
+        read(&with(&equilibrium, "nested")).unwrap(),
+        XenonBoron::Nested
+    );
+    assert!(read(&with(&equilibrium, "inverted")).is_err());
+    // Xe を時間で追うケースと、ホウ素を与えた状態だけのケースには効かない
+    let tracked = equilibrium.replace("\"equilibrium\"", "\"tracked\"");
+    assert!(read(&with(&tracked, "nested")).is_err());
+    let given = edited(
+        &depleting(),
+        "history = \"out/history.msgpack\"\n",
+        &micro("equilibrium"),
+    );
+    assert!(read(&with(&given, "nested")).is_err());
+}
+
+#[test]
 fn invalid_depletions_are_errors() {
     let bad = |from: &str, to: &str| Case::parse(&edited(&depleting(), from, to), base()).is_err();
     // 定格の出力密度は正
