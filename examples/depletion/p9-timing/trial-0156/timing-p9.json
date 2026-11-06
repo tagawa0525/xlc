@@ -1,0 +1,60 @@
+{
+  "format": "xlc-core-timing",
+  "seconds": {
+    "total": 4664.74332196,
+    "eigenvalue": 4650.069412625999,
+    "interpolation": 9.478000000000002,
+    "micro": 1.783,
+    "xenon": 1.394660000000001,
+    "other": 2.018249334000757,
+    "search": 1599.0
+  },
+  "nem": {
+    "count": 43,
+    "iterations": [
+      888,
+      5674
+    ],
+    "seconds": [
+      27.308713048,
+      216.612081281
+    ]
+  },
+  "solves": [
+    {
+      "kind": "point",
+      "efpd": 0.0,
+      "boron": 1200.0,
+      "solves": 1,
+      "xenon": null
+    },
+    {
+      "kind": "midpoint",
+      "efpd": 9.0,
+      "boron": 1200.0,
+      "solves": 8,
+      "xenon": 8
+    },
+    {
+      "kind": "point",
+      "efpd": 9.0,
+      "boron": 1254.4886212185165,
+      "solves": 12,
+      "xenon": 8
+    },
+    {
+      "kind": "midpoint",
+      "efpd": 32.0,
+      "boron": 1193.941391116285,
+      "solves": 11,
+      "xenon": 7
+    },
+    {
+      "kind": "point",
+      "efpd": 32.0,
+      "boron": 1145.4160776917354,
+      "solves": 11,
+      "xenon": 7
+    }
+  ]
+}
