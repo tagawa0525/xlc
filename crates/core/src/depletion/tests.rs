@@ -2293,12 +2293,12 @@ fn joint_run(joint: XenonBoron) -> CoreHistory {
 #[test]
 fn joint_xenon_and_boron_match_the_nested_points_with_fewer_solves() {
     // ADR-0219: Xe とホウ素を 1 つの反復で収束させた点は、Xe の解き直しのたびにホウ素を探した点と同じ判定（|k − 目標| ≤ 探索の
-    // 許容、Xe の相対の変化 ≤ 1e-6）を満たすので、k は探索の許容の 2 倍、ホウ素、燃焼度、数密度は Xe の固定点の許容の 10 倍の
+    // 許容、Xe の相対の変化 ≤ 1e-6）を満たすので、k は探索の許容の 2 倍、ホウ素、燃焼度、数密度は Xe の固定点の許容の 2 倍の
     // 相対差の中で一致する。固有値計算は少ない
     let nested = joint_run(XenonBoron::Nested);
     let joint = joint_run(XenonBoron::Joint);
     assert_eq!(nested.points.len(), joint.points.len());
-    let relative = 10.0 * EQUILIBRIUM_TOLERANCE;
+    let relative = 2.0 * EQUILIBRIUM_TOLERANCE;
     for (a, b) in joint.points.iter().zip(&nested.points) {
         let at = format!("{} EFPD, {} days", b.efpd, b.days);
         assert!((a.k - 1.0).abs() <= 1.0e-10, "{at}: k {}", a.k);
