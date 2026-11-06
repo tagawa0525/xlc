@@ -8,7 +8,7 @@
   `thread pool threads=` の行から読む。最初の燃焼のログにその行が無ければ、ADR-0234 の前の bin/core（固有値計算は 1 スレッドの
   直方体の並びの順）の燃焼とし、順を `before`、スレッドの数を null にする
 - `--json`: 名前ごとに `points`、`midpoints`（compare_core_guess.py と同じ形）と、`runs` の燃焼ごとの順（`lexicographic` か `red-black`）、
-  スレッドの数、最初の色の順の履歴とバイトで同じか（`same_bytes`。直方体の並びの順は null）、固有値計算（span `nem`）の数、外側の反復の
+  スレッドの数、最初の色の順の履歴とバイトで同じか（`same_bytes`。直方体の並びの順と最初の色の順は null）、固有値計算（span `nem`）の数、外側の反復の
   回数の和、固有値計算の時間の和（フィールド `seconds`）、core の全体の時間（`core seconds=`）、`per_solve` の固有値計算 1 回の外側の
   反復の回数と時間の [最小, 最大]。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -75,7 +75,9 @@ def compare(
     )
     c.pop("runs")
     runs = [run_of("lexicographic", base_history, base_log, None)]
-    runs += [run_of("red-black", h, text, first_history) for h, text in red_black]
+    # 最初の色の順の燃焼は比べる基準なので、バイトの一致を書かない
+    runs.append(run_of("red-black", first_history, first_log, None))
+    runs += [run_of("red-black", h, text, first_history) for h, text in red_black[1:]]
     return {**c, "runs": runs}
 
 
@@ -97,19 +99,21 @@ def report(summary: dict) -> list[str]:
                 f"{name}: {ORDERS[r['order']]}{threads}: 固有値計算 {r['solves']} 回、外側の反復 {r['iterations']:,} 回、"
                 f"固有値計算の時間 {r['eigenvalue_seconds']:.1f} s、全体 {r['seconds']:.1f} s"
             )
-        same = all(r["same_bytes"] for r in c["runs"] if r["same_bytes"] is not None)
-        lines.append(
-            f"{name}: 色の順の履歴はスレッドの数によらずバイトで同じ"
-            if same
-            else f"{name}: 色の順の履歴にバイトの違うものがある"
-        )
+        compared = [r["same_bytes"] for r in c["runs"] if r["same_bytes"] is not None]
+        if compared:
+            lines.append(
+                f"{name}: 色の順の履歴はスレッドの数によらずバイトで同じ"
+                if all(compared)
+                else f"{name}: 色の順の履歴にバイトの違うものがある"
+            )
     return lines
 
 
 def parse(arg: str) -> tuple[str, list[Path]]:
     name, _, files = arg.partition("=")
-    paths = [Path(p) for p in files.split(",")]
-    if not name or len(paths) < 4 or len(paths) % 2 or not all(str(p) for p in paths):
+    parts = files.split(",")
+    paths = [Path(p) for p in parts]
+    if not name or len(paths) < 4 or len(paths) % 2 or not all(parts):
         raise SystemExit(
             f"give <name>=<lexicographic history>,<log>,<red-black history>,<log>[,...], got {arg}"
         )
