@@ -51,10 +51,11 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
 案 A にする。ユーザーが、判断待ちの一覧で親が推した、#0207 の生成物を
 `dvc add` で追う案を採ると決めた（2026-10-31 03:21）。
 
-- 対象: 記録か ADR が md5 で引くか、記録のコマンドの入力や入力の表で名前で引く、git で追跡しない生成物で、DVC のステージの
-  出力でないもの。置き場は記録が引くパスのまま。コマンドの出力先（`> x.out 2> x.log`）としてだけ名前が出るログと k の出力は
-  追わない。`references/` の下（OpenMC の作業ディレクトリ、AWS の結果。#0018）は main の worktree にだけあり、後片付けで
-  消えないので対象にしない
+- 対象: 記録か ADR か、比較のツールが書いて git で追跡する JSON（例:
+  `examples/depletion/p9-timing/trial-0231/compare-guess.json` の `inputs`）が md5 で引くか、記録のコマンドの入力や入力の
+  表で名前で引く、git で追跡しない生成物で、DVC のステージの出力でないもの。置き場は記録が引くパスのまま。コマンドの
+  出力先（`> x.out 2> x.log`）としてだけ名前が出るログと k の出力は追わない。`references/` の下（OpenMC の
+  作業ディレクトリ、AWS の結果。#0018）は main の worktree にだけあり、後片付けで消えないので対象にしない
 - 時機: 記録に md5 か名前を書く前に `dvc add <ファイル>` し、`.dvc` ファイルを同じブランチでコミットする。同じ名前で作り
   直したら `dvc add` をやり直す
 - 戻し方: 引数なしの `dvc checkout` は dvc.yaml の出力と `.dvc` ファイルの対象の両方を戻すので、
@@ -118,3 +119,12 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
 - 新しい worktree（`git worktree add --detach` に `references` の symlink を張ったもの）で `scripts/worktree-restore-outputs.sh` を
   実行し、終了コード 0（未実行のステージの出力 7 件は `UNRUN:` に数えるだけ）で、追った 43 件の md5 が main の作業ツリーと
   一致した（2026-10-31）
+
+## 変更
+
+- 2026-11-06: 「決定と理由」の対象に、比較のツールが書いて git で追跡する JSON が md5 で引く生成物を足した。前は「対象: 記録か ADR が
+  md5 で引くか、記録のコマンドの入力や入力の表で名前で引く、git で追跡しない生成物で、DVC のステージの出力でないもの。」。
+  ADR-0231 の試行の燃焼の履歴 `examples/depletion/p9-timing/trial-0231/core-p9.msgpack`（md5 792c2a19）は、記録と ADR が引く
+  `compare-guess.json` の `inputs` だけが md5 で引き、前の対象の文では追うかを決められなかった（#0234 の 8。マージの前に親が
+  `dvc add` した）。JSON は記録の数値の出どころで、引く生成物が消えると JSON の値を再現できないことは、記録が直接引く生成物と
+  同じである。比較の JSON だけが md5 で引く生成物も追う対象に含めると決めた（ユーザー 2026-11-06 の判断の要約）

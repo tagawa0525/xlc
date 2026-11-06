@@ -151,3 +151,5 @@ python3 examples/vera/compare_balance.py xlc-2K.msgpack references/openmc/balanc
    main から辿れる）。残ったままだと、マージのコミットの前の hook が実行する `cargo test`（`main_reports_trials_left_by_a_merge`）が止める
 3. 繰り返し比べるツールと、採用した入力は `git mv trials/<入力> examples/<問題>/` で移し、記録のパスと hash を移した先と
    移したコミットに書き換える。計算（コード、入力、環境）を変えていなければ再測定しない
+4. 試行の出力のうち、比較の JSON だけが md5 で引く生成物（燃焼の履歴など）も `dvc add` する（対象と時機は CLAUDE.md の
+   「計算」の `dvc add` の項と、ADR-0222 の「決定と理由」）
