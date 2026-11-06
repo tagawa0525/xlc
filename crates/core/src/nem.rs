@@ -273,12 +273,24 @@ fn iterate(
     core: &mut Core,
     options: &Options,
     mut refresh: Option<&mut dyn Refresh>,
-    _start: Option<&Guess>,
+    start: Option<&Guess>,
 ) -> Result<(Solution, State), NemError> {
     let ng = core.groups;
     let nodes = core.nodes();
-    let mut state = State::new(nodes, ng);
-    let mut k = 1.0;
+    let (mut state, mut k) = match start {
+        None => (State::new(nodes, ng), 1.0),
+        Some(guess) => {
+            // 同じ問題の解かは確かめない（燃焼の次の解は定数が違う）。中性子束をノードと群に当てられることだけを確かめる
+            let groups = guess.state.flux.first().map_or(0, Vec::len);
+            if guess.state.flux.len() != nodes || groups != ng {
+                return Err(NemError::InvalidProblem(format!(
+                    "the initial guess has {} nodes of {groups} groups; the problem has {nodes} nodes of {ng} groups",
+                    guess.state.flux.len()
+                )));
+            }
+            (guess.state.clone(), guess.k)
+        }
+    };
     let production = |core: &Core, state: &State| -> f64 {
         (0..nodes)
             .map(|n| {
