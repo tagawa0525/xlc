@@ -38,7 +38,8 @@ xlc-docs は依存のクレートを持たない（crates/docs/Cargo.toml）の�
 
 ### 検査の範囲
 
-- 案 A: `docs_are_consistent` だけを実行する（採る）。xlc-docs のほかのテストのうち、`production_sources_hold_no_test_code` と
+- 案 A: `docs_are_consistent` だけを実行する（採る）。xlc-docs のほかのテストのうち、crates/docs/src の単体テスト 57 本
+  （`tests.rs` と `check/tests.rs`）は文字列で組んだ入力で検査の関数を確かめる。tests/consistency.rs のほかの 6 本のうち、`production_sources_hold_no_test_code` と
   `record_tables_match_the_compare_outputs` は同じ検査を no-inline-tests と verification-tables の hook が持ち、
   `main_tracks_no_trials` は main でしか意味を持たず、`linked_worktrees_share_references` は worktree の `references` の symlink
   （git で追跡しないもの）を見る。残る 2 つは一時のリポジトリを作る検査のテストで、どれもコミットの中身に依らない
