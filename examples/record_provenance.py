@@ -1,6 +1,7 @@
-"""検証の記録に書く「どの結果か」を、dvc.lock から読んで出す（ADR-0176 の帰結。記録を書く担当が lock を読み直さずに済む）。
+"""検証の記録に書く「どの結果か」を、dvc.lock と .dvc から読んで出す（ADR-0176 の帰結。記録を書く担当が lock を読み直さずに済む）。
 
 使い方: python3 examples/record_provenance.py <dvc.yaml> <ステージ>...
+        python3 examples/record_provenance.py <x.dvc>...（最初の引数が .dvc で終わるとき）
 
 ステージごとに、同じ場所の dvc.lock から次を出す。
 - deps と outs の相対パスと md5（ディレクトリの出力は `.dir` の md5）
@@ -11,6 +12,11 @@
   実行したコミット（その前）ではない
 - 比較のステージ（outs の JSON の `format` が REPORTS にあるもの）は、そのツールの `--report` の文章を続けて出す。JSON が `inputs`
   を持てば、deps の md5 と一致することを確かめ、違えば `MISMATCH` と出して 1 で終わる
+- `.dvc`（`dvc add` で追う生成物。ADR-0222）を渡すと、outs ごとに今の md5 と、コミット済みの `.dvc` の履歴を新しい方から
+  読んで、md5 が続く間ごとにそれを入れたいちばん古いコミット（8 桁）と日付を出す（同じ md5 に戻れば別の行）。`.dvc` を
+  消したコミットか、その出力を持たない版でさかのぼるのをやめる。作業ツリーの `.dvc` の outs が HEAD と違えば今の md5 の行に
+  `uncommitted`、履歴がなければ `unknown` と出し、黙らない。取れるのは `.dvc` のコミットで、生成物を作ったコミット（その前）
+  ではない。生成物の中身が `.dvc` の md5 と合うかは見ない
 - 標準ライブラリだけ
 """
 
@@ -116,6 +122,79 @@ def locked_since(lock: Path, stage: str, out: str) -> tuple[str, str]:
     return since[0], since[1]
 
 
+def parse_dvc(text: str) -> list[tuple[str, str]]:
+    """.dvc の outs（(パス, md5) の並び）。`dvc add` はキーの順を決めないので、項目ごとに集めてから読む"""
+    lines = text.split("\n")
+    try:
+        start = lines.index("outs:") + 1
+    except ValueError:
+        raise ProvenanceError(".dvc has no outs") from None
+    items: list[dict[str, str]] = []
+    for line in lines[start:]:
+        if line and not line.startswith(("-", " ")):
+            break
+        if m := re.match(r"(- |  )(\w+):\s*(.*)$", line):
+            if m.group(1) == "- ":
+                items.append({})
+            if not items:
+                raise ProvenanceError(
+                    f".dvc outs: a key before the first item: {line!r}"
+                )
+            items[-1][m.group(2)] = m.group(3).strip()
+    outs = []
+    for item in items:
+        path, md5 = item.get("path"), item.get("md5", "")
+        if not path or not re.fullmatch(r"[0-9a-f]{32}(\.dir)?", md5):
+            raise ProvenanceError(f".dvc out without a path or an md5: {item}")
+        outs.append((path, md5))
+    if not outs:
+        raise ProvenanceError(".dvc has no outs")
+    return outs
+
+
+def dvc_history(dvc: Path) -> dict:
+    """.dvc の今の outs、状態（None、"uncommitted"、"unknown"）、outs ごとの (md5, それを入れたコミット, 日付) の新しい順"""
+    now = parse_dvc(dvc.read_text())
+    history: dict[str, list[tuple[str, str, str]]] = {path: [] for path, _ in now}
+    log = git(
+        dvc, "log", "--abbrev=8", "--format=%h %ad", "--date=short", "--", dvc.name
+    )
+    if not log or not log.strip():
+        return {"now": now, "state": "unknown", "history": history}
+    commits = [line.split() for line in log.strip().splitlines()]
+    versions = []
+    for commit, date in commits:
+        old = git(dvc, "show", f"{commit}:./{dvc.name}")
+        versions.append((dict(parse_dvc(old)) if old is not None else {}, commit, date))
+    state = None if versions[0][0] == dict(now) else "uncommitted"
+    for path, runs in history.items():
+        # その出力を持たない版（.dvc を消したコミット、別のパス）より前は、別の生成物の履歴なのでさかのぼらない
+        for outs, commit, date in versions:
+            md5 = outs.get(path)
+            if md5 is None:
+                break
+            if runs and runs[-1][0] == md5:
+                runs[-1] = (md5, commit, date)
+            else:
+                runs.append((md5, commit, date))
+    return {"now": now, "state": state, "history": history}
+
+
+def show_dvc(dvc: Path) -> int:
+    if not dvc.exists():
+        raise ProvenanceError(f"{dvc} does not exist")
+    result = dvc_history(dvc)
+    print(f"## {dvc.name}  ({dvc.parent})")
+    print(
+        "outs (md5 now; then each md5 of the committed .dvc, newest first, with the commit and date that first put it in):"
+    )
+    for path, md5 in result["now"]:
+        print(f"  {md5[:8]}  {path}  {result['state'] or ''}".rstrip())
+        for old, commit, date in result["history"][path]:
+            print(f"    {old[:8]}  {commit} {date}")
+    return 0
+
+
 def input_problems(summary: dict, stage: dict) -> list[str]:
     """JSON の `inputs` が、ステージの deps（パスと md5）と一致しない点"""
     deps = dict(stage["deps"])
@@ -182,10 +261,20 @@ def show(dvc_yaml: Path, stage_name: str) -> int:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
+    if not argv or (len(argv) < 2 and not argv[0].endswith(".dvc")):
         print(__doc__, file=sys.stderr)
         return 2
     status = 0
+    if argv[0].endswith(".dvc"):
+        for name in argv:
+            try:
+                if not name.endswith(".dvc"):
+                    raise ProvenanceError(f"{name} is not a .dvc file")
+                status |= show_dvc(Path(name))
+            except ProvenanceError as e:
+                print(f"FAILED: {e}", file=sys.stderr)
+                status = 1
+        return status
     for name in argv[1:]:
         try:
             status |= show(Path(argv[0]), name)
