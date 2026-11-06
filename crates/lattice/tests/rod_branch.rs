@@ -480,3 +480,31 @@ fn split_tables_hold_no_b10() {
     assert_eq!(table(&dir, "fg.msgpack").boron10, None);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn lattices_with_media_hold_no_b10() {
+    // 媒質（ADR-0128）の状態はホウ素の軸に従い、媒質の B-10 はホウ酸水の領域に数えられないので、媒質のある格子は冷却材の B-10 の
+    // 微視的断面積を書かない（ADR-0236、#0260）
+    let dir = scratch("media");
+    let assembly = dir.join("assembly");
+    std::fs::create_dir_all(&assembly).unwrap();
+    run(&assembly, ASSEMBLY);
+    let slab = dir.join("slab");
+    std::fs::create_dir_all(&slab).unwrap();
+    std::fs::copy(
+        assembly.join("medium.msgpack"),
+        slab.join("assembly-medium.msgpack"),
+    )
+    .unwrap();
+    // 混ぜた物質を除いた平板（ホウ酸水と媒質だけ）
+    let mixture = "[material.layer-a]\nmix = [{ material = \"water\", volume = 0.9 }, { material = \"absorber\", volume = 0.1 }]\n";
+    let cell = "[cell.layer-a]\nzones = [{ material = \"layer-a\", rings = 1 }]\n";
+    assert!(SLAB.contains(mixture) && SLAB.contains(cell));
+    let text = SLAB.replace(mixture, "").replace(cell, "").replace(
+        "materials = [\"water\", \"layer-a\"]",
+        "materials = [\"water\"]",
+    );
+    run(&slab, &text);
+    assert_eq!(table(&slab, "fg.msgpack").boron10, None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
