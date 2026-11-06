@@ -4,7 +4,7 @@ date: 2026-11-06
 requires: [ADR-0145, ADR-0190, ADR-0191, ADR-0218, ADR-0219]
 supersedes: []
 superseded-by:
-issues: ["#0156"]
+issues: ["#0156", "#0234"]
 ---
 
 # ADR-0231: core の燃焼の探索の評価と平衡 Xe の解き直しは、同じ解の直前の固有値計算から反復する
