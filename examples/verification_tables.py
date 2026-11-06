@@ -3427,6 +3427,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-small-xenon-boron.json",
     # p9-timing のステージの上流（p5 の格子計算）が changed なので、試行で流した結果（#0235）
     "examples/depletion/p9-timing/trial-0231/timing-p9.json",
+    "examples/depletion/p9-timing/trial-0156/timing-p9.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4188,10 +4189,12 @@ TABLES = {
         depletion_assembly_times,
     ),
     **{
-        f"core-p9-timing-{part}": (
-            ["examples/depletion/p9-timing/trial-0231/timing-p9.json"],
+        f"core-p9{trial}-timing-{part}": (
+            [f"examples/depletion/p9-timing/{source}/timing-p9.json"],
             draw,
         )
+        # 場合 3 を出力のステップにして探す試行は ADR-0219 の同時の反復（#0156）
+        for trial, source in [("", "trial-0231"), ("-joint", "trial-0156")]
         for part, draw in [
             ("parts", core_timing_parts),
             ("solves", core_timing_solves),
