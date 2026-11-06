@@ -3572,6 +3572,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A.json",
     "examples/depletion/branches/compare-burnup-interpolation.json",
     "examples/depletion/branches/compare-core-2A-boron.json",
+    "examples/depletion/branches/compare-core-2A-b10.json",
     "examples/depletion/branches/compare-core-2A-micro.json",
     "examples/depletion/branches/compare-core-2A-partial-rods.json",
     "examples/depletion/branches/compare-core-2A-cycle-power.json",
