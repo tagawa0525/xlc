@@ -1442,3 +1442,13 @@ fn table_b10_is_not_converted() {
     let want = few(1291.0, 570.0, 565.0).k_inf;
     assert!(close(got.k_inf, want));
 }
+
+#[test]
+fn zero_ppm_of_another_b10_outside_the_boron_points_names_the_conversion() {
+    // 0 ppm は換算しても 0 ppm で、テーブルの下端 900 ppm の外。B-10 の割合が違えば、エラーに換算の値を添える（ADR-0237）
+    let t = table();
+    let mut s = state(0.0, 565.0, 600.0);
+    s.b10 = 0.18;
+    let e = interpolate(&t, Some(&s), None).unwrap_err();
+    assert!(e.contains("ADR-0237") && e.contains("b10 0.18"), "{e}");
+}
