@@ -129,7 +129,9 @@ use serde::{Deserialize, Serialize};
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::ROD_OUT;
 
-use crate::nem::{Acceleration, Boundary, Mesh, Order, Problem, Solution, fission_rates};
+use crate::nem::{
+    Acceleration, Boundary, CoarseRatios, Mesh, Order, Problem, Solution, fission_rates,
+};
 use crate::rods::{PartialNode, Segment, Weighting};
 use crate::state::State;
 use crate::thermal::{
@@ -797,7 +799,7 @@ pub struct Case {
     pub depletion: Option<DepletionInput>,
     /// 熱水力のフィードバック（ADR-0229）
     pub thermal: Option<ThermalHydraulics>,
-    /// 固有値計算の外側の反復の加速（`acceleration`。ADR-0232）
+    /// 固有値計算の外側の反復の加速（`acceleration`。CMFD の粗メッシュの許容の比は `cmfd-k-ratio`、`cmfd-flux-ratio`。ADR-0232）
     pub acceleration: Acceleration,
     /// 固有値計算でノードを解く順（`node-order`。ADR-0234）
     pub order: Order,
@@ -825,6 +827,37 @@ enum AccelerationEntry {
     Cmfd,
     /// 加速しない（CMFD と比べるため）
     None,
+}
+
+/// ケースの `acceleration` と、CMFD の粗メッシュの固有値問題の許容の比（`cmfd-k-ratio`、`cmfd-flux-ratio`。省けば ADR-0232 の比）
+fn acceleration(
+    entry: AccelerationEntry,
+    k_ratio: Option<f64>,
+    flux_ratio: Option<f64>,
+) -> Result<Acceleration, InputError> {
+    let given = [("cmfd-k-ratio", k_ratio), ("cmfd-flux-ratio", flux_ratio)];
+    for (key, ratio) in given {
+        let Some(r) = ratio else { continue };
+        if entry == AccelerationEntry::None {
+            return invalid(format!(
+                "{key} has no effect with acceleration = \"none\" (ADR-0232)"
+            ));
+        }
+        // 1 を超える比は、粗メッシュの許容をスイープによる変化より緩くする（NaN も比べると偽になるので、ここで止まる）
+        if !(r > 0.0 && r <= 1.0) {
+            return invalid(format!("{key} = {r} must lie in (0, 1] (ADR-0232)"));
+        }
+    }
+    Ok(match entry {
+        AccelerationEntry::None => Acceleration::None,
+        AccelerationEntry::Cmfd => {
+            let default = CoarseRatios::default();
+            Acceleration::Cmfd(CoarseRatios {
+                k: k_ratio.unwrap_or(default.k),
+                flux: flux_ratio.unwrap_or(default.flux),
+            })
+        }
+    })
 }
 
 /// ケースの `[depletion]`（ADR-0190）。
@@ -1131,6 +1164,8 @@ struct CaseFile {
     thermal_hydraulics: Option<ThermalEntry>,
     #[serde(default)]
     acceleration: AccelerationEntry,
+    cmfd_k_ratio: Option<f64>,
+    cmfd_flux_ratio: Option<f64>,
     #[serde(default)]
     node_order: OrderEntry,
     threads: Option<NonZeroUsize>,
@@ -1487,6 +1522,8 @@ impl Case {
         }
         let pin_powers = file.pin_powers.map(|p| normalized(&base.join(p)));
         let axial_pin_powers = file.axial_pin_powers.map(|p| normalized(&base.join(p)));
+        let acceleration =
+            acceleration(file.acceleration, file.cmfd_k_ratio, file.cmfd_flux_ratio)?;
         if let (Some(a), Some(b)) = (&pin_powers, &axial_pin_powers)
             && a == b
         {
@@ -1508,10 +1545,7 @@ impl Case {
             axial_pin_powers,
             depletion,
             thermal,
-            acceleration: match file.acceleration {
-                AccelerationEntry::Cmfd => Acceleration::Cmfd,
-                AccelerationEntry::None => Acceleration::None,
-            },
+            acceleration,
             order: match file.node_order {
                 OrderEntry::RedBlack => Order::RedBlack,
                 OrderEntry::Lexicographic => Order::Lexicographic,
