@@ -35,10 +35,13 @@ git worktree move <worktree> <リポジトリの親>/xlc-fix-0004-frame-gap   # 
 その issue がまだマージしていない別のブランチにしか無いとき（main に無い `#NNNN` を本文に書くと、docs の検査の
 hook `docs-consistency` の `check_mentions` が「#NNNN does not exist」で止める）は、main から worktree を作ったあと、
 そのブランチで issue を足したコミットだけを `git cherry-pick` で取り込んでから作業を始める。コミットは
-`git log --oneline <元のブランチ> -- docs/issues/NNNN-*.md` で探す。元のブランチを後で main に rebase するとき、
-内容の同じ取り込んだコミットは git が飛ばす。ただし元のブランチがその issue を後のコミットで書き換えていて、
-こちらのブランチも同じ issue を書き換えた（閉じるなど）ときは、その後のコミットが衝突する。元のブランチの担当に、
-rebase で衝突しうることをマージの連絡に書く。
+`git log --oneline --diff-filter=A <元のブランチ> -- docs/issues/NNNN-*.md` で探す。issue が関係する ADR も元の
+ブランチにしか無いときは、その ADR を足したコミットも取り込む（検査は issue と ADR の両方向の参照を確かめる）。
+
+元のブランチを後で main に rebase するとき、内容の同じ取り込んだコミットは git が飛ばす。次のときは衝突する:
+元のブランチがその issue を後のコミットで書き換え、こちらも同じ issue を書き換えた（閉じるなど）とき、
+元のブランチが issue を足したコミットを amend や squash で作り直したとき。衝突は先にマージしなかった側の rebase で
+起きるので、先にマージする側のマージの連絡に、もう一方の担当（分からなければユーザー）へ知らせることを書く。
 
 worktree の出力に `SHARED: references` が出ていることを確かめる。出ていなければ、`ls -l references` で main への
 symlink かを見て、なければ worktree の直下で手で張る（ADR-0126）:
