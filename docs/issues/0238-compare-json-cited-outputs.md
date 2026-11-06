@@ -44,6 +44,13 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
 10. ADR-0222 の「## 変更」は、ユーザーの判断を要約で書く（ユーザーは 2026-11-06 12:27 に判断待ちの 2 件をどちらも推奨のとおりとしただけで、推奨の文は
     発言に無い）。どこまでの範囲（ログ、既にある JSON の分）に同意したかは、発言からは読めない
 
+11. 1 の小さな炉心の履歴は、ADR-0231 と同じブランチ（perf/0156-warm-start-nem）で 2026-11-06 に作った
+    `branches/compare-core-small-guess.json` が引く 4 件（`core-small-search-flat-1` 058973f1、`core-small-search-1` adc9e50d、
+    `core-small-equilibrium-flat-1` d6762f89、`core-small-equilibrium-1` 0c3828ae）で、main の作業ツリーにも DVC のキャッシュにも無い
+    （2026-11-06。別の worktree `xlc-perf-0156-xenon-boron-joint` に同じ名前の `core-small-equilibrium-1.msgpack` があるが、md5 は
+    確かめていない）。ADR-0222 の「帰結」の「失われたもの」に載せるかを、棚卸しで決める
+12. スキル verification-record の「記録に書く試行」で、記録に書かず 2 で消す試行の出力を比較の JSON が引くときの扱いが無い
+
 ## 完了の条件
 
 1 の棚卸しをして、残っている生成物を `dvc add` し、失われたものを ADR-0222 の「帰結」に足す。2 と 3 の境を決める（要るなら
@@ -51,4 +58,4 @@ ADR-0222 の「## 変更」）。4 は #0209 で扱う。
 
 ## 経緯
 
-- 2026-11-06: ブランチ docs/0222-compare-json-generated のレビューの 1 周目の指摘から起こし、2 周目の指摘（8〜10）を足した
+- 2026-11-06: ブランチ docs/0222-compare-json-generated のレビューの 1 周目の指摘から起こし、2 周目の指摘（8〜10）と 3 周目の指摘（11、12）を足した
