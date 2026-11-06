@@ -5041,5 +5041,39 @@ class DrawCoreThreads(unittest.TestCase):
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
 
+class CoreB10(unittest.TestCase):
+    """B-10 の割合がテーブルと違う状態の補正（ADR-0236）の表"""
+
+    def test_rows_are_the_points_with_signed_differences(self):
+        summary = {
+            "format": "xlc-compare-core-b10",
+            "table_b10": 0.199,
+            "points": [
+                {
+                    "b10": 0.18,
+                    "boron": 1300.0,
+                    "burnup": 20.0,
+                    "direct": 1.0123456789,
+                    "effect": 812.345,
+                    "corrected": -1.234,
+                    "converted": 0.004,
+                }
+            ],
+        }
+        lines = vt.core_b10([summary]).splitlines()
+        self.assertEqual(
+            [c.strip() for c in lines[2].strip("|").split("|")],
+            ["18", "1300", "20", "1.012346", "+812.3", "\u22121.23", "0.00"],
+        )
+        self.assertEqual(
+            vt.TABLES["depletion-2a-core-b10"],
+            (["examples/depletion/branches/compare-core-2A-b10.json"], vt.core_b10),
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_b10([{"format": "xlc-compare-core-boron"}])
+
+
 if __name__ == "__main__":
     unittest.main()
