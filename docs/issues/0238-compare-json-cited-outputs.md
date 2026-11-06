@@ -28,8 +28,9 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
    e1794956、`compare-core-2A-boron.json` の `core-2A-boron-uniform.out`）。ADR-0222 の対象の「コマンドの出力先としてだけ名前が
    出るログと k の出力は追わない」との境が文から読みにくい（JSON が引くものは「出力先としてだけ」ではない読み方になる）。
    `trial-0231/core-p9.log` は git で追跡している
-3. 「比較のツールが書いて git で追跡する JSON」の範囲（どのツールの JSON か。例: `examples/vera/p6/compare-6.json` は
-   追跡しない `.toml` と `.out` を md5 で引く）を定めていない
+3. 「比較のツールが書いて git で追跡する JSON」の範囲（どのツールの JSON か。例: `examples/vera/p6/compare-6.json` も
+   `path` と `md5` の組を持つが、引くのは git で追跡する `.toml` と、`examples/vera/p6/dvc.yaml` のステージの出力の `.out` だけ）を
+   定めていない
 4. 記録の md5 と JSON の `inputs` を、`.dvc`、git、`dvc.lock` の outs と突き合わせる検査が無い（#0209 と同じ。JSON は機械で
    読めるので、検査の対象にしやすい）
 5. スキル verification-record の「記録に書く試行」の 4 は試行の出力だけを指し、試行でない比較の JSON（`branches/` など）と
@@ -46,9 +47,11 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
 
 11. 1 の小さな炉心の履歴は、ADR-0231 と同じブランチ（perf/0156-warm-start-nem）で 2026-11-06 に作った
     `branches/compare-core-small-guess.json` が引く 4 件（`core-small-search-flat-1` 058973f1、`core-small-search-1` adc9e50d、
-    `core-small-equilibrium-flat-1` d6762f89、`core-small-equilibrium-1` 0c3828ae）で、main の作業ツリーにも DVC のキャッシュにも無い
-    （2026-11-06。別の worktree `xlc-perf-0156-xenon-boron-joint` に同じ名前の `core-small-equilibrium-1.msgpack` があるが、md5 は
-    確かめていない）。ADR-0222 の「帰結」の「失われたもの」に載せるかを、棚卸しで決める
+    `core-small-equilibrium-flat-1` d6762f89、`core-small-equilibrium-1` 0c3828ae）である。2026-11-07（main afd692dda）に、
+    adc9e50d は main の `core-small-search-none-1.msgpack.dvc`（50a53f237 で追加）、0c3828ae は `core-small-equilibrium-nested-1.msgpack.dvc`
+    （ce4befbd9 で追加）が指し、DVC のキャッシュにある。058973f1 と d6762f89 は main の作業ツリー（`.toml` だけ）にも DVC のキャッシュにも
+    無い。main の `core-small-search-1.msgpack.dvc` と `core-small-equilibrium-1.msgpack.dvc` は、JSON が引くものと別の版（4675c7f9、
+    cab0f27e）を指す。ADR-0222 の「帰結」の「失われたもの」に載せるかを、棚卸しで決める
 12. スキル verification-record の「記録に書く試行」で、記録に書かず 2 で消す試行の出力を比較の JSON が引くときの扱いが無い
 
 ## 完了の条件
