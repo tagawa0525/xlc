@@ -2,12 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use xlc_format::table::{MASS_B10, MASS_B11};
-
-/// AME2020 の原子質量 (u)（M. Wang et al., Chinese Phys. C 45, 030003 (2021)）。B-10 と B-11 は、core が B-10 の個数密度の比に
-/// 使うので `xlc_format::table` に置く（ADR-0236）
+/// AME2020 の原子質量 (u)（M. Wang et al., Chinese Phys. C 45, 030003 (2021)）
 const MASS_H1: f64 = 1.007_825_032_23;
 const MASS_O16: f64 = 15.994_914_619_57;
+const MASS_B10: f64 = 10.012_936_95;
+const MASS_B11: f64 = 11.009_305_36;
 /// アボガドロ定数 × 10⁻²⁴（個数密度を 1/(barn cm) にする）
 const AVOGADRO: f64 = 0.602_214_076;
 

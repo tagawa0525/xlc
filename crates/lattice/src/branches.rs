@@ -32,7 +32,6 @@
 //! ノードのテーブルは制御棒の軸を持たず、棒のない値の状態だけを持つ（ADR-0227）。置き換えるセルが `rows` と定義に合うことは
 //! 入力（`input`）が確かめる。
 
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -348,7 +347,6 @@ pub fn tables(
             heavy_metal: None,
             micro: None,
             histories: Vec::new(),
-            boron10: None,
         })
         .collect();
     for (state, fews) in per_state.into_iter().enumerate() {
@@ -390,28 +388,16 @@ pub fn without_rod_axis(table: Table) -> Result<Table, String> {
     axes.pop();
     let mut points = Vec::new();
     let mut states = Vec::new();
-    let mut kept = Vec::new();
-    for (p, (mut point, subs)) in table
-        .points
-        .into_iter()
-        .zip(table.states.chunks(sub))
-        .enumerate()
-    {
+    for (mut point, subs) in table.points.into_iter().zip(table.states.chunks(sub)) {
         if point.pop() == Some(0) {
             points.push(point);
             states.extend_from_slice(subs);
-            kept.push(p);
         }
     }
-    // 冷却材の B-10 の微視的断面積も、点ごとの量なので同じ点を残す（ADR-0236）
-    let boron10 = table
-        .boron10
-        .map(|b| kept.iter().map(|&p| b[p].clone()).collect());
     Ok(Table {
         axes,
         points,
         states,
-        boron10,
         ..table
     })
 }
@@ -792,7 +778,6 @@ impl<'a> BranchShielder<'a> {
             return Ok(StateShielding {
                 fuel: Fuel::Solved(Box::new(shielded)),
                 remixed: None,
-                solved_with: Cow::Owned(state.to_vec()),
             });
         };
         let lattice = &self.tracking.lattice;
@@ -877,7 +862,6 @@ impl<'a> BranchShielder<'a> {
         Ok(StateShielding {
             fuel: Fuel::Reference(shielded),
             remixed,
-            solved_with: Cow::Borrowed(nominal),
         })
     }
 }
@@ -887,7 +871,6 @@ impl<'a> BranchShielder<'a> {
 pub struct StateShielding<'a> {
     fuel: Fuel<'a>,
     remixed: Option<Vec<Material>>,
-    solved_with: Cow<'a, [MaterialInput]>,
 }
 
 impl StateShielding<'_> {
@@ -904,11 +887,6 @@ impl StateShielding<'_> {
     /// 状態の燃料の核種の実効断面積と SPH 因子を持つ自己遮蔽
     pub fn fuel(&self) -> &FuelShielding {
         &self.fuel
-    }
-
-    /// 自己遮蔽を解いた物質（参照から作り直した状態は参照の物質）。領域の実効断面積は、この物質の組成の順
-    pub fn solved_with(&self) -> &[MaterialInput] {
-        &self.solved_with
     }
 }
 

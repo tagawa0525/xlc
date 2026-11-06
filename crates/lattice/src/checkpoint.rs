@@ -3,7 +3,7 @@
 //! フィールド名付きの map 形式の MessagePack: `format` ("xlc-lattice-checkpoint"), `fingerprint`（`Fingerprint`）と、燃焼なら
 //! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）, start（直前の
 //! 輸送の MOC の収束した解。ADR-0195）}`、分岐なら `states: {states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つの
-//! バイト列）, medium（細かい群の媒質か nil）, micro（追う核種の微視的断面積か nil）, boron10（[出力] の冷却材の B-10 の個数密度と微視的断面積か nil）}], starts: {state（解いた状態の数）, solutions（MOC の解。同じ解は 1 つ）, slots（[軸] の解の番号か nil）}}`。
+//! バイト列）, medium（細かい群の媒質か nil）}], starts: {state（解いた状態の数）, solutions（MOC の解。同じ解は 1 つ）, slots（[軸] の解の番号か nil）}}`。
 
 use std::fs::File;
 use std::io::Write;
@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::medium::MediumState;
 use xlc_format::msgpack;
-use xlc_format::table::{Boron10, MicroNuclide, Table};
+use xlc_format::table::{MicroNuclide, Table};
 
 use crate::branches::Starts;
 use crate::depletion::{History, Partial};
@@ -62,8 +62,6 @@ pub struct SavedState {
     pub medium: Option<MediumState>,
     /// 履歴からの分岐でミクロ燃焼の核種を追うときの、核種ごとの微視的断面積（ADR-0216）
     pub micro: Option<Vec<MicroNuclide>>,
-    /// [出力] の冷却材の B-10 の均質化した個数密度と微視的断面積（ADR-0236。テーブルが持たなければ `None`）
-    pub boron10: Option<Vec<Boron10>>,
 }
 
 /// チェックポイントのファイルと、今の実行の指紋
@@ -140,8 +138,6 @@ struct StateFile {
     medium: Option<MediumState>,
     #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
     micro: Option<Vec<MicroNuclide>>,
-    #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
-    boron10: Option<Vec<Boron10>>,
 }
 
 impl Checkpoint {
@@ -327,7 +323,6 @@ impl Checkpoint {
                     outputs,
                     medium: s.medium,
                     micro: s.micro,
-                    boron10: s.boron10,
                 })
             })
             .collect::<anyhow::Result<_>>()?;
@@ -361,7 +356,6 @@ impl Checkpoint {
                     outputs,
                     medium: s.medium.clone(),
                     micro: s.micro.clone(),
-                    boron10: s.boron10.clone(),
                 })
             })
             .collect::<anyhow::Result<_>>()?;

@@ -9,7 +9,6 @@ pub mod balance;
 pub mod branches;
 pub mod checkpoint;
 pub mod cmfd;
-pub mod coolant;
 pub mod cp;
 pub mod depletion;
 pub mod equivalent;

@@ -77,16 +77,6 @@ pub struct Node {
     pub reflector: bool,
 }
 
-/// ノード `node` のセルの領域（行の順、各行は列の順のセルの領域）
-pub fn node_regions(lattice: &Lattice, node: &Node) -> Vec<usize> {
-    let columns = lattice.columns();
-    node.rows
-        .clone()
-        .flat_map(|r| node.columns.clone().map(move |c| r * columns + c))
-        .flat_map(|cell| lattice.cell_regions(cell))
-        .collect()
-}
-
 /// 辺（左、右、上、下）と、1ノードの問題の面（-x, +x, -y, +y）の対応: 面 i は辺 `FACES[i]`
 const FACES: [usize; 4] = [0, 1, 3, 2];
 
@@ -381,7 +371,12 @@ pub(crate) fn node_references(
     let (columns, rows) = (lattice.columns(), lattice.rows());
     let mut references = Vec::with_capacity(nodes.len());
     for (n, node) in nodes.iter().enumerate() {
-        let regions = node_regions(lattice, node);
+        let regions: Vec<usize> = node
+            .rows
+            .clone()
+            .flat_map(|r| node.columns.clone().map(move |c| r * columns + c))
+            .flat_map(|cell| lattice.cell_regions(cell))
+            .collect();
         let whole = neighbors[n].iter().all(Option::is_none);
         // 領域がすべて1つの核分裂のある媒質のノードは、その媒質の B1 の D（単一集合体の格子の D と同じ。ADR-0141）。
         // 中性子流の重みは、反射体の隣でノードの中の向きが変わると打ち消して定まらない。核分裂のない媒質のノードは、
