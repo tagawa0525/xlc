@@ -809,7 +809,7 @@ pub struct Case {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum OrderEntry {
-    /// 市松の 2 色の順（ADR-0234 の決定）
+    /// 市松の 2 色の順（ADR-0234）
     #[default]
     RedBlack,
     /// 直方体の並びの順に 1 つずつ（色の順と比べるため）
