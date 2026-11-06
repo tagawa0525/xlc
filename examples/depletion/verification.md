@@ -7630,7 +7630,7 @@ python3 examples/depletion/compare_core_guess.py --json $B/compare-core-small-gu
 
 ### 計算
 
-ブランチ perf/0156-warm-start-nem（分岐点は main の 9509d635）の 0736a953、2026-11-06。`bin/core` は md5 798e955b。4 本を手元で、`RAYON_NUM_THREADS=1` と
+ブランチ perf/0156-warm-start-nem（分岐点は main の 9509d635）の ccf51536、2026-11-06。`bin/core` は md5 798e955b。4 本を手元で、`RAYON_NUM_THREADS=1` と
 `taskset` で別々のコアに置いて同時に流した（区分なしの手元の試行。Slurm のジョブは無かった）。時間は目安で、`--timed` のジョブの値ではない。
 
 ### 結果
@@ -7705,7 +7705,7 @@ python3 ../p9_timing.py core-p9.log > timing-p9.json
 
 ### 計算
 
-ブランチ perf/0156-warm-start-nem（分岐点は main の 9509d635）の 37fc380e、2026-11-06。Slurm 702（区分 timed、排他、`elapsed=00:47:53`）で、試行の
+ブランチ perf/0156-warm-start-nem（分岐点は main の 9509d635）の 3e8d691f、2026-11-06。Slurm 702（区分 timed、排他、`elapsed=00:47:53`）で、試行の
 入力を `trials/p9-timing/`（cycle と chain のパスはそこから引く形）に置いて流し、後で `p9-timing/trial-0231/` に移してパスを直した。`bin/core` は
 md5 798e955b（ADR-0231 の初期値。既定の `initial-guess`）。固有値計算（NEM）は 1 回の解を 1 スレッドで
 解き、ミクロ燃焼のノードの計算は rayon の 32 スレッド（r995 の排他のジョブの既定）。固有値計算の時間は span `nem` のフィールド `seconds`（time.busy は
