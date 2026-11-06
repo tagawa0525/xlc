@@ -1,0 +1,5 @@
+outs:
+- md5: 96d9f7c1aad6e5e72d57fca1108d7caf
+  size: 126429
+  hash: md5
+  path: core-small-equilibrium-1.log

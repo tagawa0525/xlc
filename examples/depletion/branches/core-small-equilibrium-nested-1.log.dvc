@@ -1,0 +1,5 @@
+outs:
+- md5: 1d0fe653f4d28f953327b19f84dd1450
+  size: 282874
+  hash: md5
+  path: core-small-equilibrium-nested-1.log
