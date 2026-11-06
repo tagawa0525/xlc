@@ -1116,6 +1116,7 @@ dependencies = [
 name = "xlc-cmfd"
 version = "0.1.0"
 dependencies = [
+ "rayon",
  "thiserror 2.0.21",
  "xlc-numeric",
 ]
