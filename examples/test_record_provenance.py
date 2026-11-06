@@ -1,4 +1,4 @@
-"""record_provenance.py の検査（dvc.lock の読み方、md5 を入れたコミット、JSON の inputs との照合）。
+"""record_provenance.py の検査（dvc.lock と .dvc の読み方、md5 を入れたコミット、JSON の inputs との照合）。
 
 実行: python3 -m unittest discover -s examples -p 'test_record_provenance.py'
 """
@@ -120,9 +120,9 @@ class Git(unittest.TestCase):
             env=env,
         ).stdout.strip()
 
-    def commit(self, text: str, date: str) -> str:
-        (self.dir / "dvc.lock").write_text(text)
-        self.git("add", "dvc.lock")
+    def commit(self, text: str, date: str, name: str = "dvc.lock") -> str:
+        (self.dir / name).write_text(text)
+        self.git("add", name)
         env_date = f"{date}T12:00:00"
         subprocess.run(
             [
@@ -232,6 +232,136 @@ class Show(Git):
         lock = self.dir / "dvc.lock"
         lock.write_text(lock.read_text().replace(H["1"], H["8"]))
         self.assertEqual(rp.locked_since(lock, "c", "c.json")[0], "uncommitted")
+
+
+DVC = """outs:
+- md5: {md5}
+  size: {size}
+  hash: md5
+  path: run.log
+"""
+
+
+def dvc(md5: str = "1", size: int = 10) -> str:
+    return DVC.format(md5=H[md5], size=size)
+
+
+class DvcFile(Git):
+    """`dvc add` で追う生成物の .dvc（ADR-0222）"""
+
+    def test_reads_outs_in_any_key_order(self):
+        text = (
+            "outs:\n- path: a.log\n  md5: " + H["1"] + "\n  size: 1\n"
+            "- hash: md5\n  md5: " + H["2"] + ".dir\n  nfiles: 2\n  path: d\n"
+        )
+        self.assertEqual(
+            rp.parse_dvc(text), [("a.log", H["1"]), ("d", H["2"] + ".dir")]
+        )
+
+    def test_reads_a_path_that_dvc_folded_onto_the_next_line(self):
+        """`dvc add` は 80 字ほどを超える名前を `path:` の次の行に折る（dvc 3.67.1 で 100 字の名前の .dvc を書いて確かめた）"""
+        name = "a" * 100 + ".log"
+        text = (
+            "outs:\n- md5: "
+            + H["1"]
+            + "\n  size: 2\n  hash: md5\n  path: \n    "
+            + name
+            + "\n"
+        )
+        self.assertEqual(rp.parse_dvc(text), [(name, H["1"])])
+
+    def test_a_path_folded_over_several_lines_is_an_error(self):
+        """dvc は空白を含む長い名前を空白で何行にも折る。1 行目だけを読むと別の名前を黙って出す"""
+        text = (
+            "outs:\n- md5: " + H["1"] + "\n  path: word word\n    word\n    end.log\n"
+        )
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_dvc(text)
+
+    def test_a_quoted_path_is_an_error(self):
+        """引用符で囲んだ YAML の値を、引用符ごとパスとして出さない"""
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_dvc("outs:\n- md5: " + H["1"] + "\n  path: 'x: #y.log'\n")
+
+    def test_an_out_without_md5_is_an_error(self):
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_dvc("outs:\n- path: a.log\n  size: 1\n")
+
+    def test_a_file_without_outs_is_an_error(self):
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_dvc("deps: []\n")
+
+    def test_lists_each_md5_with_the_commit_that_put_it_in(self):
+        first = self.commit(dvc("1"), "2026-10-01", "run.log.dvc")
+        second = self.commit(dvc("2"), "2026-10-02", "run.log.dvc")
+        # md5 の同じ書き直し（大きさだけが違う）は、md5 を入れたコミットを変えない
+        self.commit(dvc("2", size=11), "2026-10-03", "run.log.dvc")
+        fourth = self.commit(dvc("1"), "2026-10-04", "run.log.dvc")
+        history = rp.dvc_history(self.dir / "run.log.dvc")
+        self.assertEqual(history["now"], [("run.log", H["1"])])
+        self.assertIsNone(history["state"])
+        self.assertEqual(
+            history["history"]["run.log"],
+            [
+                (H["1"], fourth, "2026-10-04"),
+                (H["2"], second, "2026-10-02"),
+                (H["1"], first, "2026-10-01"),
+            ],
+        )
+
+    def test_uncommitted_and_untracked_are_said_not_hidden(self):
+        first = self.commit(dvc("1"), "2026-10-01", "run.log.dvc")
+        (self.dir / "run.log.dvc").write_text(dvc("3"))
+        history = rp.dvc_history(self.dir / "run.log.dvc")
+        self.assertEqual(history["state"], "uncommitted")
+        self.assertEqual(history["now"], [("run.log", H["3"])])
+        self.assertEqual(history["history"]["run.log"], [(H["1"], first, "2026-10-01")])
+        (self.dir / "other.log.dvc").write_text(dvc("4"))
+        lone = rp.dvc_history(self.dir / "other.log.dvc")
+        self.assertEqual(lone["state"], "unknown")
+        self.assertEqual(lone["history"], {"run.log": []})
+
+    def test_the_history_stops_where_the_dvc_file_was_removed(self):
+        self.commit(dvc("1"), "2026-10-01", "run.log.dvc")
+        self.git("rm", "-q", "run.log.dvc")
+        self.git("-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "chore: rm")
+        again = self.commit(dvc("2"), "2026-10-03", "run.log.dvc")
+        self.assertEqual(
+            rp.dvc_history(self.dir / "run.log.dvc")["history"]["run.log"],
+            [(H["2"], again, "2026-10-03")],
+        )
+
+    def test_main_takes_dvc_files_and_prints_the_history(self):
+        import contextlib
+        import io
+
+        first = self.commit(dvc("1"), "2026-10-01", "run.log.dvc")
+        second = self.commit(dvc("2"), "2026-10-02", "run.log.dvc")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = rp.main([str(self.dir / "run.log.dvc")])
+        self.assertEqual(status, 0)
+        lines = out.getvalue().splitlines()
+        self.assertIn(f"  {H['2'][:8]}  run.log", lines)
+        self.assertIn(f"    {H['2'][:8]}  {second} 2026-10-02", lines)
+        self.assertIn(f"    {H['1'][:8]}  {first} 2026-10-01", lines)
+        self.assertLess(
+            lines.index(f"    {H['2'][:8]}  {second} 2026-10-02"),
+            lines.index(f"    {H['1'][:8]}  {first} 2026-10-01"),
+        )
+
+    def test_main_says_uncommitted_on_the_out_line(self):
+        import contextlib
+        import io
+
+        self.commit(dvc("1"), "2026-10-01", "run.log.dvc")
+        (self.dir / "run.log.dvc").write_text(dvc("3"))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rp.main([str(self.dir / "run.log.dvc")])
+        self.assertIn(
+            f"  {H['3'][:8]}  run.log  uncommitted", out.getvalue().splitlines()
+        )
 
 
 class Inputs(unittest.TestCase):

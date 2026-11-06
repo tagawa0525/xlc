@@ -35,6 +35,9 @@ ADR-0222 は、記録（examples/*/verification*.md）と ADR が md5 か名前�
 - スキル dvc-relock の後半の `.dvc` の checkout は `HEAD^1 HEAD` で、マージのコミットが HEAD である前提（後にほかのマージや
   relock のコミットが載ると、別の差分を拾う）
 - スキル verification-record に、記録に書く前の `dvc add` の手順が無い（CLAUDE.md の「計算」にだけある）
+- `examples/record_provenance.py` は `.dvc` を渡すと今の md5 と履歴の md5 ごとのコミットを出す（`parse_dvc`、
+  `dvc_history`）が、記録の md5 と突き合わせず、生成物の中身が `.dvc` の md5 と合うかも見ない。検査は `.dvc` の読み方を
+  これと共有できる
 
 関係する ADR: ADR-0222
 
