@@ -811,7 +811,7 @@ pub fn search_boron(
     Ok((found.at, searched))
 }
 
-/// ケースの状態を並列に解く（結果は `states` の順）。各状態の解は1つのスレッドで解くので、スレッドの数によらない。
+/// ケースの状態を並列に解く（結果は `states` の順）。各状態の固有値計算もノードを並列に解くが、結果はスレッドの数によらない（ADR-0234）。
 pub fn solve_states(
     layout: &Layout,
     tables: &[Table],
