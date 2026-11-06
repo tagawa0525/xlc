@@ -59,8 +59,8 @@ issue #0244 で粗メッシュの固有値問題の許容の比を k、中性子
 - 2026-11-06: #0244 のローカルのレビューの 1 周目と 3 周目の指摘から起こした
 - 2026-11-07: 1 周目の最後の項（比べた形を本番のコードで再測定するか）を進めた。本番のコードで再測定するのはユーザー 2026-11-07 の判断の要約。粗メッシュの許容の比を
   ケースの `cmfd-k-ratio`、`cmfd-flux-ratio`（`nem::CoarseRatios`）で選べるようにし（ADR-0232 の「## 変更」の 2026-11-07）、#0244 の「比べた形」を本番のコードで
-  再測定した（crates/core の問題は `#[ignore]` のテスト `coarse_mesh_ratio_survey_stops_within_the_tolerance_at_the_default_ratios`、572758d64、手元。BOC は
-  `examples/depletion/p9-timing/trial-0245/`、Slurm 712（パーティション timed）、6f9ed2af7（分岐点は main の 55b20bf77）。どちらも 2026-11-07）。直方体の並びの順の値は一時的な変更の版と同じで、市松の 2 色の順
+  再測定した（crates/core の問題は `#[ignore]` のテスト `coarse_mesh_ratio_survey_stops_within_the_tolerance_at_the_default_ratios`、d5cbad797、手元。BOC は
+  `examples/depletion/p9-timing/trial-0245/`、Slurm 712（パーティション timed）、c4ec7a8bf（分岐点は main の 55b20bf77）。どちらも 2026-11-07）。直方体の並びの順の値は一時的な変更の版と同じで、市松の 2 色の順
   （ADR-0234 の既定）でも比 0.01 の根拠は変わらない。縮小率の数を切り替える形は入力にしておらず、その値は一時的な変更の版のまま（#0244 の「比べた形」に分けて書いた）。
   同じテストは 17 × 17 × 24 の直方体を既定の比で解いて許容の中で止まることを確かめるが、`#[ignore]` なので `cargo test` では走らない（回帰のテストの項は残る）
 - 2026-11-07: 3 周目の ADR-0232 の「帰結」の項と #0242 の「問題」の項は、同じ問題を今の版で測っていないので、版を添えた（帰結の 0.6〜0.85 と 64〜113 回は比を

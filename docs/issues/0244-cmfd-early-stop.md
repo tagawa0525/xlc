@@ -53,7 +53,7 @@ CMFD で加速した固有値計算が、加速しない反復と同じく、残
 
 粗メッシュの許容の比をケースと `nem::Options` の入力（`cmfd-k-ratio`、`cmfd-flux-ratio`。#0245）で選び、本番のコードで測った。crates/core の nem のテストの問題は、
 `coarse_mesh_ratio_survey_stops_within_the_tolerance_at_the_default_ratios`（`#[ignore]`。`cargo test --release -p xlc-core coarse_mesh_ratio_survey -- --ignored --nocapture`）が
-解く（ブランチ feat/0245-cmfd-tolerance-ratio-input の 572758d64、分岐点は main の 55b20bf77、手元、`taskset -c 0`、2026-11-07）。参照は加速なし、許容 k 1e-14、中性子束 1e-13 の
+解く（ブランチ feat/0245-cmfd-tolerance-ratio-input の d5cbad797、分岐点は main の 55b20bf77、手元、`taskset -c 0`、2026-11-07）。参照は加速なし、許容 k 1e-14、中性子束 1e-13 の
 解で、表は中性子束の相対差の最大（許容は 1e-7）と、括弧の中に外側の反復の回数。「大きい直方体」は 17 × 17 × 24 の 20 cm × 20 cm × 15 cm のノードの直方体（外周は Marshak。全炉心に
 近い数のノード）。
 
@@ -91,7 +91,7 @@ CMFD で加速した固有値計算が、加速しない反復と同じく、残
 手元、2026-11-06）の値と、測ったどの欄も同じだった（その版で測っていない大きい直方体の 0.1、1 と 0.1、0.3 と 0.001、0.001 の欄は、この再測定で足した）。
 
 全炉心の BOC の固有値計算 1 回（Problem 9 の形、`examples/depletion/p9-timing/trial-0245/boc-1100-<順>-k<k の比>-flux<中性子束の比>.toml`（`trial-0244/boc-1100.toml` に比と順を足した）、
-1100 ppm、バンク D 186 ステップ、平らな初期値）を、同じ版の `target/release/core` で解いた（Slurm 712（パーティション timed）、ブランチの 6f9ed2af7、分岐点は main の 55b20bf77、
+1100 ppm、バンク D 186 ステップ、平らな初期値）を、同じ版の `target/release/core` で解いた（Slurm 712（パーティション timed）、ブランチの c4ec7a8bf、分岐点は main の 55b20bf77、
 2026-11-07。ログは同じ置き場の `.log`、粗メッシュの反復は `RUST_LOG=info,xlc_core::nem::cmfd=trace` の `coarse-mesh eigenvalue` の行の和、時間は span `nem` の秒）。
 直方体の並びの順は 1 スレッド（`threads = 1`）、市松の 2 色の順は既定のスレッドの数（16）:
 
