@@ -7719,7 +7719,8 @@ git で追跡する。
 - 同時の反復で、固有値計算の数は 796 回から 267 回（0.335 倍）、外側の反復の回数の和は 0.298 倍、固有値計算の時間は 454.2 s から 137.2 s。解き直すたびに
   探す形の時間は「固有値計算の初期値（小さな炉心）」の既定（459.3 s）と同じ程度。解き直すたびに探す形の履歴 `core-small-equilibrium-nested-1.msgpack`
   （md5 0c3828ae）は、その節の既定の履歴（`compare-core-small-guess.json` が `core-small-equilibrium-1.msgpack` として引く md5）と同じで、同時の反復の前の形を
-  bit 単位で再現する。同時の反復の実行が `core-small-equilibrium-1.msgpack` を md5 7620f11e に置き換えたので、前の形の履歴は nested-1 の名前の `.dvc` で追う
+  bit 単位で再現する。同時の反復の実行が `core-small-equilibrium-1.msgpack` を md5 7620f11e に置き換えたので、前の形の履歴は nested-1 の名前の `.dvc` で追う。CMFD（ADR-0232）の実行が `core-small-equilibrium-1.msgpack` をまた置き換えたので、この節の同時の反復の履歴（md5 7620f11e）は、同じバイトの
+  `core-small-equilibrium-none-1.msgpack` の `.dvc` で追う（「固有値計算の CMFD（小さな炉心と全炉心）」）
 - 平衡 Xe で探す点と中点の 1 回の解（燃焼点 0 と停止の後の点のほかの 18 回）の固有値計算は、同時の反復で 10〜25 回、解き直すたびに探す形で 30〜78 回
   （履歴の `solves` と、ログの中点の行の `solves`）。同時の反復で 20 回を超えたのは、次のステップ（出力の割合 0.7、制御棒を抜いた状態）で解く 5 MWd/kg の
   点（25 回）と、7 MWd/kg と停止の後の 7.5 MWd/kg のステップの中点（24 回と 23 回）
@@ -7909,3 +7910,156 @@ md5 80c456c2（ADR-0231 の初期値と ADR-0219 の同時の反復。どちら�
 - 時間の 99.7 % は固有値計算（43 回、平均 108.1 秒）
 - 30 ステップの見積もり（確かめていない）: 燃焼点 0 のほかの 58 回の解がどれも平衡 Xe でホウ素を探し、1 回の解が 11.33 回（この測定の 3 回の 12、11、11 回の平均）の
   固有値計算なら、1 + 58 × 11.33 = 658 回、1 回 108.1 秒で約 71,200 秒（丸めない値 658.3 回 × 108.14 秒。約 20 時間）。解き直すたびに探す形の見積もり（上。約 74 時間）の約 0.27 倍
+
+## 固有値計算の CMFD（小さな炉心と全炉心）
+
+固有値計算をノードの CMFD で加速した燃焼（[ADR-0232](../../docs/adr/0232-accelerate-nem-with-node-cmfd.md)。ケースの `acceleration` の既定 `cmfd`）を、
+加速しない燃焼（`acceleration = "none"`）と比べる（#0076）。比べるのは `compare_core_acceleration.py` で、差は CMFD − 加速なし、k とホウ素は点と中点
+（中点はログの行）の差の絶対値の最大、燃焼度と出力の割合は点のノードの相対差の絶対値の最大。固有値計算の時間は span `nem` のフィールド `seconds`、
+全体は `core seconds=`。「1 回の外側の反復」と「1 回の時間」は、固有値計算 1 回の値の最小〜最大。
+
+### 小さな炉心
+
+「固有値計算の初期値（小さな炉心）」と同じ炉心、テーブル、サイクルの分割 1 の、Xe を時間で追い中点でも探す燃焼（`branches/core-small-search-1.toml`）と
+平衡 Xe の燃焼（`core-small-equilibrium-1.toml`。Xe とホウ素は ADR-0219 の同時の反復）を、同じケースに `acceleration = "none"` を足した
+`core-small-search-none-1.toml` と `core-small-equilibrium-none-1.toml`（`small_core_cases.py` が書く）と比べる。固有値計算の初期値はどれも ADR-0231 の既定。
+
+```sh
+cd examples/depletion/branches
+for c in search-1 search-none-1 equilibrium-1 equilibrium-none-1; do
+  RAYON_NUM_THREADS=1 ../../../bin/core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
+done
+cd ../../..
+B=examples/depletion/branches
+python3 examples/depletion/compare_core_acceleration.py --json $B/compare-core-small-acceleration.json \
+  search=$B/core-small-search-none-1.msgpack,$B/core-small-search-none-1.log,$B/core-small-search-1.msgpack,$B/core-small-search-1.log \
+  equilibrium=$B/core-small-equilibrium-none-1.msgpack,$B/core-small-equilibrium-none-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
+```
+
+「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-acceleration.json`）は
+git で追跡し、履歴とログは `.dvc` で追う。
+
+#### 計算
+
+ブランチ perf/0076-core-cmfd（分岐点は main の ff74c5d41）の fe80c6ee5、2026-11-06。`bin/core` は md5 3ca5ed51。4 本を手元で、`RAYON_NUM_THREADS=1` と
+`taskset` で別々のコアに置いて同時に流した（区分なしの手元の試行。Slurm のジョブは無かった）。時間は目安で、`--timed` のジョブの値ではない。
+
+#### 結果
+
+<!-- table: depletion-small-core-acceleration-runs -->
+
+| 燃焼        | 加速             | 固有値計算の数 | 外側の反復の回数の和 | 1 回の外側の反復 | 固有値計算の時間 (s) | 1 回の時間 (s) | 全体の時間 (s) |
+| ----------- | ---------------- | -------------- | -------------------- | ---------------- | -------------------- | -------------- | -------------- |
+| search      | 加速なし         | 119            | 226,775              | 135〜9,584       | 57.3                 | 0.03〜2.34     | 58.4           |
+| search      | CMFD（ADR-0232） | 119            | 8,076                | 9〜259           | 4.3                  | 0.00〜0.11     | 5.5            |
+| search      | CMFD / 加速なし  | 1.000          | 0.036                |                  | 0.076                |                | 0.094          |
+| equilibrium | 加速なし         | 267            | 545,060              | 2〜7,369         | 134.9                | 0.00〜1.75     | 136.8          |
+| equilibrium | CMFD（ADR-0232） | 255            | 16,002               | 2〜265           | 9.0                  | 0.00〜0.11     | 10.7           |
+| equilibrium | CMFD / 加速なし  | 0.955          | 0.029                |                  | 0.067                |                | 0.079          |
+
+<!-- /table -->
+
+<!-- table: depletion-small-core-acceleration-differences -->
+
+| 燃焼        | k の差の最大 | ホウ素の差の最大 (ppm) | 燃焼度の相対差の最大 | 出力の割合の相対差の最大 |
+| ----------- | ------------ | ---------------------- | -------------------- | ------------------------ |
+| search      | 3.1e-09      | 1.0e-03                | 2.3e-06              | 8.8e-06                  |
+| equilibrium | 8.6e-08      | 7.6e-04                | 1.1e-06              | 7.0e-06                  |
+
+<!-- /table -->
+
+- CMFD で、外側の反復の回数の和は Xe を時間で追う探索で 0.036 倍、平衡 Xe で 0.029 倍、固有値計算の時間は 57.3 s から 4.3 s、134.9 s から 9.0 s。
+  固有値計算 1 回の外側の反復は 135〜9,584 回から 9〜259 回
+- 加速しない燃焼の履歴は、CMFD の前の `bin/core` の履歴とバイトで同じ（`core-small-search-none-1.msgpack` は md5 adc9e50d で、`compare-core-small-guess.json`
+  の `core-small-search-1.msgpack`、`core-small-equilibrium-none-1.msgpack` は md5 7620f11e で、`compare-core-small-xenon-boron.json` の
+  `core-small-equilibrium-1.msgpack`）。CMFD の実行が `core-small-equilibrium-1.msgpack` と `.log` を置き換えたので、前の版はこの節の none-1 の名前の
+  `.dvc`（同じバイト）と git の履歴の `.dvc` で追う
+- k の差は点と中点で最大 3.1e-9 と 8.6e-8 で、どちらの燃焼も探索の許容（|k − 目標| ≤ 1e-6）で止めるので、許容の 2 倍の中。ホウ素の差（最大 1.0e-3 ppm と
+  7.6e-4 ppm）は、探索の許容をホウ素の効きで割った幅（約 0.0095 ppm。「固有値計算の初期値（小さな炉心）」の効き 10.55 pcm/ppm から）の中。燃焼度と
+  出力の割合の相対差は最大 2.3e-6 と 8.8e-6（探索）、1.1e-6 と 7.0e-6（平衡 Xe）で、初期値だけを変えた差（「固有値計算の初期値（小さな炉心）」の
+  1.2e-6 と 4.1e-6）と同じ桁。探索の許容の中で違うホウ素で解いた点の差がステップを重ねて伝わることが原因の候補で、確かめていない（探索の許容を
+  1e-10 にした crates/core のテスト `cmfd_keeps_the_unaccelerated_points` では、燃焼度と数密度の相対差が中性子束の許容の 2 倍の中）
+- 平衡 Xe の燃焼の固有値計算の数は 267 回から 255 回で、同時の反復の Anderson の加速の回数が、許容の中で違う固有値計算の解で変わる
+
+### 全炉心（Problem 9 の形）
+
+「出力のステップで探す燃焼（Xe とホウ素の同時の反復）」と同じ入力（`p9-timing/trial-0156/core-p9.toml`）を CMFD で解く。入力は `p9-timing/trial-0076/core-p9.toml`
+（コメントの行だけが違う）、比べる加速なしは Slurm 703 の `trial-0156/core-p9.msgpack` と `core-p9.log`。
+
+```sh
+# リポジトリの直下で、default の devShell の中。時間を記録するので Slurm の区分 timed で流す
+cd examples/depletion/p9-timing/trial-0076
+../../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
+python3 ../p9_timing.py core-p9.log > timing-p9.json
+cd ../../../..
+T=examples/depletion/p9-timing
+python3 examples/depletion/compare_core_acceleration.py --json $T/trial-0076/compare-acceleration.json \
+  p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0076/core-p9.msgpack,$T/trial-0076/core-p9.log
+```
+
+#### 計算
+
+ブランチ perf/0076-core-cmfd（分岐点は main の ff74c5d41）の 77a720cd6、2026-11-06。Slurm 704（区分 timed、排他、`elapsed=00:06:15`）。`bin/core` は md5
+3ca5ed51（ADR-0232 の CMFD、ADR-0231 の初期値、ADR-0219 の同時の反復。どれも既定）。投げる前の見積もりは Slurm 703 の 1:17:45 を上限にした（CMFD で
+減る量は見積もらなかった）。`compare-acceleration.json` は同じ日に手元で出した。固有値計算の時間とほかの部分は「全炉心の燃焼の時間の内訳（Problem 9 の
+形）」の「計算」と同じ取り方。
+
+#### 結果
+
+<!-- table: core-p9-cmfd-timing-parts -->
+
+| 部分                                                     | 時間 (s) | 全体に対する割合 (%) |
+| -------------------------------------------------------- | -------- | -------------------- |
+| 固有値計算（部分挿入のノードの定数の作り直しを含む）     | 358.9    | 95.9                 |
+| 少数群定数の内挿とミクロ燃焼の補正                       | 9.9      | 2.7                  |
+| ミクロ燃焼（微視的断面積の内挿、反応率、CRAM48）         | 1.8      | 0.5                  |
+| 平衡 Xe（微視的断面積の内挿、平衡の値、Anderson の加速） | 1.5      | 0.4                  |
+| その他                                                   | 2.1      | 0.6                  |
+| 全体                                                     | 374.2    | 100.0                |
+| 臨界ホウ素の探索（上の内訳と重なる）                     | 86.5     | 23.1                 |
+
+<!-- /table -->
+
+<!-- table: core-p9-cmfd-timing-solves -->
+
+| 解     | EFPD | ホウ素 (ppm) | 固有値計算の回数 | 平衡 Xe の解き直し |
+| ------ | ---- | ------------ | ---------------- | ------------------ |
+| 燃焼点 | 0.0  | 1200.0       | 1                | −                  |
+| 中点   | 9.0  | 1200.0       | 8                | 8                  |
+| 燃焼点 | 9.0  | 1254.5       | 13               | 9                  |
+| 中点   | 32.0 | 1193.9       | 12               | 8                  |
+| 燃焼点 | 32.0 | 1145.4       | 11               | 7                  |
+| 計     |      |              | 45               |                    |
+
+<!-- /table -->
+
+<!-- table: core-p9-cmfd-runs -->
+
+| 燃焼 | 加速             | 固有値計算の数 | 外側の反復の回数の和 | 1 回の外側の反復 | 固有値計算の時間 (s) | 1 回の時間 (s) | 全体の時間 (s) |
+| ---- | ---------------- | -------------- | -------------------- | ---------------- | -------------------- | -------------- | -------------- |
+| p9   | 加速なし         | 43             | 151,099              | 888〜5,674       | 4650.1               | 27.31〜216.61  | 4664.7         |
+| p9   | CMFD（ADR-0232） | 45             | 4,638                | 27〜384          | 358.9                | 2.32〜22.50    | 374.2          |
+| p9   | CMFD / 加速なし  | 1.047          | 0.031                |                  | 0.077                |                | 0.080          |
+
+<!-- /table -->
+
+<!-- table: core-p9-cmfd-differences -->
+
+| 燃焼 | k の差の最大 | ホウ素の差の最大 (ppm) | 燃焼度の相対差の最大 | 出力の割合の相対差の最大 |
+| ---- | ------------ | ---------------------- | -------------------- | ------------------------ |
+| p9   | 1.4e-08      | 1.4e-04                | 6.7e-08              | 1.9e-07                  |
+
+<!-- /table -->
+
+- 全体は 4,664.7 s（Slurm 703）から 374.2 s（0.080 倍）、固有値計算は 4,650.1 s から 358.9 s、外側の反復の和は 151,099 回から 4,638 回（0.031 倍）。
+  固有値計算は全体の 95.9 %
+- 平らな初期値から解く点と中点の解の最初の固有値計算（5 回）は外側の反復 49〜299 回（燃焼点 0 が 299 回、ほかは 49〜52 回。加速なしは 4,213〜5,674 回）、
+  同じ解の直前の固有値計算から解く 40 回は 27〜384 回で、そのうち 8 回は 201〜384 回（平衡 Xe の解き直しと探索の評価。`trial-0076/core-p9.log` の span
+  `nem` の `iterations`）。CMFD では、直前の解から解く固有値計算が平らな初期値からの 49〜52 回より多くなるものがある（ADR-0231 の初期値の利得は確かめて
+  いない。#0242）
+- 外側の反復 1 回は平均 77 ms（358.9 s / 4,638 回）で、加速なしの平均 31 ms（4,650.1 s / 151,099 回）の約 2.5 倍。差は粗メッシュの問題を作って解く時間
+  （#0242）
+- 固有値計算の数は 43 回から 45 回（ステップ 1 の終わりの点とステップ 2 の中点の平衡 Xe の解き直しが 1 回ずつ多い）。k の差は点と中点で最大 1.4e-8 で、
+  探索の許容（1e-6）の中。ホウ素の差は最大 1.4e-4 ppm、燃焼度と出力の割合の相対差は最大 6.7e-8 と 1.9e-7
+- 30 ステップの見積もり（確かめていない）: 「出力のステップで探す燃焼（Xe とホウ素の同時の反復）」の見積もりの 658 回の固有値計算に、この測定の 1 回の
+  平均 7.97 秒（358.9 s / 45 回）を掛けると約 5,200 秒（約 1.5 時間）
