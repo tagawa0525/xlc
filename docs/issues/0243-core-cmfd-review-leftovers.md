@@ -32,7 +32,16 @@ ADR-0232 の実装（ブランチ perf/0076-core-cmfd）のローカルのレビ
 - ADR-0232 の検討した案の回数と時間は、コミットしていない試行（環境変数で定数と形を切り替えた版）の値（決めた形の値は「確認」の記録の値）
 - `compare_core_acceleration.py` の `per_solve` は、`compare_core_guess.run_of` が読んだのと同じ span をもう一度読む
 
-関係する ADR: ADR-0232
+2 周目（1174a57b、2026-11-06）:
+
+- `docs/plans/architecture.md` の共通のクレートの一覧に `xlc-cmfd` が無い（依頼の変える範囲の外）
+- `verification_tables.py` の `core_acceleration_runs` は 1 回の時間を小数 2 桁で描き、小さな炉心の最小（0.003 s など）が 0.00 になる（比較のツールの
+  `--report` は 3 桁）
+- `compare_core_acceleration.py` の `main`、`parse`、`report` の前半と、`core_acceleration_runs` は、初期値と Xe とホウ素の比較のものの 3 つ目の写し
+- `xlc-numeric` にモジュールを足すと、それを使わない xs と lattice の実行ファイルのバイトが変わった原因を確かめていない（ADR-0232 の案 S2）。
+  共通のクレートに足すたびにステージが changed になるなら、構造の側で直す候補がある
+
+関係する ADR: なし
 
 ## 完了の条件
 
@@ -41,3 +50,4 @@ ADR-0232 の実装（ブランチ perf/0076-core-cmfd）のローカルのレビ
 ## 経緯
 
 - 2026-11-06: ADR-0232 のブランチの 1 周目のレビューから
+- 2026-11-06: 2 周目のレビューから
