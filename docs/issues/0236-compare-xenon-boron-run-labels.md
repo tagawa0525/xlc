@@ -31,3 +31,9 @@ examples/depletion/compare_core_xenon_boron.py（ADR-0219 の `xenon-boron` の 
 
 - 2026-11-06: perf/0156-xenon-boron-joint のレビューの 1 周目で挙がった（コピーの重複と、履歴が `xenon_boron` を持たないので引数の順を確かめられない
   こと）。再現する誤りではないので、このブランチでは直さない
+- 2026-11-06: 親の周（1 周目、ブランチ全体）で残した指摘: (1) 記録と compare-core-small-xenon-boron.json が md5 で引く core-small-equilibrium-1.log と
+  core-small-equilibrium-nested-1.log は branches/.gitignore の `*.log` で無視され、`dvc add` も無視されたファイルを受け付けないので追っていない（compare-core-small-guess.json の
+  ログと同じ扱い。ログの扱いは #0238 の対象）。(2) nested の履歴 core-small-equilibrium-nested-1.msgpack（md5 0c3828ae）は、compare-core-small-guess.json が
+  ADR-0231 の core-small-equilibrium-1.msgpack に記録した md5 と同じで（同時の反復の前の形を bit 単位で再現する）、joint の実行がその名前の履歴を md5 7620f11e に
+  上書きしたことを記録が書いていない。(3) ADR-0219 の「確認」が、決定の「端で解く」「効きが分かるまで探す」「有限でない濃度はエラー」のテストの名前を挙げていない。
+  (4) examples/verification_tables.py の GIT_TRACKED の注が trial-0231 の理由（#0235）だけで、trial-0156 の理由（#0156 の試行）を書いていない
