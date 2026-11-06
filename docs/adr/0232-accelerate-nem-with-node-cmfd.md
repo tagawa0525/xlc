@@ -4,7 +4,7 @@ date: 2026-11-06
 requires: [ADR-0003, ADR-0028, ADR-0110, ADR-0231]
 supersedes: []
 superseded-by:
-issues: ["#0076", "#0156"]
+issues: ["#0076", "#0156", "#0241", "#0242"]
 ---
 
 # ADR-0232: 炉心の NEM を、ノードを粗メッシュとし面の部分中性子流で補正する CMFD で加速する
@@ -29,7 +29,7 @@ issues: ["#0076", "#0156"]
 
 ## 検討した案
 
-下書き（ブランチ feat/core-cmfd の ADR-0119、proposed、main に無い。`git show 177d63bc5:docs/adr/0119-accelerate-nem-with-node-cmfd.md`）は、粗メッシュを
+下書き（ブランチ feat/core-cmfd の ADR の下書きの 0119 番、proposed、main に無い。`git show 177d63bc5:docs/adr/0119-accelerate-nem-with-node-cmfd.md`）は、粗メッシュを
 NEM のノードとし（案 M1）、面の正味の中性子流で 1 つの補正を決め（案 C1）、ADF を有限差分の結合に入れ（案 F1）、lattice の固有値問題のソルバを
 `xlc_numeric::cmfd` に切り出して共有し（案 S1。旧 worktree /home/tagawa/github/xlc-feat-core-cmfd の未コミットの `crates/numeric/src/cmfd.rs` が切り出しの
 試し）、粗メッシュの許容を k 1e-10、中性子束 1e-9 からスイープの変化に比例して緩める形だった。
