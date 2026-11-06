@@ -1259,6 +1259,82 @@ def core_steps_solves(sources: list[dict]) -> str:
     )
 
 
+def core_guess_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-guess":
+        raise TableError("not an xlc-compare-core-guess summary")
+    return s
+
+
+def core_guess_runs(sources: list[dict]) -> str:
+    """固有値計算の初期値（ADR-0231）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間（compare_core_guess.py）"""
+    s = core_guess_summary(sources)
+    rows = []
+    for name, c in s["cases"].items():
+        for label, key in [("平らな初期値", "flat"), ("既定（ADR-0231）", "default")]:
+            r = c["runs"][key]
+            rows.append(
+                [
+                    name,
+                    label,
+                    str(r["solves"]),
+                    f"{r['iterations']:,}",
+                    f"{r['eigenvalue_seconds']:.1f}",
+                    f"{r['seconds']:.1f}",
+                ]
+            )
+        f, d = c["runs"]["flat"], c["runs"]["default"]
+        rows.append(
+            [
+                name,
+                "既定 / 平らな初期値",
+                "",
+                f"{d['iterations'] / f['iterations']:.3f}",
+                f"{d['eigenvalue_seconds'] / f['eigenvalue_seconds']:.3f}",
+                f"{d['seconds'] / f['seconds']:.3f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼",
+            "初期値",
+            "固有値計算の数",
+            "外側の反復の回数の和",
+            "固有値計算の時間 (s)",
+            "全体の時間 (s)",
+        ],
+        rows,
+    )
+
+
+def core_guess_differences(sources: list[dict]) -> str:
+    """固有値計算の初期値（ADR-0231）の既定 − 平らな初期値の差の最大（compare_core_guess.py）: 点と中点の k とホウ素の差の絶対値、点の
+    ノードの燃焼度と出力の割合の相対差の絶対値"""
+    s = core_guess_summary(sources)
+    rows = []
+    for name, c in s["cases"].items():
+        solves = c["points"] + c["midpoints"]
+        rows.append(
+            [
+                name,
+                f"{max(abs(x['k']) for x in solves):.1e}",
+                f"{max(abs(x['boron']) for x in solves):.1e}",
+                f"{max(p['burnup'] for p in c['points']):.1e}",
+                f"{max(p['power'] for p in c['points']):.1e}",
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼",
+            "k の差の最大",
+            "ホウ素の差の最大 (ppm)",
+            "燃焼度の相対差の最大",
+            "出力の割合の相対差の最大",
+        ],
+        rows,
+    )
+
+
 def core_steps_axial(
     reference: tuple[str, int],
     columns: list[tuple[str, int]],
@@ -3284,6 +3360,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-2A-cycle-rods.json",
     "examples/depletion/branches/compare-core-small-steps.json",
     "examples/depletion/branches/compare-core-small-restart.json",
+    "examples/depletion/branches/compare-core-small-guess.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -3838,6 +3915,14 @@ TABLES = {
     "depletion-small-core-solves": (
         ["examples/depletion/branches/compare-core-small-steps.json"],
         core_steps_solves,
+    ),
+    "depletion-small-core-guess-runs": (
+        ["examples/depletion/branches/compare-core-small-guess.json"],
+        core_guess_runs,
+    ),
+    "depletion-small-core-guess-differences": (
+        ["examples/depletion/branches/compare-core-small-guess.json"],
+        core_guess_differences,
     ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],
