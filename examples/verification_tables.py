@@ -3424,6 +3424,7 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-small-steps.json",
     "examples/depletion/branches/compare-core-small-restart.json",
     "examples/depletion/branches/compare-core-small-guess.json",
+    "examples/depletion/branches/compare-core-small-xenon-boron.json",
     # p9-timing のステージの上流（p5 の格子計算）が changed なので、試行で流した結果（#0235）
     "examples/depletion/p9-timing/trial-0231/timing-p9.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
@@ -3988,6 +3989,14 @@ TABLES = {
     "depletion-small-core-guess-differences": (
         ["examples/depletion/branches/compare-core-small-guess.json"],
         core_guess_differences,
+    ),
+    "depletion-small-core-xenon-boron-runs": (
+        ["examples/depletion/branches/compare-core-small-xenon-boron.json"],
+        core_xenon_boron_runs,
+    ),
+    "depletion-small-core-xenon-boron-differences": (
+        ["examples/depletion/branches/compare-core-small-xenon-boron.json"],
+        core_xenon_boron_differences,
     ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],

@@ -7667,6 +7667,65 @@ python3 examples/depletion/compare_core_guess.py --json $B/compare-core-small-gu
 - 前の点の解から反復した形（ADR-0231 の検討した案）は、Xe を時間で追う探索の 18 日の停止の後の中点（7.5 MWd/kg のステップ）で、最初の固有値計算が
   外側の反復の上限 10,000 回で収束しなかった（平らな初期値は 9,584 回）。数値は ADR-0231 の「検討した案」
 
+## 平衡 Xe と臨界ホウ素の同時の反復（小さな炉心）
+
+平衡 Xe でホウ素を探す燃焼の、Xe とホウ素の収束のさせ方（[ADR-0219](../../docs/adr/0219-solve-cycle-depletion-xenon-at-equilibrium.md) の「## 変更」の 2026-11-06。
+`[depletion]` の `xenon-boron`）を、「固有値計算の初期値（小さな炉心）」と同じ炉心、テーブル、サイクルの分割 1 で比べる（#0156）。既定（`joint`。
+最初の解き直しでホウ素を探し、その後は解き直しごとに Xe とホウ素を同じ反復で進める）の燃焼は `branches/core-small-equilibrium-1.toml`、比べる
+解き直すたびに探す形の燃焼は同じケースに `xenon-boron = "nested"` を足した `core-small-equilibrium-nested-1.toml`（`small_core_cases.py` が書く）。
+固有値計算の初期値はどちらも ADR-0231 の既定。比べるのは `compare_core_xenon_boron.py` で、差は同時の反復 − 解き直すたびに探す形、k とホウ素は
+点と中点（中点はログの行）の差の絶対値の最大、燃焼度と出力の割合は点のノードの相対差の絶対値の最大。固有値計算の時間は span `nem` のフィールド
+`seconds` の和、全体は `core seconds=`。
+
+```sh
+cd examples/depletion/branches
+for c in equilibrium-1 equilibrium-nested-1; do
+  RAYON_NUM_THREADS=1 ../../../bin/core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
+done
+cd ../../..
+B=examples/depletion/branches
+python3 examples/depletion/compare_core_xenon_boron.py --json $B/compare-core-small-xenon-boron.json \
+  equilibrium=$B/core-small-equilibrium-nested-1.msgpack,$B/core-small-equilibrium-nested-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
+```
+
+「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-xenon-boron.json`）は
+git で追跡する。
+
+### 計算
+
+ブランチ perf/0156-xenon-boron-joint（分岐点は main の d8eb8a66）の 33f8429a、2026-11-06。`bin/core` は md5 80c456c2。2 本を手元で、`RAYON_NUM_THREADS=1` と
+`taskset` で別々のコアに置いて同時に流した（区分なしの手元の試行。Slurm のジョブは無かった）。時間は目安で、`--timed` のジョブの値ではない。
+
+### 結果
+
+<!-- table: depletion-small-core-xenon-boron-runs -->
+
+| 燃焼        | Xe とホウ素            | 固有値計算の数 | 外側の反復の回数の和 | 固有値計算の時間 (s) | 全体の時間 (s) |
+| ----------- | ---------------------- | -------------- | -------------------- | -------------------- | -------------- |
+| equilibrium | 解き直すたびに探す     | 796            | 1,831,243            | 454.2                | 457.0          |
+| equilibrium | 同時の反復（ADR-0219） | 267            | 545,060              | 137.2                | 139.1          |
+| equilibrium | 同時 / 解き直すたび    | 0.335          | 0.298                | 0.302                | 0.304          |
+
+<!-- /table -->
+
+<!-- table: depletion-small-core-xenon-boron-differences -->
+
+| 燃焼        | k の差の最大 | ホウ素の差の最大 (ppm) | 燃焼度の相対差の最大 | 出力の割合の相対差の最大 |
+| ----------- | ------------ | ---------------------- | -------------------- | ------------------------ |
+| equilibrium | 6.9e-07      | 6.1e-03                | 7.4e-07              | 5.7e-06                  |
+
+<!-- /table -->
+
+- 同時の反復で、固有値計算の数は 796 回から 267 回（0.335 倍）、外側の反復の回数の和は 0.298 倍、固有値計算の時間は 454.2 s から 137.2 s。解き直すたびに
+  探す形の時間は「固有値計算の初期値（小さな炉心）」の既定（459.3 s）と同じ程度
+- 平衡 Xe で探す点と中点の 1 回の解（燃焼点 0 と停止の後の点のほかの 18 回）の固有値計算は、同時の反復で 10〜25 回、解き直すたびに探す形で 30〜78 回
+  （履歴の `solves` と、ログの中点の行の `solves`）。同時の反復で 20 回を超えたのは、次のステップ（出力の割合 0.7、制御棒を抜いた状態）で解く 5 MWd/kg の
+  点（25 回）と、7 MWd/kg と停止の後の 7.5 MWd/kg のステップの中点（24 回と 23 回）
+- k の差は点と中点で最大 6.9e-7 で、どちらの形も |k − 目標| ≤ 探索の許容 1e-6 で止めるので、差は許容の 2 倍の中。ホウ素の差（最大 6.1e-3 ppm）は、
+  探索の許容をホウ素の効きで割った幅（約 0.0095 ppm。「固有値計算の初期値（小さな炉心）」の効き 10.55 pcm/ppm から）の 2 倍の中。燃焼度と出力の割合の
+  相対差は最大 7.4e-7 と 5.7e-6 で、探索の許容の中で違うホウ素で解いた点の差がステップを重ねて伝わることが原因の候補で、確かめていない（同じ節の
+  Xe を時間で追う探索の、初期値だけを変えた差 1.2e-6 と 4.1e-6 と同じ桁）
+
 ## 全炉心の燃焼の時間の内訳（Problem 9 の形）
 
 全炉心の core の燃焼の時間が固有値計算、テーブルの内挿、ミクロ燃焼、平衡 Xe、臨界ホウ素の探索にどう分かれるかを測る（#0156）。精度の比較ではない
