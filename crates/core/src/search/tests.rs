@@ -24,6 +24,8 @@ fn linear_values_reach_the_root_one_solve_after_the_ends() {
     assert!((found.value - 1.0).abs() <= 1.0e-12);
     // 最後に評価した点のものを返す
     assert_eq!(found.at, found.x);
+    // 根の前に評価した点（上の端）と、その値
+    assert_eq!(found.previous, Some((1300.0, 1.1 - 1.0e-4 * 1300.0)));
 }
 
 #[test]
@@ -48,8 +50,11 @@ fn decreasing_and_increasing_values_both_converge() {
 fn an_end_within_the_tolerance_is_the_root() {
     let found = find([1000.0, 1300.0], 1.0, 1.0e-9, 10, values(curved)).unwrap();
     assert_eq!((found.x, found.solves), (1000.0, 1));
+    // 最初の評価が根なら、その前の評価はない
+    assert_eq!(found.previous, None);
     let found = find([500.0, 1000.0], 1.0, 1.0e-9, 10, values(curved)).unwrap();
     assert_eq!((found.x, found.solves), (1000.0, 2));
+    assert_eq!(found.previous, Some((500.0, curved(500.0))));
 }
 
 #[test]
