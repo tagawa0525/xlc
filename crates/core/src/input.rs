@@ -826,8 +826,8 @@ pub enum MidpointBoron {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum InitialGuess {
-    /// 同じケースの直前の固有値計算（探索の評価、平衡 Xe の解き直し、点、中点のどれでも）の収束した解から。ケースの最初の解は平らな
-    /// 初期値から（ADR-0231 の決定）
+    /// 点と中点の解の中の探索の評価と平衡 Xe の解き直しは、同じ解の直前の固有値計算の収束した解から。点と中点の解の最初の固有値計算は
+    /// 平らな初期値から（ADR-0231 の決定）
     #[default]
     Previous,
     /// どの解も平らな初期値（中性子束 1、k = 1）から（前の解からの反復と比べるため）
