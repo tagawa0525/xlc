@@ -159,9 +159,14 @@ def report(summary: dict) -> list[str]:
         f"{x['corrected']:+.2f} | {x['converted']:+.2f} |"
         for x in p
     ]
-    for key in ["effect", "corrected", "converted"]:
-        values = [x[key] for x in p]
-        lines.append(f"{key}: {min(values):+.3f}〜{max(values):+.3f} pcm")
+    for b10 in sorted({x["b10"] for x in p}):
+        group = [x for x in p if x["b10"] == b10]
+        for key in ["effect", "corrected", "converted"]:
+            values = [x[key] for x in group]
+            lines.append(f"b10 {b10} {key}: {min(values):+.3f}〜{max(values):+.3f} pcm")
+        for key in ["corrected", "converted"]:
+            share = max(abs(x[key] / x["effect"]) for x in group)
+            lines.append(f"b10 {b10} |{key}| / |effect| の最大: {share * 100:.2f}%")
     return lines
 
 
