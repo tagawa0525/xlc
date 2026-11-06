@@ -296,6 +296,16 @@ class DvcFile(Git):
         self.assertEqual(lone["state"], "unknown")
         self.assertEqual(lone["history"], {"run.log": []})
 
+    def test_the_history_stops_where_the_dvc_file_was_removed(self):
+        self.commit(dvc("1"), "2026-10-01", "run.log.dvc")
+        self.git("rm", "-q", "run.log.dvc")
+        self.git("-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "chore: rm")
+        again = self.commit(dvc("2"), "2026-10-03", "run.log.dvc")
+        self.assertEqual(
+            rp.dvc_history(self.dir / "run.log.dvc")["history"]["run.log"],
+            [(H["2"], again, "2026-10-03")],
+        )
+
     def test_main_takes_dvc_files_and_prints_the_history(self):
         import contextlib
         import io
