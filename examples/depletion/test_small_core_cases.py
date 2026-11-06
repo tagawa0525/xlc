@@ -42,6 +42,33 @@ class Cases(unittest.TestCase):
             self.assertEqual(kept, expected)
             self.assertIn((f"{base}-none", 1), small_core_cases.CASES)
 
+    def test_thread_and_order_cases_differ_only_by_their_keys(self):
+        # ADR-0234 の色の順（既定）をスレッドの数を変えて解くケースと、直方体の並びの順を 1 スレッドで解くケースは、既定のケースに
+        # `threads`（と `node-order`）を足し、履歴の名前とコメントの 1 文を替えたもの
+        variants = {
+            "threads-1": ["threads = 1"],
+            "threads-4": ["threads = 4"],
+            "threads-16": ["threads = 16"],
+            "lexicographic": ['node-order = "lexicographic"', "threads = 1"],
+        }
+        for base in ("search", "equilibrium"):
+            default = small_core_cases.case(base, 1)
+            self.assertNotIn("threads", default)
+            self.assertNotIn("node-order", default)
+            for variant, lines in variants.items():
+                method = f"{base}-{variant}"
+                text = small_core_cases.case(method, 1)
+                kept = [line for line in text.splitlines() if not line.startswith("#")]
+                expected = [
+                    line for line in default.splitlines() if not line.startswith("#")
+                ]
+                at = expected.index("radial-nodes = 1") + 1
+                expected[at:at] = lines
+                history = expected.index(f'history = "core-small-{base}-1.msgpack"')
+                expected[history] = f'history = "core-small-{method}-1.msgpack"'
+                self.assertEqual(kept, expected, method)
+                self.assertIn((method, 1), small_core_cases.CASES)
+
     def test_splits_keep_the_base_points_and_the_decay_step(self):
         base = small_core_cases.steps(1)
         fine = small_core_cases.steps(4)
