@@ -4658,6 +4658,19 @@ class DrawCoreTiming(unittest.TestCase):
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
+    def test_the_joint_tables_read_the_power_step_trial(self):
+        # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）
+        for name in (
+            "core-p9-joint-timing-parts",
+            "core-p9-joint-timing-solves",
+            "core-p9-joint-timing-nem",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources, ["examples/depletion/p9-timing/trial-0156/timing-p9.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
 
 def core_guess_summary():
     """compare_core_guess.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
@@ -4683,6 +4696,50 @@ def core_guess_summary():
             }
         },
     }
+
+
+def core_xenon_boron_summary():
+    """compare_core_xenon_boron.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
+    s = core_guess_summary()
+    s["format"] = "xlc-compare-core-xenon-boron"
+    runs = s["cases"]["search"]["runs"]
+    s["cases"]["equilibrium"] = s["cases"].pop("search")
+    s["cases"]["equilibrium"]["runs"] = {
+        "nested": {**runs["flat"], "solves": 40},
+        "joint": {**runs["default"], "solves": 10},
+    }
+    return s
+
+
+class DrawCoreXenonBoron(unittest.TestCase):
+    def test_runs_list_both_iterations_and_their_ratio(self):
+        rows = cells(vt.core_xenon_boron_runs([core_xenon_boron_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                ["equilibrium", "解き直すたびに探す", "40", "4,000", "8.0", "10.0"],
+                ["equilibrium", "同時の反復（ADR-0219）", "10", "2,000", "4.0", "6.0"],
+                [
+                    "equilibrium",
+                    "同時 / 解き直すたび",
+                    "0.250",
+                    "0.500",
+                    "0.500",
+                    "0.600",
+                ],
+            ],
+        )
+
+    def test_differences_take_the_largest_over_points_and_midpoints(self):
+        rows = cells(vt.core_xenon_boron_differences([core_xenon_boron_summary()]))
+        self.assertEqual(
+            rows, [["equilibrium", "5.0e-10", "4.0e-04", "2.0e-06", "3.0e-07"]]
+        )
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.core_xenon_boron_runs, vt.core_xenon_boron_differences):
+            with self.assertRaises(vt.TableError):
+                draw([core_guess_summary()])
 
 
 class DrawCoreGuess(unittest.TestCase):

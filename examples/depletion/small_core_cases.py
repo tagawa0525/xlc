@@ -64,6 +64,15 @@ METHODS = {
         'micro = { chain = "../chain.msgpack", xenon = "equilibrium" }',
         ['initial-guess = "flat"'],
     ),
+    # Xe とホウ素を 1 つの反復で収束させる燃焼（ADR-0219 の既定。上の equilibrium）と比べる
+    "equilibrium-nested": (
+        (
+            "中点のホウ素は ADR-0191 の探索。Xe-135 と I-135 は出力のある解で平衡の値（#0200）。Xe の解き直しのたびにホウ素を探す"
+            "（ADR-0219 の同時の反復と比べる）。"
+        ),
+        'micro = { chain = "../chain.msgpack", xenon = "equilibrium" }',
+        ['xenon-boron = "nested"'],
+    ),
 }
 
 # ケース: (方式, 分割)
@@ -71,7 +80,7 @@ CASES = (
     [("search", s) for s in (1, 2, 4, 8, 16, 32, 64, 128)]
     + [("start", s) for s in (1, 2, 4)]
     + [("equilibrium", s) for s in (1, 2, 4, 8, 16)]
-    + [("search-flat", 1), ("equilibrium-flat", 1)]
+    + [("search-flat", 1), ("equilibrium-flat", 1), ("equilibrium-nested", 1)]
 )
 
 
