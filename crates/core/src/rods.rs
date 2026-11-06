@@ -18,7 +18,8 @@ use xlc_numeric::lu::Lu;
 use xlc_numeric::nem::{Inflow, Line, is_fissile, outflow};
 
 use crate::nem::{
-    Boundary, NemError, NodeSnapshot, Options, Problem, Refresh, Solution, solve, solve_with,
+    Boundary, Guess, NemError, NodeSnapshot, Options, Problem, Refresh, Solution, solve_from,
+    solve_with,
 };
 use crate::state::MicroAt;
 use xlc_format::table::{MicroDerivative, MicroNuclide, MicroReaction, RateResidual};
@@ -107,15 +108,16 @@ pub(crate) fn windows(partial: &[bool]) -> Result<Vec<Window>, String> {
 /// 重みでは区間の長さ）。`partial` の順
 pub type SegmentWeights = Vec<Vec<Vec<f64>>>;
 
-/// 部分挿入のノードを `weighting` で扱って炉心を解く。`fine` は細かいメッシュの幅の上限 (cm)。解と、混ぜた定数を
-/// 入れた物質の並びと、その定数を混ぜた重みを返す。
+/// 部分挿入のノードを `weighting` で扱って炉心を解く。`fine` は細かいメッシュの幅の上限 (cm)。固有値計算は `start`（`None` なら
+/// 平らな初期値）から反復する。解と、混ぜた定数を入れた物質の並びと、その定数を混ぜた重みと、次の解の初期値にできる収束した状態を返す。
 pub fn solve_rodded(
     problem: &Problem,
     partial: Vec<PartialNode>,
     weighting: Weighting,
     fine: f64,
     options: &Options,
-) -> Result<(Solution, Vec<FewGroup>, SegmentWeights), NemError> {
+    start: Option<&Guess>,
+) -> Result<(Solution, Vec<FewGroup>, SegmentWeights, Guess), NemError> {
     let invalid = NemError::InvalidProblem;
     check_partial(problem, &partial).map_err(invalid)?;
     let mut initial = problem.clone();
@@ -132,8 +134,8 @@ pub fn solve_rodded(
     }
     match weighting {
         Weighting::Volume => {
-            let solution = solve(&initial, options)?;
-            Ok((solution, initial.materials, lengths))
+            let (solution, guess) = solve_from(&initial, options, start)?;
+            Ok((solution, initial.materials, lengths, guess))
         }
         Weighting::Flux => {
             if !(fine > 0.0 && fine.is_finite()) {
@@ -142,8 +144,8 @@ pub fn solve_rodded(
                 )));
             }
             let mut cusping = Cusping::new(problem, &partial, fine).map_err(invalid)?;
-            let (solution, materials) = solve_with(&initial, options, &mut cusping)?;
-            Ok((solution, materials, cusping.weights))
+            let (solution, materials, guess) = solve_with(&initial, options, &mut cusping, start)?;
+            Ok((solution, materials, cusping.weights, guess))
         }
     }
 }
