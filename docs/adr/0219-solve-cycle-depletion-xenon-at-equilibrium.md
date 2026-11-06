@@ -106,7 +106,7 @@ Xe-135 は追う核種で、I-135 は追う核種か補助の核種であるこ�
 尺度は、|k − 目標| が探索の許容のときに組成の残差の許容と同じ大きさになる値）。解き直しの 1 回は固有値計算 1 回。置き換える値の相対の変化が 1e-6 以下で、
 かつ解の k が目標から探索の許容（`tolerance`）の中の解で止める（解き直すたびに探す形と同じ判定）。加速が探索の範囲の外の濃度を選んだら、その端で
 解く（範囲の外のテーブルを内挿しない）。範囲の端で解き、k を目標に寄せる濃度がその端の外なら、濃度を端に留めて組成だけを加速し、組成が釣り合っても
-そうなら範囲が解を挟まないのでエラーにする（解き直すたびに探す形には戻さない）。最初の探索が範囲の端の 1 回で終わって効きが分からなければ、分かるまで
+そうなら範囲が解を挟まないのでエラーにする（解き直すたびに探す形には戻さない）。次の濃度を決める k が有限でなければエラーにする。最初の探索が範囲の端の 1 回で終わって効きが分からなければ、分かるまで
 解き直すたびに探す。`nested` は、
 解き直すたびに臨界ホウ素を探す（比べるため。平衡 Xe でホウ素を探す状態を持たないケースではエラー）。点の固有値計算の回数は、解き直したすべての
 解の和。修正子は、中点の平衡の組成で規格化した反応率で、初めの組成から CRAM で
@@ -142,7 +142,7 @@ Xe-135 は追う核種で、I-135 は追う核種か補助の核種であるこ�
   `histories_hold_densities_exactly_when_they_name_nuclides`（履歴の `xenon`）、`joint_xenon_and_boron_match_the_nested_points_with_fewer_solves`
   （探索、平衡 Xe、崩壊だけのステップ、出力の割合の変わるステップを含む燃焼で、同時の反復と解き直すたびに探す形の点の k の差が探索の許容の 2 倍、
   ホウ素、燃焼度、数密度の相対差が Xe の許容の 2 倍の中で、固有値計算が少ない）、`joint_iterations_converge_the_composition_and_the_boron_together`、
-  `joint_iterations_that_leave_the_search_bracket_are_errors`。探索（crates/core/src/search/tests.rs）: 根の前の評価を返す。入力（crates/core/src/input/tests.rs）:
+  `joint_iterations_that_leave_the_search_bracket_are_errors`、`joint_iterations_that_overshoot_the_bracket_end_solve_at_the_end_and_converge`（端で解いて続ける）、`joint_iterations_search_again_until_the_worth_is_known`（効きが分かるまで解き直すたびに探す）、`joint_iterations_with_a_k_that_is_not_finite_are_errors`（有限でない k）。探索（crates/core/src/search/tests.rs）: 根の前の評価を返す、`the_farthest_evaluation_is_one_of_the_bracket_ends`。入力（crates/core/src/input/tests.rs）:
   `depletion_micro_names_the_chain_of_the_lattice_depletion`、`depletion_xenon_and_boron_may_converge_nested`
 - 小さな炉心（examples/depletion/verification.md の「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」。入力は e95c9432、Xe を時間で追う燃焼は
   8d311da3、平衡 Xe は ea38ec3d の core、2026-10-29）: 平衡 Xe の燃焼のノードの燃焼度の差の最大は、5 MWd/kg まで分割を倍にするごとに 2.45〜15.97 分の 1 に
