@@ -4,7 +4,7 @@ date: 2026-11-06
 requires: []
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0240"]
 ---
 
 # ADR-0233: 文書の整合性の検査をコミットごとに pre-commit の hook で実行する
@@ -84,6 +84,8 @@ hook の中の cargo は、claude-hooks の guard-exclusive-slurm（Bash のツ�
   違反の行（`<パス>:<行>: …`）を hook の出力で受ける
 - 新しい worktree の最初のコミットは、xlc-docs のビルドで 3.5 秒ほど長くなる。2 回目からは 0.1 秒ほど
 - 排他のジョブの間も、hook は 1 コアしか使わない
+- rebase の後の片付けのコミットが止まりうること、CPU を限る規則が `run-checks.sh` と違うこと、マージを締めるコミットで検査が
+  2 度走ることは #0240 に残した
 
 ### 確認
 
