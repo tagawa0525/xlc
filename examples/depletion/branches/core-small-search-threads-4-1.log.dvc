@@ -1,0 +1,5 @@
+outs:
+- md5: 93bfbb9445a49d642dae5ce01390c44a
+  size: 43457
+  hash: md5
+  path: core-small-search-threads-4-1.log

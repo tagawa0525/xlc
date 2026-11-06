@@ -4658,6 +4658,26 @@ class DrawCoreTiming(unittest.TestCase):
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
+    def test_the_thread_tables_read_the_red_black_trial(self):
+        # trial-0156 の入力を、色の順で複数のスレッドで解いた試行（ADR-0234）
+        for name in (
+            "core-p9-threads-timing-parts",
+            "core-p9-threads-timing-solves",
+            "core-p9-threads-timing-nem",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources, ["examples/depletion/p9-timing/trial-0234/timing-p9.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+        for name in ("core-p9-threads-runs", "core-p9-threads-differences"):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources,
+                ["examples/depletion/p9-timing/trial-0234/compare-threads.json"],
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
     def test_the_cmfd_tables_read_the_cmfd_trial(self):
         # trial-0156 の入力を、粗メッシュの許容を詰めた CMFD で解いた試行（ADR-0232、#0244）
         for name in (
@@ -4908,6 +4928,117 @@ class DrawCoreGuess(unittest.TestCase):
         for draw in (vt.core_guess_runs, vt.core_guess_differences):
             with self.assertRaises(vt.TableError):
                 draw([{"format": "xlc-core-timing"}])
+
+
+def core_threads_summary():
+    """compare_core_threads.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ、直方体の並びの順と色の順の 2 つのスレッドの数"""
+    s = core_guess_summary()
+    s["format"] = "xlc-compare-core-threads"
+    case = s["cases"]["search"]
+    flat = case.pop("runs")["flat"]
+    case["runs"] = [
+        {
+            **flat,
+            "order": "lexicographic",
+            "threads": 1,
+            "same_bytes": None,
+            "per_solve": {"iterations": [20, 900], "seconds": [0.25, 1.5]},
+        },
+        {
+            **flat,
+            "order": "red-black",
+            "threads": 1,
+            "same_bytes": True,
+            "iterations": 3000,
+            "per_solve": {"iterations": [15, 700], "seconds": [0.2, 1.25]},
+        },
+        {
+            **flat,
+            "order": "red-black",
+            "threads": 16,
+            "same_bytes": True,
+            "iterations": 3000,
+            "eigenvalue_seconds": 2.0,
+            "seconds": 3.0,
+            "per_solve": {"iterations": [15, 700], "seconds": [0.05, 0.25]},
+        },
+    ]
+    return s
+
+
+class DrawCoreThreads(unittest.TestCase):
+    def test_runs_list_each_order_and_thread_count(self):
+        rows = cells(vt.core_threads_runs([core_threads_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                [
+                    "search",
+                    "直方体の並びの順",
+                    "1",
+                    "4",
+                    "4,000",
+                    "20〜900",
+                    "8.0",
+                    "0.25〜1.50",
+                    "10.0",
+                    "",
+                ],
+                [
+                    "search",
+                    "色の順",
+                    "1",
+                    "4",
+                    "3,000",
+                    "15〜700",
+                    "8.0",
+                    "0.20〜1.25",
+                    "10.0",
+                    "同じ",
+                ],
+                [
+                    "search",
+                    "色の順",
+                    "16",
+                    "4",
+                    "3,000",
+                    "15〜700",
+                    "2.0",
+                    "0.05〜0.25",
+                    "3.0",
+                    "同じ",
+                ],
+            ],
+        )
+
+    def test_runs_name_the_bin_core_before_and_other_bytes(self):
+        s = core_threads_summary()
+        runs = s["cases"]["search"]["runs"]
+        runs[0] |= {"order": "before", "threads": None}
+        runs[2]["same_bytes"] = False
+        rows = cells(vt.core_threads_runs([s]))
+        self.assertEqual(rows[0][1:3], ["ADR-0234 の前の bin/core", "−"])
+        self.assertEqual(rows[2][9], "違う")
+
+    def test_differences_take_the_largest_over_points_and_midpoints(self):
+        rows = cells(vt.core_threads_differences([core_threads_summary()]))
+        self.assertEqual(rows, [["search", "5.0e-10", "4.0e-04", "2.0e-06", "3.0e-07"]])
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.core_threads_runs, vt.core_threads_differences):
+            with self.assertRaises(vt.TableError):
+                draw([core_guess_summary()])
+
+    def test_the_small_core_tables_read_the_tracked_summary(self):
+        for name in (
+            "depletion-small-core-threads-runs",
+            "depletion-small-core-threads-differences",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources, ["examples/depletion/branches/compare-core-small-threads.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
 
 
 if __name__ == "__main__":

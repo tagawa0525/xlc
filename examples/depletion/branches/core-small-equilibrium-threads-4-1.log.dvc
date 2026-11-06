@@ -1,0 +1,5 @@
+outs:
+- md5: 49cf27ff2509218fcbf9b088be36e090
+  size: 110070
+  hash: md5
+  path: core-small-equilibrium-threads-4-1.log

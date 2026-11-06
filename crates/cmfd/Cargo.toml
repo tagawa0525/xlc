@@ -8,4 +8,5 @@ workspace = true
 
 [dependencies]
 xlc-numeric = { path = "../numeric" }
+rayon.workspace = true
 thiserror.workspace = true

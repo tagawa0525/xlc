@@ -12,6 +12,7 @@ xlc-format = { path = "../format" }
 xlc-numeric = { path = "../numeric" }
 xlc-cmfd = { path = "../cmfd" }
 anyhow.workspace = true
+num_cpus.workspace = true
 rayon.workspace = true
 serde.workspace = true
 thiserror.workspace = true
