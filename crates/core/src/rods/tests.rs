@@ -127,8 +127,15 @@ fn identical_intervals_reproduce_the_uniform_node() {
     let (plain, _) = column(200.0, 1.0, false);
     let expected = solve(&plain, &Options::default()).unwrap();
     let (problem, partial) = column(128.0, 1.0, false);
-    let (solution, materials, _) =
-        solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
+    let (solution, materials, _, _) = solve_rodded(
+        &problem,
+        partial,
+        Weighting::Flux,
+        0.5,
+        &Options::default(),
+        None,
+    )
+    .unwrap();
     // 不連続因子が 1 からずれる分だけ k も動く
     assert!(
         pcm(solution.k, expected.k).abs() < 0.1,
@@ -171,8 +178,15 @@ fn f_star_below_a_partial_node_keeps_the_split_mesh_k() {
     let (plain, _) = with_adfs(column(28.0, 1.6, true));
     let expected = solve(&plain, &Options::default()).unwrap();
     let (problem, partial) = with_adfs(column(28.0, 1.6, false));
-    let (solution, _, _) =
-        solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
+    let (solution, _, _, _) = solve_rodded(
+        &problem,
+        partial,
+        Weighting::Flux,
+        0.5,
+        &Options::default(),
+        None,
+    )
+    .unwrap();
     let dk = pcm(solution.k, expected.k);
     assert!(dk.abs() < 10.0, "{dk} pcm");
 }
@@ -180,12 +194,13 @@ fn f_star_below_a_partial_node_keeps_the_split_mesh_k() {
 #[test]
 fn volume_weighting_mixes_by_the_rodded_fraction() {
     let (problem, partial) = column(128.0, 1.6, false);
-    let (_, materials, _) = solve_rodded(
+    let (_, materials, _, _) = solve_rodded(
         &problem,
         partial,
         Weighting::Volume,
         0.5,
         &Options::default(),
+        None,
     )
     .unwrap();
     let mixed = &materials[problem.node_material[6].unwrap()];
@@ -207,12 +222,13 @@ fn flux_weighting_reproduces_the_mesh_split_at_the_tip() {
         let expected_rates = coarse_fission(&reference, &reference.materials, &expected);
         let (problem, partial) = column(tip, 1.6, false);
         let run = |weighting: Weighting| {
-            let (solution, materials, _) = solve_rodded(
+            let (solution, materials, _, _) = solve_rodded(
                 &problem,
                 partial.clone(),
                 weighting,
                 0.5,
                 &Options::default(),
+                None,
             )
             .unwrap();
             let rates = coarse_fission(&problem, &materials, &solution);
@@ -354,10 +370,58 @@ fn partial_nodes_at_both_ends_around_one_uniform_node_match_the_split_mesh() {
         vec![fuel(1.0), fuel(1.6)],
     );
     let expected = solve(&reference, &Options::default()).unwrap();
-    let (solution, _, _) =
-        solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
+    let (solution, _, _, _) = solve_rodded(
+        &problem,
+        partial,
+        Weighting::Flux,
+        0.5,
+        &Options::default(),
+        None,
+    )
+    .unwrap();
     let dk = pcm(solution.k, expected.k);
     assert!(dk.abs() < 10.0, "{dk} pcm");
+}
+
+#[test]
+fn rodded_solves_started_from_a_nearby_solution_converge_to_the_flat_start_answer_in_fewer_iterations()
+ {
+    // 先端を同じノードの中で 4 cm 下げた問題（燃焼のステップごとの状態の解に当たる）を、下げる前の解から解く。中性子束の重みは外側の
+    // 反復ごとに定数を作り直すので、その反復も同じ解に収束する。どちらの解も同じ収束の判定を満たすので、差は許容の 2 倍の中
+    let options = Options::default();
+    for weighting in [Weighting::Flux, Weighting::Volume] {
+        let (before, partial) = column(132.0, 1.6, false);
+        let (_, _, _, guess) =
+            solve_rodded(&before, partial, weighting, 0.5, &options, None).unwrap();
+        let (problem, partial) = column(128.0, 1.6, false);
+        let (flat, _, _, _) =
+            solve_rodded(&problem, partial.clone(), weighting, 0.5, &options, None).unwrap();
+        let (warm, _, _, _) =
+            solve_rodded(&problem, partial, weighting, 0.5, &options, Some(&guess)).unwrap();
+        assert!(
+            (warm.k - flat.k).abs() < 2.0 * options.k_tolerance,
+            "{weighting:?}: k {} vs {}",
+            warm.k,
+            flat.k
+        );
+        let flux = warm
+            .flux
+            .iter()
+            .flatten()
+            .zip(flat.flux.iter().flatten())
+            .map(|(a, b)| ((a - b) / b).abs())
+            .fold(0.0, f64::max);
+        assert!(
+            flux < 2.0 * options.flux_tolerance,
+            "{weighting:?}: flux {flux}"
+        );
+        assert!(
+            warm.iterations < flat.iterations,
+            "{weighting:?}: {} iterations from the previous solution, {} from the flat start",
+            warm.iterations,
+            flat.iterations
+        );
+    }
 }
 
 #[test]
@@ -378,7 +442,17 @@ fn partial_nodes_without_fission_are_errors() {
     let m = partial[0].material;
     problem.materials[m].nu_fission = vec![0.0, 0.0];
     problem.materials[m].fission = vec![0.0, 0.0];
-    assert!(solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).is_err());
+    assert!(
+        solve_rodded(
+            &problem,
+            partial,
+            Weighting::Flux,
+            0.5,
+            &Options::default(),
+            None
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -390,7 +464,17 @@ fn partial_nodes_with_f_star_on_a_z_side_are_errors() {
     }
     let m = partial[0].material;
     problem.materials[m].normalized_adf[4] = true;
-    assert!(solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).is_err());
+    assert!(
+        solve_rodded(
+            &problem,
+            partial,
+            Weighting::Flux,
+            0.5,
+            &Options::default(),
+            None
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -404,7 +488,8 @@ fn duplicated_partial_nodes_are_errors() {
             partial,
             Weighting::Volume,
             0.5,
-            &Options::default()
+            &Options::default(),
+            None,
         )
         .is_err()
     );
@@ -649,12 +734,13 @@ fn rodded_solutions_return_the_weights_of_their_mixed_constants() {
     // 返す重みで区間の定数を混ぜると、解いた混ぜた定数（z の面の不連続因子のほか）になる。体積の重みは区間の長さ
     for weighting in [Weighting::Flux, Weighting::Volume] {
         let (problem, partial) = column(128.0, 1.6, false);
-        let (_, materials, weights) = solve_rodded(
+        let (_, materials, weights, _) = solve_rodded(
             &problem,
             partial.clone(),
             weighting,
             0.5,
             &Options::default(),
+            None,
         )
         .unwrap();
         assert_eq!(weights.len(), 1);

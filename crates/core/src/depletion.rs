@@ -28,10 +28,11 @@ use crate::case::{
     solve_compositions,
 };
 use crate::input::{
-    Boron, BoronSearch, CaseState, DepletionInput, Layout, MidpointBoron, StepKind, Xenon,
+    Boron, BoronSearch, CaseState, DepletionInput, InitialGuess, Layout, MidpointBoron, StepKind,
+    Xenon,
 };
 use crate::micro::{MicroChain, TrackedRates};
-use crate::nem::{Options, fission_rates};
+use crate::nem::{Guess, Options, fission_rates};
 use crate::rods::mix_micro;
 use crate::state::moderator_density;
 use crate::thermal::fissile;
@@ -748,6 +749,12 @@ pub fn deplete(
             "micro depletion"
         );
     }
+    // 同じ点か中点の解の、直前の固有値計算の収束した状態（ADR-0231）。次の探索の評価と平衡 Xe の解き直しはここから反復する。点と中点の
+    // 解の最初の固有値計算は平らな初期値から解く（`fresh`）。`initial-guess = "flat"` のケースは持たない
+    let last = std::cell::RefCell::new(None::<Guess>);
+    // 前の点の解から反復すると、出力、状態、Xe の変わるステップの後では軸方向の遅いモードの誤差が平らな初期値より大きく残り、反復が
+    // 増える（小さな炉心の停止の後の中点は、平らな初期値の 9,584 回に対し上限の 10,000 回で収束しなかった。ADR-0231）
+    let fresh = || drop(last.take());
     // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で。`given` が
     // あれば、探索の状態もその濃度で解く）。`at` はエラーに添える解の場所
     let solve = |k: usize,
@@ -779,14 +786,19 @@ pub fn deplete(
             }
         };
         let solve_ppm = |ppm: f64| {
-            solve_compositions(
+            let solved = solve_compositions(
                 layout,
                 tables,
                 &state.at(ppm),
                 burnups,
                 compositions.as_ref(),
+                last.borrow().as_ref(),
                 options,
-            )
+            )?;
+            if depletion.initial_guess == InitialGuess::Previous {
+                last.replace(Some(solved.guess.clone()));
+            }
+            Ok(solved)
         };
         let solved = match (&state.boron, given) {
             (Boron::Given(ppm), _) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
@@ -927,6 +939,7 @@ pub fn deplete(
                            power: f64,
                            at: &dyn Fn() -> String|
      -> Result<(Solve, Option<Densities>), CaseError> {
+        fresh();
         let (Some(m), Some(n)) = (
             micro.as_ref().filter(|_| xenon == Some(Xenon::Equilibrium)),
             n.as_ref(),
@@ -1218,6 +1231,7 @@ pub fn deplete(
                     power,
                     &|| at_point.clone(),
                 )?;
+                fresh();
                 let point = solve(
                     point_state(i + 1),
                     &burnups,
@@ -1247,14 +1261,17 @@ pub fn deplete(
                 &|| at_point.clone(),
             )?,
             StepKind::Decay { .. } => (
-                solve(
-                    point_state(i + 1),
-                    &burnups,
-                    densities.as_deref(),
-                    histories.as_deref(),
-                    None,
-                    &|| at_point.clone(),
-                )?,
+                {
+                    fresh();
+                    solve(
+                        point_state(i + 1),
+                        &burnups,
+                        densities.as_deref(),
+                        histories.as_deref(),
+                        None,
+                        &|| at_point.clone(),
+                    )?
+                },
                 densities,
             ),
         };

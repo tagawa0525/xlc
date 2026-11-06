@@ -1,0 +1,74 @@
+{
+ "format": "xlc-compare-core-guess",
+ "inputs": [
+  {
+   "path": "examples/depletion/p9-timing/core-p9.msgpack",
+   "md5": "1f46a131ed64346f1b421952652c2274"
+  },
+  {
+   "path": "examples/depletion/p9-timing/core-p9.log",
+   "md5": "c765ea163299063346f3f3b381f901b0"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0231/core-p9.msgpack",
+   "md5": "792c2a19dce554c5be4b3134480e183f"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0231/core-p9.log",
+   "md5": "0c4fd9fb939e9bab29adcbf422beeadb"
+  }
+ ],
+ "cases": {
+  "p9": {
+   "points": [
+    {
+     "efpd": 0.0,
+     "days": 0.0,
+     "state": "case-2",
+     "k": 0.0,
+     "boron": 0.0,
+     "burnup": 0.0,
+     "power": 0.0
+    },
+    {
+     "efpd": 9.0,
+     "days": 13.698630136986301,
+     "state": "case-3",
+     "k": 6.626388326935739e-11,
+     "boron": 3.320828909636475e-07,
+     "burnup": 1.098510131550199e-07,
+     "power": 2.3926260647768255e-07
+    },
+    {
+     "efpd": 9.0,
+     "days": 13.7086301369863,
+     "state": "case-3",
+     "k": 7.530287504664557e-11,
+     "boron": 3.0722139854333363e-07,
+     "burnup": 1.098510131550199e-07,
+     "power": 2.330648209236929e-07
+    }
+   ],
+   "midpoints": [
+    {
+     "k": -5.6203930398623925e-12,
+     "boron": 0.0
+    }
+   ],
+   "runs": {
+    "flat": {
+     "solves": 25,
+     "iterations": 135350,
+     "eigenvalue_seconds": 4399.972533824,
+     "seconds": 4407.992506256
+    },
+    "default": {
+     "solves": 25,
+     "iterations": 93961,
+     "eigenvalue_seconds": 2862.837672344,
+     "seconds": 2870.930033875
+    }
+   }
+  }
+ }
+}

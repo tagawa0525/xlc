@@ -180,14 +180,36 @@ pub enum NemError {
     NotConverged { iterations: usize, k: f64 },
 }
 
-// 外側の反復の回数と秒を span の閉じる行に出す（#0156、#0076）。秒を別に持つのは、閉じる行の time.busy が 3 桁に丸まるため
-#[tracing::instrument(name = "nem", skip_all, fields(iterations, seconds))]
+/// 平らな初期値（中性子束 1、k = 1）から反復して解く
 pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
-    let start = std::time::Instant::now();
+    solve_from(problem, options, None).map(|(solution, _)| solution)
+}
+
+/// 外側の反復を始める状態: 収束した解の k と、ノードの中性子束、展開係数、出ていく部分中性子流（ADR-0231）。ノードの並びと群の数が
+/// 同じ問題の初期値にする
+#[derive(Debug, Clone, PartialEq)]
+pub struct Guess {
+    k: f64,
+    state: State,
+}
+
+// 外側の反復の回数と秒を span の閉じる行に出す（#0156、#0076）。秒を別に持つのは、閉じる行の time.busy が 3 桁に丸まるため
+/// `start`（`None` なら平らな初期値）から反復して解く。解と、次の解の初期値にできる収束した状態を返す
+#[tracing::instrument(name = "nem", skip_all, fields(iterations, seconds))]
+pub fn solve_from(
+    problem: &Problem,
+    options: &Options,
+    start: Option<&Guess>,
+) -> Result<(Solution, Guess), NemError> {
+    let clock = std::time::Instant::now();
     let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
-    let (solution, _) = iterate(&mut core, options, None)?;
-    record_solve(solution.iterations, start);
-    Ok(solution)
+    let (solution, state) = iterate(&mut core, options, None, start)?;
+    record_solve(solution.iterations, clock);
+    let guess = Guess {
+        k: solution.k,
+        state,
+    };
+    Ok((solution, guess))
 }
 
 /// 固有値計算の span（`nem`）に、外側の反復の回数と `start` からの秒を記録する
@@ -221,23 +243,28 @@ pub struct NodeSnapshot {
     pub transverse: Vec<[f64; 3]>,
 }
 
-/// `solve` に、外側の反復（全群のスイープ）の前ごとに `refresh` で物質を置き換えることを加えたもの。解と、最後に
-/// 置き換えたあとの物質の定数（`Problem::materials` の並び）を返す。
+/// `solve_from` に、外側の反復（全群のスイープ）の前ごとに `refresh` で物質を置き換えることを加えたもの。解と、最後に
+/// 置き換えたあとの物質の定数（`Problem::materials` の並び）と、次の解の初期値にできる収束した状態を返す。
 #[tracing::instrument(name = "nem", skip_all, fields(iterations, seconds))]
 pub fn solve_with(
     problem: &Problem,
     options: &Options,
     refresh: &mut dyn Refresh,
-) -> Result<(Solution, Vec<FewGroup>), NemError> {
-    let start = std::time::Instant::now();
+    start: Option<&Guess>,
+) -> Result<(Solution, Vec<FewGroup>, Guess), NemError> {
+    let clock = std::time::Instant::now();
     let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
     for (material, adfs) in refresh.f_star_partners() {
         core.set_f_star_partner(material, adfs)
             .map_err(NemError::InvalidProblem)?;
     }
-    let (solution, _) = iterate(&mut core, options, Some(refresh))?;
-    record_solve(solution.iterations, start);
-    Ok((solution, core.materials))
+    let (solution, state) = iterate(&mut core, options, Some(refresh), start)?;
+    record_solve(solution.iterations, clock);
+    let guess = Guess {
+        k: solution.k,
+        state,
+    };
+    Ok((solution, core.materials, guess))
 }
 
 /// べき乗法の反復。収束した解と、そのときの部分中性子流などの状態を返す。`refresh` があれば、反復の始めごとに
@@ -246,11 +273,24 @@ fn iterate(
     core: &mut Core,
     options: &Options,
     mut refresh: Option<&mut dyn Refresh>,
+    start: Option<&Guess>,
 ) -> Result<(Solution, State), NemError> {
     let ng = core.groups;
     let nodes = core.nodes();
-    let mut state = State::new(nodes, ng);
-    let mut k = 1.0;
+    let (mut state, mut k) = match start {
+        None => (State::new(nodes, ng), 1.0),
+        Some(guess) => {
+            // 同じ問題の解かは確かめない（燃焼の次の解は定数が違う）。中性子束をノードと群に当てられることだけを確かめる
+            let groups = guess.state.flux.first().map_or(0, Vec::len);
+            if guess.state.flux.len() != nodes || groups != ng {
+                return Err(NemError::InvalidProblem(format!(
+                    "the initial guess has {} nodes of {groups} groups; the problem has {nodes} nodes of {ng} groups",
+                    guess.state.flux.len()
+                )));
+            }
+            (guess.state.clone(), guess.k)
+        }
+    };
     let production = |core: &Core, state: &State| -> f64 {
         (0..nodes)
             .map(|n| {
@@ -389,6 +429,7 @@ enum Face {
 }
 
 /// 反復で更新する量。
+#[derive(Debug, Clone, PartialEq)]
 struct State {
     /// [ノード][群]
     flux: Vec<Vec<f64>>,

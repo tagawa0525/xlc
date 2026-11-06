@@ -4652,7 +4652,59 @@ class DrawCoreTiming(unittest.TestCase):
             "core-p9-timing-nem",
         ):
             sources, _ = vt.TABLES[name]
-            self.assertEqual(sources, ["examples/depletion/p9-timing/timing-p9.json"])
+            # p9-timing のステージの上流が changed なので、試行の結果を git で追跡して引く（#0235）
+            self.assertEqual(
+                sources, ["examples/depletion/p9-timing/trial-0231/timing-p9.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
+
+def core_guess_summary():
+    """compare_core_guess.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
+    run = {"solves": 4, "eigenvalue_seconds": 8.0, "seconds": 10.0}
+    return {
+        "format": "xlc-compare-core-guess",
+        "cases": {
+            "search": {
+                "points": [
+                    {"k": 1e-10, "boron": -2e-4, "burnup": 0.0, "power": 3e-7},
+                    {"k": -3e-10, "boron": 1e-4, "burnup": 2e-6, "power": 1e-7},
+                ],
+                "midpoints": [{"k": 5e-10, "boron": 4e-4}],
+                "runs": {
+                    "flat": {**run, "iterations": 4000},
+                    "default": {
+                        **run,
+                        "iterations": 2000,
+                        "eigenvalue_seconds": 4.0,
+                        "seconds": 6.0,
+                    },
+                },
+            }
+        },
+    }
+
+
+class DrawCoreGuess(unittest.TestCase):
+    def test_runs_list_both_guesses_and_their_ratio(self):
+        rows = cells(vt.core_guess_runs([core_guess_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                ["search", "平らな初期値", "4", "4,000", "8.0", "10.0"],
+                ["search", "既定（ADR-0231）", "4", "2,000", "4.0", "6.0"],
+                ["search", "既定 / 平らな初期値", "", "0.500", "0.500", "0.600"],
+            ],
+        )
+
+    def test_differences_take_the_largest_over_points_and_midpoints(self):
+        rows = cells(vt.core_guess_differences([core_guess_summary()]))
+        self.assertEqual(rows, [["search", "5.0e-10", "4.0e-04", "2.0e-06", "3.0e-07"]])
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.core_guess_runs, vt.core_guess_differences):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-core-timing"}])
 
 
 if __name__ == "__main__":
