@@ -15,7 +15,7 @@
 //!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 //!
-//! スレッドの数は、ケースの `threads`、環境変数 `RAYON_NUM_THREADS`、既定の数の順に決め、始めにログに出す（ADR-0234。結果は
+//! スレッドの数は、ケースの `threads`、環境変数 `RAYON_NUM_THREADS`、物理コアの数の順に決め、始めにログに出す（ADR-0234。結果は
 //! スレッドの数によらない）。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
@@ -84,8 +84,8 @@ fn init_logging() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// rayon のスレッドの数を、ケースの `threads`、`RAYON_NUM_THREADS`（正の整数）、このプロセスに許された論理 CPU（SMT の
-/// ハードウェアスレッドを含む。affinity と cgroup の CPU の上限で抑えた数）の数の順に決め（ADR-0234）、その数と、決めたものをログに出す。
+/// rayon のスレッドの数を、ケースの `threads`、`RAYON_NUM_THREADS`（正の整数）、物理コアの数をこのプロセスに許された論理 CPU
+/// （affinity と cgroup の CPU の上限で抑えた数）の数で抑えたものの順に決め（ADR-0234）、その数と、決めたものをログに出す。
 #[allow(
     clippy::disallowed_methods,
     reason = "RAYON_NUM_THREADS は並列の数だけを選び、固有値計算の結果は数によらない（ADR-0234）"
@@ -114,8 +114,9 @@ fn use_threads(given: Option<NonZeroUsize>) -> anyhow::Result<()> {
         (Some(threads), None) => (threads.get(), "input"),
         (None, Some(threads)) => (threads, "RAYON_NUM_THREADS"),
         (None, None) => {
+            // xs の `parallel::cores` と同じ規則。共通のクレートに移すと xs の実行ファイルのバイトが変わる（ADR-0232 の案 S2 と同じ）
             let allowed = std::thread::available_parallelism().context("available CPUs")?;
-            (allowed.get(), "default")
+            (num_cpus::get_physical().min(allowed.get()), "default")
         }
     };
     rayon::ThreadPoolBuilder::new()
