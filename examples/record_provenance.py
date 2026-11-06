@@ -130,6 +130,7 @@ def parse_dvc(text: str) -> list[tuple[str, str]]:
     except ValueError:
         raise ProvenanceError(".dvc has no outs") from None
     items: list[dict[str, str]] = []
+    key = None
     for line in lines[start:]:
         if line and not line.startswith(("-", " ")):
             break
@@ -140,9 +141,18 @@ def parse_dvc(text: str) -> list[tuple[str, str]]:
                 raise ProvenanceError(
                     f".dvc outs: a key before the first item: {line!r}"
                 )
-            items[-1][m.group(2)] = m.group(3).strip()
-        elif items and items[-1].get("path") == "" and line.startswith("   "):
-            # dvc は長いパスを `path:` の次の、より深く字下げした行に折る
+            key = m.group(2)
+            items[-1][key] = m.group(3).strip()
+            if key == "path" and items[-1][key].startswith(("'", '"')):
+                # 引用符と YAML のエスケープを解かずにパスとして出さない（標準ライブラリだけで読む。ADR-0176）
+                raise ProvenanceError(f".dvc out with a quoted path: {line!r}")
+        elif key == "path" and line.startswith("   "):
+            # dvc は長いパスを `path:` の次の、より深く字下げした行に折る。空白を含む名前は空白で何行にも折るが、
+            # YAML の行の畳み方（空白の数、引用符）まで読まず、xlc の生成物の名前に無い形としてエラーにする
+            if items[-1]["path"]:
+                raise ProvenanceError(
+                    f".dvc out with a path folded over several lines: {line!r}"
+                )
             items[-1]["path"] = line.strip()
     outs = []
     for item in items:
