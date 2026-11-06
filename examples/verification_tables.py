@@ -3361,6 +3361,8 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-small-steps.json",
     "examples/depletion/branches/compare-core-small-restart.json",
     "examples/depletion/branches/compare-core-small-guess.json",
+    # p9-timing のステージの上流（p5 の格子計算）が changed なので、試行で流した結果（#0235）
+    "examples/depletion/p9-timing/trial-0231/timing-p9.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4115,7 +4117,7 @@ TABLES = {
     ),
     **{
         f"core-p9-timing-{part}": (
-            ["examples/depletion/p9-timing/timing-p9.json"],
+            ["examples/depletion/p9-timing/trial-0231/timing-p9.json"],
             draw,
         )
         for part, draw in [
