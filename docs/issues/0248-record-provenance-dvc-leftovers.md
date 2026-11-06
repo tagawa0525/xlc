@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 `examples/record_provenance.py`（ADR-0176 と ADR-0222 の帰結のツール）に `.dvc` の md5 の履歴を出す機能（`parse_dvc`、
-`dvc_history`、`show_dvc`）を足したブランチ `feat/record-provenance-dvc` のレビューの 1 周目と 2 周目（2026-11-06）で、
+`dvc_history`、`show_dvc`）を足したブランチ `feat/record-provenance-dvc` のレビューの 1〜3 周目（2026-11-06）で、
 直さずに残した指摘:
 
 - `dvc_history` は `.dvc` を触ったコミットの版をすべて `git show` して `parse_dvc` で読んでから履歴をさかのぼる。`.dvc` を消した
@@ -33,6 +33,11 @@ resolution:
 - （2 周目）`parse_dvc` と `parse_stage` は手で書いた YAML の読み手で、dvc の書き方（折り返し、引用符）ごとに扱いが要る。
   PyYAML（default の devShell にある）の `yaml.safe_load` で読む案は、ADR-0176 の「標準ライブラリで済むこと」と合わないので、
   採るなら ADR-0176 を見直す
+- （3 周目）`path:` の次の行に引用符で囲んだパスがあると、`parse_dvc` は引用符ごと出す（dvc 3.67.1 は引用符の名前を同じ行に
+  書く。手で直した .dvc か別の版で起きうる）。空の `path:` の後に何行も続く形と、この形にはテストが無い
+- （3 周目）ディレクトリ（`.dvc` の設定のディレクトリなど）を渡すと `IsADirectoryError` の traceback で止まり、残りの引数を読まない
+- （3 周目）`outs:` の中の 1 桁目の注釈の行で `parse_dvc` が読むのをやめる（dvc は注釈を書かない）
+- （3 周目）テストの `contextlib` と `io` の import が関数の中に 3 か所ある
 
 関係する ADR: なし
 
