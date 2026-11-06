@@ -1929,3 +1929,164 @@ fn rod_values_that_change_the_fuel_orbits_are_errors() {
         "{err}"
     );
 }
+
+#[test]
+fn coolant_micro_cross_sections_close_the_homogenized_rates_of_the_borated_water() {
+    // ホウ酸水のすべての核種の Σᵢ σᵢ N̄ᵢ は、少数群定数のうちホウ酸水の分と同じ（ADR-0236）。状態ごとに解いた自己遮蔽（every-state）でも、
+    // ホウ素の軸の物質だけを参照の自己遮蔽から作り直したもの（nominal-boron。500 ppm の状態は 1000 ppm の参照から作る）でも
+    let (history, library) = history();
+    for text in [
+        branch_input("[0, 2.0]", "[600]"),
+        every_state(&branch_input("[0, 2.0]", "[600]")),
+    ] {
+        let s = setup(&text);
+        let branches = branches_of(&text, &history, &library).unwrap();
+        let mut shielder = BranchShielder::new(
+            &s.tracking,
+            branches.region_materials(0),
+            s.input.branches.as_ref().unwrap().varied(),
+            s.chosen.shielding(),
+            s.input.shielding_options(),
+        );
+        let waters = vec!["water".to_string()];
+        let all: Vec<usize> = (0..s.tracking.lattice.regions()).collect();
+        for index in 0..branches.len() {
+            let reference = branches.reference(index);
+            let state = branches.state(index);
+            let shielded = shielder
+                .shield_state(&library, &state, reference, || {
+                    let (point, r) = reference.unwrap();
+                    branches.reference_state(point, r)
+                })
+                .unwrap();
+            let (materials, region_material) = (shielded.materials(), shielded.region_material());
+            let regions: Vec<&Material> = region_material.iter().map(|&i| &materials[i]).collect();
+            let options = Options {
+                scattering_order: available_order(&regions),
+                ..tight()
+            };
+            let solution =
+                solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc()).unwrap();
+            let coolant = crate::coolant::Coolant {
+                library: &library,
+                shielding: Some(crate::coolant::Shielding {
+                    fuel: shielded.fuel(),
+                    materials: shielded.solved_with(),
+                }),
+                state: &state,
+                region_materials: branches.region_materials(0),
+                waters: &waters,
+                lattice: &s.tracking.lattice,
+                solution: &solution,
+                bounds: &BOUNDS,
+            };
+            let water: Vec<usize> = regions_of(branches.region_materials(0), |n| n == "water");
+            let flux: Vec<f64> = (0..2)
+                .map(|g| {
+                    all.iter()
+                        .map(|&r| solution.volumes[r] * solution.flux[r][g])
+                        .sum()
+                })
+                .collect();
+            let part = |value: &dyn Fn(&Material) -> f64, g: usize| -> f64 {
+                water
+                    .iter()
+                    .map(|&r| solution.volumes[r] * solution.flux[r][g] * value(regions[r]))
+                    .sum::<f64>()
+                    / flux[g]
+            };
+            let micro: Vec<_> = ["B-10", "B-11", "H-1", "O-16"]
+                .iter()
+                .map(|n| coolant.micro(n, &all).unwrap())
+                .collect();
+            let what = format!("state {index} (reference {reference:?})");
+            let close = |got: f64, want: f64, item: &str| {
+                assert!(
+                    (got - want).abs() <= 1e-12 * want.abs(),
+                    "{what} {item}: {got} vs {want}"
+                );
+            };
+            for g in 0..2 {
+                let sum = |value: &dyn Fn(&xlc_format::table::Boron10) -> f64| -> f64 {
+                    micro.iter().map(|m| m.density * value(m)).sum()
+                };
+                close(sum(&|m| m.total[g]), part(&|m| m.total[g], g), "total");
+                for to in 0..2 {
+                    close(
+                        sum(&|m| m.scatter[g][to]),
+                        part(&|m| m.scatter[g][to], g),
+                        "scatter",
+                    );
+                }
+            }
+            // 均質化した個数密度は、ホウ酸水の個数密度 × 体積の割合
+            let volume: f64 = all.iter().map(|&r| solution.volumes[r]).sum();
+            let water_volume: f64 = water.iter().map(|&r| solution.volumes[r]).sum();
+            let b10 = state
+                .iter()
+                .find(|m| m.name == "water")
+                .unwrap()
+                .composition
+                .iter()
+                .find(|(n, _)| n == "B-10")
+                .unwrap()
+                .1;
+            close(micro[0].density, b10 * water_volume / volume, "density");
+        }
+    }
+}
+
+#[test]
+fn coolant_micro_cross_sections_without_the_nuclide_weight_the_water_by_volume() {
+    // 0 ppm の状態は B-10 を組成に持たないので、ホウ酸水の領域で 1 として重みを付けた無限希釈の値（ADR-0216 の案 Z1、ADR-0236）
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]").replace("ppm = [500, 1000]", "ppm = [0, 1000]");
+    let s = setup(&text);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let index = 0;
+    let state = branches.state(index);
+    let (s2, shielded, solution) = solved(&text, &library, &branches, index);
+    assert_eq!(s2.tracking.lattice.regions(), s.tracking.lattice.regions());
+    let waters = vec!["water".to_string()];
+    let all: Vec<usize> = (0..s.tracking.lattice.regions()).collect();
+    let coolant = crate::coolant::Coolant {
+        library: &library,
+        shielding: Some(crate::coolant::Shielding {
+            fuel: &shielded,
+            materials: &state,
+        }),
+        state: &state,
+        region_materials: branches.region_materials(0),
+        waters: &waters,
+        lattice: &s.tracking.lattice,
+        solution: &solution,
+        bounds: &BOUNDS,
+    };
+    let b = coolant.micro("B-10", &all).unwrap();
+    assert_eq!(b.density, 0.0);
+    // 無限希釈の B-10 の全断面積の、ホウ酸水の領域の反応率を、ホウ酸水の体積の割合と格子の少数群の中性子束で割ったもの（テストの
+    // ライブラリは 2 群で、群は少数群と同じ）
+    let water: Vec<usize> = regions_of(branches.region_materials(0), |n| n == "water");
+    let dilute = library.nuclide("B-10", 600.0).unwrap();
+    let mu = shielded
+        .physical_flux(&s.tracking.lattice, &vec![vec![1.0; 2]; all.len()])
+        .unwrap();
+    let volume: f64 = all.iter().map(|&r| solution.volumes[r]).sum();
+    let water_volume: f64 = water.iter().map(|&r| solution.volumes[r]).sum();
+    for g in 0..2 {
+        let rate: f64 = water
+            .iter()
+            .map(|&r| solution.volumes[r] * solution.flux[r][g] * mu[r][g] * dilute.total[g])
+            .sum();
+        let flux: f64 = all
+            .iter()
+            .map(|&r| solution.volumes[r] * solution.flux[r][g])
+            .sum();
+        let want = rate / (water_volume / volume * flux);
+        assert!(
+            (b.total[g] - want).abs() <= 1e-12 * want,
+            "group {g}: {} vs {want}",
+            b.total[g]
+        );
+    }
+}
