@@ -61,6 +61,7 @@ fn table() -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        boron10: None,
         axes: vec![
             Axis::boron(PPM.to_vec(), 0.199),
             Axis::moderator(TM.to_vec(), vec![0.76972, 0.74271, 0.71190]),
@@ -822,6 +823,7 @@ fn subgrid_table(triple: f64, keep: impl Fn(&[usize]) -> bool) -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        boron10: None,
     };
     table.validate().unwrap();
     table
@@ -980,6 +982,7 @@ fn thinned_table(thinned: &[f64], shape: impl Fn(f64) -> f64) -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        boron10: None,
     }
 }
 
