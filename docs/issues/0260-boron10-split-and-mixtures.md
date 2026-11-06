@@ -24,7 +24,7 @@ ADR-0236 は、状態の `b10` がテーブルと違うときに、テーブル�
 
 今の例（examples/split、examples/reflector と examples/vera の軸方向の反射体）は `b10` をテーブルと同じ値にしている。
 
-関係する ADR: ADR-0236
+関係する ADR: なし
 
 ## 完了の条件
 
