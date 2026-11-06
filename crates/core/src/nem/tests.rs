@@ -2389,3 +2389,96 @@ fn red_black_errors_name_the_first_node_in_order() {
         assert_eq!(error(threads), one, "{threads} threads");
     }
 }
+
+#[test]
+#[ignore = "survey of #0244 / #0245: solves six problems for nine ratio pairs and two orders (minutes in release)"]
+fn coarse_mesh_ratio_survey_stops_within_the_tolerance_at_the_default_ratios() {
+    // ADR-0232 の粗メッシュの許容の比を選んだ比べた形（#0244）。比の組ごとに、厳密な解（加速なし、k 1e-14、中性子束 1e-13）との
+    // 中性子束の相対差の最大と外側の反復の回数を、ノードを解く順ごとに表の行で出す。既定の比では、どの問題も許容の中で止まる。
+    // 実行: cargo test --release -p xlc-core coarse_mesh_ratio_survey -- --ignored --nocapture
+    let ratios = [
+        (0.3, 1.0),
+        (0.1, 1.0),
+        (0.1, 0.3),
+        (0.1, 0.1),
+        (0.03, 0.1),
+        (0.03, 0.03),
+        (0.01, 0.01),
+        (0.001, 0.01),
+        (0.001, 0.001),
+    ];
+    let problems = [
+        ("two_zone(1.3)", two_zone(1.3)),
+        ("reflected_core", reflected_core()),
+        ("stepped_core", stepped_core(2, Boundary::Marshak)),
+        (
+            "12 × 12 × 12",
+            cuboid([200.0; 3], [12; 3], [Boundary::ZeroFlux; 6]),
+        ),
+        (
+            "9 × 7 × 11",
+            cuboid([90.0, 70.0, 110.0], [9, 7, 11], [Boundary::Marshak; 6]),
+        ),
+        (
+            "17 × 17 × 24",
+            cuboid([340.0, 340.0, 360.0], [17, 17, 24], [Boundary::Marshak; 6]),
+        ),
+    ];
+    let default = Options::default();
+    for order in [Order::RedBlack, Order::Lexicographic] {
+        let exact = Options {
+            k_tolerance: 1.0e-14,
+            flux_tolerance: 1.0e-13,
+            max_iterations: 1_000_000,
+            acceleration: Acceleration::None,
+            order,
+        };
+        let plain = Options {
+            acceleration: Acceleration::None,
+            order,
+            ..default
+        };
+        let references: Vec<_> = problems
+            .iter()
+            .map(|(_, p)| solve(p, &exact).unwrap())
+            .collect();
+        let row = |label: String, options: &Options| {
+            let cells: Vec<_> = problems
+                .iter()
+                .zip(&references)
+                .map(|((_, p), reference)| {
+                    let s = solve(p, options).unwrap();
+                    (differences(&s, reference).1, s.iterations)
+                })
+                .collect();
+            let text: Vec<_> = cells
+                .iter()
+                .map(|(d, n)| format!("{d:.1e} ({n})"))
+                .collect();
+            println!("| {order:?} | {label} | {} |", text.join(" | "));
+            cells
+        };
+        println!(
+            "| order | k ratio, flux ratio | {} |",
+            problems
+                .iter()
+                .map(|(name, _)| *name)
+                .collect::<Vec<_>>()
+                .join(" | ")
+        );
+        row("none".into(), &plain);
+        for (k, flux) in ratios {
+            let ratios = CoarseRatios { k, flux };
+            let options = Options {
+                acceleration: Acceleration::Cmfd(ratios),
+                ..plain
+            };
+            let cells = row(format!("{k}, {flux}"), &options);
+            if ratios == CoarseRatios::default() {
+                for ((name, _), (d, _)) in problems.iter().zip(&cells) {
+                    assert!(*d < default.flux_tolerance, "{order:?} {name}: {d}");
+                }
+            }
+        }
+    }
+}
