@@ -15,6 +15,10 @@ use xlc_numeric::lu::Lu;
 /// 色ごとに並列に解くときの、1 つのスレッドがまとめて解くセルの数の下限（細かく分けると、仕事を配る時間が解く時間を超える）
 const MIN_CELLS_PER_TASK: usize = 256;
 
+/// 色ごとに解くときに、1 つのスレッドがまとめて解き、生成率の部分和を取るセルの数。和の順をスレッドの数によらず決めるため、
+/// 固定の大きさで分ける
+const CELLS_PER_SUM: usize = 256;
+
 /// 粗メッシュのセルの、同じ核分裂スペクトルの項の和。核分裂源は χ (νΣf · φ)
 #[derive(Debug, Clone, PartialEq)]
 pub struct Spectrum {
@@ -322,8 +326,26 @@ impl Coarse {
         }
     }
 
-    /// 色 `range` のセルを並列に解く。隣は別の色なので、色の中で読む値は解く順によらない
-    fn sweep_color(&self, range: &Range<usize>, phi: &mut [f64], previous: &[f64], inverse_k: f64) {
+    /// [セル × 群] の値 `j` が正でないことのエラー
+    fn non_positive(&self, phi: &[f64], j: usize) -> CoarseError {
+        let ng = self.groups;
+        CoarseError::NonPositiveSolution {
+            cell: self.labels[j / ng],
+            group: j % ng,
+            flux: phi[j],
+        }
+    }
+
+    /// 色 `range` のセルを並列に解き、解いたセルの生成率の部分和を、決まった大きさ（`CELLS_PER_SUM`）の塊の順に返す（和の順を
+    /// スレッドの数によらず決める）。隣は別の色なので、色の中で読む値は解く順によらない。塊に正でない中性子束があれば、その
+    /// 塊の部分和の代わりに、最初の値の [セル × 群] の番号を返す（負の生成率で割ると、負の解も正に見える）
+    fn sweep_color(
+        &self,
+        range: &Range<usize>,
+        phi: &mut [f64],
+        previous: &[f64],
+        inverse_k: f64,
+    ) -> Vec<Result<f64, usize>> {
         let ng = self.groups;
         let (before, rest) = phi.split_at_mut(range.start * ng);
         let (current, after) = rest.split_at_mut(range.len() * ng);
@@ -337,17 +359,31 @@ impl Coarse {
             }
         };
         current
-            .par_chunks_mut(ng)
+            .par_chunks_mut(CELLS_PER_SUM * ng)
             .enumerate()
-            .with_min_len(MIN_CELLS_PER_TASK)
-            .for_each_init(
+            .map_init(
                 || vec![0.0; ng],
-                |rhs, (i, out)| {
-                    let c = range.start + i;
-                    self.source(c, rhs, previous, neighbor, inverse_k);
-                    self.invert(c, rhs, out);
+                |rhs, (chunk, values)| {
+                    let first = range.start + chunk * CELLS_PER_SUM;
+                    for (i, out) in values.chunks_mut(ng).enumerate() {
+                        self.source(first + i, rhs, previous, neighbor, inverse_k);
+                        self.invert(first + i, rhs, out);
+                    }
+                    if let Some(j) = values.iter().position(|&f| !(f > 0.0 && f.is_finite())) {
+                        return Err(first * ng + j);
+                    }
+                    Ok(values
+                        .chunks(ng)
+                        .enumerate()
+                        .flat_map(|(i, p)| {
+                            self.spectra(first + i).map(move |(sum, _, f)| {
+                                sum * f.iter().zip(p).map(|(a, b)| a * b).sum::<f64>()
+                            })
+                        })
+                        .sum())
                 },
-            );
+            )
+            .collect()
     }
 
     /// 固有値問題を、`k` と組み立てた中性子束から解き始める。
@@ -367,10 +403,10 @@ impl Coarse {
         let mut flux_history = Remaining::default();
         let mut rhs = vec![0.0; ng];
         for iteration in 1..=tolerances.max_iterations {
-            previous.copy_from_slice(&phi);
             let inverse_k = 1.0 / k;
-            match &self.colors {
+            let (rate, change) = match &self.colors {
                 None => {
+                    previous.copy_from_slice(&phi);
                     for c in 0..self.cells() {
                         self.source(
                             c,
@@ -381,31 +417,45 @@ impl Coarse {
                         );
                         self.invert(c, &rhs, &mut phi[c * ng..][..ng]);
                     }
+                    // 割る前に正であることを確かめる（負の生成率で割ると、負の解も正に見える）
+                    if let Some(j) = phi.iter().position(|&f| !(f > 0.0 && f.is_finite())) {
+                        return Err(self.non_positive(&phi, j));
+                    }
+                    let rate = self.production(&phi);
+                    for f in &mut phi {
+                        *f /= rate;
+                    }
+                    let change = phi
+                        .iter()
+                        .zip(&previous)
+                        .map(|(a, b)| relative_change(*a, *b))
+                        .fold(0.0, f64::max);
+                    (rate, change)
                 }
                 Some(colors) => {
+                    // `previous` は前の反復の終わりに `phi` と同じにしてある
+                    let mut rate = 0.0;
                     for range in &colors.ranges {
-                        self.sweep_color(range, &mut phi, &previous, inverse_k);
+                        for part in self.sweep_color(range, &mut phi, &previous, inverse_k) {
+                            rate += part.map_err(|j| self.non_positive(&phi, j))?;
+                        }
                     }
+                    // 最大はどの順に取っても同じ
+                    let change = phi
+                        .par_iter_mut()
+                        .zip(previous.par_iter_mut())
+                        .with_min_len(MIN_CELLS_PER_TASK * ng)
+                        .map(|(a, b)| {
+                            *a /= rate;
+                            let change = relative_change(*a, *b);
+                            *b = *a;
+                            change
+                        })
+                        .reduce(|| 0.0, f64::max);
+                    (rate, change)
                 }
-            }
-            // 割る前に正であることを確かめる（負の生成率で割ると、負の解も正に見える）
-            if let Some(j) = phi.iter().position(|&f| !(f > 0.0 && f.is_finite())) {
-                return Err(CoarseError::NonPositiveSolution {
-                    cell: self.labels[j / ng],
-                    group: j % ng,
-                    flux: phi[j],
-                });
-            }
-            let rate = self.production(&phi);
+            };
             let new_k = k * rate;
-            for f in &mut phi {
-                *f /= rate;
-            }
-            let change = phi
-                .iter()
-                .zip(&previous)
-                .map(|(a, b)| (a - b).abs() / a.max(*b))
-                .fold(0.0, f64::max);
             let k_remaining = k_history.update((new_k - k).abs());
             let flux_remaining = flux_history.update(change);
             k = new_k;
@@ -433,6 +483,11 @@ impl Coarse {
         }
         Err(CoarseError::NotConverged(tolerances.max_iterations))
     }
+}
+
+/// 中性子束の相対変化（どちらも正）
+fn relative_change(new: f64, old: f64) -> f64 {
+    (new - old).abs() / new.max(old)
 }
 
 /// 反復の変化量の列から、収束までに残る誤差を見積もる。
