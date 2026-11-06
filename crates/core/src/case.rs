@@ -821,15 +821,16 @@ pub fn solve_states(
     states: &[CaseState],
     options: &Options,
 ) -> Vec<Result<Solved, CaseError>> {
-    let (workers, threads) = state_workers(rayon::current_num_threads(), states.len());
+    let workers = state_workers(rayon::current_num_threads(), states.len());
     let next = std::sync::atomic::AtomicUsize::new(0);
     let results: Vec<std::sync::OnceLock<Result<Solved, CaseError>>> =
         states.iter().map(|_| std::sync::OnceLock::new()).collect();
     // 1 つの rayon のプールで状態を並列に解くと、色の順のスイープの終わりを待つスレッドがほかの状態の解を丸ごと盗んで解き、
     // 固有値計算の時間（`nem` の `seconds`）とログの区間がその状態の分を含む。プールの外のスレッドから `install` で待つと盗まない
     std::thread::scope(|scope| {
-        for _ in 0..workers {
-            scope.spawn(|| {
+        for &threads in &workers {
+            let (next, results) = (&next, &results);
+            scope.spawn(move || {
                 let pool = rayon::ThreadPoolBuilder::new()
                     .num_threads(threads)
                     .build()
@@ -860,11 +861,14 @@ pub fn solve_states(
         .collect()
 }
 
-/// `threads` のスレッドで `states` の状態を並列に解くときの、同時に解く状態の数と、それぞれのスレッドの数（どちらも 1 以上）。余る
-/// スレッドは使わない
-pub fn state_workers(threads: usize, states: usize) -> (usize, usize) {
+/// `threads` のスレッドで `states` の状態を並列に解くときの、同時に解く状態ごとのスレッドの数（同時に解く状態の数はスレッドの数と状態の
+/// 数の小さい方で、1 以上）。割り切れない余りは前から 1 つずつ足す
+pub fn state_workers(threads: usize, states: usize) -> Vec<usize> {
     let workers = threads.min(states).max(1);
-    (workers, (threads / workers).max(1))
+    let (share, rest) = (threads / workers, threads % workers);
+    (0..workers)
+        .map(|w| (share + usize::from(w < rest)).max(1))
+        .collect()
 }
 
 #[cfg(test)]
