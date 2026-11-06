@@ -1113,6 +1113,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlc-cmfd"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "xlc-numeric",
+]
+
+[[package]]
 name = "xlc-core"
 version = "0.1.0"
 dependencies = [
@@ -1123,6 +1131,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xlc-cmfd",
  "xlc-depletion",
  "xlc-format",
  "xlc-numeric",

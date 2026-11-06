@@ -22,7 +22,7 @@
 //! 同じ面の値から求めるので、NEM の面の条件で求める入ってくる部分中性子流は φ_s'/4 − J'/2 になる）。外周の面は r_n o。ノードの
 //! 平均中性子束と展開係数の a3、a4 は r_n を掛け、a1、a2 は更新した面の中性子束とノードの平均から求め直す。
 
-use xlc_numeric::cmfd::{Coarse, Spectrum, Tolerances};
+use xlc_cmfd::{Coarse, Spectrum, Tolerances};
 
 use super::{CmfdError, Core, Face, Options, State};
 

@@ -1,0 +1,11 @@
+[package]
+name = "xlc-cmfd"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+xlc-numeric = { path = "../numeric" }
+thiserror.workspace = true

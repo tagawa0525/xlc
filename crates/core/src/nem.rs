@@ -16,9 +16,9 @@
 //! ノードは直方体の格子の上に並べ、ノードのない位置（炉心の外形の外）を持てる。ノードのない位置に面する面は、
 //! `Problem::outline` の条件の外周の面として扱う（ADR-0132）。
 
+use xlc_cmfd::CoarseError;
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::anm::AnmModes;
-use xlc_numeric::cmfd::CoarseError;
 use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, is_fissile, outflow, transverse_moments};
 
 /// 外周の境界条件。

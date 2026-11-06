@@ -10,6 +10,7 @@ workspace = true
 xlc-depletion = { path = "../depletion" }
 xlc-format = { path = "../format" }
 xlc-numeric = { path = "../numeric" }
+xlc-cmfd = { path = "../cmfd" }
 anyhow.workspace = true
 rayon.workspace = true
 serde.workspace = true
