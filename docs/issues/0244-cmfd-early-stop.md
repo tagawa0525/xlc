@@ -91,7 +91,7 @@ CMFD で加速した固有値計算が、加速しない反復と同じく、残
 手元、2026-11-06）の値と、測ったどの欄も同じだった（その版で測っていない大きい直方体の 0.1、1 と 0.1、0.3 と 0.001、0.001 の欄は、この再測定で足した）。
 
 全炉心の BOC の固有値計算 1 回（Problem 9 の形、`examples/depletion/p9-timing/trial-0245/boc-1100-<順>-k<k の比>-flux<中性子束の比>.toml`（`trial-0244/boc-1100.toml` に比と順を足した）、
-1100 ppm、バンク D 186 ステップ、平らな初期値）を、同じ版の `target/release/core` で解いた（Slurm 712 の timed、ブランチの 6f9ed2af7、分岐点は main の afd692dda、
+1100 ppm、バンク D 186 ステップ、平らな初期値）を、同じ版の `target/release/core` で解いた（Slurm 712（パーティション timed）、ブランチの 6f9ed2af7、分岐点は main の afd692dda、
 2026-11-07。ログは同じ置き場の `.log`、粗メッシュの反復は `RUST_LOG=info,xlc_core::nem::cmfd=trace` の `coarse-mesh eigenvalue` の行の和、時間は span `nem` の秒）。
 直方体の並びの順は 1 スレッド（`threads = 1`）、市松の 2 色の順は既定のスレッドの数（16）:
 
