@@ -1,0 +1,5 @@
+outs:
+- md5: 7b456d6f2992ca557eb9830626754228
+  size: 119259
+  hash: md5
+  path: core-small-equilibrium-loose-coarse-1.log

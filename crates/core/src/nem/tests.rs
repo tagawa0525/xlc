@@ -2147,7 +2147,7 @@ fn reflected_core() -> Problem {
 #[test]
 fn cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations() {
     // ADR-0232: CMFD は収束した解を変えない加速で、加速しない反復と同じ収束の判定（見積もった残りが許容の中）を満たすので、差は
-    // 許容の 2 倍の中。反射体と ADF の跳び、外形の面、集合体ほどのノードを含む
+    // 許容の 2 倍の中。反射体と ADF の跳び、外形の面、集合体ほどのノード、Marshak の外周と小さいノードを含む
     let accelerated = Options::default();
     assert_eq!(accelerated.acceleration, Acceleration::Cmfd);
     let unaccelerated = Options {
@@ -2161,6 +2161,10 @@ fn cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations() {
         (
             "assembly-sized nodes",
             cuboid([200.0; 3], [12; 3], [Boundary::ZeroFlux; 6]),
+        ),
+        (
+            "small nodes",
+            cuboid([90.0, 70.0, 110.0], [9, 7, 11], [Boundary::Marshak; 6]),
         ),
     ];
     for (name, problem) in problems {

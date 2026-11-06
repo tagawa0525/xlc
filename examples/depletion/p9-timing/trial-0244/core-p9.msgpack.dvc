@@ -1,0 +1,5 @@
+outs:
+- md5: 76b450bbe5bb826813cc95b932ea3c86
+  size: 22344291
+  hash: md5
+  path: core-p9.msgpack
