@@ -1460,12 +1460,12 @@ fn differing_b10_adds_the_b10_density_difference_times_its_micro_cross_sections(
                     nominal.absorption[g] + delta * absorption,
                     "absorption",
                 );
-                for h in 0..2 {
-                    near(
-                        got.scatter[g][h],
-                        nominal.scatter[g][h] + delta * scatter[g][h],
-                        "scatter",
-                    );
+                for ((got, nominal), s) in got.scatter[g]
+                    .iter()
+                    .zip(&nominal.scatter[g])
+                    .zip(&scatter[g])
+                {
+                    near(*got, nominal + delta * s, "scatter");
                 }
             }
             // B-10 に値のない項目と、補正しない項目は変えない
