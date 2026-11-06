@@ -7,7 +7,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-search-lexicographic-1.log",
-   "md5": "5b8b12a0b8efceca35ce9fa6568f2388"
+   "md5": "7dfb059f9cf1fc80ecc873a762bbd7a1"
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-1-1.msgpack",
@@ -15,7 +15,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-1-1.log",
-   "md5": "3ec8a4549b4f79a5e40843717679d4bc"
+   "md5": "39fecdf4e12c5ca785b697038cec4978"
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-4-1.msgpack",
@@ -23,7 +23,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-4-1.log",
-   "md5": "318dc2d8210db7f65454d1d7d8b0a9d4"
+   "md5": "93bfbb9445a49d642dae5ce01390c44a"
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-16-1.msgpack",
@@ -31,7 +31,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-16-1.log",
-   "md5": "dc99859d28bb03580195d844e384e525"
+   "md5": "17f5482a646f6521a171e79bcc2e3a0a"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.msgpack",
@@ -39,7 +39,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.log",
-   "md5": "ca708f2abc042e03f8aa250e30f8cb11"
+   "md5": "1708373b199a00cf433d6fc69d9f1ac3"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-1-1.msgpack",
@@ -47,7 +47,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-1-1.log",
-   "md5": "fcc126b028942d8167d0c584b659c155"
+   "md5": "c522f612318126e9cfbe2271a8bd7d64"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.msgpack",
@@ -55,7 +55,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.log",
-   "md5": "cb8dd4d8525987c6e186beca35b99c2a"
+   "md5": "49cf27ff2509218fcbf9b088be36e090"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-16-1.msgpack",
@@ -63,7 +63,7 @@
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-16-1.log",
-   "md5": "a88f307caaf3e70251812205eaa702d4"
+   "md5": "1ca0984948f91a960d5c616bbb2a0580"
   }
  ],
  "cases": {
@@ -214,35 +214,35 @@
      "same_bytes": null,
      "solves": 119,
      "iterations": 5458,
-     "eigenvalue_seconds": 7.092666608,
-     "seconds": 8.22421994,
+     "eigenvalue_seconds": 7.026371311,
+     "seconds": 8.114261848,
      "per_solve": {
       "iterations": [
        11,
        75
       ],
       "seconds": [
-       0.009588448,
-       0.190463293
+       0.009500835,
+       0.190002169
       ]
      }
     },
     {
      "order": "red-black",
      "threads": 1,
-     "same_bytes": true,
+     "same_bytes": null,
      "solves": 119,
      "iterations": 5095,
-     "eigenvalue_seconds": 6.358261314,
-     "seconds": 7.447770446,
+     "eigenvalue_seconds": 6.228279401,
+     "seconds": 7.318275897,
      "per_solve": {
       "iterations": [
        11,
        74
       ],
       "seconds": [
-       0.008146352,
-       0.194352892
+       0.007986805,
+       0.192969445
       ]
      }
     },
@@ -252,16 +252,16 @@
      "same_bytes": true,
      "solves": 119,
      "iterations": 5095,
-     "eigenvalue_seconds": 6.595103746,
-     "seconds": 7.099851113,
+     "eigenvalue_seconds": 6.237508327,
+     "seconds": 6.726955753,
      "per_solve": {
       "iterations": [
        11,
        74
       ],
       "seconds": [
-       0.008299799,
-       0.195322584
+       0.007395077,
+       0.190607887
       ]
      }
     },
@@ -271,16 +271,16 @@
      "same_bytes": true,
      "solves": 119,
      "iterations": 5095,
-     "eigenvalue_seconds": 7.282283763,
-     "seconds": 7.667636972,
+     "eigenvalue_seconds": 7.240928105,
+     "seconds": 7.612858688,
      "per_solve": {
       "iterations": [
        11,
        74
       ],
       "seconds": [
-       0.009089435,
-       0.202883992
+       0.008880545,
+       0.202230476
       ]
      }
     }
@@ -433,35 +433,35 @@
      "same_bytes": null,
      "solves": 239,
      "iterations": 10571,
-     "eigenvalue_seconds": 15.317839506,
-     "seconds": 17.011989974,
+     "eigenvalue_seconds": 15.249143393,
+     "seconds": 16.946695636,
      "per_solve": {
       "iterations": [
        2,
        78
       ],
       "seconds": [
-       0.001145641,
-       0.17380225
+       0.001060903,
+       0.172430042
       ]
      }
     },
     {
      "order": "red-black",
      "threads": 1,
-     "same_bytes": true,
+     "same_bytes": null,
      "solves": 236,
      "iterations": 9843,
-     "eigenvalue_seconds": 14.643133537,
-     "seconds": 16.360243638,
+     "eigenvalue_seconds": 14.156919959,
+     "seconds": 15.83032508,
      "per_solve": {
       "iterations": [
        2,
        73
       ],
       "seconds": [
-       0.001640706,
-       0.179262263
+       0.001568272,
+       0.176161664
       ]
      }
     },
@@ -471,16 +471,16 @@
      "same_bytes": true,
      "solves": 236,
      "iterations": 9843,
-     "eigenvalue_seconds": 14.535308211,
-     "seconds": 15.347563621,
+     "eigenvalue_seconds": 14.24464266,
+     "seconds": 15.0397961,
      "per_solve": {
       "iterations": [
        2,
        73
       ],
       "seconds": [
-       0.001621881,
-       0.180115267
+       0.001667888,
+       0.178549795
       ]
      }
     },
@@ -490,16 +490,16 @@
      "same_bytes": true,
      "solves": 236,
      "iterations": 9843,
-     "eigenvalue_seconds": 16.165201081,
-     "seconds": 16.817597919,
+     "eigenvalue_seconds": 16.096173597,
+     "seconds": 16.743180411,
      "per_solve": {
       "iterations": [
        2,
        73
       ],
       "seconds": [
-       0.001861178,
-       0.207337686
+       0.00239103,
+       0.197542221
       ]
      }
     }
