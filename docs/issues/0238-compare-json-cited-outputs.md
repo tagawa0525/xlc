@@ -53,6 +53,14 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
     無い。main の `core-small-search-1.msgpack.dvc` と `core-small-equilibrium-1.msgpack.dvc` は、JSON が引くものと別の版（4675c7f9、
     cab0f27e）を指す。ADR-0222 の「帰結」の「失われたもの」に載せるかを、棚卸しで決める
 12. スキル verification-record の「記録に書く試行」で、記録に書かず 2 で消す試行の出力を比較の JSON が引くときの扱いが無い
+13. スキル verification-record の「記録に書く試行」の 4 は `dvc add` を 3 の移す時に置くが、1 で `trials/` のパスのまま記録が
+    試行の出力の md5 を書くと、CLAUDE.md の「計算」の `dvc add` の項の時機（記録に書く前）と食い違う（`trials/` の中では
+    `dvc add` できないので、両方には従えない）
+14. このブランチの分岐点（d8eb8a668）の後に、main は比較の JSON が引く履歴の `.dvc` を足した（`trial-0076`、`trial-0156`、
+    `trial-0234`、`trial-0244` の `core-p9.msgpack.dvc`、`branches/core-small-equilibrium-nested-1.msgpack.dvc` など）。ADR-0222 の
+    「帰結」の棚卸しの行と、1 の数（main d8eb8a668 で数えたもの）は、棚卸しのときに今の main で数え直す
+15. main の `examples/depletion/p9-timing/trial-0156/.gitignore` の注は、隣に `core-p9.msgpack.dvc` があるのに「追跡しない」と書く
+    （このブランチは `trial-0231/.gitignore` の注だけを直した）
 
 ## 完了の条件
 
@@ -62,3 +70,4 @@ ADR-0222 の「## 変更」）。4 は #0209 で扱う。
 ## 経緯
 
 - 2026-11-06: ブランチ docs/0222-compare-json-generated のレビューの 1 周目の指摘から起こし、2 周目の指摘（8〜10）と 3 周目の指摘（11、12）を足した
+- 2026-11-07: 記録の周の後の例外の周の指摘（13〜15）を足した
