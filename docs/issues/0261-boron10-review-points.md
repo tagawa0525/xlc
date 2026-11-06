@@ -25,7 +25,7 @@ ADR-0237（B-10 の割合の ppm の換算）の実装のレビューで出た�
 - 原子質量の定数の置き場が分かれる: B-10 と B-11 は `xlc_format::table`、H-1 と O-16 は crates/lattice/src/water.rs
 - examples/depletion/compare_core_b10.py の docstring に、状態の名前の例（`b18-p1300-u0` など）が無い
 - core の換算の判定（crates/core/src/state.rs の `state_weights` の `*b10 == state.b10`）を、換算と範囲の外のエラーの注記で 2 回評価する
-- ADR-0237 は #0036 の起こした時点の節（「方針の案」「懸念」）を「経緯は git」で指すが、その版のコミット（56ed20df5）を添えていない
+- examples/depletion/compare_core_b10.py の 114 行付近の注釈が 0.00043 pcm の水準の出典を ADR-0190 の確認とするが、その値は ADR-0216 の確認 (a) にある（ADR-0190 の確認の値は 0.0008 pcm）
 - compare_core_b10.py は、テーブルの減速材と燃料の軸の点を 1 つと決めて unpack し（2 点以上で `ValueError`）、状態の名前の b10 を
   「0.」と数字の文字列から読む（名前の形が変わると黙って別の値になる）。`rho_pcm` のコピーは上の項
 - 臨界ホウ素の探索と core の燃焼の経路で、状態の b10 が換算に渡ることを確かめるテストがない（換算は `state_weights` の単体のテストだけ）
