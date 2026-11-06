@@ -2196,9 +2196,9 @@ fn cmfd_keeps_the_balance_and_face_currents() {
     for (site, phi) in s.flux.iter().enumerate() {
         let m = &p.materials[p.node_material[site].unwrap()];
         let volume = 20.0 * 20.0 * 20.0;
-        for g in 0..2 {
-            production += volume * m.nu_fission[g] * phi[g];
-            absorption += volume * m.absorption[g] * phi[g];
+        for ((nf, a), f) in m.nu_fission.iter().zip(&m.absorption).zip(phi) {
+            production += volume * nf * f;
+            absorption += volume * a * f;
         }
     }
     let leakage: f64 = s.leakage.iter().sum();
