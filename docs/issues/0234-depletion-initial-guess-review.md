@@ -36,14 +36,27 @@ non-blocking）。
 7. 燃焼のテスト `eigenvalue_solves_from_the_previous_solution_keep_the_flat_start_results` は点ごとの固有値計算の回数が平らな初期値と同じことを
    確かめる。探索や平衡 Xe の打ち切りの境にある値が丸めの桁で動くと、正しい結果でも回数が 1 回違いうる
 
+8. 全炉心の試行の燃焼の履歴 `examples/depletion/p9-timing/trial-0231/core-p9.msgpack`（md5 792c2a19）は、`trial-0231/compare-guess.json` が md5 で引くが
+   `dvc add` していない（小さな炉心の `branches/compare-core-small-*.json` が引く履歴と同じ扱い）。worktree を消すと戻らない
+9. 全炉心の初期値の比較（`trial-0231/compare-guess.json`）は、記録に表とコマンドが無く、ADR-0231 の「確認」に値をコピーしただけ（小さな炉心の節は
+   `core_guess_runs` と `core_guess_differences` で表を描く）
+10. `trial-0231/core-p9.toml` の注の相対パス（`../../vera/p5/hzp/core-hzp.toml`、`../p2/lattice-2A.toml`）は、移す前の置き場のままで、無いファイルを指す
+11. `examples/verification_tables.py` の p9 の表の出どころを替えた変更（ebff83e1）を、それを確かめるテスト（5a3b3642）より先にコミットした（TDD の順）
+12. 試行の入力 `trial-0231/core-p9.toml` は `p9_timing_inputs.py` の書く `core-p9.toml` のコピーで、`--check` はコピーとの一致を確かめない
+13. Slurm 702 の中点の平衡 Xe の 2 回目の解き直しは、外側の反復 1 回あたり 43 ms（ほかの 24 回は 29〜31 ms）で、212.3 s かかった。原因は確かめていない
+14. コミット 37fc380e の本文は、試行が使う p5 のテーブルのライブラリを 55be71c9 と書くが、使ったステージ（軸方向の平板と反射体）の p5 の dvc.lock は
+   0dfa3aca（記録、ADR-0231、#0235 は 0dfa3aca）
+
 前提が誤っていて issue にしない指摘: 燃焼の点の探索を状態の探索とビットで比べるテスト（`searched_points_match_the_state_search_at_the_same_uniform_burnup`）を
 `initial-guess = "flat"` にしたのは許容を緩めたのではなく、状態の探索（平らな初期値）と同じ計算をビットで比べるテストの意図を保つため。既定の経路と平らな
 初期値の一致は、新しいテストが許容の中で確かめる。
 
 ## 完了の条件
 
-1 を、小さな炉心か全炉心の燃焼の固有値計算の真の誤差（許容を細かくした参照）で確かめ、2〜7 を直すか、直さない理由を書く。
+1 を、小さな炉心か全炉心の燃焼の固有値計算の真の誤差（許容を細かくした参照）で確かめ、2〜14 を直すか、直さない理由を書く。
 
 ## 経緯
 
 - 2026-11-06: ブランチ perf/0156-warm-start-nem のローカルのレビュー（1 周目、HEAD 47bf2e5d）の指摘から起こした
+- 2026-11-06: 2 周目（HEAD 5a3b3642）の指摘から 8〜14 を足した。記録の「全炉心の燃焼の時間の内訳（Problem 9 の形）」を書き直したので、#0076、#0156、
+  ADR-0231 の背景がその節から引く平らな初期値の値は今の節に無い、という指摘は前提が誤り: どれも 35e6eead の版（Slurm 697）を出典に書いている
