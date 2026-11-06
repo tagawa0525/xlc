@@ -254,14 +254,6 @@ fn rod_branches_match_separate_lattices() {
                 "rod value {} at {point:?}",
                 values[r]
             );
-            // 冷却材の B-10 の微視的断面積も、同じ点の値（ADR-0236）
-            let i = one.points.iter().position(|p| p == point).unwrap();
-            assert_eq!(
-                rods.boron10.as_ref().unwrap()[n],
-                one.boron10.as_ref().unwrap()[i],
-                "B-10 of rod value {} at {point:?}",
-                values[r]
-            );
         }
     }
     assert_eq!(rods.points.len(), 2 * values.len());
@@ -347,9 +339,6 @@ fn rod_branches_of_a_slab_use_the_same_medium_state_for_every_value() {
         let n = rods.points.iter().position(|p| *p == at).unwrap();
         assert_eq!(&rods.states[n], state, "rod value a at {point:?}");
     }
-    // ホウ酸水を混ぜた物質のある格子は、冷却材の B-10 の微視的断面積を書かない（ADR-0236、#0260）
-    assert_eq!(rods.boron10, None);
-    assert_eq!(one.boron10, None);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -413,126 +402,10 @@ fn nodes_without_replaced_cells_hold_the_rodless_states() {
                 "rod value {} at {point:?}",
                 values[r]
             );
-            let i = one.points.iter().position(|p| p == point).unwrap();
-            assert_eq!(
-                fuel.boron10.as_ref().unwrap()[n],
-                one.boron10.as_ref().unwrap()[i],
-                "B-10 of rod value {} at {point:?}",
-                values[r]
-            );
         }
     }
-    // 反射体のノードも、棒のない値の点の冷却材の B-10 の微視的断面積を持つ（ADR-0236）
-    assert_eq!(
-        reflector.boron10.as_ref().map(Vec::len),
-        Some(reflector.points.len())
-    );
     // 反射体のノードのテーブルは、基準の形状の別の入力のものと同じ
     assert_eq!(reflector, table(&dir.join("out"), "reflector.msgpack"));
     assert!(!reflector.axes.iter().any(|a| matches!(a, Axis::Rod { .. })));
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn tables_hold_the_b10_of_the_borated_water_alone() {
-    // 冷却材の B-10 の均質化した個数密度は、ホウ酸水の B-10 だけを数える（ADR-0236）: 同じ形状の 600 ppm と 1300 ppm の比は ppm の比で、
-    // B-10 を含む吸収体の棒（gt-b）の値は、ホウ酸水を棒が押し出した分だけ棒のない値より小さい
-    let dir = scratch("boron10");
-    run(&dir, &format!("{ASSEMBLY}{RODS}"));
-    let rods = table(&dir, "fg.msgpack");
-    let b10 = rods.boron10.as_ref().unwrap();
-    assert_eq!(b10.len(), rods.points.len());
-    let at = |ppm: usize, rod: usize| {
-        let n = rods
-            .points
-            .iter()
-            .position(|p| *p == [ppm, 0, 0, rod])
-            .unwrap();
-        &b10[n]
-    };
-    for rod in 0..3 {
-        let ratio = at(1, rod).density / at(0, rod).density;
-        assert!(
-            (ratio - 1300.0 / 600.0).abs() <= 1e-12,
-            "rod value {rod}: {ratio}"
-        );
-    }
-    assert!(at(1, 2).density < at(1, 0).density);
-    assert!(at(1, 2).density > 0.5 * at(1, 0).density);
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn split_tables_hold_no_b10() {
-    // 部分ノードに分けたテーブルは、冷却材の B-10 の微視的断面積を書かない（ADR-0236、#0260）
-    let dir = scratch("split");
-    let from = r#"few-group = { output = "fg.msgpack", bounds = [1e7, 0.625, 1e-5] }"#;
-    assert!(ASSEMBLY.contains(from));
-    run(
-        &dir,
-        &ASSEMBLY
-            .replace(
-                from,
-                r#"few-group = { output = "fg.msgpack", bounds = [1e7, 0.625, 1e-5], split = 2 }"#,
-            )
-            .replace("medium = \"medium.msgpack\"\n", ""),
-    );
-    assert_eq!(table(&dir, "fg.msgpack").boron10, None);
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn lattices_with_media_hold_no_b10() {
-    // 媒質（ADR-0128）の状態はホウ素の軸に従い、媒質の B-10 はホウ酸水の領域に数えられないので、媒質のある格子は冷却材の B-10 の
-    // 微視的断面積を書かない（ADR-0236、#0260）
-    let dir = scratch("media");
-    let assembly = dir.join("assembly");
-    std::fs::create_dir_all(&assembly).unwrap();
-    run(&assembly, ASSEMBLY);
-    let slab = dir.join("slab");
-    std::fs::create_dir_all(&slab).unwrap();
-    std::fs::copy(
-        assembly.join("medium.msgpack"),
-        slab.join("assembly-medium.msgpack"),
-    )
-    .unwrap();
-    // 混ぜた物質を除いた平板（ホウ酸水と媒質だけ）
-    let mixture = "[material.layer-a]\nmix = [{ material = \"water\", volume = 0.9 }, { material = \"absorber\", volume = 0.1 }]\n";
-    let cell = "[cell.layer-a]\nzones = [{ material = \"layer-a\", rings = 1 }]\n";
-    assert!(SLAB.contains(mixture) && SLAB.contains(cell));
-    let text = SLAB.replace(mixture, "").replace(cell, "").replace(
-        "materials = [\"water\", \"layer-a\"]",
-        "materials = [\"water\"]",
-    );
-    run(&slab, &text);
-    assert_eq!(table(&slab, "fg.msgpack").boron10, None);
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn lattices_mixing_the_borated_water_hold_no_b10() {
-    // 混ぜた物質の B-10 のうちホウ酸水の分を分けられないので、ホウ酸水を混ぜた物質のある格子は（媒質がなくても）冷却材の B-10 の微視的
-    // 断面積を書かない（ADR-0236、#0260）
-    let dir = scratch("mixture");
-    let from = r#"rows = ["pin gt", "gt pin"]"#;
-    assert!(ASSEMBLY.contains(from));
-    let text = ASSEMBLY
-        .replace(from, r#"rows = ["pin layer", "layer pin"]"#)
-        .replace("medium = \"medium.msgpack\"\n", "")
-        .replace(
-            "\n[branches]\n",
-            "\n[material.layer]\nmix = [{ material = \"water\", volume = 0.9 }, { material = \"absorber\", volume = 0.1 }]\n\n\
-             [cell.layer]\nzones = [{ material = \"layer\", rings = 1 }]\n\n[branches]\n",
-        )
-        .replace(
-            "boron = { ppm = [600, 1300], materials = [\"water\"] }",
-            "boron = { ppm = [600, 1300], materials = [\"water\", \"layer\"] }",
-        )
-        .replace(
-            "moderator = { temperature = [600], density = [0.743], materials = [\"water\"] }",
-            "moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"layer\"] }",
-        );
-    run(&dir, &text);
-    assert_eq!(table(&dir, "fg.msgpack").boron10, None);
     std::fs::remove_dir_all(&dir).unwrap();
 }

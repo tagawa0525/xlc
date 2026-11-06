@@ -22,8 +22,6 @@
 //! 分けた、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。どちらも点ごとに追う核種の順の `fission`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない核種は nil で、キーは省けない））。履歴の分岐の条件は、減速材の密度は `moderator` の軸だけが値 `branch` の格子点で、ほかの軸は
 //! 公称の状態、制御棒の挿入の割合は公称の状態（`nominal` は 0、`branch` は 1。制御棒を入れた値が条件で、`out` は逆向き）。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
-//! `boron10`（`points` の点ごとの、ホウ素の軸のホウ酸水の B-10 の、格子かノードで均質化した個数密度 `density` と少数群の微視的断面積
-//! `total`、`scatter`（P0）。ホウ素の軸を持ち、分けないテーブルだけが書き、持たなければキーを書かない。ADR-0236）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
@@ -482,44 +480,6 @@ pub struct Table {
     pub micro: Option<Micro>,
     /// 履歴の変数ごとの、ミクロ燃焼で追わない核種の分の補正の残り R（ADR-0215）。ミクロ燃焼のデータを持つテーブルだけが持てる
     pub histories: Vec<HistoryCorrection>,
-    /// [`Table::points` の点] の、冷却材の B-10 の均質化した個数密度と微視的断面積（ADR-0236）。ホウ素の軸を持ち、部分ノードに分けない
-    /// テーブルだけが持てる
-    pub boron10: Option<Vec<Boron10>>,
-}
-
-/// 1 つの状態の、ホウ素の軸のホウ酸水の B-10 の、格子（ノードごとの出力ではノード）で均質化した個数密度と少数群の微視的断面積
-/// （ADR-0236）。core は、状態の B-10 の割合がテーブルと違うとき、個数密度の差に掛けて少数群定数に足す
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Boron10 {
-    /// 均質化した個数密度 N̄ (1/(barn cm))
-    pub density: f64,
-    /// 全断面積 (barn)
-    pub total: Vec<f64>,
-    /// P0 の散乱行列 [入射の群][出射の群] (barn)
-    pub scatter: Vec<Vec<f64>>,
-}
-
-/// AME2020 の原子質量 (u)（M. Wang et al., Chinese Phys. C 45, 030003 (2021)。ADR-0106）
-pub const MASS_B10: f64 = 10.012_936_95;
-pub const MASS_B11: f64 = 11.009_305_36;
-
-/// 同じホウ素の質量（ppm と密度が同じホウ酸水）の、B-10 の原子分率 `b10` の B-10 の個数密度の、`table` の個数密度に対する比
-/// (b10 / M(b10)) / (table / M(table))（M はホウ素の平均の原子質量。ADR-0106、ADR-0236）。割合が 0..1 の外か、`table` が 0 ならエラー
-pub fn boron10_density_ratio(b10: f64, table: f64) -> Result<f64, String> {
-    for b in [b10, table] {
-        if !(0.0..=1.0).contains(&b) {
-            return Err(format!("invalid B-10 atom fraction {b}"));
-        }
-    }
-    if table == 0.0 {
-        return Err("the table has no B-10 (b10 0), so the B-10 density cannot be scaled".into());
-    }
-    if b10 == table {
-        return Ok(1.0);
-    }
-    let per_mass = |b: f64| b / (b * MASS_B10 + (1.0 - b) * MASS_B11);
-    Ok(per_mass(b10) / per_mass(table))
 }
 
 /// ミクロ燃焼で追う核種の、燃焼度の点ごとの格子で均質化した数密度と、状態ごとの少数群の微視的断面積（ADR-0216）。格子全体の
@@ -809,8 +769,6 @@ struct TableFile {
     micro: Option<Micro>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     histories: Vec<HistoryCorrection>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    boron10: Option<Vec<Boron10>>,
 }
 
 /// ファイルの軸（テーブルと媒質で共有する。ADR-0128）
@@ -960,7 +918,6 @@ impl Table {
             heavy_metal: None,
             micro: None,
             histories: Vec::new(),
-            boron10: None,
         }
     }
 
@@ -1041,45 +998,6 @@ impl Table {
             self.validate_micro(micro).map_err(TableError::Invalid)?;
         }
         self.validate_histories().map_err(TableError::Invalid)?;
-        if let Some(boron10) = &self.boron10 {
-            self.validate_boron10(boron10)
-                .map_err(TableError::Invalid)?;
-        }
-        Ok(())
-    }
-
-    /// 冷却材の B-10 のデータ（ADR-0236）が、ホウ素の軸と点と群の数に合い、値が 0 以上の有限の値であること
-    fn validate_boron10(&self, boron10: &[Boron10]) -> Result<(), String> {
-        if !self.axes.iter().any(|a| matches!(a, Axis::Boron { .. })) {
-            return Err("B-10 data need a boron axis".into());
-        }
-        if self.split != 1 {
-            return Err(format!(
-                "B-10 data are homogenized over the lattice or the node, so the table must not be split (split {})",
-                self.split
-            ));
-        }
-        if boron10.len() != self.points.len() {
-            return Err(format!(
-                "{} B-10 states for {} points",
-                boron10.len(),
-                self.points.len()
-            ));
-        }
-        let groups = self.states[0].bounds.len() - 1;
-        let nonnegative =
-            |v: &[f64]| v.len() == groups && v.iter().all(|&x| x >= 0.0 && x.is_finite());
-        for (p, b) in boron10.iter().enumerate() {
-            if !(b.density >= 0.0 && b.density.is_finite())
-                || !nonnegative(&b.total)
-                || b.scatter.len() != groups
-                || !b.scatter.iter().all(|row| nonnegative(row))
-            {
-                return Err(format!(
-                    "B-10 state {p}: the density and the cross sections of {groups} groups must be nonnegative and finite"
-                ));
-            }
-        }
         Ok(())
     }
 
@@ -1645,7 +1563,6 @@ impl Table {
             states,
             micro: self.micro.clone(),
             histories: self.histories.clone(),
-            boron10: self.boron10.clone(),
         })?)
     }
 
@@ -1696,7 +1613,6 @@ impl Table {
             heavy_metal: file.heavy_metal,
             micro: file.micro,
             histories: file.histories,
-            boron10: file.boron10,
         };
         table.validate()?;
         Ok(table)

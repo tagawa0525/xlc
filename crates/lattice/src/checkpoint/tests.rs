@@ -67,16 +67,6 @@ fn states(count: usize) -> Vec<SavedState> {
                         derivative: None,
                     },
                 ]),
-                // 出力ごとの冷却材の B-10（ADR-0236）
-                boron10: Some(
-                    (0..2)
-                        .map(|o| Boron10 {
-                            density: (1.0 + o as f64) / 3.0e5,
-                            total: vec![2.0 + i as f64, 700.0 / 3.0],
-                            scatter: vec![vec![1.5, 0.2], vec![0.0, 2.5]],
-                        })
-                        .collect(),
-                ),
             }
         })
         .collect()
