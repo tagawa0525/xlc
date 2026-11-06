@@ -5,7 +5,9 @@ use xlc_format::table::{Axis, Table, product_points};
 
 use super::*;
 use crate::case::{solve_at, solve_burnups};
-use crate::input::{BoronSearch, Case, CaseState, Cycle, Inventory, Layout, MidpointBoron, Plant};
+use crate::input::{
+    BoronSearch, Case, CaseState, Cycle, InitialGuess, Inventory, Layout, MidpointBoron, Plant,
+};
 use crate::nem::Options;
 
 const PLANT: &str = r#"
@@ -648,11 +650,14 @@ fn searched_points_are_critical_and_record_their_boron() {
 
 #[test]
 fn searched_points_match_the_state_search_at_the_same_uniform_burnup() {
-    // 集合体 1 体では燃焼度が一様なので、点の探索は、その燃焼度を状態に与えた探索（ADR-0145）と同じ計算になる
-    let case = searching(CASE, 1.0e-9).replace(
-        "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
-        "[{ efpd = 50.0 }, { efpd = 125.0 }]",
-    );
+    // 集合体 1 体では燃焼度が一様なので、点の探索は、その燃焼度を状態に与えた探索（ADR-0145）と同じ計算になる。状態の探索は平らな
+    // 初期値から解くので、燃焼も平らな初期値から解く（ADR-0231。前の解からでは収束の判定の中で丸めの桁が違う）
+    let case = searching(CASE, 1.0e-9)
+        .replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            "[{ efpd = 50.0 }, { efpd = 125.0 }]",
+        )
+        .replace("[depletion]", "[depletion]\ninitial-guess = \"flat\"");
     let (layout, tables, case) = single(&case);
     let history = deplete(
         &layout,
@@ -1900,7 +1905,10 @@ fn rod_states_run(case: &str) -> (CoreHistory, Layout, Vec<Table>, Case) {
 fn steps_solve_in_the_states_they_name() {
     // バンク D を途中で入れて抜く。点は、そこから始まるステップの状態で解く（最後の点は最後のステップの状態。ADR-0218 の案 P2）
     let steps = "[{ efpd = 50.0, state = \"out\" }, { efpd = 125.0, state = \"in\" }, { efpd = 200.0, state = \"out\" }]";
-    let (history, layout, tables, case) = rod_states_run(&two_rod_states(steps));
+    // 点の k を平らな初期値からの解とビットで比べるので、燃焼も平らな初期値から解く（ADR-0231）
+    let flat =
+        two_rod_states(steps).replace("[depletion]", "[depletion]\ninitial-guess = \"flat\"");
+    let (history, layout, tables, case) = rod_states_run(&flat);
     let states: Vec<&str> = history.points.iter().map(|p| p.state.as_str()).collect();
     assert_eq!(states, ["out", "in", "out", "out"]);
     assert_eq!(history.states.keys().collect::<Vec<_>>(), ["in", "out"]);
@@ -2134,6 +2142,81 @@ fn equilibrium_before_a_decay_step_balances_in_the_operating_state() {
     // 棒を抜いた状態では上下のノードの Xe-135 が同じ（棒の入った状態の中性子束では上のノードが少ない）
     let rows = node(&changed);
     assert!((rows[0][0][3] / rows[0][1][3] - 1.0).abs() <= 1.0e-9);
+}
+
+#[test]
+fn eigenvalue_solves_from_the_previous_solution_keep_the_flat_start_results() {
+    // ADR-0231: 探索の評価、平衡 Xe の解き直し、点と中点、崩壊の後の点を、どれも直前の解から反復しても、平らな初期値からの燃焼と
+    // 同じ点になる（どちらの固有値計算も同じ収束の判定を満たす）
+    let run = |guess: InitialGuess| {
+        let case = searching(CASE, 1.0e-10).replace(
+            "[depletion]",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"equilibrium\" }",
+        );
+        let case = case.replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            "[{ efpd = 50.0 }, { decay-days = 2.0 }, { efpd = 125.0, power = 0.8 }]",
+        );
+        let (layout, tables, case) = core(&case, MIXED, Some(400.0));
+        let tables: Vec<Table> = tables.into_iter().map(with_xenon).collect();
+        let mut depletion = case.depletion.clone().unwrap();
+        depletion.initial_guess = guess;
+        deplete(
+            &layout,
+            &tables,
+            &case.states,
+            &depletion,
+            Some(&xenon_chain()),
+            None,
+            &tight(),
+            |_| {},
+        )
+        .unwrap()
+    };
+    let flat = run(InitialGuess::Flat);
+    let previous = run(InitialGuess::Previous);
+    // 前の解から反復した固有値計算は、収束の判定の中で平らな初期値からの解と丸めの桁で違う（同じ初期値なら同じビット）
+    assert!(
+        previous
+            .points
+            .iter()
+            .zip(&flat.points)
+            .any(|(a, b)| a.k != b.k),
+        "every solve started from the flat guess"
+    );
+    // 2 つの解の差は、それぞれの残りの許容の和の中。燃焼度、数密度、ホウ素は中性子束（核分裂率と反応率）から決まるので、中性子束の
+    // 許容の 2 倍の相対差の中
+    let options = tight();
+    let flux = 2.0 * options.flux_tolerance;
+    assert_eq!(previous.points.len(), flat.points.len());
+    for (a, b) in previous.points.iter().zip(&flat.points) {
+        let at = format!("{} EFPD, {} days", b.efpd, b.days);
+        assert_eq!(a.solves, b.solves, "{at}");
+        assert!(
+            (a.k - b.k).abs() < 2.0 * options.k_tolerance,
+            "{at}: k {} vs {}",
+            a.k,
+            b.k
+        );
+        assert!(
+            (a.boron - b.boron).abs() <= flux * b.boron,
+            "{at}: boron {} vs {}",
+            a.boron,
+            b.boron
+        );
+        for (x, y) in a.burnups.iter().flatten().zip(b.burnups.iter().flatten()) {
+            assert!((x - y).abs() <= flux * y.abs(), "{at}: burnup {x} vs {y}");
+        }
+        let densities = |h: &CorePoint| h.densities.clone().unwrap();
+        for (x, y) in densities(a)
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(densities(b).iter().flatten().flatten())
+        {
+            assert!((x - y).abs() <= flux * y.abs(), "{at}: density {x} vs {y}");
+        }
+    }
 }
 
 #[test]

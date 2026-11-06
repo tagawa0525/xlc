@@ -1556,6 +1556,23 @@ fn depletion_midpoints_may_take_the_boron_of_the_step_start() {
 }
 
 #[test]
+fn depletion_eigenvalue_solves_may_start_flat() {
+    // ADR-0231: 省けば、固有値計算を同じケースの直前の解から反復する。`flat` は平らな初期値から（比べるため）
+    let guess = |value: &str| {
+        edited(
+            &depleting(),
+            "history = \"out/history.msgpack\"\n",
+            &format!("history = \"out/history.msgpack\"\ninitial-guess = \"{value}\"\n"),
+        )
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.depletion.unwrap().initial_guess);
+    assert_eq!(read(&depleting()).unwrap(), InitialGuess::Previous);
+    assert_eq!(read(&guess("previous")).unwrap(), InitialGuess::Previous);
+    assert_eq!(read(&guess("flat")).unwrap(), InitialGuess::Flat);
+    assert!(read(&guess("start")).is_err());
+}
+
+#[test]
 fn invalid_depletions_are_errors() {
     let bad = |from: &str, to: &str| Case::parse(&edited(&depleting(), from, to), base()).is_err();
     // 定格の出力密度は正
