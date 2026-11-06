@@ -1994,3 +1994,23 @@ fn rod_histories_validate_with_the_moderator_density_history_and_round_trip() {
         "rod",
     );
 }
+
+#[test]
+fn b10_density_ratio_follows_the_atoms_per_boron_mass() {
+    // 同じ ppm と密度のホウ酸水の B-10 の個数密度は b10 / M(b10) に比例する（ADR-0106 の原子質量。ADR-0237）
+    let mass = |b: f64| b * MASS_B10 + (1.0 - b) * MASS_B11;
+    for (b10, table) in [(0.18, 0.199), (0.30, 0.199), (0.5, 0.18)] {
+        let want = (b10 / mass(b10)) / (table / mass(table));
+        let got = b10_density_ratio(b10, table).unwrap();
+        assert!(
+            (got - want).abs() <= 1e-15 * want,
+            "{b10} {table}: {got} vs {want}"
+        );
+    }
+    assert_eq!(b10_density_ratio(0.199, 0.199).unwrap(), 1.0);
+    assert_eq!(b10_density_ratio(0.0, 0.199).unwrap(), 0.0);
+    // テーブルの B-10 が 0 なら比は決まらない。割合は 0..1
+    assert!(b10_density_ratio(0.18, 0.0).is_err());
+    assert!(b10_density_ratio(1.5, 0.199).is_err());
+    assert!(b10_density_ratio(f64::NAN, 0.199).is_err());
+}
