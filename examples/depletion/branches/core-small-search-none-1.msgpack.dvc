@@ -1,0 +1,5 @@
+outs:
+- md5: adc9e50d82abbf24ca1b1656a1bf7de0
+  size: 312322
+  hash: md5
+  path: core-small-search-none-1.msgpack
