@@ -118,8 +118,7 @@ ADR-0106 の AME2020 の原子質量）。ppm と密度が同じなら、ホウ�
   `coolant_micro_data_of_regions_without_the_borated_water_are_zero`。テーブル
   （crates/lattice/tests/rod_branch.rs）: `rod_branches_match_separate_lattices` と `nodes_without_replaced_cells_hold_the_rodless_states`
   （制御棒の値とノードごとのテーブルが、別の入力の格子計算と同じ `boron10` を持つ）、`tables_hold_the_b10_of_the_borated_water_alone`
-  （吸収体の棒の B-10 を数えない）、`split_tables_hold_no_b10`、`rod_branches_of_a_slab_use_the_same_medium_state_for_every_value`（ホウ酸水を
-  混ぜた物質のある格子は書かない）、`lattices_with_media_hold_no_b10`
+  （吸収体の棒の B-10 を数えない）、`split_tables_hold_no_b10`、`lattices_mixing_the_borated_water_hold_no_b10`、`lattices_with_media_hold_no_b10`
 - core（crates/core/src/state/tests.rs）: `differing_b10_adds_the_b10_density_difference_times_its_micro_cross_sections`、
   `table_b10_leaves_the_constants_bit_identical_with_or_without_b10_data`、`b10_outside_its_range_is_an_error`、`invalid_states_are_errors`
 - 測定（examples/depletion/verification.md の「冷却材の B-10 の割合がテーブルと違う状態（2A の集合体 1 体）」。格子計算は c044e4bc、core と
