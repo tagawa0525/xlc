@@ -47,3 +47,5 @@ resolution:
 ## 完了の条件
 
 上の点を直すか、直さない理由を書いて閉じる。
+
+- （例外の周、親の周）`parse_dvc` は `-` だけの行（キーを次の行から書く項目）を区切りと認めず、続く行を前の項目に上書きして out を黙って落とす（dvc は書かない形）。`path:` の値の後ろの注釈（`# …`）を剥がさない。`state` の判定が (path, md5) だけで docstring の「outs が HEAD と違えば uncommitted」より狭い。`.dvc` でない引数を混ぜたときと `show_dvc` の「does not exist」のテストが無い。`\r\n` の `.dvc` を「no outs」と報告して原因を示さない
