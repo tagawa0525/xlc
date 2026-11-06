@@ -185,7 +185,7 @@ current CMFD を解いて更新する（案 M1、C3、F1、U1、J2）。
 - 2026-11-07: 「検討した案」が指すブランチ feat/core-cmfd と旧 worktree /home/tagawa/github/xlc-feat-core-cmfd は、2026-11-06 に消した（#0076）。
   下書きの de5b93436 は、ブランチの先端 4d82b4ce8 に付けたタグ archive/feat-core-cmfd の祖先で、`git show de5b93436:docs/adr/0119-accelerate-nem-with-node-cmfd.md`
   で引ける。旧 worktree の未コミットの `crates/numeric/src/cmfd.rs` はタグに入らず、その控え（履歴の書き換えの作業ディレクトリ）も 2026-11-07 に消したので、
-  切り出しの試しは案 S1 の文と、それを取り込んだ `xlc-cmfd`（6bf685f7c）にだけ残る（#0249）
+  切り出しの試しは案 S1 の文と、それを取り込んだ `xlc-cmfd`（6bf685f7c）に残る（ほかのコピーがあるかは確かめていない。#0249）
 
 ## 変更
 

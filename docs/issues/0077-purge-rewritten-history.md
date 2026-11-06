@@ -19,8 +19,8 @@ tagawa0525/xlc-history-backup にある。そのときのツール（規則、fi
 置き換えて消した。2026-10-21 に 2 度目の書き換え（#0141。nixfiles の history-rewrite で、ja-terms の
 辞書で語を直した）をした。その作業ディレクトリ ~/.local/share/history-rewrite/xlc-2026-10-21/ には、書き換える前のミラー
 （original.git、889 MB）、元の番号から新しい番号への対応表（commit-map）、worktree の未コミットの変更の控えのパッチがあったが、
-2026-11-07 に消した（経緯）。書き換える前のオブジェクトは、このリポジトリにまだ残る（旧ブランチ feat/core-cmfd の書き換える前の
-先端 13fddc36e は、2026-11-07 に `git cat-file -t` で commit と出た）。
+2026-11-07 に消した（経緯）。書き換える前のオブジェクトの一部は、このリポジトリにまだ残る（旧ブランチ feat/core-cmfd の書き換える前の
+先端 13fddc36e は、2026-11-07 に `git cat-file -t` で commit と出た。ほかにどれだけ残るかは確かめていない）。
 
 関係する ADR: なし
 
