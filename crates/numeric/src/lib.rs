@@ -6,6 +6,7 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod anm;
+pub mod cmfd;
 pub mod equivalence;
 pub mod error_function;
 pub mod lu;
