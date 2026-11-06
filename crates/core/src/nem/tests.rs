@@ -275,7 +275,7 @@ fn single_reflective_node_direction_stays_bounded() {
     let tight = Options {
         k_tolerance: 1e-14,
         flux_tolerance: 1e-13,
-        max_iterations: 10_000,
+        ..Options::default()
     };
     let converged = solve(&p, &tight).unwrap();
     let mut core = Core::new(&p).unwrap();
@@ -284,6 +284,7 @@ fn single_reflective_node_direction_stays_bounded() {
         k_tolerance: 0.0,
         flux_tolerance: 0.0,
         max_iterations: 2000,
+        acceleration: Acceleration::None,
     };
     match iterate(&mut core, &long, None, None) {
         Err(NemError::NotConverged { k, .. }) => assert!(
@@ -603,7 +604,7 @@ fn unit_adfs_leave_results_unchanged() {
     let tight = Options {
         k_tolerance: 1e-14,
         flux_tolerance: 1e-13,
-        max_iterations: 10_000,
+        ..Options::default()
     };
     let s = solve(&p, &tight).unwrap();
     let k = 8.510692798259939e-1;
@@ -2044,7 +2045,13 @@ fn stepped_core_converges_with_refinement() {
         m.get_or_insert(1);
     }
     filled.outline = None;
-    let k_filled = solve(&filled, &Options::default()).unwrap().k;
+    // 吸収体のノード（Σt h = 1000）の熱群の中性子束は燃料の 1e-9 ほどで、CMFD の更新の後の反復で負になり、CMFD の補正が
+    // 作れない（ADR-0232）。外れの比較なので加速しない
+    let unaccelerated = Options {
+        acceleration: Acceleration::None,
+        ..Options::default()
+    };
+    let k_filled = solve(&filled, &unaccelerated).unwrap().k;
     assert!(
         (k_filled - ks[0]).abs() < 0.2 * (ks[0] - ks[3]),
         "{k_filled} vs {ks:?}"
@@ -2117,5 +2124,128 @@ impl Problem {
     fn with_reflectors(mut self, reflectors: Vec<usize>) -> Self {
         self.reflectors = reflectors;
         self
+    }
+}
+
+/// 燃料（中央の 3 × 3 × 4）を反射体（核分裂なし、ANM）で囲んだ 5 × 5 × 6 の 20 cm のノードの炉心。ADF は燃料と反射体で違い、
+/// 外周は Marshak
+fn reflected_core() -> Problem {
+    let mut p = cuboid([100.0, 100.0, 120.0], [5, 5, 6], [Boundary::Marshak; 6]);
+    let mut fuel = material();
+    fuel.adf = vec![vec![1.05, 0.92]; 6];
+    let mut water = reflector();
+    water.adf = vec![vec![1.3, 2.1]; 6];
+    p.materials = vec![fuel, water];
+    for (site, m) in p.node_material.iter_mut().enumerate() {
+        let [x, y, z] = p.mesh.position(site);
+        let inside = (1..4).contains(&x) && (1..4).contains(&y) && (1..5).contains(&z);
+        *m = Some(if inside { 0 } else { 1 });
+    }
+    p
+}
+
+#[test]
+fn cmfd_converges_to_the_unaccelerated_answer_in_fewer_iterations() {
+    // ADR-0232: CMFD は収束した解を変えない加速で、加速しない反復と同じ収束の判定（見積もった残りが許容の中）を満たすので、差は
+    // 許容の 2 倍の中。反射体と ADF の跳び、外形の面、集合体ほどのノードを含む
+    let accelerated = Options::default();
+    assert_eq!(accelerated.acceleration, Acceleration::Cmfd);
+    let unaccelerated = Options {
+        acceleration: Acceleration::None,
+        ..accelerated
+    };
+    let problems = [
+        ("two zones", two_zone(1.3)),
+        ("reflected core", reflected_core()),
+        ("stepped core", stepped_core(2, Boundary::Marshak)),
+        (
+            "assembly-sized nodes",
+            cuboid([200.0; 3], [12; 3], [Boundary::ZeroFlux; 6]),
+        ),
+    ];
+    for (name, problem) in problems {
+        let plain = solve(&problem, &unaccelerated).unwrap();
+        let fast = solve(&problem, &accelerated).unwrap();
+        let (dk, dflux) = differences(&fast, &plain);
+        assert!(
+            dk < 2.0 * accelerated.k_tolerance,
+            "{name}: k {} vs {}",
+            fast.k,
+            plain.k
+        );
+        assert!(
+            dflux < 2.0 * accelerated.flux_tolerance,
+            "{name}: flux {dflux}"
+        );
+        assert!(
+            fast.iterations < plain.iterations,
+            "{name}: {} iterations with CMFD, {} without",
+            fast.iterations,
+            plain.iterations
+        );
+    }
+}
+
+#[test]
+fn cmfd_keeps_the_balance_and_face_currents() {
+    // CMFD で更新した状態から返す解も、ノードのバランスと面の連続を満たす（収束した NEM の解）
+    let p = reflected_core();
+    let s = solve(&p, &Options::default()).unwrap();
+    let mut production = 0.0;
+    let mut absorption = 0.0;
+    for (site, phi) in s.flux.iter().enumerate() {
+        let m = &p.materials[p.node_material[site].unwrap()];
+        let volume = 20.0 * 20.0 * 20.0;
+        for ((nf, a), f) in m.nu_fission.iter().zip(&m.absorption).zip(phi) {
+            production += volume * nf * f;
+            absorption += volume * a * f;
+        }
+    }
+    let leakage: f64 = s.leakage.iter().sum();
+    assert!(
+        (production / s.k - absorption - leakage).abs() < 1e-6 * production,
+        "{production} / {} vs {absorption} + {leakage}",
+        s.k
+    );
+    assert_face_currents(&p);
+}
+
+#[test]
+fn cmfd_starts_from_a_nearby_solution() {
+    // 前の解からの反復（ADR-0231）も CMFD で加速し、平らな初期値から加速した解と許容の 2 倍の中で一致する
+    let options = Options::default();
+    let (_, guess) = solve_from(&two_zone(1.3), &options, None).unwrap();
+    let problem = two_zone(1.43);
+    let flat = solve(&problem, &options).unwrap();
+    let (warm, _) = solve_from(&problem, &options, Some(&guess)).unwrap();
+    let (dk, dflux) = differences(&warm, &flat);
+    assert!(dk < 2.0 * options.k_tolerance, "k {} vs {}", warm.k, flat.k);
+    assert!(dflux < 2.0 * options.flux_tolerance, "flux {dflux}");
+}
+
+#[test]
+fn cmfd_needs_positive_node_fluxes() {
+    // 補正は部分中性子流をノードの中性子束で割るので、反復の途中で中性子束が正でないノードがあればエラー（黙って加速をやめない）。
+    // 20 cm の強い吸収体（Σt h = 1000）のノードの熱群の中性子束は、CMFD の更新の後の反復で負になる
+    let mut black = material();
+    black.diffusion = vec![0.02, 0.02];
+    black.total = vec![50.0, 50.0];
+    black.absorption = vec![50.0, 50.0];
+    black.scatter = vec![vec![0.0; 2]; 2];
+    black.nu_fission = vec![0.0; 2];
+    black.fission = vec![0.0; 2];
+    black.chi = vec![0.0; 2];
+    let mut filled = stepped_core(1, Boundary::ZeroFlux);
+    filled.materials.push(black);
+    for m in &mut filled.node_material {
+        m.get_or_insert(1);
+    }
+    filled.outline = None;
+    match solve(&filled, &Options::default()) {
+        Err(NemError::Cmfd {
+            source: CmfdError::NonPositiveFlux { node, .. },
+            ..
+        }) => assert_eq!(filled.node_material[node], Some(1)),
+        other => panic!("expected a non-positive flux for CMFD, got {other:?}"),
     }
 }

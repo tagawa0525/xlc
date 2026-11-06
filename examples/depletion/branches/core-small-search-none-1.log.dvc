@@ -1,0 +1,5 @@
+outs:
+- md5: 1bb100a72724685c0d9b784cad9080a2
+  size: 43405
+  hash: md5
+  path: core-small-search-none-1.log

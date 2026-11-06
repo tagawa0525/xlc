@@ -22,6 +22,26 @@ class Cases(unittest.TestCase):
             path = small_core_cases.BRANCHES / name
             self.assertEqual(path.read_text(), text, name)
 
+    def test_unaccelerated_cases_differ_only_by_the_acceleration(self):
+        # CMFD（ADR-0232）と比べる加速なしのケースは、既定のケースに `acceleration = "none"` を足し、履歴の名前とコメントの 1 文を
+        # 替えたもの
+        for base in ("search", "equilibrium"):
+            accelerated = small_core_cases.case(base, 1)
+            plain = small_core_cases.case(f"{base}-none", 1)
+            self.assertNotIn("acceleration", accelerated)
+            self.assertIn('radial-nodes = 1\nacceleration = "none"\n', plain)
+            kept = [line for line in plain.splitlines() if not line.startswith("#")]
+            expected = [
+                line for line in accelerated.splitlines() if not line.startswith("#")
+            ]
+            expected.insert(
+                expected.index("radial-nodes = 1") + 1, 'acceleration = "none"'
+            )
+            history = expected.index(f'history = "core-small-{base}-1.msgpack"')
+            expected[history] = f'history = "core-small-{base}-none-1.msgpack"'
+            self.assertEqual(kept, expected)
+            self.assertIn((f"{base}-none", 1), small_core_cases.CASES)
+
     def test_splits_keep_the_base_points_and_the_decay_step(self):
         base = small_core_cases.steps(1)
         fine = small_core_cases.steps(4)

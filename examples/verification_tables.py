@@ -1340,6 +1340,69 @@ def core_pair_differences(s: dict) -> str:
     )
 
 
+def core_acceleration_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-acceleration":
+        raise TableError("not an xlc-compare-core-acceleration summary")
+    return s
+
+
+def core_acceleration_runs(sources: list[dict]) -> str:
+    """固有値計算の加速（ADR-0232）ごとの、固有値計算の数、外側の反復の回数の和と 1 回の範囲、固有値計算の時間の和と 1 回の範囲、全体の
+    時間と、CMFD / 加速なしの比（compare_core_acceleration.py）"""
+    s = core_acceleration_summary(sources)
+    rows = []
+    for name, c in s["cases"].items():
+        for label, key in [("加速なし", "none"), ("CMFD（ADR-0232）", "cmfd")]:
+            r = c["runs"][key]
+            low, high = r["per_solve"]["iterations"]
+            fast, slow = r["per_solve"]["seconds"]
+            rows.append(
+                [
+                    name,
+                    label,
+                    str(r["solves"]),
+                    f"{r['iterations']:,}",
+                    f"{low:,}〜{high:,}",
+                    f"{r['eigenvalue_seconds']:.1f}",
+                    f"{fast:.2f}〜{slow:.2f}",
+                    f"{r['seconds']:.1f}",
+                ]
+            )
+        n, a = c["runs"]["none"], c["runs"]["cmfd"]
+        rows.append(
+            [
+                name,
+                "CMFD / 加速なし",
+                f"{a['solves'] / n['solves']:.3f}",
+                f"{a['iterations'] / n['iterations']:.3f}",
+                "",
+                f"{a['eigenvalue_seconds'] / n['eigenvalue_seconds']:.3f}",
+                "",
+                f"{a['seconds'] / n['seconds']:.3f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼",
+            "加速",
+            "固有値計算の数",
+            "外側の反復の回数の和",
+            "1 回の外側の反復",
+            "固有値計算の時間 (s)",
+            "1 回の時間 (s)",
+            "全体の時間 (s)",
+        ],
+        rows,
+    )
+
+
+def core_acceleration_differences(sources: list[dict]) -> str:
+    """固有値計算の CMFD − 加速なしの差の最大（compare_core_acceleration.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と
+    出力の割合の相対差の絶対値"""
+    return core_pair_differences(core_acceleration_summary(sources))
+
+
 def core_xenon_boron_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-core-xenon-boron":
@@ -3425,10 +3488,14 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-small-restart.json",
     "examples/depletion/branches/compare-core-small-guess.json",
     "examples/depletion/branches/compare-core-small-xenon-boron.json",
+    "examples/depletion/branches/compare-core-small-acceleration.json",
     # p9-timing のステージの上流（p5 の格子計算）が changed なので、試行で流した結果（#0235）
     "examples/depletion/p9-timing/trial-0231/timing-p9.json",
     # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）。ステージの出力でない
     "examples/depletion/p9-timing/trial-0156/timing-p9.json",
+    # trial-0156 の入力を CMFD で解いた試行（ADR-0232、#0076）と、trial-0156 との比較。ステージの出力でない
+    "examples/depletion/p9-timing/trial-0076/timing-p9.json",
+    "examples/depletion/p9-timing/trial-0076/compare-acceleration.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4000,6 +4067,22 @@ TABLES = {
         ["examples/depletion/branches/compare-core-small-xenon-boron.json"],
         core_xenon_boron_differences,
     ),
+    "depletion-small-core-acceleration-runs": (
+        ["examples/depletion/branches/compare-core-small-acceleration.json"],
+        core_acceleration_runs,
+    ),
+    "depletion-small-core-acceleration-differences": (
+        ["examples/depletion/branches/compare-core-small-acceleration.json"],
+        core_acceleration_differences,
+    ),
+    "core-p9-cmfd-runs": (
+        ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],
+        core_acceleration_runs,
+    ),
+    "core-p9-cmfd-differences": (
+        ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],
+        core_acceleration_differences,
+    ),
     "depletion-micro-linearization": (
         ["examples/depletion/micro/linearization.json"],
         micro_linearization,
@@ -4194,8 +4277,12 @@ TABLES = {
             [f"examples/depletion/p9-timing/{source}/timing-p9.json"],
             draw,
         )
-        # 場合 3 を出力のステップにして探す試行は ADR-0219 の同時の反復（#0156）
-        for trial, source in [("", "trial-0231"), ("-joint", "trial-0156")]
+        # 場合 3 を出力のステップにして探す試行は ADR-0219 の同時の反復（#0156）。その入力を CMFD で解いた試行（ADR-0232）
+        for trial, source in [
+            ("", "trial-0231"),
+            ("-joint", "trial-0156"),
+            ("-cmfd", "trial-0076"),
+        ]
         for part, draw in [
             ("parts", core_timing_parts),
             ("solves", core_timing_solves),

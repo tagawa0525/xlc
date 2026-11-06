@@ -128,7 +128,7 @@ use serde::{Deserialize, Serialize};
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::ROD_OUT;
 
-use crate::nem::{Boundary, Mesh, Problem, Solution, fission_rates};
+use crate::nem::{Acceleration, Boundary, Mesh, Problem, Solution, fission_rates};
 use crate::rods::{PartialNode, Segment, Weighting};
 use crate::state::State;
 use crate::thermal::{
@@ -796,6 +796,19 @@ pub struct Case {
     pub depletion: Option<DepletionInput>,
     /// 熱水力のフィードバック（ADR-0229）
     pub thermal: Option<ThermalHydraulics>,
+    /// 固有値計算の外側の反復の加速（`acceleration`。ADR-0232）
+    pub acceleration: Acceleration,
+}
+
+/// ケースの `acceleration`: 固有値計算の外側の反復の加速（ADR-0232）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum AccelerationEntry {
+    /// ノードを粗メッシュとする CMFD（ADR-0232 の決定）
+    #[default]
+    Cmfd,
+    /// 加速しない（CMFD と比べるため）
+    None,
 }
 
 /// ケースの `[depletion]`（ADR-0190）。
@@ -1100,6 +1113,8 @@ struct CaseFile {
     axial_pin_powers: Option<PathBuf>,
     depletion: Option<DepletionEntry>,
     thermal_hydraulics: Option<ThermalEntry>,
+    #[serde(default)]
+    acceleration: AccelerationEntry,
 }
 
 /// `[thermal-hydraulics]`（ADR-0229）
@@ -1474,6 +1489,10 @@ impl Case {
             axial_pin_powers,
             depletion,
             thermal,
+            acceleration: match file.acceleration {
+                AccelerationEntry::Cmfd => Acceleration::Cmfd,
+                AccelerationEntry::None => Acceleration::None,
+            },
         })
     }
 }
