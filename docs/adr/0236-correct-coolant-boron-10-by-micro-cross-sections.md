@@ -104,10 +104,10 @@ ADR-0106 の AME2020 の原子質量）。ppm と密度が同じなら、ホウ�
 採らない（2026-11-07）。実装して、2A の燃焼度 0、20、40 MWd/kg、600 と 1300 ppm で直接の格子計算の k∞ と比べると、この補正の差は 18 at% で
 −17.641〜+34.929 pcm（B-10 の割合を変えた効きの最大 2.51%）、30 at% で −266.950〜+86.568 pcm（最大 3.64%。30 at%、1300 ppm、40 MWd/kg）で、
 同じ点の案 1 の ppm の換算の 18 at% の +4.389〜+13.705 pcm（最大 0.99%）、30 at% の −7.532〜+17.490 pcm（最大 0.55%）より大きかった（格子計算は
-c044e4bc、Slurm 713、core と比較は 069878b6、2026-11-07。比較の要約は 812b8703 の examples/depletion/branches/compare-core-2A-b10.json）。
+7a62424c、Slurm 713、core と比較は 80d83c07、2026-11-07。比較の要約は 7861136a の examples/depletion/branches/compare-core-2A-b10.json）。
 補正の差は 18 at% と 30 at% で符号が逆で、B-10 の個数密度の差の 1 次の項がある。B-10 の個数密度によるほかの核種のスペクトルの変化を
 持たないことが候補で、確かめていない。ユーザーは測った差と親の説明を受けて案 1 に替えた（2026-11-07 06:02）（[ADR-0237](0237-convert-coolant-boron-to-the-table-b10-fraction.md)）。
-実装（テーブルの `boron10`、lattice の集計、core の補正とそのテスト）はブランチ feat/0036-b10-micro-correction で外した（2362ad128）。
+実装（テーブルの `boron10`、lattice の集計、core の補正とそのテスト）はブランチ feat/0036-b10-micro-correction で外した（2dc839473）。
 
 ### 確認
 
