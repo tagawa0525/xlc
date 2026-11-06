@@ -9,7 +9,7 @@ use crate::input::{
     BoronSearch, Case, CaseState, Cycle, InitialGuess, Inventory, Layout, MidpointBoron, Plant,
     XenonBoron,
 };
-use crate::nem::{Acceleration, Options, Order};
+use crate::nem::{Acceleration, CoarseRatios, Options, Order};
 
 const PLANT: &str = r#"
 pitch = 20.0
@@ -2249,7 +2249,7 @@ fn cmfd_keeps_the_unaccelerated_points() {
         .unwrap()
     };
     let plain = run(Acceleration::None);
-    let fast = run(Acceleration::Cmfd);
+    let fast = run(Acceleration::Cmfd(CoarseRatios::default()));
     let options = tight();
     let flux = 2.0 * options.flux_tolerance;
     assert_eq!(fast.points.len(), plain.points.len());

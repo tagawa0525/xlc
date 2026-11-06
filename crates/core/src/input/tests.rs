@@ -1,5 +1,5 @@
 use super::*;
-use crate::nem::{Acceleration, Boundary, Order, Solution};
+use crate::nem::{Acceleration, Boundary, CoarseRatios, Order, Solution};
 use std::num::NonZeroUsize;
 
 const PLANT: &str = r#"
@@ -1920,10 +1920,76 @@ fn eigenvalue_solves_may_go_unaccelerated() {
         )
     };
     let read = |text: &str| Case::parse(text, base()).map(|c| c.acceleration);
-    assert_eq!(read(CASE).unwrap(), Acceleration::Cmfd);
-    assert_eq!(read(&with("cmfd")).unwrap(), Acceleration::Cmfd);
+    let cmfd = Acceleration::Cmfd(CoarseRatios::default());
+    assert_eq!(read(CASE).unwrap(), cmfd);
+    assert_eq!(read(&with("cmfd")).unwrap(), cmfd);
     assert_eq!(read(&with("none")).unwrap(), Acceleration::None);
     assert!(read(&with("chebyshev")).is_err());
+}
+
+#[test]
+fn coarse_mesh_tolerance_ratios_default_to_adr_0232_and_may_be_given() {
+    // ADR-0232: 粗メッシュの固有値問題の許容の比は、省けば k、中性子束とも 0.01。`cmfd-k-ratio` と `cmfd-flux-ratio` で別々に選べる
+    let with = |lines: &str| {
+        edited(
+            CASE,
+            "radial-nodes = 1\n",
+            &format!("radial-nodes = 1\n{lines}"),
+        )
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.acceleration);
+    assert_eq!(
+        CoarseRatios::default(),
+        CoarseRatios {
+            k: 0.01,
+            flux: 0.01
+        }
+    );
+    assert_eq!(
+        read(&with("cmfd-k-ratio = 0.3\ncmfd-flux-ratio = 1.0\n")).unwrap(),
+        Acceleration::Cmfd(CoarseRatios { k: 0.3, flux: 1.0 })
+    );
+    assert_eq!(
+        read(&with("cmfd-flux-ratio = 0.03\n")).unwrap(),
+        Acceleration::Cmfd(CoarseRatios {
+            k: 0.01,
+            flux: 0.03
+        })
+    );
+    assert_eq!(
+        read(&with("acceleration = \"cmfd\"\ncmfd-k-ratio = 0.001\n")).unwrap(),
+        Acceleration::Cmfd(CoarseRatios {
+            k: 0.001,
+            flux: 0.01
+        })
+    );
+}
+
+#[test]
+fn coarse_mesh_tolerance_ratios_lie_in_zero_to_one_and_need_cmfd() {
+    // 比は 0 より大きく 1 以下（粗メッシュの許容をスイープによる変化より緩くしない）。加速しないケースに書けばエラー
+    let with = |lines: &str| {
+        edited(
+            CASE,
+            "radial-nodes = 1\n",
+            &format!("radial-nodes = 1\n{lines}"),
+        )
+    };
+    for key in ["cmfd-k-ratio", "cmfd-flux-ratio"] {
+        for bad in ["0.0", "-0.01", "1.5", "nan", "inf"] {
+            let e = Case::parse(&with(&format!("{key} = {bad}\n")), base())
+                .unwrap_err()
+                .to_string();
+            assert!(e.contains(key), "{key} = {bad}: {e}");
+        }
+        let e = Case::parse(
+            &with(&format!("acceleration = \"none\"\n{key} = 0.1\n")),
+            base(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains(key) && e.contains("none"), "{e}");
+    }
 }
 
 #[test]
