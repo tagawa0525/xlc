@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 ブランチ chore/0233-docs-consistency-hook（ADR-0233 の pre-commit の hook `docs-consistency`）に担当が回したローカルのレビューの
-1 周目で、再現を書かず直さなかった指摘（/git-merge の「直す指摘の基準」の non-blocking）。
+1 周目と 2 周目で、再現を書かず直さなかった指摘（/git-merge の「直す指摘の基準」の non-blocking）。
 
 関係する ADR: ADR-0233
 
@@ -30,11 +30,24 @@ resolution:
 3. マージを締めるコミット（競合の解決の後の `git commit`）では、グローバルの pre-commit が pre-merge-commit（`run-checks.sh --merge`
    の `cargo test`。`docs_are_consistent` を含む）を実行した後に prek がこの hook を実行し、同じ検査が 2 度走る（キャッシュありで
    0.11 秒）。同じ worktree で別の cargo のビルドが走っている間は、`git commit` が target のロックを待つ
+4. `--exact docs_are_consistent` が 0 本に当たっても `cargo test` は 0 で終わる（レビューが `--exact no_such_test` で確かめた）。
+   テストを改名するか `#[ignore]` を付けると、hook は何も検査せずに通る
+5. テストが読むリポジトリの根はコンパイルの時の `env!("CARGO_MANIFEST_DIR")` で決まる。別の worktree の target を `CARGO_TARGET_DIR` で
+   共有すると、その worktree で作ったテストのバイナリが再利用され、別の worktree の作業ツリーを読む（1 周目のレビューが
+   この worktree の target を共有して起き、テストが消えた worktree を指して落ちた）。`run-checks.sh` の `cargo test` も同じ
+6. hook の `cargo test` に `--locked` が無い。Cargo.toml の依存の変更だけをステージして Cargo.lock を残すと、cargo が Cargo.lock を
+   書き換え、prek がファイルの変更として hook を失敗にする
+7. tests/consistency.rs に、まだ無い API を呼ぶ RED のテストをコミットすると、コンパイルが通らずに hook が止まる（実行して落ちる RED は、
+   `docs_are_consistent` だけを実行するので止まらない。crates/docs/src の単体テストはこのターゲットでコンパイルしない）
+8. ADR-0233 の時間は手元の `/usr/bin/env time` の測定で、Slurm の timed のジョブではない（依頼が手元で測ると決めた）
+9. `pass_filenames: false` と `always_run: true` で hook は 1 回しか呼ばれないので、`require_serial: true` は効かない
 
 ## 完了の条件
 
-1 の手順を /git-merge で決めるか、起きないことを確かめる。2 を 1 つの規則にそろえるか、そろえない理由を書く。3 を許すか直すかを決める。
+1 の手順を /git-merge で決めるか、起きないことを確かめる。2 を 1 つの規則にそろえるか、そろえない理由を書く。3〜9 を直すか、直さない理由を書く。
 
 ## 経緯
 
 - 2026-11-06: 担当の 1 周目（HEAD c1a7b3840。後で ADR を実装の前に並べ直したので、今のブランチの祖先ではない）の指摘から起こした
+- 2026-11-06: 担当の 2 周目（HEAD 023d127fc）の指摘から 4〜9 を足した。競合を解いた後の `git rebase --continue` でも hook が走るという
+  指摘は、一時のリポジトリで確かめると pre-commit が呼ばれなかったので外した
