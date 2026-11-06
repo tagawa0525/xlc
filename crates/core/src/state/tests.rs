@@ -1436,11 +1436,18 @@ fn converted_ppm_outside_the_boron_points_is_an_error() {
 
 #[test]
 fn table_b10_is_not_converted() {
+    // B-10 のないテーブル（b10 0）は換算の比が決まらない（ADR-0237）が、状態も b10 0 なら換算せずに引き、b10 だけが違う同じテーブルを
+    // その b10 で引いたものとビットで同じ
     let t = table();
-    let s = state(1291.0, 570.0, 565.0);
-    let got = interpolate(&t, Some(&s), None).unwrap().remove(0);
-    let want = few(1291.0, 570.0, 565.0).k_inf;
-    assert!(close(got.k_inf, want));
+    let mut none = t.clone();
+    let Axis::Boron { b10, .. } = &mut none.axes[0] else {
+        panic!("the first axis is boron");
+    };
+    *b10 = 0.0;
+    let mut s = state(1291.0, 570.0, 565.0);
+    let want = interpolate(&t, Some(&s), None).unwrap();
+    s.b10 = 0.0;
+    assert_eq!(interpolate(&none, Some(&s), None).unwrap(), want);
 }
 
 #[test]
