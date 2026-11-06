@@ -2090,3 +2090,34 @@ fn coolant_micro_cross_sections_without_the_nuclide_weight_the_water_by_volume()
         );
     }
 }
+
+#[test]
+fn coolant_micro_data_of_regions_without_the_borated_water_are_zero() {
+    // ホウ酸水のないノード（燃料だけ、構造材だけ）は B-10 を持たず、補正は 0 になる（ADR-0236）
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let index = 1;
+    let state = branches.state(index);
+    let (s, shielded, solution) = solved(&text, &library, &branches, index);
+    let waters = vec!["water".to_string()];
+    let coolant = crate::coolant::Coolant {
+        library: &library,
+        shielding: Some(crate::coolant::Shielding {
+            fuel: &shielded,
+            materials: &state,
+        }),
+        state: &state,
+        region_materials: branches.region_materials(0),
+        waters: &waters,
+        lattice: &s.tracking.lattice,
+        solution: &solution,
+        bounds: &BOUNDS,
+    };
+    let fuel = regions_of(branches.region_materials(0), |n| n.contains('@'));
+    assert!(!fuel.is_empty());
+    let b = coolant.micro("B-10", &fuel).unwrap();
+    assert_eq!(b.density, 0.0);
+    assert_eq!(b.total, vec![0.0; 2]);
+    assert_eq!(b.scatter, vec![vec![0.0; 2]; 2]);
+}
