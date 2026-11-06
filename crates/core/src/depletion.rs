@@ -28,10 +28,11 @@ use crate::case::{
     solve_compositions,
 };
 use crate::input::{
-    Boron, BoronSearch, CaseState, DepletionInput, Layout, MidpointBoron, StepKind, Xenon,
+    Boron, BoronSearch, CaseState, DepletionInput, InitialGuess, Layout, MidpointBoron, StepKind,
+    Xenon,
 };
 use crate::micro::{MicroChain, TrackedRates};
-use crate::nem::{Options, fission_rates};
+use crate::nem::{Guess, Options, fission_rates};
 use crate::rods::mix_micro;
 use crate::state::moderator_density;
 use crate::thermal::fissile;
@@ -748,6 +749,8 @@ pub fn deplete(
             "micro depletion"
         );
     }
+    // 直前の固有値計算の収束した状態（ADR-0231）。次の固有値計算はここから反復する。`initial-guess = "flat"` のケースは持たない
+    let last = std::cell::RefCell::new(None::<Guess>);
     // 状態 `k` の燃焼度 `burnups`（ミクロ燃焼なら組成 `n` も）で解く（探索の状態は、k が目標になるホウ素濃度で。`given` が
     // あれば、探索の状態もその濃度で解く）。`at` はエラーに添える解の場所
     let solve = |k: usize,
@@ -779,15 +782,19 @@ pub fn deplete(
             }
         };
         let solve_ppm = |ppm: f64| {
-            solve_compositions(
+            let solved = solve_compositions(
                 layout,
                 tables,
                 &state.at(ppm),
                 burnups,
                 compositions.as_ref(),
-                None,
+                last.borrow().as_ref(),
                 options,
-            )
+            )?;
+            if depletion.initial_guess == InitialGuess::Previous {
+                last.replace(Some(solved.guess.clone()));
+            }
+            Ok(solved)
         };
         let solved = match (&state.boron, given) {
             (Boron::Given(ppm), _) => solve_ppm(*ppm).map(|solved| (solved, *ppm, 1)),
