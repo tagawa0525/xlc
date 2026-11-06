@@ -285,6 +285,7 @@ fn single_reflective_node_direction_stays_bounded() {
         flux_tolerance: 0.0,
         max_iterations: 2000,
         acceleration: Acceleration::None,
+        order: Order::RedBlack,
     };
     match iterate(&mut core, &long, None, None) {
         Err(NemError::NotConverged { k, .. }) => assert!(
@@ -1116,7 +1117,7 @@ fn no_flux_next_to_a_vacuum_face_is_error() {
         let mut state = State::new(6, 2);
         state.flux[0][1] = bad;
         let err = core
-            .sweep_group(&mut state, 1, 1.0)
+            .sweep_group(&mut state, 1, 1.0, Order::RedBlack)
             .unwrap_err()
             .to_string();
         assert!(err.contains("vacuum"), "{err}");
@@ -1131,7 +1132,10 @@ fn no_flux_next_to_a_vacuum_face_is_error() {
     let core = Core::new(&p).unwrap();
     let mut state = State::new(6, 2);
     state.flux[0][1] = 0.0;
-    assert!(core.sweep_group(&mut state, 1, 1.0).is_ok());
+    assert!(
+        core.sweep_group(&mut state, 1, 1.0, Order::RedBlack)
+            .is_ok()
+    );
 }
 
 /// 細かいノードの解を参照（不均質な解）とし、粗いノード（x, y に `blocks` 個ずつの細かいノードの
@@ -2251,5 +2255,117 @@ fn cmfd_needs_positive_node_fluxes() {
             ..
         }) => assert_eq!(filled.node_material[node], Some(1)),
         other => panic!("expected a non-positive flux for CMFD, got {other:?}"),
+    }
+}
+
+/// `threads` のスレッドのプールの中で解く
+fn solve_on(threads: usize, problem: &Problem, options: &Options) -> Solution {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .install(|| solve(problem, options).unwrap())
+}
+
+/// 市松の 2 色の順と並列で確かめる問題: 反射体と ADF の跳び、外形の面、集合体ほどのノード、奇数の幅の直方体（色の数が違う）
+fn colored_problems() -> [(&'static str, Problem); 4] {
+    [
+        ("reflected core", reflected_core()),
+        ("stepped core", stepped_core(2, Boundary::Marshak)),
+        (
+            "assembly-sized nodes",
+            cuboid([200.0; 3], [12; 3], [Boundary::ZeroFlux; 6]),
+        ),
+        (
+            "odd cuboid",
+            cuboid([90.0, 70.0, 110.0], [9, 7, 11], [Boundary::Marshak; 6]),
+        ),
+    ]
+}
+
+#[test]
+fn red_black_solutions_do_not_depend_on_the_thread_count() {
+    // ADR-0234: 同じ色のノード（と粗メッシュのセル）は互いの値を読まず、和は決まった順に取るので、スレッドの数によらず同じ演算を
+    // 同じ順に行い、解はビットで同じ
+    let accelerated = Options::default();
+    assert_eq!(accelerated.order, Order::RedBlack);
+    let unaccelerated = Options {
+        acceleration: Acceleration::None,
+        ..accelerated
+    };
+    for (name, problem) in colored_problems() {
+        for options in [accelerated, unaccelerated] {
+            let one = solve_on(1, &problem, &options);
+            for threads in [2, 3, 8] {
+                assert_eq!(
+                    solve_on(threads, &problem, &options),
+                    one,
+                    "{name}, {:?}, {threads} threads",
+                    options.acceleration
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn red_black_order_agrees_with_the_lexicographic_order() {
+    // ADR-0234: 解く順は収束した解を変えない。どちらの順も同じ収束の判定（見積もった残りが許容の中）を満たすので、差は許容の 2 倍の中
+    let red_black = Options::default();
+    for acceleration in [Acceleration::Cmfd, Acceleration::None] {
+        let red_black = Options {
+            acceleration,
+            ..red_black
+        };
+        let lexicographic = Options {
+            order: Order::Lexicographic,
+            ..red_black
+        };
+        for (name, problem) in colored_problems() {
+            let a = solve(&problem, &red_black).unwrap();
+            let b = solve(&problem, &lexicographic).unwrap();
+            let (dk, dflux) = differences(&a, &b);
+            assert!(
+                dk < 2.0 * red_black.k_tolerance,
+                "{name}, {acceleration:?}: k {} vs {}",
+                a.k,
+                b.k
+            );
+            assert!(
+                dflux < 2.0 * red_black.flux_tolerance,
+                "{name}, {acceleration:?}: flux {dflux}"
+            );
+        }
+    }
+}
+
+#[test]
+fn red_black_errors_name_the_first_node_in_order() {
+    // 並列に解いて誤るノードが複数あっても、エラーはスレッドの数によらず同じノードを示す（`cmfd_needs_positive_node_fluxes` と同じ
+    // 強い吸収体の問題）
+    let mut black = material();
+    black.diffusion = vec![0.02, 0.02];
+    black.total = vec![50.0, 50.0];
+    black.absorption = vec![50.0, 50.0];
+    black.scatter = vec![vec![0.0; 2]; 2];
+    black.nu_fission = vec![0.0; 2];
+    black.fission = vec![0.0; 2];
+    black.chi = vec![0.0; 2];
+    let mut filled = stepped_core(1, Boundary::ZeroFlux);
+    filled.materials.push(black);
+    for m in &mut filled.node_material {
+        m.get_or_insert(1);
+    }
+    filled.outline = None;
+    let error = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| solve(&filled, &Options::default()).unwrap_err().to_string())
+    };
+    let one = error(1);
+    for threads in [2, 4] {
+        assert_eq!(error(threads), one, "{threads} threads");
     }
 }

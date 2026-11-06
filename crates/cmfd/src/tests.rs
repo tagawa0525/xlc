@@ -53,8 +53,24 @@ fn one_cell_gives_the_infinite_medium_k() {
     }
 }
 
+/// `Coarse::new` と `Coarse::colored` の引数（群の数、番号、組み立てた中性子束、核分裂の項、対角のブロック、隣との結合）
+type Parts = (
+    usize,
+    Vec<usize>,
+    Vec<f64>,
+    Vec<Vec<Spectrum>>,
+    Vec<Vec<f64>>,
+    Vec<Vec<(usize, Vec<f64>)>>,
+);
+
 /// 1 群の 1 次元の平板（幅 h のセル n 個、両端は中性子束 0 に近い強い漏れ）の有限差分の行列
 fn slab(n: usize, leak_at_ends: f64) -> Coarse {
+    let (groups, labels, flux, fission, matrices, neighbors) = slab_parts(n, leak_at_ends);
+    Coarse::new(groups, labels, flux, fission, matrices, neighbors).unwrap()
+}
+
+/// `slab` の引数
+fn slab_parts(n: usize, leak_at_ends: f64) -> Parts {
     let (d, h, absorption, nu_fission) = (1.2, 2.0, 0.02, 0.025);
     let coupling = d / h;
     let matrices = (0..n)
@@ -85,7 +101,7 @@ fn slab(n: usize, leak_at_ends: f64) -> Coarse {
             }]
         })
         .collect();
-    Coarse::new(
+    (
         1,
         (0..n).collect(),
         vec![1.0; n],
@@ -93,7 +109,6 @@ fn slab(n: usize, leak_at_ends: f64) -> Coarse {
         matrices,
         neighbors,
     )
-    .unwrap()
 }
 
 #[test]
@@ -218,4 +233,159 @@ fn coupling_that_drives_a_flux_negative_is_an_error() {
         coarse.solve(1.0, &tolerances()),
         Err(CoarseError::NonPositiveSolution { cell: 4, .. })
     ));
+}
+
+/// 2 群の nx × ny の平面（1 つのセルの定数 `ONE_CELL` に隣との結合と外周の漏れを足したもの）。組み立てた中性子束は位置で変え、
+/// 解き始めの値が平らでない
+fn plane_parts(nx: usize, ny: usize) -> Parts {
+    let (r1, a2, s12, f1, f2) = ONE_CELL;
+    let (c1, c2) = (0.004, 0.002);
+    let cells = nx * ny;
+    let mut matrices = Vec::new();
+    let mut neighbors = Vec::new();
+    for c in 0..cells {
+        let (i, j) = (c % nx, c / nx);
+        let mut list = Vec::new();
+        let mut outer = 0;
+        for (inside, other) in [
+            (i > 0, c.wrapping_sub(1)),
+            (i + 1 < nx, c + 1),
+            (j > 0, c.wrapping_sub(nx)),
+            (j + 1 < ny, c + nx),
+        ] {
+            if inside {
+                list.push((other, vec![-c1, -c2]));
+            } else {
+                outer += 1;
+            }
+        }
+        // 隣との結合の和と、外周の面からの漏れ（結合の 2 倍）を対角に足す
+        let leak = (list.len() + 2 * outer) as f64;
+        matrices.push(vec![r1 + c1 * leak, 0.0, -s12, a2 + c2 * leak]);
+        neighbors.push(list);
+    }
+    let fission = (0..cells).map(|_| spectrum(f1, f2, 1.0)).collect();
+    let flux = (0..cells)
+        .flat_map(|c| [1.0 + 0.1 * (c % 7) as f64, 0.3 + 0.02 * (c % 5) as f64])
+        .collect();
+    (
+        2,
+        (100..100 + cells).collect(),
+        flux,
+        fission,
+        matrices,
+        neighbors,
+    )
+}
+
+/// 平面の位置の市松の色
+fn checkerboard(nx: usize, ny: usize) -> Vec<usize> {
+    (0..nx * ny).map(|c| (c % nx + c / nx) % 2).collect()
+}
+
+#[test]
+fn colored_solves_agree_with_the_cell_order() {
+    // ADR-0234: 同じ色のセルを互いに読まずに解く順（市松の 2 色）は、固有値問題の解を変えない。どちらの順も同じ判定で止めるので、
+    // 差は許容の 2 倍の中。比は与えたセルの順に返す
+    for (nx, ny) in [(12, 1), (7, 5), (6, 6)] {
+        let (groups, labels, flux, fission, matrices, neighbors) = plane_parts(nx, ny);
+        let plain = Coarse::new(
+            groups,
+            labels.clone(),
+            flux.clone(),
+            fission.clone(),
+            matrices.clone(),
+            neighbors.clone(),
+        )
+        .unwrap()
+        .solve(1.0, &tolerances())
+        .unwrap();
+        let colored = Coarse::colored(
+            groups,
+            labels,
+            flux,
+            fission,
+            matrices,
+            neighbors,
+            &checkerboard(nx, ny),
+        )
+        .unwrap()
+        .solve(1.0, &tolerances())
+        .unwrap();
+        let t = tolerances();
+        assert!(
+            (colored.k - plain.k).abs() < 2.0 * t.k,
+            "{nx} x {ny}: k {} vs {}",
+            colored.k,
+            plain.k
+        );
+        assert_eq!(colored.ratio.len(), plain.ratio.len());
+        for (cell, (a, b)) in colored.ratio.iter().zip(&plain.ratio).enumerate() {
+            assert!(
+                (a - b).abs() < 2.0 * t.flux * b,
+                "{nx} x {ny}, cell {cell}: {a} vs {b}"
+            );
+        }
+    }
+}
+
+#[test]
+fn colored_solves_do_not_depend_on_the_thread_count() {
+    // ADR-0234: 同じ色のセルは互いに読まず、和は決まった順に取るので、スレッドの数によらず解はビットで同じ
+    let (nx, ny) = (40, 30);
+    let solve_on = |threads: usize| {
+        let (groups, labels, flux, fission, matrices, neighbors) = plane_parts(nx, ny);
+        let coarse = Coarse::colored(
+            groups,
+            labels,
+            flux,
+            fission,
+            matrices,
+            neighbors,
+            &checkerboard(nx, ny),
+        )
+        .unwrap();
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| coarse.solve(1.0, &tolerances()).unwrap())
+    };
+    let one = solve_on(1);
+    for threads in [2, 3, 8] {
+        assert_eq!(solve_on(threads), one, "{threads} threads");
+    }
+}
+
+#[test]
+fn colors_must_not_couple_cells_of_the_same_color() {
+    // 同じ色の隣を読むと、並列に解いた結果が読む順で変わる。黙って順に解かず、組み立てた側の番号を付けたエラーにする
+    let (groups, labels, flux, fission, matrices, neighbors) = slab_parts(4, 0.4);
+    let result = Coarse::colored(
+        groups,
+        labels,
+        flux,
+        fission,
+        matrices,
+        neighbors,
+        &[0, 1, 1, 0],
+    );
+    assert!(
+        matches!(result, Err(CoarseError::SameColor { cell: 1, other: 2 })),
+        "{result:?}"
+    );
+    let (groups, labels, flux, fission, matrices, neighbors) = slab_parts(4, 0.4);
+    let result = Coarse::colored(
+        groups,
+        labels,
+        flux,
+        fission,
+        matrices,
+        neighbors,
+        &[0, 1, 0],
+    );
+    assert!(
+        matches!(result, Err(CoarseError::Colors { .. })),
+        "{result:?}"
+    );
 }

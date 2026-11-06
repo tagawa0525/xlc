@@ -1,0 +1,509 @@
+{
+ "format": "xlc-compare-core-threads",
+ "inputs": [
+  {
+   "path": "examples/depletion/branches/core-small-search-lexicographic-1.msgpack",
+   "md5": "4675c7f98b4f8de7934c95e106978fef"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-lexicographic-1.log",
+   "md5": "7dfb059f9cf1fc80ecc873a762bbd7a1"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-1-1.msgpack",
+   "md5": "919b2f80dff60cc35dc89473451ab251"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-1-1.log",
+   "md5": "39fecdf4e12c5ca785b697038cec4978"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-4-1.msgpack",
+   "md5": "919b2f80dff60cc35dc89473451ab251"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-4-1.log",
+   "md5": "93bfbb9445a49d642dae5ce01390c44a"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-16-1.msgpack",
+   "md5": "919b2f80dff60cc35dc89473451ab251"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-16-1.log",
+   "md5": "17f5482a646f6521a171e79bcc2e3a0a"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.msgpack",
+   "md5": "cab0f27e20e38073ab68242b3c60cc47"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.log",
+   "md5": "1708373b199a00cf433d6fc69d9f1ac3"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-1-1.msgpack",
+   "md5": "9c024886b20f409775219a10fc274997"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-1-1.log",
+   "md5": "c522f612318126e9cfbe2271a8bd7d64"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.msgpack",
+   "md5": "9c024886b20f409775219a10fc274997"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.log",
+   "md5": "49cf27ff2509218fcbf9b088be36e090"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-16-1.msgpack",
+   "md5": "9c024886b20f409775219a10fc274997"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-16-1.log",
+   "md5": "1ca0984948f91a960d5c616bbb2a0580"
+  }
+ ],
+ "cases": {
+  "search": {
+   "points": [
+    {
+     "efpd": 0.0,
+     "days": 0.0,
+     "state": "aro",
+     "k": -4.087215010883938e-10,
+     "boron": 3.714313379532541e-06,
+     "burnup": 0.0,
+     "power": 1.9743413522089906e-08
+    },
+    {
+     "efpd": 6.508721687060662,
+     "days": 6.508721687060662,
+     "state": "aro",
+     "k": -2.803584031596529e-10,
+     "boron": -1.6357478216377785e-07,
+     "burnup": 7.163785686535208e-08,
+     "power": 5.206439694238648e-08
+    },
+    {
+     "efpd": 26.03488674824265,
+     "days": 26.03488674824265,
+     "state": "aro",
+     "k": 1.4467027575904012e-10,
+     "boron": -1.1803799679910298e-06,
+     "burnup": 7.498371833615682e-08,
+     "power": 6.983466678829416e-08
+    },
+    {
+     "efpd": 52.0697734964853,
+     "days": 52.0697734964853,
+     "state": "aro",
+     "k": 1.8939472212764485e-10,
+     "boron": -1.79107428266434e-06,
+     "burnup": 9.11068721149127e-08,
+     "power": 2.307480522907653e-07
+    },
+    {
+     "efpd": 78.10466024472794,
+     "days": 78.10466024472794,
+     "state": "rodded",
+     "k": 3.7907454952801345e-12,
+     "boron": -4.993547509002383e-05,
+     "burnup": 1.8410788522669604e-07,
+     "power": 4.708751455917126e-07
+    },
+    {
+     "efpd": 104.1395469929706,
+     "days": 104.1395469929706,
+     "state": "rodded",
+     "k": -3.0946356588401613e-12,
+     "boron": -2.9429192807128857e-05,
+     "burnup": 1.8175912998205767e-07,
+     "power": 3.7787551598742916e-07
+    },
+    {
+     "efpd": 130.17443374121325,
+     "days": 130.17443374121325,
+     "state": "aro",
+     "k": -3.9508063487403433e-10,
+     "boron": 3.9956308796718076e-05,
+     "burnup": 1.7727542880665681e-07,
+     "power": 4.2246292706048267e-07
+    },
+    {
+     "efpd": 156.20932048945588,
+     "days": 167.36712909584557,
+     "state": "aro",
+     "k": -4.3154657625166237e-10,
+     "boron": -7.921571375391068e-05,
+     "burnup": 4.372492858126542e-08,
+     "power": 6.680832142972275e-07
+    },
+    {
+     "efpd": 182.24420723769853,
+     "days": 204.55982445047795,
+     "state": "aro",
+     "k": -5.37685007628852e-10,
+     "boron": 1.5955161074998614e-05,
+     "burnup": 3.3695324247610914e-08,
+     "power": 3.634256097630402e-07
+    },
+    {
+     "efpd": 182.24420723769853,
+     "days": 222.55982445047795,
+     "state": "aro",
+     "k": -3.5533043174496015e-10,
+     "boron": 1.2677633549174061e-05,
+     "burnup": 3.3695324247610914e-08,
+     "power": 1.6172130476809232e-07
+    },
+    {
+     "efpd": 195.26165061181985,
+     "days": 235.57726782459926,
+     "state": "aro",
+     "k": -4.0231840081617065e-10,
+     "boron": -1.5049836008529383e-05,
+     "burnup": 1.839306451611926e-08,
+     "power": 3.773210685800622e-07
+    }
+   ],
+   "midpoints": [
+    {
+     "k": -1.4783285706698734e-11,
+     "boron": -6.545561745952e-07
+    },
+    {
+     "k": 7.36115612909316e-11,
+     "boron": -3.032425865967525e-07
+    },
+    {
+     "k": 2.1532886584907374e-10,
+     "boron": -1.7699153431749437e-06
+    },
+    {
+     "k": 1.5983570023081484e-10,
+     "boron": -1.5513777498199488e-06
+    },
+    {
+     "k": 1.3213874439088613e-12,
+     "boron": -2.7225254996210424e-05
+    },
+    {
+     "k": 1.623501333369859e-11,
+     "boron": -2.3867724365800314e-05
+    },
+    {
+     "k": 2.326761006088418e-11,
+     "boron": -1.896600798545478e-05
+    },
+    {
+     "k": -1.7673063013035062e-10,
+     "boron": -6.182463550885586e-06
+    },
+    {
+     "k": -6.775136007775018e-11,
+     "boron": 3.7692012142542808e-06
+    }
+   ],
+   "runs": [
+    {
+     "order": "lexicographic",
+     "threads": 1,
+     "same_bytes": null,
+     "solves": 119,
+     "iterations": 5458,
+     "eigenvalue_seconds": 7.026371311,
+     "seconds": 8.114261848,
+     "per_solve": {
+      "iterations": [
+       11,
+       75
+      ],
+      "seconds": [
+       0.009500835,
+       0.190002169
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 1,
+     "same_bytes": null,
+     "solves": 119,
+     "iterations": 5095,
+     "eigenvalue_seconds": 6.228279401,
+     "seconds": 7.318275897,
+     "per_solve": {
+      "iterations": [
+       11,
+       74
+      ],
+      "seconds": [
+       0.007986805,
+       0.192969445
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 4,
+     "same_bytes": true,
+     "solves": 119,
+     "iterations": 5095,
+     "eigenvalue_seconds": 6.237508327,
+     "seconds": 6.726955753,
+     "per_solve": {
+      "iterations": [
+       11,
+       74
+      ],
+      "seconds": [
+       0.007395077,
+       0.190607887
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 16,
+     "same_bytes": true,
+     "solves": 119,
+     "iterations": 5095,
+     "eigenvalue_seconds": 7.240928105,
+     "seconds": 7.612858688,
+     "per_solve": {
+      "iterations": [
+       11,
+       74
+      ],
+      "seconds": [
+       0.008880545,
+       0.202230476
+      ]
+     }
+    }
+   ]
+  },
+  "equilibrium": {
+   "points": [
+    {
+     "efpd": 0.0,
+     "days": 0.0,
+     "state": "aro",
+     "k": -4.087215010883938e-10,
+     "boron": 3.714313379532541e-06,
+     "burnup": 0.0,
+     "power": 1.9743413522089906e-08
+    },
+    {
+     "efpd": 6.508721687060662,
+     "days": 6.508721687060662,
+     "state": "aro",
+     "k": 1.0234835201572423e-10,
+     "boron": -1.5207443766485085e-06,
+     "burnup": 4.148399069408314e-08,
+     "power": 1.0968125470761606e-07
+    },
+    {
+     "efpd": 26.03488674824265,
+     "days": 26.03488674824265,
+     "state": "aro",
+     "k": -2.332243287384017e-10,
+     "boron": 2.1715868570026942e-07,
+     "burnup": 5.1029185651873806e-08,
+     "power": 7.374378068591289e-08
+    },
+    {
+     "efpd": 52.0697734964853,
+     "days": 52.0697734964853,
+     "state": "aro",
+     "k": 8.872584889019208e-10,
+     "boron": -4.3601974084594985e-06,
+     "burnup": 2.344115287495604e-08,
+     "power": 2.7244962916425595e-07
+    },
+    {
+     "efpd": 78.10466024472794,
+     "days": 78.10466024472794,
+     "state": "rodded",
+     "k": 1.1854961456947422e-12,
+     "boron": 1.6256026071914675e-05,
+     "burnup": 1.2775622969374559e-07,
+     "power": 1.5277927512632796e-07
+    },
+    {
+     "efpd": 104.1395469929706,
+     "days": 104.1395469929706,
+     "state": "rodded",
+     "k": -3.419486915845482e-14,
+     "boron": 1.1593229146455997e-05,
+     "burnup": 1.261178101529824e-07,
+     "power": 1.2663599159150065e-07
+    },
+    {
+     "efpd": 130.17443374121325,
+     "days": 130.17443374121325,
+     "state": "aro",
+     "k": -2.621098893484941e-10,
+     "boron": -1.9640781999896717e-05,
+     "burnup": 1.2293035290062886e-07,
+     "power": 3.034128193784584e-07
+    },
+    {
+     "efpd": 156.20932048945588,
+     "days": 167.36712909584557,
+     "state": "aro",
+     "k": 3.842348661464712e-11,
+     "boron": -9.05749914181797e-06,
+     "burnup": 5.142780146283939e-08,
+     "power": 1.3814909651036849e-07
+    },
+    {
+     "efpd": 182.24420723769853,
+     "days": 204.55982445047795,
+     "state": "aro",
+     "k": 2.8671509610944668e-11,
+     "boron": -7.809409794390376e-07,
+     "burnup": 1.0852647693857517e-08,
+     "power": 2.1234536585842353e-08
+    },
+    {
+     "efpd": 182.24420723769853,
+     "days": 222.55982445047795,
+     "state": "aro",
+     "k": -1.6678081138365997e-10,
+     "boron": 1.7914572367772053e-06,
+     "burnup": 1.0852647693857517e-08,
+     "power": 4.099811689081414e-08
+    },
+    {
+     "efpd": 195.26165061181985,
+     "days": 235.57726782459926,
+     "state": "aro",
+     "k": -3.5712321988512485e-11,
+     "boron": -3.7242312345142636e-07,
+     "burnup": 6.978943307501888e-09,
+     "power": 5.647916554411661e-08
+    }
+   ],
+   "midpoints": [
+    {
+     "k": 8.199598355851379e-08,
+     "boron": -0.0007084994067554362
+    },
+    {
+     "k": 8.478195923089515e-11,
+     "boron": -2.8021136131428648e-06
+    },
+    {
+     "k": 3.3223845896657167e-10,
+     "boron": -1.9011891936315806e-06
+    },
+    {
+     "k": 1.1697853796732716e-09,
+     "boron": -1.2259887853360851e-05
+    },
+    {
+     "k": -2.320366121466577e-13,
+     "boron": 1.2681153748417273e-05
+    },
+    {
+     "k": -3.0109248427834245e-13,
+     "boron": 1.0778494527130533e-05
+    },
+    {
+     "k": 2.0982149351311818e-10,
+     "boron": -1.1964259101659991e-05
+    },
+    {
+     "k": 1.4093481937038632e-10,
+     "boron": -5.52968307943047e-06
+    },
+    {
+     "k": -3.967870476628832e-11,
+     "boron": -6.576266429192401e-07
+    }
+   ],
+   "runs": [
+    {
+     "order": "lexicographic",
+     "threads": 1,
+     "same_bytes": null,
+     "solves": 239,
+     "iterations": 10571,
+     "eigenvalue_seconds": 15.249143393,
+     "seconds": 16.946695636,
+     "per_solve": {
+      "iterations": [
+       2,
+       78
+      ],
+      "seconds": [
+       0.001060903,
+       0.172430042
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 1,
+     "same_bytes": null,
+     "solves": 236,
+     "iterations": 9843,
+     "eigenvalue_seconds": 14.156919959,
+     "seconds": 15.83032508,
+     "per_solve": {
+      "iterations": [
+       2,
+       73
+      ],
+      "seconds": [
+       0.001568272,
+       0.176161664
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 4,
+     "same_bytes": true,
+     "solves": 236,
+     "iterations": 9843,
+     "eigenvalue_seconds": 14.24464266,
+     "seconds": 15.0397961,
+     "per_solve": {
+      "iterations": [
+       2,
+       73
+      ],
+      "seconds": [
+       0.001667888,
+       0.178549795
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 16,
+     "same_bytes": true,
+     "solves": 236,
+     "iterations": 9843,
+     "eigenvalue_seconds": 16.096173597,
+     "seconds": 16.743180411,
+     "per_solve": {
+      "iterations": [
+       2,
+       73
+      ],
+      "seconds": [
+       0.00239103,
+       0.197542221
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

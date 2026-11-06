@@ -1397,6 +1397,68 @@ def core_acceleration_runs(sources: list[dict], label: str = "CMFD（ADR-0232）
     )
 
 
+def core_threads_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-threads":
+        raise TableError("not an xlc-compare-core-threads summary")
+    return s
+
+
+# compare_core_threads.py の燃焼の順の名前
+THREAD_ORDERS = {
+    "lexicographic": "直方体の並びの順",
+    "red-black": "色の順",
+    "before": "ADR-0234 の前の bin/core",
+}
+
+
+def core_threads_runs(sources: list[dict]) -> str:
+    """固有値計算を解く順とスレッドの数（ADR-0234）ごとの、固有値計算の数、外側の反復の回数の和と 1 回の範囲、固有値計算の時間の和と
+    1 回の範囲、全体の時間と、最初の色の順の燃焼と履歴のバイトが同じか（compare_core_threads.py）"""
+    s = core_threads_summary(sources)
+    rows = []
+    for name, c in s["cases"].items():
+        for r in c["runs"]:
+            low, high = r["per_solve"]["iterations"]
+            fast, slow = r["per_solve"]["seconds"]
+            same = {None: "", True: "同じ", False: "違う"}[r["same_bytes"]]
+            rows.append(
+                [
+                    name,
+                    THREAD_ORDERS[r["order"]],
+                    "−" if r["threads"] is None else str(r["threads"]),
+                    str(r["solves"]),
+                    f"{r['iterations']:,}",
+                    f"{low:,}〜{high:,}",
+                    f"{r['eigenvalue_seconds']:.1f}",
+                    f"{fast:.2f}〜{slow:.2f}",
+                    f"{r['seconds']:.1f}",
+                    same,
+                ]
+            )
+    return markdown_table(
+        [
+            "燃焼",
+            "順",
+            "スレッド",
+            "固有値計算の数",
+            "外側の反復の回数の和",
+            "1 回の外側の反復",
+            "固有値計算の時間 (s)",
+            "1 回の時間 (s)",
+            "全体の時間 (s)",
+            "履歴（色の順の最初の燃焼と）",
+        ],
+        rows,
+    )
+
+
+def core_threads_differences(sources: list[dict]) -> str:
+    """色の順 − 直方体の並びの順の差の最大（compare_core_threads.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と出力の
+    割合の相対差の絶対値"""
+    return core_pair_differences(core_threads_summary(sources))
+
+
 def core_acceleration_differences(sources: list[dict]) -> str:
     """固有値計算の CMFD − 加速なしの差の最大（compare_core_acceleration.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と
     出力の割合の相対差の絶対値"""
@@ -3500,6 +3562,11 @@ GIT_TRACKED = {
     # 同じ入力を、粗メッシュの許容を詰めた CMFD（#0244）で解いた試行と、trial-0156 との比較。ステージの出力でない
     "examples/depletion/p9-timing/trial-0244/timing-p9.json",
     "examples/depletion/p9-timing/trial-0244/compare-acceleration.json",
+    # 同じ入力を、色の順で複数のスレッドで解いた試行（ADR-0234）と、trial-0244 との比較。ステージの出力でない
+    "examples/depletion/p9-timing/trial-0234/timing-p9.json",
+    "examples/depletion/p9-timing/trial-0234/compare-threads.json",
+    # 小さな炉心の色の順と直方体の並びの順、スレッドの数（ADR-0234）
+    "examples/depletion/branches/compare-core-small-threads.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4099,6 +4166,22 @@ TABLES = {
         ["examples/depletion/p9-timing/trial-0244/compare-acceleration.json"],
         core_acceleration_differences,
     ),
+    "depletion-small-core-threads-runs": (
+        ["examples/depletion/branches/compare-core-small-threads.json"],
+        core_threads_runs,
+    ),
+    "depletion-small-core-threads-differences": (
+        ["examples/depletion/branches/compare-core-small-threads.json"],
+        core_threads_differences,
+    ),
+    "core-p9-threads-runs": (
+        ["examples/depletion/p9-timing/trial-0234/compare-threads.json"],
+        core_threads_runs,
+    ),
+    "core-p9-threads-differences": (
+        ["examples/depletion/p9-timing/trial-0234/compare-threads.json"],
+        core_threads_differences,
+    ),
     "core-p9-cmfd-loose-coarse-runs": (
         ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],
         partial(core_acceleration_runs, label="CMFD（#0244 の前）"),
@@ -4302,11 +4385,12 @@ TABLES = {
             draw,
         )
         # 場合 3 を出力のステップにして探す試行は ADR-0219 の同時の反復（#0156）。その入力を CMFD で解いた試行（ADR-0232。
-        # 粗メッシュの許容は #0244 の後）
+        # 粗メッシュの許容は #0244 の後）と、色の順で複数のスレッドで解いた試行（ADR-0234）
         for trial, source in [
             ("", "trial-0231"),
             ("-joint", "trial-0156"),
             ("-cmfd", "trial-0244"),
+            ("-threads", "trial-0234"),
         ]
         for part, draw in [
             ("parts", core_timing_parts),

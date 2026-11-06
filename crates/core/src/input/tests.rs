@@ -1,5 +1,6 @@
 use super::*;
-use crate::nem::{Acceleration, Boundary, Solution};
+use crate::nem::{Acceleration, Boundary, Order, Solution};
+use std::num::NonZeroUsize;
 
 const PLANT: &str = r#"
 pitch = 21.5
@@ -1923,4 +1924,40 @@ fn eigenvalue_solves_may_go_unaccelerated() {
     assert_eq!(read(&with("cmfd")).unwrap(), Acceleration::Cmfd);
     assert_eq!(read(&with("none")).unwrap(), Acceleration::None);
     assert!(read(&with("chebyshev")).is_err());
+}
+
+#[test]
+fn nodes_are_solved_in_red_black_order_unless_lexicographic_is_given() {
+    // ADR-0234: 省けば、固有値計算は市松の 2 色の順でノードを解く。`lexicographic` は直方体の並びの順に 1 つずつ解く（比べるため）
+    let with = |value: &str| {
+        edited(
+            CASE,
+            "radial-nodes = 1\n",
+            &format!("radial-nodes = 1\nnode-order = \"{value}\"\n"),
+        )
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.order);
+    assert_eq!(read(CASE).unwrap(), Order::RedBlack);
+    assert_eq!(read(&with("red-black")).unwrap(), Order::RedBlack);
+    assert_eq!(read(&with("lexicographic")).unwrap(), Order::Lexicographic);
+    assert!(read(&with("diagonal")).is_err());
+}
+
+#[test]
+fn thread_counts_are_positive_when_given() {
+    // ADR-0234: `threads` は解くスレッドの数（結果を変えない）。省けば実行ファイルが既定の数を決める。0 はエラー
+    let with = |value: &str| {
+        edited(
+            CASE,
+            "radial-nodes = 1\n",
+            &format!("radial-nodes = 1\nthreads = {value}\n"),
+        )
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.threads);
+    assert_eq!(read(CASE).unwrap(), None);
+    assert_eq!(read(&with("1")).unwrap(), NonZeroUsize::new(1));
+    assert_eq!(read(&with("16")).unwrap(), NonZeroUsize::new(16));
+    for bad in ["0", "-2", "1.5", "\"4\""] {
+        assert!(read(&with(bad)).is_err(), "threads = {bad}");
+    }
 }

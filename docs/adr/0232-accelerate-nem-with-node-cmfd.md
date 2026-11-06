@@ -156,6 +156,8 @@ current CMFD を解いて更新する（案 M1、C3、F1、U1、J2）。
 - 強い吸収体（Σt h ≈ 1000）のノードでは、CMFD の更新の後の反復でノードの熱群の中性子束が負になり、エラーで止まる（`cmfd_needs_positive_node_fluxes`）。
   入力の `acceleration = "none"` で解ける
 - 燃焼の固有値計算の初期値（ADR-0231）と、Xe とホウ素の同時の反復（ADR-0219）はそのまま使う。前の解から始める固有値計算も加速する
+- 粗メッシュの固有値問題は、[ADR-0234](0234-solve-nem-on-threads-in-red-black-order.md) の既定で、ノードと同じ市松の 2 色の順に、同じ色のセルを複数のスレッドで
+  解く（`xlc_cmfd::Coarse::colored`）。セルの順に 1 つずつ解く形は、ケースの `node-order = "lexicographic"` で選ぶ
 
 ### 確認
 

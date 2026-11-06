@@ -1542,3 +1542,16 @@ fn edited_case(text: &str, from: &str, to: &str) -> String {
     assert!(text.contains(from), "{from}");
     text.replace(from, to)
 }
+
+#[test]
+fn parallel_states_split_the_threads_without_sharing_them() {
+    // ADR-0234: 状態を並列に解くときは、同時に解く状態の数（スレッドの数と状態の数の小さい方）に分け、それぞれが自分のスレッドの
+    // プールで解く（ほかの状態の解を盗んで待つと、固有値計算の時間とログの区間がほかの状態の分を含む）。割り切れない余りは前の
+    // 状態から 1 つずつ足し、すべてのスレッドを使う
+    assert_eq!(state_workers(16, 34), vec![1; 16]);
+    assert_eq!(state_workers(16, 3), vec![6, 5, 5]);
+    assert_eq!(state_workers(16, 9), vec![2, 2, 2, 2, 2, 2, 2, 1, 1]);
+    assert_eq!(state_workers(4, 1), vec![4]);
+    assert_eq!(state_workers(1, 5), vec![1]);
+    assert_eq!(state_workers(4, 0), vec![4]);
+}

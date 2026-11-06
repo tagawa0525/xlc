@@ -16,10 +16,16 @@
 //! ノードは直方体の格子の上に並べ、ノードのない位置（炉心の外形の外）を持てる。ノードのない位置に面する面は、
 //! `Problem::outline` の条件の外周の面として扱う（ADR-0132）。
 
+use rayon::prelude::*;
 use xlc_cmfd::CoarseError;
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::anm::AnmModes;
-use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, is_fissile, outflow, transverse_moments};
+use xlc_numeric::nem::{
+    Beside, Faces, Inflow, Line, Outflow, is_fissile, outflow, transverse_moments,
+};
+
+/// ノードを並列に解くときの、1 つのスレッドがまとめて解くノードの数の下限（細かく分けると、仕事を配る時間が解く時間を超える）
+const MIN_NODES_PER_TASK: usize = 64;
 
 /// 外周の境界条件。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,6 +143,7 @@ pub struct Options {
     pub flux_tolerance: f64,
     pub max_iterations: usize,
     pub acceleration: Acceleration,
+    pub order: Order,
 }
 
 impl Default for Options {
@@ -146,6 +153,7 @@ impl Default for Options {
             flux_tolerance: 1.0e-7,
             max_iterations: 10_000,
             acceleration: Acceleration::Cmfd,
+            order: Order::RedBlack,
         }
     }
 }
@@ -157,6 +165,17 @@ pub enum Acceleration {
     None,
     /// スイープごとに、ノードを粗メッシュとする CMFD を解き、k とノードの量を更新する（`cmfd`）
     Cmfd,
+}
+
+/// スイープと粗メッシュの固有値問題でノードを解く順（ADR-0234）。どちらも収束の判定は同じ
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Order {
+    /// 位置の x + y + z の偶奇で市松の 2 色に分け、最初のノードの色、もう一方の色の順に解く。同じ色のノードは面で接さず互いの値を
+    /// 読まないので、色の中は並列に解き、結果はスレッドの数によらない
+    RedBlack,
+    /// 直方体の並びの順に 1 つずつ解き、先に解いた隣の値をすぐ使う（色の順と比べるため。ADR-0234）。スイープと粗メッシュの反復は
+    /// 1 つのスレッドで解き、ノードごとに独立な部分（横方向の漏れ、粗メッシュの組み立て、CMFD の更新、規格化）はプールで解く
+    Lexicographic,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -374,7 +393,7 @@ fn iterate(
         }
         let sweep = tracing::trace_span!("sweep").entered();
         for g in 0..ng {
-            core.sweep_group(&mut state, g, k)?;
+            core.sweep_group(&mut state, g, k, options.order)?;
         }
         drop(sweep);
         // べき乗法: 生成率の比で k を更新し、全体を生成率 1 に規格化する
@@ -396,7 +415,7 @@ fn iterate(
             // 含めた外側の反復の 1 回による変化で行う（加速した反復の変化の縮小率で残りを見積もる）
             let tolerances = cmfd::tolerances(options, (new_k - k).abs(), change);
             new_k = core
-                .accelerate(&mut state, new_k, &tolerances)
+                .accelerate(&mut state, new_k, &tolerances, options.order)
                 .map_err(|source| NemError::Cmfd { iteration, source })?;
             state.scale(1.0 / production(core, &state));
             change = largest_change(&state);
@@ -463,6 +482,20 @@ struct Core<'a> {
     reflector: Vec<bool>,
     /// [ノード] の、核分裂のないノードの方向ごとの ANM のモード（定数と幅で決まるので1回だけ作る）
     anm: Vec<Option<[AnmModes; 3]>>,
+    /// [ノード] の市松の色（位置の x + y + z の偶奇。最初のノードが 0。`Order::RedBlack`）
+    color: Vec<usize>,
+    /// [色] のノード（ノードの順）
+    members: [Vec<usize>; 2],
+    /// [ノード] の、その色の `members` の中の番号
+    slot: Vec<usize>,
+}
+
+/// スイープで解いたノードの群の値（`Core::solve_node`）
+#[derive(Debug, Clone, Copy)]
+struct NodeUpdate {
+    average: f64,
+    /// [方向] の面の量
+    faces: [Faces; 3],
 }
 
 /// ノードの面の隣。
@@ -498,21 +531,22 @@ impl State {
         }
     }
 
-    /// 方程式は線形なので、すべての量を同じ倍率で変えてよい
+    /// 方程式は線形なので、すべての量を同じ倍率で変えてよい（値ごとに掛けるので、並列に掛けても同じ値）
     fn scale(&mut self, factor: f64) {
-        for v in self.flux.iter_mut().flatten() {
-            *v *= factor;
-        }
+        let scale = |values: &mut Vec<Vec<f64>>| {
+            values
+                .par_iter_mut()
+                .with_min_len(MIN_NODES_PER_TASK)
+                .for_each(|row| row.iter_mut().for_each(|v| *v *= factor));
+        };
+        scale(&mut self.flux);
         for d in 0..3 {
-            for c in self.coefficients[d].iter_mut().flatten().flatten() {
-                *c *= factor;
-            }
-            for v in self.out_minus[d].iter_mut().flatten() {
-                *v *= factor;
-            }
-            for v in self.out_plus[d].iter_mut().flatten() {
-                *v *= factor;
-            }
+            self.coefficients[d]
+                .par_iter_mut()
+                .with_min_len(MIN_NODES_PER_TASK)
+                .for_each(|row| row.iter_mut().flatten().for_each(|c| *c *= factor));
+            scale(&mut self.out_minus[d]);
+            scale(&mut self.out_plus[d]);
         }
     }
 }
@@ -660,7 +694,27 @@ impl<'a> Core<'a> {
                 .map(|m| problem.reflectors.contains(&m))
                 .collect(),
             anm: Vec::new(),
+            color: Vec::new(),
+            members: [Vec::new(), Vec::new()],
+            slot: Vec::new(),
         };
+        // 面で接するノードは位置の和が 1 だけ違うので、偶奇の違う色になる。最初のノードの色を 0 にし、直方体の外形の外の位置の数で
+        // 解く順が変わらないようにする
+        let first: usize = core.cells[0].iter().sum();
+        core.color = core
+            .cells
+            .iter()
+            .map(|p| (p.iter().sum::<usize>() + first) % 2)
+            .collect();
+        core.slot = core
+            .color
+            .iter()
+            .enumerate()
+            .map(|(n, &c)| {
+                core.members[c].push(n);
+                core.members[c].len() - 1
+            })
+            .collect();
         core.anm = (0..core.nodes())
             .map(|n| {
                 let material = core.material_of[n];
@@ -1052,102 +1106,182 @@ impl<'a> Core<'a> {
         (j_plus - j_minus) / self.width(n, d)
     }
 
-    fn sweep_group(&self, state: &mut State, g: usize, k: f64) -> Result<(), NemError> {
+    /// 群 g のスイープ: ノードごとに、横方向の漏れと入ってくる部分中性子流を固定して1次元の式を解き、ノード平均と面の量を更新する。
+    /// `order` の順に解く（ADR-0234）
+    fn sweep_group(
+        &self,
+        state: &mut State,
+        g: usize,
+        k: f64,
+        order: Order,
+    ) -> Result<(), NemError> {
         let nodes = self.nodes();
         // 横方向の漏れは群のスイープの始めの値を使う。核分裂のないノードの ANM が使うほかの群の漏れは、その群の
         // 値がこのスイープで変わらないので、使うノードの分だけその場で求める
         let leakage: Vec<[f64; 3]> = (0..nodes)
+            .into_par_iter()
+            .with_min_len(MIN_NODES_PER_TASK)
             .map(|n| std::array::from_fn(|d| self.net_leakage(state, n, d, g)))
             .collect();
-        for n in 0..nodes {
-            let m = self.material(n);
-            let removal = m.total[g] - m.scatter[g][g];
-            // 群 g への源の結合係数 c(g'→g)（自群の核分裂を含み、自群の散乱を除く）
-            let coupling: Vec<f64> = (0..self.groups)
-                .map(|from| {
-                    let scatter = if from == g { 0.0 } else { m.scatter[from][g] };
-                    scatter + m.chi[g] * m.nu_fission[from] / k
-                })
-                .collect();
-            let source: f64 = coupling
-                .iter()
-                .zip(&state.flux[n])
-                .map(|(c, f)| c * f)
-                .sum();
-
-            // 出ていく部分中性子流はノード平均について線形（o = p + q φ̄）なので、
-            // ノードのバランス式と同時に解く（古い値を使うと高速群で振動する）
-            let mut parts = [Outflow::default(); 3];
-            let mut balance_rhs = source;
-            let mut balance_diag = removal;
-            for (d, part) in parts.iter_mut().enumerate() {
-                let h = self.width(n, d);
-                // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
-                // 入射は i = β o + 外からの入射（face_inputs）。[+ 面, - 面]
-                let inflow_of = |group: usize| {
-                    let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, group);
-                    [
-                        Inflow {
-                            beta: beta_r,
-                            external: ext_r,
-                        },
-                        Inflow {
-                            beta: beta_l,
-                            external: ext_l,
-                        },
-                    ]
-                };
-                *part = match &self.anm[n] {
-                    None => outflow(&Line {
-                        diffusion: m.diffusion[g],
-                        width: h,
-                        removal,
-                        coupling: &coupling,
-                        coefficients: &state.coefficients[d][n],
-                        group: g,
-                        transverse: self.transverse_shape(state, &|i| leakage[i], n, d, g)?,
-                        inflow: inflow_of(g),
-                    }),
-                    // 核分裂のないノードは2群の ANM（ADR-0102）。ほかの群はスイープのそのときの値を使う
-                    Some(modes) => {
-                        let transverse = (0..self.groups)
-                            .map(|group| {
-                                if group == g {
-                                    self.transverse_shape(state, &|i| leakage[i], n, d, g)
-                                } else {
-                                    let other = |i: usize| -> [f64; 3] {
-                                        std::array::from_fn(|e| {
-                                            self.net_leakage(state, i, e, group)
-                                        })
-                                    };
-                                    self.transverse_shape(state, &other, n, d, group)
-                                }
-                            })
-                            .collect::<Result<Vec<_>, _>>()?;
-                        let inflow: Vec<[Inflow; 2]> = (0..self.groups).map(inflow_of).collect();
-                        modes[d]
-                            .outflow(&transverse, &inflow, &state.flux[n], g)
-                            .map_err(|e| {
-                                NemError::InvalidProblem(format!("node {}: {e}", self.site(n)))
-                            })?
+        match order {
+            Order::Lexicographic => {
+                for n in 0..nodes {
+                    let update = self.solve_node(state, &leakage, n, g, k)?;
+                    state.flux[n][g] = update.average;
+                    for d in 0..3 {
+                        state.out_plus[d][n][g] = update.faces[d].out[0];
+                        state.out_minus[d][n][g] = update.faces[d].out[1];
+                        state.coefficients[d][n][g] = update.faces[d].coefficients;
                     }
-                };
-                // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
-                for f in 0..2 {
-                    balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
-                    balance_diag += (1.0 - part.beta[f]) * part.slope[f] / h;
                 }
             }
-            let average = balance_rhs / balance_diag;
-            state.flux[n][g] = average;
-            for (d, part) in parts.iter().enumerate() {
-                let faces = part.at(average);
-                state.out_plus[d][n][g] = faces.out[0];
-                state.out_minus[d][n][g] = faces.out[1];
-                state.coefficients[d][n][g] = faces.coefficients;
+            Order::RedBlack => {
+                for (color, members) in self.members.iter().enumerate() {
+                    // 同じ色のノードは互いの値を読まないので、色の中は並列に解いてから書く。エラーはノードの順で最初のもの
+                    let updates: Vec<Result<NodeUpdate, NemError>> = members
+                        .par_iter()
+                        .with_min_len(MIN_NODES_PER_TASK)
+                        .map(|&n| self.solve_node(state, &leakage, n, g, k))
+                        .collect();
+                    let updates = updates.into_iter().collect::<Result<Vec<_>, _>>()?;
+                    self.write_color(state, color, &updates, g);
+                }
             }
         }
         Ok(())
+    }
+
+    /// 色 `color` のノードの群 g に、`members` の順の `updates` を書く
+    fn write_color(&self, state: &mut State, color: usize, updates: &[NodeUpdate], g: usize) {
+        let State {
+            flux,
+            coefficients: [c0, c1, c2],
+            out_minus: [m0, m1, m2],
+            out_plus: [p0, p1, p2],
+        } = state;
+        (
+            flux.par_iter_mut(),
+            c0.par_iter_mut(),
+            c1.par_iter_mut(),
+            c2.par_iter_mut(),
+            m0.par_iter_mut(),
+            m1.par_iter_mut(),
+            m2.par_iter_mut(),
+            p0.par_iter_mut(),
+            p1.par_iter_mut(),
+            p2.par_iter_mut(),
+        )
+            .into_par_iter()
+            .enumerate()
+            .with_min_len(MIN_NODES_PER_TASK)
+            .for_each(|(n, (f, c0, c1, c2, m0, m1, m2, p0, p1, p2))| {
+                if self.color[n] != color {
+                    return;
+                }
+                let update = &updates[self.slot[n]];
+                f[g] = update.average;
+                for (d, (c, m, p)) in [(c0, m0, p0), (c1, m1, p1), (c2, m2, p2)]
+                    .into_iter()
+                    .enumerate()
+                {
+                    p[g] = update.faces[d].out[0];
+                    m[g] = update.faces[d].out[1];
+                    c[g] = update.faces[d].coefficients;
+                }
+            });
+    }
+
+    /// ノード n の群 g を、`state` の今の値（隣の出ていく部分中性子流、ほかの群の中性子束）と群のスイープの始めの横方向の漏れ
+    /// `leakage` から解く。`state` は変えない
+    fn solve_node(
+        &self,
+        state: &State,
+        leakage: &[[f64; 3]],
+        n: usize,
+        g: usize,
+        k: f64,
+    ) -> Result<NodeUpdate, NemError> {
+        let m = self.material(n);
+        let removal = m.total[g] - m.scatter[g][g];
+        // 群 g への源の結合係数 c(g'→g)（自群の核分裂を含み、自群の散乱を除く）
+        let coupling: Vec<f64> = (0..self.groups)
+            .map(|from| {
+                let scatter = if from == g { 0.0 } else { m.scatter[from][g] };
+                scatter + m.chi[g] * m.nu_fission[from] / k
+            })
+            .collect();
+        let source: f64 = coupling
+            .iter()
+            .zip(&state.flux[n])
+            .map(|(c, f)| c * f)
+            .sum();
+
+        // 出ていく部分中性子流はノード平均について線形（o = p + q φ̄）なので、
+        // ノードのバランス式と同時に解く（古い値を使うと高速群で振動する）
+        let mut parts = [Outflow::default(); 3];
+        let mut balance_rhs = source;
+        let mut balance_diag = removal;
+        for (d, part) in parts.iter_mut().enumerate() {
+            let h = self.width(n, d);
+            // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
+            // 入射は i = β o + 外からの入射（face_inputs）。[+ 面, - 面]
+            let inflow_of = |group: usize| {
+                let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, group);
+                [
+                    Inflow {
+                        beta: beta_r,
+                        external: ext_r,
+                    },
+                    Inflow {
+                        beta: beta_l,
+                        external: ext_l,
+                    },
+                ]
+            };
+            *part = match &self.anm[n] {
+                None => outflow(&Line {
+                    diffusion: m.diffusion[g],
+                    width: h,
+                    removal,
+                    coupling: &coupling,
+                    coefficients: &state.coefficients[d][n],
+                    group: g,
+                    transverse: self.transverse_shape(state, &|i| leakage[i], n, d, g)?,
+                    inflow: inflow_of(g),
+                }),
+                // 核分裂のないノードは2群の ANM（ADR-0102）。ほかの群はスイープのそのときの値を使う
+                Some(modes) => {
+                    let transverse = (0..self.groups)
+                        .map(|group| {
+                            if group == g {
+                                self.transverse_shape(state, &|i| leakage[i], n, d, g)
+                            } else {
+                                let other = |i: usize| -> [f64; 3] {
+                                    std::array::from_fn(|e| self.net_leakage(state, i, e, group))
+                                };
+                                self.transverse_shape(state, &other, n, d, group)
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let inflow: Vec<[Inflow; 2]> = (0..self.groups).map(inflow_of).collect();
+                    modes[d]
+                        .outflow(&transverse, &inflow, &state.flux[n], g)
+                        .map_err(|e| {
+                            NemError::InvalidProblem(format!("node {}: {e}", self.site(n)))
+                        })?
+                }
+            };
+            // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
+            for f in 0..2 {
+                balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
+                balance_diag += (1.0 - part.beta[f]) * part.slope[f] / h;
+            }
+        }
+        let average = balance_rhs / balance_diag;
+        Ok(NodeUpdate {
+            average,
+            faces: parts.map(|part| part.at(average)),
+        })
     }
 
     /// 方向 d の横方向の漏れ（他の2方向の漏れの和）を、両隣のノードを含む2次式で近似し、

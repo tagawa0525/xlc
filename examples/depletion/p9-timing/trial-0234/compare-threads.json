@@ -1,0 +1,104 @@
+{
+ "format": "xlc-compare-core-threads",
+ "inputs": [
+  {
+   "path": "examples/depletion/p9-timing/trial-0244/core-p9.msgpack",
+   "md5": "76b450bbe5bb826813cc95b932ea3c86"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0244/core-p9.log",
+   "md5": "4fe61bc903a28ee6186a26666e83cac0"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0234/core-p9.msgpack",
+   "md5": "4eb6d41a91764cf40fa4e8e3749c2110"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0234/core-p9.log",
+   "md5": "6cecfa725f98146f3c3edc6ce330d82e"
+  }
+ ],
+ "cases": {
+  "p9": {
+   "points": [
+    {
+     "efpd": 0.0,
+     "days": 0.0,
+     "state": "case-2",
+     "k": -8.286609176622051e-10,
+     "boron": 0.0,
+     "burnup": 0.0,
+     "power": 1.324740878214018e-07
+    },
+    {
+     "efpd": 9.0,
+     "days": 13.698630136986301,
+     "state": "case-3",
+     "k": 4.7055692675712635e-12,
+     "boron": -9.732548278407194e-08,
+     "burnup": 6.398262992096126e-08,
+     "power": 1.0101600484986819e-07
+    },
+    {
+     "efpd": 32.0,
+     "days": 36.767837759854906,
+     "state": "case-3",
+     "k": -2.1338486533295509e-13,
+     "boron": 3.540185389283579e-08,
+     "burnup": 6.017327524585691e-08,
+     "power": 6.513023948049855e-08
+    }
+   ],
+   "midpoints": [
+    {
+     "k": 1.4690071381551206e-10,
+     "boron": 0.0
+    },
+    {
+     "k": -2.192468429029759e-12,
+     "boron": 5.2160203267703764e-08
+    }
+   ],
+   "runs": [
+    {
+     "order": "before",
+     "threads": null,
+     "same_bytes": null,
+     "solves": 43,
+     "iterations": 1581,
+     "eigenvalue_seconds": 491.733278287,
+     "seconds": 506.347466964,
+     "per_solve": {
+      "iterations": [
+       30,
+       59
+      ],
+      "seconds": [
+       6.931913146,
+       19.383752233
+      ]
+     }
+    },
+    {
+     "order": "red-black",
+     "threads": 16,
+     "same_bytes": null,
+     "solves": 43,
+     "iterations": 1348,
+     "eigenvalue_seconds": 90.88335401,
+     "seconds": 106.169923708,
+     "per_solve": {
+      "iterations": [
+       26,
+       48
+      ],
+      "seconds": [
+       1.521806199,
+       3.78206726
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

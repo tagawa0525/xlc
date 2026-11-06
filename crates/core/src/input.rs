@@ -121,6 +121,7 @@
 //! ```
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
 
 use serde::de::DeserializeOwned;
@@ -128,7 +129,7 @@ use serde::{Deserialize, Serialize};
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::ROD_OUT;
 
-use crate::nem::{Acceleration, Boundary, Mesh, Problem, Solution, fission_rates};
+use crate::nem::{Acceleration, Boundary, Mesh, Order, Problem, Solution, fission_rates};
 use crate::rods::{PartialNode, Segment, Weighting};
 use crate::state::State;
 use crate::thermal::{
@@ -798,6 +799,21 @@ pub struct Case {
     pub thermal: Option<ThermalHydraulics>,
     /// 固有値計算の外側の反復の加速（`acceleration`。ADR-0232）
     pub acceleration: Acceleration,
+    /// 固有値計算でノードを解く順（`node-order`。ADR-0234）
+    pub order: Order,
+    /// 解くスレッドの数（`threads`。ADR-0234）。結果を変えない。`None` は実行ファイルが決める
+    pub threads: Option<NonZeroUsize>,
+}
+
+/// ケースの `node-order`: 固有値計算でノードを解く順（ADR-0234）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum OrderEntry {
+    /// 市松の 2 色の順（ADR-0234）
+    #[default]
+    RedBlack,
+    /// 直方体の並びの順に 1 つずつ（色の順と比べるため）
+    Lexicographic,
 }
 
 /// ケースの `acceleration`: 固有値計算の外側の反復の加速（ADR-0232）
@@ -1115,6 +1131,9 @@ struct CaseFile {
     thermal_hydraulics: Option<ThermalEntry>,
     #[serde(default)]
     acceleration: AccelerationEntry,
+    #[serde(default)]
+    node_order: OrderEntry,
+    threads: Option<NonZeroUsize>,
 }
 
 /// `[thermal-hydraulics]`（ADR-0229）
@@ -1493,6 +1512,11 @@ impl Case {
                 AccelerationEntry::Cmfd => Acceleration::Cmfd,
                 AccelerationEntry::None => Acceleration::None,
             },
+            order: match file.node_order {
+                OrderEntry::RedBlack => Order::RedBlack,
+                OrderEntry::Lexicographic => Order::Lexicographic,
+            },
+            threads: file.threads,
         })
     }
 }
