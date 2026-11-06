@@ -270,6 +270,19 @@ class DvcFile(Git):
         )
         self.assertEqual(rp.parse_dvc(text), [(name, H["1"])])
 
+    def test_a_path_folded_over_several_lines_is_an_error(self):
+        """dvc は空白を含む長い名前を空白で何行にも折る。1 行目だけを読むと別の名前を黙って出す"""
+        text = (
+            "outs:\n- md5: " + H["1"] + "\n  path: word word\n    word\n    end.log\n"
+        )
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_dvc(text)
+
+    def test_a_quoted_path_is_an_error(self):
+        """引用符で囲んだ YAML の値を、引用符ごとパスとして出さない"""
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_dvc("outs:\n- md5: " + H["1"] + "\n  path: 'x: #y.log'\n")
+
     def test_an_out_without_md5_is_an_error(self):
         with self.assertRaises(rp.ProvenanceError):
             rp.parse_dvc("outs:\n- path: a.log\n  size: 1\n")
