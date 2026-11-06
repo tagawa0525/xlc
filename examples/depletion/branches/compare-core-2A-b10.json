@@ -3,15 +3,15 @@
  "inputs": [
   {
    "path": "examples/depletion/branches/table-2A-b10-199.msgpack",
-   "md5": "12b9a28a3a47505e7181593cf5d8b007"
+   "md5": "c5c9963daf2ee86df5f65c3d1647818f"
   },
   {
    "path": "examples/depletion/branches/core-2A-b10.toml",
-   "md5": "973f6c20b5c02cedd2b7084f8e0c73be"
+   "md5": "dd5757af22acaea6867f1ff8e0174171"
   },
   {
    "path": "examples/depletion/branches/core-2A-b10.out",
-   "md5": "b80f3690c84fd3818ce524c4e3c00c05"
+   "md5": "d7e1c80d1d4f70bed09d0097cbebd0ab"
   },
   {
    "path": "examples/depletion/branches/table-2A-b10-180.msgpack",
@@ -30,7 +30,6 @@
    "burnup": 0.0,
    "direct": 1.2795722438919717,
    "effect": 494.3972175274869,
-   "corrected": -8.894521987645732,
    "converted": 4.38904580185584
   },
   {
@@ -39,7 +38,6 @@
    "burnup": 20.0,
    "direct": 1.0446906727245975,
    "effect": 540.3445845325705,
-   "corrected": 0.47804211473767566,
    "converted": 4.894226817364622
   },
   {
@@ -48,7 +46,6 @@
    "burnup": 40.0,
    "direct": 0.9084244165877557,
    "effect": 665.0352353123168,
-   "corrected": 10.486125354236542,
    "converted": 6.1692201390073365
   },
   {
@@ -57,7 +54,6 @@
    "burnup": 0.0,
    "direct": 1.1979706674757142,
    "effect": 1050.0468587299583,
-   "corrected": -17.640932289975098,
    "converted": 10.003619542942044
   },
   {
@@ -66,7 +62,6 @@
    "burnup": 20.0,
    "direct": 0.9850354354207452,
    "effect": 1136.9562154388113,
-   "corrected": 8.953661867394658,
    "converted": 11.005212144654664
   },
   {
@@ -75,7 +70,6 @@
    "burnup": 40.0,
    "direct": 0.8532673996457604,
    "effect": 1390.5364101682637,
-   "corrected": 34.92881137301396,
    "converted": 13.704634895117529
   },
   {
@@ -84,7 +78,6 @@
    "burnup": 0.0,
    "direct": 1.2301865329258714,
    "effect": -2642.9712766358525,
-   "corrected": 46.11272151644474,
    "converted": 14.630185711572707
   },
   {
@@ -93,7 +86,6 @@
    "burnup": 20.0,
    "direct": 1.0086403896939176,
    "effect": -2880.9038095107044,
-   "corrected": -14.285138296787903,
    "converted": 14.25749928478659
   },
   {
@@ -102,7 +94,6 @@
    "burnup": 40.0,
    "direct": 0.8750048393252438,
    "effect": -3539.3422178523924,
-   "corrected": -75.49969693647628,
    "converted": 17.490115511065163
   },
   {
@@ -111,7 +102,6 @@
    "burnup": 0.0,
    "direct": 1.1098364099869895,
    "effect": -5578.824592887088,
-   "corrected": 86.5683738216716,
    "converted": -2.7539180571301003
   },
   {
@@ -120,7 +110,6 @@
    "burnup": 20.0,
    "direct": 0.9202508246315462,
    "effect": -6009.879263512618,
-   "corrected": -97.50884522712333,
    "converted": -5.690086286325169
   },
   {
@@ -129,7 +118,6 @@
    "burnup": 40.0,
    "direct": 0.7942079689174256,
    "effect": -7324.513187717652,
-   "corrected": -266.9501092216642,
    "converted": -7.532387145881003
   }
  ]
