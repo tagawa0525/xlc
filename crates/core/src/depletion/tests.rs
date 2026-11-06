@@ -9,7 +9,7 @@ use crate::input::{
     BoronSearch, Case, CaseState, Cycle, InitialGuess, Inventory, Layout, MidpointBoron, Plant,
     XenonBoron,
 };
-use crate::nem::Options;
+use crate::nem::{Acceleration, Options};
 
 const PLANT: &str = r#"
 pitch = 20.0
@@ -2190,6 +2190,71 @@ fn eigenvalue_solves_from_the_previous_solution_keep_the_flat_start_results() {
     for (a, b) in previous.points.iter().zip(&flat.points) {
         let at = format!("{} EFPD, {} days", b.efpd, b.days);
         assert_eq!(a.solves, b.solves, "{at}");
+        assert!(
+            (a.k - b.k).abs() < 2.0 * options.k_tolerance,
+            "{at}: k {} vs {}",
+            a.k,
+            b.k
+        );
+        assert!(
+            (a.boron - b.boron).abs() <= flux * b.boron,
+            "{at}: boron {} vs {}",
+            a.boron,
+            b.boron
+        );
+        for (x, y) in a.burnups.iter().flatten().zip(b.burnups.iter().flatten()) {
+            assert!((x - y).abs() <= flux * y.abs(), "{at}: burnup {x} vs {y}");
+        }
+        let densities = |h: &CorePoint| h.densities.clone().unwrap();
+        for (x, y) in densities(a)
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(densities(b).iter().flatten().flatten())
+        {
+            assert!((x - y).abs() <= flux * y.abs(), "{at}: density {x} vs {y}");
+        }
+    }
+}
+
+#[test]
+fn cmfd_keeps_the_unaccelerated_points() {
+    // ADR-0232: 平衡 Xe でホウ素を探し、状態を変え、崩壊だけのステップを含む燃焼で、CMFD で加速した固有値計算の点は、加速しない
+    // 燃焼の点と、k は許容の 2 倍、ホウ素、燃焼度、数密度は中性子束の許容の 2 倍の相対差の中で一致する
+    let run = |acceleration: Acceleration| {
+        let case = searching(CASE, 1.0e-10).replace(
+            "[depletion]",
+            "[depletion]\nmicro = { chain = \"chain.msgpack\", xenon = \"equilibrium\" }",
+        );
+        let case = case.replace(
+            "[{ efpd = 50.0 }, { efpd = 125.0 }, { efpd = 250.0 }]",
+            "[{ efpd = 50.0 }, { decay-days = 2.0 }, { efpd = 125.0, power = 0.8 }]",
+        );
+        let (layout, tables, case) = core(&case, MIXED, Some(400.0));
+        let tables: Vec<Table> = tables.into_iter().map(with_xenon).collect();
+        let options = Options {
+            acceleration,
+            ..tight()
+        };
+        deplete(
+            &layout,
+            &tables,
+            &case.states,
+            case.depletion.as_ref().unwrap(),
+            Some(&xenon_chain()),
+            None,
+            &options,
+            |_| {},
+        )
+        .unwrap()
+    };
+    let plain = run(Acceleration::None);
+    let fast = run(Acceleration::Cmfd);
+    let options = tight();
+    let flux = 2.0 * options.flux_tolerance;
+    assert_eq!(fast.points.len(), plain.points.len());
+    for (a, b) in fast.points.iter().zip(&plain.points) {
+        let at = format!("{} EFPD, {} days", b.efpd, b.days);
         assert!(
             (a.k - b.k).abs() < 2.0 * options.k_tolerance,
             "{at}: k {} vs {}",

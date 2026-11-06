@@ -1,5 +1,5 @@
 use super::*;
-use crate::nem::{Boundary, Solution};
+use crate::nem::{Acceleration, Boundary, Solution};
 
 const PLANT: &str = r#"
 pitch = 21.5
@@ -1906,4 +1906,21 @@ fn depletion_with_thermal_hydraulics_is_an_error() {
     );
     let e = Case::parse(&text, base()).unwrap_err().to_string();
     assert!(e.contains("thermal-hydraulics"), "{e}");
+}
+
+#[test]
+fn eigenvalue_solves_may_go_unaccelerated() {
+    // ADR-0232: 省けば、固有値計算をノードの CMFD で加速する。`none` は加速しない（比べるため）
+    let with = |value: &str| {
+        edited(
+            CASE,
+            "radial-nodes = 1\n",
+            &format!("radial-nodes = 1\nacceleration = \"{value}\"\n"),
+        )
+    };
+    let read = |text: &str| Case::parse(text, base()).map(|c| c.acceleration);
+    assert_eq!(read(CASE).unwrap(), Acceleration::Cmfd);
+    assert_eq!(read(&with("cmfd")).unwrap(), Acceleration::Cmfd);
+    assert_eq!(read(&with("none")).unwrap(), Acceleration::None);
+    assert!(read(&with("chebyshev")).is_err());
 }
