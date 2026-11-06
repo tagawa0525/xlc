@@ -37,7 +37,8 @@ pub struct Solved {
 pub struct Searched {
     pub ppm: f64,
     pub solves: usize,
-    /// 求めた点と、その前に評価した点の割線のホウ素の効き (k/ppm)。最初の評価が解か、割線が有限でないか 0 ならない
+    /// 求めた点と、それから最も遠い評価の割線のホウ素の効き (k/ppm)。根に近い評価との割線は、k の差が固有値計算の許容に近いと
+    /// 誤る。最初の評価が解か、割線が有限でないか 0 ならない
     pub worth: Option<f64>,
 }
 
@@ -799,7 +800,7 @@ pub fn search_boron(
         e => CaseError::Search(e.to_string()),
     })?;
     let worth = found
-        .previous
+        .farthest
         .map(|(x, value)| (found.value - value) / (found.x - x))
         .filter(|w| w.is_finite() && *w != 0.0);
     let searched = Searched {
