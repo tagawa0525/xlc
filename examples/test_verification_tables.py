@@ -4658,6 +4658,26 @@ class DrawCoreTiming(unittest.TestCase):
             )
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
+    def test_the_cmfd_tables_read_the_cmfd_trial(self):
+        # trial-0156 の入力を CMFD で解いた試行（ADR-0232、#0076）
+        for name in (
+            "core-p9-cmfd-timing-parts",
+            "core-p9-cmfd-timing-solves",
+            "core-p9-cmfd-timing-nem",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources, ["examples/depletion/p9-timing/trial-0076/timing-p9.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+        for name in ("core-p9-cmfd-runs", "core-p9-cmfd-differences"):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources,
+                ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
     def test_the_joint_tables_read_the_power_step_trial(self):
         # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）
         for name in (
@@ -4740,6 +4760,85 @@ class DrawCoreXenonBoron(unittest.TestCase):
         for draw in (vt.core_xenon_boron_runs, vt.core_xenon_boron_differences):
             with self.assertRaises(vt.TableError):
                 draw([core_guess_summary()])
+
+
+def core_acceleration_summary():
+    """compare_core_acceleration.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
+    s = core_guess_summary()
+    s["format"] = "xlc-compare-core-acceleration"
+    runs = s["cases"]["search"]["runs"]
+    s["cases"]["search"]["runs"] = {
+        "none": {
+            **runs["flat"],
+            "per_solve": {"iterations": [500, 1500], "seconds": [1.0, 3.0]},
+        },
+        "cmfd": {
+            **runs["default"],
+            "per_solve": {"iterations": [20, 900], "seconds": [0.25, 1.5]},
+        },
+    }
+    return s
+
+
+class DrawCoreAcceleration(unittest.TestCase):
+    def test_runs_list_both_iterations_their_range_and_ratio(self):
+        rows = cells(vt.core_acceleration_runs([core_acceleration_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                [
+                    "search",
+                    "加速なし",
+                    "4",
+                    "4,000",
+                    "500〜1,500",
+                    "8.0",
+                    "1.00〜3.00",
+                    "10.0",
+                ],
+                [
+                    "search",
+                    "CMFD（ADR-0232）",
+                    "4",
+                    "2,000",
+                    "20〜900",
+                    "4.0",
+                    "0.25〜1.50",
+                    "6.0",
+                ],
+                [
+                    "search",
+                    "CMFD / 加速なし",
+                    "1.000",
+                    "0.500",
+                    "",
+                    "0.500",
+                    "",
+                    "0.600",
+                ],
+            ],
+        )
+
+    def test_differences_take_the_largest_over_points_and_midpoints(self):
+        rows = cells(vt.core_acceleration_differences([core_acceleration_summary()]))
+        self.assertEqual(rows, [["search", "5.0e-10", "4.0e-04", "2.0e-06", "3.0e-07"]])
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.core_acceleration_runs, vt.core_acceleration_differences):
+            with self.assertRaises(vt.TableError):
+                draw([core_guess_summary()])
+
+    def test_the_small_core_tables_read_the_tracked_summary(self):
+        for name in (
+            "depletion-small-core-acceleration-runs",
+            "depletion-small-core-acceleration-differences",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources,
+                ["examples/depletion/branches/compare-core-small-acceleration.json"],
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
 
 
 class DrawCoreGuess(unittest.TestCase):

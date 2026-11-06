@@ -9,17 +9,17 @@ stages:
       size: 653
     - path: Cargo.lock
       hash: md5
-      md5: e5cf390009591e54a8dc050dab4b4ebd
-      size: 29402
+      md5: 25dd77b93fbb3dc9923a3b1cd9f13178
+      size: 29520
     - path: Cargo.toml
       hash: md5
       md5: 683e6ade069d2e592a845971523eb150
       size: 1422
     - path: crates
       hash: md5
-      md5: fca2c4dd3d4fe068a09920dcb8107571.dir
-      size: 4572844
-      nfiles: 253
+      md5: bcc4b4ab5f085da7fd911843c26bec5d.dir
+      size: 4616573
+      nfiles: 257
     - path: flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
@@ -45,8 +45,8 @@ stages:
       isexec: true
     - path: bin/core
       hash: md5
-      md5: 80c456c222bebea1059d7c2d29950408
-      size: 6986024
+      md5: 3ca5ed5134f97a6a61378171b5897e1d
+      size: 7049792
       isexec: true
     - path: bin/lattice
       hash: md5

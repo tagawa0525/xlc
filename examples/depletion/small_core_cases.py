@@ -73,6 +73,26 @@ METHODS = {
         'micro = { chain = "../chain.msgpack", xenon = "equilibrium" }',
         ['xenon-boron = "nested"'],
     ),
+    # 固有値計算を加速しない燃焼（ADR-0232 の CMFD の既定。上の search と equilibrium）と比べる
+    "search-none": (
+        "中点のホウ素は ADR-0191 の探索。固有値計算は CMFD で加速しない（ADR-0232 と比べる）。",
+        TRACKED,
+        [],
+    ),
+    "equilibrium-none": (
+        (
+            "中点のホウ素は ADR-0191 の探索。Xe-135 と I-135 は出力のある解で平衡の値（#0200）。固有値計算は CMFD で加速しない"
+            "（ADR-0232 と比べる）。"
+        ),
+        'micro = { chain = "../chain.msgpack", xenon = "equilibrium" }',
+        [],
+    ),
+}
+
+# ケースの初めに足す行: 方式 → 行（ケースの `acceleration` は `[depletion]` の外に書く）
+TOP = {
+    "search-none": 'acceleration = "none"',
+    "equilibrium-none": 'acceleration = "none"',
 }
 
 # ケース: (方式, 分割)
@@ -81,6 +101,7 @@ CASES = (
     + [("start", s) for s in (1, 2, 4)]
     + [("equilibrium", s) for s in (1, 2, 4, 8, 16)]
     + [("search-flat", 1), ("equilibrium-flat", 1), ("equilibrium-nested", 1)]
+    + [("search-none", 1), ("equilibrium-none", 1)]
 )
 
 
@@ -170,7 +191,10 @@ def case(method: str, split: int) -> str:
         *steps(split),
         "]",
     ]
-    return head + HEAD + "\n".join(depletion) + "\n"
+    top = HEAD
+    if method in TOP:
+        top = top.replace("radial-nodes = 1\n", f"radial-nodes = 1\n{TOP[method]}\n", 1)
+    return head + top + "\n".join(depletion) + "\n"
 
 
 # restart と装荷替え（ADR-0220。examples/depletion/verification.md の「restart と装荷替え（小さな炉心）」）

@@ -16,6 +16,7 @@
 //! ノードは直方体の格子の上に並べ、ノードのない位置（炉心の外形の外）を持てる。ノードのない位置に面する面は、
 //! `Problem::outline` の条件の外周の面として扱う（ADR-0132）。
 
+use xlc_cmfd::CoarseError;
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::anm::AnmModes;
 use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, is_fissile, outflow, transverse_moments};
@@ -129,12 +130,13 @@ pub fn fission_rates(problem: &Problem, solution: &Solution) -> Vec<f64> {
         .collect()
 }
 
-/// 反復の打ち切り条件。
+/// 反復の打ち切り条件と加速。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Options {
     pub k_tolerance: f64,
     pub flux_tolerance: f64,
     pub max_iterations: usize,
+    pub acceleration: Acceleration,
 }
 
 impl Default for Options {
@@ -143,8 +145,18 @@ impl Default for Options {
             k_tolerance: 1.0e-8,
             flux_tolerance: 1.0e-7,
             max_iterations: 10_000,
+            acceleration: Acceleration::Cmfd,
         }
     }
+}
+
+/// 外側の反復の加速（ADR-0232）。収束の判定（`Options` の許容）はどちらも同じで、NEM のスイープによる変化で判定する
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Acceleration {
+    /// 加速しない（スイープごとに生成率の比で k を更新する）
+    None,
+    /// スイープごとに、ノードを粗メッシュとする CMFD を解き、k とノードの量を更新する（`cmfd`）
+    Cmfd,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -178,6 +190,25 @@ pub enum NemError {
     VacuumFaceFlux { node: usize, flux: f64 },
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
+    /// CMFD の粗メッシュの問題を作れないか、解けない（ADR-0232）
+    #[error("CMFD in outer iteration {iteration}: {source}")]
+    Cmfd { iteration: usize, source: CmfdError },
+}
+
+/// CMFD の粗メッシュの問題のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum CmfdError {
+    /// 補正の分母になるノードの中性子束が正でない
+    #[error(
+        "node {node} has a flux {flux} in group {group}; the coarse-mesh correction needs it positive"
+    )]
+    NonPositiveFlux {
+        node: usize,
+        group: usize,
+        flux: f64,
+    },
+    #[error(transparent)]
+    Coarse(#[from] CoarseError),
 }
 
 /// 平らな初期値（中性子束 1、k = 1）から反復して解く
@@ -341,20 +372,35 @@ fn iterate(
                     .map_err(NemError::InvalidProblem)?;
             }
         }
+        let sweep = tracing::trace_span!("sweep").entered();
         for g in 0..ng {
             core.sweep_group(&mut state, g, k)?;
         }
+        drop(sweep);
         // べき乗法: 生成率の比で k を更新し、全体を生成率 1 に規格化する
         let rate = production(core, &state);
-        let new_k = k * rate;
+        let mut new_k = k * rate;
         state.scale(1.0 / rate);
-        let change = state
-            .flux
-            .iter()
-            .flatten()
-            .zip(previous.iter().flatten())
-            .map(|(new, old)| relative_change(*new, *old))
-            .fold(0.0, f64::max);
+        let largest_change = |state: &State| {
+            state
+                .flux
+                .iter()
+                .flatten()
+                .zip(previous.iter().flatten())
+                .map(|(new, old)| relative_change(*new, *old))
+                .fold(0.0, f64::max)
+        };
+        let mut change = largest_change(&state);
+        if options.acceleration == Acceleration::Cmfd {
+            // 粗メッシュの問題を解く精度は、スイープによる変化（CMFD の誤差を含まない）で決める。収束の判定は、CMFD の更新を
+            // 含めた外側の反復の 1 回による変化で行う（加速した反復の変化の縮小率で残りを見積もる）
+            let tolerances = cmfd::tolerances(options, (new_k - k).abs(), change);
+            new_k = core
+                .accelerate(&mut state, new_k, &tolerances)
+                .map_err(|source| NemError::Cmfd { iteration, source })?;
+            state.scale(1.0 / production(core, &state));
+            change = largest_change(&state);
+        }
         tracing::debug!(
             iteration,
             k = new_k,
@@ -1241,6 +1287,8 @@ impl Remaining {
         estimate
     }
 }
+
+mod cmfd;
 
 #[cfg(test)]
 mod tests;
