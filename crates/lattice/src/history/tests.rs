@@ -2073,10 +2073,10 @@ fn coolant_micro_cross_sections_without_the_nuclide_weight_the_water_by_volume()
         .unwrap();
     let volume: f64 = all.iter().map(|&r| solution.volumes[r]).sum();
     let water_volume: f64 = water.iter().map(|&r| solution.volumes[r]).sum();
-    for g in 0..2 {
+    for (g, sigma) in dilute.total.iter().enumerate() {
         let rate: f64 = water
             .iter()
-            .map(|&r| solution.volumes[r] * solution.flux[r][g] * mu[r][g] * dilute.total[g])
+            .map(|&r| solution.volumes[r] * solution.flux[r][g] * mu[r][g] * sigma)
             .sum();
         let flux: f64 = all
             .iter()
