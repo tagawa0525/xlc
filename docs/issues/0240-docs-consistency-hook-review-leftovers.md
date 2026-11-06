@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 ブランチ chore/0233-docs-consistency-hook（ADR-0233 の pre-commit の hook `docs-consistency`）に担当が回したローカルのレビューの
-1 周目と 2 周目で、再現を書かず直さなかった指摘（/git-merge の「直す指摘の基準」の non-blocking）。
+1〜3 周目で、再現を書かず直さなかった指摘（/git-merge の「直す指摘の基準」の non-blocking）。
 
 関係する ADR: ADR-0233
 
@@ -41,13 +41,18 @@ resolution:
    `docs_are_consistent` だけを実行するので止まらない。crates/docs/src の単体テストはこのターゲットでコンパイルしない）
 8. ADR-0233 の時間は手元の `/usr/bin/env time` の測定で、Slurm の timed のジョブではない（依頼が手元で測ると決めた）
 9. `pass_filenames: false` と `always_run: true` で hook は 1 回しか呼ばれないので、`require_serial: true` は効かない
+10. 5 は、共有した先の worktree が残っていれば落ちずに通り、違反を見逃す（3 周目のレビューが小さな crate を 2 つのコピーで
+    target を共有して再現した）。ADR-0233 の帰結は、4 と 5 の、検査が黙って効かなくなる道を挙げていない
+11. ADR-0233 の案 A の「どれもコミットの中身に依らない」は、直前の「残る 2 つ」を指すが、段落の全体を指すとも読める
+    （`production_sources_hold_no_test_code` と `record_tables_match_the_compare_outputs` は中身を読む）
 
 ## 完了の条件
 
-1 の手順を /git-merge で決めるか、起きないことを確かめる。2 を 1 つの規則にそろえるか、そろえない理由を書く。3〜9 を直すか、直さない理由を書く。
+1 の手順を /git-merge で決めるか、起きないことを確かめる。2 を 1 つの規則にそろえるか、そろえない理由を書く。3〜11 を直すか、直さない理由を書く。
 
 ## 経緯
 
 - 2026-11-06: 担当の 1 周目（HEAD c1a7b3840。後で ADR を実装の前に並べ直したので、今のブランチの祖先ではない）の指摘から起こした
 - 2026-11-06: 担当の 2 周目（HEAD e7ac3c0d1）の指摘から 4〜9 を足した。競合を解いた後の `git rebase --continue` でも hook が走るという
   指摘は、一時のリポジトリで確かめると pre-commit が呼ばれなかったので外した
+- 2026-11-06: 担当の 3 周目（HEAD 36a6e3885）の指摘から 10 と 11 を足した
