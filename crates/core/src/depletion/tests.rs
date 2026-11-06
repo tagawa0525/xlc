@@ -1905,10 +1905,7 @@ fn rod_states_run(case: &str) -> (CoreHistory, Layout, Vec<Table>, Case) {
 fn steps_solve_in_the_states_they_name() {
     // バンク D を途中で入れて抜く。点は、そこから始まるステップの状態で解く（最後の点は最後のステップの状態。ADR-0218 の案 P2）
     let steps = "[{ efpd = 50.0, state = \"out\" }, { efpd = 125.0, state = \"in\" }, { efpd = 200.0, state = \"out\" }]";
-    // 点の k を平らな初期値からの解とビットで比べるので、燃焼も平らな初期値から解く（ADR-0231）
-    let flat =
-        two_rod_states(steps).replace("[depletion]", "[depletion]\ninitial-guess = \"flat\"");
-    let (history, layout, tables, case) = rod_states_run(&flat);
+    let (history, layout, tables, case) = rod_states_run(&two_rod_states(steps));
     let states: Vec<&str> = history.points.iter().map(|p| p.state.as_str()).collect();
     assert_eq!(states, ["out", "in", "out", "out"]);
     assert_eq!(history.states.keys().collect::<Vec<_>>(), ["in", "out"]);
@@ -2217,6 +2214,18 @@ fn eigenvalue_solves_from_the_previous_solution_keep_the_flat_start_results() {
             assert!((x - y).abs() <= flux * y.abs(), "{at}: density {x} vs {y}");
         }
     }
+}
+
+#[test]
+fn each_point_and_midpoint_starts_its_first_eigenvalue_solve_flat() {
+    // ADR-0231: 点と中点の解の最初の固有値計算は、前の点の解からでなく平らな初期値から解く。ホウ素を与えて Xe を時間で追う燃焼は
+    // 点と中点ごとに固有値計算が 1 回なので、状態の変わるステップと崩壊だけのステップを挟んでも、平らな初期値の燃焼とビットで同じ
+    let steps = "[{ efpd = 50.0, state = \"out\" }, { efpd = 125.0, state = \"in\" }, { decay-days = 1.0, state = \"out\" }, { efpd = 200.0 }]";
+    let case = two_rod_states(steps);
+    let (previous, ..) = rod_states_run(&case);
+    let (flat, ..) =
+        rod_states_run(&case.replace("[depletion]", "[depletion]\ninitial-guess = \"flat\""));
+    assert_eq!(previous, flat);
 }
 
 #[test]
