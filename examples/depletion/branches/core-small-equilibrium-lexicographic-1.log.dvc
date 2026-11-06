@@ -1,0 +1,5 @@
+outs:
+- md5: ca708f2abc042e03f8aa250e30f8cb11
+  size: 111552
+  hash: md5
+  path: core-small-equilibrium-lexicographic-1.log
