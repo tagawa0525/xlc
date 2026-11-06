@@ -26,6 +26,8 @@ ADR-0237（B-10 の割合の ppm の換算）の実装のレビューで出た�
 - examples/depletion/compare_core_b10.py の docstring に、状態の名前の例（`b18-p1300-u0` など）が無い
 - core の換算の判定（crates/core/src/state.rs の `state_weights` の `*b10 == state.b10`）を、換算と範囲の外のエラーの注記で 2 回評価する
 - ADR-0237 は #0036 の起こした時点の節（「方針の案」「懸念」）を「経緯は git」で指すが、その版のコミット（de276a113）を添えていない
+- compare_core_b10.py は、テーブルの減速材と燃料の軸の点を 1 つと決めて unpack し（2 点以上で `ValueError`）、状態の名前の b10 を
+  「0.」と数字の文字列から読む（名前の形が変わると黙って別の値になる）。`rho_pcm` のコピーは上の項
 - 臨界ホウ素の探索と core の燃焼の経路で、状態の b10 が換算に渡ることを確かめるテストがない（換算は `state_weights` の単体のテストだけ）
 
 関係する ADR: なし
@@ -37,4 +39,3 @@ ADR-0237（B-10 の割合の ppm の換算）の実装のレビューで出た�
 ## 経緯
 
 - 2026-11-07: ADR-0237 とその案 3 の実装のレビューで出た点のうち、外した案 3 の実装に関わらないもの。rebase の後の親の周の点を足した
-- 2026-11-07: ADR の番号 0236 は案 3 を ADR-0237 に畳んで消した番号で、全文は履歴の docs/adr/0236-correct-coolant-boron-10-by-micro-cross-sections.md（blob 611ba069a）
