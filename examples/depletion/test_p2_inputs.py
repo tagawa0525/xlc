@@ -187,7 +187,8 @@ class Libraries(unittest.TestCase):
         cls.omc = load(P2 / "openmc-library.toml")["neutron"]
 
     def covered(self, table: dict, name: str, temperature: float) -> bool:
-        if name not in table:
+        # 放射化の核種（ADR-0238）は輸送しないので、格子の物質の核種にならない
+        if name not in table or table[name].get("activation", False):
             return False
         temperatures = table[name]["temperatures"]
         if name in ("H-1", "H1"):
