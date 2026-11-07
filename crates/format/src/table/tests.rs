@@ -442,6 +442,74 @@ fn heavy_metal_must_be_positive() {
     }
 }
 
+/// `burnup_sample` の状態に、核分裂の断面積に群ごとの核分裂あたりのエネルギー (eV) を掛けた κΣf を持たせたもの
+fn kappa_sample() -> Table {
+    let mut table = burnup_sample();
+    table.heavy_metal = Some(4321.0 / 7.0);
+    for s in &mut table.states {
+        s.kappa_fission = Some(
+            s.fission
+                .iter()
+                .zip([2.0e8 / 3.0, 1.95e8 / 7.0])
+                .map(|(f, q)| f * q)
+                .collect(),
+        );
+    }
+    table
+}
+
+#[test]
+fn kappa_fission_round_trips_and_is_written_only_when_held() {
+    let table = kappa_sample();
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+    // 持たないテーブルの状態はキーを書かない（ADR-0190）
+    let fresh = sample();
+    assert!(fresh.states.iter().all(|s| s.kappa_fission.is_none()));
+    let value = msgpack::read_value(&fresh.to_msgpack().unwrap()).unwrap();
+    let states = value
+        .as_map()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("states"))
+        .unwrap()
+        .1
+        .as_array()
+        .unwrap();
+    for state in states {
+        let keys: Vec<&str> = state
+            .as_map()
+            .unwrap()
+            .iter()
+            .filter_map(|(k, _)| k.as_str())
+            .collect();
+        assert!(!keys.contains(&"kappa_fission"), "{keys:?}");
+    }
+}
+
+#[test]
+fn kappa_fission_is_held_by_every_state_and_follows_the_fission() {
+    let bad = |change: fn(&mut Table)| {
+        let mut table = kappa_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+        assert!(table.to_msgpack().is_err());
+    };
+    // 一部の状態だけが持つ
+    bad(|t| t.states[3].kappa_fission = None);
+    // 群の数が違う、有限でない、負
+    bad(|t| t.states[0].kappa_fission = Some(vec![1.0]));
+    bad(|t| t.states[0].kappa_fission.as_mut().unwrap()[1] = f64::NAN);
+    bad(|t| t.states[0].kappa_fission.as_mut().unwrap()[1] = -1.0);
+    // 核分裂のある群で 0、核分裂のない群で 0 でない
+    bad(|t| t.states[0].kappa_fission.as_mut().unwrap()[0] = 0.0);
+    bad(|t| {
+        t.states[0].fission[0] = 0.0;
+    });
+}
+
 #[test]
 fn points_round_trip_and_index_the_states() {
     let table = rodded();

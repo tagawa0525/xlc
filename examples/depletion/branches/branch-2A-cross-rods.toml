@@ -151,4 +151,5 @@ subgrids = [["boron", "moderator", "fuel"]]
 
 [history]
 file = "../p2/lattice-2A.msgpack"
+chain = "../chain.msgpack"
 burnup = [40]

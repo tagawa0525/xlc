@@ -16,6 +16,7 @@ fn few(ppm: f64, tm: f64, tf: f64) -> FewGroup {
         absorption: vec![0.01 * v, 0.08 * v],
         nu_fission: vec![0.006 * v, 0.1 * v],
         fission: vec![0.0025 * v, 0.04 * v],
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4 * v, 0.4 * v],
         scatter: vec![vec![0.47 * v, 0.02 * v], vec![0.0, 0.92 * v]],

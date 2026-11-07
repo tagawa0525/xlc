@@ -139,6 +139,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         absorption,
         nu_fission,
         fission,
+        kappa_fission,
         chi,
         diffusion,
         scatter,
@@ -156,6 +157,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         absorption: v(absorption),
         nu_fission: v(nu_fission),
         fission: v(fission),
+        kappa_fission: kappa_fission.as_deref().map(v),
         chi: v(chi),
         diffusion: v(diffusion),
         scatter: scatter.iter().map(|r| v(r)).collect(),
@@ -179,7 +181,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
     }
 }
 
-/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）。真空の辺、z の厚さ、形状関数の有無と
+/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）。真空の辺、z の厚さ、κΣf と形状関数の有無と
 /// セルはどの状態でも同じはず（テーブルの検査）で、違えばエラー
 fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
     let FewGroup {
@@ -189,6 +191,7 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
         absorption,
         nu_fission,
         fission,
+        kappa_fission,
         chi,
         diffusion,
         scatter,
@@ -203,6 +206,11 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
     add(&mut acc.absorption, w, absorption);
     add(&mut acc.nu_fission, w, nu_fission);
     add(&mut acc.fission, w, fission);
+    match (&mut acc.kappa_fission, kappa_fission) {
+        (Some(a), Some(x)) => add(a, w, x),
+        (None, None) => {}
+        _ => return Err("the table states differ in holding kappa_fission".into()),
+    }
     add(&mut acc.chi, w, chi);
     add(&mut acc.diffusion, w, diffusion);
     for (a, x) in acc.scatter.iter_mut().zip(scatter) {
@@ -836,6 +844,7 @@ pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
         absorption,
         nu_fission,
         fission,
+        kappa_fission,
         chi,
         diffusion,
         scatter,
@@ -856,6 +865,7 @@ pub(crate) fn non_negative(f: &FewGroup) -> Result<(), String> {
     ];
     for (name, v) in vectors
         .into_iter()
+        .chain(kappa_fission.iter().map(|v| ("kappa_fission", v)))
         .chain(scatter.iter().map(|row| ("scatter", row)))
     {
         if let Some(bad) = v.iter().find(|&&x| x < 0.0) {

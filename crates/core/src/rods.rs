@@ -292,7 +292,7 @@ fn weighted(
     average(segments, weights, g, |s| value(&s.constants))
 }
 
-/// 区間の定数を、[区間][群] の中性子束の積分 `flux` を重みに混ぜる（ADR-0127 の「混ぜる量」）。反応の断面積、
+/// 区間の定数を、[区間][群] の中性子束の積分 `flux` を重みに混ぜる（ADR-0127 の「混ぜる量」）。反応の断面積（κΣf を含む）、
 /// 拡散係数、径方向の ADF と真空の辺の比、角の不連続因子は群の中性子束で、群の間の散乱は入射の群の中性子束で、χ は
 /// 核分裂の中性子源で、形状関数は群の核分裂率で混ぜる。z の辺の ADF は呼ぶ側が決める（ここでは最初の区間の値）。
 /// z の真空の辺の比は、その面に接する区間の値。k∞ は core の使わない量で、全群の中性子束で混ぜる。
@@ -333,6 +333,18 @@ fn mix(segments: &[Segment], flux: &[Vec<f64>]) -> Result<FewGroup, String> {
     mixed.absorption = by_flux(&|c, g| c.absorption[g]);
     mixed.nu_fission = by_flux(&|c, g| c.nu_fission[g]);
     mixed.fission = by_flux(&|c, g| c.fission[g]);
+    // κΣf は反応の断面積と同じく群の中性子束で（ADR-0190）。区間のどれも持つか、どれも持たないか
+    mixed.kappa_fission = match segments
+        .iter()
+        .filter(|s| s.constants.kappa_fission.is_some())
+        .count()
+    {
+        0 => None,
+        n if n == segments.len() => Some(by_flux(&|c, g| {
+            c.kappa_fission.as_ref().map_or(f64::NAN, |k| k[g])
+        })),
+        _ => return Err("the intervals differ in holding kappa_fission".into()),
+    };
     mixed.diffusion = by_flux(&|c, g| c.diffusion[g]);
     mixed.chi = (0..ng)
         .map(|g| weighted(segments, &source, g, |c| c.chi[g]))

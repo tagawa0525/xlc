@@ -5221,5 +5221,76 @@ class CoreB10(unittest.TestCase):
             vt.core_b10([{"format": "xlc-compare-core-boron"}])
 
 
+def core_energy_summary():
+    """compare_core_energy.py の要約: 燃焼 1 つ（集合体 2 体と反射体）、点 1 つ"""
+    return {
+        "format": "xlc-compare-core-energy",
+        "cases": {
+            "reload": {
+                "assemblies": ["A01", "A05", "R"],
+                "points": [
+                    {
+                        "efpd": 6.508721687060662,
+                        "days": 6.508721687060662,
+                        "state": "aro",
+                        "k": [1.071, 1.071],
+                        "boron": [591.25, 591.5],
+                        "reactivity": -0.004,
+                        "power": 3.1e-3,
+                        "burnup": 2.0e-4,
+                        "assembly_powers": {
+                            "rate": [0.5, 0.5, 0.0],
+                            "energy": [0.5015, 0.4985, 0.0],
+                        },
+                        "assembly_burnups": {
+                            "rate": [7.36, 0.45, 0.0],
+                            "energy": [7.361, 0.449, 0.0],
+                        },
+                    }
+                ],
+            }
+        },
+    }
+
+
+class DrawCoreEnergy(unittest.TestCase):
+    def test_points_give_the_boron_differences_and_the_assembly_shares(self):
+        rows = cells(vt.core_energy_points("reload", [core_energy_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                [
+                    "6.5087",
+                    "aro",
+                    "591.5000",
+                    "+0.2500",
+                    "0.00",
+                    "3.10e-03",
+                    "2.00e-04",
+                    "A01 7.36 (+0.30 %)、A05 0.45 (−0.30 %)",
+                ]
+            ],
+        )
+
+    def test_unknown_cases_and_other_summaries_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.core_energy_points("deep", [core_energy_summary()])
+        with self.assertRaises(vt.TableError):
+            vt.core_energy_points("reload", [{"format": "xlc-compare-core-guess"}])
+
+    def test_the_tables_read_the_tracked_summary(self):
+        for name in (
+            "depletion-small-core-energy-cycle",
+            "depletion-small-core-energy-reload",
+            "depletion-small-core-energy-deep",
+            "depletion-small-core-energy-deep-reload",
+        ):
+            sources, _ = vt.TABLES[name]
+            self.assertEqual(
+                sources, ["examples/depletion/branches/compare-core-small-energy.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
+
 if __name__ == "__main__":
     unittest.main()

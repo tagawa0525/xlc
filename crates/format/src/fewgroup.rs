@@ -1,7 +1,8 @@
 //! 均質化した少数群定数（1つの状態）。ファイルでは分岐のテーブル（`table`。ADR-0097）の状態として受け渡す。
 //!
 //! 項目: `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`, `fission`, `chi`, `diffusion`
-//! （G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下、−z、+z）][群]）, `vacuum_ratio`（[辺][群]。
+//! （G 個ずつ）, `kappa_fission`（核分裂のエネルギーの断面積 κΣf (eV/cm)、G 個。燃焼の履歴から作ったテーブルの状態だけが持ち、
+//! ほかはキーを書かない。ADR-0190）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下、−z、+z）][群]）, `vacuum_ratio`（[辺][群]。
 //! 真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）、`normalized_adf`（[辺]。`adf` が燃料の ADF で割った値 f* の辺。
 //! ADR-0095）、`height`（z の厚さ (cm)。軸方向の定数だけが持ち、ほかは nil。ADR-0128）、`pins`（ピン出力の再構成の
 //! 形状関数と角の不連続因子。ないときは nil。ADR-0096）。
@@ -16,6 +17,9 @@ pub struct FewGroup {
     pub absorption: Vec<f64>,
     pub nu_fission: Vec<f64>,
     pub fission: Vec<f64>,
+    /// 核分裂のエネルギーの断面積 κΣf (eV/cm): 核種ごとの核分裂の Q 値で重みを付けた核分裂の断面積（格子計算の燃焼の出力
+    /// Σ N σf φ Q と同じ定義）。core の燃焼のノードの出力の割合に使う。持たない定数は `None`（ADR-0190）
+    pub kappa_fission: Option<Vec<f64>>,
     pub chi: Vec<f64>,
     pub diffusion: Vec<f64>,
     /// [入射の群][出射の群]
@@ -96,6 +100,7 @@ impl FewGroup {
         ];
         for (name, v) in vectors
             .into_iter()
+            .chain(self.kappa_fission.iter().map(|v| ("kappa_fission", v)))
             .chain(self.scatter.iter().map(|row| ("scatter", row)))
         {
             if v.len() != ng {

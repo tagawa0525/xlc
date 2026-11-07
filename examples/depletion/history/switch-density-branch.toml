@@ -104,6 +104,7 @@ fuel = { temperature = [565], materials = ["fuel"] }
 
 [history]
 file = "lattice-switch-density.msgpack"
+chain = "../chain.msgpack"
 burnup = [20, 26, 32, 40, 48, 56, 60]
 # ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216）
 micro = [

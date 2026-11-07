@@ -1340,6 +1340,58 @@ def core_pair_differences(s: dict) -> str:
     )
 
 
+def core_energy_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-energy":
+        raise TableError("not an xlc-compare-core-energy summary")
+    return s
+
+
+def core_energy_points(case: str, sources: list[dict]) -> str:
+    """ノードの出力の割合を核分裂率と κΣf で求めた燃焼の比較（compare_core_energy.py。#0154）の燃焼 `case` の点ごとの、EFPD、状態、
+    κΣf の燃焼のホウ素、ホウ素の差と反応度の差（κΣf − 核分裂率）、ノードの出力の割合と燃焼度の相対差の絶対値の最大、集合体ごとの
+    κΣf の燃焼の燃焼度と出力の割合の相対差（核分裂のない集合体を除く）"""
+    s = core_energy_summary(sources)
+    if case not in s["cases"]:
+        raise TableError(f"the summary has no case {case}")
+    c = s["cases"][case]
+    rows = []
+    for p in c["points"]:
+        powers, burnups = p["assembly_powers"], p["assembly_burnups"]
+        assemblies = [
+            f"{name} {b:.2f} ({signed(100.0 * (e / r - 1.0), 2)} %)"
+            for name, b, e, r in zip(
+                c["assemblies"], burnups["energy"], powers["energy"], powers["rate"]
+            )
+            if r > 0.0
+        ]
+        rows.append(
+            [
+                f"{p['efpd']:.4f}",
+                p["state"],
+                f"{p['boron'][1]:.4f}",
+                signed(p["boron"][1] - p["boron"][0], 4),
+                signed(p["reactivity"], 2),
+                f"{p['power']:.2e}",
+                f"{p['burnup']:.2e}",
+                "、".join(assemblies),
+            ]
+        )
+    return markdown_table(
+        [
+            "EFPD",
+            "状態",
+            "ホウ素 (ppm)",
+            "ホウ素の差 (ppm)",
+            "反応度の差 (pcm)",
+            "ノードの出力の割合の相対差の最大",
+            "ノードの燃焼度の相対差の最大",
+            "集合体の燃焼度 (MWd/kg) と出力の割合の相対差",
+        ],
+        rows,
+    )
+
+
 def core_acceleration_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-core-acceleration":
@@ -3710,6 +3762,8 @@ GIT_TRACKED = {
     # 熱水力のある燃焼と熱水力なしの燃焼の小さな炉心と全炉心（#0228。ADR-0229 の燃焼のステップ）。ステージの出力でない
     "examples/depletion/branches/compare-core-small-thermal.json",
     "examples/depletion/p9-timing/trial-0228/compare-thermal.json",
+    # ノードの出力の割合を核分裂率（変える前の bin/core）と κΣf で求めた小さな炉心の燃焼（#0154）。ステージの出力でない
+    "examples/depletion/branches/compare-core-small-energy.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4328,6 +4382,22 @@ TABLES = {
     "core-p9-threads-differences": (
         ["examples/depletion/p9-timing/trial-0234/compare-threads.json"],
         core_threads_differences,
+    ),
+    "depletion-small-core-energy-cycle": (
+        ["examples/depletion/branches/compare-core-small-energy.json"],
+        partial(core_energy_points, "cycle"),
+    ),
+    "depletion-small-core-energy-reload": (
+        ["examples/depletion/branches/compare-core-small-energy.json"],
+        partial(core_energy_points, "reload"),
+    ),
+    "depletion-small-core-energy-deep": (
+        ["examples/depletion/branches/compare-core-small-energy.json"],
+        partial(core_energy_points, "deep"),
+    ),
+    "depletion-small-core-energy-deep-reload": (
+        ["examples/depletion/branches/compare-core-small-energy.json"],
+        partial(core_energy_points, "deep-reload"),
     ),
     "depletion-small-core-thermal-points": (
         ["examples/depletion/branches/compare-core-small-thermal.json"],

@@ -1,8 +1,8 @@
 //! 炉心の燃焼: ケースのステップに沿ってノードの燃焼度を進める（ADR-0190）。
 //!
 //! ノード n の初めの重金属の質量 Mₙ は、テーブルの `heavy_metal` (g/cm) × ノードの高さ。定格の出力密度 p (W/g) で EFPD を
-//! ΔE 進めると、炉心の平均の燃焼度の増分は Δ = p ΔE / 1000 (MWd/kg) で、ノードの増分は Δ fₙ M / Mₙ（fₙ はノードの核分裂率
-//! Σf φ V の割合、M = Σ Mₙ）。ステップは中点の形（ADR-0173 の CE/CM と同じ）: 初めの燃焼度で解いた割合で中点の燃焼度を、
+//! ΔE 進めると、炉心の平均の燃焼度の増分は Δ = p ΔE / 1000 (MWd/kg) で、ノードの増分は Δ fₙ M / Mₙ（fₙ はノードの出力
+//! κΣf φ V の割合、M = Σ Mₙ。κΣf は格子計算の燃焼の出力と同じ Q で重みを付けた核分裂の断面積）。ステップは中点の形（ADR-0173 の CE/CM と同じ）: 初めの燃焼度で解いた割合で中点の燃焼度を、
 //! 中点で解いた割合で終わりの燃焼度を求める。燃焼点（0 と各ステップの終わり）の値は、その点の燃焼度で解いたもの。状態が
 //! ホウ素の探索を持てば、点と中点の解のすべてで k が目標になるホウ素濃度を探す（ADR-0191）。
 //!
@@ -37,7 +37,7 @@ use crate::input::{
     Temperatures, Xenon, XenonBoron,
 };
 use crate::micro::{MicroChain, TrackedRates};
-use crate::nem::{Guess, Options, fission_rates};
+use crate::nem::{Guess, Options, fission_powers};
 use crate::rods::mix_micro;
 use crate::state::moderator_density;
 use crate::thermal::{Channels, NodeTemperatures, fissile, water};
@@ -127,7 +127,7 @@ pub struct CorePoint {
     pub assembly_burnups: Vec<f64>,
     /// ノードの燃焼度 (MWd/kg)
     pub burnups: Vec<Vec<f64>>,
-    /// ノードの出力の割合（核分裂率の割合。炉心の和が 1）
+    /// ノードの出力の割合（κΣf φ V の割合。炉心の和が 1）
     pub powers: Vec<Vec<f64>>,
     /// ミクロ燃焼のノードの追う核種の数密度 (1/(barn cm)。[集合体][軸方向のノード][核種]。核分裂のないノードは空)。
     /// ミクロ燃焼しなければ `None`
@@ -354,25 +354,25 @@ impl CoreHistory {
     }
 }
 
-/// 燃焼度 `burnups` (MWd/kg) を、炉心の平均の増分 `increment` (MWd/kg) だけ、核分裂率 `rates` の割合と質量 `masses` (g) で
-/// 進める（ノードの増分は increment × fₙ × M / Mₙ）。核分裂するのに質量のないノードと、核分裂のない炉心はエラー
+/// 燃焼度 `burnups` (MWd/kg) を、炉心の平均の増分 `increment` (MWd/kg) だけ、出力 `powers` の割合と質量 `masses` (g) で
+/// 進める（ノードの増分は increment × fₙ × M / Mₙ）。出力があるのに質量のないノードと、出力のない炉心はエラー
 pub fn advance(
     burnups: &[f64],
     masses: &[f64],
     increment: f64,
-    rates: &[f64],
+    powers: &[f64],
 ) -> Result<Vec<f64>, CaseError> {
-    let total: f64 = rates.iter().sum();
+    let total: f64 = powers.iter().sum();
     if !(total > 0.0 && total.is_finite()) {
         return Err(CaseError::Depletion(format!(
-            "the core fission rate is {total}"
+            "the core fission power is {total}"
         )));
     }
     let mass: f64 = masses.iter().sum();
     burnups
         .iter()
         .zip(masses)
-        .zip(rates)
+        .zip(powers)
         .enumerate()
         .map(|(n, ((&b, &m), &r))| {
             if m > 0.0 {
@@ -446,16 +446,16 @@ fn advance_histories(
         .collect()
 }
 
-/// 中点の形の 1 ステップ（ADR-0190）: 初めの燃焼度 `burnups` の核分裂率 `rates` で中点の燃焼度を求め、`solve`（燃焼度 →
-/// 核分裂率）で中点の核分裂率を求めて、終わりの燃焼度を返す
+/// 中点の形の 1 ステップ（ADR-0190）: 初めの燃焼度 `burnups` の出力 `powers` で中点の燃焼度を求め、`solve`（燃焼度 →
+/// 出力）で中点の出力を求めて、終わりの燃焼度を返す
 pub fn midpoint(
     burnups: &[f64],
     masses: &[f64],
     increment: f64,
-    rates: &[f64],
+    powers: &[f64],
     mut solve: impl FnMut(&[f64]) -> Result<Vec<f64>, CaseError>,
 ) -> Result<Vec<f64>, CaseError> {
-    let half = advance(burnups, masses, 0.5 * increment, rates)?;
+    let half = advance(burnups, masses, 0.5 * increment, powers)?;
     let middle = solve(&half)?;
     advance(burnups, masses, increment, &middle)
 }
@@ -472,7 +472,7 @@ fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
 }
 
 /// 燃焼度の分布を 1 回解いた結果: 解いた状態（`states` の番号）、解、そのホウ素濃度 (ppm) と固有値計算の回数（熱水力の繰り返しと
-/// 探索の評価のすべて）、探索したときは探索の割線のホウ素の効き (k/ppm)、位置ごとの核分裂率、解いたノードの履歴の変数（ミクロ燃焼の
+/// 探索の評価のすべて）、探索したときは探索の割線のホウ素の効き (k/ppm)、位置ごとの出力 κΣf φ V、解いたノードの履歴の変数（ミクロ燃焼の
 /// 反応率の履歴の補正が、定数と同じ値を使う。ADR-0215）と、それを進めたステップの値 x（中点の解の値がステップの値 x̄ になる）
 struct Solve {
     state: usize,
@@ -480,7 +480,7 @@ struct Solve {
     ppm: f64,
     solves: usize,
     worth: Option<f64>,
-    rates: Vec<f64>,
+    powers: Vec<f64>,
     histories: Option<Densities>,
     values: Option<Densities>,
 }
@@ -628,11 +628,18 @@ pub fn deplete(
     let mesh = &first.mesh;
     let [nx, ny, nz] = mesh.counts();
     let sites = nx * ny * nz;
-    // 核分裂するテーブルは質量を持つこと（燃焼度の定義の質量がないので推測しない）。解く前に、ファイルを示して止める
+    // 核分裂するテーブルは質量と κΣf を持つこと（燃焼度の定義の質量と、ノードの出力の重みがないので推測しない）。解く前に、
+    // ファイルを示して止める
     for (file, table) in first.files.iter().zip(tables) {
         if fissile(table) && table.heavy_metal.is_none() {
             return fail(format!(
                 "{}: the table has fission but no heavy_metal; make it from a depletion history (ADR-0190)",
+                file.display()
+            ));
+        }
+        if fissile(table) && table.states.iter().any(|s| s.kappa_fission.is_none()) {
+            return fail(format!(
+                "{}: the table has fission but no kappa_fission; make it from a depletion history (ADR-0190)",
                 file.display()
             ));
         }
@@ -986,23 +993,24 @@ pub fn deplete(
             histories,
             values,
         } = evaluated;
-        let rates = fission_rates(&solved.problem, &solved.solution);
+        let powers = fission_powers(&solved.problem, &solved.solution)
+            .map_err(|e| locate(CaseError::Depletion(e), at))?;
         Ok(Solve {
             state: k,
             solved,
             ppm,
             solves: eigenvalue_solves.get(),
             worth,
-            rates,
+            powers,
             histories,
             values,
         })
     };
     // 解 `solve`（燃焼度 `burnups`）の位置 `site` の、組成 `n` で規格化した追う核種の反応率。ノードの出力密度は出力の割合 `power` ×
-    // 定格の出力密度 × 解の核分裂率の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギーを、割合で伸びた
+    // 定格の出力密度 × 解の出力の割合 × 炉心の質量 / ノードの体積（燃焼度を進める `advance` と同じエネルギーを、割合で伸びた
     // 時間で出す。ADR-0218）。ミクロ燃焼しない位置は `None`
     let mass: f64 = masses.iter().sum();
-    // `total` は解の核分裂率の炉心の和（位置ごとに足し直さない）
+    // `total` は解の出力の炉心の和（位置ごとに足し直さない）
     let node_rates = |m: &MicroNodes,
                       solve: &Solve,
                       total: f64,
@@ -1024,7 +1032,7 @@ pub fn deplete(
         let [x, y, z] = mesh.position(site);
         let volume = mesh.dx[x] * mesh.dy[y] * mesh.dz[z];
         let power_density =
-            power * depletion.specific_power * solve.rates[site] / total * mass / volume;
+            power * depletion.specific_power * solve.powers[site] / total * mass / volume;
         let s = crate::state::State {
             burnup: Some(burnups[site]),
             ..state
@@ -1085,7 +1093,7 @@ pub fn deplete(
      -> Result<Vec<Option<Vec<f64>>>, CaseError> {
         // ミクロ燃焼（反応率と CRAM）の時間をログに出す（#0156）
         let _span = tracing::info_span!("micro depletion").entered();
-        let total: f64 = solve.rates.iter().sum();
+        let total: f64 = solve.powers.iter().sum();
         let next = (0..sites)
             .into_par_iter()
             .map(|site| {
@@ -1139,7 +1147,7 @@ pub fn deplete(
             let solved = solve(k, burnups, Some(n), h, ppm.or(given), power, at)?;
             solves += solved.solves;
             worth = solved.worth.or(worth);
-            let total: f64 = solved.rates.iter().sum();
+            let total: f64 = solved.powers.iter().sum();
             // 平衡の Xe と I の値を求める時間をログに出す（#0156）
             let _span = tracing::info_span!("xenon balance").entered();
             let balanced = (0..sites)
@@ -1211,15 +1219,15 @@ pub fn deplete(
             solved,
             ppm,
             solves,
-            rates,
+            powers,
             // 点の履歴の変数は、点を解いた値と同じ `h` から書く
             histories: _,
             values: _,
             worth: _,
         } = solve;
         let burnup_rows = by_assembly(burnups);
-        let total: f64 = rates.iter().sum();
-        let shares: Vec<f64> = rates.iter().map(|r| r / total).collect();
+        let total: f64 = powers.iter().sum();
+        let shares: Vec<f64> = powers.iter().map(|r| r / total).collect();
         let densities = micro.as_ref().zip(n).map(|(m, n)| {
             placed
                 .values()
@@ -1387,7 +1395,7 @@ pub fn deplete(
                     from,
                     start: &start,
                 });
-                burnups = midpoint(&burnups, &masses, increment, &solve_at_point.rates, |b| {
+                burnups = midpoint(&burnups, &masses, increment, &solve_at_point.powers, |b| {
                     // 予測子: 初めの解の反応率で、中点の組成へ
                     let half = match (&micro, &densities) {
                         (Some(m), Some(n)) => Some(deplete_nodes(
@@ -1418,9 +1426,9 @@ pub fn deplete(
                         "depletion midpoint"
                     );
                     report_thermal(&middle);
-                    let rates = middle.rates.clone();
+                    let powers = middle.powers.clone();
                     middle_of_step = Some((middle, b.to_vec(), half));
-                    Ok(rates)
+                    Ok(powers)
                 })
                 // 中点の解のエラーは場所を持つ。燃焼度の増分（`advance`）のエラーに、ステップを添える
                 .map_err(|e| locate(e, &at_step))?;
