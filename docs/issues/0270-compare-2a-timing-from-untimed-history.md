@@ -22,6 +22,9 @@ resolution:
   再実行すると記録の時間を上書きする
 - p2 の `dvc status` は、この 7 本のほかに compare@2A（上の点）と openmc-index（参照のステージ。deps の .py、.ast、toml が main の lock と同じまま）
   の 9 本と、always changed の references-shell を出す。ADR-0238 の帰結は 7 本だけを数える
+- 上の openmc-index の括弧の説明は不正確: dvc status は .ast 2 件と openmc-library.toml を modified と出すが、lock の deps は .py のパスで、toml
+  （ea31f6f8）も lock（2d57dbf9）と違う。openmc-index が changed のままの件は #0145 が扱う
+- 完了の条件の 2 つ目（2A の履歴を timed で作り直す）は、2F と 2N の timed の時間を上書きする危険を含まない
 
 関係する ADR: なし
 
