@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-07
 requires: [ADR-0033, ADR-0039, ADR-0164, ADR-0172, ADR-0173, ADR-0183, ADR-0186, ADR-0187, ADR-0192, ADR-0200, ADR-0216]
 supersedes: []
@@ -142,8 +142,38 @@ ADR-0187 の置き場のとおり、`[history]` の実行が書く燃焼度の�
 
 ## 確認
 
-（実装の後に書く）
+- ライブラリ（crates/format/src/library/tests.rs）: `delayed_data_need_every_temperature_and_the_families_of_the_decay_constants`、
+  `inverse_velocities_are_positive_for_every_group`、`activation_cross_sections_are_looked_up_at_their_exact_temperature`、
+  `activation_nuclides_are_checked_like_the_chain_reactions_of_the_library`、`round_trips_bit_exactly`、`merge_joins_the_nuclides_in_order`
+- xs（crates/xs）: `reads_the_decay_constants_and_the_delayed_nubar`（MF1 MT455）、`delayed_families_split_the_delayed_nubar_by_their_fractions`、
+  `delayed_nubar_varying_in_a_group_is_weighted_by_the_fission_rate`、`inverse_velocity_averages_one_over_v_with_the_weight_function`（1/E の
+  範囲の解析値と相対 1e-9）、`delayed_families_take_the_decay_constants_and_the_family_spectra`、
+  `delayed_families_need_one_spectrum_per_decay_constant`、`evaluations_without_the_delayed_spectrum_have_no_families`、
+  `activation_nuclides_have_the_chain_reactions_of_a_processed_nuclide`、`reads_activation_nuclides`、`an_activation_result_must_match_its_input`、
+  `the_pointwise_range_leaves_out_activation_nuclides`、`libraries_carry_the_inverse_velocities_of_their_groups`
+- テーブル（crates/format/src/table/tests.rs）: `kinetics_and_cooling_data_round_trip_bit_exactly_and_are_written_only_when_held`、
+  `kinetics_data_need_a_burnup_axis_one_sub_node_and_matching_sizes`、`cooling_data_have_one_point_per_burnup_and_the_same_reactions_at_every_point`
+- lattice（crates/lattice/src/history/tests.rs）: `kinetics_split_the_delayed_production_by_family_and_divide_it_by_the_decay_constants`
+  （遅発の生成が ν_d,k × Σf、崩壊定数で割った量、族のスペクトル、群速度の逆数が相対 1e-12）、`a_fissile_lattice_needs_delayed_neutron_families`、
+  `cooling_cross_sections_are_the_one_group_micro_cross_sections_of_transported_and_activation_nuclides`、
+  `activation_cross_sections_need_the_temperature_of_the_depletion_regions`。1 つの入力の制御棒の分岐（crates/lattice/tests/history_rod_branch.rs の
+  `history_rod_branches_match_separate_lattices`）で、状態ごとの動特性のデータが値ごとの別の格子計算とビットで一致し、冷却計算の断面積が
+  棒のない値の入力と同じ
+- core（crates/core/src/state/tests.rs）: `kinetics_data_at_the_grid_points_are_the_lattice_values`（格子点でテーブルの値そのもの）、
+  `kinetics_data_take_the_weights_of_the_few_group_constants`、`decay_constants_keep_the_delayed_production_and_the_precursors_under_the_given_flux`、
+  `cooling_cross_sections_are_interpolated_in_burnup_only`（燃焼度の点ではその点の値）、`kinetics_and_cooling_data_need_the_data_and_the_burnup_range`
 
 ## 帰結
 
-（実装の後に書く）
+- ライブラリの形式に必須の項目（`inverse_velocity`、`activation`、核種の `decay_constants`、温度の `delayed`）を足したので、今あるライブラリは
+  どれも読めない。xs のステージを持つ例（examples の m0、m1、m3-nuclides、mox、reflector、core、vera、vera/endfb70、depletion、depletion/p2）の
+  ライブラリは、それを読む作業が次に来たときに作り直す。核種ごとの CPU 時間の記録（`stage-cpu-seconds.json`）の和は、vera 6,031 秒、vera/endfb70
+  2,286 秒、depletion 11,616 秒、depletion/p2 4,596 秒（放射化の核種を足す前の 90 核種）
+- テーブルの `kinetics` と `cooling` は、燃焼の履歴から作ったテーブルだけのキーで、持たないテーブル（今ある燃焼度の軸のテーブルを含む）は
+  そのまま読める。core の動特性と冷却計算の解法はまだなく（ADR-0033）、内挿の関数だけがある
+- 燃焼の履歴からの分岐は、族のデータを持つ核種のないライブラリ（今あるライブラリ）ではエラーになる。チェックポイントの状態にも
+  2 つの項目を足した
+- 放射化の核種の断面積は無限希釈で、自己遮蔽しない。格子計算の燃焼（ADR-0173）は放射化の断面積を使わず、輸送しない核種を
+  崩壊だけで追うままにした。チェーンと照らした核種の確かめ、中性子のデータのない長寿命の核種（案 A4）、格子計算の燃焼で放射化の
+  反応を数えるかは #0264
+- 群速度の逆数の群の中の重みは重み関数で、熱の群の中の実際の中性子束の形との差は測っていない
