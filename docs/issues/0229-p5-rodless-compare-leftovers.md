@@ -27,13 +27,18 @@ resolution:
 - examples/vera/p5/p5_inputs.py の `hzp_pipeline` は、棒のない出力のパスを 2 回求める。支持格子の層と反射体の格子の棒のない格子の
   ステージも、媒質を書かないのに `rodless/media` を作る（制御棒の分岐を解く格子の `mkdir -p lattice media` も同じ）
 - examples/verification_tables.py の `TABLES` の JSON の置き場を確かめるテストが無い。`GIT_TRACKED` に無い JSON は、同じディレクトリの
-  dvc.lock から md5 を読む（`locked_md5`。dvc.lock が無ければ `<dvc.lock> does not exist`、あってもその JSON の出力が 1 つでなければ
-  `<dvc.lock> has N outputs named <JSON> (expected 1)` の `TableError`）ので、同じディレクトリの dvc.yaml がその JSON を出力に宣言して
-  いるかを確かめるテストを足す（その 2 つのエラーと、git で追跡されていないときのエラーの文言は、ステージの実行と dvc.lock のコミット、
-  出力の宣言を先に示し、`GIT_TRACKED` はコメントの挙げる例外の置き場としてだけ示す形に直した）。
+  dvc.lock から md5 を読む（`locked_md5`。dvc.lock が無ければ `<dvc.lock> does not exist`、あってもその JSON の名前の `- path` の行が
+  1 つでなければ `<dvc.lock> has N outputs named <JSON> (expected 1)` の `TableError`）ので、同じディレクトリの dvc.yaml がその JSON を
+  出力に宣言しているかを確かめるテストを足す。
   3fd28562f で、置き場の誤り（examples/vera/p5/hzp/compare-rodless.json）が、記録用の計算（Slurm 695、696）を流し終えた後の記録を書く
   段で `examples/vera/p5/hzp/dvc.lock does not exist` として分かり、最後のレビューの周より後の挙動の変更になった。テストがあれば、
   `TABLES` に足したコミットの時点で止まる。急がない
+- `locked_md5` のエラーの文言の残り: 親の dvc.yaml が下のディレクトリの JSON を出力に宣言した置き場の誤りでは、`dvc.lock does not exist`
+  の「run the stage and commit dvc.lock」は当たらない（実行し直しても同じエラー）。`has N outputs named` は、まだ実行していない
+  ステージ（N = 0）に実行の指示を示さない。`GIT_TRACKED_NOTE` の「its comment names」は、`GIT_TRACKED` の冒頭のコメント（AWS、燃焼度の軸）
+  だけと読め、行ごとのコメントで足した試行の JSON と合わない。`GIT_TRACKED_NOTE` は `GIT_TRACKED` の定義から離れている
+- `locked_md5` の正規表現は `deps` の行にも当たる。同じ JSON を出力するステージと deps に持つステージがあると N = 2 で止まり、deps の行だけが
+  1 つあるとその md5 で照合を通す
 
 関係する ADR: なし
 
@@ -41,20 +46,14 @@ resolution:
 
 各項目を直すかを決め、直すものを直す。
 
+## 検討して捨てた形
+
+- どの `locked_md5` のエラーにも「ステージの無い JSON は `GIT_TRACKED` に入れる」を示す形: 置き場を誤ったステージの出力を `GIT_TRACKED` に
+  入れると md5 の照合（ADR-0176）が外れる（examples/vera/p5/hzp/compare-rodless.json の置き場の誤りが反例。レビューの指摘）
+
 ## 経緯
 
 - 2026-11-05: chore/0213-rerun-p5-hzp のレビューの指摘のうち、通常の入力と流れで落ちるテストか誤った数値を示せないものをまとめた
 - 2026-11-06: `TABLES` の JSON の置き場を確かめるテストの項を足した（3fd28562f の置き場の直しから。/retro の提案）
-- 2026-11-07: 置き場の項のエラーの文言を直した（ブランチ fix/0229-table-error-placement。2026-10-29〜11-07 に担当 10 本が
-  `dvc.lock does not exist` で止まり、スクリプトを読んで `GIT_TRACKED` を見つけていた。/retro の提案）。置き場を確かめるテストは残る。
-  最初の版は、ステージの無い JSON の道として「`GIT_TRACKED` に入れる」をどのエラーにも示したが、ステージの出力を置き場の誤りのまま
-  `GIT_TRACKED` に入れると md5 の照合（ADR-0176）が外れる（3fd28562f の examples/vera/p5/hzp/compare-rodless.json が反例）と
-  レビューの 2 周目が指摘して捨てた。3 周目の指摘で直していないもの:
-  - 親の dvc.yaml が下のディレクトリの JSON を出力に宣言した置き場の誤り（3fd28562f の形）では、`dvc.lock does not exist` の
-    「ステージを実行して dvc.lock をコミット」は当たらない（実行し直しても同じエラー）。出力を dvc.yaml のディレクトリに移す指示か、
-    `locked_md5` が親のディレクトリの dvc.lock を相対パスで探す形かを決める
-  - `has N outputs named` のエラーは、まだ実行していないステージ（N = 0）に実行の指示を示さない。`locked_md5` の正規表現は deps の
-    行にも当たるので、同じ JSON を deps に持つステージがあると N = 2 になり「出力」と呼ぶのは誤り
-  - `GIT_TRACKED_NOTE` の「コメントの挙げる例外」は、ブロックの冒頭のコメント（AWS、燃焼度の軸）だけと読める。行ごとのコメントで
-    足した試行の JSON も入っている
-  - レビューの 2 周目の直しは、テストと実装を 1 つのコミットにした
+- 2026-11-07: `locked_md5` と未追跡のエラーの文言を、ステージの側の修正方法（実行、出力の宣言、`cache: false`）を先に示し `GIT_TRACKED` を例外の置き場として示す形に
+  直した（担当 10 本が `dvc.lock does not exist` で止まっていた。/retro の提案）。文言の残りと deps の行の項を足した
