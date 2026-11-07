@@ -31,9 +31,6 @@ resolution:
 - crates/core/src/input/tests.rs の `depletion_takes_thermal_hydraulics_with_inlet_states` の doc コメントが「燃焼のケースの熱水力は未実装」の
   まま
 - `deplete` の中で、クロージャ `node_densities`（ノードの温度 → IF97 の密度）と、restart の数密度の束縛 `node_densities` が同じ名前
-- ADR-0229 の「決定と理由」の「入力」と「燃焼のステップ」は、燃焼のケースと `[thermal-hydraulics]` の組み合わせを「このブランチでは」
-  エラーにすると書く（その ADR を入れたブランチの実装の状態）。今の実装はエラーにせず、帰結に実装の形を書いた。決定の文を今の形に直して
-  「## 変更」を足すかは決めていない
 
 関係する ADR: なし
 
