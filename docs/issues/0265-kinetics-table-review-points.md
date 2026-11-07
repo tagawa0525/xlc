@@ -62,6 +62,13 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 - examples/depletion/verification.md の「動特性と冷却計算のデータ（2A）」と #0264 の H-1 の根拠（`thermal_scattering` と `resolved`）は、`lookup` の
   内挿が拒む残りの条件（表の形、チェーンの反応の経路、遅発中性子の族、S(α,β) の格子、ポイントワイズ）に触れない。H-1 の 565 K の内挿を
   支える出典には、p2 の格子計算の燃焼が 565 K の減速材の H-1 を内挿して解いていること（例えば lattice@2A のログ）を使える
+- ADR-0238 の帰結の p2 の 7 本の燃焼の項: 「main の dvc.lock の bin/lattice が 7db11a9d6（2026-11-04）で別の値に移った」は事実と違う。7db11a9d6 は
+  別のブランチのコミット（bin/lattice を a277b17b にした）で、main の lock が 48387d65 から 7e959698 に移ったのはマージ 1c817213b（2026-11-05）。
+  同じ項は、再実行が下流の compare@ を実行して記録の timed の時間を上書きしうること（#0270）に触れない
+- 上の H-1 の項が出典に挙げた「lattice@2A のログ」には、減速材の H-1 の内挿を示す行が無い（燃焼の領域の H-1 の decay only の WARN だけ）。
+  根拠になるのは、565 K の減速材に H-1 を持つ lattice@2A が lookup のエラーなしに最後まで走ったこと
+- examples/depletion/kinetics_table.py: `summary` の生成 νΣf · φ は、`fundamental` の k を φ の和で割った値と同じ内積を計算し直し、生成の検査の
+  k > 0 と生成 > 0 は同じ符号を 2 度見る
 
 関係する ADR: なし
 
