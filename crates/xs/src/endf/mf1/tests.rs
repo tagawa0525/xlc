@@ -59,16 +59,17 @@ fn delayed_nubar_tape(ldg: &str) -> Tape {
 }
 
 #[test]
-fn reads_delayed_nubar_after_the_decay_constants() {
+fn reads_the_decay_constants_and_the_delayed_nubar() {
     let tape = delayed_nubar_tape("0");
-    let nu = parse_delayed_nubar(&tape.section(9228, 1, 455).unwrap()).unwrap();
-    assert_eq!(nu.x, vec![1.0e-5, 2.0e7]);
-    assert_eq!(nu.y, vec![1.585e-2, 9.0e-3]);
+    let delayed = parse_delayed(&tape.section(9228, 1, 455).unwrap()).unwrap();
+    assert_eq!(delayed.decay_constants, vec![1.3336e-2, 3.2739e-2]);
+    assert_eq!(delayed.nubar.x, vec![1.0e-5, 2.0e7]);
+    assert_eq!(delayed.nubar.y, vec![1.585e-2, 9.0e-3]);
 }
 
 #[test]
 fn energy_dependent_decay_constants_are_error() {
     let tape = delayed_nubar_tape("1");
-    let err = parse_delayed_nubar(&tape.section(9228, 1, 455).unwrap()).unwrap_err();
+    let err = parse_delayed(&tape.section(9228, 1, 455).unwrap()).unwrap_err();
     assert_eq!(err.line, 1);
 }
