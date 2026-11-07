@@ -1,0 +1,5 @@
+outs:
+- md5: 32bf58986f9e264faba40aad0c0998dd
+  size: 2201307
+  hash: md5
+  path: table-2A-kinetics.msgpack

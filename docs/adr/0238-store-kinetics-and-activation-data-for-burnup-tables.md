@@ -164,6 +164,9 @@ ADR-0187 の置き場のとおり、`[history]` の実行が書く燃焼度の�
 - core（crates/core/src/state/tests.rs）: `kinetics_data_at_the_grid_points_are_the_lattice_values`（格子点でテーブルの値そのもの）、
   `kinetics_data_take_the_weights_of_the_few_group_constants`、`decay_constants_keep_the_delayed_production_and_the_precursors_under_the_given_flux`、
   `cooling_cross_sections_are_interpolated_in_burnup_only`（燃焼度の点ではその点の値）、`kinetics_and_cooling_data_need_the_data_and_the_burnup_range`
+- 2A（examples/depletion/verification.md の「動特性と冷却計算のデータ（2A）」、636d3b1d3、2026-11-07、Slurm 726）: 放射化の 455 核種を足した
+  ライブラリと作り直した履歴から作ったテーブルで、燃焼度の点ごとの公称の状態の遅発中性子の割合は燃焼度 0 の 712.62 pcm から 60 MWd/kg の
+  464.33 pcm に減る。冷却計算の断面積を持つ核種は 544（輸送する 89 と放射化の 455）
 
 ## 帰結
 
