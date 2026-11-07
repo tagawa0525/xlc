@@ -49,6 +49,9 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 - examples/depletion/kinetics_table.py: `--report` が位置引数のテーブルと `--nuclide` を黙って無視する。`cooling` か `kinetics` のないテーブルで
   KeyError になり、何が足りないかを言わない
 
+- examples/depletion/kinetics_table.py の `nominal_points`: 公称の状態の点の番号を探す `index` の ValueError が、何が無いかを言わない
+- crates/lattice/src/history.rs の `kinetics`: 族のデータを持つ核種がないときと、族の生成が 0 のときを同じエラーの文で言う
+
 関係する ADR: なし
 
 ## 完了の条件
