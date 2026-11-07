@@ -22,6 +22,12 @@
 //! 分けた、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。どちらも点ごとに追う核種の順の `fission`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない核種は nil で、キーは省けない））。履歴の分岐の条件は、減速材の密度は `moderator` の軸だけが値 `branch` の格子点で、ほかの軸は
 //! 公称の状態、制御棒の挿入の割合は公称の状態（`nominal` は 0、`branch` は 1。制御棒を入れた値が条件で、`out` は逆向き）。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
+//! `kinetics`（`points` の点ごとの動特性のデータ `states`（族ごとの遅発中性子の生成 `delayed_nu_fission`（1/cm）、族ごとにそれを核種の崩壊定数で
+//! 割った `delayed_precursors`（s/cm）、族ごとの遅発スペクトル `delayed_chi`、群速度の逆数 `inverse_velocity`（s/cm））。燃焼度の軸を持ち、分けない
+//! テーブルだけが書き、ほかはキーを書かない。ADR-0238）,
+//! `cooling`（冷却計算の核種の `nuclides` と、燃焼度の点ごと核種ごとの公称の状態の 1 群の微視的断面積 `points`（`fission`、`thermal_fission`（核分裂
+//! しない核種は nil。キーは省けない）、`reactions`（`mt` と経路ごとの `channels`））。燃焼度の軸を持ち、分けないテーブルだけが書き、ほかはキーを
+//! 書かない。ADR-0238）,
 //! `points`（解いた状態の点ごとに、軸の順の格子点の番号（離散の軸は値の番号）。辞書式の昇順。ADR-0200）,
 //! `states`（`points` の順で、点ごとに split² の部分ノードの定数が続く（部分ノードは -y の行から、各行は -x から）。各状態は少数群定数の
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
@@ -500,6 +506,64 @@ pub struct Table {
     pub micro: Option<Micro>,
     /// 履歴の変数ごとの、ミクロ燃焼で追わない核種の分の補正の残り R（ADR-0215）。ミクロ燃焼のデータを持つテーブルだけが持てる
     pub histories: Vec<HistoryCorrection>,
+    /// 状態ごとの動特性のデータ（ADR-0238）。燃焼の履歴から作ったテーブルだけが持てる
+    pub kinetics: Option<Kinetics>,
+    /// 燃焼度の点ごとの、冷却計算の全核種の 1 群の微視的断面積（ADR-0238）。燃焼の履歴から作ったテーブルだけが持てる
+    pub cooling: Option<Cooling>,
+}
+
+/// 状態ごとの動特性のデータ（ADR-0238）。格子全体の均質化なので、部分ノードに分けないテーブルだけが持つ
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Kinetics {
+    /// [`Table::points` の点] の動特性のデータ
+    pub states: Vec<KineticsState>,
+}
+
+/// 1 つの状態の動特性のデータ（ADR-0238）。行は遅発中性子の族、列は群。少数群定数と同じく、MOC の中性子束と体積で重みを付けた
+/// 量を少数群の中性子束で割ったもの
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KineticsState {
+    /// 族ごとの遅発中性子の生成 ν_dΣf (1/cm)。即発の生成は少数群定数の νΣf からこの和を引いたもの
+    pub delayed_nu_fission: Vec<Vec<f64>>,
+    /// 族ごとの Σ_i ν_d,i Σf,i / λ_i (s/cm)。族の崩壊定数は、中性子束 φ で Σ_G ν_dΣf φ / Σ_G (ν_dΣf/λ) φ（平衡の先行核の和と
+    /// 崩壊率の和を保つ）
+    pub delayed_precursors: Vec<Vec<f64>>,
+    /// 族ごとの遅発スペクトル（族の生成で重みを付けたもの。和は 1）
+    pub delayed_chi: Vec<Vec<f64>>,
+    /// 群速度の逆数 (s/cm)
+    pub inverse_velocity: Vec<f64>,
+}
+
+/// 冷却計算の全核種の、燃焼度の点ごとの公称の状態の 1 群の微視的断面積（ADR-0238）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Cooling {
+    /// 核種の名前（輸送する核種と放射化の核種）
+    pub nuclides: Vec<String>,
+    /// [燃焼度の軸の点][核種] の 1 群の微視的断面積
+    pub points: Vec<Vec<CoolingNuclide>>,
+}
+
+/// 1 つの核種の 1 群の微視的断面積 (barn)（ADR-0238）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoolingNuclide {
+    pub fission: f64,
+    /// 核分裂率のうち、収率の境界（ADR-0183）より下の割合。核分裂しない核種は nil（キーは省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub thermal_fission: Option<f64>,
+    /// チェーンの反応（ライブラリの MT と経路の並び）
+    pub reactions: Vec<CoolingReaction>,
+}
+
+/// 1 つのチェーンの反応の、経路ごとの 1 群の断面積 (barn)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoolingReaction {
+    pub mt: u32,
+    pub channels: Vec<f64>,
 }
 
 /// ミクロ燃焼で追う核種の、燃焼度の点ごとの格子で均質化した数密度と、状態ごとの少数群の微視的断面積（ADR-0216）。格子全体の
@@ -681,6 +745,12 @@ pub struct Residual {
 /// `Options::default`）の大きさ。2A の燃焼度 0 で測った値は L が 1.5e-7、Δσ_L が 1.3e-8（ADF と Pu-238 の (n,2n)）
 pub const NOMINAL_POINT_TOLERANCE: f64 = 1.0e-6;
 
+/// 遅発スペクトルの和の、1 からのずれの許容（lattice は和で割る。群の数だけの丸め）
+const CHI_SUM_TOLERANCE: f64 = 1.0e-9;
+
+/// 遅発の生成の族の和が νΣf を超えてよい丸めの大きさ（同じ反応率の和を別の順で足した差）
+const DELAYED_ROUNDING: f64 = 1.0e-12;
+
 /// 減速材の密度の履歴の変数の名前（ADR-0215）
 pub const MODERATOR_DENSITY: &str = "moderator-density";
 
@@ -789,6 +859,10 @@ struct TableFile {
     micro: Option<Micro>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     histories: Vec<HistoryCorrection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    kinetics: Option<Kinetics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cooling: Option<Cooling>,
 }
 
 /// ファイルの軸（テーブルと媒質で共有する。ADR-0128）
@@ -941,6 +1015,8 @@ impl Table {
             heavy_metal: None,
             micro: None,
             histories: Vec::new(),
+            kinetics: None,
+            cooling: None,
         }
     }
 
@@ -1039,6 +1115,163 @@ impl Table {
             self.validate_micro(micro).map_err(TableError::Invalid)?;
         }
         self.validate_histories().map_err(TableError::Invalid)?;
+        if let Some(kinetics) = &self.kinetics {
+            self.validate_kinetics(kinetics)
+                .map_err(TableError::Invalid)?;
+        }
+        if let Some(cooling) = &self.cooling {
+            self.validate_cooling(cooling)
+                .map_err(TableError::Invalid)?;
+        }
+        Ok(())
+    }
+
+    /// 燃焼の履歴から作ったデータ（`what`）の置き場: 燃焼度の軸を持ち、分けないテーブル。燃焼度の軸の点の数を返す
+    fn history_data_burnups(&self, what: &str) -> Result<usize, String> {
+        let burnups = self
+            .axes
+            .iter()
+            .find(|a| matches!(a, Axis::Burnup { .. }))
+            .ok_or_else(|| {
+                format!("{what} need a burnup axis (they are written from a depletion history)")
+            })?
+            .len();
+        if self.split != 1 {
+            return Err(format!(
+                "{what} are homogenized over the whole lattice, so the table must not be split (split {})",
+                self.split
+            ));
+        }
+        Ok(burnups)
+    }
+
+    /// 動特性のデータが点ごとに 1 つ、族の数が状態と項目の間で同じで、値が群の数の 0 以上の有限の値であること。遅発スペクトルの
+    /// 和は 1、群速度の逆数は正。遅発の生成のある群は崩壊定数で割った量も正で、族の和は状態の νΣf を超えない
+    fn validate_kinetics(&self, kinetics: &Kinetics) -> Result<(), String> {
+        self.history_data_burnups("kinetics data")?;
+        if kinetics.states.len() != self.points.len() {
+            return Err(format!(
+                "{} kinetics states for {} points",
+                kinetics.states.len(),
+                self.points.len()
+            ));
+        }
+        let groups = self.states[0].bounds.len() - 1;
+        let families = kinetics.states[0].delayed_nu_fission.len();
+        if families == 0 {
+            return Err("kinetics data need delayed neutron families".into());
+        }
+        let nonnegative =
+            |v: &[f64]| v.len() == groups && v.iter().all(|x| *x >= 0.0 && x.is_finite());
+        let rows = |m: &[Vec<f64>]| m.len() == families && m.iter().all(|r| nonnegative(r));
+        for (p, (k, state)) in kinetics.states.iter().zip(&self.states).enumerate() {
+            let at = |what: &str| format!("kinetics state {p}: {what}");
+            if !rows(&k.delayed_nu_fission) || !rows(&k.delayed_precursors) || !rows(&k.delayed_chi)
+            {
+                return Err(at(&format!(
+                    "delayed neutron data must be {families} families of {groups} finite nonnegative groups"
+                )));
+            }
+            if k.delayed_chi
+                .iter()
+                .any(|chi| (chi.iter().sum::<f64>() - 1.0).abs() > CHI_SUM_TOLERANCE)
+            {
+                return Err(at("delayed neutron spectra must sum to 1"));
+            }
+            if k.inverse_velocity.len() != groups
+                || !k.inverse_velocity.iter().all(|v| *v > 0.0 && v.is_finite())
+            {
+                return Err(at(&format!(
+                    "inverse velocities must be {groups} positive finite values"
+                )));
+            }
+            if k.delayed_nu_fission
+                .iter()
+                .zip(&k.delayed_precursors)
+                .any(|(nu, c)| nu.iter().zip(c).any(|(n, c)| *n > 0.0 && *c <= 0.0))
+            {
+                return Err(at(
+                    "delayed production needs its precursors over the decay constants",
+                ));
+            }
+            for (g, total) in state.nu_fission.iter().enumerate() {
+                let delayed: f64 = k.delayed_nu_fission.iter().map(|row| row[g]).sum();
+                if delayed > total * (1.0 + DELAYED_ROUNDING) {
+                    return Err(at(&format!(
+                        "the delayed production {delayed} exceeds nu-fission {total} in group {g}"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// 冷却計算のデータが燃焼度の点ごとに核種の数だけあり、核種の名前が重ならず、値が 0 以上の有限の値であること。収率の境界より
+    /// 下の割合は、核分裂する核種だけが 0..1 で持つ。反応の MT と経路の数と核分裂の有無は点の間で同じ
+    fn validate_cooling(&self, cooling: &Cooling) -> Result<(), String> {
+        let burnups = self.history_data_burnups("cooling data")?;
+        let names = &cooling.nuclides;
+        if let Some(name) = names
+            .iter()
+            .enumerate()
+            .find(|&(i, n)| !crate::library::is_nuclide_name(n) || names[..i].contains(n))
+            .map(|(_, n)| n)
+        {
+            return Err(format!(
+                "cooling nuclide {name:?} is not a distinct nuclide name"
+            ));
+        }
+        if cooling.points.len() != burnups {
+            return Err(format!(
+                "{} cooling points for {burnups} burnups",
+                cooling.points.len()
+            ));
+        }
+        let shape = |n: &CoolingNuclide| {
+            (
+                n.reactions
+                    .iter()
+                    .map(|r| (r.mt, r.channels.len()))
+                    .collect::<Vec<_>>(),
+                n.thermal_fission.is_some(),
+            )
+        };
+        let finite = |x: f64| x >= 0.0 && x.is_finite();
+        for (b, point) in cooling.points.iter().enumerate() {
+            if point.len() != names.len() {
+                return Err(format!(
+                    "cooling point {b}: {} nuclides for {}",
+                    point.len(),
+                    names.len()
+                ));
+            }
+            for (i, n) in point.iter().enumerate() {
+                let at = |what: &str| format!("cooling point {b}, {}: {what}", names[i]);
+                if !finite(n.fission)
+                    || !n
+                        .reactions
+                        .iter()
+                        .flat_map(|r| &r.channels)
+                        .all(|&x| finite(x))
+                {
+                    return Err(at("cross sections must be finite and nonnegative"));
+                }
+                match n.thermal_fission {
+                    None if n.fission == 0.0 => {}
+                    Some(f) if n.fission > 0.0 && (0.0..=1.0).contains(&f) => {}
+                    _ => {
+                        return Err(at(
+                            "fissile nuclides need a fraction of fissions below the yield cutoff in 0..1, others none",
+                        ));
+                    }
+                }
+                if shape(n) != shape(&cooling.points[0][i]) {
+                    return Err(at(
+                        "reactions and fission must be those of the first burnup point",
+                    ));
+                }
+            }
+        }
         Ok(())
     }
 
@@ -1605,6 +1838,8 @@ impl Table {
             states,
             micro: self.micro.clone(),
             histories: self.histories.clone(),
+            kinetics: self.kinetics.clone(),
+            cooling: self.cooling.clone(),
         })?)
     }
 
@@ -1656,6 +1891,8 @@ impl Table {
             heavy_metal: file.heavy_metal,
             micro: file.micro,
             histories: file.histories,
+            kinetics: file.kinetics,
+            cooling: file.cooling,
         };
         table.validate()?;
         Ok(table)
