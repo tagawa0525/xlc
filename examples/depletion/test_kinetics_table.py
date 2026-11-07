@@ -119,6 +119,13 @@ class Summary(unittest.TestCase):
         with self.assertRaises(ValueError):
             kt.summary(t, ["U-235"])
 
+    def test_a_state_without_production_is_an_error(self):
+        # νΣf が 0 なら k と遅発中性子の割合を作れない
+        t = table()
+        t["states"][1]["nu_fission"] = [0.0, 0.0]
+        with self.assertRaises(ValueError):
+            kt.summary(t, ["U-235"])
+
 
 if __name__ == "__main__":
     unittest.main()
