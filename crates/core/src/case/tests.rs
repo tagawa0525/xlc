@@ -1580,9 +1580,10 @@ fn corrected_constants_keep_the_fission_energy_per_fission_of_the_table() {
     );
     let kappa = f.kappa_fission.as_ref().unwrap();
     for g in 0..2 {
+        // 試験の定数の補正は大きく、核分裂の断面積の符号を変えうる
         let want = energy[g] * f.fission[g];
         assert!(
-            (kappa[g] - want).abs() <= 1e-13 * want,
+            (kappa[g] - want).abs() <= 1e-13 * want.abs(),
             "{g}: {} vs {want}",
             kappa[g]
         );

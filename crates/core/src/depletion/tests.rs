@@ -950,7 +950,10 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
                 solve_burnups(&layout, &tables, &state.at(ppm), burnups, &options)
             })
             .unwrap();
-            (fission_rates(&solved.problem, &solved.solution), found.ppm)
+            (
+                fission_powers(&solved.problem, &solved.solution).unwrap(),
+                found.ppm,
+            )
         };
         let [nx, ny, nz] = layout.mesh.counts();
         let masses: Vec<f64> = (0..nx * ny * nz)
@@ -969,7 +972,7 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
             let increment = target - weighted(&burnups, &masses);
             burnups = midpoint(&burnups, &masses, increment, &rates, |b| {
                 let solved = solve_burnups(&layout, &tables, &state.at(ppm), b, &options)?;
-                Ok(fission_rates(&solved.problem, &solved.solution))
+                Ok(fission_powers(&solved.problem, &solved.solution).unwrap())
             })
             .unwrap();
             (rates, ppm) = critical(&burnups);
