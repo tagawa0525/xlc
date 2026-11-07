@@ -11,6 +11,7 @@ pub(crate) fn sample() -> FewGroup {
         absorption: vec![x(0.03), x(0.3)],
         nu_fission: vec![x(0.02), x(0.4)],
         fission: vec![x(0.008), x(0.16)],
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![x(4.1), x(1.2)],
         scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],

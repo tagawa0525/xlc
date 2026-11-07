@@ -76,6 +76,7 @@ fn few(fissile: f64) -> FewGroup {
         absorption: vec![0.01, 0.06],
         nu_fission: vec![0.005 * fissile, 0.1 * fissile],
         fission: vec![0.002 * fissile, 0.04 * fissile],
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter: vec![vec![0.5, 0.02], vec![0.0, 1.0]],

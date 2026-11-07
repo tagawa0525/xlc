@@ -92,6 +92,7 @@ fn few(fissile: f64, burnup: f64, ppm: f64, worth: f64) -> FewGroup {
         fission: nu_fission.iter().map(|x| x / 2.43).collect(),
         nu_fission,
         absorption,
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter: vec![vec![0.5, removal], vec![0.0, 1.0]],

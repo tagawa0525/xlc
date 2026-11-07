@@ -10,6 +10,7 @@ fn radial() -> FewGroup {
         absorption: vec![0.01, 0.1],
         nu_fission: vec![0.0, 0.0],
         fission: vec![0.0, 0.0],
+        kappa_fission: None,
         chi: vec![0.0, 0.0],
         diffusion: vec![1.3, 0.4],
         scatter: vec![vec![0.47, 0.02], vec![0.0, 1.1]],

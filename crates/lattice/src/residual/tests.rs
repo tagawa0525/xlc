@@ -22,6 +22,7 @@ fn few(s: f64) -> FewGroup {
         absorption: vec![x(0.01), x(0.1)],
         nu_fission: vec![x(0.007), x(0.14)],
         fission: vec![x(0.0028), x(0.057)],
+        kappa_fission: None,
         chi: vec![1.0 - s / 1000.0, s / 1000.0],
         diffusion: vec![x(1.4), x(0.4)],
         scatter: vec![vec![x(0.52), x(0.017)], vec![x(0.0015), x(1.2)]],

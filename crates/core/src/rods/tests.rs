@@ -15,6 +15,7 @@ fn fuel(absorber: f64) -> FewGroup {
         absorption: vec![a1, a2],
         nu_fission: vec![nf1, nf2],
         fission: vec![nf1 / 2.4, nf2 / 2.4],
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![d1, d2],
         scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
