@@ -2394,3 +2394,15 @@ fn activation_cross_sections_need_the_temperature_of_the_depletion_regions() {
         .to_string();
     assert!(err.contains("Cs-135"), "{err}");
 }
+
+#[test]
+fn history_branches_need_the_nominal_state_for_the_cooling_cross_sections() {
+    // 入力の物質（1000 ppm）がホウ素の軸の格子点でなければ公称の状態がなく、冷却計算の断面積（ADR-0238）を作る状態がない。
+    // 輸送の前に止める
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]").replace("ppm = [500, 1000]", "ppm = [500, 1500]");
+    let err = branches_of(&text, &history, &library)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("nominal"), "{err}");
+}

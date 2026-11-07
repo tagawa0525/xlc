@@ -1586,6 +1586,17 @@ fn history_micro_nuclides_are_distinct_names_of_an_unsplit_table() {
 }
 
 #[test]
+fn history_tables_are_not_split_without_micro_nuclides_either() {
+    // 動特性と冷却計算のデータ（ADR-0238）も格子全体で均質化するので、`micro` がなくても部分ノードに分けたテーブルとは組めない
+    let split = history_branches(HISTORY).replace(
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5], split = 2 }",
+    );
+    let err = LatticeInput::parse(&split).unwrap_err();
+    assert!(err.to_string().contains("split"), "{err}");
+}
+
+#[test]
 fn history_density_derivatives_are_micro_nuclides_perturbed_by_a_positive_fraction() {
     // 書かなければ数密度の微分を作らず、摂動の割合は ADR-0221 の既定の 0.1
     let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
