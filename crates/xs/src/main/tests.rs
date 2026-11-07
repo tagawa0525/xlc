@@ -1,4 +1,4 @@
-use xlc_format::library::TemperatureData;
+use xlc_format::library::{ActivationTemperature, TemperatureData};
 
 use super::*;
 

@@ -15,7 +15,7 @@ use xlc_format::group::GroupStructure;
 
 use crate::endf::{Interpolation, Tab1};
 
-pub use fission::{FissionNeutrons, fission_spectrum};
+pub use fission::{FissionNeutrons, delayed_groups, fission_spectrum};
 pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
 pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{AnalyticSpectrum, GroupedLaw, GroupedOutgoing, outgoing_group_integrals};
@@ -38,6 +38,16 @@ pub struct ReactionAverages {
     pub sigma: BTreeMap<u32, Vec<f64>>,
     /// νσf の群平均（核分裂がなければ `None`）
     pub nu_fission: Option<Vec<f64>>,
+}
+
+/// 群速度の逆数 (s/cm)。(1/v)_g = ∫_g w/v dE / ∫_g w dE、v = √(2E/m_n)（NJOY GROUPR の MT259 と同じ定義。ADR-0238）。
+/// 定数は NJOY と同じ値（`crate::physics`）
+pub fn inverse_velocity(groups: &GroupStructure, weight: &Weight) -> Vec<f64> {
+    use crate::physics::{AMASSN, AMU, EV};
+    let mass = AMASSN * AMU;
+    let slowness = group_integrals(groups, weight, &[], |e| (mass / (2.0 * e * EV)).sqrt());
+    let flux = group_integrals(groups, weight, &[], |_| 1.0);
+    slowness.iter().zip(&flux).map(|(s, f)| s / f).collect()
 }
 
 /// ポイントワイズの断面積 `tables`（lin-lin、キーは MT）を、重み関数 `weight` で群平均する。

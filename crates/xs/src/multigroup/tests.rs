@@ -348,7 +348,10 @@ fn inverse_velocity_averages_one_over_v_with_the_weight_function() {
     let groups = GroupStructure::new(vec![1.0e4, 1.0e2, 1.0]).unwrap();
     let inverse = inverse_velocity(&groups, &Weight::lwr());
     let c = 1.0 / (2.0 * EV / (AMASSN * AMU)).sqrt();
-    for (g, (b, a)) in [(1.0e4, 1.0e2), (1.0e2, 1.0)].into_iter().enumerate() {
+    for (g, (b, a)) in [(1.0e4_f64, 1.0e2_f64), (1.0e2, 1.0)]
+        .into_iter()
+        .enumerate()
+    {
         let expected = 2.0 * c * (a.powf(-0.5) - b.powf(-0.5)) / (b / a).ln();
         assert!(
             (inverse[g] - expected).abs() <= 1e-9 * expected,
