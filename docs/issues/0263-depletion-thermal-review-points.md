@@ -1,11 +1,11 @@
 ---
-status: closed
+status: open
 labels: [core, depletion]
 opened: 2026-11-07
-closed: 2026-11-08
+closed:
 milestone: M4
 blocked-by: []
-resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
+resolution:
 ---
 
 # 燃焼の熱水力のブランチのレビューで直さなかった点
@@ -78,4 +78,3 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
   issue の一覧は直し、コメントの狭さと `.unwrap_or(1.0)` を足した
 - 2026-11-07: 例外の周の指摘のうち、ADR-0229 の出典の範囲（ADR-0219 の「出力のある解」は燃焼点 0 と停止の後の点を含まない）と、ADR-0215 の
   帰結の値の言い方を直し、コメントの出典と `.unwrap_or(1.0)` の届き方を足した
-- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

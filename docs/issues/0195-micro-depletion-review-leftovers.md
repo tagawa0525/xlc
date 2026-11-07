@@ -1,11 +1,11 @@
 ---
-status: closed
+status: open
 labels: [core, depletion]
 opened: 2026-10-29
-closed: 2026-11-08
+closed:
 milestone: M4
 blocked-by: []
-resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
+resolution:
 ---
 
 # core のミクロ燃焼のレビューで残した指摘
@@ -46,4 +46,3 @@ core のミクロ燃焼（ADR-0216、ブランチ feat/0153-core-micro-depletion
   - σ_f の群の和が 0 以下の核分裂性の核種は `thermal_fission` を nil にし、`rates()` が核分裂しない核種として扱う（黙ったフォールバック）
   - `deplete_nodes` がノードごとに `solve_with` と同じ σᵢ の内挿を繰り返す（予測子と修正子で 2 回。上の重複の項と同じ）
   - `MicroNodes::new` が核分裂のあるテーブルのファイルごとに `MicroChain` 全体（3,820 核種の親のクロージャ）を作り、最初のものだけ使う
-- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

@@ -1,11 +1,11 @@
 ---
-status: closed
+status: open
 labels: [tooling, examples]
 opened: 2026-11-06
-closed: 2026-11-08
+closed:
 milestone:
 blocked-by: []
-resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
+resolution:
 ---
 
 # tracing のログを読む例のスクリプトの共通化
@@ -47,4 +47,3 @@ examples/depletion/issue-0045/compare.py（ms と s だけ）。ログの書き�
 ## 経緯
 
 - 2026-11-06: #0156 の全炉心の燃焼の時間の内訳のブランチ（chore/0156-p9-timing）の 2 周目と 3 周目のレビューで挙がった
-- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い
