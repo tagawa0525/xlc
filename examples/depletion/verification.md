@@ -8549,10 +8549,15 @@ sys.exit(0 if new == old else "the tables differ apart from kappa_fission")' $B/
 （`p2/lattice-2A.msgpack` md5 a2cc87df）、ライブラリは `p2/depletion.msgpack`（md5 e84310af）。κΣf の燃焼は 4b627b4f9 の `bin/core`（md5 695ecf17）、核分裂率の
 燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1`。上のコマンドと違い、κΣf の燃焼は `branches` の中で、核分裂率の燃焼は試行の置き場（core の
 名前は `core-main`）で解き、
-core ごとに切らない燃焼とその装荷替え、深い燃焼とその装荷替えの 2 つの列を、4 列同時に流した。時間は記録に使わない）。比較は e26851d36 のツール（手元）。上のコマンド（DVC の出力を戻す手順を除く）は、
-20d3f747b の版の燃焼と集約の部分を、空の `trials` から 2 回続けて流して、8 つの履歴と比較の JSON の md5 が記録のものと同じことを確かめた（Slurm 722、
-2026-11-07。`branches/energy` に集め、ログは dvc の版に戻した。今のコマンドの、比べ方の終了コード、`trials/0154-energy` への集約、lattice と build の
-つなぎ方は、その後に書き直したもので流していない）。
+core ごとに切らない燃焼とその装荷替え、深い燃焼とその装荷替えの 2 つの列を、4 列同時に流した。時間は記録に使わない）。比較は e26851d36 のツール（手元）。
+
+記録のコマンドを再実行した確認（どちらも 2026-11-07、`-c 2`）:
+
+- Slurm 722（769d4fa75 で投げた）: 20d3f747b の版の記録のコマンドの、燃焼から比較までの部分（そのときの集約先は `branches/energy`）を、空の `trials` から
+  2 回続けて流した。8 つの履歴と比較の JSON の md5 が記録のものと同じだった。集約で書き換わった `branches/energy` のログは dvc の版に戻した
+- Slurm 723（769d4fa75 に、9805a713c の記録の直しをコミットせずに足した汚れた作業ツリーで投げた）: 9805a713c の版の今のコマンドから、build と lattice の
+  2 つの手順を除いた部分（DVC の出力を戻す手順から比較まで）を、空の `trials` から 2 回続けて流した。2 回とも通り、`trials/0154-energy` の比較の JSON の
+  `cases` と読んだ履歴の md5 が記録の比較の JSON と同じで、`branches/energy` は dvc の版のままだった。build と lattice をつないだ形は流していない
 
 ### 結果
 
