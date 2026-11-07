@@ -174,8 +174,9 @@ ADR-0187 の置き場のとおり、`[history]` の実行が書く燃焼度の�
   どれも読めない。depletion/p2 のほかの xs のステージを持つ例（examples の m0、m1、m3-nuclides、mox、reflector、core、vera、vera/endfb70、
   depletion）のライブラリは、それを読む作業が次に来たときに作り直す。核種ごとの CPU 時間の記録（`stage-cpu-seconds.json`）の和は、vera 6,031 秒、
   vera/endfb70 2,286 秒、depletion 11,616 秒。depletion/p2 のライブラリは作り直した（「確認」の 2A）
-- p2 の dvc.lock の格子計算の燃焼の 7 ステージ（lattice@2A-density、2A-rods、2F、2M、2N、2O、2P）は、deps の 2A のライブラリ
-  （examples/depletion/p2/depletion.msgpack。作り直した）と実行ファイル bin/lattice（このブランチで変えた）の両方が前の版のままで、changed になる。前の実行のログの `total_seconds`（Slurm 666〜672、
+- p2 の dvc.lock の格子計算の燃焼の 7 ステージ（lattice@2A-density、2A-rods、2F、2M、2N、2O、2P）は、deps の p2 のライブラリ
+  （examples/depletion/p2/depletion.msgpack。p2 の 8 本の燃焼が共有し、作り直した）が前の版のままで、changed になる。deps の bin/lattice も前の版
+  （48387d65）だが、main の dvc.lock の bin/lattice が 2927836cb（2026-11-04）で別の値に移ったときから古く、ADR-0238 の帰結ではない。前の実行のログの `total_seconds`（Slurm 666〜672、
   2026-11-03〜04。2F と 2N の他は割り込まれうるジョブ）は 2A-density 2,270 秒、2A-rods 3,510 秒、2F 3,345 秒、2M 11,139 秒、2N 6,299 秒、
   2O 4,393 秒、2P 5,004 秒で、和は 35,960 秒（約 10 時間）。それらを読む作業が次に来たときに再実行する
 - テーブルの `kinetics` と `cooling` は、燃焼の履歴から作ったテーブルだけのキーで、持たないテーブル（今ある燃焼度の軸のテーブルを含む）は
