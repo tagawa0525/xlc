@@ -862,7 +862,7 @@ fn node_rod_branches_outside_the_radial_reflector_lattice_are_errors() {
 /// 持つ（ADR-0200 の部分格子）。`history` は `[history]` に足す行
 fn history_with_rods(history: &str) -> String {
     let text = with_rods(
-        "\n[branches.rod]\naic = { gt = \"rod\" }\nb4c = { gt = \"other\" }\n\n[history]\nfile = \"h.msgpack\"\n\
+        "\n[branches.rod]\naic = { gt = \"rod\" }\nb4c = { gt = \"other\" }\n\n[history]\nfile = \"h.msgpack\"\nchain = \"c.msgpack\"\n\
          burnup = [0, 10, 20, 40]\n",
     )
     .replace("ppm = [900, 1700]", "ppm = [900, 1300]")

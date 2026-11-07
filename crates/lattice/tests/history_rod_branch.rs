@@ -236,6 +236,7 @@ fuel = { temperature = [600], materials = ["fuel"] }
 
 [history]
 file = "history.msgpack"
+chain = "../depletion/chain.msgpack"
 burnup = [0, 0.5, 2.0]
 off-nominal-burnup = [0, 2.0]
 micro = ["U-235", "Xe-135"]
@@ -347,6 +348,10 @@ fn history_rod_branches_match_separate_lattices() {
     assert_eq!(burnups(&rods), all);
     assert_eq!(rods.axes[..rods.axes.len() - 1], out.axes[..]);
     assert_eq!(rods.heavy_metal, out.heavy_metal);
+    // 履歴からの分岐のテーブルは、どの状態も κΣf を持つ（ADR-0190）
+    for table in [&rods, &out] {
+        assert!(table.states.iter().all(|s| s.kappa_fission.is_some()));
+    }
     let micro = rods.micro.as_ref().unwrap();
     let out_micro = out.micro.as_ref().unwrap();
     // 追う核種と燃焼度の点ごとの均質化した数密度は、棒のない値（履歴の組成で決まる）
