@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use xlc_format::medium::MediumState;
-use xlc_format::table::{MicroNuclide, MicroReaction};
+use xlc_format::table::{
+    CoolingNuclide, CoolingReaction, KineticsState, MicroNuclide, MicroReaction,
+};
 
 use super::*;
 use crate::branches::Starts;
@@ -67,6 +69,23 @@ fn states(count: usize) -> Vec<SavedState> {
                         derivative: None,
                     },
                 ]),
+                kinetics: Some(KineticsState {
+                    delayed_nu_fission: vec![vec![1.0e-5, 2.0e-4 + i as f64 / 1.0e6]],
+                    delayed_precursors: vec![vec![7.5e-4, 1.5e-2]],
+                    delayed_chi: vec![vec![0.9, 0.1]],
+                    inverse_velocity: vec![5.0e-8, 2.0e-6 / 3.0],
+                }),
+                // 公称の状態だけが持つ
+                cooling: (i % 2 == 0).then(|| {
+                    vec![CoolingNuclide {
+                        fission: 40.0 / 3.0,
+                        thermal_fission: Some(0.9),
+                        reactions: vec![CoolingReaction {
+                            mt: 102,
+                            channels: vec![8.0 + i as f64],
+                        }],
+                    }]
+                }),
             }
         })
         .collect()

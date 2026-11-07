@@ -2144,11 +2144,11 @@ fn kinetics_split_the_delayed_production_by_family_and_divide_it_by_the_decay_co
             }
         }
         // 群速度の逆数は、MOC の中性子束と体積と SPH 因子で重みを付け、MOC の中性子束で割る
-        for g in 0..2 {
+        for (g, inverse) in library.inverse_velocity.iter().enumerate() {
             let (mut slow, mut flux) = (0.0, 0.0);
-            for r in 0..solution.volumes.len() {
-                let w = solution.volumes[r] * solution.flux[r][g];
-                slow += w * sph[r][g] * library.inverse_velocity[g];
+            for ((volume, phi), mu) in solution.volumes.iter().zip(&solution.flux).zip(&sph) {
+                let w = volume * phi[g];
+                slow += w * mu[g] * inverse;
                 flux += w;
             }
             assert_close(
@@ -2270,12 +2270,18 @@ fn cooling_cross_sections_are_the_one_group_micro_cross_sections_of_transported_
         let depleted: f64 = branches.regions(0).iter().map(|d| d.volume).sum();
         let sph = sph_of(&s, &shielded, 2);
         let (mut rate, mut flux) = (0.0, 0.0);
-        for r in 0..solution.volumes.len() {
+        for (r, ((volume, phi), mu)) in solution
+            .volumes
+            .iter()
+            .zip(&solution.flux)
+            .zip(&sph)
+            .enumerate()
+        {
             for (g, sigma) in [0.5, 8.7].into_iter().enumerate() {
-                let w = solution.volumes[r] * solution.flux[r][g];
+                let w = volume * phi[g];
                 flux += w;
                 if fuel.contains(&r) {
-                    rate += w * sph[r][g] * sigma;
+                    rate += w * mu[g] * sigma;
                 }
             }
         }
