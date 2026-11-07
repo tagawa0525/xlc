@@ -872,3 +872,93 @@ fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
     let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &without_range).unwrap();
     assert!(data.temperatures[0].sab_transfer.is_none());
 }
+
+/// MF5 MT455 の 2 族の節: 族の割合 0.4 と 0.6（一定）、分布はどちらも [1e6, 2e6] eV のヒストグラム
+fn two_family_spectrum() -> String {
+    use crate::endf::rec;
+    let r = |f: [&str; 6]| rec(f, 1, 5, 455);
+    let mut lines = vec![r(["9.223500+4", "2.330248+2", "0", "0", "2", "0"])];
+    for p in ["0.4", "0.6"] {
+        lines.extend([
+            r(["0.0", "0.0", "0", "1", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["1.0-5", p, "2.0+7", p, "", ""]),
+            r(["0.0", "0.0", "0", "0", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["0.0", "1.0-5", "0", "0", "1", "2"]),
+            r(["2", "1", "", "", "", ""]),
+            r(["1.0+6", "1.0-6", "2.0+6", "0.0", "", ""]),
+            r(["0.0", "2.0+7", "0", "0", "1", "2"]),
+            r(["2", "1", "", "", "", ""]),
+            r(["1.0+6", "1.0-6", "2.0+6", "0.0", "", ""]),
+        ]);
+    }
+    lines.concat()
+}
+
+/// MF1 の MT452、455（2 族）、456 と、MF5 の MT18 と、MT455 の節 `delayed_spectrum` のテープ
+fn delayed_tape(delayed_spectrum: &str) -> Tape {
+    let mut text = nubar_section(452, "2.43") + &nubar_section(455, "1.6-2");
+    text += &nubar_section(456, "2.414");
+    text += &crate::endf::mf5_tests::two_point_mf5_for(
+        18,
+        "1",
+        ("1.0+6", "2.0+7", "5.263158-8"),
+        ("1.0+6", "2.0+7", "5.263158-8"),
+    );
+    text += delayed_spectrum;
+    Tape::parse(&text).unwrap()
+}
+
+#[test]
+fn delayed_families_take_the_decay_constants_and_the_family_spectra() {
+    let families = delayed_families(&delayed_tape(&two_family_spectrum()), 1)
+        .unwrap()
+        .unwrap();
+    assert_eq!(families.decay_constants, vec![1.3336e-2, 3.2739e-2]);
+    assert_eq!(families.nubar.y, vec![1.6e-2, 1.6e-2]);
+    assert_eq!(families.spectrum.subsections.len(), 2);
+}
+
+#[test]
+fn delayed_families_need_one_spectrum_per_decay_constant() {
+    let one = crate::endf::mf5_tests::two_point_mf5_for(
+        455,
+        "1",
+        ("1.0+6", "2.0+6", "1.0-6"),
+        ("1.0+6", "2.0+6", "1.0-6"),
+    );
+    assert!(matches!(
+        delayed_families(&delayed_tape(&one), 1),
+        Err(ProcessError::DelayedFamilies { .. })
+    ));
+}
+
+#[test]
+fn evaluations_without_the_delayed_spectrum_have_no_families() {
+    // ENDF/B-VIII.0 の Np-239 の形（ν_d と崩壊定数はあるが、族の割合を与える MF5 MT455 がない）
+    let tape = fission_tape(&[(452, "2.72"), (455, "8.0-3"), (456, "2.71")], &[18]);
+    assert!(delayed_families(&tape, 1).unwrap().is_none());
+    let tape = fission_tape(&[(452, "2.43")], &[18]);
+    assert!(delayed_families(&tape, 1).unwrap().is_none());
+}
+
+#[test]
+fn activation_nuclides_have_the_chain_reactions_of_a_processed_nuclide() {
+    let tape = reaction_tape(&[(2, "1.0+5", "0.4")]);
+    let settings = reaction_settings();
+    let activation = process_activation(&tape, "X", &[293.6, 600.0], &settings).unwrap();
+    let processed = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();
+    assert_eq!(activation.name, "X");
+    assert_eq!(
+        (activation.za, activation.awr),
+        (processed.za, processed.awr)
+    );
+    assert_eq!(activation.temperatures.len(), 2);
+    for (a, p) in activation.temperatures.iter().zip(&processed.temperatures) {
+        assert_eq!(a.temperature, p.temperature);
+        assert_eq!(a.reactions, p.reactions);
+        // 核分裂のない核種
+        assert_eq!(a.fission, vec![0.0; settings.groups.len()]);
+    }
+}

@@ -38,7 +38,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::{Medium, MediumState};
 use xlc_format::table::Axis;
-use xlc_format::table::{Micro, MicroNuclide};
+use xlc_format::table::{Cooling, CoolingNuclide, Kinetics, KineticsState, Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::{
     BranchShielder, lexicographic, state_indices, tables, without_rod_axis,
@@ -930,6 +930,45 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
             _ => None,
         };
+        // 動特性のデータと、公称の状態の冷却計算の断面積（ADR-0238）。どちらも格子全体の少数群定数のファイルを求める（入力の検査）
+        let (kinetics, cooling) = match &history_branches {
+            Some(h) => {
+                let (Source::Library(library), Some(fuel), Some(output), Some(few)) = (
+                    &source,
+                    fuel,
+                    &input.output,
+                    outputs.first().and_then(|o| o.first()),
+                ) else {
+                    return Err(anyhow!(
+                        "kinetics data need a library, the self-shielding and few-group output"
+                    ))
+                    .with_context(context);
+                };
+                let kinetics = h
+                    .kinetics(
+                        rod,
+                        state,
+                        library,
+                        fuel,
+                        &geometry.lattice,
+                        &solution,
+                        &output.bounds,
+                        few,
+                    )
+                    .with_context(|| format!("{}: kinetics data", context()))?;
+                let point = h.point_of(state);
+                let cooling = if rod == 0 && h.nominal_state(point) == Some(state) {
+                    Some(
+                        h.cooling(state, library, fuel, &geometry.lattice, &solution)
+                            .with_context(|| format!("{}: cooling cross sections", context()))?,
+                    )
+                } else {
+                    None
+                };
+                (Some(kinetics), cooling)
+            }
+            None => (None, None),
+        };
         report(solved, solution.k);
         drop(emitting);
         tracing::info!(
@@ -946,6 +985,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 outputs,
                 medium,
                 micro,
+                kinetics,
+                cooling,
             },
             converged,
         ))
@@ -973,6 +1014,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         if saved_shape != shape
             || saved.medium.is_some() != input.medium.is_some()
             || saved_micro != micro_nuclides
+            || saved.kinetics.is_some() != history_branches.is_some()
         {
             return Err(anyhow!(
                 "the saved outputs {saved_shape:?} (medium {}, {saved_micro} micro nuclides) do not fit this run's \
@@ -1018,16 +1060,30 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let points: Vec<Vec<usize>> = order.iter().map(|&i| solved_points[i].clone()).collect();
     let mut by_solve: Vec<Option<SavedState>> = states.into_iter().map(Some).collect();
     let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
+    let mut kinetics_states: Vec<KineticsState> = Vec::new();
+    // 燃焼度の点（点の番号の最初。燃焼度は最初の軸）ごとの、公称の状態の冷却計算の断面積
+    let mut cooling_points: Vec<Option<Vec<CoolingNuclide>>> =
+        vec![None; history_branches.as_ref().map_or(0, |h| h.points())];
     let per_state: Vec<Vec<Vec<FewGroup>>> = order
         .iter()
-        .filter_map(|&i| by_solve[i].take())
-        .map(|s| {
+        .filter_map(|&i| by_solve[i].take().map(|s| (i, s)))
+        .map(|(i, s)| -> anyhow::Result<Vec<Vec<FewGroup>>> {
             if let Some(m) = s.micro {
                 micro_states.push(m);
             }
-            s.outputs
+            if let Some(k) = s.kinetics {
+                kinetics_states.push(k);
+            }
+            if let Some(c) = s.cooling {
+                let slot = solved_points[i]
+                    .first()
+                    .and_then(|&b| cooling_points.get_mut(b))
+                    .ok_or_else(|| anyhow!("a nominal state outside the burnup points"))?;
+                *slot = Some(c);
+            }
+            Ok(s.outputs)
         })
-        .collect();
+        .collect::<anyhow::Result<_>>()?;
 
     let _write = tracing::debug_span!("write").entered();
     if let Some(output) = &input.medium {
@@ -1094,6 +1150,32 @@ fn run(path: &Path) -> anyhow::Result<()> {
         if let Some(h) = &history_branches {
             for table in &mut tables {
                 table.heavy_metal = Some(h.heavy_metal);
+            }
+            // 解いた状態（`points` の順）ごとの動特性のデータと、燃焼度の点ごとの冷却計算の断面積（ADR-0238）
+            let library = match &source {
+                Source::Library(library) => library,
+                Source::Macroscopic(_) => {
+                    return Err(anyhow!("{}: history branches need a library", shown(path)));
+                }
+            };
+            let kinetics = Kinetics {
+                states: std::mem::take(&mut kinetics_states),
+            };
+            let cooling = Cooling {
+                nuclides: h.cooling_nuclides(library),
+                points: std::mem::take(&mut cooling_points)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(b, c)| {
+                        c.ok_or_else(|| {
+                            anyhow!("{}: no nominal state at burnup point {b}", shown(path))
+                        })
+                    })
+                    .collect::<anyhow::Result<_>>()?,
+            };
+            for table in &mut tables {
+                table.kinetics = Some(kinetics.clone());
+                table.cooling = Some(cooling.clone());
             }
             // ミクロ燃焼の核種の数密度と、解いた状態（`points` の順）ごとの微視的断面積（ADR-0216）
             if !h.micro_nuclides().is_empty() {

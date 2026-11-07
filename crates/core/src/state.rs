@@ -14,13 +14,15 @@
 //! c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|} を掛けて足す。軸の直積は c が 3 つの軸の成分だけ 1 で、ほかの成分は 0 なので、直積の多重線形
 //! そのものになる。すべての燃焼度の点で解いていない点は、その点の燃焼度の点での公称の状態との差を燃焼度について内挿し、
 //! 公称の状態をすべての燃焼度の点で内挿した値に足す（燃焼度の内挿はどちらも ADR-0192）。
+//!
+//! 動特性のデータは少数群定数と同じ重みで、冷却計算の 1 群の微視的断面積は燃焼度だけで内挿する（ADR-0238）。
 
 use std::collections::BTreeSet;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{
-    Axis, HistoryRod, MicroDerivative, MicroNuclide, ROD_OUT, RateResidual, Residual, Table,
-    b10_density_ratio, component,
+    Axis, CoolingNuclide, HistoryRod, KineticsState, MicroDerivative, MicroNuclide, ROD_OUT,
+    RateResidual, Residual, Table, b10_density_ratio, component,
 };
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
@@ -395,6 +397,175 @@ pub fn interpolate_micro(
         densities,
         nuclides,
     })
+}
+
+/// テーブルの動特性のデータを、少数群定数と同じ重み（状態の組み立てと燃焼度の内挿）で引く（ADR-0238）。テーブルが `kinetics` を
+/// 持たなければエラー。負の重みで組み立てて負の値か、和が 1 から外れた遅発スペクトルになればエラー
+pub fn interpolate_kinetics(
+    table: &Table,
+    state: &State,
+    rod: Option<&str>,
+) -> Result<KineticsState, String> {
+    let kinetics = table
+        .kinetics
+        .as_ref()
+        .ok_or("the table has no kinetics data (ADR-0238)")?;
+    let weights = state_weights(table, state, rod)?;
+    let first = kinetics
+        .states
+        .first()
+        .ok_or("the kinetics data have no states")?;
+    let zero = |m: &[Vec<f64>]| -> Vec<Vec<f64>> { m.iter().map(|r| vec![0.0; r.len()]).collect() };
+    let mut out = KineticsState {
+        delayed_nu_fission: zero(&first.delayed_nu_fission),
+        delayed_precursors: zero(&first.delayed_precursors),
+        delayed_chi: zero(&first.delayed_chi),
+        inverse_velocity: vec![0.0; first.inverse_velocity.len()],
+    };
+    for &(point, weight) in &weights.points {
+        if weight == 0.0 {
+            continue;
+        }
+        let k = kinetics
+            .states
+            .get(point)
+            .ok_or_else(|| format!("the kinetics data have no state {point}"))?;
+        // 項目を足したらここで扱いを決める（`..` を使わない）
+        let KineticsState {
+            delayed_nu_fission,
+            delayed_precursors,
+            delayed_chi,
+            inverse_velocity,
+        } = k;
+        for (a, x) in out.delayed_nu_fission.iter_mut().zip(delayed_nu_fission) {
+            add(a, weight, x);
+        }
+        for (a, x) in out.delayed_precursors.iter_mut().zip(delayed_precursors) {
+            add(a, weight, x);
+        }
+        for (a, x) in out.delayed_chi.iter_mut().zip(delayed_chi) {
+            add(a, weight, x);
+        }
+        add(&mut out.inverse_velocity, weight, inverse_velocity);
+    }
+    if !weights.causes.is_empty() {
+        let negative = out
+            .delayed_nu_fission
+            .iter()
+            .chain(&out.delayed_precursors)
+            .chain(&out.delayed_chi)
+            .flatten()
+            .chain(&out.inverse_velocity)
+            .find(|&&x| x < 0.0);
+        if let Some(x) = negative {
+            return Err(weights.hint(format!(
+                "the interpolation gave a negative kinetics value {x}"
+            )));
+        }
+    }
+    Ok(out)
+}
+
+/// 族の崩壊定数 (1/s): 少数群の中性子束 `flux` で λ_k = Σ_G ν_dΣf,k,G φ_G / Σ_G (ν_dΣf/λ)_k,G φ_G（平衡の先行核の和と崩壊率の和を保つ。
+/// ADR-0238）。中性子束の群の数が違うか、生成のない族はエラー
+pub fn decay_constants(kinetics: &KineticsState, flux: &[f64]) -> Result<Vec<f64>, String> {
+    kinetics
+        .delayed_nu_fission
+        .iter()
+        .zip(&kinetics.delayed_precursors)
+        .enumerate()
+        .map(|(k, (production, precursors))| {
+            if production.len() != flux.len() || precursors.len() != flux.len() {
+                return Err(format!(
+                    "{} flux groups for {} kinetics groups",
+                    flux.len(),
+                    production.len()
+                ));
+            }
+            let dot = |v: &[f64]| v.iter().zip(flux).map(|(a, f)| a * f).sum::<f64>();
+            let (p, c) = (dot(production), dot(precursors));
+            if !(p > 0.0 && c > 0.0) {
+                return Err(format!(
+                    "delayed family {k} has no production ({p}) or precursors ({c}) under the flux"
+                ));
+            }
+            Ok(p / c)
+        })
+        .collect()
+}
+
+/// テーブルの冷却計算の 1 群の微視的断面積（核種は `cooling.nuclides` の順）を、燃焼度 `burnup` (MWd/kg) で ADR-0192 の重みで引く
+/// （公称の状態の値なので、ほかの軸を使わない。ADR-0238）。収率の境界より下の割合は、境界より下の核分裂の断面積で内挿して比に
+/// 戻す。テーブルが `cooling` か燃焼度の軸を持たないか、燃焼度が点の範囲の外ならエラー
+pub fn interpolate_cooling(table: &Table, burnup: f64) -> Result<Vec<CoolingNuclide>, String> {
+    let cooling = table
+        .cooling
+        .as_ref()
+        .ok_or("the table has no cooling cross sections (ADR-0238)")?;
+    let Some(Axis::Burnup { points }) =
+        table.axes.iter().find(|a| matches!(a, Axis::Burnup { .. }))
+    else {
+        return Err("cooling cross sections need a burnup axis (ADR-0238)".into());
+    };
+    let terms = burnup_terms(points, burnup)?;
+    let first = cooling
+        .points
+        .first()
+        .ok_or("the cooling data have no burnup points")?;
+    let mut out: Vec<CoolingNuclide> = first
+        .iter()
+        .map(|n| CoolingNuclide {
+            fission: 0.0,
+            thermal_fission: n.thermal_fission.map(|_| 0.0),
+            reactions: n
+                .reactions
+                .iter()
+                .map(|r| xlc_format::table::CoolingReaction {
+                    mt: r.mt,
+                    channels: vec![0.0; r.channels.len()],
+                })
+                .collect(),
+        })
+        .collect();
+    for (k, h) in terms {
+        let point = cooling
+            .points
+            .get(k)
+            .ok_or_else(|| format!("the cooling data have no burnup point {k}"))?;
+        for (acc, n) in out.iter_mut().zip(point) {
+            acc.fission += h * n.fission;
+            // 割合でなく、境界より下の核分裂の断面積（割合 × σf）を足す
+            if let (Some(a), Some(f)) = (&mut acc.thermal_fission, n.thermal_fission) {
+                *a += h * f * n.fission;
+            }
+            for (a, r) in acc.reactions.iter_mut().zip(&n.reactions) {
+                add(&mut a.channels, h, &r.channels);
+            }
+        }
+    }
+    for (name, n) in cooling.nuclides.iter().zip(&mut out) {
+        n.thermal_fission = match n.thermal_fission {
+            Some(below) if n.fission > 0.0 => {
+                let f = below / n.fission;
+                if !((-FRACTION_ROUNDING)..=1.0 + FRACTION_ROUNDING).contains(&f) {
+                    return Err(format!(
+                        "{name}: the interpolated fraction of fissions below the yield cutoff is {f}"
+                    ));
+                }
+                Some(f.clamp(0.0, 1.0))
+            }
+            _ => None,
+        };
+        let negative = std::iter::once(&n.fission)
+            .chain(n.reactions.iter().flat_map(|r| &r.channels))
+            .find(|&&x| x < 0.0);
+        if let Some(x) = negative {
+            return Err(format!(
+                "{name}: the burnup interpolation gave a negative cooling cross section {x} (ADR-0192)"
+            ));
+        }
+    }
+    Ok(out)
 }
 
 /// 内挿した収率の境界より下の核分裂の割合の、0..1 から外れてよい丸めの大きさ（数個の重みの和の丸め。1 に寄せる）

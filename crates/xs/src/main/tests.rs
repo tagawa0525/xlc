@@ -1,4 +1,4 @@
-use xlc_format::library::TemperatureData;
+use xlc_format::library::{ActivationTemperature, TemperatureData};
 
 use super::*;
 
@@ -41,6 +41,7 @@ fn parses_input_relative_to_its_directory() {
                 name: "H-1".into(),
                 endf: PathBuf::from("work/endf/h.endf"),
                 temperatures: vec![293.6, 600.0],
+                activation: false,
                 thermal: Some(ThermalInput {
                     path: PathBuf::from("work/tsl/h2o.endf"),
                     upper: SabUpper::Evaluated,
@@ -52,6 +53,7 @@ fn parses_input_relative_to_its_directory() {
                 name: "U-238".into(),
                 endf: PathBuf::from("work/endf/u.endf"),
                 temperatures: vec![293.6, 900.0],
+                activation: false,
                 thermal: None,
             },
         ]
@@ -197,12 +199,15 @@ fn part_of(name: &str, temperatures: &[f64]) -> Library {
         groups: GroupStructure::wims69(),
         sigma0: vec![1.0e10],
         pointwise_range: None,
+        inverse_velocity: inverse_velocity(&GroupStructure::wims69(), &Weight::lwr()),
+        activation: Vec::new(),
         nuclides: vec![NuclideData {
             name: name.into(),
             za: 0.0,
             awr: 1.0,
             resolved: None,
             thermal_scattering: false,
+            decay_constants: None,
             temperatures: temperatures
                 .iter()
                 .map(|&temperature| TemperatureData {
@@ -213,6 +218,7 @@ fn part_of(name: &str, temperatures: &[f64]) -> Library {
                     pointwise: Default::default(),
                     reactions: Vec::new(),
                     sab_transfer: None,
+                    delayed: None,
                 })
                 .collect(),
         }],
@@ -262,7 +268,9 @@ fn a_nuclide_result_must_share_the_conditions_of_the_input() {
     other_range.pointwise_range = Some([4.0, 1.0e3]);
     let mut no_range = part.clone();
     no_range.pointwise_range = None;
-    for stale in [sigma0, groups, order, other_range, no_range] {
+    let mut velocity = part.clone();
+    velocity.inverse_velocity[0] *= 2.0;
+    for stale in [sigma0, groups, order, other_range, no_range, velocity] {
         assert!(check_shared(&input, range, &stale).is_err());
     }
     assert!(check_shared(&input, None, &part).is_err());
@@ -298,4 +306,96 @@ fn rejects_a_bad_number_of_threads() {
     ] {
         assert!(thread_option(&strings(args)).is_err(), "{args:?}");
     }
+}
+
+const ACTIVATION_INPUT: &str = r#"
+output = "m1.msgpack"
+endf-directory = "endf"
+sigma0 = [1e10, 10, 1]
+
+[nuclide.U-238]
+endf = "u.endf"
+temperatures = [293.6, 900]
+
+[nuclide.Cs-134]
+endf = "cs134.endf"
+temperatures = [293.6]
+activation = true
+"#;
+
+#[test]
+fn reads_activation_nuclides() {
+    let input = parse_input(ACTIVATION_INPUT, Path::new(".")).unwrap();
+    let flags: Vec<(&str, bool)> = input
+        .nuclides
+        .iter()
+        .map(|n| (n.name.as_str(), n.activation))
+        .collect();
+    assert_eq!(flags, vec![("Cs-134", true), ("U-238", false)]);
+    // 放射化の核種は輸送しないので、熱中性子散乱を持てない
+    let thermal = ACTIVATION_INPUT.replace(
+        "activation = true",
+        "activation = true\nthermal = \"h2o.endf\"",
+    );
+    assert!(parse_input(&thermal, Path::new(".")).is_err());
+}
+
+/// 放射化の核種 `name` だけの結果
+fn activation_part_of(name: &str, temperatures: &[f64]) -> Library {
+    let mut part = part_of("U-238", &[]);
+    part.nuclides.clear();
+    part.activation = vec![ActivationData {
+        name: name.into(),
+        za: 0.0,
+        awr: 1.0,
+        temperatures: temperatures
+            .iter()
+            .map(|&temperature| ActivationTemperature {
+                temperature,
+                fission: Vec::new(),
+                reactions: Vec::new(),
+            })
+            .collect(),
+    }];
+    part
+}
+
+#[test]
+fn an_activation_result_must_match_its_input() {
+    let input = parse_input(ACTIVATION_INPUT, Path::new(".")).unwrap();
+    let cesium = &input.nuclides[0];
+    assert!(check_part(cesium, &activation_part_of("Cs-134", &[293.6])).is_ok());
+    for part in [
+        activation_part_of("Cs-133", &[293.6]),
+        activation_part_of("Cs-134", &[600.0]),
+        // 輸送する核種として処理した結果
+        part_of("Cs-134", &[293.6]),
+    ] {
+        assert!(check_part(cesium, &part).is_err());
+    }
+    // 輸送する核種の入力に、放射化の結果は合わない
+    let uranium = &input.nuclides[1];
+    assert!(check_part(uranium, &activation_part_of("U-238", &[293.6, 900.0])).is_err());
+}
+
+#[test]
+fn the_pointwise_range_leaves_out_activation_nuclides() {
+    // 放射化の核種は超微細群の計算に入らないので、その分離共鳴は範囲を決めない（テープを読まずに外す）
+    let input = parse_input(ACTIVATION_INPUT, Path::new(".")).unwrap();
+    assert_eq!(
+        transported(&input.nuclides)
+            .map(|n| n.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["U-238"]
+    );
+}
+
+#[test]
+fn libraries_carry_the_inverse_velocities_of_their_groups() {
+    let input = parse_input(INPUT, Path::new(".")).unwrap();
+    let library = library_of(settings_of(&input, None), Vec::new(), Vec::new());
+    assert_eq!(
+        library.inverse_velocity,
+        inverse_velocity(&GroupStructure::wims69(), &Weight::lwr())
+    );
 }

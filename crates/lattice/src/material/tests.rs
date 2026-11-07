@@ -12,12 +12,14 @@ fn library() -> Library {
             awr: 1.0,
             resolved: None,
             thermal_scattering: false,
+            decay_constants: None,
             // 600 K の値は 293.6 K の 1.5 倍
             temperatures: [(293.6, 1.0), (600.0, 1.5)]
                 .map(|(temperature, c)| {
                     let v = |values: Vec<f64>| values.iter().map(|x| c * x).collect();
                     TemperatureData {
                         sab_transfer: None,
+                        delayed: None,
                         reactions: Vec::new(),
                         pointwise: Default::default(),
                         temperature,
@@ -39,6 +41,8 @@ fn library() -> Library {
         }
     };
     Library {
+        inverse_velocity: vec![1.0e-6; 2],
+        activation: Vec::new(),
         pointwise_range: Some([4.0, 1.0e4]),
         groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         sigma0: vec![1.0e10],

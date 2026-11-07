@@ -8,16 +8,23 @@
 //! {format: "xlc-multigroup",
 //!  group_bounds: [群境界 (eV)、降順],
 //!  sigma0: [σ0 (barn)、降順],
+//!  inverse_velocity: [群速度の逆数 (s/cm)、G 個],
 //!  nuclides: [{name: "U-235", za, awr,
 //!              resolved: {top: 分離共鳴の上端 (eV), potential: ポテンシャル散乱 (barn)}、分離共鳴を持つ核種だけ（なければ nil）,
+//!              decay_constants: [遅発中性子の族ごとの崩壊定数 (1/s)]、族のデータを持つ核種だけ（なければ nil）,
 //!              temperatures: [{temperature (K), chi: [G 個],
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
 //!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
 //!                              sab_transfer: nil か {incident, transfer, cumulative}（S(α, β) を持つ核種だけ）,
 //!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
-//!                                           cross_section: [無限希釈の G 個]}]}]}]}]}
+//!                                           cross_section: [無限希釈の G 個]}]}],
+//!                              delayed: nil か {nu: [[族ごとの群の遅発中性子数]], chi: [[族ごとの遅発スペクトル]]}]}],
+//!  activation: [{name, za, awr, temperatures: [{temperature (K), fission: [無限希釈の G 個], reactions: [nuclides と同じ形]}]}]}
 //! ```
+//!
+//! 遅発中性子の族のデータ（ADR-0238）は、ENDF の MF1 MT455 と MF5 MT455 の両方を持つ評価だけが持つ。`activation` は輸送しない
+//! 核種（放射化の核種）の、チェーンの反応と核分裂の無限希釈の群の断面積で、格子計算は輸送せず、冷却計算の 1 群の微視的断面積に使う。
 
 use std::borrow::Cow;
 
@@ -185,6 +192,42 @@ pub struct TemperatureData {
     /// nil でも項目は省けない）
     #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub sab_transfer: Option<SabTransfer>,
+    /// 遅発中性子の族ごとの群の量（ADR-0238）。核種が崩壊定数を持つときだけ持ち、ほかは nil（項目は省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub delayed: Option<DelayedGroups>,
+}
+
+/// 1 つの温度の、遅発中性子の族ごとの群の量（ADR-0238）。行は族（`NuclideData::decay_constants` の順）、列は群。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DelayedGroups {
+    /// 1 核分裂あたりの遅発中性子数 ν_d,k,g = ∫ν_d p_k σf w dE / ∫σf w dE（p_k は MF5 MT455 の族の割合、w は重み関数）。
+    /// 自己遮蔽した σf に掛けて遅発の生成にする
+    pub nu: Vec<Vec<f64>>,
+    /// 族ごとの遅発スペクトル（族の中性子の ν_d p_k σf w で重みを付けた出射の分布。和は 1）
+    pub chi: Vec<Vec<f64>>,
+}
+
+/// 輸送しない核種（放射化の核種）の 1 つの温度の、無限希釈の群の断面積（ADR-0238）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActivationTemperature {
+    /// 処理温度 (K)
+    pub temperature: f64,
+    /// 核分裂の断面積（核分裂しない核種は 0）
+    pub fission: Vec<f64>,
+    /// 燃焼チェーンの反応の群の断面積（`TemperatureData::reactions` と同じ形）
+    pub reactions: Vec<GroupReaction>,
+}
+
+/// 輸送しない核種（放射化の核種）の、温度ごとの断面積（ADR-0238）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActivationData {
+    pub name: String,
+    pub za: f64,
+    pub awr: f64,
+    pub temperatures: Vec<ActivationTemperature>,
 }
 
 /// 分離共鳴の範囲（分離共鳴を持つ核種だけが持つ）。
@@ -215,6 +258,10 @@ pub struct NuclideData {
     /// 熱中性子散乱を S(α, β) で作った。S(α, β) は評価済みデータの温度にしかないので、その間の温度は
     /// 群定数を温度について線形に内挿する（それ以外の核種は、使う温度そのもので処理しておく）
     pub thermal_scattering: bool,
+    /// 遅発中性子の族ごとの崩壊定数 (1/s。MF1 MT455 の LIST)。族のデータ（MF1 MT455 と MF5 MT455）を持たない核種は nil で、
+    /// その遅発中性子は χ と同じく即発に数える（ADR-0186、ADR-0238）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub decay_constants: Option<Vec<f64>>,
     pub temperatures: Vec<TemperatureData>,
 }
 
@@ -244,7 +291,11 @@ pub struct Library {
     /// ポイントワイズの断面積を持つエネルギーの範囲 [下限, 上限] (eV)。分離共鳴を持つ核種がなければ、超微細群の計算に
     /// 使うポイントワイズの断面積は要らないので `None`（どの核種のポイントワイズの断面積も空）
     pub pointwise_range: Option<[f64; 2]>,
+    /// 群速度の逆数 (s/cm)。(1/v)_g = ∫_g w/v dE / ∫_g w dE（w は重み関数。NJOY GROUPR の MT259 と同じ定義。ADR-0238）
+    pub inverse_velocity: Vec<f64>,
     pub nuclides: Vec<NuclideData>,
+    /// 輸送しない核種（放射化の核種）の断面積。`nuclides` と名前が重ならない
+    pub activation: Vec<ActivationData>,
 }
 
 /// 形式の名前
@@ -311,7 +362,9 @@ struct LibraryFile {
     sigma0: Vec<f64>,
     /// 範囲がなければ空の配列（項目は欠かさない）
     pointwise_range: Vec<f64>,
+    inverse_velocity: Vec<f64>,
     nuclides: Vec<NuclideData>,
+    activation: Vec<ActivationData>,
 }
 
 impl Library {
@@ -322,16 +375,23 @@ impl Library {
             check_range(range).map_err(LibraryError::Invalid)?;
         }
         let ng = self.groups.len();
-        for n in &self.nuclides {
-            n.check(ng, self.sigma0.len(), self.pointwise_range)
-                .map_err(LibraryError::Invalid)?;
-        }
+        check_contents(
+            ng,
+            self.sigma0.len(),
+            self.pointwise_range,
+            &self.inverse_velocity,
+            &self.nuclides,
+            &self.activation,
+        )
+        .map_err(LibraryError::Invalid)?;
         let file = LibraryFile {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
             sigma0: self.sigma0.clone(),
             pointwise_range: self.pointwise_range.map(Vec::from).unwrap_or_default(),
+            inverse_velocity: self.inverse_velocity.clone(),
             nuclides: self.nuclides.clone(),
+            activation: self.activation.clone(),
         };
         Ok(msgpack::to_named(&file)?)
     }
@@ -355,14 +415,30 @@ impl Library {
             if part.pointwise_range != merged.pointwise_range {
                 return Err(differs("the pointwise range"));
             }
+            if part.inverse_velocity != merged.inverse_velocity {
+                return Err(differs("the inverse velocities"));
+            }
+            let taken = |merged: &Library, name: &str| {
+                merged.nuclides.iter().any(|n| n.name == name)
+                    || merged.activation.iter().any(|n| n.name == name)
+            };
             for nuclide in part.nuclides {
-                if merged.nuclides.iter().any(|n| n.name == nuclide.name) {
+                if taken(&merged, &nuclide.name) {
                     return Err(LibraryError::Invalid(format!(
                         "nuclide {} appears twice",
                         nuclide.name
                     )));
                 }
                 merged.nuclides.push(nuclide);
+            }
+            for nuclide in part.activation {
+                if taken(&merged, &nuclide.name) {
+                    return Err(LibraryError::Invalid(format!(
+                        "nuclide {} appears twice",
+                        nuclide.name
+                    )));
+                }
+                merged.activation.push(nuclide);
             }
         }
         Ok(merged)
@@ -399,19 +475,22 @@ impl Library {
                 )));
             }
         };
-        let ng = groups.len();
-        for (k, n) in file.nuclides.iter().enumerate() {
-            if file.nuclides[..k].iter().any(|m| m.name == n.name) {
-                return Err(invalid(format!("nuclide {} appears twice", n.name)));
-            }
-            n.check(ng, file.sigma0.len(), pointwise_range)
-                .map_err(invalid)?;
-        }
+        check_contents(
+            groups.len(),
+            file.sigma0.len(),
+            pointwise_range,
+            &file.inverse_velocity,
+            &file.nuclides,
+            &file.activation,
+        )
+        .map_err(invalid)?;
         Ok(Self {
             groups,
             sigma0: file.sigma0,
             pointwise_range,
+            inverse_velocity: file.inverse_velocity,
             nuclides: file.nuclides,
+            activation: file.activation,
         })
     }
 
@@ -435,6 +514,27 @@ impl Library {
 }
 
 impl Library {
+    /// 放射化の核種 `name` の、温度 `temperature` (K) の断面積。温度は表の値と一致すること（近い温度で代用しない。ADR-0238）
+    pub fn activation(
+        &self,
+        name: &str,
+        temperature: f64,
+    ) -> Result<&ActivationTemperature, LookupError> {
+        let data = self
+            .activation
+            .iter()
+            .find(|n| n.name == name)
+            .ok_or_else(|| LookupError::Nuclide(name.into()))?;
+        data.temperatures
+            .iter()
+            .find(|t| t.temperature == temperature)
+            .ok_or_else(|| LookupError::Temperature {
+                name: name.into(),
+                temperature,
+                available: data.temperatures.iter().map(|t| t.temperature).collect(),
+            })
+    }
+
     /// 核種 `name` の温度 `temperature` (K) の表。温度は表の値と一致すること。ただし熱中性子散乱を S(α, β) で
     /// 作った核種（`thermal_scattering`）は、表の2つの温度の間なら群定数を温度について線形に内挿する。
     pub fn lookup(
@@ -639,6 +739,14 @@ fn interpolate(
             return Err("the two temperatures have S(α, β) transfers on different grids".into());
         }
     };
+    let delayed = match (&low.delayed, &high.delayed) {
+        (None, None) => None,
+        (Some(a), Some(b)) if a.nu.len() == b.nu.len() => Some(DelayedGroups {
+            nu: a.nu.iter().zip(&b.nu).map(|(x, y)| mix(x, y)).collect(),
+            chi: a.chi.iter().zip(&b.chi).map(|(x, y)| mix(x, y)).collect(),
+        }),
+        _ => return Err("the two temperatures have different delayed neutron families".into()),
+    };
     let (p, q) = (&low.pointwise, &high.pointwise);
     let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
     if repeated(&p.energy) || repeated(&q.energy) {
@@ -676,6 +784,7 @@ fn interpolate(
         pointwise,
         reactions,
         sab_transfer,
+        delayed,
     })
 }
 
@@ -724,18 +833,180 @@ fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
             {
                 map(table)?;
             }
-            for reaction in array(temperature, "reactions") {
-                for channel in array(map(reaction)?, "channels") {
-                    let channel = map(channel)?;
-                    if let Some((_, state)) = channel
-                        .iter()
-                        .find(|(k, _)| k.as_str() == Some("final_state"))
-                        && !state.is_nil()
-                    {
-                        map(state)?;
-                    }
-                }
+            if let Some((_, delayed)) = temperature
+                .iter()
+                .find(|(k, _)| k.as_str() == Some("delayed"))
+                && !delayed.is_nil()
+            {
+                map(delayed)?;
             }
+            require_reaction_maps(temperature)?;
+        }
+    }
+    for nuclide in array(map(value)?, "activation") {
+        for temperature in array(map(nuclide)?, "temperatures") {
+            require_reaction_maps(map(temperature)?)?;
+        }
+    }
+    Ok(())
+}
+
+/// 温度の表の `reactions` の反応、経路、状態が map であることを確かめる
+fn require_reaction_maps(temperature: &[(rmpv::Value, rmpv::Value)]) -> Result<(), MsgpackError> {
+    use msgpack::{array, map};
+    for reaction in array(temperature, "reactions") {
+        for channel in array(map(reaction)?, "channels") {
+            let channel = map(channel)?;
+            if let Some((_, state)) = channel
+                .iter()
+                .find(|(k, _)| k.as_str() == Some("final_state"))
+                && !state.is_nil()
+            {
+                map(state)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 遅発スペクトルの和の、1 からのずれの許容（xs は和で割る。群の数だけの丸め）
+const CHI_SUM_TOLERANCE: f64 = 1e-9;
+
+/// ライブラリの中身（群速度の逆数、輸送する核種、放射化の核種）の配列の長さと値を確かめる。名前は 2 つの列を通して重ならない
+fn check_contents(
+    ng: usize,
+    n_sigma0: usize,
+    range: Option<[f64; 2]>,
+    inverse_velocity: &[f64],
+    nuclides: &[NuclideData],
+    activation: &[ActivationData],
+) -> Result<(), String> {
+    if inverse_velocity.len() != ng || !inverse_velocity.iter().all(|v| *v > 0.0 && v.is_finite()) {
+        return Err(format!(
+            "inverse velocities must be {ng} positive finite values, got {inverse_velocity:?}"
+        ));
+    }
+    let names: Vec<&str> = nuclides
+        .iter()
+        .map(|n| n.name.as_str())
+        .chain(activation.iter().map(|n| n.name.as_str()))
+        .collect();
+    for (k, name) in names.iter().enumerate() {
+        if names[..k].contains(name) {
+            return Err(format!("nuclide {name} appears twice"));
+        }
+    }
+    for n in nuclides {
+        n.check(ng, n_sigma0, range)?;
+    }
+    for n in activation {
+        n.check(ng)?;
+    }
+    Ok(())
+}
+
+impl ActivationData {
+    /// 名前、ZA と AWR、温度（正で重ならない）、配列の長さと有限な値を確かめる
+    fn check(&self, ng: usize) -> Result<(), String> {
+        let name = &self.name;
+        if !is_nuclide_name(name) {
+            return Err(format!(
+                "activation nuclide name `{name}` is not of the form U-235, Am-242m"
+            ));
+        }
+        if !(self.za.is_finite() && self.awr.is_finite() && self.awr > 0.0) {
+            return Err(format!(
+                "{name}: invalid za {} or awr {}",
+                self.za, self.awr
+            ));
+        }
+        if self.temperatures.is_empty() {
+            return Err(format!("{name}: no temperatures"));
+        }
+        for (k, t) in self.temperatures.iter().enumerate() {
+            let at = |what: String| format!("{name} at {} K: {what}", t.temperature);
+            if !(t.temperature > 0.0 && t.temperature.is_finite()) {
+                return Err(at("the temperature must be positive and finite".into()));
+            }
+            if self.temperatures[..k]
+                .iter()
+                .any(|u| u.temperature == t.temperature)
+            {
+                return Err(at("the temperature appears twice".into()));
+            }
+            if t.fission.len() != ng || !t.fission.iter().all(|x| *x >= 0.0 && x.is_finite()) {
+                return Err(at(format!(
+                    "fission must be {ng} non-negative finite values"
+                )));
+            }
+            check_reactions(&t.reactions, ng).map_err(at)?;
+        }
+        Ok(())
+    }
+}
+
+/// チェーンの反応の並び（代表の MT の昇順）、経路の並び、群の数と有限な値を確かめる
+fn check_reactions(reactions: &[GroupReaction], ng: usize) -> Result<(), String> {
+    let sized = |v: &[f64]| v.len() == ng;
+    if reactions.windows(2).any(|w| w[1].mt <= w[0].mt) {
+        return Err("chain reactions must be in increasing MT".into());
+    }
+    for r in reactions {
+        if r.channels.is_empty() {
+            return Err(format!("chain reaction MT{} has no channels", r.mt));
+        }
+        if !CHAIN_REACTIONS.iter().any(|c| c.mt == r.mt) {
+            return Err(format!("MT{} is not a chain reaction", r.mt));
+        }
+        // チェーンの経路と同じ並び: 状態に分けないならただ 1 つの経路、分けるなら MF9 か MF10 の別々の状態で、残り（LFS が nil）は
+        // ほかの状態のあとに 1 つ（そのときは状態はみな同じファイル）
+        let states: Vec<Option<ChannelState>> = r.channels.iter().map(|c| c.final_state).collect();
+        let layout = match states[..] {
+            [None] => true,
+            _ => {
+                let last = states.len() - 1;
+                let listed: Vec<ChannelState> = states.iter().flatten().copied().collect();
+                let in_files =
+                    listed.len() == states.len() && listed.iter().all(|s| matches!(s.mf, 9 | 10));
+                if !in_files {
+                    return Err(format!(
+                        "chain reaction MT{} channels must all be MF9 or MF10 states",
+                        r.mt
+                    ));
+                }
+                // 残り（LFS が nil）は最後だけで、ほかの状態がある。残りがあれば状態は同じファイル
+                let remainder_last = listed
+                    .iter()
+                    .enumerate()
+                    .all(|(i, s)| s.lfs.is_some() || (i == last && last > 0));
+                let one_file =
+                    listed[last].lfs.is_some() || listed.iter().all(|s| s.mf == listed[0].mf);
+                let mut lfs: Vec<u32> = listed.iter().filter_map(|s| s.lfs).collect();
+                lfs.sort_unstable();
+                let distinct = lfs.windows(2).all(|w| w[0] != w[1]);
+                remainder_last && one_file && distinct
+            }
+        };
+        if !layout {
+            return Err(format!(
+                "chain reaction MT{} channels must be one unsplit channel or MF9/MF10 states \
+                 with the remainder last",
+                r.mt
+            ));
+        }
+        if !r.channels.iter().all(|c| sized(&c.cross_section)) {
+            return Err(format!(
+                "chain reaction MT{} channels must have {ng} groups",
+                r.mt
+            ));
+        }
+        if let Some(bad) = r
+            .channels
+            .iter()
+            .flat_map(|c| &c.cross_section)
+            .find(|v| !v.is_finite())
+        {
+            return Err(format!("chain reaction MT{}: non-finite value {bad}", r.mt));
         }
     }
     Ok(())
@@ -882,6 +1153,13 @@ impl NuclideData {
                 r.top, r.potential
             ));
         }
+        if let Some(lambda) = &self.decay_constants
+            && (lambda.is_empty() || !lambda.iter().all(|l| *l > 0.0 && l.is_finite()))
+        {
+            return Err(format!(
+                "{name}: decay constants must be one or more positive finite values, got {lambda:?}"
+            ));
+        }
         for (k, t) in self.temperatures.iter().enumerate() {
             let at = |what: String| format!("{name} at {} K: {what}", t.temperature);
             if !(t.temperature > 0.0 && t.temperature.is_finite()) {
@@ -917,58 +1195,44 @@ impl NuclideData {
             if !t.shielded.iter().all(all_sized) {
                 return Err(at(format!("shielded cross sections must have {ng} groups")));
             }
-            if t.reactions.windows(2).any(|w| w[1].mt <= w[0].mt) {
-                return Err(at("chain reactions must be in increasing MT".into()));
-            }
-            for r in &t.reactions {
-                if r.channels.is_empty() {
-                    return Err(at(format!("chain reaction MT{} has no channels", r.mt)));
-                }
-                if !CHAIN_REACTIONS.iter().any(|c| c.mt == r.mt) {
-                    return Err(at(format!("MT{} is not a chain reaction", r.mt)));
-                }
-                // チェーンの経路と同じ並び: 状態に分けないならただ 1 つの経路、分けるなら MF9 か MF10 の別々の状態で、残り（LFS が nil）は
-                // ほかの状態のあとに 1 つ（そのときは状態はみな同じファイル）
-                let states: Vec<Option<ChannelState>> =
-                    r.channels.iter().map(|c| c.final_state).collect();
-                let layout = match states[..] {
-                    [None] => true,
-                    _ => {
-                        let last = states.len() - 1;
-                        let listed: Vec<ChannelState> = states.iter().flatten().copied().collect();
-                        let in_files = listed.len() == states.len()
-                            && listed.iter().all(|s| matches!(s.mf, 9 | 10));
-                        if !in_files {
-                            return Err(at(format!(
-                                "chain reaction MT{} channels must all be MF9 or MF10 states",
-                                r.mt
-                            )));
-                        }
-                        // 残り（LFS が nil）は最後だけで、ほかの状態がある。残りがあれば状態は同じファイル
-                        let remainder_last = listed
-                            .iter()
-                            .enumerate()
-                            .all(|(i, s)| s.lfs.is_some() || (i == last && last > 0));
-                        let one_file = listed[last].lfs.is_some()
-                            || listed.iter().all(|s| s.mf == listed[0].mf);
-                        let mut lfs: Vec<u32> = listed.iter().filter_map(|s| s.lfs).collect();
-                        lfs.sort_unstable();
-                        let distinct = lfs.windows(2).all(|w| w[0] != w[1]);
-                        remainder_last && one_file && distinct
+            check_reactions(&t.reactions, ng).map_err(at)?;
+            // 族のデータは、崩壊定数を持つ核種のすべての温度にあり、族の数は崩壊定数と同じ
+            match (&self.decay_constants, &t.delayed) {
+                (None, None) => {}
+                (Some(lambda), Some(d)) => {
+                    let families = lambda.len();
+                    let rows_sized =
+                        |m: &Vec<Vec<f64>>| m.len() == families && m.iter().all(|row| sized(row));
+                    if !rows_sized(&d.nu) || !rows_sized(&d.chi) {
+                        return Err(at(format!(
+                            "delayed neutron data must be {families} families x {ng} groups"
+                        )));
                     }
-                };
-                if !layout {
-                    return Err(at(format!(
-                        "chain reaction MT{} channels must be one unsplit channel or MF9/MF10 states \
-                         with the remainder last",
-                        r.mt
-                    )));
+                    if let Some(bad) =
+                        d.nu.iter()
+                            .chain(&d.chi)
+                            .flatten()
+                            .find(|v| !(**v >= 0.0 && v.is_finite()))
+                    {
+                        return Err(at(format!(
+                            "delayed neutron data must be non-negative and finite, got {bad}"
+                        )));
+                    }
+                    if let Some(row) = d
+                        .chi
+                        .iter()
+                        .find(|row| (row.iter().sum::<f64>() - 1.0).abs() > CHI_SUM_TOLERANCE)
+                    {
+                        return Err(at(format!(
+                            "a delayed neutron spectrum must sum to 1, got {row:?}"
+                        )));
+                    }
                 }
-                if !r.channels.iter().all(|c| sized(&c.cross_section)) {
-                    return Err(at(format!(
-                        "chain reaction MT{} channels must have {ng} groups",
-                        r.mt
-                    )));
+                _ => {
+                    return Err(at(
+                        "delayed neutron groups need decay constants and the other way round"
+                            .into(),
+                    ));
                 }
             }
             let p = &t.pointwise;

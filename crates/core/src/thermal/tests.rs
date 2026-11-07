@@ -95,6 +95,8 @@ fn table(fissile: f64) -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
         axes: Vec::new(),
         states: vec![few(fissile)],
     };

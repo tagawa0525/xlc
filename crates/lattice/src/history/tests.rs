@@ -5,7 +5,8 @@ use xlc_format::table::Axis;
 use super::*;
 use crate::branches::{BranchShielder, remix_varied};
 use crate::depletion::tests::{
-    PIN, U235, chain, continue_from, deplete_with, deplete_with_moc, library, tight,
+    DECAY_CONSTANTS, DELAYED_CHI, DELAYED_NU, PIN, U235, chain, continue_from, deplete_with,
+    deplete_with_moc, library, plain_library, tight,
 };
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
@@ -2070,6 +2071,230 @@ fn kappa_fission_weights_the_fission_of_each_nuclide_by_its_chain_q() {
     }
 }
 
+/// 状態 `index` の解の、格子全体の少数群定数（`BOUNDS`）
+fn few_of(
+    s: &Setup,
+    library: &Library,
+    shielded: &crate::shielding::FuelShielding,
+    solution: &crate::moc::Solution,
+) -> FewGroup {
+    let regions: Vec<&Material> = shielded
+        .region_material
+        .iter()
+        .map(|&i| &shielded.materials[i])
+        .collect();
+    crate::fewgroup::homogenize(
+        solution,
+        &regions,
+        &library.groups,
+        &BOUNDS,
+        &s.tracking.boundaries(),
+    )
+    .unwrap()
+}
+
+/// 解の、領域ごとの SPH 因子 μ（物理的な中性子束 / MOC の中性子束）
+fn sph_of(s: &Setup, shielded: &crate::shielding::FuelShielding, fine: usize) -> Vec<Vec<f64>> {
+    let lattice = &s.tracking.lattice;
+    shielded
+        .physical_flux(lattice, &vec![vec![1.0; fine]; lattice.regions()])
+        .unwrap()
+}
+
+fn assert_close(got: f64, want: f64, what: &str) {
+    assert!(
+        (got - want).abs() <= 1e-12 * want.abs().max(1e-300),
+        "{what}: {got} vs {want}"
+    );
+}
+
+#[test]
+fn kinetics_split_the_delayed_production_by_family_and_divide_it_by_the_decay_constants() {
+    // 核分裂するのは U-235 だけで、族ごとの群の遅発中性子数は群の中で一定なので、遅発の生成は ν_d,k × Σf（細かい群と少数群が同じ）
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    for index in 0..branches.len() {
+        let (s, shielded, solution) = solved(&text, &library, &branches, index);
+        let few = few_of(&s, &library, &shielded, &solution);
+        let kinetics = branches
+            .kinetics(
+                0,
+                index,
+                &library,
+                &shielded,
+                &s.tracking.lattice,
+                &solution,
+                &BOUNDS,
+                &few,
+            )
+            .unwrap();
+        let sph = sph_of(&s, &shielded, 2);
+        for k in 0..2 {
+            for g in 0..2 {
+                let want = DELAYED_NU[k][g] * few.fission[g];
+                let at = format!("state {index}, family {k}, group {g}");
+                assert_close(kinetics.delayed_nu_fission[k][g], want, &at);
+                assert_close(
+                    kinetics.delayed_precursors[k][g],
+                    want / DECAY_CONSTANTS[k],
+                    &at,
+                );
+                assert_close(kinetics.delayed_chi[k][g], DELAYED_CHI[k][g], &at);
+            }
+        }
+        // 群速度の逆数は、MOC の中性子束と体積と SPH 因子で重みを付け、MOC の中性子束で割る
+        for (g, inverse) in library.inverse_velocity.iter().enumerate() {
+            let (mut slow, mut flux) = (0.0, 0.0);
+            for ((volume, phi), mu) in solution.volumes.iter().zip(&solution.flux).zip(&sph) {
+                let w = volume * phi[g];
+                slow += w * mu[g] * inverse;
+                flux += w;
+            }
+            assert_close(
+                kinetics.inverse_velocity[g],
+                slow / flux,
+                &format!("state {index}, inverse velocity {g}"),
+            );
+        }
+    }
+}
+
+#[test]
+fn a_fissile_lattice_needs_delayed_neutron_families() {
+    let library = {
+        let mut library = plain_library();
+        library.nuclides.extend(
+            library_with_boron()
+                .nuclides
+                .into_iter()
+                .filter(|n| n.name.starts_with("B-")),
+        );
+        library
+    };
+    let history = deplete_with(&borated(PIN), &library);
+    let text = branch_input("[0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let (s, shielded, solution) = solved(&text, &library, &branches, 0);
+    let few = few_of(&s, &library, &shielded, &solution);
+    let err = branches
+        .kinetics(
+            0,
+            0,
+            &library,
+            &shielded,
+            &s.tracking.lattice,
+            &solution,
+            &BOUNDS,
+            &few,
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("delayed"), "{err}");
+}
+
+/// テストのライブラリに、輸送しない放射化の核種 Cs-135（チェーンの核種。捕獲だけ）を `temperature` で足したもの
+fn with_activation(mut library: Library, temperature: f64) -> Library {
+    use xlc_format::library::{ActivationData, ActivationTemperature, GroupChannel, GroupReaction};
+    library.activation.push(ActivationData {
+        name: "Cs-135".into(),
+        za: 55135.0,
+        awr: 133.7,
+        temperatures: vec![ActivationTemperature {
+            temperature,
+            fission: vec![0.0, 0.0],
+            reactions: vec![GroupReaction {
+                mt: 102,
+                channels: vec![GroupChannel {
+                    final_state: None,
+                    cross_section: vec![0.5, 8.7],
+                }],
+            }],
+        }],
+    });
+    library
+}
+
+#[test]
+fn cooling_cross_sections_are_the_one_group_micro_cross_sections_of_transported_and_activation_nuclides()
+ {
+    let (history, library) = history();
+    let library = with_activation(library, 600.0);
+    let text = all_transported(&history, "[0, 2.0]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    // 核種は履歴（チェーン）の順の、輸送する核種と放射化の核種
+    let names: Vec<String> = history
+        .nuclides
+        .iter()
+        .filter(|n| history.transportable.contains(n) || n.as_str() == "Cs-135")
+        .cloned()
+        .collect();
+    assert_eq!(branches.cooling_nuclides(&library), names);
+    let lattice_volume = 1.26 * 1.26;
+    for point in 0..2 {
+        let index = branches.nominal_state(point).unwrap();
+        let (s, shielded, solution) = solved(&text, &library, &branches, index);
+        let cooling = branches
+            .cooling(index, &library, &shielded, &s.tracking.lattice, &solution)
+            .unwrap();
+        assert_eq!(cooling.len(), names.len());
+        // 輸送する核種は、ミクロ燃焼の微視的断面積（ADR-0216）を 1 群にしたもの
+        let one = branches
+            .micro(
+                0,
+                index,
+                &library,
+                &shielded,
+                &s.tracking.lattice,
+                &solution,
+                &[1.0e7, 1.0e-5],
+            )
+            .unwrap();
+        for (j, name) in branches.micro_nuclides().iter().enumerate() {
+            let c = &cooling[names.iter().position(|n| n == name).unwrap()];
+            let at = format!("{name} at point {point}");
+            assert_close(c.fission, one[j].fission[0], &at);
+            assert_eq!(c.thermal_fission, one[j].thermal_fission, "{at}");
+            assert_eq!(c.reactions.len(), one[j].reactions.len(), "{at}");
+            for (r, m) in c.reactions.iter().zip(&one[j].reactions) {
+                assert_eq!(r.mt, m.mt);
+                let channels: Vec<f64> = m.channels.iter().map(|c| c[0]).collect();
+                for (got, want) in r.channels.iter().zip(&channels) {
+                    assert_close(*got, *want, &at);
+                }
+            }
+        }
+        // 放射化の核種: 燃焼の領域（燃料の 1 つ）の中性子束で無限希釈の断面積を 1 群にし、均質化した数密度と格子の中性子束で割る。
+        // 燃焼の領域が 1 つなら、数密度の重みは均質化した数密度と体積の比だけになる
+        let fuel = regions_of(branches.region_materials(0), |n| n.contains('@'));
+        let depleted: f64 = branches.regions(0).iter().map(|d| d.volume).sum();
+        let sph = sph_of(&s, &shielded, 2);
+        let (mut rate, mut flux) = (0.0, 0.0);
+        for (r, ((volume, phi), mu)) in solution
+            .volumes
+            .iter()
+            .zip(&solution.flux)
+            .zip(&sph)
+            .enumerate()
+        {
+            for (g, sigma) in [0.5, 8.7].into_iter().enumerate() {
+                let w = volume * phi[g];
+                flux += w;
+                if fuel.contains(&r) {
+                    rate += w * mu[g] * sigma;
+                }
+            }
+        }
+        let cesium = &cooling[names.iter().position(|n| n == "Cs-135").unwrap()];
+        assert_close(
+            cesium.reactions[0].channels[0],
+            rate * lattice_volume / (depleted * flux),
+            &format!("Cs-135 at point {point}"),
+        );
+        assert_eq!((cesium.fission, cesium.thermal_fission), (0.0, None));
+    }
+}
+
 #[test]
 fn the_branch_chain_must_be_the_chain_of_the_history() {
     // 履歴の核種はチェーンの核種の名前の順（ADR-0173）。違うチェーンの Q で重みを付けない
@@ -2153,4 +2378,31 @@ fn kappa_fission_needs_all_fission_in_the_depletion_regions() {
         )
         .unwrap_err();
     assert!(format!("{err:#}").contains("depleted"), "{err:#}");
+}
+
+#[test]
+fn activation_cross_sections_need_the_temperature_of_the_depletion_regions() {
+    let (history, library) = history();
+    let library = with_activation(library, 565.0);
+    let text = branch_input("[0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let index = branches.nominal_state(0).unwrap();
+    let (s, shielded, solution) = solved(&text, &library, &branches, index);
+    let err = branches
+        .cooling(index, &library, &shielded, &s.tracking.lattice, &solution)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("Cs-135"), "{err}");
+}
+
+#[test]
+fn history_branches_need_the_nominal_state_for_the_cooling_cross_sections() {
+    // 入力の物質（1000 ppm）がホウ素の軸の格子点でなければ公称の状態がなく、冷却計算の断面積（ADR-0238）を作る状態がない。
+    // 輸送の前に止める
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]").replace("ppm = [500, 1000]", "ppm = [500, 1500]");
+    let err = branches_of(&text, &history, &library)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("nominal"), "{err}");
 }
