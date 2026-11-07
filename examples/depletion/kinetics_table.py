@@ -7,10 +7,10 @@
 - 中性子束は少数群定数の無限媒質の基本モード φ = A⁻¹ χ（A = diag(Σt) − Σsᵀ。Σs は [元の群][先の群]）。そのときの
   k = νΣfᵀ φ を `k`、テーブルの `k_inf`（格子計算の k∞）との差を `k_minus_lattice_pcm`（(1/k_inf − 1/k) × 1e5）に書く
 - 遅発中性子の割合 β_k = Σ_G ν_dΣf,k,G φ_G / Σ_G νΣf_G φ_G（重みを付けない割合）と、族の崩壊定数
-  λ_k = Σ_G ν_dΣf,k,G φ_G / Σ_G (ν_dΣf/λ)_k,G φ_G（core の `decay_constants` と同じ式）
+  λ_k = Σ_G ν_dΣf,k,G φ_G / Σ_G (ν_dΣf/λ)_k,G φ_G（core の `decay_constants` と同じ式。生成か先行核のない族はエラー）
 - 群速度の逆数の中性子束の平均 Σ_G (1/v)_G φ_G / Σ_G φ_G (s/cm)
 - 冷却計算の断面積は、核種の数と、核種ごとの 1 群の核分裂と捕獲（MT102 の経路の和）を `nuclides` の中から `--nuclide` で選んだ
-  ものだけ書く（既定は U-235、Pu-239、Cs-133、Cs-134、Eu-154。テーブルにない名前はエラー）
+  ものだけ書く（既定は U-235、Pu-239、Cs-133、Cs-134、Eu-154。テーブルにない名前と、同じ名前を 2 度選ぶのはエラー）
 - `inputs` は読んだファイルのパス（実行した cwd から）と md5
 """
 
@@ -66,6 +66,8 @@ def summary(table: dict, nuclides: list[str]) -> dict:
     burnups = table["axes"][0]["points"]
     cooling = table["cooling"]
     kinetics = table["kinetics"]["states"]
+    if len(set(nuclides)) != len(nuclides):
+        raise ValueError(f"the picked nuclides {nuclides} repeat a name")
     missing = [n for n in nuclides if n not in cooling["nuclides"]]
     if missing:
         raise ValueError(f"the table has no cooling cross sections of {missing}")
@@ -78,6 +80,11 @@ def summary(table: dict, nuclides: list[str]) -> dict:
         production = np.asarray(state["nu_fission"], dtype=float) @ phi
         delayed = np.asarray(kin["delayed_nu_fission"], dtype=float) @ phi
         precursors = np.asarray(kin["delayed_precursors"], dtype=float) @ phi
+        # core の decay_constants と同じく、生成か先行核のない族は崩壊定数を作れない
+        if not (np.all(delayed > 0.0) and np.all(precursors > 0.0)):
+            raise ValueError(
+                f"burnup point {b}: a delayed family has no production {delayed} or precursors {precursors}"
+            )
         beta = delayed / production
         one_group = {}
         for name in picked:
