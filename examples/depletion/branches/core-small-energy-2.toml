@@ -1,0 +1,26 @@
+# ノードの出力の重み（#0154）の確認の装荷替えの 1 サイクル: core-small-energy-2-cycle.toml の装荷を、バンク D を抜いて定格で、サイクルの
+# 炉心の平均の燃焼度の増分 3 MWd/kg まで燃焼させる。ホウ素は前のサイクル（core-small-energy-1.toml）と同じ 600 ppm に与える。平衡 Xe
+cycle = "core-small-energy-2-cycle.toml"
+axial-mesh = [0.0, 22.86, 45.72, 68.58, 91.44, 114.3, 137.16, 160.02, 182.88, 205.74, 228.6, 251.46, 274.32, 297.18, 320.04, 342.9, 365.76]
+radial-nodes = 1
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "vacuum"], z = ["marshak", "marshak"], outline = "marshak" }
+
+# バンク D を抜いた状態（230 ステップで先端が炉心の上端）
+[state.aro]
+boron = 600
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 230 }
+
+[depletion]
+specific-power = 38.41
+history = "core-small-energy-2.msgpack"
+# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+micro = { chain = "../chain.msgpack", xenon = "equilibrium" }
+steps = [
+  { efpd = 6.508721687060662, state = "aro" },  # 0.25 MWd/kg
+  { efpd = 26.03488674824265 },  # 1 MWd/kg
+  { efpd = 52.0697734964853 },  # 2 MWd/kg
+  { efpd = 78.10466024472794 },  # 3 MWd/kg
+]
