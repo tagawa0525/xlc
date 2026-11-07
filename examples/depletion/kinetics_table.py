@@ -78,6 +78,13 @@ def summary(table: dict, nuclides: list[str]) -> dict:
         phi, k = fundamental(state)
         kin = kinetics[p]
         production = np.asarray(state["nu_fission"], dtype=float) @ phi
+        # 生成のない状態は k と遅発中性子の割合を作れない（0 で割る）
+        if not (
+            k > 0.0 and production > 0.0 and np.isfinite(k) and state["k_inf"] > 0.0
+        ):
+            raise ValueError(
+                f"burnup point {b}: the nominal state has no production (k {k}, k_inf {state['k_inf']})"
+            )
         delayed = np.asarray(kin["delayed_nu_fission"], dtype=float) @ phi
         precursors = np.asarray(kin["delayed_precursors"], dtype=float) @ phi
         # core の decay_constants と同じく、生成か先行核のない族は崩壊定数を作れない
