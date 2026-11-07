@@ -124,7 +124,8 @@ ADR-0187 の置き場のとおり、`[history]` の実行が書く燃焼度の�
   少数群の中性子束で割る（格子全体の均質化）。遅発の量は燃焼の領域の輸送する核種の数密度と自己遮蔽した σf から作る。燃焼の領域の核種の
   νσf の和が少数群定数の νΣf と一致すること（燃焼させない物質が核分裂しないこと）を確かめる。即発の ν と即発の χ は、少数群定数の νΣf と χ
   からこの遅発の量を引いて求まる
-- `cooling`: 燃焼度の点ごとに、公称の状態（ADR-0200 の制御棒のない組の x₀。履歴の輸送と同じ問題）の、核種ごとの 1 群の微視的断面積（barn）。
+- `cooling`: 燃焼度の点ごとに、公称の状態（ADR-0200 の制御棒のない組の x₀。点が 1 つの軸はその点なので、入力の物質がどの軸でも
+  格子点にあるときに履歴の輸送と同じ問題）の、核種ごとの 1 群の微視的断面積（barn）。
   核種は履歴の `transportable` と、ライブラリの放射化の核種のうち履歴の核種にあるもの（チェーンの順）。核種ごとに、チェーンの反応の経路ごとの
   断面積 `reactions`（MT と経路の並び）、核分裂の断面積 `fission`、核分裂の収率の境界より下の割合 `thermal_fission`（[ADR-0183](0183-weight-fission-yields-by-thermal-fast-cutoff.md)。
   核分裂しない核種は nil）。定義は ADR-0216 の微視的断面積の定義を 1 群にしたもの（燃焼の領域の数密度で重みを付け、均質化した数密度が 0 の
@@ -156,7 +157,8 @@ ADR-0187 の置き場のとおり、`[history]` の実行が書く燃焼度の�
 - lattice（crates/lattice/src/history/tests.rs）: `kinetics_split_the_delayed_production_by_family_and_divide_it_by_the_decay_constants`
   （遅発の生成が ν_d,k × Σf、崩壊定数で割った量、族のスペクトル、群速度の逆数が相対 1e-12）、`a_fissile_lattice_needs_delayed_neutron_families`、
   `cooling_cross_sections_are_the_one_group_micro_cross_sections_of_transported_and_activation_nuclides`、
-  `activation_cross_sections_need_the_temperature_of_the_depletion_regions`。1 つの入力の制御棒の分岐（crates/lattice/tests/history_rod_branch.rs の
+  `activation_cross_sections_need_the_temperature_of_the_depletion_regions`、`history_branches_need_the_nominal_state_for_the_cooling_cross_sections`、
+  入力（crates/lattice/src/input/tests.rs）の `history_tables_are_not_split_without_micro_nuclides_either`。1 つの入力の制御棒の分岐（crates/lattice/tests/history_rod_branch.rs の
   `history_rod_branches_match_separate_lattices`）で、状態ごとの動特性のデータが値ごとの別の格子計算とビットで一致し、冷却計算の断面積が
   棒のない値の入力と同じ
 - core（crates/core/src/state/tests.rs）: `kinetics_data_at_the_grid_points_are_the_lattice_values`（格子点でテーブルの値そのもの）、
@@ -171,8 +173,8 @@ ADR-0187 の置き場のとおり、`[history]` の実行が書く燃焼度の�
   2,286 秒、depletion 11,616 秒、depletion/p2 4,596 秒（放射化の核種を足す前の 90 核種）
 - テーブルの `kinetics` と `cooling` は、燃焼の履歴から作ったテーブルだけのキーで、持たないテーブル（今ある燃焼度の軸のテーブルを含む）は
   そのまま読める。core の動特性と冷却計算の解法はまだなく（ADR-0033）、内挿の関数だけがある
-- `[history]` の入力は、`micro` がなくても部分ノードに分けないテーブルと、公称の状態（入力の物質が分岐の軸の格子点）を求め、
-  そうでなければ輸送の前に止まる。燃焼の履歴からの分岐は、族のデータを持つ核種のないライブラリ（今あるライブラリ）ではエラーになる。チェックポイントの状態にも
+- `[history]` の入力は、`micro` がなくても部分ノードに分けないテーブルと、公称の状態（ADR-0200 の x₀）を求め、そうでなければ
+  輸送の前に止まる。燃焼の履歴からの分岐は、族のデータを持つ核種のないライブラリ（今あるライブラリ）ではエラーになる。チェックポイントの状態にも
   2 つの項目を足した
 - 放射化の核種の断面積は無限希釈で、自己遮蔽しない。格子計算の燃焼（ADR-0173）は放射化の断面積を使わず、輸送しない核種を
   崩壊だけで追うままにした。チェーンと照らした核種の確かめ、中性子のデータのない長寿命の核種（案 A4）、格子計算の燃焼で放射化の

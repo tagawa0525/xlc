@@ -440,8 +440,8 @@ pub fn history_branches(
         .iter()
         .map(|state| split(state))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    // 値ごとの解く燃焼点: 棒のない値は公称でない状態の燃焼点、制御棒の値はその値の燃焼点（ADR-0225）。燃焼点を間引くと、その差を
-    // 公称の状態から内挿するので、公称の状態が要る（ADR-0200）
+    // 値ごとの解く燃焼点: 棒のない値は公称でない状態の燃焼点、制御棒の値はその値の燃焼点（ADR-0225）。公称の状態は下で、
+    // 間引いたかによらず求める
     let burnups: Vec<Vec<bool>> = rod_values
         .iter()
         .enumerate()
@@ -458,10 +458,11 @@ pub fn history_branches(
                 .collect()
         })
         .collect();
-    // 冷却計算の断面積は、燃焼度の点ごとの公称の状態で作る（ADR-0238）。輸送の前に止める
+    // 冷却計算の断面積は燃焼度の点ごとの公称の状態で作り（ADR-0238）、燃焼点を間引いた状態の差もそこから内挿する（ADR-0200）。
+    // 輸送の前に止める
     if branches.nominal_state().is_none() {
         bail!(
-            "history branches need the nominal state (the input materials at a point of every branch axis) for the \
+            "history branches need the nominal state (the input materials left by every branch axis. ADR-0200) for the \
              cooling cross sections (ADR-0238) and the off-nominal burnups (ADR-0200)"
         );
     }
@@ -1017,7 +1018,8 @@ impl HistoryBranches {
     }
 
     /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）
-    /// 燃焼度の点 `point` の、棒のない値の公称の状態（履歴の輸送と同じ問題。冷却計算の断面積を作る状態）の番号。公称の状態の
+    /// 燃焼度の点 `point` の、棒のない値の公称の状態（ADR-0200 の x₀。入力の物質がどの軸でも格子点にあれば履歴の輸送と同じ問題。
+    /// 冷却計算の断面積を作る状態）の番号。公称の状態の
     /// ない分岐か、点がなければ `None`
     pub fn nominal_state(&self, point: usize) -> Option<usize> {
         (point < self.densities.len())
