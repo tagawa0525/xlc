@@ -395,26 +395,27 @@ class Replace(unittest.TestCase):
         )
 
     def test_an_untracked_json_is_an_error_naming_cache_false_and_git_tracked(self):
-        """ステージの出力は cache: false で、ステージの無い JSON は GIT_TRACKED で追跡する"""
+        """ステージの出力は cache: false で追跡し、GIT_TRACKED は例外の置き場として示す"""
         self.lock()
         self.git("init", "-q", "-b", "main")
         with self.assertRaisesRegex(
             vt.TableError,
-            "cache: false.*GIT_TRACKED in examples/verification_tables.py",
+            "cache: false.*GIT_TRACKED in examples/verification_tables.py holds only",
         ):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
     def test_a_missing_dvc_lock_is_an_error_naming_the_placement(self):
-        """md5 は JSON と同じディレクトリの dvc.lock から読むので、置き場と GIT_TRACKED を示す"""
+        """md5 は JSON と同じディレクトリの dvc.lock から読むので、置き場とステージの実行を示す"""
         self.git("init", "-q", "-b", "main")
         self.git("add", "t/a.json")
         with self.assertRaisesRegex(
             vt.TableError,
-            "dvc.lock does not exist.*same directory as the dvc.lock.*GIT_TRACKED",
+            "dvc.lock does not exist.*dvc.yaml's directory.*run the stage.*GIT_TRACKED",
         ):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
     def test_a_dvc_lock_without_the_json_is_an_error_naming_the_placement(self):
+        """同じディレクトリの dvc.yaml がその JSON を 1 つの出力として宣言する"""
         (self.root / "t/dvc.lock").write_text(
             "schema: '2.0'\nstages:\n  s:\n    outs:\n    - path: b.json\n      hash: md5\n      md5: "
             + "0" * 32
@@ -424,7 +425,7 @@ class Replace(unittest.TestCase):
         self.git("add", "t/a.json")
         with self.assertRaisesRegex(
             vt.TableError,
-            "has 0 outputs named a.json.*same directory as the dvc.lock.*GIT_TRACKED",
+            "has 0 outputs named a.json.*declares it as one out.*GIT_TRACKED",
         ):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
