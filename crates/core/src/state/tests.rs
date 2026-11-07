@@ -1547,9 +1547,13 @@ fn kinetics_data_take_the_weights_of_the_few_group_constants() {
             let s = at_burnup(bu, ppm, tm, tf);
             let f = interpolate(&t, Some(&s), None).unwrap().remove(0);
             let k = interpolate_kinetics(&t, &s, None).unwrap();
-            assert_eq!(k.delayed_nu_fission, [f.fission.clone()], "{bu}");
-            assert_eq!(k.delayed_precursors, [f.total.clone()], "{bu}");
-            assert_eq!(k.delayed_chi, [f.chi.clone()], "{bu}");
+            assert_eq!(
+                k.delayed_nu_fission,
+                std::slice::from_ref(&f.fission),
+                "{bu}"
+            );
+            assert_eq!(k.delayed_precursors, std::slice::from_ref(&f.total), "{bu}");
+            assert_eq!(k.delayed_chi, std::slice::from_ref(&f.chi), "{bu}");
             assert_eq!(k.inverse_velocity, f.diffusion, "{bu}");
         }
     }
