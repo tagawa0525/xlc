@@ -17,8 +17,9 @@ examples/depletion/verification.md の「集合体の燃焼」には、集合体
 傾向を読むには 8 つの節を行き来する必要がある。
 
 2026-11-03〜04 の値（examples/depletion/p2/compare-*.json の `k[].diff_pcm` と `pins[].rms`。xlc の計算は 06d6bd71（分岐点は main の a0fd48c0）、
-2026-11-03〜04、JSON のコミットは 8488f5dfa。ADR-0238 の「帰結」のとおり、2A のほかの 7 本の格子計算の燃焼は
-ライブラリの作り直しで changed で、再実行していない。表を作るときは JSON から出し直す）:
+2026-11-03〜04、JSON のコミットは 8488f5dfa。8 本とも ADR-0238 の前のライブラリの値で、2A は格子計算だけを
+作り直し（examples/depletion/p2/dvc.lock の `compare@2A` の deps の lattice-2A.msgpack が `lattice@2A` の outs と違う）、ほかの 7 本の格子計算の燃焼は
+ADR-0238 の「帰結」のとおり changed で、再実行していない。表を作るときは JSON から出し直す）:
 
 - k∞ の差は 8 本の全体で +17〜+202 pcm（2A +56〜+164、2F +68〜+171）。2A-rods（+17〜+77）のほかの 7 本は ADR-0032 の目標の ±100 pcm を一部の点で
   超え、許容の ±150 pcm を 2〜25 点で超える
