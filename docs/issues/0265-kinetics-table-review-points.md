@@ -31,6 +31,16 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
   ライブラリと分岐の温度で決まるが、最初の公称の状態を輸送した後に確かめる
 - crates/lattice/src/input.rs の `[history]` の split の検査: 直前の `matches!` で `output` が `Some` と分かった後に `if let Some` で
   取り直し、`None` の枝が起きない形になっている
+- crates/lattice/src/history.rs の公称の状態のないときのエラーの文: 点が 1 つの軸は入力と違っても公称になるのに、どの軸も入力の物質を残すことを
+  求める文で、どの軸が原因かを示さない（branches.rs の部分格子のエラーは軸の名前を出す）。ADR-0238 の帰結も、止まる条件（点が 2 つ以上の軸に
+  入力の物質の格子点がない）を書かない
+- 点が 1 つの軸が入力の物質と違う値のとき、公称の状態 x₀ は履歴の輸送と違う状態で、冷却計算の断面積はその状態で黙って作られる（ADR-0238 の
+  決定は x₀ と書く）。止めるか、許す理由を書くかを決めていない
+- crates/lattice/src/history.rs: `nominal_state` の説明の先頭に `derivative_nuclides` の説明の行が残る（上の 1 項目と同じ）。`HistoryBranches.nominal` は
+  検査の後には必ず値があるのに `Option` のままで、説明の「なければ None」は起きない
+- crates/lattice/src/history/tests.rs: `history_branches_need_the_nominal_state_for_the_cooling_cross_sections` は文に "nominal" があることだけを確かめ、
+  ほかの検査の文でも通る。`off_nominal_states_are_solved_at_their_burnups_only` の近くの説明は、間引いたときだけ公称の状態が要ると読める
+- crates/lattice/src/history.rs の解く燃焼点のコメント: 「間引いたかによらず」は前の挙動と比べた書き方で、どこで何を求めるかもあいまい
 
 関係する ADR: なし
 
@@ -40,4 +50,4 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 
 ## 経緯
 
-- 2026-11-07: ADR-0238 の実装のレビューの 1 周目と 2 周目で出た指摘のうち、直さなかったものをまとめた
+- 2026-11-07: ADR-0238 の実装のレビューの 1〜3 周目で出た指摘のうち、直さなかったものをまとめた
