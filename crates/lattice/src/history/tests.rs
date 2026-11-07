@@ -2039,7 +2039,8 @@ fn kappa_fission_weights_the_fission_of_each_nuclide_by_its_chain_q() {
         let (kappa, micro) = kappa_and_micro(&text, &library, &branches, index);
         let point = index / (branches.len() / 2);
         let densities = &branches.micro_densities()[point];
-        for g in 0..2 {
+        assert_eq!(kappa.len(), 2);
+        for (g, &got) in kappa.iter().enumerate() {
             let want: f64 = micro
                 .iter()
                 .zip(densities)
@@ -2054,9 +2055,8 @@ fn kappa_fission_weights_the_fission_of_each_nuclide_by_its_chain_q() {
                 })
                 .sum();
             assert!(
-                (kappa[g] - want).abs() <= 1e-12 * want.abs(),
-                "state {index} group {g}: {} vs {want}",
-                kappa[g]
+                (got - want).abs() <= 1e-12 * want.abs(),
+                "state {index} group {g}: {got} vs {want}"
             );
         }
         // 速群は U-238 の核分裂を含むので、核分裂あたりのエネルギーは 2 つの Q の間
