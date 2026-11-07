@@ -758,3 +758,36 @@ fn rodded_solutions_return_the_weights_of_their_mixed_constants() {
         }
     }
 }
+
+#[test]
+fn mixed_constants_mix_the_fission_energy_by_the_group_flux() {
+    // κΣf（ADR-0190）は反応の断面積と同じく群の中性子束で混ぜる（区間の核分裂のエネルギーの和を保つ）
+    let with = |absorber: f64, energy: f64| {
+        let mut c = fuel(absorber);
+        c.kappa_fission = Some(c.fission.iter().map(|f| energy * f).collect());
+        Segment {
+            constants: c,
+            length: 10.0,
+        }
+    };
+    let segments = [with(1.0, 2.0e8), with(1.6, 2.1e8)];
+    let weights = vec![vec![3.0, 1.0], vec![0.5, 0.2]];
+    let mixed = mix(&segments, &weights).unwrap();
+    let kappa = mixed.kappa_fission.as_ref().unwrap();
+    for g in 0..2 {
+        let rate =
+            |s: usize| segments[s].constants.kappa_fission.as_ref().unwrap()[g] * weights[s][g];
+        let want = (rate(0) + rate(1)) / (weights[0][g] + weights[1][g]);
+        assert!(
+            (kappa[g] - want).abs() <= 1e-13 * want,
+            "{g}: {} vs {want}",
+            kappa[g]
+        );
+    }
+    // 片方の区間だけが持つ組は混ぜられない
+    let without = Segment {
+        constants: fuel(1.6),
+        length: 10.0,
+    };
+    assert!(mix(&[with(1.0, 2.0e8), without], &weights).is_err());
+}
