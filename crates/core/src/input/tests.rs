@@ -1901,12 +1901,19 @@ fn thermal_hydraulics_need_named_states() {
 
 /// 燃焼のケースの熱水力は未実装（ADR-0229 の「燃焼のステップ」）
 #[test]
-fn depletion_with_thermal_hydraulics_is_an_error() {
+fn depletion_takes_thermal_hydraulics_with_inlet_states() {
+    // 燃焼のステップの状態は入口の温度を持ち、熱出力にステップの出力の割合を掛ける（ADR-0229 の燃焼のステップ）
     let text = format!(
         "{CASE}{THERMAL}\n[depletion]\nspecific-power = 38.4\nsteps = [{{ efpd = 10 }}]\nhistory = \"h.msgpack\"\n"
     );
-    let e = Case::parse(&text, base()).unwrap_err().to_string();
-    assert!(e.contains("thermal-hydraulics"), "{e}");
+    let c = Case::parse(&text, base()).unwrap();
+    assert!(c.thermal.is_some());
+    assert_eq!(c.depletion.as_ref().unwrap().steps.len(), 1);
+    assert_eq!(c.states[0].temperatures, Temperatures::Inlet(565.0));
+    // 熱水力の燃焼の状態も、減速材と燃料の温度でなく入口の温度を書く
+    let plain = text.replace("inlet = 565", "moderator = 565\nfuel = 565");
+    let e = Case::parse(&plain, base()).unwrap_err().to_string();
+    assert!(e.contains("inlet"), "{e}");
 }
 
 #[test]

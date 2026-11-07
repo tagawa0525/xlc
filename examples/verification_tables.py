@@ -1465,6 +1465,116 @@ def core_acceleration_differences(sources: list[dict]) -> str:
     return core_pair_differences(core_acceleration_summary(sources))
 
 
+def core_thermal_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-core-thermal":
+        raise TableError("not an xlc-compare-core-thermal summary")
+    return s
+
+
+def core_thermal_points(sources: list[dict]) -> str:
+    """熱水力のある燃焼と入口の温度の一様な燃焼の点ごとの、ホウ素、熱水力の効きとテーブルの係数からの見込み、ノードの温度の出力の
+    割合の 2 乗の重みの平均の上がりと最大、固有値計算の回数（compare_core_thermal.py）"""
+    s = core_thermal_summary(sources)
+    rows = []
+    for name, c in s["cases"].items():
+        for p in c["points"]:
+            e = p["estimate"]
+            rows.append(
+                [
+                    name,
+                    f"{p['efpd']:.1f}",
+                    p["state"],
+                    f"{p['isothermal_boron']:.2f}",
+                    f"{p['isothermal_boron'] + p['boron']:.2f}",
+                    signed(p["effect"], 2),
+                    signed(e["fuel"], 2),
+                    signed(e["moderator"], 2),
+                    signed(e["total"], 2),
+                    f"{p['moderator_rise']:.2f}",
+                    f"{p['fuel_rise']:.2f}",
+                    f"{p['moderator_max']:.2f}",
+                    f"{p['fuel_max']:.2f}",
+                    f"{p['solves'][0]} → {p['solves'][1]}",
+                ]
+            )
+    return markdown_table(
+        [
+            "燃焼",
+            "EFPD",
+            "状態",
+            "ホウ素（熱水力なし） (ppm)",
+            "ホウ素（熱水力） (ppm)",
+            "熱水力の効き (ppm)",
+            "見込み: 燃料 (ppm)",
+            "見込み: 減速材 (ppm)",
+            "見込み: 和 (ppm)",
+            "減速材の上がり (K)",
+            "燃料の上がり (K)",
+            "減速材の最大 (K)",
+            "燃料の最大 (K)",
+            "固有値計算の回数",
+        ],
+        rows,
+    )
+
+
+def core_thermal_runs(sources: list[dict]) -> str:
+    """熱水力のある燃焼とない燃焼の、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間とその比、熱水力の燃焼の
+    繰り返しの回数の範囲と出口と燃料の温度の最大（compare_core_thermal.py）"""
+    s = core_thermal_summary(sources)
+    rows = []
+    for name, c in s["cases"].items():
+        i, t, th = c["runs"]["isothermal"], c["runs"]["thermal"], c["thermal"]
+        for label, r in [("なし", i), ("あり", t)]:
+            rows.append(
+                [
+                    name,
+                    label,
+                    str(r["solves"]),
+                    f"{r['iterations']:,}",
+                    f"{r['eigenvalue_seconds']:.1f}",
+                    f"{r['seconds']:.1f}",
+                ]
+                + (
+                    ["−", "−", "−"]
+                    if r is i
+                    else [
+                        f"{th['iterations'][0]}〜{th['iterations'][1]}",
+                        f"{th['outlet']:.2f}",
+                        f"{th['fuel']:.2f}",
+                    ]
+                )
+            )
+        rows.append(
+            [
+                name,
+                "あり / なし",
+                f"{t['solves'] / i['solves']:.3f}",
+                f"{t['iterations'] / i['iterations']:.3f}",
+                f"{t['eigenvalue_seconds'] / i['eigenvalue_seconds']:.3f}",
+                f"{t['seconds'] / i['seconds']:.3f}",
+                "",
+                "",
+                "",
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼",
+            "熱水力",
+            "固有値計算の数",
+            "外側の反復の回数の和",
+            "固有値計算の時間 (s)",
+            "全体の時間 (s)",
+            "繰り返しの回数",
+            "出口の温度の最大 (K)",
+            "燃料の温度の最大 (K)",
+        ],
+        rows,
+    )
+
+
 def core_xenon_boron_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-core-xenon-boron":
@@ -3597,6 +3707,9 @@ GIT_TRACKED = {
     "examples/depletion/p9-timing/trial-0234/compare-threads.json",
     # 小さな炉心の色の順と直方体の並びの順、スレッドの数（ADR-0234）
     "examples/depletion/branches/compare-core-small-threads.json",
+    # 熱水力のある燃焼と熱水力なしの燃焼の小さな炉心と全炉心（#0228。ADR-0229 の燃焼のステップ）。ステージの出力でない
+    "examples/depletion/branches/compare-core-small-thermal.json",
+    "examples/depletion/p9-timing/trial-0228/compare-thermal.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4215,6 +4328,22 @@ TABLES = {
     "core-p9-threads-differences": (
         ["examples/depletion/p9-timing/trial-0234/compare-threads.json"],
         core_threads_differences,
+    ),
+    "depletion-small-core-thermal-points": (
+        ["examples/depletion/branches/compare-core-small-thermal.json"],
+        core_thermal_points,
+    ),
+    "depletion-small-core-thermal-runs": (
+        ["examples/depletion/branches/compare-core-small-thermal.json"],
+        core_thermal_runs,
+    ),
+    "core-p9-thermal-points": (
+        ["examples/depletion/p9-timing/trial-0228/compare-thermal.json"],
+        core_thermal_points,
+    ),
+    "core-p9-thermal-runs": (
+        ["examples/depletion/p9-timing/trial-0228/compare-thermal.json"],
+        core_thermal_runs,
     ),
     "core-p9-cmfd-loose-coarse-runs": (
         ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],

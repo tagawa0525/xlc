@@ -1,0 +1,330 @@
+2026-11-07T00:30:13.991000Z  INFO core: thread pool threads=16 from="default"
+2026-11-07T00:30:14.093683Z  INFO xlc_core::depletion: micro depletion tracked=31 auxiliary=143 nodes=9843
+2026-11-07T00:30:16.785009Z  INFO nem{iterations=47 seconds=2.271994221}: xlc_core::nem: close time.busy=2.27s time.idle=3.21µs
+2026-11-07T00:30:16.797820Z  INFO constants: xlc_core::case: close time.busy=363ms time.idle=2.30s
+2026-11-07T00:30:19.148112Z  INFO nem{iterations=32 seconds=1.9372768489999999}: xlc_core::nem: close time.busy=1.94s time.idle=1.71µs
+2026-11-07T00:30:19.160365Z  INFO constants: xlc_core::case: close time.busy=348ms time.idle=1.96s
+2026-11-07T00:30:21.352983Z  INFO nem{iterations=28 seconds=1.7715197919999999}: xlc_core::nem: close time.busy=1.77s time.idle=1.98µs
+2026-11-07T00:30:21.365388Z  INFO constants: xlc_core::case: close time.busy=352ms time.idle=1.79s
+2026-11-07T00:30:23.548431Z  INFO nem{iterations=27 seconds=1.76497833}: xlc_core::nem: close time.busy=1.76s time.idle=2.19µs
+2026-11-07T00:30:23.560551Z  INFO constants: xlc_core::case: close time.busy=350ms time.idle=1.79s
+2026-11-07T00:30:23.571546Z  INFO xlc_core::depletion: depletion point efpd=0.0 days=0.0 state="case-2" k=1.178073435587979 boron=1200.0 solves=4
+2026-11-07T00:30:23.571557Z  INFO xlc_core::depletion: thermal-hydraulics iterations=4 change=3.543992121311186e-6 outlet=566.5946808396596 fuel_average=570.1969603436643 fuel_max=581.8113488737682 density_error=0.000644730950697503
+2026-11-07T00:30:24.069207Z  INFO depletion step{efpd=9.0}:micro depletion: xlc_core::depletion: close time.busy=498ms time.idle=1.72µs
+2026-11-07T00:30:27.456175Z  INFO depletion step{efpd=9.0}:nem{iterations=47 seconds=2.85978427}: xlc_core::nem: close time.busy=2.86s time.idle=2.35µs
+2026-11-07T00:30:27.468141Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=469ms time.idle=2.88s
+2026-11-07T00:30:30.476780Z  INFO depletion step{efpd=9.0}:nem{iterations=32 seconds=2.474286186}: xlc_core::nem: close time.busy=2.47s time.idle=2.56µs
+2026-11-07T00:30:30.488704Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=469ms time.idle=2.50s
+2026-11-07T00:30:33.517030Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.486649764}: xlc_core::nem: close time.busy=2.49s time.idle=2.75µs
+2026-11-07T00:30:33.529387Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=474ms time.idle=2.51s
+2026-11-07T00:30:36.514749Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.447339002}: xlc_core::nem: close time.busy=2.45s time.idle=2.46µs
+2026-11-07T00:30:36.526986Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=471ms time.idle=2.47s
+2026-11-07T00:30:36.565131Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=30.6ms time.idle=1.97µs
+2026-11-07T00:30:36.578738Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=3.89ms time.idle=1.48µs
+2026-11-07T00:30:39.711950Z  INFO depletion step{efpd=9.0}:nem{iterations=37 seconds=2.59796419}: xlc_core::nem: close time.busy=2.60s time.idle=2.02µs
+2026-11-07T00:30:39.724253Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=470ms time.idle=2.62s
+2026-11-07T00:30:42.511675Z  INFO depletion step{efpd=9.0}:nem{iterations=27 seconds=2.248445887}: xlc_core::nem: close time.busy=2.25s time.idle=2.09µs
+2026-11-07T00:30:42.523842Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=471ms time.idle=2.27s
+2026-11-07T00:30:45.307281Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.243714997}: xlc_core::nem: close time.busy=2.24s time.idle=2.29µs
+2026-11-07T00:30:45.319627Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=472ms time.idle=2.27s
+2026-11-07T00:30:48.166163Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.310814258}: xlc_core::nem: close time.busy=2.31s time.idle=2.01µs
+2026-11-07T00:30:48.178697Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=468ms time.idle=2.33s
+2026-11-07T00:30:48.215999Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=30.1ms time.idle=2.71µs
+2026-11-07T00:30:48.237583Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=12.7ms time.idle=1.58µs
+2026-11-07T00:30:51.753073Z  INFO depletion step{efpd=9.0}:nem{iterations=31 seconds=2.976677817}: xlc_core::nem: close time.busy=2.98s time.idle=2.38µs
+2026-11-07T00:30:51.765789Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=472ms time.idle=3.00s
+2026-11-07T00:30:54.597471Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.296119453}: xlc_core::nem: close time.busy=2.30s time.idle=2.44µs
+2026-11-07T00:30:54.609512Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=467ms time.idle=2.32s
+2026-11-07T00:30:57.437929Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.28863473}: xlc_core::nem: close time.busy=2.29s time.idle=1.94µs
+2026-11-07T00:30:57.450415Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=471ms time.idle=2.31s
+2026-11-07T00:31:00.282402Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.297708212}: xlc_core::nem: close time.busy=2.30s time.idle=2.35µs
+2026-11-07T00:31:00.294623Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=467ms time.idle=2.32s
+2026-11-07T00:31:00.338251Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=36.4ms time.idle=2.58µs
+2026-11-07T00:31:00.369248Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=22.2ms time.idle=1.76µs
+2026-11-07T00:31:03.453119Z  INFO depletion step{efpd=9.0}:nem{iterations=27 seconds=2.542991035}: xlc_core::nem: close time.busy=2.54s time.idle=2.25µs
+2026-11-07T00:31:03.466021Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=474ms time.idle=2.57s
+2026-11-07T00:31:06.286617Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.281362674}: xlc_core::nem: close time.busy=2.28s time.idle=2.21µs
+2026-11-07T00:31:06.298718Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=470ms time.idle=2.30s
+2026-11-07T00:31:09.140646Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.299251014}: xlc_core::nem: close time.busy=2.30s time.idle=2.27µs
+2026-11-07T00:31:09.153482Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=472ms time.idle=2.32s
+2026-11-07T00:31:09.191229Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=30.9ms time.idle=3.11µs
+2026-11-07T00:31:09.232545Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=32.4ms time.idle=1.46µs
+2026-11-07T00:31:12.227724Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.454651022}: xlc_core::nem: close time.busy=2.45s time.idle=2.38µs
+2026-11-07T00:31:12.240056Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=472ms time.idle=2.48s
+2026-11-07T00:31:15.086737Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.309528274}: xlc_core::nem: close time.busy=2.31s time.idle=2.42µs
+2026-11-07T00:31:15.099095Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=469ms time.idle=2.33s
+2026-11-07T00:31:17.919641Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.282440517}: xlc_core::nem: close time.busy=2.28s time.idle=2.18µs
+2026-11-07T00:31:17.931862Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=470ms time.idle=2.30s
+2026-11-07T00:31:17.972576Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=33.2ms time.idle=2.60µs
+2026-11-07T00:31:18.014903Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=34.0ms time.idle=3.04µs
+2026-11-07T00:31:20.796327Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.244859546}: xlc_core::nem: close time.busy=2.24s time.idle=2.25µs
+2026-11-07T00:31:20.808898Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=469ms time.idle=2.27s
+2026-11-07T00:31:23.670940Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.327803777}: xlc_core::nem: close time.busy=2.33s time.idle=2.27µs
+2026-11-07T00:31:23.683688Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=467ms time.idle=2.35s
+2026-11-07T00:31:23.726179Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=35.0ms time.idle=3.20µs
+2026-11-07T00:31:23.766633Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=33.0ms time.idle=3.10µs
+2026-11-07T00:31:26.603048Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.2968029899999998}: xlc_core::nem: close time.busy=2.30s time.idle=2.52µs
+2026-11-07T00:31:26.615368Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=471ms time.idle=2.32s
+2026-11-07T00:31:26.652594Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=30.3ms time.idle=2.65µs
+2026-11-07T00:31:26.692978Z  INFO depletion step{efpd=9.0}:xenon anderson: xlc_core::depletion: close time.busy=33.2ms time.idle=1.72µs
+2026-11-07T00:31:29.512116Z  INFO depletion step{efpd=9.0}:nem{iterations=28 seconds=2.2827638009999998}: xlc_core::nem: close time.busy=2.28s time.idle=2.15µs
+2026-11-07T00:31:29.524324Z  INFO depletion step{efpd=9.0}:constants: xlc_core::case: close time.busy=467ms time.idle=2.30s
+2026-11-07T00:31:29.562069Z  INFO depletion step{efpd=9.0}:xenon balance: xlc_core::depletion: close time.busy=30.4ms time.idle=2.92µs
+2026-11-07T00:31:29.569608Z  INFO depletion step{efpd=9.0}: xlc_core::depletion: equilibrium xenon iterations=8 residual=1.4679616702143262e-7
+2026-11-07T00:31:29.575227Z  INFO depletion step{efpd=9.0}: xlc_core::depletion: depletion midpoint k=1.1349950907472106 boron=1200.0 solves=22
+2026-11-07T00:31:29.575242Z  INFO depletion step{efpd=9.0}: xlc_core::depletion: thermal-hydraulics iterations=1 change=9.354453668784284e-6 outlet=566.3682269141551 fuel_average=570.2372241740039 fuel_max=577.9163948887995 density_error=0.0005557639472729692
+2026-11-07T00:31:30.064263Z  INFO depletion step{efpd=9.0}:micro depletion: xlc_core::depletion: close time.busy=489ms time.idle=2.75µs
+2026-11-07T00:31:30.074532Z  INFO depletion step{efpd=9.0}: xlc_core::depletion: close time.busy=66.5s time.idle=1.93µs
+2026-11-07T00:31:32.868666Z  INFO search:nem{iterations=48 seconds=2.218969136}: xlc_core::nem: close time.busy=2.22s time.idle=2.30µs
+2026-11-07T00:31:32.881010Z  INFO search:constants: xlc_core::case: close time.busy=517ms time.idle=2.24s
+2026-11-07T00:31:36.332597Z  INFO search:nem{iterations=27 seconds=2.8672625800000002}: xlc_core::nem: close time.busy=2.87s time.idle=2.22µs
+2026-11-07T00:31:36.344222Z  INFO search:constants: xlc_core::case: close time.busy=518ms time.idle=2.89s
+2026-11-07T00:31:38.540188Z  INFO search:nem{iterations=28 seconds=1.607876381}: xlc_core::nem: close time.busy=1.61s time.idle=2.65µs
+2026-11-07T00:31:38.552144Z  INFO search:constants: xlc_core::case: close time.busy=520ms time.idle=1.63s
+2026-11-07T00:31:40.852146Z  INFO search:nem{iterations=28 seconds=1.7194601600000001}: xlc_core::nem: close time.busy=1.72s time.idle=1.78µs
+2026-11-07T00:31:40.863820Z  INFO search:constants: xlc_core::case: close time.busy=514ms time.idle=1.74s
+2026-11-07T00:31:43.180624Z  INFO search:nem{iterations=28 seconds=1.7286388289999999}: xlc_core::nem: close time.busy=1.73s time.idle=2.37µs
+2026-11-07T00:31:43.193607Z  INFO search:constants: xlc_core::case: close time.busy=519ms time.idle=1.75s
+2026-11-07T00:31:45.888991Z  INFO search:nem{iterations=32 seconds=2.257384856}: xlc_core::nem: close time.busy=2.26s time.idle=2.23µs
+2026-11-07T00:31:45.901198Z  INFO search:constants: xlc_core::case: close time.busy=377ms time.idle=2.28s
+2026-11-07T00:31:48.058927Z  INFO search:nem{iterations=28 seconds=1.7085961429999998}: xlc_core::nem: close time.busy=1.71s time.idle=2.40µs
+2026-11-07T00:31:48.071497Z  INFO search:constants: xlc_core::case: close time.busy=379ms time.idle=1.73s
+2026-11-07T00:31:50.244535Z  INFO search:nem{iterations=28 seconds=1.728305164}: xlc_core::nem: close time.busy=1.73s time.idle=2.14µs
+2026-11-07T00:31:50.256894Z  INFO search:constants: xlc_core::case: close time.busy=376ms time.idle=1.75s
+2026-11-07T00:31:52.664584Z  INFO search:nem{iterations=28 seconds=1.830183661}: xlc_core::nem: close time.busy=1.83s time.idle=2.15µs
+2026-11-07T00:31:52.676714Z  INFO search:constants: xlc_core::case: close time.busy=516ms time.idle=1.85s
+2026-11-07T00:31:55.056081Z  INFO search:nem{iterations=28 seconds=1.788726287}: xlc_core::nem: close time.busy=1.79s time.idle=2.31µs
+2026-11-07T00:31:55.068016Z  INFO search:constants: xlc_core::case: close time.busy=523ms time.idle=1.81s
+2026-11-07T00:31:57.411367Z  INFO search:nem{iterations=28 seconds=1.754881527}: xlc_core::nem: close time.busy=1.75s time.idle=2.77µs
+2026-11-07T00:31:57.423633Z  INFO search:constants: xlc_core::case: close time.busy=520ms time.idle=1.78s
+2026-11-07T00:31:59.677641Z  INFO search:nem{iterations=27 seconds=1.6635509769999999}: xlc_core::nem: close time.busy=1.66s time.idle=2.31µs
+2026-11-07T00:31:59.689773Z  INFO search:constants: xlc_core::case: close time.busy=520ms time.idle=1.69s
+2026-11-07T00:32:02.030114Z  INFO search:nem{iterations=28 seconds=1.757868566}: xlc_core::nem: close time.busy=1.76s time.idle=2.15µs
+2026-11-07T00:32:02.042398Z  INFO search:constants: xlc_core::case: close time.busy=514ms time.idle=1.78s
+2026-11-07T00:32:04.248995Z  INFO search:nem{iterations=27 seconds=1.6168271939999999}: xlc_core::nem: close time.busy=1.62s time.idle=2.17µs
+2026-11-07T00:32:04.261181Z  INFO search:constants: xlc_core::case: close time.busy=520ms time.idle=1.64s
+2026-11-07T00:32:06.556073Z  INFO search:nem{iterations=28 seconds=1.7089435609999999}: xlc_core::nem: close time.busy=1.71s time.idle=2.00µs
+2026-11-07T00:32:06.568626Z  INFO search:constants: xlc_core::case: close time.busy=517ms time.idle=1.73s
+2026-11-07T00:32:06.587564Z  INFO search: xlc_core::depletion: close time.busy=36.5s time.idle=2.60µs
+2026-11-07T00:32:06.622651Z  INFO xenon balance: xlc_core::depletion: close time.busy=34.6ms time.idle=1.85µs
+2026-11-07T00:32:06.639187Z  INFO xenon anderson: xlc_core::depletion: close time.busy=5.73ms time.idle=2.27µs
+2026-11-07T00:32:10.883412Z  INFO nem{iterations=36 seconds=3.658312633}: xlc_core::nem: close time.busy=3.66s time.idle=2.65µs
+2026-11-07T00:32:10.896296Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=3.68s
+2026-11-07T00:32:14.045930Z  INFO nem{iterations=28 seconds=2.563732675}: xlc_core::nem: close time.busy=2.56s time.idle=1.57µs
+2026-11-07T00:32:14.058580Z  INFO constants: xlc_core::case: close time.busy=517ms time.idle=2.59s
+2026-11-07T00:32:16.225980Z  INFO nem{iterations=28 seconds=1.5823453029999999}: xlc_core::nem: close time.busy=1.58s time.idle=2.43µs
+2026-11-07T00:32:16.238406Z  INFO constants: xlc_core::case: close time.busy=517ms time.idle=1.60s
+2026-11-07T00:32:18.358410Z  INFO nem{iterations=26 seconds=1.527735066}: xlc_core::nem: close time.busy=1.53s time.idle=2.24µs
+2026-11-07T00:32:18.371424Z  INFO constants: xlc_core::case: close time.busy=523ms time.idle=1.55s
+2026-11-07T00:32:20.505930Z  INFO nem{iterations=26 seconds=1.544868776}: xlc_core::nem: close time.busy=1.54s time.idle=1.99µs
+2026-11-07T00:32:20.518799Z  INFO constants: xlc_core::case: close time.busy=519ms time.idle=1.57s
+2026-11-07T00:32:20.567633Z  INFO xenon balance: xlc_core::depletion: close time.busy=40.1ms time.idle=3.32µs
+2026-11-07T00:32:20.590261Z  INFO xenon anderson: xlc_core::depletion: close time.busy=17.0ms time.idle=2.31µs
+2026-11-07T00:32:24.931885Z  INFO nem{iterations=30 seconds=3.7585710519999997}: xlc_core::nem: close time.busy=3.76s time.idle=1.92µs
+2026-11-07T00:32:24.944434Z  INFO constants: xlc_core::case: close time.busy=515ms time.idle=3.78s
+2026-11-07T00:32:27.841066Z  INFO nem{iterations=27 seconds=2.305235655}: xlc_core::nem: close time.busy=2.31s time.idle=2.02µs
+2026-11-07T00:32:27.853528Z  INFO constants: xlc_core::case: close time.busy=522ms time.idle=2.33s
+2026-11-07T00:32:30.040676Z  INFO nem{iterations=28 seconds=1.6023514890000001}: xlc_core::nem: close time.busy=1.60s time.idle=2.12µs
+2026-11-07T00:32:30.053042Z  INFO constants: xlc_core::case: close time.busy=515ms time.idle=1.62s
+2026-11-07T00:32:32.210674Z  INFO nem{iterations=26 seconds=1.570091339}: xlc_core::nem: close time.busy=1.57s time.idle=2.21µs
+2026-11-07T00:32:32.223722Z  INFO constants: xlc_core::case: close time.busy=518ms time.idle=1.59s
+2026-11-07T00:32:32.264092Z  INFO xenon balance: xlc_core::depletion: close time.busy=31.7ms time.idle=2.70µs
+2026-11-07T00:32:32.296318Z  INFO xenon anderson: xlc_core::depletion: close time.busy=25.8ms time.idle=1.26µs
+2026-11-07T00:32:35.880798Z  INFO nem{iterations=28 seconds=2.994823869}: xlc_core::nem: close time.busy=2.99s time.idle=1.93µs
+2026-11-07T00:32:35.893560Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=3.02s
+2026-11-07T00:32:37.803380Z  INFO nem{iterations=27 seconds=1.319448642}: xlc_core::nem: close time.busy=1.32s time.idle=2.48µs
+2026-11-07T00:32:37.816191Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=1.34s
+2026-11-07T00:32:39.938121Z  INFO nem{iterations=26 seconds=1.531351002}: xlc_core::nem: close time.busy=1.53s time.idle=2.16µs
+2026-11-07T00:32:39.950823Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=1.55s
+2026-11-07T00:32:42.063850Z  INFO nem{iterations=26 seconds=1.523595141}: xlc_core::nem: close time.busy=1.52s time.idle=2.11µs
+2026-11-07T00:32:42.076793Z  INFO constants: xlc_core::case: close time.busy=520ms time.idle=1.55s
+2026-11-07T00:32:42.119267Z  INFO xenon balance: xlc_core::depletion: close time.busy=34.3ms time.idle=3.25µs
+2026-11-07T00:32:42.160866Z  INFO xenon anderson: xlc_core::depletion: close time.busy=35.7ms time.idle=1.56µs
+2026-11-07T00:32:44.626048Z  INFO nem{iterations=27 seconds=1.874135795}: xlc_core::nem: close time.busy=1.87s time.idle=2.38µs
+2026-11-07T00:32:44.638528Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=1.90s
+2026-11-07T00:32:46.756472Z  INFO nem{iterations=26 seconds=1.527530634}: xlc_core::nem: close time.busy=1.53s time.idle=2.04µs
+2026-11-07T00:32:46.769047Z  INFO constants: xlc_core::case: close time.busy=520ms time.idle=1.55s
+2026-11-07T00:32:48.940298Z  INFO nem{iterations=26 seconds=1.5815095609999998}: xlc_core::nem: close time.busy=1.58s time.idle=2.26µs
+2026-11-07T00:32:48.952915Z  INFO constants: xlc_core::case: close time.busy=520ms time.idle=1.60s
+2026-11-07T00:32:48.992679Z  INFO xenon balance: xlc_core::depletion: close time.busy=31.6ms time.idle=2.88µs
+2026-11-07T00:32:49.035507Z  INFO xenon anderson: xlc_core::depletion: close time.busy=37.2ms time.idle=2.81µs
+2026-11-07T00:32:51.254119Z  INFO nem{iterations=27 seconds=1.6341715780000001}: xlc_core::nem: close time.busy=1.63s time.idle=2.19µs
+2026-11-07T00:32:51.266577Z  INFO constants: xlc_core::case: close time.busy=516ms time.idle=1.66s
+2026-11-07T00:32:53.408225Z  INFO nem{iterations=26 seconds=1.551591306}: xlc_core::nem: close time.busy=1.55s time.idle=2.20µs
+2026-11-07T00:32:53.421258Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=1.57s
+2026-11-07T00:32:53.466379Z  INFO xenon balance: xlc_core::depletion: close time.busy=37.0ms time.idle=3.00µs
+2026-11-07T00:32:53.506229Z  INFO xenon anderson: xlc_core::depletion: close time.busy=35.3ms time.idle=1.45µs
+2026-11-07T00:32:55.633561Z  INFO nem{iterations=26 seconds=1.53778389}: xlc_core::nem: close time.busy=1.54s time.idle=2.21µs
+2026-11-07T00:32:55.646039Z  INFO constants: xlc_core::case: close time.busy=519ms time.idle=1.56s
+2026-11-07T00:32:57.765002Z  INFO nem{iterations=26 seconds=1.528785929}: xlc_core::nem: close time.busy=1.53s time.idle=2.44µs
+2026-11-07T00:32:57.777615Z  INFO constants: xlc_core::case: close time.busy=521ms time.idle=1.55s
+2026-11-07T00:32:57.822221Z  INFO xenon balance: xlc_core::depletion: close time.busy=36.2ms time.idle=2.85µs
+2026-11-07T00:32:57.862865Z  INFO xenon anderson: xlc_core::depletion: close time.busy=36.2ms time.idle=1.63µs
+2026-11-07T00:32:59.993836Z  INFO nem{iterations=26 seconds=1.54315285}: xlc_core::nem: close time.busy=1.54s time.idle=2.30µs
+2026-11-07T00:33:00.006313Z  INFO constants: xlc_core::case: close time.busy=516ms time.idle=1.57s
+2026-11-07T00:33:00.049519Z  INFO xenon balance: xlc_core::depletion: close time.busy=35.8ms time.idle=10.1µs
+2026-11-07T00:33:00.057144Z  INFO xlc_core::depletion: equilibrium xenon iterations=8 residual=6.807516933340693e-7
+2026-11-07T00:33:00.074328Z  INFO xlc_core::depletion: depletion point efpd=9.0 days=13.698630136986301 state="case-3" k=1.123599982144272 boron=1251.2340169037761 solves=36
+2026-11-07T00:33:00.074338Z  INFO xlc_core::depletion: thermal-hydraulics iterations=1 change=2.6242167056129246e-6 outlet=567.1399952548724 fuel_average=572.9719459538051 fuel_max=584.9261490062025 density_error=0.0008551345873948346
+2026-11-07T00:33:00.569195Z  INFO depletion step{efpd=32.0}:micro depletion: xlc_core::depletion: close time.busy=495ms time.idle=1.75µs
+2026-11-07T00:33:03.395483Z  INFO depletion step{efpd=32.0}:search:nem{iterations=46 seconds=2.210110926}: xlc_core::nem: close time.busy=2.21s time.idle=2.13µs
+2026-11-07T00:33:03.407467Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=558ms time.idle=2.23s
+2026-11-07T00:33:06.421512Z  INFO depletion step{efpd=32.0}:search:nem{iterations=31 seconds=2.388195365}: xlc_core::nem: close time.busy=2.39s time.idle=2.55µs
+2026-11-07T00:33:06.433816Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=561ms time.idle=2.41s
+2026-11-07T00:33:08.800838Z  INFO depletion step{efpd=32.0}:search:nem{iterations=28 seconds=1.744302402}: xlc_core::nem: close time.busy=1.74s time.idle=2.29µs
+2026-11-07T00:33:08.812863Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=554ms time.idle=1.77s
+2026-11-07T00:33:11.119227Z  INFO depletion step{efpd=32.0}:search:nem{iterations=28 seconds=1.682603622}: xlc_core::nem: close time.busy=1.68s time.idle=2.22µs
+2026-11-07T00:33:11.131786Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=556ms time.idle=1.71s
+2026-11-07T00:33:13.875129Z  INFO depletion step{efpd=32.0}:search:nem{iterations=33 seconds=2.280615147}: xlc_core::nem: close time.busy=2.28s time.idle=2.16µs
+2026-11-07T00:33:13.887025Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=402ms time.idle=2.30s
+2026-11-07T00:33:16.069282Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.715112708}: xlc_core::nem: close time.busy=1.72s time.idle=2.06µs
+2026-11-07T00:33:16.081099Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=400ms time.idle=1.74s
+2026-11-07T00:33:18.186137Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.636840754}: xlc_core::nem: close time.busy=1.64s time.idle=2.33µs
+2026-11-07T00:33:18.198531Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=400ms time.idle=1.66s
+2026-11-07T00:33:20.307125Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.642200157}: xlc_core::nem: close time.busy=1.64s time.idle=2.31µs
+2026-11-07T00:33:20.319065Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=400ms time.idle=1.66s
+2026-11-07T00:33:23.375768Z  INFO depletion step{efpd=32.0}:search:nem{iterations=31 seconds=2.431865593}: xlc_core::nem: close time.busy=2.43s time.idle=2.20µs
+2026-11-07T00:33:23.388954Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=564ms time.idle=2.45s
+2026-11-07T00:33:25.623620Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.604351426}: xlc_core::nem: close time.busy=1.60s time.idle=2.53µs
+2026-11-07T00:33:25.635620Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=562ms time.idle=1.63s
+2026-11-07T00:33:27.939391Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.6787992539999999}: xlc_core::nem: close time.busy=1.68s time.idle=2.17µs
+2026-11-07T00:33:27.952022Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=556ms time.idle=1.70s
+2026-11-07T00:33:30.149855Z  INFO depletion step{efpd=32.0}:search:nem{iterations=28 seconds=1.56122299}: xlc_core::nem: close time.busy=1.56s time.idle=2.27µs
+2026-11-07T00:33:30.161909Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=567ms time.idle=1.58s
+2026-11-07T00:33:32.428593Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.638551601}: xlc_core::nem: close time.busy=1.64s time.idle=2.46µs
+2026-11-07T00:33:32.440789Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=560ms time.idle=1.66s
+2026-11-07T00:33:34.692398Z  INFO depletion step{efpd=32.0}:search:nem{iterations=29 seconds=1.623743976}: xlc_core::nem: close time.busy=1.62s time.idle=2.42µs
+2026-11-07T00:33:34.704581Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=558ms time.idle=1.65s
+2026-11-07T00:33:36.944686Z  INFO depletion step{efpd=32.0}:search:nem{iterations=27 seconds=1.615450501}: xlc_core::nem: close time.busy=1.62s time.idle=2.07µs
+2026-11-07T00:33:36.956891Z  INFO depletion step{efpd=32.0}:search:constants: xlc_core::case: close time.busy=557ms time.idle=1.64s
+2026-11-07T00:33:36.975250Z  INFO depletion step{efpd=32.0}:search: xlc_core::depletion: close time.busy=36.4s time.idle=2.90µs
+2026-11-07T00:33:37.008054Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=32.3ms time.idle=1.43µs
+2026-11-07T00:33:37.024287Z  INFO depletion step{efpd=32.0}:xenon anderson: xlc_core::depletion: close time.busy=5.73ms time.idle=2.00µs
+2026-11-07T00:33:40.698022Z  INFO depletion step{efpd=32.0}:nem{iterations=35 seconds=3.044970957}: xlc_core::nem: close time.busy=3.04s time.idle=2.75µs
+2026-11-07T00:33:40.710537Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=564ms time.idle=3.07s
+2026-11-07T00:33:43.534359Z  INFO depletion step{efpd=32.0}:nem{iterations=28 seconds=2.195422725}: xlc_core::nem: close time.busy=2.20s time.idle=2.17µs
+2026-11-07T00:33:43.546722Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=559ms time.idle=2.22s
+2026-11-07T00:33:45.756255Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.583953317}: xlc_core::nem: close time.busy=1.58s time.idle=2.17µs
+2026-11-07T00:33:45.768598Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=556ms time.idle=1.61s
+2026-11-07T00:33:48.030277Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.6273893259999999}: xlc_core::nem: close time.busy=1.63s time.idle=2.14µs
+2026-11-07T00:33:48.042474Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=565ms time.idle=1.65s
+2026-11-07T00:33:48.080892Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=31.4ms time.idle=2.19µs
+2026-11-07T00:33:48.103091Z  INFO depletion step{efpd=32.0}:xenon anderson: xlc_core::depletion: close time.busy=16.7ms time.idle=1.67µs
+2026-11-07T00:33:51.306731Z  INFO depletion step{efpd=32.0}:nem{iterations=29 seconds=2.573588067}: xlc_core::nem: close time.busy=2.57s time.idle=2.17µs
+2026-11-07T00:33:51.319021Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=563ms time.idle=2.60s
+2026-11-07T00:33:53.380800Z  INFO depletion step{efpd=32.0}:nem{iterations=28 seconds=1.435257764}: xlc_core::nem: close time.busy=1.44s time.idle=2.01µs
+2026-11-07T00:33:53.393180Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=557ms time.idle=1.46s
+2026-11-07T00:33:55.633735Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.613891389}: xlc_core::nem: close time.busy=1.61s time.idle=2.29µs
+2026-11-07T00:33:55.645915Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=558ms time.idle=1.64s
+2026-11-07T00:33:57.885693Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.6124049820000002}: xlc_core::nem: close time.busy=1.61s time.idle=2.19µs
+2026-11-07T00:33:57.898548Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=558ms time.idle=1.64s
+2026-11-07T00:33:57.942020Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=36.5ms time.idle=3.22µs
+2026-11-07T00:33:57.973067Z  INFO depletion step{efpd=32.0}:xenon anderson: xlc_core::depletion: close time.busy=23.7ms time.idle=1.76µs
+2026-11-07T00:34:00.794767Z  INFO depletion step{efpd=32.0}:nem{iterations=29 seconds=2.189510589}: xlc_core::nem: close time.busy=2.19s time.idle=2.19µs
+2026-11-07T00:34:00.807163Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=564ms time.idle=2.21s
+2026-11-07T00:34:03.032796Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.592702202}: xlc_core::nem: close time.busy=1.59s time.idle=2.44µs
+2026-11-07T00:34:03.045785Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=564ms time.idle=1.62s
+2026-11-07T00:34:05.277699Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.595479651}: xlc_core::nem: close time.busy=1.60s time.idle=2.20µs
+2026-11-07T00:34:05.290899Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=568ms time.idle=1.62s
+2026-11-07T00:34:05.340539Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=42.7ms time.idle=2.73µs
+2026-11-07T00:34:05.383915Z  INFO depletion step{efpd=32.0}:xenon anderson: xlc_core::depletion: close time.busy=34.5ms time.idle=1.74µs
+2026-11-07T00:34:07.634270Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.6195055379999999}: xlc_core::nem: close time.busy=1.62s time.idle=1.66µs
+2026-11-07T00:34:07.646648Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=561ms time.idle=1.64s
+2026-11-07T00:34:09.887007Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.614257633}: xlc_core::nem: close time.busy=1.61s time.idle=2.60µs
+2026-11-07T00:34:09.899294Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=557ms time.idle=1.64s
+2026-11-07T00:34:09.937831Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=31.7ms time.idle=2.29µs
+2026-11-07T00:34:09.976168Z  INFO depletion step{efpd=32.0}:xenon anderson: xlc_core::depletion: close time.busy=32.8ms time.idle=1.71µs
+2026-11-07T00:34:12.226794Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.6189190519999999}: xlc_core::nem: close time.busy=1.62s time.idle=2.25µs
+2026-11-07T00:34:12.239158Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=563ms time.idle=1.64s
+2026-11-07T00:34:14.484737Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.613712886}: xlc_core::nem: close time.busy=1.61s time.idle=1.96µs
+2026-11-07T00:34:14.497083Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=563ms time.idle=1.64s
+2026-11-07T00:34:14.537890Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=33.8ms time.idle=2.78µs
+2026-11-07T00:34:14.576242Z  INFO depletion step{efpd=32.0}:xenon anderson: xlc_core::depletion: close time.busy=33.0ms time.idle=1.73µs
+2026-11-07T00:34:16.813718Z  INFO depletion step{efpd=32.0}:nem{iterations=27 seconds=1.6062405549999998}: xlc_core::nem: close time.busy=1.61s time.idle=2.00µs
+2026-11-07T00:34:16.825949Z  INFO depletion step{efpd=32.0}:constants: xlc_core::case: close time.busy=562ms time.idle=1.63s
+2026-11-07T00:34:16.864755Z  INFO depletion step{efpd=32.0}:xenon balance: xlc_core::depletion: close time.busy=31.6ms time.idle=2.57µs
+2026-11-07T00:34:16.869884Z  INFO depletion step{efpd=32.0}: xlc_core::depletion: equilibrium xenon iterations=7 residual=1.8532633829169325e-7
+2026-11-07T00:34:16.877608Z  INFO depletion step{efpd=32.0}: xlc_core::depletion: depletion midpoint k=1.1236000033409614 boron=1191.1738116211895 solves=31
+2026-11-07T00:34:16.877622Z  INFO depletion step{efpd=32.0}: xlc_core::depletion: thermal-hydraulics iterations=1 change=7.256560229093043e-7 outlet=567.0312971933917 fuel_average=573.036168699924 fuel_max=583.3954722126351 density_error=0.0008135807089382219
+2026-11-07T00:34:17.367893Z  INFO depletion step{efpd=32.0}:micro depletion: xlc_core::depletion: close time.busy=490ms time.idle=2.50µs
+2026-11-07T00:34:17.375591Z  INFO depletion step{efpd=32.0}: xlc_core::depletion: close time.busy=77.3s time.idle=2.11µs
+2026-11-07T00:34:20.483109Z  INFO search:nem{iterations=42 seconds=2.462692626}: xlc_core::nem: close time.busy=2.46s time.idle=2.52µs
+2026-11-07T00:34:20.495835Z  INFO search:constants: xlc_core::case: close time.busy=584ms time.idle=2.49s
+2026-11-07T00:34:22.885011Z  INFO search:nem{iterations=31 seconds=1.737741894}: xlc_core::nem: close time.busy=1.74s time.idle=2.50µs
+2026-11-07T00:34:22.897283Z  INFO search:constants: xlc_core::case: close time.busy=584ms time.idle=1.76s
+2026-11-07T00:34:25.280787Z  INFO search:nem{iterations=28 seconds=1.730880545}: xlc_core::nem: close time.busy=1.73s time.idle=2.18µs
+2026-11-07T00:34:25.293060Z  INFO search:constants: xlc_core::case: close time.busy=584ms time.idle=1.75s
+2026-11-07T00:34:27.649157Z  INFO search:nem{iterations=28 seconds=1.714039072}: xlc_core::nem: close time.busy=1.71s time.idle=2.05µs
+2026-11-07T00:34:27.660956Z  INFO search:constants: xlc_core::case: close time.busy=575ms time.idle=1.74s
+2026-11-07T00:34:30.508725Z  INFO search:nem{iterations=34 seconds=2.377351065}: xlc_core::nem: close time.busy=2.38s time.idle=2.65µs
+2026-11-07T00:34:30.520789Z  INFO search:constants: xlc_core::case: close time.busy=410ms time.idle=2.40s
+2026-11-07T00:34:32.798018Z  INFO search:nem{iterations=28 seconds=1.7995242710000001}: xlc_core::nem: close time.busy=1.80s time.idle=2.78µs
+2026-11-07T00:34:32.809875Z  INFO search:constants: xlc_core::case: close time.busy=410ms time.idle=1.82s
+2026-11-07T00:34:34.982755Z  INFO search:nem{iterations=27 seconds=1.694176132}: xlc_core::nem: close time.busy=1.69s time.idle=1.87µs
+2026-11-07T00:34:34.994737Z  INFO search:constants: xlc_core::case: close time.busy=411ms time.idle=1.72s
+2026-11-07T00:34:37.149902Z  INFO search:nem{iterations=27 seconds=1.676239061}: xlc_core::nem: close time.busy=1.68s time.idle=2.21µs
+2026-11-07T00:34:37.161898Z  INFO search:constants: xlc_core::case: close time.busy=411ms time.idle=1.70s
+2026-11-07T00:34:40.565733Z  INFO search:nem{iterations=33 seconds=2.759793569}: xlc_core::nem: close time.busy=2.76s time.idle=1.93µs
+2026-11-07T00:34:40.577899Z  INFO search:constants: xlc_core::case: close time.busy=583ms time.idle=2.78s
+2026-11-07T00:34:42.880771Z  INFO search:nem{iterations=27 seconds=1.656714153}: xlc_core::nem: close time.busy=1.66s time.idle=2.17µs
+2026-11-07T00:34:42.892850Z  INFO search:constants: xlc_core::case: close time.busy=579ms time.idle=1.68s
+2026-11-07T00:34:45.301832Z  INFO search:nem{iterations=28 seconds=1.7608090299999999}: xlc_core::nem: close time.busy=1.76s time.idle=2.52µs
+2026-11-07T00:34:45.314083Z  INFO search:constants: xlc_core::case: close time.busy=580ms time.idle=1.78s
+2026-11-07T00:34:47.677020Z  INFO search:nem{iterations=28 seconds=1.716255772}: xlc_core::nem: close time.busy=1.72s time.idle=1.69µs
+2026-11-07T00:34:47.689655Z  INFO search:constants: xlc_core::case: close time.busy=578ms time.idle=1.74s
+2026-11-07T00:34:49.991413Z  INFO search:nem{iterations=28 seconds=1.648265829}: xlc_core::nem: close time.busy=1.65s time.idle=2.33µs
+2026-11-07T00:34:50.003627Z  INFO search:constants: xlc_core::case: close time.busy=583ms time.idle=1.67s
+2026-11-07T00:34:52.382738Z  INFO search:nem{iterations=28 seconds=1.7348866410000001}: xlc_core::nem: close time.busy=1.73s time.idle=2.43µs
+2026-11-07T00:34:52.395408Z  INFO search:constants: xlc_core::case: close time.busy=575ms time.idle=1.76s
+2026-11-07T00:34:54.727810Z  INFO search:nem{iterations=28 seconds=1.684756434}: xlc_core::nem: close time.busy=1.68s time.idle=2.14µs
+2026-11-07T00:34:54.739987Z  INFO search:constants: xlc_core::case: close time.busy=576ms time.idle=1.71s
+2026-11-07T00:34:57.139413Z  INFO search:nem{iterations=28 seconds=1.750345161}: xlc_core::nem: close time.busy=1.75s time.idle=2.15µs
+2026-11-07T00:34:57.151609Z  INFO search:constants: xlc_core::case: close time.busy=580ms time.idle=1.77s
+2026-11-07T00:34:57.171043Z  INFO search: xlc_core::depletion: close time.busy=39.8s time.idle=1.27µs
+2026-11-07T00:34:57.203014Z  INFO xenon balance: xlc_core::depletion: close time.busy=31.6ms time.idle=1.72µs
+2026-11-07T00:34:57.221920Z  INFO xenon anderson: xlc_core::depletion: close time.busy=5.66ms time.idle=1.99µs
+2026-11-07T00:35:00.556465Z  INFO nem{iterations=35 seconds=2.690604235}: xlc_core::nem: close time.busy=2.69s time.idle=2.11µs
+2026-11-07T00:35:00.569366Z  INFO constants: xlc_core::case: close time.busy=579ms time.idle=2.71s
+2026-11-07T00:35:02.759955Z  INFO nem{iterations=28 seconds=1.5405342979999999}: xlc_core::nem: close time.busy=1.54s time.idle=2.63µs
+2026-11-07T00:35:02.772842Z  INFO constants: xlc_core::case: close time.busy=581ms time.idle=1.56s
+2026-11-07T00:35:05.160006Z  INFO nem{iterations=28 seconds=1.733375577}: xlc_core::nem: close time.busy=1.73s time.idle=1.94µs
+2026-11-07T00:35:05.173170Z  INFO constants: xlc_core::case: close time.busy=584ms time.idle=1.76s
+2026-11-07T00:35:07.552579Z  INFO nem{iterations=28 seconds=1.7297191459999999}: xlc_core::nem: close time.busy=1.73s time.idle=2.41µs
+2026-11-07T00:35:07.565002Z  INFO constants: xlc_core::case: close time.busy=582ms time.idle=1.75s
+2026-11-07T00:35:07.604532Z  INFO xenon balance: xlc_core::depletion: close time.busy=31.8ms time.idle=2.33µs
+2026-11-07T00:35:07.625655Z  INFO xenon anderson: xlc_core::depletion: close time.busy=14.6ms time.idle=1.52µs
+2026-11-07T00:35:10.653862Z  INFO nem{iterations=29 seconds=2.377601392}: xlc_core::nem: close time.busy=2.38s time.idle=1.89µs
+2026-11-07T00:35:10.666194Z  INFO constants: xlc_core::case: close time.busy=584ms time.idle=2.40s
+2026-11-07T00:35:13.048157Z  INFO nem{iterations=27 seconds=1.73180885}: xlc_core::nem: close time.busy=1.73s time.idle=2.17µs
+2026-11-07T00:35:13.060568Z  INFO constants: xlc_core::case: close time.busy=581ms time.idle=1.75s
+2026-11-07T00:35:15.436515Z  INFO nem{iterations=28 seconds=1.725399556}: xlc_core::nem: close time.busy=1.73s time.idle=1.86µs
+2026-11-07T00:35:15.448984Z  INFO constants: xlc_core::case: close time.busy=581ms time.idle=1.75s
+2026-11-07T00:35:17.859354Z  INFO nem{iterations=28 seconds=1.764908479}: xlc_core::nem: close time.busy=1.76s time.idle=1.98µs
+2026-11-07T00:35:17.871847Z  INFO constants: xlc_core::case: close time.busy=576ms time.idle=1.79s
+2026-11-07T00:35:17.913484Z  INFO xenon balance: xlc_core::depletion: close time.busy=33.4ms time.idle=1.87µs
+2026-11-07T00:35:17.947449Z  INFO xenon anderson: xlc_core::depletion: close time.busy=24.3ms time.idle=1.74µs
+2026-11-07T00:35:20.195420Z  INFO nem{iterations=28 seconds=1.60482527}: xlc_core::nem: close time.busy=1.60s time.idle=2.16µs
+2026-11-07T00:35:20.208062Z  INFO constants: xlc_core::case: close time.busy=575ms time.idle=1.63s
+2026-11-07T00:35:22.575755Z  INFO nem{iterations=28 seconds=1.724036099}: xlc_core::nem: close time.busy=1.72s time.idle=1.93µs
+2026-11-07T00:35:22.588144Z  INFO constants: xlc_core::case: close time.busy=574ms time.idle=1.75s
+2026-11-07T00:35:24.983215Z  INFO nem{iterations=28 seconds=1.750433315}: xlc_core::nem: close time.busy=1.75s time.idle=2.27µs
+2026-11-07T00:35:24.996047Z  INFO constants: xlc_core::case: close time.busy=575ms time.idle=1.77s
+2026-11-07T00:35:25.038199Z  INFO xenon balance: xlc_core::depletion: close time.busy=34.0ms time.idle=2.58µs
+2026-11-07T00:35:25.081610Z  INFO xenon anderson: xlc_core::depletion: close time.busy=34.4ms time.idle=2.38µs
+2026-11-07T00:35:27.482469Z  INFO nem{iterations=28 seconds=1.7500625520000002}: xlc_core::nem: close time.busy=1.75s time.idle=2.28µs
+2026-11-07T00:35:27.494781Z  INFO constants: xlc_core::case: close time.busy=583ms time.idle=1.77s
+2026-11-07T00:35:29.838929Z  INFO nem{iterations=28 seconds=1.7020866909999999}: xlc_core::nem: close time.busy=1.70s time.idle=1.73µs
+2026-11-07T00:35:29.851765Z  INFO constants: xlc_core::case: close time.busy=573ms time.idle=1.73s
+2026-11-07T00:35:29.896727Z  INFO xenon balance: xlc_core::depletion: close time.busy=37.5ms time.idle=2.92µs
+2026-11-07T00:35:29.936301Z  INFO xenon anderson: xlc_core::depletion: close time.busy=34.0ms time.idle=1.83µs
+2026-11-07T00:35:32.322399Z  INFO nem{iterations=28 seconds=1.741387736}: xlc_core::nem: close time.busy=1.74s time.idle=2.50µs
+2026-11-07T00:35:32.334775Z  INFO constants: xlc_core::case: close time.busy=576ms time.idle=1.76s
+2026-11-07T00:35:32.375444Z  INFO xenon balance: xlc_core::depletion: close time.busy=33.2ms time.idle=2.73µs
+2026-11-07T00:35:32.413701Z  INFO xenon anderson: xlc_core::depletion: close time.busy=33.0ms time.idle=1.75µs
+2026-11-07T00:35:34.783132Z  INFO nem{iterations=28 seconds=1.719919237}: xlc_core::nem: close time.busy=1.72s time.idle=2.67µs
+2026-11-07T00:35:34.795571Z  INFO constants: xlc_core::case: close time.busy=581ms time.idle=1.74s
+2026-11-07T00:35:34.844534Z  INFO xenon balance: xlc_core::depletion: close time.busy=41.0ms time.idle=3.32µs
+2026-11-07T00:35:34.850247Z  INFO xlc_core::depletion: equilibrium xenon iterations=7 residual=1.8444370839780022e-7
+2026-11-07T00:35:34.866273Z  INFO xlc_core::depletion: depletion point efpd=32.0 days=36.767837759854906 state="case-3" k=1.1235999997196395 boron=1142.9548810695826 solves=31
+2026-11-07T00:35:34.866284Z  INFO xlc_core::depletion: thermal-hydraulics iterations=1 change=6.281321203806659e-6 outlet=566.9480196090498 fuel_average=573.0903492917744 fuel_max=582.3851080029519 density_error=0.0007815988062512824
+2026-11-07T00:35:34.908831Z  INFO core: core seconds=320.918838699

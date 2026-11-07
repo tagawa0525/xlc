@@ -4930,6 +4930,124 @@ class DrawCoreGuess(unittest.TestCase):
                 draw([{"format": "xlc-core-timing"}])
 
 
+def core_thermal_summary():
+    """compare_core_thermal.py の要約: 燃焼 1 つ、点 2 つ（ホウ素を与えた点と探索した点）"""
+    point = {
+        "efpd": 0.0,
+        "days": 0.0,
+        "state": "case-2",
+        "k": -1.5e-3,
+        "boron": 0.0,
+        "burnup": 0.0,
+        "power": 1e-3,
+        "isothermal_boron": 1200.0,
+        "solves": [1, 3],
+        "moderator_max": 566.25,
+        "fuel_max": 590.5,
+        "moderator_rise": 0.75,
+        "fuel_rise": 12.25,
+        "effect": -15.25,
+        "estimate": {"fuel": -10.5, "moderator": -3.25, "total": -13.75},
+    }
+    later = point | {
+        "efpd": 9.0,
+        "state": "case-3",
+        "k": 0.0,
+        "boron": -14.75,
+        "isothermal_boron": 1254.5,
+        "solves": [12, 30],
+        "effect": -14.75,
+    }
+    return {
+        "format": "xlc-compare-core-thermal",
+        "inputs": [],
+        "cases": {
+            "p9": {
+                "points": [point, later],
+                "midpoints": [{"k": 1e-9, "boron": -14.0}],
+                "runs": {
+                    "isothermal": {
+                        "solves": 13,
+                        "iterations": 500,
+                        "eigenvalue_seconds": 30.0,
+                        "seconds": 40.0,
+                    },
+                    "thermal": {
+                        "solves": 33,
+                        "iterations": 900,
+                        "eigenvalue_seconds": 60.0,
+                        "seconds": 75.0,
+                    },
+                },
+                "thermal": {
+                    "solves": 3,
+                    "iterations": [2, 4],
+                    "outlet": 566.5,
+                    "fuel": 591.25,
+                },
+            }
+        },
+    }
+
+
+class DrawCoreThermal(unittest.TestCase):
+    def test_points_give_the_effect_and_its_estimate_from_the_node_temperatures(self):
+        rows = cells(vt.core_thermal_points([core_thermal_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                [
+                    "p9",
+                    "0.0",
+                    "case-2",
+                    "1200.00",
+                    "1200.00",
+                    "−15.25",
+                    "−10.50",
+                    "−3.25",
+                    "−13.75",
+                    "0.75",
+                    "12.25",
+                    "566.25",
+                    "590.50",
+                    "1 → 3",
+                ],
+                [
+                    "p9",
+                    "9.0",
+                    "case-3",
+                    "1254.50",
+                    "1239.75",
+                    "−14.75",
+                    "−10.50",
+                    "−3.25",
+                    "−13.75",
+                    "0.75",
+                    "12.25",
+                    "566.25",
+                    "590.50",
+                    "12 → 30",
+                ],
+            ],
+        )
+
+    def test_runs_compare_the_solves_and_times_and_count_the_iterations(self):
+        rows = cells(vt.core_thermal_runs([core_thermal_summary()]))
+        self.assertEqual(
+            rows,
+            [
+                ["p9", "なし", "13", "500", "30.0", "40.0", "−", "−", "−"],
+                ["p9", "あり", "33", "900", "60.0", "75.0", "2〜4", "566.50", "591.25"],
+                ["p9", "あり / なし", "2.538", "1.800", "2.000", "1.875", "", "", ""],
+            ],
+        )
+
+    def test_other_summaries_are_errors(self):
+        for draw in (vt.core_thermal_points, vt.core_thermal_runs):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-core-threads"}])
+
+
 def core_threads_summary():
     """compare_core_threads.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ、直方体の並びの順と色の順の 2 つのスレッドの数"""
     s = core_guess_summary()

@@ -1,0 +1,5 @@
+outs:
+- md5: ed651481ac0aca34f02e9687a4ad93a0
+  size: 1593
+  hash: md5
+  path: table-reflector-I-thermal.msgpack
