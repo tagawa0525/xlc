@@ -42,6 +42,10 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
   ほかの検査の文でも通る。`off_nominal_states_are_solved_at_their_burnups_only` の近くの説明は、間引いたときだけ公称の状態が要ると読める
 - crates/lattice/src/history.rs の解く燃焼点のコメント: 「間引いたかによらず」は前の挙動と比べた書き方で、どこで何を求めるかもあいまい
 
+- crates/lattice/src/main.rs のチェックポイントの適合（`fits`）: 保存した状態の動特性のデータの有無が違うときのエラーの文に、その有無が出ない
+- crates/lattice/src/history.rs の `cooling`: 放射化の核種の燃焼の領域の温度のデータは、数密度が 0 で重みが 0 の領域では引かないので、温度の
+  検査が数密度に依存する
+
 関係する ADR: なし
 
 ## 完了の条件
