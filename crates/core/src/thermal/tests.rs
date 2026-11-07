@@ -248,6 +248,47 @@ fn rods_take_the_fuel_share_of_the_node_power() {
     assert!(solved.fuel_max >= node.fuel);
 }
 
+/// 燃料棒の熱伝導度は、ノードごとの燃焼度で引く（燃焼のケース。ADR-0229 の燃料棒の 4.）
+#[test]
+fn rods_take_the_burnup_of_their_node() {
+    let (layout, channels) = split_channels();
+    let th = layout.thermal().unwrap();
+    let site = (0..layout.node_material.len())
+        .find(|&s| channels.channel_of(s).is_some() && channels.fissile(s))
+        .unwrap();
+    let mut powers = vec![0.0; layout.node_material.len()];
+    powers[site] = 8.0e3;
+    let mut burnups = vec![0.0; layout.node_material.len()];
+    burnups[site] = 30.0;
+    let solved = channels.solve(th, 565.0, &powers, Some(&burnups)).unwrap();
+    let fresh = channels.solve(th, 565.0, &powers, None).unwrap();
+    let node = solved.nodes[site].unwrap();
+    let q = 8.0e3 * 0.974 / (120.0 / 4.0 * 0.1);
+    let rod = |burnup: f64| {
+        th.rod
+            .temperatures(
+                q,
+                node.moderator,
+                15.5,
+                1.0 / (th.flow_area * 1e-4),
+                4.0 * th.flow_area / th.wetted_perimeter * 1e-2,
+                burnup,
+                th.effective,
+            )
+            .unwrap()
+            .effective
+    };
+    assert_eq!(node.fuel, rod(30.0));
+    // 燃焼した UO2 は熱伝導度が下がり、燃料が熱い
+    assert!(node.fuel > fresh.nodes[site].unwrap().fuel + 1.0);
+    // 燃焼度の数が位置の数と違えばエラー
+    assert!(
+        channels
+            .solve(th, 565.0, &powers, Some(&burnups[1..]))
+            .is_err()
+    );
+}
+
 #[test]
 fn negative_or_misplaced_powers_are_errors() {
     let (layout, channels) = channels();

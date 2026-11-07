@@ -1488,12 +1488,6 @@ impl Case {
             );
         }
         let depletion = match file.depletion {
-            // 燃焼のステップの熱水力は ADR-0229 で決めたが、まだ実装していない（#0228）
-            Some(_) if thermal.is_some() => {
-                return invalid(
-                    "depletion with [thermal-hydraulics] is not implemented yet (ADR-0229, #0228)",
-                );
-            }
             Some(entry) => {
                 if states.is_empty() {
                     return invalid("depletion needs a named state ([state.<name>])");

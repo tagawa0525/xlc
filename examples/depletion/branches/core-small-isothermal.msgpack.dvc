@@ -1,0 +1,5 @@
+outs:
+- md5: 0bbb8152858701d09081d2edc0546c98
+  size: 271001
+  hash: md5
+  path: core-small-isothermal.msgpack

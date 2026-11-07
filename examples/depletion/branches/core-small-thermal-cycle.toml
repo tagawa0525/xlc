@@ -1,0 +1,8 @@
+# 熱水力のある core の燃焼（#0228）の小さな炉心の装荷: core-small-cycle.toml と同じ装荷を、熱水力のテーブルの形と台帳で
+plant = "core-small-thermal-plant.toml"
+inventory = "core-small-thermal-assemblies.toml"
+loading = [
+  ".    .    .",
+  "A01  A02  .",
+  "A03  A04  .",
+]

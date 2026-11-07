@@ -1,0 +1,136 @@
+{
+ "format": "xlc-compare-core-thermal",
+ "inputs": [
+  {
+   "path": "examples/depletion/branches/table-2A-micro-thermal-rod-axis.msgpack",
+   "md5": "81696f5ea48ab0e0196a288c6861701e"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0228/core-p9-isothermal.msgpack",
+   "md5": "043c4ebfec563642024957ac6ababcb5"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0228/core-p9-isothermal.log",
+   "md5": "de535d1430249356117c3d78fb2ce952"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0228/core-p9-thermal.msgpack",
+   "md5": "ef3539c2aae8a29156ac402af63544d6"
+  },
+  {
+   "path": "examples/depletion/p9-timing/trial-0228/core-p9-thermal.log",
+   "md5": "1eb62b17e1c239e0a417ab699c59fcab"
+  }
+ ],
+ "cases": {
+  "p9": {
+   "points": [
+    {
+     "efpd": 0.0,
+     "days": 0.0,
+     "state": "case-2",
+     "k": -0.00035253598668361086,
+     "boron": 0.0,
+     "burnup": 0.0,
+     "power": 0.010807979004290945,
+     "isothermal_boron": 1200.0,
+     "solves": [
+      1,
+      4
+     ],
+     "moderator_max": 566.5946808396596,
+     "fuel_max": 581.8113488737682,
+     "moderator_rise": 0.5873828111644828,
+     "fuel_rise": 10.367599916704805,
+     "effect": -3.0246720522322295,
+     "estimate": {
+      "fuel": -3.1049494537102977,
+      "moderator": 0.3354517464943229,
+      "total": -2.769497707215975
+     }
+    },
+    {
+     "efpd": 9.0,
+     "days": 13.698630136986301,
+     "state": "case-3",
+     "k": 7.305200888652053e-10,
+     "boron": -3.5667856169070546,
+     "burnup": 0.006337381607367643,
+     "power": 0.010026477939571602,
+     "isothermal_boron": 1254.8008025206832,
+     "solves": [
+      12,
+      36
+     ],
+     "moderator_max": 567.1399952548724,
+     "fuel_max": 584.9261490062025,
+     "moderator_rise": 0.8137363917046222,
+     "fuel_rise": 13.132890173595813,
+     "effect": -3.5667786607891125,
+     "estimate": {
+      "fuel": -4.033610507972039,
+      "moderator": 0.6381593137537397,
+      "total": -3.395451194218299
+     }
+    },
+    {
+     "efpd": 32.0,
+     "days": 36.767837759854906,
+     "state": "case-3",
+     "k": -2.053321956907439e-10,
+     "boron": -3.373967723418218,
+     "burnup": 0.007986614505130652,
+     "power": 0.007264180557872962,
+     "isothermal_boron": 1146.3288487930008,
+     "solves": [
+      11,
+      31
+     ],
+     "moderator_max": 566.9480196090498,
+     "fuel_max": 582.3851080029519,
+     "moderator_rise": 0.7697883000524427,
+     "fuel_rise": 12.266203851309028,
+     "effect": -3.3739696979490597,
+     "estimate": {
+      "fuel": -3.815121113553422,
+      "moderator": 0.5747881778821254,
+      "total": -3.240332935671297
+     }
+    }
+   ],
+   "midpoints": [
+    {
+     "k": -0.0002578671503563612,
+     "boron": 0.0
+    },
+    {
+     "k": -5.177618334073486e-10,
+     "boron": -3.4139449202234573
+    }
+   ],
+   "runs": {
+    "isothermal": {
+     "solves": 43,
+     "iterations": 1349,
+     "eigenvalue_seconds": 91.037867293,
+     "seconds": 109.545116979
+    },
+    "thermal": {
+     "solves": 124,
+     "iterations": 3585,
+     "eigenvalue_seconds": 242.597308558,
+     "seconds": 320.918838699
+    }
+   },
+   "thermal": {
+    "solves": 5,
+    "iterations": [
+     1,
+     4
+    ],
+    "outlet": 567.1399952548724,
+    "fuel": 584.9261490062025
+   }
+  }
+ }
+}
