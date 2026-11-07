@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core, lattice, format]
 opened: 2026-11-04
-closed:
+closed: 2026-11-08
 milestone: M4
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # 制御棒の履歴（H_r）と変数の間の分け方のレビューで残した指摘
@@ -58,3 +58,4 @@ resolution:
   渡せない規則（residual.rs の 247〜249 行）が書かれていない、ハイブリッドの「同じ軸と点」は `rod_value` で値を選んだ後の照合である
   （`check_hybrid`）、「`rods` は制御棒の軸が要る」と「H^0 = 0、H^b = 1」が同じ段落に 2 度ある、「## 変更」の 2026-11-05 の項の
   「変えた部分」が検査の規則の変更に読める（実際は `moderator-density` だけを書いていた括弧を変数ごとにした文言の直し）
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

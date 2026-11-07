@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [depletion, examples, maintenance]
 opened: 2026-10-22
-closed:
+closed: 2026-11-08
 milestone:
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # ピン出力の比較のツールとテストに残る重複
@@ -40,3 +40,4 @@ resolution:
 ## 経緯
 
 - 2026-10-22: ADR-0181 のレビュー（/code-review high）の指摘から
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

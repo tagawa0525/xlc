@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [depletion, tooling]
 opened: 2026-11-06
-closed:
+closed: 2026-11-08
 milestone:
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # core の燃焼の 1 項目を変えた比較のツールの重複と、比べる 2 本の取り違え
@@ -33,3 +33,4 @@ examples/depletion/compare_core_xenon_boron.py（ADR-0219 の `xenon-boron` の 
   こと）。再現する誤りではないので、このブランチでは直さない
 - 2026-11-06: 親の周（1 周目、ブランチ全体）で挙がった 4 件（小さな炉心のログを `dvc add` していない、nested の履歴の md5 が ADR-0231 の記録の履歴と同じ、
   ADR-0219 の「確認」のテストの名前、verification_tables.py の GIT_TRACKED の注）は、親が 2 周目の後にマージの前に直した
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

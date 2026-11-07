@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, core, xs]
 opened: 2026-11-07
-closed:
+closed: 2026-11-08
 milestone: M4
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # 動特性と冷却計算のデータの実装に残したレビューの指摘
@@ -79,3 +79,4 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 ## 経緯
 
 - 2026-11-07: ADR-0238 の実装のレビューの 1〜3 周目で出た指摘のうち、直さなかったものをまとめた
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い
