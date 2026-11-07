@@ -704,6 +704,7 @@ fn sided(fissile: bool) -> FewGroup {
         absorption: vec![0.01, 0.08],
         nu_fission: vec![nu, nu],
         fission: vec![nu / 2.4, nu / 2.4],
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter: vec![vec![0.47, 0.02], vec![0.0, 0.92]],

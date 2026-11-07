@@ -902,6 +902,9 @@ struct StateFile {
     absorption: Vec<f64>,
     nu_fission: Vec<f64>,
     fission: Vec<f64>,
+    /// 持たない状態はキーを書かない（ADR-0190）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    kappa_fission: Option<Vec<f64>>,
     chi: Vec<f64>,
     diffusion: Vec<f64>,
     scatter: Vec<Vec<f64>>,
@@ -1011,6 +1014,24 @@ impl Table {
             if cells(state) != cells(first) {
                 return invalid(format!(
                     "state {i}: pins (form functions) and their cells must equal those of the same sub-node of state 0"
+                ));
+            }
+            // κΣf は状態ごとに内挿するので、どの状態も持つか持たないか。Q で重みを付けた核分裂の断面積なので、核分裂のある群でだけ
+            // 正（ADR-0190）
+            if state.kappa_fission.is_some() != first.kappa_fission.is_some() {
+                return invalid(format!(
+                    "state {i}: kappa_fission must be held by every state or by none"
+                ));
+            }
+            if let Some(kappa) = &state.kappa_fission
+                && kappa
+                    .iter()
+                    .zip(&state.fission)
+                    .any(|(&k, &f)| !(if f > 0.0 { k > 0.0 } else { k == 0.0 }))
+            {
+                return invalid(format!(
+                    "state {i}: kappa_fission {kappa:?} must be positive where the fission {:?} is and 0 elsewhere",
+                    state.fission
                 ));
             }
         }
@@ -1556,6 +1577,7 @@ impl Table {
                 absorption: s.absorption.clone(),
                 nu_fission: s.nu_fission.clone(),
                 fission: s.fission.clone(),
+                kappa_fission: s.kappa_fission.clone(),
                 chi: s.chi.clone(),
                 diffusion: s.diffusion.clone(),
                 scatter: s.scatter.clone(),
@@ -1608,6 +1630,7 @@ impl Table {
                 absorption: s.absorption,
                 nu_fission: s.nu_fission,
                 fission: s.fission,
+                kappa_fission: s.kappa_fission,
                 chi: s.chi,
                 diffusion: s.diffusion,
                 scatter: s.scatter,
