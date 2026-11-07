@@ -140,6 +140,8 @@ fn table_with_worth(fissile: f64, heavy_metal: Option<f64>, worth: f64) -> Table
         heavy_metal,
         micro: None,
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
     };
     table.points = product_points(&table.axes);
     table
@@ -1525,6 +1527,8 @@ fn with_rod_axis(table: Table) -> Table {
             ..micro
         }),
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
     };
     out.axes.push(Axis::Rod {
         values: vec!["out".into(), "aic".into()],
@@ -3636,6 +3640,8 @@ fn hot_table(fissile: f64, heavy_metal: f64, feedback: bool) -> Table {
         heavy_metal: Some(heavy_metal),
         micro: None,
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
     };
     table.points = product_points(&table.axes);
     with_xenon(table)
