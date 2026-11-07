@@ -8508,23 +8508,31 @@ cp examples/depletion/branches/core-small-{reload-cycle,restart-full,reload,ener
 (cd $T && for c in restart-full reload energy-1 energy-2; do
   RAYON_NUM_THREADS=1 ./core-main core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
 done)
+# 履歴とログを、比べる燃焼の名前で branches/energy に集める（restart の確認と同じ出力の名前を、後の実行が上書きしても残すため）
 B=examples/depletion/branches
+E=$B/energy
+mkdir -p $E
+for c in restart-full:cycle reload:reload energy-1:deep energy-2:deep-reload; do
+  for x in msgpack log; do
+    cp $T/core-small-${c%%:*}.$x $E/rate-${c##*:}.$x
+    cp $B/core-small-${c%%:*}.$x $E/kappa-${c##*:}.$x
+  done
+done
 python3 examples/depletion/compare_core_energy.py --json $B/compare-core-small-energy.json \
-  cycle=$T/core-small-restart-full.msgpack,$B/core-small-restart-full.msgpack reload=$T/core-small-reload.msgpack,$B/core-small-reload.msgpack \
-  deep=$T/core-small-energy-1.msgpack,$B/core-small-energy-1.msgpack deep-reload=$T/core-small-energy-2.msgpack,$B/core-small-energy-2.msgpack
+  $(for c in cycle reload deep deep-reload; do echo "$c=$E/rate-$c.msgpack,$E/kappa-$c.msgpack"; done)
 python3 examples/depletion/compare_core_energy.py --report $B/compare-core-small-energy.json
 ```
 
 「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-energy.json`）は git で
-追跡し、テーブルは `dvc add` で追跡する。
+追跡し、テーブルと `branches/energy`（比べた 8 つの履歴とログ）は `dvc add` で追跡する。
 
 ### 計算
 
 ブランチ feat/0154-node-power-by-fission-energy（分岐点は main の ec507c7f6）の 4b627b4f9、2026-11-07。テーブル（md5 4c1806b4）は 4b627b4f9 の `bin/lattice`（`dvc.lock` の
 `build` の出力、md5 97f6db52）で解いた（Slurm 720、区分 record。割り込まれうるジョブなので時間は記録に使わない）。燃焼の履歴は「集合体の燃焼」の 2A
 （`p2/lattice-2A.msgpack` md5 a2cc87df）、ライブラリは `p2/depletion.msgpack`（md5 e84310af）。κΣf の燃焼は 4b627b4f9 の `bin/core`（md5 695ecf17）、核分裂率の
-燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1` で 4 本ずつ同時に流した。時間は記録に使わない）。比較は e26851d36 の
-ツール（手元）。
+燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1`。restart する燃焼はその前の燃焼の後に流す 2 本の列を、2 つの core で 4 列同時に
+流した。時間は記録に使わない）。比較は e26851d36 のツール（手元）。
 
 ### 結果
 
