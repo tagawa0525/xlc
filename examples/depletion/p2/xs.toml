@@ -380,2329 +380,472 @@ temperatures = [565, 600]
 
 # 放射化の核種（activation = true。ADR-0238）: チェーン（../chain.msgpack）が中性子の反応か核分裂を持つ核種のうち、上の輸送する核種
 # でない 465 核種（チェーンの順）。冷却計算の 1 群の微視的断面積のために、チェーンの反応と核分裂の無限希釈の断面積だけを作り、輸送しない。
-# 温度は燃料の核種と同じ 565, 600 K。上で外した Pm-147、Pm-148、Pm-149、Am-242m、Eu-151（#0127）は自己遮蔽の表を作らないので、ここに入る
-
-[nuclide.H-2]
-endf = "n-001_H_002.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.H-3]
-endf = "n-001_H_003.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.He-3]
-endf = "n-002_He_003.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Li-6]
-endf = "n-003_Li_006.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Li-7]
-endf = "n-003_Li_007.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Be-7]
-endf = "n-004_Be_007.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Be-9]
-endf = "n-004_Be_009.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.N-14]
-endf = "n-007_N_014.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.N-15]
-endf = "n-007_N_015.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.O-17]
-endf = "n-008_O_017.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.O-18]
-endf = "n-008_O_018.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.F-19]
-endf = "n-009_F_019.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ne-20]
-endf = "n-010_Ne_020.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ne-21]
-endf = "n-010_Ne_021.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ne-22]
-endf = "n-010_Ne_022.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Na-22]
-endf = "n-011_Na_022.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Na-23]
-endf = "n-011_Na_023.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mg-24]
-endf = "n-012_Mg_024.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mg-25]
-endf = "n-012_Mg_025.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mg-26]
-endf = "n-012_Mg_026.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Al-26m]
-endf = "n-013_Al_026m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Si-31]
-endf = "n-014_Si_031.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Si-32]
-endf = "n-014_Si_032.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.S-32]
-endf = "n-016_S_032.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.S-33]
-endf = "n-016_S_033.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.S-34]
-endf = "n-016_S_034.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.S-35]
-endf = "n-016_S_035.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.S-36]
-endf = "n-016_S_036.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cl-35]
-endf = "n-017_Cl_035.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cl-36]
-endf = "n-017_Cl_036.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cl-37]
-endf = "n-017_Cl_037.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ar-36]
-endf = "n-018_Ar_036.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ar-37]
-endf = "n-018_Ar_037.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ar-38]
-endf = "n-018_Ar_038.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ar-39]
-endf = "n-018_Ar_039.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ar-40]
-endf = "n-018_Ar_040.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ar-41]
-endf = "n-018_Ar_041.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.K-39]
-endf = "n-019_K_039.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.K-40]
-endf = "n-019_K_040.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.K-41]
-endf = "n-019_K_041.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-40]
-endf = "n-020_Ca_040.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-41]
-endf = "n-020_Ca_041.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-42]
-endf = "n-020_Ca_042.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-43]
-endf = "n-020_Ca_043.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-44]
-endf = "n-020_Ca_044.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-45]
-endf = "n-020_Ca_045.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-46]
-endf = "n-020_Ca_046.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-47]
-endf = "n-020_Ca_047.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ca-48]
-endf = "n-020_Ca_048.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sc-45]
-endf = "n-021_Sc_045.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ti-46]
-endf = "n-022_Ti_046.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ti-47]
-endf = "n-022_Ti_047.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ti-48]
-endf = "n-022_Ti_048.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ti-49]
-endf = "n-022_Ti_049.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ti-50]
-endf = "n-022_Ti_050.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.V-49]
-endf = "n-023_V_049.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.V-50]
-endf = "n-023_V_050.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.V-51]
-endf = "n-023_V_051.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cr-51]
-endf = "n-024_Cr_051.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mn-54]
-endf = "n-025_Mn_054.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Fe-55]
-endf = "n-026_Fe_055.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Co-58]
-endf = "n-027_Co_058.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Co-58m]
-endf = "n-027_Co_058m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Co-59]
-endf = "n-027_Co_059.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ni-59]
-endf = "n-028_Ni_059.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ni-63]
-endf = "n-028_Ni_063.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cu-63]
-endf = "n-029_Cu_063.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cu-64]
-endf = "n-029_Cu_064.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cu-65]
-endf = "n-029_Cu_065.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-64]
-endf = "n-030_Zn_064.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-65]
-endf = "n-030_Zn_065.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-66]
-endf = "n-030_Zn_066.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-67]
-endf = "n-030_Zn_067.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-68]
-endf = "n-030_Zn_068.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-69]
-endf = "n-030_Zn_069.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zn-70]
-endf = "n-030_Zn_070.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ga-69]
-endf = "n-031_Ga_069.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ga-70]
-endf = "n-031_Ga_070.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ga-71]
-endf = "n-031_Ga_071.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-70]
-endf = "n-032_Ge_070.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-71]
-endf = "n-032_Ge_071.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-72]
-endf = "n-032_Ge_072.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-73]
-endf = "n-032_Ge_073.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-74]
-endf = "n-032_Ge_074.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-75]
-endf = "n-032_Ge_075.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ge-76]
-endf = "n-032_Ge_076.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.As-73]
-endf = "n-033_As_073.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.As-74]
-endf = "n-033_As_074.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.As-75]
-endf = "n-033_As_075.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-74]
-endf = "n-034_Se_074.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-75]
-endf = "n-034_Se_075.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-76]
-endf = "n-034_Se_076.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-77]
-endf = "n-034_Se_077.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-78]
-endf = "n-034_Se_078.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-79]
-endf = "n-034_Se_079.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-80]
-endf = "n-034_Se_080.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-81]
-endf = "n-034_Se_081.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Se-82]
-endf = "n-034_Se_082.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Br-79]
-endf = "n-035_Br_079.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Br-80]
-endf = "n-035_Br_080.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Br-81]
-endf = "n-035_Br_081.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-78]
-endf = "n-036_Kr_078.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-79]
-endf = "n-036_Kr_079.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-80]
-endf = "n-036_Kr_080.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-81]
-endf = "n-036_Kr_081.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-82]
-endf = "n-036_Kr_082.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-83]
-endf = "n-036_Kr_083.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-84]
-endf = "n-036_Kr_084.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-85]
-endf = "n-036_Kr_085.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Kr-86]
-endf = "n-036_Kr_086.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Rb-85]
-endf = "n-037_Rb_085.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Rb-86]
-endf = "n-037_Rb_086.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Rb-87]
-endf = "n-037_Rb_087.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-84]
-endf = "n-038_Sr_084.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-85]
-endf = "n-038_Sr_085.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-86]
-endf = "n-038_Sr_086.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-87]
-endf = "n-038_Sr_087.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-88]
-endf = "n-038_Sr_088.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-89]
-endf = "n-038_Sr_089.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sr-90]
-endf = "n-038_Sr_090.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Y-89]
-endf = "n-039_Y_089.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Y-90]
-endf = "n-039_Y_090.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Y-91]
-endf = "n-039_Y_091.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zr-93]
-endf = "n-040_Zr_093.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Zr-95]
-endf = "n-040_Zr_095.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nb-93]
-endf = "n-041_Nb_093.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nb-94]
-endf = "n-041_Nb_094.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nb-95]
-endf = "n-041_Nb_095.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-92]
-endf = "n-042_Mo_092.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-93]
-endf = "n-042_Mo_093.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-94]
-endf = "n-042_Mo_094.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-96]
-endf = "n-042_Mo_096.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-97]
-endf = "n-042_Mo_097.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-98]
-endf = "n-042_Mo_098.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-99]
-endf = "n-042_Mo_099.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Mo-100]
-endf = "n-042_Mo_100.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tc-98]
-endf = "n-043_Tc_098.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-96]
-endf = "n-044_Ru_096.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-97]
-endf = "n-044_Ru_097.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-98]
-endf = "n-044_Ru_098.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-99]
-endf = "n-044_Ru_099.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-100]
-endf = "n-044_Ru_100.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-102]
-endf = "n-044_Ru_102.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-103]
-endf = "n-044_Ru_103.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-104]
-endf = "n-044_Ru_104.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-105]
-endf = "n-044_Ru_105.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ru-106]
-endf = "n-044_Ru_106.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Rh-104]
-endf = "n-045_Rh_104.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Rh-105]
-endf = "n-045_Rh_105.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-102]
-endf = "n-046_Pd_102.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-103]
-endf = "n-046_Pd_103.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-104]
-endf = "n-046_Pd_104.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-105]
-endf = "n-046_Pd_105.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-106]
-endf = "n-046_Pd_106.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-107]
-endf = "n-046_Pd_107.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-108]
-endf = "n-046_Pd_108.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-109]
-endf = "n-046_Pd_109.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pd-110]
-endf = "n-046_Pd_110.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-108]
-endf = "n-047_Ag_108.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-110m]
-endf = "n-047_Ag_110m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-111]
-endf = "n-047_Ag_111.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-112]
-endf = "n-047_Ag_112.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-113]
-endf = "n-047_Ag_113.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-114]
-endf = "n-047_Ag_114.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-115]
-endf = "n-047_Ag_115.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-116]
-endf = "n-047_Ag_116.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-117]
-endf = "n-047_Ag_117.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ag-118m]
-endf = "n-047_Ag_118m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cd-107]
-endf = "n-048_Cd_107.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cd-109]
-endf = "n-048_Cd_109.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cd-115m]
-endf = "n-048_Cd_115m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.In-114]
-endf = "n-049_In_114.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sn-113]
-endf = "n-050_Sn_113.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sn-121m]
-endf = "n-050_Sn_121m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sn-123]
-endf = "n-050_Sn_123.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sn-125]
-endf = "n-050_Sn_125.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sn-126]
-endf = "n-050_Sn_126.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sb-121]
-endf = "n-051_Sb_121.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sb-122]
-endf = "n-051_Sb_122.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sb-123]
-endf = "n-051_Sb_123.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sb-124]
-endf = "n-051_Sb_124.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sb-125]
-endf = "n-051_Sb_125.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sb-126]
-endf = "n-051_Sb_126.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-120]
-endf = "n-052_Te_120.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-121]
-endf = "n-052_Te_121.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-121m]
-endf = "n-052_Te_121m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-122]
-endf = "n-052_Te_122.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-123]
-endf = "n-052_Te_123.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-124]
-endf = "n-052_Te_124.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-125]
-endf = "n-052_Te_125.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-126]
-endf = "n-052_Te_126.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-127m]
-endf = "n-052_Te_127m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-128]
-endf = "n-052_Te_128.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-129m]
-endf = "n-052_Te_129m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-130]
-endf = "n-052_Te_130.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-131]
-endf = "n-052_Te_131.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-131m]
-endf = "n-052_Te_131m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Te-132]
-endf = "n-052_Te_132.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-127]
-endf = "n-053_I_127.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-128]
-endf = "n-053_I_128.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-129]
-endf = "n-053_I_129.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-130]
-endf = "n-053_I_130.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-131]
-endf = "n-053_I_131.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-132]
-endf = "n-053_I_132.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-132m]
-endf = "n-053_I_132m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-133]
-endf = "n-053_I_133.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.I-134]
-endf = "n-053_I_134.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-123]
-endf = "n-054_Xe_123.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-124]
-endf = "n-054_Xe_124.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-125]
-endf = "n-054_Xe_125.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-126]
-endf = "n-054_Xe_126.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-127]
-endf = "n-054_Xe_127.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-128]
-endf = "n-054_Xe_128.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-129]
-endf = "n-054_Xe_129.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-130]
-endf = "n-054_Xe_130.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-131]
-endf = "n-054_Xe_131.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-132]
-endf = "n-054_Xe_132.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-133]
-endf = "n-054_Xe_133.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-134]
-endf = "n-054_Xe_134.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Xe-136]
-endf = "n-054_Xe_136.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cs-134]
-endf = "n-055_Cs_134.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cs-135]
-endf = "n-055_Cs_135.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cs-136]
-endf = "n-055_Cs_136.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cs-137]
-endf = "n-055_Cs_137.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-130]
-endf = "n-056_Ba_130.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-131]
-endf = "n-056_Ba_131.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-132]
-endf = "n-056_Ba_132.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-133]
-endf = "n-056_Ba_133.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-134]
-endf = "n-056_Ba_134.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-135]
-endf = "n-056_Ba_135.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-136]
-endf = "n-056_Ba_136.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-137]
-endf = "n-056_Ba_137.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-138]
-endf = "n-056_Ba_138.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-139]
-endf = "n-056_Ba_139.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ba-140]
-endf = "n-056_Ba_140.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.La-138]
-endf = "n-057_La_138.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.La-139]
-endf = "n-057_La_139.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.La-140]
-endf = "n-057_La_140.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-136]
-endf = "n-058_Ce_136.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-137]
-endf = "n-058_Ce_137.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-137m]
-endf = "n-058_Ce_137m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-138]
-endf = "n-058_Ce_138.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-139]
-endf = "n-058_Ce_139.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-140]
-endf = "n-058_Ce_140.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-141]
-endf = "n-058_Ce_141.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-142]
-endf = "n-058_Ce_142.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-143]
-endf = "n-058_Ce_143.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ce-144]
-endf = "n-058_Ce_144.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pr-141]
-endf = "n-059_Pr_141.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pr-142]
-endf = "n-059_Pr_142.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pr-143]
-endf = "n-059_Pr_143.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-142]
-endf = "n-060_Nd_142.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-144]
-endf = "n-060_Nd_144.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-146]
-endf = "n-060_Nd_146.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-147]
-endf = "n-060_Nd_147.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-148]
-endf = "n-060_Nd_148.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-149]
-endf = "n-060_Nd_149.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Nd-150]
-endf = "n-060_Nd_150.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-143]
-endf = "n-061_Pm_143.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-144]
-endf = "n-061_Pm_144.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-145]
-endf = "n-061_Pm_145.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-146]
-endf = "n-061_Pm_146.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-147]
-endf = "n-061_Pm_147.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-148]
-endf = "n-061_Pm_148.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-149]
-endf = "n-061_Pm_149.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-150]
-endf = "n-061_Pm_150.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pm-151]
-endf = "n-061_Pm_151.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sm-144]
-endf = "n-062_Sm_144.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sm-145]
-endf = "n-062_Sm_145.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sm-146]
-endf = "n-062_Sm_146.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sm-148]
-endf = "n-062_Sm_148.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sm-153]
-endf = "n-062_Sm_153.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Sm-154]
-endf = "n-062_Sm_154.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Eu-151]
-endf = "n-063_Eu_151.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Eu-152]
-endf = "n-063_Eu_152.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Eu-154]
-endf = "n-063_Eu_154.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Eu-155]
-endf = "n-063_Eu_155.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Eu-156]
-endf = "n-063_Eu_156.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Eu-157]
-endf = "n-063_Eu_157.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Gd-153]
-endf = "n-064_Gd_153.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Gd-159]
-endf = "n-064_Gd_159.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tb-158]
-endf = "n-065_Tb_158.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tb-159]
-endf = "n-065_Tb_159.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tb-160]
-endf = "n-065_Tb_160.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tb-161]
-endf = "n-065_Tb_161.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-154]
-endf = "n-066_Dy_154.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-155]
-endf = "n-066_Dy_155.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-156]
-endf = "n-066_Dy_156.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-157]
-endf = "n-066_Dy_157.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-158]
-endf = "n-066_Dy_158.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-159]
-endf = "n-066_Dy_159.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-160]
-endf = "n-066_Dy_160.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-161]
-endf = "n-066_Dy_161.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-162]
-endf = "n-066_Dy_162.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-163]
-endf = "n-066_Dy_163.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Dy-164]
-endf = "n-066_Dy_164.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ho-165]
-endf = "n-067_Ho_165.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ho-166m]
-endf = "n-067_Ho_166m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-162]
-endf = "n-068_Er_162.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-163]
-endf = "n-068_Er_163.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-164]
-endf = "n-068_Er_164.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-165]
-endf = "n-068_Er_165.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-166]
-endf = "n-068_Er_166.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-167]
-endf = "n-068_Er_167.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-168]
-endf = "n-068_Er_168.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-169]
-endf = "n-068_Er_169.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Er-170]
-endf = "n-068_Er_170.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tm-168]
-endf = "n-069_Tm_168.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tm-169]
-endf = "n-069_Tm_169.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tm-170]
-endf = "n-069_Tm_170.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tm-171]
-endf = "n-069_Tm_171.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-168]
-endf = "n-070_Yb_168.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-169]
-endf = "n-070_Yb_169.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-170]
-endf = "n-070_Yb_170.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-171]
-endf = "n-070_Yb_171.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-172]
-endf = "n-070_Yb_172.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-173]
-endf = "n-070_Yb_173.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-174]
-endf = "n-070_Yb_174.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-175]
-endf = "n-070_Yb_175.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Yb-176]
-endf = "n-070_Yb_176.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Lu-175]
-endf = "n-071_Lu_175.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Lu-176]
-endf = "n-071_Lu_176.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-174]
-endf = "n-072_Hf_174.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-175]
-endf = "n-072_Hf_175.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-176]
-endf = "n-072_Hf_176.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-177]
-endf = "n-072_Hf_177.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-178]
-endf = "n-072_Hf_178.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-179]
-endf = "n-072_Hf_179.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-180]
-endf = "n-072_Hf_180.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-181]
-endf = "n-072_Hf_181.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hf-182]
-endf = "n-072_Hf_182.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ta-180]
-endf = "n-073_Ta_180.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ta-181]
-endf = "n-073_Ta_181.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ta-182]
-endf = "n-073_Ta_182.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-180]
-endf = "n-074_W_180.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-181]
-endf = "n-074_W_181.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-182]
-endf = "n-074_W_182.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-183]
-endf = "n-074_W_183.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-184]
-endf = "n-074_W_184.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-185]
-endf = "n-074_W_185.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.W-186]
-endf = "n-074_W_186.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Re-185]
-endf = "n-075_Re_185.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Re-186m]
-endf = "n-075_Re_186m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Re-187]
-endf = "n-075_Re_187.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-184]
-endf = "n-076_Os_184.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-185]
-endf = "n-076_Os_185.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-186]
-endf = "n-076_Os_186.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-187]
-endf = "n-076_Os_187.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-188]
-endf = "n-076_Os_188.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-189]
-endf = "n-076_Os_189.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-190]
-endf = "n-076_Os_190.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-191]
-endf = "n-076_Os_191.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Os-192]
-endf = "n-076_Os_192.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ir-191]
-endf = "n-077_Ir_191.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ir-192]
-endf = "n-077_Ir_192.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ir-193]
-endf = "n-077_Ir_193.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ir-194m]
-endf = "n-077_Ir_194m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-190]
-endf = "n-078_Pt_190.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-191]
-endf = "n-078_Pt_191.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-192]
-endf = "n-078_Pt_192.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-193]
-endf = "n-078_Pt_193.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-194]
-endf = "n-078_Pt_194.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-195]
-endf = "n-078_Pt_195.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-196]
-endf = "n-078_Pt_196.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-197]
-endf = "n-078_Pt_197.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pt-198]
-endf = "n-078_Pt_198.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Au-197]
-endf = "n-079_Au_197.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-196]
-endf = "n-080_Hg_196.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-197]
-endf = "n-080_Hg_197.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-197m]
-endf = "n-080_Hg_197m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-198]
-endf = "n-080_Hg_198.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-199]
-endf = "n-080_Hg_199.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-200]
-endf = "n-080_Hg_200.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-201]
-endf = "n-080_Hg_201.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-202]
-endf = "n-080_Hg_202.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-203]
-endf = "n-080_Hg_203.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Hg-204]
-endf = "n-080_Hg_204.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tl-203]
-endf = "n-081_Tl_203.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tl-204]
-endf = "n-081_Tl_204.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Tl-205]
-endf = "n-081_Tl_205.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pb-204]
-endf = "n-082_Pb_204.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pb-205]
-endf = "n-082_Pb_205.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pb-206]
-endf = "n-082_Pb_206.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pb-207]
-endf = "n-082_Pb_207.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pb-208]
-endf = "n-082_Pb_208.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bi-209]
-endf = "n-083_Bi_209.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bi-210m]
-endf = "n-083_Bi_210m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Po-208]
-endf = "n-084_Po_208.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Po-209]
-endf = "n-084_Po_209.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Po-210]
-endf = "n-084_Po_210.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ra-223]
-endf = "n-088_Ra_223.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ra-224]
-endf = "n-088_Ra_224.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ra-225]
-endf = "n-088_Ra_225.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ra-226]
-endf = "n-088_Ra_226.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ac-225]
-endf = "n-089_Ac_225.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ac-226]
-endf = "n-089_Ac_226.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Ac-227]
-endf = "n-089_Ac_227.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-227]
-endf = "n-090_Th_227.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-228]
-endf = "n-090_Th_228.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-229]
-endf = "n-090_Th_229.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-230]
-endf = "n-090_Th_230.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-231]
-endf = "n-090_Th_231.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-232]
-endf = "n-090_Th_232.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-233]
-endf = "n-090_Th_233.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Th-234]
-endf = "n-090_Th_234.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pa-229]
-endf = "n-091_Pa_229.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pa-230]
-endf = "n-091_Pa_230.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pa-231]
-endf = "n-091_Pa_231.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pa-232]
-endf = "n-091_Pa_232.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pa-233]
-endf = "n-091_Pa_233.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-230]
-endf = "n-092_U_230.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-231]
-endf = "n-092_U_231.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-232]
-endf = "n-092_U_232.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-233]
-endf = "n-092_U_233.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-237]
-endf = "n-092_U_237.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-239]
-endf = "n-092_U_239.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-240]
-endf = "n-092_U_240.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.U-241]
-endf = "n-092_U_241.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Np-234]
-endf = "n-093_Np_234.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Np-235]
-endf = "n-093_Np_235.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Np-236]
-endf = "n-093_Np_236.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Np-236m]
-endf = "n-093_Np_236m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Np-238]
-endf = "n-093_Np_238.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pu-236]
-endf = "n-094_Pu_236.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pu-237]
-endf = "n-094_Pu_237.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pu-243]
-endf = "n-094_Pu_243.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pu-244]
-endf = "n-094_Pu_244.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pu-245]
-endf = "n-094_Pu_245.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Pu-246]
-endf = "n-094_Pu_246.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Am-240]
-endf = "n-095_Am_240.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Am-242]
-endf = "n-095_Am_242.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Am-242m]
-endf = "n-095_Am_242m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Am-244]
-endf = "n-095_Am_244.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Am-244m]
-endf = "n-095_Am_244m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-240]
-endf = "n-096_Cm_240.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-241]
-endf = "n-096_Cm_241.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-243]
-endf = "n-096_Cm_243.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-245]
-endf = "n-096_Cm_245.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-246]
-endf = "n-096_Cm_246.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-247]
-endf = "n-096_Cm_247.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-248]
-endf = "n-096_Cm_248.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-249]
-endf = "n-096_Cm_249.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cm-250]
-endf = "n-096_Cm_250.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bk-245]
-endf = "n-097_Bk_245.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bk-246]
-endf = "n-097_Bk_246.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bk-247]
-endf = "n-097_Bk_247.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bk-248]
-endf = "n-097_Bk_248.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bk-249]
-endf = "n-097_Bk_249.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Bk-250]
-endf = "n-097_Bk_250.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-246]
-endf = "n-098_Cf_246.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-247]
-endf = "n-098_Cf_247.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-248]
-endf = "n-098_Cf_248.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-249]
-endf = "n-098_Cf_249.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-250]
-endf = "n-098_Cf_250.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-251]
-endf = "n-098_Cf_251.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-252]
-endf = "n-098_Cf_252.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-253]
-endf = "n-098_Cf_253.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Cf-254]
-endf = "n-098_Cf_254.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Es-251]
-endf = "n-099_Es_251.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Es-252]
-endf = "n-099_Es_252.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Es-253]
-endf = "n-099_Es_253.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Es-254]
-endf = "n-099_Es_254.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Es-254m]
-endf = "n-099_Es_254m1.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Es-255]
-endf = "n-099_Es_255.endf"
-temperatures = [565, 600]
-activation = true
-
-[nuclide.Fm-255]
-endf = "n-100_Fm_255.endf"
-temperatures = [565, 600]
-activation = true
+# 温度は燃料の核種と同じ 565, 600 K。上で外した Pm-147、Pm-148、Pm-149、Am-242m、Eu-151（#0127）は自己遮蔽の表を作らないので、ここに入る。
+# 核種ごとの表の見出し（[nuclide.X]）でなく、[nuclide] のインラインの表で書く: DVC（tomlkit 0.15）は見出しの数の 2 乗で読む時間が
+# 延び、555 の見出しで 1 回 9 秒、DVC の 1 つの操作で 11 回読む（#0268）
+[nuclide]
+H-2 = { endf = "n-001_H_002.endf", temperatures = [565, 600], activation = true }
+H-3 = { endf = "n-001_H_003.endf", temperatures = [565, 600], activation = true }
+He-3 = { endf = "n-002_He_003.endf", temperatures = [565, 600], activation = true }
+Li-6 = { endf = "n-003_Li_006.endf", temperatures = [565, 600], activation = true }
+Li-7 = { endf = "n-003_Li_007.endf", temperatures = [565, 600], activation = true }
+Be-7 = { endf = "n-004_Be_007.endf", temperatures = [565, 600], activation = true }
+Be-9 = { endf = "n-004_Be_009.endf", temperatures = [565, 600], activation = true }
+N-14 = { endf = "n-007_N_014.endf", temperatures = [565, 600], activation = true }
+N-15 = { endf = "n-007_N_015.endf", temperatures = [565, 600], activation = true }
+O-17 = { endf = "n-008_O_017.endf", temperatures = [565, 600], activation = true }
+O-18 = { endf = "n-008_O_018.endf", temperatures = [565, 600], activation = true }
+F-19 = { endf = "n-009_F_019.endf", temperatures = [565, 600], activation = true }
+Ne-20 = { endf = "n-010_Ne_020.endf", temperatures = [565, 600], activation = true }
+Ne-21 = { endf = "n-010_Ne_021.endf", temperatures = [565, 600], activation = true }
+Ne-22 = { endf = "n-010_Ne_022.endf", temperatures = [565, 600], activation = true }
+Na-22 = { endf = "n-011_Na_022.endf", temperatures = [565, 600], activation = true }
+Na-23 = { endf = "n-011_Na_023.endf", temperatures = [565, 600], activation = true }
+Mg-24 = { endf = "n-012_Mg_024.endf", temperatures = [565, 600], activation = true }
+Mg-25 = { endf = "n-012_Mg_025.endf", temperatures = [565, 600], activation = true }
+Mg-26 = { endf = "n-012_Mg_026.endf", temperatures = [565, 600], activation = true }
+Al-26m = { endf = "n-013_Al_026m1.endf", temperatures = [565, 600], activation = true }
+Si-31 = { endf = "n-014_Si_031.endf", temperatures = [565, 600], activation = true }
+Si-32 = { endf = "n-014_Si_032.endf", temperatures = [565, 600], activation = true }
+S-32 = { endf = "n-016_S_032.endf", temperatures = [565, 600], activation = true }
+S-33 = { endf = "n-016_S_033.endf", temperatures = [565, 600], activation = true }
+S-34 = { endf = "n-016_S_034.endf", temperatures = [565, 600], activation = true }
+S-35 = { endf = "n-016_S_035.endf", temperatures = [565, 600], activation = true }
+S-36 = { endf = "n-016_S_036.endf", temperatures = [565, 600], activation = true }
+Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565, 600], activation = true }
+Cl-36 = { endf = "n-017_Cl_036.endf", temperatures = [565, 600], activation = true }
+Cl-37 = { endf = "n-017_Cl_037.endf", temperatures = [565, 600], activation = true }
+Ar-36 = { endf = "n-018_Ar_036.endf", temperatures = [565, 600], activation = true }
+Ar-37 = { endf = "n-018_Ar_037.endf", temperatures = [565, 600], activation = true }
+Ar-38 = { endf = "n-018_Ar_038.endf", temperatures = [565, 600], activation = true }
+Ar-39 = { endf = "n-018_Ar_039.endf", temperatures = [565, 600], activation = true }
+Ar-40 = { endf = "n-018_Ar_040.endf", temperatures = [565, 600], activation = true }
+Ar-41 = { endf = "n-018_Ar_041.endf", temperatures = [565, 600], activation = true }
+K-39 = { endf = "n-019_K_039.endf", temperatures = [565, 600], activation = true }
+K-40 = { endf = "n-019_K_040.endf", temperatures = [565, 600], activation = true }
+K-41 = { endf = "n-019_K_041.endf", temperatures = [565, 600], activation = true }
+Ca-40 = { endf = "n-020_Ca_040.endf", temperatures = [565, 600], activation = true }
+Ca-41 = { endf = "n-020_Ca_041.endf", temperatures = [565, 600], activation = true }
+Ca-42 = { endf = "n-020_Ca_042.endf", temperatures = [565, 600], activation = true }
+Ca-43 = { endf = "n-020_Ca_043.endf", temperatures = [565, 600], activation = true }
+Ca-44 = { endf = "n-020_Ca_044.endf", temperatures = [565, 600], activation = true }
+Ca-45 = { endf = "n-020_Ca_045.endf", temperatures = [565, 600], activation = true }
+Ca-46 = { endf = "n-020_Ca_046.endf", temperatures = [565, 600], activation = true }
+Ca-47 = { endf = "n-020_Ca_047.endf", temperatures = [565, 600], activation = true }
+Ca-48 = { endf = "n-020_Ca_048.endf", temperatures = [565, 600], activation = true }
+Sc-45 = { endf = "n-021_Sc_045.endf", temperatures = [565, 600], activation = true }
+Ti-46 = { endf = "n-022_Ti_046.endf", temperatures = [565, 600], activation = true }
+Ti-47 = { endf = "n-022_Ti_047.endf", temperatures = [565, 600], activation = true }
+Ti-48 = { endf = "n-022_Ti_048.endf", temperatures = [565, 600], activation = true }
+Ti-49 = { endf = "n-022_Ti_049.endf", temperatures = [565, 600], activation = true }
+Ti-50 = { endf = "n-022_Ti_050.endf", temperatures = [565, 600], activation = true }
+V-49 = { endf = "n-023_V_049.endf", temperatures = [565, 600], activation = true }
+V-50 = { endf = "n-023_V_050.endf", temperatures = [565, 600], activation = true }
+V-51 = { endf = "n-023_V_051.endf", temperatures = [565, 600], activation = true }
+Cr-51 = { endf = "n-024_Cr_051.endf", temperatures = [565, 600], activation = true }
+Mn-54 = { endf = "n-025_Mn_054.endf", temperatures = [565, 600], activation = true }
+Fe-55 = { endf = "n-026_Fe_055.endf", temperatures = [565, 600], activation = true }
+Co-58 = { endf = "n-027_Co_058.endf", temperatures = [565, 600], activation = true }
+Co-58m = { endf = "n-027_Co_058m1.endf", temperatures = [565, 600], activation = true }
+Co-59 = { endf = "n-027_Co_059.endf", temperatures = [565, 600], activation = true }
+Ni-59 = { endf = "n-028_Ni_059.endf", temperatures = [565, 600], activation = true }
+Ni-63 = { endf = "n-028_Ni_063.endf", temperatures = [565, 600], activation = true }
+Cu-63 = { endf = "n-029_Cu_063.endf", temperatures = [565, 600], activation = true }
+Cu-64 = { endf = "n-029_Cu_064.endf", temperatures = [565, 600], activation = true }
+Cu-65 = { endf = "n-029_Cu_065.endf", temperatures = [565, 600], activation = true }
+Zn-64 = { endf = "n-030_Zn_064.endf", temperatures = [565, 600], activation = true }
+Zn-65 = { endf = "n-030_Zn_065.endf", temperatures = [565, 600], activation = true }
+Zn-66 = { endf = "n-030_Zn_066.endf", temperatures = [565, 600], activation = true }
+Zn-67 = { endf = "n-030_Zn_067.endf", temperatures = [565, 600], activation = true }
+Zn-68 = { endf = "n-030_Zn_068.endf", temperatures = [565, 600], activation = true }
+Zn-69 = { endf = "n-030_Zn_069.endf", temperatures = [565, 600], activation = true }
+Zn-70 = { endf = "n-030_Zn_070.endf", temperatures = [565, 600], activation = true }
+Ga-69 = { endf = "n-031_Ga_069.endf", temperatures = [565, 600], activation = true }
+Ga-70 = { endf = "n-031_Ga_070.endf", temperatures = [565, 600], activation = true }
+Ga-71 = { endf = "n-031_Ga_071.endf", temperatures = [565, 600], activation = true }
+Ge-70 = { endf = "n-032_Ge_070.endf", temperatures = [565, 600], activation = true }
+Ge-71 = { endf = "n-032_Ge_071.endf", temperatures = [565, 600], activation = true }
+Ge-72 = { endf = "n-032_Ge_072.endf", temperatures = [565, 600], activation = true }
+Ge-73 = { endf = "n-032_Ge_073.endf", temperatures = [565, 600], activation = true }
+Ge-74 = { endf = "n-032_Ge_074.endf", temperatures = [565, 600], activation = true }
+Ge-75 = { endf = "n-032_Ge_075.endf", temperatures = [565, 600], activation = true }
+Ge-76 = { endf = "n-032_Ge_076.endf", temperatures = [565, 600], activation = true }
+As-73 = { endf = "n-033_As_073.endf", temperatures = [565, 600], activation = true }
+As-74 = { endf = "n-033_As_074.endf", temperatures = [565, 600], activation = true }
+As-75 = { endf = "n-033_As_075.endf", temperatures = [565, 600], activation = true }
+Se-74 = { endf = "n-034_Se_074.endf", temperatures = [565, 600], activation = true }
+Se-75 = { endf = "n-034_Se_075.endf", temperatures = [565, 600], activation = true }
+Se-76 = { endf = "n-034_Se_076.endf", temperatures = [565, 600], activation = true }
+Se-77 = { endf = "n-034_Se_077.endf", temperatures = [565, 600], activation = true }
+Se-78 = { endf = "n-034_Se_078.endf", temperatures = [565, 600], activation = true }
+Se-79 = { endf = "n-034_Se_079.endf", temperatures = [565, 600], activation = true }
+Se-80 = { endf = "n-034_Se_080.endf", temperatures = [565, 600], activation = true }
+Se-81 = { endf = "n-034_Se_081.endf", temperatures = [565, 600], activation = true }
+Se-82 = { endf = "n-034_Se_082.endf", temperatures = [565, 600], activation = true }
+Br-79 = { endf = "n-035_Br_079.endf", temperatures = [565, 600], activation = true }
+Br-80 = { endf = "n-035_Br_080.endf", temperatures = [565, 600], activation = true }
+Br-81 = { endf = "n-035_Br_081.endf", temperatures = [565, 600], activation = true }
+Kr-78 = { endf = "n-036_Kr_078.endf", temperatures = [565, 600], activation = true }
+Kr-79 = { endf = "n-036_Kr_079.endf", temperatures = [565, 600], activation = true }
+Kr-80 = { endf = "n-036_Kr_080.endf", temperatures = [565, 600], activation = true }
+Kr-81 = { endf = "n-036_Kr_081.endf", temperatures = [565, 600], activation = true }
+Kr-82 = { endf = "n-036_Kr_082.endf", temperatures = [565, 600], activation = true }
+Kr-83 = { endf = "n-036_Kr_083.endf", temperatures = [565, 600], activation = true }
+Kr-84 = { endf = "n-036_Kr_084.endf", temperatures = [565, 600], activation = true }
+Kr-85 = { endf = "n-036_Kr_085.endf", temperatures = [565, 600], activation = true }
+Kr-86 = { endf = "n-036_Kr_086.endf", temperatures = [565, 600], activation = true }
+Rb-85 = { endf = "n-037_Rb_085.endf", temperatures = [565, 600], activation = true }
+Rb-86 = { endf = "n-037_Rb_086.endf", temperatures = [565, 600], activation = true }
+Rb-87 = { endf = "n-037_Rb_087.endf", temperatures = [565, 600], activation = true }
+Sr-84 = { endf = "n-038_Sr_084.endf", temperatures = [565, 600], activation = true }
+Sr-85 = { endf = "n-038_Sr_085.endf", temperatures = [565, 600], activation = true }
+Sr-86 = { endf = "n-038_Sr_086.endf", temperatures = [565, 600], activation = true }
+Sr-87 = { endf = "n-038_Sr_087.endf", temperatures = [565, 600], activation = true }
+Sr-88 = { endf = "n-038_Sr_088.endf", temperatures = [565, 600], activation = true }
+Sr-89 = { endf = "n-038_Sr_089.endf", temperatures = [565, 600], activation = true }
+Sr-90 = { endf = "n-038_Sr_090.endf", temperatures = [565, 600], activation = true }
+Y-89 = { endf = "n-039_Y_089.endf", temperatures = [565, 600], activation = true }
+Y-90 = { endf = "n-039_Y_090.endf", temperatures = [565, 600], activation = true }
+Y-91 = { endf = "n-039_Y_091.endf", temperatures = [565, 600], activation = true }
+Zr-93 = { endf = "n-040_Zr_093.endf", temperatures = [565, 600], activation = true }
+Zr-95 = { endf = "n-040_Zr_095.endf", temperatures = [565, 600], activation = true }
+Nb-93 = { endf = "n-041_Nb_093.endf", temperatures = [565, 600], activation = true }
+Nb-94 = { endf = "n-041_Nb_094.endf", temperatures = [565, 600], activation = true }
+Nb-95 = { endf = "n-041_Nb_095.endf", temperatures = [565, 600], activation = true }
+Mo-92 = { endf = "n-042_Mo_092.endf", temperatures = [565, 600], activation = true }
+Mo-93 = { endf = "n-042_Mo_093.endf", temperatures = [565, 600], activation = true }
+Mo-94 = { endf = "n-042_Mo_094.endf", temperatures = [565, 600], activation = true }
+Mo-96 = { endf = "n-042_Mo_096.endf", temperatures = [565, 600], activation = true }
+Mo-97 = { endf = "n-042_Mo_097.endf", temperatures = [565, 600], activation = true }
+Mo-98 = { endf = "n-042_Mo_098.endf", temperatures = [565, 600], activation = true }
+Mo-99 = { endf = "n-042_Mo_099.endf", temperatures = [565, 600], activation = true }
+Mo-100 = { endf = "n-042_Mo_100.endf", temperatures = [565, 600], activation = true }
+Tc-98 = { endf = "n-043_Tc_098.endf", temperatures = [565, 600], activation = true }
+Ru-96 = { endf = "n-044_Ru_096.endf", temperatures = [565, 600], activation = true }
+Ru-97 = { endf = "n-044_Ru_097.endf", temperatures = [565, 600], activation = true }
+Ru-98 = { endf = "n-044_Ru_098.endf", temperatures = [565, 600], activation = true }
+Ru-99 = { endf = "n-044_Ru_099.endf", temperatures = [565, 600], activation = true }
+Ru-100 = { endf = "n-044_Ru_100.endf", temperatures = [565, 600], activation = true }
+Ru-102 = { endf = "n-044_Ru_102.endf", temperatures = [565, 600], activation = true }
+Ru-103 = { endf = "n-044_Ru_103.endf", temperatures = [565, 600], activation = true }
+Ru-104 = { endf = "n-044_Ru_104.endf", temperatures = [565, 600], activation = true }
+Ru-105 = { endf = "n-044_Ru_105.endf", temperatures = [565, 600], activation = true }
+Ru-106 = { endf = "n-044_Ru_106.endf", temperatures = [565, 600], activation = true }
+Rh-104 = { endf = "n-045_Rh_104.endf", temperatures = [565, 600], activation = true }
+Rh-105 = { endf = "n-045_Rh_105.endf", temperatures = [565, 600], activation = true }
+Pd-102 = { endf = "n-046_Pd_102.endf", temperatures = [565, 600], activation = true }
+Pd-103 = { endf = "n-046_Pd_103.endf", temperatures = [565, 600], activation = true }
+Pd-104 = { endf = "n-046_Pd_104.endf", temperatures = [565, 600], activation = true }
+Pd-105 = { endf = "n-046_Pd_105.endf", temperatures = [565, 600], activation = true }
+Pd-106 = { endf = "n-046_Pd_106.endf", temperatures = [565, 600], activation = true }
+Pd-107 = { endf = "n-046_Pd_107.endf", temperatures = [565, 600], activation = true }
+Pd-108 = { endf = "n-046_Pd_108.endf", temperatures = [565, 600], activation = true }
+Pd-109 = { endf = "n-046_Pd_109.endf", temperatures = [565, 600], activation = true }
+Pd-110 = { endf = "n-046_Pd_110.endf", temperatures = [565, 600], activation = true }
+Ag-108 = { endf = "n-047_Ag_108.endf", temperatures = [565, 600], activation = true }
+Ag-110m = { endf = "n-047_Ag_110m1.endf", temperatures = [565, 600], activation = true }
+Ag-111 = { endf = "n-047_Ag_111.endf", temperatures = [565, 600], activation = true }
+Ag-112 = { endf = "n-047_Ag_112.endf", temperatures = [565, 600], activation = true }
+Ag-113 = { endf = "n-047_Ag_113.endf", temperatures = [565, 600], activation = true }
+Ag-114 = { endf = "n-047_Ag_114.endf", temperatures = [565, 600], activation = true }
+Ag-115 = { endf = "n-047_Ag_115.endf", temperatures = [565, 600], activation = true }
+Ag-116 = { endf = "n-047_Ag_116.endf", temperatures = [565, 600], activation = true }
+Ag-117 = { endf = "n-047_Ag_117.endf", temperatures = [565, 600], activation = true }
+Ag-118m = { endf = "n-047_Ag_118m1.endf", temperatures = [565, 600], activation = true }
+Cd-107 = { endf = "n-048_Cd_107.endf", temperatures = [565, 600], activation = true }
+Cd-109 = { endf = "n-048_Cd_109.endf", temperatures = [565, 600], activation = true }
+Cd-115m = { endf = "n-048_Cd_115m1.endf", temperatures = [565, 600], activation = true }
+In-114 = { endf = "n-049_In_114.endf", temperatures = [565, 600], activation = true }
+Sn-113 = { endf = "n-050_Sn_113.endf", temperatures = [565, 600], activation = true }
+Sn-121m = { endf = "n-050_Sn_121m1.endf", temperatures = [565, 600], activation = true }
+Sn-123 = { endf = "n-050_Sn_123.endf", temperatures = [565, 600], activation = true }
+Sn-125 = { endf = "n-050_Sn_125.endf", temperatures = [565, 600], activation = true }
+Sn-126 = { endf = "n-050_Sn_126.endf", temperatures = [565, 600], activation = true }
+Sb-121 = { endf = "n-051_Sb_121.endf", temperatures = [565, 600], activation = true }
+Sb-122 = { endf = "n-051_Sb_122.endf", temperatures = [565, 600], activation = true }
+Sb-123 = { endf = "n-051_Sb_123.endf", temperatures = [565, 600], activation = true }
+Sb-124 = { endf = "n-051_Sb_124.endf", temperatures = [565, 600], activation = true }
+Sb-125 = { endf = "n-051_Sb_125.endf", temperatures = [565, 600], activation = true }
+Sb-126 = { endf = "n-051_Sb_126.endf", temperatures = [565, 600], activation = true }
+Te-120 = { endf = "n-052_Te_120.endf", temperatures = [565, 600], activation = true }
+Te-121 = { endf = "n-052_Te_121.endf", temperatures = [565, 600], activation = true }
+Te-121m = { endf = "n-052_Te_121m1.endf", temperatures = [565, 600], activation = true }
+Te-122 = { endf = "n-052_Te_122.endf", temperatures = [565, 600], activation = true }
+Te-123 = { endf = "n-052_Te_123.endf", temperatures = [565, 600], activation = true }
+Te-124 = { endf = "n-052_Te_124.endf", temperatures = [565, 600], activation = true }
+Te-125 = { endf = "n-052_Te_125.endf", temperatures = [565, 600], activation = true }
+Te-126 = { endf = "n-052_Te_126.endf", temperatures = [565, 600], activation = true }
+Te-127m = { endf = "n-052_Te_127m1.endf", temperatures = [565, 600], activation = true }
+Te-128 = { endf = "n-052_Te_128.endf", temperatures = [565, 600], activation = true }
+Te-129m = { endf = "n-052_Te_129m1.endf", temperatures = [565, 600], activation = true }
+Te-130 = { endf = "n-052_Te_130.endf", temperatures = [565, 600], activation = true }
+Te-131 = { endf = "n-052_Te_131.endf", temperatures = [565, 600], activation = true }
+Te-131m = { endf = "n-052_Te_131m1.endf", temperatures = [565, 600], activation = true }
+Te-132 = { endf = "n-052_Te_132.endf", temperatures = [565, 600], activation = true }
+I-127 = { endf = "n-053_I_127.endf", temperatures = [565, 600], activation = true }
+I-128 = { endf = "n-053_I_128.endf", temperatures = [565, 600], activation = true }
+I-129 = { endf = "n-053_I_129.endf", temperatures = [565, 600], activation = true }
+I-130 = { endf = "n-053_I_130.endf", temperatures = [565, 600], activation = true }
+I-131 = { endf = "n-053_I_131.endf", temperatures = [565, 600], activation = true }
+I-132 = { endf = "n-053_I_132.endf", temperatures = [565, 600], activation = true }
+I-132m = { endf = "n-053_I_132m1.endf", temperatures = [565, 600], activation = true }
+I-133 = { endf = "n-053_I_133.endf", temperatures = [565, 600], activation = true }
+I-134 = { endf = "n-053_I_134.endf", temperatures = [565, 600], activation = true }
+Xe-123 = { endf = "n-054_Xe_123.endf", temperatures = [565, 600], activation = true }
+Xe-124 = { endf = "n-054_Xe_124.endf", temperatures = [565, 600], activation = true }
+Xe-125 = { endf = "n-054_Xe_125.endf", temperatures = [565, 600], activation = true }
+Xe-126 = { endf = "n-054_Xe_126.endf", temperatures = [565, 600], activation = true }
+Xe-127 = { endf = "n-054_Xe_127.endf", temperatures = [565, 600], activation = true }
+Xe-128 = { endf = "n-054_Xe_128.endf", temperatures = [565, 600], activation = true }
+Xe-129 = { endf = "n-054_Xe_129.endf", temperatures = [565, 600], activation = true }
+Xe-130 = { endf = "n-054_Xe_130.endf", temperatures = [565, 600], activation = true }
+Xe-131 = { endf = "n-054_Xe_131.endf", temperatures = [565, 600], activation = true }
+Xe-132 = { endf = "n-054_Xe_132.endf", temperatures = [565, 600], activation = true }
+Xe-133 = { endf = "n-054_Xe_133.endf", temperatures = [565, 600], activation = true }
+Xe-134 = { endf = "n-054_Xe_134.endf", temperatures = [565, 600], activation = true }
+Xe-136 = { endf = "n-054_Xe_136.endf", temperatures = [565, 600], activation = true }
+Cs-134 = { endf = "n-055_Cs_134.endf", temperatures = [565, 600], activation = true }
+Cs-135 = { endf = "n-055_Cs_135.endf", temperatures = [565, 600], activation = true }
+Cs-136 = { endf = "n-055_Cs_136.endf", temperatures = [565, 600], activation = true }
+Cs-137 = { endf = "n-055_Cs_137.endf", temperatures = [565, 600], activation = true }
+Ba-130 = { endf = "n-056_Ba_130.endf", temperatures = [565, 600], activation = true }
+Ba-131 = { endf = "n-056_Ba_131.endf", temperatures = [565, 600], activation = true }
+Ba-132 = { endf = "n-056_Ba_132.endf", temperatures = [565, 600], activation = true }
+Ba-133 = { endf = "n-056_Ba_133.endf", temperatures = [565, 600], activation = true }
+Ba-134 = { endf = "n-056_Ba_134.endf", temperatures = [565, 600], activation = true }
+Ba-135 = { endf = "n-056_Ba_135.endf", temperatures = [565, 600], activation = true }
+Ba-136 = { endf = "n-056_Ba_136.endf", temperatures = [565, 600], activation = true }
+Ba-137 = { endf = "n-056_Ba_137.endf", temperatures = [565, 600], activation = true }
+Ba-138 = { endf = "n-056_Ba_138.endf", temperatures = [565, 600], activation = true }
+Ba-139 = { endf = "n-056_Ba_139.endf", temperatures = [565, 600], activation = true }
+Ba-140 = { endf = "n-056_Ba_140.endf", temperatures = [565, 600], activation = true }
+La-138 = { endf = "n-057_La_138.endf", temperatures = [565, 600], activation = true }
+La-139 = { endf = "n-057_La_139.endf", temperatures = [565, 600], activation = true }
+La-140 = { endf = "n-057_La_140.endf", temperatures = [565, 600], activation = true }
+Ce-136 = { endf = "n-058_Ce_136.endf", temperatures = [565, 600], activation = true }
+Ce-137 = { endf = "n-058_Ce_137.endf", temperatures = [565, 600], activation = true }
+Ce-137m = { endf = "n-058_Ce_137m1.endf", temperatures = [565, 600], activation = true }
+Ce-138 = { endf = "n-058_Ce_138.endf", temperatures = [565, 600], activation = true }
+Ce-139 = { endf = "n-058_Ce_139.endf", temperatures = [565, 600], activation = true }
+Ce-140 = { endf = "n-058_Ce_140.endf", temperatures = [565, 600], activation = true }
+Ce-141 = { endf = "n-058_Ce_141.endf", temperatures = [565, 600], activation = true }
+Ce-142 = { endf = "n-058_Ce_142.endf", temperatures = [565, 600], activation = true }
+Ce-143 = { endf = "n-058_Ce_143.endf", temperatures = [565, 600], activation = true }
+Ce-144 = { endf = "n-058_Ce_144.endf", temperatures = [565, 600], activation = true }
+Pr-141 = { endf = "n-059_Pr_141.endf", temperatures = [565, 600], activation = true }
+Pr-142 = { endf = "n-059_Pr_142.endf", temperatures = [565, 600], activation = true }
+Pr-143 = { endf = "n-059_Pr_143.endf", temperatures = [565, 600], activation = true }
+Nd-142 = { endf = "n-060_Nd_142.endf", temperatures = [565, 600], activation = true }
+Nd-144 = { endf = "n-060_Nd_144.endf", temperatures = [565, 600], activation = true }
+Nd-146 = { endf = "n-060_Nd_146.endf", temperatures = [565, 600], activation = true }
+Nd-147 = { endf = "n-060_Nd_147.endf", temperatures = [565, 600], activation = true }
+Nd-148 = { endf = "n-060_Nd_148.endf", temperatures = [565, 600], activation = true }
+Nd-149 = { endf = "n-060_Nd_149.endf", temperatures = [565, 600], activation = true }
+Nd-150 = { endf = "n-060_Nd_150.endf", temperatures = [565, 600], activation = true }
+Pm-143 = { endf = "n-061_Pm_143.endf", temperatures = [565, 600], activation = true }
+Pm-144 = { endf = "n-061_Pm_144.endf", temperatures = [565, 600], activation = true }
+Pm-145 = { endf = "n-061_Pm_145.endf", temperatures = [565, 600], activation = true }
+Pm-146 = { endf = "n-061_Pm_146.endf", temperatures = [565, 600], activation = true }
+Pm-147 = { endf = "n-061_Pm_147.endf", temperatures = [565, 600], activation = true }
+Pm-148 = { endf = "n-061_Pm_148.endf", temperatures = [565, 600], activation = true }
+Pm-149 = { endf = "n-061_Pm_149.endf", temperatures = [565, 600], activation = true }
+Pm-150 = { endf = "n-061_Pm_150.endf", temperatures = [565, 600], activation = true }
+Pm-151 = { endf = "n-061_Pm_151.endf", temperatures = [565, 600], activation = true }
+Sm-144 = { endf = "n-062_Sm_144.endf", temperatures = [565, 600], activation = true }
+Sm-145 = { endf = "n-062_Sm_145.endf", temperatures = [565, 600], activation = true }
+Sm-146 = { endf = "n-062_Sm_146.endf", temperatures = [565, 600], activation = true }
+Sm-148 = { endf = "n-062_Sm_148.endf", temperatures = [565, 600], activation = true }
+Sm-153 = { endf = "n-062_Sm_153.endf", temperatures = [565, 600], activation = true }
+Sm-154 = { endf = "n-062_Sm_154.endf", temperatures = [565, 600], activation = true }
+Eu-151 = { endf = "n-063_Eu_151.endf", temperatures = [565, 600], activation = true }
+Eu-152 = { endf = "n-063_Eu_152.endf", temperatures = [565, 600], activation = true }
+Eu-154 = { endf = "n-063_Eu_154.endf", temperatures = [565, 600], activation = true }
+Eu-155 = { endf = "n-063_Eu_155.endf", temperatures = [565, 600], activation = true }
+Eu-156 = { endf = "n-063_Eu_156.endf", temperatures = [565, 600], activation = true }
+Eu-157 = { endf = "n-063_Eu_157.endf", temperatures = [565, 600], activation = true }
+Gd-153 = { endf = "n-064_Gd_153.endf", temperatures = [565, 600], activation = true }
+Gd-159 = { endf = "n-064_Gd_159.endf", temperatures = [565, 600], activation = true }
+Tb-158 = { endf = "n-065_Tb_158.endf", temperatures = [565, 600], activation = true }
+Tb-159 = { endf = "n-065_Tb_159.endf", temperatures = [565, 600], activation = true }
+Tb-160 = { endf = "n-065_Tb_160.endf", temperatures = [565, 600], activation = true }
+Tb-161 = { endf = "n-065_Tb_161.endf", temperatures = [565, 600], activation = true }
+Dy-154 = { endf = "n-066_Dy_154.endf", temperatures = [565, 600], activation = true }
+Dy-155 = { endf = "n-066_Dy_155.endf", temperatures = [565, 600], activation = true }
+Dy-156 = { endf = "n-066_Dy_156.endf", temperatures = [565, 600], activation = true }
+Dy-157 = { endf = "n-066_Dy_157.endf", temperatures = [565, 600], activation = true }
+Dy-158 = { endf = "n-066_Dy_158.endf", temperatures = [565, 600], activation = true }
+Dy-159 = { endf = "n-066_Dy_159.endf", temperatures = [565, 600], activation = true }
+Dy-160 = { endf = "n-066_Dy_160.endf", temperatures = [565, 600], activation = true }
+Dy-161 = { endf = "n-066_Dy_161.endf", temperatures = [565, 600], activation = true }
+Dy-162 = { endf = "n-066_Dy_162.endf", temperatures = [565, 600], activation = true }
+Dy-163 = { endf = "n-066_Dy_163.endf", temperatures = [565, 600], activation = true }
+Dy-164 = { endf = "n-066_Dy_164.endf", temperatures = [565, 600], activation = true }
+Ho-165 = { endf = "n-067_Ho_165.endf", temperatures = [565, 600], activation = true }
+Ho-166m = { endf = "n-067_Ho_166m1.endf", temperatures = [565, 600], activation = true }
+Er-162 = { endf = "n-068_Er_162.endf", temperatures = [565, 600], activation = true }
+Er-163 = { endf = "n-068_Er_163.endf", temperatures = [565, 600], activation = true }
+Er-164 = { endf = "n-068_Er_164.endf", temperatures = [565, 600], activation = true }
+Er-165 = { endf = "n-068_Er_165.endf", temperatures = [565, 600], activation = true }
+Er-166 = { endf = "n-068_Er_166.endf", temperatures = [565, 600], activation = true }
+Er-167 = { endf = "n-068_Er_167.endf", temperatures = [565, 600], activation = true }
+Er-168 = { endf = "n-068_Er_168.endf", temperatures = [565, 600], activation = true }
+Er-169 = { endf = "n-068_Er_169.endf", temperatures = [565, 600], activation = true }
+Er-170 = { endf = "n-068_Er_170.endf", temperatures = [565, 600], activation = true }
+Tm-168 = { endf = "n-069_Tm_168.endf", temperatures = [565, 600], activation = true }
+Tm-169 = { endf = "n-069_Tm_169.endf", temperatures = [565, 600], activation = true }
+Tm-170 = { endf = "n-069_Tm_170.endf", temperatures = [565, 600], activation = true }
+Tm-171 = { endf = "n-069_Tm_171.endf", temperatures = [565, 600], activation = true }
+Yb-168 = { endf = "n-070_Yb_168.endf", temperatures = [565, 600], activation = true }
+Yb-169 = { endf = "n-070_Yb_169.endf", temperatures = [565, 600], activation = true }
+Yb-170 = { endf = "n-070_Yb_170.endf", temperatures = [565, 600], activation = true }
+Yb-171 = { endf = "n-070_Yb_171.endf", temperatures = [565, 600], activation = true }
+Yb-172 = { endf = "n-070_Yb_172.endf", temperatures = [565, 600], activation = true }
+Yb-173 = { endf = "n-070_Yb_173.endf", temperatures = [565, 600], activation = true }
+Yb-174 = { endf = "n-070_Yb_174.endf", temperatures = [565, 600], activation = true }
+Yb-175 = { endf = "n-070_Yb_175.endf", temperatures = [565, 600], activation = true }
+Yb-176 = { endf = "n-070_Yb_176.endf", temperatures = [565, 600], activation = true }
+Lu-175 = { endf = "n-071_Lu_175.endf", temperatures = [565, 600], activation = true }
+Lu-176 = { endf = "n-071_Lu_176.endf", temperatures = [565, 600], activation = true }
+Hf-174 = { endf = "n-072_Hf_174.endf", temperatures = [565, 600], activation = true }
+Hf-175 = { endf = "n-072_Hf_175.endf", temperatures = [565, 600], activation = true }
+Hf-176 = { endf = "n-072_Hf_176.endf", temperatures = [565, 600], activation = true }
+Hf-177 = { endf = "n-072_Hf_177.endf", temperatures = [565, 600], activation = true }
+Hf-178 = { endf = "n-072_Hf_178.endf", temperatures = [565, 600], activation = true }
+Hf-179 = { endf = "n-072_Hf_179.endf", temperatures = [565, 600], activation = true }
+Hf-180 = { endf = "n-072_Hf_180.endf", temperatures = [565, 600], activation = true }
+Hf-181 = { endf = "n-072_Hf_181.endf", temperatures = [565, 600], activation = true }
+Hf-182 = { endf = "n-072_Hf_182.endf", temperatures = [565, 600], activation = true }
+Ta-180 = { endf = "n-073_Ta_180.endf", temperatures = [565, 600], activation = true }
+Ta-181 = { endf = "n-073_Ta_181.endf", temperatures = [565, 600], activation = true }
+Ta-182 = { endf = "n-073_Ta_182.endf", temperatures = [565, 600], activation = true }
+W-180 = { endf = "n-074_W_180.endf", temperatures = [565, 600], activation = true }
+W-181 = { endf = "n-074_W_181.endf", temperatures = [565, 600], activation = true }
+W-182 = { endf = "n-074_W_182.endf", temperatures = [565, 600], activation = true }
+W-183 = { endf = "n-074_W_183.endf", temperatures = [565, 600], activation = true }
+W-184 = { endf = "n-074_W_184.endf", temperatures = [565, 600], activation = true }
+W-185 = { endf = "n-074_W_185.endf", temperatures = [565, 600], activation = true }
+W-186 = { endf = "n-074_W_186.endf", temperatures = [565, 600], activation = true }
+Re-185 = { endf = "n-075_Re_185.endf", temperatures = [565, 600], activation = true }
+Re-186m = { endf = "n-075_Re_186m1.endf", temperatures = [565, 600], activation = true }
+Re-187 = { endf = "n-075_Re_187.endf", temperatures = [565, 600], activation = true }
+Os-184 = { endf = "n-076_Os_184.endf", temperatures = [565, 600], activation = true }
+Os-185 = { endf = "n-076_Os_185.endf", temperatures = [565, 600], activation = true }
+Os-186 = { endf = "n-076_Os_186.endf", temperatures = [565, 600], activation = true }
+Os-187 = { endf = "n-076_Os_187.endf", temperatures = [565, 600], activation = true }
+Os-188 = { endf = "n-076_Os_188.endf", temperatures = [565, 600], activation = true }
+Os-189 = { endf = "n-076_Os_189.endf", temperatures = [565, 600], activation = true }
+Os-190 = { endf = "n-076_Os_190.endf", temperatures = [565, 600], activation = true }
+Os-191 = { endf = "n-076_Os_191.endf", temperatures = [565, 600], activation = true }
+Os-192 = { endf = "n-076_Os_192.endf", temperatures = [565, 600], activation = true }
+Ir-191 = { endf = "n-077_Ir_191.endf", temperatures = [565, 600], activation = true }
+Ir-192 = { endf = "n-077_Ir_192.endf", temperatures = [565, 600], activation = true }
+Ir-193 = { endf = "n-077_Ir_193.endf", temperatures = [565, 600], activation = true }
+Ir-194m = { endf = "n-077_Ir_194m1.endf", temperatures = [565, 600], activation = true }
+Pt-190 = { endf = "n-078_Pt_190.endf", temperatures = [565, 600], activation = true }
+Pt-191 = { endf = "n-078_Pt_191.endf", temperatures = [565, 600], activation = true }
+Pt-192 = { endf = "n-078_Pt_192.endf", temperatures = [565, 600], activation = true }
+Pt-193 = { endf = "n-078_Pt_193.endf", temperatures = [565, 600], activation = true }
+Pt-194 = { endf = "n-078_Pt_194.endf", temperatures = [565, 600], activation = true }
+Pt-195 = { endf = "n-078_Pt_195.endf", temperatures = [565, 600], activation = true }
+Pt-196 = { endf = "n-078_Pt_196.endf", temperatures = [565, 600], activation = true }
+Pt-197 = { endf = "n-078_Pt_197.endf", temperatures = [565, 600], activation = true }
+Pt-198 = { endf = "n-078_Pt_198.endf", temperatures = [565, 600], activation = true }
+Au-197 = { endf = "n-079_Au_197.endf", temperatures = [565, 600], activation = true }
+Hg-196 = { endf = "n-080_Hg_196.endf", temperatures = [565, 600], activation = true }
+Hg-197 = { endf = "n-080_Hg_197.endf", temperatures = [565, 600], activation = true }
+Hg-197m = { endf = "n-080_Hg_197m1.endf", temperatures = [565, 600], activation = true }
+Hg-198 = { endf = "n-080_Hg_198.endf", temperatures = [565, 600], activation = true }
+Hg-199 = { endf = "n-080_Hg_199.endf", temperatures = [565, 600], activation = true }
+Hg-200 = { endf = "n-080_Hg_200.endf", temperatures = [565, 600], activation = true }
+Hg-201 = { endf = "n-080_Hg_201.endf", temperatures = [565, 600], activation = true }
+Hg-202 = { endf = "n-080_Hg_202.endf", temperatures = [565, 600], activation = true }
+Hg-203 = { endf = "n-080_Hg_203.endf", temperatures = [565, 600], activation = true }
+Hg-204 = { endf = "n-080_Hg_204.endf", temperatures = [565, 600], activation = true }
+Tl-203 = { endf = "n-081_Tl_203.endf", temperatures = [565, 600], activation = true }
+Tl-204 = { endf = "n-081_Tl_204.endf", temperatures = [565, 600], activation = true }
+Tl-205 = { endf = "n-081_Tl_205.endf", temperatures = [565, 600], activation = true }
+Pb-204 = { endf = "n-082_Pb_204.endf", temperatures = [565, 600], activation = true }
+Pb-205 = { endf = "n-082_Pb_205.endf", temperatures = [565, 600], activation = true }
+Pb-206 = { endf = "n-082_Pb_206.endf", temperatures = [565, 600], activation = true }
+Pb-207 = { endf = "n-082_Pb_207.endf", temperatures = [565, 600], activation = true }
+Pb-208 = { endf = "n-082_Pb_208.endf", temperatures = [565, 600], activation = true }
+Bi-209 = { endf = "n-083_Bi_209.endf", temperatures = [565, 600], activation = true }
+Bi-210m = { endf = "n-083_Bi_210m1.endf", temperatures = [565, 600], activation = true }
+Po-208 = { endf = "n-084_Po_208.endf", temperatures = [565, 600], activation = true }
+Po-209 = { endf = "n-084_Po_209.endf", temperatures = [565, 600], activation = true }
+Po-210 = { endf = "n-084_Po_210.endf", temperatures = [565, 600], activation = true }
+Ra-223 = { endf = "n-088_Ra_223.endf", temperatures = [565, 600], activation = true }
+Ra-224 = { endf = "n-088_Ra_224.endf", temperatures = [565, 600], activation = true }
+Ra-225 = { endf = "n-088_Ra_225.endf", temperatures = [565, 600], activation = true }
+Ra-226 = { endf = "n-088_Ra_226.endf", temperatures = [565, 600], activation = true }
+Ac-225 = { endf = "n-089_Ac_225.endf", temperatures = [565, 600], activation = true }
+Ac-226 = { endf = "n-089_Ac_226.endf", temperatures = [565, 600], activation = true }
+Ac-227 = { endf = "n-089_Ac_227.endf", temperatures = [565, 600], activation = true }
+Th-227 = { endf = "n-090_Th_227.endf", temperatures = [565, 600], activation = true }
+Th-228 = { endf = "n-090_Th_228.endf", temperatures = [565, 600], activation = true }
+Th-229 = { endf = "n-090_Th_229.endf", temperatures = [565, 600], activation = true }
+Th-230 = { endf = "n-090_Th_230.endf", temperatures = [565, 600], activation = true }
+Th-231 = { endf = "n-090_Th_231.endf", temperatures = [565, 600], activation = true }
+Th-232 = { endf = "n-090_Th_232.endf", temperatures = [565, 600], activation = true }
+Th-233 = { endf = "n-090_Th_233.endf", temperatures = [565, 600], activation = true }
+Th-234 = { endf = "n-090_Th_234.endf", temperatures = [565, 600], activation = true }
+Pa-229 = { endf = "n-091_Pa_229.endf", temperatures = [565, 600], activation = true }
+Pa-230 = { endf = "n-091_Pa_230.endf", temperatures = [565, 600], activation = true }
+Pa-231 = { endf = "n-091_Pa_231.endf", temperatures = [565, 600], activation = true }
+Pa-232 = { endf = "n-091_Pa_232.endf", temperatures = [565, 600], activation = true }
+Pa-233 = { endf = "n-091_Pa_233.endf", temperatures = [565, 600], activation = true }
+U-230 = { endf = "n-092_U_230.endf", temperatures = [565, 600], activation = true }
+U-231 = { endf = "n-092_U_231.endf", temperatures = [565, 600], activation = true }
+U-232 = { endf = "n-092_U_232.endf", temperatures = [565, 600], activation = true }
+U-233 = { endf = "n-092_U_233.endf", temperatures = [565, 600], activation = true }
+U-237 = { endf = "n-092_U_237.endf", temperatures = [565, 600], activation = true }
+U-239 = { endf = "n-092_U_239.endf", temperatures = [565, 600], activation = true }
+U-240 = { endf = "n-092_U_240.endf", temperatures = [565, 600], activation = true }
+U-241 = { endf = "n-092_U_241.endf", temperatures = [565, 600], activation = true }
+Np-234 = { endf = "n-093_Np_234.endf", temperatures = [565, 600], activation = true }
+Np-235 = { endf = "n-093_Np_235.endf", temperatures = [565, 600], activation = true }
+Np-236 = { endf = "n-093_Np_236.endf", temperatures = [565, 600], activation = true }
+Np-236m = { endf = "n-093_Np_236m1.endf", temperatures = [565, 600], activation = true }
+Np-238 = { endf = "n-093_Np_238.endf", temperatures = [565, 600], activation = true }
+Pu-236 = { endf = "n-094_Pu_236.endf", temperatures = [565, 600], activation = true }
+Pu-237 = { endf = "n-094_Pu_237.endf", temperatures = [565, 600], activation = true }
+Pu-243 = { endf = "n-094_Pu_243.endf", temperatures = [565, 600], activation = true }
+Pu-244 = { endf = "n-094_Pu_244.endf", temperatures = [565, 600], activation = true }
+Pu-245 = { endf = "n-094_Pu_245.endf", temperatures = [565, 600], activation = true }
+Pu-246 = { endf = "n-094_Pu_246.endf", temperatures = [565, 600], activation = true }
+Am-240 = { endf = "n-095_Am_240.endf", temperatures = [565, 600], activation = true }
+Am-242 = { endf = "n-095_Am_242.endf", temperatures = [565, 600], activation = true }
+Am-242m = { endf = "n-095_Am_242m1.endf", temperatures = [565, 600], activation = true }
+Am-244 = { endf = "n-095_Am_244.endf", temperatures = [565, 600], activation = true }
+Am-244m = { endf = "n-095_Am_244m1.endf", temperatures = [565, 600], activation = true }
+Cm-240 = { endf = "n-096_Cm_240.endf", temperatures = [565, 600], activation = true }
+Cm-241 = { endf = "n-096_Cm_241.endf", temperatures = [565, 600], activation = true }
+Cm-243 = { endf = "n-096_Cm_243.endf", temperatures = [565, 600], activation = true }
+Cm-245 = { endf = "n-096_Cm_245.endf", temperatures = [565, 600], activation = true }
+Cm-246 = { endf = "n-096_Cm_246.endf", temperatures = [565, 600], activation = true }
+Cm-247 = { endf = "n-096_Cm_247.endf", temperatures = [565, 600], activation = true }
+Cm-248 = { endf = "n-096_Cm_248.endf", temperatures = [565, 600], activation = true }
+Cm-249 = { endf = "n-096_Cm_249.endf", temperatures = [565, 600], activation = true }
+Cm-250 = { endf = "n-096_Cm_250.endf", temperatures = [565, 600], activation = true }
+Bk-245 = { endf = "n-097_Bk_245.endf", temperatures = [565, 600], activation = true }
+Bk-246 = { endf = "n-097_Bk_246.endf", temperatures = [565, 600], activation = true }
+Bk-247 = { endf = "n-097_Bk_247.endf", temperatures = [565, 600], activation = true }
+Bk-248 = { endf = "n-097_Bk_248.endf", temperatures = [565, 600], activation = true }
+Bk-249 = { endf = "n-097_Bk_249.endf", temperatures = [565, 600], activation = true }
+Bk-250 = { endf = "n-097_Bk_250.endf", temperatures = [565, 600], activation = true }
+Cf-246 = { endf = "n-098_Cf_246.endf", temperatures = [565, 600], activation = true }
+Cf-247 = { endf = "n-098_Cf_247.endf", temperatures = [565, 600], activation = true }
+Cf-248 = { endf = "n-098_Cf_248.endf", temperatures = [565, 600], activation = true }
+Cf-249 = { endf = "n-098_Cf_249.endf", temperatures = [565, 600], activation = true }
+Cf-250 = { endf = "n-098_Cf_250.endf", temperatures = [565, 600], activation = true }
+Cf-251 = { endf = "n-098_Cf_251.endf", temperatures = [565, 600], activation = true }
+Cf-252 = { endf = "n-098_Cf_252.endf", temperatures = [565, 600], activation = true }
+Cf-253 = { endf = "n-098_Cf_253.endf", temperatures = [565, 600], activation = true }
+Cf-254 = { endf = "n-098_Cf_254.endf", temperatures = [565, 600], activation = true }
+Es-251 = { endf = "n-099_Es_251.endf", temperatures = [565, 600], activation = true }
+Es-252 = { endf = "n-099_Es_252.endf", temperatures = [565, 600], activation = true }
+Es-253 = { endf = "n-099_Es_253.endf", temperatures = [565, 600], activation = true }
+Es-254 = { endf = "n-099_Es_254.endf", temperatures = [565, 600], activation = true }
+Es-254m = { endf = "n-099_Es_254m1.endf", temperatures = [565, 600], activation = true }
+Es-255 = { endf = "n-099_Es_255.endf", temperatures = [565, 600], activation = true }
+Fm-255 = { endf = "n-100_Fm_255.endf", temperatures = [565, 600], activation = true }
