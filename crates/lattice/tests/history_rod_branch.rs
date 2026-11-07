@@ -16,7 +16,8 @@ use std::process::Command;
 use xlc_depletion::chain::{Chain, Fission, Nuclide, Yield};
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
-    GroupChannel, GroupReaction, Library, NuclideData, Pointwise, Shielded, TemperatureData,
+    DelayedGroups, GroupChannel, GroupReaction, Library, NuclideData, Pointwise, Shielded,
+    TemperatureData,
 };
 use xlc_format::table::{Axis, Table};
 
@@ -24,6 +25,24 @@ const T: f64 = 600.0;
 
 /// 2 群（0.625 eV で分ける）の、分離共鳴のないライブラリ。全断面積は散乱、核分裂、捕獲の和。散乱は P1 まで
 fn library() -> Library {
+    // U-235 は遅発中性子の 2 族を持つ
+    let mut library = plain_library();
+    let u235 = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-235")
+        .unwrap();
+    u235.decay_constants = Some(vec![0.0133, 0.0327]);
+    for t in &mut u235.temperatures {
+        t.delayed = Some(DelayedGroups {
+            nu: vec![vec![0.004, 0.0041], vec![0.012, 0.0118]],
+            chi: vec![vec![1.0, 0.0], vec![0.9, 0.1]],
+        });
+    }
+    library
+}
+
+fn plain_library() -> Library {
     // (名前, ZA, awr, 散乱 [[g→g']], 核分裂, 捕獲)
     let nuclide = |name: &str,
                    za: f64,
@@ -358,6 +377,11 @@ fn history_rod_branches_match_separate_lattices() {
     }
     let micro = rods.micro.as_ref().unwrap();
     let out_micro = out.micro.as_ref().unwrap();
+    let kinetics = rods.kinetics.as_ref().unwrap();
+    // 冷却計算の断面積は、棒のない値の公称の状態（履歴の輸送）の燃焼度の点ごとの値
+    let cooling = rods.cooling.as_ref().unwrap();
+    assert_eq!(Some(cooling), out.cooling.as_ref());
+    assert_eq!(cooling.points.len(), all.len());
     // 追う核種と燃焼度の点ごとの均質化した数密度は、棒のない値（履歴の組成で決まる）
     assert_eq!(micro.nuclides, out_micro.nuclides);
     assert_eq!(micro.densities, out_micro.densities);
@@ -373,6 +397,11 @@ fn history_rod_branches_match_separate_lattices() {
             assert_eq!(
                 micro.states[m], one_micro.states[n],
                 "micro cross sections of rod value {r} at {point:?}"
+            );
+            assert_eq!(
+                kinetics.states[m],
+                one.kinetics.as_ref().unwrap().states[n],
+                "kinetics of rod value {r} at {point:?}"
             );
             assert!(
                 micro.states[m]
