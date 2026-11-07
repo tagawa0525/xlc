@@ -8475,7 +8475,7 @@ python3 examples/depletion/compare_core_thermal.py --json $T/compare-thermal.jso
 
 core の燃焼のノードの出力の割合を、核分裂率 Σf φ V の割合（[ADR-0190](../../docs/adr/0190-advance-node-burnups-by-midpoint-steps.md) の「## 変更」の前の決定）から、格子計算の燃焼の
 出力（[ADR-0173](../../docs/adr/0173-deplete-lattice-pins-by-ce-cm.md) の Σ N σf φ Q）と同じ定義の κΣf φ V の割合に替えた差を（#0154）、燃焼度の違う集合体が並ぶ小さな炉心で
-測る。炉心、テーブル、平衡 Xe は「restart と装荷替え（小さな炉心）」と同じ。
+測る。炉心と平衡 Xe は「restart と装荷替え（小さな炉心）」と同じで、テーブルは同じ入力を κΣf を書く `bin/lattice` で解き直したもの（下）。
 
 - テーブル: `branches/branch-2A-micro-boron-rod-axis.toml` を κΣf を書く `bin/lattice` で解き直したもの。κΣf のほかの値は、前のテーブル（md5 283e440b）と
   ビットで同じ（msgpack を読んで状態の `kappa_fission` を除いて比べた）。群ごとの核分裂あたりのエネルギー κΣf / Σf は、燃焼度 0 の公称の状態で速群
@@ -8485,7 +8485,8 @@ core の燃焼のノードの出力の割合を、核分裂率 Σf φ V の割�
 - 深い燃焼（`deep`、`deep-reload`）: 同じ装荷を 600 ppm（与える）で 20 MWd/kg まで燃焼させ（`core-small-energy-1.toml`。探索の範囲では目標の k を囲めない）、
   その履歴から同じ装荷替えで、600 ppm で 3 MWd/kg の増分まで（`core-small-energy-2.toml`、`core-small-energy-2-cycle.toml`）
 - 核分裂率の燃焼は、変える前の `bin/core`（分岐点の `dvc.lock` の `build` の出力、md5 5737abc2）で前のテーブルを解いたもの（変える前の core は
-  `kappa_fission` のキーを読めない）。同じケースとサイクルのファイルを試行の置き場にコピーして解く
+  `kappa_fission` のキーを読めない）。どちらの燃焼も、同じケースとサイクルのファイルを試行の置き場にコピーして解く（restart の確認と同じ履歴の名前を
+  書くので、その記録の出力を上書きしない）
 
 比べるのは `examples/depletion/compare_core_energy.py`: 差は κΣf − 核分裂率で、反応度の差は (1/k_核分裂率 − 1/k_κΣf) × 1e5 pcm、ノードの出力の割合と燃焼度は
 核分裂率の燃焼を基準にした相対差の絶対値の最大、集合体の欄は κΣf の燃焼の集合体の燃焼度（質量の重み）と、集合体の出力の割合の相対差。
@@ -8495,27 +8496,31 @@ core の燃焼のノードの出力の割合を、核分裂率 Σf φ V の割�
 dvc repro dvc.yaml:build
 cd examples/depletion/branches
 ../../../bin/lattice branch-2A-micro-boron-rod-axis.toml > branch-2A-micro-boron-rod-axis.out 2> branch-2A-micro-boron-rod-axis.log
-for c in restart-full reload energy-1 energy-2; do
-  RAYON_NUM_THREADS=1 ../../../bin/core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
-done
 cd ../../..
-# 核分裂率の燃焼: 変える前の bin/core と前のテーブル（DVC のキャッシュの md5 283e440b）を、チェーンの相対パスが同じになる置き場で解く
-T=trials/0154-rate
-mkdir -p $T && ln -sfn ../examples/depletion/chain.msgpack trials/chain.msgpack
-# $T に、変える前の bin/core を core-main、前のテーブルを table-2A-micro-boron-rod-axis.msgpack として置き、反射体のテーブルとケースをコピーする
-cp examples/depletion/branches/{table-reflector-I-boron.msgpack,core-small-plant.toml,core-small-assemblies.toml,core-small-cycle.toml} $T/
-cp examples/depletion/branches/core-small-{reload-cycle,restart-full,reload,energy-1,energy-2-cycle,energy-2}.toml $T/
-(cd $T && for c in restart-full reload energy-1 energy-2; do
-  RAYON_NUM_THREADS=1 ./core-main core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
-done)
-# 履歴とログを、比べる燃焼の名前で branches/energy に集める（restart の確認と同じ出力の名前を、後の実行が上書きしても残すため）
 B=examples/depletion/branches
+# 試行の置き場（チェーンの相対パス ../chain.msgpack が同じになる深さ）に、テーブル、ケース、core を置いて解く。restart する燃焼は、前の燃焼の後に解く
+ln -sfn ../examples/depletion/chain.msgpack trials/chain.msgpack
+burn() {
+  mkdir -p $1
+  cp $B/{table-reflector-I-boron.msgpack,core-small-plant.toml,core-small-assemblies.toml,core-small-cycle.toml} $1/
+  cp $B/core-small-{reload-cycle,restart-full,reload,energy-1,energy-2-cycle,energy-2}.toml $1/
+  (cd $1 && for c in restart-full reload energy-1 energy-2; do
+    RAYON_NUM_THREADS=1 ./core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
+  done)
+}
+# κΣf の燃焼: 今の bin/core と解き直したテーブル
+mkdir -p trials/0154-kappa && cp bin/core $B/table-2A-micro-boron-rod-axis.msgpack trials/0154-kappa/
+burn trials/0154-kappa
+# 核分裂率の燃焼: 変える前の bin/core（分岐点の dvc.lock の build の出力）を core、前のテーブル（DVC のキャッシュの md5 283e440b）を
+# table-2A-micro-boron-rod-axis.msgpack として trials/0154-rate に置いてから
+burn trials/0154-rate
+# 履歴とログを、比べる燃焼の名前で branches/energy に集める
 E=$B/energy
 mkdir -p $E
 for c in restart-full:cycle reload:reload energy-1:deep energy-2:deep-reload; do
   for x in msgpack log; do
-    cp $T/core-small-${c%%:*}.$x $E/rate-${c##*:}.$x
-    cp $B/core-small-${c%%:*}.$x $E/kappa-${c##*:}.$x
+    cp trials/0154-rate/core-small-${c%%:*}.$x $E/rate-${c##*:}.$x
+    cp trials/0154-kappa/core-small-${c%%:*}.$x $E/kappa-${c##*:}.$x
   done
 done
 python3 examples/depletion/compare_core_energy.py --json $B/compare-core-small-energy.json \
@@ -8531,8 +8536,8 @@ python3 examples/depletion/compare_core_energy.py --report $B/compare-core-small
 ブランチ feat/0154-node-power-by-fission-energy（分岐点は main の ec507c7f6）の 4b627b4f9、2026-11-07。テーブル（md5 4c1806b4）は 4b627b4f9 の `bin/lattice`（`dvc.lock` の
 `build` の出力、md5 97f6db52）で解いた（Slurm 720、区分 record。割り込まれうるジョブなので時間は記録に使わない）。燃焼の履歴は「集合体の燃焼」の 2A
 （`p2/lattice-2A.msgpack` md5 a2cc87df）、ライブラリは `p2/depletion.msgpack`（md5 e84310af）。κΣf の燃焼は 4b627b4f9 の `bin/core`（md5 695ecf17）、核分裂率の
-燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1`。restart する燃焼はその前の燃焼の後に流す 2 本の列を、2 つの core で 4 列同時に
-流した。時間は記録に使わない）。比較は e26851d36 のツール（手元）。
+燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1`。上のコマンドと違い、κΣf の燃焼は `branches` の中で、核分裂率の燃焼は試行の置き場で解き、
+core ごとに切らない燃焼とその装荷替え、深い燃焼とその装荷替えの 2 つの列を、4 列同時に流した。時間は記録に使わない）。比較は e26851d36 のツール（手元）。
 
 ### 結果
 
