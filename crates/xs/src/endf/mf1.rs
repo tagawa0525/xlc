@@ -15,9 +15,17 @@ pub fn parse_nubar(section: &Section<'_>) -> Result<Tab1, Error> {
     Ok(r.tab1()?.table)
 }
 
-/// 遅発中性子の ν_d(E)（MT455）の表を読む。族ごとの崩壊定数（LDG=0 の LIST）は読み飛ばす。
+/// 遅発中性子の族ごとの崩壊定数と ν_d(E)（MF1 MT455）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct DelayedNubar {
+    /// 族ごとの崩壊定数 (1/s)。LIST の順
+    pub decay_constants: Vec<f64>,
+    pub nubar: Tab1,
+}
+
+/// 遅発中性子の族ごとの崩壊定数（LDG=0 の LIST）と ν_d(E)（MT455）の表を読む。
 /// 崩壊定数がエネルギーに依存する形（LDG=1）と、表形式でない ν（LNU=1）は扱わない。
-pub fn parse_delayed_nubar(section: &Section<'_>) -> Result<Tab1, Error> {
+pub fn parse_delayed(section: &Section<'_>) -> Result<DelayedNubar, Error> {
     let mut r = section.reader();
     let head = r.cont()?;
     let (ldg, lnu) = (head.l1, head.l2);
@@ -27,8 +35,11 @@ pub fn parse_delayed_nubar(section: &Section<'_>) -> Result<Tab1, Error> {
     if lnu != 2 {
         return Err(Error::new(r.line(), format!("LNU={lnu} is not supported")));
     }
-    r.list()?;
-    Ok(r.tab1()?.table)
+    let decay_constants = r.list()?.values;
+    Ok(DelayedNubar {
+        decay_constants,
+        nubar: r.tab1()?.table,
+    })
 }
 
 #[cfg(test)]

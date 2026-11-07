@@ -34,7 +34,15 @@
 //! [nuclide.U-238]
 //! endf = "n-092_U_238.endf"
 //! temperatures = [293.6, 600, 900, 1200]
+//!
+//! [nuclide.Cs-134]
+//! endf = "n-055_Cs_134.endf"
+//! temperatures = [600, 900]
+//! activation = true           # 放射化の核種（輸送しない。省略すると false）
 //! ```
+//!
+//! `activation = true` の核種は、チェーンの反応と核分裂の無限希釈の群の断面積だけを作り、ライブラリの `activation` に置く
+//! （ADR-0238。輸送しないので `thermal` を持てず、ポイントワイズの範囲を決めない）。ライブラリは群速度の逆数も持つ。
 //!
 //! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
 //!
@@ -58,13 +66,14 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::group::GroupStructure;
-use xlc_format::library::{Library, NuclideData, is_nuclide_name};
+use xlc_format::library::{ActivationData, Library, NuclideData, is_nuclide_name};
 use xlc_xs::endf::Tape;
-use xlc_xs::multigroup::{SabOutside, Weight};
+use xlc_xs::multigroup::{SabOutside, Weight, inverse_velocity};
 use xlc_xs::parallel::{in_parallel, set_threads};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
 use xlc_xs::process::{
-    SabUpper, Settings, ThermalScattering, process_nuclide, read_thermal_scattering, resolved,
+    SabUpper, Settings, ThermalScattering, process_activation, process_nuclide,
+    read_thermal_scattering, resolved,
 };
 
 /// 入力ファイルを解釈した結果（パスは入力ファイルのディレクトリで解決済み）。
@@ -81,6 +90,8 @@ struct NuclideInput {
     name: String,
     endf: PathBuf,
     temperatures: Vec<f64>,
+    /// 放射化の核種（輸送しない。ADR-0238）
+    activation: bool,
     thermal: Option<ThermalInput>,
 }
 
@@ -130,6 +141,9 @@ struct NuclideEntry {
     sab_outside: Option<SabOutsideEntry>,
     /// `thermal` を使う核種だけ。省略すると `DEFAULT_FREE_GAS_UPPER`
     free_gas_upper: Option<f64>,
+    /// 放射化の核種（ADR-0238）。省略すると輸送する核種
+    #[serde(default)]
+    activation: bool,
 }
 
 #[derive(Deserialize)]
@@ -222,9 +236,15 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
                 return invalid(format!("{name}: `thermal` needs `thermal-directory`"));
             }
         };
+        if entry.activation && thermal.is_some() {
+            return invalid(format!(
+                "{name}: activation nuclides are not transported and take no `thermal`"
+            ));
+        }
         nuclides.push(NuclideInput {
             endf: endf_directory.join(&entry.endf),
             temperatures: entry.temperatures,
+            activation: entry.activation,
             thermal,
             name,
         });
@@ -340,13 +360,49 @@ fn settings_of(input: &Input, pointwise_range: Option<(f64, f64)>) -> Settings {
     }
 }
 
-fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
+fn library_of(
+    settings: Settings,
+    nuclides: Vec<NuclideData>,
+    activation: Vec<ActivationData>,
+) -> Library {
     Library {
+        inverse_velocity: inverse_velocity(&settings.groups, &settings.weight),
         groups: settings.groups,
         sigma0: settings.sigma0,
         pointwise_range: settings.pointwise_range.map(|(low, high)| [low, high]),
         nuclides,
+        activation,
     }
+}
+
+/// 輸送する核種（放射化の核種を除く。ポイントワイズの範囲を決める核種）
+fn transported(nuclides: &[NuclideInput]) -> impl Iterator<Item = &NuclideInput> {
+    nuclides.iter().filter(|n| !n.activation)
+}
+
+/// 核種 1 つの処理の結果（輸送する核種か放射化の核種）
+enum Processed {
+    Transported(NuclideData),
+    Activation(ActivationData),
+}
+
+/// 処理の結果を、輸送する核種と放射化の核種に分けて 1 つのライブラリにする
+fn library_from(settings: Settings, results: Vec<Processed>) -> Library {
+    let (mut nuclides, mut activation) = (Vec::new(), Vec::new());
+    for result in results {
+        match result {
+            Processed::Transported(data) => nuclides.push(data),
+            Processed::Activation(data) => activation.push(data),
+        }
+    }
+    library_of(settings, nuclides, activation)
+}
+
+/// 輸送する核種のテープだけを読む（ポイントワイズの範囲を求める）
+fn transported_tapes(nuclides: &[NuclideInput]) -> anyhow::Result<(Vec<NuclideInput>, Vec<Tape>)> {
+    let transported: Vec<NuclideInput> = transported(nuclides).cloned().collect();
+    let tapes = read_tapes(&transported)?;
+    Ok((transported, tapes))
 }
 
 /// ファイルを書く。DVC はステージの前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
@@ -366,18 +422,25 @@ fn write_library(library: &Library, path: &Path) -> anyhow::Result<()> {
 fn run(input: &Input) -> anyhow::Result<()> {
     // テープの読み込みと、核種ごとの処理は独立なので並列に行う
     let tapes = read_tapes(&input.nuclides)?;
-    let pointwise_range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
+    let (kept, kept_tapes): (Vec<NuclideInput>, Vec<Tape>) = input
+        .nuclides
+        .iter()
+        .zip(&tapes)
+        .filter(|(n, _)| !n.activation)
+        .map(|(n, t)| (n.clone(), t.clone()))
+        .unzip();
+    let pointwise_range = pointwise_range(&kept, &kept_tapes, &GroupStructure::wims69())?;
     let settings = settings_of(input, pointwise_range);
-    let nuclides = in_parallel(input.nuclides.len(), |i| {
+    let results = in_parallel(input.nuclides.len(), |i| {
         process_file(&input.nuclides[i], &tapes[i], &settings)
     })?;
-    write_library(&library_of(settings, nuclides), &input.output)
+    write_library(&library_from(settings, results), &input.output)
 }
 
 /// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` のステージの入力になる）。
 fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
-    let tapes = read_tapes(&input.nuclides)?;
-    let range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
+    let (nuclides, tapes) = transported_tapes(&input.nuclides)?;
+    let range = pointwise_range(&nuclides, &tapes, &GroupStructure::wims69())?;
     write_file(out, range_to_toml(range).as_bytes())
 }
 
@@ -397,7 +460,7 @@ fn run_nuclide(input: &Input, range: &Path, name: &str, out: &Path) -> anyhow::R
     let pointwise_range = read_range(range)?;
     let settings = settings_of(input, pointwise_range);
     let data = process_file(nuclide, &read_tape(&nuclide.endf)?, &settings)?;
-    write_library(&library_of(settings, vec![data]), out)
+    write_library(&library_from(settings, vec![data]), out)
 }
 
 /// `directory` の `<核種>.msgpack`（`nuclide` の結果）を、入力の核種の順に 1 つのライブラリにして書く。
@@ -489,17 +552,33 @@ fn range_from_toml(text: &str) -> anyhow::Result<Option<(f64, f64)>> {
 
 /// 核種ごとの結果が、入力のその核種の結果であること（1 核種だけで、名前と温度が入力と同じ）を確かめる。
 fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
-    let [data] = &part.nuclides[..] else {
-        return Err(anyhow!(
-            "{}: expected one nuclide, found {}",
-            nuclide.name,
-            part.nuclides.len()
-        ));
-    };
-    if data.name != nuclide.name {
-        return Err(anyhow!("{}: the result is for {}", nuclide.name, data.name));
+    let (name, temperatures): (&str, Vec<f64>) =
+        match (&part.nuclides[..], &part.activation[..], nuclide.activation) {
+            ([data], [], false) => (
+                &data.name,
+                data.temperatures.iter().map(|t| t.temperature).collect(),
+            ),
+            ([], [data], true) => (
+                &data.name,
+                data.temperatures.iter().map(|t| t.temperature).collect(),
+            ),
+            (nuclides, activation, _) => {
+                return Err(anyhow!(
+                    "{}: expected one {} nuclide, found {} transported and {} activation nuclides",
+                    nuclide.name,
+                    if nuclide.activation {
+                        "activation"
+                    } else {
+                        "transported"
+                    },
+                    nuclides.len(),
+                    activation.len()
+                ));
+            }
+        };
+    if name != nuclide.name {
+        return Err(anyhow!("{}: the result is for {name}", nuclide.name));
     }
-    let temperatures: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
     if temperatures != nuclide.temperatures {
         return Err(anyhow!(
             "{}: the result has temperatures {temperatures:?}, the input has {:?}",
@@ -521,6 +600,13 @@ fn check_shared(input: &Input, range: Option<(f64, f64)>, part: &Library) -> any
             "sigma0 is {:?}, the input has {:?}",
             part.sigma0,
             input.sigma0
+        ));
+    }
+    let velocity = inverse_velocity(&part.groups, &Weight::lwr());
+    if part.inverse_velocity != velocity {
+        return Err(anyhow!(
+            "the inverse velocities are {:?}, the weight function gives {velocity:?}",
+            part.inverse_velocity
         ));
     }
     let range = range.map(|(low, high)| [low, high]);
@@ -552,8 +638,13 @@ fn process_file(
     nuclide: &NuclideInput,
     tape: &Tape,
     settings: &Settings,
-) -> anyhow::Result<NuclideData> {
+) -> anyhow::Result<Processed> {
     let name = &nuclide.name;
+    if nuclide.activation {
+        let data = process_activation(tape, name, &nuclide.temperatures, settings)
+            .with_context(|| name.clone())?;
+        return Ok(Processed::Activation(data));
+    }
     let thermal = match &nuclide.thermal {
         Some(input) => Some(ThermalScattering {
             data: read_thermal_scattering(&read_tape(&input.path)?)
@@ -572,7 +663,7 @@ fn process_file(
         settings,
     )
     .with_context(|| name.clone())?;
-    Ok(data)
+    Ok(Processed::Transported(data))
 }
 
 /// S(α, β) を持たない核種で、この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う（WIMS 69群の熱群の上限）。
