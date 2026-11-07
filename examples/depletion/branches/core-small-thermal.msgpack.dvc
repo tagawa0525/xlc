@@ -1,0 +1,5 @@
+outs:
+- md5: c1de3f438e2ddefcfcbd1dffe5e3d8da
+  size: 282143
+  hash: md5
+  path: core-small-thermal.msgpack

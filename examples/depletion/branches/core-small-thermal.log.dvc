@@ -1,0 +1,5 @@
+outs:
+- md5: e27d00b5fa5f6cf94fb3f263cde29946
+  size: 193885
+  hash: md5
+  path: core-small-thermal.log
