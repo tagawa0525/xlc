@@ -55,8 +55,10 @@ fn library_with(specs: Vec<Spec>, temperature: f64, bounds: &[f64]) -> Library {
                     potential: 10.0,
                 }),
                 thermal_scattering: false,
+                decay_constants: None,
                 temperatures: vec![TemperatureData {
                     sab_transfer: None,
+                    delayed: None,
                     reactions: Vec::new(),
                     temperature,
                     chi: vec![0.0; ng],
@@ -81,6 +83,8 @@ fn library_with(specs: Vec<Spec>, temperature: f64, bounds: &[f64]) -> Library {
         })
         .collect();
     Library {
+        inverse_velocity: vec![1.0e-6; groups.len()],
+        activation: Vec::new(),
         groups,
         sigma0: vec![1.0e10],
         pointwise_range: Some([4.0, 2.0e4]),

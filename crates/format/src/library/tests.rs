@@ -69,6 +69,32 @@ fn temperature(t: f64, fissile: bool) -> TemperatureData {
         shielded: vec![shielded(1.0, fissile), shielded(0.5, fissile)],
         reactions: reactions(),
         sab_transfer: None,
+        delayed: fissile.then(delayed),
+    }
+}
+
+/// 2 族の遅発中性子の群の量（[族][群]）
+fn delayed() -> DelayedGroups {
+    DelayedGroups {
+        nu: vec![vec![0.0006, 0.0005], vec![0.0031, 0.0028]],
+        chi: vec![vec![0.4, 0.6], vec![0.75, 0.25]],
+    }
+}
+
+/// 輸送しない放射化の核種（捕獲を状態に分ける）
+fn activation() -> ActivationData {
+    ActivationData {
+        name: "Cs-134".into(),
+        za: 55134.0,
+        awr: 132.76,
+        temperatures: [293.6, 900.0]
+            .iter()
+            .map(|&t| ActivationTemperature {
+                temperature: t,
+                fission: vec![0.0, 0.0],
+                reactions: reactions(),
+            })
+            .collect(),
     }
 }
 
@@ -79,6 +105,7 @@ pub(crate) fn sample() -> Library {
         awr: 233.0248,
         resolved: None,
         thermal_scattering: false,
+        decay_constants: fissile.then(|| vec![0.0133, 3.01]),
         temperatures: temperatures
             .iter()
             .map(|&t| temperature(t, fissile))
@@ -88,10 +115,13 @@ pub(crate) fn sample() -> Library {
         pointwise_range: Some([4.0, 1.0e4]),
         groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         sigma0: vec![1.0e10, 10.0],
+        // 1.7929089665572825e-9 は、10 進表記を経ると最下位のビットがずれやすい値
+        inverse_velocity: vec![1.7929089665572825e-9, 3.6e-6],
         nuclides: vec![
             nuclide("U-235", true, &[293.6, 900.0]),
             nuclide("H-1", false, &[293.6]),
         ],
+        activation: vec![activation()],
     }
 }
 
@@ -99,12 +129,20 @@ pub(crate) fn sample() -> Library {
 fn part(index: usize) -> Library {
     let mut library = sample();
     library.nuclides = vec![library.nuclides.swap_remove(index)];
+    library.activation = Vec::new();
+    library
+}
+
+/// `sample()` の放射化の核種だけを持つライブラリ
+fn activation_part() -> Library {
+    let mut library = sample();
+    library.nuclides = Vec::new();
     library
 }
 
 #[test]
 fn merge_joins_the_nuclides_in_order() {
-    let merged = Library::merge(vec![part(0), part(1)]).unwrap();
+    let merged = Library::merge(vec![part(0), activation_part(), part(1)]).unwrap();
     assert_eq!(merged, sample());
     let reversed = Library::merge(vec![part(1), part(0)]).unwrap();
     let names: Vec<_> = reversed.nuclides.iter().map(|n| n.name.as_str()).collect();
@@ -121,7 +159,9 @@ fn merge_rejects_libraries_that_do_not_share_the_grids() {
     range.pointwise_range = Some([4.0, 1.0e3]);
     let mut no_range = part(1);
     no_range.pointwise_range = None;
-    for other in [sigma0, groups, range, no_range] {
+    let mut velocity = part(1);
+    velocity.inverse_velocity[0] *= 2.0;
+    for other in [sigma0, groups, range, no_range, velocity] {
         assert!(Library::merge(vec![part(0), other]).is_err());
     }
 }
@@ -129,6 +169,7 @@ fn merge_rejects_libraries_that_do_not_share_the_grids() {
 #[test]
 fn merge_rejects_a_repeated_nuclide_and_an_empty_list() {
     assert!(Library::merge(vec![part(0), part(0)]).is_err());
+    assert!(Library::merge(vec![activation_part(), activation_part()]).is_err());
     assert!(Library::merge(Vec::new()).is_err());
 }
 
@@ -486,7 +527,9 @@ fn sample_file() -> LibraryFile {
         group_bounds: library.groups.bounds().to_vec(),
         sigma0: library.sigma0,
         pointwise_range: library.pointwise_range.map(Vec::from).unwrap_or_default(),
+        inverse_velocity: library.inverse_velocity,
         nuclides: library.nuclides,
+        activation: library.activation,
     }
 }
 
@@ -516,8 +559,10 @@ fn written_as_a_map_with_the_format_name() {
     assert_eq!(
         keys,
         vec![
+            "activation",
             "format",
             "group_bounds",
+            "inverse_velocity",
             "nuclides",
             "pointwise_range",
             "sigma0"
@@ -1002,4 +1047,84 @@ fn sab_transfer_interpolates_the_cumulative_share_in_ln_e_and_the_transfer() {
     assert_eq!(table.cumulative_at(10.5, 0.0), None);
     assert_eq!(table.cumulative_at(4.0, 1.6), None);
     assert_eq!(table.cumulative_at(10.0, -6.1), None);
+}
+
+#[test]
+fn delayed_data_need_every_temperature_and_the_families_of_the_decay_constants() {
+    assert!(read_modified(|_| {}).is_ok());
+    let broken: [fn(&mut LibraryFile); 7] = [
+        // 崩壊定数があるのに、温度の群の量がない
+        |f| f.nuclides[0].temperatures[1].delayed = None,
+        // 群の量があるのに、崩壊定数がない
+        |f| f.nuclides[0].decay_constants = None,
+        // 族の数が崩壊定数と違う
+        |f| {
+            if let Some(d) = &mut f.nuclides[0].temperatures[0].delayed {
+                d.nu.pop();
+            }
+        },
+        |f| f.nuclides[0].decay_constants = Some(vec![0.0133, 0.0]),
+        |f| f.nuclides[0].decay_constants = Some(Vec::new()),
+        |f| {
+            if let Some(d) = &mut f.nuclides[0].temperatures[0].delayed {
+                d.nu[1][0] = -1e-4;
+            }
+        },
+        // 族のスペクトルの和は 1
+        |f| {
+            if let Some(d) = &mut f.nuclides[0].temperatures[0].delayed {
+                d.chi[0] = vec![0.4, 0.5];
+            }
+        },
+    ];
+    for change in broken {
+        assert!(read_modified(change).is_err());
+    }
+}
+
+#[test]
+fn inverse_velocities_are_positive_for_every_group() {
+    for velocity in [vec![1.0e-9], vec![1.0e-9, 0.0], vec![1.0e-9, f64::NAN]] {
+        assert!(read_modified(|f| f.inverse_velocity = velocity.clone()).is_err());
+        let mut library = sample();
+        library.inverse_velocity = velocity;
+        assert!(library.to_msgpack().is_err());
+    }
+}
+
+#[test]
+fn activation_cross_sections_are_looked_up_at_their_exact_temperature() {
+    let library = sample();
+    let at = library.activation("Cs-134", 900.0).unwrap();
+    assert_eq!(at.temperature, 900.0);
+    assert_eq!(at.reactions, reactions());
+    assert!(matches!(
+        library.activation("Cs-134", 600.0),
+        Err(LookupError::Temperature { .. })
+    ));
+    assert!(matches!(
+        library.activation("U-235", 900.0),
+        Err(LookupError::Nuclide(_))
+    ));
+    // 放射化の核種は輸送の核種として引けない
+    assert!(library.lookup("Cs-134", 900.0).is_err());
+}
+
+#[test]
+fn activation_nuclides_are_checked_like_the_chain_reactions_of_the_library() {
+    let broken: [fn(&mut LibraryFile); 6] = [
+        // 輸送する核種と同じ名前
+        |f| f.activation[0].name = "U-235".into(),
+        |f| f.activation[0].name = "cesium".into(),
+        |f| f.activation[0].temperatures.clear(),
+        |f| f.activation[0].temperatures[1].temperature = 293.6,
+        |f| f.activation[0].temperatures[0].fission = vec![0.0],
+        |f| f.activation[0].temperatures[0].reactions[1].channels[0].cross_section[0] = f64::NAN,
+    ];
+    for change in broken {
+        assert!(read_modified(change).is_err());
+    }
+    let mut twice = sample();
+    twice.activation.push(activation());
+    assert!(twice.to_msgpack().is_err());
 }

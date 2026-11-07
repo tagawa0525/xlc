@@ -14,6 +14,8 @@ fn library() -> Library {
         capture: vec![0.0, 0.0],
     };
     Library {
+        inverse_velocity: vec![1.0e-6; 2],
+        activation: Vec::new(),
         pointwise_range: Some([4.0, 1.0e4]),
         groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         sigma0: vec![1.0e10, 100.0, 1.0],
@@ -23,8 +25,10 @@ fn library() -> Library {
             awr: 236.0,
             resolved: None,
             thermal_scattering: false,
+            decay_constants: None,
             temperatures: vec![TemperatureData {
                 sab_transfer: None,
+                delayed: None,
                 reactions: Vec::new(),
                 pointwise: Default::default(),
                 temperature: T,
@@ -200,8 +204,10 @@ pub(crate) mod lattice {
             awr: 1.0,
             resolved: None,
             thermal_scattering: false,
+            decay_constants: None,
             temperatures: vec![TemperatureData {
                 sab_transfer: None,
+                delayed: None,
                 reactions: Vec::new(),
                 pointwise: Default::default(),
                 temperature: T,
@@ -224,6 +230,8 @@ pub(crate) mod lattice {
         let u238 = |t: f64, e: f64| table([t, 10.0], [e, 4.0], [0.0, 0.0]);
         let constant = |total, fission| vec![table(total, [6.0, 4.0], fission); 3];
         Library {
+            inverse_velocity: vec![1.0e-6; 2],
+            activation: Vec::new(),
             pointwise_range: Some([4.0, 1.0e4]),
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 100.0, 1.0],
@@ -947,8 +955,10 @@ pub(crate) mod lattice {
                     potential: 10.0,
                 }),
                 thermal_scattering: false,
+                decay_constants: None,
                 temperatures: vec![TemperatureData {
                     sab_transfer: None,
+                    delayed: None,
                     reactions: Vec::new(),
                     temperature: T,
                     chi: (0..ng)
@@ -989,6 +999,8 @@ pub(crate) mod lattice {
             .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
             .collect();
         Library {
+            inverse_velocity: vec![1.0e-6; bounds.len() - 1],
+            activation: Vec::new(),
             pointwise_range: Some([4.0, 1.0e4]),
             groups: GroupStructure::new(bounds).unwrap(),
             sigma0: vec![1.0e10, 100.0, 1.0],

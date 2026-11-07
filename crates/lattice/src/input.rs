@@ -1331,13 +1331,14 @@ impl LatticeInput {
                             .into(),
                     );
                 }
-                // κΣf（ADR-0190）は格子全体の燃焼の領域で均質化するので、部分ノードに分けないテーブルだけ
+                // κΣf（ADR-0190）、微視的断面積（ADR-0216）、動特性と冷却計算のデータ（ADR-0238）は格子全体で均質化するので、部分ノードに
+                // 分けないテーブルだけ
                 if let Some(FewGroupOutput { split, .. }) = &output
                     && *split != 1
                 {
                     return Err(format!(
-                        "[history] tables carry the fission energy cross section of the whole lattice, so they must \
-                         not be split (split {split}. ADR-0190)"
+                        "[history] tables are homogenized over the whole lattice, so they must not be split \
+                         (split {split}. ADR-0190, ADR-0216, ADR-0238)"
                     ));
                 }
                 if h.burnup.is_empty()
@@ -1381,7 +1382,7 @@ impl LatticeInput {
                         ));
                     }
                 }
-                // ミクロ燃焼で追う核種（ADR-0216）。微視的断面積は格子全体で均質化するので、部分ノードに分けないテーブルだけ
+                // ミクロ燃焼で追う核種（ADR-0216）。分けないテーブルであることは上で確かめた
                 let micro = match h.micro {
                     None => Vec::new(),
                     Some(list) => {
@@ -1392,14 +1393,6 @@ impl LatticeInput {
                         {
                             return Err(format!(
                                 "[history] micro must list distinct nuclide names, got {list:?}"
-                            ));
-                        }
-                        if let Some(FewGroupOutput { split, .. }) = &output
-                            && *split != 1
-                        {
-                            return Err(format!(
-                                "[history] micro cross sections are homogenized over the whole lattice, so the table \
-                                 must not be split (split {split}. ADR-0216)"
                             ));
                         }
                         list

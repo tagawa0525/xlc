@@ -102,6 +102,8 @@ fn nominal() -> Table {
                 .collect(),
         }),
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
         points,
     };
     table.validate().unwrap();
@@ -132,6 +134,8 @@ fn branch() -> Table {
                 .collect(),
         }),
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
     };
     table.validate().unwrap();
     table
@@ -878,6 +882,8 @@ fn rod_pair() -> BranchTables {
                     .collect(),
             }),
             histories: Vec::new(),
+            kinetics: None,
+            cooling: None,
         };
         table.validate().unwrap();
         table

@@ -4,13 +4,13 @@ use std::collections::BTreeMap;
 
 use crate::endf::{
     Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, final_state_table,
-    final_states, parse_delayed_nubar, parse_nubar,
+    final_states, parse_delayed, parse_nubar,
 };
 use crate::multigroup::{
     Emission, FissionNeutrons, FreeGas, ReactionAverages, Reactions, SabError, SabOutside,
     ScatterError, ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight,
-    emits_neutrons, fission_spectrum, reaction_averages, scattering_moments, shielded_averages,
-    uses_angular,
+    delayed_groups, emits_neutrons, fission_spectrum, reaction_averages, scattering_moments,
+    shielded_averages, uses_angular,
 };
 use crate::parallel::in_parallel;
 use crate::physics::BK;
@@ -22,8 +22,8 @@ use crate::resonance::{
 };
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
-    CHAIN_REACTIONS, ChannelState, GroupChannel, GroupReaction, NuclideData, Pointwise, Resolved,
-    Shielded, TemperatureData,
+    ActivationData, ActivationTemperature, CHAIN_REACTIONS, ChannelState, GroupChannel,
+    GroupReaction, NuclideData, Pointwise, Resolved, Shielded, TemperatureData,
 };
 
 /// 処理の条件。
@@ -133,6 +133,10 @@ pub enum ProcessError {
     FissionData,
     #[error("the delayed neutron spectrum (MF5 MT455) needs MF1 {missing}")]
     DelayedFission { missing: &'static str },
+    #[error("MF1 MT455 has {constants} decay constants for {spectra} family spectra in MF5 MT455")]
+    DelayedFamilies { constants: usize, spectra: usize },
+    #[error("delayed neutron families need fission (MF3 MT18)")]
+    DelayedWithoutFission,
     #[error("MF8/MT{mt} mixes MF9 and MF10 in its final states")]
     MixedFinalStates { mt: u32 },
     #[error(
@@ -469,6 +473,61 @@ pub fn process_nuclide(
         awr: evaluation.awr,
         resolved: resolved(tape, evaluation.mat)?,
         thermal_scattering: thermal.is_some(),
+        decay_constants: evaluation
+            .delayed
+            .as_ref()
+            .map(|d| d.decay_constants.clone()),
+        temperatures,
+    })
+}
+
+/// 輸送しない核種（放射化の核種）の、温度ごとのチェーンの反応と核分裂の無限希釈の群の断面積（ADR-0238）。0 K の断面積を
+/// 再構成して温度に拡げ、[`process_nuclide`] と同じ重み関数で平均する（チェーンの反応は `chain_reactions`）。自己遮蔽の表、
+/// 散乱行列、χ、ポイントワイズの断面積は作らない
+pub fn process_activation(
+    tape: &Tape,
+    name: &str,
+    temperatures: &[f64],
+    settings: &Settings,
+) -> Result<ActivationData, ProcessError> {
+    let materials = tape.materials();
+    let [mat] = materials[..] else {
+        return Err(ProcessError::Materials(materials));
+    };
+    let first = *tape.mts(mat, 3).first().ok_or(ProcessError::NoMf3)?;
+    let head = Mf3::parse(&tape.section(mat, 3, first).ok_or(ProcessError::NoMf3)?)?;
+    let cold = ColdParts::read(tape, mat, settings.tolerance)?;
+    let (groups, weight) = (&settings.groups, &settings.weight);
+    let temperatures = in_parallel(temperatures.len(), |k| {
+        let temperature = temperatures[k];
+        let at = || -> Result<ActivationTemperature, ProcessError> {
+            let tables = cold.at(temperature);
+            let fission = match tables.get(&18) {
+                Some(table) => {
+                    reaction_averages(groups, weight, &BTreeMap::from([(18, table.clone())]), None)
+                        .sigma
+                        .remove(&18)
+                        .unwrap_or_else(|| vec![0.0; groups.len()])
+                }
+                None => vec![0.0; groups.len()],
+            };
+            let reactions =
+                chain_reactions(tape, mat, groups, weight, &tables, settings.tolerance)?;
+            Ok(ActivationTemperature {
+                temperature,
+                fission,
+                reactions,
+            })
+        };
+        at().map_err(|source| ProcessError::Temperature {
+            temperature,
+            source: Box::new(source),
+        })
+    })?;
+    Ok(ActivationData {
+        name: name.to_string(),
+        za: head.za,
+        awr: head.awr,
         temperatures,
     })
 }
@@ -634,6 +693,8 @@ pub struct Evaluation {
     pub cold: ColdParts,
     /// 核分裂で生まれる中性子の成分（χ の材料。`fission_parts`）
     pub fission_parts: Vec<FissionNeutrons>,
+    /// 遅発中性子の族（`delayed_families`）
+    pub delayed: Option<DelayedFamilies>,
     /// 離散準位の非弾性散乱（MT51〜90）の Q 値
     pub q_values: BTreeMap<u32, f64>,
     /// 中性子を放出する反応（弾性散乱と核分裂を除く）の出射の分布
@@ -662,6 +723,7 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
     };
     let cold = ColdParts::read(tape, mat, tolerance)?;
     let fission_parts = fission_parts(tape, mat, nubar.as_ref())?;
+    let delayed = delayed_families(tape, mat)?;
     let mut q_values = BTreeMap::new();
     for mt in tape
         .mts(mat, 3)
@@ -696,6 +758,7 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
         nubar,
         cold,
         fission_parts,
+        delayed,
         q_values,
         emissions,
         angular,
@@ -743,10 +806,46 @@ pub fn fission_parts(
             spectrum: prompt_spectrum,
         },
         FissionNeutrons {
-            nubar: parse_delayed_nubar(&delayed)?,
+            nubar: parse_delayed(&delayed)?.nubar,
             spectrum: Mf5::parse(&delayed_spectrum)?,
         },
     ])
+}
+
+/// 遅発中性子の族（ADR-0238）: MF1 MT455 の崩壊定数と ν_d(E)、MF5 MT455 の族ごとの割合と分布。
+#[derive(Debug, Clone)]
+pub struct DelayedFamilies {
+    /// 族ごとの崩壊定数 (1/s)
+    pub decay_constants: Vec<f64>,
+    /// ν_d(E)
+    pub nubar: Tab1,
+    /// 族ごとの小区分（族の割合 p_k(E) と分布。崩壊定数の順）
+    pub spectrum: Mf5,
+}
+
+/// 物質 `mat` の遅発中性子の族。族の割合は MF5 MT455 にしかないので、MF5 MT455 がなければ `None`（遅発中性子は ADR-0186 の
+/// χ と同じく即発に数える）。MF5 MT455 があるのに MF1 MT455 がなければ `fission_parts` と同じエラー、崩壊定数と分布の小区分の
+/// 数が違えばエラー
+pub fn delayed_families(tape: &Tape, mat: i32) -> Result<Option<DelayedFamilies>, ProcessError> {
+    let Some(section) = tape.section(mat, 5, 455) else {
+        return Ok(None);
+    };
+    let delayed = tape
+        .section(mat, 1, 455)
+        .ok_or(ProcessError::DelayedFission { missing: "MT455" })?;
+    let delayed = parse_delayed(&delayed)?;
+    let spectrum = Mf5::parse(&section)?;
+    if delayed.decay_constants.len() != spectrum.subsections.len() {
+        return Err(ProcessError::DelayedFamilies {
+            constants: delayed.decay_constants.len(),
+            spectra: spectrum.subsections.len(),
+        });
+    }
+    Ok(Some(DelayedFamilies {
+        decay_constants: delayed.decay_constants,
+        nubar: delayed.nubar,
+        spectrum,
+    }))
 }
 
 /// 温度によらない、1核種の処理の材料。
@@ -787,6 +886,17 @@ impl Common<'_> {
                 fission_spectrum(groups, weight, fission, parts)
             }
             (Some(_), _) => return Err(ProcessError::FissionData),
+        };
+        let delayed = match (&self.evaluation.delayed, tables.get(&18)) {
+            (None, _) => None,
+            (Some(families), Some(fission)) => Some(delayed_groups(
+                groups,
+                weight,
+                fission,
+                &families.nubar,
+                &families.spectrum,
+            )),
+            (Some(_), None) => return Err(ProcessError::DelayedWithoutFission),
         };
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
@@ -895,6 +1005,7 @@ impl Common<'_> {
             pointwise,
             reactions,
             sab_transfer,
+            delayed,
         })
     }
 }

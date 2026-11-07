@@ -339,3 +339,24 @@ fn shielding_must_match_sigma0_count() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn inverse_velocity_averages_one_over_v_with_the_weight_function() {
+    // 重み関数は 0.1 eV から 820.3 keV まで 1/E なので、群 [a, b] の平均は
+    // ∫ c E^(-3/2) dE / ∫ E^(-1) dE = 2c (a^(-1/2) − b^(-1/2)) / ln(b/a)、c = 1/√(2 eV/m_n)（v = √(2E/m_n)、cm/s）
+    use crate::physics::{AMASSN, AMU, EV};
+    let groups = GroupStructure::new(vec![1.0e4, 1.0e2, 1.0]).unwrap();
+    let inverse = inverse_velocity(&groups, &Weight::lwr());
+    let c = 1.0 / (2.0 * EV / (AMASSN * AMU)).sqrt();
+    for (g, (b, a)) in [(1.0e4_f64, 1.0e2_f64), (1.0e2, 1.0)]
+        .into_iter()
+        .enumerate()
+    {
+        let expected = 2.0 * c * (a.powf(-0.5) - b.powf(-0.5)) / (b / a).ln();
+        assert!(
+            (inverse[g] - expected).abs() <= 1e-9 * expected,
+            "{} vs {expected}",
+            inverse[g]
+        );
+    }
+}
