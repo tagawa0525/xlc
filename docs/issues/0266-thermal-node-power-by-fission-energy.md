@@ -15,8 +15,8 @@ resolution:
 - 熱水力のノードの出力（ADR-0229 の、炉心の熱出力に規格化した核分裂率 Σ_g Σf,g φ_g V の割合。crates/core/src/case.rs の `iterate_thermal` が
   `fission_rates` で求める）は、燃焼のノードの出力の割合（ADR-0190 の κΣf φ V の割合）と違う重みのまま。熱水力のある燃焼では、同じ解で
   燃焼度を進める出力と熱水力に与える発熱の分布が、核種の核分裂の Q の違いの分だけずれる。熱水力では大きさを測っていない（燃焼の出力の
-  割合の差は examples/depletion/verification.md の「ノードの出力の重み（小さな炉心）」、測ったコミット 4b627b4f9、2026-11-07。節は 97f73ef97 の版から記録にあり、ADR-0117 の「記録の辿り方」の
-  `git show 97f73ef97:examples/depletion/verification.md` で引ける）
+  割合の差は examples/depletion/verification.md の「ノードの出力の重み（小さな炉心）」、測ったコミット 4b627b4f9、2026-11-07。直した後の節は 0edff5d2e の版にあり、ADR-0117 の「記録の辿り方」の
+  `git show 0edff5d2e:examples/depletion/verification.md` で引ける）
 - κΣf はテーブルの燃焼の履歴からの分岐（`[history]`）だけが持つ。熱水力は燃焼しないケース（新しい燃料のテーブル）にも使うので、重みを
   替えるなら、κΣf を持たないテーブルでの扱いも決める
 
