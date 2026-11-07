@@ -3707,6 +3707,9 @@ GIT_TRACKED = {
     "examples/depletion/p9-timing/trial-0234/compare-threads.json",
     # 小さな炉心の色の順と直方体の並びの順、スレッドの数（ADR-0234）
     "examples/depletion/branches/compare-core-small-threads.json",
+    # 熱水力のある燃焼と熱水力なしの燃焼の小さな炉心と全炉心（#0228。ADR-0229 の燃焼のステップ）。ステージの出力でない
+    "examples/depletion/branches/compare-core-small-thermal.json",
+    "examples/depletion/p9-timing/trial-0228/compare-thermal.json",
     "examples/depletion/branches/compare-branch-cross-terms.json",
     "examples/depletion/branches/compare-shielding.json",
     "examples/depletion/branches/compare-shielding-boron.json",
@@ -4325,6 +4328,22 @@ TABLES = {
     "core-p9-threads-differences": (
         ["examples/depletion/p9-timing/trial-0234/compare-threads.json"],
         core_threads_differences,
+    ),
+    "depletion-small-core-thermal-points": (
+        ["examples/depletion/branches/compare-core-small-thermal.json"],
+        core_thermal_points,
+    ),
+    "depletion-small-core-thermal-runs": (
+        ["examples/depletion/branches/compare-core-small-thermal.json"],
+        core_thermal_runs,
+    ),
+    "core-p9-thermal-points": (
+        ["examples/depletion/p9-timing/trial-0228/compare-thermal.json"],
+        core_thermal_points,
+    ),
+    "core-p9-thermal-runs": (
+        ["examples/depletion/p9-timing/trial-0228/compare-thermal.json"],
+        core_thermal_runs,
     ),
     "core-p9-cmfd-loose-coarse-runs": (
         ["examples/depletion/p9-timing/trial-0076/compare-acceleration.json"],

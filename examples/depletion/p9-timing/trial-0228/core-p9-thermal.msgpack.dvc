@@ -1,0 +1,5 @@
+outs:
+- md5: ef3539c2aae8a29156ac402af63544d6
+  size: 23006100
+  hash: md5
+  path: core-p9-thermal.msgpack
