@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core, depletion]
 opened: 2026-11-06
-closed:
+closed: 2026-11-08
 milestone:
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # 平衡 Xe の固定点が有限でない組成を黙って通すことと、同時の反復の整理
@@ -35,3 +35,4 @@ NaN を含む組成を収束として返し、そうでなければ加速の γ 
 ## 経緯
 
 - 2026-11-06: perf/0156-xenon-boron-joint のレビューの 3 周目で挙がった。組成の NaN は同時の反復の前からの形で再現していないので、このブランチでは直さない
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

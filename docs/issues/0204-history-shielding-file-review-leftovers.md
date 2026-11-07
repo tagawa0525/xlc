@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, shielding, depletion]
 opened: 2026-10-30
-closed:
+closed: 2026-11-08
 milestone: M4
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # 自己遮蔽の履歴（shielding-file）と分けるツールのレビューの残り
@@ -68,3 +68,4 @@ examples/depletion/micro/make_shifted.py の `--kind` の、ブランチ feat/01
 - 2026-10-30: ブランチ feat/0191-linearization-error-split の /code-review の 1 周目と 3 周目で挙がった。「自己遮蔽なしで `shielding-file` を
   黙って無視する」は、`[history]` が自己遮蔽を求める（crates/lattice/src/input.rs）ので前提が誤り、「compare_split.py がコミット
   されていない」は、レビューの後にコミットした
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core, lattice, format]
 opened: 2026-10-30
-closed:
+closed: 2026-11-08
 milestone: M4
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # 履歴の反応率の補正（ADR-0215 の案 S2）のレビューで残したもの
@@ -55,3 +55,4 @@ resolution:
 ## 経緯
 
 - 2026-10-30: feat/0190-history-micro-sigma のレビューで起こした
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

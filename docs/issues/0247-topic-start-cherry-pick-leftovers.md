@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs, skills]
 opened: 2026-11-06
-closed:
+closed: 2026-11-08
 milestone:
 blocked-by: []
-resolution:
+resolution: wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、再現のある項目が無いので閉じた
 ---
 
 # topic-start の cherry-pick の始め方の、レビューで残した点
@@ -33,3 +33,4 @@ docs/topic-start-cherry-pick-issue）のレビュー（2 周）で、起きう�
 ## 経緯
 
 - 2026-11-06: 取り込みの手順を足したブランチの /code-review の指摘のうち、再現を確かめていないものを残した
+- 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い
