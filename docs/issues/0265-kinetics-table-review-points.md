@@ -52,6 +52,13 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 - examples/depletion/kinetics_table.py の `nominal_points`: 公称の状態の点の番号を探す `index` の ValueError が、何が無いかを言わない
 - crates/lattice/src/history.rs の `kinetics`: 族のデータを持つ核種がないときと、族の生成が 0 のときを同じエラーの文で言う
 
+- examples/depletion/kinetics_table.py: 生成の検査は 4 つの条件（k、νΣf、k の有限、k_inf）を 1 つの文で言い、k_inf が 0 のときも「no production」と
+  出る。k_inf が 0 の場合と k が有限でない場合のテストがない。生成（νΣf · φ）と k は同じ量を 2 度求める
+- ADR-0238 の帰結は、作り直した ../p2/depletion.msgpack を読む分岐の入力（examples/depletion/branches の branch-2A.toml、branch-2F-all.toml、
+  branch-2O-all.toml、shielding-2A-every.toml、history/residual-rods-branch.toml など）を数えない。前のライブラリで作った履歴と組むものもある
+- examples/depletion/verification.md の「動特性と冷却計算のデータ（2A）」と #0264 の H-1 の根拠（`thermal_scattering` と `resolved`）は、`lookup` の
+  内挿が拒む残りの条件（表の形、チェーンの反応の経路、S(α,β) の格子、ポイントワイズ）に触れない（ライブラリの H-1 はどれも満たす）
+
 関係する ADR: なし
 
 ## 完了の条件
