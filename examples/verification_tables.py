@@ -4564,19 +4564,26 @@ TABLES = {
 }
 
 
+# GIT_TRACKED は md5 の照合を飛ばすので、エラーは例外の置き場として示すだけにし、ステージの出力の道を先に示す（ADR-0176）
+GIT_TRACKED_NOTE = "GIT_TRACKED in examples/verification_tables.py holds only the exceptions its comment names"
+
+
 def locked_md5(root: Path, source: str) -> str:
     """JSON の出力の md5 を、同じ場所の dvc.lock から読む"""
     path = root / source
     lock = path.with_name("dvc.lock")
     if not lock.exists():
-        raise TableError(f"{lock.relative_to(root)} does not exist")
+        raise TableError(
+            f"{lock.relative_to(root)} does not exist; a stage's JSON sits in its dvc.yaml's directory, where dvc repro writes the dvc.lock"
+            f" that holds its md5: run the stage and commit dvc.lock ({GIT_TRACKED_NOTE})"
+        )
     found = re.findall(
         rf"- path: {re.escape(path.name)}\n\s+hash: md5\n\s+md5: ([0-9a-f]{{32}})",
         lock.read_text(),
     )
     if len(found) != 1:
         raise TableError(
-            f"{lock.relative_to(root)} has {len(found)} outputs named {path.name} (expected 1)"
+            f"{lock.relative_to(root)} has {len(found)} outputs named {path.name} (expected 1); the dvc.yaml in that directory declares it as one out ({GIT_TRACKED_NOTE})"
         )
     return found[0]
 
@@ -4600,8 +4607,12 @@ def require_tracked(root: Path, source: str) -> None:
             f"cannot run git to check that {source} is tracked: {e}"
         ) from e
     if found.returncode == 1 and "did not match" in found.stderr:
+        if source in GIT_TRACKED:
+            raise TableError(
+                f"{source} is not tracked by git (ADR-0176) and is in GIT_TRACKED; git add it"
+            )
         raise TableError(
-            f"{source} is not tracked by git (ADR-0176); set cache: false on its outs in the dvc.yaml and git add it"
+            f"{source} is not tracked by git (ADR-0176); set cache: false on its outs in the dvc.yaml and git add it ({GIT_TRACKED_NOTE})"
         )
     if found.returncode != 0:
         raise TableError(
