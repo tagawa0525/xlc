@@ -103,20 +103,25 @@ cargo build --release
 計算のあとに rebase すると、記録の hash の付け替え（commit-refs remap）と dvc.lock の整え直し（dvc-relock）が要り、
 場合によっては計算のやり直しになる。先に rebase すれば、マージ時の rebase で記録の hash が変わる場面を減らせる。
 
+/delegate の担当は、計算を自分で投げるかを、/delegate の「作業中の規則」の 5 分より長い待ちの項と 5 分以内の計算の項で
+決める。どちらの場合も、この節の 1〜5 と下の「計算を投げる直前」の確認を、自分で投げる前か、投げるコマンドを報告する前に
+済ませる。2 の rebase は /delegate の同じ節の計算を投げる直前の項より広いが、CLAUDE.md の「作業の流れ」のとおりこの節に従う。
+担当の報告から親が投げるときは、/delegate の「頼む側（親のセッション）の書き方」の 5 分より長い待ちの項に従う。
+
 1. コードと入力の変更をすべてコミットする。記録に書く試行の入力（`trials/`）は `git add -f` でコミットする（スキル verification-record の「記録に書く試行」）。`git status --short` が空であることを確かめる
 2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、rebase を終えてからスキル dvc-relock の前半で整える（rebase の途中では dvc を実行しない）。rebase の終わりに post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
 3. ステージ（`dvc.yaml`）で実行するなら、先に `scripts/dvc-checkout.py`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
 5. 1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など。投げる前の見積もり `-t` か、main の同じ計算の時間で判断する）なら、コードのレビュー（/code-review）を
-   blocking が無くなるまで（スキル git-merge の「直す指摘の基準」の歯止めの 3 周の中で）回す（2 の rebase の後に）。
+   blocking が無くなるまで（スキル git-merge の「直す指摘の基準」の歯止めの項の中で）回す（2 の rebase の後に）。
    流した後にコードを変えると、ADR-0122 のとおり再実行が要る。流した後の
-   レビューで出た、出力を変えるコードの指摘のうち、blocking（落ちるテストか再現する手順を書ける誤りだけ）は直して再実行し、
+   レビューで出た、出力を変えるコードの指摘のうち、blocking（スキル git-merge の「直す指摘の基準」）は直して再実行し、
    それ以外は issue に残すか、まとめて 1 度だけ再実行する（2026-10-22 の feat/0133-fission-spectrum では、レビューの 1 周目の xs の修正で 65 核種のライブラリ
    （約 2 時間）を作り直し、2 周目の指摘を issue に残した。構造の側の案は #0150。2026-10-28 の #0181 では、main で 1 時間 0 分 40 秒の 2A の燃焼を含む
    timed の 2 本（Slurm 575、576）をレビューの前の版で流し、レビューと手元の試行で直した版で 577、578 を再実行した）
 6. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）、分岐点は `git merge-base HEAD main`
 
-計算を投げる直前に `git log --oneline <分岐点>..main`（分岐点は `git merge-base HEAD main`）を見て、出力を変える変更
+計算を投げる直前（/delegate の担当は投げるコマンドを報告する直前）に `git log --oneline <分岐点>..main`（分岐点は `git merge-base HEAD main`）を見て、出力を変える変更
 （lattice、xs、core のコード、ADR で出力が変わると書かれたもの）が入っていれば、rebase してから投げる。実例: 2026-10-14、
 平板の CMFD の修正（ADR-0158）の前に rebase したブランチが古い方法で平板を解き、1 状態 1 分で済むものに 1 時間以上かかった。
 
@@ -151,10 +156,9 @@ echo "rc=$?"
 マージの前に、残さない試行を消す（`trials/`。スキル verification-record の「記録に書く試行」）。ADR を実装に合わせて直し
 `status: accepted` にする、issue を閉じる（`status: closed`、`closed`、`resolution`）のも、このブランチの中で行う。
 
-レビューで直すのは、再現できる指摘（落ちるテストか再現する手順を書ける誤動作・誤った数値・データの破損・セキュリティ・ゲートの迂回）と、
-ADR の凍結する部分の事実の誤りと、文書の本文が引いた先の一次情報と食い違う誤りと規則が求める出どころが無いこと（出典で再現する。対象と除くものはスキル git-merge の (c)。
-記録の周の後に残ったときは、担当は直さず報告の「マージの前後で人の手が要ること」に書いて止まる。同スキルの「3 周目で blocking を直したら」の例外の項）だけ。ほかは 1 件の issue にまとめる。周に blocking が無ければ終わり、歯止めは 3 周（スキル git-merge の
-「直す指摘の基準」。決定は nixfiles の ADR-0066）。
+レビューで直す指摘と直さない指摘の分け方、周の終わり、歯止め（文書だけのブランチの周の数を含む）、記録の周で出た
+blocking の扱いは、スキル git-merge の「レビュー」の節の「直す指摘の基準」に従う（文書だけのブランチは同じ基準の
+「文書だけのブランチ」の項、ほかは「歯止め」の項と「3 周目で blocking を直したら」の項とその例外の項。決定は nixfiles の ADR-0066）。
 
 worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡す**: Skill ツールで `git-merge` を `<branch>` の引数つきで
 呼ぶ。引数なしだと、Bash の cwd が呼び出しごとに main の worktree に戻るので、対象が main になり、

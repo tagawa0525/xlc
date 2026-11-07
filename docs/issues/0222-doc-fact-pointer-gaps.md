@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-11-04
-closed:
+closed: 2026-11-08
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 9e13a9c07
 ---
 
 # CLAUDE.md と /topic-start の (c) の指し方がスキルの原文より狭い・広い
@@ -36,3 +36,9 @@ resolution:
 CLAUDE.md の参照は「計画と issue だけのブランチ」の項の外（レビューの一般の規則）に置く。
 
 関係する ADR: なし
+
+## 経緯
+
+- 2026-11-04: docs/claude-md-doc-fact-blocking の記録の周の直さない指摘から起こした
+- 2026-11-08: docs/align-review-and-wait-rules で CLAUDE.md と /topic-start を /git-merge の項を指す形にし、(c) の参照を
+  ブランチの種類によらない文にして（計画と issue だけのブランチの文はその項に従う形で同じ項に残る）閉じた。残った言い換えは #0272
