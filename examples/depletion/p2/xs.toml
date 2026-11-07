@@ -379,10 +379,13 @@ endf = "n-064_Gd_160.endf"
 temperatures = [565, 600]
 
 # 放射化の核種（activation = true。ADR-0238）: チェーン（../chain.msgpack）が中性子の反応か核分裂を持つ核種のうち、上の輸送する核種
-# でない 465 核種（チェーンの順）。冷却計算の 1 群の微視的断面積のために、チェーンの反応と核分裂の無限希釈の断面積だけを作り、輸送しない。
+# でない 465 核種（チェーンの順）のうち、xs が処理できない 10 核種を除いた 455 核種。冷却計算の 1 群の微視的断面積のために、チェーンの反応と核分裂の無限希釈の断面積だけを作り、輸送しない。
 # 温度は燃料の核種と同じ 565, 600 K。上で外した Pm-147、Pm-148、Pm-149、Am-242m、Eu-151（#0127）は自己遮蔽の表を作らないので、ここに入る。
 # 核種ごとの表の見出し（[nuclide.X]）でなく、[nuclide] のインラインの表で書く: DVC（tomlkit 0.15）は見出しの数の 2 乗で読む時間が
 # 延び、555 の見出しで 1 回 9 秒、DVC の 1 つの操作で 11 回読む（#0268）
+# 除いた 10 核種（#0264）: Cl-35 と Ca-40 は分離共鳴（R 行列の制限形）の荷電粒子の対を xs が扱わない。Tm-169、W-182〜186、Pt-193、
+# Pb-207 は、MF8 が挙げた生成物の状態の経路の和が、チェーンの反応（MT16、103、107）の断面積を xs の許容より超える群がある（2026-11-07 に
+# 手元で 465 核種を処理して出たエラー）
 [nuclide]
 H-2 = { endf = "n-001_H_002.endf", temperatures = [565, 600], activation = true }
 H-3 = { endf = "n-001_H_003.endf", temperatures = [565, 600], activation = true }
@@ -412,7 +415,6 @@ S-33 = { endf = "n-016_S_033.endf", temperatures = [565, 600], activation = true
 S-34 = { endf = "n-016_S_034.endf", temperatures = [565, 600], activation = true }
 S-35 = { endf = "n-016_S_035.endf", temperatures = [565, 600], activation = true }
 S-36 = { endf = "n-016_S_036.endf", temperatures = [565, 600], activation = true }
-Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565, 600], activation = true }
 Cl-36 = { endf = "n-017_Cl_036.endf", temperatures = [565, 600], activation = true }
 Cl-37 = { endf = "n-017_Cl_037.endf", temperatures = [565, 600], activation = true }
 Ar-36 = { endf = "n-018_Ar_036.endf", temperatures = [565, 600], activation = true }
@@ -424,7 +426,6 @@ Ar-41 = { endf = "n-018_Ar_041.endf", temperatures = [565, 600], activation = tr
 K-39 = { endf = "n-019_K_039.endf", temperatures = [565, 600], activation = true }
 K-40 = { endf = "n-019_K_040.endf", temperatures = [565, 600], activation = true }
 K-41 = { endf = "n-019_K_041.endf", temperatures = [565, 600], activation = true }
-Ca-40 = { endf = "n-020_Ca_040.endf", temperatures = [565, 600], activation = true }
 Ca-41 = { endf = "n-020_Ca_041.endf", temperatures = [565, 600], activation = true }
 Ca-42 = { endf = "n-020_Ca_042.endf", temperatures = [565, 600], activation = true }
 Ca-43 = { endf = "n-020_Ca_043.endf", temperatures = [565, 600], activation = true }
@@ -692,7 +693,6 @@ Er-168 = { endf = "n-068_Er_168.endf", temperatures = [565, 600], activation = t
 Er-169 = { endf = "n-068_Er_169.endf", temperatures = [565, 600], activation = true }
 Er-170 = { endf = "n-068_Er_170.endf", temperatures = [565, 600], activation = true }
 Tm-168 = { endf = "n-069_Tm_168.endf", temperatures = [565, 600], activation = true }
-Tm-169 = { endf = "n-069_Tm_169.endf", temperatures = [565, 600], activation = true }
 Tm-170 = { endf = "n-069_Tm_170.endf", temperatures = [565, 600], activation = true }
 Tm-171 = { endf = "n-069_Tm_171.endf", temperatures = [565, 600], activation = true }
 Yb-168 = { endf = "n-070_Yb_168.endf", temperatures = [565, 600], activation = true }
@@ -720,11 +720,6 @@ Ta-181 = { endf = "n-073_Ta_181.endf", temperatures = [565, 600], activation = t
 Ta-182 = { endf = "n-073_Ta_182.endf", temperatures = [565, 600], activation = true }
 W-180 = { endf = "n-074_W_180.endf", temperatures = [565, 600], activation = true }
 W-181 = { endf = "n-074_W_181.endf", temperatures = [565, 600], activation = true }
-W-182 = { endf = "n-074_W_182.endf", temperatures = [565, 600], activation = true }
-W-183 = { endf = "n-074_W_183.endf", temperatures = [565, 600], activation = true }
-W-184 = { endf = "n-074_W_184.endf", temperatures = [565, 600], activation = true }
-W-185 = { endf = "n-074_W_185.endf", temperatures = [565, 600], activation = true }
-W-186 = { endf = "n-074_W_186.endf", temperatures = [565, 600], activation = true }
 Re-185 = { endf = "n-075_Re_185.endf", temperatures = [565, 600], activation = true }
 Re-186m = { endf = "n-075_Re_186m1.endf", temperatures = [565, 600], activation = true }
 Re-187 = { endf = "n-075_Re_187.endf", temperatures = [565, 600], activation = true }
@@ -744,7 +739,6 @@ Ir-194m = { endf = "n-077_Ir_194m1.endf", temperatures = [565, 600], activation 
 Pt-190 = { endf = "n-078_Pt_190.endf", temperatures = [565, 600], activation = true }
 Pt-191 = { endf = "n-078_Pt_191.endf", temperatures = [565, 600], activation = true }
 Pt-192 = { endf = "n-078_Pt_192.endf", temperatures = [565, 600], activation = true }
-Pt-193 = { endf = "n-078_Pt_193.endf", temperatures = [565, 600], activation = true }
 Pt-194 = { endf = "n-078_Pt_194.endf", temperatures = [565, 600], activation = true }
 Pt-195 = { endf = "n-078_Pt_195.endf", temperatures = [565, 600], activation = true }
 Pt-196 = { endf = "n-078_Pt_196.endf", temperatures = [565, 600], activation = true }
@@ -767,7 +761,6 @@ Tl-205 = { endf = "n-081_Tl_205.endf", temperatures = [565, 600], activation = t
 Pb-204 = { endf = "n-082_Pb_204.endf", temperatures = [565, 600], activation = true }
 Pb-205 = { endf = "n-082_Pb_205.endf", temperatures = [565, 600], activation = true }
 Pb-206 = { endf = "n-082_Pb_206.endf", temperatures = [565, 600], activation = true }
-Pb-207 = { endf = "n-082_Pb_207.endf", temperatures = [565, 600], activation = true }
 Pb-208 = { endf = "n-082_Pb_208.endf", temperatures = [565, 600], activation = true }
 Bi-209 = { endf = "n-083_Bi_209.endf", temperatures = [565, 600], activation = true }
 Bi-210m = { endf = "n-083_Bi_210m1.endf", temperatures = [565, 600], activation = true }
