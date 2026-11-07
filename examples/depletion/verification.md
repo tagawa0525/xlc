@@ -8681,7 +8681,7 @@ b95004c32（ブランチ feat/0153-kinetics-table-data、分岐点は main の 0
   輸送する 90 核種のうち H-1 は、燃料の燃焼の領域の温度 565 K がライブラリの H-1 の温度の点（S(α,β) の 550、573.6、600 K）になく、履歴が
   輸送しない（`branch-2A-kinetics.log` の 4 行目「not transported: no library data at the temperature of the depletion」）ので、冷却計算の断面積を
   持たない（放射化の核種でもない）。原因の候補は、輸送する核種を決める `has_data_at`（crates/lattice/src/depletion.rs）が温度の一致だけを見て、
-  S(α,β) の核種の温度の内挿（`Library::lookup`）を使わないこと（#0264）
+  S(α,β) の核種の温度の内挿（`Library::lookup`）を使わないこと（確かめていない。`lookup` が H-1 の 565 K を受けるかも確かめていない。#0264）
 - 基本モードの k と格子計算の k∞ の差は、どの燃焼度の点も 0.0005 pcm 未満（`k_minus_lattice_pcm`）。要約の中性子束は格子計算の k∞ を再現する
 - β は燃焼度 0 で 712.62 pcm、10 MWd/kg で 594.97 pcm、20 で 542.32 pcm、40 で 488.70 pcm、60 で 464.33 pcm（`beta_total_pcm`）。Pu の核分裂が
   増えて減る（ADR-0033 が燃焼度の点ごとに持つとした理由の向き）
