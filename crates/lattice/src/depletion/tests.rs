@@ -5,8 +5,8 @@ use xlc_depletion::chain::{
 use xlc_depletion::{CramOrder, deplete};
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
-    ChannelState, GroupChannel, GroupReaction, Library, NuclideData, Pointwise, Shielded,
-    TemperatureData,
+    ChannelState, DelayedGroups, GroupChannel, GroupReaction, Library, NuclideData, Pointwise,
+    Shielded, TemperatureData,
 };
 
 use std::f64::consts::LN_2;
@@ -109,8 +109,32 @@ pub(crate) fn chain() -> Chain {
     }
 }
 
-/// 2 群（0.625 eV で分ける）の、分離共鳴のないライブラリ。全断面積は散乱、核分裂、捕獲の和。散乱は P1 まで
+/// テストのライブラリの U-235 の遅発中性子の 2 族の崩壊定数 (1/s)、群の遅発中性子数（[族][群]）、遅発スペクトル（[族][群]）
+pub(crate) const DECAY_CONSTANTS: [f64; 2] = [0.0133, 0.0327];
+pub(crate) const DELAYED_NU: [[f64; 2]; 2] = [[0.004, 0.0041], [0.012, 0.0118]];
+pub(crate) const DELAYED_CHI: [[f64; 2]; 2] = [[1.0, 0.0], [0.9, 0.1]];
+
+/// 2 群（0.625 eV で分ける）の、分離共鳴のないライブラリ。全断面積は散乱、核分裂、捕獲の和。散乱は P1 まで。U-235 は遅発中性子の
+/// 2 族を持つ
 pub(crate) fn library() -> Library {
+    let mut library = plain_library();
+    let u235 = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-235")
+        .unwrap();
+    u235.decay_constants = Some(DECAY_CONSTANTS.to_vec());
+    for t in &mut u235.temperatures {
+        t.delayed = Some(DelayedGroups {
+            nu: DELAYED_NU.iter().map(|r| r.to_vec()).collect(),
+            chi: DELAYED_CHI.iter().map(|r| r.to_vec()).collect(),
+        });
+    }
+    library
+}
+
+/// `library` の、遅発中性子の族のデータのないもの
+pub(crate) fn plain_library() -> Library {
     // (名前, awr, 散乱 [[g→g']], 核分裂, 捕獲)
     let nuclide =
         |name: &str, awr: f64, scatter: [[f64; 2]; 2], fission: [f64; 2], capture: [f64; 2]| {
@@ -172,7 +196,7 @@ pub(crate) fn library() -> Library {
             }
         };
     Library {
-        inverse_velocity: vec![1.0e-6; 2],
+        inverse_velocity: vec![5.0e-8, 2.0e-6],
         activation: Vec::new(),
         groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         sigma0: vec![1.0e10, 100.0, 1.0],
