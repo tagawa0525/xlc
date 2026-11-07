@@ -20,6 +20,11 @@ resolution:
 - Slurm 724（ブランチ feat/0153-kinetics-table-data、2026-11-07）は、`stage_runner.py` の上流の `dvc status` に 1,116 秒、`build` と `xs-range` の
   `dvc repro` に 7,097 秒、xs-nuclide の commit に 3 ステージで 124 秒、16 ステージで 660 秒と 682 秒かかった（1 コア）。xs そのものは 16 本で
   124 秒以内。この速さでは 555 ステージの commit だけで 6 時間を超えるので、見込みの外れたジョブとして止めた
+- インラインの表にした後も、xs-nuclide の commit が 1 コアで batch の時間のほとんどを占める。Slurm 726（2026-11-07）の 16 本の batch は、
+  xs が 1 本 1 秒ほどで、batch の間隔（runner は commit の間ほかの行を出さないので、commit を含む）は 2 本目から 41.3 秒、42.6、43.6、… 54.0 秒と
+  batch ごとに約 1 秒ずつ延びた（runner のログの `committed` の時刻）。親が ps で見た 1 つの batch は 52 秒のうち `dvc commit -f` の 1 プロセス
+  （99 %）が約 47 秒で、1 ステージ約 3 秒。間隔が commit したステージの数とともに延びるので、DVC が呼び出しごとに 555 ステージの dvc.yaml と
+  伸びていく dvc.lock を読み書きしていることが候補（確かめていない）。直す案の候補は、commit を最後に 1 回にする、batch を大きくする
 - 2A のライブラリの放射化の核種（ADR-0238）は、インラインの表にした（xs.toml の説明）。同じ形の大きな入力（ほかの例の核種を足すとき）で
   また起きるのを止める検査はない
 
