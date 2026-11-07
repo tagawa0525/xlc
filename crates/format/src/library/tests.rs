@@ -559,8 +559,10 @@ fn written_as_a_map_with_the_format_name() {
     assert_eq!(
         keys,
         vec![
+            "activation",
             "format",
             "group_bounds",
+            "inverse_velocity",
             "nuclides",
             "pointwise_range",
             "sigma0"
