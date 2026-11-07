@@ -458,10 +458,11 @@ pub fn history_branches(
                 .collect()
         })
         .collect();
-    if burnups.iter().flatten().any(|&solved| !solved) && branches.nominal_state().is_none() {
+    // 冷却計算の断面積は、燃焼度の点ごとの公称の状態で作る（ADR-0238）。輸送の前に止める
+    if branches.nominal_state().is_none() {
         bail!(
-            "off-nominal-burnup: the off-nominal states are interpolated from the nominal state, the input materials, \
-             which are not at a point of every branch axis (ADR-0200)"
+            "history branches need the nominal state (the input materials at a point of every branch axis) for the \
+             cooling cross sections (ADR-0238) and the off-nominal burnups (ADR-0200)"
         );
     }
     // ミクロ燃焼で追う核種は、履歴が輸送した核種（ADR-0216。輸送しない核種は自己遮蔽した断面積を持たない）
