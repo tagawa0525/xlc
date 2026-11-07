@@ -92,7 +92,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock の前半、マージの hook が「.gitignore から外した生成物」で止まったら同スキルの「マージが止まったら」（main の worktree の古い出力を消してよいかを決める）、マージのあとに後半
 - 1 つのトピックの始めからマージまでは /topic-start に従う。委任を受けた担当も作業の前に読む。記録に書く計算の前の
   rebase は /topic-start の「記録に書く計算の前に main に rebase する」の節に従い、/delegate の「作業中の規則」の計算を投げる
-  直前の項より優先する（ユーザー 2026-11-08）。その後に再び rebase したときは /git-merge の「レビュー」の rebase 後の判断に従う。
+  直前の項より優先する（ユーザー 2026-11-08）。その後に再び rebase したときは /git-merge の「レビュー」の節の「rebase の後」に従う。
   マージは /delegate の「8. マージの直前で止める」のとおり親に残す
 - チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
   のようにつなぐと、失敗してもマージに進む
