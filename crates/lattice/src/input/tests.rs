@@ -1499,6 +1499,7 @@ fn history_branches(history: &str) -> String {
 }
 
 const HISTORY: &str = r#"file = "history.msgpack"
+chain = "chain.msgpack"
 burnup = [0, 10, 20]
 "#;
 
@@ -1507,8 +1508,24 @@ fn reads_the_history_file_and_its_burnup_points() {
     let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
     let history = input.history.unwrap();
     assert_eq!(history.file, PathBuf::from("history.msgpack"));
+    assert_eq!(history.chain, PathBuf::from("chain.msgpack"));
     assert_eq!(history.burnup, vec![0.0, 10.0, 20.0]);
     assert!(LatticeInput::parse(PIN_CELL).unwrap().history.is_none());
+}
+
+#[test]
+fn history_tables_need_the_chain_and_an_unsplit_lattice() {
+    // κΣf の Q 値はチェーンのもの（ADR-0190）。書かなければエラー
+    let without = history_branches(&HISTORY.replace("chain = \"chain.msgpack\"\n", ""));
+    let err = LatticeInput::parse(&without).unwrap_err();
+    assert!(err.to_string().contains("chain"), "{err}");
+    // κΣf は格子全体で均質化するので、部分ノードに分けたテーブルとは組めない
+    let split = history_branches(HISTORY).replace(
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5], split = 2 }",
+    );
+    let err = LatticeInput::parse(&split).unwrap_err();
+    assert!(err.to_string().contains("split"), "{err}");
 }
 
 #[test]
