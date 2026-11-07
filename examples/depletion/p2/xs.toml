@@ -3,8 +3,9 @@
 # ピンセルの輸送する核種（チェーンの核種のうちライブラリにあるもの。ADR-0173）が変わり、ピンセルの比較が古くなるため。
 # 核種と評価は ../xs.toml と同じで、次を足した: Pyrex と SS304 の Si, P, Mn, Ni, C（天然の C は C-12 と C-13 に分ける。ADR-0079）、
 # WABA の C と Al、Gd 燃料の Gd（Gd-155 はチェーンの核種として既にある）、AIC の Ag-107, Cd, In。評価は examples/vera/xs.toml と同じ。
-# 温度は、集合体の問題の 565, 600 K と、Problem 9 の分岐のテーブルの格子点（ADR-0239）: 減速材の軸の 560, 570, 580, 590, 610, 615 K を
-# H-1 と U を除く全核種に、燃料の温度の軸の 560, 750, 900, 1050, 1200, 1350 K を H-1 を除く全核種に（燃焼した燃料は全核種を持ちうる）。
+# 温度は、集合体の問題の 565, 600 K と、Problem 9 の分岐のテーブルの格子点（ADR-0239）の減速材の軸の 560, 570, 580, 590, 610, 615 K と
+# 燃料の温度の軸の 560, 750, 900, 1050, 1200, 1350 K を、H-1 を除く全核種に（燃焼の履歴は、燃料と、減速材の温度の吸収体の両方で、同じ
+# 核種を輸送する）。
 # 冷却材の H は S(α,β) の 550, 573.6, 600, 623.6 K（間の温度は lattice が内挿する。ADR-0080）。
 # Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 は非分離共鳴の自己遮蔽が小さい σ0 で NaN になるので外す（#0127。../xs.toml と同じ）
 output = "depletion.msgpack"
@@ -16,19 +17,19 @@ scattering-order = 3
 
 [nuclide.U-234]
 endf = "n-092_U_234.endf"
-temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350]
+temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350]
 
 [nuclide.U-235]
 endf = "n-092_U_235.endf"
-temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350]
+temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350]
 
 [nuclide.U-236]
 endf = "n-092_U_236.endf"
-temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350]
+temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350]
 
 [nuclide.U-238]
 endf = "n-092_U_238.endf"
-temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350]
+temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350]
 
 [nuclide.O-16]
 endf = "n-008_O_016.endf"
@@ -788,14 +789,14 @@ Pa-230 = { endf = "n-091_Pa_230.endf", temperatures = [560, 565, 570, 580, 590, 
 Pa-231 = { endf = "n-091_Pa_231.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Pa-232 = { endf = "n-091_Pa_232.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Pa-233 = { endf = "n-091_Pa_233.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
-U-230 = { endf = "n-092_U_230.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-231 = { endf = "n-092_U_231.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-232 = { endf = "n-092_U_232.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-233 = { endf = "n-092_U_233.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-237 = { endf = "n-092_U_237.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-239 = { endf = "n-092_U_239.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-240 = { endf = "n-092_U_240.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
-U-241 = { endf = "n-092_U_241.endf", temperatures = [560, 565, 600, 750, 900, 1050, 1200, 1350], activation = true }
+U-230 = { endf = "n-092_U_230.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-231 = { endf = "n-092_U_231.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-232 = { endf = "n-092_U_232.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-233 = { endf = "n-092_U_233.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-237 = { endf = "n-092_U_237.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-239 = { endf = "n-092_U_239.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-240 = { endf = "n-092_U_240.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
+U-241 = { endf = "n-092_U_241.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Np-234 = { endf = "n-093_Np_234.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Np-235 = { endf = "n-093_Np_235.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Np-236 = { endf = "n-093_Np_236.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
