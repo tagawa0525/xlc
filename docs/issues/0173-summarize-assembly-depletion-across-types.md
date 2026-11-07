@@ -16,8 +16,9 @@ examples/depletion/verification.md の「集合体の燃焼」には、集合体
 なく、種類をまたぐ傾向（k∞ の差の燃焼度 0 の点、最大とその燃焼度、60 MWd/kg の値、ピン出力の rms の範囲）を 1 か所で見る表が無い。
 傾向を読むには 8 つの節を行き来する必要がある。
 
-今の値（examples/depletion/p2/compare-*.json の `k[].diff_pcm` と `pins[].rms`。xlc の計算は 9069e1cb（分岐点は main の 16167a05）、
-2026-11-03〜04、JSON のコミットは a1ae3b0a7。表を作るときは JSON から出し直す）:
+2026-11-03〜04 の値（examples/depletion/p2/compare-*.json の `k[].diff_pcm` と `pins[].rms`。xlc の計算は 9069e1cb（分岐点は main の 16167a05）、
+2026-11-03〜04、JSON のコミットは a1ae3b0a7。ADR-0238 の「帰結」のとおり、2A のほかの 7 本の格子計算の燃焼は
+ライブラリの作り直しで changed で、再実行していない。表を作るときは JSON から出し直す）:
 
 - k∞ の差は 8 本の全体で +17〜+202 pcm（2A +56〜+164、2F +68〜+171）。2A-rods（+17〜+77）のほかの 7 本は ADR-0032 の目標の ±100 pcm を一部の点で
   超え、許容の ±150 pcm を 2〜25 点で超える
