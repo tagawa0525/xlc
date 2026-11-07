@@ -350,7 +350,8 @@ pub fn solve_compositions(
 
 /// ミクロ燃焼のノードの少数群定数: テーブル `table` を状態 `state`（ノードの燃焼度を持つ）と制御棒の値 `rod` で内挿した定数に、追う
 /// 核種の数密度 `n`（テーブルの順）の線形の補正（ADR-0216）と、履歴の変数の値 `histories`（`HISTORY_VARIABLES` の順）の残り（ADR-0215。
-/// `add_histories`）を足す。ミクロ燃焼のテーブルは分けない（格子全体の均質化）
+/// `add_histories`）を足す。κΣf は、内挿した群ごとの κΣf / Σf を補正した Σf に掛ける（ADR-0190）。ミクロ燃焼のテーブルは分けない
+/// （格子全体の均質化）
 pub fn node_constants(
     table: &Table,
     state: &State,
@@ -363,11 +364,23 @@ pub fn node_constants(
     let (Some(mut f), true) = (constants.pop(), constants.is_empty()) else {
         return Err("micro data need an unsplit table".into());
     };
+    // 補正は核分裂の断面積だけを直す（テーブルは κΣf の補正を持たない）ので、κΣf は内挿した群ごとの核分裂あたりのエネルギーを
+    // 保つ（ADR-0190）。核分裂のない群は κΣf も 0（テーブルの検査）
+    let energy: Option<Vec<f64>> = f.kappa_fission.as_ref().map(|kappa| {
+        kappa
+            .iter()
+            .zip(&f.fission)
+            .map(|(&k, &s)| if s > 0.0 { k / s } else { 0.0 })
+            .collect()
+    });
     correct(&mut f, &micro, n);
     let burnup = state
         .burnup
         .ok_or("the micro depleted node needs a burnup (ADR-0190)")?;
     add_histories(&mut f, table, burnup, rod, histories, &micro, n)?;
+    if let Some(energy) = energy {
+        f.kappa_fission = Some(f.fission.iter().zip(&energy).map(|(s, e)| s * e).collect());
+    }
     Ok(f)
 }
 
