@@ -1466,3 +1466,175 @@ fn zero_ppm_of_another_b10_outside_the_boron_points_names_the_conversion() {
     let e = interpolate(&t, Some(&s), None).unwrap_err();
     assert!(e.contains("ADR-0237") && e.contains("b10 0.18"), "{e}");
 }
+
+// 動特性と冷却計算のデータ（ADR-0238）
+
+/// 状態ごとに少数群定数の項目から作った 1 族の動特性のデータ（遅発の生成は Σf、崩壊定数で割った量は全断面積、スペクトルは χ、群速度の
+/// 逆数は拡散係数）と、燃焼度の点ごとに `density(燃焼度)` から作った 2 核種の冷却計算の断面積を足したテーブル
+fn with_kinetics(mut t: Table, sigma: impl Fn(f64) -> f64) -> Table {
+    let Axis::Burnup { points } = t.axes[0].clone() else {
+        panic!("the test tables put the burnup axis first")
+    };
+    t.kinetics = Some(xlc_format::table::Kinetics {
+        states: t
+            .states
+            .iter()
+            .map(|s| xlc_format::table::KineticsState {
+                delayed_nu_fission: vec![s.fission.clone()],
+                delayed_precursors: vec![s.total.clone()],
+                delayed_chi: vec![s.chi.clone()],
+                inverse_velocity: s.diffusion.clone(),
+            })
+            .collect(),
+    });
+    t.cooling = Some(xlc_format::table::Cooling {
+        nuclides: vec!["U-235".into(), "Cs-133".into()],
+        points: points
+            .iter()
+            .map(|&b| {
+                vec![
+                    xlc_format::table::CoolingNuclide {
+                        fission: 40.0 * sigma(b),
+                        thermal_fission: Some(0.9 - b / 1000.0),
+                        reactions: vec![xlc_format::table::CoolingReaction {
+                            mt: 102,
+                            channels: vec![8.0 * sigma(b), 0.5 * sigma(b)],
+                        }],
+                    },
+                    xlc_format::table::CoolingNuclide {
+                        fission: 0.0,
+                        thermal_fission: None,
+                        reactions: vec![xlc_format::table::CoolingReaction {
+                            mt: 102,
+                            channels: vec![2.6 * sigma(b)],
+                        }],
+                    },
+                ]
+            })
+            .collect(),
+    });
+    t.validate().unwrap();
+    t
+}
+
+#[test]
+fn kinetics_data_at_the_grid_points_are_the_lattice_values() {
+    let t = with_kinetics(burnup_table_of(&CURVED, curve), curve);
+    let kinetics = t.kinetics.as_ref().unwrap();
+    for (p, point) in t.points.iter().enumerate() {
+        let s = at_burnup(CURVED[point[0]], PPM[point[1]], TM[point[2]], TF[point[3]]);
+        assert_eq!(
+            interpolate_kinetics(&t, &s, None).unwrap(),
+            kinetics.states[p],
+            "{point:?}"
+        );
+    }
+}
+
+#[test]
+fn kinetics_data_take_the_weights_of_the_few_group_constants() {
+    for (t, last) in [
+        (with_kinetics(burnup_table(), curve), 20.0),
+        (with_kinetics(burnup_table_of(&CURVED, curve), curve), 18.0),
+    ] {
+        for (bu, ppm, tm, tf) in [
+            (0.0, 1300.0, 565.0, 550.0),
+            (0.3, 1000.0, 560.0, 700.0),
+            (3.0, 1700.0, 580.0, 900.0),
+            (14.0, 900.0, 575.0, 820.0),
+            (last, 1300.0, 565.0, 565.0),
+        ] {
+            let s = at_burnup(bu, ppm, tm, tf);
+            let f = interpolate(&t, Some(&s), None).unwrap().remove(0);
+            let k = interpolate_kinetics(&t, &s, None).unwrap();
+            assert_eq!(k.delayed_nu_fission, [f.fission.clone()], "{bu}");
+            assert_eq!(k.delayed_precursors, [f.total.clone()], "{bu}");
+            assert_eq!(k.delayed_chi, [f.chi.clone()], "{bu}");
+            assert_eq!(k.inverse_velocity, f.diffusion, "{bu}");
+        }
+    }
+}
+
+#[test]
+fn decay_constants_keep_the_delayed_production_and_the_precursors_under_the_given_flux() {
+    // 2 群で、族の崩壊定数で割った量が群ごとに違う（核種の混ざり方が群で違う）。λ = Σ_G ν_dΣf φ / Σ_G (ν_dΣf/λ) φ
+    let kinetics = xlc_format::table::KineticsState {
+        delayed_nu_fission: vec![vec![1.0e-5, 3.0e-4], vec![2.0e-5, 6.0e-4]],
+        delayed_precursors: vec![vec![1.0e-3, 2.0e-2], vec![2.0e-5, 4.0e-4]],
+        delayed_chi: vec![vec![0.9, 0.1], vec![1.0, 0.0]],
+        inverse_velocity: vec![5.0e-8, 2.0e-6],
+    };
+    let flux = [3.0, 1.0];
+    let lambda = decay_constants(&kinetics, &flux).unwrap();
+    let want = [
+        (1.0e-5 * 3.0 + 3.0e-4) / (1.0e-3 * 3.0 + 2.0e-2),
+        (2.0e-5 * 3.0 + 6.0e-4) / (2.0e-5 * 3.0 + 4.0e-4),
+    ];
+    for (got, want) in lambda.iter().zip(want) {
+        assert!((got - want).abs() <= 1e-15 * want, "{got} vs {want}");
+    }
+    // 群の数が違う中性子束と、遅発の生成のない族はエラー
+    assert!(decay_constants(&kinetics, &[1.0]).is_err());
+    let mut silent = kinetics.clone();
+    silent.delayed_nu_fission[1] = vec![0.0, 0.0];
+    silent.delayed_precursors[1] = vec![0.0, 0.0];
+    assert!(decay_constants(&silent, &flux).is_err());
+}
+
+#[test]
+fn cooling_cross_sections_are_interpolated_in_burnup_only() {
+    let t = with_kinetics(burnup_table_of(&CURVED, curve), curve);
+    let cooling = t.cooling.as_ref().unwrap();
+    // 燃焼度の点では、その点の値（割合は比に戻すので丸めの差だけ）
+    for (b, &bu) in CURVED.iter().enumerate() {
+        let got = interpolate_cooling(&t, bu).unwrap();
+        for (g, w) in got.iter().zip(&cooling.points[b]) {
+            assert_eq!(g.fission, w.fission, "{bu}");
+            assert_eq!(g.reactions, w.reactions, "{bu}");
+            match (g.thermal_fission, w.thermal_fission) {
+                (Some(a), Some(b)) => assert!((a - b).abs() <= 1e-15, "{a} vs {b}"),
+                (a, b) => assert_eq!(a, b),
+            }
+        }
+    }
+    // 点の間は燃焼度の 3 次 Hermite（ADR-0192）
+    for bu in [0.3, 3.0, 14.0] {
+        let got = interpolate_cooling(&t, bu).unwrap();
+        let terms = burnup_terms(&CURVED, bu).unwrap();
+        let want: f64 = terms
+            .iter()
+            .map(|&(k, h)| h * cooling.points[k][1].reactions[0].channels[0])
+            .sum();
+        assert!(
+            (got[1].reactions[0].channels[0] - want).abs() <= 1e-14 * want,
+            "{bu}"
+        );
+        let fission: f64 = terms
+            .iter()
+            .map(|&(k, h)| h * cooling.points[k][0].fission)
+            .sum();
+        let below: f64 = terms
+            .iter()
+            .map(|&(k, h)| {
+                let p = &cooling.points[k][0];
+                h * p.fission * p.thermal_fission.unwrap()
+            })
+            .sum();
+        assert!((got[0].fission - fission).abs() <= 1e-14 * fission, "{bu}");
+        let fraction = got[0].thermal_fission.unwrap();
+        assert!((fraction - below / fission).abs() <= 1e-14, "{bu}");
+        assert_eq!(got[1].thermal_fission, None);
+    }
+}
+
+#[test]
+fn kinetics_and_cooling_data_need_the_data_and_the_burnup_range() {
+    let s = at_burnup(3.0, 1300.0, 565.0, 600.0);
+    assert!(interpolate_kinetics(&burnup_table(), &s, None).is_err());
+    assert!(interpolate_cooling(&burnup_table(), 3.0).is_err());
+    let t = with_kinetics(burnup_table(), curve);
+    assert!(interpolate_kinetics(&t, &s, Some("aic")).is_err());
+    assert!(interpolate_kinetics(&t, &at_burnup(25.0, 1300.0, 565.0, 600.0), None).is_err());
+    assert!(interpolate_cooling(&t, 25.0).is_err());
+    assert!(interpolate_cooling(&t, -1.0).is_err());
+}
