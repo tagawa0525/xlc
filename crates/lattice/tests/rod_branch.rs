@@ -46,8 +46,10 @@ fn library() -> Library {
             awr,
             resolved: None,
             thermal_scattering: false,
+            decay_constants: None,
             temperatures: vec![TemperatureData {
                 sab_transfer: None,
+                delayed: None,
                 temperature: T,
                 chi: if fission[0] > 0.0 {
                     vec![1.0, 0.0]
@@ -76,6 +78,8 @@ fn library() -> Library {
         }
     };
     Library {
+        inverse_velocity: vec![1.0e-6; 2],
+        activation: Vec::new(),
         groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         sigma0: vec![1.0e10, 100.0, 1.0],
         pointwise_range: None,

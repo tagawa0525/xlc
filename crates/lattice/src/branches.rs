@@ -347,6 +347,8 @@ pub fn tables(
             heavy_metal: None,
             micro: None,
             histories: Vec::new(),
+            kinetics: None,
+            cooling: None,
         })
         .collect();
     for (state, fews) in per_state.into_iter().enumerate() {
