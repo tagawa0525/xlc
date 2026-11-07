@@ -22,7 +22,12 @@ resolution:
 - crates/core/src/nem.rs: `fission_powers` は `fission_rates` のループのコピー（断面積とエラーだけが違う）
 - crates/core/src/rods.rs の `mix`: κΣf の有無を数えてから NaN を返す取り出しで混ぜる（すべてか、どれも持たないかの検査を先に書けば NaN が要らない）
 - crates/core/src/depletion.rs: 燃焼の前の κΣf の検査がすべての状態を見る（テーブルの検査が、すべての状態が持つか、どれも持たないかを保証する）
-- examples/depletion/compare_core_energy.py: 集合体の燃焼度を重金属の質量から求め直す（履歴の点の `assembly_burnups` と同じ定義）
+- examples/depletion/compare_core_energy.py: 集合体の燃焼度を重金属の質量から求め直す（履歴の点の `assembly_burnups` と同じ定義）。引数の空の
+  パスの検査（`all(str(p) for p in paths)`）は `Path('')` が `.` になるので働かない（compare_core_guess.py と同じ形）
+- `kappa_fission` を持たない燃焼の履歴からのテーブル（examples/depletion/branches の `table-2A-*` のうち `table-2A-micro-boron-rod-axis.msgpack` を除くもの、
+  `table-2O-all.msgpack`、examples/depletion/history の `table-*`）は、core の燃焼で使うとエラーで止まる。それらを読む記録を再実行するときに作り直す
+  （CLAUDE.md の後回しの規則）。examples/depletion/p9-timing の `core-p9` のステージは、作り直した `table-2A-micro-boron-rod-axis.msgpack` と `bin/core`
+  が deps で changed のまま
 
 関係する ADR: なし
 
@@ -32,4 +37,4 @@ resolution:
 
 ## 経緯
 
-- 2026-11-07: #0154 のブランチの 1 周目のレビューで出た、直さなかった指摘を集めた
+- 2026-11-07: #0154 のブランチの 1 周目と 2 周目のレビューで出た、直さなかった指摘を集めた
