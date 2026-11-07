@@ -2,35 +2,35 @@
  "format": "xlc-compare-core-energy",
  "inputs": [
   {
-   "path": "trials/0154-rate/core-small-restart-full.msgpack",
+   "path": "examples/depletion/branches/energy/rate-cycle.msgpack",
    "md5": "ec5d11c9dbe33c304c3fe7beb35f47a4"
   },
   {
-   "path": "examples/depletion/branches/core-small-restart-full.msgpack",
+   "path": "examples/depletion/branches/energy/kappa-cycle.msgpack",
    "md5": "8baead8045fdf298681a9cd6c3c76340"
   },
   {
-   "path": "trials/0154-rate/core-small-reload.msgpack",
+   "path": "examples/depletion/branches/energy/rate-reload.msgpack",
    "md5": "82584e2a5c476abea1d1e7c6f641469f"
   },
   {
-   "path": "examples/depletion/branches/core-small-reload.msgpack",
+   "path": "examples/depletion/branches/energy/kappa-reload.msgpack",
    "md5": "67e1611544a07cf2e36db149826a5ec2"
   },
   {
-   "path": "trials/0154-rate/core-small-energy-1.msgpack",
+   "path": "examples/depletion/branches/energy/rate-deep.msgpack",
    "md5": "341932dd6a29bc031245b614b56ccf21"
   },
   {
-   "path": "examples/depletion/branches/core-small-energy-1.msgpack",
+   "path": "examples/depletion/branches/energy/kappa-deep.msgpack",
    "md5": "7e1de36972bb6b559f754f7ec0eb36cc"
   },
   {
-   "path": "trials/0154-rate/core-small-energy-2.msgpack",
+   "path": "examples/depletion/branches/energy/rate-deep-reload.msgpack",
    "md5": "2175cc2e6b57c73cbd8174c2aeba43ba"
   },
   {
-   "path": "examples/depletion/branches/core-small-energy-2.msgpack",
+   "path": "examples/depletion/branches/energy/kappa-deep-reload.msgpack",
    "md5": "28eb26c336f1a103340ef16aadff1a87"
   }
  ],
