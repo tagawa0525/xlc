@@ -46,6 +46,9 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 - crates/lattice/src/history.rs の `cooling`: 放射化の核種の燃焼の領域の温度のデータは、数密度が 0 で重みが 0 の領域では引かないので、温度の
   検査が数密度に依存する
 
+- examples/depletion/kinetics_table.py: `--report` が位置引数のテーブルと `--nuclide` を黙って無視する。`cooling` か `kinetics` のないテーブルで
+  KeyError になり、何が足りないかを言わない
+
 関係する ADR: なし
 
 ## 完了の条件
