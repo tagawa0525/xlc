@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-11-04
-closed:
+closed: 2026-11-08
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 4bf526b84
 ---
 
 # CLAUDE.md と /topic-start の (c) の指し方がスキルの原文より狭い・広い
