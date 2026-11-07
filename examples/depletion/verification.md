@@ -8475,11 +8475,10 @@ python3 examples/depletion/compare_core_thermal.py --json $T/compare-thermal.jso
 
 core の燃焼のノードの出力の割合を、核分裂率 Σf φ V の割合（[ADR-0190](../../docs/adr/0190-advance-node-burnups-by-midpoint-steps.md) の「## 変更」の前の決定）から、格子計算の燃焼の
 出力（[ADR-0173](../../docs/adr/0173-deplete-lattice-pins-by-ce-cm.md) の Σ N σf φ Q）と同じ定義の κΣf φ V の割合に替えた差を（#0154）、燃焼度の違う集合体が並ぶ小さな炉心で
-測る。炉心と平衡 Xe は「restart と装荷替え（小さな炉心）」と同じで、テーブルは同じ入力を κΣf を書く `bin/lattice` で解き直したもの（下）。
+測る。炉心と平衡 Xe は「restart と装荷替え（小さな炉心）」と同じ。
 
 - テーブル: `branches/branch-2A-micro-boron-rod-axis.toml` を κΣf を書く `bin/lattice` で解き直したもの。κΣf のほかの値は、前のテーブル（md5 283e440b）と
-  ビットで同じ（msgpack を読んで状態の `kappa_fission` を除いて比べた）。群ごとの核分裂あたりのエネルギー κΣf / Σf は、燃焼度 0 の公称の状態で速群
-  194.69 MeV、熱群 193.41 MeV、60 MWd/kg の最後の状態で 198.35、199.00 MeV
+  ビットで同じ（msgpack を読んで状態の `kappa_fission` を除いて比べた）
 - 燃焼（`cycle`、`reload`）: 「restart と装荷替え（小さな炉心）」の切らない燃焼（`core-small-restart-full.toml`。7.5 MWd/kg と 30 日の停止）と、その履歴からの
   装荷替え（`core-small-reload.toml`。新しい A05 を中心側に装荷し、3 MWd/kg の増分まで）。どの点も 0〜1300 ppm で k = 1.071 のホウ素を探す
 - 深い燃焼（`deep`、`deep-reload`）: 同じ装荷を 600 ppm（与える）で 20 MWd/kg まで燃焼させ（`core-small-energy-1.toml`。探索の範囲では目標の k を囲めない）、
@@ -8498,22 +8497,22 @@ cd examples/depletion/branches
 ../../../bin/lattice branch-2A-micro-boron-rod-axis.toml > branch-2A-micro-boron-rod-axis.out 2> branch-2A-micro-boron-rod-axis.log
 cd ../../..
 B=examples/depletion/branches
-# 試行の置き場（チェーンの相対パス ../chain.msgpack が同じになる深さ）に、テーブル、ケース、core を置いて解く。restart する燃焼は、前の燃焼の後に解く
-ln -sfn ../examples/depletion/chain.msgpack trials/chain.msgpack
-burn() {
-  mkdir -p $1
-  cp $B/{table-reflector-I-boron.msgpack,core-small-plant.toml,core-small-assemblies.toml,core-small-cycle.toml} $1/
-  cp $B/core-small-{reload-cycle,restart-full,reload,energy-1,energy-2-cycle,energy-2}.toml $1/
+# 試行の置き場（チェーンの相対パス ../chain.msgpack が同じになる深さ）に、core、テーブル、ケースを置いて解く。restart する燃焼は、前の燃焼の後に
+# 解き、失敗したら止める
+mkdir -p trials && ln -sfn ../examples/depletion/chain.msgpack trials/chain.msgpack
+burn() {  # <置き場> <core> <2A のテーブル>
+  mkdir -p $1 && cp $2 $1/core && cp $3 $1/table-2A-micro-boron-rod-axis.msgpack &&
+  cp $B/{table-reflector-I-boron.msgpack,core-small-plant.toml,core-small-assemblies.toml,core-small-cycle.toml} $1/ &&
+  cp $B/core-small-{reload-cycle,restart-full,reload,energy-1,energy-2-cycle,energy-2}.toml $1/ &&
   (cd $1 && for c in restart-full reload energy-1 energy-2; do
-    RAYON_NUM_THREADS=1 ./core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log
+    RAYON_NUM_THREADS=1 ./core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log || exit 1
   done)
 }
 # κΣf の燃焼: 今の bin/core と解き直したテーブル
-mkdir -p trials/0154-kappa && cp bin/core $B/table-2A-micro-boron-rod-axis.msgpack trials/0154-kappa/
-burn trials/0154-kappa
-# 核分裂率の燃焼: 変える前の bin/core（分岐点の dvc.lock の build の出力）を core、前のテーブル（DVC のキャッシュの md5 283e440b）を
-# table-2A-micro-boron-rod-axis.msgpack として trials/0154-rate に置いてから
-burn trials/0154-rate
+burn trials/0154-kappa bin/core $B/table-2A-micro-boron-rod-axis.msgpack
+# 核分裂率の燃焼: 変える前の bin/core（分岐点の dvc.lock の build の出力、md5 5737abc2）と前のテーブル（md5 283e440b）を DVC のキャッシュから
+C=$(dvc cache dir)/files/md5
+burn trials/0154-rate $C/57/37abc2693c290044a36348e3eab0ce $C/28/3e440b2d6a0bea62f03bfd7da77cb1
 # 履歴とログを、比べる燃焼の名前で branches/energy に集める
 E=$B/energy
 mkdir -p $E
@@ -8536,7 +8535,8 @@ python3 examples/depletion/compare_core_energy.py --report $B/compare-core-small
 ブランチ feat/0154-node-power-by-fission-energy（分岐点は main の 659476e2e）の 757e1b703、2026-11-07。テーブル（md5 4c1806b4）は 757e1b703 の `bin/lattice`（`dvc.lock` の
 `build` の出力、md5 97f6db52）で解いた（Slurm 720、区分 record。割り込まれうるジョブなので時間は記録に使わない）。燃焼の履歴は「集合体の燃焼」の 2A
 （`p2/lattice-2A.msgpack` md5 a2cc87df）、ライブラリは `p2/depletion.msgpack`（md5 e84310af）。κΣf の燃焼は 757e1b703 の `bin/core`（md5 695ecf17）、核分裂率の
-燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1`。上のコマンドと違い、κΣf の燃焼は `branches` の中で、核分裂率の燃焼は試行の置き場で解き、
+燃焼は分岐点の `bin/core`（md5 5737abc2）で、Slurm 721（`-c 4`、`RAYON_NUM_THREADS=1`。上のコマンドと違い、κΣf の燃焼は `branches` の中で、核分裂率の燃焼は試行の置き場（core の
+名前は `core-main`）で解き、
 core ごとに切らない燃焼とその装荷替え、深い燃焼とその装荷替えの 2 つの列を、4 列同時に流した。時間は記録に使わない）。比較は 452ec2cd6 のツール（手元）。
 
 ### 結果
