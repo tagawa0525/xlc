@@ -10,7 +10,7 @@
   λ_k = Σ_G ν_dΣf,k,G φ_G / Σ_G (ν_dΣf/λ)_k,G φ_G（core の `decay_constants` と同じ式）
 - 群速度の逆数の中性子束の平均 Σ_G (1/v)_G φ_G / Σ_G φ_G (s/cm)
 - 冷却計算の断面積は、核種の数と、核種ごとの 1 群の核分裂と捕獲（MT102 の経路の和）を `nuclides` の中から `--nuclide` で選んだ
-  ものだけ書く（既定は U-235、Pu-239、Cs-133、Cs-134、Eu-154）
+  ものだけ書く（既定は U-235、Pu-239、Cs-133、Cs-134、Eu-154。テーブルにない名前はエラー）
 - `inputs` は読んだファイルのパス（実行した cwd から）と md5
 """
 
@@ -66,7 +66,10 @@ def summary(table: dict, nuclides: list[str]) -> dict:
     burnups = table["axes"][0]["points"]
     cooling = table["cooling"]
     kinetics = table["kinetics"]["states"]
-    picked = [n for n in nuclides if n in cooling["nuclides"]]
+    missing = [n for n in nuclides if n not in cooling["nuclides"]]
+    if missing:
+        raise ValueError(f"the table has no cooling cross sections of {missing}")
+    picked = list(nuclides)
     rows = []
     for b, p in enumerate(nominal_points(table)):
         state = table["states"][p]
