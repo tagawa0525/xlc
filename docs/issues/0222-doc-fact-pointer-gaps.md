@@ -41,4 +41,4 @@ CLAUDE.md の参照は「計画と issue だけのブランチ」の項の外（
 
 - 2026-11-04: docs/claude-md-doc-fact-blocking の記録の周の直さない指摘から起こした
 - 2026-11-08: docs/align-review-and-wait-rules で CLAUDE.md と /topic-start を /git-merge の項を指す形にし、(c) の参照を
-  「計画と issue だけのブランチ」の項の外に移して閉じた。残った言い換えは #0272
+  ブランチの種類によらない文にして（計画と issue だけのブランチの文はその項に従う形で同じ項に残る）閉じた。残った言い換えは #0272
