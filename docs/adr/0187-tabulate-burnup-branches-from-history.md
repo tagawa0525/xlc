@@ -178,5 +178,5 @@ lattice の実行ファイルが変われば、どちらのステージも chang
 - ADR-0011 の帰結の HDF5 への移行は行わない
 - 確認の 2A のテーブルはステージにしていない（履歴のステージを deps にすると、実行ファイルの変わったブランチでは履歴を再実行するため。
   examples/depletion/verification.md）。本番のテーブルのステージは、熱水力の ADR の後に作る
-- ミクロの断面積、均質化した数密度、ADR-0033 のデータは、形式の置き場を決めただけで、まだ書かない（#0153）
+- ミクロの断面積と均質化した数密度は [ADR-0216](0216-tabulate-micro-depletion-cross-sections-per-state.md)、ADR-0033 のデータは [ADR-0238](0238-store-kinetics-and-activation-data-for-burnup-tables.md) で書く
 - core の燃焼度はケースの状態の一様な値で、集合体ごとの燃焼度は「進め方」7
