@@ -108,6 +108,17 @@ class Summary(unittest.TestCase):
         with self.assertRaises(ValueError):
             kt.summary(table(), ["U-235", "Pu-239"])
 
+    def test_a_repeated_picked_nuclide_is_an_error(self):
+        with self.assertRaises(ValueError):
+            kt.summary(table(), ["U-235", "U-235"])
+
+    def test_a_family_without_precursors_under_the_flux_is_an_error(self):
+        t = table()
+        for k in t["kinetics"]["states"]:
+            k["delayed_precursors"][1] = [0.0, 0.0]
+        with self.assertRaises(ValueError):
+            kt.summary(t, ["U-235"])
+
 
 if __name__ == "__main__":
     unittest.main()
