@@ -8645,3 +8645,43 @@ core ごとに切らない燃焼とその装荷替え、深い燃焼とその装
 - 臨界ホウ素の差は 1 ppm 未満（7.5 MWd/kg までの燃焼と、その装荷替え）。ホウ素を与えた深い燃焼の反応度の差は、燃焼が進むほど大きくなり（20 MWd/kg で
   −13.18 pcm）、装荷替えの後は +18.90 pcm まで。差は、出力の割合の違いが積もったノードの燃焼度の違い（相対差の最大 7.10e-03）から来ると見ている（候補で、
   ノードの燃焼度を揃えて分けては確かめていない）
+
+## 動特性と冷却計算のデータ（2A）
+
+[ADR-0238](../../docs/adr/0238-store-kinetics-and-activation-data-for-burnup-tables.md) の動特性のデータ（族ごとの遅発の生成と崩壊定数で割った量、遅発スペクトル、群速度の逆数）と
+冷却計算の 1 群の微視的断面積を持つ 2A のテーブルを作り、燃焼度の点ごとの公称の状態で値が物理的な大きさかを見る。ライブラリ
+（`p2/depletion.msgpack`）は、輸送する 90 核種に、放射化の 455 核種（`p2/xs.toml` の説明）を足して作り直し、2A の燃焼の履歴（`p2` の
+`lattice@2A`）も作り直した。テーブルは `branches/branch-2A-kinetics.toml`（`branch-2A-micro.toml` と同じ 17 点、4 状態、追う 31 核種で、
+数密度の微分を持たない）。要約（`branches/kinetics-2A.json`。`kinetics_table.py`）は、燃焼度の点ごとの公称の状態（1300 ppm、565 K）の
+少数群定数の無限媒質の基本モードの中性子束で、遅発中性子の割合 β（重みを付けない）、族の崩壊定数、群速度の逆数の平均を出す。
+
+```sh
+python3 examples/stage_runner.py examples/depletion/p2/dvc.yaml xs-nuclide
+dvc repro examples/depletion/p2/dvc.yaml:xs
+dvc repro examples/depletion/p2/dvc.yaml:lattice@2A
+cd examples/depletion/branches
+../../../bin/lattice branch-2A-kinetics.toml > branch-2A-kinetics.out 2> branch-2A-kinetics.log
+cd ../../..
+python3 examples/depletion/kinetics_table.py --json examples/depletion/branches/kinetics-2A.json \
+  examples/depletion/branches/table-2A-kinetics.msgpack
+python3 examples/depletion/kinetics_table.py --report examples/depletion/branches/kinetics-2A.json
+```
+
+### 計算
+
+b95004c32（ブランチ feat/0153-kinetics-table-data、分岐点は main の 0fba1a727）、2026-11-07、Slurm 726（割り込まれうるジョブなので、時間は
+記録に使わない）。ライブラリ `p2/depletion.msgpack` は md5 a96f4f23、チェーン `chain.msgpack` は md5 1f1de180（前と同じ）、履歴
+`p2/lattice-2A.msgpack` は md5 c028d773、テーブル `branches/table-2A-kinetics.msgpack` は md5 32bf5898（`.dvc` で追跡する生成物）。要約は
+同じコミットで手元。履歴を OpenMC と比べ直した JSON（`p2/compare-2A.json` の形）は、前の履歴（「集合体の燃焼」の 2A、md5 a2cc87df）と k と
+数密度が同じで、時間と入力の md5 だけが違った。時間の内訳の記録は前の timed のジョブのままにした。
+
+### 結果
+
+- 冷却計算の断面積を持つ核種は 544（履歴の輸送する 89 核種と放射化の 455 核種。`kinetics-2A.json` の `cooling_nuclides`）
+- 基本モードの k と格子計算の k∞ の差は、どの燃焼度の点も 0.0005 pcm 未満（`k_minus_lattice_pcm`）。要約の中性子束は格子計算の k∞ を再現する
+- β は燃焼度 0 で 712.62 pcm、10 MWd/kg で 594.97 pcm、20 で 542.32 pcm、40 で 488.70 pcm、60 で 464.33 pcm（`beta_total_pcm`）。Pu の核分裂が
+  増えて減る（ADR-0033 が燃焼度の点ごとに持つとした理由の向き）
+- 族の崩壊定数は、燃焼度 0 の 0.0134、0.0326、0.1211、0.3057、0.8611、2.8920 /s から、60 MWd/kg の 0.0134、0.0308、0.1178、0.3085、0.8805、
+  2.9531 /s へ動く（`decay_constants`）
+- 1 群の微視的断面積の例（燃焼度 0）: U-235 の核分裂 48.21 b、Cs-133 の捕獲 11.64 b、放射化の核種の Cs-134 の捕獲 13.36 b、Eu-154 の捕獲
+  266.82 b（`cooling`）
