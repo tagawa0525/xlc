@@ -36,3 +36,9 @@ resolution: コミット 4bf526b84
 CLAUDE.md の参照は「計画と issue だけのブランチ」の項の外（レビューの一般の規則）に置く。
 
 関係する ADR: なし
+
+## 経緯
+
+- 2026-11-04: docs/claude-md-doc-fact-blocking の記録の周の直さない指摘から起こした
+- 2026-11-08: docs/align-review-and-wait-rules で CLAUDE.md と /topic-start を /git-merge の項を指す形にし、(c) の参照を
+  「計画と issue だけのブランチ」の項の外に移して閉じた。残った言い換えは #0272
