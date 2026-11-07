@@ -1,0 +1,46 @@
+---
+status: open
+labels: [core, depletion]
+opened: 2026-11-07
+closed:
+milestone: M4
+blocked-by: []
+resolution:
+---
+
+# 燃焼の熱水力のブランチのレビューで直さなかった点
+
+## 問題
+
+燃焼のステップの熱水力（#0228、ADR-0229 の「燃焼のステップ」。ブランチ feat/0228-depletion-thermal-hydraulics）の /code-review の 1 周目で、
+/git-merge の「直す指摘の基準」の blocking に当たらないとした指摘。どれも今のコードに残る。
+
+- 減速材の密度の履歴の変数（ADR-0215）は、熱水力の燃焼ではノードの温度の IF97 の密度、熱水力のない燃焼ではテーブルの格子点の組を温度で
+  内挿した密度（crates/core/src/state.rs の `moderator_density`）。格子点の間では、定数は格子点の組の線形の内挿で引くので、履歴の変数の
+  密度と定数の密度が格子点の間の内挿の差（ADR-0229 の帰結の約 0.003 g/cc）だけ違う。どちらに合わせるかは、HFP の範囲の本番のテーブルで
+  履歴の補正の効きを測ってから決める
+- `CoreHistory::from_msgpack`（crates/core/src/depletion.rs）は、状態の `moderator` と `fuel` か `inlet` のどちらか一方を持つことと、点の
+  `temperatures` の形（集合体 × 軸方向のノード × 2）と状態の `inlet` の有無の一致を確かめない。core が書く履歴はこの形を満たす
+- `advance_history` は燃焼度 0 のまま解く点で瞬時の値 x を返すので、熱水力のない燃焼でも、燃焼度 0 のノードの履歴の変数は点を解いた状態の
+  値になる（崩壊だけのステップで始まり、状態を変える燃焼で、記録する値が燃焼点 0 の状態の値から変わる）。燃焼度 0 の残りは 0 なので定数には
+  効かない
+- 熱水力のない燃焼でも、履歴の変数のステップの値と進めた値を、固有値計算ごと（探索の評価と Xe の解き直しのすべて）に作り直す（効率）
+- 燃焼点 0 の前の熱水力の履歴の変数の値（入口の温度の密度）は、燃焼点 0 の解の値で必ず置き換わるので、作る処理は要らない（`deplete` の
+  `histories` の初めの値）
+- examples/depletion/compare_core_thermal.py の `moderator_max`、`fuel_max` は、点の `temperatures` の空の行（ノードのない位置）を除かない
+- crates/core/src/input/tests.rs の `depletion_takes_thermal_hydraulics_with_inlet_states` の doc コメントが「燃焼のケースの熱水力は未実装」の
+  まま
+- `deplete` の中で、クロージャ `node_densities`（ノードの温度 → IF97 の密度）と、restart の数密度の束縛 `node_densities` が同じ名前
+- ADR-0229 の「決定と理由」の「入力」と「燃焼のステップ」は、燃焼のケースと `[thermal-hydraulics]` の組み合わせを「このブランチでは」
+  エラーにすると書く（その ADR を入れたブランチの実装の状態）。今の実装はエラーにせず、帰結に実装の形を書いた。決定の文を今の形に直して
+  「## 変更」を足すかは決めていない
+
+関係する ADR: なし
+
+## 完了の条件
+
+上の点ごとに、直すか、直さない理由を決める。
+
+## 経緯
+
+- 2026-11-07: 燃焼の熱水力のブランチのレビューの 1 周目で、直さないとした指摘をまとめた
