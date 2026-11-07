@@ -136,6 +136,39 @@ pub fn fission_rates(problem: &Problem, solution: &Solution) -> Vec<f64> {
         .collect()
 }
 
+/// 直方体の位置ごとの核分裂のエネルギーの生成率 Σ_g κΣf,g φ_g V（`solution` の規格化。ノードのない位置と核分裂のない物質は 0）。
+/// 燃焼のノードの出力の割合（ADR-0190）。核分裂するのに κΣf を持たない物質はエラー（核分裂率で代えない）
+pub fn fission_powers(problem: &Problem, solution: &Solution) -> Result<Vec<f64>, String> {
+    problem
+        .node_material
+        .iter()
+        .zip(&solution.flux)
+        .enumerate()
+        .map(|(site, (material, flux))| {
+            let Some(m) = material.map(|m| &problem.materials[m]) else {
+                return Ok(0.0);
+            };
+            let kappa = match &m.kappa_fission {
+                Some(kappa) => kappa,
+                None if m.fission.iter().all(|&f| f == 0.0) => return Ok(0.0),
+                None => {
+                    return Err(format!(
+                        "position {site} fissions but its constants have no kappa_fission (ADR-0190)"
+                    ));
+                }
+            };
+            let [x, y, z] = problem.mesh.position(site);
+            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
+            Ok(kappa
+                .iter()
+                .zip(flux)
+                .map(|(k, phi)| k * phi)
+                .sum::<f64>()
+                * volume)
+        })
+        .collect()
+}
+
 /// 反復の打ち切り条件と加速。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Options {

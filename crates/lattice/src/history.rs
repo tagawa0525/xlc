@@ -10,9 +10,13 @@
 //! 求め、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じことを確かめ、その形状の MOC の領域で同じ燃焼度の点の組成を解く。
 //! 制御棒の値のすべての状態（公称を含む）は、その値の `rod-burnup`（書かなければ `off-nominal-burnup`）の燃焼点で解く（ADR-0225）。
 //!
+//! テーブルの状態ごとの κΣf（[`HistoryBranches::kappa_fission`]。ADR-0190）は、燃焼の領域の核種の核分裂率に `chain`（履歴を作った
+//! チェーン）の核分裂の Q 値で重みを付けたもの。
+//!
 //! ```toml
 //! [history]
 //! file = "history.msgpack"   # 燃焼の履歴（入力のファイルのあるディレクトリから）
+//! chain = "chain.msgpack"    # 履歴を作った燃焼チェーン（κΣf の Q 値。核種の名前と順が履歴と同じこと）
 //! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。公称の状態はすべての点で解く
 //! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 40] }       # 制御棒の値ごとの、その値の状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
@@ -33,6 +37,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
+use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Shielded};
 use xlc_format::table::{
@@ -47,6 +52,7 @@ use crate::depletion::{
 use crate::fewgroup::coarse_groups;
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
+use crate::material::Material;
 use crate::moc::Solution;
 use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Chosen;
@@ -60,6 +66,8 @@ type Member<'a> = (&'a [Shielded], Option<&'a [NuclideTransfer]>, Vec<f64>);
 pub struct HistoryInput {
     /// 燃焼の履歴のファイル（入力のファイルのあるディレクトリから）
     pub file: PathBuf,
+    /// 履歴を作った燃焼チェーンのファイル（入力のファイルのあるディレクトリから。κΣf の Q 値。ADR-0190）
+    pub chain: PathBuf,
     /// 分岐を解く燃焼点 (MWd/kg)。0 以上で増え、どれも履歴の燃焼度のどれかと等しい
     pub burnup: Vec<f64>,
     /// 公称でない状態を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
@@ -121,6 +129,8 @@ pub struct HistoryBranches {
     nuclides: Vec<String>,
     /// 輸送する核種（履歴の核種の番号）
     transported: Vec<usize>,
+    /// 輸送する核種（`transported` の順）の、チェーンの核分裂の Q 値 (eV)。核分裂を持たない核種は `None`
+    fission_q: Vec<Option<f64>>,
     /// 分岐の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     branch: Vec<(Vec<MaterialInput>, Vec<f64>)>,
     /// 分岐の状態ごとの参照の番号（`Branches::reference`。ADR-0201）
@@ -150,10 +160,11 @@ pub struct HistoryBranches {
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`geometries` は制御棒の値
 /// （`LatticeInput::rod_values` の順。0 は基準の形状）ごとの形状。どの値の形状の燃焼の領域（物質、組の代表のセル、体積）も履歴の
 /// ものと同じでなければエラー。燃焼させない物質のセル（案内管の中身など）は履歴の格子と違ってよく、MOC の領域の番号は値ごとの
-/// 形状のもの
+/// 形状のもの。`chain` は履歴を作ったチェーンで、核種の名前と順が履歴と違えばエラー（κΣf の Q 値。ADR-0190）
 pub fn history_branches(
     input: &LatticeInput,
     history: &History,
+    chain: &Chain,
     library: &Library,
     geometries: &[ValueGeometry],
 ) -> anyhow::Result<HistoryBranches> {
@@ -307,6 +318,25 @@ pub fn history_branches(
                 .ok_or_else(|| anyhow!("the transportable {name} is not a nuclide of the history"))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
+    // 履歴の核種はチェーンの核種の名前の順（ADR-0173）。違えば、別のチェーンの Q で重みを付けることになる
+    if chain.nuclides.len() != history.nuclides.len()
+        || chain
+            .nuclides
+            .iter()
+            .zip(&history.nuclides)
+            .any(|(c, h)| &c.name != h)
+    {
+        bail!(
+            "the chain has {} nuclides that differ in name or order from the {} of the history; give the chain of the \
+             history (ADR-0190)",
+            chain.nuclides.len(),
+            history.nuclides.len()
+        );
+    }
+    let fission_q = transported
+        .iter()
+        .map(|&i| chain.nuclides[i].fission.as_ref().map(|f| f.q))
+        .collect();
     check_region_names(&input.materials, &history.regions)?;
     for &p in &points {
         check_negative(&history.regions, &history.points[p].densities, |i| {
@@ -510,6 +540,7 @@ pub fn history_branches(
             .collect(),
         nuclides: history.nuclides.clone(),
         transported,
+        fission_q,
         branch,
         reference_of: (0..branches.states().len())
             .map(|b| branches.reference(b))
@@ -868,6 +899,109 @@ impl HistoryBranches {
             });
         }
         Ok(out)
+    }
+
+    /// 制御棒の値 `rod` の状態 `index` の、格子全体の少数群（境界 `bounds`）の κΣf (eV/cm)（ADR-0190）: 燃焼の領域の輸送する核種
+    /// ごとの核分裂の断面積に、その数密度とチェーンの核分裂の Q 値を掛けて足し、少数群定数（`fewgroup::homogenize`）と同じく MOC の
+    /// 中性子束と体積で重みを付けて、少数群の中性子束で割る。格子計算の燃焼の出力 Σ V N σf φ Q（`depletion::region_rates` の核分裂率
+    /// と同じ自己遮蔽した断面積と物理的な中性子束）と同じ定義。`shielding` は状態の燃料の自己遮蔽、`lattice` はその値の形状、
+    /// `solution` はその MOC の解、`materials` は解いた [領域] の物質。燃焼の領域の外の物質が核分裂すれば（核種の Q を数えられない）、
+    /// 核分裂する核種がチェーンで核分裂を持たなければエラー
+    #[allow(clippy::too_many_arguments)]
+    pub fn kappa_fission(
+        &self,
+        rod: usize,
+        index: usize,
+        library: &Library,
+        shielding: &FuelShielding,
+        lattice: &Lattice,
+        solution: &Solution,
+        materials: &[&Material],
+        bounds: &[f64],
+    ) -> anyhow::Result<Vec<f64>> {
+        let point = index / self.branch.len();
+        let fine = library.groups.len();
+        let group_of = coarse_groups(&library.groups, bounds)?;
+        let coarse = bounds.len() - 1;
+        if solution.flux.len() != lattice.regions()
+            || solution.volumes.len() != lattice.regions()
+            || materials.len() != lattice.regions()
+        {
+            bail!(
+                "the solution has {} regions and {} materials for {} of the lattice",
+                solution.flux.len(),
+                materials.len(),
+                lattice.regions()
+            );
+        }
+        let shape = &self.values[rod];
+        let mut depleted = vec![false; lattice.regions()];
+        for d in &shape.regions {
+            for &r in &d.regions {
+                depleted[r] = true;
+            }
+        }
+        if let Some(r) = (0..lattice.regions())
+            .find(|&r| !depleted[r] && materials[r].fission.iter().any(|&f| f != 0.0))
+        {
+            bail!(
+                "region {r} fissions outside the depleted materials, whose nuclides have no chain Q; deplete every \
+                 fissile material of the lattice (ADR-0190)"
+            );
+        }
+        // 領域ごとの SPH 因子 μ（物理的な中性子束は MOC の中性子束に μ を掛けたもの。物質の断面積は μ を掛けたもの）
+        let ones = vec![vec![1.0; fine]; lattice.regions()];
+        let sph = shielding.physical_flux(lattice, &ones)?;
+        let mut flux = vec![0.0; coarse];
+        for (phi, volume) in solution.flux.iter().zip(&solution.volumes) {
+            for (g, f) in phi.iter().enumerate() {
+                flux[group_of[g]] += volume * f;
+            }
+        }
+        if flux.iter().any(|&f| !(f > 0.0 && f.is_finite())) {
+            bail!("the few-group fluxes {flux:?} must be positive");
+        }
+        let mut kappa = vec![0.0; coarse];
+        for (d, n) in shape.regions.iter().zip(&self.densities[point]) {
+            for &r in &d.regions {
+                let effective = shielding.region_cross_sections(r).ok_or_else(|| {
+                    anyhow!(
+                        "region {r} of material `{}` has no shielded cross sections",
+                        d.material
+                    )
+                })?;
+                if effective.len() != self.transported.len() {
+                    bail!(
+                        "region {r} of material `{}`: {} shielded nuclides for {} transported",
+                        d.material,
+                        effective.len(),
+                        self.transported.len()
+                    );
+                }
+                for (k, (&i, shielded)) in self.transported.iter().zip(effective).enumerate() {
+                    // 輸送する核種の数密度は負を 0 にする（分岐の物質と同じ。格子計算の燃焼の出力も同じ）
+                    let density = n[i].max(0.0);
+                    if density == 0.0 || shielded.fission.iter().all(|&f| f == 0.0) {
+                        continue;
+                    }
+                    let q = self.fission_q[k].ok_or_else(|| {
+                        anyhow!(
+                            "{} fissions in the library but has no fission Q in the chain (ADR-0190)",
+                            self.nuclides[i]
+                        )
+                    })?;
+                    for g in 0..fine {
+                        kappa[group_of[g]] += solution.volumes[r]
+                            * solution.flux[r][g]
+                            * sph[r][g]
+                            * density
+                            * shielded.fission[g]
+                            * q;
+                    }
+                }
+            }
+        }
+        Ok(kappa.iter().zip(&flux).map(|(k, f)| k / f).collect())
     }
 
     /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）

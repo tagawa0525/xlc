@@ -325,6 +325,7 @@ fn constants() -> FewGroup {
         absorption: vec![0.01, 0.08],
         nu_fission: vec![0.006, 0.12],
         fission: vec![0.0025, 0.05],
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter: vec![vec![0.49, 0.02], vec![0.001, 1.22]],

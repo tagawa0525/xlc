@@ -63,6 +63,7 @@ fn few(fissile: f64, ppm: f64, tm: f64, tf: f64) -> FewGroup {
         fission: nu_fission.iter().map(|x| x / 2.43).collect(),
         nu_fission,
         absorption,
+        kappa_fission: None,
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter,
@@ -334,6 +335,7 @@ fn history_few(s: f64) -> FewGroup {
         absorption: vec![x(0.01), x(0.1)],
         nu_fission: vec![x(0.007), x(0.14)],
         fission: vec![x(0.0028), x(0.057)],
+        kappa_fission: None,
         chi: vec![1.0 - s / 1000.0, s / 1000.0],
         diffusion: vec![x(1.4), x(0.4)],
         scatter: vec![vec![x(0.52), x(0.017)], vec![x(0.0015), x(1.2)]],
@@ -1554,4 +1556,36 @@ fn parallel_states_split_the_threads_without_sharing_them() {
     assert_eq!(state_workers(4, 1), vec![4]);
     assert_eq!(state_workers(1, 5), vec![1]);
     assert_eq!(state_workers(4, 0), vec![4]);
+}
+
+#[test]
+fn corrected_constants_keep_the_fission_energy_per_fission_of_the_table() {
+    // テーブルは κΣf を状態ごとに持つが、ミクロ燃焼の線形の補正と履歴の残り R は核分裂の断面積だけを直す。補正した定数の κΣf は、
+    // 内挿した群ごとの核分裂あたりのエネルギー κΣf / Σf を保つ（ADR-0190）
+    let energy = [2.0e8, 1.95e8];
+    let mut table = history_table(&[]);
+    for s in &mut table.states {
+        s.kappa_fission = Some(s.fission.iter().zip(energy).map(|(f, e)| e * f).collect());
+    }
+    let n = [5.5e-4, 1.6e-5];
+    let state = at(600.0, 7.0);
+    let plain = interpolate(&table, Some(&state), None)
+        .unwrap()
+        .pop()
+        .unwrap();
+    let f = node_constants(&table, &state, None, &n, &[0.702, 0.0]).unwrap();
+    assert!(
+        !close(&f.fission, &plain.fission),
+        "the corrections change the fission"
+    );
+    let kappa = f.kappa_fission.as_ref().unwrap();
+    for g in 0..2 {
+        // 試験の定数の補正は大きく、核分裂の断面積の符号を変えうる
+        let want = energy[g] * f.fission[g];
+        assert!(
+            (kappa[g] - want).abs() <= 1e-13 * want.abs(),
+            "{g}: {} vs {want}",
+            kappa[g]
+        );
+    }
 }

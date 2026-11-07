@@ -5,7 +5,7 @@ use xlc_format::table::Axis;
 use super::*;
 use crate::branches::{BranchShielder, remix_varied};
 use crate::depletion::tests::{
-    PIN, U235, continue_from, deplete_with, deplete_with_moc, library, tight,
+    PIN, U235, chain, continue_from, deplete_with, deplete_with_moc, library, tight,
 };
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
@@ -58,7 +58,7 @@ fn branch_input(burnup: &str, fuel: &str) -> String {
         "{lattice}\n[branches]\nboron = {{ ppm = [500, 1000], materials = [\"water\"] }}\n\
          moderator = {{ temperature = [600], density = [0.7], materials = [\"water\"] }}\n\
          fuel = {{ temperature = {fuel}, materials = [\"fuel\"] }}\n\
-         [history]\nfile = \"unused.msgpack\"\nburnup = {burnup}\n"
+         [history]\nfile = \"unused.msgpack\"\nchain = \"unused.msgpack\"\nburnup = {burnup}\n"
     )
 }
 
@@ -118,7 +118,7 @@ fn branches_of(
             chosen,
         })
         .collect();
-    history_branches(&input, history, library, &geometries)
+    history_branches(&input, history, &chain(), library, &geometries)
 }
 
 /// 分岐の状態の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
@@ -458,6 +458,7 @@ fn shield_states(
     let branches = history_branches(
         &s.input,
         history,
+        &chain(),
         library,
         &[ValueGeometry {
             lattice: &s.tracking.lattice,
@@ -618,6 +619,7 @@ fn framed_nominal(
     let branches = history_branches(
         &s.input,
         &history,
+        &chain(),
         library,
         &[ValueGeometry {
             lattice: &s.tracking.lattice,
@@ -715,6 +717,7 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
     let branches = history_branches(
         &s.input,
         &history,
+        &chain(),
         &library,
         &[ValueGeometry {
             lattice: &s.tracking.lattice,
@@ -1928,4 +1931,226 @@ fn rod_values_that_change_the_fuel_orbits_are_errors() {
         err.contains("cells at [[0, 0]],") && err.contains("cells at [[0, 0], [1, 0]]"),
         "{err}"
     );
+}
+
+/// `library` の U-238 に、速群だけの核分裂（全断面積に足す）と χ を持たせたもの
+fn with_fissile_u238(mut library: Library) -> Library {
+    let u238 = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-238")
+        .unwrap();
+    for t in &mut u238.temperatures {
+        t.chi = vec![1.0, 0.0];
+        for s in &mut t.shielded {
+            s.fission = vec![0.05, 0.0];
+            s.nu_fission = vec![2.6 * 0.05, 0.0];
+            s.total[0] += 0.05;
+        }
+    }
+    library
+}
+
+/// テストのチェーンの U-238 に、U-235 と違う Q (eV) の核分裂を持たせたもの
+fn chain_with_fissile_u238(q: f64) -> xlc_depletion::chain::Chain {
+    let mut chain = chain();
+    let u235 = chain
+        .nuclides
+        .iter()
+        .find(|n| n.name == "U-235")
+        .unwrap()
+        .fission
+        .clone()
+        .unwrap();
+    let u238 = chain
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-238")
+        .unwrap();
+    u238.fission = Some(xlc_depletion::chain::Fission {
+        q,
+        yield_source: "U-238".into(),
+        ..u235
+    });
+    chain
+}
+
+/// 分岐の状態 `index` を解いて、κΣf と、輸送するすべての核種の微視的断面積を求める
+fn kappa_and_micro(
+    text: &str,
+    library: &Library,
+    branches: &HistoryBranches,
+    index: usize,
+) -> (Vec<f64>, Vec<xlc_format::table::MicroNuclide>) {
+    let (s, shielded, solution) = solved(text, library, branches, index);
+    let materials: Vec<&Material> = shielded
+        .region_material
+        .iter()
+        .map(|&i| &shielded.materials[i])
+        .collect();
+    let kappa = branches
+        .kappa_fission(
+            0,
+            index,
+            library,
+            &shielded,
+            &s.tracking.lattice,
+            &solution,
+            &materials,
+            &BOUNDS,
+        )
+        .unwrap();
+    let micro = branches
+        .micro(
+            0,
+            index,
+            library,
+            &shielded,
+            &s.tracking.lattice,
+            &solution,
+            &BOUNDS,
+        )
+        .unwrap();
+    (kappa, micro)
+}
+
+#[test]
+fn kappa_fission_weights_the_fission_of_each_nuclide_by_its_chain_q() {
+    // 輸送するすべての核種を追えば、Σᵢ σf,i N̄ᵢ は少数群定数の核分裂の断面積と同じ（上の micro の閉じ方）なので、κΣf は
+    // チェーンの Q で重みを付けた Σᵢ Qᵢ σf,i N̄ᵢ と丸めの範囲で同じ（格子計算の燃焼の出力 Σ N σf φ Q と同じ定義。ADR-0190）
+    let (history, library) = history();
+    let library = with_fissile_u238(library);
+    let (q235, q238) = (1.93e8, 2.05e8);
+    let chain = chain_with_fissile_u238(q238);
+    let text = all_transported(&history, "[0, 2.0]");
+    let input = LatticeInput::parse(&text).unwrap();
+    let setups = value_setups(&input);
+    let geometries: Vec<ValueGeometry> = setups
+        .iter()
+        .map(|(tracking, region_materials, chosen)| ValueGeometry {
+            lattice: &tracking.lattice,
+            region_materials,
+            chosen,
+        })
+        .collect();
+    let branches = history_branches(&input, &history, &chain, &library, &geometries).unwrap();
+    let names = branches.micro_nuclides().to_vec();
+    for index in 0..branches.len() {
+        let (kappa, micro) = kappa_and_micro(&text, &library, &branches, index);
+        let point = index / (branches.len() / 2);
+        let densities = &branches.micro_densities()[point];
+        assert_eq!(kappa.len(), 2);
+        for (g, &got) in kappa.iter().enumerate() {
+            let want: f64 = micro
+                .iter()
+                .zip(densities)
+                .zip(&names)
+                .map(|((m, n), name)| {
+                    let q = match name.as_str() {
+                        "U-235" => q235,
+                        "U-238" => q238,
+                        _ => 0.0,
+                    };
+                    q * n * m.fission[g]
+                })
+                .sum();
+            assert!(
+                (got - want).abs() <= 1e-12 * want.abs(),
+                "state {index} group {g}: {got} vs {want}"
+            );
+        }
+        // 速群は U-238 の核分裂を含むので、核分裂あたりのエネルギーは 2 つの Q の間
+        let fission: f64 = micro
+            .iter()
+            .zip(densities)
+            .map(|(m, n)| n * m.fission[0])
+            .sum();
+        let per = kappa[0] / fission;
+        assert!(q235 < per && per < q238, "state {index}: {per}");
+    }
+}
+
+#[test]
+fn the_branch_chain_must_be_the_chain_of_the_history() {
+    // 履歴の核種はチェーンの核種の名前の順（ADR-0173）。違うチェーンの Q で重みを付けない
+    let (history, library) = history();
+    let mut other = chain();
+    other.nuclides.swap(0, 1);
+    let input = LatticeInput::parse(&branch_input("[0, 2.0]", "[600]")).unwrap();
+    let setups = value_setups(&input);
+    let geometries: Vec<ValueGeometry> = setups
+        .iter()
+        .map(|(tracking, region_materials, chosen)| ValueGeometry {
+            lattice: &tracking.lattice,
+            region_materials,
+            chosen,
+        })
+        .collect();
+    let err = history_branches(&input, &history, &other, &library, &geometries).unwrap_err();
+    assert!(format!("{err:#}").contains("chain"), "{err:#}");
+}
+
+#[test]
+fn kappa_fission_needs_the_chain_q_of_every_fissioning_nuclide() {
+    // ライブラリで核分裂する核種が、チェーンで核分裂を持たなければ Q がない（黙って 0 にしない）
+    let (history, library) = history();
+    let library = with_fissile_u238(library);
+    let text = branch_input("[0, 2.0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let (s, shielded, solution) = solved(&text, &library, &branches, 0);
+    let materials: Vec<&Material> = shielded
+        .region_material
+        .iter()
+        .map(|&i| &shielded.materials[i])
+        .collect();
+    let err = branches
+        .kappa_fission(
+            0,
+            0,
+            &library,
+            &shielded,
+            &s.tracking.lattice,
+            &solution,
+            &materials,
+            &BOUNDS,
+        )
+        .unwrap_err();
+    assert!(format!("{err:#}").contains("U-238"), "{err:#}");
+}
+
+#[test]
+fn kappa_fission_needs_all_fission_in_the_depletion_regions() {
+    // 燃焼させない物質の核分裂は、核種の数密度と Q を持たないので数えられない
+    let (history, library) = history();
+    let text = branch_input("[0, 2.0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let (s, shielded, solution) = solved(&text, &library, &branches, 0);
+    let water = regions_of(branches.region_materials(0), |n| n == "water")[0];
+    let mut fissile = shielded.materials[shielded.region_material[water]].clone();
+    fissile.fission = vec![1.0e-3, 0.0];
+    let materials: Vec<&Material> = shielded
+        .region_material
+        .iter()
+        .enumerate()
+        .map(|(r, &i)| {
+            if r == water {
+                &fissile
+            } else {
+                &shielded.materials[i]
+            }
+        })
+        .collect();
+    let err = branches
+        .kappa_fission(
+            0,
+            0,
+            &library,
+            &shielded,
+            &s.tracking.lattice,
+            &solution,
+            &materials,
+            &BOUNDS,
+        )
+        .unwrap_err();
+    assert!(format!("{err:#}").contains("depleted"), "{err:#}");
 }

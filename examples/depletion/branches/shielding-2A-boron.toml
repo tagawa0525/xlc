@@ -109,4 +109,5 @@ shielding = "nominal-boron"
 
 [history]
 file = "../p2/lattice-2A.msgpack"
+chain = "../chain.msgpack"
 burnup = [0, 20]

@@ -1,0 +1,6 @@
+outs:
+- md5: 685f28c18dc35c5034f8b761eff0e082.dir
+  size: 2662824
+  nfiles: 16
+  hash: md5
+  path: energy

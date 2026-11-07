@@ -1317,6 +1317,7 @@ fn constants(
         total,
         nu_fission: per_flux(nu_fission),
         fission: per_flux(fission),
+        kappa_fission: None,
         chi: if produced > 0.0 {
             chi.iter().map(|c| c / produced).collect()
         } else {

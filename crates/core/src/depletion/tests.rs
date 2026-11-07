@@ -79,7 +79,11 @@ const TEMPERATURE: [f64; 2] = [560.0, 570.0];
 /// 熱群の吸収のホウ素濃度の係数 (1/cm/ppm)
 const WORTH: f64 = 4.0e-5;
 
-/// 2 群の定数。核分裂は燃焼度で減り（`fissile` × (1 − 0.02 B)）、熱群の吸収はホウ素濃度で変わる（`worth` × (ppm − 1000)）
+/// 核分裂あたりのエネルギー (eV)。テーブルの κΣf は核分裂の断面積のこの値倍
+const ENERGY: f64 = 2.0e8;
+
+/// 2 群の定数。核分裂は燃焼度で減り（`fissile` × (1 − 0.02 B)）、熱群の吸収はホウ素濃度で変わる（`worth` × (ppm − 1000)）。
+/// κΣf は核分裂の断面積の `ENERGY` 倍
 fn few(fissile: f64, burnup: f64, ppm: f64, worth: f64) -> FewGroup {
     let absorption = vec![0.01, 0.06 + worth * (ppm - 1000.0)];
     let removal = 0.02;
@@ -90,6 +94,7 @@ fn few(fissile: f64, burnup: f64, ppm: f64, worth: f64) -> FewGroup {
         k_inf: 1.0,
         total: vec![absorption[0] + 0.5 + removal, absorption[1] + 1.0],
         fission: nu_fission.iter().map(|x| x / 2.43).collect(),
+        kappa_fission: Some(nu_fission.iter().map(|x| ENERGY * x / 2.43).collect()),
         nu_fission,
         absorption,
         chi: vec![1.0, 0.0],
@@ -345,6 +350,87 @@ fn fissile_tables_without_heavy_metal_cannot_deplete() {
     .to_string();
     assert!(
         error.contains("b.msgpack") && error.contains("heavy_metal"),
+        "{error}"
+    );
+    assert_eq!(points, 0);
+}
+
+#[test]
+fn nodes_share_the_core_power_by_their_fission_energy() {
+    // B の核分裂あたりのエネルギーを 5 % 大きくする。ほかの定数は同じなので、燃焼点 0 の中性子束は同じで、出力の割合は核分裂率の
+    // 割合に核分裂あたりのエネルギーの重みを掛けて規格化し直したもの（κΣf φ V の割合。ADR-0190）
+    let solve = |energy_b: f64| {
+        let (layout, mut tables, case) = core(CASE, MIXED, Some(400.0));
+        for (file, table) in layout.files.iter().zip(&mut tables) {
+            if file.ends_with("b.msgpack") {
+                for s in &mut table.states {
+                    s.kappa_fission = Some(s.fission.iter().map(|f| energy_b * f).collect());
+                }
+            }
+        }
+        deplete(
+            &layout,
+            &tables,
+            &case.states,
+            case.depletion.as_ref().unwrap(),
+            None,
+            None,
+            &tight(),
+            |_| {},
+        )
+        .unwrap()
+    };
+    let same = solve(ENERGY);
+    let more = solve(1.05 * ENERGY);
+    assert_eq!(same.assemblies, ["A1", "A2", "B1", "B2"]);
+    let weight = |a: usize| if a >= 2 { 1.05 } else { 1.0 };
+    let (p0, p1) = (&same.points[0].powers, &more.points[0].powers);
+    let norm: f64 = p0
+        .iter()
+        .enumerate()
+        .flat_map(|(a, nodes)| nodes.iter().map(move |p| weight(a) * p))
+        .sum();
+    for (a, (nodes0, nodes1)) in p0.iter().zip(p1).enumerate() {
+        for (x, y) in nodes0.iter().zip(nodes1) {
+            let want = weight(a) * x / norm;
+            assert!(
+                (y - want).abs() <= 1e-12 * want,
+                "assembly {a}: {y} vs {want}"
+            );
+        }
+    }
+    // B の集合体は出力の割合が増えた分だけ速く燃える
+    let (last0, last1) = (same.points.last().unwrap(), more.points.last().unwrap());
+    assert!(last1.assembly_burnups[2] > last0.assembly_burnups[2]);
+    assert!(last1.assembly_burnups[0] < last0.assembly_burnups[0]);
+}
+
+#[test]
+fn fissile_tables_without_kappa_fission_cannot_deplete() {
+    // B のテーブルだけが κΣf を持たない。核分裂率の割合で黙って代えず、解く前に、そのファイルを示して止まる（ADR-0190）
+    let (layout, mut tables, case) = core(CASE, MIXED, Some(400.0));
+    for (file, table) in layout.files.iter().zip(&mut tables) {
+        if file.ends_with("b.msgpack") {
+            for s in &mut table.states {
+                s.kappa_fission = None;
+            }
+        }
+    }
+    let mut points = 0;
+    let error = deplete(
+        &layout,
+        &tables,
+        &case.states,
+        case.depletion.as_ref().unwrap(),
+        None,
+        None,
+        &Options::default(),
+        |_| points += 1,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        error.contains("b.msgpack") && error.contains("kappa_fission"),
         "{error}"
     );
     assert_eq!(points, 0);
@@ -864,7 +950,10 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
                 solve_burnups(&layout, &tables, &state.at(ppm), burnups, &options)
             })
             .unwrap();
-            (fission_rates(&solved.problem, &solved.solution), found.ppm)
+            (
+                fission_powers(&solved.problem, &solved.solution).unwrap(),
+                found.ppm,
+            )
         };
         let [nx, ny, nz] = layout.mesh.counts();
         let masses: Vec<f64> = (0..nx * ny * nz)
@@ -883,7 +972,7 @@ fn midpoints_at_the_starting_boron_fall_to_first_order() {
             let increment = target - weighted(&burnups, &masses);
             burnups = midpoint(&burnups, &masses, increment, &rates, |b| {
                 let solved = solve_burnups(&layout, &tables, &state.at(ppm), b, &options)?;
-                Ok(fission_rates(&solved.problem, &solved.solution))
+                Ok(fission_powers(&solved.problem, &solved.solution).unwrap())
             })
             .unwrap();
             (rates, ppm) = critical(&burnups);

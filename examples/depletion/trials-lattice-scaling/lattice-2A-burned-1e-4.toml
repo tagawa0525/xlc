@@ -105,4 +105,5 @@ fuel = { temperature = [565], materials = ["fuel"] }
 
 [history]
 file = "/home/tagawa/github/xlc/examples/depletion/p2/lattice-2A.msgpack"
+chain = "../chain.msgpack"
 burnup = [60]

@@ -99,6 +99,7 @@
 //!
 //! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
+//! chain = "chain.msgpack"         # 履歴を作った燃焼チェーン（`[depletion]` の chain。テーブルの κΣf の Q 値。ADR-0190）
 //! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 20] }  # 制御棒の値ごとの、その値のすべての状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
@@ -428,6 +429,7 @@ const DEFAULT_PERTURBATION: f64 = 0.1;
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct HistoryEntry {
     file: PathBuf,
+    chain: PathBuf,
     burnup: Vec<f64>,
     off_nominal_burnup: Option<Vec<f64>>,
     rod_burnup: Option<BTreeMap<String, Vec<f64>>>,
@@ -1329,6 +1331,15 @@ impl LatticeInput {
                             .into(),
                     );
                 }
+                // κΣf（ADR-0190）は格子全体の燃焼の領域で均質化するので、部分ノードに分けないテーブルだけ
+                if let Some(FewGroupOutput { split, .. }) = &output
+                    && *split != 1
+                {
+                    return Err(format!(
+                        "[history] tables carry the fission energy cross section of the whole lattice, so they must \
+                         not be split (split {split}. ADR-0190)"
+                    ));
+                }
                 if h.burnup.is_empty()
                     || !h.burnup.iter().all(|&b| b >= 0.0 && b.is_finite())
                     || !h.burnup.windows(2).all(|w| w[0] < w[1])
@@ -1428,6 +1439,7 @@ impl LatticeInput {
                 };
                 Ok(HistoryInput {
                     file: h.file,
+                    chain: h.chain,
                     burnup: h.burnup,
                     off_nominal,
                     rod_burnup,
