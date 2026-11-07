@@ -103,6 +103,7 @@ fuel = { temperature = [565], materials = ["fuel"] }
 
 [history]
 file = "hybrid-weight-0661.msgpack"
+chain = "../chain.msgpack"
 burnup = [0, 0.1, 0.5, 1, 2, 4, 6, 8, 10, 14, 20, 26, 32, 40, 48, 56, 60]
 # ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216）
 micro = [

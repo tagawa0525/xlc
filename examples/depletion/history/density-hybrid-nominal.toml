@@ -105,4 +105,5 @@ fuel = { temperature = [565], materials = ["fuel"] }
 
 [history]
 file = "hybrid-density.msgpack"
+chain = "../chain.msgpack"
 burnup = [0, 2, 10, 20, 30, 40, 60]
