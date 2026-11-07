@@ -36,9 +36,6 @@ resolution:
   - 最初の `scripts/dvc-checkout.py` と `C=` の行が `&&` の連鎖の外にある
   - lattice の手順が dvc add で追うテーブルをその場で上書きし、作り直したテーブルが記録の md5 と同じかを確かめない
   - コマンドは `trials` に比較の JSON を書くので、記録が引く `branches/compare-core-small-energy.json`（入力のパスが `branches/energy`）を作り直す手順が無い
-  - 「計算」の Slurm 723 の項は、汚れた作業ツリーの変更を記録の 1 ファイルとしか書いていない（ほかに docs/issues/0266 と docs/plans/m4-depletion.md も
-    コミットしていなかった）。Slurm 722 の項は、テーブルの値の比較も流したのに「燃焼から比較まで」と書く。723 は出力のそろった worktree で走り、
-    DVC の出力を戻す経路を通っていないのに、流していない部分を build と lattice だけとしている。どちらも、md5 と `cases` を比べたのは 2 回目の出力だけ
 - docs/issues/0266 は、直している最中の記録の節の特定の版（0edff5d2e）を案内する（節は今のファイルにあり、測ったコミットと日付で引ける）
 - docs/plans/m4-depletion.md は、#0154 の完了を項目 7 の済んだ部分でなく、番号のない段落に書き、マージのコミットを持たない
 
