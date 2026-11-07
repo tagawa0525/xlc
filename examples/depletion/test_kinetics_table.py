@@ -74,7 +74,7 @@ class Summary(unittest.TestCase):
             kt.nominal_points(t)
 
     def test_the_fundamental_mode_gives_the_lattice_k(self):
-        data = kt.summary(table(), ["U-235", "Cs-133", "Pu-239"])
+        data = kt.summary(table(), ["U-235", "Cs-133"])
         for row in data["points"]:
             self.assertAlmostEqual(row["k_minus_lattice_pcm"], 0.0, places=9)
 
@@ -97,12 +97,16 @@ class Summary(unittest.TestCase):
         )
 
     def test_cooling_keeps_the_picked_nuclides_and_sums_the_capture_channels(self):
-        data = kt.summary(table(), ["U-235", "Pu-239"])
+        data = kt.summary(table(), ["U-235"])
         self.assertEqual(data["cooling_nuclides"], 2)
         second = data["points"][1]["cooling"]
         self.assertEqual(list(second), ["U-235"])
         self.assertAlmostEqual(second["U-235"]["capture"], 4.5)
         self.assertAlmostEqual(second["U-235"]["fission"], 20.0)
+
+    def test_a_picked_nuclide_without_cooling_data_is_an_error(self):
+        with self.assertRaises(ValueError):
+            kt.summary(table(), ["U-235", "Pu-239"])
 
 
 if __name__ == "__main__":
