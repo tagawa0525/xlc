@@ -106,4 +106,5 @@ fuel = { temperature = [565, 600], materials = ["fuel"] }
 
 [history]
 file = "lattice-2A-6272e937.msgpack"
+chain = "../chain.msgpack"
 burnup = [0, 2, 10, 20, 40, 60]

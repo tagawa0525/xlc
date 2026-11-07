@@ -403,9 +403,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     }
                 })
                 .collect();
-            let mut branches =
-                xlc_lattice::history::history_branches(&input, &history_file, library, &geometries)
-                    .with_context(|| format!("{}: history", shown(path)))?;
+            let file = base.join(&history.chain);
+            let bytes = read("chain", &file)?;
+            let chain = Chain::from_msgpack(&bytes).with_context(|| shown(&file))?;
+            let mut branches = xlc_lattice::history::history_branches(
+                &input,
+                &history_file,
+                &chain,
+                library,
+                &geometries,
+            )
+            .with_context(|| format!("{}: history", shown(path)))?;
             if let Some(shielding) = &history.shielding_file {
                 let file = base.join(shielding);
                 let bytes = read("shielding history", &file)?;
@@ -724,6 +732,30 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 &boundaries,
                             )
                             .with_context(context)?,
+                        );
+                    }
+                    // 履歴からの分岐の κΣf（ADR-0190）。`[history]` は自己遮蔽と分けないテーブルを求める（入力の検査）
+                    if let Some(h) = &history_branches {
+                        let (Source::Library(library), Some(fuel)) = (&source, fuel) else {
+                            return Err(anyhow!(
+                                "the fission energy cross section needs a library and the self-shielding"
+                            ))
+                            .with_context(context);
+                        };
+                        few.kappa_fission = Some(
+                            h.kappa_fission(
+                                rod,
+                                state,
+                                library,
+                                fuel,
+                                &geometry.lattice,
+                                &solution,
+                                &materials,
+                                bounds,
+                            )
+                            .with_context(|| {
+                                format!("{}: fission energy cross section", context())
+                            })?,
                         );
                     }
                     // 集合体を分けた部分ノードの定数（ADR-0108）
