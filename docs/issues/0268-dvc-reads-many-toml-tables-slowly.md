@@ -28,6 +28,10 @@ resolution:
 - 2A のライブラリの放射化の核種（ADR-0238）は、インラインの表にした（xs.toml の説明）。同じ形の大きな入力（ほかの例の核種を足すとき）で
   また起きるのを止める検査はない
 
+- examples/depletion/p2/dvc.lock の compare@2A は、時間を記録しない Slurm 726 の比較で timed の記録（Slurm 664）を上書きしないように前の版に
+  戻したので、deps の 2A の履歴の md5 が前の履歴（a2cc87df）のままで、`dvc status` で常に changed になる。`dvc repro` で比べ直すと、記録の
+  時間の内訳の表が描く `p2/compare-2A.json` を時間を記録しない値で上書きしうる。timed のジョブで 2A の履歴を作り直すまでの扱いを決めていない
+
 関係する ADR: なし
 
 ## 完了の条件
