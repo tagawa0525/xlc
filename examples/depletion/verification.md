@@ -8553,11 +8553,14 @@ core ごとに切らない燃焼とその装荷替え、深い燃焼とその装
 
 記録のコマンドを再実行した確認（どちらも 2026-11-07、`-c 2`）:
 
-- Slurm 722（77d4243a7 で投げた）: 6c62ce2b7 の版の記録のコマンドの、燃焼から比較までの部分（そのときの集約先は `branches/energy`）を、空の `trials` から
-  2 回続けて流した。8 つの履歴と比較の JSON の md5 が記録のものと同じだった。集約で書き換わった `branches/energy` のログは dvc の版に戻した
-- Slurm 723（77d4243a7 に、ad2f4deab の記録の直しをコミットせずに足した汚れた作業ツリーで投げた）: ad2f4deab の版の今のコマンドから、build と lattice の
-  2 つの手順を除いた部分（DVC の出力を戻す手順から比較まで）を、空の `trials` から 2 回続けて流した。2 回とも通り、`trials/0154-energy` の比較の JSON の
-  `cases` と読んだ履歴の md5 が記録の比較の JSON と同じで、`branches/energy` は dvc の版のままだった。build と lattice をつないだ形は流していない
+- Slurm 722（77d4243a7 で投げた）: 6c62ce2b7 の版の記録のコマンドから build と lattice の手順を除いた部分（前のテーブルとの値の比較から比較の JSON まで。
+  そのときの集約先は `branches/energy`）を、空の `trials` から 2 回続けて流した。値の比較は 2 回とも True を出し、2 回目の後に、8 つの履歴と比較の JSON の
+  md5 が記録のものと同じだった。集約で書き換わった `branches/energy` のログは dvc の版に戻した
+- Slurm 723（77d4243a7 に、ad2f4deab と 4729f7dd7 の変更（記録、docs/issues/0266、docs/plans/m4-depletion.md）をコミットせずに足した汚れた作業ツリーで
+  投げた）: ad2f4deab の版の今のコマンドから、build と lattice の 2 つの手順を除いた部分を、空の `trials` から 2 回続けて流し、2 回とも通った。2 回目の後に、
+  `trials/0154-energy` の比較の JSON の `cases` と読んだ履歴の md5 が記録の比較の JSON と同じで、`branches/energy` は dvc の版のままだった
+- どちらも DVC の出力のそろった worktree で流したので、新しい worktree で出力を戻す経路（`scripts/dvc-checkout.py`）と、build と lattice をつないだ形は
+  流していない
 
 ### 結果
 
