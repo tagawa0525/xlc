@@ -22,6 +22,8 @@ fn sample() -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
     }
 }
 
@@ -661,6 +663,8 @@ fn pairs() -> Table {
         heavy_metal: None,
         micro: None,
         histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
     }
 }
 
@@ -1299,6 +1303,8 @@ fn history_sample() -> Table {
                 .map(|p| vec![micro_nuclide(1.0 + p as f64, true)])
                 .collect(),
         }),
+        kinetics: None,
+        cooling: None,
         histories: vec![HistoryCorrection {
             variable: MODERATOR_DENSITY.into(),
             nominal: 0.743,
@@ -2081,4 +2087,172 @@ fn b10_density_ratio_follows_the_atoms_per_boron_mass() {
     assert!(b10_density_ratio(0.18, 0.0).is_err());
     assert!(b10_density_ratio(1.5, 0.199).is_err());
     assert!(b10_density_ratio(f64::NAN, 0.199).is_err());
+}
+
+/// 状態 `p` の 2 族、2 群の動特性のデータ（νΣf は `state` の (0.02, 0.4)/3 より小さい）
+fn kinetics_state(p: f64) -> KineticsState {
+    let x = |v: f64| v * (1.0 + p / 100.0) / 3.0;
+    KineticsState {
+        delayed_nu_fission: vec![vec![x(1.0e-5), x(2.0e-4)], vec![x(3.0e-5), x(6.0e-4)]],
+        delayed_precursors: vec![vec![x(7.5e-4), x(1.5e-2)], vec![x(1.0e-5), x(2.0e-4)]],
+        delayed_chi: vec![vec![0.9, 0.1], vec![0.95, 0.05]],
+        inverse_velocity: vec![x(5.0e-8), x(2.0e-6)],
+    }
+}
+
+/// 状態 `p` の燃焼度の点の、核分裂する核種としない核種の 1 群の微視的断面積
+fn cooling_point(p: f64) -> Vec<CoolingNuclide> {
+    let x = |v: f64| v * (1.0 + p / 100.0) / 3.0;
+    vec![
+        CoolingNuclide {
+            fission: x(40.0),
+            thermal_fission: Some(0.9 - p / 1000.0),
+            reactions: vec![
+                CoolingReaction {
+                    mt: 16,
+                    channels: vec![x(0.002)],
+                },
+                CoolingReaction {
+                    mt: 102,
+                    channels: vec![x(8.0)],
+                },
+            ],
+        },
+        CoolingNuclide {
+            fission: 0.0,
+            thermal_fission: None,
+            reactions: vec![CoolingReaction {
+                mt: 102,
+                channels: vec![x(0.3), x(2.6)],
+            }],
+        },
+    ]
+}
+
+/// `burnup_sample` に動特性と冷却計算のデータを持たせたもの
+fn kinetics_sample() -> Table {
+    let mut table = burnup_sample();
+    table.kinetics = Some(Kinetics {
+        states: (0..table.points.len())
+            .map(|p| kinetics_state(p as f64))
+            .collect(),
+    });
+    table.cooling = Some(Cooling {
+        nuclides: vec!["U-235".into(), "Cs-133".into()],
+        points: (0..2).map(|b| cooling_point(f64::from(b))).collect(),
+    });
+    table
+}
+
+#[test]
+fn kinetics_and_cooling_data_round_trip_bit_exactly_and_are_written_only_when_held() {
+    let table = kinetics_sample();
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    let value = msgpack::read_value(&burnup_sample().to_msgpack().unwrap()).unwrap();
+    let keys: Vec<&str> = value
+        .as_map()
+        .unwrap()
+        .iter()
+        .filter_map(|(k, _)| k.as_str())
+        .collect();
+    assert!(
+        !keys.contains(&"kinetics") && !keys.contains(&"cooling"),
+        "{keys:?}"
+    );
+}
+
+#[test]
+fn kinetics_data_need_a_burnup_axis_one_sub_node_and_matching_sizes() {
+    let bad = |change: &dyn Fn(&mut Table)| {
+        let mut table = kinetics_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+        assert!(table.to_msgpack().is_err());
+    };
+    let kinetics = |t: &mut Table| -> &mut Kinetics { t.kinetics.as_mut().unwrap() };
+    // 燃焼度の軸のないテーブル
+    bad(&|t| {
+        t.axes.remove(0);
+        t.points = product_points(&t.axes);
+        t.states.truncate(t.points.len());
+        t.cooling = None;
+        kinetics(t).states.truncate(t.points.len());
+    });
+    // 部分ノードに分けたテーブル
+    bad(&|t| {
+        t.split = 2;
+        t.states = t.states.iter().flat_map(|s| vec![s.clone(); 4]).collect();
+    });
+    // 点ごとに 1 つ
+    bad(&|t| {
+        kinetics(t).states.pop();
+    });
+    // 族の数は状態の間で同じで、項目の間でも同じ
+    bad(&|t| {
+        let s = &mut kinetics(t).states[1];
+        s.delayed_nu_fission.pop();
+        s.delayed_precursors.pop();
+        s.delayed_chi.pop();
+    });
+    bad(&|t| {
+        kinetics(t).states[0].delayed_chi.pop();
+    });
+    bad(&|t| {
+        let s = &mut kinetics(t).states[0];
+        s.delayed_nu_fission.clear();
+        s.delayed_precursors.clear();
+        s.delayed_chi.clear();
+    });
+    // 群の数の、0 以上の有限の値
+    bad(&|t| {
+        kinetics(t).states[0].delayed_nu_fission[0].pop();
+    });
+    bad(&|t| kinetics(t).states[0].delayed_precursors[1][0] = -1.0e-9);
+    bad(&|t| kinetics(t).states[0].delayed_nu_fission[1][1] = f64::NAN);
+    // 遅発スペクトルの和は 1
+    bad(&|t| kinetics(t).states[0].delayed_chi[0] = vec![0.9, 0.2]);
+    // 群速度の逆数は正
+    bad(&|t| kinetics(t).states[2].inverse_velocity[1] = 0.0);
+    // 遅発の生成は、崩壊定数で割った量を持ち、全数の νΣf を超えない
+    bad(&|t| kinetics(t).states[0].delayed_precursors[0][1] = 0.0);
+    bad(&|t| kinetics(t).states[0].delayed_nu_fission[1][1] = 0.2);
+}
+
+#[test]
+fn cooling_data_have_one_point_per_burnup_and_the_same_reactions_at_every_point() {
+    let bad = |change: &dyn Fn(&mut Table)| {
+        let mut table = kinetics_sample();
+        change(&mut table);
+        assert!(table.validate().is_err());
+        assert!(table.to_msgpack().is_err());
+    };
+    let cooling = |t: &mut Table| -> &mut Cooling { t.cooling.as_mut().unwrap() };
+    bad(&|t| {
+        cooling(t).points.pop();
+    });
+    bad(&|t| {
+        cooling(t).points[1].pop();
+    });
+    bad(&|t| cooling(t).nuclides[1] = "U-235".into());
+    bad(&|t| cooling(t).nuclides[1] = "cesium".into());
+    bad(&|t| cooling(t).points[0][0].fission = -1.0);
+    bad(&|t| cooling(t).points[0][1].reactions[0].channels[1] = f64::INFINITY);
+    // 収率の境界より下の割合は、核分裂する核種だけが 0 から 1 で持つ
+    bad(&|t| cooling(t).points[0][1].thermal_fission = Some(0.5));
+    bad(&|t| cooling(t).points[0][0].thermal_fission = None);
+    bad(&|t| cooling(t).points[0][0].thermal_fission = Some(1.5));
+    // 反応の MT と経路の数は燃焼度の点の間で同じ
+    bad(&|t| {
+        cooling(t).points[1][1].reactions[0].channels.pop();
+    });
+    bad(&|t| cooling(t).points[1][0].reactions[0].mt = 17);
+    // 燃焼度の軸のないテーブル
+    bad(&|t| {
+        t.axes.remove(0);
+        t.points = product_points(&t.axes);
+        t.states.truncate(t.points.len());
+        t.kinetics = None;
+        cooling(t).points.truncate(1);
+    });
 }
