@@ -28,6 +28,10 @@ resolution:
   `table-2O-all.msgpack`、examples/depletion/history の `table-*`）は、core の燃焼で使うとエラーで止まる。それらを読む記録を再実行するときに作り直す
   （CLAUDE.md の後回しの規則）。examples/depletion/p9-timing の `core-p9` のステージは、作り直した `table-2A-micro-boron-rod-axis.msgpack` と `bin/core`
   が deps で changed のまま
+- examples/verification_tables.py の `core_energy_points`: 核分裂率の燃焼の出力の割合が 0 の集合体を、κΣf の燃焼の割合によらず表から落とす
+  （食い違いを TableError にしない）
+- 「restart と装荷替え（小さな炉心）」の記録が md5 で引く core の履歴（`branches/core-small-restart-full.msgpack` ほか）は `dvc add` で追跡して
+  いないので、同じケースを解き直すと上書きされて戻せない（Slurm 721 が #0154 のブランチの worktree で上書きした）
 
 関係する ADR: なし
 
@@ -37,4 +41,4 @@ resolution:
 
 ## 経緯
 
-- 2026-11-07: #0154 のブランチの 1 周目と 2 周目のレビューで出た、直さなかった指摘を集めた
+- 2026-11-07: #0154 のブランチの 1〜3 周目のレビューで出た、直さなかった指摘を集めた
