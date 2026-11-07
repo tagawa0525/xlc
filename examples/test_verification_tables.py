@@ -394,10 +394,38 @@ class Replace(unittest.TestCase):
             ["git", "-C", str(self.root), *args], check=True, capture_output=True
         )
 
-    def test_an_untracked_json_is_an_error_naming_cache_false(self):
+    def test_an_untracked_json_is_an_error_naming_cache_false_and_git_tracked(self):
+        """ステージの出力は cache: false で、ステージの無い JSON は GIT_TRACKED で追跡する"""
         self.lock()
         self.git("init", "-q", "-b", "main")
-        with self.assertRaisesRegex(vt.TableError, "cache: false"):
+        with self.assertRaisesRegex(
+            vt.TableError,
+            "cache: false.*GIT_TRACKED in examples/verification_tables.py",
+        ):
+            vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+
+    def test_a_missing_dvc_lock_is_an_error_naming_the_placement(self):
+        """md5 は JSON と同じディレクトリの dvc.lock から読むので、置き場と GIT_TRACKED を示す"""
+        self.git("init", "-q", "-b", "main")
+        self.git("add", "t/a.json")
+        with self.assertRaisesRegex(
+            vt.TableError,
+            "dvc.lock does not exist.*same directory as the dvc.lock.*GIT_TRACKED",
+        ):
+            vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+
+    def test_a_dvc_lock_without_the_json_is_an_error_naming_the_placement(self):
+        (self.root / "t/dvc.lock").write_text(
+            "schema: '2.0'\nstages:\n  s:\n    outs:\n    - path: b.json\n      hash: md5\n      md5: "
+            + "0" * 32
+            + "\n"
+        )
+        self.git("init", "-q", "-b", "main")
+        self.git("add", "t/a.json")
+        with self.assertRaisesRegex(
+            vt.TableError,
+            "has 0 outputs named a.json.*same directory as the dvc.lock.*GIT_TRACKED",
+        ):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
     def test_a_tracked_json_passes_in_a_git_repository(self):
@@ -411,7 +439,7 @@ class Replace(unittest.TestCase):
         (self.root / source).parent.mkdir(parents=True)
         (self.root / source).write_text(json.dumps(summary("3A")))
         self.git("init", "-q", "-b", "main")
-        with self.assertRaisesRegex(vt.TableError, "cache: false"):
+        with self.assertRaisesRegex(vt.TableError, "in GIT_TRACKED; git add it$"):
             vt.load(self.root, source, True)
 
     def test_check_fails_on_a_hand_edited_table(self):
