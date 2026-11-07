@@ -32,8 +32,6 @@ resolution:
   限ることを言い換えで弱めている
 - /topic-start の「マージ」の節の括弧は、文書だけのブランチを「文書だけのブランチ」の項に、ほかを「3 周目で blocking を直したら」の項に
   分けるが、/git-merge の「文書だけのブランチ」の項は記録の周と (a) の扱いで「3 周目で blocking を直したら」の項を使う
-- CLAUDE.md の「作業の流れ」の「計画と issue だけのブランチ」は、/git-merge の「文書だけのブランチ」の項（説明の文書も入る）より
-  狭い名前で対象を挙げる
 - #0222 の `resolution` は最後のコミットだけを指し、#0222 の点の多くを直した前のコミットを指さない
 
 関係する ADR: なし
@@ -48,3 +46,5 @@ resolution:
 - 2026-11-08: docs/align-review-and-wait-rules（CLAUDE.md と /topic-start を /git-merge と /delegate の項を指す形にした）のローカルの
   レビューの 2、3 周目の直さない指摘から起こした。同じブランチの例外の周で、計画と issue の本文の中の矛盾も (c) と同じく直す
   条件を CLAUDE.md に戻した
+- 2026-11-08: 周の上限が `review-level.sh` の `ROUNDS:` と hook の cap-review-rounds に移った（nixfiles の ADR-0066 の「## 変更」）のに
+  合わせ、CLAUDE.md の文書だけのブランチの文を同じ項と `review-level.sh` の先頭のコメントを指す形にし、「計画と issue だけ」の点を消した
