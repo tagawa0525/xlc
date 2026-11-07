@@ -8478,7 +8478,7 @@ core の燃焼のノードの出力の割合を、核分裂率 Σf φ V の割�
 測る。炉心と平衡 Xe は「restart と装荷替え（小さな炉心）」と同じ。
 
 - テーブル: `branches/branch-2A-micro-boron-rod-axis.toml` を κΣf を書く `bin/lattice` で解き直したもの。κΣf のほかの値は、前のテーブル（md5 283e440b）と
-  ビットで同じ（msgpack を読んで状態の `kappa_fission` を除いて比べた）
+  ビットで同じ（状態の `kappa_fission` を除いた msgpack を比べた。下のコマンドの最初の比べ方）
 - 燃焼（`cycle`、`reload`）: 「restart と装荷替え（小さな炉心）」の切らない燃焼（`core-small-restart-full.toml`。7.5 MWd/kg と 30 日の停止）と、その履歴からの
   装荷替え（`core-small-reload.toml`。新しい A05 を中心側に装荷し、3 MWd/kg の増分まで）。どの点も 0〜1300 ppm で k = 1.071 のホウ素を探す
 - 深い燃焼（`deep`、`deep-reload`）: 同じ装荷を 600 ppm（与える）で 20 MWd/kg まで燃焼させ（`core-small-energy-1.toml`。探索の範囲では目標の k を囲めない）、
@@ -8497,34 +8497,41 @@ cd examples/depletion/branches
 ../../../bin/lattice branch-2A-micro-boron-rod-axis.toml > branch-2A-micro-boron-rod-axis.out 2> branch-2A-micro-boron-rod-axis.log
 cd ../../..
 B=examples/depletion/branches
-# 試行の置き場（チェーンの相対パス ../chain.msgpack が同じになる深さ）に、core、テーブル、ケースを置いて解く。restart する燃焼は、前の燃焼の後に
-# 解き、失敗したら止める
-mkdir -p trials && ln -sfn ../examples/depletion/chain.msgpack trials/chain.msgpack
+# 前のテーブル（md5 283e440b）との比べ方: 状態の kappa_fission を除いた msgpack が同じこと（True と出る）
+python3 -c 'import msgpack, sys
+new, old = (msgpack.unpackb(open(f, "rb").read()) for f in sys.argv[1:])
+for s in new["states"]: s.pop("kappa_fission")
+print(new == old)' $B/table-2A-micro-boron-rod-axis.msgpack "$(dvc cache dir)/files/md5/28/3e440b2d6a0bea62f03bfd7da77cb1"
+# 試行の置き場（チェーンの相対パス ../chain.msgpack が同じになる深さ）を作り直し、core（実行の権限をつけて）、テーブル、ケースを置いて解く。
+# restart する燃焼は前の燃焼の後に解き、どこかで失敗したら後を実行しない
 burn() {  # <置き場> <core> <2A のテーブル>
-  mkdir -p $1 && cp $2 $1/core && cp $3 $1/table-2A-micro-boron-rod-axis.msgpack &&
+  rm -rf $1 && mkdir -p $1 && install -m 755 $2 $1/core && install -m 644 $3 $1/table-2A-micro-boron-rod-axis.msgpack &&
   cp $B/{table-reflector-I-boron.msgpack,core-small-plant.toml,core-small-assemblies.toml,core-small-cycle.toml} $1/ &&
   cp $B/core-small-{reload-cycle,restart-full,reload,energy-1,energy-2-cycle,energy-2}.toml $1/ &&
   (cd $1 && for c in restart-full reload energy-1 energy-2; do
     RAYON_NUM_THREADS=1 ./core core-small-$c.toml > core-small-$c.out 2> core-small-$c.log || exit 1
   done)
 }
-# κΣf の燃焼: 今の bin/core と解き直したテーブル
-burn trials/0154-kappa bin/core $B/table-2A-micro-boron-rod-axis.msgpack
-# 核分裂率の燃焼: 変える前の bin/core（分岐点の dvc.lock の build の出力、md5 5737abc2）と前のテーブル（md5 283e440b）を DVC のキャッシュから
-C=$(dvc cache dir)/files/md5
-burn trials/0154-rate $C/57/37abc2693c290044a36348e3eab0ce $C/28/3e440b2d6a0bea62f03bfd7da77cb1
 # 履歴とログを、比べる燃焼の名前で branches/energy に集める
-E=$B/energy
-mkdir -p $E
-for c in restart-full:cycle reload:reload energy-1:deep energy-2:deep-reload; do
-  for x in msgpack log; do
-    cp trials/0154-rate/core-small-${c%%:*}.$x $E/rate-${c##*:}.$x
-    cp trials/0154-kappa/core-small-${c%%:*}.$x $E/kappa-${c##*:}.$x
+collect() {
+  mkdir -p $B/energy &&
+  for c in restart-full:cycle reload:reload energy-1:deep energy-2:deep-reload; do
+    for x in msgpack log; do
+      cp trials/0154-rate/core-small-${c%%:*}.$x $B/energy/rate-${c##*:}.$x &&
+      cp trials/0154-kappa/core-small-${c%%:*}.$x $B/energy/kappa-${c##*:}.$x || return 1
+    done
   done
-done
-python3 examples/depletion/compare_core_energy.py --json $B/compare-core-small-energy.json \
-  $(for c in cycle reload deep deep-reload; do echo "$c=$E/rate-$c.msgpack,$E/kappa-$c.msgpack"; done)
-python3 examples/depletion/compare_core_energy.py --report $B/compare-core-small-energy.json
+}
+C=$(dvc cache dir)/files/md5
+mkdir -p trials && ln -sfn ../examples/depletion/chain.msgpack trials/chain.msgpack &&
+  # κΣf の燃焼: 今の bin/core と解き直したテーブル
+  burn trials/0154-kappa bin/core $B/table-2A-micro-boron-rod-axis.msgpack &&
+  # 核分裂率の燃焼: 変える前の bin/core（分岐点の dvc.lock の build の出力、md5 5737abc2）と前のテーブル（md5 283e440b）を DVC のキャッシュから
+  burn trials/0154-rate $C/57/37abc2693c290044a36348e3eab0ce $C/28/3e440b2d6a0bea62f03bfd7da77cb1 &&
+  collect &&
+  python3 examples/depletion/compare_core_energy.py --json $B/compare-core-small-energy.json \
+    $(for c in cycle reload deep deep-reload; do echo "$c=$B/energy/rate-$c.msgpack,$B/energy/kappa-$c.msgpack"; done) &&
+  python3 examples/depletion/compare_core_energy.py --report $B/compare-core-small-energy.json
 ```
 
 「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-energy.json`）は git で
@@ -8615,7 +8622,7 @@ core ごとに切らない燃焼とその装荷替え、深い燃焼とその装
 - 比較の要約（`--report`）: 切らない燃焼はホウ素の差の絶対値の最大 0.4855 ppm、ノードの出力の割合の相対差の絶対値の最大 5.76e-03、集合体の出力の割合の
   相対差の絶対値の最大 2.36e-03。装荷替えはホウ素 0.5304 ppm、ノード 4.00e-03、集合体 3.38e-03。深い燃焼は反応度の差の絶対値の最大 13.18 pcm、ノード
   5.40e-03、集合体 3.09e-03。深い燃焼からの装荷替えは反応度 18.90 pcm、ノード 8.70e-03、集合体 8.16e-03
-- 燃焼の進んだ集合体（Pu の核分裂の割合が大きく、核分裂あたりのエネルギーが大きい）の出力の割合が増え、新しい集合体の割合が減る。深い燃焼からの装荷替えの
+- 燃焼の進んだ集合体の出力の割合が増え、新しい集合体の割合が減る。深い燃焼からの装荷替えの
   燃焼点 0 で、燃焼度 19.37 MWd/kg の集合体が +0.82 %、新しい A05 が −0.60 %。前の決定（核分裂率の割合）は、燃焼度の違う集合体が並ぶ炉心で、新しい集合体の
   出力を 1 % 未満の大きさで大きく見積もっていた
 - 臨界ホウ素の差は 1 ppm 未満（7.5 MWd/kg までの燃焼と、その装荷替え）。ホウ素を与えた深い燃焼の反応度の差は、燃焼が進むほど大きくなり（20 MWd/kg で
