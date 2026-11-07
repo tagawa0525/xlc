@@ -2170,14 +2170,14 @@ fn kinetics_data_need_a_burnup_axis_one_sub_node_and_matching_sizes() {
         assert!(table.validate().is_err());
         assert!(table.to_msgpack().is_err());
     };
-    let kinetics = |t: &mut Table| -> &mut Kinetics { t.kinetics.as_mut().unwrap() };
     // 燃焼度の軸のないテーブル
     bad(&|t| {
         t.axes.remove(0);
         t.points = product_points(&t.axes);
         t.states.truncate(t.points.len());
         t.cooling = None;
-        kinetics(t).states.truncate(t.points.len());
+        let points = t.points.len();
+        kinetics(t).states.truncate(points);
     });
     // 部分ノードに分けたテーブル
     bad(&|t| {
@@ -2227,7 +2227,6 @@ fn cooling_data_have_one_point_per_burnup_and_the_same_reactions_at_every_point(
         assert!(table.validate().is_err());
         assert!(table.to_msgpack().is_err());
     };
-    let cooling = |t: &mut Table| -> &mut Cooling { t.cooling.as_mut().unwrap() };
     bad(&|t| {
         cooling(t).points.pop();
     });
@@ -2255,4 +2254,12 @@ fn cooling_data_have_one_point_per_burnup_and_the_same_reactions_at_every_point(
         t.kinetics = None;
         cooling(t).points.truncate(1);
     });
+}
+
+fn kinetics(t: &mut Table) -> &mut Kinetics {
+    t.kinetics.as_mut().unwrap()
+}
+
+fn cooling(t: &mut Table) -> &mut Cooling {
+    t.cooling.as_mut().unwrap()
 }
