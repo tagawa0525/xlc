@@ -164,6 +164,8 @@ def check_scheme(spec: dict, axes: dict) -> None:
         )
     if variable == "density" and "density" not in axes[axis]:
         raise SystemExit(f"scheme: the {axis} axis has no densities")
+    if variable == "log" and min(axes[axis]["points"]) <= 0:
+        raise SystemExit(f"scheme: the {axis} axis has points at or below 0 for log")
     if method not in METHODS:
         raise SystemExit(f"scheme: method {method!r} is not one of {sorted(METHODS)}")
     if len(axes[axis]["points"]) - 1 < MIN_POINTS[method]:
