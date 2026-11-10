@@ -35,6 +35,7 @@ stages:
       - examples/depletion/compare_branch_cross_terms.py
       - examples/depletion/compare_burnup_interpolation.py
       - examples/depletion/compare_depletion.py
+      - examples/depletion/compare_grid_interpolation.py
       - examples/depletion/compare_depletion_assembly.py
       - examples/depletion/openmc_chain.py
       - examples/depletion/openmc_depletion.py
