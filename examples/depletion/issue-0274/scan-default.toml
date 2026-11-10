@@ -3,6 +3,7 @@
 # 比べ方は pin_residuals.py。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
+ufg-free-gas = { heavy = 400 }
 few-group = { output = "scan-default.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30

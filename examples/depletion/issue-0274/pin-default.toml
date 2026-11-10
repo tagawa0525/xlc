@@ -1,8 +1,9 @@
 # #0274 の切り分け: 2A の燃料（../p9-product/branch-2A.toml と同じ組成と温度）のピンセル 1 本で、燃料の温度の分岐だけを解く。
-# 既定の自己遮蔽（ADR-0209 の自由ガスの既定。分離共鳴を持つ核種は 400 kT より下で自由ガス）。
+# ADR-0209 の自由ガスの既定のうち、分離共鳴を持つ核種は 400 kT より下で自由ガス（ADR-0243 の前の既定。`heavy` を書いて明示した）。
 # 比べ方は pin_residuals.py。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
+ufg-free-gas = { heavy = 400 }
 few-group = { output = "pin-default.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30

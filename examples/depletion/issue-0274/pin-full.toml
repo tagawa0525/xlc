@@ -2,6 +2,7 @@
 # pin-default から格子の間引き（ufg-tolerance。ADR-0185）を外したもの。
 # 比べ方は pin_residuals.py。
 library = "../p2/depletion.msgpack"
+ufg-free-gas = { heavy = 400 }
 few-group = { output = "pin-full.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30
