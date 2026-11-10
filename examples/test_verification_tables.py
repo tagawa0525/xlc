@@ -1489,6 +1489,20 @@ class DrawBranchProduct(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.branch_thinning_kinds([s])
 
+    def test_summaries_of_several_tables_are_an_error(self):
+        s = self.summary()
+        s["tables"].append(s["tables"][0])
+        s["thinning"].append(s["thinning"][0])
+        for draw in (vt.branch_cross_terms_burnups, vt.branch_thinning_kinds):
+            with self.assertRaises(vt.TableError):
+                draw([s])
+
+    def test_points_with_different_models_are_an_error(self):
+        s = self.summary()
+        del s["tables"][0]["points"][1]["models"]["1 軸ずつ"]
+        with self.assertRaises(vt.TableError):
+            vt.branch_cross_terms_burnups([s])
+
 
 class DrawGridInterpolation(unittest.TestCase):
     @staticmethod
@@ -1582,20 +1596,6 @@ class DrawGridInterpolation(unittest.TestCase):
         ):
             (sources, _) = vt.TABLES[name]
             self.assertEqual(sources, ["examples/depletion/p9-product/grid-2A.json"])
-
-    def test_summaries_of_several_tables_are_an_error(self):
-        s = self.summary()
-        s["tables"].append(s["tables"][0])
-        s["thinning"].append(s["thinning"][0])
-        for draw in (vt.branch_cross_terms_burnups, vt.branch_thinning_kinds):
-            with self.assertRaises(vt.TableError):
-                draw([s])
-
-    def test_points_with_different_models_are_an_error(self):
-        s = self.summary()
-        del s["tables"][0]["points"][1]["models"]["1 軸ずつ"]
-        with self.assertRaises(vt.TableError):
-            vt.branch_cross_terms_burnups([s])
 
 
 class DrawCoreHistory(unittest.TestCase):
