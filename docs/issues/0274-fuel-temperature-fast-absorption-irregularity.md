@@ -94,17 +94,17 @@ examples/depletion/p9-product/branch-2A.toml と同じで、燃料の温度の�
    66.23 eV で +27.56、67.47 eV で +47.53 と振れ、次に極大が 100 b を超える 80.752 eV の共鳴の手前の 69.80、77.56 eV で +42.79、
    +42.46 pcm（66.03 eV と 80.752 eV の間の点は 66.23〜77.56 eV の 6 つで、振れの後はこの 2 つ）。155.11 eV から上限なしまでは
    +41.62〜+45.85 pcm。高速群の吸収の差は、それぞれの落ち着いた値で −32.98〜−36.23、−70.84〜−71.76、−82.98〜−83.21e-5 と、66.03 eV の
-   共鳴でも −11.2〜−12.4e-5 の段がある（20.872 eV の段の、260 kT の +4.76e-5 からの −37.7〜−41.0e-5 の 3 割ほど）。入力はブランチ fix/0274-heavy-free-gas-cap のコミット 01868cbb9 の `cap-900/` の TOML と、f3fcd90fb で
-   足した `h-450.toml`、`h-800.toml`。実行ファイルは同じブランチのコミット fc3fa8abb でビルドした `target/release/lattice`（md5 cee2f44b。
+   共鳴でも −11.2〜−12.4e-5 の段がある（20.872 eV の段の、260 kT の +4.76e-5 からの −37.7〜−41.0e-5 の 3 割ほど）。入力はブランチ fix/0274-heavy-free-gas-cap のコミット 5ae269f97 の `cap-900/` の TOML と、466e035e0 で
+   足した `h-450.toml`、`h-800.toml`。実行ファイルは同じブランチのコミット b44eed566 でビルドした `target/release/lattice`（md5 cee2f44b。
    分岐点は main の fa4e6f5dd）で、`cap-900/` で入力ごとに `RAYON_NUM_THREADS=8 ../../../../target/release/lattice <入力>.toml > <入力>.out 2> <入力>.log`
-   （2026-11-10。`h-450`、`h-800` は f3fcd90fb で 2026-11-11）。値は同じブランチのコミット 8ceeffe00 の `read_caps.py` で
+   （2026-11-10。`h-450`、`h-800` は 466e035e0 で 2026-11-11）。値は同じブランチのコミット 836f44ba7 の `read_caps.py` で
    `python3 read_caps.py h-static.msgpack h-*.msgpack`（`cap-900/` で実行、2026-11-11）
 
 ### 修正の候補の測定
 
-ADR-0243 で比べた候補。入力はコミット 01868cbb9 の examples/depletion/issue-0274/ の TOML（`pin-default`、`pin-full`、`scan-default` は
-dbd5a7ea5 で `heavy = 400` を明示したもの）、実行ファイルはブランチ fix/0274-heavy-free-gas-cap のコミット
-fc3fa8abb の `target/release/lattice`（分岐点は main の fa4e6f5dd）、2026-11-10、手元の 8 スレッド。kT の倍数の経路は分岐点と同じ結果で、
+ADR-0243 で比べた候補。入力はコミット 5ae269f97 の examples/depletion/issue-0274/ の TOML（`pin-default`、`pin-full`、`scan-default` は
+c874d2964 で `heavy = 400` を明示したもの）、実行ファイルはブランチ fix/0274-heavy-free-gas-cap のコミット
+b44eed566 の `target/release/lattice`（分岐点は main の fa4e6f5dd）、2026-11-10、手元の 8 スレッド。kT の倍数の経路は分岐点と同じ結果で、
 `pin-default` の少数群定数の md5（06f9f826）が main の bin/lattice の出力と同じ。入力ごとに
 `RAYON_NUM_THREADS=8 ../../../target/release/lattice <入力>.toml > <入力>.out 2> <入力>.log`（`cap-900/` の入力は `cap-900/` で
 `../../../../target/release/lattice`、スイープの相対変化は `RUST_LOG=xlc_lattice::ufg=debug,info` を足す）、値は切り分けと同じ
@@ -142,7 +142,7 @@ ADR-0204、ADR-0205、ADR-0209 が OpenMC と参照に比べた #0133 のピン�
 上限なしのスイープ（`cap-900/sweeps-inf.toml`、`sweeps-12.toml`）: 収束までは、中性子束の相対変化が 2 回目の 0.22 から 11 回目の 3.7e-10
 まで回ごとに 1 桁ほど下がり、12 回目から 50 回目まで 1.3〜2.2e-10 で止まって収束しない（#0179）。3 回（既定）の k は 12 回より 1.2 pcm 低い。
 
-既定を 31 eV にした後に changed になる DVC のステージ（ブランチの 45e595ce4 で `dvc repro dvc.yaml:build` の後に
+既定を 31 eV にした後に changed になる DVC のステージ（ブランチの e75742177 で `dvc repro dvc.yaml:build` の後に
 `scripts/count-changed-stages.py`、2026-11-11）: 20 の dvc.yaml の 525（deps の変更が 521）。bin/lattice のバイトが変わったことで、lattice を
 呼ぶステージはどれも changed になる（既定を変えない入力の追加だけでも同じ）。この数には、分岐点の main で既に changed のステージ
 （examples/vera/endfb70/openmc の出力の変更 7、examples/vera の command の変更 1、always changed 4 など）も入り、分けていない。出力が
