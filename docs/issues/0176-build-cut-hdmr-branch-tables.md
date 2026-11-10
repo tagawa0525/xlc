@@ -29,8 +29,9 @@ ADR-0200 は、燃焼度の軸を持つ分岐のテーブルを、公称の状�
     ユーザーの問い（ユーザー 2026-11-10）から。lattice の入力は、公称でない状態の燃焼点を `off-nominal-burnup`
     （公称でないすべての状態に 1 つの列）と制御棒の値ごとの `rod-burnup` でしか選べず、状態の種類ごとには選べない
     （crates/lattice/src/input.rs の `HistoryEntry`）。core は状態ごとに、その状態を解いた燃焼点で公称の状態との差を内挿する
-    （ADR-0200 の「core の内挿」）ので、採るなら lattice の入力に選択肢を足す。採るかは、下の 2A の直積の間引きの誤差を状態の種類ごとに
-    見て決める（examples/depletion/compare_branch_cross_terms.py の `kinds`）
+    （ADR-0200 の「core の内挿」）ので、採るなら lattice の入力に選択肢を足す。採るかを決める間引きの誤差の大きさは、燃焼点を多く解いた
+    計算で状態の種類ごとに測る（examples/depletion/compare_branch_cross_terms.py の `kinds`）。下の 2A の直積の 4 燃焼点は、
+    その大きさを測れず、状態の種類ごとの交差の項の燃焼度での変わり方を見るだけになる
 - 3 次の項と M×F を落とす誤差: 燃料の温度が 565〜600 K でしか測っていない。HFP の燃料の温度の範囲（本番の格子点。熱水力の ADR の後）で、
   少数の燃焼点の直積のテーブルを解いて測る。作り直す前の p2 のライブラリ（examples/depletion/p2/depletion.msgpack）は燃料を 565、600 K でしか持たない
   - 2026-11-08: 本番の格子点は ADR-0239（proposed。ホウ素 6 点、減速材 7 点、燃料 7 点）。直積は 294 状態で、2A の 4 燃焼点で約 3.3 時間の
