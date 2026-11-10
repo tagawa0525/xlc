@@ -233,12 +233,20 @@ pub struct FreeGas {
     pub cells: usize,
     /// 上方散乱のスイープの回数。`None` は、中性子束の相対変化が [`SWEEP_TOLERANCE`] 以下になるまで（[`MAX_SWEEPS`] 回まで）
     pub sweeps: Option<usize>,
-    /// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限（核種の kT の倍数。無限大は範囲の全体）。`None` は分離共鳴を
-    /// 持つ核種を静止した標的にする（ADR-0204）
-    pub heavy: Option<f64>,
+    /// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限。`None` は分離共鳴を持つ核種を静止した標的にする（ADR-0204）
+    pub heavy: Option<HeavyCap>,
     /// S(α, β) を持つ核種（H in H2O の H）を、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で散乱させる。false は、その
     /// 核種も自由ガスの核にする（ADR-0205）
     pub sab: bool,
+}
+
+/// 分離共鳴を持つ核種の自由ガスの核を使う入射エネルギーの上限（[`FreeGas::heavy`]）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HeavyCap {
+    /// 核種の kT の倍数（無限大は範囲の全体。ADR-0204）。上限のエネルギーは核種の温度とともに動く
+    Thermal(f64),
+    /// 温度によらない入射エネルギー (eV。ADR-0243)
+    Energy(f64),
 }
 
 impl Default for Scattering {
@@ -249,13 +257,13 @@ impl Default for Scattering {
 }
 
 impl Default for FreeGas {
-    /// ADR-0209 の既定（ADR-0205 の速い方法）
+    /// ADR-0209 の既定（ADR-0205 の速い方法）で、分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）
     fn default() -> Self {
         Self {
             upper: Some(400.0),
             cells: 2,
             sweeps: Some(3),
-            heavy: Some(400.0),
+            heavy: Some(HeavyCap::Energy(31.0)),
             sab: true,
         }
     }
@@ -492,11 +500,16 @@ fn solve_cell(
                     // S(α, β) の核種はその上限より下で S(α, β) の移行で散乱する（ADR-0205）
                     let gas = match scattering {
                         Scattering::FreeGas(options) => {
-                            let upper = match &d.resolved {
-                                None => Some(options.upper),
-                                Some(_) => options.heavy.map(Some),
+                            let gas = match (&d.resolved, options.heavy) {
+                                (None, _) => Some(Gas::new(d.awr, t.temperature, options.upper)),
+                                (Some(_), None) => None,
+                                (Some(_), Some(HeavyCap::Thermal(n))) => {
+                                    Some(Gas::new(d.awr, t.temperature, Some(n)))
+                                }
+                                (Some(_), Some(HeavyCap::Energy(e))) => {
+                                    Some(Gas::below(d.awr, t.temperature, e))
+                                }
                             };
-                            let gas = upper.map(|upper| Gas::new(d.awr, t.temperature, upper));
                             // S(α, β) の移行は自由ガスの核の上限より上の入射を自由ガスに残すので、自由ガスの核を持たない核種
                             // （`heavy` のない分離共鳴を持つ核種）では使えない（黙って静止した標的にしない）
                             if gas.is_none() && options.sab && d.thermal_scattering {

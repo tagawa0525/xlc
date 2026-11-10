@@ -1,0 +1,63 @@
+# #0274 の切り分け: 2A の燃料（../../p9-product/branch-2A.toml と同じ組成と温度）のピンセル 1 本で、燃料の温度の分岐だけを解く。
+# ../pin-default の燃料の温度を 900 K の 1 点にし、分離共鳴を持つ核種の自由ガスの上限を 900 kT にしたもの（上限を 900 K で動かして、上限が U-238 の共鳴を越えるときの動きを見る）。比べ方は read_caps.py。
+library = "../../p2/depletion.msgpack"
+ufg-tolerance = 1e-4
+ufg-free-gas = { heavy = 900 }
+few-group = { output = "h-900.msgpack", bounds = [1e7, 0.625, 1e-5] }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+rows = ["pin"]
+
+[material.fuel]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
+# p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [650], materials = ["water"] }
+moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }
+fuel = { temperature = [900], materials = ["fuel"] }

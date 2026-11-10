@@ -8,8 +8,8 @@
   少なければ 2 次式）
 - その点を除いた点から √T の線形と 4 点のラグランジュ（../compare_grid_interpolation.py の `lagrange_weights`。ADR-0242 の測定と
   同じ窓）で内挿した k∞ の反応度の誤差（pcm。両端の点は除く）
-- 比べるテーブルを渡したときは、温度ごとの 400 kT（分離共鳴を持つ核種の自由ガスの既定の上限。ADR-0204、ADR-0209。2 つの
-  テーブルが使った上限によらず 400 kT を出す）と、
+- 比べるテーブルを渡したときは、温度ごとの 400 kT（分離共鳴を持つ核種の自由ガスの kT の倍数の上限。ADR-0204。OpenMC の
+  `FREE_GAS_THRESHOLD` と同じ。2 つのテーブルが使った上限によらず 400 kT を出す）と、
   高速群の吸収の相対差（1e-5）と、比べるテーブルの反応度からテーブルの反応度を引いた差 1/k(テーブル) − 1/k(比べる)（pcm）
 """
 
@@ -74,7 +74,7 @@ def main() -> None:
         if other_axes != axes:
             raise SystemExit("the two tables must hold the same axes and points")
         print(
-            "既定の上限 400 kT (eV): "
+            "400 kT の上限 (eV): "
             + " ".join(f"{400 * BOLTZMANN * t:8.2f}" for t in temps)
         )
         a = np.array([s["absorption"][0] for s in states])

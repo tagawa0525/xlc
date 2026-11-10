@@ -59,7 +59,7 @@ issues: ["#0152"]
 案 D3 にする。入力の既定（省略したときの値）を次にする。
 
 - `ufg-scattering`: `"free-gas"`（今まで `"static"`）
-- `ufg-free-gas` の各項目: `upper = 400`、`cells = 2`、`sweeps = 3`、`heavy = 400`、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した
+- `ufg-free-gas` の各項目: `upper = 400`、`cells = 2`、`sweeps = 3`、`heavy = { energy = 31 }`（[ADR-0243](0243-cap-resonant-free-gas-at-a-fixed-energy.md)）、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した
   標的、false）。今まで省略で選んでいた値は `upper = inf`、`sweeps = inf`、`heavy = false` で書く（上の「参照の条件の書き方」）。`ufg-free-gas` は
   `ufg-scattering` を省略しても書ける（`"static"` と組めば止める）
 - `ufg-transfer`: `"ring-flux"`（今まで `"infinite-dilution"`）
@@ -125,3 +125,7 @@ issues: ["#0152"]
 ## 補足
 
 - 2026-10-28: 帰結の「入力は書き換えず」の試行の入力のうち、examples/depletion/issue-0133 の下のものは、省略していた項目を測ったときの値で明示した（コミット 610d0fd58）。決定の変更ではない
+
+## 変更
+
+- 2026-11-10: `ufg-free-gas.heavy` の既定を、温度によらない 31 eV（`heavy = { energy = 31 }`）にした。前は「`ufg-free-gas` の各項目: `upper = 400`、`cells = 2`、`sweeps = 3`、`heavy = 400`、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した標的、false）。」。kT の倍数の上限が燃料の温度とともに U-238 の共鳴を横切り、燃料の温度の格子点ごとに少数群定数が外れるため（#0274）。比べた案と測った値は ADR-0243

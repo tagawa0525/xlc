@@ -433,13 +433,13 @@ fn ufg_hold_memory_sets_the_held_memory_of_the_self_shielding() {
 
 #[test]
 fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
-    // ADR-0209: 省略すると、ADR-0205 の速い方法（軽い核種と重い核種の 400 kT までの自由ガス、細かさ 2、スイープ 3 回、H in H2O の
-    // S(α, β)）。`ufg-free-gas` の書かない項目もその値
+    // ADR-0209: 省略すると、ADR-0205 の速い方法（軽い核種の 400 kT までの自由ガス、細かさ 2、スイープ 3 回、H in H2O の
+    // S(α, β)）で、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。`ufg-free-gas` の書かない項目もその値
     let fast = FreeGas {
         upper: Some(400.0),
         cells: 2,
         sweeps: Some(3),
-        heavy: Some(400.0),
+        heavy: Some(HeavyCap::Energy(31.0)),
         sab: true,
     };
     assert_eq!(FreeGas::default(), fast);
@@ -494,11 +494,27 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             sab: false,
         })
     );
+    // ADR-0204 の kT の倍数の上限（ADR-0209 の前の既定と OpenMC の扱い）も書ける
+    assert_eq!(
+        scattering("ufg-free-gas = { heavy = 400 }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            heavy: Some(HeavyCap::Thermal(400.0)),
+            ..fast
+        })
+    );
     // ADR-0204: `heavy = inf` は重い核種の上限なしの自由ガス
     assert_eq!(
         scattering("ufg-free-gas = { heavy = inf }").unwrap(),
         Scattering::FreeGas(FreeGas {
-            heavy: Some(f64::INFINITY),
+            heavy: Some(HeavyCap::Thermal(f64::INFINITY)),
+            ..fast
+        })
+    );
+    // `heavy = { energy = .. }` は温度によらない入射エネルギー (eV) の上限
+    assert_eq!(
+        scattering("ufg-free-gas = { heavy = { energy = 31 } }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            heavy: Some(HeavyCap::Energy(31.0)),
             ..fast
         })
     );
@@ -518,6 +534,12 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         "ufg-free-gas = { heavy = -400 }",
         "ufg-free-gas = { heavy = nan }",
         "ufg-free-gas = { heavy = true }",
+        "ufg-free-gas = { heavy = { energy = 0 } }",
+        "ufg-free-gas = { heavy = { energy = -31 } }",
+        "ufg-free-gas = { heavy = { energy = nan } }",
+        "ufg-free-gas = { heavy = { energy = inf } }",
+        "ufg-free-gas = { heavy = { energy = 31, kt = 400 } }",
+        "ufg-free-gas = { heavy = {} }",
         "ufg-free-gas = { sab = 1 }",
     ] {
         assert!(scattering(bad).is_err(), "{bad}");
