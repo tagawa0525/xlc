@@ -1,0 +1,6 @@
+2026-11-10T16:27:07.007701Z  INFO lattice: depletion solves=5 shieldings=5 regions=1 shielding=14.735542437 moc=0.440633826 rates=0.012399704 matrix=0.060385913 cram=0.105665979 total_seconds=19.456002843
+2026-11-10T16:27:28.410619Z  INFO lattice: depletion solves=5 shieldings=5 regions=5 shielding=16.502274917 moc=0.442755121 rates=0.016486467 matrix=0.063990996 cram=0.109637467 total_seconds=21.158325517
+2026-11-10T16:27:55.402713Z  INFO lattice: depletion solves=5 shieldings=5 regions=1 shielding=21.936235421 moc=0.542215723 rates=0.019326027 matrix=0.062721568 cram=0.10682935 total_seconds=26.726944954
+2026-11-10T16:28:22.269050Z  INFO lattice: depletion solves=5 shieldings=5 regions=4 shielding=21.901042029 moc=0.500737803 rates=0.021876768 matrix=0.061818739 cram=0.10989526 total_seconds=26.606865046
+2026-11-10T16:28:49.279691Z  INFO lattice: depletion solves=5 shieldings=5 regions=8 shielding=22.052482605 moc=0.499215683 rates=0.025481301 matrix=0.073257462 cram=0.124321129 total_seconds=26.791790903
+TIME: job=730 elapsed=00:02:02 estimate=00:05:00 class=decision ref=#0275,#0133,ADR-0173,ADR-0239 purpose=本番のテーブルで燃料を径方向に分けて燃焼させるかを決める
