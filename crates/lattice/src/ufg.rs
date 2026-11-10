@@ -245,7 +245,7 @@ pub struct FreeGas {
 pub enum HeavyCap {
     /// 核種の kT の倍数（無限大は範囲の全体。ADR-0204）。上限のエネルギーは核種の温度とともに動く
     Thermal(f64),
-    /// 温度によらない入射エネルギー (eV)
+    /// 温度によらない入射エネルギー (eV。ADR-0243)
     Energy(f64),
 }
 
@@ -257,13 +257,13 @@ impl Default for Scattering {
 }
 
 impl Default for FreeGas {
-    /// ADR-0209 の既定（ADR-0205 の速い方法）
+    /// ADR-0209 の既定（ADR-0205 の速い方法）で、分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）
     fn default() -> Self {
         Self {
             upper: Some(400.0),
             cells: 2,
             sweeps: Some(3),
-            heavy: Some(HeavyCap::Thermal(400.0)),
+            heavy: Some(HeavyCap::Energy(31.0)),
             sab: true,
         }
     }
