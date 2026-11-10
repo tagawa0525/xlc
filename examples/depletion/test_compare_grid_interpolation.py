@@ -441,6 +441,8 @@ class SchemeInputs(unittest.TestCase):
             ("boron", "cube", "linear"),
             ("boron", "value", "akima"),
             ("fuel", "density", "linear"),
+            # ホウ素の軸は 0 ppm を持つ
+            ("boron", "log", "linear"),
         ):
             with self.assertRaises(SystemExit):
                 cgi.summarize(t, schemes(spec))
