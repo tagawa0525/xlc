@@ -421,6 +421,12 @@ def report(summary: dict) -> list[str]:
                     f"{r['worst']}）、rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}"
                 )
     for t in summary.get("thinning", []):
+        if any(
+            "kinds" not in r for s in t["selections"] for r in s["results"].values()
+        ):
+            raise SystemExit(
+                f"{t['name']}: the thinning has no errors per kind of state; rerun the comparison"
+            )
         lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}")
         for sel in t["selections"]:
             lines.append(f"  {sel['name']}（{len(sel['burnup'])} 点）: {sel['burnup']}")
