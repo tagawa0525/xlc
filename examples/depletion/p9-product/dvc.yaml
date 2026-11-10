@@ -1,0 +1,41 @@
+# Problem 9 の分岐のテーブルの格子点（ADR-0239）で、テーブルを作る前に交差の項と 3 つ同時の項を落とす誤差と、分岐を解く燃焼点を
+# 間引く誤差を測る（ADR-0239 の帰結の「テーブルを作る前に」、ADR-0200 の確認、#0176）: 公称の状態での 2A の燃焼の履歴 → 少数の
+# 燃焼点の直積の分岐のテーブル → 比べた要約。ライブラリは ../p2/depletion.msgpack（../p2/dvc.yaml の出力）、燃焼チェーンは
+# ../chain.msgpack（../dvc.yaml の出力）。実行するのは default の devShell の `dvc repro`（ADR-0159）。lattice のステージは重いので、
+# 全体を Slurm で流す
+stages:
+  lattice-2A:
+    # 燃焼点ごとの k∞ は標準出力、燃焼の時間の内訳はログ（標準エラー）
+    cmd: ../../../bin/lattice lattice-2A.toml > lattice-2A.out 2> lattice-2A.log
+    deps:
+      - lattice-2A.toml
+      - ../p2/depletion.msgpack
+      - ../chain.msgpack
+      - ../../../bin/lattice
+    outs:
+      - lattice-2A.out
+      - lattice-2A.msgpack
+      - lattice-2A.log
+  branch-2A:
+    cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
+    deps:
+      - branch-2A.toml
+      - lattice-2A.msgpack
+      - ../p2/depletion.msgpack
+      - ../chain.msgpack
+      - ../../../bin/lattice
+    outs:
+      - table-2A.msgpack
+      - branch-2A.out
+      - branch-2A.log
+  compare-2A:
+    # 比べた要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_branch_cross_terms.py --json compare-2A.json compare-2A.toml
+    deps:
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - compare-2A.toml
+      - table-2A.msgpack
+    outs:
+      - compare-2A.json:
+          cache: false

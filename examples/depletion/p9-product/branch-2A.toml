@@ -1,0 +1,114 @@
+# Problem 9 の分岐のテーブルの格子点（ADR-0239 の決定）の直積を、2A の燃焼の履歴（lattice-2A.toml。公称の状態で燃焼させたもの）の
+# 少数の燃焼点（0、0.5、中ほどの 32、終わりの 60 MWd/kg。ADR-0239 の帰結の「テーブルを作る前に」）で解く。ホウ素 6 点 × 減速材 7 点 ×
+# 燃料 7 点 = 294 状態。交差の項と 3 つ同時の項を落とす誤差と、分岐を解く燃焼点を間引く誤差を compare-2A.toml で測る（ADR-0200 の
+# 確認、#0176）。格子、離散化、組成は lattice-2A.toml と同じで、入力の物質の状態が公称の状態（各軸の格子点の 1 つ）。
+library = "../p2/depletion.msgpack"
+ufg-tolerance = 1e-4
+few-group = { output = "table-2A.msgpack", bounds = [1e7, 0.625, 1e-5] }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+]
+
+[material.fuel]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
+# p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+# 燃料のピン（3.1%）
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [0, 325, 650, 975, 1300, 1625], materials = ["water"] }
+# 密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）。560 K と 615 K は ADR-0239 の「減速材の軸」の値、ほかは
+# ../../vera/p6/lattice-6-fuel.toml と同じ値
+moderator = { temperature = [560, 570, 580, 590, 600, 610, 615], density = [0.752074, 0.732936, 0.711901, 0.688335, 0.661165, 0.628290, 0.608215], materials = ["water", "zircaloy"] }
+fuel = { temperature = [560, 600, 750, 900, 1050, 1200, 1350], materials = ["fuel"] }
+# 交差の項を落とす誤差を測る真値なので、直積で解く（燃焼度の軸を持つ分岐の既定は 2 軸の組の部分格子。ADR-0200）
+subgrids = [["boron", "moderator", "fuel"]]
+
+[history]
+file = "lattice-2A.msgpack"
+chain = "../chain.msgpack"
+burnup = [0, 0.5, 32, 60]
