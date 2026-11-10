@@ -166,6 +166,13 @@ def check_scheme(spec: dict, axes: dict) -> None:
         raise SystemExit(f"scheme: the {axis} axis has no densities")
     if variable == "log" and min(axes[axis]["points"]) <= 0:
         raise SystemExit(f"scheme: the {axis} axis has points at or below 0 for log")
+    # 区間の選び方と重みは、変数が格子点の順に増えることを前提にする
+    g = VARIABLES[variable](axes[axis])
+    if any(b <= a for a, b in itertools.pairwise(g)):
+        raise SystemExit(
+            f"scheme: the {variable} of the {axis} axis does not increase strictly "
+            "with the points (densities must fall with the temperature)"
+        )
     if method not in METHODS:
         raise SystemExit(f"scheme: method {method!r} is not one of {sorted(METHODS)}")
     if len(axes[axis]["points"]) - 1 < MIN_POINTS[method]:
