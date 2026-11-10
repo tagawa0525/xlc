@@ -5616,5 +5616,64 @@ class DrawCoreEnergy(unittest.TestCase):
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
 
+def pellet_zones_summary() -> dict:
+    def row(burnup, dk, drho, hm, halves):
+        return {
+            "burnup": burnup,
+            "k_base": 1.2,
+            "dk_pcm": dk,
+            "drho_pcm": drho,
+            "mean_percent": {"U-235": 0.5, "Pu-239": None if burnup == 0 else -0.4},
+            "hm_percent": hm,
+            "pu239_halves": halves,
+        }
+
+    return {
+        "format": "xlc-pellet-zones",
+        "nuclides": ["U-235", "Pu-239"],
+        "at": [0, 40],
+        "pairs": [
+            {
+                "key": "8-1",
+                "base": "zones-1",
+                "other": "zones-8",
+                "rows": [
+                    row(0, 0.0, 0.0, 0.0, None),
+                    row(0.1, -0.14, -0.1, -5.9e-9, 1.4074),
+                    row(40, 43.42, 52.87, 8.9e-5, 1.3548),
+                ],
+            }
+        ],
+    }
+
+
+class DrawPelletZones(unittest.TestCase):
+    def test_rows_are_the_selected_burnups_of_the_pair(self):
+        lines = vt.pellet_zones_pair("8-1", [pellet_zones_summary()]).splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertRegex(
+            lines[2],
+            r"^\| 0 +\| 1\.200000 +\| 0\.00 +\| 0\.00 +\| \+0\.500 +\| – +\| 0\.0e\+00 +\| – +\|$",
+        )
+        self.assertRegex(
+            lines[3],
+            r"^\| 40 +\| 1\.200000 +\| \+43\.42 +\| \+52\.87 +\| \+0\.500 +\| −0\.400 +\| \+8\.9e-05 +\| 1\.3548 +\|$",
+        )
+
+    def test_unknown_pairs_and_other_summaries_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.pellet_zones_pair("4-1", [pellet_zones_summary()])
+        with self.assertRaises(vt.TableError):
+            vt.pellet_zones_pair("8-1", [{"format": "xlc-ufg-free-gas"}])
+
+    def test_the_tables_read_the_tracked_summary(self):
+        for key in ("4-1", "8-1", "8-4", "5p9-1p9", "1-1p9"):
+            sources, _ = vt.TABLES[f"depletion-pellet-zones-{key}"]
+            self.assertEqual(
+                sources, ["examples/depletion/issue-0133/pellet-zones/summary.json"]
+            )
+            self.assertIn(sources[0], vt.GIT_TRACKED)
+
+
 if __name__ == "__main__":
     unittest.main()

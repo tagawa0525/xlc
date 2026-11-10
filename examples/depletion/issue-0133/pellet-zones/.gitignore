@@ -1,0 +1,8 @@
+/zones-*.msgpack
+/zones-*.checkpoint
+/zones-*.out
+/zones-*.log
+/short-*.msgpack
+/short-*.checkpoint
+/short-*.out
+/short-*.log

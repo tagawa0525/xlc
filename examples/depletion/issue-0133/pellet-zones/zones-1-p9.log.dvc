@@ -1,0 +1,5 @@
+outs:
+- md5: 4fb9ca3c68714ad3ccc17dbd2a1f5675
+  size: 138244
+  hash: md5
+  path: zones-1-p9.log

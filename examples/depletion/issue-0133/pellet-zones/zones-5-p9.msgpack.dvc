@@ -1,0 +1,5 @@
+outs:
+- md5: 92417929baa88638e7f8d811935cb42c
+  size: 7079290
+  hash: md5
+  path: zones-5-p9.msgpack
