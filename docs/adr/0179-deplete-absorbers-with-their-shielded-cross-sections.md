@@ -55,7 +55,8 @@ issues: ["#0139"]
 - 入力の `[depletion] materials` に燃料でない物質を挙げてよい。燃焼の領域の分け方は ADR-0173 のまま（対称操作のセルの組 × 物質）
 - 領域の微視的断面積は案 A1。自己遮蔽（`FuelShielding::region_cross_sections`）が、MOC の物質を作った値を領域ごとに渡し、燃焼は
   それを物理的な中性子束と掛ける。輸送と燃焼が同じ断面積を使い、新しい近似を足さない
-- 燃焼させる物質の温度が複数のときの輸送する核種は決めない。それまでは、温度が複数なら止める
+- 燃焼させる物質の温度が複数のときの輸送する核種は、[ADR-0240](0240-depleted-temperatures-transport-common-nuclides.md) の
+  とおり、すべての燃焼の領域の温度でデータのある核種の 1 つの集合にする（温度が複数でも止めない）
 - 断面積を持たない領域（真空）と、輸送する核種の数と断面積の数が合わない領域は、エラーで止める
 
 ### 帰結
@@ -70,10 +71,14 @@ issues: ["#0139"]
 
 ### 確認
 
-- 単体のテスト: crates/lattice/src/depletion/tests.rs の `absorbers_outside_the_fuel_deplete_by_their_own_rates`、
-  `depleted_materials_share_one_temperature`（温度が複数なら止める）。crates/lattice/src/shielding/tests.rs の
+- 単体のテスト: crates/lattice/src/depletion/tests.rs の `absorbers_outside_the_fuel_deplete_by_their_own_rates`
+  （温度が複数のときのテストは ADR-0240 の「確認」）。crates/lattice/src/shielding/tests.rs の
   `each_region_names_the_cross_sections_its_material_was_shielded_with`、`unshielded_regions_name_their_dilute_cross_sections`、
   `lump_regions_name_the_lump_cross_sections`
 - 2F、2M、2N が 1 ステップ走り、吸収体の B-10 が減ることを確かめた（記録に書かない動作確認。#0139 の「経緯」）
 - OpenMC との比較: examples/depletion/p2/dvc.yaml の比較のステージ `compare@2F`、`compare@2M`、`compare@2N`（compare_depletion_assembly.py）で、
   吸収体の B-10 の数密度を比べる。AWS の m4-assembly の OpenMC の参照解がそろってから流す
+
+## 変更
+
+- 2026-11-10: 燃焼させる物質の温度が複数のときの輸送する核種を ADR-0240 で決め、止めを外した。前は「燃焼させる物質の温度が複数のときの輸送する核種は決めない。それまでは、温度が複数なら止める」。理由と比べた案は ADR-0240 の「決定と理由」と「検討した案」

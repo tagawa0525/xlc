@@ -1093,41 +1093,76 @@ fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
     }
 }
 
+/// 吸収体の温度 `temperature` (K) を燃料（600 K）と違う値にした `with_absorbers` の格子
+pub(crate) fn absorbers_at(temperature: f64) -> String {
+    with_absorbers()
+        .replace(
+            "[material.coat]\ntemperature = 600",
+            &format!("[material.coat]\ntemperature = {temperature}"),
+        )
+        .replace(
+            "[material.poison]\ntemperature = 600",
+            &format!("[material.poison]\ntemperature = {temperature}"),
+        )
+}
+
+/// `library` の `except` を除く核種に、温度 `temperature` (K) のデータ（`T` のデータの写し）を足したもの
+pub(crate) fn with_temperature(mut library: Library, temperature: f64, except: &[&str]) -> Library {
+    for nuclide in &mut library.nuclides {
+        if except.contains(&nuclide.name.as_str()) {
+            continue;
+        }
+        let mut data = nuclide.temperatures[0].clone();
+        data.temperature = temperature;
+        nuclide.temperatures.push(data);
+    }
+    library
+}
+
 #[test]
-fn depleted_materials_share_one_temperature() {
-    // 輸送できる核種は燃焼の領域の温度で決まる。吸収体を燃料と違う温度で燃焼させるときの集合は決めていないので止める
-    let text = PIN
-        .replace(
-            "zones = [{ material = \"fuel\", radius = 0.4096, rings = 1 }",
-            "zones = [{ material = \"fuel\", radius = 0.4, rings = 1 }, { material = \"coat\", radius = 0.4096, rings = 1 }",
-        )
-        .replace(
-            "[material.water]",
-            "[material.coat]\ntemperature = 300\nnuclides = { O-16 = 4.6e-2 }\n\n[material.water]",
-        )
-        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\"]");
-    let input = LatticeInput::parse(&text).unwrap();
-    let depletion = input.depletion.clone().unwrap();
-    let (lattice, region_materials) = input.geometry().unwrap();
-    let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
-    let chosen = choose(&tracking, &region_materials, None).unwrap();
-    let library = library();
-    let error = run(
-        &input,
-        &depletion,
-        &library,
-        &chain(),
-        &tracking,
-        &region_materials,
-        &chosen,
-        &LibraryReactions(&library),
-        None,
-        None,
-        &mut |_, _, _| Ok(()),
-    )
-    .unwrap_err()
-    .to_string();
-    assert!(error.contains("several temperatures"), "{error}");
+fn absorbers_at_another_temperature_deplete_with_the_fuel() {
+    // 吸収体（580 K）を燃料（600 K）と違う温度で燃焼させる。輸送する核種は、すべての燃焼の領域の温度でデータのある核種の 1 つの
+    // 集合（ADR-0240）。H-1 は 600 K だけを持つので燃焼の領域では輸送しない（燃焼させない減速材では輸送する）
+    let library = with_temperature(library(), 580.0, &["H-1"]);
+    let history = deplete_with(&absorbers_at(580.0), &library);
+    assert_eq!(
+        history.transportable,
+        ["O-16", "Xe-135", "U-235", "U-238"].map(String::from)
+    );
+    let last = history.points.last().unwrap();
+    let decay_only = 1.0e-4 * (-LN_2 * last.time / 32_904.0).exp();
+    for (region, densities) in history.regions.iter().zip(&last.densities).skip(1) {
+        let xe = densities[XE135];
+        assert!(
+            xe < 0.5 * decay_only,
+            "{}: {xe} vs {decay_only}",
+            region.material
+        );
+    }
+}
+
+#[test]
+fn nuclides_without_data_at_every_depletion_temperature_only_decay() {
+    // Xe-135 は燃料の温度（600 K）のデータを持ち、吸収体の温度（580 K）のデータを持たない。燃料でも輸送せず、崩壊と生成だけを
+    // 追う（ADR-0240）
+    let library = with_temperature(library(), 580.0, &["H-1", "Xe-135"]);
+    let history = deplete_with(&absorbers_at(580.0), &library);
+    assert_eq!(
+        history.transportable,
+        ["O-16", "U-235", "U-238"].map(String::from)
+    );
+    let last = history.points.last().unwrap();
+    assert!(last.densities[0][XE135] > 0.0);
+    // 核分裂のない吸収体の Xe-135 は崩壊だけで減る
+    let decay_only = 1.0e-4 * (-LN_2 * last.time / 32_904.0).exp();
+    for (region, densities) in history.regions.iter().zip(&last.densities).skip(1) {
+        let xe = densities[XE135];
+        assert!(
+            (xe - decay_only).abs() <= 1e-10 * decay_only,
+            "{}: {xe} vs {decay_only}",
+            region.material
+        );
+    }
 }
 
 #[test]

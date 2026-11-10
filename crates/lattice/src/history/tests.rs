@@ -5,8 +5,8 @@ use xlc_format::table::Axis;
 use super::*;
 use crate::branches::{BranchShielder, remix_varied};
 use crate::depletion::tests::{
-    DECAY_CONSTANTS, DELAYED_CHI, DELAYED_NU, PIN, U235, chain, continue_from, deplete_with,
-    deplete_with_moc, library, plain_library, tight,
+    DECAY_CONSTANTS, DELAYED_CHI, DELAYED_NU, PIN, U235, absorbers_at, chain, continue_from,
+    deplete_with, deplete_with_moc, library, plain_library, tight, with_temperature,
 };
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
@@ -50,8 +50,13 @@ fn borated(text: &str) -> String {
 
 /// 燃焼の入力 `PIN` の燃焼を外し、少数群定数のファイル、3 つの軸の分岐、`[history]` を足した入力
 fn branch_input(burnup: &str, fuel: &str) -> String {
-    let start = PIN.find("[depletion]").unwrap();
-    let lattice = borated(&PIN[..start]).replace(
+    branch_input_of(PIN, burnup, fuel)
+}
+
+/// `branch_input` の、燃焼の入力を `text` にしたもの
+fn branch_input_of(text: &str, burnup: &str, fuel: &str) -> String {
+    let start = text.find("[depletion]").unwrap();
+    let lattice = borated(&text[..start]).replace(
         "library = \"unused.msgpack\"",
         "library = \"unused.msgpack\"\nfew-group = { output = \"unused.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
     );
@@ -234,6 +239,44 @@ fn branches_at_the_continued_conditions_reproduce_the_points_of_a_continued_hist
         let want = history.points[point].k;
         assert!(
             (k - want).abs() <= 1e-8 * want,
+            "burnup {}: {k} vs {want}",
+            history.points[point].burnup
+        );
+    }
+}
+
+#[test]
+fn nominal_branches_of_absorbers_at_another_temperature_reproduce_the_history_points() {
+    // 吸収体（580 K）を燃料（600 K）と違う温度で燃焼させた履歴（ADR-0240）。分岐の燃焼の領域は燃焼させた物質の温度で、公称の
+    // 状態は履歴の点を再現する。判定は `nominal_branches_reproduce_the_history_points` と同じ
+    let library = with_temperature(library_with_boron(), 580.0, &["H-1"]);
+    let lattice = absorbers_at(580.0);
+    let history = deplete_with_moc(&borated(&lattice), &library, &tight());
+    let text = branch_input_of(&lattice, "[0, 2.0]", "[600]");
+    let branches = branches_of(&text, &history, &library).unwrap();
+    // 状態は燃焼度ごとに 500 ppm、1000 ppm（公称）の順
+    for (i, point) in [0, 3].into_iter().enumerate() {
+        let nominal = branches.state(2 * i + 1);
+        for region in &history.regions {
+            let name = transport_name(&region.material, region.cell);
+            let material = nominal.iter().find(|m| m.name == name).unwrap();
+            let want = if region.material == "fuel" {
+                600.0
+            } else {
+                580.0
+            };
+            assert_eq!(material.temperature, want, "{name}");
+        }
+        let k = k_of(
+            &text,
+            &library,
+            &nominal,
+            branches.region_materials(0),
+            &tight(),
+        );
+        let want = history.points[point].k;
+        assert!(
+            (k - want).abs() <= if point == 0 { 1e-12 } else { 1e-8 } * want,
             "burnup {}: {k} vs {want}",
             history.points[point].burnup
         );
