@@ -23,11 +23,11 @@ def axis_transforms(table: dict) -> list:
     return out
 
 def summarize(table: dict) -> dict:
-    transforms = axis_transforms(table)
-    if any(('nominal' not in a for a in table['axes'] if a['name'] != 'burnup')):
+    state_axes = [a for a in table['axes'] if a['name'] != 'burnup' and 'points' in a]
+    if any(('nominal' not in a for a in state_axes)):
         raise SystemExit('the table needs the nominal value of every state axis')
-    nominal = {a['name']: a['nominal'] for a in table['axes'] if a['name'] != 'burnup'}
-    grid_of = table_grid('table', table, nominal)
+    grid_of = table_grid('table', table, {a['name']: a['nominal'] for a in state_axes})
+    transforms = axis_transforms(table)
     burnup, names, points = (grid_of['burnup'], grid_of['names'], grid_of['points'])
     burnups = burnup if burnup is not None else [None]
     per_point = grid_of['per_point']
@@ -53,9 +53,9 @@ def summarize(table: dict) -> dict:
                         continue
                     low = flat[index[:a] + (i - 1,) + index[a + 1:]]
                     high = flat[index[:a] + (i + 1,) + index[a + 1:]]
-                    state, k = truths[b][flat[index]]
+                    state, k_grid = truths[b][flat[index]]
                     rebuilt = unvector((1 - w) * vectors[b][low] + w * vectors[b][high], state)
-                    rho = (1 / k - 1 / k_inf(rebuilt)) * 100000.0
+                    rho = (1 / k_grid - 1 / k_inf(rebuilt)) * 100000.0
                     if worst is None or abs(rho) > abs(worst[0]):
                         worst = (rho, index)
                 out.append({'burnup': burnups[b], 'max_abs_pcm': abs(worst[0]), 'worst_pcm': worst[0], 'worst': {n: points[k][worst[1][k]] for k, n in enumerate(names)}})

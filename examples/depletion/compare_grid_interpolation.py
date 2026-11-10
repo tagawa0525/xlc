@@ -52,12 +52,13 @@ def axis_transforms(table: dict) -> list:
 
 
 def summarize(table: dict) -> dict:
-    transforms = axis_transforms(table)
-    # 公称の値は lattice が軸に書く（table_grid が直積と状態の数を確かめるのに要る）
-    if any("nominal" not in a for a in table["axes"] if a["name"] != "burnup"):
+    # table_grid は公称の値を引数に取る（測る量には使わない）。lattice は直積のテーブルの軸に公称の値を書く。制御棒の軸（`points`
+    # が無い）は table_grid が止める
+    state_axes = [a for a in table["axes"] if a["name"] != "burnup" and "points" in a]
+    if any("nominal" not in a for a in state_axes):
         raise SystemExit("the table needs the nominal value of every state axis")
-    nominal = {a["name"]: a["nominal"] for a in table["axes"] if a["name"] != "burnup"}
-    grid_of = table_grid("table", table, nominal)
+    grid_of = table_grid("table", table, {a["name"]: a["nominal"] for a in state_axes})
+    transforms = axis_transforms(table)
     burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
     burnups = burnup if burnup is not None else [None]
     per_point = grid_of["per_point"]
@@ -83,11 +84,11 @@ def summarize(table: dict) -> dict:
                         continue
                     low = flat[index[:a] + (i - 1,) + index[a + 1 :]]
                     high = flat[index[:a] + (i + 1,) + index[a + 1 :]]
-                    state, k = truths[b][flat[index]]
+                    state, k_grid = truths[b][flat[index]]
                     rebuilt = unvector(
                         (1 - w) * vectors[b][low] + w * vectors[b][high], state
                     )
-                    rho = (1 / k - 1 / k_inf(rebuilt)) * 1e5
+                    rho = (1 / k_grid - 1 / k_inf(rebuilt)) * 1e5
                     if worst is None or abs(rho) > abs(worst[0]):
                         worst = (rho, index)
                 out.append(
