@@ -2134,6 +2134,85 @@ def grid_interpolation_intervals(sources: list[dict]) -> str:
     )
 
 
+# 方式の内挿の変数（軸と compare_grid_interpolation.py の `variable`）と方式の名前
+GRID_VARIABLE_LABELS = {
+    ("boron", "value"): "ppm",
+    ("moderator", "value"): "温度",
+    ("moderator", "density"): "密度",
+    ("fuel", "value"): "温度",
+    ("fuel", "sqrt"): "√T",
+    ("fuel", "log"): "ln T",
+}
+GRID_METHOD_LABELS = {
+    "linear": "線形",
+    "hermite": "3 次 Hermite",
+    "lagrange": "4 点のラグランジュ",
+    "spline": "自然 3 次スプライン",
+}
+
+
+def grid_schemes(sources: list[dict]) -> tuple[dict, list[dict]]:
+    s = grid_interpolation_summary(sources)
+    for x in s["schemes"]:
+        if (x["axis"], x["variable"]) not in GRID_VARIABLE_LABELS:
+            raise TableError(
+                f"no label for the variable {x['variable']} of {x['axis']}"
+            )
+        if x["method"] not in GRID_METHOD_LABELS:
+            raise TableError(f"no label for the method {x['method']}")
+    return s, s["schemes"]
+
+
+def grid_interpolation_schemes(sources: list[dict]) -> str:
+    """方式ごとの、格子点をその点を除いた格子から内挿した |Δρ| の、内側の格子点の最大（燃焼度の点ごと、pcm）と、最大の格子点
+    （すべての燃焼度の点の中で）"""
+    s, schemes = grid_schemes(sources)
+    rows = []
+    for x in schemes:
+        worst = max(
+            ((p["max_abs_pcm"], c["point"]) for c in x["centers"] for p in c["points"]),
+            key=lambda w: w[0],
+        )
+        rows.append(
+            [
+                GRID_AXIS_LABELS[x["axis"]],
+                GRID_VARIABLE_LABELS[(x["axis"], x["variable"])],
+                GRID_METHOD_LABELS[x["method"]],
+                *(
+                    f"{max(c['points'][b]['max_abs_pcm'] for c in x['centers']):.2f}"
+                    for b in range(len(s["burnup"]))
+                ),
+                f"{worst[1]:g}",
+            ]
+        )
+    return markdown_table(
+        ["軸", "内挿の変数", "方式", *grid_burnup_header(s), "最大の格子点"], rows
+    )
+
+
+def grid_interpolation_scheme_points(axis: str, sources: list[dict]) -> str:
+    """軸 `axis` の方式ごとの、内側の格子点ごとの Δρ（燃焼度の点のうち |Δρ| が最大のものの、符号つきの値、pcm）"""
+    _, schemes = grid_schemes(sources)
+    chosen = [x for x in schemes if x["axis"] == axis]
+    if not chosen:
+        raise TableError(f"no scheme of the {axis} axis")
+    points = [c["point"] for c in chosen[0]["centers"]]
+    if any([c["point"] for c in x["centers"]] != points for x in chosen):
+        raise TableError(f"the schemes of the {axis} axis differ in their points")
+    rows = [
+        [
+            GRID_VARIABLE_LABELS[(axis, x["variable"])],
+            GRID_METHOD_LABELS[x["method"]],
+            *(
+                signed(max(c["points"], key=lambda p: p["max_abs_pcm"])["worst_pcm"], 2)
+                for c in x["centers"]
+            ),
+        ]
+        for x in chosen
+    ]
+    return markdown_table(["内挿の変数", "方式", *(f"{p:g}" for p in points)], rows)
+
+
 def micro_linearization(sources: list[dict]) -> str:
     """ミクロ燃焼の線形の補正（ADR-0216）: 燃焼度の点の組ごとの、追う核種の組成の差の輸送の効き、線形の補正の効き、その誤差（pcm）と、
     数密度の相対の変化（%）"""
@@ -4361,6 +4440,22 @@ TABLES = {
     "depletion-p9-product-grid-intervals": (
         ["examples/depletion/p9-product/grid-2A.json"],
         grid_interpolation_intervals,
+    ),
+    "depletion-p9-product-grid-schemes": (
+        ["examples/depletion/p9-product/grid-2A.json"],
+        grid_interpolation_schemes,
+    ),
+    "depletion-p9-product-grid-schemes-boron": (
+        ["examples/depletion/p9-product/grid-2A.json"],
+        partial(grid_interpolation_scheme_points, "boron"),
+    ),
+    "depletion-p9-product-grid-schemes-moderator": (
+        ["examples/depletion/p9-product/grid-2A.json"],
+        partial(grid_interpolation_scheme_points, "moderator"),
+    ),
+    "depletion-p9-product-grid-schemes-fuel": (
+        ["examples/depletion/p9-product/grid-2A.json"],
+        partial(grid_interpolation_scheme_points, "fuel"),
     ),
     "depletion-burnup-interpolation-points": (
         ["examples/depletion/branches/compare-burnup-interpolation.json"],
