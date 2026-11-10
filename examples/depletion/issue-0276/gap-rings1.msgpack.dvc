@@ -1,0 +1,5 @@
+outs:
+- md5: 21258d7ff5187de5fbf0da90bd4f5f91
+  size: 4263682
+  hash: md5
+  path: gap-rings1.msgpack

@@ -1,0 +1,5 @@
+outs:
+- md5: 0a04d1f12d27f0cd4911960006f700ab
+  size: 42327790
+  hash: md5
+  path: gap-rings5-sectors4.msgpack
