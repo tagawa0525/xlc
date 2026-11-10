@@ -6,8 +6,10 @@
 
 - 高速群と熱群の吸収と νΣf、k∞ を √T の 3 次式に最小 2 乗で当てはめた残差（点の値の平均で割った値、1e-5 単位。点が 7 より
   少なければ 2 次式）
-- その点を除いた点から √T の線形と、近い 4 点のラグランジュで内挿した k∞ の反応度の誤差（pcm。両端の点は除く）
-- 比べるテーブルを渡したときは、温度ごとの 400 kT（分離共鳴を持つ核種の自由ガスの既定の上限。ADR-0204、ADR-0209）と、
+- その点を除いた点から √T の線形と 4 点のラグランジュ（../compare_grid_interpolation.py の `lagrange_weights`。ADR-0242 の測定と
+  同じ窓）で内挿した k∞ の反応度の誤差（pcm。両端の点は除く）
+- 比べるテーブルを渡したときは、温度ごとの 400 kT（分離共鳴を持つ核種の自由ガスの既定の上限。ADR-0204、ADR-0209。2 つの
+  テーブルが使った上限によらず 400 kT を出す）と、
   高速群の吸収の相対差（1e-5）と、比べるテーブルの反応度からテーブルの反応度を引いた差 1/k(テーブル) − 1/k(比べる)（pcm）
 """
 
@@ -17,6 +19,9 @@ from pathlib import Path
 import msgpack
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from compare_grid_interpolation import lagrange_weights
+
 BOLTZMANN = 8.617333262e-5  # eV/K
 
 
@@ -25,14 +30,9 @@ def load(path):
     axes = {a["name"]: a["points"] for a in t["axes"]}
     if any(len(p) != 1 for name, p in axes.items() if name != "fuel"):
         raise SystemExit(f"{path}: every axis but fuel must hold one point")
+    if len(t["states"]) != len(axes["fuel"]):
+        raise SystemExit(f"{path}: the table must hold one state per fuel point")
     return np.array(axes["fuel"]), t["states"]
-
-
-def lagrange(x, y, x0):
-    return sum(
-        y[i] * np.prod([(x0 - x[j]) / (x[i] - x[j]) for j in range(len(x)) if j != i])
-        for i in range(len(x))
-    )
 
 
 def main() -> None:
@@ -57,8 +57,9 @@ def main() -> None:
     for i in range(1, len(temps) - 1):
         rest = [j for j in range(len(temps)) if j != i]
         linear.append((1 / np.interp(g[i], g[rest], k[rest]) - 1 / k[i]) * 1e5)
-        near = sorted(rest, key=lambda j: abs(g[j] - g[i]))[:4]
-        four.append((1 / lagrange(g[near], k[near], g[i]) - 1 / k[i]) * 1e5)
+        weights = lagrange_weights(list(g[rest]), g[i])
+        value = sum(w * k[rest][m] for m, w in weights.items())
+        four.append((1 / value - 1 / k[i]) * 1e5)
     print(
         "1 点を除いた √T の線形の内挿の誤差（pcm、内側の点）: "
         + " ".join(f"{x:+6.1f}" for x in linear)
@@ -71,7 +72,10 @@ def main() -> None:
         other_temps, other = load(sys.argv[2])
         if not np.array_equal(temps, other_temps):
             raise SystemExit("the two tables must hold the same fuel temperatures")
-        print("400 kT (eV): " + " ".join(f"{400 * BOLTZMANN * t:8.2f}" for t in temps))
+        print(
+            "既定の上限 400 kT (eV): "
+            + " ".join(f"{400 * BOLTZMANN * t:8.2f}" for t in temps)
+        )
         a = np.array([s["absorption"][0] for s in states])
         b = np.array([s["absorption"][0] for s in other])
         print(
