@@ -1373,6 +1373,137 @@ class DrawBranchCrossTerms(unittest.TestCase):
             self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawBranchProduct(unittest.TestCase):
+    @staticmethod
+    def summary():
+        """compare_branch_cross_terms.py の要約（テーブル 1 つ、燃焼度の点 2 つ、間引きの選び方 2 つと状態の種類 2 つ）"""
+
+        def model(states, max_abs):
+            return {"states": states, "max_abs_pcm": max_abs}
+
+        def kinds(boron, both):
+            return {
+                "boron": {"max_abs_pcm": boron},
+                "boron+moderator": {"max_abs_pcm": both},
+            }
+
+        def selection(name, linear, hermite):
+            return {
+                "name": name,
+                "results": {
+                    "linear": {"max_abs_pcm": max(linear), "kinds": kinds(*linear)},
+                    "hermite": {"max_abs_pcm": max(hermite), "kinds": kinds(*hermite)},
+                },
+            }
+
+        return {
+            "format": "xlc-compare-branch-cross-terms",
+            "tables": [
+                {
+                    "name": "2A",
+                    "points": [
+                        {
+                            "burnup": 0.0,
+                            "models": {
+                                "1 軸ずつ": model(18, 1486.01),
+                                "2 軸の組すべて": model(114, 2.304),
+                            },
+                        },
+                        {
+                            "burnup": 0.5,
+                            "models": {
+                                "1 軸ずつ": model(18, 1470.61),
+                                "2 軸の組すべて": model(114, 2.33),
+                            },
+                        },
+                    ],
+                }
+            ],
+            "thinning": [
+                {
+                    "name": "2A",
+                    "selections": [
+                        selection("32 を除く 3 点", (167.07, 737.92), (167.0, 737.0)),
+                        selection("0.5 を除く 3 点", (92.9, 241.5), (92.0, 241.0)),
+                    ],
+                }
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+
+    @staticmethod
+    def header(table: str) -> list[str]:
+        return [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+
+    def test_model_rows_have_the_error_at_each_burnup_point(self):
+        table = vt.branch_cross_terms_burnups([self.summary()])
+        self.assertEqual(
+            self.header(table), ["モデル", "状態", "0 MWd/kg", "0.5 MWd/kg"]
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["1 軸ずつ", "18", "1486.01", "1470.61"],
+                ["2 軸の組すべて", "114", "2.30", "2.33"],
+            ],
+        )
+
+    def test_kind_rows_have_both_methods_for_each_selection(self):
+        table = vt.branch_thinning_kinds([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "変えた軸",
+                "32 を除く 3 点、線形 (pcm)",
+                "32 を除く 3 点、Hermite (pcm)",
+                "0.5 を除く 3 点、線形 (pcm)",
+                "0.5 を除く 3 点、Hermite (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["B", "167.07", "167.00", "92.90", "92.00"],
+                ["B、M", "737.92", "737.00", "241.50", "241.00"],
+            ],
+        )
+
+    def test_a_summary_without_kinds_is_an_error(self):
+        s = self.summary()
+        del s["thinning"][0]["selections"][1]["results"]["hermite"]["kinds"]
+        with self.assertRaises(vt.TableError):
+            vt.branch_thinning_kinds([s])
+
+    def test_selections_with_different_kinds_are_an_error(self):
+        s = self.summary()
+        del s["thinning"][0]["selections"][1]["results"]["linear"]["kinds"]["boron"]
+        with self.assertRaises(vt.TableError):
+            vt.branch_thinning_kinds([s])
+
+    def test_kinds_of_an_unknown_axis_are_an_error(self):
+        s = self.summary()
+        for sel in s["thinning"][0]["selections"]:
+            for r in sel["results"].values():
+                r["kinds"]["rods"] = {"max_abs_pcm": 1.0}
+        with self.assertRaises(vt.TableError):
+            vt.branch_thinning_kinds([s])
+
+    def test_summaries_of_several_tables_are_an_error(self):
+        s = self.summary()
+        s["tables"].append(s["tables"][0])
+        s["thinning"].append(s["thinning"][0])
+        for draw in (vt.branch_cross_terms_burnups, vt.branch_thinning_kinds):
+            with self.assertRaises(vt.TableError):
+                draw([s])
+
+    def test_points_with_different_models_are_an_error(self):
+        s = self.summary()
+        del s["tables"][0]["points"][1]["models"]["1 軸ずつ"]
+        with self.assertRaises(vt.TableError):
+            vt.branch_cross_terms_burnups([s])
+
+
 class DrawCoreHistory(unittest.TestCase):
     @staticmethod
     def summary() -> dict:

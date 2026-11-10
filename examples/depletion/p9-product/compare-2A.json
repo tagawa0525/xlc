@@ -1,0 +1,1002 @@
+{
+ "format": "xlc-compare-branch-cross-terms",
+ "thinning": [
+  {
+   "name": "2A（Problem 9 の格子点）",
+   "burnup": [
+    0.0,
+    0.5,
+    32.0,
+    60.0
+   ],
+   "selections": [
+    {
+     "name": "32 を除く 3 点",
+     "burnup": [
+      0.0,
+      0.5,
+      60.0
+     ],
+     "removed": [
+      32.0
+     ],
+     "results": {
+      "linear": {
+       "rho_pcm": [
+        -795.8074707039575
+       ],
+       "max_abs_pcm": 795.8074707039575,
+       "worst_pcm": -795.8074707039575,
+       "worst": {
+        "burnup": 32.0,
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 560.0
+       },
+       "kinds": {
+        "boron": {
+         "max_abs_pcm": 167.07152656381118,
+         "worst_pcm": -167.07152656381118,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 900.0
+         }
+        },
+        "moderator": {
+         "max_abs_pcm": 501.5615592747657,
+         "worst_pcm": -501.5615592747657,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "fuel": {
+         "max_abs_pcm": 59.78590647717219,
+         "worst_pcm": 59.78590647717219,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 650.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         }
+        },
+        "boron+moderator": {
+         "max_abs_pcm": 737.9151270796358,
+         "worst_pcm": -737.9151270796358,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "boron+fuel": {
+         "max_abs_pcm": 217.7142309915725,
+         "worst_pcm": -217.7142309915725,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 560.0
+         }
+        },
+        "moderator+fuel": {
+         "max_abs_pcm": 568.0089045851932,
+         "worst_pcm": -568.0089045851932,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "boron+moderator+fuel": {
+         "max_abs_pcm": 795.8074707039575,
+         "worst_pcm": -795.8074707039575,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        }
+       }
+      },
+      "hermite": {
+       "rho_pcm": [
+        -795.8074707039575
+       ],
+       "max_abs_pcm": 795.8074707039575,
+       "worst_pcm": -795.8074707039575,
+       "worst": {
+        "burnup": 32.0,
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 560.0
+       },
+       "kinds": {
+        "boron": {
+         "max_abs_pcm": 167.07152656381118,
+         "worst_pcm": -167.07152656381118,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 900.0
+         }
+        },
+        "moderator": {
+         "max_abs_pcm": 501.5615592747657,
+         "worst_pcm": -501.5615592747657,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "fuel": {
+         "max_abs_pcm": 59.78590647717219,
+         "worst_pcm": 59.78590647717219,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 650.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         }
+        },
+        "boron+moderator": {
+         "max_abs_pcm": 737.9151270796358,
+         "worst_pcm": -737.9151270796358,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "boron+fuel": {
+         "max_abs_pcm": 217.7142309915725,
+         "worst_pcm": -217.7142309915725,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 560.0
+         }
+        },
+        "moderator+fuel": {
+         "max_abs_pcm": 568.0089045851932,
+         "worst_pcm": -568.0089045851932,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "boron+moderator+fuel": {
+         "max_abs_pcm": 795.8074707039575,
+         "worst_pcm": -795.8074707039575,
+         "worst": {
+          "burnup": 32.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "0.5 を除く 3 点",
+     "burnup": [
+      0.0,
+      32.0,
+      60.0
+     ],
+     "removed": [
+      0.5
+     ],
+     "results": {
+      "linear": {
+       "rho_pcm": [
+        -276.0248985708369
+       ],
+       "max_abs_pcm": 276.0248985708369,
+       "worst_pcm": -276.0248985708369,
+       "worst": {
+        "burnup": 0.5,
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "kinds": {
+        "boron": {
+         "max_abs_pcm": 92.90136362012369,
+         "worst_pcm": -92.90136362012369,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 900.0
+         }
+        },
+        "moderator": {
+         "max_abs_pcm": 155.53292976462353,
+         "worst_pcm": -155.53292976462353,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "fuel": {
+         "max_abs_pcm": 30.921289815943886,
+         "worst_pcm": -30.921289815943886,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 650.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         }
+        },
+        "boron+moderator": {
+         "max_abs_pcm": 241.4994535294812,
+         "worst_pcm": -241.4994535294812,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "boron+fuel": {
+         "max_abs_pcm": 125.02132912749487,
+         "worst_pcm": -125.02132912749487,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         }
+        },
+        "moderator+fuel": {
+         "max_abs_pcm": 189.22815677713257,
+         "worst_pcm": -189.22815677713257,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "boron+moderator+fuel": {
+         "max_abs_pcm": 276.0248985708369,
+         "worst_pcm": -276.0248985708369,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        }
+       }
+      },
+      "hermite": {
+       "rho_pcm": [
+        -276.0248985708369
+       ],
+       "max_abs_pcm": 276.0248985708369,
+       "worst_pcm": -276.0248985708369,
+       "worst": {
+        "burnup": 0.5,
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "kinds": {
+        "boron": {
+         "max_abs_pcm": 92.90136362012369,
+         "worst_pcm": -92.90136362012369,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 900.0
+         }
+        },
+        "moderator": {
+         "max_abs_pcm": 155.53292976462353,
+         "worst_pcm": -155.53292976462353,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "fuel": {
+         "max_abs_pcm": 30.921289815943886,
+         "worst_pcm": -30.921289815943886,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 650.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         }
+        },
+        "boron+moderator": {
+         "max_abs_pcm": 241.4994535294812,
+         "worst_pcm": -241.4994535294812,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "boron+fuel": {
+         "max_abs_pcm": 125.02132912749487,
+         "worst_pcm": -125.02132912749487,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         }
+        },
+        "moderator+fuel": {
+         "max_abs_pcm": 189.22815677713257,
+         "worst_pcm": -189.22815677713257,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "boron+moderator+fuel": {
+         "max_abs_pcm": 276.0248985708369,
+         "worst_pcm": -276.0248985708369,
+         "worst": {
+          "burnup": 0.5,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "inputs": [
+  {
+   "path": "compare-2A.toml",
+   "md5": "ca2623c9f45925dcbbae1333551cd218"
+  },
+  {
+   "path": "table-2A.msgpack",
+   "md5": "c171a770353e0043c1d6732948a881c0"
+  }
+ ],
+ "tables": [
+  {
+   "name": "2A（Problem 9 の格子点）",
+   "axes": {
+    "boron": [
+     0.0,
+     325.0,
+     650.0,
+     975.0,
+     1300.0,
+     1625.0
+    ],
+    "moderator": [
+     560.0,
+     570.0,
+     580.0,
+     590.0,
+     600.0,
+     610.0,
+     615.0
+    ],
+    "fuel": [
+     560.0,
+     600.0,
+     750.0,
+     900.0,
+     1050.0,
+     1200.0,
+     1350.0
+    ]
+   },
+   "nominal": {
+    "boron": 650.0,
+    "moderator": 580.0,
+    "fuel": 900.0
+   },
+   "grid_states": 294,
+   "table_k_max_abs_pcm": 0.014519762281395288,
+   "points": [
+    {
+     "burnup": 0.0,
+     "nominal_k": 1.25192082378699,
+     "migration_area_cm2": 56.77221038097984,
+     "models": {
+      "1 軸ずつ": {
+       "keep": [],
+       "states": 18,
+       "max_abs_pcm": 1486.0147315382876,
+       "worst_pcm": -1486.0147315382876,
+       "rms_pcm": 470.3328237802457,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0022079325326115357,
+        "nu_fission": 0.002206612502495053,
+        "absorption": 0.017087189917249338,
+        "diffusion": 0.0012246061539839385,
+        "adf": 0.0007990037429778236
+       }
+      },
+      "B×M、B×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ]
+       ],
+       "states": 78,
+       "max_abs_pcm": 38.52107784511061,
+       "worst_pcm": -38.52107784511061,
+       "rms_pcm": 12.705496580997858,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0002365003875044052,
+        "nu_fission": 0.0002200398974463241,
+        "absorption": 0.0011584655605520822,
+        "diffusion": 2.9433013228714596e-05,
+        "adf": 2.1228285507063538e-05
+       }
+      },
+      "B×M、M×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 22.509859302266566,
+       "worst_pcm": -22.509859302266566,
+       "rms_pcm": 7.921381817325047,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 560.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.00021109319215605418,
+        "nu_fission": 0.000210971712551228,
+        "absorption": 0.00016504461547988222,
+        "diffusion": 7.862015099465161e-05,
+        "adf": 8.140332058726166e-06
+       }
+      },
+      "B×F、M×F": {
+       "keep": [
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 1422.0462498023223,
+       "worst_pcm": -1422.0462498023223,
+       "rms_pcm": 469.7622796605441,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0018643954647425483,
+        "nu_fission": 0.0018630668234775347,
+        "absorption": 0.01712181082040941,
+        "diffusion": 0.0011840839595164947,
+        "adf": 0.0007777110403826168
+       }
+      },
+      "2 軸の組すべて": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 114,
+       "max_abs_pcm": 2.2974701483491344,
+       "worst_pcm": 2.2974701483491344,
+       "rms_pcm": 0.49430954783120773,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 1.9301445015845914e-05,
+        "nu_fission": 1.9303816245891832e-05,
+        "absorption": 1.2042258270855592e-05,
+        "diffusion": 9.882622568102971e-06,
+        "adf": 1.1768022977407264e-06
+       }
+      }
+     }
+    },
+    {
+     "burnup": 0.5,
+     "nominal_k": 1.2010389417392764,
+     "migration_area_cm2": 56.75686550538216,
+     "models": {
+      "1 軸ずつ": {
+       "keep": [],
+       "states": 18,
+       "max_abs_pcm": 1470.610939979189,
+       "worst_pcm": -1470.610939979189,
+       "rms_pcm": 465.28468070399765,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.002122372252780142,
+        "nu_fission": 0.002107568695011759,
+        "absorption": 0.016385629545875323,
+        "diffusion": 0.0012141523065397788,
+        "adf": 0.0008040764884342014
+       }
+      },
+      "B×M、B×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ]
+       ],
+       "states": 78,
+       "max_abs_pcm": 40.77804802512519,
+       "worst_pcm": -40.77804802512519,
+       "rms_pcm": 13.568215987975723,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.00023575229504921736,
+        "nu_fission": 0.00021955219485713181,
+        "absorption": 0.0011585562070068644,
+        "diffusion": 2.604835423177826e-05,
+        "adf": 2.2477083529975846e-05
+       }
+      },
+      "B×M、M×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 21.736902922320223,
+       "worst_pcm": -21.736902922320223,
+       "rms_pcm": 7.654112695871885,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 560.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.00019651623663891898,
+        "nu_fission": 0.00019489529760270027,
+        "absorption": 0.0001646382792997426,
+        "diffusion": 7.663670844547863e-05,
+        "adf": 8.210994188689127e-06
+       }
+      },
+      "B×F、M×F": {
+       "keep": [
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 1405.1981941146653,
+       "worst_pcm": -1405.1981941146653,
+       "rms_pcm": 464.70650605623496,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0017859084748790117,
+        "nu_fission": 0.001772921510349425,
+        "absorption": 0.016411656856994444,
+        "diffusion": 0.0011748832593085356,
+        "adf": 0.0007816284176290852
+       }
+      },
+      "2 軸の組すべて": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 114,
+       "max_abs_pcm": 2.3323532828967153,
+       "worst_pcm": 2.3323532828967153,
+       "rms_pcm": 0.5046891659003362,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 1.9236231709392643e-05,
+        "nu_fission": 1.918926577158042e-05,
+        "absorption": 1.2073191153500897e-05,
+        "diffusion": 9.754177225263705e-06,
+        "adf": 1.2296195403678673e-06
+       }
+      }
+     }
+    },
+    {
+     "burnup": 32.0,
+     "nominal_k": 0.9367000267841473,
+     "migration_area_cm2": 58.5850863227377,
+     "models": {
+      "1 軸ずつ": {
+       "keep": [],
+       "states": 18,
+       "max_abs_pcm": 1825.6182959033972,
+       "worst_pcm": -1825.6182959033972,
+       "rms_pcm": 569.0879439059031,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.00030908528250610885,
+        "nu_fission": 0.0003897458207235682,
+        "absorption": 0.016673480193764974,
+        "diffusion": 0.0015301892059142183,
+        "adf": 0.0011098318573343135
+       }
+      },
+      "B×M、B×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ]
+       ],
+       "states": 78,
+       "max_abs_pcm": 93.25730993179349,
+       "worst_pcm": -93.25730993179349,
+       "rms_pcm": 31.059170118434146,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0002672803599525933,
+        "nu_fission": 0.00026957812098010584,
+        "absorption": 0.0015181029750874675,
+        "diffusion": 4.0407984054767944e-05,
+        "adf": 1.8230323791234374e-05
+       }
+      },
+      "B×M、M×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 26.484231195156305,
+       "worst_pcm": -26.484231195156305,
+       "rms_pcm": 9.912716005172841,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 560.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 2.8879656626002312e-05,
+        "nu_fission": 2.31149936565767e-05,
+        "absorption": 0.00022553692857373698,
+        "diffusion": 8.008962821317695e-05,
+        "adf": 1.9308801317282434e-06
+       }
+      },
+      "B×F、M×F": {
+       "keep": [
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 1699.7473338355994,
+       "worst_pcm": -1699.7473338355994,
+       "rms_pcm": 567.8689692337624,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 5.724306448406308e-05,
+        "nu_fission": 0.00014318810246380533,
+        "absorption": 0.016596143143108113,
+        "diffusion": 0.001455579647245888,
+        "adf": 0.0010934656693075923
+       }
+      },
+      "2 軸の組すべて": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 114,
+       "max_abs_pcm": 3.3248901062155056,
+       "worst_pcm": 3.3248901062155056,
+       "rms_pcm": 0.7425195566023182,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 1.3284578170058113e-05,
+        "nu_fission": 1.2965482665186304e-05,
+        "absorption": 2.0178159793228825e-05,
+        "diffusion": 1.0531780181172965e-05,
+        "adf": 6.060330007001186e-07
+       }
+      }
+     }
+    },
+    {
+     "burnup": 60.0,
+     "nominal_k": 0.8096496905586128,
+     "migration_area_cm2": 60.175100121744805,
+     "models": {
+      "1 軸ずつ": {
+       "keep": [],
+       "states": 18,
+       "max_abs_pcm": 2237.777464493784,
+       "worst_pcm": -2237.777464493784,
+       "rms_pcm": 698.907983856467,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0008554027612861465,
+        "nu_fission": 0.0008635084571238209,
+        "absorption": 0.018075981110095733,
+        "diffusion": 0.0018899502951093062,
+        "adf": 0.001153961269297718
+       }
+      },
+      "B×M、B×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ]
+       ],
+       "states": 78,
+       "max_abs_pcm": 123.77190447838693,
+       "worst_pcm": -123.77190447838693,
+       "rms_pcm": 40.90986465375758,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0002991803746620612,
+        "nu_fission": 0.0002978647207373757,
+        "absorption": 0.0015829440611223142,
+        "diffusion": 6.0623308468574345e-05,
+        "adf": 1.6835435438662423e-05
+       }
+      },
+      "B×M、M×F": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 28.84552291657627,
+       "worst_pcm": -28.84552291657627,
+       "rms_pcm": 11.033494552740486,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 560.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 9.12174407394962e-05,
+        "nu_fission": 9.330344622840237e-05,
+        "absorption": 0.00025082297555606816,
+        "diffusion": 0.00010219231473968192,
+        "adf": 2.9875589455196158e-06
+       }
+      },
+      "B×F、M×F": {
+       "keep": [
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 84,
+       "max_abs_pcm": 2077.0600289484296,
+       "worst_pcm": -2077.0600289484296,
+       "rms_pcm": 697.3470957109647,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 0.0006232458597519987,
+        "nu_fission": 0.0006339105729926273,
+        "absorption": 0.01802428147736733,
+        "diffusion": 0.0017826578833289636,
+        "adf": 0.0011394768243156242
+       }
+      },
+      "2 軸の組すべて": {
+       "keep": [
+        [
+         "boron",
+         "moderator"
+        ],
+        [
+         "boron",
+         "fuel"
+        ],
+        [
+         "moderator",
+         "fuel"
+        ]
+       ],
+       "states": 114,
+       "max_abs_pcm": 4.111649265481354,
+       "worst_pcm": 4.111649265481354,
+       "rms_pcm": 0.9279010637094312,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "max_relative": {
+        "fission": 1.2198666618542877e-05,
+        "nu_fission": 1.2063601182715078e-05,
+        "absorption": 2.133076142074094e-05,
+        "diffusion": 1.3630214096649545e-05,
+        "adf": 5.492720760983611e-07
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}
