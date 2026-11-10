@@ -1370,6 +1370,18 @@ fn depletion_shields_at_every_transport_unless_told_to_shield_at_the_step_start(
 }
 
 #[test]
+fn depletion_sectors_are_four_or_eight() {
+    // 分けないことは `sectors` を書かないことで表す（1 は書かない）
+    for good in [4, 8] {
+        assert!(depleting(&format!("{DEPLETION}sectors = {good}\n")).is_ok());
+    }
+    for bad in [0, 1, 2, 3, 16] {
+        let err = depleting(&format!("{DEPLETION}sectors = {bad}\n")).unwrap_err();
+        assert!(err.to_string().contains("sectors"), "{bad}: {err}");
+    }
+}
+
+#[test]
 fn depletion_continues_from_a_point_of_a_history_when_told_to() {
     assert!(
         depleting(DEPLETION)
