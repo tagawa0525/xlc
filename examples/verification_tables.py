@@ -2083,6 +2083,8 @@ def grid_interpolation_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-grid-interpolation":
         raise TableError("not an xlc-compare-grid-interpolation summary")
+    if s["burnup"] is None:
+        raise TableError("the grid-interval tables need a burnup axis")
     unknown = sorted(
         {r["axis"] for r in s["centers"] + s["intervals"]} - set(GRID_AXIS_LABELS)
     )
