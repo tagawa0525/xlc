@@ -142,14 +142,19 @@ impl Gas {
     /// `None` は上限なし。
     pub(super) fn new(awr: f64, temperature: f64, upper: Option<f64>) -> Self {
         let kt = BOLTZMANN * temperature;
+        Self::below(awr, temperature, upper.map_or(f64::INFINITY, |n| n * kt))
+    }
+
+    /// 質量比 `awr`、温度 `temperature` (K) の核種で、入射エネルギー `cap` (eV) より下で自由ガスの核を使うもの。
+    pub(super) fn below(awr: f64, temperature: f64, cap: f64) -> Self {
         let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
         Self {
             awr,
-            kt,
+            kt: BOLTZMANN * temperature,
             gain: 1.0 / (1.0 - alpha),
             width: -alpha.ln(),
             zeta: (awr - 1.0).abs() / (2.0 * awr.sqrt()),
-            cap: upper.map_or(f64::INFINITY, |n| n * kt),
+            cap,
             floor: 0.0,
         }
     }
