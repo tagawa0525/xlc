@@ -1302,20 +1302,14 @@ pub(crate) fn run_with_moc(
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     // 輸送する核種の候補: チェーンの核種のうち、ライブラリがすべての燃焼の領域の温度で持つもの。ライブラリにあっても領域の温度の
-    // データがない核種は、崩壊と生成だけを追い、輸送のたびに warn で示す（ADR-0173）
+    // データがない核種は、崩壊と生成だけを追い、輸送のたびに warn で示す（ADR-0173）。燃焼させる物質の温度が複数でも、領域の
+    // 温度ごとに分けず 1 つの集合にする（ある温度のデータがない核種は、データのある温度の領域でも崩壊だけ。ADR-0240）
     let mut temperatures: Vec<f64> = Vec::new();
     for d in &regions {
         let t = base(&d.material)?.temperature;
         if !temperatures.contains(&t) {
             temperatures.push(t);
         }
-    }
-    // 輸送できる核種は領域の温度で決まる。燃焼させる物質の温度が違うときの集合（燃料と吸収体で別の集合にするか）は決めていない
-    if temperatures.len() > 1 {
-        bail!(
-            "the depleted materials have several temperatures {temperatures:?}; the transported nuclides of several \
-             depletion temperatures are not decided (#0139)"
-        );
     }
     let in_library: Vec<bool> = chain
         .nuclides
