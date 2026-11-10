@@ -1194,8 +1194,8 @@ fn continued_start(
     }
     if from.transportable != transportable {
         bail!(
-            "the library transports {} chain nuclides at the depletion temperature, the history {file} transported {}; \
-             give the library and the fuel temperature of the history",
+            "the library transports {} chain nuclides at the depletion temperatures, the history {file} transported {}; \
+             give the library and the temperatures of the depleted materials of the history (ADR-0240)",
             transportable.len(),
             from.transportable.len()
         );
