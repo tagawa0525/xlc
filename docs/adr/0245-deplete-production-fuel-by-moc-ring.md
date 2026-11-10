@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-11
 requires: [ADR-0173, ADR-0244, ADR-0200, ADR-0032]
 supersedes: []
