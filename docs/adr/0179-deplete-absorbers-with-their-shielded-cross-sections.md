@@ -67,11 +67,13 @@ issues: ["#0139"]
 - 塊の候補と組（`shield_lumps`）は、燃料でない物質の分離共鳴を持つ核種のうち数密度が正のものから決まる。燃焼させる吸収体では、
   数密度 0 から始まる捕獲の生成物が正になると、燃焼の途中で塊の組と Dancoff 係数が不連続に変わり得る（確かめていない）
 - IFBA の 10 μm の被覆の中の中性子束の取り方（薄い領域の MOC の平均）が十分かは、OpenMC との比較で決める（#0139）
+- 燃焼させる物質の温度が複数のときの輸送する核種は、[ADR-0240](0240-depleted-temperatures-transport-common-nuclides.md) で
+  すべての燃焼の領域の温度でデータのある核種の 1 つの集合に決め、温度が複数でも止めない
 
 ### 確認
 
-- 単体のテスト: crates/lattice/src/depletion/tests.rs の `absorbers_outside_the_fuel_deplete_by_their_own_rates`、
-  `depleted_materials_share_one_temperature`（温度が複数なら止める）。crates/lattice/src/shielding/tests.rs の
+- 単体のテスト: crates/lattice/src/depletion/tests.rs の `absorbers_outside_the_fuel_deplete_by_their_own_rates`
+  （温度が複数のときのテストは ADR-0240 の「確認」）。crates/lattice/src/shielding/tests.rs の
   `each_region_names_the_cross_sections_its_material_was_shielded_with`、`unshielded_regions_name_their_dilute_cross_sections`、
   `lump_regions_name_the_lump_cross_sections`
 - 2F、2M、2N が 1 ステップ走り、吸収体の B-10 が減ることを確かめた（記録に書かない動作確認。#0139 の「経緯」）
