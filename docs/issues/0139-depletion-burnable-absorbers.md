@@ -22,7 +22,7 @@ resolution:
 OpenMC の参照解はこれらの吸収体も燃焼させる（openmc_depletion_assembly.py）ので、xlc の領域に吸収体を足すか、決めて比べる範囲を絞るまで、2F、2M、2N の
 xlc と OpenMC の比較ができない。2A、2A-density、2A-rods（燃料だけ）と、2O、2P（Gd 燃料のリング。ADR-0182）は走る。
 
-関係する ADR: ADR-0178、ADR-0179
+関係する ADR: ADR-0178、ADR-0179、ADR-0240
 
 ## 完了の条件
 
