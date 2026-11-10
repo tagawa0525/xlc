@@ -220,6 +220,55 @@ class Thinning(unittest.TestCase):
         self.assertNotEqual(linear["worst"]["boron"], 1300.0)
         self.assertEqual(linear["worst"]["burnup"], 6.0)
 
+    def test_errors_are_split_by_the_axes_off_their_nominal_values(self):
+        # ホウ素だけを変えた状態の差は燃焼度に線形で、ホウ素と減速材の両方を変えた状態だけが 6 で折れる差を持つ
+        def g(u, b, m, f):
+            base = additive(u, b, m, f)["nu_fission"][1] - 1e-3 * u * u
+            base += 1e-3 * u * (b - 1300) / 400
+            if b != 1300 and m != 565:
+                base += 1e-3 * max(u - 6.0, 0.0)
+            return state(base)
+
+        t = table(g, THINNING_BURNUP)
+        s = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+        for method in cct.THINNING_METHODS:
+            result = s["selections"][0]["results"][method]
+            kinds = result["kinds"]
+            self.assertEqual(
+                list(kinds),
+                [
+                    "boron",
+                    "moderator",
+                    "fuel",
+                    "boron+moderator",
+                    "boron+fuel",
+                    "moderator+fuel",
+                    "boron+moderator+fuel",
+                ],
+                method,
+            )
+            for kind, r in kinds.items():
+                if "boron" in kind and "moderator" in kind:
+                    self.assertGreater(r["max_abs_pcm"], 1.0, (method, kind))
+                    self.assertEqual(r["worst"]["burnup"], 6.0, (method, kind))
+                else:
+                    self.assertLess(r["max_abs_pcm"], 1e-9, (method, kind))
+            self.assertEqual(
+                result["max_abs_pcm"],
+                max(r["max_abs_pcm"] for r in kinds.values()),
+                method,
+            )
+        lines = cct.report({"inputs": [], "tables": [], "thinning": [s]})
+        self.assertTrue(any("boron+moderator:" in line for line in lines))
+
+    def test_reports_of_thinning_without_kinds_ask_to_rerun(self):
+        t = self.branch_table(lambda u: 1e-3 * u)
+        s = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+        for r in s["selections"][0]["results"].values():
+            del r["kinds"]
+        with self.assertRaisesRegex(SystemExit, "rerun"):
+            cct.report({"inputs": [], "tables": [], "thinning": [s]})
+
     def test_selections_must_be_points_from_the_first_to_the_last(self):
         t = self.branch_table(lambda u: 0.0)
         for burnup in ([0.0, 3.0, 10.0], [0.0, 4.0], [1.0, 4.0, 10.0]):

@@ -21,6 +21,15 @@
     name = "ホウ素 × 減速材"
     keep = [["boron", "moderator"]]        # 部分格子を解く軸の組。1 軸ずつの分岐はどのモデルも持つ
 
+    [[thinning]]                           # 省略できる。燃焼度の軸を持つ直積のテーブルで、分岐を解く燃焼点を間引く
+    name = "2A"
+    file = "table-2A.msgpack"
+    nominal = { boron = 650, moderator = 580, fuel = 900 }
+    selections = [{ name = "3 点", burnup = [0, 0.5, 60] }]   # 最初と最後の点を含み、どれかの点を除く
+
+- 間引き: 選んだ燃焼点の、公称でない各状態の公称の状態との差を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で直積の
+  状態と比べる。最大は、すべての状態と、状態の種類（公称と違う軸の組。`boron`、`boron+moderator` など）ごとに書く
+
 - 組み立て: 公称の状態を x0 とし、モデルの軸の組とその部分集合の全体を U（空集合と 1 軸ずつを含む）として、状態 x の値を
   Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x0) とする（f(x_v, x0) は v の軸だけ x の値にし、ほかを公称にした状態。cut-HDMR。
   H. Rabitz, Ö. F. Aliş, J. Math. Chem. 25 (1999) 197）。U に入る軸の組の部分格子の点では、テーブルの値をそのまま返す
@@ -242,9 +251,21 @@ def summarize_table(
     }
 
 
+def state_kind(names: list[str], index: tuple, nominal: tuple) -> str:
+    """公称と違う軸の名前を軸の順に `+` でつないだもの（状態の種類。`boron+moderator` など）"""
+    return "+".join(n for k, n in enumerate(names) if index[k] != nominal[k])
+
+
+def kind_order(kind: str, names: list[str]) -> tuple:
+    """変えた軸の数、軸の順の番号の順（1 軸ずつ、2 軸、3 軸）"""
+    axes = kind.split("+")
+    return (len(axes), [names.index(a) for a in axes])
+
+
 def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
     """分岐を燃焼度の点 `burnup` だけで解いたとして、公称でない各状態の、公称の状態との差（少数群定数の項目）を燃焼度について
-    内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は `summarize_table` と同じ向き）"""
+    内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は `summarize_table` と同じ向き）。最大は、
+    すべての状態についてのものと、状態の種類（`state_kind`）ごとのもの（`kinds`）を書く"""
     grid_of = table_grid(name, table, nominal)
     burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
     if burnup is None:
@@ -276,9 +297,12 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
         for method in THINNING_METHODS:
             worst_per_point = [0.0] * len(removed)
             worst = (0.0, None)
+            per_kind = {}
             for flat, grid_index in enumerate(indices):
                 if flat == at_nominal:
                     continue
+                kind = state_kind(names, grid_index, grid_of["nominal"])
+                kind_worst = per_kind.setdefault(kind, [0.0, None])
                 difference = (
                     np.array([vector(s[flat]) for s in states]) - nominal_values
                 )
@@ -293,19 +317,27 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
                     rho = (1 / k_inf(states[i][flat]) - 1 / k_inf(rebuilt)) * 1e5
                     if abs(rho) > abs(worst_per_point[n]):
                         worst_per_point[n] = rho
+                    at = {"burnup": burnup[i]} | {
+                        a: points[k][grid_index[k]] for k, a in enumerate(names)
+                    }
                     if worst[1] is None or abs(rho) > abs(worst[0]):
-                        worst = (
-                            rho,
-                            {"burnup": burnup[i]}
-                            | {
-                                a: points[k][grid_index[k]] for k, a in enumerate(names)
-                            },
-                        )
+                        worst = (rho, at)
+                    if kind_worst[1] is None or abs(rho) > abs(kind_worst[0]):
+                        kind_worst[:] = [rho, at]
+            order = sorted(per_kind, key=lambda k: kind_order(k, names))
             results[method] = {
                 "rho_pcm": worst_per_point,
                 "max_abs_pcm": abs(worst[0]),
                 "worst_pcm": worst[0],
                 "worst": worst[1],
+                "kinds": {
+                    k: {
+                        "max_abs_pcm": abs(per_kind[k][0]),
+                        "worst_pcm": per_kind[k][0],
+                        "worst": per_kind[k][1],
+                    }
+                    for k in order
+                },
             }
         out.append(
             {
@@ -389,6 +421,12 @@ def report(summary: dict) -> list[str]:
                     f"{r['worst']}）、rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}"
                 )
     for t in summary.get("thinning", []):
+        if any(
+            "kinds" not in r for s in t["selections"] for r in s["results"].values()
+        ):
+            raise SystemExit(
+                f"{t['name']}: the thinning has no errors per kind of state; rerun the comparison"
+            )
         lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}")
         for sel in t["selections"]:
             lines.append(f"  {sel['name']}（{len(sel['burnup'])} 点）: {sel['burnup']}")
@@ -396,6 +434,10 @@ def report(summary: dict) -> list[str]:
                 lines.append(
                     f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）"
                 )
+                for kind, k in r["kinds"].items():
+                    lines.append(
+                        f"      {kind}: |Δρ| の最大 {k['max_abs_pcm']:.2f} pcm（{k['worst_pcm']:+.2f}、{k['worst']}）"
+                    )
     return lines
 
 

@@ -1,0 +1,39 @@
+# Problem 9 の分岐のテーブルの格子点（ADR-0239）の直積（branch-2A.toml）で、交差の項と 3 つ同時の項を落とす誤差（ADR-0200 の確認）と、
+# 分岐を解く燃焼点を間引く誤差を状態の種類ごとに測る（compare_branch_cross_terms.py の入力。#0176）。公称の状態は ADR-0239 の案 N2。
+
+[[table]]
+name = "2A（Problem 9 の格子点）"
+file = "table-2A.msgpack"
+nominal = { boron = 650, moderator = 580, fuel = 900 }
+
+[[model]]
+name = "1 軸ずつ"
+keep = []
+
+[[model]]
+name = "B×M、B×F"
+keep = [["boron", "moderator"], ["boron", "fuel"]]
+
+[[model]]
+name = "B×M、M×F"
+keep = [["boron", "moderator"], ["moderator", "fuel"]]
+
+[[model]]
+name = "B×F、M×F"
+keep = [["boron", "fuel"], ["moderator", "fuel"]]
+
+# ADR-0200 の既定。直積との差は 3 つ同時の項だけ
+[[model]]
+name = "2 軸の組すべて"
+keep = [["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]
+
+# 解いた 4 燃焼点のうち 1 点を除き、残りの点から公称の状態との差を内挿する。間の点が少ないので、本番の間引き（ADR-0200 の 10 点など）の
+# 誤差の大きさではなく、状態の種類ごとの差の燃焼度への依存の強さを比べる
+[[thinning]]
+name = "2A（Problem 9 の格子点）"
+file = "table-2A.msgpack"
+nominal = { boron = 650, moderator = 580, fuel = 900 }
+selections = [
+  { name = "32 を除く 3 点", burnup = [0, 0.5, 60] },
+  { name = "0.5 を除く 3 点", burnup = [0, 32, 60] },
+]
