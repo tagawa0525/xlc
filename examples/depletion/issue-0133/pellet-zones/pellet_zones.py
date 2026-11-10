@@ -3,9 +3,11 @@
 
 使い方:
   python3 pellet_zones.py write              # この置き場に下の 5 本の入力と、その最初の 2 点だけの short-*.toml を書く
-  python3 pellet_zones.py compare [--at <燃焼度>,...] <基準の履歴> <履歴>...
-      # 履歴ごとに、基準に対する k∞ と反応度と平均の数密度の差、Pu-239 の外と内の半分の比を Markdown の表で出す。
-      # --at はその燃焼度（MWd/kg）の行だけを出す
+  python3 pellet_zones.py compare --at <燃焼度>,... <要約.json>
+      # この置き場の 5 本の履歴（<名前>.msgpack）を PAIRS の組で比べ、すべての燃焼点の、基準に対する k∞ と反応度と平均の
+      # 数密度の差、Pu-239 の外と内の半分の比を JSON に書く。--at は記録の表に出す燃焼度（MWd/kg）。表は
+      # examples/verification_tables.py が JSON から描く（ADR-0176）
+  python3 pellet_zones.py report <要約.json>   # 組ごとの Δk の最大と最小、絶対値が最大の Δρ（すべての燃焼点から）
 
 compare の量:
 - Δk = k_他 − k_基準、Δρ = 1/k_基準 − 1/k_他（pcm）。数密度と重金属はペレットの体積で平均した相対差（%）
@@ -24,9 +26,10 @@ compare の量:
 - short-<名前>.toml: 上の入力の燃焼度を最初の 2 点（輸送 5 回）にしたもの。全部を流す前の時間の見積もり
 """
 
+import argparse
+import hashlib
+import json
 import math
-import sys
-import unicodedata
 from pathlib import Path
 
 import msgpack
@@ -222,98 +225,119 @@ def summary(path: Path) -> dict:
         "regions": len(regions),
         "volume": total,
         "points": points,
-        "seconds": h["seconds"],
     }
-
-
-def width(text: str) -> int:
-    """表の列の幅（全角は 2）"""
-    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
-
-
-def markdown_table(header: list[str], rows: list[list[str]]) -> str:
-    widths = [max(width(r[i]) for r in [header, *rows]) for i in range(len(header))]
-
-    def line(cells: list[str]) -> str:
-        return (
-            "| "
-            + " | ".join(c + " " * (w - width(c)) for c, w in zip(cells, widths))
-            + " |"
-        )
-
-    separator = "| " + " | ".join("-" * w for w in widths) + " |"
-    return "\n".join([line(header), separator, *map(line, rows)])
 
 
 def same_burnup(a: float, b: float) -> bool:
     return abs(a - b) <= 1e-9 * max(1.0, abs(b))
 
 
-def compare(base: Path, others: list[Path], at: list[float] | None) -> None:
-    b = summary(base)
-    rows = [summary(o) for o in others]
-    print(f"base {b['path']}: {b['regions']} regions, volume {b['volume']:.9g} cm2")
-    for s in rows:
-        print(f"{s['path']}: {s['regions']} regions, volume {s['volume']:.9g} cm2")
-        if len(s["points"]) != len(b["points"]):
-            raise SystemExit(f"{s['path']}: burnup points differ from the base")
-    burnups = [p["burnup"] for p in b["points"]]
-    if at is not None:
+def pair_rows(base: dict, other: dict) -> list[dict]:
+    """すべての燃焼点の、基準に対する差（記録の表の行と極値は、この行から描く）"""
+    if len(other["points"]) != len(base["points"]):
+        raise SystemExit(f"{other['path']}: burnup points differ from {base['path']}")
+    rows = []
+    for p, q in zip(base["points"], other["points"]):
+        if not same_burnup(q["burnup"], p["burnup"]):
+            raise SystemExit(
+                f"{other['path']}: burnup {q['burnup']} != {p['burnup']} of {base['path']}"
+            )
+        rows.append(
+            {
+                "burnup": p["burnup"],
+                "k_base": p["k"],
+                "dk_pcm": (q["k"] - p["k"]) * 1e5,
+                "drho_pcm": (1 / p["k"] - 1 / q["k"]) * 1e5,
+                "mean_percent": {
+                    n: None
+                    if p["mean"][n] == 0
+                    else (q["mean"][n] / p["mean"][n] - 1) * 100
+                    for n in NUCLIDES
+                },
+                "hm_percent": (q["hm"] / p["hm"] - 1) * 100,
+                "pu239_halves": q["pu239_halves"],
+            }
+        )
+    return rows
+
+
+def extremes_line(rows: list[dict]) -> str:
+    hi = max(rows, key=lambda r: r["dk_pcm"])
+    lo = min(rows, key=lambda r: r["dk_pcm"])
+    far = max(rows, key=lambda r: abs(r["drho_pcm"]))
+    return (
+        f"Δk の最大 {signed(hi['dk_pcm'], 2)} pcm（{hi['burnup']:g} MWd/kg）、"
+        f"最小 {signed(lo['dk_pcm'], 2)} pcm（{lo['burnup']:g} MWd/kg）。"
+        f"絶対値が最大の Δρ {signed(far['drho_pcm'], 2)} pcm（{far['burnup']:g} MWd/kg）"
+    )
+
+
+# 記録の表の組: (表の名前の後半, 基準, 比べる履歴)
+PAIRS = [
+    ("4-1", "zones-1", "zones-4"),
+    ("8-1", "zones-1", "zones-8"),
+    ("8-4", "zones-4", "zones-8"),
+    ("5p9-1p9", "zones-1-p9", "zones-5-p9"),
+    ("1-1p9", "zones-1-p9", "zones-1"),
+]
+
+
+def compare(at: list[float], out: Path) -> None:
+    paths = {name: HERE / f"{name}.msgpack" for name in CASES}
+    histories = {name: summary(path) for name, path in paths.items()}
+    for name, h in histories.items():
+        burnups = [p["burnup"] for p in h["points"]]
         missing = [x for x in at if not any(same_burnup(y, x) for y in burnups)]
         if missing:
-            raise SystemExit(f"--at {missing}: not burnup points of {b['path']}")
-    header = ["燃焼度 (MWd/kg)", "k∞（基準）", "Δk (pcm)", "Δρ (pcm)"]
-    header += [f"{n} (%)" for n in NUCLIDES]
-    header += ["重金属 (%)", "Pu-239 外/内の半分"]
-    for s in rows:
-        table = []
-        for p, q in zip(b["points"], s["points"]):
-            if not same_burnup(q["burnup"], p["burnup"]):
-                raise SystemExit(f"{s['path']}: burnup {q['burnup']} != {p['burnup']}")
-            if at is not None and not any(same_burnup(p["burnup"], x) for x in at):
-                continue
-            cells = [f"{p['burnup']:g}", f"{p['k']:.6f}"]
-            cells.append(signed((q["k"] - p["k"]) * 1e5, 2))
-            cells.append(signed((1 / p["k"] - 1 / q["k"]) * 1e5, 2))
-            for n in NUCLIDES:
-                base_n = p["mean"][n]
-                cells.append(
-                    "–" if base_n == 0 else signed((q["mean"][n] / base_n - 1) * 100, 3)
-                )
-            cells.append(f"{(q['hm'] / p['hm'] - 1) * 100:+.1e}".replace("-", "−"))
-            r = q["pu239_halves"]
-            cells.append("–" if r is None else f"{r:.4f}")
-            table.append(cells)
-        print(f"\n{Path(s['path']).name} − {Path(b['path']).name}\n")
-        print(markdown_table(header, table))
-        # 極値は --at で選ばない点も含めたすべての燃焼点から
-        dk = [
-            ((q["k"] - p["k"]) * 1e5, p["burnup"])
-            for p, q in zip(b["points"], s["points"])
-        ]
-        drho = [
-            ((1 / p["k"] - 1 / q["k"]) * 1e5, p["burnup"])
-            for p, q in zip(b["points"], s["points"])
-        ]
-        hi, lo = max(dk), min(dk)
-        far = max(drho, key=lambda t: abs(t[0]))
-        print(
-            f"\nΔk: 最大 {signed(hi[0], 2)} pcm（{hi[1]:g} MWd/kg）、最小 {signed(lo[0], 2)} pcm（{lo[1]:g} MWd/kg）。"
-            f"絶対値が最大の Δρ {signed(far[0], 2)} pcm（{far[1]:g} MWd/kg）"
-        )
+            raise SystemExit(f"--at {missing}: not burnup points of {name}")
+    result = {
+        "format": "xlc-pellet-zones",
+        "nuclides": NUCLIDES,
+        "at": at,
+        "inputs": {
+            f"{name}.msgpack": hashlib.md5(path.read_bytes()).hexdigest()
+            for name, path in paths.items()
+        },
+        "pairs": [
+            {
+                "key": key,
+                "base": base,
+                "other": other,
+                "rows": pair_rows(histories[base], histories[other]),
+            }
+            for key, base, other in PAIRS
+        ],
+    }
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n")
+
+
+def report(path: Path) -> None:
+    s = json.loads(path.read_text())
+    if s.get("format") != "xlc-pellet-zones":
+        raise SystemExit(f"{path}: not an xlc-pellet-zones summary")
+    for pair in s["pairs"]:
+        print(f"{pair['other']} − {pair['base']}: {extremes_line(pair['rows'])}")
 
 
 def main() -> None:
-    match sys.argv[1:]:
-        case ["write"]:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("write")
+    c = sub.add_parser("compare")
+    c.add_argument(
+        "--at", required=True, type=lambda t: [float(x) for x in t.split(",")]
+    )
+    c.add_argument("out", type=Path)
+    r = sub.add_parser("report")
+    r.add_argument("summary", type=Path)
+    args = parser.parse_args()
+    match args.command:
+        case "write":
             write()
-        case ["compare", "--at", points, base, *others] if others:
-            at = [float(x) for x in points.split(",")]
-            compare(Path(base), [Path(o) for o in others], at)
-        case ["compare", base, *others] if others:
-            compare(Path(base), [Path(o) for o in others], None)
-        case _:
-            raise SystemExit(__doc__)
+        case "compare":
+            compare(args.at, args.out)
+        case "report":
+            report(args.summary)
 
 
 if __name__ == "__main__":

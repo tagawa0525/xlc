@@ -3610,6 +3610,50 @@ def ufg_free_gas_summary(sources: list[dict]) -> dict:
     return s
 
 
+def pellet_zones_pair(key: str, sources: list[dict]) -> str:
+    """#0275 のペレットを径方向の単位に分けた燃焼の、組の差（examples/depletion/issue-0133/pellet-zones/pellet_zones.py の docstring）。
+    行は要約の `at` の燃焼度"""
+    (s,) = sources
+    if s.get("format") != "xlc-pellet-zones":
+        raise TableError("not an xlc-pellet-zones summary")
+    pairs = [p for p in s["pairs"] if p["key"] == key]
+    if len(pairs) != 1:
+        raise TableError(
+            f"pellet-zones summary has {len(pairs)} pairs {key!r} (expected 1)"
+        )
+    rows = [r for r in pairs[0]["rows"] if r["burnup"] in s["at"]]
+    if len(rows) != len(s["at"]):
+        raise TableError(f"pellet-zones pair {key!r} lacks some burnups of {s['at']}")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "k∞（基準）",
+            "Δk (pcm)",
+            "Δρ (pcm)",
+            *(f"{n} (%)" for n in s["nuclides"]),
+            "重金属 (%)",
+            "Pu-239 外/内の半分",
+        ],
+        [
+            [
+                f"{r['burnup']:g}",
+                f"{r['k_base']:.6f}",
+                signed(r["dk_pcm"], 2),
+                signed(r["drho_pcm"], 2),
+                *(
+                    "–"
+                    if r["mean_percent"][n] is None
+                    else signed(r["mean_percent"][n], 3)
+                    for n in s["nuclides"]
+                ),
+                signed_exponent(r["hm_percent"]),
+                "–" if r["pu239_halves"] is None else f"{r['pu239_halves']:.4f}",
+            ]
+            for r in rows
+        ],
+    )
+
+
 def ufg_free_gas_k(sources: list[dict]) -> str:
     """ADR-0203 の UFG の散乱核ごとの k の差（xlc − OpenMC、pcm）と、最初の状態からの増え"""
     s = ufg_free_gas_summary(sources)
@@ -3994,6 +4038,8 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-fg.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2A-static.json",
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-static.json",
+    # ペレットを径方向の単位に分けた燃焼のピンセルの試行（#0275）。ステージの出力でない
+    "examples/depletion/issue-0133/pellet-zones/summary.json",
 }
 
 
@@ -4299,6 +4345,13 @@ TABLES = {
         ["examples/depletion/issue-0133/swap-candidates.json"],
         swap_candidates,
     ),
+    **{
+        f"depletion-pellet-zones-{key}": (
+            ["examples/depletion/issue-0133/pellet-zones/summary.json"],
+            partial(pellet_zones_pair, key),
+        )
+        for key in ("4-1", "8-1", "8-4", "5p9-1p9", "1-1p9")
+    },
     **{
         f"depletion-ufg-free-gas-{name}": (
             ["examples/depletion/issue-0133/ufg-free-gas/summary.json"],
