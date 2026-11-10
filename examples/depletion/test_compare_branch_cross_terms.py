@@ -250,6 +250,7 @@ class Thinning(unittest.TestCase):
             for kind, r in kinds.items():
                 if "boron" in kind and "moderator" in kind:
                     self.assertGreater(r["max_abs_pcm"], 1.0, (method, kind))
+                    self.assertEqual(r["worst"]["burnup"], 6.0, (method, kind))
                 else:
                     self.assertLess(r["max_abs_pcm"], 1e-9, (method, kind))
             self.assertEqual(
@@ -257,10 +258,6 @@ class Thinning(unittest.TestCase):
                 max(r["max_abs_pcm"] for r in kinds.values()),
                 method,
             )
-        # 線形では、折れの後の点 6 だけが誤差を持つ（Hermite は 10 の点の傾きで折れが手前の区間にも及ぶ）
-        for kind, r in s["selections"][0]["results"]["linear"]["kinds"].items():
-            if "boron" in kind and "moderator" in kind:
-                self.assertEqual(r["worst"]["burnup"], 6.0, kind)
         lines = cct.report({"inputs": [], "tables": [], "thinning": [s]})
         self.assertTrue(any("boron+moderator:" in line for line in lines))
 
