@@ -2339,3 +2339,118 @@ fn continuing_needs_the_sectors_of_the_history() {
     let split = unsplit.replace("continue = { file", "sectors = 8\ncontinue = { file");
     continue_simply(&split, &library, &nominal).unwrap();
 }
+
+#[test]
+fn split_sector_materials_take_their_densities_at_the_pooled_cross_sections() {
+    // UFG の範囲を持つライブラリとリングの中性子束の移行（ADR-0207）で、SPH 因子と移行のある物質を作り直す。対称性を使わない
+    // 1 本のピンの 8 つの扇形はそれぞれ 1 つの領域で、扇形 0 の数密度だけを 2 倍にする
+    let text = format!(
+        "ufg-transfer = \"ring-flux\"\n{}sectors = 8\n",
+        PIN.replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n")
+            .replace("spacing = 0.05", "spacing = 0.05\nsymmetry = \"none\"")
+    );
+    let library = crate::shielding::tests::lattice::resonant_library();
+    let input = LatticeInput::parse(&text).unwrap();
+    let (lattice, region_materials) = input.geometry().unwrap();
+    let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
+    let chosen = choose(
+        &tracking,
+        &region_materials,
+        Some(crate::symmetry::Symmetry::NONE),
+    )
+    .unwrap();
+    let representatives = chosen.shielding().cell_representatives();
+    let sectors = region_sectors(&lattice, chosen.shielding(), Some(8));
+    let depleted_names = ["fuel".to_string()];
+    let regions = depletion_regions(
+        &lattice,
+        &region_materials,
+        &representatives,
+        &sectors,
+        &depleted_names,
+    );
+    assert_eq!(regions.len(), 8);
+    let fuel = input.materials.iter().find(|m| m.name == "fuel").unwrap();
+    let mut materials: Vec<MaterialInput> = input
+        .materials
+        .iter()
+        .filter(|m| m.name != "fuel")
+        .cloned()
+        .collect();
+    for (k, d) in regions.iter().enumerate() {
+        let factor = if k == 0 { 2.0 } else { 1.0 };
+        materials.push(MaterialInput {
+            name: transport_name(&d.material, d.cell, d.sector),
+            temperature: fuel.temperature,
+            composition: fuel
+                .composition
+                .iter()
+                .map(|(n, x)| (n.clone(), factor * x))
+                .collect(),
+        });
+    }
+    let depleted: Vec<usize> = (materials.len() - regions.len()..materials.len()).collect();
+    let pooled = pooled_sectors(&regions, &materials[depleted[0]..]).unwrap();
+    let listed: Vec<MaterialInput> = materials.iter().chain(&pooled).cloned().collect();
+    let names = solved_names(
+        &lattice,
+        &region_materials,
+        &representatives,
+        &vec![None; lattice.regions()],
+        &depleted_names,
+    );
+    let options = input.shielding_options();
+    let mut shielded = shield_fuel_with(
+        &library,
+        &tracking,
+        &listed,
+        &names,
+        chosen.shielding(),
+        &options,
+    )
+    .unwrap();
+    let before = shielded.clone();
+    split_sectors(
+        &library,
+        &mut shielded,
+        &lattice,
+        &regions,
+        &materials,
+        &depleted,
+        pooled.len(),
+    )
+    .unwrap();
+    assert!(
+        regions[0]
+            .regions
+            .iter()
+            .all(|&r| shielded.region_transfers(r).is_some())
+    );
+    for (k, d) in regions.iter().enumerate() {
+        for (j, &r) in d.regions.iter().enumerate() {
+            // 微視的断面積と移行はまとめて遮蔽した値のまま
+            assert_eq!(
+                shielded.region_cross_sections(r),
+                before.region_cross_sections(r)
+            );
+            assert_eq!(shielded.region_transfers(r), before.region_transfers(r));
+            // 同じリングの扇形 1 の物質の 2 倍（数密度が 2 倍）
+            let mine = &shielded.materials[shielded.region_material[r]];
+            let other = &shielded.materials[shielded.region_material[regions[1].regions[j]]];
+            let factor = if k == 0 { 2.0 } else { 1.0 };
+            for (a, b) in mine.total.iter().zip(&other.total) {
+                assert!(
+                    (a - factor * b).abs() <= 1e-14 * a,
+                    "sector {k}: {a} vs {factor} x {b}"
+                );
+            }
+        }
+    }
+    // まとめた物質（数密度は扇形の平均の 9/8 倍）は扇形 1 の物質の 9/8 倍
+    let r = regions[1].regions[0];
+    let pooled_material = &before.materials[before.region_material[r]];
+    let split = &shielded.materials[shielded.region_material[r]];
+    for (a, b) in pooled_material.total.iter().zip(&split.total) {
+        assert!((a - 1.125 * b).abs() <= 1e-14 * a, "{a} vs 9/8 x {b}");
+    }
+}
