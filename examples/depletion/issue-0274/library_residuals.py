@@ -38,6 +38,8 @@ def main() -> None:
         missing = [t for t in FUEL if t not in tables]
         if missing:
             raise SystemExit(f"{path}: no table at {missing} K")
+        if d["sigma0"][0] != max(d["sigma0"]) or d["sigma0"][0] < 1e10:
+            raise SystemExit(f"{path}: the first σ0 must be the infinite dilution")
         low, high = d["pointwise_range"]
         bounds = np.array(d["group_bounds"])
         fast = bounds[1:] >= 0.625

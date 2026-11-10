@@ -32,13 +32,14 @@ def load(path):
         raise SystemExit(f"{path}: every axis but fuel must hold one point")
     if len(t["states"]) != len(axes["fuel"]):
         raise SystemExit(f"{path}: the table must hold one state per fuel point")
-    return np.array(axes["fuel"]), t["states"]
+    return axes, t["states"]
 
 
 def main() -> None:
     if len(sys.argv) not in (2, 3):
         raise SystemExit(__doc__)
-    temps, states = load(sys.argv[1])
+    axes, states = load(sys.argv[1])
+    temps = np.array(axes["fuel"])
     g = np.sqrt(temps)
     degree = 3 if len(temps) >= 7 else 2
     print("fuel (K): " + " ".join(f"{t:>8g}" for t in temps))
@@ -69,9 +70,9 @@ def main() -> None:
         + " ".join(f"{x:+6.1f}" for x in four)
     )
     if len(sys.argv) == 3:
-        other_temps, other = load(sys.argv[2])
-        if not np.array_equal(temps, other_temps):
-            raise SystemExit("the two tables must hold the same fuel temperatures")
+        other_axes, other = load(sys.argv[2])
+        if other_axes != axes:
+            raise SystemExit("the two tables must hold the same axes and points")
         print(
             "既定の上限 400 kT (eV): "
             + " ".join(f"{400 * BOLTZMANN * t:8.2f}" for t in temps)
