@@ -1504,6 +1504,116 @@ class DrawBranchProduct(unittest.TestCase):
             vt.branch_cross_terms_burnups([s])
 
 
+class DrawGridInterpolation(unittest.TestCase):
+    @staticmethod
+    def summary():
+        """compare_grid_interpolation.py の要約（燃焼度の点 2 つ、減速材の上側の内側の格子点 2 つと、そのどちらかを端に持つ区間のうち上の 2 つ）"""
+
+        def point(burnup, worst):
+            return {"burnup": burnup, "max_abs_pcm": abs(worst), "worst_pcm": worst}
+
+        return {
+            "format": "xlc-compare-grid-interpolation",
+            "burnup": [0.0, 60.0],
+            "centers": [
+                {
+                    "axis": "moderator",
+                    "point": 600.0,
+                    "neighbours": [590.0, 610.0],
+                    "weight": 0.5,
+                    "points": [point(0.0, -41.87), point(60.0, -93.27)],
+                },
+                {
+                    "axis": "moderator",
+                    "point": 610.0,
+                    "neighbours": [600.0, 615.0],
+                    "weight": 2 / 3,
+                    "points": [point(0.0, -39.8), point(60.0, -90.734)],
+                },
+            ],
+            "intervals": [
+                {
+                    "axis": "moderator",
+                    "interval": [600.0, 610.0],
+                    "from": [
+                        {"center": 600.0, "factor": 0.25, "max_abs_pcm": [10.5, 23.3]},
+                        {"center": 610.0, "factor": 0.5, "max_abs_pcm": [19.9, 45.4]},
+                    ],
+                    "max_abs_pcm": [19.9, 45.4],
+                },
+                {
+                    "axis": "moderator",
+                    "interval": [610.0, 615.0],
+                    "from": [
+                        {"center": 610.0, "factor": 0.125, "max_abs_pcm": [4.97, 11.3]}
+                    ],
+                    "max_abs_pcm": [4.97, 11.3],
+                },
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+    header = staticmethod(DrawBranchProduct.header)
+
+    def test_center_rows_have_the_signed_error_at_each_burnup_point(self):
+        table = vt.grid_interpolation_points([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            ["軸", "格子点", "両隣", "重み", "0 MWd/kg (pcm)", "60 MWd/kg (pcm)"],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["減速材 (K)", "600", "590、610", "0.500", "−41.87", "−93.27"],
+                ["減速材 (K)", "610", "600、615", "0.667", "−39.80", "−90.73"],
+            ],
+        )
+
+    def test_interval_rows_have_each_source_and_the_larger_projection(self):
+        table = vt.grid_interpolation_intervals([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            ["軸", "区間", "見込みの元（倍率）", "0 MWd/kg (pcm)", "60 MWd/kg (pcm)"],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                [
+                    "減速材 (K)",
+                    "600〜610",
+                    "600（0.250）、610（0.500）",
+                    "19.90",
+                    "45.40",
+                ],
+                ["減速材 (K)", "610〜615", "610（0.125）", "4.97", "11.30"],
+            ],
+        )
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.grid_interpolation_points([{"format": "xlc-compare-branch-cross-terms"}])
+
+    def test_a_summary_without_a_burnup_axis_is_an_error(self):
+        s = self.summary()
+        s["burnup"] = None
+        with self.assertRaises(vt.TableError):
+            vt.grid_interpolation_points([s])
+
+    def test_an_axis_without_a_label_is_an_error(self):
+        s = self.summary()
+        s["centers"][0]["axis"] = "rods"
+        with self.assertRaises(vt.TableError):
+            vt.grid_interpolation_points([s])
+
+    def test_the_tables_draw_the_p9_product_stage_output(self):
+        for name in (
+            "depletion-p9-product-grid-points",
+            "depletion-p9-product-grid-intervals",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertEqual(sources, ["examples/depletion/p9-product/grid-2A.json"])
+
+
 class DrawCoreHistory(unittest.TestCase):
     @staticmethod
     def summary() -> dict:

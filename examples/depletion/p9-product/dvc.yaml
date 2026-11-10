@@ -1,6 +1,6 @@
 # Problem 9 の分岐のテーブルの格子点（ADR-0239）で、テーブルを作る前に交差の項と 3 つ同時の項を落とす誤差と、分岐を解く燃焼点を
 # 間引く誤差を測る（ADR-0239 の帰結の「テーブルを作る前に」、ADR-0200 の確認、#0176）: 公称の状態での 2A の燃焼の履歴 → 少数の
-# 燃焼点の直積の分岐のテーブル → 比べた要約。ライブラリは ../p2/depletion.msgpack（../p2/dvc.yaml の出力）、燃焼チェーンは
+# 燃焼点の直積の分岐のテーブル → 比べた要約。同じテーブルで、格子点の間の内挿の誤差も測る（ADR-0239 の確認）。ライブラリは ../p2/depletion.msgpack（../p2/dvc.yaml の出力）、燃焼チェーンは
 # ../chain.msgpack（../dvc.yaml の出力）。実行するのは default の devShell の `dvc repro`（ADR-0159）。lattice のステージは重いので、
 # 全体を Slurm で流す
 stages:
@@ -38,4 +38,15 @@ stages:
       - table-2A.msgpack
     outs:
       - compare-2A.json:
+          cache: false
+  grid-2A:
+    # 格子点の間の内挿の誤差（ADR-0239 の確認）の要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_grid_interpolation.py --json grid-2A.json table-2A.msgpack
+    deps:
+      - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - table-2A.msgpack
+    outs:
+      - grid-2A.json:
           cache: false
