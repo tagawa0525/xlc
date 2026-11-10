@@ -103,22 +103,22 @@ class SectorRows(unittest.TestCase):
 
 class SpreadSummary(unittest.TestCase):
     def rows(self):
-        def cell(position, spreads):
-            return {"position": position, "ring_spread_percent": {"U-235": spreads}}
+        def cell(position, spreads, outer):
+            return {
+                "position": position,
+                "ring_spread_percent": {"U-235": spreads},
+                "outer_by_sector_percent": outer,
+            }
 
         return [
             {
-                "burnup": 0.0,
-                "cells": [cell([0, 0], [0.0, 0.0]), cell([1, 1], [None, None])],
-            },
-            {
-                "burnup": 5.0,
-                "cells": [cell([0, 0], [1.0, 3.0]), cell([1, 1], [None, None])],
-            },
-            {
-                "burnup": 10.0,
-                "cells": [cell([0, 0], [2.0, 2.5]), cell([1, 1], [None, None])],
-            },
+                "burnup": b,
+                "cells": [
+                    cell([0, 0], spreads, {"sectors": [0, 1], "U-235": [b, -b]}),
+                    cell([1, 1], [None, None], {"sectors": [0], "U-235": [0.0]}),
+                ],
+            }
+            for b, spreads in [(0.0, [0.0, 0.0]), (5.0, [1.0, 3.0]), (10.0, [2.0, 2.5])]
         ]
 
     def test_rows_are_the_selected_burnups_and_the_maximum_covers_every_point(self):
@@ -128,6 +128,21 @@ class SpreadSummary(unittest.TestCase):
             s["max"]["U-235"],
             {"percent": 3.0, "burnup": 5.0, "position": [0, 0], "ring": 1},
         )
+
+    def test_the_outer_ring_by_sector_is_kept_at_the_last_point_only(self):
+        s = sz.spread_summary("guide-rings5-sectors4", self.rows(), [0.0, 10.0])
+        self.assertTrue(
+            all(
+                "outer_by_sector_percent" not in c
+                for r in s["rows"]
+                for c in r["cells"]
+            )
+        )
+        self.assertEqual(s["end"]["burnup"], 10.0)
+        corner, centre = s["end"]["cells"]
+        self.assertEqual(corner["position"], [0, 0])
+        self.assertEqual(centre["outer_by_sector_percent"]["sectors"], [0])
+        self.assertEqual(corner["outer_by_sector_percent"]["U-235"], [10.0, -10.0])
 
 
 def point(burnup, k, pins=None):
