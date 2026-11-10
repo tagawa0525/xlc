@@ -2,14 +2,17 @@
 単位の数ごとの履歴を比べる。
 
 使い方:
-  python3 pellet_zones.py write              # この置き場に zones-1.toml、zones-4.toml、zones-8.toml、zones-1-p9.toml を書く
+  python3 pellet_zones.py write              # この置き場に下の 5 本の入力と、その最初の 2 点だけの short-*.toml を書く
   python3 pellet_zones.py compare <基準の履歴> <履歴>...   # 基準（1 つの単位）に対する k∞ と数密度の差、リングの Pu-239 の分布
 
 形状、組成、温度、減速材、燃焼度の点、出力密度、UFG の許容差は ../../p9-product/lattice-2A.toml の燃料のピンと公称の状態
-（ホウ素 650 ppm、減速材 580 K、燃料 900 K）に合わせる。中性子束のリングは燃料の中で単位の数によらず等体積の 8 本で、単位の境界は
-8 本の境界に重なる（xlc はゾーンの中を等体積に分けるので、1、4、8 の単位で MOC の領域が同じになる）。8 つの物質では飛程の表が
-物質ごとの軸の直積で大きくなるので（lattice-1C-rings4.toml と同じ）、3 本とも `track-table = false` で格子点ごとに求める。
-zones-1-p9.toml は本番の離散化（燃料 5 リング、飛程の表）のまま 1 つの単位で、時間の比の基準と、8 リングとの差を見る。
+（ホウ素 650 ppm、減速材 580 K、燃料 900 K）に合わせる。
+- zones-1、zones-4、zones-8: 燃料の中性子束のリングは単位の数によらず等体積の 8 本で、単位の境界は 8 本の境界に重なる（xlc は
+  ゾーンの中を等体積に分けるので、MOC の領域が同じになる）。単位の数だけを変えるため、3 本とも飛程を `track-table = false` で
+  格子点ごとに求める（8 つの物質で飛程の表を使えるかは確かめていない）
+- zones-1-p9、zones-5-p9: 本番の離散化（燃料 5 リング、飛程の表）のまま、1 つの単位と、5 リングを 1 本ずつ 5 つの単位にしたもの。
+  本番のテーブルで分けたときの時間の比と k∞ の差を、同じ離散化で見る
+- short-<名前>.toml: 上の入力の燃焼度を最初の 2 点（輸送 5 回）にしたもの。全部を流す前の時間の見積もり
 """
 
 import math
@@ -60,7 +63,13 @@ def fuel_names(zones: int) -> list[str]:
     return ["fuel"] if zones == 1 else [f"fuel-{k}" for k in range(zones)]
 
 
-def input_text(zones: int, rings_per_zone: int, track_table: bool, output: str) -> str:
+def input_text(
+    zones: int,
+    rings_per_zone: int,
+    track_table: bool,
+    output: str,
+    burnup: str = BURNUP,
+) -> str:
     names = fuel_names(zones)
     materials = "".join(
         f"[material.{n}]\ntemperature = 900\nnuclides = {FUEL}\n\n" for n in names
@@ -73,7 +82,8 @@ def input_text(zones: int, rings_per_zone: int, track_table: bool, output: str) 
     listed = ", ".join(f'"{n}"' for n in names)
     return f"""\
 # #0133 の試行（pellet_zones.py が書く。手で直さない）: 2A の燃料のピンのピンセルを、ペレットを等体積の {zones} 個の燃焼の単位に
-# 分け、燃料の中性子束のリング {zones * rings_per_zone} 本で、p9-product/lattice-2A.toml の公称の状態のまま燃焼させる。
+# 分け、燃料の中性子束のリング {zones * rings_per_zone} 本、飛程の{"表" if track_table else "格子点ごとの計算"}で、p9-product/lattice-2A.toml の
+# 公称の状態のまま燃焼させる。
 library = "../../p2/depletion.msgpack"
 {table}ufg-tolerance = 1e-4
 pitch = 1.26
@@ -104,18 +114,29 @@ sectors = 8
 chain = "../../chain.msgpack"
 power = 38.41
 burnup = [
-{BURNUP}]
+{burnup}]
 materials = [{listed}]
 output = "{output}"
 """
 
 
+CASES = {
+    # 名前: (単位の数, 単位ごとの MOC のリングの数, 飛程の表)
+    "zones-1": (1, FLUX_RINGS, False),
+    "zones-4": (4, FLUX_RINGS // 4, False),
+    "zones-8": (8, FLUX_RINGS // 8, False),
+    "zones-1-p9": (1, 5, True),
+    "zones-5-p9": (5, 1, True),
+}
+SHORT_BURNUP = "  0.1, 0.25,\n"
+
+
 def write() -> None:
-    for zones in (1, 4, 8):
-        name = f"zones-{zones}"
-        text = input_text(zones, FLUX_RINGS // zones, False, f"{name}.msgpack")
+    for name, (zones, rings, table) in CASES.items():
+        text = input_text(zones, rings, table, f"{name}.msgpack")
         (HERE / f"{name}.toml").write_text(text)
-    (HERE / "zones-1-p9.toml").write_text(input_text(1, 5, True, "zones-1-p9.msgpack"))
+        short = input_text(zones, rings, table, f"short-{name}.msgpack", SHORT_BURNUP)
+        (HERE / f"short-{name}.toml").write_text(short)
 
 
 def is_heavy_metal(name: str) -> bool:

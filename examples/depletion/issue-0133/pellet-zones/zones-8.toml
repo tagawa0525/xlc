@@ -1,5 +1,6 @@
 # #0133 の試行（pellet_zones.py が書く。手で直さない）: 2A の燃料のピンのピンセルを、ペレットを等体積の 8 個の燃焼の単位に
-# 分け、燃料の中性子束のリング 8 本で、p9-product/lattice-2A.toml の公称の状態のまま燃焼させる。
+# 分け、燃料の中性子束のリング 8 本、飛程の格子点ごとの計算で、p9-product/lattice-2A.toml の
+# 公称の状態のまま燃焼させる。
 library = "../../p2/depletion.msgpack"
 track-table = false
 ufg-tolerance = 1e-4
