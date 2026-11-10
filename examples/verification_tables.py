@@ -3654,6 +3654,154 @@ def pellet_zones_pair(key: str, sources: list[dict]) -> str:
     )
 
 
+def sector_zones_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-sector-zones":
+        raise TableError("not an xlc-sector-zones summary")
+    return s
+
+
+def sector_zones_rows(s: dict, key: str) -> list[dict]:
+    """#0276 の要約の組 `key` の、要約の `at` の燃焼度の行"""
+    pairs = [p for p in s["pairs"] if p["key"] == key]
+    if len(pairs) != 1:
+        raise TableError(
+            f"sector-zones summary has {len(pairs)} pairs {key!r} (expected 1)"
+        )
+    rows = [r for r in pairs[0]["rows"] if r["burnup"] in s["at"]]
+    if len(rows) != len(s["at"]):
+        raise TableError(f"sector-zones pair {key!r} lacks some burnups of {s['at']}")
+    return rows
+
+
+def sector_zones_pin_cells(r: dict) -> list[str]:
+    return [
+        signed(r["dk_pcm"], 2),
+        signed(r["drho_pcm"], 2),
+        f"{r['pin_rms_percent']:.3f}",
+        signed(r["pin_max_percent"], 3),
+    ]
+
+
+def sector_zones_radial(lattice: str, sources: list[dict]) -> str:
+    """#0276 の格子の径方向の効き（rings5 − rings1）と、#0275 のピンセルの本番の離散化の 5 単位 − 1 単位
+    （examples/depletion/issue-0276/sector_zones.py の docstring）"""
+    s = sector_zones_summary(sources)
+    rows = sector_zones_rows(s, f"{lattice}-radial")
+    pin_cell = {r["burnup"]: r for r in s["pin_cell"]["rows"]}
+    if sorted(pin_cell) != sorted(s["at"]):
+        raise TableError(f"sector-zones pin cell lacks some burnups of {s['at']}")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "k∞（rings1）",
+            "Δk (pcm)",
+            "Δρ (pcm)",
+            "ピン出力 rms (%)",
+            "ピン出力 最大 (%)",
+            "ピンセル Δk (pcm)",
+            "ピンセル Δρ (pcm)",
+        ],
+        [
+            [
+                f"{r['burnup']:g}",
+                f"{r['k_base']:.6f}",
+                *sector_zones_pin_cells(r),
+                signed(pin_cell[r["burnup"]]["dk_pcm"], 2),
+                signed(pin_cell[r["burnup"]]["drho_pcm"], 2),
+            ]
+            for r in rows
+        ],
+    )
+
+
+def sector_zones_azimuthal(lattice: str, sources: list[dict]) -> str:
+    """#0276 の格子の方位の効き（rings5-sectors4 と rings5-sectors8 − rings5）"""
+    s = sector_zones_summary(sources)
+    four = sector_zones_rows(s, f"{lattice}-sectors4")
+    eight = sector_zones_rows(s, f"{lattice}-sectors8")
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "k∞（rings5）",
+            *(
+                f"{name} ({n})"
+                for n in (4, 8)
+                for name in ("Δk", "Δρ", "ピン出力 rms", "ピン出力 最大")
+            ),
+        ],
+        [
+            [
+                f"{a['burnup']:g}",
+                f"{a['k_base']:.6f}",
+                *sector_zones_pin_cells(a),
+                *sector_zones_pin_cells(b),
+            ]
+            for a, b in zip(four, eight, strict=True)
+        ],
+    )
+
+
+def sector_zones_spread(lattice: str, sources: list[dict]) -> str:
+    """#0276 の扇形の組の間の、最も外のリングの数密度の広がり（(最大 − 最小) / 平均、%）。扇形がすべて 1 つの組に
+    移り合うピンは列に出さない"""
+    s = sector_zones_summary(sources)
+    spreads = {
+        n: [x for x in s["spreads"] if x["case"] == f"{lattice}-rings5-sectors{n}"]
+        for n in (4, 8)
+    }
+    if any(len(x) != 1 for x in spreads.values()):
+        raise TableError(f"sector-zones summary lacks the spreads of {lattice!r}")
+    rows = {
+        n: [r for r in x[0]["rows"] if r["burnup"] in s["at"]]
+        for n, x in spreads.items()
+    }
+    if any(len(r) != len(s["at"]) for r in rows.values()):
+        raise TableError(
+            f"sector-zones spreads of {lattice!r} lack some burnups of {s['at']}"
+        )
+    cells = [
+        i
+        for i, c in enumerate(rows[4][0]["cells"])
+        if any(
+            x is not None
+            for r in rows[4]
+            for x in r["cells"][i]["ring_spread_percent"][s["nuclides"][0]]
+        )
+    ]
+
+    def position(i: int) -> str:
+        row, column = rows[4][0]["cells"][i]["position"]
+        return f"({row},{column})"
+
+    def value(x) -> str:
+        return "–" if x is None else f"{x:.3f}"
+
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            *(
+                f"{position(i)} {nuclide} ({n})"
+                for i in cells
+                for nuclide in s["nuclides"]
+                for n in (4, 8)
+            ),
+        ],
+        [
+            [
+                f"{a['burnup']:g}",
+                *(
+                    value(r["cells"][i]["ring_spread_percent"][nuclide][-1])
+                    for i in cells
+                    for nuclide in s["nuclides"]
+                    for r in (a, b)
+                ),
+            ]
+            for a, b in zip(rows[4], rows[8], strict=True)
+        ],
+    )
+
+
 def ufg_free_gas_k(sources: list[dict]) -> str:
     """ADR-0203 の UFG の散乱核ごとの k の差（xlc − OpenMC、pcm）と、最初の状態からの増え"""
     s = ufg_free_gas_summary(sources)
@@ -4040,6 +4188,8 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/ufg-free-gas-assemblies/compare-2O-static.json",
     # ペレットを径方向の単位に分けた燃焼のピンセルの試行（#0275）。ステージの出力でない
     "examples/depletion/issue-0133/pellet-zones/summary.json",
+    # 燃料のピンを方位の扇形の組にも分けた燃焼の格子の試行（#0276）。ステージの出力でない
+    "examples/depletion/issue-0276/summary.json",
 }
 
 
@@ -4351,6 +4501,18 @@ TABLES = {
             partial(pellet_zones_pair, key),
         )
         for key in ("4-1", "8-1", "8-4", "5p9-1p9", "1-1p9")
+    },
+    **{
+        f"depletion-sector-zones-{kind}-{lattice}": (
+            ["examples/depletion/issue-0276/summary.json"],
+            partial(draw, lattice),
+        )
+        for kind, draw in [
+            ("radial", sector_zones_radial),
+            ("azimuthal", sector_zones_azimuthal),
+            ("spread", sector_zones_spread),
+        ]
+        for lattice in ("guide", "gap")
     },
     **{
         f"depletion-ufg-free-gas-{name}": (
