@@ -2004,6 +2004,73 @@ def branch_thinning(sources: list[dict]) -> str:
     )
 
 
+def branch_cross_terms_burnups(sources: list[dict]) -> str:
+    """テーブル 1 つの交差の項（ADR-0200）: モデルごとの、解く状態の数と、燃焼度の点ごとの組み立てた状態の |Δρ| の最大（pcm）"""
+    s = branch_cross_terms_summary(sources)
+    if len(s["tables"]) != 1:
+        raise TableError(f"expected one table, got {len(s['tables'])}")
+    points = s["tables"][0]["points"]
+    models = list(points[0]["models"])
+    if any(list(p["models"]) != models for p in points):
+        raise TableError("the burnup points hold different models")
+    rows = [
+        [
+            m,
+            str(points[0]["models"][m]["states"]),
+            *(f"{p['models'][m]['max_abs_pcm']:.2f}" for p in points),
+        ]
+        for m in models
+    ]
+    return markdown_table(
+        ["モデル", "状態", *(f"{p['burnup']:g} MWd/kg" for p in points)], rows
+    )
+
+
+# 状態の軸の記録の記号（examples/depletion/verification.md の「分岐のテーブルの交差の項」）
+BRANCH_AXIS_LETTERS = {"boron": "B", "moderator": "M", "fuel": "F"}
+
+
+def branch_thinning_kinds(sources: list[dict]) -> str:
+    """テーブル 1 つの、分岐を燃焼度の一部の点だけで解いたとき（ADR-0200）の、状態の種類（公称と違う軸）ごとの、間引いた点の
+    |Δρ| の最大（pcm）。列は選び方ごとの線形と Hermite"""
+    s = branch_cross_terms_summary(sources)
+    if len(s["thinning"]) != 1:
+        raise TableError(f"expected one thinning table, got {len(s['thinning'])}")
+    selections = s["thinning"][0]["selections"]
+    methods = [("linear", "線形"), ("hermite", "Hermite")]
+    results = [sel["results"][m] for sel in selections for m, _ in methods]
+    if any("kinds" not in r for r in results):
+        raise TableError(
+            "the thinning summary has no kinds; rerun compare_branch_cross_terms.py"
+        )
+    kinds = list(results[0]["kinds"])
+    if any(list(r["kinds"]) != kinds for r in results):
+        raise TableError("the selections and methods hold different kinds")
+    rows = []
+    for kind in kinds:
+        axes = kind.split("+")
+        unknown = [a for a in axes if a not in BRANCH_AXIS_LETTERS]
+        if unknown:
+            raise TableError(f"no letter for the axes {unknown} of the kind {kind}")
+        rows.append(
+            [
+                "、".join(BRANCH_AXIS_LETTERS[a] for a in axes),
+                *(f"{r['kinds'][kind]['max_abs_pcm']:.2f}" for r in results),
+            ]
+        )
+    return markdown_table(
+        [
+            "変えた軸",
+            *(
+                f"{sel['name']}、{label} (pcm)"
+                for sel in selections
+                for _, label in methods
+            ),
+        ],
+        rows,
+    )
+
+
 def micro_linearization(sources: list[dict]) -> str:
     """ミクロ燃焼の線形の補正（ADR-0216）: 燃焼度の点の組ごとの、追う核種の組成の差の輸送の効き、線形の補正の効き、その誤差（pcm）と、
     数密度の相対の変化（%）"""
@@ -4215,6 +4282,14 @@ TABLES = {
     "depletion-branch-thinning": (
         ["examples/depletion/branches/compare-branch-cross-terms.json"],
         branch_thinning,
+    ),
+    "depletion-p9-product-cross-terms": (
+        ["examples/depletion/p9-product/compare-2A.json"],
+        branch_cross_terms_burnups,
+    ),
+    "depletion-p9-product-thinning-kinds": (
+        ["examples/depletion/p9-product/compare-2A.json"],
+        branch_thinning_kinds,
     ),
     "depletion-burnup-interpolation-points": (
         ["examples/depletion/branches/compare-burnup-interpolation.json"],
