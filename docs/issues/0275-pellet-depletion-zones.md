@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, depletion]
 opened: 2026-11-11
-closed:
+closed: 2026-11-11
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0245
 ---
 
 # ペレットを径方向に分けて燃焼させる効果（本番のテーブル）
@@ -34,7 +34,7 @@ resolution:
 | MOX-1（`lattice-mox1-rings1.toml`）                                      | 1 単位（MOC 5 リング）                                 | 1 単位（`rings = 1`）                                                                                                                          |
 | 2A の集合体（`p2/lattice-2A.toml`）                                      | ピンの組ごとに 1 単位（39 領域、MOC 5 リング）         | ピンの組ごとに 1 単位（`openmc_depletion_assembly.py` の `cell_zones` が燃料を 1 つの帯にし、`regions` が組と物質の対ごとに 1 つの物質にする） |
 | ほかの p2 の集合体の UO2 燃料（2F、2M、2N、2O、2P、2A-density、2A-rods） | 2A と同じ（2O、2P の Gd 燃料だけリングごとに 8 単位）  | 2A と同じ（Gd 燃料は `gd-rings = 8`）                                                                                                          |
-| 本番に向けたテーブル（`p9-product/lattice-2A.toml`）                     | ピンの組ごとに 1 単位（MOC 5 リング）                  | 参照解なし                                                                                                                                     |
+| 本番に向けたテーブル（`p9-product/lattice-2A.toml`）                     | ピンの組ごとに 5 単位（MOC 5 リング。ADR-0245）        | 参照解なし                                                                                                                                     |
 
 - 2A の燃料のピンのピンセル（examples/depletion/issue-0133/pellet-zones/。`pellet_zones.py write` が書く 5 本で、中身は同じスクリプトの
   docstring）の 0 の点と 40 点（60 MWd/kg まで）を測った（examples/depletion/verification.md の「ペレットを径方向に分けた燃焼（#0275）」。
@@ -71,7 +71,7 @@ resolution:
   +36.24 pcm（36 MWd/kg）でピンセルと同じ大きさだが、60 MWd/kg で +2.60 pcm（ピンセルは +16.04 pcm）。水の余白の格子は Δk の最大
   +15.67 pcm（36 MWd/kg）で、60 MWd/kg で −21.90 pcm（Δρ −32.05 pcm）。ピンセルと格子で違う原因は確かめていない
 
-関係する ADR: なし
+関係する ADR: ADR-0245
 
 ## 完了の条件
 
@@ -83,3 +83,4 @@ resolution:
 - 2026-11-11（JST）: 本番に向けたテーブルの燃料が 1 つの組成で燃えると分かった場面で、ユーザーが集合体より先にピンセルで効きを測るよう求めた（2026-11-11 01:03 JST）のを受けて起こし、入力と最初の 2 点の時間を「問題」に書いた
 - 2026-11-11（JST）: 40 点の 5 本（Slurm 731〜735）の結果と完了の条件の問いへの答えを「問題」に書いた。分けるかは親とユーザーが決める
 - 2026-11-11（JST）: #0276 の 3 × 3 の格子で測った 5 単位の効きを「問題」に書いた
+- 2026-11-11（JST）: 親の推しのとおり、本番のテーブルで 5 リングを 5 単位に分けるとユーザーが決め、ADR-0245 にして閉じた。単位の数を増やすかと、Gd 入りの燃料と Pyrex のある格子の分け方は #0277
