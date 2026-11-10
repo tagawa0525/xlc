@@ -101,6 +101,35 @@ class SectorRows(unittest.TestCase):
             sz.sector_rows(h, ["U-235"])
 
 
+class SpreadSummary(unittest.TestCase):
+    def rows(self):
+        def cell(position, spreads):
+            return {"position": position, "ring_spread_percent": {"U-235": spreads}}
+
+        return [
+            {
+                "burnup": 0.0,
+                "cells": [cell([0, 0], [0.0, 0.0]), cell([1, 1], [None, None])],
+            },
+            {
+                "burnup": 5.0,
+                "cells": [cell([0, 0], [1.0, 3.0]), cell([1, 1], [None, None])],
+            },
+            {
+                "burnup": 10.0,
+                "cells": [cell([0, 0], [2.0, 2.5]), cell([1, 1], [None, None])],
+            },
+        ]
+
+    def test_rows_are_the_selected_burnups_and_the_maximum_covers_every_point(self):
+        s = sz.spread_summary("guide-rings5-sectors4", self.rows(), [0.0, 10.0])
+        self.assertEqual([r["burnup"] for r in s["rows"]], [0.0, 10.0])
+        self.assertEqual(
+            s["max"]["U-235"],
+            {"percent": 3.0, "burnup": 5.0, "position": [0, 0], "ring": 1},
+        )
+
+
 def point(burnup, k, pins=None):
     return {"burnup": burnup, "k": k, "pins": pins or [[1.0, 1.0]]}
 
