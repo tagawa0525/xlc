@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-11
 requires: [ADR-0173, ADR-0112, ADR-0197]
 supersedes: []
@@ -94,6 +94,8 @@ B1 は、ADR-0173 の S1（等価原理をピンのリングの体積平均の�
   （0 の点の k が分けない燃焼と 1e-12 以内、扇形の U-235 が違い、体積の平均が分けない燃焼と 1e-3 以内）、
   `sectors_of_one_orbit_deplete_like_the_unsplit_pin`、`depletion_sectors_need_cells_cut_into_a_multiple_of_them`、
   `histories_write_the_sector_of_split_regions_only`、`step_start_shielding_remixes_sector_regions`、
-  `continuing_needs_the_sectors_of_the_history`。入力（crates/lattice/src/input/tests.rs）: `depletion_sectors_are_four_or_eight`
+  `continuing_needs_the_sectors_of_the_history`、`split_sector_materials_take_their_densities_at_the_pooled_cross_sections`
+  （UFG の範囲と SPH 因子、リングの中性子束の移行のあるライブラリで、作り直した物質が扇形の数密度に比例し、微視的断面積と移行は
+  まとめて遮蔽した値のまま）。分岐（crates/lattice/src/history/tests.rs）: `histories_depleted_by_sector_are_not_branched`。入力（crates/lattice/src/input/tests.rs）: `depletion_sectors_are_four_or_eight`
 - 分けない燃焼が変わらないことは、既存のテスト（`step_start_shielding_remixes_depleted_absorbers_too` など、分けない入力の燃焼と
   履歴のバイトを比べるもの）が通ることで確かめる
