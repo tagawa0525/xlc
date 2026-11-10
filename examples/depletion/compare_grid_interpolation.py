@@ -52,8 +52,9 @@ def axis_transforms(table: dict) -> list:
 
 
 def summarize(table: dict) -> dict:
-    # table_grid は公称の値を引数に取る（測る量には使わない）。lattice は直積のテーブルの軸に公称の値を書く。制御棒の軸（`points`
-    # が無い）は table_grid が止める
+    # table_grid は公称の値を引数に取る（測る量には使わない）。lattice は、入力の物質の状態がどの軸でも格子点にあるときだけ軸に公称の
+    # 値を書く（crates/lattice/src/branches.rs）ので、公称の値の無いテーブルはここで止まる。制御棒の軸（`points` が無い）は
+    # table_grid が止める
     state_axes = [a for a in table["axes"] if a["name"] != "burnup" and "points" in a]
     if any("nominal" not in a for a in state_axes):
         raise SystemExit("the table needs the nominal value of every state axis")
