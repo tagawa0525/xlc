@@ -1507,7 +1507,7 @@ class DrawBranchProduct(unittest.TestCase):
 class DrawGridInterpolation(unittest.TestCase):
     @staticmethod
     def summary():
-        """compare_grid_interpolation.py の要約（燃焼度の点 2 つ、減速材の内側の格子点 1 つとその両側の区間）"""
+        """compare_grid_interpolation.py の要約（燃焼度の点 2 つ、減速材の上側の内側の格子点 2 つと、そのどちらかを端に持つ区間のうち上の 2 つ）"""
 
         def point(burnup, worst):
             return {"burnup": burnup, "max_abs_pcm": abs(worst), "worst_pcm": worst}
@@ -1518,11 +1518,18 @@ class DrawGridInterpolation(unittest.TestCase):
             "centers": [
                 {
                     "axis": "moderator",
+                    "point": 600.0,
+                    "neighbours": [590.0, 610.0],
+                    "weight": 0.5,
+                    "points": [point(0.0, -41.87), point(60.0, -93.27)],
+                },
+                {
+                    "axis": "moderator",
                     "point": 610.0,
                     "neighbours": [600.0, 615.0],
                     "weight": 2 / 3,
                     "points": [point(0.0, -39.8), point(60.0, -90.734)],
-                }
+                },
             ],
             "intervals": [
                 {
@@ -1556,7 +1563,10 @@ class DrawGridInterpolation(unittest.TestCase):
         )
         self.assertEqual(
             self.rows(table),
-            [["減速材 (K)", "610", "600、615", "0.667", "−39.80", "−90.73"]],
+            [
+                ["減速材 (K)", "600", "590、610", "0.500", "−41.87", "−93.27"],
+                ["減速材 (K)", "610", "600、615", "0.667", "−39.80", "−90.73"],
+            ],
         )
 
     def test_interval_rows_have_each_source_and_the_larger_projection(self):
@@ -1582,6 +1592,12 @@ class DrawGridInterpolation(unittest.TestCase):
     def test_another_summary_is_an_error(self):
         with self.assertRaises(vt.TableError):
             vt.grid_interpolation_points([{"format": "xlc-compare-branch-cross-terms"}])
+
+    def test_a_summary_without_a_burnup_axis_is_an_error(self):
+        s = self.summary()
+        s["burnup"] = None
+        with self.assertRaises(vt.TableError):
+            vt.grid_interpolation_points([s])
 
     def test_an_axis_without_a_label_is_an_error(self):
         s = self.summary()
