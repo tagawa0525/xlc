@@ -1,4 +1,4 @@
-# #0274 の精度の比べ: ../issue-0133/ufg-sab/pin-2A-40-sab-fast3.toml（ADR-0205 の速い方法。ADR-0209 の既定と同じ散乱核）をライブラリ ../p2/depletion.msgpack で解くもの（分離共鳴を持つ核種の自由ガスの上限は 400 kT のまま）。
+# #0274 の精度の比べ: ../issue-0133/ufg-sab/pin-2A-40-sab-fast3.toml（ADR-0205 の速い方法。ADR-0243 の前の既定と同じ散乱核）をライブラリ ../p2/depletion.msgpack で解くもの（分離共鳴を持つ核種の自由ガスの上限は 400 kT のまま）。
 # #0133 の試行: VERA 1C のピンセル（../../../vera/p1/pincell-1C.toml と同じ形状、温度、離散化。燃料は 1 リング）に、OpenMC の 2A の燃焼の 40 MWd/kg（39 の組の体積の平均。1C で輸送する核種のうち 2A の結果にあるもの）
 # の燃料の組成を置いた 1 つの状態。OpenMC の反応率（openmc_pin_rates*.py）と移行（openmc_pin_transfer.py）と同じ組成。
 library = "../p2/depletion.msgpack"
