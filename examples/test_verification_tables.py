@@ -1605,10 +1605,93 @@ class DrawGridInterpolation(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.grid_interpolation_points([s])
 
+    @staticmethod
+    def with_schemes():
+        """要約に方式を 2 つ（減速材の温度の線形、密度の 3 次 Hermite）。格子点 600 K と 610 K"""
+
+        def point(burnup, worst):
+            return {"burnup": burnup, "max_abs_pcm": abs(worst), "worst_pcm": worst}
+
+        s = DrawGridInterpolation.summary()
+        s["schemes"] = [
+            {
+                "axis": "moderator",
+                "variable": "value",
+                "method": "linear",
+                "centers": [
+                    {
+                        "point": 600.0,
+                        "points": [point(0.0, -41.87), point(60.0, -93.27)],
+                    },
+                    {
+                        "point": 610.0,
+                        "points": [point(0.0, -39.8), point(60.0, -90.734)],
+                    },
+                ],
+            },
+            {
+                "axis": "moderator",
+                "variable": "density",
+                "method": "hermite",
+                "centers": [
+                    {"point": 600.0, "points": [point(0.0, 0.2), point(60.0, 3.2)]},
+                    {"point": 610.0, "points": [point(0.0, 0.7), point(60.0, -0.6)]},
+                ],
+            },
+        ]
+        return s
+
+    def test_scheme_rows_have_the_largest_error_over_the_points_at_each_burnup(self):
+        table = vt.grid_interpolation_schemes([self.with_schemes()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "軸",
+                "内挿の変数",
+                "方式",
+                "0 MWd/kg (pcm)",
+                "60 MWd/kg (pcm)",
+                "最大の格子点",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["減速材 (K)", "温度", "線形", "41.87", "93.27", "600"],
+                ["減速材 (K)", "密度", "3 次 Hermite", "0.70", "3.20", "600"],
+            ],
+        )
+
+    def test_scheme_point_rows_have_the_signed_error_of_the_worst_burnup(self):
+        table = vt.grid_interpolation_scheme_points("moderator", [self.with_schemes()])
+        self.assertEqual(self.header(table), ["内挿の変数", "方式", "600", "610"])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["温度", "線形", "−93.27", "−90.73"],
+                ["密度", "3 次 Hermite", "+3.20", "+0.70"],
+            ],
+        )
+
+    def test_unknown_scheme_variables_and_methods_are_errors(self):
+        for key, value in (("variable", "cube"), ("method", "akima")):
+            s = self.with_schemes()
+            s["schemes"][0][key] = value
+            with self.assertRaises(vt.TableError):
+                vt.grid_interpolation_schemes([s])
+
+    def test_an_axis_without_schemes_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.grid_interpolation_scheme_points("fuel", [self.with_schemes()])
+
     def test_the_tables_draw_the_p9_product_stage_output(self):
         for name in (
             "depletion-p9-product-grid-points",
             "depletion-p9-product-grid-intervals",
+            "depletion-p9-product-grid-schemes",
+            "depletion-p9-product-grid-schemes-boron",
+            "depletion-p9-product-grid-schemes-moderator",
+            "depletion-p9-product-grid-schemes-fuel",
         ):
             (sources, _) = vt.TABLES[name]
             self.assertEqual(sources, ["examples/depletion/p9-product/grid-2A.json"])
