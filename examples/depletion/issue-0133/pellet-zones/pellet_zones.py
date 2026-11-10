@@ -3,7 +3,16 @@
 
 使い方:
   python3 pellet_zones.py write              # この置き場に下の 5 本の入力と、その最初の 2 点だけの short-*.toml を書く
-  python3 pellet_zones.py compare <基準の履歴> <履歴>...   # 基準（1 つの単位）に対する k∞ と数密度の差、リングの Pu-239 の分布
+  python3 pellet_zones.py compare [--at <燃焼度>,...] <基準の履歴> <履歴>...
+      # 履歴ごとに、基準に対する k∞ と反応度と平均の数密度の差、Pu-239 の外と内の半分の比を Markdown の表で出す。
+      # --at はその燃焼度（MWd/kg）の行だけを出す
+
+compare の量:
+- Δk = k_他 − k_基準、Δρ = 1/k_基準 − 1/k_他（pcm）。数密度と重金属はペレットの体積で平均した相対差（%）
+- Pu-239 の外と内の比は、ペレットの外の半分の体積（半径 R/√2 から R）の平均の数密度 / 内の半分（0 から R/√2）。単位の数で
+  単位の厚さが違うので、最も外と最も内の単位の比は単位の数ごとに別の半径の範囲を比べ、4、5、8 単位の間で比べられない。各単位の
+  組成は単位の中で一様（燃焼の単位の模型どおり）として半分の範囲で体積の平均をとるので、どの単位の数でも同じ半径の範囲の量に
+  なる。4 と 8 単位は境界が R/√2 に重なり、5 単位は 3 つ目の単位を体積で半分ずつ内と外に入れる。1 単位は分布が無いので出さない
 
 形状、組成、温度、減速材、燃焼度の点、出力密度、UFG の許容差は ../../p9-product/lattice-2A.toml の燃料のピンと公称の状態
 （ホウ素 650 ppm、減速材 580 K、燃料 900 K）に合わせる。
@@ -17,6 +26,7 @@
 
 import math
 import sys
+import unicodedata
 from pathlib import Path
 
 import msgpack
@@ -144,11 +154,47 @@ def is_heavy_metal(name: str) -> bool:
     return symbol in {"Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es"}
 
 
+def range_mean(
+    values: list[float], volumes: list[float], lo: float, hi: float
+) -> float:
+    """内から並んだ単位の値の、体積の割合 lo〜hi の範囲の体積の平均（値は単位の中で一様）"""
+    total = sum(volumes)
+    acc = 0.0
+    start = 0.0
+    for value, volume in zip(values, volumes, strict=True):
+        end = start + volume / total
+        acc += value * max(0.0, min(end, hi) - max(start, lo))
+        start = end
+    return acc / (hi - lo)
+
+
+def pu239_halves_ratio(pu: list[float], volumes: list[float]) -> float | None:
+    """Pu-239 の外の半分の体積の平均 / 内の半分の平均（1 単位と内が 0 のときは None）"""
+    if len(pu) < 2:
+        return None
+    inner = range_mean(pu, volumes, 0.0, 0.5)
+    return None if inner <= 0 else range_mean(pu, volumes, 0.5, 1.0) / inner
+
+
+def signed(x: float, digits: int) -> str:
+    """符号つきの小数（記録の書き方に合わせ、負の符号は U+2212。丸めて 0 になる値に符号を付けない）"""
+    text = f"{x:+.{digits}f}"
+    if float(text) == 0:
+        text = f"{0:.{digits}f}"
+    return text.replace("-", "−")
+
+
 def summary(path: Path) -> dict:
     h = msgpack.unpackb(path.read_bytes())
     if h["format"] != "xlc-depletion-history":
         raise SystemExit(f"{path}: not an xlc depletion history")
     regions = h["regions"]
+    # 単位は内から fuel-0、fuel-1、… の順（input_text が内から並べる）。Pu-239 の内と外はこの順で決まる
+    materials = [r["material"] for r in regions]
+    if materials != fuel_names(len(regions)):
+        raise SystemExit(
+            f"{path}: regions {materials} are not the fuel units from the inside"
+        )
     volumes = [r["volume"] for r in regions]
     total = sum(volumes)
     index = {n: i for i, n in enumerate(h["nuclides"])}
@@ -168,7 +214,7 @@ def summary(path: Path) -> dict:
                 "k": p["k_inf"],
                 "mean": mean,
                 "hm": hm,
-                "pu239_outer_inner": pu[-1] / pu[0] if pu[0] > 0 else None,
+                "pu239_halves": pu239_halves_ratio(pu, volumes),
             }
         )
     return {
@@ -180,7 +226,30 @@ def summary(path: Path) -> dict:
     }
 
 
-def compare(base: Path, others: list[Path]) -> None:
+def width(text: str) -> int:
+    """表の列の幅（全角は 2）"""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
+
+
+def markdown_table(header: list[str], rows: list[list[str]]) -> str:
+    widths = [max(width(r[i]) for r in [header, *rows]) for i in range(len(header))]
+
+    def line(cells: list[str]) -> str:
+        return (
+            "| "
+            + " | ".join(c + " " * (w - width(c)) for c, w in zip(cells, widths))
+            + " |"
+        )
+
+    separator = "| " + " | ".join("-" * w for w in widths) + " |"
+    return "\n".join([line(header), separator, *map(line, rows)])
+
+
+def same_burnup(a: float, b: float) -> bool:
+    return abs(a - b) <= 1e-9 * max(1.0, abs(b))
+
+
+def compare(base: Path, others: list[Path], at: list[float] | None) -> None:
     b = summary(base)
     rows = [summary(o) for o in others]
     print(f"base {b['path']}: {b['regions']} regions, volume {b['volume']:.9g} cm2")
@@ -188,38 +257,61 @@ def compare(base: Path, others: list[Path]) -> None:
         print(f"{s['path']}: {s['regions']} regions, volume {s['volume']:.9g} cm2")
         if len(s["points"]) != len(b["points"]):
             raise SystemExit(f"{s['path']}: burnup points differ from the base")
-    print("seconds:", {Path(s["path"]).name: s["seconds"] for s in [b, *rows]})
-    header = ["burnup", "k(base)"]
+    burnups = [p["burnup"] for p in b["points"]]
+    if at is not None:
+        missing = [x for x in at if not any(same_burnup(y, x) for y in burnups)]
+        if missing:
+            raise SystemExit(f"--at {missing}: not burnup points of {b['path']}")
+    header = ["燃焼度 (MWd/kg)", "k∞（基準）", "Δk (pcm)", "Δρ (pcm)"]
+    header += [f"{n} (%)" for n in NUCLIDES]
+    header += ["重金属 (%)", "Pu-239 外/内の半分"]
     for s in rows:
-        tag = Path(s["path"]).stem
-        header += [f"dk {tag} (pcm)", f"dHM {tag}"]
-        header += [f"d{n} {tag} (%)" for n in NUCLIDES]
-        header += [f"Pu239 out/in {tag}"]
-    print(" | ".join(header))
-    for i, p in enumerate(b["points"]):
-        cells = [f"{p['burnup']:g}", f"{p['k']:.6f}"]
-        for s in rows:
-            q = s["points"][i]
-            if abs(q["burnup"] - p["burnup"]) > 1e-9 * max(1.0, p["burnup"]):
+        table = []
+        for p, q in zip(b["points"], s["points"]):
+            if not same_burnup(q["burnup"], p["burnup"]):
                 raise SystemExit(f"{s['path']}: burnup {q['burnup']} != {p['burnup']}")
-            cells.append(f"{(q['k'] - p['k']) * 1e5:+.1f}")
-            cells.append(f"{q['hm'] / p['hm'] - 1:+.1e}")
+            if at is not None and not any(same_burnup(p["burnup"], x) for x in at):
+                continue
+            cells = [f"{p['burnup']:g}", f"{p['k']:.6f}"]
+            cells.append(signed((q["k"] - p["k"]) * 1e5, 2))
+            cells.append(signed((1 / p["k"] - 1 / q["k"]) * 1e5, 2))
             for n in NUCLIDES:
                 base_n = p["mean"][n]
                 cells.append(
-                    "–" if base_n == 0 else f"{(q['mean'][n] / base_n - 1) * 100:+.3f}"
+                    "–" if base_n == 0 else signed((q["mean"][n] / base_n - 1) * 100, 3)
                 )
-            r = q["pu239_outer_inner"]
-            cells.append("–" if r is None else f"{r:.3f}")
-        print(" | ".join(cells))
+            cells.append(f"{(q['hm'] / p['hm'] - 1) * 100:+.1e}".replace("-", "−"))
+            r = q["pu239_halves"]
+            cells.append("–" if r is None else f"{r:.4f}")
+            table.append(cells)
+        print(f"\n{Path(s['path']).name} − {Path(b['path']).name}\n")
+        print(markdown_table(header, table))
+        # 極値は --at で選ばない点も含めたすべての燃焼点から
+        dk = [
+            ((q["k"] - p["k"]) * 1e5, p["burnup"])
+            for p, q in zip(b["points"], s["points"])
+        ]
+        drho = [
+            ((1 / p["k"] - 1 / q["k"]) * 1e5, p["burnup"])
+            for p, q in zip(b["points"], s["points"])
+        ]
+        hi, lo = max(dk), min(dk)
+        far = max(drho, key=lambda t: abs(t[0]))
+        print(
+            f"\nΔk: 最大 {signed(hi[0], 2)} pcm（{hi[1]:g} MWd/kg）、最小 {signed(lo[0], 2)} pcm（{lo[1]:g} MWd/kg）。"
+            f"絶対値が最大の Δρ {signed(far[0], 2)} pcm（{far[1]:g} MWd/kg）"
+        )
 
 
 def main() -> None:
     match sys.argv[1:]:
         case ["write"]:
             write()
+        case ["compare", "--at", points, base, *others] if others:
+            at = [float(x) for x in points.split(",")]
+            compare(Path(base), [Path(o) for o in others], at)
         case ["compare", base, *others] if others:
-            compare(Path(base), [Path(o) for o in others])
+            compare(Path(base), [Path(o) for o in others], None)
         case _:
             raise SystemExit(__doc__)
 
