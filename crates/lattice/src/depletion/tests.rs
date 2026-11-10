@@ -2417,7 +2417,7 @@ fn split_sector_materials_take_their_densities_at_the_pooled_cross_sections() {
         &regions,
         &materials,
         &depleted,
-        pooled.len(),
+        &listed,
     )
     .unwrap();
     assert!(
