@@ -439,7 +439,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         upper: Some(400.0),
         cells: 2,
         sweeps: Some(3),
-        heavy: Some(400.0),
+        heavy: Some(HeavyCap::Thermal(400.0)),
         sab: true,
     };
     assert_eq!(FreeGas::default(), fast);
@@ -498,7 +498,15 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     assert_eq!(
         scattering("ufg-free-gas = { heavy = inf }").unwrap(),
         Scattering::FreeGas(FreeGas {
-            heavy: Some(f64::INFINITY),
+            heavy: Some(HeavyCap::Thermal(f64::INFINITY)),
+            ..fast
+        })
+    );
+    // `heavy = { energy = .. }` は温度によらない入射エネルギー (eV) の上限
+    assert_eq!(
+        scattering("ufg-free-gas = { heavy = { energy = 31 } }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            heavy: Some(HeavyCap::Energy(31.0)),
             ..fast
         })
     );
@@ -518,6 +526,12 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         "ufg-free-gas = { heavy = -400 }",
         "ufg-free-gas = { heavy = nan }",
         "ufg-free-gas = { heavy = true }",
+        "ufg-free-gas = { heavy = { energy = 0 } }",
+        "ufg-free-gas = { heavy = { energy = -31 } }",
+        "ufg-free-gas = { heavy = { energy = nan } }",
+        "ufg-free-gas = { heavy = { energy = inf } }",
+        "ufg-free-gas = { heavy = { energy = 31, kt = 400 } }",
+        "ufg-free-gas = { heavy = {} }",
         "ufg-free-gas = { sab = 1 }",
     ] {
         assert!(scattering(bad).is_err(), "{bad}");

@@ -1142,11 +1142,16 @@ fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scatteri
 
 /// [`free_gas`] の、分離共鳴を持つ核種も `heavy`（kT の倍数）より下で自由ガスにするもの
 fn free_gas_heavy(heavy: f64, cells: usize, sweeps: Option<usize>) -> Scattering {
+    free_gas_capped(HeavyCap::Thermal(heavy), cells, sweeps)
+}
+
+/// [`free_gas`] の、分離共鳴を持つ核種も上限 `cap` より下で自由ガスにするもの
+fn free_gas_capped(cap: HeavyCap, cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
         upper: None,
         cells,
         sweeps,
-        heavy: Some(heavy),
+        heavy: Some(cap),
         sab: false,
     })
 }
@@ -1299,6 +1304,30 @@ fn resonant_nuclides_follow_their_own_cap() {
     assert!(
         flux_difference(&capped, &uncapped) > 0.01 * whole,
         "{whole}"
+    );
+}
+
+#[test]
+fn an_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
+    // 温度によらない上限（`HeavyCap::Energy`、eV）は、どの温度でも、その温度でそのエネルギーになる kT の倍数の上限と同じ
+    // 入射エネルギーで自由ガスを止める。10 eV は 6.67 eV の共鳴の上にあり、400 kT（150 K で 5.2 eV）は共鳴の下にある
+    let cap = 10.0;
+    for temperature in [150.0, 300.0] {
+        let kt = free_gas::BOLTZMANN * temperature;
+        let energy = thermal_spectrum(temperature, free_gas_capped(HeavyCap::Energy(cap), 4, None));
+        let multiple = thermal_spectrum(temperature, free_gas_heavy(cap / kt, 4, None));
+        assert!(
+            flux_difference(&energy, &multiple) < 1e-12,
+            "{temperature} K: {}",
+            flux_difference(&energy, &multiple)
+        );
+    }
+    let below = thermal_spectrum(150.0, free_gas_heavy(400.0, 4, None));
+    let above = thermal_spectrum(150.0, free_gas_capped(HeavyCap::Energy(cap), 4, None));
+    assert!(
+        flux_difference(&above, &below) > 1e-5,
+        "{}",
+        flux_difference(&above, &below)
     );
 }
 
@@ -1555,7 +1584,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
         upper: Some(1.0),
         cells: 4,
         sweeps: None,
-        heavy: Some(f64::INFINITY),
+        heavy: Some(HeavyCap::Thermal(f64::INFINITY)),
         sab: false,
     });
     // 群（20〜9.877、9.877〜4 eV）の U-238 の捕獲率
