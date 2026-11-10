@@ -2071,6 +2071,67 @@ def branch_thinning_kinds(sources: list[dict]) -> str:
     )
 
 
+# 格子点の間の内挿の誤差の軸の名前と単位（examples/depletion/verification.md の「Problem 9 の格子点の直積（2A）」）
+GRID_AXIS_LABELS = {
+    "boron": "ホウ素 (ppm)",
+    "moderator": "減速材 (K)",
+    "fuel": "燃料 (K)",
+}
+
+
+def grid_interpolation_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-grid-interpolation":
+        raise TableError("not an xlc-compare-grid-interpolation summary")
+    unknown = sorted(
+        {r["axis"] for r in s["centers"] + s["intervals"]} - set(GRID_AXIS_LABELS)
+    )
+    if unknown:
+        raise TableError(f"no label for the axes {unknown}")
+    return s
+
+
+def grid_burnup_header(s: dict) -> list[str]:
+    return [f"{b:g} MWd/kg (pcm)" for b in s["burnup"]]
+
+
+def grid_interpolation_points(sources: list[dict]) -> str:
+    """直積のテーブルの格子点を両隣から core の式で内挿した差（ADR-0239 の確認）: 格子点ごとの、燃焼度の点ごとの Δρ の絶対値の
+    最大の状態の値（符号つき、pcm）"""
+    s = grid_interpolation_summary(sources)
+    rows = [
+        [
+            GRID_AXIS_LABELS[c["axis"]],
+            f"{c['point']:g}",
+            "、".join(f"{n:g}" for n in c["neighbours"]),
+            f"{c['weight']:.3f}",
+            *(signed(p["worst_pcm"], 2) for p in c["points"]),
+        ]
+        for c in s["centers"]
+    ]
+    return markdown_table(
+        ["軸", "格子点", "両隣", "重み", *grid_burnup_header(s)], rows
+    )
+
+
+def grid_interpolation_intervals(sources: list[dict]) -> str:
+    """本番の間隔の区間の中点の誤差の見込み（測定でない。ADR-0239 の確認）: 区間ごとの、見込みの元の格子点と倍率、燃焼度の点ごとの
+    大きい方の見込み（pcm）"""
+    s = grid_interpolation_summary(sources)
+    rows = [
+        [
+            GRID_AXIS_LABELS[i["axis"]],
+            f"{i['interval'][0]:g}〜{i['interval'][1]:g}",
+            "、".join(f"{f['center']:g}（{f['factor']:.3f}）" for f in i["from"]),
+            *(f"{v:.2f}" for v in i["max_abs_pcm"]),
+        ]
+        for i in s["intervals"]
+    ]
+    return markdown_table(
+        ["軸", "区間", "見込みの元（倍率）", *grid_burnup_header(s)], rows
+    )
+
+
 def micro_linearization(sources: list[dict]) -> str:
     """ミクロ燃焼の線形の補正（ADR-0216）: 燃焼度の点の組ごとの、追う核種の組成の差の輸送の効き、線形の補正の効き、その誤差（pcm）と、
     数密度の相対の変化（%）"""
@@ -4290,6 +4351,14 @@ TABLES = {
     "depletion-p9-product-thinning-kinds": (
         ["examples/depletion/p9-product/compare-2A.json"],
         branch_thinning_kinds,
+    ),
+    "depletion-p9-product-grid-points": (
+        ["examples/depletion/p9-product/grid-2A.json"],
+        grid_interpolation_points,
+    ),
+    "depletion-p9-product-grid-intervals": (
+        ["examples/depletion/p9-product/grid-2A.json"],
+        grid_interpolation_intervals,
     ),
     "depletion-burnup-interpolation-points": (
         ["examples/depletion/branches/compare-burnup-interpolation.json"],
