@@ -22,7 +22,7 @@ Problem 9 の本番の燃焼度のテーブルの公称の状態（ブランチ 
 前提:
 
 - p2 のライブラリ（examples/depletion/p2/xs.toml、main 6db48b8b8）は、H-1 を除く 544 核種（輸送する 89 核種と、放射化だけの 455 核種。ADR-0238）がどれも 565、600 K を持ち、H-1 は S(α,β) の
-  550、573.6、600 K を持つ。ブランチ feat/production-burnup-table-grid（3819d4838）の版は、H-1 を除く同じ 544 核種がどれも同じ 13 の温度
+  550、573.6、600 K を持つ。ブランチ feat/production-burnup-table-grid（1f3b15eaf）の版は、H-1 を除く同じ 544 核種がどれも同じ 13 の温度
   （560〜1350 K。900 K と 580 K を含む）を持ち、H-1 は 550、573.6、600、623.6 K を持つ。どちらのライブラリも、H-1 を除けば核種ごとの
   温度の一覧が同じ
 - 燃焼の履歴は輸送する核種の並びを 1 つ（`History::transportable`）持つ。分岐（crates/lattice/src/history.rs）は、その並びを燃焼の
