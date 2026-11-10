@@ -97,7 +97,8 @@ examples/depletion/p9-product/branch-2A.toml と同じで、燃料の温度の�
 
 ### 修正の候補の測定
 
-ADR-0243 で比べた候補。入力は examples/depletion/issue-0274/ の TOML、実行ファイルはブランチ fix/0274-heavy-free-gas-cap のコミット
+ADR-0243 で比べた候補。入力はコミット 01868cbb9 の examples/depletion/issue-0274/ の TOML（`pin-default`、`pin-full`、`scan-default` は
+dbd5a7ea5 で `heavy = 400` を明示したもの）、実行ファイルはブランチ fix/0274-heavy-free-gas-cap のコミット
 fc3fa8abb の `target/release/lattice`（分岐点は main の fa4e6f5dd）、2026-11-10、手元の 8 スレッド。kT の倍数の経路は分岐点と同じ結果で、
 `pin-default` の少数群定数の md5（06f9f826）が main の bin/lattice の出力と同じ。入力ごとに
 `RAYON_NUM_THREADS=8 ../../../target/release/lattice <入力>.toml > <入力>.out 2> <入力>.log`（`cap-900/` の入力は `cap-900/` で
@@ -135,6 +136,15 @@ ADR-0204、ADR-0205、ADR-0209 が OpenMC と参照に比べた #0133 のピン�
 
 上限なしのスイープ（`cap-900/sweeps-inf.toml`、`sweeps-12.toml`）: 収束までは、中性子束の相対変化が 2 回目の 0.22 から 11 回目の 3.7e-10
 まで回ごとに 1 桁ほど下がり、12 回目から 50 回目まで 1.3〜2.2e-10 で止まって収束しない（#0179）。3 回（既定）の k は 12 回より 1.2 pcm 低い。
+
+既定を 31 eV にした後に changed になる DVC のステージ（ブランチの 45e595ce4 で `dvc repro dvc.yaml:build` の後に
+`scripts/count-changed-stages.py`、2026-11-11）: 20 の dvc.yaml の 525（deps の変更が 521）。bin/lattice のバイトが変わったことで、lattice を
+呼ぶステージはどれも changed になる（既定を変えない入力の追加だけでも同じ）。この数には、分岐点の main で既に changed のステージ
+（examples/vera/endfb70/openmc の出力の変更 7、examples/vera の command の変更 1、always changed 4 など）も入り、分けていない。出力が
+既定の変更で実際に変わるのは、`ufg-free-gas.heavy` を書かずに分離共鳴を持つ核種を自己遮蔽する lattice のステージとその下流で、燃料
+900 K の状態の変化は #0133 のピンセルで 1.2〜1.8 pcm。作り直す時間の合計は、全体を同じジョブで流したログが無いので見積もっていない。
+次に作り直す 2A の直積のテーブル（examples/depletion/p9-product/dvc.yaml の `lattice-2A`、`branch-2A`、`compare-2A`）は、Slurm 728 の
+3 時間 40 分 36 秒（3 つのステージ。割り込まれうるジョブの時間で、目安）。
 
 ## 完了の条件
 
