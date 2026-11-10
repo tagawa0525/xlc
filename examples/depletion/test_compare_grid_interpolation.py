@@ -218,6 +218,12 @@ class Inputs(unittest.TestCase):
         with self.assertRaises(SystemExit):
             cgi.summarize(t)
 
+    def test_a_rod_axis_is_refused_as_table_grid_refuses_it(self):
+        t = table(linear_in_transforms)
+        t["axes"].append({"name": "rod", "values": ["out", "in"]})
+        with self.assertRaisesRegex(SystemExit, "second table"):
+            cgi.summarize(t)
+
     def test_the_table_must_hold_the_product_of_its_axes(self):
         t = table(linear_in_transforms)
         t["points"], t["states"] = t["points"][:-1], t["states"][:-1]
