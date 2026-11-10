@@ -231,17 +231,22 @@ class Inputs(unittest.TestCase):
             cgi.summarize(t)
 
     def test_the_command_writes_the_summary_with_its_inputs(self):
+        # 入力の TOML のテーブルは TOML のディレクトリからのパスで、要約の `inputs` は TOML とテーブルのパスと md5
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            source = root / "table.msgpack"
-            source.write_bytes(msgpack.packb(table(moderator_square)))
+            (root / "table.msgpack").write_bytes(msgpack.packb(wide_table(fuel_cubic)))
+            config = root / "grid.toml"
+            config.write_text(
+                'table = "table.msgpack"\n'
+                '[[scheme]]\naxis = "fuel"\nvariable = "sqrt"\nmethod = "lagrange"\n'
+            )
             output = root / "grid.json"
             argv = sys.argv
             sys.argv = [
                 "compare_grid_interpolation.py",
                 "--json",
                 str(output),
-                str(source),
+                str(config),
             ]
             try:
                 cgi.main()
@@ -249,11 +254,226 @@ class Inputs(unittest.TestCase):
                 sys.argv = argv
             summary = json.loads(output.read_text())
             self.assertEqual(summary["format"], "xlc-compare-grid-interpolation")
-            self.assertEqual([i["path"] for i in summary["inputs"]], [str(source)])
+            self.assertEqual(
+                [i["path"] for i in summary["inputs"]],
+                [str(config), str(root / "table.msgpack")],
+            )
+            self.assertEqual(
+                [(x["axis"], x["variable"], x["method"]) for x in summary["schemes"]],
+                [("fuel", "sqrt", "lagrange")],
+            )
             self.assertTrue(cgi.report(summary))
             del summary["inputs"]
             with self.assertRaises(SystemExit):
                 cgi.report(summary)
+
+
+# 内側の格子点を除いた格子に 4 点の方式（`lagrange`）が使えるよう、どの軸も 6 点。減速材の密度は温度の線形でない
+WIDE_BORON = [0.0, 325.0, 650.0, 975.0, 1300.0, 1625.0]
+WIDE_MODERATOR = [560.0, 570.0, 580.0, 590.0, 600.0, 610.0]
+WIDE_DENSITY = [1.2 - 1.2e-6 * t * t for t in WIDE_MODERATOR]
+WIDE_FUEL = [560.0, 600.0, 750.0, 900.0, 1050.0, 1200.0]
+
+
+def wide_table(g) -> dict:
+    """6 点の軸の直積で、各状態の νΣf2 が g(燃焼度, ホウ素, 減速材の番号, 燃料) の状態"""
+    t = {
+        "format": "xlc-table",
+        "split": 1,
+        "axes": [
+            {"name": "burnup", "points": BURNUP},
+            {
+                "name": "boron",
+                "points": WIDE_BORON,
+                "b10": 0.199,
+                "nominal": 650.0,
+                "transform": "linear",
+            },
+            {
+                "name": "moderator",
+                "points": WIDE_MODERATOR,
+                "density": WIDE_DENSITY,
+                "nominal": 580.0,
+                "transform": "linear",
+            },
+            {
+                "name": "fuel",
+                "points": WIDE_FUEL,
+                "nominal": 900.0,
+                "transform": "sqrt",
+            },
+        ],
+    }
+    sizes = [len(a["points"]) for a in t["axes"]]
+    t["points"] = [list(p) for p in itertools.product(*[range(n) for n in sizes])]
+    t["states"] = [
+        state(g(u, b, m, f))
+        for u, b, m, f in itertools.product(
+            BURNUP, WIDE_BORON, range(len(WIDE_MODERATOR)), WIDE_FUEL
+        )
+    ]
+    return t
+
+
+def boron_square(u, b, m, f) -> float:
+    return 0.1 + 1e-8 * (1 + u) * (b - 300.0) ** 2
+
+
+def fuel_cubic(u, b, m, f) -> float:
+    r = math.sqrt(f) - 30.0
+    return 0.1 + 1e-5 * (1 + u) * (r**3 + r * r)
+
+
+def linear_in_density(u, b, m, f) -> float:
+    return 0.1 + 0.05 * WIDE_DENSITY[m]
+
+
+def linear_in_log(u, b, m, f) -> float:
+    return 0.1 + 0.01 * math.log(f)
+
+
+def scheme(summary: dict, axis: str, variable: str, method: str) -> dict:
+    (s,) = [
+        s
+        for s in summary["schemes"]
+        if (s["axis"], s["variable"], s["method"]) == (axis, variable, method)
+    ]
+    return s
+
+
+def scheme_max(summary: dict, axis: str, variable: str, method: str) -> float:
+    return max(
+        p["max_abs_pcm"]
+        for c in scheme(summary, axis, variable, method)["centers"]
+        for p in c["points"]
+    )
+
+
+def schemes(*specs) -> list[dict]:
+    return [{"axis": a, "variable": v, "method": m} for a, v, m in specs]
+
+
+class Schemes(unittest.TestCase):
+    def test_each_scheme_has_the_error_at_each_inner_point_and_burnup(self):
+        s = cgi.summarize(
+            wide_table(boron_square), schemes(("boron", "value", "hermite"))
+        )
+        (x,) = s["schemes"]
+        self.assertEqual([c["point"] for c in x["centers"]], WIDE_BORON[1:-1])
+        for c in x["centers"]:
+            self.assertEqual([p["burnup"] for p in c["points"]], BURNUP)
+
+    def test_the_linear_scheme_in_the_axis_transform_is_the_core_interpolation(self):
+        specs = schemes(("moderator", "value", "linear"), ("fuel", "sqrt", "linear"))
+        s = cgi.summarize(wide_table(fuel_cubic), specs)
+        for spec in specs:
+            centers = [c for c in s["centers"] if c["axis"] == spec["axis"]]
+            x = scheme(s, spec["axis"], spec["variable"], spec["method"])
+            self.assertEqual(
+                [[p["worst_pcm"] for p in c["points"]] for c in x["centers"]],
+                [[p["worst_pcm"] for p in c["points"]] for c in centers],
+            )
+
+    def test_hermite_reproduces_a_quadratic_in_its_variable(self):
+        # 傾きを 3 点の放物線で取る 3 次 Hermite（core の燃焼度の軸。ADR-0192）は 2 次の関数を厳密に再現する
+        s = cgi.summarize(
+            wide_table(boron_square),
+            schemes(("boron", "value", "hermite"), ("boron", "value", "linear")),
+        )
+        self.assertLess(scheme_max(s, "boron", "value", "hermite"), 1e-9)
+        self.assertGreater(scheme_max(s, "boron", "value", "linear"), 1e-3)
+
+    def test_lagrange_reproduces_a_cubic_in_its_variable(self):
+        s = cgi.summarize(
+            wide_table(fuel_cubic),
+            schemes(("fuel", "sqrt", "lagrange"), ("fuel", "sqrt", "hermite")),
+        )
+        self.assertLess(scheme_max(s, "fuel", "sqrt", "lagrange"), 1e-9)
+        self.assertGreater(scheme_max(s, "fuel", "sqrt", "hermite"), 1e-3)
+
+    def test_spline_is_the_natural_cubic_spline_of_the_remaining_points(self):
+        from scipy.interpolate import CubicSpline
+
+        s = cgi.summarize(wide_table(fuel_cubic), schemes(("fuel", "sqrt", "spline")))
+        g = [math.sqrt(f) for f in WIDE_FUEL]
+        for c in scheme(s, "fuel", "sqrt", "spline")["centers"]:
+            i = WIDE_FUEL.index(c["point"])
+            for p, u in zip(c["points"], BURNUP, strict=True):
+                worst = None
+                for b, m in itertools.product(WIDE_BORON, range(len(WIDE_MODERATOR))):
+                    rest = [k for k in range(len(g)) if k != i]
+                    spline = CubicSpline(
+                        [g[k] for k in rest],
+                        [fuel_cubic(u, b, m, WIDE_FUEL[k]) for k in rest],
+                        bc_type="natural",
+                    )
+                    truth = state(fuel_cubic(u, b, m, WIDE_FUEL[i]))
+                    rebuilt = state(float(spline(g[i])))
+                    rho = (1 / k_inf(truth) - 1 / k_inf(rebuilt)) * 1e5
+                    if worst is None or abs(rho) > abs(worst):
+                        worst = rho
+                self.assertAlmostEqual(p["worst_pcm"], worst, places=8)
+
+    def test_the_density_variable_interpolates_in_the_axis_densities(self):
+        s = cgi.summarize(
+            wide_table(linear_in_density),
+            schemes(
+                ("moderator", "density", "linear"), ("moderator", "value", "linear")
+            ),
+        )
+        self.assertLess(scheme_max(s, "moderator", "density", "linear"), 1e-9)
+        self.assertGreater(scheme_max(s, "moderator", "value", "linear"), 1e-3)
+
+    def test_the_log_variable_interpolates_in_the_logarithm(self):
+        s = cgi.summarize(
+            wide_table(linear_in_log),
+            schemes(("fuel", "log", "linear"), ("fuel", "sqrt", "linear")),
+        )
+        self.assertLess(scheme_max(s, "fuel", "log", "linear"), 1e-9)
+        self.assertGreater(scheme_max(s, "fuel", "sqrt", "linear"), 1e-3)
+
+
+class SchemeInputs(unittest.TestCase):
+    def test_unknown_axes_variables_and_methods_are_errors(self):
+        t = wide_table(boron_square)
+        for spec in (
+            ("rod", "value", "linear"),
+            ("boron", "cube", "linear"),
+            ("boron", "value", "akima"),
+            ("fuel", "density", "linear"),
+            # ホウ素の軸は 0 ppm を持つ
+            ("boron", "log", "linear"),
+        ):
+            with self.assertRaises(SystemExit):
+                cgi.summarize(t, schemes(spec))
+
+    def test_the_density_variable_needs_densities_falling_with_the_temperature(self):
+        # 密度の列が単調でなければ区間の選び方が崩れ、黙って誤った値になる（手で決めた密度のテーブルなど）
+        for density in (
+            [0.75, 0.73, 0.73, 0.69, 0.68, 0.67],
+            [0.75, 0.73, 0.74, 0.69, 0.68, 0.67],
+        ):
+            t = wide_table(linear_in_density)
+            t["axes"][2]["density"] = density
+            with self.assertRaises(SystemExit):
+                cgi.summarize(t, schemes(("moderator", "density", "linear")))
+
+    def test_a_method_needs_enough_points_without_the_inner_point(self):
+        # 4 点の軸では、内側の格子点を除くと 3 点で、4 点の lagrange は使えない（黙って次数を下げない）
+        t = table(linear_in_transforms)
+        t["axes"][2]["points"] = [560.0, 570.0, 575.0, 590.0]
+        t["axes"][2]["density"] = [0.75, 0.73, 0.72, 0.69]
+        sizes = [len(a["points"]) for a in t["axes"]]
+        t["points"] = [list(p) for p in itertools.product(*[range(n) for n in sizes])]
+        t["states"] = [
+            state(linear_in_transforms(u, b, m, f))
+            for u, b, m, f in itertools.product(
+                BURNUP, BORON, t["axes"][2]["points"], FUEL
+            )
+        ]
+        cgi.summarize(t, schemes(("moderator", "value", "hermite")))
+        with self.assertRaises(SystemExit):
+            cgi.summarize(t, schemes(("moderator", "value", "lagrange")))
 
 
 if __name__ == "__main__":

@@ -40,9 +40,10 @@ stages:
       - compare-2A.json:
           cache: false
   grid-2A:
-    # 格子点の間の内挿の誤差（ADR-0239 の確認）の要約（数十 KB。git で追跡する）
-    cmd: python3 ../compare_grid_interpolation.py --json grid-2A.json table-2A.msgpack
+    # 格子点の間の内挿の誤差（ADR-0239 の確認）の、core の式と内挿の変数と方式の候補の要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_grid_interpolation.py --json grid-2A.json grid-2A.toml
     deps:
+      - grid-2A.toml
       - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast

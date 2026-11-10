@@ -1,0 +1,126 @@
+# 格子点の間の内挿の誤差（ADR-0239 の確認）を、core の今の式（軸の内挿の変数について隣の 2 点の線形）と、内挿の変数と方式の候補で
+# 測る（compare_grid_interpolation.py の入力。#0176）。候補ごとに、内側の格子点を、その点を除いたその軸の格子点から内挿して比べる。
+# 変数の候補: ホウ素は値（ppm）、減速材は温度と格子点の密度（ADR-0229 の案 T2）、燃料は √T（今の式）、温度、ln T。方式の候補は
+# ADR-0192 が燃焼度の軸で比べたもののうち、値が格子点の値の線形結合のもの（PCHIP と Akima は傾きが値に依るので除く）
+
+table = "table-2A.msgpack"
+
+[[scheme]]
+axis = "boron"
+variable = "value"
+method = "linear"
+
+[[scheme]]
+axis = "boron"
+variable = "value"
+method = "hermite"
+
+[[scheme]]
+axis = "boron"
+variable = "value"
+method = "lagrange"
+
+[[scheme]]
+axis = "boron"
+variable = "value"
+method = "spline"
+
+[[scheme]]
+axis = "moderator"
+variable = "value"
+method = "linear"
+
+[[scheme]]
+axis = "moderator"
+variable = "value"
+method = "hermite"
+
+[[scheme]]
+axis = "moderator"
+variable = "value"
+method = "lagrange"
+
+[[scheme]]
+axis = "moderator"
+variable = "value"
+method = "spline"
+
+[[scheme]]
+axis = "moderator"
+variable = "density"
+method = "linear"
+
+[[scheme]]
+axis = "moderator"
+variable = "density"
+method = "hermite"
+
+[[scheme]]
+axis = "moderator"
+variable = "density"
+method = "lagrange"
+
+[[scheme]]
+axis = "moderator"
+variable = "density"
+method = "spline"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "linear"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "lagrange"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "spline"
+
+[[scheme]]
+axis = "fuel"
+variable = "value"
+method = "linear"
+
+[[scheme]]
+axis = "fuel"
+variable = "value"
+method = "hermite"
+
+[[scheme]]
+axis = "fuel"
+variable = "value"
+method = "lagrange"
+
+[[scheme]]
+axis = "fuel"
+variable = "value"
+method = "spline"
+
+[[scheme]]
+axis = "fuel"
+variable = "log"
+method = "linear"
+
+[[scheme]]
+axis = "fuel"
+variable = "log"
+method = "hermite"
+
+[[scheme]]
+axis = "fuel"
+variable = "log"
+method = "lagrange"
+
+[[scheme]]
+axis = "fuel"
+variable = "log"
+method = "spline"
