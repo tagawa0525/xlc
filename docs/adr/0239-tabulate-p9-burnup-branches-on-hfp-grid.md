@@ -233,9 +233,11 @@ Pyrex を燃焼させるのに要り、公称を案 N1 の HZP の条件にす�
 
 - ライブラリ: 足した後のライブラリ（Slurm 727、ブランチの bf7c9e914、分岐点 6db48b8b8、2026-11-10）の 545 核種すべての核種ごとの出力
   （examples/depletion/p2/xs-nuclides）で、前からある温度の表（H-1 を除く 544 核種の 565、600 K と、H-1 の 550、573.6、600 K の
-  計 1,091 表）は、足す前の出力（main の examples/depletion/p2/dvc.lock の md5 で DVC のキャッシュから読んだもの）と項目ごとに等しい。
+  計 1,091 表）は、足す前の出力（分岐点 6db48b8b8 の examples/depletion/p2/dvc.lock の md5 で DVC のキャッシュから読んだもの）と項目ごとに等しい。
   比べ方は、msgpack を読み、温度の表ごとにすべての項目を msgpack に書き直したバイト列で比べ、温度の表の外の項目（群の境界、σ0、
-  核種の定数など）も同じく比べた手元の確認（trials の一時のスクリプトで、コミットしていない）で、食い違いは 0。足した後の温度の点は、
+  核種の定数など）も同じく比べる。examples/depletion/p2/compare_library_temperatures.py（コミット 1fa8a8c7c）を、worktree の直下で
+  `python3 examples/depletion/p2/compare_library_temperatures.py <(git show 6db48b8b8:examples/depletion/p2/dvc.lock) examples/depletion/p2/dvc.lock references/dvc-cache examples/depletion/p2`
+  として実行し（2026-11-10、手元）、食い違いは 0（`mismatches=0`、終了コード 0）。足した後の温度の点は、
   H-1 を除く 544 核種が 13 点、H-1 が 4 点で、決定のとおり。実行ファイル bin/xs は前後で同じ（p2 の dvc.lock の deps の md5 が
   前後とも 9907083f で、worktree の bin/xs の md5 も同じ）
 - 格子点の間の内挿の誤差: 2A の直積の確認（上の帰結）のテーブルで、ADR-0230 の確認と同じく格子点を両隣から内挿した差を測る
