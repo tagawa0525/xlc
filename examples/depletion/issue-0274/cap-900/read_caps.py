@@ -3,7 +3,8 @@
 
 使い方: python3 read_caps.py <静止した標的のテーブル> <上限のテーブル>...
 
-上限のテーブルの名前は h-<kT の倍数か inf>.msgpack。テーブルごとに、上限のエネルギー（倍数 × 900 K の kT）、静止した標的からの
+上限のテーブルの名前は h-<kT の倍数か inf>.msgpack（`h-*.msgpack` のように静止した標的のテーブルを含めて渡してもよく、静止した
+標的のテーブルは上限の並びから除く。同じ倍数を 2 度渡すと止める）。テーブルごとに、上限のエネルギー（倍数 × 900 K の kT）、静止した標的からの
 反応度の差 1/k(静止) − 1/k(上限)（pcm）、高速群の吸収の相対差 (上限 − 静止)/静止（1e-5）を、上限のエネルギーの順に出す。
 """
 
@@ -29,14 +30,27 @@ def multiple(path):
     if not (name.startswith("h-") and name.endswith(".msgpack")):
         raise SystemExit(f"{path}: the name must be h-<multiple of kT or inf>.msgpack")
     value = name[2 : -len(".msgpack")]
-    return math.inf if value == "inf" else float(value)
+    if value == "inf":
+        return math.inf
+    try:
+        return float(value)
+    except ValueError:
+        raise SystemExit(
+            f"{path}: the name must be h-<multiple of kT or inf>.msgpack"
+        ) from None
 
 
 def main() -> None:
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
     static = state(sys.argv[1])
-    rows = sorted((multiple(p), state(p)) for p in sys.argv[2:])
+    paths = [
+        p for p in sys.argv[2:] if Path(p).resolve() != Path(sys.argv[1]).resolve()
+    ]
+    multiples = [multiple(p) for p in paths]
+    if len(set(multiples)) != len(multiples):
+        raise SystemExit("each multiple of kT must be given once")
+    rows = sorted(zip(multiples, map(state, paths)), key=lambda row: row[0])
     print("上限 (kT)  上限 (eV)  反応度の差 (pcm)  高速群の吸収の差 (1e-5)")
     for n, s in rows:
         energy = n * BOLTZMANN * TEMPERATURE
