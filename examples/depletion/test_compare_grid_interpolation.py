@@ -447,6 +447,17 @@ class SchemeInputs(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 cgi.summarize(t, schemes(spec))
 
+    def test_the_density_variable_needs_densities_falling_with_the_temperature(self):
+        # 密度の列が単調でなければ区間の選び方が崩れ、黙って誤った値になる（手で決めた密度のテーブルなど）
+        for density in (
+            [0.75, 0.73, 0.73, 0.69, 0.68, 0.67],
+            [0.75, 0.73, 0.74, 0.69, 0.68, 0.67],
+        ):
+            t = wide_table(linear_in_density)
+            t["axes"][2]["density"] = density
+            with self.assertRaises(SystemExit):
+                cgi.summarize(t, schemes(("moderator", "density", "linear")))
+
     def test_a_method_needs_enough_points_without_the_inner_point(self):
         # 4 点の軸では、内側の格子点を除くと 3 点で、4 点の lagrange は使えない（黙って次数を下げない）
         t = table(linear_in_transforms)
