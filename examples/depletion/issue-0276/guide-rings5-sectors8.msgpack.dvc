@@ -1,0 +1,5 @@
+outs:
+- md5: 7ce0781670ebe54c809fb1ddf1fcfee5
+  size: 56425459
+  hash: md5
+  path: guide-rings5-sectors8.msgpack

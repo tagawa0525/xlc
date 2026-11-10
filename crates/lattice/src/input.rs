@@ -90,8 +90,10 @@
 //! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
 //! shielding = "every-transport"  # 自己遮蔽を解く輸送（"every-transport" か "step-start"。省略すると every-transport。ADR-0197）
+//! sectors = 8                     # 燃焼させる物質の領域を、x 軸から等角度の 4 か 8 の扇形の組ごとにも分ける（燃焼させる物質の
+//!                                 # セルの sectors がその倍数であること。省略すると分けない。ADR-0244）
 //! # 既存の燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（途中で条件を変えた燃焼。ADR-0215 の確認。省略すると燃焼度 0 の
-//! # 入力の組成から）。燃焼の領域（物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数。MOC の領域の番号はこの入力の
+//! # 入力の組成から）。燃焼の領域（物質、組の代表のセル、扇形の組の番号（ADR-0244）、組のセルの位置、体積、MOC の領域の数。MOC の領域の番号はこの入力の
 //! # 格子のもので、燃料のセルの組が同じなら案内管の中身を変えてよい。ADR-0226）とチェーンの核種、輸送する核種、燃焼させる物質の組成（履歴の燃焼度 0 の数密度）、`few-group` の
 //! # 有無と群境界と `pins` は履歴と同じで、履歴は続けた履歴でないこと。burnup には続ける点より後の点だけを書く。出力は、続ける
 //! # 点より前の点を履歴から引き継いだ、燃焼度 0 からの 1 本の履歴になる。続ける点は、履歴の組成と時間をこの入力の条件で解き
@@ -463,6 +465,8 @@ struct DepletionEntry {
     few_group: Option<DepletionFewGroupEntry>,
     /// 省略すると輸送のたびに解く（ADR-0197）
     shielding: Option<ShieldingEntry>,
+    /// 省略すると扇形に分けない（ADR-0244）
+    sectors: Option<usize>,
     /// 省略すると燃焼度 0 の入力の組成から燃焼させる
     #[serde(rename = "continue")]
     continue_from: Option<ContinueEntry>,
@@ -1284,6 +1288,14 @@ impl LatticeInput {
                 if d.materials.is_empty() {
                     return Err("depletion needs the materials to deplete".into());
                 }
+                // 扇形の境界（4 は軸、8 は軸と対角線）が正方形の対称操作で境界に移る数だけ。分けないことは書かないことで表す
+                if let Some(n) = d.sectors
+                    && ![4, 8].contains(&n)
+                {
+                    return Err(format!(
+                        "the depletion sectors must be 4 or 8 (leave them out not to split), got {n}"
+                    ));
+                }
                 for (k, name) in d.materials.iter().enumerate() {
                     if d.materials[..k].contains(name) {
                         return Err(format!("depleted material `{name}` is listed twice"));
@@ -1311,6 +1323,7 @@ impl LatticeInput {
                         }
                         Some(ShieldingEntry::StepStart) => ShieldingFrequency::StepStart,
                     },
+                    sectors: d.sectors,
                     continue_from: d.continue_from.map(|c| ContinueFrom {
                         file: c.file,
                         burnup: c.burnup,

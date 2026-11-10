@@ -1499,6 +1499,7 @@ fn shielded_pin_with(
         &lattice,
         &region_materials,
         &representatives,
+        &vec![None; lattice.regions()],
         &["fuel".to_string()],
     );
     let shielded = shield_fuel_with(
@@ -2136,4 +2137,320 @@ fn continuing_needs_the_positions_of_the_cells_of_the_history() {
     );
     let err = continue_simply(&row, &library, &nominal).unwrap_err();
     assert!(format!("{err:#}").contains("depletion regions"), "{err:#}");
+}
+
+/// 中央を水のセルにした 3 × 3 の格子の行。角のピンの組と辺のピンの組ができる
+const AROUND_WATER: &str = "[\"pin pin pin\", \"pin box pin\", \"pin pin pin\"]";
+
+/// `PIN` のピンを 8 つの扇形に切り、格子を `rows` にして、`[depletion]` に `extra` を足した入力（`box` は水の均質なセル）
+fn sectored(rows: &str, extra: &str) -> String {
+    let text = PIN
+        .replace("rows = [\"pin\"]", &format!("rows = {rows}"))
+        .replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n");
+    format!("{text}{extra}\n[cell.box]\nzones = [{{ material = \"water\", rings = 1 }}]\n")
+}
+
+/// 燃焼の領域ごとの MOC の領域の数（小さい順）
+fn region_sizes(history: &History) -> Vec<usize> {
+    let mut sizes: Vec<usize> = history.regions.iter().map(|d| d.regions.len()).collect();
+    sizes.sort_unstable();
+    sizes
+}
+
+#[test]
+fn fuel_sectors_deplete_as_the_symmetry_orbits_of_the_sectors() {
+    // 8 本のピンの 64 の扇形。分けなければ角と辺のピンの組ごとに 32。8 つに分けると、角のピンは対角線の鏡映で、辺のピンは辺に
+    // 垂直な鏡映で扇形が 2 つずつ移り合い、組ごとに 4 つ（MOC の領域 8 ずつ）。4 つ（象限）に分けると、角のピンは水に向く象限、
+    // 外を向く象限、両脇の 2 つの象限の 3 つ、辺のピンは水の側と外の側の 2 つ
+    let unsplit = deplete_input(&sectored(AROUND_WATER, ""));
+    assert_eq!(region_sizes(&unsplit), [32, 32]);
+    let eight = deplete_input(&sectored(AROUND_WATER, "sectors = 8\n"));
+    assert_eq!(region_sizes(&eight), [8; 8]);
+    let four = deplete_input(&sectored(AROUND_WATER, "sectors = 4\n"));
+    assert_eq!(region_sizes(&four), [8, 8, 16, 16, 16]);
+    for history in [&eight, &four] {
+        assert!(history.regions.iter().all(|d| d.material == "fuel"));
+        let cells: Vec<usize> = history.regions.iter().map(|d| d.cell).collect();
+        assert!(cells.windows(2).all(|w| w[0] <= w[1]), "{cells:?}");
+    }
+}
+
+#[test]
+fn fuel_sectors_start_like_the_unsplit_pins_and_burn_unevenly() {
+    let unsplit = deplete_input(&sectored(AROUND_WATER, ""));
+    let split = deplete_input(&sectored(AROUND_WATER, "sectors = 8\n"));
+    // 初めの組成は同じなので、0 の点は丸めの誤差の範囲で同じ
+    let (a, b) = (unsplit.points[0].k, split.points[0].k);
+    assert!((a - b).abs() <= 1e-12, "{a} vs {b}");
+    // 水に近い扇形は熱中性子束が高く、U-235 が速く減る。同じピンの組の扇形の U-235 は違い、体積の平均は分けない燃焼に近い
+    let last = split.points.len() - 1;
+    for whole in 0..unsplit.regions.len() {
+        let cell = unsplit.regions[whole].cell;
+        let parts: Vec<usize> = (0..split.regions.len())
+            .filter(|&k| split.regions[k].cell == cell)
+            .collect();
+        assert_eq!(parts.len(), 4);
+        let u235 = |k: usize| split.points[last].densities[k][U235];
+        let (low, high) = parts.iter().fold((f64::MAX, 0.0_f64), |(l, h), &k| {
+            (l.min(u235(k)), h.max(u235(k)))
+        });
+        assert!(high / low - 1.0 > 1e-5, "{low} {high}");
+        let volume: f64 = parts.iter().map(|&k| split.regions[k].volume).sum();
+        let mean: f64 = parts
+            .iter()
+            .map(|&k| split.regions[k].volume * u235(k))
+            .sum::<f64>()
+            / volume;
+        let reference = unsplit.points[last].densities[whole][U235];
+        assert!(
+            (mean / reference - 1.0).abs() < 1e-3,
+            "{mean} vs {reference}"
+        );
+        assert!(
+            (volume - unsplit.regions[whole].volume).abs() <= 1e-12 * volume,
+            "{volume} vs {}",
+            unsplit.regions[whole].volume
+        );
+    }
+}
+
+#[test]
+fn sectors_of_one_orbit_deplete_like_the_unsplit_pin() {
+    // 1 本のピンセルは 8 つの対称操作で 8 つの扇形がすべて移り合い、燃焼の領域は 1 つのまま
+    let unsplit = deplete_input(&sectored("[\"pin\"]", ""));
+    let split = deplete_input(&sectored("[\"pin\"]", "sectors = 8\n"));
+    assert_eq!(split.regions.len(), 1);
+    assert_eq!(split.regions[0].regions, unsplit.regions[0].regions);
+    for (s, u) in split.points.iter().zip(&unsplit.points) {
+        assert!((s.k - u.k).abs() <= 1e-12, "{} vs {}", s.k, u.k);
+        for (a, b) in s.densities[0].iter().zip(&u.densities[0]) {
+            assert!((a - b).abs() <= 1e-10 * a.abs().max(b.abs()), "{a} vs {b}");
+        }
+    }
+}
+
+#[test]
+fn depletion_sectors_need_cells_cut_into_a_multiple_of_them() {
+    // `PIN` のピンは扇形に切っていない（1 つ）。8 つに切ったピンは 4 つにも 8 つにも分けられる
+    let library = library();
+    let err = deplete_from(
+        &format!("{PIN}sectors = 4\n"),
+        &library,
+        &Options::default(),
+        None,
+        &mut |_, _, _| Ok(()),
+    )
+    .unwrap_err();
+    assert!(format!("{err:#}").contains("sectors"), "{err:#}");
+    let four = PIN.replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 4\n");
+    let err = deplete_from(
+        &format!("{four}sectors = 8\n"),
+        &library,
+        &Options::default(),
+        None,
+        &mut |_, _, _| Ok(()),
+    )
+    .unwrap_err();
+    assert!(format!("{err:#}").contains("sectors"), "{err:#}");
+    assert_eq!(
+        deplete_input(&format!("{four}sectors = 4\n")).regions.len(),
+        1
+    );
+}
+
+/// 履歴のファイルの燃焼の領域ごとの `sector` のキーの値（キーが無ければ `None`）
+fn written_sectors(history: &History) -> Vec<Option<u64>> {
+    let bytes = history.to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    let field = |map: &rmpv::Value, key: &str| -> Option<rmpv::Value> {
+        map.as_map()
+            .unwrap()
+            .iter()
+            .find(|(k, _)| k.as_str() == Some(key))
+            .map(|(_, v)| v.clone())
+    };
+    field(&value, "regions")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| field(d, "sector").map(|s| s.as_u64().unwrap()))
+        .collect()
+}
+
+#[test]
+fn histories_write_the_sector_of_split_regions_only() {
+    let unsplit = deplete_input(&sectored(AROUND_WATER, ""));
+    assert_eq!(written_sectors(&unsplit), [None, None]);
+    let split = deplete_input(&sectored(AROUND_WATER, "sectors = 4\n"));
+    let sectors = written_sectors(&split);
+    assert!(sectors.iter().all(Option::is_some), "{sectors:?}");
+    // 同じピンの組の扇形の番号は違う
+    for (a, da) in sectors.iter().zip(&split.regions) {
+        for (b, db) in sectors.iter().zip(&split.regions) {
+            if !std::ptr::eq(da, db) && da.cell == db.cell {
+                assert_ne!(a, b);
+            }
+        }
+    }
+    let read = History::from_msgpack(&split.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read.regions, split.regions);
+    assert_eq!(read.to_msgpack().unwrap(), split.to_msgpack().unwrap());
+}
+
+#[test]
+fn step_start_shielding_remixes_sector_regions() {
+    // テストのライブラリの群定数は σ0 によらないので、ステップの始まりだけで解いた自己遮蔽で扇形の物質を作り直しても、輸送の
+    // たびに解いたときと丸めの誤差の範囲で等しい。扇形の物質は 2 つの経路で丸めが違い（数密度で 1e-14 の程度）、既定の判定の
+    // MOC では k がその 100 倍ほど揺れるので、MOC を細かく解く
+    let library = library();
+    let every = deplete_with_moc(&sectored(AROUND_WATER, "sectors = 8\n"), &library, &tight());
+    let start = deplete_with_moc(
+        &sectored(AROUND_WATER, "sectors = 8\nshielding = \"step-start\"\n"),
+        &library,
+        &tight(),
+    );
+    assert_eq!(start.shieldings, 4);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * a.abs().max(b.abs());
+    for (s, e) in start.points.iter().zip(&every.points) {
+        assert!(close(s.k, e.k), "{} vs {}", s.k, e.k);
+        for (ns, ne) in s
+            .densities
+            .iter()
+            .flatten()
+            .zip(e.densities.iter().flatten())
+        {
+            assert!(close(*ns, *ne), "{ns} vs {ne}");
+        }
+    }
+}
+
+#[test]
+fn continuing_needs_the_sectors_of_the_history() {
+    // 1 本のピンセルは扇形に分けても分けなくても燃焼の領域が 1 つで、扇形の番号の有無だけが違う
+    let library = library();
+    let nominal = deplete_with(&sectored("[\"pin\"]", "sectors = 8\n"), &library);
+    let unsplit = sectored("[\"pin\"]", "").replace(
+        "burnup = [0.05, 0.5, 2.0]",
+        "burnup = [1.0]\ncontinue = { file = \"nominal.msgpack\", burnup = 0.5 }",
+    );
+    let err = continue_simply(&unsplit, &library, &nominal).unwrap_err();
+    assert!(format!("{err:#}").contains("depletion regions"), "{err:#}");
+    let split = unsplit.replace("continue = { file", "sectors = 8\ncontinue = { file");
+    continue_simply(&split, &library, &nominal).unwrap();
+}
+
+#[test]
+fn split_sector_materials_take_their_densities_at_the_pooled_cross_sections() {
+    // UFG の範囲を持つライブラリとリングの中性子束の移行（ADR-0207）で、SPH 因子と移行のある物質を作り直す。対称性を使わない
+    // 1 本のピンの 8 つの扇形はそれぞれ 1 つの領域で、扇形 0 の数密度だけを 2 倍にする
+    let text = format!(
+        "ufg-transfer = \"ring-flux\"\n{}sectors = 8\n",
+        PIN.replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n")
+            .replace("spacing = 0.05", "spacing = 0.05\nsymmetry = \"none\"")
+    );
+    let library = crate::shielding::tests::lattice::resonant_library();
+    let input = LatticeInput::parse(&text).unwrap();
+    let (lattice, region_materials) = input.geometry().unwrap();
+    let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
+    let chosen = choose(
+        &tracking,
+        &region_materials,
+        Some(crate::symmetry::Symmetry::NONE),
+    )
+    .unwrap();
+    let representatives = chosen.shielding().cell_representatives();
+    let sectors = region_sectors(&lattice, chosen.shielding(), Some(8));
+    let depleted_names = ["fuel".to_string()];
+    let regions = depletion_regions(
+        &lattice,
+        &region_materials,
+        &representatives,
+        &sectors,
+        &depleted_names,
+    );
+    assert_eq!(regions.len(), 8);
+    let fuel = input.materials.iter().find(|m| m.name == "fuel").unwrap();
+    let mut materials: Vec<MaterialInput> = input
+        .materials
+        .iter()
+        .filter(|m| m.name != "fuel")
+        .cloned()
+        .collect();
+    for (k, d) in regions.iter().enumerate() {
+        let factor = if k == 0 { 2.0 } else { 1.0 };
+        materials.push(MaterialInput {
+            name: transport_name(&d.material, d.cell, d.sector),
+            temperature: fuel.temperature,
+            composition: fuel
+                .composition
+                .iter()
+                .map(|(n, x)| (n.clone(), factor * x))
+                .collect(),
+        });
+    }
+    let depleted: Vec<usize> = (materials.len() - regions.len()..materials.len()).collect();
+    let pooled = pooled_sectors(&regions, &materials[depleted[0]..]).unwrap();
+    let listed: Vec<MaterialInput> = materials.iter().chain(&pooled).cloned().collect();
+    let names = solved_names(
+        &lattice,
+        &region_materials,
+        &representatives,
+        &vec![None; lattice.regions()],
+        &depleted_names,
+    );
+    let options = input.shielding_options();
+    let mut shielded = shield_fuel_with(
+        &library,
+        &tracking,
+        &listed,
+        &names,
+        chosen.shielding(),
+        &options,
+    )
+    .unwrap();
+    let before = shielded.clone();
+    split_sectors(
+        &library,
+        &mut shielded,
+        &lattice,
+        &regions,
+        &materials,
+        &depleted,
+        &listed,
+    )
+    .unwrap();
+    assert!(
+        regions[0]
+            .regions
+            .iter()
+            .all(|&r| shielded.region_transfers(r).is_some())
+    );
+    for (k, d) in regions.iter().enumerate() {
+        for (j, &r) in d.regions.iter().enumerate() {
+            // 微視的断面積と移行はまとめて遮蔽した値のまま
+            assert_eq!(
+                shielded.region_cross_sections(r),
+                before.region_cross_sections(r)
+            );
+            assert_eq!(shielded.region_transfers(r), before.region_transfers(r));
+            // 同じリングの扇形 1 の物質の 2 倍（数密度が 2 倍）
+            let mine = &shielded.materials[shielded.region_material[r]];
+            let other = &shielded.materials[shielded.region_material[regions[1].regions[j]]];
+            let factor = if k == 0 { 2.0 } else { 1.0 };
+            for (a, b) in mine.total.iter().zip(&other.total) {
+                assert!(
+                    (a - factor * b).abs() <= 1e-14 * a,
+                    "sector {k}: {a} vs {factor} x {b}"
+                );
+            }
+        }
+    }
+    // まとめた物質（数密度は扇形の平均の 9/8 倍）は扇形 1 の物質の 9/8 倍
+    let r = regions[1].regions[0];
+    let pooled_material = &before.materials[before.region_material[r]];
+    let split = &shielded.materials[shielded.region_material[r]];
+    for (a, b) in pooled_material.total.iter().zip(&split.total) {
+        assert!((a - 1.125 * b).abs() <= 1e-14 * a, "{a} vs 9/8 x {b}");
+    }
 }

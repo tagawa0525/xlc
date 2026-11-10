@@ -1,0 +1,60 @@
+2026-11-10T19:29:32.614203Z  INFO lattice: thread pool threads=32 from="default"
+2026-11-10T19:29:32.640024Z  INFO xlc_lattice::symmetry: symmetry symmetry="all eight operations (1/8)" operations=8
+2026-11-10T19:29:36.610071Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=0 density=-0.0
+2026-11-10T19:29:36.621138Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=11.0ms time.idle=1.98µs
+2026-11-10T19:29:36.729070Z  INFO shielding:dancoff: xlc_lattice::shielding: close time.busy=108ms time.idle=2.15µs
+2026-11-10T19:29:41.280694Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=1.8275e-5 solved=0.007856338000000001
+2026-11-10T19:29:41.281401Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=668µs time.idle=2.64µs
+2026-11-10T19:29:41.281846Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=426µs time.idle=1.14µs
+2026-11-10T19:29:41.281859Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=9 solved=3 points_min=Some(82410) points_max=Some(82410) points_sum=247230
+2026-11-10T19:29:41.281868Z  INFO shielding: xlc_lattice::shielding: close time.busy=4.67s time.idle=1.83µs
+2026-11-10T19:29:41.283525Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc::symmetric: symmetry tracks=4948 representative_tracks=666 regions=952 representative_regions=120 cells=25 representative_cells=6
+2026-11-10T19:29:41.882731Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc: close time.busy=601ms time.idle=2.27µs
+2026-11-10T19:29:41.901411Z  INFO xlc_lattice::depletion: depletion transport solve=1 k=1.2481808425421805 iterations=38 nuclides=89
+2026-11-10T19:29:41.948080Z  WARN xlc_lattice::depletion: decay only: no library data at the temperature of the depletion regions nuclides="H-1" density=1.5400126773074118e-16
+2026-11-10T19:29:41.948112Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=1296 density=2.174830047021271e-6
+2026-11-10T19:29:41.959411Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=11.3ms time.idle=1.89µs
+2026-11-10T19:29:45.893423Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=2.0006e-5 solved=0.008059139
+2026-11-10T19:29:45.894127Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=665µs time.idle=2.92µs
+2026-11-10T19:29:45.894552Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=405µs time.idle=1.13µs
+2026-11-10T19:29:45.894563Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=9 solved=3 points_min=Some(82398) points_max=Some(82398) points_sum=247194
+2026-11-10T19:29:45.894572Z  INFO shielding: xlc_lattice::shielding: close time.busy=3.95s time.idle=1.37µs
+2026-11-10T19:29:45.896224Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc::symmetric: symmetry tracks=4948 representative_tracks=666 regions=952 representative_regions=120 cells=25 representative_cells=6
+2026-11-10T19:29:46.164861Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc: close time.busy=270ms time.idle=1.87µs
+2026-11-10T19:29:46.184164Z  INFO xlc_lattice::depletion: depletion transport solve=2 k=1.2098211537119674 iterations=18 nuclides=89
+2026-11-10T19:29:46.236572Z  INFO xlc_lattice::checkpoint: checkpoint bytes=3463945 seconds=0.005682343
+2026-11-10T19:29:46.237405Z  WARN xlc_lattice::depletion: decay only: no library data at the temperature of the depletion regions nuclides="H-1" density=4.0746898514520985e-16
+2026-11-10T19:29:46.237423Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=1342 density=4.297074025419658e-6
+2026-11-10T19:29:46.248254Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=10.8ms time.idle=1.74µs
+2026-11-10T19:29:50.178511Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=1.9166e-5 solved=0.007931119
+2026-11-10T19:29:50.179178Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=607µs time.idle=2.65µs
+2026-11-10T19:29:50.179594Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=391µs time.idle=1.09µs
+2026-11-10T19:29:50.179606Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=9 solved=3 points_min=Some(82404) points_max=Some(82404) points_sum=247212
+2026-11-10T19:29:50.179615Z  INFO shielding: xlc_lattice::shielding: close time.busy=3.94s time.idle=1.70µs
+2026-11-10T19:29:50.181273Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc::symmetric: symmetry tracks=4948 representative_tracks=666 regions=952 representative_regions=120 cells=25 representative_cells=6
+2026-11-10T19:29:50.436799Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc: close time.busy=257ms time.idle=1.87µs
+2026-11-10T19:29:50.455312Z  INFO xlc_lattice::depletion: depletion transport solve=3 k=1.2059930142542308 iterations=17 nuclides=89
+2026-11-10T19:29:50.500346Z  WARN xlc_lattice::depletion: decay only: no library data at the temperature of the depletion regions nuclides="H-1" density=8.465686573664299e-16
+2026-11-10T19:29:50.500380Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=1362 density=7.414723007597114e-6
+2026-11-10T19:29:50.511280Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=10.9ms time.idle=1.75µs
+2026-11-10T19:29:54.510094Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=1.7762e-5 solved=0.007785129
+2026-11-10T19:29:54.510790Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=658µs time.idle=2.87µs
+2026-11-10T19:29:54.511234Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=424µs time.idle=1.25µs
+2026-11-10T19:29:54.511246Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=9 solved=3 points_min=Some(82391) points_max=Some(82391) points_sum=247173
+2026-11-10T19:29:54.511254Z  INFO shielding: xlc_lattice::shielding: close time.busy=4.01s time.idle=1.33µs
+2026-11-10T19:29:54.512911Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc::symmetric: symmetry tracks=4948 representative_tracks=666 regions=952 representative_regions=120 cells=25 representative_cells=6
+2026-11-10T19:29:54.777607Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc: close time.busy=266ms time.idle=1.98µs
+2026-11-10T19:29:54.796109Z  INFO xlc_lattice::depletion: depletion transport solve=4 k=1.2037711549314714 iterations=17 nuclides=89
+2026-11-10T19:29:54.849033Z  INFO xlc_lattice::checkpoint: checkpoint bytes=3567258 seconds=0.006363685
+2026-11-10T19:29:54.850033Z  WARN xlc_lattice::depletion: decay only: no library data at the temperature of the depletion regions nuclides="H-1" density=1.2876607079636449e-15
+2026-11-10T19:29:54.850053Z  INFO xlc_lattice::depletion: decay only: not in the library nuclides=1353 density=1.0476293333786051e-5
+2026-11-10T19:29:54.861579Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=11.5ms time.idle=2.19µs
+2026-11-10T19:29:58.787178Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=1.7312e-5 solved=0.007767776
+2026-11-10T19:29:58.787869Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=655µs time.idle=2.95µs
+2026-11-10T19:29:58.788335Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=447µs time.idle=922ns
+2026-11-10T19:29:58.788348Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=9 solved=3 points_min=Some(82389) points_max=Some(82390) points_sum=247169
+2026-11-10T19:29:58.788358Z  INFO shielding: xlc_lattice::shielding: close time.busy=3.94s time.idle=1.60µs
+2026-11-10T19:29:58.790018Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc::symmetric: symmetry tracks=4948 representative_tracks=666 regions=952 representative_regions=120 cells=25 representative_cells=6
+2026-11-10T19:29:59.104576Z  INFO moc{regions=952 tracks=4948}: xlc_lattice::moc: close time.busy=316ms time.idle=2.65µs
+2026-11-10T19:29:59.122842Z  INFO xlc_lattice::depletion: depletion transport solve=5 k=1.201833493955556 iterations=20 nuclides=89
+2026-11-10T19:29:59.127091Z  INFO lattice: depletion solves=5 shieldings=5 regions=3 shielding=20.51054058 moc=1.7111377989999998 rates=0.093011122 matrix=0.06265267 cram=0.106032334 total_seconds=26.512850518

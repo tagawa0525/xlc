@@ -40,7 +40,7 @@ use crate::material::Material;
 use crate::moc::{Options, Start, available_order, solve_symmetric_from};
 use crate::power::{cell_fission_rates, pin_rows};
 use crate::shielding::{FuelShielding, ShieldingReuse, shield_fuel_reusing, shielded_nuclide_with};
-use crate::symmetry::Chosen;
+use crate::symmetry::{Chosen, Detected};
 use crate::tracking::Tracking;
 use crate::ufg::NuclideTransfer;
 
@@ -61,6 +61,8 @@ pub struct DepletionInput {
     pub few_group: Option<DepletionFewGroup>,
     /// 自己遮蔽を解く輸送（ADR-0197）
     pub shielding: ShieldingFrequency,
+    /// 燃焼させる物質の領域を分ける扇形の数（4 か 8。ADR-0244）。`None` なら扇形に分けない
+    pub sectors: Option<usize>,
     /// 燃焼を続ける履歴の燃焼点。`None` なら燃焼度 0 の入力の組成から
     pub continue_from: Option<ContinueFrom>,
 }
@@ -485,7 +487,7 @@ pub fn has_data_at(library: &Library, name: &str, temperature: f64) -> bool {
 }
 
 /// 燃焼の領域: 物質と、組の代表のセル、組のセルの位置（[行, 列]、上から、左から。行の順）、MOC の領域（組のすべてのセルの分）と、
-/// その体積の和 (cm²)
+/// その体積の和 (cm²)、扇形に分けた領域（ADR-0244）なら扇形の組の番号
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DepletionRegion {
@@ -494,19 +496,24 @@ pub struct DepletionRegion {
     pub cells: Vec<[usize; 2]>,
     pub regions: Vec<usize>,
     pub volume: f64,
+    /// 扇形の組の番号（[`region_sectors`]）。扇形に分けない領域は `None` で、履歴にキーを書かない（分けない燃焼の履歴の形を
+    /// 変えないため）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sector: Option<usize>,
 }
 
-/// 入力の格子から求めた燃焼の領域 `found` が、履歴の燃焼の領域 `recorded` と（物質、組の代表のセル、組のセルの位置、体積（ビット）、
-/// MOC の領域の数）で順に同じこと（ADR-0226）。セルは番号だけでなく位置で比べる（形の違う格子では、同じ番号のセルが別の位置にある）。違えば、最初に違う領域か領域の数を示す文。MOC の領域の番号は比べない（案内管の中身を変えた格子では、
+/// 入力の格子から求めた燃焼の領域 `found` が、履歴の燃焼の領域 `recorded` と（物質、組の代表のセル、扇形の組の番号（ADR-0244）、組の
+/// セルの位置、体積（ビット）、MOC の領域の数）で順に同じこと（ADR-0226）。セルは番号だけでなく位置で比べる（形の違う格子では、同じ番号のセルが別の位置にある）。違えば、最初に違う領域か領域の数を示す文。MOC の領域の番号は比べない（案内管の中身を変えた格子では、
 /// 燃料のセルが同じでも番号がずれる）
 pub(crate) fn region_mismatch(
     found: &[DepletionRegion],
     recorded: &[DepletionRegion],
 ) -> Option<String> {
-    fn key(d: &DepletionRegion) -> (&str, usize, &[[usize; 2]], u64, usize) {
+    fn key(d: &DepletionRegion) -> (&str, usize, Option<usize>, &[[usize; 2]], u64, usize) {
         (
             &d.material,
             d.cell,
+            d.sector,
             &d.cells,
             d.volume.to_bits(),
             d.regions.len(),
@@ -514,9 +521,10 @@ pub(crate) fn region_mismatch(
     }
     fn shown(d: &DepletionRegion) -> String {
         format!(
-            "({:?}, cell {}, cells at {:?}, volume {}, {} MOC regions)",
+            "({:?}, cell {}, sector {:?}, cells at {:?}, volume {}, {} MOC regions)",
             d.material,
             d.cell,
+            d.sector,
             d.cells,
             d.volume,
             d.regions.len()
@@ -541,31 +549,38 @@ pub(crate) fn region_mismatch(
     }
 }
 
-/// 燃焼の領域を自己遮蔽と MOC で解くときの物質の名前
-pub fn transport_name(material: &str, cell: usize) -> String {
-    format!("{material}@{cell}")
+/// 燃焼の領域を自己遮蔽と MOC で解くときの物質の名前（扇形に分けた領域は `<物質>@<セル>:<扇形>`。ADR-0244）
+pub fn transport_name(material: &str, cell: usize, sector: Option<usize>) -> String {
+    match sector {
+        Some(s) => format!("{material}@{cell}:{s}"),
+        None => format!("{material}@{cell}"),
+    }
 }
 
-/// 解く物質の名前（`<物質>@<セル>`）が、入力の物質 `materials` の名前と重ならないこと
+/// 解く物質の名前（`<物質>@<セル>`、扇形に分けた領域はその名前と、扇形の組をまとめて遮蔽する物質の名前（[`pooled_sectors`]））が、
+/// 入力の物質 `materials` の名前と重ならないこと
 pub fn check_region_names(
     materials: &[MaterialInput],
     regions: &[DepletionRegion],
 ) -> anyhow::Result<()> {
     for d in regions {
-        let name = transport_name(&d.material, d.cell);
-        if materials.iter().any(|m| m.name == name) {
-            bail!("material `{name}` clashes with the name of a depletion region");
+        let pooled = d.sector.map(|_| transport_name(&d.material, d.cell, None));
+        for name in std::iter::once(transport_name(&d.material, d.cell, d.sector)).chain(pooled) {
+            if materials.iter().any(|m| m.name == name) {
+                bail!("material `{name}` clashes with the name of a depletion region");
+            }
         }
     }
     Ok(())
 }
 
-/// 領域ごとの解く物質の名前。燃焼させる物質 `depleted` の領域は、組の代表のセル `representatives`（[セル]）で
-/// `<物質>@<セル>` にする
+/// 領域ごとの解く物質の名前。燃焼させる物質 `depleted` の領域は、組の代表のセル `representatives`（[セル]）と扇形の組
+/// `sectors`（[領域]。[`region_sectors`]）で `<物質>@<セル>` か `<物質>@<セル>:<扇形>` にする
 pub fn solved_names(
     lattice: &Lattice,
     region_materials: &[String],
     representatives: &[usize],
+    sectors: &[Option<usize>],
     depleted: &[String],
 ) -> Vec<String> {
     region_materials
@@ -573,7 +588,7 @@ pub fn solved_names(
         .enumerate()
         .map(|(r, name)| {
             if depleted.contains(name) {
-                transport_name(name, representatives[lattice.region_cell(r)])
+                transport_name(name, representatives[lattice.region_cell(r)], sectors[r])
             } else {
                 name.clone()
             }
@@ -639,7 +654,7 @@ pub fn region_material(
     name: impl Fn(usize) -> String,
 ) -> MaterialInput {
     MaterialInput {
-        name: transport_name(&d.material, d.cell),
+        name: transport_name(&d.material, d.cell, d.sector),
         temperature,
         composition: transported
             .iter()
@@ -648,11 +663,13 @@ pub fn region_material(
     }
 }
 
-/// 燃焼させる物質 `depleted` の領域を、セルの組の代表 `representatives`（[セル]）と物質ごとにまとめる（現れる順）
+/// 燃焼させる物質 `depleted` の領域を、セルの組の代表 `representatives`（[セル]）と物質と扇形の組 `sectors`（[領域]。
+/// [`region_sectors`]）ごとにまとめる（現れる順）
 pub fn depletion_regions(
     lattice: &Lattice,
     region_materials: &[String],
     representatives: &[usize],
+    sectors: &[Option<usize>],
     depleted: &[String],
 ) -> Vec<DepletionRegion> {
     let volumes = lattice.volumes();
@@ -665,9 +682,10 @@ pub fn depletion_regions(
         let member = lattice.region_cell(r);
         let cell = representatives[member];
         let position = [member / columns, member % columns];
+        let sector = sectors[r];
         match found
             .iter_mut()
-            .find(|d| d.cell == cell && &d.material == name)
+            .find(|d| d.cell == cell && &d.material == name && d.sector == sector)
         {
             Some(d) => {
                 // セルの領域は続いた番号なので、同じセルは直前に足したものだけ
@@ -683,6 +701,7 @@ pub fn depletion_regions(
                 cells: vec![position],
                 regions: vec![r],
                 volume: volumes[r],
+                sector,
             }),
         }
     }
@@ -690,6 +709,169 @@ pub fn depletion_regions(
         d.cells.sort_unstable();
     }
     found
+}
+
+/// [領域] の扇形の組の番号（ADR-0244）。同心円のセルのリングを x 軸から等角度の `sectors` 個の扇形（セルの扇形をまとめたもの）に
+/// 分け、対称操作 `symmetry` で移り合う（セル、扇形）を 1 つの組にする。番号は、組の扇形のうち組の代表のセルにあるものの最も小さい
+/// 扇形の番号。`sectors` が `None` なら、どの領域も `None`。ピンのセルでない（均質な長方形のセル、小さな正方形に分けたセル）か、
+/// セルの扇形の数が `sectors` の倍数でないセルの領域と、外周の枠は `None`（帯が 1 つでも扇形に切ったセルはピンのセルで、扇形に分ける）
+pub fn region_sectors(
+    lattice: &Lattice,
+    symmetry: &Detected,
+    sectors: Option<usize>,
+) -> Vec<Option<usize>> {
+    let Some(n) = sectors else {
+        return vec![None; lattice.regions()];
+    };
+    let representatives = symmetry.cell_representatives();
+    (0..lattice.regions())
+        .map(|r| {
+            let cell = lattice.region_cell(r);
+            let pin = lattice.cell_type(cell).pin().filter(|p| !p.is_grid())?;
+            let cut = pin.sectors();
+            if !cut.is_multiple_of(n)
+                || r - lattice.cell_regions(cell).start >= (pin.radii().len() + 1) * cut
+            {
+                return None;
+            }
+            // 4 つの扇形の境界（軸）と 8 つの境界（軸と対角線）は正方形の対称操作で境界に移るので、扇形にまとめた MOC の扇形は
+            // まとまったまま移る。代表のセルに移す操作のうち、移った先の扇形の最も小さいもの
+            let width = cut / n;
+            let home = representatives[cell];
+            let first = lattice.cell_regions(home).start;
+            symmetry
+                .images()
+                .iter()
+                .filter(|image| image.cells[cell] == home)
+                .map(|image| (image.regions[r] - first) % cut / width)
+                .min()
+        })
+        .collect()
+}
+
+/// 扇形に分けた燃焼の領域 `regions` を、同じ（物質、組の代表のセル）ごとにまとめて自己遮蔽する物質（ADR-0244）: 名前は分けない
+/// ときと同じ `<物質>@<セル>`、数密度は燃焼の領域の体積で平均したもの。`materials` は燃焼の領域ごとの物質（[`region_material`]。
+/// 核種の並びと温度は領域によらず同じ）。扇形に分けない領域は含めない
+pub fn pooled_sectors(
+    regions: &[DepletionRegion],
+    materials: &[MaterialInput],
+) -> anyhow::Result<Vec<MaterialInput>> {
+    let mut pooled: Vec<(MaterialInput, f64)> = Vec::new();
+    for (d, m) in regions.iter().zip(materials) {
+        if d.sector.is_none() {
+            continue;
+        }
+        let name = transport_name(&d.material, d.cell, None);
+        let weighted = m.composition.iter().map(|(n, x)| (n.clone(), d.volume * x));
+        match pooled.iter_mut().find(|(p, _)| p.name == name) {
+            Some((p, volume)) => {
+                if p.temperature != m.temperature
+                    || !p
+                        .composition
+                        .iter()
+                        .map(|(n, _)| n)
+                        .eq(m.composition.iter().map(|(n, _)| n))
+                {
+                    bail!("the sectors of `{name}` have other nuclides or temperatures");
+                }
+                for ((_, sum), (_, x)) in p.composition.iter_mut().zip(weighted) {
+                    *sum += x;
+                }
+                *volume += d.volume;
+            }
+            None => pooled.push((
+                MaterialInput {
+                    name,
+                    temperature: m.temperature,
+                    composition: weighted.collect(),
+                },
+                d.volume,
+            )),
+        }
+    }
+    Ok(pooled
+        .into_iter()
+        .map(|(mut p, volume)| {
+            for (_, sum) in &mut p.composition {
+                *sum /= volume;
+            }
+            p
+        })
+        .collect())
+}
+
+/// 扇形の組をまとめて遮蔽した結果 `shielded`（自己遮蔽に渡す物質の一覧 `materials` の後に [`pooled_sectors`] のまとめた物質を足した
+/// `listed` で解いたもの）の燃焼の領域の物質を、扇形の組ごとの物質にする（ADR-0244）。燃焼の領域 k の物質は `materials[depleted[k]]`。
+/// 先に、まとめた物質を `remix_depleted` で作り直したものが自己遮蔽の物質とビットで同じことを確かめる（作り直しの前提。`step-start` の
+/// 中点の確かめと同じ）。自己遮蔽した物質は、燃焼の領域と物質の対ごとに新しい物質を足して割り当て、`remix_depleted` で扇形の組の
+/// 数密度から作り直す（微視的断面積と SPH 因子はまとめて遮蔽した値のまま）。自己遮蔽しなかった物質（まとめた物質の無限希釈の値）の
+/// 領域は、扇形の組の物質の無限希釈の値（`materials[depleted[k]]` の番号の物質）にする
+pub(crate) fn split_sectors(
+    library: &Library,
+    shielded: &mut FuelShielding,
+    lattice: &Lattice,
+    regions: &[DepletionRegion],
+    materials: &[MaterialInput],
+    depleted: &[usize],
+    listed: &[MaterialInput],
+) -> anyhow::Result<()> {
+    // まとめた物質ごとの、扇形の組をまとめた燃焼の領域（MOC の領域は扇形の組の和）と、`listed` の中の番号
+    let mut pools: Vec<DepletionRegion> = Vec::new();
+    let mut pool_index: Vec<usize> = Vec::new();
+    for d in regions.iter().filter(|d| d.sector.is_some()) {
+        let name = transport_name(&d.material, d.cell, None);
+        match pools
+            .iter_mut()
+            .find(|p| p.cell == d.cell && p.material == d.material)
+        {
+            Some(p) => p.regions.extend(&d.regions),
+            None => {
+                let index = listed[materials.len()..]
+                    .iter()
+                    .position(|m| m.name == name)
+                    .ok_or_else(|| anyhow!("no pooled material `{name}`"))?;
+                pool_index.push(materials.len() + index);
+                pools.push(DepletionRegion {
+                    sector: None,
+                    ..d.clone()
+                });
+            }
+        }
+    }
+    for (m, material) in remix_depleted(library, shielded, lattice, &pools, listed, &pool_index)
+        .context("remixing the pooled sectors")?
+    {
+        if material != shielded.materials[m] {
+            bail!(
+                "pooled material {m} remixed from its shielded cross sections differs from the self-shielding"
+            );
+        }
+    }
+    // 自己遮蔽の物質の一覧は、渡した物質（`listed`）、真空、自己遮蔽した物質の順
+    let listed = listed.len();
+    let groups = library.groups.len();
+    let mut split: HashMap<(usize, usize), usize> = HashMap::new();
+    for (k, d) in regions.iter().enumerate() {
+        if d.sector.is_none() {
+            continue;
+        }
+        for &r in &d.regions {
+            let m = shielded.region_material[r];
+            shielded.region_material[r] = if m < listed {
+                depleted[k]
+            } else {
+                // 中身は下の `remix_depleted` が作るので、場所だけを取る
+                *split.entry((m, k)).or_insert_with(|| {
+                    shielded.materials.push(Material::void(groups));
+                    shielded.materials.len() - 1
+                })
+            };
+        }
+    }
+    for (m, material) in remix_depleted(library, shielded, lattice, regions, materials, depleted)? {
+        shielded.materials[m] = material;
+    }
+    Ok(())
 }
 
 /// 燃焼の履歴の 1 点
@@ -1160,7 +1342,7 @@ pub fn run(
     )
 }
 
-/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域（物質、組の代表のセル、組のセルの位置、体積、MOC の領域の数。ADR-0226）、チェーンの核種、輸送する
+/// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域（物質、組の代表のセル、扇形の組の番号、組のセルの位置、体積、MOC の領域の数。ADR-0226、ADR-0244）、チェーンの核種、輸送する
 /// 核種、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
 /// 少数群定数の有無と群境界が、この燃焼と同じこと。`from` は続けた履歴でないこと
 fn continued_start(
@@ -1268,16 +1450,28 @@ pub(crate) fn run_with_moc(
         .map(|(i, n)| (n.name.as_str(), i))
         .collect();
     let representatives = chosen.shielding().cell_representatives();
+    let sectors = region_sectors(lattice, chosen.shielding(), depletion.sectors);
     let regions = depletion_regions(
         lattice,
         region_materials,
         &representatives,
+        &sectors,
         &depletion.materials,
     );
     for name in &depletion.materials {
         if !regions.iter().any(|d| &d.material == name) {
             bail!("depleted material `{name}` is not in the lattice");
         }
+    }
+    if let Some(n) = depletion.sectors
+        && let Some(d) = regions.iter().find(|d| d.sector.is_none())
+    {
+        bail!(
+            "depleted material `{}` of cell {} cannot burn in {n} sectors: its cell must be a pin cell cut into a \
+             multiple of {n} sectors (ADR-0244)",
+            d.material,
+            d.cell
+        );
     }
     let base = |name: &str| -> anyhow::Result<&MaterialInput> {
         input
@@ -1346,8 +1540,19 @@ pub(crate) fn run_with_moc(
         lattice,
         region_materials,
         &representatives,
+        &sectors,
         &depletion.materials,
     );
+    // 扇形に分けた燃焼の領域は、同じ（物質、組の代表のセル）の扇形の組をまとめた物質の名前で自己遮蔽する（ADR-0244）
+    let pooled_names = depletion.sectors.map(|_| {
+        solved_names(
+            lattice,
+            region_materials,
+            &representatives,
+            &vec![None; lattice.regions()],
+            &depletion.materials,
+        )
+    });
     let groups = &library.groups;
     let mut transport = TransportTimes::default();
     let mut solves = 0;
@@ -1463,15 +1668,44 @@ pub(crate) fn run_with_moc(
             }
             _ => {
                 shieldings += 1;
-                shield_fuel_reusing(
-                    library,
-                    &mut reuse,
-                    &materials,
-                    &renamed,
-                    chosen.shielding(),
-                    &input.shielding_options(),
-                )
-                .context("self-shielding")?
+                match &pooled_names {
+                    None => shield_fuel_reusing(
+                        library,
+                        &mut reuse,
+                        &materials,
+                        &renamed,
+                        chosen.shielding(),
+                        &input.shielding_options(),
+                    )
+                    .context("self-shielding")?,
+                    Some(names) => {
+                        // まとめた物質を一覧の後に足し、扇形の組の物質の番号（`depleted`）を変えない（`split_sectors` が
+                        // 無限希釈の物質をその番号で引く）
+                        let pooled = pooled_sectors(&regions, &materials[depleted[0]..])?;
+                        let listed: Vec<MaterialInput> =
+                            materials.iter().chain(&pooled).cloned().collect();
+                        let mut shielded = shield_fuel_reusing(
+                            library,
+                            &mut reuse,
+                            &listed,
+                            names,
+                            chosen.shielding(),
+                            &input.shielding_options(),
+                        )
+                        .context("self-shielding")?;
+                        split_sectors(
+                            library,
+                            &mut shielded,
+                            lattice,
+                            &regions,
+                            &materials,
+                            &depleted,
+                            &listed,
+                        )
+                        .context("splitting the pooled sectors")?;
+                        shielded
+                    }
+                }
             }
         };
         transport.shielding += start.elapsed();

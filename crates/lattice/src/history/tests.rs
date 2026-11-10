@@ -258,7 +258,7 @@ fn nominal_branches_of_absorbers_at_another_temperature_reproduce_the_history_po
     for (i, point) in [0, 3].into_iter().enumerate() {
         let nominal = branches.state(2 * i + 1);
         for region in &history.regions {
-            let name = transport_name(&region.material, region.cell);
+            let name = transport_name(&region.material, region.cell, region.sector);
             let material = nominal.iter().find(|m| m.name == name).unwrap();
             let want = if region.material == "fuel" {
                 600.0
@@ -289,7 +289,7 @@ fn branch_regions_take_the_history_densities() {
     let text = branch_input("[2.0]", "[600]");
     let branches = branches_of(&text, &history, &library).unwrap();
     let region = &history.regions[0];
-    let name = transport_name(&region.material, region.cell);
+    let name = transport_name(&region.material, region.cell, region.sector);
     assert!(branches.region_materials(0).contains(&name));
     assert!(!branches.region_materials(0).contains(&"fuel".to_string()));
     for state in (0..branches.len()).map(|i| branches.state(i)) {
@@ -327,6 +327,22 @@ fn the_branch_lattice_must_be_the_lattice_of_the_history() {
     // 燃料のピンの大きさが違う（燃焼の領域の体積が違う）
     let radius = text.replace("radius = 0.4096", "radius = 0.41");
     assert!(branches_of(&radius, &history, &library).is_err());
+}
+
+#[test]
+fn histories_depleted_by_sector_are_not_branched() {
+    // 扇形の組ごとの物質を分岐の状態で作り直す経路は無いので、扇形に分けた履歴は分岐の前に止める（ADR-0244）
+    let library = library_with_boron();
+    let sectored = borated(PIN).replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n");
+    let history = deplete_with(&format!("{sectored}sectors = 8\n"), &library);
+    assert!(history.regions.iter().all(|d| d.sector.is_some()));
+    let text = branch_input_of(
+        &PIN.replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n"),
+        "[0.5]",
+        "[600]",
+    );
+    let err = branches_of(&text, &history, &library).unwrap_err();
+    assert!(format!("{err:#}").contains("sector"), "{err:#}");
 }
 
 #[test]
@@ -1181,7 +1197,7 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
         for &r in &d.regions {
             assert_eq!(
                 branches.region_materials(0)[r],
-                transport_name(&d.material, d.cell),
+                transport_name(&d.material, d.cell, d.sector),
                 "region {r}"
             );
         }
@@ -1886,7 +1902,7 @@ fn rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry() 
                 for &r in &d.regions {
                     assert_eq!(
                         names[r],
-                        transport_name(&d.material, d.cell),
+                        transport_name(&d.material, d.cell, d.sector),
                         "rod value {rod}, region {r}"
                     );
                 }

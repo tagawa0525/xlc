@@ -5675,5 +5675,117 @@ class DrawPelletZones(unittest.TestCase):
             self.assertIn(sources[0], vt.GIT_TRACKED)
 
 
+def sector_zones_summary() -> dict:
+    def row(burnup, dk, drho, rms, peak):
+        return {
+            "burnup": burnup,
+            "k_base": 1.2,
+            "dk_pcm": dk,
+            "drho_pcm": drho,
+            "pin_rms_percent": rms,
+            "pin_max_percent": peak,
+        }
+
+    def pair(key, base, other, dk):
+        return {
+            "key": key,
+            "base": base,
+            "other": other,
+            "rows": [
+                row(0, 0.0, 0.0, 0.0, 0.0),
+                row(0.1, 0.5, 0.4, 0.01, -0.02),
+                row(40, dk, 2 * dk, 0.123, -0.2),
+            ],
+        }
+
+    def cell(position, pu):
+        return {
+            "position": position,
+            "ring_spread_percent": {
+                "U-235": [None if pu is None else 1.0] * 5,
+                "Pu-239": [pu] * 5,
+            },
+            "outer_by_sector_percent": None,
+        }
+
+    def spread(case, pu):
+        return {
+            "case": case,
+            "rows": [
+                {"burnup": b, "cells": [cell([0, 0], pu * b), cell([1, 1], None)]}
+                for b in (0, 0.1, 40)
+            ],
+        }
+
+    return {
+        "format": "xlc-sector-zones",
+        "nuclides": ["Pu-239", "U-235"],
+        "at": [0, 40],
+        "pairs": [
+            pair("guide-radial", "guide-rings1", "guide-rings5", 30.0),
+            pair("guide-sectors4", "guide-rings5", "guide-rings5-sectors4", -1.5),
+            pair("guide-sectors8", "guide-rings5", "guide-rings5-sectors8", -1.75),
+        ],
+        "pin_cell": {
+            "key": "5p9-1p9",
+            "rows": [
+                {"burnup": 0, "dk_pcm": 0.0, "drho_pcm": 0.0},
+                {"burnup": 40, "dk_pcm": 35.92, "drho_pcm": 43.73},
+            ],
+        },
+        "spreads": [
+            spread("guide-rings5-sectors4", 0.1),
+            spread("guide-rings5-sectors8", 0.2),
+        ],
+    }
+
+
+class DrawSectorZones(unittest.TestCase):
+    def test_radial_rows_add_the_pin_cell_of_0275(self):
+        lines = vt.sector_zones_radial("guide", [sector_zones_summary()]).splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertRegex(
+            lines[3],
+            r"^\| 40 +\| 1\.200000 +\| \+30\.00 +\| \+60\.00 +\| 0\.123 +\| −0\.200 +\| \+35\.92 +\| \+43\.73 +\|$",
+        )
+
+    def test_azimuthal_rows_put_four_and_eight_sectors_side_by_side(self):
+        lines = vt.sector_zones_azimuthal(
+            "guide", [sector_zones_summary()]
+        ).splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertRegex(
+            lines[3],
+            r"^\| 40 +\| 1\.200000 +\| −1\.50 +\| −3\.00 +\| 0\.123 +\| −0\.200 +\| −1\.75 +\| −3\.50 +\| 0\.123 +\| −0\.200 +\|$",
+        )
+
+    def test_spread_columns_skip_pins_whose_sectors_are_one_orbit(self):
+        lines = vt.sector_zones_spread("guide", [sector_zones_summary()]).splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertIn("(0,0) Pu-239 (4)", lines[0])
+        self.assertNotIn("(1,1)", lines[0])
+        self.assertRegex(
+            lines[3],
+            r"^\| 40 +\| 4\.000 +\| 8\.000 +\| 1\.000 +\| 1\.000 +\|$",
+        )
+
+    def test_unknown_lattices_and_other_summaries_are_errors(self):
+        with self.assertRaises(vt.TableError):
+            vt.sector_zones_radial("gap", [sector_zones_summary()])
+        with self.assertRaises(vt.TableError):
+            vt.sector_zones_spread("gap", [sector_zones_summary()])
+        with self.assertRaises(vt.TableError):
+            vt.sector_zones_azimuthal("guide", [{"format": "xlc-pellet-zones"}])
+
+    def test_the_tables_read_the_tracked_summary(self):
+        for lattice in ("guide", "gap"):
+            for kind in ("radial", "azimuthal", "spread"):
+                sources, _ = vt.TABLES[f"depletion-sector-zones-{kind}-{lattice}"]
+                self.assertEqual(
+                    sources, ["examples/depletion/issue-0276/summary.json"]
+                )
+                self.assertIn(sources[0], vt.GIT_TRACKED)
+
+
 if __name__ == "__main__":
     unittest.main()
