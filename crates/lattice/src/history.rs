@@ -180,6 +180,14 @@ pub fn history_branches(
         .branches
         .as_ref()
         .ok_or_else(|| anyhow!("[history] needs [branches] (ADR-0187)"))?;
+    // 扇形に分けた履歴の分岐は、扇形の組の物質を作り直す経路が無い（ADR-0244）
+    if let Some(d) = history.regions.iter().find(|d| d.sector.is_some()) {
+        bail!(
+            "[history] does not branch a history depleted by sector (material `{}` of cell {}, ADR-0244)",
+            d.material,
+            d.cell
+        );
+    }
     // 燃焼させた物質（履歴の燃焼の領域の物質。現れる順）
     let mut depleted: Vec<String> = Vec::new();
     for d in &history.regions {
@@ -200,10 +208,12 @@ pub fn history_branches(
     let mut shapes = Vec::with_capacity(geometries.len());
     for (geometry, value) in geometries.iter().zip(&rod_values) {
         let representatives = geometry.chosen.shielding().cell_representatives();
+        let unsplit = vec![None; geometry.lattice.regions()];
         let regions = depletion_regions(
             geometry.lattice,
             geometry.region_materials,
             &representatives,
+            &unsplit,
             &depleted,
         );
         if let Some(detail) = region_mismatch(&regions, &history.regions) {
@@ -221,6 +231,7 @@ pub fn history_branches(
             geometry.lattice,
             geometry.region_materials,
             &representatives,
+            &unsplit,
             &depleted,
         );
         shapes.push((geometry, regions, names));
@@ -669,7 +680,7 @@ impl HistoryBranches {
         self.remixed = self
             .regions(0)
             .iter()
-            .map(|d| transport_name(&d.material, d.cell))
+            .map(|d| transport_name(&d.material, d.cell, d.sector))
             .collect();
         Ok(())
     }

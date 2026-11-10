@@ -1499,6 +1499,7 @@ fn shielded_pin_with(
         &lattice,
         &region_materials,
         &representatives,
+        &vec![None; lattice.regions()],
         &["fuel".to_string()],
     );
     let shielded = shield_fuel_with(
@@ -2300,12 +2301,15 @@ fn histories_write_the_sector_of_split_regions_only() {
 #[test]
 fn step_start_shielding_remixes_sector_regions() {
     // テストのライブラリの群定数は σ0 によらないので、ステップの始まりだけで解いた自己遮蔽で扇形の物質を作り直しても、輸送の
-    // たびに解いたときと丸めの誤差の範囲で等しい
-    let every = deplete_input(&sectored(AROUND_WATER, "sectors = 8\n"));
-    let start = deplete_input(&sectored(
-        AROUND_WATER,
-        "sectors = 8\nshielding = \"step-start\"\n",
-    ));
+    // たびに解いたときと丸めの誤差の範囲で等しい。扇形の物質は 2 つの経路で丸めが違い（数密度で 1e-14 の程度）、既定の判定の
+    // MOC では k がその 100 倍ほど揺れるので、MOC を細かく解く
+    let library = library();
+    let every = deplete_with_moc(&sectored(AROUND_WATER, "sectors = 8\n"), &library, &tight());
+    let start = deplete_with_moc(
+        &sectored(AROUND_WATER, "sectors = 8\nshielding = \"step-start\"\n"),
+        &library,
+        &tight(),
+    );
     assert_eq!(start.shieldings, 4);
     let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * a.abs().max(b.abs());
     for (s, e) in start.points.iter().zip(&every.points) {

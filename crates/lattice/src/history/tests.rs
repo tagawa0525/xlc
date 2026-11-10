@@ -258,7 +258,7 @@ fn nominal_branches_of_absorbers_at_another_temperature_reproduce_the_history_po
     for (i, point) in [0, 3].into_iter().enumerate() {
         let nominal = branches.state(2 * i + 1);
         for region in &history.regions {
-            let name = transport_name(&region.material, region.cell);
+            let name = transport_name(&region.material, region.cell, region.sector);
             let material = nominal.iter().find(|m| m.name == name).unwrap();
             let want = if region.material == "fuel" {
                 600.0
@@ -289,7 +289,7 @@ fn branch_regions_take_the_history_densities() {
     let text = branch_input("[2.0]", "[600]");
     let branches = branches_of(&text, &history, &library).unwrap();
     let region = &history.regions[0];
-    let name = transport_name(&region.material, region.cell);
+    let name = transport_name(&region.material, region.cell, region.sector);
     assert!(branches.region_materials(0).contains(&name));
     assert!(!branches.region_materials(0).contains(&"fuel".to_string()));
     for state in (0..branches.len()).map(|i| branches.state(i)) {
@@ -1181,7 +1181,7 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
         for &r in &d.regions {
             assert_eq!(
                 branches.region_materials(0)[r],
-                transport_name(&d.material, d.cell),
+                transport_name(&d.material, d.cell, d.sector),
                 "region {r}"
             );
         }
@@ -1886,7 +1886,7 @@ fn rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry() 
                 for &r in &d.regions {
                     assert_eq!(
                         names[r],
-                        transport_name(&d.material, d.cell),
+                        transport_name(&d.material, d.cell, d.sector),
                         "rod value {rod}, region {r}"
                     );
                 }
