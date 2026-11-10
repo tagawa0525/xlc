@@ -1,0 +1,5 @@
+outs:
+- md5: 83ab108eb4b082247d022c10dc83bc1d
+  size: 138257
+  hash: md5
+  path: zones-1.log
