@@ -685,11 +685,11 @@ examples/depletion/p9-product の 4 つのステージ（`lattice-2A`、`branch-
 1000 eV の既定が、仕様書の KENO-VI（ENDF/B-VII.0）との一致をどう変えるかを、検証用ライブラリ（examples/vera/endfb70/vera.msgpack）で
 測った。入力は examples/depletion/issue-0274/vera-light-cap/ の `<問題>-<条件>.toml`（1B〜1D、2A〜2K、2Q の 15 問題と 3 条件。条件は
 `e1000` が既定、`400` が分離共鳴を持たない核種だけ前の既定の 400 kT、`400-heavy400` が両方 400 kT で、ADR-0243 の前の既定、記録の
-条件）。Slurm 754（区分 decision、xlc bfc6665e5、ブランチ test/0274-vera-light-cap、土台は fix/0274-light-free-gas-cap の 8238f5522
+条件）。Slurm 754（区分 decision、xlc 2cb3c3279、ブランチ test/0274-vera-light-cap、土台は fix/0274-light-free-gas-cap の 8238f5522
 （main には b6e7ec8d9 でマージ。土台の分岐点は main の 5d0834c15）、2026-11-12。`bin/xs` の md5 9907083f、`bin/lattice` 3a3a1154）で、ライブラリを今の `bin/xs` で作り直し
 （キャッシュの 339858c46 のライブラリは 168ff9b45 の遅発中性子の形式の前のもので、`bin/lattice` が読めない。Slurm 753 が `missing field
-delayed` で止まった。作り直した dvc.lock は 661e66d4d）、`vera_light_cap.py` の docstring のコマンドで 45 入力を解いて比べた。値は
-`summary.json`（17c2ceecf。出力の `*.out`、`*.log`、`pins-*.msgpack` は `dvc add` した）。差は (k_xlc − k_KENO-VI) × 1e5 pcm、記録は
+delayed` で止まった。作り直した dvc.lock は e81fc688a）、`vera_light_cap.py` の docstring のコマンドで 45 入力を解いて比べた。値は
+`summary.json`（5da89bc47。出力の `*.out`、`*.log`、`pins-*.msgpack` は `dvc add` した）。差は (k_xlc − k_KENO-VI) × 1e5 pcm、記録は
 examples/vera/endfb70/compare-<問題>.json（339858c46）。
 
 | 問題 | σ(KENO) | 記録   | 400-heavy400 | 400    | e1000  | e1000 − 400 |
