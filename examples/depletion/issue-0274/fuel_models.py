@@ -8,17 +8,18 @@
 点の組（状態）ごとに燃料の温度の軸の点を見て、次を書く:
 
 - `exponents`: 項目（`ITEMS`）と 1/k∞ を状態ごとに a + b T^p（p = 0 は a + b ln T）に最小 2 乗で当てはめ、残差の 2 乗和が最小の p
-  （`EXPONENTS` の格子の上）の、燃焼度の点ごとの最小、中央値、最大。p = 1/2 は共鳴積分の √T の相関、p = 1 は温度の線形
+  （`EXPONENTS` の格子の上）の、燃焼度の点ごとの最小、中央値、最大（温度で変わらない状態は除いて `flat` に数え、すべて
+  変わらなければ None）。p = 1/2 は共鳴積分の √T の相関、p = 1 は温度の線形
 - `fits`: 基底（`BASES`。定数の項はどれにもある）ごとに、軸のすべての点に当てはめた残差。項目の残差は点の値の平均で割った値
   （1e-5）の、状態の中の最小と最大。k∞ は当てはめた少数群定数から解いた k∞ の Δρ。係数の滑らかさ（`roughness`）は、項目ごとに、
   基底の関数を公称の温度からの差にした係数を公称の温度の当てはめの値で割り、ホウ素と減速材の軸の線ごとにその軸の値の 2 次式に
   当てはめた残差の最大を、燃焼度の点の中の係数の幅で割った値（滑らかに動けば 0 に近く、状態ごとに跳べば 1 の桁。幅が係数の 1e-12 倍以下なら 0）
 - `designs`: 格子点の選び方（`DESIGNS`）ごとに、選んだ点から方式（`SCHEMES`）で内挿か当てはめをし、選ばなかった点（選んだ点の
   範囲の中）の状態と比べた Δρ。`loo` は内側の点を 1 つずつ除く（../compare_grid_interpolation.py の `schemes` と同じ測り方）。
-  方式の要る点の数に足りない選び方は `skipped` に書く
+  方式の要る点の数に足りない選び方は `skipped` に書く。選び方は添字で決めるので、燃料の温度の軸は 7 点（`FUEL_POINTS`）
 - `surrogates`（見込み。測定でない）: 状態ごとに軸のすべての点に当てはめた滑らかな曲線（`SURROGATES`）を真値とみなし、その曲線の
   格子点の値から、すべての点か選び方（`DESIGNS` の `loo` はすべての点）の点で方式で引いた区間の中点（温度の中点）の状態と、
-  曲線の中点の状態の Δρ。格子点の値の当てはめの残差（格子点ごとの
+  曲線の中点の状態の Δρ。曲線と同じ基底の当てはめは曲線そのものなので `skipped` に書く。格子点の値の当てはめの残差（格子点ごとの
   外れ）を除いた、方式の形の誤差を見る
 
 Δρ = (1/k_格子点 − 1/k_候補) × 1e5 pcm（k∞ は少数群定数の無限媒質の固有値。../compare_burnup_interpolation.py の `k_inf`）で、
@@ -38,6 +39,7 @@ import msgpack
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from compare_branch_cross_terms import table_grid
 from compare_burnup_interpolation import item_names, k_inf, unvector, vector
 from compare_grid_interpolation import METHODS, MIN_POINTS
 
@@ -62,6 +64,7 @@ BASES = {
     "√T、T": [math.sqrt, lambda t: t],
     "√T、ln T": [math.sqrt, math.log],
     "√T、T、1/√T": [math.sqrt, lambda t: t, lambda t: t**-0.5],
+    "√T、T、ln T": [math.sqrt, lambda t: t, math.log],
     "√T、T、T^1.5": [math.sqrt, lambda t: t, lambda t: t**1.5],
 }
 
@@ -72,11 +75,19 @@ SCHEMES = [("interpolate", v, m) for v in VARIABLES for m in METHODS] + [
     ("fit", b, "最小 2 乗") for b in BASES
 ]
 
-# 本番の間隔の区間の中点の見込みに使う滑らかな曲線（`BASES` の名前）
-SURROGATES = ["√T、T、1/√T", "√T、T、T^1.5"]
+# 本番の間隔の区間の中点の見込みに使う滑らかな曲線（`BASES` の名前）。√T、T、T^1.5 は √T の 3 次式で、√T の 4 点のラグランジュが
+# 厳密に再現して形の誤差が 0 になるので使わない。どれも内挿の変数（`VARIABLES`）の多項式でない
+SURROGATES = ["√T、T、1/√T", "√T、T、ln T"]
 
-# 格子点の選び方（燃料の温度の軸の添字）。None は内側の点を 1 つずつ除く
+# 格子点の選び方（燃料の温度の軸の添字。軸は 7 点で、端の 2 点をどれも含む）。None は内側の点を 1 つずつ除く
+FUEL_POINTS = 7
 DESIGNS = {"loo": None, "4 点": [0, 2, 4, 6], "3 点": [0, 3, 6]}
+
+
+def projection(basis: list, xs: list[float]) -> np.ndarray:
+    """xs の値を最小 2 乗の当てはめの xs の値に移す行列"""
+    a = np.array([[1.0] + [f(x) for f in basis] for x in xs])
+    return a @ np.linalg.pinv(a)
 
 
 def fit_weights(basis: list, xs: list[float], q: float) -> dict[int, float]:
@@ -105,10 +116,19 @@ def load(table: dict):
     names = [a["name"] for a in table["axes"]]
     if names != AXES:
         raise SystemExit(f"the table needs the axes {AXES}, not {names}")
+    if any("nominal" not in a for a in table["axes"][1:]):
+        raise SystemExit("the table needs the nominal value of every state axis")
+    # 直積の順、集合体を分けないこと、状態の数（compare_grid_interpolation.py と同じ検査）
+    table_grid("table", table, {a["name"]: a["nominal"] for a in table["axes"][1:]})
     points = [list(a["points"]) for a in table["axes"]]
     shape = [len(p) for p in points]
-    if math.prod(shape) != len(table["states"]):
-        raise SystemExit("the table must hold the product of its axes")
+    if len(points[3]) != FUEL_POINTS:
+        raise SystemExit(
+            f"the designs pick {FUEL_POINTS} fuel points, the table has {len(points[3])}"
+        )
+    # 係数の粗さは、ホウ素と減速材の線ごとの 2 次式からの残差で、3 点以下では 0 になる
+    if min(len(points[1]), len(points[2])) < 4:
+        raise SystemExit("the roughness needs 4 boron and 4 moderator points")
     if min(points[3]) <= 0:
         raise SystemExit("the fuel temperatures must be above 0 K")
     if any(b <= a for a, b in itertools.pairwise(points[3])):
@@ -124,7 +144,8 @@ def item_column(like: dict, item: str, index: tuple) -> int:
 
 
 def best_exponents(t: np.ndarray, ys: np.ndarray) -> np.ndarray:
-    """ys の行ごとに、a + b T^p の残差の 2 乗和が最小の p（`EXPONENTS` の格子の上）"""
+    """ys の行ごとに、a + b T^p の残差の 2 乗和が最小の p（`EXPONENTS` の格子の上）。温度で変わらない行（変化が値の 1e-12 倍
+    以下）は NaN。最小が格子の端なら、べきが格子の外にあるのでエラー"""
     yc = ys - ys.mean(axis=1, keepdims=True)
     errors = []
     for p in EXPONENTS:
@@ -132,7 +153,13 @@ def best_exponents(t: np.ndarray, ys: np.ndarray) -> np.ndarray:
         xc = x - x.mean()
         # 1 次の回帰の残差の 2 乗和 = Σ yc² − (Σ yc xc)² / Σ xc²
         errors.append((yc**2).sum(axis=1) - (yc @ xc) ** 2 / (xc @ xc))
-    return np.array(EXPONENTS)[np.argmin(np.array(errors), axis=0)]
+    best = np.argmin(np.array(errors), axis=0)
+    flat = np.abs(yc).max(axis=1) <= 1e-12 * np.abs(ys).max(axis=1)
+    if np.any(~flat & ((best == 0) | (best == len(EXPONENTS) - 1))):
+        raise SystemExit(
+            f"an exponent lies outside [{EXPONENTS[0]}, {EXPONENTS[-1]}]; widen EXPONENTS"
+        )
+    return np.where(flat, np.nan, np.array(EXPONENTS)[best])
 
 
 def quadratic_roughness(x: np.ndarray, y: np.ndarray) -> float:
@@ -155,15 +182,18 @@ def summarize(table: dict) -> dict:
         return k_inf(unvector(v, like))
 
     def errors(truth, weights, state=True):
-        """重み `truth` の状態（格子点 i は {i: 1}）と、重み `weights`（どちらも燃料の温度の添字）で作った状態の Δρ の、
-        燃焼度の点ごとの |Δρ| の最大の値（`state` なら、その状態も）"""
+        """`truth`（格子点の添字か、燃料の温度の添字の重み）の状態と、重み `weights` で作った状態の Δρ の、燃焼度の点ごとの
+        |Δρ| の最大の値（`state` なら、その状態も）"""
         out = []
         for u in range(len(burnups)):
             worst = None
             for b, m in rest:
-                rho = (
-                    1 / rebuilt_k(u, b, m, truth) - 1 / rebuilt_k(u, b, m, weights)
-                ) * 1e5
+                truth_rho = (
+                    inverse_k[u, b, m, truth]
+                    if isinstance(truth, int)
+                    else 1e5 / rebuilt_k(u, b, m, truth)
+                )
+                rho = truth_rho - 1e5 / rebuilt_k(u, b, m, weights)
                 if worst is None or abs(rho) > abs(worst[0]):
                     worst = (rho, b, m)
             entry = {"worst_pcm": worst[0]}
@@ -204,12 +234,15 @@ def summarize(table: dict) -> dict:
             ys = np.array(ys)
             ps = best_exponents(t, ys)
             change = (ys[:, -1] - ys[:, 0]) / ys[:, 0]
+            changing = ps[~np.isnan(ps)]
             rows.append(
                 {
                     "burnup": burnups[u],
-                    "min": float(ps.min()),
-                    "median": float(np.median(ps)),
-                    "max": float(ps.max()),
+                    # 温度で変わらない状態の数（べきを持たない）
+                    "flat": int(np.isnan(ps).sum()),
+                    "min": float(changing.min()) if changing.size else None,
+                    "median": float(np.median(changing)) if changing.size else None,
+                    "max": float(changing.max()) if changing.size else None,
                     "relative_change_median": float(np.median(change)),
                 }
             )
@@ -217,26 +250,18 @@ def summarize(table: dict) -> dict:
 
     fits = []
     for name, basis in BASES.items():
-        a = np.array([[1.0] + [f(x) for f in basis] for x in fuels])
-        projection = a @ np.linalg.pinv(a)
+        onto = projection(basis, fuels)
+        centered_inverse = np.linalg.pinv(
+            np.array([[1.0] + [f(x) - f(nominal) for f in basis] for x in fuels])
+        )
         items = []
         for label, column in columns:
-            residuals = []
-            coefficients = []
-            for u in range(len(burnups)):
-                per_burnup = []
-                for b, m in rest:
-                    y = vectors[u, b, m, :, column]
-                    residuals.append((y - projection @ y) / y.mean() * 1e5)
-                    centered = np.array(
-                        [[1.0] + [f(x) - f(nominal) for f in basis] for x in fuels]
-                    )
-                    c, *_ = np.linalg.lstsq(centered, y, rcond=None)
-                    per_burnup.append(c[1:] / c[0])
-                coefficients.append(
-                    np.array(per_burnup).reshape(len(borons), len(moderators), -1)
-                )
-            r = np.array(residuals)
+            # (燃焼度, ホウ素, 減速材, 燃料の温度)
+            y = vectors[..., column]
+            r = (y - y @ onto.T) / y.mean(axis=-1, keepdims=True) * 1e5
+            c = y @ centered_inverse.T
+            coefficients = c[..., 1:] / c[..., :1]
+            r = r.reshape(-1, len(fuels))
             roughness = []
             for u, c in enumerate(coefficients):
                 row = []
@@ -273,7 +298,7 @@ def summarize(table: dict) -> dict:
         k_rows = [
             {
                 "point": fuels[i],
-                "points": errors({i: 1.0}, dict(enumerate(projection[i].tolist()))),
+                "points": errors(i, dict(enumerate(onto[i].tolist()))),
             }
             for i in range(len(fuels))
         ]
@@ -305,9 +330,7 @@ def summarize(table: dict) -> dict:
                 centers.append(
                     {
                         "point": fuels[i],
-                        "points": errors(
-                            {i: 1.0}, {use[m]: c for m, c in weights.items()}
-                        ),
+                        "points": errors(i, {use[m]: c for m, c in weights.items()}),
                     }
                 )
             rows.append({"scheme": list(scheme), "centers": centers})
@@ -322,16 +345,18 @@ def summarize(table: dict) -> dict:
 
     surrogates = []
     for name in SURROGATES:
-        # fit_weights は全部の点の添字を順に持つ
-        projection = np.array(
-            [list(fit_weights(BASES[name], fuels, x).values()) for x in fuels]
-        )
+        onto = projection(BASES[name], fuels)
         for design, chosen in DESIGNS.items():
             use = list(range(len(fuels))) if chosen is None else chosen
             rows = []
             skipped = []
             for scheme in SCHEMES:
-                if len(use) < scheme_points(scheme):
+                # 曲線と同じ基底の当てはめは、曲線そのものを返す
+                if len(use) < scheme_points(scheme) or scheme == (
+                    "fit",
+                    name,
+                    "最小 2 乗",
+                ):
                     skipped.append(list(scheme))
                     continue
                 centers = []
@@ -343,7 +368,7 @@ def summarize(table: dict) -> dict:
                     weights = scheme_weights(scheme, [fuels[k] for k in use], q)
                     for m, c in weights.items():
                         dense[use[m]] += c
-                    row = dense @ projection
+                    row = dense @ onto
                     centers.append(
                         {
                             "point": q,
@@ -380,6 +405,22 @@ def scheme_label(scheme: list) -> str:
     return f"当てはめ {name}" if kind == "fit" else f"内挿 {name} {method}"
 
 
+def scheme_lines(group: dict, skipped: str) -> list[str]:
+    """方式ごとに、|Δρ| の最大と、点ごとに燃焼度の点の中で |Δρ| が最大の値"""
+    lines = []
+    for s in group["schemes"]:
+        cells = "、".join(
+            f"{c['point']:g}: "
+            + f"{max(c['points'], key=lambda p: abs(p['worst_pcm']))['worst_pcm']:+.2f}"
+            for c in s["centers"]
+        )
+        worst = max(abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"])
+        lines.append(f"  {scheme_label(s['scheme'])}: 最大 {worst:.2f}（{cells}）")
+    for s in group["skipped"]:
+        lines.append(f"  {scheme_label(s)}: {skipped}")
+    return lines
+
+
 def report(summary: dict) -> list[str]:
     if "inputs" not in summary:
         raise SystemExit("the JSON has no inputs; rerun the comparison")
@@ -393,7 +434,14 @@ def report(summary: dict) -> list[str]:
     )
     for e in summary["exponents"]:
         cells = "、".join(
-            f"{r['burnup']:g}: {r['min']:.3f}/{r['median']:.3f}/{r['max']:.3f}（{r['relative_change_median']:+.2e}）"
+            f"{r['burnup']:g}: "
+            + (
+                f"{r['min']:.3f}/{r['median']:.3f}/{r['max']:.3f}"
+                if r["min"] is not None
+                else "なし"
+            )
+            + (f"（温度で変わらない状態 {r['flat']}）" if r["flat"] else "")
+            + f"（{r['relative_change_median']:+.2e}）"
             for r in e["burnups"]
         )
         lines.append(f"  {e['item']}: {cells}")
@@ -433,31 +481,13 @@ def report(summary: dict) -> list[str]:
         lines.append(
             f"選び方 {d['design']}（{chosen}）の Δρ（pcm。点ごとに燃焼度の点の中で |Δρ| が最大の値）:"
         )
-        for s in d["schemes"]:
-            cells = "、".join(
-                f"{c['point']:g}: "
-                + f"{max((p for p in c['points']), key=lambda p: abs(p['worst_pcm']))['worst_pcm']:+.2f}"
-                for c in s["centers"]
-            )
-            worst = max(abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"])
-            lines.append(f"  {scheme_label(s['scheme'])}: 最大 {worst:.2f}（{cells}）")
-        for s in d["skipped"]:
-            lines.append(f"  {scheme_label(s)}: 点が足りない")
+        lines += scheme_lines(d, "点が足りない")
     for g in summary["surrogates"]:
         chosen = "、".join(f"{x:g}" for x in g["points"])
         lines.append(
             f"当てはめ {g['basis']} の曲線を真値とみなし、{chosen} K から引いた区間の中点の Δρ（見込み、pcm）:"
         )
-        for s in g["schemes"]:
-            cells = "、".join(
-                f"{c['point']:g}: "
-                + f"{max((p for p in c['points']), key=lambda p: abs(p['worst_pcm']))['worst_pcm']:+.2f}"
-                for c in s["centers"]
-            )
-            worst = max(abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"])
-            lines.append(f"  {scheme_label(s['scheme'])}: 最大 {worst:.2f}（{cells}）")
-        for s in g["skipped"]:
-            lines.append(f"  {scheme_label(s)}: 点が足りない")
+        lines += scheme_lines(g, "点が足りないか、曲線と同じ基底")
     return lines
 
 
