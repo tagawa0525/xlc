@@ -22,7 +22,8 @@
   外れ）を除いた、方式の形の誤差を見る
 
 Δρ = (1/k_格子点 − 1/k_候補) × 1e5 pcm（k∞ は少数群定数の無限媒質の固有値。../compare_burnup_interpolation.py の `k_inf`）で、
-燃焼度の点ごとに、ホウ素と減速材のすべての組の |Δρ| の最大とその状態を書く。方式の値はどれも格子点の値の線形結合で、少数群定数の
+燃焼度の点ごと（`burnup` の順）に、ホウ素と減速材のすべての組の中で |Δρ| が最大の値（`worst_pcm`）とその状態（`worst`。
+`surrogates` は値だけ）を書く。方式の値はどれも格子点の値の線形結合で、少数群定数の
 項目ごとに同じ重みで足す（当てはめの重みは最小 2 乗の射影の行）。`inputs` は読んだテーブルのパスと md5。
 """
 
@@ -153,11 +154,11 @@ def summarize(table: dict) -> dict:
         v = sum(c * vectors[u, b, m, k] for k, c in weights.items())
         return k_inf(unvector(v, like))
 
-    def errors(truth, weights):
+    def errors(truth, weights, state=True):
         """重み `truth` の状態（格子点 i は {i: 1}）と、重み `weights`（どちらも燃料の温度の添字）で作った状態の Δρ の、
-        燃焼度の点ごとの最大"""
+        燃焼度の点ごとの |Δρ| の最大の値（`state` なら、その状態も）"""
         out = []
-        for u, burnup in enumerate(burnups):
+        for u in range(len(burnups)):
             worst = None
             for b, m in rest:
                 rho = (
@@ -165,17 +166,13 @@ def summarize(table: dict) -> dict:
                 ) * 1e5
                 if worst is None or abs(rho) > abs(worst[0]):
                     worst = (rho, b, m)
-            out.append(
-                {
-                    "burnup": burnup,
-                    "max_abs_pcm": abs(worst[0]),
-                    "worst_pcm": worst[0],
-                    "worst": {
-                        "boron": borons[worst[1]],
-                        "moderator": moderators[worst[2]],
-                    },
+            entry = {"worst_pcm": worst[0]}
+            if state:
+                entry["worst"] = {
+                    "boron": borons[worst[1]],
+                    "moderator": moderators[worst[2]],
                 }
-            )
+            out.append(entry)
         return out
 
     columns = [(label, item_column(like, item, index)) for label, item, index in ITEMS]
@@ -350,7 +347,9 @@ def summarize(table: dict) -> dict:
                     centers.append(
                         {
                             "point": q,
-                            "points": errors(truth, dict(enumerate(row.tolist()))),
+                            "points": errors(
+                                truth, dict(enumerate(row.tolist())), state=False
+                            ),
                         }
                     )
                 rows.append({"scheme": list(scheme), "centers": centers})
@@ -415,7 +414,7 @@ def report(summary: dict) -> list[str]:
                     f"    {c['burnup']:g} MWd/kg の係数（粗さ）: {coefficients}"
                 )
         cells = " ".join(
-            f"{max(p['max_abs_pcm'] for p in r['points']):.2f}" for r in f["k"]
+            f"{max(abs(p['worst_pcm']) for p in r['points']):.2f}" for r in f["k"]
         )
         lines.append(
             f"  Δρ の最大（pcm、{'、'.join(f'{x:g}' for x in fuels)} K）: {cells}"
@@ -437,10 +436,10 @@ def report(summary: dict) -> list[str]:
         for s in d["schemes"]:
             cells = "、".join(
                 f"{c['point']:g}: "
-                + f"{max((p for p in c['points']), key=lambda p: p['max_abs_pcm'])['worst_pcm']:+.2f}"
+                + f"{max((p for p in c['points']), key=lambda p: abs(p['worst_pcm']))['worst_pcm']:+.2f}"
                 for c in s["centers"]
             )
-            worst = max(p["max_abs_pcm"] for c in s["centers"] for p in c["points"])
+            worst = max(abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"])
             lines.append(f"  {scheme_label(s['scheme'])}: 最大 {worst:.2f}（{cells}）")
         for s in d["skipped"]:
             lines.append(f"  {scheme_label(s)}: 点が足りない")
@@ -452,10 +451,10 @@ def report(summary: dict) -> list[str]:
         for s in g["schemes"]:
             cells = "、".join(
                 f"{c['point']:g}: "
-                + f"{max((p for p in c['points']), key=lambda p: p['max_abs_pcm'])['worst_pcm']:+.2f}"
+                + f"{max((p for p in c['points']), key=lambda p: abs(p['worst_pcm']))['worst_pcm']:+.2f}"
                 for c in s["centers"]
             )
-            worst = max(p["max_abs_pcm"] for c in s["centers"] for p in c["points"])
+            worst = max(abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"])
             lines.append(f"  {scheme_label(s['scheme'])}: 最大 {worst:.2f}（{cells}）")
         for s in g["skipped"]:
             lines.append(f"  {scheme_label(s)}: 点が足りない")
@@ -472,7 +471,7 @@ def main() -> None:
         summary = summarize(msgpack.unpackb(data))
         summary["inputs"] = [{"path": str(path), "md5": hashlib.md5(data).hexdigest()}]
         Path(args[1]).write_text(
-            json.dumps(summary, indent=1, ensure_ascii=False) + "\n"
+            json.dumps(summary, ensure_ascii=False, separators=(",", ":")) + "\n"
         )
         print("\n".join(report(summary)))
     else:

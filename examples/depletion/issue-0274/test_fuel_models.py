@@ -98,7 +98,7 @@ def design(summary, name):
 def scheme_max(summary, design_name, scheme):
     d = design(summary, design_name)
     row = next(s for s in d["schemes"] if s["scheme"] == list(scheme))
-    return max(p["max_abs_pcm"] for c in row["centers"] for p in c["points"])
+    return max(abs(p["worst_pcm"]) for c in row["centers"] for p in c["points"])
 
 
 def exponent(summary, item):
@@ -157,7 +157,7 @@ class FitTest(unittest.TestCase):
             self.assertLess(max(map(abs, i["residual_min"] + i["residual_max"])), 1e-6)
         f = next(x for x in summary["fits"] if x["basis"] == "√T、T")
         self.assertLess(
-            max(p["max_abs_pcm"] for r in f["k"] for p in r["points"]), 1e-6
+            max(abs(p["worst_pcm"]) for r in f["k"] for p in r["points"]), 1e-6
         )
 
     def test_the_square_root_alone_leaves_the_linear_term(self):
@@ -232,7 +232,7 @@ class SurrogateTest(unittest.TestCase):
         for g in summary["surrogates"]:
             rows = {tuple(s["scheme"]): s for s in g["schemes"]}
             worst = {
-                k: max(p["max_abs_pcm"] for c in s["centers"] for p in c["points"])
+                k: max(abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"])
                 for k, s in rows.items()
             }
             self.assertLess(worst[("interpolate", "√T", "hermite")], 1e-6)
@@ -256,7 +256,9 @@ class SurrogateTest(unittest.TestCase):
             if g["design"] != "loo":
                 continue
             row = next(s for s in g["schemes"] if tuple(s["scheme"]) == hermite)
-            between = max(p["max_abs_pcm"] for c in row["centers"] for p in c["points"])
+            between = max(
+                abs(p["worst_pcm"]) for c in row["centers"] for p in c["points"]
+            )
             self.assertLess(between, loo / 10)
 
 
