@@ -1130,9 +1130,12 @@ fn flux_difference(a: &CellSpectrum, b: &CellSpectrum) -> f64 {
         .fold(0.0, f64::max)
 }
 
-fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scattering {
+/// 自由ガスの核の上限なし（範囲の全体）
+const UNCAPPED: FreeGasCap = FreeGasCap::Thermal(f64::INFINITY);
+
+fn free_gas(upper: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
-        upper: FreeGasCap::Thermal(upper.unwrap_or(f64::INFINITY)),
+        upper,
         cells,
         sweeps,
         heavy: None,
@@ -1148,7 +1151,7 @@ fn free_gas_heavy(heavy: f64, cells: usize, sweeps: Option<usize>) -> Scattering
 /// [`free_gas`] の、分離共鳴を持つ核種も上限 `cap` より下で自由ガスにするもの
 fn free_gas_capped(cap: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
-        upper: FreeGasCap::Thermal(f64::INFINITY),
+        upper: UNCAPPED,
         cells,
         sweeps,
         heavy: Some(cap),
@@ -1160,14 +1163,14 @@ fn free_gas_capped(cap: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scat
 fn free_gas_at_a_vanishing_temperature_gives_the_static_spectrum() {
     // T → 0 で自由ガスの核は静止した標的の核になる
     let at_rest = thermal_spectrum(1.0e-3, Scattering::Static);
-    let cold = thermal_spectrum(1.0e-3, free_gas(None, 4, None));
+    let cold = thermal_spectrum(1.0e-3, free_gas(UNCAPPED, 4, None));
     assert!(
         flux_difference(&cold, &at_rest) < 1e-7,
         "{}",
         flux_difference(&cold, &at_rest)
     );
     // 600 K では群の中性子束が動く（4〜100 eV の群の 6.67 eV の共鳴の遮蔽）
-    let hot = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let hot = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, None));
     let warm_at_rest = thermal_spectrum(600.0, Scattering::Static);
     assert!(flux_difference(&hot, &warm_at_rest) > 1e-5);
 }
@@ -1177,7 +1180,7 @@ fn free_gas_spectrum_converges_with_the_cells() {
     // 区間を細かくすると群の中性子束と群定数が収束する
     let spectra: Vec<CellSpectrum> = [2, 4, 8, 16]
         .iter()
-        .map(|&cells| thermal_spectrum(600.0, free_gas(None, cells, None)))
+        .map(|&cells| thermal_spectrum(600.0, free_gas(UNCAPPED, cells, None)))
         .collect();
     let steps: Vec<f64> = spectra
         .windows(2)
@@ -1190,13 +1193,13 @@ fn free_gas_spectrum_converges_with_the_cells() {
 #[test]
 fn capping_above_the_range_keeps_the_uncapped_spectrum() {
     // 上限が範囲の上端より上なら、上限のないときと同じ。上限が範囲の下端より下なら静止した標的と同じ
-    let uncapped = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let uncapped = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, None));
     assert_eq!(
-        thermal_spectrum(600.0, free_gas(Some(1.0e9), 4, None)),
+        thermal_spectrum(600.0, free_gas(FreeGasCap::Thermal(1.0e9), 4, None)),
         uncapped
     );
     assert_eq!(
-        thermal_spectrum(600.0, free_gas(Some(1.0), 4, None)),
+        thermal_spectrum(600.0, free_gas(FreeGasCap::Thermal(1.0), 4, None)),
         thermal_spectrum(600.0, Scattering::Static)
     );
     // 上限を上げると上限のない結果に近づく
@@ -1204,7 +1207,7 @@ fn capping_above_the_range_keeps_the_uncapped_spectrum() {
         .iter()
         .map(|&n| {
             flux_difference(
-                &thermal_spectrum(600.0, free_gas(Some(n), 4, None)),
+                &thermal_spectrum(600.0, free_gas(FreeGasCap::Thermal(n), 4, None)),
                 &uncapped,
             )
         })
@@ -1215,10 +1218,10 @@ fn capping_above_the_range_keeps_the_uncapped_spectrum() {
 #[test]
 fn converged_sweeps_match_many_fixed_sweeps() {
     // 収束するまでのスイープは、十分な回数のスイープと同じ。1 回のスイープ（上方散乱の先を F_m とみなす）は近い
-    let converged = thermal_spectrum(600.0, free_gas(None, 4, None));
-    let many = thermal_spectrum(600.0, free_gas(None, 4, Some(20)));
+    let converged = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, None));
+    let many = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, Some(20)));
     assert!(flux_difference(&many, &converged) < 1e-9);
-    let one = thermal_spectrum(600.0, free_gas(None, 4, Some(1)));
+    let one = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, Some(1)));
     assert!(flux_difference(&one, &converged) < 1e-3);
 }
 
@@ -1242,7 +1245,10 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
         )
         .unwrap()
     };
-    assert_eq!(solve(free_gas(None, 4, None)), solve(Scattering::Static));
+    assert_eq!(
+        solve(free_gas(UNCAPPED, 4, None)),
+        solve(Scattering::Static)
+    );
 }
 
 #[test]
@@ -1260,7 +1266,7 @@ fn resonant_nuclides_at_a_vanishing_temperature_give_the_static_spectrum() {
 #[test]
 fn resonant_free_gas_moves_the_resonance_shielding() {
     // 600 K では、分離共鳴を持つ核種（U-238、U-235）の熱運動で、軽い核種だけを自由ガスにしたときから群の中性子束が動く
-    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let light = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, None));
     let heavy = thermal_spectrum(600.0, free_gas_heavy(f64::INFINITY, 4, None));
     assert!(
         flux_difference(&heavy, &light) > 1e-5,
@@ -1288,7 +1294,7 @@ fn resonant_free_gas_spectrum_converges_with_the_cells() {
 fn resonant_nuclides_follow_their_own_cap() {
     // 分離共鳴を持つ核種の上限（`heavy`）は軽い核種の上限（`upper`）と別に効く。範囲の下端より下の上限は、分離共鳴を持つ核種を
     // 静止させたままにし、範囲の上端より上の上限は、上限のないときと同じ
-    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let light = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, None));
     assert_eq!(thermal_spectrum(600.0, free_gas_heavy(1.0, 4, None)), light);
     assert_eq!(
         thermal_spectrum(600.0, free_gas_heavy(1.0e9, 4, None)),
@@ -1338,15 +1344,7 @@ fn an_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
 fn a_light_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
     // 分離共鳴を持たない核種の温度によらない上限（`upper` の `FreeGasCap::Energy`、eV）も、どの温度でも、その温度でそのエネルギーに
     // なる kT の倍数の上限と同じ入射エネルギーで自由ガスを止める
-    let light = |cap| {
-        Scattering::FreeGas(FreeGas {
-            upper: cap,
-            cells: 4,
-            sweeps: None,
-            heavy: None,
-            sab: false,
-        })
-    };
+    let light = |cap| free_gas(cap, 4, None);
     let cap = 10.0;
     for temperature in [150.0, 300.0] {
         let kt = free_gas::BOLTZMANN * temperature;
@@ -1676,7 +1674,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
 fn a_resonant_cap_just_below_the_range_reaches_it_by_up_scattering() {
     // 60 kT（600 K で 3.1 eV）の上限は範囲の下限 4 eV より下だが、上方散乱の裾は 4 eV の近くの格子点に届く（範囲の下限より下の入射は
     // 最後の格子点の値を使う）
-    let light = thermal_spectrum(600.0, free_gas(None, 4, None));
+    let light = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, None));
     let capped = thermal_spectrum(600.0, free_gas_heavy(60.0, 4, None));
     assert!(flux_difference(&capped, &light) > 0.0);
 }
@@ -1761,7 +1759,7 @@ fn sab_spectrum(
 /// [`free_gas`] の、S(α, β) の核種を S(α, β) の移行にするもの
 fn sab(cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
-        upper: FreeGasCap::Thermal(f64::INFINITY),
+        upper: UNCAPPED,
         cells,
         sweeps,
         heavy: None,
@@ -1773,7 +1771,7 @@ fn sab(cells: usize, sweeps: Option<usize>) -> Scattering {
 fn sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum() {
     // 自由ガスの核から作った表の S(α, β) の移行は、自由ガスの核と同じ散乱。表の移行の格子を細かくすると、自由ガスの核の結果に
     // 近づく（表は格子の区間の中の核を一定とする）
-    let free = sab_spectrum(None, free_gas(None, 4, None)).unwrap();
+    let free = sab_spectrum(None, free_gas(UNCAPPED, 4, None)).unwrap();
     let differences: Vec<f64> = [0.04, 0.02, 0.01]
         .iter()
         .map(|&dt| {
@@ -1788,7 +1786,7 @@ fn sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum() {
 #[test]
 fn sab_of_a_hotter_table_moves_the_spectrum() {
     // 物質より熱い自由ガスの表（束縛で広がった核の代わり）は、S(α, β) の上限より下の H の散乱を変え、群の中性子束を動かす
-    let free = sab_spectrum(None, free_gas(None, 4, None)).unwrap();
+    let free = sab_spectrum(None, free_gas(UNCAPPED, 4, None)).unwrap();
     let hot = free_gas_transfer(0.99917, 1200.0, 0.02);
     let moved = sab_spectrum(Some(hot), sab(4, None)).unwrap();
     assert!(flux_difference(&moved, &free) > 1e-5);
@@ -1799,8 +1797,8 @@ fn sab_off_ignores_the_table() {
     // `sab` を選ばなければ、表を持つ核種も自由ガスの核で、表のないときとビットで同じ
     let table = free_gas_transfer(0.99917, 600.0, 0.04);
     assert_eq!(
-        sab_spectrum(Some(table), free_gas(None, 4, None)).unwrap(),
-        sab_spectrum(None, free_gas(None, 4, None)).unwrap()
+        sab_spectrum(Some(table), free_gas(UNCAPPED, 4, None)).unwrap(),
+        sab_spectrum(None, free_gas(UNCAPPED, 4, None)).unwrap()
     );
 }
 
@@ -1841,7 +1839,7 @@ fn sab_needs_the_table_of_sab_nuclides() {
         )
         .unwrap()
     };
-    assert_eq!(solve(sab(4, None)), solve(free_gas(None, 4, None)));
+    assert_eq!(solve(sab(4, None)), solve(free_gas(UNCAPPED, 4, None)));
 }
 
 #[test]
@@ -2013,7 +2011,7 @@ fn transfers_balance_the_slowing_down_of_an_infinite_medium() {
     let table = free_gas_transfer(0.99917, 600.0, 0.002);
     let cases = [
         ("static", Scattering::Static, None),
-        ("free gas", free_gas(None, 8, None), None),
+        ("free gas", free_gas(UNCAPPED, 8, None), None),
         ("resonant free gas", free_gas_heavy(400.0, 8, None), None),
         ("S(a,b)", sab(8, None), Some(table)),
     ];
@@ -2166,7 +2164,7 @@ fn thermal_transfers(
 fn transfer_kernels() -> [(&'static str, Scattering, Option<SabTransfer>); 4] {
     [
         ("static", Scattering::Static, None),
-        ("free gas", free_gas(None, 2, Some(3)), None),
+        ("free gas", free_gas(UNCAPPED, 2, Some(3)), None),
         ("resonant free gas", free_gas_heavy(400.0, 2, Some(3)), None),
         (
             "S(a,b)",
