@@ -1,0 +1,5 @@
+outs:
+- md5: 98198797439ddc72855d2735f0dadb7d
+  size: 11
+  hash: md5
+  path: 2A-e1000.out
