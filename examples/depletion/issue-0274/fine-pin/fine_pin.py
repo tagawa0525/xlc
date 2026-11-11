@@ -18,7 +18,7 @@
 `--reference` は、名前のピンセルと同じピンセルを格子点だけで、ほかのライブラリで解いたテーブルで、格子点の状態の少数群定数の
 最大の相対差を `reference` に書く。`--library` は 2 つのライブラリの核種と温度の組のうち、両方にあるもののデータが同じバイトか（`library`。
 同じでない組を並べる）。Δρ = (1/k_点 − 1/k_候補) × 1e5、k∞ は少数群定数の無限媒質の固有値（../../compare_burnup_interpolation.py の
-`k_inf`）。`inputs` は読んだファイルのパスと md5。浮動小数点数は有効数字 6 桁に丸めて書く。
+`k_inf`）。`inputs` は読んだファイルのパスと md5。浮動小数点数は、k∞ を除いて有効数字 6 桁に丸めて書く。
 """
 
 import argparse
@@ -35,10 +35,24 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from compare_burnup_interpolation import k_inf, unvector, vector
-from fuel_models import BASES, ITEMS, SCHEMES, item_column, projection, scheme_weights
-from fuel_models import load as load_product
+from fuel_models import (
+    BASES,
+    ITEMS,
+    SCHEMES,
+    item_column,
+    load,
+    projection,
+    scheme_weights,
+)
 
 GRID = [560.0, 600.0, 750.0, 900.0, 1050.0, 1200.0, 1350.0]
+
+
+def load_product(table: dict) -> tuple:
+    """直積のテーブルの軸の点、状態のベクトル、形の見本の状態、状態の軸の公称の値（ピンセルごとに読み直さない）"""
+    points, vectors, like = load(table)
+    return points, vectors, like, {a["name"]: a["nominal"] for a in table["axes"][1:]}
+
 
 # 跳びを書く項目（`ITEMS` の名前）と k∞
 JUMP_ITEMS = ["高速群の吸収", "熱群の吸収", "高速群の νΣf"]
@@ -126,15 +140,14 @@ def summarize_pin(table: dict) -> dict:
     }
 
 
-def summarize_product(table: dict, burnup: float) -> dict:
-    """直積のテーブルの公称の状態の、燃焼度 burnup の点の、格子点の当てはめの残差"""
-    points, vectors, like = load_product(table)
+def summarize_product(loaded: tuple, burnup: float) -> dict:
+    """直積のテーブル（`load_product` の結果）の公称の状態の、燃焼度 burnup の点の、格子点の当てはめの残差"""
+    points, vectors, like, nominal = loaded
     burnups, borons, moderators, fuels = points
     if fuels != GRID:
         raise SystemExit(f"the product table needs the fuel points {GRID} K")
     if burnup not in burnups:
         raise SystemExit(f"the product table has no burnup point {burnup}")
-    nominal = {a["name"]: a["nominal"] for a in table["axes"][1:]}
     u = burnups.index(burnup)
     b = borons.index(nominal["boron"])
     m = moderators.index(nominal["moderator"])
@@ -195,7 +208,7 @@ def read(path: str, inputs: list) -> dict:
 
 def summarize(args) -> dict:
     inputs = []
-    product = read(args.table, inputs)
+    product = load_product(read(args.table, inputs))
     pins, tables = [], {}
     for spec in args.pins:
         name, rest = spec.split("=", 1)
@@ -283,11 +296,12 @@ def report(summary: dict) -> list[str]:
 
 
 def rounded(value):
-    """浮動小数点数を有効数字 6 桁に丸めた値（ほかの値はそのまま）。要約が引く値は pcm と 1e-5 の小数 2 桁で足りる"""
+    """浮動小数点数を有効数字 6 桁に丸めた値（ほかの値はそのまま）。要約が引く残差と Δρ は pcm と 1e-5 の小数 2 桁で足りる。
+    `k_inf` は丸めない（6 桁では 1 より大きい k が小数 5 桁になり、k から引く反応度の差が 0.5 pcm ほどずれる）"""
     if isinstance(value, float):
         return float(f"{value:.6g}")
     if isinstance(value, dict):
-        return {k: rounded(v) for k, v in value.items()}
+        return {k: v if k == "k_inf" else rounded(v) for k, v in value.items()}
     if isinstance(value, list):
         return [rounded(v) for v in value]
     return value
