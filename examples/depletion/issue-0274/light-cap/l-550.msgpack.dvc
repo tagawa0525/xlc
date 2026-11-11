@@ -1,0 +1,5 @@
+outs:
+- md5: 8326e82e920e5f45aec2aa06508a07eb
+  size: 709
+  hash: md5
+  path: l-550.msgpack

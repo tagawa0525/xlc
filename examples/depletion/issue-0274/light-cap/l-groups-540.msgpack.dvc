@@ -1,0 +1,5 @@
+outs:
+- md5: a2c5ca6f5a3a0a22d38dcbc0aefbe4c7
+  size: 2228
+  hash: md5
+  path: l-groups-540.msgpack

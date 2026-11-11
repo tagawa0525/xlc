@@ -1,0 +1,5 @@
+outs:
+- md5: 81e0e4fbd0a4c442406770b9713a8d5f
+  size: 330
+  hash: md5
+  path: pin-fresh-light-e3000.out
