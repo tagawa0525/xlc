@@ -1132,7 +1132,7 @@ fn flux_difference(a: &CellSpectrum, b: &CellSpectrum) -> f64 {
 
 fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
-        upper,
+        upper: FreeGasCap::Thermal(upper.unwrap_or(f64::INFINITY)),
         cells,
         sweeps,
         heavy: None,
@@ -1142,13 +1142,13 @@ fn free_gas(upper: Option<f64>, cells: usize, sweeps: Option<usize>) -> Scatteri
 
 /// [`free_gas`] の、分離共鳴を持つ核種も `heavy`（kT の倍数）より下で自由ガスにするもの
 fn free_gas_heavy(heavy: f64, cells: usize, sweeps: Option<usize>) -> Scattering {
-    free_gas_capped(HeavyCap::Thermal(heavy), cells, sweeps)
+    free_gas_capped(FreeGasCap::Thermal(heavy), cells, sweeps)
 }
 
 /// [`free_gas`] の、分離共鳴を持つ核種も上限 `cap` より下で自由ガスにするもの
-fn free_gas_capped(cap: HeavyCap, cells: usize, sweeps: Option<usize>) -> Scattering {
+fn free_gas_capped(cap: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
-        upper: None,
+        upper: FreeGasCap::Thermal(f64::INFINITY),
         cells,
         sweeps,
         heavy: Some(cap),
@@ -1309,12 +1309,15 @@ fn resonant_nuclides_follow_their_own_cap() {
 
 #[test]
 fn an_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
-    // 温度によらない上限（`HeavyCap::Energy`、eV）は、どの温度でも、その温度でそのエネルギーになる kT の倍数の上限と同じ
+    // 温度によらない上限（`FreeGasCap::Energy`、eV）は、どの温度でも、その温度でそのエネルギーになる kT の倍数の上限と同じ
     // 入射エネルギーで自由ガスを止める。10 eV は 6.67 eV の共鳴の上にあり、400 kT（150 K で 5.2 eV）は共鳴の下にある
     let cap = 10.0;
     for temperature in [150.0, 300.0] {
         let kt = free_gas::BOLTZMANN * temperature;
-        let energy = thermal_spectrum(temperature, free_gas_capped(HeavyCap::Energy(cap), 4, None));
+        let energy = thermal_spectrum(
+            temperature,
+            free_gas_capped(FreeGasCap::Energy(cap), 4, None),
+        );
         let multiple = thermal_spectrum(temperature, free_gas_heavy(cap / kt, 4, None));
         assert!(
             flux_difference(&energy, &multiple) < 1e-12,
@@ -1323,7 +1326,7 @@ fn an_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
         );
     }
     let below = thermal_spectrum(150.0, free_gas_heavy(400.0, 4, None));
-    let above = thermal_spectrum(150.0, free_gas_capped(HeavyCap::Energy(cap), 4, None));
+    let above = thermal_spectrum(150.0, free_gas_capped(FreeGasCap::Energy(cap), 4, None));
     assert!(
         flux_difference(&above, &below) > 1e-5,
         "{}",
@@ -1581,10 +1584,10 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
         .unwrap()
     };
     let moving = Scattering::FreeGas(FreeGas {
-        upper: Some(1.0),
+        upper: FreeGasCap::Thermal(1.0),
         cells: 4,
         sweeps: None,
-        heavy: Some(HeavyCap::Thermal(f64::INFINITY)),
+        heavy: Some(FreeGasCap::Thermal(f64::INFINITY)),
         sab: false,
     });
     // 群（20〜9.877、9.877〜4 eV）の U-238 の捕獲率
@@ -1725,7 +1728,7 @@ fn sab_spectrum(
 /// [`free_gas`] の、S(α, β) の核種を S(α, β) の移行にするもの
 fn sab(cells: usize, sweeps: Option<usize>) -> Scattering {
     Scattering::FreeGas(FreeGas {
-        upper: None,
+        upper: FreeGasCap::Thermal(f64::INFINITY),
         cells,
         sweeps,
         heavy: None,

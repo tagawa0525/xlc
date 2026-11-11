@@ -133,7 +133,7 @@ use crate::history::HistoryInput;
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
-use crate::ufg::{Collision, FreeGas, HeavyCap, Scattering};
+use crate::ufg::{Collision, FreeGas, FreeGasCap, Scattering};
 use crate::water::borated_water;
 
 /// 解くときに使う格子の対称性の選び方（ADR-0112）。
@@ -766,8 +766,7 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             // inf は上限なし
             let upper = match entry.upper {
                 None => defaults.upper,
-                Some(v) if v == f64::INFINITY => None,
-                Some(v) if positive(v) => Some(v),
+                Some(v) if v > 0.0 => FreeGasCap::Thermal(v),
                 Some(v) => {
                     return Err(format!(
                         "`ufg-free-gas.upper` must be a positive multiple of kT or inf, got {v}"
@@ -779,9 +778,9 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             let heavy = match entry.heavy {
                 None => defaults.heavy,
                 Some(HeavyEntry::Bool(false)) => None,
-                Some(HeavyEntry::Float(v)) if v > 0.0 => Some(HeavyCap::Thermal(v)),
+                Some(HeavyEntry::Float(v)) if v > 0.0 => Some(FreeGasCap::Thermal(v)),
                 Some(HeavyEntry::Energy(EnergyEntry { energy })) if positive(energy) => {
-                    Some(HeavyCap::Energy(energy))
+                    Some(FreeGasCap::Energy(energy))
                 }
                 Some(other) => {
                     return Err(format!(
