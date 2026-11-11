@@ -12,7 +12,7 @@
 //!                                 # でき、省略した項目はこの例の値。ADR-0209、ADR-0243。参照は
 //!                                 # { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }）:
 //!                                 # 分離共鳴を持たない核種の自由ガスの核を使う入射エネルギーの上限（kT の倍数。inf で上限なし。
-//!                                 # ADR-0203）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（inf で収束するまで）、
+//!                                 # ADR-0203。{ energy = <eV> } で温度によらない入射エネルギー。#0274）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（inf で収束するまで）、
 //!                                 # 分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし、false で静止した標的。
 //!                                 # ADR-0204。{ energy = <eV> } で温度によらない入射エネルギー。ADR-0243）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下でライブラリの S(α, β) の
 //!                                 # 移行にするか（false で自由ガスの核。ADR-0205）
@@ -322,8 +322,7 @@ pub enum InputError {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FreeGasEntry {
-    /// kT の倍数か inf（上限なし）
-    upper: Option<f64>,
+    upper: Option<UpperEntry>,
     cells: Option<i64>,
     sweeps: Option<SweepsEntry>,
     heavy: Option<HeavyEntry>,
@@ -348,7 +347,15 @@ enum HeavyEntry {
     Energy(EnergyEntry),
 }
 
-/// `ufg-free-gas.heavy` の `{ energy = <eV> }`
+/// `ufg-free-gas.upper` の値: kT の倍数か inf（上限なし）、または `{ energy = <eV> }`（温度によらない入射エネルギーの上限）
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum UpperEntry {
+    Float(f64),
+    Energy(EnergyEntry),
+}
+
+/// `ufg-free-gas.upper` と `ufg-free-gas.heavy` の `{ energy = <eV> }`
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EnergyEntry {
@@ -360,6 +367,15 @@ impl std::fmt::Display for SweepsEntry {
         match self {
             Self::Count(n) => write!(f, "{n}"),
             Self::Float(v) => write!(f, "{v:?}"),
+        }
+    }
+}
+
+impl std::fmt::Display for UpperEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Float(v) => write!(f, "{v:?}"),
+            Self::Energy(EnergyEntry { energy }) => write!(f, "{{ energy = {energy:?} }}"),
         }
     }
 }
@@ -763,13 +779,17 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
             let Some(entry) = entry else {
                 return Ok(Scattering::FreeGas(defaults));
             };
-            // inf は上限なし
+            // inf は上限なし。`heavy` と同じく、エネルギーの上限なしは inf で書くので `{ energy = inf }` は止める
             let upper = match entry.upper {
                 None => defaults.upper,
-                Some(v) if v > 0.0 => FreeGasCap::Thermal(v),
-                Some(v) => {
+                Some(UpperEntry::Float(v)) if v > 0.0 => FreeGasCap::Thermal(v),
+                Some(UpperEntry::Energy(EnergyEntry { energy })) if positive(energy) => {
+                    FreeGasCap::Energy(energy)
+                }
+                Some(other) => {
                     return Err(format!(
-                        "`ufg-free-gas.upper` must be a positive multiple of kT or inf, got {v}"
+                        "`ufg-free-gas.upper` must be a positive multiple of kT, inf or \
+                         {{ energy = <positive eV> }}, got {other}"
                     ));
                 }
             };
