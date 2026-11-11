@@ -42,13 +42,13 @@ def state(absorption1: float, nu_fission2: float, scatter12: float) -> dict:
     }
 
 
-def table(g) -> dict:
+def table(g, fuel=FUEL, boron=BORON) -> dict:
     """直積の順（最初の軸がいちばん遅く変わる）で、各状態が g(燃焼度, ホウ素, 減速材, 燃料) の (Σa1, νΣf2, Σs12) の状態"""
     axes = [
         {"name": "burnup", "points": BURNUP},
         {
             "name": "boron",
-            "points": BORON,
+            "points": boron,
             "b10": 0.199,
             "nominal": 325.0,
             "transform": "linear",
@@ -60,7 +60,7 @@ def table(g) -> dict:
             "nominal": 570.0,
             "transform": "linear",
         },
-        {"name": "fuel", "points": FUEL, "nominal": 900.0, "transform": "sqrt"},
+        {"name": "fuel", "points": fuel, "nominal": 900.0, "transform": "sqrt"},
     ]
     sizes = [len(a["points"]) for a in axes]
     return {
@@ -70,7 +70,7 @@ def table(g) -> dict:
         "points": [list(p) for p in itertools.product(*[range(n) for n in sizes])],
         "states": [
             state(*g(u, b, m, f))
-            for u, b, m, f in itertools.product(BURNUP, BORON, MODERATOR, FUEL)
+            for u, b, m, f in itertools.product(BURNUP, boron, MODERATOR, fuel)
         ],
     }
 
@@ -140,6 +140,19 @@ class ExponentTest(unittest.TestCase):
             self.assertEqual((low, high), (0.5, 0.5))
         for low, high in exponent(summary, "熱群の νΣf"):
             self.assertEqual((low, high), (1.0, 1.0))
+
+    def test_items_that_do_not_change_with_the_temperature_have_no_exponent(self):
+        summary = fm.summarize(table(doppler))
+        rows = next(e for e in summary["exponents"] if e["item"] == "1→2 の散乱")[
+            "burnups"
+        ]
+        for r in rows:
+            self.assertEqual((r["min"], r["median"], r["max"]), (None, None, None))
+
+    def test_exponents_at_the_end_of_the_grid_are_errors(self):
+        ts = np.array([560.0, 750.0, 1000.0, 1350.0])
+        with self.assertRaises(SystemExit):
+            fm.best_exponents(ts, np.array([[1 + 1e-9 * t**3 for t in ts]]))
 
     def test_the_exponent_zero_is_the_logarithm(self):
         ts = [560.0, 750.0, 1000.0, 1350.0]
@@ -242,6 +255,19 @@ class SurrogateTest(unittest.TestCase):
                 len(g["points"]) - 1,
             )
 
+    def test_fits_are_not_scored_against_their_own_curve(self):
+        summary = fm.summarize(table(doppler))
+        for g in summary["surrogates"]:
+            own = ["fit", g["basis"], "最小 2 乗"]
+            self.assertIn(own, g["skipped"])
+            self.assertNotIn(own, [s["scheme"] for s in g["schemes"]])
+
+    def test_no_surrogate_is_a_polynomial_of_an_interpolation_variable(self):
+        # 4 点のラグランジュは変数の 3 次式を、3 次 Hermite は 2 次式を厳密に再現するので、真値の曲線がそれだと形の誤差が 0 になる
+        summary = fm.summarize(table(doppler))
+        for g in summary["surrogates"]:
+            self.assertNotIn(g["basis"], ["√T、T、T^1.5", "√T、T"])
+
     def test_an_offset_at_one_point_enters_leaving_one_out_more_than_the_surrogate(
         self,
     ):
@@ -263,6 +289,26 @@ class SurrogateTest(unittest.TestCase):
 
 
 class InputTest(unittest.TestCase):
+    def test_states_out_of_product_order_are_errors(self):
+        t = table(doppler)
+        t["points"][0], t["points"][1] = t["points"][1], t["points"][0]
+        with self.assertRaises(SystemExit):
+            fm.summarize(t)
+
+    def test_tables_that_split_the_assembly_are_errors(self):
+        t = table(doppler)
+        t["split"] = 2
+        with self.assertRaises(SystemExit):
+            fm.summarize(t)
+
+    def test_the_thinned_designs_need_the_seven_fuel_points(self):
+        with self.assertRaises(SystemExit):
+            fm.summarize(table(doppler, fuel=[560.0, 750.0, 900.0, 1050.0, 1350.0]))
+
+    def test_the_roughness_needs_four_points_on_the_boron_and_moderator_axes(self):
+        with self.assertRaises(SystemExit):
+            fm.summarize(table(doppler, boron=[0.0, 325.0, 650.0]))
+
     def test_tables_without_the_product_axes_are_errors(self):
         t = table(doppler)
         t["axes"] = t["axes"][1:]
