@@ -141,7 +141,7 @@ fn correction_vanishes_outside_its_cells() {
         (236.0, 565.0),
         (236.0, 900.0),
     ] {
-        let gas = Gas::new(awr, temperature, None);
+        let gas = Gas::new(awr, temperature, f64::INFINITY);
         let grades = grades(4);
         for e in [4.0, 4.5, 50.0, 5000.0] {
             let u = (high / e).ln();
@@ -232,7 +232,7 @@ fn cells_integrate_the_correction_against_the_flux() {
     let u = test_grid();
     let high = 20.0;
     for awr in [0.99917, 15.86] {
-        let gas = Gas::new(awr, 600.0, None);
+        let gas = Gas::new(awr, 600.0, f64::INFINITY);
         for target in [0.6, 1.25, 1.28, 2.9] {
             let m = locate(&u, target);
             let errors: Vec<f64> = [2, 4, 8, 16]
@@ -264,7 +264,7 @@ fn cells_integrate_the_correction_against_a_resonant_cross_section() {
         .iter()
         .map(|&x| 9.0 + 2.0e3 / (1.0 + ((x - 1.25) / 0.01).powi(2)))
         .collect();
-    let gas = Gas::new(236.0, 900.0, None);
+    let gas = Gas::new(236.0, 900.0, f64::INFINITY);
     for target in [1.22, 1.25, 1.26, 1.29] {
         let m = locate(&u, target);
         let errors: Vec<f64> = [2, 4, 8, 16]
@@ -326,7 +326,7 @@ fn idle_gases_have_no_cells() {
         (89.13, 600.0),
         (236.0, 900.0),
     ] {
-        let gas = Gas::new(awr, temperature, Some(400.0));
+        let gas = Gas::new(awr, temperature, 400.0);
         for k in 0..400 {
             let e = 4.0 * 1.02_f64.powi(k);
             let u = (high / e).ln();
@@ -351,7 +351,7 @@ fn correction_shares_split_the_kernel_at_an_outgoing_energy() {
         (15.86, 1200.0),
         (236.0, 900.0),
     ] {
-        let gas = Gas::new(awr, temperature, None);
+        let gas = Gas::new(awr, temperature, f64::INFINITY);
         let kt = gas.kt;
         let alpha = 1.0 - 1.0 / gas.gain;
         let grades = grades(SHARE_CELLS);
@@ -429,9 +429,9 @@ fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
     let high = 20.0;
     let energies: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
     let gases = vec![
-        Gas::new(0.99917, 600.0, None),
-        Gas::new(15.86, 600.0, None),
-        Gas::new(236.0, 900.0, Some(400.0)),
+        Gas::new(0.99917, 600.0, f64::INFINITY),
+        Gas::new(15.86, 600.0, f64::INFINITY),
+        Gas::new(236.0, 900.0, 400.0),
     ];
     let sigma = gases
         .iter()
@@ -507,7 +507,7 @@ fn held_cells_give_the_sources_of_rebuilt_cells_bit_for_bit() {
 fn an_infinite_multiple_of_kt_leaves_the_free_gas_uncapped_at_any_temperature() {
     // 上限なし（`upper = inf`、`heavy = inf`）は、kT が 0 でもどの入射も上限より下にする（無限大 × 0 の NaN にしない）
     for temperature in [0.0, 600.0] {
-        let gas = Gas::new(15.86, temperature, Some(f64::INFINITY));
+        let gas = Gas::new(15.86, temperature, f64::INFINITY);
         assert_eq!(gas.cap(), f64::INFINITY, "{temperature} K");
     }
 }

@@ -501,7 +501,7 @@ fn solve_cell(
                     let gas = match scattering {
                         Scattering::FreeGas(options) => {
                             let capped = |cap| match cap {
-                                FreeGasCap::Thermal(n) => Gas::new(d.awr, t.temperature, Some(n)),
+                                FreeGasCap::Thermal(n) => Gas::new(d.awr, t.temperature, n),
                                 FreeGasCap::Energy(e) => Gas::below(d.awr, t.temperature, e),
                             };
                             let gas = match &d.resolved {
