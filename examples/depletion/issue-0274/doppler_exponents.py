@@ -37,7 +37,7 @@ def psi(xi: float, x: float) -> float:
 
 def j_function(xi: float, beta: float) -> float:
     # ψ は x について偶関数
-    value, _ = quad(
+    value, error = quad(
         lambda x: psi(xi, x) / (psi(xi, x) + beta),
         0,
         math.inf,
@@ -45,6 +45,11 @@ def j_function(xi: float, beta: float) -> float:
         epsabs=0,
         epsrel=1e-11,
     )
+    # 局所のべきは J の相対の差 1e-5 の桁を差分で取るので、積分の誤差がそれより十分小さいこと（quad は上限で警告だけを出す）
+    if error > 1e-9 * value:
+        raise SystemExit(
+            f"J(ξ={xi}, β={beta}): the integral error {error} is too large"
+        )
     return 2 * value
 
 
@@ -63,7 +68,10 @@ def local_exponent(energy, width, mass, beta, temperature, step=0.02) -> float:
         ) / (2 * h)
 
     up, down = temperature * math.exp(step), temperature * math.exp(-step)
-    return -(math.log(abs(slope(up))) - math.log(abs(slope(down)))) / (2 * step)
+    high, low = slope(up), slope(down)
+    if high * low <= 0:
+        raise SystemExit(f"dJ/dT changes sign near {temperature} K; no power law")
+    return -(math.log(abs(high)) - math.log(abs(low))) / (2 * step)
 
 
 def main() -> None:
