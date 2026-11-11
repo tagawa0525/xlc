@@ -526,6 +526,16 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             ..fast
         })
     );
+    // `heavy` と違い `upper` は真偽値を取らない。書いたら、受け付ける形を示して止める
+    for bad in ["upper = false", "upper = { energy = inf }"] {
+        let message = scattering(&format!("ufg-free-gas = {{ {bad} }}"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains("`ufg-free-gas.upper` must be"),
+            "{bad}: {message}"
+        );
+    }
     for bad in [
         "ufg-scattering = \"moving\"",
         "ufg-scattering = \"static\"\nufg-free-gas = { cells = 2 }",
