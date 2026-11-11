@@ -134,7 +134,9 @@ class ProductTest(unittest.TestCase):
 
         product = tfm.table(g)
         at = {
-            u: fit(fp.summarize_product(product, u), "√T、T")["grid"]["高速群の吸収"]
+            u: fit(fp.summarize_product(fp.load_product(product), u), "√T、T")["grid"][
+                "高速群の吸収"
+            ]
             for u in [0.0, 10.0]
         }
         self.assertTrue(all(abs(x) < 1e-6 for x in at[0.0]))
@@ -178,6 +180,14 @@ class RoundedTest(unittest.TestCase):
         )
         self.assertEqual(
             got, {"pcm": [1.23457e-3, -98765.4, 0.0], "n": 17, "md5": "8efb40eb"}
+        )
+
+    def test_k_inf_keeps_every_digit(self):
+        # k∞ の 6 桁は 1 より大きいと小数 5 桁で、反応度の差の pcm の小数 1 桁がずれる
+        k = [1.2531162345678, 0.8956091234567]
+        self.assertEqual(
+            fp.rounded({"pins": [{"k_inf": k, "x": 1.2531162345678}]}),
+            {"pins": [{"k_inf": k, "x": 1.25312}]},
         )
 
 
