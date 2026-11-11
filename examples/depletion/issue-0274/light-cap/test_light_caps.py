@@ -13,22 +13,29 @@ import msgpack
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import light_caps as lc
 
+SCATTER = [[0.4, 0.02], [0.0, 1.2]]
+
 
 def write(directory: Path, name: str, k: float, absorption: list[float]) -> str:
     path = directory / name
-    path.write_bytes(
-        msgpack.packb({"states": [{"k_inf": k, "absorption": absorption}]})
-    )
+    table = {"k_inf": k, "absorption": absorption, "scatter": SCATTER}
+    path.write_bytes(msgpack.packb({"states": [table]}))
     return str(path)
 
 
 class LightCapsTest(unittest.TestCase):
     def test_reactivity_and_absorption_are_relative_to_the_reference(self):
-        rho, absorption = lc.compare(
-            {"k_inf": 1.25, "absorption": [0.01, 0.1]},
-            {"k_inf": 1.2502, "absorption": [0.010001, 0.1]},
+        rho, thermal, absorption = lc.compare(
+            {"k_inf": 1.25, "absorption": [0.01, 0.1], "scatter": SCATTER},
+            {
+                "k_inf": 1.2502,
+                "absorption": [0.010001, 0.1],
+                "scatter": [[0.4, 0.0202], [0.0, 1.3]],
+            },
         )
         self.assertAlmostEqual(rho, (1 / 1.2502 - 1 / 1.25) * 1e5)
+        # 熱群への移行は熱群より上の群からの和で、熱群の中の散乱を含まない
+        self.assertAlmostEqual(thermal, 1000.0, places=6)
         self.assertAlmostEqual(absorption[0], 10.0, places=6)
         self.assertEqual(absorption[1], 0.0)
 
@@ -54,7 +61,7 @@ class LightCapsTest(unittest.TestCase):
         )
         # 300 kT は 900 K で 23.27 eV、580 K で 14.99 eV
         self.assertEqual(rows[0].split()[1:3], ["23.27", "14.99"])
-        self.assertEqual(rows[2].split()[1], "+0.00")
+        self.assertEqual(rows[2].split()[1:3], ["+0.00", "+0.00"])
 
 
 if __name__ == "__main__":
