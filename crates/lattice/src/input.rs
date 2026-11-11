@@ -352,6 +352,8 @@ enum HeavyEntry {
 #[serde(untagged)]
 enum UpperEntry {
     Float(f64),
+    /// 受け付けない（`heavy = false` と書き違えたときに、受け付ける形を示して止めるため）
+    Bool(bool),
     Energy(EnergyEntry),
 }
 
@@ -371,11 +373,18 @@ impl std::fmt::Display for SweepsEntry {
     }
 }
 
+impl std::fmt::Display for EnergyEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{ energy = {:?} }}", self.energy)
+    }
+}
+
 impl std::fmt::Display for UpperEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Float(v) => write!(f, "{v:?}"),
-            Self::Energy(EnergyEntry { energy }) => write!(f, "{{ energy = {energy:?} }}"),
+            Self::Bool(b) => write!(f, "{b}"),
+            Self::Energy(e) => write!(f, "{e}"),
         }
     }
 }
@@ -385,7 +394,7 @@ impl std::fmt::Display for HeavyEntry {
         match self {
             Self::Float(v) => write!(f, "{v:?}"),
             Self::Bool(b) => write!(f, "{b}"),
-            Self::Energy(EnergyEntry { energy }) => write!(f, "{{ energy = {energy:?} }}"),
+            Self::Energy(e) => write!(f, "{e}"),
         }
     }
 }
