@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-11
+status: accepted
+date: 2026-11-12
 requires: [ADR-0203, ADR-0207, ADR-0209, ADR-0243]
 supersedes: []
 superseded-by:
@@ -109,7 +109,8 @@ T^1.5 の当てはめの残差と跳びの最大で、上限なしとの差は 1
 
 ## 決定と理由
 
-案 3 の 1000 eV にする: `ufg-free-gas.upper` の既定を `{ energy = 1000 }` にする（今まで 400 kT）。kT の倍数（`upper = 400` で前の既定）と
+案 3 の 1000 eV にする（上限なしとの差と時間を示した 1000 eV と上限なしの 2 案から、ユーザーが 1000 eV を選んだ。ユーザー 2026-11-12）:
+`ufg-free-gas.upper` の既定を `{ energy = 1000 }` にする（今まで 400 kT）。kT の倍数（`upper = 400` で前の既定）と
 `inf`（上限なし。参照）は今のまま選べる。`{ energy = <eV> }` の書き方は `heavy` と同じ（正の有限のエネルギー。上限なしは `inf` で書く）。
 
 理由:
@@ -125,11 +126,13 @@ T^1.5 の当てはめの残差と跳びの最大で、上限なしとの差は 1
 
 ### 帰結
 
-- 実装（別のブランチ）: `FreeGas::default()` の `upper` を `FreeGasCap::Energy(1000.0)` にし、入力の注釈と
-  `ufg_scattering_defaults_to_the_fast_free_gas_with_sab` を直す。ADR-0209 の「決定と理由」の `upper = 400` を直して「## 変更」に 1 項を
-  足し、ADR-0243 の「決定と理由」の軽い核種の `upper` を変えない文を、軽い核種の上限は ADR-0246 で決める旨に直して「## 変更」に 1 項を
-  足す（どちらも決定の一部の変更で、比べた案はこの ADR に置く。ADR-0243 が ADR-0209 の `heavy` を変えたときと同じ形）。ADR-0205 の
-  測った値は、その時点の記録として変えない
+- 実装: `FreeGas::default()` の `upper` は `FreeGasCap::Energy(1000.0)`（`crates/lattice/src/ufg.rs`）で、入力の注釈
+  （`crates/lattice/src/input.rs`）も同じ値を示す。ADR-0209 の「決定と理由」の `upper` の既定と、ADR-0243 の「決定と理由」の軽い核種の
+  `upper` を変えない文は、それぞれの「## 変更」に 1 項を足して直した（どちらも決定の一部の変更で、比べた案はこの ADR に置く。ADR-0243 が
+  ADR-0209 の `heavy` を変えたときと同じ形）。ADR-0205 の測った値は、その時点の記録として変えない
+- `upper` を書かない入力の結果が変わる。`upper` を明示した入力（examples の下の 201 個。issue-0133、issue-0152、issue-0181、issue-0274 の
+  試行）は変わらない。前の既定の結果は `upper = 400` を書けば同じになる（kT の倍数の経路は変えていない）。前の既定で作った記録の節と
+  作り直しになる DVC のステージは #0274 の「既定を 1000 eV にした後に古くなる記録」
 - 作り直し: 既定を変えると、`upper` を書かない lattice のステージの出力が変わる（bin/lattice のバイトが変わるので、DVC では lattice を
   呼ぶステージがどれも changed になる。この ADR の入力の項目を足しただけでも同じで、kT の倍数の経路の出力は変わらない）。次に作り直す
   2A の直積のテーブル（examples/depletion/p9-product の `lattice-2A`、`branch-2A`）は Slurm 747 で 4 時間 44 分（割り込まれうるジョブで
@@ -144,8 +147,8 @@ T^1.5 の当てはめの残差と跳びの最大で、上限なしとの差は 1
 
 ### 確認
 
-- 入力: `crates/lattice/src/input/tests.rs` の `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`（`upper = { energy = .. }`、止める値と、
-  真偽値の `upper` のエラーの文）。単体試験: `crates/lattice/src/ufg/tests.rs` の
+- 入力: `crates/lattice/src/input/tests.rs` の `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`（省略したときの `FreeGasCap::Energy(1000.0)`、
+  前の既定の `upper = 400` と `upper = { energy = .. }` の書き方、止める値と、真偽値の `upper` のエラーの文）。単体試験: `crates/lattice/src/ufg/tests.rs` の
   `a_light_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature`、`crates/lattice/src/ufg/free_gas/tests.rs` の
   `an_infinite_multiple_of_kt_leaves_the_free_gas_uncapped_at_any_temperature`（`upper = inf` は kT が 0 でも上限なし）
 - 原因と候補の測定: #0274 の「軽い核種の自由ガスの上限」（`examples/depletion/issue-0274/light-cap/`。`edge_source.py` と `light_caps.py` の
