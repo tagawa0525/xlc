@@ -84,9 +84,19 @@ FUEL_POINTS = 7
 DESIGNS = {"loo": None, "4 点": [0, 2, 4, 6], "3 点": [0, 3, 6]}
 
 
+def design_matrix(
+    basis: list, xs: list[float], origin: float | None = None
+) -> np.ndarray:
+    """行が点、列が定数の項と基底の関数（`origin` があれば、そこでの値を引く）の行列"""
+    shift = [0.0] * len(basis) if origin is None else [f(origin) for f in basis]
+    return np.array(
+        [[1.0] + [f(x) - c for f, c in zip(basis, shift, strict=True)] for x in xs]
+    )
+
+
 def projection(basis: list, xs: list[float]) -> np.ndarray:
     """xs の値を最小 2 乗の当てはめの xs の値に移す行列"""
-    a = np.array([[1.0] + [f(x) for f in basis] for x in xs])
+    a = design_matrix(basis, xs)
     return a @ np.linalg.pinv(a)
 
 
@@ -94,9 +104,8 @@ def fit_weights(basis: list, xs: list[float], q: float) -> dict[int, float]:
     """xs の値への最小 2 乗の当てはめを q で引く重み（射影の行）"""
     if len(xs) < len(basis) + 1:
         raise ValueError(f"{len(basis) + 1} terms need as many points, not {len(xs)}")
-    a = np.array([[1.0] + [f(x) for f in basis] for x in xs])
-    row = np.array([1.0] + [f(q) for f in basis]) @ np.linalg.pinv(a)
-    return dict(enumerate(row.tolist()))
+    row = design_matrix(basis, [q]) @ np.linalg.pinv(design_matrix(basis, xs))
+    return dict(enumerate(row[0].tolist()))
 
 
 def scheme_points(scheme: tuple) -> int:
@@ -172,28 +181,30 @@ def summarize(table: dict) -> dict:
     points, vectors, like = load(table)
     burnups, borons, moderators, fuels = points
     t = np.array(fuels)
-    nominal = next(a for a in table["axes"] if a["name"] == "fuel").get("nominal")
-    if nominal is None:
-        raise SystemExit("the fuel axis needs its nominal temperature")
+    # load が状態の軸のすべてに公称の値があることを確かめる
+    nominal = table["axes"][3]["nominal"]
     rest = list(itertools.product(range(len(borons)), range(len(moderators))))
 
     def rebuilt_k(u, b, m, weights):
         v = sum(c * vectors[u, b, m, k] for k, c in weights.items())
         return k_inf(unvector(v, like))
 
+    def truth_of(weights):
+        """燃料の温度の添字の重みで作った状態の 1e5/k∞（燃焼度、ホウ素、減速材）"""
+        out = np.empty(inverse_k.shape[:3])
+        for u in range(len(burnups)):
+            for b, m in rest:
+                out[u, b, m] = 1e5 / rebuilt_k(u, b, m, weights)
+        return out
+
     def errors(truth, weights, state=True):
-        """`truth`（格子点の添字か、燃料の温度の添字の重み）の状態と、重み `weights` で作った状態の Δρ の、燃焼度の点ごとの
-        |Δρ| の最大の値（`state` なら、その状態も）"""
+        """1e5/k∞ の真値 `truth`（燃焼度、ホウ素、減速材）と、重み `weights`（燃料の温度の添字）で作った状態の Δρ の、
+        燃焼度の点ごとの |Δρ| の最大の値（`state` なら、その状態も）"""
         out = []
         for u in range(len(burnups)):
             worst = None
             for b, m in rest:
-                truth_rho = (
-                    inverse_k[u, b, m, truth]
-                    if isinstance(truth, int)
-                    else 1e5 / rebuilt_k(u, b, m, truth)
-                )
-                rho = truth_rho - 1e5 / rebuilt_k(u, b, m, weights)
+                rho = truth[u, b, m] - 1e5 / rebuilt_k(u, b, m, weights)
                 if worst is None or abs(rho) > abs(worst[0]):
                     worst = (rho, b, m)
             entry = {"worst_pcm": worst[0]}
@@ -251,9 +262,7 @@ def summarize(table: dict) -> dict:
     fits = []
     for name, basis in BASES.items():
         onto = projection(basis, fuels)
-        centered_inverse = np.linalg.pinv(
-            np.array([[1.0] + [f(x) - f(nominal) for f in basis] for x in fuels])
-        )
+        centered_inverse = np.linalg.pinv(design_matrix(basis, fuels, nominal))
         items = []
         for label, column in columns:
             # (燃焼度, ホウ素, 減速材, 燃料の温度)
@@ -298,7 +307,7 @@ def summarize(table: dict) -> dict:
         k_rows = [
             {
                 "point": fuels[i],
-                "points": errors(i, dict(enumerate(onto[i].tolist()))),
+                "points": errors(inverse_k[..., i], dict(enumerate(onto[i].tolist()))),
             }
             for i in range(len(fuels))
         ]
@@ -308,19 +317,19 @@ def summarize(table: dict) -> dict:
     for design, chosen in DESIGNS.items():
         rows = []
         skipped = []
+        cases = (
+            [
+                (i, [k for k in range(len(fuels)) if k != i])
+                for i in range(1, len(fuels) - 1)
+            ]
+            if chosen is None
+            else [
+                (i, chosen)
+                for i in range(len(fuels))
+                if i not in chosen and chosen[0] < i < chosen[-1]
+            ]
+        )
         for scheme in SCHEMES:
-            cases = (
-                [
-                    (i, [k for k in range(len(fuels)) if k != i])
-                    for i in range(1, len(fuels) - 1)
-                ]
-                if chosen is None
-                else [
-                    (i, chosen)
-                    for i in range(len(fuels))
-                    if i not in chosen and chosen[0] < i < chosen[-1]
-                ]
-            )
             if any(len(c) < scheme_points(scheme) for _, c in cases):
                 skipped.append(list(scheme))
                 continue
@@ -330,7 +339,9 @@ def summarize(table: dict) -> dict:
                 centers.append(
                     {
                         "point": fuels[i],
-                        "points": errors(i, {use[m]: c for m, c in weights.items()}),
+                        "points": errors(
+                            inverse_k[..., i], {use[m]: c for m, c in weights.items()}
+                        ),
                     }
                 )
             rows.append({"scheme": list(scheme), "centers": centers})
@@ -348,6 +359,9 @@ def summarize(table: dict) -> dict:
         onto = projection(BASES[name], fuels)
         for design, chosen in DESIGNS.items():
             use = list(range(len(fuels))) if chosen is None else chosen
+            # 区間の中点と、曲線の中点の状態の 1e5/k∞（方式によらない）
+            midpoints = [(fuels[a] + fuels[b]) / 2 for a, b in itertools.pairwise(use)]
+            truths = [truth_of(fit_weights(BASES[name], fuels, q)) for q in midpoints]
             rows = []
             skipped = []
             for scheme in SCHEMES:
@@ -360,9 +374,7 @@ def summarize(table: dict) -> dict:
                     skipped.append(list(scheme))
                     continue
                 centers = []
-                for left, right in itertools.pairwise(use):
-                    q = (fuels[left] + fuels[right]) / 2
-                    truth = fit_weights(BASES[name], fuels, q)
+                for q, truth in zip(midpoints, truths, strict=True):
                     # 方式は、選んだ格子点の、滑らかな曲線の値（射影）から引く
                     dense = np.zeros(len(fuels))
                     weights = scheme_weights(scheme, [fuels[k] for k in use], q)
@@ -430,7 +442,7 @@ def report(summary: dict) -> list[str]:
         "inputs: " + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"])
     ]
     lines.append(
-        "a + b T^p の p（燃焼度の点ごとに 最小/中央値/最大、560→端の相対変化の中央値）:"
+        f"a + b T^p の p（燃焼度の点ごとに 最小/中央値/最大、{fuels[0]:g}→{fuels[-1]:g} K の相対変化の中央値）:"
     )
     for e in summary["exponents"]:
         cells = "、".join(
