@@ -6,7 +6,7 @@
         python3 fine_pin.py --report <要約の JSON>
 
 ピンセルのテーブルは燃料の温度の軸だけが複数の点を持ち（ほかの軸は 1 点）、`GRID`（直積のテーブルの燃料の温度の 7 点）を
-含むこと。`GRID` の点を「格子点」、ほかを「足した点」と呼ぶ。テーブルごとに次を書く:
+含むこと。`GRID` の点を「格子点」、ほかを「足した点」と呼ぶ（格子点の範囲の内側に 1 つ以上）。テーブルごとに次を書く:
 
 - `fits`: 基底（../fuel_models.py の `BASES`）ごとに、すべての点か格子点だけに最小 2 乗で当てはめた残差。項目（`ITEMS`）は点の値の
   平均で割った値（1e-5）、k∞ は Δρ（pcm）。すべての点の当てはめでは、内側の点の残差から、両隣の点の残差を温度で線形に内挿した値を
@@ -72,6 +72,12 @@ def load_pin(table: dict):
         raise SystemExit("the fuel temperatures must increase")
     if not set(GRID) <= set(fuels):
         raise SystemExit(f"the pin table needs the grid points {GRID} K")
+    # 足した点は、格子点から方式で引く（外挿しない）ので格子点の範囲の内側に要る
+    added = [t for t in fuels if t not in GRID]
+    if not added or any(not GRID[0] < t < GRID[-1] for t in added):
+        raise SystemExit(
+            f"the pin table needs added points, all between {GRID[0]} and {GRID[-1]} K"
+        )
     return fuels, np.array([vector(s) for s in table["states"]]), table["states"][0]
 
 
@@ -140,9 +146,17 @@ def summarize_pin(table: dict) -> dict:
     }
 
 
-def summarize_product(loaded: tuple, burnup: float) -> dict:
-    """直積のテーブル（`load_product` の結果）の公称の状態の、燃焼度 burnup の点の、格子点の当てはめの残差"""
+def pin_state(table: dict) -> dict:
+    """ピンセルのテーブルのホウ素と減速材の点"""
+    return {a["name"]: a["points"][0] for a in table["axes"] if a["name"] != "fuel"}
+
+
+def summarize_product(loaded: tuple, burnup: float, state: dict) -> dict:
+    """直積のテーブル（`load_product` の結果）の公称の状態の、燃焼度 burnup の点の、格子点の当てはめの残差。並べるピンセルの
+    ホウ素と減速材の点 `state` が公称の状態であること"""
     points, vectors, like, nominal = loaded
+    if state != {name: nominal[name] for name in ("boron", "moderator")}:
+        raise SystemExit(f"the pin state {state} is not the product nominal {nominal}")
     burnups, borons, moderators, fuels = points
     if fuels != GRID:
         raise SystemExit(f"the product table needs the fuel points {GRID} K")
@@ -215,7 +229,9 @@ def summarize(args) -> dict:
         path, burnup = rest.rsplit(":", 1)
         tables[name] = read(path, inputs)
         entry = {"name": name, "burnup": float(burnup), **summarize_pin(tables[name])}
-        entry["product"] = summarize_product(product, float(burnup))
+        entry["product"] = summarize_product(
+            product, float(burnup), pin_state(tables[name])
+        )
         pins.append(entry)
     summary = {"format": "xlc-fine-pin", "pins": pins}
     if args.reference:
