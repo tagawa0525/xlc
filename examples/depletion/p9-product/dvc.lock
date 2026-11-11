@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 8079e1128bc9935eb4833c3dca04894a
-      size: 9720032
+      md5: bd5e693f8e9c846030ac3e6dc36d1c19
+      size: 9736064
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -18,28 +18,28 @@ stages:
       size: 1482667012
     - path: lattice-2A.toml
       hash: md5
-      md5: 19b495b6a2fea5c89970a819517f656d
-      size: 4262
+      md5: 5c9f9db512442363890aef56da50f993
+      size: 5557
     outs:
     - path: lattice-2A.log
       hash: md5
-      md5: cad67cca80cf9e09e4190b39dfebde99
-      size: 140955
+      md5: 3f4c3c29f7cb679292ddfd18cff0ac36
+      size: 551793
     - path: lattice-2A.msgpack
       hash: md5
-      md5: 3dc97bcc96a73da132efeacae92708cb
-      size: 55151820
+      md5: b44ea46ba9b78950e5bcce0d11d04a02
+      size: 275077646
     - path: lattice-2A.out
       hash: md5
-      md5: 08f30272a2861fdb9cfbcdbd23909908
+      md5: a01802fa8671fb6762e54f08133a014f
       size: 860
   branch-2A:
     cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
     deps:
     - path: ../../../bin/lattice
       hash: md5
-      md5: 8079e1128bc9935eb4833c3dca04894a
-      size: 9720032
+      md5: bd5e693f8e9c846030ac3e6dc36d1c19
+      size: 9736064
       isexec: true
     - path: ../chain.msgpack
       hash: md5
@@ -51,24 +51,24 @@ stages:
       size: 1482667012
     - path: branch-2A.toml
       hash: md5
-      md5: 610b9fc240e2da7e386c8a501c1723d3
-      size: 4932
+      md5: 557a3a0b803effdafc559c9e985fba55
+      size: 6060
     - path: lattice-2A.msgpack
       hash: md5
-      md5: 3dc97bcc96a73da132efeacae92708cb
-      size: 55151820
+      md5: b44ea46ba9b78950e5bcce0d11d04a02
+      size: 275077646
     outs:
     - path: branch-2A.log
       hash: md5
-      md5: c174f71f48850d6fbf6bfc19d2f86607
-      size: 1011355
+      md5: 906a4f23cacfb40ef8310f8843bf2334
+      size: 1764671
     - path: branch-2A.out
       hash: md5
-      md5: d86d74b0becd394d25295be33859dd42
+      md5: b0ae846d08383b716d206e8590300dfc
       size: 24762
     - path: table-2A.msgpack
       hash: md5
-      md5: c171a770353e0043c1d6732948a881c0
+      md5: 8efb40eb637619d95a9a5a2394664e25
       size: 1374380
   compare-2A:
     cmd: python3 ../compare_branch_cross_terms.py --json compare-2A.json 
@@ -90,13 +90,13 @@ stages:
       size: 1529
     - path: table-2A.msgpack
       hash: md5
-      md5: c171a770353e0043c1d6732948a881c0
+      md5: 8efb40eb637619d95a9a5a2394664e25
       size: 1374380
     outs:
     - path: compare-2A.json
       hash: md5
-      md5: ef68653408ab6470bde09dae24099952
-      size: 23489
+      md5: fd754816f1e60e1fb3957debdef6c4c0
+      size: 23470
   grid-2A:
     cmd: python3 ../compare_grid_interpolation.py --json grid-2A.json 
       grid-2A.toml
@@ -122,10 +122,10 @@ stages:
       size: 2304
     - path: table-2A.msgpack
       hash: md5
-      md5: c171a770353e0043c1d6732948a881c0
+      md5: 8efb40eb637619d95a9a5a2394664e25
       size: 1374380
     outs:
     - path: grid-2A.json
       hash: md5
-      md5: f6e0bc2a662f3f28c85b3de05e77f2a7
-      size: 135545
+      md5: b2c4f1717df49c086667e499aaaf448c
+      size: 135535
