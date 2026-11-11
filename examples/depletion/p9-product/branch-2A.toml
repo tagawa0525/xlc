@@ -1,7 +1,8 @@
 # Problem 9 の分岐のテーブルの格子点（ADR-0239 の決定）の直積を、2A の燃焼の履歴（lattice-2A.toml。公称の状態で燃焼させたもの）の
 # 少数の燃焼点（0、0.5、中ほどの 32、終わりの 60 MWd/kg。ADR-0239 の帰結の「テーブルを作る前に」）で解く。ホウ素 6 点 × 減速材 7 点 ×
 # 燃料 7 点 = 294 状態。交差の項と 3 つ同時の項を落とす誤差と、分岐を解く燃焼点を間引く誤差を compare-2A.toml で測る（ADR-0200 の
-# 確認、#0176）。格子、離散化、組成は lattice-2A.toml と同じで、入力の物質の状態が公称の状態（各軸の格子点の 1 つ）。
+# 確認、#0176）。格子、離散化、組成（燃料の 5 つの物質。ADR-0245）は lattice-2A.toml と同じで、入力の物質の状態が公称の状態（各軸の
+# 格子点の 1 つ）。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 few-group = { output = "table-2A.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -29,7 +30,23 @@ rows = [
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
 ]
 
-[material.fuel]
+[material.fuel-0]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-1]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-2]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-3]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-4]
 temperature = 900
 nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
 
@@ -67,10 +84,14 @@ temperature = 580
 # p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 
-# 燃料のピン（3.1%）
+# 燃料のピン（3.1%）。燃料の 5 つのゾーンは lattice-2A.toml と同じ（ADR-0245）
 [cell.pin]
 zones = [
-  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "fuel-0", radius = 0.18317868871678278, rings = 1 },
+  { material = "fuel-1", radius = 0.25905378592099365, rings = 1 },
+  { material = "fuel-2", radius = 0.3172747957213116, rings = 1 },
+  { material = "fuel-3", radius = 0.36635737743356556, rings = 1 },
+  { material = "fuel-4", radius = 0.4096, rings = 1 },
   { material = "void", radius = 0.418, rings = 1 },
   { material = "zircaloy", radius = 0.475, rings = 1 },
   { material = "water", radius = 0.63, rings = 3 },
@@ -104,7 +125,8 @@ boron = { ppm = [0, 325, 650, 975, 1300, 1625], materials = ["water"] }
 # 密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）。560 K と 615 K は ADR-0239 の「減速材の軸」の値、ほかは
 # ../../vera/p6/lattice-6-fuel.toml と同じ値
 moderator = { temperature = [560, 570, 580, 590, 600, 610, 615], density = [0.752074, 0.732936, 0.711901, 0.688335, 0.661165, 0.628290, 0.608215], materials = ["water", "zircaloy"] }
-fuel = { temperature = [560, 600, 750, 900, 1050, 1200, 1350], materials = ["fuel"] }
+# 燃料の温度は 5 つの物質のすべてに当てる（ADR-0245）
+fuel = { temperature = [560, 600, 750, 900, 1050, 1200, 1350], materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3", "fuel-4"] }
 # 交差の項を落とす誤差を測る真値なので、直積で解く（燃焼度の軸を持つ分岐の既定は 2 軸の組の部分格子。ADR-0200）
 subgrids = [["boron", "moderator", "fuel"]]
 

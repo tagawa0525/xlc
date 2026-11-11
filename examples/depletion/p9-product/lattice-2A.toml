@@ -1,7 +1,8 @@
 # Problem 9 の分岐のテーブルの格子点（ADR-0239）で交差の項を落とす誤差を測る、2A の燃焼の履歴。VERA Problem 2 の毒物のない 3.1% の
 # 集合体（../p2/lattice-2A.toml と同じ形状、燃料と被覆管の組成、離散化、燃焼度の点、出力密度。手でコピーした）を、ADR-0239 の公称の状態
 # （案 N2。ホウ素 650 ppm、減速材 580 K、燃料 900 K）で燃焼させる。減速材はホウ酸水の密度とホウ素で書き、p2 の数密度（1300 ppm、
-# 0.743 g/cc）と違う。被覆管は減速材の軸が変える物質なので減速材と同じ 580 K。分岐は branch-2A.toml。
+# 0.743 g/cc）と違う。被覆管は減速材の軸が変える物質なので減速材と同じ 580 K。燃料は p2 と違い、MOC の 5 リング（等体積）を 1 本ずつ
+# 別の物質 fuel-0〜fuel-4（内から外）にして、5 つの燃焼の領域で燃焼させる（方位には分けない。ADR-0245）。分岐は branch-2A.toml。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26
@@ -28,7 +29,23 @@ rows = [
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
 ]
 
-[material.fuel]
+[material.fuel-0]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-1]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-2]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-3]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-4]
 temperature = 900
 nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
 
@@ -66,10 +83,14 @@ temperature = 580
 # p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 
-# 燃料のピン（3.1%）
+# 燃料のピン（3.1%）。燃料の 5 つのゾーンは半径 0.4096 √(k/5) で、元の 1 つのゾーンの 5 リングと同じ MOC の領域（ADR-0245）
 [cell.pin]
 zones = [
-  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "fuel-0", radius = 0.18317868871678278, rings = 1 },
+  { material = "fuel-1", radius = 0.25905378592099365, rings = 1 },
+  { material = "fuel-2", radius = 0.3172747957213116, rings = 1 },
+  { material = "fuel-3", radius = 0.36635737743356556, rings = 1 },
+  { material = "fuel-4", radius = 0.4096, rings = 1 },
   { material = "void", radius = 0.418, rings = 1 },
   { material = "zircaloy", radius = 0.475, rings = 1 },
   { material = "water", radius = 0.63, rings = 3 },
@@ -107,5 +128,5 @@ burnup = [
   14, 15, 16, 18, 20, 22, 24, 26, 28, 30,
   32, 34, 36, 38, 40, 44, 48, 52, 56, 60,
 ]
-materials = ["fuel"]
+materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3", "fuel-4"]
 output = "lattice-2A.msgpack"
