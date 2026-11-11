@@ -259,7 +259,8 @@ class SurrogateTest(unittest.TestCase):
         summary = fm.summarize(table(doppler))
         for g in summary["surrogates"]:
             own = ["fit", g["basis"], "最小 2 乗"]
-            self.assertIn(own, g["skipped"])
+            self.assertEqual(g["own"], own)
+            self.assertNotIn(own, g["skipped"])
             self.assertNotIn(own, [s["scheme"] for s in g["schemes"]])
 
     def test_no_interpolation_reproduces_a_surrogate_curve_exactly(self):
@@ -311,9 +312,17 @@ class InputTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             fm.summarize(t)
 
-    def test_the_thinned_designs_need_the_seven_fuel_points(self):
+    def test_the_thinned_designs_need_their_temperatures_on_the_fuel_axis(self):
         with self.assertRaises(SystemExit):
-            fm.summarize(table(doppler, fuel=[560.0, 750.0, 900.0, 1050.0, 1350.0]))
+            fm.summarize(table(doppler, fuel=[560.0, 600.0, 900.0, 1050.0, 1350.0]))
+
+    def test_the_designs_follow_their_temperatures_on_a_longer_fuel_axis(self):
+        fuel = [560.0, 600.0, 675.0, 750.0, 900.0, 1050.0, 1200.0, 1350.0]
+        summary = fm.summarize(table(doppler, fuel=fuel))
+        points = {
+            c["point"] for s in design(summary, "4 点")["schemes"] for c in s["centers"]
+        }
+        self.assertEqual(points, {600.0, 675.0, 900.0, 1200.0})
 
     def test_the_roughness_needs_four_points_on_the_boron_and_moderator_axes(self):
         with self.assertRaises(SystemExit):

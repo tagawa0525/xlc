@@ -36,7 +36,7 @@ class ExponentTest(unittest.TestCase):
     def test_a_dilute_resonance_far_wider_in_doppler_than_natural_falls_as_t_to_minus_three_halves(
         self,
     ):
-        n = de.local_exponent(1e5, 0.024, 236.0, 1e3, 900.0)
+        n = de.local_exponent(3e4, 0.024, 236.0, 1e2, 900.0)
         self.assertAlmostEqual(n, 1.5, delta=0.01)
 
     def test_a_strongly_shielded_resonance_grows_linearly_in_temperature(self):
