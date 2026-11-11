@@ -17,10 +17,10 @@
   当てはめた残差の最大を、燃焼度の点の中の係数の幅で割った値（滑らかに動けば 0 に近く、状態ごとに跳べば 1 の桁。幅が係数の 1e-12 倍以下なら 0）
 - `designs`: 格子点の選び方（`DESIGNS`）ごとに、選んだ点から方式（`SCHEMES`）で内挿か当てはめをし、選ばなかった点（選んだ点の
   範囲の中）の状態と比べた Δρ。`loo` は内側の点を 1 つずつ除く（../compare_grid_interpolation.py の `schemes` と同じ測り方）。
-  方式の要る点の数に足りない選び方は `skipped` に書く。選び方は添字で決めるので、燃料の温度の軸は 7 点（`FUEL_POINTS`）
+  方式の要る点の数に足りない選び方は `skipped` に書く。選び方の温度は燃料の温度の軸の点にあること
 - `surrogates`（見込み。測定でない）: 状態ごとに軸のすべての点に当てはめた滑らかな曲線（`SURROGATES`）を真値とみなし、その曲線の
   格子点の値から、すべての点か選び方（`DESIGNS` の `loo` はすべての点）の点で方式で引いた区間の中点（温度の中点）の状態と、
-  曲線の中点の状態の Δρ。曲線と同じ基底の当てはめは曲線そのものなので `skipped` に書く。格子点の値の当てはめの残差（格子点ごとの
+  曲線の中点の状態の Δρ。曲線と同じ基底の当てはめは曲線そのものなので測らず、`own` に書く。格子点の値の当てはめの残差（格子点ごとの
   外れ）を除いた、方式の形の誤差を見る
 
 Δρ = (1/k_格子点 − 1/k_候補) × 1e5 pcm（k∞ は少数群定数の無限媒質の固有値。../compare_burnup_interpolation.py の `k_inf`）で、
@@ -80,9 +80,12 @@ SCHEMES = [("interpolate", v, m) for v in VARIABLES for m in METHODS] + [
 # 厳密に再現して形の誤差が 0 になるので使わない。どれも内挿の変数（`VARIABLES`）の多項式でない
 SURROGATES = ["√T、T、1/√T", "√T、T、ln T"]
 
-# 格子点の選び方（燃料の温度の軸の添字。軸は 7 点で、端の 2 点をどれも含む）。None は内側の点を 1 つずつ除く
-FUEL_POINTS = 7
-DESIGNS = {"loo": None, "4 点": [0, 2, 4, 6], "3 点": [0, 3, 6]}
+# 格子点の選び方（燃料の温度 (K)。軸の点にあること）。None は内側の点を 1 つずつ除く
+DESIGNS = {
+    "loo": None,
+    "4 点": [560.0, 750.0, 1050.0, 1350.0],
+    "3 点": [560.0, 900.0, 1350.0],
+}
 
 
 def design_matrix(
@@ -132,10 +135,11 @@ def load(table: dict):
     table_grid("table", table, {a["name"]: a["nominal"] for a in table["axes"][1:]})
     points = [list(a["points"]) for a in table["axes"]]
     shape = [len(p) for p in points]
-    if len(points[3]) != FUEL_POINTS:
-        raise SystemExit(
-            f"the designs pick {FUEL_POINTS} fuel points, the table has {len(points[3])}"
-        )
+    for design, chosen in DESIGNS.items():
+        if chosen is not None and not set(chosen) <= set(points[3]):
+            raise SystemExit(
+                f"the design {design} picks {chosen} K, not all on the fuel axis {points[3]}"
+            )
     # 係数の粗さは、ホウ素と減速材の線ごとの 2 次式からの残差で、3 点以下では 0 になる
     if min(len(points[1]), len(points[2])) < 4:
         raise SystemExit("the roughness needs 4 boron and 4 moderator points")
@@ -206,6 +210,10 @@ def summarize(table: dict) -> dict:
             worst = None
             for b, m in rest:
                 rho = truth[u, b, m] - 1e5 / rebuilt_k(u, b, m, weights)
+                if not math.isfinite(rho):
+                    raise SystemExit(
+                        f"Δρ is not finite at burnup {burnups[u]}, boron {borons[b]}, moderator {moderators[m]}"
+                    )
                 if worst is None or abs(rho) > abs(worst[0]):
                     worst = (rho, b, m)
             entry = {"worst_pcm": worst[0]}
@@ -301,7 +309,11 @@ def summarize(table: dict) -> dict:
         fits.append({"basis": name, "items": items, "k": k_rows})
 
     designs = []
-    for design, chosen in DESIGNS.items():
+    picked = {
+        design: None if chosen is None else [fuels.index(x) for x in chosen]
+        for design, chosen in DESIGNS.items()
+    }
+    for design, chosen in picked.items():
         rows = []
         skipped = []
         cases = (
@@ -344,7 +356,7 @@ def summarize(table: dict) -> dict:
     surrogates = []
     for name in SURROGATES:
         onto = projection(BASES[name], fuels)
-        for design, chosen in DESIGNS.items():
+        for design, chosen in picked.items():
             use = list(range(len(fuels))) if chosen is None else chosen
             # 区間の中点と、曲線の中点の状態の 1e5/k∞（方式によらない）
             midpoints = [(fuels[a] + fuels[b]) / 2 for a, b in itertools.pairwise(use)]
@@ -353,11 +365,9 @@ def summarize(table: dict) -> dict:
             skipped = []
             for scheme in SCHEMES:
                 # 曲線と同じ基底の当てはめは、曲線そのものを返す
-                if len(use) < scheme_points(scheme) or scheme == (
-                    "fit",
-                    name,
-                    "最小 2 乗",
-                ):
+                if scheme == ("fit", name, "最小 2 乗"):
+                    continue
+                if len(use) < scheme_points(scheme):
                     skipped.append(list(scheme))
                     continue
                 centers = []
@@ -384,6 +394,7 @@ def summarize(table: dict) -> dict:
                     "points": [fuels[k] for k in use],
                     "schemes": rows,
                     "skipped": skipped,
+                    "own": ["fit", name, "最小 2 乗"],
                 }
             )
 
@@ -486,7 +497,8 @@ def report(summary: dict) -> list[str]:
         lines.append(
             f"当てはめ {g['basis']} の曲線を真値とみなし、{chosen} K から引いた区間の中点の Δρ（見込み、pcm）:"
         )
-        lines += scheme_lines(g, "点が足りないか、曲線と同じ基底")
+        lines += scheme_lines(g, "点が足りない")
+        lines.append(f"  {scheme_label(g['own'])}: 曲線と同じ基底")
     return lines
 
 

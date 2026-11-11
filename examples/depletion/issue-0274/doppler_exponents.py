@@ -35,7 +35,8 @@ def psi(xi: float, x: float) -> float:
     return math.sqrt(math.pi) / 2 * xi * wofz(xi * (x + 1j) / 2).real
 
 
-def j_function(xi: float, beta: float) -> float:
+def j_with_error(xi: float, beta: float) -> tuple[float, float]:
+    """J と、quad の誤差の見積もり（どちらも 2 倍した値）"""
     # ψ は x について偶関数
     value, error = quad(
         lambda x: psi(xi, x) / (psi(xi, x) + beta),
@@ -45,12 +46,11 @@ def j_function(xi: float, beta: float) -> float:
         epsabs=0,
         epsrel=1e-11,
     )
-    # 局所のべきは J の相対の差 1e-5 の桁を差分で取るので、積分の誤差がそれより十分小さいこと（quad は上限で警告だけを出す）
-    if error > 1e-9 * value:
-        raise SystemExit(
-            f"J(ξ={xi}, β={beta}): the integral error {error} is too large"
-        )
-    return 2 * value
+    return 2 * value, 2 * error
+
+
+def j_function(xi: float, beta: float) -> float:
+    return j_with_error(xi, beta)[0]
 
 
 def xi_at(energy: float, width: float, mass: float, temperature: float) -> float:
@@ -62,10 +62,16 @@ def local_exponent(energy, width, mass, beta, temperature, step=0.02) -> float:
 
     def slope(t):
         h = t * step / 4
-        return (
-            j_function(xi_at(energy, width, mass, t + h), beta)
-            - j_function(xi_at(energy, width, mass, t - h), beta)
-        ) / (2 * h)
+        high, high_error = j_with_error(xi_at(energy, width, mass, t + h), beta)
+        low, low_error = j_with_error(xi_at(energy, width, mass, t - h), beta)
+        # n = −Δln(dJ/dT) / (2 step) なので、傾きの相対の誤差 ε は n に ε / step ほど入る。n の誤差を 0.01 以下にする
+        # （quad は誤差の上限で警告だけを出す）
+        if high_error + low_error > 0.01 * step * abs(high - low):
+            raise SystemExit(
+                f"J(β={beta}) near {t} K: the integral errors {high_error + low_error} "
+                f"are too large for the difference {high - low}"
+            )
+        return (high - low) / (2 * h)
 
     up, down = temperature * math.exp(step), temperature * math.exp(-step)
     high, low = slope(up), slope(down)
