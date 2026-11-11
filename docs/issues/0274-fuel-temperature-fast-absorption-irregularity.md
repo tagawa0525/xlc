@@ -365,7 +365,7 @@ compare_grid_interpolation.py の `schemes` と同じ測り方で、内挿の方
 feat/0274-fuel-temperature-fine-pin、分岐点は main の 80e8400d）の入力と main の bin/（80e8400d の `build` の出力）で作った
 （2026-11-11）。切り分けの 6 つのピンセル（`pin-fresh-*`、`pin-burned-light-inf`）は、同じライブラリと実行ファイルで、入力ごとに
 `RAYON_NUM_THREADS=8 ../../../../bin/lattice <入力>.toml > <入力>.out 2> <入力>.log`（`fine-pin/` で実行、手元、2026-11-11）。入力は
-61ecd612 のもの。値は 44ed2089 の要約の JSON（`fine-pin.json` と `fine-pin-checks.json`。`fine_pin.py` を a0655ce3 で、`fine-pin/` から
+61ecd612 のもの。値は 9e752007 の要約の JSON（`fine-pin.json` と `fine-pin-checks.json`。`fine_pin.py` を ab9f6bc8 で、`fine-pin/` から
 `python3 fine_pin.py --json fine-pin.json --table ../../p9-product/table-2A.msgpack --reference fresh=../pin-energy-31.msgpack --library fine-pin.msgpack ../../p2/depletion.msgpack fresh=pin-fresh.msgpack:0 burned=pin-burned.msgpack:60 fresh-light-inf=pin-fresh-light-inf.msgpack:0 burned-light-inf=pin-burned-light-inf.msgpack:60`
 と、切り分けの 4 つを `--json fine-pin-checks.json` で。`--report` で表の値を出す）。テーブルとライブラリの出力は `dvc add` した。
 
