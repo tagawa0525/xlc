@@ -1,0 +1,5 @@
+outs:
+- md5: c1b8c0f91a0bf9f6606fe74b028eaeff
+  size: 3199
+  hash: md5
+  path: pin-energy-31.msgpack

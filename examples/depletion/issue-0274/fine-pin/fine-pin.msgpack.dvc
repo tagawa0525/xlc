@@ -1,0 +1,5 @@
+outs:
+- md5: da763a954772f5e245c0e88c975ad17b
+  size: 564544403
+  hash: md5
+  path: fine-pin.msgpack

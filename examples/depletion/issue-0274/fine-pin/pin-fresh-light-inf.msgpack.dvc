@@ -1,0 +1,5 @@
+outs:
+- md5: 07a48e43174cdfe6029fed1a1549d785
+  size: 7355
+  hash: md5
+  path: pin-fresh-light-inf.msgpack
