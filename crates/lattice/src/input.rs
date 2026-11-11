@@ -8,8 +8,8 @@
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると free-gas。ADR-0203、ADR-0209）
-//! ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = { energy = 31 }, sab = true }   # free-gas の条件（どれも省略
-//!                                 # でき、省略した項目はこの例の値。ADR-0209、ADR-0243。参照は
+//! ufg-free-gas = { upper = { energy = 1000 }, cells = 2, sweeps = 3, heavy = { energy = 31 }, sab = true }   # free-gas の条件
+//!                                 # （どれも省略でき、省略した項目はこの例の値。ADR-0209、ADR-0243、ADR-0246。参照は
 //!                                 # { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }）:
 //!                                 # 分離共鳴を持たない核種の自由ガスの核を使う入射エネルギーの上限（kT の倍数。inf で上限なし。
 //!                                 # ADR-0203。{ energy = <eV> } で温度によらない入射エネルギー。ADR-0246）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（inf で収束するまで）、
