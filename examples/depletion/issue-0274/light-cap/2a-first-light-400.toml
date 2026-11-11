@@ -1,5 +1,5 @@
-# ADR-0246 の既定（分離共鳴を持たない核種の自由ガスの上限 1000 eV）で、2A の直積のテーブルの時間の比を取り直す短い確認。
-# examples/depletion/p9-product/lattice-2A.toml の燃焼の最初の 1 段（0.1 MWd/kg）だけを解く。前の既定の 400 kT。
+# 2A の直積のテーブルの時間の比を取り直す短い確認のうち、ADR-0246 の既定（1000 eV）と比べる、前の既定の 400 kT の側（分離共鳴を
+# 持たない核種の自由ガスの上限）。examples/depletion/p9-product/lattice-2A.toml の燃焼の最初の 1 段（0.1 MWd/kg）だけを解く。
 library = "../../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 ufg-free-gas = { upper = 400 }
