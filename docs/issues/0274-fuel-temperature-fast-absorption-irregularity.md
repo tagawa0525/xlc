@@ -215,10 +215,10 @@ md5 c171a770、400 kT、燃料は 1 つの物質）とは 2 つの条件が同�
 
 ### 燃料の温度への依存のモデルと当てはめの式
 
-値は、ブランチ feat/0274-fuel-temperature-model のコミット 48cc2bf89（分岐点は main の fc37dca21）の
+値は、ブランチ feat/0274-fuel-temperature-model のコミット 1b3842934（分岐点は main の fc37dca21）の
 `examples/depletion/issue-0274/fuel_models.py` と `doppler_exponents.py` を、リポジトリの直下から
 `python3 examples/depletion/issue-0274/fuel_models.py --json examples/depletion/issue-0274/fuel-models-2A.json examples/depletion/p9-product/table-2A.msgpack`
-（テーブルは上の節の Slurm 747、md5 8efb40eb。要約の JSON は md5 431f9b84 で、`--report` で同じ出力）と
+（テーブルは上の節の Slurm 747、md5 8efb40eb。要約の JSON は md5 118b0d6d で、`--report` で同じ出力）と
 `python3 examples/depletion/issue-0274/doppler_exponents.py` で出した（2026-11-11、手元で数秒）。1 点を除いた誤差は
 compare_grid_interpolation.py の `schemes` と同じ測り方で、内挿の方式の値は記録の「内挿の変数と方式の候補」の燃料の表と一致した。
 
@@ -265,7 +265,7 @@ compare_grid_interpolation.py の `schemes` と同じ測り方で、内挿の方
 | √T、T、T^1.5 | −3.7〜+5.1         | −0.1〜+0.1        | 2.77（1200 K）      |
 
 - √T だけでは熱群が合わず、T の項を足すと熱群の吸収と νΣf の残差は ±1.1e-5 以内になる。係数（公称の 900 K の当てはめの値で割った
-  値）は、どの基底と項目でもホウ素と減速材について滑らかで、各線の 2 次式からの残差を係数の幅で割った値は 3 項までの基底で 0.019
+  値）は、どの基底と項目でもホウ素と減速材について滑らかで、各線の 2 次式からの残差を係数の幅で割った値は 3 項までの基底で 0.020
   以下、4 項で 0.073 以下（熱群の拡散係数）。熱群の吸収の T の係数（√T、T の基底）は 0.5 MWd/kg の −8.6〜−7.4e-6 から 32 MWd/kg の
   +2.7〜+4.4e-6 に符号を変える（Pu-239 の 0.296 eV の共鳴が増える効きとみられる。確かめていない）。係数が状態で跳ばないので、
   滑らかさでは基底を選べない
