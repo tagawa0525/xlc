@@ -123,6 +123,15 @@ class InputTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             fp.summarize_pin(t)
 
+    def test_a_pin_table_with_only_the_grid_points_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            fp.summarize_pin(pin(model, fuel=fp.GRID))
+
+    def test_a_pin_table_with_a_point_outside_the_grid_range_is_an_error(self):
+        # 格子点の範囲の外の点は、方式で引くと外挿になる
+        with self.assertRaises(SystemExit):
+            fp.summarize_pin(pin(model, fuel=[500.0, *FINE]))
+
 
 class ProductTest(unittest.TestCase):
     def test_the_product_fit_takes_the_nominal_state_of_the_burnup_point(self):
@@ -134,13 +143,21 @@ class ProductTest(unittest.TestCase):
 
         product = tfm.table(g)
         at = {
-            u: fit(fp.summarize_product(fp.load_product(product), u), "√T、T")["grid"][
-                "高速群の吸収"
-            ]
+            u: fit(
+                fp.summarize_product(
+                    fp.load_product(product), u, {"boron": 325.0, "moderator": 570.0}
+                ),
+                "√T、T",
+            )["grid"]["高速群の吸収"]
             for u in [0.0, 10.0]
         }
         self.assertTrue(all(abs(x) < 1e-6 for x in at[0.0]))
         self.assertGreater(abs(at[10.0][fp.GRID.index(1200.0)]), 1.0)
+
+    def test_a_pin_state_off_the_product_nominal_is_an_error(self):
+        product = fp.load_product(tfm.table(lambda u, b, m, f: model(f)))
+        with self.assertRaises(SystemExit):
+            fp.summarize_product(product, 0.0, {"boron": 650.0, "moderator": 570.0})
 
 
 class ReferenceTest(unittest.TestCase):
