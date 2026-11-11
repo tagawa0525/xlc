@@ -102,4 +102,4 @@ issues: ["#0275", "#0276", "#0277"]
 - 入力: examples/depletion/p9-product/lattice-2A.toml と branch-2A.toml が燃料を `fuel-0`〜`fuel-4` の 5 つの物質で書き、
   lattice-2A.toml の燃焼の領域が 39 のピンの組 × 5 = 195 になる（上の Z5 の時間の短い実行の Slurm 745 のログ `short-check/lattice-2A-short.log` の `regions=195`。
   MOC の領域は 1 物質のときと同じ 28928）
-- テーブルの値: 作り直した 2A のテーブルを examples/depletion/verification.md の「Problem 9 の格子点の直積（2A）」に書く（計算の後）
+- テーブルの値: 作り直した 2A のテーブル（Slurm 747、xlc 8d6c3ffc、2026-11-11）を examples/depletion/verification.md の「Problem 9 の格子点の直積（2A）」に書いた
