@@ -1,0 +1,5 @@
+outs:
+- md5: 8f445e426a6404eb84ea97f670c45b00
+  size: 2683
+  hash: md5
+  path: pins-2C-e1000.msgpack
