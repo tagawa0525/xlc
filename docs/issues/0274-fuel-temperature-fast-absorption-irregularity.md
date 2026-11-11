@@ -461,12 +461,15 @@ UFG の範囲で 9 群に分けたもの）。`pin-fresh-light-e<eV>`、`pin-bur
 入射エネルギーにしたもの。`pin-<状態>-[ring-]light-<上限>` は #0133 のピンセル（`../pin-<状態>-energy-31.toml`）の上限を変えたもので、
 `ring` は移行を既定のリングの中性子束にしたもの。Slurm 749（区分 decision）で、同じコミットの `cargo build --release` の
 `target/release/lattice` を、`light-cap/` で入力ごとに `RAYON_NUM_THREADS=8 ../../../../target/release/lattice <入力>.toml > <入力>.out 2> <入力>.log`
-で実行した（2026-11-12）。値は、`light-cap/` で `python3 light_caps.py l-inf.msgpack l-*.msgpack`（`l-dilute-*` は `l-dilute-inf.msgpack` と、
-`l-groups-*` は `l-groups-inf.msgpack` と比べる）、`python3 edge_source.py`、#0133 のピンセルは標準出力の `k`、17 点は `fine-pin/` で
+で実行した（2026-11-12）。出力（`*.msgpack` と #0133 のピンセルの `*.out`）は `dvc add` した。値は、`light-cap/` で
+`python3 light_caps.py l-inf.msgpack l-[0-9]*.msgpack`、変えた条件ごとに同じ条件の上限なしと比べる
+`python3 light_caps.py l-<条件>-inf.msgpack l-<条件>-[0-9]*.msgpack`（条件は dilute、sweeps12、cells4、full、groups。light_caps.py は
+xlc 80e62cc72 のもので、熱群への移行の差の列はこの版から）、`python3 edge_source.py`、#0133 のピンセルは標準出力の `k`、17 点は `fine-pin/` で
 `python3 fine_pin.py --json <出力> --table ../../p9-product/table-2A.msgpack fresh=pin-fresh.msgpack:0 burned=pin-burned.msgpack:60 fresh-light-inf=pin-fresh-light-inf.msgpack:0 burned-light-inf=pin-burned-light-inf.msgpack:60 fresh-light-e1000=../light-cap/pin-fresh-light-e1000.msgpack:0 burned-light-e1000=../light-cap/pin-burned-light-e1000.msgpack:60 fresh-light-e3000=../light-cap/pin-fresh-light-e3000.msgpack:0 burned-light-e3000=../light-cap/pin-burned-light-e3000.msgpack:60`
 （2026-11-12）。Slurm 749 の出力は、同じ入力を手元で同じ実行ファイルで解いた値と同じ（k と反応度の差は表示の桁まで、17 点の
-1000 eV の出力は md5 まで）。時間は手元の 8 スレッドの自己遮蔽の 1 回（ログの
-`shielding: close time.busy`。2026-11-11、手元で同じ入力を実行したもの。`--timed` でない目安）。
+1000 eV の出力は md5 まで）。時間は自己遮蔽の 1 回（ログの `shielding: close time.busy`）で、#0133 のピンセルのリングの中性子束の
+6 つは Slurm 750（`--timed`、xlc 80e62cc72、分岐点は main の 5d0834c15、2026-11-12。`RAYON_NUM_THREADS=8` で同じコマンド。k は 749 と同じ。
+`*.out` と `*.log` はこのジョブのもの）、ほかは手元の 8 スレッドで同じ入力を実行した目安（xlc e94fd3f10、2026-11-11。`--timed` でない）。
 
 原因（式と仕組みは ADR-0246 の「上限が効く仕組み」）:
 
@@ -500,7 +503,8 @@ UFG の範囲で 9 群に分けたもの）。`pin-fresh-light-e<eV>`、`pin-bur
   48.05〜75.5 eV の群が −137e-5
 
 - H-1 の上限（減速材 580 K で 400 kT は 20.0 eV）: 静止した標的の H-1 は、自由ガスより 0.625 eV より下に落ちる割合が kT/2 の分（580 K で
-  4.0%）多い。リングの中性子束の移行では、上限より上の入射から熱群への移行が上限なしより +4.1% 多い（`l-groups-400` の散乱行列）。
+  4.0%）多い。リングの中性子束の移行では、9 群の散乱行列の熱群より上の群から熱群への移行の和が上限なしより +3.21% 多い（`l-groups-400`。
+  300 kT で +4.48%、1100 kT で +0.82%）。
   移行を無限希釈の形にすると、400 kT の反応度の差は −19.76 から +1.45 pcm（`l-dilute-400`）、350 kT は −29.78 から −5.56、300 kT は
   −16.95 から +10.54 pcm になる。OpenMC は H-1 を静止させないので、この段は xlc だけの近似
 - 数値の離散化: 300、350、400 kT の差は、スイープ 12 回、区間の細かさ 4、格子を間引かない計算で 0.01 pcm 以内で同じ
@@ -522,17 +526,17 @@ UFG の範囲で 9 群に分けたもの）。`pin-fresh-light-e<eV>`、`pin-bur
 
 | 移行の形         | 上限     | 1C の新しい燃料の k | OpenMC との差 | 2A-40 の k | OpenMC との差 | 時間、1C / 2A-40（秒） |
 | ---------------- | -------- | ------------------- | ------------- | ---------- | ------------- | ---------------------- |
-| リングの中性子束 | 400 kT   | 1.172404            | +40.4         | 0.825640   | +78.0         | 3.43 / 28.0            |
-| リングの中性子束 | 1000 eV  | 1.172134            | +13.4         | 0.825352   | +49.2         | 6.46 / 52.3            |
-| リングの中性子束 | 上限なし | 1.172126            | +12.6         | 0.825344   | +48.4         | 13.0 / 77.7            |
+| リングの中性子束 | 400 kT   | 1.172404            | +40.4         | 0.825640   | +78.0         | 3.13 / 27.8            |
+| リングの中性子束 | 1000 eV  | 1.172134            | +13.4         | 0.825352   | +49.2         | 6.61 / 51.7            |
+| リングの中性子束 | 上限なし | 1.172126            | +12.6         | 0.825344   | +48.4         | 13.1 / 77.4            |
 | 無限希釈         | 400 kT   | 1.172333            | +33.3         | 0.825989   | +112.9        | 2.95 / 27.4            |
 | 無限希釈         | 1000 eV  | 1.172374            | +37.4         | 0.826017   | +115.7        | 6.12 / 51.2            |
 | 無限希釈         | 3000 eV  | 1.172374            | +37.4         | 0.826018   | +115.8        | 8.59 / 64.5            |
 | 無限希釈         | 上限なし | 1.172374            | +37.4         | 0.826018   | +115.8        | 12.7 / 77.1            |
 
 推し（決定は ADR-0246）: `upper` の既定を温度によらない 1000 eV にする。上限なしとの差が 1 pcm 以下で、燃料の温度の振れが消え、
-時間は上限なしの半分ほど。上限なし（`inf`）は参照の経路として残す。既定を変えると 2A の直積のテーブル（Slurm 747 で 4 時間 44 分）は
-7.4 時間ほどの見込み（上限なしで 10.3 時間。ADR-0246 の「帰結」）。
+時間は #0133 のピンセルで上限なしの 0.50〜0.67 倍。上限なし（`inf`）は参照の経路として残す。既定を変えると 2A の直積のテーブル
+（Slurm 747 で 4 時間 44 分）は 7.3 時間ほどの見込み（上限なしで 10.2 時間。ADR-0246 の「帰結」）。
 
 ## 完了の条件
 
