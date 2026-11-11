@@ -1,0 +1,5 @@
+outs:
+- md5: d87c5b92aa5d791ac5363e4a60688eb4
+  size: 7355
+  hash: md5
+  path: pin-burned.msgpack

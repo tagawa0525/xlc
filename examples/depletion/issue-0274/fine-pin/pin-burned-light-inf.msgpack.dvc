@@ -1,0 +1,5 @@
+outs:
+- md5: e44f81172b0cd5f11c9061a7c190d17d
+  size: 7355
+  hash: md5
+  path: pin-burned-light-inf.msgpack

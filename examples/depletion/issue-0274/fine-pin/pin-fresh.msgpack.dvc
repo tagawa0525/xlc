@@ -1,0 +1,5 @@
+outs:
+- md5: 853708bb648766fc63454bef731f9c06
+  size: 7355
+  hash: md5
+  path: pin-fresh.msgpack
