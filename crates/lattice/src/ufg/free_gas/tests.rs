@@ -502,3 +502,12 @@ fn held_cells_give_the_sources_of_rebuilt_cells_bit_for_bit() {
     assert_eq!(bits(&all), bits(&rebuilt));
     assert_eq!(bits(&part), bits(&rebuilt));
 }
+
+#[test]
+fn an_infinite_multiple_of_kt_leaves_the_free_gas_uncapped_at_any_temperature() {
+    // 上限なし（`upper = inf`、`heavy = inf`）は、kT が 0 でもどの入射も上限より下にする（無限大 × 0 の NaN にしない）
+    for temperature in [0.0, 600.0] {
+        let gas = Gas::new(15.86, temperature, Some(f64::INFINITY));
+        assert_eq!(gas.cap(), f64::INFINITY, "{temperature} K");
+    }
+}
