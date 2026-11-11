@@ -171,5 +171,15 @@ class LibraryTest(unittest.TestCase):
         )
 
 
+class RoundedTest(unittest.TestCase):
+    def test_floats_keep_six_significant_digits_and_other_values_stay(self):
+        got = fp.rounded(
+            {"pcm": [1.23456789e-3, -98765.4321, 0.0], "n": 17, "md5": "8efb40eb"}
+        )
+        self.assertEqual(
+            got, {"pcm": [1.23457e-3, -98765.4, 0.0], "n": 17, "md5": "8efb40eb"}
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
