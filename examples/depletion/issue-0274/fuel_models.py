@@ -9,7 +9,8 @@
 
 - `exponents`: 項目（`ITEMS`）と 1/k∞ を状態ごとに a + b T^p（p = 0 は a + b ln T）に最小 2 乗で当てはめ、残差の 2 乗和が最小の p
   （`EXPONENTS` の格子の上）の、燃焼度の点ごとの最小、中央値、最大（温度で変わらない状態は除いて `flat` に数え、すべて
-  変わらなければ None）。p = 1/2 は共鳴積分の √T の相関、p = 1 は温度の線形
+  変わらなければ None）と、状態ごとの (最後の点の値 − 最初の点の値) / 最初の点の値の中央値（`relative_change_median`。温度で
+  変わらない状態も含む）。p = 1/2 は共鳴積分の √T の相関、p = 1 は温度の線形
 - `fits`: 基底（`BASES`。定数の項はどれにもある）ごとに、軸のすべての点に当てはめた残差。項目の残差は点の値の平均で割った値
   （1e-5）の、状態の中の最小と最大。k∞ は当てはめた少数群定数から解いた k∞ の Δρ。係数の滑らかさ（`roughness`）は、項目ごとに、
   基底の関数を公称の温度からの差にした係数を公称の温度の当てはめの値で割り、ホウ素と減速材の軸の線ごとにその軸の値の 2 次式に
@@ -191,7 +192,7 @@ def summarize(table: dict) -> dict:
 
     def truth_of(weights):
         """燃料の温度の添字の重みで作った状態の 1e5/k∞（燃焼度、ホウ素、減速材）"""
-        out = np.empty(inverse_k.shape[:3])
+        out = np.empty((len(burnups), len(borons), len(moderators)))
         for u in range(len(burnups)):
             for b, m in rest:
                 out[u, b, m] = 1e5 / rebuilt_k(u, b, m, weights)
@@ -217,21 +218,7 @@ def summarize(table: dict) -> dict:
         return out
 
     columns = [(label, item_column(like, item, index)) for label, item, index in ITEMS]
-    inverse_k = 1e5 / np.array(
-        [
-            [
-                [
-                    [
-                        k_inf(unvector(vectors[u, b, m, f], like))
-                        for f in range(len(fuels))
-                    ]
-                    for m in range(len(moderators))
-                ]
-                for b in range(len(borons))
-            ]
-            for u in range(len(burnups))
-        ]
-    )
+    inverse_k = np.stack([truth_of({f: 1.0}) for f in range(len(fuels))], axis=-1)
     exponents = []
     for label, column in [*columns, ("1/k∞", None)]:
         rows = []
@@ -272,10 +259,10 @@ def summarize(table: dict) -> dict:
             coefficients = c[..., 1:] / c[..., :1]
             r = r.reshape(-1, len(fuels))
             roughness = []
-            for u, c in enumerate(coefficients):
+            for u, per_burnup in enumerate(coefficients):
                 row = []
-                for j in range(c.shape[2]):
-                    cj = c[:, :, j]
+                for j in range(per_burnup.shape[2]):
+                    cj = per_burnup[:, :, j]
                     width = float(cj.max() - cj.min())
                     lines = [
                         quadratic_roughness(np.array(moderators), cj[b])
