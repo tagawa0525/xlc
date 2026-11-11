@@ -1,6 +1,6 @@
 # ADR-0245 の短い確認の比べる側: main の p9-product/lattice-2A.toml（燃料 1 物質）の燃焼度を最初の 1 点にしたもの
 # Slurm 746（区分 decision、パーティション timed の排他のジョブ、2026-11-11、bin/lattice は main の 3a52e2c9 のもの）で、trials/ に置いて
-# 流した（library と chain のパスだけが違う）。ログは同じ名前の .log と .out（git add -f で追跡する）
+# 流した（library と chain のパスだけが違う）。ログは同じ名前の .log と .out（git add -f で追跡する）。下のコメントのパスは p9-product/ から見たもの
 # Problem 9 の分岐のテーブルの格子点（ADR-0239）で交差の項を落とす誤差を測る、2A の燃焼の履歴。VERA Problem 2 の毒物のない 3.1% の
 # 集合体（../p2/lattice-2A.toml と同じ形状、燃料と被覆管の組成、離散化、燃焼度の点、出力密度。手でコピーした）を、ADR-0239 の公称の状態
 # （案 N2。ホウ素 650 ppm、減速材 580 K、燃料 900 K）で燃焼させる。減速材はホウ酸水の密度とホウ素で書き、p2 の数密度（1300 ppm、
