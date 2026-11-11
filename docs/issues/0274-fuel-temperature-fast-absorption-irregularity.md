@@ -589,6 +589,11 @@ changed のステージが 320 あり、この変更によらない。OpenMC の
 - examples/vera/verification-endfb70.md: 「計算」
 - examples/core/verification.md: 「制御棒の分岐と値ごとの格子計算の結合の一致（c984cefb、分岐点 f86d7fda、2026-11-03）」
 
+この issue の入力（examples/depletion/issue-0274/ の TOML）のうち `upper` を書かないもの（`pin-*.toml`、`scan-*.toml`、`cap-900/`、
+`fine-pin/` の `pin-fresh*.toml` と `pin-burned.toml` など）は、上の節の値を出したときは 400 kT で解き、今の bin/lattice では 1000 eV で
+解く。上の節の値は、節に書いたコミットを checkout して再現する（入力に `upper = 400` を書き足していない）。リングの中性子束の移行の
+上限の効き（「軽い核種の自由ガスの上限」の #0133 のピンセル）は、#0219 の 1 つ目の候補と同じ量で、#0219 の経緯に書いた。
+
 #### 2A の直積のテーブル（1000 eV）
 
 examples/depletion/p9-product の 4 つのステージ（`lattice-2A`、`branch-2A`、`compare-2A`、`grid-2A`）を既定の 1000 eV で作り直した
