@@ -1,0 +1,5 @@
+outs:
+- md5: 12efbdf0a73eb83f393301bc93baa634
+  size: 11
+  hash: md5
+  path: pin-1C-0-light-400.out

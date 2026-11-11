@@ -1,0 +1,5 @@
+outs:
+- md5: 9d40273360b17badf80f0a1ae5a9cb7a
+  size: 709
+  hash: md5
+  path: l-sweeps12-inf.msgpack

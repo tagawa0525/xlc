@@ -1,0 +1,5 @@
+outs:
+- md5: b7c1d8b668077a939205dd5a0316379c
+  size: 330
+  hash: md5
+  path: pin-burned-light-e1000.out

@@ -139,10 +139,15 @@ pub(super) struct Gas {
 
 impl Gas {
     /// 質量比 `awr`、温度 `temperature` (K) の核種。`upper` は自由ガスの核を使う入射エネルギーの上限（kT の倍数）で、
-    /// `None` は上限なし。
-    pub(super) fn new(awr: f64, temperature: f64, upper: Option<f64>) -> Self {
-        let kt = BOLTZMANN * temperature;
-        Self::below(awr, temperature, upper.map_or(f64::INFINITY, |n| n * kt))
+    /// 無限大は上限なし。
+    pub(super) fn new(awr: f64, temperature: f64, upper: f64) -> Self {
+        // 無限大の倍数を kT に掛けない: kT が 0 なら NaN になり、どの入射も上限より下でなくなる
+        let cap = if upper.is_infinite() {
+            f64::INFINITY
+        } else {
+            upper * (BOLTZMANN * temperature)
+        };
+        Self::below(awr, temperature, cap)
     }
 
     /// 質量比 `awr`、温度 `temperature` (K) の核種で、入射エネルギー `cap` (eV) より下で自由ガスの核を使うもの。

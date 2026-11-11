@@ -1,0 +1,5 @@
+outs:
+- md5: 787f558f3e3c5b93299f1c649d6a4494
+  size: 709
+  hash: md5
+  path: l-250.msgpack

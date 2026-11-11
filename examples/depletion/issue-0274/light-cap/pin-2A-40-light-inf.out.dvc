@@ -1,0 +1,5 @@
+outs:
+- md5: d83c8ba8888cb7d4cff0bf6b32135d9e
+  size: 11
+  hash: md5
+  path: pin-2A-40-light-inf.out

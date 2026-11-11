@@ -1,0 +1,5 @@
+outs:
+- md5: 1377ff59bce8b15ccb21c2e312c4d147
+  size: 709
+  hash: md5
+  path: l-full-400.msgpack

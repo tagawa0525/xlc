@@ -433,13 +433,14 @@ fn ufg_hold_memory_sets_the_held_memory_of_the_self_shielding() {
 
 #[test]
 fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
-    // ADR-0209: 省略すると、ADR-0205 の速い方法（軽い核種の 400 kT までの自由ガス、細かさ 2、スイープ 3 回、H in H2O の
-    // S(α, β)）で、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。`ufg-free-gas` の書かない項目もその値
+    // ADR-0209: 省略すると、ADR-0205 の速い方法（細かさ 2、スイープ 3 回、H in H2O の S(α, β)）で、分離共鳴を持たない核種は
+    // 温度によらない 1000 eV までの自由ガス（ADR-0246）、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。
+    // `ufg-free-gas` の書かない項目もその値
     let fast = FreeGas {
-        upper: Some(400.0),
+        upper: FreeGasCap::Energy(1000.0),
         cells: 2,
         sweeps: Some(3),
-        heavy: Some(HeavyCap::Energy(31.0)),
+        heavy: Some(FreeGasCap::Energy(31.0)),
         sab: true,
     };
     assert_eq!(FreeGas::default(), fast);
@@ -474,7 +475,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         )
         .unwrap(),
         Scattering::FreeGas(FreeGas {
-            upper: Some(300.0),
+            upper: FreeGasCap::Thermal(300.0),
             cells: 8,
             sweeps: Some(2),
             ..fast
@@ -487,7 +488,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         )
         .unwrap(),
         Scattering::FreeGas(FreeGas {
-            upper: None,
+            upper: FreeGasCap::Thermal(f64::INFINITY),
             cells: 4,
             sweeps: None,
             heavy: None,
@@ -498,7 +499,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     assert_eq!(
         scattering("ufg-free-gas = { heavy = 400 }").unwrap(),
         Scattering::FreeGas(FreeGas {
-            heavy: Some(HeavyCap::Thermal(400.0)),
+            heavy: Some(FreeGasCap::Thermal(400.0)),
             ..fast
         })
     );
@@ -506,7 +507,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     assert_eq!(
         scattering("ufg-free-gas = { heavy = inf }").unwrap(),
         Scattering::FreeGas(FreeGas {
-            heavy: Some(HeavyCap::Thermal(f64::INFINITY)),
+            heavy: Some(FreeGasCap::Thermal(f64::INFINITY)),
             ..fast
         })
     );
@@ -514,10 +515,36 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     assert_eq!(
         scattering("ufg-free-gas = { heavy = { energy = 31 } }").unwrap(),
         Scattering::FreeGas(FreeGas {
-            heavy: Some(HeavyCap::Energy(31.0)),
+            heavy: Some(FreeGasCap::Energy(31.0)),
             ..fast
         })
     );
+    // `upper = { energy = .. }` は分離共鳴を持たない核種の、温度によらない入射エネルギー (eV) の上限
+    assert_eq!(
+        scattering("ufg-free-gas = { upper = { energy = 3000 } }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            upper: FreeGasCap::Energy(3000.0),
+            ..fast
+        })
+    );
+    // 数は kT の倍数で、上限は温度とともに動く
+    assert_eq!(
+        scattering("ufg-free-gas = { upper = 400 }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            upper: FreeGasCap::Thermal(400.0),
+            ..fast
+        })
+    );
+    // `heavy` と違い `upper` は真偽値を取らない。書いたら、受け付ける形を示して止める
+    for bad in ["upper = false", "upper = { energy = inf }"] {
+        let message = scattering(&format!("ufg-free-gas = {{ {bad} }}"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains("`ufg-free-gas.upper` must be"),
+            "{bad}: {message}"
+        );
+    }
     for bad in [
         "ufg-scattering = \"moving\"",
         "ufg-scattering = \"static\"\nufg-free-gas = { cells = 2 }",
@@ -529,6 +556,12 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         "ufg-free-gas = { upper = 0 }",
         "ufg-free-gas = { upper = -400 }",
         "ufg-free-gas = { upper = nan }",
+        "ufg-free-gas = { upper = false }",
+        "ufg-free-gas = { upper = true }",
+        "ufg-free-gas = { upper = { energy = 0 } }",
+        "ufg-free-gas = { upper = { energy = -1000 } }",
+        "ufg-free-gas = { upper = { energy = nan } }",
+        "ufg-free-gas = { upper = { energy = inf } }",
         "ufg-free-gas = { lower = 4 }",
         "ufg-free-gas = { heavy = 0 }",
         "ufg-free-gas = { heavy = -400 }",

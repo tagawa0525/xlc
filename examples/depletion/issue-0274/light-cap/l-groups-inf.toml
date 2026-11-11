@@ -1,0 +1,68 @@
+# ADR-0246 の切り分け（#0274）: ../fine-pin/pin-fresh.toml の新しい燃料のピンセルを燃料の温度 900 K の 1 点にし、分離共鳴を持たない核種の
+# 自由ガスの上限 `upper`（kT の倍数）を動かしたもの。名前は l-[<変えた条件>-]<upper>。dilute は移行を無限希釈の形、sweeps12 はスイープ 12 回、
+# cells4 は区間の細かさ 4、full は格子を間引かない、groups は少数群を UFG の範囲で 9 群に分けたもの。以下はもとの入力の注釈
+# 燃料の温度の軸で 2 群の定数と k∞ を細かく見る（#0274 の「燃料の温度を細かく取ったピンセル」）: ../pin-energy-31.toml と同じピンセル
+# （2A の燃料のピン 1 本、重い核種の自由ガスの上限 31 eV。ADR-0243）で、燃料の温度を 560 K と 600〜1350 K の 50 K おきの 17 点にした。
+# テーブルの 7 点（ADR-0239）はこの中にあり、残りの 10 点はライブラリ（xs.toml）に足した温度。比べ方は fine_pin.py。
+# 燃料は新しい燃料（../pin-energy-31.toml と同じ組成）。
+library = "../fine-pin/fine-pin.msgpack"
+ufg-tolerance = 1e-4
+ufg-free-gas = { upper = inf, heavy = { energy = 31 } }
+few-group = { output = "l-groups-inf.msgpack", bounds = [1e7, 148.728, 75.501, 48.052, 27.7, 15.968, 9.877, 4.0, 0.625, 1e-5] }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+rows = ["pin"]
+
+[material.fuel]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
+# p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [650], materials = ["water"] }
+moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }
+fuel = { temperature = [900], materials = ["fuel"] }

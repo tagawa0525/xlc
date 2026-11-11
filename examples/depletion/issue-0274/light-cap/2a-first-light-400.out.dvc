@@ -1,0 +1,5 @@
+outs:
+- md5: 08922dbb083fb8d774aae63d26353b50
+  size: 42
+  hash: md5
+  path: 2a-first-light-400.out
