@@ -144,8 +144,10 @@ T^1.5 の当てはめの残差と跳びの最大で、上限なしとの差は 1
 
 ### 確認
 
-- 入力: `crates/lattice/src/input/tests.rs` の `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`（`upper = { energy = .. }` と止める値）。
-  単体試験: `crates/lattice/src/ufg/tests.rs` の `a_light_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature`
+- 入力: `crates/lattice/src/input/tests.rs` の `ufg_scattering_defaults_to_the_fast_free_gas_with_sab`（`upper = { energy = .. }`、止める値と、
+  真偽値の `upper` のエラーの文）。単体試験: `crates/lattice/src/ufg/tests.rs` の
+  `a_light_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature`、`crates/lattice/src/ufg/free_gas/tests.rs` の
+  `an_infinite_multiple_of_kt_leaves_the_free_gas_uncapped_at_any_temperature`（`upper = inf` は kT が 0 でも上限なし）
 - 原因と候補の測定: #0274 の「軽い核種の自由ガスの上限」（`examples/depletion/issue-0274/light-cap/`。`edge_source.py` と `light_caps.py` の
   テストは同じ場所の `test_edge_source.py`、`test_light_caps.py`）
 - 既定を変えたあと: 2A の直積のテーブルを作り直し、燃料の温度の格子点の残差と 1 点を除いた誤差を #0274 の 17 点と比べる
