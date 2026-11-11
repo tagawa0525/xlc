@@ -518,6 +518,14 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             ..fast
         })
     );
+    // `upper = { energy = .. }` は分離共鳴を持たない核種の、温度によらない入射エネルギー (eV) の上限
+    assert_eq!(
+        scattering("ufg-free-gas = { upper = { energy = 1000 } }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            upper: FreeGasCap::Energy(1000.0),
+            ..fast
+        })
+    );
     for bad in [
         "ufg-scattering = \"moving\"",
         "ufg-scattering = \"static\"\nufg-free-gas = { cells = 2 }",
@@ -529,6 +537,12 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         "ufg-free-gas = { upper = 0 }",
         "ufg-free-gas = { upper = -400 }",
         "ufg-free-gas = { upper = nan }",
+        "ufg-free-gas = { upper = false }",
+        "ufg-free-gas = { upper = true }",
+        "ufg-free-gas = { upper = { energy = 0 } }",
+        "ufg-free-gas = { upper = { energy = -1000 } }",
+        "ufg-free-gas = { upper = { energy = nan } }",
+        "ufg-free-gas = { upper = { energy = inf } }",
         "ufg-free-gas = { lower = 4 }",
         "ufg-free-gas = { heavy = 0 }",
         "ufg-free-gas = { heavy = -400 }",

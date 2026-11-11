@@ -1335,6 +1335,39 @@ fn an_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
 }
 
 #[test]
+fn a_light_energy_cap_stops_the_free_gas_at_the_same_energy_at_every_temperature() {
+    // 分離共鳴を持たない核種の温度によらない上限（`upper` の `FreeGasCap::Energy`、eV）も、どの温度でも、その温度でそのエネルギーに
+    // なる kT の倍数の上限と同じ入射エネルギーで自由ガスを止める
+    let light = |cap| {
+        Scattering::FreeGas(FreeGas {
+            upper: cap,
+            cells: 4,
+            sweeps: None,
+            heavy: None,
+            sab: false,
+        })
+    };
+    let cap = 10.0;
+    for temperature in [150.0, 300.0] {
+        let kt = free_gas::BOLTZMANN * temperature;
+        let energy = thermal_spectrum(temperature, light(FreeGasCap::Energy(cap)));
+        let multiple = thermal_spectrum(temperature, light(FreeGasCap::Thermal(cap / kt)));
+        assert!(
+            flux_difference(&energy, &multiple) < 1e-12,
+            "{temperature} K: {}",
+            flux_difference(&energy, &multiple)
+        );
+    }
+    let below = thermal_spectrum(150.0, light(FreeGasCap::Thermal(400.0)));
+    let above = thermal_spectrum(150.0, light(FreeGasCap::Energy(cap)));
+    assert!(
+        flux_difference(&above, &below) > 1e-6,
+        "{}",
+        flux_difference(&above, &below)
+    );
+}
+
+#[test]
 fn resonant_free_gas_moves_a_cell_of_resonant_nuclides_only() {
     // 分離共鳴を持つ核種だけのセルでも、`heavy` を書けば静止した標的から動く。減速材のないセルはスイープの収束が遅い（#0179）ので、
     // スイープの回数を固定する
