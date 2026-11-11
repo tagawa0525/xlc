@@ -245,7 +245,7 @@ pub struct FreeGas {
 pub enum FreeGasCap {
     /// 核種の kT の倍数（無限大は範囲の全体。ADR-0203、ADR-0204）。上限のエネルギーは核種の温度とともに動く
     Thermal(f64),
-    /// 温度によらない入射エネルギー (eV。ADR-0243)
+    /// 温度によらない入射エネルギー (eV。ADR-0243、ADR-0246)
     Energy(f64),
 }
 

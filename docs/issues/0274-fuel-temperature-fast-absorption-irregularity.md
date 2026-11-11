@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-関係する ADR: ADR-0239、ADR-0242、ADR-0243
+関係する ADR: ADR-0239、ADR-0242、ADR-0243、ADR-0246
 
 - Problem 9 の 2A の直積のテーブル（Slurm 728 の examples/depletion/p9-product/table-2A.msgpack、md5 c171a770。今のそのパスと記録は作り直した Slurm 747 のもので、下の「2A の直積のテーブルの作り直し」）で、燃料の温度の内側の格子点を、
   その点を除いた格子点から内挿した誤差は、内挿の変数（√T、温度、ln T）と方式（線形、3 次 Hermite、4 点のラグランジュ、自然 3 次
