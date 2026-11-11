@@ -30,7 +30,9 @@ def state(path: str) -> dict:
 
 def multiple(path: str) -> float | None:
     """l-[<条件>-]<倍数>.msgpack の倍数（inf は無限大）。ほかの名前は None"""
-    m = re.fullmatch(r"l-(?:[a-z0-9]+-)?([0-9.]+|inf)\.msgpack", Path(path).name)
+    m = re.fullmatch(
+        r"l-(?:[a-z0-9]+-)?([0-9]+(?:\.[0-9]+)?|inf)\.msgpack", Path(path).name
+    )
     if m is None:
         return None
     return math.inf if m.group(1) == "inf" else float(m.group(1))

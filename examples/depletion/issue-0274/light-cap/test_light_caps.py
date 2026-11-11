@@ -44,6 +44,7 @@ class LightCapsTest(unittest.TestCase):
         self.assertEqual(lc.multiple("l-dilute-400.msgpack"), 400.0)
         self.assertEqual(lc.multiple("l-inf.msgpack"), float("inf"))
         self.assertIsNone(lc.multiple("pin-1C-0-light-inf.msgpack"))
+        self.assertIsNone(lc.multiple("l-1.2.3.msgpack"))
 
     def test_rows_are_sorted_by_the_multiple_with_the_cap_energies(self):
         with tempfile.TemporaryDirectory() as d:
@@ -61,6 +62,8 @@ class LightCapsTest(unittest.TestCase):
         )
         # 300 kT は 900 K で 23.27 eV、580 K で 14.99 eV
         self.assertEqual(rows[0].split()[1:3], ["23.27", "14.99"])
+        # 倍数を読めない名前は、上限のエネルギーの列が空
+        self.assertEqual(rows[2][29:48].strip(), "")
         self.assertEqual(rows[2].split()[1:3], ["+0.00", "+0.00"])
 
 
