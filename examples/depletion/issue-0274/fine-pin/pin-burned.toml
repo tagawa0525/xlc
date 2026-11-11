@@ -4,7 +4,9 @@
 # 燃料は 2A の燃焼の 60 MWd/kg（../../p9-product/lattice-2A.msgpack の燃焼点。5 つの燃焼の領域を含む燃料の全領域を体積で平均）の
 # 組成のうち、O-16 と U、Np-237、Pu、Am の 13 核種と Xe-135、Sm-149（burned_composition.py の出力）。ほかの核分裂生成物は、
 # ライブラリに 17 点の温度を足す時間を抑えるために外した（#0274 の同じ節）。Pu の共鳴の効きを入れるための組成で、2A の 60 MWd/kg の
-# 燃料そのものではない
+# 燃料そのものではない。組成は、このディレクトリで
+# `python3 burned_composition.py ../../p9-product/lattice-2A.msgpack 60 fuel O-16 U-234 U-235 U-236 U-238 Np-237 Pu-238 Pu-239 Pu-240 Pu-241 Pu-242 Am-241 Am-243 Xe-135 Sm-149`
+# の出力（履歴は Slurm 747 の md5 b44ea46b、スクリプトは 2a406bf1e のもの。2026-11-11）
 library = "fine-pin.msgpack"
 ufg-tolerance = 1e-4
 ufg-free-gas = { heavy = { energy = 31 } }
