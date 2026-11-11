@@ -433,10 +433,11 @@ fn ufg_hold_memory_sets_the_held_memory_of_the_self_shielding() {
 
 #[test]
 fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
-    // ADR-0209: 省略すると、ADR-0205 の速い方法（軽い核種の 400 kT までの自由ガス、細かさ 2、スイープ 3 回、H in H2O の
-    // S(α, β)）で、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。`ufg-free-gas` の書かない項目もその値
+    // ADR-0209: 省略すると、ADR-0205 の速い方法（細かさ 2、スイープ 3 回、H in H2O の S(α, β)）で、分離共鳴を持たない核種は
+    // 温度によらない 1000 eV までの自由ガス（ADR-0246）、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。
+    // `ufg-free-gas` の書かない項目もその値
     let fast = FreeGas {
-        upper: FreeGasCap::Thermal(400.0),
+        upper: FreeGasCap::Energy(1000.0),
         cells: 2,
         sweeps: Some(3),
         heavy: Some(FreeGasCap::Energy(31.0)),
@@ -520,9 +521,17 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     );
     // `upper = { energy = .. }` は分離共鳴を持たない核種の、温度によらない入射エネルギー (eV) の上限
     assert_eq!(
-        scattering("ufg-free-gas = { upper = { energy = 1000 } }").unwrap(),
+        scattering("ufg-free-gas = { upper = { energy = 3000 } }").unwrap(),
         Scattering::FreeGas(FreeGas {
-            upper: FreeGasCap::Energy(1000.0),
+            upper: FreeGasCap::Energy(3000.0),
+            ..fast
+        })
+    );
+    // ADR-0209 の前の既定（分離共鳴を持たない核種の 400 kT）も kT の倍数で書ける
+    assert_eq!(
+        scattering("ufg-free-gas = { upper = 400 }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            upper: FreeGasCap::Thermal(400.0),
             ..fast
         })
     );
