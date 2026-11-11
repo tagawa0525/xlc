@@ -262,11 +262,21 @@ class SurrogateTest(unittest.TestCase):
             self.assertIn(own, g["skipped"])
             self.assertNotIn(own, [s["scheme"] for s in g["schemes"]])
 
-    def test_no_surrogate_is_a_polynomial_of_an_interpolation_variable(self):
+    def test_no_interpolation_reproduces_a_surrogate_curve_exactly(self):
         # 4 点のラグランジュは変数の 3 次式を、3 次 Hermite は 2 次式を厳密に再現するので、真値の曲線がそれだと形の誤差が 0 になる
-        summary = fm.summarize(table(doppler))
+        def curved(u, b, m, f):
+            a, n, s = doppler(u, b, m, f)
+            return a * (1 + 0.05 / math.sqrt(f) + 2e-3 * math.log(f)), n, s
+
+        summary = fm.summarize(table(curved))
         for g in summary["surrogates"]:
-            self.assertNotIn(g["basis"], ["√T、T、T^1.5", "√T、T"])
+            for s in g["schemes"]:
+                if s["scheme"][0] != "interpolate":
+                    continue
+                worst = max(
+                    abs(p["worst_pcm"]) for c in s["centers"] for p in c["points"]
+                )
+                self.assertGreater(worst, 1e-6, (g["basis"], g["design"], s["scheme"]))
 
     def test_an_offset_at_one_point_enters_leaving_one_out_more_than_the_surrogate(
         self,
