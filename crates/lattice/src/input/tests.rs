@@ -527,7 +527,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             ..fast
         })
     );
-    // ADR-0246 の前の既定（ADR-0209 の、分離共鳴を持たない核種の 400 kT）も kT の倍数で書ける
+    // 数は kT の倍数で、上限は温度とともに動く
     assert_eq!(
         scattering("ufg-free-gas = { upper = 400 }").unwrap(),
         Scattering::FreeGas(FreeGas {
