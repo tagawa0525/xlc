@@ -18,7 +18,7 @@
 `--reference` は、名前のピンセルと同じピンセルを格子点だけで、ほかのライブラリで解いたテーブルで、格子点の状態の少数群定数の
 最大の相対差を `reference` に書く。`--library` は 2 つのライブラリの核種と温度の組のうち、両方にあるもののデータが同じバイトか（`library`。
 同じでない組を並べる）。Δρ = (1/k_点 − 1/k_候補) × 1e5、k∞ は少数群定数の無限媒質の固有値（../../compare_burnup_interpolation.py の
-`k_inf`）。`inputs` は読んだファイルのパスと md5。
+`k_inf`）。`inputs` は読んだファイルのパスと md5。浮動小数点数は有効数字 6 桁に丸めて書く。
 """
 
 import argparse
@@ -282,6 +282,17 @@ def report(summary: dict) -> list[str]:
     return lines
 
 
+def rounded(value):
+    """浮動小数点数を有効数字 6 桁に丸めた値（ほかの値はそのまま）。要約が引く値は pcm と 1e-5 の小数 2 桁で足りる"""
+    if isinstance(value, float):
+        return float(f"{value:.6g}")
+    if isinstance(value, dict):
+        return {k: rounded(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [rounded(v) for v in value]
+    return value
+
+
 def main() -> None:
     if len(sys.argv) == 3 and sys.argv[1] == "--report":
         print("\n".join(report(json.loads(Path(sys.argv[2]).read_text()))))
@@ -293,7 +304,7 @@ def main() -> None:
     parser.add_argument("--library", nargs=2)
     parser.add_argument("pins", nargs="+")
     args = parser.parse_args()
-    summary = summarize(args)
+    summary = rounded(summarize(args))
     Path(args.json).write_text(
         json.dumps(summary, ensure_ascii=False, separators=(",", ":")) + "\n"
     )
