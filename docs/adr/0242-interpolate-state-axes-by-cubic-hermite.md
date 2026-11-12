@@ -157,7 +157,8 @@ Hermite は 29.52 pcm）にする（目安に入る方式が無いので、正�
   定数の内挿とミクロ燃焼の補正は全体 106.2 s のうち 9.7 s（[ADR-0190](0190-advance-node-burnups-by-midpoint-steps.md) の帰結、examples/depletion/verification.md の「全炉心（Problem 9 の形）」、29563b884、Slurm 711、timed、2026-11-06）で、角の数に比例するとすれば
   上限で約 4 倍（約 +29 s）。内訳は測っていない（#0250）
 - 重みは負になりうる（3 次 Hermite と 4 点のラグランジュの外側の点）。core は、内挿した値が負なら今のとおり止め、燃料の温度の軸の重みに
-  負があれば、エラーに燃料の温度の軸の示唆（ADR-0242）を添える（燃焼度の軸と同じ扱い）。ホウ素と減速材の軸は、実装するときに同じ形で足す
+  負があれば、エラーに燃料の温度の軸の示唆（ADR-0242）を添える（燃焼度の軸と同じ扱い。3 点以上の軸では格子点の間のほぼすべての
+  状態で重みに負があるので、示唆は「値が点の間で曲がるなら点を足す」の条件つきの文にする）。ホウ素と減速材の軸は、実装するときに同じ形で足す
 - bin/core が変わるので、core を使うステージ（examples/vera の Problem 5、6 など、examples/depletion の core の燃焼）が changed になり、結果が
   変わる。記録は実行したコミットのまま残し、再実行は読む作業が来たときにする（CLAUDE.md の「計算」）。テーブルの形式は変わらないので、
   読めなくなる出力は無い
@@ -175,7 +176,8 @@ Hermite は 29.52 pcm）にする（目安に入る方式が無いので、正�
 
 - core の燃料の温度の軸のテスト（crates/core/src/state/tests.rs）: Problem 9 の 7 点で a + b√T + cT を端と内側の区間で厳密に再現すること
   （`fuel_temperatures_reproduce_quadratics_in_the_square_root_between_points`）、格子点で格子計算の値を返すこと
-  （`fuel_grid_points_return_the_lattice_states`）、重みが比べるツールの `hermite_weights` を √T の点に当てた値と 1e-13 で同じこと
+  （`fuel_grid_points_return_the_lattice_states`）、公称の値を持つ直積（係数が負の成分を含む cut-HDMR）と燃焼度の軸を持つテーブルでも
+  √T の 2 次式と燃焼度の 2 次式の積を厳密に再現すること（`fuel_quadratics_in_the_square_root_hold_in_cut_hdmr_and_burnup_tables`）、重みが比べるツールの `hermite_weights` を √T の点に当てた値と 1e-13 で同じこと
   （`fuel_weights_match_the_python_comparison_of_the_p9_grid`。7 点から内側の 1 点を除いた 5 つの格子と、7 点の端と内側の区間。#0274 の
   1 点を除いた誤差 0.38 pcm は、この重みで出した値）、負になった値のエラーが燃料の温度の軸を示すこと
   （`negative_fuel_interpolations_name_the_fuel_axis`）。2 点の軸の線形、範囲の外のエラー、点が 1 つの軸は前からのテスト

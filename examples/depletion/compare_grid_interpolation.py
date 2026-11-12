@@ -98,7 +98,7 @@ def parabola_slope(g: list[float], k: int) -> dict[int, float]:
 
 
 def hermite_weights(g: list[float], q: float) -> dict[int, float]:
-    """3 次 Hermite の重み（crates/core/src/state.rs の `burnup_terms` の基底と傾き。燃焼度 0 の扱いは無い）"""
+    """3 次 Hermite の重み（crates/core/src/state.rs の `hermite` の基底と傾き。燃焼度 0 の扱いは無い）"""
     j = interval_of(g, q)
     h = g[j + 1] - g[j]
     t = (q - g[j]) / h

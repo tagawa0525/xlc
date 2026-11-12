@@ -1,4 +1,4 @@
-"""compare_grid_interpolation.py の要約（直積の分岐のテーブルの格子点を、その軸の両隣の格子点から core と同じ式で内挿したときの差と、
+"""compare_grid_interpolation.py の要約（直積の分岐のテーブルの格子点を、その軸の両隣の格子点から隣の 2 点の線形（ADR-0097 の式）で内挿したときの差と、
 本番の間隔の誤差の見込み。ADR-0239）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_compare_grid_interpolation.py'
