@@ -281,9 +281,23 @@ impl TrackTable {
         density: usize,
         points: &[Vec<f64>],
     ) -> Result<Self, TableError> {
+        // 点を読む前に、`build` と同じく軸の数を確かめる（違えば点の中心と軸が食い違う）
+        if ranges.len() != layout.members.len() {
+            return Err(TableError::Ranges {
+                given: ranges.len(),
+                axes: layout.members.len(),
+            });
+        }
         let axes = axes(ranges, density)?;
         let mut used = vec![false; count(&axes)?];
+        let materials = layout.axes.len();
         for sigma in points {
+            if sigma.len() != materials {
+                return Err(TableError::Materials {
+                    given: sigma.len(),
+                    materials,
+                });
+            }
             let Some(centers) = expansion_centers(&layout, &axes, sigma)? else {
                 continue;
             };
