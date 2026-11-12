@@ -25,7 +25,8 @@ import tomllib
 HERE = Path(__file__).resolve().parent
 HISTORY = HERE / "../../p9-product/lattice-2A.msgpack"
 ITEMS = ["absorption", "nu_fission", "diffusion", "scatter", "adf"]
-# 燃焼度 (MWd/kg) ごとの暗黙の効きの結果。燃焼点にはいちばん近い燃焼度のものを使う
+# 燃焼度 (MWd/kg) ごとの暗黙の効きの結果。燃焼点にはいちばん近い燃焼度のものを使い、2 つから同じ距離なら低い方（12 は 4、
+# 40 は 20。`nearest`）
 SENSITIVITY = {
     4.0: HERE / "pincell-few-group-4-sensitivity.toml",
     20.0: HERE / "pincell-few-group-20-sensitivity.toml",
@@ -194,6 +195,9 @@ def derivative(inputs: list) -> list[dict]:
     points = burnups(solved)
     if burnups(fixed) != points:
         sys.exit("the derivative tables have different burnup points")
+    # 固定した微分は、すべての燃焼点で自己遮蔽を解いた（その点の組成に固定した）入力のもの
+    if shielding_burnup(HERE / "2A-derivative-fixed.toml") != points:
+        sys.exit("2A-derivative-fixed.toml does not shield at every burnup point")
     rows = []
     for k, b in enumerate(points):
         row = {"burnup": b}
