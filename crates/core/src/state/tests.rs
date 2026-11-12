@@ -344,6 +344,62 @@ fn fuel_weights_match_the_python_comparison_of_the_p9_grid() {
 }
 
 #[test]
+fn fuel_quadratics_in_the_square_root_hold_in_cut_hdmr_and_burnup_tables() {
+    // ホウ素と減速材の多重線形な量に、燃料の温度の a + b√T + cT と、燃焼度の 2 次式を掛けた量。公称の値を持つ直積（すべての
+    // 成分の部分格子。係数が負の成分を含む）でも、燃焼度の軸を足しても、軸ごとの内挿の積が厳密に再現する
+    let state_of =
+        |g: f64, ppm: f64, tm: f64, tf: f64| curved(g * doppler_model(tf), ppm, tm, 565.0);
+    let mut product = table();
+    product.axes[2] = Axis::fuel(TF_P9.to_vec());
+    product.points = product_points(&product.axes);
+    product.states = product
+        .points
+        .iter()
+        .map(|p| state_of(1.0, PPM[p[0]], TM[p[1]], TF_P9[p[2]]))
+        .collect();
+    let mut burnt = product.clone();
+    burnt.axes.insert(
+        0,
+        Axis::Burnup {
+            points: CURVED.to_vec(),
+        },
+    );
+    burnt.points = product_points(&burnt.axes);
+    burnt.states = burnt
+        .points
+        .iter()
+        .map(|p| state_of(curve(CURVED[p[0]]), PPM[p[1]], TM[p[2]], TF_P9[p[3]]))
+        .collect();
+    let states = [
+        (1000.0, 560.0, 700.0),
+        (1650.0, 551.0, 1300.0),
+        (1291.0, 570.0, 580.0),
+    ];
+    for t in [product.clone(), with_nominal(product, [1, 1, 3])] {
+        for &(ppm, tm, tf) in &states {
+            let got = interpolate(&t, Some(&state(ppm, tm, tf)), None)
+                .unwrap()
+                .remove(0)
+                .k_inf;
+            let want = state_of(1.0, ppm, tm, tf).k_inf;
+            assert!(close(got, want), "{ppm} {tm} {tf}: {got} vs {want}");
+        }
+    }
+    for t in [burnt.clone(), with_nominal(burnt, [1, 1, 3])] {
+        for bu in [1.3, 7.5] {
+            for &(ppm, tm, tf) in &states {
+                let got = interpolate(&t, Some(&at_burnup(bu, ppm, tm, tf)), None)
+                    .unwrap()
+                    .remove(0)
+                    .k_inf;
+                let want = state_of(curve(bu), ppm, tm, tf).k_inf;
+                assert!(close(got, want), "{bu} {ppm} {tm} {tf}: {got} vs {want}");
+            }
+        }
+    }
+}
+
+#[test]
 fn negative_fuel_interpolations_name_the_fuel_axis() {
     // 熱群の吸収が 900 K まで 0 で、そこから増える折れ線。900 K の傾きが正になり、750〜900 K の Hermite は 0 を下回る
     let mut t = fuel_table_of(&TF_P9, |_| 1.0);
