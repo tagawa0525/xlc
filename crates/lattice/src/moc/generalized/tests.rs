@@ -933,3 +933,84 @@ fn response_importance_rejects_a_symmetry_of_another_tracking() {
         Err(MocError::ForeignSymmetry)
     ));
 }
+
+/// 鏡面反射の 3×3 の格子で、燃料のピン 8 本が中央の水のセルを囲む（2A の案内管のまわりの形）。ピッチ 2.5 cm で、粗メッシュの
+/// セルが光学的に厚い（熱群の水で Σt h = 5）
+fn thick_cells_around_water() -> Tracking {
+    let pin = PinCell::new(2.5, vec![0.25, 0.4096, 0.55]).unwrap();
+    let water = PinCell::new(2.5, vec![]).unwrap();
+    let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+    Tracking::new(&Lattice::new(vec![pin, water], layout).unwrap(), 16, 0.05).unwrap()
+}
+
+/// `thick_cells_around_water` の領域の物質（ピンは燃料 2 つと水 2 つの領域、中央は水）
+fn around_water<'a>(fuel: &'a Material, water: &'a Material) -> Vec<&'a Material> {
+    (0..9)
+        .flat_map(|c| {
+            if c == 4 {
+                vec![water]
+            } else {
+                vec![fuel, fuel, water, water]
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn cmfd_reaches_the_gmres_solution_on_thick_cells_around_water() {
+    // スイープは、φ† の成分を除いた状態からも φ† の成分を作る（除く重み Fφ は、スイープの左の固有ベクトル（前向きの散乱と
+    // 核分裂の源）でない）。その成分は解の不定な分で、粗メッシュの補正の残差に入れると、細かい問題にない源を粗メッシュに与える。
+    // この格子の高速群から熱群への散乱の応答では、そうした補正で反復が 1,000 スイープの中で収束しない
+    let tracking = thick_cells_around_water();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = around_water(&f, &m);
+    let options = tight(0);
+    let verified = require(&tracking, Symmetry::OCTANT).unwrap();
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, Some(&verified));
+    let n = materials.len();
+    let source = ratio_source(
+        &solution,
+        &indicator(n, 2, 0, |r| Some(materials[r].scatter[0][1])),
+        &indicator(n, 2, 0, |_| Some(1.0)),
+    );
+    let solve_by = |method: GeneralizedMethod| {
+        let settings = GeneralizedOptions {
+            method,
+            max_iterations: 1000,
+            ..settings(1e-10)
+        };
+        solve_generalized(
+            &tracking,
+            &materials,
+            &options,
+            Some(&verified),
+            &forward,
+            &adjoint,
+            std::slice::from_ref(&source),
+            &settings,
+        )
+        .map(|mut g| g.remove(0))
+    };
+    let reference = solve_by(GeneralizedMethod::Gmres { restart: 100 }).unwrap();
+    let scale = reference
+        .flux
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |a, x| a.max(x.abs()));
+    let unaccelerated = solve_by(GeneralizedMethod::SourceIteration).unwrap();
+    let cmfd = solve_by(GeneralizedMethod::Cmfd(CmfdOptions::default())).unwrap();
+    for (a, b) in cmfd
+        .flux
+        .iter()
+        .flatten()
+        .zip(reference.flux.iter().flatten())
+    {
+        assert!((a - b).abs() < 1e-8 * scale, "{a} vs {b}");
+    }
+    assert!(
+        3 * cmfd.iterations < unaccelerated.iterations,
+        "{} sweeps, source iteration {}",
+        cmfd.iterations,
+        unaccelerated.iterations
+    );
+}
