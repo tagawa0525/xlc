@@ -486,6 +486,10 @@ fn accelerated_methods_reach_the_source_iteration_solution_in_fewer_sweeps() {
         for method in [
             GeneralizedMethod::Cmfd(CmfdOptions::default()),
             GeneralizedMethod::Gmres { restart: 20 },
+            GeneralizedMethod::CmfdGmres {
+                restart: 20,
+                cmfd: CmfdOptions::default(),
+            },
         ] {
             let accelerated = solve_by(method);
             for (a, b) in accelerated
@@ -556,6 +560,10 @@ fn sources_swept_together_reach_the_same_solutions() {
         GeneralizedMethod::SourceIteration,
         GeneralizedMethod::Cmfd(CmfdOptions::default()),
         GeneralizedMethod::Gmres { restart: 20 },
+        GeneralizedMethod::CmfdGmres {
+            restart: 20,
+            cmfd: CmfdOptions::default(),
+        },
     ] {
         let solve_with_batch = |batch: bool| {
             let settings = GeneralizedOptions {
@@ -620,14 +628,18 @@ fn generalized_adjoint_checks_the_restart_and_takes_no_sources() {
         )
     };
     // 再始動しない GMRES は基底を上限まで増やす
-    assert!(matches!(
-        run(
-            GeneralizedMethod::Gmres { restart: 0 },
-            false,
-            std::slice::from_ref(&source)
-        ),
-        Err(MocError::GeneralizedRestart)
-    ));
+    for method in [
+        GeneralizedMethod::Gmres { restart: 0 },
+        GeneralizedMethod::CmfdGmres {
+            restart: 0,
+            cmfd: CmfdOptions::default(),
+        },
+    ] {
+        assert!(matches!(
+            run(method, false, std::slice::from_ref(&source)),
+            Err(MocError::GeneralizedRestart)
+        ));
+    }
     for batch in [false, true] {
         for method in [
             GeneralizedMethod::SourceIteration,
@@ -1012,5 +1024,72 @@ fn cmfd_reaches_the_gmres_solution_on_thick_cells_around_water() {
         "{} sweeps, source iteration {}",
         cmfd.iterations,
         unaccelerated.iterations
+    );
+}
+
+#[test]
+fn gmres_of_the_cmfd_iteration_needs_fewer_sweeps_than_either_alone() {
+    // CMFD の補正を足した反復の作用素の GMRES。補正の残る遅いモード（粗メッシュのセルの中の分布）を GMRES が除く
+    let tracking = thick_cells_around_water();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = around_water(&f, &m);
+    let options = tight(0);
+    let verified = require(&tracking, Symmetry::OCTANT).unwrap();
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, Some(&verified));
+    let n = materials.len();
+    let source = ratio_source(
+        &solution,
+        &indicator(n, 2, 1, |r| {
+            std::ptr::eq(materials[r], &f).then_some(f.total[1])
+        }),
+        &indicator(n, 2, 1, |_| Some(1.0)),
+    );
+    let solve_by = |method: GeneralizedMethod, tolerance: f64| {
+        let settings = GeneralizedOptions {
+            method,
+            ..settings(tolerance)
+        };
+        solve_generalized(
+            &tracking,
+            &materials,
+            &options,
+            Some(&verified),
+            &forward,
+            &adjoint,
+            std::slice::from_ref(&source),
+            &settings,
+        )
+        .unwrap()
+        .remove(0)
+    };
+    let reference = solve_by(GeneralizedMethod::Gmres { restart: 100 }, 1e-12);
+    let scale = reference
+        .flux
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |a, x| a.max(x.abs()));
+    let gmres = solve_by(GeneralizedMethod::Gmres { restart: 100 }, 1e-10);
+    let cmfd = solve_by(GeneralizedMethod::Cmfd(CmfdOptions::default()), 1e-10);
+    let both = solve_by(
+        GeneralizedMethod::CmfdGmres {
+            restart: 100,
+            cmfd: CmfdOptions::default(),
+        },
+        1e-10,
+    );
+    for (a, b) in both
+        .flux
+        .iter()
+        .flatten()
+        .zip(reference.flux.iter().flatten())
+    {
+        assert!((a - b).abs() < 1e-8 * scale, "{a} vs {b}");
+    }
+    assert!(
+        both.iterations < gmres.iterations && both.iterations < cmfd.iterations,
+        "{} sweeps, GMRES {}, CMFD {}",
+        both.iterations,
+        gmres.iterations,
+        cmfd.iterations
     );
 }

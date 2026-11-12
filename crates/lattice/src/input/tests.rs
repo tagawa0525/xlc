@@ -1833,7 +1833,8 @@ fn sensitivity_compares_generalized_adjoints_of_few_group_responses() {
         "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n\
          [sensitivity.generalized]\nbounds = [2e7, 0.625, 1e-5]\n\
          responses = [\"total-1\", \"nu-fission-2\", \"fission-2\", \"scatter-1-2\"]\n\
-         methods = [\"source-iteration\", \"cmfd\", \"gmres\"]\nrestart = 30\ntolerances = [1e-6, 1e-7]\n\
+         methods = [\"source-iteration\", \"cmfd\", \"gmres\", \"cmfd-gmres\"]\nrestart = 30\n\
+         tolerances = [1e-6, 1e-7]\n\
          batched = [\"gmres\"]\n\
          reference = \"gmres\"\nreference-tolerance = 1e-10\n"
     ))
@@ -1852,6 +1853,7 @@ fn sensitivity_compares_generalized_adjoints_of_few_group_responses() {
                 Method::SourceIteration,
                 Method::Cmfd,
                 Method::Gmres { restart: 30 },
+                Method::CmfdGmres { restart: 30 },
             ],
             tolerances: vec![1e-6, 1e-7],
             batched: vec![Method::Gmres { restart: 30 }],
@@ -1886,6 +1888,7 @@ fn invalid_generalized_inputs_are_errors() {
         // GMRES は再始動の回数を要る。判定は正。参照は方法と判定の両方
         "methods = [\"gmres\"]\ntolerances = [1e-6]",
         "methods = [\"gmres\"]\nrestart = 0\ntolerances = [1e-6]",
+        "methods = [\"cmfd-gmres\"]\ntolerances = [1e-6]",
         "methods = [\"newton\"]\ntolerances = [1e-6]",
         "methods = []\ntolerances = [1e-6]",
         "methods = [\"cmfd\", \"cmfd\"]\ntolerances = [1e-6]",
