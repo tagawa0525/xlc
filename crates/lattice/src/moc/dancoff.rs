@@ -193,8 +193,12 @@ fn absorbed_by_black(
         Representatives::all(tracking, &mesh, 1),
     );
     let psi0 = 1.0 / (4.0 * PI);
+    // 真空の領域の平衡値の欄は線源 q / 4π なので（`Sweeper::sweep`）、黒体と同じく 0 にする
     let equilibrium: Vec<Vec<f64>> = (0..regions)
-        .map(|region| vec![if black[region] { 0.0 } else { psi0 }; ng])
+        .map(|region| {
+            let sourceless = black[region] || references[region].is_void();
+            vec![if sourceless { 0.0 } else { psi0 }; ng]
+        })
         .collect();
     // 最初は境界から ψ0 が入ってくるとする
     let mut outgoing = sweeper.isotropic_outgoing(&vec![vec![1.0; ng]; regions]);
