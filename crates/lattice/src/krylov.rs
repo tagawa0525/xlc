@@ -1,4 +1,5 @@
-//! 再始動つきの GMRES（Saad と Schultz の、Givens の回転で最小二乗を解く形）。一般化随伴の固定源の問題（`moc::generalized`）が使う
+//! 再始動つきの GMRES（Saad と Schultz の、Givens の回転で最小二乗を解く形）。一般化随伴の固定源の問題（`moc::generalized`）と、
+//! その粗メッシュの補正の固定源の問題（`cmfd::Coarse::solve_projected`）が使う
 
 use rayon::prelude::*;
 
