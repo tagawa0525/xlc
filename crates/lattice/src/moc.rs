@@ -300,6 +300,8 @@ pub struct Importance {
     production: f64,
     /// 随伴の固有値計算の反復の回数
     pub adjoint_iterations: usize,
+    /// 前向き、随伴の固有値計算と、角度中性子束の積のスイープ（内積の係数を含む）の時間 (s)
+    pub seconds: [f64; 3],
 }
 
 impl Importance {
@@ -535,6 +537,7 @@ pub fn solve_importance(
         collision,
         production,
         adjoint_iterations: adjoint_solution.iterations,
+        seconds: [forward_seconds, adjoint_seconds, products_seconds],
     };
     Ok((solution, converged, importance))
 }

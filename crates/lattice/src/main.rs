@@ -5,6 +5,7 @@
 //! `continue` があれば、その燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（ADR-0215 の確認）。
 //! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
 //! 制御棒の分岐と組めば、値ごとの形状の燃焼の領域で同じ組成を解き、制御棒の値はその値の燃焼点だけで解く（ADR-0225）。
+//! 入力に k の感度（`[sensitivity]`）があれば、1 つの状態の前向きと随伴の解から核種の数密度の k の感度を求め、TOML に書く（ADR-0247）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!         lattice histories <入力ファイル>（履歴の補正の残り R を公称のテーブルに書き足す。`xlc_lattice::residual`。ADR-0215）
@@ -529,6 +530,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
     // 状態の番号は、テーブルの軸（制御棒の軸があれば最後）の直積の順の番号で出す（解く順の番号 `solved` は値が最初の軸）
+    // k の感度（ADR-0247）は 1 つの状態の結果を 1 つのファイルに書く
+    if input.sensitivity.is_some() && count * rods != 1 {
+        return Err(anyhow!(
+            "{}: [sensitivity] solves one state, but the input has {}",
+            shown(path),
+            count * rods
+        ));
+    }
     let report = |solved: usize, k: f64| {
         if input.branches.is_some() {
             let state = (solved % count) * rods + solved / count;
@@ -714,14 +723,41 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .unwrap_or_else(|| available_order(&materials)),
             ..Options::default()
         };
-        let (solution, converged) = solve_symmetric_from(
-            &geometry.tracking,
-            &materials,
-            &options,
-            geometry.chosen.moc(),
-            from,
-        )
-        .with_context(context)?;
+        // k の感度（ADR-0247）は、状態の解と一緒に随伴を解き、結果を書く。状態は 1 つ（下で確かめてある）
+        let (solution, converged) = match &input.sensitivity {
+            Some(sensitivity) => {
+                let Source::Library(library) = &source else {
+                    return Err(anyhow!("[sensitivity] needs a library")).with_context(context);
+                };
+                let options = sensitivity.options(options);
+                let state = xlc_lattice::sensitivity::State {
+                    library,
+                    materials: state_materials,
+                    region_names: &geometry.region_materials,
+                    unique: &unique,
+                    region_index: &region_index,
+                    shielding: fuel,
+                    lattice: &geometry.lattice,
+                    tracking: &geometry.tracking,
+                    symmetry: geometry.chosen.moc(),
+                };
+                let (solution, converged, result) =
+                    xlc_lattice::sensitivity::evaluate(sensitivity, &state, &options, from)
+                        .with_context(|| format!("{}: k sensitivity", context()))?;
+                let output = base.join(&sensitivity.output);
+                let text = toml::to_string(&result).with_context(|| shown(&output))?;
+                std::fs::write(&output, text).with_context(|| shown(&output))?;
+                (solution, converged)
+            }
+            None => solve_symmetric_from(
+                &geometry.tracking,
+                &materials,
+                &options,
+                geometry.chosen.moc(),
+                from,
+            )
+            .with_context(context)?,
+        };
         let emitting = tracing::debug_span!("output").entered();
         let outputs = if let Some(FewGroupOutput {
             bounds,
