@@ -60,16 +60,16 @@ worktree は、その worktree の `cargo test`（crates/docs の `linked_worktr
   - `-c` は標本の間のサイクル数。32 スレッドの 10 分で 1e8 なら、`perf.data` は 340 MB ほど（`perf script` の
     文字列は 20 GB を超えるので、ファイルに書かずにパイプで集計する）。`perf.data` はコミットしない
 - 関数の名前と連鎖の要るビルド: リリースのビルドは記号を持つが行の情報とフレームポインタを持たない。プロファイルには、別の
-  `target` に行の情報とフレームポインタつきでビルドする（`.cargo/config.toml` の `rustflags` は `RUSTFLAGS` があると読まれないので、
-  同じ値を並べる）:
+  `target` に行の情報とフレームポインタつきでビルドする（`RUSTFLAGS` があるとリポジトリの `.cargo/config.toml` とホームの `~/.cargo/config.toml` の `rustflags` が読まれないので、
+  両方の値を並べる。ホームは mold でリンクする。パッケージは feature の統合を `bin/` と揃えるため、`build` と同じ 3 つにする）:
 
   ```sh
   CARGO_TARGET_DIR=target/perf CARGO_PROFILE_RELEASE_DEBUG=line-tables-only \
-    RUSTFLAGS="-C target-cpu=znver5 -C llvm-args=-align-loops=64 -C force-frame-pointers=yes" \
-    cargo build --release --locked -p xlc-lattice
+    RUSTFLAGS="-C target-cpu=znver5 -C llvm-args=-align-loops=64 -C link-arg=-fuse-ld=mold -C force-frame-pointers=yes" \
+    cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core
   ```
 
-  標準ライブラリはフレームポインタを持たないので、`memset` などの葉の関数の連鎖では直接の呼び出し元が抜け、その一つ上から
+  glibc の `memset` などフレームポインタを作らない葉の関数の連鎖では直接の呼び出し元が抜け、その一つ上から
   始まる（`perf script -F ...,srcline` の戻り先の行で呼び出し元を確かめる）
 - 集計: `perf report -i <出力>.data --group --stdio --sort sym`（`--children` で呼び出し先を含む割合、`-S <記号> -G` で呼び出し元）。
   時刻の区間ごとの和は `perf script -i <出力>.data -G -F tod,event,period,ip,sym` を区間と記号で足す
