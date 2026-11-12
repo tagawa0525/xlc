@@ -190,7 +190,7 @@ pub enum MocError {
     NotConverged { iterations: usize, k: f64 },
     #[error("source {index} must give a value for every group of every region")]
     SourceShape { index: usize },
-    #[error("source {index}: region {region} has a value that is not finite, or not zero in void")]
+    #[error("source {index}: region {region} has a value that is not finite")]
     InvalidSource { index: usize, region: usize },
     #[error(
         "source {index}: region {region} differs from its representative under the symmetry \
@@ -1617,7 +1617,8 @@ impl<'a> Sweeper<'a> {
     /// 全トラックを両方向に1回ずつスイープする。
     ///
     /// `equilibrium` は [代表][モーメント][群] の角度中性子束の平衡値（線源 / Σt）の展開係数 e_k
-    /// （平衡値は Σ_k Y_k(Ω) e_k。等方なら線源 / 4πΣt）。`tallies` の減衰の和は [領域][モーメント][群]。`incoming` は前回の
+    /// （平衡値は Σ_k Y_k(Ω) e_k。等方なら線源 / 4πΣt）。真空の領域では、スカラーの分が等方な線源 q / 4π（Σt で割らない）で、
+    /// 高次の分は使わない。`tallies` の減衰の和は [領域][モーメント][群]。`incoming` は前回の
     /// スイープで出ていった角度中性子束、`outgoing` には今回出ていく分を書く。どちらも
     /// [トラック][向き (0: 順, 1: 逆)][極角][群] の並びで、各トラックは自分の場所にだけ書くので、
     /// トラックごとに並列にスイープできる。
@@ -1742,17 +1743,23 @@ impl<'a> Sweeper<'a> {
                                 cell = next;
                             }
                             if let Some(v) = self.void[region] {
-                                // 真空では角度中性子束は変わらない。3次元の経路長 (長さ / sinθ) を掛けて数える
+                                // 真空では衝突がないので、角度中性子束は等方な線源の q / 4π（平衡値の展開係数の
+                                // スカラーの分に置く。固有値計算と ESSM では 0）の傾きで経路に沿って増える。区間の
+                                // 平均 ψ_入 + (q / 4π) ℓ / 2 に 3次元の経路長 ℓ = 長さ / sinθ を掛けて数える
+                                let q = &equilibrium[representatives.regions.index[region]][..ng];
                                 let flux = &mut tally.void_flux[v * ng..][..ng];
                                 let current = &mut tally.void_current[v * 2 * ng..][..2 * ng];
                                 for (p, weight) in weights.iter().enumerate() {
                                     let w = weight * length / POLAR_SIN[p];
+                                    let path = length / POLAR_SIN[p];
                                     let cosines =
                                         [cosines[0] * POLAR_SIN[p], cosines[1] * POLAR_SIN[p]];
-                                    for (g, value) in psi[p * ng..][..ng].iter().enumerate() {
-                                        flux[g] += w * value;
-                                        current[g] += w * cosines[0] * value;
-                                        current[ng + g] += w * cosines[1] * value;
+                                    for (g, value) in psi[p * ng..][..ng].iter_mut().enumerate() {
+                                        let average = *value + 0.5 * q[g] * path;
+                                        flux[g] += w * average;
+                                        current[g] += w * cosines[0] * average;
+                                        current[ng + g] += w * cosines[1] * average;
+                                        *value += q[g] * path;
                                     }
                                 }
                                 continue;

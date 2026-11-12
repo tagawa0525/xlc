@@ -57,8 +57,8 @@ pub struct Generalized {
 
 /// 物質 `materials`（前向き）の問題の一般化随伴を、源 `sources`（[源][領域][群] の等方な放出率の密度）ごとに解く（ADR-0247）。
 /// `forward` と `adjoint` は、同じトラッキング、対称操作 `symmetry`、`options` の散乱の次数で解いた前向きと随伴の固有値計算の
-/// 収束した状態（`solve_symmetric_from` と `solve_adjoint_from`）で、k は前向きの値を使う。源の値が欠ける、有限でない、真空で
-/// 0 でない、対称操作で移り合う領域で違う、⟨S, φ⟩ が 0 でない（解がない）、状態が別の問題のものなら、エラー
+/// 収束した状態（`solve_symmetric_from` と `solve_adjoint_from`）で、k は前向きの値を使う。源の値が欠ける、有限でない、対称操作で
+/// 移り合う領域で違う、⟨S, φ⟩ が 0 でない（解がない）、状態が別の問題のものなら、エラー
 #[allow(clippy::too_many_arguments)]
 pub fn solve_generalized(
     tracking: &Tracking,
@@ -140,8 +140,8 @@ pub fn solve_generalized(
         if source.len() != regions || source.iter().any(|q| q.len() != ng) {
             return Err(MocError::SourceShape { index: s });
         }
-        for (r, (q, m)) in source.iter().zip(materials).enumerate() {
-            if q.iter().any(|v| !v.is_finite()) || (m.is_void() && q.iter().any(|&v| v != 0.0)) {
+        for (r, q) in source.iter().enumerate() {
+            if q.iter().any(|v| !v.is_finite()) {
                 return Err(MocError::InvalidSource {
                     index: s,
                     region: r,
@@ -308,11 +308,15 @@ impl Problem<'_> {
             .map(|i| {
                 let m = self.materials[kept[i]];
                 let mut e = equilibrium_moments(m, &flux[i], &higher[i], self.k, self.pairs);
+                // 真空の領域の線源は Σt で割らずに置く（`Sweeper::sweep`）
                 if let Some(q) = source {
+                    let void = m.is_void();
                     for ((e, q), t) in e.iter_mut().zip(&q[i]).zip(&m.total) {
-                        if *t > 0.0 {
-                            *e += q / (4.0 * PI * t);
-                        }
+                        *e += if void {
+                            q / (4.0 * PI)
+                        } else {
+                            q / (4.0 * PI * t)
+                        };
                     }
                 }
                 e
