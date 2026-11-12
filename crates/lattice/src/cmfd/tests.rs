@@ -139,6 +139,11 @@ fn homogenized_problem_does_not_depend_on_the_thread_count() {
 /// 2 群の拡散の平板（`cells` 個の幅 `width` cm のセル、両端は真空）の粗メッシュの問題。面の流れの補正 D̂ はなく、
 /// 内側の面の結合は D/h、真空の面は入射なし（Marshak）の 2D/(h + 4D)。`line` は 1 行の格子として組み立てること
 fn slab(cells: usize, width: f64, line: bool) -> Coarse {
+    slab_with_flux(cells, width, line, vec![1.0; cells * 2])
+}
+
+/// `slab` の、均質化した中性子束を `flux`（[セル][群]）にしたもの
+fn slab_with_flux(cells: usize, width: f64, line: bool, flux: Vec<f64>) -> Coarse {
     let d = [1.3, 0.4];
     let (removal, transfer, absorption) = (0.025, 0.015, 0.08);
     let nu_fission = [0.005, 0.1];
@@ -179,7 +184,7 @@ fn slab(cells: usize, width: f64, line: bool) -> Coarse {
         2,
         (0..cells).collect(),
         vec![1.0; cells],
-        vec![1.0; cells * 2],
+        flux,
         fission,
         matrices,
         neighbors,
@@ -208,6 +213,38 @@ fn a_slab_of_thin_cells_converges_within_a_few_hundred_iterations() {
     }
     // 4 倍細かくしても同じ回数の中で解ける
     assert!(slab(800, 0.125, true).solve(1.0, &budget).is_ok());
+}
+
+#[test]
+fn a_projected_fixed_source_on_a_slab_of_thin_cells_converges_within_a_hundred_steps() {
+    // 一般化随伴の粗メッシュの補正の問題 (A − F/k) e = rhs（`solve_projected`）。k は固有値で、均質化した中性子束は固有ベクトル
+    // （A − F/k の零ベクトル）。F e / k を前の値で置く反復は、2 番目のモードの比と、2 次元の格子で 1 回だけ行うブロック
+    // Gauss-Seidel の 1 − O(h²) で遅い。1 行の格子として組み立てた直接解法の反復の解（同じ方程式）に、100 回の中で届く
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    let (cells, width) = (60, 0.5);
+    let (k, ratio) = slab(cells, width, true).solve(1.0, &unlimited).unwrap();
+    // 均質化した中性子束は 1 なので、比が固有ベクトル
+    let weights: Vec<f64> = (0..cells * 2).map(|j| 1.0 + (j % 2) as f64).collect();
+    let rhs: Vec<f64> = (0..cells * 2)
+        .map(|j| ((j / 2) as f64 * 0.3).sin() + 0.1 * (j % 2) as f64)
+        .collect();
+    let reference = slab_with_flux(cells, width, true, ratio.clone())
+        .solve_projected(k, &rhs, &weights, &unlimited)
+        .unwrap();
+    let budget = CmfdOptions {
+        max_iterations: 100,
+        ..CmfdOptions::default()
+    };
+    let e = slab_with_flux(cells, width, false, ratio)
+        .solve_projected(k, &rhs, &weights, &budget)
+        .unwrap();
+    let scale = reference.iter().fold(0.0_f64, |a, x| a.max(x.abs()));
+    for (a, b) in e.iter().zip(&reference) {
+        assert!((a - b).abs() < 1e-6 * scale, "{a} vs {b}");
+    }
 }
 
 #[test]
