@@ -187,7 +187,7 @@ pub fn solve_generalized(
     }
     let problem = Problem {
         single: &sweeper,
-        batched: batched.as_ref(),
+        sweeper: batched.as_ref().unwrap_or(&sweeper),
         mesh: &mesh,
         materials: &adjoint_materials,
         volumes: &volumes,
@@ -286,10 +286,10 @@ struct CoarseAcceleration {
 
 /// 解く問題（転置した物質のスイープと、φ† を除くための値）
 struct Problem<'a> {
-    /// 1 つの源のスイープ
+    /// 1 つの源のスイープ（粗メッシュの問題を作るスイープと、状態の形）
     single: &'a Sweeper<'a>,
-    /// すべての源を一緒にスイープするスイープ（`GeneralizedOptions::batch` で源が 2 つ以上のとき）
-    batched: Option<&'a Sweeper<'a>>,
+    /// 反復のスイープ。一緒に解く源の数だけ問題を持つ（`GeneralizedOptions::batch` なら源の数、ほかは 1。反復に渡す源の数と同じ）
+    sweeper: &'a Sweeper<'a>,
     mesh: &'a CoarseMesh,
     /// [領域] の転置した物質
     materials: &'a [&'a Material],
@@ -330,17 +330,6 @@ fn strand(values: &[f64], copies: usize, chunk: usize, copy: usize) -> Vec<f64> 
 impl Problem<'_> {
     fn kept(&self) -> &[usize] {
         &self.single.representatives.regions.representatives
-    }
-
-    /// `copies` 個の源を一緒にスイープするスイープ
-    fn sweeper(&self, copies: usize) -> &Sweeper<'_> {
-        match self.batched {
-            Some(b) if b.copies == copies => b,
-            _ => {
-                assert_eq!(copies, 1, "no sweep for {copies} sources");
-                self.single
-            }
-        }
     }
 
     /// 0 の状態
@@ -387,8 +376,7 @@ impl Problem<'_> {
         sources: &[Option<&[Vec<f64>]>],
         tallies: &mut [super::Tally],
     ) -> Result<Vec<(State, Vec<f64>)>, MocError> {
-        let copies = states.len();
-        let sweeper = self.sweeper(copies);
+        let (sweeper, copies) = (self.sweeper, self.sweeper.copies);
         let (ng, pairs) = (self.ng, self.pairs);
         let equilibria: Vec<Vec<Vec<f64>>> = states
             .iter()
@@ -484,7 +472,7 @@ impl Problem<'_> {
     ) -> Result<Vec<(State, usize)>, MocError> {
         let copies = sources.len();
         let mut states = vec![self.zero(); copies];
-        let mut tallies = self.sweeper(copies).tallies(self.materials.len());
+        let mut tallies = self.sweeper.tallies(self.materials.len());
         let mut histories: Vec<Remaining> = (0..copies).map(|_| Remaining::default()).collect();
         let mut done: Vec<Option<usize>> = vec![None; copies];
         let given: Vec<Option<&[Vec<f64>]>> = sources.iter().map(|q| Some(q.as_slice())).collect();
@@ -686,7 +674,7 @@ impl Problem<'_> {
     ) -> Result<Vec<(State, usize)>, MocError> {
         let copies = sources.len();
         let zero = self.zero();
-        let mut tallies = self.sweeper(copies).tallies(self.materials.len());
+        let mut tallies = self.sweeper.tallies(self.materials.len());
         let given: Vec<Option<&[Vec<f64>]>> = sources.iter().map(|q| Some(q.as_slice())).collect();
         let first = self.step(&vec![zero.clone(); copies], &given, &mut tallies)?;
         let mut krylov: Vec<Krylov> = first

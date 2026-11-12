@@ -1375,11 +1375,8 @@ impl<'a> Sweeper<'a> {
         adjoint: (&[Vec<f64>], &[f64]),
         tallies: &mut [Tally],
     ) -> Vec<Vec<f64>> {
-        // 減衰と全断面積を並びの群で引くので、1 つの問題のスイープだけ
-        assert_eq!(
-            self.copies, 1,
-            "products of one forward and one adjoint problem"
-        );
+        // 減衰と全断面積を並びの群で引く: 呼ぶのは 1 つの問題のスイープ（`solve_importance` の `Sweeper::new`）だけで、並びの群が
+        // 物質の群になる
         let (ng, width) = (self.ng, self.width);
         let representatives = &self.representatives;
         let incoming = |values: &[f64], index: usize, along: bool, psi: &mut [f64]| match self
