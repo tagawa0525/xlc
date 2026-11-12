@@ -437,29 +437,60 @@ fn swept_on(
     hold: usize,
     kernels: Option<&KernelCache>,
 ) -> (Vec<Vec<(f64, f64)>>, usize, u64) {
+    let (out, held, work) = swept_mixed(u, scale, hold, kernels, None);
+    (out, held, work.evaluations)
+}
+
+/// [`swept_on`] に、質量比 30 の自由ガスの核種を、核種の並びの `extra` の位置に、2 つのリングの個数密度 `extra` で足したもの。
+/// 3 つ目は自由ガスの核の区間の仕事
+fn swept_mixed(
+    u: &[f64],
+    scale: f64,
+    hold: usize,
+    kernels: Option<&KernelCache>,
+    extra: Option<(usize, [f64; 2])>,
+) -> (Vec<Vec<(f64, f64)>>, usize, FreeGasWork) {
     let u = u.to_vec();
     let high = 20.0;
     let energies: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
-    let gases = vec![
-        Gas::new(0.99917, 600.0, f64::INFINITY),
-        Gas::new(15.86, 600.0, f64::INFINITY),
-        Gas::new(236.0, 900.0, 400.0),
+    let mut nuclides = vec![
+        (
+            Gas::new(0.99917, 600.0, f64::INFINITY),
+            20.0,
+            vec![(1, 0.03)],
+        ),
+        (
+            Gas::new(15.86, 600.0, f64::INFINITY),
+            3.8,
+            vec![(0, 0.05), (1, 0.025)],
+        ),
+        (
+            Gas::new(236.0, 900.0, 400.0),
+            9.0,
+            vec![(0, 0.022), (1, 0.045)],
+        ),
     ];
-    let sigma = gases
+    if let Some((position, [first, second])) = extra {
+        nuclides.insert(
+            position,
+            (
+                Gas::new(30.0, 600.0, f64::INFINITY),
+                5.0,
+                vec![(0, first), (1, second)],
+            ),
+        );
+    }
+    let gases: Vec<Gas> = nuclides.iter().map(|(gas, ..)| *gas).collect();
+    let sigma = nuclides
         .iter()
-        .zip([20.0, 3.8, 9.0])
-        .map(|(gas, value)| {
+        .map(|(gas, value, _)| {
             let first = first_below(&energies, gas.top());
             (first, vec![scale * value; u.len() - first])
         })
         .collect();
-    let rings = vec![
-        vec![(1, 0.03)],
-        vec![(0, 0.05), (1, 0.025)],
-        vec![(0, 0.022), (1, 0.045)],
-    ];
+    let rings = nuclides.into_iter().map(|(.., rings)| rings).collect();
     let n = 2;
-    let tables = vec![None; 3];
+    let tables = vec![None; gases.len()];
     let start = sweep_start(&gases, &tables, &energies).expect("free-gas nuclides");
     let mut thermal = Thermal::new(gases, sigma, rings, tables, 2, start, n, hold, kernels);
     let start = thermal.start();
@@ -493,7 +524,7 @@ fn swept_on(
     }
     thermal.release();
     assert_eq!(thermal.held(), 0);
-    (out, held, thermal.work().evaluations)
+    (out, held, thermal.work().clone())
 }
 
 #[test]
@@ -556,6 +587,49 @@ fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
         let (partial_alone, _, all) = swept_on(&thinned, 1.3, hold, None);
         assert_eq!(bits(&partial), bits(&partial_alone));
         assert!(0 < some && some < all, "{some} of {all}");
+    }
+}
+
+#[test]
+fn free_gas_nuclides_without_density_spare_their_work_and_keep_the_sources_bit_for_bit() {
+    // 個数密度がちょうど 0 の核種の散乱源を飛ばしても、散乱源は計算したときとビットで同じ。どのリングでも 0 の核種は核を評価
+    // せず、一部のリングで 0 の核種は、そのリングの積分を飛ばす
+    let bits = |v: &[Vec<(f64, f64)>]| -> Vec<(u64, u64)> {
+        v.iter()
+            .flatten()
+            .map(|&(k, o)| (k.to_bits(), o.to_bits()))
+            .collect()
+    };
+    let integrations = |w: &FreeGasWork| w.integrations.iter().sum::<u64>();
+    let grid = test_grid();
+    // 並びの最後の核種は、区間の塊の分け方を変えないので、核種を外した計算とビットで同じで、仕事も同じ
+    let (without, _, alone) = swept_mixed(&grid, 1.0, usize::MAX, None, None);
+    let (last, _, work) = swept_mixed(&grid, 1.0, usize::MAX, None, Some((3, [0.0, 0.0])));
+    assert_eq!(bits(&last), bits(&without));
+    assert_eq!(work.evaluations, alone.evaluations);
+    assert_eq!(integrations(&work), integrations(&alone));
+    // 並びの途中の核種は、ほかの核種の区間の塊の分け方を変えず、無視できる個数密度（1e−300。散乱源の和の桁に届かない）で計算した
+    // ものとビットで同じ
+    for densities in [[0.0, 0.0], [0.0, 0.01]] {
+        let negligible = densities.map(|d| if d == 0.0 { 1.0e-300 } else { d });
+        let (skipped, _, work) = swept_mixed(&grid, 1.0, usize::MAX, None, Some((1, densities)));
+        let (computed, _, full) = swept_mixed(&grid, 1.0, usize::MAX, None, Some((1, negligible)));
+        assert_eq!(bits(&skipped), bits(&computed), "{densities:?}");
+        assert!(integrations(&work) < integrations(&full), "{densities:?}");
+        if densities == [0.0, 0.0] {
+            assert_eq!(work.evaluations, alone.evaluations);
+        } else {
+            assert_eq!(work.evaluations, full.evaluations);
+        }
+    }
+    // 核を飛ばした減速計算と、その核種に個数密度のある減速計算が同じ表を引いても、どちらも表を持たないときとビットで同じ
+    let kernels = KernelCache::default();
+    kernels.begin(|_| u64::MAX);
+    for densities in [[0.0, 0.0], [0.01, 0.02], [0.0, 0.0]] {
+        let (shared, ..) =
+            swept_mixed(&grid, 1.0, usize::MAX, Some(&kernels), Some((1, densities)));
+        let (fresh, ..) = swept_mixed(&grid, 1.0, usize::MAX, None, Some((1, densities)));
+        assert_eq!(bits(&shared), bits(&fresh), "{densities:?}");
     }
 }
 
