@@ -1,0 +1,5 @@
+outs:
+- md5: 276b579ae1bccdfd151333bfca530cdd
+  size: 110229
+  hash: md5
+  path: pincell-few-group-20.log

@@ -1,0 +1,5 @@
+outs:
+- md5: b72c5008cd4069e7d7e214f55ad96634
+  size: 318037
+  hash: md5
+  path: table-2A-derivative.msgpack

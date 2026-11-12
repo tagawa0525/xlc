@@ -1,0 +1,5 @@
+outs:
+- md5: a1607ee38c22fb25b56c68374bcf0593
+  size: 25297
+  hash: md5
+  path: lattice-3x3-moderator.log

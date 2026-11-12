@@ -1,0 +1,5 @@
+outs:
+- md5: 43ba1e12483beeb700f7e7fd31f2f962
+  size: 23961
+  hash: md5
+  path: pincell-moderator.log
