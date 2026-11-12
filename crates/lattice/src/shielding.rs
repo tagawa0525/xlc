@@ -20,6 +20,7 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -429,7 +430,7 @@ pub fn shield_fuel_with(
 #[derive(Debug)]
 pub struct ShieldingReuse<'a> {
     tracking: &'a Tracking,
-    /// 解いた入力と結果（新しい順。`callers` 個まで）
+    /// 解いた入力と結果（最後に使った順。`callers` 個まで）
     dancoff: Vec<DancoffInputs>,
     callers: usize,
     /// 燃料のピンの Dancoff 係数を解いた回数
@@ -453,16 +454,16 @@ struct DancoffInputs {
 impl<'a> ShieldingReuse<'a> {
     /// トラッキング `tracking` で解く自己遮蔽の前処理（まだ何も持たない）
     pub fn new(tracking: &'a Tracking) -> Self {
-        Self::sharing(tracking, 1)
+        Self::sharing(tracking, NonZeroUsize::MIN)
     }
 
     /// トラッキング `tracking` で解く自己遮蔽の、`callers` 人の呼び出し側（状態と、数密度の微分の摂動の組成）が共有する前処理。
     /// 摂動が燃料でない物質を変えても（燃料でない燃焼の領域の核種の微分）、ほかの呼び出し側の直前の結果を追い出さない
-    pub fn sharing(tracking: &'a Tracking, callers: usize) -> Self {
+    pub fn sharing(tracking: &'a Tracking, callers: NonZeroUsize) -> Self {
         Self {
             tracking,
             dancoff: Vec::new(),
-            callers: callers.max(1),
+            callers: callers.get(),
             dancoff_solves: 0,
             shares: ShareCellCache::default(),
         }
@@ -494,13 +495,15 @@ impl<'a> ShieldingReuse<'a> {
                 totals[i] = Some(dilute[i].total.clone());
             }
         }
-        if let Some(d) = self
-            .dancoff
-            .iter()
-            .find(|d| d.region_index == region_index && d.totals == totals && d.options == *options)
-        {
+        if let Some(k) = self.dancoff.iter().position(|d| {
+            d.region_index == region_index && d.totals == totals && d.options == *options
+        }) {
             tracing::debug!("pin Dancoff factors reused");
-            return Ok(d.factors.clone());
+            // 使った入力を前に移す（追い出すのは最も長く使っていない入力）
+            let hit = self.dancoff.remove(k);
+            let factors = hit.factors.clone();
+            self.dancoff.insert(0, hit);
+            return Ok(factors);
         }
         let region_totals: Vec<Vec<f64>> = region_index
             .iter()
@@ -977,6 +980,10 @@ pub fn log_effective_change(
             || names(p) != names(q)
             || p.effective.len() != q.effective.len()
             || p.effective.len() != p.nuclides.len()
+            || p.effective
+                .iter()
+                .zip(q.effective.iter())
+                .any(|(a, b)| a.total.len() != b.total.len() || a.capture.len() != b.capture.len())
         {
             tracing::warn!(
                 nominal = p.cell,

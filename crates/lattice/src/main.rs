@@ -25,6 +25,7 @@
 use std::borrow::Cow;
 use std::env::VarError;
 use std::io::IsTerminal;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
@@ -521,8 +522,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;
     // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。公称の状態と摂動の組成の
-    // 自己遮蔽で共有する（摂動は燃料の組成だけを変えるので、状態の Dancoff 係数を持ち越す。ADR-0194）。Dancoff 係数は呼び出し側
-    // （状態と微分の核種）の数だけ直前の結果を持ち、燃料でない物質を変える摂動が状態の結果を追い出さない
+    // 自己遮蔽で共有する（燃料の数密度だけを変える摂動は、状態の Dancoff 係数を持ち越す。ADR-0194）。Dancoff 係数は呼び出し側
+    // （状態と微分の核種）の数だけ、最後に使った違う入力の結果を持つ（燃料でない燃焼の領域の数密度を変える摂動も、それぞれ 1 つ持つ）
     let mut reuse: Option<(usize, ShieldingReuse)> = None;
     let checkpoint = fingerprint
         .take()
@@ -576,7 +577,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let (_, reuse) = reuse.get_or_insert_with(|| {
             (
                 rod,
-                ShieldingReuse::sharing(&geometry.tracking, 1 + derivatives),
+                ShieldingReuse::sharing(
+                    &geometry.tracking,
+                    NonZeroUsize::MIN.saturating_add(derivatives),
+                ),
             )
         });
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
