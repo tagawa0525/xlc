@@ -306,3 +306,83 @@ fn unknown_nuclide_is_error() {
     assert!(mix(&library(), &[("F".into(), -0.01)]).is_err());
     assert!(mix(&library(), &[]).is_err());
 }
+
+/// 随伴の物質の試験に使う、上方散乱、P1 の散乱、χ の違う 2 つの核分裂の項を持つ 2 群の物質
+fn asymmetric() -> Material {
+    let terms = vec![
+        FissionTerm {
+            chi: vec![1.0, 0.0],
+            nu_fission: vec![0.01, 0.2],
+        },
+        FissionTerm {
+            chi: vec![0.75, 0.25],
+            nu_fission: vec![0.004, 0.05],
+        },
+    ];
+    Material {
+        total: vec![0.5, 1.2],
+        scatter: vec![vec![0.44, 0.03], vec![0.002, 0.9]],
+        anisotropic: vec![vec![vec![0.12, 0.01], vec![0.0005, 0.2]]],
+        fission: vec![0.005, 0.1],
+        nu_fission: vec![0.014, 0.25],
+        fission_terms: terms,
+    }
+}
+
+#[test]
+fn adjoint_transposes_every_scattering_moment() {
+    let m = asymmetric();
+    let a = m.adjoint();
+    a.validate().unwrap();
+    assert_eq!(a.total, m.total);
+    for (adjoint, forward) in std::iter::once(&a.scatter)
+        .chain(&a.anisotropic)
+        .zip(std::iter::once(&m.scatter).chain(&m.anisotropic))
+    {
+        for (g, row) in adjoint.iter().enumerate() {
+            for (h, v) in row.iter().enumerate() {
+                assert_eq!(*v, forward[h][g]);
+            }
+        }
+    }
+    assert_eq!(a.anisotropic.len(), m.anisotropic.len());
+}
+
+#[test]
+fn adjoint_fission_matrix_is_the_transpose() {
+    let m = asymmetric();
+    let (forward, adjoint) = (m.fission_matrix(), m.adjoint().fission_matrix());
+    for (g, row) in adjoint.iter().enumerate() {
+        for (h, v) in row.iter().enumerate() {
+            assert!(
+                (v - forward[h][g]).abs() < 1e-15,
+                "{adjoint:?} vs {forward:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn adjoint_of_the_adjoint_is_the_material() {
+    let m = asymmetric();
+    let twice = m.adjoint().adjoint();
+    assert_eq!(twice.scatter, m.scatter);
+    assert_eq!(twice.anisotropic, m.anisotropic);
+    for (a, b) in twice
+        .fission_matrix()
+        .iter()
+        .flatten()
+        .zip(m.fission_matrix().iter().flatten())
+    {
+        assert!((a - b).abs() < 1e-15);
+    }
+}
+
+#[test]
+fn adjoint_of_a_material_without_fission_has_no_fission_terms() {
+    let m = mix(&library(), &[("M".into(), 0.03)]).unwrap();
+    let a = m.adjoint();
+    a.validate().unwrap();
+    assert!(a.fission_terms.is_empty());
+    assert!(a.nu_fission.iter().all(|&v| v == 0.0));
+}
