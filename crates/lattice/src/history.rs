@@ -88,6 +88,18 @@ pub struct HistoryInput {
     /// 燃焼の領域を自己遮蔽する組成の燃焼の履歴（入力のファイルのあるディレクトリから。[`HistoryBranches::shield_with`]）。
     /// `None` なら状態の組成で自己遮蔽する
     pub shielding_file: Option<PathBuf>,
+    /// 一般化摂動の微分（ADR-0247）。`None` なら `derivative` の核種の直接の摂動だけ
+    pub generalized: Option<GeneralizedDerivatives>,
+}
+
+/// 入力の `[history]` の `generalized`: 追う核種のすべての少数群定数の数密度の微分を、状態ごとの一般化随伴から求める（ADR-0247）
+#[derive(Debug, Clone, PartialEq)]
+pub struct GeneralizedDerivatives {
+    /// 一般化随伴の CMFD の反復の GMRES の判定と再始動の回数
+    pub tolerance: f64,
+    pub restart: usize,
+    /// 自己遮蔽を摂動の組成で解き直す核種（`micro` の部分集合。ADR-0247 の案 I1）
+    pub shielded: Vec<String>,
 }
 
 impl HistoryInput {
