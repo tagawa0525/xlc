@@ -1,0 +1,156 @@
+# 2A の本番の形の格子（#0278）で、一般化随伴の固定源の収束の方法を比べる（#0279 の段 3。ADR-0247）。2A-60.toml（段 2 の公称の
+# 1 状態、60 MWd/kg）に、少数群定数の応答の一般化随伴（[sensitivity.generalized]）を足したもの。2A-60-generalized.toml で選んだ
+# GMRES で、少数群定数の微分の 10 項目の応答を源ごとと 10 本を一緒にスイープして解く。判定 1e-7 は、2A-60-generalized.toml で
+# 判定 1e-9 との差が 4.1e-7 以下だったもの。パスはこのディレクトリから見たもの。
+library = "../p2/depletion.msgpack"
+ufg-tolerance = 1e-4
+few-group = { output = "2A-60-generalized-batch-table.msgpack", bounds = [1e7, 0.625, 1e-5] }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+]
+
+[material.fuel-0]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-1]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-2]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-3]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-4]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
+# p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+# 燃料のピン（3.1%）。燃料の 5 つのゾーンは lattice-2A.toml と同じ（ADR-0245）
+[cell.pin]
+zones = [
+  { material = "fuel-0", radius = 0.18317868871678278, rings = 1 },
+  { material = "fuel-1", radius = 0.25905378592099365, rings = 1 },
+  { material = "fuel-2", radius = 0.3172747957213116, rings = 1 },
+  { material = "fuel-3", radius = 0.36635737743356556, rings = 1 },
+  { material = "fuel-4", radius = 0.4096, rings = 1 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [650], materials = ["water"] }
+# 軸は公称の 1 点ずつ（1 状態）。密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）
+moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }
+# 燃料の温度は 5 つの物質のすべてに当てる（ADR-0245）
+fuel = { temperature = [900], materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3", "fuel-4"] }
+
+[history]
+file = "../p9-product/lattice-2A.msgpack"
+chain = "../chain.msgpack"
+# 本番の 27 点のうち、自己遮蔽の最も遅い 60 MWd/kg（p9-product の Slurm 752 で自己遮蔽を解く状態の平均が 64.0 秒）
+burnup = [60]
+
+# ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216）。判定は既定（本番の判定での時間）。k の感度は段 2 と同じ
+[sensitivity]
+nuclides = [
+  "U-234", "U-235", "U-236", "U-238", "Np-237", "Np-239", "Pu-238", "Pu-239", "Pu-240", "Pu-241", "Pu-242",
+  "Am-241", "Am-243", "Xe-135", "Sm-147", "Sm-149", "Sm-150", "Sm-151", "Sm-152",
+  "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160",
+  "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
+]
+output = "2A-60-generalized-batch-sensitivity.toml"
+
+[sensitivity.generalized]
+bounds = [1e7, 0.625, 1e-5]
+responses = [
+  "total-1", "total-2", "nu-fission-1", "nu-fission-2", "fission-1", "fission-2",
+  "scatter-1-1", "scatter-1-2", "scatter-2-1", "scatter-2-2",
+]
+methods = ["gmres"]
+restart = 100
+tolerances = [1e-7]
+batched = ["gmres"]
+reference = "gmres"
+reference-tolerance = 1e-9

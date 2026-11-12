@@ -2,6 +2,7 @@ use super::*;
 use crate::branches::BranchShielding;
 use crate::cmfd::CmfdOptions;
 use crate::moc::{Acceleration, Options};
+use crate::sensitivity::{GeneralizedInput, Method, Response};
 
 const PIN_CELL: &str = r#"
 # pin cell
@@ -1811,6 +1812,7 @@ fn sensitivity_lists_nuclides_and_the_optional_direct_perturbation() {
             direct: None,
             k_tolerance: None,
             flux_tolerance: None,
+            generalized: None,
         })
     );
     let input = LatticeInput::parse(&format!(
@@ -1825,6 +1827,83 @@ fn sensitivity_lists_nuclides_and_the_optional_direct_perturbation() {
 }
 
 #[test]
+fn sensitivity_compares_generalized_adjoints_of_few_group_responses() {
+    let input = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n\
+         [sensitivity.generalized]\nbounds = [2e7, 0.625, 1e-5]\n\
+         responses = [\"total-1\", \"nu-fission-2\", \"fission-2\", \"scatter-1-2\"]\n\
+         methods = [\"source-iteration\", \"cmfd\", \"gmres\"]\nrestart = 30\ntolerances = [1e-6, 1e-7]\n\
+         batched = [\"gmres\"]\n\
+         reference = \"gmres\"\nreference-tolerance = 1e-10\n"
+    ))
+    .unwrap();
+    assert_eq!(
+        input.sensitivity.unwrap().generalized,
+        Some(GeneralizedInput {
+            bounds: vec![2e7, 0.625, 1e-5],
+            responses: vec![
+                Response::Total(0),
+                Response::NuFission(1),
+                Response::Fission(1),
+                Response::Scatter(0, 1),
+            ],
+            methods: vec![
+                Method::SourceIteration,
+                Method::Cmfd,
+                Method::Gmres { restart: 30 },
+            ],
+            tolerances: vec![1e-6, 1e-7],
+            batched: vec![Method::Gmres { restart: 30 }],
+            reference: Some((Method::Gmres { restart: 30 }, 1e-10)),
+        })
+    );
+}
+
+#[test]
+fn invalid_generalized_inputs_are_errors() {
+    let with = |body: &str| {
+        LatticeInput::parse(&format!(
+            "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n\
+             [sensitivity.generalized]\n{body}\n"
+        ))
+    };
+    let base = "bounds = [2e7, 0.625, 1e-5]\ntolerances = [1e-6]\nmethods = [\"source-iteration\"]";
+    assert!(with(&format!("{base}\nresponses = [\"total-1\"]")).is_ok());
+    for bad in [
+        // 少数群の番号が境界の外、名前の誤り、重複
+        "responses = [\"total-3\"]",
+        "responses = [\"total-0\"]",
+        "responses = [\"absorption-1\"]",
+        "responses = [\"scatter-1\"]",
+        "responses = [\"total-1\", \"total-1\"]",
+        "responses = []",
+    ] {
+        assert!(with(&format!("{base}\n{bad}")).is_err(), "{bad}");
+    }
+    let responses = "bounds = [2e7, 0.625, 1e-5]\nresponses = [\"total-1\"]";
+    for bad in [
+        // GMRES は再始動の回数を要る。判定は正。参照は方法と判定の両方
+        "methods = [\"gmres\"]\ntolerances = [1e-6]",
+        "methods = [\"gmres\"]\nrestart = 0\ntolerances = [1e-6]",
+        "methods = [\"newton\"]\ntolerances = [1e-6]",
+        "methods = []\ntolerances = [1e-6]",
+        "methods = [\"cmfd\", \"cmfd\"]\ntolerances = [1e-6]",
+        "methods = [\"cmfd\"]\ntolerances = [0]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nreference = \"cmfd\"",
+        "methods = [\"cmfd\"]\ntolerances = []",
+        // 使わない再始動の回数、重なった判定と方法
+        "methods = [\"cmfd\"]\nrestart = 30\ntolerances = [1e-6]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6, 1e-6]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nbatched = [\"cmfd\", \"cmfd\"]",
+        // 一緒にスイープするのは、源ごとにも解く方法だけ
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nbatched = [\"source-iteration\"]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nreference-tolerance = 1e-9",
+    ] {
+        assert!(with(&format!("{responses}\n{bad}")).is_err(), "{bad}");
+    }
+}
+
+#[test]
 fn sensitivity_tolerances_tighten_the_cmfd_below_them() {
     let s = SensitivityInput {
         nuclides: vec!["U-235".into()],
@@ -1832,6 +1911,7 @@ fn sensitivity_tolerances_tighten_the_cmfd_below_them() {
         direct: None,
         k_tolerance: Some(1e-10),
         flux_tolerance: Some(1e-9),
+        generalized: None,
     };
     let options = s.options(Options::default());
     assert_eq!((options.k_tolerance, options.flux_tolerance), (1e-10, 1e-9));

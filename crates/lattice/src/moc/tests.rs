@@ -4,7 +4,7 @@ use crate::material::FissionTerm;
 use crate::symmetry::{detect, require};
 use crate::tracking::{Boundaries, Boundary};
 
-fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
+pub(super) fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
     Material {
         total: total.to_vec(),
         scatter: scatter.iter().map(|r| r.to_vec()).collect(),
@@ -22,11 +22,11 @@ fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> M
     }
 }
 
-fn fuel() -> Material {
+pub(super) fn fuel() -> Material {
     two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25])
 }
 
-fn moderator() -> Material {
+pub(super) fn moderator() -> Material {
     two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0])
 }
 
@@ -414,7 +414,7 @@ fn result_does_not_depend_on_the_thread_count() {
 }
 
 /// P1〜P(L) の散乱行列を、P0 の行列に `factors` の係数を掛けて付けた物質
-fn with_moments(m: &Material, factors: &[f64]) -> Material {
+pub(super) fn with_moments(m: &Material, factors: &[f64]) -> Material {
     let mut m = m.clone();
     m.anisotropic = factors
         .iter()
@@ -436,7 +436,7 @@ fn order(scattering_order: usize) -> Options {
 }
 
 /// 燃料のピンと水のセルを市松に並べた n×n の格子（外周は真空）
-fn vacuum_checkerboard(n: usize) -> Tracking {
+pub(super) fn vacuum_checkerboard(n: usize) -> Tracking {
     let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
     let water = PinCell::new(1.26, vec![]).unwrap();
     let layout = (0..n)
@@ -453,7 +453,11 @@ fn vacuum_checkerboard(n: usize) -> Tracking {
 }
 
 /// 市松の格子の領域ごとの物質（ピンは燃料と水、水のセルは水）
-fn checkerboard_materials<'a>(n: usize, f: &'a Material, m: &'a Material) -> Vec<&'a Material> {
+pub(super) fn checkerboard_materials<'a>(
+    n: usize,
+    f: &'a Material,
+    m: &'a Material,
+) -> Vec<&'a Material> {
     (0..n * n)
         .flat_map(|c| {
             if (c / n + c % n).is_multiple_of(2) {
@@ -2100,7 +2104,7 @@ fn rejects_a_start_from_another_symmetry_of_the_same_size() {
 }
 
 /// 随伴と前向きの k を反復の判定より細かく比べるための判定
-fn tight(scattering_order: usize) -> Options {
+pub(super) fn tight(scattering_order: usize) -> Options {
     Options {
         scattering_order,
         k_tolerance: 1.0e-11,
@@ -2115,7 +2119,7 @@ fn tight(scattering_order: usize) -> Options {
 }
 
 /// χ の違う 2 つの核分裂の項を持つ 2 群の燃料（核分裂の行列が階数 2 で、転置が元と違う）
-fn two_spectra_fuel() -> Material {
+pub(super) fn two_spectra_fuel() -> Material {
     let mut m = fuel();
     m.fission_terms = vec![
         FissionTerm {

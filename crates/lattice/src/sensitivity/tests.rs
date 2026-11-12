@@ -46,3 +46,110 @@ fn derivatives_tell_listed_nuclides_from_absent_ones() {
     assert!(derivatives.lists("Xe-135"));
     assert!(!derivatives.lists("Xe-136"));
 }
+
+/// 3 群の物質（細かい群 0、1 が少数群 1、群 2 が少数群 2）
+fn three_group(total: [f64; 3], nu_fission: [f64; 3]) -> Material {
+    use crate::material::FissionTerm;
+    Material {
+        total: total.to_vec(),
+        scatter: vec![
+            vec![0.2, 0.15, 0.05],
+            vec![0.0, 0.3, 0.2],
+            vec![0.0, 0.01, 0.9],
+        ],
+        anisotropic: Vec::new(),
+        fission: nu_fission.iter().map(|v| v / 2.5).collect(),
+        nu_fission: nu_fission.to_vec(),
+        fission_terms: if nu_fission.iter().any(|&v| v > 0.0) {
+            vec![FissionTerm {
+                chi: vec![0.9, 0.1, 0.0],
+                nu_fission: nu_fission.to_vec(),
+            }]
+        } else {
+            Vec::new()
+        },
+    }
+}
+
+#[test]
+fn response_sources_are_orthogonal_to_the_flux_and_weight_the_few_groups() {
+    use crate::geometry::{Lattice, PinCell};
+    let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+    let (f, m) = (
+        three_group([0.5, 0.7, 1.2], [0.01, 0.02, 0.3]),
+        three_group([0.4, 0.6, 1.0], [0.0; 3]),
+    );
+    let materials = [&f, &m];
+    let solution = crate::moc::solve(&tracking, &materials, &Options::default()).unwrap();
+    let group_of = [0, 0, 1];
+    let responses = [
+        Response::Scatter(0, 1),
+        Response::NuFission(1),
+        Response::Total(0),
+    ];
+    let sources = response_sources(&responses, &group_of, &materials, &solution).unwrap();
+    let inner = |h: &[Vec<f64>]| -> f64 {
+        h.iter()
+            .zip(&solution.flux)
+            .zip(&solution.volumes)
+            .map(|((h, f), v)| v * h.iter().zip(f).map(|(a, b)| a * b).sum::<f64>())
+            .sum()
+    };
+    for s in &sources {
+        let size: f64 = s
+            .iter()
+            .zip(&solution.flux)
+            .zip(&solution.volumes)
+            .map(|((h, f), v)| v * h.iter().zip(f).map(|(a, b)| a.abs() * b).sum::<f64>())
+            .sum();
+        assert!(inner(s).abs() < 1e-14 * size);
+    }
+    // Σs,1→2 の分子は、少数群 1 の細かい群から群 2 への散乱: 群 0 は 0.05、群 1 は 0.2。少数群 2 の群には値がない
+    let numerator = |r: usize, g: usize| {
+        let h1 = [[0.05, 0.2, 0.0], [0.05, 0.2, 0.0]];
+        h1[r][g]
+    };
+    let a: f64 = (0..2)
+        .map(|r| {
+            solution.volumes[r]
+                * (0..3)
+                    .map(|g| numerator(r, g) * solution.flux[r][g])
+                    .sum::<f64>()
+        })
+        .sum();
+    let b: f64 = (0..2)
+        .map(|r| solution.volumes[r] * (solution.flux[r][0] + solution.flux[r][1]))
+        .sum();
+    for (r, s) in sources[0].iter().enumerate() {
+        for (g, value) in s.iter().enumerate() {
+            let expected = numerator(r, g) / a - if g < 2 { 1.0 / b } else { 0.0 };
+            assert!((value - expected).abs() < 1e-12 * expected.abs().max(1.0 / b));
+        }
+    }
+    // νΣf の少数群 2 は、燃料の領域だけが分子を持つ
+    assert!(sources[1][1][2] < 0.0 && sources[1][0][2] > 0.0);
+    // 核分裂のない格子の νΣf の応答は定まらない
+    let water = [&m, &m];
+    let solution_water = crate::moc::solve(&tracking, &[&f, &m], &Options::default()).unwrap();
+    assert!(
+        response_sources(
+            &[Response::NuFission(0)],
+            &group_of,
+            &water,
+            &solution_water
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn generalized_cmfd_takes_the_cmfd_options_of_the_solved_state() {
+    let cmfd = CmfdOptions {
+        flux_tolerance: 1e-9,
+        ..CmfdOptions::default()
+    };
+    assert_eq!(generalized_cmfd(&Acceleration::Cmfd(cmfd)).unwrap(), cmfd);
+    // 状態を CMFD なしで解いたなら、粗メッシュの判定を入力が決めていない
+    assert!(generalized_cmfd(&Acceleration::None).is_err());
+}

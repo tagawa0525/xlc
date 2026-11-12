@@ -8,7 +8,9 @@
 - pincell.toml: 燃料のピン 1 本（鏡面反射）
 - lattice-3x3.toml: 2A の案内管 1 本を燃料のピン 8 本で囲んだ 3×3 の格子（2A の小さい格子。鏡面反射）
 
-どちらも 31 核種の感度を、直接の摂動（ε = 0.1）と一緒に解く。MOC の判定は k 1e-12、中性子束 1e-11 で、#0279 の計画の
+- pincell-generalized.toml: pincell.toml の燃料のピンで、段 3 の一般化随伴の収束の方法を比べる（`generalized` の説明）
+
+pincell.toml と lattice-3x3.toml は、31 核種の感度を、直接の摂動（ε = 0.1）と一緒に解く。MOC の判定は k 1e-12、中性子束 1e-11 で、#0279 の計画の
 k 1e-10、中性子束 1e-9 より 2 桁細かい: 1e-10 では、感度の小さい核種（Gd-160 の S = −5.3e-7、Pm-148m の −8.7e-9）の直接の
 摂動の k の変化が判定の誤差に近く、ピンセルで Gd-160 が 2.6e-2、Pm-148m が 5.5e-2 の相対の差になった（1e-12 では 8.1e-5、
 4.6e-4。一般化摂動の値は両方の判定で 1.5e-10 しか変わらない）。
@@ -112,6 +114,34 @@ def sensitivity(output: str) -> str:
     )
 
 
+RESPONSES = [
+    "total-1", "total-2", "nu-fission-1", "nu-fission-2", "fission-1", "fission-2",
+    "scatter-1-1", "scatter-1-2", "scatter-2-1", "scatter-2-2",
+]  # fmt: skip
+
+
+def generalized(output: str) -> str:
+    """段 3 の一般化随伴の比較（ADR-0247）。少数群定数の微分の 10 項目の応答（2 群）を、3 つの収束の方法の 2 つの判定（GMRES は
+    残差の 2 ノルムで止めるので、同じ判定では誤差が大きい）と、細かい判定の GMRES の参照で解く。CMFD と GMRES は 10 本を一緒に
+    スイープしても解く。GMRES の再始動の回数は ADR-0247 の決定と理由の「一般化随伴」の項。MOC の判定は既定（本番の判定）"""
+    names = ", ".join(f'"{n}"' for n in NUCLIDES)
+    responses = ", ".join(f'"{r}"' for r in RESPONSES)
+    return (
+        "[sensitivity]\n"
+        f"nuclides = [{names}]\n"
+        f'output = "{output}"\n\n'
+        "[sensitivity.generalized]\n"
+        "bounds = [1e7, 0.625, 1e-5]\n"
+        f"responses = [{responses}]\n"
+        'methods = ["source-iteration", "cmfd", "gmres"]\n'
+        "restart = 100\n"
+        "tolerances = [1e-6, 1e-7]\n"
+        'batched = ["cmfd", "gmres"]\n'
+        'reference = "gmres"\n'
+        "reference-tolerance = 1e-10\n"
+    )
+
+
 def fuels(history: dict) -> str:
     """最後の燃焼点の、最初の燃焼の領域の組の 5 つのリングの物質（自己遮蔽はリングの核種が同じ順であることを求めるので、どれかの
     リングで正の核種をすべてのリングに同じ順で書く）"""
@@ -167,9 +197,22 @@ def main() -> None:
         + "\n"
         + sensitivity("lattice-3x3-sensitivity.toml")
     )
+    pincell_generalized = (
+        HEADER
+        + 'rows = ["pin"]\n\n'
+        + materials
+        + "\n"
+        + PIN
+        + "\n"
+        + generalized("pincell-generalized-sensitivity.toml")
+    )
     comment = "# このファイルは inputs.py が書く（手で直さない）。#0279 の段 2 の k の感度の比較（ADR-0247）\n"
     (HERE / "pincell.toml").write_text(comment + pincell)
     (HERE / "lattice-3x3.toml").write_text(comment + lattice)
+    (HERE / "pincell-generalized.toml").write_text(
+        "# このファイルは inputs.py が書く（手で直さない）。#0279 の段 3 の一般化随伴の比較（ADR-0247）\n"
+        + pincell_generalized
+    )
 
 
 if __name__ == "__main__":

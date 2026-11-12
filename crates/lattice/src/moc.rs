@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod dancoff;
 pub mod fixed_source;
+mod generalized;
 mod harmonics;
 mod symmetric;
 
@@ -16,6 +17,7 @@ use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
 use crate::symmetry::{Detected, Symmetry, SymmetryError};
 use crate::tracking::{Boundary, Tracking};
+pub use generalized::{Generalized, GeneralizedMethod, GeneralizedOptions, solve_generalized};
 use harmonics::{planar_moments, real_harmonic};
 use symmetric::{RegionKind, Representatives};
 
@@ -108,6 +110,24 @@ pub struct Start {
     outgoing: Vec<f64>,
 }
 
+impl Start {
+    /// 領域とトラックの数 `sizes`、スイープ `sweeper` の代表と配列の大きさ、群の数 `ng` が、この状態と同じか。代表が同じでも、
+    /// チェックポイントから読み戻した解（ADR-0196）は配列の長さが揃うとは限らないので、長さも確かめる
+    fn fits(&self, sizes: [usize; 2], sweeper: &Sweeper, ng: usize) -> bool {
+        let reduced = &sweeper.representatives;
+        let states = reduced.regions.representatives.len();
+        let width = (sweeper.moments - 1) * ng;
+        self.sizes == sizes
+            && self.representatives[0] == reduced.regions.representatives
+            && self.representatives[1] == reduced.tracks
+            && self.flux.len() == states
+            && self.higher.len() == states
+            && self.outgoing.len() == sweeper.outgoing_len()
+            && self.flux.iter().all(|f| f.len() == ng)
+            && self.higher.iter().all(|h| h.len() == width)
+    }
+}
+
 /// MOC の固有値計算のエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum MocError {
@@ -168,6 +188,28 @@ pub enum MocError {
     ChangedRegion(usize),
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
+    #[error("source {index} must give a value for every group of every region")]
+    SourceShape { index: usize },
+    #[error("source {index}: region {region} has a value that is not finite")]
+    InvalidSource { index: usize, region: usize },
+    #[error(
+        "source {index}: region {region} differs from its representative under the symmetry \
+         (give the same values to regions that the operations map onto each other)"
+    )]
+    AsymmetricSource { index: usize, region: usize },
+    #[error(
+        "source {index} is not orthogonal to the forward flux (<S, phi> / <|S|, phi> = {ratio:e}), \
+         so the generalized adjoint has no solution"
+    )]
+    NonOrthogonalSource { index: usize, ratio: f64 },
+    #[error("the generalized adjoint GMRES needs a positive restart")]
+    GeneralizedRestart,
+    #[error("the generalized adjoint became not finite at sweep {iterations}")]
+    GeneralizedDiverged { iterations: usize },
+    #[error("the generalized adjoint did not converge in {iterations} sweeps")]
+    GeneralizedNotConverged { iterations: usize },
+    #[error("the generalized adjoint needs a tolerance that is positive and finite, got {0}")]
+    GeneralizedTolerance(f64),
     #[error(
         "tolerances must be positive and finite, and CMFD ones no larger than MOC ones \
          (MOC k {k}, flux {flux}; CMFD k {cmfd_k}, flux {cmfd_flux})"
@@ -233,14 +275,30 @@ pub fn solve_adjoint(
     options: &Options,
     symmetry: Option<&Detected>,
 ) -> Result<Adjoint, MocError> {
+    solve_adjoint_from(tracking, materials, options, symmetry, None).map(|(adjoint, _)| adjoint)
+}
+
+/// `solve_adjoint` と同じく随伴を解き、反復を `start`（同じトラッキング、対称操作、散乱の次数で解いた随伴の収束した状態）から
+/// 始める（`None` なら平らな初期値から）。収束した状態を解と一緒に返す（一般化随伴の固定源の問題 `solve_generalized` が、
+/// 状態から φ† の成分を除くのに使う）
+pub fn solve_adjoint_from(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
+    start: Option<&Start>,
+) -> Result<(Adjoint, Start), MocError> {
     let (transposed, index) = transposed(materials)?;
     let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
-    let (solution, _) = solve_with(tracking, &adjoint, options, symmetry, None)?;
-    Ok(Adjoint {
-        k: solution.k,
-        flux: solution.flux,
-        iterations: solution.iterations,
-    })
+    let (solution, converged) = solve_with(tracking, &adjoint, options, symmetry, start)?;
+    Ok((
+        Adjoint {
+            k: solution.k,
+            flux: solution.flux,
+            iterations: solution.iterations,
+        },
+        converged,
+    ))
 }
 
 /// 物質ごとの転置した物質と、[領域] のその番号。対称操作の確かめは物質を参照で比べるので、同じ物質の領域には同じ転置の物質を渡す
@@ -278,7 +336,7 @@ fn transposed(materials: &[&Material]) -> Result<(Vec<Material>, Vec<usize>), Mo
 /// 分を、展開の直交性 4π e_k / (2l + 1) で足し、トラックの求積の Σ w Y_k Y_k' L / V では足さないので、全断面積の項のうち平衡値の
 /// 積 ã a の分も同じ直交性で足す（P0 では両者は等しく、高次ではこの差が δΣt / Σt² の局所の項になる）。散乱の l 次の項は、随伴の
 /// モーメントの (−1)ˡ（向きの反転）と、線源の展開の (2l + 1) を掛けたモーメントの内積
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Importance {
     k: f64,
     adjoint_k: f64,
@@ -302,6 +360,8 @@ pub struct Importance {
     pub adjoint_iterations: usize,
     /// 前向き、随伴の固有値計算と、角度中性子束の積のスイープ（内積の係数を含む）の時間 (s)
     pub seconds: [f64; 3],
+    /// 随伴の固有値計算の収束した状態（一般化随伴 `solve_generalized` に渡す）
+    adjoint_state: Start,
 }
 
 impl Importance {
@@ -318,6 +378,11 @@ impl Importance {
     /// ⟨φ†, F φ⟩（Σ_領域 V Σ_項 (φ† · χ)(νΣf · φ)）
     pub fn production(&self) -> f64 {
         self.production
+    }
+
+    /// 随伴の固有値計算の収束した状態
+    pub fn adjoint_start(&self) -> &Start {
+        &self.adjoint_state
     }
 
     /// [領域][群] の随伴のスカラー中性子束
@@ -431,13 +496,12 @@ pub fn solve_importance(
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     let reduced = &sweeper.representatives;
     let kept = &reduced.regions.representatives;
-    for s in [&converged, &adjoint_start] {
-        if s.representatives[0] != *kept
-            || s.representatives[1] != reduced.tracks
-            || s.outgoing.len() != sweeper.outgoing_len()
-        {
-            return Err(MocError::ForeignStart);
-        }
+    let sizes = [materials.len(), tracking.tracks.len()];
+    if [&converged, &adjoint_start]
+        .iter()
+        .any(|s| !s.fits(sizes, &sweeper, ng))
+    {
+        return Err(MocError::ForeignStart);
     }
     let equilibrium = |m: &[&Material], s: &Start| -> Vec<Vec<f64>> {
         (0..kept.len())
@@ -538,6 +602,7 @@ pub fn solve_importance(
         production,
         adjoint_iterations: adjoint_solution.iterations,
         seconds: [forward_seconds, adjoint_seconds, products_seconds],
+        adjoint_state: adjoint_start,
     };
     Ok((solution, converged, importance))
 }
@@ -717,16 +782,7 @@ fn solve_with(
     // 前の解の中性子束、[代表][モーメント (1 番目から)][群] の高次のモーメント、k。なければ平らな中性子束と k = 1
     let (mut flux, mut higher, mut k) = match start {
         Some(s) => {
-            // 代表が同じでも、チェックポイントから読み戻した解（ADR-0196）は配列の長さが揃うとは限らないので、長さも確かめる
-            if s.sizes != sizes
-                || s.representatives[0] != *kept
-                || s.representatives[1] != reduced.tracks
-                || s.flux.len() != states
-                || s.higher.len() != states
-                || s.outgoing.len() != sweeper.outgoing_len()
-                || s.flux.iter().any(|f| f.len() != ng)
-                || s.higher.iter().any(|h| h.len() != width)
-            {
+            if !s.fits(sizes, &sweeper, ng) {
                 return Err(MocError::ForeignStart);
             }
             (s.flux.clone(), s.higher.clone(), s.k)
@@ -1086,10 +1142,16 @@ struct Sweeper<'a> {
     tracking: &'a Tracking,
     /// 正味の中性子流を数える粗メッシュ
     mesh: &'a CoarseMesh,
+    /// 並びの群の数（同じ全断面積で一緒にスイープする問題の数 `copies` × 物質の群の数 `groups`）。領域ごとと方向ごとの量の
+    /// [群] は [問題][物質の群] の並び
     ng: usize,
+    /// 物質の群の数
+    groups: usize,
+    /// 一緒にスイープする問題の数（一般化随伴の固定源の問題。ほかは 1）。減衰 1 - exp(-τ) を問題の間で共有する
+    copies: usize,
     /// [極角][群] の数
     width: usize,
-    /// [領域][群] の全断面積。減衰 1 - exp(-τ) はスイープでトラックごとに計算する
+    /// [領域][物質の群] の全断面積。減衰 1 - exp(-τ) はスイープでトラックごとに計算する
     totals: Vec<f64>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
     void: Vec<Option<usize>>,
@@ -1122,6 +1184,20 @@ impl<'a> Sweeper<'a> {
         pairs: &[(usize, isize)],
         representatives: Representatives,
     ) -> Self {
+        Self::with_copies(tracking, materials, ng, 1, mesh, pairs, representatives)
+    }
+
+    /// 物質 `materials`（群の数 `groups`）の全断面積で、`copies` 個の問題を一緒にスイープする
+    fn with_copies(
+        tracking: &'a Tracking,
+        materials: &[&Material],
+        groups: usize,
+        copies: usize,
+        mesh: &'a CoarseMesh,
+        pairs: &[(usize, isize)],
+        representatives: Representatives,
+    ) -> Self {
+        let ng = copies * groups;
         let width = POLAR_SIN.len() * ng;
         // 順方向は方位角 φ、逆方向は φ + π。z について対称なモーメントだけなので、極角は上半分だけでよい
         let mut harmonics = Vec::new();
@@ -1142,6 +1218,8 @@ impl<'a> Sweeper<'a> {
             tracking,
             mesh,
             ng,
+            groups,
+            copies,
             width,
             totals,
             void: materials
@@ -1293,7 +1371,9 @@ impl<'a> Sweeper<'a> {
         adjoint: (&[Vec<f64>], &[f64]),
         tallies: &mut [Tally],
     ) -> Vec<Vec<f64>> {
-        let (ng, width) = (self.ng, self.width);
+        let (ng, width, groups) = (self.ng, self.width, self.groups);
+        // [極角][物質の群] の減衰の数（`sweep` と同じく問題の間で共有する。並びの群 g の物質の群は g % groups）
+        let shared = POLAR_SIN.len() * groups;
         let representatives = &self.representatives;
         let incoming = |values: &[f64], index: usize, along: bool, psi: &mut [f64]| match self
             .tracking
@@ -1338,13 +1418,13 @@ impl<'a> Sweeper<'a> {
                     for (s, att) in track
                         .segments
                         .iter()
-                        .zip(tally.attenuation.chunks_exact_mut(width))
+                        .zip(tally.attenuation.chunks_exact_mut(shared))
                     {
                         if self.void[s.region].is_some() {
                             continue;
                         }
-                        let total = &self.totals[s.region * ng..][..ng];
-                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(ng)) {
+                        let total = &self.totals[s.region * groups..][..groups];
+                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(groups)) {
                             let path = s.length / sin;
                             for (a, t) in att.iter_mut().zip(total) {
                                 *a = -(-t * path).exp_m1();
@@ -1384,11 +1464,12 @@ impl<'a> Sweeper<'a> {
                                 continue;
                             }
                             let (q, stride) = source(first, region, held_along);
-                            let att = &attenuation[s * width..][..width];
+                            let att = &attenuation[s * shared..][..shared];
                             for p in 0..POLAR_SIN.len() {
                                 for g in 0..ng {
                                     let j = p * ng + g;
-                                    psi[j] -= (psi[j] - q[p * stride + g]) * att[j];
+                                    psi[j] -=
+                                        (psi[j] - q[p * stride + g]) * att[p * groups + g % groups];
                                 }
                             }
                         }
@@ -1401,22 +1482,24 @@ impl<'a> Sweeper<'a> {
                             if self.void[region].is_some() {
                                 continue;
                             }
-                            let total = &self.totals[region * ng..][..ng];
+                            let total = &self.totals[region * groups..][..groups];
                             let (q, stride) = source(first, region, held_along);
                             let (r, rs) = source(1 - first, region, swept_along);
-                            let att = &attenuation[s * width..][..width];
+                            let att = &attenuation[s * shared..][..shared];
                             let entry = &entries[s * width..][..width];
                             let out = &mut product[tally.local[region] * ng..][..ng];
                             for (p, weight) in weights.iter().enumerate() {
                                 let path = segment.length / POLAR_SIN[p];
                                 for g in 0..ng {
                                     let j = p * ng + g;
+                                    let h = g % groups;
+                                    let e = att[p * groups + h];
                                     let (a, c) = (q[p * stride + g], r[p * rs + g]);
                                     let (b, d) = (entry[j] - a, psi[j] - c);
                                     out[g] += weight
-                                        * ((a * d + c * b) * att[j] / total[g]
-                                            + b * d * path * (1.0 - att[j]));
-                                    psi[j] -= d * att[j];
+                                        * ((a * d + c * b) * e / total[h]
+                                            + b * d * path * (1.0 - e));
+                                    psi[j] -= d * e;
                                 }
                             }
                         }
@@ -1485,6 +1568,31 @@ impl<'a> Sweeper<'a> {
             });
     }
 
+    /// 出ていく角度中性子束に、形 `shape`（同じ並び）とトラックの出口の粗メッシュのセルと群ごとの係数 `factor` の積を足す。
+    /// 出口のセルの扱いは `scale_outgoing` と同じ
+    fn add_outgoing(
+        &self,
+        outgoing: &mut [f64],
+        shape: &[f64],
+        factor: impl Fn(usize, usize) -> f64 + Sync,
+    ) {
+        outgoing
+            .par_chunks_mut(self.width)
+            .zip(shape.par_chunks(self.width))
+            .enumerate()
+            .for_each(|(j, (out, shape))| {
+                let track = self.representatives.tracks[j / 2];
+                let cells = self.mesh.end_cells(track, j % 2 == 0);
+                for (i, (o, s)) in out.iter_mut().zip(shape).enumerate() {
+                    let g = i % self.ng;
+                    *o += s * cells
+                        .iter()
+                        .map(|&(cell, w)| w * factor(cell, g))
+                        .sum::<f64>();
+                }
+            });
+    }
+
     /// 代表のトラックの組ごとの部分和の入れ物。組ごとに順にスイープし、組の順に足すので、結果は
     /// スレッドの数や仕事の分け方によらない。組は、対称性を使わなければ方位角ごと（方位角ごとのトラックの長さの和は
     /// ほぼ等しい）、使えば区間の数の和を揃えたもの
@@ -1524,7 +1632,7 @@ impl<'a> Sweeper<'a> {
                     self.mesh.faces(),
                     self.ng,
                     self.width,
-                    segments,
+                    segments * POLAR_SIN.len() * self.groups,
                     self.counts_currents(),
                 )
             })
@@ -1540,7 +1648,8 @@ impl<'a> Sweeper<'a> {
     /// 全トラックを両方向に1回ずつスイープする。
     ///
     /// `equilibrium` は [代表][モーメント][群] の角度中性子束の平衡値（線源 / Σt）の展開係数 e_k
-    /// （平衡値は Σ_k Y_k(Ω) e_k。等方なら線源 / 4πΣt）。`tallies` の減衰の和は [領域][モーメント][群]。`incoming` は前回の
+    /// （平衡値は Σ_k Y_k(Ω) e_k。等方なら線源 / 4πΣt）。真空の領域では、スカラーの分が等方な線源 q / 4π（Σt で割らない）で、
+    /// 高次の分は使わない。`tallies` の減衰の和は [領域][モーメント][群]。`incoming` は前回の
     /// スイープで出ていった角度中性子束、`outgoing` には今回出ていく分を書く。どちらも
     /// [トラック][向き (0: 順, 1: 逆)][極角][群] の並びで、各トラックは自分の場所にだけ書くので、
     /// トラックごとに並列にスイープできる。
@@ -1551,7 +1660,9 @@ impl<'a> Sweeper<'a> {
         outgoing: &mut [f64],
         tallies: &mut [Tally],
     ) -> Result<(), CmfdError> {
-        let (ng, width) = (self.ng, self.width);
+        let (ng, width, groups) = (self.ng, self.width, self.groups);
+        // [極角][物質の群] の減衰の数（問題の間で共有する）
+        let shared = POLAR_SIN.len() * groups;
         let representatives = &self.representatives;
         // 出ていく角度中性子束の配列を、代表のトラックの組ごとの範囲に分ける
         let mut rest = outgoing;
@@ -1592,17 +1703,18 @@ impl<'a> Sweeper<'a> {
                     });
                     let side_weights = &self.side_weights[track.azimuth]
                         .map(|weights| weights.map(|w| multiplicity * w));
-                    // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
+                    // 減衰はトラックの両向きと一緒にスイープする問題で同じなので、トラックごとに一度求める（真空の区間では
+                    // 使わない）
                     for (s, att) in track
                         .segments
                         .iter()
-                        .zip(tally.attenuation.chunks_exact_mut(width))
+                        .zip(tally.attenuation.chunks_exact_mut(shared))
                     {
                         if self.void[s.region].is_some() {
                             continue;
                         }
-                        let total = &self.totals[s.region * ng..][..ng];
-                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(ng)) {
+                        let total = &self.totals[s.region * groups..][..groups];
+                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(groups)) {
                             let path = s.length / sin;
                             for (a, t) in att.iter_mut().zip(total) {
                                 *a = -(-t * path).exp_m1();
@@ -1665,22 +1777,28 @@ impl<'a> Sweeper<'a> {
                                 cell = next;
                             }
                             if let Some(v) = self.void[region] {
-                                // 真空では角度中性子束は変わらない。3次元の経路長 (長さ / sinθ) を掛けて数える
+                                // 真空では衝突がないので、角度中性子束は等方な線源の q / 4π（平衡値の展開係数の
+                                // スカラーの分に置く。固有値計算と ESSM では 0）の傾きで経路に沿って増える。区間の
+                                // 平均 ψ_入 + (q / 4π) ℓ / 2 に 3次元の経路長 ℓ = 長さ / sinθ を掛けて数える
+                                let q = &equilibrium[representatives.regions.index[region]][..ng];
                                 let flux = &mut tally.void_flux[v * ng..][..ng];
                                 let current = &mut tally.void_current[v * 2 * ng..][..2 * ng];
                                 for (p, weight) in weights.iter().enumerate() {
                                     let w = weight * length / POLAR_SIN[p];
+                                    let path = length / POLAR_SIN[p];
                                     let cosines =
                                         [cosines[0] * POLAR_SIN[p], cosines[1] * POLAR_SIN[p]];
-                                    for (g, value) in psi[p * ng..][..ng].iter().enumerate() {
-                                        flux[g] += w * value;
-                                        current[g] += w * cosines[0] * value;
-                                        current[ng + g] += w * cosines[1] * value;
+                                    for (g, value) in psi[p * ng..][..ng].iter_mut().enumerate() {
+                                        let average = *value + 0.5 * q[g] * path;
+                                        flux[g] += w * average;
+                                        current[g] += w * cosines[0] * average;
+                                        current[ng + g] += w * cosines[1] * average;
+                                        *value += q[g] * path;
                                     }
                                 }
                                 continue;
                             }
-                            let att = &tally.attenuation[s * width..][..width];
+                            let att = &tally.attenuation[s * shared..][..shared];
                             // 組の中の領域の番号
                             let local = tally.local[region];
                             // 等方なら [群] をすべての極角で使い、非等方なら [極角][群]
@@ -1705,16 +1823,20 @@ impl<'a> Sweeper<'a> {
                                 .then(|| &mut tally.region_current[local * 2 * ng..][..2 * ng]);
                             for (p, weight) in weights.iter().enumerate() {
                                 let (q, d) = (&q[p * stride..][..ng], &mut d[p * stride..][..ng]);
+                                let att = &att[p * groups..][..groups];
                                 let cosines =
                                     [cosines[0] * POLAR_SIN[p], cosines[1] * POLAR_SIN[p]];
-                                for g in 0..ng {
-                                    let j = p * ng + g;
-                                    let change = (psi[j] - q[g]) * att[j];
-                                    psi[j] -= change;
-                                    d[g] += weight * change;
-                                    if let Some(c) = current.as_deref_mut() {
-                                        c[g] += weight * cosines[0] * change;
-                                        c[ng + g] += weight * cosines[1] * change;
+                                for copy in 0..self.copies {
+                                    for (h, a) in att.iter().enumerate() {
+                                        let g = copy * groups + h;
+                                        let j = p * ng + g;
+                                        let change = (psi[j] - q[g]) * a;
+                                        psi[j] -= change;
+                                        d[g] += weight * change;
+                                        if let Some(c) = current.as_deref_mut() {
+                                            c[g] += weight * cosines[0] * change;
+                                            c[ng + g] += weight * cosines[1] * change;
+                                        }
                                     }
                                 }
                             }
@@ -1773,12 +1895,12 @@ struct Tally {
     region_current: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
-    /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分）
+    /// スイープ中のトラックの [区間][極角][物質の群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分。一緒にスイープする問題で共有する）
     attenuation: Vec<f64>,
 }
 
 impl Tally {
-    /// `regions` は組のスイープが通る領域、`local` はその逆引き、`currents` は領域の中性子流を数えるか（等方散乱のとき）
+    /// `regions` は組のスイープが通る領域、`local` はその逆引き、`attenuation` は減衰の配列の長さ、`currents` は領域の中性子流を数えるか（等方散乱のとき）
     #[allow(clippy::too_many_arguments)]
     fn new(
         regions: Vec<usize>,
@@ -1788,7 +1910,7 @@ impl Tally {
         faces: usize,
         groups: usize,
         width: usize,
-        segments: usize,
+        attenuation: usize,
         currents: bool,
     ) -> Self {
         let crossed = regions.len();
@@ -1803,7 +1925,7 @@ impl Tally {
             face_flux: vec![0.0; faces * groups],
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
-            attenuation: vec![0.0; segments * width],
+            attenuation: vec![0.0; attenuation],
         }
     }
 
