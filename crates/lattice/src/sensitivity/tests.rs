@@ -190,10 +190,15 @@ fn three_group_pin_cell() -> (Tracking, Material, Material) {
     use crate::geometry::{Lattice, PinCell};
     let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
     let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+    // 水の熱群の散乱を燃料と違う値にする（すべての領域で同じなら、熱群の 1 つの細かい群だけの応答 Σs,2→H は中性子束の形によらず、
+    // 源が 0 になる）
+    let mut water = three_group([0.4, 0.6, 1.0], [0.0; 3]);
+    water.scatter[2][1] = 0.03;
+    water.scatter[2][2] = 0.85;
     (
         tracking,
         with_p1(three_group([0.5, 0.7, 1.2], [0.01, 0.02, 0.3]), 0.2),
-        with_p1(three_group([0.4, 0.6, 1.0], [0.0; 3]), 0.4),
+        with_p1(water, 0.4),
     )
 }
 
@@ -240,6 +245,11 @@ fn few_group_first_order_changes_match_central_differences() {
     let options = Options {
         k_tolerance: 1e-12,
         flux_tolerance: 1e-11,
+        acceleration: Acceleration::Cmfd(CmfdOptions {
+            k_tolerance: 1e-13,
+            flux_tolerance: 1e-12,
+            ..CmfdOptions::default()
+        }),
         ..Options::default()
     };
     let (solution, forward) = crate::moc::solve_symmetric_from(
