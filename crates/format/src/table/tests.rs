@@ -1133,7 +1133,7 @@ fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
     let bad = |change: &dyn Fn(&mut RateResidual)| {
         let mut table = derivative_sample();
         change(
-            &mut table.micro.as_mut().unwrap().states[1][0]
+            table.micro.as_mut().unwrap().states[1][0]
                 .derivative
                 .as_mut()
                 .unwrap()

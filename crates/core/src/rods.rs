@@ -548,12 +548,9 @@ pub(crate) fn mix_micro(
                     // どの区間も持つ（上の検査）
                     let held: Vec<&MicroDerivative> =
                         segments.iter().filter_map(|n| n.derivative.as_ref()).collect();
-                    // 反応率の微分の有無はどの区間も同じ（上の検査）なので、持つときだけ引く
-                    fn rate_of(d: &MicroDerivative) -> &RateResidual {
-                        d.rate
-                            .as_ref()
-                            .expect("every interval holds the rate derivative")
-                    }
+                    // 反応率の微分は、どの区間も持つか、どの区間も持たない（上の検査）
+                    let rates: Option<Vec<&RateResidual>> =
+                        held.iter().map(|d| d.rate.as_ref()).collect();
                     let by = |value: &dyn Fn(&MicroDerivative) -> &[f64]| -> Vec<f64> {
                         (0..ng)
                             .map(|g| average(&held, weights, g, |d| value(d)[g]))
@@ -572,26 +569,33 @@ pub(crate) fn mix_micro(
                             .collect(),
                         // 反応率の微分（ADR-0215）は σᵢ と同じ重み。境界より下の核分裂の断面積の微分は、割合と同じく区間の
                         // 核分裂率の割合で混ぜる
-                        rate: reference.derivative.as_ref().and_then(|d| d.rate.as_ref()).map(|_| RateResidual {
-                            fission: by(&|d| &rate_of(d).fission),
-                            reactions: reference
-                                .reactions
-                                .iter()
-                                .enumerate()
-                                .map(|(r, reaction)| MicroReaction {
-                                    mt: reaction.mt,
-                                    channels: (0..reaction.channels.len())
-                                        .map(|c| by(&|d| &rate_of(d).reactions[r].channels[c]))
-                                        .collect(),
-                                })
-                                .collect(),
-                            thermal_fission: by_share(&|n| {
-                                n.derivative
-                                    .as_ref()
-                                    .and_then(|d| d.rate.as_ref())
-                                    .and_then(|r| r.thermal_fission)
-                                    .unwrap_or(f64::NAN)
-                            }),
+                        rate: rates.map(|rates| {
+                            let by_rate = |value: &dyn Fn(&RateResidual) -> &[f64]| -> Vec<f64> {
+                                (0..ng)
+                                    .map(|g| average(&rates, weights, g, |r| value(r)[g]))
+                                    .collect()
+                            };
+                            RateResidual {
+                                fission: by_rate(&|r| &r.fission),
+                                reactions: reference
+                                    .reactions
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(k, reaction)| MicroReaction {
+                                        mt: reaction.mt,
+                                        channels: (0..reaction.channels.len())
+                                            .map(|c| by_rate(&|r| &r.reactions[k].channels[c]))
+                                            .collect(),
+                                    })
+                                    .collect(),
+                                thermal_fission: by_share(&|n| {
+                                    n.derivative
+                                        .as_ref()
+                                        .and_then(|d| d.rate.as_ref())
+                                        .and_then(|r| r.thermal_fission)
+                                        .unwrap_or(f64::NAN)
+                                }),
+                            }
                         }),
                     }
                 }),
