@@ -576,6 +576,23 @@ fn the_cells_a_solve_would_hold_do_not_depend_on_its_hold() {
 }
 
 #[test]
+fn the_census_counts_the_table_bytes_of_its_points_by_nuclide() {
+    // DEBUG の計数の格子点の大きさ（表に入れたときの大きさ）は、その格子点の核種ごとの値を表に入れた大きさの和
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .with_writer(std::io::sink)
+        .finish();
+    tracing::subscriber::with_default(subscriber, || {
+        let kernels = KernelCache::default();
+        kernels.begin(|_| u64::MAX);
+        let (.., work) = swept_mixed(&test_grid(), 1.0, usize::MAX, Some(&kernels), None);
+        let counted: u64 = work.points.iter().map(|p| p.3).sum();
+        assert!(counted > 0);
+        assert_eq!(counted, kernels.bytes());
+    });
+}
+
+#[test]
 fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
     // 自由ガスの核の区間と D の値を、断面積の違う減速計算と、格子点の一部だけが同じ格子の減速計算の間で持っても、散乱源は持たない
     // ときとビットで同じ。同じ格子の 2 本目は核を評価せず、一部が同じ格子は残りの格子点だけを評価する

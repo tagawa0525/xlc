@@ -2410,6 +2410,37 @@ fn a_measured_pin_demand_leaves_the_rest_of_the_hold_memory_to_the_kernel_table(
 }
 
 #[test]
+fn the_census_sees_the_previous_shielding_across_a_burnup_point() {
+    // 直前の自己遮蔽にない評価（new）は燃焼点の境をまたいでも直前の自己遮蔽と比べ、燃焼点のそれより前の自己遮蔽のどれにもない評価
+    // （earlier）と、燃焼点のすべての格子点の大きさは燃焼点ごとに数え直す
+    let shares = ShareCellCache::default();
+    let points = [(1, 2, 10, 100), (3, 4, 20, 200)];
+    shares.count_points(7, &points);
+    let first = shares.census();
+    assert_eq!(
+        (first.total, first.distinct, first.new, first.earlier),
+        (30, 30, 30, 30)
+    );
+    assert_eq!(first.bytes, [300, 300, 300]);
+    shares.next_point_census();
+    shares.count_points(7, &points[..1]);
+    shares.count_points(7, &[(5, 6, 40, 400)]);
+    let second = shares.census();
+    assert_eq!(
+        (second.total, second.distinct, second.new, second.earlier),
+        (50, 50, 40, 50)
+    );
+    assert_eq!(second.bytes, [500, 500, 500]);
+    shares.count_points(7, &points[..1]);
+    let third = shares.census();
+    assert_eq!(
+        (third.total, third.distinct, third.new, third.earlier),
+        (10, 10, 0, 0)
+    );
+    assert_eq!(third.bytes, [100, 0, 500]);
+}
+
+#[test]
 fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
     // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
     let gib = 1u64 << 30;
