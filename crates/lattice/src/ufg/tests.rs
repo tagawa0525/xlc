@@ -1226,6 +1226,17 @@ fn converged_sweeps_match_many_fixed_sweeps() {
 }
 
 #[test]
+fn free_gas_sweeps_solve_the_collision_probabilities_once_per_point() {
+    // 衝突確率は格子点の全断面積だけで決まり、スイープで変わらない。掃き直しても格子点ごとに 1 度だけ求める
+    for sweeps in [Some(1), Some(3), None] {
+        let spectrum = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, sweeps));
+        assert_eq!(spectrum.collisions, spectrum.points, "{sweeps:?}");
+    }
+    let at_rest = thermal_spectrum(600.0, Scattering::Static);
+    assert_eq!(at_rest.collisions, at_rest.points);
+}
+
+#[test]
 fn nuclides_with_resolved_resonances_stay_at_rest() {
     // 分離共鳴を持つ核種だけのセルは、`heavy` を書かずに自由ガスを選んでも静止した標的と同じ
     let (lib, _, _) = thermal_cell(600.0);

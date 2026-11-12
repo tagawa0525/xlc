@@ -148,6 +148,8 @@ pub struct CellSpectrum {
     pub nuclides: Vec<Vec<Shielded>>,
     /// エネルギーの格子点の数（ポイントワイズの断面積の不連続点は、高い側と低い側の2点を数える）
     pub points: usize,
+    /// 衝突確率（飛程）を求めた回数（格子点の数え方は `points` と同じ。ログの内訳）
+    pub collisions: usize,
 }
 
 /// セルの UFG の範囲 [下限, 上限] (eV)。下限はライブラリのポイントワイズの断面積の下限（熱中性子散乱の打ち切り以上の群の境界）、
@@ -675,6 +677,7 @@ fn solve_cell(
     // 段ごとの経過時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
     // スレッドがほかのピンの仕事を盗むと、その時間も衝突確率に入るので、段の割合は 1 スレッドで測る
     let mut times = [Duration::ZERO; 3];
+    let mut collisions = 0;
     let pass = Pass {
         data: &data,
         entries: &entries,
@@ -751,13 +754,25 @@ fn solve_cell(
     };
     sweep.thermal = thermal;
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
-    pass.run(&mut sweep, &mut cursors, 0..start, &mut times)?;
+    pass.run(
+        &mut sweep,
+        &mut cursors,
+        0..start,
+        &mut times,
+        &mut collisions,
+    )?;
     if sweep.thermal.is_some() {
         let saved = sweep.save();
         let saved_cursors = cursors.clone();
         let mut count = 0;
         loop {
-            pass.run(&mut sweep, &mut cursors, start..u.len(), &mut times)?;
+            pass.run(
+                &mut sweep,
+                &mut cursors,
+                start..u.len(),
+                &mut times,
+                &mut collisions,
+            )?;
             count += 1;
             let change = sweep.thermal.as_mut().and_then(|t| t.finish(&sweep.flux));
             tracing::debug!(sweep = count, change, "UFG free-gas sweep");
@@ -800,6 +815,7 @@ fn solve_cell(
         sab,
         held,
         work,
+        collisions,
         "UFG slowing down"
     );
 
@@ -922,6 +938,7 @@ fn solve_cell(
         flux: sweep.group_flux,
         nuclides,
         points: u.len(),
+        collisions,
     })
 }
 
@@ -974,13 +991,15 @@ struct Pass<'a> {
 }
 
 impl Pass<'_> {
-    /// 格子点 `range` を順に解く（`cursors` は核種の格子のカーソル、`times` は段ごとの経過時間に足す）
+    /// 格子点 `range` を順に解く（`cursors` は核種の格子のカーソル、`times` は段ごとの経過時間に、`collisions` は衝突確率を
+    /// 求めた格子点の数に足す）
     fn run(
         &self,
         sweep: &mut Sweep,
         cursors: &mut [usize],
         range: Range<usize>,
         times: &mut [Duration; 3],
+        collisions: &mut usize,
     ) -> Result<(), UfgError> {
         let Self {
             data,
@@ -1024,6 +1043,7 @@ impl Pass<'_> {
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
+            *collisions += tracks.len();
             let collided = Instant::now();
             for ((m, row), w) in chunk.zip(values).zip(&tracks) {
                 let (e, below) = points[m];
