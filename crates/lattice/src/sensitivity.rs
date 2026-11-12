@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use anyhow::{Context, anyhow, bail};
 use serde::Serialize;
+use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 
 use crate::cmfd::CmfdOptions;
@@ -22,8 +23,8 @@ use crate::input::{MaterialInput, VOID};
 use crate::material::Material;
 use crate::moc::{
     Acceleration, Generalized, GeneralizedMethod, GeneralizedOptions, MocError, Options,
-    ResponseImportance, Solution, Start, response_importance, solve_generalized, solve_importance,
-    solve_symmetric_from,
+    ResponseImportance, Solution, Start, response_importance, solve_adjoint_from,
+    solve_generalized, solve_importance, solve_symmetric_from,
 };
 use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Detected;
@@ -799,6 +800,213 @@ fn shielded_steps(
         k_first_order: scalar_steps(k_first, epsilon),
         k_direct: scalar_steps(k_direct, epsilon),
     })
+}
+
+/// テーブルの格子全体の少数群定数の変化（全断面積、νΣf、Σf、P0 の散乱行列 [入射][出射]）
+#[derive(Debug, Clone, PartialEq)]
+pub struct FewGroupChange {
+    pub total: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+    pub fission: Vec<f64>,
+    pub scatter: Vec<Vec<f64>>,
+}
+
+impl FewGroupChange {
+    /// すべての項目を `factor` 倍したもの
+    pub fn scaled(self, factor: f64) -> Self {
+        let v = |x: Vec<f64>| x.into_iter().map(|y| y * factor).collect::<Vec<_>>();
+        Self {
+            total: v(self.total),
+            nu_fission: v(self.nu_fission),
+            fission: v(self.fission),
+            scatter: self.scatter.into_iter().map(v).collect(),
+        }
+    }
+
+    /// `table_responses(coarse)` の順の値を項目に分けたもの
+    fn of_responses(values: &[f64], coarse: usize) -> Self {
+        let (total, rest) = values.split_at(coarse);
+        let (nu_fission, rest) = rest.split_at(coarse);
+        let (fission, scatter) = rest.split_at(coarse);
+        Self {
+            total: total.to_vec(),
+            nu_fission: nu_fission.to_vec(),
+            fission: fission.to_vec(),
+            scatter: scatter.chunks(coarse).map(<[f64]>::to_vec).collect(),
+        }
+    }
+}
+
+/// テーブルの格子全体の少数群定数の数密度の微分（ADR-0247 の段 5）: 状態の解の一般化随伴（応答ごと）と、核種ごとの物質の微分
+pub struct TableDerivatives<'a> {
+    materials: &'a [&'a Material],
+    region_index: &'a [usize],
+    solution: &'a Solution,
+    responses: Vec<Response>,
+    group_of: Vec<usize>,
+    coarse: usize,
+    solve: FewGroupSolve,
+    derivatives: Derivatives,
+    /// [応答] の一般化随伴のスイープの回数（解かない応答は 0）
+    pub sweeps: Vec<usize>,
+    /// 随伴の固有値計算の反復の回数
+    pub adjoint_iterations: usize,
+    /// 随伴の固有値計算と、一般化随伴と核種ごとの物質の微分の時間 (s)
+    pub seconds: [f64; 2],
+}
+
+impl<'a> TableDerivatives<'a> {
+    /// 状態 `state` の解 `solution`（前向きの収束した状態 `forward`）の、テーブルの少数群定数 `nominal`（境界 `bounds`）の応答の
+    /// 一般化随伴を、CMFD の反復の GMRES の判定 `tolerance` と再始動 `restart` で解く。随伴の固有値計算は `adjoint`（前の状態の
+    /// 随伴の収束した状態。`None` なら平らな初期値）から始め、収束した状態も返す。応答の値が `nominal` と丸めの範囲で一致しなければ、
+    /// 微分がテーブルの定数のものでないので止める
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        state: &State<'a>,
+        materials: &'a [&'a Material],
+        options: &Options,
+        (solution, forward): (&'a Solution, &Start),
+        adjoint: Option<&Start>,
+        nominal: &FewGroup,
+        (tolerance, restart): (f64, usize),
+    ) -> anyhow::Result<(Self, Start)> {
+        let groups = &state.library.groups;
+        let coarse = nominal.total.len();
+        let group_of = coarse_groups(groups, &nominal.bounds).context("table bounds")?;
+        let responses = table_responses(coarse);
+        let values = ratios(&response_values(&responses, &group_of, materials, solution));
+        for (response, value) in responses.iter().zip(&values) {
+            let constant = match *response {
+                Response::Total(g) => nominal.total[g],
+                Response::NuFission(g) => nominal.nu_fission[g],
+                Response::Fission(g) => nominal.fission[g],
+                Response::Scatter(g, h) => nominal.scatter[g][h],
+            };
+            let difference = if constant == 0.0 && *value == 0.0 {
+                0.0
+            } else {
+                ((value - constant) / constant).abs()
+            };
+            if difference.is_nan() || difference > TABLE_TOLERANCE {
+                bail!(
+                    "response {response} is {value}, but the table constant is {constant}, so its derivative \
+                     would not be that of the table"
+                );
+            }
+        }
+        let clock = Instant::now();
+        let (adjoint_solution, adjoint_state) = solve_adjoint_from(
+            state.tracking,
+            materials,
+            options,
+            Some(state.symmetry),
+            adjoint,
+        )
+        .context("adjoint eigenvalue")?;
+        let adjoint_seconds = clock.elapsed().as_secs_f64();
+        let clock = Instant::now();
+        let settings = GeneralizedOptions {
+            method: GeneralizedMethod::CmfdGmres {
+                restart,
+                cmfd: generalized_cmfd(&options.acceleration).context(
+                    "the table derivatives solve the generalized adjoints by cmfd-gmres",
+                )?,
+            },
+            tolerance,
+            max_iterations: options.max_iterations,
+            batch: false,
+        };
+        let solve = FewGroupSolve::new(
+            state.tracking,
+            materials,
+            options,
+            Some(state.symmetry),
+            (solution, forward, &adjoint_state),
+            &responses,
+            &group_of,
+            &settings,
+        )?;
+        let derivatives = Derivatives::new(state)?;
+        let sweeps = solve.sweeps.clone();
+        Ok((
+            Self {
+                materials,
+                region_index: state.region_index,
+                solution,
+                responses,
+                group_of,
+                coarse,
+                solve,
+                derivatives,
+                sweeps,
+                adjoint_iterations: adjoint_solution.iterations,
+                seconds: [adjoint_seconds, clock.elapsed().as_secs_f64()],
+            },
+            adjoint_state,
+        ))
+    }
+
+    /// 核種 `name` の数密度を、それを正の数密度で持つ領域ごとに N_r に比例して変える向きの、自己遮蔽を固定した（案 I0）少数群定数の
+    /// 微分 Σ_r N_r ∂R/∂N_r。どの物質の組成にもない核種はエラー（名前の誤りと、0 の微分を区別できない）
+    pub fn explicit(&self, name: &str) -> anyhow::Result<FewGroupChange> {
+        if !self.derivatives.lists(name) {
+            bail!("{name} is in no material of the solved state");
+        }
+        let weighted = self
+            .derivatives
+            .changes(name)
+            .into_iter()
+            .map(|(u, n, d)| Ok((u, d.scaled(&vec![n; d.groups()])?)))
+            .collect::<anyhow::Result<Vec<(usize, Material)>>>()?;
+        self.first_order(&region_changes(&weighted, self.region_index))
+    }
+
+    /// 領域の物質を `perturbed`（[領域]。自己遮蔽を解き直した物質）に替えた少数群定数の 1 次の変化。物質について線形なので、変わった
+    /// 領域の (替えた物質の項) − (状態の物質の項)。真空の領域を変える物質はエラー
+    pub fn change_to(&self, perturbed: &[&Material]) -> anyhow::Result<FewGroupChange> {
+        if perturbed.len() != self.materials.len() {
+            bail!(
+                "{} perturbed regions for {}",
+                perturbed.len(),
+                self.materials.len()
+            );
+        }
+        let changed: Vec<(usize, &Material)> = perturbed
+            .iter()
+            .enumerate()
+            .filter(|&(r, m)| *m != self.materials[r])
+            .map(|(r, &m)| (r, m))
+            .collect();
+        if changed.iter().any(|&(r, _)| self.materials[r].is_void()) {
+            bail!("the self-shielding solved again changes a void region");
+        }
+        let base: Vec<(usize, &Material)> = changed
+            .iter()
+            .map(|&(r, _)| (r, self.materials[r]))
+            .collect();
+        let a = self.first_order(&changed)?;
+        let b = self.first_order(&base)?;
+        let sub = |x: &[f64], y: &[f64]| x.iter().zip(y).map(|(p, q)| p - q).collect::<Vec<_>>();
+        Ok(FewGroupChange {
+            total: sub(&a.total, &b.total),
+            nu_fission: sub(&a.nu_fission, &b.nu_fission),
+            fission: sub(&a.fission, &b.fission),
+            scatter: a
+                .scatter
+                .iter()
+                .zip(&b.scatter)
+                .map(|(x, y)| sub(x, y))
+                .collect(),
+        })
+    }
+
+    /// 領域ごとの物質の変化 `changes` の少数群定数の 1 次の変化
+    fn first_order(&self, changes: &[(usize, &Material)]) -> anyhow::Result<FewGroupChange> {
+        let values =
+            self.solve
+                .first_order(&self.responses, &self.group_of, self.solution, changes)?;
+        Ok(FewGroupChange::of_responses(&values, self.coarse))
+    }
 }
 
 /// 少数群 `coarse` 個のテーブルの少数群定数の応答（全断面積、νΣf、Σf、P0 の散乱行列 G→H の順）
