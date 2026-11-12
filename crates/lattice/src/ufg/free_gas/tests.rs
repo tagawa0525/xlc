@@ -582,6 +582,11 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
     assert_eq!(kernels.bytes(), full);
     kernels.begin(u64::MAX);
     assert_eq!(kernels.bytes(), 0);
+    // 上限が持っている量より小さくなれば、すべて捨てる（ピンと塊は上限を除いた残りを分ける）
+    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    assert!(kernels.bytes() > 0);
+    kernels.begin(kernels.bytes() - 1);
+    assert_eq!(kernels.bytes(), 0);
 }
 
 #[test]

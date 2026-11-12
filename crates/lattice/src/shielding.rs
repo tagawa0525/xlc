@@ -945,14 +945,15 @@ pub fn shield_fuel_reusing(
         shielded.region_effective[region] = dilute_nuclides[index].clone();
     }
     drop(dilute_span);
+    // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と直前の自己遮蔽の間（new）で重なる分。数えるのは ufg の
+    // DEBUG のときで、ここの DEBUG と別に選べるので、出さないときも閉じて鍵を減らす
+    let CensusCall {
+        total,
+        distinct,
+        new,
+        keys,
+    } = shares.census();
     if tracing::enabled!(tracing::Level::DEBUG) {
-        // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と直前の自己遮蔽の間（new）で重なる分
-        let CensusCall {
-            total,
-            distinct,
-            new,
-            keys,
-        } = shares.census();
         tracing::debug!(
             total,
             distinct,
