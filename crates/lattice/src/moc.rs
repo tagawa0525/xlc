@@ -202,6 +202,8 @@ pub enum MocError {
          so the generalized adjoint has no solution"
     )]
     NonOrthogonalSource { index: usize, ratio: f64 },
+    #[error("the generalized adjoint became not finite at sweep {iterations}")]
+    GeneralizedDiverged { iterations: usize },
     #[error("the generalized adjoint did not converge in {iterations} sweeps")]
     GeneralizedNotConverged { iterations: usize },
     #[error("the generalized adjoint needs a tolerance that is positive and finite, got {0}")]

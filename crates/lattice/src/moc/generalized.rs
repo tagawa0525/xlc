@@ -482,6 +482,12 @@ impl Problem<'_> {
                 if let Some(c) = coarse {
                     self.correct(c, state, &mut next)?;
                 }
+                // 発散した反復の NaN は、変化の最大（`f64::max` は NaN を捨てる）では見えない
+                if next.flux.iter().flatten().any(|x| !x.is_finite()) {
+                    return Err(MocError::GeneralizedDiverged {
+                        iterations: iteration,
+                    });
+                }
                 let change = largest_change(&next.flux, &state.flux);
                 tracing::debug!(iteration, copy, change, "generalized adjoint");
                 *state = next;
@@ -710,6 +716,9 @@ impl Problem<'_> {
                 }
                 // (I − P T₀) v
                 let image = image.pack();
+                if image.iter().any(|x| !x.is_finite()) {
+                    return Err(MocError::GeneralizedDiverged { iterations: sweeps });
+                }
                 let applied: Vec<f64> = v
                     .pack()
                     .par_iter()
