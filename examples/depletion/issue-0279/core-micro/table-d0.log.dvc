@@ -1,0 +1,5 @@
+outs:
+- md5: 1228dfcbe7d79dbfb89b43bd6d541725
+  size: 36036
+  hash: md5
+  path: table-d0.log

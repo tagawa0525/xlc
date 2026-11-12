@@ -1,4 +1,3 @@
 /table-*.msgpack
 /core-*.msgpack
-/*.log
 /*.checkpoint
