@@ -29,6 +29,8 @@ pub(crate) struct Krylov {
     done: bool,
     /// 判定を満たしたときの、作用素を掛けた回数（呼ぶ側の数え方）
     sweeps: usize,
+    /// 最後に受けた値までの、最小二乗の残差のノルムの見積もり
+    estimate: f64,
 }
 
 impl Krylov {
@@ -47,6 +49,7 @@ impl Krylov {
             residual: false,
             done: false,
             sweeps: 1,
+            estimate: f64::INFINITY,
         };
         let r = k.b.clone();
         k.begin(r);
@@ -80,6 +83,11 @@ impl Krylov {
     /// 判定を満たしたときの、作用素を掛けた回数
     pub(crate) fn steps(&self) -> usize {
         self.sweeps
+    }
+
+    /// 最後に受けた値までの残差のノルムの見積もりと、止める残差のノルム
+    pub(crate) fn residual(&self) -> (f64, f64) {
+        (self.estimate, self.target)
     }
 
     /// 作用素を掛ける値（終えていれば `None`）
@@ -130,12 +138,7 @@ impl Krylov {
         self.g[j] *= c;
         self.columns.push(h);
         let residual = self.g[j + 1].abs();
-        tracing::debug!(
-            sweeps,
-            residual,
-            target = self.target,
-            "generalized adjoint GMRES"
-        );
+        self.estimate = residual;
         if residual <= self.target || next == 0.0 || j + 1 == self.restart {
             // 上三角の系を後退代入で解き、x に基底の和を足す
             let n = self.columns.len();

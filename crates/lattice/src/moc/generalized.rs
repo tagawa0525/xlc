@@ -793,6 +793,8 @@ impl Problem<'_> {
                 tracing::trace_span!("krylov")
                     .in_scope(|| k.receive(applied, sweeps))
                     .map_err(|_| MocError::GeneralizedDiverged { iterations: sweeps })?;
+                let (residual, target) = k.residual();
+                tracing::debug!(sweeps, residual, target, "generalized adjoint GMRES");
             }
         }
         Ok(krylov
