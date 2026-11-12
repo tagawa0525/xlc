@@ -339,7 +339,7 @@ fn transposed(materials: &[&Material]) -> Result<(Vec<Material>, Vec<usize>), Mo
 /// 分を、展開の直交性 4π e_k / (2l + 1) で足し、トラックの求積の Σ w Y_k Y_k' L / V では足さないので、全断面積の項のうち平衡値の
 /// 積 ã a の分も同じ直交性で足す（P0 では両者は等しく、高次ではこの差が δΣt / Σt² の局所の項になる）。散乱の l 次の項は、随伴の
 /// モーメントの (−1)ˡ（向きの反転）と、線源の展開の (2l + 1) を掛けたモーメントの内積
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Importance {
     k: f64,
     adjoint_k: f64,
@@ -363,6 +363,8 @@ pub struct Importance {
     pub adjoint_iterations: usize,
     /// 前向き、随伴の固有値計算と、角度中性子束の積のスイープ（内積の係数を含む）の時間 (s)
     pub seconds: [f64; 3],
+    /// 随伴の固有値計算の収束した状態（一般化随伴 `solve_generalized` に渡す）
+    adjoint_state: Start,
 }
 
 impl Importance {
@@ -379,6 +381,11 @@ impl Importance {
     /// ⟨φ†, F φ⟩（Σ_領域 V Σ_項 (φ† · χ)(νΣf · φ)）
     pub fn production(&self) -> f64 {
         self.production
+    }
+
+    /// 随伴の固有値計算の収束した状態
+    pub fn adjoint_start(&self) -> &Start {
+        &self.adjoint_state
     }
 
     /// [領域][群] の随伴のスカラー中性子束
@@ -599,6 +606,7 @@ pub fn solve_importance(
         production,
         adjoint_iterations: adjoint_solution.iterations,
         seconds: [forward_seconds, adjoint_seconds, products_seconds],
+        adjoint_state: adjoint_start,
     };
     Ok((solution, converged, importance))
 }

@@ -16,10 +16,14 @@ use serde::Serialize;
 use xlc_format::library::Library;
 
 use crate::cmfd::CmfdOptions;
+use crate::fewgroup::coarse_groups;
 use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::Material;
-use crate::moc::{Acceleration, Options, Solution, Start, solve_importance, solve_symmetric_from};
+use crate::moc::{
+    Acceleration, Generalized, GeneralizedMethod, GeneralizedOptions, Options, Solution, Start,
+    solve_generalized, solve_importance, solve_symmetric_from,
+};
 use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Detected;
 use crate::tracking::Tracking;
@@ -152,6 +156,36 @@ pub struct Report {
     pub epsilon: Option<f64>,
     pub seconds: Seconds,
     pub nuclides: Vec<NuclideSensitivity>,
+    /// 一般化随伴の比較（`[sensitivity.generalized]` を与えたときだけ）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generalized: Option<GeneralizedReport>,
+}
+
+/// 一般化随伴の比較の結果（ADR-0247 の段 3）
+#[derive(Debug, Serialize)]
+pub struct GeneralizedReport {
+    /// 応答の名前（`runs` の [応答] の順）
+    pub responses: Vec<String>,
+    pub runs: Vec<GeneralizedRun>,
+    /// 差を比べた参照（`reference` を与えたときだけ）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference: Option<GeneralizedRun>,
+}
+
+/// 1 つの収束の方法で、すべての応答の一般化随伴を解いた結果
+#[derive(Debug, Serialize)]
+pub struct GeneralizedRun {
+    pub method: String,
+    pub tolerance: f64,
+    /// すべての応答を解いた時間 (s)。粗メッシュの加速の問題を作る時間を含む
+    pub seconds: f64,
+    /// [応答] のスイープの回数
+    pub sweeps: Vec<usize>,
+    /// [応答] の ⟨Γ, Fφ⟩ / ⟨|Γ|, Fφ⟩
+    pub orthogonality: Vec<f64>,
+    /// [応答] の、参照との差の最大を参照の |Γ| の最大で割ったもの（参照がなければ書かない）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub difference: Option<Vec<f64>>,
 }
 
 /// 段ごとの時間 (s)
@@ -292,6 +326,17 @@ pub fn evaluate(
         }
     }
     let direct_seconds = clock.elapsed().as_secs_f64();
+    let generalized = match &input.generalized {
+        Some(g) => Some(compare_generalized(
+            g,
+            state,
+            &materials,
+            options,
+            (&solution, &converged),
+            importance.adjoint_start(),
+        )?),
+        None => None,
+    };
     let seconds = importance.seconds;
     tracing::info!(
         solve_seconds,
@@ -315,8 +360,194 @@ pub fn evaluate(
             direct: direct_seconds,
         },
         nuclides,
+        generalized,
     };
     Ok((solution, converged, report))
+}
+
+/// 応答ごとの一般化随伴の源 S = h₁ / ⟨h₁, φ⟩ − h₂ / ⟨h₂, φ⟩（[応答][領域][群]。⟨h, φ⟩ = Σ V h φ）。`group_of` は細かい群の少数群
+fn response_sources(
+    responses: &[Response],
+    group_of: &[usize],
+    materials: &[&Material],
+    solution: &Solution,
+) -> anyhow::Result<Vec<Vec<Vec<f64>>>> {
+    let ng = group_of.len();
+    let inner = |h: &[Vec<f64>]| -> f64 {
+        h.iter()
+            .zip(&solution.flux)
+            .zip(&solution.volumes)
+            .map(|((h, f), v)| v * h.iter().zip(f).map(|(a, b)| a * b).sum::<f64>())
+            .sum()
+    };
+    responses
+        .iter()
+        .map(|response| {
+            let few = match *response {
+                Response::Total(g)
+                | Response::NuFission(g)
+                | Response::Fission(g)
+                | Response::Scatter(g, _) => g,
+            };
+            let numerator: Vec<Vec<f64>> = materials
+                .iter()
+                .map(|m| {
+                    (0..ng)
+                        .map(|g| {
+                            if group_of[g] != few {
+                                return 0.0;
+                            }
+                            match *response {
+                                Response::Total(_) => m.total[g],
+                                Response::NuFission(_) => m.nu_fission[g],
+                                Response::Fission(_) => m.fission[g],
+                                Response::Scatter(_, to) => m.scatter[g]
+                                    .iter()
+                                    .zip(group_of)
+                                    .filter(|&(_, &h)| h == to)
+                                    .map(|(s, _)| s)
+                                    .sum(),
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
+            let denominator: Vec<Vec<f64>> = materials
+                .iter()
+                .map(|_| {
+                    (0..ng)
+                        .map(|g| f64::from(u8::from(group_of[g] == few)))
+                        .collect()
+                })
+                .collect();
+            let (a, b) = (inner(&numerator), inner(&denominator));
+            if a == 0.0 || !a.is_finite() || b <= 0.0 {
+                bail!("response {response}: <h, phi> is {a} / {b}, so the ratio is not defined");
+            }
+            Ok(numerator
+                .iter()
+                .zip(&denominator)
+                .map(|(x, y)| x.iter().zip(y).map(|(p, q)| p / a - q / b).collect())
+                .collect())
+        })
+        .collect()
+}
+
+/// `[sensitivity.generalized]` の比較: 応答の源を、方法ごと（と参照）に `solve_generalized` で解き、時間、スイープの回数、
+/// ⟨Γ, Fφ⟩ の残り、参照との差を書く
+fn compare_generalized(
+    input: &GeneralizedInput,
+    state: &State,
+    materials: &[&Material],
+    options: &Options,
+    (solution, forward): (&Solution, &Start),
+    adjoint: &Start,
+) -> anyhow::Result<GeneralizedReport> {
+    let group_of = coarse_groups(&state.library.groups, &input.bounds)
+        .context("[sensitivity.generalized] bounds")?;
+    let sources = response_sources(&input.responses, &group_of, materials, solution)?;
+    let cmfd = match options.acceleration {
+        Acceleration::Cmfd(c) => c,
+        Acceleration::None => CmfdOptions::default(),
+    };
+    let run =
+        |method: Method, tolerance: f64| -> anyhow::Result<(GeneralizedRun, Vec<Generalized>)> {
+            let settings = GeneralizedOptions {
+                method: match method {
+                    Method::SourceIteration => GeneralizedMethod::SourceIteration,
+                    Method::Cmfd => GeneralizedMethod::Cmfd(cmfd),
+                    Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
+                },
+                tolerance,
+                max_iterations: options.max_iterations,
+            };
+            let clock = Instant::now();
+            let gamma = solve_generalized(
+                state.tracking,
+                materials,
+                options,
+                Some(state.symmetry),
+                forward,
+                adjoint,
+                &sources,
+                &settings,
+            )
+            .with_context(|| format!("generalized adjoint by {method}"))?;
+            let seconds = clock.elapsed().as_secs_f64();
+            let orthogonality = gamma
+                .iter()
+                .map(|g| fission_overlap(materials, solution, &g.flux))
+                .collect();
+            tracing::info!(%method, tolerance, seconds, "generalized adjoints");
+            Ok((
+                GeneralizedRun {
+                    method: method.to_string(),
+                    tolerance,
+                    seconds,
+                    sweeps: gamma.iter().map(|g| g.iterations).collect(),
+                    orthogonality,
+                    difference: None,
+                },
+                gamma,
+            ))
+        };
+    let reference = input
+        .reference
+        .map(|(method, tolerance)| run(method, tolerance))
+        .transpose()?;
+    let mut runs = Vec::with_capacity(input.methods.len());
+    for &method in &input.methods {
+        let (mut result, gamma) = run(method, input.tolerance)?;
+        if let Some((_, reference)) = &reference {
+            result.difference = Some(
+                gamma
+                    .iter()
+                    .zip(reference)
+                    .map(|(a, b)| largest_difference(&a.flux, &b.flux))
+                    .collect(),
+            );
+        }
+        runs.push(result);
+    }
+    Ok(GeneralizedReport {
+        responses: input.responses.iter().map(ToString::to_string).collect(),
+        runs,
+        reference: reference.map(|(r, _)| r),
+    })
+}
+
+/// ⟨Γ, Fφ⟩ / ⟨|Γ|, Fφ⟩（`flux` は [領域][群] の Γ）
+fn fission_overlap(materials: &[&Material], solution: &Solution, flux: &[Vec<f64>]) -> f64 {
+    let (mut sum, mut size) = (0.0, 0.0);
+    for (r, m) in materials.iter().enumerate() {
+        for t in &m.fission_terms {
+            let rate: f64 = t
+                .nu_fission
+                .iter()
+                .zip(&solution.flux[r])
+                .map(|(n, x)| n * x)
+                .sum();
+            let v = solution.volumes[r] * rate;
+            sum += v * t.chi.iter().zip(&flux[r]).map(|(c, x)| c * x).sum::<f64>();
+            size += v * t
+                .chi
+                .iter()
+                .zip(&flux[r])
+                .map(|(c, x)| c * x.abs())
+                .sum::<f64>();
+        }
+    }
+    if size == 0.0 { 0.0 } else { sum / size }
+}
+
+/// 領域と群の |a − b| の最大を、|b| の最大で割ったもの
+fn largest_difference(a: &[Vec<f64>], b: &[Vec<f64>]) -> f64 {
+    let (mut change, mut scale) = (0.0_f64, 0.0_f64);
+    for (x, y) in a.iter().flatten().zip(b.iter().flatten()) {
+        change = change.max((x - y).abs());
+        scale = scale.max(y.abs());
+    }
+    change / scale
 }
 
 /// 解いた物質ごとの、核種の数密度の微分（数密度 1 の群定数。自己遮蔽した物質では、その領域の実効断面積と移行の群定数に
