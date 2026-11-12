@@ -48,10 +48,15 @@ pub fn hold_total(given: Option<u64>, held: u64) -> Result<u64, MemoryError> {
     Ok(whole.saturating_sub(held))
 }
 
-/// 自由ガスの核の表（ADR-0248）の上限 (B): 残った表 `held` を含む全体（新たに確保できる量 `total` + `held`）を、同時に解く
-/// `at_once` 個の減速計算と表で分けた 1 つ分。ピンと塊には、`total` から表がまだ増えうる量（上限 − `held`、または 0）を除いて渡す
-pub fn kernel_cap(total: u64, held: u64, at_once: usize, _demand: Option<u64>) -> u64 {
-    total.saturating_add(held) / (at_once as u64 + 1)
+/// 自由ガスの核の表（ADR-0248）の上限 (B): 残った表 `held` を含む全体（新たに確保できる量 `total` + `held`）から、同時に解く
+/// `at_once` 個の減速計算の 1 つ分ずつを除いた残り。1 つ分は、前の自己遮蔽で測ったピンの 1 回の量 `demand`（上限なしで持つ区間と
+/// 作業の配列 (B)）と、全体を減速計算と表で等しく分けた量の小さい方（測っていなければ等しく分けた量）。ピンと塊には、`total` から
+/// 表がまだ増えうる量（上限 − `held`、または 0）を除いて渡す
+pub fn kernel_cap(total: u64, held: u64, at_once: usize, demand: Option<u64>) -> u64 {
+    let whole = total.saturating_add(held);
+    let even = whole / (at_once as u64 + 1);
+    let share = demand.map_or(even, |d| d.min(even));
+    whole - share * at_once as u64
 }
 
 /// 全体で持つ量 `total` (B) を、同時に解きうる `at_once` 個の減速計算で分けたときの、1 回の減速計算の量（1 区間の大きさで数えた

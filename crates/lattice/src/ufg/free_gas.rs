@@ -839,6 +839,9 @@ pub struct KernelCache {
     point: AtomicU64,
     /// 今の自己遮蔽の [値を使った核種と格子点の組, 作った組, 上限で持たなかった組] の数（ログ）
     counts: [AtomicU64; 3],
+    /// 直前の自己遮蔽で解いたピンの 1 回の量の最大 (B。上限なしで持つ区間と作業の配列。0 は測っていない)。上限
+    /// （[`super::kernel_cap`]）で、ピンに残す量
+    demand: AtomicU64,
     /// 上限に届いて、今の燃焼点で使っていない格子点を捨てた燃焼点の番号。捨てる間は持ち続け、同時に余地を確かめるほかの
     /// 減速計算を、捨て終えるまで待たせる（待たずに余地が無いとすると、捨てた後の余地に入れ損ねる）
     evicted: Mutex<u64>,
@@ -897,6 +900,19 @@ impl KernelCache {
         });
         // ほかの減速計算が同時に足す分を消さないよう、捨てた分だけを引く
         self.bytes.fetch_sub(removed, Ordering::Relaxed);
+    }
+
+    /// 自己遮蔽で解いたピンの 1 回の量の最大 `bytes` (B) を、次の自己遮蔽の上限のために残す（0 なら残さない。解くピンの無い
+    /// 自己遮蔽は前の値を消さない）
+    pub fn set_demand(&self, bytes: u64) {
+        if bytes > 0 {
+            self.demand.store(bytes, Ordering::Relaxed);
+        }
+    }
+
+    /// 前の自己遮蔽で解いたピンの 1 回の量の最大 (B)。測っていなければ `None`
+    pub fn demand(&self) -> Option<u64> {
+        Some(self.demand.load(Ordering::Relaxed)).filter(|&d| d > 0)
     }
 
     /// 持つ量の上限 (B。[`KernelCache::limit`])
@@ -1487,6 +1503,16 @@ impl<'a> Thermal<'a> {
                 (bytes + point_bytes((w[1] - w[0]) as usize), n + 1)
             });
         let record = entries > 0 && self.kernels.is_some_and(|k| k.has_room(missed, entries));
+        // 上限なしで持つ区間の数（最初のスイープの格子点の区間と、最初の格子点で下の表の分）
+        if self.previous.is_none() && !self.all.is_empty() {
+            if self.work.wanted == 0 {
+                let slots = u.len() - self.start;
+                let bytes = slots * self.starts.len() * std::mem::size_of::<u32>()
+                    + slots * std::mem::size_of::<Option<Held>>();
+                self.work.wanted += bytes.div_ceil(HELD_CELL_BYTES) as u64;
+            }
+            self.work.wanted += self.all.len() as u64;
+        }
         // 最初に持つ格子点で、すべての格子点の核種の区間の始まりと、格子点ごとの位置の表を確保し、上限から引く（持つ区間とともに
         // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）。区間の格子点を u32 で持つので、格子点の
         // 数が u32 を超える格子（間引かない格子でも 127 万点ほど）は持たない

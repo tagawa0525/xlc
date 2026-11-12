@@ -157,6 +157,9 @@ pub struct CellSpectrum {
     pub points: usize,
     /// 衝突確率（飛程）を求めた回数（格子点の数え方は `points` と同じ。ログの内訳）
     pub collisions: usize,
+    /// この減速計算が上限なしで持つ量 (B): 持つ区間の上限から除く作業の配列と、スイープの間で上限なしで持つ区間（自由ガスの核の
+    /// 表の上限を決めるピンの 1 回の量。ADR-0248）。上限によらない
+    pub demand: u64,
 }
 
 /// セルの UFG の範囲 [下限, 上限] (eV)。下限はライブラリのポイントワイズの断面積の下限（熱中性子散乱の打ち切り以上の群の境界）、
@@ -695,6 +698,9 @@ fn solve_cell(
         ng,
     };
     // 自由ガスの核の届く範囲（start から）は、上方散乱が前のスイープの中性子束を使うので、収束するまで掃き直す
+    // 上限なしで持つ飛程の大きさ (B。[`CellSpectrum::demand`])
+    let mut demand_tracks = 0;
+    let mut tracks_in_work = 0;
     let (thermal, sweeps, mut held_tracks) = match scattering {
         Scattering::Static => (None, None, None),
         Scattering::FreeGas(options) => {
@@ -746,6 +752,10 @@ fn solve_cell(
                 // 自由ガスの核の届く格子点がなければ、掃き直さない
                 None => (None, None, None),
                 Some(start) => {
+                    // 上限なしなら飛程も持つ（ピンの 1 回の量に数える）
+                    if options.sweeps != Some(1) {
+                        demand_tracks = held_tracks_bytes(u.len() - start, n);
+                    }
                     // 掃き直す格子点の飛程（[`HeldTracks`]）は、持つ区間の上限の中に収まるときだけ持ち（収まらなければ掃き直す
                     // たびに求める。結果は同じ）、その分を自由ガスの区間より先に上限から除く。スイープが 1 回なら、持った飛程と
                     // 区間を使うスイープがない
@@ -754,6 +764,7 @@ fn solve_cell(
                         && cells_beside_work(hold, work + tracks) > 0)
                         .then(|| {
                             work += tracks;
+                            tracks_in_work = tracks;
                             HeldTracks {
                                 start,
                                 tracks: Vec::with_capacity(u.len() - start),
@@ -821,6 +832,15 @@ fn solve_cell(
     }
     drop(held_tracks);
     let held = sweep.thermal.as_ref().map_or(0, Thermal::held);
+    // 飛程を持つかどうかは上限で決まるので、作業の配列は飛程の前の分に、上限なしの飛程と区間を足す。スイープが 1 回なら区間を持たない
+    let demand = match (&sweep.thermal, sweeps) {
+        (Some(thermal), s) if s != Some(1) => {
+            work - tracks_in_work
+                + demand_tracks
+                + thermal.work().wanted * free_gas::HELD_CELL_BYTES as u64
+        }
+        _ => work - tracks_in_work,
+    };
     if let Some(thermal) = &mut sweep.thermal {
         thermal.release();
     }
@@ -986,6 +1006,7 @@ fn solve_cell(
         nuclides,
         points: u.len(),
         collisions,
+        demand,
     })
 }
 

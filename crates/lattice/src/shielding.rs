@@ -717,7 +717,9 @@ pub fn shield_fuel_reusing(
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
     let growth = shares.kernels().limit(match options.transfer {
-        UfgTransfer::RingFlux if at_once > 0 => kernel_cap(total, held, at_once, None),
+        UfgTransfer::RingFlux if at_once > 0 => {
+            kernel_cap(total, held, at_once, shares.kernels().demand())
+        }
         // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
         _ => held,
     });
@@ -794,6 +796,8 @@ pub fn shield_fuel_reusing(
     let mut solved: Vec<(usize, Solved)> = Vec::new();
     // 代表のピンのエネルギーの格子点の数（解いた順）と、移り合うピンへの複製の時間
     let mut points: Vec<usize> = Vec::new();
+    // 解いたピンの 1 回の量の最大 (B)。次の自己遮蔽の自由ガスの核の表の上限に使う（ADR-0248）
+    let mut demand = 0;
     let mut replicate = Duration::ZERO;
     let serial = Instant::now();
     for ((cell, fuel_regions, ring_materials, rings), planned) in pins.into_iter().zip(plan) {
@@ -824,6 +828,7 @@ pub fn shield_fuel_reusing(
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
         points.extend(ufg.as_ref().map(|c| c.points));
+        demand = demand.max(ufg.as_ref().map_or(0, |c| c.demand));
         // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
         let micro = Arc::new(carlvik);
         let (effective, ring_effective) = match &mut ufg {
@@ -996,13 +1001,17 @@ pub fn shield_fuel_reusing(
             );
         }
     }
-    // 自由ガスの核の D の値の表（ADR-0248）: 値を使った核種と格子点の組、作った組、上限で入れなかった組の数と、持つ大きさ
+    // 自由ガスの核の D の値の表（ADR-0248）: 値を使った核種と格子点の組、作った組、上限で入れなかった組の数と、持つ大きさ、上限、
+    // 解いたピンの 1 回の量の最大（次の自己遮蔽の上限に使う）
+    shares.kernels().set_demand(demand);
     let [reused, built, full] = shares.kernels().counts();
     tracing::info!(
         reused,
         built,
         full,
         bytes = shares.kernels().bytes(),
+        cap = shares.kernels().cap(),
+        demand,
         "UFG free-gas kernel points"
     );
     tracing::info!(
@@ -1595,6 +1604,8 @@ struct CellShielding {
     groups: std::ops::Range<usize>,
     /// 減速計算のエネルギーの格子点の数
     points: usize,
+    /// 減速計算が上限なしで持つ量 (B。[`CellSpectrum::demand`])
+    demand: u64,
 }
 
 /// 等価なセルの減速計算（[`solve_equivalent_cell`]）
@@ -1955,6 +1966,7 @@ fn shield_cell(
         sph,
         groups: top..bottom,
         points: spectrum.points,
+        demand: spectrum.demand,
     }))
 }
 
