@@ -4,11 +4,12 @@
 """
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from compare_skip import estimate, homogenized, two_group
+from compare_skip import bound, estimate, homogenized, shielding_burnup, two_group
 
 
 class Estimate(unittest.TestCase):
@@ -31,6 +32,25 @@ class Estimate(unittest.TestCase):
     def test_a_nuclide_only_in_the_shielding_is_an_error(self):
         with self.assertRaises(SystemExit):
             estimate({"a": 100.0}, {"a": 1.0}, {"a": 0.0})
+
+
+class Bound(unittest.TestCase):
+    def test_the_bound_sums_the_terms_without_their_cancellation(self):
+        self.assertEqual(bound([("a", -3.0), ("b", 2.0)]), 5.0)
+        self.assertEqual(bound([]), 0.0)
+
+
+class ShieldingBurnup(unittest.TestCase):
+    def test_the_points_come_from_the_history_of_the_input_that_made_the_table(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "skip.toml"
+            path.write_text(
+                "[history]\nburnup = [0, 1, 2]\nshielding-burnup = [0, 2]\n"
+            )
+            self.assertEqual(shielding_burnup(path), [0, 2])
+            path.write_text("[history]\nburnup = [0, 1, 2]\n")
+            with self.assertRaises(SystemExit):
+                shielding_burnup(path)
 
 
 class Homogenized(unittest.TestCase):
