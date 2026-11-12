@@ -163,15 +163,18 @@ pub enum UfgError {
         "ring {ring}: the density direction changes a ring whose total cross section is 0 at {energy} eV, so the tracks have no derivative in ln Σ"
     )]
     TangentZeroTotal { ring: usize, energy: f64 },
-    /// 同じ組成のリングは飛程の表の 1 つの物質（[`track_table`]）なので、その全断面積は一緒にしか変えられない
+    /// 同じ組成のリングは飛程の表の 1 つの物質（[`track_table`]）なので、表を使う減速計算では、その全断面積は一緒にしか変えられない
     #[error(
-        "density direction {direction}: rings {ring} and {other} have the same composition but different density changes"
+        "density direction {direction}: rings {ring} and {other} have the same composition but different density changes, which the track table cannot separate (use `track-table = false`)"
     )]
     TangentClass {
         direction: usize,
         ring: usize,
         other: usize,
     },
+    /// 個数密度の変わるリングの組成が、飛程の表の物質に無い（内部の不整合）
+    #[error("internal error: ring {0} of the tangent has no material in the track table")]
+    TangentTable(usize),
     /// 1 次の変化は、持たない格子点の区間も格子点を u32 で書く（[`free_gas::Thermal::keep_cells`]）
     #[error("the slowing-down tangent needs fewer than 2^32 lethargy points, got {0}")]
     TangentGrid(usize),
@@ -892,7 +895,7 @@ fn solve_cell(
         }
     };
     if let (Some(t), Some((_, first))) = (&mut sweep.tangent, &table) {
-        t.table_materials(first, &entries);
+        t.table_materials(first, &entries)?;
     }
     let table_done = Instant::now();
 
@@ -1031,7 +1034,10 @@ fn solve_cell(
             .collect();
         thermal.keep_cells();
         t.gas = Some(GasTangent::new(directions, n, thermal.start()));
-        t.start = Some(thermal.start());
+        // 掃き直さない（スイープが 1 回）なら、持った飛程の微分を読むスイープがない
+        if sweeps != Some(1) {
+            t.start = Some(thermal.start());
+        }
     }
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
     pass.run(
@@ -2383,22 +2389,16 @@ impl TangentSweep {
         let changed: Vec<usize> = (0..n)
             .filter(|&i| directions.iter().any(|d| d[i].iter().any(|&x| x != 0.0)))
             .collect();
-        // 変わるリングを、同じ組成のリングの組にまとめる（変わらない同じ組成のリングも組に入れ、δN が同じことを確かめる）
+        // 変わるリングを、組成とどの向きの δN も同じリングの組にまとめる（変わらない同じ組成のリングで δN も同じものも組に入れる）。
+        // 組の全断面積はどの向きでも一緒に変わるので、飛程の微分は組ごとに 1 つ
         let mut classes: Vec<(usize, Vec<usize>)> = Vec::new();
         for &r in &changed {
             if classes.iter().any(|(_, members)| members.contains(&r)) {
                 continue;
             }
-            let members: Vec<usize> = (0..n).filter(|&i| entries[i] == entries[r]).collect();
-            for (d, direction) in directions.iter().enumerate() {
-                if let Some(&other) = members.iter().find(|&&i| direction[i] != direction[r]) {
-                    return Err(UfgError::TangentClass {
-                        direction: d,
-                        ring: r,
-                        other,
-                    });
-                }
-            }
+            let members: Vec<usize> = (0..n)
+                .filter(|&i| entries[i] == entries[r] && directions.iter().all(|d| d[i] == d[r]))
+                .collect();
             classes.push((r, members));
         }
         // [向き][リング] の、リングの項の数から作った配列
@@ -2440,19 +2440,36 @@ impl TangentSweep {
         })
     }
 
-    /// 飛程の表の [物質] の最初のリング `first` から、[組] の表の物質の番号を決める（組の代表と同じ組成の物質）
-    fn table_materials(&mut self, first: &[usize], entries: &[Vec<(usize, f64)>]) {
-        self.materials = Some(
-            self.classes
+    /// 飛程の表の [物質] の最初のリング `first` から、[組] の表の物質の番号を決める（組の代表と同じ組成の物質）。表は同じ組成の
+    /// リングを 1 つの物質にするので、同じ組成で δN の違う 2 つの組は表で分けられず、止める
+    fn table_materials(
+        &mut self,
+        first: &[usize],
+        entries: &[Vec<(usize, f64)>],
+    ) -> Result<(), UfgError> {
+        let mut materials: Vec<usize> = Vec::with_capacity(self.classes.len());
+        for &(r, _) in &self.classes {
+            let m = first
                 .iter()
-                .map(|&(r, _)| {
-                    first
-                        .iter()
-                        .position(|&f| entries[f] == entries[r])
-                        .unwrap_or(usize::MAX)
-                })
-                .collect(),
-        );
+                .position(|&f| entries[f] == entries[r])
+                .ok_or(UfgError::TangentTable(r))?;
+            if let Some(earlier) = materials.iter().position(|&x| x == m) {
+                let other = self.classes[earlier].0;
+                let direction = self
+                    .directions
+                    .iter()
+                    .position(|d| d[r] != d[other])
+                    .unwrap_or(0);
+                return Err(UfgError::TangentClass {
+                    direction,
+                    ring: other.min(r),
+                    other: other.max(r),
+                });
+            }
+            materials.push(m);
+        }
+        self.materials = Some(materials);
+        Ok(())
     }
 
     fn save(&self) -> TangentSaved {
