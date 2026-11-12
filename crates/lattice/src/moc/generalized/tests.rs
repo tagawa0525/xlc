@@ -6,6 +6,7 @@ use crate::moc::tests::{
 };
 use crate::moc::{Solution, solve, solve_adjoint_from, solve_with};
 use crate::symmetry::{Symmetry, detect, require};
+use crate::tracking::{Boundaries, Boundary};
 
 /// 前向きの解と状態、随伴の状態
 fn eigenpair(
@@ -209,16 +210,22 @@ fn assert_fission_derivative(scattering_order: usize) {
         )
     };
     let materials = checkerboard_materials(2, &f, &m);
-    let options = tight(scattering_order);
-    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, None);
+    assert_fission_derivative_in(&tracking, &materials, &tight(scattering_order));
+}
+
+/// `assert_fission_derivative` の問題を `tracking` と `materials`（領域 0 が燃料）で解く。応答は領域 0 の熱群の全反応率と、
+/// すべての領域（真空を含む）の熱群の中性子束の比
+fn assert_fission_derivative_in(tracking: &Tracking, materials: &[&Material], options: &Options) {
+    let f = materials[0];
+    let (solution, forward, adjoint) = eigenpair(tracking, materials, options, None);
     let n = materials.len();
     let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
     let h2 = indicator(n, 2, 1, |_| Some(1.0));
     let source = ratio_source(&solution, &h1, &h2);
     let gamma = solve_generalized(
-        &tracking,
-        &materials,
-        &options,
+        tracking,
+        materials,
+        options,
         None,
         &forward,
         &adjoint,
@@ -227,7 +234,7 @@ fn assert_fission_derivative(scattering_order: usize) {
     )
     .unwrap();
     // 燃料の 1 領域（領域 0）の νΣf を変える
-    let d = fission_only(&f);
+    let d = fission_only(f);
     let g = &gamma[0].flux[0];
     let first_order: f64 = solution.volumes[0]
         * d.fission_terms
@@ -244,10 +251,11 @@ fn assert_fission_derivative(scattering_order: usize) {
             })
             .sum::<f64>()
         / solution.k;
-    let direct = central_log_response(&tracking, &materials, 0, &d, &options, [&h1, &h2], 0.01);
+    let direct = central_log_response(tracking, materials, 0, &d, options, [&h1, &h2], 0.01);
     assert!(
         (first_order - direct).abs() < 2e-7 * direct.abs(),
-        "P{scattering_order}: {first_order} vs {direct}"
+        "P{}: {first_order} vs {direct}",
+        options.scattering_order
     );
 }
 
@@ -259,6 +267,25 @@ fn generalized_adjoint_gives_the_response_derivative_of_a_fission_change() {
 #[test]
 fn generalized_adjoint_gives_the_response_derivative_with_anisotropic_scattering() {
     assert_fission_derivative(1);
+}
+
+#[test]
+fn generalized_adjoint_takes_sources_in_void_regions() {
+    // 燃料と被覆管の間の真空の隙間。応答の分母の中性子束は真空の領域を含むので、源は真空の領域でも 0 でない
+    let pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+    let vacuum = Boundaries {
+        left: Boundary::Vacuum,
+        right: Boundary::Vacuum,
+        top: Boundary::Vacuum,
+        bottom: Boundary::Vacuum,
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, vacuum).unwrap();
+    let (f, m, gap) = (two_spectra_fuel(), moderator(), Material::void(2));
+    let pin_materials = [&f, &gap, &m, &m];
+    let materials: Vec<&Material> = [&pin_materials[..], &[&m], &[&m], &pin_materials[..]].concat();
+    assert_fission_derivative_in(&tracking, &materials, &tight(0));
 }
 
 #[test]
