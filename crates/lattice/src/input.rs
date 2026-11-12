@@ -692,7 +692,8 @@ impl GeneralizedEntry {
             .any(|m| matches!(m, Method::Gmres { .. } | Method::CmfdGmres { .. }));
         if restart.is_some() && !uses_gmres {
             return Err(
-                "[sensitivity.generalized] restart is for gmres, which no method uses".into(),
+                "[sensitivity.generalized] restart is for gmres and cmfd-gmres, which no method uses"
+                    .into(),
             );
         }
         Ok(GeneralizedInput {
