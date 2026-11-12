@@ -960,12 +960,28 @@ pub fn log_effective_change(
     // [核種] の（名前、[全, 捕獲] の最大、その群）と [群] の [摂動した核種, ほかの核種][全, 捕獲] の最大
     let mut by_nuclide: Vec<(String, [f64; 2], [usize; 2])> = Vec::new();
     let mut by_group: Vec<[[f64; 2]; 2]> = Vec::new();
+    // 比べられない組（ピンの数か並び、核種の並びの違う摂動）は、名前と群を取り違えたログを出さずに、比べないことを出す
+    if nominal.pins.len() != perturbed.pins.len() {
+        tracing::warn!(
+            nominal = nominal.pins.len(),
+            perturbed = perturbed.pins.len(),
+            "the perturbed self-shielding has another pin count; not compared"
+        );
+        return;
+    }
     for (p, q) in nominal.pins.iter().zip(&perturbed.pins) {
-        if p.cell != q.cell {
+        let names = |s: &PinShielding| -> Vec<String> {
+            s.nuclides.iter().map(|(n, _)| n.name.clone()).collect()
+        };
+        if p.cell != q.cell
+            || names(p) != names(q)
+            || p.effective.len() != q.effective.len()
+            || p.effective.len() != p.nuclides.len()
+        {
             tracing::warn!(
                 nominal = p.cell,
                 perturbed = q.cell,
-                "the perturbed self-shielding has another pin order; not compared"
+                "the perturbed self-shielding has another pin or nuclide order; not compared"
             );
             return;
         }
