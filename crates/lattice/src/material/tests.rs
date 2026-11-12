@@ -332,7 +332,7 @@ fn asymmetric() -> Material {
 #[test]
 fn adjoint_transposes_every_scattering_moment() {
     let m = asymmetric();
-    let a = m.adjoint();
+    let a = m.adjoint().unwrap();
     a.validate().unwrap();
     assert_eq!(a.total, m.total);
     for (adjoint, forward) in std::iter::once(&a.scatter)
@@ -351,7 +351,7 @@ fn adjoint_transposes_every_scattering_moment() {
 #[test]
 fn adjoint_fission_matrix_is_the_transpose() {
     let m = asymmetric();
-    let (forward, adjoint) = (m.fission_matrix(), m.adjoint().fission_matrix());
+    let (forward, adjoint) = (m.fission_matrix(), m.adjoint().unwrap().fission_matrix());
     for (g, row) in adjoint.iter().enumerate() {
         for (h, v) in row.iter().enumerate() {
             assert!(
@@ -365,7 +365,7 @@ fn adjoint_fission_matrix_is_the_transpose() {
 #[test]
 fn adjoint_of_the_adjoint_is_the_material() {
     let m = asymmetric();
-    let twice = m.adjoint().adjoint();
+    let twice = m.adjoint().unwrap().adjoint().unwrap();
     assert_eq!(twice.scatter, m.scatter);
     assert_eq!(twice.anisotropic, m.anisotropic);
     for (a, b) in twice
@@ -381,7 +381,7 @@ fn adjoint_of_the_adjoint_is_the_material() {
 #[test]
 fn adjoint_of_a_material_without_fission_has_no_fission_terms() {
     let m = mix(&library(), &[("M".into(), 0.03)]).unwrap();
-    let a = m.adjoint();
+    let a = m.adjoint().unwrap();
     a.validate().unwrap();
     assert!(a.fission_terms.is_empty());
     assert!(a.nu_fission.iter().all(|&v| v == 0.0));

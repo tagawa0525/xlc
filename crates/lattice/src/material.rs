@@ -307,8 +307,10 @@ impl Material {
 
     /// 前向きの輸送で解くと随伴の輸送になる物質（ADR-0247）。全断面積はそのまま、各次数の散乱行列を転置し、核分裂の項
     /// χ ⊗ νΣf を (νΣf / s) ⊗ (s χ)（s = Σ_g νΣf）に入れ替える（核分裂の行列が転置になり、χ の和は 1 のまま）。νΣf が 0 の
-    /// 項は核分裂を生まないので落とす。Σf は輸送に入らないのでそのまま
-    pub fn adjoint(&self) -> Self {
+    /// 項は核分裂を生まないので落とす。Σf は輸送に入らないのでそのまま。転置は χ を作り直すので、前向きの物質を先に `validate` で
+    /// 確かめる（確かめないと、規格化されない χ や νΣf の食い違いが転置で消える）
+    pub fn adjoint(&self) -> Result<Self, MaterialError> {
+        self.validate()?;
         let transpose = |m: &[Vec<f64>]| -> Vec<Vec<f64>> {
             (0..m.len())
                 .map(|g| m.iter().map(|row| row[g]).collect())
@@ -332,14 +334,14 @@ impl Material {
                 *n += v;
             }
         }
-        Self {
+        Ok(Self {
             total: self.total.clone(),
             scatter: transpose(&self.scatter),
             anisotropic: self.anisotropic.iter().map(|m| transpose(m)).collect(),
             fission: self.fission.clone(),
             nu_fission,
             fission_terms,
-        }
+        })
     }
 }
 

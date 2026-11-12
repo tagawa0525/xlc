@@ -232,18 +232,26 @@ pub fn solve_adjoint(
     symmetry: Option<&Detected>,
 ) -> Result<Adjoint, MocError> {
     // 対称操作の確かめは物質を参照で比べるので、同じ物質の領域には同じ転置の物質を渡す
-    let mut distinct: Vec<&Material> = Vec::new();
+    // [物質] の（物質、それを最初に指す領域）
+    let mut distinct: Vec<(&Material, usize)> = Vec::new();
     let mut seen: HashMap<*const Material, usize> = HashMap::new();
     let index: Vec<usize> = materials
         .iter()
-        .map(|&m| {
+        .enumerate()
+        .map(|(region, &m)| {
             *seen.entry(std::ptr::from_ref(m)).or_insert_with(|| {
-                distinct.push(m);
+                distinct.push((m, region));
                 distinct.len() - 1
             })
         })
         .collect();
-    let transposed: Vec<Material> = distinct.iter().map(|m| m.adjoint()).collect();
+    let transposed = distinct
+        .iter()
+        .map(|&(m, region)| {
+            m.adjoint()
+                .map_err(|source| MocError::Material { region, source })
+        })
+        .collect::<Result<Vec<Material>, MocError>>()?;
     let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
     let (solution, _) = solve_with(tracking, &adjoint, options, symmetry, None)?;
     Ok(Adjoint {
