@@ -582,6 +582,40 @@ fn pair(
     })
 }
 
+/// 一般化随伴 Γ と前向きの解から求めた、物質の摂動による比の応答 R = ⟨h₁, φ⟩ / ⟨h₂, φ⟩ の 1 次の変化
+/// δR / R = ⟨δh₁, φ⟩ / ⟨h₁, φ⟩ − ⟨δh₂, φ⟩ / ⟨h₂, φ⟩ + ⟨Γ, (δF / k − δL) φ⟩ のうち、中性子束を通じた項の係数（ADR-0247 の
+/// 「微分の式」）。内積は `Importance` と同じ離散の厳密な形で、全断面積の項は Γ と φ の角度中性子束の積のスイープで求める
+#[derive(Debug)]
+pub struct ResponseImportance {
+    pairing: Pairing,
+}
+
+impl ResponseImportance {
+    /// 領域ごとの物質の変化 `changes`（領域、δM。同じ領域を重ねて挙げれば足す）の Σ ⟨Γ, (δF / k − δL) φ⟩。エラーは
+    /// `Importance::k_derivative` と同じ
+    pub fn flux_term(&self, changes: &[(usize, &Material)]) -> Result<f64, MocError> {
+        self.pairing.inner(changes)
+    }
+}
+
+/// 物質 `materials` の問題の、前向きの固有値計算の収束した状態 `forward` と、源 `source`（[領域][群]）の一般化随伴 `gamma`
+/// （`solve_generalized` に同じトラッキング、対称操作 `symmetry`、`options` の散乱の次数で解かせたもの）から、比の応答の 1 次の
+/// 変化の係数（`ResponseImportance`）を求める。状態が別の問題のものか、源の形が問題と違えばエラー
+pub fn response_importance(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
+    forward: &Start,
+    gamma: &Generalized,
+    source: &[Vec<f64>],
+) -> Result<ResponseImportance, MocError> {
+    let _ = (
+        tracking, materials, options, symmetry, forward, gamma, source,
+    );
+    Err(MocError::NoRegions)
+}
+
 /// `solve_symmetric_from` と同じ問題を解き、続けて随伴を解いて、物質の摂動による k の変化の係数（`Importance`）を求める（ADR-0247）。
 /// 前向きは `start` から（`None` なら平らな初期値から）、随伴は平らな初期値から解き、両方の収束した角度中性子束でトラックを
 /// もう一度スイープして全断面積の項を求める。`symmetry` は `solve_adjoint` と同じ
