@@ -332,3 +332,71 @@ fn scaled_inputs_change_only_positive_densities_of_the_nuclide() {
     assert_eq!(scaled[1], materials[1]);
     assert_eq!(scaled_inputs(&materials, "Pu-240", 0.1), materials);
 }
+
+#[test]
+fn zero_table_constants_change_only_through_their_numerators() {
+    // 3 つの少数群（細かい群ごと）では、熱群から高速群への散乱 Σs,3→1 がどの物質でも 0。中性子束の形によらず 0 なので一般化
+    // 随伴を解かず、変化は分子の断面積の直接の項 ⟨δh₁, φ⟩ / ⟨h₂, φ⟩ だけ
+    let (tracking, f, m) = three_group_pin_cell();
+    let materials = [&f, &m];
+    let options = Options {
+        k_tolerance: 1e-12,
+        flux_tolerance: 1e-11,
+        acceleration: Acceleration::Cmfd(CmfdOptions {
+            k_tolerance: 1e-13,
+            flux_tolerance: 1e-12,
+            ..CmfdOptions::default()
+        }),
+        ..Options::default()
+    };
+    let (solution, forward) = crate::moc::solve_symmetric_from(
+        &tracking,
+        &materials,
+        &options,
+        &crate::symmetry::Detected::none(&tracking),
+        None,
+    )
+    .unwrap();
+    let (_, adjoint) =
+        crate::moc::solve_adjoint_from(&tracking, &materials, &options, None, None).unwrap();
+    let group_of = [0, 1, 2];
+    let responses = table_responses(3);
+    let settings = GeneralizedOptions {
+        method: GeneralizedMethod::Gmres { restart: 100 },
+        tolerance: 1e-10,
+        max_iterations: options.max_iterations,
+        batch: false,
+    };
+    let solve = FewGroupSolve::new(
+        &tracking,
+        &materials,
+        &options,
+        None,
+        (&solution, &forward, &adjoint),
+        &responses,
+        &group_of,
+        &settings,
+    )
+    .unwrap();
+    let mut d = three_group([0.1, 0.2, 0.3], [0.0; 3]);
+    d.scatter[2][0] = 0.004;
+    let first = solve
+        .first_order(&responses, &group_of, &solution, &[(0, &d)])
+        .unwrap();
+    let at = responses
+        .iter()
+        .position(|r| *r == Response::Scatter(2, 0))
+        .unwrap();
+    let b: f64 = solution
+        .volumes
+        .iter()
+        .zip(&solution.flux)
+        .map(|(v, phi)| v * phi[2])
+        .sum();
+    let expected = solution.volumes[0] * 0.004 * solution.flux[0][2] / b;
+    assert!(
+        (first[at] - expected).abs() < 1e-14 * expected,
+        "{} vs {expected}",
+        first[at]
+    );
+}
