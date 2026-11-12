@@ -273,14 +273,7 @@ pub fn solve_adjoint(
     options: &Options,
     symmetry: Option<&Detected>,
 ) -> Result<Adjoint, MocError> {
-    let (transposed, index) = transposed(materials)?;
-    let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
-    let (solution, _) = solve_with(tracking, &adjoint, options, symmetry, None)?;
-    Ok(Adjoint {
-        k: solution.k,
-        flux: solution.flux,
-        iterations: solution.iterations,
-    })
+    solve_adjoint_from(tracking, materials, options, symmetry, None).map(|(adjoint, _)| adjoint)
 }
 
 /// `solve_adjoint` と同じく随伴を解き、反復を `start`（同じトラッキング、対称操作、散乱の次数で解いた随伴の収束した状態）から
@@ -501,13 +494,12 @@ pub fn solve_importance(
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     let reduced = &sweeper.representatives;
     let kept = &reduced.regions.representatives;
-    for s in [&converged, &adjoint_start] {
-        if s.representatives[0] != *kept
-            || s.representatives[1] != reduced.tracks
-            || s.outgoing.len() != sweeper.outgoing_len()
-        {
-            return Err(MocError::ForeignStart);
-        }
+    let sizes = [materials.len(), tracking.tracks.len()];
+    if [&converged, &adjoint_start]
+        .iter()
+        .any(|s| !s.fits(sizes, &sweeper, ng))
+    {
+        return Err(MocError::ForeignStart);
     }
     let equilibrium = |m: &[&Material], s: &Start| -> Vec<Vec<f64>> {
         (0..kept.len())
@@ -1377,9 +1369,9 @@ impl<'a> Sweeper<'a> {
         adjoint: (&[Vec<f64>], &[f64]),
         tallies: &mut [Tally],
     ) -> Vec<Vec<f64>> {
-        // 減衰と全断面積を並びの群で引く: 呼ぶのは 1 つの問題のスイープ（`solve_importance` の `Sweeper::new`）だけで、並びの群が
-        // 物質の群になる
-        let (ng, width) = (self.ng, self.width);
+        let (ng, width, groups) = (self.ng, self.width, self.groups);
+        // [極角][物質の群] の減衰の数（`sweep` と同じく問題の間で共有する。並びの群 g の物質の群は g % groups）
+        let shared = POLAR_SIN.len() * groups;
         let representatives = &self.representatives;
         let incoming = |values: &[f64], index: usize, along: bool, psi: &mut [f64]| match self
             .tracking
@@ -1424,13 +1416,13 @@ impl<'a> Sweeper<'a> {
                     for (s, att) in track
                         .segments
                         .iter()
-                        .zip(tally.attenuation.chunks_exact_mut(width))
+                        .zip(tally.attenuation.chunks_exact_mut(shared))
                     {
                         if self.void[s.region].is_some() {
                             continue;
                         }
-                        let total = &self.totals[s.region * ng..][..ng];
-                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(ng)) {
+                        let total = &self.totals[s.region * groups..][..groups];
+                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(groups)) {
                             let path = s.length / sin;
                             for (a, t) in att.iter_mut().zip(total) {
                                 *a = -(-t * path).exp_m1();
@@ -1470,11 +1462,12 @@ impl<'a> Sweeper<'a> {
                                 continue;
                             }
                             let (q, stride) = source(first, region, held_along);
-                            let att = &attenuation[s * width..][..width];
+                            let att = &attenuation[s * shared..][..shared];
                             for p in 0..POLAR_SIN.len() {
                                 for g in 0..ng {
                                     let j = p * ng + g;
-                                    psi[j] -= (psi[j] - q[p * stride + g]) * att[j];
+                                    psi[j] -=
+                                        (psi[j] - q[p * stride + g]) * att[p * groups + g % groups];
                                 }
                             }
                         }
@@ -1487,22 +1480,24 @@ impl<'a> Sweeper<'a> {
                             if self.void[region].is_some() {
                                 continue;
                             }
-                            let total = &self.totals[region * ng..][..ng];
+                            let total = &self.totals[region * groups..][..groups];
                             let (q, stride) = source(first, region, held_along);
                             let (r, rs) = source(1 - first, region, swept_along);
-                            let att = &attenuation[s * width..][..width];
+                            let att = &attenuation[s * shared..][..shared];
                             let entry = &entries[s * width..][..width];
                             let out = &mut product[tally.local[region] * ng..][..ng];
                             for (p, weight) in weights.iter().enumerate() {
                                 let path = segment.length / POLAR_SIN[p];
                                 for g in 0..ng {
                                     let j = p * ng + g;
+                                    let h = g % groups;
+                                    let e = att[p * groups + h];
                                     let (a, c) = (q[p * stride + g], r[p * rs + g]);
                                     let (b, d) = (entry[j] - a, psi[j] - c);
                                     out[g] += weight
-                                        * ((a * d + c * b) * att[j] / total[g]
-                                            + b * d * path * (1.0 - att[j]));
-                                    psi[j] -= d * att[j];
+                                        * ((a * d + c * b) * e / total[h]
+                                            + b * d * path * (1.0 - e));
+                                    psi[j] -= d * e;
                                 }
                             }
                         }
