@@ -89,7 +89,7 @@ ADR-0247 は、MOC の一般化随伴（一般化摂動論）で、追うすべ�
 
 入力は examples/depletion/issue-0279/ の pincell-few-group.toml と lattice-3x3-few-group.toml（inputs.py が書く。段 2 と同じ組成と MOC の
 判定、直接の摂動 ε = 0.1、一般化随伴の GMRES の判定 1e-10、31 核種すべての自己遮蔽を解き直す）で、結果は同じ名前の
-`-sensitivity.toml`。比べたのは compare_few_group.py（`--pair pair-56-60.toml`）。xlc b7aebdab4、分岐点 29ddae619、2026-11-12。ピンセルは
+`-sensitivity.toml`。比べたのは compare_few_group.py（`--pair pair-56-60.toml`）。xlc 1f73e532a、分岐点 29ddae619、2026-11-12。ピンセルは
 Slurm 780、3×3 は Slurm 781（main のパーティションで、781 は timed のジョブに止められたので時間は当てにならない）。
 
 - 応答の値はテーブルの値（`homogenize`）と相対 3.3e-14（ピンセル）、4.0e-13（3×3）で同じ。2 群の k∞ は MOC の k と 10 桁で同じ
