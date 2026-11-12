@@ -22,7 +22,7 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 実行する。実行ファイル（`bin/xs`、`bin/lattice`、`bin/core`）は、リポジトリの直下の `dvc.yaml` の `build` が
 `scripts/build-binaries.sh` で作る。コードを変えると `build` が走り、実行ファイルのバイトが変わったときだけ計算のステージが走る。
 `dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さないので、`dvc status`（引数なし）か `--with-deps` で見る。
-`build` は xs、lattice、core の 3 つのパッケージだけを 1 回の cargo でビルドする（ADR-0163）。`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは（「性能のカウンタとプロファイル（perf）」）`cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` の `target/release` を使う（ADR-0160。ワークスペースの全体をビルドすると feature の統合が `bin/` と違いうる。ADR-0163）。
+`build` は xs、lattice、core の 3 つのパッケージだけを 1 回の cargo でビルドする（ADR-0163）。`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` の `target/release` を使う（記号はあるが、行の情報とフレームポインタが無いので、呼び出しの連鎖には「性能のカウンタとプロファイル（perf）」のビルドを使う）（ADR-0160。ワークスペースの全体をビルドすると feature の統合が `bin/` と違いうる。ADR-0163）。
 各ステージの入力と出力（Rust のステージは実行ファイルを含む）の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では `references` を main の
 `references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が、チェックアウトした
@@ -35,8 +35,8 @@ worktree は、その worktree の `cargo test`（crates/docs の `linked_worktr
 ## 性能のカウンタとプロファイル（perf）
 
 `perf` は NixOS のシステムに入っている（`/run/current-system/sw/bin/perf`）。r995 の `kernel.perf_event_paranoid` は 2 で、利用者の
-権限で測れるのは利用者側（`:u`）の事象だけなので、事象には `:u` を付ける。Slurm のジョブの中でも同じに動く（Slurm 790〜793、
-2026-11-12）。時間を記録する測定（前後の比べ）は perf なしの `--timed` のジョブで取り、perf は割合と原因の特定に使う（perf の
+権限で測れるのは利用者側（`:u`）の事象だけなので、事象には `:u` を付ける。Slurm のジョブの中でも同じに動く（Slurm 791〜793、
+2026-11-12。790 は `-k realtime` で止まった）。時間を記録する測定（前後の比べ）は perf なしの `--timed` のジョブで取り、perf は割合と原因の特定に使う（perf の
 負荷と、下のフレームポインタのビルドで時間が変わる）。
 
 - カウンタの和: `perf stat -e cycles:u,instructions:u,branch-misses:u,L1-dcache-load-misses:u -- <コマンド>`。`LLC-loads` と
@@ -45,7 +45,8 @@ worktree は、その worktree の `cargo test`（crates/docs の `linked_worktr
   `ex_no_retire.load_not_complete`（終わらない読み込みで退役が止まったサイクル）、`ls_bad_status2.stli_other`（先の書き込みと
   転送できない衝突）、`ls_l1_d_tlb_miss.all`、`de_no_dispatch_per_slot.backend_stalls`。一覧は `perf list`
 - 関数ごとのカウンタ: 6 つまでの事象を組にし、先頭（サイクル）で標本を取って組のすべてを読む（`:S`）。コアのカウンタは 1 スレッドに 6 つで、
-  7 つ以上は時分割になる:
+  7 つ以上は時分割になる。r995 は `kernel.nmi_watchdog` が 0 で 6 つすべてを使える（NMI の watchdog が 1 つ使うと、6 つの組は
+  `<not counted>` になる）:
 
   ```sh
   perf record -k monotonic -o <出力>.data -c 100000000 --user-callchains -g \
