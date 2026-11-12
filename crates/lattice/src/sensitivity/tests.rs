@@ -155,6 +155,39 @@ fn generalized_cmfd_takes_the_cmfd_options_of_the_solved_state() {
 }
 
 #[test]
+fn few_group_adjoints_are_solved_by_gmres_over_the_cmfd_iteration() {
+    let input = FewGroupInput {
+        bounds: vec![2e7, 0.625, 1e-5],
+        tolerance: 1e-7,
+        restart: 100,
+        shielded: Vec::new(),
+    };
+    let cmfd = CmfdOptions {
+        flux_tolerance: 1e-9,
+        ..CmfdOptions::default()
+    };
+    let options = Options {
+        acceleration: Acceleration::Cmfd(cmfd),
+        ..Options::default()
+    };
+    assert_eq!(
+        few_group_settings(&input, &options).unwrap(),
+        GeneralizedOptions {
+            method: GeneralizedMethod::CmfdGmres { restart: 100, cmfd },
+            tolerance: 1e-7,
+            max_iterations: options.max_iterations,
+            batch: false,
+        }
+    );
+    // CMFD なしで解いた状態では粗メッシュの判定が決まらないので、補正のない GMRES に替えずに止める
+    let without = Options {
+        acceleration: Acceleration::None,
+        ..Options::default()
+    };
+    assert!(few_group_settings(&input, &without).is_err());
+}
+
+#[test]
 fn table_responses_list_the_few_group_constants_of_the_table() {
     let names: Vec<String> = table_responses(2).iter().map(ToString::to_string).collect();
     assert_eq!(
