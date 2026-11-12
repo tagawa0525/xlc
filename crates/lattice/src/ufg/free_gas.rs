@@ -1848,8 +1848,8 @@ impl<'a> Thermal<'a> {
     }
 
     /// 格子点 m の D の散乱源と S(α, β) の移行の散乱源の 1 次の変化を、[`Thermal::source`] と同じ区間と小区間で求める。
-    /// `flux` は今のスイープの [リング] の中性子束（m を含む）、`f` はその格子点 m の値、`deltas` は [向き][リング] の δF（m より前）、
-    /// `gas` はその累積の積率と前のスイープの δF。`known` に [向き][リング] の δF の分（個数密度を掛けたもの。δF_m の係数は
+    /// `flux` は今のスイープの [リング] の中性子束（m を含む）、`f` はその格子点 m の値、`gas` は δF（m より前）とその累積の積率、
+    /// 前のスイープの δF。`known` に [向き][リング] の δF の分（個数密度を掛けたもの。δF_m の係数は
     /// [`Thermal::source`] の F_m の係数と同じで、減速の式の行列にある）を、`explicit` に F を固めた個数密度の変化の分 Σ_l δN_l,i
     /// × (その核種の散乱源) を足す。[`Thermal::source`] を同じ格子点で先に呼ぶこと
     #[allow(clippy::too_many_arguments)]
@@ -1860,14 +1860,13 @@ impl<'a> Thermal<'a> {
         flux: &[Vec<f64>],
         f: &[f64],
         gas: &GasTangent,
-        deltas: &[Vec<Vec<f64>>],
         known: &mut [Vec<f64>],
         explicit: &mut [Vec<f64>],
     ) {
         if m < self.start {
             return;
         }
-        let nd = deltas.len();
+        let nd = gas.count;
         let n = f.len();
         // [核種][リング] の組の通し番号の始まり
         let mut offsets = Vec::with_capacity(self.rings.len() + 1);
@@ -1895,6 +1894,7 @@ impl<'a> Thermal<'a> {
             .map(|(c, chunk)| {
                 let mut known = vec![0.0; nd * n];
                 let mut base = vec![(0.0, 0.0); pairs];
+                let mut moments = vec![0.0; 3 * nd];
                 let first = c * CELLS_PER_TASK;
                 let mut l = starts.partition_point(|&s| s as usize <= first) - 1;
                 for (j, cell) in chunk.iter().enumerate() {
@@ -1919,19 +1919,18 @@ impl<'a> Thermal<'a> {
                         let sum = &mut base[offsets[l] + p];
                         sum.0 += k;
                         sum.1 += o;
-                        for d in 0..nd {
-                            let history = History {
-                                flux: &deltas[d][i],
-                                prefix: &gas.prefix[d][i],
-                                previous: gas
-                                    .previous
-                                    .as_ref()
-                                    .map(|(f, p)| (f[d][i].as_slice(), &p[d][i])),
-                            };
-                            let (k, _) =
-                                integrate(&quadratic, u, m, cell.a, cell.b, qa, qb, &history);
-                            known[d * n + i] += density * k;
-                        }
+                        let (now, previous) = gas.histories(i);
+                        integrate_tangent(
+                            &quadratic,
+                            u,
+                            m,
+                            (cell.a, cell.b, qa, qb),
+                            &now,
+                            previous.as_ref(),
+                            density,
+                            &mut moments,
+                            &mut known[i * nd..(i + 1) * nd],
+                        );
                     }
                 }
                 (known, base)
@@ -1941,7 +1940,7 @@ impl<'a> Thermal<'a> {
         for (part, sums) in parts {
             for d in 0..nd {
                 for i in 0..n {
-                    known[d][i] += part[d * n + i];
+                    known[d][i] += part[i * nd + d];
                 }
             }
             for (b, s) in base.iter_mut().zip(sums) {
@@ -1971,14 +1970,16 @@ impl<'a> Thermal<'a> {
                         };
                         let sum = &mut base[offsets[l] + p];
                         sum.0 += c * value;
-                        for d in 0..nd {
-                            let delta = if idx < m {
-                                deltas[d][i][idx]
-                            } else if idx > m {
-                                gas.previous.as_ref().map_or(0.0, |(pf, _)| pf[d][i][idx])
-                            } else {
-                                0.0
-                            };
+                        let deltas = if idx < m {
+                            Some(&gas.flux[i][idx * nd..][..nd])
+                        } else if idx > m {
+                            gas.previous
+                                .as_ref()
+                                .map(|(pf, _)| &pf[i][idx * nd..][..nd])
+                        } else {
+                            None
+                        };
+                        for (d, delta) in deltas.into_iter().flatten().enumerate() {
                             known[d][i] += density * c * delta;
                         }
                     };
@@ -2045,24 +2046,166 @@ impl<'a> Thermal<'a> {
     }
 }
 
-/// 自由ガスの核と S(α, β) の移行の散乱源の 1 次の変化（ADR-0247 の案 I2）の、スイープの間の状態。
+/// 自由ガスの核と S(α, β) の移行の散乱源の 1 次の変化（ADR-0247 の案 I2）の、スイープの間の状態。δF と累積の積率は、
+/// 格子点ごとに向きを続けて並べる（[格子点 × 向き]）: 1 つの区間を、すべての向きの δF について同じ重みで積分するので、向きの
+/// 並びを内側にして、区間の重みの計算（両端の区間の Gauss-Legendre の重み、2 次式の係数）を向きの間で共有する
 #[derive(Debug, Clone)]
 pub(super) struct GasTangent {
     /// [向き][自由ガスの核種][その核種を含むリング（[`Thermal::rings`] の順）] の δN
     directions: Vec<Vec<Vec<f64>>>,
+    /// 向きの数
+    count: usize,
     start: usize,
-    /// [向き][リング] の今のスイープの δF の累積の積率
-    prefix: Vec<Vec<Prefix>>,
-    /// 前のスイープの [向き][リング] の δF と累積の積率
+    /// [リング] の今のスイープの [格子点 × 向き] の δF（自由ガスの核種を含むリングだけ。格子点は 0 から）
+    flux: Vec<Vec<f64>>,
+    /// [リング] の今のスイープの [(格子点 − start) × 積率 × 向き] の δF の累積の積率（[`Prefix`] と同じ値）
+    prefix: Vec<Vec<Dd>>,
+    /// 前のスイープの [リング] の δF と累積の積率
     previous: Option<PreviousTangent>,
 }
 
-/// 前のスイープの [向き][リング] の δF と累積の積率（[`GasTangent`]）
-type PreviousTangent = (Vec<Vec<Vec<f64>>>, Vec<Vec<Prefix>>);
+/// 前のスイープの [リング] の [格子点 × 向き] の δF と [(格子点 − start) × 積率 × 向き] の累積の積率（[`GasTangent`]）
+type PreviousTangent = (Vec<Vec<f64>>, Vec<Vec<Dd>>);
 
 /// 区間の塊の 1 つの、[向き × リング] の δF の積分と、[核種とリングの組] の F の積分（既知の部分, F_m の係数）
 /// （[`Thermal::tangent_source`]）
 type TangentChunk = (Vec<f64>, Vec<(f64, f64)>);
+
+/// 1 つのリングの、[格子点 × 向き] の δF とその累積の積率（[`GasTangent`]）
+struct TangentHistory<'a> {
+    count: usize,
+    start: usize,
+    flux: &'a [f64],
+    prefix: &'a [Dd],
+}
+
+impl TangentHistory<'_> {
+    /// [`Prefix::moments`] の、向きごとの ∫_{x0}^{x1} δF (s − c)^j ds を `out`（[積率 × 向き]）に足す
+    #[allow(clippy::too_many_arguments)]
+    fn moments(&self, u: &[f64], q0: usize, x0: f64, q1: usize, x1: f64, c: f64, out: &mut [f64]) {
+        if q0 >= q1 {
+            self.local(u, q0, x0, x1, c, out);
+            return;
+        }
+        self.local(u, q0, x0, u[q0 + 1], c, out);
+        if x1 > u[q1] {
+            self.local(u, q1, u[q1], x1, c, out);
+        }
+        let n = self.count;
+        let (p0, p1) = (
+            &self.prefix[(q0 + 1 - self.start) * 3 * n..][..3 * n],
+            &self.prefix[(q1 - self.start) * 3 * n..][..3 * n],
+        );
+        for d in 0..n {
+            let diff = |j: usize| p1[j * n + d].sub(p0[j * n + d]);
+            let (d0, d1, d2) = (diff(0), diff(1), diff(2));
+            out[d] += d0.value();
+            out[n + d] += d1.sub(d0.mul(c)).value();
+            out[2 * n + d] += d2.sub(d1.mul(2.0 * c)).add_dd(d0.mul(c).mul(c)).value();
+        }
+    }
+
+    /// [`local_moments`] の、向きごとの値を `out` に足す（区間の両端の δF の重みを先に求める）
+    fn local(&self, u: &[f64], q: usize, x0: f64, x1: f64, c: f64, out: &mut [f64]) {
+        let width = u[q + 1] - u[q];
+        if x1 <= x0 || width <= 0.0 {
+            return;
+        }
+        let (mid, half) = (0.5 * (x0 + x1), 0.5 * (x1 - x0));
+        let (mut a, mut b) = ([0.0; 3], [0.0; 3]);
+        for &(x, w) in &GAUSS_LEGENDRE_2 {
+            let s = mid + half * x;
+            let t = (s - u[q]) / width;
+            let d = s - c;
+            let v = w * half;
+            for (j, power) in [1.0, d, d * d].into_iter().enumerate() {
+                a[j] += v * (1.0 - t) * power;
+                b[j] += v * t * power;
+            }
+        }
+        let n = self.count;
+        let (fa, fb) = (&self.flux[q * n..][..n], &self.flux[(q + 1) * n..][..n]);
+        for j in 0..3 {
+            for d in 0..n {
+                out[j * n + d] += a[j] * fa[d] + b[j] * fb[d];
+            }
+        }
+    }
+}
+
+/// [`integrate`] の既知の部分を、すべての向きの δF について求め、`density` を掛けて `out`（[向き]）に足す（δF_m の係数は
+/// [`integrate`] の F_m の係数と同じ）。`moments` は作業用の [積率 × 向き] の配列
+#[allow(clippy::too_many_arguments)]
+fn integrate_tangent(
+    f: &Quadratic,
+    u: &[f64],
+    m: usize,
+    (a, b, qa, qb): (f64, f64, usize, usize),
+    now: &TangentHistory,
+    previous: Option<&TangentHistory>,
+    density: f64,
+    moments: &mut [f64],
+    out: &mut [f64],
+) {
+    let n = now.count;
+    let last = u.len() - 1;
+    let [a0, a1, a2] = f.coefficients;
+    let against = |moments: &mut [f64], out: &mut [f64]| {
+        for d in 0..n {
+            out[d] += density * (a0 * moments[d] + a1 * moments[n + d] + a2 * moments[2 * n + d]);
+        }
+        moments.fill(0.0);
+    };
+    moments.fill(0.0);
+    if m >= 1 {
+        let x1 = b.min(u[m - 1]);
+        if x1 > a {
+            now.moments(u, qa, a, qb.min(m - 1), x1, f.c, moments);
+            against(moments, out);
+        }
+        let (x0, x1) = (a.max(u[m - 1]), b.min(u[m]));
+        if x1 > x0 {
+            let (wa, wb) = f.linear(x0, x1);
+            let (ta, tb) = (
+                (x0 - u[m - 1]) / (u[m] - u[m - 1]),
+                (x1 - u[m - 1]) / (u[m] - u[m - 1]),
+            );
+            let w = density * (wa * (1.0 - ta) + wb * (1.0 - tb));
+            for (o, f) in out.iter_mut().zip(&now.flux[(m - 1) * n..][..n]) {
+                *o += w * f;
+            }
+        }
+    }
+    let Some(previous) = previous else {
+        return;
+    };
+    if m < last {
+        let (x0, x1) = (a.max(u[m]), b.min(u[m + 1]));
+        if x1 > x0 {
+            let (wa, wb) = f.linear(x0, x1);
+            let (ta, tb) = (
+                (x0 - u[m]) / (u[m + 1] - u[m]),
+                (x1 - u[m]) / (u[m + 1] - u[m]),
+            );
+            let w = density * (wa * ta + wb * tb);
+            for (o, f) in out.iter_mut().zip(&previous.flux[(m + 1) * n..][..n]) {
+                *o += w * f;
+            }
+        }
+        let (x0, x1) = (a.max(u[m + 1]), b.min(u[last]));
+        if x1 > x0 {
+            previous.moments(u, qa.max(m + 1), x0, qb.min(last), x1, f.c, moments);
+            against(moments, out);
+        }
+        let x0 = a.max(u[last]);
+        if b > x0 {
+            let w = density * f.integral(x0, b);
+            for (o, f) in out.iter_mut().zip(&previous.flux[last * n..][..n]) {
+                *o += w * f;
+            }
+        }
+    }
+}
 
 impl GasTangent {
     /// `directions` は [向き][自由ガスの核種][リング] の δN、`n` はリングの数、`start` は掃き直しの始め（[`Thermal::start`]）
@@ -2070,14 +2213,16 @@ impl GasTangent {
         let count = directions.len();
         Self {
             directions,
+            count,
             start,
-            prefix: vec![vec![Prefix::new(start); n]; count],
+            flux: vec![Vec::new(); n],
+            prefix: vec![Vec::new(); n],
             previous: None,
         }
     }
 
-    /// 格子点 m の δF（`deltas` は [向き][リング]）が決まったあと、自由ガスの核種を含むリング（`rings`。[`Thermal::rings`]）の
-    /// 累積の積率を進める（[`Thermal::record`] と同じ）
+    /// 格子点 m の δF（`deltas` は [向き][リング][格子点]）が決まったあと、自由ガスの核種を含むリング（`rings`。[`Thermal::rings`]）の
+    /// δF を写し、累積の積率を進める（[`Thermal::record`] と同じ）
     pub(super) fn record(
         &mut self,
         m: usize,
@@ -2085,38 +2230,77 @@ impl GasTangent {
         deltas: &[Vec<Vec<f64>>],
         rings: &[Vec<(usize, f64)>],
     ) {
-        if m < self.start {
-            return;
-        }
-        for (prefix, deltas) in self.prefix.iter_mut().zip(deltas) {
-            for &(i, _) in rings.iter().flatten() {
-                if prefix[i].values.len() == m - self.start {
-                    prefix[i].push(u, &deltas[i], m);
+        let n = self.count;
+        for &(i, _) in rings.iter().flatten() {
+            // 同じリングを複数の核種が持つときは 1 度だけ進める
+            if self.flux[i].len() != m * n {
+                continue;
+            }
+            self.flux[i].extend(deltas.iter().map(|d| d[i][m]));
+            if m < self.start {
+                continue;
+            }
+            let (flux, prefix) = (&self.flux[i], &mut self.prefix[i]);
+            if m == self.start {
+                prefix.clear();
+                prefix.resize(3 * n, Dd::default());
+                continue;
+            }
+            let base = prefix.len() - 3 * n;
+            prefix.resize(base + 6 * n, Dd::default());
+            for d in 0..n {
+                let s = segment_moments(u[m - 1], u[m], flux[(m - 1) * n + d], flux[m * n + d]);
+                for (j, s) in s.into_iter().enumerate() {
+                    prefix[base + 3 * n + j * n + d] = prefix[base + j * n + d].add(s);
                 }
             }
         }
     }
 
-    /// スイープを終え、今のスイープの δF と累積の積率を、次のスイープの前のスイープにする（[`Thermal::finish`] と同じ）
-    pub(super) fn finish(&mut self, deltas: &[Vec<Vec<f64>>]) {
-        let rings = self.prefix.first().map_or(0, Vec::len);
-        let fresh = vec![vec![Prefix::new(self.start); rings]; self.prefix.len()];
-        let prefixes = std::mem::replace(&mut self.prefix, fresh);
-        self.previous = Some((deltas.to_vec(), prefixes));
+    /// スイープを終え、今のスイープの δF と累積の積率を、次のスイープの前のスイープにする（[`Thermal::finish`] と同じ）。今の
+    /// スイープの δF は、掃き直さない格子点（start より前）だけを残す
+    pub(super) fn finish(&mut self) {
+        let keep = self.start * self.count;
+        let flux: Vec<Vec<f64>> = self
+            .flux
+            .iter_mut()
+            .map(|f| {
+                let all = f.clone();
+                f.truncate(keep.min(f.len()));
+                all
+            })
+            .collect();
+        let prefix = self.prefix.iter_mut().map(std::mem::take).collect();
+        self.previous = Some((flux, prefix));
     }
 
-    /// 持っている累積の積率と前のスイープの δF の大きさ (B)
+    /// 持っている δF、累積の積率と前のスイープのそれの大きさ (B)
     pub(super) fn bytes(&self) -> u64 {
-        let prefix = |p: &Prefix| (p.values.capacity() * std::mem::size_of::<[Dd; 3]>()) as u64;
-        let now: u64 = self.prefix.iter().flatten().map(prefix).sum();
-        let before: u64 = self.previous.as_ref().map_or(0, |(f, p)| {
-            f.iter()
-                .flatten()
-                .map(|v| (v.capacity() * std::mem::size_of::<f64>()) as u64)
-                .sum::<u64>()
-                + p.iter().flatten().map(prefix).sum::<u64>()
+        let f64s = |v: &Vec<f64>| (v.capacity() * std::mem::size_of::<f64>()) as u64;
+        let dds = |v: &Vec<Dd>| (v.capacity() * std::mem::size_of::<Dd>()) as u64;
+        let now: u64 =
+            self.flux.iter().map(f64s).sum::<u64>() + self.prefix.iter().map(dds).sum::<u64>();
+        let before = self.previous.as_ref().map_or(0, |(f, p)| {
+            f.iter().map(f64s).sum::<u64>() + p.iter().map(dds).sum::<u64>()
         });
         now + before
+    }
+
+    /// リング `i` の今のスイープと前のスイープの δF の履歴
+    fn histories(&self, i: usize) -> (TangentHistory<'_>, Option<TangentHistory<'_>>) {
+        let now = TangentHistory {
+            count: self.count,
+            start: self.start,
+            flux: &self.flux[i],
+            prefix: &self.prefix[i],
+        };
+        let previous = self.previous.as_ref().map(|(f, p)| TangentHistory {
+            count: self.count,
+            start: self.start,
+            flux: &f[i],
+            prefix: &p[i],
+        });
+        (now, previous)
     }
 }
 

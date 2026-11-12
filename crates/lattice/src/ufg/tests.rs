@@ -3018,6 +3018,41 @@ fn free_gas_tangents_do_not_depend_on_the_held_cells() {
 }
 
 #[test]
+fn tangent_directions_do_not_change_each_other() {
+    // 向きをまとめて解いても（自由ガスと S(α, β) の散乱源の δF は向きを並べて同じ区間で積分する）、向きごとの 1 次の変化は、
+    // その向きだけで解いたものとビットで同じ
+    let (lib, materials, cell) =
+        thermal_tangent_cell(Some(free_gas_transfer(0.99917, 600.0, 0.02)));
+    let rings = thermal_tangent_rings(&materials);
+    let solve = |names: &[&str]| {
+        let directions: Vec<Vec<Vec<f64>>> = names
+            .iter()
+            .map(|name| proportional(&rings, name))
+            .collect();
+        tangent_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::default(),
+            Some(1.0e-3),
+            tangent_gas(true),
+            None,
+            held_cells(1 << 30, 1),
+            &directions,
+        )
+        .unwrap()
+        .1
+    };
+    let together = solve(&["U-238", "O-16", "H-1"]);
+    for (d, name) in ["U-238", "O-16", "H-1"].iter().enumerate() {
+        let alone = solve(&[name]);
+        assert_eq!(together.flux[d], alone.flux[0], "{name}");
+        assert_eq!(together.nuclides[d], alone.nuclides[0], "{name}");
+    }
+}
+
+#[test]
 fn tangents_solve_the_same_spectrum_as_without() {
     // 1 次の変化を求めても（飛程の微分を求める向きがあっても）、減速計算の結果と移行は、本番の設定の向きのない減速計算とビットで
     // 同じ。向きが 0 なら変化も 0

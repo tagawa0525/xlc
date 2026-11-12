@@ -2474,7 +2474,7 @@ impl TangentSweep {
     /// 上方散乱のスイープを終え、今のスイープの δF を次のスイープの前のスイープにする
     fn finish_sweep(&mut self) {
         if let Some(gas) = &mut self.gas {
-            gas.finish(&self.flux);
+            gas.finish();
         }
     }
 
@@ -2676,7 +2676,6 @@ impl Sweep<'_> {
                     &self.flux,
                     &f,
                     gas,
-                    &t.flux,
                     &mut t.gas_known,
                     &mut t.gas_explicit,
                 );
