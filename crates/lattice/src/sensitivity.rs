@@ -1165,12 +1165,12 @@ fn compare_generalized(
 }
 
 /// 一般化随伴の CMFD の打ち切り: 状態を解いた MOC の CMFD のもの（回数の上限だけを使う。`GeneralizedMethod::Cmfd`）。状態を CMFD なしで
-/// 解いたなら、入力が粗メッシュの打ち切りを決めていないのでエラー
+/// 解いたなら、粗メッシュの問題の回数の上限が決まらないのでエラー
 fn generalized_cmfd(acceleration: &Acceleration) -> anyhow::Result<CmfdOptions> {
     match acceleration {
         Acceleration::Cmfd(c) => Ok(*c),
         Acceleration::None => bail!(
-            "the CMFD of the generalized adjoints takes the CMFD tolerances of the state, which was solved without CMFD"
+            "the CMFD of the generalized adjoints takes the iteration limit of the CMFD of the state, which was solved without CMFD"
         ),
     }
 }
