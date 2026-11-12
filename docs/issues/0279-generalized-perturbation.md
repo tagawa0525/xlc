@@ -111,8 +111,8 @@ ADR-0247 は、MOC の一般化随伴（一般化摂動論）で、追うすべ�
 
 入力は examples/depletion/issue-0279/ の pincell-few-group.toml と lattice-3x3-few-group.toml（inputs.py が書く。段 2 と同じ組成と MOC の
 判定、直接の摂動 ε = 0.1、一般化随伴は CMFD の反復の GMRES で判定 1e-10、31 核種すべての自己遮蔽を解き直す）で、結果は同じ名前の
-`-sensitivity.toml`。比べたのは compare_few_group.py（`--pair pair-56-60.toml`）。xlc c47876fbe（走ったのは rebase の前の、同じコードと
-入力の作業中の版）、分岐点 031004152、2026-11-12、`--timed`。ピンセルは Slurm 788、3×3 は Slurm 789。補正のない GMRES（判定 1e-10）で解いた前の結果（xlc 1f73e532a、Slurm 780、781）と、下の I0、I1、I3、
+`-sensitivity.toml`。比べたのは compare_few_group.py（`--pair pair-56-60.toml`）。xlc c47876fbe（走ったのは rebase の前の、分岐点の上の
+同じ変更の作業中の版）、分岐点 031004152、2026-11-12、`--timed`。ピンセルは Slurm 788、3×3 は Slurm 789。補正のない GMRES（判定 1e-10）で解いた前の結果（xlc 1f73e532a、Slurm 780、781）と、下の I0、I1、I3、
 暗黙の効きの値は表示の桁で同じ。
 
 - 応答の値はテーブルの値（`homogenize`）と相対 3.3e-14（ピンセル）、4.0e-13（3×3）で同じ。2 群の k∞ は MOC の k と 10 桁で同じ
