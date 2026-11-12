@@ -1710,6 +1710,70 @@ fn history_density_derivatives_are_micro_nuclides_perturbed_by_a_positive_fracti
 }
 
 #[test]
+fn history_generalized_derivatives_cover_the_micro_nuclides_and_shield_again_the_listed_ones() {
+    use crate::history::GeneralizedDerivatives;
+    // 書かなければ直接の摂動（ADR-0221）だけで、一般化摂動（ADR-0247）を解かない
+    let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
+    assert_eq!(input.history.unwrap().generalized, None);
+    let with = |lines: &str| history_branches(&format!("{HISTORY}{lines}"));
+    let micro = "micro = [\"U-235\", \"U-238\", \"Pu-240\"]\n";
+    let input = LatticeInput::parse(&with(&format!(
+        "{micro}generalized = {{ tolerance = 1e-7, restart = 100 }}\n"
+    )))
+    .unwrap();
+    let history = input.history.unwrap();
+    assert_eq!(
+        history.generalized,
+        Some(GeneralizedDerivatives {
+            tolerance: 1e-7,
+            restart: 100,
+            shielded: Vec::new(),
+        })
+    );
+    assert!(history.derivative.is_empty());
+    // 自己遮蔽を解き直す核種（案 I1）は `micro` から選び、摂動の割合を使う。反応率の微分の核種（`derivative`）と並べて書ける
+    let input = LatticeInput::parse(&with(&format!(
+        "{micro}derivative = [\"Pu-240\"]\nperturbation = 0.05\n\
+         generalized = {{ tolerance = 1e-7, restart = 100, shielded = [\"U-238\", \"Pu-240\"] }}\n"
+    )))
+    .unwrap();
+    let history = input.history.unwrap();
+    assert_eq!(history.generalized.unwrap().shielded, ["U-238", "Pu-240"]);
+    assert_eq!(history.derivative, ["Pu-240"]);
+    assert_eq!(history.perturbation, 0.05);
+    let input = LatticeInput::parse(&with(&format!(
+        "{micro}perturbation = 0.05\ngeneralized = {{ tolerance = 1e-7, restart = 100, shielded = [\"U-238\"] }}\n"
+    )))
+    .unwrap();
+    assert_eq!(input.history.unwrap().perturbation, 0.05);
+    for bad in [
+        // 判定と再始動に既定はない（ADR-0247）
+        format!("{micro}generalized = {{ restart = 100 }}\n"),
+        format!("{micro}generalized = {{ tolerance = 1e-7 }}\n"),
+        format!("{micro}generalized = {{ tolerance = 0.0, restart = 100 }}\n"),
+        format!("{micro}generalized = {{ tolerance = 1e-7, restart = 0 }}\n"),
+        format!(
+            "{micro}generalized = {{ tolerance = 1e-7, restart = 100, shielded = [\"Pu-239\"] }}\n"
+        ),
+        format!(
+            "{micro}generalized = {{ tolerance = 1e-7, restart = 100, shielded = [\"U-238\", \"U-238\"] }}\n"
+        ),
+        // 微分を書く核種は `micro`
+        "generalized = { tolerance = 1e-7, restart = 100 }\n".to_string(),
+        // 摂動の割合は、自己遮蔽を解き直す核種がなければ使わない
+        format!(
+            "{micro}perturbation = 0.05\ngeneralized = {{ tolerance = 1e-7, restart = 100 }}\n"
+        ),
+    ] {
+        let err = LatticeInput::parse(&with(&bad)).unwrap_err().to_string();
+        assert!(
+            err.contains("generalized") || err.contains("perturbation"),
+            "{bad}: {err}"
+        );
+    }
+}
+
+#[test]
 fn history_shielding_file_is_read_only_when_given() {
     // 書かなければ、燃焼の領域は状態の組成で自己遮蔽する
     let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
