@@ -114,6 +114,8 @@
 //! # （案 I1）。derivative の核種は、直接の摂動を反応率の微分のために解き、その自己遮蔽で少数群定数の微分も I1 にする
 //! generalized = { tolerance = 1e-7, restart = 100, shielded = ["U-238"] }
 //! shielding-file = "other.msgpack" # 燃焼の領域を自己遮蔽する組成の履歴（同じ燃焼度の点。省略すると状態の組成。#0191）
+//! shielding-burnup = [0, 20]      # 自己遮蔽を解く燃焼点（burnup の最初の点から増える burnup の点。ほかの点はその前で最後の
+//!                                 # この点の組成で自己遮蔽する。省略するとすべての点。shielding-file とは組めない。#0180）
 //!
 //! [sensitivity]                   # k の数密度の感度（ADR-0247 の段 2。ライブラリの核種で書いた物質だけを変え、自己遮蔽は固定。
 //!                                 # 燃焼、媒質、混ぜた物質とは使えず、解く状態は 1 つ）
@@ -740,6 +742,7 @@ struct HistoryEntry {
     derivative: Option<Vec<String>>,
     perturbation: Option<f64>,
     shielding_file: Option<PathBuf>,
+    shielding_burnup: Option<Vec<f64>>,
     generalized: Option<HistoryGeneralizedEntry>,
 }
 
@@ -1814,6 +1817,35 @@ impl LatticeInput {
                         ));
                     }
                 };
+                // 自己遮蔽を解く燃焼点（#0180）。ほかの点はその前で最後のこの点の組成で自己遮蔽するので、最初の点を含む。
+                // 自己遮蔽の履歴（shielding-file）とは、どちらの組成で自己遮蔽するかが決まらないので組めない
+                if let Some(points) = &h.shielding_burnup {
+                    let increasing = points.first() == h.burnup.first()
+                        && points.iter().all(|b| h.burnup.contains(b))
+                        && points.windows(2).all(|w| w[0] < w[1]);
+                    if !increasing {
+                        return Err(format!(
+                            "[history] shielding-burnup must be increasing points of `burnup` from its first, got \
+                             {points:?} (#0180)"
+                        ));
+                    }
+                    if h.shielding_file.is_some() {
+                        return Err(
+                            "[history] shielding-burnup and shielding-file both choose the composition that shields \
+                             the depletion regions; give one (#0180)"
+                                .to_string(),
+                        );
+                    }
+                    // 摂動の組成でも自己遮蔽はその点の組成のまま（`perturbed_reference_state`）なので、解き直す核種の微分は
+                    // 黙って案 I0 と同じになる（shielding-file と同じ）
+                    if generalized.as_ref().is_some_and(|g| !g.shielded.is_empty()) {
+                        return Err(
+                            "[history] generalized shielded solves the self-shielding at the perturbed composition, \
+                             which shielding-burnup fixes to the composition of its point (#0180, ADR-0247)"
+                                .to_string(),
+                        );
+                    }
+                }
                 Ok(HistoryInput {
                     file: h.file,
                     chain: h.chain,
@@ -1824,6 +1856,7 @@ impl LatticeInput {
                     derivative,
                     perturbation,
                     shielding_file: h.shielding_file,
+                    shielding_burnup: h.shielding_burnup,
                     generalized,
                 })
             })

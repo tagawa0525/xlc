@@ -505,7 +505,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .collect();
     // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
-    // 自己遮蔽の履歴があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す（`HistoryBranches::shield_with`）
+    // 自己遮蔽の組成（shielding-file か shielding-burnup）があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す
+    // （`HistoryBranches::shield_with`、`HistoryBranches::shield_at`）
     let varied: Vec<String> = input
         .branches
         .as_ref()
@@ -595,9 +596,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 ),
             )
         });
-        // 状態と、その参照と摂動の組成の自己遮蔽は、状態の燃焼度の点のもの（自由ガスの核の表が格子点を捨てる単位。ADR-0248）。
+        // 状態と、その参照と摂動の組成の自己遮蔽は、自己遮蔽を持つ燃焼度の点のもの（自由ガスの核の表が格子点を捨てる単位。
+        // ADR-0248）。shielding-burnup の間の点は自己遮蔽を解かないので、その前の自己遮蔽の点に数え、表を捨てない。
         // 履歴からの分岐でない分岐の状態は、すべて 1 つの組成の点
-        reuse.at_point(history_branches.as_ref().map_or(0, |h| h.point_of(state)));
+        reuse.at_point(
+            history_branches
+                .as_ref()
+                .map_or(0, |h| h.shielding_point_of(state)),
+        );
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {

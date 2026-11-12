@@ -1,0 +1,5 @@
+outs:
+- md5: dc373d7174004ad25499cfcf528645dc
+  size: 2819037
+  hash: md5
+  path: table-2A-skip-sparse.msgpack

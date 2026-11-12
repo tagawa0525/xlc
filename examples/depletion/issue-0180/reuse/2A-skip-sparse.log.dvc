@@ -1,0 +1,5 @@
+outs:
+- md5: dbbd2594b1cb1db6d6647005a420cac2
+  size: 73104
+  hash: md5
+  path: 2A-skip-sparse.log

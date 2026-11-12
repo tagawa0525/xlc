@@ -1261,6 +1261,16 @@ fn shield_with(
     shielding: Option<&History>,
     library: &Library,
 ) -> Vec<(crate::shielding::FuelShielding, Shielding)> {
+    shield_counted(text, history, shielding, library).0
+}
+
+/// `shield_with` の結果と、`BranchShielder` が自己遮蔽を解いた回数
+fn shield_counted(
+    text: &str,
+    history: &History,
+    shielding: Option<&History>,
+    library: &Library,
+) -> (Vec<(crate::shielding::FuelShielding, Shielding)>, usize) {
     let s = setup(text);
     let mut branches = branches_of(text, history, library).unwrap();
     if let Some(h) = shielding {
@@ -1284,7 +1294,7 @@ fn shield_with(
         s.chosen.shielding(),
         s.input.shielding_options(),
     );
-    (0..branches.len())
+    let states = (0..branches.len())
         .map(|i| {
             let reference = branches.reference(i);
             let state = shielder
@@ -1295,7 +1305,8 @@ fn shield_with(
                 .unwrap();
             (state.fuel().clone(), owned(state))
         })
-        .collect()
+        .collect();
+    (states, shielder.shieldings())
 }
 
 #[test]
@@ -1417,6 +1428,79 @@ fn a_shielding_history_must_match_the_branch_history() {
     // 自己遮蔽の履歴のない分岐は、作り直す物質を持たない
     let plain = branches_of(&text, &history, &library).unwrap();
     assert!(plain.remixed().is_empty());
+}
+
+#[test]
+fn states_between_shielding_burnups_belong_to_the_shielding_point_for_the_kernel_table() {
+    // 自由ガスの核の表（ADR-0248）は自己遮蔽の燃焼度の点で格子点を捨てるので、自己遮蔽を解かない点の状態は、自己遮蔽を
+    // 持ち越す点の状態として数える。shielding-burnup がなければ自身の点
+    let (history, library) = history();
+    let base = branch_input("[0, 0.5, 2.0]", "[600]");
+    let thinned = format!("{base}shielding-burnup = [0, 2.0]\n");
+    for (text, points) in [(&base, [0, 1, 2]), (&thinned, [0, 0, 2])] {
+        let branches = branches_of(text, &history, &library).unwrap();
+        let per_point = branches.len() / 3;
+        let got: Vec<_> = (0..branches.len())
+            .map(|i| branches.shielding_point_of(i))
+            .collect();
+        let want: Vec<_> = points
+            .iter()
+            .flat_map(|&p| std::iter::repeat_n(p, per_point))
+            .collect();
+        assert_eq!(got, want, "{text}");
+        let own: Vec<_> = (0..branches.len()).map(|i| branches.point_of(i)).collect();
+        assert_eq!(own.iter().filter(|&&p| p == 1).count(), per_point);
+    }
+}
+
+#[test]
+fn shielding_burnup_points_shield_the_points_between_them_at_the_last_one() {
+    // shielding-burnup の点の間の燃焼点は、その前で最後の shielding-burnup の点の組成で自己遮蔽し（燃焼の領域の実効断面積と
+    // SPH 因子はその点のもの）、燃焼の領域の物質だけを自身の組成で作り直す。自己遮蔽はその点の参照を持ち越し、解き直さない
+    let (history, library) = history();
+    let base = branch_input("[0, 0.5, 2.0]", "[600]");
+    let mut at_zero = history.clone();
+    let zero = at_zero.points.iter().position(|p| p.burnup == 0.0).unwrap();
+    let half = at_zero.points.iter().position(|p| p.burnup == 0.5).unwrap();
+    at_zero.points[half].densities = history.points[zero].densities.clone();
+    for (text, solved, skipped) in [(base.clone(), 3, 2), (every_state(&base), 6, 4)] {
+        let thinned = format!("{text}shielding-burnup = [0, 2.0]\n");
+        let (fixed, count) = shield_counted(&thinned, &history, None, &library);
+        let (expected, _) = shield_counted(&text, &history, Some(&at_zero), &library);
+        let (_, own) = shield_counted(&text, &history, None, &library);
+        assert_eq!((own, count), (solved, skipped), "{text}");
+        let s = setup(&text);
+        let fuel = regions_of(
+            branches_of(&text, &history, &library)
+                .unwrap()
+                .region_materials(0),
+            |n| n.starts_with("fuel@"),
+        );
+        assert!(!fuel.is_empty());
+        let ones = vec![vec![1.0; library.groups.len()]; s.tracking.lattice.regions()];
+        assert_eq!(fixed.len(), expected.len());
+        for (index, ((shielded, materials), (want, want_materials))) in
+            fixed.iter().zip(&expected).enumerate()
+        {
+            for &r in &fuel {
+                assert_eq!(
+                    shielded.region_cross_sections(r),
+                    want.region_cross_sections(r),
+                    "state {index} region {r}"
+                );
+                assert_eq!(
+                    region_material(materials, r),
+                    region_material(want_materials, r),
+                    "state {index} region {r}"
+                );
+            }
+            assert_eq!(
+                shielded.physical_flux(&s.tracking.lattice, &ones).unwrap(),
+                want.physical_flux(&s.tracking.lattice, &ones).unwrap(),
+                "state {index}"
+            );
+        }
+    }
 }
 
 /// `micro` に U-235 と Xe-135 を挙げ、両方の数密度の微分を摂動の割合 `perturbation` で求める分岐の入力（燃焼度 0 と 2.0）
