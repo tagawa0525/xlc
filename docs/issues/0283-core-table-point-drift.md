@@ -5,7 +5,7 @@ opened: 2026-11-13
 closed: 2026-11-13
 milestone:
 blocked-by: []
-resolution: コミット 9451c35ce
+resolution: コミット b9c947223
 ---
 
 # ミクロ燃焼なしの core の k が、テーブルの点で格子計算の燃焼の履歴からずれる
@@ -29,7 +29,7 @@ resolution: コミット 9451c35ce
 
 入力は examples/depletion/issue-0283/（table-d0.toml の格子と公称の 1 状態で、燃焼度の点を履歴の 0、20、60 MWd/kg にしたもの）。
 差は `python3 examples/depletion/issue-0283/table_history_k.py examples/depletion/p2/lattice-2A.msgpack <テーブル>` の
-(1/k_履歴 − 1/k_テーブル) × 1e5 pcm。xlc 25c645b44（Slurm 816〜819）と 842901907（Slurm 820、821）、分岐点 30b87d8c3、2026-11-13。
+(1/k_履歴 − 1/k_テーブル) × 1e5 pcm。xlc ee78f32f3（Slurm 816〜819）と d8fd4171b（Slurm 820、821）、分岐点 30b87d8c3、2026-11-13。
 bin は表の列のとおりで、e09df53d は分岐点の bin/lattice、598a45ce は同じ置き場の lattice-598a45ce（`dvc add`）。ライブラリ a96f4f23 も
 同じ置き場の depletion-a96f4f23.msgpack（`dvc add`）で、Slurm 818、819 は同じ md5 のコピーを trials/ から読んだ。テーブルは `dvc add` で追う。
 
