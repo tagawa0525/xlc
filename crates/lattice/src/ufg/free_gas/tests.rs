@@ -586,8 +586,8 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
 
 #[test]
 fn a_full_kernel_table_gives_way_to_the_points_of_the_current_shielding() {
-    // 上限まで埋めた格子点が次の自己遮蔽で使われなければ（燃焼点が変わり格子が変わる）、今の自己遮蔽の格子点が上限に届いたとき
-    // それを捨てて入れる
+    // 上限まで埋めた格子点が、状態の摂動の後の自己遮蔽（燃焼点が変わり格子が変わる）で使われなければ、今の自己遮蔽の格子点が
+    // 上限に届いたときそれを捨てて入れる
     let grid = test_grid();
     let moved: Vec<f64> = grid
         .iter()
@@ -607,7 +607,11 @@ fn a_full_kernel_table_gives_way_to_the_points_of_the_current_shielding() {
     let kernels = KernelCache::default();
     kernels.begin(cap);
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
-    // 前の自己遮蔽で使った格子点は残る
+    // 前の自己遮蔽で使った格子点は残る（状態の公称と摂動）
+    kernels.begin(cap);
+    assert_eq!(kernels.bytes(), cap);
+    swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
+    // 次の燃焼点: 2 つ前の自己遮蔽で入れた格子点を捨てて、動かした格子の格子点を入れる
     kernels.begin(cap);
     assert_eq!(kernels.bytes(), cap);
     swept_on(&moved, 1.0, usize::MAX, Some(&kernels));

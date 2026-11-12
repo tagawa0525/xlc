@@ -771,6 +771,8 @@ pub(super) struct KernelPoint {
     cells: Vec<KernelCell>,
     /// 作るときの核の評価の回数（隣の区間と共有した端は数えない。DEBUG のログの重なりの計数で、表から引いた格子点にも数える）
     evaluations: u64,
+    /// 表に入れた自己遮蔽の番号（[`KernelCache::has_room`] で捨てるか）
+    born: u64,
 }
 
 /// 区間 [a, b] と、a、中点、b の D（[`Gas::correction`]）
@@ -805,8 +807,8 @@ type KernelTable = Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>;
 /// 核（[`Gas::bits`]）、範囲の上端、格子の最後の点、区間の細かさと、出射の格子点のレサジーとエネルギーだけで決まり、断面積、
 /// 個数密度、中性子束、ほかの格子点に依らないので、それらのビットを鍵にする。弾性散乱断面積は減速計算ごとに掛ける。
 ///
-/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたとき表の中身が今の格子に合わなければ（[`KernelCache::has_room`]）今の
-/// 自己遮蔽で使っていない格子点を 1 度捨て、それでも届けば格子点を足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の
+/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたら 2 つ前より前の自己遮蔽で入れて今の自己遮蔽で使っていない格子点を 1 度
+/// 捨て（[`KernelCache::has_room`]）、それでも届けば格子点を足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の
 /// 始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は
 /// 多くが変わる）
 #[derive(Debug, Default)]
@@ -832,21 +834,21 @@ impl KernelCache {
     /// 格子点, 作った格子点, 上限で持たなかった格子点] の数を数え直す
     pub fn begin(&self, cap: u64) {
         let call = self.call.fetch_add(1, Ordering::Relaxed) + 1;
-        self.keep(|last| last + 1 >= call, true);
+        self.keep(|_, last| last + 1 >= call, true);
         self.cap.store(cap, Ordering::Relaxed);
         for count in &self.counts {
             count.store(0, Ordering::Relaxed);
         }
     }
 
-    /// 最後に使った自己遮蔽の番号が `keep` を満たす格子点だけを残す。`empty` なら格子点の無くなった核の表も捨てる（温度の分岐で
+    /// 入れた自己遮蔽と最後に使った自己遮蔽の番号が `keep` を満たす格子点だけを残す。`empty` なら格子点の無くなった核の表も捨てる（温度の分岐で
     /// 核が変わるたびに表が増えるため）。自己遮蔽の途中では捨てない（減速計算が持つ表が、捨てた後に引けない表になる）
-    fn keep(&self, keep: impl Fn(u64) -> bool, empty: bool) {
+    fn keep(&self, keep: impl Fn(u64, u64) -> bool, empty: bool) {
         let mut removed = 0;
         lock(&self.tables).retain(|_, table| {
             let mut table = lock(table);
             table.retain(|_, (p, last)| {
-                let kept = keep(*last);
+                let kept = keep(p.born, *last);
                 if !kept {
                     removed += p.bytes();
                 }
@@ -890,18 +892,17 @@ impl KernelCache {
     }
 
     /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）。上限に届いたとき、今の自己遮蔽で表から引けた
-    /// 格子点が上限で入れなかった格子点より多くなければ（燃焼点が変わり、表の中身が今の格子に合わない）、自己遮蔽ごとに 1 度、
-    /// 今の自己遮蔽で使っていない格子点を捨てて余地を作る。引けた格子点のほうが多いとき（状態の摂動）は、まだ引いていない
-    /// 減速計算が使う格子点を捨てない（引けた 1 点と入れなかった 1 点は、どちらも格子点を 1 つ作る手間で釣り合う）
+    /// 格子点のうち、前の自己遮蔽より前に入れ、今の自己遮蔽でまだ使っていないものを、自己遮蔽ごとに 1 度捨てて余地を作る。
+    /// 前の自己遮蔽で入れた格子点は残す: 状態の公称の自己遮蔽で入れた格子点は、続く摂動の自己遮蔽で、後に解くピンがまだ使う
+    /// （Slurm 771 で、今の自己遮蔽で使っていない格子点をすべて捨てると、摂動の自己遮蔽で表から引けた格子点が 65 万から 38 万に
+    /// 減った）。2 つ前の自己遮蔽で入れた格子点は、燃焼点が変わると多くが使われない
     fn has_room(&self, bytes: u64) -> bool {
         let fits =
             || self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed);
         let mut room = fits();
         let call = self.call.load(Ordering::Relaxed);
-        let stale =
-            || self.counts[0].load(Ordering::Relaxed) <= self.counts[2].load(Ordering::Relaxed);
-        if !room && stale() && self.evicted.swap(call, Ordering::Relaxed) != call {
-            self.keep(|last| last == call, false);
+        if !room && self.evicted.swap(call, Ordering::Relaxed) != call {
+            self.keep(|born, last| last == call || born + 1 >= call, false);
             room = fits();
         }
         if !room {
@@ -925,7 +926,16 @@ impl KernelCache {
             self.counts[2].fetch_add(1, Ordering::Relaxed);
             return;
         }
-        table.insert(point, (Arc::new(value), call));
+        table.insert(
+            point,
+            (
+                Arc::new(KernelPoint {
+                    born: call,
+                    ..value
+                }),
+                call,
+            ),
+        );
     }
 }
 
@@ -1560,6 +1570,7 @@ impl<'a> Thermal<'a> {
                 starts: self.starts.clone(),
                 cells,
                 evaluations: parts.iter().map(|p| p.evaluations).sum(),
+                born: 0,
             };
             kernels.insert(table, point, value);
         }
