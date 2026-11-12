@@ -84,6 +84,7 @@ fn settings(tolerance: f64) -> GeneralizedOptions {
         method: GeneralizedMethod::SourceIteration,
         tolerance,
         max_iterations: 100_000,
+        batch: false,
     }
 }
 
@@ -501,6 +502,86 @@ fn accelerated_methods_reach_the_source_iteration_solution_in_fewer_sweeps() {
                 accelerated.iterations,
                 reference.iterations
             );
+        }
+    }
+}
+
+#[test]
+fn sources_swept_together_reach_the_same_solutions() {
+    // 一緒にスイープしても、源ごとに解いた解と同じ（どの方法でも）。P1 の散乱と 1/4 の対称性で、3 つの源
+    let pin = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let layout = (0..3)
+        .map(|i| (0..3).map(|j| (i + j) % 2).collect())
+        .collect();
+    let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+    let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+    let (f, m) = (
+        with_moments(&two_spectra_fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let materials: Vec<&Material> = (0..9)
+        .flat_map(|c| {
+            if c % 2 == 0 {
+                vec![&f, &f, &m, &m]
+            } else {
+                vec![&m]
+            }
+        })
+        .collect();
+    let options = tight(1);
+    let verified = require(&tracking, Symmetry::QUARTER).unwrap();
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, Some(&verified));
+    let n = materials.len();
+    let fuel = |r: usize| std::ptr::eq(materials[r], &f);
+    let all = |_: usize| Some(1.0);
+    let sources = [
+        ratio_source(
+            &solution,
+            &indicator(n, 2, 1, |r| fuel(r).then_some(f.total[1])),
+            &indicator(n, 2, 1, all),
+        ),
+        ratio_source(
+            &solution,
+            &indicator(n, 2, 0, |r| fuel(r).then_some(f.nu_fission[0])),
+            &indicator(n, 2, 0, all),
+        ),
+        ratio_source(
+            &solution,
+            &indicator(n, 2, 0, |r| Some(materials[r].scatter[0][1])),
+            &indicator(n, 2, 0, all),
+        ),
+    ];
+    for method in [
+        GeneralizedMethod::SourceIteration,
+        GeneralizedMethod::Cmfd(CmfdOptions::default()),
+        GeneralizedMethod::Gmres { restart: 20 },
+    ] {
+        let solve_with_batch = |batch: bool| {
+            let settings = GeneralizedOptions {
+                method,
+                batch,
+                ..settings(1e-11)
+            };
+            solve_generalized(
+                &tracking,
+                &materials,
+                &options,
+                Some(&verified),
+                &forward,
+                &adjoint,
+                &sources,
+                &settings,
+            )
+            .unwrap()
+        };
+        let (each, together) = (solve_with_batch(false), solve_with_batch(true));
+        for (a, b) in each.iter().zip(&together) {
+            let scale = a.flux.iter().flatten().fold(0.0_f64, |s, x| s.max(x.abs()));
+            for (x, y) in a.flux.iter().flatten().zip(b.flux.iter().flatten()) {
+                assert!((x - y).abs() < 1e-9 * scale, "{method:?}: {x} vs {y}");
+            }
+            assert_eq!(a.iterations, b.iterations, "{method:?}");
         }
     }
 }
