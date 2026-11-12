@@ -688,8 +688,8 @@ fn solve_cell(
         ng,
     };
     // 自由ガスの核の届く範囲（start から）は、上方散乱が前のスイープの中性子束を使うので、収束するまで掃き直す
-    let (thermal, sweeps) = match scattering {
-        Scattering::Static => (None, None),
+    let (thermal, sweeps, hold_tracks) = match scattering {
+        Scattering::Static => (None, None, false),
         Scattering::FreeGas(options) => {
             let gases: Vec<(usize, Gas)> = data
                 .iter()
@@ -725,7 +725,7 @@ fn solve_cell(
                 })
                 .collect();
             // S(α, β) の移行で散乱する核種の表
-            let tables = gases
+            let tables: Vec<Option<&xlc_format::library::SabTransfer>> = gases
                 .iter()
                 .map(|&(k, gas)| gas.floor().and(data[k].table.sab_transfer.as_ref()))
                 .collect();
@@ -734,32 +734,39 @@ fn solve_cell(
                     .iter()
                     .map(|(_, column)| heap_bytes(column))
                     .sum::<u64>();
-            // 掃き直す格子点の飛程（[`HeldTracks`]）。掃き直す格子点は `Thermal::new` が決めるので、すべての格子点で数える
-            if options.sweeps != Some(1) {
-                work += held_tracks_bytes(u.len(), n);
+            let kernels: Vec<Gas> = gases.iter().map(|&(_, gas)| gas).collect();
+            // 掃き直す格子点の飛程（[`HeldTracks`]）は、持つ区間の上限の中に収まるときだけ持ち（収まらなければ掃き直すたびに
+            // 求める。結果は同じ）、その分を自由ガスの区間より先に上限から除く。スイープが 1 回なら、持った飛程と区間を使う
+            // スイープがない
+            let swept = free_gas::sweep_start(&kernels, &tables, &energies)
+                .map_or(0, |start| u.len() - start);
+            let tracks = held_tracks_bytes(swept, n);
+            let hold_tracks = options.sweeps != Some(1)
+                && swept > 0
+                && cells_beside_work(hold, work + tracks) > 0;
+            if hold_tracks {
+                work += tracks;
             }
             let thermal = Thermal::new(
-                gases.iter().map(|&(_, gas)| gas).collect(),
+                kernels,
                 sigma,
                 rings,
                 tables,
                 options.cells,
                 &energies,
                 n,
-                // スイープが 1 回なら、持った区間を使うスイープがない
                 if options.sweeps == Some(1) {
                     0
                 } else {
                     cells_beside_work(hold, work)
                 },
             );
-            (thermal, options.sweeps)
+            (thermal, options.sweeps, hold_tracks)
         }
     };
     sweep.thermal = thermal;
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
-    // スイープが 1 回なら、持った飛程を使うスイープがない
-    let mut held_tracks = (sweep.thermal.is_some() && sweeps != Some(1)).then(|| HeldTracks {
+    let mut held_tracks = (sweep.thermal.is_some() && hold_tracks).then(|| HeldTracks {
         start,
         tracks: Vec::with_capacity(u.len() - start),
     });
@@ -1080,7 +1087,14 @@ impl Pass<'_> {
             let owned;
             let tracks: &[Vec<Vec<f64>>] = match (held.as_mut(), slot) {
                 (Some(h), Some(r)) if r.end <= h.tracks.len() => &h.tracks[r],
-                (Some(h), Some(r)) if r.start == h.tracks.len() => {
+                (Some(h), Some(r)) => {
+                    // 掃き直しは `start` から順に塊を解くので、持っていない塊は持った飛程の続き。ほかは呼び方の誤りで、黙って
+                    // 求め直さない（速くならないだけで、テストが見つけない）
+                    assert_eq!(
+                        r.start,
+                        h.tracks.len(),
+                        "held tracks: chunk {chunk:?} does not continue the held points"
+                    );
                     let solved = solve()?;
                     *collisions += solved.len();
                     h.tracks.extend(solved);

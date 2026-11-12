@@ -957,6 +957,32 @@ pub(super) struct Thermal<'a> {
     elapsed: [Duration; 2],
 }
 
+/// 自由ガスの核種の核 `gases` と S(α, β) の移行の表 `tables` で、D が 0 でない格子点のうち最初のものの 1 つ前（掃き直しの始め。
+/// [`Thermal::start`]）。`energies` は格子点のエネルギー（降順）。自由ガスの核種がないか、届く格子点がなければ `None`
+pub(super) fn sweep_start(
+    gases: &[Gas],
+    tables: &[Option<&SabTransfer>],
+    energies: &[f64],
+) -> Option<usize> {
+    if gases.is_empty() {
+        return None;
+    }
+    // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0。S(α, β) の移行は、
+    // 表の上限から表の移行の最大まで上に届く
+    let reach = gases
+        .iter()
+        .zip(tables)
+        .map(|(l, table)| {
+            let sab = table
+                .as_ref()
+                .map_or(0.0, |t| l.top() + t.transfer[t.transfer.len() - 1]);
+            (l.cap() + TAIL * l.kt()).max(sab)
+        })
+        .fold(0.0, f64::max);
+    let first = energies.iter().position(|&e| e <= reach)?;
+    Some(first.saturating_sub(1))
+}
+
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
@@ -973,23 +999,7 @@ impl<'a> Thermal<'a> {
         n: usize,
         hold: usize,
     ) -> Option<Self> {
-        if gases.is_empty() {
-            return None;
-        }
-        // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0。S(α, β) の移行は、
-        // 表の上限から表の移行の最大まで上に届く
-        let reach = gases
-            .iter()
-            .zip(&tables)
-            .map(|(l, table)| {
-                let sab = table
-                    .as_ref()
-                    .map_or(0.0, |t| l.top() + t.transfer[t.transfer.len() - 1]);
-                (l.cap() + TAIL * l.kt()).max(sab)
-            })
-            .fold(0.0, f64::max);
-        let first = energies.iter().position(|&e| e <= reach)?;
-        let start = first.saturating_sub(1);
+        let start = sweep_start(&gases, &tables, energies)?;
         Some(Self {
             gases,
             sigma,
