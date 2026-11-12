@@ -1,6 +1,8 @@
 # 2A の本番の形の格子（#0278）で、一般化随伴の固定源の収束の方法を比べる（#0279 の段 3。ADR-0247）。2A-60.toml（段 2 の公称の
 # 1 状態、60 MWd/kg）に、少数群定数の応答の一般化随伴（[sensitivity.generalized]）を足したもの。応答は、ピンセルで判定を満たす
-# スイープの最も多い熱群の全断面積と、高速群の応答から高速群から熱群への散乱の 2 つ（ピンセルは pincell-generalized.toml）。パスはこのディレクトリから見たもの。
+# スイープの最も多い熱群の全断面積と、高速群の応答から高速群から熱群への散乱の 2 つ（ピンセルは pincell-generalized.toml）。
+# CMFD は 2A で発散する（ADR-0247）。今のコードはその行を failure に書き、2A-60-generalized-sensitivity.toml の NaN の行は、発散を止める前の
+# xlc 115da2979 で書いたもの。パスはこのディレクトリから見たもの。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 few-group = { output = "2A-60-generalized-table.msgpack", bounds = [1e7, 0.625, 1e-5] }

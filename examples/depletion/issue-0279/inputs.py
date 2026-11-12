@@ -123,7 +123,7 @@ RESPONSES = [
 def generalized(output: str) -> str:
     """段 3 の一般化随伴の比較（ADR-0247）。少数群定数の微分の 10 項目の応答（2 群）を、3 つの収束の方法の 2 つの判定（GMRES は
     残差の 2 ノルムで止めるので、同じ判定では誤差が大きい）と、細かい判定の GMRES の参照で解く。CMFD と GMRES は 10 本を一緒に
-    スイープしても解く。GMRES の再始動は 100 回（ピンセルの判定 1e-6 で、30 回の 1,474 スイープ（手元の試行。xlc d32a6fd8e をコミットする前の同じ内容の作業ツリー）に対し 927（Slurm 773））。MOC の判定は既定（本番の判定）"""
+    スイープしても解く。GMRES の再始動の回数は ADR-0247 の決定と理由の「一般化随伴」の項。MOC の判定は既定（本番の判定）"""
     names = ", ".join(f'"{n}"' for n in NUCLIDES)
     responses = ", ".join(f'"{r}"' for r in RESPONSES)
     return (
