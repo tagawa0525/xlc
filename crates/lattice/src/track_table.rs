@@ -465,6 +465,17 @@ impl TrackTable {
                 .collect(),
         ))
     }
+
+    /// [`TrackTable::tracks`] の飛程 T[j][i] の、物質 `material` の全断面積についての微分 ∂T/∂Σ_material（ADR-0247 の案 I2）。
+    /// `tracks` が `None` の組は `None`、エラーも `tracks` と同じ
+    pub fn derivative(
+        &self,
+        sigma: &[f64],
+        material: usize,
+    ) -> Result<Option<Vec<Vec<f64>>>, TableError> {
+        let _ = (sigma, material);
+        Ok(None)
+    }
 }
 
 /// 物質ごとの全断面積 `sigma` の [軸] の値（中心）。軸を共有する物質の ln Σ の中心からの差が [`MAX_DEVIATION`] を超えれば `None`、

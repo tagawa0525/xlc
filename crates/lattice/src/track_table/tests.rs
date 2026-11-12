@@ -382,3 +382,79 @@ fn tables_for_points_reject_points_of_other_material_counts() {
         );
     }
 }
+
+/// 表 `table` の `sigma` での飛程の、物質 `material` の全断面積についての微分を、ln Σ を ±h、±h/2 ずらした内挿の中心差分の
+/// Richardson の外挿で求めたもの（h は格子点の間隔（ln Σ で 0.14）より十分小さく、試料は格子点から離れているので、刻みの中で
+/// 内挿の点の組は同じ。小さい h は丸めが大きい: 燃料の 3 つのリングが 2900 /cm の組で、h = 1e-4 では下の尺度で 2e-7、1e-3 では 3e-9）
+fn table_difference(table: &TrackTable, sigma: &[f64], material: usize) -> Vec<Vec<f64>> {
+    let h = 1.0e-3;
+    let at = |s: f64| {
+        let mut shifted = sigma.to_vec();
+        shifted[material] = sigma[material] * s.exp();
+        table.tracks(&shifted).unwrap().unwrap()
+    };
+    let [p, m, ph, mh] = [h, -h, h / 2.0, -h / 2.0].map(at);
+    (0..p.len())
+        .map(|j| {
+            (0..p[j].len())
+                .map(|i| {
+                    let full = (p[j][i] - m[j][i]) / (2.0 * h);
+                    let half = (ph[j][i] - mh[j][i]) / h;
+                    (4.0 * half - full) / 3.0 / sigma[material]
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// 微分 `got` と差分 `reference` の差の最大を、差分の最大 |∂T/∂Σ| で割ったもの（黒い燃料の奥のリングの列の微分は 1e-14 の程度に
+/// なり、差分の丸め（T の丸めを刻みで割ったもの）より小さいので、列ごとの相対差では比べられない）
+fn derivative_difference(got: &[Vec<f64>], reference: &[Vec<f64>]) -> f64 {
+    let scale = reference
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |a, &b| a.max(b.abs()));
+    got.iter()
+        .flatten()
+        .zip(reference.iter().flatten())
+        .map(|(a, b)| (a - b).abs() / scale)
+        .fold(0.0, f64::max)
+}
+
+#[test]
+fn derivatives_match_central_differences_of_the_interpolated_tracks() {
+    // ADR-0247 の案 I2: 表で内挿した飛程の、物質の全断面積についての微分（内挿の重み、展開の係数、R から W に戻す割り算の微分）は、
+    // 同じ表の内挿の中心差分と一致する。物質ごとの軸（被覆管と水を含む）と、燃料の 3 つのリングの物質が共有する軸
+    let single = TrackTable::new(&cell(), layout(), &RANGES, DEFAULT_DENSITY).unwrap();
+    for s in samples() {
+        for material in 0..3 {
+            let got = single.derivative(&s, material).unwrap().unwrap();
+            let d = derivative_difference(&got, &table_difference(&single, &s, material));
+            assert!(d < 1e-7, "{s:?} material {material}: {d}");
+        }
+    }
+    let ranges = [[0.3, 3000.0], [0.25, 2.0], [1.2, 1.6]];
+    let shared = TrackTable::new(&cell(), ring_layout(), &ranges, DEFAULT_DENSITY).unwrap();
+    for [f, c, w] in samples() {
+        let sigma = ring_sigma(f, MAX_DEVIATION / 2.0, c, w);
+        for material in 0..5 {
+            let got = shared.derivative(&sigma, material).unwrap().unwrap();
+            let d = derivative_difference(&got, &table_difference(&shared, &sigma, material));
+            assert!(d < 1e-7, "{sigma:?} material {material}: {d}");
+        }
+    }
+}
+
+#[test]
+fn derivatives_are_left_to_the_exact_tracks_where_the_tracks_are() {
+    // 展開の外の組（`tracks` が `None`）は、微分も表で求めず、範囲の外は同じエラー
+    let ranges = [[0.3, 3000.0], [0.25, 2.0], [1.2, 1.6]];
+    let table = TrackTable::new(&cell(), ring_layout(), &ranges, DEFAULT_DENSITY).unwrap();
+    let beyond = ring_sigma(3.3, 2.0 * MAX_DEVIATION, 0.9, 1.4);
+    assert!(table.derivative(&beyond, 0).unwrap().is_none());
+    let outside = ring_sigma(3.3, 0.0, 0.9, 1.7);
+    assert!(matches!(
+        table.derivative(&outside, 4),
+        Err(TableError::Outside { axis: 2, .. })
+    ));
+}
