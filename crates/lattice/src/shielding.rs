@@ -458,6 +458,12 @@ impl<'a> ShieldingReuse<'a> {
         }
     }
 
+    /// トラッキング `tracking` で解く自己遮蔽の、`callers` 人の呼び出し側（状態と、数密度の微分の摂動の組成）が共有する前処理
+    pub fn sharing(tracking: &'a Tracking, callers: usize) -> Self {
+        let _ = callers;
+        Self::new(tracking)
+    }
+
     /// 前処理のトラッキング
     pub fn tracking(&self) -> &'a Tracking {
         self.tracking
