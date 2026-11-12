@@ -2577,3 +2577,241 @@ fn unsearchable_cgroups_stop_with_an_error() {
         );
     }
 }
+
+/// 接線の試験のセル: 共鳴を持つ燃料の 3 つのリング（U-238 の個数密度がリングで違う）、真空のギャップ、水。
+/// [`resonant_cell`] の核種
+fn tangent_cell() -> (Library, Vec<MaterialInput>, Cylinder) {
+    let (lib, _, water) = resonant_cell(11.0 + 1.0e4);
+    let fuels = [0.022, 0.0215, 0.021]
+        .map(|u238| material(&[("U-238", u238), ("U-235", 0.0005), ("O-16", 0.045)]));
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    (lib, fuels.into_iter().chain([water]).collect(), cell)
+}
+
+/// `tangent_cell` のリングの物質（燃料 3、真空、水）
+fn tangent_rings(materials: &[MaterialInput]) -> Vec<Option<&MaterialInput>> {
+    vec![
+        Some(&materials[0]),
+        Some(&materials[1]),
+        Some(&materials[2]),
+        None,
+        Some(&materials[3]),
+    ]
+}
+
+/// 核種 `name` の個数密度に比例する向き（`rings` の中の、その核種を含むリングすべて）
+fn proportional(rings: &[Option<&MaterialInput>], name: &str) -> Vec<Vec<f64>> {
+    rings
+        .iter()
+        .map(|m| {
+            m.iter()
+                .flat_map(|m| &m.composition)
+                .map(|(n, d)| if n == name { *d } else { 0.0 })
+                .collect()
+        })
+        .collect()
+}
+
+/// リングの物質 `rings` の個数密度を N + t δN にした物質（リングの順。真空のリングは真空）
+fn moved(
+    rings: &[Option<&MaterialInput>],
+    direction: &[Vec<f64>],
+    t: f64,
+) -> Vec<Option<MaterialInput>> {
+    rings
+        .iter()
+        .zip(direction)
+        .map(|(m, delta)| {
+            m.map(|m| MaterialInput {
+                composition: m
+                    .composition
+                    .iter()
+                    .zip(delta)
+                    .map(|((n, d), x)| (n.clone(), d + t * x))
+                    .collect(),
+                ..m.clone()
+            })
+        })
+        .collect()
+}
+
+/// 群定数を [リング][核種][反応][群] の値に並べる（真空のリングは空）
+fn constants(nuclides: &[Vec<Shielded>]) -> Vec<Vec<Vec<f64>>> {
+    nuclides
+        .iter()
+        .map(|ring| {
+            ring.iter()
+                .flat_map(|s| {
+                    [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture].map(|v| v.clone())
+                })
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn tangents_match_central_differences_of_the_slowing_down() {
+    // ADR-0247 の案 I2: 個数密度の向きごとの中性子束と群定数の 1 次の変化は、個数密度を ±t、±t/2 変えた減速計算の中心差分の
+    // Richardson の外挿と一致する。燃料の U-238（自己遮蔽）、燃料と水の O-16（燃料の外のリングも変える）、水の H-1（減速材だけ）
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    let range = [4.0, 1.0e4];
+    let directions: Vec<Vec<Vec<f64>>> = ["U-238", "O-16", "H-1"]
+        .iter()
+        .map(|name| proportional(&rings, name))
+        .collect();
+    let (_, tangent) = slowing_down_tangent(&lib, &cell, &rings, range, &directions).unwrap();
+    let solve = |inputs: &[Option<MaterialInput>]| {
+        let rings: Vec<Option<&MaterialInput>> = inputs.iter().map(Option::as_ref).collect();
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            range,
+            Collision::Exact,
+            None,
+            Scattering::Static,
+            0,
+        )
+        .unwrap()
+    };
+    let step = 1.0e-3;
+    for (d, direction) in directions.iter().enumerate() {
+        let at = |t: f64| solve(&moved(&rings, direction, t));
+        let [p, m, ph, mh] = [step, -step, step / 2.0, -step / 2.0].map(at);
+        let richardson = |a: f64, b: f64, c: f64, e: f64| {
+            let full = (a - b) / (2.0 * step);
+            let half = (c - e) / step;
+            (4.0 * half - full) / 3.0
+        };
+        // 中性子束: リングごとの群の最大で測った差
+        for (i, flux) in tangent.flux[d].iter().enumerate() {
+            let reference: Vec<f64> = (0..flux.len())
+                .map(|g| richardson(p.flux[i][g], m.flux[i][g], ph.flux[i][g], mh.flux[i][g]))
+                .collect();
+            let scale = p.flux[i].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+            for (g, (a, b)) in flux.iter().zip(&reference).enumerate() {
+                assert!(
+                    (a - b).abs() <= 1e-9 * scale,
+                    "direction {d} ring {i} group {g}: flux change {a} vs {b}"
+                );
+            }
+        }
+        // 群定数: 核種と反応ごとの値の最大で測った差
+        let values = [&p, &m, &ph, &mh].map(|s| constants(&s.nuclides));
+        let changes = constants(&tangent.nuclides[d]);
+        for (i, ring) in changes.iter().enumerate() {
+            for (x, change) in ring.iter().enumerate() {
+                let scale = values[0][i][x].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+                for (g, a) in change.iter().enumerate() {
+                    let b = richardson(
+                        values[0][i][x][g],
+                        values[1][i][x][g],
+                        values[2][i][x][g],
+                        values[3][i][x][g],
+                    );
+                    assert!(
+                        (a - b).abs() <= 1e-9 * scale,
+                        "direction {d} ring {i} column {x} group {g}: {a} vs {b}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn tangents_solve_the_same_spectrum_as_without() {
+    // 1 次の変化を求めても（飛程の微分を求める向きがあっても）、減速計算の結果は格子点ごとの飛程と静止した標的の解とビットで同じ。
+    // 向きが 0 なら変化も 0
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    let range = [4.0, 1.0e4];
+    let zero: Vec<Vec<f64>> = proportional(&rings, "none");
+    let directions = [
+        zero,
+        proportional(&rings, "U-238"),
+        proportional(&rings, "H-1"),
+    ];
+    let (spectrum, tangent) =
+        slowing_down_tangent(&lib, &cell, &rings, range, &directions).unwrap();
+    let plain = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        range,
+        Collision::Exact,
+        None,
+        Scattering::Static,
+        0,
+    )
+    .unwrap();
+    assert_eq!(spectrum, plain);
+    assert!(tangent.flux[0].iter().flatten().all(|&x| x == 0.0));
+    assert!(
+        constants(&tangent.nuclides[0])
+            .iter()
+            .flatten()
+            .flatten()
+            .all(|&x| x == 0.0)
+    );
+}
+
+#[test]
+fn tangent_directions_must_follow_the_ring_compositions() {
+    // 向きの並びがリングの組成と合わなければ止める（黙って切り詰めない）
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    let mut short = proportional(&rings, "U-238");
+    short[0].pop();
+    assert!(matches!(
+        slowing_down_tangent(&lib, &cell, &rings, [4.0, 1.0e4], &[short]),
+        Err(UfgError::Direction {
+            direction: 0,
+            ring: 0,
+            given: 2,
+            expected: 3
+        })
+    ));
+    let missing = proportional(&rings[..4], "U-238");
+    assert!(matches!(
+        slowing_down_tangent(&lib, &cell, &rings, [4.0, 1.0e4], &[missing]),
+        Err(UfgError::Rings { given: 4, rings: 5 })
+    ));
+}
+
+#[test]
+fn tangents_stop_with_the_settings_they_do_not_cover() {
+    // 接線は格子点ごとの飛程、間引かない格子、静止した標的だけ。ほかの設定では黙って誤った変化を返さず止める
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    let directions = [proportional(&rings, "U-238")];
+    let settings = [
+        (Collision::default(), None, Scattering::Static),
+        (Collision::Exact, Some(1e-4), Scattering::Static),
+        (Collision::Exact, None, Scattering::default()),
+    ];
+    for (collision, thinning, scattering) in settings {
+        let mut out = CellTangent {
+            flux: Vec::new(),
+            nuclides: Vec::new(),
+        };
+        let result = solve_cell(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            thinning,
+            scattering,
+            None,
+            None,
+            Some((&directions, &mut out)),
+            0,
+        );
+        assert!(
+            matches!(result, Err(UfgError::TangentSettings)),
+            "{collision:?} {thinning:?} {scattering:?}: {result:?}"
+        );
+    }
+}
