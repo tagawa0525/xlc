@@ -156,5 +156,22 @@ class Relative(unittest.TestCase):
         self.assertTrue(all(r["ok"] for r in n["rows"]))
 
 
+class ImplicitK(unittest.TestCase):
+    def test_first_order_k_away_from_the_reshielded_k_fails(self):
+        shielded = {
+            "first_order": steps((-0.03, -0.03)),
+            "direct": steps((-0.03, -0.03)),
+            "k_first_order": {"central": [-0.16, -0.16], "richardson": -0.16},
+            "k_direct": {"central": [-0.17, -0.17], "richardson": -0.17},
+        }
+        r = report(-0.05, (-0.05, -0.05), shielded)
+        r["k_tolerance"] = 1e-12
+        (n,) = cfg.compare(r)["implicit"]
+        self.assertFalse(n["k_ok"])
+        shielded["k_first_order"] = shielded["k_direct"]
+        (n,) = cfg.compare(r)["implicit"]
+        self.assertTrue(n["k_ok"])
+
+
 if __name__ == "__main__":
     unittest.main()
