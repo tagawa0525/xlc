@@ -2390,6 +2390,19 @@ fn a_given_hold_memory_holds_the_carried_kernel_table_inside_it() {
 }
 
 #[test]
+fn a_measured_pin_demand_leaves_the_rest_of_the_hold_memory_to_the_kernel_table() {
+    // 表の上限は、全体（新たに確保できる量と残った表）から、同時に解く減速計算の 1 つ分ずつを除いた残り。1 つ分は、前の自己遮蔽で
+    // 測ったピンの 1 回の量（上限なしで持つ区間と作業の配列）と、全体を減速計算と表で等しく分けた量の小さい方で、測っていなければ
+    // 等しく分けた量
+    let gib = 1u64 << 30;
+    assert_eq!(kernel_cap(32 * gib, gib, 32, None), gib);
+    assert_eq!(kernel_cap(32 * gib, gib, 32, Some(gib / 2)), 17 * gib);
+    assert_eq!(kernel_cap(32 * gib, gib, 32, Some(gib)), gib);
+    assert_eq!(kernel_cap(32 * gib, gib, 32, Some(2 * gib)), gib);
+    assert_eq!(kernel_cap(32 * gib, 0, 32, Some(0)), 32 * gib);
+}
+
+#[test]
 fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
     // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
     let gib = 1u64 << 30;

@@ -561,6 +561,21 @@ fn held_cells_give_the_sources_of_rebuilt_cells_bit_for_bit() {
 }
 
 #[test]
+fn the_cells_a_solve_would_hold_do_not_depend_on_its_hold() {
+    // 減速計算が上限なしで持つ区間の数（核種の区間の始まりと位置の表を 1 区間 48 B で数えたものを含む。表の上限を決める
+    // ピンの 1 回の量）は、与えた上限によらず、すべてを持てたときに持った数と同じ
+    let wanted = |hold: usize| swept_mixed(&test_grid(), 1.0, hold, None, None).2.wanted;
+    let (_, total) = swept_sources(usize::MAX);
+    let all = wanted(usize::MAX);
+    assert!(all > total as u64, "{all} {total}");
+    for hold in [0, total / 2, total] {
+        assert_eq!(wanted(hold), all, "{hold}");
+    }
+    let (.., work) = swept_mixed(&test_grid(), 1.0, usize::MAX, None, None);
+    assert_eq!(work.wanted, all);
+}
+
+#[test]
 fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
     // 自由ガスの核の区間と D の値を、断面積の違う減速計算と、格子点の一部だけが同じ格子の減速計算の間で持っても、散乱源は持たない
     // ときとビットで同じ。同じ格子の 2 本目は核を評価せず、一部が同じ格子は残りの格子点だけを評価する
@@ -859,7 +874,7 @@ fn the_kernel_table_grows_only_into_its_share_of_the_given_hold_memory() {
         let whole = whole * kernels.bytes();
         let held = kernels.start();
         let total = super::super::hold_total(Some(whole), held).unwrap();
-        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once));
+        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once, None));
         swept_on(&other, 1.0, usize::MAX, Some(&kernels));
         assert!(kernels.bytes() <= held + growth, "{at_once}");
         assert!(kernels.bytes() + (total - growth) <= whole, "{at_once}");

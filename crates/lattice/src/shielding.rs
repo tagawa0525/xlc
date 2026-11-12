@@ -717,7 +717,7 @@ pub fn shield_fuel_reusing(
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
     let growth = shares.kernels().limit(match options.transfer {
-        UfgTransfer::RingFlux if at_once > 0 => kernel_cap(total, held, at_once),
+        UfgTransfer::RingFlux if at_once > 0 => kernel_cap(total, held, at_once, None),
         // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
         _ => held,
     });

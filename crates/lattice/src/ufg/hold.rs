@@ -50,7 +50,7 @@ pub fn hold_total(given: Option<u64>, held: u64) -> Result<u64, MemoryError> {
 
 /// 自由ガスの核の表（ADR-0248）の上限 (B): 残った表 `held` を含む全体（新たに確保できる量 `total` + `held`）を、同時に解く
 /// `at_once` 個の減速計算と表で分けた 1 つ分。ピンと塊には、`total` から表がまだ増えうる量（上限 − `held`、または 0）を除いて渡す
-pub fn kernel_cap(total: u64, held: u64, at_once: usize) -> u64 {
+pub fn kernel_cap(total: u64, held: u64, at_once: usize, _demand: Option<u64>) -> u64 {
     total.saturating_add(held) / (at_once as u64 + 1)
 }
 
