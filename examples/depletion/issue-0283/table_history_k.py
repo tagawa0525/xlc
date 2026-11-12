@@ -3,8 +3,8 @@
 使い方: python3 table_history_k.py <格子計算の履歴（msgpack）> <テーブル（msgpack）>...
 
 テーブルごとに、状態の燃焼度、テーブルの k∞、履歴の k∞、(1/k_履歴 − 1/k_テーブル) × 1e5 pcm を 1 行ずつ書く。履歴は 1 つの状態の
-燃焼なので、燃焼度のほかの軸が 1 点だけ（燃焼度ごとに状態が 1 つ）で、集合体を分けないテーブルだけを受け付ける。テーブルの燃焼度の
-点が履歴の燃焼点に無ければ止める。
+燃焼なので、燃焼度のほかの軸がその軸の公称の 1 点だけ（燃焼度ごとに公称の状態が 1 つ）で、集合体を分けないテーブルだけを受け付ける
+（履歴は状態を持たないので、テーブルの公称が履歴の状態と同じことは入力で揃える）。テーブルの燃焼度の点が履歴の燃焼点に無ければ止める。
 """
 
 import sys
@@ -19,14 +19,18 @@ def load(path: str) -> dict:
 
 def rows(history: dict, table: dict) -> list[tuple[float, float, float, float]]:
     """テーブルの状態ごとの (燃焼度, k_テーブル, k_履歴, pcm)"""
+    if history.get("format") != "xlc-depletion-history":
+        raise SystemExit("the first file must be a lattice depletion history")
+    if table.get("format") != "xlc-table":
+        raise SystemExit("the other files must be tables")
     if table["split"] != 1:
         raise SystemExit("the table must not split the assembly")
     names = [axis["name"] for axis in table["axes"]]
     for axis in table["axes"]:
-        if axis["name"] != "burnup" and len(axis["points"]) != 1:
+        if axis["name"] != "burnup" and axis["points"] != [axis["nominal"]]:
             raise SystemExit(
-                f"the table has {len(axis['points'])} {axis['name']} points; "
-                "the history holds one state per burnup"
+                f"the table's {axis['name']} points are {axis['points']}, not only "
+                f"the nominal {axis['nominal']}; the history holds one state per burnup"
             )
     # 履歴の燃焼点は燃焼度の値で引く（テーブルの燃焼度の軸は履歴の点の値をそのまま持つ）
     history_k = {point["burnup"]: point["k_inf"] for point in history["points"]}
