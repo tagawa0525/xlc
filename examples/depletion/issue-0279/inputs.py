@@ -147,14 +147,13 @@ def generalized(output: str) -> str:
 
 
 def few_group(output: str) -> str:
-    """段 4 の少数群定数の数密度の微分（ADR-0247）。直接の摂動と判定は `sensitivity` と同じ。一般化随伴の GMRES の判定 1e-10 は、
-    段 3 の目安の 1e-7（ADR-0247 の決定と理由）より細かく、感度の小さい核種の比較が随伴の側の誤差で決まらないようにする。
-    自己遮蔽は 31 核種すべてで解き直す（案 I1 と I3）"""
+    """段 4 の少数群定数の数密度の微分（ADR-0247）。直接の摂動と判定は `sensitivity` と同じ。一般化随伴は CMFD の反復の GMRES で、
+    判定は ADR-0247 の決定と理由の目安の 1e-7。自己遮蔽は 31 核種すべてで解き直す（案 I1 と I3）"""
     names = ", ".join(f'"{n}"' for n in NUCLIDES)
     return (
         sensitivity(output) + "\n[sensitivity.few-group]\n"
         "bounds = [1e7, 0.625, 1e-5]\n"
-        "tolerance = 1e-10\n"
+        "tolerance = 1e-7\n"
         "restart = 100\n"
         f"shielded = [{names}]\n"
     )
