@@ -2276,6 +2276,55 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn shared_reuses_keep_the_dancoff_factors_of_each_caller() {
+        // 状態と摂動の組成の自己遮蔽が共有する前処理は、呼び出し側の数だけ直前の入力の結果を持つ。摂動が燃料でない物質を変えても
+        // （燃料でない燃焼の領域の核種の微分）、燃料の温度だけが違う次の状態は、その前の状態の Dancoff 係数を使う
+        let library = library();
+        let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let options = ShieldingOptions::default();
+        let mut reuse = ShieldingReuse::sharing(&tracking, NonZeroUsize::new(2).unwrap());
+        // 状態、その摂動（水の H-1 を変える）、燃料だけが違う次の状態、その摂動
+        let inputs = [
+            materials(),
+            with_density("water", "H-1", 0.055),
+            with_density("fuel", "U-235", 5.0e-4),
+            with_density("water", "H-1", 0.055),
+        ];
+        for (k, materials) in inputs.iter().enumerate() {
+            let reused = shield_fuel_reusing(
+                &library, &mut reuse, materials, &regions, &symmetry, &options,
+            )
+            .unwrap();
+            let fresh = shield_fuel_with(
+                &library, &tracking, materials, &regions, &symmetry, &options,
+            )
+            .unwrap();
+            assert_eq!(reused, fresh, "{k}");
+        }
+        assert_eq!(reuse.dancoff_solves, 2);
+    }
+
+    #[test]
+    fn shared_reuses_keep_the_recently_used_dancoff_factors() {
+        // 持つ数を超えて追い出すのは、最も長く使っていない入力（使った入力は前に移る）
+        let library = library();
+        let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let options = ShieldingOptions::default();
+        let mut reuse = ShieldingReuse::sharing(&tracking, NonZeroUsize::new(2).unwrap());
+        let [a, b, c] = [0.05, 0.055, 0.06].map(|h1| with_density("water", "H-1", h1));
+        // a、b を解き、a を使い、c を解くと b が追い出され、a は残る
+        for materials in [&a, &b, &a, &c, &a] {
+            shield_fuel_reusing(
+                &library, &mut reuse, materials, &regions, &symmetry, &options,
+            )
+            .unwrap();
+        }
+        assert_eq!(reuse.dancoff_solves, 3);
+    }
+
+    #[test]
     fn dancoff_factors_are_solved_again_for_other_dancoff_options() {
         let library = library();
         let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);

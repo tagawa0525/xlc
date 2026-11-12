@@ -1,0 +1,105 @@
+2026-11-12T02:36:34.401701Z  INFO lattice: thread pool threads=32 from="default"
+2026-11-12T02:36:34.848123Z  INFO xlc_lattice::symmetry: symmetry symmetry="all eight operations (1/8)" operations=8
+2026-11-12T02:36:39.137630Z  WARN xlc_lattice::history: not transported: no library data at the temperature of the depletion burnup=32.0 nuclides="H-1" density=6.014777847527579e-11
+2026-11-12T02:36:39.137930Z  INFO xlc_lattice::history: not transported: not in the library burnup=32.0 nuclides=1496 density=0.0011601673622546852
+2026-11-12T02:36:39.521945Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=369ms time.idle=1.91µs
+2026-11-12T02:36:41.482272Z  INFO shielding:dancoff: xlc_lattice::shielding: close time.busy=1.96s time.idle=2.34µs
+2026-11-12T02:36:43.659382Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82699 outside=8963 evaluations=59783
+2026-11-12T02:36:43.733194Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82727 outside=8298 evaluations=59118
+2026-11-12T02:36:43.897162Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82688 outside=8954 evaluations=59774
+2026-11-12T02:36:43.897162Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82748 outside=8711 evaluations=59531
+2026-11-12T02:36:43.897164Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82732 outside=8887 evaluations=59707
+2026-11-12T02:36:43.897172Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82731 outside=8858 evaluations=59678
+2026-11-12T02:36:43.897199Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82724 outside=10376 evaluations=58292
+2026-11-12T02:36:43.897224Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82701 outside=9900 evaluations=59268
+2026-11-12T02:36:43.897913Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82803 outside=8664 evaluations=59484
+2026-11-12T02:36:43.897909Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82741 outside=8848 evaluations=59668
+2026-11-12T02:36:43.897911Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82789 outside=8192 evaluations=59012
+2026-11-12T02:36:43.897909Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82760 outside=9811 evaluations=59179
+2026-11-12T02:36:43.897916Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82689 outside=9610 evaluations=58978
+2026-11-12T02:36:43.897917Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82699 outside=9919 evaluations=59287
+2026-11-12T02:36:43.899486Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82715 outside=9829 evaluations=59197
+2026-11-12T02:36:43.899876Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82750 outside=8736 evaluations=59556
+2026-11-12T02:36:43.900862Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82764 outside=8732 evaluations=59552
+2026-11-12T02:36:43.901816Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82792 outside=8637 evaluations=59457
+2026-11-12T02:36:43.904608Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82748 outside=8692 evaluations=59512
+2026-11-12T02:36:43.905670Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82694 outside=9833 evaluations=59201
+2026-11-12T02:36:43.905998Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82735 outside=8642 evaluations=59462
+2026-11-12T02:36:43.909012Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82718 outside=9861 evaluations=59229
+2026-11-12T02:36:43.945109Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82703 outside=8943 evaluations=59763
+2026-11-12T02:36:43.986295Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82693 outside=9827 evaluations=59195
+2026-11-12T02:36:43.990019Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82697 outside=8964 evaluations=59784
+2026-11-12T02:36:44.024165Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82762 outside=8826 evaluations=59646
+2026-11-12T02:36:44.025301Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82811 outside=9060 evaluations=59880
+2026-11-12T02:36:44.025301Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82746 outside=9851 evaluations=59219
+2026-11-12T02:36:44.025301Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82782 outside=8670 evaluations=59490
+2026-11-12T02:36:44.025302Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82755 outside=9803 evaluations=59171
+2026-11-12T02:36:44.025308Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82727 outside=10328 evaluations=58244
+2026-11-12T02:36:44.025311Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82775 outside=8268 evaluations=59088
+2026-11-12T02:37:27.258098Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82688 outside=9790 evaluations=59158
+2026-11-12T02:37:27.291182Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82687 outside=9738 evaluations=59106
+2026-11-12T02:37:27.354538Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82698 outside=8843 evaluations=59663
+2026-11-12T02:37:27.354538Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82696 outside=8897 evaluations=59717
+2026-11-12T02:37:27.354538Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82692 outside=8889 evaluations=59709
+2026-11-12T02:37:27.354722Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82692 outside=9805 evaluations=59173
+2026-11-12T02:37:27.360239Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82685 outside=9767 evaluations=59135
+2026-11-12T02:37:38.095973Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=0.00049532 solved=0.06601151400000001
+2026-11-12T02:37:40.152227Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=2.06s time.idle=2.36µs
+2026-11-12T02:37:40.152962Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=688µs time.idle=2.16µs
+2026-11-12T02:37:40.152979Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=264 solved=39 points_min=Some(82685) points_max=Some(82811) points_sum=3226436
+2026-11-12T02:37:40.153044Z  INFO shielding: xlc_lattice::shielding: close time.busy=61.0s time.idle=2.51µs
+2026-11-12T02:37:40.200322Z  INFO moc{regions=28928 tracks=27420}: xlc_lattice::moc::symmetric: symmetry tracks=27420 representative_tracks=3684 regions=28928 representative_regions=3617 cells=361 representative_cells=55
+2026-11-12T02:37:47.095688Z  INFO moc{regions=28928 tracks=27420}: xlc_lattice::moc: close time.busy=6.94s time.idle=2.10µs
+2026-11-12T02:37:47.378331Z  INFO xlc_lattice::b1: B1 critical spectrum buckling=-0.0010966719749005707 evaluations=10
+2026-11-12T02:37:47.947037Z  INFO shielding:mix: xlc_lattice::shielding: close time.busy=354ms time.idle=821ns
+2026-11-12T02:37:49.817986Z  INFO shielding:dancoff: xlc_lattice::shielding: close time.busy=1.87s time.idle=2.77µs
+2026-11-12T02:37:51.993820Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82760 outside=9922 evaluations=59290
+2026-11-12T02:37:52.108852Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82775 outside=10401 evaluations=58317
+2026-11-12T02:37:52.115622Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82807 outside=8905 evaluations=59725
+2026-11-12T02:37:52.116184Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82823 outside=8375 evaluations=60647
+2026-11-12T02:37:52.123432Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82855 outside=9128 evaluations=58496
+2026-11-12T02:37:52.177526Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82810 outside=8814 evaluations=59634
+2026-11-12T02:37:52.202209Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82758 outside=9892 evaluations=59260
+2026-11-12T02:37:52.202209Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82746 outside=9033 evaluations=59853
+2026-11-12T02:37:52.202209Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82793 outside=8819 evaluations=59639
+2026-11-12T02:37:52.202209Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82779 outside=8398 evaluations=59218
+2026-11-12T02:37:52.202209Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82786 outside=9920 evaluations=59288
+2026-11-12T02:37:52.206281Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82836 outside=8726 evaluations=59546
+2026-11-12T02:37:52.206281Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82840 outside=8288 evaluations=60560
+2026-11-12T02:37:52.219296Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82794 outside=8948 evaluations=59768
+2026-11-12T02:37:52.219825Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82801 outside=9882 evaluations=59250
+2026-11-12T02:37:52.262267Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82776 outside=8973 evaluations=59793
+2026-11-12T02:37:52.289131Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82741 outside=9907 evaluations=59275
+2026-11-12T02:37:52.291079Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82826 outside=8759 evaluations=59579
+2026-11-12T02:37:52.291083Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82741 outside=9044 evaluations=59864
+2026-11-12T02:37:52.291079Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82738 outside=9682 evaluations=59050
+2026-11-12T02:37:52.291096Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82794 outside=8787 evaluations=59607
+2026-11-12T02:37:52.291328Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82792 outside=8774 evaluations=59594
+2026-11-12T02:37:52.291328Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82751 outside=9984 evaluations=59352
+2026-11-12T02:37:52.291678Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82772 outside=10460 evaluations=58376
+2026-11-12T02:37:52.330010Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82786 outside=8733 evaluations=59553
+2026-11-12T02:37:52.339055Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82751 outside=9969 evaluations=59337
+2026-11-12T02:37:52.339825Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82779 outside=8942 evaluations=59762
+2026-11-12T02:37:52.339824Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82744 outside=9040 evaluations=59860
+2026-11-12T02:37:52.339824Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82749 outside=9018 evaluations=59838
+2026-11-12T02:37:52.358695Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82797 outside=9873 evaluations=59241
+2026-11-12T02:37:52.387037Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82746 outside=9901 evaluations=59269
+2026-11-12T02:37:52.390294Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82850 outside=8740 evaluations=59560
+2026-11-12T02:38:35.828895Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82740 outside=9820 evaluations=59188
+2026-11-12T02:38:35.862909Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82735 outside=9838 evaluations=59206
+2026-11-12T02:38:35.887504Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82743 outside=8985 evaluations=59805
+2026-11-12T02:38:35.887504Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82739 outside=9855 evaluations=59223
+2026-11-12T02:38:35.892284Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82744 outside=9876 evaluations=59244
+2026-11-12T02:38:35.892284Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82740 outside=8975 evaluations=59795
+2026-11-12T02:38:35.922399Z  INFO xlc_lattice::ufg: UFG track table with ring expansion points=82745 outside=8934 evaluations=59754
+2026-11-12T02:38:46.620796Z  INFO shielding: xlc_lattice::shielding: serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins) replicate=0.000507633 solved=0.066783989
+2026-11-12T02:38:48.632179Z  INFO shielding:lumps: xlc_lattice::shielding: close time.busy=2.01s time.idle=2.77µs
+2026-11-12T02:38:48.632779Z  INFO shielding:dilute: xlc_lattice::shielding: close time.busy=567µs time.idle=1.03µs
+2026-11-12T02:38:48.632795Z  INFO shielding: xlc_lattice::shielding: fuel pins and their symmetry representatives pins=264 solved=39 points_min=Some(82735) points_max=Some(82855) points_sum=3228282
+2026-11-12T02:38:48.632864Z  INFO shielding: xlc_lattice::shielding: close time.busy=61.0s time.idle=1.52µs
+2026-11-12T02:38:48.680306Z  INFO moc{regions=28928 tracks=27420}: xlc_lattice::moc::symmetric: symmetry tracks=27420 representative_tracks=3684 regions=28928 representative_regions=3617 cells=361 representative_cells=55
+2026-11-12T02:38:52.313101Z  INFO moc{regions=28928 tracks=27420}: xlc_lattice::moc: close time.busy=3.68s time.idle=2.37µs
+2026-11-12T02:38:52.603937Z  INFO xlc_lattice::b1: B1 critical spectrum buckling=-0.0011870721869806872 evaluations=10
+2026-11-12T02:38:52.778449Z  INFO lattice: derivative state=0 nuclide="Pu-240" iterations=13 seconds=65.185448595
+2026-11-12T02:38:54.896790Z  INFO lattice: lattice state=0 iterations=24 tracks=27420 seconds=135.744088912 total_seconds=140.495051411
+2026-11-12T02:38:54.946908Z  INFO lattice: branches shieldings=1 derivative_shieldings=1 total_seconds=140.545170869

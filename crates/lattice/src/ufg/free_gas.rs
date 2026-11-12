@@ -196,6 +196,11 @@ impl Gas {
         self.cap
     }
 
+    /// 標的の質量比
+    pub(super) fn awr(&self) -> f64 {
+        self.awr
+    }
+
     /// kT (eV)
     pub(super) fn kt(&self) -> f64 {
         self.kt
@@ -672,6 +677,12 @@ pub(super) struct Quadratic {
 }
 
 impl Quadratic {
+    /// 0 の 2 次式（作業の配列の初期値）
+    const ZERO: Self = Self {
+        c: 0.0,
+        coefficients: [0.0; 3],
+    };
+
     /// 持った区間の 2 次式。中心は [`Quadratic::through`] と同じ式で両端から求め直す（同じ演算なので、ビットで同じ値になる）
     fn held(cell: &HeldCell) -> Self {
         Self {
@@ -955,6 +966,30 @@ pub(super) struct Thermal<'a> {
     sab: SabWork,
     /// 散乱源の経過時間（ログの内訳）: [自由ガスの核の区間, S(α, β) の移行]
     elapsed: [Duration; 2],
+    /// 自由ガスの核の区間の仕事の内訳（ログ。[`Thermal::work`]）
+    work: FreeGasWork,
+}
+
+/// 自由ガスの核の区間の仕事の内訳（ログ）。時間は区間の塊ごとのスレッドの時間の和で、ピンの中の並列を盗んだスレッドの時間も含む
+#[derive(Debug, Clone, Default)]
+pub(super) struct FreeGasWork {
+    /// [自由ガスの核種] の作った区間の数
+    pub(super) built: Vec<u64>,
+    /// 区間の端と中点の σs D の評価（[`Gas::correction`]）の回数（隣の区間と共有した端は数えない）
+    pub(super) evaluations: u64,
+    /// 区間とリングの組の積分（[`integrate`]）の回数: [作った区間, 持った区間]
+    pub(super) integrations: [u64; 2],
+    /// スレッドの時間: [区間の境界（[`Gas::cells`]。逐次）, 2 次式の作成, 作った区間の積分, 持った区間の積分]
+    pub(super) seconds: [Duration; 4],
+}
+
+/// 区間の塊の 1 つの積分の結果: [リング] の（既知の部分, F_m の係数）と、その仕事（[`FreeGasWork`] の塊の分）
+struct ChunkSums {
+    sums: Vec<(f64, f64)>,
+    evaluations: u64,
+    integrations: u64,
+    /// [区間と 2 次式の作成, 積分]
+    seconds: [Duration; 2],
 }
 
 /// 自由ガスの核種の核 `gases` と S(α, β) の移行の表 `tables` で、D が 0 でない格子点のうち最初のものの 1 つ前（掃き直しの始め。
@@ -998,6 +1033,7 @@ impl<'a> Thermal<'a> {
         n: usize,
         hold: usize,
     ) -> Self {
+        let n_gases = gases.len();
         Self {
             gases,
             sigma,
@@ -1018,7 +1054,16 @@ impl<'a> Thermal<'a> {
             room: hold,
             sab: SabWork::default(),
             elapsed: [Duration::ZERO; 2],
+            work: FreeGasWork {
+                built: vec![0; n_gases],
+                ..FreeGasWork::default()
+            },
         }
+    }
+
+    /// 自由ガスの核の区間の仕事の内訳（ログ）
+    pub(super) fn work(&self) -> &FreeGasWork {
+        &self.work
     }
 
     pub(super) fn start(&self) -> usize {
@@ -1064,16 +1109,23 @@ impl<'a> Thermal<'a> {
         let clock = Instant::now();
         let n = known.len();
         let slot = m - self.start;
-        let parts = match self.held.get(slot).copied().flatten() {
-            Some(held) => self.integrate_held(held, m, u, flux, n),
-            None => self.build(slot, m, u, high, e, flux, n),
+        let (parts, kind) = match self.held.get(slot).copied().flatten() {
+            Some(held) => (self.integrate_held(held, m, u, flux, n), 1),
+            None => (self.build(slot, m, u, high, e, flux, n), 0),
         };
         for part in parts {
-            for ((k, o), (known, own)) in part.into_iter().zip(known.iter_mut().zip(own.iter_mut()))
+            for ((k, o), (known, own)) in part
+                .sums
+                .into_iter()
+                .zip(known.iter_mut().zip(own.iter_mut()))
             {
                 *known += k;
                 *own += o;
             }
+            self.work.evaluations += part.evaluations;
+            self.work.integrations[kind] += part.integrations;
+            self.work.seconds[1] += part.seconds[0];
+            self.work.seconds[2 + kind] += part.seconds[1];
         }
         let gas_done = Instant::now();
         let (sigmas, rings) = (&self.sigma, &self.rings);
@@ -1109,10 +1161,11 @@ impl<'a> Thermal<'a> {
         e: f64,
         flux: &[Vec<f64>],
         n: usize,
-    ) -> Vec<Vec<(f64, f64)>> {
+    ) -> Vec<ChunkSums> {
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
         // 手間を避ける）
+        let clock = Instant::now();
         self.all.clear();
         self.starts.clear();
         for (l, gas) in self.gases.iter().enumerate() {
@@ -1132,8 +1185,10 @@ impl<'a> Thermal<'a> {
                 &mut self.pieces,
             );
             self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
+            self.work.built[l] += self.pieces.len() as u64;
         }
         self.starts.push(self.all.len() as u32);
+        self.work.seconds[0] += clock.elapsed();
         // 最初に持つ格子点で、すべての格子点の核種の区間の始まりと、格子点ごとの位置の表を確保し、上限から引く（持つ区間とともに
         // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）
         if self.held_starts.capacity() == 0 && !self.all.is_empty() && self.room > 0 {
@@ -1180,9 +1235,12 @@ impl<'a> Thermal<'a> {
             ..
         } = self;
         let add = adder(rings, prefix, previous.as_ref(), m, u, flux);
-        // 区間の塊の 1 つを作って積分する（`out` は持つときの、塊の区間を書く先）
+        // 区間の塊の 1 つを作って積分する（`out` は持つときの、塊の区間を書く先）。塊の 2 次式をすべて作ってから区間の順に
+        // 積分する（区間ごとに作って積分しても、足す順と値は同じ。作成と積分の時間をログで分けるため）
         let body = |chunk: &[(usize, f64, f64)], mut out: Option<&mut [HeldCell]>| {
-            let mut sums = vec![(0.0, 0.0); n];
+            let clock = Instant::now();
+            let mut evaluations = 0;
+            let mut made = [(Quadratic::ZERO, 0, 0); CELLS_PER_TASK];
             // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
             let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
             // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
@@ -1200,6 +1258,7 @@ impl<'a> Thermal<'a> {
                     }
                     _ => {
                         let q = locate_from(u, a, hint);
+                        evaluations += 1;
                         (q, f(a, q))
                     }
                 };
@@ -1208,9 +1267,10 @@ impl<'a> Thermal<'a> {
                 let qb = locate_from(u, b, q_mid);
                 hint = qb;
                 let fb = f(b, qb);
+                evaluations += 2;
                 shared = Some((l, b, inside, qb, fb));
                 let quadratic = Quadratic::through(a, b, fa, f(mid, q_mid), fb);
-                add(&mut sums, l, &quadratic, a, b, qa, qb);
+                made[j] = (quadratic, qa, qb);
                 if let Some(out) = out.as_deref_mut() {
                     out[j] = HeldCell {
                         a,
@@ -1219,7 +1279,19 @@ impl<'a> Thermal<'a> {
                     };
                 }
             }
-            sums
+            let built = Instant::now();
+            let mut sums = vec![(0.0, 0.0); n];
+            let mut integrations = 0;
+            for (&(l, a, b), (quadratic, qa, qb)) in chunk.iter().zip(&made) {
+                add(&mut sums, l, quadratic, a, b, *qa, *qb);
+                integrations += rings[l].len() as u64;
+            }
+            ChunkSums {
+                sums,
+                evaluations,
+                integrations,
+                seconds: [built - clock, built.elapsed()],
+            }
         };
         // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
         if keep {
@@ -1243,7 +1315,7 @@ impl<'a> Thermal<'a> {
         u: &[f64],
         flux: &[Vec<f64>],
         n: usize,
-    ) -> Vec<Vec<(f64, f64)>> {
+    ) -> Vec<ChunkSums> {
         let add = adder(
             &self.rings,
             &self.prefix,
@@ -1257,6 +1329,8 @@ impl<'a> Thermal<'a> {
             .par_chunks(CELLS_PER_TASK)
             .enumerate()
             .map(|(c, chunk)| {
+                let clock = Instant::now();
+                let mut integrations = 0;
                 let mut sums = vec![(0.0, 0.0); n];
                 let first = c * CELLS_PER_TASK;
                 // 塊の最初の区間を含む核種（区間の無い核種は始まりが次の核種と同じなので、その最後のもの）
@@ -1270,8 +1344,14 @@ impl<'a> Thermal<'a> {
                     let qb = locate_from(u, cell.b, qa);
                     hint = qb;
                     add(&mut sums, l, &Quadratic::held(cell), cell.a, cell.b, qa, qb);
+                    integrations += self.rings[l].len() as u64;
                 }
-                sums
+                ChunkSums {
+                    sums,
+                    evaluations: 0,
+                    integrations,
+                    seconds: [Duration::ZERO, clock.elapsed()],
+                }
             })
             .collect()
     }

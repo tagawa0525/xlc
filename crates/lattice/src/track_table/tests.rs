@@ -341,3 +341,44 @@ fn off_range_totals_name_their_axis() {
         Err(TableError::Outside { axis: 2, .. })
     ));
 }
+
+#[test]
+fn tables_for_points_solve_only_the_nodes_their_points_read() {
+    // 格子点の組のうち、渡した点の内挿が読む組だけを求める。渡した点の飛程は表の全体を求めたものとビットで同じで、求めなかった組を
+    // 読む点はエラー（黙って 0 や外挿の値を返さない）
+    let density = 4;
+    let points: Vec<Vec<f64>> = samples()
+        .iter()
+        .filter(|s| s[0] < 10.0)
+        .map(|s| s.to_vec())
+        .collect();
+    let full = table(&RANGES, density);
+    let some = TrackTable::for_points(&cell(), layout(), &RANGES, density, &points).unwrap();
+    for p in &points {
+        assert_eq!(some.tracks(p).unwrap(), full.tracks(p).unwrap(), "{p:?}");
+    }
+    assert!(
+        some.solved_nodes() < full.nodes() / 2,
+        "{} of {}",
+        some.solved_nodes(),
+        full.nodes()
+    );
+    assert_eq!(full.solved_nodes(), full.nodes());
+    assert!(matches!(
+        some.tracks(&[2900.0, 0.9, 1.43]),
+        Err(TableError::Unsolved { .. })
+    ));
+}
+
+#[test]
+fn tables_for_points_reject_points_of_other_material_counts() {
+    // 物質の数の違う点は、`tracks` と同じく物質の数のエラー（短い点を 0 で埋めて範囲の外とせず、長い点を切り詰めない）
+    for point in [vec![3.3, 0.9], vec![3.3, 0.9, 1.43, 1.0]] {
+        let result = TrackTable::for_points(&cell(), layout(), &RANGES, 4, &[point]);
+        assert!(
+            matches!(result, Err(TableError::Materials { materials: 3, .. })),
+            "{:?}",
+            result.err()
+        );
+    }
+}

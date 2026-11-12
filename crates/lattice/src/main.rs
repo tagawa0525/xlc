@@ -25,6 +25,7 @@
 use std::borrow::Cow;
 use std::env::VarError;
 use std::io::IsTerminal;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
@@ -59,6 +60,7 @@ use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
+use xlc_lattice::shielding::{ShieldingReuse, log_effective_change};
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
 
@@ -519,6 +521,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .map_or(0, |h| h.derivative_nuclides().len());
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;
+    // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。公称の状態と摂動の組成の
+    // 自己遮蔽で共有する（燃料の数密度だけを変える摂動は、状態の Dancoff 係数を持ち越す。ADR-0194）。Dancoff 係数は呼び出し側
+    // （状態と微分の核種）の数だけ、最後に使った違う入力の結果を持つ（燃料でない燃焼の領域の数密度を変える摂動も、それぞれ 1 つ持つ）
+    let mut reuse: Option<(usize, ShieldingReuse)> = None;
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -565,6 +571,18 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let (_, perturbed_shielders) = perturbed_shielders
             .get_or_insert_with(|| (rod, (0..derivatives).map(|_| new_shielder()).collect()));
         let (_, shielder) = shielder.get_or_insert_with(|| (rod, new_shielder()));
+        if reuse.as_ref().is_some_and(|(r, _)| *r != rod) {
+            reuse = None;
+        }
+        let (_, reuse) = reuse.get_or_insert_with(|| {
+            (
+                rod,
+                ShieldingReuse::sharing(
+                    &geometry.tracking,
+                    NonZeroUsize::MIN.saturating_add(derivatives),
+                ),
+            )
+        });
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
@@ -606,7 +624,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     };
                 Some(
                     shielder
-                        .shield_state(library, state_materials, reference, nominal)
+                        .shield_state(reuse, library, state_materials, reference, nominal)
                         .with_context(|| format!("{}: self-shielding", context()))?,
                 )
             }
@@ -877,8 +895,14 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         |j, perturbed, reference, build| {
                             let started = Instant::now();
                             let shielded = perturbed_shielders[j]
-                                .shield_state(library, perturbed, reference, build)
+                                .shield_state(reuse, library, perturbed, reference, build)
                                 .context("self-shielding")?;
+                            log_effective_change(
+                                library.groups.bounds(),
+                                &h.derivative_nuclides()[j],
+                                fuel,
+                                shielded.fuel(),
+                            );
                             let (unique, region_index) =
                                 (shielded.materials(), shielded.region_material());
                             let materials: Vec<&Material> =

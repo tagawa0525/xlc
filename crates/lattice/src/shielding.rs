@@ -20,6 +20,7 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -424,11 +425,14 @@ pub fn shield_fuel_with(
 
 /// 1 つのトラッキングで自己遮蔽を繰り返して解くとき（燃焼の輸送ごと、分岐の状態ごと）に持ち越す、燃料の組成によらない前処理。
 /// 燃料のピンの Dancoff 係数は、燃料を黒体にし、燃料でない物質の全断面積だけから求めるので、直前に解いたときと入力（領域ごとの
-/// 物質、燃料でない物質の全断面積、`DancoffOptions`）が同じなら、その結果を使う（ADR-0194）
+/// 物質、燃料でない物質の全断面積、`DancoffOptions`）が同じなら、その結果を使う（ADR-0194）。呼び出し側が複数（状態と数密度の
+/// 微分の摂動の組成。[`ShieldingReuse::sharing`]）なら、その数だけ、直前に解いた違う入力の結果を持つ
 #[derive(Debug)]
 pub struct ShieldingReuse<'a> {
     tracking: &'a Tracking,
-    dancoff: Option<DancoffInputs>,
+    /// 解いた入力と結果（最後に使った順。`callers` 個まで）
+    dancoff: Vec<DancoffInputs>,
+    callers: usize,
     /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
     /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
@@ -450,12 +454,29 @@ struct DancoffInputs {
 impl<'a> ShieldingReuse<'a> {
     /// トラッキング `tracking` で解く自己遮蔽の前処理（まだ何も持たない）
     pub fn new(tracking: &'a Tracking) -> Self {
+        Self::sharing(tracking, NonZeroUsize::MIN)
+    }
+
+    /// トラッキング `tracking` で解く自己遮蔽の、`callers` 人の呼び出し側（状態と、数密度の微分の摂動の組成）が共有する前処理。
+    /// 摂動が燃料でない物質を変えても（燃料でない燃焼の領域の核種の微分）、ほかの呼び出し側の直前の結果を追い出さない
+    pub fn sharing(tracking: &'a Tracking, callers: NonZeroUsize) -> Self {
         Self {
             tracking,
-            dancoff: None,
+            dancoff: Vec::new(),
+            callers: callers.get(),
             dancoff_solves: 0,
             shares: ShareCellCache::default(),
         }
+    }
+
+    /// 前処理のトラッキング
+    pub fn tracking(&self) -> &'a Tracking {
+        self.tracking
+    }
+
+    /// 燃料のピンの Dancoff 係数を解いた回数
+    pub fn dancoff_solves(&self) -> usize {
+        self.dancoff_solves
     }
 
     /// 物質 `dilute`（無限希釈）を領域に `region_index` で置いた格子の、燃料のピンの Dancoff 係数（[セル]）。`fuel` は
@@ -474,13 +495,15 @@ impl<'a> ShieldingReuse<'a> {
                 totals[i] = Some(dilute[i].total.clone());
             }
         }
-        if let Some(d) = &self.dancoff
-            && d.region_index == region_index
-            && d.totals == totals
-            && d.options == *options
-        {
+        if let Some(k) = self.dancoff.iter().position(|d| {
+            d.region_index == region_index && d.totals == totals && d.options == *options
+        }) {
             tracing::debug!("pin Dancoff factors reused");
-            return Ok(d.factors.clone());
+            // 使った入力を前に移す（追い出すのは最も長く使っていない入力）
+            let hit = self.dancoff.remove(k);
+            let factors = hit.factors.clone();
+            self.dancoff.insert(0, hit);
+            return Ok(factors);
         }
         let region_totals: Vec<Vec<f64>> = region_index
             .iter()
@@ -491,12 +514,16 @@ impl<'a> ShieldingReuse<'a> {
                 .in_scope(|| dancoff(self.tracking, &region_totals, fuel, options))?,
         );
         self.dancoff_solves += 1;
-        self.dancoff = Some(DancoffInputs {
-            region_index: region_index.to_vec(),
-            totals,
-            options: *options,
-            factors: factors.clone(),
-        });
+        self.dancoff.truncate(self.callers - 1);
+        self.dancoff.insert(
+            0,
+            DancoffInputs {
+                region_index: region_index.to_vec(),
+                totals,
+                options: *options,
+                factors: factors.clone(),
+            },
+        );
         Ok(factors)
     }
 }
@@ -917,6 +944,105 @@ pub fn shield_fuel_reusing(
         "fuel pins and their symmetry representatives"
     );
     Ok(shielded)
+}
+
+/// 同じ格子の 2 つの自己遮蔽 `nominal` と `perturbed`（数密度の微分の摂動の組成。ADR-0221）の、燃料のピンの核種ごとの実効断面積
+/// （ピンの平均）の相対差 |σ(摂動) − σ(公称)|/σ(公称) を、核種ごと（ピンと群の最大と、その群）と群ごと（核種とピンの最大）にログに
+/// 出す（摂動で変わる量とエネルギーの範囲。`bounds` は群の境界 (eV)）。群ごとの最大は、摂動した核種 `changed` とほかの核種に分ける。
+/// 断面積は全断面積と捕獲で、公称が 0 の値は比べない
+pub fn log_effective_change(
+    bounds: &[f64],
+    changed: &str,
+    nominal: &FuelShielding,
+    perturbed: &FuelShielding,
+) {
+    if !tracing::enabled!(tracing::Level::DEBUG) {
+        return;
+    }
+    let relative = |a: f64, b: f64| if a > 0.0 { (b - a).abs() / a } else { 0.0 };
+    // [核種] の（名前、[全, 捕獲] の最大、その群）と [群] の [摂動した核種, ほかの核種][全, 捕獲] の最大
+    let mut by_nuclide: Vec<(String, [f64; 2], [usize; 2])> = Vec::new();
+    let mut by_group: Vec<[[f64; 2]; 2]> = Vec::new();
+    // 比べられない組（ピンの数か並び、核種の並びの違う摂動）は、名前と群を取り違えたログを出さずに、比べないことを出す
+    if nominal.pins.len() != perturbed.pins.len() {
+        tracing::warn!(
+            nominal = nominal.pins.len(),
+            perturbed = perturbed.pins.len(),
+            "the perturbed self-shielding has another pin count; not compared"
+        );
+        return;
+    }
+    for (p, q) in nominal.pins.iter().zip(&perturbed.pins) {
+        let names = |s: &PinShielding| -> Vec<String> {
+            s.nuclides.iter().map(|(n, _)| n.name.clone()).collect()
+        };
+        if p.cell != q.cell
+            || names(p) != names(q)
+            || p.effective.len() != q.effective.len()
+            || p.effective.len() != p.nuclides.len()
+            || p.effective
+                .iter()
+                .zip(q.effective.iter())
+                .any(|(a, b)| a.total.len() != b.total.len() || a.capture.len() != b.capture.len())
+        {
+            tracing::warn!(
+                nominal = p.cell,
+                perturbed = q.cell,
+                "the perturbed self-shielding has another pin or nuclide order; not compared"
+            );
+            return;
+        }
+        for ((nuclide, _), (s, t)) in p
+            .nuclides
+            .iter()
+            .zip(p.effective.iter().zip(q.effective.iter()))
+        {
+            let k = match by_nuclide.iter().position(|(n, ..)| *n == nuclide.name) {
+                Some(k) => k,
+                None => {
+                    by_nuclide.push((nuclide.name.clone(), [0.0; 2], [0; 2]));
+                    by_nuclide.len() - 1
+                }
+            };
+            let pairs = [(&s.total, &t.total), (&s.capture, &t.capture)];
+            for (x, (a, b)) in pairs.into_iter().enumerate() {
+                for (g, (&a, &b)) in a.iter().zip(b).enumerate() {
+                    let d = relative(a, b);
+                    if by_group.len() <= g {
+                        by_group.resize(g + 1, [[0.0; 2]; 2]);
+                    }
+                    let side = usize::from(nuclide.name != changed);
+                    by_group[g][side][x] = by_group[g][side][x].max(d);
+                    if d > by_nuclide[k].1[x] {
+                        by_nuclide[k].1[x] = d;
+                        by_nuclide[k].2[x] = g;
+                    }
+                }
+            }
+        }
+    }
+    for (name, worst, at) in &by_nuclide {
+        tracing::debug!(
+            name = name.as_str(),
+            total = worst[0],
+            total_group = at[0],
+            capture = worst[1],
+            capture_group = at[1],
+            "effective cross section change by the perturbation (largest relative over the pins and groups)"
+        );
+    }
+    for (g, worst) in by_group.iter().enumerate() {
+        tracing::debug!(
+            group = g,
+            upper = bounds.get(g).copied(),
+            lower = bounds.get(g + 1).copied(),
+            total = worst[0][0],
+            capture = worst[0][1],
+            others_total = worst[1][0],
+            others_capture = worst[1][1],
+            "effective cross section change by the perturbation in a group (largest relative over the pins; the perturbed nuclide and the others)"
+        );
+    }
 }
 
 /// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
@@ -1512,6 +1638,7 @@ fn solve_equivalent_cell<'a>(
         },
     )?;
     let radius = sum / (bottom - top) as f64;
+    tracing::debug!(radius, "equivalent cell outer radius (cm)");
     let cylinder = Cylinder::new(
         radii[..start]
             .iter()
