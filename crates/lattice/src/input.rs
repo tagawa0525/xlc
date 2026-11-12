@@ -1836,6 +1836,15 @@ impl LatticeInput {
                                 .to_string(),
                         );
                     }
+                    // 摂動の組成でも自己遮蔽はその点の組成のまま（`perturbed_reference_state`）なので、解き直す核種の微分は
+                    // 黙って案 I0 と同じになる（shielding-file と同じ）
+                    if generalized.as_ref().is_some_and(|g| !g.shielded.is_empty()) {
+                        return Err(
+                            "[history] generalized shielded solves the self-shielding at the perturbed composition, \
+                             which shielding-burnup fixes to the composition of its point (#0180, ADR-0247)"
+                                .to_string(),
+                        );
+                    }
                 }
                 Ok(HistoryInput {
                     file: h.file,
