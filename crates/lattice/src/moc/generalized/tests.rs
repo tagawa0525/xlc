@@ -890,3 +890,46 @@ fn response_importance_rejects_a_generalized_adjoint_of_another_problem() {
         Err(MocError::SourceShape { index: 0 })
     ));
 }
+
+#[test]
+fn response_importance_rejects_a_symmetry_of_another_tracking() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, None);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
+    let h2 = indicator(n, 2, 1, |_| Some(1.0));
+    let source = ratio_source(&solution, &h1, &h2);
+    let gamma = solve_generalized(
+        &tracking,
+        &materials,
+        &options,
+        None,
+        &forward,
+        &adjoint,
+        std::slice::from_ref(&source),
+        &settings(1e-9),
+    )
+    .unwrap();
+    let other = vacuum_checkerboard(3);
+    let other_names: Vec<String> = checkerboard_materials(3, &f, &m)
+        .iter()
+        .map(|&x| if std::ptr::eq(x, &f) { "f" } else { "m" }.to_string())
+        .collect();
+    let foreign = detect(&other, &other_names).unwrap();
+    assert_ne!(foreign.symmetry(), Symmetry::NONE);
+    assert!(matches!(
+        response_importance(
+            &tracking,
+            &materials,
+            &options,
+            Some(&foreign),
+            &forward,
+            &gamma[0],
+            &source
+        ),
+        Err(MocError::ForeignSymmetry)
+    ));
+}
