@@ -1809,6 +1809,9 @@ fn history_shielding_burnup_points_are_increasing_points_of_burnup_from_its_firs
         "shielding-burnup = [0, 0]\n",
         "shielding-burnup = []\n",
         "shielding-burnup = [0, 20]\nshielding-file = \"previous.msgpack\"\n",
+        // 摂動の組成でも自己遮蔽はその点の組成のままなので、解き直す核種の一般化摂動の微分が黙って陽の微分と同じになる
+        "shielding-burnup = [0, 20]\nmicro = [\"U-238\"]\n\
+         generalized = { tolerance = 1e-7, restart = 100, shielded = [\"U-238\"] }\n",
     ] {
         let err = LatticeInput::parse(&history_branches(&format!("{HISTORY}{bad}"))).unwrap_err();
         assert!(err.to_string().contains("shielding-burnup"), "{bad}: {err}");
