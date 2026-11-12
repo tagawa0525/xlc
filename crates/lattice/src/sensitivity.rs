@@ -32,9 +32,10 @@ use crate::tracking::Tracking;
 /// 物質の和を物質の微分の和と比べる相対の許容値（同じ群定数を足す順の丸めの違いだけを許す）
 const RECONSTRUCTION_TOLERANCE: f64 = 1.0e-10;
 
-/// 応答の値をテーブルの少数群定数（`fewgroup::homogenize`）と比べる相対の許容値（同じ反応率と中性子束の和を、足す順を変えて
-/// 割った丸めの違いだけを許す）
-const TABLE_TOLERANCE: f64 = 1.0e-12;
+/// 応答の値をテーブルの少数群定数（`fewgroup::homogenize`）と比べる相対の許容値。同じ正の項の和を、掛ける順と足す順を変えて
+/// 割った丸めの違いだけを許す（n 項の和の丸めは n ε まで。2A の本番の形の格子は領域と細かい群の項が約 10⁵ で 1e-11 ほど。
+/// 3×3 の格子で 4e-13 だった）
+const TABLE_TOLERANCE: f64 = 1.0e-10;
 
 /// `[sensitivity]` の入力（ADR-0247）
 #[derive(Debug, Clone, PartialEq)]
