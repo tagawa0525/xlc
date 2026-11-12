@@ -85,6 +85,14 @@ pub enum UfgError {
     #[error("the slowing-down equations are singular at {0} eV")]
     Singular(f64),
     #[error(
+        "a held free-gas kernel point at {energy} eV has {held} cells where the kernel builds {built} (the held values belong to another kernel)"
+    )]
+    HeldKernel {
+        energy: f64,
+        held: usize,
+        built: usize,
+    },
+    #[error(
         "{name}: `sab` needs the S(α, β) transfer of the library, which xs leaves out when the S(α, β) limit does not reach the UFG range or the up-scattering reach goes below 0 eV (and libraries made before ADR-0205 lack)"
     )]
     NoSabTransfer { name: String },

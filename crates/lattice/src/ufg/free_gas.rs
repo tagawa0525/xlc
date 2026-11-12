@@ -793,11 +793,14 @@ impl KernelPoint {
 /// 1 つのロックで待たないように分ける
 const KERNEL_SHARDS: usize = 64;
 
-/// 1 つの核（1 つの核種の [`Thermal::nuclide_key`]）の、格子点（レサジーとエネルギーのビット）ごとの値と、最後に使った燃焼点の
-/// 番号。格子点のビットで [`KERNEL_SHARDS`] 個のロックに分ける
+/// [`KernelTable`] の 1 つのロックの、格子点（レサジーとエネルギーのビット）ごとの値と、最後に使った燃焼点の番号
+type KernelShard = Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>;
+
+/// 1 つの核（1 つの核種の [`Thermal::nuclide_key`]）の、格子点ごとの値と、最後に使った燃焼点の番号。格子点のビットで
+/// [`KERNEL_SHARDS`] 個のロックに分ける
 #[derive(Debug)]
 pub(super) struct KernelTable {
-    shards: Vec<Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>>,
+    shards: Vec<KernelShard>,
 }
 
 impl Default for KernelTable {
@@ -810,7 +813,7 @@ impl Default for KernelTable {
 
 impl KernelTable {
     /// 格子点 `point` の値を持つロック
-    fn shard(&self, point: [u64; 2]) -> &Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>> {
+    fn shard(&self, point: [u64; 2]) -> &KernelShard {
         // 格子点の倍精度のビットは下の桁が揃いうるので、混ぜた上の桁で分ける
         let mixed = (point[0] ^ point[1].rotate_left(32)).wrapping_mul(0x9E37_79B9_7F4A_7C15);
         &self.shards[(mixed >> 58) as usize % KERNEL_SHARDS]
@@ -1374,7 +1377,7 @@ impl<'a> Thermal<'a> {
         let slot = m - self.start;
         let (parts, kind) = match self.held.get(slot).copied().flatten() {
             Some(held) => (self.integrate_held(held, m, u, flux, n), 1),
-            None => (self.build(slot, m, u, high, e, flux, n), 0),
+            None => (self.build(slot, m, u, high, e, flux, n)?, 0),
         };
         let mut evaluations = 0;
         for part in parts {
@@ -1440,7 +1443,7 @@ impl<'a> Thermal<'a> {
         e: f64,
         flux: &[Vec<f64>],
         n: usize,
-    ) -> Vec<ChunkSums> {
+    ) -> Result<Vec<ChunkSums>, UfgError> {
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
         // 手間を避ける）。核種ごとに、持った値があれば、その D を使う
@@ -1481,13 +1484,16 @@ impl<'a> Thermal<'a> {
                 }
                 _ => None,
             };
-            // 値は同じ核と格子点の区間ごとなので、区間の数は作った数と同じ
-            assert!(
-                hit.as_ref().is_none_or(|p| p.d.len() == self.pieces.len()),
-                "a held free-gas kernel point has {} cells for {} built",
-                hit.as_ref().map_or(0, |p| p.d.len()),
-                self.pieces.len()
-            );
+            // 値は同じ核と格子点の区間ごとなので、区間の数は作った数と同じ（違えば鍵が核を表していない）
+            if let Some(p) = &hit
+                && p.d.len() != self.pieces.len()
+            {
+                return Err(UfgError::HeldKernel {
+                    energy: e,
+                    held: p.d.len(),
+                    built: self.pieces.len(),
+                });
+            }
             self.hits.push(hit);
         }
         self.starts.push(self.all.len() as u32);
@@ -1692,7 +1698,7 @@ impl<'a> Thermal<'a> {
                 kernels.insert(table, point, value);
             }
         }
-        parts
+        Ok(parts)
     }
 
     /// 自由ガスの核種 `l` の核の鍵: その [`Gas::bits`]、範囲の上端 `high`、格子の最後の点 `bottom`、区間の細かさのビット（その核種の
