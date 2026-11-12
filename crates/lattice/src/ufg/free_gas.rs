@@ -805,9 +805,10 @@ type KernelTable = Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>;
 /// 核（[`Gas::bits`]）、範囲の上端、格子の最後の点、区間の細かさと、出射の格子点のレサジーとエネルギーだけで決まり、断面積、
 /// 個数密度、中性子束、ほかの格子点に依らないので、それらのビットを鍵にする。弾性散乱断面積は減速計算ごとに掛ける。
 ///
-/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたら今の自己遮蔽で使っていない格子点を 1 度捨て、それでも届けば格子点を
-/// 足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった
-/// 格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は多くが変わる）
+/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたとき表の中身が今の格子に合わなければ（[`KernelCache::has_room`]）今の
+/// 自己遮蔽で使っていない格子点を 1 度捨て、それでも届けば格子点を足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の
+/// 始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は
+/// 多くが変わる）
 #[derive(Debug, Default)]
 pub struct KernelCache {
     tables: Mutex<HashMap<Vec<u64>, Arc<KernelTable>>>,
@@ -888,14 +889,18 @@ impl KernelCache {
         found
     }
 
-    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）。上限に届いたら、自己遮蔽ごとに 1 度、
-    /// 今の自己遮蔽で使っていない格子点（前の自己遮蔽の分。燃焼点が変わると多くが使われない）を捨てて余地を作る
+    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）。上限に届いたとき、今の自己遮蔽で表から引けた
+    /// 格子点が上限で入れなかった格子点より多くなければ（燃焼点が変わり、表の中身が今の格子に合わない）、自己遮蔽ごとに 1 度、
+    /// 今の自己遮蔽で使っていない格子点を捨てて余地を作る。引けた格子点のほうが多いとき（状態の摂動）は、まだ引いていない
+    /// 減速計算が使う格子点を捨てない（引けた 1 点と入れなかった 1 点は、どちらも格子点を 1 つ作る手間で釣り合う）
     fn has_room(&self, bytes: u64) -> bool {
         let fits =
             || self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed);
         let mut room = fits();
         let call = self.call.load(Ordering::Relaxed);
-        if !room && self.evicted.swap(call, Ordering::Relaxed) != call {
+        let stale =
+            || self.counts[0].load(Ordering::Relaxed) <= self.counts[2].load(Ordering::Relaxed);
+        if !room && stale() && self.evicted.swap(call, Ordering::Relaxed) != call {
             self.keep(|last| last == call, false);
             room = fits();
         }
