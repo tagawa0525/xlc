@@ -450,10 +450,6 @@ fn compare_generalized(
     let group_of = coarse_groups(&state.library.groups, &input.bounds)
         .context("[sensitivity.generalized] bounds")?;
     let sources = response_sources(&input.responses, &group_of, materials, solution)?;
-    let cmfd = match options.acceleration {
-        Acceleration::Cmfd(c) => c,
-        Acceleration::None => CmfdOptions::default(),
-    };
     let run = |method: Method,
                tolerance: f64,
                batch: bool|
@@ -461,7 +457,7 @@ fn compare_generalized(
         let settings = GeneralizedOptions {
             method: match method {
                 Method::SourceIteration => GeneralizedMethod::SourceIteration,
-                Method::Cmfd => GeneralizedMethod::Cmfd(cmfd),
+                Method::Cmfd => GeneralizedMethod::Cmfd(generalized_cmfd(&options.acceleration)?),
                 Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
             },
             tolerance,
@@ -533,6 +529,17 @@ fn compare_generalized(
         runs,
         reference: reference.map(|(r, _)| r),
     })
+}
+
+/// 一般化随伴の CMFD の判定: 状態を解いた MOC の CMFD のもの。状態を CMFD なしで解いたなら、入力が粗メッシュの判定を決めていないので
+/// エラー
+fn generalized_cmfd(acceleration: &Acceleration) -> anyhow::Result<CmfdOptions> {
+    match acceleration {
+        Acceleration::Cmfd(c) => Ok(*c),
+        Acceleration::None => bail!(
+            "[sensitivity.generalized] cmfd takes the CMFD tolerances of the state, which was solved without CMFD"
+        ),
+    }
 }
 
 /// ⟨Γ, Fφ⟩ / ⟨|Γ|, Fφ⟩（`flux` は [領域][群] の Γ）

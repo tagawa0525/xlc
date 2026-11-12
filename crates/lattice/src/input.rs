@@ -580,9 +580,13 @@ impl GeneralizedEntry {
             ));
         }
         let positive = |t: f64| t > 0.0 && t.is_finite();
-        if self.tolerances.is_empty() || !self.tolerances.iter().all(|&t| positive(t)) {
+        let distinct = |list: &[f64]| list.iter().enumerate().all(|(i, t)| !list[..i].contains(t));
+        if self.tolerances.is_empty()
+            || !self.tolerances.iter().all(|&t| positive(t))
+            || !distinct(&self.tolerances)
+        {
             return Err(format!(
-                "[sensitivity.generalized] tolerances must be positive, got {:?}",
+                "[sensitivity.generalized] tolerances must be distinct and positive, got {:?}",
                 self.tolerances
             ));
         }
@@ -592,9 +596,15 @@ impl GeneralizedEntry {
             .iter()
             .map(|m| method(m))
             .collect::<Result<Vec<_>, _>>()?;
-        if batched.iter().any(|m| !methods.contains(m)) {
+        if batched.iter().any(|m| !methods.contains(m))
+            || batched
+                .iter()
+                .enumerate()
+                .any(|(i, m)| batched[..i].contains(m))
+        {
             return Err(
-                "[sensitivity.generalized] batched must list methods that methods lists".into(),
+                "[sensitivity.generalized] batched must list distinct methods that methods lists"
+                    .into(),
             );
         }
         let reference = match (self.reference, self.reference_tolerance) {
@@ -607,6 +617,15 @@ impl GeneralizedEntry {
                 );
             }
         };
+        let uses_gmres = methods
+            .iter()
+            .chain(reference.as_ref().map(|(m, _)| m))
+            .any(|m| matches!(m, Method::Gmres { .. }));
+        if restart.is_some() && !uses_gmres {
+            return Err(
+                "[sensitivity.generalized] restart is for gmres, which no method uses".into(),
+            );
+        }
         Ok(GeneralizedInput {
             bounds: self.bounds,
             responses,

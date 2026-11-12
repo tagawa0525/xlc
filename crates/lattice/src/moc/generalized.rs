@@ -725,7 +725,7 @@ impl Problem<'_> {
                     .zip(&image)
                     .map(|(a, b)| a - b)
                     .collect();
-                k.receive(applied, sweeps);
+                k.receive(applied, sweeps)?;
             }
         }
         Ok(krylov
@@ -804,8 +804,9 @@ impl Krylov {
         }
     }
 
-    /// `request` の値に作用素を掛けた値 `applied` を受ける（`sweeps` はそこまでのスイープの回数）
-    fn receive(&mut self, applied: Vec<f64>, sweeps: usize) {
+    /// `request` の値に作用素を掛けた値 `applied` を受ける（`sweeps` はそこまでのスイープの回数）。Givens の回転の半径が 0（作用素が
+    /// 基底の値を、すでに張った空間の 0 に移す。射影した作用素が特異）か、解の近似が有限でなければエラー
+    fn receive(&mut self, applied: Vec<f64>, sweeps: usize) -> Result<(), MocError> {
         if self.residual {
             let r = self
                 .b
@@ -815,7 +816,7 @@ impl Krylov {
                 .collect();
             self.begin(r);
             self.sweeps = sweeps;
-            return;
+            return Ok(());
         }
         let j = self.columns.len();
         let mut w = applied;
@@ -834,6 +835,9 @@ impl Krylov {
         }
         let (a, b) = (h[j], h[j + 1]);
         let radius = a.hypot(b);
+        if !(radius > 0.0 && radius.is_finite()) {
+            return Err(MocError::GeneralizedDiverged { iterations: sweeps });
+        }
         let (c, s) = (a / radius, b / radius);
         h[j] = radius;
         h.truncate(j + 1);
@@ -862,15 +866,21 @@ impl Krylov {
                     .zip(v)
                     .for_each(|(a, b)| *a += coefficient * b);
             }
+            if self.x.iter().any(|v| !v.is_finite()) {
+                return Err(MocError::GeneralizedDiverged { iterations: sweeps });
+            }
             self.sweeps = sweeps;
             if residual <= self.target || next == 0.0 {
                 self.done = true;
             } else {
+                // 再始動の残差は、Arnoldi の関係から基底で組み立てられるが、1 回のスイープで b − Ax を掛け直して丸めの積み重ねを
+                // 除く（2A の判定 1e-7 は 100 回の中で収束し、再始動しない）
                 self.residual = true;
             }
-            return;
+            return Ok(());
         }
         self.basis.push(w.par_iter().map(|v| v / next).collect());
+        Ok(())
     }
 }
 
