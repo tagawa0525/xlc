@@ -2,7 +2,7 @@
 
 - 燃焼の軸（`skip`）: 2A-every.toml と 2A-skip-sparse.toml のテーブル（公称の 1 状態、27 燃焼点）。燃焼点ごとに、反応度の差
   Δρ = 1/k_every − 1/k_skip（pcm）、少数群定数の項目（`ITEMS`）とピン出力の形状関数（`pins.form`）の相対差の最大
-  （compare_branch_shielding.py の `relative`）。見込みは Σᵢ Sᵢ δᵢ。Sᵢ は核種 i の暗黙の効き（自己遮蔽を解き直した k の直接の摂動と
+  （compare_branch_shielding.py の `relative`）。見込みは Σᵢ Sᵢ δᵢ、打ち消しを数えない大きさは Σᵢ |Sᵢ δᵢ|。Sᵢ は核種 i の暗黙の効き（自己遮蔽を解き直した k の直接の摂動と
   固定した摂動の差を、数密度の相対の変化あたりの反応度にしたもの。compare_few_group.py の `k_pcm` / 0.1）で、燃焼度の近い
   ピンセルの結果（SENSITIVITY）、δᵢ = (N̄ᵢ(S) − N̄ᵢ(B)) / N̄ᵢ(B) は自己遮蔽した点 S と燃焼点 B の、履歴のすべての燃焼の領域を
   体積で均質化した数密度の相対の差（自己遮蔽の組成が状態の組成からずれる向き）
@@ -15,6 +15,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -119,7 +120,7 @@ def skip(shielding: dict, inputs: list) -> list[dict]:
     with HISTORY.open("rb") as f:
         history = msgpack.unpackb(f.read(), strict_map_key=False)
     inputs += [
-        {"path": str(p), "md5": md5(p)}
+        {"path": os.path.relpath(p, HERE), "md5": md5(p)}
         for p in [every_path, skip_path, HISTORY, *SENSITIVITY.values()]
     ]
     rows = []
@@ -137,6 +138,8 @@ def skip(shielding: dict, inputs: list) -> list[dict]:
                 "relative": {item: branch.relative(e[item], s[item]) for item in ITEMS}
                 | {"pins": branch.relative(e["pins"]["form"], s["pins"]["form"])},
                 "estimate_pcm": total,
+                # 項の打ち消しを数えない大きさ（項ごとの効きの誤差が打ち消しを崩しても超えない目安）
+                "bound_pcm": sum(abs(t) for _, t in terms),
                 "sensitivity_burnup": nearest(b),
                 "terms": terms[:3],
             }
@@ -175,7 +178,7 @@ def derivative(inputs: list) -> list[dict]:
         HERE / "table-2A-derivative-fixed.msgpack",
     )
     solved, fixed = (table(p) for p in paths)
-    inputs += [{"path": str(p), "md5": md5(p)} for p in paths]
+    inputs += [{"path": os.path.relpath(p, HERE), "md5": md5(p)} for p in paths]
     points = burnups(solved)
     if burnups(fixed) != points:
         sys.exit("the derivative tables have different burnup points")
@@ -219,13 +222,13 @@ def main() -> None:
     }
     Path(args[1]).write_text(json.dumps(summary, indent=1) + "\n")
     print(
-        f"{'burnup':>6s} {'from':>5s} {'drho':>9s} {'estimate':>9s} {'ratio':>6s} {'pins':>8s} {'nu_fiss':>8s} {'absorb':>8s}  main terms"
+        f"{'burnup':>6s} {'from':>5s} {'drho':>9s} {'estimate':>9s} {'ratio':>6s} {'bound':>7s} {'pins':>8s} {'nu_fiss':>8s} {'absorb':>8s}  main terms"
     )
     for r in summary["skip"]:
         ratio = r["drho_pcm"] / r["estimate_pcm"] if r["estimate_pcm"] else float("nan")
         terms = ", ".join(f"{n} {t:+.2f}" for n, t in r["terms"])
         print(
-            f"{r['burnup']:6g} {r['shielded_at']:5g} {r['drho_pcm']:+9.3f} {r['estimate_pcm']:+9.3f} {ratio:6.2f} "
+            f"{r['burnup']:6g} {r['shielded_at']:5g} {r['drho_pcm']:+9.3f} {r['estimate_pcm']:+9.3f} {ratio:6.2f} {r['bound_pcm']:7.2f} "
             f"{r['relative']['pins']:8.1e} {r['relative']['nu_fission']:8.1e} {r['relative']['absorption']:8.1e}  {terms}"
         )
     print(
