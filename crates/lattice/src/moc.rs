@@ -502,6 +502,10 @@ fn pair(
     let pairs = planar_moments(options.scattering_order);
     let representatives = match symmetry {
         Some(verified) if verified.symmetry() != Symmetry::NONE => {
+            // 別のトラッキングの対称操作は、問題にない領域とトラックを指す
+            if !verified.fits(tracking) {
+                return Err(MocError::ForeignSymmetry);
+            }
             Representatives::by_images(tracking, materials, &mesh, &pairs, verified.images())?
         }
         _ => Representatives::all(tracking, &mesh, pairs.len()),
