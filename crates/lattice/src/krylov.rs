@@ -61,7 +61,7 @@ impl Krylov {
             self.done = true;
             return;
         }
-        self.basis = vec![r.par_iter().map(|v| v / beta).collect()];
+        self.basis = vec![divided(&r, beta)];
         self.columns.clear();
         self.rotations.clear();
         self.g = vec![beta];
@@ -97,12 +97,7 @@ impl Krylov {
     /// 基底の値を、すでに張った空間の 0 に移す。作用素が特異）か、解の近似が有限でなければ `Breakdown`
     pub(crate) fn receive(&mut self, applied: Vec<f64>, sweeps: usize) -> Result<(), Breakdown> {
         if self.residual {
-            let r = self
-                .b
-                .par_iter()
-                .zip(&applied)
-                .map(|(a, c)| a - c)
-                .collect();
+            let r = difference(&self.b, &applied);
             self.begin(r);
             self.sweeps = sweeps;
             return Ok(());
@@ -112,7 +107,7 @@ impl Krylov {
         let mut h = Vec::with_capacity(j + 2);
         for v in &self.basis {
             let c = inner(&w, v);
-            w.par_iter_mut().zip(v).for_each(|(a, b)| *a -= c * b);
+            subtract_scaled(&mut w, c, v);
             h.push(c);
         }
         let next = norm(&w);
@@ -150,10 +145,7 @@ impl Krylov {
                 y[i] = (self.g[i] - sum) / self.columns[i][i];
             }
             for (v, coefficient) in self.basis.iter().zip(&y) {
-                self.x
-                    .par_iter_mut()
-                    .zip(v)
-                    .for_each(|(a, b)| *a += coefficient * b);
+                add_scaled(&mut self.x, *coefficient, v);
             }
             if self.x.iter().any(|v| !v.is_finite()) {
                 return Err(Breakdown);
@@ -168,7 +160,7 @@ impl Krylov {
             }
             return Ok(());
         }
-        self.basis.push(w.par_iter().map(|v| v / next).collect());
+        self.basis.push(divided(&w, next));
         Ok(())
     }
 }
@@ -177,8 +169,53 @@ fn norm(v: &[f64]) -> f64 {
     inner(v, v).sqrt()
 }
 
+/// 並列に計算する値の長さの下限。粗メッシュの補正の問題（2A で約 4,000）の内積と和は、スレッドに分けて待つ時間が計算より
+/// 長い（2A の補正 1 回 69 回の GMRES で 0.23 秒、1 回あたり 3.3 ms。ADR-0247）ので、この長さより短ければ 1 つのスレッドで
+/// 計算する。一般化随伴の状態（2A で約 400 万）は並列のまま
+const PARALLEL: usize = 1 << 16;
+
 fn inner(a: &[f64], b: &[f64]) -> f64 {
-    a.par_iter().zip(b).map(|(x, y)| x * y).sum::<f64>()
+    if a.len() < PARALLEL {
+        a.iter().zip(b).map(|(x, y)| x * y).sum()
+    } else {
+        a.par_iter().zip(b).map(|(x, y)| x * y).sum()
+    }
+}
+
+/// `v` を `d` で割った値
+fn divided(v: &[f64], d: f64) -> Vec<f64> {
+    if v.len() < PARALLEL {
+        v.iter().map(|x| x / d).collect()
+    } else {
+        v.par_iter().map(|x| x / d).collect()
+    }
+}
+
+/// `a` − `b`
+fn difference(a: &[f64], b: &[f64]) -> Vec<f64> {
+    if a.len() < PARALLEL {
+        a.iter().zip(b).map(|(x, y)| x - y).collect()
+    } else {
+        a.par_iter().zip(b).map(|(x, y)| x - y).collect()
+    }
+}
+
+/// `x` から `v` の `factor` 倍を引く
+fn subtract_scaled(x: &mut [f64], factor: f64, v: &[f64]) {
+    if x.len() < PARALLEL {
+        x.iter_mut().zip(v).for_each(|(a, b)| *a -= factor * b);
+    } else {
+        x.par_iter_mut().zip(v).for_each(|(a, b)| *a -= factor * b);
+    }
+}
+
+/// `x` に `v` の `factor` 倍を足す
+fn add_scaled(x: &mut [f64], factor: f64, v: &[f64]) {
+    if x.len() < PARALLEL {
+        x.iter_mut().zip(v).for_each(|(a, b)| *a += factor * b);
+    } else {
+        x.par_iter_mut().zip(v).for_each(|(a, b)| *a += factor * b);
+    }
 }
 
 #[cfg(test)]
