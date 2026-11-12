@@ -11,6 +11,11 @@
 - pincell-generalized.toml: pincell.toml の燃料のピンで、段 3 の一般化随伴の収束の方法を比べる（`generalized` の説明）
 - pincell-few-group.toml、lattice-3x3-few-group.toml: 段 4 の少数群定数の数密度の微分を、直接の摂動と、31 核種すべての
   自己遮蔽を解き直した摂動と一緒に解く（`few_group` の説明）
+- pincell-ufg-tangent.toml: pincell.toml の燃料のピンの UFG の減速計算の、31 核種の数密度の向きごとの 1 次の変化と時間（段 I2-2。
+  `ufg_tangent` の説明）。pincell-ufg-tangent-u238.toml は U-238 の 1 つの向きだけ（向きの数によらない時間を分ける）
+- pincell-ufg-tangent-fuel-1350.toml、pincell-ufg-tangent-moderator-615.toml、pincell-ufg-tangent-boron-0.toml: 同じ 1 次の変化を、
+  2A の本番のテーブルの軸の端の状態（燃料 1350 K、減速材 615 K と 0.608215 g/cm³、ホウ素 0 ppm。../p9-product/branch-2A.toml）で
+  解く（1 次の変化が状態でどれだけ変わるか）
 - pair-56-60.toml: 56 → 60 MWd/kg の、同じ組の 5 つのリングの体積で均質化した数密度の相対の変化（N̄(60) − N̄(56)) / N̄(60)。
   compare_few_group.py が、暗黙の効きの核種ごとの微分に掛けて、隣り合う燃焼度の点の組の自己遮蔽の分（ADR-0221 の背景）を見込む
 
@@ -161,6 +166,40 @@ def few_group(output: str) -> str:
     )
 
 
+def ufg_tangent(output: str, nuclides: list[str] | None = None) -> str:
+    """段 I2-2 の UFG の減速計算の 1 次の変化（ADR-0247）。向きの核種は `nuclides`（省略すると 31 核種のすべて）。k の感度は
+    既定の判定で解く（1 次の変化は固有値計算によらない）"""
+    names = ", ".join(f'"{n}"' for n in NUCLIDES)
+    body = (
+        "[sensitivity]\n"
+        f"nuclides = [{names}]\n"
+        f'output = "{output}"\n\n'
+        "[sensitivity.ufg-tangent]\n"
+    )
+    if nuclides is not None:
+        body += "nuclides = [" + ", ".join(f'"{n}"' for n in nuclides) + "]\n"
+    return body
+
+
+def state(
+    materials: str,
+    fuel: int = 900,
+    moderator: tuple[int, float] = (580, 0.711901),
+    boron: int = 650,
+) -> str:
+    """燃料の温度、減速材の温度と密度、ホウ素の濃度を変えた物質（../p9-product/branch-2A.toml の軸と同じく、燃料の温度は 5 つの
+    燃料の物質に、減速材の温度は水と被覆管に当てる）"""
+    temperature, density = moderator
+    out = materials.replace("temperature = 900\n", f"temperature = {fuel}\n")
+    out = out.replace("temperature = 580\n", f"temperature = {temperature}\n")
+    nominal = "water = { density = 0.711901, boron = 650, b10 = 0.199 }"
+    if nominal not in out:
+        sys.exit("the water material is not the nominal one")
+    return out.replace(
+        nominal, f"water = {{ density = {density}, boron = {boron}, b10 = 0.199 }}"
+    )
+
+
 def ring_rows(history: dict, index: int) -> list[tuple[str, list[float], float]]:
     """燃焼点 `index` の、最初の燃焼の領域の組の 5 つのリングの（物質、数密度、体積）"""
     point = history["points"][index]
@@ -298,6 +337,29 @@ def main() -> None:
         + "\n"
         + few_group("lattice-3x3-few-group-sensitivity.toml")
     )
+    tangent = "# このファイルは inputs.py が書く（手で直さない）。#0279 の段 I2-2 の UFG の減速計算の 1 次の変化（ADR-0247）\n"
+    cases = [
+        ("pincell-ufg-tangent", materials, None),
+        ("pincell-ufg-tangent-u238", materials, ["U-238"]),
+        ("pincell-ufg-tangent-fuel-1350", state(materials, fuel=1350), None),
+        (
+            "pincell-ufg-tangent-moderator-615",
+            state(materials, moderator=(615, 0.608215)),
+            None,
+        ),
+        ("pincell-ufg-tangent-boron-0", state(materials, boron=0), None),
+    ]
+    for name, case, nuclides in cases:
+        (HERE / f"{name}.toml").write_text(
+            tangent
+            + HEADER
+            + 'rows = ["pin"]\n\n'
+            + case
+            + "\n"
+            + PIN
+            + "\n"
+            + ufg_tangent(f"{name}-sensitivity.toml", nuclides)
+        )
     (HERE / "pair-56-60.toml").write_text(pair(history))
 
 
