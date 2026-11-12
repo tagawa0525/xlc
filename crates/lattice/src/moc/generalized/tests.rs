@@ -393,20 +393,36 @@ fn generalized_adjoint_rejects_invalid_sources() {
 
 #[test]
 fn accelerated_methods_reach_the_source_iteration_solution_in_fewer_sweeps() {
-    // 鏡面反射のピンセル（優勢比と熱群の散乱の比が 1 に近く、加速のない反復が遅い）。P1 の散乱と 1/4 の対称性も通す
-    let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
-    let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+    // 鏡面反射の 3×3 の市松の格子（燃料のピンと水のセル。熱群の散乱の比が 1 に近く、加速のない反復が遅い）。粗メッシュの補正は
+    // セルの間の分布を直すので、セルが 1 つのピンセルでは効かない（ADR-0247）。P1 の散乱と 1/4 の対称性も通す
+    let pin = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let layout = (0..3)
+        .map(|i| (0..3).map(|j| (i + j) % 2).collect())
+        .collect();
+    let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+    let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
     let (f, m) = (
         with_moments(&two_spectra_fuel(), &[0.3]),
         with_moments(&moderator(), &[0.4]),
     );
-    let materials = [&f, &f, &m, &m];
+    let materials: Vec<&Material> = (0..9)
+        .flat_map(|c| {
+            if c % 2 == 0 {
+                vec![&f, &f, &m, &m]
+            } else {
+                vec![&m]
+            }
+        })
+        .collect();
     let options = tight(1);
     let verified = require(&tracking, Symmetry::QUARTER).unwrap();
     for symmetry in [None, Some(&verified)] {
         let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, symmetry);
         let n = materials.len();
-        let h1 = indicator(n, 2, 1, |r| (r < 2).then_some(f.total[1]));
+        let h1 = indicator(n, 2, 1, |r| {
+            std::ptr::eq(materials[r], &f).then_some(f.total[1])
+        });
         let h2 = indicator(n, 2, 1, |_| Some(1.0));
         let source = ratio_source(&solution, &h1, &h2);
         let solve_by = |method: GeneralizedMethod| {
