@@ -957,10 +957,35 @@ pub(super) struct Thermal<'a> {
     elapsed: [Duration; 2],
 }
 
+/// 自由ガスの核種の核 `gases` と S(α, β) の移行の表 `tables` で、D が 0 でない格子点のうち最初のものの 1 つ前（掃き直しの始め。
+/// [`Thermal::start`]）。`energies` は格子点のエネルギー（降順）。自由ガスの核種がないか、届く格子点がなければ `None`
+pub(super) fn sweep_start(
+    gases: &[Gas],
+    tables: &[Option<&SabTransfer>],
+    energies: &[f64],
+) -> Option<usize> {
+    if gases.is_empty() {
+        return None;
+    }
+    // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0。S(α, β) の移行は、
+    // 表の上限から表の移行の最大まで上に届く
+    let reach = gases
+        .iter()
+        .zip(tables)
+        .map(|(l, table)| {
+            let sab = table
+                .as_ref()
+                .map_or(0.0, |t| l.top() + t.transfer[t.transfer.len() - 1]);
+            (l.cap() + TAIL * l.kt()).max(sab)
+        })
+        .fold(0.0, f64::max);
+    let first = energies.iter().position(|&e| e <= reach)?;
+    Some(first.saturating_sub(1))
+}
+
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
-    /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
-    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
+    /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
     /// すべての格子点の核種の区間の始まりと位置の表も、40 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
@@ -969,28 +994,11 @@ impl<'a> Thermal<'a> {
         rings: Vec<Vec<(usize, f64)>>,
         tables: Vec<Option<&'a SabTransfer>>,
         cells: usize,
-        energies: &[f64],
+        start: usize,
         n: usize,
         hold: usize,
-    ) -> Option<Self> {
-        if gases.is_empty() {
-            return None;
-        }
-        // 上限より上の入射エネルギーは静止した標的なので、上方散乱の裾が上限の下から届く格子点より前は D が 0。S(α, β) の移行は、
-        // 表の上限から表の移行の最大まで上に届く
-        let reach = gases
-            .iter()
-            .zip(&tables)
-            .map(|(l, table)| {
-                let sab = table
-                    .as_ref()
-                    .map_or(0.0, |t| l.top() + t.transfer[t.transfer.len() - 1]);
-                (l.cap() + TAIL * l.kt()).max(sab)
-            })
-            .fold(0.0, f64::max);
-        let first = energies.iter().position(|&e| e <= reach)?;
-        let start = first.saturating_sub(1);
-        Some(Self {
+    ) -> Self {
+        Self {
             gases,
             sigma,
             rings,
@@ -1010,7 +1018,7 @@ impl<'a> Thermal<'a> {
             room: hold,
             sab: SabWork::default(),
             elapsed: [Duration::ZERO; 2],
-        })
+        }
     }
 
     pub(super) fn start(&self) -> usize {

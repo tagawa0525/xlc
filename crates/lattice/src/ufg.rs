@@ -120,6 +120,11 @@ pub enum UfgError {
     },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
+    /// 掃き直しの塊が、持った飛程の続きでない（内部の不整合）
+    #[error(
+        "held tracks: the chunk from re-swept point {start} does not continue the {held} held points"
+    )]
+    HeldTracks { start: usize, held: usize },
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
     /// 核種を含むリングの縮約の結果がない（内部の不整合）
@@ -148,6 +153,8 @@ pub struct CellSpectrum {
     pub nuclides: Vec<Vec<Shielded>>,
     /// エネルギーの格子点の数（ポイントワイズの断面積の不連続点は、高い側と低い側の2点を数える）
     pub points: usize,
+    /// 衝突確率（飛程）を求めた回数（格子点の数え方は `points` と同じ。ログの内訳）
+    pub collisions: usize,
 }
 
 /// セルの UFG の範囲 [下限, 上限] (eV)。下限はライブラリのポイントワイズの断面積の下限（熱中性子散乱の打ち切り以上の群の境界）、
@@ -675,6 +682,7 @@ fn solve_cell(
     // 段ごとの経過時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
     // スレッドがほかのピンの仕事を盗むと、その時間も衝突確率に入るので、段の割合は 1 スレッドで測る
     let mut times = [Duration::ZERO; 3];
+    let mut collisions = 0;
     let pass = Pass {
         data: &data,
         entries: &entries,
@@ -685,8 +693,8 @@ fn solve_cell(
         ng,
     };
     // 自由ガスの核の届く範囲（start から）は、上方散乱が前のスイープの中性子束を使うので、収束するまで掃き直す
-    let (thermal, sweeps) = match scattering {
-        Scattering::Static => (None, None),
+    let (thermal, sweeps, mut held_tracks) = match scattering {
+        Scattering::Static => (None, None, None),
         Scattering::FreeGas(options) => {
             let gases: Vec<(usize, Gas)> = data
                 .iter()
@@ -722,7 +730,7 @@ fn solve_cell(
                 })
                 .collect();
             // S(α, β) の移行で散乱する核種の表
-            let tables = gases
+            let tables: Vec<Option<&xlc_format::library::SabTransfer>> = gases
                 .iter()
                 .map(|&(k, gas)| gas.floor().and(data[k].table.sab_transfer.as_ref()))
                 .collect();
@@ -731,33 +739,66 @@ fn solve_cell(
                     .iter()
                     .map(|(_, column)| heap_bytes(column))
                     .sum::<u64>();
-            let thermal = Thermal::new(
-                gases.iter().map(|&(_, gas)| gas).collect(),
-                sigma,
-                rings,
-                tables,
-                options.cells,
-                &energies,
-                n,
-                // スイープが 1 回なら、持った区間を使うスイープがない
-                if options.sweeps == Some(1) {
-                    0
-                } else {
-                    cells_beside_work(hold, work)
-                },
-            );
-            (thermal, options.sweeps)
+            let kernels: Vec<Gas> = gases.iter().map(|&(_, gas)| gas).collect();
+            match free_gas::sweep_start(&kernels, &tables, &energies) {
+                // 自由ガスの核の届く格子点がなければ、掃き直さない
+                None => (None, None, None),
+                Some(start) => {
+                    // 掃き直す格子点の飛程（[`HeldTracks`]）は、持つ区間の上限の中に収まるときだけ持ち（収まらなければ掃き直す
+                    // たびに求める。結果は同じ）、その分を自由ガスの区間より先に上限から除く。スイープが 1 回なら、持った飛程と
+                    // 区間を使うスイープがない
+                    let tracks = held_tracks_bytes(u.len() - start, n);
+                    let held_tracks = (options.sweeps != Some(1)
+                        && cells_beside_work(hold, work + tracks) > 0)
+                        .then(|| {
+                            work += tracks;
+                            HeldTracks {
+                                start,
+                                tracks: Vec::with_capacity(u.len() - start),
+                            }
+                        });
+                    let thermal = Thermal::new(
+                        kernels,
+                        sigma,
+                        rings,
+                        tables,
+                        options.cells,
+                        start,
+                        n,
+                        if options.sweeps == Some(1) {
+                            0
+                        } else {
+                            cells_beside_work(hold, work)
+                        },
+                    );
+                    (Some(thermal), options.sweeps, held_tracks)
+                }
+            }
         }
     };
     sweep.thermal = thermal;
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
-    pass.run(&mut sweep, &mut cursors, 0..start, &mut times)?;
+    pass.run(
+        &mut sweep,
+        &mut cursors,
+        0..start,
+        &mut times,
+        &mut collisions,
+        &mut held_tracks,
+    )?;
     if sweep.thermal.is_some() {
         let saved = sweep.save();
         let saved_cursors = cursors.clone();
         let mut count = 0;
         loop {
-            pass.run(&mut sweep, &mut cursors, start..u.len(), &mut times)?;
+            pass.run(
+                &mut sweep,
+                &mut cursors,
+                start..u.len(),
+                &mut times,
+                &mut collisions,
+                &mut held_tracks,
+            )?;
             count += 1;
             let change = sweep.thermal.as_mut().and_then(|t| t.finish(&sweep.flux));
             tracing::debug!(sweep = count, change, "UFG free-gas sweep");
@@ -775,6 +816,7 @@ fn solve_cell(
             cursors.clone_from(&saved_cursors);
         }
     }
+    drop(held_tracks);
     let held = sweep.thermal.as_ref().map_or(0, Thermal::held);
     if let Some(thermal) = &mut sweep.thermal {
         thermal.release();
@@ -800,6 +842,7 @@ fn solve_cell(
         sab,
         held,
         work,
+        collisions,
         "UFG slowing down"
     );
 
@@ -922,6 +965,7 @@ fn solve_cell(
         flux: sweep.group_flux,
         nuclides,
         points: u.len(),
+        collisions,
     })
 }
 
@@ -962,6 +1006,20 @@ fn check_sab_coverage(
     Ok(())
 }
 
+/// 掃き直す格子点（`start` から）の [格子点 − start] の飛程。飛程は格子点のリングの全断面積だけで決まり、掃き直しで変わらない
+/// ので、最初のスイープで求めて持ち、次のスイープからはそれを使う（結果はビットで同じ）
+struct HeldTracks {
+    start: usize,
+    tracks: Vec<Vec<Vec<f64>>>,
+}
+
+/// `points` 個の格子点の、`rings` 本のリングの飛程を [`HeldTracks`] に持つときの大きさ (B)
+fn held_tracks_bytes(points: usize, rings: usize) -> u64 {
+    let row = std::mem::size_of::<Vec<f64>>() + rings * std::mem::size_of::<f64>();
+    let point = std::mem::size_of::<Vec<Vec<f64>>>() + rings * row;
+    (points * point) as u64
+}
+
 /// 格子点の範囲を高いエネルギーから順に解くスイープの、変わらない入力。
 struct Pass<'a> {
     data: &'a [Data<'a>],
@@ -974,13 +1032,16 @@ struct Pass<'a> {
 }
 
 impl Pass<'_> {
-    /// 格子点 `range` を順に解く（`cursors` は核種の格子のカーソル、`times` は段ごとの経過時間に足す）
+    /// 格子点 `range` を順に解く（`cursors` は核種の格子のカーソル、`times` は段ごとの経過時間に、`collisions` は衝突確率を
+    /// 求めた格子点の数に足す）。`held` の格子点の飛程は、持っていればそれを使い、なければ求めて持つ
     fn run(
         &self,
         sweep: &mut Sweep,
         cursors: &mut [usize],
         range: Range<usize>,
         times: &mut [Duration; 3],
+        collisions: &mut usize,
+        held: &mut Option<HeldTracks>,
     ) -> Result<(), UfgError> {
         let Self {
             data,
@@ -1009,23 +1070,53 @@ impl Pass<'_> {
                 let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
                 cell.tracks(&totals).map_err(UfgError::from)
             };
-            let tracks = values
-                .par_iter()
-                .map(|row| match table {
-                    None => exact(row),
-                    Some((table, first)) => {
-                        let sigma: Vec<f64> =
-                            first.iter().map(|&i| total(&entries[i], row)).collect();
-                        match table.tracks(&sigma)? {
-                            Some(tracks) => Ok(tracks),
-                            // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
-                            None => exact(row),
+            let solve = || {
+                values
+                    .par_iter()
+                    .map(|row| match table {
+                        None => exact(row),
+                        Some((table, first)) => {
+                            let sigma: Vec<f64> =
+                                first.iter().map(|&i| total(&entries[i], row)).collect();
+                            match table.tracks(&sigma)? {
+                                Some(tracks) => Ok(tracks),
+                                // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
+                                None => exact(row),
+                            }
                         }
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            };
+            // 塊は範囲の始めから CHUNK ごとなので、`held` の始めをまたがない
+            let slot = held
+                .as_ref()
+                .filter(|h| chunk.start >= h.start)
+                .map(|h| chunk.start - h.start..chunk.end - h.start);
+            let owned;
+            let tracks: &[Vec<Vec<f64>>] = match (held.as_mut(), slot) {
+                (Some(h), Some(r)) if r.end <= h.tracks.len() => &h.tracks[r],
+                (Some(h), Some(r)) => {
+                    // 掃き直しは `start` から順に塊を解くので、持っていない塊は持った飛程の続き。ほかは呼び方の誤りで、黙って
+                    // 求め直さない（速くならないだけで、テストが見つけない）
+                    if r.start != h.tracks.len() {
+                        return Err(UfgError::HeldTracks {
+                            start: r.start,
+                            held: h.tracks.len(),
+                        });
                     }
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+                    let solved = solve()?;
+                    *collisions += solved.len();
+                    h.tracks.extend(solved);
+                    &h.tracks[r]
+                }
+                _ => {
+                    owned = solve()?;
+                    *collisions += owned.len();
+                    &owned
+                }
+            };
             let collided = Instant::now();
-            for ((m, row), w) in chunk.zip(values).zip(&tracks) {
+            for ((m, row), w) in chunk.clone().zip(values).zip(tracks) {
                 let (e, below) = points[m];
                 sweep.point(m, row, w, e, below)?;
                 // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
