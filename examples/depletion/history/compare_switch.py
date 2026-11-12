@@ -205,14 +205,14 @@ def rate_outliers(
         dl = absorption(rates["linearization"][k][i])
         branch_difference = t.rod["densities"][k][i] - nominal[i]
         # 反応率の微分を持つ核種の自分の数密度の項 (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ（core の `accumulate_own_density_rates`）。
-        # 微分を持つ核種は `rate` を必ず持つ（テーブルの検査）ので、無ければ KeyError で止める
-        derivative = micro["states"][table_point][i].get("derivative")
+        # 一般化摂動の微分（ADR-0247）は `rate` を持たないことがあり、そのとき core も項を足さない
+        rate = (micro["states"][table_point][i].get("derivative") or {}).get("rate")
         own = (
             [
                 (node["densities"][i] - nominal[i] - index * branch_difference) * d
-                for d in absorption(derivative["rate"])
+                for d in absorption(rate)
             ]
-            if derivative is not None
+            if rate is not None
             else None
         )
         core_linearization = [
