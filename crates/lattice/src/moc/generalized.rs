@@ -34,6 +34,8 @@ pub enum GeneralizedMethod {
     Cmfd(CmfdOptions),
     /// 射影した作用素の GMRES（`restart` 回ごとに再始動する）
     Gmres { restart: usize },
+    /// スイープごとに粗メッシュの補正を足した反復（`Cmfd`）の作用素の GMRES（`restart` 回ごとに再始動する）
+    CmfdGmres { restart: usize, cmfd: CmfdOptions },
 }
 
 /// 一般化随伴の固定源の反復の方法と打ち切り
@@ -79,7 +81,10 @@ pub fn solve_generalized(
     if !(tolerance > 0.0 && tolerance.is_finite()) {
         return Err(MocError::GeneralizedTolerance(tolerance));
     }
-    if settings.method == (GeneralizedMethod::Gmres { restart: 0 }) {
+    if matches!(
+        settings.method,
+        GeneralizedMethod::Gmres { restart: 0 } | GeneralizedMethod::CmfdGmres { restart: 0, .. }
+    ) {
         return Err(MocError::GeneralizedRestart);
     }
     let regions = materials.len();
@@ -209,12 +214,16 @@ pub fn solve_generalized(
         adjoint_production,
     };
     let coarse = match settings.method {
-        GeneralizedMethod::Cmfd(cmfd) => Some(problem.coarse(cmfd)?),
+        GeneralizedMethod::Cmfd(cmfd) | GeneralizedMethod::CmfdGmres { cmfd, .. } => {
+            Some(problem.coarse(cmfd)?)
+        }
         _ => None,
     };
     let solve = |batch: &[Vec<Vec<f64>>]| -> Result<Vec<(State, usize)>, MocError> {
         match settings.method {
-            GeneralizedMethod::Gmres { restart } => problem.gmres(batch, restart, settings),
+            GeneralizedMethod::Gmres { restart } | GeneralizedMethod::CmfdGmres { restart, .. } => {
+                problem.gmres(batch, coarse.as_ref(), restart, settings)
+            }
             _ => problem.source_iteration(batch, coarse.as_ref(), settings),
         }
     };
@@ -692,27 +701,37 @@ impl Problem<'_> {
     }
 
     /// 射影した作用素の GMRES: x = P T₀ x + P T(0)（T₀ は源のないスイープ、P は φ† の成分を除く射影）を (I − P T₀) x = P T(0) と
-    /// 書き、`restart` 回ごとに再始動する GMRES で解く。内積は並べた状態の値の和で、残差のノルムが右辺のノルムの判定倍に
-    /// なったら止める。源 `sources` ごとの Arnoldi の過程を、作用素を掛けるスイープを一緒にして進める。[源] の状態と、判定を
-    /// 満たしたスイープの回数を返す
+    /// 書き、`restart` 回ごとに再始動する GMRES で解く。`coarse` があれば、T₀ と T(0) をスイープの後に粗メッシュの補正を足した
+    /// 反復（`source_iteration` の 1 回）に替える（補正は前の状態とスイープの差について線形なので、作用素は線形のまま）。内積は
+    /// 並べた状態の値の和で、残差のノルムが右辺のノルムの判定倍になったら止める。源 `sources` ごとの Arnoldi の過程を、作用素を
+    /// 掛けるスイープを一緒にして進める。[源] の状態と、判定を満たしたスイープの回数を返す
     fn gmres(
         &self,
         sources: &[Vec<Vec<f64>>],
+        coarse: Option<&CoarseAcceleration>,
         restart: usize,
         settings: &GeneralizedOptions,
     ) -> Result<Vec<(State, usize)>, MocError> {
         let copies = sources.len();
         let zero = self.zero();
+        // `before` からスイープした `after` に、粗メッシュの補正を足して（`coarse` があれば）φ† の成分を除く
+        let finish = |before: &State, after: &mut State| -> Result<(), MocError> {
+            match coarse {
+                Some(c) => self.correct(c, before, after),
+                None => {
+                    self.project(after);
+                    Ok(())
+                }
+            }
+        };
         let mut tallies = self.sweeper.tallies(self.materials.len());
         let given: Vec<Option<&[Vec<f64>]>> = sources.iter().map(|q| Some(q.as_slice())).collect();
         let first = self.step(&vec![zero.clone(); copies], &given, &mut tallies)?;
-        let mut krylov: Vec<Krylov> = first
-            .into_iter()
-            .map(|(mut b, _)| {
-                self.project(&mut b);
-                Krylov::new(b.pack(), settings.tolerance, restart)
-            })
-            .collect();
+        let mut krylov = Vec::with_capacity(copies);
+        for (mut b, _) in first {
+            finish(&zero, &mut b)?;
+            krylov.push(Krylov::new(b.pack(), settings.tolerance, restart));
+        }
         // 基底は源あたり再始動の回数 + 1 本の、この長さの値
         tracing::info!(
             length = krylov.first().map_or(0, |k| k.b.len()),
@@ -741,7 +760,7 @@ impl Problem<'_> {
                     continue;
                 }
                 // (I − P T₀) v
-                self.project(&mut image);
+                finish(v, &mut image)?;
                 let image = image.pack();
                 if image.iter().any(|x| !x.is_finite()) {
                     return Err(MocError::GeneralizedDiverged { iterations: sweeps });

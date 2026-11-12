@@ -115,6 +115,7 @@ pub enum Method {
     SourceIteration,
     Cmfd,
     Gmres { restart: usize },
+    CmfdGmres { restart: usize },
 }
 
 impl std::fmt::Display for Method {
@@ -123,6 +124,7 @@ impl std::fmt::Display for Method {
             Method::SourceIteration => write!(f, "source-iteration"),
             Method::Cmfd => write!(f, "cmfd"),
             Method::Gmres { .. } => write!(f, "gmres"),
+            Method::CmfdGmres { .. } => write!(f, "cmfd-gmres"),
         }
     }
 }
@@ -1030,6 +1032,10 @@ fn compare_generalized(
                 Method::SourceIteration => GeneralizedMethod::SourceIteration,
                 Method::Cmfd => GeneralizedMethod::Cmfd(generalized_cmfd(&options.acceleration)?),
                 Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
+                Method::CmfdGmres { restart } => GeneralizedMethod::CmfdGmres {
+                    restart,
+                    cmfd: generalized_cmfd(&options.acceleration)?,
+                },
             },
             tolerance,
             max_iterations: options.max_iterations,
