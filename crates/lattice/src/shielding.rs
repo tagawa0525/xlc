@@ -458,6 +458,16 @@ impl<'a> ShieldingReuse<'a> {
         }
     }
 
+    /// 前処理のトラッキング
+    pub fn tracking(&self) -> &'a Tracking {
+        self.tracking
+    }
+
+    /// 燃料のピンの Dancoff 係数を解いた回数
+    pub fn dancoff_solves(&self) -> usize {
+        self.dancoff_solves
+    }
+
     /// 物質 `dilute`（無限希釈）を領域に `region_index` で置いた格子の、燃料のピンの Dancoff 係数（[セル]）。`fuel` は
     /// [領域] の燃料か
     fn pin_dancoff(

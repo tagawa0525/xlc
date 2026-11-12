@@ -12,6 +12,7 @@ use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
 use crate::material::Material;
 use crate::moc::{Options, available_order, solve_symmetric};
+use crate::shielding::ShieldingReuse;
 use crate::shielding::shield_fuel_with;
 use crate::symmetry::{Chosen, choose};
 use crate::tracking::Tracking;
@@ -527,6 +528,7 @@ fn shield_states(
         }],
     )
     .unwrap();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         branches.region_materials(0),
@@ -540,7 +542,7 @@ fn shield_states(
             let reference = branches.reference(i);
             owned(
                 shielder
-                    .shield_state(library, &branches.state(i), reference, || {
+                    .shield_state(&mut reuse, library, &branches.state(i), reference, || {
                         let (point, r) = reference.unwrap();
                         branches.reference_state(point, r)
                     })
@@ -629,6 +631,7 @@ fn branches_without_a_history_shield_at_the_nominal_boron_too() {
     let s = setup(text);
     let branches = s.input.branches.as_ref().unwrap();
     let states = s.input.branch_states();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         &s.region_materials,
@@ -643,7 +646,7 @@ fn branches_without_a_history_shield_at_the_nominal_boron_too() {
             let r = branches.reference(i).unwrap();
             owned(
                 shielder
-                    .shield_state(&library, state, Some((0, r)), || {
+                    .shield_state(&mut reuse, &library, state, Some((0, r)), || {
                         branches.references()[r].clone()
                     })
                     .unwrap(),
@@ -787,6 +790,7 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
     )
     .unwrap();
     let varied = s.input.branches.as_ref().unwrap().varied();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         branches.region_materials(0),
@@ -796,9 +800,13 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
     );
     // 状態 1 は燃料 650 K、参照 0 は燃料 600 K
     let err = shielder
-        .shield_state(&library, &branches.state(1), Some((0, 0)), || {
-            branches.reference_state(0, 0)
-        })
+        .shield_state(
+            &mut reuse,
+            &library,
+            &branches.state(1),
+            Some((0, 0)),
+            || branches.reference_state(0, 0),
+        )
         .unwrap_err();
     assert!(format!("{err:#}").contains("fuel@"), "{err:#}");
 }
@@ -1035,6 +1043,7 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
     ] {
         let s = setup(&text);
         let branches = branches_of(&text, &history, &library).unwrap();
+        let mut reuse = ShieldingReuse::new(&s.tracking);
         let mut shielder = BranchShielder::new(
             &s.tracking,
             branches.region_materials(0),
@@ -1045,10 +1054,16 @@ fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
         for index in 0..branches.len() {
             let reference = branches.reference(index);
             let shielded = shielder
-                .shield_state(&library, &branches.state(index), reference, || {
-                    let (point, r) = reference.unwrap();
-                    branches.reference_state(point, r)
-                })
+                .shield_state(
+                    &mut reuse,
+                    &library,
+                    &branches.state(index),
+                    reference,
+                    || {
+                        let (point, r) = reference.unwrap();
+                        branches.reference_state(point, r)
+                    },
+                )
                 .unwrap();
             let (materials, region_material, fuel) = (
                 shielded.materials(),
@@ -1261,6 +1276,7 @@ fn shield_with(
         .chain(branches.remixed())
         .cloned()
         .collect();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         branches.region_materials(0),
@@ -1272,7 +1288,7 @@ fn shield_with(
         .map(|i| {
             let reference = branches.reference(i);
             let state = shielder
-                .shield_state(library, &branches.state(i), reference, || {
+                .shield_state(&mut reuse, library, &branches.state(i), reference, || {
                     let (point, r) = reference.unwrap();
                     branches.reference_state(point, r)
                 })
@@ -1512,16 +1528,17 @@ fn shifted_micro(
 }
 
 /// 分岐の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
-fn solve_state(
+fn solve_state<'a>(
     s: &Setup,
     library: &Library,
     branches: &HistoryBranches,
-    shielder: &mut BranchShielder,
+    reuse: &mut ShieldingReuse<'a>,
+    shielder: &mut BranchShielder<'a>,
     index: usize,
 ) -> (FewGroup, Vec<xlc_format::table::MicroNuclide>) {
     let reference = branches.reference(index);
     let shielded = shielder
-        .shield_state(library, &branches.state(index), reference, || {
+        .shield_state(reuse, library, &branches.state(index), reference, || {
             let (point, r) = reference.unwrap();
             branches.reference_state(point, r)
         })
@@ -1572,6 +1589,7 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
     let text = derivative_input(0.25);
     let s = setup(&text);
     let branches = branches_of(&text, &history, &library).unwrap();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         branches.region_materials(0),
@@ -1582,7 +1600,8 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
     // 燃焼度 2.0 の公称（1000 ppm）の状態。どちらの核種も数密度が正
     let index = 3;
     let point = 1;
-    let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let (nominal, mut micro) =
+        solve_state(&s, &library, &branches, &mut reuse, &mut shielder, index);
     let sigma = micro.clone();
     let delta = 1.0e-3;
     let mut solved = Vec::new();
@@ -1658,6 +1677,7 @@ fn perturbed_solves_with_other_micro_nuclides_are_errors() {
     let text = derivative_input(0.25);
     let s = setup(&text);
     let branches = branches_of(&text, &history, &library).unwrap();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         branches.region_materials(0),
@@ -1666,7 +1686,7 @@ fn perturbed_solves_with_other_micro_nuclides_are_errors() {
         s.input.shielding_options(),
     );
     let index = 3;
-    let (nominal, micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let (nominal, micro) = solve_state(&s, &library, &branches, &mut reuse, &mut shielder, index);
     for sigma in [micro[..1].to_vec(), [micro.clone(), micro.clone()].concat()] {
         let mut m = micro.clone();
         let err = branches
@@ -1686,6 +1706,7 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     let text = derivative_input(0.1);
     let s = setup(&text);
     let branches = branches_of(&text, &history, &library).unwrap();
+    let mut reuse = ShieldingReuse::new(&s.tracking);
     let mut shielder = BranchShielder::new(
         &s.tracking,
         branches.region_materials(0),
@@ -1695,7 +1716,8 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     );
     let index = 1;
     assert_eq!(branches.micro_densities()[0][1], 0.0);
-    let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+    let (nominal, mut micro) =
+        solve_state(&s, &library, &branches, &mut reuse, &mut shielder, index);
     let mut solved = Vec::new();
     let sigma = micro.clone();
     branches
@@ -1729,6 +1751,60 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
 }
 
 #[test]
+fn perturbed_shieldings_keep_the_pin_dancoff_factors_of_the_state() {
+    // 摂動の組成は燃料の数密度だけを変えるので、状態の自己遮蔽と前処理を共有すれば、燃料のピンの Dancoff 係数を状態の 1 回だけ
+    // 解く（ADR-0194）。摂動の自己遮蔽は、前処理を持たずに解いたものとビットで同じ
+    let (history, library) = history();
+    let index = 3;
+    let text = derivative_input(0.1);
+    let s = setup(&text);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let varied = s.input.branches.as_ref().unwrap().varied();
+    let new = || {
+        BranchShielder::new(
+            &s.tracking,
+            branches.region_materials(0),
+            varied,
+            s.chosen.shielding(),
+            s.input.shielding_options(),
+        )
+    };
+    let mut reuse = ShieldingReuse::new(&s.tracking);
+    let mut shielder = new();
+    let (nominal, mut micro) =
+        solve_state(&s, &library, &branches, &mut reuse, &mut shielder, index);
+    let sigma = micro.clone();
+    let mut perturbed = [new(), new()];
+    let mut solved = 0;
+    branches
+        .add_derivatives(
+            0,
+            index,
+            &mut micro,
+            &nominal,
+            |j, state, reference, build| {
+                let shared = owned(
+                    perturbed[j].shield_state(&mut reuse, &library, state, reference, build)?,
+                );
+                let mut fresh_reuse = ShieldingReuse::new(&s.tracking);
+                let fresh = owned(new().shield_state(
+                    &mut fresh_reuse,
+                    &library,
+                    state,
+                    reference,
+                    build,
+                )?);
+                assert_eq!(shared, fresh, "{j}");
+                solved += 1;
+                Ok((nominal.clone(), sigma.clone()))
+            },
+        )
+        .unwrap();
+    assert_eq!(solved, 2);
+    assert_eq!(reuse.dancoff_solves(), 1);
+}
+
+#[test]
 fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
     // 前進差分の誤差は摂動の割合 ε に比例するので、ε を倍にしたときの微分の変わり方は、その前の倍の変わり方の約 2 倍（ADR-0221）。
     // 摂動の組成は自己遮蔽（公称のホウ素の参照）から解き直す
@@ -1748,8 +1824,10 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
                 s.input.shielding_options(),
             )
         };
+        let mut reuse = ShieldingReuse::new(&s.tracking);
         let mut shielder = new();
-        let (nominal, mut micro) = solve_state(&s, &library, &branches, &mut shielder, index);
+        let (nominal, mut micro) =
+            solve_state(&s, &library, &branches, &mut reuse, &mut shielder, index);
         let mut perturbed = [new(), new()];
         branches
             .add_derivatives(
@@ -1758,7 +1836,8 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
                 &mut micro,
                 &nominal,
                 |j, state, reference, build| {
-                    let shielded = perturbed[j].shield_state(&library, state, reference, build)?;
+                    let shielded =
+                        perturbed[j].shield_state(&mut reuse, &library, state, reference, build)?;
                     let (few, solution) = homogenized(&s, &library, &shielded);
                     let sigma = branches.micro(
                         0,

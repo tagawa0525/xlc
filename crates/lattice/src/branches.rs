@@ -713,10 +713,10 @@ impl BranchesEntry {
 
 /// 分岐の状態を順に自己遮蔽する（ADR-0201）。参照の指定のない状態は、その状態の物質で解く。参照のある状態は、参照の状態（ホウ素が
 /// 公称）で 1 度解いた自己遮蔽を持ち、ホウ素の軸が変える物質だけを状態の組成で作り直す。参照は今の燃焼度の点のものだけを持つ
-/// （状態は燃焼度の点の順に渡す）。燃料の組成によらない前処理（Dancoff 係数）は `ShieldingReuse` で持ち越す
+/// （状態は燃焼度の点の順に渡す）。燃料の組成によらない前処理（Dancoff 係数）は、呼び出し側の `ShieldingReuse` で持ち越す（同じ
+/// トラッキングのほかの `BranchShielder`、たとえば数密度の微分の摂動の組成のものと共有できる）
 pub struct BranchShielder<'a> {
     tracking: &'a Tracking,
-    reuse: ShieldingReuse<'a>,
     /// [領域] の自己遮蔽と MOC に渡す物質の名前
     region_materials: &'a [String],
     /// ホウ素の軸が変える物質
@@ -741,7 +741,6 @@ impl<'a> BranchShielder<'a> {
     ) -> Self {
         Self {
             tracking,
-            reuse: ShieldingReuse::new(tracking),
             region_materials,
             varied,
             symmetry,
@@ -758,25 +757,25 @@ impl<'a> BranchShielder<'a> {
 
     /// 物質 `state` の状態の自己遮蔽。`reference` は参照から作るときの燃焼度の点と参照の番号で、その参照の物質はまだ解いていなければ
     /// `nominal` で作る。参照から作った状態は参照の自己遮蔽を持ち（作り直すのはホウ素の軸の物質だけで、燃料の実効断面積は参照と同じ）、
-    /// 公称と違う状態は作り直した物質の一覧を添える
+    /// 公称と違う状態は作り直した物質の一覧を添える。燃料の組成によらない前処理は `reuse`（この自己遮蔽と同じトラッキングのもの）から
+    /// 持ち越し、`reuse` に残す
     pub fn shield_state(
         &mut self,
+        reuse: &mut ShieldingReuse<'a>,
         library: &Library,
         state: &[MaterialInput],
         reference: Option<(usize, usize)>,
         nominal: impl FnOnce() -> Vec<MaterialInput>,
     ) -> anyhow::Result<StateShielding<'_>> {
+        // 別のトラッキングの前処理（Dancoff 係数）を、この格子の自己遮蔽に使わない
+        if !std::ptr::eq(reuse.tracking(), self.tracking) {
+            bail!("the self-shielding reuse belongs to another tracking");
+        }
         let names = self.region_materials;
         let Some((point, index)) = reference else {
             self.shieldings += 1;
-            let shielded = shield_fuel_reusing(
-                library,
-                &mut self.reuse,
-                state,
-                names,
-                self.symmetry,
-                &self.options,
-            )?;
+            let shielded =
+                shield_fuel_reusing(library, reuse, state, names, self.symmetry, &self.options)?;
             return Ok(StateShielding {
                 fuel: Fuel::Solved(Box::new(shielded)),
                 remixed: None,
@@ -789,7 +788,7 @@ impl<'a> BranchShielder<'a> {
             self.shieldings += 1;
             let shielded = shield_fuel_reusing(
                 library,
-                &mut self.reuse,
+                reuse,
                 &nominal,
                 names,
                 self.symmetry,
