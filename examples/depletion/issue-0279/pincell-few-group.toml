@@ -437,6 +437,6 @@ flux-tolerance = 1e-11
 
 [sensitivity.few-group]
 bounds = [1e7, 0.625, 1e-5]
-tolerance = 1e-7
+tolerance = 1e-10
 restart = 100
 shielded = ["U-234", "U-235", "U-236", "U-238", "Np-237", "Np-239", "Pu-238", "Pu-239", "Pu-240", "Pu-241", "Pu-242", "Am-241", "Am-243", "Xe-135", "Sm-147", "Sm-149", "Sm-150", "Sm-151", "Sm-152", "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160", "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m"]
