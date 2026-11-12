@@ -190,6 +190,14 @@ def state(
     """燃料の温度、減速材の温度と密度、ホウ素の濃度を変えた物質（../p9-product/branch-2A.toml の軸と同じく、燃料の温度は 5 つの
     燃料の物質に、減速材の温度は水と被覆管に当てる）"""
     temperature, density = moderator
+    # 燃料の 5 つの物質と、被覆管と水（黙って置き換え損ねない）
+    if (
+        materials.count("temperature = 900\n") != 5
+        or materials.count("temperature = 580\n") != 2
+    ):
+        sys.exit(
+            "the materials are not the nominal fuel at 900 K and moderator at 580 K"
+        )
     out = materials.replace("temperature = 900\n", f"temperature = {fuel}\n")
     out = out.replace("temperature = 580\n", f"temperature = {temperature}\n")
     nominal = "water = { density = 0.711901, boron = 650, b10 = 0.199 }"
