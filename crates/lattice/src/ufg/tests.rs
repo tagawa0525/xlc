@@ -3172,6 +3172,17 @@ fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
             other: 5
         })
     ));
+    // 同じ組成のリングの片方だけを変える向きも、表の物質の全断面積を変えると両方が変わるので止める
+    let mut one = proportional(&rings, "H-1");
+    one[5].fill(0.0);
+    assert!(matches!(
+        solve(Collision::default(), &rings, &[one]),
+        Err(UfgError::TangentClass {
+            direction: 0,
+            ring: 4,
+            other: 5
+        })
+    ));
     materials[0].composition[2].1 = 0.0;
     let rings = thermal_tangent_rings(&materials);
     let mut empty = proportional(&rings, "none");
