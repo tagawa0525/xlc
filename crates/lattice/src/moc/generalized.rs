@@ -19,6 +19,7 @@ use super::{
     Symmetry, equilibrium_moments, planar_moments, sum_tallies, transposed,
 };
 use crate::cmfd::{CmfdOptions, Coarse, group_change};
+use crate::krylov::Krylov;
 use crate::tracking::Tracking;
 
 /// ⟨S, φ⟩ を ⟨|S|, φ⟩ と比べる相対の許容値。応答の源 h₁/⟨h₁, φ⟩ − h₂/⟨h₂, φ⟩ を解いた φ から作れば、残るのは足す順の丸め
@@ -741,14 +742,14 @@ impl Problem<'_> {
         }
         // 基底は源あたり再始動の回数 + 1 本の、この長さの値
         tracing::info!(
-            length = krylov.first().map_or(0, |k| k.b.len()),
+            length = krylov.first().map_or(0, |k| k.solution().len()),
             sources = copies,
             restart,
             "generalized adjoint GMRES"
         );
         let mut sweeps = 1;
         let none: Vec<Option<&[Vec<f64>]>> = vec![None; copies];
-        while krylov.iter().any(|k| !k.done) {
+        while krylov.iter().any(|k| !k.done()) {
             if sweeps >= settings.max_iterations {
                 return Err(MocError::GeneralizedNotConverged { iterations: sweeps });
             }
@@ -763,7 +764,7 @@ impl Problem<'_> {
             let images = self.step(&vectors, &none, &mut tallies)?;
             sweeps += 1;
             for ((k, v), (mut image, _)) in krylov.iter_mut().zip(&vectors).zip(images) {
-                if k.done {
+                if k.done() {
                     continue;
                 }
                 // (I − P T₀) v
@@ -778,171 +779,16 @@ impl Problem<'_> {
                     .zip(&image)
                     .map(|(a, b)| a - b)
                     .collect();
-                tracing::trace_span!("krylov").in_scope(|| k.receive(applied, sweeps))?;
+                tracing::trace_span!("krylov")
+                    .in_scope(|| k.receive(applied, sweeps))
+                    .map_err(|_| MocError::GeneralizedDiverged { iterations: sweeps })?;
             }
         }
         Ok(krylov
             .into_iter()
-            .map(|k| (State::unpack(&k.x, &zero), k.sweeps))
+            .map(|k| (State::unpack(k.solution(), &zero), k.steps()))
             .collect())
     }
-}
-
-/// 1 つの源の、再始動つきの GMRES の過程（`Problem::gmres`）。作用素を掛ける値を `request` で出し、掛けた値を `receive` で受ける
-struct Krylov {
-    /// 解の近似
-    x: Vec<f64>,
-    /// 右辺
-    b: Vec<f64>,
-    /// 止める残差のノルム（判定 × 右辺のノルム）
-    target: f64,
-    restart: usize,
-    /// 正規直交の基底
-    basis: Vec<Vec<f64>>,
-    /// Givens の回転で上三角にした Hessenberg 行列の列
-    columns: Vec<Vec<f64>>,
-    rotations: Vec<(f64, f64)>,
-    /// 最小二乗の右辺
-    g: Vec<f64>,
-    /// 次に掛ける値が解の近似 x（再始動の残差）か
-    residual: bool,
-    done: bool,
-    /// 判定を満たしたスイープの回数
-    sweeps: usize,
-}
-
-impl Krylov {
-    fn new(b: Vec<f64>, tolerance: f64, restart: usize) -> Self {
-        let target = tolerance * norm(&b);
-        let mut k = Self {
-            x: vec![0.0; b.len()],
-            b,
-            target,
-            restart,
-            basis: Vec::new(),
-            columns: Vec::new(),
-            rotations: Vec::new(),
-            g: Vec::new(),
-            residual: false,
-            done: false,
-            sweeps: 1,
-        };
-        let r = k.b.clone();
-        k.begin(r);
-        k
-    }
-
-    /// 残差 `r` から Arnoldi の過程を始める（判定を満たしていれば終える）
-    fn begin(&mut self, r: Vec<f64>) {
-        let beta = norm(&r);
-        self.residual = false;
-        if beta <= self.target {
-            self.done = true;
-            return;
-        }
-        self.basis = vec![r.par_iter().map(|v| v / beta).collect()];
-        self.columns.clear();
-        self.rotations.clear();
-        self.g = vec![beta];
-    }
-
-    /// 作用素を掛ける値（終えていれば `None`）
-    fn request(&self) -> Option<&[f64]> {
-        if self.done {
-            None
-        } else if self.residual {
-            Some(&self.x)
-        } else {
-            self.basis.last().map(Vec::as_slice)
-        }
-    }
-
-    /// `request` の値に作用素を掛けた値 `applied` を受ける（`sweeps` はそこまでのスイープの回数）。Givens の回転の半径が 0（作用素が
-    /// 基底の値を、すでに張った空間の 0 に移す。射影した作用素が特異）か、解の近似が有限でなければエラー
-    fn receive(&mut self, applied: Vec<f64>, sweeps: usize) -> Result<(), MocError> {
-        if self.residual {
-            let r = self
-                .b
-                .par_iter()
-                .zip(&applied)
-                .map(|(a, c)| a - c)
-                .collect();
-            self.begin(r);
-            self.sweeps = sweeps;
-            return Ok(());
-        }
-        let j = self.columns.len();
-        let mut w = applied;
-        let mut h = Vec::with_capacity(j + 2);
-        for v in &self.basis {
-            let c = inner(&w, v);
-            w.par_iter_mut().zip(v).for_each(|(a, b)| *a -= c * b);
-            h.push(c);
-        }
-        let next = norm(&w);
-        h.push(next);
-        for (i, &(c, s)) in self.rotations.iter().enumerate() {
-            let (a, b) = (h[i], h[i + 1]);
-            h[i] = c * a + s * b;
-            h[i + 1] = -s * a + c * b;
-        }
-        let (a, b) = (h[j], h[j + 1]);
-        let radius = a.hypot(b);
-        if !(radius > 0.0 && radius.is_finite()) {
-            return Err(MocError::GeneralizedDiverged { iterations: sweeps });
-        }
-        let (c, s) = (a / radius, b / radius);
-        h[j] = radius;
-        h.truncate(j + 1);
-        self.rotations.push((c, s));
-        self.g.push(-s * self.g[j]);
-        self.g[j] *= c;
-        self.columns.push(h);
-        let residual = self.g[j + 1].abs();
-        tracing::debug!(
-            sweeps,
-            residual,
-            target = self.target,
-            "generalized adjoint GMRES"
-        );
-        if residual <= self.target || next == 0.0 || j + 1 == self.restart {
-            // 上三角の系を後退代入で解き、x に基底の和を足す
-            let n = self.columns.len();
-            let mut y = vec![0.0; n];
-            for i in (0..n).rev() {
-                let sum: f64 = ((i + 1)..n).map(|l| self.columns[l][i] * y[l]).sum();
-                y[i] = (self.g[i] - sum) / self.columns[i][i];
-            }
-            for (v, coefficient) in self.basis.iter().zip(&y) {
-                self.x
-                    .par_iter_mut()
-                    .zip(v)
-                    .for_each(|(a, b)| *a += coefficient * b);
-            }
-            if self.x.iter().any(|v| !v.is_finite()) {
-                return Err(MocError::GeneralizedDiverged { iterations: sweeps });
-            }
-            self.sweeps = sweeps;
-            if residual <= self.target || next == 0.0 {
-                self.done = true;
-            } else {
-                // 再始動の残差は、Arnoldi の関係から基底で組み立てられるが、1 回のスイープで b − Ax を掛け直して丸めの積み重ねを
-                // 除く（2A の判定 1e-7 は 100 回の中で収束し、再始動しない）
-                self.residual = true;
-            }
-            return Ok(());
-        }
-        self.basis.push(w.par_iter().map(|v| v / next).collect());
-        Ok(())
-    }
-}
-
-fn norm(v: &[f64]) -> f64 {
-    inner(v, v).sqrt()
-}
-
-fn inner(a: &[f64], b: &[f64]) -> f64 {
-    a.par_iter().zip(b).map(|(x, y)| x * y).sum::<f64>()
 }
 
 /// 領域の Γ の、群ごとの |Γ| の最大値に対する変化の最大（`group_change`。Γ は符号を変える）。値は有限と確かめてある
