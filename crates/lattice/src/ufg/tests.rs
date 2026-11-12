@@ -3143,28 +3143,29 @@ fn tangent_directions_must_follow_the_ring_compositions() {
 
 #[test]
 fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
-    // 同じ組成のリング（飛程の表の 1 つの物質）を違う向きに変える向きと、個数密度が 0 の自由ガスの核種を変える向きは、減速計算が
-    // その変化を表せないので止める（黙って誤った変化を返さない）
+    // 同じ組成のリング（飛程の表の 1 つの物質）を違う向きに変える向きは、表を使う減速計算では表せず、個数密度が 0 の自由ガスの
+    // 核種を変える向きは、散乱源を積分しないので表せない。どちらも止める（黙って誤った変化を返さない）
     let (lib, mut materials, cell) = thermal_tangent_cell(None);
     let rings = thermal_tangent_rings(&materials);
     let mut uneven = proportional(&rings, "H-1");
     uneven[5][0] *= 2.0;
-    let solve = |rings: &[Option<&MaterialInput>], directions: &[Vec<Vec<f64>>]| {
-        tangent_with(
-            &lib,
-            &cell,
-            rings,
-            [4.0, 1.0e2],
-            Collision::Exact,
-            None,
-            tangent_gas(false),
-            None,
-            0,
-            directions,
-        )
-    };
+    let solve =
+        |collision: Collision, rings: &[Option<&MaterialInput>], directions: &[Vec<Vec<f64>>]| {
+            tangent_with(
+                &lib,
+                &cell,
+                rings,
+                [4.0, 1.0e2],
+                collision,
+                None,
+                tangent_gas(false),
+                None,
+                0,
+                directions,
+            )
+        };
     assert!(matches!(
-        solve(&rings, &[uneven]),
+        solve(Collision::default(), &rings, &[uneven]),
         Err(UfgError::TangentClass {
             direction: 0,
             ring: 4,
@@ -3176,7 +3177,47 @@ fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
     let mut empty = proportional(&rings, "none");
     empty[0][2] = 1.0e-3;
     assert!(matches!(
-        solve(&rings, &[empty]),
+        solve(Collision::Exact, &rings, &[empty]),
         Err(UfgError::TangentZeroDensity { direction: 0, ring: 0, ref name }) if name == "O-16"
     ));
+}
+
+#[test]
+fn exact_tangents_follow_rings_of_one_composition_changed_unevenly() {
+    // 格子点ごとの飛程なら、同じ組成のリングを違う向きに変えても、リングごとに飛程を微分して解ける
+    let (lib, materials, cell) = thermal_tangent_cell(None);
+    let rings = thermal_tangent_rings(&materials);
+    let mut uneven = proportional(&rings, "H-1");
+    uneven[5][0] *= 2.0;
+    let hold = held_cells(1 << 30, 1);
+    let solve = |inputs: &[Option<&MaterialInput>], directions: Option<&[Vec<Vec<f64>>]>| {
+        let mut tangent = CellTangent {
+            flux: Vec::new(),
+            nuclides: Vec::new(),
+            cost: TangentCost::default(),
+        };
+        let spectrum = solve_cell(
+            &lib,
+            &cell,
+            inputs,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            tangent_gas(false),
+            None,
+            None,
+            directions.map(|d| (d, &mut tangent)),
+            None,
+            hold,
+        )
+        .unwrap();
+        (spectrum, tangent)
+    };
+    let (_, tangent) = solve(&rings, Some(&[uneven.clone()]));
+    assert_eq!(tangent.cost.classes, 2);
+    assert_matches_differences(&tangent, 0, 1.0e-3, 1.0e-9, |t| {
+        let inputs = moved(&rings, &uneven, t);
+        let rings: Vec<Option<&MaterialInput>> = inputs.iter().map(Option::as_ref).collect();
+        solve(&rings, None).0
+    });
 }
