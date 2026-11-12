@@ -11,8 +11,8 @@
 //!
 //! テーブルが軸の直積でなく、公称の状態と成分（公称と違う軸の組）の部分格子の点を持つときは、制御棒の値の点の中で cut-HDMR の式
 //! f(x) = Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x₀) で組み立てる（U は成分の集合、f(x_v, x₀) は v の軸だけ x の値にし、ほかを公称に
-//! した状態を、その部分格子の中で多重線形に内挿した値。ADR-0200）。f(x_v, x₀) の係数をまとめて、成分 v の部分格子に
-//! c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|} を掛けて足す。軸の直積は c が 3 つの軸の成分だけ 1 で、ほかの成分は 0 なので、直積の多重線形
+//! した状態を、その部分格子の中で軸ごとの重み（ホウ素と減速材は線形、燃料の温度は √T の 3 次 Hermite）の積で内挿した値。ADR-0200）。f(x_v, x₀) の係数をまとめて、成分 v の部分格子に
+//! c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|} を掛けて足す。軸の直積は c が 3 つの軸の成分だけ 1 で、ほかの成分は 0 なので、直積の軸ごとの重みの積
 //! そのものになる。すべての燃焼度の点で解いていない点は、その点の燃焼度の点での公称の状態との差を燃焼度について内挿し、
 //! 公称の状態をすべての燃焼度の点で内挿した値に足す（燃焼度の内挿はどちらも ADR-0192）。
 //!
@@ -799,7 +799,7 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
     }
     if negative_fuel {
         causes.push(format!(
-            "the cubic fuel temperature interpolation at {} K overshot, add fuel temperature points near the bend (ADR-0242)",
+            "the cubic fuel temperature interpolation at {} K has negative weights; if the values bend between the fuel temperature points, add points there (ADR-0242)",
             state.fuel
         ));
     }
