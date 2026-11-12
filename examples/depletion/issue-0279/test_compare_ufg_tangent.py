@@ -59,6 +59,12 @@ class Compare(unittest.TestCase):
         ]
         self.assertAlmostEqual(error, 0.1 / 1.1)
 
+    def test_states_of_other_rings_stop(self):
+        nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3]])
+        state = report([[1.0, 1.0]], [2.0], [[-0.1]])
+        with self.assertRaises(SystemExit):
+            cut.compare(nominal, {"s": state})
+
     def test_states_of_other_directions_stop(self):
         nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3]])
         with self.assertRaises(SystemExit):
