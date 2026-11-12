@@ -163,6 +163,27 @@ pub enum UfgError {
         "ring {ring}: the density direction changes a ring whose total cross section is 0 at {energy} eV, so the tracks have no derivative in ln Σ"
     )]
     TangentZeroTotal { ring: usize, energy: f64 },
+    /// 同じ組成のリングは飛程の表の 1 つの物質（[`track_table`]）なので、その全断面積は一緒にしか変えられない
+    #[error(
+        "density direction {direction}: rings {ring} and {other} have the same composition but different density changes"
+    )]
+    TangentClass {
+        direction: usize,
+        ring: usize,
+        other: usize,
+    },
+    /// 1 次の変化は、持たない格子点の区間も格子点を u32 で書く（[`free_gas::Thermal::keep_cells`]）
+    #[error("the slowing-down tangent needs fewer than 2^32 lethargy points, got {0}")]
+    TangentGrid(usize),
+    /// 個数密度が 0 の自由ガスの核種は、散乱源を積分しない（[`free_gas::Thermal::new`]）ので、その個数密度の変化の項が無い
+    #[error(
+        "density direction {direction}: ring {ring} changes the free-gas nuclide {name} whose density there is 0"
+    )]
+    TangentZeroDensity {
+        direction: usize,
+        ring: usize,
+        name: String,
+    },
     /// 接線を、格子点ごとの飛程、間引かない格子、静止した標的のほかの設定で頼んだ（内部の呼び方の誤り）
     #[error(
         "internal error: the slowing-down tangent covers only exact tracks, the full grid and static targets"
@@ -395,7 +416,7 @@ pub fn slowing_down_with(
     hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library, cell, rings, range, collision, thinning, scattering, None, None, None, hold,
+        library, cell, rings, range, collision, thinning, scattering, None, None, None, None, hold,
     )
 }
 
@@ -433,6 +454,7 @@ pub fn slowing_down_transfers(
         scattering,
         None,
         Some((&mut transfers, shares)),
+        None,
         None,
         hold,
     )?;
@@ -474,6 +496,7 @@ pub fn slowing_down_fine(
         Some(&mut fine),
         None,
         None,
+        None,
         hold,
     )?;
     Ok((spectrum, fine))
@@ -486,41 +509,84 @@ pub struct CellTangent {
     pub flux: Vec<Vec<Vec<f64>>>,
     /// [向き][リング][核種（物質の組成の順）] の群定数の 1 次の変化 (barn)。真空のリングは空
     pub nuclides: Vec<Vec<Vec<Shielded>>>,
+    /// 1 次の変化に使った時間（スレッドの時間の和でなく経過時間, s）と記憶
+    pub cost: TangentCost,
 }
 
-/// [`slowing_down`] の減速計算を、飛程を格子点ごとに求め（[`Collision::Exact`]）、格子を間引かず、どの核種も静止した標的
-/// （[`Scattering::Static`]）で解き、`directions` の向きごとに、個数密度を N + t δN と変えたときの t = 0 での 1 次の変化も求める
-/// （ADR-0247 の案 I2）。`directions[d][リング][核種]` は向き d の δN (/b cm) で、並びは `rings` の物質の組成と同じ（真空のリングは空）。
+/// 減速計算の 1 次の変化の時間 (s) と記憶 (B) の内訳（ログと測定。ADR-0247 の段 I2-2）。時間は減速計算の中の区間ごとの
+/// 経過時間で、ピンの間で並列に解くときはほかのピンの仕事を盗んだ時間を含む
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TangentCost {
+    /// 個数密度の変わるリングの組の、全断面積についての飛程の微分（表の内挿の微分と、表の外の格子点の衝突確率の中心差分）
+    pub tracks: f64,
+    /// 自由ガスの核と S(α, β) の移行の散乱源の 1 次の変化（δF の積分と、F を固めた個数密度の変化の項）
+    pub free_gas: f64,
+    /// 向きごとの窓の積分、右辺、分解した行列の解、群の積分
+    pub solve: f64,
+    /// 間引いた格子の、核種の格子での縮約の 1 次の変化
+    pub collapse: f64,
+    /// 向きと飛程の微分を持つリングの組の数、飛程の微分を表で求めた格子点の数と、衝突確率で求めた格子点の数
+    pub directions: usize,
+    pub classes: usize,
+    pub table_points: usize,
+    pub exact_points: usize,
+    /// 向きごとの δF と、自由ガスの散乱源の δF の累積の積率（今と前のスイープ）の大きさ (B)
+    pub bytes: u64,
+}
+
+/// [`slowing_down_with`] の減速計算を解き、`directions` の向きごとに、個数密度を N + t δN と変えたときの t = 0 での 1 次の変化も
+/// 求める（ADR-0247 の案 I2）。`directions[d][リング][核種]` は向き d の δN (/b cm) で、並びは `rings` の物質の組成と同じ（真空の
+/// リングは空）。`shares` を与えれば、[`slowing_down_transfers`] と同じく移行も数える。減速計算の結果（と移行）は、向きのない
+/// 減速計算とビットで同じ。
 ///
-/// 格子は個数密度によらない（間引かない）ので、変化は同じ格子の上の離散の減速の式の微分になる。格子点ごとの式
-/// V_j F_j = Σ_i W_ji(Σ) q_i（q は散乱による発生密度）を微分した V_j δF_j − Σ_i W_ji c_i δF_i =
-/// Σ_i W_ji (δk_i + ∂q_i/∂N δN) + Σ_i δW_ji q_i を、中性子束と同じ高いエネルギーからの順に、同じ係数の行列で解く。
-/// δk は窓の積分を δF について進めたもの（範囲の上の中性子束は個数密度によらないので、範囲の上からの分は 0）。
+/// 個数密度で決まる離散の選択（間引いた格子、飛程の表の軸の範囲と展開の外の格子点）は状態のものに固める（ADR-0247）ので、変化は
+/// 同じ格子の上の離散の減速の式の微分になる。格子点ごとの式 V_j F_j = Σ_i W_ji(Σ) q_i（q は散乱による発生密度）を微分した
+/// V_j δF_j − Σ_i W_ji c_i δF_i = Σ_i W_ji (δk_i + ∂q_i/∂N δN) + Σ_i δW_ji q_i を、中性子束と同じ高いエネルギーからの順に、
+/// 同じ係数の行列で解く。δk は窓の積分と自由ガスと S(α, β) の散乱源を δF について進めたもの（範囲の上の中性子束は個数密度に
+/// よらないので、範囲の上からの分は 0）。上方散乱の掃き直しは状態と同じ回数で、前のスイープの δF を使う（状態の反復の微分）
+#[allow(clippy::too_many_arguments)]
 pub fn slowing_down_tangent(
     library: &Library,
     cell: &Cylinder,
     rings: &[Option<&MaterialInput>],
     range: [f64; 2],
+    collision: Collision,
+    thinning: Option<f64>,
+    scattering: Scattering,
+    shares: Option<&ShareCellCache>,
+    hold: usize,
     directions: &[Vec<Vec<f64>>],
-) -> Result<(CellSpectrum, CellTangent), UfgError> {
+) -> Result<(CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>, CellTangent), UfgError> {
     let mut tangent = CellTangent {
         flux: Vec::new(),
         nuclides: Vec::new(),
+        cost: TangentCost::default(),
     };
+    let mut transfers = Vec::new();
     let spectrum = solve_cell(
         library,
         cell,
         rings,
         range,
-        Collision::Exact,
+        collision,
+        thinning,
+        scattering,
         None,
-        Scattering::Static,
-        None,
-        None,
+        shares.map(|shares| (&mut transfers, shares)),
         Some((directions, &mut tangent)),
-        0,
+        None,
+        hold,
     )?;
-    Ok((spectrum, tangent))
+    Ok((spectrum, shares.map(|_| transfers), tangent))
+}
+
+/// 個数密度で決まる減速計算の離散の選択: 間引いた格子（[`thin`] の点）と、飛程の表の軸の範囲（[`track_table`]）。`None` の項目は
+/// 減速計算が求めて書き、`Some` の項目はそれを使う。試験で、個数密度を変えた減速計算を状態の選択に固め、1 次の変化（[`slowing_down_tangent`]
+/// の、状態の選択の上の微分）と同じ離散の問題の中心差分にする（ADR-0247）
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct Frozen {
+    pub(crate) grid: Option<Vec<f64>>,
+    pub(crate) ranges: Option<Vec<[f64; 2]>>,
 }
 
 /// 飛程の ln Σ についての微分の中心差分の幅。飛程の表の微分（[`crate::track_table`] の 1e-3）は展開の差（0.01 以下）を掛けて
@@ -544,8 +610,10 @@ fn solve_cell(
     fine: Option<&mut FineFlux>,
     transfers: Option<(&mut Vec<Vec<NuclideTransfer>>, &ShareCellCache)>,
     tangent: Option<(&[Vec<Vec<f64>>], &mut CellTangent)>,
+    frozen: Option<&mut Frozen>,
     hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
+    let _ = frozen;
     let volumes = cell.volumes();
     let n = volumes.len();
     if rings.len() != n {
