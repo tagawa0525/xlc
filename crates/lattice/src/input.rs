@@ -149,7 +149,7 @@ use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, Shieldin
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
-use crate::sensitivity::{GeneralizedInput, Method, Response, SensitivityInput};
+use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -492,6 +492,17 @@ struct SensitivityEntry {
     k_tolerance: Option<f64>,
     flux_tolerance: Option<f64>,
     generalized: Option<GeneralizedEntry>,
+    few_group: Option<DerivativeEntry>,
+}
+
+/// `[sensitivity.few-group]`（ADR-0247 の段 4）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct DerivativeEntry {
+    bounds: Vec<f64>,
+    tolerance: f64,
+    restart: usize,
+    shielded: Option<Vec<String>>,
 }
 
 /// `[sensitivity.generalized]`（ADR-0247 の段 3）
@@ -1725,6 +1736,12 @@ impl LatticeInput {
                     k_tolerance: s.k_tolerance,
                     flux_tolerance: s.flux_tolerance,
                     generalized: s.generalized.map(GeneralizedEntry::into_input).transpose()?,
+                    few_group: s
+                        .few_group
+                        .map(|_| -> Result<FewGroupInput, String> {
+                            Err("[sensitivity.few-group] is not implemented".to_string())
+                        })
+                        .transpose()?,
                 })
             })
             .transpose()

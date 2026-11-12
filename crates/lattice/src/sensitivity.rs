@@ -21,8 +21,8 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::Material;
 use crate::moc::{
-    Acceleration, Generalized, GeneralizedMethod, GeneralizedOptions, MocError, Options, Solution,
-    Start, solve_generalized, solve_importance, solve_symmetric_from,
+    Acceleration, Generalized, GeneralizedMethod, GeneralizedOptions, MocError, Options,
+    ResponseImportance, Solution, Start, solve_generalized, solve_importance, solve_symmetric_from,
 };
 use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Detected;
@@ -45,6 +45,22 @@ pub struct SensitivityInput {
     pub flux_tolerance: Option<f64>,
     /// 一般化随伴の固定源の問題の比較（ADR-0247 の段 3。`None` なら解かない）
     pub generalized: Option<GeneralizedInput>,
+    /// 少数群定数の数密度の微分（ADR-0247 の段 4。`None` なら求めない）
+    pub few_group: Option<FewGroupInput>,
+}
+
+/// `[sensitivity.few-group]` の入力: 格子全体の少数群定数（テーブルの全断面積、νΣf、Σf、P0 の散乱行列）の核種の数密度の微分を、
+/// 応答ごとの一般化随伴から求める（ADR-0247 の段 4）
+#[derive(Debug, Clone, PartialEq)]
+pub struct FewGroupInput {
+    /// 少数群の境界 (eV、降順。ライブラリの群の境界から選ぶ)
+    pub bounds: Vec<f64>,
+    /// 一般化随伴の GMRES の判定と再始動の回数（`GeneralizedOptions`）
+    pub tolerance: f64,
+    pub restart: usize,
+    /// 自己遮蔽を摂動の組成で解き直す核種（`nuclides` から選ぶ）。暗黙の効きを、自己遮蔽した物質の差を一般化随伴に掛ける 1 次の
+    /// 変化（ADR-0247 の案 I1）と、自己遮蔽を解き直した直接の摂動（案 I3 の参照）の両方で、直接の摂動と同じ刻みの中心差分で求める
+    pub shielded: Vec<String>,
 }
 
 /// `[sensitivity.generalized]` の入力: 少数群定数の比の応答の一般化随伴を、収束の方法ごとに解いて比べる（ADR-0247 の段 3）
@@ -370,6 +386,80 @@ pub fn evaluate(
         generalized,
     };
     Ok((solution, converged, report))
+}
+
+/// 少数群 `coarse` 個のテーブルの少数群定数の応答（全断面積、νΣf、Σf、P0 の散乱行列 G→H の順）
+fn table_responses(coarse: usize) -> Vec<Response> {
+    let _ = coarse;
+    Vec::new()
+}
+
+/// 応答の分子 h₁ の、物質 `m` の細かい群 `g` の値（`group_of[g]` が応答の少数群でなければ 0）
+fn numerator(response: Response, m: &Material, g: usize, group_of: &[usize]) -> f64 {
+    let _ = (response, m, g, group_of);
+    0.0
+}
+
+/// [応答] の（⟨h₁, φ⟩、⟨h₂, φ⟩）。R = ⟨h₁, φ⟩ / ⟨h₂, φ⟩ は `fewgroup::homogenize` の格子全体の少数群定数
+fn response_values(
+    responses: &[Response],
+    group_of: &[usize],
+    materials: &[&Material],
+    solution: &Solution,
+) -> Vec<(f64, f64)> {
+    let _ = (group_of, materials, solution);
+    vec![(0.0, 1.0); responses.len()]
+}
+
+/// 少数群定数の応答の一般化随伴と、それから求める 1 次の変化の係数
+struct FewGroupSolve {
+    /// [応答] の（⟨h₁, φ⟩、⟨h₂, φ⟩）
+    values: Vec<(f64, f64)>,
+    /// [応答] の中性子束を通じた項の係数
+    importances: Vec<ResponseImportance>,
+    /// [応答] の一般化随伴のスイープの回数
+    sweeps: Vec<usize>,
+}
+
+impl FewGroupSolve {
+    /// 応答 `responses` の一般化随伴を `settings` で解き、係数を作る。`forward` と `adjoint` は前向きと随伴の固有値計算の収束した状態
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        tracking: &Tracking,
+        materials: &[&Material],
+        options: &Options,
+        symmetry: Option<&Detected>,
+        (solution, forward, adjoint): (&Solution, &Start, &Start),
+        responses: &[Response],
+        group_of: &[usize],
+        settings: &GeneralizedOptions,
+    ) -> anyhow::Result<Self> {
+        let _ = (
+            tracking, materials, options, symmetry, solution, forward, adjoint, responses,
+            group_of, settings,
+        );
+        bail!("not implemented")
+    }
+
+    /// 領域ごとの物質の変化 `changes`（領域、δM）による [応答] の 1 次の変化 δR = R (⟨δh₁, φ⟩ / ⟨h₁, φ⟩ + ⟨Γ, (δF / k − δL) φ⟩)
+    /// （分母の重みは物質によらない）
+    fn first_order(
+        &self,
+        responses: &[Response],
+        group_of: &[usize],
+        solution: &Solution,
+        changes: &[(usize, &Material)],
+    ) -> anyhow::Result<Vec<f64>> {
+        let _ = (group_of, solution, changes);
+        Ok(vec![0.0; responses.len()])
+    }
+}
+
+/// 物質の入力 `materials` のうち、核種 `name` を正の数密度で持つ組成の数密度を (1 + `step`) 倍したもの（`Derivatives::changes` と
+/// 同じ向き）
+fn scaled_inputs(materials: &[MaterialInput], name: &str, step: f64) -> Vec<MaterialInput> {
+    let _ = (name, step);
+    materials.to_vec()
 }
 
 /// 応答ごとの一般化随伴の源 S = h₁ / ⟨h₁, φ⟩ − h₂ / ⟨h₂, φ⟩（[応答][領域][群]。⟨h, φ⟩ = Σ V h φ）。`group_of` は細かい群の少数群

@@ -153,3 +153,172 @@ fn generalized_cmfd_takes_the_cmfd_options_of_the_solved_state() {
     // 状態を CMFD なしで解いたなら、粗メッシュの判定を入力が決めていない
     assert!(generalized_cmfd(&Acceleration::None).is_err());
 }
+
+#[test]
+fn table_responses_list_the_few_group_constants_of_the_table() {
+    let names: Vec<String> = table_responses(2).iter().map(ToString::to_string).collect();
+    assert_eq!(
+        names,
+        [
+            "total-1",
+            "total-2",
+            "nu-fission-1",
+            "nu-fission-2",
+            "fission-1",
+            "fission-2",
+            "scatter-1-1",
+            "scatter-1-2",
+            "scatter-2-1",
+            "scatter-2-2",
+        ]
+    );
+}
+
+/// 3 群の物質に P1 の散乱行列（P0 の `factor` 倍）を足したもの（拡散係数の B1 が P1 を要る）
+fn with_p1(mut m: Material, factor: f64) -> Material {
+    m.anisotropic = vec![
+        m.scatter
+            .iter()
+            .map(|row| row.iter().map(|s| factor * s).collect())
+            .collect(),
+    ];
+    m
+}
+
+/// 燃料と水の 3 群のピンセル（鏡面反射）の、トラッキングと物質
+fn three_group_pin_cell() -> (Tracking, Material, Material) {
+    use crate::geometry::{Lattice, PinCell};
+    let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+    (
+        tracking,
+        with_p1(three_group([0.5, 0.7, 1.2], [0.01, 0.02, 0.3]), 0.2),
+        with_p1(three_group([0.4, 0.6, 1.0], [0.0; 3]), 0.4),
+    )
+}
+
+#[test]
+fn response_values_are_the_table_few_group_constants() {
+    use xlc_format::group::GroupStructure;
+    let (tracking, f, m) = three_group_pin_cell();
+    let materials = [&f, &m];
+    let solution = crate::moc::solve(&tracking, &materials, &Options::default()).unwrap();
+    let fine = GroupStructure::new(vec![2e7, 1e5, 0.625, 1e-5]).unwrap();
+    let bounds = [2e7, 0.625, 1e-5];
+    let group_of = coarse_groups(&fine, &bounds).unwrap();
+    let responses = table_responses(2);
+    assert_eq!(responses.len(), 10);
+    let values = response_values(&responses, &group_of, &materials, &solution);
+    let few = crate::fewgroup::homogenize(
+        &solution,
+        &materials,
+        &fine,
+        &bounds,
+        &tracking.boundaries(),
+    )
+    .unwrap();
+    for (response, (a, b)) in responses.iter().zip(&values) {
+        let table = match *response {
+            Response::Total(g) => few.total[g],
+            Response::NuFission(g) => few.nu_fission[g],
+            Response::Fission(g) => few.fission[g],
+            Response::Scatter(g, h) => few.scatter[g][h],
+        };
+        assert!(
+            (a / b - table).abs() <= 1e-14 * table.abs(),
+            "{response}: {} vs {table}",
+            a / b
+        );
+    }
+}
+
+#[test]
+fn few_group_first_order_changes_match_central_differences() {
+    // 燃料の全反応（全断面積、散乱、核分裂）を変える。δR は分子の断面積が変わる直接の項と、中性子束を通じた項の和
+    let (tracking, f, m) = three_group_pin_cell();
+    let materials = [&f, &m];
+    let options = Options {
+        k_tolerance: 1e-12,
+        flux_tolerance: 1e-11,
+        ..Options::default()
+    };
+    let (solution, forward) = crate::moc::solve_symmetric_from(
+        &tracking,
+        &materials,
+        &options,
+        &crate::symmetry::Detected::none(&tracking),
+        None,
+    )
+    .unwrap();
+    let (_, adjoint) =
+        crate::moc::solve_adjoint_from(&tracking, &materials, &options, None, None).unwrap();
+    let group_of = [0, 0, 1];
+    let responses = table_responses(2);
+    let settings = GeneralizedOptions {
+        method: GeneralizedMethod::Gmres { restart: 100 },
+        tolerance: 1e-12,
+        max_iterations: options.max_iterations,
+        batch: false,
+    };
+    let solve = FewGroupSolve::new(
+        &tracking,
+        &materials,
+        &options,
+        None,
+        (&solution, &forward, &adjoint),
+        &responses,
+        &group_of,
+        &settings,
+    )
+    .unwrap();
+    let d = with_p1(three_group([0.1, 0.2, 0.3], [0.002, 0.004, 0.05]), 0.2);
+    let first = solve
+        .first_order(&responses, &group_of, &solution, &[(0, &d)])
+        .unwrap();
+    let at = |h: f64| -> Vec<f64> {
+        let perturbed = f.added(&d, h).unwrap();
+        let m2 = [&perturbed, &m];
+        let s = crate::moc::solve(&tracking, &m2, &options).unwrap();
+        response_values(&responses, &group_of, &m2, &s)
+            .iter()
+            .map(|(a, b)| a / b)
+            .collect()
+    };
+    let central = |h: f64| -> Vec<f64> {
+        at(h)
+            .iter()
+            .zip(at(-h))
+            .map(|(p, q)| (p - q) / (2.0 * h))
+            .collect()
+    };
+    let (coarse, fine) = (central(0.02), central(0.01));
+    for (i, response) in responses.iter().enumerate() {
+        let direct = fine[i] + (fine[i] - coarse[i]) / 3.0;
+        assert!(
+            (first[i] - direct).abs() < 1e-6 * direct.abs(),
+            "{response}: {} vs {direct}",
+            first[i]
+        );
+    }
+}
+
+#[test]
+fn scaled_inputs_change_only_positive_densities_of_the_nuclide() {
+    let materials = vec![
+        MaterialInput {
+            name: "fuel".into(),
+            temperature: 900.0,
+            composition: vec![("U-235".into(), 7e-4), ("Pu-240".into(), 0.0)],
+        },
+        MaterialInput {
+            name: "clad".into(),
+            temperature: 600.0,
+            composition: vec![("Zr-90".into(), 2e-2)],
+        },
+    ];
+    let scaled = scaled_inputs(&materials, "U-235", 0.1);
+    assert_eq!(scaled[0].composition[0], ("U-235".into(), 7e-4 * 1.1));
+    assert_eq!(scaled[0].composition[1], ("Pu-240".into(), 0.0));
+    assert_eq!(scaled[1], materials[1]);
+    assert_eq!(scaled_inputs(&materials, "Pu-240", 0.1), materials);
+}
