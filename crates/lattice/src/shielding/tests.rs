@@ -2306,6 +2306,25 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn shared_reuses_keep_the_recently_used_dancoff_factors() {
+        // 持つ数を超えて追い出すのは、最も長く使っていない入力（使った入力は前に移る）
+        let library = library();
+        let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let options = ShieldingOptions::default();
+        let mut reuse = ShieldingReuse::sharing(&tracking, 2);
+        let [a, b, c] = [0.05, 0.055, 0.06].map(|h1| with_density("water", "H-1", h1));
+        // a、b を解き、a を使い、c を解くと b が追い出され、a は残る
+        for materials in [&a, &b, &a, &c, &a] {
+            shield_fuel_reusing(
+                &library, &mut reuse, materials, &regions, &symmetry, &options,
+            )
+            .unwrap();
+        }
+        assert_eq!(reuse.dancoff_solves, 3);
+    }
+
+    #[test]
     fn dancoff_factors_are_solved_again_for_other_dancoff_options() {
         let library = library();
         let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
