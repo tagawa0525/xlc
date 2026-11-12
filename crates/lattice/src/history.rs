@@ -799,7 +799,7 @@ impl HistoryBranches {
     }
 
     /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点（`shield_at` の間の点は、自己遮蔽を解く点）と参照の
-    /// 番号（ADR-0201）。自己遮蔽の履歴があれば、どの状態も
+    /// 番号（ADR-0201）。自己遮蔽の組成（`shield_with` か `shield_at`）があれば、どの状態も
     /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後に分岐の状態の番号を続けた番号
     pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
