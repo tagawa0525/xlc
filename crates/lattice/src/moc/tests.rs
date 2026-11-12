@@ -2593,10 +2593,10 @@ fn anisotropic_sweep_returns_zeroed_direction_sums_to_the_pool() {
     sweeper
         .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
         .unwrap();
-    let pool = sweeper.pool.lock().unwrap();
-    assert!(!pool.is_empty());
-    for d in pool.iter() {
-        assert!(d.delta.iter().all(|&v| v.to_bits() == 0), "{:?}", d.delta);
+    let sums = sweeper.sums.lock().unwrap();
+    assert!(!sums.is_empty());
+    for delta in sums.iter() {
+        assert!(delta.iter().all(|&v| v.to_bits() == 0), "{delta:?}");
     }
 }
 
@@ -2650,12 +2650,10 @@ fn sweep_does_not_depend_on_the_contents_left_in_its_work_arrays() {
             .unwrap();
         let first = sum_tallies(&fresh, &tallies);
 
-        // 前のスイープの値が残った作業の配列と部分和、より長い線源の配列（NaN で埋めたもの）から始めても同じ
+        // 前のスイープの値が残った作業の配列と部分和、より長い線源の配列（NaN で埋めたもの）と減衰の和の配列から始めても同じ
         let reused = sweeper();
-        reused.pool.lock().unwrap().push(Directional {
-            source: vec![f64::NAN; 10_000],
-            delta: Vec::new(),
-        });
+        reused.sources.lock().unwrap().push(vec![f64::NAN; 10_000]);
+        reused.sums.lock().unwrap().push(vec![0.0; 10_000]);
         let mut tallies = reused.tallies(materials.len());
         let mut outgoing = vec![0.0; reused.outgoing_len()];
         for _ in 0..2 {
@@ -2712,10 +2710,7 @@ fn products_do_not_depend_on_the_contents_left_in_the_pool() {
             );
             if primed {
                 for _ in 0..2 {
-                    sweeper.pool.lock().unwrap().push(Directional {
-                        source: vec![f64::NAN; 10_000],
-                        delta: Vec::new(),
-                    });
+                    sweeper.sources.lock().unwrap().push(vec![f64::NAN; 10_000]);
                 }
             }
             let mut tallies = sweeper.tallies(materials.len());
@@ -2734,6 +2729,8 @@ fn products_do_not_depend_on_the_contents_left_in_the_pool() {
                 })
                 .collect();
             assert_eq!(bits[0], bits[1]);
+            // 積は減衰の和を使わない
+            assert!(sweeper.sums.lock().unwrap().is_empty());
             bits.into_iter().next().unwrap()
         };
         assert_eq!(products(false), products(true), "order {order}");
