@@ -105,11 +105,7 @@ impl Axis {
         if self.count == 1 {
             return (0, [1.0, 0.0, 0.0, 0.0]);
         }
-        let s = (sigma.ln() - self.start) / self.step;
-        // 点 s を囲む 4 点（端では内側に寄せる）
-        let last = (self.count - STENCIL) as f64;
-        let first = (s.floor() - 1.0).clamp(0.0, last) as usize;
-        let x = s - first as f64;
+        let (first, x) = self.position(sigma);
         // 点 0, 1, 2, 3 の Lagrange の基底
         let weights = [
             -(x - 1.0) * (x - 2.0) * (x - 3.0) / 6.0,
@@ -120,15 +116,22 @@ impl Axis {
         (first, weights)
     }
 
+    /// `sigma` の内挿に使う最初の格子点と、そこからの位置 x（点が 2 つ以上の軸）。[`Axis::stencil`] と [`Axis::stencil_slope`] が
+    /// 同じ点の組を使うよう、ここだけで決める
+    fn position(&self, sigma: f64) -> (usize, f64) {
+        let s = (sigma.ln() - self.start) / self.step;
+        // 点 s を囲む 4 点（端では内側に寄せる）
+        let last = (self.count - STENCIL) as f64;
+        let first = (s.floor() - 1.0).clamp(0.0, last) as usize;
+        (first, s - first as f64)
+    }
+
     /// [`Axis::stencil`] の重みの、内挿の位置 s についての微分（同じ点の組。点が 1 つの軸は 0）
     fn stencil_slope(&self, sigma: f64) -> [f64; STENCIL] {
         if self.count == 1 {
             return [0.0; STENCIL];
         }
-        let s = (sigma.ln() - self.start) / self.step;
-        let last = (self.count - STENCIL) as f64;
-        let first = (s.floor() - 1.0).clamp(0.0, last);
-        let x = s - first;
+        let (_, x) = self.position(sigma);
         [
             -((x - 2.0) * (x - 3.0) + (x - 1.0) * (x - 3.0) + (x - 1.0) * (x - 2.0)) / 6.0,
             ((x - 2.0) * (x - 3.0) + x * (x - 3.0) + x * (x - 2.0)) / 2.0,
@@ -533,7 +536,7 @@ impl TrackTable {
         } else {
             0.0
         };
-        for_stencil_slope(&self.axes, &centers, axis, |node, weight, slope| {
+        for_stencil_slope(&self.axes, &centers, Some(axis), |node, weight, slope| {
             if self.solved.as_ref().is_some_and(|u| !u[node]) {
                 unsolved.get_or_insert(node);
                 return;
@@ -598,36 +601,15 @@ fn expansion_centers(
 
 /// 軸の値 `centers` の内挿の点の組（格子点の組の番号と、軸ごとの重みの積）を、最初の軸がいちばん速く変わる順に `visit` に渡す
 fn for_stencil(axes: &[Axis], centers: &[f64], mut visit: impl FnMut(usize, f64)) {
-    let stencils: Vec<(usize, [f64; STENCIL])> = axes
-        .iter()
-        .zip(centers)
-        .map(|(a, &s)| a.stencil(s))
-        .collect();
-    let mut offsets = vec![0usize; axes.len()];
-    'combos: loop {
-        let (mut node, mut stride, mut weight) = (0, 1, 1.0);
-        for ((axis, &(first, w)), &k) in axes.iter().zip(&stencils).zip(&offsets) {
-            node += (first + k) * stride;
-            stride *= axis.count;
-            weight *= w[k];
-        }
-        visit(node, weight);
-        for (k, axis) in offsets.iter_mut().zip(axes) {
-            *k += 1;
-            if *k < axis.width() {
-                continue 'combos;
-            }
-            *k = 0;
-        }
-        break;
-    }
+    for_stencil_slope(axes, centers, None, |node, weight, _| visit(node, weight));
 }
 
-/// [`for_stencil`] の点の組を、重みと、軸 `axis` の内挿の位置 s についての重みの微分と一緒に `visit` に渡す（同じ順）
+/// [`for_stencil`] の点の組を、重みと、軸 `axis` の内挿の位置 s についての重みの微分（`axis` が `None` なら 0）と一緒に `visit` に
+/// 渡す（同じ順。重みは軸ごとの重みを同じ順に掛けるので、[`for_stencil`] と同じ値）
 fn for_stencil_slope(
     axes: &[Axis],
     centers: &[f64],
-    axis: usize,
+    axis: Option<usize>,
     mut visit: impl FnMut(usize, f64, f64),
 ) {
     let stencils: Vec<(usize, [f64; STENCIL])> = axes
@@ -635,7 +617,7 @@ fn for_stencil_slope(
         .zip(centers)
         .map(|(a, &s)| a.stencil(s))
         .collect();
-    let slopes = axes[axis].stencil_slope(centers[axis]);
+    let slopes = axis.map(|a| axes[a].stencil_slope(centers[a]));
     let mut offsets = vec![0usize; axes.len()];
     'combos: loop {
         let (mut node, mut stride, mut weight, mut slope) = (0, 1, 1.0, 1.0);
@@ -643,9 +625,11 @@ fn for_stencil_slope(
             node += (first + k) * stride;
             stride *= ax.count;
             weight *= w[k];
-            slope *= if a == axis { slopes[k] } else { w[k] };
+            if let Some(slopes) = &slopes {
+                slope *= if Some(a) == axis { slopes[k] } else { w[k] };
+            }
         }
-        visit(node, weight, slope);
+        visit(node, weight, if slopes.is_some() { slope } else { 0.0 });
         for (k, ax) in offsets.iter_mut().zip(axes) {
             *k += 1;
             if *k < ax.width() {
