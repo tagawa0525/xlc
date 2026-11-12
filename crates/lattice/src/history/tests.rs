@@ -1431,6 +1431,29 @@ fn a_shielding_history_must_match_the_branch_history() {
 }
 
 #[test]
+fn states_between_shielding_burnups_belong_to_the_shielding_point_for_the_kernel_table() {
+    // 自由ガスの核の表（ADR-0248）は自己遮蔽の燃焼度の点で格子点を捨てるので、自己遮蔽を解かない点の状態は、自己遮蔽を
+    // 持ち越す点の状態として数える。shielding-burnup がなければ自身の点
+    let (history, library) = history();
+    let base = branch_input("[0, 0.5, 2.0]", "[600]");
+    let thinned = format!("{base}shielding-burnup = [0, 2.0]\n");
+    for (text, points) in [(&base, [0, 1, 2]), (&thinned, [0, 0, 2])] {
+        let branches = branches_of(text, &history, &library).unwrap();
+        let per_point = branches.len() / 3;
+        let got: Vec<_> = (0..branches.len())
+            .map(|i| branches.shielding_point_of(i))
+            .collect();
+        let want: Vec<_> = points
+            .iter()
+            .flat_map(|&p| std::iter::repeat_n(p, per_point))
+            .collect();
+        assert_eq!(got, want, "{text}");
+        let own: Vec<_> = (0..branches.len()).map(|i| branches.point_of(i)).collect();
+        assert_eq!(own.iter().filter(|&&p| p == 1).count(), per_point);
+    }
+}
+
+#[test]
 fn shielding_burnup_points_shield_the_points_between_them_at_the_last_one() {
     // shielding-burnup の点の間の燃焼点は、その前で最後の shielding-burnup の点の組成で自己遮蔽し（燃焼の領域の実効断面積と
     // SPH 因子はその点のもの）、燃焼の領域の物質だけを自身の組成で作り直す。自己遮蔽はその点の参照を持ち越し、解き直さない
