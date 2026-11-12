@@ -136,7 +136,7 @@ fn main() -> anyhow::Result<()> {
         input.collision,
         input.thinning,
         input.scattering,
-        held_cells(hold_total(input.hold_memory)?, 1),
+        held_cells(hold_total(input.hold_memory, 0)?, 1),
     )?;
     let volumes = cylinder.volumes();
     let mine: Vec<usize> = (0..rings.len())

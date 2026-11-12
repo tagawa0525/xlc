@@ -830,19 +830,28 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl KernelCache {
-    /// 自己遮蔽を始める: 前の自己遮蔽で使わなかった格子点を捨て、残りの大きさ (B) から `cap` で持つ量の上限 (B) を決める。上限が
-    /// 残りより小さくても捨てず、足さないだけにする。返すのは、この自己遮蔽で表がまだ増えうる量 (B。上限 − 残り、または 0)。
-    /// 今の自己遮蔽の [値を使った格子点, 作った格子点, 上限で持たなかった格子点] の数を数え直す
-    pub fn begin(&self, cap: impl FnOnce(u64) -> u64) -> u64 {
+    /// 自己遮蔽を始める: 前の自己遮蔽で使わなかった格子点を捨て、残りの大きさ (B) を返す。今の自己遮蔽の [値を使った格子点,
+    /// 作った格子点, 上限で持たなかった格子点] の数を数え直す。上限は続けて [`KernelCache::limit`] で決める
+    pub fn start(&self) -> u64 {
         let call = self.call.fetch_add(1, Ordering::Relaxed) + 1;
         self.keep(|_, last| last + 1 >= call, true);
-        let held = self.bytes.load(Ordering::Relaxed);
-        let cap = cap(held);
-        self.cap.store(cap, Ordering::Relaxed);
         for count in &self.counts {
             count.store(0, Ordering::Relaxed);
         }
-        cap.saturating_sub(held)
+        self.bytes.load(Ordering::Relaxed)
+    }
+
+    /// 持つ量の上限を `cap` (B) にし、この自己遮蔽で表がまだ増えうる量 (B。上限 − 今の大きさ、または 0) を返す。上限が今の大きさより
+    /// 小さくても捨てず、足さないだけにする
+    pub fn limit(&self, cap: u64) -> u64 {
+        self.cap.store(cap, Ordering::Relaxed);
+        cap.saturating_sub(self.bytes.load(Ordering::Relaxed))
+    }
+
+    /// [`KernelCache::start`] のあと、残りの大きさから `cap` で決めた上限で [`KernelCache::limit`] を呼ぶ
+    pub fn begin(&self, cap: impl FnOnce(u64) -> u64) -> u64 {
+        let held = self.start();
+        self.limit(cap(held))
     }
 
     /// 入れた自己遮蔽と最後に使った自己遮蔽の番号が `keep` を満たす格子点だけを残す。`empty` なら格子点の無くなった核の表も捨てる（温度の分岐で

@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<()> {
         options.collision,
         options.thinning,
         options.scattering,
-        held_cells(hold_total(options.hold_memory)?, 1),
+        held_cells(hold_total(options.hold_memory, 0)?, 1),
     )?;
     // 等価なセルの形を自己遮蔽の `solve_equivalent_cell` からコピーしているので、燃料のリングの UFG の範囲の群定数が自己遮蔽の結果と
     // 同じことを確かめる（自己遮蔽の側の作り方が変わって、ここが別のセルを解くようになれば止まる）

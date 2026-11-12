@@ -632,8 +632,10 @@ pub fn shield_fuel_reusing(
     }
     let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
     let shares = &reuse.shares;
-    // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）
-    let total = hold_total(options.hold_memory)?;
+    // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）。`total` は前の自己遮蔽から残った自由ガスの核の表（ADR-0248）を
+    // 除いて新たに確保できる量
+    let held = shares.kernels().start();
+    let total = hold_total(options.hold_memory, held)?;
     tracing::debug!(bytes = total, "UFG held memory");
 
     let mut shielded = FuelShielding {
@@ -696,12 +698,12 @@ pub fn shield_fuel_reusing(
     let shielding = tracing::Span::current();
     // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方。自由ガスの核の区間と
     // D の値の表（リングの中性子束の移行で、ピンと塊、自己遮蔽の間で共有する）は、同時に解く減速計算の 1 つと同じ量を持ち、
-    // ピンと塊はその残りを分ける（ADR-0248）。前の自己遮蔽から残った表は、使用可能メモリを減らして `total` から除かれているので、
-    // 分ける量に足し戻し、ピンと塊には表がまだ増えうる量を除いて渡す（新たに確保するのは `total` まで）
+    // ピンと塊はその残りを分ける（ADR-0248）。上限は残った表を含む全体（`total` + 残り）から決め、ピンと塊には表がまだ増えうる量を
+    // 除いて渡す（新たに確保するのは `total` まで）
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
-    let growth = shares.kernels().begin(|held| match options.transfer {
-        UfgTransfer::RingFlux if at_once > 0 => (total + held) / (at_once as u64 + 1),
+    let growth = shares.kernels().limit(match options.transfer {
+        UfgTransfer::RingFlux if at_once > 0 => total.saturating_add(held) / (at_once as u64 + 1),
         // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
         _ => held,
     });
