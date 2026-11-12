@@ -521,8 +521,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let derivatives = history_branches
         .as_ref()
         .map_or(0, |h| h.perturbed_nuclides().len());
-    // 一般化摂動の微分（ADR-0247）の随伴の固有値計算の、前の状態の収束した状態と、その制御棒の値
-    let mut adjoint_from: Option<(usize, Start)> = None;
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;
     // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。公称の状態と摂動の組成の
@@ -1043,19 +1041,18 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 tracking: &geometry.tracking,
                                 symmetry: geometry.chosen.moc(),
                             };
-                            // 随伴の固有値計算は、同じ値の形状の前の状態の随伴の収束した状態から始める（前向きと同じ。ADR-0195）
-                            let from = adjoint_from.take().filter(|(r, _)| *r == rod);
-                            let (table, adjoint) = TableDerivatives::new(
+                            // 随伴の固有値計算は平らな初期値から解く（前の状態の随伴から始めると、チェックポイントからの再開で
+                            // 始める解が変わり、途中で止めない実行と微分が同じにならない。ADR-0196）
+                            let (table, _) = TableDerivatives::new(
                                 &sensitivity_state,
                                 &materials,
                                 &options,
                                 (&solution, &converged),
-                                from.as_ref().map(|(_, s)| s),
+                                None,
                                 nominal,
                                 (generalized.tolerance, generalized.restart),
                             )
                             .with_context(|| format!("{}: generalized adjoints", context()))?;
-                            adjoint_from = Some((rod, adjoint));
                             tracing::info!(
                                 state,
                                 adjoint_iterations = table.adjoint_iterations,
@@ -1097,10 +1094,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                         "perturbed shielding"
                                     );
                                     Ok(PerturbedSolve {
-                                        materials: Some((
+                                        materials: (
                                             shielded.materials().to_vec(),
                                             shielded.region_material().to_vec(),
-                                        )),
+                                        ),
                                         solved,
                                     })
                                 },

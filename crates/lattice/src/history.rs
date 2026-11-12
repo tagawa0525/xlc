@@ -58,7 +58,7 @@ use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::Solution;
-use crate::sensitivity::TableDerivatives;
+use crate::sensitivity::{FewGroupChange, TableDerivatives};
 use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Chosen;
 use crate::ufg::NuclideTransfer;
@@ -113,9 +113,9 @@ impl HistoryInput {
 /// 一般化摂動の微分（[`HistoryBranches::add_generalized_derivatives`]）の、1 つの摂動の組成を解いた結果
 #[derive(Debug, Clone)]
 pub struct PerturbedSolve {
-    /// 自己遮蔽した物質と、[領域] のその番号（自己遮蔽を解き直す核種。案 I1）
-    pub materials: Option<(Vec<Material>, Vec<usize>)>,
-    /// 直接の摂動の、格子全体の少数群定数と追う核種の微視的断面積（反応率の微分を持つ核種だけ）
+    /// 摂動の組成で自己遮蔽した物質と、[領域] のその番号
+    pub materials: (Vec<Material>, Vec<usize>),
+    /// 直接の摂動の、格子全体の少数群定数と追う核種の微視的断面積（直接の摂動を解くと渡された核種だけ）
     pub solved: Option<(FewGroup, Vec<MicroNuclide>)>,
 }
 
@@ -1537,11 +1537,12 @@ impl HistoryBranches {
     /// 制御棒の値 `rod` の状態 `index` の追う核種の微視的断面積 `micro` のすべての核種に、一般化随伴 `table` から求めた数密度の微分
     /// ∂Σ/∂N̄ᵢ を入れる（ADR-0247）。向きは直接の摂動（`add_derivatives`）と同じく燃焼の領域の数密度に比例し、均質化した数密度は
     /// その値の格子のもの。`nominal` は状態の格子全体の少数群定数。
-    /// 摂動の核種 j（`perturbed_nuclides`）ごとに、`solve`（j、摂動の組成、自己遮蔽の参照、摂動の参照の組成の作り方、直接の摂動を
-    /// 解くか）で摂動の組成を自己遮蔽して解く。自己遮蔽を解き直す核種（`generalized` の `shielded`。案 I1）は、その [領域] の物質の
-    /// 1 次の変化を ε N̄ᵢ で割る（自己遮蔽による暗黙の分は前進差分、陽の分は物質について線形なので厳密）。ほかの核種は自己遮蔽を
-    /// 固定した陽の微分（案 I0）。直接の摂動の核種（`derivative`）は、解いた摂動の組成の反応率の微視的断面積の前進差分を反応率の
-    /// 微分にし（少数群定数の微分は一般化随伴のもの）、ほかの核種は反応率の微分を持たない。N̄ᵢ が 0 の点は直接の摂動と同じく
+    /// 摂動の核種 j（`perturbed_nuclides`。`generalized` の `shielded` と `derivative` の核種）ごとに、`solve`（j、摂動の組成、
+    /// 自己遮蔽の参照、摂動の参照の組成の作り方、直接の摂動を解くか）で摂動の組成を自己遮蔽して解き、その [領域] の物質の 1 次の変化を
+    /// ε N̄ᵢ で割る（案 I1。自己遮蔽による暗黙の分は前進差分、陽の分は物質について線形なので厳密）。自己遮蔽を解いた核種は、
+    /// `derivative` だけに挙げた核種も、解いた暗黙の分を捨てずに I1 にする。ほかの核種は自己遮蔽を固定した陽の微分（案 I0）。
+    /// 直接の摂動の核種（`derivative`）は、解いた摂動の組成の反応率の微視的断面積の前進差分を反応率の微分にし（少数群定数の微分は
+    /// 一般化随伴のもの）、ほかの核種は反応率の微分を持たない。N̄ᵢ が 0 の点は直接の摂動と同じく
     /// ∂Σ/∂N̄ᵢ を σᵢ、反応率の微分を 0 にする（#0206）。追う核種を燃焼させない物質に持つ状態は、向きが直接の摂動と違うのでエラー
     #[allow(clippy::too_many_arguments)]
     pub fn add_generalized_derivatives(
@@ -1559,9 +1560,9 @@ impl HistoryBranches {
             bool,
         ) -> anyhow::Result<PerturbedSolve>,
     ) -> anyhow::Result<()> {
-        let Some(generalized) = &self.generalized else {
+        if self.generalized.is_none() {
             bail!("the history branches have no generalized derivatives");
-        };
+        }
         if micro.len() != self.micro_nuclides.len() {
             bail!(
                 "{} micro nuclides for {} tracked",
@@ -1584,9 +1585,14 @@ impl HistoryBranches {
             }
         }
         let reference = self.reference(index);
-        let mut perturbed: Vec<Option<PerturbedSolve>> = Vec::new();
+        // [摂動の核種] の（少数群定数の微分、反応率の微分）。自己遮蔽した物質は解いたその場で 1 次の変化にし、核種の数だけ持たない
+        let mut perturbed: Vec<Option<(FewGroupChange, Option<RateResidual>)>> = Vec::new();
         for (j, &m) in self.perturbed_micro.iter().enumerate() {
-            if self.values[rod].micro_densities[point][m] <= 0.0 {
+            let (name, mean) = (
+                &self.micro_nuclides[m],
+                self.values[rod].micro_densities[point][m],
+            );
+            if mean <= 0.0 {
                 perturbed.push(None);
                 continue;
             }
@@ -1595,14 +1601,42 @@ impl HistoryBranches {
                 reference.map_or_else(Vec::new, |(p, r)| self.perturbed_reference_state(p, r, j))
             };
             let direct = self.derivative_micro.contains(&m);
-            let solved = solve(j, &state, reference, &build, direct)?;
-            if direct != solved.solved.is_some() {
+            let PerturbedSolve {
+                materials: (unique, region_index),
+                solved,
+            } = solve(j, &state, reference, &build, direct)?;
+            if region_index.iter().any(|&i| i >= unique.len()) {
                 bail!(
-                    "{}: the perturbed solve must solve the transport exactly for the direct derivatives",
-                    self.micro_nuclides[m]
+                    "{name}: the perturbed self-shielding gives region materials beyond its {} materials",
+                    unique.len()
                 );
             }
-            perturbed.push(Some(solved));
+            let change = self.perturbation * mean;
+            let regions: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
+            let few = table.change_to(&regions)?.scaled(1.0 / change);
+            let rate = match (direct, solved) {
+                (true, Some((perturbed, perturbed_sigma))) => {
+                    if perturbed_sigma.len() != micro.len() {
+                        bail!(
+                            "{name}: the perturbed solve has {} micro nuclides for {}",
+                            perturbed_sigma.len(),
+                            micro.len()
+                        );
+                    }
+                    density_derivative(
+                        (nominal, &micro[m]),
+                        (&perturbed, &perturbed_sigma[m]),
+                        change,
+                    )
+                    .map_err(|e| anyhow!("{name}: {e}"))?
+                    .rate
+                }
+                (false, None) => None,
+                _ => bail!(
+                    "{name}: the perturbed solve must solve the transport exactly for the direct derivatives"
+                ),
+            };
+            perturbed.push(Some((few, rate)));
         }
         for (m, name) in self.micro_nuclides.iter().enumerate() {
             let mean = self.values[rod].micro_densities[point][m];
@@ -1610,41 +1644,14 @@ impl HistoryBranches {
             let sigma = &micro[m];
             let zero = |v: &[f64]| vec![0.0; v.len()];
             let derivative = if mean > 0.0 {
-                let change = self.perturbation * mean;
                 let solved = self
                     .perturbed_micro
                     .iter()
                     .position(|&p| p == m)
-                    .and_then(|j| perturbed[j].as_ref());
-                let few = if generalized.shielded.contains(name) {
-                    let (unique, region_index) =
-                        solved.and_then(|s| s.materials.as_ref()).ok_or_else(|| {
-                            anyhow!("{name}: the perturbed solve gave no self-shielded materials")
-                        })?;
-                    let regions: Vec<&Material> =
-                        region_index.iter().map(|&i| &unique[i]).collect();
-                    table.change_to(&regions)?.scaled(1.0 / change)
-                } else {
-                    table.explicit(name)?.scaled(1.0 / mean)
-                };
-                let rate = match solved.and_then(|s| s.solved.as_ref()) {
-                    Some((perturbed, perturbed_sigma)) if direct => {
-                        if perturbed_sigma.len() != micro.len() {
-                            bail!(
-                                "{name}: the perturbed solve has {} micro nuclides for {}",
-                                perturbed_sigma.len(),
-                                micro.len()
-                            );
-                        }
-                        density_derivative(
-                            (nominal, sigma),
-                            (perturbed, &perturbed_sigma[m]),
-                            change,
-                        )
-                        .map_err(|e| anyhow!("{name}: {e}"))?
-                        .rate
-                    }
-                    _ => None,
+                    .and_then(|j| perturbed[j].take());
+                let (few, rate) = match solved {
+                    Some(done) => done,
+                    None => (table.explicit(name)?.scaled(1.0 / mean), None),
                 };
                 MicroDerivative {
                     total: few.total,
