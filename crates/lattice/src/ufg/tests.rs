@@ -2578,11 +2578,11 @@ fn unsearchable_cgroups_stop_with_an_error() {
     }
 }
 
-/// 接線の試験のセル: 共鳴を持つ燃料の 3 つのリング（U-238 の個数密度がリングで違う）、真空のギャップ、水。
-/// [`resonant_cell`] の核種
+/// 接線の試験のセル: 共鳴を持つ燃料の 3 つのリング（U-238 の個数密度がリングで違い、飛程の表の 1 次の展開の中の格子点と外の格子点が
+/// ある。[`close_ring_materials_give_the_group_constants_of_the_exact_tracks`]）、真空のギャップ、水。[`resonant_cell`] の核種
 fn tangent_cell() -> (Library, Vec<MaterialInput>, Cylinder) {
     let (lib, _, water) = resonant_cell(11.0 + 1.0e4);
-    let fuels = [0.022, 0.0215, 0.021]
+    let fuels = [0.0221, 0.0220, 0.0218]
         .map(|u238| material(&[("U-238", u238), ("U-235", 0.0005), ("O-16", 0.045)]));
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     (lib, fuels.into_iter().chain([water]).collect(), cell)
@@ -2649,104 +2649,451 @@ fn constants(nuclides: &[Vec<Shielded>]) -> Vec<Vec<Vec<f64>>> {
         .collect()
 }
 
+/// 接線を求める減速計算（[`slowing_down_tangent`] の中身。`frozen` は個数密度で決まる離散の選択を固める）
+#[allow(clippy::too_many_arguments)]
+fn tangent_with(
+    lib: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    collision: Collision,
+    thinning: Option<f64>,
+    scattering: Scattering,
+    frozen: Option<&Frozen>,
+    hold: usize,
+    directions: &[Vec<Vec<f64>>],
+) -> Result<(CellSpectrum, CellTangent), UfgError> {
+    let mut tangent = CellTangent {
+        flux: Vec::new(),
+        nuclides: Vec::new(),
+        cost: TangentCost::default(),
+    };
+    let mut frozen = frozen.cloned();
+    let spectrum = solve_cell(
+        lib,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        None,
+        Some((directions, &mut tangent)),
+        frozen.as_mut(),
+        hold,
+    )?;
+    Ok((spectrum, tangent))
+}
+
+/// 1 次の変化 `tangent` の向き `d` を、個数密度を N + t δN にした減速計算 `at(t)` の ±step、±step/2 の中心差分の Richardson の
+/// 外挿と比べる。中性子束はリングごとの群の最大、群定数は核種と反応ごとの値の最大の `tolerance` 倍以内
+fn assert_matches_differences(
+    tangent: &CellTangent,
+    d: usize,
+    step: f64,
+    tolerance: f64,
+    at: impl Fn(f64) -> CellSpectrum,
+) {
+    let [p, m, ph, mh] = [step, -step, step / 2.0, -step / 2.0].map(at);
+    let richardson = |a: f64, b: f64, c: f64, e: f64| {
+        let full = (a - b) / (2.0 * step);
+        let half = (c - e) / step;
+        (4.0 * half - full) / 3.0
+    };
+    for (i, flux) in tangent.flux[d].iter().enumerate() {
+        let reference: Vec<f64> = (0..flux.len())
+            .map(|g| richardson(p.flux[i][g], m.flux[i][g], ph.flux[i][g], mh.flux[i][g]))
+            .collect();
+        let scale = p.flux[i].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+        for (g, (a, b)) in flux.iter().zip(&reference).enumerate() {
+            assert!(
+                (a - b).abs() <= tolerance * scale,
+                "direction {d} ring {i} group {g}: flux change {a} vs {b}"
+            );
+        }
+    }
+    let values = [&p, &m, &ph, &mh].map(|s| constants(&s.nuclides));
+    let changes = constants(&tangent.nuclides[d]);
+    for (i, ring) in changes.iter().enumerate() {
+        for (x, change) in ring.iter().enumerate() {
+            let scale = values[0][i][x].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+            for (g, a) in change.iter().enumerate() {
+                let b = richardson(
+                    values[0][i][x][g],
+                    values[1][i][x][g],
+                    values[2][i][x][g],
+                    values[3][i][x][g],
+                );
+                assert!(
+                    (a - b).abs() <= tolerance * scale,
+                    "direction {d} ring {i} column {x} group {g}: {a} vs {b}"
+                );
+            }
+        }
+    }
+}
+
+/// 飛程の表を使う減速計算の中心差分の刻みと許容。表の内挿は格子点で微分が不連続（4 点の Lagrange の点の組が替わる）なので、
+/// 中心差分は刻みの中で点の組が替わる格子点の分だけずれ、そのずれは刻みに比例する（同じ組成の 3 つの燃料のリングの U-238 の向きで、
+/// 刻み 1e-3、1e-4、1e-5 で中性子束の 9e-8、1.3e-8、1.2e-9。1e-6 では丸めで 1.9e-8。格子点ごとの飛程では 1e-3 で 5.8e-12）
+const TABLE_STEPS: [f64; 2] = [1.0e-5, 5.0e-8];
+
+/// 減速計算の設定ごとの、接線と中心差分の比較。`frozen` は状態の減速計算で記録した離散の選択を `widen` で直したもの（中心差分の
+/// 減速計算と接線の減速計算の両方に使う）
+#[allow(clippy::too_many_arguments)]
+fn check_tangents(
+    lib: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    collision: Collision,
+    thinning: Option<f64>,
+    scattering: Scattering,
+    names: &[&str],
+    [step, tolerance]: [f64; 2],
+    widen: impl Fn(&mut Frozen),
+) -> CellTangent {
+    let hold = held_cells(1 << 30, 1);
+    let mut frozen = Frozen::default();
+    solve_cell(
+        lib,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        None,
+        None,
+        Some(&mut frozen),
+        hold,
+    )
+    .unwrap();
+    widen(&mut frozen);
+    let directions: Vec<Vec<Vec<f64>>> =
+        names.iter().map(|name| proportional(rings, name)).collect();
+    let (_, tangent) = tangent_with(
+        lib,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        Some(&frozen),
+        hold,
+        &directions,
+    )
+    .unwrap();
+    for (d, direction) in directions.iter().enumerate() {
+        assert_matches_differences(&tangent, d, step, tolerance, |t| {
+            let inputs = moved(rings, direction, t);
+            let rings: Vec<Option<&MaterialInput>> = inputs.iter().map(Option::as_ref).collect();
+            solve_cell(
+                lib,
+                cell,
+                &rings,
+                range,
+                collision,
+                thinning,
+                scattering,
+                None,
+                None,
+                None,
+                Some(&mut frozen.clone()),
+                hold,
+            )
+            .unwrap()
+        });
+    }
+    tangent
+}
+
 #[test]
 fn tangents_match_central_differences_of_the_slowing_down() {
     // ADR-0247 の案 I2: 個数密度の向きごとの中性子束と群定数の 1 次の変化は、個数密度を ±t、±t/2 変えた減速計算の中心差分の
     // Richardson の外挿と一致する。燃料の U-238（自己遮蔽）、燃料と水の O-16（燃料の外のリングも変える）、水の H-1（減速材だけ）
     let (lib, materials, cell) = tangent_cell();
     let rings = tangent_rings(&materials);
-    let range = [4.0, 1.0e4];
-    let directions: Vec<Vec<Vec<f64>>> = ["U-238", "O-16", "H-1"]
+    check_tangents(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e4],
+        Collision::Exact,
+        None,
+        Scattering::Static,
+        &["U-238", "O-16", "H-1"],
+        [1.0e-3, 1.0e-9],
+        |_| {},
+    );
+}
+
+#[test]
+fn table_tangents_match_central_differences_on_the_same_table() {
+    // 飛程を表から内挿する格子点は、表の内挿の微分で飛程を微分する。表の軸の範囲は個数密度で動く（状態の格子点の全断面積の
+    // 最小と最大）ので、中心差分は状態の範囲を広げた同じ表で解き、接線もその表で求める（ADR-0247 の離散の選択を固めた微分）
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    let tangent = check_tangents(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e4],
+        Collision::default(),
+        None,
+        Scattering::Static,
+        &["U-238", "O-16", "H-1"],
+        TABLE_STEPS,
+        |frozen| {
+            let ranges = frozen
+                .ranges
+                .as_mut()
+                .expect("the cell builds a track table");
+            for r in ranges {
+                *r = [r[0] * 0.9, r[1] * 1.1];
+            }
+        },
+    );
+    assert!(tangent.cost.table_points > 0, "{:?}", tangent.cost);
+}
+
+#[test]
+fn thinned_tangents_match_central_differences_on_the_same_grid() {
+    // 間引いた格子は、δF を核種の格子で縮約する。間引く点は個数密度で変わるので、中心差分も状態の格子で解く
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    check_tangents(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e4],
+        Collision::Exact,
+        Some(1.0e-3),
+        Scattering::Static,
+        &["U-238", "O-16", "H-1"],
+        [1.0e-3, 1.0e-9],
+        |frozen| assert!(frozen.grid.is_some()),
+    );
+}
+
+/// 自由ガスの試験のセル: [`thermal_specs`] の核種で、燃料 3 リング（U-238 の個数密度がリングで違う）、真空、同じ水の 2 リング
+/// （同じ組成のリングの組）。`table` は H-1 の S(α, β) の表
+fn thermal_tangent_cell(table: Option<SabTransfer>) -> (Library, Vec<MaterialInput>, Cylinder) {
+    let mut lib = library_with(thermal_specs(), 600.0, &BOUNDS);
+    if table.is_some() {
+        make_sab(&mut lib, table);
+    }
+    let fuels = [0.0221, 0.0220, 0.0218]
+        .map(|u238| material(&[("U-238", u238), ("U-235", 0.0005), ("O-16", 0.045)]));
+    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.6, 0.711]).unwrap();
+    (lib, fuels.into_iter().chain([water]).collect(), cell)
+}
+
+/// [`thermal_tangent_cell`] のリングの物質（燃料 3、真空、水 2）
+fn thermal_tangent_rings(materials: &[MaterialInput]) -> Vec<Option<&MaterialInput>> {
+    vec![
+        Some(&materials[0]),
+        Some(&materials[1]),
+        Some(&materials[2]),
+        None,
+        Some(&materials[3]),
+        Some(&materials[3]),
+    ]
+}
+
+/// 分離共鳴を持たない核種は 50 eV、持つ核種は 10 eV より下で自由ガスにし、3 回掃き直す（`sab` は H-1 の S(α, β)）
+fn tangent_gas(sab: bool) -> Scattering {
+    Scattering::FreeGas(FreeGas {
+        upper: FreeGasCap::Energy(50.0),
+        cells: 2,
+        sweeps: Some(3),
+        heavy: Some(FreeGasCap::Energy(10.0)),
+        sab,
+    })
+}
+
+#[test]
+fn free_gas_tangents_match_central_differences_of_the_slowing_down() {
+    // 自由ガスの核の散乱源は、同じ区間と D の値で δF を積分し、F を固めた個数密度の変化の分を足す。上方散乱の掃き直しは状態と
+    // 同じ回数で、前のスイープの δF を使う。U-238 は 10 eV より下で自由ガス（6.67 eV の共鳴）、H-1 は同じ組成の 2 つのリング
+    let (lib, materials, cell) = thermal_tangent_cell(None);
+    let rings = thermal_tangent_rings(&materials);
+    check_tangents(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        tangent_gas(false),
+        &["U-238", "O-16", "H-1"],
+        [1.0e-3, 1.0e-9],
+        |_| {},
+    );
+}
+
+#[test]
+fn sab_tangents_match_central_differences_of_the_slowing_down() {
+    // S(α, β) の移行の散乱源は、同じ小区間の重みで δF を数え、F を固めた個数密度の変化の分を足す
+    let (lib, materials, cell) =
+        thermal_tangent_cell(Some(free_gas_transfer(0.99917, 600.0, 0.02)));
+    let rings = thermal_tangent_rings(&materials);
+    check_tangents(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        tangent_gas(true),
+        &["H-1", "U-238"],
+        [1.0e-3, 1.0e-9],
+        |_| {},
+    );
+}
+
+#[test]
+fn production_tangents_match_central_differences_on_the_same_grid_and_table() {
+    // 本番の設定の組（飛程の表、間引いた格子、自由ガス、S(α, β)）でも、離散の選択を固めた中心差分と一致する
+    let (lib, materials, cell) =
+        thermal_tangent_cell(Some(free_gas_transfer(0.99917, 600.0, 0.02)));
+    let rings = thermal_tangent_rings(&materials);
+    let tangent = check_tangents(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::default(),
+        Some(1.0e-3),
+        tangent_gas(true),
+        &["U-238", "O-16", "H-1"],
+        TABLE_STEPS,
+        |frozen| {
+            assert!(frozen.grid.is_some());
+            let ranges = frozen
+                .ranges
+                .as_mut()
+                .expect("the cell builds a track table");
+            for r in ranges {
+                *r = [r[0] * 0.9, r[1] * 1.1];
+            }
+        },
+    );
+    assert!(tangent.cost.table_points > 0, "{:?}", tangent.cost);
+}
+
+#[test]
+fn free_gas_tangents_do_not_depend_on_the_held_cells() {
+    // 持たない格子点の区間は作業用の配列に書いて積分するので、区間をスイープの間で持つかによらず、1 次の変化はビットで同じ
+    let (lib, materials, cell) =
+        thermal_tangent_cell(Some(free_gas_transfer(0.99917, 600.0, 0.02)));
+    let rings = thermal_tangent_rings(&materials);
+    let directions: Vec<Vec<Vec<f64>>> = ["U-238", "H-1"]
         .iter()
         .map(|name| proportional(&rings, name))
         .collect();
-    let (_, tangent) = slowing_down_tangent(&lib, &cell, &rings, range, &directions).unwrap();
-    let solve = |inputs: &[Option<MaterialInput>]| {
-        let rings: Vec<Option<&MaterialInput>> = inputs.iter().map(Option::as_ref).collect();
-        slowing_down_with(
+    let solve = |hold: usize| {
+        tangent_with(
             &lib,
             &cell,
             &rings,
-            range,
+            [4.0, 1.0e2],
             Collision::Exact,
             None,
-            Scattering::Static,
-            0,
+            tangent_gas(true),
+            None,
+            hold,
+            &directions,
         )
         .unwrap()
+        .1
     };
-    let step = 1.0e-3;
-    for (d, direction) in directions.iter().enumerate() {
-        let at = |t: f64| solve(&moved(&rings, direction, t));
-        let [p, m, ph, mh] = [step, -step, step / 2.0, -step / 2.0].map(at);
-        let richardson = |a: f64, b: f64, c: f64, e: f64| {
-            let full = (a - b) / (2.0 * step);
-            let half = (c - e) / step;
-            (4.0 * half - full) / 3.0
-        };
-        // 中性子束: リングごとの群の最大で測った差
-        for (i, flux) in tangent.flux[d].iter().enumerate() {
-            let reference: Vec<f64> = (0..flux.len())
-                .map(|g| richardson(p.flux[i][g], m.flux[i][g], ph.flux[i][g], mh.flux[i][g]))
-                .collect();
-            let scale = p.flux[i].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-            for (g, (a, b)) in flux.iter().zip(&reference).enumerate() {
-                assert!(
-                    (a - b).abs() <= 1e-9 * scale,
-                    "direction {d} ring {i} group {g}: flux change {a} vs {b}"
-                );
-            }
-        }
-        // 群定数: 核種と反応ごとの値の最大で測った差
-        let values = [&p, &m, &ph, &mh].map(|s| constants(&s.nuclides));
-        let changes = constants(&tangent.nuclides[d]);
-        for (i, ring) in changes.iter().enumerate() {
-            for (x, change) in ring.iter().enumerate() {
-                let scale = values[0][i][x].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-                for (g, a) in change.iter().enumerate() {
-                    let b = richardson(
-                        values[0][i][x][g],
-                        values[1][i][x][g],
-                        values[2][i][x][g],
-                        values[3][i][x][g],
-                    );
-                    assert!(
-                        (a - b).abs() <= 1e-9 * scale,
-                        "direction {d} ring {i} column {x} group {g}: {a} vs {b}"
-                    );
-                }
-            }
-        }
+    let (held, fresh) = (solve(held_cells(1 << 30, 1)), solve(0));
+    assert_eq!(held.flux, fresh.flux);
+    assert_eq!(held.nuclides, fresh.nuclides);
+}
+
+#[test]
+fn tangent_directions_do_not_change_each_other() {
+    // 向きをまとめて解いても（自由ガスと S(α, β) の散乱源の δF は向きを並べて同じ区間で積分する）、向きごとの 1 次の変化は、
+    // その向きだけで解いたものとビットで同じ
+    let (lib, materials, cell) =
+        thermal_tangent_cell(Some(free_gas_transfer(0.99917, 600.0, 0.02)));
+    let rings = thermal_tangent_rings(&materials);
+    let solve = |names: &[&str]| {
+        let directions: Vec<Vec<Vec<f64>>> = names
+            .iter()
+            .map(|name| proportional(&rings, name))
+            .collect();
+        tangent_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::default(),
+            Some(1.0e-3),
+            tangent_gas(true),
+            None,
+            held_cells(1 << 30, 1),
+            &directions,
+        )
+        .unwrap()
+        .1
+    };
+    let together = solve(&["U-238", "O-16", "H-1"]);
+    for (d, name) in ["U-238", "O-16", "H-1"].iter().enumerate() {
+        let alone = solve(&[name]);
+        assert_eq!(together.flux[d], alone.flux[0], "{name}");
+        assert_eq!(together.nuclides[d], alone.nuclides[0], "{name}");
     }
 }
 
 #[test]
 fn tangents_solve_the_same_spectrum_as_without() {
-    // 1 次の変化を求めても（飛程の微分を求める向きがあっても）、減速計算の結果は格子点ごとの飛程と静止した標的の解とビットで同じ。
-    // 向きが 0 なら変化も 0
-    let (lib, materials, cell) = tangent_cell();
-    let rings = tangent_rings(&materials);
-    let range = [4.0, 1.0e4];
+    // 1 次の変化を求めても（飛程の微分を求める向きがあっても）、減速計算の結果と移行は、本番の設定の向きのない減速計算とビットで
+    // 同じ。向きが 0 なら変化も 0
+    let (lib, materials, cell) =
+        thermal_tangent_cell(Some(free_gas_transfer(0.99917, 600.0, 0.02)));
+    let rings = thermal_tangent_rings(&materials);
     let zero: Vec<Vec<f64>> = proportional(&rings, "none");
     let directions = [
         zero,
         proportional(&rings, "U-238"),
         proportional(&rings, "H-1"),
     ];
-    let (spectrum, tangent) =
-        slowing_down_tangent(&lib, &cell, &rings, range, &directions).unwrap();
-    let plain = slowing_down_with(
+    let hold = held_cells(1 << 30, 1);
+    let (collision, thinning, scattering) = (Collision::default(), Some(1.0e-3), tangent_gas(true));
+    let (spectrum, transfers, tangent) = slowing_down_tangent(
         &lib,
         &cell,
         &rings,
-        range,
-        Collision::Exact,
-        None,
-        Scattering::Static,
-        0,
+        [4.0, 1.0e2],
+        collision,
+        thinning,
+        scattering,
+        Some(&ShareCellCache::default()),
+        hold,
+        &directions,
+    )
+    .unwrap();
+    let (plain, plain_transfers) = slowing_down_transfers(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        collision,
+        thinning,
+        scattering,
+        &ShareCellCache::default(),
+        hold,
     )
     .unwrap();
     assert_eq!(spectrum, plain);
+    assert_eq!(transfers, Some(plain_transfers));
     assert!(tangent.flux[0].iter().flatten().all(|&x| x == 0.0));
     assert!(
         constants(&tangent.nuclides[0])
@@ -2762,10 +3109,24 @@ fn tangent_directions_must_follow_the_ring_compositions() {
     // 向きの並びがリングの組成と合わなければ止める（黙って切り詰めない）
     let (lib, materials, cell) = tangent_cell();
     let rings = tangent_rings(&materials);
+    let solve = |directions: &[Vec<Vec<f64>>]| {
+        tangent_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            None,
+            Scattering::Static,
+            None,
+            0,
+            directions,
+        )
+    };
     let mut short = proportional(&rings, "U-238");
     short[0].pop();
     assert!(matches!(
-        slowing_down_tangent(&lib, &cell, &rings, [4.0, 1.0e4], &[short]),
+        solve(&[short]),
         Err(UfgError::Direction {
             direction: 0,
             ring: 0,
@@ -2775,43 +3136,99 @@ fn tangent_directions_must_follow_the_ring_compositions() {
     ));
     let missing = proportional(&rings[..4], "U-238");
     assert!(matches!(
-        slowing_down_tangent(&lib, &cell, &rings, [4.0, 1.0e4], &[missing]),
+        solve(&[missing]),
         Err(UfgError::Rings { given: 4, rings: 5 })
     ));
 }
 
 #[test]
-fn tangents_stop_with_the_settings_they_do_not_cover() {
-    // 接線は格子点ごとの飛程、間引かない格子、静止した標的だけ。ほかの設定では黙って誤った変化を返さず止める
-    let (lib, materials, cell) = tangent_cell();
-    let rings = tangent_rings(&materials);
-    let directions = [proportional(&rings, "U-238")];
-    let settings = [
-        (Collision::default(), None, Scattering::Static),
-        (Collision::Exact, Some(1e-4), Scattering::Static),
-        (Collision::Exact, None, Scattering::default()),
-    ];
-    for (collision, thinning, scattering) in settings {
-        let mut out = CellTangent {
+fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
+    // 同じ組成のリング（飛程の表の 1 つの物質）を違う向きに変える向きは、表を使う減速計算では表せず、個数密度が 0 の自由ガスの
+    // 核種を変える向きは、散乱源を積分しないので表せない。どちらも止める（黙って誤った変化を返さない）
+    let (lib, mut materials, cell) = thermal_tangent_cell(None);
+    let rings = thermal_tangent_rings(&materials);
+    let mut uneven = proportional(&rings, "H-1");
+    uneven[5][0] *= 2.0;
+    let solve =
+        |collision: Collision, rings: &[Option<&MaterialInput>], directions: &[Vec<Vec<f64>>]| {
+            tangent_with(
+                &lib,
+                &cell,
+                rings,
+                [4.0, 1.0e2],
+                collision,
+                None,
+                tangent_gas(false),
+                None,
+                0,
+                directions,
+            )
+        };
+    assert!(matches!(
+        solve(Collision::default(), &rings, &[uneven]),
+        Err(UfgError::TangentClass {
+            direction: 0,
+            ring: 4,
+            other: 5
+        })
+    ));
+    // 同じ組成のリングの片方だけを変える向きも、表の物質の全断面積を変えると両方が変わるので止める
+    let mut one = proportional(&rings, "H-1");
+    one[5].fill(0.0);
+    assert!(matches!(
+        solve(Collision::default(), &rings, &[one]),
+        Err(UfgError::TangentClass {
+            direction: 0,
+            ring: 4,
+            other: 5
+        })
+    ));
+    materials[0].composition[2].1 = 0.0;
+    let rings = thermal_tangent_rings(&materials);
+    let mut empty = proportional(&rings, "none");
+    empty[0][2] = 1.0e-3;
+    assert!(matches!(
+        solve(Collision::Exact, &rings, &[empty]),
+        Err(UfgError::TangentZeroDensity { direction: 0, ring: 0, ref name }) if name == "O-16"
+    ));
+}
+
+#[test]
+fn exact_tangents_follow_rings_of_one_composition_changed_unevenly() {
+    // 格子点ごとの飛程なら、同じ組成のリングを違う向きに変えても、リングごとに飛程を微分して解ける
+    let (lib, materials, cell) = thermal_tangent_cell(None);
+    let rings = thermal_tangent_rings(&materials);
+    let mut uneven = proportional(&rings, "H-1");
+    uneven[5][0] *= 2.0;
+    let hold = held_cells(1 << 30, 1);
+    let solve = |inputs: &[Option<&MaterialInput>], directions: Option<&[Vec<Vec<f64>>]>| {
+        let mut tangent = CellTangent {
             flux: Vec::new(),
             nuclides: Vec::new(),
+            cost: TangentCost::default(),
         };
-        let result = solve_cell(
+        let spectrum = solve_cell(
             &lib,
             &cell,
-            &rings,
-            [4.0, 1.0e4],
-            collision,
-            thinning,
-            scattering,
+            inputs,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            tangent_gas(false),
             None,
             None,
-            Some((&directions, &mut out)),
-            0,
-        );
-        assert!(
-            matches!(result, Err(UfgError::TangentSettings)),
-            "{collision:?} {thinning:?} {scattering:?}: {result:?}"
-        );
-    }
+            directions.map(|d| (d, &mut tangent)),
+            None,
+            hold,
+        )
+        .unwrap();
+        (spectrum, tangent)
+    };
+    let (_, tangent) = solve(&rings, Some(&[uneven.clone()]));
+    assert_eq!(tangent.cost.classes, 2);
+    assert_matches_differences(&tangent, 0, 1.0e-3, 1.0e-9, |t| {
+        let inputs = moved(&rings, &uneven, t);
+        let rings: Vec<Option<&MaterialInput>> = inputs.iter().map(Option::as_ref).collect();
+        solve(&rings, None).0
+    });
 }

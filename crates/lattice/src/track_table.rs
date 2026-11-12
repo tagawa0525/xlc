@@ -54,6 +54,8 @@ pub enum TableError {
     },
     #[error("node {node} of the track table was not solved (no point given to the table reads it)")]
     Unsolved { node: usize },
+    #[error("material {material} is not one of the {materials} materials of the table")]
+    Material { material: usize, materials: usize },
     #[error(transparent)]
     Cp(#[from] CpError),
 }
@@ -105,11 +107,7 @@ impl Axis {
         if self.count == 1 {
             return (0, [1.0, 0.0, 0.0, 0.0]);
         }
-        let s = (sigma.ln() - self.start) / self.step;
-        // 点 s を囲む 4 点（端では内側に寄せる）
-        let last = (self.count - STENCIL) as f64;
-        let first = (s.floor() - 1.0).clamp(0.0, last) as usize;
-        let x = s - first as f64;
+        let (first, x) = self.position(sigma);
         // 点 0, 1, 2, 3 の Lagrange の基底
         let weights = [
             -(x - 1.0) * (x - 2.0) * (x - 3.0) / 6.0,
@@ -118,6 +116,30 @@ impl Axis {
             x * (x - 1.0) * (x - 2.0) / 6.0,
         ];
         (first, weights)
+    }
+
+    /// `sigma` の内挿に使う最初の格子点と、そこからの位置 x（点が 2 つ以上の軸）。[`Axis::stencil`] と [`Axis::stencil_slope`] が
+    /// 同じ点の組を使うよう、ここだけで決める
+    fn position(&self, sigma: f64) -> (usize, f64) {
+        let s = (sigma.ln() - self.start) / self.step;
+        // 点 s を囲む 4 点（端では内側に寄せる）
+        let last = (self.count - STENCIL) as f64;
+        let first = (s.floor() - 1.0).clamp(0.0, last) as usize;
+        (first, s - first as f64)
+    }
+
+    /// [`Axis::stencil`] の重みの、内挿の位置 s についての微分（同じ点の組。点が 1 つの軸は 0）
+    fn stencil_slope(&self, sigma: f64) -> [f64; STENCIL] {
+        if self.count == 1 {
+            return [0.0; STENCIL];
+        }
+        let (_, x) = self.position(sigma);
+        [
+            -((x - 2.0) * (x - 3.0) + (x - 1.0) * (x - 3.0) + (x - 1.0) * (x - 2.0)) / 6.0,
+            ((x - 2.0) * (x - 3.0) + x * (x - 3.0) + x * (x - 2.0)) / 2.0,
+            -((x - 1.0) * (x - 3.0) + x * (x - 3.0) + x * (x - 1.0)) / 2.0,
+            ((x - 1.0) * (x - 2.0) + x * (x - 2.0) + x * (x - 1.0)) / 6.0,
+        ]
     }
 
     fn width(&self) -> usize {
@@ -465,6 +487,101 @@ impl TrackTable {
                 .collect(),
         ))
     }
+
+    /// [`TrackTable::tracks`] の飛程 T[j][i] の、物質 `material` の全断面積についての微分 ∂T/∂Σ_material（ADR-0247 の案 I2）。
+    /// `tracks` が `None` の組は `None`、エラーも `tracks` と同じ
+    pub fn derivative(
+        &self,
+        sigma: &[f64],
+        material: usize,
+    ) -> Result<Option<Vec<Vec<f64>>>, TableError> {
+        let materials = self.layout.axes.len();
+        if sigma.len() != materials {
+            return Err(TableError::Materials {
+                given: sigma.len(),
+                materials,
+            });
+        }
+        if material >= materials {
+            return Err(TableError::Material {
+                material,
+                materials,
+            });
+        }
+        let Some(centers) = expansion_centers(&self.layout, &self.axes, sigma)? else {
+            return Ok(None);
+        };
+        let n = self.layout.classes.len();
+        let axis = self.layout.axes[material];
+        let shared = self.layout.members[axis] > 1;
+        let s = sigma[material];
+        // 軸の値の ln の微分: 物質が 1 つの軸は Σ そのもの、共有する軸は体積の重みの平均（[`Layout::centers`]）
+        let log_center = if shared {
+            self.layout.weights[material] / s
+        } else {
+            1.0 / s
+        };
+        // 表の値と微分ごとの係数（[`TrackTable::tracks`] と同じ）と、その微分。微分の物質 m' の係数 ln Σ_m' − ln 中心 は、
+        // Σ_material で m' = material なら 1/Σ、同じ軸の物質なら中心の分だけ変わる
+        let mut coefficients = vec![1.0];
+        let mut slopes = vec![0.0];
+        for (m, slot) in self.layout.slots.iter().enumerate() {
+            if slot.is_some() {
+                let a = self.layout.axes[m];
+                coefficients.push(sigma[m].ln() - centers[a].ln());
+                let own = if m == material { 1.0 / s } else { 0.0 };
+                let center = if a == axis { log_center } else { 0.0 };
+                slopes.push(own - center);
+            }
+        }
+        let block = coefficients.len() * n * n;
+        let mut r = vec![0.0; n * n];
+        let mut dr = vec![0.0; n * n];
+        let mut unsolved = None;
+        // 内挿の位置 s = (ln 中心 − 始め) / 間隔 の、Σ_material についての微分
+        let ds = if self.axes[axis].count > 1 {
+            log_center / self.axes[axis].step
+        } else {
+            0.0
+        };
+        for_stencil_slope(&self.axes, &centers, Some(axis), |node, weight, slope| {
+            if self.solved.as_ref().is_some_and(|u| !u[node]) {
+                unsolved.get_or_insert(node);
+                return;
+            }
+            let values = &self.values[node * block..(node + 1) * block];
+            for ((c, d), v) in coefficients.iter().zip(&slopes).zip(values.chunks(n * n)) {
+                let (factor, change) = (weight * c, slope * ds * c + weight * d);
+                for ((x, y), v) in r.iter_mut().zip(dr.iter_mut()).zip(v) {
+                    *x += factor * v;
+                    *y += change * v;
+                }
+            }
+        });
+        if let Some(node) = unsolved {
+            return Err(TableError::Unsolved { node });
+        }
+        // T_ji = R_ij / Σ_j（真空の列は R_ij）。Σ_j は列 j の物質の全断面積
+        let totals = self.layout.totals(sigma);
+        Ok(Some(
+            (0..n)
+                .map(|j| {
+                    let t = totals[j];
+                    let own = self.layout.classes[j] == Some(material);
+                    (0..n)
+                        .map(|i| {
+                            let (x, y) = (r[i * n + j], dr[i * n + j]);
+                            if t > 0.0 {
+                                if own { y / t - x / (t * t) } else { y / t }
+                            } else {
+                                y
+                            }
+                        })
+                        .collect()
+                })
+                .collect(),
+        ))
+    }
 }
 
 /// 物質ごとの全断面積 `sigma` の [軸] の値（中心）。軸を共有する物質の ln Σ の中心からの差が [`MAX_DEVIATION`] を超えれば `None`、
@@ -492,23 +609,38 @@ fn expansion_centers(
 
 /// 軸の値 `centers` の内挿の点の組（格子点の組の番号と、軸ごとの重みの積）を、最初の軸がいちばん速く変わる順に `visit` に渡す
 fn for_stencil(axes: &[Axis], centers: &[f64], mut visit: impl FnMut(usize, f64)) {
+    for_stencil_slope(axes, centers, None, |node, weight, _| visit(node, weight));
+}
+
+/// [`for_stencil`] の点の組を、重みと、軸 `axis` の内挿の位置 s についての重みの微分（`axis` が `None` なら 0）と一緒に `visit` に
+/// 渡す（同じ順。重みは軸ごとの重みを同じ順に掛けるので、[`for_stencil`] と同じ値）
+fn for_stencil_slope(
+    axes: &[Axis],
+    centers: &[f64],
+    axis: Option<usize>,
+    mut visit: impl FnMut(usize, f64, f64),
+) {
     let stencils: Vec<(usize, [f64; STENCIL])> = axes
         .iter()
         .zip(centers)
         .map(|(a, &s)| a.stencil(s))
         .collect();
+    let slopes = axis.map(|a| axes[a].stencil_slope(centers[a]));
     let mut offsets = vec![0usize; axes.len()];
     'combos: loop {
-        let (mut node, mut stride, mut weight) = (0, 1, 1.0);
-        for ((axis, &(first, w)), &k) in axes.iter().zip(&stencils).zip(&offsets) {
+        let (mut node, mut stride, mut weight, mut slope) = (0, 1, 1.0, 1.0);
+        for (a, ((ax, &(first, w)), &k)) in axes.iter().zip(&stencils).zip(&offsets).enumerate() {
             node += (first + k) * stride;
-            stride *= axis.count;
+            stride *= ax.count;
             weight *= w[k];
+            if let Some(slopes) = &slopes {
+                slope *= if Some(a) == axis { slopes[k] } else { w[k] };
+            }
         }
-        visit(node, weight);
-        for (k, axis) in offsets.iter_mut().zip(axes) {
+        visit(node, weight, if slopes.is_some() { slope } else { 0.0 });
+        for (k, ax) in offsets.iter_mut().zip(axes) {
             *k += 1;
-            if *k < axis.width() {
+            if *k < ax.width() {
                 continue 'combos;
             }
             *k = 0;

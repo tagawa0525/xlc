@@ -37,9 +37,9 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, CensusCall, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache,
-    UfgError, cell_range, held_cells, hold_total, kernel_cap, material_range,
-    slowing_down_transfers, slowing_down_with,
+    CellSpectrum, CellTangent, CensusCall, Collision, MemoryError, NuclideTransfer, Scattering,
+    ShareCellCache, TangentCost, UfgError, cell_range, held_cells, hold_total, kernel_cap,
+    material_range, slowing_down_tangent, slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -107,6 +107,11 @@ pub enum SelfShieldingError {
     /// 解くと決めたピンの結果がないか、2 度解いた（内部の不整合）
     #[error("cell {0}: internal error, the pin was not shielded exactly once")]
     Unsolved(usize),
+    /// 1 次の変化と一緒に解いた減速計算が、向きのない減速計算と違う（内部の不整合。[`shield_fuel_tangent`]）
+    #[error(
+        "cell {0}: internal error, the slowing down solved with its tangent differs from the plain one"
+    )]
+    TangentSpectrum(usize),
     #[error(
         "cell {0}: the fuel rings differ in nuclides, their order or temperature, or a ring mixes materials"
     )]
@@ -257,6 +262,82 @@ pub struct PinShielding {
     pub equivalent: Option<f64>,
     /// SPH 因子（[`crate::sph`]）。燃料に分離共鳴を持つ核種がなく UFG の範囲がなければ `None`
     pub sph: Option<Sph>,
+    /// UFG の減速計算の、核種の個数密度の向きごとの 1 次の変化（[`shield_fuel_tangent`] で頼んだときだけ）
+    pub tangent: Option<Arc<PinTangent>>,
+}
+
+/// 燃料のピンの UFG の減速計算の、核種の個数密度の向き（等価なセルのどのリングでも N に比例）ごとの 1 次の変化
+/// （[`shield_fuel_tangent`]。ADR-0247 の段 I2-2 の測定）。中心のリング（燃料）だけを持つ
+#[derive(Debug, Clone, PartialEq)]
+pub struct PinTangent {
+    /// 向きの核種（[向き] の順）
+    pub nuclides: Vec<String>,
+    /// UFG の範囲の群（ライブラリの群の番号）と、減速計算の格子点の数
+    pub groups: std::ops::Range<usize>,
+    pub points: usize,
+    /// 向きのない減速計算と、1 次の変化と一緒に解いた減速計算の経過時間 (s)
+    pub plain_seconds: f64,
+    pub tangent_seconds: f64,
+    pub cost: TangentCost,
+    /// [中心のリング][群] の中性子束と、[向き][中心のリング][群] のその 1 次の変化
+    pub flux: Vec<Vec<f64>>,
+    pub flux_change: Vec<Vec<Vec<f64>>>,
+    /// [中心のリング][反応][群] の巨視的断面積 Σ_k N_k σ_k (1/cm) と、[向き][中心のリング][反応][群] の暗黙の分
+    /// Σ_k N_k δσ_k（個数密度を (1 + δ) 倍したときの δ についての微分。陽の分 Σ_k δN_k σ_k を含まない）。反応は
+    /// [`PinTangent::REACTIONS`] の順
+    pub macroscopic: Vec<[Vec<f64>; 4]>,
+    pub implicit: Vec<Vec<[Vec<f64>; 4]>>,
+}
+
+impl PinTangent {
+    /// [`PinTangent::macroscopic`] の反応
+    pub const REACTIONS: [&'static str; 4] = ["total", "capture", "nu-fission", "elastic"];
+
+    fn new(
+        names: &[String],
+        inputs: &[Option<&MaterialInput>],
+        rings: usize,
+        spectrum: &CellSpectrum,
+        tangent: CellTangent,
+        plain_seconds: f64,
+        tangent_seconds: f64,
+    ) -> Self {
+        fn reactions(s: &Shielded) -> [&Vec<f64>; 4] {
+            [&s.total, &s.capture, &s.nu_fission, &s.elastic]
+        }
+        // [リング][反応][群] の Σ_k N_k x_k（x は核種ごとの群定数）
+        let macroscopic = |nuclides: &[Vec<Shielded>]| -> Vec<[Vec<f64>; 4]> {
+            (0..rings)
+                .map(|j| {
+                    let composition = inputs[j].map_or(&[][..], |m| m.composition.as_slice());
+                    std::array::from_fn(|x| {
+                        let ng = spectrum.groups.len();
+                        (0..ng)
+                            .map(|g| {
+                                composition
+                                    .iter()
+                                    .zip(&nuclides[j])
+                                    .map(|((_, n), s)| n * reactions(s)[x][g])
+                                    .sum()
+                            })
+                            .collect()
+                    })
+                })
+                .collect()
+        };
+        Self {
+            nuclides: names.to_vec(),
+            groups: spectrum.groups.clone(),
+            points: spectrum.points,
+            plain_seconds,
+            tangent_seconds,
+            cost: tangent.cost.clone(),
+            flux: spectrum.flux[..rings].to_vec(),
+            flux_change: tangent.flux.iter().map(|f| f[..rings].to_vec()).collect(),
+            macroscopic: macroscopic(&spectrum.nuclides),
+            implicit: tangent.nuclides.iter().map(|n| macroscopic(n)).collect(),
+        }
+    }
 }
 
 /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子。その群の、リングの物質を置いた格子の領域の物質に掛けてある。
@@ -545,7 +626,6 @@ impl<'a> ShieldingReuse<'a> {
 
 /// `shield_fuel_with` と同じ。トラッキングは `reuse` のもので、燃料の組成によらない前処理を `reuse` から持ち越し、`reuse` に
 /// 残す（[`ShieldingReuse`]）。結果は `shield_fuel_with` とビットで同じ
-#[tracing::instrument(name = "shielding", skip_all)]
 pub fn shield_fuel_reusing(
     library: &Library,
     reuse: &mut ShieldingReuse,
@@ -553,6 +633,30 @@ pub fn shield_fuel_reusing(
     region_materials: &[String],
     symmetry: &Detected,
     options: &ShieldingOptions,
+) -> Result<FuelShielding, SelfShieldingError> {
+    shield_fuel_tangent(
+        library,
+        reuse,
+        materials,
+        region_materials,
+        symmetry,
+        options,
+        None,
+    )
+}
+
+/// [`shield_fuel_reusing`] の自己遮蔽で、`tangent` を与えれば、燃料のピンの UFG の減速計算を、その核種の個数密度の向き（等価なセルの
+/// どのリングでも N に比例）ごとの 1 次の変化と一緒にも解き（[`slowing_down_tangent`]。ADR-0247 の案 I2 の段 I2-2）、
+/// [`PinShielding::tangent`] に書く。自己遮蔽の結果は `tangent` によらずビットで同じ（向きのない減速計算も解いて比べ、違えば止める）
+#[tracing::instrument(name = "shielding", skip_all)]
+pub fn shield_fuel_tangent(
+    library: &Library,
+    reuse: &mut ShieldingReuse,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
+    options: &ShieldingOptions,
+    tangent: Option<&[String]>,
 ) -> Result<FuelShielding, SelfShieldingError> {
     let tracking = reuse.tracking;
     let lattice = &tracking.lattice;
@@ -757,6 +861,7 @@ pub fn shield_fuel_reusing(
             transfer: options.transfer,
             shares,
             hold,
+            tangent,
         };
         let ufg = shield_cell(
             library,
@@ -864,6 +969,7 @@ pub fn shield_fuel_reusing(
                 groups: c.groups.clone(),
                 moderator_ring: c.start,
             }),
+            tangent: ufg.as_ref().and_then(|c| c.tangent.clone()),
         };
         let assigned = match ufg {
             // リングごとの物質（真空のリングは真空のまま）
@@ -1342,6 +1448,7 @@ fn shield_lumps(
                         transfer: options.transfer,
                         shares,
                         hold,
+                        tangent: None,
                     };
                     shield_cell(
                         library,
@@ -1574,6 +1681,8 @@ struct PinRings<'a> {
     /// ADR-0213）
     shares: &'a ShareCellCache,
     hold: usize,
+    /// 減速計算の 1 次の変化を求める核種（[`shield_fuel_tangent`]）
+    tangent: Option<&'a [String]>,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1606,6 +1715,8 @@ struct CellShielding {
     points: usize,
     /// 減速計算が上限なしで持つ量 (B。[`CellSpectrum::demand`])
     demand: u64,
+    /// 減速計算の 1 次の変化（[`shield_fuel_tangent`] で頼んだときだけ）
+    tangent: Option<Arc<PinTangent>>,
 }
 
 /// 等価なセルの減速計算（[`solve_equivalent_cell`]）
@@ -1624,6 +1735,8 @@ struct EquivalentCell<'a> {
     spectrum: CellSpectrum,
     /// [リング][核種] の弾性散乱の移行（[`UfgTransfer::RingFlux`] のときだけ）
     transfers: Option<Vec<Vec<NuclideTransfer>>>,
+    /// 減速計算の 1 次の変化（[`shield_fuel_tangent`] で頼んだときだけ）
+    tangent: Option<PinTangent>,
 }
 
 /// セル `pin.cell` の内側の `pin.rings` のリング（燃料は核種の並びの同じ物質、棒は同じ物質）を中心に、群ごとの Dancoff 係数 `dancoff` を合わせた
@@ -1729,9 +1842,63 @@ fn solve_equivalent_cell<'a>(
             .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
-    let (spectrum, transfers) = match pin.transfer {
-        UfgTransfer::InfiniteDilution => (
-            slowing_down_with(
+    let solve = || -> Result<_, UfgError> {
+        Ok(match pin.transfer {
+            UfgTransfer::InfiniteDilution => (
+                slowing_down_with(
+                    library,
+                    &cylinder,
+                    &inputs,
+                    range,
+                    pin.collision,
+                    pin.thinning,
+                    pin.scattering,
+                    pin.hold,
+                )?,
+                None,
+            ),
+            UfgTransfer::RingFlux => {
+                let (spectrum, transfers) = slowing_down_transfers(
+                    library,
+                    &cylinder,
+                    &inputs,
+                    range,
+                    pin.collision,
+                    pin.thinning,
+                    pin.scattering,
+                    pin.shares,
+                    pin.hold,
+                )?;
+                (spectrum, Some(transfers))
+            }
+        })
+    };
+    let (spectrum, transfers) = solve()?;
+    // 1 次の変化は、同じ設定の減速計算と一緒に解き直す（時間を向きのない減速計算と比べる測定。ADR-0247 の段 I2-2）。比べる
+    // 向きのない減速計算も解き直す（最初の減速計算が自由ガスの核の D の値の表を埋めるので、同じ表を引く 2 度目と比べる）
+    let tangent = match pin.tangent {
+        None => None,
+        Some(names) => {
+            let clock = Instant::now();
+            solve()?;
+            let plain = clock.elapsed().as_secs_f64();
+            let directions: Vec<Vec<Vec<f64>>> = names
+                .iter()
+                .map(|name| {
+                    inputs
+                        .iter()
+                        .map(|m| {
+                            m.iter()
+                                .flat_map(|m| &m.composition)
+                                .map(|(n, d)| if n == name { *d } else { 0.0 })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect();
+            let clock = Instant::now();
+            let shares = (pin.transfer == UfgTransfer::RingFlux).then_some(pin.shares);
+            let (again, again_transfers, tangent) = slowing_down_tangent(
                 library,
                 &cylinder,
                 &inputs,
@@ -1739,23 +1906,18 @@ fn solve_equivalent_cell<'a>(
                 pin.collision,
                 pin.thinning,
                 pin.scattering,
+                shares,
                 pin.hold,
-            )?,
-            None,
-        ),
-        UfgTransfer::RingFlux => {
-            let (spectrum, transfers) = slowing_down_transfers(
-                library,
-                &cylinder,
-                &inputs,
-                range,
-                pin.collision,
-                pin.thinning,
-                pin.scattering,
-                pin.shares,
-                pin.hold,
+                &directions,
             )?;
-            (spectrum, Some(transfers))
+            let seconds = clock.elapsed().as_secs_f64();
+            // 1 次の変化を求めても減速計算は同じ（違えば 1 次の変化は別の問題の微分）
+            if again != spectrum || again_transfers != transfers {
+                return Err(SelfShieldingError::TangentSpectrum(cell));
+            }
+            Some(PinTangent::new(
+                names, &inputs, pin.rings, &spectrum, tangent, plain, seconds,
+            ))
         }
     };
     Ok(Some(EquivalentCell {
@@ -1767,6 +1929,7 @@ fn solve_equivalent_cell<'a>(
         groups: top..bottom,
         spectrum,
         transfers,
+        tangent,
     }))
 }
 
@@ -1855,6 +2018,7 @@ fn shield_cell(
         groups,
         spectrum,
         transfers,
+        tangent,
     } = &equivalent;
     let (top, bottom) = (groups.start, groups.end);
     let bounds = library.groups.bounds();
@@ -1967,6 +2131,7 @@ fn shield_cell(
         groups: top..bottom,
         points: spectrum.points,
         demand: spectrum.demand,
+        tangent: tangent.clone().map(Arc::new),
     }))
 }
 

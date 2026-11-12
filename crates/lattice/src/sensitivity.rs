@@ -54,6 +54,8 @@ pub struct SensitivityInput {
     pub generalized: Option<GeneralizedInput>,
     /// 少数群定数の数密度の微分（ADR-0247 の段 4。`None` なら求めない）
     pub few_group: Option<FewGroupInput>,
+    /// 燃料のピンの UFG の減速計算の 1 次の変化を求める向きの核種（ADR-0247 の段 I2-2。`None` なら求めない）
+    pub ufg_tangent: Option<Vec<String>>,
 }
 
 /// `[sensitivity.few-group]` の入力: 格子全体の少数群定数（テーブルの全断面積、νΣf、Σf、P0 の散乱行列）の核種の数密度の微分を、
@@ -189,6 +191,53 @@ pub struct Report {
     /// 少数群定数の微分（`[sensitivity.few-group]` を与えたときだけ）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub few_group: Option<FewGroupReport>,
+    /// UFG の減速計算の 1 次の変化（`[sensitivity.ufg-tangent]` を与えたときだけ）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ufg_tangent: Option<UfgTangentReport>,
+}
+
+/// 燃料のピンの UFG の減速計算の、核種の個数密度の向きごとの 1 次の変化（ADR-0247 の段 I2-2）
+#[derive(Debug, Serialize)]
+pub struct UfgTangentReport {
+    /// 向きの核種（[向き] の順）と、巨視的断面積の反応（[反応] の順）
+    pub nuclides: Vec<String>,
+    pub reactions: Vec<String>,
+    /// 状態の組成の自己遮蔽を、1 次の変化なしと、1 次の変化と一緒に解いた経過時間 (s)。後者はピンごとに減速計算を 3 回解く
+    /// （`ufg_tangent_report`）ので、1 次の変化の時間はピンの `plain_seconds` と `tangent_seconds` で比べる
+    pub shielding_seconds: f64,
+    pub tangent_shielding_seconds: f64,
+    /// 解いたピン（格子の対称性で移り合うピンは代表だけ）
+    pub pins: Vec<UfgTangentPin>,
+}
+
+/// 1 本のピンの UFG の減速計算の 1 次の変化（`shielding::PinTangent`）
+#[derive(Debug, Serialize)]
+pub struct UfgTangentPin {
+    pub cell: usize,
+    /// UFG の範囲の最初の群（ライブラリの群の番号。値の [群] はここから）と、減速計算の格子点の数
+    pub first_group: usize,
+    pub points: usize,
+    /// 向きのない減速計算と、1 次の変化と一緒に解いた減速計算の経過時間 (s)
+    pub plain_seconds: f64,
+    pub tangent_seconds: f64,
+    /// 1 次の変化の区間ごとの経過時間 (s。`ufg::TangentCost`)
+    pub tracks_seconds: f64,
+    pub free_gas_seconds: f64,
+    pub solve_seconds: f64,
+    pub collapse_seconds: f64,
+    /// 飛程の微分を表で求めた格子点と衝突確率で求めた格子点の数（掃き直しで持った微分を読んだ格子点は数えない）、飛程の微分を持つリングの組の数
+    pub table_points: usize,
+    pub exact_points: usize,
+    pub classes: usize,
+    /// 向きごとの δF と自由ガスの散乱源の積率の大きさ (B)
+    pub bytes: u64,
+    /// [燃料のリング][群] の中性子束と、[向き][燃料のリング][群] のその 1 次の変化
+    pub flux: Vec<Vec<f64>>,
+    pub flux_change: Vec<Vec<Vec<f64>>>,
+    /// [燃料のリング][反応][群] の巨視的断面積 (1/cm) と、[向き][燃料のリング][反応][群] の暗黙の分（数密度を (1 + δ) 倍したときの
+    /// δ についての微分）
+    pub macroscopic: Vec<Vec<Vec<f64>>>,
+    pub implicit: Vec<Vec<Vec<Vec<f64>>>>,
 }
 
 /// 少数群定数の微分の結果（ADR-0247 の段 4）
@@ -340,6 +389,11 @@ pub struct Direct {
 pub type Reshield<'a> =
     dyn FnMut(&[MaterialInput]) -> anyhow::Result<(Vec<Material>, Vec<usize>)> + 'a;
 
+/// 自己遮蔽を、燃料のピンの UFG の減速計算の、核種の向きごとの 1 次の変化と一緒に解き直す口（`shielding::shield_fuel_tangent`。
+/// 状態と同じ自己遮蔽の作り方）
+pub type Retangent<'a> =
+    dyn FnMut(&[MaterialInput], &[String]) -> anyhow::Result<FuelShielding> + 'a;
+
 /// 直接の摂動の刻み δ = ε, −ε, ε/2, −ε/2
 fn steps_of(epsilon: f64) -> [f64; 4] {
     [epsilon, -epsilon, epsilon / 2.0, -epsilon / 2.0]
@@ -388,13 +442,15 @@ struct FewGroupState<'a> {
 }
 
 /// 状態 `state` を、`start` から（`None` なら平らな初期値から）`options` で解き、感度を求める。前向きの解と収束した状態も返す。
-/// `[sensitivity.few-group]` の `shielded` は、自己遮蔽を `reshield` で解き直す（なければエラー）
+/// `[sensitivity.few-group]` の `shielded` は、自己遮蔽を `reshield` で解き直す（なければエラー）。`[sensitivity.ufg-tangent]` は、
+/// 状態の組成の自己遮蔽を `reshield` と `retangent` で解き直す（どちらかが無ければエラー）
 pub fn evaluate(
     input: &SensitivityInput,
     state: &State,
     options: &Options,
     start: Option<&Start>,
     mut reshield: Option<&mut Reshield>,
+    retangent: Option<&mut Retangent>,
 ) -> anyhow::Result<(Solution, Start, Report)> {
     // 解く前に分かる入力の誤りは、前向きと随伴の固有値計算の前に止める
     if let Some(f) = &input.few_group {
@@ -407,6 +463,19 @@ pub fn evaluate(
             );
         }
     }
+    if input.ufg_tangent.is_some() && (reshield.is_none() || retangent.is_none()) {
+        bail!(
+            "[sensitivity.ufg-tangent] solves the self-shielding of the state again, which needs a self-shielded \
+             state solved from its own composition (not from a reference state)"
+        );
+    }
+    // UFG の減速計算の 1 次の変化は状態の固有値計算によらないので、入力の誤りを確かめた後、固有値計算の前に解く
+    let ufg_tangent = match (&input.ufg_tangent, reshield.as_deref_mut(), retangent) {
+        (Some(names), Some(reshield), Some(retangent)) => {
+            Some(ufg_tangent_report(names, state, reshield, retangent)?)
+        }
+        _ => None,
+    };
     let materials: Vec<&Material> = state
         .region_index
         .iter()
@@ -619,8 +688,80 @@ pub fn evaluate(
             },
             nuclides: few_group_nuclides,
         }),
+        ufg_tangent,
     };
     Ok((solution, converged, report))
+}
+
+/// 状態の組成の自己遮蔽を、1 次の変化なし（`reshield`）と、核種 `names` の向きの 1 次の変化と一緒に（`retangent`）解き直し、
+/// 解いたピンの 1 次の変化と時間を集める（ADR-0247 の段 I2-2）。2 つの口は燃料の組成によらない前処理（Dancoff 係数、自由ガスの核の
+/// 表）を別々に持つので、どちらも最初から求める。1 次の変化と一緒の自己遮蔽は、ピンごとに減速計算を 3 回解く（状態の減速計算、比べる
+/// 向きのない減速計算、1 次の変化と一緒の減速計算。`shielding::shield_fuel_tangent`）ので、1 次の変化の時間は、ピンごとの 2 回目と
+/// 3 回目の差で読む
+fn ufg_tangent_report(
+    names: &[String],
+    state: &State,
+    reshield: &mut Reshield,
+    retangent: &mut Retangent,
+) -> anyhow::Result<UfgTangentReport> {
+    let clock = Instant::now();
+    reshield(state.materials).context("[sensitivity.ufg-tangent] self-shielding")?;
+    let shielding_seconds = clock.elapsed().as_secs_f64();
+    let clock = Instant::now();
+    let shielded =
+        retangent(state.materials, names).context("[sensitivity.ufg-tangent] tangent")?;
+    let tangent_shielding_seconds = clock.elapsed().as_secs_f64();
+    // 移り合うピンは代表の結果を共有する（同じ `Arc`）ので、代表のセルだけを書く
+    let mut pins: Vec<UfgTangentPin> = Vec::new();
+    let mut seen: Vec<*const crate::shielding::PinTangent> = Vec::new();
+    for pin in &shielded.pins {
+        let Some(t) = &pin.tangent else { continue };
+        if seen.contains(&std::sync::Arc::as_ptr(t)) {
+            continue;
+        }
+        seen.push(std::sync::Arc::as_ptr(t));
+        pins.push(UfgTangentPin {
+            cell: pin.cell,
+            first_group: t.groups.start,
+            points: t.points,
+            plain_seconds: t.plain_seconds,
+            tangent_seconds: t.tangent_seconds,
+            tracks_seconds: t.cost.tracks,
+            free_gas_seconds: t.cost.free_gas,
+            solve_seconds: t.cost.solve,
+            collapse_seconds: t.cost.collapse,
+            table_points: t.cost.table_points,
+            exact_points: t.cost.exact_points,
+            classes: t.cost.classes,
+            bytes: t.cost.bytes,
+            flux: t.flux.clone(),
+            flux_change: t.flux_change.clone(),
+            macroscopic: t.macroscopic.iter().map(|r| r.to_vec()).collect(),
+            implicit: t
+                .implicit
+                .iter()
+                .map(|d| d.iter().map(|r| r.to_vec()).collect())
+                .collect(),
+        });
+    }
+    if pins.is_empty() {
+        bail!("[sensitivity.ufg-tangent] no fuel pin of the state has a UFG range");
+    }
+    tracing::info!(
+        shielding_seconds,
+        tangent_shielding_seconds,
+        "UFG tangent self-shielding"
+    );
+    Ok(UfgTangentReport {
+        nuclides: names.to_vec(),
+        reactions: crate::shielding::PinTangent::REACTIONS
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        shielding_seconds,
+        tangent_shielding_seconds,
+        pins,
+    })
 }
 
 /// 解いた物質ごとの物質の微分 `weighted`（解いた物質の番号、微分）を、それを指す [領域] の（領域、微分）にしたもの

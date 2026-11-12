@@ -754,6 +754,15 @@ struct HeldCell {
     qb: u32,
 }
 
+/// 今の格子点の区間の置き場（[`Thermal::tangent_source`]）
+#[derive(Debug, Clone, Copy)]
+enum Current {
+    /// スイープの間で持った区間
+    Held(Held),
+    /// 作業用の配列（[`Thermal::scratch`]）と、[`Thermal::starts`] の核種の区間の始まり
+    Scratch,
+}
+
 /// 1 つの格子点の持った区間: [`Thermal::held_cells`] の中の区間（核種の順）と、[`Thermal::held_starts`] の中の [核種] の区間の
 /// 始まり（核種の数 + 1 個。最後は区間の数）の位置
 #[derive(Debug, Clone, Copy)]
@@ -1196,8 +1205,12 @@ pub(super) struct Thermal<'a> {
     held_starts: Vec<u32>,
     /// まだ持てる区間の数
     room: usize,
-    /// 作業用の、S(α, β) の移行の小区間と、その重み
-    sab: SabWork,
+    /// 作業用の、[自由ガスの核種] の S(α, β) の移行の小区間と、その重み（その格子点の値を、1 次の変化が読む。[`Thermal::tangent_source`]）
+    sab: Vec<SabWork>,
+    /// 1 次の変化を求めるとき（[`Thermal::keep_cells`]）、持たない格子点の区間を書く作業用の配列。`None` は書かない
+    scratch: Option<Vec<HeldCell>>,
+    /// 今の格子点の区間の置き場（[`Thermal::source`] が書き、[`Thermal::tangent_source`] が読む）
+    current: Option<Current>,
     /// 散乱源の経過時間（ログの内訳）: [自由ガスの核の区間, S(α, β) の移行]
     elapsed: [Duration; 2],
     /// 自由ガスの核の区間の仕事の内訳（ログ。[`Thermal::work`]）
@@ -1313,7 +1326,9 @@ impl<'a> Thermal<'a> {
             held_cells: Vec::new(),
             held_starts: Vec::new(),
             room: hold,
-            sab: SabWork::default(),
+            sab: vec![SabWork::default(); n_gases],
+            scratch: None,
+            current: None,
             elapsed: [Duration::ZERO; 2],
             work: FreeGasWork {
                 built: vec![0; n_gases],
@@ -1369,6 +1384,7 @@ impl<'a> Thermal<'a> {
         known: &mut [f64],
         own: &mut [f64],
     ) -> Result<(), UfgError> {
+        self.current = None;
         if m < self.start {
             return Ok(());
         }
@@ -1376,7 +1392,10 @@ impl<'a> Thermal<'a> {
         let n = known.len();
         let slot = m - self.start;
         let (parts, kind) = match self.held.get(slot).copied().flatten() {
-            Some(held) => (self.integrate_held(held, m, u, flux, n), 1),
+            Some(held) => {
+                self.current = Some(Current::Held(held));
+                (self.integrate_held(held, m, u, flux, n), 1)
+            }
             None => (self.build(slot, m, u, high, e, flux, n)?, 0),
         };
         let mut evaluations = 0;
@@ -1419,7 +1438,9 @@ impl<'a> Thermal<'a> {
         let (sigmas, rings) = (&self.sigma, &self.rings);
         let previous = self.previous.as_ref();
         // S(α, β) の上限より下の入射からの、S(α, β) の移行による散乱源
-        for ((table, (offset, sigma)), rings) in self.tables.iter().zip(sigmas).zip(rings) {
+        for (((table, (offset, sigma)), rings), work) in
+            self.tables.iter().zip(sigmas).zip(rings).zip(&mut self.sab)
+        {
             if let Some(table) = *table {
                 let source = SabSource {
                     table,
@@ -1429,7 +1450,7 @@ impl<'a> Thermal<'a> {
                     sigma,
                 };
                 let previous = previous.map(|(f, _)| f.as_slice());
-                source.add(m, e, rings, flux, previous, known, own, &mut self.sab)?;
+                source.add(m, e, rings, flux, previous, known, own, work)?;
             }
         }
         self.elapsed[0] += gas_done - clock;
@@ -1543,6 +1564,19 @@ impl<'a> Thermal<'a> {
         }
         let keep = !self.all.is_empty() && self.all.len() <= self.room;
         let first = self.held_cells.len();
+        // 1 次の変化を求めるなら、持たない格子点の区間も作業用の配列に書く（区間の格子点を u32 で持つ。持つときと同じ条件）
+        let scratch = match &mut self.scratch {
+            Some(scratch) if !keep => {
+                if u32::try_from(u.len()).is_err() {
+                    return Err(UfgError::TangentGrid(u.len()));
+                }
+                scratch.clear();
+                scratch.resize(self.all.len(), HeldCell::default());
+                self.current = Some(Current::Scratch);
+                true
+            }
+            _ => false,
+        };
         if keep {
             self.held[slot] = Some(Held {
                 cells: first,
@@ -1560,6 +1594,7 @@ impl<'a> Thermal<'a> {
             self.held_cells
                 .resize(first + self.all.len(), HeldCell::default());
             self.room -= self.all.len();
+            self.current = self.held[slot].map(Current::Held);
         }
         let Self {
             gases,
@@ -1571,6 +1606,7 @@ impl<'a> Thermal<'a> {
             starts,
             hits,
             held_cells,
+            scratch: scratch_cells,
             ..
         } = self;
         let add = adder(rings, prefix, previous.as_ref(), m, u, flux);
@@ -1673,6 +1709,12 @@ impl<'a> Thermal<'a> {
         let mut parts: Vec<ChunkSums> = if keep {
             all.par_chunks(CELLS_PER_TASK)
                 .zip(held_cells[first..].par_chunks_mut(CELLS_PER_TASK))
+                .enumerate()
+                .map(|(c, (chunk, out))| body(c, chunk, Some(out)))
+                .collect()
+        } else if let (true, Some(out)) = (scratch, scratch_cells.as_mut()) {
+            all.par_chunks(CELLS_PER_TASK)
+                .zip(out.par_chunks_mut(CELLS_PER_TASK))
                 .enumerate()
                 .map(|(c, (chunk, out))| body(c, chunk, Some(out)))
                 .collect()
@@ -1795,6 +1837,175 @@ impl<'a> Thermal<'a> {
             .collect()
     }
 
+    /// [自由ガスの核種] の（リング, 個数密度）。個数密度が 0 のリングは除いてある
+    pub(super) fn rings(&self) -> &[Vec<(usize, f64)>] {
+        &self.rings
+    }
+
+    /// 1 次の変化を求める（[`Thermal::tangent_source`]）ので、持たない格子点の区間も作業用の配列に書く
+    pub(super) fn keep_cells(&mut self) {
+        self.scratch = Some(Vec::new());
+    }
+
+    /// 格子点 m の D の散乱源と S(α, β) の移行の散乱源の 1 次の変化を、[`Thermal::source`] と同じ区間と小区間で求める。
+    /// `flux` は今のスイープの [リング] の中性子束（m を含む）、`f` はその格子点 m の値、`gas` は δF（m より前）とその累積の積率、
+    /// 前のスイープの δF。`known` に [向き][リング] の δF の分（個数密度を掛けたもの。δF_m の係数は
+    /// [`Thermal::source`] の F_m の係数と同じで、減速の式の行列にある）を、`explicit` に F を固めた個数密度の変化の分 Σ_l δN_l,i
+    /// × (その核種の散乱源) を足す。[`Thermal::source`] を同じ格子点で先に呼ぶこと
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn tangent_source(
+        &self,
+        m: usize,
+        u: &[f64],
+        flux: &[Vec<f64>],
+        f: &[f64],
+        gas: &GasTangent,
+        known: &mut [Vec<f64>],
+        explicit: &mut [Vec<f64>],
+    ) -> Result<(), UfgError> {
+        if m < self.start {
+            return Ok(());
+        }
+        let nd = gas.count;
+        let n = f.len();
+        // [核種][リング] の組の通し番号の始まり
+        let mut offsets = Vec::with_capacity(self.rings.len() + 1);
+        offsets.push(0);
+        for rings in &self.rings {
+            offsets.push(offsets.last().copied().unwrap_or(0) + rings.len());
+        }
+        let pairs = offsets[self.rings.len()];
+        let cells: (&[HeldCell], &[u32]) = match self.current {
+            Some(Current::Held(held)) => (
+                &self.held_cells[held.cells..held.cells + held.len],
+                &self.held_starts[held.starts..held.starts + self.gases.len() + 1],
+            ),
+            Some(Current::Scratch) => match &self.scratch {
+                Some(scratch) => (scratch.as_slice(), self.starts.as_slice()),
+                None => return Err(UfgError::TangentCells(m)),
+            },
+            // 掃き直しの始めより後の格子点は、[`Thermal::source`] が区間の置き場を書く（無ければ呼び方の誤りで、黙って 0 にしない）
+            None => return Err(UfgError::TangentCells(m)),
+        };
+        let (cells, starts) = cells;
+        // 区間の塊ごとの、[向き × リング] の δF の積分と、[核種とリングの組] の F の積分（既知の部分, F_m の係数）。塊の順に足す
+        let parts: Vec<TangentChunk> = cells
+            .par_chunks(CELLS_PER_TASK)
+            .enumerate()
+            .map(|(c, chunk)| {
+                let mut known = vec![0.0; nd * n];
+                let mut base = vec![(0.0, 0.0); pairs];
+                let mut moments = vec![0.0; 3 * nd];
+                let first = c * CELLS_PER_TASK;
+                let mut l = starts.partition_point(|&s| s as usize <= first) - 1;
+                for (j, cell) in chunk.iter().enumerate() {
+                    while starts[l + 1] as usize <= first + j {
+                        l += 1;
+                    }
+                    if self.rings[l].is_empty() {
+                        continue;
+                    }
+                    let quadratic = Quadratic::held(cell);
+                    let (qa, qb) = (cell.qa as usize, cell.qb as usize);
+                    for (p, &(i, density)) in self.rings[l].iter().enumerate() {
+                        let history = History {
+                            flux: &flux[i],
+                            prefix: &self.prefix[i],
+                            previous: self
+                                .previous
+                                .as_ref()
+                                .map(|(f, p)| (f[i].as_slice(), &p[i])),
+                        };
+                        let (k, o) = integrate(&quadratic, u, m, cell.a, cell.b, qa, qb, &history);
+                        let sum = &mut base[offsets[l] + p];
+                        sum.0 += k;
+                        sum.1 += o;
+                        let (now, previous) = gas.histories(i);
+                        integrate_tangent(
+                            &quadratic,
+                            u,
+                            m,
+                            (cell.a, cell.b, qa, qb),
+                            &now,
+                            previous.as_ref(),
+                            density,
+                            &mut moments,
+                            &mut known[i * nd..(i + 1) * nd],
+                        );
+                    }
+                }
+                (known, base)
+            })
+            .collect();
+        let mut base = vec![(0.0, 0.0); pairs];
+        for (part, sums) in parts {
+            for d in 0..nd {
+                for i in 0..n {
+                    known[d][i] += part[i * nd + d];
+                }
+            }
+            for (b, s) in base.iter_mut().zip(sums) {
+                b.0 += s.0;
+                b.1 += s.1;
+            }
+        }
+        // S(α, β) の移行の散乱源: [`SabSource::add`] がこの格子点で求めた小区間の重みを、δF と F に掛ける
+        let previous = self.previous.as_ref().map(|(f, _)| f);
+        for (l, table) in self.tables.iter().enumerate() {
+            if table.is_none() {
+                continue;
+            }
+            for term in &self.sab[l].terms {
+                let Ok(Some((lower, weight, tau))) = *term else {
+                    continue;
+                };
+                for (p, &(i, density)) in self.rings[l].iter().enumerate() {
+                    let mut assign = |idx: usize, c: f64| {
+                        // F の値（[`SabSource::add`] と同じ: m より後は前のスイープ、最初のスイープは F_m）
+                        let value = if idx < m {
+                            flux[i][idx]
+                        } else if idx == m {
+                            f[i]
+                        } else {
+                            previous.map_or(f[i], |pf| pf[i][idx])
+                        };
+                        let sum = &mut base[offsets[l] + p];
+                        sum.0 += c * value;
+                        let deltas = if idx < m {
+                            Some(&gas.flux[i][idx * nd..][..nd])
+                        } else if idx > m {
+                            gas.previous
+                                .as_ref()
+                                .map(|(pf, _)| &pf[i][idx * nd..][..nd])
+                        } else {
+                            None
+                        };
+                        for (d, delta) in deltas.into_iter().flatten().enumerate() {
+                            known[d][i] += density * c * delta;
+                        }
+                    };
+                    assign(lower, weight * (1.0 - tau));
+                    if tau > 0.0 {
+                        assign(lower + 1, weight * tau);
+                    }
+                }
+            }
+        }
+        // 個数密度の変化の分 Σ_l δN_l,i (k_l,i + o_l,i F_m)
+        for (d, directions) in gas.directions.iter().enumerate() {
+            for (l, rings) in self.rings.iter().enumerate() {
+                for (p, &(i, _)) in rings.iter().enumerate() {
+                    let change = directions[l][p];
+                    if change != 0.0 {
+                        let (k, o) = base[offsets[l] + p];
+                        explicit[d][i] += change * (k + o * f[i]);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// 散乱源の経過時間の和 (s): [自由ガスの核の区間, S(α, β) の移行]
     pub(super) fn elapsed(&self) -> [f64; 2] {
         self.elapsed.map(|t| t.as_secs_f64())
@@ -1834,6 +2045,269 @@ impl<'a> Thermal<'a> {
         let prefixes = std::mem::replace(&mut self.prefix, fresh);
         self.previous = Some((flux.to_vec(), prefixes));
         change
+    }
+}
+
+/// 自由ガスの核と S(α, β) の移行の散乱源の 1 次の変化（ADR-0247 の案 I2）の、スイープの間の状態。δF と累積の積率は、
+/// 格子点ごとに向きを続けて並べる（[格子点 × 向き]）: 1 つの区間を、すべての向きの δF について同じ重みで積分するので、向きの
+/// 並びを内側にして、区間の重みの計算（両端の区間の Gauss-Legendre の重み、2 次式の係数）を向きの間で共有する
+#[derive(Debug, Clone)]
+pub(super) struct GasTangent {
+    /// [向き][自由ガスの核種][その核種を含むリング（[`Thermal::rings`] の順）] の δN
+    directions: Vec<Vec<Vec<f64>>>,
+    /// 向きの数
+    count: usize,
+    start: usize,
+    /// [リング] の今のスイープの [格子点 × 向き] の δF（自由ガスの核種を含むリングだけ。格子点は 0 から）
+    flux: Vec<Vec<f64>>,
+    /// [リング] の今のスイープの [(格子点 − start) × 積率 × 向き] の δF の累積の積率（[`Prefix`] と同じ値）
+    prefix: Vec<Vec<Dd>>,
+    /// 前のスイープの [リング] の δF と累積の積率
+    previous: Option<PreviousTangent>,
+}
+
+/// 前のスイープの [リング] の [格子点 × 向き] の δF と [(格子点 − start) × 積率 × 向き] の累積の積率（[`GasTangent`]）
+type PreviousTangent = (Vec<Vec<f64>>, Vec<Vec<Dd>>);
+
+/// 区間の塊の 1 つの、[向き × リング] の δF の積分と、[核種とリングの組] の F の積分（既知の部分, F_m の係数）
+/// （[`Thermal::tangent_source`]）
+type TangentChunk = (Vec<f64>, Vec<(f64, f64)>);
+
+/// 1 つのリングの、[格子点 × 向き] の δF とその累積の積率（[`GasTangent`]）
+struct TangentHistory<'a> {
+    count: usize,
+    start: usize,
+    flux: &'a [f64],
+    prefix: &'a [Dd],
+}
+
+impl TangentHistory<'_> {
+    /// [`Prefix::moments`] の、向きごとの ∫_{x0}^{x1} δF (s − c)^j ds を `out`（[積率 × 向き]）に足す
+    #[allow(clippy::too_many_arguments)]
+    fn moments(&self, u: &[f64], q0: usize, x0: f64, q1: usize, x1: f64, c: f64, out: &mut [f64]) {
+        if q0 >= q1 {
+            self.local(u, q0, x0, x1, c, out);
+            return;
+        }
+        self.local(u, q0, x0, u[q0 + 1], c, out);
+        if x1 > u[q1] {
+            self.local(u, q1, u[q1], x1, c, out);
+        }
+        let n = self.count;
+        let (p0, p1) = (
+            &self.prefix[(q0 + 1 - self.start) * 3 * n..][..3 * n],
+            &self.prefix[(q1 - self.start) * 3 * n..][..3 * n],
+        );
+        for d in 0..n {
+            let diff = |j: usize| p1[j * n + d].sub(p0[j * n + d]);
+            let (d0, d1, d2) = (diff(0), diff(1), diff(2));
+            out[d] += d0.value();
+            out[n + d] += d1.sub(d0.mul(c)).value();
+            out[2 * n + d] += d2.sub(d1.mul(2.0 * c)).add_dd(d0.mul(c).mul(c)).value();
+        }
+    }
+
+    /// [`local_moments`] の、向きごとの値を `out` に足す（区間の両端の δF の重みを先に求める）
+    fn local(&self, u: &[f64], q: usize, x0: f64, x1: f64, c: f64, out: &mut [f64]) {
+        let width = u[q + 1] - u[q];
+        if x1 <= x0 || width <= 0.0 {
+            return;
+        }
+        let (mid, half) = (0.5 * (x0 + x1), 0.5 * (x1 - x0));
+        let (mut a, mut b) = ([0.0; 3], [0.0; 3]);
+        for &(x, w) in &GAUSS_LEGENDRE_2 {
+            let s = mid + half * x;
+            let t = (s - u[q]) / width;
+            let d = s - c;
+            let v = w * half;
+            for (j, power) in [1.0, d, d * d].into_iter().enumerate() {
+                a[j] += v * (1.0 - t) * power;
+                b[j] += v * t * power;
+            }
+        }
+        let n = self.count;
+        let (fa, fb) = (&self.flux[q * n..][..n], &self.flux[(q + 1) * n..][..n]);
+        for j in 0..3 {
+            for d in 0..n {
+                out[j * n + d] += a[j] * fa[d] + b[j] * fb[d];
+            }
+        }
+    }
+}
+
+/// [`integrate`] の既知の部分を、すべての向きの δF について求め、`density` を掛けて `out`（[向き]）に足す（δF_m の係数は
+/// [`integrate`] の F_m の係数と同じ）。`moments` は作業用の [積率 × 向き] の配列
+#[allow(clippy::too_many_arguments)]
+fn integrate_tangent(
+    f: &Quadratic,
+    u: &[f64],
+    m: usize,
+    (a, b, qa, qb): (f64, f64, usize, usize),
+    now: &TangentHistory,
+    previous: Option<&TangentHistory>,
+    density: f64,
+    moments: &mut [f64],
+    out: &mut [f64],
+) {
+    let n = now.count;
+    let last = u.len() - 1;
+    let [a0, a1, a2] = f.coefficients;
+    let against = |moments: &mut [f64], out: &mut [f64]| {
+        for d in 0..n {
+            out[d] += density * (a0 * moments[d] + a1 * moments[n + d] + a2 * moments[2 * n + d]);
+        }
+        moments.fill(0.0);
+    };
+    moments.fill(0.0);
+    if m >= 1 {
+        let x1 = b.min(u[m - 1]);
+        if x1 > a {
+            now.moments(u, qa, a, qb.min(m - 1), x1, f.c, moments);
+            against(moments, out);
+        }
+        let (x0, x1) = (a.max(u[m - 1]), b.min(u[m]));
+        if x1 > x0 {
+            let (wa, wb) = f.linear(x0, x1);
+            let (ta, tb) = (
+                (x0 - u[m - 1]) / (u[m] - u[m - 1]),
+                (x1 - u[m - 1]) / (u[m] - u[m - 1]),
+            );
+            let w = density * (wa * (1.0 - ta) + wb * (1.0 - tb));
+            for (o, f) in out.iter_mut().zip(&now.flux[(m - 1) * n..][..n]) {
+                *o += w * f;
+            }
+        }
+    }
+    let Some(previous) = previous else {
+        return;
+    };
+    if m < last {
+        let (x0, x1) = (a.max(u[m]), b.min(u[m + 1]));
+        if x1 > x0 {
+            let (wa, wb) = f.linear(x0, x1);
+            let (ta, tb) = (
+                (x0 - u[m]) / (u[m + 1] - u[m]),
+                (x1 - u[m]) / (u[m + 1] - u[m]),
+            );
+            let w = density * (wa * ta + wb * tb);
+            for (o, f) in out.iter_mut().zip(&previous.flux[(m + 1) * n..][..n]) {
+                *o += w * f;
+            }
+        }
+        let (x0, x1) = (a.max(u[m + 1]), b.min(u[last]));
+        if x1 > x0 {
+            previous.moments(u, qa.max(m + 1), x0, qb.min(last), x1, f.c, moments);
+            against(moments, out);
+        }
+        let x0 = a.max(u[last]);
+        if b > x0 {
+            let w = density * f.integral(x0, b);
+            for (o, f) in out.iter_mut().zip(&previous.flux[last * n..][..n]) {
+                *o += w * f;
+            }
+        }
+    }
+}
+
+impl GasTangent {
+    /// `directions` は [向き][自由ガスの核種][リング] の δN、`n` はリングの数、`start` は掃き直しの始め（[`Thermal::start`]）
+    pub(super) fn new(directions: Vec<Vec<Vec<f64>>>, n: usize, start: usize) -> Self {
+        let count = directions.len();
+        Self {
+            directions,
+            count,
+            start,
+            flux: vec![Vec::new(); n],
+            prefix: vec![Vec::new(); n],
+            previous: None,
+        }
+    }
+
+    /// 格子点 m の δF（`deltas` は [向き][リング][格子点]）が決まったあと、自由ガスの核種を含むリング（`rings`。[`Thermal::rings`]）の
+    /// δF を写し、累積の積率を進める（[`Thermal::record`] と同じ）
+    pub(super) fn record(
+        &mut self,
+        m: usize,
+        u: &[f64],
+        deltas: &[Vec<Vec<f64>>],
+        rings: &[Vec<(usize, f64)>],
+    ) -> Result<(), UfgError> {
+        let n = self.count;
+        // 自由ガスの核種を含むリング（同じリングを複数の核種が持つときは 1 度だけ進める）
+        let mut gas_rings: Vec<usize> = rings.iter().flatten().map(|&(i, _)| i).collect();
+        gas_rings.sort_unstable();
+        gas_rings.dedup();
+        for i in gas_rings {
+            // δF の履歴は格子点の順に 1 点ずつ伸びる（違えば掃き直しの戻し方の誤りで、別の格子点の δF を読む）
+            if self.flux[i].len() != m * n {
+                return Err(UfgError::TangentHistory { ring: i, point: m });
+            }
+            self.flux[i].extend(deltas.iter().map(|d| d[i][m]));
+            if m < self.start {
+                continue;
+            }
+            let (flux, prefix) = (&self.flux[i], &mut self.prefix[i]);
+            if m == self.start {
+                prefix.clear();
+                prefix.resize(3 * n, Dd::default());
+                continue;
+            }
+            let base = prefix.len() - 3 * n;
+            prefix.resize(base + 6 * n, Dd::default());
+            for d in 0..n {
+                let s = segment_moments(u[m - 1], u[m], flux[(m - 1) * n + d], flux[m * n + d]);
+                for (j, s) in s.into_iter().enumerate() {
+                    prefix[base + 3 * n + j * n + d] = prefix[base + j * n + d].add(s);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// スイープを終え、今のスイープの δF と累積の積率を、次のスイープの前のスイープにする（[`Thermal::finish`] と同じ）。今の
+    /// スイープの δF は、掃き直さない格子点（start より前）だけを残す
+    pub(super) fn finish(&mut self) {
+        let keep = self.start * self.count;
+        let flux: Vec<Vec<f64>> = self
+            .flux
+            .iter_mut()
+            .map(|f| {
+                let all = f.clone();
+                f.truncate(keep.min(f.len()));
+                all
+            })
+            .collect();
+        let prefix = self.prefix.iter_mut().map(std::mem::take).collect();
+        self.previous = Some((flux, prefix));
+    }
+
+    /// 持っている δF、累積の積率と前のスイープのそれの大きさ (B)
+    pub(super) fn bytes(&self) -> u64 {
+        let f64s = |v: &Vec<f64>| (v.capacity() * std::mem::size_of::<f64>()) as u64;
+        let dds = |v: &Vec<Dd>| (v.capacity() * std::mem::size_of::<Dd>()) as u64;
+        let now: u64 =
+            self.flux.iter().map(f64s).sum::<u64>() + self.prefix.iter().map(dds).sum::<u64>();
+        let before = self.previous.as_ref().map_or(0, |(f, p)| {
+            f.iter().map(f64s).sum::<u64>() + p.iter().map(dds).sum::<u64>()
+        });
+        now + before
+    }
+
+    /// リング `i` の今のスイープと前のスイープの δF の履歴
+    fn histories(&self, i: usize) -> (TangentHistory<'_>, Option<TangentHistory<'_>>) {
+        let now = TangentHistory {
+            count: self.count,
+            start: self.start,
+            flux: &self.flux[i],
+            prefix: &self.prefix[i],
+        };
+        let previous = self.previous.as_ref().map(|(f, p)| TangentHistory {
+            count: self.count,
+            start: self.start,
+            flux: &f[i],
+            prefix: &p[i],
+        });
+        (now, previous)
     }
 }
 
@@ -1895,6 +2369,8 @@ impl SabSource<'_> {
         let t_low = e - floor;
         let t_high = table.transfer[table.transfer.len() - 1].min(e - table.incident[0]);
         if t_low >= t_high {
+            // この格子点の小区間は無い（1 次の変化は `work` の小区間を読む）
+            work.terms.clear();
             return Ok(());
         }
         // 格子点 q の移行 t_q = e − E'_q（q とともに増える）。表の上限以下の入射の最初の格子点から
