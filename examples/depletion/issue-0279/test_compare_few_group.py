@@ -121,5 +121,19 @@ class Implicit(unittest.TestCase):
         self.assertAlmostEqual(terms[0][1], 900.0 / 0.1 * -0.005)
 
 
+class Inputs(unittest.TestCase):
+    def test_other_than_two_groups_is_refused(self):
+        r = report(-0.05, (-0.05, -0.05))
+        r["few_group"]["responses"] = r["few_group"]["responses"][:9]
+        with self.assertRaises(SystemExit):
+            cfg.compare(r)
+
+    def test_a_report_without_direct_perturbations_is_refused(self):
+        r = report(-0.05, (-0.05, -0.05))
+        del r["epsilon"]
+        with self.assertRaises(SystemExit):
+            cfg.compare(r)
+
+
 if __name__ == "__main__":
     unittest.main()
