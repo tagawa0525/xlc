@@ -1751,6 +1751,28 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
 }
 
 #[test]
+fn shielders_refuse_a_reuse_of_another_tracking() {
+    // 前処理（Dancoff 係数）は、そのトラッキングの格子のものだけを使う（別の格子の係数で黙って解かない）
+    let (history, library) = history();
+    let text = derivative_input(0.1);
+    let (s, other) = (setup(&text), setup(&text));
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let mut reuse = ShieldingReuse::new(&other.tracking);
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        branches.region_materials(0),
+        s.input.branches.as_ref().unwrap().varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    );
+    let error = shielder
+        .shield_state(&mut reuse, &library, &branches.state(3), None, Vec::new)
+        .unwrap_err();
+    assert!(error.to_string().contains("another tracking"), "{error}");
+    assert_eq!(reuse.dancoff_solves(), 0);
+}
+
+#[test]
 fn perturbed_shieldings_keep_the_pin_dancoff_factors_of_the_state() {
     // 摂動の組成は燃料の数密度だけを変えるので、状態の自己遮蔽と前処理を共有すれば、燃料のピンの Dancoff 係数を状態の 1 回だけ
     // 解く（ADR-0194）。摂動の自己遮蔽は、前処理を持たずに解いたものとビットで同じ
