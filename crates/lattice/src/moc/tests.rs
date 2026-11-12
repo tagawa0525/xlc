@@ -2513,12 +2513,18 @@ fn k_derivative_rejects_changes_it_cannot_represent() {
     ));
 }
 
-/// 真空の領域を 1 つ含む 2 × 2 の格子（右と下が真空）の、`order` 次の散乱の 1 回のスイープの入力（物質、平衡値の展開係数、
-/// 入ってくる角度中性子束）
-fn sweep_inputs(
-    tracking: &Tracking,
-    order: usize,
-) -> (Vec<Material>, Vec<Vec<f64>>, Vec<(usize, isize)>, Vec<f64>) {
+/// 1 回のスイープの入力
+struct SweepInputs {
+    materials: Vec<Material>,
+    /// [領域][モーメント][群]
+    equilibrium: Vec<Vec<f64>>,
+    pairs: Vec<(usize, isize)>,
+    /// [トラック][向き][極角][群]
+    incoming: Vec<f64>,
+}
+
+/// 真空の領域を 1 つ含む 2 × 2 の格子（右と下が真空。`vacuum_corner_tracking`）の、`order` 次の散乱の 1 回のスイープの入力
+fn sweep_inputs(tracking: &Tracking, order: usize) -> SweepInputs {
     let (f, m, void) = (fuel(), moderator(), Material::void(2));
     let materials = vec![
         f.clone(),
@@ -2543,7 +2549,12 @@ fn sweep_inputs(
     let incoming: Vec<f64> = (0..2 * tracking.tracks.len() * width)
         .map(|j| 0.05 + ((37 * j) % 101) as f64 * 1.0e-3)
         .collect();
-    (materials, equilibrium, pairs, incoming)
+    SweepInputs {
+        materials,
+        equilibrium,
+        pairs,
+        incoming,
+    }
 }
 
 fn vacuum_corner_tracking() -> Tracking {
@@ -2562,7 +2573,12 @@ fn vacuum_corner_tracking() -> Tracking {
 fn anisotropic_sweep_returns_zeroed_direction_sums_to_the_pool() {
     let tracking = vacuum_corner_tracking();
     let mesh = CoarseMesh::new(&tracking);
-    let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, 1);
+    let SweepInputs {
+        materials,
+        equilibrium,
+        pairs,
+        incoming,
+    } = sweep_inputs(&tracking, 1);
     let materials: Vec<&Material> = materials.iter().collect();
     let sweeper = Sweeper::new(
         &tracking,
@@ -2609,7 +2625,12 @@ fn sweep_does_not_depend_on_the_contents_left_in_its_work_arrays() {
     let tracking = vacuum_corner_tracking();
     let mesh = CoarseMesh::new(&tracking);
     for order in [0, 1, 2] {
-        let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, order);
+        let SweepInputs {
+            materials,
+            equilibrium,
+            pairs,
+            incoming,
+        } = sweep_inputs(&tracking, order);
         let materials: Vec<&Material> = materials.iter().collect();
         let sweeper = || {
             Sweeper::new(
@@ -2667,7 +2688,12 @@ fn products_do_not_depend_on_the_contents_left_in_the_pool() {
     let tracking = vacuum_corner_tracking();
     let mesh = CoarseMesh::new(&tracking);
     for order in [0, 1, 2] {
-        let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, order);
+        let SweepInputs {
+            materials,
+            equilibrium,
+            pairs,
+            incoming,
+        } = sweep_inputs(&tracking, order);
         let materials: Vec<&Material> = materials.iter().collect();
         // 随伴の問題は別の値にする
         let adjoint: Vec<Vec<f64>> = equilibrium
@@ -2718,13 +2744,18 @@ fn products_do_not_depend_on_the_contents_left_in_the_pool() {
 fn a_track_group_spanning_azimuths_keeps_every_azimuth_in_its_moment_sums() {
     let tracking = vacuum_corner_tracking();
     let mesh = CoarseMesh::new(&tracking);
-    let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, 1);
+    let SweepInputs {
+        materials,
+        equilibrium,
+        pairs,
+        incoming,
+    } = sweep_inputs(&tracking, 1);
     let materials: Vec<&Material> = materials.iter().collect();
     let sums = |one_group: bool| {
         let mut representatives = Representatives::all(&tracking, &mesh, pairs.len());
         if one_group {
             // 対称性を使うときのように、1 つの組が方位角をまたぐ
-            representatives.chunks = vec![0..tracking.tracks.len()];
+            representatives.chunks = std::iter::once(0..tracking.tracks.len()).collect();
         }
         let sweeper = Sweeper::new(&tracking, &materials, 2, &mesh, &pairs, representatives);
         let mut outgoing = vec![0.0; sweeper.outgoing_len()];
