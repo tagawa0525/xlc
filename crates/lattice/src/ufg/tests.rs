@@ -2342,6 +2342,45 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
 }
 
 #[test]
+fn shared_kernels_give_the_transfers_of_fresh_ones() {
+    // 自由ガスの核の区間と D の値（ADR-0248）を、ほかの減速計算（個数密度の違う燃料で、間引いた格子も違う）と共有する表から
+    // 引いても、作り直したときと中性子束と移行がビットで同じ。2 本目は 1 本目の格子点の値を使う
+    let (lib, fuel, water) = transfer_cell(None);
+    let mut denser = fuel.clone();
+    for (_, density) in &mut denser.composition {
+        *density *= 1.3;
+    }
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let solve = |fuel: &MaterialInput, shares: &ShareCellCache| {
+        let rings = [Some(fuel), None, Some(&water), Some(&water)];
+        let solved = slowing_down_transfers(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            Some(1.0e-4),
+            free_gas_heavy(400.0, 2, Some(3)),
+            shares,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap();
+        format!("{solved:?}")
+    };
+    let shared = ShareCellCache::default();
+    shared.kernels().begin(u64::MAX);
+    let first = solve(&fuel, &shared);
+    let [reused, built, _] = shared.kernels().counts();
+    assert_eq!(reused, 0);
+    assert!(built > 0);
+    let second = solve(&denser, &shared);
+    let [reused, ..] = shared.kernels().counts();
+    assert!(reused > 0);
+    assert_eq!(first, solve(&fuel, &ShareCellCache::default()));
+    assert_eq!(second, solve(&denser, &ShareCellCache::default()));
+}
+
+#[test]
 fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
     // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
     let gib = 1u64 << 30;
