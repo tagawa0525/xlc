@@ -1614,6 +1614,17 @@ impl Pass<'_> {
                 .is_some_and(|start| {
                     held_slot.is_none() && chunk.start >= start && chunk.start - start == held.len()
                 });
+            // 掃き直す格子点の塊は、持った微分の続きか持った範囲の中（ほかは呼び方の誤りで、黙って求め直さない。[`HeldTracks`] と同じ）
+            if let Some(start) = sweep.tangent.as_ref().and_then(|t| t.start)
+                && held_slot.is_none()
+                && !keeps
+                && chunk.start >= start
+            {
+                return Err(UfgError::HeldTracks {
+                    start: chunk.start - start,
+                    held: held.len(),
+                });
+            }
             let jacobians: &[(Vec<Vec<Vec<f64>>>, bool)] = match &held_slot {
                 Some(r) => &held[r.clone()],
                 None if keeps => {

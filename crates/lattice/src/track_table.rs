@@ -54,6 +54,8 @@ pub enum TableError {
     },
     #[error("node {node} of the track table was not solved (no point given to the table reads it)")]
     Unsolved { node: usize },
+    #[error("material {material} is not one of the {materials} materials of the table")]
+    Material { material: usize, materials: usize },
     #[error(transparent)]
     Cp(#[from] CpError),
 }
@@ -494,9 +496,15 @@ impl TrackTable {
         material: usize,
     ) -> Result<Option<Vec<Vec<f64>>>, TableError> {
         let materials = self.layout.axes.len();
-        if sigma.len() != materials || material >= materials {
+        if sigma.len() != materials {
             return Err(TableError::Materials {
                 given: sigma.len(),
+                materials,
+            });
+        }
+        if material >= materials {
+            return Err(TableError::Material {
+                material,
                 materials,
             });
         }
