@@ -1394,8 +1394,6 @@ fn collapse(
         .collect())
 }
 
-/// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
-/// 加わる（それまでの核種と群の境界にない）エネルギーの数
 /// 自由ガスの核の区間の仕事の内訳（[`free_gas::FreeGasWork`]）を、減速計算の全体と、区間を作った核種ごとにログに出す。`points` は
 /// 格子点の数
 fn log_free_gas_work(
@@ -1447,6 +1445,8 @@ fn log_free_gas_work(
     }
 }
 
+/// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
+/// 加わる（それまでの核種と群の境界にない）エネルギーの数
 fn log_nuclide_points(data: &[Data], group_bounds: &[f64], inside: impl Fn(f64) -> bool) {
     let mut seen: HashSet<u64> = group_bounds.iter().map(|e| e.to_bits()).collect();
     for d in data {
