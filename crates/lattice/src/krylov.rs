@@ -29,7 +29,7 @@ pub(crate) struct Krylov {
     done: bool,
     /// 判定を満たしたときの、作用素を掛けた回数（呼ぶ側の数え方）
     sweeps: usize,
-    /// 最後に受けた値までの、最小二乗の残差のノルムの見積もり
+    /// 最後に受けた値までの、最小二乗の残差のノルムの見積もり（再始動では掛け直した残差のノルム）
     estimate: f64,
 }
 
@@ -59,6 +59,7 @@ impl Krylov {
     /// 残差 `r` から Arnoldi の過程を始める（判定を満たしていれば終える）
     fn begin(&mut self, r: Vec<f64>) {
         let beta = norm(&r);
+        self.estimate = beta;
         self.residual = false;
         if beta <= self.target {
             self.done = true;
@@ -85,8 +86,8 @@ impl Krylov {
         self.sweeps
     }
 
-    /// 最後に受けた値までの残差のノルムの見積もりと、止める残差のノルム
-    pub(crate) fn residual(&self) -> (f64, f64) {
+    /// 最後に受けた値までの残差のノルムの見積もり（再始動では掛け直した残差のノルム）と、止める残差のノルム
+    pub(crate) fn residual_norm(&self) -> (f64, f64) {
         (self.estimate, self.target)
     }
 

@@ -28,8 +28,7 @@ const ORTHOGONALITY_TOLERANCE: f64 = 1.0e-10;
 
 /// 粗メッシュの補正の固定源の問題（`Coarse::solve_projected`）の残差の判定。補正は CMFD の反復の GMRES の作用素の一部で、GMRES は
 /// 作用素が線形で同じであることを前提にするので、補正を丸めの近くまで解く。判定を状態の CMFD の 1e-8 にすると、2A の 10 本で
-/// 外の判定 1e-7 と 1e-8 の誤差が 6.2e-7 と 3.2e-7 で止まった（補正を繰り返す反復で細かく解いた版では 1.3e-6 と 1.3e-7。Slurm 783 と
-/// 779。ADR-0247）
+/// 外の判定 1e-8 の誤差が 3.2e-7 と、判定 1e-7 の 6.2e-7 からほとんど減らなかった（この値で 7.2e-8。Slurm 783 と 785。ADR-0247）
 const COARSE_TOLERANCE: f64 = 1.0e-12;
 
 /// 固定源の反復の収束の方法
@@ -793,7 +792,7 @@ impl Problem<'_> {
                 tracing::trace_span!("krylov")
                     .in_scope(|| k.receive(applied, sweeps))
                     .map_err(|_| MocError::GeneralizedDiverged { iterations: sweeps })?;
-                let (residual, target) = k.residual();
+                let (residual, target) = k.residual_norm();
                 tracing::debug!(sweeps, residual, target, "generalized adjoint GMRES");
             }
         }
