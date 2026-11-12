@@ -61,7 +61,7 @@ pub struct SensitivityInput {
 pub struct FewGroupInput {
     /// 少数群の境界 (eV、降順。ライブラリの群の境界から選ぶ)
     pub bounds: Vec<f64>,
-    /// 一般化随伴の GMRES の判定と再始動の回数（`GeneralizedOptions`）
+    /// 一般化随伴の CMFD の反復の GMRES の判定と再始動の回数（`GeneralizedOptions`。`few_group_settings`）
     pub tolerance: f64,
     pub restart: usize,
     /// 自己遮蔽を摂動の組成で解き直す核種（`nuclides` から選ぶ）。暗黙の効きを、自己遮蔽した物質の差を一般化随伴に掛ける 1 次の
@@ -202,7 +202,7 @@ pub struct FewGroupReport {
     pub table_difference: f64,
     /// テーブルの少数群の核分裂のスペクトル（反応度に直す 2 群の k∞ に使う）
     pub chi: Vec<f64>,
-    /// 一般化随伴の GMRES の判定と再始動の回数
+    /// 一般化随伴の CMFD の反復の GMRES の判定と再始動の回数（`few_group_settings`）
     pub tolerance: f64,
     pub restart: usize,
     /// [応答] の一般化随伴のスイープの回数
@@ -682,14 +682,7 @@ fn few_group_state<'a>(
         }
         table_difference = table_difference.max(difference);
     }
-    let settings = GeneralizedOptions {
-        method: GeneralizedMethod::Gmres {
-            restart: input.restart,
-        },
-        tolerance: input.tolerance,
-        max_iterations: options.max_iterations,
-        batch: false,
-    };
+    let settings = few_group_settings(input, options)?;
     let clock = Instant::now();
     let solve = FewGroupSolve::new(
         state.tracking,
@@ -711,6 +704,25 @@ fn few_group_state<'a>(
         table_difference,
         chi: table.chi,
         seconds,
+    })
+}
+
+/// 少数群定数の一般化随伴の解き方: CMFD の反復の GMRES（ADR-0247 の決定と理由の「一般化随伴」）。判定と再始動は入力、粗メッシュの
+/// 問題の反復の上限は状態を解いた MOC の CMFD のもの（`generalized_cmfd`。判定は `moc::generalized` の `COARSE_TOLERANCE`）。
+/// 状態を CMFD なしで解いたならエラー（補正のない GMRES に替えると、入力の判定の意味が変わったまま黙って解くため）
+fn few_group_settings(
+    input: &FewGroupInput,
+    options: &Options,
+) -> anyhow::Result<GeneralizedOptions> {
+    Ok(GeneralizedOptions {
+        method: GeneralizedMethod::CmfdGmres {
+            restart: input.restart,
+            cmfd: generalized_cmfd(&options.acceleration)
+                .context("[sensitivity.few-group] solves the generalized adjoints by cmfd-gmres")?,
+        },
+        tolerance: input.tolerance,
+        max_iterations: options.max_iterations,
+        batch: false,
     })
 }
 
@@ -1030,11 +1042,15 @@ fn compare_generalized(
         let settings = GeneralizedOptions {
             method: match method {
                 Method::SourceIteration => GeneralizedMethod::SourceIteration,
-                Method::Cmfd => GeneralizedMethod::Cmfd(generalized_cmfd(&options.acceleration)?),
+                Method::Cmfd => GeneralizedMethod::Cmfd(
+                    generalized_cmfd(&options.acceleration)
+                        .context("[sensitivity.generalized] cmfd")?,
+                ),
                 Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
                 Method::CmfdGmres { restart } => GeneralizedMethod::CmfdGmres {
                     restart,
-                    cmfd: generalized_cmfd(&options.acceleration)?,
+                    cmfd: generalized_cmfd(&options.acceleration)
+                        .context("[sensitivity.generalized] cmfd-gmres")?,
                 },
             },
             tolerance,
@@ -1149,12 +1165,12 @@ fn compare_generalized(
 }
 
 /// 一般化随伴の CMFD の打ち切り: 状態を解いた MOC の CMFD のもの（回数の上限だけを使う。`GeneralizedMethod::Cmfd`）。状態を CMFD なしで
-/// 解いたなら、入力が粗メッシュの打ち切りを決めていないのでエラー
+/// 解いたなら、粗メッシュの問題の回数の上限が決まらないのでエラー
 fn generalized_cmfd(acceleration: &Acceleration) -> anyhow::Result<CmfdOptions> {
     match acceleration {
         Acceleration::Cmfd(c) => Ok(*c),
         Acceleration::None => bail!(
-            "[sensitivity.generalized] cmfd takes the CMFD tolerances of the state, which was solved without CMFD"
+            "the CMFD of the generalized adjoints takes the iteration limit of the CMFD of the state, which was solved without CMFD"
         ),
     }
 }

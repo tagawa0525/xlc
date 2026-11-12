@@ -146,12 +146,45 @@ fn response_sources_are_orthogonal_to_the_flux_and_weight_the_few_groups() {
 #[test]
 fn generalized_cmfd_takes_the_cmfd_options_of_the_solved_state() {
     let cmfd = CmfdOptions {
-        flux_tolerance: 1e-9,
+        max_iterations: 1234,
         ..CmfdOptions::default()
     };
     assert_eq!(generalized_cmfd(&Acceleration::Cmfd(cmfd)).unwrap(), cmfd);
-    // 状態を CMFD なしで解いたなら、粗メッシュの判定を入力が決めていない
+    // 状態を CMFD なしで解いたなら、粗メッシュの問題の回数の上限が決まらない
     assert!(generalized_cmfd(&Acceleration::None).is_err());
+}
+
+#[test]
+fn few_group_adjoints_are_solved_by_gmres_over_the_cmfd_iteration() {
+    let input = FewGroupInput {
+        bounds: vec![2e7, 0.625, 1e-5],
+        tolerance: 1e-7,
+        restart: 100,
+        shielded: Vec::new(),
+    };
+    let cmfd = CmfdOptions {
+        max_iterations: 1234,
+        ..CmfdOptions::default()
+    };
+    let options = Options {
+        acceleration: Acceleration::Cmfd(cmfd),
+        ..Options::default()
+    };
+    assert_eq!(
+        few_group_settings(&input, &options).unwrap(),
+        GeneralizedOptions {
+            method: GeneralizedMethod::CmfdGmres { restart: 100, cmfd },
+            tolerance: 1e-7,
+            max_iterations: options.max_iterations,
+            batch: false,
+        }
+    );
+    // CMFD なしで解いた状態では粗メッシュの問題の反復の上限が決まらないので、補正のない GMRES に替えずに止める
+    let without = Options {
+        acceleration: Acceleration::None,
+        ..Options::default()
+    };
+    assert!(few_group_settings(&input, &without).is_err());
 }
 
 #[test]

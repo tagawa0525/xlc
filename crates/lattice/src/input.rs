@@ -133,7 +133,7 @@
 //! [sensitivity.few-group]         # 格子全体の少数群定数（テーブルの全断面積、νΣf、Σf、P0 の散乱行列）の数密度の微分を、定数ごとの
 //!                                 # 一般化随伴で求める（ADR-0247 の段 4。結果は output の [few_group]。direct があれば直接の摂動も）
 //! bounds = [2e7, 0.625, 1e-5]     # 少数群の境界 (eV)
-//! tolerance = 1e-10               # 一般化随伴の GMRES の判定と再始動の回数
+//! tolerance = 1e-7                # 一般化随伴の CMFD の反復の GMRES の判定と再始動の回数
 //! restart = 100
 //! shielded = ["Pu-240"]           # 自己遮蔽を摂動の組成で解き直す核種（nuclides から選ぶ。direct と自己遮蔽が要る。省略すると解き直さない）
 //! ```
