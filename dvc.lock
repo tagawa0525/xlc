@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 3bba17fe2f4c186cb16152cb231d9951.dir
-      size: 4883143
+      md5: d79309ed93377a897885d3e87857f706.dir
+      size: 4900851
       nfiles: 258
     - path: flake.lock
       hash: md5
@@ -45,13 +45,13 @@ stages:
       isexec: true
     - path: bin/core
       hash: md5
-      md5: bf48c9d2add0b58ab370b28383753dd7
-      size: 7455456
+      md5: 3d63552bff74083935eb85dcf6f6fd70
+      size: 7459120
       isexec: true
     - path: bin/lattice
       hash: md5
-      md5: 3a3a1154f2f6554501ed04ec5d92817c
-      size: 9738600
+      md5: c55c11fdfb652ad907c9a64e370a7816
+      size: 9742064
       isexec: true
     - path: bin/xs
       hash: md5
@@ -704,8 +704,8 @@ stages:
     deps:
     - path: examples/depletion/compare_grid_interpolation.py
       hash: md5
-      md5: 173ef609ae8067ae0c3bee29d72cd338
-      size: 17825
+      md5: 7847a86b732c6477c3f088b5dccead2d
+      size: 18059
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
