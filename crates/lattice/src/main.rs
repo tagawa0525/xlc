@@ -759,8 +759,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         )?;
                         Ok((shielded.materials, shielded.region_material))
                     };
+                // 参照（ホウ素が公称の状態）から作る状態の自己遮蔽は、参照の組成で解いてホウ素の軸の物質だけを作り直すので、
+                // 摂動の組成をそのまま解き直す口は状態と同じ作り方にならない。その状態では口を渡さない（shielded はエラー）
+                let reference = match (&history_branches, &input.branches) {
+                    (Some(h), _) => h.reference(solved % count).is_some(),
+                    (None, Some(b)) => b.reference(solved % count).is_some(),
+                    (None, None) => false,
+                };
                 let reshield: Option<&mut xlc_lattice::sensitivity::Reshield> =
-                    if input.self_shielding {
+                    if input.self_shielding && !reference {
                         Some(&mut reshield)
                     } else {
                         None

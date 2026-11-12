@@ -526,7 +526,10 @@ pub fn evaluate(
                 bail!("[sensitivity.few-group] shielded {name} is not a [sensitivity] nuclide");
             };
             let reshield = reshield.as_deref_mut().ok_or_else(|| {
-                anyhow!("[sensitivity.few-group] shielded needs the self-shielding of the state")
+                anyhow!(
+                    "[sensitivity.few-group] shielded solves the self-shielding of the state again, which needs a \
+                     self-shielded state solved from its own composition (not from a reference state)"
+                )
             })?;
             target.shielded = Some(
                 shielded_steps(
