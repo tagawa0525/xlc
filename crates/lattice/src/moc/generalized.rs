@@ -693,6 +693,13 @@ impl Problem<'_> {
             .into_iter()
             .map(|(b, _)| Krylov::new(b.pack(), settings.tolerance, restart))
             .collect();
+        // 基底は源あたり再始動の回数 + 1 本の、この長さの値
+        tracing::info!(
+            length = krylov.first().map_or(0, |k| k.b.len()),
+            sources = copies,
+            restart,
+            "generalized adjoint GMRES"
+        );
         let mut sweeps = 1;
         let none: Vec<Option<&[Vec<f64>]>> = vec![None; copies];
         while krylov.iter().any(|k| !k.done) {
