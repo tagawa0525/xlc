@@ -155,5 +155,5 @@ xlc の今の状態（main d6db07223、2026-11-12）:
 ### 確認
 
 - 段 1 のテスト: crates/lattice/src/moc/tests.rs の `adjoint_*`（k† = k、2 群の無限媒質の随伴の解析解、1 群の自己随伴、対称操作の
-  有無で同じ解、P1 散乱の k† = k、核分裂の項が複数の物質）、crates/lattice/src/material/tests.rs の `adjoint_*`
+  有無で同じ解、P1 散乱とアルベドの辺の k† = k、核分裂の項が複数の物質、前向きで止まる物質を随伴でも止めること）、crates/lattice/src/material/tests.rs の `adjoint_*`
 - 段 2 以後の比較（k の感度、少数群定数の微分、2A のミクロ燃焼の線形の補正）は #0279 の計画のとおり測る（測っていない）
