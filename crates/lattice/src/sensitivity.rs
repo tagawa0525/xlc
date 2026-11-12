@@ -381,3 +381,6 @@ fn check_sum(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
