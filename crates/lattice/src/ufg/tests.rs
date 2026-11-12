@@ -2352,25 +2352,25 @@ fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
 
 #[test]
 fn held_cells_divide_the_budget_among_the_solves_at_once() {
-    // 1 回の減速計算が持つ区間の数は、全体の量を同時に解きうる減速計算の数で分けたもの（1 区間 40 B）
+    // 1 回の減速計算が持つ区間の数は、全体の量を同時に解きうる減速計算の数で分けたもの（1 区間 48 B。両端の格子点を持つ）
     let gib = 1u64 << 30;
-    assert_eq!(held_cells(gib, 1), (gib / 40) as usize);
-    assert_eq!(held_cells(32 * gib, 32), (gib / 40) as usize);
+    assert_eq!(held_cells(gib, 1), (gib / 48) as usize);
+    assert_eq!(held_cells(32 * gib, 32), (gib / 48) as usize);
     assert_eq!(held_cells(gib, 0), held_cells(gib, 1));
     for at_once in 1..=40 {
-        assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 40 <= 10 * gib + 7);
+        assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 48 <= 10 * gib + 7);
     }
 }
 
 #[test]
 fn held_cells_leave_room_for_the_work_arrays_of_the_solve() {
     // 1 回の減速計算の量（`held_cells` の区間の数）は、その減速計算の作業の配列と持つ区間を合わせたもの（ADR-0213 の「## 変更」）。
-    // 作業の配列の分（40 B を 1 区間として切り上げ）を除いた残りを持ち、作業の配列が量を超えれば持たない
+    // 作業の配列の分（48 B を 1 区間として切り上げ）を除いた残りを持ち、作業の配列が量を超えれば持たない
     assert_eq!(cells_beside_work(1000, 0), 1000);
-    assert_eq!(cells_beside_work(1000, 40 * 300), 700);
-    assert_eq!(cells_beside_work(1000, 40 * 300 + 1), 699);
-    assert_eq!(cells_beside_work(1000, 40 * 1000), 0);
-    assert_eq!(cells_beside_work(1000, 40 * 1000 + 1), 0);
+    assert_eq!(cells_beside_work(1000, 48 * 300), 700);
+    assert_eq!(cells_beside_work(1000, 48 * 300 + 1), 699);
+    assert_eq!(cells_beside_work(1000, 48 * 1000), 0);
+    assert_eq!(cells_beside_work(1000, 48 * 1000 + 1), 0);
     assert_eq!(cells_beside_work(1000, u64::MAX), 0);
 }
 
