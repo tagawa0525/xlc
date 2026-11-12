@@ -135,5 +135,26 @@ class Inputs(unittest.TestCase):
             cfg.compare(r)
 
 
+class Relative(unittest.TestCase):
+    def test_exactly_zero_derivatives_agree(self):
+        self.assertEqual(cfg.relative(0.0, 0.0), 0.0)
+        self.assertEqual(cfg.relative(1e-9, 0.0), float("inf"))
+        self.assertAlmostEqual(cfg.relative(1.1, 1.0), 0.1)
+
+    def test_step_error_of_the_first_order_differences_widens_the_bound(self):
+        # I1 の刻みの誤差（ε と ε/2 の差）が I3 の側より大きければ、I1 の側の見積もりで許す
+        first = steps((-0.0300, -0.0306))
+        direct = steps((-0.0306, -0.0306))
+        shielded = {
+            "first_order": first,
+            "direct": direct,
+            "k_first_order": {"central": [-0.17, -0.17], "richardson": -0.17},
+            "k_direct": {"central": [-0.17, -0.17], "richardson": -0.17},
+        }
+        result = cfg.compare(report(-0.05, (-0.05, -0.05), shielded))
+        (n,) = result["implicit"]
+        self.assertTrue(all(r["ok"] for r in n["rows"]))
+
+
 if __name__ == "__main__":
     unittest.main()
