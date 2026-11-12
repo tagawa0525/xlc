@@ -2653,7 +2653,8 @@ fn sweep_does_not_depend_on_the_contents_left_in_its_work_arrays() {
         // 前のスイープの値が残った作業の配列と部分和、より長い線源の配列（NaN で埋めたもの）と減衰の和の配列から始めても同じ
         let reused = sweeper();
         let mut tallies = reused.tallies(materials.len());
-        // 組ごとに 1 つずつ（どの組がどれを取るかは仕事の分け方で変わるので、すべての組が NaN の線源から始める）
+        // 組の数だけ積む（どの組がどれを取るかは仕事の分け方で変わる。先の組が返した配列を後の組が取ることもあり、そのときは
+        // 前の組の値から始まる）
         for _ in 0..tallies.len() {
             reused.sources.lock().unwrap().push(vec![f64::NAN; 10_000]);
             reused.sums.lock().unwrap().push(vec![0.0; 10_000]);
