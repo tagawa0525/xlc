@@ -425,7 +425,19 @@ fn locate_from_finds_the_point_of_locate_from_any_hint() {
 /// 並べたものと、最初のスイープで持った区間の数を返す。`hold` は持つ区間の数の上限。中性子束は散乱源に依るようにする（持った区間を
 /// 使うスイープでも、中性子束が前のスイープと違う）
 fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
-    let u = test_grid();
+    let (out, held, _) = swept_on(&test_grid(), 1.0, hold, None);
+    (out, held)
+}
+
+/// [`swept_sources`] を、格子 `u`、弾性散乱断面積に掛ける `scale`、自由ガスの核の値を持つ表 `kernels` で解いたもの。3 つ目は
+/// 核の評価（[`Gas::correction`]）の回数
+fn swept_on(
+    u: &[f64],
+    scale: f64,
+    hold: usize,
+    kernels: Option<&KernelCache>,
+) -> (Vec<Vec<(f64, f64)>>, usize, u64) {
+    let u = u.to_vec();
     let high = 20.0;
     let energies: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
     let gases = vec![
@@ -438,7 +450,7 @@ fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
         .zip([20.0, 3.8, 9.0])
         .map(|(gas, value)| {
             let first = first_below(&energies, gas.top());
-            (first, vec![value; u.len() - first])
+            (first, vec![scale * value; u.len() - first])
         })
         .collect();
     let rings = vec![
@@ -449,7 +461,7 @@ fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
     let n = 2;
     let tables = vec![None; 3];
     let start = sweep_start(&gases, &tables, &energies).expect("free-gas nuclides");
-    let mut thermal = Thermal::new(gases, sigma, rings, tables, 2, start, n, hold);
+    let mut thermal = Thermal::new(gases, sigma, rings, tables, 2, start, n, hold, kernels);
     let start = thermal.start();
     let mut flux: Vec<Vec<f64>> = vec![u[..start].iter().map(|&x| test_flux(x)).collect(); n];
     let mut out = Vec::new();
@@ -481,7 +493,7 @@ fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
     }
     thermal.release();
     assert_eq!(thermal.held(), 0);
-    (out, held)
+    (out, held, thermal.work().evaluations)
 }
 
 #[test]
@@ -502,6 +514,70 @@ fn held_cells_give_the_sources_of_rebuilt_cells_bit_for_bit() {
     };
     assert_eq!(bits(&all), bits(&rebuilt));
     assert_eq!(bits(&part), bits(&rebuilt));
+}
+
+#[test]
+fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
+    // 自由ガスの核の区間と D の値を、断面積の違う減速計算と、格子点の一部だけが同じ格子の減速計算の間で持っても、散乱源は持たない
+    // ときとビットで同じ。同じ格子の 2 本目は核を評価せず、一部が同じ格子は残りの格子点だけを評価する
+    let bits = |v: &[Vec<(f64, f64)>]| -> Vec<(u64, u64)> {
+        v.iter()
+            .flatten()
+            .map(|&(k, o)| (k.to_bits(), o.to_bits()))
+            .collect()
+    };
+    let grid = test_grid();
+    // 最初と最後の点（範囲の上端と格子の最後の点）を残して、3 点に 1 点を次の点との中点に動かした格子
+    let thinned: Vec<f64> = grid
+        .iter()
+        .enumerate()
+        .map(|(k, &x)| {
+            if k == 0 || k == grid.len() - 1 || k % 3 != 1 {
+                x
+            } else {
+                0.5 * (x + grid[k + 1])
+            }
+        })
+        .collect();
+    for hold in [0, usize::MAX] {
+        let kernels = KernelCache::default();
+        kernels.begin(u64::MAX);
+        let (first, _, fresh) = swept_on(&grid, 1.0, hold, Some(&kernels));
+        let (alone, _, alone_evaluations) = swept_on(&grid, 1.0, hold, None);
+        assert_eq!(bits(&first), bits(&alone));
+        // 持たない入力（hold 0）では、2 回目からのスイープも表の値を使う
+        let sweeps = if hold == 0 { 3 } else { 1 };
+        assert_eq!(fresh * sweeps, alone_evaluations, "hold {hold}");
+        let (second, _, again) = swept_on(&grid, 1.7, hold, Some(&kernels));
+        let (second_alone, ..) = swept_on(&grid, 1.7, hold, None);
+        assert_eq!(bits(&second), bits(&second_alone));
+        assert_eq!(again, 0, "hold {hold}");
+        let (partial, _, some) = swept_on(&thinned, 1.3, hold, Some(&kernels));
+        let (partial_alone, _, all) = swept_on(&thinned, 1.3, hold, None);
+        assert_eq!(bits(&partial), bits(&partial_alone));
+        assert!(0 < some && some < all, "{some} of {all}");
+    }
+}
+
+#[test]
+fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shielding() {
+    // 上限に届いた表は格子点を足さず（足さなかった格子点は評価し直す）、次の自己遮蔽の始めに、前の自己遮蔽で使わなかった格子点を捨てる
+    let grid = test_grid();
+    let kernels = KernelCache::default();
+    kernels.begin(0);
+    let (_, _, all) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    assert_eq!(kernels.bytes(), 0);
+    let (_, _, again) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    assert_eq!(again, all);
+    kernels.begin(u64::MAX);
+    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    let full = kernels.bytes();
+    assert!(full > 0);
+    // 使った格子点は次の自己遮蔽でも残り、2 つの自己遮蔽で使わなければ捨てる
+    kernels.begin(u64::MAX);
+    assert_eq!(kernels.bytes(), full);
+    kernels.begin(u64::MAX);
+    assert_eq!(kernels.bytes(), 0);
 }
 
 #[test]

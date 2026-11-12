@@ -44,6 +44,7 @@ mod hold;
 mod transfer;
 
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
+pub use free_gas::KernelCache;
 use hold::cells_beside_work;
 pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
 pub use transfer::{CensusCall, ShareCellCache};
@@ -771,6 +772,7 @@ fn solve_cell(
                         } else {
                             cells_beside_work(hold, work)
                         },
+                        transfers.as_ref().map(|(_, shares)| shares.kernels()),
                     );
                     (Some(thermal), options.sweeps, held_tracks)
                 }

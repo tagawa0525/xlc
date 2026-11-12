@@ -28,7 +28,7 @@ use rayon::prelude::*;
 use xlc_format::library::{SabTransfer, Shielded};
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_2, GAUSS_LEGENDRE_4};
 
-use super::free_gas::{SHARE_CELLS, ShareCell, Thermal, grades};
+use super::free_gas::{KernelCache, SHARE_CELLS, ShareCell, Thermal, grades};
 use super::{Data, NuclideTransfer, UfgError, segment};
 
 /// 自由ガスの核の差の割合を 2 次式で近似する入射の区間の、D の山が境界にかからないところでの幅の上限（レサジー）。割合は下端の側の山の
@@ -48,6 +48,8 @@ pub struct ShareCellCache {
     columns: Mutex<HashMap<ShareKey, Arc<ShareColumn>>>,
     /// 自由ガスの核の区間を作った格子点の重なりの計数（DEBUG のログ。[`ShareCellCache::census`]）
     census: Mutex<Census>,
+    /// 自由ガスの核の区間と D の値（ADR-0248）。移行の割合の区間と同じく、減速計算の間で共有する
+    kernels: KernelCache,
 }
 
 /// 自由ガスの核の区間を作った格子点を、核（自由ガスの核種のすべての [`Gas::bits`]、範囲の上端、格子の最後の点）と格子点の
@@ -117,6 +119,11 @@ impl ShareCellCache {
                 }
             }
         }
+    }
+
+    /// 自由ガスの核の区間と D の値の表
+    pub fn kernels(&self) -> &KernelCache {
+        &self.kernels
     }
 
     /// 1 回の自己遮蔽の計数を閉じて返し、次の自己遮蔽の計数を始める（DEBUG のログ）

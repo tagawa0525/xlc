@@ -14,7 +14,10 @@
 //! ごとに 3 点の 2 次式で近似し、中性子束の累積の積率（[`Prefix`]）で積分する。区間の外の D は、上端の側で e^{−[`TAIL`]}、
 //! 下端の側で erfc([`EDGE`]) 程度より小さい（`correction_vanishes_outside_its_cells`）。
 
+use std::collections::HashMap;
 use std::f64::consts::PI;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
@@ -760,6 +763,125 @@ struct Held {
     starts: usize,
 }
 
+/// 1 つの格子点の、すべての自由ガスの核種の区間と、その両端と中点の D の値（[`KernelCache`]）
+#[derive(Debug)]
+pub(super) struct KernelPoint {
+    /// [核種] の区間の始まり（核種の数 + 1 個。最後は区間の数）
+    starts: Vec<u32>,
+    cells: Vec<KernelCell>,
+}
+
+/// 区間 [a, b] と、a、中点、b の D（[`Gas::correction`]）
+#[derive(Debug, Clone, Copy, Default)]
+struct KernelCell {
+    a: f64,
+    b: f64,
+    d: [f64; 3],
+}
+
+impl KernelPoint {
+    /// 持つ大きさ (B)
+    fn bytes(&self) -> u64 {
+        (self.starts.len() * std::mem::size_of::<u32>()
+            + self.cells.len() * std::mem::size_of::<KernelCell>()
+            + std::mem::size_of::<Self>()) as u64
+    }
+}
+
+/// 1 つの核（[`KernelCache::table`] の鍵）の、格子点（レサジーとエネルギーのビット）ごとの値と、最後に使った自己遮蔽の番号
+type KernelTable = Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>;
+
+/// 自由ガスの核の区間と D の値を、減速計算（自己遮蔽のピンと塊、自己遮蔽の間）で持つ表（ADR-0248）。区間と D は、自由ガスの核種の
+/// 核（[`Gas::bits`]）、範囲の上端、格子の最後の点、区間の細かさと、出射の格子点のレサジーとエネルギーだけで決まり、断面積、
+/// 個数密度、中性子束、ほかの格子点に依らないので、それらのビットを鍵にする。弾性散乱断面積は減速計算ごとに掛ける。
+///
+/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたら格子点を足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の
+/// 始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は
+/// 多くが変わる）
+#[derive(Debug, Default)]
+pub struct KernelCache {
+    tables: Mutex<HashMap<Vec<u64>, Arc<KernelTable>>>,
+    /// 持っている大きさと上限 (B)、今の自己遮蔽の番号
+    bytes: AtomicU64,
+    cap: AtomicU64,
+    call: AtomicU64,
+    /// 今の自己遮蔽の [値を使った格子点, 作った格子点, 上限で持たなかった格子点] の数（ログ）
+    counts: [AtomicU64; 3],
+}
+
+/// ロックの中では作り終えた値を引くか入れるだけで、表が途中の状態で残ることはないので、毒された表もそのまま使う
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+impl KernelCache {
+    /// 自己遮蔽を始める: 持つ量の上限を `cap` (B) にし、前の自己遮蔽で使わなかった格子点を捨てる。今の自己遮蔽の [値を使った
+    /// 格子点, 作った格子点, 上限で持たなかった格子点] の数を数え直す
+    pub fn begin(&self, cap: u64) {
+        let call = self.call.fetch_add(1, Ordering::Relaxed) + 1;
+        let mut bytes = 0;
+        for table in lock(&self.tables).values() {
+            let mut table = lock(table);
+            table.retain(|_, (_, last)| *last + 1 >= call);
+            bytes += table.values().map(|(p, _)| p.bytes()).sum::<u64>();
+        }
+        self.bytes.store(bytes, Ordering::Relaxed);
+        self.cap.store(cap, Ordering::Relaxed);
+        for count in &self.counts {
+            count.store(0, Ordering::Relaxed);
+        }
+    }
+
+    /// 持っている大きさ (B)
+    pub fn bytes(&self) -> u64 {
+        self.bytes.load(Ordering::Relaxed)
+    }
+
+    /// 今の自己遮蔽の [値を使った格子点, 作った格子点, 上限で持たなかった格子点] の数
+    pub fn counts(&self) -> [u64; 3] {
+        self.counts.each_ref().map(|c| c.load(Ordering::Relaxed))
+    }
+
+    /// 核 `kernel`（[`Thermal::kernel_key`]）の表
+    fn table(&self, kernel: Vec<u64>) -> Arc<KernelTable> {
+        lock(&self.tables).entry(kernel).or_default().clone()
+    }
+
+    /// 表 `table` の格子点 `point` の値（あれば今の自己遮蔽で使ったことにする）
+    fn get(&self, table: &KernelTable, point: [u64; 2]) -> Option<Arc<KernelPoint>> {
+        let call = self.call.load(Ordering::Relaxed);
+        let found = lock(table).get_mut(&point).map(|(p, last)| {
+            *last = call;
+            p.clone()
+        });
+        self.counts[if found.is_some() { 0 } else { 1 }].fetch_add(1, Ordering::Relaxed);
+        found
+    }
+
+    /// 上限に `bytes` (B) の余地があるか
+    fn has_room(&self, bytes: u64) -> bool {
+        self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed)
+    }
+
+    /// 表 `table` に格子点 `point` の値を入れる。上限を超えるなら入れない。同時に作ったほかの減速計算が先に入れていれば、そちらを
+    /// 残す（値はビットで同じ）
+    fn insert(&self, table: &KernelTable, point: [u64; 2], value: KernelPoint) {
+        let size = value.bytes();
+        let call = self.call.load(Ordering::Relaxed);
+        let mut table = lock(table);
+        if table.contains_key(&point) {
+            return;
+        }
+        // 足す判定と足す量をロックの外のほかの表と競り合っても、超えるのは同時に入れる格子点の分だけ
+        if self.bytes.fetch_add(size, Ordering::Relaxed) + size > self.cap.load(Ordering::Relaxed) {
+            self.bytes.fetch_sub(size, Ordering::Relaxed);
+            self.counts[2].fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        table.insert(point, (Arc::new(value), call));
+    }
+}
+
 /// 入射のレサジーの区間 [a, b] で、D を出射の境界の下（または上）に積分した割合を近似する 2 次式（[`Gas::share_cells`]）。
 #[derive(Debug, Clone, Copy)]
 pub(super) struct ShareCell {
@@ -972,6 +1094,9 @@ pub(super) struct Thermal<'a> {
     work: FreeGasWork,
     /// [`FreeGasWork::points`] を書くか（DEBUG のログ）
     census: bool,
+    /// 自由ガスの核の区間と D の値を持つ表と、この減速計算の核の表（最初に区間を作る格子点で引く）
+    kernels: Option<&'a KernelCache>,
+    kernel_table: Option<Arc<KernelTable>>,
 }
 
 /// 自由ガスの核の区間の仕事の内訳（ログ）。時間は区間の塊ごとのスレッドの時間の和で、ピンの中の並列を盗んだスレッドの時間も含む
@@ -997,6 +1122,8 @@ struct ChunkSums {
     integrations: u64,
     /// [区間と 2 次式の作成, 積分]
     seconds: [Duration; 2],
+    /// 表に入れる、塊の区間とその D の値（入れないときは空）
+    kernel: Vec<KernelCell>,
 }
 
 /// 自由ガスの核種の核 `gases` と S(α, β) の移行の表 `tables` で、D が 0 でない格子点のうち最初のものの 1 つ前（掃き直しの始め。
@@ -1027,7 +1154,8 @@ pub(super) fn sweep_start(
 
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
-    /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
+    /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`kernels` は区間と D の値を減速計算の
+    /// 間で持つ表（[`KernelCache`]。無ければ格子点ごとに作る）。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
     /// すべての格子点の核種の区間の始まりと位置の表も、48 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
@@ -1039,6 +1167,7 @@ impl<'a> Thermal<'a> {
         start: usize,
         n: usize,
         hold: usize,
+        kernels: Option<&'a KernelCache>,
     ) -> Self {
         let n_gases = gases.len();
         Self {
@@ -1066,6 +1195,9 @@ impl<'a> Thermal<'a> {
                 ..FreeGasWork::default()
             },
             census: tracing::enabled!(tracing::Level::DEBUG),
+            // まだ表を使わない
+            kernels: kernels.and(None),
+            kernel_table: None,
         }
     }
 
@@ -1179,31 +1311,63 @@ impl<'a> Thermal<'a> {
     ) -> Vec<ChunkSums> {
         let last = u.len() - 1;
         // すべての自由ガスの核種の区間を 1 つの並びにする（並列の領域を格子点ごとに 1 つにし、核種ごとに分けた小さな仕事を起こす
-        // 手間を避ける）
+        // 手間を避ける）。持った値があれば、その区間を使う
         let clock = Instant::now();
+        if let Some(kernels) = self.kernels
+            && self.kernel_table.is_none()
+        {
+            self.kernel_table = Some(kernels.table(self.kernel_key(high, u[last])));
+        }
+        let point = [u[m].to_bits(), e.to_bits()];
+        let cached = match (self.kernels, &self.kernel_table) {
+            (Some(kernels), Some(table)) => kernels.get(table, point),
+            _ => None,
+        };
         self.all.clear();
         self.starts.clear();
-        for (l, gas) in self.gases.iter().enumerate() {
-            self.starts.push(self.all.len() as u32);
-            // 分離共鳴を持つ核種の 400 kT のように上限が範囲の上端より低い核種で、区間を作って捨てる手間を省く
-            if gas.idle(high, u[m], e) {
-                continue;
+        match &cached {
+            Some(held) => {
+                self.starts.extend_from_slice(&held.starts);
+                for (l, w) in held.starts.windows(2).enumerate() {
+                    let cells = &held.cells[w[0] as usize..w[1] as usize];
+                    self.all.extend(cells.iter().map(|c| (l, c.a, c.b)));
+                    self.work.built[l] += cells.len() as u64;
+                }
             }
-            gas.cells(
-                high,
-                u[m],
-                e,
-                &self.grades,
-                self.cells,
-                u[last],
-                &mut self.bounds,
-                &mut self.pieces,
-            );
-            self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
-            self.work.built[l] += self.pieces.len() as u64;
+            None => {
+                for (l, gas) in self.gases.iter().enumerate() {
+                    self.starts.push(self.all.len() as u32);
+                    // 分離共鳴を持つ核種の 400 kT のように上限が範囲の上端より低い核種で、区間を作って捨てる手間を省く
+                    if gas.idle(high, u[m], e) {
+                        continue;
+                    }
+                    gas.cells(
+                        high,
+                        u[m],
+                        e,
+                        &self.grades,
+                        self.cells,
+                        u[last],
+                        &mut self.bounds,
+                        &mut self.pieces,
+                    );
+                    self.all.extend(self.pieces.iter().map(|&(a, b)| (l, a, b)));
+                    self.work.built[l] += self.pieces.len() as u64;
+                }
+                self.starts.push(self.all.len() as u32);
+            }
         }
-        self.starts.push(self.all.len() as u32);
         self.work.seconds[0] += clock.elapsed();
+        // 作った区間の値を表に入れるか（上限に余地があるとき。入れる直前にもう一度確かめる）
+        let record = cached.is_none()
+            && !self.all.is_empty()
+            && self.kernels.is_some_and(|k| {
+                k.has_room(
+                    (self.all.len() * std::mem::size_of::<KernelCell>()
+                        + self.starts.len() * std::mem::size_of::<u32>())
+                        as u64,
+                )
+            });
         // 最初に持つ格子点で、すべての格子点の核種の区間の始まりと、格子点ごとの位置の表を確保し、上限から引く（持つ区間とともに
         // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）。区間の格子点を u32 で持つので、格子点の
         // 数が u32 を超える格子（間引かない格子でも 127 万点ほど）は持たない
@@ -1251,41 +1415,57 @@ impl<'a> Thermal<'a> {
             ..
         } = self;
         let add = adder(rings, prefix, previous.as_ref(), m, u, flux);
-        // 区間の塊の 1 つを作って積分する（`out` は持つときの、塊の区間を書く先）。塊の 2 次式をすべて作ってから区間の順に
-        // 積分する（区間ごとに作って積分しても、足す順と値は同じ。作成と積分の時間をログで分けるため）
-        let body = |chunk: &[(usize, f64, f64)], mut out: Option<&mut [HeldCell]>| {
+        let cached = cached.as_deref();
+        // 区間の塊の 1 つ（`c` 番目）を作って積分する（`out` は持つときの、塊の区間を書く先）。塊の 2 次式をすべて作ってから区間の順に
+        // 積分する（区間ごとに作って積分しても、足す順と値は同じ。作成と積分の時間をログで分けるため）。D は持った値があればそれを
+        // 使い（評価した値と同じビット）、無ければ評価し、表に入れるなら塊の区間の値を返す
+        let body = |c: usize, chunk: &[(usize, f64, f64)], mut out: Option<&mut [HeldCell]>| {
             let clock = Instant::now();
             let mut evaluations = 0;
             let mut made = [(Quadratic::ZERO, 0, 0); CELLS_PER_TASK];
-            // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、値）
-            let mut shared: Option<(usize, f64, bool, usize, f64)> = None;
+            let mut kernel = Vec::with_capacity(if record { chunk.len() } else { 0 });
+            // 隣の区間と共有する端の値（核種、端の位置、窓の中として扱ったか、格子点、D、σs × D）
+            let mut shared: Option<(usize, f64, bool, usize, f64, f64)> = None;
             // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
             let mut hint = usize::MAX;
             for (j, &(l, a, b)) in chunk.iter().enumerate() {
                 let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
                 let inside = gas.inside(u[m], a, b);
-                let f = |x: f64, q: usize| {
-                    interpolate(&u[*offset..], sigma, q - offset, x)
-                        * gas.correction(high, x, u[m], e, inside)
+                let held = cached.map(|p| p.cells[c * CELLS_PER_TASK + j].d);
+                let mut d = |x: f64, k: usize| match held {
+                    Some(d) => d[k],
+                    None => {
+                        evaluations += 1;
+                        gas.correction(high, x, u[m], e, inside)
+                    }
                 };
-                let (qa, fa) = match shared {
-                    Some((k, x, side, q, value)) if k == l && x == a && side == inside => {
-                        (q, value)
+                let s = |x: f64, q: usize| interpolate(&u[*offset..], sigma, q - offset, x);
+                let (qa, da, fa) = match shared {
+                    Some((k, x, side, q, d, value)) if k == l && x == a && side == inside => {
+                        (q, d, value)
                     }
                     _ => {
                         let q = locate_from(u, a, hint);
-                        evaluations += 1;
-                        (q, f(a, q))
+                        let d = d(a, 0);
+                        (q, d, s(a, q) * d)
                     }
                 };
                 let mid = 0.5 * (a + b);
                 let q_mid = locate_from(u, mid, qa);
                 let qb = locate_from(u, b, q_mid);
                 hint = qb;
-                let fb = f(b, qb);
-                evaluations += 2;
-                shared = Some((l, b, inside, qb, fb));
-                let quadratic = Quadratic::through(a, b, fa, f(mid, q_mid), fb);
+                let db = d(b, 2);
+                let fb = s(b, qb) * db;
+                shared = Some((l, b, inside, qb, db, fb));
+                let dm = d(mid, 1);
+                let quadratic = Quadratic::through(a, b, fa, s(mid, q_mid) * dm, fb);
+                if record {
+                    kernel.push(KernelCell {
+                        a,
+                        b,
+                        d: [da, dm, db],
+                    });
+                }
                 made[j] = (quadratic, qa, qb);
                 if let Some(out) = out.as_deref_mut() {
                     out[j] = HeldCell {
@@ -1310,19 +1490,44 @@ impl<'a> Thermal<'a> {
                 evaluations,
                 integrations,
                 seconds: [built - clock, built.elapsed()],
+                kernel,
             }
         };
         // 区間の塊ごとに並列に積分し、塊の順に足す（並列の分け方によらず同じ和にする）
-        if keep {
+        let mut parts: Vec<ChunkSums> = if keep {
             all.par_chunks(CELLS_PER_TASK)
                 .zip(held_cells[first..].par_chunks_mut(CELLS_PER_TASK))
-                .map(|(chunk, out)| body(chunk, Some(out)))
+                .enumerate()
+                .map(|(c, (chunk, out))| body(c, chunk, Some(out)))
                 .collect()
         } else {
             all.par_chunks(CELLS_PER_TASK)
-                .map(|chunk| body(chunk, None))
+                .enumerate()
+                .map(|(c, chunk)| body(c, chunk, None))
                 .collect()
+        };
+        if record && let (Some(kernels), Some(table)) = (self.kernels, &self.kernel_table) {
+            let cells = parts
+                .iter_mut()
+                .flat_map(|p| std::mem::take(&mut p.kernel))
+                .collect();
+            let value = KernelPoint {
+                starts: self.starts.clone(),
+                cells,
+            };
+            kernels.insert(table, point, value);
         }
+        parts
+    }
+
+    /// この減速計算の核の鍵: 自由ガスの核種のすべての [`Gas::bits`]、範囲の上端 `high`、格子の最後の点 `bottom`、区間の細かさの
+    /// ビット（[`Gas::cells`] と [`Gas::correction`] が出射の格子点のほかに読む量のすべて）
+    fn kernel_key(&self, high: f64, bottom: f64) -> Vec<u64> {
+        self.gases
+            .iter()
+            .flat_map(Gas::bits)
+            .chain([high.to_bits(), bottom.to_bits(), self.cells as u64])
+            .collect()
     }
 
     /// 格子点 m の持った区間 `held` を、作ったとき（[`Thermal::build`]）と同じ塊に分けて同じ順に積分した、区間の塊ごとの [リング] の
@@ -1367,6 +1572,7 @@ impl<'a> Thermal<'a> {
                     evaluations: 0,
                     integrations,
                     seconds: [Duration::ZERO, clock.elapsed()],
+                    kernel: Vec::new(),
                 }
             })
             .collect()
