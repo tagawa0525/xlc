@@ -118,6 +118,16 @@
 //! direct = 0.1                    # 数密度を (1 ± ε) 倍と (1 ± ε/2) 倍した直接の摂動も解く（検証の参照。省略すると解かない）
 //! k-tolerance = 1e-10             # この入力のすべての MOC の判定（省略すると既定。CMFD は既定とこの値の細かい方）
 //! flux-tolerance = 1e-9
+//!
+//! [sensitivity.generalized]       # 少数群定数の比の応答の一般化随伴を、収束の方法ごとに解いて比べる（ADR-0247 の段 3。結果は
+//!                                 # output の [generalized]）
+//! bounds = [2e7, 0.625, 1e-5]     # 少数群の境界 (eV)
+//! responses = ["total-1", "scatter-1-2"] # total-G、nu-fission-G、fission-G、scatter-G-H（少数群は 1 始まり）
+//! methods = ["source-iteration", "cmfd", "gmres"]
+//! restart = 30                    # GMRES の再始動の回数（gmres を使うとき）
+//! tolerance = 1e-6                # 一般化随伴の反復の判定
+//! reference = "gmres"             # 結果と比べる参照の方法と判定（省略すると比べない）
+//! reference-tolerance = 1e-10
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -138,7 +148,7 @@ use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, Shieldin
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
-use crate::sensitivity::SensitivityInput;
+use crate::sensitivity::{GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -480,6 +490,118 @@ struct SensitivityEntry {
     direct: Option<f64>,
     k_tolerance: Option<f64>,
     flux_tolerance: Option<f64>,
+    generalized: Option<GeneralizedEntry>,
+}
+
+/// `[sensitivity.generalized]`（ADR-0247 の段 3）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct GeneralizedEntry {
+    bounds: Vec<f64>,
+    responses: Vec<String>,
+    methods: Vec<String>,
+    restart: Option<usize>,
+    tolerance: f64,
+    reference: Option<String>,
+    reference_tolerance: Option<f64>,
+}
+
+impl GeneralizedEntry {
+    fn into_input(self) -> Result<GeneralizedInput, String> {
+        let few = self.bounds.len().saturating_sub(1);
+        if few == 0 {
+            return Err("[sensitivity.generalized] bounds must give at least one few group".into());
+        }
+        // 少数群の番号（1 始まりの文字列）を 0 始まりにする
+        let group = |text: &str| -> Option<usize> {
+            let g: usize = text.parse().ok()?;
+            (1..=few).contains(&g).then(|| g - 1)
+        };
+        let mut responses = Vec::with_capacity(self.responses.len());
+        for name in &self.responses {
+            let parsed = if let Some(g) = name.strip_prefix("total-") {
+                group(g).map(Response::Total)
+            } else if let Some(g) = name.strip_prefix("nu-fission-") {
+                group(g).map(Response::NuFission)
+            } else if let Some(g) = name.strip_prefix("fission-") {
+                group(g).map(Response::Fission)
+            } else if let Some(pair) = name.strip_prefix("scatter-") {
+                pair.split_once('-')
+                    .and_then(|(g, h)| Some(Response::Scatter(group(g)?, group(h)?)))
+            } else {
+                None
+            };
+            let response = parsed.ok_or_else(|| {
+                format!(
+                    "[sensitivity.generalized] response `{name}` must be total-G, nu-fission-G, fission-G or \
+                     scatter-G-H with few groups from 1 to {few}"
+                )
+            })?;
+            if responses.contains(&response) {
+                return Err(format!(
+                    "[sensitivity.generalized] response `{name}` is listed twice"
+                ));
+            }
+            responses.push(response);
+        }
+        if responses.is_empty() {
+            return Err("[sensitivity.generalized] responses must not be empty".into());
+        }
+        let restart = self.restart;
+        let method = |name: &str| -> Result<Method, String> {
+            match name {
+                "source-iteration" => Ok(Method::SourceIteration),
+                "cmfd" => Ok(Method::Cmfd),
+                "gmres" => match restart {
+                    Some(r) if r > 0 => Ok(Method::Gmres { restart: r }),
+                    _ => Err("[sensitivity.generalized] gmres needs a positive restart".into()),
+                },
+                other => Err(format!(
+                    "[sensitivity.generalized] method `{other}` must be source-iteration, cmfd or gmres"
+                )),
+            }
+        };
+        let methods = self
+            .methods
+            .iter()
+            .map(|m| method(m))
+            .collect::<Result<Vec<_>, _>>()?;
+        if methods.is_empty()
+            || methods
+                .iter()
+                .enumerate()
+                .any(|(i, m)| methods[..i].contains(m))
+        {
+            return Err(format!(
+                "[sensitivity.generalized] methods must list distinct methods, got {:?}",
+                self.methods
+            ));
+        }
+        let positive = |t: f64| t > 0.0 && t.is_finite();
+        if !positive(self.tolerance) {
+            return Err(format!(
+                "[sensitivity.generalized] tolerance must be positive, got {}",
+                self.tolerance
+            ));
+        }
+        let reference = match (self.reference, self.reference_tolerance) {
+            (None, None) => None,
+            (Some(m), Some(t)) if positive(t) => Some((method(&m)?, t)),
+            _ => {
+                return Err(
+                    "[sensitivity.generalized] reference needs both a method and a positive reference-tolerance"
+                        .into(),
+                );
+            }
+        };
+        Ok(GeneralizedInput {
+            bounds: self.bounds,
+            responses,
+            methods,
+            tolerance: self.tolerance,
+            reference,
+        })
+    }
 }
 
 /// 数密度の微分の摂動の割合の既定（ADR-0221）
@@ -1569,7 +1691,7 @@ impl LatticeInput {
                     direct: s.direct,
                     k_tolerance: s.k_tolerance,
                     flux_tolerance: s.flux_tolerance,
-                    generalized: None,
+                    generalized: s.generalized.map(GeneralizedEntry::into_input).transpose()?,
                 })
             })
             .transpose()
