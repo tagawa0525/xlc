@@ -838,9 +838,10 @@ fn response_values(
 struct FewGroupSolve {
     /// [応答] の（⟨h₁, φ⟩、⟨h₂, φ⟩）
     values: Vec<(f64, f64)>,
-    /// [応答] の中性子束を通じた項の係数
-    importances: Vec<ResponseImportance>,
-    /// [応答] の一般化随伴のスイープの回数
+    /// [応答] の中性子束を通じた項の係数。どの物質でも分子が 0 の応答（3 群より多い少数群の上方散乱など）と、分子が分母に比例する
+    /// 応答は、値が中性子束の形によらないので一般化随伴を解かず `None`
+    importances: Vec<Option<ResponseImportance>>,
+    /// [応答] の一般化随伴のスイープの回数（解かない応答は 0）
     sweeps: Vec<usize>,
 }
 
@@ -857,27 +858,47 @@ impl FewGroupSolve {
         group_of: &[usize],
         settings: &GeneralizedOptions,
     ) -> anyhow::Result<Self> {
-        let sources = response_sources(responses, group_of, materials, solution)?;
-        let gamma = solve_generalized(
-            tracking, materials, options, symmetry, forward, adjoint, &sources, settings,
-        )
-        .context("generalized adjoints of the few-group constants")?;
-        let importances = gamma
-            .iter()
-            .zip(&sources)
-            .map(|(g, q)| {
-                response_importance(tracking, materials, options, symmetry, forward, g, q)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let values = response_values(responses, group_of, materials, solution);
+        let mut importances = Vec::with_capacity(responses.len());
+        let mut sweeps = Vec::with_capacity(responses.len());
+        for (&response, &(a, b)) in responses.iter().zip(&values) {
+            if a == 0.0 {
+                importances.push(None);
+                sweeps.push(0);
+                continue;
+            }
+            // 源ごとに解いて係数にし、一般化随伴の状態（トラックの端の角度中性子束の全体）を応答の数だけ持たない
+            let sources = response_sources(&[response], group_of, materials, solution)?;
+            // 分子が分母に比例する応答（どの領域でも同じ断面積）は中性子束の形によらず、源は丸めだけ。中性子束を通じた項は 0
+            if flat_source(&sources[0], b) {
+                importances.push(None);
+                sweeps.push(0);
+                continue;
+            }
+            let gamma = solve_generalized(
+                tracking, materials, options, symmetry, forward, adjoint, &sources, settings,
+            )
+            .with_context(|| format!("generalized adjoint of the few-group constant {response}"))?;
+            importances.push(Some(response_importance(
+                tracking,
+                materials,
+                options,
+                symmetry,
+                forward,
+                &gamma[0],
+                &sources[0],
+            )?));
+            sweeps.push(gamma[0].iterations);
+        }
         Ok(Self {
-            values: response_values(responses, group_of, materials, solution),
+            values,
             importances,
-            sweeps: gamma.iter().map(|g| g.iterations).collect(),
+            sweeps,
         })
     }
 
     /// 領域ごとの物質の変化 `changes`（領域、δM）による [応答] の 1 次の変化 δR = R (⟨δh₁, φ⟩ / ⟨h₁, φ⟩ + ⟨Γ, (δF / k − δL) φ⟩)
-    /// （分母の重みは物質によらない）
+    /// （分母の重みは物質によらない）。R が 0 の応答は ⟨δh₁, φ⟩ / ⟨h₂, φ⟩
     fn first_order(
         &self,
         responses: &[Response],
@@ -897,6 +918,9 @@ impl FewGroupSolve {
                         direct += v * numerator(response, d, g, group_of) * f;
                     }
                 }
+                let Some(importance) = importance else {
+                    return Ok(direct / b);
+                };
                 let flux = importance
                     .flux_term(changes)
                     .with_context(|| format!("response {response}"))?;
@@ -904,6 +928,13 @@ impl FewGroupSolve {
             })
             .collect()
     }
+}
+
+/// 比の応答の源 `source`（S = h₁ / a − h₂ / b）が丸めだけか。h₂ / b は 1 / b で、h₁ / a は (h₁ / R) / b なので、どちらの項も
+/// 1 / b の桁（R は h₁ の重みの平均）。その 1e-12 倍以下なら、差は足す順の丸め
+fn flat_source(source: &[Vec<f64>], b: f64) -> bool {
+    let largest = source.iter().flatten().fold(0.0_f64, |m, x| m.max(x.abs()));
+    largest <= 1e-12 / b
 }
 
 /// 物質の入力 `materials` のうち、核種 `name` を正の数密度で持つ組成の数密度を (1 + `step`) 倍したもの（`Derivatives::changes` と
