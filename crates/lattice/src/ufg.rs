@@ -22,6 +22,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::time::{Duration, Instant};
 
@@ -45,7 +46,7 @@ mod transfer;
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
 use hold::cells_beside_work;
 pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
-pub use transfer::ShareCellCache;
+pub use transfer::{CensusCall, ShareCellCache};
 use xlc_numeric::lu::solve;
 
 /// ポイントワイズの断面積の列の数: [全, 弾性散乱, 核分裂, νσf, 捕獲]
@@ -937,6 +938,17 @@ fn solve_cell(
                 })
             })
             .collect();
+        if let Some(thermal) = &sweep.thermal
+            && tracing::enabled!(tracing::Level::DEBUG)
+        {
+            // 区間と D の値は、自由ガスの核種の核、範囲の上端、格子の最後の点と、格子点のレサジーとエネルギーで決まる
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            for l in 0..count {
+                thermal.gas(l).0.bits().hash(&mut hasher);
+            }
+            (high.to_bits(), u[u.len() - 1].to_bits()).hash(&mut hasher);
+            shares.count_points(hasher.finish(), &thermal.work().points);
+        }
         let counted = Instant::now();
         *transfers = transfer::Counting {
             data: &data,

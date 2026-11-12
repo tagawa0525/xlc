@@ -968,6 +968,8 @@ pub(super) struct Thermal<'a> {
     elapsed: [Duration; 2],
     /// 自由ガスの核の区間の仕事の内訳（ログ。[`Thermal::work`]）
     work: FreeGasWork,
+    /// [`FreeGasWork::points`] を書くか（DEBUG のログ）
+    census: bool,
 }
 
 /// 自由ガスの核の区間の仕事の内訳（ログ）。時間は区間の塊ごとのスレッドの時間の和で、ピンの中の並列を盗んだスレッドの時間も含む
@@ -981,6 +983,9 @@ pub(super) struct FreeGasWork {
     pub(super) integrations: [u64; 2],
     /// スレッドの時間: [区間の境界（[`Gas::cells`]。逐次）, 2 次式の作成, 作った区間の積分, 持った区間の積分]
     pub(super) seconds: [Duration; 4],
+    /// 最初のスイープで区間を作った格子点の（レサジーのビット, エネルギーのビット, 評価の回数）。ピンと自己遮蔽の間で
+    /// 同じ格子点がどれだけ重なるかを数えるデバッグのログ（[`super::ShareCellCache::census`]）のためで、DEBUG のときだけ書く
+    pub(super) points: Vec<(u64, u64, u64)>,
 }
 
 /// 区間の塊の 1 つの積分の結果: [リング] の（既知の部分, F_m の係数）と、その仕事（[`FreeGasWork`] の塊の分）
@@ -1058,6 +1063,7 @@ impl<'a> Thermal<'a> {
                 built: vec![0; n_gases],
                 ..FreeGasWork::default()
             },
+            census: tracing::enabled!(tracing::Level::DEBUG),
         }
     }
 
@@ -1113,7 +1119,9 @@ impl<'a> Thermal<'a> {
             Some(held) => (self.integrate_held(held, m, u, flux, n), 1),
             None => (self.build(slot, m, u, high, e, flux, n), 0),
         };
+        let mut evaluations = 0;
         for part in parts {
+            evaluations += part.evaluations;
             for ((k, o), (known, own)) in part
                 .sums
                 .into_iter()
@@ -1126,6 +1134,11 @@ impl<'a> Thermal<'a> {
             self.work.integrations[kind] += part.integrations;
             self.work.seconds[1] += part.seconds[0];
             self.work.seconds[2 + kind] += part.seconds[1];
+        }
+        if self.census && kind == 0 && self.previous.is_none() {
+            self.work
+                .points
+                .push((u[m].to_bits(), e.to_bits(), evaluations));
         }
         let gas_done = Instant::now();
         let (sigmas, rings) = (&self.sigma, &self.rings);

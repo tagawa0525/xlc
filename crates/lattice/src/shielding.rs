@@ -37,8 +37,9 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache, UfgError,
-    cell_range, held_cells, hold_total, material_range, slowing_down_transfers, slowing_down_with,
+    CellSpectrum, CensusCall, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache,
+    UfgError, cell_range, held_cells, hold_total, material_range, slowing_down_transfers,
+    slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -935,6 +936,22 @@ pub fn shield_fuel_reusing(
         shielded.region_effective[region] = dilute_nuclides[index].clone();
     }
     drop(dilute_span);
+    if tracing::enabled!(tracing::Level::DEBUG) {
+        // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と前の自己遮蔽の間（new）で重なる分
+        let CensusCall {
+            total,
+            distinct,
+            new,
+            keys,
+        } = shares.census();
+        tracing::debug!(
+            total,
+            distinct,
+            new,
+            keys,
+            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of earlier shieldings"
+        );
+    }
     tracing::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),

@@ -46,6 +46,33 @@ const NEGATIVE: f64 = 1.0e-9;
 #[derive(Debug, Default)]
 pub struct ShareCellCache {
     columns: Mutex<HashMap<ShareKey, Arc<ShareColumn>>>,
+    /// 自由ガスの核の区間を作った格子点の重なりの計数（DEBUG のログ。[`ShareCellCache::census`]）
+    census: Mutex<Census>,
+}
+
+/// 自由ガスの核の区間を作った格子点を、核（自由ガスの核種のすべての [`Gas::bits`]、範囲の上端、格子の最後の点）と格子点の
+/// レサジーとエネルギーのビットの鍵で数えたもの。区間と D の値はこの鍵だけで決まるので、同じ鍵の格子点の評価は、ピンと
+/// 自己遮蔽の間で持てば作り直さずに済む量
+#[derive(Debug, Default)]
+struct Census {
+    /// 鍵ごとの、最後に数えた自己遮蔽
+    seen: HashMap<[u64; 3], u64>,
+    /// 今の自己遮蔽の番号と、その評価の回数: [全体, 今の自己遮蔽で初めての鍵の分, 前の自己遮蔽にもない鍵の分]
+    call: u64,
+    evaluations: [u64; 3],
+}
+
+/// 1 回の自己遮蔽の、自由ガスの核の評価の回数（[`ShareCellCache::census`]）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CensusCall {
+    /// ピンの評価の回数の和
+    pub total: u64,
+    /// この自己遮蔽の中で鍵の重なりを除いたもの
+    pub distinct: u64,
+    /// それより前の自己遮蔽にもない鍵の分
+    pub new: u64,
+    /// それまでのすべての自己遮蔽の鍵の数
+    pub keys: usize,
 }
 
 /// 1 つの自由ガスの核種の [境界 − 1] の割合の区間 [境界より上の入射, 境界より下の入射]
@@ -68,6 +95,41 @@ impl ShareCellCache {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// 減速計算の、最初のスイープで区間を作った格子点（（レサジーのビット, エネルギーのビット, 評価の回数））を数える。`kernel` は核の鍵（自由ガスの核種と範囲の
+    /// 上端、格子の最後の点のビットのハッシュ）
+    pub(super) fn count_points(&self, kernel: u64, points: &[(u64, u64, u64)]) {
+        let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
+        let call = census.call;
+        for &(u, e, evaluations) in points {
+            census.evaluations[0] += evaluations;
+            match census.seen.get_mut(&[kernel, u, e]) {
+                Some(last) if *last == call => {}
+                Some(last) => {
+                    *last = call;
+                    census.evaluations[1] += evaluations;
+                }
+                None => {
+                    census.seen.insert([kernel, u, e], call);
+                    census.evaluations[1] += evaluations;
+                    census.evaluations[2] += evaluations;
+                }
+            }
+        }
+    }
+
+    /// 1 回の自己遮蔽の計数を閉じて返し、次の自己遮蔽の計数を始める（DEBUG のログ）
+    pub fn census(&self) -> CensusCall {
+        let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
+        let [total, distinct, new] = std::mem::take(&mut census.evaluations);
+        census.call += 1;
+        CensusCall {
+            total,
+            distinct,
+            new,
+            keys: census.seen.len(),
+        }
     }
 
     // ロックの中では作り終えた列を引くか入れるだけで、表が途中の状態で残ることはないので、ほかのスレッドがロックを持ったまま
