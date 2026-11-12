@@ -1523,6 +1523,8 @@ fn track_table(
     let mut outside_sizes = [0usize; OUTSIDE_DEVIATIONS.len() + 1];
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     let mut sigma = vec![0.0; first.len()];
+    // 展開の中の格子点の物質ごとの全断面積（表はその内挿が読む格子点の組だけを求める）
+    let mut inside: Vec<Vec<f64>> = Vec::new();
     for &(e, below) in points {
         let row = data
             .iter()
@@ -1542,7 +1544,9 @@ fn track_table(
             }
             *s = t;
         }
-        if !widen_ranges(&layout, &sigma, &mut ranges) {
+        if widen_ranges(&layout, &sigma, &mut ranges) {
+            inside.push(sigma.clone());
+        } else {
             outside += 1;
             if tracing::enabled!(tracing::Level::DEBUG) {
                 let band = OUTSIDE_BANDS.iter().take_while(|&&b| e >= b).count();
@@ -1574,7 +1578,8 @@ fn track_table(
         return Ok(None);
     }
     // 表で求める衝突確率（格子点の組ごとの表の値と微分、展開の外の格子点）が格子点ごとより多いなら、表は速くならず、メモリも
-    // 大きいので作らない。組の数が usize に収まらない表も同じ
+    // 大きいので作らない。組の数が usize に収まらない表も同じ。数えるのはすべての組で、展開の中の格子点が読む組（実際に求める組）
+    // ではない（読む組で数えると表を作るセルが増え、そのセルの結果が変わる。#0180）
     let evaluations = match TrackTable::count(&ranges, density) {
         Ok(nodes) => {
             tracing::debug!(
@@ -1608,9 +1613,11 @@ fn track_table(
         );
     }
     let clock = Instant::now();
-    let table = TrackTable::new(cell, layout, &ranges, density)?;
+    let table = TrackTable::for_points(cell, layout, &ranges, density, &inside)?;
     tracing::debug!(
         seconds = clock.elapsed().as_secs_f64(),
+        nodes = table.nodes(),
+        solved = table.solved_nodes(),
         "UFG track table built"
     );
     Ok(Some((table, first)))

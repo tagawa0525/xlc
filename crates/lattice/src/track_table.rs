@@ -255,6 +255,8 @@ pub struct TrackTable {
     axes: Vec<Axis>,
     /// [格子点の組 × (1 + 微分) × リング × リング] の R_ij と、微分ごとの ∂R_ij/∂ln Σ（格子点の組は最初の軸がいちばん速く変わる）
     values: Vec<f64>,
+    /// [格子点の組] の、求めたか（[`TrackTable::for_points`]）。`None` はすべて求めた
+    solved: Option<Vec<bool>>,
 }
 
 impl TrackTable {
@@ -265,6 +267,38 @@ impl TrackTable {
         layout: Layout,
         ranges: &[[f64; 2]],
         density: usize,
+    ) -> Result<Self, TableError> {
+        Self::build(cell, layout, ranges, density, None)
+    }
+
+    /// [`TrackTable::new`] の表のうち、物質ごとの全断面積 `points`（点ごとに物質の数の値）の内挿が読む格子点の組だけを求めた表。
+    /// 軸を共有する物質の差が展開の上限を超える点は、表を読まないので数えない。求めた組の値は [`TrackTable::new`] の表とビットで
+    /// 同じで、`points` の飛程もビットで同じ。範囲の外の点はエラー（[`TrackTable::tracks`] と同じ）
+    pub fn for_points(
+        cell: &Cylinder,
+        layout: Layout,
+        ranges: &[[f64; 2]],
+        density: usize,
+        points: &[Vec<f64>],
+    ) -> Result<Self, TableError> {
+        let axes = axes(ranges, density)?;
+        let mut used = vec![false; count(&axes)?];
+        for sigma in points {
+            let Some(centers) = expansion_centers(&layout, &axes, sigma)? else {
+                continue;
+            };
+            for_stencil(&axes, &centers, |node, _| used[node] = true);
+        }
+        Self::build(cell, layout, ranges, density, Some(used))
+    }
+
+    /// `used` が `Some` なら、その [格子点の組] の真の組だけを求める
+    fn build(
+        cell: &Cylinder,
+        layout: Layout,
+        ranges: &[[f64; 2]],
+        density: usize,
+        used: Option<Vec<bool>>,
     ) -> Result<Self, TableError> {
         if density == 0 {
             return Err(TableError::Density);
@@ -292,6 +326,9 @@ impl TrackTable {
             .par_chunks_mut(block)
             .enumerate()
             .try_for_each(|(node, out)| {
+                if used.as_ref().is_some_and(|u| !u[node]) {
+                    return Ok(());
+                }
                 let mut rest = node;
                 let centers: Vec<f64> = axes
                     .iter()
@@ -321,29 +358,27 @@ impl TrackTable {
                 }
                 Ok::<(), CpError>(())
             })?;
-        tracing::debug!(nodes, derivatives = layout.derivatives(), "track table");
+        tracing::debug!(
+            nodes,
+            solved = used
+                .as_ref()
+                .map_or(nodes, |u| u.iter().filter(|&&x| x).count()),
+            derivatives = layout.derivatives(),
+            "track table"
+        );
         Ok(Self {
             layout,
             axes,
             values,
+            solved: used,
         })
-    }
-
-    /// [`TrackTable::new`] の表のうち、物質ごとの全断面積 `points`（点ごとに物質の数の値）の内挿が読む格子点の組だけを求めた表
-    pub fn for_points(
-        cell: &Cylinder,
-        layout: Layout,
-        ranges: &[[f64; 2]],
-        density: usize,
-        points: &[Vec<f64>],
-    ) -> Result<Self, TableError> {
-        let _ = points;
-        Self::new(cell, layout, ranges, density)
     }
 
     /// 求めた格子点の組の数
     pub fn solved_nodes(&self) -> usize {
-        self.nodes()
+        self.solved
+            .as_ref()
+            .map_or_else(|| self.nodes(), |u| u.iter().filter(|&&x| x).count())
     }
 
     /// 格子点の組の数
@@ -367,19 +402,9 @@ impl TrackTable {
                 materials,
             });
         }
-        let (centers, deviation) = self.layout.centers(sigma);
-        if deviation > MAX_DEVIATION {
+        let Some(centers) = expansion_centers(&self.layout, &self.axes, sigma)? else {
             return Ok(None);
-        }
-        for (index, (axis, &s)) in self.axes.iter().zip(&centers).enumerate() {
-            if !(axis.range[0] <= s && s <= axis.range[1]) {
-                return Err(TableError::Outside {
-                    axis: index,
-                    sigma: s,
-                    range: axis.range,
-                });
-            }
-        }
+        };
         let n = self.layout.classes.len();
         // 表の値と微分ごとの係数: 1 と、微分の物質の ln Σ の中心からの差
         let mut coefficients = vec![1.0];
@@ -390,21 +415,12 @@ impl TrackTable {
             }
         }
         let block = coefficients.len() * n * n;
-        let stencils: Vec<(usize, [f64; STENCIL])> = self
-            .axes
-            .iter()
-            .zip(&centers)
-            .map(|(a, &s)| a.stencil(s))
-            .collect();
         let mut r = vec![0.0; n * n];
-        // 軸ごとの内挿の点の組を、最初の軸がいちばん速く変わる順に回る
-        let mut offsets = vec![0usize; self.axes.len()];
-        'combos: loop {
-            let (mut node, mut stride, mut weight) = (0, 1, 1.0);
-            for ((axis, &(first, w)), &k) in self.axes.iter().zip(&stencils).zip(&offsets) {
-                node += (first + k) * stride;
-                stride *= axis.count;
-                weight *= w[k];
+        let mut unsolved = None;
+        for_stencil(&self.axes, &centers, |node, weight| {
+            if self.solved.as_ref().is_some_and(|u| !u[node]) {
+                unsolved.get_or_insert(node);
+                return;
             }
             let values = &self.values[node * block..(node + 1) * block];
             for (c, v) in coefficients.iter().zip(values.chunks(n * n)) {
@@ -413,14 +429,9 @@ impl TrackTable {
                     *x += factor * v;
                 }
             }
-            for (k, axis) in offsets.iter_mut().zip(&self.axes) {
-                *k += 1;
-                if *k < axis.width() {
-                    continue 'combos;
-                }
-                *k = 0;
-            }
-            break;
+        });
+        if let Some(node) = unsolved {
+            return Err(TableError::Unsolved { node });
         }
         let totals = self.layout.totals(sigma);
         Ok(Some(
@@ -439,6 +450,56 @@ impl TrackTable {
                 })
                 .collect(),
         ))
+    }
+}
+
+/// 物質ごとの全断面積 `sigma` の [軸] の値（中心）。軸を共有する物質の ln Σ の中心からの差が [`MAX_DEVIATION`] を超えれば `None`、
+/// 軸の範囲の外はエラー
+fn expansion_centers(
+    layout: &Layout,
+    axes: &[Axis],
+    sigma: &[f64],
+) -> Result<Option<Vec<f64>>, TableError> {
+    let (centers, deviation) = layout.centers(sigma);
+    if deviation > MAX_DEVIATION {
+        return Ok(None);
+    }
+    for (index, (axis, &s)) in axes.iter().zip(&centers).enumerate() {
+        if !(axis.range[0] <= s && s <= axis.range[1]) {
+            return Err(TableError::Outside {
+                axis: index,
+                sigma: s,
+                range: axis.range,
+            });
+        }
+    }
+    Ok(Some(centers))
+}
+
+/// 軸の値 `centers` の内挿の点の組（格子点の組の番号と、軸ごとの重みの積）を、最初の軸がいちばん速く変わる順に `visit` に渡す
+fn for_stencil(axes: &[Axis], centers: &[f64], mut visit: impl FnMut(usize, f64)) {
+    let stencils: Vec<(usize, [f64; STENCIL])> = axes
+        .iter()
+        .zip(centers)
+        .map(|(a, &s)| a.stencil(s))
+        .collect();
+    let mut offsets = vec![0usize; axes.len()];
+    'combos: loop {
+        let (mut node, mut stride, mut weight) = (0, 1, 1.0);
+        for ((axis, &(first, w)), &k) in axes.iter().zip(&stencils).zip(&offsets) {
+            node += (first + k) * stride;
+            stride *= axis.count;
+            weight *= w[k];
+        }
+        visit(node, weight);
+        for (k, axis) in offsets.iter_mut().zip(axes) {
+            *k += 1;
+            if *k < axis.width() {
+                continue 'combos;
+            }
+            *k = 0;
+        }
+        break;
     }
 }
 
