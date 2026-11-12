@@ -1,0 +1,6 @@
+outs:
+- md5: 598a45ce5247985392de9516f7ade9f8
+  size: 9720256
+  isexec: true
+  hash: md5
+  path: lattice-598a45ce

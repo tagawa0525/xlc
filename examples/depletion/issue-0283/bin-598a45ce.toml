@@ -1,8 +1,8 @@
 # #0283: 2A の格子計算の燃焼の履歴（../p2/lattice-2A.msgpack、md5 c028d773）と、同じ組成を分岐で解いたテーブルの k∞ の差の切り分け。
 # 履歴を作った bin/lattice（md5 598a45ce。p2/dvc.lock の lattice@2A の deps）と、そのライブラリ（md5 a96f4f23）で、今の入力の形のまま解いたもの（上限は書かず、その bin の既定）。
 # 格子、離散化、組成と公称の 1 状態は issue-0279/core-micro/table-d0.toml と同じで、燃焼度の点を 0、20、60 MWd/kg に、追う核種をなしにした。
-# trials/0283/ のライブラリ（と bin-598a45ce.toml の bin）は git で追跡しない。DVC のキャッシュから md5 で戻す（references/dvc-cache/files/md5/<先頭 2 桁>/<残り>）。
-library = "../../../trials/0283/depletion-a96f4f23.msgpack"
+# ライブラリは同じ置き場の depletion-a96f4f23.msgpack（`dvc add`。scripts/worktree-restore-outputs.sh で戻る）。実行ファイルは同じ置き場の lattice-598a45ce（`dvc add`）で、`./lattice-598a45ce bin-598a45ce.toml` で解く。
+library = "depletion-a96f4f23.msgpack"
 few-group = { output = "bin-598a45ce.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
 pitch = 1.26
