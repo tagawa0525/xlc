@@ -2098,3 +2098,199 @@ fn rejects_a_start_from_another_symmetry_of_the_same_size() {
     let result = solve_symmetric_from(&tracking, &materials, &options, &verified, Some(&vertical));
     assert!(matches!(result, Err(MocError::ForeignStart)), "{result:?}");
 }
+
+/// 随伴と前向きの k を反復の判定より細かく比べるための判定
+fn tight(scattering_order: usize) -> Options {
+    Options {
+        scattering_order,
+        k_tolerance: 1.0e-11,
+        flux_tolerance: 1.0e-9,
+        acceleration: Acceleration::Cmfd(CmfdOptions {
+            k_tolerance: 1.0e-12,
+            flux_tolerance: 1.0e-10,
+            ..CmfdOptions::default()
+        }),
+        ..Options::default()
+    }
+}
+
+/// χ の違う 2 つの核分裂の項を持つ 2 群の燃料（核分裂の行列が階数 2 で、転置が元と違う）
+fn two_spectra_fuel() -> Material {
+    let mut m = fuel();
+    m.fission_terms = vec![
+        FissionTerm {
+            chi: vec![1.0, 0.0],
+            nu_fission: vec![0.006, 0.2],
+        },
+        FissionTerm {
+            chi: vec![0.6, 0.4],
+            nu_fission: vec![0.002, 0.05],
+        },
+    ];
+    m
+}
+
+#[test]
+fn adjoint_k_equals_the_forward_k_with_leakage_and_upscatter() {
+    // 真空の外周の市松の格子で、上方散乱と 2 つの核分裂のスペクトルを持つ（散乱と核分裂の行列が非対称）
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let forward = solve(&tracking, &materials, &options).unwrap();
+    let adjoint = solve_adjoint(&tracking, &materials, &options, None).unwrap();
+    assert!(
+        (adjoint.k - forward.k).abs() < 1e-9,
+        "{} vs {}",
+        adjoint.k,
+        forward.k
+    );
+    // 非対称な問題では、随伴の中性子束は前向きの中性子束と形が違う
+    let ratio = |flux: &[Vec<f64>]| flux[0][1] / flux[0][0];
+    assert!((ratio(&adjoint.flux) / ratio(&forward.flux) - 1.0).abs() > 1e-2);
+}
+
+#[test]
+fn adjoint_k_equals_the_forward_k_with_anisotropic_scattering() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (
+        with_moments(&two_spectra_fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(1);
+    let forward = solve(&tracking, &materials, &options).unwrap();
+    let adjoint = solve_adjoint(&tracking, &materials, &options, None).unwrap();
+    assert!(
+        (adjoint.k - forward.k).abs() < 1e-9,
+        "{} vs {}",
+        adjoint.k,
+        forward.k
+    );
+}
+
+#[test]
+fn adjoint_of_an_infinite_medium_is_the_left_eigenvector() {
+    // 均質な無限媒質の随伴は平らで、群の比は (diag Σt − Σs)ᵀ の転置の系 (diag Σt − Σs) φ† = νΣf / k の解
+    // （Σs は [入射][出射]、χ = (1, 0)）
+    let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+    let m = fuel();
+    let adjoint = solve_adjoint(&tracking, &[&m, &m, &m], &tight(0), None).unwrap();
+    let k = infinite_medium_k(&m);
+    assert!((adjoint.k - k).abs() < 1e-9, "{} vs {k}", adjoint.k);
+    let a = [
+        [m.total[0] - m.scatter[0][0], -m.scatter[0][1]],
+        [-m.scatter[1][0], m.total[1] - m.scatter[1][1]],
+    ];
+    let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+    let nu = &m.nu_fission;
+    let expected = [
+        (a[1][1] * nu[0] - a[0][1] * nu[1]) / det,
+        (a[0][0] * nu[1] - a[1][0] * nu[0]) / det,
+    ];
+    for flux in &adjoint.flux {
+        let ratio = flux[1] / flux[0];
+        let analytic = expected[1] / expected[0];
+        assert!(
+            (ratio - analytic).abs() < 1e-8 * analytic,
+            "{ratio} vs {analytic}"
+        );
+    }
+}
+
+#[test]
+fn one_group_adjoint_has_the_forward_shape() {
+    // 1 群の問題は自己随伴なので、随伴の中性子束は前向きの中性子束の定数倍
+    let one = |total: f64, scatter: f64, nu_fission: f64| Material {
+        total: vec![total],
+        scatter: vec![vec![scatter]],
+        anisotropic: Vec::new(),
+        fission: vec![nu_fission / 2.5],
+        nu_fission: vec![nu_fission],
+        fission_terms: if nu_fission > 0.0 {
+            vec![FissionTerm {
+                chi: vec![1.0],
+                nu_fission: vec![nu_fission],
+            }]
+        } else {
+            Vec::new()
+        },
+    };
+    let (f, m) = (one(0.8, 0.5, 0.35), one(1.5, 1.45, 0.0));
+    let tracking = vacuum_checkerboard(3);
+    let materials = checkerboard_materials(3, &f, &m);
+    let options = tight(0);
+    let forward = solve(&tracking, &materials, &options).unwrap();
+    let adjoint = solve_adjoint(&tracking, &materials, &options, None).unwrap();
+    assert!((adjoint.k - forward.k).abs() < 1e-9);
+    let scale = adjoint.flux[0][0] / forward.flux[0][0];
+    for (a, f) in adjoint.flux.iter().zip(&forward.flux) {
+        assert!((a[0] / (scale * f[0]) - 1.0).abs() < 1e-7, "{a:?} vs {f:?}");
+    }
+}
+
+#[test]
+fn adjoint_with_symmetry_matches_the_full_adjoint() {
+    let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = [&f, &f, &m, &m];
+    let options = tight(0);
+    let verified = require(&tracking, Symmetry::QUARTER).unwrap();
+    let full = solve_adjoint(&tracking, &materials, &options, None).unwrap();
+    let reduced = solve_adjoint(&tracking, &materials, &options, Some(&verified)).unwrap();
+    assert!((full.k - reduced.k).abs() < 1e-10);
+    for (a, b) in full
+        .flux
+        .iter()
+        .flatten()
+        .zip(reduced.flux.iter().flatten())
+    {
+        assert!((a - b).abs() < 1e-8 * b, "{a} vs {b}");
+    }
+}
+
+#[test]
+fn adjoint_rejects_a_material_that_the_forward_solve_rejects() {
+    // 転置は χ を νΣf / s で作り直すので、前向きの物質を確かめずに転置すると、前向きで止まる誤りが消える
+    let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+    let (ok, mut bad) = (fuel(), fuel());
+    bad.fission_terms[0].chi = vec![0.9, 0.0];
+    let materials = [&ok, &bad, &bad];
+    assert!(matches!(
+        solve(&tracking, &materials, &Options::default()),
+        Err(MocError::Material { region: 1, .. })
+    ));
+    let adjoint = solve_adjoint(&tracking, &materials, &Options::default(), None);
+    assert!(
+        matches!(adjoint, Err(MocError::Material { region: 1, .. })),
+        "{adjoint:?}"
+    );
+}
+
+#[test]
+fn adjoint_k_equals_the_forward_k_with_albedo_sides() {
+    // アルベドの辺は、戻る向きのトラックの組と割合が向きを逆にしても同じなので、相反性を保つ
+    let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+    let boundaries = Boundaries {
+        right: Boundary::Albedo(0.6),
+        bottom: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = [&f, &m, &m, &m, &f, &m];
+    let options = tight(0);
+    let forward = solve(&tracking, &materials, &options).unwrap();
+    let adjoint = solve_adjoint(&tracking, &materials, &options, None).unwrap();
+    assert!(
+        (adjoint.k - forward.k).abs() < 1e-9,
+        "{} vs {}",
+        adjoint.k,
+        forward.k
+    );
+}

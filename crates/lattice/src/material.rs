@@ -64,6 +64,10 @@ pub enum MaterialError {
     Chi { term: usize, sum: f64 },
     #[error("nu-fission does not match the sum of fission terms")]
     NuFission,
+    #[error(
+        "fission term {term} has nu-fission values that sum to zero; its adjoint (nu-fission over the sum) is undefined"
+    )]
+    ZeroSumFission { term: usize },
     #[error("{nuclide} has scattering moments up to P{order}, the others up to P{expected}")]
     ScatteringOrder {
         nuclide: String,
@@ -303,6 +307,48 @@ impl Material {
             .zip(&self.scatter)
             .map(|(t, row)| t - row.iter().sum::<f64>())
             .collect()
+    }
+
+    /// 前向きの輸送で解くと随伴の輸送になる物質（ADR-0247）。全断面積はそのまま、各次数の散乱行列を転置し、核分裂の項
+    /// χ ⊗ νΣf を (νΣf / s) ⊗ (s χ)（s = Σ_g νΣf）に入れ替える（核分裂の行列が転置になり、χ の和は 1 のまま。s が負でも成り立つ）。
+    /// νΣf がすべて 0 の項は核分裂を生まないので落とし、値があって s が 0 の項はエラー。Σf は輸送に入らないのでそのまま。転置は χ を作り直すので、前向きの物質を先に `validate` で
+    /// 確かめる（確かめないと、規格化されない χ や νΣf の食い違いが転置で消える）
+    pub fn adjoint(&self) -> Result<Self, MaterialError> {
+        self.validate()?;
+        let transpose = |m: &[Vec<f64>]| -> Vec<Vec<f64>> {
+            (0..m.len())
+                .map(|g| m.iter().map(|row| row[g]).collect())
+                .collect()
+        };
+        let mut fission_terms = Vec::with_capacity(self.fission_terms.len());
+        for (term, t) in self.fission_terms.iter().enumerate() {
+            if t.nu_fission.iter().all(|&n| n == 0.0) {
+                continue;
+            }
+            let s: f64 = t.nu_fission.iter().sum();
+            if s == 0.0 {
+                return Err(MaterialError::ZeroSumFission { term });
+            }
+            fission_terms.push(FissionTerm {
+                chi: t.nu_fission.iter().map(|n| n / s).collect(),
+                nu_fission: t.chi.iter().map(|c| s * c).collect(),
+            });
+        }
+        // 項の和の順と同じに足す（`validate` は νΣf と項の和の一致を確かめる）
+        let mut nu_fission = vec![0.0; self.groups()];
+        for term in &fission_terms {
+            for (n, v) in nu_fission.iter_mut().zip(&term.nu_fission) {
+                *n += v;
+            }
+        }
+        Ok(Self {
+            total: self.total.clone(),
+            scatter: transpose(&self.scatter),
+            anisotropic: self.anisotropic.iter().map(|m| transpose(m)).collect(),
+            fission: self.fission.clone(),
+            nu_fission,
+            fission_terms,
+        })
     }
 }
 
