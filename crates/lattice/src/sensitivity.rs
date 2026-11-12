@@ -54,8 +54,10 @@ pub struct GeneralizedInput {
     pub bounds: Vec<f64>,
     pub responses: Vec<Response>,
     pub methods: Vec<Method>,
-    /// 一般化随伴の反復の判定（`GeneralizedOptions::tolerance`）
-    pub tolerance: f64,
+    /// 一般化随伴の反復の判定（`GeneralizedOptions::tolerance`）。方法ごとに、それぞれの判定で解く
+    pub tolerances: Vec<f64>,
+    /// `methods` のうち、すべての源を一緒にスイープしても解く方法（`GeneralizedOptions::batch`）
+    pub batched: Vec<Method>,
     /// 差を比べる参照の方法と判定（`None` なら比べない）
     pub reference: Option<(Method, f64)>,
 }
@@ -177,6 +179,8 @@ pub struct GeneralizedReport {
 pub struct GeneralizedRun {
     pub method: String,
     pub tolerance: f64,
+    /// すべての源を一緒にスイープしたか
+    pub batch: bool,
     /// すべての応答を解いた時間 (s)。粗メッシュの加速の問題を作る時間を含む
     pub seconds: f64,
     /// [応答] のスイープの回数
@@ -450,55 +454,69 @@ fn compare_generalized(
         Acceleration::Cmfd(c) => c,
         Acceleration::None => CmfdOptions::default(),
     };
-    let run =
-        |method: Method, tolerance: f64| -> anyhow::Result<(GeneralizedRun, Vec<Generalized>)> {
-            let settings = GeneralizedOptions {
-                method: match method {
-                    Method::SourceIteration => GeneralizedMethod::SourceIteration,
-                    Method::Cmfd => GeneralizedMethod::Cmfd(cmfd),
-                    Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
-                },
-                tolerance,
-                max_iterations: options.max_iterations,
-                batch: false,
-            };
-            let clock = Instant::now();
-            let gamma = solve_generalized(
-                state.tracking,
-                materials,
-                options,
-                Some(state.symmetry),
-                forward,
-                adjoint,
-                &sources,
-                &settings,
-            )
-            .with_context(|| format!("generalized adjoint by {method}"))?;
-            let seconds = clock.elapsed().as_secs_f64();
-            let orthogonality = gamma
-                .iter()
-                .map(|g| fission_overlap(materials, solution, &g.flux))
-                .collect();
-            tracing::info!(%method, tolerance, seconds, "generalized adjoints");
-            Ok((
-                GeneralizedRun {
-                    method: method.to_string(),
-                    tolerance,
-                    seconds,
-                    sweeps: gamma.iter().map(|g| g.iterations).collect(),
-                    orthogonality,
-                    difference: None,
-                },
-                gamma,
-            ))
+    let run = |method: Method,
+               tolerance: f64,
+               batch: bool|
+     -> anyhow::Result<(GeneralizedRun, Vec<Generalized>)> {
+        let settings = GeneralizedOptions {
+            method: match method {
+                Method::SourceIteration => GeneralizedMethod::SourceIteration,
+                Method::Cmfd => GeneralizedMethod::Cmfd(cmfd),
+                Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
+            },
+            tolerance,
+            max_iterations: options.max_iterations,
+            batch,
         };
+        let clock = Instant::now();
+        let gamma = solve_generalized(
+            state.tracking,
+            materials,
+            options,
+            Some(state.symmetry),
+            forward,
+            adjoint,
+            &sources,
+            &settings,
+        )
+        .with_context(|| format!("generalized adjoint by {method}"))?;
+        let seconds = clock.elapsed().as_secs_f64();
+        let orthogonality = gamma
+            .iter()
+            .map(|g| fission_overlap(materials, solution, &g.flux))
+            .collect();
+        tracing::info!(%method, tolerance, batch, seconds, "generalized adjoints");
+        Ok((
+            GeneralizedRun {
+                method: method.to_string(),
+                tolerance,
+                batch,
+                seconds,
+                sweeps: gamma.iter().map(|g| g.iterations).collect(),
+                orthogonality,
+                difference: None,
+            },
+            gamma,
+        ))
+    };
     let reference = input
         .reference
-        .map(|(method, tolerance)| run(method, tolerance))
+        .map(|(method, tolerance)| run(method, tolerance, false))
         .transpose()?;
-    let mut runs = Vec::with_capacity(input.methods.len());
-    for &method in &input.methods {
-        let (mut result, gamma) = run(method, input.tolerance)?;
+    let mut runs = Vec::new();
+    let cases = input.methods.iter().flat_map(|&method| {
+        let batches = if input.batched.contains(&method) {
+            &[false, true][..]
+        } else {
+            &[false][..]
+        };
+        input
+            .tolerances
+            .iter()
+            .flat_map(move |&t| batches.iter().map(move |&b| (method, t, b)))
+    });
+    for (method, tolerance, batch) in cases {
+        let (mut result, gamma) = run(method, tolerance, batch)?;
         if let Some((_, reference)) = &reference {
             result.difference = Some(
                 gamma

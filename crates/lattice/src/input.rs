@@ -125,7 +125,8 @@
 //! responses = ["total-1", "scatter-1-2"] # total-G、nu-fission-G、fission-G、scatter-G-H（少数群は 1 始まり）
 //! methods = ["source-iteration", "cmfd", "gmres"]
 //! restart = 30                    # GMRES の再始動の回数（gmres を使うとき）
-//! tolerance = 1e-6                # 一般化随伴の反復の判定
+//! tolerances = [1e-6, 1e-7]      # 一般化随伴の反復の判定（方法ごとに、それぞれで解く）
+//! batched = ["gmres"]             # すべての源を一緒にスイープしても解く方法（methods から選ぶ。省略すると源ごとだけ）
 //! reference = "gmres"             # 結果と比べる参照の方法と判定（省略すると比べない）
 //! reference-tolerance = 1e-10
 //! ```
@@ -501,7 +502,8 @@ struct GeneralizedEntry {
     responses: Vec<String>,
     methods: Vec<String>,
     restart: Option<usize>,
-    tolerance: f64,
+    tolerances: Vec<f64>,
+    batched: Option<Vec<String>>,
     reference: Option<String>,
     reference_tolerance: Option<f64>,
 }
@@ -578,11 +580,22 @@ impl GeneralizedEntry {
             ));
         }
         let positive = |t: f64| t > 0.0 && t.is_finite();
-        if !positive(self.tolerance) {
+        if self.tolerances.is_empty() || !self.tolerances.iter().all(|&t| positive(t)) {
             return Err(format!(
-                "[sensitivity.generalized] tolerance must be positive, got {}",
-                self.tolerance
+                "[sensitivity.generalized] tolerances must be positive, got {:?}",
+                self.tolerances
             ));
+        }
+        let batched = self
+            .batched
+            .unwrap_or_default()
+            .iter()
+            .map(|m| method(m))
+            .collect::<Result<Vec<_>, _>>()?;
+        if batched.iter().any(|m| !methods.contains(m)) {
+            return Err(
+                "[sensitivity.generalized] batched must list methods that methods lists".into(),
+            );
         }
         let reference = match (self.reference, self.reference_tolerance) {
             (None, None) => None,
@@ -598,7 +611,8 @@ impl GeneralizedEntry {
             bounds: self.bounds,
             responses,
             methods,
-            tolerance: self.tolerance,
+            tolerances: self.tolerances,
+            batched,
             reference,
         })
     }
