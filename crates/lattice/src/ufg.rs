@@ -1030,6 +1030,7 @@ fn solve_cell(
             .collect();
         thermal.keep_cells();
         t.gas = Some(GasTangent::new(directions, n, thermal.start()));
+        t.start = Some(thermal.start());
     }
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
     pass.run(
@@ -1537,8 +1538,16 @@ impl Pass<'_> {
             // 個数密度の向きのあるときだけ、変わるリングの組の全断面積についての飛程の微分（[組][j][i]）。飛程を表から内挿した
             // 格子点は表の内挿の微分、格子点ごとに求めた格子点は衝突確率の中心差分（飛程と同じ選び方）
             let tangent_clock = Instant::now();
-            let jacobians: Vec<(Vec<Vec<Vec<f64>>>, bool)> = match &sweep.tangent {
+            // 掃き直す格子点の飛程の微分は、飛程と同じく格子点のリングの全断面積だけで決まるので、最初のスイープで求めて持つ
+            // （[`TangentSweep::held`]。塊は掃き直しの始めから CHUNK ごとなので、持った範囲の始めをまたがない）
+            let held_slot = sweep.tangent.as_ref().and_then(|t| {
+                let start = t.start?;
+                (chunk.start >= start && chunk.end - start <= t.held.len())
+                    .then(|| chunk.start - start..chunk.end - start)
+            });
+            let jacobians: Vec<(Vec<Vec<Vec<f64>>>, bool)> = match &mut sweep.tangent {
                 None => Vec::new(),
+                Some(_) if held_slot.is_some() => Vec::new(),
                 Some(t) => values
                     .par_iter()
                     .zip(&points[chunk.clone()])
@@ -1565,12 +1574,32 @@ impl Pass<'_> {
                     })
                     .collect::<Result<_, UfgError>>()?,
             };
+            // 持つ飛程の微分（最初のスイープで、掃き直す格子点を求めたとき）は持ち、持った範囲を読むときは借りる（`point` が
+            // スイープを変えるので、その間は持った配列をスイープの外に出す）
+            let mut held = Vec::new();
             if let Some(t) = &mut sweep.tangent {
                 let tabled = jacobians.iter().filter(|(_, tabled)| *tabled).count();
                 t.cost.table_points += tabled;
                 t.cost.exact_points += jacobians.len() - tabled;
                 t.cost.tracks += tangent_clock.elapsed().as_secs_f64();
+                held = std::mem::take(&mut t.held);
             }
+            let keeps = sweep
+                .tangent
+                .as_ref()
+                .and_then(|t| t.start)
+                .is_some_and(|start| {
+                    held_slot.is_none() && chunk.start >= start && chunk.start - start == held.len()
+                });
+            let jacobians: &[(Vec<Vec<Vec<f64>>>, bool)] = match &held_slot {
+                Some(r) => &held[r.clone()],
+                None if keeps => {
+                    held.extend(jacobians);
+                    let first = held.len() - chunk.len();
+                    &held[first..]
+                }
+                None => &jacobians,
+            };
             let collided = Instant::now();
             for (k, ((m, row), w)) in chunk.clone().zip(values).zip(tracks).enumerate() {
                 let (e, below) = points[m];
@@ -1580,6 +1609,9 @@ impl Pass<'_> {
                 if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
                     sweep.group += 1;
                 }
+            }
+            if let Some(t) = &mut sweep.tangent {
+                t.held = held;
             }
             times[0] += evaluated - clock;
             times[1] += collided - evaluated;
@@ -2311,6 +2343,9 @@ struct TangentSweep {
     classes: Vec<(usize, Vec<usize>)>,
     /// [組] の、飛程の表の物質の番号（表のあるとき）
     materials: Option<Vec<usize>>,
+    /// 上方散乱の掃き直しの始め（自由ガスの核種のあるとき）と、そこからの [格子点] の（[組] の飛程の微分、表で求めたか）
+    start: Option<usize>,
+    held: Vec<(Vec<Vec<Vec<f64>>>, bool)>,
     /// [向き][リング][格子点] の δF
     flux: Vec<Vec<Vec<f64>>>,
     /// [向き][リング][項] の窓の積分 ∫ σs δF e^{−(u−u')} du'
@@ -2380,6 +2415,8 @@ impl TangentSweep {
             directions: directions.to_vec(),
             classes,
             materials: None,
+            start: None,
+            held: Vec::new(),
             flux: each(count, entries, |_| Vec::with_capacity(points)),
             windows: each(count, entries, |len| vec![0.0; len]),
             group_flux: each(count, entries, |_| vec![0.0; ng]),
@@ -2444,7 +2481,13 @@ impl TangentSweep {
     /// 持っている δF と自由ガスの散乱源の状態の大きさ (B)
     fn bytes(&self) -> u64 {
         let flux: u64 = self.flux.iter().flatten().map(heap_bytes).sum();
-        flux + self.gas.as_ref().map_or(0, GasTangent::bytes)
+        let held: u64 = self
+            .held
+            .iter()
+            .flat_map(|(classes, _)| classes.iter().flatten())
+            .map(heap_bytes)
+            .sum();
+        flux + held + self.gas.as_ref().map_or(0, GasTangent::bytes)
     }
 }
 
