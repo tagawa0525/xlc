@@ -824,8 +824,7 @@ fn inserts_beside_the_drop_of_the_earlier_points_find_its_room() {
     kernels.begin(|_| u64::MAX);
     let table = kernels.table(vec![1]);
     let point = || KernelPoint {
-        starts: vec![0, 1],
-        cells: vec![KernelCell::default()],
+        d: vec![[0.0; 3]],
         evaluations: 0,
     };
     for k in 0..100_000 {
@@ -841,7 +840,7 @@ fn inserts_beside_the_drop_of_the_earlier_points_find_its_room() {
         for _ in 0..threads {
             s.spawn(|| {
                 barrier.wait();
-                assert!(kernels.has_room(size));
+                assert!(kernels.has_room(size, 1));
             });
         }
     });

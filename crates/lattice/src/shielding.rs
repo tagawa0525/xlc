@@ -996,7 +996,7 @@ pub fn shield_fuel_reusing(
             );
         }
     }
-    // 自由ガスの核の区間と D の値の表（ADR-0248）: 値を使った格子点、作った格子点、上限で入れなかった格子点の数と、持つ大きさ
+    // 自由ガスの核の D の値の表（ADR-0248）: 値を使った核種と格子点の組、作った組、上限で入れなかった組の数と、持つ大きさ
     let [reused, built, full] = shares.kernels().counts();
     tracing::info!(
         reused,
