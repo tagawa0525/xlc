@@ -1,0 +1,4 @@
+# 微視的断面積を持つ細かい燃焼度の軸のテーブル（table-g-i1.toml）の集合体 1 体を置くサイクル（../../branches/core-2A-micro-cycle.toml と同じ形）。
+plant = "../../branches/core-plant.toml"
+inventory = "core-g-i1-assemblies.toml"
+loading = ["A01"]
