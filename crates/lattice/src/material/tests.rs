@@ -427,3 +427,64 @@ fn adjoint_rejects_fission_terms_that_sum_to_zero_with_values() {
         Err(MaterialError::ZeroSumFission { term: 1 })
     ));
 }
+
+#[test]
+fn added_material_sums_every_reaction() {
+    // 核種の数密度を変えた物質: 元の物質に、核種の群定数（数密度 1 の物質）の c 倍を足す
+    let m = asymmetric();
+    let mut d = asymmetric();
+    d.fission_terms.truncate(1);
+    d.fission_terms[0].nu_fission = vec![0.02, 0.4];
+    d.nu_fission = vec![0.02, 0.4];
+    let sum = m.added(&d, 0.5).unwrap();
+    sum.validate().unwrap();
+    for (s, (a, b)) in sum.total.iter().zip(m.total.iter().zip(&d.total)) {
+        assert!((s - (a + 0.5 * b)).abs() < 1e-15);
+    }
+    let rows = |x: &Material| {
+        std::iter::once(&x.scatter)
+            .chain(&x.anisotropic)
+            .flatten()
+            .flatten()
+            .copied()
+            .collect::<Vec<f64>>()
+    };
+    for (s, (a, b)) in rows(&sum).iter().zip(rows(&m).iter().zip(&rows(&d))) {
+        assert!((s - (a + 0.5 * b)).abs() < 1e-15);
+    }
+    for (s, (a, b)) in sum.fission.iter().zip(m.fission.iter().zip(&d.fission)) {
+        assert!((s - (a + 0.5 * b)).abs() < 1e-15);
+    }
+    // χ の同じ項は 1 つにまとめる（核種の項を c 倍に変えたのと同じ）
+    assert_eq!(sum.fission_terms.len(), 2);
+    assert_eq!(sum.fission_terms[0].nu_fission, vec![0.02, 0.4]);
+    assert_eq!(sum.fission_terms[1], m.fission_terms[1]);
+}
+
+#[test]
+fn added_material_keeps_a_new_spectrum_as_its_own_term() {
+    let m = asymmetric();
+    let mut d = asymmetric();
+    d.fission_terms = vec![FissionTerm {
+        chi: vec![0.5, 0.5],
+        nu_fission: vec![0.01, 0.1],
+    }];
+    d.nu_fission = vec![0.01, 0.1];
+    let sum = m.added(&d, -0.25).unwrap();
+    sum.validate().unwrap();
+    assert_eq!(sum.fission_terms.len(), 3);
+    assert_eq!(sum.fission_terms[2].nu_fission, vec![-0.0025, -0.025]);
+}
+
+#[test]
+fn added_material_rejects_other_groups_or_scattering_orders() {
+    let m = asymmetric();
+    let mut fewer = asymmetric();
+    fewer.anisotropic.clear();
+    assert!(matches!(
+        m.added(&fewer, 1.0),
+        Err(MaterialError::AddedShape)
+    ));
+    let one = Material::void(1);
+    assert!(matches!(m.added(&one, 1.0), Err(MaterialError::AddedShape)));
+}
