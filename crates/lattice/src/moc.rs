@@ -108,6 +108,24 @@ pub struct Start {
     outgoing: Vec<f64>,
 }
 
+impl Start {
+    /// 領域とトラックの数 `sizes`、スイープ `sweeper` の代表と配列の大きさ、群の数 `ng` が、この状態と同じか。代表が同じでも、
+    /// チェックポイントから読み戻した解（ADR-0196）は配列の長さが揃うとは限らないので、長さも確かめる
+    fn fits(&self, sizes: [usize; 2], sweeper: &Sweeper, ng: usize) -> bool {
+        let reduced = &sweeper.representatives;
+        let states = reduced.regions.representatives.len();
+        let width = (sweeper.moments - 1) * ng;
+        self.sizes == sizes
+            && self.representatives[0] == reduced.regions.representatives
+            && self.representatives[1] == reduced.tracks
+            && self.flux.len() == states
+            && self.higher.len() == states
+            && self.outgoing.len() == sweeper.outgoing_len()
+            && self.flux.iter().all(|f| f.len() == ng)
+            && self.higher.iter().all(|h| h.len() == width)
+    }
+}
+
 /// MOC の固有値計算のエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum MocError {
@@ -717,16 +735,7 @@ fn solve_with(
     // 前の解の中性子束、[代表][モーメント (1 番目から)][群] の高次のモーメント、k。なければ平らな中性子束と k = 1
     let (mut flux, mut higher, mut k) = match start {
         Some(s) => {
-            // 代表が同じでも、チェックポイントから読み戻した解（ADR-0196）は配列の長さが揃うとは限らないので、長さも確かめる
-            if s.sizes != sizes
-                || s.representatives[0] != *kept
-                || s.representatives[1] != reduced.tracks
-                || s.flux.len() != states
-                || s.higher.len() != states
-                || s.outgoing.len() != sweeper.outgoing_len()
-                || s.flux.iter().any(|f| f.len() != ng)
-                || s.higher.iter().any(|h| h.len() != width)
-            {
+            if !s.fits(sizes, &sweeper, ng) {
                 return Err(MocError::ForeignStart);
             }
             (s.flux.clone(), s.higher.clone(), s.k)
