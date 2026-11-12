@@ -474,7 +474,7 @@ fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
             // 持つ配列の区間、核種の区間の始まりと位置の表は、確保した分も上限を超えない
             let starts = (thermal.held_starts.capacity() * 4
                 + thermal.held.capacity() * std::mem::size_of::<Option<Held>>())
-            .div_ceil(40);
+            .div_ceil(HELD_CELL_BYTES);
             assert!(thermal.held_cells.capacity() + starts <= hold, "{hold}");
         }
         thermal.finish(&flux);

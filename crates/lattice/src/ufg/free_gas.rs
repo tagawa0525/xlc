@@ -740,13 +740,15 @@ impl Quadratic {
     }
 }
 
-/// スイープの間で持つ、D の散乱源の区間 [a, b] と、その σs × D の 2 次式の係数（[`Thermal::source`]。ADR-0213）。
-/// 区間の格子点と核種は持たず、格子点は積分の前に探し直し、核種は格子点ごとの核種の区間の始まりで決める（1 区間 40 B）
+/// スイープの間で持つ、D の散乱源の区間 [a, b] と、その σs × D の 2 次式の係数、両端の格子点 qa、qb（u_q ≤ a、u_q ≤ b の最後の
+/// 格子点。[`Thermal::source`]。ADR-0213、ADR-0248）。核種は持たず、格子点ごとの核種の区間の始まりで決める（1 区間 48 B）
 #[derive(Debug, Clone, Copy, Default)]
 struct HeldCell {
     a: f64,
     b: f64,
     coefficients: [f64; 3],
+    qa: u32,
+    qb: u32,
 }
 
 /// 1 つの格子点の持った区間: [`Thermal::held_cells`] の中の区間（核種の順）と、[`Thermal::held_starts`] の中の [核種] の区間の
@@ -1026,7 +1028,7 @@ pub(super) fn sweep_start(
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
     /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
-    /// すべての格子点の核種の区間の始まりと位置の表も、40 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
+    /// すべての格子点の核種の区間の始まりと位置の表も、48 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         gases: Vec<Gas>,
@@ -1203,13 +1205,14 @@ impl<'a> Thermal<'a> {
         self.starts.push(self.all.len() as u32);
         self.work.seconds[0] += clock.elapsed();
         // 最初に持つ格子点で、すべての格子点の核種の区間の始まりと、格子点ごとの位置の表を確保し、上限から引く（持つ区間とともに
-        // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）
+        // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）。区間の格子点を u32 で持つので、格子点の
+        // 数が u32 を超える格子（間引かない格子でも 127 万点ほど）は持たない
         if self.held_starts.capacity() == 0 && !self.all.is_empty() && self.room > 0 {
             let slots = u.len() - self.start;
             let bytes = slots * self.starts.len() * std::mem::size_of::<u32>()
                 + slots * std::mem::size_of::<Option<Held>>();
             let cost = bytes.div_ceil(std::mem::size_of::<HeldCell>());
-            if cost < self.room {
+            if cost < self.room && u32::try_from(u.len()).is_ok() {
                 self.held_starts.reserve_exact(slots * self.starts.len());
                 self.held.resize_with(slots, || None);
                 self.room -= cost;
@@ -1289,6 +1292,9 @@ impl<'a> Thermal<'a> {
                         a,
                         b,
                         coefficients: quadratic.coefficients,
+                        // 持つのは格子点の数が u32 に収まるときだけ（下の確保の判定）
+                        qa: qa as u32,
+                        qb: qb as u32,
                     };
                 }
             }
@@ -1320,7 +1326,7 @@ impl<'a> Thermal<'a> {
     }
 
     /// 格子点 m の持った区間 `held` を、作ったとき（[`Thermal::build`]）と同じ塊に分けて同じ順に積分した、区間の塊ごとの [リング] の
-    /// （既知の部分, F_m の係数）。区間の格子点は、作ったときと同じく u_q ≤ x の最後の格子点（[`locate_from`] は起点によらない）
+    /// （既知の部分, F_m の係数）。区間の格子点は、作ったときに探して持ったもの
     fn integrate_held(
         &self,
         held: Held,
@@ -1348,14 +1354,11 @@ impl<'a> Thermal<'a> {
                 let first = c * CELLS_PER_TASK;
                 // 塊の最初の区間を含む核種（区間の無い核種は始まりが次の核種と同じなので、その最後のもの）
                 let mut l = starts.partition_point(|&s| s as usize <= first) - 1;
-                let mut hint = usize::MAX;
                 for (j, cell) in chunk.iter().enumerate() {
                     while starts[l + 1] as usize <= first + j {
                         l += 1;
                     }
-                    let qa = locate_from(u, cell.a, hint);
-                    let qb = locate_from(u, cell.b, qa);
-                    hint = qb;
+                    let (qa, qb) = (cell.qa as usize, cell.qb as usize);
                     add(&mut sums, l, &Quadratic::held(cell), cell.a, cell.b, qa, qb);
                     integrations += self.rings[l].len() as u64;
                 }
