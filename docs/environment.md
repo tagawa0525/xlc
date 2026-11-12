@@ -22,7 +22,7 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 実行する。実行ファイル（`bin/xs`、`bin/lattice`、`bin/core`）は、リポジトリの直下の `dvc.yaml` の `build` が
 `scripts/build-binaries.sh` で作る。コードを変えると `build` が走り、実行ファイルのバイトが変わったときだけ計算のステージが走る。
 `dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さないので、`dvc status`（引数なし）か `--with-deps` で見る。
-`build` は xs、lattice、core の 3 つのパッケージだけを 1 回の cargo でビルドする（ADR-0163）。`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` の `target/release` を使う（ADR-0160。ワークスペースの全体をビルドすると feature の統合が `bin/` と違いうる。ADR-0163）。
+`build` は xs、lattice、core の 3 つのパッケージだけを 1 回の cargo でビルドする（ADR-0163）。`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` の `target/release` を使う（記号はあるが、行の情報とフレームポインタが無いので、呼び出しの連鎖には「性能のカウンタとプロファイル（perf）」のビルドを使う）（ADR-0160。ワークスペースの全体をビルドすると feature の統合が `bin/` と違いうる。ADR-0163）。
 各ステージの入力と出力（Rust のステージは実行ファイルを含む）の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では `references` を main の
 `references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が、チェックアウトした
@@ -31,6 +31,49 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 `ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../references" references`。symlink のない linked
 worktree は、その worktree の `cargo test`（crates/docs の `linked_worktrees_share_references`。run-checks.sh が実行する）が
 止める（ADR-0126）。
+
+## 性能のカウンタとプロファイル（perf）
+
+`perf` は NixOS のシステムに入っている（`/run/current-system/sw/bin/perf`）。r995 の `kernel.perf_event_paranoid` は 2 で、利用者の
+権限で測れるのは利用者側（`:u`）の事象だけなので、事象には `:u` を付ける。Slurm のジョブの中でも同じに動く（Slurm 791〜793、
+2026-11-12。790 は `-k realtime` で止まった）。時間を記録する測定（前後の比べ）は perf なしの `--timed` のジョブで取り、perf は割合と原因の特定に使う（perf の
+負荷と、下のフレームポインタのビルドで時間が変わる）。
+
+- カウンタの和: `perf stat -e cycles:u,instructions:u,branch-misses:u,L1-dcache-load-misses:u -- <コマンド>`。`LLC-loads` と
+  `LLC-load-misses` は Zen 5 で `<not supported>` なので、L1 の外れの埋まり先は AMD の事象で数える:
+  `ls_dmnd_fills_from_sys.local_l2`（L2）、`.local_ccx`（同じ CCX の L3 か L2）、`.dram_io_all`（メモリ）。停止の内訳は
+  `ex_no_retire.load_not_complete`（終わらない読み込みで退役が止まったサイクル）、`ls_bad_status2.stli_other`（先の書き込みと
+  転送できない衝突）、`ls_l1_d_tlb_miss.all`、`de_no_dispatch_per_slot.backend_stalls`。一覧は `perf list`
+- 関数ごとのカウンタ: 6 つまでの事象を組にし、先頭（サイクル）で標本を取って組のすべてを読む（`:S`）。コアのカウンタは 1 スレッドに 6 つで、
+  7 つ以上は時分割になる。r995 は `kernel.nmi_watchdog` が 0 で 6 つすべてを使える（NMI の watchdog が 1 つ使うと、6 つの組は
+  `<not counted>` になる）:
+
+  ```sh
+  perf record -k monotonic -o <出力>.data -c 100000000 --user-callchains -g \
+    -e '{cycles:u,instructions:u,branch-misses:u,L1-dcache-load-misses:u,ls_dmnd_fills_from_sys.local_ccx:u,ls_dmnd_fills_from_sys.dram_io_all:u}:S' \
+    -- <コマンド>
+  ```
+
+  - 呼び出しの連鎖（`-g`、`--call-graph dwarf`）はカーネル側を含むので、paranoid 2 では `Failure to open any events` で止まる。
+    `--user-callchains` を付けると利用者側だけの連鎖で動く
+  - `-k monotonic` で標本に時刻を付けると、`perf script -F tod,...` が壁の時計（JST）を出し、ログ（UTC）の区間で切り分けられる
+    （`-k realtime` は `wrong clockid (0)` で開けない）。`perf report --time <開始>,<終わり>` の値は `-F time` の側の秒
+  - `-c` は標本の間のサイクル数。32 スレッドの 10 分で 1e8 なら、`perf.data` は 340 MB ほど（`perf script` の
+    文字列は 20 GB を超えるので、ファイルに書かずにパイプで集計する）。`perf.data` はコミットしない
+- 関数の名前と連鎖の要るビルド: リリースのビルドは記号を持つが行の情報とフレームポインタを持たない。プロファイルには、別の
+  `target` に行の情報とフレームポインタつきでビルドする（`RUSTFLAGS` があるとリポジトリの `.cargo/config.toml` とホームの `~/.cargo/config.toml` の `rustflags` が読まれないので、
+  両方の値を並べる。ホームは mold でリンクする。パッケージは feature の統合を `bin/` と揃えるため、`build` と同じ 3 つにする）:
+
+  ```sh
+  CARGO_TARGET_DIR=target/perf CARGO_PROFILE_RELEASE_DEBUG=line-tables-only \
+    RUSTFLAGS="-C target-cpu=znver5 -C llvm-args=-align-loops=64 -C link-arg=-fuse-ld=mold -C force-frame-pointers=yes" \
+    cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core
+  ```
+
+  glibc の `memset` などフレームポインタを作らない葉の関数の連鎖では直接の呼び出し元が抜け、その一つ上から
+  始まる（`perf script -F ...,srcline` の戻り先の行で呼び出し元を確かめる）
+- 集計: `perf report -i <出力>.data --group --stdio --sort sym`（`--children` で呼び出し先を含む割合、`-S <記号> -G` で呼び出し元）。
+  時刻の区間ごとの和は `perf script -i <出力>.data -G -F tod,event,period,ip,sym` を区間と記号で足す
 
 ## 評価済み核データ（ENDF/B-VIII.0）
 
