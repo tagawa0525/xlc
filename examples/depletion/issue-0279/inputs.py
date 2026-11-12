@@ -195,6 +195,10 @@ def pair(history: dict) -> str:
     ]
     for name in NUCLIDES:
         before, after = mean[0][name], mean[1][name]
+        if not after > 0.0:
+            sys.exit(
+                f"{name} has no density at {BURNUP} MWd/kg, so its relative change is not defined"
+            )
         lines.append(f'"{name}" = {(after - before) / after!r}')
     return "\n".join(lines) + "\n"
 

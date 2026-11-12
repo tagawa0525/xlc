@@ -25,6 +25,11 @@ import numpy as np
 import tomllib
 
 RELATIVE = 1.0e-4
+# 2 群のテーブルの定数の名前と順（lattice の `table_responses`）
+TWO_GROUP = [
+    "total-1", "total-2", "nu-fission-1", "nu-fission-2", "fission-1", "fission-2",
+    "scatter-1-1", "scatter-1-2", "scatter-2-1", "scatter-2-2",
+]  # fmt: skip
 # 暗黙の効きを反応度に直す数密度の変化の割合（ADR-0221 の perturbation）
 FRACTION = 0.1
 
@@ -73,11 +78,16 @@ def compare(report: dict) -> dict:
     """I0 の比較の行、I1 と暗黙の効きの行"""
     few = report["few_group"]
     names = few["responses"]
+    # 反応度に直す k∞ は 2 群の式で、比べる参照は直接の摂動
+    if names != TWO_GROUP:
+        sys.exit(f"the comparison takes the two-group table constants, got {names}")
+    if "epsilon" not in report:
+        sys.exit("the comparison needs the direct perturbations ([sensitivity] direct)")
     tau = report["flux_tolerance"]
     epsilon = report["epsilon"]
     k = report["k"]
     values = dict(zip(names, few["values"]))
-    gradient = k_gradient(values, few["chi"]) if len(names) == 10 else None
+    gradient = k_gradient(values, few["chi"])
     densities = {n["name"]: n["density"] for n in report["nuclides"]}
     k_direct = {n["name"]: n["direct"]["richardson"] for n in report["nuclides"]}
     explicit, implicit = [], []
@@ -126,9 +136,11 @@ def compare(report: dict) -> dict:
                     "reshielded": s,
                     "ok": abs(first["richardson"][i] - s) <= limit,
                     "allowed": limit,
-                    "pcm": 1e5 * FRACTION * gradient[response] * change[response] / k**2
-                    if gradient
-                    else None,
+                    "pcm": 1e5
+                    * FRACTION
+                    * gradient[response]
+                    * change[response]
+                    / k**2,
                 }
             )
         implicit.append(
@@ -136,7 +148,7 @@ def compare(report: dict) -> dict:
                 "name": n["name"],
                 "density": densities[n["name"]],
                 "rows": rows,
-                "pcm": sum(r["pcm"] for r in rows) if gradient else None,
+                "pcm": sum(r["pcm"] for r in rows),
                 "k_pcm": 1e5
                 * FRACTION
                 * (shielded["k_direct"]["richardson"] - k_direct[n["name"]])
@@ -150,7 +162,7 @@ def compare(report: dict) -> dict:
     return {
         "explicit": explicit,
         "implicit": implicit,
-        "k_infinity": two_group_k(values, few["chi"]) if gradient else None,
+        "k_infinity": two_group_k(values, few["chi"]),
     }
 
 
