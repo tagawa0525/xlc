@@ -338,22 +338,9 @@ fn transposed(materials: &[&Material]) -> Result<(Vec<Material>, Vec<usize>), Mo
 /// モーメントの (−1)ˡ（向きの反転）と、線源の展開の (2l + 1) を掛けたモーメントの内積
 #[derive(Debug)]
 pub struct Importance {
-    k: f64,
+    /// 前向きと随伴の解の内積の係数
+    pairing: Pairing,
     adjoint_k: f64,
-    /// 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
-    pairs: Vec<(usize, isize)>,
-    groups: usize,
-    /// [領域] の代表の番号
-    index: Vec<usize>,
-    /// [領域] のトラックから推定した体積
-    volumes: Vec<f64>,
-    /// [領域] の真空か
-    void: Vec<bool>,
-    /// [代表][モーメント][群] の前向きと随伴の中性子束のモーメント（代表の領域の向き）
-    forward: Vec<Vec<f64>>,
-    adjoint: Vec<Vec<f64>>,
-    /// [代表][群] の全断面積の項の係数（4π Σ w ∫ ψ̃ ψ ds の、平衡値の積を直交性で足したもの）を代表の領域の体積で割ったもの
-    collision: Vec<Vec<f64>>,
     /// ⟨φ†, F φ⟩
     production: f64,
     /// 随伴の固有値計算の反復の回数
@@ -367,7 +354,7 @@ pub struct Importance {
 impl Importance {
     /// 前向きの k
     pub fn k(&self) -> f64 {
-        self.k
+        self.pairing.k
     }
 
     /// 随伴の k（反復の打ち切りの範囲で前向きの k と同じ）
@@ -387,6 +374,42 @@ impl Importance {
 
     /// [領域][群] の随伴のスカラー中性子束
     pub fn adjoint_flux(&self) -> Vec<Vec<f64>> {
+        self.pairing.adjoint_flux()
+    }
+
+    /// 領域ごとの物質の微分 `changes`（領域、δM。同じ領域を重ねて挙げれば足す）による k の 1 次の変化 dk = k² Σ ⟨φ†, (δF / k − δL) φ⟩ / ⟨φ†, F φ⟩。
+    /// 領域が格子の外か真空、δM の群の数が違うか検査で止まる、散乱の次数が解いた次数より低ければエラー
+    pub fn k_derivative(&self, changes: &[(usize, &Material)]) -> Result<f64, MocError> {
+        let k = self.pairing.k;
+        Ok(k * k * self.pairing.inner(changes)? / self.production)
+    }
+}
+
+/// 前向きの解 φ と、随伴の側の解 a（随伴の固有値計算の φ† か一般化随伴 Γ。どちらも転置した物質の前向きの解で、角度中性子束は
+/// 向きを逆にした随伴）の、物質の摂動の内積 ⟨a, (δF / k − δL) φ⟩ の係数（`Importance` の説明の、離散の問題について厳密な形）
+#[derive(Debug)]
+struct Pairing {
+    /// 前向きの k
+    k: f64,
+    /// 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
+    pairs: Vec<(usize, isize)>,
+    groups: usize,
+    /// [領域] の代表の番号
+    index: Vec<usize>,
+    /// [領域] のトラックから推定した体積
+    volumes: Vec<f64>,
+    /// [領域] の真空か
+    void: Vec<bool>,
+    /// [代表][モーメント][群] の前向きと随伴の側の中性子束のモーメント（代表の領域の向き）
+    forward: Vec<Vec<f64>>,
+    adjoint: Vec<Vec<f64>>,
+    /// [代表][群] の全断面積の項の係数（4π Σ w ∫ ψ̃ ψ ds の、平衡値の積を直交性で足したもの）を代表の領域の体積で割ったもの
+    collision: Vec<Vec<f64>>,
+}
+
+impl Pairing {
+    /// [領域][群] の随伴の側のスカラー中性子束
+    fn adjoint_flux(&self) -> Vec<Vec<f64>> {
         let ng = self.groups;
         self.index
             .iter()
@@ -394,9 +417,8 @@ impl Importance {
             .collect()
     }
 
-    /// 領域ごとの物質の微分 `changes`（領域、δM。同じ領域を重ねて挙げれば足す）による k の 1 次の変化 dk = k² Σ ⟨φ†, (δF / k − δL) φ⟩ / ⟨φ†, F φ⟩。
-    /// 領域が格子の外か真空、δM の群の数が違うか検査で止まる、散乱の次数が解いた次数より低ければエラー
-    pub fn k_derivative(&self, changes: &[(usize, &Material)]) -> Result<f64, MocError> {
+    /// 領域ごとの物質の変化 `changes` の Σ ⟨a, (δF / k − δL) φ⟩。エラーは `Importance::k_derivative` と同じ
+    fn inner(&self, changes: &[(usize, &Material)]) -> Result<f64, MocError> {
         let order = self.pairs.last().map_or(0, |&(l, _)| l);
         let mut sum = 0.0;
         for &(region, d) in changes {
@@ -420,10 +442,10 @@ impl Importance {
             }
             sum += self.reactivity(region, d);
         }
-        Ok(self.k * self.k * sum / self.production)
+        Ok(sum)
     }
 
-    /// 領域 `region` の物質の微分 `d` の ⟨φ†, (δF / k − δL) φ⟩
+    /// 領域 `region` の物質の変化 `d` の ⟨a, (δF / k − δL) φ⟩
     fn reactivity(&self, region: usize, d: &Material) -> f64 {
         let ng = self.groups;
         let i = self.index[region];
@@ -434,7 +456,7 @@ impl Importance {
             .zip(&d.total)
             .map(|(c, t)| volume * c * t)
             .sum();
-        // 散乱: Σ_k (2l + 1)(−1)ˡ Σ φ†_k(g') δΣs_l(g → g') φ_k(g)
+        // 散乱: Σ_k (2l + 1)(−1)ˡ Σ a_k(g') δΣs_l(g → g') φ_k(g)
         let mut scatter = 0.0;
         for (k, &(l, _)) in self.pairs.iter().enumerate() {
             let matrix = if l == 0 {
@@ -464,26 +486,18 @@ impl Importance {
     }
 }
 
-/// `solve_symmetric_from` と同じ問題を解き、続けて随伴を解いて、物質の摂動による k の変化の係数（`Importance`）を求める（ADR-0247）。
-/// 前向きは `start` から（`None` なら平らな初期値から）、随伴は平らな初期値から解き、両方の収束した角度中性子束でトラックを
-/// もう一度スイープして全断面積の項を求める。`symmetry` は `solve_adjoint` と同じ
-pub fn solve_importance(
+/// 前向きの物質 `materials` の問題の収束した状態 `forward` と、転置した物質の問題の収束した状態 `adjoint` の内積の係数
+/// （`Pairing`）。`adjoint_equilibrium` は、代表の領域の番号から随伴の側の [代表][モーメント][群] の平衡値の展開係数を作る
+/// （固定源の問題では源を含む）。両方の収束した角度中性子束でトラックをもう一度スイープして全断面積の項を求める。状態が
+/// 別の問題のものならエラー
+fn pair(
     tracking: &Tracking,
     materials: &[&Material],
     options: &Options,
     symmetry: Option<&Detected>,
-    start: Option<&Start>,
-) -> Result<(Solution, Start, Importance), MocError> {
-    let clock = std::time::Instant::now();
-    let (solution, converged) = solve_with(tracking, materials, options, symmetry, start)?;
-    let forward_seconds = clock.elapsed().as_secs_f64();
-    let (transposed, index) = transposed(materials)?;
-    let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
-    let clock = std::time::Instant::now();
-    let (adjoint_solution, adjoint_start) =
-        solve_with(tracking, &adjoint, options, symmetry, None)?;
-    let adjoint_seconds = clock.elapsed().as_secs_f64();
-    let clock = std::time::Instant::now();
+    (forward, adjoint): (&Start, &Start),
+    adjoint_equilibrium: impl FnOnce(&[usize]) -> Vec<Vec<f64>>,
+) -> Result<Pairing, MocError> {
     let mesh = CoarseMesh::new(tracking);
     let pairs = planar_moments(options.scattering_order);
     let representatives = match symmetry {
@@ -492,31 +506,35 @@ pub fn solve_importance(
         }
         _ => Representatives::all(tracking, &mesh, pairs.len()),
     };
-    let ng = solution.flux.first().map_or(0, Vec::len);
+    let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     let reduced = &sweeper.representatives;
     let kept = &reduced.regions.representatives;
     let sizes = [materials.len(), tracking.tracks.len()];
-    if [&converged, &adjoint_start]
+    if [forward, adjoint]
         .iter()
         .any(|s| !s.fits(sizes, &sweeper, ng))
     {
         return Err(MocError::ForeignStart);
     }
-    let equilibrium = |m: &[&Material], s: &Start| -> Vec<Vec<f64>> {
-        (0..kept.len())
-            .into_par_iter()
-            .map(|i| equilibrium_moments(m[kept[i]], &s.flux[i], &s.higher[i], s.k, &pairs))
-            .collect()
-    };
-    let (forward_equilibrium, adjoint_equilibrium) = (
-        equilibrium(materials, &converged),
-        equilibrium(&adjoint, &adjoint_start),
-    );
+    let volumes = tracking.volumes(materials.len());
+    let forward_equilibrium: Vec<Vec<f64>> = (0..kept.len())
+        .into_par_iter()
+        .map(|i| {
+            equilibrium_moments(
+                materials[kept[i]],
+                &forward.flux[i],
+                &forward.higher[i],
+                forward.k,
+                &pairs,
+            )
+        })
+        .collect();
+    let adjoint_equilibrium = adjoint_equilibrium(kept);
     let mut tallies = sweeper.tallies(materials.len());
     let products = sweeper.products(
-        (&forward_equilibrium, &converged.outgoing),
-        (&adjoint_equilibrium, &adjoint_start.outgoing),
+        (&forward_equilibrium, &forward.outgoing),
+        (&adjoint_equilibrium, &adjoint.outgoing),
         &mut tallies,
     );
     let mut collision = vec![vec![0.0; ng]; kept.len()];
@@ -530,7 +548,7 @@ pub fn solve_importance(
             }
         });
         // 平衡値の積は、MOC が領域の中性子束の平らな分に使う展開の直交性（4π / (2l + 1)）で足す（`Importance` の全断面積の項）
-        let volume = solution.volumes[kept[i]];
+        let volume = volumes[kept[i]];
         let (e, a) = (&forward_equilibrium[i], &adjoint_equilibrium[i]);
         for (g, c) in out.iter_mut().enumerate() {
             let flat: f64 = pairs
@@ -551,13 +569,68 @@ pub fn solve_importance(
             .map(|(f, h)| f.iter().chain(h).copied().collect())
             .collect()
     };
-    let (forward, adjoint_moments) = (moments(&converged), moments(&adjoint_start));
+    Ok(Pairing {
+        k: forward.k,
+        groups: ng,
+        index: reduced.regions.index.clone(),
+        void: materials.iter().map(|m| m.is_void()).collect(),
+        volumes,
+        pairs,
+        forward: moments(forward),
+        adjoint: moments(adjoint),
+        collision,
+    })
+}
+
+/// `solve_symmetric_from` と同じ問題を解き、続けて随伴を解いて、物質の摂動による k の変化の係数（`Importance`）を求める（ADR-0247）。
+/// 前向きは `start` から（`None` なら平らな初期値から）、随伴は平らな初期値から解き、両方の収束した角度中性子束でトラックを
+/// もう一度スイープして全断面積の項を求める。`symmetry` は `solve_adjoint` と同じ
+pub fn solve_importance(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
+    start: Option<&Start>,
+) -> Result<(Solution, Start, Importance), MocError> {
+    let clock = std::time::Instant::now();
+    let (solution, converged) = solve_with(tracking, materials, options, symmetry, start)?;
+    let forward_seconds = clock.elapsed().as_secs_f64();
+    let (transposed, index) = transposed(materials)?;
+    let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
+    let clock = std::time::Instant::now();
+    let (adjoint_solution, adjoint_start) =
+        solve_with(tracking, &adjoint, options, symmetry, None)?;
+    let adjoint_seconds = clock.elapsed().as_secs_f64();
+    let clock = std::time::Instant::now();
+    let pairs = planar_moments(options.scattering_order);
+    let pairing = pair(
+        tracking,
+        materials,
+        options,
+        symmetry,
+        (&converged, &adjoint_start),
+        |kept| {
+            (0..kept.len())
+                .into_par_iter()
+                .map(|i| {
+                    equilibrium_moments(
+                        adjoint[kept[i]],
+                        &adjoint_start.flux[i],
+                        &adjoint_start.higher[i],
+                        adjoint_start.k,
+                        &pairs,
+                    )
+                })
+                .collect()
+        },
+    )?;
+    let ng = pairing.groups;
     let production = materials
         .iter()
         .enumerate()
         .map(|(region, m)| {
-            let i = reduced.regions.index[region];
-            let (f, a) = (&forward[i][..ng], &adjoint_moments[i][..ng]);
+            let i = pairing.index[region];
+            let (f, a) = (&pairing.forward[i][..ng], &pairing.adjoint[i][..ng]);
             solution.volumes[region]
                 * m.fission_terms
                     .iter()
@@ -570,6 +643,7 @@ pub fn solve_importance(
         })
         .sum();
     let products_seconds = clock.elapsed().as_secs_f64();
+    let mesh = CoarseMesh::new(tracking);
     let (forward_spectra, adjoint_spectra) = (
         cell_spectra(&mesh, materials),
         cell_spectra(&mesh, &adjoint),
@@ -589,16 +663,8 @@ pub fn solve_importance(
         "forward and adjoint eigenvalues (fission spectra per coarse cell: most in a cell, sum over cells)"
     );
     let importance = Importance {
-        k: solution.k,
+        pairing,
         adjoint_k: adjoint_solution.k,
-        groups: ng,
-        index: reduced.regions.index.clone(),
-        volumes: solution.volumes.clone(),
-        void: materials.iter().map(|m| m.is_void()).collect(),
-        pairs,
-        forward,
-        adjoint: adjoint_moments,
-        collision,
         production,
         adjoint_iterations: adjoint_solution.iterations,
         seconds: [forward_seconds, adjoint_seconds, products_seconds],
