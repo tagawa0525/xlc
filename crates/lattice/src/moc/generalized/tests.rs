@@ -113,7 +113,7 @@ fn generalized_adjoint_of_an_infinite_medium_solves_the_scattering_balance() {
         None,
         &forward,
         &adjoint,
-        &[source.clone()],
+        std::slice::from_ref(&source),
         &settings(1e-11),
     )
     .unwrap();
@@ -244,9 +244,9 @@ fn assert_fission_derivative(scattering_order: usize) {
             })
             .sum::<f64>()
         / solution.k;
-    let direct = central_log_response(&tracking, &materials, 0, &d, &options, [&h1, &h2], 0.05);
+    let direct = central_log_response(&tracking, &materials, 0, &d, &options, [&h1, &h2], 0.01);
     assert!(
-        (first_order - direct).abs() < 1e-6 * direct.abs(),
+        (first_order - direct).abs() < 2e-7 * direct.abs(),
         "P{scattering_order}: {first_order} vs {direct}"
     );
 }
