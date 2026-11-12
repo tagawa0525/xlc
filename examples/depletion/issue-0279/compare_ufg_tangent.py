@@ -44,6 +44,13 @@ def weighted(flux: list[list[float]], values: list[list[float]]) -> list[float]:
     ]
 
 
+def ratio(a: float, b: float) -> float:
+    """a / b。b が 0 なら、a も 0 のときだけ 0、ほかは符号つきの無限（0 で割った値を一致に見せない）"""
+    if b != 0.0:
+        return a / b
+    return 0.0 if a == 0.0 else math.copysign(math.inf, a)
+
+
 def norm(values: list[float]) -> float:
     return math.sqrt(sum(v * v for v in values))
 
@@ -84,18 +91,14 @@ def compare(nominal: dict, states: dict[str, dict]) -> dict:
                 p = pin(report)
                 ts = implicit(p, d, x)
                 total = sum(weighted(p["flux"], macroscopic(p, x)))
-                entry = {
-                    "relative": sum(weighted(p["flux"], ts)) / total
-                    if total != 0.0
-                    else 0.0
-                }
+                entry = {"relative": ratio(sum(weighted(p["flux"], ts)), total)}
                 if label != "nominal":
                     scale = norm(weighted(p["flux"], ts))
                     difference = [
                         [a - b for a, b in zip(ra, rb)] for ra, rb in zip(ts, t0)
                     ]
                     error = norm(weighted(p["flux"], difference))
-                    entry["error"] = error / scale if scale > 0.0 else 0.0
+                    entry["error"] = ratio(error, scale)
                 row[label] = entry
             rows[reaction] = row
         out["nuclides"][name] = rows
