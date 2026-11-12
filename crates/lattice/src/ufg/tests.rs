@@ -2368,7 +2368,7 @@ fn shared_kernels_give_the_transfers_of_fresh_ones() {
         format!("{solved:?}")
     };
     let shared = ShareCellCache::default();
-    shared.kernels().begin(u64::MAX);
+    shared.kernels().begin(|_| u64::MAX);
     let first = solve(&fuel, &shared);
     let [reused, built, _] = shared.kernels().counts();
     assert_eq!(reused, 0);

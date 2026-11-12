@@ -696,16 +696,16 @@ pub fn shield_fuel_reusing(
     let shielding = tracing::Span::current();
     // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方。自由ガスの核の区間と
     // D の値の表（リングの中性子束の移行で、ピンと塊、自己遮蔽の間で共有する）は、同時に解く減速計算の 1 つと同じ量を持ち、
-    // ピンと塊はその残りを分ける（ADR-0248）
+    // ピンと塊はその残りを分ける（ADR-0248）。前の自己遮蔽から残った表は、使用可能メモリを減らして `total` から除かれているので、
+    // 分ける量に足し戻し、ピンと塊には表がまだ増えうる量を除いて渡す（新たに確保するのは `total` まで）
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
-    let kernels = match options.transfer {
-        // 解くピンが無ければ表を持たず、塊が全体を分ける
-        UfgTransfer::RingFlux if at_once > 0 => total / (at_once as u64 + 1),
-        _ => 0,
-    };
-    shares.kernels().begin(kernels);
-    let hold = held_cells(total - kernels, at_once);
+    let growth = shares.kernels().begin(|held| match options.transfer {
+        UfgTransfer::RingFlux if at_once > 0 => (total + held) / (at_once as u64 + 1),
+        // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
+        _ => held,
+    });
+    let hold = held_cells(total - growth, at_once);
     let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
         let &(cell, ring_materials, rings) = pin;
         let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
@@ -922,7 +922,7 @@ pub fn shield_fuel_reusing(
             &region_index,
             (symmetry.images(), &orbits),
             options,
-            (shares, total - kernels),
+            (shares, total - growth),
             &mut shielded,
         )
     })?;
@@ -1265,7 +1265,7 @@ fn shield_lumps(
         .iter()
         .filter(|(b, _, lump_regions)| rod_rings(lattice, body_of[*b].0, lump_regions).is_some())
         .count();
-    // `total` は、自己遮蔽の全体の量から自由ガスの核の区間と D の値の表の上限（ピンの前に決めたもの。ADR-0248）を除いた量
+    // `total` は、自己遮蔽の全体の量から自由ガスの核の区間と D の値の表がまだ増えうる量（ピンの前に決めたもの。ADR-0248）を除いた量
     let hold = held_cells(total, rods);
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()

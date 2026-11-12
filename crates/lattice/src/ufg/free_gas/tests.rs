@@ -541,7 +541,7 @@ fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
         .collect();
     for hold in [0, usize::MAX] {
         let kernels = KernelCache::default();
-        kernels.begin(u64::MAX);
+        kernels.begin(|_| u64::MAX);
         let (first, _, fresh) = swept_on(&grid, 1.0, hold, Some(&kernels));
         let (alone, _, alone_evaluations) = swept_on(&grid, 1.0, hold, None);
         assert_eq!(bits(&first), bits(&alone));
@@ -564,7 +564,7 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
     // 上限に届いた表は格子点を足さず（足さなかった格子点は評価し直す）、次の自己遮蔽の始めに、前の自己遮蔽で使わなかった格子点を捨てる
     let grid = test_grid();
     let kernels = KernelCache::default();
-    kernels.begin(0);
+    kernels.begin(|_| 0);
     let (_, _, all) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(kernels.bytes(), 0);
     // どの格子点も表から引けず、作った格子点はどれも上限で入れなかったと数える
@@ -573,20 +573,25 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
     assert!(built > 0);
     let (_, _, again) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(again, all);
-    kernels.begin(u64::MAX);
+    kernels.begin(|_| u64::MAX);
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     let full = kernels.bytes();
     assert!(full > 0);
     // 使った格子点は次の自己遮蔽でも残り、2 つの自己遮蔽で使わなければ捨てる
-    kernels.begin(u64::MAX);
+    kernels.begin(|_| u64::MAX);
     assert_eq!(kernels.bytes(), full);
-    kernels.begin(u64::MAX);
+    kernels.begin(|_| u64::MAX);
     assert_eq!(kernels.bytes(), 0);
-    // 上限が持っている量より小さくなれば、すべて捨てる（ピンと塊は上限を除いた残りを分ける）
+    // 上限が残りより小さくても捨てず、増やさない（使用可能メモリが表の分だけ減って上限が下がっても、次の自己遮蔽が表を引ける）
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
-    assert!(kernels.bytes() > 0);
-    kernels.begin(kernels.bytes() - 1);
-    assert_eq!(kernels.bytes(), 0);
+    let held = kernels.bytes();
+    assert!(held > 0);
+    assert_eq!(kernels.begin(|held| held - 1), 0);
+    assert_eq!(kernels.bytes(), held);
+    let (_, _, again) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    assert_eq!(again, 0);
+    assert_eq!(kernels.bytes(), held);
+    assert_eq!(kernels.begin(|held| held + 10), 10);
 }
 
 #[test]
@@ -606,18 +611,18 @@ fn a_full_kernel_table_gives_way_to_the_points_of_the_current_shielding() {
         })
         .collect();
     let probe = KernelCache::default();
-    probe.begin(u64::MAX);
+    probe.begin(|_| u64::MAX);
     swept_on(&grid, 1.0, usize::MAX, Some(&probe));
     let cap = probe.bytes();
     let kernels = KernelCache::default();
-    kernels.begin(cap);
+    kernels.begin(|_| cap);
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     // 前の自己遮蔽で使った格子点は残る（状態の公称と摂動）
-    kernels.begin(cap);
+    kernels.begin(|_| cap);
     assert_eq!(kernels.bytes(), cap);
     swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
     // 次の燃焼点: 2 つ前の自己遮蔽で入れた格子点を捨てて、動かした格子の格子点を入れる
-    kernels.begin(cap);
+    kernels.begin(|_| cap);
     assert_eq!(kernels.bytes(), cap);
     swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
     let (_, _, again) = swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
@@ -644,7 +649,7 @@ fn a_full_kernel_table_keeps_the_points_the_current_shielding_reuses() {
         })
         .collect();
     let probe = KernelCache::default();
-    probe.begin(u64::MAX);
+    probe.begin(|_| u64::MAX);
     swept_on(&grid, 1.0, usize::MAX, Some(&probe));
     let one = probe.bytes();
     swept_on(&moved, 1.0, usize::MAX, Some(&probe));
@@ -652,10 +657,10 @@ fn a_full_kernel_table_keeps_the_points_the_current_shielding_reuses() {
     // 1 本目はすべて、2 本目は半分ほどを持つ上限
     let cap = one + (both - one) / 2;
     let kernels = KernelCache::default();
-    kernels.begin(cap);
+    kernels.begin(|_| cap);
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
-    kernels.begin(cap);
+    kernels.begin(|_| cap);
     swept_on(&moved, 1.3, usize::MAX, Some(&kernels));
     let (_, _, again) = swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
     assert_eq!(again, 0);
