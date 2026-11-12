@@ -1,6 +1,7 @@
 # 2A の本番の形の格子（#0278）で、一般化随伴の固定源の加速を比べる（#0279、ADR-0247）。2A-60-generalized-batch.toml の 10 項目の応答を、
-# 残差を φ† の成分を除く前のスイープから取る CMFD、GMRES、CMFD の補正を足した反復の GMRES（cmfd-gmres）で、判定 1e-7 と 1e-8 で
-# 解く。GMRES は 10 本を一緒にスイープしても解く（スイープの時間の内訳をトレースの区間で測る）。パスはこのディレクトリから見たもの。
+# 残差を φ† の成分を除く前のスイープから取る CMFD と、CMFD の補正を足した反復の GMRES（cmfd-gmres）で、判定 1e-7 と 1e-8 で解く。
+# GMRES（源ごとと 10 本を一緒に）は、この入力に gmres と batched = ["gmres"] を足した版で Slurm 782 が解いた（ADR-0247 の
+# 決定と理由の「一般化随伴」）。パスはこのディレクトリから見たもの。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 few-group = { output = "2A-60-generalized-acceleration-table.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -147,9 +148,8 @@ responses = [
   "total-1", "total-2", "nu-fission-1", "nu-fission-2", "fission-1", "fission-2",
   "scatter-1-1", "scatter-1-2", "scatter-2-1", "scatter-2-2",
 ]
-methods = ["cmfd", "gmres", "cmfd-gmres"]
+methods = ["cmfd", "cmfd-gmres"]
 restart = 100
 tolerances = [1e-7, 1e-8]
-batched = ["gmres"]
 reference = "gmres"
 reference-tolerance = 1e-9
