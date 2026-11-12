@@ -479,6 +479,7 @@ impl<'a> ShieldingReuse<'a> {
     pub fn at_point(&mut self, point: usize) {
         if self.point.is_some_and(|p| p != point) {
             self.shares.kernels().next_point();
+            self.shares.next_point_census();
         }
         self.point = Some(point);
     }
@@ -960,22 +961,40 @@ pub fn shield_fuel_reusing(
         shielded.region_effective[region] = dilute_nuclides[index].clone();
     }
     drop(dilute_span);
-    // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と直前の自己遮蔽の間（new）で重なる分。数えるのは ufg の
-    // DEBUG のときで、ここの DEBUG と別に選べるので、出さないときも閉じて鍵を減らす
+    // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）、直前の自己遮蔽の間（new）、燃焼点の中のそれより前の
+    // 自己遮蔽の間（earlier）で重なる分と、核種ごとの核で数えた区間の数。数えるのは ufg の DEBUG のときで、ここの DEBUG と別に
+    // 選べるので、出さないときも閉じて鍵を減らす
     let CensusCall {
         total,
         distinct,
         new,
+        earlier,
+        bytes,
         keys,
+        nuclides,
     } = shares.census();
     if tracing::enabled!(tracing::Level::DEBUG) {
         tracing::debug!(
             total,
             distinct,
             new,
+            earlier,
+            distinct_bytes = bytes[0],
+            earlier_bytes = bytes[1],
+            point_bytes = bytes[2],
             keys,
-            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding"
+            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding, earlier = also without the points of the earlier shieldings of the burnup point; bytes = the table size of those points"
         );
+        for (kelvin, [total, distinct, earlier, point]) in nuclides {
+            tracing::debug!(
+                kelvin,
+                total,
+                distinct,
+                earlier,
+                point,
+                "UFG free-gas cells by nuclide kernel: total = sum over the pins, distinct = without the cells shared between pins, earlier = also without the cells of the earlier shieldings of the burnup point, point = all the cells of the burnup point so far"
+            );
+        }
     }
     // 自由ガスの核の区間と D の値の表（ADR-0248）: 値を使った格子点、作った格子点、上限で入れなかった格子点の数と、持つ大きさ
     let [reused, built, full] = shares.kernels().counts();

@@ -947,6 +947,10 @@ fn solve_cell(
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             thermal.kernel_key(high, u[u.len() - 1]).hash(&mut hasher);
             shares.count_points(hasher.finish(), &thermal.work().points);
+            shares.count_nuclide_points(
+                &thermal.nuclide_keys(high, u[u.len() - 1]),
+                &thermal.work().nuclide_points,
+            );
         }
         let counted = Instant::now();
         *transfers = transfer::Counting {

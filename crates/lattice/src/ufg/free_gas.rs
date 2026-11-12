@@ -1181,9 +1181,12 @@ pub(super) struct FreeGasWork {
     pub(super) integrations: [u64; 2],
     /// スレッドの時間: [区間の境界（[`Gas::cells`]。逐次）, 2 次式の作成, 作った区間の積分, 持った区間の積分]
     pub(super) seconds: [Duration; 4],
-    /// 最初のスイープで区間を作った格子点の（レサジーのビット, エネルギーのビット, 評価の回数）。ピンと自己遮蔽の間で
-    /// 同じ格子点がどれだけ重なるかを数えるデバッグのログ（[`super::ShareCellCache::census`]）のためで、DEBUG のときだけ書く
-    pub(super) points: Vec<(u64, u64, u64)>,
+    /// 最初のスイープで区間を作った格子点の（レサジーのビット, エネルギーのビット, 評価の回数, 表に入れたときの大きさ (B)）。ピンと
+    /// 自己遮蔽の間で同じ格子点がどれだけ重なるかを数えるデバッグのログ（[`super::ShareCellCache::census`]）のためで、DEBUG のときだけ書く
+    pub(super) points: Vec<(u64, u64, u64, u64)>,
+    /// `points` の格子点の、区間のある自由ガスの核種ごとの（核種, レサジーのビット, エネルギーのビット, 区間の数）。核種ごとの核
+    /// （[`Thermal::nuclide_keys`]）で、分岐の状態の間で同じ核と格子点がどれだけ重なるかを数える（DEBUG のときだけ書く）
+    pub(super) nuclide_points: Vec<(u32, u64, u64, u32)>,
 }
 
 /// 区間の塊の 1 つの積分の結果: [リング] の（既知の部分, F_m の係数）と、その仕事（[`FreeGasWork`] の塊の分）
@@ -1348,7 +1351,16 @@ impl<'a> Thermal<'a> {
         if self.census && kind == 0 && self.previous.is_none() {
             // 表から引いた格子点は、作るときの評価の回数で数える（重なりは表によらない量）
             let needed = self.needed.unwrap_or(evaluations);
-            self.work.points.push((u[m].to_bits(), e.to_bits(), needed));
+            let (ub, eb) = (u[m].to_bits(), e.to_bits());
+            let bytes = point_bytes(self.all.len(), self.starts.len());
+            self.work.points.push((ub, eb, needed, bytes));
+            for (l, w) in self.starts.windows(2).enumerate() {
+                if w[1] > w[0] {
+                    self.work
+                        .nuclide_points
+                        .push((l as u32, ub, eb, w[1] - w[0]));
+                }
+            }
         }
         let gas_done = Instant::now();
         let (sigmas, rings) = (&self.sigma, &self.rings);
@@ -1619,6 +1631,28 @@ impl<'a> Thermal<'a> {
             .flat_map(Gas::bits)
             .chain([high.to_bits(), bottom.to_bits(), self.cells as u64])
             .chain(self.rings.iter().map(|rings| u64::from(rings.is_empty())))
+            .collect()
+    }
+
+    /// [自由ガスの核種] の、その核種だけの核の鍵（[`Thermal::kernel_key`] のうちその核種の分のハッシュ。核種の区間と D は、自分の
+    /// [`Gas::bits`] と範囲の上端、格子の最後の点、区間の細かさと格子点だけで決まる）と温度 (K)。DEBUG のログの計数に使う
+    pub(super) fn nuclide_keys(&self, high: f64, bottom: f64) -> Vec<(u64, f64)> {
+        use std::hash::{Hash, Hasher};
+        self.gases
+            .iter()
+            .zip(&self.rings)
+            .map(|(gas, rings)| {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                (
+                    gas.bits(),
+                    high.to_bits(),
+                    bottom.to_bits(),
+                    self.cells,
+                    rings.is_empty(),
+                )
+                    .hash(&mut hasher);
+                (hasher.finish(), gas.kt() / BOLTZMANN)
+            })
             .collect()
     }
 
