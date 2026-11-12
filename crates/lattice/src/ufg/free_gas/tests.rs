@@ -450,22 +450,35 @@ fn swept_mixed(
     kernels: Option<&KernelCache>,
     extra: Option<(usize, [f64; 2])>,
 ) -> (Vec<Vec<(f64, f64)>>, usize, FreeGasWork) {
+    swept_at(u, scale, hold, kernels, extra, [600.0, 900.0])
+}
+
+/// [`swept_mixed`] を、質量比 1 と 16 の核種（減速材）の温度と質量比 236 の核種（燃料）の温度 `temperatures` (K) で解いたもの
+fn swept_at(
+    u: &[f64],
+    scale: f64,
+    hold: usize,
+    kernels: Option<&KernelCache>,
+    extra: Option<(usize, [f64; 2])>,
+    temperatures: [f64; 2],
+) -> (Vec<Vec<(f64, f64)>>, usize, FreeGasWork) {
+    let [moderator, fuel] = temperatures;
     let u = u.to_vec();
     let high = 20.0;
     let energies: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
     let mut nuclides = vec![
         (
-            Gas::new(0.99917, 600.0, f64::INFINITY),
+            Gas::new(0.99917, moderator, f64::INFINITY),
             20.0,
             vec![(1, 0.03)],
         ),
         (
-            Gas::new(15.86, 600.0, f64::INFINITY),
+            Gas::new(15.86, moderator, f64::INFINITY),
             3.8,
             vec![(0, 0.05), (1, 0.025)],
         ),
         (
-            Gas::new(236.0, 900.0, 400.0),
+            Gas::new(236.0, fuel, 400.0),
             9.0,
             vec![(0, 0.022), (1, 0.045)],
         ),
@@ -548,6 +561,38 @@ fn held_cells_give_the_sources_of_rebuilt_cells_bit_for_bit() {
 }
 
 #[test]
+fn the_cells_a_solve_would_hold_do_not_depend_on_its_hold() {
+    // 減速計算が上限なしで持つ区間の数（核種の区間の始まりと位置の表を 1 区間 48 B で数えたものを含む。表の上限を決める
+    // ピンの 1 回の量）は、与えた上限によらず、すべてを持てたときに持った数と同じ
+    let wanted = |hold: usize| swept_mixed(&test_grid(), 1.0, hold, None, None).2.wanted;
+    let (_, total) = swept_sources(usize::MAX);
+    let all = wanted(usize::MAX);
+    assert!(all > total as u64, "{all} {total}");
+    for hold in [0, total / 2, total] {
+        assert_eq!(wanted(hold), all, "{hold}");
+    }
+    let (.., work) = swept_mixed(&test_grid(), 1.0, usize::MAX, None, None);
+    assert_eq!(work.wanted, all);
+}
+
+#[test]
+fn the_census_counts_the_table_bytes_of_its_points_by_nuclide() {
+    // DEBUG の計数の格子点の大きさ（表に入れたときの大きさ）は、その格子点の核種ごとの値を表に入れた大きさの和
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .with_writer(std::io::sink)
+        .finish();
+    tracing::subscriber::with_default(subscriber, || {
+        let kernels = KernelCache::default();
+        kernels.begin(|_| u64::MAX);
+        let (.., work) = swept_mixed(&test_grid(), 1.0, usize::MAX, Some(&kernels), None);
+        let counted: u64 = work.points.iter().map(|p| p.3).sum();
+        assert!(counted > 0);
+        assert_eq!(counted, kernels.bytes());
+    });
+}
+
+#[test]
 fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
     // 自由ガスの核の区間と D の値を、断面積の違う減速計算と、格子点の一部だけが同じ格子の減速計算の間で持っても、散乱源は持たない
     // ときとビットで同じ。同じ格子の 2 本目は核を評価せず、一部が同じ格子は残りの格子点だけを評価する
@@ -588,6 +633,46 @@ fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
         assert_eq!(bits(&partial), bits(&partial_alone));
         assert!(0 < some && some < all, "{some} of {all}");
     }
+}
+
+#[test]
+fn the_nuclides_whose_kernels_stay_reuse_their_values_across_temperature_branches() {
+    // 表は核種ごとの核で引くので、燃料の温度の分岐（減速材の核は同じ）でも減速材の温度の分岐（燃料の核は同じ）でも、核の変わらない
+    // 核種の値を使い、変わった核種だけを評価する。散乱源は表を持たないときとビットで同じ
+    let bits = |v: &[Vec<(f64, f64)>]| -> Vec<(u64, u64)> {
+        v.iter()
+            .flatten()
+            .map(|&(k, o)| (k.to_bits(), o.to_bits()))
+            .collect()
+    };
+    let grid = test_grid();
+    let kernels = KernelCache::default();
+    kernels.begin(|_| u64::MAX);
+    swept_at(&grid, 1.0, usize::MAX, Some(&kernels), None, [600.0, 900.0]);
+    for temperatures in [[600.0, 1200.0], [580.0, 900.0]] {
+        let (shared, _, work) =
+            swept_at(&grid, 1.1, usize::MAX, Some(&kernels), None, temperatures);
+        let (fresh, _, alone) = swept_at(&grid, 1.1, usize::MAX, None, None, temperatures);
+        assert_eq!(bits(&shared), bits(&fresh), "{temperatures:?}");
+        assert!(
+            0 < work.evaluations && work.evaluations < alone.evaluations,
+            "{temperatures:?}: {} of {}",
+            work.evaluations,
+            alone.evaluations
+        );
+    }
+    // 両方の分岐の核種の値を持ったので、減速材と燃料の両方を変えた状態も評価しない
+    let (both, _, work) = swept_at(
+        &grid,
+        1.2,
+        usize::MAX,
+        Some(&kernels),
+        None,
+        [580.0, 1200.0],
+    );
+    let (fresh, ..) = swept_at(&grid, 1.2, usize::MAX, None, None, [580.0, 1200.0]);
+    assert_eq!(bits(&both), bits(&fresh));
+    assert_eq!(work.evaluations, 0);
 }
 
 #[test]
@@ -771,8 +856,7 @@ fn inserts_beside_the_drop_of_the_earlier_points_find_its_room() {
     kernels.begin(|_| u64::MAX);
     let table = kernels.table(vec![1]);
     let point = || KernelPoint {
-        starts: vec![0, 1],
-        cells: vec![KernelCell::default()],
+        d: vec![[0.0; 3]],
         evaluations: 0,
     };
     for k in 0..100_000 {
@@ -788,7 +872,7 @@ fn inserts_beside_the_drop_of_the_earlier_points_find_its_room() {
         for _ in 0..threads {
             s.spawn(|| {
                 barrier.wait();
-                assert!(kernels.has_room(size));
+                assert!(kernels.has_room(size, 1));
             });
         }
     });
@@ -800,14 +884,20 @@ fn the_kernel_table_grows_only_into_its_share_of_the_given_hold_memory() {
     // `ufg-hold-memory` の量は、前の自己遮蔽から残った表、表が増えうる量、ピンと塊に渡す量を合わせた全体（ADR-0248）
     let grid = test_grid();
     let other = moved(&grid);
-    for (whole, at_once) in [(3, 1), (2, 4)] {
+    // 測ったピンの量（`demand`）で表に残りを渡すときも同じ
+    for (whole, at_once, demand) in [
+        (3, 1, None),
+        (2, 4, None),
+        (3, 2, Some(1)),
+        (4, 3, Some(u64::MAX)),
+    ] {
         let kernels = KernelCache::default();
         kernels.begin(|_| u64::MAX);
         swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
         let whole = whole * kernels.bytes();
         let held = kernels.start();
         let total = super::super::hold_total(Some(whole), held).unwrap();
-        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once));
+        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once, demand));
         swept_on(&other, 1.0, usize::MAX, Some(&kernels));
         assert!(kernels.bytes() <= held + growth, "{at_once}");
         assert!(kernels.bytes() + (total - growth) <= whole, "{at_once}");

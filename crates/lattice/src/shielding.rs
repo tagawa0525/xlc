@@ -479,6 +479,7 @@ impl<'a> ShieldingReuse<'a> {
     pub fn at_point(&mut self, point: usize) {
         if self.point.is_some_and(|p| p != point) {
             self.shares.kernels().next_point();
+            self.shares.next_point_census();
         }
         self.point = Some(point);
     }
@@ -716,7 +717,9 @@ pub fn shield_fuel_reusing(
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
     let growth = shares.kernels().limit(match options.transfer {
-        UfgTransfer::RingFlux if at_once > 0 => kernel_cap(total, held, at_once),
+        UfgTransfer::RingFlux if at_once > 0 => {
+            kernel_cap(total, held, at_once, shares.kernels().demand())
+        }
         // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
         _ => held,
     });
@@ -793,6 +796,8 @@ pub fn shield_fuel_reusing(
     let mut solved: Vec<(usize, Solved)> = Vec::new();
     // 代表のピンのエネルギーの格子点の数（解いた順）と、移り合うピンへの複製の時間
     let mut points: Vec<usize> = Vec::new();
+    // 解いたピンの 1 回の量の最大 (B)。次の自己遮蔽の自由ガスの核の表の上限に使う（ADR-0248）
+    let mut demand = 0;
     let mut replicate = Duration::ZERO;
     let serial = Instant::now();
     for ((cell, fuel_regions, ring_materials, rings), planned) in pins.into_iter().zip(plan) {
@@ -823,6 +828,7 @@ pub fn shield_fuel_reusing(
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
         points.extend(ufg.as_ref().map(|c| c.points));
+        demand = demand.max(ufg.as_ref().map_or(0, |c| c.demand));
         // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
         let micro = Arc::new(carlvik);
         let (effective, ring_effective) = match &mut ufg {
@@ -960,30 +966,52 @@ pub fn shield_fuel_reusing(
         shielded.region_effective[region] = dilute_nuclides[index].clone();
     }
     drop(dilute_span);
-    // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と直前の自己遮蔽の間（new）で重なる分。数えるのは ufg の
-    // DEBUG のときで、ここの DEBUG と別に選べるので、出さないときも閉じて鍵を減らす
+    // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）、直前の自己遮蔽の間（new）、燃焼点の中のそれより前の
+    // 自己遮蔽の間（earlier）で重なる分と、核種ごとの核で数えた区間の数。数えるのは ufg の DEBUG のときで、ここの DEBUG と別に
+    // 選べるので、出さないときも閉じて鍵を減らす
     let CensusCall {
         total,
         distinct,
         new,
+        earlier,
+        bytes,
         keys,
+        nuclides,
     } = shares.census();
     if tracing::enabled!(tracing::Level::DEBUG) {
         tracing::debug!(
             total,
             distinct,
             new,
+            earlier,
+            distinct_bytes = bytes[0],
+            earlier_bytes = bytes[1],
+            point_bytes = bytes[2],
             keys,
-            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding"
+            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding, earlier = also without the points of the earlier shieldings of the burnup point; bytes = the table size of those points"
         );
+        for (kelvin, [total, distinct, earlier, point]) in nuclides {
+            tracing::debug!(
+                kelvin,
+                total,
+                distinct,
+                earlier,
+                point,
+                "UFG free-gas cells by nuclide kernel: total = sum over the pins, distinct = without the cells shared between pins, earlier = also without the cells of the earlier shieldings of the burnup point, point = all the cells of the burnup point so far"
+            );
+        }
     }
-    // 自由ガスの核の区間と D の値の表（ADR-0248）: 値を使った格子点、作った格子点、上限で入れなかった格子点の数と、持つ大きさ
+    // 自由ガスの核の D の値の表（ADR-0248）: 値を使った核種と格子点の組、作った組、上限で入れなかった組の数と、持つ大きさ、上限、
+    // 解いたピンの 1 回の量の最大（次の自己遮蔽の上限に使う）
+    shares.kernels().set_demand(demand);
     let [reused, built, full] = shares.kernels().counts();
     tracing::info!(
         reused,
         built,
         full,
         bytes = shares.kernels().bytes(),
+        cap = shares.kernels().cap(),
+        demand,
         "UFG free-gas kernel points"
     );
     tracing::info!(
@@ -1576,6 +1604,8 @@ struct CellShielding {
     groups: std::ops::Range<usize>,
     /// 減速計算のエネルギーの格子点の数
     points: usize,
+    /// 減速計算が上限なしで持つ量 (B。[`CellSpectrum::demand`])
+    demand: u64,
 }
 
 /// 等価なセルの減速計算（[`solve_equivalent_cell`]）
@@ -1936,6 +1966,7 @@ fn shield_cell(
         sph,
         groups: top..bottom,
         points: spectrum.points,
+        demand: spectrum.demand,
     }))
 }
 

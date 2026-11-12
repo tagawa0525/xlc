@@ -20,7 +20,8 @@
 //! 間引いた格子（ADR-0185）でも、減速計算の格子点で数える。弾性散乱断面積は核種自身の格子で縮約した群定数なので、自分の群への
 //! 移行には、ほかの群への移行を間引いた格子で数えた誤差だけが入る（ADR-0208）。
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -57,15 +58,27 @@ pub struct ShareCellCache {
 /// 自己遮蔽の間で持てば作り直さずに済む量
 #[derive(Debug, Default)]
 struct Census {
-    /// 鍵ごとの、最後に数えた自己遮蔽（今と直前の自己遮蔽の鍵だけを残す。燃焼の全体の鍵を持ち続けない）
+    /// 鍵ごとの、最後に数えた自己遮蔽（今の燃焼点の鍵と直前の自己遮蔽の鍵を残し、燃焼点の境でほかを捨てる。燃焼の全体の鍵を
+    /// 持ち続けない）
     seen: HashMap<[u64; 3], u64>,
-    /// 今の自己遮蔽の番号と、その評価の回数: [全体, 今の自己遮蔽で初めての鍵の分, 直前の自己遮蔽にもない鍵の分]
+    /// 今の燃焼点の最初の自己遮蔽の番号
+    start: u64,
+    /// 今の自己遮蔽の番号と、その評価の回数: [全体, 今の自己遮蔽で初めての鍵の分, 直前の自己遮蔽にもない鍵の分, 今の燃焼点の
+    /// それより前の自己遮蔽のどれにもない鍵の分]
     call: u64,
-    evaluations: [u64; 3],
+    evaluations: [u64; 4],
+    /// 表に入れたときの大きさ (B): [今の自己遮蔽で初めての鍵の分, 今の燃焼点のそれより前の自己遮蔽のどれにもない鍵の分, 今の
+    /// 燃焼点のすべての鍵の分]
+    bytes: [u64; 3],
+    /// 核種ごとの核（[`Thermal::nuclide_keys`]）と格子点の鍵のハッシュごとの、最後に数えた自己遮蔽（今の燃焼点の鍵だけ）
+    nuclide_seen: HashMap<u64, u64>,
+    /// 核種の温度 (K の整数) ごとの区間の数: [全体, 今の自己遮蔽で初めての鍵の分, 今の燃焼点のそれより前の自己遮蔽のどれにも
+    /// ない鍵の分, 今の燃焼点のすべての鍵の分]
+    nuclide_cells: BTreeMap<u32, [u64; 4]>,
 }
 
 /// 1 回の自己遮蔽の、自由ガスの核の評価の回数（[`ShareCellCache::census`]）
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CensusCall {
     /// ピンの評価の回数の和
     pub total: u64,
@@ -73,8 +86,16 @@ pub struct CensusCall {
     pub distinct: u64,
     /// 直前の自己遮蔽にもない鍵の分
     pub new: u64,
-    /// この自己遮蔽の鍵の数
+    /// 今の燃焼点のそれより前の自己遮蔽のどれにもない鍵の分
+    pub earlier: u64,
+    /// 表に入れたときの大きさ (B): [この自己遮蔽の重ならない鍵, そのうち今の燃焼点のそれより前の自己遮蔽のどれにもない鍵,
+    /// 今の燃焼点のすべての鍵]
+    pub bytes: [u64; 3],
+    /// この自己遮蔽までの今の燃焼点の鍵の数
     pub keys: usize,
+    /// 核種の温度 (K) ごとの区間の数: [全体, この自己遮蔽の中で重なりを除いたもの, 今の燃焼点のそれより前の自己遮蔽のどれにも
+    /// ないもの, 今の燃焼点のすべての鍵の分]
+    pub nuclides: Vec<(u32, [u64; 4])>,
 }
 
 /// 1 つの自由ガスの核種の [境界 − 1] の割合の区間 [境界より上の入射, 境界より下の入射]
@@ -101,23 +122,89 @@ impl ShareCellCache {
 
     /// 減速計算の、最初のスイープで区間を作った格子点（（レサジーのビット, エネルギーのビット, 評価の回数））を数える。`kernel` は核の鍵（自由ガスの核種と範囲の
     /// 上端、格子の最後の点のビットのハッシュ）
-    pub(super) fn count_points(&self, kernel: u64, points: &[(u64, u64, u64)]) {
+    pub(super) fn count_points(&self, kernel: u64, points: &[(u64, u64, u64, u64)]) {
         let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
-        let call = census.call;
-        for &(u, e, evaluations) in points {
+        let (call, start) = (census.call, census.start);
+        for &(u, e, evaluations, bytes) in points {
             census.evaluations[0] += evaluations;
             match census.seen.get_mut(&[kernel, u, e]) {
                 Some(last) if *last == call => {}
                 Some(last) => {
+                    let (previous, earlier) = (*last + 1 == call, *last >= start);
                     *last = call;
                     census.evaluations[1] += evaluations;
+                    census.bytes[0] += bytes;
+                    if !previous {
+                        census.evaluations[2] += evaluations;
+                    }
+                    // 直前の燃焼点の鍵は、今の燃焼点では初めての鍵
+                    if !earlier {
+                        census.evaluations[3] += evaluations;
+                        census.bytes[1] += bytes;
+                        census.bytes[2] += bytes;
+                    }
                 }
                 None => {
                     census.seen.insert([kernel, u, e], call);
                     census.evaluations[1] += evaluations;
                     census.evaluations[2] += evaluations;
+                    census.evaluations[3] += evaluations;
+                    census.bytes[0] += bytes;
+                    census.bytes[1] += bytes;
+                    census.bytes[2] += bytes;
                 }
             }
+        }
+    }
+
+    /// 減速計算の、最初のスイープで区間を作った格子点の核種ごとの区間（[`super::free_gas::FreeGasWork::nuclide_points`]）を、
+    /// 核種ごとの核の鍵と温度 `keys`（[`Thermal::nuclide_keys`]）で数える
+    pub(super) fn count_nuclide_points(
+        &self,
+        keys: &[(u64, f64)],
+        points: &[(u32, u64, u64, u32)],
+    ) {
+        let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
+        let call = census.call;
+        let Census {
+            nuclide_seen,
+            nuclide_cells,
+            ..
+        } = &mut *census;
+        for &(l, u, e, cells) in points {
+            let (key, kelvin) = keys[l as usize];
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            (key, u, e).hash(&mut hasher);
+            let key = hasher.finish();
+            let counts = nuclide_cells.entry(kelvin.round() as u32).or_default();
+            let cells = u64::from(cells);
+            counts[0] += cells;
+            match nuclide_seen.get_mut(&key) {
+                Some(last) if *last == call => {}
+                Some(last) => {
+                    *last = call;
+                    counts[1] += cells;
+                }
+                None => {
+                    nuclide_seen.insert(key, call);
+                    counts[1] += cells;
+                    counts[2] += cells;
+                    counts[3] += cells;
+                }
+            }
+        }
+    }
+
+    /// 次の燃焼点に進む: 直前の自己遮蔽のほかの鍵を捨て、燃焼点の中の重なりを数え直す（DEBUG のログ。[`ShareCellCache::census`]）
+    pub fn next_point_census(&self) {
+        let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
+        let call = census.call;
+        census.start = call;
+        census.seen.retain(|_, last| *last + 1 == call);
+        census.nuclide_seen = HashMap::new();
+        census.bytes[2] = 0;
+        for counts in census.nuclide_cells.values_mut() {
+            counts[3] = 0;
         }
     }
 
@@ -129,15 +216,32 @@ impl ShareCellCache {
     /// 1 回の自己遮蔽の計数を閉じて返し、次の自己遮蔽の計数を始める（DEBUG のログ）
     pub fn census(&self) -> CensusCall {
         let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
-        let [total, distinct, new] = std::mem::take(&mut census.evaluations);
-        let call = census.call;
-        census.seen.retain(|_, last| *last == call);
+        let [total, distinct, new, earlier] = std::mem::take(&mut census.evaluations);
+        let point_bytes = census.bytes[2];
+        let [call_bytes, earlier_bytes, _] =
+            std::mem::replace(&mut census.bytes, [0, 0, point_bytes]);
         census.call += 1;
+        let nuclides = census
+            .nuclide_cells
+            .iter_mut()
+            .map(|(&kelvin, counts)| {
+                let out = *counts;
+                *counts = [0, 0, 0, counts[3]];
+                (kelvin, out)
+            })
+            .collect();
         CensusCall {
             total,
             distinct,
             new,
-            keys: census.seen.len(),
+            earlier,
+            bytes: [call_bytes, earlier_bytes, point_bytes],
+            keys: census
+                .seen
+                .values()
+                .filter(|&&last| last >= census.start)
+                .count(),
+            nuclides,
         }
     }
 

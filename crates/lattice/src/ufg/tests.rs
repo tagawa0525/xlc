@@ -1102,12 +1102,13 @@ fn thermal_cell_with(temperature: f64, bounds: &[f64]) -> (Library, MaterialInpu
     (lib, fuel, water)
 }
 
-/// [`thermal_cell`] の 100 eV より下の減速計算
+/// [`thermal_cell`] の 100 eV より下の減速計算。散乱の扱いで比べるので、扱いで変わる区間の数で決まる上限なしで持つ量
+/// （[`CellSpectrum::demand`]）は 0 にする
 fn thermal_spectrum(temperature: f64, scattering: Scattering) -> CellSpectrum {
     let (lib, fuel, water) = thermal_cell(temperature);
     let cell = Cylinder::new(RADII.to_vec()).unwrap();
     let rings = [Some(&fuel), None, Some(&water), Some(&water)];
-    slowing_down_with(
+    let spectrum = slowing_down_with(
         &lib,
         &cell,
         &rings,
@@ -1117,7 +1118,11 @@ fn thermal_spectrum(temperature: f64, scattering: Scattering) -> CellSpectrum {
         scattering,
         held_cells(1 << 30, 1),
     )
-    .unwrap()
+    .unwrap();
+    CellSpectrum {
+        demand: 0,
+        ..spectrum
+    }
 }
 
 /// 2 つの結果の群ごとの中性子束の相対差の最大
@@ -1281,8 +1286,10 @@ fn nuclides_with_resolved_resonances_stay_at_rest() {
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
     let rings = [Some(&fuel), Some(&fuel)];
-    let solve = |scattering| {
-        slowing_down_with(
+    // 散乱の扱いで変わる上限なしで持つ量（[`CellSpectrum::demand`]）は比べない
+    let solve = |scattering| CellSpectrum {
+        demand: 0,
+        ..slowing_down_with(
             &lib,
             &cell,
             &rings,
@@ -2387,6 +2394,50 @@ fn a_given_hold_memory_holds_the_carried_kernel_table_inside_it() {
     assert_eq!(hold_total(Some(10 * gib), 3 * gib).unwrap(), 7 * gib);
     assert_eq!(hold_total(Some(gib), 3 * gib).unwrap(), 0);
     assert_eq!(hold_total(Some(u64::MAX), 0).unwrap(), u64::MAX);
+}
+
+#[test]
+fn a_measured_pin_demand_leaves_the_rest_of_the_hold_memory_to_the_kernel_table() {
+    // 表の上限は、全体（新たに確保できる量と残った表）から、同時に解く減速計算の 1 つ分ずつを除いた残り。1 つ分は、前の自己遮蔽で
+    // 測ったピンの 1 回の量（上限なしで持つ区間と作業の配列）と、全体を減速計算と表で等しく分けた量の小さい方で、測っていなければ
+    // 等しく分けた量
+    let gib = 1u64 << 30;
+    assert_eq!(kernel_cap(32 * gib, gib, 32, None), gib);
+    assert_eq!(kernel_cap(32 * gib, gib, 32, Some(gib / 2)), 17 * gib);
+    assert_eq!(kernel_cap(32 * gib, gib, 32, Some(gib)), gib);
+    assert_eq!(kernel_cap(32 * gib, gib, 32, Some(2 * gib)), gib);
+    assert_eq!(kernel_cap(32 * gib, 0, 32, Some(0)), 32 * gib);
+}
+
+#[test]
+fn the_census_sees_the_previous_shielding_across_a_burnup_point() {
+    // 直前の自己遮蔽にない評価（new）は燃焼点の境をまたいでも直前の自己遮蔽と比べ、燃焼点のそれより前の自己遮蔽のどれにもない評価
+    // （earlier）と、燃焼点のすべての格子点の大きさは燃焼点ごとに数え直す
+    let shares = ShareCellCache::default();
+    let points = [(1, 2, 10, 100), (3, 4, 20, 200)];
+    shares.count_points(7, &points);
+    let first = shares.census();
+    assert_eq!(
+        (first.total, first.distinct, first.new, first.earlier),
+        (30, 30, 30, 30)
+    );
+    assert_eq!(first.bytes, [300, 300, 300]);
+    shares.next_point_census();
+    shares.count_points(7, &points[..1]);
+    shares.count_points(7, &[(5, 6, 40, 400)]);
+    let second = shares.census();
+    assert_eq!(
+        (second.total, second.distinct, second.new, second.earlier),
+        (50, 50, 40, 50)
+    );
+    assert_eq!(second.bytes, [500, 500, 500]);
+    shares.count_points(7, &points[..1]);
+    let third = shares.census();
+    assert_eq!(
+        (third.total, third.distinct, third.new, third.earlier),
+        (10, 10, 0, 0)
+    );
+    assert_eq!(third.bytes, [100, 0, 500]);
 }
 
 #[test]
