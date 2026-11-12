@@ -529,6 +529,9 @@ pub struct TangentCost {
     pub bytes: u64,
 }
 
+/// [`slowing_down_tangent`] の結果: 減速計算、移行（`shares` を与えたときだけ）、1 次の変化
+pub type CellTangentSolution = (CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>, CellTangent);
+
 /// [`slowing_down_with`] の減速計算を解き、`directions` の向きごとに、個数密度を N + t δN と変えたときの t = 0 での 1 次の変化も
 /// 求める（ADR-0247 の案 I2）。`directions[d][リング][核種]` は向き d の δN (/b cm) で、並びは `rings` の物質の組成と同じ（真空の
 /// リングは空）。`shares` を与えれば、[`slowing_down_transfers`] と同じく移行も数える。減速計算の結果（と移行）は、向きのない
@@ -551,7 +554,7 @@ pub fn slowing_down_tangent(
     shares: Option<&ShareCellCache>,
     hold: usize,
     directions: &[Vec<Vec<f64>>],
-) -> Result<(CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>, CellTangent), UfgError> {
+) -> Result<CellTangentSolution, UfgError> {
     let mut tangent = CellTangent {
         flux: Vec::new(),
         nuclides: Vec::new(),
@@ -879,7 +882,7 @@ fn solve_cell(
         Collision::Table { density } => {
             let ranges = frozen.as_deref().and_then(|f| f.ranges.as_deref());
             let built = track_table(cell, &data, &entries, &points, density, ranges)?;
-            if let Some(f) = frozen.as_deref_mut()
+            if let Some(f) = frozen
                 && f.ranges.is_none()
             {
                 f.ranges = built.as_ref().map(|(_, _, ranges)| ranges.clone());
@@ -1954,6 +1957,9 @@ const OUTSIDE_BANDS: [f64; 5] = [10.0, 31.0, 100.0, 1000.0, 1e4];
 /// 展開の外の格子点を数える、中心からの ln Σ の差の境界（ログ。最初は [`MAX_DEVIATION`]）
 const OUTSIDE_DEVIATIONS: [f64; 3] = [MAX_DEVIATION, 0.03, 0.1];
 
+/// [`track_table`] の表と、[物質] の最初のリングの番号、[軸] の範囲
+type BuiltTable = (TrackTable, Vec<usize>, Vec<[f64; 2]>);
+
 /// セルの飛程の表と、[物質] の最初のリングの番号、[軸] の範囲。同じ組成（核種と温度、個数密度）のリングは全断面積が同じなので
 /// 1 つの物質にまとめ、核種の並び（核種と温度）が同じ物質は 1 つの軸を共有する（ADR-0182）。範囲は格子点 `points` の
 /// 全体での軸の値（中心）の最小と最大（`frozen` を与えればその範囲。[`Frozen`]）。表で求める衝突確率の数が格子点の数以上なら、
@@ -1965,7 +1971,7 @@ fn track_table(
     points: &[(f64, bool)],
     density: usize,
     frozen: Option<&[[f64; 2]]>,
-) -> Result<Option<(TrackTable, Vec<usize>, Vec<[f64; 2]>)>, UfgError> {
+) -> Result<Option<BuiltTable>, UfgError> {
     let mut first: Vec<usize> = Vec::new();
     let classes: Vec<Option<usize>> = entries
         .iter()

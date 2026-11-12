@@ -1889,7 +1889,7 @@ impl<'a> Thermal<'a> {
         };
         let (cells, starts) = cells;
         // 区間の塊ごとの、[向き × リング] の δF の積分と、[核種とリングの組] の F の積分（既知の部分, F_m の係数）。塊の順に足す
-        let parts: Vec<(Vec<f64>, Vec<(f64, f64)>)> = cells
+        let parts: Vec<TangentChunk> = cells
             .par_chunks(CELLS_PER_TASK)
             .enumerate()
             .map(|(c, chunk)| {
@@ -2054,8 +2054,15 @@ pub(super) struct GasTangent {
     /// [向き][リング] の今のスイープの δF の累積の積率
     prefix: Vec<Vec<Prefix>>,
     /// 前のスイープの [向き][リング] の δF と累積の積率
-    previous: Option<(Vec<Vec<Vec<f64>>>, Vec<Vec<Prefix>>)>,
+    previous: Option<PreviousTangent>,
 }
+
+/// 前のスイープの [向き][リング] の δF と累積の積率（[`GasTangent`]）
+type PreviousTangent = (Vec<Vec<Vec<f64>>>, Vec<Vec<Prefix>>);
+
+/// 区間の塊の 1 つの、[向き × リング] の δF の積分と、[核種とリングの組] の F の積分（既知の部分, F_m の係数）
+/// （[`Thermal::tangent_source`]）
+type TangentChunk = (Vec<f64>, Vec<(f64, f64)>);
 
 impl GasTangent {
     /// `directions` は [向き][自由ガスの核種][リング] の δN、`n` はリングの数、`start` は掃き直しの始め（[`Thermal::start`]）
