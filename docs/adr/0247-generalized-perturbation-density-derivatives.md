@@ -456,3 +456,9 @@ UFG の微分の式: 格子点の式 V_j F_j = Σ_i W_ji(Σ) q_i（q_i = k_i + c
   同じで、ほかの核種は持たない。N̄ᵢ = 0 の点は σᵢ。燃焼させない物質に追う核種があれば止める）、crates/lattice/src/input/tests.rs の
   `history_generalized_derivatives_*`、crates/format の `density_derivatives_without_rate_derivatives_*` と
   `an_explicit_nil_rate_derivative_is_an_error`、crates/core の `density_derivatives_without_rate_derivatives_add_no_own_density_term`
+- 段 5 の炉心計算（#0279 の「段 5 の結果」。2A の集合体 1 体の core のミクロ燃焼、ADR-0221 の「core のミクロ燃焼（2A の集合体 1 体）」の
+  入力を 1 状態にしたもの）: core の k の、微分なし（D0）からの差は、D2（Pu-240）が −2.46〜+0.59 pcm、G + I0（31 核種）が −2.69〜+1.02 pcm、
+  G + I0 と D2 の差は −0.41〜+1.02 pcm。どれも格子計算の履歴からの差（ミクロ燃焼なしでもテーブルの点で −13.30〜−2.31 pcm あり、
+  3 つで共通。原因は確かめていない）より小さく、この入力ではどの持ち方が正しいかを決められない。テーブルの時間は D0 695 秒、D2 1,272 秒、G + I0 2,430 秒
+  （17 状態。G + I0 の状態あたりの微分は 102 秒で、随伴の固有値計算 7.0 秒、一般化随伴 62.9 秒、核種ごとの物質の微分と 31 核種の陽の微分の内積 32 秒）、
+  core は 3 つとも 0.15 秒。G + I1 は測っていない
