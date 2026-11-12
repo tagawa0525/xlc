@@ -41,7 +41,58 @@ def norm(values: list[float]) -> float:
 
 def compare(nominal: dict, states: dict[str, dict]) -> dict:
     """公称の状態 `nominal` と状態 `states`（名前と結果）の、向きと反応ごとの A_s、E_s と、公称の状態の大きさ"""
-    raise NotImplementedError
+    base = pin(nominal)
+    names = nominal["ufg_tangent"]["nuclides"]
+    reactions = nominal["ufg_tangent"]["reactions"]
+    for label, state in states.items():
+        other = state["ufg_tangent"]
+        if other["nuclides"] != names or other["reactions"] != reactions:
+            sys.exit(
+                f"{label}: the directions or reactions differ from the nominal state"
+            )
+        p = pin(state)
+        if p["first_group"] != base["first_group"] or len(p["flux"][0]) != len(
+            base["flux"][0]
+        ):
+            sys.exit(f"{label}: the UFG groups differ from the nominal state")
+
+    def implicit(p: dict, d: int, x: int) -> list[list[float]]:
+        return [ring[x] for ring in p["implicit"][d]]
+
+    def macroscopic(p: dict, x: int) -> list[list[float]]:
+        return [ring[x] for ring in p["macroscopic"]]
+
+    sizes = [
+        [norm(weighted(base["flux"], implicit(base, d, x))) for d in range(len(names))]
+        for x in range(len(reactions))
+    ]
+    out: dict = {"reactions": reactions, "nuclides": {}}
+    for d, name in enumerate(names):
+        rows = {}
+        for x, reaction in enumerate(reactions):
+            largest = max(sizes[x])
+            row: dict = {"size": sizes[x][d] / largest if largest > 0.0 else 0.0}
+            t0 = implicit(base, d, x)
+            for label, report in [("nominal", nominal), *states.items()]:
+                p = pin(report)
+                ts = implicit(p, d, x)
+                total = sum(weighted(p["flux"], macroscopic(p, x)))
+                entry = {
+                    "relative": sum(weighted(p["flux"], ts)) / total
+                    if total != 0.0
+                    else 0.0
+                }
+                if label != "nominal":
+                    scale = norm(weighted(p["flux"], ts))
+                    difference = [
+                        [a - b for a, b in zip(ra, rb)] for ra, rb in zip(ts, t0)
+                    ]
+                    error = norm(weighted(p["flux"], difference))
+                    entry["error"] = error / scale if scale > 0.0 else 0.0
+                row[label] = entry
+            rows[reaction] = row
+        out["nuclides"][name] = rows
+    return out
 
 
 def main() -> None:
