@@ -46,7 +46,7 @@ mod transfer;
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
 pub use free_gas::KernelCache;
 use hold::cells_beside_work;
-pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
+pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total, kernel_cap};
 pub use transfer::{CensusCall, ShareCellCache};
 use xlc_numeric::lu::solve;
 

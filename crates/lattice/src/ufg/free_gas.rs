@@ -771,8 +771,6 @@ pub(super) struct KernelPoint {
     cells: Vec<KernelCell>,
     /// 作るときの核の評価の回数（隣の区間と共有した端は数えない。DEBUG のログの重なりの計数で、表から引いた格子点にも数える）
     evaluations: u64,
-    /// 表に入れた自己遮蔽の番号（[`KernelCache::has_room`] で捨てるか）
-    born: u64,
 }
 
 /// 区間 [a, b] と、a、中点、b の D（[`Gas::correction`]）
@@ -800,28 +798,29 @@ impl KernelPoint {
     }
 }
 
-/// 1 つの核（[`KernelCache::table`] の鍵）の、格子点（レサジーとエネルギーのビット）ごとの値と、最後に使った自己遮蔽の番号
+/// 1 つの核（[`KernelCache::table`] の鍵）の、格子点（レサジーとエネルギーのビット）ごとの値と、最後に使った燃焼点の番号
 type KernelTable = Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>;
 
 /// 自由ガスの核の区間と D の値を、減速計算（自己遮蔽のピンと塊、自己遮蔽の間）で持つ表（ADR-0248）。区間と D は、自由ガスの核種の
 /// 核（[`Gas::bits`]）、範囲の上端、格子の最後の点、区間の細かさと、出射の格子点のレサジーとエネルギーだけで決まり、断面積、
 /// 個数密度、中性子束、ほかの格子点に依らないので、それらのビットを鍵にする。弾性散乱断面積は減速計算ごとに掛ける。
 ///
-/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたら前の自己遮蔽より前に入れて今の自己遮蔽で使っていない格子点を 1 度
-/// 捨て（[`KernelCache::has_room`]）、それでも届けば格子点を足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の
-/// 始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は
-/// 多くが変わる）
+/// 格子点は、それを最後に使った燃焼点で数える。燃焼点の境は呼び出し側が [`KernelCache::next_point`] で渡し（同じ燃焼点の状態と
+/// 摂動は多くの格子点を共有し、燃焼点の間は多くが変わる）、同じ燃焼点の中では格子点を捨てない。持つ量は上限
+/// （[`KernelCache::limit`]）までで、届いたら今の燃焼点で使っていない格子点（前の燃焼点のもの）を燃焼点ごとに 1 度捨て
+/// （[`KernelCache::has_room`]）、それでも届けば格子点を足さない（足さなかった格子点は減速計算ごとに作る）
 #[derive(Debug, Default)]
 pub struct KernelCache {
     tables: Mutex<HashMap<Vec<u64>, Arc<KernelTable>>>,
-    /// 持っている大きさと上限 (B)、今の自己遮蔽の番号
+    /// 持っている大きさと上限 (B)、今の燃焼点の番号
     bytes: AtomicU64,
     cap: AtomicU64,
-    call: AtomicU64,
+    point: AtomicU64,
     /// 今の自己遮蔽の [値を使った格子点, 作った格子点, 上限で持たなかった格子点] の数（ログ）
     counts: [AtomicU64; 3],
-    /// 上限に届いて、今の自己遮蔽で使っていない格子点を捨てた自己遮蔽の番号
-    evicted: AtomicU64,
+    /// 上限に届いて、今の燃焼点で使っていない格子点を捨てた燃焼点の番号。捨てる間は持ち続け、同時に余地を確かめるほかの
+    /// 減速計算を、捨て終えるまで待たせる（待たずに余地が無いとすると、捨てた後の余地に入れ損ねる）
+    evicted: Mutex<u64>,
 }
 
 /// ロックの中では作り終えた値を引くか入れるだけで、表が途中の状態で残ることはないので、毒された表もそのまま使う
@@ -830,11 +829,16 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl KernelCache {
-    /// 自己遮蔽を始める: 前の自己遮蔽で使わなかった格子点を捨て、残りの大きさ (B) を返す。今の自己遮蔽の [値を使った格子点,
-    /// 作った格子点, 上限で持たなかった格子点] の数を数え直す。上限は続けて [`KernelCache::limit`] で決める
+    /// 次の燃焼点に進む（呼び出し側が燃焼点の境で呼ぶ。自己遮蔽の途中では呼ばない）: 直前の燃焼点で使わなかった格子点と、格子点の
+    /// 無くなった核の表（温度の分岐で核が変わるたびに表が増えるため）を捨てる。直前の燃焼点で使った格子点は残す（燃焼点の間の重なり）
+    pub fn next_point(&self) {
+        let point = self.point.fetch_add(1, Ordering::Relaxed) + 1;
+        self.keep(|last| last + 1 >= point, true);
+    }
+
+    /// 自己遮蔽を始める: 今の自己遮蔽の [値を使った格子点, 作った格子点, 上限で持たなかった格子点] の数を数え直し、持っている
+    /// 大きさ (B) を返す（格子点は捨てない）。上限は続けて [`KernelCache::limit`] で決める
     pub fn start(&self) -> u64 {
-        let call = self.call.fetch_add(1, Ordering::Relaxed) + 1;
-        self.keep(|_, last| last + 1 >= call, true);
         for count in &self.counts {
             count.store(0, Ordering::Relaxed);
         }
@@ -842,26 +846,26 @@ impl KernelCache {
     }
 
     /// 持つ量の上限を `cap` (B) にし、この自己遮蔽で表がまだ増えうる量 (B。上限 − 今の大きさ、または 0) を返す。上限が今の大きさより
-    /// 小さくても捨てず、足さないだけにする
+    /// 小さくてもここでは捨てない（今の燃焼点の格子点は捨てず、前の燃焼点の格子点は入れようとしたときに [`KernelCache::has_room`] が捨てる）
     pub fn limit(&self, cap: u64) -> u64 {
         self.cap.store(cap, Ordering::Relaxed);
         cap.saturating_sub(self.bytes.load(Ordering::Relaxed))
     }
 
-    /// [`KernelCache::start`] のあと、残りの大きさから `cap` で決めた上限で [`KernelCache::limit`] を呼ぶ
+    /// [`KernelCache::start`] のあと、持っている大きさから `cap` で決めた上限で [`KernelCache::limit`] を呼ぶ
     pub fn begin(&self, cap: impl FnOnce(u64) -> u64) -> u64 {
         let held = self.start();
         self.limit(cap(held))
     }
 
-    /// 入れた自己遮蔽と最後に使った自己遮蔽の番号が `keep` を満たす格子点だけを残す。`empty` なら格子点の無くなった核の表も捨てる（温度の分岐で
-    /// 核が変わるたびに表が増えるため）。自己遮蔽の途中では捨てない（減速計算が持つ表が、捨てた後に引けない表になる）
-    fn keep(&self, keep: impl Fn(u64, u64) -> bool, empty: bool) {
+    /// 最後に使った燃焼点の番号が `keep` を満たす格子点だけを残す。`empty` なら格子点の無くなった核の表も捨てる（減速計算が持つ表が、
+    /// 捨てた後に引けない表になるので、自己遮蔽の途中では捨てない）
+    fn keep(&self, keep: impl Fn(u64) -> bool, empty: bool) {
         let mut removed = 0;
         lock(&self.tables).retain(|_, table| {
             let mut table = lock(table);
             table.retain(|_, (p, last)| {
-                let kept = keep(p.born, *last);
+                let kept = keep(*last);
                 if !kept {
                     removed += p.bytes();
                 }
@@ -873,7 +877,7 @@ impl KernelCache {
         self.bytes.fetch_sub(removed, Ordering::Relaxed);
     }
 
-    /// 持つ量の上限 (B。[`KernelCache::begin`])
+    /// 持つ量の上限 (B。[`KernelCache::limit`])
     pub fn cap(&self) -> u64 {
         self.cap.load(Ordering::Relaxed)
     }
@@ -893,30 +897,35 @@ impl KernelCache {
         lock(&self.tables).entry(kernel).or_default().clone()
     }
 
-    /// 表 `table` の格子点 `point` の値（あれば今の自己遮蔽で使ったことにする）
+    /// 表 `table` の格子点 `point` の値（あれば今の燃焼点で使ったことにする）
     fn get(&self, table: &KernelTable, point: [u64; 2]) -> Option<Arc<KernelPoint>> {
-        let call = self.call.load(Ordering::Relaxed);
+        let now = self.point.load(Ordering::Relaxed);
         let found = lock(table).get_mut(&point).map(|(p, last)| {
-            *last = call;
+            *last = now;
             p.clone()
         });
         self.counts[if found.is_some() { 0 } else { 1 }].fetch_add(1, Ordering::Relaxed);
         found
     }
 
-    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）。上限に届いたとき、今の自己遮蔽で表から引けた
-    /// 格子点のうち、前の自己遮蔽より前に入れ、今の自己遮蔽でまだ使っていないものを、自己遮蔽ごとに 1 度捨てて余地を作る。
-    /// 前の自己遮蔽で入れた格子点は、今の自己遮蔽で後に解くピンがまだ使いうるので残す（状態の公称の後の摂動。比べた捨て方は
-    /// ADR-0248）
+    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）。上限に届いたとき、今の燃焼点で使っていない
+    /// 格子点（前の燃焼点のもの）を燃焼点ごとに 1 度捨てて余地を作る。今の燃焼点で使った格子点は、同じ燃焼点の後の自己遮蔽がまた
+    /// 使いうるので捨てない（比べた捨て方は ADR-0248）
     fn has_room(&self, bytes: u64) -> bool {
         let fits =
             || self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed);
-        let mut room = fits();
-        let call = self.call.load(Ordering::Relaxed);
-        if !room && self.evicted.swap(call, Ordering::Relaxed) != call {
-            self.keep(|born, last| last == call || born + 1 >= call, false);
-            room = fits();
+        if fits() {
+            return true;
         }
+        let now = self.point.load(Ordering::Relaxed);
+        {
+            let mut evicted = lock(&self.evicted);
+            if *evicted != now {
+                self.keep(|last| last == now, false);
+                *evicted = now;
+            }
+        }
+        let room = fits();
         if !room {
             self.counts[2].fetch_add(1, Ordering::Relaxed);
         }
@@ -927,27 +936,18 @@ impl KernelCache {
     /// 残す（値はビットで同じ）
     fn insert(&self, table: &KernelTable, point: [u64; 2], value: KernelPoint) {
         let size = value.bytes();
-        let call = self.call.load(Ordering::Relaxed);
+        let now = self.point.load(Ordering::Relaxed);
         let mut table = lock(table);
         if table.contains_key(&point) {
             return;
         }
-        // 足す判定と足す量をロックの外のほかの表と競り合っても、超えるのは同時に入れる格子点の分だけ
+        // 足す判定と足す量をロックの外のほかの表と競り合っても、先に足した分を見て判定するので上限を超えない
         if self.bytes.fetch_add(size, Ordering::Relaxed) + size > self.cap.load(Ordering::Relaxed) {
             self.bytes.fetch_sub(size, Ordering::Relaxed);
             self.counts[2].fetch_add(1, Ordering::Relaxed);
             return;
         }
-        table.insert(
-            point,
-            (
-                Arc::new(KernelPoint {
-                    born: call,
-                    ..value
-                }),
-                call,
-            ),
-        );
+        table.insert(point, (Arc::new(value), now));
     }
 }
 
@@ -1582,7 +1582,6 @@ impl<'a> Thermal<'a> {
                 starts: self.starts.clone(),
                 cells,
                 evaluations: parts.iter().map(|p| p.evaluations).sum(),
-                born: 0,
             };
             kernels.insert(table, point, value);
         }

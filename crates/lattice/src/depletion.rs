@@ -1572,8 +1572,14 @@ pub(crate) fn run_with_moc(
     let mut shieldings = 0;
     // `StepStart` の、ステップの始まりの輸送の自己遮蔽と、それに渡した物質。次の中点の輸送で使う（ADR-0197）
     let mut held: Option<(FuelShielding, Vec<MaterialInput>)> = None;
+    let mut points = 0;
     let solve = |n: &[Vec<f64>], at: TransportAt| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
+        // 点の輸送の自己遮蔽と、続く中点の輸送の自己遮蔽を 1 つの燃焼点とする（自由ガスの核の表が格子点を捨てる単位。ADR-0248）
+        if at == TransportAt::Point {
+            reuse.at_point(points);
+            points += 1;
+        }
         let start = Instant::now();
         // 負の数密度は近似の誤差の水準だけを許し、輸送には入れない（ADR-0173）
         check_negative(&regions, n, |i| chain.nuclides[i].name.clone())?;

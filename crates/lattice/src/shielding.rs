@@ -38,8 +38,8 @@ use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
     CellSpectrum, CensusCall, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache,
-    UfgError, cell_range, held_cells, hold_total, material_range, slowing_down_transfers,
-    slowing_down_with,
+    UfgError, cell_range, held_cells, hold_total, kernel_cap, material_range,
+    slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -438,6 +438,8 @@ pub struct ShieldingReuse<'a> {
     dancoff_solves: usize,
     /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
     shares: ShareCellCache,
+    /// 呼び出し側が最後に渡した燃焼点（[`ShieldingReuse::at_point`]）
+    point: Option<usize>,
 }
 
 /// 燃料のピンの Dancoff 係数を求めた入力と結果
@@ -467,7 +469,18 @@ impl<'a> ShieldingReuse<'a> {
             callers: callers.get(),
             dancoff_solves: 0,
             shares: ShareCellCache::default(),
+            point: None,
         }
+    }
+
+    /// これからの自己遮蔽が燃焼点 `point`（呼び出し側の番号）のものとする。直前に渡した燃焼点と違えば、自由ガスの核の区間と D の値の
+    /// 表（ADR-0248）を次の燃焼点に進め、直前の燃焼点で使わなかった格子点を捨てる。表は同じ燃焼点の中では上限に届かない限り格子点を
+    /// 捨てないので、呼ばなければ、すべての自己遮蔽を 1 つの燃焼点として扱う
+    pub fn at_point(&mut self, point: usize) {
+        if self.point.is_some_and(|p| p != point) {
+            self.shares.kernels().next_point();
+        }
+        self.point = Some(point);
     }
 
     /// 前処理のトラッキング
@@ -703,7 +716,7 @@ pub fn shield_fuel_reusing(
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
     let growth = shares.kernels().limit(match options.transfer {
-        UfgTransfer::RingFlux if at_once > 0 => total.saturating_add(held) / (at_once as u64 + 1),
+        UfgTransfer::RingFlux if at_once > 0 => kernel_cap(total, held, at_once),
         // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
         _ => held,
     });

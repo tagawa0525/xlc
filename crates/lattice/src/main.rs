@@ -592,6 +592,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 ),
             )
         });
+        // 状態と、その参照と摂動の組成の自己遮蔽は、状態の燃焼度の点のもの（自由ガスの核の表が格子点を捨てる単位。ADR-0248）。
+        // 履歴からの分岐でない分岐の状態は、すべて 1 つの組成の点
+        reuse.at_point(history_branches.as_ref().map_or(0, |h| h.point_of(state)));
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
