@@ -8,8 +8,9 @@
 
 微分の摂動の軸（ADR-0221 の Pu-240 の数密度の微分。燃焼点 DERIVATIVE_BURNUP）:
 
-- 2A-derivative.toml: 摂動の組成で自己遮蔽を解き直す（既定）
+- 2A-derivative.toml: 摂動の組成で自己遮蔽を解き直す（`derivative-shielding = "solved"`。ADR-0249）
 - 2A-derivative-fixed.toml: すべての点を `shielding-burnup` に挙げる。自己遮蔽は状態の組成のまま、摂動は解き直さない
+  （ADR-0249 の既定と同じ物質）
 
 状態の軸の暗黙の効き（ADR-0247 の段 4 の `[sensitivity.few-group]` の `shielded`。../../issue-0279/inputs.py の 60 MWd/kg の組成の
 ピンセルと 3×3）:
@@ -68,9 +69,19 @@ def listed(values) -> str:
     )
 
 
-def branch(text: str, output: str, burnup: list, extra: str, derivative: bool) -> str:
-    """../branch/2A-60.toml の、先頭の注釈（その入力の説明）を除き、テーブルの出力、燃焼点、微分の有無を替え、`[history]` の
-    最後に `extra` を足したもの"""
+# ../branch/2A-60.toml の、摂動の組成で自己遮蔽を解き直す行（ADR-0249）
+SOLVED = (
+    "# 記録の値は摂動の組成で自己遮蔽を解き直して出した（ADR-0221。既定は状態の自己遮蔽のまま。ADR-0249）\n"
+    'derivative-shielding = "solved"\n'
+)
+
+
+def branch(
+    text: str, output: str, burnup: list, extra: str, derivative: bool, solved: bool
+) -> str:
+    """../branch/2A-60.toml の、先頭の注釈（その入力の説明）を除き、テーブルの出力、燃焼点、微分の有無と摂動の自己遮蔽を
+    解き直すか（`solved`。微分のないときと `shielding-burnup` を足すときは解き直せない）を替え、`[history]` の最後に `extra` を
+    足したもの"""
     start = text.find("library = ")
     if start < 0:
         sys.exit(f"{BRANCH} has no library line")
@@ -80,6 +91,10 @@ def branch(text: str, output: str, burnup: list, extra: str, derivative: bool) -
         f'output = "{output}", bounds = [1e7, 0.625, 1e-5], pins = true }}',
     )
     replaced = replaced.replace("burnup = [60]\n", f"burnup = {listed(burnup)}\n")
+    if replaced.count(SOLVED) != 1:
+        sys.exit(f"{BRANCH} does not solve the perturbed self-shielding again")
+    if not solved:
+        replaced = replaced.replace(SOLVED, "")
     if not derivative:
         replaced = replaced.replace('derivative = ["Pu-240"]\n', "")
     if replaced.count(output) != 1 or f"burnup = {listed(burnup)}" not in replaced:
@@ -146,16 +161,19 @@ def main() -> None:
     text = BRANCH.read_text()
     comment = "# このファイルは inputs.py が書く（手で直さない）。#0180 の自己遮蔽を省いたときの誤差\n"
     cases = {
-        "2A-every.toml": branch(text, "table-2A-every.msgpack", BURNUP, "", False),
+        "2A-every.toml": branch(
+            text, "table-2A-every.msgpack", BURNUP, "", False, False
+        ),
         "2A-skip-sparse.toml": branch(
             text,
             "table-2A-skip-sparse.msgpack",
             BURNUP,
             f"shielding-burnup = {listed(SPARSE)}\n",
             False,
+            False,
         ),
         "2A-derivative.toml": branch(
-            text, "table-2A-derivative.msgpack", DERIVATIVE_BURNUP, "", True
+            text, "table-2A-derivative.msgpack", DERIVATIVE_BURNUP, "", True, True
         ),
         "2A-derivative-fixed.toml": branch(
             text,
@@ -163,6 +181,7 @@ def main() -> None:
             DERIVATIVE_BURNUP,
             f"shielding-burnup = {listed(DERIVATIVE_BURNUP)}\n",
             True,
+            False,
         ),
     }
     for name, body in cases.items():

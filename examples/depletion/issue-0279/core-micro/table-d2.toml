@@ -116,3 +116,5 @@ micro = [
   "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
 ]
 derivative = ["Pu-240"]
+# 記録の値は摂動の組成で自己遮蔽を解き直して出した（ADR-0221。既定は状態の自己遮蔽のまま。ADR-0249）
+derivative-shielding = "solved"
