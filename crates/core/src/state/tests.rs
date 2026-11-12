@@ -215,7 +215,8 @@ fn fuel_grid_points_return_the_lattice_states() {
     }
 }
 
-/// 燃料の温度の点 `points` の内挿で、状態の燃料の温度 `tf` が点ごとの値に掛ける重み（点が 1 だけ大きい状態の k∞ の増え方）
+/// 燃料の温度の点 `points` の内挿で、状態の燃料の温度 `tf` が点ごとの値に掛ける重み（点の状態だけを 1.1 倍にしたときの k∞ の増え方を
+/// 0.1 で割る。2 倍にすると真空の境界の比が 1 を超えて検査に止められる）
 fn fuel_weights(points: &[f64], tf: f64) -> Vec<f64> {
     let base = interpolate(
         &fuel_table_of(points, |_| 1.0),
@@ -227,13 +228,14 @@ fn fuel_weights(points: &[f64], tf: f64) -> Vec<f64> {
     .k_inf;
     (0..points.len())
         .map(|j| {
-            let t = fuel_table_of(points, |x| if x == points[j] { 2.0 } else { 1.0 });
-            interpolate(&t, Some(&state(1300.0, 565.0, tf)), None)
+            let t = fuel_table_of(points, |x| if x == points[j] { 1.1 } else { 1.0 });
+            (interpolate(&t, Some(&state(1300.0, 565.0, tf)), None)
                 .unwrap()
                 .remove(0)
                 .k_inf
                 / base
-                - 1.0
+                - 1.0)
+                / 0.1
         })
         .collect()
 }
@@ -250,7 +252,7 @@ fn fuel_weights_match_the_python_comparison_of_the_p9_grid() {
             .map(|(_, &x)| x)
             .collect()
     };
-    let cases: [(Vec<f64>, f64, Vec<(f64, f64)>); 8] = [
+    let cases = [
         (
             without(1),
             600.0,
@@ -843,7 +845,7 @@ fn product_sum(table: &Table, state: &State, rod: Option<&str>) -> Vec<FewGroup>
                 bracket("moderator", temperature, state.moderator, |x| x).unwrap()
             }
             Axis::Fuel { temperature, .. } => {
-                bracket("fuel", temperature, state.fuel, f64::sqrt).unwrap()
+                cubic_terms("fuel", temperature, state.fuel, f64::sqrt).unwrap()
             }
             Axis::Rod { values } => vec![(
                 values
