@@ -567,6 +567,10 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
     kernels.begin(0);
     let (_, _, all) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(kernels.bytes(), 0);
+    // どの格子点も表から引けず、作った格子点はどれも上限で入れなかったと数える
+    let [reused, built, full] = kernels.counts();
+    assert_eq!((reused, full), (0, built));
+    assert!(built > 0);
     let (_, _, again) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(again, all);
     kernels.begin(u64::MAX);
