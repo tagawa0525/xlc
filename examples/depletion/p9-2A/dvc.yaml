@@ -1,0 +1,19 @@
+# Problem 9 の本番の形の 2A の分岐のテーブル（#0278）: ADR-0239 の格子点の 2 軸の組の部分格子（114 状態）を、ADR-0199 の 27 燃焼点の
+# すべてで解く。燃焼の履歴は ../p9-product/lattice-2A.msgpack（../p9-product/dvc.yaml の `lattice-2A` の出力。公称の状態での 2A の燃焼）、
+# ライブラリは ../p2/depletion.msgpack（../p2/dvc.yaml の出力）、燃焼チェーンは ../chain.msgpack（../dvc.yaml の出力）。実行するのは
+# default の devShell の `dvc repro`（ADR-0159）。重いので Slurm で流す（時間の見積もりと流し方は #0278）。止まっても同じコマンドで
+# 投げ直せば、書き終えた状態のチェックポイント（branch-2A.checkpoint）から続ける（ADR-0196）
+stages:
+  branch-2A:
+    # 状態ごとの k∞ は標準出力、状態ごとの時間はログ（標準エラー）
+    cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
+    deps:
+      - branch-2A.toml
+      - ../p9-product/lattice-2A.msgpack
+      - ../p2/depletion.msgpack
+      - ../chain.msgpack
+      - ../../../bin/lattice
+    outs:
+      - table-2A.msgpack
+      - branch-2A.out
+      - branch-2A.log
