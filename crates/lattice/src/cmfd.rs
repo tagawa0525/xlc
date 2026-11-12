@@ -853,6 +853,95 @@ impl Coarse {
             .sum()
     }
 
+    /// [代表のセル][群] の均質化した中性子束
+    pub(crate) fn homogenized_flux(&self) -> &[f64] {
+        &self.flux
+    }
+
+    /// 固定源の問題 (A − F/k) e = `rhs`（[代表のセル][群]、体積で積分した源）を、均質化した中性子束 φ̄ の成分を除きながら解く
+    /// （ADR-0247 の一般化随伴の加速）。A − F/k は、固有値 k で均質化した問題では特異で φ̄ が零ベクトルなので、反復
+    /// e ← A⁻¹ (F e / k + rhs) のたびに e から (W · e / W · φ̄) φ̄ を除く（`weights` は [代表のセル][群] の W）。収束した e は、
+    /// rhs から A φ̄ の倍を除いて A − F/k の値域に入れた問題の、W · e = 0 の解。A⁻¹ は、1 行か 1 列の格子ではブロック三重対角の
+    /// 直接解法、ほかはブロック Gauss-Seidel の 1 回。判定は `options` の中性子束の判定（群ごとの |e| の最大値に対する変化）
+    pub(crate) fn solve_projected(
+        &self,
+        k: f64,
+        rhs: &[f64],
+        weights: &[f64],
+        options: &CmfdOptions,
+    ) -> Result<Vec<f64>, CmfdError> {
+        let ng = self.groups;
+        let cells = self.cells.len();
+        let null: f64 = weights.iter().zip(&self.flux).map(|(w, f)| w * f).sum();
+        // A⁻¹ の解き方（チェーンは核分裂を除いた A を一度だけ分解する）
+        enum Inverse<'a> {
+            Chain(&'a Chain, ChainFactors),
+            GaussSeidel(&'a [Lu], &'a [Vec<(usize, Vec<f64>)>]),
+        }
+        let inverse = match &self.solver {
+            Solver::Chain(chain) => {
+                Inverse::Chain(chain, chain.factor(&self.fission, 0.0, &self.cells)?)
+            }
+            Solver::GaussSeidel { blocks, neighbors } => Inverse::GaussSeidel(blocks, neighbors),
+        };
+        let mut e = vec![0.0; cells * ng];
+        let mut history = Remaining::default();
+        let mut b = vec![0.0; ng];
+        for _ in 0..options.max_iterations {
+            let previous = e.clone();
+            let fission = |c: usize, out: &mut [f64], values: &[f64]| {
+                out.copy_from_slice(&rhs[c * ng..][..ng]);
+                for s in &self.fission[c] {
+                    let rate = s.rate(&values[c * ng..][..ng]) / k;
+                    for (o, x) in out.iter_mut().zip(&s.chi) {
+                        *o += x * rate;
+                    }
+                }
+            };
+            match &inverse {
+                Inverse::Chain(chain, factors) => {
+                    let mut next = vec![0.0; cells * ng];
+                    for c in 0..cells {
+                        fission(c, &mut next[c * ng..][..ng], &previous);
+                    }
+                    chain.substitute(factors, &mut next);
+                    e = next;
+                }
+                Inverse::GaussSeidel(blocks, neighbors) => {
+                    for c in 0..cells {
+                        fission(c, &mut b, &previous);
+                        for (other, coefficients) in &neighbors[c] {
+                            for g in 0..ng {
+                                b[g] -= coefficients[g] * e[other * ng + g];
+                            }
+                        }
+                        blocks[c].solve(&mut b);
+                        e[c * ng..][..ng].copy_from_slice(&b);
+                    }
+                }
+            }
+            let alpha = weights.iter().zip(&e).map(|(w, x)| w * x).sum::<f64>() / null;
+            for (x, f) in e.iter_mut().zip(&self.flux) {
+                *x -= alpha * f;
+            }
+            let mut scale = vec![0.0_f64; ng];
+            let mut change = vec![0.0_f64; ng];
+            for (j, (a, p)) in e.iter().zip(&previous).enumerate() {
+                scale[j % ng] = scale[j % ng].max(a.abs());
+                change[j % ng] = change[j % ng].max((a - p).abs());
+            }
+            let largest = change
+                .iter()
+                .zip(&scale)
+                .map(|(&c, &s)| if c == 0.0 { 0.0 } else { c / s })
+                .fold(0.0, f64::max);
+            if history.update(largest) < options.flux_tolerance {
+                return Ok(e);
+            }
+        }
+        Err(CmfdError::NotConverged(options.max_iterations))
+    }
+
     /// 固有値問題を `k` から解き始め、k と [代表のセル][群] の中性子束の比（解 / 均質化した中性子束、
     /// どちらも生成率 1 に規格化）を返す。
     pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {

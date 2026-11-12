@@ -1537,6 +1537,31 @@ impl<'a> Sweeper<'a> {
             });
     }
 
+    /// 出ていく角度中性子束に、形 `shape`（同じ並び）とトラックの出口の粗メッシュのセルと群ごとの係数 `factor` の積を足す。
+    /// 出口のセルの扱いは `scale_outgoing` と同じ
+    fn add_outgoing(
+        &self,
+        outgoing: &mut [f64],
+        shape: &[f64],
+        factor: impl Fn(usize, usize) -> f64 + Sync,
+    ) {
+        outgoing
+            .par_chunks_mut(self.width)
+            .zip(shape.par_chunks(self.width))
+            .enumerate()
+            .for_each(|(j, (out, shape))| {
+                let track = self.representatives.tracks[j / 2];
+                let cells = self.mesh.end_cells(track, j % 2 == 0);
+                for (i, (o, s)) in out.iter_mut().zip(shape).enumerate() {
+                    let g = i % self.ng;
+                    *o += s * cells
+                        .iter()
+                        .map(|&(cell, w)| w * factor(cell, g))
+                        .sum::<f64>();
+                }
+            });
+    }
+
     /// 代表のトラックの組ごとの部分和の入れ物。組ごとに順にスイープし、組の順に足すので、結果は
     /// スレッドの数や仕事の分け方によらない。組は、対称性を使わなければ方位角ごと（方位角ごとのトラックの長さの和は
     /// ほぼ等しい）、使えば区間の数の和を揃えたもの
