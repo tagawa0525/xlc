@@ -172,6 +172,9 @@ pub enum UfgError {
         ring: usize,
         other: usize,
     },
+    /// 自由ガスの散乱源の 1 次の変化を、区間の置き場の無い格子点で求めようとした（内部の不整合）
+    #[error("internal error: the free-gas tangent has no cells at point {0}")]
+    TangentCells(usize),
     /// 自由ガスの散乱源の δF の履歴が格子点の順に伸びていない（掃き直しの戻し方の誤り。内部の不整合）
     #[error(
         "internal error: the free-gas tangent history of ring {ring} is out of step at point {point}"
@@ -2736,7 +2739,7 @@ impl Sweep<'_> {
                     gas,
                     &mut t.gas_known,
                     &mut t.gas_explicit,
-                );
+                )?;
             }
             t.cost.free_gas += gas_clock.elapsed().as_secs_f64();
             let solve_clock = Instant::now();

@@ -1862,9 +1862,9 @@ impl<'a> Thermal<'a> {
         gas: &GasTangent,
         known: &mut [Vec<f64>],
         explicit: &mut [Vec<f64>],
-    ) {
+    ) -> Result<(), UfgError> {
         if m < self.start {
-            return;
+            return Ok(());
         }
         let nd = gas.count;
         let n = f.len();
@@ -1882,9 +1882,10 @@ impl<'a> Thermal<'a> {
             ),
             Some(Current::Scratch) => match &self.scratch {
                 Some(scratch) => (scratch.as_slice(), self.starts.as_slice()),
-                None => (&[], &[]),
+                None => return Err(UfgError::TangentCells(m)),
             },
-            None => (&[], &[]),
+            // 掃き直しの始めより後の格子点は、[`Thermal::source`] が区間の置き場を書く（無ければ呼び方の誤りで、黙って 0 にしない）
+            None => return Err(UfgError::TangentCells(m)),
         };
         let (cells, starts) = cells;
         // 区間の塊ごとの、[向き × リング] の δF の積分と、[核種とリングの組] の F の積分（既知の部分, F_m の係数）。塊の順に足す
@@ -2002,6 +2003,7 @@ impl<'a> Thermal<'a> {
                 }
             }
         }
+        Ok(())
     }
 
     /// 散乱源の経過時間の和 (s): [自由ガスの核の区間, S(α, β) の移行]
