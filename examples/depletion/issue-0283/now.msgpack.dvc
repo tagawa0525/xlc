@@ -1,0 +1,5 @@
+outs:
+- md5: 4ec895e2f044c1f3209284c557b78801
+  size: 265136
+  hash: md5
+  path: now.msgpack
