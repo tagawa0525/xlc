@@ -1316,6 +1316,22 @@ fn solve_cell(
                     .collect()
             })
             .collect();
+        // 向きのない群定数と同じく、有限でない変化（中性子束が 0 の群など）は黙って返さない
+        for (d, rings) in out.nuclides.iter().enumerate() {
+            for (i, ring) in rings.iter().enumerate() {
+                let bad = ring
+                    .iter()
+                    .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture])
+                    .chain(std::iter::once(&out.flux[d][i]))
+                    .find_map(|v| v.iter().position(|x| !x.is_finite()));
+                if let Some(g) = bad {
+                    return Err(UfgError::NonFinite {
+                        ring: i,
+                        group: top + g,
+                    });
+                }
+            }
+        }
         t.cost.collapse += clock.elapsed().as_secs_f64();
         t.cost.directions = t.directions.len();
         t.cost.classes = t.classes.len();
@@ -2448,13 +2464,21 @@ impl TangentSweep {
         entries: &[Vec<(usize, f64)>],
     ) -> Result<(), UfgError> {
         let mut materials: Vec<usize> = Vec::with_capacity(self.classes.len());
-        for &(r, _) in &self.classes {
+        for (r, members) in &self.classes {
+            let r = *r;
             let m = first
                 .iter()
                 .position(|&f| entries[f] == entries[r])
                 .ok_or(UfgError::TangentTable(r))?;
-            if let Some(earlier) = materials.iter().position(|&x| x == m) {
-                let other = self.classes[earlier].0;
+            // 組が表の物質のリングのすべてでなければ（同じ組成で δN の違うリングがある）、表の物質の全断面積を変えると組の外の
+            // リングも変わる
+            let outside =
+                (0..entries.len()).find(|&i| entries[i] == entries[r] && !members.contains(&i));
+            let earlier = materials
+                .iter()
+                .position(|&x| x == m)
+                .map(|e| self.classes[e].0);
+            if let Some(other) = earlier.or(outside) {
                 let direction = self
                     .directions
                     .iter()
