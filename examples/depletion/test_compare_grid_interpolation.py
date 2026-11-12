@@ -116,7 +116,7 @@ class Measured(unittest.TestCase):
             for p in c["points"]:
                 self.assertLess(p["max_abs_pcm"], 1e-9)
 
-    def test_the_error_is_the_state_minus_its_neighbours_interpolated_by_core(self):
+    def test_the_error_is_the_state_minus_its_neighbours_interpolated_linearly(self):
         s = cgi.summarize(table(moderator_square))
         c = center(s, "moderator", 570.0)
         self.assertEqual(c["neighbours"], [560.0, 575.0])
@@ -363,7 +363,9 @@ class Schemes(unittest.TestCase):
         for c in x["centers"]:
             self.assertEqual([p["burnup"] for p in c["points"]], BURNUP)
 
-    def test_the_linear_scheme_in_the_axis_transform_is_the_core_interpolation(self):
+    def test_the_linear_scheme_in_the_axis_transform_is_the_linear_formula_of_the_centers(
+        self,
+    ):
         specs = schemes(("moderator", "value", "linear"), ("fuel", "sqrt", "linear"))
         s = cgi.summarize(wide_table(fuel_cubic), specs)
         for spec in specs:

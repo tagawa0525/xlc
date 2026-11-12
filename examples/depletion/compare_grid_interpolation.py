@@ -1,5 +1,5 @@
 """直積の分岐のテーブルの格子点の間の内挿の誤差を測る（ADR-0239 の確認）。連続の軸（ホウ素、減速材、燃料の温度）の内側の格子点
-ごとに、その軸の両隣の格子点の状態の少数群定数を core と同じ式で内挿し、格子点の状態と比べる。測った誤差から、本番の間隔
+ごとに、その軸の両隣の格子点の状態の少数群定数を隣の 2 点の線形（ADR-0097 の式）で内挿し、格子点の状態と比べる。測った誤差から、本番の間隔
 （隣り合う格子点の区間）の中点の誤差を見込む。
 
 使い方: python3 compare_grid_interpolation.py --json <要約の出力先> <入力の TOML>
@@ -10,12 +10,13 @@
 
 - `variable`: 内挿の変数。`value`（軸の値。ppm か K）、`sqrt`（√値）、`log`（ln 値）、`density`（減速材の軸の格子点の密度。ADR-0229 の
   案 T2）
-- `method`: `linear`（隣の 2 点の線形。core の今の式）、`hermite`（傾きを点と両隣の 3 点の放物線の微分にする 3 次 Hermite。core の
-  燃焼度の軸と同じ形で、燃焼度 0 の扱いは無い。ADR-0192）、`lagrange`（区間の 2 点とその外側の 1 点ずつの 4 点の 3 次。端の区間は端の
+- `method`: `linear`（隣の 2 点の線形。core のホウ素と減速材の軸の式）、`hermite`（傾きを点と両隣の 3 点の放物線の微分にする 3 次 Hermite。core の
+  燃焼度の軸（ADR-0192）と燃料の温度の軸（`sqrt`。ADR-0242）と同じ形で、燃焼度 0 の扱いは無い）、`lagrange`（区間の 2 点とその外側の 1 点ずつの 4 点の 3 次。端の区間は端の
   4 点）、`spline`（自然 3 次スプライン。値は軸のすべての点に依る）。どれも値は格子点の値の線形結合で、少数群定数の項目ごとに同じ
   重みで足す。点を除いた格子が方式の要る点の数（`linear` 2、`hermite` と `spline` 3、`lagrange` 4）に足りなければエラー
 
-- core の式（`centers` と `intervals`）の内挿: core の `bracket`（crates/core/src/state.rs）と同じく、軸の内挿の変数 g（テーブルの軸の `transform`。`linear` は値、`sqrt` は
+- 線形の式（`centers` と `intervals`）の内挿: ADR-0097 の式（core のホウ素と減速材の軸の `bracket`、crates/core/src/state.rs。燃料の温度の軸の
+  core の式は、`schemes` の `sqrt` の `hermite`。ADR-0242）と同じく、軸の内挿の変数 g（テーブルの軸の `transform`。`linear` は値、`sqrt` は
   √値）について隣の 2 点で線形にする。格子点 x_i を両隣 x_{i−1}、x_{i+1} から重み w = (g_i − g_{i−1}) / (g_{i+1} − g_{i−1}) で
   (1 − w) f_{i−1} + w f_{i+1} とする。ほかの軸は格子点のまま（直積の状態）で、燃焼度の点ごとに、ほかの軸のすべての点の組で比べる
 - 誤差: Δρ = (1/k_格子点 − 1/k_内挿) × 1e5 pcm（k∞ は少数群定数の無限媒質の固有値。compare_burnup_interpolation.py の `k_inf`）。
