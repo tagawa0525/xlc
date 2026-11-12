@@ -187,11 +187,11 @@ pub struct HistoryBranches {
     perturbed_micro: Vec<usize>,
     /// 微分の摂動の割合 ε
     perturbation: f64,
-    /// 自己遮蔽の履歴の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with`）
+    /// 自己遮蔽の組成の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with` か `shield_at`）
     shielding: Option<Vec<Vec<Vec<f64>>>>,
     /// 選んだ燃焼度の点ごとの、自己遮蔽の参照を持つ点（`shield_at` の間の点は、その前で最後の自己遮蔽を解く点。ほかは自身）
     shielding_points: Vec<usize>,
-    /// 自己遮蔽の履歴があるときの、状態の組成で作り直す燃焼の領域の物質の名前（`<物質>@<セル>`）
+    /// 自己遮蔽の組成（`shield_with` か `shield_at`）があるときの、状態の組成で作り直す燃焼の領域の物質の名前（`<物質>@<セル>`）
     remixed: Vec<String>,
 }
 
@@ -793,7 +793,7 @@ impl HistoryBranches {
         Ok(())
     }
 
-    /// 自己遮蔽の履歴（`shield_with`）があるときの、状態の組成で作り直す燃焼の領域の物質の名前。なければ空
+    /// 自己遮蔽の組成（`shield_with` か `shield_at`）があるときの、状態の組成で作り直す燃焼の領域の物質の名前。なければ空
     pub fn remixed(&self) -> &[String] {
         &self.remixed
     }
@@ -1495,7 +1495,7 @@ impl HistoryBranches {
     }
 
     /// 燃焼度の点 `point` の参照 `reference` の、摂動の核種 `j` の摂動の組成（自己遮蔽を公称の組成と同じに扱う。ADR-0221）。自己遮蔽の
-    /// 履歴（`shield_with`）があれば、自己遮蔽はその組成に固定するので `reference_state` と同じ
+    /// 組成（`shield_with` か `shield_at`）があれば、自己遮蔽はその組成に固定するので `reference_state` と同じ
     pub fn perturbed_reference_state(
         &self,
         point: usize,
