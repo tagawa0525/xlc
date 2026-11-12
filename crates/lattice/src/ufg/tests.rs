@@ -1237,6 +1237,41 @@ fn free_gas_sweeps_solve_the_collision_probabilities_once_per_point() {
 }
 
 #[test]
+fn tracks_beyond_the_hold_budget_are_solved_again_with_the_same_spectrum() {
+    // 持つ量の上限に収まらない飛程は持たずに掃き直すたびに求め、結果はビットで同じ
+    let (lib, fuel, water) = thermal_cell(600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let solve = |hold| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            free_gas(UNCAPPED, 4, Some(3)),
+            hold,
+        )
+        .unwrap()
+    };
+    let held = solve(held_cells(1 << 30, 1));
+    let unheld = solve(0);
+    assert_eq!(held.collisions, held.points);
+    assert!(unheld.collisions > unheld.points, "{}", unheld.collisions);
+    assert_eq!(
+        CellSpectrum {
+            collisions: 0,
+            ..held
+        },
+        CellSpectrum {
+            collisions: 0,
+            ..unheld
+        }
+    );
+}
+
+#[test]
 fn nuclides_with_resolved_resonances_stay_at_rest() {
     // 分離共鳴を持つ核種だけのセルは、`heavy` を書かずに自由ガスを選んでも静止した標的と同じ
     let (lib, _, _) = thermal_cell(600.0);
