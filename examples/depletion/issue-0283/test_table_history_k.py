@@ -14,22 +14,24 @@ import table_history_k
 def history():
     """格子計算の履歴（燃焼度 0、0.1、20）"""
     return {
+        "format": "xlc-depletion-history",
         "points": [
             {"burnup": b, "k_inf": k} for b, k in [(0.0, 1.2), (0.1, 1.15), (20.0, 1.0)]
-        ]
+        ],
     }
 
 
 def table(burnups, ks, boron=(1300.0,)):
-    """燃焼度の点 `burnups` × ホウ素の点 `boron` のテーブル。状態の並びは燃焼度が外"""
+    """燃焼度の点 `burnups` × ホウ素の点 `boron` のテーブル（公称は 1300 ppm、565 K）。状態の並びは燃焼度が外"""
     points = [[i, j, 0, 0] for i in range(len(burnups)) for j in range(len(boron))]
     return {
+        "format": "xlc-table",
         "split": 1,
         "axes": [
             {"name": "burnup", "points": list(burnups)},
-            {"name": "boron", "points": list(boron)},
-            {"name": "moderator", "points": [565.0]},
-            {"name": "fuel", "points": [565.0]},
+            {"name": "boron", "points": list(boron), "nominal": 1300.0},
+            {"name": "moderator", "points": [565.0], "nominal": 565.0},
+            {"name": "fuel", "points": [565.0], "nominal": 565.0},
         ],
         "points": points,
         "states": [{"k_inf": k} for k in ks],
@@ -57,6 +59,18 @@ class Rows(unittest.TestCase):
             table_history_k.rows(
                 history(), table([0.0], [1.1, 1.0], boron=(600.0, 1300.0))
             )
+
+    def test_tables_off_their_nominal_state_are_errors(self):
+        # 燃焼度ごとに 1 状態でも、公称でない状態（600 ppm）は公称の燃焼の履歴と比べられない
+        with self.assertRaises(SystemExit):
+            table_history_k.rows(history(), table([0.0], [1.1], boron=(600.0,)))
+
+    def test_inputs_of_other_formats_are_errors(self):
+        # 引数を取り違えると、テーブルを履歴として読む
+        with self.assertRaises(SystemExit):
+            table_history_k.rows(table([0.0], [1.1]), table([0.0], [1.1]))
+        with self.assertRaises(SystemExit):
+            table_history_k.rows(history(), history())
 
     def test_split_tables_are_errors(self):
         split = table([0.0], [1.1])
