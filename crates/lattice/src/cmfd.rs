@@ -405,6 +405,8 @@ pub enum CmfdError {
     /// シフトした逆反復の分解が特異か、最初の解が正でない（`Coarse::solve_chain` がシフトなしで解き直す）
     #[error("the Wielandt shift of the coarse-mesh eigenvalue problem is not above the eigenvalue")]
     ShiftBelowEigenvalue,
+    #[error("the coarse-mesh fixed-source correction became not finite")]
+    NotFinite,
     #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
     NotConverged(usize),
 }
@@ -924,17 +926,10 @@ impl Coarse {
             for (x, f) in e.iter_mut().zip(&self.flux) {
                 *x -= alpha * f;
             }
-            let mut scale = vec![0.0_f64; ng];
-            let mut change = vec![0.0_f64; ng];
-            for (j, (a, p)) in e.iter().zip(&previous).enumerate() {
-                scale[j % ng] = scale[j % ng].max(a.abs());
-                change[j % ng] = change[j % ng].max((a - p).abs());
+            if e.iter().any(|x| !x.is_finite()) {
+                return Err(CmfdError::NotFinite);
             }
-            let largest = change
-                .iter()
-                .zip(&scale)
-                .map(|(&c, &s)| if c == 0.0 { 0.0 } else { c / s })
-                .fold(0.0, f64::max);
+            let largest = group_change(e.iter().zip(&previous).map(|(a, p)| (*a, *p)), ng);
             if history.update(largest) < options.flux_tolerance {
                 return Ok(e);
             }
@@ -1121,6 +1116,31 @@ impl Coarse {
         }
         Err(CmfdError::NotConverged(options.max_iterations))
     }
+}
+
+/// 符号を変える値の反復の変化: 群ごとの、|新しい値| の最大に対する |変化| の最大（相対の変化は 0 の近くで定まらない）の、群に
+/// わたる最大。`pairs` は（新しい値、前の値）で、並びの番号を `ng` で割った余りが群。群の値がすべて 0 になったのに変化があれば、
+/// 残りの誤差を見積もれないので無限大
+pub(crate) fn group_change(pairs: impl Iterator<Item = (f64, f64)>, ng: usize) -> f64 {
+    let mut scale = vec![0.0_f64; ng];
+    let mut change = vec![0.0_f64; ng];
+    for (j, (a, b)) in pairs.enumerate() {
+        scale[j % ng] = scale[j % ng].max(a.abs());
+        change[j % ng] = change[j % ng].max((a - b).abs());
+    }
+    change
+        .iter()
+        .zip(&scale)
+        .map(|(&c, &s)| {
+            if c == 0.0 {
+                0.0
+            } else if s > 0.0 {
+                c / s
+            } else {
+                f64::INFINITY
+            }
+        })
+        .fold(0.0, f64::max)
 }
 
 /// optimally diffusive CMFD の θ（拡散係数に足す θ h の係数）を、粗メッシュのセルの光学的厚さ

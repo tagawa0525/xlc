@@ -202,6 +202,8 @@ pub enum MocError {
          so the generalized adjoint has no solution"
     )]
     NonOrthogonalSource { index: usize, ratio: f64 },
+    #[error("the generalized adjoint GMRES needs a positive restart")]
+    GeneralizedRestart,
     #[error("the generalized adjoint became not finite at sweep {iterations}")]
     GeneralizedDiverged { iterations: usize },
     #[error("the generalized adjoint did not converge in {iterations} sweeps")]

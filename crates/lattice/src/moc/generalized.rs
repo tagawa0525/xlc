@@ -18,7 +18,7 @@ use super::{
     CoarseMesh, Detected, Material, MocError, Options, Remaining, Representatives, Start, Sweeper,
     Symmetry, equilibrium_moments, planar_moments, sum_tallies, transposed,
 };
-use crate::cmfd::{CmfdOptions, Coarse};
+use crate::cmfd::{CmfdOptions, Coarse, group_change};
 use crate::tracking::Tracking;
 
 /// ⟨S, φ⟩ を ⟨|S|, φ⟩ と比べる相対の許容値。応答の源 h₁/⟨h₁, φ⟩ − h₂/⟨h₂, φ⟩ を解いた φ から作れば、残るのは足す順の丸め
@@ -76,6 +76,9 @@ pub fn solve_generalized(
     if !(tolerance > 0.0 && tolerance.is_finite()) {
         return Err(MocError::GeneralizedTolerance(tolerance));
     }
+    if settings.method == (GeneralizedMethod::Gmres { restart: 0 }) {
+        return Err(MocError::GeneralizedRestart);
+    }
     let regions = materials.len();
     let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
     if materials.iter().any(|m| m.groups() != ng) {
@@ -100,6 +103,10 @@ pub fn solve_generalized(
         }
         _ => Representatives::all(tracking, &mesh, pairs.len()),
     };
+    // 源がなければ解もない（一緒にスイープする問題の数が 0 のスイープは作らない）
+    if sources.is_empty() {
+        return Ok(Vec::new());
+    }
     let copies = if settings.batch { sources.len() } else { 1 };
     let batched = (copies > 1).then(|| {
         Sweeper::with_copies(
@@ -892,31 +899,16 @@ fn inner(a: &[f64], b: &[f64]) -> f64 {
     a.par_iter().zip(b).map(|(x, y)| x * y).sum::<f64>()
 }
 
-/// 群ごとの、領域の |Γ| の最大値に対する変化の最大（Γ は符号を変えるので、領域ごとの相対の変化は 0 の近くで定まらない）
+/// 領域の Γ の、群ごとの |Γ| の最大値に対する変化の最大（`group_change`。Γ は符号を変える）。値は有限と確かめてある
 fn largest_change(new: &[Vec<f64>], old: &[Vec<f64>]) -> f64 {
-    let ng = new.first().map_or(0, Vec::len);
-    let mut scale = vec![0.0_f64; ng];
-    let mut change = vec![0.0_f64; ng];
-    for (a, b) in new.iter().zip(old) {
-        for g in 0..ng {
-            scale[g] = scale[g].max(a[g].abs());
-            change[g] = change[g].max((a[g] - b[g]).abs());
-        }
-    }
-    // 群の中性子束が 0 になったのに変化があれば、残りの誤差を見積もれない
-    change
-        .iter()
-        .zip(&scale)
-        .map(|(&c, &s)| {
-            if c == 0.0 {
-                0.0
-            } else if s > 0.0 {
-                c / s
-            } else {
-                f64::INFINITY
-            }
-        })
-        .fold(0.0, f64::max)
+    let ng = new.first().map_or(1, Vec::len);
+    group_change(
+        new.iter()
+            .flatten()
+            .zip(old.iter().flatten())
+            .map(|(a, b)| (*a, *b)),
+        ng,
+    )
 }
 
 #[cfg(test)]
