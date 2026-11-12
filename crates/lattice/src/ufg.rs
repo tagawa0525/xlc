@@ -845,6 +845,11 @@ fn solve_cell(
         collisions,
         "UFG slowing down"
     );
+    if let Some(thermal) = &sweep.thermal
+        && tracing::enabled!(tracing::Level::DEBUG)
+    {
+        log_free_gas_work(&data, &entries, thermal, u.len());
+    }
 
     // 間引いた格子では核種自身の共鳴の点が落ちうるので、核種の格子で縮約する。核種ごとに、それを含むリングをまとめて 1 度に
     // 縮約する（[データ] の [(リング, 群定数)]）
@@ -1391,6 +1396,57 @@ fn collapse(
 
 /// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
 /// 加わる（それまでの核種と群の境界にない）エネルギーの数
+/// 自由ガスの核の区間の仕事の内訳（[`free_gas::FreeGasWork`]）を、減速計算の全体と、区間を作った核種ごとにログに出す。`points` は
+/// 格子点の数
+fn log_free_gas_work(
+    data: &[Data],
+    entries: &[Vec<(usize, f64)>],
+    thermal: &Thermal,
+    points: usize,
+) {
+    let work = thermal.work();
+    let [bounds, quadratics, built, held] = work.seconds.map(|t| t.as_secs_f64());
+    tracing::debug!(
+        swept = points - thermal.start(),
+        cells = work.built.iter().sum::<u64>(),
+        evaluations = work.evaluations,
+        integrations_built = work.integrations[0],
+        integrations_held = work.integrations[1],
+        bounds,
+        quadratics,
+        built,
+        held,
+        "UFG free-gas work (thread seconds)"
+    );
+    // 自由ガスの核種の番号（`Thermal::new` に渡した順）とデータの番号
+    let gases = data
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.gas.is_some())
+        .map(|(k, _)| k);
+    for (l, k) in gases.enumerate() {
+        let cells = work.built[l];
+        if cells == 0 {
+            continue;
+        }
+        let (gas, ..) = thermal.gas(l);
+        let rings = entries
+            .iter()
+            .filter(|ring| ring.iter().any(|&(j, _)| j == k))
+            .count();
+        tracing::debug!(
+            name = data[k].name,
+            awr = gas.awr(),
+            kt = gas.kt(),
+            cap = gas.cap(),
+            rings,
+            cells,
+            integrations = cells * rings as u64,
+            "UFG free-gas nuclide cells"
+        );
+    }
+}
+
 fn log_nuclide_points(data: &[Data], group_bounds: &[f64], inside: impl Fn(f64) -> bool) {
     let mut seen: HashSet<u64> = group_bounds.iter().map(|e| e.to_bits()).collect();
     for d in data {
@@ -1410,6 +1466,11 @@ fn log_nuclide_points(data: &[Data], group_bounds: &[f64], inside: impl Fn(f64) 
 fn total(ring: &[(usize, f64)], row: &[Row]) -> f64 {
     ring.iter().map(|&(k, d)| d * row[k][0]).sum()
 }
+
+/// 展開の外の格子点を数えるエネルギーの帯の境界 (eV。ログ)
+const OUTSIDE_BANDS: [f64; 5] = [10.0, 31.0, 100.0, 1000.0, 1e4];
+/// 展開の外の格子点を数える、中心からの ln Σ の差の境界（ログ。最初は [`MAX_DEVIATION`]）
+const OUTSIDE_DEVIATIONS: [f64; 3] = [MAX_DEVIATION, 0.03, 0.1];
 
 /// セルの飛程の表と、[物質] の最初のリングの番号。同じ組成（核種と温度、個数密度）のリングは全断面積が同じなので
 /// 1 つの物質にまとめ、核種の並び（核種と温度）が同じ物質は 1 つの軸を共有する（ADR-0182）。範囲は格子点 `points` の
@@ -1457,6 +1518,9 @@ fn track_table(
     let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; leaders.len()];
     // 展開の上限を超えて格子点ごとに求める格子点の数
     let mut outside = 0usize;
+    // 展開の外の格子点の、エネルギーの帯ごとと、中心からの差の大きさごとの数（ログ）
+    let mut outside_bands = [0usize; OUTSIDE_BANDS.len() + 1];
+    let mut outside_sizes = [0usize; OUTSIDE_DEVIATIONS.len() + 1];
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     let mut sigma = vec![0.0; first.len()];
     for &(e, below) in points {
@@ -1480,7 +1544,26 @@ fn track_table(
         }
         if !widen_ranges(&layout, &sigma, &mut ranges) {
             outside += 1;
+            if tracing::enabled!(tracing::Level::DEBUG) {
+                let band = OUTSIDE_BANDS.iter().take_while(|&&b| e >= b).count();
+                let deviation = layout.centers(&sigma).1;
+                let size = OUTSIDE_DEVIATIONS
+                    .iter()
+                    .take_while(|&&d| deviation >= d)
+                    .count();
+                outside_bands[band] += 1;
+                outside_sizes[size] += 1;
+            }
         }
+    }
+    if outside > 0 {
+        tracing::debug!(
+            bands = ?OUTSIDE_BANDS,
+            by_energy = ?outside_bands,
+            deviations = ?OUTSIDE_DEVIATIONS,
+            by_deviation = ?outside_sizes,
+            "UFG track table outside points by energy (eV, counts below the first bound, between bounds, above the last) and by the largest ln Σ deviation"
+        );
     }
     // どの格子点も展開の外なら、表を読む格子点がない
     if outside == points.len() {
@@ -1493,9 +1576,17 @@ fn track_table(
     // 表で求める衝突確率（格子点の組ごとの表の値と微分、展開の外の格子点）が格子点ごとより多いなら、表は速くならず、メモリも
     // 大きいので作らない。組の数が usize に収まらない表も同じ
     let evaluations = match TrackTable::count(&ranges, density) {
-        Ok(nodes) => nodes
-            .checked_mul(layout.evaluations())
-            .and_then(|n| n.checked_add(outside)),
+        Ok(nodes) => {
+            tracing::debug!(
+                nodes,
+                per_node = layout.evaluations(),
+                ranges = ?ranges,
+                "UFG track table nodes (axis ranges of the total cross sections, 1/cm)"
+            );
+            nodes
+                .checked_mul(layout.evaluations())
+                .and_then(|n| n.checked_add(outside))
+        }
         Err(TableError::Size) => None,
         Err(e) => return Err(e.into()),
     };
@@ -1516,10 +1607,13 @@ fn track_table(
             "UFG track table with ring expansion"
         );
     }
-    Ok(Some((
-        TrackTable::new(cell, layout, &ranges, density)?,
-        first,
-    )))
+    let clock = Instant::now();
+    let table = TrackTable::new(cell, layout, &ranges, density)?;
+    tracing::debug!(
+        seconds = clock.elapsed().as_secs_f64(),
+        "UFG track table built"
+    );
+    Ok(Some((table, first)))
 }
 
 /// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`MAX_DEVIATION`] 以下）なら、軸の範囲 `ranges` をその中心まで広げて

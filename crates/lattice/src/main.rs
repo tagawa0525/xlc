@@ -59,6 +59,7 @@ use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
+use xlc_lattice::shielding::log_effective_change;
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
 
@@ -879,6 +880,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             let shielded = perturbed_shielders[j]
                                 .shield_state(library, perturbed, reference, build)
                                 .context("self-shielding")?;
+                            log_effective_change(
+                                library.groups.bounds(),
+                                &h.derivative_nuclides()[j],
+                                fuel,
+                                shielded.fuel(),
+                            );
                             let (unique, region_index) =
                                 (shielded.materials(), shielded.region_material());
                             let materials: Vec<&Material> =
