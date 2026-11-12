@@ -161,6 +161,10 @@ pub fn evaluate(
     let total_volume: f64 = solution.volumes.iter().sum();
     let mut nuclides = Vec::with_capacity(input.nuclides.len());
     for name in &input.nuclides {
+        // 組成にない核種は感度 0 と区別できないので止める（名前の誤りや、輸送しない核種の候補）
+        if !derivatives.lists(name) {
+            bail!("{name} is in no material of the solved state");
+        }
         let changes = derivatives.changes(name);
         let mut density = 0.0;
         let mut weighted: Vec<(usize, Material)> = Vec::new();
@@ -327,6 +331,11 @@ impl Derivatives {
         Ok(Self { materials })
     }
 
+    /// 核種 `name` をどれかの物質の組成に持つか（数密度 0 を含む）
+    fn lists(&self, name: &str) -> bool {
+        self.materials.iter().flatten().any(|(n, _, _)| n == name)
+    }
+
     /// 核種 `name` を正の数密度で持つ解いた物質の（番号、数密度、微分）
     fn changes(&self, name: &str) -> Vec<(usize, f64, &Material)> {
         self.materials
@@ -341,7 +350,23 @@ impl Derivatives {
     }
 }
 
-/// 微分 `list` を数密度で足した物質が、解いた物質 `solved` と一致するか
+/// 物質の値をすべて絶対値にする（`check_sum` の項の大きさ。核分裂の項は νΣf だけを絶対値にし、χ は非負なので核分裂の行列の
+/// 要素も項の絶対値の和になる）
+fn absolute(m: &mut Material) {
+    for v in std::iter::once(&mut m.total)
+        .chain(std::iter::once(&mut m.fission))
+        .chain(std::iter::once(&mut m.nu_fission))
+        .chain(m.fission_terms.iter_mut().map(|t| &mut t.nu_fission))
+        .chain(m.scatter.iter_mut())
+        .chain(m.anisotropic.iter_mut().flatten())
+    {
+        for x in v.iter_mut() {
+            *x = x.abs();
+        }
+    }
+}
+
+/// 微分 `list` を数密度で足した物質が、解いた物質 `solved` と、項の絶対値の和に比べて丸めの範囲で一致するか
 fn check_sum(
     name: &str,
     solved: &Material,
@@ -351,13 +376,20 @@ fn check_sum(
         bail!("material `{name}` has no nuclides");
     };
     let mut sum = first.2.scaled(&vec![first.1; first.2.groups()])?;
+    // 項の絶対値の和（核種の寄与が打ち消し合う要素では、足す順の丸めの差は和でなく項の大きさで決まる）
+    let mut size = first.2.scaled(&vec![first.1; first.2.groups()])?;
+    absolute(&mut size);
     for (_, density, d) in rest {
         sum = sum.added(d, *density)?;
+        let mut term = d.scaled(&vec![*density; d.groups()])?;
+        absolute(&mut term);
+        size = size.added(&term, 1.0)?;
     }
-    let close = |a: &[f64], b: &[f64]| {
-        a.iter().zip(b).all(|(x, y)| {
-            (x - y).abs() <= RECONSTRUCTION_TOLERANCE * x.abs().max(y.abs()).max(f64::MIN_POSITIVE)
-        })
+    let close = |a: &[f64], b: &[f64], scale: &[f64]| {
+        a.iter()
+            .zip(b)
+            .zip(scale)
+            .all(|((x, y), s)| (x - y).abs() <= RECONSTRUCTION_TOLERANCE * s.max(f64::MIN_POSITIVE))
     };
     let rows = |m: &Material| -> Vec<f64> {
         std::iter::once(&m.scatter)
@@ -369,10 +401,10 @@ fn check_sum(
     };
     let terms = |m: &Material| -> Vec<f64> { m.fission_matrix().into_iter().flatten().collect() };
     if sum.anisotropic.len() != solved.anisotropic.len()
-        || !close(&sum.total, &solved.total)
-        || !close(&rows(&sum), &rows(solved))
-        || !close(&sum.nu_fission, &solved.nu_fission)
-        || !close(&terms(&sum), &terms(solved))
+        || !close(&sum.total, &solved.total, &size.total)
+        || !close(&rows(&sum), &rows(solved), &rows(&size))
+        || !close(&sum.nu_fission, &solved.nu_fission, &size.nu_fission)
+        || !close(&terms(&sum), &terms(solved), &terms(&size))
     {
         bail!(
             "material `{name}`: the nuclide cross sections weighted by their densities do not add up to the solved \
