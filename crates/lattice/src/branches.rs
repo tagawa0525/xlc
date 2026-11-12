@@ -889,6 +889,22 @@ impl StateShielding<'_> {
     pub fn fuel(&self) -> &FuelShielding {
         &self.fuel
     }
+
+    /// この自己遮蔽の燃料の実効断面積、UFG の範囲の移行、SPH 因子のまま、物質の名前が `remixed` の領域の物質を `changed` の組成で
+    /// 作り直した自己遮蔽（ADR-0249）。`state` はこの自己遮蔽の状態の物質で、`changed` と同じ名前と温度の物質を同じ順に持ち、
+    /// 作り直す物質の核種の並びは自己遮蔽したときと同じ。`region_materials` は [領域] の物質の名前
+    pub fn remixed_at(
+        &self,
+        library: &Library,
+        lattice: &Lattice,
+        region_materials: &[String],
+        remixed: &[String],
+        state: &[MaterialInput],
+        changed: &[MaterialInput],
+    ) -> anyhow::Result<StateShielding<'_>> {
+        let _ = (library, lattice, region_materials, remixed, state, changed);
+        bail!("not yet")
+    }
 }
 
 /// 状態の燃料の自己遮蔽（`BranchShielder::shield_state`）: その状態で解いたものか、参照のもの

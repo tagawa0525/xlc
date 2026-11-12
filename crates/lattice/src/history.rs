@@ -96,6 +96,17 @@ pub struct HistoryInput {
     pub shielding_burnup: Option<Vec<f64>>,
     /// 一般化摂動の微分（ADR-0247）。`None` なら `derivative` の核種の直接の摂動だけ
     pub generalized: Option<GeneralizedDerivatives>,
+    /// `derivative` の核種の摂動の組成の自己遮蔽（ADR-0249）
+    pub derivative_shielding: DerivativeShielding,
+}
+
+/// 入力の `[history]` の `derivative-shielding`: 数密度の微分の摂動の組成の自己遮蔽（ADR-0249）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivativeShielding {
+    /// 状態の自己遮蔽（燃料の実効断面積、UFG の範囲の移行、SPH 因子）のまま、燃焼の領域の物質だけを摂動の組成で作り直す（既定）
+    Fixed,
+    /// 摂動の組成で自己遮蔽を解き直す（ADR-0221 の決定の「摂動の輸送の自己遮蔽」）
+    Solved,
 }
 
 /// 入力の `[history]` の `generalized`: 追う核種のすべての少数群定数の数密度の微分を、状態ごとの一般化随伴から求める（ADR-0247）
@@ -187,6 +198,8 @@ pub struct HistoryBranches {
     perturbed_micro: Vec<usize>,
     /// 微分の摂動の割合 ε
     perturbation: f64,
+    /// `derivative` の核種の摂動の組成の自己遮蔽（ADR-0249）
+    derivative_shielding: DerivativeShielding,
     /// 自己遮蔽の組成の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with` か `shield_at`）
     shielding: Option<Vec<Vec<Vec<f64>>>>,
     /// 選んだ燃焼度の点ごとの、自己遮蔽の参照を持つ点（`shield_at` の間の点は、その前で最後の自己遮蔽を解く点。ほかは自身）
@@ -637,6 +650,7 @@ pub fn history_branches(
         generalized: selection.generalized.clone(),
         perturbed_micro,
         perturbation: selection.perturbation,
+        derivative_shielding: selection.derivative_shielding,
         shielding: None,
         shielding_points: (0..points.len()).collect(),
         remixed: Vec::new(),
@@ -1486,6 +1500,16 @@ impl HistoryBranches {
             .iter()
             .map(|&m| self.micro_nuclides[m].as_str())
             .collect()
+    }
+
+    /// 摂動の組成で自己遮蔽を解き直すか（ADR-0249）
+    pub fn solves_perturbed_shielding(&self) -> bool {
+        false
+    }
+
+    /// 燃焼の領域の物質の名前（`<物質>@<セル>`。領域の順）
+    pub fn depletion_materials(&self) -> Vec<String> {
+        Vec::new()
     }
 
     /// 状態 `index` の、摂動の核種 `j`（`perturbed_nuclides` の番号）の摂動の組成: 燃焼の領域のその核種の数密度を (1 + ε) 倍した物質

@@ -166,7 +166,7 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
-use crate::history::{GeneralizedDerivatives, HistoryInput};
+use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
@@ -744,6 +744,15 @@ struct HistoryEntry {
     shielding_file: Option<PathBuf>,
     shielding_burnup: Option<Vec<f64>>,
     generalized: Option<HistoryGeneralizedEntry>,
+    derivative_shielding: Option<DerivativeShieldingEntry>,
+}
+
+/// `[history]` の `derivative-shielding`（ADR-0249）
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum DerivativeShieldingEntry {
+    Fixed,
+    Solved,
 }
 
 /// `[history]` の `generalized`（ADR-0247）。判定と再始動は既定がないので、欠けをここで止める
@@ -1858,6 +1867,7 @@ impl LatticeInput {
                     shielding_file: h.shielding_file,
                     shielding_burnup: h.shielding_burnup,
                     generalized,
+                    derivative_shielding: DerivativeShielding::Solved,
                 })
             })
             .transpose()

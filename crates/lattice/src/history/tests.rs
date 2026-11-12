@@ -1932,6 +1932,109 @@ fn perturbed_shieldings_keep_the_pin_dancoff_factors_of_the_state() {
 }
 
 #[test]
+fn fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shielding() {
+    // 自己遮蔽を固定する微分の摂動（既定。ADR-0249）は、状態の自己遮蔽のまま燃焼の領域の物質だけを摂動の組成で作り直す。自己遮蔽の
+    // 履歴を分岐の履歴そのものにした分岐（#0180 の測定の経路。摂動の参照を状態の組成のまま解き直す）の摂動の物質とビットで同じで、
+    // 摂動の組成で解き直した物質とは違う。ホウ素の軸の参照（nominal-boron）でも、状態ごと（every-state）でも
+    let (history, library) = history();
+    let base = derivative_input(0.25);
+    for text in [base.clone(), every_state(&base)] {
+        let s = setup(&text);
+        let branches = branches_of(&text, &history, &library).unwrap();
+        assert!(!branches.solves_perturbed_shielding());
+        let mut pinned = branches_of(&text, &history, &library).unwrap();
+        pinned.shield_with(&history).unwrap();
+        let names = branches.depletion_materials();
+        assert!(!names.is_empty());
+        assert_eq!(names, pinned.remixed());
+        let plain = s.input.branches.as_ref().unwrap().varied();
+        let with_regions: Vec<String> = plain.iter().chain(&names).cloned().collect();
+        let new = |varied| {
+            BranchShielder::new(
+                &s.tracking,
+                branches.region_materials(0),
+                varied,
+                s.chosen.shielding(),
+                s.input.shielding_options(),
+            )
+        };
+        let mut reuse = ShieldingReuse::new(&s.tracking);
+        let mut shielder = new(plain);
+        let mut solving = [new(plain), new(plain)];
+        let mut pinning = [new(&with_regions), new(&with_regions)];
+        let lattice = &s.tracking.lattice;
+        let regions = branches.region_materials(0);
+        let mut differs = 0;
+        for index in 0..branches.len() {
+            let reference = branches.reference(index);
+            let materials = branches.state(index);
+            let state = shielder
+                .shield_state(&mut reuse, &library, &materials, reference, || {
+                    let (point, r) = reference.unwrap();
+                    branches.reference_state(point, r)
+                })
+                .unwrap();
+            // 状態の組成で作り直せば、状態の物質とビットで同じ
+            let same = state
+                .remixed_at(&library, lattice, regions, &names, &materials, &materials)
+                .unwrap();
+            assert_eq!(
+                (same.materials(), same.region_material()),
+                (state.materials(), state.region_material()),
+                "state {index}"
+            );
+            for j in 0..2 {
+                let perturbed = branches.perturbed_state(index, j);
+                let fixed = owned(
+                    state
+                        .remixed_at(&library, lattice, regions, &names, &materials, &perturbed)
+                        .unwrap(),
+                );
+                let at = pinned.reference(index);
+                let expected = owned(
+                    pinning[j]
+                        .shield_state(&mut reuse, &library, &perturbed, at, || {
+                            let (point, r) = at.unwrap();
+                            pinned.perturbed_reference_state(point, r, j)
+                        })
+                        .unwrap(),
+                );
+                assert_eq!(fixed, expected, "state {index} nuclide {j}");
+                let solved = owned(
+                    solving[j]
+                        .shield_state(&mut reuse, &library, &perturbed, reference, || {
+                            let (point, r) = reference.unwrap();
+                            branches.perturbed_reference_state(point, r, j)
+                        })
+                        .unwrap(),
+                );
+                if solved != fixed {
+                    differs += 1;
+                }
+            }
+        }
+        assert!(differs > 0, "no perturbation changed the self-shielding");
+    }
+}
+
+#[test]
+fn perturbed_shieldings_are_solved_again_when_the_input_or_the_generalized_derivatives_ask() {
+    // `derivative-shielding = "solved"` は直接の摂動の自己遮蔽を解き直す（ADR-0249）。一般化摂動の微分は、摂動の組成を解く核種
+    // （直接の摂動と shielded）のどれも解き直す（ADR-0247 の案 I1）
+    let (history, library) = history();
+    let solved = format!(
+        "{}derivative-shielding = \"solved\"\n",
+        derivative_input(0.1)
+    );
+    let branches = branches_of(&solved, &history, &library).unwrap();
+    assert!(branches.solves_perturbed_shielding());
+    let generalized = generalized_input(0.1, &["U-235"], &["Xe-135"]);
+    let branches = branches_of(&generalized, &history, &library).unwrap();
+    assert_eq!(branches.perturbed_nuclides(), ["Xe-135", "U-235"]);
+    assert!(branches.solves_perturbed_shielding());
+}
+
+#[test]
 fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
     // 前進差分の誤差は摂動の割合 ε に比例するので、ε を倍にしたときの微分の変わり方は、その前の倍の変わり方の約 2 倍（ADR-0221）。
     // 摂動の組成は自己遮蔽（公称のホウ素の参照）から解き直す
