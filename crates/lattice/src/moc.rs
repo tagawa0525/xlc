@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod dancoff;
 pub mod fixed_source;
+mod generalized;
 mod harmonics;
 mod symmetric;
 
@@ -16,6 +17,7 @@ use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
 use crate::symmetry::{Detected, Symmetry, SymmetryError};
 use crate::tracking::{Boundary, Tracking};
+pub use generalized::{Generalized, GeneralizedMethod, GeneralizedOptions, solve_generalized};
 use harmonics::{planar_moments, real_harmonic};
 use symmetric::{RegionKind, Representatives};
 
@@ -186,6 +188,24 @@ pub enum MocError {
     ChangedRegion(usize),
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
+    #[error("source {index} must give a value for every group of every region")]
+    SourceShape { index: usize },
+    #[error("source {index}: region {region} has a value that is not finite, or not zero in void")]
+    InvalidSource { index: usize, region: usize },
+    #[error(
+        "source {index}: region {region} differs from its representative under the symmetry \
+         (give the same values to regions that the operations map onto each other)"
+    )]
+    AsymmetricSource { index: usize, region: usize },
+    #[error(
+        "source {index} is not orthogonal to the forward flux (<S, phi> / <|S|, phi> = {ratio:e}), \
+         so the generalized adjoint has no solution"
+    )]
+    NonOrthogonalSource { index: usize, ratio: f64 },
+    #[error("the generalized adjoint did not converge in {iterations} sweeps")]
+    GeneralizedNotConverged { iterations: usize },
+    #[error("the generalized adjoint needs a tolerance that is positive and finite, got {0}")]
+    GeneralizedTolerance(f64),
     #[error(
         "tolerances must be positive and finite, and CMFD ones no larger than MOC ones \
          (MOC k {k}, flux {flux}; CMFD k {cmfd_k}, flux {cmfd_flux})"
@@ -259,6 +279,29 @@ pub fn solve_adjoint(
         flux: solution.flux,
         iterations: solution.iterations,
     })
+}
+
+/// `solve_adjoint` と同じく随伴を解き、反復を `start`（同じトラッキング、対称操作、散乱の次数で解いた随伴の収束した状態）から
+/// 始める（`None` なら平らな初期値から）。収束した状態を解と一緒に返す（一般化随伴の固定源の問題 `solve_generalized` が、
+/// 状態から φ† の成分を除くのに使う）
+pub fn solve_adjoint_from(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
+    start: Option<&Start>,
+) -> Result<(Adjoint, Start), MocError> {
+    let (transposed, index) = transposed(materials)?;
+    let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
+    let (solution, converged) = solve_with(tracking, &adjoint, options, symmetry, start)?;
+    Ok((
+        Adjoint {
+            k: solution.k,
+            flux: solution.flux,
+            iterations: solution.iterations,
+        },
+        converged,
+    ))
 }
 
 /// 物質ごとの転置した物質と、[領域] のその番号。対称操作の確かめは物質を参照で比べるので、同じ物質の領域には同じ転置の物質を渡す
