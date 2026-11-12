@@ -28,6 +28,15 @@ def pin(report: dict) -> dict:
     return pins[0]
 
 
+def shape(p: dict) -> list:
+    """ピンの [リング] の群の数と、巨視的断面積と暗黙の分の群の数（状態の間で同じでなければ、zip が黙って切り詰める）"""
+    return [
+        [len(f) for f in p["flux"]],
+        [[len(x) for x in ring] for ring in p["macroscopic"]],
+        [[[len(x) for x in ring] for ring in d] for d in p["implicit"]],
+    ]
+
+
 def weighted(flux: list[list[float]], values: list[list[float]]) -> list[float]:
     """[リング][群] の φ × 値を並べたもの"""
     return [
@@ -51,10 +60,8 @@ def compare(nominal: dict, states: dict[str, dict]) -> dict:
                 f"{label}: the directions or reactions differ from the nominal state"
             )
         p = pin(state)
-        if p["first_group"] != base["first_group"] or len(p["flux"][0]) != len(
-            base["flux"][0]
-        ):
-            sys.exit(f"{label}: the UFG groups differ from the nominal state")
+        if p["first_group"] != base["first_group"] or shape(p) != shape(base):
+            sys.exit(f"{label}: the rings or UFG groups differ from the nominal state")
 
     def implicit(p: dict, d: int, x: int) -> list[list[float]]:
         return [ring[x] for ring in p["implicit"][d]]
