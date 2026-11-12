@@ -1,5 +1,7 @@
 use super::*;
 use crate::branches::BranchShielding;
+use crate::cmfd::CmfdOptions;
+use crate::moc::{Acceleration, Options};
 
 const PIN_CELL: &str = r#"
 # pin cell
@@ -1793,4 +1795,82 @@ fn history_branches_default_to_all_pair_subgrids() {
     );
     let input = LatticeInput::parse(&product).unwrap();
     assert!(input.branches.as_ref().unwrap().is_product());
+}
+
+#[test]
+fn sensitivity_lists_nuclides_and_the_optional_direct_perturbation() {
+    let input = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\", \"U-238\"]\noutput = \"k.toml\"\n"
+    ))
+    .unwrap();
+    assert_eq!(
+        input.sensitivity,
+        Some(SensitivityInput {
+            nuclides: vec!["U-235".into(), "U-238".into()],
+            output: "k.toml".into(),
+            direct: None,
+            k_tolerance: None,
+            flux_tolerance: None,
+        })
+    );
+    let input = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\ndirect = 0.1\n\
+         k-tolerance = 1e-10\nflux-tolerance = 1e-9\n"
+    ))
+    .unwrap();
+    let s = input.sensitivity.unwrap();
+    assert_eq!(s.direct, Some(0.1));
+    assert_eq!((s.k_tolerance, s.flux_tolerance), (Some(1e-10), Some(1e-9)));
+    assert!(LatticeInput::parse(PIN_CELL).unwrap().sensitivity.is_none());
+}
+
+#[test]
+fn sensitivity_tolerances_tighten_the_cmfd_below_them() {
+    let s = SensitivityInput {
+        nuclides: vec!["U-235".into()],
+        output: "k.toml".into(),
+        direct: None,
+        k_tolerance: Some(1e-10),
+        flux_tolerance: Some(1e-9),
+    };
+    let options = s.options(Options::default());
+    assert_eq!((options.k_tolerance, options.flux_tolerance), (1e-10, 1e-9));
+    let Acceleration::Cmfd(cmfd) = options.acceleration else {
+        panic!("{options:?}");
+    };
+    let default = CmfdOptions::default();
+    assert_eq!(cmfd.k_tolerance, default.k_tolerance.min(1e-10));
+    assert_eq!(cmfd.flux_tolerance, default.flux_tolerance.min(1e-9));
+    // 判定を書かなければ既定のまま
+    let s = SensitivityInput {
+        k_tolerance: None,
+        flux_tolerance: None,
+        ..s
+    };
+    assert_eq!(s.options(Options::default()), Options::default());
+}
+
+#[test]
+fn invalid_sensitivity_inputs_are_errors() {
+    let with = |body: &str| LatticeInput::parse(&format!("{PIN_CELL}\n[sensitivity]\n{body}\n"));
+    for body in [
+        "nuclides = []\noutput = \"k.toml\"",
+        "nuclides = [\"U-235\", \"U-235\"]\noutput = \"k.toml\"",
+        "nuclides = [\"uranium\"]\noutput = \"k.toml\"",
+        "nuclides = [\"U-235\"]\noutput = \"k.toml\"\ndirect = 0",
+        "nuclides = [\"U-235\"]\noutput = \"k.toml\"\ndirect = 1",
+        "nuclides = [\"U-235\"]\noutput = \"k.toml\"\nk-tolerance = 0",
+        "nuclides = [\"U-235\"]\noutput = \"k.toml\"\nflux-tolerance = -1e-9",
+        "nuclides = [\"U-235\"]\noutput = \"k.toml\"\nperturbation = 0.1",
+    ] {
+        assert!(with(body).is_err(), "{body}");
+    }
+    // 感度は核種の数密度で作る物質だけを変えるので、巨視的断面積、燃焼、媒質、混ぜた物質とは使えない
+    let lattice =
+        format!("{LATTICE}\n[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n");
+    assert!(LatticeInput::parse(&lattice).is_err());
+    let sensitivity = "[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n";
+    let depletion = format!("{}\n[depletion]\n{DEPLETION}", without_few_group());
+    assert!(LatticeInput::parse(&depletion).is_ok());
+    assert!(LatticeInput::parse(&format!("{depletion}\n{sensitivity}")).is_err());
 }
