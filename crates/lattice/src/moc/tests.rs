@@ -2713,3 +2713,30 @@ fn products_do_not_depend_on_the_contents_left_in_the_pool() {
         assert_eq!(products(false), products(true), "order {order}");
     }
 }
+
+#[test]
+fn a_track_group_spanning_azimuths_keeps_every_azimuth_in_its_moment_sums() {
+    let tracking = vacuum_corner_tracking();
+    let mesh = CoarseMesh::new(&tracking);
+    let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, 1);
+    let materials: Vec<&Material> = materials.iter().collect();
+    let sums = |one_group: bool| {
+        let mut representatives = Representatives::all(&tracking, &mesh, pairs.len());
+        if one_group {
+            // 対称性を使うときのように、1 つの組が方位角をまたぐ
+            representatives.chunks = vec![0..tracking.tracks.len()];
+        }
+        let sweeper = Sweeper::new(&tracking, &materials, 2, &mesh, &pairs, representatives);
+        let mut outgoing = vec![0.0; sweeper.outgoing_len()];
+        let mut tallies = sweeper.tallies(materials.len());
+        sweeper
+            .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
+            .unwrap();
+        sum_tallies(&sweeper, &tallies).delta
+    };
+    let (per_azimuth, spanning) = (sums(false), sums(true));
+    let largest = per_azimuth.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    for (a, b) in per_azimuth.iter().zip(&spanning) {
+        assert!((a - b).abs() <= 1e-12 * largest, "{a} vs {b}");
+    }
+}
