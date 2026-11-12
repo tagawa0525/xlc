@@ -150,6 +150,19 @@ pub enum UfgError {
         "ring {0}: the total cross section is 0 at some lethargy point, so the track table cannot cover it (use `track-table = false`)"
     )]
     ZeroTotal(usize),
+    #[error(
+        "density direction {direction}: ring {ring} has {given} density changes for {expected} nuclides"
+    )]
+    Direction {
+        direction: usize,
+        ring: usize,
+        given: usize,
+        expected: usize,
+    },
+    #[error(
+        "ring {ring}: the density direction changes a ring whose total cross section is 0 at {energy} eV, so the tracks have no derivative in ln Σ"
+    )]
+    TangentZeroTotal { ring: usize, energy: f64 },
 }
 
 /// セルの減速計算の結果。
@@ -457,6 +470,34 @@ pub fn slowing_down_fine(
         hold,
     )?;
     Ok((spectrum, fine))
+}
+
+/// 減速計算の、個数密度の向きごとの 1 次の変化（[`slowing_down_tangent`]）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellTangent {
+    /// [向き][リング][群] の中性子束 ∫φ dE の 1 次の変化（[`CellSpectrum::flux`] と同じ規格化）
+    pub flux: Vec<Vec<Vec<f64>>>,
+    /// [向き][リング][核種（物質の組成の順）] の群定数の 1 次の変化 (barn)。真空のリングは空
+    pub nuclides: Vec<Vec<Vec<Shielded>>>,
+}
+
+/// [`slowing_down`] の減速計算を、飛程を格子点ごとに求め（[`Collision::Exact`]）、格子を間引かず、どの核種も静止した標的
+/// （[`Scattering::Static`]）で解き、`directions` の向きごとに、個数密度を N + t δN と変えたときの t = 0 での 1 次の変化も求める
+/// （ADR-0247 の案 I2）。`directions[d][リング][核種]` は向き d の δN (/b cm) で、並びは `rings` の物質の組成と同じ（真空のリングは空）。
+///
+/// 格子は個数密度によらない（間引かない）ので、変化は同じ格子の上の離散の減速の式の微分になる。格子点ごとの式
+/// V_j F_j = Σ_i W_ji(Σ) q_i（q は散乱による発生密度）を微分した V_j δF_j − Σ_i W_ji c_i δF_i =
+/// Σ_i W_ji (δk_i + ∂q_i/∂N δN) + Σ_i δW_ji q_i を、中性子束と同じ高いエネルギーからの順に、同じ係数の行列で解く。
+/// δk は窓の積分を δF について進めたもの（範囲の上の中性子束は個数密度によらないので、範囲の上からの分は 0）。
+pub fn slowing_down_tangent(
+    library: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    directions: &[Vec<Vec<f64>>],
+) -> Result<(CellSpectrum, CellTangent), UfgError> {
+    let _ = (library, cell, rings, range, directions);
+    Err(UfgError::NoPointwise)
 }
 
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
