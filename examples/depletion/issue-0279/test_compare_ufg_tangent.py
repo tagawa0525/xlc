@@ -59,6 +59,15 @@ class Compare(unittest.TestCase):
         ]
         self.assertAlmostEqual(error, 0.1 / 1.1)
 
+    def test_a_vanishing_state_tangent_is_an_infinite_error(self):
+        # 状態の暗黙の分が 0 で公称が 0 でなければ、公称の係数のずれは無限（0 と書いて一致に見せない）
+        nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3]])
+        state = report(FLUX, [2.0, 2.0], [[0.0, 0.0]])
+        error = cut.compare(nominal, {"s": state})["nuclides"]["N-0"]["total"]["s"][
+            "error"
+        ]
+        self.assertEqual(error, float("inf"))
+
     def test_states_of_other_rings_stop(self):
         nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3]])
         state = report([[1.0, 1.0]], [2.0], [[-0.1]])
