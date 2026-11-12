@@ -22,6 +22,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::time::{Duration, Instant};
 
@@ -43,9 +44,10 @@ mod hold;
 mod transfer;
 
 use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
+pub use free_gas::KernelCache;
 use hold::cells_beside_work;
-pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total};
-pub use transfer::ShareCellCache;
+pub use hold::{MemoryError, available_memory, held_cells, hold_budget, hold_total, kernel_cap};
+pub use transfer::{CensusCall, ShareCellCache};
 use xlc_numeric::lu::solve;
 
 /// ポイントワイズの断面積の列の数: [全, 弾性散乱, 核分裂, νσf, 捕獲]
@@ -770,6 +772,7 @@ fn solve_cell(
                         } else {
                             cells_beside_work(hold, work)
                         },
+                        transfers.as_ref().map(|(_, shares)| shares.kernels()),
                     );
                     (Some(thermal), options.sweeps, held_tracks)
                 }
@@ -937,6 +940,14 @@ fn solve_cell(
                 })
             })
             .collect();
+        if let Some(thermal) = &sweep.thermal
+            && tracing::enabled!(tracing::Level::DEBUG)
+        {
+            // 区間と D の値は、核の鍵（[`Thermal::kernel_key`]）と、格子点のレサジーとエネルギーで決まる
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            thermal.kernel_key(high, u[u.len() - 1]).hash(&mut hasher);
+            shares.count_points(hasher.finish(), &thermal.work().points);
+        }
         let counted = Instant::now();
         *transfers = transfer::Counting {
             data: &data,

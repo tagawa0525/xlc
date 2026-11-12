@@ -1,7 +1,7 @@
 //! 自由ガスの散乱源の区間を、減速計算のスイープの間で持つ量の上限（ADR-0213）。
 //!
 //! 自己遮蔽の全体で持つ量は、入力（`ufg-hold-memory`）が無ければ、自己遮蔽を呼ぶたびに使用可能メモリから求め（[`hold_budget`]）、
-//! 同時に解きうる減速計算の数で分ける（[`held_cells`]）。1 回の減速計算の量は、その減速計算の作業の配列と持つ区間を合わせたもので、
+//! 自由ガスの核の表（ADR-0248）の分を除いて、同時に解きうる減速計算の数で分ける（[`hold_total`]、[`held_cells`]）。1 回の減速計算の量は、その減速計算の作業の配列と持つ区間を合わせたもので、
 //! 作業の配列の分を除いた残りの区間を持つ（[`cells_beside_work`]）。掃き直す格子点の飛程（`HeldTracks`）は、収まるときだけ作業の
 //! 配列に足して区間より先に除く。
 
@@ -37,12 +37,21 @@ pub fn hold_budget(available: u64) -> u64 {
     (u128::from(available.saturating_sub(RESERVE)) * 4 / 5) as u64
 }
 
-/// 自己遮蔽の全体で持つ量 (B): 入力の量 `given`（`ufg-hold-memory`）か、無ければ今の使用可能メモリからの [`hold_budget`]
-pub fn hold_total(given: Option<u64>) -> Result<u64, MemoryError> {
-    match given {
-        Some(bytes) => Ok(bytes),
-        None => Ok(hold_budget(available_memory()?)),
-    }
+/// 自己遮蔽の全体で持つ量 (B) のうち、前の自己遮蔽から残った自由ガスの核の表 `held` (B。ADR-0248) を除いて新たに確保できる量:
+/// 入力の量 `given`（`ufg-hold-memory`）− `held` か、無ければ今の使用可能メモリに `held` を足し戻した [`hold_budget`] − `held`
+/// （表は使用可能メモリを減らしているので、足し戻して全体を求め、その中に表を入れる）
+pub fn hold_total(given: Option<u64>, held: u64) -> Result<u64, MemoryError> {
+    let whole = match given {
+        Some(bytes) => bytes,
+        None => hold_budget(available_memory()?.saturating_add(held)),
+    };
+    Ok(whole.saturating_sub(held))
+}
+
+/// 自由ガスの核の表（ADR-0248）の上限 (B): 残った表 `held` を含む全体（新たに確保できる量 `total` + `held`）を、同時に解く
+/// `at_once` 個の減速計算と表で分けた 1 つ分。ピンと塊には、`total` から表がまだ増えうる量（上限 − `held`、または 0）を除いて渡す
+pub fn kernel_cap(total: u64, held: u64, at_once: usize) -> u64 {
+    total.saturating_add(held) / (at_once as u64 + 1)
 }
 
 /// 全体で持つ量 `total` (B) を、同時に解きうる `at_once` 個の減速計算で分けたときの、1 回の減速計算の量（1 区間の大きさで数えた

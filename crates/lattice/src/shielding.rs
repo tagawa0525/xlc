@@ -37,8 +37,9 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache, UfgError,
-    cell_range, held_cells, hold_total, material_range, slowing_down_transfers, slowing_down_with,
+    CellSpectrum, CensusCall, Collision, MemoryError, NuclideTransfer, Scattering, ShareCellCache,
+    UfgError, cell_range, held_cells, hold_total, kernel_cap, material_range,
+    slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -437,6 +438,8 @@ pub struct ShieldingReuse<'a> {
     dancoff_solves: usize,
     /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
     shares: ShareCellCache,
+    /// 呼び出し側が最後に渡した燃焼点（[`ShieldingReuse::at_point`]）
+    point: Option<usize>,
 }
 
 /// 燃料のピンの Dancoff 係数を求めた入力と結果
@@ -466,7 +469,18 @@ impl<'a> ShieldingReuse<'a> {
             callers: callers.get(),
             dancoff_solves: 0,
             shares: ShareCellCache::default(),
+            point: None,
         }
+    }
+
+    /// これからの自己遮蔽が燃焼点 `point`（呼び出し側の番号）のものとする。直前に渡した燃焼点と違えば、自由ガスの核の区間と D の値の
+    /// 表（ADR-0248）を次の燃焼点に進め、直前の燃焼点で使わなかった格子点を捨てる。表は同じ燃焼点の中では上限に届かない限り格子点を
+    /// 捨てないので、呼ばなければ、すべての自己遮蔽を 1 つの燃焼点として扱う
+    pub fn at_point(&mut self, point: usize) {
+        if self.point.is_some_and(|p| p != point) {
+            self.shares.kernels().next_point();
+        }
+        self.point = Some(point);
     }
 
     /// 前処理のトラッキング
@@ -631,8 +645,10 @@ pub fn shield_fuel_reusing(
     }
     let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
     let shares = &reuse.shares;
-    // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）
-    let total = hold_total(options.hold_memory)?;
+    // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）。`total` は前の自己遮蔽から残った自由ガスの核の表（ADR-0248）を
+    // 除いて新たに確保できる量
+    let held = shares.kernels().start();
+    let total = hold_total(options.hold_memory, held)?;
     tracing::debug!(bytes = total, "UFG held memory");
 
     let mut shielded = FuelShielding {
@@ -693,9 +709,18 @@ pub fn shield_fuel_reusing(
         .collect();
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
-    // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方
+    // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方。自由ガスの核の区間と
+    // D の値の表（リングの中性子束の移行で、ピンと塊、自己遮蔽の間で共有する）は、同時に解く減速計算の 1 つと同じ量を持ち、
+    // ピンと塊はその残りを分ける（ADR-0248）。上限は残った表を含む全体（`total` + 残り）から決め、ピンと塊には表がまだ増えうる量を
+    // 除いて渡す（新たに確保するのは `total` まで）
     let threads = rayon::current_num_threads();
-    let hold = held_cells(total, threads.min(solving.len()));
+    let at_once = threads.min(solving.len());
+    let growth = shares.kernels().limit(match options.transfer {
+        UfgTransfer::RingFlux if at_once > 0 => kernel_cap(total, held, at_once),
+        // 表を使わない移行と、解くピンの無い自己遮蔽では表を増やさない（残りは塊が引く）
+        _ => held,
+    });
+    let hold = held_cells(total - growth, at_once);
     let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
         let &(cell, ring_materials, rings) = pin;
         let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
@@ -912,7 +937,7 @@ pub fn shield_fuel_reusing(
             &region_index,
             (symmetry.images(), &orbits),
             options,
-            (shares, total),
+            (shares, total - growth),
             &mut shielded,
         )
     })?;
@@ -935,6 +960,32 @@ pub fn shield_fuel_reusing(
         shielded.region_effective[region] = dilute_nuclides[index].clone();
     }
     drop(dilute_span);
+    // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と直前の自己遮蔽の間（new）で重なる分。数えるのは ufg の
+    // DEBUG のときで、ここの DEBUG と別に選べるので、出さないときも閉じて鍵を減らす
+    let CensusCall {
+        total,
+        distinct,
+        new,
+        keys,
+    } = shares.census();
+    if tracing::enabled!(tracing::Level::DEBUG) {
+        tracing::debug!(
+            total,
+            distinct,
+            new,
+            keys,
+            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding"
+        );
+    }
+    // 自由ガスの核の区間と D の値の表（ADR-0248）: 値を使った格子点、作った格子点、上限で入れなかった格子点の数と、持つ大きさ
+    let [reused, built, full] = shares.kernels().counts();
+    tracing::info!(
+        reused,
+        built,
+        full,
+        bytes = shares.kernels().bytes(),
+        "UFG free-gas kernel points"
+    );
     tracing::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),
@@ -1229,6 +1280,7 @@ fn shield_lumps(
         .iter()
         .filter(|(b, _, lump_regions)| rod_rings(lattice, body_of[*b].0, lump_regions).is_some())
         .count();
+    // `total` は、自己遮蔽の全体の量から自由ガスの核の区間と D の値の表がまだ増えうる量（ピンの前に決めたもの。ADR-0248）を除いた量
     let hold = held_cells(total, rods);
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()

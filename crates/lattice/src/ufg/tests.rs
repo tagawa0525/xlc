@@ -2342,6 +2342,54 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
 }
 
 #[test]
+fn shared_kernels_give_the_transfers_of_fresh_ones() {
+    // 自由ガスの核の区間と D の値（ADR-0248）を、ほかの減速計算（個数密度の違う燃料で、間引いた格子も違う）と共有する表から
+    // 引いても、作り直したときと中性子束と移行がビットで同じ。2 本目は 1 本目の格子点の値を使う
+    let (lib, fuel, water) = transfer_cell(None);
+    let mut denser = fuel.clone();
+    for (_, density) in &mut denser.composition {
+        *density *= 1.3;
+    }
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let solve = |fuel: &MaterialInput, shares: &ShareCellCache| {
+        let rings = [Some(fuel), None, Some(&water), Some(&water)];
+        let solved = slowing_down_transfers(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            Some(1.0e-4),
+            free_gas_heavy(400.0, 2, Some(3)),
+            shares,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap();
+        format!("{solved:?}")
+    };
+    let shared = ShareCellCache::default();
+    shared.kernels().begin(|_| u64::MAX);
+    let first = solve(&fuel, &shared);
+    let [reused, built, _] = shared.kernels().counts();
+    assert_eq!(reused, 0);
+    assert!(built > 0);
+    let second = solve(&denser, &shared);
+    let [reused, ..] = shared.kernels().counts();
+    assert!(reused > 0);
+    assert_eq!(first, solve(&fuel, &ShareCellCache::default()));
+    assert_eq!(second, solve(&denser, &ShareCellCache::default()));
+}
+
+#[test]
+fn a_given_hold_memory_holds_the_carried_kernel_table_inside_it() {
+    // `ufg-hold-memory` の量は、前の自己遮蔽から残った自由ガスの核の表（ADR-0248）を含む全体で、新たに確保できるのはその残り
+    let gib = 1u64 << 30;
+    assert_eq!(hold_total(Some(10 * gib), 3 * gib).unwrap(), 7 * gib);
+    assert_eq!(hold_total(Some(gib), 3 * gib).unwrap(), 0);
+    assert_eq!(hold_total(Some(u64::MAX), 0).unwrap(), u64::MAX);
+}
+
+#[test]
 fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
     // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
     let gib = 1u64 << 30;
@@ -2352,25 +2400,25 @@ fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
 
 #[test]
 fn held_cells_divide_the_budget_among_the_solves_at_once() {
-    // 1 回の減速計算が持つ区間の数は、全体の量を同時に解きうる減速計算の数で分けたもの（1 区間 40 B）
+    // 1 回の減速計算が持つ区間の数は、全体の量を同時に解きうる減速計算の数で分けたもの（1 区間 48 B。両端の格子点を持つ）
     let gib = 1u64 << 30;
-    assert_eq!(held_cells(gib, 1), (gib / 40) as usize);
-    assert_eq!(held_cells(32 * gib, 32), (gib / 40) as usize);
+    assert_eq!(held_cells(gib, 1), (gib / 48) as usize);
+    assert_eq!(held_cells(32 * gib, 32), (gib / 48) as usize);
     assert_eq!(held_cells(gib, 0), held_cells(gib, 1));
     for at_once in 1..=40 {
-        assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 40 <= 10 * gib + 7);
+        assert!(held_cells(10 * gib + 7, at_once) as u64 * at_once as u64 * 48 <= 10 * gib + 7);
     }
 }
 
 #[test]
 fn held_cells_leave_room_for_the_work_arrays_of_the_solve() {
     // 1 回の減速計算の量（`held_cells` の区間の数）は、その減速計算の作業の配列と持つ区間を合わせたもの（ADR-0213 の「## 変更」）。
-    // 作業の配列の分（40 B を 1 区間として切り上げ）を除いた残りを持ち、作業の配列が量を超えれば持たない
+    // 作業の配列の分（48 B を 1 区間として切り上げ）を除いた残りを持ち、作業の配列が量を超えれば持たない
     assert_eq!(cells_beside_work(1000, 0), 1000);
-    assert_eq!(cells_beside_work(1000, 40 * 300), 700);
-    assert_eq!(cells_beside_work(1000, 40 * 300 + 1), 699);
-    assert_eq!(cells_beside_work(1000, 40 * 1000), 0);
-    assert_eq!(cells_beside_work(1000, 40 * 1000 + 1), 0);
+    assert_eq!(cells_beside_work(1000, 48 * 300), 700);
+    assert_eq!(cells_beside_work(1000, 48 * 300 + 1), 699);
+    assert_eq!(cells_beside_work(1000, 48 * 1000), 0);
+    assert_eq!(cells_beside_work(1000, 48 * 1000 + 1), 0);
     assert_eq!(cells_beside_work(1000, u64::MAX), 0);
 }
 
