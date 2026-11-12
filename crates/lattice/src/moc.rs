@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::PI;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -1296,17 +1296,23 @@ struct Sweeper<'a> {
     moments: usize,
     /// [方位角][向き][極角][モーメント] の方向ごとの実球面調和関数の値
     harmonics: Vec<f64>,
-    /// 非等方散乱のスイープの作業用の配列（再利用する。中身は方位角ごとに作り直すので、どれを使っても結果は同じ）
-    pool: Mutex<Vec<Directional>>,
+    /// 非等方散乱のスイープの方向ごとの平衡値の作業用の配列（再利用する。使う欄は方位角ごとに書き直すので、どれを使っても
+    /// 結果は同じ）
+    sources: Mutex<Vec<Vec<f64>>>,
+    /// 非等方散乱のスイープの方向ごとの減衰の和の作業用の配列（再利用する。返すのは、使った欄を 0 に戻す `fold` だけなので、
+    /// どれもすべての欄が 0）
+    sums: Mutex<Vec<Vec<f64>>>,
     /// スイープするトラック（対称性を使わなければすべて）
     representatives: Representatives,
 }
 
-/// 非等方散乱のスイープで、方位角ごとに作り直す配列。どちらも [領域][向き][極角][群]。
+/// 非等方散乱のスイープで、組の中の方位角ごとに使う配列。どちらも [領域][向き][極角][群] で、組の領域の分より長いことがある
+/// （プールの配列を縮めない）。
 struct Directional {
-    /// 方向ごとの角度中性子束の平衡値 Σ_k Y_k(Ω) e_k
+    /// 方向ごとの角度中性子束の平衡値 Σ_k Y_k(Ω) e_k。`directional` が真空でない領域の欄だけを書く（真空の領域の欄には
+    /// ほかの組の値が残る）
     source: Vec<f64>,
-    /// 方向ごとの減衰の重み付き和
+    /// 方向ごとの減衰の重み付き和。すべての欄が 0 で受け取り、`fold` が 0 に戻して返す
     delta: Vec<f64>,
 }
 
@@ -1381,7 +1387,8 @@ impl<'a> Sweeper<'a> {
                 .collect(),
             moments: pairs.len(),
             harmonics,
-            pool: Mutex::new(Vec::new()),
+            sources: Mutex::new(Vec::new()),
+            sums: Mutex::new(Vec::new()),
             representatives,
         }
     }
@@ -1413,32 +1420,13 @@ impl<'a> Sweeper<'a> {
         &self.harmonics[((azimuth * 2 + side) * POLAR_SIN.len() + p) * k..][..k]
     }
 
-    /// 方位角 `azimuth` の方向ごとの平衡値を、代表の領域の展開係数 `equilibrium`（[代表][モーメント][群]）から作り、
-    /// 減衰の和を 0 にした作業用の配列。組のスイープが通る領域 `regions`（組の中の番号の順）の分だけ持つ
-    fn directional(
-        &self,
-        equilibrium: &[Vec<f64>],
-        azimuth: usize,
-        regions: &[usize],
-    ) -> Directional {
-        let (ng, width) = (self.ng, self.width);
-        let size = regions.len() * 2 * width;
-        let reused = self
-            .pool
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .pop();
-        let mut d = reused.unwrap_or_else(|| Directional {
-            source: Vec::new(),
-            delta: Vec::new(),
-        });
-        // 組ごとに領域の番号の付け方が違うので、前の組の値を残さない（真空の領域は 0 のまま）
-        d.source.clear();
-        d.source.resize(size, 0.0);
-        d.delta.clear();
-        d.delta.resize(size, 0.0);
+    /// 方位角 `azimuth` の方向ごとの平衡値 [組の中の領域][向き][極角][群] を、代表の領域の展開係数 `equilibrium`
+    /// （[代表][モーメント][群]）から作る。組のスイープが通る領域 `regions`（組の中の番号の順）の分の欄を書く
+    fn directional(&self, equilibrium: &[Vec<f64>], azimuth: usize, regions: &[usize]) -> Vec<f64> {
+        let ng = self.ng;
+        let mut source = take(&self.sources, regions.len() * 2 * self.width);
         for (local, &region) in regions.iter().enumerate() {
-            // 真空の領域はスイープで線源を使わない
+            // 真空の領域はスイープで線源を使わないので、欄に前の組の値が残ってよい
             if self.void[region].is_some() {
                 continue;
             }
@@ -1449,8 +1437,7 @@ impl<'a> Sweeper<'a> {
             for side in 0..2 {
                 for p in 0..POLAR_SIN.len() {
                     let y = self.harmonics(azimuth, side, p);
-                    let out =
-                        &mut d.source[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                    let out = &mut source[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
                     for (g, o) in out.iter_mut().enumerate() {
                         *o = y
                             .iter()
@@ -1461,37 +1448,41 @@ impl<'a> Sweeper<'a> {
                 }
             }
         }
-        d
+        source
     }
 
-    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [組の中の領域][モーメント][群] に足し、作業用の配列を返す
-    fn fold(&self, d: Directional, azimuth: usize, delta: &mut [f64]) {
+    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [組の中の領域][モーメント][群] に足し（`first` ならスイープの
+    /// 始めの 0 から足す）、読んだ欄を 0 に戻して作業用の配列を返す
+    fn fold(&self, mut d: Directional, azimuth: usize, delta: &mut [f64], first: bool) {
         let (ng, k) = (self.ng, self.moments);
         for (local, sums) in delta.chunks_mut(k * ng).enumerate() {
+            // 足す直前に 0 にする（`Tally::clear` で配列の全体を別に走査すると、組の分が L2 に収まらずメモリとの往復になる。#0281）
+            if first {
+                sums.fill(0.0);
+            }
             for side in 0..2 {
                 for p in 0..POLAR_SIN.len() {
                     let y = self.harmonics(azimuth, side, p);
-                    let values = &d.delta[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                    let values =
+                        &mut d.delta[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
                     for (sum, y) in sums.chunks_mut(ng).zip(y) {
-                        for (s, v) in sum.iter_mut().zip(values) {
+                        for (s, v) in sum.iter_mut().zip(values.iter()) {
                             *s += y * v;
                         }
                     }
+                    // 読み終えた欄をキャッシュにあるうちに 0 に戻す（別の走査で 0 にすると、組の分が L2 に収まらず
+                    // メモリとの往復になる。#0281）。スイープが書くのはこの組の領域の欄だけなので、これで配列のすべてが 0
+                    values.fill(0.0);
                 }
             }
         }
-        self.pool
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(d);
+        self.release(d.source);
+        lock(&self.sums).push(d.delta);
     }
 
-    /// 作業用の配列を、ほかの組のスイープに使えるよう返す
-    fn release(&self, d: Directional) {
-        self.pool
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(d);
+    /// 方向ごとの平衡値の作業用の配列を、ほかの組のスイープに使えるよう返す
+    fn release(&self, source: Vec<f64>) {
+        lock(&self.sources).push(source);
     }
 
     /// 前向きの問題 `forward` と随伴の問題 `adjoint`（どちらも [代表][モーメント][群] の平衡値の展開係数と、収束したスイープの
@@ -1527,7 +1518,7 @@ impl<'a> Sweeper<'a> {
                 let mut product = vec![0.0; tally.regions.len() * ng];
                 let mut entries: Vec<f64> = Vec::new();
                 // 非等方散乱では、方向ごとの平衡値を方位角ごとに作り直す（前向き、随伴）
-                let mut directional: Option<(usize, Directional, Directional)> = None;
+                let mut directional: Option<(usize, Vec<f64>, Vec<f64>)> = None;
                 for position in range.clone() {
                     let index = representatives.tracks[position];
                     let track = &self.tracking.tracks[index];
@@ -1578,7 +1569,7 @@ impl<'a> Sweeper<'a> {
                             Some((_, f, a)) => {
                                 let d = [f, a][which];
                                 let at = (2 * tally.local[region] + usize::from(!along)) * width;
-                                (&d.source[at..][..width], ng)
+                                (&d[at..][..width], ng)
                             }
                         }
                     };
@@ -1830,24 +1821,33 @@ impl<'a> Sweeper<'a> {
             .try_for_each(|((tally, outputs), range)| {
                 let busy = timed.then(std::time::Instant::now);
                 tally.clear();
+                // 非等方散乱では、モーメントごとの減衰の和を組の最初の `fold` が 0 にしてから足す（`fold`）
+                let anisotropic = self.moments > 1;
+                if !anisotropic {
+                    tally.delta.fill(0.0);
+                }
+                let mut first_fold = true;
                 tally.attenuation_seconds = 0.0;
-                // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに作り直す
+                // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに取り直す
                 let mut directional: Option<(usize, Directional)> = None;
                 for (position, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let index = representatives.tracks[position];
                     let track = &self.tracking.tracks[index];
-                    if self.moments > 1
+                    if anisotropic
                         && directional
                             .as_ref()
                             .is_none_or(|(azimuth, _)| *azimuth != track.azimuth)
                     {
                         if let Some((azimuth, d)) = directional.take() {
-                            self.fold(d, azimuth, &mut tally.delta);
+                            self.fold(d, azimuth, &mut tally.delta, first_fold);
+                            first_fold = false;
                         }
-                        directional = Some((
-                            track.azimuth,
-                            self.directional(equilibrium, track.azimuth, &tally.regions),
-                        ));
+                        let d = Directional {
+                            source: self.directional(equilibrium, track.azimuth, &tally.regions),
+                            // `sums` の配列はすべての欄が 0
+                            delta: take(&self.sums, tally.regions.len() * 2 * width),
+                        };
+                        directional = Some((track.azimuth, d));
                     }
                     // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0112）
                     let multiplicity = representatives.multiplicity[position];
@@ -2018,7 +2018,7 @@ impl<'a> Sweeper<'a> {
                     }
                 }
                 if let Some((azimuth, d)) = directional {
-                    self.fold(d, azimuth, &mut tally.delta);
+                    self.fold(d, azimuth, &mut tally.delta, first_fold);
                 }
                 if let Some(c) = busy {
                     tally.busy_seconds = c.elapsed().as_secs_f64();
@@ -2039,6 +2039,20 @@ impl<'a> Sweeper<'a> {
 
 /// 組のスイープが通らない領域の、組の中の番号
 const NOT_CROSSED: usize = usize::MAX;
+
+/// プール `pool` の配列を 1 つ取り出し（無ければ空）、長さ `size` に満たなければ 0 で伸ばす。縮めない（縮めると、次に大きい組が
+/// 使うときに伸ばした分を 0 で埋め直す。#0281）
+fn take(pool: &Mutex<Vec<Vec<f64>>>, size: usize) -> Vec<f64> {
+    let mut values = lock(pool).pop().unwrap_or_default();
+    if values.len() < size {
+        values.resize(size, 0.0);
+    }
+    values
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
 
 /// スイープで足し込む量（代表のトラックの組ごとに持ち、スイープの後に足し合わせる）。領域ごとの量は、組のスイープが通る領域
 /// `regions` の分だけ持つ。
@@ -2103,8 +2117,8 @@ impl Tally {
         }
     }
 
+    /// 減衰の和 `delta` のほかの部分和を 0 にする（`delta` は `Sweeper::sweep` が散乱の次数に応じて 0 にする）
     fn clear(&mut self) {
-        self.delta.fill(0.0);
         self.void_flux.fill(0.0);
         self.void_current.fill(0.0);
         self.region_current.fill(0.0);
