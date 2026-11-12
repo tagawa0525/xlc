@@ -2250,3 +2250,47 @@ fn adjoint_with_symmetry_matches_the_full_adjoint() {
         assert!((a - b).abs() < 1e-8 * b, "{a} vs {b}");
     }
 }
+
+#[test]
+fn adjoint_rejects_a_material_that_the_forward_solve_rejects() {
+    // 転置は χ を νΣf / s で作り直すので、前向きの物質を確かめずに転置すると、前向きで止まる誤りが消える
+    let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+    let mut f = fuel();
+    f.fission_terms[0].chi = vec![0.9, 0.0];
+    let materials = [&f, &f, &f];
+    assert!(matches!(
+        solve(&tracking, &materials, &Options::default()),
+        Err(MocError::Material { region: 0, .. })
+    ));
+    let adjoint = solve_adjoint(&tracking, &materials, &Options::default(), None);
+    assert!(
+        matches!(adjoint, Err(MocError::Material { region: 0, .. })),
+        "{adjoint:?}"
+    );
+}
+
+#[test]
+fn adjoint_k_equals_the_forward_k_with_albedo_sides() {
+    // アルベドの辺は、戻る向きのトラックの組と割合が向きを逆にしても同じなので、相反性を保つ
+    let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+    let boundaries = Boundaries {
+        right: Boundary::Albedo(0.6),
+        bottom: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = [&f, &m, &m, &m, &f, &m];
+    let options = tight(0);
+    let forward = solve(&tracking, &materials, &options).unwrap();
+    let adjoint = solve_adjoint(&tracking, &materials, &options, None).unwrap();
+    assert!(
+        (adjoint.k - forward.k).abs() < 1e-9,
+        "{} vs {}",
+        adjoint.k,
+        forward.k
+    );
+}
