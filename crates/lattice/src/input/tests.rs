@@ -1832,7 +1832,8 @@ fn sensitivity_compares_generalized_adjoints_of_few_group_responses() {
         "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n\
          [sensitivity.generalized]\nbounds = [2e7, 0.625, 1e-5]\n\
          responses = [\"total-1\", \"nu-fission-2\", \"fission-2\", \"scatter-1-2\"]\n\
-         methods = [\"source-iteration\", \"cmfd\", \"gmres\"]\nrestart = 30\ntolerance = 1e-6\n\
+         methods = [\"source-iteration\", \"cmfd\", \"gmres\"]\nrestart = 30\ntolerances = [1e-6, 1e-7]\n\
+         batched = [\"gmres\"]\n\
          reference = \"gmres\"\nreference-tolerance = 1e-10\n"
     ))
     .unwrap();
@@ -1851,7 +1852,8 @@ fn sensitivity_compares_generalized_adjoints_of_few_group_responses() {
                 Method::Cmfd,
                 Method::Gmres { restart: 30 },
             ],
-            tolerance: 1e-6,
+            tolerances: vec![1e-6, 1e-7],
+            batched: vec![Method::Gmres { restart: 30 }],
             reference: Some((Method::Gmres { restart: 30 }, 1e-10)),
         })
     );
@@ -1865,7 +1867,7 @@ fn invalid_generalized_inputs_are_errors() {
              [sensitivity.generalized]\n{body}\n"
         ))
     };
-    let base = "bounds = [2e7, 0.625, 1e-5]\ntolerance = 1e-6\nmethods = [\"source-iteration\"]";
+    let base = "bounds = [2e7, 0.625, 1e-5]\ntolerances = [1e-6]\nmethods = [\"source-iteration\"]";
     assert!(with(&format!("{base}\nresponses = [\"total-1\"]")).is_ok());
     for bad in [
         // 少数群の番号が境界の外、名前の誤り、重複
@@ -1881,14 +1883,17 @@ fn invalid_generalized_inputs_are_errors() {
     let responses = "bounds = [2e7, 0.625, 1e-5]\nresponses = [\"total-1\"]";
     for bad in [
         // GMRES は再始動の回数を要る。判定は正。参照は方法と判定の両方
-        "methods = [\"gmres\"]\ntolerance = 1e-6",
-        "methods = [\"gmres\"]\nrestart = 0\ntolerance = 1e-6",
-        "methods = [\"newton\"]\ntolerance = 1e-6",
-        "methods = []\ntolerance = 1e-6",
-        "methods = [\"cmfd\", \"cmfd\"]\ntolerance = 1e-6",
-        "methods = [\"cmfd\"]\ntolerance = 0",
-        "methods = [\"cmfd\"]\ntolerance = 1e-6\nreference = \"cmfd\"",
-        "methods = [\"cmfd\"]\ntolerance = 1e-6\nreference-tolerance = 1e-9",
+        "methods = [\"gmres\"]\ntolerances = [1e-6]",
+        "methods = [\"gmres\"]\nrestart = 0\ntolerances = [1e-6]",
+        "methods = [\"newton\"]\ntolerances = [1e-6]",
+        "methods = []\ntolerances = [1e-6]",
+        "methods = [\"cmfd\", \"cmfd\"]\ntolerances = [1e-6]",
+        "methods = [\"cmfd\"]\ntolerances = [0]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nreference = \"cmfd\"",
+        "methods = [\"cmfd\"]\ntolerances = []",
+        // 一緒にスイープするのは、源ごとにも解く方法だけ
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nbatched = [\"source-iteration\"]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nreference-tolerance = 1e-9",
     ] {
         assert!(with(&format!("{responses}\n{bad}")).is_err(), "{bad}");
     }
