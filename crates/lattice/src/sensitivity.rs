@@ -224,7 +224,7 @@ pub struct UfgTangentPin {
     pub free_gas_seconds: f64,
     pub solve_seconds: f64,
     pub collapse_seconds: f64,
-    /// 飛程の微分を表で求めた格子点と衝突確率で求めた格子点の数（掃き直しの分を含む）、飛程の微分を持つリングの組の数
+    /// 飛程の微分を表で求めた格子点と衝突確率で求めた格子点の数（掃き直しで持った微分を読んだ格子点は数えない）、飛程の微分を持つリングの組の数
     pub table_points: usize,
     pub exact_points: usize,
     pub classes: usize,

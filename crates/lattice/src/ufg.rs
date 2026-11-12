@@ -520,7 +520,8 @@ pub struct TangentCost {
     pub solve: f64,
     /// 間引いた格子の、核種の格子での縮約の 1 次の変化
     pub collapse: f64,
-    /// 向きと飛程の微分を持つリングの組の数、飛程の微分を表で求めた格子点の数と、衝突確率で求めた格子点の数
+    /// 向きと飛程の微分を持つリングの組の数、飛程の微分を表で求めた格子点の数と、衝突確率で求めた格子点の数（掃き直しで持った
+    /// 微分を読んだ格子点は数えない）
     pub directions: usize,
     pub classes: usize,
     pub table_points: usize,
