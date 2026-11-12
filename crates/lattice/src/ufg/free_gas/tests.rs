@@ -867,14 +867,20 @@ fn the_kernel_table_grows_only_into_its_share_of_the_given_hold_memory() {
     // `ufg-hold-memory` の量は、前の自己遮蔽から残った表、表が増えうる量、ピンと塊に渡す量を合わせた全体（ADR-0248）
     let grid = test_grid();
     let other = moved(&grid);
-    for (whole, at_once) in [(3, 1), (2, 4)] {
+    // 測ったピンの量（`demand`）で表に残りを渡すときも同じ
+    for (whole, at_once, demand) in [
+        (3, 1, None),
+        (2, 4, None),
+        (3, 2, Some(1)),
+        (4, 3, Some(u64::MAX)),
+    ] {
         let kernels = KernelCache::default();
         kernels.begin(|_| u64::MAX);
         swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
         let whole = whole * kernels.bytes();
         let held = kernels.start();
         let total = super::super::hold_total(Some(whole), held).unwrap();
-        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once, None));
+        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once, demand));
         swept_on(&other, 1.0, usize::MAX, Some(&kernels));
         assert!(kernels.bytes() <= held + growth, "{at_once}");
         assert!(kernels.bytes() + (total - growth) <= whole, "{at_once}");
