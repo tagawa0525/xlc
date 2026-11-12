@@ -902,8 +902,23 @@ impl StateShielding<'_> {
         state: &[MaterialInput],
         changed: &[MaterialInput],
     ) -> anyhow::Result<StateShielding<'_>> {
-        let _ = (library, lattice, region_materials, remixed, state, changed);
-        bail!("not yet")
+        let mut unique = self.materials().to_vec();
+        let rebuilt = remix_varied(
+            library,
+            self.fuel(),
+            lattice,
+            region_materials,
+            remixed,
+            state,
+            changed,
+        )?;
+        for (m, material) in rebuilt {
+            unique[m] = material;
+        }
+        Ok(StateShielding {
+            fuel: Fuel::Reference(self.fuel()),
+            remixed: Some(unique),
+        })
     }
 }
 

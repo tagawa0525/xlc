@@ -1039,15 +1039,35 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             nominal,
                             |j, perturbed, reference, build| {
                                 let started = Instant::now();
-                                let shielded = perturbed_shielders[j]
-                                    .shield_state(reuse, library, perturbed, reference, build)
-                                    .context("self-shielding")?;
-                                log_effective_change(
-                                    library.groups.bounds(),
-                                    nuclides[j],
-                                    fuel,
-                                    shielded.fuel(),
-                                );
+                                // 既定は状態の自己遮蔽のまま、燃焼の領域の物質だけを摂動の組成で作り直す（ADR-0249）
+                                let shielded = if h.solves_perturbed_shielding() {
+                                    let shielded = perturbed_shielders[j]
+                                        .shield_state(reuse, library, perturbed, reference, build)
+                                        .context("self-shielding")?;
+                                    log_effective_change(
+                                        library.groups.bounds(),
+                                        nuclides[j],
+                                        fuel,
+                                        shielded.fuel(),
+                                    );
+                                    shielded
+                                } else {
+                                    held.as_ref()
+                                        .ok_or_else(|| {
+                                            anyhow!(
+                                                "the density derivatives need the self-shielding"
+                                            )
+                                        })?
+                                        .remixed_at(
+                                            library,
+                                            &geometry.lattice,
+                                            solved_materials(rod),
+                                            &h.depletion_materials(),
+                                            state_materials,
+                                            perturbed,
+                                        )
+                                        .context("remixing the depletion regions")?
+                                };
                                 let (few, sigma, iterations) = solve_direct(&shielded)?;
                                 tracing::info!(
                                     state,

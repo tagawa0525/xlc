@@ -109,6 +109,9 @@
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
 //! derivative = ["Xe-135"]         # 数密度の微分をテーブルに書く核種（micro から選ぶ。省略すると書かない。ADR-0221）
 //! perturbation = 0.1              # 微分の摂動の割合（数密度を (1 + perturbation) 倍する。省略すると 0.1。ADR-0221）
+//! derivative-shielding = "fixed"  # 微分の摂動の組成の自己遮蔽: fixed は状態の自己遮蔽のまま燃焼の領域の物質だけを作り直し、
+//!                                 # solved は摂動の組成で解き直す（省略すると fixed。derivative の入力だけ。generalized は
+//!                                 # いつも解き直すので書けない。solved は shielding-file、shielding-burnup と組めない。ADR-0249）
 //! # 一般化摂動の微分（ADR-0247。省略すると解かない）: micro のすべての核種の少数群定数の微分を、状態ごとの一般化随伴（CMFD の反復の
 //! # GMRES）から求める（自己遮蔽は固定、案 I0）。shielded の核種は、自己遮蔽を (1 + perturbation) 倍の組成で解き直した物質の差も足す
 //! # （案 I1）。derivative の核種は、直接の摂動を反応率の微分のために解き、その自己遮蔽で少数群定数の微分も I1 にする
@@ -1855,6 +1858,36 @@ impl LatticeInput {
                         );
                     }
                 }
+                // 微分の摂動の組成の自己遮蔽（ADR-0249）。一般化摂動の微分は摂動の組成をいつも解き直す（ADR-0247 の案 I1）ので、
+                // 書けば黙って使わない値になる。自己遮蔽の組成を固定する入力の solved は、解き直す経路が黙って固定と同じになる
+                let derivative_shielding = match (h.derivative_shielding, &generalized) {
+                    (None, Some(_)) => DerivativeShielding::Solved,
+                    (None, None) => DerivativeShielding::Fixed,
+                    (Some(_), Some(_)) => {
+                        return Err(
+                            "[history] derivative-shielding is for the direct derivatives; generalized solves the \
+                             self-shielding at every perturbed composition (ADR-0247, ADR-0249)"
+                                .to_string(),
+                        );
+                    }
+                    (Some(_), None) if derivative.is_empty() => {
+                        return Err(
+                            "[history] derivative-shielding needs `derivative` (ADR-0249)".to_string(),
+                        );
+                    }
+                    (Some(DerivativeShieldingEntry::Fixed), None) => DerivativeShielding::Fixed,
+                    (Some(DerivativeShieldingEntry::Solved), None) => {
+                        if h.shielding_file.is_some() || h.shielding_burnup.is_some() {
+                            return Err(
+                                "[history] derivative-shielding = \"solved\" solves the self-shielding at the \
+                                 perturbed composition, which shielding-file and shielding-burnup fix to their own \
+                                 (ADR-0249)"
+                                    .to_string(),
+                            );
+                        }
+                        DerivativeShielding::Solved
+                    }
+                };
                 Ok(HistoryInput {
                     file: h.file,
                     chain: h.chain,
@@ -1867,7 +1900,7 @@ impl LatticeInput {
                     shielding_file: h.shielding_file,
                     shielding_burnup: h.shielding_burnup,
                     generalized,
-                    derivative_shielding: DerivativeShielding::Solved,
+                    derivative_shielding,
                 })
             })
             .transpose()
