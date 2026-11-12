@@ -221,6 +221,12 @@ impl Representatives {
                 }
                 // [x, y][群] のベクトル
                 RegionKind::Vector(ng) => turn(out, values, &image.matrix, share, ng),
+                // [群] の向きによらない値
+                RegionKind::Scalar(ng) => {
+                    for (o, v) in out[..ng].iter_mut().zip(&values[..ng]) {
+                        *o += share * v;
+                    }
+                }
             });
         }
     }
@@ -304,6 +310,8 @@ pub(super) enum RegionKind {
     Moments(usize),
     /// [x, y][群]（群の数）
     Vector(usize),
+    /// [群] の向きによらない値（群の数）
+    Scalar(usize),
 }
 
 /// 対称操作の組み合わせの性質（合成で閉じ、像が 1 対 1）が崩れたときのエラー

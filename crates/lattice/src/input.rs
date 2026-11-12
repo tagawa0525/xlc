@@ -110,6 +110,14 @@
 //! derivative = ["Xe-135"]         # 数密度の微分をテーブルに書く核種（micro から選ぶ。省略すると書かない。ADR-0221）
 //! perturbation = 0.1              # 微分の摂動の割合（数密度を (1 + perturbation) 倍する。省略すると 0.1。ADR-0221）
 //! shielding-file = "other.msgpack" # 燃焼の領域を自己遮蔽する組成の履歴（同じ燃焼度の点。省略すると状態の組成。#0191）
+//!
+//! [sensitivity]                   # k の数密度の感度（ADR-0247 の段 2。ライブラリの核種で書いた物質だけを変え、自己遮蔽は固定。
+//!                                 # 燃焼、媒質、混ぜた物質とは使えず、解く状態は 1 つ）
+//! nuclides = ["U-235", "Pu-239"]  # 感度を求める核種
+//! output = "sensitivity.toml"     # 結果（`xlc_lattice::sensitivity::Report`）
+//! direct = 0.1                    # 数密度を (1 ± ε) 倍と (1 ± ε/2) 倍した直接の摂動も解く（検証の参照。省略すると解かない）
+//! k-tolerance = 1e-10             # この入力のすべての MOC の判定（省略すると既定。CMFD は既定とこの値の細かい方）
+//! flux-tolerance = 1e-9
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -130,6 +138,7 @@ use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, Shieldin
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
+use crate::sensitivity::SensitivityInput;
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -263,6 +272,7 @@ pub struct LatticeInput {
     pub depletion: Option<DepletionInput>,
     /// 燃焼の履歴の燃焼点からの分岐（ADR-0187）。`None` なら物質は入力のまま
     pub history: Option<HistoryInput>,
+    pub sensitivity: Option<SensitivityInput>,
 }
 
 /// 少数群定数の出力。
@@ -457,6 +467,19 @@ struct InputFile {
     depletion: Option<DepletionEntry>,
     /// 省略すると燃焼の履歴を読まない
     history: Option<HistoryEntry>,
+    /// 省略すると k の感度を求めない
+    sensitivity: Option<SensitivityEntry>,
+}
+
+/// k の数密度の感度（ADR-0247）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct SensitivityEntry {
+    nuclides: Vec<String>,
+    output: PathBuf,
+    direct: Option<f64>,
+    k_tolerance: Option<f64>,
+    flux_tolerance: Option<f64>,
 }
 
 /// 数密度の微分の摂動の割合の既定（ADR-0221）
@@ -1501,6 +1524,55 @@ impl LatticeInput {
             })
             .transpose()
             .map_err(invalid)?;
+        let sensitivity = file
+            .sensitivity
+            .map(|s| {
+                if macroscopic {
+                    return Err("[sensitivity] changes nuclide densities, so it needs a library".to_string());
+                }
+                if depletion.is_some() || !media.is_empty() || !mixtures.is_empty() {
+                    return Err(
+                        "[sensitivity] changes only materials of nuclides in one state: it excludes [depletion], media \
+                         and mixtures"
+                            .into(),
+                    );
+                }
+                let list = &s.nuclides;
+                if list.is_empty()
+                    || list
+                        .iter()
+                        .enumerate()
+                        .any(|(i, n)| !is_nuclide_name(n) || list[..i].contains(n))
+                {
+                    return Err(format!(
+                        "[sensitivity] nuclides must list distinct nuclide names, got {list:?}"
+                    ));
+                }
+                // 数密度を (1 − ε) 倍しても負にならない割合
+                if let Some(e) = s.direct
+                    && !(e > 0.0 && e < 1.0)
+                {
+                    return Err(format!(
+                        "[sensitivity] direct must be a fraction between 0 and 1, got {e}"
+                    ));
+                }
+                for (key, value) in [("k-tolerance", s.k_tolerance), ("flux-tolerance", s.flux_tolerance)] {
+                    if let Some(t) = value
+                        && !(t > 0.0 && t.is_finite())
+                    {
+                        return Err(format!("[sensitivity] {key} must be positive, got {t}"));
+                    }
+                }
+                Ok(SensitivityInput {
+                    nuclides: s.nuclides,
+                    output: s.output,
+                    direct: s.direct,
+                    k_tolerance: s.k_tolerance,
+                    flux_tolerance: s.flux_tolerance,
+                })
+            })
+            .transpose()
+            .map_err(invalid)?;
         Ok(Self {
             self_shielding,
             collision,
@@ -1515,6 +1587,7 @@ impl LatticeInput {
             branches,
             depletion,
             history,
+            sensitivity,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
             spacing: file.spacing,

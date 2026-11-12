@@ -2294,3 +2294,217 @@ fn adjoint_k_equals_the_forward_k_with_albedo_sides() {
         forward.k
     );
 }
+
+/// 領域 `changes`（領域、物質の微分 δM）の物質を M + h δM にした問題の k の、h による微分の中心差分。h と h/2 の差分から
+/// Richardson の外挿で h² の誤差を除いた値
+fn central_k_derivative(
+    tracking: &Tracking,
+    materials: &[&Material],
+    changes: &[(usize, &Material)],
+    options: &Options,
+    h: f64,
+) -> f64 {
+    let k_at = |step: f64| {
+        let perturbed: Vec<Material> = changes
+            .iter()
+            .map(|&(region, d)| materials[region].added(d, step).unwrap())
+            .collect();
+        let mut m = materials.to_vec();
+        for (&(region, _), p) in changes.iter().zip(&perturbed) {
+            m[region] = p;
+        }
+        solve(tracking, &m, options).unwrap().k
+    };
+    let difference = |step: f64| (k_at(step) - k_at(-step)) / (2.0 * step);
+    let (coarse, fine) = (difference(h), difference(h / 2.0));
+    fine + (fine - coarse) / 3.0
+}
+
+/// 物質の全反応に `factor` を掛けた物質（核種の数密度の微分の代わり）
+fn times(m: &Material, factor: f64) -> Material {
+    m.scaled(&vec![factor; m.groups()]).unwrap()
+}
+
+/// 吸収だけの 2 群の物質（全断面積だけを持つ）
+fn absorber(total: [f64; 2]) -> Material {
+    two_group(total, [[0.0, 0.0], [0.0, 0.0]], [0.0, 0.0])
+}
+
+#[test]
+fn k_derivative_matches_central_differences_with_leakage_and_two_spectra() {
+    // 真空の外周、上方散乱、2 つの核分裂のスペクトル（散乱と核分裂の行列が非対称）。燃料の 1 領域の全反応を変える
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (_, _, importance) = solve_importance(&tracking, &materials, &options, None, None).unwrap();
+    let d = times(&f, 0.2);
+    let changes = [(0, &d)];
+    let adjoint = importance.k_derivative(&changes).unwrap();
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+}
+
+#[test]
+fn k_derivative_of_the_total_cross_section_uses_the_angular_fluxes() {
+    // 吸収体を水の領域（燃料のピンの外側で中性子束の勾配の大きいところ）に足す。全断面積の摂動は、領域の中の角度中性子束と
+    // 随伴の角度中性子束の積を区間ごとに積分した値で効き、領域平均のスカラー中性子束の積では表せない
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (solution, _, importance) =
+        solve_importance(&tracking, &materials, &options, None, None).unwrap();
+    let d = absorber([0.3, 0.8]);
+    let changes = [(1, &d)];
+    let adjoint = importance.k_derivative(&changes).unwrap();
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+    // 領域平均のスカラー中性子束の積 V Σ φ† δΣt φ は、この差の判定より大きくずれる
+    let scalar: f64 = (0..2)
+        .map(|g| {
+            solution.volumes[1] * importance.adjoint_flux()[1][g] * d.total[g] * solution.flux[1][g]
+        })
+        .sum();
+    let approximate = -importance.k().powi(2) * scalar / importance.production();
+    assert!(
+        (approximate - direct).abs() > 1e-4 * direct.abs(),
+        "{approximate} vs {direct}"
+    );
+}
+
+#[test]
+fn k_derivative_matches_central_differences_with_anisotropic_scattering() {
+    // P1 の散乱の摂動は、随伴のモーメントの (−1)ˡ の符号で効く
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (
+        with_moments(&two_spectra_fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(1);
+    let (_, _, importance) = solve_importance(&tracking, &materials, &options, None, None).unwrap();
+    for (region, d) in [
+        (0, times(&f, 0.2)),
+        (1, with_moments(&times(&m, 0.2), &[0.9])),
+    ] {
+        let changes = [(region, &d)];
+        let adjoint = importance.k_derivative(&changes).unwrap();
+        let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
+        assert!(
+            (adjoint - direct).abs() < 1e-6 * direct.abs(),
+            "region {region}: {adjoint} vs {direct}"
+        );
+    }
+}
+
+#[test]
+fn k_derivative_matches_central_differences_with_albedo_sides() {
+    let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+    let boundaries = Boundaries {
+        right: Boundary::Albedo(0.6),
+        bottom: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = [&f, &m, &m, &m, &f, &m];
+    let options = tight(0);
+    let (_, _, importance) = solve_importance(&tracking, &materials, &options, None, None).unwrap();
+    let d = times(&f, 0.2);
+    let changes = [(4, &d)];
+    let adjoint = importance.k_derivative(&changes).unwrap();
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+}
+
+#[test]
+fn k_derivative_with_symmetry_matches_the_full_lattice() {
+    // 対称操作で移り合う領域（同じ物質）をまとめて変える。代表だけで解いた随伴とスイープの積は、全体で解いたものと同じ
+    let tracking = vacuum_checkerboard(3);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(3, &f, &m);
+    let options = tight(0);
+    let region_names: Vec<String> = materials
+        .iter()
+        .map(|&x| if std::ptr::eq(x, &f) { "f" } else { "m" }.to_string())
+        .collect();
+    let verified = detect(&tracking, &region_names).unwrap();
+    assert_ne!(verified.symmetry(), Symmetry::NONE);
+    let d = times(&f, 0.2);
+    let changes: Vec<(usize, &Material)> = materials
+        .iter()
+        .enumerate()
+        .filter(|&(_, &x)| std::ptr::eq(x, &f))
+        .map(|(region, _)| (region, &d))
+        .collect();
+    let (_, _, full) = solve_importance(&tracking, &materials, &options, None, None).unwrap();
+    let (_, _, reduced) =
+        solve_importance(&tracking, &materials, &options, Some(&verified), None).unwrap();
+    let (a, b) = (
+        full.k_derivative(&changes).unwrap(),
+        reduced.k_derivative(&changes).unwrap(),
+    );
+    assert!((a - b).abs() < 1e-7 * a.abs(), "{a} vs {b}");
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
+    assert!((b - direct).abs() < 1e-6 * direct.abs(), "{b} vs {direct}");
+}
+
+#[test]
+fn k_derivative_starts_from_a_previous_solution() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (_, start, cold) = solve_importance(&tracking, &materials, &options, None, None).unwrap();
+    let (_, _, warm) =
+        solve_importance(&tracking, &materials, &options, None, Some(&start)).unwrap();
+    let d = times(&f, 0.2);
+    let changes = [(0, &d)];
+    let (a, b) = (
+        cold.k_derivative(&changes).unwrap(),
+        warm.k_derivative(&changes).unwrap(),
+    );
+    assert!((a - b).abs() < 1e-7 * a.abs(), "{a} vs {b}");
+}
+
+#[test]
+fn k_derivative_rejects_changes_it_cannot_represent() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let (_, _, importance) =
+        solve_importance(&tracking, &materials, &tight(0), None, None).unwrap();
+    let one = Material::void(1);
+    assert!(matches!(
+        importance.k_derivative(&[(0, &one)]),
+        Err(MocError::Material { region: 0, .. })
+    ));
+    let d = times(&f, 0.1);
+    assert!(matches!(
+        importance.k_derivative(&[(materials.len(), &d)]),
+        Err(MocError::ChangedRegion(_))
+    ));
+    // 散乱の次数が解いた次数より低い物質の微分は、高次の項を表せない
+    let (fp, mp) = (
+        with_moments(&two_spectra_fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let p1 = checkerboard_materials(2, &fp, &mp);
+    let (_, _, importance) = solve_importance(&tracking, &p1, &tight(1), None, None).unwrap();
+    assert!(matches!(
+        importance.k_derivative(&[(0, &d)]),
+        Err(MocError::ScatteringOrder { region: 0, .. })
+    ));
+}
