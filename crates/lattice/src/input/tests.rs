@@ -1891,6 +1891,10 @@ fn invalid_generalized_inputs_are_errors() {
         "methods = [\"cmfd\"]\ntolerances = [0]",
         "methods = [\"cmfd\"]\ntolerances = [1e-6]\nreference = \"cmfd\"",
         "methods = [\"cmfd\"]\ntolerances = []",
+        // 使わない再始動の回数、重なった判定と方法
+        "methods = [\"cmfd\"]\nrestart = 30\ntolerances = [1e-6]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6, 1e-6]",
+        "methods = [\"cmfd\"]\ntolerances = [1e-6]\nbatched = [\"cmfd\", \"cmfd\"]",
         // 一緒にスイープするのは、源ごとにも解く方法だけ
         "methods = [\"cmfd\"]\ntolerances = [1e-6]\nbatched = [\"source-iteration\"]",
         "methods = [\"cmfd\"]\ntolerances = [1e-6]\nreference-tolerance = 1e-9",

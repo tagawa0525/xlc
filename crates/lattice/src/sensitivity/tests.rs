@@ -142,3 +142,14 @@ fn response_sources_are_orthogonal_to_the_flux_and_weight_the_few_groups() {
         .is_err()
     );
 }
+
+#[test]
+fn generalized_cmfd_takes_the_cmfd_options_of_the_solved_state() {
+    let cmfd = CmfdOptions {
+        flux_tolerance: 1e-9,
+        ..CmfdOptions::default()
+    };
+    assert_eq!(generalized_cmfd(&Acceleration::Cmfd(cmfd)).unwrap(), cmfd);
+    // 状態を CMFD なしで解いたなら、粗メッシュの判定を入力が決めていない
+    assert!(generalized_cmfd(&Acceleration::None).is_err());
+}
