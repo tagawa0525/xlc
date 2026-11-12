@@ -2512,3 +2512,152 @@ fn k_derivative_rejects_changes_it_cannot_represent() {
         Err(MocError::ScatteringOrder { region: 0, .. })
     ));
 }
+
+/// 真空の領域を 1 つ含む 2 × 2 の格子（右と下が真空）の、`order` 次の散乱の 1 回のスイープの入力（物質、平衡値の展開係数、
+/// 入ってくる角度中性子束）
+fn sweep_inputs(
+    tracking: &Tracking,
+    order: usize,
+) -> (Vec<Material>, Vec<Vec<f64>>, Vec<(usize, isize)>, Vec<f64>) {
+    let (f, m, void) = (fuel(), moderator(), Material::void(2));
+    let materials = vec![
+        f.clone(),
+        f,
+        m.clone(),
+        void,
+        m.clone(),
+        m.clone(),
+        m.clone(),
+        m,
+    ];
+    let pairs = planar_moments(order);
+    let ng = 2;
+    let equilibrium: Vec<Vec<f64>> = (0..materials.len())
+        .map(|i| {
+            (0..pairs.len() * ng)
+                .map(|j| 0.1 + ((7 * i + 3 * j) % 11) as f64 * 0.01)
+                .collect()
+        })
+        .collect();
+    let width = POLAR_SIN.len() * ng;
+    let incoming: Vec<f64> = (0..2 * tracking.tracks.len() * width)
+        .map(|j| 0.05 + ((37 * j) % 101) as f64 * 1.0e-3)
+        .collect();
+    (materials, equilibrium, pairs, incoming)
+}
+
+fn vacuum_corner_tracking() -> Tracking {
+    let pin = PinCell::new(1.26, vec![0.3, 0.4096]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+    let boundaries = Boundaries {
+        right: Boundary::Vacuum,
+        bottom: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap()
+}
+
+#[test]
+fn anisotropic_sweep_returns_zeroed_direction_sums_to_the_pool() {
+    let tracking = vacuum_corner_tracking();
+    let mesh = CoarseMesh::new(&tracking);
+    let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, 1);
+    let materials: Vec<&Material> = materials.iter().collect();
+    let sweeper = Sweeper::new(
+        &tracking,
+        &materials,
+        2,
+        &mesh,
+        &pairs,
+        Representatives::all(&tracking, &mesh, pairs.len()),
+    );
+    let mut outgoing = vec![0.0; sweeper.outgoing_len()];
+    let mut tallies = sweeper.tallies(materials.len());
+    sweeper
+        .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
+        .unwrap();
+    let pool = sweeper.pool.lock().unwrap();
+    assert!(!pool.is_empty());
+    for d in pool.iter() {
+        assert!(d.delta.iter().all(|&v| v.to_bits() == 0), "{:?}", d.delta);
+    }
+}
+
+/// 2 つのスイープの部分和と出ていく角度中性子束が、ビットで同じこと
+fn assert_same_bits(a: (&Sums, &[f64]), b: (&Sums, &[f64])) {
+    let parts = |s: &Sums| {
+        [
+            s.delta.clone(),
+            s.void_flux.clone(),
+            s.leak.clone(),
+            s.current.clone(),
+            s.face_flux.clone(),
+            s.void_current.clone(),
+            s.region_current.clone(),
+        ]
+    };
+    let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+    for (x, y) in parts(a.0).iter().zip(&parts(b.0)) {
+        assert_eq!(bits(x), bits(y));
+    }
+    assert_eq!(bits(a.1), bits(b.1));
+}
+
+#[test]
+fn sweep_does_not_depend_on_the_contents_left_in_its_work_arrays() {
+    let tracking = vacuum_corner_tracking();
+    let mesh = CoarseMesh::new(&tracking);
+    for order in [0, 1, 2] {
+        let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, order);
+        let materials: Vec<&Material> = materials.iter().collect();
+        let sweeper = || {
+            Sweeper::new(
+                &tracking,
+                &materials,
+                2,
+                &mesh,
+                &pairs,
+                Representatives::all(&tracking, &mesh, pairs.len()),
+            )
+        };
+        let fresh = sweeper();
+        let mut expected = vec![0.0; fresh.outgoing_len()];
+        let mut tallies = fresh.tallies(materials.len());
+        fresh
+            .sweep(&equilibrium, &incoming, &mut expected, &mut tallies)
+            .unwrap();
+        let first = sum_tallies(&fresh, &tallies);
+
+        // 前のスイープの値が残った作業の配列と部分和、より長い線源の配列（NaN で埋めたもの）から始めても同じ
+        let reused = sweeper();
+        reused.pool.lock().unwrap().push(Directional {
+            source: vec![f64::NAN; 10_000],
+            delta: Vec::new(),
+        });
+        let mut tallies = reused.tallies(materials.len());
+        let mut outgoing = vec![0.0; reused.outgoing_len()];
+        for _ in 0..2 {
+            for tally in &mut tallies {
+                for part in [
+                    &mut tally.delta,
+                    &mut tally.void_flux,
+                    &mut tally.leak,
+                    &mut tally.current,
+                    &mut tally.face_flux,
+                    &mut tally.void_current,
+                    &mut tally.region_current,
+                    &mut tally.psi,
+                    &mut tally.attenuation,
+                ] {
+                    part.fill(f64::NAN);
+                }
+            }
+            reused
+                .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
+                .unwrap();
+            let sums = sum_tallies(&reused, &tallies);
+            assert_same_bits((&first, &expected), (&sums, &outgoing));
+        }
+    }
+}
