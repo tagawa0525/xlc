@@ -595,3 +595,45 @@ fn gmres_stops_when_the_operator_maps_a_basis_vector_to_zero() {
         Err(MocError::GeneralizedDiverged { iterations: 2 })
     ));
 }
+
+#[test]
+fn generalized_adjoint_checks_the_restart_and_takes_no_sources() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, None);
+    let n = materials.len();
+    let source = ratio_source(
+        &solution,
+        &indicator(n, 2, 1, |r| (r == 0).then_some(1.0)),
+        &indicator(n, 2, 1, |_| Some(1.0)),
+    );
+    let run = |method: GeneralizedMethod, batch: bool, sources: &[Vec<Vec<f64>>]| {
+        let settings = GeneralizedOptions {
+            method,
+            batch,
+            ..settings(1e-10)
+        };
+        solve_generalized(
+            &tracking, &materials, &options, None, &forward, &adjoint, sources, &settings,
+        )
+    };
+    // 再始動しない GMRES は基底を上限まで増やす
+    assert!(matches!(
+        run(
+            GeneralizedMethod::Gmres { restart: 0 },
+            false,
+            std::slice::from_ref(&source)
+        ),
+        Err(MocError::GeneralizedRestart)
+    ));
+    for batch in [false, true] {
+        for method in [
+            GeneralizedMethod::SourceIteration,
+            GeneralizedMethod::Gmres { restart: 10 },
+        ] {
+            assert!(run(method, batch, &[]).unwrap().is_empty());
+        }
+    }
+}
