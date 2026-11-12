@@ -163,7 +163,7 @@ fn few_group_adjoints_are_solved_by_gmres_over_the_cmfd_iteration() {
         shielded: Vec::new(),
     };
     let cmfd = CmfdOptions {
-        flux_tolerance: 1e-9,
+        max_iterations: 1234,
         ..CmfdOptions::default()
     };
     let options = Options {
@@ -179,7 +179,7 @@ fn few_group_adjoints_are_solved_by_gmres_over_the_cmfd_iteration() {
             batch: false,
         }
     );
-    // CMFD なしで解いた状態では粗メッシュの判定が決まらないので、補正のない GMRES に替えずに止める
+    // CMFD なしで解いた状態では粗メッシュの問題の反復の上限が決まらないので、補正のない GMRES に替えずに止める
     let without = Options {
         acceleration: Acceleration::None,
         ..Options::default()

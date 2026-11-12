@@ -202,7 +202,7 @@ pub struct FewGroupReport {
     pub table_difference: f64,
     /// テーブルの少数群の核分裂のスペクトル（反応度に直す 2 群の k∞ に使う）
     pub chi: Vec<f64>,
-    /// 一般化随伴の GMRES の判定と再始動の回数
+    /// 一般化随伴の CMFD の反復の GMRES の判定と再始動の回数（`few_group_settings`）
     pub tolerance: f64,
     pub restart: usize,
     /// [応答] の一般化随伴のスイープの回数
@@ -708,8 +708,8 @@ fn few_group_state<'a>(
 }
 
 /// 少数群定数の一般化随伴の解き方: CMFD の反復の GMRES（ADR-0247 の決定と理由の「一般化随伴」）。判定と再始動は入力、粗メッシュの
-/// 打ち切りは状態を解いた MOC のもの（`generalized_cmfd`）。状態を CMFD なしで解いたならエラー（補正のない GMRES に替えると、
-/// 入力の判定の意味が変わったまま黙って解くため）
+/// 問題の反復の上限は状態を解いた MOC の CMFD のもの（`generalized_cmfd`。判定は `moc::generalized` の `COARSE_TOLERANCE`）。
+/// 状態を CMFD なしで解いたならエラー（補正のない GMRES に替えると、入力の判定の意味が変わったまま黙って解くため）
 fn few_group_settings(
     input: &FewGroupInput,
     options: &Options,
