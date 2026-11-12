@@ -447,8 +447,9 @@ fn swept_sources(hold: usize) -> (Vec<Vec<(f64, f64)>>, usize) {
         vec![(0, 0.022), (1, 0.045)],
     ];
     let n = 2;
-    let mut thermal = Thermal::new(gases, sigma, rings, vec![None; 3], 2, &energies, n, hold)
-        .expect("free-gas nuclides");
+    let tables = vec![None; 3];
+    let start = sweep_start(&gases, &tables, &energies).expect("free-gas nuclides");
+    let mut thermal = Thermal::new(gases, sigma, rings, tables, 2, start, n, hold);
     let start = thermal.start();
     let mut flux: Vec<Vec<f64>> = vec![u[..start].iter().map(|&x| test_flux(x)).collect(); n];
     let mut out = Vec::new();

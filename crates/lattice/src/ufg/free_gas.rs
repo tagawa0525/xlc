@@ -985,8 +985,7 @@ pub(super) fn sweep_start(
 
 impl<'a> Thermal<'a> {
     /// 自由ガスの核種の核 `gases`、その [格子点] の弾性散乱断面積 `sigma`、（リング, 個数密度）`rings`、S(α, β) の移行の表
-    /// `tables`、区間の細かさ `cells` の状態。`energies` は格子点のエネルギー（降順）、`n` はリングの数。自由ガスの核種がなければ
-    /// `None`。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
+    /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
     /// すべての格子点の核種の区間の始まりと位置の表も、40 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
@@ -995,12 +994,11 @@ impl<'a> Thermal<'a> {
         rings: Vec<Vec<(usize, f64)>>,
         tables: Vec<Option<&'a SabTransfer>>,
         cells: usize,
-        energies: &[f64],
+        start: usize,
         n: usize,
         hold: usize,
-    ) -> Option<Self> {
-        let start = sweep_start(&gases, &tables, energies)?;
-        Some(Self {
+    ) -> Self {
+        Self {
             gases,
             sigma,
             rings,
@@ -1020,7 +1018,7 @@ impl<'a> Thermal<'a> {
             room: hold,
             sab: SabWork::default(),
             elapsed: [Duration::ZERO; 2],
-        })
+        }
     }
 
     pub(super) fn start(&self) -> usize {

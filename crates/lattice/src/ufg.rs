@@ -693,8 +693,8 @@ fn solve_cell(
         ng,
     };
     // 自由ガスの核の届く範囲（start から）は、上方散乱が前のスイープの中性子束を使うので、収束するまで掃き直す
-    let (thermal, sweeps, hold_tracks) = match scattering {
-        Scattering::Static => (None, None, false),
+    let (thermal, sweeps, mut held_tracks) = match scattering {
+        Scattering::Static => (None, None, None),
         Scattering::FreeGas(options) => {
             let gases: Vec<(usize, Gas)> = data
                 .iter()
@@ -740,41 +740,44 @@ fn solve_cell(
                     .map(|(_, column)| heap_bytes(column))
                     .sum::<u64>();
             let kernels: Vec<Gas> = gases.iter().map(|&(_, gas)| gas).collect();
-            // 掃き直す格子点の飛程（[`HeldTracks`]）は、持つ区間の上限の中に収まるときだけ持ち（収まらなければ掃き直すたびに
-            // 求める。結果は同じ）、その分を自由ガスの区間より先に上限から除く。スイープが 1 回なら、持った飛程と区間を使う
-            // スイープがない
-            let swept = free_gas::sweep_start(&kernels, &tables, &energies)
-                .map_or(0, |start| u.len() - start);
-            let tracks = held_tracks_bytes(swept, n);
-            let hold_tracks = options.sweeps != Some(1)
-                && swept > 0
-                && cells_beside_work(hold, work + tracks) > 0;
-            if hold_tracks {
-                work += tracks;
+            match free_gas::sweep_start(&kernels, &tables, &energies) {
+                // 自由ガスの核の届く格子点がなければ、掃き直さない
+                None => (None, None, None),
+                Some(start) => {
+                    // 掃き直す格子点の飛程（[`HeldTracks`]）は、持つ区間の上限の中に収まるときだけ持ち（収まらなければ掃き直す
+                    // たびに求める。結果は同じ）、その分を自由ガスの区間より先に上限から除く。スイープが 1 回なら、持った飛程と
+                    // 区間を使うスイープがない
+                    let tracks = held_tracks_bytes(u.len() - start, n);
+                    let held_tracks = (options.sweeps != Some(1)
+                        && cells_beside_work(hold, work + tracks) > 0)
+                        .then(|| {
+                            work += tracks;
+                            HeldTracks {
+                                start,
+                                tracks: Vec::with_capacity(u.len() - start),
+                            }
+                        });
+                    let thermal = Thermal::new(
+                        kernels,
+                        sigma,
+                        rings,
+                        tables,
+                        options.cells,
+                        start,
+                        n,
+                        if options.sweeps == Some(1) {
+                            0
+                        } else {
+                            cells_beside_work(hold, work)
+                        },
+                    );
+                    (Some(thermal), options.sweeps, held_tracks)
+                }
             }
-            let thermal = Thermal::new(
-                kernels,
-                sigma,
-                rings,
-                tables,
-                options.cells,
-                &energies,
-                n,
-                if options.sweeps == Some(1) {
-                    0
-                } else {
-                    cells_beside_work(hold, work)
-                },
-            );
-            (thermal, options.sweeps, hold_tracks)
         }
     };
     sweep.thermal = thermal;
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
-    let mut held_tracks = (sweep.thermal.is_some() && hold_tracks).then(|| HeldTracks {
-        start,
-        tracks: Vec::with_capacity(u.len() - start),
-    });
     pass.run(
         &mut sweep,
         &mut cursors,

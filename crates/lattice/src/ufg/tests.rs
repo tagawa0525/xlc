@@ -1242,7 +1242,7 @@ fn tracks_beyond_the_hold_budget_are_solved_again_with_the_same_spectrum() {
     let (lib, fuel, water) = thermal_cell(600.0);
     let cell = Cylinder::new(RADII.to_vec()).unwrap();
     let rings = [Some(&fuel), None, Some(&water), Some(&water)];
-    let solve = |hold| {
+    let solve = |hold, sweeps| {
         slowing_down_with(
             &lib,
             &cell,
@@ -1250,15 +1250,18 @@ fn tracks_beyond_the_hold_budget_are_solved_again_with_the_same_spectrum() {
             [4.0, 1.0e2],
             Collision::Exact,
             None,
-            free_gas(UNCAPPED, 4, Some(3)),
+            free_gas(UNCAPPED, 4, Some(sweeps)),
             hold,
         )
         .unwrap()
     };
-    let held = solve(held_cells(1 << 30, 1));
-    let unheld = solve(0);
+    let held = solve(held_cells(1 << 30, 1), 3);
+    let unheld = solve(0, 3);
     assert_eq!(held.collisions, held.points);
-    assert!(unheld.collisions > unheld.points, "{}", unheld.collisions);
+    // 持たなければ、掃き直す格子点をスイープごとに求める（2 回のスイープで 1 度、3 回で 2 度ずつ多い）
+    let swept = solve(0, 2).collisions - unheld.points;
+    assert!(swept > 0);
+    assert_eq!(unheld.collisions, unheld.points + 2 * swept);
     assert_eq!(
         CellSpectrum {
             collisions: 0,
