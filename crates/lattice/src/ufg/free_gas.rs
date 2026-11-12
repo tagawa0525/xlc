@@ -858,9 +858,13 @@ impl KernelCache {
         found
     }
 
-    /// 上限に `bytes` (B) の余地があるか
+    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）
     fn has_room(&self, bytes: u64) -> bool {
-        self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed)
+        let room = self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed);
+        if !room {
+            self.counts[2].fetch_add(1, Ordering::Relaxed);
+        }
+        room
     }
 
     /// 表 `table` に格子点 `point` の値を入れる。上限を超えるなら入れない。同時に作ったほかの減速計算が先に入れていれば、そちらを
