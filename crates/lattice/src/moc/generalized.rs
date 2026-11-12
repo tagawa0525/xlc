@@ -405,6 +405,8 @@ impl Problem<'_> {
     ) -> Result<Vec<(State, Vec<f64>)>, MocError> {
         let (sweeper, copies) = (self.sweeper, self.sweeper.copies);
         let (ng, pairs) = (self.ng, self.pairs);
+        // 区間の時間は、固有値計算のスイープ（`moc::solve_with`）と同じ名前のトレースの区間で測る
+        let prepare = tracing::trace_span!("equilibrium").entered();
         let equilibria: Vec<Vec<Vec<f64>>> = states
             .iter()
             .zip(sources)
@@ -421,11 +423,16 @@ impl Problem<'_> {
             interleave(&parts, ng)
         };
         let mut outgoing = vec![0.0; incoming.len()];
-        sweeper.sweep(&equilibrium, &incoming, &mut outgoing, tallies)?;
+        drop(prepare);
+        tracing::trace_span!("sweep")
+            .in_scope(|| sweeper.sweep(&equilibrium, &incoming, &mut outgoing, tallies))?;
+        let tally = tracing::trace_span!("tallies").entered();
         let mut sums = sum_tallies(sweeper, tallies);
         sweeper
             .representatives
             .symmetrize(&mut sums, &sweeper.void, copies * ng);
+        drop(tally);
+        let _update = tracing::trace_span!("update").entered();
         let kept = self.kept();
         let mut next = Vec::with_capacity(copies);
         for (copy, e) in equilibria.iter().enumerate() {
@@ -760,7 +767,7 @@ impl Problem<'_> {
                     continue;
                 }
                 // (I − P T₀) v
-                finish(v, &mut image)?;
+                tracing::trace_span!("correct").in_scope(|| finish(v, &mut image))?;
                 let image = image.pack();
                 if image.iter().any(|x| !x.is_finite()) {
                     return Err(MocError::GeneralizedDiverged { iterations: sweeps });
@@ -771,7 +778,7 @@ impl Problem<'_> {
                     .zip(&image)
                     .map(|(a, b)| a - b)
                     .collect();
-                k.receive(applied, sweeps)?;
+                tracing::trace_span!("krylov").in_scope(|| k.receive(applied, sweeps))?;
             }
         }
         Ok(krylov

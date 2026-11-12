@@ -1813,6 +1813,8 @@ impl<'a> Sweeper<'a> {
         // [極角][物質の群] の減衰の数（問題の間で共有する）
         let shared = POLAR_SIN.len() * groups;
         let representatives = &self.representatives;
+        // 組のスイープの時間と、そのうちの減衰の計算の時間を数える（トレースのときだけ。減衰は一緒にスイープする問題で共有する分）
+        let timed = tracing::enabled!(tracing::Level::TRACE);
         // 出ていく角度中性子束の配列を、代表のトラックの組ごとの範囲に分ける
         let mut rest = outgoing;
         let mut outputs = Vec::with_capacity(representatives.chunks.len());
@@ -1826,7 +1828,9 @@ impl<'a> Sweeper<'a> {
             .zip(outputs)
             .zip(&representatives.chunks)
             .try_for_each(|((tally, outputs), range)| {
+                let busy = timed.then(std::time::Instant::now);
                 tally.clear();
+                tally.attenuation_seconds = 0.0;
                 // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに作り直す
                 let mut directional: Option<(usize, Directional)> = None;
                 for (position, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
@@ -1854,6 +1858,7 @@ impl<'a> Sweeper<'a> {
                         .map(|weights| weights.map(|w| multiplicity * w));
                     // 減衰はトラックの両向きと一緒にスイープする問題で同じなので、トラックごとに一度求める（真空の区間では
                     // 使わない）
+                    let clock = timed.then(std::time::Instant::now);
                     for (s, att) in track
                         .segments
                         .iter()
@@ -1869,6 +1874,9 @@ impl<'a> Sweeper<'a> {
                                 *a = -(-t * path).exp_m1();
                             }
                         }
+                    }
+                    if let Some(c) = clock {
+                        tally.attenuation_seconds += c.elapsed().as_secs_f64();
                     }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
@@ -2012,8 +2020,20 @@ impl<'a> Sweeper<'a> {
                 if let Some((azimuth, d)) = directional {
                     self.fold(d, azimuth, &mut tally.delta);
                 }
+                if let Some(c) = busy {
+                    tally.busy_seconds = c.elapsed().as_secs_f64();
+                }
                 Ok(())
-            })
+            })?;
+        if timed {
+            tracing::trace!(
+                busy_seconds = tallies.iter().map(|t| t.busy_seconds).sum::<f64>(),
+                attenuation_seconds = tallies.iter().map(|t| t.attenuation_seconds).sum::<f64>(),
+                copies = self.copies,
+                "sweep times of the track groups (summed over the groups)"
+            );
+        }
+        Ok(())
     }
 }
 
@@ -2046,6 +2066,9 @@ struct Tally {
     psi: Vec<f64>,
     /// スイープ中のトラックの [区間][極角][物質の群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分。一緒にスイープする問題で共有する）
     attenuation: Vec<f64>,
+    /// 組のスイープの時間と、そのうちの減衰の計算の時間（秒。トレースのときだけ数える）
+    busy_seconds: f64,
+    attenuation_seconds: f64,
 }
 
 impl Tally {
@@ -2075,6 +2098,8 @@ impl Tally {
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
             attenuation: vec![0.0; attenuation],
+            busy_seconds: 0.0,
+            attenuation_seconds: 0.0,
         }
     }
 
