@@ -836,7 +836,7 @@ fn solve_cell(
                 ng,
                 u.len(),
                 thinning.is_none(),
-            )?)
+            ))
         }
     };
     let above = Above { bounds, top, high };
@@ -2416,7 +2416,7 @@ impl TangentSweep {
         ng: usize,
         points: usize,
         tally: bool,
-    ) -> Result<Self, UfgError> {
+    ) -> Self {
         let n = entries.len();
         let changed: Vec<usize> = (0..n)
             .filter(|&i| directions.iter().any(|d| d[i].iter().any(|&x| x != 0.0)))
@@ -2444,7 +2444,7 @@ impl TangentSweep {
                 .collect()
         }
         let count = directions.len();
-        Ok(Self {
+        Self {
             directions: directions.to_vec(),
             classes,
             materials: None,
@@ -2469,7 +2469,7 @@ impl TangentSweep {
             gas_known: vec![vec![0.0; n]; count],
             gas_explicit: vec![vec![0.0; n]; count],
             cost: TangentCost::default(),
-        })
+        }
     }
 
     /// 飛程の表の [物質] の最初のリング `first` から、[組] の表の物質の番号を決める（組の代表と同じ組成の物質）。表は同じ組成の
@@ -2596,7 +2596,7 @@ impl Sweep<'_> {
 
     /// 格子点 m の中性子束を求め、窓の積分と群の積分を進める。`values` はその点のポイントワイズの断面積、`tracks` は飛程、
     /// `below` は不連続点の低い側の極限か。
-    /// `jacobian` は個数密度の向きのあるとき、[`TangentSweep::rings`] の順の飛程の微分（[`track_derivative`]）。
+    /// `jacobian` は個数密度の向きのあるとき、[`TangentSweep::classes`] の順の組ごとの飛程の微分（[`track_derivative`]）。
     fn point(
         &mut self,
         m: usize,
