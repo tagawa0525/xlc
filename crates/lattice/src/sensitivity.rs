@@ -1148,8 +1148,8 @@ fn compare_generalized(
     })
 }
 
-/// 一般化随伴の CMFD の判定: 状態を解いた MOC の CMFD のもの。状態を CMFD なしで解いたなら、入力が粗メッシュの判定を決めていないので
-/// エラー
+/// 一般化随伴の CMFD の打ち切り: 状態を解いた MOC の CMFD のもの（回数の上限だけを使う。`GeneralizedMethod::Cmfd`）。状態を CMFD なしで
+/// 解いたなら、入力が粗メッシュの打ち切りを決めていないのでエラー
 fn generalized_cmfd(acceleration: &Acceleration) -> anyhow::Result<CmfdOptions> {
     match acceleration {
         Acceleration::Cmfd(c) => Ok(*c),
