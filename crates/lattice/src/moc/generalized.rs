@@ -386,8 +386,8 @@ impl Problem<'_> {
             .collect()
     }
 
-    /// 状態 `states` から、源 `sources`（[問題]。`None` なら 0）を足して一緒に 1 回スイープした状態（φ† の成分を除いたもの）と、
-    /// [粗メッシュの面][群] の正味の中性子流
+    /// 状態 `states` から、源 `sources`（[問題]。`None` なら 0）を足して一緒に 1 回スイープした状態（φ† の成分は除かない。
+    /// `project`）と、[粗メッシュの面][群] の正味の中性子流
     fn step(
         &self,
         states: &[State],
@@ -451,12 +451,11 @@ impl Problem<'_> {
                     (flux, higher)
                 })
                 .unzip();
-            let mut state = State {
+            let state = State {
                 flux,
                 higher,
                 outgoing: strand(&outgoing, copies, ng, copy),
             };
-            self.project(&mut state);
             next.push((state, strand(&sums.current, copies, ng, copy)));
         }
         Ok(next)
@@ -497,8 +496,9 @@ impl Problem<'_> {
         for iteration in 1..=settings.max_iterations {
             let swept = self.step(&states, &given, &mut tallies)?;
             for (copy, ((mut next, _), state)) in swept.into_iter().zip(&mut states).enumerate() {
-                if let Some(c) = coarse {
-                    self.correct(c, state, &mut next)?;
+                match coarse {
+                    Some(c) => self.correct(c, state, &mut next)?,
+                    None => self.project(&mut next),
                 }
                 // 発散した反復の NaN は、変化の最大（`f64::max` は NaN を捨てる）では見えない
                 if next.flux.iter().flatten().any(|x| !x.is_finite()) {
@@ -611,9 +611,14 @@ impl Problem<'_> {
         })
     }
 
-    /// 粗メッシュの補正: スイープの前の状態 `before` と後の状態 `after` の中性子束の差 δ の散乱と核分裂の源 M̃δ を、粗メッシュの
-    /// セルで体積の積分にした残差で、誤差の問題 (A − F/k) e = R M̃δ を解き（`Coarse::solve_projected`）、e を φ† の状態の形で
-    /// 延ばして `after` に足し、φ† の成分を除く。収束した解では δ = 0 なので、補正は解を変えない
+    /// 粗メッシュの補正: スイープの前の状態 `before` と後の状態 `after`（φ† の成分を除く前）の中性子束の差 δ の散乱と核分裂の源
+    /// M̃δ を、粗メッシュのセルで体積の積分にした残差で、誤差の問題 (A − F/k) e = R M̃δ を解き（`Coarse::solve_projected`）、e を
+    /// φ† の状態の形で延ばして `after` に足し、φ† の成分を除く。収束した解では δ = 0 なので、補正は解を変えない。
+    ///
+    /// δ は φ† の成分を除く前の `after` から取る。除く重み Fφ はスイープの左の固有ベクトル（前向きの散乱と核分裂の源）でないので、
+    /// スイープは φ† の成分を除いた状態からも φ† の成分 β φ† を作る。除いた後の差を使うと、残差に解の不定な分の源 −β M̃φ† が
+    /// 入り、細かい問題にない源への応答を粗メッシュが足す（2A とその 3×3 の格子で、反復の作用素の固有値が約 −1.07 になって発散した。
+    /// ADR-0247）。除く前の差なら、`before` に φ† の倍を足しても δ は変わらず、補正は φ† の成分によらない
     fn correct(
         &self,
         c: &CoarseAcceleration,
@@ -703,7 +708,10 @@ impl Problem<'_> {
         let first = self.step(&vec![zero.clone(); copies], &given, &mut tallies)?;
         let mut krylov: Vec<Krylov> = first
             .into_iter()
-            .map(|(b, _)| Krylov::new(b.pack(), settings.tolerance, restart))
+            .map(|(mut b, _)| {
+                self.project(&mut b);
+                Krylov::new(b.pack(), settings.tolerance, restart)
+            })
             .collect();
         // 基底は源あたり再始動の回数 + 1 本の、この長さの値
         tracing::info!(
@@ -728,11 +736,12 @@ impl Problem<'_> {
                 .collect();
             let images = self.step(&vectors, &none, &mut tallies)?;
             sweeps += 1;
-            for ((k, v), (image, _)) in krylov.iter_mut().zip(&vectors).zip(images) {
+            for ((k, v), (mut image, _)) in krylov.iter_mut().zip(&vectors).zip(images) {
                 if k.done {
                     continue;
                 }
                 // (I − P T₀) v
+                self.project(&mut image);
                 let image = image.pack();
                 if image.iter().any(|x| !x.is_finite()) {
                     return Err(MocError::GeneralizedDiverged { iterations: sweeps });
