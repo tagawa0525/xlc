@@ -44,6 +44,8 @@ pub struct GeneralizedOptions {
     pub tolerance: f64,
     /// スイープの回数の上限
     pub max_iterations: usize,
+    /// すべての源を一緒にスイープする（減衰 1 − exp(−τ) を源の間で共有する）。`false` なら源ごとに解く
+    pub batch: bool,
 }
 
 /// 1 つの源の一般化随伴
@@ -51,7 +53,7 @@ pub struct GeneralizedOptions {
 pub struct Generalized {
     /// [領域][群] のスカラー中性子束（源 S と同じ規格化。⟨Γ, Fφ⟩ = 0）
     pub flux: Vec<Vec<f64>>,
-    /// スイープの回数
+    /// 判定を満たすまでのスイープの回数（一緒にスイープすれば、すべての源が満たすまでスイープを続ける）
     pub iterations: usize,
 }
 
@@ -98,6 +100,18 @@ pub fn solve_generalized(
         }
         _ => Representatives::all(tracking, &mesh, pairs.len()),
     };
+    let copies = if settings.batch { sources.len() } else { 1 };
+    let batched = (copies > 1).then(|| {
+        Sweeper::with_copies(
+            tracking,
+            &adjoint_materials,
+            ng,
+            copies,
+            &mesh,
+            &pairs,
+            representatives.clone(),
+        )
+    });
     let sweeper = Sweeper::new(
         tracking,
         &adjoint_materials,
@@ -172,7 +186,8 @@ pub fn solve_generalized(
         reduced_sources.push(q);
     }
     let problem = Problem {
-        sweeper: &sweeper,
+        single: &sweeper,
+        batched: batched.as_ref(),
         mesh: &mesh,
         materials: &adjoint_materials,
         volumes: &volumes,
@@ -187,19 +202,28 @@ pub fn solve_generalized(
         GeneralizedMethod::Cmfd(cmfd) => Some(problem.coarse(cmfd)?),
         _ => None,
     };
-    reduced_sources
-        .iter()
-        .map(|q| {
-            let (state, iterations) = match (settings.method, &coarse) {
-                (GeneralizedMethod::Gmres { restart }, _) => problem.gmres(q, restart, settings)?,
-                (_, coarse) => problem.source_iteration(q, coarse.as_ref(), settings)?,
-            };
-            Ok(Generalized {
-                flux: reduced.expand(&state.flux),
-                iterations,
-            })
+    let solve = |batch: &[Vec<Vec<f64>>]| -> Result<Vec<(State, usize)>, MocError> {
+        match settings.method {
+            GeneralizedMethod::Gmres { restart } => problem.gmres(batch, restart, settings),
+            _ => problem.source_iteration(batch, coarse.as_ref(), settings),
+        }
+    };
+    let solved = if settings.batch {
+        solve(&reduced_sources)?
+    } else {
+        let mut solved = Vec::with_capacity(reduced_sources.len());
+        for q in &reduced_sources {
+            solved.extend(solve(std::slice::from_ref(q))?);
+        }
+        solved
+    };
+    Ok(solved
+        .into_iter()
+        .map(|(state, iterations)| Generalized {
+            flux: reduced.expand(&state.flux),
+            iterations,
         })
-        .collect()
+        .collect())
 }
 
 /// Σ_代表 Σ_群 a b
@@ -262,7 +286,10 @@ struct CoarseAcceleration {
 
 /// 解く問題（転置した物質のスイープと、φ† を除くための値）
 struct Problem<'a> {
-    sweeper: &'a Sweeper<'a>,
+    /// 1 つの源のスイープ
+    single: &'a Sweeper<'a>,
+    /// すべての源を一緒にスイープするスイープ（`GeneralizedOptions::batch` で源が 2 つ以上のとき）
+    batched: Option<&'a Sweeper<'a>>,
     mesh: &'a CoarseMesh,
     /// [領域] の転置した物質
     materials: &'a [&'a Material],
@@ -279,9 +306,41 @@ struct Problem<'a> {
     adjoint_production: f64,
 }
 
+/// 源ごとの値 `parts` を `chunk` 個ずつ交互に並べる（一緒にスイープする問題の [..][問題][群] の並び）
+fn interleave(parts: &[&[f64]], chunk: usize) -> Vec<f64> {
+    let len = parts.first().map_or(0, |p| p.len());
+    let mut out = Vec::with_capacity(len * parts.len());
+    for at in (0..len).step_by(chunk) {
+        for p in parts {
+            out.extend_from_slice(&p[at..][..chunk]);
+        }
+    }
+    out
+}
+
+/// `interleave` の逆: 問題 `copy` の値
+fn strand(values: &[f64], copies: usize, chunk: usize, copy: usize) -> Vec<f64> {
+    values
+        .chunks(copies * chunk)
+        .flat_map(|c| &c[copy * chunk..][..chunk])
+        .copied()
+        .collect()
+}
+
 impl Problem<'_> {
     fn kept(&self) -> &[usize] {
-        &self.sweeper.representatives.regions.representatives
+        &self.single.representatives.regions.representatives
+    }
+
+    /// `copies` 個の源を一緒にスイープするスイープ
+    fn sweeper(&self, copies: usize) -> &Sweeper<'_> {
+        match self.batched {
+            Some(b) if b.copies == copies => b,
+            _ => {
+                assert_eq!(copies, 1, "no sweep for {copies} sources");
+                self.single
+            }
+        }
     }
 
     /// 0 の状態
@@ -290,24 +349,20 @@ impl Problem<'_> {
         State {
             flux: vec![vec![0.0; self.ng]; states],
             higher: vec![vec![0.0; (self.pairs.len() - 1) * self.ng]; states],
-            outgoing: vec![0.0; self.sweeper.outgoing_len()],
+            outgoing: vec![0.0; self.single.outgoing_len()],
         }
     }
 
     /// 状態（[代表][群] の中性子束と高次のモーメント）と源 `source`（[代表][群]。`None` なら 0）の、[代表][モーメント][群] の
     /// 角度中性子束の平衡値の展開係数
-    fn equilibrium(
-        &self,
-        flux: &[Vec<f64>],
-        higher: &[Vec<f64>],
-        source: Option<&[Vec<f64>]>,
-    ) -> Vec<Vec<f64>> {
+    fn equilibrium(&self, state: &State, source: Option<&[Vec<f64>]>) -> Vec<Vec<f64>> {
         let kept = self.kept();
         (0..kept.len())
             .into_par_iter()
             .map(|i| {
                 let m = self.materials[kept[i]];
-                let mut e = equilibrium_moments(m, &flux[i], &higher[i], self.k, self.pairs);
+                let mut e =
+                    equilibrium_moments(m, &state.flux[i], &state.higher[i], self.k, self.pairs);
                 // 真空の領域の線源は Σt で割らずに置く（`Sweeper::sweep`）
                 if let Some(q) = source {
                     let void = m.is_void();
@@ -324,70 +379,81 @@ impl Problem<'_> {
             .collect()
     }
 
-    /// 平衡値 `equilibrium` でスイープした和 `tallies` から、[代表][群] の中性子束と [代表][モーメント (1 番目から)][群] の高次の
-    /// モーメント（`solve_with` と同じ式）と、[粗メッシュの面][群] の正味の中性子流
-    fn moments(&self, equilibrium: &[Vec<f64>], tallies: &[super::Tally]) -> (State, Vec<f64>) {
-        let (sweeper, ng, pairs) = (self.sweeper, self.ng, self.pairs);
+    /// 状態 `states` から、源 `sources`（[問題]。`None` なら 0）を足して一緒に 1 回スイープした状態（φ† の成分を除いたもの）と、
+    /// [粗メッシュの面][群] の正味の中性子流
+    fn step(
+        &self,
+        states: &[State],
+        sources: &[Option<&[Vec<f64>]>],
+        tallies: &mut [super::Tally],
+    ) -> Result<Vec<(State, Vec<f64>)>, MocError> {
+        let copies = states.len();
+        let sweeper = self.sweeper(copies);
+        let (ng, pairs) = (self.ng, self.pairs);
+        let equilibria: Vec<Vec<Vec<f64>>> = states
+            .iter()
+            .zip(sources)
+            .map(|(state, source)| self.equilibrium(state, *source))
+            .collect();
+        let equilibrium: Vec<Vec<f64>> = (0..self.kept().len())
+            .map(|i| {
+                let parts: Vec<&[f64]> = equilibria.iter().map(|e| e[i].as_slice()).collect();
+                interleave(&parts, ng)
+            })
+            .collect();
+        let incoming = {
+            let parts: Vec<&[f64]> = states.iter().map(|s| s.outgoing.as_slice()).collect();
+            interleave(&parts, ng)
+        };
+        let mut outgoing = vec![0.0; incoming.len()];
+        sweeper.sweep(&equilibrium, &incoming, &mut outgoing, tallies)?;
         let mut sums = sum_tallies(sweeper, tallies);
         sweeper
             .representatives
-            .symmetrize(&mut sums, &sweeper.void, ng);
+            .symmetrize(&mut sums, &sweeper.void, copies * ng);
         let kept = self.kept();
-        let (flux, higher) = (0..kept.len())
-            .into_par_iter()
-            .map(|i| {
-                let region = kept[i];
-                let volume = self.volumes[region];
-                let mut higher = vec![0.0; (pairs.len() - 1) * ng];
-                if let Some(v) = sweeper.void[region] {
-                    let flux = sums.void_flux[v * ng..][..ng]
-                        .iter()
-                        .map(|f| f / volume)
-                        .collect();
-                    return (flux, higher);
-                }
-                let total = &self.materials[region].total;
-                let flux = (0..ng)
-                    .map(|g| {
-                        4.0 * PI * equilibrium[i][g]
-                            + sums.delta[i * pairs.len() * ng + g] / (total[g] * volume)
-                    })
-                    .collect();
-                for (k, &(l, _)) in pairs.iter().enumerate().skip(1) {
-                    let delta = &sums.delta[(i * pairs.len() + k) * ng..][..ng];
-                    let e = &equilibrium[i][k * ng..][..ng];
-                    for (g, h) in higher[(k - 1) * ng..][..ng].iter_mut().enumerate() {
-                        *h = 4.0 * PI * e[g] / (2 * l + 1) as f64 + delta[g] / (total[g] * volume);
+        let mut next = Vec::with_capacity(copies);
+        for (copy, e) in equilibria.iter().enumerate() {
+            // [代表][モーメント][問題][群] の和の、この問題の分
+            let delta = |i: usize, k: usize| {
+                &sums.delta[((i * pairs.len() + k) * copies + copy) * ng..][..ng]
+            };
+            let (flux, higher) = (0..kept.len())
+                .into_par_iter()
+                .map(|i| {
+                    let region = kept[i];
+                    let volume = self.volumes[region];
+                    let mut higher = vec![0.0; (pairs.len() - 1) * ng];
+                    if let Some(v) = sweeper.void[region] {
+                        let flux = sums.void_flux[(v * copies + copy) * ng..][..ng]
+                            .iter()
+                            .map(|f| f / volume)
+                            .collect();
+                        return (flux, higher);
                     }
-                }
-                (flux, higher)
-            })
-            .unzip();
-        (
-            State {
+                    let total = &self.materials[region].total;
+                    let flux = (0..ng)
+                        .map(|g| 4.0 * PI * e[i][g] + delta(i, 0)[g] / (total[g] * volume))
+                        .collect();
+                    for (k, &(l, _)) in pairs.iter().enumerate().skip(1) {
+                        let e = &e[i][k * ng..][..ng];
+                        for (g, h) in higher[(k - 1) * ng..][..ng].iter_mut().enumerate() {
+                            *h = 4.0 * PI * e[g] / (2 * l + 1) as f64
+                                + delta(i, k)[g] / (total[g] * volume);
+                        }
+                    }
+                    (flux, higher)
+                })
+                .unzip();
+            let mut state = State {
                 flux,
                 higher,
-                outgoing: Vec::new(),
-            },
-            sums.current,
-        )
-    }
-
-    /// 状態 `state` から、源 `source` を足して 1 回スイープした状態（φ† の成分を除いたもの）と、面の正味の中性子流
-    fn step(
-        &self,
-        state: &State,
-        source: Option<&[Vec<f64>]>,
-        tallies: &mut [super::Tally],
-    ) -> Result<(State, Vec<f64>), MocError> {
-        let equilibrium = self.equilibrium(&state.flux, &state.higher, source);
-        let mut outgoing = vec![0.0; state.outgoing.len()];
-        self.sweeper
-            .sweep(&equilibrium, &state.outgoing, &mut outgoing, tallies)?;
-        let (mut next, current) = self.moments(&equilibrium, tallies);
-        next.outgoing = outgoing;
-        self.project(&mut next);
-        Ok((next, current))
+                outgoing: strand(&outgoing, copies, ng, copy),
+            };
+            self.project(&mut state);
+            next.push((state, strand(&sums.current, copies, ng, copy)));
+        }
+        Ok(next)
     }
 
     /// 状態から φ† の状態の倍を除き、⟨Γ, Fφ⟩ = 0 にする
@@ -408,26 +474,35 @@ impl Problem<'_> {
     }
 
     /// 射影つきの源の反復: 0 の状態から、源と前の状態の散乱と核分裂の平衡値でスイープし、φ† の成分を除くことを繰り返す。
-    /// `coarse` があれば、スイープごとに粗メッシュの補正を足す（`correct`）。状態とスイープの回数を返す
+    /// `coarse` があれば、スイープごとに粗メッシュの補正を足す（`correct`）。源 `sources` を一緒にスイープし、すべてが判定を
+    /// 満たすまで続ける。[源] の状態と、判定を満たしたスイープの回数を返す
     fn source_iteration(
         &self,
-        source: &[Vec<f64>],
+        sources: &[Vec<Vec<f64>>],
         coarse: Option<&CoarseAcceleration>,
         settings: &GeneralizedOptions,
-    ) -> Result<(State, usize), MocError> {
-        let mut state = self.zero();
-        let mut tallies = self.sweeper.tallies(self.materials.len());
-        let mut history = Remaining::default();
+    ) -> Result<Vec<(State, usize)>, MocError> {
+        let copies = sources.len();
+        let mut states = vec![self.zero(); copies];
+        let mut tallies = self.sweeper(copies).tallies(self.materials.len());
+        let mut histories: Vec<Remaining> = (0..copies).map(|_| Remaining::default()).collect();
+        let mut done: Vec<Option<usize>> = vec![None; copies];
+        let given: Vec<Option<&[Vec<f64>]>> = sources.iter().map(|q| Some(q.as_slice())).collect();
         for iteration in 1..=settings.max_iterations {
-            let (mut next, _) = self.step(&state, Some(source), &mut tallies)?;
-            if let Some(c) = coarse {
-                self.correct(c, &state, &mut next)?;
+            let swept = self.step(&states, &given, &mut tallies)?;
+            for (copy, ((mut next, _), state)) in swept.into_iter().zip(&mut states).enumerate() {
+                if let Some(c) = coarse {
+                    self.correct(c, state, &mut next)?;
+                }
+                let change = largest_change(&next.flux, &state.flux);
+                tracing::debug!(iteration, copy, change, "generalized adjoint");
+                *state = next;
+                if histories[copy].update(change) < settings.tolerance && done[copy].is_none() {
+                    done[copy] = Some(iteration);
+                }
             }
-            let change = largest_change(&next.flux, &state.flux);
-            tracing::debug!(iteration, change, "generalized adjoint");
-            state = next;
-            if history.update(change) < settings.tolerance {
-                return Ok((state, iteration));
+            if done.iter().all(Option::is_some) {
+                return Ok(states.into_iter().zip(done.into_iter().flatten()).collect());
             }
         }
         Err(MocError::GeneralizedNotConverged {
@@ -440,17 +515,48 @@ impl Problem<'_> {
     /// φ† が零ベクトル）
     fn coarse(&self, options: CmfdOptions) -> Result<CoarseAcceleration, MocError> {
         let a = self.adjoint;
-        let mut tallies = self.sweeper.tallies(self.materials.len());
-        let equilibrium = self.equilibrium(&a.flux, &a.higher, None);
+        let mut tallies = self.single.tallies(self.materials.len());
+        let start = State {
+            flux: a.flux.clone(),
+            higher: a.higher.clone(),
+            outgoing: a.outgoing.clone(),
+        };
+        // φ† の成分を除かずに、スイープした値そのものを使う
+        let equilibrium = self.equilibrium(&start, None);
         let mut outgoing = vec![0.0; a.outgoing.len()];
-        self.sweeper
+        self.single
             .sweep(&equilibrium, &a.outgoing, &mut outgoing, &mut tallies)?;
-        let (swept, mut current) = self.moments(&equilibrium, &tallies);
-        let reduced = &self.sweeper.representatives;
+        let mut sums = sum_tallies(self.single, &tallies);
+        self.single
+            .representatives
+            .symmetrize(&mut sums, &self.single.void, self.ng);
+        let reduced = &self.single.representatives;
         let orbit_volumes = reduced.regions.sums(self.volumes);
         let kept = self.kept();
+        let ng = self.ng;
+        let swept: Vec<Vec<f64>> = (0..kept.len())
+            .map(|i| {
+                let region = kept[i];
+                let volume = self.volumes[region];
+                match self.single.void[region] {
+                    Some(v) => sums.void_flux[v * ng..][..ng]
+                        .iter()
+                        .map(|f| f / volume)
+                        .collect(),
+                    None => {
+                        let total = &self.materials[region].total;
+                        (0..ng)
+                            .map(|g| {
+                                4.0 * PI * equilibrium[i][g]
+                                    + sums.delta[i * self.pairs.len() * ng + g]
+                                        / (total[g] * volume)
+                            })
+                            .collect()
+                    }
+                }
+            })
+            .collect();
         let rate: f64 = swept
-            .flux
             .iter()
             .zip(&orbit_volumes)
             .enumerate()
@@ -463,13 +569,10 @@ impl Problem<'_> {
             })
             .sum();
         let flux: Vec<Vec<f64>> = swept
-            .flux
             .iter()
             .map(|f| f.iter().map(|x| x / rate).collect())
             .collect();
-        for c in &mut current {
-            *c /= rate;
-        }
+        let current: Vec<f64> = sums.current.iter().map(|c| c / rate).collect();
         let cells = &reduced.cells;
         let coarse = Coarse::homogenize(
             self.mesh,
@@ -481,7 +584,6 @@ impl Problem<'_> {
             &current,
         )?;
         // W_c = Σ_{代表の領域 i ⊂ c} w_i φ†_i / φ̄†_c（延ばす形は φ† の状態なので、⟨Πe, Fφ⟩ = W · e）
-        let ng = self.ng;
         let average = coarse.homogenized_flux();
         let mut weights = vec![0.0; cells.representatives.len() * ng];
         for (i, &region) in kept.iter().enumerate() {
@@ -507,7 +609,7 @@ impl Problem<'_> {
         after: &mut State,
     ) -> Result<(), MocError> {
         let (ng, k) = (self.ng, self.k);
-        let reduced = &self.sweeper.representatives;
+        let reduced = &self.single.representatives;
         let cells = &reduced.cells;
         let kept = self.kept();
         // [代表][群] の M̃δ（P0 の散乱と核分裂）
@@ -564,7 +666,7 @@ impl Problem<'_> {
                     *x += ratio[cell * ng + j % ng] * y;
                 }
             });
-        self.sweeper
+        self.single
             .add_outgoing(&mut after.outgoing, &a.outgoing, |cell, g| {
                 ratio[cells.index[cell] * ng + g]
             });
@@ -574,101 +676,206 @@ impl Problem<'_> {
 
     /// 射影した作用素の GMRES: x = P T₀ x + P T(0)（T₀ は源のないスイープ、P は φ† の成分を除く射影）を (I − P T₀) x = P T(0) と
     /// 書き、`restart` 回ごとに再始動する GMRES で解く。内積は並べた状態の値の和で、残差のノルムが右辺のノルムの判定倍に
-    /// なったら止める。状態とスイープの回数を返す
+    /// なったら止める。源 `sources` ごとの Arnoldi の過程を、作用素を掛けるスイープを一緒にして進める。[源] の状態と、判定を
+    /// 満たしたスイープの回数を返す
     fn gmres(
         &self,
-        source: &[Vec<f64>],
+        sources: &[Vec<Vec<f64>>],
         restart: usize,
         settings: &GeneralizedOptions,
-    ) -> Result<(State, usize), MocError> {
+    ) -> Result<Vec<(State, usize)>, MocError> {
+        let copies = sources.len();
         let zero = self.zero();
-        let mut tallies = self.sweeper.tallies(self.materials.len());
-        let (first, _) = self.step(&zero, Some(source), &mut tallies)?;
+        let mut tallies = self.sweeper(copies).tallies(self.materials.len());
+        let given: Vec<Option<&[Vec<f64>]>> = sources.iter().map(|q| Some(q.as_slice())).collect();
+        let first = self.step(&vec![zero.clone(); copies], &given, &mut tallies)?;
+        let mut krylov: Vec<Krylov> = first
+            .into_iter()
+            .map(|(b, _)| Krylov::new(b.pack(), settings.tolerance, restart))
+            .collect();
         let mut sweeps = 1;
-        let b = first.pack();
-        let norm = |v: &[f64]| v.par_iter().map(|x| x * x).sum::<f64>().sqrt();
-        let inner = |a: &[f64], b: &[f64]| a.par_iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
-        let target = settings.tolerance * norm(&b);
-        let mut x = vec![0.0; b.len()];
-        // (I − P T₀) v
-        let mut apply = |v: &[f64], sweeps: &mut usize| -> Result<Vec<f64>, MocError> {
-            *sweeps += 1;
-            let (image, _) = self.step(&State::unpack(v, &zero), None, &mut tallies)?;
-            let image = image.pack();
-            Ok(v.par_iter().zip(&image).map(|(a, b)| a - b).collect())
-        };
-        if target == 0.0 {
-            return Ok((zero, sweeps));
+        let none: Vec<Option<&[Vec<f64>]>> = vec![None; copies];
+        while krylov.iter().any(|k| !k.done) {
+            if sweeps >= settings.max_iterations {
+                return Err(MocError::GeneralizedNotConverged { iterations: sweeps });
+            }
+            // 判定を満たした源は 0 をスイープする（一緒にスイープするので、回数は変わらない）
+            let vectors: Vec<State> = krylov
+                .iter()
+                .map(|k| {
+                    k.request()
+                        .map_or_else(|| zero.clone(), |v| State::unpack(v, &zero))
+                })
+                .collect();
+            let images = self.step(&vectors, &none, &mut tallies)?;
+            sweeps += 1;
+            for ((k, v), (image, _)) in krylov.iter_mut().zip(&vectors).zip(images) {
+                if k.done {
+                    continue;
+                }
+                // (I − P T₀) v
+                let image = image.pack();
+                let applied: Vec<f64> = v
+                    .pack()
+                    .par_iter()
+                    .zip(&image)
+                    .map(|(a, b)| a - b)
+                    .collect();
+                k.receive(applied, sweeps);
+            }
         }
-        loop {
-            let r: Vec<f64> = if sweeps == 1 {
-                b.clone()
-            } else {
-                let ax = apply(&x, &mut sweeps)?;
-                b.par_iter().zip(&ax).map(|(a, c)| a - c).collect()
-            };
-            let beta = norm(&r);
-            if beta <= target {
-                return Ok((State::unpack(&x, &zero), sweeps));
-            }
-            let mut basis: Vec<Vec<f64>> = vec![r.par_iter().map(|v| v / beta).collect()];
-            // 上三角にした Hessenberg 行列の列と、Givens の回転、最小二乗の右辺
-            let mut columns: Vec<Vec<f64>> = Vec::new();
-            let mut rotations: Vec<(f64, f64)> = Vec::new();
-            let mut g = vec![beta];
-            for j in 0..restart {
-                if sweeps >= settings.max_iterations {
-                    return Err(MocError::GeneralizedNotConverged { iterations: sweeps });
-                }
-                let mut w = apply(&basis[j], &mut sweeps)?;
-                let mut h = Vec::with_capacity(j + 2);
-                for v in &basis {
-                    let c = inner(&w, v);
-                    w.par_iter_mut().zip(v).for_each(|(a, b)| *a -= c * b);
-                    h.push(c);
-                }
-                let next = norm(&w);
-                h.push(next);
-                for (i, &(c, s)) in rotations.iter().enumerate() {
-                    let (a, b) = (h[i], h[i + 1]);
-                    h[i] = c * a + s * b;
-                    h[i + 1] = -s * a + c * b;
-                }
-                let (a, b) = (h[j], h[j + 1]);
-                let radius = a.hypot(b);
-                let (c, s) = (a / radius, b / radius);
-                h[j] = radius;
-                h[j + 1] = 0.0;
-                rotations.push((c, s));
-                g.push(-s * g[j]);
-                g[j] *= c;
-                h.truncate(j + 1);
-                columns.push(h);
-                let converged = g[j + 1].abs() <= target;
-                tracing::debug!(
-                    sweeps,
-                    residual = g[j + 1].abs() / (target / settings.tolerance),
-                    "generalized adjoint GMRES"
-                );
-                if converged || next == 0.0 || j + 1 == restart {
-                    // 上三角の系を後退代入で解き、x に基底の和を足す
-                    let n = columns.len();
-                    let mut y = vec![0.0; n];
-                    for i in (0..n).rev() {
-                        let sum: f64 = ((i + 1)..n).map(|l| columns[l][i] * y[l]).sum();
-                        y[i] = (g[i] - sum) / columns[i][i];
-                    }
-                    for (v, coefficient) in basis.iter().zip(&y) {
-                        x.par_iter_mut()
-                            .zip(v)
-                            .for_each(|(a, b)| *a += coefficient * b);
-                    }
-                    break;
-                }
-                basis.push(w.par_iter().map(|v| v / next).collect());
-            }
+        Ok(krylov
+            .into_iter()
+            .map(|k| (State::unpack(&k.x, &zero), k.sweeps))
+            .collect())
+    }
+}
+
+/// 1 つの源の、再始動つきの GMRES の過程（`Problem::gmres`）。作用素を掛ける値を `request` で出し、掛けた値を `receive` で受ける
+struct Krylov {
+    /// 解の近似
+    x: Vec<f64>,
+    /// 右辺
+    b: Vec<f64>,
+    /// 止める残差のノルム（判定 × 右辺のノルム）
+    target: f64,
+    restart: usize,
+    /// 正規直交の基底
+    basis: Vec<Vec<f64>>,
+    /// Givens の回転で上三角にした Hessenberg 行列の列
+    columns: Vec<Vec<f64>>,
+    rotations: Vec<(f64, f64)>,
+    /// 最小二乗の右辺
+    g: Vec<f64>,
+    /// 次に掛ける値が解の近似 x（再始動の残差）か
+    residual: bool,
+    done: bool,
+    /// 判定を満たしたスイープの回数
+    sweeps: usize,
+}
+
+impl Krylov {
+    fn new(b: Vec<f64>, tolerance: f64, restart: usize) -> Self {
+        let target = tolerance * norm(&b);
+        let mut k = Self {
+            x: vec![0.0; b.len()],
+            b,
+            target,
+            restart,
+            basis: Vec::new(),
+            columns: Vec::new(),
+            rotations: Vec::new(),
+            g: Vec::new(),
+            residual: false,
+            done: false,
+            sweeps: 1,
+        };
+        let r = k.b.clone();
+        k.begin(r);
+        k
+    }
+
+    /// 残差 `r` から Arnoldi の過程を始める（判定を満たしていれば終える）
+    fn begin(&mut self, r: Vec<f64>) {
+        let beta = norm(&r);
+        self.residual = false;
+        if beta <= self.target {
+            self.done = true;
+            return;
+        }
+        self.basis = vec![r.par_iter().map(|v| v / beta).collect()];
+        self.columns.clear();
+        self.rotations.clear();
+        self.g = vec![beta];
+    }
+
+    /// 作用素を掛ける値（終えていれば `None`）
+    fn request(&self) -> Option<&[f64]> {
+        if self.done {
+            None
+        } else if self.residual {
+            Some(&self.x)
+        } else {
+            self.basis.last().map(Vec::as_slice)
         }
     }
+
+    /// `request` の値に作用素を掛けた値 `applied` を受ける（`sweeps` はそこまでのスイープの回数）
+    fn receive(&mut self, applied: Vec<f64>, sweeps: usize) {
+        if self.residual {
+            let r = self
+                .b
+                .par_iter()
+                .zip(&applied)
+                .map(|(a, c)| a - c)
+                .collect();
+            self.begin(r);
+            self.sweeps = sweeps;
+            return;
+        }
+        let j = self.columns.len();
+        let mut w = applied;
+        let mut h = Vec::with_capacity(j + 2);
+        for v in &self.basis {
+            let c = inner(&w, v);
+            w.par_iter_mut().zip(v).for_each(|(a, b)| *a -= c * b);
+            h.push(c);
+        }
+        let next = norm(&w);
+        h.push(next);
+        for (i, &(c, s)) in self.rotations.iter().enumerate() {
+            let (a, b) = (h[i], h[i + 1]);
+            h[i] = c * a + s * b;
+            h[i + 1] = -s * a + c * b;
+        }
+        let (a, b) = (h[j], h[j + 1]);
+        let radius = a.hypot(b);
+        let (c, s) = (a / radius, b / radius);
+        h[j] = radius;
+        h.truncate(j + 1);
+        self.rotations.push((c, s));
+        self.g.push(-s * self.g[j]);
+        self.g[j] *= c;
+        self.columns.push(h);
+        let residual = self.g[j + 1].abs();
+        tracing::debug!(
+            sweeps,
+            residual,
+            target = self.target,
+            "generalized adjoint GMRES"
+        );
+        if residual <= self.target || next == 0.0 || j + 1 == self.restart {
+            // 上三角の系を後退代入で解き、x に基底の和を足す
+            let n = self.columns.len();
+            let mut y = vec![0.0; n];
+            for i in (0..n).rev() {
+                let sum: f64 = ((i + 1)..n).map(|l| self.columns[l][i] * y[l]).sum();
+                y[i] = (self.g[i] - sum) / self.columns[i][i];
+            }
+            for (v, coefficient) in self.basis.iter().zip(&y) {
+                self.x
+                    .par_iter_mut()
+                    .zip(v)
+                    .for_each(|(a, b)| *a += coefficient * b);
+            }
+            self.sweeps = sweeps;
+            if residual <= self.target || next == 0.0 {
+                self.done = true;
+            } else {
+                self.residual = true;
+            }
+            return;
+        }
+        self.basis.push(w.par_iter().map(|v| v / next).collect());
+    }
+}
+
+fn norm(v: &[f64]) -> f64 {
+    inner(v, v).sqrt()
+}
+
+fn inner(a: &[f64], b: &[f64]) -> f64 {
+    a.par_iter().zip(b).map(|(x, y)| x * y).sum::<f64>()
 }
 
 /// 群ごとの、領域の |Γ| の最大値に対する変化の最大（Γ は符号を変えるので、領域ごとの相対の変化は 0 の近くで定まらない）

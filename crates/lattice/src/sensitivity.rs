@@ -460,6 +460,7 @@ fn compare_generalized(
                 },
                 tolerance,
                 max_iterations: options.max_iterations,
+                batch: false,
             };
             let clock = Instant::now();
             let gamma = solve_generalized(

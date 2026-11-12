@@ -16,6 +16,7 @@ use crate::symmetry::{Image, Orbits, SymmetryError};
 use crate::tracking::Tracking;
 
 /// スイープする代表のトラック、状態を持つ代表の領域とセル、tally の集め方。
+#[derive(Clone)]
 pub(super) struct Representatives {
     /// スイープするトラック（番号の順）
     pub tracks: Vec<usize>,
@@ -36,6 +37,7 @@ pub(super) struct Representatives {
 }
 
 /// 1つの対称操作による tally の像。
+#[derive(Clone)]
 struct TallyImage {
     /// [領域] の像の領域
     regions: Vec<usize>,
