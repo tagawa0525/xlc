@@ -15,7 +15,7 @@ resolution: コミット b76472d53
 - #0279 の「段 5 の結果」の core（examples/depletion/issue-0279/core-micro/）で、ミクロ燃焼なしの core の k が、テーブルの燃焼度の点で
   格子計算の燃焼の履歴（examples/depletion/p2/lattice-2A.msgpack、md5 c028d773）の k∞ からずれる（値は #0279 の「段 5 の結果」）。ADR-0221 の
   時点の同じ比較（examples/depletion/verification.md の「core のミクロ燃焼（2A の集合体 1 体）」の「結果」）は 0.1 pcm より小さかった
-- ずれは core の前の、テーブルを作る格子計算で既にある: table-d0.msgpack の状態の k∞ と履歴の k∞ の差は 17 点で −13.299〜−2.307 pcm
+- ずれは core の前の、テーブルを作る格子計算で既にある: examples/depletion/issue-0279/core-micro/table-d0.msgpack の状態の k∞ と履歴の k∞ の差は 17 点で −13.299〜−2.307 pcm
   （core の k との差と同じ。下の「切り分け」の table_history_k.py、xlc b9c947223、2026-11-13）。燃焼度 0 は組成が入力のままでも −2.855 pcm ある
 - 原因は不具合でなく、履歴とテーブルを解いた自己遮蔽の既定の違い: 履歴（examples/depletion/p2/dvc.lock の `lattice@2A`。bin/lattice
   md5 598a45ce、ライブラリ md5 a96f4f23、2026-11-07）は自由ガスの上限が分離共鳴を持つ核種も持たない核種も 400 kT の既定で解かれ、

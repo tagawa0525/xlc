@@ -14,10 +14,11 @@ resolution:
 
 - テーブルの `[history]`（crates/lattice/src/history.rs）は、履歴のライブラリの温度と輸送する核種が入力と合うかは確かめるが、履歴を
   解いた自己遮蔽の設定（自由ガスの上限など）は履歴の msgpack に無く、確かめられない。既定が変わった後に古い履歴から作ったテーブルは、
-  テーブルの点の k∞ が履歴から黙ってずれる（#0283 の「切り分け」。2A の燃焼度 0〜60 MWd/kg で数 pcm から 13 pcm、上限の片方だけで 29 pcm）
-- examples/depletion/p2/lattice-2A.msgpack（`lattice@2A`）は ADR-0243 と ADR-0246 の前の既定で解かれたまま（#0283）。この履歴を読む
-  入力は examples/depletion/ の下に 30 ほど（branches/ 22、history/ 12 など。`grep -rl p2/lattice-2A.msgpack examples --include=*.toml`）あり、
-  今の既定で作るテーブルはどれも同じ違いを持つ
+  テーブルの点の k∞ が履歴から黙ってずれる（大きさは #0283 の「切り分け」）
+- examples/depletion/p2/lattice-2A.msgpack（examples/depletion/p2/dvc.yaml の `lattice@2A`）は ADR-0243 と ADR-0246 の前の既定で解かれたまま
+  （#0283）。このパスを書いた追跡している入力は、#0283 の切り分けの 6 つのほかに examples/depletion/ の下に 44（branches/ 22、history/ 12、
+  issue-0279/core-micro/ 4、micro/ 2 など。`git ls-files examples | grep '\.toml$' | xargs grep -l p2/lattice-2A.msgpack`、注釈だけのものを含む）あり、
+  今の既定でこの履歴から作るテーブルはどれも同じ違いを持つ。作り直すと、下流の DVC のステージは同じ yaml の `compare@2A`（OpenMC との比較）
 - 候補（どれも確かめていない）: 履歴に自己遮蔽の設定（`ufg-free-gas` など、k を変える自己遮蔽の入力）を書き、テーブルの入力と違えば
   止める。比べる項目の範囲（自己遮蔽のほかの設定、MOC の離散化）と、意図して違う設定で解く入力（#0283 の caps-400.toml の
   ような切り分け）の書き方は決めていない
