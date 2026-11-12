@@ -1903,7 +1903,7 @@ impl LatticeInput {
                     flux_tolerance: s.flux_tolerance,
                     generalized: s.generalized.map(GeneralizedEntry::into_input).transpose()?,
                     few_group,
-                    ufg_tangent: ufg_tangent.and(None),
+                    ufg_tangent,
                 })
             })
             .transpose()

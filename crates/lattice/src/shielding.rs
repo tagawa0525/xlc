@@ -861,7 +861,7 @@ pub fn shield_fuel_tangent(
             transfer: options.transfer,
             shares,
             hold,
-            tangent: tangent.and(None),
+            tangent,
         };
         let ufg = shield_cell(
             library,
