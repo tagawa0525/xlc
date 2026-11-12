@@ -871,8 +871,8 @@ impl Coarse {
     ///
     /// 1 回は e_前 について線形なので、不動点を、1 回から rhs の分を除いた作用素 M の (I − M) e = (rhs だけの 1 回) として GMRES で
     /// 解く。1 回を繰り返す反復は、2 番目のモードの比と、2 次元の格子では Gauss-Seidel の 1 − O(h²) で収束が遅い（2A の 3×3 の
-    /// 格子で補正 1 回あたり約 550 回、2A で補正 1 回 0.2 秒。ADR-0247）。判定は `options` の中性子束の判定で、残差の 2 ノルムが
-    /// 右辺のノルムのこの倍になったら止める。`max_iterations` は 1 回を行う回数の上限
+    /// 格子で補正 1 回あたり約 550 回、2A で補正 1 回 0.2 秒。ADR-0247）。`options` の中性子束の判定は、ここでは (I − M) e の残差の
+    /// 2 ノルムが右辺のノルムのこの倍になったら止める値（変化の上限でない）。`max_iterations` は 1 回を行う回数の上限
     pub(crate) fn solve_projected(
         &self,
         k: f64,
@@ -957,14 +957,13 @@ impl Coarse {
         if first.iter().any(|x| !x.is_finite()) {
             return Err(CmfdError::NotFinite);
         }
-        // 再始動しない（基底は高々 1 回を行う回数の本数の、粗メッシュの長さの値）
-        let mut krylov = Krylov::new(first, options.flux_tolerance, options.max_iterations);
+        // 未知数の数ごとに再始動する（丸めがなければ GMRES はその回数の中で解く。基底は高々未知数の数の本数）
+        let mut krylov = Krylov::new(first, options.flux_tolerance, cells * ng);
         let mut steps = 1;
-        while !krylov.done() {
+        while let Some(v) = krylov.request().map(<[f64]>::to_vec) {
             if steps >= options.max_iterations {
                 return Err(CmfdError::NotConverged(options.max_iterations));
             }
-            let v = krylov.request().map(<[f64]>::to_vec).unwrap_or_default();
             let image = pass(&v, None);
             steps += 1;
             let applied = v.iter().zip(&image).map(|(a, b)| a - b).collect();
