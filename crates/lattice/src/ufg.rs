@@ -120,6 +120,11 @@ pub enum UfgError {
     },
     #[error("the up-scattering of the free-gas kernel did not converge in {0} sweeps")]
     NotConverged(usize),
+    /// 掃き直しの塊が、持った飛程の続きでない（内部の不整合）
+    #[error(
+        "held tracks: the chunk from re-swept point {start} does not continue the {held} held points"
+    )]
+    HeldTracks { start: usize, held: usize },
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
     /// 核種を含むリングの縮約の結果がない（内部の不整合）
@@ -1090,11 +1095,12 @@ impl Pass<'_> {
                 (Some(h), Some(r)) => {
                     // 掃き直しは `start` から順に塊を解くので、持っていない塊は持った飛程の続き。ほかは呼び方の誤りで、黙って
                     // 求め直さない（速くならないだけで、テストが見つけない）
-                    assert_eq!(
-                        r.start,
-                        h.tracks.len(),
-                        "held tracks: chunk {chunk:?} does not continue the held points"
-                    );
+                    if r.start != h.tracks.len() {
+                        return Err(UfgError::HeldTracks {
+                            start: r.start,
+                            held: h.tracks.len(),
+                        });
+                    }
                     let solved = solve()?;
                     *collisions += solved.len();
                     h.tracks.extend(solved);
