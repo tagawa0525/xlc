@@ -120,6 +120,23 @@ impl Axis {
         (first, weights)
     }
 
+    /// [`Axis::stencil`] の重みの、内挿の位置 s についての微分（同じ点の組。点が 1 つの軸は 0）
+    fn stencil_slope(&self, sigma: f64) -> [f64; STENCIL] {
+        if self.count == 1 {
+            return [0.0; STENCIL];
+        }
+        let s = (sigma.ln() - self.start) / self.step;
+        let last = (self.count - STENCIL) as f64;
+        let first = (s.floor() - 1.0).clamp(0.0, last);
+        let x = s - first;
+        [
+            -((x - 2.0) * (x - 3.0) + (x - 1.0) * (x - 3.0) + (x - 1.0) * (x - 2.0)) / 6.0,
+            ((x - 2.0) * (x - 3.0) + x * (x - 3.0) + x * (x - 2.0)) / 2.0,
+            -((x - 1.0) * (x - 3.0) + x * (x - 3.0) + x * (x - 1.0)) / 2.0,
+            ((x - 1.0) * (x - 2.0) + x * (x - 2.0) + x * (x - 1.0)) / 6.0,
+        ]
+    }
+
     fn width(&self) -> usize {
         self.count.min(STENCIL)
     }
@@ -473,8 +490,86 @@ impl TrackTable {
         sigma: &[f64],
         material: usize,
     ) -> Result<Option<Vec<Vec<f64>>>, TableError> {
-        let _ = (sigma, material);
-        Ok(None)
+        let materials = self.layout.axes.len();
+        if sigma.len() != materials || material >= materials {
+            return Err(TableError::Materials {
+                given: sigma.len(),
+                materials,
+            });
+        }
+        let Some(centers) = expansion_centers(&self.layout, &self.axes, sigma)? else {
+            return Ok(None);
+        };
+        let n = self.layout.classes.len();
+        let axis = self.layout.axes[material];
+        let shared = self.layout.members[axis] > 1;
+        let s = sigma[material];
+        // 軸の値の ln の微分: 物質が 1 つの軸は Σ そのもの、共有する軸は体積の重みの平均（[`Layout::centers`]）
+        let log_center = if shared {
+            self.layout.weights[material] / s
+        } else {
+            1.0 / s
+        };
+        // 表の値と微分ごとの係数（[`TrackTable::tracks`] と同じ）と、その微分。微分の物質 m' の係数 ln Σ_m' − ln 中心 は、
+        // Σ_material で m' = material なら 1/Σ、同じ軸の物質なら中心の分だけ変わる
+        let mut coefficients = vec![1.0];
+        let mut slopes = vec![0.0];
+        for (m, slot) in self.layout.slots.iter().enumerate() {
+            if slot.is_some() {
+                let a = self.layout.axes[m];
+                coefficients.push(sigma[m].ln() - centers[a].ln());
+                let own = if m == material { 1.0 / s } else { 0.0 };
+                let center = if a == axis { log_center } else { 0.0 };
+                slopes.push(own - center);
+            }
+        }
+        let block = coefficients.len() * n * n;
+        let mut r = vec![0.0; n * n];
+        let mut dr = vec![0.0; n * n];
+        let mut unsolved = None;
+        // 内挿の位置 s = (ln 中心 − 始め) / 間隔 の、Σ_material についての微分
+        let ds = if self.axes[axis].count > 1 {
+            log_center / self.axes[axis].step
+        } else {
+            0.0
+        };
+        for_stencil_slope(&self.axes, &centers, axis, |node, weight, slope| {
+            if self.solved.as_ref().is_some_and(|u| !u[node]) {
+                unsolved.get_or_insert(node);
+                return;
+            }
+            let values = &self.values[node * block..(node + 1) * block];
+            for ((c, d), v) in coefficients.iter().zip(&slopes).zip(values.chunks(n * n)) {
+                let (factor, change) = (weight * c, slope * ds * c + weight * d);
+                for ((x, y), v) in r.iter_mut().zip(dr.iter_mut()).zip(v) {
+                    *x += factor * v;
+                    *y += change * v;
+                }
+            }
+        });
+        if let Some(node) = unsolved {
+            return Err(TableError::Unsolved { node });
+        }
+        // T_ji = R_ij / Σ_j（真空の列は R_ij）。Σ_j は列 j の物質の全断面積
+        let totals = self.layout.totals(sigma);
+        Ok(Some(
+            (0..n)
+                .map(|j| {
+                    let t = totals[j];
+                    let own = self.layout.classes[j] == Some(material);
+                    (0..n)
+                        .map(|i| {
+                            let (x, y) = (r[i * n + j], dr[i * n + j]);
+                            if t > 0.0 {
+                                if own { y / t - x / (t * t) } else { y / t }
+                            } else {
+                                y
+                            }
+                        })
+                        .collect()
+                })
+                .collect(),
+        ))
     }
 }
 
@@ -520,6 +615,40 @@ fn for_stencil(axes: &[Axis], centers: &[f64], mut visit: impl FnMut(usize, f64)
         for (k, axis) in offsets.iter_mut().zip(axes) {
             *k += 1;
             if *k < axis.width() {
+                continue 'combos;
+            }
+            *k = 0;
+        }
+        break;
+    }
+}
+
+/// [`for_stencil`] の点の組を、重みと、軸 `axis` の内挿の位置 s についての重みの微分と一緒に `visit` に渡す（同じ順）
+fn for_stencil_slope(
+    axes: &[Axis],
+    centers: &[f64],
+    axis: usize,
+    mut visit: impl FnMut(usize, f64, f64),
+) {
+    let stencils: Vec<(usize, [f64; STENCIL])> = axes
+        .iter()
+        .zip(centers)
+        .map(|(a, &s)| a.stencil(s))
+        .collect();
+    let slopes = axes[axis].stencil_slope(centers[axis]);
+    let mut offsets = vec![0usize; axes.len()];
+    'combos: loop {
+        let (mut node, mut stride, mut weight, mut slope) = (0, 1, 1.0, 1.0);
+        for (a, ((ax, &(first, w)), &k)) in axes.iter().zip(&stencils).zip(&offsets).enumerate() {
+            node += (first + k) * stride;
+            stride *= ax.count;
+            weight *= w[k];
+            slope *= if a == axis { slopes[k] } else { w[k] };
+        }
+        visit(node, weight, slope);
+        for (k, ax) in offsets.iter_mut().zip(axes) {
+            *k += 1;
+            if *k < ax.width() {
                 continue 'combos;
             }
             *k = 0;
