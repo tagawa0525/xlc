@@ -21,8 +21,8 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::Material;
 use crate::moc::{
-    Acceleration, Generalized, GeneralizedMethod, GeneralizedOptions, Options, Solution, Start,
-    solve_generalized, solve_importance, solve_symmetric_from,
+    Acceleration, Generalized, GeneralizedMethod, GeneralizedOptions, MocError, Options, Solution,
+    Start, solve_generalized, solve_importance, solve_symmetric_from,
 };
 use crate::shielding::{FuelShielding, shielded_nuclide_with};
 use crate::symmetry::Detected;
@@ -187,9 +187,12 @@ pub struct GeneralizedRun {
     pub sweeps: Vec<usize>,
     /// [応答] の ⟨Γ, Fφ⟩ / ⟨|Γ|, Fφ⟩
     pub orthogonality: Vec<f64>,
-    /// [応答] の、参照との差の最大を参照の |Γ| の最大で割ったもの（参照がなければ書かない）
+    /// [応答] の、参照との差の最大を参照の |Γ| の最大で割ったもの（参照がないか、解けなかったときは書かない）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub difference: Option<Vec<f64>>,
+    /// 解けなかった理由（発散、打ち切り、粗メッシュの問題のエラー。そのときスイープの回数と ⟨Γ, Fφ⟩ は空）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure: Option<String>,
 }
 
 /// 段ごとの時間 (s)
@@ -465,7 +468,7 @@ fn compare_generalized(
             batch,
         };
         let clock = Instant::now();
-        let gamma = solve_generalized(
+        let solved = solve_generalized(
             state.tracking,
             materials,
             options,
@@ -474,9 +477,35 @@ fn compare_generalized(
             adjoint,
             &sources,
             &settings,
-        )
-        .with_context(|| format!("generalized adjoint by {method}"))?;
+        );
         let seconds = clock.elapsed().as_secs_f64();
+        // 発散と打ち切りは方法の結果として書き、ほかの方法の比較を続ける（参照の失敗は下で止める）
+        let gamma = match solved {
+            Ok(gamma) => gamma,
+            Err(
+                e @ (MocError::GeneralizedDiverged { .. }
+                | MocError::GeneralizedNotConverged { .. }
+                | MocError::Cmfd(_)),
+            ) => {
+                tracing::warn!(%method, tolerance, batch, seconds, error = %e, "generalized adjoints failed");
+                let failed = GeneralizedRun {
+                    method: method.to_string(),
+                    tolerance,
+                    batch,
+                    seconds,
+                    sweeps: Vec::new(),
+                    orthogonality: Vec::new(),
+                    difference: None,
+                    failure: Some(e.to_string()),
+                };
+                return Ok((failed, Vec::new()));
+            }
+            Err(e) => {
+                return Err(
+                    anyhow::Error::new(e).context(format!("generalized adjoint by {method}"))
+                );
+            }
+        };
         let orthogonality = gamma
             .iter()
             .map(|g| fission_overlap(materials, solution, &g.flux))
@@ -491,6 +520,7 @@ fn compare_generalized(
                 sweeps: gamma.iter().map(|g| g.iterations).collect(),
                 orthogonality,
                 difference: None,
+                failure: None,
             },
             gamma,
         ))
@@ -499,6 +529,17 @@ fn compare_generalized(
         .reference
         .map(|(method, tolerance)| run(method, tolerance, false))
         .transpose()?;
+    if let Some((
+        GeneralizedRun {
+            failure: Some(f),
+            method,
+            ..
+        },
+        _,
+    )) = &reference
+    {
+        bail!("the reference generalized adjoint by {method} failed: {f}");
+    }
     let mut runs = Vec::new();
     let cases = input.methods.iter().flat_map(|&method| {
         let batches = if input.batched.contains(&method) {
@@ -513,7 +554,9 @@ fn compare_generalized(
     });
     for (method, tolerance, batch) in cases {
         let (mut result, gamma) = run(method, tolerance, batch)?;
-        if let Some((_, reference)) = &reference {
+        if let Some((_, reference)) = &reference
+            && result.failure.is_none()
+        {
             result.difference = Some(
                 gamma
                     .iter()
@@ -566,10 +609,14 @@ fn fission_overlap(materials: &[&Material], solution: &Solution, flux: &[Vec<f64
     if size == 0.0 { 0.0 } else { sum / size }
 }
 
-/// 領域と群の |a − b| の最大を、|b| の最大で割ったもの
+/// 領域と群の |a − b| の最大を、|b| の最大で割ったもの（有限でない値があれば NaN。`f64::max` は NaN を捨てるので先に見る）
 fn largest_difference(a: &[Vec<f64>], b: &[Vec<f64>]) -> f64 {
+    let values = || a.iter().flatten().zip(b.iter().flatten());
+    if values().any(|(x, y)| !(x.is_finite() && y.is_finite())) {
+        return f64::NAN;
+    }
     let (mut change, mut scale) = (0.0_f64, 0.0_f64);
-    for (x, y) in a.iter().flatten().zip(b.iter().flatten()) {
+    for (x, y) in values() {
         change = change.max((x - y).abs());
         scale = scale.max(y.abs());
     }
