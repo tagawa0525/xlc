@@ -1640,13 +1640,15 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
                 );
             };
             rounded(
-                d.rate.fission[g],
+                d.rate.as_ref().unwrap().fission[g],
                 5.0 * delta / change,
                 sigma[m].fission[g],
                 "rate fission",
             );
             for (c, s) in d
                 .rate
+                .as_ref()
+                .unwrap()
                 .reactions
                 .iter()
                 .flat_map(|r| &r.channels)
@@ -1656,7 +1658,10 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
             }
         }
         // 境界より下の核分裂は断面積（割合 × 群の和の σf）の差。割合を変えずに σf の和が 2 × 5 delta 増えた
-        match (sigma[m].thermal_fission, d.rate.thermal_fission) {
+        match (
+            sigma[m].thermal_fission,
+            d.rate.as_ref().unwrap().thermal_fission,
+        ) {
             (Some(f), Some(got)) => {
                 let want = f * 10.0 * delta / change;
                 assert!(
@@ -1735,18 +1740,34 @@ fn density_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent(
     assert_eq!(d.fission, xenon.fission);
     assert_eq!(d.scatter, xenon.scatter);
     // 反応率の項目の微分は 0（自分の数密度による自己遮蔽の変化を持たない）で、反応の並びと核分裂の有無は核種と同じ
-    assert!(d.rate.fission.iter().all(|&x| x == 0.0));
-    assert_eq!(d.rate.reactions.len(), xenon.reactions.len());
-    for (r, n) in d.rate.reactions.iter().zip(&xenon.reactions) {
+    assert!(d.rate.as_ref().unwrap().fission.iter().all(|&x| x == 0.0));
+    assert_eq!(
+        d.rate.as_ref().unwrap().reactions.len(),
+        xenon.reactions.len()
+    );
+    for (r, n) in d
+        .rate
+        .as_ref()
+        .unwrap()
+        .reactions
+        .iter()
+        .zip(&xenon.reactions)
+    {
         assert_eq!(r.mt, n.mt);
         assert_eq!(r.channels.len(), n.channels.len());
         assert!(r.channels.iter().flatten().all(|&x| x == 0.0));
     }
     assert_eq!(
-        d.rate.thermal_fission.is_some(),
+        d.rate.as_ref().unwrap().thermal_fission.is_some(),
         xenon.thermal_fission.is_some()
     );
-    assert!(d.rate.thermal_fission.is_none_or(|x| x == 0.0));
+    assert!(
+        d.rate
+            .as_ref()
+            .unwrap()
+            .thermal_fission
+            .is_none_or(|x| x == 0.0)
+    );
     assert!(micro[0].derivative.is_some());
 }
 
@@ -1895,14 +1916,16 @@ fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
         (
             "rate",
             |d| {
-                let mut v = d.rate.fission.clone();
+                let mut v = d.rate.as_ref().unwrap().fission.clone();
                 v.extend(
                     d.rate
+                        .as_ref()
+                        .unwrap()
                         .reactions
                         .iter()
                         .flat_map(|r| r.channels.iter().flatten()),
                 );
-                v.extend(d.rate.thermal_fission);
+                v.extend(d.rate.as_ref().unwrap().thermal_fission);
                 v
             },
             1,

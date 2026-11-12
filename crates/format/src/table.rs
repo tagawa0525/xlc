@@ -614,8 +614,14 @@ pub struct MicroDerivative {
     /// P0 の散乱行列 [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
     /// 同じ摂動の、この核種のミクロ燃焼の反応率の微視的断面積の微分 ∂σᵢ/∂N̄ᵢ (barn² cm)（ADR-0215 の自分の数密度の項）。自己遮蔽と
-    /// スペクトルによる自分の σᵢ の変化だけで、ほかの核種の項を含まない。N̄ᵢ が 0 の点は 0
-    pub rate: RateResidual,
+    /// スペクトルによる自分の σᵢ の変化だけで、ほかの核種の項を含まない。N̄ᵢ が 0 の点は 0。直接の摂動で解いた核種だけが持ち
+    /// （一般化摂動の微分は持たない。ADR-0247）、持たない核種はキーを書かない（nil はエラー）
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::msgpack::present"
+    )]
+    pub rate: Option<RateResidual>,
 }
 
 /// チェーンの反応の代表の MT と、経路（ライブラリとチェーンの経路の並び）ごとの少数群の断面積 (barn)
@@ -1715,7 +1721,7 @@ impl Table {
                     .map(|r| (r.mt, r.channels.len()))
                     .collect::<Vec<_>>(),
                 n.thermal_fission.is_some(),
-                n.derivative.is_some(),
+                n.derivative.as_ref().map(|d| d.rate.is_some()),
             )
         };
         for (p, state) in micro.states.iter().enumerate() {
@@ -1753,9 +1759,8 @@ impl Table {
                         at()
                     ));
                 }
-                if let Some(d) = &n.derivative {
-                    d.rate
-                        .check_shape(n, groups)
+                if let Some(rate) = n.derivative.as_ref().and_then(|d| d.rate.as_ref()) {
+                    rate.check_shape(n, groups)
                         .map_err(|e| format!("{}: rate derivative: {e}", at()))?;
                 }
                 let mts: Vec<u32> = n.reactions.iter().map(|r| r.mt).collect();
@@ -1784,7 +1789,7 @@ impl Table {
                 }
                 if shape(n) != shape(&micro.states[0][i]) {
                     return Err(format!(
-                        "{}: the reactions, the fission and the density derivative differ from those of state 0",
+                        "{}: the reactions, the fission and the density and rate derivatives differ from those of state 0",
                         at()
                     ));
                 }

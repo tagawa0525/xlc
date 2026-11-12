@@ -1462,7 +1462,7 @@ impl HistoryBranches {
                     nu_fission: sigma.nu_fission.clone(),
                     fission: sigma.fission.clone(),
                     scatter: sigma.scatter.clone(),
-                    rate: RateResidual {
+                    rate: Some(RateResidual {
                         fission: zero(&sigma.fission),
                         reactions: sigma
                             .reactions
@@ -1473,7 +1473,7 @@ impl HistoryBranches {
                             })
                             .collect(),
                         thermal_fission: sigma.thermal_fission.map(|_| 0.0),
-                    },
+                    }),
                 }
             };
             micro[m].derivative = Some(derivative);
@@ -1564,7 +1564,7 @@ pub fn density_derivative(
             .zip(&nominal.scatter)
             .map(|(p, n)| diff(p, n))
             .collect(),
-        rate: RateResidual {
+        rate: Some(RateResidual {
             fission: diff(&perturbed_sigma.fission, &sigma.fission),
             reactions: perturbed_sigma
                 .reactions
@@ -1581,7 +1581,7 @@ pub fn density_derivative(
                 })
                 .collect(),
             thermal_fission,
-        },
+        }),
     })
 }
 
