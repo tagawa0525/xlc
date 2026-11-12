@@ -1195,8 +1195,7 @@ impl<'a> Thermal<'a> {
                 ..FreeGasWork::default()
             },
             census: tracing::enabled!(tracing::Level::DEBUG),
-            // まだ表を使わない
-            kernels: kernels.and(None),
+            kernels,
             kernel_table: None,
         }
     }
