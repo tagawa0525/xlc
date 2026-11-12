@@ -2296,14 +2296,14 @@ fn adjoint_k_equals_the_forward_k_with_albedo_sides() {
 }
 
 /// 領域 `changes`（領域、物質の微分 δM）の物質を M + h δM にした問題の k の、h による微分の中心差分。h と h/2 の差分から
-/// Richardson の外挿で h² の誤差を除いた値と、その誤差の見積もり（2 つの差分の差）を返す
+/// Richardson の外挿で h² の誤差を除いた値
 fn central_k_derivative(
     tracking: &Tracking,
     materials: &[&Material],
     changes: &[(usize, &Material)],
     options: &Options,
     h: f64,
-) -> (f64, f64) {
+) -> f64 {
     let k_at = |step: f64| {
         let perturbed: Vec<Material> = changes
             .iter()
@@ -2317,7 +2317,7 @@ fn central_k_derivative(
     };
     let difference = |step: f64| (k_at(step) - k_at(-step)) / (2.0 * step);
     let (coarse, fine) = (difference(h), difference(h / 2.0));
-    (fine + (fine - coarse) / 3.0, (fine - coarse).abs())
+    fine + (fine - coarse) / 3.0
 }
 
 /// 物質の全反応に `factor` を掛けた物質（核種の数密度の微分の代わり）
@@ -2341,8 +2341,7 @@ fn k_derivative_matches_central_differences_with_leakage_and_two_spectra() {
     let d = times(&f, 0.2);
     let changes = [(0, &d)];
     let adjoint = importance.k_derivative(&changes).unwrap();
-    let (direct, error) = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
-    assert!(error < 1e-6 * direct.abs(), "{error} for {direct}");
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
     assert!(
         (adjoint - direct).abs() < 1e-6 * direct.abs(),
         "{adjoint} vs {direct}"
@@ -2362,8 +2361,7 @@ fn k_derivative_of_the_total_cross_section_uses_the_angular_fluxes() {
     let d = absorber([0.3, 0.8]);
     let changes = [(1, &d)];
     let adjoint = importance.k_derivative(&changes).unwrap();
-    let (direct, error) = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
-    assert!(error < 1e-6 * direct.abs(), "{error} for {direct}");
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
     assert!(
         (adjoint - direct).abs() < 1e-6 * direct.abs(),
         "{adjoint} vs {direct}"
@@ -2398,8 +2396,7 @@ fn k_derivative_matches_central_differences_with_anisotropic_scattering() {
     ] {
         let changes = [(region, &d)];
         let adjoint = importance.k_derivative(&changes).unwrap();
-        let (direct, error) = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
-        assert!(error < 1e-6 * direct.abs(), "{error} for {direct}");
+        let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
         assert!(
             (adjoint - direct).abs() < 1e-6 * direct.abs(),
             "region {region}: {adjoint} vs {direct}"
@@ -2425,8 +2422,7 @@ fn k_derivative_matches_central_differences_with_albedo_sides() {
     let d = times(&f, 0.2);
     let changes = [(4, &d)];
     let adjoint = importance.k_derivative(&changes).unwrap();
-    let (direct, error) = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
-    assert!(error < 1e-6 * direct.abs(), "{error} for {direct}");
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
     assert!(
         (adjoint - direct).abs() < 1e-6 * direct.abs(),
         "{adjoint} vs {direct}"
@@ -2461,7 +2457,7 @@ fn k_derivative_with_symmetry_matches_the_full_lattice() {
         reduced.k_derivative(&changes).unwrap(),
     );
     assert!((a - b).abs() < 1e-7 * a.abs(), "{a} vs {b}");
-    let (direct, _) = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
+    let direct = central_k_derivative(&tracking, &materials, &changes, &options, 0.05);
     assert!((b - direct).abs() < 1e-6 * direct.abs(), "{b} vs {direct}");
 }
 

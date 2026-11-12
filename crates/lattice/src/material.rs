@@ -68,6 +68,8 @@ pub enum MaterialError {
         "fission term {term} has nu-fission values that sum to zero; its adjoint (nu-fission over the sum) is undefined"
     )]
     ZeroSumFission { term: usize },
+    #[error("an added material must have the same groups and scattering moments")]
+    AddedShape,
     #[error("{nuclide} has scattering moments up to P{order}, the others up to P{expected}")]
     ScatteringOrder {
         nuclide: String,
@@ -307,6 +309,43 @@ impl Material {
             .zip(&self.scatter)
             .map(|(t, row)| t - row.iter().sum::<f64>())
             .collect()
+    }
+
+    /// 物質 `other` の `c` 倍を足した物質（核種の数密度を変えた物質。`other` は核種の数密度 1 の群定数）。核分裂の項は、χ の同じ
+    /// 項があればその νΣf に足し（核種の項を変えたのと同じ）、なければ新しい項にする。群の数か散乱の次数が違えばエラー
+    pub fn added(&self, other: &Self, c: f64) -> Result<Self, MaterialError> {
+        if other.groups() != self.groups() || other.anisotropic.len() != self.anisotropic.len() {
+            return Err(MaterialError::AddedShape);
+        }
+        let sum = |a: &[f64], b: &[f64]| -> Vec<f64> {
+            a.iter().zip(b).map(|(x, y)| x + c * y).collect()
+        };
+        let matrix = |a: &[Vec<f64>], b: &[Vec<f64>]| -> Vec<Vec<f64>> {
+            a.iter().zip(b).map(|(x, y)| sum(x, y)).collect()
+        };
+        let mut fission_terms = self.fission_terms.clone();
+        for term in &other.fission_terms {
+            match fission_terms.iter_mut().find(|t| t.chi == term.chi) {
+                Some(t) => t.nu_fission = sum(&t.nu_fission, &term.nu_fission),
+                None => fission_terms.push(FissionTerm {
+                    chi: term.chi.clone(),
+                    nu_fission: term.nu_fission.iter().map(|v| c * v).collect(),
+                }),
+            }
+        }
+        Ok(Self {
+            total: sum(&self.total, &other.total),
+            scatter: matrix(&self.scatter, &other.scatter),
+            anisotropic: self
+                .anisotropic
+                .iter()
+                .zip(&other.anisotropic)
+                .map(|(a, b)| matrix(a, b))
+                .collect(),
+            fission: sum(&self.fission, &other.fission),
+            nu_fission: sum(&self.nu_fission, &other.nu_fission),
+            fission_terms,
+        })
     }
 
     /// 前向きの輸送で解くと随伴の輸送になる物質（ADR-0247）。全断面積はそのまま、各次数の散乱行列を転置し、核分裂の項

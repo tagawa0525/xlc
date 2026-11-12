@@ -164,6 +164,8 @@ pub enum MocError {
          tracks or sizes differ)"
     )]
     ForeignStart,
+    #[error("region {0} is outside the lattice or void, so its material cannot change")]
+    ChangedRegion(usize),
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
     #[error(
@@ -231,7 +233,18 @@ pub fn solve_adjoint(
     options: &Options,
     symmetry: Option<&Detected>,
 ) -> Result<Adjoint, MocError> {
-    // 対称操作の確かめは物質を参照で比べるので、同じ物質の領域には同じ転置の物質を渡す
+    let (transposed, index) = transposed(materials)?;
+    let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
+    let (solution, _) = solve_with(tracking, &adjoint, options, symmetry, None)?;
+    Ok(Adjoint {
+        k: solution.k,
+        flux: solution.flux,
+        iterations: solution.iterations,
+    })
+}
+
+/// 物質ごとの転置した物質と、[領域] のその番号。対称操作の確かめは物質を参照で比べるので、同じ物質の領域には同じ転置の物質を渡す
+fn transposed(materials: &[&Material]) -> Result<(Vec<Material>, Vec<usize>), MocError> {
     // [物質] の（物質、それを最初に指す領域）
     let mut distinct: Vec<(&Material, usize)> = Vec::new();
     let mut seen: HashMap<*const Material, usize> = HashMap::new();
@@ -252,13 +265,295 @@ pub fn solve_adjoint(
                 .map_err(|source| MocError::Material { region, source })
         })
         .collect::<Result<Vec<Material>, MocError>>()?;
+    Ok((transposed, index))
+}
+
+/// 前向きと随伴の固有値計算の解から求めた、物質の摂動による k の 1 次の変化の係数（ADR-0247）。
+///
+/// 平坦線源の MOC の領域の中性子束は、区間ごとの特性曲線の厳密な解をトラックの求積で足したもの（V φ = Σ w ∫ψ ds）なので、
+/// 離散化した固有値問題 (A⁻¹ − S) φ = F φ / k（A は平らな線源から領域の中性子束への作用素）の 1 次の摂動は
+/// δk / k² = ⟨φ†, (δF / k − δL) φ⟩ / ⟨φ†, F φ⟩ で厳密になる。全断面積の項 ⟨φ†, δ(A⁻¹) φ⟩ は、A の相反性から
+/// 4π Σ w ∫ ψ̃(−Ω) ψ(Ω) δΣt ds（ψ̃ は転置した物質の前向きの角度中性子束で、逆の向きの随伴の角度中性子束）になり、領域の中の
+/// 角度中性子束の形を含むので、領域平均のスカラー中性子束の積 V φ† δΣt φ では表せない。MOC は領域の中性子束のモーメントの平らな
+/// 分を、展開の直交性 4π e_k / (2l + 1) で足し、トラックの求積の Σ w Y_k Y_k' L / V では足さないので、全断面積の項のうち平衡値の
+/// 積 ã a の分も同じ直交性で足す（P0 では両者は等しく、高次ではこの差が δΣt / Σt² の局所の項になる）。散乱の l 次の項は、随伴の
+/// モーメントの (−1)ˡ（向きの反転）と、線源の展開の (2l + 1) を掛けたモーメントの内積
+#[derive(Debug, Clone)]
+pub struct Importance {
+    k: f64,
+    adjoint_k: f64,
+    /// 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
+    pairs: Vec<(usize, isize)>,
+    groups: usize,
+    /// [領域] の代表の番号
+    index: Vec<usize>,
+    /// [領域] のトラックから推定した体積
+    volumes: Vec<f64>,
+    /// [領域] の真空か
+    void: Vec<bool>,
+    /// [代表][モーメント][群] の前向きと随伴の中性子束のモーメント（代表の領域の向き）
+    forward: Vec<Vec<f64>>,
+    adjoint: Vec<Vec<f64>>,
+    /// [代表][群] の全断面積の項の係数（4π Σ w ∫ ψ̃ ψ ds の、平衡値の積を直交性で足したもの）を代表の領域の体積で割ったもの
+    collision: Vec<Vec<f64>>,
+    /// ⟨φ†, F φ⟩
+    production: f64,
+    /// 随伴の固有値計算の反復の回数
+    pub adjoint_iterations: usize,
+}
+
+impl Importance {
+    /// 前向きの k
+    pub fn k(&self) -> f64 {
+        self.k
+    }
+
+    /// 随伴の k（反復の打ち切りの範囲で前向きの k と同じ）
+    pub fn adjoint_k(&self) -> f64 {
+        self.adjoint_k
+    }
+
+    /// ⟨φ†, F φ⟩（Σ_領域 V Σ_項 (φ† · χ)(νΣf · φ)）
+    pub fn production(&self) -> f64 {
+        self.production
+    }
+
+    /// [領域][群] の随伴のスカラー中性子束
+    pub fn adjoint_flux(&self) -> Vec<Vec<f64>> {
+        let ng = self.groups;
+        self.index
+            .iter()
+            .map(|&i| self.adjoint[i][..ng].to_vec())
+            .collect()
+    }
+
+    /// 領域ごとの物質の微分 `changes`（領域、δM。同じ領域を重ねて挙げれば足す）による k の 1 次の変化 dk = k² Σ ⟨φ†, (δF / k − δL) φ⟩ / ⟨φ†, F φ⟩。
+    /// 領域が格子の外か真空、δM の群の数が違うか検査で止まる、散乱の次数が解いた次数より低ければエラー
+    pub fn k_derivative(&self, changes: &[(usize, &Material)]) -> Result<f64, MocError> {
+        let order = self.pairs.last().map_or(0, |&(l, _)| l);
+        let mut sum = 0.0;
+        for &(region, d) in changes {
+            if region >= self.index.len() || self.void[region] {
+                return Err(MocError::ChangedRegion(region));
+            }
+            if d.groups() != self.groups {
+                return Err(MocError::Material {
+                    region,
+                    source: MaterialError::Groups(self.groups),
+                });
+            }
+            d.validate()
+                .map_err(|source| MocError::Material { region, source })?;
+            if d.anisotropic.len() < order {
+                return Err(MocError::ScatteringOrder {
+                    region,
+                    available: d.anisotropic.len(),
+                    requested: order,
+                });
+            }
+            sum += self.reactivity(region, d);
+        }
+        Ok(self.k * self.k * sum / self.production)
+    }
+
+    /// 領域 `region` の物質の微分 `d` の ⟨φ†, (δF / k − δL) φ⟩
+    fn reactivity(&self, region: usize, d: &Material) -> f64 {
+        let ng = self.groups;
+        let i = self.index[region];
+        let volume = self.volumes[region];
+        let (forward, adjoint) = (&self.forward[i], &self.adjoint[i]);
+        let collision: f64 = self.collision[i]
+            .iter()
+            .zip(&d.total)
+            .map(|(c, t)| volume * c * t)
+            .sum();
+        // 散乱: Σ_k (2l + 1)(−1)ˡ Σ φ†_k(g') δΣs_l(g → g') φ_k(g)
+        let mut scatter = 0.0;
+        for (k, &(l, _)) in self.pairs.iter().enumerate() {
+            let matrix = if l == 0 {
+                &d.scatter
+            } else {
+                &d.anisotropic[l - 1]
+            };
+            let (f, a) = (&forward[k * ng..][..ng], &adjoint[k * ng..][..ng]);
+            let sign = if l % 2 == 0 { 1.0 } else { -1.0 };
+            let inner: f64 = matrix
+                .iter()
+                .zip(f)
+                .map(|(row, phi)| phi * row.iter().zip(a).map(|(s, x)| s * x).sum::<f64>())
+                .sum();
+            scatter += (2 * l + 1) as f64 * sign * inner;
+        }
+        let fission: f64 = d
+            .fission_terms
+            .iter()
+            .map(|t| {
+                let emitted: f64 = t.chi.iter().zip(adjoint).map(|(c, x)| c * x).sum();
+                let rate: f64 = t.nu_fission.iter().zip(forward).map(|(n, x)| n * x).sum();
+                emitted * rate
+            })
+            .sum();
+        volume * fission / self.k - (collision - volume * scatter)
+    }
+}
+
+/// `solve_symmetric_from` と同じ問題を解き、続けて随伴を解いて、物質の摂動による k の変化の係数（`Importance`）を求める（ADR-0247）。
+/// 前向きは `start` から（`None` なら平らな初期値から）、随伴は平らな初期値から解き、両方の収束した角度中性子束でトラックを
+/// もう一度スイープして全断面積の項を求める。`symmetry` は `solve_adjoint` と同じ
+pub fn solve_importance(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
+    start: Option<&Start>,
+) -> Result<(Solution, Start, Importance), MocError> {
+    let clock = std::time::Instant::now();
+    let (solution, converged) = solve_with(tracking, materials, options, symmetry, start)?;
+    let forward_seconds = clock.elapsed().as_secs_f64();
+    let (transposed, index) = transposed(materials)?;
     let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
-    let (solution, _) = solve_with(tracking, &adjoint, options, symmetry, None)?;
-    Ok(Adjoint {
+    let clock = std::time::Instant::now();
+    let (adjoint_solution, adjoint_start) =
+        solve_with(tracking, &adjoint, options, symmetry, None)?;
+    let adjoint_seconds = clock.elapsed().as_secs_f64();
+    let clock = std::time::Instant::now();
+    let mesh = CoarseMesh::new(tracking);
+    let pairs = planar_moments(options.scattering_order);
+    let representatives = match symmetry {
+        Some(verified) if verified.symmetry() != Symmetry::NONE => {
+            Representatives::by_images(tracking, materials, &mesh, &pairs, verified.images())?
+        }
+        _ => Representatives::all(tracking, &mesh, pairs.len()),
+    };
+    let ng = solution.flux.first().map_or(0, Vec::len);
+    let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
+    let reduced = &sweeper.representatives;
+    let kept = &reduced.regions.representatives;
+    for s in [&converged, &adjoint_start] {
+        if s.representatives[0] != *kept
+            || s.representatives[1] != reduced.tracks
+            || s.outgoing.len() != sweeper.outgoing_len()
+        {
+            return Err(MocError::ForeignStart);
+        }
+    }
+    let equilibrium = |m: &[&Material], s: &Start| -> Vec<Vec<f64>> {
+        (0..kept.len())
+            .into_par_iter()
+            .map(|i| equilibrium_moments(m[kept[i]], &s.flux[i], &s.higher[i], s.k, &pairs))
+            .collect()
+    };
+    let (forward_equilibrium, adjoint_equilibrium) = (
+        equilibrium(materials, &converged),
+        equilibrium(&adjoint, &adjoint_start),
+    );
+    let mut tallies = sweeper.tallies(materials.len());
+    let products = sweeper.products(
+        (&forward_equilibrium, &converged.outgoing),
+        (&adjoint_equilibrium, &adjoint_start.outgoing),
+        &mut tallies,
+    );
+    let mut collision = vec![vec![0.0; ng]; kept.len()];
+    collision.par_iter_mut().enumerate().for_each(|(i, out)| {
+        reduced.gather(i, out, RegionKind::Scalar(ng), &|from, f| {
+            for (tally, product) in tallies.iter().zip(&products) {
+                let local = tally.local[from];
+                if local != NOT_CROSSED {
+                    f(&product[local * ng..][..ng]);
+                }
+            }
+        });
+        // 平衡値の積は、MOC が領域の中性子束の平らな分に使う展開の直交性（4π / (2l + 1)）で足す（`Importance` の全断面積の項）
+        let volume = solution.volumes[kept[i]];
+        let (e, a) = (&forward_equilibrium[i], &adjoint_equilibrium[i]);
+        for (g, c) in out.iter_mut().enumerate() {
+            let flat: f64 = pairs
+                .iter()
+                .enumerate()
+                .map(|(k, &(l, _))| {
+                    let sign = if l % 2 == 0 { 1.0 } else { -1.0 };
+                    sign * a[k * ng + g] * e[k * ng + g] / (2 * l + 1) as f64
+                })
+                .sum();
+            *c = 4.0 * PI * *c / volume + 16.0 * PI * PI * flat;
+        }
+    });
+    let moments = |s: &Start| -> Vec<Vec<f64>> {
+        s.flux
+            .iter()
+            .zip(&s.higher)
+            .map(|(f, h)| f.iter().chain(h).copied().collect())
+            .collect()
+    };
+    let (forward, adjoint_moments) = (moments(&converged), moments(&adjoint_start));
+    let production = materials
+        .iter()
+        .enumerate()
+        .map(|(region, m)| {
+            let i = reduced.regions.index[region];
+            let (f, a) = (&forward[i][..ng], &adjoint_moments[i][..ng]);
+            solution.volumes[region]
+                * m.fission_terms
+                    .iter()
+                    .map(|t| {
+                        let emitted: f64 = t.chi.iter().zip(a).map(|(c, x)| c * x).sum();
+                        let rate: f64 = t.nu_fission.iter().zip(f).map(|(n, x)| n * x).sum();
+                        emitted * rate
+                    })
+                    .sum::<f64>()
+        })
+        .sum();
+    let products_seconds = clock.elapsed().as_secs_f64();
+    let (forward_spectra, adjoint_spectra) = (
+        cell_spectra(&mesh, materials),
+        cell_spectra(&mesh, &adjoint),
+    );
+    tracing::info!(
+        k = solution.k,
+        adjoint_k = adjoint_solution.k,
+        forward_iterations = solution.iterations,
+        adjoint_iterations = adjoint_solution.iterations,
+        forward_seconds,
+        adjoint_seconds,
+        products_seconds,
+        forward_spectra_max = forward_spectra.0,
+        forward_spectra_sum = forward_spectra.1,
+        adjoint_spectra_max = adjoint_spectra.0,
+        adjoint_spectra_sum = adjoint_spectra.1,
+        "forward and adjoint eigenvalues (fission spectra per coarse cell: most in a cell, sum over cells)"
+    );
+    let importance = Importance {
         k: solution.k,
-        flux: solution.flux,
-        iterations: solution.iterations,
-    })
+        adjoint_k: adjoint_solution.k,
+        groups: ng,
+        index: reduced.regions.index.clone(),
+        volumes: solution.volumes.clone(),
+        void: materials.iter().map(|m| m.is_void()).collect(),
+        pairs,
+        forward,
+        adjoint: adjoint_moments,
+        collision,
+        production,
+        adjoint_iterations: adjoint_solution.iterations,
+    };
+    Ok((solution, converged, importance))
+}
+
+/// 粗メッシュのセルごとの、CMFD が別に持つ核分裂のスペクトル（χ の違う核分裂の項）の数の、最も多いセルの数と全セルの和
+fn cell_spectra(mesh: &CoarseMesh, materials: &[&Material]) -> (usize, usize) {
+    let mut cells: Vec<Vec<&[f64]>> = vec![Vec::new(); mesh.cells()];
+    for (region, m) in materials.iter().enumerate() {
+        let spectra = &mut cells[mesh.cell(region)];
+        for term in &m.fission_terms {
+            if !spectra.contains(&term.chi.as_slice()) {
+                spectra.push(&term.chi);
+            }
+        }
+    }
+    (
+        cells.iter().map(Vec::len).max().unwrap_or(0),
+        cells.iter().map(Vec::len).sum(),
+    )
 }
 
 #[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
@@ -973,6 +1268,164 @@ impl<'a> Sweeper<'a> {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(d);
+    }
+
+    /// 作業用の配列を、ほかの組のスイープに使えるよう返す
+    fn release(&self, d: Directional) {
+        self.pool
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(d);
+    }
+
+    /// 前向きの問題 `forward` と随伴の問題 `adjoint`（どちらも [代表][モーメント][群] の平衡値の展開係数と、収束したスイープの
+    /// 出ていく角度中性子束）の、[組][組の中の領域][群] の Σ w ∫ (ψ̃(−Ω) ψ(Ω) − ã a) ds（ADR-0247 の全断面積の項から平衡値の積を
+    /// 除いたもの。`Importance`）。各トラックで、前向きの問題を一方の向きにスイープして区間の入口の角度中性子束を持ち、随伴の問題を
+    /// 逆の向きにスイープしながら区間ごとに積を積分する。区間の上で ψ(x) = a + b e^(−Σx)、ψ̃(x) = ã + b̃ e^(−Σ(L−x))（a、ã は
+    /// 平衡値、x は ψ の入口から、L は 3 次元の経路長）なので、∫ (ψ̃ ψ − ã a) dx = (a b̃ + ã b)(1 − e^(−ΣL))/Σ + b b̃ L e^(−ΣL)。
+    /// 真空の区間は全断面積を持たないので数えない
+    fn products(
+        &self,
+        forward: (&[Vec<f64>], &[f64]),
+        adjoint: (&[Vec<f64>], &[f64]),
+        tallies: &mut [Tally],
+    ) -> Vec<Vec<f64>> {
+        let (ng, width) = (self.ng, self.width);
+        let representatives = &self.representatives;
+        let incoming = |values: &[f64], index: usize, along: bool, psi: &mut [f64]| match self
+            .tracking
+            .incoming_source(index, along)
+        {
+            Some(source) => psi.copy_from_slice(
+                &values[representatives.slot(source.track, source.forward) * width..][..width],
+            ),
+            None => psi.fill(0.0),
+        };
+        tallies
+            .par_iter_mut()
+            .zip(&representatives.chunks)
+            .map(|(tally, range)| {
+                let mut product = vec![0.0; tally.regions.len() * ng];
+                let mut entries: Vec<f64> = Vec::new();
+                // 非等方散乱では、方向ごとの平衡値を方位角ごとに作り直す（前向き、随伴）
+                let mut directional: Option<(usize, Directional, Directional)> = None;
+                for position in range.clone() {
+                    let index = representatives.tracks[position];
+                    let track = &self.tracking.tracks[index];
+                    if self.moments > 1
+                        && directional
+                            .as_ref()
+                            .is_none_or(|(azimuth, _, _)| *azimuth != track.azimuth)
+                    {
+                        if let Some((_, a, b)) = directional.take() {
+                            self.release(a);
+                            self.release(b);
+                        }
+                        directional = Some((
+                            track.azimuth,
+                            self.directional(forward.0, track.azimuth, &tally.regions),
+                            self.directional(adjoint.0, track.azimuth, &tally.regions),
+                        ));
+                    }
+                    let multiplicity = representatives.multiplicity[position];
+                    let weights: [f64; POLAR_SIN.len()] = std::array::from_fn(|p| {
+                        multiplicity * direction_weight(self.tracking, track.azimuth, p)
+                    });
+                    let n = track.segments.len();
+                    for (s, att) in track
+                        .segments
+                        .iter()
+                        .zip(tally.attenuation.chunks_exact_mut(width))
+                    {
+                        if self.void[s.region].is_some() {
+                            continue;
+                        }
+                        let total = &self.totals[s.region * ng..][..ng];
+                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(ng)) {
+                            let path = s.length / sin;
+                            for (a, t) in att.iter_mut().zip(total) {
+                                *a = -(-t * path).exp_m1();
+                            }
+                        }
+                    }
+                    entries.resize(n * width, 0.0);
+                    // 区間 s の向き `along` の平衡値 [極角][群]（等方なら [群] をすべての極角で使い、刻みは 0）
+                    let source = |which: usize, region: usize, along: bool| -> (&[f64], usize) {
+                        match directional.as_ref() {
+                            None => {
+                                let e = [forward.0, adjoint.0][which];
+                                (&e[representatives.regions.index[region]][..ng], 0)
+                            }
+                            Some((_, f, a)) => {
+                                let d = [f, a][which];
+                                let at = (2 * tally.local[region] + usize::from(!along)) * width;
+                                (&d.source[at..][..width], ng)
+                            }
+                        }
+                    };
+                    let psi = &mut tally.psi;
+                    let attenuation = &tally.attenuation;
+                    // 前向きの問題の向き。随伴の問題は逆の向きで、前向きの順と逆の 2 つの組で、トラックの両向きを 1 回ずつ数える。
+                    // 入口の値を持つのは前向きの問題（どちらを持っても積分は同じ）
+                    let first = 0;
+                    let (held, swept) = (forward, adjoint);
+                    for held_along in [true, false] {
+                        let swept_along = !held_along;
+                        // 持つ問題を `held_along` の向きにスイープし、区間の入口の角度中性子束を持つ
+                        incoming(held.1, index, held_along, psi);
+                        for step in 0..n {
+                            let s = if held_along { step } else { n - 1 - step };
+                            entries[s * width..][..width].copy_from_slice(psi);
+                            let region = track.segments[s].region;
+                            if self.void[region].is_some() {
+                                continue;
+                            }
+                            let (q, stride) = source(first, region, held_along);
+                            let att = &attenuation[s * width..][..width];
+                            for p in 0..POLAR_SIN.len() {
+                                for g in 0..ng {
+                                    let j = p * ng + g;
+                                    psi[j] -= (psi[j] - q[p * stride + g]) * att[j];
+                                }
+                            }
+                        }
+                        // もう一方の問題を逆の向きにスイープし、区間ごとに積を積分する
+                        incoming(swept.1, index, swept_along, psi);
+                        for step in 0..n {
+                            let s = if swept_along { step } else { n - 1 - step };
+                            let segment = &track.segments[s];
+                            let region = segment.region;
+                            if self.void[region].is_some() {
+                                continue;
+                            }
+                            let total = &self.totals[region * ng..][..ng];
+                            let (q, stride) = source(first, region, held_along);
+                            let (r, rs) = source(1 - first, region, swept_along);
+                            let att = &attenuation[s * width..][..width];
+                            let entry = &entries[s * width..][..width];
+                            let out = &mut product[tally.local[region] * ng..][..ng];
+                            for (p, weight) in weights.iter().enumerate() {
+                                let path = segment.length / POLAR_SIN[p];
+                                for g in 0..ng {
+                                    let j = p * ng + g;
+                                    let (a, c) = (q[p * stride + g], r[p * rs + g]);
+                                    let (b, d) = (entry[j] - a, psi[j] - c);
+                                    out[g] += weight
+                                        * ((a * d + c * b) * att[j] / total[g]
+                                            + b * d * path * (1.0 - att[j]));
+                                    psi[j] -= d * att[j];
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some((_, a, b)) = directional {
+                    self.release(a);
+                    self.release(b);
+                }
+                product
+            })
+            .collect()
     }
 
     /// 領域の中性子流を数えるか（等方散乱のとき。非等方では1次のモーメントを使う）
