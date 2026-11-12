@@ -863,6 +863,7 @@ fn response_importance_rejects_a_generalized_adjoint_of_another_problem() {
     let other = vacuum_checkerboard(3);
     let other_materials = checkerboard_materials(3, &f, &m);
     let (_, other_forward, _) = eigenpair(&other, &other_materials, &options, None);
+    let other_source = vec![vec![0.0; 2]; other_materials.len()];
     assert!(matches!(
         response_importance(
             &other,
@@ -871,7 +872,7 @@ fn response_importance_rejects_a_generalized_adjoint_of_another_problem() {
             None,
             &other_forward,
             &gamma[0],
-            &source
+            &other_source
         ),
         Err(MocError::ForeignStart)
     ));

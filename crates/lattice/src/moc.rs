@@ -610,10 +610,41 @@ pub fn response_importance(
     gamma: &Generalized,
     source: &[Vec<f64>],
 ) -> Result<ResponseImportance, MocError> {
-    let _ = (
-        tracking, materials, options, symmetry, forward, gamma, source,
-    );
-    Err(MocError::NoRegions)
+    let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
+    if source.len() != materials.len() || source.iter().any(|q| q.len() != ng) {
+        return Err(MocError::SourceShape { index: 0 });
+    }
+    let (transposed, index) = transposed(materials)?;
+    let pairs = planar_moments(options.scattering_order);
+    let state = &gamma.state;
+    let pairing = pair(
+        tracking,
+        materials,
+        options,
+        symmetry,
+        (forward, state),
+        |kept| {
+            (0..kept.len())
+                .into_par_iter()
+                .map(|i| {
+                    let m = &transposed[index[kept[i]]];
+                    let mut e =
+                        equilibrium_moments(m, &state.flux[i], &state.higher[i], state.k, &pairs);
+                    // 等方な源は平衡値のスカラーの分に入る。真空の領域では Σt で割らずに置く（`Sweeper::sweep`）
+                    let void = m.is_void();
+                    for ((e, q), t) in e.iter_mut().zip(&source[kept[i]]).zip(&m.total) {
+                        *e += if void {
+                            q / (4.0 * PI)
+                        } else {
+                            q / (4.0 * PI * t)
+                        };
+                    }
+                    e
+                })
+                .collect()
+        },
+    )?;
+    Ok(ResponseImportance { pairing })
 }
 
 /// `solve_symmetric_from` と同じ問題を解き、続けて随伴を解いて、物質の摂動による k の変化の係数（`Importance`）を求める（ADR-0247）。
@@ -1464,7 +1495,8 @@ impl<'a> Sweeper<'a> {
     /// 除いたもの。`Importance`）。各トラックで、前向きの問題を一方の向きにスイープして区間の入口の角度中性子束を持ち、随伴の問題を
     /// 逆の向きにスイープしながら区間ごとに積を積分する。区間の上で ψ(x) = a + b e^(−Σx)、ψ̃(x) = ã + b̃ e^(−Σ(L−x))（a、ã は
     /// 平衡値、x は ψ の入口から、L は 3 次元の経路長）なので、∫ (ψ̃ ψ − ã a) dx = (a b̃ + ã b)(1 − e^(−ΣL))/Σ + b b̃ L e^(−ΣL)。
-    /// 真空の区間は全断面積を持たないので数えない
+    /// 真空の区間は全断面積を持たないので積を数えず、角度中性子束を等方な線源（平衡値のスカラーの分の q / 4π。`sweep`）の傾きで
+    /// 進める（一般化随伴の源は真空の領域にもある）
     fn products(
         &self,
         forward: (&[Vec<f64>], &[f64]),
@@ -1546,6 +1578,17 @@ impl<'a> Sweeper<'a> {
                             }
                         }
                     };
+                    // 問題 `which` の角度中性子束 `psi` を、長さ `length` の真空の区間に沿って等方な線源の傾きで進める
+                    let cross_void = |which: usize, length: f64, region: usize, psi: &mut [f64]| {
+                        let e = [forward.0, adjoint.0][which];
+                        let q = &e[representatives.regions.index[region]][..ng];
+                        for (p, sin) in POLAR_SIN.iter().enumerate() {
+                            let path = length / sin;
+                            for (value, q) in psi[p * ng..][..ng].iter_mut().zip(q) {
+                                *value += q * path;
+                            }
+                        }
+                    };
                     let psi = &mut tally.psi;
                     let attenuation = &tally.attenuation;
                     // 前向きの問題の向き。随伴の問題は逆の向きで、前向きの順と逆の 2 つの組で、トラックの両向きを 1 回ずつ数える。
@@ -1561,6 +1604,7 @@ impl<'a> Sweeper<'a> {
                             entries[s * width..][..width].copy_from_slice(psi);
                             let region = track.segments[s].region;
                             if self.void[region].is_some() {
+                                cross_void(first, track.segments[s].length, region, psi);
                                 continue;
                             }
                             let (q, stride) = source(first, region, held_along);
@@ -1580,6 +1624,7 @@ impl<'a> Sweeper<'a> {
                             let segment = &track.segments[s];
                             let region = segment.region;
                             if self.void[region].is_some() {
+                                cross_void(1 - first, segment.length, region, psi);
                                 continue;
                             }
                             let total = &self.totals[region * groups..][..groups];
