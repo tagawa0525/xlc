@@ -524,9 +524,11 @@ pub fn slowing_down_tangent(
 }
 
 /// 飛程の ln Σ についての微分の中心差分の幅。飛程の表の微分（[`crate::track_table`] の 1e-3）は展開の差（0.01 以下）を掛けて
-/// 使うが、ここの微分はそのまま個数密度の変化に掛かるので、打ち切りの誤差（幅の 2 乗）を小さくする。丸めは Ki3 の表の誤差
-/// （2e-15 程度）を幅で割った 2e-10 程度。衝突確率の求め方の切り替え（[`crate::cp`] の CANCELLATION）を幅の中でまたぐ格子点では、
-/// 2 つの求め方の差（値の 1e-8 程度）を幅で割った分だけずれる
+/// 使うが、ここの微分はそのまま個数密度の変化に掛かるので、打ち切りの誤差（幅の 2 乗）を小さくする。丸めは表の誤差を幅で割った分で、
+/// Ki3 の表（2e-15 程度）なら 2e-10 程度、真空と組になる区間の対の Ki2 の表（光学的厚さ 1e-3 以下で 4e-10）なら 4e-5 程度。衝突確率の
+/// 求め方の切り替え（[`crate::cp`] の CANCELLATION）を幅の中でまたぐ区間の対では、2 つの求め方の差（値の 1e-8 程度）を幅で割った
+/// 1e-3 程度だけずれる。どれも区間の対ごとの誤差で、格子点の飛程の全体と群の積分では小さくなるが、本番の格子での大きさは測っていない
+/// （ADR-0247 の段 I2-2）
 const TRACK_STEP: f64 = 1.0e-5;
 
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
@@ -710,6 +712,13 @@ fn solve_cell(
     work += heap_bytes(&points) + heap_bytes(&u);
 
     let ng = bottom - top;
+    // 接線の式は、格子点ごとの飛程、間引かない格子（群の積分を格子点で数える）、静止した標的（掃き直しで接線の状態を戻さない）の
+    // ものだけなので、ほかの設定では黙って誤った変化を返さずに止める
+    if tangent.is_some()
+        && (collision != Collision::Exact || thinning.is_some() || scattering != Scattering::Static)
+    {
+        return Err(UfgError::TangentSettings);
+    }
     // 向きは [`slowing_down_tangent`] だけが渡し、格子点ごとの飛程、間引かない格子、静止した標的で解く（飛程の表、間引いた格子の
     // 縮約、自由ガスの散乱源の接線は無い。ADR-0247）。個数密度の向きの並びは、リングの組成と同じであること（黙って切り詰めない）
     let tangent_sweep = match &tangent {
