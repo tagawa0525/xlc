@@ -1764,6 +1764,11 @@ fn history_generalized_derivatives_cover_the_micro_nuclides_and_shield_again_the
         format!(
             "{micro}perturbation = 0.05\ngeneralized = {{ tolerance = 1e-7, restart = 100 }}\n"
         ),
+        // 自己遮蔽の履歴は自己遮蔽を履歴の組成に固定するので、解き直す核種の微分が黙って陽の微分と同じになる
+        format!(
+            "{micro}shielding-file = \"previous.msgpack\"\n\
+             generalized = {{ tolerance = 1e-7, restart = 100, shielded = [\"U-238\"] }}\n"
+        ),
     ] {
         let err = LatticeInput::parse(&with(&bad)).unwrap_err().to_string();
         assert!(

@@ -2689,12 +2689,11 @@ fn generalized_derivatives(
         symmetry: s.chosen.moc(),
     };
     let generalized = branches.generalized().unwrap();
-    let (table, _) = crate::sensitivity::TableDerivatives::new(
+    let table = crate::sensitivity::TableDerivatives::new(
         &sensitivity_state,
         &regions,
         &options,
         (&solution, &converged),
-        None,
         &nominal,
         (generalized.tolerance, generalized.restart),
     )?;
@@ -2972,7 +2971,8 @@ fn generalized_derivatives_need_the_micro_nuclides_only_in_depleted_materials() 
     let history = deplete_with(&clad(&borated(PIN)), &library);
     let text = clad(&generalized_input(0.04, &[], &[]));
     assert!(text.contains("[material.clad]"));
-    let err = generalized_derivatives(&text, &history, &library, 3, &mut Vec::new())
+    // 輸送を解く前の、分岐を作るときに止める
+    let err = branches_of(&text, &history, &library)
         .unwrap_err()
         .to_string();
     assert!(err.contains("not depleted"), "{err}");
