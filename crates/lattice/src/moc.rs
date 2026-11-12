@@ -1820,8 +1820,12 @@ impl<'a> Sweeper<'a> {
             .zip(&representatives.chunks)
             .try_for_each(|((tally, outputs), range)| {
                 let busy = timed.then(std::time::Instant::now);
-                // 非等方散乱のモーメントごとの減衰の和は、`clear` でなく、組の最初の `fold` が 0 にしてから足す
-                tally.clear(self.moments == 1);
+                tally.clear();
+                // 非等方散乱では、モーメントごとの減衰の和を組の最初の `fold` が 0 にしてから足す（`fold`）
+                let anisotropic = self.moments > 1;
+                if !anisotropic {
+                    tally.delta.fill(0.0);
+                }
                 let mut first_fold = true;
                 tally.attenuation_seconds = 0.0;
                 // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに取り直す
@@ -1829,7 +1833,7 @@ impl<'a> Sweeper<'a> {
                 for (position, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let index = representatives.tracks[position];
                     let track = &self.tracking.tracks[index];
-                    if self.moments > 1
+                    if anisotropic
                         && directional
                             .as_ref()
                             .is_none_or(|(azimuth, _)| *azimuth != track.azimuth)
@@ -2113,11 +2117,8 @@ impl Tally {
         }
     }
 
-    /// 部分和を 0 にする。`delta` は `with_delta` のときだけ（非等方散乱では `Sweeper::fold` が 0 にする）
-    fn clear(&mut self, with_delta: bool) {
-        if with_delta {
-            self.delta.fill(0.0);
-        }
+    /// 減衰の和 `delta` のほかの部分和を 0 にする（`delta` は `Sweeper::sweep` が散乱の次数に応じて 0 にする）
+    fn clear(&mut self) {
         self.void_flux.fill(0.0);
         self.void_current.fill(0.0);
         self.region_current.fill(0.0);
