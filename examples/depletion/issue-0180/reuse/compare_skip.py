@@ -75,6 +75,19 @@ def estimate(
     return sum(t for _, t in terms), terms
 
 
+def bound(terms: list[tuple[str, float]]) -> float:
+    """項 `terms` の打ち消しを数えない大きさ Σ |項| (pcm)。項ごとの効きの誤差が打ち消しを崩しても超えない目安"""
+    return sum(abs(t) for _, t in terms)
+
+
+def shielding_burnup(path: Path) -> list[float]:
+    """テーブルを作った入力 `path` の `[history] shielding-burnup`（自己遮蔽を解いた燃焼点）"""
+    points = tomllib.loads(path.read_text()).get("history", {}).get("shielding-burnup")
+    if points is None:
+        sys.exit(f"{path} has no [history] shielding-burnup")
+    return points
+
+
 def implicit_effects(few_group, path: Path) -> dict[str, float]:
     """`[sensitivity.few-group]` の結果 `path` の、自己遮蔽を解き直した核種の暗黙の効き（相対の変化あたりの pcm）"""
     report = tomllib.loads(path.read_text())
@@ -138,8 +151,7 @@ def skip(shielding: dict, inputs: list) -> list[dict]:
                 "relative": {item: branch.relative(e[item], s[item]) for item in ITEMS}
                 | {"pins": branch.relative(e["pins"]["form"], s["pins"]["form"])},
                 "estimate_pcm": total,
-                # 項の打ち消しを数えない大きさ（項ごとの効きの誤差が打ち消しを崩しても超えない目安）
-                "bound_pcm": sum(abs(t) for _, t in terms),
+                "bound_pcm": bound(terms),
                 "sensitivity_burnup": nearest(b),
                 "terms": terms[:3],
             }
@@ -212,7 +224,7 @@ def main() -> None:
     if len(args) != 2 or args[0] != "--json":
         raise SystemExit(__doc__)
     inputs = []
-    sparse = load("reuse_inputs", HERE / "inputs.py").SPARSE
+    sparse = shielding_burnup(HERE / "2A-skip-sparse.toml")
     summary = {
         "format": "xlc-compare-shielding-skip",
         "shielding_burnup": sparse,
