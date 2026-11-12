@@ -1,6 +1,7 @@
 //! 炉心の状態からの分岐のテーブルの内挿（ADR-0097、ADR-0200）。
 //!
-//! 軸ごとに隣の2点で、軸の内挿の変数（テーブルの軸の `transform`。ADR-0097 の ppm、温度、√T）について線形に内挿する。格子点の範囲の外はエラーにし、
+//! ホウ素と減速材の軸は隣の2点で、軸の内挿の変数（テーブルの軸の `transform`。ADR-0097 の ppm、温度）について線形に内挿する。
+//! 燃料の温度の軸は、軸の内挿の変数（√T）について燃焼度の軸と同じ 3 次 Hermite で内挿する（ADR-0242）。格子点の範囲の外はエラーにし、
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
 //! 持ち、与えないときは軸のないテーブルだけを使う。制御棒の離散の軸は内挿せず、値の名前で選ぶ（棒がなければ
 //! `out`。ADR-0127）。燃焼度は、各点の傾きをその点と両隣の 3 点の放物線の微分にした 3 次 Hermite で内挿する
@@ -10,8 +11,8 @@
 //!
 //! テーブルが軸の直積でなく、公称の状態と成分（公称と違う軸の組）の部分格子の点を持つときは、制御棒の値の点の中で cut-HDMR の式
 //! f(x) = Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x₀) で組み立てる（U は成分の集合、f(x_v, x₀) は v の軸だけ x の値にし、ほかを公称に
-//! した状態を、その部分格子の中で多重線形に内挿した値。ADR-0200）。f(x_v, x₀) の係数をまとめて、成分 v の部分格子に
-//! c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|} を掛けて足す。軸の直積は c が 3 つの軸の成分だけ 1 で、ほかの成分は 0 なので、直積の多重線形
+//! した状態を、その部分格子の中で軸ごとの重み（ホウ素と減速材は線形、燃料の温度は √T の 3 次 Hermite）の積で内挿した値。ADR-0200）。f(x_v, x₀) の係数をまとめて、成分 v の部分格子に
+//! c_v = Σ_{u∈U, u⊇v} (−1)^{|u|−|v|} を掛けて足す。軸の直積は c が 3 つの軸の成分だけ 1 で、ほかの成分は 0 なので、直積の軸ごとの重みの積
 //! そのものになる。すべての燃焼度の点で解いていない点は、その点の燃焼度の点での公称の状態との差を燃焼度について内挿し、
 //! 公称の状態をすべての燃焼度の点で内挿した値に足す（燃焼度の内挿はどちらも ADR-0192）。
 //!
@@ -84,8 +85,34 @@ fn burnup_terms(points: &[f64], x: f64) -> Result<Terms, String> {
     if i < first || points.len() - first < 3 {
         return Ok(linear);
     }
-    let smooth = &points[first..];
-    let j = i - first;
+    Ok(hermite(&points[first..], i - first, t)
+        .into_iter()
+        .map(|(k, w)| (first + k, w))
+        .collect())
+}
+
+/// 燃料の温度の軸の点の重み（ADR-0242）。軸の内挿の変数（`transform`。√T）について、燃焼度の軸と同じ 3 次 Hermite
+/// （点 k の傾きは k と両隣、端では端の 3 点を通る放物線の微分）。点が 2 つなら線形、1 つならその値だけ。範囲の外はエラー
+fn cubic_terms(
+    name: &str,
+    points: &[f64],
+    x: f64,
+    transform: impl Fn(f64) -> f64,
+) -> Result<Terms, String> {
+    let linear = bracket(name, points, x, &transform)?;
+    let [(j, _), (_, t)] = linear[..] else {
+        return Ok(linear);
+    };
+    if points.len() < 3 {
+        return Ok(linear);
+    }
+    let u: Vec<f64> = points.iter().map(|&p| transform(p)).collect();
+    Ok(hermite(&u, j, t))
+}
+
+/// 3 点以上の点 `smooth` の区間 j（smooth[j]〜smooth[j + 1]）の中の位置 t での 3 次 Hermite の重み（`smooth` の番号）。
+/// 点 k の傾きは `slope`
+fn hermite(smooth: &[f64], j: usize, t: f64) -> Terms {
     let h = smooth[j + 1] - smooth[j];
     // Hermite の基底（t = 0、1 で厳密に 0 か 1 になる積の形）
     let h00 = (1.0 + 2.0 * t) * (1.0 - t) * (1.0 - t);
@@ -103,12 +130,12 @@ fn burnup_terms(points: &[f64], x: f64) -> Result<Terms, String> {
             weights[p - base] += h * hk * c;
         }
     }
-    Ok(weights
+    weights
         .iter()
         .enumerate()
         .filter(|&(_, w)| *w != 0.0)
-        .map(|(m, &w)| (first + base + m, w))
-        .collect())
+        .map(|(m, &w)| (base + m, w))
+        .collect()
 }
 
 /// 点 `k` の傾きの、3 点の値に掛ける係数（点の番号と係数）。`k` と両隣、端では端の 3 点を通る放物線の微分
@@ -703,6 +730,7 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
     // 点で解いた点の重み）
     let mut terms = Vec::with_capacity(table.axes.len());
     let mut burnup = None;
+    let mut negative_fuel = false;
     for (a, axis) in table.axes.iter().enumerate() {
         terms.push(match axis {
             Axis::Burnup { points } => {
@@ -744,7 +772,11 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
                 temperature,
                 transform,
                 ..
-            } => bracket("fuel", temperature, state.fuel, |x| transform.apply(x))?,
+            } => {
+                let fuel = cubic_terms("fuel", temperature, state.fuel, |x| transform.apply(x))?;
+                negative_fuel = fuel.iter().any(|&(_, w)| w < 0.0);
+                fuel
+            }
             Axis::Rod { values } => {
                 let wanted = rod.unwrap_or(ROD_OUT);
                 let i = values.iter().position(|v| v == wanted).ok_or_else(|| {
@@ -763,6 +795,12 @@ fn state_weights(table: &Table, state: &State, rod: Option<&str>) -> Result<Weig
         causes.push(format!(
             "the cubic burnup interpolation at burnup {} overshot, add burnup points near the bend (ADR-0192)",
             state.burnup.unwrap_or(0.0)
+        ));
+    }
+    if negative_fuel {
+        causes.push(format!(
+            "the cubic fuel temperature interpolation at {} K has negative weights; if the values bend between the fuel temperature points, add points there (ADR-0242)",
+            state.fuel
         ));
     }
     if assembly.negative_difference {

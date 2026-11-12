@@ -45,7 +45,8 @@ use serde::{Deserialize, Serialize};
 use crate::fewgroup::{FewGroup, FewGroupError, Pins};
 use crate::msgpack::{self, MsgpackError};
 
-/// 連続の軸の内挿の変数（ADR-0097）。core は、この変数について格子点の間を線形に内挿する
+/// 連続の軸の内挿の変数（ADR-0097）。core は、この変数について格子点の間を内挿する（ホウ素と減速材の軸は線形、燃料の温度の軸は
+/// 3 次 Hermite。ADR-0242）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Transform {
     /// 値そのもの

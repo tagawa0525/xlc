@@ -156,6 +156,264 @@ fn fuel_temperature_is_interpolated_in_its_square_root() {
     assert!(close(got.k_inf, want));
 }
 
+/// Problem 9 の燃料の温度の格子点（ADR-0239）
+const TF_P9: [f64; 7] = [560.0, 600.0, 750.0, 900.0, 1050.0, 1200.0, 1350.0];
+
+/// 燃料の温度の軸だけが点 `points` を持ち（ホウ素 1300 ppm、減速材 565 K の 1 点）、燃料の温度 T の状態が table() の状態の
+/// `g(T)` 倍のテーブル
+fn fuel_table_of(points: &[f64], g: impl Fn(f64) -> f64) -> Table {
+    let mut table = Table {
+        points: Vec::new(),
+        split: 1,
+        heavy_metal: None,
+        micro: None,
+        histories: Vec::new(),
+        kinetics: None,
+        cooling: None,
+        axes: vec![
+            Axis::boron(vec![1300.0], 0.199),
+            Axis::moderator(vec![565.0], vec![0.74271]),
+            Axis::fuel(points.to_vec()),
+        ],
+        states: points
+            .iter()
+            .map(|&tf| curved(g(tf), 1300.0, 565.0, 565.0))
+            .collect(),
+    };
+    table.points = product_points(&table.axes);
+    table
+}
+
+/// 燃料の温度の依存のモデル a + b√T + cT（高速群の共鳴吸収の √T と熱群の T。#0274）の倍率
+fn doppler_model(tf: f64) -> f64 {
+    0.9 + 4.0e-3 * tf.sqrt() + 2.0e-5 * tf
+}
+
+#[test]
+fn fuel_temperatures_reproduce_quadratics_in_the_square_root_between_points() {
+    // √T の 3 次 Hermite は √T の 2 次式を厳密に再現する（ADR-0242）。端の区間と内側の区間の点
+    let t = fuel_table_of(&TF_P9, doppler_model);
+    let nominal = few(1300.0, 565.0, 565.0).k_inf;
+    for tf in [565.0, 580.0, 700.0, 820.0, 1111.0, 1300.0, 1349.0] {
+        let got = interpolate(&t, Some(&state(1300.0, 565.0, tf)), None)
+            .unwrap()
+            .remove(0)
+            .k_inf;
+        let want = nominal * doppler_model(tf);
+        assert!(close(got, want), "fuel {tf}: {got} vs {want}");
+    }
+}
+
+#[test]
+fn fuel_grid_points_return_the_lattice_states() {
+    let t = fuel_table_of(&TF_P9, doppler_model);
+    for (i, &tf) in TF_P9.iter().enumerate() {
+        let got = interpolate(&t, Some(&state(1300.0, 565.0, tf)), None)
+            .unwrap()
+            .remove(0);
+        assert_eq!(got, t.states[i], "fuel {tf}");
+    }
+}
+
+/// 燃料の温度の点 `points` の内挿で、状態の燃料の温度 `tf` が点ごとの値に掛ける重み（点の状態だけを 1.1 倍にしたときの k∞ の増え方を
+/// 0.1 で割る。2 倍にすると真空の境界の比が 1 を超えて検査に止められる）
+fn fuel_weights(points: &[f64], tf: f64) -> Vec<f64> {
+    let base = interpolate(
+        &fuel_table_of(points, |_| 1.0),
+        Some(&state(1300.0, 565.0, tf)),
+        None,
+    )
+    .unwrap()
+    .remove(0)
+    .k_inf;
+    (0..points.len())
+        .map(|j| {
+            let t = fuel_table_of(points, |x| if x == points[j] { 1.1 } else { 1.0 });
+            (interpolate(&t, Some(&state(1300.0, 565.0, tf)), None)
+                .unwrap()
+                .remove(0)
+                .k_inf
+                / base
+                - 1.0)
+                / 0.1
+        })
+        .collect()
+}
+
+#[test]
+fn fuel_weights_match_the_python_comparison_of_the_p9_grid() {
+    // examples/depletion/compare_grid_interpolation.py の `hermite_weights` を √T の点に当てた重み。#0274 の 1 点を除いた誤差
+    // （Slurm 752 の 2A のテーブルで 0.38 pcm。ADR-0242）は、7 点から内側の 1 点を除いた点で、除いた点の温度を引いたこの重み
+    let without = |i: usize| -> Vec<f64> {
+        TF_P9
+            .iter()
+            .enumerate()
+            .filter(|&(k, _)| k != i)
+            .map(|(_, &x)| x)
+            .collect()
+    };
+    let cases = [
+        (
+            without(1),
+            600.0,
+            vec![
+                (560.0, 0.6749953466231184),
+                (750.0, 0.47001054765426514),
+                (900.0, -0.1450058942773837),
+            ],
+        ),
+        (
+            without(2),
+            750.0,
+            vec![
+                (560.0, -0.6818865068470399),
+                (600.0, 1.1684138362216125),
+                (900.0, 0.7222544137021589),
+                (1050.0, -0.20878174307673159),
+            ],
+        ),
+        (
+            without(3),
+            900.0,
+            vec![
+                (600.0, -0.131631116500441),
+                (750.0, 0.5966216729620588),
+                (1050.0, 0.7366594471155862),
+                (1200.0, -0.20165000357720414),
+            ],
+        ),
+        (
+            without(4),
+            1050.0,
+            vec![
+                (750.0, -0.1367118337025198),
+                (900.0, 0.6067707898894349),
+                (1200.0, 0.7265349651417771),
+                (1350.0, -0.19659392132869194),
+            ],
+        ),
+        (
+            without(5),
+            1200.0,
+            vec![
+                (900.0, -0.2900874895928406),
+                (1050.0, 0.9351312343892599),
+                (1350.0, 0.35495625520358065),
+            ],
+        ),
+        (
+            TF_P9.to_vec(),
+            580.0,
+            vec![
+                (560.0, 0.43990153479800564),
+                (600.0, 0.5761247225891927),
+                (750.0, -0.01602625738719826),
+            ],
+        ),
+        (
+            TF_P9.to_vec(),
+            1300.0,
+            vec![
+                (1050.0, -0.10008586475668797),
+                (1200.0, 0.5335050628467114),
+                (1350.0, 0.5665808019099766),
+            ],
+        ),
+        (
+            TF_P9.to_vec(),
+            820.0,
+            vec![
+                (600.0, -0.05590689276888743),
+                (750.0, 0.5775774841412364),
+                (900.0, 0.5458990433575228),
+                (1050.0, -0.06756963472987183),
+            ],
+        ),
+    ];
+    for (points, tf, want) in cases {
+        let got = fuel_weights(&points, tf);
+        for (j, &x) in points.iter().enumerate() {
+            let w = want.iter().find(|&&(p, _)| p == x).map_or(0.0, |&(_, w)| w);
+            assert!(
+                (got[j] - w).abs() < 1e-13,
+                "points {points:?} at {tf}: weight of {x} is {} vs {w}",
+                got[j]
+            );
+        }
+    }
+}
+
+#[test]
+fn fuel_quadratics_in_the_square_root_hold_in_cut_hdmr_and_burnup_tables() {
+    // ホウ素と減速材の多重線形な量に、燃料の温度の a + b√T + cT と、燃焼度の 2 次式を掛けた量。公称の値を持つ直積（すべての
+    // 成分の部分格子。係数が負の成分を含む）でも、燃焼度の軸を足しても、軸ごとの内挿の積が厳密に再現する
+    let state_of =
+        |g: f64, ppm: f64, tm: f64, tf: f64| curved(g * doppler_model(tf), ppm, tm, 565.0);
+    let mut product = table();
+    product.axes[2] = Axis::fuel(TF_P9.to_vec());
+    product.points = product_points(&product.axes);
+    product.states = product
+        .points
+        .iter()
+        .map(|p| state_of(1.0, PPM[p[0]], TM[p[1]], TF_P9[p[2]]))
+        .collect();
+    let mut burnt = product.clone();
+    burnt.axes.insert(
+        0,
+        Axis::Burnup {
+            points: CURVED.to_vec(),
+        },
+    );
+    burnt.points = product_points(&burnt.axes);
+    burnt.states = burnt
+        .points
+        .iter()
+        .map(|p| state_of(curve(CURVED[p[0]]), PPM[p[1]], TM[p[2]], TF_P9[p[3]]))
+        .collect();
+    let states = [
+        (1000.0, 560.0, 700.0),
+        (1650.0, 551.0, 1300.0),
+        (1291.0, 570.0, 580.0),
+    ];
+    for t in [product.clone(), with_nominal(product, [1, 1, 3])] {
+        for &(ppm, tm, tf) in &states {
+            let got = interpolate(&t, Some(&state(ppm, tm, tf)), None)
+                .unwrap()
+                .remove(0)
+                .k_inf;
+            let want = state_of(1.0, ppm, tm, tf).k_inf;
+            assert!(close(got, want), "{ppm} {tm} {tf}: {got} vs {want}");
+        }
+    }
+    for t in [burnt.clone(), with_nominal(burnt, [1, 1, 3])] {
+        for bu in [1.3, 7.5] {
+            for &(ppm, tm, tf) in &states {
+                let got = interpolate(&t, Some(&at_burnup(bu, ppm, tm, tf)), None)
+                    .unwrap()
+                    .remove(0)
+                    .k_inf;
+                let want = state_of(curve(bu), ppm, tm, tf).k_inf;
+                assert!(close(got, want), "{bu} {ppm} {tm} {tf}: {got} vs {want}");
+            }
+        }
+    }
+}
+
+#[test]
+fn negative_fuel_interpolations_name_the_fuel_axis() {
+    // 熱群の吸収が 900 K まで 0 で、そこから増える折れ線。900 K の傾きが正になり、750〜900 K の Hermite は 0 を下回る
+    let mut t = fuel_table_of(&TF_P9, |_| 1.0);
+    for (s, &tf) in t.states.iter_mut().zip(&TF_P9) {
+        s.absorption[1] = 1.0e-5 * (tf - 900.0).max(0.0);
+    }
+    let err = interpolate(&t, Some(&state(1300.0, 565.0, 850.0)), None).unwrap_err();
+    assert!(
+        err.contains("negative") && err.contains("ADR-0242"),
+        "{err}"
+    );
+    assert!(interpolate(&t, Some(&state(1300.0, 565.0, 1100.0)), None).is_ok());
+}
+
 #[test]
 fn invalid_states_are_errors() {
     let t = table();
@@ -643,7 +901,7 @@ fn product_sum(table: &Table, state: &State, rod: Option<&str>) -> Vec<FewGroup>
                 bracket("moderator", temperature, state.moderator, |x| x).unwrap()
             }
             Axis::Fuel { temperature, .. } => {
-                bracket("fuel", temperature, state.fuel, f64::sqrt).unwrap()
+                cubic_terms("fuel", temperature, state.fuel, f64::sqrt).unwrap()
             }
             Axis::Rod { values } => vec![(
                 values
