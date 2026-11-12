@@ -424,11 +424,14 @@ pub fn shield_fuel_with(
 
 /// 1 つのトラッキングで自己遮蔽を繰り返して解くとき（燃焼の輸送ごと、分岐の状態ごと）に持ち越す、燃料の組成によらない前処理。
 /// 燃料のピンの Dancoff 係数は、燃料を黒体にし、燃料でない物質の全断面積だけから求めるので、直前に解いたときと入力（領域ごとの
-/// 物質、燃料でない物質の全断面積、`DancoffOptions`）が同じなら、その結果を使う（ADR-0194）
+/// 物質、燃料でない物質の全断面積、`DancoffOptions`）が同じなら、その結果を使う（ADR-0194）。呼び出し側が複数（状態と数密度の
+/// 微分の摂動の組成。[`ShieldingReuse::sharing`]）なら、その数だけ、直前に解いた違う入力の結果を持つ
 #[derive(Debug)]
 pub struct ShieldingReuse<'a> {
     tracking: &'a Tracking,
-    dancoff: Option<DancoffInputs>,
+    /// 解いた入力と結果（新しい順。`callers` 個まで）
+    dancoff: Vec<DancoffInputs>,
+    callers: usize,
     /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
     /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
@@ -450,18 +453,19 @@ struct DancoffInputs {
 impl<'a> ShieldingReuse<'a> {
     /// トラッキング `tracking` で解く自己遮蔽の前処理（まだ何も持たない）
     pub fn new(tracking: &'a Tracking) -> Self {
+        Self::sharing(tracking, 1)
+    }
+
+    /// トラッキング `tracking` で解く自己遮蔽の、`callers` 人の呼び出し側（状態と、数密度の微分の摂動の組成）が共有する前処理。
+    /// 摂動が燃料でない物質を変えても（燃料でない燃焼の領域の核種の微分）、ほかの呼び出し側の直前の結果を追い出さない
+    pub fn sharing(tracking: &'a Tracking, callers: usize) -> Self {
         Self {
             tracking,
-            dancoff: None,
+            dancoff: Vec::new(),
+            callers: callers.max(1),
             dancoff_solves: 0,
             shares: ShareCellCache::default(),
         }
-    }
-
-    /// トラッキング `tracking` で解く自己遮蔽の、`callers` 人の呼び出し側（状態と、数密度の微分の摂動の組成）が共有する前処理
-    pub fn sharing(tracking: &'a Tracking, callers: usize) -> Self {
-        let _ = callers;
-        Self::new(tracking)
     }
 
     /// 前処理のトラッキング
@@ -490,10 +494,10 @@ impl<'a> ShieldingReuse<'a> {
                 totals[i] = Some(dilute[i].total.clone());
             }
         }
-        if let Some(d) = &self.dancoff
-            && d.region_index == region_index
-            && d.totals == totals
-            && d.options == *options
+        if let Some(d) = self
+            .dancoff
+            .iter()
+            .find(|d| d.region_index == region_index && d.totals == totals && d.options == *options)
         {
             tracing::debug!("pin Dancoff factors reused");
             return Ok(d.factors.clone());
@@ -507,12 +511,16 @@ impl<'a> ShieldingReuse<'a> {
                 .in_scope(|| dancoff(self.tracking, &region_totals, fuel, options))?,
         );
         self.dancoff_solves += 1;
-        self.dancoff = Some(DancoffInputs {
-            region_index: region_index.to_vec(),
-            totals,
-            options: *options,
-            factors: factors.clone(),
-        });
+        self.dancoff.truncate(self.callers - 1);
+        self.dancoff.insert(
+            0,
+            DancoffInputs {
+                region_index: region_index.to_vec(),
+                totals,
+                options: *options,
+                factors: factors.clone(),
+            },
+        );
         Ok(factors)
     }
 }
