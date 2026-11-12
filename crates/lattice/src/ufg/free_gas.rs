@@ -1399,7 +1399,13 @@ impl<'a> Thermal<'a> {
             // 表から引いた値は、作るときの評価の回数で数える（重なりは表によらない量）
             let needed = self.needed + evaluations;
             let (ub, eb) = (u[m].to_bits(), e.to_bits());
-            let bytes = point_bytes(self.all.len());
+            // 表は核種ごとに 1 つの項目を持つ
+            let bytes = self
+                .starts
+                .windows(2)
+                .filter(|w| w[1] > w[0])
+                .map(|w| point_bytes((w[1] - w[0]) as usize))
+                .sum();
             self.work.points.push((ub, eb, needed, bytes));
             for (l, w) in self.starts.windows(2).enumerate() {
                 if w[1] > w[0] {
