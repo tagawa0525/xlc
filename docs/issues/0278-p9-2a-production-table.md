@@ -38,7 +38,7 @@ examples/depletion/p9-2A（`branch-2A`。未実行）。
   出した。直すのは別の作業。公称でない状態を 10 燃焼点だけで解けば約 18 時間（燃焼点あたりの時間の平均から数えた見込みで、点の
   選び方で変わる）。値の出どころ:
   - 短い入力（examples/depletion/p9-2A/short-check/branch-2A-short.toml。7 状態 × 燃焼点 0、0.5、60 MWd/kg）を Slurm 755（区分
-    decision、パーティション timed の排他のジョブ、xlc 557fe542e（分岐点 8cb7b88c0）、2026-11-12）で流し、全体は 1,250.1 秒
+    decision、パーティション timed の排他のジョブ、xlc 37d1b0a3a（分岐点 8cb7b88c0）、2026-11-12）で流し、全体は 1,250.1 秒
     （ログの `branches ... total_seconds`）。1 状態の時間（ログの `lattice state=` の `seconds`。数密度の微分の輸送を含む）は次のとおり:
 
     | 燃焼点 (MWd/kg) | 自己遮蔽を解く状態（4 の平均） | うち数密度の微分（`derivative`） | 自己遮蔽を再利用する状態（3 の平均） |
