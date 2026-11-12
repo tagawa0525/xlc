@@ -367,14 +367,14 @@ fn sigma(s: f64, derivative: bool) -> MicroNuclide {
             nu_fission: vec![x(1.0), x(-150.0)],
             fission: vec![x(0.35), x(-60.0)],
             scatter: vec![vec![x(8.5), x(0.12)], vec![x(0.02), x(7.0)]],
-            rate: RateResidual {
+            rate: Some(RateResidual {
                 fission: vec![x(-0.1), x(-2.0)],
                 reactions: vec![MicroReaction {
                     mt: 102,
                     channels: vec![vec![x(-0.2), x(-1.0)]],
                 }],
                 thermal_fission: Some(x(-1.5)),
-            },
+            }),
         }),
     }
 }
@@ -1005,13 +1005,13 @@ fn own_parts(base: &MicroAt, n: &[f64], index: f64) -> Vec<Option<(f64, RateResi
         .iter()
         .enumerate()
         .map(|(i, b)| {
-            b.derivative.as_ref().map(|d| {
-                let branch = BRANCH_DENSITIES[1][i] - NOMINAL_DENSITIES[2][i];
-                (
-                    n[i] - NOMINAL_DENSITIES[2][i] - index * branch,
-                    d.rate.clone(),
-                )
-            })
+            b.derivative
+                .as_ref()
+                .and_then(|d| d.rate.clone())
+                .map(|rate| {
+                    let branch = BRANCH_DENSITIES[1][i] - NOMINAL_DENSITIES[2][i];
+                    (n[i] - NOMINAL_DENSITIES[2][i] - index * branch, rate)
+                })
         })
         .collect()
 }
@@ -1053,6 +1053,35 @@ fn rate_derivatives_add_the_own_density_beyond_the_production_index() {
     assert_eq!(index, 1.0);
     let (delta, _) = own_parts(&base, &n, index)[1].clone().unwrap();
     assert_eq!(delta, 0.0);
+}
+
+#[test]
+fn density_derivatives_without_rate_derivatives_add_no_own_density_term() {
+    // 一般化摂動の微分（ADR-0247）は少数群定数の微分だけを持つ。その核種は線形の補正と P / P_j の係数に微分を使い、反応率は
+    // σᵢ + w Δσ_U + (P / P_j) Δσ_L のまま（自分の数密度の項は反応率の微分を持つ核種だけ）
+    let mut table = history_table(&[]);
+    for state in &mut table.micro.as_mut().unwrap().states {
+        state[1].derivative.as_mut().unwrap().rate = None;
+    }
+    let state = at(600.0, 20.0);
+    let base = interpolate_micro(&table, &state, None).unwrap();
+    assert!(base.nuclides[1].derivative.is_some());
+    assert!(own_parts(&base, &[5.5e-4, 1.6e-5], 1.0)[1].is_none());
+    let rates = &table.histories[0].rods[0].micro;
+    let w = (0.702 - 0.743) / (0.661 - 0.743);
+    let n = [5.5e-4, 3.1e-5];
+    let got = node_micro(&table, &state, None, &[0.702, 0.0], &n).unwrap();
+    let index = index_ratio(&table, &state, &n, 1);
+    for i in 0..2 {
+        let (u, l) = (&rates.untracked[1][i], &rates.linearization[1][i]);
+        assert!(
+            same_rates(
+                &got.nuclides[i],
+                &with_rate(&base.nuclides[i], &[(w, u), (index, l)])
+            ),
+            "{i}"
+        );
+    }
 }
 
 #[test]
@@ -1291,12 +1320,16 @@ fn rate_linearizations_of_two_variables_share_the_index_and_add_the_own_density_
             (ar, &dr.linearization[2][i]),
         ];
         let own;
-        if let Some(d) = &base.nuclides[i].derivative {
+        if let Some(rate) = base.nuclides[i]
+            .derivative
+            .as_ref()
+            .and_then(|d| d.rate.clone())
+        {
             let delta = n[i]
                 - NOMINAL_DENSITIES[2][i]
                 - (am * (BRANCH_DENSITIES[1][i] - NOMINAL_DENSITIES[2][i])
                     + ar * (ROD_DENSITIES[2][i] - NOMINAL_DENSITIES[2][i]));
-            own = (delta, d.rate.clone());
+            own = (delta, rate);
             parts.push((own.0, &own.1));
         }
         assert!(

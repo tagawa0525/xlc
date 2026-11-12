@@ -109,6 +109,10 @@
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
 //! derivative = ["Xe-135"]         # 数密度の微分をテーブルに書く核種（micro から選ぶ。省略すると書かない。ADR-0221）
 //! perturbation = 0.1              # 微分の摂動の割合（数密度を (1 + perturbation) 倍する。省略すると 0.1。ADR-0221）
+//! # 一般化摂動の微分（ADR-0247。省略すると解かない）: micro のすべての核種の少数群定数の微分を、状態ごとの一般化随伴（CMFD の反復の
+//! # GMRES）から求める（自己遮蔽は固定、案 I0）。shielded の核種は、自己遮蔽を (1 + perturbation) 倍の組成で解き直した物質の差も足す
+//! # （案 I1）。derivative の核種は、直接の摂動を反応率の微分のために解き、その自己遮蔽で少数群定数の微分も I1 にする
+//! generalized = { tolerance = 1e-7, restart = 100, shielded = ["U-238"] }
 //! shielding-file = "other.msgpack" # 燃焼の領域を自己遮蔽する組成の履歴（同じ燃焼度の点。省略すると状態の組成。#0191）
 //!
 //! [sensitivity]                   # k の数密度の感度（ADR-0247 の段 2。ライブラリの核種で書いた物質だけを変え、自己遮蔽は固定。
@@ -155,7 +159,7 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
-use crate::history::HistoryInput;
+use crate::history::{GeneralizedDerivatives, HistoryInput};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
@@ -723,6 +727,16 @@ struct HistoryEntry {
     derivative: Option<Vec<String>>,
     perturbation: Option<f64>,
     shielding_file: Option<PathBuf>,
+    generalized: Option<HistoryGeneralizedEntry>,
+}
+
+/// `[history]` の `generalized`（ADR-0247）。判定と再始動は既定がないので、欠けをここで止める
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HistoryGeneralizedEntry {
+    tolerance: Option<f64>,
+    restart: Option<usize>,
+    shielded: Option<Vec<String>>,
 }
 
 /// 燃焼の条件（ADR-0173）
@@ -1720,12 +1734,64 @@ impl LatticeInput {
                         list
                     }
                 };
-                // 摂動の割合。微分の核種がなければ使わないので、書けばエラー（黙って捨てない）
+                // 一般化摂動の微分（ADR-0247）。追う核種のすべてに書き、`shielded` の核種は自己遮蔽を摂動の組成で解き直す
+                let generalized = match h.generalized {
+                    None => None,
+                    Some(g) => {
+                        if micro.is_empty() {
+                            return Err(
+                                "[history] generalized writes the derivatives of the micro nuclides, so it needs `micro` (ADR-0247)"
+                                    .to_string(),
+                            );
+                        }
+                        let (Some(tolerance), Some(restart)) = (g.tolerance, g.restart) else {
+                            return Err(
+                                "[history] generalized needs tolerance and restart, which have no default (ADR-0247)"
+                                    .to_string(),
+                            );
+                        };
+                        if !(tolerance > 0.0 && tolerance.is_finite()) || restart == 0 {
+                            return Err(format!(
+                                "[history] generalized tolerance must be positive and restart at least 1, got {tolerance} and {restart}"
+                            ));
+                        }
+                        let shielded = g.shielded.unwrap_or_default();
+                        if shielded
+                            .iter()
+                            .enumerate()
+                            .any(|(i, n)| !micro.contains(n) || shielded[..i].contains(n))
+                        {
+                            return Err(format!(
+                                "[history] generalized shielded must list distinct nuclides of `micro`, got {shielded:?} \
+                                 (micro {micro:?})"
+                            ));
+                        }
+                        // 自己遮蔽の履歴があれば、摂動の組成でも自己遮蔽はその履歴の組成のまま（`perturbed_reference_state`）なので、
+                        // 解き直す核種の微分は黙って案 I0 と同じになる
+                        if !shielded.is_empty() && h.shielding_file.is_some() {
+                            return Err(
+                                "[history] generalized shielded solves the self-shielding at the perturbed composition, \
+                                 which shielding-file fixes to its own (ADR-0247)"
+                                    .to_string(),
+                            );
+                        }
+                        Some(GeneralizedDerivatives {
+                            tolerance,
+                            restart,
+                            shielded,
+                        })
+                    }
+                };
+                // 摂動の割合。摂動の組成を解く核種（直接の摂動と、自己遮蔽を解き直す一般化摂動）がなければ使わないので、書けば
+                // エラー（黙って捨てない）
+                let perturbs = !derivative.is_empty()
+                    || generalized.as_ref().is_some_and(|g| !g.shielded.is_empty());
                 let perturbation = match h.perturbation {
                     None => DEFAULT_PERTURBATION,
-                    Some(_) if derivative.is_empty() => {
+                    Some(_) if !perturbs => {
                         return Err(
-                            "[history] perturbation needs `derivative` (ADR-0221)".to_string()
+                            "[history] perturbation needs `derivative` or generalized `shielded` (ADR-0221, ADR-0247)"
+                                .to_string(),
                         );
                     }
                     Some(e) if e > 0.0 && e.is_finite() => e,
@@ -1745,6 +1811,7 @@ impl LatticeInput {
                     derivative,
                     perturbation,
                     shielding_file: h.shielding_file,
+                    generalized,
                 })
             })
             .transpose()

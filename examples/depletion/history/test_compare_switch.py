@@ -473,6 +473,34 @@ class Compare(unittest.TestCase):
         self.assertIn("Δσ_U", text)
         self.assertIn("Δσ_L", text)
 
+    def test_derivatives_without_rate_derivatives_add_no_own_density_term(self):
+        # 一般化摂動の微分（ADR-0247）は反応率の微分を持たないことがあり、core はそのとき自分の数密度の項を足さないので、外れも
+        # 項なしで分ける
+        t = table()
+        for state in t["micro"]["states"]:
+            if "derivative" in state[1]:
+                del state[1]["derivative"]["rate"]
+        corrected, plain = cores()
+        with mock.patch.object(c, "GROUPS", ["U-235", "Pu-240"]):
+            s = c.compare(
+                t, reference(), history(), corrected, plain, SUMMARY, hybrid()
+            )
+        last = s["rows"][1]
+        point = t["points"].index([2, 0, 1, 0])
+        x = last["rate_outliers"][1]
+        self.assertIsNone(x["own_density_percent"])
+        index = last["index_ratio"]
+        ref = absorption(reference()["micro"]["states"][1][1])
+        hyb = absorption(hybrid()["micro"]["states"][1][1])
+        nom = absorption(t["micro"]["states"][point][1])
+        dl = rate_absorption(RATE_LINEARIZATION[1][1])
+        for g in range(2):
+            self.assertAlmostEqual(
+                x["linearization_percent"][g],
+                (index * dl[g] - (hyb[g] - nom[g])) / ref[g] * 100.0,
+                places=9,
+            )
+
     def test_a_hybrid_of_other_points_or_densities_is_an_error(self):
         corrected, plain = cores()
         other = hybrid()

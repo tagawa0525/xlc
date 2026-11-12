@@ -1,0 +1,5 @@
+outs:
+- md5: 447b2cdc2d8cef8c4e6b210d81ff028f
+  size: 7272
+  hash: md5
+  path: core-macro.msgpack

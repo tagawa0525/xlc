@@ -1011,7 +1011,7 @@ fn micro_derivative(scale: f64) -> MicroDerivative {
         nu_fission: vec![x(1.3), x(-0.5)],
         fission: vec![x(0.5), x(-0.2)],
         scatter: vec![vec![x(9.5), x(-0.3)], vec![x(0.02), x(8.5)]],
-        rate: rate_derivative(scale),
+        rate: Some(rate_derivative(scale)),
     }
 }
 
@@ -1133,11 +1133,13 @@ fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
     let bad = |change: &dyn Fn(&mut RateResidual)| {
         let mut table = derivative_sample();
         change(
-            &mut table.micro.as_mut().unwrap().states[1][0]
+            table.micro.as_mut().unwrap().states[1][0]
                 .derivative
                 .as_mut()
                 .unwrap()
-                .rate,
+                .rate
+                .as_mut()
+                .unwrap(),
         );
         let err = table.validate().unwrap_err().to_string();
         assert!(err.contains("rate derivative"), "{err}");
@@ -1161,7 +1163,7 @@ fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
     let mut table = micro_sample();
     for (p, state) in table.micro.as_mut().unwrap().states.iter_mut().enumerate() {
         let mut d = micro_derivative(1.0 + p as f64);
-        d.rate.thermal_fission = None;
+        d.rate.as_mut().unwrap().thermal_fission = None;
         state[1].derivative = Some(d);
     }
     table.validate().unwrap();
@@ -1170,6 +1172,8 @@ fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
         .as_mut()
         .unwrap()
         .rate
+        .as_mut()
+        .unwrap()
         .thermal_fission = Some(0.0);
     assert!(table.validate().is_err());
     // 負の微分（自己遮蔽で減る σᵢ）は持て、往復でビットで同じ
@@ -1180,6 +1184,8 @@ fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
             .as_ref()
             .unwrap()
             .rate
+            .as_ref()
+            .unwrap()
             .fission[1]
             < 0.0
     );
@@ -1187,6 +1193,72 @@ fn rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide() {
         Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
         table
     );
+}
+
+/// map の値 `v` の、キー `key` の値
+fn map_entry<'a>(v: &'a mut rmpv::Value, key: &str) -> &'a mut rmpv::Value {
+    let rmpv::Value::Map(m) = v else {
+        panic!("{key}: not in a map")
+    };
+    &mut m
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some(key))
+        .unwrap_or_else(|| panic!("no {key}"))
+        .1
+}
+
+/// 書いたテーブル `value` の、状態 `point` の追う核種 `nuclide` の微分の map
+fn derivative_entry(value: &mut rmpv::Value, point: usize, nuclide: usize) -> &mut rmpv::Value {
+    let rmpv::Value::Array(points) = map_entry(map_entry(value, "micro"), "states") else {
+        panic!("micro states are an array")
+    };
+    let rmpv::Value::Array(nuclides) = &mut points[point] else {
+        panic!("a micro state is an array")
+    };
+    map_entry(&mut nuclides[nuclide], "derivative")
+}
+
+#[test]
+fn density_derivatives_without_rate_derivatives_round_trip_without_the_rate_key() {
+    // 一般化摂動の微分（ADR-0247）は少数群定数の微分だけを持ち、反応率の微分を持たない核種は `rate` のキーを書かない
+    let mut table = derivative_sample();
+    for state in &mut table.micro.as_mut().unwrap().states {
+        let mut d = micro_derivative(2.0);
+        d.rate = None;
+        state[1].derivative = Some(d);
+    }
+    let bytes = table.to_msgpack().unwrap();
+    assert_eq!(Table::from_msgpack(&bytes).unwrap(), table);
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    let mut keys = |nuclide: usize| -> Vec<String> {
+        derivative_entry(&mut value, 0, nuclide)
+            .as_map()
+            .unwrap()
+            .iter()
+            .filter_map(|(k, _)| k.as_str().map(String::from))
+            .collect()
+    };
+    assert!(keys(0).contains(&"rate".to_string()));
+    assert!(!keys(1).contains(&"rate".to_string()), "{:?}", keys(1));
+    // 状態の間で内挿するので、反応率の微分の有無もどの状態でも同じ
+    let mut mixed = table.clone();
+    mixed.micro.as_mut().unwrap().states[2][1]
+        .derivative
+        .as_mut()
+        .unwrap()
+        .rate = Some(rate_derivative(1.0));
+    assert!(mixed.validate().is_err());
+}
+
+#[test]
+fn an_explicit_nil_rate_derivative_is_an_error() {
+    // 反応率の微分を持たない核種はキーを書かない。nil は書き手の誤りなので、持たないと読まない
+    let bytes = derivative_sample().to_msgpack().unwrap();
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    *map_entry(derivative_entry(&mut value, 0, 0), "rate") = rmpv::Value::Nil;
+    let mut written = Vec::new();
+    rmpv::encode::write_value(&mut written, &value).unwrap();
+    assert!(Table::from_msgpack(&written).is_err());
 }
 
 #[test]
@@ -1869,7 +1941,7 @@ fn linear_corrections_add_the_coefficients_times_the_density_differences() {
         nu_fission: vec![0.5 / 3.0, -4.0 / 3.0],
         fission: vec![0.2 / 3.0, -1.5 / 3.0],
         scatter: vec![vec![4.0 / 3.0, 0.2 / 3.0], vec![0.01 / 3.0, 6.0 / 3.0]],
-        rate: rate_derivative(1.0),
+        rate: Some(rate_derivative(1.0)),
     });
     let base = state(3.0);
     let delta = [1.0e-5 / 3.0, -2.0e-6 / 7.0];

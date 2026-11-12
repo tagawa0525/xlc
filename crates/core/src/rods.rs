@@ -414,29 +414,35 @@ pub(crate) fn mix_micro(
         ));
     }
     // 群の数の違う微視的断面積は、群ごとに引く前に止める
-    let shaped = |n: &MicroNuclide| {
-        [&n.total, &n.nu_fission, &n.fission]
-            .into_iter()
-            .chain(&n.scatter)
-            .chain(n.reactions.iter().flat_map(|r| &r.channels))
-            .all(|v| v.len() == ng)
-            && n.scatter.len() == ng
-            && n.derivative.as_ref().is_none_or(|d| {
-                [&d.total, &d.nu_fission, &d.fission, &d.rate.fission]
-                    .into_iter()
-                    .chain(&d.scatter)
-                    .chain(d.rate.reactions.iter().flat_map(|r| &r.channels))
-                    .all(|v| v.len() == ng)
-                    && d.scatter.len() == ng
-                    && d.rate.reactions.len() == n.reactions.len()
-                    && d.rate
-                        .reactions
-                        .iter()
-                        .zip(&n.reactions)
-                        .all(|(a, b)| a.mt == b.mt && a.channels.len() == b.channels.len())
-                    && d.rate.thermal_fission.is_some() == n.thermal_fission.is_some()
-            })
-    };
+    let shaped =
+        |n: &MicroNuclide| {
+            [&n.total, &n.nu_fission, &n.fission]
+                .into_iter()
+                .chain(&n.scatter)
+                .chain(n.reactions.iter().flat_map(|r| &r.channels))
+                .all(|v| v.len() == ng)
+                && n.scatter.len() == ng
+                && n.derivative.as_ref().is_none_or(|d| {
+                    [&d.total, &d.nu_fission, &d.fission]
+                        .into_iter()
+                        .chain(&d.scatter)
+                        .all(|v| v.len() == ng)
+                        && d.scatter.len() == ng
+                        && d.rate.as_ref().is_none_or(|rate| {
+                            rate.fission.len() == ng
+                                && rate
+                                    .reactions
+                                    .iter()
+                                    .flat_map(|r| &r.channels)
+                                    .all(|v| v.len() == ng)
+                                && rate.reactions.len() == n.reactions.len()
+                                && rate.reactions.iter().zip(&n.reactions).all(|(a, b)| {
+                                    a.mt == b.mt && a.channels.len() == b.channels.len()
+                                })
+                                && rate.thermal_fission.is_some() == n.thermal_fission.is_some()
+                        })
+                })
+        };
     if micro.iter().flat_map(|m| &m.nuclides).any(|n| !shaped(n)) {
         return Err(format!(
             "the interval micro cross sections must have the {ng} groups of the node flux"
@@ -464,7 +470,8 @@ pub(crate) fn mix_micro(
             let reference = segments[0];
             if segments.iter().any(|n| {
                 n.thermal_fission.is_some() != reference.thermal_fission.is_some()
-                    || n.derivative.is_some() != reference.derivative.is_some()
+                    || n.derivative.as_ref().map(|d| d.rate.is_some())
+                        != reference.derivative.as_ref().map(|d| d.rate.is_some())
                     || n.reactions.len() != reference.reactions.len()
                     || n.reactions
                         .iter()
@@ -472,7 +479,7 @@ pub(crate) fn mix_micro(
                         .any(|(a, b)| a.mt != b.mt || a.channels.len() != b.channels.len())
             }) {
                 return Err(format!(
-                    "micro nuclide {i}: the intervals differ in fission, in the chain reactions or in the density derivative"
+                    "micro nuclide {i}: the intervals differ in fission, in the chain reactions or in the density and rate derivatives"
                 ));
             }
             // 区間の核分裂率の割合（核分裂する核種だけ）
@@ -541,6 +548,9 @@ pub(crate) fn mix_micro(
                     // どの区間も持つ（上の検査）
                     let held: Vec<&MicroDerivative> =
                         segments.iter().filter_map(|n| n.derivative.as_ref()).collect();
+                    // 反応率の微分は、どの区間も持つか、どの区間も持たない（上の検査）
+                    let rates: Option<Vec<&RateResidual>> =
+                        held.iter().map(|d| d.rate.as_ref()).collect();
                     let by = |value: &dyn Fn(&MicroDerivative) -> &[f64]| -> Vec<f64> {
                         (0..ng)
                             .map(|g| average(&held, weights, g, |d| value(d)[g]))
@@ -559,26 +569,34 @@ pub(crate) fn mix_micro(
                             .collect(),
                         // 反応率の微分（ADR-0215）は σᵢ と同じ重み。境界より下の核分裂の断面積の微分は、割合と同じく区間の
                         // 核分裂率の割合で混ぜる
-                        rate: RateResidual {
-                            fission: by(&|d| &d.rate.fission),
-                            reactions: reference
-                                .reactions
-                                .iter()
-                                .enumerate()
-                                .map(|(r, reaction)| MicroReaction {
-                                    mt: reaction.mt,
-                                    channels: (0..reaction.channels.len())
-                                        .map(|c| by(&|d| &d.rate.reactions[r].channels[c]))
-                                        .collect(),
-                                })
-                                .collect(),
-                            thermal_fission: by_share(&|n| {
-                                n.derivative
-                                    .as_ref()
-                                    .and_then(|d| d.rate.thermal_fission)
-                                    .unwrap_or(f64::NAN)
-                            }),
-                        },
+                        rate: rates.map(|rates| {
+                            let by_rate = |value: &dyn Fn(&RateResidual) -> &[f64]| -> Vec<f64> {
+                                (0..ng)
+                                    .map(|g| average(&rates, weights, g, |r| value(r)[g]))
+                                    .collect()
+                            };
+                            RateResidual {
+                                fission: by_rate(&|r| &r.fission),
+                                reactions: reference
+                                    .reactions
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(k, reaction)| MicroReaction {
+                                        mt: reaction.mt,
+                                        channels: (0..reaction.channels.len())
+                                            .map(|c| by_rate(&|r| &r.reactions[k].channels[c]))
+                                            .collect(),
+                                    })
+                                    .collect(),
+                                thermal_fission: by_share(&|n| {
+                                    n.derivative
+                                        .as_ref()
+                                        .and_then(|d| d.rate.as_ref())
+                                        .and_then(|r| r.thermal_fission)
+                                        .unwrap_or(f64::NAN)
+                                }),
+                            }
+                        }),
                     }
                 }),
             })

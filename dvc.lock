@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: f0128e987d4c000d8d274fbb800a6c8e.dir
-      size: 5288737
+      md5: 9f1e470cc165e703c0309078b9577110.dir
+      size: 5343239
       nfiles: 264
     - path: flake.lock
       hash: md5
@@ -45,17 +45,17 @@ stages:
       isexec: true
     - path: bin/core
       hash: md5
-      md5: 3d63552bff74083935eb85dcf6f6fd70
-      size: 7459120
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: bin/lattice
       hash: md5
-      md5: ebdff99c9e9f5df91f6df5e97539279e
-      size: 10641168
+      md5: e09df53d887cc71a2e29c914d9806549
+      size: 10725024
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 9907083fb9172a11630a63507d1ead6a
+      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
       size: 3072016
       isexec: true
   python-ast@examples/c5g7/compare.py:

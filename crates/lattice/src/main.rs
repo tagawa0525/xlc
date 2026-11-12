@@ -43,7 +43,7 @@ use xlc_format::table::Axis;
 use xlc_format::table::{Cooling, CoolingNuclide, Kinetics, KineticsState, Micro, MicroNuclide};
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::{
-    BranchShielder, lexicographic, state_indices, tables, without_rod_axis,
+    BranchShielder, StateShielding, lexicographic, state_indices, tables, without_rod_axis,
 };
 use xlc_lattice::checkpoint::{
     Checkpoint, Fingerprint, SavedState, digest, solve_states, write_synced,
@@ -51,7 +51,7 @@ use xlc_lattice::checkpoint::{
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::geometry::Lattice;
-use xlc_lattice::history::ValueGeometry;
+use xlc_lattice::history::{PerturbedSolve, ValueGeometry};
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{
     CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput, VOID,
@@ -61,6 +61,7 @@ use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
+use xlc_lattice::sensitivity::TableDerivatives;
 use xlc_lattice::shielding::{ShieldingReuse, log_effective_change, shield_fuel_reusing};
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
@@ -519,7 +520,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 今の値の形状のものだけを持つ
     let derivatives = history_branches
         .as_ref()
-        .map_or(0, |h| h.derivative_nuclides().len());
+        .map_or(0, |h| h.perturbed_nuclides().len());
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;
     // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。公称の状態と摂動の組成の
@@ -949,8 +950,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         &output.bounds,
                     )
                     .with_context(|| format!("{}: micro cross sections", context()))?;
-                // 数密度の微分（ADR-0221）。摂動の組成を、状態の収束した解から解き直す
-                if !h.derivative_nuclides().is_empty() {
+                // 数密度の微分（ADR-0221 の直接の摂動か、ADR-0247 の一般化摂動）。摂動の組成を、状態の収束した解から解き直す
+                if !h.perturbed_nuclides().is_empty() || h.generalized().is_some() {
                     let nominal = outputs
                         .first()
                         .and_then(|o| o.first())
@@ -959,67 +960,156 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         })
                         .with_context(context)?;
                     let boundaries = geometry.tracking.boundaries();
-                    h.add_derivatives(
-                        rod,
-                        state,
-                        &mut micro,
-                        nominal,
-                        |j, perturbed, reference, build| {
+                    // 摂動の組成を自己遮蔽した物質の、格子全体の少数群定数と追う核種の微視的断面積（直接の摂動）
+                    let solve_direct = |shielded: &StateShielding| -> anyhow::Result<(FewGroup, Vec<MicroNuclide>, usize)> {
+                        let (unique, region_index) =
+                            (shielded.materials(), shielded.region_material());
+                        let materials: Vec<&Material> =
+                            region_index.iter().map(|&i| &unique[i]).collect();
+                        let options = Options {
+                            scattering_order: input
+                                .scattering_order
+                                .unwrap_or_else(|| available_order(&materials)),
+                            ..Options::default()
+                        };
+                        let (solution, _) = solve_symmetric_from(
+                            &geometry.tracking,
+                            &materials,
+                            &options,
+                            geometry.chosen.moc(),
+                            Some(&converged),
+                        )?;
+                        let few = homogenize(
+                            &solution,
+                            &materials,
+                            &library.groups,
+                            &output.bounds,
+                            &boundaries,
+                        )?;
+                        // 反応率の微分（ADR-0215）の摂動の σᵢ。燃焼の領域の数密度は状態のもので重みを付けるが、摂動は核種の数密度を
+                        // 領域によらず同じ割合で変えるので、自分の σᵢ の重み（領域の数密度 / 均質化した数密度）は摂動の組成と同じ
+                        let sigma = h.micro(
+                            rod,
+                            state,
+                            library,
+                            shielded.fuel(),
+                            &geometry.lattice,
+                            &solution,
+                            &output.bounds,
+                        )?;
+                        Ok((few, sigma, solution.iterations))
+                    };
+                    let nuclides = h.perturbed_nuclides();
+                    match h.generalized() {
+                        None => h.add_derivatives(
+                            rod,
+                            state,
+                            &mut micro,
+                            nominal,
+                            |j, perturbed, reference, build| {
+                                let started = Instant::now();
+                                let shielded = perturbed_shielders[j]
+                                    .shield_state(reuse, library, perturbed, reference, build)
+                                    .context("self-shielding")?;
+                                log_effective_change(
+                                    library.groups.bounds(),
+                                    nuclides[j],
+                                    fuel,
+                                    shielded.fuel(),
+                                );
+                                let (few, sigma, iterations) = solve_direct(&shielded)?;
+                                tracing::info!(
+                                    state,
+                                    nuclide = nuclides[j],
+                                    iterations,
+                                    seconds = started.elapsed().as_secs_f64(),
+                                    "derivative"
+                                );
+                                Ok((few, sigma))
+                            },
+                        ),
+                        Some(generalized) => {
                             let started = Instant::now();
-                            let shielded = perturbed_shielders[j]
-                                .shield_state(reuse, library, perturbed, reference, build)
-                                .context("self-shielding")?;
-                            log_effective_change(
-                                library.groups.bounds(),
-                                &h.derivative_nuclides()[j],
-                                fuel,
-                                shielded.fuel(),
-                            );
-                            let (unique, region_index) =
-                                (shielded.materials(), shielded.region_material());
-                            let materials: Vec<&Material> =
-                                region_index.iter().map(|&i| &unique[i]).collect();
-                            let options = Options {
-                                scattering_order: input
-                                    .scattering_order
-                                    .unwrap_or_else(|| available_order(&materials)),
-                                ..Options::default()
+                            let sensitivity_state = xlc_lattice::sensitivity::State {
+                                library,
+                                materials: state_materials,
+                                region_names: solved_materials(rod),
+                                unique: &unique,
+                                region_index: &region_index,
+                                shielding: Some(fuel),
+                                lattice: &geometry.lattice,
+                                tracking: &geometry.tracking,
+                                symmetry: geometry.chosen.moc(),
                             };
-                            let (solution, _) = solve_symmetric_from(
-                                &geometry.tracking,
+                            // 随伴の固有値計算は平らな初期値から解く（前の状態の随伴から始めると、チェックポイントからの再開で
+                            // 始める解が変わり、途中で止めない実行と微分が同じにならない。ADR-0196）
+                            let table = TableDerivatives::new(
+                                &sensitivity_state,
                                 &materials,
                                 &options,
-                                geometry.chosen.moc(),
-                                Some(&converged),
-                            )?;
-                            let few = homogenize(
-                                &solution,
-                                &materials,
-                                &library.groups,
-                                &output.bounds,
-                                &boundaries,
-                            )?;
-                            // 反応率の微分（ADR-0215）の摂動の σᵢ。燃焼の領域の数密度は状態のもので重みを付けるが、摂動は核種の数密度を
-                            // 領域によらず同じ割合で変えるので、自分の σᵢ の重み（領域の数密度 / 均質化した数密度）は摂動の組成と同じ
-                            let sigma = h.micro(
-                                rod,
-                                state,
-                                library,
-                                shielded.fuel(),
-                                &geometry.lattice,
-                                &solution,
-                                &output.bounds,
-                            )?;
+                                (&solution, &converged),
+                                nominal,
+                                (generalized.tolerance, generalized.restart),
+                            )
+                            .with_context(|| format!("{}: generalized adjoints", context()))?;
                             tracing::info!(
                                 state,
-                                nuclide = h.derivative_nuclides()[j].as_str(),
-                                iterations = solution.iterations,
-                                seconds = started.elapsed().as_secs_f64(),
-                                "derivative"
+                                adjoint_iterations = table.adjoint_iterations,
+                                adjoint_seconds = table.seconds[0],
+                                generalized_seconds = table.seconds[1],
+                                sweeps = ?table.sweeps,
+                                "generalized adjoints"
                             );
-                            Ok((few, sigma))
-                        },
-                    )
+                            h.add_generalized_derivatives(
+                                rod,
+                                state,
+                                &mut micro,
+                                nominal,
+                                &table,
+                                |j, perturbed, reference, build, direct| {
+                                    let started = Instant::now();
+                                    let shielded = perturbed_shielders[j]
+                                        .shield_state(reuse, library, perturbed, reference, build)
+                                        .context("self-shielding")?;
+                                    log_effective_change(
+                                        library.groups.bounds(),
+                                        nuclides[j],
+                                        fuel,
+                                        shielded.fuel(),
+                                    );
+                                    let shielding_seconds = started.elapsed().as_secs_f64();
+                                    let solved = if direct {
+                                        let (few, sigma, _) = solve_direct(&shielded)?;
+                                        Some((few, sigma))
+                                    } else {
+                                        None
+                                    };
+                                    tracing::info!(
+                                        state,
+                                        nuclide = nuclides[j],
+                                        shielding_seconds,
+                                        seconds = started.elapsed().as_secs_f64(),
+                                        direct,
+                                        "perturbed shielding"
+                                    );
+                                    Ok(PerturbedSolve {
+                                        materials: (
+                                            shielded.materials().to_vec(),
+                                            shielded.region_material().to_vec(),
+                                        ),
+                                        solved,
+                                    })
+                                },
+                            )
+                            .map(|()| {
+                                tracing::info!(
+                                    state,
+                                    seconds = started.elapsed().as_secs_f64(),
+                                    "generalized derivatives"
+                                );
+                            })
+                        }
+                    }
                     .with_context(|| format!("{}: density derivatives", context()))?;
                 }
                 Some(micro)

@@ -630,7 +630,7 @@ fn scaled_micro(n: &MicroNuclide, w: f64) -> MicroNuclide {
             fission: v(&d.fission),
             scatter: d.scatter.iter().map(|r| v(r)).collect(),
             // 境界より下の核分裂は、テーブルが断面積の微分で持つ（割合ではない）ので、ほかの項目と同じく足す
-            rate: scaled_rate(&d.rate, w),
+            rate: d.rate.as_ref().map(|r| scaled_rate(r, w)),
         }),
     }
 }
@@ -669,7 +669,9 @@ fn accumulate_micro(acc: &mut MicroNuclide, w: f64, n: &MicroNuclide) {
         for (a, x) in a.scatter.iter_mut().zip(&x.scatter) {
             add(a, w, x);
         }
-        add_rate(&mut a.rate, w, &x.rate);
+        if let (Some(a), Some(x)) = (&mut a.rate, &x.rate) {
+            add_rate(a, w, x);
+        }
     }
 }
 
@@ -1235,9 +1237,10 @@ pub fn accumulate_own_density_rates(
         ));
     }
     for (i, nuclide) in micro.nuclides.iter().enumerate() {
-        if let Some(d) = &nuclide.derivative {
+        // 一般化摂動の微分（ADR-0247）は反応率の微分を持たないので、項を足さない
+        if let Some(rate) = nuclide.derivative.as_ref().and_then(|d| d.rate.as_ref()) {
             let excess = n[i] - micro.densities[i] - branch[i];
-            add_rate(&mut sum[i], excess, &d.rate);
+            add_rate(&mut sum[i], excess, rate);
         }
     }
     Ok(())
