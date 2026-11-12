@@ -663,6 +663,11 @@ impl HistoryBranches {
         index / self.branch.len()
     }
 
+    /// 状態 `index` の自己遮蔽を持つ燃焼度の点の番号（`shield_at` の間の点は、その前で最後の自己遮蔽を解く点。ほかは `point_of`）
+    pub fn shielding_point_of(&self, index: usize) -> usize {
+        self.shielding_points[self.point_of(index)]
+    }
+
     /// 状態がないか（`history_branches` は作らない）
     pub fn is_empty(&self) -> bool {
         self.len() == 0
