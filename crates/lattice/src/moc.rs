@@ -1435,9 +1435,8 @@ impl<'a> Sweeper<'a> {
         });
         // 別の走査で 0 にしない（#0281。組の領域の分を方位角ごとに書くと、L2 に収まらずメモリとの往復になる）。線源は
         // 真空でない領域の欄を下ですべて書き直し、真空の領域の欄はスイープが読まないので、前の組の値が残ってよい。
-        // 減衰の和は `fold` が読んだ欄を 0 に戻してからプールに返すので、伸ばした分だけを 0 で埋めればよい
+        // 減衰の和は、プールに返す `fold` が読んだ欄を 0 に戻し、`release` が空にするので、伸ばした分だけを 0 で埋めればよい
         d.source.resize(size, 0.0);
-        debug_assert!(d.delta.iter().all(|&v| v == 0.0));
         d.delta.resize(size, 0.0);
         for (local, &region) in regions.iter().enumerate() {
             // 真空の領域はスイープで線源を使わない
@@ -1496,9 +1495,10 @@ impl<'a> Sweeper<'a> {
             .push(d);
     }
 
-    /// 減衰の和を使わなかった作業用の配列を、ほかの組のスイープに使えるよう返す
-    fn release(&self, d: Directional) {
-        debug_assert!(d.delta.iter().all(|&v| v == 0.0));
+    /// 作業用の配列を、ほかの組のスイープに使えるよう返す。減衰の和は空にする（プールの減衰の和は 0 だけを持つ。
+    /// `directional`）
+    fn release(&self, mut d: Directional) {
+        d.delta.clear();
         self.pool
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -2031,11 +2031,8 @@ impl<'a> Sweeper<'a> {
                         }
                     }
                 }
-                match directional {
-                    Some((azimuth, d)) => self.fold(d, azimuth, &mut tally.delta, unfolded),
-                    // トラックの無い組
-                    None if unfolded => tally.delta.fill(0.0),
-                    None => {}
+                if let Some((azimuth, d)) = directional {
+                    self.fold(d, azimuth, &mut tally.delta, unfolded);
                 }
                 if let Some(c) = busy {
                     tally.busy_seconds = c.elapsed().as_secs_f64();
