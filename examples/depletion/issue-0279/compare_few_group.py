@@ -45,6 +45,13 @@ def allowed(direct: dict, i: int, value: float, tau: float, epsilon: float) -> f
     )
 
 
+def relative(value: float, reference: float) -> float:
+    """`value` の `reference` に対する相対の差（両方 0 なら 0、参照だけ 0 なら無限大）"""
+    if reference != 0.0:
+        return (value - reference) / reference
+    return 0.0 if value == 0.0 else float("inf")
+
+
 def two_group_k(values: dict[str, float], chi: list[float]) -> float:
     """2 群の定数の無限媒質の k∞（`values` は応答の名前から値）"""
     a = np.array(
@@ -103,7 +110,7 @@ def compare(report: dict) -> dict:
                     "value": few["values"][i],
                     "adjoint": g,
                     "direct": d,
-                    "relative": (g - d) / d if d != 0.0 else float("inf"),
+                    "relative": relative(g, d),
                     "allowed": limit,
                     "ok": abs(g - d) <= limit,
                 }
@@ -120,7 +127,11 @@ def compare(report: dict) -> dict:
         rows = []
         for i, response in enumerate(names):
             s = reshielded["richardson"][i]
-            limit = allowed(reshielded, i, few["values"][i], tau, epsilon)
+            # I1 も刻み ε と ε/2 の中心差分で、自己遮蔽の数密度への非線形の依存による刻みの誤差を持つ
+            limit = max(
+                allowed(reshielded, i, few["values"][i], tau, epsilon),
+                allowed(first, i, few["values"][i], tau, epsilon),
+            )
             rows.append(
                 {
                     "response": response,
@@ -198,6 +209,8 @@ def main(arguments: list[str]) -> int:
                 f"rel {r['relative']:.2e} allowed {r['allowed'] / abs(r['direct']):.2e}"
             )
         significant = [r for r in rows if abs(r["direct"]) > 1e-6 * abs(r["value"])]
+        if not significant:
+            sys.exit(f"{path}: no derivative is larger than 1e-6 of its constant")
         worst = max(significant, key=lambda r: abs(r["relative"]))
         print(
             f"  largest relative difference where |D| > 1e-6 R: {worst['name']} {worst['response']} "
