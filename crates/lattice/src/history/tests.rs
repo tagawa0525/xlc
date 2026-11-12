@@ -2729,10 +2729,10 @@ fn generalized_derivatives(
                 None
             };
             Ok(PerturbedSolve {
-                materials: Some((
+                materials: (
                     shielded.materials().to_vec(),
                     shielded.region_material().to_vec(),
-                )),
+                ),
                 solved,
             })
         },
@@ -2917,6 +2917,11 @@ fn generalized_derivatives_take_the_rate_derivatives_of_the_direct_perturbation(
     let both = generalized_derivatives(&text, &history, &library, index, &mut calls).unwrap();
     assert_eq!(calls, [(0, true)]);
     assert_eq!(both[0].derivative.as_ref().unwrap().rate, direct[0].rate);
+    // 反応率の微分のために解いた自己遮蔽の暗黙の分は捨てず、`derivative` だけに挙げた核種も自己遮蔽を解き直す核種（案 I1）と同じ微分
+    assert_eq!(
+        constants(both[0].derivative.as_ref().unwrap()),
+        constants(u235)
+    );
 }
 
 #[test]
