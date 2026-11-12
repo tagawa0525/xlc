@@ -210,16 +210,22 @@ fn assert_fission_derivative(scattering_order: usize) {
         )
     };
     let materials = checkerboard_materials(2, &f, &m);
-    assert_fission_derivative_in(&tracking, &materials, &tight(scattering_order));
+    let numerator = (0, f.total[1]);
+    assert_fission_derivative_in(&tracking, &materials, numerator, &tight(scattering_order));
 }
 
-/// `assert_fission_derivative` の問題を `tracking` と `materials`（領域 0 が燃料）で解く。応答は領域 0 の熱群の全反応率と、
-/// すべての領域（真空を含む）の熱群の中性子束の比
-fn assert_fission_derivative_in(tracking: &Tracking, materials: &[&Material], options: &Options) {
+/// `assert_fission_derivative` の問題を `tracking` と `materials`（領域 0 が燃料）で解く。応答は `numerator` の領域の熱群の中性子束に
+/// 重みを掛けた反応率と、すべての領域（真空を含む）の熱群の中性子束の比
+fn assert_fission_derivative_in(
+    tracking: &Tracking,
+    materials: &[&Material],
+    numerator: (usize, f64),
+    options: &Options,
+) {
     let f = materials[0];
     let (solution, forward, adjoint) = eigenpair(tracking, materials, options, None);
     let n = materials.len();
-    let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
+    let h1 = indicator(n, 2, 1, |r| (r == numerator.0).then_some(numerator.1));
     let h2 = indicator(n, 2, 1, |_| Some(1.0));
     let source = ratio_source(&solution, &h1, &h2);
     let gamma = solve_generalized(
@@ -271,7 +277,7 @@ fn generalized_adjoint_gives_the_response_derivative_with_anisotropic_scattering
 
 #[test]
 fn generalized_adjoint_takes_sources_in_void_regions() {
-    // 燃料と被覆管の間の真空の隙間。応答の分母の中性子束は真空の領域を含むので、源は真空の領域でも 0 でない
+    // 燃料と被覆管の間の真空の隙間（領域 1）。応答は隙間の熱群の中性子束と、真空の領域を含む格子全体の熱群の中性子束の比
     let pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
     let water = PinCell::new(1.26, vec![]).unwrap();
     let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
@@ -285,7 +291,7 @@ fn generalized_adjoint_takes_sources_in_void_regions() {
     let (f, m, gap) = (two_spectra_fuel(), moderator(), Material::void(2));
     let pin_materials = [&f, &gap, &m, &m];
     let materials: Vec<&Material> = [&pin_materials[..], &[&m], &[&m], &pin_materials[..]].concat();
-    assert_fission_derivative_in(&tracking, &materials, &tight(0));
+    assert_fission_derivative_in(&tracking, &materials, (1, 1.0), &tight(0));
 }
 
 #[test]
