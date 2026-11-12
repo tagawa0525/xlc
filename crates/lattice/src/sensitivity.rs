@@ -115,6 +115,7 @@ pub enum Method {
     SourceIteration,
     Cmfd,
     Gmres { restart: usize },
+    CmfdGmres { restart: usize },
 }
 
 impl std::fmt::Display for Method {
@@ -123,6 +124,7 @@ impl std::fmt::Display for Method {
             Method::SourceIteration => write!(f, "source-iteration"),
             Method::Cmfd => write!(f, "cmfd"),
             Method::Gmres { .. } => write!(f, "gmres"),
+            Method::CmfdGmres { .. } => write!(f, "cmfd-gmres"),
         }
     }
 }
@@ -1030,6 +1032,10 @@ fn compare_generalized(
                 Method::SourceIteration => GeneralizedMethod::SourceIteration,
                 Method::Cmfd => GeneralizedMethod::Cmfd(generalized_cmfd(&options.acceleration)?),
                 Method::Gmres { restart } => GeneralizedMethod::Gmres { restart },
+                Method::CmfdGmres { restart } => GeneralizedMethod::CmfdGmres {
+                    restart,
+                    cmfd: generalized_cmfd(&options.acceleration)?,
+                },
             },
             tolerance,
             max_iterations: options.max_iterations,
@@ -1142,8 +1148,8 @@ fn compare_generalized(
     })
 }
 
-/// 一般化随伴の CMFD の判定: 状態を解いた MOC の CMFD のもの。状態を CMFD なしで解いたなら、入力が粗メッシュの判定を決めていないので
-/// エラー
+/// 一般化随伴の CMFD の打ち切り: 状態を解いた MOC の CMFD のもの（回数の上限だけを使う。`GeneralizedMethod::Cmfd`）。状態を CMFD なしで
+/// 解いたなら、入力が粗メッシュの打ち切りを決めていないのでエラー
 fn generalized_cmfd(acceleration: &Acceleration) -> anyhow::Result<CmfdOptions> {
     match acceleration {
         Acceleration::Cmfd(c) => Ok(*c),

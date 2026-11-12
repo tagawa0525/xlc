@@ -19,21 +19,31 @@ use super::{
     Symmetry, equilibrium_moments, planar_moments, sum_tallies, transposed,
 };
 use crate::cmfd::{CmfdOptions, Coarse, group_change};
+use crate::krylov::Krylov;
 use crate::tracking::Tracking;
 
 /// ⟨S, φ⟩ を ⟨|S|, φ⟩ と比べる相対の許容値。応答の源 h₁/⟨h₁, φ⟩ − h₂/⟨h₂, φ⟩ を解いた φ から作れば、残るのは足す順の丸め
 /// だけなので、それより十分大きく、反復の判定（既定の中性子束 1e-6）より十分小さい値にする
 const ORTHOGONALITY_TOLERANCE: f64 = 1.0e-10;
 
+/// 粗メッシュの補正の固定源の問題（`Coarse::solve_projected`）の残差の判定。補正は CMFD の反復の GMRES の作用素の一部で、GMRES は
+/// 作用素が線形で同じであることを前提にするので、補正を丸めの近くまで解く。判定を状態の CMFD の 1e-8 にすると、2A の 10 本で
+/// 外の判定 1e-8 の誤差が 3.2e-7 と、判定 1e-7 の 6.2e-7 からほとんど減らなかった（この値で 7.2e-8。Slurm 783 と 785。ADR-0247）
+const COARSE_TOLERANCE: f64 = 1.0e-12;
+
 /// 固定源の反復の収束の方法
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GeneralizedMethod {
     /// 射影つきの源の反復（加速なし）
     SourceIteration,
-    /// 射影つきの源の反復を、スイープごとに粗メッシュの固定源の問題の解で補正する
+    /// 射影つきの源の反復を、スイープごとに粗メッシュの固定源の問題の解で補正する（粗メッシュの問題の判定は `COARSE_TOLERANCE`。
+    /// `CmfdOptions` からは回数の上限だけを使う）
     Cmfd(CmfdOptions),
     /// 射影した作用素の GMRES（`restart` 回ごとに再始動する）
     Gmres { restart: usize },
+    /// スイープごとに粗メッシュの補正を足した反復（`Cmfd`。粗メッシュの問題の扱いも同じ）の作用素の GMRES（`restart` 回ごとに
+    /// 再始動する）
+    CmfdGmres { restart: usize, cmfd: CmfdOptions },
 }
 
 /// 一般化随伴の固定源の反復の方法と打ち切り
@@ -79,7 +89,10 @@ pub fn solve_generalized(
     if !(tolerance > 0.0 && tolerance.is_finite()) {
         return Err(MocError::GeneralizedTolerance(tolerance));
     }
-    if settings.method == (GeneralizedMethod::Gmres { restart: 0 }) {
+    if matches!(
+        settings.method,
+        GeneralizedMethod::Gmres { restart: 0 } | GeneralizedMethod::CmfdGmres { restart: 0, .. }
+    ) {
         return Err(MocError::GeneralizedRestart);
     }
     let regions = materials.len();
@@ -209,12 +222,16 @@ pub fn solve_generalized(
         adjoint_production,
     };
     let coarse = match settings.method {
-        GeneralizedMethod::Cmfd(cmfd) => Some(problem.coarse(cmfd)?),
+        GeneralizedMethod::Cmfd(cmfd) | GeneralizedMethod::CmfdGmres { cmfd, .. } => {
+            Some(problem.coarse(cmfd)?)
+        }
         _ => None,
     };
     let solve = |batch: &[Vec<Vec<f64>>]| -> Result<Vec<(State, usize)>, MocError> {
         match settings.method {
-            GeneralizedMethod::Gmres { restart } => problem.gmres(batch, restart, settings),
+            GeneralizedMethod::Gmres { restart } | GeneralizedMethod::CmfdGmres { restart, .. } => {
+                problem.gmres(batch, coarse.as_ref(), restart, settings)
+            }
             _ => problem.source_iteration(batch, coarse.as_ref(), settings),
         }
     };
@@ -386,8 +403,8 @@ impl Problem<'_> {
             .collect()
     }
 
-    /// 状態 `states` から、源 `sources`（[問題]。`None` なら 0）を足して一緒に 1 回スイープした状態（φ† の成分を除いたもの）と、
-    /// [粗メッシュの面][群] の正味の中性子流
+    /// 状態 `states` から、源 `sources`（[問題]。`None` なら 0）を足して一緒に 1 回スイープした状態（φ† の成分は除かない。
+    /// `project`）と、[粗メッシュの面][群] の正味の中性子流
     fn step(
         &self,
         states: &[State],
@@ -396,6 +413,8 @@ impl Problem<'_> {
     ) -> Result<Vec<(State, Vec<f64>)>, MocError> {
         let (sweeper, copies) = (self.sweeper, self.sweeper.copies);
         let (ng, pairs) = (self.ng, self.pairs);
+        // 区間の時間は、固有値計算のスイープ（`moc::solve_with`）と同じ名前のトレースの区間で測る
+        let prepare = tracing::trace_span!("equilibrium").entered();
         let equilibria: Vec<Vec<Vec<f64>>> = states
             .iter()
             .zip(sources)
@@ -412,11 +431,16 @@ impl Problem<'_> {
             interleave(&parts, ng)
         };
         let mut outgoing = vec![0.0; incoming.len()];
-        sweeper.sweep(&equilibrium, &incoming, &mut outgoing, tallies)?;
+        drop(prepare);
+        tracing::trace_span!("sweep")
+            .in_scope(|| sweeper.sweep(&equilibrium, &incoming, &mut outgoing, tallies))?;
+        let tally = tracing::trace_span!("tallies").entered();
         let mut sums = sum_tallies(sweeper, tallies);
         sweeper
             .representatives
             .symmetrize(&mut sums, &sweeper.void, copies * ng);
+        drop(tally);
+        let _update = tracing::trace_span!("update").entered();
         let kept = self.kept();
         let mut next = Vec::with_capacity(copies);
         for (copy, e) in equilibria.iter().enumerate() {
@@ -451,12 +475,11 @@ impl Problem<'_> {
                     (flux, higher)
                 })
                 .unzip();
-            let mut state = State {
+            let state = State {
                 flux,
                 higher,
                 outgoing: strand(&outgoing, copies, ng, copy),
             };
-            self.project(&mut state);
             next.push((state, strand(&sums.current, copies, ng, copy)));
         }
         Ok(next)
@@ -497,8 +520,9 @@ impl Problem<'_> {
         for iteration in 1..=settings.max_iterations {
             let swept = self.step(&states, &given, &mut tallies)?;
             for (copy, ((mut next, _), state)) in swept.into_iter().zip(&mut states).enumerate() {
-                if let Some(c) = coarse {
-                    self.correct(c, state, &mut next)?;
+                match coarse {
+                    Some(c) => self.correct(c, state, &mut next)?,
+                    None => self.project(&mut next),
                 }
                 // 発散した反復の NaN は、変化の最大（`f64::max` は NaN を捨てる）では見えない
                 if next.flux.iter().flatten().any(|x| !x.is_finite()) {
@@ -607,13 +631,21 @@ impl Problem<'_> {
         Ok(CoarseAcceleration {
             coarse,
             weights,
-            options,
+            options: CmfdOptions {
+                flux_tolerance: COARSE_TOLERANCE,
+                ..options
+            },
         })
     }
 
-    /// 粗メッシュの補正: スイープの前の状態 `before` と後の状態 `after` の中性子束の差 δ の散乱と核分裂の源 M̃δ を、粗メッシュの
-    /// セルで体積の積分にした残差で、誤差の問題 (A − F/k) e = R M̃δ を解き（`Coarse::solve_projected`）、e を φ† の状態の形で
-    /// 延ばして `after` に足し、φ† の成分を除く。収束した解では δ = 0 なので、補正は解を変えない
+    /// 粗メッシュの補正: スイープの前の状態 `before` と後の状態 `after`（φ† の成分を除く前）の中性子束の差 δ の散乱と核分裂の源
+    /// M̃δ を、粗メッシュのセルで体積の積分にした残差で、誤差の問題 (A − F/k) e = R M̃δ を解き（`Coarse::solve_projected`）、e を
+    /// φ† の状態の形で延ばして `after` に足し、φ† の成分を除く。収束した解では δ = 0 なので、補正は解を変えない。
+    ///
+    /// δ は φ† の成分を除く前の `after` から取る。除く重み Fφ はスイープの左の固有ベクトル（前向きの散乱と核分裂の源）でないので、
+    /// スイープは φ† の成分を除いた状態からも φ† の成分 β φ† を作る。除いた後の差を使うと、残差に解の不定な分の源 −β M̃φ† が
+    /// 入り、細かい問題にない源への応答を粗メッシュが足す（2A とその 3×3 の格子で、反復の作用素の固有値が約 −1.07 になって発散した。
+    /// ADR-0247）。除く前の差なら、`before` に φ† の倍を足しても δ は変わらず、補正は φ† の成分によらない
     fn correct(
         &self,
         c: &CoarseAcceleration,
@@ -687,34 +719,47 @@ impl Problem<'_> {
     }
 
     /// 射影した作用素の GMRES: x = P T₀ x + P T(0)（T₀ は源のないスイープ、P は φ† の成分を除く射影）を (I − P T₀) x = P T(0) と
-    /// 書き、`restart` 回ごとに再始動する GMRES で解く。内積は並べた状態の値の和で、残差のノルムが右辺のノルムの判定倍に
-    /// なったら止める。源 `sources` ごとの Arnoldi の過程を、作用素を掛けるスイープを一緒にして進める。[源] の状態と、判定を
-    /// 満たしたスイープの回数を返す
+    /// 書き、`restart` 回ごとに再始動する GMRES で解く。`coarse` があれば、T₀ と T(0) をスイープの後に粗メッシュの補正を足した
+    /// 反復（`source_iteration` の 1 回）に替える（補正は前の状態とスイープの差について線形なので、作用素は線形のまま）。内積は
+    /// 並べた状態の値の和で、残差のノルムが右辺のノルムの判定倍になったら止める。源 `sources` ごとの Arnoldi の過程を、作用素を
+    /// 掛けるスイープを一緒にして進める。[源] の状態と、判定を満たしたスイープの回数を返す
     fn gmres(
         &self,
         sources: &[Vec<Vec<f64>>],
+        coarse: Option<&CoarseAcceleration>,
         restart: usize,
         settings: &GeneralizedOptions,
     ) -> Result<Vec<(State, usize)>, MocError> {
         let copies = sources.len();
         let zero = self.zero();
+        // `before` からスイープした `after` に、粗メッシュの補正を足して（`coarse` があれば）φ† の成分を除く
+        let finish = |before: &State, after: &mut State| -> Result<(), MocError> {
+            match coarse {
+                Some(c) => self.correct(c, before, after),
+                None => {
+                    self.project(after);
+                    Ok(())
+                }
+            }
+        };
         let mut tallies = self.sweeper.tallies(self.materials.len());
         let given: Vec<Option<&[Vec<f64>]>> = sources.iter().map(|q| Some(q.as_slice())).collect();
         let first = self.step(&vec![zero.clone(); copies], &given, &mut tallies)?;
-        let mut krylov: Vec<Krylov> = first
-            .into_iter()
-            .map(|(b, _)| Krylov::new(b.pack(), settings.tolerance, restart))
-            .collect();
+        let mut krylov = Vec::with_capacity(copies);
+        for (mut b, _) in first {
+            finish(&zero, &mut b)?;
+            krylov.push(Krylov::new(b.pack(), settings.tolerance, restart));
+        }
         // 基底は源あたり再始動の回数 + 1 本の、この長さの値
         tracing::info!(
-            length = krylov.first().map_or(0, |k| k.b.len()),
+            length = krylov.first().map_or(0, |k| k.solution().len()),
             sources = copies,
             restart,
             "generalized adjoint GMRES"
         );
         let mut sweeps = 1;
         let none: Vec<Option<&[Vec<f64>]>> = vec![None; copies];
-        while krylov.iter().any(|k| !k.done) {
+        while krylov.iter().any(|k| !k.done()) {
             if sweeps >= settings.max_iterations {
                 return Err(MocError::GeneralizedNotConverged { iterations: sweeps });
             }
@@ -728,11 +773,12 @@ impl Problem<'_> {
                 .collect();
             let images = self.step(&vectors, &none, &mut tallies)?;
             sweeps += 1;
-            for ((k, v), (image, _)) in krylov.iter_mut().zip(&vectors).zip(images) {
-                if k.done {
+            for ((k, v), (mut image, _)) in krylov.iter_mut().zip(&vectors).zip(images) {
+                if k.done() {
                     continue;
                 }
                 // (I − P T₀) v
+                tracing::trace_span!("correct").in_scope(|| finish(v, &mut image))?;
                 let image = image.pack();
                 if image.iter().any(|x| !x.is_finite()) {
                     return Err(MocError::GeneralizedDiverged { iterations: sweeps });
@@ -743,171 +789,18 @@ impl Problem<'_> {
                     .zip(&image)
                     .map(|(a, b)| a - b)
                     .collect();
-                k.receive(applied, sweeps)?;
+                tracing::trace_span!("krylov")
+                    .in_scope(|| k.receive(applied, sweeps))
+                    .map_err(|_| MocError::GeneralizedDiverged { iterations: sweeps })?;
+                let (residual, target) = k.residual_norm();
+                tracing::debug!(sweeps, residual, target, "generalized adjoint GMRES");
             }
         }
         Ok(krylov
             .into_iter()
-            .map(|k| (State::unpack(&k.x, &zero), k.sweeps))
+            .map(|k| (State::unpack(k.solution(), &zero), k.steps()))
             .collect())
     }
-}
-
-/// 1 つの源の、再始動つきの GMRES の過程（`Problem::gmres`）。作用素を掛ける値を `request` で出し、掛けた値を `receive` で受ける
-struct Krylov {
-    /// 解の近似
-    x: Vec<f64>,
-    /// 右辺
-    b: Vec<f64>,
-    /// 止める残差のノルム（判定 × 右辺のノルム）
-    target: f64,
-    restart: usize,
-    /// 正規直交の基底
-    basis: Vec<Vec<f64>>,
-    /// Givens の回転で上三角にした Hessenberg 行列の列
-    columns: Vec<Vec<f64>>,
-    rotations: Vec<(f64, f64)>,
-    /// 最小二乗の右辺
-    g: Vec<f64>,
-    /// 次に掛ける値が解の近似 x（再始動の残差）か
-    residual: bool,
-    done: bool,
-    /// 判定を満たしたスイープの回数
-    sweeps: usize,
-}
-
-impl Krylov {
-    fn new(b: Vec<f64>, tolerance: f64, restart: usize) -> Self {
-        let target = tolerance * norm(&b);
-        let mut k = Self {
-            x: vec![0.0; b.len()],
-            b,
-            target,
-            restart,
-            basis: Vec::new(),
-            columns: Vec::new(),
-            rotations: Vec::new(),
-            g: Vec::new(),
-            residual: false,
-            done: false,
-            sweeps: 1,
-        };
-        let r = k.b.clone();
-        k.begin(r);
-        k
-    }
-
-    /// 残差 `r` から Arnoldi の過程を始める（判定を満たしていれば終える）
-    fn begin(&mut self, r: Vec<f64>) {
-        let beta = norm(&r);
-        self.residual = false;
-        if beta <= self.target {
-            self.done = true;
-            return;
-        }
-        self.basis = vec![r.par_iter().map(|v| v / beta).collect()];
-        self.columns.clear();
-        self.rotations.clear();
-        self.g = vec![beta];
-    }
-
-    /// 作用素を掛ける値（終えていれば `None`）
-    fn request(&self) -> Option<&[f64]> {
-        if self.done {
-            None
-        } else if self.residual {
-            Some(&self.x)
-        } else {
-            self.basis.last().map(Vec::as_slice)
-        }
-    }
-
-    /// `request` の値に作用素を掛けた値 `applied` を受ける（`sweeps` はそこまでのスイープの回数）。Givens の回転の半径が 0（作用素が
-    /// 基底の値を、すでに張った空間の 0 に移す。射影した作用素が特異）か、解の近似が有限でなければエラー
-    fn receive(&mut self, applied: Vec<f64>, sweeps: usize) -> Result<(), MocError> {
-        if self.residual {
-            let r = self
-                .b
-                .par_iter()
-                .zip(&applied)
-                .map(|(a, c)| a - c)
-                .collect();
-            self.begin(r);
-            self.sweeps = sweeps;
-            return Ok(());
-        }
-        let j = self.columns.len();
-        let mut w = applied;
-        let mut h = Vec::with_capacity(j + 2);
-        for v in &self.basis {
-            let c = inner(&w, v);
-            w.par_iter_mut().zip(v).for_each(|(a, b)| *a -= c * b);
-            h.push(c);
-        }
-        let next = norm(&w);
-        h.push(next);
-        for (i, &(c, s)) in self.rotations.iter().enumerate() {
-            let (a, b) = (h[i], h[i + 1]);
-            h[i] = c * a + s * b;
-            h[i + 1] = -s * a + c * b;
-        }
-        let (a, b) = (h[j], h[j + 1]);
-        let radius = a.hypot(b);
-        if !(radius > 0.0 && radius.is_finite()) {
-            return Err(MocError::GeneralizedDiverged { iterations: sweeps });
-        }
-        let (c, s) = (a / radius, b / radius);
-        h[j] = radius;
-        h.truncate(j + 1);
-        self.rotations.push((c, s));
-        self.g.push(-s * self.g[j]);
-        self.g[j] *= c;
-        self.columns.push(h);
-        let residual = self.g[j + 1].abs();
-        tracing::debug!(
-            sweeps,
-            residual,
-            target = self.target,
-            "generalized adjoint GMRES"
-        );
-        if residual <= self.target || next == 0.0 || j + 1 == self.restart {
-            // 上三角の系を後退代入で解き、x に基底の和を足す
-            let n = self.columns.len();
-            let mut y = vec![0.0; n];
-            for i in (0..n).rev() {
-                let sum: f64 = ((i + 1)..n).map(|l| self.columns[l][i] * y[l]).sum();
-                y[i] = (self.g[i] - sum) / self.columns[i][i];
-            }
-            for (v, coefficient) in self.basis.iter().zip(&y) {
-                self.x
-                    .par_iter_mut()
-                    .zip(v)
-                    .for_each(|(a, b)| *a += coefficient * b);
-            }
-            if self.x.iter().any(|v| !v.is_finite()) {
-                return Err(MocError::GeneralizedDiverged { iterations: sweeps });
-            }
-            self.sweeps = sweeps;
-            if residual <= self.target || next == 0.0 {
-                self.done = true;
-            } else {
-                // 再始動の残差は、Arnoldi の関係から基底で組み立てられるが、1 回のスイープで b − Ax を掛け直して丸めの積み重ねを
-                // 除く（2A の判定 1e-7 は 100 回の中で収束し、再始動しない）
-                self.residual = true;
-            }
-            return Ok(());
-        }
-        self.basis.push(w.par_iter().map(|v| v / next).collect());
-        Ok(())
-    }
-}
-
-fn norm(v: &[f64]) -> f64 {
-    inner(v, v).sqrt()
-}
-
-fn inner(a: &[f64], b: &[f64]) -> f64 {
-    a.par_iter().zip(b).map(|(x, y)| x * y).sum::<f64>()
 }
 
 /// 領域の Γ の、群ごとの |Γ| の最大値に対する変化の最大（`group_change`。Γ は符号を変える）。値は有限と確かめてある

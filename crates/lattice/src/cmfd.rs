@@ -5,6 +5,7 @@
 //! 拡散の結合係数を流れに合うよう補正した粗メッシュの固有値問題を解いて、
 //! 細かい領域の中性子束をセルごとの比で更新する。
 
+use crate::krylov::Krylov;
 use crate::material::Material;
 use crate::moc::Remaining;
 use crate::symmetry::Orbits;
@@ -861,10 +862,17 @@ impl Coarse {
     }
 
     /// 固定源の問題 (A − F/k) e = `rhs`（[代表のセル][群]、体積で積分した源）を、均質化した中性子束 φ̄ の成分を除きながら解く
-    /// （ADR-0247 の一般化随伴の加速）。A − F/k は、固有値 k で均質化した問題では特異で φ̄ が零ベクトルなので、反復
-    /// e ← A⁻¹ (F e / k + rhs) のたびに e から (W · e / W · φ̄) φ̄ を除く（`weights` は [代表のセル][群] の W）。収束した e は、
-    /// rhs から A φ̄ の倍を除いて A − F/k の値域に入れた問題の、W · e = 0 の解。A⁻¹ は、1 行か 1 列の格子ではブロック三重対角の
-    /// 直接解法、ほかはブロック Gauss-Seidel の 1 回。判定は `options` の中性子束の判定（群ごとの |e| の最大値に対する変化）
+    /// （ADR-0247 の一般化随伴の加速）。A − F/k は、固有値 k で均質化した問題では特異で φ̄ が零ベクトルなので、rhs から
+    /// A φ̄ = F φ̄ / k の倍を除いて A − F/k の値域に入れた問題 (A − F/k) e = rhs − β A φ̄ の、W · e = 0 の解を返す（`weights` は
+    /// [代表のセル][群] の W）。1 回は e ← A⁻¹ (F e_前 / k + rhs − β A φ̄) で、β は W · e = 0 になる値。A⁻¹ は、1 行か 1 列の格子では
+    /// ブロック三重対角の直接解法、ほかはブロック Gauss-Seidel の 1 回（前の値の e をまだ解いていないセルに使う）。どちらも 1 回の
+    /// 不動点は同じ方程式の解になる（e から φ̄ の倍を除く形では、Gauss-Seidel の不動点が、A の下三角の分だけの A φ̄ を除いた別の問題
+    /// の解になる）。
+    ///
+    /// 1 回は e_前 について線形なので、不動点を、1 回から rhs の分を除いた作用素 M の (I − M) e = (rhs だけの 1 回) として GMRES で
+    /// 解く。1 回を繰り返す反復は、2 番目のモードの比と、2 次元の格子では Gauss-Seidel の 1 − O(h²) で収束が遅い（2A の 3×3 の
+    /// 格子で補正 1 回あたり約 550 回、2A で補正 1 回 0.2 秒。ADR-0247）。`options` の中性子束の判定は、ここでは (I − M) e の残差の
+    /// 2 ノルムが右辺のノルムのこの倍になったら止める値（変化の上限でない）。`max_iterations` は 1 回を行う回数の上限
     pub(crate) fn solve_projected(
         &self,
         k: f64,
@@ -874,7 +882,6 @@ impl Coarse {
     ) -> Result<Vec<f64>, CmfdError> {
         let ng = self.groups;
         let cells = self.cells.len();
-        let null: f64 = weights.iter().zip(&self.flux).map(|(w, f)| w * f).sum();
         // A⁻¹ の解き方（チェーンは核分裂を除いた A を一度だけ分解する）
         enum Inverse<'a> {
             Chain(&'a Chain, ChainFactors),
@@ -886,32 +893,32 @@ impl Coarse {
             }
             Solver::GaussSeidel { blocks, neighbors } => Inverse::GaussSeidel(blocks, neighbors),
         };
-        let mut e = vec![0.0; cells * ng];
-        let mut history = Remaining::default();
-        let mut b = vec![0.0; ng];
-        for _ in 0..options.max_iterations {
-            let previous = e.clone();
-            let fission = |c: usize, out: &mut [f64], values: &[f64]| {
-                out.copy_from_slice(&rhs[c * ng..][..ng]);
+        // e_前 から A⁻¹ を 1 回（`source` が無ければ源を 0 に）
+        let invert = |previous: &[f64], source: Option<&[f64]>| -> Vec<f64> {
+            let fission = |c: usize, out: &mut [f64]| {
+                match source {
+                    Some(r) => out.copy_from_slice(&r[c * ng..][..ng]),
+                    None => out.fill(0.0),
+                }
                 for s in &self.fission[c] {
-                    let rate = s.rate(&values[c * ng..][..ng]) / k;
+                    let rate = s.rate(&previous[c * ng..][..ng]) / k;
                     for (o, x) in out.iter_mut().zip(&s.chi) {
                         *o += x * rate;
                     }
                 }
             };
+            let mut e = previous.to_vec();
             match &inverse {
                 Inverse::Chain(chain, factors) => {
-                    let mut next = vec![0.0; cells * ng];
                     for c in 0..cells {
-                        fission(c, &mut next[c * ng..][..ng], &previous);
+                        fission(c, &mut e[c * ng..][..ng]);
                     }
-                    chain.substitute(factors, &mut next);
-                    e = next;
+                    chain.substitute(factors, &mut e);
                 }
                 Inverse::GaussSeidel(blocks, neighbors) => {
+                    let mut b = vec![0.0; ng];
                     for c in 0..cells {
-                        fission(c, &mut b, &previous);
+                        fission(c, &mut b);
                         for (other, coefficients) in &neighbors[c] {
                             for g in 0..ng {
                                 b[g] -= coefficients[g] * e[other * ng + g];
@@ -922,19 +929,50 @@ impl Coarse {
                     }
                 }
             }
-            let alpha = weights.iter().zip(&e).map(|(w, x)| w * x).sum::<f64>() / null;
-            for (x, f) in e.iter_mut().zip(&self.flux) {
-                *x -= alpha * f;
-            }
-            if e.iter().any(|x| !x.is_finite()) {
-                return Err(CmfdError::NotFinite);
-            }
-            let largest = group_change(e.iter().zip(&previous).map(|(a, p)| (*a, *p)), ng);
-            if history.update(largest) < options.flux_tolerance {
-                return Ok(e);
+            e
+        };
+        // h = A⁻¹ (A φ̄)（前の値 0 から 1 回。直接解法なら φ̄）。1 回の後に β h を除くと、源から β A φ̄ を除いたことになる
+        let mut removed = vec![0.0; cells * ng];
+        for c in 0..cells {
+            let out = &mut removed[c * ng..][..ng];
+            for s in &self.fission[c] {
+                let rate = s.rate(&self.flux[c * ng..][..ng]) / k;
+                for (o, x) in out.iter_mut().zip(&s.chi) {
+                    *o += x * rate;
+                }
             }
         }
-        Err(CmfdError::NotConverged(options.max_iterations))
+        let h = invert(&vec![0.0; cells * ng], Some(&removed));
+        let null: f64 = weights.iter().zip(&h).map(|(w, x)| w * x).sum();
+        // e_前 からの 1 回（`source` が無ければ rhs を 0 にした M e_前）
+        let pass = |previous: &[f64], source: Option<&[f64]>| -> Vec<f64> {
+            let mut e = invert(previous, source);
+            let beta = weights.iter().zip(&e).map(|(w, x)| w * x).sum::<f64>() / null;
+            for (x, y) in e.iter_mut().zip(&h) {
+                *x -= beta * y;
+            }
+            e
+        };
+        let first = pass(&vec![0.0; cells * ng], Some(rhs));
+        if first.iter().any(|x| !x.is_finite()) {
+            return Err(CmfdError::NotFinite);
+        }
+        // 未知数の数ごとに再始動する（丸めがなければ GMRES はその回数の中で解く。基底は高々未知数の数の本数）
+        let mut krylov = Krylov::new(first, options.flux_tolerance, cells * ng);
+        let mut steps = 1;
+        while let Some(v) = krylov.request().map(<[f64]>::to_vec) {
+            if steps >= options.max_iterations {
+                return Err(CmfdError::NotConverged(options.max_iterations));
+            }
+            let image = pass(&v, None);
+            steps += 1;
+            let applied = v.iter().zip(&image).map(|(a, b)| a - b).collect();
+            krylov
+                .receive(applied, steps)
+                .map_err(|_| CmfdError::NotFinite)?;
+        }
+        tracing::trace!(steps, "coarse-mesh fixed source");
+        Ok(krylov.solution().to_vec())
     }
 
     /// 固有値問題を `k` から解き始め、k と [代表のセル][群] の中性子束の比（解 / 均質化した中性子束、

@@ -123,8 +123,8 @@
 //!                                 # output の [generalized]）
 //! bounds = [2e7, 0.625, 1e-5]     # 少数群の境界 (eV)
 //! responses = ["total-1", "scatter-1-2"] # total-G、nu-fission-G、fission-G、scatter-G-H（少数群は 1 始まり）
-//! methods = ["source-iteration", "cmfd", "gmres"]
-//! restart = 30                    # GMRES の再始動の回数（gmres を使うとき）
+//! methods = ["source-iteration", "cmfd", "gmres", "cmfd-gmres"] # cmfd-gmres は CMFD の補正を足した反復の GMRES
+//! restart = 30                    # GMRES の再始動の回数（gmres か cmfd-gmres を使うとき）
 //! tolerances = [1e-6, 1e-7]      # 一般化随伴の反復の判定（方法ごとに、それぞれで解く）
 //! batched = ["gmres"]             # すべての源を一緒にスイープしても解く方法（methods から選ぶ。省略すると源ごとだけ）
 //! reference = "gmres"             # 結果と比べる参照の方法と判定（省略すると比べない）
@@ -620,8 +620,15 @@ impl GeneralizedEntry {
                     Some(r) if r > 0 => Ok(Method::Gmres { restart: r }),
                     _ => Err("[sensitivity.generalized] gmres needs a positive restart".into()),
                 },
+                "cmfd-gmres" => match restart {
+                    Some(r) if r > 0 => Ok(Method::CmfdGmres { restart: r }),
+                    _ => {
+                        Err("[sensitivity.generalized] cmfd-gmres needs a positive restart".into())
+                    }
+                },
                 other => Err(format!(
-                    "[sensitivity.generalized] method `{other}` must be source-iteration, cmfd or gmres"
+                    "[sensitivity.generalized] method `{other}` must be source-iteration, cmfd, gmres or \
+                     cmfd-gmres"
                 )),
             }
         };
@@ -682,10 +689,11 @@ impl GeneralizedEntry {
         let uses_gmres = methods
             .iter()
             .chain(reference.as_ref().map(|(m, _)| m))
-            .any(|m| matches!(m, Method::Gmres { .. }));
+            .any(|m| matches!(m, Method::Gmres { .. } | Method::CmfdGmres { .. }));
         if restart.is_some() && !uses_gmres {
             return Err(
-                "[sensitivity.generalized] restart is for gmres, which no method uses".into(),
+                "[sensitivity.generalized] restart is for gmres and cmfd-gmres, which no method uses"
+                    .into(),
             );
         }
         Ok(GeneralizedInput {

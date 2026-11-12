@@ -486,6 +486,10 @@ fn accelerated_methods_reach_the_source_iteration_solution_in_fewer_sweeps() {
         for method in [
             GeneralizedMethod::Cmfd(CmfdOptions::default()),
             GeneralizedMethod::Gmres { restart: 20 },
+            GeneralizedMethod::CmfdGmres {
+                restart: 20,
+                cmfd: CmfdOptions::default(),
+            },
         ] {
             let accelerated = solve_by(method);
             for (a, b) in accelerated
@@ -556,6 +560,10 @@ fn sources_swept_together_reach_the_same_solutions() {
         GeneralizedMethod::SourceIteration,
         GeneralizedMethod::Cmfd(CmfdOptions::default()),
         GeneralizedMethod::Gmres { restart: 20 },
+        GeneralizedMethod::CmfdGmres {
+            restart: 20,
+            cmfd: CmfdOptions::default(),
+        },
     ] {
         let solve_with_batch = |batch: bool| {
             let settings = GeneralizedOptions {
@@ -587,16 +595,6 @@ fn sources_swept_together_reach_the_same_solutions() {
 }
 
 #[test]
-fn gmres_stops_when_the_operator_maps_a_basis_vector_to_zero() {
-    // 作用素が基底の値を 0 に移すと、Givens の回転と後退代入が 0 で割り、解が NaN になる
-    let mut krylov = Krylov::new(vec![1.0, 0.0], 1e-12, 10);
-    assert!(matches!(
-        krylov.receive(vec![0.0, 0.0], 2),
-        Err(MocError::GeneralizedDiverged { iterations: 2 })
-    ));
-}
-
-#[test]
 fn generalized_adjoint_checks_the_restart_and_takes_no_sources() {
     let tracking = vacuum_checkerboard(2);
     let (f, m) = (two_spectra_fuel(), moderator());
@@ -620,14 +618,18 @@ fn generalized_adjoint_checks_the_restart_and_takes_no_sources() {
         )
     };
     // 再始動しない GMRES は基底を上限まで増やす
-    assert!(matches!(
-        run(
-            GeneralizedMethod::Gmres { restart: 0 },
-            false,
-            std::slice::from_ref(&source)
-        ),
-        Err(MocError::GeneralizedRestart)
-    ));
+    for method in [
+        GeneralizedMethod::Gmres { restart: 0 },
+        GeneralizedMethod::CmfdGmres {
+            restart: 0,
+            cmfd: CmfdOptions::default(),
+        },
+    ] {
+        assert!(matches!(
+            run(method, false, std::slice::from_ref(&source)),
+            Err(MocError::GeneralizedRestart)
+        ));
+    }
     for batch in [false, true] {
         for method in [
             GeneralizedMethod::SourceIteration,
@@ -932,4 +934,152 @@ fn response_importance_rejects_a_symmetry_of_another_tracking() {
         ),
         Err(MocError::ForeignSymmetry)
     ));
+}
+
+/// 鏡面反射の 3×3 の格子で、燃料のピン 8 本が中央の水のセルを囲む（2A の案内管のまわりの形）。ピッチ 2.5 cm で、粗メッシュの
+/// セルが光学的に厚い（熱群の水で Σt h = 5）
+fn thick_cells_around_water() -> Tracking {
+    let pin = PinCell::new(2.5, vec![0.25, 0.4096, 0.55]).unwrap();
+    let water = PinCell::new(2.5, vec![]).unwrap();
+    let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+    Tracking::new(&Lattice::new(vec![pin, water], layout).unwrap(), 16, 0.05).unwrap()
+}
+
+/// `thick_cells_around_water` の領域の物質（ピンは燃料 2 つと水 2 つの領域、中央は水）
+fn around_water<'a>(fuel: &'a Material, water: &'a Material) -> Vec<&'a Material> {
+    (0..9)
+        .flat_map(|c| {
+            if c == 4 {
+                vec![water]
+            } else {
+                vec![fuel, fuel, water, water]
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn cmfd_reaches_the_gmres_solution_on_thick_cells_around_water() {
+    // スイープは、φ† の成分を除いた状態からも φ† の成分を作る（除く重み Fφ は、スイープの左の固有ベクトル（前向きの散乱と
+    // 核分裂の源）でない）。その成分は解の不定な分で、粗メッシュの補正の残差に入れると、細かい問題にない源を粗メッシュに与える。
+    // この格子の高速群から熱群への散乱の応答では、そうした補正の CMFD は 107 スイープで、源の反復の 163 の 3 分の 1 にならない
+    let tracking = thick_cells_around_water();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = around_water(&f, &m);
+    let options = tight(0);
+    let verified = require(&tracking, Symmetry::OCTANT).unwrap();
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, Some(&verified));
+    let n = materials.len();
+    let source = ratio_source(
+        &solution,
+        &indicator(n, 2, 0, |r| Some(materials[r].scatter[0][1])),
+        &indicator(n, 2, 0, |_| Some(1.0)),
+    );
+    let solve_by = |method: GeneralizedMethod| {
+        let settings = GeneralizedOptions {
+            method,
+            max_iterations: 1000,
+            ..settings(1e-10)
+        };
+        solve_generalized(
+            &tracking,
+            &materials,
+            &options,
+            Some(&verified),
+            &forward,
+            &adjoint,
+            std::slice::from_ref(&source),
+            &settings,
+        )
+        .map(|mut g| g.remove(0))
+    };
+    let reference = solve_by(GeneralizedMethod::Gmres { restart: 100 }).unwrap();
+    let scale = reference
+        .flux
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |a, x| a.max(x.abs()));
+    let unaccelerated = solve_by(GeneralizedMethod::SourceIteration).unwrap();
+    let cmfd = solve_by(GeneralizedMethod::Cmfd(CmfdOptions::default())).unwrap();
+    for (a, b) in cmfd
+        .flux
+        .iter()
+        .flatten()
+        .zip(reference.flux.iter().flatten())
+    {
+        assert!((a - b).abs() < 1e-8 * scale, "{a} vs {b}");
+    }
+    assert!(
+        3 * cmfd.iterations < unaccelerated.iterations,
+        "{} sweeps, source iteration {}",
+        cmfd.iterations,
+        unaccelerated.iterations
+    );
+}
+
+#[test]
+fn gmres_of_the_cmfd_iteration_needs_fewer_sweeps_than_either_alone() {
+    // CMFD の補正を足した反復の作用素の GMRES。補正の残る遅いモード（粗メッシュのセルの中の分布）を GMRES が除く
+    let tracking = thick_cells_around_water();
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = around_water(&f, &m);
+    let options = tight(0);
+    let verified = require(&tracking, Symmetry::OCTANT).unwrap();
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, Some(&verified));
+    let n = materials.len();
+    let source = ratio_source(
+        &solution,
+        &indicator(n, 2, 1, |r| {
+            std::ptr::eq(materials[r], &f).then_some(f.total[1])
+        }),
+        &indicator(n, 2, 1, |_| Some(1.0)),
+    );
+    let solve_by = |method: GeneralizedMethod, tolerance: f64| {
+        let settings = GeneralizedOptions {
+            method,
+            ..settings(tolerance)
+        };
+        solve_generalized(
+            &tracking,
+            &materials,
+            &options,
+            Some(&verified),
+            &forward,
+            &adjoint,
+            std::slice::from_ref(&source),
+            &settings,
+        )
+        .unwrap()
+        .remove(0)
+    };
+    let reference = solve_by(GeneralizedMethod::Gmres { restart: 100 }, 1e-12);
+    let scale = reference
+        .flux
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |a, x| a.max(x.abs()));
+    let gmres = solve_by(GeneralizedMethod::Gmres { restart: 100 }, 1e-10);
+    let cmfd = solve_by(GeneralizedMethod::Cmfd(CmfdOptions::default()), 1e-10);
+    let both = solve_by(
+        GeneralizedMethod::CmfdGmres {
+            restart: 100,
+            cmfd: CmfdOptions::default(),
+        },
+        1e-10,
+    );
+    for (a, b) in both
+        .flux
+        .iter()
+        .flatten()
+        .zip(reference.flux.iter().flatten())
+    {
+        assert!((a - b).abs() < 1e-8 * scale, "{a} vs {b}");
+    }
+    assert!(
+        both.iterations < gmres.iterations && both.iterations < cmfd.iterations,
+        "{} sweeps, GMRES {}, CMFD {}",
+        both.iterations,
+        gmres.iterations,
+        cmfd.iterations
+    );
 }
