@@ -559,9 +559,32 @@ fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
     }
 }
 
+/// 最初と最後の点（範囲の上端と格子の最後の点）を残して、ほかの格子点を次の点との中点に動かした格子（`grid` と重なる格子点は
+/// 最後の点だけ）
+fn moved(grid: &[f64]) -> Vec<f64> {
+    grid.iter()
+        .enumerate()
+        .map(|(k, &x)| {
+            if k == 0 || k == grid.len() - 1 {
+                x
+            } else {
+                0.5 * (x + grid[k + 1])
+            }
+        })
+        .collect()
+}
+
+/// 格子 `u` の格子点をすべて持った表の大きさ (B)
+fn table_bytes(u: &[f64]) -> u64 {
+    let probe = KernelCache::default();
+    probe.begin(|_| u64::MAX);
+    swept_on(u, 1.0, usize::MAX, Some(&probe));
+    probe.bytes()
+}
+
 #[test]
-fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shielding() {
-    // 上限に届いた表は格子点を足さず（足さなかった格子点は評価し直す）、次の自己遮蔽の始めに、前の自己遮蔽で使わなかった格子点を捨てる
+fn a_full_kernel_cache_adds_no_points() {
+    // 上限に届いた表は格子点を足さず、足さなかった格子点は減速計算ごとに評価し直す
     let grid = test_grid();
     let kernels = KernelCache::default();
     kernels.begin(|_| 0);
@@ -573,97 +596,146 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
     assert!(built > 0);
     let (_, _, again) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(again, all);
+}
+
+#[test]
+fn a_kernel_table_keeps_the_points_of_its_burnup_point_through_its_shieldings() {
+    // 同じ燃焼点の中では、上限に届かない限り、いくつの自己遮蔽（状態と摂動）で使わなくても格子点を捨てない
+    let grid = test_grid();
+    let other = moved(&grid);
+    let kernels = KernelCache::default();
     kernels.begin(|_| u64::MAX);
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
-    let full = kernels.bytes();
-    assert!(full > 0);
-    // 使った格子点は次の自己遮蔽でも残り、2 つの自己遮蔽で使わなければ捨てる
+    for _ in 0..3 {
+        kernels.begin(|_| u64::MAX);
+        swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+    }
     kernels.begin(|_| u64::MAX);
-    assert_eq!(kernels.bytes(), full);
+    let (_, _, again) = swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
+    assert_eq!(again, 0);
+}
+
+#[test]
+fn a_new_burnup_point_drops_the_points_its_previous_point_did_not_use() {
+    // 燃焼点の境（呼び出し側が渡す）では、直前の燃焼点で使った格子点（燃焼点の間の重なり）を残し、ほかを捨てる
+    let grid = test_grid();
+    let other = moved(&grid);
+    let kernels = KernelCache::default();
     kernels.begin(|_| u64::MAX);
-    assert_eq!(kernels.bytes(), 0);
-    // 上限が残りより小さくても捨てず、増やさない（使用可能メモリが表の分だけ減って上限が下がっても、次の自己遮蔽が表を引ける）
+    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    let first = kernels.bytes();
+    kernels.next_point();
+    kernels.begin(|_| u64::MAX);
+    assert_eq!(kernels.bytes(), first);
+    swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+    kernels.next_point();
+    kernels.begin(|_| u64::MAX);
+    // 残るのは 2 つ目の燃焼点で使った格子点（動かした格子と、元の格子と重なる最後の点）だけ
+    assert_eq!(kernels.bytes(), table_bytes(&other));
+    let (_, _, again) = swept_on(&other, 1.3, usize::MAX, Some(&kernels));
+    assert_eq!(again, 0);
+}
+
+#[test]
+fn a_full_kernel_table_gives_way_only_to_the_points_of_a_later_burnup_point() {
+    // 上限に届いた表は、今の燃焼点で使っていない格子点（前の燃焼点のもの）を捨てて今の燃焼点の格子点を入れ、今の燃焼点で使った
+    // 格子点は、同じ燃焼点のほかの格子が上限に届いても捨てない
+    let grid = test_grid();
+    let other = moved(&grid);
+    let cap = table_bytes(&grid);
+    let kernels = KernelCache::default();
+    kernels.begin(|_| cap);
+    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    assert_eq!(kernels.bytes(), cap);
+    kernels.next_point();
+    kernels.begin(|_| cap);
+    swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+    let (_, _, again) = swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+    // 動かした格子の 2 本目は、ほとんどの格子点を表から引く（上限は元の格子の分で、動かした格子の格子点の数はほぼ同じ）
+    let alone = swept_on(&other, 1.0, usize::MAX, None).2;
+    assert!(4 * again < alone, "{again} of {alone}");
+    // 同じ燃焼点の次の自己遮蔽（元の格子）は表に入れられず、動かした格子の格子点を締め出さない
+    kernels.begin(|_| cap);
+    swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
+    let (_, _, after) = swept_on(&other, 1.3, usize::MAX, Some(&kernels));
+    assert_eq!(after, again);
+}
+
+#[test]
+fn a_lower_cap_keeps_the_points_of_the_current_burnup_point() {
+    // 上限が今の大きさより小さくなっても（使用可能メモリが表の分だけ減る）、今の燃焼点で使った格子点は捨てず、増やさない。前の
+    // 燃焼点の格子点は、今の燃焼点の格子点を入れようとして上限に届いたときに捨てる
+    let grid = test_grid();
+    let other = moved(&grid);
+    let kernels = KernelCache::default();
+    kernels.begin(|_| u64::MAX);
     swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     let held = kernels.bytes();
     assert!(held > 0);
     assert_eq!(kernels.begin(|held| held - 1), 0);
+    swept_on(&other, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(kernels.bytes(), held);
     let (_, _, again) = swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
     assert_eq!(again, 0);
-    assert_eq!(kernels.bytes(), held);
     assert_eq!(kernels.begin(|held| held + 10), 10);
+    kernels.next_point();
+    assert_eq!(kernels.begin(|held| held - 1), 0);
+    assert_eq!(kernels.bytes(), held);
+    swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+    assert!(kernels.bytes() < held);
+    let (_, _, again) = swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+    let alone = swept_on(&other, 1.0, usize::MAX, None).2;
+    assert!(again < alone, "{again} of {alone}");
 }
 
 #[test]
-fn a_full_kernel_table_gives_way_to_the_points_of_the_current_shielding() {
-    // 上限まで埋めた格子点が、状態の摂動の後の自己遮蔽（燃焼点が変わり格子が変わる）で使われなければ、今の自己遮蔽の格子点が
-    // 上限に届いたときそれを捨てて入れる
-    let grid = test_grid();
-    let moved: Vec<f64> = grid
-        .iter()
-        .enumerate()
-        .map(|(k, &x)| {
-            if k == 0 || k == grid.len() - 1 {
-                x
-            } else {
-                0.5 * (x + grid[k + 1])
-            }
-        })
-        .collect();
-    let probe = KernelCache::default();
-    probe.begin(|_| u64::MAX);
-    swept_on(&grid, 1.0, usize::MAX, Some(&probe));
-    let cap = probe.bytes();
+fn inserts_beside_the_drop_of_the_earlier_points_find_its_room() {
+    // 上限に届いた表で、前の燃焼点の格子点を捨てている間に余地を確かめたほかの減速計算も、捨てた後の余地を使える
     let kernels = KernelCache::default();
-    kernels.begin(|_| cap);
-    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
-    // 前の自己遮蔽で使った格子点は残る（状態の公称と摂動）
-    kernels.begin(|_| cap);
-    assert_eq!(kernels.bytes(), cap);
-    swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
-    // 次の燃焼点: 2 つ前の自己遮蔽で入れた格子点を捨てて、動かした格子の格子点を入れる
-    kernels.begin(|_| cap);
-    assert_eq!(kernels.bytes(), cap);
-    swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
-    let (_, _, again) = swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
-    // 動かした格子の 2 本目は、ほとんどの格子点を表から引く（上限は元の格子の分で、動かした格子の格子点の数はほぼ同じ）
-    let alone = swept_on(&moved, 1.0, usize::MAX, None).2;
-    assert!(4 * again < alone, "{again} of {alone}");
+    kernels.begin(|_| u64::MAX);
+    let table = kernels.table(vec![1]);
+    let point = || KernelPoint {
+        starts: vec![0, 1],
+        cells: vec![KernelCell::default()],
+        evaluations: 0,
+    };
+    for k in 0..100_000 {
+        kernels.insert(&table, [k, 0], point());
+    }
+    let full = kernels.bytes();
+    kernels.next_point();
+    kernels.begin(|_| full);
+    let size = point().bytes();
+    let threads = 32;
+    let barrier = std::sync::Barrier::new(threads);
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                barrier.wait();
+                assert!(kernels.has_room(size));
+            });
+        }
+    });
+    assert_eq!(kernels.counts()[2], 0);
 }
 
 #[test]
-fn a_full_kernel_table_keeps_the_points_the_current_shielding_reuses() {
-    // 2 本の減速計算（格子の違うピン）で上限に届いた表を、次の自己遮蔽（状態の摂動）が別の順に引くとき、先に解く 1 本が上限に
-    // 届いても、まだ引いていない 1 本の格子点を捨てない（表から引けた格子点が上限で入れなかった格子点より多く、表の中身が今の
-    // 自己遮蔽の格子に合っている）
+fn the_kernel_table_grows_only_into_its_share_of_the_given_hold_memory() {
+    // `ufg-hold-memory` の量は、前の自己遮蔽から残った表、表が増えうる量、ピンと塊に渡す量を合わせた全体（ADR-0248）
     let grid = test_grid();
-    let moved: Vec<f64> = grid
-        .iter()
-        .enumerate()
-        .map(|(k, &x)| {
-            if k == 0 || k == grid.len() - 1 {
-                x
-            } else {
-                0.5 * (x + grid[k + 1])
-            }
-        })
-        .collect();
-    let probe = KernelCache::default();
-    probe.begin(|_| u64::MAX);
-    swept_on(&grid, 1.0, usize::MAX, Some(&probe));
-    let one = probe.bytes();
-    swept_on(&moved, 1.0, usize::MAX, Some(&probe));
-    let both = probe.bytes();
-    // 1 本目はすべて、2 本目は半分ほどを持つ上限
-    let cap = one + (both - one) / 2;
-    let kernels = KernelCache::default();
-    kernels.begin(|_| cap);
-    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
-    swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
-    kernels.begin(|_| cap);
-    swept_on(&moved, 1.3, usize::MAX, Some(&kernels));
-    let (_, _, again) = swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
-    assert_eq!(again, 0);
+    let other = moved(&grid);
+    for (whole, at_once) in [(3, 1), (2, 4)] {
+        let kernels = KernelCache::default();
+        kernels.begin(|_| u64::MAX);
+        swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+        let whole = whole * kernels.bytes();
+        let held = kernels.start();
+        let total = super::super::hold_total(Some(whole), held).unwrap();
+        let growth = kernels.limit(super::super::kernel_cap(total, held, at_once));
+        swept_on(&other, 1.0, usize::MAX, Some(&kernels));
+        assert!(kernels.bytes() <= held + growth, "{at_once}");
+        assert!(kernels.bytes() + (total - growth) <= whole, "{at_once}");
+    }
 }
 
 #[test]
