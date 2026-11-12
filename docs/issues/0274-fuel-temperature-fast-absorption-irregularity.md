@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, xs, branches]
 opened: 2026-11-10
-closed:
+closed: 2026-11-12
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0242
 ---
 
 # 燃料の温度の格子点の間で、高速群の吸収が √T の滑らかな曲線から外れる
@@ -760,3 +760,5 @@ examples/vera/endfb70/compare-<問題>.json（339858c46）。
   温度の軸の内挿の方式を ADR-0242 で決めることが残る（推しは同じ節）
 - 2026-11-12（JST）: VERA の 15 の格子で、1000 eV の既定が 400 kT より KENO-VI（ENDF/B-VII.0）との差を 16〜30 pcm 減らすことを確かめた
   （「VERA の 1B〜2Q と KENO-VI（ENDF/B-VII.0）」。ブランチ test/0274-vera-light-cap）。endfb70 の記録のステージの作り直しは後回し
+- 2026-11-12（JST）: 燃料の温度の軸を √T の 3 次 Hermite、格子点を 7 点のままと ADR-0242 で決め、core に実装して閉じた（ブランチ
+  feat/0274-fuel-axis-sqrt-hermite）。区間の中点の状態、2A 以外の集合体、格子点を減らす検討は #0176 の「残り」
