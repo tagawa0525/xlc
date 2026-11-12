@@ -163,6 +163,11 @@ pub enum UfgError {
         "ring {ring}: the density direction changes a ring whose total cross section is 0 at {energy} eV, so the tracks have no derivative in ln Σ"
     )]
     TangentZeroTotal { ring: usize, energy: f64 },
+    /// 接線を、格子点ごとの飛程、間引かない格子、静止した標的のほかの設定で頼んだ（内部の呼び方の誤り）
+    #[error(
+        "internal error: the slowing-down tangent covers only exact tracks, the full grid and static targets"
+    )]
+    TangentSettings,
 }
 
 /// セルの減速計算の結果。

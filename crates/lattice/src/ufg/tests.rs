@@ -2722,13 +2722,19 @@ fn tangents_match_central_differences_of_the_slowing_down() {
 
 #[test]
 fn tangents_solve_the_same_spectrum_as_without() {
-    // 1 次の変化を求めても、減速計算の結果は格子点ごとの飛程と静止した標的の解とビットで同じ。向きが 0 なら変化も 0
+    // 1 次の変化を求めても（飛程の微分を求める向きがあっても）、減速計算の結果は格子点ごとの飛程と静止した標的の解とビットで同じ。
+    // 向きが 0 なら変化も 0
     let (lib, materials, cell) = tangent_cell();
     let rings = tangent_rings(&materials);
     let range = [4.0, 1.0e4];
     let zero: Vec<Vec<f64>> = proportional(&rings, "none");
+    let directions = [
+        zero,
+        proportional(&rings, "U-238"),
+        proportional(&rings, "H-1"),
+    ];
     let (spectrum, tangent) =
-        slowing_down_tangent(&lib, &cell, &rings, range, std::slice::from_ref(&zero)).unwrap();
+        slowing_down_tangent(&lib, &cell, &rings, range, &directions).unwrap();
     let plain = slowing_down_with(
         &lib,
         &cell,
@@ -2772,4 +2778,40 @@ fn tangent_directions_must_follow_the_ring_compositions() {
         slowing_down_tangent(&lib, &cell, &rings, [4.0, 1.0e4], &[missing]),
         Err(UfgError::Rings { given: 4, rings: 5 })
     ));
+}
+
+#[test]
+fn tangents_stop_with_the_settings_they_do_not_cover() {
+    // 接線は格子点ごとの飛程、間引かない格子、静止した標的だけ。ほかの設定では黙って誤った変化を返さず止める
+    let (lib, materials, cell) = tangent_cell();
+    let rings = tangent_rings(&materials);
+    let directions = [proportional(&rings, "U-238")];
+    let settings = [
+        (Collision::default(), None, Scattering::Static),
+        (Collision::Exact, Some(1e-4), Scattering::Static),
+        (Collision::Exact, None, Scattering::default()),
+    ];
+    for (collision, thinning, scattering) in settings {
+        let mut out = CellTangent {
+            flux: Vec::new(),
+            nuclides: Vec::new(),
+        };
+        let result = solve_cell(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            thinning,
+            scattering,
+            None,
+            None,
+            Some((&directions, &mut out)),
+            0,
+        );
+        assert!(
+            matches!(result, Err(UfgError::TangentSettings)),
+            "{collision:?} {thinning:?} {scattering:?}: {result:?}"
+        );
+    }
 }
