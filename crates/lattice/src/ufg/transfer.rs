@@ -57,9 +57,9 @@ pub struct ShareCellCache {
 /// 自己遮蔽の間で持てば作り直さずに済む量
 #[derive(Debug, Default)]
 struct Census {
-    /// 鍵ごとの、最後に数えた自己遮蔽
+    /// 鍵ごとの、最後に数えた自己遮蔽（今と直前の自己遮蔽の鍵だけを残す。燃焼の全体の鍵を持ち続けない）
     seen: HashMap<[u64; 3], u64>,
-    /// 今の自己遮蔽の番号と、その評価の回数: [全体, 今の自己遮蔽で初めての鍵の分, 前の自己遮蔽にもない鍵の分]
+    /// 今の自己遮蔽の番号と、その評価の回数: [全体, 今の自己遮蔽で初めての鍵の分, 直前の自己遮蔽にもない鍵の分]
     call: u64,
     evaluations: [u64; 3],
 }
@@ -71,9 +71,9 @@ pub struct CensusCall {
     pub total: u64,
     /// この自己遮蔽の中で鍵の重なりを除いたもの
     pub distinct: u64,
-    /// それより前の自己遮蔽にもない鍵の分
+    /// 直前の自己遮蔽にもない鍵の分
     pub new: u64,
-    /// それまでのすべての自己遮蔽の鍵の数
+    /// この自己遮蔽の鍵の数
     pub keys: usize,
 }
 
@@ -130,6 +130,8 @@ impl ShareCellCache {
     pub fn census(&self) -> CensusCall {
         let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
         let [total, distinct, new] = std::mem::take(&mut census.evaluations);
+        let call = census.call;
+        census.seen.retain(|_, last| *last == call);
         census.call += 1;
         CensusCall {
             total,

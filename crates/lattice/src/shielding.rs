@@ -695,11 +695,16 @@ pub fn shield_fuel_reusing(
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
     // `broadcast` のピンはスレッドごとに 1 本なので、同時に解くピンはスレッドの数と解くピンの数の小さい方。自由ガスの核の区間と
-    // D の値の表（ピンと塊、自己遮蔽の間で共有する）は、同時に解く減速計算の 1 つと同じ量を持つ（ADR-0248）
+    // D の値の表（リングの中性子束の移行で、ピンと塊、自己遮蔽の間で共有する）は、同時に解く減速計算の 1 つと同じ量を持ち、
+    // ピンと塊はその残りを分ける（ADR-0248）
     let threads = rayon::current_num_threads();
-    let at_once = threads.min(solving.len()) + 1;
-    shares.kernels().begin(total / at_once as u64);
-    let hold = held_cells(total, at_once);
+    let at_once = threads.min(solving.len());
+    let kernels = match options.transfer {
+        UfgTransfer::RingFlux => total / (at_once as u64 + 1),
+        UfgTransfer::InfiniteDilution => 0,
+    };
+    shares.kernels().begin(kernels);
+    let hold = held_cells(total - kernels, at_once);
     let solve = |pin: &(usize, &[usize], usize)| -> Result<PinSolution, SelfShieldingError> {
         let &(cell, ring_materials, rings) = pin;
         let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
@@ -940,7 +945,7 @@ pub fn shield_fuel_reusing(
     }
     drop(dilute_span);
     if tracing::enabled!(tracing::Level::DEBUG) {
-        // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と前の自己遮蔽の間（new）で重なる分
+        // 自由ガスの核の評価のうち、格子点と核が同じでピンの間（distinct）と直前の自己遮蔽の間（new）で重なる分
         let CensusCall {
             total,
             distinct,
@@ -952,7 +957,7 @@ pub fn shield_fuel_reusing(
             distinct,
             new,
             keys,
-            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of earlier shieldings"
+            "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding"
         );
     }
     // 自由ガスの核の区間と D の値の表（ADR-0248）: 値を使った格子点、作った格子点、上限で入れなかった格子点の数と、持つ大きさ
@@ -1258,8 +1263,8 @@ fn shield_lumps(
         .iter()
         .filter(|(b, _, lump_regions)| rod_rings(lattice, body_of[*b].0, lump_regions).is_some())
         .count();
-    // 自由ガスの核の区間と D の値の表の分（ピンと同じ。ADR-0248）を 1 つ足して分ける
-    let hold = held_cells(total, rods + 1);
+    // 自由ガスの核の区間と D の値の表の上限（ピンの前に決めたもの。ADR-0248）を除いて分ける
+    let hold = held_cells(total - shares.kernels().cap(), rods);
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()
         .map(|(b, index, lump_regions)| {

@@ -769,6 +769,8 @@ pub(super) struct KernelPoint {
     /// [核種] の区間の始まり（核種の数 + 1 個。最後は区間の数）
     starts: Vec<u32>,
     cells: Vec<KernelCell>,
+    /// 作るときの核の評価の回数（隣の区間と共有した端は数えない。DEBUG のログの重なりの計数で、表から引いた格子点にも数える）
+    evaluations: u64,
 }
 
 /// 区間 [a, b] と、a、中点、b の D（[`Gas::correction`]）
@@ -779,12 +781,20 @@ struct KernelCell {
     d: [f64; 3],
 }
 
+/// `cells` 個の区間と `starts` 個の核種の区間の始まりを持つ 1 つの格子点の大きさ (B)。配列と [`KernelPoint`] と、表の項目（鍵、
+/// 番号、`Arc` の参照の計数）の分で、`HashMap` の空きの枠は数えない（項目の大きさの数割で、上限の内に入れない）
+fn point_bytes(cells: usize, starts: usize) -> u64 {
+    (cells * std::mem::size_of::<KernelCell>()
+        + starts * std::mem::size_of::<u32>()
+        + std::mem::size_of::<KernelPoint>()
+        + std::mem::size_of::<([u64; 2], (Arc<KernelPoint>, u64))>()
+        + 2 * std::mem::size_of::<usize>()) as u64
+}
+
 impl KernelPoint {
-    /// 持つ大きさ (B)
+    /// 持つ大きさ (B。配列は確保した大きさで数える)
     fn bytes(&self) -> u64 {
-        (self.starts.len() * std::mem::size_of::<u32>()
-            + self.cells.len() * std::mem::size_of::<KernelCell>()
-            + std::mem::size_of::<Self>()) as u64
+        point_bytes(self.cells.capacity(), self.starts.capacity())
     }
 }
 
@@ -820,16 +830,23 @@ impl KernelCache {
     pub fn begin(&self, cap: u64) {
         let call = self.call.fetch_add(1, Ordering::Relaxed) + 1;
         let mut bytes = 0;
-        for table in lock(&self.tables).values() {
+        // 格子点の無くなった核の表も捨てる（温度の分岐で核が変わるたびに表が増えるため）
+        lock(&self.tables).retain(|_, table| {
             let mut table = lock(table);
             table.retain(|_, (_, last)| *last + 1 >= call);
             bytes += table.values().map(|(p, _)| p.bytes()).sum::<u64>();
-        }
+            !table.is_empty()
+        });
         self.bytes.store(bytes, Ordering::Relaxed);
         self.cap.store(cap, Ordering::Relaxed);
         for count in &self.counts {
             count.store(0, Ordering::Relaxed);
         }
+    }
+
+    /// 持つ量の上限 (B。[`KernelCache::begin`])
+    pub fn cap(&self) -> u64 {
+        self.cap.load(Ordering::Relaxed)
     }
 
     /// 持っている大きさ (B)
@@ -1101,6 +1118,8 @@ pub(super) struct Thermal<'a> {
     /// 自由ガスの核の区間と D の値を持つ表と、この減速計算の核の表（最初に区間を作る格子点で引く）
     kernels: Option<&'a KernelCache>,
     kernel_table: Option<Arc<KernelTable>>,
+    /// 最後に表から引いた格子点の、作るときの核の評価の回数（[`KernelPoint::evaluations`]。引かなければ `None`）
+    needed: Option<u64>,
 }
 
 /// 自由ガスの核の区間の仕事の内訳（ログ）。時間は区間の塊ごとのスレッドの時間の和で、ピンの中の並列を盗んだスレッドの時間も含む
@@ -1201,6 +1220,7 @@ impl<'a> Thermal<'a> {
             census: tracing::enabled!(tracing::Level::DEBUG),
             kernels,
             kernel_table: None,
+            needed: None,
         }
     }
 
@@ -1273,9 +1293,9 @@ impl<'a> Thermal<'a> {
             self.work.seconds[2 + kind] += part.seconds[1];
         }
         if self.census && kind == 0 && self.previous.is_none() {
-            self.work
-                .points
-                .push((u[m].to_bits(), e.to_bits(), evaluations));
+            // 表から引いた格子点は、作るときの評価の回数で数える（重なりは表によらない量）
+            let needed = self.needed.unwrap_or(evaluations);
+            self.work.points.push((u[m].to_bits(), e.to_bits(), needed));
         }
         let gas_done = Instant::now();
         let (sigmas, rings) = (&self.sigma, &self.rings);
@@ -1326,6 +1346,7 @@ impl<'a> Thermal<'a> {
             (Some(kernels), Some(table)) => kernels.get(table, point),
             _ => None,
         };
+        self.needed = cached.as_ref().map(|p| p.evaluations);
         self.all.clear();
         self.starts.clear();
         match &cached {
@@ -1364,13 +1385,9 @@ impl<'a> Thermal<'a> {
         // 作った区間の値を表に入れるか（上限に余地があるとき。入れる直前にもう一度確かめる）
         let record = cached.is_none()
             && !self.all.is_empty()
-            && self.kernels.is_some_and(|k| {
-                k.has_room(
-                    (self.all.len() * std::mem::size_of::<KernelCell>()
-                        + self.starts.len() * std::mem::size_of::<u32>())
-                        as u64,
-                )
-            });
+            && self
+                .kernels
+                .is_some_and(|k| k.has_room(point_bytes(self.all.len(), self.starts.len())));
         // 最初に持つ格子点で、すべての格子点の核種の区間の始まりと、格子点ごとの位置の表を確保し、上限から引く（持つ区間とともに
         // 上限に入れる。伸ばしながら確保すると、上限を超えるか、格子点ごとに写し直す）。区間の格子点を u32 で持つので、格子点の
         // 数が u32 を超える格子（間引かない格子でも 127 万点ほど）は持たない
@@ -1510,13 +1527,14 @@ impl<'a> Thermal<'a> {
                 .collect()
         };
         if record && let (Some(kernels), Some(table)) = (self.kernels, &self.kernel_table) {
-            let cells = parts
-                .iter_mut()
-                .flat_map(|p| std::mem::take(&mut p.kernel))
-                .collect();
+            let mut cells = Vec::with_capacity(self.all.len());
+            for p in &mut parts {
+                cells.append(&mut p.kernel);
+            }
             let value = KernelPoint {
                 starts: self.starts.clone(),
                 cells,
+                evaluations: parts.iter().map(|p| p.evaluations).sum(),
             };
             kernels.insert(table, point, value);
         }
