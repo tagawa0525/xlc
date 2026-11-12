@@ -2589,3 +2589,386 @@ fn history_branches_need_the_nominal_state_for_the_cooling_cross_sections() {
         .to_string();
     assert!(err.contains("nominal"), "{err}");
 }
+
+/// `micro` に U-235 と Xe-135 を挙げ、一般化摂動の微分（ADR-0247）を求める分岐の入力。`shielded` は自己遮蔽を解き直す核種、
+/// `derivative` は反応率の微分を直接の摂動で解く核種（燃焼度 0 と 2.0）
+fn generalized_input(perturbation: f64, shielded: &[&str], derivative: &[&str]) -> String {
+    let list = |names: &[&str]| {
+        names
+            .iter()
+            .map(|n| format!("\"{n}\""))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let derivative = if derivative.is_empty() {
+        String::new()
+    } else {
+        format!("derivative = [{}]\n", list(derivative))
+    };
+    let perturbation = if derivative.is_empty() && shielded.is_empty() {
+        String::new()
+    } else {
+        format!("perturbation = {perturbation}\n")
+    };
+    format!(
+        "{}micro = [\"U-235\", \"Xe-135\"]\n{derivative}{perturbation}\
+         generalized = {{ tolerance = 1e-10, restart = 100, shielded = [{}] }}\n",
+        branch_input("[0, 2.0]", "[600]"),
+        list(shielded)
+    )
+}
+
+/// 入力 `text` の分岐の状態 `index` を解き、追う核種の微視的断面積に一般化摂動の微分（ADR-0247）を入れたもの。摂動の組成は核種ごとの
+/// `BranchShielder` で自己遮蔽し、直接の摂動を解く核種は MOC（`tight`）も解く。`calls` に（摂動の核種、直接の摂動を解いたか）を足す
+fn generalized_derivatives(
+    text: &str,
+    history: &History,
+    library: &Library,
+    index: usize,
+    calls: &mut Vec<(usize, bool)>,
+) -> anyhow::Result<Vec<xlc_format::table::MicroNuclide>> {
+    let s = setup(text);
+    let branches = branches_of(text, history, library).unwrap();
+    let varied = s.input.branches.as_ref().unwrap().varied();
+    let new = || {
+        BranchShielder::new(
+            &s.tracking,
+            branches.region_materials(0),
+            varied,
+            s.chosen.shielding(),
+            s.input.shielding_options(),
+        )
+    };
+    let mut reuse = ShieldingReuse::new(&s.tracking);
+    let mut shielder = new();
+    let reference = branches.reference(index);
+    let state = branches.state(index);
+    let shielded = shielder
+        .shield_state(&mut reuse, library, &state, reference, || {
+            let (point, r) = reference.unwrap();
+            branches.reference_state(point, r)
+        })
+        .unwrap();
+    let (unique, region_index) = (shielded.materials(), shielded.region_material());
+    let regions: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
+    let options = Options {
+        scattering_order: available_order(&regions),
+        ..tight()
+    };
+    let (solution, converged) =
+        crate::moc::solve_symmetric_from(&s.tracking, &regions, &options, s.chosen.moc(), None)
+            .unwrap();
+    let nominal = crate::fewgroup::homogenize(
+        &solution,
+        &regions,
+        &library.groups,
+        &BOUNDS,
+        &s.tracking.boundaries(),
+    )
+    .unwrap();
+    let mut micro = branches
+        .micro(
+            0,
+            index,
+            library,
+            shielded.fuel(),
+            &s.tracking.lattice,
+            &solution,
+            &BOUNDS,
+        )
+        .unwrap();
+    let sensitivity_state = crate::sensitivity::State {
+        library,
+        materials: &state,
+        region_names: branches.region_materials(0),
+        unique,
+        region_index,
+        shielding: Some(shielded.fuel()),
+        lattice: &s.tracking.lattice,
+        tracking: &s.tracking,
+        symmetry: s.chosen.moc(),
+    };
+    let generalized = branches.generalized().unwrap();
+    let (table, _) = crate::sensitivity::TableDerivatives::new(
+        &sensitivity_state,
+        &regions,
+        &options,
+        (&solution, &converged),
+        None,
+        &nominal,
+        (generalized.tolerance, generalized.restart),
+    )?;
+    let mut perturbed: Vec<BranchShielder> = branches
+        .perturbed_nuclides()
+        .iter()
+        .map(|_| new())
+        .collect();
+    branches.add_generalized_derivatives(
+        0,
+        index,
+        &mut micro,
+        &nominal,
+        &table,
+        |j, state, reference, build, direct| {
+            calls.push((j, direct));
+            let shielded =
+                perturbed[j].shield_state(&mut reuse, library, state, reference, build)?;
+            let solved = if direct {
+                let (few, solution) = homogenized(&s, library, &shielded);
+                let sigma = branches.micro(
+                    0,
+                    index,
+                    library,
+                    shielded.fuel(),
+                    &s.tracking.lattice,
+                    &solution,
+                    &BOUNDS,
+                )?;
+                Some((few, sigma))
+            } else {
+                None
+            };
+            Ok(PerturbedSolve {
+                materials: Some((
+                    shielded.materials().to_vec(),
+                    shielded.region_material().to_vec(),
+                )),
+                solved,
+            })
+        },
+    )?;
+    Ok(micro)
+}
+
+/// 直接の摂動（ADR-0221）の微分。`generalized_derivatives` と同じ状態と自己遮蔽の解き方
+fn direct_derivatives(
+    fraction: f64,
+    history: &History,
+    library: &Library,
+    index: usize,
+) -> Vec<xlc_format::table::MicroDerivative> {
+    let text = derivative_input(fraction);
+    let s = setup(&text);
+    let branches = branches_of(&text, history, library).unwrap();
+    let varied = s.input.branches.as_ref().unwrap().varied();
+    let new = || {
+        BranchShielder::new(
+            &s.tracking,
+            branches.region_materials(0),
+            varied,
+            s.chosen.shielding(),
+            s.input.shielding_options(),
+        )
+    };
+    let mut reuse = ShieldingReuse::new(&s.tracking);
+    let mut shielder = new();
+    let (nominal, mut micro) =
+        solve_state(&s, library, &branches, &mut reuse, &mut shielder, index);
+    let mut perturbed = [new(), new()];
+    branches
+        .add_derivatives(
+            0,
+            index,
+            &mut micro,
+            &nominal,
+            |j, state, reference, build| {
+                let shielded =
+                    perturbed[j].shield_state(&mut reuse, library, state, reference, build)?;
+                let (few, solution) = homogenized(&s, library, &shielded);
+                let sigma = branches.micro(
+                    0,
+                    index,
+                    library,
+                    shielded.fuel(),
+                    &s.tracking.lattice,
+                    &solution,
+                    &BOUNDS,
+                )?;
+                Ok((few, sigma))
+            },
+        )
+        .unwrap();
+    micro.into_iter().map(|m| m.derivative.unwrap()).collect()
+}
+
+/// 微分の少数群定数の項目（全断面積、νΣf、Σf、散乱行列）
+fn constants(d: &xlc_format::table::MicroDerivative) -> Vec<f64> {
+    let mut v = Vec::new();
+    v.extend(&d.total);
+    v.extend(&d.nu_fission);
+    v.extend(&d.fission);
+    v.extend(d.scatter.iter().flatten());
+    v
+}
+
+#[test]
+fn generalized_derivatives_with_the_shielding_solved_again_match_extrapolated_direct_perturbations()
+{
+    // 一般化摂動の微分（ADR-0247）のうち、自己遮蔽を解き直す核種（案 I1）の差分の誤差は暗黙の分の前進差分だけで、直接の摂動
+    // （ADR-0221）は全体の前進差分。どちらも刻み ε の誤差を持つので、ε と ε/2 の Richardson の外挿 2 f(ε/2) − f(ε) どうしで比べる。
+    // 許容は、外挿に残る刻みの誤差の見積もり（直接の摂動の外挿を ε/2 と ε/4 から作り直したときの差）の 2 倍と、MOC の中性子束の
+    // 判定 τ の誤差が 2 つの外挿に入る分（定数 Σ の τ |Σ| の誤差を ε N̄ と ε N̄ / 2 で割って 1 と 2 を掛けた 5 τ |Σ| / (ε N̄) を 2 つ）の和
+    let (history, library) = history();
+    let index = 3;
+    let fractions = [0.04, 0.02, 0.01];
+    let extrapolate =
+        |a: &[f64], b: &[f64]| -> Vec<f64> { a.iter().zip(b).map(|(x, y)| 2.0 * y - x).collect() };
+    let direct: Vec<Vec<Vec<f64>>> = fractions
+        .into_iter()
+        .map(|e| {
+            direct_derivatives(e, &history, &library, index)
+                .iter()
+                .map(constants)
+                .collect()
+        })
+        .collect();
+    let generalized: Vec<Vec<Vec<f64>>> = fractions[..2]
+        .iter()
+        .map(|&e| {
+            let text = generalized_input(e, &["U-235", "Xe-135"], &[]);
+            let mut calls = Vec::new();
+            let micro =
+                generalized_derivatives(&text, &history, &library, index, &mut calls).unwrap();
+            // 自己遮蔽だけを解き直し、直接の摂動の輸送は解かない
+            assert_eq!(calls, [(0, false), (1, false)]);
+            micro
+                .iter()
+                .map(|n| {
+                    let d = n.derivative.as_ref().unwrap();
+                    // 反応率の微分は直接の摂動の核種だけが持つ
+                    assert!(d.rate.is_none());
+                    constants(d)
+                })
+                .collect()
+        })
+        .collect();
+    let text = generalized_input(fractions[0], &[], &[]);
+    let branches = branches_of(&text, &history, &library).unwrap();
+    let mut calls = Vec::new();
+    let micro = generalized_derivatives(&text, &history, &library, index, &mut calls).unwrap();
+    // 自己遮蔽を固定した陽の微分（案 I0）だけなら、摂動の組成を解かない
+    assert!(calls.is_empty());
+    assert!(micro.iter().all(|n| n.derivative.is_some()));
+    let constant = {
+        let s = setup(&text);
+        let mut reuse = ShieldingReuse::new(&s.tracking);
+        let mut shielder = BranchShielder::new(
+            &s.tracking,
+            branches.region_materials(0),
+            s.input.branches.as_ref().unwrap().varied(),
+            s.chosen.shielding(),
+            s.input.shielding_options(),
+        );
+        let (few, _) = solve_state(&s, &library, &branches, &mut reuse, &mut shielder, index);
+        let mut v = few.total.clone();
+        v.extend(&few.nu_fission);
+        v.extend(&few.fission);
+        v.extend(few.scatter.iter().flatten());
+        v
+    };
+    let flux_tolerance = tight().flux_tolerance;
+    for (m, name) in ["U-235", "Xe-135"].into_iter().enumerate() {
+        let mean = branches.micro_densities()[1][m];
+        assert!(mean > 0.0, "{name}");
+        let reference = extrapolate(&direct[0][m], &direct[1][m]);
+        let finer = extrapolate(&direct[1][m], &direct[2][m]);
+        let got = extrapolate(&generalized[0][m], &generalized[1][m]);
+        let mut compared = 0;
+        for k in 0..reference.len() {
+            let noise = 10.0 * flux_tolerance * constant[k].abs() / (fractions[0] * mean);
+            let tolerance = 2.0 * (finer[k] - reference[k]).abs() + noise;
+            assert!(
+                (got[k] - reference[k]).abs() <= tolerance,
+                "{name} item {k}: generalized {} direct {} (tolerance {tolerance})",
+                got[k],
+                reference[k]
+            );
+            if reference[k] != 0.0 {
+                compared += 1;
+            }
+        }
+        // 熱群から高速群への散乱のほかの 9 項目
+        assert_eq!(compared, 9, "{name}");
+    }
+}
+
+#[test]
+fn generalized_derivatives_take_the_rate_derivatives_of_the_direct_perturbation() {
+    // 直接の摂動の核種（`derivative`）は、同じ刻みの摂動の組成の輸送を解き、その反応率の微視的断面積の前進差分を反応率の微分に
+    // する（直接の摂動とビットで同じ）。少数群定数の微分は一般化摂動のもの
+    let (history, library) = history();
+    let index = 3;
+    let direct = direct_derivatives(0.04, &history, &library, index);
+    let text = generalized_input(0.04, &[], &["U-235"]);
+    let mut calls = Vec::new();
+    let micro = generalized_derivatives(&text, &history, &library, index, &mut calls).unwrap();
+    assert_eq!(calls, [(0, true)]);
+    let (u235, xenon) = (
+        micro[0].derivative.as_ref().unwrap(),
+        micro[1].derivative.as_ref().unwrap(),
+    );
+    assert_eq!(u235.rate, direct[0].rate);
+    assert!(u235.rate.is_some());
+    assert_ne!(constants(u235), constants(&direct[0]));
+    assert!(xenon.rate.is_none());
+    // 自己遮蔽を解き直す核種と重なれば、1 回の自己遮蔽で両方を求める
+    let text = generalized_input(0.04, &["U-235"], &["U-235"]);
+    let mut calls = Vec::new();
+    let both = generalized_derivatives(&text, &history, &library, index, &mut calls).unwrap();
+    assert_eq!(calls, [(0, true)]);
+    assert_eq!(both[0].derivative.as_ref().unwrap().rate, direct[0].rate);
+}
+
+#[test]
+fn generalized_derivatives_are_the_micro_cross_sections_where_the_nuclide_is_absent() {
+    // 燃焼度 0 の Xe-135 は N̄ᵢ = 0 で、向きが 0 なので、直接の摂動と同じく σᵢ（#0206）。反応率の微分は直接の摂動の核種だけが 0 で持つ
+    let (history, library) = history();
+    let index = 1;
+    for (derivative, rate) in [(&[][..], false), (&["Xe-135"][..], true)] {
+        let text = generalized_input(0.04, &["Xe-135"], derivative);
+        let mut calls = Vec::new();
+        let micro = generalized_derivatives(&text, &history, &library, index, &mut calls).unwrap();
+        assert!(calls.is_empty(), "{calls:?}");
+        let xenon = &micro[1];
+        let d = xenon.derivative.as_ref().unwrap();
+        assert_eq!(d.total, xenon.total);
+        assert_eq!(d.nu_fission, xenon.nu_fission);
+        assert_eq!(d.fission, xenon.fission);
+        assert_eq!(d.scatter, xenon.scatter);
+        assert_eq!(d.rate.is_some(), rate);
+        if let Some(r) = &d.rate {
+            assert!(r.fission.iter().all(|&x| x == 0.0));
+            assert!(
+                r.reactions
+                    .iter()
+                    .flat_map(|r| r.channels.iter().flatten())
+                    .all(|&x| x == 0.0)
+            );
+        }
+    }
+}
+
+#[test]
+fn generalized_derivatives_need_the_micro_nuclides_only_in_depleted_materials() {
+    // 一般化摂動の向きは、核種を持つすべての物質の数密度に比例する。燃焼させない物質が追う核種を持てば、燃焼の領域だけを変える
+    // 直接の摂動（ADR-0221）と向きが違うので止める
+    // 燃料と水の間に、Xe-135 を少し持つ燃焼させない物質の層を置いた格子で燃焼させる
+    let clad = |text: &str| {
+        text.replace(
+            "{ material = \"fuel\", radius = 0.4096, rings = 1 }, ",
+            "{ material = \"fuel\", radius = 0.4096, rings = 1 }, { material = \"clad\", radius = 0.475, rings = 1 }, ",
+        )
+        .replace(
+            "[material.water]",
+            "[material.clad]\ntemperature = 600\nnuclides = { O-16 = 1e-2, Xe-135 = 1e-12 }\n\n[material.water]",
+        )
+    };
+    let library = library_with_boron();
+    let history = deplete_with(&clad(&borated(PIN)), &library);
+    let text = clad(&generalized_input(0.04, &[], &[]));
+    assert!(text.contains("[material.clad]"));
+    let err = generalized_derivatives(&text, &history, &library, 3, &mut Vec::new())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("not depleted"), "{err}");
+}
