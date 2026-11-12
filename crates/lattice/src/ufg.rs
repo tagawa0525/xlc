@@ -37,7 +37,7 @@ const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
-use free_gas::{Gas, Thermal};
+use free_gas::{Gas, GasTangent, Thermal};
 
 mod free_gas;
 mod hold;
@@ -184,11 +184,6 @@ pub enum UfgError {
         ring: usize,
         name: String,
     },
-    /// 接線を、格子点ごとの飛程、間引かない格子、静止した標的のほかの設定で頼んだ（内部の呼び方の誤り）
-    #[error(
-        "internal error: the slowing-down tangent covers only exact tracks, the full grid and static targets"
-    )]
-    TangentSettings,
 }
 
 /// セルの減速計算の結果。
@@ -610,10 +605,9 @@ fn solve_cell(
     fine: Option<&mut FineFlux>,
     transfers: Option<(&mut Vec<Vec<NuclideTransfer>>, &ShareCellCache)>,
     tangent: Option<(&[Vec<Vec<f64>>], &mut CellTangent)>,
-    frozen: Option<&mut Frozen>,
+    mut frozen: Option<&mut Frozen>,
     hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
-    let _ = frozen;
     let volumes = cell.volumes();
     let n = volumes.len();
     if rings.len() != n {
@@ -746,11 +740,23 @@ fn solve_cell(
     jumps.dedup();
     // 間引くなら、群の境界と不連続点を残し、リングの物質ごとの巨視的な全断面積と弾性散乱断面積を許容差で再現できる点だけを
     // 残す（ADR-0185）
-    let energies = match thinning {
-        None => energies,
-        Some(tolerance) => thin(&energies, &data, &entries, high, tolerance, |e| {
-            group_bounds.contains(&e) || jumps.binary_search_by(|x| x.total_cmp(&e)).is_ok()
-        })?,
+    let energies = match (thinning, frozen.as_deref_mut()) {
+        (None, _) => energies,
+        (
+            Some(_),
+            Some(Frozen {
+                grid: Some(grid), ..
+            }),
+        ) => grid.clone(),
+        (Some(tolerance), frozen) => {
+            let kept = thin(&energies, &data, &entries, high, tolerance, |e| {
+                group_bounds.contains(&e) || jumps.binary_search_by(|x| x.total_cmp(&e)).is_ok()
+            })?;
+            if let Some(f) = frozen {
+                f.grid = Some(kept.clone());
+            }
+            kept
+        }
     };
     if thinning.is_some() {
         work += heap_bytes(&energies);
@@ -780,15 +786,7 @@ fn solve_cell(
     work += heap_bytes(&points) + heap_bytes(&u);
 
     let ng = bottom - top;
-    // 接線の式は、格子点ごとの飛程、間引かない格子（群の積分を格子点で数える）、静止した標的（掃き直しで接線の状態を戻さない）の
-    // ものだけなので、ほかの設定では黙って誤った変化を返さずに止める
-    if tangent.is_some()
-        && (collision != Collision::Exact || thinning.is_some() || scattering != Scattering::Static)
-    {
-        return Err(UfgError::TangentSettings);
-    }
-    // 向きは [`slowing_down_tangent`] だけが渡し、格子点ごとの飛程、間引かない格子、静止した標的で解く（飛程の表、間引いた格子の
-    // 縮約、自由ガスの散乱源の接線は無い。ADR-0247）。個数密度の向きの並びは、リングの組成と同じであること（黙って切り詰めない）
+    // 個数密度の向きの並びは、リングの組成と同じであること（黙って切り詰めない）
     let tangent_sweep = match &tangent {
         None => None,
         Some((directions, _)) => {
@@ -808,9 +806,25 @@ fn solve_cell(
                             expected: ring.len(),
                         });
                     }
+                    // 自由ガスの核種の散乱源は、個数密度が 0 のリングでは積分しない
+                    for (&(k, density), &change) in ring.iter().zip(changes) {
+                        if density == 0.0 && change != 0.0 && data[k].gas.is_some() {
+                            return Err(UfgError::TangentZeroDensity {
+                                direction: d,
+                                ring: i,
+                                name: data[k].name.to_string(),
+                            });
+                        }
+                    }
                 }
             }
-            Some(TangentSweep::new(directions, &entries, ng, u.len()))
+            Some(TangentSweep::new(
+                directions,
+                &entries,
+                ng,
+                u.len(),
+                thinning.is_none(),
+            )?)
         }
     };
     let above = Above { bounds, top, high };
@@ -862,8 +876,20 @@ fn solve_cell(
     let grid_done = Instant::now();
     let table = match collision {
         Collision::Exact => None,
-        Collision::Table { density } => track_table(cell, &data, &entries, &points, density)?,
+        Collision::Table { density } => {
+            let ranges = frozen.as_deref().and_then(|f| f.ranges.as_deref());
+            let built = track_table(cell, &data, &entries, &points, density, ranges)?;
+            if let Some(f) = frozen.as_deref_mut()
+                && f.ranges.is_none()
+            {
+                f.ranges = built.as_ref().map(|(_, _, ranges)| ranges.clone());
+            }
+            built.map(|(table, first, _)| (table, first))
+        }
     };
+    if let (Some(t), Some((_, first))) = (&mut sweep.tangent, &table) {
+        t.table_materials(first, &entries);
+    }
     let table_done = Instant::now();
 
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
@@ -974,6 +1000,34 @@ fn solve_cell(
         }
     };
     sweep.thermal = thermal;
+    // 自由ガスの核種の向き: [向き][自由ガスの核種][その核種を含むリング（[`Thermal::rings`] の順）] の δN
+    if let (Some(t), Some(thermal)) = (&mut sweep.tangent, &mut sweep.thermal) {
+        let gases: Vec<usize> = (0..data.len()).filter(|&k| data[k].gas.is_some()).collect();
+        let directions = t
+            .directions
+            .iter()
+            .map(|direction| {
+                gases
+                    .iter()
+                    .zip(thermal.rings())
+                    .map(|(&k, rings)| {
+                        rings
+                            .iter()
+                            .map(|&(i, _)| {
+                                entries[i]
+                                    .iter()
+                                    .zip(&direction[i])
+                                    .find(|((j, _), _)| *j == k)
+                                    .map_or(0.0, |(_, &change)| change)
+                            })
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect();
+        thermal.keep_cells();
+        t.gas = Some(GasTangent::new(directions, n, thermal.start()));
+    }
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
     pass.run(
         &mut sweep,
@@ -998,6 +1052,9 @@ fn solve_cell(
             )?;
             count += 1;
             let change = sweep.thermal.as_mut().and_then(|t| t.finish(&sweep.flux));
+            if let Some(t) = &mut sweep.tangent {
+                t.finish_sweep();
+            }
             tracing::debug!(sweep = count, change, "UFG free-gas sweep");
             let done = match sweeps {
                 Some(limit) => count >= limit,
@@ -1131,36 +1188,116 @@ fn solve_cell(
         }
         nuclides.push(list);
     }
-    if let (Some((_, out)), Some(t)) = (tangent, &sweep.tangent) {
-        // 群定数 R/Φ の 1 次の変化 δR/Φ − R δΦ/Φ²
+    if let (Some((_, out)), Some(t)) = (tangent, &mut sweep.tangent) {
+        let clock = Instant::now();
+        // 群定数 R/Φ の 1 次の変化 δR/Φ − (R/Φ) δΦ/Φ。間引いた格子では、δR/Φ を核種の格子で δF を縮約して求める（[`collapse`] は
+        // F について線形で、与えた群の中性子束で割る）
+        let changes: Vec<Vec<Vec<Shielded>>> = if thinning.is_some() {
+            // [核種] の [(向き, リング, δR/Φ)]
+            let collapsed: Vec<Vec<(usize, usize, Shielded)>> = (0..data.len())
+                .into_par_iter()
+                .map(|k| {
+                    let rings: Vec<usize> = (0..n)
+                        .filter(|&i| entries[i].iter().any(|&(j, _)| j == k))
+                        .collect();
+                    let pairs: Vec<(usize, usize)> = (0..t.directions.len())
+                        .flat_map(|d| rings.iter().map(move |&i| (d, i)))
+                        .collect();
+                    let fluxes: Vec<&[f64]> = pairs
+                        .iter()
+                        .map(|&(d, i)| t.flux[d][i].as_slice())
+                        .collect();
+                    let group_fluxes: Vec<&[f64]> = pairs
+                        .iter()
+                        .map(|&(_, i)| sweep.group_flux[i].as_slice())
+                        .collect();
+                    let values = collapse(
+                        &data[k],
+                        &u,
+                        &points,
+                        &fluxes,
+                        high,
+                        group_bounds,
+                        &group_fluxes,
+                    )?;
+                    Ok(pairs
+                        .into_iter()
+                        .zip(values)
+                        .map(|((d, i), s)| (d, i, s))
+                        .collect())
+                })
+                .collect::<Result<_, UfgError>>()?;
+            (0..t.directions.len())
+                .map(|d| {
+                    (0..n)
+                        .map(|i| {
+                            entries[i]
+                                .iter()
+                                .map(|&(k, _)| {
+                                    collapsed[k]
+                                        .iter()
+                                        .find(|(e, r, _)| *e == d && *r == i)
+                                        .map(|(_, _, s)| s.clone())
+                                        .ok_or(UfgError::Uncollapsed {
+                                            ring: i,
+                                            nuclide: k,
+                                        })
+                                })
+                                .collect::<Result<_, _>>()
+                        })
+                        .collect::<Result<_, _>>()
+                })
+                .collect::<Result<_, _>>()?
+        } else {
+            t.rates
+                .iter()
+                .map(|rates| {
+                    rates
+                        .iter()
+                        .enumerate()
+                        .map(|(i, ring)| {
+                            let flux = &sweep.group_flux[i];
+                            ring.iter()
+                                .map(|changes| {
+                                    let column = |x: usize| -> Vec<f64> {
+                                        (0..ng).map(|g| changes[g][x] / flux[g]).collect()
+                                    };
+                                    Shielded {
+                                        total: column(0),
+                                        elastic: column(1),
+                                        fission: column(2),
+                                        nu_fission: column(3),
+                                        capture: column(4),
+                                    }
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        };
         out.flux = t.group_flux.clone();
-        out.nuclides = t
-            .rates
-            .iter()
+        out.nuclides = changes
+            .into_iter()
             .zip(&t.group_flux)
-            .map(|(rates, group_flux)| {
-                rates
-                    .iter()
+            .map(|(rings, group_flux)| {
+                rings
+                    .into_iter()
                     .enumerate()
                     .map(|(i, ring)| {
                         let (flux, delta) = (&sweep.group_flux[i], &group_flux[i]);
-                        ring.iter()
-                            .zip(&sweep.rates[i])
-                            .map(|(changes, rates)| {
-                                let column = |x: usize| -> Vec<f64> {
-                                    (0..ng)
-                                        .map(|g| {
-                                            changes[g][x] / flux[g]
-                                                - rates[g][x] * delta[g] / (flux[g] * flux[g])
-                                        })
-                                        .collect()
+                        ring.into_iter()
+                            .zip(&nuclides[i])
+                            .map(|(change, value)| {
+                                let column = |c: &[f64], v: &[f64]| -> Vec<f64> {
+                                    (0..ng).map(|g| c[g] - v[g] * delta[g] / flux[g]).collect()
                                 };
                                 Shielded {
-                                    total: column(0),
-                                    elastic: column(1),
-                                    fission: column(2),
-                                    nu_fission: column(3),
-                                    capture: column(4),
+                                    total: column(&change.total, &value.total),
+                                    elastic: column(&change.elastic, &value.elastic),
+                                    fission: column(&change.fission, &value.fission),
+                                    nu_fission: column(&change.nu_fission, &value.nu_fission),
+                                    capture: column(&change.capture, &value.capture),
                                 }
                             })
                             .collect()
@@ -1168,6 +1305,23 @@ fn solve_cell(
                     .collect()
             })
             .collect();
+        t.cost.collapse += clock.elapsed().as_secs_f64();
+        t.cost.directions = t.directions.len();
+        t.cost.classes = t.classes.len();
+        t.cost.bytes = t.bytes();
+        out.cost = t.cost.clone();
+        tracing::debug!(
+            directions = t.cost.directions,
+            classes = t.cost.classes,
+            tracks = t.cost.tracks,
+            free_gas = t.cost.free_gas,
+            solve = t.cost.solve,
+            collapse = t.cost.collapse,
+            table_points = t.cost.table_points,
+            exact_points = t.cost.exact_points,
+            bytes = t.cost.bytes,
+            "UFG tangent"
+        );
     }
     if let Some((transfers, shares)) = transfers {
         // 自由ガスの核種の番号（`Thermal::new` に渡した順）
@@ -1377,8 +1531,10 @@ impl Pass<'_> {
                     &owned
                 }
             };
-            // 個数密度の向きのあるときだけ、変わるリングの全断面積についての飛程の微分（[変わるリング][j][i]）
-            let jacobians: Vec<Vec<Vec<Vec<f64>>>> = match &sweep.tangent {
+            // 個数密度の向きのあるときだけ、変わるリングの組の全断面積についての飛程の微分（[組][j][i]）。飛程を表から内挿した
+            // 格子点は表の内挿の微分、格子点ごとに求めた格子点は衝突確率の中心差分（飛程と同じ選び方）
+            let tangent_clock = Instant::now();
+            let jacobians: Vec<(Vec<Vec<Vec<f64>>>, bool)> = match &sweep.tangent {
                 None => Vec::new(),
                 Some(t) => values
                     .par_iter()
@@ -1386,17 +1542,36 @@ impl Pass<'_> {
                     .map(|(row, &(e, _))| {
                         let totals: Vec<f64> =
                             entries.iter().map(|ring| total(ring, row)).collect();
-                        t.rings
+                        if let (Some((table, first)), Some(materials)) = (table, &t.materials) {
+                            let sigma: Vec<f64> =
+                                first.iter().map(|&i| total(&entries[i], row)).collect();
+                            let derivatives = materials
+                                .iter()
+                                .map(|&m| table.derivative(&sigma, m))
+                                .collect::<Result<Option<Vec<_>>, _>>()?;
+                            if let Some(derivatives) = derivatives {
+                                return Ok((derivatives, true));
+                            }
+                        }
+                        let exact = t
+                            .classes
                             .iter()
-                            .map(|&r| track_derivative(cell, &totals, r, e))
-                            .collect()
+                            .map(|(_, members)| track_derivative(cell, &totals, members, e))
+                            .collect::<Result<_, UfgError>>()?;
+                        Ok((exact, false))
                     })
-                    .collect::<Result<_, _>>()?,
+                    .collect::<Result<_, UfgError>>()?,
             };
+            if let Some(t) = &mut sweep.tangent {
+                let tabled = jacobians.iter().filter(|(_, tabled)| *tabled).count();
+                t.cost.table_points += tabled;
+                t.cost.exact_points += jacobians.len() - tabled;
+                t.cost.tracks += tangent_clock.elapsed().as_secs_f64();
+            }
             let collided = Instant::now();
             for (k, ((m, row), w)) in chunk.clone().zip(values).zip(tracks).enumerate() {
                 let (e, below) = points[m];
-                let jacobian = jacobians.get(k).map_or(&[][..], Vec::as_slice);
+                let jacobian = jacobians.get(k).map_or(&[][..], |(j, _)| j.as_slice());
                 sweep.point(m, row, w, jacobian, e, below)?;
                 // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
                 if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
@@ -1411,21 +1586,24 @@ impl Pass<'_> {
     }
 }
 
-/// リングの全断面積 `totals` の飛程 W[j][i] の、リング `ring` の全断面積についての微分 ∂W/∂Σ_ring（ln Σ の中心差分。[`TRACK_STEP`]）。
-/// `energy` はエラーの格子点
+/// リングの全断面積 `totals` の飛程 W[j][i] の、組のリング `rings`（全断面積が同じ）の全断面積についての微分 ∂W/∂Σ（組のリングの
+/// ln Σ を一緒にずらした中心差分。[`TRACK_STEP`]）。`energy` はエラーの格子点
 fn track_derivative(
     cell: &Cylinder,
     totals: &[f64],
-    ring: usize,
+    rings: &[usize],
     energy: f64,
 ) -> Result<Vec<Vec<f64>>, UfgError> {
+    let ring = rings[0];
     let sigma = totals[ring];
     if sigma <= 0.0 {
         return Err(UfgError::TangentZeroTotal { ring, energy });
     }
     let shifted = |s: f64| {
         let mut t = totals.to_vec();
-        t[ring] = sigma * s.exp();
+        for &r in rings {
+            t[r] = sigma * s.exp();
+        }
         cell.tracks(&t)
     };
     let (up, down) = (shifted(TRACK_STEP)?, shifted(-TRACK_STEP)?);
@@ -1776,16 +1954,18 @@ const OUTSIDE_BANDS: [f64; 5] = [10.0, 31.0, 100.0, 1000.0, 1e4];
 /// 展開の外の格子点を数える、中心からの ln Σ の差の境界（ログ。最初は [`MAX_DEVIATION`]）
 const OUTSIDE_DEVIATIONS: [f64; 3] = [MAX_DEVIATION, 0.03, 0.1];
 
-/// セルの飛程の表と、[物質] の最初のリングの番号。同じ組成（核種と温度、個数密度）のリングは全断面積が同じなので
+/// セルの飛程の表と、[物質] の最初のリングの番号、[軸] の範囲。同じ組成（核種と温度、個数密度）のリングは全断面積が同じなので
 /// 1 つの物質にまとめ、核種の並び（核種と温度）が同じ物質は 1 つの軸を共有する（ADR-0182）。範囲は格子点 `points` の
-/// 全体での軸の値（中心）の最小と最大。表で求める衝突確率の数が格子点の数以上なら、表を作らずに `None`（格子点ごとに求める）
+/// 全体での軸の値（中心）の最小と最大（`frozen` を与えればその範囲。[`Frozen`]）。表で求める衝突確率の数が格子点の数以上なら、
+/// 表を作らずに `None`（格子点ごとに求める）
 fn track_table(
     cell: &Cylinder,
     data: &[Data],
     entries: &[Vec<(usize, f64)>],
     points: &[(f64, bool)],
     density: usize,
-) -> Result<Option<(TrackTable, Vec<usize>)>, UfgError> {
+    frozen: Option<&[[f64; 2]]>,
+) -> Result<Option<(TrackTable, Vec<usize>, Vec<[f64; 2]>)>, UfgError> {
     let mut first: Vec<usize> = Vec::new();
     let classes: Vec<Option<usize>> = entries
         .iter()
@@ -1873,6 +2053,9 @@ fn track_table(
             "UFG track table outside points by energy (eV, counts below the first bound, between bounds, above the last) and by the largest ln Σ deviation"
         );
     }
+    if let Some(frozen) = frozen {
+        ranges = frozen.to_vec();
+    }
     // どの格子点も展開の外なら、表を読む格子点がない
     if outside == points.len() {
         tracing::info!(
@@ -1924,7 +2107,7 @@ fn track_table(
         solved = table.solved_nodes(),
         "UFG track table built"
     );
-    Ok(Some((table, first)))
+    Ok(Some((table, first, ranges)))
 }
 
 /// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`MAX_DEVIATION`] 以下）なら、軸の範囲 `ranges` をその中心まで広げて
@@ -2116,15 +2299,33 @@ struct Sweep<'a> {
 struct TangentSweep {
     /// [向き][リング][項] の δN
     directions: Vec<Vec<Vec<f64>>>,
-    /// どれかの向きで個数密度の変わるリング（飛程の微分を求めるリング）
-    rings: Vec<usize>,
+    /// どれかの向きで個数密度の変わるリングの組（代表のリング、組のリング）。組は同じ組成のリングで、飛程の表の 1 つの物質
+    /// （[`track_table`]）。組のリングの δN はどの向きでも同じ（[`TangentSweep::new`] が確かめる）なので、全断面積の変化も同じで、
+    /// 飛程の微分は組の全断面積について求める
+    classes: Vec<(usize, Vec<usize>)>,
+    /// [組] の、飛程の表の物質の番号（表のあるとき）
+    materials: Option<Vec<usize>>,
     /// [向き][リング][格子点] の δF
     flux: Vec<Vec<Vec<f64>>>,
     /// [向き][リング][項] の窓の積分 ∫ σs δF e^{−(u−u')} du'
     windows: Vec<Vec<Vec<f64>>>,
     /// [向き][リング][群] の ∫ δF du
     group_flux: Vec<Vec<Vec<f64>>>,
-    /// [向き][リング][項][群] の ∫ δF σ du
+    /// [向き][リング][項][群] の ∫ δF σ du（間引いた格子では積分せず、核種の格子で縮約する）
+    rates: Vec<Vec<Vec<Vec<Row>>>>,
+    tally: bool,
+    /// 自由ガスの核と S(α, β) の移行の散乱源の 1 次の変化の状態（自由ガスの核種のあるとき）
+    gas: Option<GasTangent>,
+    /// 格子点ごとに再利用する作業用の配列: [向き][リング] の自由ガスの散乱源の δF の分（密度を掛けたもの）と、個数密度の変化の分
+    gas_known: Vec<Vec<f64>>,
+    gas_explicit: Vec<Vec<f64>>,
+    cost: TangentCost,
+}
+
+/// 掃き直しの始めに戻す、1 次の変化の状態
+struct TangentSaved {
+    windows: Vec<Vec<Vec<f64>>>,
+    group_flux: Vec<Vec<Vec<f64>>>,
     rates: Vec<Vec<Vec<Vec<Row>>>>,
 }
 
@@ -2134,11 +2335,30 @@ impl TangentSweep {
         entries: &[Vec<(usize, f64)>],
         ng: usize,
         points: usize,
-    ) -> Self {
+        tally: bool,
+    ) -> Result<Self, UfgError> {
         let n = entries.len();
-        let rings = (0..n)
+        let changed: Vec<usize> = (0..n)
             .filter(|&i| directions.iter().any(|d| d[i].iter().any(|&x| x != 0.0)))
             .collect();
+        // 変わるリングを、同じ組成のリングの組にまとめる（変わらない同じ組成のリングも組に入れ、δN が同じことを確かめる）
+        let mut classes: Vec<(usize, Vec<usize>)> = Vec::new();
+        for &r in &changed {
+            if classes.iter().any(|(_, members)| members.contains(&r)) {
+                continue;
+            }
+            let members: Vec<usize> = (0..n).filter(|&i| entries[i] == entries[r]).collect();
+            for (d, direction) in directions.iter().enumerate() {
+                if let Some(&other) = members.iter().find(|&&i| direction[i] != direction[r]) {
+                    return Err(UfgError::TangentClass {
+                        direction: d,
+                        ring: r,
+                        other,
+                    });
+                }
+            }
+            classes.push((r, members));
+        }
         // [向き][リング] の、リングの項の数から作った配列
         fn each(
             directions: usize,
@@ -2150,9 +2370,10 @@ impl TangentSweep {
                 .collect()
         }
         let count = directions.len();
-        Self {
+        Ok(Self {
             directions: directions.to_vec(),
-            rings,
+            classes,
+            materials: None,
             flux: each(count, entries, |_| Vec::with_capacity(points)),
             windows: each(count, entries, |len| vec![0.0; len]),
             group_flux: each(count, entries, |_| vec![0.0; ng]),
@@ -2161,11 +2382,63 @@ impl TangentSweep {
                 .map(|_| {
                     entries
                         .iter()
-                        .map(|ring| vec![vec![[0.0; COLUMNS]; ng]; ring.len()])
+                        .map(|ring| {
+                            vec![vec![[0.0; COLUMNS]; if tally { ng } else { 0 }]; ring.len()]
+                        })
                         .collect()
                 })
                 .collect(),
+            tally,
+            gas: None,
+            gas_known: vec![vec![0.0; n]; count],
+            gas_explicit: vec![vec![0.0; n]; count],
+            cost: TangentCost::default(),
+        })
+    }
+
+    /// 飛程の表の [物質] の最初のリング `first` から、[組] の表の物質の番号を決める（組の代表と同じ組成の物質）
+    fn table_materials(&mut self, first: &[usize], entries: &[Vec<(usize, f64)>]) {
+        self.materials = Some(
+            self.classes
+                .iter()
+                .map(|&(r, _)| {
+                    first
+                        .iter()
+                        .position(|&f| entries[f] == entries[r])
+                        .unwrap_or(usize::MAX)
+                })
+                .collect(),
+        );
+    }
+
+    fn save(&self) -> TangentSaved {
+        TangentSaved {
+            windows: self.windows.clone(),
+            group_flux: self.group_flux.clone(),
+            rates: self.rates.clone(),
         }
+    }
+
+    fn restore(&mut self, saved: &TangentSaved, len: usize) {
+        self.windows.clone_from(&saved.windows);
+        self.group_flux.clone_from(&saved.group_flux);
+        self.rates.clone_from(&saved.rates);
+        for f in self.flux.iter_mut().flatten() {
+            f.truncate(len);
+        }
+    }
+
+    /// 上方散乱のスイープを終え、今のスイープの δF を次のスイープの前のスイープにする
+    fn finish_sweep(&mut self) {
+        if let Some(gas) = &mut self.gas {
+            gas.finish(&self.flux);
+        }
+    }
+
+    /// 持っている δF と自由ガスの散乱源の状態の大きさ (B)
+    fn bytes(&self) -> u64 {
+        let flux: u64 = self.flux.iter().flatten().map(heap_bytes).sum();
+        flux + self.gas.as_ref().map_or(0, GasTangent::bytes)
     }
 }
 
@@ -2179,6 +2452,7 @@ struct Saved {
     rates: Vec<Vec<Vec<Row>>>,
     /// 解いた格子点の数
     len: usize,
+    tangent: Option<TangentSaved>,
 }
 
 impl Sweep<'_> {
@@ -2191,6 +2465,7 @@ impl Sweep<'_> {
             group_flux: self.group_flux.clone(),
             rates: self.rates.clone(),
             len: self.flux.first().map_or(0, Vec::len),
+            tangent: self.tangent.as_ref().map(TangentSweep::save),
         }
     }
 
@@ -2206,6 +2481,9 @@ impl Sweep<'_> {
         }
         for e in &mut self.elastic {
             e.truncate(saved.len);
+        }
+        if let (Some(t), Some(s)) = (&mut self.tangent, &saved.tangent) {
+            t.restore(s, saved.len);
         }
     }
 
@@ -2337,10 +2615,31 @@ impl Sweep<'_> {
             } else {
                 (0.0, 0.0)
             };
+            // 自由ガスの核と S(α, β) の移行の散乱源の、δF の分と個数密度の変化の分（散乱源の F_m の係数は行列の c にある）
+            let gas_clock = Instant::now();
+            for row in t.gas_known.iter_mut().chain(t.gas_explicit.iter_mut()) {
+                row.fill(0.0);
+            }
+            if let (Some(thermal), Some(gas)) = (&self.thermal, &t.gas) {
+                thermal.tangent_source(
+                    m,
+                    self.u,
+                    &self.flux,
+                    &f,
+                    gas,
+                    &t.flux,
+                    &mut t.gas_known,
+                    &mut t.gas_explicit,
+                );
+            }
+            t.cost.free_gas += gas_clock.elapsed().as_secs_f64();
+            let solve_clock = Instant::now();
+            let mut known_part = vec![0.0; n];
+            let mut explicit = vec![0.0; n];
             for d in 0..t.directions.len() {
                 // δk_i（窓の積分の既知の部分を δF で進めたもの）と、F を固めた ∂q_i/∂N δN（その点までの窓の積分 × δN）
-                let mut known_part = vec![0.0; n];
-                let mut explicit = vec![0.0; n];
+                known_part.clone_from(&t.gas_known[d]);
+                explicit.clone_from(&t.gas_explicit[d]);
                 for (i, ring) in self.entries.iter().enumerate() {
                     let df = &t.flux[d][i];
                     for (e, &(kk, density)) in ring.iter().enumerate() {
@@ -2370,8 +2669,8 @@ impl Sweep<'_> {
                             .sum()
                     })
                     .collect();
-                // δW q（δW = Σ_r ∂W/∂Σ_r δΣ_r、δΣ_r = Σ_k δN_rk σt,k）
-                for (derivative, &r) in jacobian.iter().zip(&t.rings) {
+                // δW q（δW = Σ_c ∂W/∂Σ_c δΣ_c、δΣ_c = Σ_k δN_rk σt,k は組 c のどのリング r でも同じ）
+                for (derivative, &(r, _)) in jacobian.iter().zip(&t.classes) {
                     let change: f64 = self.entries[r]
                         .iter()
                         .zip(&t.directions[d][r])
@@ -2400,6 +2699,9 @@ impl Sweep<'_> {
                     for (i, ring) in self.entries.iter().enumerate() {
                         let (f0, f1) = (t.flux[d][i][m - 1], b[i]);
                         t.group_flux[d][i][g] += 0.5 * du * (f0 + f1);
+                        if !t.tally {
+                            continue;
+                        }
                         for (e, &(kk, _)) in ring.iter().enumerate() {
                             let (v0, v1) = (self.previous[kk], values[kk]);
                             for x in 0..COLUMNS {
@@ -2409,6 +2711,10 @@ impl Sweep<'_> {
                     }
                 }
             }
+            if let (Some(thermal), Some(gas)) = (&self.thermal, &mut t.gas) {
+                gas.record(m, self.u, &t.flux, thermal.rings());
+            }
+            t.cost.solve += solve_clock.elapsed().as_secs_f64();
         }
         if let Some(thermal) = &mut self.thermal {
             thermal.record(m, self.u, &self.flux);
