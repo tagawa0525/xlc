@@ -21,6 +21,7 @@
 //! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 40] }       # 制御棒の値ごとの、その値の状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! shielding-file = "other.msgpack"    # 燃焼の領域を自己遮蔽する組成の履歴（省略すると状態の組成。#0191）
+//! shielding-burnup = [0, 20]           # 自己遮蔽を解く燃焼点（ほかの点はその前で最後のこの点の組成。省略するとすべて。#0180）
 //! micro = ["U-235", "Pu-240"]          # ミクロ燃焼で追う核種（ADR-0216）
 //! derivative = ["Pu-240"]              # 数密度の微分を持つ核種（micro から選ぶ。ADR-0221）
 //! perturbation = 0.1                   # 微分の摂動の割合（省略すると 0.1。ADR-0221）
@@ -28,10 +29,11 @@
 //!
 //! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。`shielding-file` を
 //! 与えると、燃焼の領域はその履歴の同じ燃焼度の点の組成で自己遮蔽し、物質だけを状態の組成で作り直す（[`HistoryBranches::shield_with`]）。
+//! `shielding-burnup` を与えると、その点の間の燃焼点は、その前で最後のその点の組成で同じく自己遮蔽する（[`HistoryBranches::shield_at`]）。
 //!
 //! 数密度の微分（ADR-0221）は、状態ごとに、燃焼の領域の微分の核種の数密度だけを (1 + ε) 倍した摂動の組成を解いた格子全体の少数群定数
 //! と、その核種の反応率の微視的断面積（ADR-0215 の自分の数密度の項）から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成の自己遮蔽は公称の組成と同じ扱い（参照から作る状態は、参照の
-//! 組成も同じく変えた摂動の参照から作る。`shielding-file` を与えれば、自己遮蔽はその履歴の組成のまま）。
+//! 組成も同じく変えた摂動の参照から作る。`shielding-file` か `shielding-burnup` を与えれば、自己遮蔽はその組成のまま）。
 //!
 //! 動特性のデータ（[`HistoryBranches::kinetics`]）は状態ごとに、冷却計算の 1 群の微視的断面積（[`HistoryBranches::cooling`]）は燃焼度の点ごとの
 //! 公称の状態で作る（ADR-0238）。
@@ -187,6 +189,8 @@ pub struct HistoryBranches {
     perturbation: f64,
     /// 自己遮蔽の履歴の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with`）
     shielding: Option<Vec<Vec<Vec<f64>>>>,
+    /// 選んだ燃焼度の点ごとの、自己遮蔽の参照を持つ点（`shield_at` の間の点は、その前で最後の自己遮蔽を解く点。ほかは自身）
+    shielding_points: Vec<usize>,
     /// 自己遮蔽の履歴があるときの、状態の組成で作り直す燃焼の領域の物質の名前（`<物質>@<セル>`）
     remixed: Vec<String>,
 }
@@ -606,7 +610,7 @@ pub fn history_branches(
             },
         )
         .collect();
-    Ok(HistoryBranches {
+    let mut branches = HistoryBranches {
         axes,
         heavy_metal,
         values,
@@ -634,8 +638,13 @@ pub fn history_branches(
         perturbed_micro,
         perturbation: selection.perturbation,
         shielding: None,
+        shielding_points: (0..points.len()).collect(),
         remixed: Vec::new(),
-    })
+    };
+    if let Some(burnups) = &selection.shielding_burnup {
+        branches.shield_at(burnups)?;
+    }
+    Ok(branches)
 }
 
 impl HistoryBranches {
@@ -738,6 +747,39 @@ impl HistoryBranches {
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
         self.shielding = Some(densities);
+        self.shielding_points = (0..self.densities.len()).collect();
+        self.remixed = self
+            .regions(0)
+            .iter()
+            .map(|d| transport_name(&d.material, d.cell, d.sector))
+            .collect();
+        Ok(())
+    }
+
+    /// 燃焼点 `burnups`（選んだ燃焼度の点から、最初の点を含んで増える点）でだけ自己遮蔽を解き、ほかの点はその前で最後の
+    /// `burnups` の点の組成で自己遮蔽する（#0180。前の燃焼点の実効断面積を使う誤差の測定）。燃焼の領域の物質だけを状態の組成で
+    /// 作り直し（`shield_with` と同じ）、参照の自己遮蔽は同じ点を使う燃焼点の間で持ち越す（`reference` の点がその点）。
+    /// `burnups` が選んだ点にないか、最初の点を含まなければエラー
+    pub fn shield_at(&mut self, burnups: &[f64]) -> anyhow::Result<()> {
+        let points = match self.axes.first() {
+            Some(Axis::Burnup { points }) => points,
+            _ => bail!("the history branches have no burnup axis"),
+        };
+        if let Some(b) = burnups.iter().find(|b| !points.contains(b)) {
+            bail!("shielding burnup {b} MWd/kg is not a burnup point of the branches");
+        }
+        let mut last = None;
+        let mut sources = Vec::with_capacity(points.len());
+        for b in points {
+            if burnups.contains(b) {
+                last = Some(sources.len());
+            }
+            sources.push(last.ok_or_else(|| {
+                anyhow!("burnup {b} MWd/kg comes before every shielding burnup point")
+            })?);
+        }
+        self.shielding = Some(sources.iter().map(|&p| self.densities[p].clone()).collect());
+        self.shielding_points = sources;
         self.remixed = self
             .regions(0)
             .iter()
@@ -751,10 +793,12 @@ impl HistoryBranches {
         &self.remixed
     }
 
-    /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点と参照の番号（ADR-0201）。自己遮蔽の履歴があれば、どの状態も
+    /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点（`shield_at` の間の点は、自己遮蔽を解く点）と参照の
+    /// 番号（ADR-0201）。自己遮蔽の履歴があれば、どの状態も
     /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後に分岐の状態の番号を続けた番号
     pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        let point = self.shielding_points[point];
         match (self.reference_of[b], &self.shielding) {
             (Some(r), _) => Some((point, r)),
             (None, Some(_)) => Some((point, self.references.len() + b)),
