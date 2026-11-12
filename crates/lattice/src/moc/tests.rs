@@ -2256,16 +2256,16 @@ fn adjoint_rejects_a_material_that_the_forward_solve_rejects() {
     // 転置は χ を νΣf / s で作り直すので、前向きの物質を確かめずに転置すると、前向きで止まる誤りが消える
     let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
     let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
-    let mut f = fuel();
-    f.fission_terms[0].chi = vec![0.9, 0.0];
-    let materials = [&f, &f, &f];
+    let (ok, mut bad) = (fuel(), fuel());
+    bad.fission_terms[0].chi = vec![0.9, 0.0];
+    let materials = [&ok, &bad, &bad];
     assert!(matches!(
         solve(&tracking, &materials, &Options::default()),
-        Err(MocError::Material { region: 0, .. })
+        Err(MocError::Material { region: 1, .. })
     ));
     let adjoint = solve_adjoint(&tracking, &materials, &Options::default(), None);
     assert!(
-        matches!(adjoint, Err(MocError::Material { region: 0, .. })),
+        matches!(adjoint, Err(MocError::Material { region: 1, .. })),
         "{adjoint:?}"
     );
 }

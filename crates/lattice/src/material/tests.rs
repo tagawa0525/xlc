@@ -386,3 +386,44 @@ fn adjoint_of_a_material_without_fission_has_no_fission_terms() {
     assert!(a.fission_terms.is_empty());
     assert!(a.nu_fission.iter().all(|&v| v == 0.0));
 }
+
+#[test]
+fn adjoint_rejects_an_invalid_material() {
+    let mut m = asymmetric();
+    m.fission_terms[1].chi = vec![0.5, 0.25];
+    assert!(matches!(
+        m.adjoint(),
+        Err(MaterialError::Chi { term: 1, .. })
+    ));
+}
+
+#[test]
+fn adjoint_keeps_fission_terms_whose_nu_fission_sums_below_zero() {
+    // 和が負の項も、転置 (νΣf / s) ⊗ (s χ) は定まり、核分裂の行列の転置になる
+    let mut m = asymmetric();
+    m.fission_terms[1].nu_fission = vec![0.004, -0.05];
+    m.nu_fission = vec![0.014, 0.15];
+    m.validate().unwrap();
+    let (forward, adjoint) = (m.fission_matrix(), m.adjoint().unwrap().fission_matrix());
+    for (g, row) in adjoint.iter().enumerate() {
+        for (h, v) in row.iter().enumerate() {
+            assert!(
+                (v - forward[h][g]).abs() < 1e-15,
+                "{adjoint:?} vs {forward:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn adjoint_rejects_fission_terms_that_sum_to_zero_with_values() {
+    // νΣf の和が 0 で値のある項は、転置の χ = νΣf / s が定まらない
+    let mut m = asymmetric();
+    m.fission_terms[1].nu_fission = vec![0.05, -0.05];
+    m.nu_fission = vec![0.06, 0.15];
+    m.validate().unwrap();
+    assert!(matches!(
+        m.adjoint(),
+        Err(MaterialError::ZeroSumFission { term: 1 })
+    ));
+}
