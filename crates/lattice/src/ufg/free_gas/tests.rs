@@ -450,22 +450,35 @@ fn swept_mixed(
     kernels: Option<&KernelCache>,
     extra: Option<(usize, [f64; 2])>,
 ) -> (Vec<Vec<(f64, f64)>>, usize, FreeGasWork) {
+    swept_at(u, scale, hold, kernels, extra, [600.0, 900.0])
+}
+
+/// [`swept_mixed`] を、質量比 1 と 16 の核種（減速材）の温度と質量比 236 の核種（燃料）の温度 `temperatures` (K) で解いたもの
+fn swept_at(
+    u: &[f64],
+    scale: f64,
+    hold: usize,
+    kernels: Option<&KernelCache>,
+    extra: Option<(usize, [f64; 2])>,
+    temperatures: [f64; 2],
+) -> (Vec<Vec<(f64, f64)>>, usize, FreeGasWork) {
+    let [moderator, fuel] = temperatures;
     let u = u.to_vec();
     let high = 20.0;
     let energies: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
     let mut nuclides = vec![
         (
-            Gas::new(0.99917, 600.0, f64::INFINITY),
+            Gas::new(0.99917, moderator, f64::INFINITY),
             20.0,
             vec![(1, 0.03)],
         ),
         (
-            Gas::new(15.86, 600.0, f64::INFINITY),
+            Gas::new(15.86, moderator, f64::INFINITY),
             3.8,
             vec![(0, 0.05), (1, 0.025)],
         ),
         (
-            Gas::new(236.0, 900.0, 400.0),
+            Gas::new(236.0, fuel, 400.0),
             9.0,
             vec![(0, 0.022), (1, 0.045)],
         ),
@@ -588,6 +601,46 @@ fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
         assert_eq!(bits(&partial), bits(&partial_alone));
         assert!(0 < some && some < all, "{some} of {all}");
     }
+}
+
+#[test]
+fn the_nuclides_whose_kernels_stay_reuse_their_values_across_temperature_branches() {
+    // 表は核種ごとの核で引くので、燃料の温度の分岐（減速材の核は同じ）でも減速材の温度の分岐（燃料の核は同じ）でも、核の変わらない
+    // 核種の値を使い、変わった核種だけを評価する。散乱源は表を持たないときとビットで同じ
+    let bits = |v: &[Vec<(f64, f64)>]| -> Vec<(u64, u64)> {
+        v.iter()
+            .flatten()
+            .map(|&(k, o)| (k.to_bits(), o.to_bits()))
+            .collect()
+    };
+    let grid = test_grid();
+    let kernels = KernelCache::default();
+    kernels.begin(|_| u64::MAX);
+    swept_at(&grid, 1.0, usize::MAX, Some(&kernels), None, [600.0, 900.0]);
+    for temperatures in [[600.0, 1200.0], [580.0, 900.0]] {
+        let (shared, _, work) =
+            swept_at(&grid, 1.1, usize::MAX, Some(&kernels), None, temperatures);
+        let (fresh, _, alone) = swept_at(&grid, 1.1, usize::MAX, None, None, temperatures);
+        assert_eq!(bits(&shared), bits(&fresh), "{temperatures:?}");
+        assert!(
+            0 < work.evaluations && work.evaluations < alone.evaluations,
+            "{temperatures:?}: {} of {}",
+            work.evaluations,
+            alone.evaluations
+        );
+    }
+    // 両方の分岐の核種の値を持ったので、減速材と燃料の両方を変えた状態も評価しない
+    let (both, _, work) = swept_at(
+        &grid,
+        1.2,
+        usize::MAX,
+        Some(&kernels),
+        None,
+        [580.0, 1200.0],
+    );
+    let (fresh, ..) = swept_at(&grid, 1.2, usize::MAX, None, None, [580.0, 1200.0]);
+    assert_eq!(bits(&both), bits(&fresh));
+    assert_eq!(work.evaluations, 0);
 }
 
 #[test]
