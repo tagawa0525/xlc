@@ -1883,6 +1883,7 @@ fn sensitivity_lists_nuclides_and_the_optional_direct_perturbation() {
             flux_tolerance: None,
             generalized: None,
             few_group: None,
+            ufg_tangent: None,
         })
     );
     let input = LatticeInput::parse(&format!(
@@ -1986,6 +1987,7 @@ fn sensitivity_tolerances_tighten_the_cmfd_below_them() {
         flux_tolerance: Some(1e-9),
         generalized: None,
         few_group: None,
+        ufg_tangent: None,
     };
     let options = s.options(Options::default());
     assert_eq!((options.k_tolerance, options.flux_tolerance), (1e-10, 1e-9));
@@ -2083,4 +2085,33 @@ fn invalid_few_group_inputs_are_errors() {
     let unshielded = format!("self-shielding = false\n{PIN_CELL}");
     assert!(with(&unshielded, direct, base).is_ok());
     assert!(with(&unshielded, direct, &shielded).is_err());
+}
+
+#[test]
+fn sensitivity_takes_ufg_tangents_of_listed_nuclides() {
+    // ADR-0247 の段 I2-2: UFG の減速計算の 1 次の変化の向きは、感度を求める核種から選ぶ（省略すると、そのすべて）。自己遮蔽する入力だけ
+    let with = |input: &str, body: &str| {
+        LatticeInput::parse(&format!(
+            "{input}\n[sensitivity]\nnuclides = [\"U-235\", \"U-238\"]\noutput = \"k.toml\"\n\
+             [sensitivity.ufg-tangent]\n{body}\n"
+        ))
+        .map(|i| i.sensitivity.unwrap().ufg_tangent)
+    };
+    assert_eq!(
+        with(PIN_CELL, "").unwrap(),
+        Some(vec!["U-235".to_string(), "U-238".to_string()])
+    );
+    assert_eq!(
+        with(PIN_CELL, "nuclides = [\"U-238\"]").unwrap(),
+        Some(vec!["U-238".to_string()])
+    );
+    for bad in [
+        "nuclides = []",
+        "nuclides = [\"Pu-239\"]",
+        "nuclides = [\"U-238\", \"U-238\"]",
+        "step = 1e-3",
+    ] {
+        assert!(with(PIN_CELL, bad).is_err(), "{bad}");
+    }
+    assert!(with(&format!("self-shielding = false\n{PIN_CELL}"), "").is_err());
 }

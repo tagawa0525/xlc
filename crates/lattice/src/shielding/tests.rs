@@ -1276,6 +1276,54 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn ufg_tangents_leave_the_shielding_as_it_is() {
+        // ADR-0247 の段 I2-2: 燃料のピンの UFG の減速計算を 1 次の変化と一緒に解いても、自己遮蔽の結果は 1 次の変化なしとビットで
+        // 同じで、ピンは向きの核種ごとの中性子束と暗黙の分の巨視的断面積を持つ
+        let rings = [("inner", 5.0e-4), ("middle", 5.0e-4), ("outer", 6.0e-4)];
+        let options = ShieldingOptions::default();
+        let (library, plain, materials) = ring_fuel_with(rings, &options);
+        let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+        let regions: Vec<String> = [
+            "inner",
+            "middle",
+            "outer",
+            crate::input::VOID,
+            "clad",
+            "water",
+        ]
+        .map(String::from)
+        .to_vec();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let names = ["U-238".to_string(), "U-235".to_string()];
+        let shielded = shield_fuel_tangent(
+            &library,
+            &mut ShieldingReuse::new(&tracking),
+            &materials,
+            &regions,
+            &symmetry,
+            &options,
+            Some(&names),
+        )
+        .unwrap();
+        let tangent = shielded.pins[0]
+            .tangent
+            .clone()
+            .expect("the pin has a UFG range");
+        let mut without = shielded.clone();
+        without.pins[0].tangent = None;
+        assert_eq!(without, plain);
+        assert_eq!(tangent.nuclides, names);
+        assert_eq!(tangent.implicit.len(), 2);
+        assert_eq!(tangent.implicit[0].len(), 3);
+        assert_eq!(tangent.flux_change[0].len(), 3);
+        // U-238 を増やすと、燃料の最も内側のリングの全断面積の暗黙の分に負の群がある（共鳴の中性子束のくぼみが深まり、群定数が下がる）
+        let total = &tangent.implicit[0][0][0];
+        assert!(total.iter().any(|&x| x < 0.0), "{total:?}");
+        assert!(tangent.tangent_seconds > 0.0 && tangent.plain_seconds > 0.0);
+    }
+
+    #[test]
     fn a_thinned_ufg_grid_gives_the_ring_cross_sections_of_the_full_grid() {
         // ADR-0185: 格子を許容差 1e-4 で間引いても、リングの物質の核種ごとの実効断面積は間引かない格子のものと許容差の程度で一致する
         let rings = [("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)];

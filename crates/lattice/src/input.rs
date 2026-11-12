@@ -140,6 +140,11 @@
 //! tolerance = 1e-7                # 一般化随伴の CMFD の反復の GMRES の判定と再始動の回数
 //! restart = 100
 //! shielded = ["Pu-240"]           # 自己遮蔽を摂動の組成で解き直す核種（nuclides から選ぶ。direct と自己遮蔽が要る。省略すると解き直さない）
+//!
+//! [sensitivity.ufg-tangent]       # 燃料のピンの UFG の減速計算の、核種の数密度の向き（N に比例）ごとの 1 次の変化を、状態の組成の
+//!                                 # 自己遮蔽を解き直して求め、時間と暗黙の分の巨視的断面積を書く（ADR-0247 の段 I2-2。結果は output の
+//!                                 # [ufg_tangent]。自己遮蔽が要る）
+//! nuclides = ["U-238"]            # 向きの核種（nuclides から選ぶ。省略すると nuclides のすべて）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -504,6 +509,14 @@ struct SensitivityEntry {
     flux_tolerance: Option<f64>,
     generalized: Option<GeneralizedEntry>,
     few_group: Option<DerivativeEntry>,
+    ufg_tangent: Option<UfgTangentEntry>,
+}
+
+/// `[sensitivity.ufg-tangent]`（ADR-0247 の段 I2-2）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct UfgTangentEntry {
+    nuclides: Option<Vec<String>>,
 }
 
 /// `[sensitivity.few-group]`（ADR-0247 の段 4）
@@ -1859,6 +1872,29 @@ impl LatticeInput {
                     .few_group
                     .map(|f| f.into_input(&s.nuclides, s.direct.is_some(), self_shielding))
                     .transpose()?;
+                let ufg_tangent = s
+                    .ufg_tangent
+                    .map(|t| {
+                        if !self_shielding {
+                            return Err("[sensitivity.ufg-tangent] differentiates the self-shielding, so it needs an \
+                                        input that self-shields"
+                                .to_string());
+                        }
+                        let names = t.nuclides.unwrap_or_else(|| s.nuclides.clone());
+                        if names.is_empty()
+                            || names
+                                .iter()
+                                .enumerate()
+                                .any(|(i, n)| !s.nuclides.contains(n) || names[..i].contains(n))
+                        {
+                            return Err(format!(
+                                "[sensitivity.ufg-tangent] nuclides must list distinct nuclides of [sensitivity] nuclides, \
+                                 got {names:?}"
+                            ));
+                        }
+                        Ok(names)
+                    })
+                    .transpose()?;
                 Ok(SensitivityInput {
                     nuclides: s.nuclides,
                     output: s.output,
@@ -1867,6 +1903,7 @@ impl LatticeInput {
                     flux_tolerance: s.flux_tolerance,
                     generalized: s.generalized.map(GeneralizedEntry::into_input).transpose()?,
                     few_group,
+                    ufg_tangent: ufg_tangent.and(None),
                 })
             })
             .transpose()

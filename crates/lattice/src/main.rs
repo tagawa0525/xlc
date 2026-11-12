@@ -62,7 +62,9 @@ use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::sensitivity::TableDerivatives;
-use xlc_lattice::shielding::{ShieldingReuse, log_effective_change, shield_fuel_reusing};
+use xlc_lattice::shielding::{
+    ShieldingReuse, log_effective_change, shield_fuel_reusing, shield_fuel_tangent,
+};
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
 
@@ -767,18 +769,41 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     (None, Some(b)) => b.reference(solved % count).is_some(),
                     (None, None) => false,
                 };
-                let reshield: Option<&mut xlc_lattice::sensitivity::Reshield> =
-                    if input.self_shielding && !reference {
-                        Some(&mut reshield)
-                    } else {
-                        None
+                // 自己遮蔽を UFG の減速計算の 1 次の変化と一緒に解き直す口（ADR-0247 の段 I2-2。前処理は別に持ち越す）
+                let mut tangent_reuse = ShieldingReuse::new(&geometry.tracking);
+                let mut retangent =
+                    |inputs: &[MaterialInput],
+                     names: &[String]|
+                     -> anyhow::Result<xlc_lattice::shielding::FuelShielding> {
+                        Ok(shield_fuel_tangent(
+                            library,
+                            &mut tangent_reuse,
+                            inputs,
+                            solved_materials(rod),
+                            geometry.chosen.shielding(),
+                            &shielding_options,
+                            Some(names),
+                        )?)
                     };
+                let shielding_again = input.self_shielding && !reference;
+                let reshield: Option<&mut xlc_lattice::sensitivity::Reshield> = if shielding_again {
+                    Some(&mut reshield)
+                } else {
+                    None
+                };
+                let retangent: Option<&mut xlc_lattice::sensitivity::Retangent> = if shielding_again
+                {
+                    Some(&mut retangent)
+                } else {
+                    None
+                };
                 let (solution, converged, result) = xlc_lattice::sensitivity::evaluate(
                     sensitivity,
                     &state,
                     &options,
                     from,
                     reshield,
+                    retangent,
                 )
                 .with_context(|| format!("{}: k sensitivity", context()))?;
                 let output = base.join(&sensitivity.output);
