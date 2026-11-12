@@ -1241,6 +1241,11 @@ impl<'a> Thermal<'a> {
         kernels: Option<&'a KernelCache>,
     ) -> Self {
         let n_gases = gases.len();
+        // 個数密度がちょうど 0 のリングは散乱源に符号つきの 0 しか足さない（有限の積分との積）ので、積分しない（和はビットで同じ）
+        let rings = rings
+            .into_iter()
+            .map(|rings| rings.into_iter().filter(|&(_, d)| d != 0.0).collect())
+            .collect();
         Self {
             gases,
             sigma,
@@ -1496,6 +1501,23 @@ impl<'a> Thermal<'a> {
             // 前の区間の上端の格子点（[`locate_from`] の起点。塊の最初の区間は格子の全体を探す）
             let mut hint = usize::MAX;
             for (j, &(l, a, b)) in chunk.iter().enumerate() {
+                // どのリングでも個数密度が 0 の核種は D を評価せず、積分もしない（`made` の 0 の 2 次式は積分するリングが無い）。
+                // 区間は外さない（外すと、ほかの核種の区間の塊の分け方が変わり、和の順が変わる）。表と持つ区間には 0 を置き、
+                // 表は核の鍵（[`Thermal::kernel_key`]）で、その核種に個数密度のある減速計算と分ける
+                if rings[l].is_empty() {
+                    shared = None;
+                    if record {
+                        kernel.push(KernelCell { a, b, d: [0.0; 3] });
+                    }
+                    if let Some(out) = out.as_deref_mut() {
+                        out[j] = HeldCell {
+                            a,
+                            b,
+                            ..HeldCell::default()
+                        };
+                    }
+                    continue;
+                }
                 let (gas, (offset, sigma)) = (&gases[l], &sigmas[l]);
                 let inside = gas.inside(u[m], a, b);
                 let held = cached.map(|p| p.cells[c * CELLS_PER_TASK + j].d);
@@ -1589,12 +1611,14 @@ impl<'a> Thermal<'a> {
     }
 
     /// この減速計算の核の鍵: 自由ガスの核種のすべての [`Gas::bits`]、範囲の上端 `high`、格子の最後の点 `bottom`、区間の細かさの
-    /// ビット（[`Gas::cells`] と [`Gas::correction`] が出射の格子点のほかに読む量のすべて）
+    /// ビット（[`Gas::cells`] と [`Gas::correction`] が出射の格子点のほかに読む量のすべて）と、D を評価しない核種（どのリングでも
+    /// 個数密度が 0。[`Thermal::build`]）の印
     pub(super) fn kernel_key(&self, high: f64, bottom: f64) -> Vec<u64> {
         self.gases
             .iter()
             .flat_map(Gas::bits)
             .chain([high.to_bits(), bottom.to_bits(), self.cells as u64])
+            .chain(self.rings.iter().map(|rings| u64::from(rings.is_empty())))
             .collect()
     }
 

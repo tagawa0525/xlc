@@ -617,7 +617,9 @@ fn free_gas_nuclides_without_density_spare_their_work_and_keep_the_sources_bit_f
         assert_eq!(bits(&skipped), bits(&computed), "{densities:?}");
         assert!(integrations(&work) < integrations(&full), "{densities:?}");
         if densities == [0.0, 0.0] {
-            assert_eq!(work.evaluations, alone.evaluations);
+            // 核種の評価はすべて省く。残る差は、核種の区間がずらした塊の境で、ほかの核種の区間の端を評価し直す分だけ
+            let own = full.evaluations - alone.evaluations;
+            assert!(work.evaluations - alone.evaluations < own / 1000, "{own}");
         } else {
             assert_eq!(work.evaluations, full.evaluations);
         }
