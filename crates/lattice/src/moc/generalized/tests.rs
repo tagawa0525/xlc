@@ -962,7 +962,7 @@ fn around_water<'a>(fuel: &'a Material, water: &'a Material) -> Vec<&'a Material
 fn cmfd_reaches_the_gmres_solution_on_thick_cells_around_water() {
     // スイープは、φ† の成分を除いた状態からも φ† の成分を作る（除く重み Fφ は、スイープの左の固有ベクトル（前向きの散乱と
     // 核分裂の源）でない）。その成分は解の不定な分で、粗メッシュの補正の残差に入れると、細かい問題にない源を粗メッシュに与える。
-    // この格子の高速群から熱群への散乱の応答では、そうした補正で反復が 1,000 スイープの中で収束しない
+    // この格子の高速群から熱群への散乱の応答では、そうした補正の CMFD は 107 スイープで、源の反復の 163 の 3 分の 1 にならない
     let tracking = thick_cells_around_water();
     let (f, m) = (two_spectra_fuel(), moderator());
     let materials = around_water(&f, &m);
