@@ -618,6 +618,41 @@ fn a_full_kernel_table_gives_way_to_the_points_of_the_current_shielding() {
 }
 
 #[test]
+fn a_full_kernel_table_keeps_the_points_the_current_shielding_reuses() {
+    // 2 本の減速計算（格子の違うピン）で上限に届いた表を、次の自己遮蔽（状態の摂動）が別の順に引くとき、先に解く 1 本が上限に
+    // 届いても、まだ引いていない 1 本の格子点を捨てない（表から引けた格子点が上限で入れなかった格子点より多く、表の中身が今の
+    // 自己遮蔽の格子に合っている）
+    let grid = test_grid();
+    let moved: Vec<f64> = grid
+        .iter()
+        .enumerate()
+        .map(|(k, &x)| {
+            if k == 0 || k == grid.len() - 1 {
+                x
+            } else {
+                0.5 * (x + grid[k + 1])
+            }
+        })
+        .collect();
+    let probe = KernelCache::default();
+    probe.begin(u64::MAX);
+    swept_on(&grid, 1.0, usize::MAX, Some(&probe));
+    let one = probe.bytes();
+    swept_on(&moved, 1.0, usize::MAX, Some(&probe));
+    let both = probe.bytes();
+    // 1 本目はすべて、2 本目は半分ほどを持つ上限
+    let cap = one + (both - one) / 2;
+    let kernels = KernelCache::default();
+    kernels.begin(cap);
+    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
+    kernels.begin(cap);
+    swept_on(&moved, 1.3, usize::MAX, Some(&kernels));
+    let (_, _, again) = swept_on(&grid, 1.3, usize::MAX, Some(&kernels));
+    assert_eq!(again, 0);
+}
+
+#[test]
 fn an_infinite_multiple_of_kt_leaves_the_free_gas_uncapped_at_any_temperature() {
     // 上限なし（`upper = inf`、`heavy = inf`）は、kT が 0 でもどの入射も上限より下にする（無限大 × 0 の NaN にしない）
     for temperature in [0.0, 600.0] {
