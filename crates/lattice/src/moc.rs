@@ -1,6 +1,6 @@
 //! 平坦線源の特性曲線法（MOC）による固有値計算。
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::f64::consts::PI;
 use std::sync::{Mutex, PoisonError};
 
@@ -209,6 +209,48 @@ pub fn solve_symmetric_from(
     start: Option<&Start>,
 ) -> Result<(Solution, Start), MocError> {
     solve_with(tracking, materials, options, Some(symmetry), start)
+}
+
+/// 随伴の固有値計算の解（ADR-0247）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Adjoint {
+    /// 実効増倍率（反復の打ち切りの範囲で前向きの k と同じ）
+    pub k: f64,
+    /// [領域][群] の領域平均の随伴のスカラー中性子束。転置した物質の生成率 Σ V φ† Σ_項 s χ（s は項の νΣf の和）が 1 になる規格化
+    pub flux: Vec<Vec<f64>>,
+    pub iterations: usize,
+}
+
+/// `solve` と同じ問題の随伴を解く（ADR-0247）。物質を `Material::adjoint` で転置し、前向きの MOC で解く。トラックを両向きに同じ重みで
+/// スイープするので、平坦線源の領域の間の移り方は離散のまま相反性を満たし、転置した物質の前向きの解が離散化した作用素の随伴の解に
+/// なる。角度中性子束は向きを逆にした随伴なので、l 次のモーメントは随伴のモーメントの (−1)ˡ 倍で、スカラー中性子束だけを返す。
+/// `symmetry` を与えれば `solve_symmetric` と同じく代表だけで解く（転置した物質も、元の物質が同じ領域どうしで同じ参照になる）
+pub fn solve_adjoint(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
+) -> Result<Adjoint, MocError> {
+    // 対称操作の確かめは物質を参照で比べるので、同じ物質の領域には同じ転置の物質を渡す
+    let mut distinct: Vec<&Material> = Vec::new();
+    let mut seen: HashMap<*const Material, usize> = HashMap::new();
+    let index: Vec<usize> = materials
+        .iter()
+        .map(|&m| {
+            *seen.entry(std::ptr::from_ref(m)).or_insert_with(|| {
+                distinct.push(m);
+                distinct.len() - 1
+            })
+        })
+        .collect();
+    let transposed: Vec<Material> = distinct.iter().map(|m| m.adjoint()).collect();
+    let adjoint: Vec<&Material> = index.iter().map(|&i| &transposed[i]).collect();
+    let (solution, _) = solve_with(tracking, &adjoint, options, symmetry, None)?;
+    Ok(Adjoint {
+        k: solution.k,
+        flux: solution.flux,
+        iterations: solution.iterations,
+    })
 }
 
 #[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]

@@ -304,6 +304,43 @@ impl Material {
             .map(|(t, row)| t - row.iter().sum::<f64>())
             .collect()
     }
+
+    /// 前向きの輸送で解くと随伴の輸送になる物質（ADR-0247）。全断面積はそのまま、各次数の散乱行列を転置し、核分裂の項
+    /// χ ⊗ νΣf を (νΣf / s) ⊗ (s χ)（s = Σ_g νΣf）に入れ替える（核分裂の行列が転置になり、χ の和は 1 のまま）。νΣf が 0 の
+    /// 項は核分裂を生まないので落とす。Σf は輸送に入らないのでそのまま
+    pub fn adjoint(&self) -> Self {
+        let transpose = |m: &[Vec<f64>]| -> Vec<Vec<f64>> {
+            (0..m.len())
+                .map(|g| m.iter().map(|row| row[g]).collect())
+                .collect()
+        };
+        let fission_terms: Vec<FissionTerm> = self
+            .fission_terms
+            .iter()
+            .filter_map(|t| {
+                let s: f64 = t.nu_fission.iter().sum();
+                (s > 0.0).then(|| FissionTerm {
+                    chi: t.nu_fission.iter().map(|n| n / s).collect(),
+                    nu_fission: t.chi.iter().map(|c| s * c).collect(),
+                })
+            })
+            .collect();
+        // 項の和の順と同じに足す（`validate` は νΣf と項の和の一致を確かめる）
+        let mut nu_fission = vec![0.0; self.groups()];
+        for term in &fission_terms {
+            for (n, v) in nu_fission.iter_mut().zip(&term.nu_fission) {
+                *n += v;
+            }
+        }
+        Self {
+            total: self.total.clone(),
+            scatter: transpose(&self.scatter),
+            anisotropic: self.anisotropic.iter().map(|m| transpose(m)).collect(),
+            fission: self.fission.clone(),
+            nu_fission,
+            fission_terms,
+        }
+    }
 }
 
 #[cfg(test)]
