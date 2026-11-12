@@ -2,7 +2,7 @@ use super::*;
 use crate::branches::BranchShielding;
 use crate::cmfd::CmfdOptions;
 use crate::moc::{Acceleration, Options};
-use crate::sensitivity::{GeneralizedInput, Method, Response};
+use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response};
 
 const PIN_CELL: &str = r#"
 # pin cell
@@ -1813,6 +1813,7 @@ fn sensitivity_lists_nuclides_and_the_optional_direct_perturbation() {
             k_tolerance: None,
             flux_tolerance: None,
             generalized: None,
+            few_group: None,
         })
     );
     let input = LatticeInput::parse(&format!(
@@ -1912,6 +1913,7 @@ fn sensitivity_tolerances_tighten_the_cmfd_below_them() {
         k_tolerance: Some(1e-10),
         flux_tolerance: Some(1e-9),
         generalized: None,
+        few_group: None,
     };
     let options = s.options(Options::default());
     assert_eq!((options.k_tolerance, options.flux_tolerance), (1e-10, 1e-9));
@@ -1953,4 +1955,60 @@ fn invalid_sensitivity_inputs_are_errors() {
     let depletion = format!("{}\n[depletion]\n{DEPLETION}", without_few_group());
     assert!(LatticeInput::parse(&depletion).is_ok());
     assert!(LatticeInput::parse(&format!("{depletion}\n{sensitivity}")).is_err());
+}
+
+#[test]
+fn sensitivity_derives_few_group_constants() {
+    let parse = |shielded: &str| {
+        LatticeInput::parse(&format!(
+            "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-235\", \"U-238\"]\noutput = \"k.toml\"\ndirect = 0.1\n\
+             [sensitivity.few-group]\nbounds = [2e7, 0.625, 1e-5]\ntolerance = 1e-10\nrestart = 100\n{shielded}\n"
+        ))
+        .unwrap()
+        .sensitivity
+        .unwrap()
+        .few_group
+    };
+    assert_eq!(
+        parse("shielded = [\"U-238\"]"),
+        Some(FewGroupInput {
+            bounds: vec![2e7, 0.625, 1e-5],
+            tolerance: 1e-10,
+            restart: 100,
+            shielded: vec!["U-238".into()],
+        })
+    );
+    // 自己遮蔽を解き直す核種を挙げなければ、自己遮蔽を固定した微分だけ
+    assert_eq!(parse("").unwrap().shielded, Vec::<String>::new());
+}
+
+#[test]
+fn invalid_few_group_inputs_are_errors() {
+    let with = |input: &str, direct: &str, body: &str| {
+        LatticeInput::parse(&format!(
+            "{input}\n[sensitivity]\nnuclides = [\"U-235\", \"U-238\"]\noutput = \"k.toml\"\n{direct}\n\
+             [sensitivity.few-group]\n{body}\n"
+        ))
+    };
+    let direct = "direct = 0.1";
+    let base = "bounds = [2e7, 0.625, 1e-5]\ntolerance = 1e-10\nrestart = 100";
+    assert!(with(PIN_CELL, direct, base).is_ok());
+    for bad in [
+        // 少数群が 1 つもない、判定が正でない、再始動の回数が 0
+        "bounds = [2e7]\ntolerance = 1e-10\nrestart = 100",
+        "bounds = [2e7, 0.625, 1e-5]\ntolerance = 0\nrestart = 100",
+        "bounds = [2e7, 0.625, 1e-5]\ntolerance = 1e-10\nrestart = 0",
+        // 自己遮蔽を解き直す核種は、感度を求める核種から重ならずに選ぶ
+        &format!("{base}\nshielded = [\"Pu-239\"]"),
+        &format!("{base}\nshielded = [\"U-238\", \"U-238\"]"),
+    ] {
+        assert!(with(PIN_CELL, direct, bad).is_err(), "{bad}");
+    }
+    // 自己遮蔽を解き直す核種は、直接の摂動の刻みで差分を取り、自己遮蔽する入力で解く
+    let shielded = format!("{base}\nshielded = [\"U-238\"]");
+    assert!(with(PIN_CELL, direct, &shielded).is_ok());
+    assert!(with(PIN_CELL, "", &shielded).is_err());
+    let unshielded = format!("self-shielding = false\n{PIN_CELL}");
+    assert!(with(&unshielded, direct, base).is_ok());
+    assert!(with(&unshielded, direct, &shielded).is_err());
 }

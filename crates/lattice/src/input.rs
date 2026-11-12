@@ -129,6 +129,13 @@
 //! batched = ["gmres"]             # すべての源を一緒にスイープしても解く方法（methods から選ぶ。省略すると源ごとだけ）
 //! reference = "gmres"             # 結果と比べる参照の方法と判定（省略すると比べない）
 //! reference-tolerance = 1e-10
+//!
+//! [sensitivity.few-group]         # 格子全体の少数群定数（テーブルの全断面積、νΣf、Σf、P0 の散乱行列）の数密度の微分を、定数ごとの
+//!                                 # 一般化随伴で求める（ADR-0247 の段 4。結果は output の [few_group]。direct があれば直接の摂動も）
+//! bounds = [2e7, 0.625, 1e-5]     # 少数群の境界 (eV)
+//! tolerance = 1e-10               # 一般化随伴の GMRES の判定と再始動の回数
+//! restart = 100
+//! shielded = ["Pu-240"]           # 自己遮蔽を摂動の組成で解き直す核種（nuclides から選ぶ。direct と自己遮蔽が要る。省略すると解き直さない）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -149,7 +156,7 @@ use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, Shieldin
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
-use crate::sensitivity::{GeneralizedInput, Method, Response, SensitivityInput};
+use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -492,6 +499,61 @@ struct SensitivityEntry {
     k_tolerance: Option<f64>,
     flux_tolerance: Option<f64>,
     generalized: Option<GeneralizedEntry>,
+    few_group: Option<DerivativeEntry>,
+}
+
+/// `[sensitivity.few-group]`（ADR-0247 の段 4）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct DerivativeEntry {
+    bounds: Vec<f64>,
+    tolerance: f64,
+    restart: usize,
+    shielded: Option<Vec<String>>,
+}
+
+impl DerivativeEntry {
+    /// `nuclides` は `[sensitivity]` の核種、`direct` は直接の摂動の刻みがあるか、`self_shielding` は入力が自己遮蔽するか
+    fn into_input(
+        self,
+        nuclides: &[String],
+        direct: bool,
+        self_shielding: bool,
+    ) -> Result<FewGroupInput, String> {
+        if self.bounds.len() < 2 {
+            return Err("[sensitivity.few-group] bounds must give at least one few group".into());
+        }
+        if !(self.tolerance > 0.0 && self.tolerance.is_finite()) || self.restart == 0 {
+            return Err(format!(
+                "[sensitivity.few-group] tolerance must be positive and restart at least 1, got {} and {}",
+                self.tolerance, self.restart
+            ));
+        }
+        let shielded = self.shielded.unwrap_or_default();
+        if shielded
+            .iter()
+            .enumerate()
+            .any(|(i, n)| !nuclides.contains(n) || shielded[..i].contains(n))
+        {
+            return Err(format!(
+                "[sensitivity.few-group] shielded must list distinct nuclides of [sensitivity] nuclides, got {shielded:?}"
+            ));
+        }
+        // 自己遮蔽を解き直した物質の差は、直接の摂動と同じ刻みの中心差分で取る
+        if !shielded.is_empty() && !(direct && self_shielding) {
+            return Err(
+                "[sensitivity.few-group] shielded solves the self-shielding again at the direct steps, so it needs \
+                 [sensitivity] direct and an input that self-shields"
+                    .into(),
+            );
+        }
+        Ok(FewGroupInput {
+            bounds: self.bounds,
+            tolerance: self.tolerance,
+            restart: self.restart,
+            shielded,
+        })
+    }
 }
 
 /// `[sensitivity.generalized]`（ADR-0247 の段 3）
@@ -1718,6 +1780,10 @@ impl LatticeInput {
                         return Err(format!("[sensitivity] {key} must be positive, got {t}"));
                     }
                 }
+                let few_group = s
+                    .few_group
+                    .map(|f| f.into_input(&s.nuclides, s.direct.is_some(), self_shielding))
+                    .transpose()?;
                 Ok(SensitivityInput {
                     nuclides: s.nuclides,
                     output: s.output,
@@ -1725,6 +1791,7 @@ impl LatticeInput {
                     k_tolerance: s.k_tolerance,
                     flux_tolerance: s.flux_tolerance,
                     generalized: s.generalized.map(GeneralizedEntry::into_input).transpose()?,
+                    few_group,
                 })
             })
             .transpose()

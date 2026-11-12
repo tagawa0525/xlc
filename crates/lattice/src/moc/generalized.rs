@@ -48,13 +48,16 @@ pub struct GeneralizedOptions {
     pub batch: bool,
 }
 
-/// 1 つの源の一般化随伴
-#[derive(Debug, Clone, PartialEq)]
+/// 1 つの源の一般化随伴（端の角度中性子束の全体を持つので、`Start` と同じく複製しない）
+#[derive(Debug)]
 pub struct Generalized {
     /// [領域][群] のスカラー中性子束（源 S と同じ規格化。⟨Γ, Fφ⟩ = 0）
     pub flux: Vec<Vec<f64>>,
     /// 判定を満たすまでのスイープの回数（一緒にスイープすれば、すべての源が満たすまでスイープを続ける）
     pub iterations: usize,
+    /// 収束した反復の状態（モーメントとトラックの端の角度中性子束。k は前向きの値）。応答の 1 次の変化の全断面積の項
+    /// （`response_importance`）に使う
+    pub state: Start,
 }
 
 /// 物質 `materials`（前向き）の問題の一般化随伴を、源 `sources`（[源][領域][群] の等方な放出率の密度）ごとに解く（ADR-0247）。
@@ -229,6 +232,14 @@ pub fn solve_generalized(
         .map(|(state, iterations)| Generalized {
             flux: reduced.expand(&state.flux),
             iterations,
+            state: Start {
+                sizes,
+                representatives: [kept.clone(), reduced.tracks.clone()],
+                k: forward.k,
+                flux: state.flux,
+                higher: state.higher,
+                outgoing: state.outgoing,
+            },
         })
         .collect())
 }

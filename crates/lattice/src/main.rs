@@ -61,7 +61,7 @@ use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, Start, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
-use xlc_lattice::shielding::{ShieldingReuse, log_effective_change};
+use xlc_lattice::shielding::{ShieldingReuse, log_effective_change, shield_fuel_reusing};
 use xlc_lattice::symmetry::{Chosen, choose};
 use xlc_lattice::tracking::Tracking;
 
@@ -744,9 +744,42 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     tracking: &geometry.tracking,
                     symmetry: geometry.chosen.moc(),
                 };
-                let (solution, converged, result) =
-                    xlc_lattice::sensitivity::evaluate(sensitivity, &state, &options, from)
-                        .with_context(|| format!("{}: k sensitivity", context()))?;
+                // 自己遮蔽を摂動の組成で解き直す口（状態の自己遮蔽と同じ作り方。燃料の組成によらない前処理は摂動の間で持ち越す）
+                let mut reuse = ShieldingReuse::new(&geometry.tracking);
+                let shielding_options = input.shielding_options();
+                let mut reshield =
+                    |inputs: &[MaterialInput]| -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
+                        let shielded = shield_fuel_reusing(
+                            library,
+                            &mut reuse,
+                            inputs,
+                            solved_materials(rod),
+                            geometry.chosen.shielding(),
+                            &shielding_options,
+                        )?;
+                        Ok((shielded.materials, shielded.region_material))
+                    };
+                // 参照（ホウ素が公称の状態）から作る状態の自己遮蔽は、参照の組成で解いてホウ素の軸の物質だけを作り直すので、
+                // 摂動の組成をそのまま解き直す口は状態と同じ作り方にならない。その状態では口を渡さない（shielded はエラー）
+                let reference = match (&history_branches, &input.branches) {
+                    (Some(h), _) => h.reference(solved % count).is_some(),
+                    (None, Some(b)) => b.reference(solved % count).is_some(),
+                    (None, None) => false,
+                };
+                let reshield: Option<&mut xlc_lattice::sensitivity::Reshield> =
+                    if input.self_shielding && !reference {
+                        Some(&mut reshield)
+                    } else {
+                        None
+                    };
+                let (solution, converged, result) = xlc_lattice::sensitivity::evaluate(
+                    sensitivity,
+                    &state,
+                    &options,
+                    from,
+                    reshield,
+                )
+                .with_context(|| format!("{}: k sensitivity", context()))?;
                 let output = base.join(&sensitivity.output);
                 let text = toml::to_string(&result).with_context(|| shown(&output))?;
                 std::fs::write(&output, text).with_context(|| shown(&output))?;

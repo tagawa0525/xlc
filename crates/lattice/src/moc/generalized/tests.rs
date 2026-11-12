@@ -4,7 +4,7 @@ use crate::moc::tests::{
     checkerboard_materials, moderator, tight, two_group, two_spectra_fuel, vacuum_checkerboard,
     with_moments,
 };
-use crate::moc::{Solution, solve, solve_adjoint_from, solve_with};
+use crate::moc::{Solution, response_importance, solve, solve_adjoint_from, solve_with};
 use crate::symmetry::{Symmetry, detect, require};
 use crate::tracking::{Boundaries, Boundary};
 
@@ -636,4 +636,300 @@ fn generalized_adjoint_checks_the_restart_and_takes_no_sources() {
             assert!(run(method, batch, &[]).unwrap().is_empty());
         }
     }
+}
+
+/// 領域 `changes`（領域、δM）の物質を M + h δM にした問題の ln R（R = ⟨h₁, φ⟩ / ⟨h₂, φ⟩、h は変えない）の h による微分の中心差分
+/// （h と h/2 の Richardson の外挿）
+fn central_log_response_of(
+    tracking: &Tracking,
+    materials: &[&Material],
+    changes: &[(usize, &Material)],
+    options: &Options,
+    h: [&[Vec<f64>]; 2],
+    step: f64,
+) -> f64 {
+    let at = |s: f64| {
+        let perturbed: Vec<Material> = changes
+            .iter()
+            .map(|&(region, d)| materials[region].added(d, s).unwrap())
+            .collect();
+        let mut m = materials.to_vec();
+        for (&(region, _), p) in changes.iter().zip(&perturbed) {
+            m[region] = p;
+        }
+        let solution = solve(tracking, &m, options).unwrap();
+        (inner(&solution, h[0]) / inner(&solution, h[1])).ln()
+    };
+    let difference = |s: f64| (at(s) - at(-s)) / (2.0 * s);
+    let (coarse, fine) = (difference(step), difference(step / 2.0));
+    fine + (fine - coarse) / 3.0
+}
+
+/// 応答 R = ⟨h₁, φ⟩ / ⟨h₂, φ⟩ の一般化随伴 Γ から求めた、物質の変化 `changes` による δR / R の中性子束を通じた項
+/// ⟨Γ, (δF / k − δL) φ⟩（`ResponseImportance::flux_term`）
+fn response_flux_term(
+    tracking: &Tracking,
+    materials: &[&Material],
+    changes: &[(usize, &Material)],
+    options: &Options,
+    symmetry: Option<&Detected>,
+    h: [&[Vec<f64>]; 2],
+) -> f64 {
+    let (solution, forward, adjoint) = eigenpair(tracking, materials, options, symmetry);
+    let source = ratio_source(&solution, h[0], h[1]);
+    let gamma = solve_generalized(
+        tracking,
+        materials,
+        options,
+        symmetry,
+        &forward,
+        &adjoint,
+        std::slice::from_ref(&source),
+        &settings(1e-11),
+    )
+    .unwrap();
+    let importance = response_importance(
+        tracking, materials, options, symmetry, &forward, &gamma[0], &source,
+    )
+    .unwrap();
+    importance.flux_term(changes).unwrap()
+}
+
+/// 吸収だけの 2 群の物質（全断面積だけを持つ）
+fn absorber(total: [f64; 2]) -> Material {
+    two_group(total, [[0.0, 0.0], [0.0, 0.0]], [0.0, 0.0])
+}
+
+#[test]
+fn response_derivative_of_a_total_cross_section_change_uses_the_angular_fluxes() {
+    // 吸収体を水の領域に足す。応答は燃料の領域の熱群の全反応率と、格子全体の熱群の中性子束の比。全断面積の摂動は、Γ と φ の
+    // 角度中性子束の積を区間ごとに積分した値で効く（k の感度と同じ。ADR-0247 の「摂動の内積」）
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
+    let h2 = indicator(n, 2, 1, |_| Some(1.0));
+    let d = absorber([0.3, 0.8]);
+    let changes = [(1, &d)];
+    let adjoint = response_flux_term(&tracking, &materials, &changes, &options, None, [&h1, &h2]);
+    let direct =
+        central_log_response_of(&tracking, &materials, &changes, &options, [&h1, &h2], 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+}
+
+#[test]
+fn response_derivative_matches_central_differences_of_all_reactions() {
+    // 燃料の 1 領域の全反応（全断面積、散乱、核分裂）を変える。真空の外周、上方散乱、2 つの核分裂のスペクトル
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 0, |r| (r == 3).then_some(m.scatter[0][1]));
+    let h2 = indicator(n, 2, 0, |_| Some(1.0));
+    let d = f.scaled(&[0.2, 0.2]).unwrap();
+    let changes = [(0, &d)];
+    let adjoint = response_flux_term(&tracking, &materials, &changes, &options, None, [&h1, &h2]);
+    let direct =
+        central_log_response_of(&tracking, &materials, &changes, &options, [&h1, &h2], 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+}
+
+#[test]
+fn response_derivative_matches_central_differences_with_anisotropic_scattering() {
+    // P1 の散乱の摂動は、Γ のモーメントの (−1)ˡ の符号で効く
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (
+        with_moments(&two_spectra_fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(1);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
+    let h2 = indicator(n, 2, 1, |_| Some(1.0));
+    let d = with_moments(&m.scaled(&[0.2, 0.2]).unwrap(), &[0.9]);
+    let changes = [(1, &d)];
+    let adjoint = response_flux_term(&tracking, &materials, &changes, &options, None, [&h1, &h2]);
+    let direct =
+        central_log_response_of(&tracking, &materials, &changes, &options, [&h1, &h2], 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+}
+
+#[test]
+fn response_derivative_carries_the_generalized_adjoint_across_void() {
+    // 燃料と被覆管の間の真空の隙間（領域 1）に源を持つ応答（隙間の熱群の中性子束と、真空を含む格子全体の熱群の中性子束の比）。
+    // Γ の角度中性子束は真空の区間で q / 4π の傾きで増えるので、隙間の外側の被覆管の全断面積の項はその分を含む
+    let pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+    let vacuum = Boundaries {
+        left: Boundary::Vacuum,
+        right: Boundary::Vacuum,
+        top: Boundary::Vacuum,
+        bottom: Boundary::Vacuum,
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, vacuum).unwrap();
+    let (f, m, gap) = (two_spectra_fuel(), moderator(), Material::void(2));
+    let pin_materials = [&f, &gap, &m, &m];
+    let materials: Vec<&Material> = [&pin_materials[..], &[&m], &[&m], &pin_materials[..]].concat();
+    let options = tight(0);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 1, |r| (r == 1).then_some(1.0));
+    let h2 = indicator(n, 2, 1, |_| Some(1.0));
+    let d = absorber([0.3, 0.8]);
+    let changes = [(2, &d)];
+    let adjoint = response_flux_term(&tracking, &materials, &changes, &options, None, [&h1, &h2]);
+    let direct =
+        central_log_response_of(&tracking, &materials, &changes, &options, [&h1, &h2], 0.05);
+    assert!(
+        (adjoint - direct).abs() < 1e-6 * direct.abs(),
+        "{adjoint} vs {direct}"
+    );
+}
+
+#[test]
+fn response_derivative_with_symmetry_matches_the_full_lattice() {
+    let tracking = vacuum_checkerboard(3);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(3, &f, &m);
+    let options = tight(0);
+    let region_names: Vec<String> = materials
+        .iter()
+        .map(|&x| if std::ptr::eq(x, &f) { "f" } else { "m" }.to_string())
+        .collect();
+    let verified = detect(&tracking, &region_names).unwrap();
+    assert_ne!(verified.symmetry(), Symmetry::NONE);
+    let n = materials.len();
+    let fuel = |r: usize| std::ptr::eq(materials[r], &f).then_some(f.total[0]);
+    let h1 = indicator(n, 2, 0, fuel);
+    let h2 = indicator(n, 2, 0, |_| Some(1.0));
+    let d = absorber([0.3, 0.8]);
+    let changes: Vec<(usize, &Material)> = materials
+        .iter()
+        .enumerate()
+        .filter(|&(_, &x)| std::ptr::eq(x, &m))
+        .map(|(region, _)| (region, &d))
+        .collect();
+    let full = response_flux_term(&tracking, &materials, &changes, &options, None, [&h1, &h2]);
+    let reduced = response_flux_term(
+        &tracking,
+        &materials,
+        &changes,
+        &options,
+        Some(&verified),
+        [&h1, &h2],
+    );
+    assert!(
+        (full - reduced).abs() < 1e-7 * full.abs(),
+        "{full} vs {reduced}"
+    );
+}
+
+#[test]
+fn response_importance_rejects_a_generalized_adjoint_of_another_problem() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, None);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
+    let h2 = indicator(n, 2, 1, |_| Some(1.0));
+    let source = ratio_source(&solution, &h1, &h2);
+    let gamma = solve_generalized(
+        &tracking,
+        &materials,
+        &options,
+        None,
+        &forward,
+        &adjoint,
+        std::slice::from_ref(&source),
+        &settings(1e-9),
+    )
+    .unwrap();
+    // 別のトラッキングの前向きの状態
+    let other = vacuum_checkerboard(3);
+    let other_materials = checkerboard_materials(3, &f, &m);
+    let (_, other_forward, _) = eigenpair(&other, &other_materials, &options, None);
+    let other_source = vec![vec![0.0; 2]; other_materials.len()];
+    assert!(matches!(
+        response_importance(
+            &other,
+            &other_materials,
+            &options,
+            None,
+            &other_forward,
+            &gamma[0],
+            &other_source
+        ),
+        Err(MocError::ForeignStart)
+    ));
+    // 源の形が問題と違う
+    assert!(matches!(
+        response_importance(
+            &tracking,
+            &materials,
+            &options,
+            None,
+            &forward,
+            &gamma[0],
+            &source[1..]
+        ),
+        Err(MocError::SourceShape { index: 0 })
+    ));
+}
+
+#[test]
+fn response_importance_rejects_a_symmetry_of_another_tracking() {
+    let tracking = vacuum_checkerboard(2);
+    let (f, m) = (two_spectra_fuel(), moderator());
+    let materials = checkerboard_materials(2, &f, &m);
+    let options = tight(0);
+    let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, None);
+    let n = materials.len();
+    let h1 = indicator(n, 2, 1, |r| (r == 0).then_some(f.total[1]));
+    let h2 = indicator(n, 2, 1, |_| Some(1.0));
+    let source = ratio_source(&solution, &h1, &h2);
+    let gamma = solve_generalized(
+        &tracking,
+        &materials,
+        &options,
+        None,
+        &forward,
+        &adjoint,
+        std::slice::from_ref(&source),
+        &settings(1e-9),
+    )
+    .unwrap();
+    let other = vacuum_checkerboard(3);
+    let other_names: Vec<String> = checkerboard_materials(3, &f, &m)
+        .iter()
+        .map(|&x| if std::ptr::eq(x, &f) { "f" } else { "m" }.to_string())
+        .collect();
+    let foreign = detect(&other, &other_names).unwrap();
+    assert_ne!(foreign.symmetry(), Symmetry::NONE);
+    assert!(matches!(
+        response_importance(
+            &tracking,
+            &materials,
+            &options,
+            Some(&foreign),
+            &forward,
+            &gamma[0],
+            &source
+        ),
+        Err(MocError::ForeignSymmetry)
+    ));
 }

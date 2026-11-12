@@ -9,6 +9,10 @@
 - lattice-3x3.toml: 2A の案内管 1 本を燃料のピン 8 本で囲んだ 3×3 の格子（2A の小さい格子。鏡面反射）
 
 - pincell-generalized.toml: pincell.toml の燃料のピンで、段 3 の一般化随伴の収束の方法を比べる（`generalized` の説明）
+- pincell-few-group.toml、lattice-3x3-few-group.toml: 段 4 の少数群定数の数密度の微分を、直接の摂動と、31 核種すべての
+  自己遮蔽を解き直した摂動と一緒に解く（`few_group` の説明）
+- pair-56-60.toml: 56 → 60 MWd/kg の、同じ組の 5 つのリングの体積で均質化した数密度の相対の変化（N̄(60) − N̄(56)) / N̄(60)。
+  compare_few_group.py が、暗黙の効きの核種ごとの微分に掛けて、隣り合う燃焼度の点の組の自己遮蔽の分（ADR-0221 の背景）を見込む
 
 pincell.toml と lattice-3x3.toml は、31 核種の感度を、直接の摂動（ε = 0.1）と一緒に解く。MOC の判定は k 1e-12、中性子束 1e-11 で、#0279 の計画の
 k 1e-10、中性子束 1e-9 より 2 桁細かい: 1e-10 では、感度の小さい核種（Gd-160 の S = −5.3e-7、Pm-148m の −8.7e-9）の直接の
@@ -142,6 +146,63 @@ def generalized(output: str) -> str:
     )
 
 
+def few_group(output: str) -> str:
+    """段 4 の少数群定数の数密度の微分（ADR-0247）。直接の摂動と判定は `sensitivity` と同じ。一般化随伴の GMRES の判定 1e-10 は、
+    段 3 の目安の 1e-7（ADR-0247 の決定と理由）より細かく、感度の小さい核種の比較が随伴の側の誤差で決まらないようにする。
+    自己遮蔽は 31 核種すべてで解き直す（案 I1 と I3）"""
+    names = ", ".join(f'"{n}"' for n in NUCLIDES)
+    return (
+        sensitivity(output) + "\n[sensitivity.few-group]\n"
+        "bounds = [1e7, 0.625, 1e-5]\n"
+        "tolerance = 1e-10\n"
+        "restart = 100\n"
+        f"shielded = [{names}]\n"
+    )
+
+
+def ring_rows(history: dict, index: int) -> list[tuple[str, list[float], float]]:
+    """燃焼点 `index` の、最初の燃焼の領域の組の 5 つのリングの（物質、数密度、体積）"""
+    point = history["points"][index]
+    first = history["regions"][0]["cell"]
+    rings = [
+        (region["material"], densities, region["volume"])
+        for region, densities in zip(history["regions"], point["densities"])
+        if region["cell"] == first
+    ]
+    if len(rings) != 5:
+        sys.exit("the first region group must have the five fuel rings")
+    return rings
+
+
+def pair(history: dict) -> str:
+    """56 → 60 MWd/kg の、5 つのリングの体積で均質化した数密度の相対の変化（負の数密度は 0 にする）"""
+    burnups = [p["burnup"] for p in history["points"]]
+    if burnups[-2:] != [56.0, BURNUP]:
+        sys.exit(f"the last two points are {burnups[-2:]}, not 56 and {BURNUP} MWd/kg")
+    mean = []
+    for index in (-2, -1):
+        rows = ring_rows(history, index)
+        volume = sum(v for _, _, v in rows)
+        mean.append(
+            {
+                name: sum(max(d[i], 0.0) * v for _, d, v in rows) / volume
+                for i, name in enumerate(history["nuclides"])
+            }
+        )
+    lines = [
+        "# このファイルは inputs.py が書く（手で直さない）。#0279 の段 4 の、56 → 60 MWd/kg の数密度の相対の変化",
+        "[relative]",
+    ]
+    for name in NUCLIDES:
+        before, after = mean[0][name], mean[1][name]
+        if not after > 0.0:
+            sys.exit(
+                f"{name} has no density at {BURNUP} MWd/kg, so its relative change is not defined"
+            )
+        lines.append(f'"{name}" = {(after - before) / after!r}')
+    return "\n".join(lines) + "\n"
+
+
 def fuels(history: dict) -> str:
     """最後の燃焼点の、最初の燃焼の領域の組の 5 つのリングの物質（自己遮蔽はリングの核種が同じ順であることを求めるので、どれかの
     リングで正の核種をすべてのリングに同じ順で書く）"""
@@ -213,6 +274,30 @@ def main() -> None:
         "# このファイルは inputs.py が書く（手で直さない）。#0279 の段 3 の一般化随伴の比較（ADR-0247）\n"
         + pincell_generalized
     )
+    few = "# このファイルは inputs.py が書く（手で直さない）。#0279 の段 4 の少数群定数の数密度の微分（ADR-0247）\n"
+    (HERE / "pincell-few-group.toml").write_text(
+        few
+        + HEADER
+        + 'rows = ["pin"]\n\n'
+        + materials
+        + "\n"
+        + PIN
+        + "\n"
+        + few_group("pincell-few-group-sensitivity.toml")
+    )
+    (HERE / "lattice-3x3-few-group.toml").write_text(
+        few
+        + HEADER
+        + 'rows = ["pin pin pin", "pin gt  pin", "pin pin pin"]\n\n'
+        + materials
+        + "\n"
+        + PIN
+        + "\n"
+        + GUIDE_TUBE
+        + "\n"
+        + few_group("lattice-3x3-few-group-sensitivity.toml")
+    )
+    (HERE / "pair-56-60.toml").write_text(pair(history))
 
 
 if __name__ == "__main__":
