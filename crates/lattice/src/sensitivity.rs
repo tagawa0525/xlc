@@ -202,7 +202,8 @@ pub struct UfgTangentReport {
     /// 向きの核種（[向き] の順）と、巨視的断面積の反応（[反応] の順）
     pub nuclides: Vec<String>,
     pub reactions: Vec<String>,
-    /// 状態の組成の自己遮蔽を、1 次の変化なしと、1 次の変化と一緒に解いた経過時間 (s)
+    /// 状態の組成の自己遮蔽を、1 次の変化なしと、1 次の変化と一緒に解いた経過時間 (s)。後者はピンごとに減速計算を 3 回解く
+    /// （`ufg_tangent_report`）ので、1 次の変化の時間はピンの `plain_seconds` と `tangent_seconds` で比べる
     pub shielding_seconds: f64,
     pub tangent_shielding_seconds: f64,
     /// 解いたピン（格子の対称性で移り合うピンは代表だけ）
@@ -451,19 +452,6 @@ pub fn evaluate(
     mut reshield: Option<&mut Reshield>,
     retangent: Option<&mut Retangent>,
 ) -> anyhow::Result<(Solution, Start, Report)> {
-    if input.ufg_tangent.is_some() && (reshield.is_none() || retangent.is_none()) {
-        bail!(
-            "[sensitivity.ufg-tangent] solves the self-shielding of the state again, which needs a self-shielded \
-             state solved from its own composition (not from a reference state)"
-        );
-    }
-    // UFG の減速計算の 1 次の変化は状態の固有値計算によらないので、先に解く（解き直す自己遮蔽の時間を比べる）
-    let ufg_tangent = match (&input.ufg_tangent, reshield.as_deref_mut(), retangent) {
-        (Some(names), Some(reshield), Some(retangent)) => {
-            Some(ufg_tangent_report(names, state, reshield, retangent)?)
-        }
-        _ => None,
-    };
     // 解く前に分かる入力の誤りは、前向きと随伴の固有値計算の前に止める
     if let Some(f) = &input.few_group {
         coarse_groups(&state.library.groups, &f.bounds)
@@ -475,6 +463,19 @@ pub fn evaluate(
             );
         }
     }
+    if input.ufg_tangent.is_some() && (reshield.is_none() || retangent.is_none()) {
+        bail!(
+            "[sensitivity.ufg-tangent] solves the self-shielding of the state again, which needs a self-shielded \
+             state solved from its own composition (not from a reference state)"
+        );
+    }
+    // UFG の減速計算の 1 次の変化は状態の固有値計算によらないので、入力の誤りを確かめた後、固有値計算の前に解く
+    let ufg_tangent = match (&input.ufg_tangent, reshield.as_deref_mut(), retangent) {
+        (Some(names), Some(reshield), Some(retangent)) => {
+            Some(ufg_tangent_report(names, state, reshield, retangent)?)
+        }
+        _ => None,
+    };
     let materials: Vec<&Material> = state
         .region_index
         .iter()
@@ -693,8 +694,10 @@ pub fn evaluate(
 }
 
 /// 状態の組成の自己遮蔽を、1 次の変化なし（`reshield`）と、核種 `names` の向きの 1 次の変化と一緒に（`retangent`）解き直し、
-/// 解いたピンの 1 次の変化と時間を集める（ADR-0247 の段 I2-2）。1 次の変化なしを先に解き、燃料の組成によらない前処理（Dancoff 係数）を
-/// 持ち越した 2 度目と比べる
+/// 解いたピンの 1 次の変化と時間を集める（ADR-0247 の段 I2-2）。2 つの口は燃料の組成によらない前処理（Dancoff 係数、自由ガスの核の
+/// 表）を別々に持つので、どちらも最初から求める。1 次の変化と一緒の自己遮蔽は、ピンごとに減速計算を 3 回解く（状態の減速計算、比べる
+/// 向きのない減速計算、1 次の変化と一緒の減速計算。`shielding::shield_fuel_tangent`）ので、1 次の変化の時間は、ピンごとの 2 回目と
+/// 3 回目の差で読む
 fn ufg_tangent_report(
     names: &[String],
     state: &State,
