@@ -700,8 +700,9 @@ pub fn shield_fuel_reusing(
     let threads = rayon::current_num_threads();
     let at_once = threads.min(solving.len());
     let kernels = match options.transfer {
-        UfgTransfer::RingFlux => total / (at_once as u64 + 1),
-        UfgTransfer::InfiniteDilution => 0,
+        // 解くピンが無ければ表を持たず、塊が全体を分ける
+        UfgTransfer::RingFlux if at_once > 0 => total / (at_once as u64 + 1),
+        _ => 0,
     };
     shares.kernels().begin(kernels);
     let hold = held_cells(total - kernels, at_once);
@@ -921,7 +922,7 @@ pub fn shield_fuel_reusing(
             &region_index,
             (symmetry.images(), &orbits),
             options,
-            (shares, total),
+            (shares, total - kernels),
             &mut shielded,
         )
     })?;
@@ -1263,8 +1264,8 @@ fn shield_lumps(
         .iter()
         .filter(|(b, _, lump_regions)| rod_rings(lattice, body_of[*b].0, lump_regions).is_some())
         .count();
-    // 自由ガスの核の区間と D の値の表の上限（ピンの前に決めたもの。ADR-0248）を除いて分ける
-    let hold = held_cells(total - shares.kernels().cap(), rods);
+    // `total` は、自己遮蔽の全体の量から自由ガスの核の区間と D の値の表の上限（ピンの前に決めたもの。ADR-0248）を除いた量
+    let hold = held_cells(total, rods);
     let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
         .par_iter()
         .map(|(b, index, lump_regions)| {
