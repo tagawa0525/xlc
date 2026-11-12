@@ -150,7 +150,7 @@ ADR-0247 は、MOC の一般化随伴（一般化摂動論）で、追うすべ�
 入力は examples/depletion/issue-0279/core-micro/（ADR-0221 が D0 と D2 の効きを測った examples/depletion/branches/branch-2A-micro.toml と
 core-2A-micro.toml を、core が引く 1 状態（1300 ppm、燃料と減速材 565 K）にしたもの。17 の燃焼度の点、追う 31 核種、40 ステップの集合体 1 体の
 ミクロ燃焼）。履歴は examples/depletion/p2/lattice-2A.msgpack（md5 c028d773）。比べたのは compare_core_micro.py（`compare-<持ち方>.json`）。
-32 スレッド、`--timed`、分岐点 0d91e4b2b、2026-11-13。D0 と D2 は be571263a（Slurm 812、813）、G + I0 は 00f0dd6a3（Slurm 814。随伴の固有値計算を
+32 スレッド、`--timed`、分岐点 0d91e4b2b、2026-11-13。D0 と D2 は 891165ae5（Slurm 812、813）、G + I0 は 5fa9df055（Slurm 814。随伴の固有値計算を
 平らな初期値から解く版）の `cargo build --release`（どちらも #0281 のスイープの直しの前で、時間はその前のもの）。時間の内訳はログ
 （`table-<持ち方>.log`、`dvc add`）の `derivative` と `generalized adjoints`、`generalized derivatives` の行。テーブルの md5 は D0 f9ccbfc5、
 D2 3df57a52、G + I0 54e66799（`dvc add`）。
