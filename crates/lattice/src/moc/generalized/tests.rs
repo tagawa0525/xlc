@@ -5,7 +5,7 @@ use crate::moc::tests::{
     with_moments,
 };
 use crate::moc::{Solution, solve, solve_adjoint_from, solve_with};
-use crate::symmetry::{Symmetry, detect};
+use crate::symmetry::{Symmetry, detect, require};
 
 /// 前向きの解と状態、随伴の状態
 fn eigenpair(
@@ -389,4 +389,69 @@ fn generalized_adjoint_rejects_invalid_sources() {
         ),
         Err(MocError::ForeignStart)
     ));
+}
+
+#[test]
+fn accelerated_methods_reach_the_source_iteration_solution_in_fewer_sweeps() {
+    // 鏡面反射のピンセル（優勢比と熱群の散乱の比が 1 に近く、加速のない反復が遅い）。P1 の散乱と 1/4 の対称性も通す
+    let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+    let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+    let (f, m) = (
+        with_moments(&two_spectra_fuel(), &[0.3]),
+        with_moments(&moderator(), &[0.4]),
+    );
+    let materials = [&f, &f, &m, &m];
+    let options = tight(1);
+    let verified = require(&tracking, Symmetry::QUARTER).unwrap();
+    for symmetry in [None, Some(&verified)] {
+        let (solution, forward, adjoint) = eigenpair(&tracking, &materials, &options, symmetry);
+        let n = materials.len();
+        let h1 = indicator(n, 2, 1, |r| (r < 2).then_some(f.total[1]));
+        let h2 = indicator(n, 2, 1, |_| Some(1.0));
+        let source = ratio_source(&solution, &h1, &h2);
+        let solve_by = |method: GeneralizedMethod| {
+            let settings = GeneralizedOptions {
+                method,
+                ..settings(1e-11)
+            };
+            solve_generalized(
+                &tracking,
+                &materials,
+                &options,
+                symmetry,
+                &forward,
+                &adjoint,
+                std::slice::from_ref(&source),
+                &settings,
+            )
+            .unwrap()
+            .remove(0)
+        };
+        let reference = solve_by(GeneralizedMethod::SourceIteration);
+        let scale = reference
+            .flux
+            .iter()
+            .flatten()
+            .fold(0.0_f64, |a, x| a.max(x.abs()));
+        for method in [
+            GeneralizedMethod::Cmfd(CmfdOptions::default()),
+            GeneralizedMethod::Gmres { restart: 20 },
+        ] {
+            let accelerated = solve_by(method);
+            for (a, b) in accelerated
+                .flux
+                .iter()
+                .flatten()
+                .zip(reference.flux.iter().flatten())
+            {
+                assert!((a - b).abs() < 1e-8 * scale, "{method:?}: {a} vs {b}");
+            }
+            assert!(
+                accelerated.iterations < reference.iterations,
+                "{method:?}: {} sweeps, source iteration {}",
+                accelerated.iterations,
+                reference.iterations
+            );
+        }
+    }
 }

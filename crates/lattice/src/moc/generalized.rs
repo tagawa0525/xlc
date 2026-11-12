@@ -18,6 +18,7 @@ use super::{
     CoarseMesh, Detected, Material, MocError, Options, Remaining, Representatives, Start, Sweeper,
     Symmetry, equilibrium_moments, planar_moments, sum_tallies, transposed,
 };
+use crate::cmfd::CmfdOptions;
 use crate::tracking::Tracking;
 
 /// ⟨S, φ⟩ を ⟨|S|, φ⟩ と比べる相対の許容値。応答の源 h₁/⟨h₁, φ⟩ − h₂/⟨h₂, φ⟩ を解いた φ から作れば、残るのは足す順の丸め
@@ -29,6 +30,10 @@ const ORTHOGONALITY_TOLERANCE: f64 = 1.0e-10;
 pub enum GeneralizedMethod {
     /// 射影つきの源の反復（加速なし）
     SourceIteration,
+    /// 射影つきの源の反復を、スイープごとに粗メッシュの固定源の問題の解で補正する
+    Cmfd(CmfdOptions),
+    /// 射影した作用素の GMRES（`restart` 回ごとに再始動する）
+    Gmres { restart: usize },
 }
 
 /// 一般化随伴の固定源の反復の方法と打ち切り
@@ -182,6 +187,9 @@ pub fn solve_generalized(
         .map(|q| {
             let (flux, iterations) = match settings.method {
                 GeneralizedMethod::SourceIteration => problem.source_iteration(q, settings)?,
+                GeneralizedMethod::Cmfd(_) | GeneralizedMethod::Gmres { .. } => {
+                    return Err(MocError::GeneralizedNotConverged { iterations: 0 });
+                }
             };
             Ok(Generalized {
                 flux: reduced.expand(&flux),
