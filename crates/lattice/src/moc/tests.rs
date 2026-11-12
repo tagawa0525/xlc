@@ -2661,3 +2661,55 @@ fn sweep_does_not_depend_on_the_contents_left_in_its_work_arrays() {
         }
     }
 }
+
+#[test]
+fn products_do_not_depend_on_the_contents_left_in_the_pool() {
+    let tracking = vacuum_corner_tracking();
+    let mesh = CoarseMesh::new(&tracking);
+    for order in [0, 1, 2] {
+        let (materials, equilibrium, pairs, incoming) = sweep_inputs(&tracking, order);
+        let materials: Vec<&Material> = materials.iter().collect();
+        // 随伴の問題は別の値にする
+        let adjoint: Vec<Vec<f64>> = equilibrium
+            .iter()
+            .map(|e| e.iter().map(|v| 1.5 - v).collect())
+            .collect();
+        let reversed: Vec<f64> = incoming.iter().rev().copied().collect();
+        let products = |primed: bool| {
+            let sweeper = Sweeper::new(
+                &tracking,
+                &materials,
+                2,
+                &mesh,
+                &pairs,
+                Representatives::all(&tracking, &mesh, pairs.len()),
+            );
+            if primed {
+                for _ in 0..2 {
+                    sweeper.pool.lock().unwrap().push(Directional {
+                        source: vec![f64::NAN; 10_000],
+                        delta: Vec::new(),
+                    });
+                }
+            }
+            let mut tallies = sweeper.tallies(materials.len());
+            let bits: Vec<Vec<u64>> = (0..2)
+                .map(|_| {
+                    sweeper
+                        .products(
+                            (&equilibrium, &incoming),
+                            (&adjoint, &reversed),
+                            &mut tallies,
+                        )
+                        .iter()
+                        .flatten()
+                        .map(|v| v.to_bits())
+                        .collect()
+                })
+                .collect();
+            assert_eq!(bits[0], bits[1]);
+            bits.into_iter().next().unwrap()
+        };
+        assert_eq!(products(false), products(true), "order {order}");
+    }
+}
