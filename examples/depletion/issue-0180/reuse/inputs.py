@@ -3,8 +3,8 @@
 燃焼の軸（2A の分岐のテーブル。../branch/2A-60.toml の公称の 1 状態を、ADR-0199 の 27 燃焼点で解く）:
 
 - 2A-every.toml: すべての燃焼点で自己遮蔽を解く（参照。既定）
-- 2A-skip-2.toml: 27 点の 1 つおき（最初の点から）だけ自己遮蔽を解き、ほかの点はその前の点の組成で自己遮蔽する（`shielding-burnup`）
-- 2A-skip-sparse.toml: SPARSE の 8 点だけで解く（間の点は、前の解く点からの燃焼度の差が 0.1〜12 MWd/kg）
+- 2A-skip-sparse.toml: SPARSE の 8 点だけで自己遮蔽を解き、ほかの点はその前で最後の SPARSE の点の組成で自己遮蔽する
+  （`shielding-burnup`。間の点は、前の解く点からの燃焼度の差が 0.1〜12 MWd/kg）
 
 微分の摂動の軸（ADR-0221 の Pu-240 の数密度の微分。燃焼点 DERIVATIVE_BURNUP）:
 
@@ -74,8 +74,10 @@ def branch(text: str, output: str, burnup: list, extra: str, derivative: bool) -
     start = text.find("library = ")
     if start < 0:
         sys.exit(f"{BRANCH} has no library line")
+    # ピン出力の形状関数（pins）も書き、ピン出力の差も比べる
     replaced = text[start:].replace(
-        'output = "table-2A-60.msgpack"', f'output = "{output}"'
+        'output = "table-2A-60.msgpack", bounds = [1e7, 0.625, 1e-5] }',
+        f'output = "{output}", bounds = [1e7, 0.625, 1e-5], pins = true }}',
     )
     replaced = replaced.replace("burnup = [60]\n", f"burnup = {listed(burnup)}\n")
     if not derivative:
@@ -143,16 +145,8 @@ def main() -> None:
         history = msgpack.unpackb(f.read(), strict_map_key=False)
     text = BRANCH.read_text()
     comment = "# このファイルは inputs.py が書く（手で直さない）。#0180 の自己遮蔽を省いたときの誤差\n"
-    every_other = BURNUP[::2]
     cases = {
         "2A-every.toml": branch(text, "table-2A-every.msgpack", BURNUP, "", False),
-        "2A-skip-2.toml": branch(
-            text,
-            "table-2A-skip-2.msgpack",
-            BURNUP,
-            f"shielding-burnup = {listed(every_other)}\n",
-            False,
-        ),
         "2A-skip-sparse.toml": branch(
             text,
             "table-2A-skip-sparse.msgpack",

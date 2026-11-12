@@ -1,7 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0180 の自己遮蔽を省いたときの誤差
 library = "../../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
-few-group = { output = "table-2A-every.msgpack", bounds = [1e7, 0.625, 1e-5] }
+few-group = { output = "table-2A-every.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
