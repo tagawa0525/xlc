@@ -172,6 +172,11 @@ pub enum UfgError {
         ring: usize,
         other: usize,
     },
+    /// 自由ガスの散乱源の δF の履歴が格子点の順に伸びていない（掃き直しの戻し方の誤り。内部の不整合）
+    #[error(
+        "internal error: the free-gas tangent history of ring {ring} is out of step at point {point}"
+    )]
+    TangentHistory { ring: usize, point: usize },
     /// 個数密度の変わるリングの組成が、飛程の表の物質に無い（内部の不整合）
     #[error("internal error: ring {0} of the tangent has no material in the track table")]
     TangentTable(usize),
@@ -2813,7 +2818,7 @@ impl Sweep<'_> {
                 }
             }
             if let (Some(thermal), Some(gas)) = (&self.thermal, &mut t.gas) {
-                gas.record(m, self.u, &t.flux, thermal.rings());
+                gas.record(m, self.u, &t.flux, thermal.rings())?;
             }
             t.cost.solve += solve_clock.elapsed().as_secs_f64();
         }

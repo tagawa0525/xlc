@@ -2229,7 +2229,7 @@ impl GasTangent {
         u: &[f64],
         deltas: &[Vec<Vec<f64>>],
         rings: &[Vec<(usize, f64)>],
-    ) {
+    ) -> Result<(), UfgError> {
         let n = self.count;
         // 自由ガスの核種を含むリング（同じリングを複数の核種が持つときは 1 度だけ進める）
         let mut gas_rings: Vec<usize> = rings.iter().flatten().map(|&(i, _)| i).collect();
@@ -2237,11 +2237,9 @@ impl GasTangent {
         gas_rings.dedup();
         for i in gas_rings {
             // δF の履歴は格子点の順に 1 点ずつ伸びる（違えば掃き直しの戻し方の誤りで、別の格子点の δF を読む）
-            assert_eq!(
-                self.flux[i].len(),
-                m * n,
-                "internal error: the free-gas tangent history of ring {i} is out of step at point {m}"
-            );
+            if self.flux[i].len() != m * n {
+                return Err(UfgError::TangentHistory { ring: i, point: m });
+            }
             self.flux[i].extend(deltas.iter().map(|d| d[i][m]));
             if m < self.start {
                 continue;
@@ -2261,6 +2259,7 @@ impl GasTangent {
                 }
             }
         }
+        Ok(())
     }
 
     /// スイープを終え、今のスイープの δF と累積の積率を、次のスイープの前のスイープにする（[`Thermal::finish`] と同じ）。今の
