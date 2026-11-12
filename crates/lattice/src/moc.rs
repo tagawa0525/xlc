@@ -1296,7 +1296,8 @@ struct Sweeper<'a> {
     moments: usize,
     /// [方位角][向き][極角][モーメント] の方向ごとの実球面調和関数の値
     harmonics: Vec<f64>,
-    /// 非等方散乱のスイープの作業用の配列（再利用する。中身は方位角ごとに作り直すので、どれを使っても結果は同じ）
+    /// 非等方散乱のスイープの作業用の配列（再利用する。線源は方位角ごとに作り直し、減衰の和はどれも 0 なので、どれを使っても
+    /// 結果は同じ）
     pool: Mutex<Vec<Directional>>,
     /// スイープするトラック（対称性を使わなければすべて）
     representatives: Representatives,
@@ -1432,10 +1433,11 @@ impl<'a> Sweeper<'a> {
             source: Vec::new(),
             delta: Vec::new(),
         });
-        // 組ごとに領域の番号の付け方が違うので、前の組の値を残さない（真空の領域は 0 のまま）
-        d.source.clear();
+        // 別の走査で 0 にしない（#0281。組の領域の分を方位角ごとに書くと、L2 に収まらずメモリとの往復になる）。線源は
+        // 真空でない領域の欄を下ですべて書き直し、真空の領域の欄はスイープが読まないので、前の組の値が残ってよい。
+        // 減衰の和は `fold` が読んだ欄を 0 に戻してからプールに返すので、伸ばした分だけを 0 で埋めればよい
         d.source.resize(size, 0.0);
-        d.delta.clear();
+        debug_assert!(d.delta.iter().all(|&v| v == 0.0));
         d.delta.resize(size, 0.0);
         for (local, &region) in regions.iter().enumerate() {
             // 真空の領域はスイープで線源を使わない
@@ -1464,19 +1466,27 @@ impl<'a> Sweeper<'a> {
         d
     }
 
-    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [組の中の領域][モーメント][群] に足し、作業用の配列を返す
-    fn fold(&self, d: Directional, azimuth: usize, delta: &mut [f64]) {
+    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [組の中の領域][モーメント][群] に足し（`first` ならスイープの
+    /// 始めの 0 から足す）、減衰の和を 0 に戻した作業用の配列を返す
+    fn fold(&self, mut d: Directional, azimuth: usize, delta: &mut [f64], first: bool) {
         let (ng, k) = (self.ng, self.moments);
         for (local, sums) in delta.chunks_mut(k * ng).enumerate() {
+            // 足す直前に 0 にする（`Tally::clear` で配列の全体を別に走査すると、組の分が L2 に収まらずメモリとの往復になる。#0281）
+            if first {
+                sums.fill(0.0);
+            }
             for side in 0..2 {
                 for p in 0..POLAR_SIN.len() {
                     let y = self.harmonics(azimuth, side, p);
-                    let values = &d.delta[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                    let values =
+                        &mut d.delta[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
                     for (sum, y) in sums.chunks_mut(ng).zip(y) {
-                        for (s, v) in sum.iter_mut().zip(values) {
+                        for (s, v) in sum.iter_mut().zip(values.iter()) {
                             *s += y * v;
                         }
                     }
+                    // 読み終えた欄をキャッシュにあるうちに 0 に戻す（次に使う組の `directional` が別に 0 にしなくて済む）
+                    values.fill(0.0);
                 }
             }
         }
@@ -1486,8 +1496,9 @@ impl<'a> Sweeper<'a> {
             .push(d);
     }
 
-    /// 作業用の配列を、ほかの組のスイープに使えるよう返す
+    /// 減衰の和を使わなかった作業用の配列を、ほかの組のスイープに使えるよう返す
     fn release(&self, d: Directional) {
+        debug_assert!(d.delta.iter().all(|&v| v == 0.0));
         self.pool
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -1829,7 +1840,9 @@ impl<'a> Sweeper<'a> {
             .zip(&representatives.chunks)
             .try_for_each(|((tally, outputs), range)| {
                 let busy = timed.then(std::time::Instant::now);
-                tally.clear();
+                // 非等方散乱のモーメントごとの減衰の和は、最初の `fold` が 0 から足す（`unfolded` はその前）
+                let mut unfolded = self.moments > 1;
+                tally.clear(!unfolded);
                 tally.attenuation_seconds = 0.0;
                 // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに作り直す
                 let mut directional: Option<(usize, Directional)> = None;
@@ -1842,7 +1855,8 @@ impl<'a> Sweeper<'a> {
                             .is_none_or(|(azimuth, _)| *azimuth != track.azimuth)
                     {
                         if let Some((azimuth, d)) = directional.take() {
-                            self.fold(d, azimuth, &mut tally.delta);
+                            self.fold(d, azimuth, &mut tally.delta, unfolded);
+                            unfolded = false;
                         }
                         directional = Some((
                             track.azimuth,
@@ -2017,8 +2031,11 @@ impl<'a> Sweeper<'a> {
                         }
                     }
                 }
-                if let Some((azimuth, d)) = directional {
-                    self.fold(d, azimuth, &mut tally.delta);
+                match directional {
+                    Some((azimuth, d)) => self.fold(d, azimuth, &mut tally.delta, unfolded),
+                    // トラックの無い組
+                    None if unfolded => tally.delta.fill(0.0),
+                    None => {}
                 }
                 if let Some(c) = busy {
                     tally.busy_seconds = c.elapsed().as_secs_f64();
@@ -2103,8 +2120,11 @@ impl Tally {
         }
     }
 
-    fn clear(&mut self) {
-        self.delta.fill(0.0);
+    /// 部分和を 0 にする。`delta` は `with_delta` のときだけ（非等方散乱では `Sweeper::fold` が 0 にする）
+    fn clear(&mut self, with_delta: bool) {
+        if with_delta {
+            self.delta.fill(0.0);
+        }
         self.void_flux.fill(0.0);
         self.void_current.fill(0.0);
         self.region_current.fill(0.0);
