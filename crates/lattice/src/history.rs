@@ -89,6 +89,9 @@ pub struct HistoryInput {
     /// 燃焼の領域を自己遮蔽する組成の燃焼の履歴（入力のファイルのあるディレクトリから。[`HistoryBranches::shield_with`]）。
     /// `None` なら状態の組成で自己遮蔽する
     pub shielding_file: Option<PathBuf>,
+    /// 自己遮蔽を解く燃焼点 (MWd/kg)。`burnup` の最初の点から増える `burnup` の点で、ほかの燃焼点はその前で最後のこの点の組成で
+    /// 自己遮蔽する（#0180）。`None` ならどの燃焼点も自身の組成で自己遮蔽する
+    pub shielding_burnup: Option<Vec<f64>>,
     /// 一般化摂動の微分（ADR-0247）。`None` なら `derivative` の核種の直接の摂動だけ
     pub generalized: Option<GeneralizedDerivatives>,
 }

@@ -1792,6 +1792,30 @@ fn history_shielding_file_is_read_only_when_given() {
 }
 
 #[test]
+fn history_shielding_burnup_points_are_increasing_points_of_burnup_from_its_first() {
+    // 書かなければ、どの燃焼点も自身の組成で自己遮蔽する
+    let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
+    assert_eq!(input.history.unwrap().shielding_burnup, None);
+    for (points, expected) in [("[0]", vec![0.0]), ("[0, 20]", vec![0.0, 20.0])] {
+        let given = history_branches(&format!("{HISTORY}shielding-burnup = {points}\n"));
+        let input = LatticeInput::parse(&given).unwrap();
+        assert_eq!(input.history.unwrap().shielding_burnup, Some(expected));
+    }
+    // 最初の点を含まない（その点の前に自己遮蔽する点がない）、burnup にない点、増えない並び、空、自己遮蔽の履歴との併用はエラー
+    for bad in [
+        "shielding-burnup = [10, 20]\n",
+        "shielding-burnup = [0, 15]\n",
+        "shielding-burnup = [0, 20, 10]\n",
+        "shielding-burnup = [0, 0]\n",
+        "shielding-burnup = []\n",
+        "shielding-burnup = [0, 20]\nshielding-file = \"previous.msgpack\"\n",
+    ] {
+        let err = LatticeInput::parse(&history_branches(&format!("{HISTORY}{bad}"))).unwrap_err();
+        assert!(err.to_string().contains("shielding-burnup"), "{bad}: {err}");
+    }
+}
+
+#[test]
 fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
     // 分岐の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は公称のホウ素の自己遮蔽を使う。履歴のない分岐も同じ
     let with = |value: &str| {

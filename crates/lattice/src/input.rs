@@ -1824,6 +1824,7 @@ impl LatticeInput {
                     derivative,
                     perturbation,
                     shielding_file: h.shielding_file,
+                    shielding_burnup: None,
                     generalized,
                 })
             })
