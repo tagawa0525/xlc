@@ -943,12 +943,9 @@ fn solve_cell(
         if let Some(thermal) = &sweep.thermal
             && tracing::enabled!(tracing::Level::DEBUG)
         {
-            // 区間と D の値は、自由ガスの核種の核、範囲の上端、格子の最後の点と、格子点のレサジーとエネルギーで決まる
+            // 区間と D の値は、核の鍵（[`Thermal::kernel_key`]）と、格子点のレサジーとエネルギーで決まる
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            for l in 0..count {
-                thermal.gas(l).0.bits().hash(&mut hasher);
-            }
-            (high.to_bits(), u[u.len() - 1].to_bits()).hash(&mut hasher);
+            thermal.kernel_key(high, u[u.len() - 1]).hash(&mut hasher);
             shares.count_points(hasher.finish(), &thermal.work().points);
         }
         let counted = Instant::now();

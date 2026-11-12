@@ -805,9 +805,9 @@ type KernelTable = Mutex<HashMap<[u64; 2], (Arc<KernelPoint>, u64)>>;
 /// 核（[`Gas::bits`]）、範囲の上端、格子の最後の点、区間の細かさと、出射の格子点のレサジーとエネルギーだけで決まり、断面積、
 /// 個数密度、中性子束、ほかの格子点に依らないので、それらのビットを鍵にする。弾性散乱断面積は減速計算ごとに掛ける。
 ///
-/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたら格子点を足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の
-/// 始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は
-/// 多くが変わる）
+/// 持つ量は上限（[`KernelCache::begin`]）までで、届いたら今の自己遮蔽で使っていない格子点を 1 度捨て、それでも届けば格子点を
+/// 足さない（足さなかった格子点は減速計算ごとに作る）。自己遮蔽の始めに、前の自己遮蔽と今の自己遮蔽のどちらでも使わなかった
+/// 格子点を捨てる（状態の公称と摂動は同じ格子点を使い、燃焼点の間は多くが変わる）
 #[derive(Debug, Default)]
 pub struct KernelCache {
     tables: Mutex<HashMap<Vec<u64>, Arc<KernelTable>>>,
@@ -817,6 +817,8 @@ pub struct KernelCache {
     call: AtomicU64,
     /// 今の自己遮蔽の [値を使った格子点, 作った格子点, 上限で持たなかった格子点] の数（ログ）
     counts: [AtomicU64; 3],
+    /// 上限に届いて、今の自己遮蔽で使っていない格子点を捨てた自己遮蔽の番号
+    evicted: AtomicU64,
 }
 
 /// ロックの中では作り終えた値を引くか入れるだけで、表が途中の状態で残ることはないので、毒された表もそのまま使う
@@ -829,19 +831,30 @@ impl KernelCache {
     /// 格子点, 作った格子点, 上限で持たなかった格子点] の数を数え直す
     pub fn begin(&self, cap: u64) {
         let call = self.call.fetch_add(1, Ordering::Relaxed) + 1;
-        let mut bytes = 0;
-        // 格子点の無くなった核の表も捨てる（温度の分岐で核が変わるたびに表が増えるため）
-        lock(&self.tables).retain(|_, table| {
-            let mut table = lock(table);
-            table.retain(|_, (_, last)| *last + 1 >= call);
-            bytes += table.values().map(|(p, _)| p.bytes()).sum::<u64>();
-            !table.is_empty()
-        });
-        self.bytes.store(bytes, Ordering::Relaxed);
+        self.keep(|last| last + 1 >= call, true);
         self.cap.store(cap, Ordering::Relaxed);
         for count in &self.counts {
             count.store(0, Ordering::Relaxed);
         }
+    }
+
+    /// 最後に使った自己遮蔽の番号が `keep` を満たす格子点だけを残す。`empty` なら格子点の無くなった核の表も捨てる（温度の分岐で
+    /// 核が変わるたびに表が増えるため）。自己遮蔽の途中では捨てない（減速計算が持つ表が、捨てた後に引けない表になる）
+    fn keep(&self, keep: impl Fn(u64) -> bool, empty: bool) {
+        let mut removed = 0;
+        lock(&self.tables).retain(|_, table| {
+            let mut table = lock(table);
+            table.retain(|_, (p, last)| {
+                let kept = keep(*last);
+                if !kept {
+                    removed += p.bytes();
+                }
+                kept
+            });
+            !(empty && table.is_empty())
+        });
+        // ほかの減速計算が同時に足す分を消さないよう、捨てた分だけを引く
+        self.bytes.fetch_sub(removed, Ordering::Relaxed);
     }
 
     /// 持つ量の上限 (B。[`KernelCache::begin`])
@@ -875,9 +888,17 @@ impl KernelCache {
         found
     }
 
-    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）
+    /// 上限に `bytes` (B) の余地があるか（無ければ上限で持たなかった格子点に数える）。上限に届いたら、自己遮蔽ごとに 1 度、
+    /// 今の自己遮蔽で使っていない格子点（前の自己遮蔽の分。燃焼点が変わると多くが使われない）を捨てて余地を作る
     fn has_room(&self, bytes: u64) -> bool {
-        let room = self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed);
+        let fits =
+            || self.bytes.load(Ordering::Relaxed) + bytes <= self.cap.load(Ordering::Relaxed);
+        let mut room = fits();
+        let call = self.call.load(Ordering::Relaxed);
+        if !room && self.evicted.swap(call, Ordering::Relaxed) != call {
+            self.keep(|last| last == call, false);
+            room = fits();
+        }
         if !room {
             self.counts[2].fetch_add(1, Ordering::Relaxed);
         }
@@ -1355,7 +1376,6 @@ impl<'a> Thermal<'a> {
                 for (l, w) in held.starts.windows(2).enumerate() {
                     let cells = &held.cells[w[0] as usize..w[1] as usize];
                     self.all.extend(cells.iter().map(|c| (l, c.a, c.b)));
-                    self.work.built[l] += cells.len() as u64;
                 }
             }
             None => {
@@ -1395,7 +1415,7 @@ impl<'a> Thermal<'a> {
             let slots = u.len() - self.start;
             let bytes = slots * self.starts.len() * std::mem::size_of::<u32>()
                 + slots * std::mem::size_of::<Option<Held>>();
-            let cost = bytes.div_ceil(std::mem::size_of::<HeldCell>());
+            let cost = bytes.div_ceil(HELD_CELL_BYTES);
             if cost < self.room && u32::try_from(u.len()).is_ok() {
                 self.held_starts.reserve_exact(slots * self.starts.len());
                 self.held.resize_with(slots, || None);
@@ -1543,7 +1563,7 @@ impl<'a> Thermal<'a> {
 
     /// この減速計算の核の鍵: 自由ガスの核種のすべての [`Gas::bits`]、範囲の上端 `high`、格子の最後の点 `bottom`、区間の細かさの
     /// ビット（[`Gas::cells`] と [`Gas::correction`] が出射の格子点のほかに読む量のすべて）
-    fn kernel_key(&self, high: f64, bottom: f64) -> Vec<u64> {
+    pub(super) fn kernel_key(&self, high: f64, bottom: f64) -> Vec<u64> {
         self.gases
             .iter()
             .flat_map(Gas::bits)
