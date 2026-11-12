@@ -1437,7 +1437,7 @@ fn density_derivatives_take_the_weights_of_the_few_group_constants() {
                 nu_fission: neg(&few.nu_fission),
                 fission: neg(&few.fission),
                 scatter: few.scatter.iter().map(|r| neg(r)).collect(),
-                rate: xlc_format::table::RateResidual {
+                rate: Some(xlc_format::table::RateResidual {
                     fission: neg(&sigma.fission),
                     reactions: sigma
                         .reactions
@@ -1450,7 +1450,7 @@ fn density_derivatives_take_the_weights_of_the_few_group_constants() {
                     thermal_fission: sigma
                         .thermal_fission
                         .map(|f| -2.0 * f * sigma.fission.iter().sum::<f64>()),
-                },
+                }),
             });
         }
         t.validate().unwrap();
@@ -1482,14 +1482,15 @@ fn density_derivatives_take_the_weights_of_the_few_group_constants() {
             }
             // 反応率の微分も σᵢ と同じ重みで内挿する
             let sigma = &m.nuclides[0];
-            assert!(close(&d.rate.fission, &sigma.fission), "{bu}");
-            for (a, b) in d.rate.reactions.iter().zip(&sigma.reactions) {
+            let rate = d.rate.as_ref().unwrap();
+            assert!(close(&rate.fission, &sigma.fission), "{bu}");
+            for (a, b) in rate.reactions.iter().zip(&sigma.reactions) {
                 for (a, b) in a.channels.iter().zip(&b.channels) {
                     assert!(close(a, b), "{bu}");
                 }
             }
             let below = sigma.thermal_fission.unwrap() * sigma.fission.iter().sum::<f64>();
-            assert!(close(&[d.rate.thermal_fission.unwrap()], &[below]), "{bu}");
+            assert!(close(&[rate.thermal_fission.unwrap()], &[below]), "{bu}");
         }
     }
     // 微分を持たないテーブルは、内挿しても持たない

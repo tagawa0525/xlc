@@ -566,7 +566,7 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
             nu_fission: vec![0.2, -1.5 * scale],
             fission: vec![0.08, -0.6],
             scatter: vec![vec![2.5 * scale, -0.3], vec![0.0, 9.0 * scale]],
-            rate: xlc_format::table::RateResidual {
+            rate: Some(xlc_format::table::RateResidual {
                 fission: vec![-0.1 * scale, -2.0],
                 reactions: sigma
                     .reactions
@@ -581,7 +581,7 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
                     })
                     .collect(),
                 thermal_fission: Some(-3.0 * scale),
-            },
+            }),
         });
         m
     };
@@ -602,12 +602,15 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
             assert!(close(d.scatter[g][h], average(&|d| d.scatter[g][h], g)));
         }
         // 反応率の微分（ADR-0215）も σᵢ と同じ群の重み
-        assert!(close(d.rate.fission[g], average(&|d| d.rate.fission[g], g)));
-        for (r, reaction) in d.rate.reactions.iter().enumerate() {
+        assert!(close(
+            d.rate.as_ref().unwrap().fission[g],
+            average(&|d| d.rate.as_ref().unwrap().fission[g], g)
+        ));
+        for (r, reaction) in d.rate.as_ref().unwrap().reactions.iter().enumerate() {
             for (c, channel) in reaction.channels.iter().enumerate() {
                 assert!(close(
                     channel[g],
-                    average(&|d| d.rate.reactions[r].channels[c][g], g)
+                    average(&|d| d.rate.as_ref().unwrap().reactions[r].channels[c][g], g)
                 ));
             }
         }
@@ -622,11 +625,13 @@ fn mixed_density_derivatives_take_the_weights_of_the_mixed_constants() {
             .as_ref()
             .unwrap()
             .rate
+            .as_ref()
+            .unwrap()
             .thermal_fission
             .unwrap()
     };
     assert!(close(
-        d.rate.thermal_fission.unwrap(),
+        d.rate.as_ref().unwrap().thermal_fission.unwrap(),
         share * of(0) + (1.0 - share) * of(1)
     ));
     // 持たない核種は持たないまま。区間で持つかが違えばエラー
