@@ -1306,12 +1306,13 @@ struct Sweeper<'a> {
     representatives: Representatives,
 }
 
-/// 非等方散乱のスイープで、方位角ごとに作り直す配列。どちらも [領域][向き][極角][群] で、組の領域の分より長いことがある
+/// 非等方散乱のスイープで、組の中の方位角ごとに使う配列。どちらも [領域][向き][極角][群] で、組の領域の分より長いことがある
 /// （プールの配列を縮めない）。
 struct Directional {
-    /// 方向ごとの角度中性子束の平衡値 Σ_k Y_k(Ω) e_k
+    /// 方向ごとの角度中性子束の平衡値 Σ_k Y_k(Ω) e_k。`directional` が真空でない領域の欄だけを書く（真空の領域の欄には
+    /// ほかの組の値が残る）
     source: Vec<f64>,
-    /// 方向ごとの減衰の重み付き和
+    /// 方向ごとの減衰の重み付き和。すべての欄が 0 で受け取り、`fold` が 0 に戻して返す
     delta: Vec<f64>,
 }
 
@@ -1448,20 +1449,6 @@ impl<'a> Sweeper<'a> {
             }
         }
         source
-    }
-
-    /// 方位角 `azimuth` の、組の領域 `regions` の分の方向ごとの平衡値と、0 の減衰の和
-    fn directional_pair(
-        &self,
-        equilibrium: &[Vec<f64>],
-        azimuth: usize,
-        regions: &[usize],
-    ) -> Directional {
-        Directional {
-            source: self.directional(equilibrium, azimuth, regions),
-            // プールの減衰の和はすべての欄が 0（`sums`）
-            delta: take(&self.sums, regions.len() * 2 * self.width),
-        }
     }
 
     /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [組の中の領域][モーメント][群] に足し（`first` ならスイープの
@@ -1833,11 +1820,11 @@ impl<'a> Sweeper<'a> {
             .zip(&representatives.chunks)
             .try_for_each(|((tally, outputs), range)| {
                 let busy = timed.then(std::time::Instant::now);
-                // 非等方散乱のモーメントごとの減衰の和は、最初の `fold` が 0 から足す（`unfolded` はその前）
-                let mut unfolded = self.moments > 1;
-                tally.clear(!unfolded);
+                // 非等方散乱のモーメントごとの減衰の和は、`clear` でなく、組の最初の `fold` が 0 にしてから足す
+                tally.clear(self.moments == 1);
+                let mut first_fold = true;
                 tally.attenuation_seconds = 0.0;
-                // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに作り直す
+                // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに取り直す
                 let mut directional: Option<(usize, Directional)> = None;
                 for (position, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let index = representatives.tracks[position];
@@ -1848,13 +1835,15 @@ impl<'a> Sweeper<'a> {
                             .is_none_or(|(azimuth, _)| *azimuth != track.azimuth)
                     {
                         if let Some((azimuth, d)) = directional.take() {
-                            self.fold(d, azimuth, &mut tally.delta, unfolded);
-                            unfolded = false;
+                            self.fold(d, azimuth, &mut tally.delta, first_fold);
+                            first_fold = false;
                         }
-                        directional = Some((
-                            track.azimuth,
-                            self.directional_pair(equilibrium, track.azimuth, &tally.regions),
-                        ));
+                        let d = Directional {
+                            source: self.directional(equilibrium, track.azimuth, &tally.regions),
+                            // `sums` の配列はすべての欄が 0
+                            delta: take(&self.sums, tally.regions.len() * 2 * width),
+                        };
+                        directional = Some((track.azimuth, d));
                     }
                     // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0112）
                     let multiplicity = representatives.multiplicity[position];
@@ -2025,7 +2014,7 @@ impl<'a> Sweeper<'a> {
                     }
                 }
                 if let Some((azimuth, d)) = directional {
-                    self.fold(d, azimuth, &mut tally.delta, unfolded);
+                    self.fold(d, azimuth, &mut tally.delta, first_fold);
                 }
                 if let Some(c) = busy {
                     tally.busy_seconds = c.elapsed().as_secs_f64();
