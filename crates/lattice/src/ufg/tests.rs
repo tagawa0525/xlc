@@ -2381,6 +2381,15 @@ fn shared_kernels_give_the_transfers_of_fresh_ones() {
 }
 
 #[test]
+fn a_given_hold_memory_holds_the_carried_kernel_table_inside_it() {
+    // `ufg-hold-memory` の量は、前の自己遮蔽から残った自由ガスの核の表（ADR-0248）を含む全体で、新たに確保できるのはその残り
+    let gib = 1u64 << 30;
+    assert_eq!(hold_total(Some(10 * gib), 3 * gib).unwrap(), 7 * gib);
+    assert_eq!(hold_total(Some(gib), 3 * gib).unwrap(), 0);
+    assert_eq!(hold_total(Some(u64::MAX), 0).unwrap(), u64::MAX);
+}
+
+#[test]
 fn hold_budget_leaves_the_reserve_and_a_fifth_of_the_rest() {
     // 自己遮蔽の全体で持つ量は、使用可能メモリから OS などの 2 GiB を除いた 8 割。2 GiB に満たなければ持たない
     let gib = 1u64 << 30;
