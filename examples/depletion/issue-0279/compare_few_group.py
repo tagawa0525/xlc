@@ -5,7 +5,8 @@
   Richardson の外挿 D の差を、許容 max(2 e, 1e-4 |D|, 3 τ R / ε) と比べる。e = |D(ε/2) − D(ε)| / 3 は刻みの誤差の見積もり、
   3 τ R / ε は中性子束の判定 τ の相対の誤差が R の外挿に入る大きさ（compare_k_sensitivity.py の k の判定の項と同じ形）
 - 自己遮蔽を解き直した核種（`shielded`）: 暗黙の効きは、自己遮蔽を解き直した直接の摂動 D_s と D の差（案 I3 の量）。
-  自己遮蔽した物質の差を一般化随伴に掛けた値 I1（`shielded.first_order`）を D_s と同じ許容で比べる
+  自己遮蔽した物質の差を一般化随伴に掛けた値 I1（`shielded.first_order`）を D_s と、両方の刻みの誤差を含む同じ形の許容で比べる。
+  k の I1（随伴に掛けた値）も、自己遮蔽を解き直した k の直接の摂動と比べる
 - 反応度: 格子全体の 2 群の定数の無限媒質の k∞ = νΣfᵀ A⁻¹ χ（A = diag Σt − Σsᵀ。χ はテーブルの値で固定）の、定数による
   微分で、定数の変化を k の変化に直し、Δρ = Δk∞ / k² を pcm で書く。鏡面反射の格子では k∞ は MOC の k と一致する（反応率と
   中性子束を保存する均質化）。自己遮蔽を解き直した k の直接の摂動の差（Δk / k²）も書く。どちらも数密度を 1 割変えたときの値
@@ -42,6 +43,22 @@ def allowed(direct: dict, i: int, value: float, tau: float, epsilon: float) -> f
         2.0 * abs(fine - coarse) / 3.0,
         RELATIVE * abs(reference),
         3.0 * tau * abs(value) / epsilon,
+    )
+
+
+def k_allowed(shielded: dict, tau: float, epsilon: float) -> float:
+    """自己遮蔽を解き直した k の 1 次の変化と直接の摂動の比較の許容（両方の刻みの誤差、相対 1e-4、k の判定 τ が外挿に入る
+    3 τ / ε の大きい方。compare_k_sensitivity.py と同じ形）"""
+
+    def step(s: dict) -> float:
+        coarse, fine = s["central"]
+        return 2.0 * abs(fine - coarse) / 3.0
+
+    return max(
+        step(shielded["k_first_order"]),
+        step(shielded["k_direct"]),
+        RELATIVE * abs(shielded["k_direct"]["richardson"]),
+        3.0 * tau / epsilon,
     )
 
 
@@ -164,6 +181,11 @@ def compare(report: dict) -> dict:
                 * FRACTION
                 * (shielded["k_direct"]["richardson"] - k_direct[n["name"]])
                 / k**2,
+                "k_ok": abs(
+                    shielded["k_first_order"]["richardson"]
+                    - shielded["k_direct"]["richardson"]
+                )
+                <= k_allowed(shielded, report["k_tolerance"], epsilon),
                 "k_first_order_pcm": 1e5
                 * FRACTION
                 * (shielded["k_first_order"]["richardson"] - k_direct[n["name"]])
@@ -232,12 +254,14 @@ def main(arguments: list[str]) -> int:
             )
             for n in sorted(result["implicit"], key=lambda n: -abs(n["k_pcm"])):
                 top = max(n["rows"], key=lambda r: abs(r["per_value"]))
-                bad = [r for r in n["rows"] if not r["ok"]]
+                bad = [r["response"] for r in n["rows"] if not r["ok"]]
+                if not n["k_ok"]:
+                    bad.append("k")
                 failed |= bool(bad)
                 print(
                     f"{n['name']:8s} {n['pcm']:9.3f} {n['k_pcm']:9.3f} {n['k_first_order_pcm']:10.3f} "
                     f"{top['response']:13s} {top['per_value']:10.2e} {top['per_explicit']:10.2e} "
-                    f"{'ok' if not bad else 'OUTSIDE ' + ','.join(r['response'] for r in bad):>9s}"
+                    f"{'ok' if not bad else 'OUTSIDE ' + ','.join(bad):>9s}"
                 )
             if relative is not None:
                 terms = pair_estimate(result["implicit"], relative)

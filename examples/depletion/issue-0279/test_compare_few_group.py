@@ -56,6 +56,7 @@ def report(
         "k": k,
         "epsilon": 0.1,
         "flux_tolerance": 1e-11,
+        "k_tolerance": 1e-12,
         "nuclides": [
             {"name": "U-238", "density": 7e-3, "direct": {"richardson": -0.18}},
         ],
@@ -165,7 +166,6 @@ class ImplicitK(unittest.TestCase):
             "k_direct": {"central": [-0.17, -0.17], "richardson": -0.17},
         }
         r = report(-0.05, (-0.05, -0.05), shielded)
-        r["k_tolerance"] = 1e-12
         (n,) = cfg.compare(r)["implicit"]
         self.assertFalse(n["k_ok"])
         shielded["k_first_order"] = shielded["k_direct"]
