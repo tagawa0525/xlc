@@ -733,7 +733,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 let state = xlc_lattice::sensitivity::State {
                     library,
                     materials: state_materials,
-                    region_names: &geometry.region_materials,
+                    region_names: solved_materials(rod),
                     unique: &unique,
                     region_index: &region_index,
                     shielding: fuel,
