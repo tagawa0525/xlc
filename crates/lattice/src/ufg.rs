@@ -734,6 +734,10 @@ fn solve_cell(
                     .iter()
                     .map(|(_, column)| heap_bytes(column))
                     .sum::<u64>();
+            // 掃き直す格子点の飛程（[`HeldTracks`]）。掃き直す格子点は `Thermal::new` が決めるので、すべての格子点で数える
+            if options.sweeps != Some(1) {
+                work += held_tracks_bytes(u.len(), n);
+            }
             let thermal = Thermal::new(
                 gases.iter().map(|&(_, gas)| gas).collect(),
                 sigma,
@@ -754,12 +758,18 @@ fn solve_cell(
     };
     sweep.thermal = thermal;
     let start = sweep.thermal.as_ref().map_or(u.len(), Thermal::start);
+    // スイープが 1 回なら、持った飛程を使うスイープがない
+    let mut held_tracks = (sweep.thermal.is_some() && sweeps != Some(1)).then(|| HeldTracks {
+        start,
+        tracks: Vec::with_capacity(u.len() - start),
+    });
     pass.run(
         &mut sweep,
         &mut cursors,
         0..start,
         &mut times,
         &mut collisions,
+        &mut held_tracks,
     )?;
     if sweep.thermal.is_some() {
         let saved = sweep.save();
@@ -772,6 +782,7 @@ fn solve_cell(
                 start..u.len(),
                 &mut times,
                 &mut collisions,
+                &mut held_tracks,
             )?;
             count += 1;
             let change = sweep.thermal.as_mut().and_then(|t| t.finish(&sweep.flux));
@@ -790,6 +801,7 @@ fn solve_cell(
             cursors.clone_from(&saved_cursors);
         }
     }
+    drop(held_tracks);
     let held = sweep.thermal.as_ref().map_or(0, Thermal::held);
     if let Some(thermal) = &mut sweep.thermal {
         thermal.release();
@@ -979,6 +991,20 @@ fn check_sab_coverage(
     Ok(())
 }
 
+/// 掃き直す格子点（`start` から）の [格子点 − start] の飛程。飛程は格子点のリングの全断面積だけで決まり、掃き直しで変わらない
+/// ので、最初のスイープで求めて持ち、次のスイープからはそれを使う（結果はビットで同じ）
+struct HeldTracks {
+    start: usize,
+    tracks: Vec<Vec<Vec<f64>>>,
+}
+
+/// `points` 個の格子点の、`rings` 本のリングの飛程を [`HeldTracks`] に持つときの大きさ (B)
+fn held_tracks_bytes(points: usize, rings: usize) -> u64 {
+    let row = std::mem::size_of::<Vec<f64>>() + rings * std::mem::size_of::<f64>();
+    let point = std::mem::size_of::<Vec<Vec<f64>>>() + rings * row;
+    (points * point) as u64
+}
+
 /// 格子点の範囲を高いエネルギーから順に解くスイープの、変わらない入力。
 struct Pass<'a> {
     data: &'a [Data<'a>],
@@ -992,7 +1018,7 @@ struct Pass<'a> {
 
 impl Pass<'_> {
     /// 格子点 `range` を順に解く（`cursors` は核種の格子のカーソル、`times` は段ごとの経過時間に、`collisions` は衝突確率を
-    /// 求めた格子点の数に足す）
+    /// 求めた格子点の数に足す）。`held` の格子点の飛程は、持っていればそれを使い、なければ求めて持つ
     fn run(
         &self,
         sweep: &mut Sweep,
@@ -1000,6 +1026,7 @@ impl Pass<'_> {
         range: Range<usize>,
         times: &mut [Duration; 3],
         collisions: &mut usize,
+        held: &mut Option<HeldTracks>,
     ) -> Result<(), UfgError> {
         let Self {
             data,
@@ -1028,24 +1055,45 @@ impl Pass<'_> {
                 let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
                 cell.tracks(&totals).map_err(UfgError::from)
             };
-            let tracks = values
-                .par_iter()
-                .map(|row| match table {
-                    None => exact(row),
-                    Some((table, first)) => {
-                        let sigma: Vec<f64> =
-                            first.iter().map(|&i| total(&entries[i], row)).collect();
-                        match table.tracks(&sigma)? {
-                            Some(tracks) => Ok(tracks),
-                            // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
-                            None => exact(row),
+            let solve = || {
+                values
+                    .par_iter()
+                    .map(|row| match table {
+                        None => exact(row),
+                        Some((table, first)) => {
+                            let sigma: Vec<f64> =
+                                first.iter().map(|&i| total(&entries[i], row)).collect();
+                            match table.tracks(&sigma)? {
+                                Some(tracks) => Ok(tracks),
+                                // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
+                                None => exact(row),
+                            }
                         }
-                    }
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            *collisions += tracks.len();
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            };
+            // 塊は範囲の始めから CHUNK ごとなので、`held` の始めをまたがない
+            let slot = held
+                .as_ref()
+                .filter(|h| chunk.start >= h.start)
+                .map(|h| chunk.start - h.start..chunk.end - h.start);
+            let owned;
+            let tracks: &[Vec<Vec<f64>>] = match (held.as_mut(), slot) {
+                (Some(h), Some(r)) if r.end <= h.tracks.len() => &h.tracks[r],
+                (Some(h), Some(r)) if r.start == h.tracks.len() => {
+                    let solved = solve()?;
+                    *collisions += solved.len();
+                    h.tracks.extend(solved);
+                    &h.tracks[r]
+                }
+                _ => {
+                    owned = solve()?;
+                    *collisions += owned.len();
+                    &owned
+                }
+            };
             let collided = Instant::now();
-            for ((m, row), w) in chunk.zip(values).zip(&tracks) {
+            for ((m, row), w) in chunk.clone().zip(values).zip(tracks) {
                 let (e, below) = points[m];
                 sweep.point(m, row, w, e, below)?;
                 // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
