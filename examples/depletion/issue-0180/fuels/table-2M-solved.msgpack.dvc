@@ -1,0 +1,5 @@
+outs:
+- md5: a543edf4e6e16edb8a528e6bf4ea5d3b
+  size: 91818
+  hash: md5
+  path: table-2M-solved.msgpack

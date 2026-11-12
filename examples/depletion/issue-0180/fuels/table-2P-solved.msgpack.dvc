@@ -1,0 +1,5 @@
+outs:
+- md5: 8581e22410680b624aab65ddeb8b69fe
+  size: 179594
+  hash: md5
+  path: table-2P-solved.msgpack
