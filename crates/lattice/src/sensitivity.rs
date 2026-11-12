@@ -857,8 +857,8 @@ pub struct TableDerivatives<'a> {
 
 impl<'a> TableDerivatives<'a> {
     /// 状態 `state` の解 `solution`（前向きの収束した状態 `forward`）の、テーブルの少数群定数 `nominal`（境界 `bounds`）の応答の
-    /// 一般化随伴を、CMFD の反復の GMRES の判定 `tolerance` と再始動 `restart` で解く。随伴の固有値計算は `adjoint`（前の状態の
-    /// 随伴の収束した状態。`None` なら平らな初期値）から始め、収束した状態も返す。応答の値が `nominal` と丸めの範囲で一致しなければ、
+    /// 一般化随伴を、CMFD の反復の GMRES の判定 `tolerance` と再始動 `restart` で解く。随伴の固有値計算は平らな初期値から解く
+    /// （前の状態の随伴から始めると、チェックポイントからの再開（ADR-0196）で始める解が変わる）。応答の値が `nominal` と丸めの範囲で一致しなければ、
     /// 微分がテーブルの定数のものでないので止める
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -866,10 +866,9 @@ impl<'a> TableDerivatives<'a> {
         materials: &'a [&'a Material],
         options: &Options,
         (solution, forward): (&'a Solution, &Start),
-        adjoint: Option<&Start>,
         nominal: &FewGroup,
         (tolerance, restart): (f64, usize),
-    ) -> anyhow::Result<(Self, Start)> {
+    ) -> anyhow::Result<Self> {
         let groups = &state.library.groups;
         let coarse = nominal.total.len();
         let group_of = coarse_groups(groups, &nominal.bounds).context("table bounds")?;
@@ -900,7 +899,7 @@ impl<'a> TableDerivatives<'a> {
             materials,
             options,
             Some(state.symmetry),
-            adjoint,
+            None,
         )
         .context("adjoint eigenvalue")?;
         let adjoint_seconds = clock.elapsed().as_secs_f64();
@@ -928,22 +927,19 @@ impl<'a> TableDerivatives<'a> {
         )?;
         let derivatives = Derivatives::new(state)?;
         let sweeps = solve.sweeps.clone();
-        Ok((
-            Self {
-                materials,
-                region_index: state.region_index,
-                solution,
-                responses,
-                group_of,
-                coarse,
-                solve,
-                derivatives,
-                sweeps,
-                adjoint_iterations: adjoint_solution.iterations,
-                seconds: [adjoint_seconds, clock.elapsed().as_secs_f64()],
-            },
-            adjoint_state,
-        ))
+        Ok(Self {
+            materials,
+            region_index: state.region_index,
+            solution,
+            responses,
+            group_of,
+            coarse,
+            solve,
+            derivatives,
+            sweeps,
+            adjoint_iterations: adjoint_solution.iterations,
+            seconds: [adjoint_seconds, clock.elapsed().as_secs_f64()],
+        })
     }
 
     /// 核種 `name` の数密度を、それを正の数密度で持つ領域ごとに N_r に比例して変える向きの、自己遮蔽を固定した（案 I0）少数群定数の

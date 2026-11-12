@@ -478,6 +478,24 @@ pub fn history_branches(
         .iter()
         .map(|state| split(state))
         .collect::<anyhow::Result<Vec<_>>>()?;
+    // 一般化摂動の向きは核種を持つすべての物質に比例する。燃焼させない物質が追う核種を持てば、燃焼の領域だけを変える直接の摂動
+    // （ADR-0221）と向きが違うので、輸送を解く前に止める
+    if selection.generalized.is_some() {
+        for name in &selection.micro {
+            if let Some(m) = branch
+                .iter()
+                .chain(&references)
+                .flat_map(|(kept, _)| kept)
+                .find(|m| m.composition.iter().any(|(n, d)| n == name && *d > 0.0))
+            {
+                bail!(
+                    "micro nuclide {name} is in material `{}`, which is not depleted, so the generalized derivative \
+                     would not scale it like the direct perturbation (ADR-0247)",
+                    m.name
+                );
+            }
+        }
+    }
     // 値ごとの解く燃焼点: 棒のない値は公称でない状態の燃焼点、制御棒の値はその値の燃焼点（ADR-0225）。公称の状態は下で、
     // 間引いたかによらず求める
     let burnups: Vec<Vec<bool>> = rod_values
@@ -1543,7 +1561,7 @@ impl HistoryBranches {
     /// `derivative` だけに挙げた核種も、解いた暗黙の分を捨てずに I1 にする。ほかの核種は自己遮蔽を固定した陽の微分（案 I0）。
     /// 直接の摂動の核種（`derivative`）は、解いた摂動の組成の反応率の微視的断面積の前進差分を反応率の微分にし（少数群定数の微分は
     /// 一般化随伴のもの）、ほかの核種は反応率の微分を持たない。N̄ᵢ が 0 の点は直接の摂動と同じく
-    /// ∂Σ/∂N̄ᵢ を σᵢ、反応率の微分を 0 にする（#0206）。追う核種を燃焼させない物質に持つ状態は、向きが直接の摂動と違うのでエラー
+    /// ∂Σ/∂N̄ᵢ を σᵢ、反応率の微分を 0 にする（#0206）。追う核種を燃焼させない物質に持つ分岐は、作るときに止めてある
     #[allow(clippy::too_many_arguments)]
     pub fn add_generalized_derivatives(
         &self,
@@ -1570,20 +1588,7 @@ impl HistoryBranches {
                 self.micro_nuclides.len()
             );
         }
-        let (point, b) = (index / self.branch.len(), index % self.branch.len());
-        for name in &self.micro_nuclides {
-            if let Some(m) = self.branch[b]
-                .0
-                .iter()
-                .find(|m| m.composition.iter().any(|(n, d)| n == name && *d > 0.0))
-            {
-                bail!(
-                    "micro nuclide {name} is in material `{}`, which is not depleted, so the generalized derivative \
-                     would not scale it like the direct perturbation (ADR-0247)",
-                    m.name
-                );
-            }
-        }
+        let point = index / self.branch.len();
         let reference = self.reference(index);
         // [摂動の核種] の（少数群定数の微分、反応率の微分）。自己遮蔽した物質は解いたその場で 1 次の変化にし、核種の数だけ持たない
         let mut perturbed: Vec<Option<(FewGroupChange, Option<RateResidual>)>> = Vec::new();

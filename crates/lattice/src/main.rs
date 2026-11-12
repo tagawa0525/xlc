@@ -1043,12 +1043,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             };
                             // 随伴の固有値計算は平らな初期値から解く（前の状態の随伴から始めると、チェックポイントからの再開で
                             // 始める解が変わり、途中で止めない実行と微分が同じにならない。ADR-0196）
-                            let (table, _) = TableDerivatives::new(
+                            let table = TableDerivatives::new(
                                 &sensitivity_state,
                                 &materials,
                                 &options,
                                 (&solution, &converged),
-                                None,
                                 nominal,
                                 (generalized.tolerance, generalized.restart),
                             )

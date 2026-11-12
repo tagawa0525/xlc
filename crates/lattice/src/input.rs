@@ -1766,6 +1766,15 @@ impl LatticeInput {
                                  (micro {micro:?})"
                             ));
                         }
+                        // 自己遮蔽の履歴があれば、摂動の組成でも自己遮蔽はその履歴の組成のまま（`perturbed_reference_state`）なので、
+                        // 解き直す核種の微分は黙って案 I0 と同じになる
+                        if !shielded.is_empty() && h.shielding_file.is_some() {
+                            return Err(
+                                "[history] generalized shielded solves the self-shielding at the perturbed composition, \
+                                 which shielding-file fixes to its own (ADR-0247)"
+                                    .to_string(),
+                            );
+                        }
                         Some(GeneralizedDerivatives {
                             tolerance,
                             restart,
