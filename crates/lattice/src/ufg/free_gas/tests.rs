@@ -585,6 +585,39 @@ fn a_full_kernel_cache_keeps_its_points_and_drops_the_unused_at_the_next_shieldi
 }
 
 #[test]
+fn a_full_kernel_table_gives_way_to_the_points_of_the_current_shielding() {
+    // 上限まで埋めた格子点が次の自己遮蔽で使われなければ（燃焼点が変わり格子が変わる）、今の自己遮蔽の格子点が上限に届いたとき
+    // それを捨てて入れる
+    let grid = test_grid();
+    let moved: Vec<f64> = grid
+        .iter()
+        .enumerate()
+        .map(|(k, &x)| {
+            if k == 0 || k == grid.len() - 1 {
+                x
+            } else {
+                0.5 * (x + grid[k + 1])
+            }
+        })
+        .collect();
+    let probe = KernelCache::default();
+    probe.begin(u64::MAX);
+    swept_on(&grid, 1.0, usize::MAX, Some(&probe));
+    let cap = probe.bytes();
+    let kernels = KernelCache::default();
+    kernels.begin(cap);
+    swept_on(&grid, 1.0, usize::MAX, Some(&kernels));
+    // 前の自己遮蔽で使った格子点は残る
+    kernels.begin(cap);
+    assert_eq!(kernels.bytes(), cap);
+    swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
+    let (_, _, again) = swept_on(&moved, 1.0, usize::MAX, Some(&kernels));
+    // 動かした格子の 2 本目は、ほとんどの格子点を表から引く（上限は元の格子の分で、動かした格子の格子点の数はほぼ同じ）
+    let alone = swept_on(&moved, 1.0, usize::MAX, None).2;
+    assert!(4 * again < alone, "{again} of {alone}");
+}
+
+#[test]
 fn an_infinite_multiple_of_kt_leaves_the_free_gas_uncapped_at_any_temperature() {
     // 上限なし（`upper = inf`、`heavy = inf`）は、kT が 0 でもどの入射も上限より下にする（無限大 × 0 の NaN にしない）
     for temperature in [0.0, 600.0] {
