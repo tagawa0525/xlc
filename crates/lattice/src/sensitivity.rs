@@ -393,6 +393,17 @@ pub fn evaluate(
     start: Option<&Start>,
     mut reshield: Option<&mut Reshield>,
 ) -> anyhow::Result<(Solution, Start, Report)> {
+    // 解く前に分かる入力の誤りは、前向きと随伴の固有値計算の前に止める
+    if let Some(f) = &input.few_group {
+        coarse_groups(&state.library.groups, &f.bounds)
+            .context("[sensitivity.few-group] bounds")?;
+        if !f.shielded.is_empty() && reshield.is_none() {
+            bail!(
+                "[sensitivity.few-group] shielded solves the self-shielding of the state again, which needs a \
+                 self-shielded state solved from its own composition (not from a reference state)"
+            );
+        }
+    }
     let materials: Vec<&Material> = state
         .region_index
         .iter()
@@ -441,7 +452,10 @@ pub fn evaluate(
             derivative: (density > 0.0).then(|| relative / density),
             direct: None,
         });
-        weighted_changes.push(weighted);
+        // 少数群定数の微分だけが後で使う（核種と物質の数だけの群定数の行列を持たない）
+        if input.few_group.is_some() {
+            weighted_changes.push(weighted);
+        }
     }
     let derivative_seconds = clock.elapsed().as_secs_f64();
     let few_group = match &input.few_group {
@@ -478,7 +492,7 @@ pub fn evaluate(
     let few_group_derivative_seconds = clock.elapsed().as_secs_f64();
     let clock = Instant::now();
     if let Some(epsilon) = input.direct {
-        for (n, nuclide) in nuclides.iter_mut().enumerate() {
+        for (position, nuclide) in nuclides.iter_mut().enumerate() {
             let changes = derivatives.changes(&nuclide.name);
             let mut k = [0.0; 4];
             let mut responses: [Vec<f64>; 4] = Default::default();
@@ -513,7 +527,7 @@ pub fn evaluate(
                 central: steps.central,
                 richardson: steps.richardson,
             });
-            if let Some(f) = few_group_nuclides.get_mut(n) {
+            if let Some(f) = few_group_nuclides.get_mut(position) {
                 f.direct = Some(response_steps(&responses, epsilon));
             }
         }
