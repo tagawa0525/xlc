@@ -39,6 +39,64 @@ pub struct SensitivityInput {
     /// この入力のすべての MOC の判定（`None` なら `Options` の既定）
     pub k_tolerance: Option<f64>,
     pub flux_tolerance: Option<f64>,
+    /// 一般化随伴の固定源の問題の比較（ADR-0247 の段 3。`None` なら解かない）
+    pub generalized: Option<GeneralizedInput>,
+}
+
+/// `[sensitivity.generalized]` の入力: 少数群定数の比の応答の一般化随伴を、収束の方法ごとに解いて比べる（ADR-0247 の段 3）
+#[derive(Debug, Clone, PartialEq)]
+pub struct GeneralizedInput {
+    /// 少数群の境界 (eV、降順。ライブラリの群の境界から選ぶ)
+    pub bounds: Vec<f64>,
+    pub responses: Vec<Response>,
+    pub methods: Vec<Method>,
+    /// 一般化随伴の反復の判定（`GeneralizedOptions::tolerance`）
+    pub tolerance: f64,
+    /// 差を比べる参照の方法と判定（`None` なら比べない）
+    pub reference: Option<(Method, f64)>,
+}
+
+/// 格子全体で均質化した少数群定数の比の応答 R = ⟨h₁, φ⟩ / ⟨h₂, φ⟩（h₂ は少数群 G の細かい群で 1。番号は 0 始まり）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Response {
+    /// Σt,G（h₁ = Σt）
+    Total(usize),
+    /// νΣf,G
+    NuFission(usize),
+    /// Σf,G
+    Fission(usize),
+    /// P0 の散乱 Σs,G→H（h₁ は細かい群 g ∈ G の、H の細かい群への散乱の和）
+    Scatter(usize, usize),
+}
+
+impl std::fmt::Display for Response {
+    /// 入力と結果の名前（少数群は 1 始まり）
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Response::Total(g) => write!(f, "total-{}", g + 1),
+            Response::NuFission(g) => write!(f, "nu-fission-{}", g + 1),
+            Response::Fission(g) => write!(f, "fission-{}", g + 1),
+            Response::Scatter(g, h) => write!(f, "scatter-{}-{}", g + 1, h + 1),
+        }
+    }
+}
+
+/// 一般化随伴の収束の方法（`GeneralizedMethod`。CMFD の判定は状態を解いた MOC のもの）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Method {
+    SourceIteration,
+    Cmfd,
+    Gmres { restart: usize },
+}
+
+impl std::fmt::Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Method::SourceIteration => write!(f, "source-iteration"),
+            Method::Cmfd => write!(f, "cmfd"),
+            Method::Gmres { .. } => write!(f, "gmres"),
+        }
+    }
 }
 
 impl SensitivityInput {

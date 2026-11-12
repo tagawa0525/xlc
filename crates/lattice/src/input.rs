@@ -1569,6 +1569,7 @@ impl LatticeInput {
                     direct: s.direct,
                     k_tolerance: s.k_tolerance,
                     flux_tolerance: s.flux_tolerance,
+                    generalized: None,
                 })
             })
             .transpose()
