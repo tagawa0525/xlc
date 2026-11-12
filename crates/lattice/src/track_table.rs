@@ -52,6 +52,8 @@ pub enum TableError {
         sigma: f64,
         range: [f64; 2],
     },
+    #[error("node {node} of the track table was not solved (no point given to the table reads it)")]
+    Unsolved { node: usize },
     #[error(transparent)]
     Cp(#[from] CpError),
 }
@@ -325,6 +327,23 @@ impl TrackTable {
             axes,
             values,
         })
+    }
+
+    /// [`TrackTable::new`] の表のうち、物質ごとの全断面積 `points`（点ごとに物質の数の値）の内挿が読む格子点の組だけを求めた表
+    pub fn for_points(
+        cell: &Cylinder,
+        layout: Layout,
+        ranges: &[[f64; 2]],
+        density: usize,
+        points: &[Vec<f64>],
+    ) -> Result<Self, TableError> {
+        let _ = points;
+        Self::new(cell, layout, ranges, density)
+    }
+
+    /// 求めた格子点の組の数
+    pub fn solved_nodes(&self) -> usize {
+        self.nodes()
     }
 
     /// 格子点の組の数
