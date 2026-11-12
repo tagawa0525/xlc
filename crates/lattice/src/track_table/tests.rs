@@ -369,3 +369,16 @@ fn tables_for_points_solve_only_the_nodes_their_points_read() {
         Err(TableError::Unsolved { .. })
     ));
 }
+
+#[test]
+fn tables_for_points_reject_points_of_other_material_counts() {
+    // 物質の数の違う点は、`tracks` と同じく物質の数のエラー（短い点を 0 で埋めて範囲の外とせず、長い点を切り詰めない）
+    for point in [vec![3.3, 0.9], vec![3.3, 0.9, 1.43, 1.0]] {
+        let result = TrackTable::for_points(&cell(), layout(), &RANGES, 4, &[point]);
+        assert!(
+            matches!(result, Err(TableError::Materials { materials: 3, .. })),
+            "{:?}",
+            result.err()
+        );
+    }
+}
