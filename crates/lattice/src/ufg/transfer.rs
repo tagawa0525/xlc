@@ -58,8 +58,11 @@ pub struct ShareCellCache {
 /// 自己遮蔽の間で持てば作り直さずに済む量
 #[derive(Debug, Default)]
 struct Census {
-    /// 鍵ごとの、最後に数えた自己遮蔽（今の燃焼点の鍵を残し、燃焼点の境で捨てる。燃焼の全体の鍵を持ち続けない）
+    /// 鍵ごとの、最後に数えた自己遮蔽（今の燃焼点の鍵と直前の自己遮蔽の鍵を残し、燃焼点の境でほかを捨てる。燃焼の全体の鍵を
+    /// 持ち続けない）
     seen: HashMap<[u64; 3], u64>,
+    /// 今の燃焼点の最初の自己遮蔽の番号
+    start: u64,
     /// 今の自己遮蔽の番号と、その評価の回数: [全体, 今の自己遮蔽で初めての鍵の分, 直前の自己遮蔽にもない鍵の分, 今の燃焼点の
     /// それより前の自己遮蔽のどれにもない鍵の分]
     call: u64,
@@ -121,18 +124,24 @@ impl ShareCellCache {
     /// 上端、格子の最後の点のビットのハッシュ）
     pub(super) fn count_points(&self, kernel: u64, points: &[(u64, u64, u64, u64)]) {
         let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
-        let call = census.call;
+        let (call, start) = (census.call, census.start);
         for &(u, e, evaluations, bytes) in points {
             census.evaluations[0] += evaluations;
             match census.seen.get_mut(&[kernel, u, e]) {
                 Some(last) if *last == call => {}
                 Some(last) => {
-                    let previous = *last + 1 == call;
+                    let (previous, earlier) = (*last + 1 == call, *last >= start);
                     *last = call;
                     census.evaluations[1] += evaluations;
                     census.bytes[0] += bytes;
                     if !previous {
                         census.evaluations[2] += evaluations;
+                    }
+                    // 直前の燃焼点の鍵は、今の燃焼点では初めての鍵
+                    if !earlier {
+                        census.evaluations[3] += evaluations;
+                        census.bytes[1] += bytes;
+                        census.bytes[2] += bytes;
                     }
                 }
                 None => {
@@ -166,17 +175,18 @@ impl ShareCellCache {
             let (key, kelvin) = keys[l as usize];
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             (key, u, e).hash(&mut hasher);
+            let key = hasher.finish();
             let counts = nuclide_cells.entry(kelvin.round() as u32).or_default();
             let cells = u64::from(cells);
             counts[0] += cells;
-            match nuclide_seen.get_mut(&hasher.finish()) {
+            match nuclide_seen.get_mut(&key) {
                 Some(last) if *last == call => {}
                 Some(last) => {
                     *last = call;
                     counts[1] += cells;
                 }
                 None => {
-                    nuclide_seen.insert(hasher.finish(), call);
+                    nuclide_seen.insert(key, call);
                     counts[1] += cells;
                     counts[2] += cells;
                     counts[3] += cells;
@@ -185,10 +195,12 @@ impl ShareCellCache {
         }
     }
 
-    /// 次の燃焼点に進む: 重なりの計数の鍵を捨てる（DEBUG のログ。[`ShareCellCache::census`] は燃焼点の中の重なりを数える）
+    /// 次の燃焼点に進む: 直前の自己遮蔽のほかの鍵を捨て、燃焼点の中の重なりを数え直す（DEBUG のログ。[`ShareCellCache::census`]）
     pub fn next_point_census(&self) {
         let mut census = self.census.lock().unwrap_or_else(PoisonError::into_inner);
-        census.seen = HashMap::new();
+        let call = census.call;
+        census.start = call;
+        census.seen.retain(|_, last| *last + 1 == call);
         census.nuclide_seen = HashMap::new();
         census.bytes[2] = 0;
         for counts in census.nuclide_cells.values_mut() {
@@ -224,7 +236,11 @@ impl ShareCellCache {
             new,
             earlier,
             bytes: [call_bytes, earlier_bytes, point_bytes],
-            keys: census.seen.len(),
+            keys: census
+                .seen
+                .values()
+                .filter(|&&last| last >= census.start)
+                .count(),
             nuclides,
         }
     }
