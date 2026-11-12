@@ -335,8 +335,32 @@ UFG の微分の式: 格子点の式 V_j F_j = Σ_i W_ji(Σ) q_i（q_i = k_i + c
   比例する応答（源が丸めだけ）は、中性子束の形によらないので、一般化随伴を解かず、変化を分子の項だけにする
 - 真空の区間の Γ（段 4）: 角度中性子束の積のスイープ（`Sweeper::products`）は、真空の区間で両方の問題の角度中性子束を等方な線源の
   q / 4π の傾きで進める（`Sweeper::sweep` と同じ）。固有値計算の φ と φ† は真空に線源がないので変わらない
-- 反応率の微視的断面積の微分（`rate`）: 核種ごとの応答で、G では核種の数だけ随伴が増えるので、G の対象にしない。挙げた核種の分を
-  D2 の直接の摂動で作るか、G の随伴を足すかは、テーブルへの出力の段（段 5）で #0190 の R の経路と一緒に決める
+- テーブルへの出力（段 5）: `[history]` に `generalized = { tolerance, restart, shielded }` を足す（crates/lattice/src/input.rs、
+  crates/lattice/src/history.rs の `HistoryBranches::add_generalized_derivatives`、crates/lattice/src/sensitivity.rs の `TableDerivatives`）。
+  書かなければ今のまま（`derivative` の核種の D2、ほかは σᵢ）で、既定の挙動は変えない。書けば、状態ごとに:
+  - 状態の解の随伴の固有値計算（同じ値の形状の前の状態の随伴の収束した状態から始める。前向きの ADR-0195 と同じ）と、テーブルの
+    少数群定数の 10 項目の一般化随伴（CMFD の反復の GMRES。判定と再始動は入力で、既定は無い）を解き、`micro` のすべての核種に
+    陽の微分（I0）を書く。応答の値はテーブルの格子全体の少数群定数と相対 1e-10 で比べ、外れれば止める（段 4 と同じ）
+  - `shielded` の核種（I1）は、摂動の組成（燃焼の領域の数密度を (1 + ε) 倍。ε は `perturbation`）の自己遮蔽を D2 と同じ解き方
+    （核種ごとの `BranchShielder`、参照から作る状態は摂動の参照から）で解き直し、[領域] の物質の 1 次の変化を ε N̄ᵢ で割る。陽の分は
+    物質について線形で厳密、暗黙の分は前進差分。段 4 の I1（±ε、±ε/2 の中心差分と外挿で自己遮蔽 4 回）は検証の形で、テーブルは
+    D2 と同じく自己遮蔽 1 回にする
+  - 向きと N̄ᵢ は D2 と同じ（燃焼の領域の数密度に比例し、その値の格子で均質化した数密度で割る）。G の向きは核種を持つすべての物質に
+    比例するので、燃焼させない物質に追う核種がある状態はエラーにする（黙って別の向きの微分を書かない）。N̄ᵢ = 0 の点は D2 と同じく σᵢ（#0206）
+- 反応率の微視的断面積の微分（`rate`。ADR-0215 の自分の数密度の項、#0190 の候補 (e)）: G の対象にしない。`derivative` に挙げた核種
+  （2A では Pu-240）は、G のときも D2 の摂動の輸送を解き、その反応率の微視的断面積の前進差分を `rate` にする（少数群定数の微分は
+  G のもので、D2 の値は捨てる）。挙げない核種は `rate` を持たず、core は自分の数密度の項を足さない。比べた案:
+  - G の随伴を足す: 反応率の微視的断面積は核種ごとの応答（核分裂 2、チェーンの経路の数 × 2、収率の境界より下の核分裂 1）で、分母の
+    重みも核種の数密度（h₂ が 1 でない）なので、応答の源の形を広げ、核種ごとに十数本の随伴を足す。2A の 1 本約 5.3 秒（Slurm 785）
+    から十数本で約 1 分と、D2 の 1 回（約 61 秒。大半は自己遮蔽）と同じ桁で、自己遮蔽による暗黙の分は別に要る（見込みで、測っていない）
+  - I1 の自己遮蔽の差だけで作る: 自己遮蔽による σᵢ の変化だけで、中性子束の形の変化を落とす。Pu-240 の 1.06 eV の共鳴は UFG の
+    範囲の外で、自分の分は MOC の細かい群の中性子束のくぼみとして入る（ADR-0221 の背景）ので、主な分を落とす
+  - 微分を持たない核種の `rate` を 0 にする: 形式は変えずに済むが、求めていない値を 0 と書き、黙ったフォールバックになるので採らない
+  反応率の微分を持つ核種は今と同じく入力で挙げる形のままで、G で 31 核種に広げるかは #0190 で決める
+- テーブルの形式: `MicroDerivative` の `rate` を、持たない核種はキーを書かない項目にした（nil はエラー。状態の間で有無が同じことを
+  確かめる。crates/format の `MicroDerivative`）。D2 は今までどおり書くので、今までのテーブルはバイトで同じで読める（作り直すものは無い）。
+  core は `rate` を持つ核種だけに自分の数密度の項を足す（crates/core/src/state.rs の `accumulate_own_density_rates`）。線形の補正の係数と
+  熱群の νΣf の指標 P は、微分を持つ核種のすべてに微分を使う（`linear_coefficients`。ADR-0221 の時点で核種によらない形）
 - 理由: G は 31 核種すべての陽の微分を、状態ごとに随伴 11 本で、差分の刻みの誤差なしに出す。D1 と T は本数が核種の数に比例する。
   暗黙の分は決めたときに大きさを測っていなかったので、I0 と、その参照になる I1 を両方持ち、I3 で 31 核種の暗黙の分を測ってから I2 を
   作るかを決めることにした（段 4 で測った。「帰結」と「確認」）
@@ -370,9 +394,8 @@ UFG の微分の式: 格子点の式 V_j F_j = Σ_i W_ji(Σ) q_i（q_i = k_i + c
   遅くない
 - 段階の計画は #0279。段 1（随伴の固有値計算）は、crates/lattice/src/material.rs の `Material::adjoint` と crates/lattice/src/moc.rs の
   `solve_adjoint` を足した（既定の挙動は変えない）
-- テーブルの形式: 31 核種に陽の微分を持たせ、`rate` を挙げた核種だけにするなら、crates/format の `MicroDerivative` を分ける変更になる
-  （段 5）。読めなくなる出力は `derivative` を持つ入力（examples/depletion の branches、history、issue-0180 の 10 個の TOML）のテーブルで、
-  作り直しの時間は段 5 で数える。この段では形式を変えない
+- テーブルの形式（段 5）: `MicroDerivative` の `rate` を省ける項目にした（決定と理由の「テーブルの形式」）。読めなくなる出力は無く、
+  作り直すテーブルも無い。`lattice histories`（ADR-0215 の R）は係数を `linear_coefficients` で引くので、G のテーブルからも同じ形で作れる
 
 ### 確認
 
@@ -425,3 +448,9 @@ UFG の微分の式: 格子点の式 V_j F_j = Σ_i W_ji(Σ) q_i（q_i = k_i + c
   `tangents_solve_the_same_spectrum_as_without`（飛程を微分する向きがあっても減速計算の結果がビットで同じ、向き 0 の変化は 0）、
   `tangent_directions_must_follow_the_ring_compositions`、`tangents_stop_with_the_settings_they_do_not_cover`（飛程の表、間引いた
   格子、自由ガスでは止まる）
+- 段 5 のテスト: crates/lattice/src/history/tests.rs の `generalized_derivatives_*`（燃料と水のピンの燃焼度 2.0 の状態で、自己遮蔽を
+  解き直す U-235 と Xe-135 の微分（I1）の ε = 0.04、0.02 の外挿が、直接の摂動（D2）の同じ外挿と、外挿の残りの誤差の見積もり
+  （D2 の 0.02、0.01 の外挿との差）の 2 倍と中性子束の判定の項の和の中で一致する。直接の摂動の核種の反応率の微分は D2 とビットで
+  同じで、ほかの核種は持たない。N̄ᵢ = 0 の点は σᵢ。燃焼させない物質に追う核種があれば止める）、crates/lattice/src/input/tests.rs の
+  `history_generalized_derivatives_*`、crates/format の `density_derivatives_without_rate_derivatives_*` と
+  `an_explicit_nil_rate_derivative_is_an_error`、crates/core の `density_derivatives_without_rate_derivatives_add_no_own_density_term`
