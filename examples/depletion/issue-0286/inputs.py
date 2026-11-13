@@ -66,6 +66,7 @@ CP_VARIANTS = {
     "cp-combined": CP_COMBINED,
     "cp-share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
     "cp-share-1e-4-combined": "ufg-free-gas = { share = 1e-4 }\n" + CP_COMBINED,
+    "cp-share-1e-4-points-6": "ufg-free-gas = { share = 1e-4 }\nufg-cp-points = 6\n",
 }
 # 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
 CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
@@ -168,7 +169,7 @@ def assembly(name: str) -> str:
 
 
 def mox_burned() -> str:
-    """mox-history.toml の `[depletion]` より前に、少数群定数の出力と、履歴と同じ条件の 1 状態の分岐と `[history]` を足したもの"""
+    """mox-history.toml の `[depletion]` より前（UFG の格子の間引きを含む）に、少数群定数の出力と、履歴と同じ条件の 1 状態の分岐と `[history]` を足したもの"""
     source = "issue-0286/mox-history.toml"
     text = (HERE / "mox-history.toml").read_text()
     body = text[text.find("library = ") : text.find("[depletion]")]
@@ -176,8 +177,7 @@ def mox_burned() -> str:
         body,
         'library = "../p2/depletion.msgpack"\n',
         'library = "../p2/depletion.msgpack"\n'
-        'few-group = { output = "{pin-table}", bounds = [1e7, 0.625, 1e-5] }\n'
-        "ufg-tolerance = 1e-4\n",
+        'few-group = { output = "{pin-table}", bounds = [1e7, 0.625, 1e-5] }\n',
         source,
     )
     fuels = ", ".join(f'"fuel-{k}"' for k in range(5))
