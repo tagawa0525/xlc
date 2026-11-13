@@ -1,0 +1,152 @@
+# #0286 の自己遮蔽の近似を燃焼した MOX の集合体で確かめるための、MOX の 17×17 の集合体の燃焼の履歴。仕様書の無い問題で、
+# OpenMC の参照解は作らず、検証の記録にも載せない（xlc どうしの差を測る分岐の組成の出どころ）。
+# - 形状、離散化、燃焼度の点、出力密度、燃焼の領域は ../p2/lattice-2A.toml と同じ（手でコピーした。燃焼の領域は燃料の物質ごと、
+#   対称操作の組ごとに 1 つ。ADR-0173）
+# - 状態は ../p9-product/lattice-2A.toml と同じ ADR-0239 の公称（燃料 900 K、被覆管と減速材 580 K、ホウ素 650 ppm）
+# - 燃料は LWR MOX ピンセルの MOX-1（../lattice-mox1-rings1.toml、ADR-0206）の組成で、Pu の量で 3 つのゾーンに分ける。配置は
+#   C5G7 の MOX の集合体（../../c5g7/c5g7.toml。内側 100 本 8.7%、その外 100 本 7.0%、外周 64 本 4.3%。案内管と計装管の位置は 2A と同じ）。
+#   内側（mox-high）は MOX-1 のまま、mox-mid と mox-low は Pu と Am-241 の数密度に 7.0/8.7 と 4.3/8.7 を掛け、重金属の原子の数が
+#   変わらないよう U-235 と U-238 を同じ比で増やした（O-16 は同じ）。Pu と Am の重金属の中の原子の割合は 11.0%、8.85%、5.44%。
+#   比を C5G7 から借りたほかは出典が無い（実際の MOX の集合体に近い形にするための、この問題での選択）
+# - 自己遮蔽は今の main の既定（どの核種も自由ガス。`ufg-free-gas` の `share` を書かない）で、衝突確率の求積の点は既定の 16 を
+#   明示する（求積の既定が変わっても同じ履歴を作り直せるように）。`share` は main の入力に「絞らない」の書き方が無いので書けず、
+#   その既定が変われば、この入力は同じ履歴を作らない。`ufg-hold-memory` は結果をビットで変えない（ADR-0213）ので、同時に
+#   流れるほかのジョブとメモリを分けるために 32 GiB に抑える
+library = "../p2/depletion.msgpack"
+ufg-tolerance = 1e-4
+ufg-cp-points = 16
+ufg-hold-memory = 32
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl",
+  "pl  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pl",
+  "pl  pm  pm  pm  pm  gt  pm  pm  gt  pm  pm  gt  pm  pm  pm  pm  pl",
+  "pl  pm  pm  gt  pm  ph  ph  ph  ph  ph  ph  ph  pm  gt  pm  pm  pl",
+  "pl  pm  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pm  pl",
+  "pl  pm  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  gt  ph  ph  gt  ph  ph  it  ph  ph  gt  ph  ph  gt  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  pm  pl",
+  "pl  pm  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pm  pl",
+  "pl  pm  pm  gt  pm  ph  ph  ph  ph  ph  ph  ph  pm  gt  pm  pm  pl",
+  "pl  pm  pm  pm  pm  gt  pm  pm  gt  pm  pm  gt  pm  pm  pm  pm  pl",
+  "pl  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pl",
+  "pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl",
+]
+
+[material.mox-high]
+temperature = 900
+nuclides = { U-235 = 5.1050e-05, U-238 = 2.0370e-02, Pu-238 = 4.6690e-05, Pu-239 = 1.4650e-03, Pu-240 = 5.6910e-04, Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }
+
+[material.mox-mid]
+temperature = 900
+nuclides = { U-235 = 5.2283e-05, U-238 = 2.0862e-02, Pu-238 = 3.7567e-05, Pu-239 = 1.1787e-03, Pu-240 = 4.5790e-04, Pu-241 = 2.1829e-04, Pu-242 = 1.1369e-04, Am-241 = 2.4363e-05, O-16 = 4.5880e-02 }
+
+[material.mox-low]
+temperature = 900
+nuclides = { U-235 = 5.4241e-05, U-238 = 2.1643e-02, Pu-238 = 2.3077e-05, Pu-239 = 7.2408e-04, Pu-240 = 2.8128e-04, Pu-241 = 1.3409e-04, Pu-242 = 6.9838e-05, Am-241 = 1.4966e-05, O-16 = 4.5880e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# ../p9-product/lattice-2A.toml と同じ（減速材の格子点 580 K の密度、公称のホウ素 650 ppm。ADR-0239）
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+# MOX の燃料のピン（内側、その外、外周）。形状は 2A の燃料のピンと同じ
+[cell.ph]
+zones = [
+  { material = "mox-high", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[cell.pm]
+zones = [
+  { material = "mox-mid", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[cell.pl]
+zones = [
+  { material = "mox-low", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[depletion]
+chain = "../chain.msgpack"
+power = 38.41
+burnup = [
+  0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5,
+  4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+  14, 15, 16, 18, 20, 22, 24, 26, 28, 30,
+  32, 34, 36, 38, 40, 44, 48, 52, 56, 60,
+]
+materials = ["mox-high", "mox-mid", "mox-low"]
+output = "lattice-mox-assembly.msgpack"
