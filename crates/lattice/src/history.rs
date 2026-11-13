@@ -25,6 +25,8 @@
 //! micro = ["U-235", "Pu-240"]          # ミクロ燃焼で追う核種（ADR-0216）
 //! derivative = ["Pu-240"]              # 数密度の微分を持つ核種（micro から選ぶ。ADR-0221）
 //! perturbation = 0.1                   # 微分の摂動の割合（省略すると 0.1。ADR-0221）
+//! derivative-shielding = "solved"      # 摂動の組成の自己遮蔽を解き直す（省略すると "fixed"、状態の自己遮蔽のまま。generalized は
+//!                                      # いつも解き直し、書けない。ADR-0249）
 //! ```
 //!
 //! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。`shielding-file` を
@@ -32,8 +34,11 @@
 //! `shielding-burnup` を与えると、その点の間の燃焼点は、その前で最後のその点の組成で同じく自己遮蔽する（[`HistoryBranches::shield_at`]）。
 //!
 //! 数密度の微分（ADR-0221）は、状態ごとに、燃焼の領域の微分の核種の数密度だけを (1 + ε) 倍した摂動の組成を解いた格子全体の少数群定数
-//! と、その核種の反応率の微視的断面積（ADR-0215 の自分の数密度の項）から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成の自己遮蔽は公称の組成と同じ扱い（参照から作る状態は、参照の
-//! 組成も同じく変えた摂動の参照から作る。`shielding-file` か `shielding-burnup` を与えれば、自己遮蔽はその組成のまま）。
+//! と、その核種の反応率の微視的断面積（ADR-0215 の自分の数密度の項）から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成は、既定では
+//! 状態の自己遮蔽のまま燃焼の領域の物質だけを摂動の組成で作り直し（ADR-0249）、`derivative-shielding = "solved"` では自己遮蔽を
+//! 公称の組成と同じ扱いで解き直す（参照から作る状態は、参照の組成も同じく変えた摂動の参照から作る）。`shielding-file` か
+//! `shielding-burnup` を与えた分岐の摂動は、自己遮蔽がその組成のまま（直接の摂動の `"solved"` はそれらと組めず、一般化摂動は
+//! その組成の参照を解き直す）。
 //!
 //! 動特性のデータ（[`HistoryBranches::kinetics`]）は状態ごとに、冷却計算の 1 群の微視的断面積（[`HistoryBranches::cooling`]）は燃焼度の点ごとの
 //! 公称の状態で作る（ADR-0238）。
@@ -96,6 +101,17 @@ pub struct HistoryInput {
     pub shielding_burnup: Option<Vec<f64>>,
     /// 一般化摂動の微分（ADR-0247）。`None` なら `derivative` の核種の直接の摂動だけ
     pub generalized: Option<GeneralizedDerivatives>,
+    /// `derivative` の核種の摂動の組成の自己遮蔽（ADR-0249）
+    pub derivative_shielding: DerivativeShielding,
+}
+
+/// 入力の `[history]` の `derivative-shielding`: 数密度の微分の摂動の組成の自己遮蔽（ADR-0249）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivativeShielding {
+    /// 状態の自己遮蔽（燃料の実効断面積、UFG の範囲の移行、SPH 因子）のまま、燃焼の領域の物質だけを摂動の組成で作り直す（既定）
+    Fixed,
+    /// 摂動の組成で自己遮蔽を解き直す（ADR-0221 の決定の「摂動の輸送の自己遮蔽」）
+    Solved,
 }
 
 /// 入力の `[history]` の `generalized`: 追う核種のすべての少数群定数の数密度の微分を、状態ごとの一般化随伴から求める（ADR-0247）
@@ -187,6 +203,8 @@ pub struct HistoryBranches {
     perturbed_micro: Vec<usize>,
     /// 微分の摂動の割合 ε
     perturbation: f64,
+    /// `derivative` の核種の摂動の組成の自己遮蔽（ADR-0249）
+    derivative_shielding: DerivativeShielding,
     /// 自己遮蔽の組成の、選んだ燃焼度の点ごとの燃焼の領域の数密度（[点][領域][履歴の核種]。`shield_with` か `shield_at`）
     shielding: Option<Vec<Vec<Vec<f64>>>>,
     /// 選んだ燃焼度の点ごとの、自己遮蔽の参照を持つ点（`shield_at` の間の点は、その前で最後の自己遮蔽を解く点。ほかは自身）
@@ -637,6 +655,7 @@ pub fn history_branches(
         generalized: selection.generalized.clone(),
         perturbed_micro,
         perturbation: selection.perturbation,
+        derivative_shielding: selection.derivative_shielding,
         shielding: None,
         shielding_points: (0..points.len()).collect(),
         remixed: Vec::new(),
@@ -753,11 +772,7 @@ impl HistoryBranches {
             .collect::<anyhow::Result<Vec<_>>>()?;
         self.shielding = Some(densities);
         self.shielding_points = (0..self.densities.len()).collect();
-        self.remixed = self
-            .regions(0)
-            .iter()
-            .map(|d| transport_name(&d.material, d.cell, d.sector))
-            .collect();
+        self.remixed = self.depletion_materials();
         Ok(())
     }
 
@@ -785,11 +800,7 @@ impl HistoryBranches {
         }
         self.shielding = Some(sources.iter().map(|&p| self.densities[p].clone()).collect());
         self.shielding_points = sources;
-        self.remixed = self
-            .regions(0)
-            .iter()
-            .map(|d| transport_name(&d.material, d.cell, d.sector))
-            .collect();
+        self.remixed = self.depletion_materials();
         Ok(())
     }
 
@@ -1485,6 +1496,19 @@ impl HistoryBranches {
         self.perturbed_micro
             .iter()
             .map(|&m| self.micro_nuclides[m].as_str())
+            .collect()
+    }
+
+    /// 摂動の組成で自己遮蔽を解き直すか（ADR-0249。一般化摂動の微分は、入力の検査で解き直す方にしてある）
+    pub fn solves_perturbed_shielding(&self) -> bool {
+        self.derivative_shielding == DerivativeShielding::Solved
+    }
+
+    /// 燃焼の領域の物質の名前（`<物質>@<セル>`。領域の順）
+    pub fn depletion_materials(&self) -> Vec<String> {
+        self.regions(0)
+            .iter()
+            .map(|d| transport_name(&d.material, d.cell, d.sector))
             .collect()
     }
 

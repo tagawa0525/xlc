@@ -518,11 +518,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 今の制御棒の値の自己遮蔽（形状ごと。値の最初の状態で作り、値を解き終えたら捨てる）と、捨てた値の自己遮蔽の回数
     let mut shielder: Option<(usize, BranchShielder)> = None;
     let mut finished_shieldings = 0;
-    // 数密度の微分（ADR-0221）の摂動の組成は、微分の核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の
-    // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、
-    // 今の値の形状のものだけを持つ
+    // 数密度の微分（ADR-0221）の摂動の組成を解き直すとき（`derivative-shielding = "solved"` と一般化摂動。ADR-0249）は、微分の
+    // 核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の参照の組成で解いたもの）。公称の状態の自己遮蔽と
+    // 参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、今の値の形状のものだけを持つ。既定の、状態の自己遮蔽の
+    // まま作り直す摂動は持たない
     let derivatives = history_branches
         .as_ref()
+        .filter(|h| h.solves_perturbed_shielding())
         .map_or(0, |h| h.perturbed_nuclides().len());
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;
@@ -962,14 +964,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // 追う核種の微視的断面積（ADR-0216）。`[history]` は自己遮蔽と格子全体の少数群定数のファイルを求める（入力の検査）
         let micro = match &history_branches {
             Some(h) if !h.micro_nuclides().is_empty() => {
-                let (Source::Library(library), Some(fuel), Some(output)) =
-                    (&source, fuel, &input.output)
+                let (Source::Library(library), Some(shielding), Some(output)) =
+                    (&source, held.as_ref(), &input.output)
                 else {
                     return Err(anyhow!(
                         "micro cross sections need a library, the self-shielding and few-group output"
                     ))
                     .with_context(context);
                 };
+                let fuel = shielding.fuel();
                 let mut micro = h
                     .micro(
                         rod,
@@ -1031,6 +1034,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         Ok((few, sigma, solution.iterations))
                     };
                     let nuclides = h.perturbed_nuclides();
+                    // 状態の自己遮蔽のまま作り直す摂動（既定。ADR-0249）は、燃焼の領域の物質を状態の組成で作り直すと状態の物質に
+                    // 戻ることを状態ごとに 1 度確かめる（崩れた差が微分に入らないため）
+                    let depletion = h.depletion_materials();
+                    if !h.solves_perturbed_shielding() {
+                        shielding
+                            .check_remix(
+                                library,
+                                &geometry.lattice,
+                                solved_materials(rod),
+                                &depletion,
+                                state_materials,
+                            )
+                            .with_context(context)?;
+                    }
                     match h.generalized() {
                         None => h.add_derivatives(
                             rod,
@@ -1039,15 +1056,30 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             nominal,
                             |j, perturbed, reference, build| {
                                 let started = Instant::now();
-                                let shielded = perturbed_shielders[j]
-                                    .shield_state(reuse, library, perturbed, reference, build)
-                                    .context("self-shielding")?;
-                                log_effective_change(
-                                    library.groups.bounds(),
-                                    nuclides[j],
-                                    fuel,
-                                    shielded.fuel(),
-                                );
+                                // 既定は状態の自己遮蔽のまま、燃焼の領域の物質だけを摂動の組成で作り直す（ADR-0249）
+                                let shielded = if h.solves_perturbed_shielding() {
+                                    let shielded = perturbed_shielders[j]
+                                        .shield_state(reuse, library, perturbed, reference, build)
+                                        .context("self-shielding")?;
+                                    log_effective_change(
+                                        library.groups.bounds(),
+                                        nuclides[j],
+                                        fuel,
+                                        shielded.fuel(),
+                                    );
+                                    shielded
+                                } else {
+                                    shielding
+                                        .remixed_at(
+                                            library,
+                                            &geometry.lattice,
+                                            solved_materials(rod),
+                                            &depletion,
+                                            state_materials,
+                                            perturbed,
+                                        )
+                                        .context("remixing the depletion regions")?
+                                };
                                 let (few, sigma, iterations) = solve_direct(&shielded)?;
                                 tracing::info!(
                                     state,

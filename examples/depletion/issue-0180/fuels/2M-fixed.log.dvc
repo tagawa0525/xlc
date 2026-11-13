@@ -1,0 +1,5 @@
+outs:
+- md5: b5ec09b92b7cafe5f9384352d8a3f251
+  size: 5847
+  hash: md5
+  path: 2M-fixed.log

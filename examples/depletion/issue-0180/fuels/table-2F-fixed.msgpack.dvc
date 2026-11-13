@@ -1,0 +1,5 @@
+outs:
+- md5: 20f4ddcc8db50b63f96564fd870e6e4e
+  size: 179594
+  hash: md5
+  path: table-2F-fixed.msgpack

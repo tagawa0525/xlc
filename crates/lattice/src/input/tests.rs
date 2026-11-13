@@ -1710,6 +1710,51 @@ fn history_density_derivatives_are_micro_nuclides_perturbed_by_a_positive_fracti
 }
 
 #[test]
+fn derivative_perturbations_keep_the_state_shielding_unless_the_input_solves_it_again() {
+    // 書かなければ、直接の摂動の組成は状態の自己遮蔽のまま（ADR-0249）。解き直す経路は `solved` で選ぶ。一般化摂動の微分は、
+    // 摂動の組成をいつも解き直す（ADR-0247 の案 I1）
+    use crate::history::DerivativeShielding;
+    let with = |lines: &str| history_branches(&format!("{HISTORY}{lines}"));
+    let derivative = "micro = [\"Pu-240\"]\nderivative = [\"Pu-240\"]\n";
+    let generalized = "generalized = { tolerance = 1e-7, restart = 100 }\n";
+    let shielding = |lines: &str| {
+        LatticeInput::parse(&with(&format!("{derivative}{lines}")))
+            .unwrap()
+            .history
+            .unwrap()
+            .derivative_shielding
+    };
+    assert_eq!(shielding(""), DerivativeShielding::Fixed);
+    assert_eq!(
+        shielding("derivative-shielding = \"fixed\"\n"),
+        DerivativeShielding::Fixed
+    );
+    assert_eq!(
+        shielding("derivative-shielding = \"solved\"\n"),
+        DerivativeShielding::Solved
+    );
+    assert_eq!(shielding(generalized), DerivativeShielding::Solved);
+    // 微分の核種のない入力と一般化摂動の入力（黙って使わない値を受けない）、自己遮蔽の組成を固定する入力の solved（摂動の組成でも
+    // 自己遮蔽はその組成のままなので、解き直す経路が黙って固定と同じになる）はエラー
+    for bad in [
+        "micro = [\"Pu-240\"]\nderivative-shielding = \"fixed\"\n".to_string(),
+        format!("{derivative}{generalized}derivative-shielding = \"fixed\"\n"),
+        format!("{derivative}derivative-shielding = \"solved\"\nshielding-burnup = [0, 20]\n"),
+        format!(
+            "{derivative}derivative-shielding = \"solved\"\nshielding-file = \"previous.msgpack\"\n"
+        ),
+    ] {
+        let err = LatticeInput::parse(&with(&bad)).unwrap_err();
+        assert!(
+            err.to_string().contains("derivative-shielding"),
+            "{bad}: {err}"
+        );
+    }
+    let unknown = format!("{derivative}derivative-shielding = \"both\"\n");
+    assert!(LatticeInput::parse(&with(&unknown)).is_err());
+}
+
+#[test]
 fn history_generalized_derivatives_cover_the_micro_nuclides_and_shield_again_the_listed_ones() {
     use crate::history::GeneralizedDerivatives;
     // 書かなければ直接の摂動（ADR-0221）だけで、一般化摂動（ADR-0247）を解かない

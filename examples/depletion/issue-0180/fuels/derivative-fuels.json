@@ -1,0 +1,138 @@
+{
+ "format": "xlc-compare-derivative-shielding-fuels",
+ "cases": {
+  "2F": [
+   {
+    "burnup": 10.0,
+    "solved": {
+     "k_inf": 1.0021483860623275,
+     "drho_pcm": -263.936267836129
+    },
+    "fixed": {
+     "k_inf": 1.0021483860623275,
+     "drho_pcm": -265.1609962717072
+    },
+    "difference_pcm": -1.2247284355781858,
+    "fraction": 0.004640243061778032
+   },
+   {
+    "burnup": 40.0,
+    "solved": {
+     "k_inf": 0.8548575019608824,
+     "drho_pcm": -673.4721329527238
+    },
+    "fixed": {
+     "k_inf": 0.8548575019608824,
+     "drho_pcm": -680.0681306671219
+    },
+    "difference_pcm": -6.595997714398095,
+    "fraction": 0.009794017289890032
+   }
+  ],
+  "2M": [
+   {
+    "burnup": 20.0,
+    "solved": {
+     "k_inf": 0.976307342237111,
+     "drho_pcm": -405.5718433695121
+    },
+    "fixed": {
+     "k_inf": 0.976307342237111,
+     "drho_pcm": -409.5740926358893
+    },
+    "difference_pcm": -4.002249266377191,
+    "fraction": 0.00986816351235405
+   }
+  ],
+  "2O": [
+   {
+    "burnup": 10.0,
+    "solved": {
+     "k_inf": 1.0475033071184832,
+     "drho_pcm": -250.08705507070238
+    },
+    "fixed": {
+     "k_inf": 1.0475033071184832,
+     "drho_pcm": -250.6195359048058
+    },
+    "difference_pcm": -0.53248083410341,
+    "fraction": 0.0021291819120860603
+   },
+   {
+    "burnup": 40.0,
+    "solved": {
+     "k_inf": 0.8395260329784081,
+     "drho_pcm": -685.0867017800022
+    },
+    "fixed": {
+     "k_inf": 0.8395260329784081,
+     "drho_pcm": -691.3505019669585
+    },
+    "difference_pcm": -6.2638001869563595,
+    "fraction": 0.009143076592614721
+   }
+  ],
+  "2P": [
+   {
+    "burnup": 10.0,
+    "solved": {
+     "k_inf": 1.0412933422235335,
+     "drho_pcm": -256.9837254570495
+    },
+    "fixed": {
+     "k_inf": 1.0412933422235335,
+     "drho_pcm": -258.2821749449571
+    },
+    "difference_pcm": -1.2984494879075896,
+    "fraction": 0.005052652597351359
+   },
+   {
+    "burnup": 40.0,
+    "solved": {
+     "k_inf": 0.8352054651060996,
+     "drho_pcm": -690.9615943433645
+    },
+    "fixed": {
+     "k_inf": 0.8352054651060996,
+     "drho_pcm": -697.2593188417253
+    },
+    "difference_pcm": -6.297724498360822,
+    "fraction": 0.00911443494098349
+   }
+  ]
+ },
+ "inputs": [
+  {
+   "path": "table-2F-solved.msgpack",
+   "md5": "b6763dc5318b682c249a043550e5f98a"
+  },
+  {
+   "path": "table-2F-fixed.msgpack",
+   "md5": "20f4ddcc8db50b63f96564fd870e6e4e"
+  },
+  {
+   "path": "table-2M-solved.msgpack",
+   "md5": "a543edf4e6e16edb8a528e6bf4ea5d3b"
+  },
+  {
+   "path": "table-2M-fixed.msgpack",
+   "md5": "6487d4743471da3ac3c286ba9bb1ad58"
+  },
+  {
+   "path": "table-2O-solved.msgpack",
+   "md5": "edd6ff728fbdb44e5b7fe77a5c30dd55"
+  },
+  {
+   "path": "table-2O-fixed.msgpack",
+   "md5": "85ecf9c5a45abe18fa22c79ae2bfb242"
+  },
+  {
+   "path": "table-2P-solved.msgpack",
+   "md5": "8581e22410680b624aab65ddeb8b69fe"
+  },
+  {
+   "path": "table-2P-fixed.msgpack",
+   "md5": "6c0e5e52e2dc1d9f93a41a05ed5cfe4b"
+  }
+ ]
+}

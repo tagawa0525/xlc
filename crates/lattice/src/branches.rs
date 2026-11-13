@@ -889,6 +889,91 @@ impl StateShielding<'_> {
     pub fn fuel(&self) -> &FuelShielding {
         &self.fuel
     }
+
+    /// `remixed_at` の前提（物質の名前が `remixed` の領域の物質を、この自己遮蔽の状態の物質 `state` の組成で作り直すと、この自己遮蔽の
+    /// 物質とビットで同じ）を確かめる（ADR-0249）。崩れれば、作り直した摂動の物質と状態の物質の差が微分に入るのでエラー
+    pub fn check_remix(
+        &self,
+        library: &Library,
+        lattice: &Lattice,
+        region_materials: &[String],
+        remixed: &[String],
+        state: &[MaterialInput],
+    ) -> anyhow::Result<()> {
+        check_remixed_names(region_materials, remixed)?;
+        let rebuilt = remix_varied(
+            library,
+            self.fuel(),
+            lattice,
+            region_materials,
+            remixed,
+            state,
+            state,
+        )
+        .context("remixing the state materials")?;
+        if let Some((m, _)) = rebuilt
+            .iter()
+            .find(|(m, material)| *material != self.materials()[*m])
+        {
+            bail!(
+                "material {m} remixed at the state composition differs from the self-shielding of the state"
+            );
+        }
+        Ok(())
+    }
+
+    /// この自己遮蔽の燃料の実効断面積、UFG の範囲の移行、SPH 因子のまま、物質の名前が `remixed` の領域の物質を `changed` の組成で
+    /// 作り直した自己遮蔽（ADR-0249）。`state` はこの自己遮蔽の状態の物質で、`changed` と同じ名前と温度の物質を同じ順に持ち、
+    /// 作り直す物質の核種の並びは自己遮蔽したときと同じ。`region_materials` は [領域] の物質の名前
+    pub fn remixed_at(
+        &self,
+        library: &Library,
+        lattice: &Lattice,
+        region_materials: &[String],
+        remixed: &[String],
+        state: &[MaterialInput],
+        changed: &[MaterialInput],
+    ) -> anyhow::Result<StateShielding<'_>> {
+        check_remixed_names(region_materials, remixed)?;
+        // 作り直すのは `remixed` の物質だけなので、ほかの物質は状態と同じこと（違えば、その変化が黙って落ちる）
+        if let Some(m) = changed
+            .iter()
+            .zip(state)
+            .find(|(c, s)| c != s && !remixed.contains(&c.name))
+            .map(|(c, _)| c)
+        {
+            bail!(
+                "material `{}` of the changed composition differs from the state but is not remixed",
+                m.name
+            );
+        }
+        let mut unique = self.materials().to_vec();
+        let rebuilt = remix_varied(
+            library,
+            self.fuel(),
+            lattice,
+            region_materials,
+            remixed,
+            state,
+            changed,
+        )?;
+        for (m, material) in rebuilt {
+            unique[m] = material;
+        }
+        Ok(StateShielding {
+            fuel: Fuel::Reference(self.fuel()),
+            remixed: Some(unique),
+        })
+    }
+}
+
+/// 作り直す物質の名前 `remixed` が、どれも格子の [領域] の物質の名前 `region_materials` にあること（ない名前は作り直されず、
+/// 摂動の組成が黙って状態と同じになる）
+fn check_remixed_names(region_materials: &[String], remixed: &[String]) -> anyhow::Result<()> {
+    match remixed.iter().find(|n| !region_materials.contains(n)) {
+        Some(name) => bail!("material `{name}` to remix is not a region material of the lattice"),
+        None => Ok(()),
+    }
 }
 
 /// 状態の燃料の自己遮蔽（`BranchShielder::shield_state`）: その状態で解いたものか、参照のもの
