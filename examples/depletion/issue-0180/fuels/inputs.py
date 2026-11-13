@@ -78,6 +78,11 @@ def branch(name: str, source: str, burnup: list, solved: bool) -> str:
         nuclides, f"water = {{ density = {density}, boron = {boron}, b10 = 0.199 }}"
     )
     fuel, moderator = temperature(text, "fuel"), temperature(text, "water")
+    # 燃料の温度の軸は燃焼させる物質のすべてにかかるので、どれも履歴の入力で燃料と同じ温度であること（違えば、履歴と同じ条件の
+    # 状態にならない）
+    for material in materials.replace('"', "").split(", "):
+        if temperature(text, material) != fuel:
+            sys.exit(f"{path}: {material} is not at the fuel temperature {fuel}")
     history = (path.parent / output).resolve().relative_to(HERE.resolve(), walk_up=True)
     shielding = 'derivative-shielding = "solved"\n' if solved else ""
     return (
