@@ -900,10 +900,7 @@ impl StateShielding<'_> {
         remixed: &[String],
         state: &[MaterialInput],
     ) -> anyhow::Result<()> {
-        // 格子の領域にない名前は作り直されず、摂動の組成が黙って状態と同じになる
-        if let Some(name) = remixed.iter().find(|n| !region_materials.contains(n)) {
-            bail!("material `{name}` to remix is not a region material of the lattice");
-        }
+        check_remixed_names(region_materials, remixed)?;
         let rebuilt = remix_varied(
             library,
             self.fuel(),
@@ -937,6 +934,7 @@ impl StateShielding<'_> {
         state: &[MaterialInput],
         changed: &[MaterialInput],
     ) -> anyhow::Result<StateShielding<'_>> {
+        check_remixed_names(region_materials, remixed)?;
         // 作り直すのは `remixed` の物質だけなので、ほかの物質は状態と同じこと（違えば、その変化が黙って落ちる）
         if let Some(m) = changed
             .iter()
@@ -966,6 +964,15 @@ impl StateShielding<'_> {
             fuel: Fuel::Reference(self.fuel()),
             remixed: Some(unique),
         })
+    }
+}
+
+/// 作り直す物質の名前 `remixed` が、どれも格子の [領域] の物質の名前 `region_materials` にあること（ない名前は作り直されず、
+/// 摂動の組成が黙って状態と同じになる）
+fn check_remixed_names(region_materials: &[String], remixed: &[String]) -> anyhow::Result<()> {
+    match remixed.iter().find(|n| !region_materials.contains(n)) {
+        Some(name) => bail!("material `{name}` to remix is not a region material of the lattice"),
+        None => Ok(()),
     }
 }
 
