@@ -123,6 +123,10 @@ def difference(case: str, variant: str, base: dict) -> dict:
     if base is None:
         return row | {"k_inf": [s["k_inf"] for s in fg]}
     row["k_inf"] = [s["k_inf"] for s in fg]
+    if len(fg) != len(base["fg"]):
+        sys.exit(
+            f"{case}-{variant}: {len(fg)} states against {len(base['fg'])} of the default"
+        )
     row["drho_pcm"] = [
         (1.0 / b["k_inf"] - 1.0 / s["k_inf"]) * 1e5 for s, b in zip(fg, base["fg"])
     ]
