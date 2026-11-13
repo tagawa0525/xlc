@@ -46,7 +46,7 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::material::Material;
 use crate::shielding::{
-    FuelShielding, RatioAnchor, RatioOptions, RatioRings, RatioSph, RatioTransfer,
+    FuelShielding, RatioAnchor, RatioFuel, RatioOptions, RatioRings, RatioSph, RatioTransfer,
     ShieldingOptions, ShieldingReuse, shield_fuel_ratio, shield_fuel_reusing,
     shielded_nuclide_with,
 };
@@ -223,6 +223,15 @@ struct RatioEntry {
     transfer: Option<RatioTransferEntry>,
     rings: Option<RatioRingsEntry>,
     sph: Option<RatioSphEntry>,
+    fuel: Option<RatioFuelEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum RatioFuelEntry {
+    Equivalence,
+    StateAverage,
+    State,
 }
 
 #[derive(Deserialize)]
@@ -262,6 +271,11 @@ impl RatioEntry {
             sph: match self.sph {
                 None | Some(RatioSphEntry::Reference) => RatioSph::Reference,
                 Some(RatioSphEntry::State) => RatioSph::State,
+            },
+            fuel: match self.fuel {
+                None | Some(RatioFuelEntry::Equivalence) => RatioFuel::Equivalence,
+                Some(RatioFuelEntry::StateAverage) => RatioFuel::StateAverage,
+                Some(RatioFuelEntry::State) => RatioFuel::State,
             },
         }
     }
