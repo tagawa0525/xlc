@@ -3241,6 +3241,108 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn static_ratio_states_keep_the_free_gas_demand_of_the_anchor() {
+        // #0285: 静止した標的の減速計算は自由ガスの核を使わないので、比の状態はその量を、次の自己遮蔽の自由ガスの核の表の上限に使う
+        // 量（ADR-0248）にしない（基準の UFG の量のまま）
+        let library = resonant_library();
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let shielding = ShieldingOptions::default();
+        let mut reuse = ShieldingReuse::new(&tracking);
+        let anchor = shield_fuel_reusing(
+            &library, &mut reuse, &materials, &regions, &symmetry, &shielding,
+        )
+        .unwrap();
+        let demand = reuse.shares.kernels().demand();
+        assert!(demand.is_some());
+        let mut state = materials.clone();
+        for (_, density) in &mut state
+            .iter_mut()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition
+        {
+            *density *= 0.7;
+        }
+        shield_fuel_ratio(
+            &library,
+            &mut reuse,
+            &state,
+            &regions,
+            &symmetry,
+            &shielding,
+            RatioAnchor {
+                shielding: &anchor,
+                materials: &materials,
+                options: RatioOptions {
+                    fuel: RatioFuel::StaticRatio,
+                    static_cp_points: Some(2),
+                    ..RatioOptions::default()
+                },
+                light: &AnchorLight::default(),
+            },
+        )
+        .unwrap();
+        assert_eq!(reuse.shares.kernels().demand(), demand);
+    }
+
+    #[test]
+    fn kept_static_anchor_solves_serve_only_their_anchor_and_quadrature() {
+        // #0285: 持ち回る基準の静止した標的の減速計算は、それを解いた基準の物質と求積の点の数のものなので、ほかの基準か点の数で
+        // 使おうとすれば止める（黙って別の基準の結果を比の分母にしない）
+        let library = resonant_library();
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let shielding = ShieldingOptions::default();
+        let anchor = shield_fuel_with(
+            &library, &tracking, &materials, &regions, &symmetry, &shielding,
+        )
+        .unwrap();
+        let static_ratio = |points: Option<usize>| RatioOptions {
+            fuel: RatioFuel::StaticRatio,
+            static_cp_points: points,
+            ..RatioOptions::default()
+        };
+        let light = AnchorLight::default();
+        let ratio = |anchor_materials: &[MaterialInput], options: RatioOptions| {
+            shield_fuel_ratio(
+                &library,
+                &mut ShieldingReuse::new(&tracking),
+                &materials,
+                &regions,
+                &symmetry,
+                &shielding,
+                RatioAnchor {
+                    shielding: &anchor,
+                    materials: anchor_materials,
+                    options,
+                    light: &light,
+                },
+            )
+        };
+        ratio(&materials, static_ratio(None)).unwrap();
+        ratio(&materials, static_ratio(None)).unwrap();
+        let points = ratio(&materials, static_ratio(Some(2)));
+        assert!(
+            matches!(points, Err(SelfShieldingError::AnchorLight)),
+            "{points:?}"
+        );
+        let mut other = materials.clone();
+        other
+            .iter_mut()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .temperature += 1.0;
+        let moved = ratio(&other, static_ratio(None));
+        assert!(
+            matches!(moved, Err(SelfShieldingError::AnchorLight)),
+            "{moved:?}"
+        );
+    }
+
+    #[test]
     fn state_rings_are_the_non_fuel_rings_of_the_state_slowing_down() {
         // #0285 の診断: 燃料でないリングを状態の UFG にすると、群定数と移行は状態ごとに解いたもので、群定数だけを選ぶと移行は基準の行を
         // 弾性散乱の比で縮めたもの。燃料のリングと SPH 因子も状態のものにすれば、どのリングも状態ごとに解いたものと同じ
