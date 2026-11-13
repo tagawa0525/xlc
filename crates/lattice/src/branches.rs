@@ -46,7 +46,9 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::material::Material;
 use crate::shielding::{
-    FuelShielding, ShieldingOptions, ShieldingReuse, shield_fuel_reusing, shielded_nuclide_with,
+    FuelShielding, RatioAnchor, RatioOptions, RatioRings, RatioSph, RatioTransfer,
+    ShieldingOptions, ShieldingReuse, shield_fuel_ratio, shield_fuel_reusing,
+    shielded_nuclide_with,
 };
 use crate::symmetry::Detected;
 use crate::tracking::Tracking;
@@ -60,7 +62,7 @@ pub struct Water {
     pub b10: f64,
 }
 
-/// 分岐の状態の自己遮蔽の解き方（ADR-0201）
+/// 分岐の状態の自己遮蔽の解き方（ADR-0201、ADR-0250）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BranchShielding {
     /// 状態ごとに、その状態の物質で解き直す
@@ -68,6 +70,11 @@ pub enum BranchShielding {
     /// 減速材と燃料の温度の格子点ごとに（履歴からの分岐は燃焼度の点ごとにも）、ホウ素を公称（入力の物質）にした参照の状態で
     /// 1 度だけ解く。状態の物質は、参照の自己遮蔽の物質のうち、ホウ素の軸が変える物質だけを状態の組成で作り直す（[`BranchShielder`]）
     NominalBoron,
+    /// `NominalBoron` の参照のうち、減速材が公称のもの（燃料の温度の点ごと。ADR-0250 の (F1)）だけを今の UFG で解き、ほかの参照は
+    /// 同じ燃料の温度の基準から比で求める（[`crate::shielding::shield_fuel_ratio`]）
+    ModeratorRatio(RatioOptions),
+    /// `NominalBoron` の参照のうち、減速材と燃料の温度が公称のもの 1 つ（ADR-0250 の (F2)）だけを今の UFG で解き、ほかの参照は比で求める
+    ModeratorFuelRatio(RatioOptions),
 }
 
 /// 分岐の軸と、軸の直積の順の物質の組。
@@ -80,6 +87,8 @@ pub struct Branches {
     references: Vec<Vec<MaterialInput>>,
     /// ホウ素の軸が変える物質
     varied: Vec<String>,
+    /// 比で求める解き方の、[参照] の基準の参照の番号と、比が決めない量の作り方（[`Branches::anchors`]）
+    anchors: Option<(Vec<usize>, RatioOptions)>,
     /// [軸] の公称の格子点（入力の物質が格子点にない軸があれば `None`）
     nominal: Option<Vec<usize>>,
     /// [状態（軸の直積の順）] を解くか
@@ -140,9 +149,18 @@ impl Branches {
         match self.shielding {
             BranchShielding::EveryState => None,
             BranchShielding::NominalBoron if self.references.len() == self.states.len() => None,
-            // ホウ素は最初の軸（いちばん遅く変わる）なので、ほかの軸の添字は状態の番号をそれらの点の数の積で割った余り
-            BranchShielding::NominalBoron => Some(state % self.references.len()),
+            // ホウ素は最初の軸（いちばん遅く変わる）なので、ほかの軸の添字は状態の番号をそれらの点の数の積で割った余り。比で
+            // 求める参照は、ホウ素が 1 点でも参照を通す（参照ごとに基準を引く）
+            BranchShielding::NominalBoron
+            | BranchShielding::ModeratorRatio(_)
+            | BranchShielding::ModeratorFuelRatio(_) => Some(state % self.references.len()),
         }
+    }
+
+    /// 比で求める解き方（ADR-0250）なら、[参照（`references` の番号）] の基準（今の UFG で解く参照の番号。基準は自分自身）と、比が
+    /// 決めない量の作り方
+    pub fn anchors(&self) -> Option<(&[usize], RatioOptions)> {
+        self.anchors.as_ref().map(|(a, o)| (a.as_slice(), *o))
     }
 
     /// ホウ素の軸が変える物質
@@ -183,6 +201,7 @@ pub(crate) struct BranchesEntry {
     moderator: Option<ModeratorEntry>,
     fuel: Option<FuelEntry>,
     shielding: Option<ShieldingEntry>,
+    ratio: Option<RatioEntry>,
     subgrids: Option<Vec<Vec<String>>>,
     rod: Option<BTreeMap<String, BTreeMap<String, String>>>,
 }
@@ -193,6 +212,59 @@ pub(crate) struct BranchesEntry {
 enum ShieldingEntry {
     EveryState,
     NominalBoron,
+    ModeratorRatio,
+    ModeratorFuelRatio,
+}
+
+/// 比で求める状態の、比が決めない量の作り方（ADR-0250。省略した項目は基準の値）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RatioEntry {
+    transfer: Option<RatioTransferEntry>,
+    rings: Option<RatioRingsEntry>,
+    sph: Option<RatioSphEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum RatioTransferEntry {
+    Reference,
+    ElasticRatio,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum RatioRingsEntry {
+    Reference,
+    ShieldingFactor,
+    InfiniteDilution,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum RatioSphEntry {
+    Reference,
+    State,
+}
+
+impl RatioEntry {
+    fn options(self) -> RatioOptions {
+        RatioOptions {
+            transfer: match self.transfer {
+                None | Some(RatioTransferEntry::Reference) => RatioTransfer::Reference,
+                Some(RatioTransferEntry::ElasticRatio) => RatioTransfer::ElasticRatio,
+            },
+            rings: match self.rings {
+                None | Some(RatioRingsEntry::Reference) => RatioRings::Reference,
+                Some(RatioRingsEntry::ShieldingFactor) => RatioRings::ShieldingFactor,
+                Some(RatioRingsEntry::InfiniteDilution) => RatioRings::InfiniteDilution,
+            },
+            sph: match self.sph {
+                None | Some(RatioSphEntry::Reference) => RatioSph::Reference,
+                Some(RatioSphEntry::State) => RatioSph::State,
+            },
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -695,15 +767,61 @@ impl BranchesEntry {
                 Ok((value, cells))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let ratio = self.ratio.map(RatioEntry::options);
+        let shielding = match (self.shielding, ratio) {
+            (None | Some(ShieldingEntry::NominalBoron), None) => BranchShielding::NominalBoron,
+            (Some(ShieldingEntry::EveryState), None) => BranchShielding::EveryState,
+            (Some(ShieldingEntry::ModeratorRatio), r) => {
+                BranchShielding::ModeratorRatio(r.unwrap_or_default())
+            }
+            (Some(ShieldingEntry::ModeratorFuelRatio), r) => {
+                BranchShielding::ModeratorFuelRatio(r.unwrap_or_default())
+            }
+            (_, Some(_)) => {
+                return Err(
+                    "branches.ratio: only the ratio shieldings (moderator-ratio, moderator-fuel-ratio) take it"
+                        .into(),
+                );
+            }
+        };
+        // 比の基準は減速材（(F2) は燃料の温度も）が公称の参照なので、入力の物質がその軸の格子点にあること
+        let needed: &[usize] = match shielding {
+            BranchShielding::ModeratorRatio(_) => &[1],
+            BranchShielding::ModeratorFuelRatio(_) => &[1, 2],
+            _ => &[],
+        };
+        if let Some(&axis) = needed.iter().find(|&&k| per_axis[k].is_none()) {
+            return Err(format!(
+                "branches.shielding: the ratio anchors sit at the nominal {} point, but the input materials are not at a \
+                 point of that axis (ADR-0250)",
+                axes[axis].name()
+            ));
+        }
+        // 参照は減速材と燃料の温度の点の直積（減速材が遅く変わる）
+        let anchors = match shielding {
+            BranchShielding::ModeratorRatio(options)
+            | BranchShielding::ModeratorFuelRatio(options) => {
+                let (moderator, fuels) = (per_axis[1].unwrap_or(0), counts[2]);
+                let fuel = match shielding {
+                    BranchShielding::ModeratorFuelRatio(_) => per_axis[2],
+                    _ => None,
+                };
+                Some((
+                    (0..references.len())
+                        .map(|r| moderator * fuels + fuel.unwrap_or(r % fuels))
+                        .collect(),
+                    options,
+                ))
+            }
+            _ => None,
+        };
         Ok(Branches {
             axes,
             states,
-            shielding: match self.shielding {
-                None | Some(ShieldingEntry::NominalBoron) => BranchShielding::NominalBoron,
-                Some(ShieldingEntry::EveryState) => BranchShielding::EveryState,
-            },
+            shielding,
             references,
             varied,
+            anchors,
             nominal,
             solved,
             rods,
@@ -727,6 +845,19 @@ pub struct BranchShielder<'a> {
     held: Vec<(usize, usize, FuelShielding, Vec<MaterialInput>)>,
     /// 自己遮蔽を解いた回数
     shieldings: usize,
+    /// 比で求める参照（ADR-0250。[`BranchShielder::with_ratio`]）
+    ratio: Option<RatioReferences<'a>>,
+}
+
+/// 参照の自己遮蔽を基準からの比で求める指定（[`BranchShielder::with_ratio`]）
+struct RatioReferences<'a> {
+    /// [参照] の基準の参照の番号（基準は自分自身）
+    anchors: Vec<usize>,
+    options: RatioOptions,
+    /// （燃焼度の点、参照の番号）の参照の物質
+    build: &'a dyn Fn(usize, usize) -> Vec<MaterialInput>,
+    /// 比で求めた回数
+    solved: usize,
 }
 
 impl<'a> BranchShielder<'a> {
@@ -747,12 +878,128 @@ impl<'a> BranchShielder<'a> {
             options,
             held: Vec::new(),
             shieldings: 0,
+            ratio: None,
         }
     }
 
-    /// 自己遮蔽を解いた回数
+    /// 参照の自己遮蔽を、`anchors`（[参照] の基準の参照の番号。[`Branches::anchors`]）の基準を今の UFG で解き、ほかの参照は基準からの比
+    /// （[`shield_fuel_ratio`]。比が決めない量は `options`）で求める（ADR-0250）。基準の物質は `build`（燃焼度の点、参照の番号）で作る
+    pub fn with_ratio(
+        mut self,
+        anchors: Vec<usize>,
+        options: RatioOptions,
+        build: &'a dyn Fn(usize, usize) -> Vec<MaterialInput>,
+    ) -> Self {
+        self.ratio = Some(RatioReferences {
+            anchors,
+            options,
+            build,
+            solved: 0,
+        });
+        self
+    }
+
+    /// 自己遮蔽を解いた回数（比で求めた参照を数えない）
     pub fn shieldings(&self) -> usize {
         self.shieldings
+    }
+
+    /// 参照の自己遮蔽を比で求めた回数（ADR-0250）
+    pub fn ratios(&self) -> usize {
+        self.ratio.as_ref().map_or(0, |r| r.solved)
+    }
+
+    /// 燃焼度の点 `point` の参照 `index`（物質 `nominal`）の自己遮蔽を解いて持つ。比で求める参照は、基準をまだ持たなければ先に解く
+    fn hold_reference(
+        &mut self,
+        reuse: &mut ShieldingReuse<'a>,
+        library: &Library,
+        point: usize,
+        index: usize,
+        nominal: Vec<MaterialInput>,
+    ) -> anyhow::Result<()> {
+        let names = self.region_materials;
+        let anchor = match &self.ratio {
+            Some(ratio) => {
+                let anchor = *ratio
+                    .anchors
+                    .get(index)
+                    .ok_or_else(|| anyhow!("no ratio anchor for reference {index}"))?;
+                (anchor != index).then_some(anchor)
+            }
+            None => None,
+        };
+        let shielded = match anchor {
+            None => {
+                self.shieldings += 1;
+                shield_fuel_reusing(
+                    library,
+                    reuse,
+                    &nominal,
+                    names,
+                    self.symmetry,
+                    &self.options,
+                )?
+            }
+            Some(anchor) => {
+                if !self.held.iter().any(|(_, i, ..)| *i == anchor) {
+                    let build = self
+                        .ratio
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("no ratio"))?
+                        .build;
+                    let materials = build(point, anchor);
+                    self.hold_reference(reuse, library, point, anchor, materials)?;
+                }
+                let (_, _, base, base_materials) = self
+                    .held
+                    .iter()
+                    .find(|(_, i, ..)| *i == anchor)
+                    .ok_or_else(|| anyhow!("no ratio anchor shielding {anchor}"))?;
+                let ratio = self.ratio.as_ref().ok_or_else(|| anyhow!("no ratio"))?;
+                let shielded = shield_fuel_ratio(
+                    library,
+                    reuse,
+                    &nominal,
+                    names,
+                    self.symmetry,
+                    &self.options,
+                    RatioAnchor {
+                        shielding: base,
+                        materials: base_materials,
+                        options: ratio.options,
+                    },
+                )
+                .with_context(|| format!("reference {index} by the ratio to reference {anchor}"))?;
+                if let Some(ratio) = &mut self.ratio {
+                    ratio.solved += 1;
+                }
+                shielded
+            }
+        };
+        // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）を、公称の組成で
+        // 作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。崩れれば、状態の物質が自己遮蔽の作り方と食い違う
+        let rebuilt = remix_varied(
+            library,
+            &shielded,
+            &self.tracking.lattice,
+            names,
+            self.varied,
+            &nominal,
+            &nominal,
+        )
+        .context("remixing the nominal materials")?;
+        if let Some((m, _)) = rebuilt
+            .iter()
+            .find(|(m, material)| *material != shielded.materials[*m])
+        {
+            bail!(
+                "material {m} remixed from its shielded cross sections differs from the self-shielding at the \
+                 nominal boron"
+            );
+        }
+        self.held.push((point, index, shielded, nominal));
+        Ok(())
     }
 
     /// 物質 `state` の状態の自己遮蔽。`reference` は参照から作るときの燃焼度の点と参照の番号で、その参照の物質はまだ解いていなければ
@@ -784,38 +1031,7 @@ impl<'a> BranchShielder<'a> {
         let lattice = &self.tracking.lattice;
         self.held.retain(|(p, ..)| *p == point);
         if !self.held.iter().any(|(_, i, ..)| *i == index) {
-            let nominal = nominal();
-            self.shieldings += 1;
-            let shielded = shield_fuel_reusing(
-                library,
-                reuse,
-                &nominal,
-                names,
-                self.symmetry,
-                &self.options,
-            )?;
-            // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）を、公称の組成で
-            // 作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。崩れれば、状態の物質が自己遮蔽の作り方と食い違う
-            let rebuilt = remix_varied(
-                library,
-                &shielded,
-                lattice,
-                names,
-                self.varied,
-                &nominal,
-                &nominal,
-            )
-            .context("remixing the nominal materials")?;
-            if let Some((m, _)) = rebuilt
-                .iter()
-                .find(|(m, material)| *material != shielded.materials[*m])
-            {
-                bail!(
-                    "material {m} remixed from its shielded cross sections differs from the self-shielding at the \
-                     nominal boron"
-                );
-            }
-            self.held.push((point, index, shielded, nominal));
+            self.hold_reference(reuse, library, point, index, nominal())?;
         }
         let (_, _, shielded, nominal) = self
             .held

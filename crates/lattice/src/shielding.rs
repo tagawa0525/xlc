@@ -107,6 +107,69 @@ pub enum UfgTransfer {
     RingFlux,
 }
 
+/// 比で求める状態（ADR-0250）の、比が決めない量の作り方。どれも段 1 で `every-state` と比べて決める候補で、`Default` は ADR-0250 が
+/// 決めるまで使う基準の値
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RatioOptions {
+    /// 等価なセルのリングの UFG の範囲の移行
+    pub transfer: RatioTransfer,
+    /// 等価なセルの燃料でないリング（被覆管、減速材）の群定数
+    pub rings: RatioRings,
+    /// リングの物質に掛ける SPH 因子
+    pub sph: RatioSph,
+}
+
+/// 比で求める状態の、等価なセルのリングの UFG の範囲の移行（ADR-0250 の「比が決めない量」）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioTransfer {
+    /// 基準の移行の行をそのまま使う
+    #[default]
+    Reference,
+    /// 基準の移行の行を、入射の群ごとに状態と基準の弾性散乱の比で縮める（行の和が状態の弾性散乱になる）
+    ElasticRatio,
+}
+
+/// 比で求める状態の、等価なセルの燃料でないリング（被覆管、減速材）の群定数（ADR-0250 の「比が決めない量」）。UFG の範囲の外は
+/// どれも状態の温度の無限希釈
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioRings {
+    /// UFG の範囲は基準のリングの実効断面積（状態の数密度で混ぜる）
+    #[default]
+    Reference,
+    /// UFG の範囲は基準のリングの実効断面積に、状態と基準の温度の無限希釈の値の比を掛けたもの（ADR-0201 の案 M の形）
+    ShieldingFactor,
+    /// UFG の範囲も状態の温度の無限希釈（移行の行を持たない）
+    InfiniteDilution,
+}
+
+/// 比で求める状態の SPH 因子（ADR-0250 の「SPH 因子は基準のものを使う」の近似を分けて測る）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioSph {
+    /// 基準の SPH 因子
+    #[default]
+    Reference,
+    /// 状態の UFG の減速計算を解いて求めた SPH 因子（診断。時間は状態ごとに解き直すのと同じ）
+    State,
+}
+
+/// 比で求める状態（ADR-0250）の基準: 今の UFG で解いた自己遮蔽 `shielding` と、それに渡した物質 `materials`（状態の物質と同じ名前を
+/// 同じ順に持つ）
+#[derive(Debug, Clone, Copy)]
+pub struct RatioAnchor<'a> {
+    pub shielding: &'a FuelShielding,
+    pub materials: &'a [MaterialInput],
+    pub options: RatioOptions,
+}
+
+/// 燃料のピンの UFG の範囲の解き方
+#[derive(Debug, Clone, Copy)]
+enum PinMethod<'a> {
+    /// 等価なセルの減速計算（`Some` なら、その核種の個数密度の向きの 1 次の変化も。[`shield_fuel_tangent`]）
+    Ufg(Option<&'a [String]>),
+    /// 基準の UFG の実効断面積に、状態と基準の等価原理の比を掛ける（[`shield_fuel_ratio`]）
+    Ratio(RatioAnchor<'a>),
+}
+
 /// 格子の燃料の自己遮蔽のエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum SelfShieldingError {
@@ -191,6 +254,14 @@ pub enum SelfShieldingError {
     },
     #[error("the lattice is not the one that was self-shielded")]
     ForeignLattice,
+    /// 比の基準の物質の名前と順が状態と違う（ADR-0250）
+    #[error("the ratio anchor has other materials than the state")]
+    AnchorMaterials,
+    /// 比の基準に、このセルのピンか、等価なセルのリングの実効断面積が無いか、リングの核種が状態と違う（ADR-0250）
+    #[error(
+        "cell {0}: the ratio anchor does not shield the pin with the rings and nuclides of the state"
+    )]
+    AnchorPin(usize),
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -476,6 +547,79 @@ impl PinShielding {
     }
 }
 
+impl FuelShielding {
+    /// MOC の中性子束 `flux`（[領域][群]。生成率で規格化したもの）から、燃料の領域の [`RING_CAPTURES`] の核種の捕獲と核分裂の反応率
+    /// Σ_g N σ_g φ_g V（物理的な中性子束と実効断面積）を、領域の物質の名前の `@` の前（燃焼の領域の元の物質。リングの位置）ごとに足して、
+    /// target `ring_rates` の DEBUG のログに出す（比で求める状態のリングの反応率を状態ごとに解いたものと比べる。ADR-0250）。
+    /// `region_materials` は [領域] の物質の名前、`materials` はその物質
+    pub fn log_ring_rates(
+        &self,
+        lattice: &Lattice,
+        flux: &[Vec<f64>],
+        region_materials: &[String],
+        materials: &[MaterialInput],
+    ) -> Result<(), SelfShieldingError> {
+        if !tracing::enabled!(target: "ring_rates", tracing::Level::DEBUG) {
+            return Ok(());
+        }
+        let physical = self.physical_flux(lattice, flux)?;
+        let volumes = lattice.volumes();
+        // (物質, 核種) ごとの [捕獲, 核分裂]（出す順は最初に現れた順）
+        let mut rates: Vec<(&str, &str, [f64; 2])> = Vec::new();
+        for (region, name) in region_materials.iter().enumerate() {
+            let is_fuel = self.materials[self.region_material[region]]
+                .nu_fission
+                .iter()
+                .any(|&v| v > 0.0);
+            let (Some(sections), Some(material)) = (
+                self.region_cross_sections(region),
+                materials.iter().find(|m| &m.name == name),
+            ) else {
+                continue;
+            };
+            if !is_fuel {
+                continue;
+            }
+            let base = name.split('@').next().unwrap_or(name);
+            for ((nuclide, density), s) in material.composition.iter().zip(sections) {
+                if !RING_CAPTURES.contains(&nuclide.as_str()) {
+                    continue;
+                }
+                let rate = |x: &[f64]| -> f64 {
+                    density
+                        * volumes[region]
+                        * x.iter()
+                            .zip(&physical[region])
+                            .map(|(a, b)| a * b)
+                            .sum::<f64>()
+                };
+                let value = [rate(&s.capture), rate(&s.fission)];
+                match rates
+                    .iter_mut()
+                    .find(|(m, n, _)| *m == base && *n == nuclide)
+                {
+                    Some((_, _, sum)) => {
+                        sum[0] += value[0];
+                        sum[1] += value[1];
+                    }
+                    None => rates.push((base, nuclide, value)),
+                }
+            }
+        }
+        for (material, nuclide, [capture, fission]) in rates {
+            tracing::debug!(
+                target: "ring_rates",
+                material,
+                nuclide,
+                capture,
+                fission,
+                "ring reaction rates per neutron produced"
+            );
+        }
+        Ok(())
+    }
+}
+
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
 /// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。移り合うピンと塊の組は、領域ごとの物質の名前で成り立つ
 /// 対称操作（`symmetry::detect`）で作る。成り立つ対称操作をすでに求めてあれば `shield_fuel_with` を使う
@@ -670,6 +814,69 @@ pub fn shield_fuel_tangent(
     options: &ShieldingOptions,
     tangent: Option<&[String]>,
 ) -> Result<FuelShielding, SelfShieldingError> {
+    shield_fuel_by(
+        library,
+        reuse,
+        materials,
+        region_materials,
+        symmetry,
+        options,
+        PinMethod::Ufg(tangent),
+    )
+}
+
+/// [`shield_fuel_reusing`] の自己遮蔽で、燃料のピンの UFG の範囲の群を減速計算で解かず、基準 `anchor`（同じ格子を今の UFG で解いた
+/// 自己遮蔽）の等価なセルのリングの実効断面積に、状態と基準の等価原理の値の比 σ_eq(状態) / σ_eq(基準) を掛けて求める（ADR-0250）。
+/// σ_eq は範囲の外の群と同じ等価原理（状態と基準のそれぞれの Dancoff 係数と組成と温度）で、反応ごと・群ごとに比を取る（基準の値が
+/// 0 なら比は 1）。範囲の外の群、燃料でない物質、構造材の塊は状態の物質で解く（[`shield_fuel_reusing`] と同じ）。比が決めない量
+/// （燃料でないリングの群定数、移行、SPH 因子）は `anchor.options` で選ぶ。基準の物質が状態と同じなら、結果は基準とビットで同じ
+#[tracing::instrument(name = "ratio-shielding", skip_all)]
+pub fn shield_fuel_ratio(
+    library: &Library,
+    reuse: &mut ShieldingReuse,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
+    options: &ShieldingOptions,
+    anchor: RatioAnchor,
+) -> Result<FuelShielding, SelfShieldingError> {
+    if anchor.materials.len() != materials.len()
+        || anchor
+            .materials
+            .iter()
+            .zip(materials)
+            .any(|(a, m)| a.name != m.name)
+    {
+        return Err(SelfShieldingError::AnchorMaterials);
+    }
+    if anchor.shielding.lattice != reuse.tracking.lattice {
+        return Err(SelfShieldingError::ForeignLattice);
+    }
+    shield_fuel_by(
+        library,
+        reuse,
+        materials,
+        region_materials,
+        symmetry,
+        options,
+        PinMethod::Ratio(anchor),
+    )
+}
+
+/// [`shield_fuel_tangent`] と [`shield_fuel_ratio`] の自己遮蔽。燃料のピンの UFG の範囲を `method` で解く
+fn shield_fuel_by(
+    library: &Library,
+    reuse: &mut ShieldingReuse,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
+    options: &ShieldingOptions,
+    method: PinMethod,
+) -> Result<FuelShielding, SelfShieldingError> {
+    let tangent = match method {
+        PinMethod::Ufg(tangent) => tangent,
+        PinMethod::Ratio(_) => None,
+    };
     let tracking = reuse.tracking;
     let lattice = &tracking.lattice;
     let regions = lattice.volumes().len();
@@ -876,15 +1083,30 @@ pub fn shield_fuel_tangent(
             hold,
             tangent,
         };
-        let ufg = shield_cell(
-            library,
-            &pin_cell,
-            materials,
-            dilute_materials,
-            factors,
-            &carlvik,
-            |inputs| cell_range(library, inputs),
-        )?;
+        let ufg = match method {
+            PinMethod::Ufg(_) => shield_cell(
+                library,
+                &pin_cell,
+                materials,
+                dilute_materials,
+                factors,
+                &carlvik,
+                |inputs| cell_range(library, inputs),
+            )?,
+            PinMethod::Ratio(anchor) => tracing::debug_span!("ratio").in_scope(|| {
+                ratio_cell(
+                    library,
+                    &pin_cell,
+                    materials,
+                    dilute_materials,
+                    factors,
+                    &carlvik,
+                    ring_materials,
+                    options,
+                    &anchor,
+                )
+            })?,
+        };
         Ok(PinSolution { carlvik, ufg })
     };
     // ピンは `par_iter` の仕事にせず、プールの各スレッドが 1 本ずつ番号の順に取る。`broadcast` の仕事はそのスレッドだけが
@@ -2167,6 +2389,260 @@ fn shield_cell(
         points: spectrum.points,
         demand: spectrum.demand,
         tangent: tangent.clone().map(Arc::new),
+    }))
+}
+
+/// 状態と基準の値の比（基準が 0 なら 1。比で変えない）
+fn ratio(state: f64, anchor: f64) -> f64 {
+    if anchor != 0.0 { state / anchor } else { 1.0 }
+}
+
+/// `target` の UFG の範囲の群 `groups` の反応ごとの値を、`base` の値に `state` / `anchor` の比を掛けたものにする
+fn scale_by_ratio(
+    target: &mut Shielded,
+    base: &Shielded,
+    state: &Shielded,
+    anchor: &Shielded,
+    groups: std::ops::Range<usize>,
+) {
+    fn reactions(s: &Shielded) -> [&Vec<f64>; 5] {
+        [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture]
+    }
+    let (b, s, a) = (reactions(base), reactions(state), reactions(anchor));
+    let out = [
+        &mut target.total,
+        &mut target.elastic,
+        &mut target.fission,
+        &mut target.nu_fission,
+        &mut target.capture,
+    ];
+    for (x, values) in out.into_iter().enumerate() {
+        for g in groups.clone() {
+            values[g] = b[x][g] * ratio(s[x][g], a[x][g]);
+        }
+    }
+}
+
+/// ピンのセル `pin.cell` の等価なセルのリングの物質を、基準 `anchor` の同じセルの UFG の結果から比で作る（[`shield_fuel_ratio`]）。
+/// 燃料のリングは、基準のリングの実効断面積に、状態の等価原理の値 `carlvik`（状態の Dancoff 係数 `dancoff` で解いたもの）と基準の
+/// 等価原理の値（基準の Dancoff 係数と組成で解き直す）の比を掛ける。燃料でないリング、移行、SPH 因子は `anchor.options` で作り、
+/// リングの物質は [`shield_cell`] と同じ作り方（核種の群定数を数密度で混ぜて SPH 因子を掛ける）。基準のピンに UFG の範囲が無ければ
+/// `None`（範囲の外の等価原理だけ）
+#[allow(clippy::too_many_arguments)]
+fn ratio_cell(
+    library: &Library,
+    pin: &PinRings,
+    materials: &[MaterialInput],
+    dilute: &[Material],
+    dancoff: &[f64],
+    carlvik: &[Shielded],
+    ring_materials: &[usize],
+    options: &ShieldingOptions,
+    anchor: &RatioAnchor,
+) -> Result<Option<CellShielding>, SelfShieldingError> {
+    let cell = pin.cell;
+    let mismatch = || SelfShieldingError::AnchorPin(cell);
+    let anchor_pin = anchor
+        .shielding
+        .pins
+        .iter()
+        .find(|p| p.cell == cell)
+        .ok_or_else(mismatch)?;
+    let (Some(anchor_sph), Some(radius)) = (&anchor_pin.sph, anchor_pin.equivalent) else {
+        return Ok(None);
+    };
+    let groups = anchor_sph.groups.clone();
+    let start = anchor_sph.moderator_ring;
+    // 基準の等価原理の値（範囲の外の群と同じ式。基準の Dancoff 係数と、基準の物質の組成と温度）
+    let radius_fuel = pin
+        .lattice
+        .cell_type(cell)
+        .pin()
+        .ok_or(SelfShieldingError::FuelShape(cell))?
+        .radii()[pin.rings - 1];
+    let anchor_equivalence = Equivalence {
+        chord: 2.0 * radius_fuel,
+        terms: anchor_pin
+            .dancoff
+            .iter()
+            .map(|&c| self::carlvik(c))
+            .collect::<Result<_, _>>()?,
+    };
+    let anchor_fuel = pin_fuel(pin.lattice, cell, anchor.materials, ring_materials);
+    let anchor_carlvik =
+        shield_material(library, &anchor_fuel, &anchor_equivalence, options, cell)?;
+    let geometry = pin
+        .lattice
+        .cell_type(cell)
+        .pin()
+        .ok_or(SelfShieldingError::FuelShape(cell))?;
+    let targets = ring_targets(geometry, pin.lattice.cell_regions(cell).start, start);
+    let ng = library.groups.len();
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    let rows = |transfer: &NuclideTransfer, full: &Shielded, base: &Shielded| -> NuclideTransfer {
+        match anchor.options.transfer {
+            RatioTransfer::Reference => transfer.clone(),
+            RatioTransfer::ElasticRatio => NuclideTransfer {
+                groups: transfer.groups.clone(),
+                rows: transfer
+                    .groups
+                    .clone()
+                    .zip(&transfer.rows)
+                    .map(|(g, row)| {
+                        let r = ratio(full.elastic[g], base.elastic[g]);
+                        row.iter().map(|v| v * r).collect()
+                    })
+                    .collect(),
+            },
+        }
+    };
+    let mut rings = Vec::with_capacity(targets.len());
+    let mut ring_nuclides = Vec::with_capacity(targets.len());
+    let mut ring_transfers = Vec::with_capacity(targets.len());
+    for (j, regions) in targets.iter().enumerate() {
+        let region = *regions.first().ok_or_else(mismatch)?;
+        let index = pin.region_index[region];
+        if index == pin.void {
+            rings.push(None);
+            ring_nuclides.push(None);
+            ring_transfers.push(None);
+            continue;
+        }
+        let (m, a) = (&materials[index], &anchor.materials[index]);
+        let base = anchor
+            .shielding
+            .region_cross_sections(region)
+            .ok_or_else(mismatch)?;
+        let base_transfers = anchor.shielding.region_transfers(region);
+        if base.len() != a.composition.len()
+            || base_transfers.is_some_and(|t| t.len() != base.len())
+        {
+            return Err(mismatch());
+        }
+        // 基準と状態は同じ燃焼点の、ホウ素が公称の状態なので、リングの核種の並びは同じ（違えば別の組成の基準）
+        if !m
+            .composition
+            .iter()
+            .map(|(n, _)| n)
+            .eq(a.composition.iter().map(|(n, _)| n))
+        {
+            return Err(mismatch());
+        }
+        let fuel = j < pin.rings;
+        let mut fulls = Vec::with_capacity(m.composition.len());
+        let mut transfers = Vec::with_capacity(m.composition.len());
+        let mut nuclides = Vec::with_capacity(m.composition.len());
+        for (k, (name, density)) in m.composition.iter().enumerate() {
+            let (full, transfer) = if fuel {
+                let mut full = carlvik[k].clone();
+                scale_by_ratio(
+                    &mut full,
+                    &base[k],
+                    &carlvik[k],
+                    &anchor_carlvik[k],
+                    groups.clone(),
+                );
+                let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                (full, transfer)
+            } else {
+                let mut full = library.shielded(name, m.temperature, &vec![infinite; ng])?;
+                match anchor.options.rings {
+                    RatioRings::InfiniteDilution => (full, None),
+                    RatioRings::Reference => {
+                        for g in groups.clone() {
+                            full.total[g] = base[k].total[g];
+                            full.elastic[g] = base[k].elastic[g];
+                            full.fission[g] = base[k].fission[g];
+                            full.nu_fission[g] = base[k].nu_fission[g];
+                            full.capture[g] = base[k].capture[g];
+                        }
+                        (
+                            full,
+                            base_transfers.map(|t| rows(&t[k], &base[k], &base[k])),
+                        )
+                    }
+                    RatioRings::ShieldingFactor => {
+                        let state = full.clone();
+                        let at_anchor =
+                            library.shielded(name, a.temperature, &vec![infinite; ng])?;
+                        scale_by_ratio(&mut full, &base[k], &state, &at_anchor, groups.clone());
+                        let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        (full, transfer)
+                    }
+                }
+            };
+            let nuclide =
+                shielded_nuclide_with(library, name, m.temperature, &full, transfer.as_ref())?;
+            nuclides.push((nuclide, *density));
+            fulls.push(full);
+            transfers.push(transfer);
+        }
+        let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
+            SelfShieldingError::Material {
+                name: m.name.clone(),
+                source,
+            }
+        })?;
+        rings.push(Some(material));
+        ring_nuclides.push(Some(Arc::new(fulls)));
+        // 移行の行は、基準が持てばどの核種にもあり、無限希釈の移行で解いた基準と、燃料でないリングを無限希釈にしたときは無い
+        let transfers: Option<Vec<NuclideTransfer>> = transfers.into_iter().collect();
+        ring_transfers.push(base_transfers.and(transfers).map(Arc::new));
+    }
+    let sph = match anchor.options.sph {
+        RatioSph::Reference => anchor_sph.factors.clone(),
+        RatioSph::State => {
+            shield_cell(
+                library,
+                pin,
+                materials,
+                dilute,
+                dancoff,
+                carlvik,
+                |inputs| cell_range(library, inputs),
+            )?
+            .ok_or_else(mismatch)?
+            .sph
+        }
+    };
+    if sph.len() < rings.len() || sph.iter().any(|row| row.len() != groups.len()) {
+        return Err(mismatch());
+    }
+    for (ring, (material, mu)) in rings.iter_mut().zip(&sph).enumerate() {
+        if let Some(m) = material {
+            let mut all = vec![1.0; ng];
+            all[groups.clone()].copy_from_slice(mu);
+            *m = m
+                .scaled(&all)
+                .map_err(|source| SelfShieldingError::Material {
+                    name: format!("ring {ring} of cell {cell}"),
+                    source,
+                })?;
+        }
+    }
+    // ピンの平均（範囲の外は状態の等価原理の値）も、基準の平均に同じ比を掛ける
+    let effective = carlvik
+        .iter()
+        .zip(anchor_pin.effective.iter())
+        .zip(&anchor_carlvik)
+        .map(|((state, base), at_anchor)| {
+            let mut s = state.clone();
+            scale_by_ratio(&mut s, base, state, at_anchor, groups.clone());
+            s
+        })
+        .collect();
+    Ok(Some(CellShielding {
+        radius,
+        rings,
+        start,
+        effective,
+        ring_nuclides,
+        ring_transfers,
+        sph,
+        groups,
+        points: 0,
+        demand: 0,
+        tangent: None,
     }))
 }
 
