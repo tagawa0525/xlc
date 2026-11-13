@@ -501,6 +501,482 @@
      },
      "state_seconds": 433.024629669
     }
+   },
+   "f1-average": {
+    "k_pcm": [
+     -8.49200449961618,
+     -9.111483813561971,
+     -9.793712173566949,
+     9.485079388582562e-07,
+     -1.4122036873231991e-08,
+     3.167799356162959e-07,
+     24.232138371871326,
+     26.176360490437478,
+     28.28421230763878
+    ],
+    "worst_k": {
+     "pcm": 28.28421230763878,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.00048794400776656986,
+     "nu_fission": 0.00014644095144888958,
+     "diffusion": 3.930634016074352e-05,
+     "scatter": 0.0006072641745479697,
+     "adf": 5.86061993696958e-05
+    },
+    "power": 5.682080249312185e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0028416369998200963,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.09093614714347842,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.007927084244871097,
+      "state": 7,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 4.8085157733579464e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.0002355733314594044,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.000245296125610972,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 46.833333333333336
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 87.3
+     },
+     "state_seconds": 706.22553098
+    }
+   },
+   "f1-state": {
+    "k_pcm": [
+     -7.328011334695184,
+     -7.776148011662265,
+     -8.267483585577828,
+     4.008349208106665e-07,
+     -1.7641443861293737e-08,
+     3.168021400767884e-07,
+     20.180870150110497,
+     21.563169884986078,
+     23.05259691672834
+    ],
+    "worst_k": {
+     "pcm": 23.05259691672834,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0003984878005982726,
+     "nu_fission": 0.00017748071173985666,
+     "diffusion": 3.960228649917165e-05,
+     "scatter": 0.0005446532898911763,
+     "adf": 5.616982949705123e-05
+    },
+    "power": 5.369710230037472e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0020854588611108893,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.07847047248389916,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0010022825070580277,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Pu-239": {
+      "relative": 6.113753206360428e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00022572747509075342,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00023796047194402092,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.73333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 43.01666666666667
+     },
+     "state_seconds": 436.007094266
+    }
+   },
+   "f1-state-sph": {
+    "k_pcm": [
+     -4.91870719191434,
+     -5.084832923196725,
+     -5.272142634438204,
+     2.2040147484858608e-07,
+     -2.670863530340739e-07,
+     -3.115840918610502e-07,
+     12.100205089160543,
+     12.568009008717684,
+     13.079018471839898
+    ],
+    "worst_k": {
+     "pcm": 13.079018471839898,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.00020032591729181792,
+     "nu_fission": 8.189644481842645e-05,
+     "diffusion": 4.1422265539655386e-05,
+     "scatter": 0.0003456705059188731,
+     "adf": 4.141464108123137e-05
+    },
+    "power": 4.27058980802215e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0008459953919904839,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.05266939400426318,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0006460141612858461,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 1.2206996821140237e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00016316356770218476,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00017389168344772443,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 47.13333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.449999999999996
+     },
+     "state_seconds": 436.77349323
+    }
+   },
+   "f1-exact": {
+    "k_pcm": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "worst_k": {
+     "pcm": 0.0,
+     "state": 0
+    },
+    "items": {
+     "absorption": 0.0,
+     "nu_fission": 0.0,
+     "diffusion": 0.0,
+     "scatter": 0.0,
+     "adf": 0.0
+    },
+    "power": 0.0,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 0.0,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": 0.0,
+      "at": "m2f2"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     },
+     "Pu-239": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     },
+     "Gd-157": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.63333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.300000000000004
+     },
+     "state_seconds": 431.282726421
+    }
+   },
+   "f1-state-sections": {
+    "k_pcm": [
+     -6.3244135564355375,
+     -6.475682491280388,
+     -6.648408979659237,
+     4.89164264649844e-07,
+     9.825473767932635e-09,
+     3.167577311558034e-07,
+     16.48651281384028,
+     16.86204800805946,
+     17.277893146683265
+    ],
+    "worst_k": {
+     "pcm": 17.277893146683265,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0002839686699505481,
+     "nu_fission": 9.188315474387754e-05,
+     "diffusion": 4.1691610426661385e-05,
+     "scatter": 0.00040944682978316367,
+     "adf": 4.49015139407795e-05
+    },
+    "power": 4.6024928994126714e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0008556249177921194,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.06772282759068338,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.000711931103358765,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 2.166299653239001e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00017826129398423873,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00018959542488472536,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.73333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.333333333333336
+     },
+     "state_seconds": 431.798486757
+    }
+   },
+   "f1-static-fuel": {
+    "k_pcm": [
+     -7.275621537294885,
+     -7.7037334371587995,
+     -8.135695888078498,
+     4.4536596632838155e-07,
+     6.128431095930864e-09,
+     3.168243445372809e-07,
+     20.250562535095717,
+     21.580540682242244,
+     22.888606858739724
+    ],
+    "worst_k": {
+     "pcm": 22.888606858739724,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.00038865329247857904,
+     "nu_fission": 0.00016187701900018705,
+     "diffusion": 4.015788950172711e-05,
+     "scatter": 0.0005418228154941059,
+     "adf": 5.6940005694596616e-05
+    },
+    "power": 5.52202662237839e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0019659967032522596,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.07790941798363193,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0009675092634604532,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Pu-239": {
+      "relative": 6.683250538008778e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00022228334513529902,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.0002336313486894781,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.86666666666667
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 85.66666666666667
+     },
+     "state_seconds": 692.269776444
+    }
+   },
+   "f1-static": {
+    "k_pcm": [
+     -6.236568920325869,
+     -6.365376668215905,
+     -6.476943650046696,
+     5.196842955967895e-07,
+     3.1209479445237776e-07,
+     -7.315259509255156e-08,
+     16.431541256556326,
+     16.746203986828245,
+     16.97420510214931
+    ],
+    "worst_k": {
+     "pcm": 16.97420510214931,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0002774041905498038,
+     "nu_fission": 7.928987352845429e-05,
+     "diffusion": 4.240887997051232e-05,
+     "scatter": 0.0004049249866376745,
+     "adf": 4.55721464191831e-05
+    },
+    "power": 4.7375255234399255e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0007551531388531041,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.06678210198878276,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0006054294685730044,
+      "state": 7,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 2.7241221541629557e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.0001749278164560053,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00018537618046798876,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.666666666666664
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 85.66666666666667
+     },
+     "state_seconds": 691.741374308
+    }
    }
   }
  },
@@ -515,9 +991,16 @@
   "2A-20-f2-transfer",
   "2O-10-every",
   "2O-10-f1",
+  "2O-10-f1-average",
   "2O-10-f1-dilute",
+  "2O-10-f1-exact",
   "2O-10-f1-factor",
   "2O-10-f1-sph",
+  "2O-10-f1-state",
+  "2O-10-f1-state-sections",
+  "2O-10-f1-state-sph",
+  "2O-10-f1-static",
+  "2O-10-f1-static-fuel",
   "2O-10-f1-transfer",
   "2O-10-f2",
   "2O-10-f2-transfer",
@@ -531,9 +1014,16 @@
   "MOX-20-f2-transfer",
   "MOX-60-every",
   "MOX-60-f1",
+  "MOX-60-f1-average",
   "MOX-60-f1-dilute",
+  "MOX-60-f1-exact",
   "MOX-60-f1-factor",
   "MOX-60-f1-sph",
+  "MOX-60-f1-state",
+  "MOX-60-f1-state-sections",
+  "MOX-60-f1-state-sph",
+  "MOX-60-f1-static",
+  "MOX-60-f1-static-fuel",
   "MOX-60-f1-transfer",
   "MOX-60-f2",
   "MOX-60-f2-transfer"
@@ -570,6 +1060,34 @@
   {
    "path": "table-2A-60-f1-sph.msgpack",
    "md5": "fcd4115245a473488052707c579a366c"
+  },
+  {
+   "path": "table-2A-60-f1-average.msgpack",
+   "md5": "c39fb265821cc0ce7da7baa74b31877d"
+  },
+  {
+   "path": "table-2A-60-f1-state.msgpack",
+   "md5": "27d9371243fa5cf0d7d7e1e26a50a65f"
+  },
+  {
+   "path": "table-2A-60-f1-state-sph.msgpack",
+   "md5": "bc59014c54cfd8dae045003840d44046"
+  },
+  {
+   "path": "table-2A-60-f1-exact.msgpack",
+   "md5": "4f8a5499ea52fbf393676d51e675c8b8"
+  },
+  {
+   "path": "table-2A-60-f1-state-sections.msgpack",
+   "md5": "f066e5665ae7f572f6a9648b3dedfe7d"
+  },
+  {
+   "path": "table-2A-60-f1-static-fuel.msgpack",
+   "md5": "c07a3c6f40be740613eb431b4269aa96"
+  },
+  {
+   "path": "table-2A-60-f1-static.msgpack",
+   "md5": "5afe675a8615d8ba2f63b07cef3235f0"
   }
  ]
 }

@@ -1,0 +1,5 @@
+outs:
+- md5: 4f8a5499ea52fbf393676d51e675c8b8
+  size: 161963
+  hash: md5
+  path: table-2A-60-f1-exact.msgpack

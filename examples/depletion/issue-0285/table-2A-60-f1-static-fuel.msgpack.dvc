@@ -1,0 +1,5 @@
+outs:
+- md5: c07a3c6f40be740613eb431b4269aa96
+  size: 161963
+  hash: md5
+  path: table-2A-60-f1-static-fuel.msgpack
