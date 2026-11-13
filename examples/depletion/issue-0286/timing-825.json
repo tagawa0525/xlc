@@ -1,0 +1,165 @@
+{
+ "pin-uo2": [
+  {
+   "variant": "default",
+   "shielding_seconds": 7.32,
+   "total_seconds": 13.038473283,
+   "solved": 1,
+   "per_pin": {
+    "grid": 0.104783903,
+    "table": 0.355812391,
+    "evaluate": 0.05824926,
+    "collision": 0.074581131,
+    "slowing": 2.835435013,
+    "free_gas": 2.009126271,
+    "sab": 0.543823478
+   },
+   "transfers_per_pin": 2.5933374049999998,
+   "k_inf": [
+    1.172145578250794
+   ]
+  },
+  {
+   "variant": "share-1e-3",
+   "shielding_seconds": 5.44,
+   "total_seconds": 11.195763205,
+   "solved": 1,
+   "per_pin": {
+    "grid": 0.111975341,
+    "table": 0.357310744,
+    "evaluate": 0.055329327,
+    "collision": 0.07334143,
+    "slowing": 1.834748003,
+    "free_gas": 1.020930379,
+    "sab": 0.542221067
+   },
+   "transfers_per_pin": 1.742728777,
+   "k_inf": [
+    1.1721450994364306
+   ],
+   "drho_pcm": [
+    -0.03485011695891771
+   ],
+   "constants": 5.419149048208811e-07,
+   "pins": null,
+   "ring_capture": 1.3270039381876962e-06
+  }
+ ],
+ "pin-uo2-40": [
+  {
+   "variant": "default",
+   "shielding_seconds": 14.0,
+   "total_seconds": 19.704141888,
+   "solved": 1,
+   "per_pin": {
+    "grid": 0.560411741,
+    "table": 0.406652238,
+    "evaluate": 0.179281885,
+    "collision": 0.087732993,
+    "slowing": 6.746658386,
+    "free_gas": 5.474870942,
+    "sab": 0.619540416
+   },
+   "transfers_per_pin": 4.582739833,
+   "k_inf": [
+    0.8253620679010972
+   ]
+  },
+  {
+   "variant": "share-1e-3",
+   "shielding_seconds": 7.67,
+   "total_seconds": 13.296519269,
+   "solved": 1,
+   "per_pin": {
+    "grid": 0.59073838,
+    "table": 0.405793635,
+    "evaluate": 0.168655493,
+    "collision": 0.086407486,
+    "slowing": 2.877221658,
+    "free_gas": 1.6415200840000002,
+    "sab": 0.615658269
+   },
+   "transfers_per_pin": 2.175062483,
+   "k_inf": [
+    0.8253692138006229
+   ],
+   "drho_pcm": [
+    1.0489725758011659
+   ],
+   "constants": 1.4311633362833894e-05,
+   "pins": null,
+   "ring_capture": 4.000322949720856e-05
+  }
+ ],
+ "2A-60": [
+  {
+   "variant": "default",
+   "shielding_seconds": 62.9,
+   "total_seconds": 77.053741617,
+   "solved": 39,
+   "per_pin": {
+    "grid": 2.3443169718974364,
+    "table": 3.250353932230769,
+    "evaluate": 0.40134869300000003,
+    "collision": 5.319895804358973,
+    "slowing": 19.199446121487178,
+    "free_gas": 16.15446044138461,
+    "sab": 1.1412021911538461
+   },
+   "transfers_per_pin": 8.187859342282053,
+   "k_inf": [
+    0.8095935409584549
+   ]
+  },
+  {
+   "variant": "share-1e-3",
+   "shielding_seconds": 36.5,
+   "total_seconds": 50.0459805,
+   "solved": 39,
+   "per_pin": {
+    "grid": 2.3087324158461544,
+    "table": 3.245332499794872,
+    "evaluate": 0.41648998261538456,
+    "collision": 5.374344227256409,
+    "slowing": 6.163845534974359,
+    "free_gas": 3.1866140176923077,
+    "sab": 1.1370920654871794
+   },
+   "transfers_per_pin": 3.3209736937435888,
+   "k_inf": [
+    0.8095970967194653
+   ],
+   "drho_pcm": [
+    0.542496057986952
+   ],
+   "constants": 7.38277440721625e-06,
+   "pins": 1.3132834764437817e-06,
+   "ring_capture": 4.6206595031384474e-05
+  },
+  {
+   "variant": "share-1e-2",
+   "shielding_seconds": 32.0,
+   "total_seconds": 45.479863783,
+   "solved": 39,
+   "per_pin": {
+    "grid": 2.352964405641026,
+    "table": 3.2568704094102556,
+    "evaluate": 0.3940946491794873,
+    "collision": 5.355728827615386,
+    "slowing": 4.10576551325641,
+    "free_gas": 1.164519538,
+    "sab": 1.1537632921794871
+   },
+   "transfers_per_pin": 2.1868983236410253,
+   "k_inf": [
+    0.8095968139756292
+   ],
+   "drho_pcm": [
+    0.49935851416105237
+   ],
+   "constants": 9.392670686217686e-06,
+   "pins": 2.6820296507257777e-06,
+   "ring_capture": 0.00013541076823525303
+  }
+ ]
+}

@@ -151,6 +151,12 @@ pub enum UfgError {
     )]
     ZeroTotal(usize),
     #[error(
+        "ring {ring}: the total cross section is 0 at {energy} eV, so the scatter share of `ufg-free-gas.share` is undefined"
+    )]
+    ShareZeroTotal { ring: usize, energy: f64 },
+    #[error("the frozen rested nuclides list {given} nuclides for {nuclides}")]
+    FrozenRested { given: usize, nuclides: usize },
+    #[error(
         "density direction {direction}: ring {ring} has {given} density changes for {expected} nuclides"
     )]
     Direction {
@@ -303,6 +309,10 @@ pub struct FreeGas {
     /// S(α, β) を持つ核種（H in H2O の H）を、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で散乱させる。false は、その
     /// 核種も自由ガスの核にする（ADR-0205）
     pub sab: bool,
+    /// 自由ガスにする核種を散乱の割合で絞る閾値。`Some(s)` は、自由ガスの核を使う範囲の狭い共鳴の中性子束 1/(Σt E) の重みの
+    /// 弾性散乱の率の、リングの物質の中の割合がどのリングでも `s` より小さい核種を静止した標的にする（S(α, β) の移行の核種は
+    /// 除かない）。`None` は絞らない（#0286）
+    pub share: Option<f64>,
 }
 
 /// 自由ガスの核を使う入射エネルギーの上限（[`FreeGas::upper`]、[`FreeGas::heavy`]）。
@@ -331,6 +341,7 @@ impl Default for FreeGas {
             sweeps: Some(3),
             heavy: Some(FreeGasCap::Energy(31.0)),
             sab: true,
+            share: None,
         }
     }
 }
@@ -590,13 +601,15 @@ pub fn slowing_down_tangent(
     Ok((spectrum, shares.map(|_| transfers), tangent))
 }
 
-/// 個数密度で決まる減速計算の離散の選択: 間引いた格子（[`thin`] の点）と、飛程の表の軸の範囲（[`track_table`]）。`None` の項目は
+/// 個数密度で決まる減速計算の離散の選択: 間引いた格子（[`thin`] の点）、飛程の表の軸の範囲（[`track_table`]）と、散乱の割合で
+/// 静止した標的にする核種（[`minor_scatterers`]）。`None` の項目は
 /// 減速計算が求めて書き、`Some` の項目はそれを使う。試験で、個数密度を変えた減速計算を状態の選択に固め、1 次の変化（[`slowing_down_tangent`]
 /// の、状態の選択の上の微分）と同じ離散の問題の中心差分にする（ADR-0247）
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct Frozen {
     pub(crate) grid: Option<Vec<f64>>,
     pub(crate) ranges: Option<Vec<[f64; 2]>>,
+    pub(crate) rested: Option<Vec<bool>>,
 }
 
 /// 飛程の ln Σ についての微分の中心差分の幅。飛程の表の微分（[`crate::track_table`] の 1e-3）は展開の差（0.01 以下）を掛けて
@@ -842,6 +855,35 @@ fn solve_cell(
             ))
         }
     };
+    // 散乱の割合で静止した標的にする核種（個数密度の向きの検査は、絞る前の自由ガスの核種で行う）
+    if let Scattering::FreeGas(FreeGas {
+        share: Some(threshold),
+        ..
+    }) = scattering
+    {
+        let rested = match frozen.as_deref().and_then(|f| f.rested.clone()) {
+            // 別の核種の並びの減速計算の選択を黙って切り詰めない
+            Some(rested) if rested.len() != data.len() => {
+                return Err(UfgError::FrozenRested {
+                    given: rested.len(),
+                    nuclides: data.len(),
+                });
+            }
+            Some(rested) => rested,
+            None => {
+                let rested = minor_scatterers(&data, &entries, &points, &u, threshold)?;
+                if let Some(f) = frozen.as_deref_mut() {
+                    f.rested = Some(rested.clone());
+                }
+                rested
+            }
+        };
+        for (d, &rest) in data.iter_mut().zip(&rested) {
+            if rest {
+                d.gas = None;
+            }
+        }
+    }
     let above = Above { bounds, top, high };
     let mut sweep = Sweep {
         data: &data,
@@ -1838,7 +1880,7 @@ fn macroscopic_totals(
                 let x = &d.pointwise().energy;
                 let mut cursor = x.partition_point(|&v| v <= energies[0]);
                 for (i, (row, &e)) in block.chunks_exact_mut(quantities).zip(energies).enumerate() {
-                    let [total, elastic] = match evaluate_total_elastic(d, &mut cursor, e) {
+                    let [total, elastic] = match evaluate_total_elastic(d, &mut cursor, e, false) {
                         Ok(v) => v,
                         Err(error) => return Some((k, b * THIN_POINTS + i, error)),
                     };
@@ -2241,6 +2283,93 @@ fn lethargy_grid(
     (u, points)
 }
 
+/// [核種] の、静止した標的にするか: 自由ガスの核種のうち、リングの物質の中の散乱の割合（自由ガスの核を使う範囲（入射エネルギーが [`Gas::top`] 以下の格子点）の
+/// 狭い共鳴の中性子束 1/(Σt E) の重みの ∫ N σs / Σt du ÷ ∫ Σs / Σt du）が、その核種を含むどのリングでも `threshold` より小さい
+/// 核種（#0286）。核種は名前と温度の組（[`Data`]）ごとに決める。S(α, β) の移行の核種（[`Gas::floor`] のあるもの）は残す（S(α, β) の移行は自由ガスの核の
+/// 上限より上の入射を自由ガスに残すので、自由ガスなしでは使えない）。積分は格子点の台形則
+fn minor_scatterers(
+    data: &[Data],
+    entries: &[Vec<(usize, f64)>],
+    points: &[(f64, bool)],
+    u: &[f64],
+    threshold: f64,
+) -> Result<Vec<bool>, UfgError> {
+    let tops: Vec<Option<f64>> = data
+        .iter()
+        .map(|d| d.gas.filter(|g| g.floor().is_none()).map(|g| g.top()))
+        .collect();
+    // 格子点はエネルギーの降順。どの核種の範囲より上の格子点は、どの項も 0 なので飛ばす
+    let Some(highest) = tops.iter().flatten().copied().reduce(f64::max) else {
+        return Ok(vec![false; data.len()]);
+    };
+    let first = points.partition_point(|&(e, _)| e > highest);
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
+    // [リング][項] の ∫ N σs / Σt du と ∫ Σs / Σt du（どちらも項の核種の範囲で）
+    let zeros: Vec<Vec<f64>> = entries.iter().map(|r| vec![0.0; r.len()]).collect();
+    let (mut own, mut all) = (zeros.clone(), zeros.clone());
+    // 前の格子点の [リング][項] の N σs / Σt と Σs / Σt（範囲の外は 0）
+    let (mut own_before, mut all_before) = (zeros.clone(), zeros);
+    let mut values = vec![[0.0; 2]; data.len()];
+    for (m, (&(e, below), &um)) in points.iter().zip(u).enumerate().skip(first) {
+        // 割合は全断面積と弾性散乱断面積だけで決まるので、その 2 つだけを補間する
+        for ((value, d), cursor) in values.iter_mut().zip(data.iter()).zip(&mut cursors) {
+            *value = evaluate_total_elastic(d, cursor, e, below)?;
+        }
+        let du = if m > 0 { um - u[m - 1] } else { 0.0 };
+        for (i, ring) in entries.iter().enumerate() {
+            if ring.is_empty() {
+                continue;
+            }
+            let (total, scatter) = ring.iter().fold((0.0, 0.0), |(t, s), &(k, n)| {
+                (t + n * values[k][0], s + n * values[k][1])
+            });
+            // Σt で割るのは、割合を数える項（範囲の中の、個数密度が 0 でない自由ガスの核種）のある格子点だけ（ない点の項は 0）
+            let counted = ring
+                .iter()
+                .any(|&(k, n)| n != 0.0 && tops[k].is_some_and(|top| e <= top));
+            if counted && total <= 0.0 {
+                return Err(UfgError::ShareZeroTotal { ring: i, energy: e });
+            }
+            for (j, &(k, n)) in ring.iter().enumerate() {
+                let inside = counted && tops[k].is_some_and(|top| e <= top);
+                let (a, b) = if inside {
+                    (n * values[k][1] / total, scatter / total)
+                } else {
+                    (0.0, 0.0)
+                };
+                own[i][j] += 0.5 * du * (own_before[i][j] + a);
+                all[i][j] += 0.5 * du * (all_before[i][j] + b);
+                own_before[i][j] = a;
+                all_before[i][j] = b;
+            }
+        }
+    }
+    let mut shares = vec![0.0_f64; data.len()];
+    for (i, ring) in entries.iter().enumerate() {
+        for (j, &(k, _)) in ring.iter().enumerate() {
+            if all[i][j] > 0.0 {
+                shares[k] = shares[k].max(own[i][j] / all[i][j]);
+            }
+        }
+    }
+    Ok(data
+        .iter()
+        .zip(&tops)
+        .zip(&shares)
+        .map(|((d, top), &share)| {
+            let rest = top.is_some() && share < threshold;
+            if rest {
+                tracing::debug!(
+                    name = d.name,
+                    share,
+                    "UFG free gas rested by the scatter share"
+                );
+            }
+            rest
+        })
+        .collect())
+}
+
 /// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
 /// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
@@ -2256,9 +2385,14 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, Uf
     ])
 }
 
-/// 核種 `d` の全断面積と弾性散乱断面積の、エネルギー `e` での lin-lin の補間（[`evaluate`] の高い側の極限と同じ値）
-fn evaluate_total_elastic(d: &Data, cursor: &mut usize, e: f64) -> Result<[f64; 2], UfgError> {
-    let (j, t) = bracket(d, cursor, e, false)?;
+/// 核種 `d` の全断面積と弾性散乱断面積の、エネルギー `e` での lin-lin の補間（[`evaluate`] と同じ値。`below` も同じ）
+fn evaluate_total_elastic(
+    d: &Data,
+    cursor: &mut usize,
+    e: f64,
+    below: bool,
+) -> Result<[f64; 2], UfgError> {
+    let (j, t) = bracket(d, cursor, e, below)?;
     let p = d.pointwise();
     let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
     Ok([lerp(&p.total), lerp(&p.elastic)])

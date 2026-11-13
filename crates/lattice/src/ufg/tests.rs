@@ -1000,7 +1000,7 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
         let mut expected = [0.0; 4];
         for (d, n) in data.iter().zip(&densities) {
             let [total, elastic] =
-                evaluate_total_elastic(d, &mut d.pointwise().energy.len(), e).unwrap();
+                evaluate_total_elastic(d, &mut d.pointwise().energy.len(), e, false).unwrap();
             // 両方の核種がどれかの物質にあるので、どちらも足す
             for (m, &n) in n.iter().enumerate() {
                 expected[2 * m] += n * total;
@@ -1145,6 +1145,7 @@ fn free_gas(upper: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scatterin
         sweeps,
         heavy: None,
         sab: false,
+        share: None,
     })
 }
 
@@ -1161,6 +1162,7 @@ fn free_gas_capped(cap: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scat
         sweeps,
         heavy: Some(cap),
         sab: false,
+        share: None,
     })
 }
 
@@ -1228,6 +1230,127 @@ fn converged_sweeps_match_many_fixed_sweeps() {
     assert!(flux_difference(&many, &converged) < 1e-9);
     let one = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, Some(1)));
     assert!(flux_difference(&one, &converged) < 1e-3);
+}
+
+/// [`thermal_cell`] の物質で、ライブラリを `lib` にした 100 eV より下の減速計算（上限なしで持つ量は [`thermal_spectrum`] と同じく 0）
+fn thermal_spectrum_of(lib: &Library, scattering: Scattering) -> CellSpectrum {
+    let (_, fuel, water) = thermal_cell(600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let spectrum = slowing_down_with(
+        lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        scattering,
+        held_cells(1 << 30, 1),
+    )
+    .unwrap();
+    CellSpectrum {
+        demand: 0,
+        ..spectrum
+    }
+}
+
+/// [`free_gas`] の、散乱の割合が `share` より小さい核種を静止した標的にするもの
+fn free_gas_share(share: f64) -> Scattering {
+    Scattering::FreeGas(FreeGas {
+        upper: UNCAPPED,
+        cells: 4,
+        sweeps: None,
+        heavy: None,
+        sab: false,
+        share: Some(share),
+    })
+}
+
+#[test]
+fn nuclides_below_the_scatter_share_scatter_from_rest() {
+    // thermal_cell の断面積は一定なので、リングの物質の中の散乱の割合は N σs / Σs: 燃料の U-235 は 0.004 / 0.417 = 0.0096、
+    // O-16 は 0.41（水の中では 0.087）、水の H-1 は 0.91。閾値 0.02 は U-235 だけを静止した標的にする。U-235 を分離共鳴を持つ
+    // 核種にしたライブラリ（`heavy` を選ばないので静止した標的）の結果と同じ
+    let lib = thermal_cell(600.0).0;
+    let mut specs = thermal_specs();
+    specs[1].top = Some(2.0e4);
+    let resting = library_with(specs, 600.0, &BOUNDS);
+    let at_rest = thermal_spectrum_of(&resting, free_gas(UNCAPPED, 4, None));
+    assert_eq!(thermal_spectrum_of(&lib, free_gas_share(0.02)), at_rest);
+    // 静止した標的にしたことで結果が動く（比べる意味がある）
+    let moving = thermal_spectrum_of(&lib, free_gas(UNCAPPED, 4, None));
+    assert!(flux_difference(&moving, &at_rest) > 1e-9);
+}
+
+#[test]
+fn a_share_below_every_nuclide_keeps_the_free_gas_of_all() {
+    // 閾値がどの核種の割合より小さければ、絞らないときとビットで同じ
+    let lib = thermal_cell(600.0).0;
+    assert_eq!(
+        thermal_spectrum_of(&lib, free_gas_share(1.0e-3)),
+        thermal_spectrum_of(&lib, free_gas(UNCAPPED, 4, None))
+    );
+}
+
+#[test]
+fn a_share_above_every_nuclide_gives_the_static_spectrum() {
+    // 閾値がどの核種の割合より大きければ、どの核種も静止した標的
+    let lib = thermal_cell(600.0).0;
+    assert_eq!(
+        thermal_spectrum_of(&lib, free_gas_share(0.95)),
+        thermal_spectrum_of(&lib, Scattering::Static)
+    );
+}
+
+#[test]
+fn rings_without_free_gas_nuclides_need_no_scatter_share() {
+    // 割合を数える自由ガスの核種のないリングは、全断面積が 0 でも割合を数えない（格子点ごとの衝突確率なら解ける）
+    let mut specs = thermal_specs();
+    let mut empty = constant("X-1", 50.0, 0.0, 0.0, 0.0);
+    empty.top = Some(2.0e4);
+    specs.push(empty);
+    let lib = library_with(specs, 600.0, &BOUNDS);
+    let (_, fuel, water) = thermal_cell(600.0);
+    let void = material_at(&[("X-1", 0.01)], 600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), Some(&void), Some(&water), Some(&water)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+            held_cells(1 << 30, 1),
+        )
+    };
+    assert!(solve(free_gas(UNCAPPED, 4, None)).is_ok());
+    assert!(solve(free_gas_share(0.02)).is_ok());
+}
+
+#[test]
+fn rings_of_free_gas_nuclides_at_zero_density_need_no_scatter_share() {
+    // 自由ガスの核種がどれも個数密度 0 のリングも、割合に何も足さないので、全断面積が 0 でも割合を数えない
+    let (lib, fuel, water) = thermal_cell(600.0);
+    let empty = material_at(&[("O-16", 0.0)], 600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), Some(&empty), Some(&water), Some(&water)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+            held_cells(1 << 30, 1),
+        )
+    };
+    assert!(solve(free_gas(UNCAPPED, 4, None)).is_ok());
+    assert!(solve(free_gas_share(0.02)).is_ok());
 }
 
 #[test]
@@ -1676,6 +1799,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
         sweeps: None,
         heavy: Some(FreeGasCap::Thermal(f64::INFINITY)),
         sab: false,
+        share: None,
     });
     // 群（20〜9.877、9.877〜4 eV）の U-238 の捕獲率
     let ufg_rates = |s: &CellSpectrum| -> Vec<f64> {
@@ -1820,6 +1944,7 @@ fn sab(cells: usize, sweeps: Option<usize>) -> Scattering {
         sweeps,
         heavy: None,
         sab: true,
+        share: None,
     })
 }
 
@@ -1837,6 +1962,54 @@ fn sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum() {
         .collect();
     assert!(differences[2] < differences[0], "{differences:?}");
     assert!(differences[2] < 1e-5, "{differences:?}");
+}
+
+#[test]
+fn sab_nuclides_keep_their_free_gas_under_any_share() {
+    // 閾値が水の H-1 の割合（0.91）より大きくても、S(α, β) の核種は自由ガスの核と S(α, β) の移行のまま。ほかの核種は静止した
+    // 標的になり、U-235 と O-16 を分離共鳴を持つ核種にした（`heavy` を選ばないので静止した標的の）ライブラリと同じ
+    let table = || free_gas_transfer(0.99917, 600.0, 0.02);
+    let (lib, fuel, water) = sab_cell(Some(table()));
+    let mut specs = thermal_specs();
+    for k in [1, 3] {
+        specs[k].top = Some(2.0e4);
+    }
+    let mut resting = library_with(specs, 600.0, &BOUNDS);
+    make_sab(&mut resting, Some(table()));
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let solve = |lib: &Library, scattering| {
+        slowing_down_with(
+            lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap()
+    };
+    let shared = Scattering::FreeGas(FreeGas {
+        upper: UNCAPPED,
+        cells: 4,
+        sweeps: None,
+        heavy: None,
+        sab: true,
+        share: Some(0.95),
+    });
+    let unshared = solve(&resting, sab(4, None));
+    assert_eq!(
+        CellSpectrum {
+            demand: 0,
+            ..solve(&lib, shared)
+        },
+        CellSpectrum {
+            demand: 0,
+            ..unshared
+        }
+    );
 }
 
 #[test]
@@ -2913,6 +3086,7 @@ fn tangent_gas(sab: bool) -> Scattering {
         sweeps: Some(3),
         heavy: Some(FreeGasCap::Energy(10.0)),
         sab,
+        share: None,
     })
 }
 
@@ -3188,7 +3362,31 @@ fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
     let mut empty = proportional(&rings, "none");
     empty[0][2] = 1.0e-3;
     assert!(matches!(
-        solve(Collision::Exact, &rings, &[empty]),
+        solve(Collision::Exact, &rings, &[empty.clone()]),
+        Err(UfgError::TangentZeroDensity { direction: 0, ring: 0, ref name }) if name == "O-16"
+    ));
+    // 散乱の割合で絞っても（個数密度 0 の核種は割合 0 で静止した標的になる）、向きの検査は絞る前の自由ガスの核種で行う
+    let shared = Scattering::FreeGas(FreeGas {
+        upper: FreeGasCap::Energy(50.0),
+        cells: 2,
+        sweeps: Some(3),
+        heavy: Some(FreeGasCap::Energy(10.0)),
+        sab: false,
+        share: Some(1.0e-3),
+    });
+    assert!(matches!(
+        tangent_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            shared,
+            None,
+            0,
+            &[empty],
+        ),
         Err(UfgError::TangentZeroDensity { direction: 0, ring: 0, ref name }) if name == "O-16"
     ));
 }
