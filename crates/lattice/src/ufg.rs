@@ -2314,26 +2314,15 @@ fn minor_scatterers(
             let (total, scatter) = ring.iter().fold((0.0, 0.0), |(t, s), &(k, n)| {
                 (t + n * values[k][0], s + n * values[k][1])
             });
-            // 割合を数える項（範囲の中の自由ガスの核種）のない格子点では Σt を使わない
-            if !ring
+            // Σt で割るのは、割合を数える項（範囲の中の、個数密度が 0 でない自由ガスの核種）のある格子点だけ（ない点の項は 0）
+            let counted = ring
                 .iter()
-                .any(|&(k, _)| tops[k].is_some_and(|top| e <= top))
-            {
-                for (sum, before) in own[i]
-                    .iter_mut()
-                    .zip(own_before[i].iter_mut())
-                    .chain(all[i].iter_mut().zip(all_before[i].iter_mut()))
-                {
-                    *sum += 0.5 * du * *before;
-                    *before = 0.0;
-                }
-                continue;
-            }
-            if total <= 0.0 {
+                .any(|&(k, n)| n != 0.0 && tops[k].is_some_and(|top| e <= top));
+            if counted && total <= 0.0 {
                 return Err(UfgError::ShareZeroTotal { ring: i, energy: e });
             }
             for (j, &(k, n)) in ring.iter().enumerate() {
-                let inside = tops[k].is_some_and(|top| e <= top);
+                let inside = counted && tops[k].is_some_and(|top| e <= top);
                 let (a, b) = if inside {
                     (n * values[k][1] / total, scatter / total)
                 } else {
