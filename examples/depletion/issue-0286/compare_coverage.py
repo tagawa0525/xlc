@@ -4,7 +4,7 @@
 ログ（`<ケース>-<変種>.log`。水準は `info,xlc_lattice::ufg=debug,xlc_lattice::shielding=debug`）から次を書く:
 
 - 燃焼: 燃焼点ごとの k∞ の反応度の差 1/k(full) − 1/k(share)（pcm）と、主な核種の数密度の燃焼の領域ごとの相対の差（share − full）/ full
-  の最大（核種ごと）。燃焼点ごとの少数群定数（履歴の `few_group`）の相対の差の最大
+  の最大（核種ごと）。燃焼点ごとの少数群定数（履歴の `few_group`）とピン出力（履歴の `pin_powers`）の相対の差の最大
 - 分岐: 状態ごとの k∞ の反応度の差、少数群定数（全断面積、吸収、νΣf、散乱行列）の相対の差の最大、燃料の温度と減速材の分岐の
   反応度の変化 1/k(公称) − 1/k(分岐) の差（share − full。pcm）、ミクロ燃焼の核種ごとの微視的断面積（数密度の微分を含む、
   テーブルの `micro` の数）の相対の差の最大
@@ -144,6 +144,17 @@ def rested_changes(blocks: list[dict]) -> list[dict]:
     return changes
 
 
+def few_group_difference(full: dict, share: dict, where: str) -> float:
+    """燃焼点の少数群定数（履歴の `few_group` は、その点の状態を並べたテーブルと同じ形）の、状態ごとの CONSTANTS の相対の差の最大"""
+    if full["points"] != share["points"]:
+        sys.exit(f"{where}: the few-group states differ in points")
+    return max(
+        relative(flat(b[c]), flat(a[c]))
+        for a, b in zip(full["states"], share["states"])
+        for c in CONSTANTS
+    )
+
+
 def burn(case: str) -> dict:
     full = read(OUT / f"{case}-full.msgpack")
     share = read(OUT / f"{case}-share-1e-4.msgpack")
@@ -171,18 +182,33 @@ def burn(case: str) -> dict:
             "drho_pcm": reactivity(a["k_inf"], b["k_inf"]),
             "densities": densities,
         }
-        if a.get("few_group") is not None:
-            row["constants"] = max(
-                relative(flat(b["few_group"][c]), flat(a["few_group"][c]))
-                for c in CONSTANTS
+        if (a["few_group"] is None) != (b["few_group"] is None):
+            sys.exit(
+                f"{case}: burnup {a['burnup']} has few-group constants in one history only"
             )
+        if a["few_group"] is not None:
+            row["constants"] = few_group_difference(
+                a["few_group"], b["few_group"], f"{case} burnup {a['burnup']}"
+            )
+        row["pin_powers"] = relative(flat(b["pin_powers"]), flat(a["pin_powers"]))
         points.append(row)
     blocks_full = shieldings(OUT / f"{case}-full.log")
     blocks_share = shieldings(OUT / f"{case}-share-1e-4.log")
+    # CE/CM（ADR-0173）は点ごとに 1 回と、ステップの中点の組成で 1 回解くので、自己遮蔽 2k は点 k、2k + 1 は点 k と k + 1 の中点
+    # （出力が一定なので燃焼度でも中点）
+    burnups = [p["burnup"] for p in points]
+    if len(blocks_share) != 2 * len(burnups) - 1:
+        sys.exit(f"{case}: {len(blocks_share)} shieldings for {len(burnups)} points")
+    rested = rested_changes(blocks_share)
+    for change in rested:
+        k, midpoint = divmod(change["shielding"], 2)
+        change["burnup"] = (
+            0.5 * (burnups[k] + burnups[k + 1]) if midpoint else burnups[k]
+        )
     return {
         "points": points,
         "ring_capture": capture_difference(blocks_full, blocks_share, case),
-        "rested": rested_changes(blocks_share),
+        "rested": rested,
         "seconds": {"full": full["seconds"], "share-1e-4": share["seconds"]},
     }
 
