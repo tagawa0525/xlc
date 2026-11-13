@@ -49,6 +49,10 @@ type Transfers = Arc<Vec<NuclideTransfer>>;
 /// 7e−16 以下
 const NON_ELASTIC_ROUNDING: f64 = 1.0e-12;
 
+/// リングごとの UFG の範囲の 1 群の捕獲断面積をログに書く核種（自己遮蔽の条件を比べる。#0286）。Gd は核分裂しないので、捕獲が
+/// 吸収
+const RING_CAPTURES: [&str; 5] = ["U-238", "Pu-239", "Pu-240", "Gd-155", "Gd-157"];
+
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ShieldingOptions {
@@ -2072,15 +2076,21 @@ fn shield_cell(
                     Ok((nuclide, *density))
                 })
                 .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-            // 燃料のリングの U-238 の、UFG の範囲の群をリングの中性子束で縮約した 1 群の捕獲断面積（自己遮蔽の条件を比べる
-            // ログ。#0286）
+            // 燃料のリングの [`RING_CAPTURES`] の核種の、UFG の範囲の群をリングの中性子束で縮約した 1 群の捕獲断面積（自己遮蔽の
+            // 条件を比べるログ。#0286）
             if j < pin.rings && tracing::enabled!(tracing::Level::DEBUG) {
                 let flux = &spectrum.flux[j];
                 for ((name, _), s) in m.composition.iter().zip(&spectrum.nuclides[j]) {
-                    if name == "U-238" {
+                    if RING_CAPTURES.contains(&name.as_str()) {
                         let rate: f64 = s.capture.iter().zip(flux).map(|(c, f)| c * f).sum();
                         let capture = rate / flux.iter().sum::<f64>();
-                        tracing::debug!(cell, ring = j, capture, "UFG U-238 ring capture");
+                        tracing::debug!(
+                            cell,
+                            ring = j,
+                            nuclide = name.as_str(),
+                            capture,
+                            "UFG ring capture"
+                        );
                     }
                 }
             }
