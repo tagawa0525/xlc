@@ -5,8 +5,6 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! track-table = 16               # 自己遮蔽の減速計算の飛程の表の、ln Σ の 10 倍あたりの格子点の数（省略すると 16。
 //!                                 # false で格子点ごとに求める。ADR-0156）
-//! track-table-deviation = 0.01   # 飛程の表で、リングごとの物質の ln Σ の中心からの差がこの値以下の格子点を 1 次の展開で内挿する
-//!                                 # （超える格子点は格子点ごとに求める。省略すると 0.01。ADR-0182。広げると速く、展開の誤差は差の 2 乗。#0286）
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると free-gas。ADR-0203、ADR-0209）
@@ -177,7 +175,6 @@ use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
-use crate::track_table::MAX_DEVIATION;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::{Collision, FreeGas, FreeGasCap, Scattering};
 use crate::water::borated_water;
@@ -463,8 +460,6 @@ struct InputFile {
     self_shielding: Option<bool>,
     /// 省略すると ADR-0156 の既定の細かさ
     track_table: Option<TrackTableEntry>,
-    /// `track-table` の展開の上限。省略すると ADR-0182 の値
-    track_table_deviation: Option<f64>,
     /// 省略すると間引かない（ADR-0185）
     ufg_tolerance: Option<f64>,
     /// 省略すると自由ガス（ADR-0209）
@@ -1280,7 +1275,7 @@ impl LatticeInput {
         let entries = file.material.unwrap_or_default();
         let self_shielding = !macroscopic && file.self_shielding.unwrap_or(true);
         // 飛程の表は自己遮蔽の減速計算でだけ使う
-        if !self_shielding && (file.track_table.is_some() || file.track_table_deviation.is_some()) {
+        if !self_shielding && file.track_table.is_some() {
             return Err(invalid(
                 "`track-table` is used only by the self-shielding (a library without `self-shielding = false`)"
                     .into(),
@@ -1344,30 +1339,10 @@ impl LatticeInput {
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
             Some(TrackTableEntry::Density(density)) if density > 0 => Collision::Table {
                 density: density as usize,
-                deviation: MAX_DEVIATION,
             },
             Some(other) => {
                 return Err(invalid(format!(
                     "`track-table` must be a positive number of points per decade or false, not {other:?}"
-                )));
-            }
-        };
-        // 展開の上限は表で内挿するときだけ（格子点ごとに求めるなら展開しない）
-        let collision = match (collision, file.track_table_deviation) {
-            (c, None) => c,
-            (Collision::Table { density, .. }, Some(d)) if positive(d) => Collision::Table {
-                density,
-                deviation: d,
-            },
-            (Collision::Exact, Some(_)) => {
-                return Err(invalid(
-                    "`track-table-deviation` needs the track table (not `track-table = false`)"
-                        .into(),
-                ));
-            }
-            (_, Some(d)) => {
-                return Err(invalid(format!(
-                    "`track-table-deviation` must be a positive finite ln Σ deviation, got {d}"
                 )));
             }
         };

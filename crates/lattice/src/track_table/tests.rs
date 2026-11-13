@@ -303,31 +303,6 @@ fn ring_deviations_beyond_the_limit_are_left_to_the_exact_tracks() {
 }
 
 #[test]
-fn a_wider_limit_expands_the_farther_ring_deviations() {
-    // #0286: 展開の上限を広げると、既定の上限を超える差の組も展開で内挿する。誤差は差の 2 乗で増え、差 2 倍の上限で 4 倍ほど
-    let ranges = [[0.3, 3000.0], [0.25, 2.0], [1.2, 1.6]];
-    let limit = 4.0 * MAX_DEVIATION;
-    let table = TrackTable::new(
-        &cell(),
-        ring_layout().with_limit(limit),
-        &ranges,
-        DEFAULT_DENSITY,
-    )
-    .unwrap();
-    for [f, c, w] in samples() {
-        let sigma = ring_sigma(f, 2.0 * MAX_DEVIATION, c, w);
-        let (_, deviation) = ring_layout().centers(&sigma);
-        assert!(
-            deviation > MAX_DEVIATION && deviation <= limit,
-            "{sigma:?}: {deviation}"
-        );
-        let got = table.tracks(&sigma).unwrap().unwrap();
-        let d = ring_difference(&sigma, &got);
-        assert!(d < 1e-4, "{sigma:?}: {d}");
-    }
-}
-
-#[test]
 fn expanded_tracks_keep_the_neutrons() {
     // 微分も、真空でない列の衝突の和（体積）を変えないので、展開した飛程も中性子を保つ
     let cell = cell();

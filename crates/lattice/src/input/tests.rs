@@ -335,36 +335,13 @@ fn track_table_defaults_to_the_adr_density() {
     };
     assert_eq!(
         LatticeInput::parse(PIN_CELL).unwrap().collision,
-        Collision::Table {
-            density: 16,
-            deviation: MAX_DEVIATION
-        }
+        Collision::Table { density: 16 }
     );
     assert_eq!(
         density("track-table = 32").unwrap(),
-        Collision::Table {
-            density: 32,
-            deviation: MAX_DEVIATION
-        }
+        Collision::Table { density: 32 }
     );
     assert_eq!(density("track-table = false").unwrap(), Collision::Exact);
-    // #0286: 展開の上限（省略すると ADR-0182 の値）
-    assert_eq!(
-        density("track-table-deviation = 0.03").unwrap(),
-        Collision::Table {
-            density: 16,
-            deviation: 0.03
-        }
-    );
-    for bad in [
-        "track-table-deviation = 0",
-        "track-table-deviation = -0.01",
-        "track-table-deviation = nan",
-        "track-table-deviation = inf",
-        "track-table = false\ntrack-table-deviation = 0.03",
-    ] {
-        assert!(density(bad).is_err(), "{bad}");
-    }
     for bad in ["track-table = true", "track-table = 0", "track-table = -4"] {
         assert!(density(bad).is_err(), "{bad}");
     }
@@ -706,10 +683,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
             tolerance: 1.0e-6,
             max_iterations: 100,
             dancoff: crate::moc::dancoff::DancoffOptions::default(),
-            collision: Collision::Table {
-                density: 16,
-                deviation: MAX_DEVIATION
-            },
+            collision: Collision::Table { density: 16 },
             thinning: None,
             hold_memory: None,
             scattering: Scattering::Static,

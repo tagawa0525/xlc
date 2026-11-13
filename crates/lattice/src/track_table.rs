@@ -159,8 +159,6 @@ pub struct Layout {
     slots: Vec<Option<usize>>,
     /// [軸] の物質の数
     members: Vec<usize>,
-    /// 1 次の展開で内挿する、軸を共有する物質の ln Σ の中心からの差の上限（既定は [`MAX_DEVIATION`]）
-    limit: f64,
 }
 
 impl Layout {
@@ -220,18 +218,7 @@ impl Layout {
             weights,
             slots,
             members,
-            limit: MAX_DEVIATION,
         })
-    }
-
-    /// 展開の上限を `limit` にしたもの（#0286）
-    pub fn with_limit(self, limit: f64) -> Self {
-        Self { limit, ..self }
-    }
-
-    /// 軸を共有する物質の ln Σ の中心からの差の最大 `deviation`（[`Layout::centers`]）の格子点を展開で内挿するか
-    pub fn expands(&self, deviation: f64) -> bool {
-        deviation <= self.limit
     }
 
     /// 物質ごとの全断面積 `sigma` での、[軸] の値（中心）と、軸を共有する物質の ln Σ の中心からの差の絶対値の最大。
@@ -441,7 +428,7 @@ impl TrackTable {
     }
 
     /// 物質ごとの全断面積 `sigma` での飛程 T[j][i]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さ）。
-    /// 軸を共有する物質の ln Σ の中心からの差が展開の上限（[`Layout::with_limit`]）を超えるときは `None`（格子点ごとに求める）。
+    /// 軸を共有する物質の ln Σ の中心からの差が [`MAX_DEVIATION`] を超えるときは `None`（格子点ごとに求める）。
     /// 表の範囲の外（外挿になる）と、物質の数の違う `sigma` はエラー。
     pub fn tracks(&self, sigma: &[f64]) -> Result<Option<Vec<Vec<f64>>>, TableError> {
         let materials = self.layout.axes.len();
@@ -597,7 +584,7 @@ impl TrackTable {
     }
 }
 
-/// 物質ごとの全断面積 `sigma` の [軸] の値（中心）。軸を共有する物質の ln Σ の中心からの差が展開の上限（[`Layout::with_limit`]）を超えれば `None`、
+/// 物質ごとの全断面積 `sigma` の [軸] の値（中心）。軸を共有する物質の ln Σ の中心からの差が [`MAX_DEVIATION`] を超えれば `None`、
 /// 軸の範囲の外はエラー
 fn expansion_centers(
     layout: &Layout,
@@ -605,7 +592,7 @@ fn expansion_centers(
     sigma: &[f64],
 ) -> Result<Option<Vec<f64>>, TableError> {
     let (centers, deviation) = layout.centers(sigma);
-    if !layout.expands(deviation) {
+    if deviation > MAX_DEVIATION {
         return Ok(None);
     }
     for (index, (axis, &s)) in axes.iter().zip(&centers).enumerate() {
