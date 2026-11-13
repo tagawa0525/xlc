@@ -2,7 +2,7 @@
 # ../../branches/branch-2A-micro.toml（ADR-0221 が D0 と D2 の効きを測った「core のミクロ燃焼（2A の集合体 1 体）」のテーブル）を、core の
 # 状態（公称の 1300 ppm、燃料 565 K）の 1 状態にしたもの（core はその格子点で引くので、ほかの状態の重みは 0 で結果は変わらない）。
 # 燃焼の履歴は今の ../../p2/lattice-2A.msgpack。格子、離散化、組成、17 の燃焼度の点、追う 31 核種は元の入力と同じ。
-# Pu-240 だけ直接の摂動（案 D2。今の既定。ADR-0221）
+# Pu-240 だけ直接の摂動（案 D2）で、摂動の組成で自己遮蔽を解き直す（ADR-0221 の経路。ADR-0249 の "solved"）
 library = "../../p2/depletion.msgpack"
 few-group = { output = "table-d2.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

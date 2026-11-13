@@ -1,0 +1,7 @@
+# 微視的断面積を持つ細かい燃焼度の軸のテーブル（table-d2-fixed.toml）。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-d2-fixed.msgpack"]
+
+[assembly.A01]
+design = "2A"
