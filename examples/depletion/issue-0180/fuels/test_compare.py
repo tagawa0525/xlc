@@ -69,6 +69,10 @@ class SameNominal(unittest.TestCase):
         other = table(10.0, 1e-4)
         other["states"][0]["total"][1] = 1.0000001
         self.assertFalse(same_nominal(table(10.0, 1e-4), other))
+        # 2 群の定数のほかの項目（χ、拡散係数、不連続因子など）も状態の一部
+        other = table(10.0, 1e-4)
+        other["states"][0]["chi"] = [0.999, 0.001]
+        self.assertFalse(same_nominal(table(10.0, 1e-4), other))
 
 
 class Share(unittest.TestCase):
