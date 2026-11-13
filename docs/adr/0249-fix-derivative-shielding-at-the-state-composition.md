@@ -86,9 +86,11 @@ issue #0180 の「自己遮蔽を省いたときの誤差」の「微分の摂�
 
 - テスト: crates/lattice の `input::tests::derivative_perturbations_keep_the_state_shielding_unless_the_input_solves_it_again`（既定、
   `"solved"`、一般化摂動、エラー）、`history::tests::fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shielding`
-  （案 F の物質が #0180 の測定の経路とビットで同じで、案 S と違う。前提の検査は状態の組成で通り、ほかの組成で止まる。ホウ素の軸の参照と
+  （案 F の物質が #0180 の測定の経路とビットで同じで、案 S と違う。前提の検査は状態の組成で通り、ほかの組成と格子にない名前で止まる。ホウ素の軸の参照と
   状態ごとの自己遮蔽）、
-  `perturbed_shieldings_are_solved_again_when_the_input_or_the_generalized_derivatives_ask`
+  `perturbed_shieldings_are_solved_again_when_the_input_or_the_generalized_derivatives_ask`、crates/lattice/tests/history_rod_branch.rs の
+  `solved_derivative_shielding_changes_only_the_density_derivatives`（実行ファイルで、`"solved"` は既定と同じ状態の定数と微視的断面積を
+  書き、数密度の微分だけが違う）
 - 誤差を測った燃料と燃焼度（Pu-240 の数密度を 1 割変えたときの 2 群の k∞ の反応度。差は固定 − 解き直し）:
 
   | 燃料（履歴）                                                 | 燃焼度 (MWd/kg) | 解き直し (pcm) | 差 (pcm) | 差の割合 |
