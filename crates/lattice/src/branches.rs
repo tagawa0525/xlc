@@ -900,6 +900,10 @@ impl StateShielding<'_> {
         remixed: &[String],
         state: &[MaterialInput],
     ) -> anyhow::Result<()> {
+        // 格子の領域にない名前は作り直されず、摂動の組成が黙って状態と同じになる
+        if let Some(name) = remixed.iter().find(|n| !region_materials.contains(n)) {
+            bail!("material `{name}` to remix is not a region material of the lattice");
+        }
         let rebuilt = remix_varied(
             library,
             self.fuel(),
