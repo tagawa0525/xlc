@@ -72,6 +72,8 @@ def branch(name: str, source: str, burnup: list, solved: bool) -> str:
         "bounds = [1e7, 0.625, 1e-5] }",
         1,
     )
+    if "few-group = " not in body:
+        sys.exit(f"{path} does not have the library line to add the table output")
     water = [(n, w) for n, w in WATERS.items() if n in body]
     if len(water) != 1:
         sys.exit(f"{path} does not have one water of WATERS")
