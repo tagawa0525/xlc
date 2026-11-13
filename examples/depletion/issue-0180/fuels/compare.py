@@ -49,8 +49,11 @@ def share(difference: float, solved: float) -> float | None:
 
 
 def same_nominal(solved: dict, fixed: dict) -> bool:
-    """2 つのテーブルの状態（k∞ と少数群定数のすべての項目）が同じか（摂動の自己遮蔽だけが違い、状態は同じに解くはず）"""
-    return solved["states"] == fixed["states"]
+    """2 つのテーブルの状態（k∞ と少数群定数のすべての項目）と、追う核種と均質化した数密度が同じか（摂動の自己遮蔽だけが違い、
+    状態は同じに解くはず）"""
+    return solved["states"] == fixed["states"] and all(
+        solved["micro"][key] == fixed["micro"][key] for key in ("nuclides", "densities")
+    )
 
 
 def compare(name: str, inputs: list) -> list[dict]:
