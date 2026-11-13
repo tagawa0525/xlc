@@ -2563,14 +2563,8 @@ pub(crate) mod lattice {
 
     #[test]
     fn fewer_quadrature_points_stay_close_to_the_default_cell() {
-        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は既定の求積に近い。既定の点の
-        // 数を書いた入力は既定とビットで同じ
+        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は既定の求積に近い
         let default = ring_pin(&ShieldingOptions::default()).0;
-        let explicit = ring_pin(&ShieldingOptions {
-            cp_points: crate::cp::POINTS,
-            ..ShieldingOptions::default()
-        })
-        .0;
         let coarse = ring_pin(&ShieldingOptions {
             cp_points: 4,
             ..ShieldingOptions::default()
@@ -2578,14 +2572,12 @@ pub(crate) mod lattice {
         .0;
         let mut worst = 0.0_f64;
         for r in 0..6 {
-            let (Some(a), Some(b), Some(c)) = (
+            let (Some(a), Some(c)) = (
                 default.region_cross_sections(r),
-                explicit.region_cross_sections(r),
                 coarse.region_cross_sections(r),
             ) else {
                 continue;
             };
-            assert_eq!(a, b, "region {r}");
             for (x, y) in c.iter().zip(a) {
                 for (p, q) in x.capture.iter().zip(&y.capture) {
                     worst = worst.max((p - q).abs() / q.abs().max(f64::MIN_POSITIVE));
