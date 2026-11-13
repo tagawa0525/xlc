@@ -194,7 +194,7 @@ k∞ の反応度 1/k(既定) − 1/k(変種)（pcm。空欄は測っていな�
 `measure = "lethargy"` を書く）と `share = false` で比べた（ユーザー 2026-11-13、ほかの
 燃料の種類でも確かめられたら既定にしてよく、外す核種そのものの断面積の差も見る）。入力は coverage.py が coverage/ に書き、
 compare_coverage.py が coverage-848-854.json に要約する。Slurm 848（ピンセル）と 854（集合体）、どちらも `-c 16` の排他でないジョブ、
-2026-11-13、xlc d06b44cc1（rebase の後は e13284908）、分岐点は main の dafce36d2:
+2026-11-13、xlc d06b44cc1（rebase の後は f7eb02dbc）、分岐点は main の dafce36d2:
 
 - ピンセル（../lattice-1C-rings4.toml の形状、燃料 4 リングの燃焼の領域、p2 のライブラリ、燃料 900 K、650 ppm）のウラン燃料と MOX-1 を
   0 から 60 MWd/kg まで燃焼させた（変種ごとに別の履歴）。燃焼点ごとの k∞ の差の最大はウラン燃料 0.065 pcm（5 MWd/kg）、MOX 0.030 pcm
@@ -228,7 +228,7 @@ compare_coverage.py が coverage-848-854.json に要約する。Slurm 848（ピ�
 （`share = { threshold, measure, keep-actinides }`）にし、閾値 1e-4 で比べた（ADR-0251 の「検討した案」。ユーザー 2026-11-13、近似は効果を
 測って取り入れ、特定の燃料に合わせ込まない）。入力は coverage.py の `share-point`（格子点ごとの比の最大）と `share-actinides`（レサジーの
 積分の比とアクチニドを残す形）、時間は inputs.py の 2A-60 の同じ変種。差は selection-857-point.json と selection-857-actinides.json
-（Slurm 857、`-c 16` の排他でないジョブ、xlc 4e7bb51ea、分岐点は main の 9961e0306、2026-11-13〜14）、時間は timing-856.json（Slurm 856、
+（Slurm 857、`-c 16` の排他でないジョブ、xlc a25471cd4、分岐点は main の 9961e0306、2026-11-13〜14）、時間は timing-856.json（Slurm 856、
 timed の排他のジョブ、32 スレッド、同じ xlc、2026-11-13）:
 
 - 格子点ごとの比の最大: ピンセルの分岐（ウラン燃料と MOX、0〜60 MWd/kg の 16 状態）、2A の 60 MWd/kg と Gd の 2O の 10、40 MWd/kg の集合体で
