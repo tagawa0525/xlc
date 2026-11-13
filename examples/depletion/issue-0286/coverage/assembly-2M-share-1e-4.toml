@@ -1,0 +1,137 @@
+# このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2M、変種 share-1e-4。p2/lattice-2M.toml の [40] MWd/kg からの公称の 1 状態の分岐
+library = "../../p2/depletion.msgpack"
+ufg-free-gas = { share = 1e-4 }
+few-group = { output = "table-assembly-2M-share-1e-4.msgpack", bounds = [1e7, 0.625, 1e-5] }
+ufg-tolerance = 1e-4
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "ib  pin pin pin ib  pin pin ib  pin ib  pin pin ib  pin pin pin ib ",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin ib  pin ib  ib  gt  ib  ib  gt  ib  ib  gt  ib  ib  pin ib  pin",
+  "pin pin ib  gt  ib  ib  pin pin ib  pin pin ib  ib  gt  ib  pin pin",
+  "ib  pin ib  ib  pin ib  pin pin ib  pin pin ib  pin ib  ib  pin ib ",
+  "pin ib  gt  ib  ib  gt  ib  ib  gt  ib  ib  gt  ib  ib  gt  ib  pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "ib  pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin ib ",
+  "pin ib  gt  ib  ib  gt  ib  ib  it  ib  ib  gt  ib  ib  gt  ib  pin",
+  "ib  pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin ib ",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin ib  gt  ib  ib  gt  ib  ib  gt  ib  ib  gt  ib  ib  gt  ib  pin",
+  "ib  pin ib  ib  pin ib  pin pin ib  pin pin ib  pin ib  ib  pin ib ",
+  "pin pin ib  gt  ib  ib  pin pin ib  pin pin ib  ib  gt  ib  pin pin",
+  "pin ib  pin ib  ib  gt  ib  ib  gt  ib  ib  gt  ib  ib  pin ib  pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "ib  pin pin pin ib  pin pin ib  pin ib  pin pin ib  pin pin pin ib ",
+]
+
+[material.fuel]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 600
+water = { density = 0.743, boron = 1300, b10 = 0.199 }
+
+[material.ifba]
+temperature = 600
+
+[material.ifba.nuclides]
+B-10 = 2.16410e-02
+B-11 = 1.96824e-02
+Zr-90 = 1.06304e-02
+Zr-91 = 2.31824e-03
+Zr-92 = 3.54348e-03
+Zr-94 = 3.59100e-03
+Zr-96 = 5.78528e-04
+
+# 燃料のピン（3.1%）
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# IFBA の燃料のピン（ペレットの外側に ZrB2 の被覆 10 μm。ペレットと被覆管の間は真空）
+[cell.ib]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "ifba", radius = 0.4106, rings = 1 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [1300], materials = ["water"] }
+moderator = { temperature = [600], density = [0.743], materials = ["water"] }
+fuel = { temperature = [600], materials = ["fuel", "ifba"] }
+
+[history]
+file = "../../p2/lattice-2M.msgpack"
+chain = "../../chain.msgpack"
+burnup = [40]
+micro = [
+  "U-234", "U-235", "U-236", "U-238", "Np-237", "Np-239", "Pu-238", "Pu-239", "Pu-240", "Pu-241", "Pu-242",
+  "Am-241", "Am-243", "Xe-135", "Sm-147", "Sm-149", "Sm-150", "Sm-151", "Sm-152",
+  "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160",
+  "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
+]
