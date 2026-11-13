@@ -1000,7 +1000,7 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
         let mut expected = [0.0; 4];
         for (d, n) in data.iter().zip(&densities) {
             let [total, elastic] =
-                evaluate_total_elastic(d, &mut d.pointwise().energy.len(), e).unwrap();
+                evaluate_total_elastic(d, &mut d.pointwise().energy.len(), e, false).unwrap();
             // 両方の核種がどれかの物質にあるので、どちらも足す
             for (m, &n) in n.iter().enumerate() {
                 expected[2 * m] += n * total;
@@ -1939,6 +1939,54 @@ fn sab_of_a_free_gas_table_converges_to_the_free_gas_spectrum() {
         .collect();
     assert!(differences[2] < differences[0], "{differences:?}");
     assert!(differences[2] < 1e-5, "{differences:?}");
+}
+
+#[test]
+fn sab_nuclides_keep_their_free_gas_under_any_share() {
+    // 閾値が水の H-1 の割合（0.91）より大きくても、S(α, β) の核種は自由ガスの核と S(α, β) の移行のまま。ほかの核種は静止した
+    // 標的になり、U-235 と O-16 を分離共鳴を持つ核種にした（`heavy` を選ばないので静止した標的の）ライブラリと同じ
+    let table = || free_gas_transfer(0.99917, 600.0, 0.02);
+    let (lib, fuel, water) = sab_cell(Some(table()));
+    let mut specs = thermal_specs();
+    for k in [1, 3] {
+        specs[k].top = Some(2.0e4);
+    }
+    let mut resting = library_with(specs, 600.0, &BOUNDS);
+    make_sab(&mut resting, Some(table()));
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let solve = |lib: &Library, scattering| {
+        slowing_down_with(
+            lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap()
+    };
+    let shared = Scattering::FreeGas(FreeGas {
+        upper: UNCAPPED,
+        cells: 4,
+        sweeps: None,
+        heavy: None,
+        sab: true,
+        share: Some(0.95),
+    });
+    let unshared = solve(&resting, sab(4, None));
+    assert_eq!(
+        CellSpectrum {
+            demand: 0,
+            ..solve(&lib, shared)
+        },
+        CellSpectrum {
+            demand: 0,
+            ..unshared
+        }
+    );
 }
 
 #[test]
