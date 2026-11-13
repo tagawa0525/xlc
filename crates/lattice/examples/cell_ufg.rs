@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
         .iter()
         .position(|&b| b == high)
         .ok_or_else(|| anyhow!("no group bound at {high} eV"))?;
-    let cylinder = Cylinder::new(radii.clone())?;
+    let cylinder = Cylinder::with_points(radii.clone(), input.cp_points)?;
     let spectrum = slowing_down_with(
         &library,
         &cylinder,

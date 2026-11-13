@@ -1,0 +1,5 @@
+outs:
+- md5: 9e5f2ecfd6e7a23092b70ddeb3aa253a
+  size: 1575128
+  hash: md5
+  path: mox-history.msgpack

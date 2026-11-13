@@ -387,8 +387,9 @@ pub enum Collision {
     Exact,
     /// 軸ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）。核種の並びが同じ
     /// 物質は 1 つの軸を共有して 1 次の展開で内挿し、展開の外の格子点と、表で衝突確率が減らないセルは格子点ごとに求める
-    /// （ADR-0182）
-    Table { density: usize },
+    /// （ADR-0182）。展開するのはリングの物質の ln Σ の中心からの差が `deviation` 以下の格子点（既定は [`MAX_DEVIATION`]。広げると
+    /// 表に入る格子点が増え、展開の誤差（差の 2 乗）が増える。#0286）
+    Table { density: usize, deviation: f64 },
 }
 
 impl Default for Collision {
@@ -396,6 +397,7 @@ impl Default for Collision {
     fn default() -> Self {
         Self::Table {
             density: DEFAULT_DENSITY,
+            deviation: MAX_DEVIATION,
         }
     }
 }
@@ -616,7 +618,7 @@ pub(crate) struct Frozen {
     pub(crate) rested: Option<Vec<bool>>,
 }
 
-/// 飛程の ln Σ についての微分の中心差分の幅。飛程の表の微分（[`crate::track_table`] の 1e-3）は展開の差（0.01 以下）を掛けて
+/// 飛程の ln Σ についての微分の中心差分の幅。飛程の表の微分（[`crate::track_table`] の 1e-3）は展開の差（展開の上限以下）を掛けて
 /// 使うが、ここの微分はそのまま個数密度の変化に掛かるので、打ち切りの誤差（幅の 2 乗）を小さくする。丸めは表の誤差を幅で割った分で、
 /// Ki3 の表（2e-15 程度）なら 2e-10 程度、真空と組になる区間の対の Ki2 の表（光学的厚さ 1e-3 以下で 4e-10）なら 4e-5 程度。衝突確率の
 /// 求め方の切り替え（[`crate::cp`] の CANCELLATION）を幅の中でまたぐ区間の対では、2 つの求め方の差（値の 1e-8 程度）を幅で割った
@@ -937,9 +939,9 @@ fn solve_cell(
     let grid_done = Instant::now();
     let table = match collision {
         Collision::Exact => None,
-        Collision::Table { density } => {
+        Collision::Table { density, deviation } => {
             let ranges = frozen.as_deref().and_then(|f| f.ranges.as_deref());
-            let built = track_table(cell, &data, &entries, &points, density, ranges)?;
+            let built = track_table(cell, &data, &entries, &points, density, deviation, ranges)?;
             if let Some(f) = frozen
                 && f.ranges.is_none()
             {
@@ -2074,8 +2076,9 @@ fn total(ring: &[(usize, f64)], row: &[Row]) -> f64 {
 
 /// 展開の外の格子点を数えるエネルギーの帯の境界 (eV。ログ)
 const OUTSIDE_BANDS: [f64; 5] = [10.0, 31.0, 100.0, 1000.0, 1e4];
-/// 展開の外の格子点を数える、中心からの ln Σ の差の境界（ログ。最初は [`MAX_DEVIATION`]）
-const OUTSIDE_DEVIATIONS: [f64; 3] = [MAX_DEVIATION, 0.03, 0.1];
+/// 展開の外の格子点（中心からの ln Σ の差が展開の上限を超える）を数える、差の境界の、展開の上限に対する倍率（ログ。既定の上限
+/// [`MAX_DEVIATION`] で 0.03、0.1）
+const OUTSIDE_DEVIATIONS: [f64; 2] = [3.0, 10.0];
 
 /// [`track_table`] の表と、[物質] の最初のリングの番号、[軸] の範囲
 type BuiltTable = (TrackTable, Vec<usize>, Vec<[f64; 2]>);
@@ -2090,6 +2093,7 @@ fn track_table(
     entries: &[Vec<(usize, f64)>],
     points: &[(f64, bool)],
     density: usize,
+    deviation: f64,
     frozen: Option<&[[f64; 2]]>,
 ) -> Result<Option<BuiltTable>, UfgError> {
     let mut first: Vec<usize> = Vec::new();
@@ -2124,7 +2128,7 @@ fn track_table(
             },
         )
         .collect();
-    let layout = Layout::new(cell, classes, axes)?;
+    let layout = Layout::new(cell, classes, axes)?.with_limit(deviation);
     let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; leaders.len()];
     // 展開の上限を超えて格子点ごとに求める格子点の数
     let mut outside = 0usize;
@@ -2163,7 +2167,7 @@ fn track_table(
                 let deviation = layout.centers(&sigma).1;
                 let size = OUTSIDE_DEVIATIONS
                     .iter()
-                    .take_while(|&&d| deviation >= d)
+                    .take_while(|&&d| deviation >= d * layout.limit())
                     .count();
                 outside_bands[band] += 1;
                 outside_sizes[size] += 1;
@@ -2174,7 +2178,7 @@ fn track_table(
         tracing::debug!(
             bands = ?OUTSIDE_BANDS,
             by_energy = ?outside_bands,
-            deviations = ?OUTSIDE_DEVIATIONS,
+            deviations = ?OUTSIDE_DEVIATIONS.map(|d| d * layout.limit()),
             by_deviation = ?outside_sizes,
             "UFG track table outside points by energy (eV, counts below the first bound, between bounds, above the last) and by the largest ln Σ deviation"
         );
@@ -2236,11 +2240,11 @@ fn track_table(
     Ok(Some((table, first, ranges)))
 }
 
-/// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`MAX_DEVIATION`] 以下）なら、軸の範囲 `ranges` をその中心まで広げて
+/// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`Layout::expands`]）なら、軸の範囲 `ranges` をその中心まで広げて
 /// true。展開の外の格子点は表を読まない（格子点ごとに求める）ので、範囲を広げずに false
 fn widen_ranges(layout: &Layout, sigma: &[f64], ranges: &mut [[f64; 2]]) -> bool {
     let (centers, deviation) = layout.centers(sigma);
-    if deviation > MAX_DEVIATION {
+    if !layout.expands(deviation) {
         return false;
     }
     for (range, c) in ranges.iter_mut().zip(centers) {

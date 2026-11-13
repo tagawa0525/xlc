@@ -2562,6 +2562,33 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn fewer_quadrature_points_stay_close_to_the_default_cell() {
+        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は既定の求積に近い
+        let default = ring_pin(&ShieldingOptions::default()).0;
+        let coarse = ring_pin(&ShieldingOptions {
+            cp_points: 4,
+            ..ShieldingOptions::default()
+        })
+        .0;
+        let mut worst = 0.0_f64;
+        for r in 0..6 {
+            let (Some(a), Some(c)) = (
+                default.region_cross_sections(r),
+                coarse.region_cross_sections(r),
+            ) else {
+                continue;
+            };
+            for (x, y) in c.iter().zip(a) {
+                for (p, q) in x.capture.iter().zip(&y.capture) {
+                    worst = worst.max((p - q).abs() / q.abs().max(f64::MIN_POSITIVE));
+                }
+            }
+        }
+        // 4 点で 1.3e-6（2026-11-13）。求積の誤差がこの桁を超えて増えたら止める
+        assert!(worst > 0.0 && worst < 1e-5, "{worst}");
+    }
+
+    #[test]
     fn ring_flux_transfers_make_the_ring_materials_and_keep_the_row_sums() {
         // 等価なセルのリングの領域は、核種ごとの移行の行を持ち、領域の物質はその行で作った群定数を数密度で混ぜて SPH 因子を掛けた
         // もの（燃焼の作り直しと同じ作り方）。行の和は ADR-0076 の行の和と同じで、行の形は無限希釈の形と変わる

@@ -21,8 +21,8 @@ use std::f64::consts::PI;
 use std::sync::OnceLock;
 use xlc_numeric::quadrature::{NodesError, gauss_legendre};
 
-/// y の求積で、小区間（リングの間の区間を、外の境界の特異点に合わせて分けたもの）ごとに使う Gauss–Legendre の点の数
-const POINTS: usize = 16;
+/// y の求積で、小区間（リングの間の区間を、外の境界の特異点に合わせて分けたもの）ごとに使う Gauss–Legendre の点の数の既定
+pub const POINTS: usize = 16;
 
 /// 円筒のセルの計算のエラー。
 #[derive(Debug, thiserror::Error)]

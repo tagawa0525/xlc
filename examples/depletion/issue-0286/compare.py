@@ -1,4 +1,4 @@
-"""#0286 の、変種（inputs.py）ごとの時間と、既定（変種 default）からの差を比べる。
+"""#0286 の、変種（inputs.py）ごとの時間と、既定（変種 default、衝突確率の近似の変種 `cp-*` は cp-default）からの差を比べる。
 
 ケースと変種ごとに、少数群定数のファイル（`fg-<ケース>-<変種>.msgpack`）とログ（`<ケース>-<変種>.log`。ログの水準は
 `info,xlc_lattice::ufg=debug,xlc_lattice::shielding=debug`）から次を読み、既定との差を書く:
@@ -6,7 +6,8 @@
 - k∞ の反応度の差 1/k(既定) − 1/k(変種)（pcm）
 - 2 群の定数（全断面積、吸収、νΣf、散乱行列）の相対の差の最大
 - ピン出力の形状関数の相対の差の最大（集合体だけ。テーブルの `pins`）
-- 燃料のリングごとの U-238 の、UFG の範囲の中性子束で縮約した 1 群の捕獲断面積の相対の差の最大（ログの `UFG U-238 ring capture`）
+- 燃料のリングごとの U-238、Pu-239、Pu-240、Gd-155、Gd-157 の、UFG の範囲の中性子束で縮約した 1 群の捕獲断面積（Gd は吸収）の
+  相対の差の、核種ごとの最大（ログの `UFG ring capture`）
 - 時間: 自己遮蔽の span の秒（`shielding: close` の和）と、解いたピンの UFG の段の和（スレッド秒。`UFG slowing down` と
   `UFG transfers counted`）を解いたピンの数で割った 1 ピンの値
 
@@ -84,7 +85,7 @@ def fields(line: str) -> dict:
 
 
 def log(path: Path) -> dict:
-    """ログの時間と、[ピン][リング] の U-238 の捕獲"""
+    """ログの時間と、(セル, リング, 核種) の捕獲"""
     shielding = 0.0
     stages = dict.fromkeys(STAGES, 0.0)
     transfers = 0.0
@@ -106,14 +107,24 @@ def log(path: Path) -> dict:
         elif "UFG transfers counted" in line:
             transfers += float(fields(line)["seconds"])
         elif "UFG U-238 ring capture" in line:
+            # 核種の名前の無い捕獲のログは、核種ごとに比べられない
+            sys.exit(f"{path}: an older ring capture log without nuclide names")
+        elif "UFG ring capture" in line:
             f = fields(line)
-            captures.append((int(f["cell"]), int(f["ring"]), float(f["capture"])))
+            captures.append(
+                (
+                    int(f["cell"]),
+                    int(f["ring"]),
+                    f["nuclide"].strip('"'),
+                    float(f["capture"]),
+                )
+            )
         elif "total_seconds=" in line and "lattice state=" in line:
             total = float(fields(line)["total_seconds"])
-    # ピンは並列に解くのでログの順は決まらない。セルとリングで組にするので、同じ組を 2 度解いたログは比べられない
-    keys = [c[:2] for c in captures]
+    # ピンは並列に解くのでログの順は決まらない。セル、リング、核種で組にするので、同じ組が 2 度あるログは比べられない
+    keys = [c[:3] for c in captures]
     if len(set(keys)) != len(keys):
-        sys.exit(f"{path}: a cell and ring is shielded more than once")
+        sys.exit(f"{path}: a nuclide of a cell and ring is logged more than once")
     return {
         "shielding_seconds": shielding,
         "total_seconds": total,
@@ -124,7 +135,7 @@ def log(path: Path) -> dict:
     }
 
 
-def difference(case: str, variant: str, base: dict) -> dict:
+def difference(case: str, variant: str, base: dict | None) -> dict:
     fg = states(HERE / f"fg-{case}-{variant}.msgpack")
     timing = log(HERE / f"{case}-{variant}.log")
     row = {"variant": variant, **{k: v for k, v in timing.items() if k != "captures"}}
@@ -148,21 +159,29 @@ def difference(case: str, variant: str, base: dict) -> dict:
         max(relative(a, b) for a, b in pins) if any(b for _, b in pins) else None
     )
     ours, theirs = timing["captures"], base["captures"]
-    if [c[:2] for c in ours] != [c[:2] for c in theirs]:
+    if [c[:3] for c in ours] != [c[:3] for c in theirs]:
         sys.exit(
-            f"{case}-{variant}: the ring captures are not of the same pins and rings"
+            f"{case}-{variant}: the ring captures are not of the same pins, rings and nuclides"
         )
-    row["ring_capture"] = (
-        relative([c[2] for c in ours], [c[2] for c in theirs]) if ours else None
-    )
+    row["ring_capture"] = {
+        nuclide: relative(
+            [c[3] for c in ours if c[2] == nuclide],
+            [c[3] for c in theirs if c[2] == nuclide],
+        )
+        for nuclide in sorted({c[2] for c in ours})
+    }
     return row
 
 
-def compare(case: str, variants: list[str]) -> list[dict]:
-    base_fg = states(HERE / f"fg-{case}-default.msgpack")
-    base = {"fg": base_fg, "captures": log(HERE / f"{case}-default.log")["captures"]}
-    rows = [difference(case, "default", None)]
-    rows += [difference(case, v, base) for v in variants if v != "default"]
+def compare(case: str, variants: list[str], default: str) -> list[dict]:
+    """変種 `default` の結果と、`variants` のほかの変種の `default` からの差"""
+    base_fg = states(HERE / f"fg-{case}-{default}.msgpack")
+    base = {
+        "fg": base_fg,
+        "captures": log(HERE / f"{case}-{default}.log")["captures"],
+    }
+    rows = [difference(case, default, None)]
+    rows += [difference(case, v, base) for v in variants if v != default]
     return rows
 
 
@@ -171,13 +190,25 @@ def main() -> None:
     parser.add_argument("--json", required=True, type=Path)
     parser.add_argument("cases", nargs="*")
     args = parser.parse_args()
+    groups = (("default", INPUTS.VARIANTS), ("cp-default", INPUTS.CP_VARIANTS))
     cases = args.cases or [
-        c for c in INPUTS.cases() if (HERE / f"{c}-default.log").exists()
+        c
+        for c in INPUTS.cases()
+        if any((HERE / f"{c}-{v}.log").exists() for _, names in groups for v in names)
     ]
     summary = {}
     for case in cases:
-        variants = [v for v in INPUTS.VARIANTS if (HERE / f"{case}-{v}.log").exists()]
-        summary[case] = compare(case, variants)
+        rows = []
+        for default, names in groups:
+            variants = [v for v in names if (HERE / f"{case}-{v}.log").exists()]
+            if not variants:
+                continue
+            if default not in variants:
+                sys.exit(f"{case}: no {default} log to compare {variants} with")
+            rows += compare(case, variants, default)
+        if not rows:
+            sys.exit(f"{case}: no logs to compare")
+        summary[case] = rows
     args.json.write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n")
 
 

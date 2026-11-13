@@ -1,0 +1,5 @@
+outs:
+- md5: be70da86aa889e00ca08faa80aab6e8a
+  size: 1809500
+  hash: md5
+  path: timing-2A-60-cp-points-6.log

@@ -89,7 +89,10 @@ fn main() -> anyhow::Result<()> {
         .map(|&n| material(n))
         .collect::<Result<_, _>>()?;
     let range = cell_range(&library, &inputs)?.ok_or_else(|| anyhow!("no UFG range"))?;
-    let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
+    let cylinder = Cylinder::with_points(
+        radii[..start].iter().copied().chain([radius]).collect(),
+        options.cp_points,
+    )?;
     let (spectrum, fine) = slowing_down_fine(
         &library,
         &cylinder,

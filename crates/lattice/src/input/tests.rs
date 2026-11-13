@@ -335,15 +335,68 @@ fn track_table_defaults_to_the_adr_density() {
     };
     assert_eq!(
         LatticeInput::parse(PIN_CELL).unwrap().collision,
-        Collision::Table { density: 16 }
+        Collision::Table {
+            density: 16,
+            deviation: MAX_DEVIATION
+        }
     );
     assert_eq!(
         density("track-table = 32").unwrap(),
-        Collision::Table { density: 32 }
+        Collision::Table {
+            density: 32,
+            deviation: MAX_DEVIATION
+        }
     );
     assert_eq!(density("track-table = false").unwrap(), Collision::Exact);
+    // #0286: 展開の上限（省略すると ADR-0182 の値）
+    assert_eq!(
+        density("track-table-deviation = 0.03").unwrap(),
+        Collision::Table {
+            density: 16,
+            deviation: 0.03
+        }
+    );
+    for bad in [
+        "track-table-deviation = 0",
+        "track-table-deviation = -0.01",
+        "track-table-deviation = nan",
+        "track-table-deviation = inf",
+        "track-table = false\ntrack-table-deviation = 0.03",
+    ] {
+        assert!(density(bad).is_err(), "{bad}");
+    }
     for bad in ["track-table = true", "track-table = 0", "track-table = -4"] {
         assert!(density(bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn ufg_cp_points_default_to_the_cell_quadrature() {
+    // #0286: 省略すると弦の求積の小区間あたりの既定の点の数で、正の整数で選ぶ。自己遮蔽しない入力には書けない
+    let points = |line: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.shielding_options().cp_points)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL)
+            .unwrap()
+            .shielding_options()
+            .cp_points,
+        crate::cp::POINTS
+    );
+    assert_eq!(points("ufg-cp-points = 8").unwrap(), 8);
+    for bad in [
+        "ufg-cp-points = 0",
+        "ufg-cp-points = -4",
+        "ufg-cp-points = 2.5",
+        "ufg-cp-points = true",
+        "self-shielding = false\nufg-cp-points = 8",
+    ] {
+        assert!(points(bad).is_err(), "{bad}");
     }
 }
 
@@ -356,6 +409,16 @@ fn track_table_needs_self_shielding() {
         "library = \"m1.msgpack\"\nself-shielding = false\ntrack-table = 32",
     );
     assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    // 展開の上限だけを書いた入力は、その項目の名前で止める
+    let deviation = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\ntrack-table-deviation = 0.03",
+    );
+    assert!(
+        matches!(&deviation, Err(InputError::Invalid(m)) if m.contains("`track-table-deviation`")),
+        "{deviation:?}"
+    );
     let macroscopic = replaced(
         LATTICE,
         "cross-sections = \"c5g7.toml\"",
@@ -683,7 +746,11 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
             tolerance: 1.0e-6,
             max_iterations: 100,
             dancoff: crate::moc::dancoff::DancoffOptions::default(),
-            collision: Collision::Table { density: 16 },
+            collision: Collision::Table {
+                density: 16,
+                deviation: MAX_DEVIATION
+            },
+            cp_points: crate::cp::POINTS,
             thinning: None,
             hold_memory: None,
             scattering: Scattering::Static,

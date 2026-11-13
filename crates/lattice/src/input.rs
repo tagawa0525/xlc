@@ -5,6 +5,10 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! track-table = 16               # 自己遮蔽の減速計算の飛程の表の、ln Σ の 10 倍あたりの格子点の数（省略すると 16。
 //!                                 # false で格子点ごとに求める。ADR-0156）
+//! track-table-deviation = 0.01   # 飛程の表で、リングごとの物質の ln Σ の中心からの差がこの値以下の格子点を 1 次の展開で内挿する
+//!                                 # （超える格子点は格子点ごとに求める。省略すると 0.01。ADR-0182。広げると速く、展開の誤差は差の 2 乗。#0286）
+//! ufg-cp-points = 16              # 自己遮蔽の減速計算の等価なセルの衝突確率の、弦の求積の小区間あたりの点の数（省略すると 16。
+//!                                 # 減らすと衝突確率の時間が点の数に比例して減り、求積の誤差が増える。#0286）
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると free-gas。ADR-0203、ADR-0209）
@@ -176,6 +180,7 @@ use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
+use crate::track_table::MAX_DEVIATION;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::{Collision, FreeGas, FreeGasCap, Scattering};
 use crate::water::borated_water;
@@ -264,6 +269,8 @@ pub struct LatticeInput {
     pub self_shielding: bool,
     /// 自己遮蔽の UFG の減速計算の飛程の求め方（ADR-0156）
     pub collision: Collision,
+    /// 自己遮蔽の UFG の減速計算の等価なセルの、弦の求積の小区間あたりの点の数（#0286）
+    pub cp_points: usize,
     /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185。`None` は間引かない）
     pub thinning: Option<f64>,
     /// 自己遮蔽の自由ガスの散乱源の区間をスイープの間で持つ上限を決める全体の量 (B)。減速計算の数えた作業の配列を除いた残りで
@@ -461,6 +468,10 @@ struct InputFile {
     self_shielding: Option<bool>,
     /// 省略すると ADR-0156 の既定の細かさ
     track_table: Option<TrackTableEntry>,
+    /// `track-table` の展開の上限。省略すると ADR-0182 の値
+    track_table_deviation: Option<f64>,
+    /// 省略するとセルの既定の求積（[`crate::cp::POINTS`]）
+    ufg_cp_points: Option<i64>,
     /// 省略すると間引かない（ADR-0185）
     ufg_tolerance: Option<f64>,
     /// 省略すると自由ガス（ADR-0209）
@@ -1163,11 +1174,12 @@ fn positive(v: f64) -> bool {
 }
 
 impl LatticeInput {
-    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）、格子の間引き（`ufg-tolerance`）、散乱核の標的の扱い
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`、`track-table-deviation`、`ufg-cp-points`）、格子の間引き（`ufg-tolerance`）、散乱核の標的の扱い
     /// （`ufg-scattering`、`ufg-free-gas`）、散乱行列の移行の形（`ufg-transfer`）だけで、ほかは既定の値
     pub fn shielding_options(&self) -> ShieldingOptions {
         ShieldingOptions {
             collision: self.collision,
+            cp_points: self.cp_points,
             thinning: self.thinning,
             hold_memory: self.hold_memory,
             scattering: self.scattering,
@@ -1276,12 +1288,27 @@ impl LatticeInput {
         let entries = file.material.unwrap_or_default();
         let self_shielding = !macroscopic && file.self_shielding.unwrap_or(true);
         // 飛程の表は自己遮蔽の減速計算でだけ使う
-        if !self_shielding && file.track_table.is_some() {
+        if !self_shielding && (file.track_table.is_some() || file.track_table_deviation.is_some()) {
             return Err(invalid(
-                "`track-table` is used only by the self-shielding (a library without `self-shielding = false`)"
+                "`track-table` and `track-table-deviation` are used only by the self-shielding (a library without `self-shielding = false`)"
                     .into(),
             ));
         }
+        if !self_shielding && file.ufg_cp_points.is_some() {
+            return Err(invalid(
+                "`ufg-cp-points` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        let cp_points = match file.ufg_cp_points {
+            None => crate::cp::POINTS,
+            Some(points) if points > 0 => points as usize,
+            Some(points) => {
+                return Err(invalid(format!(
+                    "`ufg-cp-points` must be a positive number of quadrature points, got {points}"
+                )));
+            }
+        };
         if !self_shielding && file.ufg_tolerance.is_some() {
             return Err(invalid(
                 "`ufg-tolerance` is used only by the self-shielding (a library without `self-shielding = false`)"
@@ -1340,10 +1367,30 @@ impl LatticeInput {
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
             Some(TrackTableEntry::Density(density)) if density > 0 => Collision::Table {
                 density: density as usize,
+                deviation: MAX_DEVIATION,
             },
             Some(other) => {
                 return Err(invalid(format!(
                     "`track-table` must be a positive number of points per decade or false, not {other:?}"
+                )));
+            }
+        };
+        // 展開の上限は表で内挿するときだけ（格子点ごとに求めるなら展開しない）
+        let collision = match (collision, file.track_table_deviation) {
+            (c, None) => c,
+            (Collision::Table { density, .. }, Some(d)) if positive(d) => Collision::Table {
+                density,
+                deviation: d,
+            },
+            (Collision::Exact, Some(_)) => {
+                return Err(invalid(
+                    "`track-table-deviation` needs the track table (not `track-table = false`)"
+                        .into(),
+                ));
+            }
+            (_, Some(d)) => {
+                return Err(invalid(format!(
+                    "`track-table-deviation` must be a positive finite ln Σ deviation, got {d}"
                 )));
             }
         };
@@ -2003,6 +2050,7 @@ impl LatticeInput {
         Ok(Self {
             self_shielding,
             collision,
+            cp_points,
             thinning,
             hold_memory,
             scattering,
