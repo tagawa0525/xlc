@@ -1174,7 +1174,7 @@ fn positive(v: f64) -> bool {
 }
 
 impl LatticeInput {
-    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`、`ufg-cp-points`）、格子の間引き（`ufg-tolerance`）、散乱核の標的の扱い
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`、`track-table-deviation`、`ufg-cp-points`）、格子の間引き（`ufg-tolerance`）、散乱核の標的の扱い
     /// （`ufg-scattering`、`ufg-free-gas`）、散乱行列の移行の形（`ufg-transfer`）だけで、ほかは既定の値
     pub fn shielding_options(&self) -> ShieldingOptions {
         ShieldingOptions {
