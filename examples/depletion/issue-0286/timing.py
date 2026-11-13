@@ -4,7 +4,8 @@
 ケースと変種ごとに、自己遮蔽の span の秒、1 状態の経過時間、1 ピンの UFG の段の和（スレッド秒）と移行の区間を compare.py の
 読み方で読む。
 
-使い方: python3 timing.py --json <要約の出力先> [--variants <変種>...] <ケース>...（このディレクトリで）
+使い方: python3 timing.py --json <要約の出力先> <ケース>... [--variants <変種>...]（このディレクトリで。`--variants` は後ろの引数をすべて
+変種として読むので、ケースより後に書く）
 """
 
 import argparse
