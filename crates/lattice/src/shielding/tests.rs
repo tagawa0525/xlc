@@ -2848,6 +2848,11 @@ pub(crate) mod lattice {
                 transfer: RatioTransfer::ElasticRatio,
                 rings: RatioRings::ShieldingFactor,
                 sph: RatioSph::State,
+                fuel: RatioFuel::StateAverage,
+            },
+            RatioOptions {
+                fuel: RatioFuel::State,
+                ..RatioOptions::default()
             },
         ] {
             let (ratio, every, anchor, _) = ratio_pin(&library, 1.0, options);
@@ -2980,6 +2985,91 @@ pub(crate) mod lattice {
         let (reference, ..) = ratio_pin(&library, 0.7, RatioOptions::default());
         assert_eq!(reference.pins[0].sph, anchor.pins[0].sph);
         assert_ne!(every.pins[0].sph, anchor.pins[0].sph);
+    }
+
+    #[test]
+    fn state_fuel_rings_are_the_rings_of_the_state_slowing_down() {
+        // ADR-0250 の残る差を分ける診断（#0285）: 燃料のリングを状態の UFG にすると、燃料のリングの群定数と移行とピンの平均は
+        // 状態ごとに UFG で解いたものと同じで、燃料でないリングと SPH 因子は基準の値のまま
+        let library = resonant_library();
+        let (state, every, anchor, _) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                fuel: RatioFuel::State,
+                ..RatioOptions::default()
+            },
+        );
+        for region in 0..3 {
+            assert_eq!(
+                state.region_cross_sections(region),
+                every.region_cross_sections(region),
+                "region {region}"
+            );
+            assert_eq!(
+                state.region_transfers(region),
+                every.region_transfers(region),
+                "region {region}"
+            );
+        }
+        assert_eq!(state.pins[0].rings, every.pins[0].rings);
+        assert_eq!(state.pins[0].effective, every.pins[0].effective);
+        let water = 5;
+        assert_eq!(
+            state.region_cross_sections(water),
+            anchor.region_cross_sections(water)
+        );
+        assert_eq!(state.pins[0].sph, anchor.pins[0].sph);
+    }
+
+    #[test]
+    fn state_average_fuel_rings_keep_the_anchor_distribution() {
+        // ADR-0250 の残る差を分ける診断（#0285）: 燃料のリングを状態の UFG の平均の比にすると、UFG の範囲の群のリングの値は、
+        // 基準のリングの値に、状態と基準の UFG のピンの平均の比を掛けたもの（リングの間の分布は基準のまま）で、ピンの平均は
+        // 状態の UFG のもの
+        let library = resonant_library();
+        let (average, every, anchor, _) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                fuel: RatioFuel::StateAverage,
+                ..RatioOptions::default()
+            },
+        );
+        let groups = anchor.pins[0].sph.as_ref().unwrap().groups.clone();
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs();
+        for ring in 0..3 {
+            for k in 0..3 {
+                for g in groups.clone() {
+                    let mean = |s: &FuelShielding| s.pins[0].effective[k].capture[g];
+                    let expected =
+                        anchor.pins[0].rings[ring][k].capture[g] * mean(&every) / mean(&anchor);
+                    let got = average.pins[0].rings[ring][k].capture[g];
+                    assert!(
+                        close(got, expected),
+                        "ring {ring} nuclide {k} group {g}: {got} vs {expected}"
+                    );
+                }
+            }
+        }
+        for k in 0..3 {
+            for g in groups.clone() {
+                let (got, expected) = (
+                    average.pins[0].effective[k].capture[g],
+                    every.pins[0].effective[k].capture[g],
+                );
+                assert!(
+                    close(got, expected),
+                    "nuclide {k} group {g}: {got} vs {expected}"
+                );
+            }
+        }
+        // 状態の UFG のリングの間の分布は基準と違う（違わなければ、この診断は平均の比の形と区別できない）
+        let shape = |s: &FuelShielding| {
+            s.pins[0].rings[0][0].capture[groups.start]
+                / s.pins[0].rings[2][0].capture[groups.start]
+        };
+        assert_ne!(shape(&every), shape(&anchor));
     }
 
     #[test]

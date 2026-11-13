@@ -708,7 +708,7 @@ fn ratio_shielding_solves_the_ufg_at_the_anchors_only() {
 fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() {
     // ADR-0250: 比が決めない量の作り方は `[branches.ratio]` で選び、省略すると基準の値。比の解き方でない自己遮蔽には書けない。基準は
     // 入力の物質の減速材の点なので、入力の物質が減速材の軸の点になければ止める
-    use crate::shielding::{RatioOptions, RatioRings, RatioSph, RatioTransfer};
+    use crate::shielding::{RatioFuel, RatioOptions, RatioRings, RatioSph, RatioTransfer};
     let text = two_moderators("[0]");
     let parse = |text: &str| LatticeInput::parse(text).map_err(|e| e.to_string());
     let anchors = |text: &str| {
@@ -722,7 +722,7 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
     assert_eq!(anchors(&ratio), Ok((vec![0, 0], RatioOptions::default())));
     let chosen = ratio.replace(
         "[history]\n",
-        "[branches.ratio]\ntransfer = \"elastic-ratio\"\nrings = \"infinite-dilution\"\nsph = \"state\"\n[history]\n",
+        "[branches.ratio]\ntransfer = \"elastic-ratio\"\nrings = \"infinite-dilution\"\nsph = \"state\"\nfuel = \"state-average\"\n[history]\n",
     );
     assert_eq!(
         anchors(&chosen).map(|(_, o)| o),
@@ -730,8 +730,14 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
             transfer: RatioTransfer::ElasticRatio,
             rings: RatioRings::InfiniteDilution,
             sph: RatioSph::State,
+            fuel: RatioFuel::StateAverage,
         })
     );
+    let state = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nfuel = \"state\"\n[history]\n",
+    );
+    assert_eq!(anchors(&state).map(|(_, o)| o.fuel), Ok(RatioFuel::State));
     let factor = ratio.replace(
         "[history]\n",
         "[branches.ratio]\nrings = \"shielding-factor\"\n[history]\n",
