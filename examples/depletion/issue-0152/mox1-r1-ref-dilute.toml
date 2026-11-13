@@ -4,7 +4,7 @@
 # 燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。OpenMC の参照解は ../openmc-mox1-rings1.toml。温度、出力密度、燃焼度の点は 1C
 # （../lattice-1C-rings1.toml）と同じ（ADR-0206。燃料は 900 K で、../../mox の 600 K と違う）
 library = "../depletion.msgpack"
-ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }
+ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true, share = false }
 ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64
