@@ -55,7 +55,7 @@ resolution:
 - 2026-11-13: #0283 で、#0279 の段 5 の参照とのずれが、履歴とテーブルの自由ガスの上限の既定の違いと分かり、同じ違いを止める仕組みが
   無いので起こした
 - 2026-11-13: #0279 の段 5 のやり直しで、`lattice@2A` を作り直さず、その入力のコピー（examples/depletion/issue-0284/lattice-2A.toml。違いは
-  ライブラリのパスの書き方と出力の置き場だけ）を今の既定で DVC のステージの外で解き、段 5 のテーブルの履歴にした（xlc f425f6cfe の
+  ライブラリのパスの書き方と出力の置き場だけ）を今の既定で DVC のステージの外で解き、段 5 のテーブルの履歴にした（xlc 62e0786d3 の
   `cargo build --release`、crates は main aef2e9dca と同じ。Slurm 823、main のパーティションで途中で止められたので時間は記録しない。md5 0f5c5d1f、
   `dvc add`）。`lattice@2A` を作り直すと、上流の p2 のライブラリ（545 核種の `xs-nuclide` と `xs`）も `bin/xs` の変更で changed で走り、
   前の担当の数えで合計約 4.3 時間（確かめていない。`scripts/count-changed-stages.py examples/depletion/p2/dvc.yaml` は 5 分で終わらず
