@@ -19,6 +19,9 @@
 - f1-average、f1-state: f1-transfer の燃料のリングを、基準のリングに状態と基準の UFG のピンの平均の比を掛けたもの（リングの間の
   分布は基準のまま）、状態の UFG のリングの値にしたもの（比の残る差を、平均の変化とリングの間の分布と燃料でないリングに分ける
   診断）。CANDIDATES の燃焼点だけ
+- f1-state-sph: f1-state の SPH 因子も状態の UFG のもの（残る差を燃料でないリングだけにする診断）。CANDIDATES の燃焼点だけ
+- f1-static-fuel、f1-static: f1-transfer の燃料のリング（f1-static は燃料でないリングと SPH 因子も）を、基準の値に、状態と基準を
+  静止した標的で解いた減速計算の比を掛けたもの。CANDIDATES の燃焼点だけ
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -72,6 +75,18 @@ SHIELDINGS = {
     "f1-state": (
         'shielding = "moderator-ratio"',
         'transfer = "elastic-ratio"\nfuel = "state"',
+    ),
+    "f1-state-sph": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "state"\nsph = "state"',
+    ),
+    "f1-static-fuel": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "static-ratio"',
+    ),
+    "f1-static": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "static-ratio"\nrings = "static-ratio"\nsph = "static-ratio"',
     ),
 }
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
