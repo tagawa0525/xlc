@@ -1134,6 +1134,7 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
                 sweeps,
                 heavy,
                 sab: entry.sab.unwrap_or(defaults.sab),
+                share: None,
             }))
         }
         Some(other) => Err(format!(

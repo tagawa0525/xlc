@@ -1145,6 +1145,7 @@ fn free_gas(upper: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scatterin
         sweeps,
         heavy: None,
         sab: false,
+        share: None,
     })
 }
 
@@ -1161,6 +1162,7 @@ fn free_gas_capped(cap: FreeGasCap, cells: usize, sweeps: Option<usize>) -> Scat
         sweeps,
         heavy: Some(cap),
         sab: false,
+        share: None,
     })
 }
 
@@ -1228,6 +1230,75 @@ fn converged_sweeps_match_many_fixed_sweeps() {
     assert!(flux_difference(&many, &converged) < 1e-9);
     let one = thermal_spectrum(600.0, free_gas(UNCAPPED, 4, Some(1)));
     assert!(flux_difference(&one, &converged) < 1e-3);
+}
+
+/// [`thermal_cell`] の物質で、ライブラリを `lib` にした 100 eV より下の減速計算（上限なしで持つ量は [`thermal_spectrum`] と同じく 0）
+fn thermal_spectrum_of(lib: &Library, scattering: Scattering) -> CellSpectrum {
+    let (_, fuel, water) = thermal_cell(600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let spectrum = slowing_down_with(
+        lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        scattering,
+        held_cells(1 << 30, 1),
+    )
+    .unwrap();
+    CellSpectrum {
+        demand: 0,
+        ..spectrum
+    }
+}
+
+/// [`free_gas`] の、散乱の割合が `share` より小さい核種を静止した標的にするもの
+fn free_gas_share(share: f64) -> Scattering {
+    match free_gas(UNCAPPED, 4, None) {
+        Scattering::FreeGas(options) => Scattering::FreeGas(FreeGas {
+            share: Some(share),
+            ..options
+        }),
+        Scattering::Static => unreachable!(),
+    }
+}
+
+#[test]
+fn nuclides_below_the_scatter_share_scatter_from_rest() {
+    // thermal_cell の断面積は一定なので、リングの物質の中の散乱の割合は N σs / Σs: 燃料の U-235 は 0.004 / 0.417 = 0.0096、
+    // O-16 は 0.41（水の中では 0.087）、水の H-1 は 0.91。閾値 0.02 は U-235 だけを静止した標的にする。U-235 を分離共鳴を持つ
+    // 核種にしたライブラリ（`heavy` を選ばないので静止した標的）の結果と同じ
+    let lib = thermal_cell(600.0).0;
+    let mut specs = thermal_specs();
+    specs[1].top = Some(2.0e4);
+    let resting = library_with(specs, 600.0, &BOUNDS);
+    let at_rest = thermal_spectrum_of(&resting, free_gas(UNCAPPED, 4, None));
+    assert_eq!(thermal_spectrum_of(&lib, free_gas_share(0.02)), at_rest);
+    // 静止した標的にしたことで結果が動く（比べる意味がある）
+    let moving = thermal_spectrum_of(&lib, free_gas(UNCAPPED, 4, None));
+    assert!(flux_difference(&moving, &at_rest) > 1e-9);
+}
+
+#[test]
+fn a_share_below_every_nuclide_keeps_the_free_gas_of_all() {
+    // 閾値がどの核種の割合より小さければ、絞らないときとビットで同じ
+    let lib = thermal_cell(600.0).0;
+    assert_eq!(
+        thermal_spectrum_of(&lib, free_gas_share(1.0e-3)),
+        thermal_spectrum_of(&lib, free_gas(UNCAPPED, 4, None))
+    );
+}
+
+#[test]
+fn a_share_above_every_nuclide_gives_the_static_spectrum() {
+    // 閾値がどの核種の割合より大きければ、どの核種も静止した標的
+    let lib = thermal_cell(600.0).0;
+    assert_eq!(
+        thermal_spectrum_of(&lib, free_gas_share(0.95)),
+        thermal_spectrum_of(&lib, Scattering::Static)
+    );
 }
 
 #[test]
@@ -1676,6 +1747,7 @@ fn resonant_free_gas_matches_a_direct_solution_of_the_infinite_medium() {
         sweeps: None,
         heavy: Some(FreeGasCap::Thermal(f64::INFINITY)),
         sab: false,
+        share: None,
     });
     // 群（20〜9.877、9.877〜4 eV）の U-238 の捕獲率
     let ufg_rates = |s: &CellSpectrum| -> Vec<f64> {
@@ -1820,6 +1892,7 @@ fn sab(cells: usize, sweeps: Option<usize>) -> Scattering {
         sweeps,
         heavy: None,
         sab: true,
+        share: None,
     })
 }
 
@@ -2913,6 +2986,7 @@ fn tangent_gas(sab: bool) -> Scattering {
         sweeps: Some(3),
         heavy: Some(FreeGasCap::Energy(10.0)),
         sab,
+        share: None,
     })
 }
 

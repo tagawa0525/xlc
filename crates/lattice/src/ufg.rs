@@ -303,6 +303,10 @@ pub struct FreeGas {
     /// S(α, β) を持つ核種（H in H2O の H）を、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で散乱させる。false は、その
     /// 核種も自由ガスの核にする（ADR-0205）
     pub sab: bool,
+    /// 自由ガスにする核種を散乱の割合で絞る閾値。`Some(s)` は、自由ガスの核を使う範囲の狭い共鳴の中性子束 1/(Σt E) の重みの
+    /// 弾性散乱の率の、リングの物質の中の割合がどのリングでも `s` より小さい核種を静止した標的にする（S(α, β) の移行の核種は
+    /// 除かない）。`None` は絞らない（#0286）
+    pub share: Option<f64>,
 }
 
 /// 自由ガスの核を使う入射エネルギーの上限（[`FreeGas::upper`]、[`FreeGas::heavy`]）。
@@ -331,6 +335,7 @@ impl Default for FreeGas {
             sweeps: Some(3),
             heavy: Some(FreeGasCap::Energy(31.0)),
             sab: true,
+            share: None,
         }
     }
 }

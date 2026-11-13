@@ -445,6 +445,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         sweeps: Some(3),
         heavy: Some(FreeGasCap::Energy(31.0)),
         sab: true,
+        share: None,
     };
     assert_eq!(FreeGas::default(), fast);
     let scattering = |lines: &str| {
@@ -496,6 +497,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             sweeps: None,
             heavy: None,
             sab: false,
+            share: None,
         })
     );
     // ADR-0204 の kT の倍数の上限（ADR-0209 の前の既定と OpenMC の扱い）も書ける
@@ -591,6 +593,34 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             &format!("library = \"m1.msgpack\"\nself-shielding = false\n{off}"),
         );
         assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    }
+}
+
+#[test]
+fn ufg_free_gas_share_selects_the_free_gas_nuclides_by_their_scatter() {
+    // #0286: `share` は自由ガスにする核種の散乱の割合の閾値（0 より大きく 1 より小さい）。書かなければ絞らない
+    let scattering = |lines: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{lines}"),
+        )
+        .map(|input| input.shielding_options().scattering)
+    };
+    assert_eq!(
+        scattering("ufg-free-gas = { share = 1e-3 }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            share: Some(1.0e-3),
+            ..FreeGas::default()
+        })
+    );
+    assert_eq!(
+        scattering("ufg-free-gas = { cells = 2 }").unwrap(),
+        Scattering::FreeGas(FreeGas::default())
+    );
+    for bad in ["0", "1", "-1e-3", "nan", "inf", "true"] {
+        let line = format!("ufg-free-gas = {{ share = {bad} }}");
+        assert!(scattering(&line).is_err(), "{line}");
     }
 }
 
