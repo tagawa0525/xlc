@@ -2768,4 +2768,250 @@ pub(crate) mod lattice {
             "{result:?}"
         );
     }
+
+    /// [`ring_pin`] の格子（追跡の間隔も同じ）を、水の物質を `water` の数密度の倍率にした物質 `state` で、基準（倍率 1 の物質を
+    /// UFG で解いたもの）からの比（ADR-0250）で解いた自己遮蔽と、状態の物質を UFG で解いた自己遮蔽と、基準の自己遮蔽と、状態の物質。
+    /// `library` は核種のデータ
+    fn ratio_pin(
+        library: &Library,
+        water: f64,
+        options: RatioOptions,
+    ) -> (
+        FuelShielding,
+        FuelShielding,
+        FuelShielding,
+        Vec<MaterialInput>,
+    ) {
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let shielding = ShieldingOptions::default();
+        let solve = |m: &[MaterialInput]| {
+            shield_fuel_with(library, &tracking, m, &regions, &symmetry, &shielding).unwrap()
+        };
+        let mut state = materials.clone();
+        for (_, density) in &mut state
+            .iter_mut()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition
+        {
+            *density *= water;
+        }
+        let anchor = solve(&materials);
+        let ratio = shield_fuel_ratio(
+            library,
+            &mut ShieldingReuse::new(&tracking),
+            &state,
+            &regions,
+            &symmetry,
+            &shielding,
+            RatioAnchor {
+                shielding: &anchor,
+                materials: &materials,
+                options,
+            },
+        )
+        .unwrap();
+        (ratio, solve(&state), anchor, state)
+    }
+
+    /// [`resonant_library`] の U-238 の σ0 の表の弾性散乱も、全断面積と同じ倍率で σ0 に依るようにしたもの（弾性散乱の比が 1 でない）
+    fn resonant_elastic_library() -> Library {
+        let mut library = resonant_library();
+        let u238 = library
+            .nuclides
+            .iter_mut()
+            .find(|n| n.name == "U-238")
+            .unwrap();
+        let tables = &mut u238.temperatures[0].shielded;
+        let dilute = tables[0].clone();
+        for table in tables.iter_mut().skip(1) {
+            let factor = table.total[0] / dilute.total[0];
+            for (e, d) in table.elastic.iter_mut().zip(&dilute.elastic) {
+                *e = d * factor;
+            }
+            for g in 0..table.total.len() {
+                table.total[g] = table.elastic[g] + table.capture[g] + table.fission[g];
+            }
+        }
+        library
+    }
+
+    #[test]
+    fn a_ratio_state_at_the_anchor_composition_is_the_anchor() {
+        // ADR-0250: 状態の物質が基準と同じなら、比は 1 で、自己遮蔽は基準とビットで同じ（比が決めない量の作り方によらない）
+        let library = resonant_library();
+        for options in [
+            RatioOptions::default(),
+            RatioOptions {
+                transfer: RatioTransfer::ElasticRatio,
+                rings: RatioRings::ShieldingFactor,
+                sph: RatioSph::State,
+            },
+        ] {
+            let (ratio, every, anchor, _) = ratio_pin(&library, 1.0, options);
+            assert_eq!(every, anchor);
+            assert_eq!(ratio, anchor, "{options:?}");
+        }
+    }
+
+    #[test]
+    fn ratios_carry_the_equivalence_change_of_the_moderator_to_the_fuel_rings() {
+        // ADR-0250: 水を薄くした状態の燃料のリングの UFG の範囲の群定数は、基準の値に状態と基準の等価原理の比を掛けたもので、基準の
+        // 値より状態ごとに UFG で解いた値に近い。範囲の外は状態の等価原理の値で、状態ごとに解いた値と同じ
+        let library = resonant_library();
+        let (ratio, every, anchor, _) = ratio_pin(&library, 0.7, RatioOptions::default());
+        let capture =
+            |s: &FuelShielding, ring: usize, g: usize| s.pins[0].rings[ring][0].capture[g];
+        for ring in 0..3 {
+            let (r, e, a) = (
+                capture(&ratio, ring, 1),
+                capture(&every, ring, 1),
+                capture(&anchor, ring, 1),
+            );
+            assert_ne!(r, a, "ring {ring}");
+            assert!(
+                (r - e).abs() < (a - e).abs(),
+                "ring {ring}: ratio {r}, every {e}, anchor {a}"
+            );
+            assert_eq!(
+                capture(&ratio, ring, 0),
+                capture(&every, ring, 0),
+                "ring {ring}"
+            );
+        }
+        // 構造の外の物質（無限希釈）と Dancoff 係数は状態のもの
+        assert_eq!(ratio.pins[0].dancoff, every.pins[0].dancoff);
+        assert_ne!(ratio.pins[0].dancoff, anchor.pins[0].dancoff);
+    }
+
+    #[test]
+    fn elastic_ratio_transfers_sum_to_the_ring_elastic() {
+        // ADR-0250 の「比が決めない量」の移行: 基準の移行の行のままでは、比で変えた燃料のリングの弾性散乱と行の和が食い違い、
+        // 弾性散乱の比で縮めると行の和が弾性散乱になる（UFG の減速計算の移行と同じ）
+        let library = resonant_elastic_library();
+        let fuel_ring_gap = |options: RatioOptions| -> f64 {
+            let (ratio, ..) = ratio_pin(&library, 0.7, options);
+            let mut worst = 0.0_f64;
+            for region in 0..3 {
+                let sections = ratio.region_cross_sections(region).unwrap();
+                let transfers = ratio.region_transfers(region).unwrap();
+                for (s, t) in sections.iter().zip(transfers) {
+                    for (g, row) in t.groups.clone().zip(&t.rows) {
+                        let sum: f64 = row.iter().sum();
+                        worst = worst.max((sum - s.elastic[g]).abs() / s.elastic[g]);
+                    }
+                }
+            }
+            worst
+        };
+        assert!(fuel_ring_gap(RatioOptions::default()) > 1e-6);
+        let scaled = RatioOptions {
+            transfer: RatioTransfer::ElasticRatio,
+            ..RatioOptions::default()
+        };
+        assert!(fuel_ring_gap(scaled) < 1e-12, "{}", fuel_ring_gap(scaled));
+    }
+
+    #[test]
+    fn non_fuel_rings_take_the_reference_or_dilute_values_by_choice() {
+        // ADR-0250 の「比が決めない量」の被覆管と減速材のリング: 既定は UFG の範囲に基準のリングの実効断面積を置き、無限希釈を選べば
+        // 範囲も状態の温度の無限希釈で移行の行を持たない。自己遮蔽因子の比は、状態と基準の温度が同じなら基準の値と同じ
+        let library = resonant_library();
+        let water = 5;
+        let (reference, _, anchor, state) = ratio_pin(&library, 0.7, RatioOptions::default());
+        assert_eq!(
+            reference.region_cross_sections(water),
+            anchor.region_cross_sections(water)
+        );
+        assert!(reference.region_transfers(water).is_some());
+        let (factor, ..) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                rings: RatioRings::ShieldingFactor,
+                ..RatioOptions::default()
+            },
+        );
+        assert_eq!(reference, factor);
+        let (dilute, ..) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                rings: RatioRings::InfiniteDilution,
+                ..RatioOptions::default()
+            },
+        );
+        assert!(dilute.region_transfers(water).is_none());
+        let composition = &state
+            .iter()
+            .find(|m| m.name == "water")
+            .unwrap()
+            .composition;
+        for ((name, _), s) in composition
+            .iter()
+            .zip(dilute.region_cross_sections(water).unwrap())
+        {
+            let infinite = library.sigma0[0];
+            let expected = library.shielded(name, T, &[infinite; 5]).unwrap();
+            assert_eq!(s, &expected, "{name}");
+        }
+        // 燃料のリングは選び方によらない
+        assert_eq!(
+            dilute.region_cross_sections(0),
+            reference.region_cross_sections(0)
+        );
+    }
+
+    #[test]
+    fn state_sph_factors_are_the_factors_of_the_state_slowing_down() {
+        // ADR-0250 の SPH 因子を分けて測る診断: 状態の SPH 因子を選ぶと、状態ごとに UFG で解いた SPH 因子を使い、既定は基準の因子
+        let library = resonant_library();
+        let (state, every, anchor, _) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                sph: RatioSph::State,
+                ..RatioOptions::default()
+            },
+        );
+        assert_eq!(state.pins[0].sph, every.pins[0].sph);
+        let (reference, ..) = ratio_pin(&library, 0.7, RatioOptions::default());
+        assert_eq!(reference.pins[0].sph, anchor.pins[0].sph);
+        assert_ne!(every.pins[0].sph, anchor.pins[0].sph);
+    }
+
+    #[test]
+    fn ratios_need_an_anchor_of_the_same_materials() {
+        // ADR-0250: 基準の物質の名前と順が状態と違えば止める
+        let library = resonant_library();
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let shielding = ShieldingOptions::default();
+        let anchor = shield_fuel_with(
+            &library, &tracking, &materials, &regions, &symmetry, &shielding,
+        )
+        .unwrap();
+        let mut reversed = materials.clone();
+        reversed.reverse();
+        let result = shield_fuel_ratio(
+            &library,
+            &mut ShieldingReuse::new(&tracking),
+            &materials,
+            &regions,
+            &symmetry,
+            &shielding,
+            RatioAnchor {
+                shielding: &anchor,
+                materials: &reversed,
+                options: RatioOptions::default(),
+            },
+        );
+        assert!(
+            matches!(result, Err(SelfShieldingError::AnchorMaterials)),
+            "{result:?}"
+        );
+    }
 }
