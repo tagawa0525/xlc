@@ -20,6 +20,8 @@
   分布は基準のまま）、状態の UFG のリングの値にしたもの（比の残る差を、平均の変化とリングの間の分布と燃料でないリングに分ける
   診断）。CANDIDATES の燃焼点だけ
 - f1-state-sph: f1-state の SPH 因子も状態の UFG のもの（残る差を燃料でないリングだけにする診断）。CANDIDATES の燃焼点だけ
+- f1-exact、f1-state-sections: f1-state-sph の燃料でないリングも状態の UFG のもの（f1-exact は every と同じになるはずの確認）と、
+  その群定数だけを状態の UFG にし、移行は基準の行を弾性散乱の比で縮めたもの。CANDIDATES の燃焼点だけ
 - f1-static-fuel、f1-static: f1-transfer の燃料のリング（f1-static は燃料でないリングと SPH 因子も）を、基準の値に、状態と基準を
   静止した標的で解いた減速計算の比を掛けたもの。CANDIDATES の燃焼点だけ
 
@@ -79,6 +81,14 @@ SHIELDINGS = {
     "f1-state-sph": (
         'shielding = "moderator-ratio"',
         'transfer = "elastic-ratio"\nfuel = "state"\nsph = "state"',
+    ),
+    "f1-exact": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "state"\nrings = "state"\nsph = "state"',
+    ),
+    "f1-state-sections": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "state"\nrings = "state-sections"\nsph = "state"',
     ),
     "f1-static-fuel": (
         'shielding = "moderator-ratio"',
