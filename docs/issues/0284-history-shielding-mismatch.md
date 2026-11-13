@@ -22,7 +22,7 @@ resolution:
   `lattice@2A` の入力のコピーを今の既定で解いた examples/depletion/issue-0284/lattice-2A.msgpack を読む（下の項）。作り直すと、下流の DVC のステージは同じ yaml の `compare@2A`（OpenMC との比較）。
   上流の `xs-nuclide` と `xs` も、`bin/xs` が deps で changed（`xlc-format` のテーブルの形式の変更で `bin/xs` が変わる。#0117）
 - examples/depletion/issue-0284/lattice-2A.toml は `lattice@2A` の入力のコピーで、違いはライブラリのパスの書き方と出力の置き場だけ。
-  DVC のステージの外で、今の既定で解いた（xlc 62e0786d3 の `cargo build --release`、crates は main aef2e9dca と同じ。Slurm 823、main の
+  DVC のステージの外で、今の既定で解いた（xlc c95c470d2 の `cargo build --release`、crates は main aef2e9dca と同じ。Slurm 823、main の
   パーティションで途中で止められたので時間は記録しない。md5 0f5c5d1f、`dvc add`）。`lattice@2A` を作り直すと、上流の p2 のライブラリ
   （545 核種の `xs-nuclide` と `xs`）も `bin/xs` の変更で changed で走り、前の担当の数えで合計約 4.3 時間（確かめていない。
   `scripts/count-changed-stages.py examples/depletion/p2/dvc.yaml` は 5 分で終わらず止めた）。ライブラリは中身が同じバイトになる見込み

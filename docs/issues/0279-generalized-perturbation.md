@@ -165,7 +165,7 @@ Pu-240 の微分で自己遮蔽を解き直す（`derivative-shielding = "solved
 ADR-0243 と ADR-0246 の前の既定のままで、それを読んだ前の比較は、ミクロ燃焼なしの core でもテーブルの点で −13.30〜−2.31 pcm ずれ、
 持ち方の比較に使えなかった（#0283）。
 
-テーブルは xlc 0e140aa57（分岐点 6e6abb56d）の worktree の target/release（crates は main 6e6abb56d と同じ）、32 スレッド、2026-11-13、
+テーブルは xlc 254b0ceb8（分岐点 6e6abb56d）の worktree の target/release（crates は main 6e6abb56d と同じ）、32 スレッド、2026-11-13、
 Slurm 831（D0）、832（D2 の固定）、830（D2 の解き直し）、829（G + I0）。main のパーティションのジョブで、829 は途中で止められた。
 core は同じ target/release で手元（1 コア）。比べたのは compare_core_micro.py（`compare-<持ち方>.json`）。md5 はテーブル D0 078e571d、
 D2 の固定 9494b0b2、D2 の解き直し 753c9b33、G + I0 99e21e4e（テーブル、core の履歴、テーブルのログ `table-<持ち方>.log` は `dvc add`）。
