@@ -132,6 +132,10 @@ pub enum RatioFuel {
     StateAverage,
     /// 状態の UFG のリングの実効断面積と移行
     State,
+    /// 基準のリングの実効断面積に、状態と基準のそれぞれを、同じ等価なセルの減速計算を静止した標的（[`Scattering::Static`]。移行は
+    /// 無限希釈）で解いた値の比を掛ける。比はリングごとなので、リングの間の分布の変化も入る。静止した標的と自由ガスの差（絶対値の
+    /// 差。ADR-0209）は比で打ち消す
+    StaticRatio,
 }
 
 /// 比で求める状態の、等価なセルのリングの UFG の範囲の移行（ADR-0250 の「比が決めない量」）
@@ -155,6 +159,8 @@ pub enum RatioRings {
     ShieldingFactor,
     /// UFG の範囲も状態の温度の無限希釈（移行の行を持たない）
     InfiniteDilution,
+    /// UFG の範囲は基準のリングの実効断面積に、状態と基準を静止した標的で解いた減速計算の値の比を掛けたもの（[`RatioFuel::StaticRatio`]）
+    StaticRatio,
 }
 
 /// 比で求める状態の SPH 因子（ADR-0250 の「SPH 因子は基準のものを使う」の近似を分けて測る）
@@ -165,6 +171,8 @@ pub enum RatioSph {
     Reference,
     /// 状態の UFG の減速計算を解いて求めた SPH 因子（診断。時間は状態ごとに解き直すのと同じ）
     State,
+    /// 基準の SPH 因子に、状態と基準を静止した標的で解いた減速計算の SPH 因子の比を掛けたもの（[`RatioFuel::StaticRatio`]）
+    StaticRatio,
 }
 
 /// 比で求める状態（ADR-0250）の基準: 今の UFG で解いた自己遮蔽 `shielding` と、それに渡した物質 `materials`（状態の物質と同じ名前を
@@ -2523,6 +2531,55 @@ fn ratio_cell(
         None
     };
     let state_cell = || state_ufg.as_ref().ok_or_else(mismatch);
+    // 静止した標的の減速計算の、状態と基準の結果（比のどれかが使うときだけ）
+    let light = if anchor.options.fuel == RatioFuel::StaticRatio
+        || anchor.options.rings == RatioRings::StaticRatio
+        || anchor.options.sph == RatioSph::StaticRatio
+    {
+        let static_pin = PinRings {
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::InfiniteDilution,
+            tangent: None,
+            ..*pin
+        };
+        let range = |inputs: &[Option<&MaterialInput>]| cell_range(library, inputs);
+        let at_state = tracing::debug_span!("static-state").in_scope(|| {
+            shield_cell(
+                library,
+                &static_pin,
+                materials,
+                dilute,
+                dancoff,
+                carlvik,
+                range,
+            )
+        })?;
+        let anchor_dilute = mixed(library, anchor.materials)?;
+        let at_anchor = tracing::debug_span!("static-anchor").in_scope(|| {
+            shield_cell(
+                library,
+                &static_pin,
+                anchor.materials,
+                &anchor_dilute,
+                &anchor_pin.dancoff,
+                &anchor_carlvik,
+                range,
+            )
+        })?;
+        Some((
+            at_state.ok_or_else(mismatch)?,
+            at_anchor.ok_or_else(mismatch)?,
+        ))
+    } else {
+        None
+    };
+    let light_rings = |j: usize| -> Result<(&[Shielded], &[Shielded]), SelfShieldingError> {
+        let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+        let (Some(s), Some(a)) = (&s.ring_nuclides[j], &a.ring_nuclides[j]) else {
+            return Err(mismatch());
+        };
+        Ok((s.as_slice(), a.as_slice()))
+    };
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let rows = |transfer: &NuclideTransfer, full: &Shielded, base: &Shielded| -> NuclideTransfer {
@@ -2591,6 +2648,10 @@ fn ratio_cell(
                     RatioFuel::StateAverage => {
                         by_ratio(&state_cell()?.effective[k], &anchor_pin.effective[k])
                     }
+                    RatioFuel::StaticRatio => {
+                        let (s, a) = light_rings(j)?;
+                        by_ratio(&s[k], &a[k])
+                    }
                     RatioFuel::State => {
                         let s = state_cell()?;
                         let rings = s.ring_nuclides[j].as_ref().ok_or_else(mismatch)?;
@@ -2625,6 +2686,12 @@ fn ratio_cell(
                         let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
                         (full, transfer)
                     }
+                    RatioRings::StaticRatio => {
+                        let (s, a) = light_rings(j)?;
+                        scale_by_ratio(&mut full, &base[k], &s[k], &a[k], groups.clone());
+                        let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        (full, transfer)
+                    }
                 }
             };
             let nuclide =
@@ -2648,6 +2715,25 @@ fn ratio_cell(
     let sph = match anchor.options.sph {
         RatioSph::Reference => anchor_sph.factors.clone(),
         RatioSph::State => state_cell()?.sph.clone(),
+        RatioSph::StaticRatio => {
+            let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+            if s.sph.len() != anchor_sph.factors.len() || a.sph.len() != s.sph.len() {
+                return Err(mismatch());
+            }
+            anchor_sph
+                .factors
+                .iter()
+                .zip(&s.sph)
+                .zip(&a.sph)
+                .map(|((base, state), at_anchor)| {
+                    base.iter()
+                        .zip(state)
+                        .zip(at_anchor)
+                        .map(|((b, s), a)| b * ratio(*s, *a))
+                        .collect()
+                })
+                .collect()
+        }
     };
     if sph.len() < rings.len() || sph.iter().any(|row| row.len() != groups.len()) {
         return Err(mismatch());
@@ -2677,6 +2763,19 @@ fn ratio_cell(
             })
             .collect(),
         RatioFuel::StateAverage | RatioFuel::State => state_cell()?.effective.clone(),
+        RatioFuel::StaticRatio => {
+            let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+            carlvik
+                .iter()
+                .zip(anchor_pin.effective.iter())
+                .zip(s.effective.iter().zip(&a.effective))
+                .map(|((state, base), (light_state, light_anchor))| {
+                    let mut out = state.clone();
+                    scale_by_ratio(&mut out, base, light_state, light_anchor, groups.clone());
+                    out
+                })
+                .collect()
+        }
     };
     if check {
         log_ratio_check(
@@ -2696,7 +2795,7 @@ fn ratio_cell(
     }
     let radius = match anchor.options.fuel {
         RatioFuel::State => state_cell()?.radius,
-        RatioFuel::Equivalence | RatioFuel::StateAverage => radius,
+        RatioFuel::Equivalence | RatioFuel::StateAverage | RatioFuel::StaticRatio => radius,
     };
     Ok(Some(CellShielding {
         radius,
@@ -2712,6 +2811,26 @@ fn ratio_cell(
         tangent: None,
         center_flux: Vec::new(),
     }))
+}
+
+/// 物質 `materials` の無限希釈の群定数に、最後に真空の物質を足したもの（[`shield_fuel_by`] の物質の番号と同じ並び）
+fn mixed(
+    library: &Library,
+    materials: &[MaterialInput],
+) -> Result<Vec<Material>, SelfShieldingError> {
+    let mut dilute = materials
+        .iter()
+        .map(|m| {
+            Material::mix(library, &m.composition, m.temperature).map_err(|source| {
+                SelfShieldingError::Material {
+                    name: m.name.clone(),
+                    source,
+                }
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    dilute.push(Material::void(library.groups.len()));
+    Ok(dilute)
 }
 
 /// [`log_ratio_check`] が比べる値
@@ -2745,19 +2864,7 @@ fn log_ratio_check(
     let mismatch = || SelfShieldingError::AnchorPin(cell);
     let anchor = check.anchor;
     // 基準の物質（真空は最後）で、状態の Dancoff 係数の等価なセルを解く
-    let mut anchor_dilute = anchor
-        .materials
-        .iter()
-        .map(|m| {
-            Material::mix(library, &m.composition, m.temperature).map_err(|source| {
-                SelfShieldingError::Material {
-                    name: m.name.clone(),
-                    source,
-                }
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    anchor_dilute.push(Material::void(library.groups.len()));
+    let anchor_dilute = mixed(library, anchor.materials)?;
     let moved = shield_cell(
         library,
         pin,

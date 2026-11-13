@@ -232,6 +232,7 @@ enum RatioFuelEntry {
     Equivalence,
     StateAverage,
     State,
+    StaticRatio,
 }
 
 #[derive(Deserialize)]
@@ -247,6 +248,7 @@ enum RatioRingsEntry {
     Reference,
     ShieldingFactor,
     InfiniteDilution,
+    StaticRatio,
 }
 
 #[derive(Deserialize)]
@@ -254,6 +256,7 @@ enum RatioRingsEntry {
 enum RatioSphEntry {
     Reference,
     State,
+    StaticRatio,
 }
 
 impl RatioEntry {
@@ -267,15 +270,18 @@ impl RatioEntry {
                 None | Some(RatioRingsEntry::Reference) => RatioRings::Reference,
                 Some(RatioRingsEntry::ShieldingFactor) => RatioRings::ShieldingFactor,
                 Some(RatioRingsEntry::InfiniteDilution) => RatioRings::InfiniteDilution,
+                Some(RatioRingsEntry::StaticRatio) => RatioRings::StaticRatio,
             },
             sph: match self.sph {
                 None | Some(RatioSphEntry::Reference) => RatioSph::Reference,
                 Some(RatioSphEntry::State) => RatioSph::State,
+                Some(RatioSphEntry::StaticRatio) => RatioSph::StaticRatio,
             },
             fuel: match self.fuel {
                 None | Some(RatioFuelEntry::Equivalence) => RatioFuel::Equivalence,
                 Some(RatioFuelEntry::StateAverage) => RatioFuel::StateAverage,
                 Some(RatioFuelEntry::State) => RatioFuel::State,
+                Some(RatioFuelEntry::StaticRatio) => RatioFuel::StaticRatio,
             },
         }
     }

@@ -3118,7 +3118,11 @@ pub(crate) mod lattice {
             );
             for k in 0..r.len() {
                 for g in groups.clone() {
-                    let expected = a[k].capture[g] * ls[k].capture[g] / la[k].capture[g];
+                    // 基準の値が 0 の比は 1（比で変えない）
+                    let expected = match la[k].capture[g] {
+                        0.0 => a[k].capture[g],
+                        light => a[k].capture[g] * ls[k].capture[g] / light,
+                    };
                     assert!(
                         close(r[k].capture[g], expected),
                         "region {region} nuclide {k} group {g}: {} vs {expected}",
@@ -3136,7 +3140,10 @@ pub(crate) mod lattice {
         );
         for ring in 0..r.len() {
             for g in 0..r[ring].len() {
-                let expected = a[ring][g] * ls[ring][g] / la[ring][g];
+                let expected = match la[ring][g] {
+                    0.0 => a[ring][g],
+                    light => a[ring][g] * ls[ring][g] / light,
+                };
                 assert!(close(r[ring][g], expected), "ring {ring} group {g}");
             }
         }
