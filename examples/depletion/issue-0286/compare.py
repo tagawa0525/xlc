@@ -206,6 +206,8 @@ def main() -> None:
             if default not in variants:
                 sys.exit(f"{case}: no {default} log to compare {variants} with")
             rows += compare(case, variants, default)
+        if not rows:
+            sys.exit(f"{case}: no logs to compare")
         summary[case] = rows
     args.json.write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n")
 
