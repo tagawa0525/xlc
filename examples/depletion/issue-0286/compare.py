@@ -106,6 +106,9 @@ def log(path: Path) -> dict:
                 stages[s] += float(f[s])
         elif "UFG transfers counted" in line:
             transfers += float(fields(line)["seconds"])
+        elif "UFG U-238 ring capture" in line:
+            # 364ce2913 より前の実行ファイルのログ（核種の名前が無い）は、捕獲を比べられない
+            sys.exit(f"{path}: an older ring capture log without nuclide names")
         elif "UFG ring capture" in line:
             f = fields(line)
             captures.append(
@@ -198,8 +201,11 @@ def main() -> None:
         rows = []
         for default, names in groups:
             variants = [v for v in names if (HERE / f"{case}-{v}.log").exists()]
-            if variants:
-                rows += compare(case, variants, default)
+            if not variants:
+                continue
+            if default not in variants:
+                sys.exit(f"{case}: no {default} log to compare {variants} with")
+            rows += compare(case, variants, default)
         summary[case] = rows
     args.json.write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n")
 
