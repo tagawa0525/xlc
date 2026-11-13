@@ -2,3 +2,4 @@
 *.out
 *.log
 fg-*.msgpack
+mox-history.msgpack

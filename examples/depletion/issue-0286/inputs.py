@@ -13,6 +13,10 @@ compare.py。
   （`2A-60`。../issue-0180/branch/2A-60.toml の微分を除いたもの）、Gd の 2O の 10 MWd/kg（`2O-10`）、Pyrex の 2F の 10 MWd/kg
   （`2F-10`）、制御棒を入れて燃焼させた 2A の 20 MWd/kg（`2A-rods-20`。棒は入ったまま）
 
+衝突確率の近似（`CP_VARIANTS`）は、上のケースに 2 つを足して比べる（変種の名前は `cp-` で始まる）: Gd の 2O の 5 MWd/kg（`2O-5`。
+Gd のピンのリングの組成の差が 10 MWd/kg より大きい途中）と、燃焼した MOX のピンセル（`pin-mox-40`。mox-history.toml の
+40 MWd/kg からの 1 状態の分岐。燃料はリングごとに組成が違う）。
+
 使い方: python3 inputs.py（このディレクトリで）
 """
 
@@ -48,6 +52,26 @@ VARIANTS = {
     "share-1e-3": "ufg-free-gas = { share = 1e-3 }\n",
     "share-1e-2": "ufg-free-gas = { share = 1e-2 }\n",
 }
+# 衝突確率の近似の変種（#0286 の衝突確率の節。`default` は既定のまま。ほかは既定に足す行）: 弦の求積の点（`ufg-cp-points`）、
+# 飛程の表の細かさ（`track-table`）、展開の上限（`track-table-deviation`）と、その組み合わせ、自由ガスの核種の絞り込みとの組み合わせ
+CP_COMBINED = "ufg-cp-points = 8\ntrack-table = 8\ntrack-table-deviation = 0.03\n"
+CP_VARIANTS = {
+    "cp-default": "",
+    "cp-points-8": "ufg-cp-points = 8\n",
+    "cp-points-6": "ufg-cp-points = 6\n",
+    "cp-points-4": "ufg-cp-points = 4\n",
+    "cp-table-8": "track-table = 8\n",
+    "cp-deviation-0.03": "track-table-deviation = 0.03\n",
+    "cp-table-8-deviation-0.03": "track-table = 8\ntrack-table-deviation = 0.03\n",
+    "cp-combined": CP_COMBINED,
+    "cp-share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
+    "cp-share-1e-4-combined": "ufg-free-gas = { share = 1e-4 }\n" + CP_COMBINED,
+}
+# 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
+CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
+# 燃焼した MOX のピンセルの分岐（mox-history.toml の燃焼点）
+MOX_BURNUP = 40
+
 # 間引きの許容差の変種（既定の 1e-4 を置き換える）
 TOLERANCES = {"tolerance-3e-4": "3e-4", "tolerance-1e-3": "1e-3"}
 
@@ -131,7 +155,7 @@ def assembly_2a60() -> str:
 
 
 def assembly(name: str) -> str:
-    source, burnup = ASSEMBLIES[name]
+    source, burnup = {**ASSEMBLIES, **CP_ASSEMBLIES}[name]
     text = FUELS.branch(name, source, [burnup], solved=False)
     text = text[text.find("library = ") :]
     text = replace_once(
@@ -141,6 +165,32 @@ def assembly(name: str) -> str:
     # FUELS.branch はパスを ../issue-0180/fuels から書く
     text = text.replace('"../../', '"../')
     return f"# {source} の {burnup} MWd/kg からの 1 状態の分岐\n" + text
+
+
+def mox_burned() -> str:
+    """mox-history.toml の `[depletion]` より前に、少数群定数の出力と、履歴と同じ条件の 1 状態の分岐と `[history]` を足したもの"""
+    source = "issue-0286/mox-history.toml"
+    text = (HERE / "mox-history.toml").read_text()
+    body = text[text.find("library = ") : text.find("[depletion]")]
+    body = replace_once(
+        body,
+        'library = "../p2/depletion.msgpack"\n',
+        'library = "../p2/depletion.msgpack"\n'
+        'few-group = { output = "{pin-table}", bounds = [1e7, 0.625, 1e-5] }\n'
+        "ufg-tolerance = 1e-4\n",
+        source,
+    )
+    fuels = ", ".join(f'"fuel-{k}"' for k in range(5))
+    return (
+        f"# {source} の {MOX_BURNUP} MWd/kg からの 1 状態の分岐\n"
+        + body.rstrip()
+        + "\n\n[branches]\n"
+        + 'boron = { ppm = [650], materials = ["water"] }\n'
+        + 'moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }\n'
+        + f"fuel = {{ temperature = [900], materials = [{fuels}] }}\n\n"
+        + '[history]\nfile = "mox-history.msgpack"\nchain = "../chain.msgpack"\n'
+        + f"burnup = [{MOX_BURNUP}]\n"
+    )
 
 
 def variant(base: str, case: str, name: str) -> str:
@@ -155,9 +205,12 @@ def variant(base: str, case: str, name: str) -> str:
         )
     head, rest = text.split("\n", 1)
     library_end = rest.find("\n", rest.find("library = ")) + 1
-    rest = rest[:library_end] + VARIANTS[name] + rest[library_end:]
+    rest = rest[:library_end] + {**VARIANTS, **CP_VARIANTS}[name] + rest[library_end:]
     output = f"fg-{case}-{name}.msgpack"
-    if "{table}" in rest:
+    if "{pin-table}" in rest:
+        # 燃焼した MOX のピンセル（[`mox_burned`]）は 1 本なのでピン出力を書かない
+        rest = replace_once(rest, '"{pin-table}"', f'"{output}"', case)
+    elif "{table}" in rest:
         # 集合体はピン出力の形状関数もテーブルに書く（比べるピン出力）
         rest = replace_once(
             rest,
@@ -179,8 +232,8 @@ def variant(base: str, case: str, name: str) -> str:
 
 
 def cases() -> list[str]:
-    """ケースの名前（[`bases`] の順）"""
-    return [*PIN_SOURCES, "pin-mox", "2A-60", *ASSEMBLIES]
+    """ケースの名前（[`bases`] と [`cp_bases`] の順）"""
+    return [*PIN_SOURCES, "pin-mox", "2A-60", *ASSEMBLIES, *CP_ASSEMBLIES, "pin-mox-40"]
 
 
 def bases() -> dict:
@@ -191,9 +244,20 @@ def bases() -> dict:
     return cases
 
 
+def cp_bases() -> dict:
+    """衝突確率の近似だけで比べるケースの既定の入力"""
+    cases = {name: assembly(name) for name in CP_ASSEMBLIES}
+    cases["pin-mox-40"] = mox_burned()
+    return cases
+
+
 def main() -> None:
-    for case, base in bases().items():
+    old = bases()
+    for case, base in old.items():
         for name in VARIANTS:
+            (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))
+    for case, base in {**old, **cp_bases()}.items():
+        for name in CP_VARIANTS:
             (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))
 
 
