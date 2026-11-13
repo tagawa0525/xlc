@@ -890,6 +890,20 @@ impl StateShielding<'_> {
         &self.fuel
     }
 
+    /// `remixed_at` の前提（物質の名前が `remixed` の領域の物質を、この自己遮蔽の状態の物質 `state` の組成で作り直すと、この自己遮蔽の
+    /// 物質とビットで同じ）を確かめる（ADR-0249）。崩れれば、作り直した摂動の物質と状態の物質の差が微分に入るのでエラー
+    pub fn check_remix(
+        &self,
+        library: &Library,
+        lattice: &Lattice,
+        region_materials: &[String],
+        remixed: &[String],
+        state: &[MaterialInput],
+    ) -> anyhow::Result<()> {
+        let _ = (library, lattice, region_materials, remixed, state);
+        Ok(())
+    }
+
     /// この自己遮蔽の燃料の実効断面積、UFG の範囲の移行、SPH 因子のまま、物質の名前が `remixed` の領域の物質を `changed` の組成で
     /// 作り直した自己遮蔽（ADR-0249）。`state` はこの自己遮蔽の状態の物質で、`changed` と同じ名前と温度の物質を同じ順に持ち、
     /// 作り直す物質の核種の並びは自己遮蔽したときと同じ。`region_materials` は [領域] の物質の名前

@@ -1974,7 +1974,21 @@ fn fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shieldi
                     branches.reference_state(point, r)
                 })
                 .unwrap();
-            // 状態の組成で作り直せば、状態の物質とビットで同じ
+            // 状態の組成で作り直せば、状態の物質とビットで同じ（作り直しの前提の検査も通る）。ほかの組成を状態の物質として渡せば、
+            // 作り直した物質が自己遮蔽の物質と違うので検査がエラーにする
+            state
+                .check_remix(&library, lattice, regions, &names, &materials)
+                .unwrap();
+            let error = state
+                .check_remix(
+                    &library,
+                    lattice,
+                    regions,
+                    &names,
+                    &branches.perturbed_state(index, 1),
+                )
+                .unwrap_err();
+            assert!(error.to_string().contains("remix"), "{error}");
             let same = state
                 .remixed_at(&library, lattice, regions, &names, &materials, &materials)
                 .unwrap();
