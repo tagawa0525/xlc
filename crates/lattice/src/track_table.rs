@@ -229,6 +229,11 @@ impl Layout {
         Self { limit, ..self }
     }
 
+    /// 展開の上限
+    pub fn limit(&self) -> f64 {
+        self.limit
+    }
+
     /// 軸を共有する物質の ln Σ の中心からの差の最大 `deviation`（[`Layout::centers`]）の格子点を展開で内挿するか
     pub fn expands(&self, deviation: f64) -> bool {
         deviation <= self.limit

@@ -2076,8 +2076,9 @@ fn total(ring: &[(usize, f64)], row: &[Row]) -> f64 {
 
 /// 展開の外の格子点を数えるエネルギーの帯の境界 (eV。ログ)
 const OUTSIDE_BANDS: [f64; 5] = [10.0, 31.0, 100.0, 1000.0, 1e4];
-/// 展開の外の格子点を数える、中心からの ln Σ の差の境界（ログ。最初は [`MAX_DEVIATION`]）
-const OUTSIDE_DEVIATIONS: [f64; 3] = [MAX_DEVIATION, 0.03, 0.1];
+/// 展開の外の格子点を数える、中心からの ln Σ の差の境界の、展開の上限に対する倍率（ログ。既定の上限 [`MAX_DEVIATION`] で
+/// 0.01、0.03、0.1）
+const OUTSIDE_DEVIATIONS: [f64; 3] = [1.0, 3.0, 10.0];
 
 /// [`track_table`] の表と、[物質] の最初のリングの番号、[軸] の範囲
 type BuiltTable = (TrackTable, Vec<usize>, Vec<[f64; 2]>);
@@ -2166,7 +2167,7 @@ fn track_table(
                 let deviation = layout.centers(&sigma).1;
                 let size = OUTSIDE_DEVIATIONS
                     .iter()
-                    .take_while(|&&d| deviation >= d)
+                    .take_while(|&&d| deviation >= d * layout.limit())
                     .count();
                 outside_bands[band] += 1;
                 outside_sizes[size] += 1;
@@ -2177,7 +2178,7 @@ fn track_table(
         tracing::debug!(
             bands = ?OUTSIDE_BANDS,
             by_energy = ?outside_bands,
-            deviations = ?OUTSIDE_DEVIATIONS,
+            deviations = ?OUTSIDE_DEVIATIONS.map(|d| d * layout.limit()),
             by_deviation = ?outside_sizes,
             "UFG track table outside points by energy (eV, counts below the first bound, between bounds, above the last) and by the largest ln Σ deviation"
         );
