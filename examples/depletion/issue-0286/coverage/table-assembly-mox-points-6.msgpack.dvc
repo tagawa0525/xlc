@@ -1,0 +1,5 @@
+outs:
+- md5: 16a5a0d8e295aa515f72d616be7d362d
+  size: 634813
+  hash: md5
+  path: table-assembly-mox-points-6.msgpack

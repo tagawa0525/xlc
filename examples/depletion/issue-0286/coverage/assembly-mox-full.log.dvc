@@ -1,0 +1,5 @@
+outs:
+- md5: e644790db62a6ecdb2b3595c863556de
+  size: 28608089
+  hash: md5
+  path: assembly-mox-full.log

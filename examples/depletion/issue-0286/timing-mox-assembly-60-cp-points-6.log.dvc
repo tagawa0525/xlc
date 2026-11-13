@@ -1,0 +1,5 @@
+outs:
+- md5: 3d7fb34fa9a3ef181641461424b157b0
+  size: 1788355
+  hash: md5
+  path: timing-mox-assembly-60-cp-points-6.log

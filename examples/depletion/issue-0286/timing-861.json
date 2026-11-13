@@ -1,0 +1,60 @@
+{
+ "mox-assembly-60": {
+  "default": {
+   "shielding_seconds": 37.3,
+   "total_seconds": 50.154830115,
+   "per_pin": {
+    "grid": 1.7500745500769228,
+    "table": 0.7659058977692307,
+    "evaluate": 0.4816472935128204,
+    "collision": 0.1851840161282052,
+    "slowing": 16.38576860235898,
+    "free_gas": 13.297488247820512,
+    "sab": 1.1078354835128208
+   },
+   "transfers_per_pin": 0.26279926379487184
+  },
+  "share-point": {
+   "shielding_seconds": 26.8,
+   "total_seconds": 39.60855812,
+   "per_pin": {
+    "grid": 1.7981687823846153,
+    "table": 0.7623240057692308,
+    "evaluate": 0.46482259869230763,
+    "collision": 0.17648298764102563,
+    "slowing": 9.757217790615384,
+    "free_gas": 6.751201888846156,
+    "sab": 1.0809544541538465
+   },
+   "transfers_per_pin": 0.18524275043589747
+  },
+  "cp-points-6": {
+   "shielding_seconds": 40.2,
+   "total_seconds": 52.934356413,
+   "per_pin": {
+    "grid": 1.7755805001538458,
+    "table": 0.4582281553589744,
+    "evaluate": 0.5215297352307692,
+    "collision": 0.20987466546153846,
+    "slowing": 18.235884766282055,
+    "free_gas": 14.853522223923077,
+    "sab": 1.2771426578974359
+   },
+   "transfers_per_pin": 0.30150752274358966
+  },
+  "cp-share-point-points-6": {
+   "shielding_seconds": 26.4,
+   "total_seconds": 39.251491698,
+   "per_pin": {
+    "grid": 1.8069199217692307,
+    "table": 0.4378272951794872,
+    "evaluate": 0.5008413423076924,
+    "collision": 0.17916767679487183,
+    "slowing": 9.752658130487182,
+    "free_gas": 6.736066323076923,
+    "sab": 1.0883966762564103
+   },
+   "transfers_per_pin": 0.20008518946153844
+  }
+ }
+}
