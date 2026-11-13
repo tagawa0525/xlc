@@ -19,8 +19,15 @@ resolution:
   （#0283）。このパスを書いた追跡している入力は、#0283 の切り分けの 6 つと examples/depletion/issue-0284/lattice-2A.toml（注釈だけ）のほかに
   examples/depletion/ の下に 40（branches/ 22、history/ 12、micro/ 2 など。`git ls-files examples | grep '\.toml$' | xargs grep -l p2/lattice-2A.msgpack`、
   注釈だけのものを含む）あり、今の既定でこの履歴から作るテーブルはどれも同じ違いを持つ。#0279 の段 5 のテーブル（examples/depletion/issue-0279/core-micro/）は、
-  `lattice@2A` の入力のコピーを今の既定で解いた examples/depletion/issue-0284/lattice-2A.msgpack を読む（下の「経緯」の 2026-11-13）。作り直すと、下流の DVC のステージは同じ yaml の `compare@2A`（OpenMC との比較）。
+  `lattice@2A` の入力のコピーを今の既定で解いた examples/depletion/issue-0284/lattice-2A.msgpack を読む（下の項）。作り直すと、下流の DVC のステージは同じ yaml の `compare@2A`（OpenMC との比較）。
   上流の `xs-nuclide` と `xs` も、`bin/xs` が deps で changed（`xlc-format` のテーブルの形式の変更で `bin/xs` が変わる。#0117）
+- examples/depletion/issue-0284/lattice-2A.toml は `lattice@2A` の入力のコピーで、違いはライブラリのパスの書き方と出力の置き場だけ。
+  DVC のステージの外で、今の既定で解いた（xlc 62e0786d3 の `cargo build --release`、crates は main aef2e9dca と同じ。Slurm 823、main の
+  パーティションで途中で止められたので時間は記録しない。md5 0f5c5d1f、`dvc add`）。`lattice@2A` を作り直すと、上流の p2 のライブラリ
+  （545 核種の `xs-nuclide` と `xs`）も `bin/xs` の変更で changed で走り、前の担当の数えで合計約 4.3 時間（確かめていない。
+  `scripts/count-changed-stages.py examples/depletion/p2/dvc.yaml` は 5 分で終わらず止めた）。ライブラリは中身が同じバイトになる見込み
+  （確かめていない）で、作り直しは段 5 の比較の結論を変えないので、`lattice@2A` と下流の `compare@2A`（OpenMC との比較の記録）の
+  作り直しは、それを読む作業が来るまで後回しにした（CLAUDE.md の「計算」）
 - 候補（どれも確かめていない）: 履歴に自己遮蔽の設定（`ufg-free-gas` など、k を変える自己遮蔽の入力）を書き、テーブルの入力と違えば
   止める。比べる項目の範囲（自己遮蔽のほかの設定、MOC の離散化）と、意図して違う設定で解く入力（#0283 の caps-400.toml の
   ような切り分け）の書き方は決めていない
@@ -54,10 +61,5 @@ resolution:
 
 - 2026-11-13: #0283 で、#0279 の段 5 の参照とのずれが、履歴とテーブルの自由ガスの上限の既定の違いと分かり、同じ違いを止める仕組みが
   無いので起こした
-- 2026-11-13: #0279 の段 5 のやり直しで、`lattice@2A` を作り直さず、その入力のコピー（examples/depletion/issue-0284/lattice-2A.toml。違いは
-  ライブラリのパスの書き方と出力の置き場だけ）を今の既定で DVC のステージの外で解き、段 5 のテーブルの履歴にした（xlc 62e0786d3 の
-  `cargo build --release`、crates は main aef2e9dca と同じ。Slurm 823、main のパーティションで途中で止められたので時間は記録しない。md5 0f5c5d1f、
-  `dvc add`）。`lattice@2A` を作り直すと、上流の p2 のライブラリ（545 核種の `xs-nuclide` と `xs`）も `bin/xs` の変更で changed で走り、
-  前の担当の数えで合計約 4.3 時間（確かめていない。`scripts/count-changed-stages.py examples/depletion/p2/dvc.yaml` は 5 分で終わらず
-  止めた）。ライブラリは中身が同じバイトになる見込み（確かめていない）で、作り直しはこの比較の結論を変えないので、`lattice@2A` と
-  下流の `compare@2A`（OpenMC との比較の記録）の作り直しは、それを読む作業が来るまで後回しにした（CLAUDE.md の「計算」）
+- 2026-11-13: #0279 の段 5 のやり直しで、`lattice@2A` を作り直さず、その入力のコピーを今の既定で解いて段 5 のテーブルの履歴にし、
+  `lattice@2A` と `compare@2A` の作り直しを後回しにした（上の「問題」の 3 つ目の項）
