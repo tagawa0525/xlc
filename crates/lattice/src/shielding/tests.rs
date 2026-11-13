@@ -2850,6 +2850,7 @@ pub(crate) mod lattice {
                 rings: RatioRings::ShieldingFactor,
                 sph: RatioSph::State,
                 fuel: RatioFuel::StateAverage,
+                static_cp_points: None,
             },
             RatioOptions {
                 fuel: RatioFuel::State,
@@ -2860,6 +2861,7 @@ pub(crate) mod lattice {
                 rings: RatioRings::StaticRatio,
                 sph: RatioSph::StaticRatio,
                 fuel: RatioFuel::StaticRatio,
+                static_cp_points: None,
             },
         ] {
             let (ratio, every, anchor, _) = ratio_pin(&library, 1.0, options);
@@ -3086,7 +3088,19 @@ pub(crate) mod lattice {
     #[test]
     fn static_ratios_scale_every_ring_and_the_sph_factors_by_the_static_slowing_down() {
         // #0285: 静止した標的の減速計算の比は、UFG の範囲の群の燃料と燃料でないリングの実効断面積と SPH 因子のそれぞれを、基準の値に、
-        // 状態と基準を静止した標的（移行は無限希釈）で解いた値の比を掛けたものにする（リングの間の分布も比で変わる）
+        // 状態と基準を静止した標的（移行は無限希釈）で解いた値の比を掛けたものにする（リングの間の分布も比で変わる）。静止した標的の
+        // 減速計算の衝突確率の求積の点の数は、選ばなければ UFG と同じで、選べばその点の数
+        let default = check_static_ratios(None);
+        assert_eq!(
+            default,
+            check_static_ratios(Some(ShieldingOptions::default().cp_points))
+        );
+        assert_ne!(default, check_static_ratios(Some(2)));
+    }
+
+    /// [`static_ratios_scale_every_ring_and_the_sph_factors_by_the_static_slowing_down`] の、静止した標的の減速計算の衝突確率の求積の
+    /// 点の数 `points` での確認。比で求めた状態の自己遮蔽を返す
+    fn check_static_ratios(points: Option<usize>) -> FuelShielding {
         let library = resonant_library();
         let (ratio, _, anchor, state) = ratio_pin(
             &library,
@@ -3096,6 +3110,7 @@ pub(crate) mod lattice {
                 rings: RatioRings::StaticRatio,
                 sph: RatioSph::StaticRatio,
                 fuel: RatioFuel::StaticRatio,
+                static_cp_points: points,
             },
         );
         let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
@@ -3104,6 +3119,7 @@ pub(crate) mod lattice {
         let light = ShieldingOptions {
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
+            cp_points: points.unwrap_or(ShieldingOptions::default().cp_points),
             ..ShieldingOptions::default()
         };
         let solve = |m: &[MaterialInput]| {
@@ -3158,6 +3174,7 @@ pub(crate) mod lattice {
                 / s.pins[0].rings[2][0].capture[groups.start]
         };
         assert_ne!(shape(&ratio), shape(&anchor));
+        ratio
     }
 
     #[test]
@@ -3170,6 +3187,7 @@ pub(crate) mod lattice {
             rings: RatioRings::StaticRatio,
             sph: RatioSph::StaticRatio,
             fuel: RatioFuel::StaticRatio,
+            static_cp_points: None,
         };
         let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
         let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
@@ -3235,6 +3253,7 @@ pub(crate) mod lattice {
                 rings: RatioRings::State,
                 sph: RatioSph::State,
                 fuel: RatioFuel::State,
+                static_cp_points: None,
             },
         );
         for region in [0, 1, 2, 4, 5] {

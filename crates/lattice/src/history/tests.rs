@@ -731,6 +731,7 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
             rings: RatioRings::InfiniteDilution,
             sph: RatioSph::State,
             fuel: RatioFuel::StateAverage,
+            static_cp_points: None,
         })
     );
     let state = ratio.replace(
@@ -750,6 +751,16 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
             RatioSph::StaticRatio
         ))
     );
+    // 静止した標的の減速計算の衝突確率の求積の点の数（省略すると UFG と同じ）
+    let points = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nfuel = \"static-ratio\"\nstatic-cp-points = 6\n[history]\n",
+    );
+    assert_eq!(
+        anchors(&points).map(|(_, o)| o.static_cp_points),
+        Ok(Some(6))
+    );
+    assert_eq!(anchors(&light).map(|(_, o)| o.static_cp_points), Ok(None));
     let factor = ratio.replace(
         "[history]\n",
         "[branches.ratio]\nrings = \"shielding-factor\"\n[history]\n",
@@ -767,6 +778,15 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
         ratio.replace(
             "[history]\n",
             "[branches.ratio]\nsph = \"solved\"\n[history]\n",
+        ),
+        // 点の数は正、静止した標的の比のないときは書けない
+        ratio.replace(
+            "[history]\n",
+            "[branches.ratio]\nfuel = \"static-ratio\"\nstatic-cp-points = 0\n[history]\n",
+        ),
+        ratio.replace(
+            "[history]\n",
+            "[branches.ratio]\nstatic-cp-points = 6\n[history]\n",
         ),
     ] {
         assert!(parse(&bad).is_err(), "{bad}");
