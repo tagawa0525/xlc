@@ -16,6 +16,9 @@
   その差が吸収に入る。2A の 60 MWd/kg の Slurm 863）
 - f1-factor、f1-dilute、f1-sph: f1-transfer の、燃料でないリングを自己遮蔽因子の比にする、無限希釈にする、SPH 因子を状態の UFG の
   ものにしたもの。CANDIDATES の燃焼点だけ
+- f1-average、f1-state: f1-transfer の燃料のリングを、基準のリングに状態と基準の UFG のピンの平均の比を掛けたもの（リングの間の
+  分布は基準のまま）、状態の UFG のリングの値にしたもの（比の残る差を、平均の変化とリングの間の分布と燃料でないリングに分ける
+  診断）。CANDIDATES の燃焼点だけ
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -61,6 +64,14 @@ SHIELDINGS = {
     "f1-sph": (
         'shielding = "moderator-ratio"',
         'transfer = "elastic-ratio"\nsph = "state"',
+    ),
+    "f1-average": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "state-average"',
+    ),
+    "f1-state": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nfuel = "state"',
     ),
 }
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
