@@ -2257,8 +2257,6 @@ fn lethargy_grid(
     (u, points)
 }
 
-/// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
-/// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 /// 自由ガスの核種のうち、リングの物質の中の散乱の割合（自由ガスの核を使う範囲（入射エネルギーが [`Gas::top`] 以下の格子点）の
 /// 狭い共鳴の中性子束 1/(Σt E) の重みの ∫ N σs / Σt du ÷ ∫ Σs / Σt du）が、その核種を含むどのリングでも `threshold` より小さい
 /// 核種を静止した標的にする（#0286）。S(α, β) の移行の核種（[`Gas::floor`] のあるもの）は残す（S(α, β) の移行は自由ガスの核の
@@ -2287,9 +2285,12 @@ fn rest_minor_scatterers(
     let (mut own_before, mut all_before) = (zeros.clone(), zeros);
     let mut values = vec![[0.0; 2]; data.len()];
     for (m, (&(e, below), &um)) in points.iter().zip(u).enumerate().skip(first) {
+        // 割合は全断面積と弾性散乱断面積だけで決まるので、その 2 つだけを補間する（[`evaluate`] と同じ値）
         for ((value, d), cursor) in values.iter_mut().zip(data.iter()).zip(&mut cursors) {
-            let row = evaluate(d, cursor, e, below)?;
-            *value = [row[0], row[1]];
+            let (j, t) = bracket(d, cursor, e, below)?;
+            let p = d.pointwise();
+            let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
+            *value = [lerp(&p.total), lerp(&p.elastic)];
         }
         let du = if m > 0 { um - u[m - 1] } else { 0.0 };
         for (i, ring) in entries.iter().enumerate() {
@@ -2337,6 +2338,8 @@ fn rest_minor_scatterers(
     Ok(())
 }
 
+/// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
+/// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
     let (j, t) = bracket(d, cursor, e, below)?;
     let p = d.pointwise();
