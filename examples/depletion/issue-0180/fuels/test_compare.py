@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from compare import reactivity, same_nominal
+from compare import reactivity, same_nominal, share
 
 
 def table(nu_fission_derivative: float, density: float) -> dict:
@@ -69,6 +69,15 @@ class SameNominal(unittest.TestCase):
         other = table(10.0, 1e-4)
         other["states"][0]["total"][1] = 1.0000001
         self.assertFalse(same_nominal(table(10.0, 1e-4), other))
+
+
+class Share(unittest.TestCase):
+    def test_the_share_is_the_difference_over_the_solved_value(self):
+        self.assertAlmostEqual(share(-1.0, -200.0), 0.005, places=15)
+
+    def test_a_zero_solved_value_has_no_share(self):
+        # Pu-240 の数密度が 0 の燃焼点（燃焼度 0）は反応度の変化が 0 で、割合を持たない
+        self.assertIsNone(share(0.0, 0.0))
 
 
 if __name__ == "__main__":

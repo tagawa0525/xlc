@@ -43,6 +43,11 @@ def reactivity(t: dict, k: int, nuclide: str = "Pu-240") -> dict:
     return {"k_inf": state["k_inf"], "drho_pcm": (1.0 / k0 - 1.0 / changed) * 1e5}
 
 
+def share(difference: float, solved: float) -> float | None:
+    """差の、解き直した値に対する割合（解き直した値が 0 なら割れないので None）"""
+    return difference / solved
+
+
 def same_nominal(solved: dict, fixed: dict) -> bool:
     """2 つのテーブルの状態（k∞ と 2 群の定数）が同じか（摂動の自己遮蔽だけが違い、状態は同じに解くはず）"""
     if len(solved["states"]) != len(fixed["states"]):
