@@ -8,7 +8,7 @@
 - mean: 状態の UFG のピンの平均の比（リングの間の分布を基準のままにした形の比）
 - dancoff: 基準の物質のまま状態の Dancoff 係数で解き直した UFG のリングの比（減速材の物質の変化を除いた分）
 
-リングごと（核種ごと）と、U-238 の群ごと（リングを足す）に出す。参照は、ログの比の自己遮蔽の区間（`ratio-shielding` の close）で
+リングごと（核種ごと）と、U-238 の群ごと（リングを足す）に出す。反応率がどれも 0 の核種（個数密度が 0）は出さない。参照は、ログの比の自己遮蔽の区間（`ratio-shielding` の close）で
 区切った順。
 
 使い方: python3 ratio_check.py <ログ>
@@ -31,8 +31,11 @@ def blocks(path: Path) -> list[dict]:
 
     def close() -> dict:
         def mean(sums: dict) -> dict:
+            # 反応率がどの群でも 0 の核種（個数密度が 0）は、重みの平均が無いので出さない
             return {
-                key: {q: s[q] / s["w"] - 1.0 for q in RATIOS} for key, s in sums.items()
+                key: {q: s[q] / s["w"] - 1.0 for q in RATIOS}
+                for key, s in sums.items()
+                if s["w"] > 0.0
             }
 
         return {"rings": mean(rings), "groups": mean(groups)}
