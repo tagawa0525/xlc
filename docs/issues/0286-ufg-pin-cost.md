@@ -315,13 +315,13 @@ examples/depletion/mox-assembly/lattice-mox-assembly.toml。形状、離散化�
 C5G7 から借りたほかは出典が無い。OpenMC の参照解は作らず、検証の記録にも載せない。自己遮蔽は main の既定（どの核種も自由ガス）で、
 求積の 16 点を入力に明示した（自由ガスの核種の絞り込み `share` は main の入力に「絞らない」の書き方が無く、書いていない）。
 燃焼の領域はピンの燃料で 1 つ（ピンの中のリングは同じ組成）で、リングごとに組成が違うセルだけに効く近似（上の節の展開の上限）と、
-ペレットの外側の Pu の増え方は、この履歴からの分岐では測れない（p9-product の 2A のような 5 つの燃焼の領域（ADR-0245）は、その燃焼の実績が Slurm 747 で
-4 時間 44 分（2026-11-11、32 スレッド。後の高速化の前で、今の時間は確かめていない）で、この履歴の 1 時間 2 分より長い見込みなので作っていない）。
+ペレットの外側の Pu の増え方は、この履歴からの分岐では測れない（p9-product の 2A のような 5 つの燃焼の領域（ADR-0245）の履歴は作っていない。同じ形の 2A の燃焼の実績は Slurm 747 の
+4 時間 44 分（2026-11-11、32 スレッド、後の高速化の前）で、この履歴（`-c 16`）と条件が違い、今の時間は測っていない）。
 
 履歴は lattice-mox-assembly.msgpack（md5 fa27765a、`dvc add`）、ログは lattice-mox-assembly.log（`.dvc`）、k∞ は
 lattice-mox-assembly.out。Slurm 860（区分 decision、`-c 16` と `RAYON_NUM_THREADS=16` の排他でないジョブ、xlc 736e1b3c7、分岐点は main の
 9961e0306 で、実行ファイルはその `bin/lattice`、2026-11-13）、1 時間 2 分（別のジョブと CPU を分けたので時間は記録に使わない）、
-MaxRSS 38.8 GB（`ufg-hold-memory = 32`）。輸送と自己遮蔽 81 回。集合体の平均（体積の重み）の値:
+MaxRSS 38.8 GB（`ufg-hold-memory = 32`）。輸送と自己遮蔽 81 回。燃料の体積の平均（燃料のピン 264 本。案内管、被覆管、減速材を含まない）の値:
 
 | 燃焼度 (MWd/kg) |      k∞ |   Pu-239 |   Pu-240 |   Pu-241 |   Pu-242 |   Am-241 |   Am-243 |   Cm-244 |
 | --------------: | ------: | -------: | -------: | -------: | -------: | -------: | -------: | -------: |
@@ -330,19 +330,23 @@ MaxRSS 38.8 GB（`ufg-hold-memory = 32`）。輸送と自己遮蔽 81 回。集�
 |              40 | 1.02049 | 6.618e−4 | 4.457e−4 | 2.512e−4 | 1.377e−4 | 2.460e−5 | 3.256e−5 | 1.785e−5 |
 |              60 | 0.96342 | 4.916e−4 | 4.040e−4 | 2.375e−4 | 1.558e−4 | 2.226e−5 | 4.306e−5 | 3.352e−5 |
 
-数密度は 1/(barn cm)。k∞ は 0 を含む 41 点で単調に減り、減り方は同じ状態のウラン燃料の 2A（examples/depletion/p9-product/lattice-2A.out、
-1.2517 → 0.8096）よりずっと緩い。Pu-239 は 58% 減り、Pu-240 は 15 MWd/kg まで増えて（+1.9%）から減り、Pu-241 は 36 MWd/kg まで
+数密度は 1/(barn cm)。k∞ は 0 を含む 41 点で単調に減り、減り方は同じ状態のウラン燃料の 2A（examples/depletion/p9-product/lattice-2A.out。DVC の出力。
+燃焼の領域がピンあたり 5 つで、この履歴と違う。1.2517 → 0.8096）よりずっと緩い。Pu-239 は 58% 減り、Pu-240 は 15 MWd/kg まで増えて（+1.9%）から減り、Pu-241 は 36 MWd/kg まで
 増えて（+15%）から減り、Pu-242、Am-243、Cm-244 は増え、Am-241 は 26 MWd/kg まで増えて（+3.0%）から減り、60 MWd/kg で 8.5% 減る。ゾーンごとの 60 MWd/kg の Pu-239 は
 内側 6.14e−4、その外 4.59e−4、外周 3.51e−4。ログの警告は燃料にできる H-1（2.3e−10 以下）の 900 K のデータが無いことだけで、p9-product の
 2A の履歴にも同じ警告がある（2.5e−10 以下）。
 
 分岐を解く入力の作り方: examples/depletion/issue-0286/inputs.py の `mox_burned`（mox-history.toml から pin-mox-40 を書く関数）と同じ形で、
-この入力の `[depletion]` より前に少数群定数（`few-group`、テーブルの出力）を足し、履歴と同じ 1 状態の分岐（`boron = { ppm = [650], materials = ["water"] }`、
+この入力の `[depletion]` より前に、集合体のテーブルの出力（`few-group = { output = "{table}", bounds = [1e7, 0.625, 1e-5] }`。
+`variant` がこの形を見て `pins = true` を足す。`mox_burned` の `{pin-table}` はピンセルの形で、ピン出力を書かない）を足し、履歴と同じ 1 状態の分岐（`boron = { ppm = [650], materials = ["water"] }`、
 `moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }`、
 `fuel = { temperature = [900], materials = ["mox-high", "mox-mid", "mox-low"] }`）と `[history]`（`file` はこの履歴、`chain` は
 examples/depletion/chain.msgpack、`burnup` は 0、20、40、60 から 1 点）を足す。入力が明示する `ufg-cp-points = 16` は
-既定の側に残し（main の既定が変わっても分岐の基準を履歴と同じ 16 点にするため）、求積の変種は、inputs.py の `variant` が
-`ufg-tolerance` にするように、その行を `replace_once` で置き換える。
+既定の側に残す（main の既定が変わっても分岐の基準を履歴と同じ 16 点にするため）。今の `variant` は `CP_VARIANTS` の行を足すだけで、
+そのままでは `ufg-cp-points` が 2 つになって入力が読めないので、`ufg-tolerance` の `TOLERANCES` と同じく、その行を `replace_once` で
+置き換える分岐を `variant` に足す。`ufg-hold-memory = 32` は結果を変えないが時間を変える（ADR-0213）ので、時間を比べる入力では除く。
+自由ガスの核種の絞り込み（`share`）は入力に書けないので、main の既定が変われば、分岐の基準は履歴を解いた設定（どの核種も自由ガス）と
+違うものになる（その場合は `share` の無い基準を入力で選べるようにするまで、この履歴と分岐の差に絞り込みの差が混ざる）。
 
 関係する ADR: ADR-0252
 
