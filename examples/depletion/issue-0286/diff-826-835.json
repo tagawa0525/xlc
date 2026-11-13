@@ -221,19 +221,19 @@
   },
   {
    "variant": "share-1e-4",
-   "shielding_seconds": 2.57,
-   "total_seconds": 6.983978895,
+   "shielding_seconds": 6.45,
+   "total_seconds": 12.05448317,
    "solved": 1,
    "per_pin": {
-    "grid": 0.037694169,
-    "table": 0.073414974,
-    "evaluate": 0.067339516,
-    "collision": 0.018513908,
-    "slowing": 2.035273696,
-    "free_gas": 1.344022141,
-    "sab": 0.319826317
+    "grid": 0.111010039,
+    "table": 0.353196272,
+    "evaluate": 0.058523244,
+    "collision": 0.084050382,
+    "slowing": 2.384114909,
+    "free_gas": 1.559129804,
+    "sab": 0.543382101
    },
-   "transfers_per_pin": 0.132787991,
+   "transfers_per_pin": 2.1719433,
    "k_inf": [
     1.1721455766616096
    ],
@@ -1109,19 +1109,19 @@
   },
   {
    "variant": "share-1e-4",
-   "shielding_seconds": 6.69,
-   "total_seconds": 13.417166944,
+   "shielding_seconds": 10.2,
+   "total_seconds": 15.634391683,
    "solved": 1,
    "per_pin": {
-    "grid": 0.304186453,
-    "table": 0.327751316,
-    "evaluate": 0.291440568,
-    "collision": 0.050517433,
-    "slowing": 4.705384805,
-    "free_gas": 2.880618218,
-    "sab": 0.588548435
+    "grid": 0.584773482,
+    "table": 0.405637269,
+    "evaluate": 0.17377773,
+    "collision": 0.090325664,
+    "slowing": 4.35365301,
+    "free_gas": 3.08514214,
+    "sab": 0.62109907
    },
-   "transfers_per_pin": 0.342898163,
+   "transfers_per_pin": 3.227272962,
    "k_inf": [
     0.8253621590487723
    ],
@@ -1676,19 +1676,19 @@
   },
   {
    "variant": "share-1e-4",
-   "shielding_seconds": 43.4,
-   "total_seconds": 57.433352794,
+   "shielding_seconds": 41.7,
+   "total_seconds": 55.199241065,
    "solved": 39,
    "per_pin": {
-    "grid": 2.434852629025641,
-    "table": 3.3628471393846153,
-    "evaluate": 0.4407636255128206,
-    "collision": 5.671882336871795,
-    "slowing": 9.019435169000001,
-    "free_gas": 5.728013168820513,
-    "sab": 1.2855227254358974
+    "grid": 2.3625756597948717,
+    "table": 3.3308674988974363,
+    "evaluate": 0.40595955217948726,
+    "collision": 5.510245281589743,
+    "slowing": 8.393269429538462,
+    "free_gas": 5.318729309256412,
+    "sab": 1.1946072424102563
    },
-   "transfers_per_pin": 4.43385592925641,
+   "transfers_per_pin": 4.33449013669231,
    "k_inf": [
     0.8095937425702994
    ],
@@ -1846,6 +1846,31 @@
    "ring_capture": 6.951513682845659e-05
   },
   {
+   "variant": "share-1e-4",
+   "shielding_seconds": 30.2,
+   "total_seconds": 43.704773988,
+   "solved": 39,
+   "per_pin": {
+    "grid": 1.7390005115128206,
+    "table": 0.8167016042820514,
+    "evaluate": 0.39196266666666674,
+    "collision": 1.0217901611025642,
+    "slowing": 8.086329407205127,
+    "free_gas": 4.785230566974359,
+    "sab": 1.3805286415641027
+   },
+   "transfers_per_pin": 3.2705902140512815,
+   "k_inf": [
+    1.0475034096029163
+   ],
+   "drho_pcm": [
+    0.009340003848112843
+   ],
+   "constants": 2.1563143660073435e-07,
+   "pins": 6.889753473795488e-08,
+   "ring_capture": 8.140718929103963e-07
+  },
+  {
    "variant": "share-1e-3",
    "shielding_seconds": 25.4,
    "total_seconds": 38.894126512,
@@ -1992,6 +2017,31 @@
    "ring_capture": 6.942865891090117e-05
   },
   {
+   "variant": "share-1e-4",
+   "shielding_seconds": 40.5,
+   "total_seconds": 53.670536587,
+   "solved": 39,
+   "per_pin": {
+    "grid": 1.6802477359743595,
+    "table": 0.8172166704358974,
+    "evaluate": 0.3839896348717948,
+    "collision": 0.1884241702307692,
+    "slowing": 8.041498647846153,
+    "free_gas": 4.758831271717948,
+    "sab": 1.4060177951025639
+   },
+   "transfers_per_pin": 3.439875072769231,
+   "k_inf": [
+    1.0021485040087816
+   ],
+   "drho_pcm": [
+    0.011744127981216934
+   ],
+   "constants": 2.384428077466614e-07,
+   "pins": 1.9118712822713958e-08,
+   "ring_capture": 8.533202802214822e-07
+  },
+  {
    "variant": "share-1e-3",
    "shielding_seconds": 36.1,
    "total_seconds": 49.371203468,
@@ -2136,6 +2186,31 @@
    "constants": 1.6351496986382772e-05,
    "pins": 2.4795132901409584e-07,
    "ring_capture": 6.152950532819087e-05
+  },
+  {
+   "variant": "share-1e-4",
+   "shielding_seconds": 48.5,
+   "total_seconds": 61.61548113,
+   "solved": 44,
+   "per_pin": {
+    "grid": 1.536824938681818,
+    "table": 0.7326567667954546,
+    "evaluate": 0.382202172818182,
+    "collision": 0.6049049442272728,
+    "slowing": 7.618115321863638,
+    "free_gas": 4.71815916215909,
+    "sab": 1.1222637190909088
+   },
+   "transfers_per_pin": 3.099256899568181,
+   "k_inf": [
+    0.7627664481432282
+   ],
+   "drho_pcm": [
+    0.013470150861394359
+   ],
+   "constants": 1.2896484444320433e-07,
+   "pins": 2.685173851454135e-07,
+   "ring_capture": 8.167066644008911e-07
   },
   {
    "variant": "share-1e-3",
