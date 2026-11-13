@@ -15,7 +15,9 @@
 //!                                 # ADR-0203。{ energy = <eV> } で温度によらない入射エネルギー。ADR-0246）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（inf で収束するまで）、
 //!                                 # 分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし、false で静止した標的。
 //!                                 # ADR-0204。{ energy = <eV> } で温度によらない入射エネルギー。ADR-0243）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下でライブラリの S(α, β) の
-//!                                 # 移行にするか（false で自由ガスの核。ADR-0205）
+//!                                 # 移行にするか（false で自由ガスの核。ADR-0205）。share = <閾値> を足すと、狭い共鳴の中性子束の重みの弾性散乱の
+//!                                 # 率の、リングの物質の中の割合がどのリングでも閾値（0 と 1 の間）より小さい核種を静止した標的にする
+//!                                 # （省略すると絞らない。#0286）
 //! ufg-hold-memory = 80            # 自己遮蔽の自由ガスの散乱源の区間をスイープの間で持つ上限を決める全体の量 (GiB)。減速計算の
 //!                                 # 数えた作業の配列を除いた残りで持つ（作業の配列は抑えない）。省略すると、自己遮蔽のたびに
 //!                                 # （使用可能メモリ − 2 GiB）× 0.8（ADR-0213）
@@ -369,6 +371,7 @@ struct FreeGasEntry {
     sweeps: Option<SweepsEntry>,
     heavy: Option<HeavyEntry>,
     sab: Option<bool>,
+    share: Option<f64>,
 }
 
 /// `ufg-free-gas.sweeps` の値: 回数か、inf（収束するまで）
@@ -1128,13 +1131,24 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
                     ));
                 }
             };
+            // 割合の閾値は 0 と 1 の間（0 以下は絞らないのと同じ、1 以上はすべてを静止した標的にするので、それぞれ省略と
+            // `ufg-scattering = "static"` で書く）
+            let share = match entry.share {
+                None => defaults.share,
+                Some(s) if s > 0.0 && s < 1.0 => Some(s),
+                Some(s) => {
+                    return Err(format!(
+                        "`ufg-free-gas.share` must be between 0 and 1 (exclusive), got {s}"
+                    ));
+                }
+            };
             Ok(Scattering::FreeGas(FreeGas {
                 upper,
                 cells,
                 sweeps,
                 heavy,
                 sab: entry.sab.unwrap_or(defaults.sab),
-                share: None,
+                share,
             }))
         }
         Some(other) => Err(format!(

@@ -151,6 +151,10 @@ pub enum UfgError {
     )]
     ZeroTotal(usize),
     #[error(
+        "ring {ring}: the total cross section is 0 at {energy} eV, so the scatter share of `ufg-free-gas.share` is undefined"
+    )]
+    ShareZeroTotal { ring: usize, energy: f64 },
+    #[error(
         "density direction {direction}: ring {ring} has {given} density changes for {expected} nuclides"
     )]
     Direction {
@@ -804,6 +808,13 @@ fn solve_cell(
     }
     let u = lethargies;
     work += heap_bytes(&points) + heap_bytes(&u);
+    if let Scattering::FreeGas(FreeGas {
+        share: Some(threshold),
+        ..
+    }) = scattering
+    {
+        rest_minor_scatterers(&mut data, &entries, &points, &u, threshold)?;
+    }
 
     let ng = bottom - top;
     // 個数密度の向きの並びは、リングの組成と同じであること（黙って切り詰めない）
@@ -2248,6 +2259,82 @@ fn lethargy_grid(
 
 /// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
 /// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
+/// 自由ガスの核種のうち、リングの物質の中の散乱の割合（自由ガスの核を使う範囲（入射エネルギーが [`Gas::top`] 以下の格子点）の
+/// 狭い共鳴の中性子束 1/(Σt E) の重みの ∫ N σs / Σt du ÷ ∫ Σs / Σt du）が、その核種を含むどのリングでも `threshold` より小さい
+/// 核種を静止した標的にする（#0286）。S(α, β) の移行の核種（[`Gas::floor`] のあるもの）は残す（S(α, β) の移行は自由ガスの核の
+/// 上限より上の入射を自由ガスに残すので、自由ガスなしでは使えない）。積分は格子点の台形則
+fn rest_minor_scatterers(
+    data: &mut [Data],
+    entries: &[Vec<(usize, f64)>],
+    points: &[(f64, bool)],
+    u: &[f64],
+    threshold: f64,
+) -> Result<(), UfgError> {
+    let tops: Vec<Option<f64>> = data
+        .iter()
+        .map(|d| d.gas.filter(|g| g.floor().is_none()).map(|g| g.top()))
+        .collect();
+    if tops.iter().all(Option::is_none) {
+        return Ok(());
+    }
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
+    // [リング][項] の ∫ N σs / Σt du と ∫ Σs / Σt du（どちらも項の核種の範囲で）
+    let zeros: Vec<Vec<f64>> = entries.iter().map(|r| vec![0.0; r.len()]).collect();
+    let (mut own, mut all) = (zeros.clone(), zeros.clone());
+    // 前の格子点の [リング][項] の N σs / Σt と Σs / Σt（範囲の外は 0）
+    let (mut own_before, mut all_before) = (zeros.clone(), zeros);
+    let mut values = vec![[0.0; 2]; data.len()];
+    for (m, (&(e, below), &um)) in points.iter().zip(u).enumerate() {
+        for ((value, d), cursor) in values.iter_mut().zip(data.iter()).zip(&mut cursors) {
+            let row = evaluate(d, cursor, e, below)?;
+            *value = [row[0], row[1]];
+        }
+        let du = if m > 0 { um - u[m - 1] } else { 0.0 };
+        for (i, ring) in entries.iter().enumerate() {
+            if ring.is_empty() {
+                continue;
+            }
+            let (total, scatter) = ring.iter().fold((0.0, 0.0), |(t, s), &(k, n)| {
+                (t + n * values[k][0], s + n * values[k][1])
+            });
+            if total <= 0.0 {
+                return Err(UfgError::ShareZeroTotal { ring: i, energy: e });
+            }
+            for (j, &(k, n)) in ring.iter().enumerate() {
+                let inside = tops[k].is_some_and(|top| e <= top);
+                let (a, b) = if inside {
+                    (n * values[k][1] / total, scatter / total)
+                } else {
+                    (0.0, 0.0)
+                };
+                own[i][j] += 0.5 * du * (own_before[i][j] + a);
+                all[i][j] += 0.5 * du * (all_before[i][j] + b);
+                own_before[i][j] = a;
+                all_before[i][j] = b;
+            }
+        }
+    }
+    let mut shares = vec![0.0_f64; data.len()];
+    for (i, ring) in entries.iter().enumerate() {
+        for (j, &(k, _)) in ring.iter().enumerate() {
+            if all[i][j] > 0.0 {
+                shares[k] = shares[k].max(own[i][j] / all[i][j]);
+            }
+        }
+    }
+    for ((d, top), share) in data.iter_mut().zip(&tops).zip(&shares) {
+        if top.is_some() && *share < threshold {
+            tracing::debug!(
+                name = d.name,
+                share,
+                "UFG free gas rested by the scatter share"
+            );
+            d.gas = None;
+        }
+    }
+    Ok(())
+}
+
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
     let (j, t) = bracket(d, cursor, e, below)?;
     let p = d.pointwise();
