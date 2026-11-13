@@ -1290,7 +1290,7 @@ impl LatticeInput {
         // 飛程の表は自己遮蔽の減速計算でだけ使う
         if !self_shielding && (file.track_table.is_some() || file.track_table_deviation.is_some()) {
             return Err(invalid(
-                "`track-table` is used only by the self-shielding (a library without `self-shielding = false`)"
+                "`track-table` and `track-table-deviation` are used only by the self-shielding (a library without `self-shielding = false`)"
                     .into(),
             ));
         }
