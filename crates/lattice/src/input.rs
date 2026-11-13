@@ -176,6 +176,7 @@ use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
+use crate::track_table::MAX_DEVIATION;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::{Collision, FreeGas, FreeGasCap, Scattering};
 use crate::water::borated_water;
@@ -1340,6 +1341,7 @@ impl LatticeInput {
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
             Some(TrackTableEntry::Density(density)) if density > 0 => Collision::Table {
                 density: density as usize,
+                deviation: MAX_DEVIATION,
             },
             Some(other) => {
                 return Err(invalid(format!(

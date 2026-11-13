@@ -387,8 +387,9 @@ pub enum Collision {
     Exact,
     /// 軸ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）。核種の並びが同じ
     /// 物質は 1 つの軸を共有して 1 次の展開で内挿し、展開の外の格子点と、表で衝突確率が減らないセルは格子点ごとに求める
-    /// （ADR-0182）
-    Table { density: usize },
+    /// （ADR-0182）。展開するのはリングの物質の ln Σ の中心からの差が `deviation` 以下の格子点（既定は [`MAX_DEVIATION`]。広げると
+    /// 表に入る格子点が増え、展開の誤差（差の 2 乗）が増える。#0286）
+    Table { density: usize, deviation: f64 },
 }
 
 impl Default for Collision {
@@ -396,6 +397,7 @@ impl Default for Collision {
     fn default() -> Self {
         Self::Table {
             density: DEFAULT_DENSITY,
+            deviation: MAX_DEVIATION,
         }
     }
 }
@@ -937,7 +939,7 @@ fn solve_cell(
     let grid_done = Instant::now();
     let table = match collision {
         Collision::Exact => None,
-        Collision::Table { density } => {
+        Collision::Table { density, .. } => {
             let ranges = frozen.as_deref().and_then(|f| f.ranges.as_deref());
             let built = track_table(cell, &data, &entries, &points, density, ranges)?;
             if let Some(f) = frozen
