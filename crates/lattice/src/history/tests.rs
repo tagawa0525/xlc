@@ -1989,6 +1989,17 @@ fn fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shieldi
                 )
                 .unwrap_err();
             assert!(error.to_string().contains("remix"), "{error}");
+            // 作り直す名前が格子の領域にない（何も作り直さず、摂動が黙って状態と同じになる）ならエラー
+            let error = state
+                .check_remix(
+                    &library,
+                    lattice,
+                    regions,
+                    &["fuel@99".to_string()],
+                    &materials,
+                )
+                .unwrap_err();
+            assert!(error.to_string().contains("fuel@99"), "{error}");
             let same = state
                 .remixed_at(&library, lattice, regions, &names, &materials, &materials)
                 .unwrap();
