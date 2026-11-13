@@ -1303,6 +1303,34 @@ fn a_share_above_every_nuclide_gives_the_static_spectrum() {
 }
 
 #[test]
+fn rings_without_free_gas_nuclides_need_no_scatter_share() {
+    // 割合を数える自由ガスの核種のないリングは、全断面積が 0 でも割合を数えない（格子点ごとの衝突確率なら解ける）
+    let mut specs = thermal_specs();
+    let mut empty = constant("X-1", 50.0, 0.0, 0.0, 0.0);
+    empty.top = Some(2.0e4);
+    specs.push(empty);
+    let lib = library_with(specs, 600.0, &BOUNDS);
+    let (_, fuel, water) = thermal_cell(600.0);
+    let void = material_at(&[("X-1", 0.01)], 600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), Some(&void), Some(&water), Some(&water)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+            held_cells(1 << 30, 1),
+        )
+    };
+    assert!(solve(free_gas(UNCAPPED, 4, None)).is_ok());
+    assert!(solve(free_gas_share(0.02)).is_ok());
+}
+
+#[test]
 fn free_gas_sweeps_solve_the_collision_probabilities_once_per_point() {
     // 衝突確率は格子点の全断面積だけで決まり、スイープで変わらない。掃き直しても格子点ごとに 1 度だけ求める
     for sweeps in [Some(1), Some(3), None] {
