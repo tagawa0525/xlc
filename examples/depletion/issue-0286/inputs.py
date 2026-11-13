@@ -47,6 +47,9 @@ VARIANTS = {
     "share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
     "share-1e-3": "ufg-free-gas = { share = 1e-3 }\n",
     "share-1e-2": "ufg-free-gas = { share = 1e-2 }\n",
+    "deviation-0.02": "track-table-deviation = 0.02\n",
+    "deviation-0.03": "track-table-deviation = 0.03\n",
+    "share-1e-3-deviation-0.03": "ufg-free-gas = { share = 1e-3 }\ntrack-table-deviation = 0.03\n",
 }
 # 間引きの許容差の変種（既定の 1e-4 を置き換える）
 TOLERANCES = {"tolerance-3e-4": "3e-4", "tolerance-1e-3": "1e-3"}
