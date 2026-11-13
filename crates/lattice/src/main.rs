@@ -518,11 +518,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 今の制御棒の値の自己遮蔽（形状ごと。値の最初の状態で作り、値を解き終えたら捨てる）と、捨てた値の自己遮蔽の回数
     let mut shielder: Option<(usize, BranchShielder)> = None;
     let mut finished_shieldings = 0;
-    // 数密度の微分（ADR-0221）の摂動の組成は、微分の核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の
-    // 参照の組成で解いたもの）。公称の状態の自己遮蔽と参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、
-    // 今の値の形状のものだけを持つ
+    // 数密度の微分（ADR-0221）の摂動の組成を解き直すとき（`derivative-shielding = "solved"` と一般化摂動。ADR-0249）は、微分の
+    // 核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の参照の組成で解いたもの）。公称の状態の自己遮蔽と
+    // 参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、今の値の形状のものだけを持つ。既定の、状態の自己遮蔽の
+    // まま作り直す摂動は持たない
     let derivatives = history_branches
         .as_ref()
+        .filter(|h| h.solves_perturbed_shielding())
         .map_or(0, |h| h.perturbed_nuclides().len());
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;

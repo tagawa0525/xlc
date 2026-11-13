@@ -25,7 +25,8 @@
 //! micro = ["U-235", "Pu-240"]          # ミクロ燃焼で追う核種（ADR-0216）
 //! derivative = ["Pu-240"]              # 数密度の微分を持つ核種（micro から選ぶ。ADR-0221）
 //! perturbation = 0.1                   # 微分の摂動の割合（省略すると 0.1。ADR-0221）
-//! derivative-shielding = "solved"      # 摂動の組成の自己遮蔽を解き直す（省略すると "fixed"、状態の自己遮蔽のまま。ADR-0249）
+//! derivative-shielding = "solved"      # 摂動の組成の自己遮蔽を解き直す（省略すると "fixed"、状態の自己遮蔽のまま。generalized は
+//!                                      # いつも解き直し、書けない。ADR-0249）
 //! ```
 //!
 //! 状態の自己遮蔽は `[branches]` の `shielding` で選ぶ（[`crate::branches::BranchShielder`]。ADR-0201）。`shielding-file` を
