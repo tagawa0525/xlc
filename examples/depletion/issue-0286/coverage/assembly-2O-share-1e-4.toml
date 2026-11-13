@@ -1,6 +1,6 @@
 # このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2O、変種 share-1e-4。p2/lattice-2O.toml の [10, 40] MWd/kg からの2 状態の分岐
 library = "../../p2/depletion.msgpack"
-ufg-free-gas = { share = 1e-4 }
+ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }
 few-group = { output = "table-assembly-2O-share-1e-4.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
 pitch = 1.26

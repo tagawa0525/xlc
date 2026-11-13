@@ -1,7 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース 2O-10、変種 cp-share-1e-4-points-6
 # p2/lattice-2O.toml の 10 MWd/kg からの 1 状態の分岐
 library = "../p2/depletion.msgpack"
-ufg-free-gas = { share = 1e-4 }
+ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }
 ufg-cp-points = 6
 few-group = { output = "fg-2O-10-cp-share-1e-4-points-6.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 ufg-tolerance = 1e-4

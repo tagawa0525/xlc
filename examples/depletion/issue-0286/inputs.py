@@ -42,6 +42,11 @@ FUELS = load("fuels_inputs", DEPLETION / "issue-0180/fuels/inputs.py")
 
 # 変種: 既定の入力の `library = ` の行の後に足す行
 # （`static` は自由ガスを使わないので `share` を書けない）
+# `share-*` の変種のうち、#0286 の最初の形（レサジーの積分の比。ADR-0251 の案 A）で測ったもの。既定の測り方（ADR-0251 の
+# 格子点ごとの比の最大）と違うので、測り方を書く
+LETHARGY_1E_4 = (
+    'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }\n'
+)
 VARIANTS = {
     "default": "ufg-free-gas = { share = false }\n",
     "static": 'ufg-scattering = "static"\n',
@@ -52,15 +57,15 @@ VARIANTS = {
     "tolerance-3e-4": "ufg-free-gas = { share = false }\n",
     "tolerance-1e-3": "ufg-free-gas = { share = false }\n",
     "table-8": "track-table = 8\nufg-free-gas = { share = false }\n",
-    "share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
-    "share-1e-3": "ufg-free-gas = { share = 1e-3 }\n",
-    "share-1e-2": "ufg-free-gas = { share = 1e-2 }\n",
+    "share-1e-4": LETHARGY_1E_4,
+    "share-1e-3": 'ufg-free-gas = { share = { threshold = 1e-3, measure = "lethargy" } }\n',
+    "share-1e-2": 'ufg-free-gas = { share = { threshold = 1e-2, measure = "lethargy" } }\n',
 }
 # 静止した標的にする核種の選び方の変種（ADR-0251 の検討した案。`share-1e-4` からの時間の比を 2A-60 で測る）: 格子点ごとの割合の
 # 最大で測る形と、アクチニドを割合によらず自由ガスに残す形
 SHARE_VARIANTS = {
     "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n',
-    "share-actinides": "ufg-free-gas = { share = { threshold = 1e-4, keep-actinides = true } }\n",
+    "share-actinides": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy", keep-actinides = true } }\n',
 }
 SHARE_CASES = ("2A-60",)
 # 衝突確率の近似の変種（#0286 の衝突確率の節。`cp-default` は ADR-0251 の前の既定で、測ったときの経路で解くように `share = false`
@@ -78,9 +83,9 @@ CP_VARIANTS = {
     "cp-table-8-deviation-0.03": CP_FULL
     + "track-table = 8\ntrack-table-deviation = 0.03\n",
     "cp-combined": CP_FULL + CP_COMBINED,
-    "cp-share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
-    "cp-share-1e-4-combined": "ufg-free-gas = { share = 1e-4 }\n" + CP_COMBINED,
-    "cp-share-1e-4-points-6": "ufg-free-gas = { share = 1e-4 }\nufg-cp-points = 6\n",
+    "cp-share-1e-4": LETHARGY_1E_4,
+    "cp-share-1e-4-combined": LETHARGY_1E_4 + CP_COMBINED,
+    "cp-share-1e-4-points-6": LETHARGY_1E_4 + "ufg-cp-points = 6\n",
 }
 # 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
 CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}

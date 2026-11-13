@@ -43,11 +43,16 @@ def load(name: str, path: Path):
 
 FUELS = load("fuels_inputs", DEPLETION / "issue-0180/fuels/inputs.py")
 
+# `share-*` の変種のうち、#0286 の最初の形（レサジーの積分の比。ADR-0251 の案 A）で測ったもの。既定の測り方（ADR-0251 の
+# 格子点ごとの比の最大）と違うので、測り方を書く
+LETHARGY_1E_4 = (
+    'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }\n'
+)
 VARIANTS = {
     "full": "ufg-free-gas = { share = false }\n",
-    "share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
+    "share-1e-4": LETHARGY_1E_4,
     "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n',
-    "share-actinides": "ufg-free-gas = { share = { threshold = 1e-4, keep-actinides = true } }\n",
+    "share-actinides": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy", keep-actinides = true } }\n',
 }
 # 静止した標的にする核種の選び方の変種（ADR-0251 の検討した案）と、それを書くケース（`share-1e-4` で核種自身の捕獲が相対 1e-5 を
 # 超えたピンセルの分岐と、集合体の代表）。ほかのケースは `full` と `share-1e-4` だけ
