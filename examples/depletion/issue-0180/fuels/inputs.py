@@ -15,6 +15,8 @@ compare.py。
 import sys
 from pathlib import Path
 
+import tomllib
+
 HERE = Path(__file__).resolve().parent
 DEPLETION = HERE / "../.."
 
@@ -42,13 +44,9 @@ def listed(values) -> str:
     return "[" + ", ".join(f"{v:g}" for v in values) + "]"
 
 
-def temperature(text: str, material: str) -> str:
-    """入力 `text` の物質 `material` の温度（書いたままの文字列）"""
-    return (
-        text[text.find(f"[material.{material}]") :]
-        .split("temperature = ", 1)[1]
-        .split("\n", 1)[0]
-    )
+def written(value) -> str:
+    """TOML の値を、入力に書いたときの形で（整数の温度は整数のまま）"""
+    return f"{value:g}" if isinstance(value, float) else str(value)
 
 
 def branch(name: str, source: str, burnup: list, solved: bool) -> str:
@@ -59,10 +57,14 @@ def branch(name: str, source: str, burnup: list, solved: bool) -> str:
     start, end = text.find("library = "), text.find("[depletion]")
     if start < 0 or end < 0:
         sys.exit(f"{path} has no library line or [depletion]")
-    depletion = text[end:]
-    output = depletion.split('output = "', 1)[1].split('"', 1)[0]
-    materials = depletion.split("materials = [", 1)[1].split("]", 1)[0]
-    library = text[start:].split('"', 2)[1]
+    data = tomllib.loads(text)
+    output, depleted, library = (
+        data["depletion"]["output"],
+        data["depletion"]["materials"],
+        data["library"],
+    )
+    materials = ", ".join(f'"{m}"' for m in depleted)
+    temperatures = {m: v["temperature"] for m, v in data["material"].items()}
     body = text[start:end].replace(
         f'library = "{library}"',
         f'library = "{(path.parent / library).resolve().relative_to(HERE.resolve(), walk_up=True)}"\n'
@@ -77,11 +79,11 @@ def branch(name: str, source: str, burnup: list, solved: bool) -> str:
     body = body.replace(
         nuclides, f"water = {{ density = {density}, boron = {boron}, b10 = 0.199 }}"
     )
-    fuel, moderator = temperature(text, "fuel"), temperature(text, "water")
+    fuel, moderator = written(temperatures["fuel"]), written(temperatures["water"])
     # 燃料の温度の軸は燃焼させる物質のすべてにかかるので、どれも履歴の入力で燃料と同じ温度であること（違えば、履歴と同じ条件の
     # 状態にならない）
-    for material in materials.replace('"', "").split(", "):
-        if temperature(text, material) != fuel:
+    for material in depleted:
+        if temperatures[material] != temperatures["fuel"]:
             sys.exit(f"{path}: {material} is not at the fuel temperature {fuel}")
     history = (path.parent / output).resolve().relative_to(HERE.resolve(), walk_up=True)
     shielding = 'derivative-shielding = "solved"\n' if solved else ""
