@@ -1,4 +1,4 @@
-"""#0286 の coverage.py の入力の結果を、変種 `full`（どの核種も自由ガス）と、核種を絞る変種（既定は `share-1e-4`。`--variant`）で
+"""#0286 の coverage.py の入力の結果を、変種 `full`（どの核種も自由ガス、求積 16 点）と、ほかの変種（既定は `share-1e-4`。`--variant`）で
 比べ、要約の JSON を書く。
 
 ケースと変種ごとに coverage/ の出力（燃焼は履歴 `<ケース>-<変種>.msgpack`、分岐はテーブル `table-<ケース>-<変種>.msgpack`）と
@@ -6,7 +6,8 @@
 
 - 燃焼: 燃焼点ごとの k∞ の反応度の差 1/k(full) − 1/k(share)（pcm）と、主な核種の数密度の燃焼の領域ごとの相対の差（share − full）/ full
   の最大（核種ごと）。燃焼点ごとの少数群定数（履歴の `few_group`）とピン出力（履歴の `pin_powers`）の相対の差の最大
-- 分岐: 状態ごとの k∞ の反応度の差、少数群定数（全断面積、吸収、νΣf、散乱行列）の相対の差の最大、燃料の温度と減速材の分岐の
+- 分岐: 状態ごとの k∞ の反応度の差、少数群定数（全断面積、吸収、νΣf、散乱行列）の相対の差の最大、ピン出力の形状関数（テーブルの
+  `pins.form`。テーブルに書いたケースだけ）の相対の差の最大、燃料の温度と減速材の分岐の
   反応度の変化 1/k(公称) − 1/k(分岐) の差（share − full。pcm）、ミクロ燃焼の核種ごとの微視的断面積（数密度の微分を含む、
   テーブルの `micro` の数）の相対の差の最大
 - どちらも: 燃料のリングの U-238 の 1 群の捕獲（ログの `UFG U-238 ring capture` か、`UFG ring capture` の U-238 の行）の相対の差の最大と、自己遮蔽ごとに静止した標的に
@@ -272,14 +273,19 @@ def table(case: str, variant: str) -> dict:
         sys.exit(f"{case}: the tables differ in points")
     states = []
     for p, a, b in zip(full["points"], full["states"], share["states"]):
-        states.append(
-            {
-                "point": p,
-                "k_inf": a["k_inf"],
-                "drho_pcm": reactivity(a["k_inf"], b["k_inf"]),
-                "constants": max(relative(flat(b[c]), flat(a[c])) for c in CONSTANTS),
-            }
-        )
+        row = {
+            "point": p,
+            "k_inf": a["k_inf"],
+            "drho_pcm": reactivity(a["k_inf"], b["k_inf"]),
+            "constants": max(relative(flat(b[c]), flat(a[c])) for c in CONSTANTS),
+        }
+        if (a.get("pins") is None) != (b.get("pins") is None):
+            sys.exit(f"{case}: state {p} has pin powers in one table only")
+        if a.get("pins") is not None:
+            row["pin_powers"] = relative(
+                flat(b["pins"]["form"]), flat(a["pins"]["form"])
+            )
+        states.append(row)
     coefficient_full, coefficient_share = coefficients(full), coefficients(share)
     coefficient = {
         burnup: {
