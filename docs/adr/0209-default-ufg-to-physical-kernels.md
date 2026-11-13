@@ -59,8 +59,8 @@ issues: ["#0152"]
 案 D3 にする。入力の既定（省略したときの値）を次にする。
 
 - `ufg-scattering`: `"free-gas"`（今まで `"static"`）
-- `ufg-free-gas` の各項目: `upper = { energy = 1000 }`（[ADR-0246](0246-cap-light-free-gas-at-a-fixed-energy.md)）、`cells = 2`、`sweeps = 3`、`heavy = { energy = 31 }`（[ADR-0243](0243-cap-resonant-free-gas-at-a-fixed-energy.md)）、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した
-  標的、false）。今まで省略で選んでいた値は `upper = inf`、`sweeps = inf`、`heavy = false` で書く（上の「参照の条件の書き方」）。`ufg-free-gas` は
+- `ufg-free-gas` の各項目: `upper = { energy = 1000 }`（[ADR-0246](0246-cap-light-free-gas-at-a-fixed-energy.md)）、`cells = 2`、`sweeps = 3`、`heavy = { energy = 31 }`（[ADR-0243](0243-cap-resonant-free-gas-at-a-fixed-energy.md)）、`sab = true`、`share = 1e-4`（[ADR-0251](0251-rest-minor-free-gas-scatterers-by-default.md)）（今まで上限なし、4、収束まで、重い核種は静止した
+  標的、false、絞らない）。今まで省略で選んでいた値は `upper = inf`、`sweeps = inf`、`heavy = false`、`share = false` で書く（上の「参照の条件の書き方」）。`ufg-free-gas` は
   `ufg-scattering` を省略しても書ける（`"static"` と組めば止める）
 - `ufg-transfer`: `"ring-flux"`（今まで `"infinite-dilution"`）
 
@@ -130,3 +130,4 @@ issues: ["#0152"]
 
 - 2026-11-10: `ufg-free-gas.heavy` の既定を、温度によらない 31 eV（`heavy = { energy = 31 }`）にした。前は「`ufg-free-gas` の各項目: `upper = 400`、`cells = 2`、`sweeps = 3`、`heavy = 400`、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した標的、false）。」。kT の倍数の上限が燃料の温度とともに U-238 の共鳴を横切り、燃料の温度の格子点ごとに少数群定数が外れるため（#0274）。比べた案と測った値は ADR-0243
 - 2026-11-12: `ufg-free-gas.upper` の既定を、温度によらない 1000 eV（`upper = { energy = 1000 }`）にした。前は「`ufg-free-gas` の各項目: `upper = 400`、`cells = 2`、`sweeps = 3`、`heavy = { energy = 31 }`（ADR-0243）、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した標的、false）。」。400 kT の上限は燃料の温度とともに動き、燃料の O-16 の上限が U-238 の共鳴の E_r/α を越える温度で燃料の温度の格子点ごとに少数群定数が振れ、H-1 の上限より上の入射を静止した標的にして熱群への移行を変える（#0274）。理由に挙げた参照からの差（−4.3、−3.0 pcm）は無限希釈の形の移行の値で、既定のリングの中性子束の移行では上限なしへの k の変化が −27.8、−29.6 pcm だった。比べた案と測った値は ADR-0246
+- 2026-11-13: `ufg-free-gas.share` の既定を 1e-4 にした（散乱の割合がどのリングでも 1e-4 より小さい核種を静止した標的にする。`share = false` で絞らない）。前は「`ufg-free-gas` の各項目: `upper = { energy = 1000 }`（ADR-0246）、`cells = 2`、`sweeps = 3`、`heavy = { energy = 31 }`（ADR-0243）、`sab = true`（今まで上限なし、4、収束まで、重い核種は静止した標的、false）。今まで省略で選んでいた値は `upper = inf`、`sweeps = inf`、`heavy = false` で書く」。2A の 60 MWd/kg の自己遮蔽を 3 分の 1 縮め（62.9 → 41.7 秒）、k∞ の差が #0286 の 9 ケースで 0.03 pcm 以下のため（#0286）。比べた案と測った値は ADR-0251
