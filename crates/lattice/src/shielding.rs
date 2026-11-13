@@ -196,6 +196,8 @@ pub struct RatioAnchor<'a> {
 /// Dancoff 係数は状態によらないので、最初の状態で解いた結果を同じ基準のほかの状態で使う（解き直しても結果はビットで同じ）
 #[derive(Default)]
 pub struct AnchorLight {
+    /// 結果を解いた基準の物質と、等価なセルの衝突確率の求積の点の数（ほかの基準か点の数では使えない）
+    key: OnceLock<(Vec<MaterialInput>, usize)>,
     /// 基準の物質の無限希釈の群定数（[`mixed`]）
     dilute: OnceLock<Vec<Material>>,
     /// （セル、結果）
@@ -212,6 +214,20 @@ impl std::fmt::Debug for AnchorLight {
 }
 
 impl AnchorLight {
+    /// 置き場を基準の物質 `materials` と求積の点の数 `cp_points` のものにする。すでに別の基準か点の数のものならエラー
+    fn bind(
+        &self,
+        materials: &[MaterialInput],
+        cp_points: usize,
+    ) -> Result<(), SelfShieldingError> {
+        let (held, points) = self.key.get_or_init(|| (materials.to_vec(), cp_points));
+        if held.as_slice() == materials && *points == cp_points {
+            Ok(())
+        } else {
+            Err(SelfShieldingError::AnchorLight)
+        }
+    }
+
     /// 基準の物質 `materials` の無限希釈の群定数（最初に求めたものを持つ）
     fn dilute(
         &self,
@@ -357,6 +373,11 @@ pub enum SelfShieldingError {
         "cell {0}: the ratio anchor does not shield the pin with the rings and nuclides of the state"
     )]
     AnchorPin(usize),
+    /// 持ち回る基準の静止した標的の減速計算（[`AnchorLight`]）を、それを解いたのと違う基準の物質か求積の点の数で使おうとした（#0285）
+    #[error(
+        "the kept static solves of the ratio anchor belong to other anchor materials or chord points"
+    )]
+    AnchorLight,
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -2628,8 +2649,10 @@ fn ratio_cell(
         || anchor.options.rings == RatioRings::StaticRatio
         || anchor.options.sph == RatioSph::StaticRatio
     {
+        let cp_points = anchor.options.static_cp_points.unwrap_or(pin.cp_points);
+        anchor.light.bind(anchor.materials, cp_points)?;
         let static_pin = PinRings {
-            cp_points: anchor.options.static_cp_points.unwrap_or(pin.cp_points),
+            cp_points,
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
             tangent: None,
@@ -2897,10 +2920,11 @@ fn ratio_cell(
             },
         )?;
     }
-    // この状態で解いた減速計算の格子点の数と量（持ち回った基準の静止した標的の減速計算は数えない）
+    // この状態で解いた減速計算の格子点の数（持ち回った基準の静止した標的の減速計算は数えない）と、自由ガスの核の表の上限に使う
+    // 量（ADR-0248。自由ガスの核を使う状態の UFG だけ。静止した標的の量は自由ガスのピンの量より小さく、上限を広げすぎる）
     let solved = || state_ufg.iter().chain(light.as_ref().map(|(s, _)| s));
     let points = solved().map(|c| c.points).max().unwrap_or(0);
-    let demand = solved().map(|c| c.demand).max().unwrap_or(0);
+    let demand = state_ufg.as_ref().map_or(0, |c| c.demand);
     let radius = match anchor.options.fuel {
         RatioFuel::State => state_cell()?.radius,
         RatioFuel::Equivalence | RatioFuel::StateAverage | RatioFuel::StaticRatio => radius,
