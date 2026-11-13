@@ -467,8 +467,15 @@ fn solved_derivative_shielding_changes_only_the_density_derivatives() {
             let (mut bare_p, mut bare_q) = (p.clone(), q.clone());
             (bare_p.derivative, bare_q.derivative) = (None, None);
             assert_eq!(bare_p, bare_q, "state {k}");
-            if a.densities[fixed.points[k][0]][xe] > 0.0 && dp.total != dq.total {
-                differ += 1;
+            if a.densities[fixed.points[k][0]][xe] > 0.0 {
+                // 既定の微分も、作り直した摂動の組成から変わる（作り直さずに状態と同じなら 0）
+                assert!(
+                    dp.total.iter().any(|&x| x != 0.0),
+                    "state {k}: the fixed derivative is zero"
+                );
+                if dp.total != dq.total {
+                    differ += 1;
+                }
             }
         }
     }
