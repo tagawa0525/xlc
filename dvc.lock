@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 6b050ff2f2c14cda0972de63dae5d68c.dir
-      size: 5488227
+      md5: 0f167be723809df2d39c9cb303f91955.dir
+      size: 5488320
       nfiles: 264
     - path: flake.lock
       hash: md5
