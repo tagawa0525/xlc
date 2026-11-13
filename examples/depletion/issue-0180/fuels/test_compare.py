@@ -59,7 +59,8 @@ class Reactivity(unittest.TestCase):
 
 class SameNominal(unittest.TestCase):
     def test_tables_that_solve_the_same_states_have_the_same_nominal(self):
-        self.assertTrue(same_nominal(table(10.0, 1e-4), table(20.0, 2e-4)))
+        # 微分だけが違うテーブル
+        self.assertTrue(same_nominal(table(10.0, 1e-4), table(20.0, 1e-4)))
 
     def test_a_different_state_is_not_the_same_nominal(self):
         # 摂動の自己遮蔽のほかで状態が違えば（別の入力、別の条件）、差に状態の差が混ざる
@@ -72,6 +73,10 @@ class SameNominal(unittest.TestCase):
         # 2 群の定数のほかの項目（χ、拡散係数、不連続因子など）も状態の一部
         other = table(10.0, 1e-4)
         other["states"][0]["chi"] = [0.999, 0.001]
+        self.assertFalse(same_nominal(table(10.0, 1e-4), other))
+        # 追う核種の均質化した数密度は微分に掛けるので、これも同じであること
+        other = table(10.0, 1e-4)
+        other["micro"]["densities"][0][1] = 2e-4
         self.assertFalse(same_nominal(table(10.0, 1e-4), other))
 
 
