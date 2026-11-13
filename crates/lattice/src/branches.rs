@@ -937,6 +937,18 @@ impl StateShielding<'_> {
         state: &[MaterialInput],
         changed: &[MaterialInput],
     ) -> anyhow::Result<StateShielding<'_>> {
+        // 作り直すのは `remixed` の物質だけなので、ほかの物質は状態と同じこと（違えば、その変化が黙って落ちる）
+        if let Some(m) = changed
+            .iter()
+            .zip(state)
+            .find(|(c, s)| c != s && !remixed.contains(&c.name))
+            .map(|(c, _)| c)
+        {
+            bail!(
+                "material `{}` of the changed composition differs from the state but is not remixed",
+                m.name
+            );
+        }
         let mut unique = self.materials().to_vec();
         let rebuilt = remix_varied(
             library,
