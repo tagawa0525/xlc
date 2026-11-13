@@ -3048,8 +3048,12 @@ pub(crate) mod lattice {
             for k in 0..3 {
                 for g in groups.clone() {
                     let mean = |s: &FuelShielding| s.pins[0].effective[k].capture[g];
-                    let expected =
-                        anchor.pins[0].rings[ring][k].capture[g] * mean(&every) / mean(&anchor);
+                    // 基準の値が 0 の比は 1（比で変えない）
+                    let base = anchor.pins[0].rings[ring][k].capture[g];
+                    let expected = match mean(&anchor) {
+                        0.0 => base,
+                        at_anchor => base * mean(&every) / at_anchor,
+                    };
                     let got = average.pins[0].rings[ring][k].capture[g];
                     assert!(
                         close(got, expected),
