@@ -2522,6 +2522,46 @@ fn shared_share_cells_give_the_transfers_of_fresh_ones() {
 }
 
 #[test]
+fn concurrent_slowing_downs_build_each_share_cell_once() {
+    // 同時に移行を数える減速計算（集合体のピンを 1 スレッドに 1 本ずつ解く自己遮蔽）が表に無い同じ列を求めても、列の境界ごとの
+    // 割合の区間は 1 度だけ作り、どの計算も 1 本で解いたときとビットで同じ移行を得る
+    let (lib, fuel, water) = transfer_cell(None);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let solve = |shares: &ShareCellCache| {
+        let solved = slowing_down_transfers(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            Some(1.0e-4),
+            free_gas_heavy(400.0, 2, Some(3)),
+            shares,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap();
+        format!("{solved:?}")
+    };
+    let alone = ShareCellCache::default();
+    let expected = solve(&alone);
+    let once = alone.built();
+    assert!(once > 0);
+    let threads = 8;
+    let shared = ShareCellCache::default();
+    let solved = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .broadcast(|_| solve(&shared));
+    assert_eq!(solved.len(), threads);
+    for s in &solved {
+        assert_eq!(s, &expected);
+    }
+    assert_eq!(shared.built(), once);
+}
+
+#[test]
 fn shared_kernels_give_the_transfers_of_fresh_ones() {
     // 自由ガスの核の区間と D の値（ADR-0248）を、ほかの減速計算（個数密度の違う燃料で、間引いた格子も違う）と共有する表から
     // 引いても、作り直したときと中性子束と移行がビットで同じ。2 本目は 1 本目の格子点の値を使う

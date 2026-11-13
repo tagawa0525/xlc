@@ -1,0 +1,5 @@
+outs:
+- md5: 7c8c7d465ac309fb7ab2da2766d631db
+  size: 1672374
+  hash: md5
+  path: ab2-default-16.log

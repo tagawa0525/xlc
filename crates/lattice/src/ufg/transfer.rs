@@ -23,7 +23,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 
 use rayon::prelude::*;
 use xlc_format::library::{SabTransfer, Shielded};
@@ -47,6 +48,8 @@ const NEGATIVE: f64 = 1.0e-9;
 #[derive(Debug, Default)]
 pub struct ShareCellCache {
     columns: Mutex<HashMap<ShareKey, Arc<ShareColumn>>>,
+    /// 作った割合の区間の（列, 境界）の組の数（[`ShareCellCache::built`]）
+    built: AtomicU64,
     /// 自由ガスの核の区間を作った格子点の重なりの計数（DEBUG のログ。[`ShareCellCache::census`]）
     census: Mutex<Census>,
     /// 自由ガスの核の区間と D の値（ADR-0248）。移行の割合の区間と同じく、減速計算の間で共有する
@@ -98,8 +101,55 @@ pub struct CensusCall {
     pub nuclides: Vec<(u32, [u64; 4])>,
 }
 
-/// 1 つの自由ガスの核種の [境界 − 1] の割合の区間 [境界より上の入射, 境界より下の入射]
-type ShareColumn = Vec<[Vec<ShareCell>; 2]>;
+/// 1 つの自由ガスの核種の [境界 − 1] の割合の区間 [境界より上の入射, 境界より下の入射]。表に入れてから境界ごとに作るので、同時に
+/// 同じ列を求める減速計算（自己遮蔽の 1 回目に、表が空のまま移行を数える集合体のピン）は、境界ごとに作る番を取り合い、1 度ずつ作る
+#[derive(Debug)]
+struct ShareColumn {
+    /// [境界 − 1] の、作る番が取られたか
+    claimed: Vec<AtomicBool>,
+    /// [境界 − 1] の区間。作る番を取った計算が作り終えずに止まったら（パニック） None
+    cells: Vec<OnceLock<Option<[Vec<ShareCell>; 2]>>>,
+}
+
+impl ShareColumn {
+    fn new(boundaries: usize) -> Self {
+        Self {
+            claimed: (0..boundaries).map(|_| AtomicBool::new(false)).collect(),
+            cells: (0..boundaries).map(|_| OnceLock::new()).collect(),
+        }
+    }
+
+    /// 境界 b（1 から）の区間を、まだ誰も作っていなければ `build` で作る。作ったら true
+    fn build(&self, b: usize, build: impl FnOnce() -> [Vec<ShareCell>; 2]) -> bool {
+        if self.claimed[b - 1].swap(true, Ordering::AcqRel) {
+            return false;
+        }
+        // 作る途中で止まっても、待つ計算が永久に待たないように None を入れる（作り終えれば先に入れた値が残る）
+        struct Unfinished<'a>(&'a OnceLock<Option<[Vec<ShareCell>; 2]>>);
+        impl Drop for Unfinished<'_> {
+            fn drop(&mut self) {
+                let _ = self.0.set(None);
+            }
+        }
+        let slot = Unfinished(&self.cells[b - 1]);
+        let _ = slot.0.set(Some(build()));
+        true
+    }
+
+    /// [境界 − 1] の区間。ほかの計算が作っている境界は、作り終えるまで待つ（作る番を取った計算は区間を作るだけで、rayon の仕事を
+    /// 待たないので、待つ間にその計算が待つ側の仕事に止められることはない）
+    fn cells(&self) -> Result<Vec<&[Vec<ShareCell>; 2]>, UfgError> {
+        self.cells
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                c.wait()
+                    .as_ref()
+                    .ok_or(UfgError::ShareCellsUnfinished { boundary: i + 1 })
+            })
+            .collect()
+    }
+}
 
 /// [`ShareCellCache`] の鍵: [`Gas::bits`]、範囲の上端、格子の最後の点（レサジー）、群の境界 (eV) のビット
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -111,13 +161,18 @@ struct ShareKey {
 }
 
 impl ShareCellCache {
-    /// 持っている自由ガスの核種の列の数
+    /// 持っている自由ガスの核種の列の数（境界を作り終えていない列を含む）
     pub fn len(&self) -> usize {
         self.lock().len()
     }
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// これまでに作った割合の区間の、（自由ガスの核種の列, 境界）の組の数
+    pub fn built(&self) -> u64 {
+        self.built.load(Ordering::Relaxed)
     }
 
     /// 減速計算の、最初のスイープで区間を作った格子点（（レサジーのビット, エネルギーのビット, 評価の回数））を数える。`kernel` は核の鍵（自由ガスの核種と範囲の
@@ -245,8 +300,8 @@ impl ShareCellCache {
         }
     }
 
-    // ロックの中では作り終えた列を引くか入れるだけで、表が途中の状態で残ることはないので、ほかのスレッドがロックを持ったまま
-    // 止まった（毒された）表もそのまま使う
+    // ロックの中では列を引くか空の列を入れるだけで（列の境界はロックの外で作る）、表が途中の状態で残ることはないので、ほかの
+    // スレッドがロックを持ったまま止まった（毒された）表もそのまま使う
     fn lock(&self) -> MutexGuard<'_, HashMap<ShareKey, Arc<ShareColumn>>> {
         self.columns.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -297,6 +352,10 @@ impl Counting<'_> {
             self.gas_of.iter().flatten().max().map_or(0, |&l| l + 1)
         });
         let columns = self.share_columns(gases, &x);
+        let columns: Vec<Vec<&[Vec<ShareCell>; 2]>> = columns
+            .iter()
+            .map(|column| column.cells())
+            .collect::<Result<_, _>>()?;
         let tasks: Vec<(usize, usize)> = self
             .entries
             .iter()
@@ -309,7 +368,7 @@ impl Counting<'_> {
                 let k = self.entries[i][e].0;
                 let mut rates = self.static_rates(i, k, &x, &segments);
                 if let Some(l) = self.gas_of[k] {
-                    for (b, [below, above]) in (1..ng).zip(columns[l].iter()) {
+                    for (b, [below, above]) in (1..ng).zip(columns[l].iter().copied()) {
                         for cell in below {
                             self.add_cell(i, l, cell, &segments, |h, v| rates.below[h][b] += v);
                         }
@@ -330,49 +389,50 @@ impl Counting<'_> {
             .collect())
     }
 
-    /// [自由ガスの核種] の [境界 − 1] の割合の区間。表（[`ShareCellCache`]）に無い核種の列は、境界ごとに並列に作って表に入れる
-    /// （ロックの外で作る。同時に同じ鍵の列を作ったほかの減速計算が先に入れていれば、ビットで同じその列を使う）
+    /// [自由ガスの核種] の [境界 − 1] の割合の区間。表（[`ShareCellCache`]）に無い核種の列は、先に空の列を表に入れ、境界ごとに
+    /// 並列に作る（ロックの外で作る）。同時に同じ列を求めるほかの減速計算とは、境界ごとに作る番を取り合い、ほかが作った境界は
+    /// 作り終えるのを待って使う（どの計算が作っても、区間は核と境界だけで決まるのでビットで同じ）
     fn share_columns(&self, gases: usize, x: &[f64]) -> Vec<Arc<ShareColumn>> {
         let ng = self.bounds.len() - 1;
         let Some(thermal) = self.thermal else {
             return Vec::new();
         };
         let bounds: Vec<u64> = self.bounds.iter().map(|b| b.to_bits()).collect();
-        let keys: Vec<ShareKey> = (0..gases)
-            .map(|l| ShareKey {
-                gas: thermal.gas(l).0.bits(),
-                high: self.high.to_bits(),
-                last: self.u[self.u.len() - 1].to_bits(),
-                bounds: bounds.clone(),
+        let columns: Vec<Arc<ShareColumn>> = {
+            let mut table = self.shares.lock();
+            (0..gases)
+                .map(|l| {
+                    let key = ShareKey {
+                        gas: thermal.gas(l).0.bits(),
+                        high: self.high.to_bits(),
+                        last: self.u[self.u.len() - 1].to_bits(),
+                        bounds: bounds.clone(),
+                    };
+                    table
+                        .entry(key)
+                        .or_insert_with(|| Arc::new(ShareColumn::new(ng - 1)))
+                        .clone()
+                })
+                .collect()
+        };
+        let pairs: Vec<(usize, usize)> = columns
+            .iter()
+            .enumerate()
+            .flat_map(|(l, column)| {
+                (1..ng)
+                    .filter(|&b| !column.claimed[b - 1].load(Ordering::Acquire))
+                    .map(move |b| (l, b))
             })
             .collect();
-        let mut columns: Vec<Option<Arc<ShareColumn>>> = {
-            let table = self.shares.lock();
-            keys.iter().map(|k| table.get(k).cloned()).collect()
-        };
-        let missing: Vec<usize> = (0..gases).filter(|&l| columns[l].is_none()).collect();
-        if missing.is_empty() {
-            return columns.into_iter().flatten().collect();
+        if !pairs.is_empty() {
+            let grades = grades(SHARE_CELLS);
+            pairs.par_iter().for_each(|&(l, b)| {
+                if columns[l].build(b, || self.share_cells(l, b, x[b], &grades)) {
+                    self.shares.built.fetch_add(1, Ordering::Relaxed);
+                }
+            });
         }
-        let pairs: Vec<(usize, usize)> = missing
-            .iter()
-            .flat_map(|&l| (1..ng).map(move |b| (l, b)))
-            .collect();
-        let grades = grades(SHARE_CELLS);
-        let cells: Vec<[Vec<ShareCell>; 2]> = pairs
-            .par_iter()
-            .map(|&(l, b)| self.share_cells(l, b, x[b], &grades))
-            .collect();
-        let mut cells = cells.into_iter();
-        let mut table = self.shares.lock();
-        for &l in &missing {
-            let column: ShareColumn = cells.by_ref().take(ng - 1).collect();
-            let held = table
-                .entry(keys[l].clone())
-                .or_insert_with(|| Arc::new(column));
-            columns[l] = Some(held.clone());
-        }
-        columns.into_iter().flatten().collect()
+        columns
     }
 
     /// [区間] の群（`groups` の中の番号）。減速計算と同じく、群の境界の高い側の格子点で次の群に移る

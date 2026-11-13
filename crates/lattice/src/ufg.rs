@@ -93,6 +93,10 @@ pub enum UfgError {
         built: usize,
     },
     #[error(
+        "another slowing-down stopped while building the transfer share cells of boundary {boundary} (the shared column stays unfinished)"
+    )]
+    ShareCellsUnfinished { boundary: usize },
+    #[error(
         "{name}: `sab` needs the S(α, β) transfer of the library, which xs leaves out when the S(α, β) limit does not reach the UFG range or the up-scattering reach goes below 0 eV (and libraries made before ADR-0205 lack)"
     )]
     NoSabTransfer { name: String },
