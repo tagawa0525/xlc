@@ -154,6 +154,8 @@ pub enum UfgError {
         "ring {ring}: the total cross section is 0 at {energy} eV, so the scatter share of `ufg-free-gas.share` is undefined"
     )]
     ShareZeroTotal { ring: usize, energy: f64 },
+    #[error("the frozen rested nuclides list {given} nuclides for {nuclides}")]
+    FrozenRested { given: usize, nuclides: usize },
     #[error(
         "density direction {direction}: ring {ring} has {given} density changes for {expected} nuclides"
     )]
@@ -860,6 +862,13 @@ fn solve_cell(
     }) = scattering
     {
         let rested = match frozen.as_deref().and_then(|f| f.rested.clone()) {
+            // 別の核種の並びの減速計算の選択を黙って切り詰めない
+            Some(rested) if rested.len() != data.len() => {
+                return Err(UfgError::FrozenRested {
+                    given: rested.len(),
+                    nuclides: data.len(),
+                });
+            }
             Some(rested) => rested,
             None => {
                 let rested = minor_scatterers(&data, &entries, &points, &u, threshold)?;
