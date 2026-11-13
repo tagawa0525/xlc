@@ -2063,6 +2063,18 @@ fn shield_cell(
                     Ok((nuclide, *density))
                 })
                 .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+            // 燃料のリングの U-238 の、UFG の範囲の群をリングの中性子束で縮約した 1 群の捕獲断面積（自己遮蔽の条件を比べる
+            // ログ。#0286）
+            if j < pin.rings && tracing::enabled!(tracing::Level::DEBUG) {
+                let flux = &spectrum.flux[j];
+                for ((name, _), s) in m.composition.iter().zip(&spectrum.nuclides[j]) {
+                    if name == "U-238" {
+                        let rate: f64 = s.capture.iter().zip(flux).map(|(c, f)| c * f).sum();
+                        let capture = rate / flux.iter().sum::<f64>();
+                        tracing::debug!(cell, ring = j, capture, "UFG U-238 ring capture");
+                    }
+                }
+            }
             ring_nuclides.push(Some(Arc::new(fulls)));
             ring_transfers.push(ring_transfer.map(|t| Arc::new(t.clone())));
             let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
