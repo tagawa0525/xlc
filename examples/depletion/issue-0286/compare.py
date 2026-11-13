@@ -118,10 +118,10 @@ def log(path: Path) -> dict:
             )
         elif "total_seconds=" in line and "lattice state=" in line:
             total = float(fields(line)["total_seconds"])
-    # ピンは並列に解くのでログの順は決まらない。セルとリングで組にするので、同じ組を 2 度解いたログは比べられない
+    # ピンは並列に解くのでログの順は決まらない。セル、リング、核種で組にするので、同じ組が 2 度あるログは比べられない
     keys = [c[:3] for c in captures]
     if len(set(keys)) != len(keys):
-        sys.exit(f"{path}: a cell and ring is shielded more than once")
+        sys.exit(f"{path}: a nuclide of a cell and ring is logged more than once")
     return {
         "shielding_seconds": shielding,
         "total_seconds": total,
