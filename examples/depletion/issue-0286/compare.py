@@ -16,6 +16,7 @@
 import argparse
 import importlib.util
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -51,6 +52,8 @@ def relative(a: list[float], b: list[float]) -> float:
     """`b` に対する `a` の相対の差の最大（`b` が 0 の要素は、`a` も 0 なら差 0、違えば無限大）"""
     if len(a) != len(b):
         sys.exit(f"cannot compare {len(a)} values with {len(b)}")
+    if any(math.isnan(x) for x in a + b):
+        sys.exit("cannot compare NaN values")
     worst = 0.0
     for x, y in zip(a, b):
         if y == 0.0:
@@ -107,6 +110,10 @@ def log(path: Path) -> dict:
             captures.append((int(f["cell"]), int(f["ring"]), float(f["capture"])))
         elif "total_seconds=" in line and "lattice state=" in line:
             total = float(fields(line)["total_seconds"])
+    # ピンは並列に解くのでログの順は決まらない。セルとリングで組にするので、同じ組を 2 度解いたログは比べられない
+    keys = [c[:2] for c in captures]
+    if len(set(keys)) != len(keys):
+        sys.exit(f"{path}: a cell and ring is shielded more than once")
     return {
         "shielding_seconds": shielding,
         "total_seconds": total,
