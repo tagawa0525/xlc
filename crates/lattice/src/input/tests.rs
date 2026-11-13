@@ -409,6 +409,16 @@ fn track_table_needs_self_shielding() {
         "library = \"m1.msgpack\"\nself-shielding = false\ntrack-table = 32",
     );
     assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    // 展開の上限だけを書いた入力は、その項目の名前で止める
+    let deviation = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\ntrack-table-deviation = 0.03",
+    );
+    assert!(
+        matches!(&deviation, Err(InputError::Invalid(m)) if m.contains("`track-table-deviation`")),
+        "{deviation:?}"
+    );
     let macroscopic = replaced(
         LATTICE,
         "cross-sections = \"c5g7.toml\"",
