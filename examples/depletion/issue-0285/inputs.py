@@ -25,8 +25,10 @@
 - f1-static-fuel、f1-static: f1-transfer の燃料のリング（f1-static は燃料でないリングと SPH 因子も）を、基準の値に、状態と基準を
   静止した標的で解いた減速計算の比を掛けたもの。CANDIDATES の燃焼点だけ
 
-時間の内訳の入力 timing-<種類>-<燃焼度>-<解き方>.toml（TIMING）は、状態を減速材 580、615 K と燃料 900 K の 2 つに絞る（基準の UFG
-1 回と、比の状態 1 回。ログの水準を上げて段ごとの時間を読む）。
+時間の内訳の入力 timing-<種類>-<燃焼度>-<解き方>.toml（TIMING）は、状態を燃料 900 K の減速材 3 点に絞る（基準の UFG 1 回と、同じ
+基準の比の状態 2 回。ログの水準を上げて段ごとの時間を読む）。解き方には SHIELDINGS のほかに、時間だけを測る TIMING_SHIELDINGS:
+
+- f1-static-cp6: f1-static の静止した標的の減速計算の衝突確率の求積を、小区間あたり 6 点にしたもの（`static-cp-points = 6`）
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -103,8 +105,17 @@ SHIELDINGS = {
     ),
 }
 # 時間の内訳を測る入力: (種類, 燃焼度, 解き方)。状態は TIMING_STATES
-TIMING = [("2A", 60, "f1-static")]
-TIMING_STATES = (([580, 615], [0.711901, 0.608215]), [900])
+TIMING = [("2A", 60, "f1-static"), ("2A", 60, "f1-static-cp6")]
+TIMING_STATES = (MODERATOR, [NOMINAL_FUEL])
+TIMING_SHIELDINGS = {
+    "f1-static-cp6": (
+        'shielding = "moderator-ratio"',
+        (
+            'transfer = "elastic-ratio"\nfuel = "static-ratio"\nrings = "static-ratio"\nsph = "static-ratio"\n'
+            "static-cp-points = 6"
+        ),
+    ),
+}
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
 MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
@@ -168,7 +179,7 @@ def branch(
     body = with_temperature(body, "zircaloy", NOMINAL_MODERATOR)
     for material in depleted:
         body = with_temperature(body, material, NOMINAL_FUEL)
-    kind, ratio = SHIELDINGS[shielding]
+    kind, ratio = (SHIELDINGS | TIMING_SHIELDINGS)[shielding]
     ratio = f"\n[branches.ratio]\n{ratio}\n" if ratio else ""
     fuels = ", ".join(f'"{m}"' for m in depleted)
     return (
