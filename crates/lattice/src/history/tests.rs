@@ -738,6 +738,18 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
         "[branches.ratio]\nfuel = \"state\"\n[history]\n",
     );
     assert_eq!(anchors(&state).map(|(_, o)| o.fuel), Ok(RatioFuel::State));
+    let light = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nfuel = \"static-ratio\"\nrings = \"static-ratio\"\nsph = \"static-ratio\"\n[history]\n",
+    );
+    assert_eq!(
+        anchors(&light).map(|(_, o)| (o.fuel, o.rings, o.sph)),
+        Ok((
+            RatioFuel::StaticRatio,
+            RatioRings::StaticRatio,
+            RatioSph::StaticRatio
+        ))
+    );
     let factor = ratio.replace(
         "[history]\n",
         "[branches.ratio]\nrings = \"shielding-factor\"\n[history]\n",

@@ -2854,6 +2854,12 @@ pub(crate) mod lattice {
                 fuel: RatioFuel::State,
                 ..RatioOptions::default()
             },
+            RatioOptions {
+                transfer: RatioTransfer::ElasticRatio,
+                rings: RatioRings::StaticRatio,
+                sph: RatioSph::StaticRatio,
+                fuel: RatioFuel::StaticRatio,
+            },
         ] {
             let (ratio, every, anchor, _) = ratio_pin(&library, 1.0, options);
             assert_eq!(every, anchor);
@@ -3070,6 +3076,76 @@ pub(crate) mod lattice {
                 / s.pins[0].rings[2][0].capture[groups.start]
         };
         assert_ne!(shape(&every), shape(&anchor));
+    }
+
+    #[test]
+    fn static_ratios_scale_every_ring_and_the_sph_factors_by_the_static_slowing_down() {
+        // #0285: 静止した標的の減速計算の比は、UFG の範囲の群の燃料と燃料でないリングの実効断面積と SPH 因子のそれぞれを、基準の値に、
+        // 状態と基準を静止した標的（移行は無限希釈）で解いた値の比を掛けたものにする（リングの間の分布も比で変わる）
+        let library = resonant_library();
+        let (ratio, _, anchor, state) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                transfer: RatioTransfer::ElasticRatio,
+                rings: RatioRings::StaticRatio,
+                sph: RatioSph::StaticRatio,
+                fuel: RatioFuel::StaticRatio,
+            },
+        );
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let light = ShieldingOptions {
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::InfiniteDilution,
+            ..ShieldingOptions::default()
+        };
+        let solve = |m: &[MaterialInput]| {
+            shield_fuel_with(&library, &tracking, m, &regions, &symmetry, &light).unwrap()
+        };
+        let (light_state, light_anchor) = (solve(&state), solve(&materials));
+        let groups = anchor.pins[0].sph.as_ref().unwrap().groups.clone();
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs();
+        // 燃料の 3 リングと、被覆管（領域 4）と水（領域 5）
+        for region in [0, 1, 2, 4, 5] {
+            let sections = |s: &FuelShielding| s.region_cross_sections(region).unwrap().to_vec();
+            let (r, a, ls, la) = (
+                sections(&ratio),
+                sections(&anchor),
+                sections(&light_state),
+                sections(&light_anchor),
+            );
+            for k in 0..r.len() {
+                for g in groups.clone() {
+                    let expected = a[k].capture[g] * ls[k].capture[g] / la[k].capture[g];
+                    assert!(
+                        close(r[k].capture[g], expected),
+                        "region {region} nuclide {k} group {g}: {} vs {expected}",
+                        r[k].capture[g]
+                    );
+                }
+            }
+        }
+        let sph = |s: &FuelShielding| s.pins[0].sph.as_ref().unwrap().factors.clone();
+        let (r, a, ls, la) = (
+            sph(&ratio),
+            sph(&anchor),
+            sph(&light_state),
+            sph(&light_anchor),
+        );
+        for ring in 0..r.len() {
+            for g in 0..r[ring].len() {
+                let expected = a[ring][g] * ls[ring][g] / la[ring][g];
+                assert!(close(r[ring][g], expected), "ring {ring} group {g}");
+            }
+        }
+        // 燃料のリングの間の分布は、基準と違う
+        let shape = |s: &FuelShielding| {
+            s.pins[0].rings[0][0].capture[groups.start]
+                / s.pins[0].rings[2][0].capture[groups.start]
+        };
+        assert_ne!(shape(&ratio), shape(&anchor));
     }
 
     #[test]
