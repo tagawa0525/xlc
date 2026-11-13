@@ -1,8 +1,9 @@
 """#0286 の、UFG の自己遮蔽の項目ごとの時間と差の入力を書く。
 
 燃料の種類（ケース）ごとに、自己遮蔽の条件（変種）を替えた 1 状態の入力を `<ケース>-<変種>.toml` に書く。変種 `default` は
-既定（ADR-0209、ADR-0243、ADR-0246 の自由ガス、ufg-tolerance = 1e-4）で、ほかは既定に 1 つの項目を足したもの。比べるのは
-compare.py。
+ADR-0251 の前の既定（ADR-0209、ADR-0243、ADR-0246 の自由ガスで、どの核種も自由ガス。ufg-tolerance = 1e-4）で、測ったときの
+経路で解くように `share = false` を書く。ほかは `default` に 1 つの項目を足したもの（`share` の変種は `share = false` の代わりに
+閾値を書く）。比べるのは compare.py。
 
 ケース:
 
@@ -38,16 +39,17 @@ def load(name: str, path: Path):
 FUELS = load("fuels_inputs", DEPLETION / "issue-0180/fuels/inputs.py")
 
 # 変種: 既定の入力の `library = ` の行の後に足す行（default は何も足さない）
+# （`static` は自由ガスを使わないので `share` を書けない）
 VARIANTS = {
-    "default": "",
+    "default": "ufg-free-gas = { share = false }\n",
     "static": 'ufg-scattering = "static"\n',
-    "heavy-static": "ufg-free-gas = { heavy = false }\n",
-    "light-400kt": "ufg-free-gas = { upper = 400 }\n",
-    "sweeps-2": "ufg-free-gas = { sweeps = 2 }\n",
-    "sweeps-1": "ufg-free-gas = { sweeps = 1 }\n",
-    "tolerance-3e-4": "",
-    "tolerance-1e-3": "",
-    "table-8": "track-table = 8\n",
+    "heavy-static": "ufg-free-gas = { heavy = false, share = false }\n",
+    "light-400kt": "ufg-free-gas = { upper = 400, share = false }\n",
+    "sweeps-2": "ufg-free-gas = { sweeps = 2, share = false }\n",
+    "sweeps-1": "ufg-free-gas = { sweeps = 1, share = false }\n",
+    "tolerance-3e-4": "ufg-free-gas = { share = false }\n",
+    "tolerance-1e-3": "ufg-free-gas = { share = false }\n",
+    "table-8": "track-table = 8\nufg-free-gas = { share = false }\n",
     "share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
     "share-1e-3": "ufg-free-gas = { share = 1e-3 }\n",
     "share-1e-2": "ufg-free-gas = { share = 1e-2 }\n",
