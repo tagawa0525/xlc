@@ -1,0 +1,5 @@
+outs:
+- md5: 8a6df6dc95bbb1d44be51156c929fdb6
+  size: 1672422
+  hash: md5
+  path: threads-default-8.log
