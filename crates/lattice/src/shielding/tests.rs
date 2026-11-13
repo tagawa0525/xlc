@@ -3156,6 +3156,66 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn state_rings_are_the_non_fuel_rings_of_the_state_slowing_down() {
+        // #0285 の診断: 燃料でないリングを状態の UFG にすると、群定数と移行は状態ごとに解いたもので、群定数だけを選ぶと移行は基準の行を
+        // 弾性散乱の比で縮めたもの。燃料のリングと SPH 因子も状態のものにすれば、どのリングも状態ごとに解いたものと同じ
+        let library = resonant_library();
+        let (exact, every, anchor, _) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                transfer: RatioTransfer::ElasticRatio,
+                rings: RatioRings::State,
+                sph: RatioSph::State,
+                fuel: RatioFuel::State,
+            },
+        );
+        for region in [0, 1, 2, 4, 5] {
+            assert_eq!(
+                exact.region_cross_sections(region),
+                every.region_cross_sections(region),
+                "region {region}"
+            );
+            assert_eq!(
+                exact.region_transfers(region),
+                every.region_transfers(region),
+                "region {region}"
+            );
+        }
+        let (sections, ..) = ratio_pin(
+            &library,
+            0.7,
+            RatioOptions {
+                transfer: RatioTransfer::ElasticRatio,
+                rings: RatioRings::StateSections,
+                ..RatioOptions::default()
+            },
+        );
+        let water = 5;
+        assert_eq!(
+            sections.region_cross_sections(water),
+            every.region_cross_sections(water)
+        );
+        let (s, a, t) = (
+            sections.region_cross_sections(water).unwrap(),
+            anchor.region_cross_sections(water).unwrap(),
+            anchor.region_transfers(water).unwrap(),
+        );
+        for (k, rows) in sections.region_transfers(water).unwrap().iter().enumerate() {
+            for (g, row) in rows.groups.clone().zip(&rows.rows) {
+                let r = s[k].elastic[g] / a[k].elastic[g];
+                let base = &t[k].rows[g - rows.groups.start];
+                for (x, b) in row.iter().zip(base) {
+                    assert!(
+                        (x - b * r).abs() <= 1e-12 * (b * r).abs(),
+                        "nuclide {k} group {g}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn ratios_need_an_anchor_of_the_same_materials() {
         // ADR-0250: 基準の物質の名前と順が状態と違えば止める
         let library = resonant_library();
