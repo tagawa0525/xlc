@@ -69,7 +69,8 @@ issue #0180 の「自己遮蔽を省いたときの誤差」の「微分の摂�
 
 - lattice の `[history]` に `derivative-shielding`（`"fixed"` か `"solved"`。省略すると `"fixed"`。`derivative` のない入力と
   `generalized` の入力に書けばエラー）を足した（crates/lattice/src/input.rs、crates/lattice/src/history.rs の `DerivativeShielding`）。
-  案 F の作り直しは crates/lattice/src/branches.rs の `StateShielding::remixed_at`
+  案 F の作り直しは crates/lattice/src/branches.rs の `StateShielding::remixed_at`。その前提（状態の組成で作り直すと状態の物質と
+  ビットで同じ）は、状態ごとに 1 度 `StateShielding::check_remix` で確かめ、崩れればエラーにする（ADR-0201 のホウ素の軸の作り直しと同じ検査）
 - 本番の形の 2A のテーブル（#0278）の見込みは約 20〜22 時間（#0180 の「許容する誤差ごとの時間」の後の段落。状態の自己遮蔽とその状態の
   14.85〜16.5 時間、摂動 1,274 回 × 約 4 秒 = 約 1.4 時間、再利用する状態の 4.1 時間）
 - ADR-0221 の決定の「摂動の輸送の自己遮蔽」を、この ADR を指す形に直した（ADR-0221 の「## 変更」）
@@ -85,7 +86,8 @@ issue #0180 の「自己遮蔽を省いたときの誤差」の「微分の摂�
 
 - テスト: crates/lattice の `input::tests::derivative_perturbations_keep_the_state_shielding_unless_the_input_solves_it_again`（既定、
   `"solved"`、一般化摂動、エラー）、`history::tests::fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shielding`
-  （案 F の物質が #0180 の測定の経路とビットで同じで、案 S と違う。ホウ素の軸の参照と状態ごとの自己遮蔽）、
+  （案 F の物質が #0180 の測定の経路とビットで同じで、案 S と違う。前提の検査は状態の組成で通り、ほかの組成で止まる。ホウ素の軸の参照と
+  状態ごとの自己遮蔽）、
   `perturbed_shieldings_are_solved_again_when_the_input_or_the_generalized_derivatives_ask`
 - 誤差を測った燃料と燃焼度（Pu-240 の数密度を 1 割変えたときの 2 群の k∞ の反応度。差は固定 − 解き直し）:
 
