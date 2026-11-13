@@ -2000,6 +2000,18 @@ fn fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shieldi
                 )
                 .unwrap_err();
             assert!(error.to_string().contains("fuel@99"), "{error}");
+            // 作り直しも、格子にない名前は止める（検査を飛ばした呼び出しで、摂動が黙って状態と同じにならない）
+            let error = state
+                .remixed_at(
+                    &library,
+                    lattice,
+                    regions,
+                    &["fuel@99".to_string()],
+                    &materials,
+                    &branches.perturbed_state(index, 1),
+                )
+                .unwrap_err();
+            assert!(error.to_string().contains("fuel@99"), "{error}");
             // 作り直さない物質（減速材）まで変えた組成は、変えた分が黙って落ちるのでエラー
             let mut moderated = branches.perturbed_state(index, 1);
             let water = moderated.iter().position(|m| m.name == "water").unwrap();
