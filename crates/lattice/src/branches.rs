@@ -224,6 +224,8 @@ struct RatioEntry {
     rings: Option<RatioRingsEntry>,
     sph: Option<RatioSphEntry>,
     fuel: Option<RatioFuelEntry>,
+    #[serde(rename = "static-cp-points")]
+    static_cp_points: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -262,8 +264,8 @@ enum RatioSphEntry {
 }
 
 impl RatioEntry {
-    fn options(self) -> RatioOptions {
-        RatioOptions {
+    fn options(self) -> Result<RatioOptions, String> {
+        let options = RatioOptions {
             transfer: match self.transfer {
                 None | Some(RatioTransferEntry::Reference) => RatioTransfer::Reference,
                 Some(RatioTransferEntry::ElasticRatio) => RatioTransfer::ElasticRatio,
@@ -287,7 +289,25 @@ impl RatioEntry {
                 Some(RatioFuelEntry::State) => RatioFuel::State,
                 Some(RatioFuelEntry::StaticRatio) => RatioFuel::StaticRatio,
             },
+            static_cp_points: match self.static_cp_points {
+                None => None,
+                Some(points) if points > 0 => Some(points as usize),
+                Some(points) => {
+                    return Err(format!(
+                        "branches.ratio: `static-cp-points` must be a positive number of quadrature points, got {points}"
+                    ));
+                }
+            },
+        };
+        let light = options.fuel == RatioFuel::StaticRatio
+            || options.rings == RatioRings::StaticRatio
+            || options.sph == RatioSph::StaticRatio;
+        if options.static_cp_points.is_some() && !light {
+            return Err(
+                "branches.ratio: `static-cp-points` is used only by the static ratios (`static-ratio`)".into(),
+            );
         }
+        Ok(options)
     }
 }
 
@@ -791,7 +811,7 @@ impl BranchesEntry {
                 Ok((value, cells))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let ratio = self.ratio.map(RatioEntry::options);
+        let ratio = self.ratio.map(RatioEntry::options).transpose()?;
         let shielding = match (self.shielding, ratio) {
             (None | Some(ShieldingEntry::NominalBoron), None) => BranchShielding::NominalBoron,
             (Some(ShieldingEntry::EveryState), None) => BranchShielding::EveryState,

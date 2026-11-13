@@ -119,6 +119,9 @@ pub struct RatioOptions {
     pub sph: RatioSph,
     /// 燃料のリングの UFG の範囲の群定数
     pub fuel: RatioFuel,
+    /// 静止した標的の減速計算（[`RatioFuel::StaticRatio`] など）の等価なセルの衝突確率の、弦の求積の小区間あたりの点の数。`None` は
+    /// UFG と同じ（[`ShieldingOptions::cp_points`]）。比だけに使うので、点を減らした誤差のうち状態と基準で打ち消さない分だけが残る
+    pub static_cp_points: Option<usize>,
 }
 
 /// 比で求める状態の、燃料のリングの UFG の範囲の群定数。`Equivalence` のほかは、比の残る差をピンの平均の変化とリングの間の分布に
@@ -2626,6 +2629,7 @@ fn ratio_cell(
         || anchor.options.sph == RatioSph::StaticRatio
     {
         let static_pin = PinRings {
+            cp_points: anchor.options.static_cp_points.unwrap_or(pin.cp_points),
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
             tangent: None,
