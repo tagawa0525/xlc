@@ -304,7 +304,8 @@ fn ring_deviations_beyond_the_limit_are_left_to_the_exact_tracks() {
 
 #[test]
 fn a_wider_limit_expands_the_farther_ring_deviations() {
-    // #0286: 展開の上限を広げると、既定の上限を超える差の組も展開で内挿する。誤差は差の 2 乗で増え、差 2 倍の上限で 4 倍ほど
+    // #0286: 展開の上限を広げると、既定の上限を超える差の組も展開で内挿し、差 2 倍の組でも格子点ごとの値と 1e-4 未満で合う
+    // （展開の誤差が差の 2 乗で増えることは `ring_expansion_error_falls_as_the_square_of_the_deviation`）
     let ranges = [[0.3, 3000.0], [0.25, 2.0], [1.2, 1.6]];
     let limit = 4.0 * MAX_DEVIATION;
     let table = TrackTable::new(

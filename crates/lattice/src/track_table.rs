@@ -26,7 +26,7 @@ const STENCIL: usize = 4;
 pub const MAX_DEVIATION: f64 = 0.01;
 
 /// 微分の中心差分の ln Σ の幅（ADR-0182）。打ち切りの誤差は幅の 2 乗で、展開の項（差 ≤ [`MAX_DEVIATION`] を掛ける）では丸めの
-/// 水準になる
+/// 水準になる。入力で広げた上限（`track-table-deviation`。#0286 は 0.03 まで測った）でも、展開の誤差（差の 2 乗）より桁で小さい
 const STEP: f64 = 1e-3;
 
 /// 表を作るときのエラー。
