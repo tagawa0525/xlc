@@ -161,6 +161,10 @@ pub enum RatioRings {
     InfiniteDilution,
     /// UFG の範囲は基準のリングの実効断面積に、状態と基準を静止した標的で解いた減速計算の値の比を掛けたもの（[`RatioFuel::StaticRatio`]）
     StaticRatio,
+    /// 状態の UFG のリングの実効断面積と移行（診断。状態の UFG の減速計算を解く）
+    State,
+    /// UFG の範囲は状態の UFG のリングの実効断面積で、移行は基準の行（[`RatioTransfer`] で縮める。診断）
+    StateSections,
 }
 
 /// 比で求める状態の SPH 因子（ADR-0250 の「SPH 因子は基準のものを使う」の近似を分けて測る）
@@ -2513,6 +2517,10 @@ fn ratio_cell(
     let check = tracing::enabled!(target: "ratio_check", tracing::Level::DEBUG);
     let state_ufg = if anchor.options.fuel != RatioFuel::Equivalence
         || anchor.options.sph == RatioSph::State
+        || matches!(
+            anchor.options.rings,
+            RatioRings::State | RatioRings::StateSections
+        )
         || check
     {
         Some(
@@ -2690,6 +2698,16 @@ fn ratio_cell(
                         let (s, a) = light_rings(j)?;
                         scale_by_ratio(&mut full, &base[k], &s[k], &a[k], groups.clone());
                         let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        (full, transfer)
+                    }
+                    RatioRings::State | RatioRings::StateSections => {
+                        let s = state_cell()?;
+                        let ring = s.ring_nuclides[j].as_ref().ok_or_else(mismatch)?;
+                        let full = ring[k].clone();
+                        let transfer = match anchor.options.rings {
+                            RatioRings::State => s.ring_transfers[j].as_ref().map(|t| t[k].clone()),
+                            _ => base_transfers.map(|t| rows(&t[k], &full, &base[k])),
+                        };
                         (full, transfer)
                     }
                 }

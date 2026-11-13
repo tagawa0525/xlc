@@ -249,6 +249,8 @@ enum RatioRingsEntry {
     ShieldingFactor,
     InfiniteDilution,
     StaticRatio,
+    State,
+    StateSections,
 }
 
 #[derive(Deserialize)]
@@ -271,6 +273,8 @@ impl RatioEntry {
                 Some(RatioRingsEntry::ShieldingFactor) => RatioRings::ShieldingFactor,
                 Some(RatioRingsEntry::InfiniteDilution) => RatioRings::InfiniteDilution,
                 Some(RatioRingsEntry::StaticRatio) => RatioRings::StaticRatio,
+                Some(RatioRingsEntry::State) => RatioRings::State,
+                Some(RatioRingsEntry::StateSections) => RatioRings::StateSections,
             },
             sph: match self.sph {
                 None | Some(RatioSphEntry::Reference) => RatioSph::Reference,
