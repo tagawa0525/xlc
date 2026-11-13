@@ -20,6 +20,9 @@ ADR-0251 の前の既定（ADR-0209、ADR-0243、ADR-0246 の自由ガスで、�
 Gd のピンのリングの組成の差が 10 MWd/kg より大きい途中）と、燃焼した MOX のピンセル（`pin-mox-40`。mox-history.toml の
 40 MWd/kg からの 1 状態の分岐。燃料はリングごとに組成が違う）。
 
+燃焼した MOX の集合体（`mox-assembly-60`。../mox-assembly の履歴の 60 MWd/kg からの 1 状態の分岐）は、`MOX_ASSEMBLY_TIMING` の変種で
+時間だけを比べる（差は coverage.py の `assembly-mox` の 4 状態で比べる）。
+
 使い方: python3 inputs.py（このディレクトリで）
 """
 
@@ -91,6 +94,19 @@ CP_VARIANTS = {
 CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
 # 燃焼した MOX のピンセルの分岐（mox-history.toml の燃焼点）
 MOX_BURNUP = 40
+# 燃焼した MOX の集合体（../mox-assembly の履歴）の 1 状態で時間を比べる変種: どの核種も自由ガスの 16 点（基準）、既定の候補の
+# 選び方（ADR-0251）、求積 6 点（ADR-0252 の候補）、その両方
+MOX_ASSEMBLY_CASE = "mox-assembly-60"
+MOX_ASSEMBLY_BURNUP = 60
+MOX_ASSEMBLY_VARIANTS = {
+    "cp-share-point-points-6": SHARE_VARIANTS["share-point"] + "ufg-cp-points = 6\n",
+}
+MOX_ASSEMBLY_TIMING = (
+    "default",
+    "share-point",
+    "cp-points-6",
+    "cp-share-point-points-6",
+)
 
 # 間引きの許容差の変種（既定の 1e-4 を置き換える）
 TOLERANCES = {"tolerance-3e-4": "3e-4", "tolerance-1e-3": "1e-3"}
@@ -220,9 +236,42 @@ def mox_burned() -> str:
     )
 
 
+def mox_assembly() -> str:
+    """../mox-assembly/lattice-mox-assembly.toml の `[depletion]` より前に、テーブルの出力と、履歴と同じ条件の 1 状態の分岐と `[history]` を
+    足したもの"""
+    source = "mox-assembly/lattice-mox-assembly.toml"
+    text = (DEPLETION / source).read_text()
+    body = text[text.find("library = ") : text.find("[depletion]")]
+    # 履歴の自由ガスの経路は変種の行が決める。`ufg-hold-memory` は結果を変えず時間を変える（ADR-0213）ので除く。履歴と同じ
+    # `ufg-cp-points = 16` は基準の側に残す（既定が変わっても基準を履歴と同じ 16 点に保つ）
+    for line in ("ufg-free-gas = { share = false }\n", "ufg-hold-memory = 32\n"):
+        body = replace_once(body, line, "", source)
+    body = replace_once(
+        body,
+        'library = "../p2/depletion.msgpack"\n',
+        'library = "../p2/depletion.msgpack"\n'
+        'few-group = { output = "{table}", bounds = [1e7, 0.625, 1e-5] }\n',
+        source,
+    )
+    return (
+        f"# {source} の {MOX_ASSEMBLY_BURNUP} MWd/kg からの 1 状態の分岐\n"
+        + body.rstrip()
+        + "\n\n[branches]\n"
+        + 'boron = { ppm = [650], materials = ["water"] }\n'
+        + 'moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }\n'
+        + 'fuel = { temperature = [900], materials = ["mox-high", "mox-mid", "mox-low"] }\n\n'
+        + '[history]\nfile = "../mox-assembly/lattice-mox-assembly.msgpack"\nchain = "../chain.msgpack"\n'
+        + f"burnup = [{MOX_ASSEMBLY_BURNUP}]\n"
+    )
+
+
 def variant(base: str, case: str, name: str) -> str:
     """ケースの既定の入力 `base` に変種 `name` の行を足し、少数群定数（ピンセルは few-group、集合体はテーブル）の出力の名前を付ける"""
     text = base
+    line = {**VARIANTS, **CP_VARIANTS, **SHARE_VARIANTS, **MOX_ASSEMBLY_VARIANTS}[name]
+    if "ufg-cp-points = " in line and "ufg-cp-points = 16\n" in text:
+        # 求積の点を明示した入力（[`mox_assembly`]）は、その行を変種の行で置き換える
+        text = replace_once(text, "ufg-cp-points = 16\n", "", case)
     if name in TOLERANCES:
         text = replace_once(
             text,
@@ -232,11 +281,7 @@ def variant(base: str, case: str, name: str) -> str:
         )
     head, rest = text.split("\n", 1)
     library_end = rest.find("\n", rest.find("library = ")) + 1
-    rest = (
-        rest[:library_end]
-        + {**VARIANTS, **CP_VARIANTS, **SHARE_VARIANTS}[name]
-        + rest[library_end:]
-    )
+    rest = rest[:library_end] + line + rest[library_end:]
     output = f"fg-{case}-{name}.msgpack"
     if "{pin-table}" in rest:
         # 燃焼した MOX のピンセル（[`mox_burned`]）は 1 本なのでピン出力を書かない
@@ -293,6 +338,11 @@ def main() -> None:
     for case, base in {**old, **cp_bases()}.items():
         for name in CP_VARIANTS:
             (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))
+    base = mox_assembly()
+    for name in MOX_ASSEMBLY_TIMING:
+        (HERE / f"{MOX_ASSEMBLY_CASE}-{name}.toml").write_text(
+            variant(base, MOX_ASSEMBLY_CASE, name)
+        )
 
 
 if __name__ == "__main__":

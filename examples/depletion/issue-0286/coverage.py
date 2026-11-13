@@ -2,8 +2,8 @@
 inputs.py の 9 ケースで測っていない条件で比べる入力を書く（ADR-0251 の「確認」）。
 
 入力は coverage/ に `<ケース>-<変種>.toml` で書く。変種は `full`（`share = false`。どの核種も自由ガス）と `share-1e-4`、静止した
-標的にする核種の選び方の変種 `share-point`（格子点ごとの割合の最大）と `share-actinides`（アクチニドを残す）で、選び方の変種は
-`SELECTION_CASES` のケースだけ。比べるのは compare_coverage.py。
+標的にする核種の選び方の変種 `share-point`（格子点ごとの割合の最大）と `share-actinides`（アクチニドを残す）、求積の点の変種で、
+`full` と `share-1e-4` のほかは `VARIANT_CASES` のケースだけ。比べるのは compare_coverage.py。
 
 ケース:
 
@@ -21,6 +21,10 @@ inputs.py の 9 ケースで測っていない条件で比べる入力を書く�
   燃料の温度の格子点（900 K など）が無いので解けない）、Gd 24 本の 2P の 10、40 MWd/kg、Pyrex の 2F の
   40 MWd/kg、IFBA の 2M の 40 MWd/kg（公称の 1 状態）、本番の組成の 2A の 60 MWd/kg（../p9-product の履歴。../issue-0180/branch/2A-60.toml
   の公称と、燃料の温度 1200 K、減速材の 600 K（0.661165 g/cc）、その両方の 4 状態）。どれもミクロ燃焼の 31 核種を書く
+- 燃焼した MOX の集合体の分岐（`assembly-mox`）: ../mox-assembly の履歴（どの核種も自由ガス、求積 16 点）の 0、20、40、60 MWd/kg から、
+  公称（燃料 900 K、減速材 580 K、650 ppm）、燃料 1200 K、減速材 600 K、その両方の 4 状態。ミクロ燃焼の 31 核種と、ピン出力の
+  形状関数をテーブルに書く。変種は `full`、`share-point`、`share-1e-4` と、衝突確率の求積 6 点（`points-6`。ADR-0252 の候補）、
+  その両方（`share-point-points-6`）
 
 使い方: python3 coverage.py（このディレクトリで）
 """
@@ -53,11 +57,19 @@ VARIANTS = {
     "share-1e-4": LETHARGY_1E_4,
     "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n',
     "share-actinides": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy", keep-actinides = true } }\n',
+    # 衝突確率の求積の点（ADR-0252 の候補）と、それと既定の選び方の組み合わせ。`ufg-cp-points = 16` を書く入力の行を置き換える
+    "points-6": "ufg-free-gas = { share = false }\nufg-cp-points = 6\n",
+    "share-point-points-6": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\nufg-cp-points = 6\n',
 }
-# 静止した標的にする核種の選び方の変種（ADR-0251 の検討した案）と、それを書くケース（`share-1e-4` で核種自身の捕獲が相対 1e-5 を
-# 超えたピンセルの分岐と、集合体の代表）。ほかのケースは `full` と `share-1e-4` だけ
-SELECTION_VARIANTS = ("share-point", "share-actinides")
+# `full` と `share-1e-4` のほかの変種と、それを書くケース。選び方の変種（ADR-0251 の検討した案）は、`share-1e-4` で核種自身の捕獲が
+# 相対 1e-5 を超えたピンセルの分岐と、集合体の代表。燃焼した MOX の集合体（`assembly-mox`）は、既定の候補の選び方と求積の点を測る
 SELECTION_CASES = ("branch-uo2", "branch-mox", "assembly-2A", "assembly-2O")
+VARIANT_CASES = {
+    "share-point": (*SELECTION_CASES, "assembly-mox"),
+    "share-actinides": SELECTION_CASES,
+    "points-6": ("assembly-mox",),
+    "share-point-points-6": ("assembly-mox",),
+}
 
 # ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216。../issue-0180/branch/2A-60.toml と同じ）
 MICRO = (
@@ -82,6 +94,8 @@ PIN_FUELS = {
         "Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }"
     ),
 }
+# 燃焼した MOX の集合体の分岐を解く燃焼点
+MOX_BRANCH_BURNUP = [0, 20, 40, 60]
 # 集合体: （履歴の入力（examples/depletion から）、分岐を解く燃焼点、減速材の軸を 2 点にするか）
 ASSEMBLIES = {
     "2O": ("p2/lattice-2O.toml", [10, 40], True),
@@ -276,27 +290,74 @@ def assembly_2a(variant: str) -> str:
     return header(case, variant, f"{source} の微分を除き、4 状態にしたもの") + body
 
 
+def assembly_mox(variant: str) -> str:
+    """../mox-assembly/lattice-mox-assembly.toml の `[depletion]` より前に、変種の行、テーブルの出力、公称と燃料 1200 K、減速材 600 K の
+    分岐、`[history]` を足したもの"""
+    source = "mox-assembly/lattice-mox-assembly.toml"
+    case = "assembly-mox"
+    text = (DEPLETION / source).read_text()
+    body = text[text.find("library = ") : text.find("[depletion]")]
+    # 履歴の自由ガスの経路は変種の行が決める。`ufg-hold-memory` は結果を変えず時間を変える（ADR-0213）ので、排他のジョブでは除く
+    for line in ("ufg-free-gas = { share = false }\n", "ufg-hold-memory = 32\n"):
+        body = replace_once(body, line, "", source)
+    body = replace_once(
+        body,
+        'library = "../p2/depletion.msgpack"\n',
+        'library = "../../p2/depletion.msgpack"\n',
+        source,
+    )
+    body = with_variant(body, variant, case)
+    # 求積の点の変種は、履歴と同じ 16 点を明示した行を置き換える（既定が変わっても基準を履歴と同じ 16 点に保つ）
+    if "ufg-cp-points = " in VARIANTS[variant]:
+        body = replace_once(body, "ufg-cp-points = 16\n", "", source)
+    body = replace_once(
+        body,
+        VARIANTS[variant],
+        VARIANTS[variant]
+        + f'few-group = {{ output = "table-{case}-{variant}.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }}\n',
+        case,
+    )
+    fuels = '["mox-high", "mox-mid", "mox-low"]'
+    return (
+        header(
+            case,
+            variant,
+            f"{source} の {listed(MOX_BRANCH_BURNUP)} MWd/kg からの 4 状態の分岐",
+        )
+        + body.rstrip()
+        + "\n\n[branches]\n"
+        'boron = { ppm = [650], materials = ["water"] }\n'
+        'moderator = { temperature = [580, 600], density = [0.711901, 0.661165], materials = ["water", "zircaloy"] }\n'
+        f"fuel = {{ temperature = [900, 1200], materials = {fuels} }}\n"
+        "\n[history]\n"
+        'file = "../../mox-assembly/lattice-mox-assembly.msgpack"\n'
+        'chain = "../../chain.msgpack"\n'
+        f"burnup = {listed(MOX_BRANCH_BURNUP)}\n" + MICRO
+    )
+
+
 def inputs() -> dict:
     """入力の名前（拡張子なし）と中身"""
-    return {
-        name: text
-        for name, text in all_inputs().items()
-        if not name.endswith(SELECTION_VARIANTS)
-        or name.rsplit("-share-", 1)[0] in SELECTION_CASES
-    }
-
-
-def all_inputs() -> dict:
-    """すべてのケースと変種の組の入力"""
     files = {}
     for variant in VARIANTS:
-        for fuel in PIN_FUELS:
-            files[f"burn-{fuel}-{variant}"] = burn(fuel, variant)
-            files[f"branch-{fuel}-{variant}"] = pin_branch(fuel, variant, False)
-            files[f"derivative-{fuel}-{variant}"] = pin_branch(fuel, variant, True)
-        for name in ASSEMBLIES:
-            files[f"assembly-{name}-{variant}"] = assembly(name, variant)
-        files[f"assembly-2A-{variant}"] = assembly_2a(variant)
+        cases = VARIANT_CASES.get(variant)
+        for name, text in all_inputs(variant).items():
+            if cases is None or name.removesuffix(f"-{variant}") in cases:
+                files[name] = text
+    return files
+
+
+def all_inputs(variant: str) -> dict:
+    """変種のすべてのケースの入力"""
+    files = {}
+    for fuel in PIN_FUELS:
+        files[f"burn-{fuel}-{variant}"] = burn(fuel, variant)
+        files[f"branch-{fuel}-{variant}"] = pin_branch(fuel, variant, False)
+        files[f"derivative-{fuel}-{variant}"] = pin_branch(fuel, variant, True)
+    for name in ASSEMBLIES:
+        files[f"assembly-{name}-{variant}"] = assembly(name, variant)
+    files[f"assembly-2A-{variant}"] = assembly_2a(variant)
+    files[f"assembly-mox-{variant}"] = assembly_mox(variant)
     return files
 
 
