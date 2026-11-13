@@ -1331,6 +1331,29 @@ fn rings_without_free_gas_nuclides_need_no_scatter_share() {
 }
 
 #[test]
+fn rings_of_free_gas_nuclides_at_zero_density_need_no_scatter_share() {
+    // 自由ガスの核種がどれも個数密度 0 のリングも、割合に何も足さないので、全断面積が 0 でも割合を数えない
+    let (lib, fuel, water) = thermal_cell(600.0);
+    let empty = material_at(&[("O-16", 0.0)], 600.0);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), Some(&empty), Some(&water), Some(&water)];
+    let solve = |scattering| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            scattering,
+            held_cells(1 << 30, 1),
+        )
+    };
+    assert!(solve(free_gas(UNCAPPED, 4, None)).is_ok());
+    assert!(solve(free_gas_share(0.02)).is_ok());
+}
+
+#[test]
 fn free_gas_sweeps_solve_the_collision_probabilities_once_per_point() {
     // 衝突確率は格子点の全断面積だけで決まり、スイープで変わらない。掃き直しても格子点ごとに 1 度だけ求める
     for sweeps in [Some(1), Some(3), None] {
@@ -3339,7 +3362,31 @@ fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
     let mut empty = proportional(&rings, "none");
     empty[0][2] = 1.0e-3;
     assert!(matches!(
-        solve(Collision::Exact, &rings, &[empty]),
+        solve(Collision::Exact, &rings, &[empty.clone()]),
+        Err(UfgError::TangentZeroDensity { direction: 0, ring: 0, ref name }) if name == "O-16"
+    ));
+    // 散乱の割合で絞っても（個数密度 0 の核種は割合 0 で静止した標的になる）、向きの検査は絞る前の自由ガスの核種で行う
+    let shared = Scattering::FreeGas(FreeGas {
+        upper: FreeGasCap::Energy(50.0),
+        cells: 2,
+        sweeps: Some(3),
+        heavy: Some(FreeGasCap::Energy(10.0)),
+        sab: false,
+        share: Some(1.0e-3),
+    });
+    assert!(matches!(
+        tangent_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e2],
+            Collision::Exact,
+            None,
+            shared,
+            None,
+            0,
+            &[empty],
+        ),
         Err(UfgError::TangentZeroDensity { direction: 0, ring: 0, ref name }) if name == "O-16"
     ));
 }
