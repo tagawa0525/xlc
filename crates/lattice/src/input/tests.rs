@@ -501,7 +501,8 @@ fn ufg_hold_memory_sets_the_held_memory_of_the_self_shielding() {
 fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     // ADR-0209: 省略すると、ADR-0205 の速い方法（細かさ 2、スイープ 3 回、H in H2O の S(α, β)）で、分離共鳴を持たない核種は
     // 温度によらない 1000 eV までの自由ガス（ADR-0246）、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。
-    // 散乱の割合が 1e-4 より小さい核種は静止した標的（ADR-0251）。`ufg-free-gas` の書かない項目もその値
+    // 範囲のどの格子点でも散乱の割合が 1e-4 より小さい核種は静止した標的で、アクチニドも割合で選ぶ（ADR-0251）。
+    // `ufg-free-gas` の書かない項目もその値
     let fast = FreeGas {
         upper: FreeGasCap::Energy(1000.0),
         cells: 2,
@@ -510,7 +511,7 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
         sab: true,
         share: Some(Share {
             threshold: 1.0e-4,
-            measure: ShareMeasure::Lethargy,
+            measure: ShareMeasure::Point,
             keep_actinides: false,
         }),
     };
