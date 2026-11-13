@@ -318,7 +318,7 @@ fn main() -> anyhow::Result<()> {
             .pin()
             .ok_or_else(|| anyhow!("cell {}: not a pin", p.pin.cell))?;
         let start = p.material.len() - 1;
-        let cylinder = Cylinder::new(
+        let cylinder = Cylinder::with_points(
             geometry.radii()[..start]
                 .iter()
                 .copied()
@@ -327,6 +327,7 @@ fn main() -> anyhow::Result<()> {
                     .equivalent
                     .ok_or_else(|| anyhow!("cell {}: no equivalent radius", p.pin.cell))?])
                 .collect(),
+            input.shielding_options().cp_points,
         )?;
         let groups = p.sph.groups.clone();
         let above: Vec<f64> = (0..groups.start)
