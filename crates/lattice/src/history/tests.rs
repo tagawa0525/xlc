@@ -2000,6 +2000,14 @@ fn fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shieldi
                 )
                 .unwrap_err();
             assert!(error.to_string().contains("fuel@99"), "{error}");
+            // 作り直さない物質（減速材）まで変えた組成は、変えた分が黙って落ちるのでエラー
+            let mut moderated = branches.perturbed_state(index, 1);
+            let water = moderated.iter().position(|m| m.name == "water").unwrap();
+            moderated[water].composition[0].1 *= 1.01;
+            let error = state
+                .remixed_at(&library, lattice, regions, &names, &materials, &moderated)
+                .unwrap_err();
+            assert!(error.to_string().contains("water"), "{error}");
             let same = state
                 .remixed_at(&library, lattice, regions, &names, &materials, &materials)
                 .unwrap();
