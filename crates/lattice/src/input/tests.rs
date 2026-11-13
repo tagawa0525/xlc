@@ -371,6 +371,36 @@ fn track_table_defaults_to_the_adr_density() {
 }
 
 #[test]
+fn ufg_cp_points_default_to_the_cell_quadrature() {
+    // #0286: 省略すると弦の求積の小区間あたりの既定の点の数で、正の整数で選ぶ。自己遮蔽しない入力には書けない
+    let points = |line: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.shielding_options().cp_points)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL)
+            .unwrap()
+            .shielding_options()
+            .cp_points,
+        crate::cp::POINTS
+    );
+    assert_eq!(points("ufg-cp-points = 8").unwrap(), 8);
+    for bad in [
+        "ufg-cp-points = 0",
+        "ufg-cp-points = -4",
+        "ufg-cp-points = 2.5",
+        "ufg-cp-points = true",
+        "self-shielding = false\nufg-cp-points = 8",
+    ] {
+        assert!(points(bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
 fn track_table_needs_self_shielding() {
     // 飛程の表は自己遮蔽の減速計算でだけ使うので、自己遮蔽しない入力に書くと止める
     let off = replaced(
@@ -710,6 +740,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
                 density: 16,
                 deviation: MAX_DEVIATION
             },
+            cp_points: crate::cp::POINTS,
             thinning: None,
             hold_memory: None,
             scattering: Scattering::Static,
