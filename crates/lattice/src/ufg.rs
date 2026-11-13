@@ -909,9 +909,9 @@ fn solve_cell(
     let grid_done = Instant::now();
     let table = match collision {
         Collision::Exact => None,
-        Collision::Table { density, .. } => {
+        Collision::Table { density, deviation } => {
             let ranges = frozen.as_deref().and_then(|f| f.ranges.as_deref());
-            let built = track_table(cell, &data, &entries, &points, density, ranges)?;
+            let built = track_table(cell, &data, &entries, &points, density, deviation, ranges)?;
             if let Some(f) = frozen
                 && f.ranges.is_none()
             {
@@ -2062,6 +2062,7 @@ fn track_table(
     entries: &[Vec<(usize, f64)>],
     points: &[(f64, bool)],
     density: usize,
+    deviation: f64,
     frozen: Option<&[[f64; 2]]>,
 ) -> Result<Option<BuiltTable>, UfgError> {
     let mut first: Vec<usize> = Vec::new();
@@ -2096,7 +2097,7 @@ fn track_table(
             },
         )
         .collect();
-    let layout = Layout::new(cell, classes, axes)?;
+    let layout = Layout::new(cell, classes, axes)?.with_limit(deviation);
     let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; leaders.len()];
     // 展開の上限を超えて格子点ごとに求める格子点の数
     let mut outside = 0usize;
@@ -2208,11 +2209,11 @@ fn track_table(
     Ok(Some((table, first, ranges)))
 }
 
-/// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`MAX_DEVIATION`] 以下）なら、軸の範囲 `ranges` をその中心まで広げて
+/// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`Layout::expands`]）なら、軸の範囲 `ranges` をその中心まで広げて
 /// true。展開の外の格子点は表を読まない（格子点ごとに求める）ので、範囲を広げずに false
 fn widen_ranges(layout: &Layout, sigma: &[f64], ranges: &mut [[f64; 2]]) -> bool {
     let (centers, deviation) = layout.centers(sigma);
-    if deviation > MAX_DEVIATION {
+    if !layout.expands(deviation) {
         return false;
     }
     for (range, c) in ranges.iter_mut().zip(centers) {
