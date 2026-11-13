@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
@@ -180,12 +180,77 @@ pub enum RatioSph {
 }
 
 /// 比で求める状態（ADR-0250）の基準: 今の UFG で解いた自己遮蔽 `shielding` と、それに渡した物質 `materials`（状態の物質と同じ名前を
-/// 同じ順に持つ）
+/// 同じ順に持つ）。`light` はこの基準の静止した標的の減速計算を持ち回る置き場で、同じ基準の状態の間で共有し、別の基準とは共有しない
 #[derive(Debug, Clone, Copy)]
 pub struct RatioAnchor<'a> {
     pub shielding: &'a FuelShielding,
     pub materials: &'a [MaterialInput],
     pub options: RatioOptions,
+    pub light: &'a AnchorLight,
+}
+
+/// 比の基準 1 つの、静止した標的の減速計算（[`RatioFuel::StaticRatio`] などの比の分母）の結果のセルごとの置き場。基準の物質と
+/// Dancoff 係数は状態によらないので、最初の状態で解いた結果を同じ基準のほかの状態で使う（解き直しても結果はビットで同じ）
+#[derive(Default)]
+pub struct AnchorLight {
+    /// 基準の物質の無限希釈の群定数（[`mixed`]）
+    dilute: OnceLock<Vec<Material>>,
+    /// （セル、結果）
+    cells: Mutex<Vec<(usize, Arc<CellShielding>)>>,
+}
+
+impl std::fmt::Debug for AnchorLight {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cells: Vec<usize> = self.lock().iter().map(|(c, _)| *c).collect();
+        f.debug_struct("AnchorLight")
+            .field("cells", &cells)
+            .finish()
+    }
+}
+
+impl AnchorLight {
+    /// 基準の物質 `materials` の無限希釈の群定数（最初に求めたものを持つ）
+    fn dilute(
+        &self,
+        library: &Library,
+        materials: &[MaterialInput],
+    ) -> Result<&[Material], SelfShieldingError> {
+        if let Some(d) = self.dilute.get() {
+            return Ok(d);
+        }
+        let d = mixed(library, materials)?;
+        Ok(self.dilute.get_or_init(|| d))
+    }
+
+    /// セル `cell` の結果。持っていなければ `solve` で解いて持つ（ピンは並列に解くが、1 回の自己遮蔽で同じセルは 1 度だけ解く
+    /// ので、解く間は置き場を占めない）
+    fn cell(
+        &self,
+        cell: usize,
+        solve: impl FnOnce() -> Result<CellShielding, SelfShieldingError>,
+    ) -> Result<Arc<CellShielding>, SelfShieldingError> {
+        let held = |cells: &[(usize, Arc<CellShielding>)]| {
+            cells
+                .iter()
+                .find(|(c, _)| *c == cell)
+                .map(|(_, s)| s.clone())
+        };
+        if let Some(s) = held(&self.lock()) {
+            return Ok(s);
+        }
+        let solved = Arc::new(solve()?);
+        let mut cells = self.lock();
+        if let Some(s) = held(&cells) {
+            return Ok(s);
+        }
+        cells.push((cell, solved.clone()));
+        Ok(solved)
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Vec<(usize, Arc<CellShielding>)>> {
+        // 置き場の中身は push だけで変わり、途中の状態を残さないので、ほかのスレッドが panic した後も使える
+        self.cells.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 /// 燃料のピンの UFG の範囲の解き方
@@ -700,6 +765,8 @@ pub struct ShieldingReuse<'a> {
     callers: usize,
     /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
+    /// 等価なセルの減速計算（燃料のピン、棒の塊、比の静止した標的）を解いた回数
+    slowing_downs: AtomicUsize,
     /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
     shares: ShareCellCache,
     /// 呼び出し側が最後に渡した燃焼点（[`ShieldingReuse::at_point`]）
@@ -732,6 +799,7 @@ impl<'a> ShieldingReuse<'a> {
             dancoff: Vec::new(),
             callers: callers.get(),
             dancoff_solves: 0,
+            slowing_downs: AtomicUsize::new(0),
             shares: ShareCellCache::default(),
             point: None,
         }
@@ -756,6 +824,11 @@ impl<'a> ShieldingReuse<'a> {
     /// 燃料のピンの Dancoff 係数を解いた回数
     pub fn dancoff_solves(&self) -> usize {
         self.dancoff_solves
+    }
+
+    /// 等価なセルの減速計算（燃料のピン、棒の塊、比の静止した標的）を解いた回数
+    pub fn slowing_downs(&self) -> usize {
+        self.slowing_downs.load(Ordering::Relaxed)
     }
 
     /// 物質 `dilute`（無限希釈）を領域に `region_index` で置いた格子の、燃料のピンの Dancoff 係数（[セル]）。`fuel` は
@@ -996,6 +1069,7 @@ fn shield_fuel_by(
     }
     let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
     let shares = &reuse.shares;
+    let solves = &reuse.slowing_downs;
     // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）。`total` は前の自己遮蔽から残った自由ガスの核の表（ADR-0248）を
     // 除いて新たに確保できる量
     let held = shares.kernels().start();
@@ -1109,6 +1183,7 @@ fn shield_fuel_by(
             shares,
             hold,
             tangent,
+            solves,
         };
         let ufg = match method {
             PinMethod::Ufg(_) => shield_cell(
@@ -1311,7 +1386,7 @@ fn shield_fuel_by(
             &region_index,
             (symmetry.images(), &orbits),
             options,
-            (shares, total - growth),
+            (shares, solves, total - growth),
             &mut shielded,
         )
     })?;
@@ -1510,7 +1585,7 @@ fn shield_lumps(
     region_index: &[usize],
     (images, orbits): (&[Image], &[usize]),
     options: &ShieldingOptions,
-    (shares, total): (&ShareCellCache, u64),
+    (shares, solves, total): (&ShareCellCache, &AtomicUsize, u64),
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
     let lattice = &tracking.lattice;
@@ -1712,6 +1787,7 @@ fn shield_lumps(
                         shares,
                         hold,
                         tangent: None,
+                        solves,
                     };
                     shield_cell(
                         library,
@@ -1948,6 +2024,8 @@ struct PinRings<'a> {
     hold: usize,
     /// 減速計算の 1 次の変化を求める核種（[`shield_fuel_tangent`]）
     tangent: Option<&'a [String]>,
+    /// 等価なセルの減速計算を解いた回数（[`ShieldingReuse::slowing_downs`]）
+    solves: &'a AtomicUsize,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -2142,6 +2220,7 @@ fn solve_equivalent_cell<'a>(
         })
     };
     let (spectrum, transfers) = solve()?;
+    pin.solves.fetch_add(1, Ordering::Relaxed);
     // 1 次の変化は、同じ設定の減速計算と一緒に解き直す（時間を向きのない減速計算と比べる測定。ADR-0247 の段 I2-2）。比べる
     // 向きのない減速計算も解き直す（最初の減速計算が自由ガスの核の D の値の表を埋めるので、同じ表を引く 2 度目と比べる）
     let tangent = match pin.tangent {
@@ -2515,8 +2594,10 @@ fn ratio_cell(
     let targets = ring_targets(geometry, pin.lattice.cell_regions(cell).start, start);
     // 状態の UFG の減速計算（診断の燃料のリングと状態の SPH 因子とログのときだけ。時間は状態ごとに解くのと同じ）
     let check = tracing::enabled!(target: "ratio_check", tracing::Level::DEBUG);
-    let state_ufg = if anchor.options.fuel != RatioFuel::Equivalence
-        || anchor.options.sph == RatioSph::State
+    let state_ufg = if matches!(
+        anchor.options.fuel,
+        RatioFuel::StateAverage | RatioFuel::State
+    ) || anchor.options.sph == RatioSph::State
         || matches!(
             anchor.options.rings,
             RatioRings::State | RatioRings::StateSections
@@ -2539,7 +2620,7 @@ fn ratio_cell(
         None
     };
     let state_cell = || state_ufg.as_ref().ok_or_else(mismatch);
-    // 静止した標的の減速計算の、状態と基準の結果（比のどれかが使うときだけ）
+    // 静止した標的の減速計算の、状態と基準の結果（比のどれかが使うときだけ）。基準の結果は同じ基準の状態の間で持ち回る
     let light = if anchor.options.fuel == RatioFuel::StaticRatio
         || anchor.options.rings == RatioRings::StaticRatio
         || anchor.options.sph == RatioSph::StaticRatio
@@ -2562,22 +2643,23 @@ fn ratio_cell(
                 range,
             )
         })?;
-        let anchor_dilute = mixed(library, anchor.materials)?;
-        let at_anchor = tracing::debug_span!("static-anchor").in_scope(|| {
-            shield_cell(
-                library,
-                &static_pin,
-                anchor.materials,
-                &anchor_dilute,
-                &anchor_pin.dancoff,
-                &anchor_carlvik,
-                range,
-            )
+        let at_anchor = anchor.light.cell(cell, || {
+            let anchor_dilute = anchor.light.dilute(library, anchor.materials)?;
+            tracing::debug_span!("static-anchor")
+                .in_scope(|| {
+                    shield_cell(
+                        library,
+                        &static_pin,
+                        anchor.materials,
+                        anchor_dilute,
+                        &anchor_pin.dancoff,
+                        &anchor_carlvik,
+                        range,
+                    )
+                })?
+                .ok_or_else(mismatch)
         })?;
-        Some((
-            at_state.ok_or_else(mismatch)?,
-            at_anchor.ok_or_else(mismatch)?,
-        ))
+        Some((at_state.ok_or_else(mismatch)?, at_anchor))
     } else {
         None
     };
@@ -2811,6 +2893,10 @@ fn ratio_cell(
             },
         )?;
     }
+    // この状態で解いた減速計算の格子点の数と量（持ち回った基準の静止した標的の減速計算は数えない）
+    let solved = || state_ufg.iter().chain(light.as_ref().map(|(s, _)| s));
+    let points = solved().map(|c| c.points).max().unwrap_or(0);
+    let demand = solved().map(|c| c.demand).max().unwrap_or(0);
     let radius = match anchor.options.fuel {
         RatioFuel::State => state_cell()?.radius,
         RatioFuel::Equivalence | RatioFuel::StateAverage | RatioFuel::StaticRatio => radius,
@@ -2824,8 +2910,8 @@ fn ratio_cell(
         ring_transfers,
         sph,
         groups,
-        points: 0,
-        demand: 0,
+        points,
+        demand,
         tangent: None,
         center_flux: Vec::new(),
     }))

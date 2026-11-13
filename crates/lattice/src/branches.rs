@@ -46,8 +46,8 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::material::Material;
 use crate::shielding::{
-    FuelShielding, RatioAnchor, RatioFuel, RatioOptions, RatioRings, RatioSph, RatioTransfer,
-    ShieldingOptions, ShieldingReuse, shield_fuel_ratio, shield_fuel_reusing,
+    AnchorLight, FuelShielding, RatioAnchor, RatioFuel, RatioOptions, RatioRings, RatioSph,
+    RatioTransfer, ShieldingOptions, ShieldingReuse, shield_fuel_ratio, shield_fuel_reusing,
     shielded_nuclide_with,
 };
 use crate::symmetry::Detected;
@@ -866,7 +866,8 @@ pub struct BranchShielder<'a> {
     symmetry: &'a Detected,
     options: ShieldingOptions,
     /// 今の燃焼度の点の、参照の番号ごとの自己遮蔽と、それに渡した物質
-    held: Vec<(usize, usize, FuelShielding, Vec<MaterialInput>)>,
+    /// （比の基準なら、その静止した標的の減速計算の置き場も。ADR-0250）
+    held: Vec<(usize, usize, FuelShielding, Vec<MaterialInput>, AnchorLight)>,
     /// 自己遮蔽を解いた回数
     shieldings: usize,
     /// 比で求める参照（ADR-0250。[`BranchShielder::with_ratio`]）
@@ -975,7 +976,7 @@ impl<'a> BranchShielder<'a> {
                     let materials = build(point, anchor);
                     self.hold_reference(reuse, library, point, anchor, materials)?;
                 }
-                let (_, _, base, base_materials) = self
+                let (_, _, base, base_materials, light) = self
                     .held
                     .iter()
                     .find(|(_, i, ..)| *i == anchor)
@@ -992,6 +993,7 @@ impl<'a> BranchShielder<'a> {
                         shielding: base,
                         materials: base_materials,
                         options: ratio.options,
+                        light,
                     },
                 )
                 .with_context(|| format!("reference {index} by the ratio to reference {anchor}"))?;
@@ -1022,7 +1024,8 @@ impl<'a> BranchShielder<'a> {
                  nominal boron"
             );
         }
-        self.held.push((point, index, shielded, nominal));
+        self.held
+            .push((point, index, shielded, nominal, AnchorLight::default()));
         Ok(())
     }
 
@@ -1057,7 +1060,7 @@ impl<'a> BranchShielder<'a> {
         if !self.held.iter().any(|(_, i, ..)| *i == index) {
             self.hold_reference(reuse, library, point, index, nominal())?;
         }
-        let (_, _, shielded, nominal) = self
+        let (_, _, shielded, nominal, _) = self
             .held
             .iter()
             .find(|(_, i, ..)| *i == index)
