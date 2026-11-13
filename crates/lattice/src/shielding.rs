@@ -124,6 +124,15 @@ pub struct RatioOptions {
     pub static_cp_points: Option<usize>,
 }
 
+impl RatioOptions {
+    /// 比のどれかが静止した標的の減速計算を使うか
+    pub fn uses_static(&self) -> bool {
+        self.fuel == RatioFuel::StaticRatio
+            || self.rings == RatioRings::StaticRatio
+            || self.sph == RatioSph::StaticRatio
+    }
+}
+
 /// 比で求める状態の、燃料のリングの UFG の範囲の群定数。`Equivalence` のほかは、比の残る差をピンの平均の変化とリングの間の分布に
 /// 分ける診断（#0285）で、状態の UFG の減速計算を解く（時間は状態ごとに解くのと同じ）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -193,7 +202,9 @@ pub struct RatioAnchor<'a> {
 }
 
 /// 比の基準 1 つの、静止した標的の減速計算（[`RatioFuel::StaticRatio`] などの比の分母）の結果のセルごとの置き場。基準の物質と
-/// Dancoff 係数は状態によらないので、最初の状態で解いた結果を同じ基準のほかの状態で使う（解き直しても結果はビットで同じ）
+/// Dancoff 係数は状態によらないので、最初の状態で解いた結果を同じ基準のほかの状態で使う（解き直しても結果はビットで同じ）。鍵は
+/// 基準の物質と求積の点の数だけで、ライブラリ、格子、[`ShieldingOptions`] は同じ置き場を使う呼び出しの間で変えないこと（分岐の
+/// 状態の自己遮蔽では 1 つの `BranchShielder` の中で変わらず、基準の Dancoff 係数は基準の物質と格子で決まる）
 #[derive(Default)]
 pub struct AnchorLight {
     /// 結果を解いた基準の物質と、等価なセルの衝突確率の求積の点の数（ほかの基準か点の数では使えない）
@@ -975,6 +986,10 @@ pub fn shield_fuel_ratio(
     }
     if anchor.shielding.lattice != reuse.tracking.lattice {
         return Err(SelfShieldingError::ForeignLattice);
+    }
+    if anchor.options.uses_static() {
+        let cp_points = anchor.options.static_cp_points.unwrap_or(options.cp_points);
+        anchor.light.bind(anchor.materials, cp_points)?;
     }
     shield_fuel_by(
         library,
@@ -2645,14 +2660,9 @@ fn ratio_cell(
     };
     let state_cell = || state_ufg.as_ref().ok_or_else(mismatch);
     // 静止した標的の減速計算の、状態と基準の結果（比のどれかが使うときだけ）。基準の結果は同じ基準の状態の間で持ち回る
-    let light = if anchor.options.fuel == RatioFuel::StaticRatio
-        || anchor.options.rings == RatioRings::StaticRatio
-        || anchor.options.sph == RatioSph::StaticRatio
-    {
-        let cp_points = anchor.options.static_cp_points.unwrap_or(pin.cp_points);
-        anchor.light.bind(anchor.materials, cp_points)?;
+    let light = if anchor.options.uses_static() {
         let static_pin = PinRings {
-            cp_points,
+            cp_points: anchor.options.static_cp_points.unwrap_or(pin.cp_points),
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
             tangent: None,

@@ -299,10 +299,7 @@ impl RatioEntry {
                 }
             },
         };
-        let light = options.fuel == RatioFuel::StaticRatio
-            || options.rings == RatioRings::StaticRatio
-            || options.sph == RatioSph::StaticRatio;
-        if options.static_cp_points.is_some() && !light {
+        if options.static_cp_points.is_some() && !options.uses_static() {
             return Err(
                 "branches.ratio: `static-cp-points` is used only by the static ratios (`static-ratio`)".into(),
             );
