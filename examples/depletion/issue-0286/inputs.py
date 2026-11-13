@@ -14,6 +14,8 @@ ADR-0251 の前の既定（ADR-0209、ADR-0243、ADR-0246 の自由ガスで、�
   （`2A-60`。../issue-0180/branch/2A-60.toml の微分を除いたもの）、Gd の 2O の 10 MWd/kg（`2O-10`）、Pyrex の 2F の 10 MWd/kg
   （`2F-10`）、制御棒を入れて燃焼させた 2A の 20 MWd/kg（`2A-rods-20`。棒は入ったまま）
 
+静止した標的にする核種の選び方の変種（`SHARE_VARIANTS`。ADR-0251 の検討した案）は、2A-60 だけで時間を比べる。
+
 衝突確率の近似（`CP_VARIANTS`）は、上のケースに 2 つを足して比べる（変種の名前は `cp-` で始まる）: Gd の 2O の 5 MWd/kg（`2O-5`。
 Gd のピンのリングの組成の差が 10 MWd/kg より大きい途中）と、燃焼した MOX のピンセル（`pin-mox-40`。mox-history.toml の
 40 MWd/kg からの 1 状態の分岐。燃料はリングごとに組成が違う）。
@@ -54,6 +56,13 @@ VARIANTS = {
     "share-1e-3": "ufg-free-gas = { share = 1e-3 }\n",
     "share-1e-2": "ufg-free-gas = { share = 1e-2 }\n",
 }
+# 静止した標的にする核種の選び方の変種（ADR-0251 の検討した案。`share-1e-4` からの時間の比を 2A-60 で測る）: 格子点ごとの割合の
+# 最大で測る形と、アクチニドを割合によらず自由ガスに残す形
+SHARE_VARIANTS = {
+    "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n',
+    "share-actinides": "ufg-free-gas = { share = { threshold = 1e-4, keep-actinides = true } }\n",
+}
+SHARE_CASES = ("2A-60",)
 # 衝突確率の近似の変種（#0286 の衝突確率の節。`cp-default` は ADR-0251 の前の既定で、測ったときの経路で解くように `share = false`
 # を書く。ほかは `cp-default` に足す行で、`share` の変種は `share = false` の代わりに閾値を書く）: 弦の求積の点（`ufg-cp-points`）、
 # 飛程の表の細かさ（`track-table`）、展開の上限（`track-table-deviation`）と、その組み合わせ、自由ガスの核種の絞り込みとの組み合わせ
@@ -218,7 +227,11 @@ def variant(base: str, case: str, name: str) -> str:
         )
     head, rest = text.split("\n", 1)
     library_end = rest.find("\n", rest.find("library = ")) + 1
-    rest = rest[:library_end] + {**VARIANTS, **CP_VARIANTS}[name] + rest[library_end:]
+    rest = (
+        rest[:library_end]
+        + {**VARIANTS, **CP_VARIANTS, **SHARE_VARIANTS}[name]
+        + rest[library_end:]
+    )
     output = f"fg-{case}-{name}.msgpack"
     if "{pin-table}" in rest:
         # 燃焼した MOX のピンセル（[`mox_burned`]）は 1 本なのでピン出力を書かない
@@ -269,6 +282,9 @@ def main() -> None:
     for case, base in old.items():
         for name in VARIANTS:
             (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))
+    for case in SHARE_CASES:
+        for name in SHARE_VARIANTS:
+            (HERE / f"{case}-{name}.toml").write_text(variant(old[case], case, name))
     for case, base in {**old, **cp_bases()}.items():
         for name in CP_VARIANTS:
             (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))

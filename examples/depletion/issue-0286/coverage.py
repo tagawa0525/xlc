@@ -1,8 +1,9 @@
 """#0286 の、自由ガスから散乱の割合の小さい核種を外す（`ufg-free-gas.share`）と、外さない経路（`share = false`）の差を、
 inputs.py の 9 ケースで測っていない条件で比べる入力を書く（ADR-0251 の「確認」）。
 
-入力は coverage/ に `<ケース>-<変種>.toml` で書く。変種は `full`（`share = false`。どの核種も自由ガス）と `share-1e-4`。比べるのは
-compare_coverage.py。
+入力は coverage/ に `<ケース>-<変種>.toml` で書く。変種は `full`（`share = false`。どの核種も自由ガス）と `share-1e-4`、静止した
+標的にする核種の選び方の変種 `share-point`（格子点ごとの割合の最大）と `share-actinides`（アクチニドを残す）で、選び方の変種は
+`SELECTION_CASES` のケースだけ。比べるのは compare_coverage.py。
 
 ケース:
 
@@ -45,7 +46,13 @@ FUELS = load("fuels_inputs", DEPLETION / "issue-0180/fuels/inputs.py")
 VARIANTS = {
     "full": "ufg-free-gas = { share = false }\n",
     "share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
+    "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n',
+    "share-actinides": "ufg-free-gas = { share = { threshold = 1e-4, keep-actinides = true } }\n",
 }
+# 静止した標的にする核種の選び方の変種（ADR-0251 の検討した案）と、それを書くケース（`share-1e-4` で核種自身の捕獲が相対 1e-5 を
+# 超えたピンセルの分岐と、集合体の代表）。ほかのケースは `full` と `share-1e-4` だけ
+SELECTION_VARIANTS = ("share-point", "share-actinides")
+SELECTION_CASES = ("branch-uo2", "branch-mox", "assembly-2A", "assembly-2O")
 
 # ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216。../issue-0180/branch/2A-60.toml と同じ）
 MICRO = (
@@ -266,6 +273,16 @@ def assembly_2a(variant: str) -> str:
 
 def inputs() -> dict:
     """入力の名前（拡張子なし）と中身"""
+    return {
+        name: text
+        for name, text in all_inputs().items()
+        if not name.endswith(SELECTION_VARIANTS)
+        or name.rsplit("-share-", 1)[0] in SELECTION_CASES
+    }
+
+
+def all_inputs() -> dict:
+    """すべてのケースと変種の組の入力"""
     files = {}
     for variant in VARIANTS:
         for fuel in PIN_FUELS:
