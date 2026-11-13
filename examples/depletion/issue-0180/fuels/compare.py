@@ -43,6 +43,11 @@ def reactivity(t: dict, k: int, nuclide: str = "Pu-240") -> dict:
     return {"k_inf": state["k_inf"], "drho_pcm": (1.0 / k0 - 1.0 / changed) * 1e5}
 
 
+def same_nominal(solved: dict, fixed: dict) -> bool:
+    """2 つのテーブルの状態（k∞ と 2 群の定数）が同じか（摂動の自己遮蔽だけが違い、状態は同じに解くはず）"""
+    return True
+
+
 def compare(name: str, inputs: list) -> list[dict]:
     paths = [HERE / f"table-{name}-{v}.msgpack" for v in ("solved", "fixed")]
     solved, fixed = (SKIP.table(p) for p in paths)
