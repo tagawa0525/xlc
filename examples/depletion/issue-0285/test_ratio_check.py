@@ -47,6 +47,17 @@ class Blocks(unittest.TestCase):
         self.assertAlmostEqual(first["rings"][(1, "U-238")]["state"], -0.02)
         self.assertAlmostEqual(found[1]["rings"][(0, "U-238")]["equivalence"], 0.01)
 
+    def test_nuclides_without_capture_are_left_out(self):
+        # 個数密度が 0 の核種（新しい燃料の Pu-239 など）は反応率がどの群でも 0 で、重みの平均が無い
+        close = " INFO ratio-shielding: xlc_lattice::shielding: close time.busy=1s time.idle=1µs"
+        text = "\n".join([line(0, 13, 0.99, 0.0), line(1, 13, 0.98, 2.0), close])
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "a.log"
+            path.write_text(text + "\n")
+            found = blocks(path)
+        self.assertNotIn((0, "U-238"), found[0]["rings"])
+        self.assertAlmostEqual(found[0]["groups"][13]["equivalence"], -0.02)
+
 
 if __name__ == "__main__":
     unittest.main()
