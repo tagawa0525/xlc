@@ -25,6 +25,9 @@
 - f1-static-fuel、f1-static: f1-transfer の燃料のリング（f1-static は燃料でないリングと SPH 因子も）を、基準の値に、状態と基準を
   静止した標的で解いた減速計算の比を掛けたもの。CANDIDATES の燃焼点だけ
 
+時間の内訳の入力 timing-<種類>-<燃焼度>-<解き方>.toml（TIMING）は、状態を減速材 580、615 K と燃料 900 K の 2 つに絞る（基準の UFG
+1 回と、比の状態 1 回。ログの水準を上げて段ごとの時間を読む）。
+
 使い方: python3 inputs.py（このディレクトリで）
 """
 
@@ -99,6 +102,9 @@ SHIELDINGS = {
         'transfer = "elastic-ratio"\nfuel = "static-ratio"\nrings = "static-ratio"\nsph = "static-ratio"',
     ),
 }
+# 時間の内訳を測る入力: (種類, 燃焼度, 解き方)。状態は TIMING_STATES
+TIMING = [("2A", 60, "f1-static")]
+TIMING_STATES = (([580, 615], [0.711901, 0.608215]), [900])
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
 MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
@@ -117,7 +123,14 @@ def with_temperature(body: str, material: str, kelvin: int) -> str:
     return pattern.sub(rf"\g<1>{kelvin}\n", body)
 
 
-def branch(name: str, source: str, burnup: float, shielding: str) -> str:
+def branch(
+    name: str,
+    source: str,
+    burnup: float,
+    shielding: str,
+    states=(MODERATOR, FUEL),
+    prefix: str = "",
+) -> str:
     path = DEPLETION / source
     text = path.read_text()
     start, end = text.find("library = "), text.find("[depletion]")
@@ -129,7 +142,8 @@ def branch(name: str, source: str, burnup: float, shielding: str) -> str:
         data["depletion"]["materials"],
         data["library"],
     )
-    stem = f"{name}-{burnup:g}-{shielding}"
+    stem = f"{prefix}{name}-{burnup:g}-{shielding}"
+    moderator, fuel = states
 
     def relative(p: str) -> Path:
         return (path.parent / p).resolve().relative_to(HERE.resolve(), walk_up=True)
@@ -161,9 +175,9 @@ def branch(name: str, source: str, burnup: float, shielding: str) -> str:
         f"# このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）: {source} の {burnup:g} MWd/kg、{shielding}\n"
         f"{body.rstrip()}\n\n"
         f'[branches]\nboron = {{ ppm = [650], materials = ["water"] }}\n'
-        f"moderator = {{ temperature = {listed(MODERATOR[0])}, density = {listed(MODERATOR[1])}, "
+        f"moderator = {{ temperature = {listed(moderator[0])}, density = {listed(moderator[1])}, "
         f'materials = ["water", "zircaloy"] }}\n'
-        f"fuel = {{ temperature = {listed(FUEL)}, materials = [{fuels}] }}\n"
+        f"fuel = {{ temperature = {listed(fuel)}, materials = [{fuels}] }}\n"
         f"{kind}\n{ratio}\n"
         f'[history]\nfile = "{relative(output)}"\nchain = "../chain.msgpack"\nburnup = [{burnup:g}]\n'
     )
@@ -186,6 +200,17 @@ def main() -> None:
         source = CASES[name][0]
         (HERE / f"{stem}.toml").write_text(
             branch(name, source, float(burnup), shielding)
+        )
+    for name, burnup, shielding in TIMING:
+        (HERE / f"timing-{name}-{burnup:g}-{shielding}.toml").write_text(
+            branch(
+                name,
+                CASES[name][0],
+                float(burnup),
+                shielding,
+                TIMING_STATES,
+                "timing-",
+            )
         )
 
 
