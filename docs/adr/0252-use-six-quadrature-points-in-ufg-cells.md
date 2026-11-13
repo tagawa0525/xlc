@@ -88,7 +88,7 @@ timing-851-855.json）の、1 ピンの衝突確率と表の和（スレッド�
 ### 確認
 
 - crates/lattice/src/shielding/tests.rs の `fewer_quadrature_points_stay_close_to_the_default_cell`: 既定の点の数を書いた入力は
-  既定とビットで同じで、4 点の実効断面積は既定に近い（相対 1e−3 未満）
+  既定とビットで同じで、4 点の捕獲の実効断面積は既定に近い（相対 1e−5 未満。測ると 1.3e−6）
 - crates/lattice/src/input/tests.rs の `ufg_cp_points_default_to_the_cell_quadrature`: 既定は 16 点で、正の整数を受け、0、負の数、
   小数、真偽値と、自己遮蔽しない入力の指定を拒む
 - examples/depletion/issue-0286/cp-853-855.json（compare.py）と timing-851-855.json（timing.py。ログは `timing-<ケース>-cp-*.log.dvc`）、入力は inputs.py（#0286 の「衝突確率の近似」の節）
