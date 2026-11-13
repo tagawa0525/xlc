@@ -45,7 +45,7 @@ def reactivity(t: dict, k: int, nuclide: str = "Pu-240") -> dict:
 
 def share(difference: float, solved: float) -> float | None:
     """差の、解き直した値に対する割合（解き直した値が 0 なら割れないので None）"""
-    return difference / solved
+    return difference / solved if solved != 0.0 else None
 
 
 def same_nominal(solved: dict, fixed: dict) -> bool:
@@ -75,7 +75,7 @@ def compare(name: str, inputs: list) -> list[dict]:
             "fixed": reactivity(fixed, k),
         }
         row["difference_pcm"] = row["fixed"]["drho_pcm"] - row["solved"]["drho_pcm"]
-        row["fraction"] = row["difference_pcm"] / row["solved"]["drho_pcm"]
+        row["fraction"] = share(row["difference_pcm"], row["solved"]["drho_pcm"])
         rows.append(row)
     return rows
 
@@ -98,7 +98,7 @@ def main() -> None:
         for r in rows:
             print(
                 f"  {name} {r['burnup']:g} MWd/kg: {r['solved']['drho_pcm']:+.3f} {r['fixed']['drho_pcm']:+.3f} "
-                f"{r['difference_pcm']:+.3f} {r['fraction']:+.2%} (k {r['solved']['k_inf']:.6f} {r['fixed']['k_inf']:.6f})"
+                f"{r['difference_pcm']:+.3f} {'-' if r['fraction'] is None else format(r['fraction'], '+.2%')} (k {r['solved']['k_inf']:.6f} {r['fixed']['k_inf']:.6f})"
             )
     for i in inputs:
         print(f"input {i['path']} md5 {i['md5']}")
