@@ -1,4 +1,4 @@
-# このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2O、変種 full。p2/lattice-2O.toml の [10, 40] MWd/kg からの4 状態の分岐
+# このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2O、変種 full。p2/lattice-2O.toml の [10, 40] MWd/kg からの2 状態の分岐
 library = "../../p2/depletion.msgpack"
 ufg-free-gas = { share = false }
 few-group = { output = "table-assembly-2O-full.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -253,7 +253,7 @@ sectors = 8
 [branches]
 boron = { ppm = [1300], materials = ["water"] }
 moderator = { temperature = [600, 615], density = [0.743, 0.690], materials = ["water"] }
-fuel = { temperature = [600, 900], materials = ["fuel", "gd0", "gd1", "gd2", "gd3", "gd4", "gd5", "gd6", "gd7"] }
+fuel = { temperature = [600], materials = ["fuel", "gd0", "gd1", "gd2", "gd3", "gd4", "gd5", "gd6", "gd7"] }
 
 [history]
 file = "../../p2/lattice-2O.msgpack"

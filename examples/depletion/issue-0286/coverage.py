@@ -16,7 +16,8 @@ compare_coverage.py。
   摂動の組成で自己遮蔽を解き直して求める（`derivative-shielding = "solved"`。一般化摂動の `shielded` と同じく、摂動の組成で外す
   核種を選び直す経路）
 - 集合体の分岐（../issue-0180/fuels/inputs.py と同じ作り。燃焼の履歴の燃焼点から、履歴と同じ条件の分岐）: Gd の 2O の 10、40 MWd/kg
-  （公称、燃料の温度 900 K、減速材の 615 K（0.690 g/cc）、その両方の 4 状態）、Gd 24 本の 2P の 10、40 MWd/kg、Pyrex の 2F の
+  （公称と減速材の 615 K（0.690 g/cc）の 2 状態。燃料の温度の分岐は、p2 の履歴が 600 K の燃料で H-1 を輸送し、ライブラリの H-1 に
+  燃料の温度の格子点（900 K など）が無いので解けない）、Gd 24 本の 2P の 10、40 MWd/kg、Pyrex の 2F の
   40 MWd/kg、IFBA の 2M の 40 MWd/kg（公称の 1 状態）、本番の組成の 2A の 60 MWd/kg（../p9-product の履歴。../issue-0180/branch/2A-60.toml
   の公称と、燃料の温度 1200 K、減速材の 600 K（0.661165 g/cc）、その両方の 4 状態）。どれもミクロ燃焼の 31 核種を書く
 
@@ -69,7 +70,7 @@ PIN_FUELS = {
         "Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }"
     ),
 }
-# 集合体: （履歴の入力（examples/depletion から）、分岐を解く燃焼点、分岐の軸の行を 2 点にするか）
+# 集合体: （履歴の入力（examples/depletion から）、分岐を解く燃焼点、減速材の軸を 2 点にするか）
 ASSEMBLIES = {
     "2O": ("p2/lattice-2O.toml", [10, 40], True),
     "2P": ("p2/lattice-2P.toml", [10, 40], False),
@@ -219,15 +220,9 @@ def assembly(name: str, variant: str) -> str:
             'moderator = { temperature = [600, 615], density = [0.743, 0.690], materials = ["water"] }',
             source,
         )
-        text = replace_once(
-            text,
-            "fuel = { temperature = [600], ",
-            "fuel = { temperature = [600, 900], ",
-            source,
-        )
     # FUELS.branch はパスを ../issue-0180/fuels から書き、coverage/ も examples/depletion から同じ深さなのでそのまま使う
     text = with_variant(text, variant, case)
-    what = f"{source} の {listed(burnup)} MWd/kg からの{'4 状態' if axes else '公称の 1 状態'}の分岐"
+    what = f"{source} の {listed(burnup)} MWd/kg からの{'2 状態' if axes else '公称の 1 状態'}の分岐"
     return header(case, variant, what) + text
 
 
