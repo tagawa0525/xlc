@@ -2810,6 +2810,7 @@ pub(crate) mod lattice {
                 shielding: &anchor,
                 materials: &materials,
                 options,
+                light: &AnchorLight::default(),
             },
         )
         .unwrap();
@@ -3160,6 +3161,68 @@ pub(crate) mod lattice {
     }
 
     #[test]
+    fn static_ratio_states_solve_only_the_state_static_slowing_down_after_the_first() {
+        // #0285: 静止した標的の比の状態は、状態の UFG を解かず、状態の静止した標的の減速計算だけを解く。基準の静止した標的の減速計算は、
+        // 同じ基準の状態の間で 1 度だけ解き、持ち回った結果は基準ごとに解き直したものとビットで同じ
+        let library = resonant_library();
+        let options = RatioOptions {
+            transfer: RatioTransfer::ElasticRatio,
+            rings: RatioRings::StaticRatio,
+            sph: RatioSph::StaticRatio,
+            fuel: RatioFuel::StaticRatio,
+        };
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let shielding = ShieldingOptions::default();
+        let anchor = shield_fuel_with(
+            &library, &tracking, &materials, &regions, &symmetry, &shielding,
+        )
+        .unwrap();
+        let thinned = |water: f64| {
+            let mut state = materials.clone();
+            for (_, density) in &mut state
+                .iter_mut()
+                .find(|m| m.name == "water")
+                .unwrap()
+                .composition
+            {
+                *density *= water;
+            }
+            state
+        };
+        let ratio = |reuse: &mut ShieldingReuse, state: &[MaterialInput], light: &AnchorLight| {
+            shield_fuel_ratio(
+                &library,
+                reuse,
+                state,
+                &regions,
+                &symmetry,
+                &shielding,
+                RatioAnchor {
+                    shielding: &anchor,
+                    materials: &materials,
+                    options,
+                    light,
+                },
+            )
+            .unwrap()
+        };
+        let light = AnchorLight::default();
+        let mut reuse = ShieldingReuse::new(&tracking);
+        ratio(&mut reuse, &thinned(0.7), &light);
+        assert_eq!(reuse.slowing_downs(), 2);
+        let second = ratio(&mut reuse, &thinned(0.8), &light);
+        assert_eq!(reuse.slowing_downs(), 3);
+        let mut fresh = ShieldingReuse::new(&tracking);
+        assert_eq!(
+            second,
+            ratio(&mut fresh, &thinned(0.8), &AnchorLight::default())
+        );
+        assert_eq!(fresh.slowing_downs(), 2);
+    }
+
+    #[test]
     fn state_rings_are_the_non_fuel_rings_of_the_state_slowing_down() {
         // #0285 の診断: 燃料でないリングを状態の UFG にすると、群定数と移行は状態ごとに解いたもので、群定数だけを選ぶと移行は基準の行を
         // 弾性散乱の比で縮めたもの。燃料のリングと SPH 因子も状態のものにすれば、どのリングも状態ごとに解いたものと同じ
@@ -3244,6 +3307,7 @@ pub(crate) mod lattice {
                 shielding: &anchor,
                 materials: &reversed,
                 options: RatioOptions::default(),
+                light: &AnchorLight::default(),
             },
         );
         assert!(
