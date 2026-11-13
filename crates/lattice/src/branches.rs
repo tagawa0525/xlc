@@ -900,7 +900,24 @@ impl StateShielding<'_> {
         remixed: &[String],
         state: &[MaterialInput],
     ) -> anyhow::Result<()> {
-        let _ = (library, lattice, region_materials, remixed, state);
+        let rebuilt = remix_varied(
+            library,
+            self.fuel(),
+            lattice,
+            region_materials,
+            remixed,
+            state,
+            state,
+        )
+        .context("remixing the state materials")?;
+        if let Some((m, _)) = rebuilt
+            .iter()
+            .find(|(m, material)| *material != self.materials()[*m])
+        {
+            bail!(
+                "material {m} remixed at the state composition differs from the self-shielding of the state"
+            );
+        }
         Ok(())
     }
 

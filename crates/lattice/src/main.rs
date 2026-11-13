@@ -962,14 +962,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // 追う核種の微視的断面積（ADR-0216）。`[history]` は自己遮蔽と格子全体の少数群定数のファイルを求める（入力の検査）
         let micro = match &history_branches {
             Some(h) if !h.micro_nuclides().is_empty() => {
-                let (Source::Library(library), Some(fuel), Some(output)) =
-                    (&source, fuel, &input.output)
+                let (Source::Library(library), Some(shielding), Some(output)) =
+                    (&source, held.as_ref(), &input.output)
                 else {
                     return Err(anyhow!(
                         "micro cross sections need a library, the self-shielding and few-group output"
                     ))
                     .with_context(context);
                 };
+                let fuel = shielding.fuel();
                 let mut micro = h
                     .micro(
                         rod,
@@ -1031,6 +1032,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         Ok((few, sigma, solution.iterations))
                     };
                     let nuclides = h.perturbed_nuclides();
+                    // 状態の自己遮蔽のまま作り直す摂動（既定。ADR-0249）は、燃焼の領域の物質を状態の組成で作り直すと状態の物質に
+                    // 戻ることを状態ごとに 1 度確かめる（崩れた差が微分に入らないため）
+                    let depletion = h.depletion_materials();
+                    if !h.solves_perturbed_shielding() {
+                        shielding
+                            .check_remix(
+                                library,
+                                &geometry.lattice,
+                                solved_materials(rod),
+                                &depletion,
+                                state_materials,
+                            )
+                            .with_context(context)?;
+                    }
                     match h.generalized() {
                         None => h.add_derivatives(
                             rod,
@@ -1052,17 +1067,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                     );
                                     shielded
                                 } else {
-                                    held.as_ref()
-                                        .ok_or_else(|| {
-                                            anyhow!(
-                                                "the density derivatives need the self-shielding"
-                                            )
-                                        })?
+                                    shielding
                                         .remixed_at(
                                             library,
                                             &geometry.lattice,
                                             solved_materials(rod),
-                                            &h.depletion_materials(),
+                                            &depletion,
                                             state_materials,
                                             perturbed,
                                         )
