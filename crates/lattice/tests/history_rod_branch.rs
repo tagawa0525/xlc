@@ -463,7 +463,10 @@ fn solved_derivative_shielding_changes_only_the_density_derivatives() {
                 p.derivative.as_ref().unwrap(),
                 q.derivative.as_ref().unwrap(),
             );
-            assert_eq!((&p.total, &p.fission), (&q.total, &q.fission), "state {k}");
+            // 微分のほか（微視的断面積と反応の経路）は同じ
+            let (mut bare_p, mut bare_q) = (p.clone(), q.clone());
+            (bare_p.derivative, bare_q.derivative) = (None, None);
+            assert_eq!(bare_p, bare_q, "state {k}");
             if a.densities[fixed.points[k][0]][xe] > 0.0 && dp.total != dq.total {
                 differ += 1;
             }
