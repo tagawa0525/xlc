@@ -45,7 +45,12 @@ def reactivity(t: dict, k: int, nuclide: str = "Pu-240") -> dict:
 
 def same_nominal(solved: dict, fixed: dict) -> bool:
     """2 つのテーブルの状態（k∞ と 2 群の定数）が同じか（摂動の自己遮蔽だけが違い、状態は同じに解くはず）"""
-    return True
+    if len(solved["states"]) != len(fixed["states"]):
+        return False
+    return all(
+        a["k_inf"] == b["k_inf"] and SKIP.two_group(a) == SKIP.two_group(b)
+        for a, b in zip(solved["states"], fixed["states"])
+    )
 
 
 def compare(name: str, inputs: list) -> list[dict]:
@@ -55,6 +60,8 @@ def compare(name: str, inputs: list) -> list[dict]:
     points = SKIP.burnups(solved)
     if SKIP.burnups(fixed) != points:
         sys.exit(f"{name}: the tables have different burnup points")
+    if not same_nominal(solved, fixed):
+        sys.exit(f"{name}: the tables solve different states")
     rows = []
     for k, b in enumerate(points):
         row = {
