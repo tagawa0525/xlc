@@ -1,0 +1,5 @@
+outs:
+- md5: 9494b0b2e11c1299aa866c4cf9956d78
+  size: 1661726
+  hash: md5
+  path: table-d2-fixed.msgpack
