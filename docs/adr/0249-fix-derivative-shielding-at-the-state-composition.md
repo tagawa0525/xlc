@@ -74,6 +74,10 @@ issue #0180 の「自己遮蔽を省いたときの誤差」の「微分の摂�
   14.85〜16.5 時間、摂動 1,274 回 × 約 4 秒 = 約 1.4 時間、再利用する状態の 4.1 時間）
 - ADR-0221 の決定の「摂動の輸送の自己遮蔽」を、この ADR を指す形に直した（ADR-0221 の「## 変更」）
 - 案 F では摂動の組成の自己遮蔽を解かず、ログの `derivative_shieldings` は 0
+- DVC のステージ: `bin/lattice` が変わったので、deps に持つ 206 のステージ（examples の 18 の dvc.yaml。ほかの deps も changed のものを
+  含み、`bin/lattice` だけが changed なのは 26）が changed になる（`dvc status --json`、c9131ba72、2026-11-13。下流は数えていない）。
+  既定で結果が変わるのは、`derivative` を持つ入力を解く examples/depletion/p9-2A の `branch-2A`（未実行。見込み約 20〜22 時間）だけで、
+  ほかのステージの入力は数密度の微分を持たない。どれも再実行していない（読む作業が来るまで後回し。CLAUDE.md の「計算」）
 - 既定に依る examples の入力のうち、案 S で測った記録の入力には `derivative-shielding = "solved"` を書いた（作り直したときに記録と同じ
   経路で解くため）
 
