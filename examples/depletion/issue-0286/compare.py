@@ -60,6 +60,11 @@ def relative(a: list[float], b: list[float]) -> float:
     return worst
 
 
+def form(state: dict) -> list[float]:
+    """状態のピン出力の形状関数（テーブルの `pins.form`。無ければ空）"""
+    return flat(state["pins"]["form"]) if state["pins"] else []
+
+
 def states(path: Path) -> list[dict]:
     return msgpack.unpackb(path.read_bytes(), strict_map_key=False)["states"]
 
@@ -126,7 +131,7 @@ def difference(case: str, variant: str, base: dict) -> dict:
         for s, b in zip(fg, base["fg"])
         for c in CONSTANTS
     )
-    pins = [(flat(s["pins"]), flat(b["pins"])) for s, b in zip(fg, base["fg"])]
+    pins = [(form(s), form(b)) for s, b in zip(fg, base["fg"])]
     row["pins"] = (
         max(relative(a, b) for a, b in pins) if any(b for _, b in pins) else None
     )
