@@ -329,10 +329,10 @@ pub struct Share {
     pub keep_actinides: bool,
 }
 
-/// [`FreeGas`] の既定の、核種を絞る条件（ADR-0251）
+/// [`FreeGas`] の既定の、核種を絞る条件: 範囲のどの格子点でも散乱の割合が 1e-4 より小さい核種を静止した標的にする（ADR-0251）
 pub const DEFAULT_SHARE: Share = Share {
     threshold: 1.0e-4,
-    measure: ShareMeasure::Lethargy,
+    measure: ShareMeasure::Point,
     keep_actinides: false,
 };
 
@@ -364,7 +364,7 @@ impl Default for Scattering {
 
 impl Default for FreeGas {
     /// ADR-0209 の既定（ADR-0205 の速い方法）で、分離共鳴を持たない核種の上限は温度によらない 1000 eV（ADR-0246）、
-    /// 分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）、散乱の割合が 1e-4 より小さい核種は静止した標的（ADR-0251）
+    /// 分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）、核種は [`DEFAULT_SHARE`] で絞る（ADR-0251）
     fn default() -> Self {
         Self {
             upper: FreeGasCap::Energy(1000.0),

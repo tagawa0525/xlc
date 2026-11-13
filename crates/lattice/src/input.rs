@@ -25,7 +25,7 @@
 //!                                 # （false で絞らない。#0286、ADR-0251）。{ threshold = <閾値>, measure = "lethargy" | "point",
 //!                                 # keep-actinides = <真偽値> } で、割合の測り方（狭い共鳴の中性子束の重みのレサジーの積分の比か、
 //!                                 # 格子点ごとの比の最大）と、アクチニド（Z ≥ 89）を割合によらず残すかを選ぶ（数だけなら既定の
-//!                                 # measure = "lethargy"、keep-actinides = false）
+//!                                 # measure = "point"、keep-actinides = false）
 //! ufg-hold-memory = 80            # 自己遮蔽の自由ガスの散乱源の区間をスイープの間で持つ上限を決める全体の量 (GiB)。減速計算の
 //!                                 # 数えた作業の配列を除いた残りで持つ（作業の配列は抑えない）。省略すると、自己遮蔽のたびに
 //!                                 # （使用可能メモリ − 2 GiB）× 0.8（ADR-0213）
