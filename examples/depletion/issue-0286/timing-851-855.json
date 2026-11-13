@@ -1,0 +1,258 @@
+{
+ "2A-60": {
+  "cp-combined": {
+   "shielding_seconds": 37.9,
+   "total_seconds": 50.996992584,
+   "per_pin": {
+    "grid": 2.2145527143846158,
+    "table": 1.26105249925641,
+    "evaluate": 0.42702068582051284,
+    "collision": 0.6606200286923077,
+    "slowing": 15.327267655820512,
+    "free_gas": 12.28115777030769,
+    "sab": 1.1222781025897437
+   },
+   "transfers_per_pin": 0.2680628640769231
+  },
+  "cp-default": {
+   "shielding_seconds": 47.2,
+   "total_seconds": 60.112327446,
+   "per_pin": {
+    "grid": 2.212448576794871,
+    "table": 3.2076412235128204,
+    "evaluate": 0.3872195863076923,
+    "collision": 5.290869936692308,
+    "slowing": 15.12228052989744,
+    "free_gas": 12.136472307333333,
+    "sab": 1.1250640895128203
+   },
+   "transfers_per_pin": 0.2941336476153846
+  },
+  "cp-deviation-0.03": {
+   "shielding_seconds": 45.2,
+   "total_seconds": 58.271708352,
+   "per_pin": {
+    "grid": 2.2105797464102572,
+    "table": 6.11374993674359,
+    "evaluate": 0.4077531544871795,
+    "collision": 0.9122092918205127,
+    "slowing": 15.316404086487179,
+    "free_gas": 12.285927396871793,
+    "sab": 1.114415803230769
+   },
+   "transfers_per_pin": 0.35910894120512815
+  },
+  "cp-points-4": {
+   "shielding_seconds": 44.4,
+   "total_seconds": 57.551597596,
+   "per_pin": {
+    "grid": 2.2164858002820504,
+    "table": 1.0003388038974355,
+    "evaluate": 0.42773697920512815,
+    "collision": 1.5621227891025642,
+    "slowing": 19.39449022505128,
+    "free_gas": 16.415547187692315,
+    "sab": 1.1030505869487177
+   },
+   "transfers_per_pin": 0.27322920966666675
+  },
+  "cp-points-6": {
+   "shielding_seconds": 40.1,
+   "total_seconds": 53.129988934,
+   "per_pin": {
+    "grid": 2.233838157794871,
+    "table": 1.3665276020512822,
+    "evaluate": 0.42641944676923077,
+    "collision": 2.1837216139230766,
+    "slowing": 15.17389124728205,
+    "free_gas": 12.168807294358974,
+    "sab": 1.1221838494358973
+   },
+   "transfers_per_pin": 0.2649915751025641
+  },
+  "cp-points-8": {
+   "shielding_seconds": 41.7,
+   "total_seconds": 55.053507043,
+   "per_pin": {
+    "grid": 2.2453100557948713,
+    "table": 1.726592424871795,
+    "evaluate": 0.42075285330769235,
+    "collision": 2.8141391628461543,
+    "slowing": 15.321503986025636,
+    "free_gas": 12.312625844666668,
+    "sab": 1.1291237873846152
+   },
+   "transfers_per_pin": 0.272813007025641
+  },
+  "cp-share-1e-4-combined": {
+   "shielding_seconds": 26.9,
+   "total_seconds": 39.964612835,
+   "per_pin": {
+    "grid": 2.253222072358975,
+    "table": 1.249115389333333,
+    "evaluate": 0.4697984628461538,
+    "collision": 0.6874279384102563,
+    "slowing": 8.393383892153846,
+    "free_gas": 5.419591133025642,
+    "sab": 1.098903787051282
+   },
+   "transfers_per_pin": 0.18491854851282052
+  },
+  "cp-share-1e-4-points-6": {
+   "shielding_seconds": 29.3,
+   "total_seconds": 42.369014497,
+   "per_pin": {
+    "grid": 2.2259419298205128,
+    "table": 1.3654164725384614,
+    "evaluate": 0.3855761455641026,
+    "collision": 2.2082836881282044,
+    "slowing": 8.57293118002564,
+    "free_gas": 5.6342907552307695,
+    "sab": 1.1056859854358971
+   },
+   "transfers_per_pin": 0.18427264958974365
+  },
+  "cp-share-1e-4": {
+   "shielding_seconds": 36.4,
+   "total_seconds": 49.632800432,
+   "per_pin": {
+    "grid": 2.2539943118974355,
+    "table": 3.20562058851282,
+    "evaluate": 0.44806137592307693,
+    "collision": 5.343842098051282,
+    "slowing": 8.472111001794872,
+    "free_gas": 5.568322715384615,
+    "sab": 1.1006944255128206
+   },
+   "transfers_per_pin": 0.18406712153846153
+  },
+  "cp-table-8-deviation-0.03": {
+   "shielding_seconds": 39.6,
+   "total_seconds": 52.607145599,
+   "per_pin": {
+    "grid": 2.234210390974359,
+    "table": 2.2428136904615386,
+    "evaluate": 0.4195591305128205,
+    "collision": 0.9271667954615384,
+    "slowing": 15.21520937748718,
+    "free_gas": 12.172181002307694,
+    "sab": 1.1207213615897436
+   },
+   "transfers_per_pin": 0.2568845745641025
+  },
+  "cp-table-8": {
+   "shielding_seconds": 44.6,
+   "total_seconds": 57.602603149,
+   "per_pin": {
+    "grid": 2.2215712135128216,
+    "table": 1.3424700117948718,
+    "evaluate": 0.3951999350769231,
+    "collision": 5.353256830769229,
+    "slowing": 15.23224212666666,
+    "free_gas": 12.24407548625641,
+    "sab": 1.1263211392564103
+   },
+   "transfers_per_pin": 0.2675496702051283
+  }
+ },
+ "2O-10": {
+  "cp-combined": {
+   "shielding_seconds": 33.8,
+   "total_seconds": 46.695704659,
+   "per_pin": {
+    "grid": 1.5918909825641026,
+    "table": 0.5299726701025642,
+    "evaluate": 0.44048242458974374,
+    "collision": 0.25161267064102566,
+    "slowing": 14.600191219410252,
+    "free_gas": 11.330047669999997,
+    "sab": 1.339443562538461
+   },
+   "transfers_per_pin": 0.2556247826410258
+  },
+  "cp-default": {
+   "shielding_seconds": 36.5,
+   "total_seconds": 49.499108062,
+   "per_pin": {
+    "grid": 1.6149468161025644,
+    "table": 0.7961260786410257,
+    "evaluate": 0.4633247304102564,
+    "collision": 1.2356798069743589,
+    "slowing": 14.469085802564106,
+    "free_gas": 11.206281863923078,
+    "sab": 1.339424977205128
+   },
+   "transfers_per_pin": 0.2787513245897436
+  },
+  "cp-points-6": {
+   "shielding_seconds": 38.4,
+   "total_seconds": 51.35849141,
+   "per_pin": {
+    "grid": 1.6144907256153844,
+    "table": 0.44370027917948707,
+    "evaluate": 0.45000721079487166,
+    "collision": 0.8951241572564104,
+    "slowing": 17.15439040630769,
+    "free_gas": 13.897031817641023,
+    "sab": 1.319574476923077
+   },
+   "transfers_per_pin": 0.26973102053846154
+  },
+  "cp-points-8": {
+   "shielding_seconds": 34.9,
+   "total_seconds": 47.822953599,
+   "per_pin": {
+    "grid": 1.5886420541282051,
+    "table": 0.5129586115128205,
+    "evaluate": 0.43497957320512814,
+    "collision": 1.0225211465128208,
+    "slowing": 14.403550204897437,
+    "free_gas": 11.121406782410256,
+    "sab": 1.3414673366410255
+   },
+   "transfers_per_pin": 0.25611413592307686
+  },
+  "cp-share-1e-4-points-6": {
+   "shielding_seconds": 24.0,
+   "total_seconds": 36.9021561,
+   "per_pin": {
+    "grid": 1.6510868518461537,
+    "table": 0.4432720702307691,
+    "evaluate": 0.384602166025641,
+    "collision": 0.679593033923077,
+    "slowing": 7.834500645384614,
+    "free_gas": 4.622077480102565,
+    "sab": 1.3347027840000005
+   },
+   "transfers_per_pin": 0.24646208089743596
+  },
+  "cp-share-1e-4": {
+   "shielding_seconds": 26.7,
+   "total_seconds": 39.615986226,
+   "per_pin": {
+    "grid": 1.658729973230769,
+    "table": 0.7980796178717947,
+    "evaluate": 0.3757203817948718,
+    "collision": 0.8486083205128205,
+    "slowing": 8.005364904871795,
+    "free_gas": 4.78132042676923,
+    "sab": 1.340953945076923
+   },
+   "transfers_per_pin": 0.2561888668205128
+  },
+  "cp-table-8-deviation-0.03": {
+   "shielding_seconds": 34.4,
+   "total_seconds": 47.310982536,
+   "per_pin": {
+    "grid": 1.603275503025641,
+    "table": 0.8152347886923076,
+    "evaluate": 0.47734028199999995,
+    "collision": 0.2626160894102565,
+    "slowing": 14.51421800576923,
+    "free_gas": 11.251467274051283,
+    "sab": 1.3383790751794868
+   },
+   "transfers_per_pin": 0.25890239046153846
+  }
+ }
+}
