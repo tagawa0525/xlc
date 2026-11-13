@@ -2300,6 +2300,21 @@ fn rest_minor_scatterers(
             let (total, scatter) = ring.iter().fold((0.0, 0.0), |(t, s), &(k, n)| {
                 (t + n * values[k][0], s + n * values[k][1])
             });
+            // 割合を数える項（範囲の中の自由ガスの核種）のない格子点では Σt を使わない
+            if !ring
+                .iter()
+                .any(|&(k, _)| tops[k].is_some_and(|top| e <= top))
+            {
+                for (sum, before) in own[i]
+                    .iter_mut()
+                    .zip(own_before[i].iter_mut())
+                    .chain(all[i].iter_mut().zip(all_before[i].iter_mut()))
+                {
+                    *sum += 0.5 * du * *before;
+                    *before = 0.0;
+                }
+                continue;
+            }
             if total <= 0.0 {
                 return Err(UfgError::ShareZeroTotal { ring: i, energy: e });
             }
