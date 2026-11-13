@@ -417,3 +417,61 @@ fn history_rod_branches_match_separate_lattices() {
     assert_eq!(rods.points.len(), 9);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn solved_derivative_shielding_changes_only_the_density_derivatives() {
+    // 微分の摂動の組成で自己遮蔽を解き直す入力（ADR-0249 の `solved`）は、既定（状態の自己遮蔽のまま）と同じ状態の定数と
+    // 微視的断面積を書き、数密度の微分だけが違う（Xe-135 が 0 でない燃焼点）
+    let dir = scratch("solved");
+    let depletion = dir.join("depletion");
+    std::fs::create_dir_all(&depletion).unwrap();
+    std::fs::write(
+        depletion.join("chain.msgpack"),
+        chain().to_msgpack().unwrap(),
+    )
+    .unwrap();
+    run(&depletion, &format!("{LATTICE}{DEPLETION}"));
+    let history = std::fs::read(depletion.join("history.msgpack")).unwrap();
+    let fixed = branch_run(
+        &dir.join("fixed"),
+        &history,
+        &format!("{}{BRANCHES}", branched()),
+    );
+    let solved = branch_run(
+        &dir.join("solved"),
+        &history,
+        &format!(
+            "{}{BRANCHES}derivative-shielding = \"solved\"\n",
+            branched()
+        ),
+    );
+    assert_eq!(fixed.points, solved.points);
+    assert_eq!(fixed.states, solved.states);
+    let (a, b) = (
+        fixed.micro.as_ref().unwrap(),
+        solved.micro.as_ref().unwrap(),
+    );
+    let xe = a.nuclides.iter().position(|n| n == "Xe-135").unwrap();
+    let mut differ = 0;
+    for (k, (x, y)) in a.states.iter().zip(&b.states).enumerate() {
+        for (i, (p, q)) in x.iter().zip(y).enumerate() {
+            if i != xe {
+                assert_eq!(p, q, "state {k} nuclide {i}");
+                continue;
+            }
+            let (dp, dq) = (
+                p.derivative.as_ref().unwrap(),
+                q.derivative.as_ref().unwrap(),
+            );
+            assert_eq!((&p.total, &p.fission), (&q.total, &q.fission), "state {k}");
+            if a.densities[fixed.points[k][0]][xe] > 0.0 && dp.total != dq.total {
+                differ += 1;
+            }
+        }
+    }
+    assert!(
+        differ > 0,
+        "solving the perturbed shielding changed no derivative"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
