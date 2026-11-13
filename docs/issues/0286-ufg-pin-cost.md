@@ -229,7 +229,7 @@ k∞ の反応度 1/k(既定) − 1/k(変種)（pcm。空欄は測っていな�
 （`pin-mox-40`。MOX-1 の組成を 2A のピンに入れ、等体積の 5 リングの物質で 40 MWd/kg まで燃焼させた mox-history.toml からの分岐）を
 足した。MOX の集合体の履歴は無い。差の出どころは cp-853-855.json（Slurm 853 は `-c 16` の排他でないジョブ、855 は timed の排他の
 ジョブ。xlc f387db63d と bb9783624（Rust のコードは同じ。実行ファイルは同じ `target/release/lattice`）、分岐点は main の 827999686、
-2026-11-13）、時間の出どころは timing-851-855.json（Slurm 851 と 855。timed の排他のジョブ、32 スレッド、xlc 2a3458bc6 と bb9783624
+2026-11-13）、時間の出どころは timing-851-855.json（timing.py が `timing-<ケース>-cp-*.log`（`.dvc`）から書く。Slurm 851 と 855。timed の排他のジョブ、32 スレッド、xlc 2a3458bc6 と bb9783624
 （同じ実行ファイル））。
 
 1 ピンの衝突確率と表の時間を決めているもの（2A-60 の cp-default、851）: どちらも 1 回の `Cylinder::tracks`（等価なセルの 8 リング、
