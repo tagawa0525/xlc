@@ -2274,9 +2274,11 @@ fn rest_minor_scatterers(
         .iter()
         .map(|d| d.gas.filter(|g| g.floor().is_none()).map(|g| g.top()))
         .collect();
-    if tops.iter().all(Option::is_none) {
+    // 格子点はエネルギーの降順。どの核種の範囲より上の格子点は、どの項も 0 なので飛ばす
+    let Some(highest) = tops.iter().flatten().copied().reduce(f64::max) else {
         return Ok(());
-    }
+    };
+    let first = points.partition_point(|&(e, _)| e > highest);
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     // [リング][項] の ∫ N σs / Σt du と ∫ Σs / Σt du（どちらも項の核種の範囲で）
     let zeros: Vec<Vec<f64>> = entries.iter().map(|r| vec![0.0; r.len()]).collect();
@@ -2284,7 +2286,7 @@ fn rest_minor_scatterers(
     // 前の格子点の [リング][項] の N σs / Σt と Σs / Σt（範囲の外は 0）
     let (mut own_before, mut all_before) = (zeros.clone(), zeros);
     let mut values = vec![[0.0; 2]; data.len()];
-    for (m, (&(e, below), &um)) in points.iter().zip(u).enumerate() {
+    for (m, (&(e, below), &um)) in points.iter().zip(u).enumerate().skip(first) {
         for ((value, d), cursor) in values.iter_mut().zip(data.iter()).zip(&mut cursors) {
             let row = evaluate(d, cursor, e, below)?;
             *value = [row[0], row[1]];
