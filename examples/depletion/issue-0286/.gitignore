@@ -1,0 +1,4 @@
+# 計算の出力（要約は compare.py が書く JSON を追跡する）
+*.out
+*.log
+fg-*.msgpack
