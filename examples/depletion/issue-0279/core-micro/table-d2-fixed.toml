@@ -116,3 +116,5 @@ micro = [
   "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
 ]
 derivative = ["Pu-240"]
+# 既定と同じ値を書く（既定が変わっても、この入力は状態の自己遮蔽のまま解く。ADR-0249）
+derivative-shielding = "fixed"
