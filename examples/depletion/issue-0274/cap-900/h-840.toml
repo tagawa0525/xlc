@@ -2,7 +2,7 @@
 # ../pin-default の燃料の温度を 900 K の 1 点にし、分離共鳴を持つ核種の自由ガスの上限を 840 kT にしたもの（上限を 900 K で動かして、上限が U-238 の共鳴を越えるときの動きを見る）。比べ方は read_caps.py。
 library = "../../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
-ufg-free-gas = { heavy = 840 }
+ufg-free-gas = { heavy = 840, share = false }
 few-group = { output = "h-840.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30
