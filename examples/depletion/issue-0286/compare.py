@@ -194,7 +194,7 @@ def main() -> None:
     cases = args.cases or [
         c
         for c in INPUTS.cases()
-        if any((HERE / f"{c}-{d}.log").exists() for d, _ in groups)
+        if any((HERE / f"{c}-{v}.log").exists() for _, names in groups for v in names)
     ]
     summary = {}
     for case in cases:
