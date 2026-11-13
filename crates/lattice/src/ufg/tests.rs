@@ -1256,13 +1256,14 @@ fn thermal_spectrum_of(lib: &Library, scattering: Scattering) -> CellSpectrum {
 
 /// [`free_gas`] の、散乱の割合が `share` より小さい核種を静止した標的にするもの
 fn free_gas_share(share: f64) -> Scattering {
-    match free_gas(UNCAPPED, 4, None) {
-        Scattering::FreeGas(options) => Scattering::FreeGas(FreeGas {
-            share: Some(share),
-            ..options
-        }),
-        Scattering::Static => unreachable!(),
-    }
+    Scattering::FreeGas(FreeGas {
+        upper: UNCAPPED,
+        cells: 4,
+        sweeps: None,
+        heavy: None,
+        sab: false,
+        share: Some(share),
+    })
 }
 
 #[test]
