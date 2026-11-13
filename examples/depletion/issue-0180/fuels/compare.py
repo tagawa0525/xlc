@@ -49,13 +49,8 @@ def share(difference: float, solved: float) -> float | None:
 
 
 def same_nominal(solved: dict, fixed: dict) -> bool:
-    """2 つのテーブルの状態（k∞ と 2 群の定数）が同じか（摂動の自己遮蔽だけが違い、状態は同じに解くはず）"""
-    if len(solved["states"]) != len(fixed["states"]):
-        return False
-    return all(
-        a["k_inf"] == b["k_inf"] and SKIP.two_group(a) == SKIP.two_group(b)
-        for a, b in zip(solved["states"], fixed["states"])
-    )
+    """2 つのテーブルの状態（k∞ と少数群定数のすべての項目）が同じか（摂動の自己遮蔽だけが違い、状態は同じに解くはず）"""
+    return solved["states"] == fixed["states"]
 
 
 def compare(name: str, inputs: list) -> list[dict]:
