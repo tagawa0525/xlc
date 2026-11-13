@@ -107,5 +107,6 @@ timing-851-855.json）の、1 ピンの衝突確率と表の和（スレッド�
   16 状態。Slurm 862、排他、xlc 4e54ffdf6、分岐点は main の 5ec0adcb1、2026-11-14。入力は coverage.py の `assembly-mox`）: 6 点の
   どの核種も自由ガスの経路からの差は、k∞ 0.0024 pcm 以下、少数群定数 3.1e−8 以下、ピン出力の形状関数 3.4e−9 以下、燃料の温度と
   減速材の反応度の変化の差 0.0003 pcm 以下、ミクロ燃焼の 31 核種の微視的断面積 1.2e−7 以下（U-238）。ADR-0251 の既定と合わせると
-  k∞ 0.0098 pcm、少数群定数 1.3e−7、ピン出力 2.2e−8、微視的断面積 1.8e−6 以下で、ADR-0251 の既定だけの差（0.0077 pcm、1.1e−7、2.3e−8、
-  1.8e−6）とほぼ同じ（mox-assembly-862-points-6.json、mox-assembly-862-share-point-points-6.json）
+  k∞ 0.0098 pcm、少数群定数 1.3e−7、ピン出力 2.2e−8、微視的断面積 1.8e−6 以下（ADR-0251 の既定だけの差は 0.0077 pcm、1.1e−7、2.3e−8、
+  1.8e−6）。k∞ の差はどの状態でも 2 つの差の和（差は 3e−7 pcm 以下）で、和でも目安の 1 桁以上下（mox-assembly-862-points-6.json、
+  mox-assembly-862-share-point-points-6.json）
