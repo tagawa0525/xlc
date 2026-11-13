@@ -1,0 +1,5 @@
+outs:
+- md5: 0a3d53a0f32d509c65e6fd62b1c60825
+  size: 1050301
+  hash: md5
+  path: burn-mox-full.log

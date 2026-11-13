@@ -1,0 +1,5 @@
+outs:
+- md5: df8d72f8f3e8332a8ea7558cbe5d8091
+  size: 5370104
+  hash: md5
+  path: assembly-2O-full.log

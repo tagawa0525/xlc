@@ -1,0 +1,5 @@
+outs:
+- md5: f895c95172d55922fe4628a5220de1fb
+  size: 220102
+  hash: md5
+  path: table-assembly-2O-full.msgpack

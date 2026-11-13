@@ -1,0 +1,5 @@
+outs:
+- md5: 101c31e3cefd3990f3d5d10463dee6e9
+  size: 102124
+  hash: md5
+  path: table-derivative-mox-share-1e-4.msgpack

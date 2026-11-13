@@ -9,10 +9,10 @@
 - 分岐: 状態ごとの k∞ の反応度の差、少数群定数（全断面積、吸収、νΣf、散乱行列）の相対の差の最大、燃料の温度と減速材の分岐の
   反応度の変化 1/k(公称) − 1/k(分岐) の差（share − full。pcm）、ミクロ燃焼の核種ごとの微視的断面積（数密度の微分を含む、
   テーブルの `micro` の数）の相対の差の最大
-- どちらも: 燃料のリングの U-238 の 1 群の捕獲（ログの `UFG U-238 ring capture`）の相対の差の最大と、自己遮蔽ごとに静止した標的に
+- どちらも: 燃料のリングの U-238 の 1 群の捕獲（ログの `UFG U-238 ring capture` か、`UFG ring capture` の U-238 の行）の相対の差の最大と、自己遮蔽ごとに静止した標的に
   した核種（ログの `UFG free gas rested by the scatter share` のうち割合が 0 でないもの）の一覧の移り変わり（絞る変種のログ）
 
-使い方: python3 compare_coverage.py --json <要約の出力先> [--variant <変種>]（このディレクトリで）
+使い方: python3 compare_coverage.py --json <要約の出力先> [--variant <変種>] [<ケース>...]（このディレクトリで）
 """
 
 import argparse
@@ -99,7 +99,11 @@ def shieldings(path: Path) -> list[dict]:
             # 割合 0 は数密度 0 の輸送する核種（燃焼の領域の、まだできていない核種）で、外しても何も変わらないので数えない
             if float(dict(FIELD.findall(line))["share"]) > 0.0:
                 rested.add(FIELD_NAME.search(line).group(1))
-        elif "UFG U-238 ring capture" in line:
+        elif "UFG U-238 ring capture" in line or (
+            "UFG ring capture" in line and 'nuclide="U-238"' in line
+        ):
+            # 848 と 854 の実行ファイルは U-238 だけを `UFG U-238 ring capture` で書き、後の実行ファイルは核種ごとに
+            # `UFG ring capture nuclide=...` で書く。同じ U-238 の捕獲なので、どちらも読む
             f = dict(FIELD.findall(line))
             captures.append((int(f["cell"]), int(f["ring"]), float(f["capture"])))
         elif SHIELDING_CLOSE in line:
@@ -312,6 +316,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", required=True, type=Path)
     parser.add_argument("--variant", default="share-1e-4", choices=COVERAGE.VARIANTS)
+    parser.add_argument(
+        "cases", nargs="*", help="比べるケース（省くと、変種の入力のあるケースすべて）"
+    )
     args = parser.parse_args()
     if args.variant == "full":
         sys.exit("--variant must name a variant other than full")
@@ -321,6 +328,11 @@ def main() -> None:
         for n in COVERAGE.inputs()
         if n.endswith(f"-{args.variant}")
     )
+    if args.cases:
+        unknown = sorted(set(args.cases) - set(names))
+        if unknown:
+            sys.exit(f"no {args.variant} input for {', '.join(unknown)}")
+        names = args.cases
     summary = {}
     for case in names:
         summary[case] = (

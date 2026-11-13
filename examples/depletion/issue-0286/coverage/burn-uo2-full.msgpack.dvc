@@ -1,0 +1,5 @@
+outs:
+- md5: 5e242c9dcd0876ebf6946d1b5b9e8154
+  size: 1684329
+  hash: md5
+  path: burn-uo2-full.msgpack

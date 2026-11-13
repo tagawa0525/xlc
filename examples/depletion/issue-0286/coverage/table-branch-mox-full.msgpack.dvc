@@ -1,0 +1,5 @@
+outs:
+- md5: 8ba9dd3d3de3dcedb75858abe8cb1ac9
+  size: 521229
+  hash: md5
+  path: table-branch-mox-full.msgpack

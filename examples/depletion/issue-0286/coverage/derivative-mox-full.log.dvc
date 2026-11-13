@@ -1,0 +1,5 @@
+outs:
+- md5: 5e5a3bd58e37b3f47d0b3e7cb47685e3
+  size: 230344
+  hash: md5
+  path: derivative-mox-full.log
