@@ -503,7 +503,10 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
         .unwrap()
     };
     assert_eq!(
-        solve(Collision::Table { density: 100_000 }),
+        solve(Collision::Table {
+            density: 100_000,
+            deviation: MAX_DEVIATION
+        }),
         solve(Collision::Exact)
     );
 }
@@ -567,6 +570,58 @@ fn close_ring_materials_give_the_group_constants_of_the_exact_tracks() {
             }
         }
     }
+}
+
+#[test]
+fn a_wider_expansion_puts_farther_ring_materials_into_the_table() {
+    // #0286: 展開の上限を広げると、既定の上限では格子点ごとに求める格子点も表と展開で解き、群定数は格子点ごとに求めたものに
+    // 近い（展開の誤差は差の 2 乗）
+    let (lib, _, water) = resonant_cell(11.0 + 1.0e4);
+    let fuel = [0.0228, 0.0220, 0.0212]
+        .map(|n| material(&[("U-238", n), ("U-235", 0.0005), ("O-16", 0.045)]));
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [
+        Some(&fuel[0]),
+        Some(&fuel[1]),
+        Some(&fuel[2]),
+        None,
+        Some(&water),
+    ];
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            collision,
+            None,
+            Scattering::Static,
+            held_cells(1 << 30, 1),
+        )
+        .unwrap()
+    };
+    let exact = solve(Collision::Exact);
+    let narrow = solve(Collision::default());
+    let wide = solve(Collision::Table {
+        density: DEFAULT_DENSITY,
+        deviation: 0.05,
+    });
+    assert_ne!(wide, narrow);
+    let worst = wide
+        .nuclides
+        .iter()
+        .flatten()
+        .zip(exact.nuclides.iter().flatten())
+        .flat_map(|(a, b)| {
+            a.total
+                .iter()
+                .zip(&b.total)
+                .chain(a.capture.iter().zip(&b.capture))
+        })
+        .filter(|(_, b)| **b != 0.0)
+        .map(|(a, b)| (a / b - 1.0).abs())
+        .fold(0.0, f64::max);
+    assert!(worst < 1e-4, "{worst}");
 }
 
 #[test]

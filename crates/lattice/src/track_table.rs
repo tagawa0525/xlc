@@ -159,6 +159,8 @@ pub struct Layout {
     slots: Vec<Option<usize>>,
     /// [軸] の物質の数
     members: Vec<usize>,
+    /// 1 次の展開で内挿する、軸を共有する物質の ln Σ の中心からの差の上限（既定は [`MAX_DEVIATION`]）
+    limit: f64,
 }
 
 impl Layout {
@@ -218,7 +220,13 @@ impl Layout {
             weights,
             slots,
             members,
+            limit: MAX_DEVIATION,
         })
+    }
+
+    /// 展開の上限を `limit` にしたもの（#0286）
+    pub fn with_limit(self, limit: f64) -> Self {
+        Self { limit, ..self }
     }
 
     /// 物質ごとの全断面積 `sigma` での、[軸] の値（中心）と、軸を共有する物質の ln Σ の中心からの差の絶対値の最大。
