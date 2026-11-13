@@ -12,17 +12,17 @@
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると free-gas。ADR-0203、ADR-0209）
-//! ufg-free-gas = { upper = { energy = 1000 }, cells = 2, sweeps = 3, heavy = { energy = 31 }, sab = true }   # free-gas の条件
-//!                                 # （どれも省略でき、省略した項目はこの例の値。ADR-0209、ADR-0243、ADR-0246。参照は
-//!                                 # { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true }）:
+//! ufg-free-gas = { upper = { energy = 1000 }, cells = 2, sweeps = 3, heavy = { energy = 31 }, sab = true, share = 1e-4 }   # free-gas の条件
+//!                                 # （どれも省略でき、省略した項目はこの例の値。ADR-0209、ADR-0243、ADR-0246、ADR-0251。参照は
+//!                                 # { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true, share = false }）:
 //!                                 # 分離共鳴を持たない核種の自由ガスの核を使う入射エネルギーの上限（kT の倍数。inf で上限なし。
 //!                                 # ADR-0203。{ energy = <eV> } で温度によらない入射エネルギー。ADR-0246）、核の差を積分する区間の細かさ、上方散乱のスイープの回数（inf で収束するまで）、
 //!                                 # 分離共鳴を持つ核種も自由ガスにする上限（kT の倍数。inf で上限なし、false で静止した標的。
 //!                                 # ADR-0204。{ energy = <eV> } で温度によらない入射エネルギー。ADR-0243）、S(α, β) の核種（H in H2O の H）を S(α, β) の上限より下でライブラリの S(α, β) の
-//!                                 # 移行にするか（false で自由ガスの核。ADR-0205）。share = <閾値> を足すと、狭い共鳴の中性子束の重みの弾性散乱の
+//!                                 # 移行にするか（false で自由ガスの核。ADR-0205）。share は、狭い共鳴の中性子束の重みの弾性散乱の
 //!                                 # 率の、リングの物質の中の割合がどのリングでも閾値（0 と 1 の間）より小さい核種を静止した標的にする（核種と温度の組ごとに決め、
 //!                                 # 同じ核種でも温度の違う物質のものは別に決める）。S(α, β) の移行を使う核種（sab = true の H in H2O）は残す
-//!                                 # （省略すると絞らない。#0286）
+//!                                 # （false で絞らない。#0286、ADR-0251）
 //! ufg-hold-memory = 80            # 自己遮蔽の自由ガスの散乱源の区間をスイープの間で持つ上限を決める全体の量 (GiB)。減速計算の
 //!                                 # 数えた作業の配列を除いた残りで持つ（作業の配列は抑えない）。省略すると、自己遮蔽のたびに
 //!                                 # （使用可能メモリ − 2 GiB）× 0.8（ADR-0213）
@@ -379,7 +379,24 @@ struct FreeGasEntry {
     sweeps: Option<SweepsEntry>,
     heavy: Option<HeavyEntry>,
     sab: Option<bool>,
-    share: Option<f64>,
+    share: Option<ShareEntry>,
+}
+
+/// `ufg-free-gas.share` の値: 閾値か、false（絞らない）
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ShareEntry {
+    Float(f64),
+    Bool(bool),
+}
+
+impl std::fmt::Display for ShareEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Float(v) => write!(f, "{v}"),
+            Self::Bool(b) => write!(f, "{b}"),
+        }
+    }
 }
 
 /// `ufg-free-gas.sweeps` の値: 回数か、inf（収束するまで）
@@ -1143,14 +1160,15 @@ fn parse_scattering(kind: Option<&str>, entry: Option<FreeGasEntry>) -> Result<S
                     ));
                 }
             };
-            // 割合の閾値は 0 と 1 の間（0 以下は絞らないのと同じなので省略で書く。1 以上は S(α, β) の核種のほかのすべてを静止した
-            // 標的にし、割合で選ぶ意味がない）
+            // 割合の閾値は 0 と 1 の間（0 以下は絞らないのと同じなので false で書く。1 以上は S(α, β) の核種のほかのすべてを静止した
+            // 標的にし、割合で選ぶ意味がない）。true は閾値を言わないので止める
             let share = match entry.share {
                 None => defaults.share,
-                Some(s) if s > 0.0 && s < 1.0 => Some(s),
-                Some(s) => {
+                Some(ShareEntry::Bool(false)) => None,
+                Some(ShareEntry::Float(s)) if s > 0.0 && s < 1.0 => Some(s),
+                Some(other) => {
                     return Err(format!(
-                        "`ufg-free-gas.share` must be between 0 and 1 (exclusive), got {s}"
+                        "`ufg-free-gas.share` must be between 0 and 1 (exclusive) or false, got {other}"
                     ));
                 }
             };

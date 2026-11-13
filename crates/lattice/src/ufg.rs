@@ -315,7 +315,7 @@ pub struct FreeGas {
     pub sab: bool,
     /// 自由ガスにする核種を散乱の割合で絞る閾値。`Some(s)` は、自由ガスの核を使う範囲の狭い共鳴の中性子束 1/(Σt E) の重みの
     /// 弾性散乱の率の、リングの物質の中の割合がどのリングでも `s` より小さい核種を静止した標的にする（S(α, β) の移行の核種は
-    /// 除かない）。`None` は絞らない（#0286）
+    /// 除かない）。`None` は絞らない（#0286、ADR-0251）
     pub share: Option<f64>,
 }
 
@@ -337,7 +337,7 @@ impl Default for Scattering {
 
 impl Default for FreeGas {
     /// ADR-0209 の既定（ADR-0205 の速い方法）で、分離共鳴を持たない核種の上限は温度によらない 1000 eV（ADR-0246）、
-    /// 分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）
+    /// 分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）、散乱の割合が 1e-4 より小さい核種は静止した標的（ADR-0251）
     fn default() -> Self {
         Self {
             upper: FreeGasCap::Energy(1000.0),
@@ -345,7 +345,7 @@ impl Default for FreeGas {
             sweeps: Some(3),
             heavy: Some(FreeGasCap::Energy(31.0)),
             sab: true,
-            share: None,
+            share: Some(1.0e-4),
         }
     }
 }
