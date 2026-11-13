@@ -10,10 +10,12 @@
 入力の名前は <種類>-<燃焼度>-<解き方>.toml:
 
 - every: 状態ごとに UFG を解く（`every-state`。比べる基準）
-- f1: ADR-0250 の (F1)（`moderator-ratio`。比が決めない量は基準の値）
-- f2: ADR-0250 の (F2)（`moderator-fuel-ratio`）
-- f1-transfer、f1-factor、f1-dilute、f1-sph: (F1) の、比が決めない量の候補を 1 つずつ替えたもの（移行を弾性散乱の比で縮める、
-  燃料でないリングを自己遮蔽因子の比にする、無限希釈にする、SPH 因子を状態の UFG のものにする）。CANDIDATES の燃焼点だけ
+- f1、f2: ADR-0250 の (F1)（`moderator-ratio`）と (F2)（`moderator-fuel-ratio`）で、比が決めない量はどれも基準の値。f2 は
+  CANDIDATES の燃焼点だけ
+- f1-transfer、f2-transfer: 移行を弾性散乱の比で縮めたもの（基準の移行の行のままでは、行の和が比で変えた弾性散乱と食い違い、
+  その差が吸収に入る。2A の 60 MWd/kg の Slurm 863）
+- f1-factor、f1-dilute、f1-sph: f1-transfer の、燃料でないリングを自己遮蔽因子の比にする、無限希釈にする、SPH 因子を状態の UFG の
+  ものにしたもの。CANDIDATES の燃焼点だけ
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -45,13 +47,24 @@ WATER = "water = { density = 0.711901, boron = 650, b10 = 0.199 }"
 SHIELDINGS = {
     "every": ('shielding = "every-state"', ""),
     "f1": ('shielding = "moderator-ratio"', ""),
-    "f2": ('shielding = "moderator-fuel-ratio"', ""),
     "f1-transfer": ('shielding = "moderator-ratio"', 'transfer = "elastic-ratio"'),
-    "f1-factor": ('shielding = "moderator-ratio"', 'rings = "shielding-factor"'),
-    "f1-dilute": ('shielding = "moderator-ratio"', 'rings = "infinite-dilution"'),
-    "f1-sph": ('shielding = "moderator-ratio"', 'sph = "state"'),
+    "f2": ('shielding = "moderator-fuel-ratio"', ""),
+    "f2-transfer": ('shielding = "moderator-fuel-ratio"', 'transfer = "elastic-ratio"'),
+    "f1-factor": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nrings = "shielding-factor"',
+    ),
+    "f1-dilute": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nrings = "infinite-dilution"',
+    ),
+    "f1-sph": (
+        'shielding = "moderator-ratio"',
+        'transfer = "elastic-ratio"\nsph = "state"',
+    ),
 }
-MAIN = ["every", "f1", "f2"]
+# どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
+MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
 
 def listed(values) -> str:

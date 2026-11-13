@@ -133,6 +133,7 @@ fuel = { temperature = [560, 900, 1350], materials = ["mox-high", "mox-mid", "mo
 shielding = "moderator-ratio"
 
 [branches.ratio]
+transfer = "elastic-ratio"
 rings = "shielding-factor"
 
 [history]

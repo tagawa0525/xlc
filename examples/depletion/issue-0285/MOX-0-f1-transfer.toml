@@ -1,6 +1,6 @@
-# このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）: mox-assembly/lattice-mox-assembly.toml の 0 MWd/kg、f2
+# このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）: mox-assembly/lattice-mox-assembly.toml の 0 MWd/kg、f1-transfer
 library = "../p2/depletion.msgpack"
-few-group = { output = "table-MOX-0-f2.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+few-group = { output = "table-MOX-0-f1-transfer.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 ufg-tolerance = 1e-4
 ufg-cp-points = 16
 ufg-hold-memory = 32
@@ -130,7 +130,10 @@ sectors = 8
 boron = { ppm = [650], materials = ["water"] }
 moderator = { temperature = [560, 580, 615], density = [0.752074, 0.711901, 0.608215], materials = ["water", "zircaloy"] }
 fuel = { temperature = [560, 900, 1350], materials = ["mox-high", "mox-mid", "mox-low"] }
-shielding = "moderator-fuel-ratio"
+shielding = "moderator-ratio"
+
+[branches.ratio]
+transfer = "elastic-ratio"
 
 [history]
 file = "../mox-assembly/lattice-mox-assembly.msgpack"

@@ -256,6 +256,7 @@ fuel = { temperature = [560, 900, 1350], materials = ["fuel", "gd0", "gd1", "gd2
 shielding = "moderator-ratio"
 
 [branches.ratio]
+transfer = "elastic-ratio"
 rings = "shielding-factor"
 
 [history]
