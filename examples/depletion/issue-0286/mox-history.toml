@@ -3,6 +3,8 @@
 # 物質で燃焼させる（リングごとに組成が違う燃焼した MOX を作るため。MOX の集合体の履歴は無い）。出力密度は 1C と同じ。UFG の格子は
 # 分岐の入力と同じく間引く（ADR-0185。間引かないと 1 回の自己遮蔽が 2 分かかる）
 library = "../p2/depletion.msgpack"
+# 履歴（mox-history.msgpack）は ADR-0251 の前の既定（どの核種も自由ガス）で作った
+ufg-free-gas = { share = false }
 ufg-tolerance = 1e-4
 pitch = 1.26
 azimuthal = 64

@@ -1,6 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース 2A-rods-20、変種 cp-combined
 # p2/lattice-2A-rods.toml の 20 MWd/kg からの 1 状態の分岐
 library = "../p2/depletion.msgpack"
+ufg-free-gas = { share = false }
 ufg-cp-points = 8
 track-table = 8
 track-table-deviation = 0.03

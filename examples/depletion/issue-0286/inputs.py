@@ -38,7 +38,7 @@ def load(name: str, path: Path):
 
 FUELS = load("fuels_inputs", DEPLETION / "issue-0180/fuels/inputs.py")
 
-# 変種: 既定の入力の `library = ` の行の後に足す行（default は何も足さない）
+# 変種: 既定の入力の `library = ` の行の後に足す行
 # （`static` は自由ガスを使わないので `share` を書けない）
 VARIANTS = {
     "default": "ufg-free-gas = { share = false }\n",
@@ -54,18 +54,21 @@ VARIANTS = {
     "share-1e-3": "ufg-free-gas = { share = 1e-3 }\n",
     "share-1e-2": "ufg-free-gas = { share = 1e-2 }\n",
 }
-# 衝突確率の近似の変種（#0286 の衝突確率の節。`default` は既定のまま。ほかは既定に足す行）: 弦の求積の点（`ufg-cp-points`）、
+# 衝突確率の近似の変種（#0286 の衝突確率の節。`cp-default` は ADR-0251 の前の既定で、測ったときの経路で解くように `share = false`
+# を書く。ほかは `cp-default` に足す行で、`share` の変種は `share = false` の代わりに閾値を書く）: 弦の求積の点（`ufg-cp-points`）、
 # 飛程の表の細かさ（`track-table`）、展開の上限（`track-table-deviation`）と、その組み合わせ、自由ガスの核種の絞り込みとの組み合わせ
 CP_COMBINED = "ufg-cp-points = 8\ntrack-table = 8\ntrack-table-deviation = 0.03\n"
+CP_FULL = "ufg-free-gas = { share = false }\n"
 CP_VARIANTS = {
-    "cp-default": "",
-    "cp-points-8": "ufg-cp-points = 8\n",
-    "cp-points-6": "ufg-cp-points = 6\n",
-    "cp-points-4": "ufg-cp-points = 4\n",
-    "cp-table-8": "track-table = 8\n",
-    "cp-deviation-0.03": "track-table-deviation = 0.03\n",
-    "cp-table-8-deviation-0.03": "track-table = 8\ntrack-table-deviation = 0.03\n",
-    "cp-combined": CP_COMBINED,
+    "cp-default": CP_FULL,
+    "cp-points-8": CP_FULL + "ufg-cp-points = 8\n",
+    "cp-points-6": CP_FULL + "ufg-cp-points = 6\n",
+    "cp-points-4": CP_FULL + "ufg-cp-points = 4\n",
+    "cp-table-8": CP_FULL + "track-table = 8\n",
+    "cp-deviation-0.03": CP_FULL + "track-table-deviation = 0.03\n",
+    "cp-table-8-deviation-0.03": CP_FULL
+    + "track-table = 8\ntrack-table-deviation = 0.03\n",
+    "cp-combined": CP_FULL + CP_COMBINED,
     "cp-share-1e-4": "ufg-free-gas = { share = 1e-4 }\n",
     "cp-share-1e-4-combined": "ufg-free-gas = { share = 1e-4 }\n" + CP_COMBINED,
     "cp-share-1e-4-points-6": "ufg-free-gas = { share = 1e-4 }\nufg-cp-points = 6\n",
@@ -175,6 +178,14 @@ def mox_burned() -> str:
     source = "issue-0286/mox-history.toml"
     text = (HERE / "mox-history.toml").read_text()
     body = text[text.find("library = ") : text.find("[depletion]")]
+    # 履歴の自由ガスの経路は変種の行が決めるので、履歴の入力の行を除く
+    body = replace_once(
+        body,
+        "# 履歴（mox-history.msgpack）は ADR-0251 の前の既定（どの核種も自由ガス）で作った\n"
+        "ufg-free-gas = { share = false }\n",
+        "",
+        source,
+    )
     body = replace_once(
         body,
         'library = "../p2/depletion.msgpack"\n',
