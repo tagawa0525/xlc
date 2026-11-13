@@ -1,4 +1,5 @@
-"""#0286 の coverage.py の入力の結果を、変種 `full`（どの核種も自由ガス）と `share-1e-4` で比べ、要約の JSON を書く。
+"""#0286 の coverage.py の入力の結果を、変種 `full`（どの核種も自由ガス）と、核種を絞る変種（既定は `share-1e-4`。`--variant`）で
+比べ、要約の JSON を書く。
 
 ケースと変種ごとに coverage/ の出力（燃焼は履歴 `<ケース>-<変種>.msgpack`、分岐はテーブル `table-<ケース>-<変種>.msgpack`）と
 ログ（`<ケース>-<変種>.log`。水準は `info,xlc_lattice::ufg=debug,xlc_lattice::shielding=debug`）から次を書く:
@@ -9,9 +10,9 @@
   反応度の変化 1/k(公称) − 1/k(分岐) の差（share − full。pcm）、ミクロ燃焼の核種ごとの微視的断面積（数密度の微分を含む、
   テーブルの `micro` の数）の相対の差の最大
 - どちらも: 燃料のリングの U-238 の 1 群の捕獲（ログの `UFG U-238 ring capture`）の相対の差の最大と、自己遮蔽ごとに静止した標的に
-  した核種（ログの `UFG free gas rested by the scatter share` のうち割合が 0 でないもの）の一覧の移り変わり（`share-1e-4` のログ）
+  した核種（ログの `UFG free gas rested by the scatter share` のうち割合が 0 でないもの）の一覧の移り変わり（絞る変種のログ）
 
-使い方: python3 compare_coverage.py --json <要約の出力先>（このディレクトリで）
+使い方: python3 compare_coverage.py --json <要約の出力先> [--variant <変種>]（このディレクトリで）
 """
 
 import argparse
@@ -155,9 +156,9 @@ def few_group_difference(full: dict, share: dict, where: str) -> float:
     )
 
 
-def burn(case: str) -> dict:
+def burn(case: str, variant: str) -> dict:
     full = read(OUT / f"{case}-full.msgpack")
-    share = read(OUT / f"{case}-share-1e-4.msgpack")
+    share = read(OUT / f"{case}-{variant}.msgpack")
     if full["nuclides"] != share["nuclides"] or len(full["points"]) != len(
         share["points"]
     ):
@@ -193,7 +194,7 @@ def burn(case: str) -> dict:
         row["pin_powers"] = relative(flat(b["pin_powers"]), flat(a["pin_powers"]))
         points.append(row)
     blocks_full = shieldings(OUT / f"{case}-full.log")
-    blocks_share = shieldings(OUT / f"{case}-share-1e-4.log")
+    blocks_share = shieldings(OUT / f"{case}-{variant}.log")
     # CE/CM（ADR-0173）は点ごとに 1 回と、ステップの中点の組成で 1 回解くので、自己遮蔽 2k は点 k、2k + 1 は点 k と k + 1 の中点
     # （出力が一定なので燃焼度でも中点）
     burnups = [p["burnup"] for p in points]
@@ -209,7 +210,7 @@ def burn(case: str) -> dict:
         "points": points,
         "ring_capture": capture_difference(blocks_full, blocks_share, case),
         "rested": rested,
-        "seconds": {"full": full["seconds"], "share-1e-4": share["seconds"]},
+        "seconds": {"full": full["seconds"], variant: share["seconds"]},
     }
 
 
@@ -243,15 +244,16 @@ def coefficients(table: dict) -> dict:
     return out
 
 
-def micro(full: dict, share: dict) -> dict:
-    """ミクロ燃焼の核種ごとの、すべての状態の微視的断面積（数密度の微分を含む）の相対の差の最大"""
+def micro(full: dict, share: dict, states: list[int] | None = None) -> dict:
+    """ミクロ燃焼の核種ごとの、状態（`states` の番号。None はすべて）の微視的断面積（数密度の微分を含む）の相対の差の最大"""
     names = full["micro"]["nuclides"]
     if names != share["micro"]["nuclides"]:
         sys.exit("the micro nuclides differ")
+    picked = range(len(full["micro"]["states"])) if states is None else states
     out = {}
     for n, name in enumerate(names):
-        a = [x for s in full["micro"]["states"] for x in flat(s[n])]
-        b = [x for s in share["micro"]["states"] for x in flat(s[n])]
+        a = [x for i in picked for x in flat(full["micro"]["states"][i][n])]
+        b = [x for i in picked for x in flat(share["micro"]["states"][i][n])]
         out[name] = relative(b, a)
     rest = {k: v for k, v in full["micro"].items() if k not in ("nuclides", "states")}
     for key, value in rest.items():
@@ -259,9 +261,9 @@ def micro(full: dict, share: dict) -> dict:
     return out
 
 
-def table(case: str) -> dict:
+def table(case: str, variant: str) -> dict:
     full = read(OUT / f"table-{case}-full.msgpack")
-    share = read(OUT / f"table-{case}-share-1e-4.msgpack")
+    share = read(OUT / f"table-{case}-{variant}.msgpack")
     if full["points"] != share["points"]:
         sys.exit(f"{case}: the tables differ in points")
     states = []
@@ -287,11 +289,20 @@ def table(case: str) -> dict:
         if row
     }
     blocks_full = shieldings(OUT / f"{case}-full.log")
-    blocks_share = shieldings(OUT / f"{case}-share-1e-4.log")
+    blocks_share = shieldings(OUT / f"{case}-{variant}.log")
+    # 燃焼点ごと（テーブルの点の最初の軸）の微視的断面積の差
+    burnups = full["axes"][0]["points"]
+    micro_by_burnup = {
+        f"{burnup:g}": micro(
+            full, share, [i for i, p in enumerate(full["points"]) if p[0] == b]
+        )
+        for b, burnup in enumerate(burnups)
+    }
     return {
         "states": states,
         "coefficients": coefficient,
         "micro": micro(full, share),
+        "micro_by_burnup": micro_by_burnup,
         "ring_capture": capture_difference(blocks_full, blocks_share, case),
         "rested": rested_changes(blocks_share),
     }
@@ -300,17 +311,23 @@ def table(case: str) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", required=True, type=Path)
+    parser.add_argument("--variant", default="share-1e-4", choices=COVERAGE.VARIANTS)
     args = parser.parse_args()
+    if args.variant == "full":
+        sys.exit("--variant must name a variant other than full")
+    # 変種の入力のあるケース（選び方の変種は COVERAGE.SELECTION_CASES だけ）
     names = sorted(
-        {
-            n.rsplit("-", 1)[0] if n.endswith("-full") else None
-            for n in COVERAGE.inputs()
-        }
-        - {None}
+        n.removesuffix(f"-{args.variant}")
+        for n in COVERAGE.inputs()
+        if n.endswith(f"-{args.variant}")
     )
     summary = {}
     for case in names:
-        summary[case] = burn(case) if case.startswith("burn-") else table(case)
+        summary[case] = (
+            burn(case, args.variant)
+            if case.startswith("burn-")
+            else table(case, args.variant)
+        )
     args.json.write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n")
 
 
