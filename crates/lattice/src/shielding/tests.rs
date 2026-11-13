@@ -2592,7 +2592,8 @@ pub(crate) mod lattice {
                 }
             }
         }
-        assert!(worst > 0.0 && worst < 1e-3, "{worst}");
+        // 4 点で 1.3e-6（2026-11-13）。求積の誤差がこの桁を超えて増えたら止める
+        assert!(worst > 0.0 && worst < 1e-5, "{worst}");
     }
 
     #[test]
