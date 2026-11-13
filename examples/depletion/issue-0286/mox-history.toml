@@ -1,7 +1,9 @@
 # #0286 の燃焼した MOX のケース（inputs.py の pin-mox-40）の履歴: MOX-1 の組成（../lattice-mox1-rings1.toml）の燃料を 2A のピン
 # （燃料 900 K、被覆管と減速材 580 K、ホウ素 650 ppm。../p9-product/lattice-2A.toml と同じ形状）に入れ、燃料を等体積の 5 リングの
-# 物質で燃焼させる（リングごとに組成が違う燃焼した MOX を作るため。MOX の集合体の履歴は無い）。出力密度は 1C と同じ
+# 物質で燃焼させる（リングごとに組成が違う燃焼した MOX を作るため。MOX の集合体の履歴は無い）。出力密度は 1C と同じ。UFG の格子は
+# 分岐の入力と同じく間引く（ADR-0185。間引かないと 1 回の自己遮蔽が 2 分かかる）
 library = "../p2/depletion.msgpack"
+ufg-tolerance = 1e-4
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
