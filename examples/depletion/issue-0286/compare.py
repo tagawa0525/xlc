@@ -72,7 +72,7 @@ def states(path: Path) -> list[dict]:
 FIELD = re.compile(r"(\w+)=(\S+)")
 # 自己遮蔽の span（子の span の `shielding:mix:` などは除く）の閉じた行
 SPAN = re.compile(
-    r" INFO shielding: xlc_lattice::shielding: close time\.busy=([\d.]+)(ms|s|µs)"
+    r" INFO shielding: xlc_lattice::shielding: close time\.busy=([\d.]+)(ms|s|µs|ns)"
 )
 
 
@@ -92,7 +92,8 @@ def log(path: Path) -> dict:
         busy = SPAN.search(line)
         if busy:
             shielding += (
-                float(busy.group(1)) * {"s": 1.0, "ms": 1e-3, "µs": 1e-6}[busy.group(2)]
+                float(busy.group(1))
+                * {"s": 1.0, "ms": 1e-3, "µs": 1e-6, "ns": 1e-9}[busy.group(2)]
             )
         elif "UFG slowing down" in line:
             f = fields(line)
