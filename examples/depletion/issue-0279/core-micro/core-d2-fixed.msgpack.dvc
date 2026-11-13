@@ -1,0 +1,5 @@
+outs:
+- md5: 9179e7a5502c651f5c70063fb8cd4a0f
+  size: 23216
+  hash: md5
+  path: core-d2-fixed.msgpack
