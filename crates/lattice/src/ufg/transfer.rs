@@ -161,7 +161,7 @@ struct ShareKey {
 }
 
 impl ShareCellCache {
-    /// 持っている自由ガスの核種の列の数
+    /// 持っている自由ガスの核種の列の数（境界を作り終えていない列を含む）
     pub fn len(&self) -> usize {
         self.lock().len()
     }
@@ -300,8 +300,8 @@ impl ShareCellCache {
         }
     }
 
-    // ロックの中では作り終えた列を引くか入れるだけで、表が途中の状態で残ることはないので、ほかのスレッドがロックを持ったまま
-    // 止まった（毒された）表もそのまま使う
+    // ロックの中では列を引くか空の列を入れるだけで（列の境界はロックの外で作る）、表が途中の状態で残ることはないので、ほかの
+    // スレッドがロックを持ったまま止まった（毒された）表もそのまま使う
     fn lock(&self) -> MutexGuard<'_, HashMap<ShareKey, Arc<ShareColumn>>> {
         self.columns.lock().unwrap_or_else(PoisonError::into_inner)
     }
