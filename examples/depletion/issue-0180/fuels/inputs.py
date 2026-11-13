@@ -72,11 +72,13 @@ def branch(name: str, source: str, burnup: list, solved: bool) -> str:
         "bounds = [1e7, 0.625, 1e-5] }",
         1,
     )
-    if "few-group = " not in body:
-        sys.exit(f"{path} does not have the library line to add the table output")
+    if "few-group" in data or body.count("few-group = ") != 1:
+        sys.exit(
+            f"{path} has a few-group line or no library line to add the table output"
+        )
     water = [(n, w) for n, w in WATERS.items() if n in body]
-    if len(water) != 1:
-        sys.exit(f"{path} does not have one water of WATERS")
+    if len(water) != 1 or body.count(water[0][0]) != 1:
+        sys.exit(f"{path} does not have one water of WATERS once")
     ((nuclides, (density, boron)),) = water
     body = body.replace(
         nuclides, f"water = {{ density = {density}, boron = {boron}, b10 = 0.199 }}"
