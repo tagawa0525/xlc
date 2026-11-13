@@ -2,7 +2,7 @@
 
 ログ（水準は `info,xlc_lattice::ufg=debug,xlc_lattice::shielding=debug`）ごとに、自己遮蔽の span の秒、1 ピンの段のスレッド秒
 （`UFG slowing down` と `UFG transfers counted` を解いたピンの数で割ったもの）、自由ガスの散乱源の 1 回あたりの時間（`UFG free-gas
-work` の秒を回数で割ったもの）、同じ名前の `.perf`（`perf stat -x,` の出力）のカウンタ、`.md5`（少数群定数の md5）を書く。
+work` の秒を回数で割ったもの）、同じ名前の `.perf`（`perf stat -x,` の出力）のカウンタ、`.md5`（少数群定数の md5）と、1 状態の秒（`lattice state=` の行の `seconds`）を書く。
 
 使い方: python3 threads.py <ディレクトリ> [<ログの glob>]（glob の既定は threads-*.log）
 """
@@ -61,8 +61,8 @@ for log in sorted(D.glob(sys.argv[2] if len(sys.argv) > 2 else "threads-*.log"))
             shield.append(secs(line.split("time.busy=")[1].split()[0]))
         elif "thread pool threads=" in line:
             threads = fields(line)["threads"]
-        elif "total_seconds" in line:
-            total = fields(line).get("total_seconds")
+        elif "lattice state=" in line:
+            total = fields(line).get("seconds")
     perf = {}
     p = log.with_suffix(".perf")
     if p.exists():
@@ -91,7 +91,7 @@ for log in sorted(D.glob(sys.argv[2] if len(sys.argv) > 2 else "threads-*.log"))
         st.get(k, 0) for k in ("grid", "table", "evaluate", "collision", "slowing")
     )
     print(
-        f"== {name} threads={threads} md5={md5} pins={pins} shielding={shield} total={total}"
+        f"== {name} threads={threads} md5={md5} pins={pins} shielding={shield} state={total}"
     )
     print(
         "  per pin (s): "
