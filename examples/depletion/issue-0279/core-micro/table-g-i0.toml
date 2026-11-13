@@ -1,7 +1,7 @@
 # #0279 の段 5（ADR-0247）: 数密度の微分の持ち方ごとの、core のミクロ燃焼（集合体 1 体）の精度とテーブルの時間を比べるテーブル。
 # ../../branches/branch-2A-micro.toml（ADR-0221 が D0 と D2 の効きを測った「core のミクロ燃焼（2A の集合体 1 体）」のテーブル）を、core の
 # 状態（公称の 1300 ppm、燃料 565 K）の 1 状態にしたもの（core はその格子点で引くので、ほかの状態の重みは 0 で結果は変わらない）。
-# 燃焼の履歴は今の ../../p2/lattice-2A.msgpack。格子、離散化、組成、17 の燃焼度の点、追う 31 核種は元の入力と同じ。
+# 燃焼の履歴は ../../issue-0284/lattice-2A.msgpack（../../p2/lattice-2A.toml を今の既定の自己遮蔽で解き直したもの。#0284）。格子、離散化、組成、17 の燃焼度の点、追う 31 核種は元の入力と同じ。
 # 一般化摂動で追う 31 核種、自己遮蔽は固定（案 G + I0。ADR-0247）。一般化随伴の判定は本番の目安の 1e-7
 library = "../../p2/depletion.msgpack"
 few-group = { output = "table-g-i0.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -105,7 +105,7 @@ moderator = { temperature = [565], density = [0.743], materials = ["water", "zir
 fuel = { temperature = [565], materials = ["fuel"] }
 
 [history]
-file = "../../p2/lattice-2A.msgpack"
+file = "../../issue-0284/lattice-2A.msgpack"
 chain = "../../chain.msgpack"
 burnup = [0, 0.1, 0.5, 1, 2, 4, 6, 8, 10, 14, 20, 26, 32, 40, 48, 56, 60]
 # ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216）
