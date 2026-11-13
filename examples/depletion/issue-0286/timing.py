@@ -9,6 +9,7 @@
 import argparse
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -32,7 +33,10 @@ def main() -> None:
     summary = {}
     for case in args.cases:
         prefix = f"timing-{case}-"
-        for path in sorted(HERE.glob(f"{prefix}cp-*.log")):
+        paths = sorted(HERE.glob(f"{prefix}cp-*.log"))
+        if not paths:
+            sys.exit(f"{case}: no {prefix}cp-*.log")
+        for path in paths:
             timing = COMPARE.log(path)
             summary.setdefault(case, {})[path.stem[len(prefix) :]] = {
                 k: timing[k]

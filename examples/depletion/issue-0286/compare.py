@@ -107,7 +107,7 @@ def log(path: Path) -> dict:
         elif "UFG transfers counted" in line:
             transfers += float(fields(line)["seconds"])
         elif "UFG U-238 ring capture" in line:
-            # 364ce2913 より前の実行ファイルのログ（核種の名前が無い）は、捕獲を比べられない
+            # 核種の名前の無い捕獲のログは、核種ごとに比べられない
             sys.exit(f"{path}: an older ring capture log without nuclide names")
         elif "UFG ring capture" in line:
             f = fields(line)
