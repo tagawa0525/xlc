@@ -23,6 +23,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use rayon::prelude::*;
@@ -47,6 +48,8 @@ const NEGATIVE: f64 = 1.0e-9;
 #[derive(Debug, Default)]
 pub struct ShareCellCache {
     columns: Mutex<HashMap<ShareKey, Arc<ShareColumn>>>,
+    /// 作った割合の区間の（列, 境界）の組の数（[`ShareCellCache::built`]）
+    built: AtomicU64,
     /// 自由ガスの核の区間を作った格子点の重なりの計数（DEBUG のログ。[`ShareCellCache::census`]）
     census: Mutex<Census>,
     /// 自由ガスの核の区間と D の値（ADR-0248）。移行の割合の区間と同じく、減速計算の間で共有する
@@ -118,6 +121,11 @@ impl ShareCellCache {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// これまでに作った割合の区間の、（自由ガスの核種の列, 境界）の組の数
+    pub fn built(&self) -> u64 {
+        self.built.load(Ordering::Relaxed)
     }
 
     /// 減速計算の、最初のスイープで区間を作った格子点（（レサジーのビット, エネルギーのビット, 評価の回数））を数える。`kernel` は核の鍵（自由ガスの核種と範囲の
@@ -361,7 +369,11 @@ impl Counting<'_> {
         let grades = grades(SHARE_CELLS);
         let cells: Vec<[Vec<ShareCell>; 2]> = pairs
             .par_iter()
-            .map(|&(l, b)| self.share_cells(l, b, x[b], &grades))
+            .map(|&(l, b)| {
+                let cells = self.share_cells(l, b, x[b], &grades);
+                self.shares.built.fetch_add(1, Ordering::Relaxed);
+                cells
+            })
             .collect();
         let mut cells = cells.into_iter();
         let mut table = self.shares.lock();
