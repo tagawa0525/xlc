@@ -501,14 +501,14 @@ fn ufg_hold_memory_sets_the_held_memory_of_the_self_shielding() {
 fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
     // ADR-0209: 省略すると、ADR-0205 の速い方法（細かさ 2、スイープ 3 回、H in H2O の S(α, β)）で、分離共鳴を持たない核種は
     // 温度によらない 1000 eV までの自由ガス（ADR-0246）、重い核種は温度によらない 31 eV までの自由ガス（ADR-0243）。
-    // `ufg-free-gas` の書かない項目もその値
+    // 散乱の割合が 1e-4 より小さい核種は静止した標的（ADR-0251）。`ufg-free-gas` の書かない項目もその値
     let fast = FreeGas {
         upper: FreeGasCap::Energy(1000.0),
         cells: 2,
         sweeps: Some(3),
         heavy: Some(FreeGasCap::Energy(31.0)),
         sab: true,
-        share: None,
+        share: Some(1.0e-4),
     };
     assert_eq!(FreeGas::default(), fast);
     let scattering = |lines: &str| {
@@ -548,10 +548,11 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
             ..fast
         })
     );
-    // ADR-0203 の参照の値（上限なし、収束まで、重い核種は静止した標的、自由ガスの H）も書ける: inf、sweeps = inf、heavy = false、sab = false
+    // ADR-0203 の参照の値（上限なし、収束まで、重い核種は静止した標的、自由ガスの H、核種を絞らない）も書ける: inf、sweeps = inf、
+    // heavy = false、sab = false、share = false
     assert_eq!(
         scattering(
-            "ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = false, sab = false }"
+            "ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = false, sab = false, share = false }"
         )
         .unwrap(),
         Scattering::FreeGas(FreeGas {
@@ -661,7 +662,8 @@ fn ufg_scattering_defaults_to_the_fast_free_gas_with_sab() {
 
 #[test]
 fn ufg_free_gas_share_selects_the_free_gas_nuclides_by_their_scatter() {
-    // #0286: `share` は自由ガスにする核種の散乱の割合の閾値（0 より大きく 1 より小さい）。書かなければ絞らない
+    // #0286: `share` は自由ガスにする核種の散乱の割合の閾値（0 より大きく 1 より小さい）。書かなければ 1e-4（ADR-0251）、false で
+    // 絞らない（どの核種も自由ガスの、今までの経路）
     let scattering = |lines: &str| {
         replaced(
             PIN_CELL,
@@ -679,7 +681,17 @@ fn ufg_free_gas_share_selects_the_free_gas_nuclides_by_their_scatter() {
     );
     assert_eq!(
         scattering("ufg-free-gas = { cells = 2 }").unwrap(),
-        Scattering::FreeGas(FreeGas::default())
+        Scattering::FreeGas(FreeGas {
+            share: Some(1.0e-4),
+            ..FreeGas::default()
+        })
+    );
+    assert_eq!(
+        scattering("ufg-free-gas = { share = false }").unwrap(),
+        Scattering::FreeGas(FreeGas {
+            share: None,
+            ..FreeGas::default()
+        })
     );
     for bad in ["0", "1", "-1e-3", "nan", "inf", "true"] {
         let line = format!("ufg-free-gas = {{ share = {bad} }}");
