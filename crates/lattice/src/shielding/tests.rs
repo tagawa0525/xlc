@@ -2562,9 +2562,20 @@ pub(crate) mod lattice {
     }
 
     #[test]
-    fn fewer_quadrature_points_stay_close_to_the_default_cell() {
-        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は既定の求積に近い
-        let default = ring_pin(&ShieldingOptions::default()).0;
+    fn the_default_cell_quadrature_takes_six_points() {
+        // ADR-0252: 等価なセルの弦の求積の既定は小区間あたり 6 点
+        assert_eq!(ShieldingOptions::default().cp_points, 6);
+    }
+
+    #[test]
+    fn fewer_quadrature_points_stay_close_to_the_exact_cell() {
+        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は厳密な経路（16 点。ADR-0252）の
+        // 求積に近い
+        let exact = ring_pin(&ShieldingOptions {
+            cp_points: 16,
+            ..ShieldingOptions::default()
+        })
+        .0;
         let coarse = ring_pin(&ShieldingOptions {
             cp_points: 4,
             ..ShieldingOptions::default()
@@ -2573,7 +2584,7 @@ pub(crate) mod lattice {
         let mut worst = 0.0_f64;
         for r in 0..6 {
             let (Some(a), Some(c)) = (
-                default.region_cross_sections(r),
+                exact.region_cross_sections(r),
                 coarse.region_cross_sections(r),
             ) else {
                 continue;

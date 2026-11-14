@@ -371,8 +371,8 @@ fn track_table_defaults_to_the_adr_density() {
 }
 
 #[test]
-fn ufg_cp_points_default_to_the_cell_quadrature() {
-    // #0286: 省略すると弦の求積の小区間あたりの既定の点の数で、正の整数で選ぶ。自己遮蔽しない入力には書けない
+fn ufg_cp_points_default_to_six_and_keep_sixteen_selectable() {
+    // ADR-0252: 省略すると弦の求積の小区間あたり 6 点で、厳密な経路の 16 点を含む正の整数で選ぶ。自己遮蔽しない入力には書けない
     let points = |line: &str| {
         replaced(
             PIN_CELL,
@@ -386,8 +386,9 @@ fn ufg_cp_points_default_to_the_cell_quadrature() {
             .unwrap()
             .shielding_options()
             .cp_points,
-        crate::cp::POINTS
+        6
     );
+    assert_eq!(points("ufg-cp-points = 16").unwrap(), 16);
     assert_eq!(points("ufg-cp-points = 8").unwrap(), 8);
     for bad in [
         "ufg-cp-points = 0",
@@ -825,7 +826,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
                 density: 16,
                 deviation: MAX_DEVIATION
             },
-            cp_points: crate::cp::POINTS,
+            cp_points: 6,
             thinning: None,
             hold_memory: None,
             scattering: Scattering::Static,
