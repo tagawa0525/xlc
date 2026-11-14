@@ -37,11 +37,13 @@
 - nominal: 本番の入力の解き方（`shielding` を書かない。ADR-0201 の既定）で、UFG の求積は 16 点（ADR-0252 の前の既定）
 - nominal-cp6: nominal の UFG の衝突確率の求積を 6 点（ADR-0252 の今の既定）にしたもの（`ufg-cp-points = 6`）
 - f1-static-cp6: 上の f1-static の比の解き方で、UFG と静止した標的の求積を 6 点にしたもの（`ufg-cp-points = 6`、`static-cp-points = 6`）
+- f1-light-cp6: 下の SIX の f1-light-rows の比の解き方で、UFG の求積を 6 点にしたもの（比の減速計算も同じ 6 点）
 
 求積の点を書かない履歴から作る入力には、記録を測った 16 点（`ufg-cp-points = 16`。ADR-0252 の前の既定）を書く。
 
 今の既定（求積 6 点の ADR-0252、核種の選び方の ADR-0251）で比べ直す入力 six-<種類>-<燃焼度>-<解き方>.toml（SIX）は、上の 3 × 3 の
-状態で、求積を 6 点にする（`ufg-cp-points = 6`。静止した標的の減速計算も UFG と同じ 6 点）。解き方は SIX_SHIELDINGS:
+状態で、求積を 6 点にする（`ufg-cp-points = 6`。静止した標的の減速計算も UFG と同じ 6 点）。解き方は SIX_SHIELDINGS（2A の 60 MWd/kg
+のほかの燃料と燃焼度は SIX に書いたものだけ）:
 
 - every、f1-static、f1-state-sections: 上と同じ解き方
 - f1-static-rows: f1-static の移行の行を、基準の行に状態と基準の静止した標的の行の比を掛けたもの（`transfer = "static-ratio"`）
@@ -149,7 +151,14 @@ PRODUCTION = {
 }
 # 今の既定で比べ直す入力: (種類, 燃焼度) と解き方
 SIX_POINTS = "ufg-cp-points = 6"
-SIX = [("2A", 60)]
+# (種類, 燃焼度) → 解き方。2A の 60 MWd/kg のほかは、2A の 60 MWd/kg で判定の値に入った f1-light-rows を燃料の種類と燃焼度に広げる
+SIX = {
+    ("2A", 60): None,
+    ("2A", 0): ["every", "f1-light-rows"],
+    ("2A", 20): ["every", "f1-light-rows"],
+    ("2O", 10): ["every", "f1-light-rows"],
+    ("MOX", 60): ["every", "f1-light-rows"],
+}
 STATIC_ROWS = 'transfer = "static-ratio"\nfuel = "static-ratio"\nrings = "static-ratio"\nsph = "static-ratio"'
 SIX_SHIELDINGS = {
     "every": SHIELDINGS["every"],
@@ -174,6 +183,7 @@ SIX_SHIELDINGS["f1-state-light-rows"] = (
     'shielding = "moderator-ratio"',
     SIX_SHIELDINGS["f1-state-rows"][1] + LIGHT,
 )
+PRODUCTION["f1-light-cp6"] = ("ufg-cp-points = 6", SIX_SHIELDINGS["f1-light-rows"])
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
 MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
@@ -344,8 +354,8 @@ def main() -> None:
                 "timing-",
             )
         )
-    for name, burnup in SIX:
-        for shielding in SIX_SHIELDINGS:
+    for (name, burnup), shieldings in SIX.items():
+        for shielding in shieldings or SIX_SHIELDINGS:
             (HERE / f"six-{name}-{burnup:g}-{shielding}.toml").write_text(
                 branch(
                     name,

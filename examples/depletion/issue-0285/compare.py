@@ -229,9 +229,9 @@ def main() -> None:
         if shielding != "every":
             cases.setdefault(f"{name}-{burnup}", []).append(shielding)
     # 今の既定で比べ直す入力（inputs.py の SIX）
-    for name, burnup in INPUTS.SIX:
+    for (name, burnup), shieldings in INPUTS.SIX.items():
         cases[f"six-{name}-{burnup:g}"] = [
-            v for v in INPUTS.SIX_SHIELDINGS if v != "every"
+            v for v in shieldings or INPUTS.SIX_SHIELDINGS if v != "every"
         ]
     present = {
         case: [v for v in variants if (HERE / f"table-{case}-{v}.msgpack").exists()]
