@@ -3,6 +3,7 @@
 library = "../../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 ufg-free-gas = { heavy = 2000, share = false }
+ufg-cp-points = 16
 few-group = { output = "h-2000.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30

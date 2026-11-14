@@ -5,6 +5,7 @@
 # OpenMC の参照解は ../openmc-1C-rings1.toml。出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。
 library = "../depletion.msgpack"
 ufg-free-gas = { upper = inf, cells = 4, sweeps = inf, heavy = 400, sab = true, share = false }
+ufg-cp-points = 16
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
