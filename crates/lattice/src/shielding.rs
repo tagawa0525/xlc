@@ -37,9 +37,9 @@ use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{
-    CellSpectrum, CellTangent, CensusCall, Collision, MemoryError, NuclideTransfer, Scattering,
-    ShareCellCache, TangentCost, UfgError, cell_range, held_cells, hold_total, kernel_cap,
-    material_range, slowing_down_tangent, slowing_down_transfers, slowing_down_with,
+    CellSpectrum, CellTangent, CensusCall, Collision, FreeGas, MemoryError, NuclideTransfer,
+    Scattering, ShareCellCache, TangentCost, UfgError, cell_range, held_cells, hold_total,
+    kernel_cap, material_range, slowing_down_tangent, slowing_down_transfers, slowing_down_with,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -122,6 +122,20 @@ pub struct RatioOptions {
     /// 静止した標的の減速計算（[`RatioFuel::StaticRatio`] など）の等価なセルの衝突確率の、弦の求積の小区間あたりの点の数。`None` は
     /// UFG と同じ（[`ShieldingOptions::cp_points`]）。比だけに使うので、点を減らした誤差のうち状態と基準で打ち消さない分だけが残る
     pub static_cp_points: Option<usize>,
+    /// 静止した標的の減速計算（[`RatioFuel::StaticRatio`] など）の散乱核
+    pub static_scattering: StaticScattering,
+}
+
+/// 比の減速計算（[`RatioFuel::StaticRatio`] など）の散乱核
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StaticScattering {
+    /// どの核種も静止した標的（[`Scattering::Static`]）
+    #[default]
+    Static,
+    /// 分離共鳴を持たない核種（水の H と O など）は UFG と同じ自由ガスの核（S(α, β) を含む）で、分離共鳴を持つ核種は静止した標的
+    /// （UFG の [`FreeGas`] の `heavy` を `None` にしたもの）。減速材の温度で変わる軽い核種の熱運動（UFG の範囲の下の群の移行の行）を
+    /// 比に入れる。UFG が自由ガスでなければ使えない
+    LightFreeGas,
 }
 
 impl RatioOptions {
@@ -394,6 +408,11 @@ pub enum SelfShieldingError {
         "the kept static solves of the ratio anchor belong to other anchor materials or chord points"
     )]
     AnchorLight,
+    /// 比の減速計算の軽い核種の自由ガス（[`StaticScattering::LightFreeGas`]）を、自由ガスでない UFG と組んだ（#0285）
+    #[error(
+        "`static-scattering = \"light-free-gas\"` takes the free gas of the UFG, but the UFG scattering is static"
+    )]
+    LightFreeGas,
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -2668,7 +2687,15 @@ fn ratio_cell(
     let light = if anchor.options.uses_static() {
         let static_pin = PinRings {
             cp_points: anchor.options.static_cp_points.unwrap_or(pin.cp_points),
-            scattering: Scattering::Static,
+            scattering: match (anchor.options.static_scattering, pin.scattering) {
+                (StaticScattering::Static, _) => Scattering::Static,
+                (StaticScattering::LightFreeGas, Scattering::FreeGas(gas)) => {
+                    Scattering::FreeGas(FreeGas { heavy: None, ..gas })
+                }
+                (StaticScattering::LightFreeGas, Scattering::Static) => {
+                    return Err(SelfShieldingError::LightFreeGas);
+                }
+            },
             // 移行の行を数えるのは、行の比に使うときだけ（数えなくても群定数と SPH 因子はビットで同じ）
             transfer: if anchor.options.transfer == RatioTransfer::StaticRatio {
                 UfgTransfer::RingFlux

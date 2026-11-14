@@ -47,8 +47,8 @@ use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::material::Material;
 use crate::shielding::{
     AnchorLight, FuelShielding, RatioAnchor, RatioFuel, RatioOptions, RatioRings, RatioSph,
-    RatioTransfer, ShieldingOptions, ShieldingReuse, shield_fuel_ratio, shield_fuel_reusing,
-    shielded_nuclide_with,
+    RatioTransfer, ShieldingOptions, ShieldingReuse, StaticScattering, shield_fuel_ratio,
+    shield_fuel_reusing, shielded_nuclide_with,
 };
 use crate::symmetry::Detected;
 use crate::tracking::Tracking;
@@ -226,6 +226,15 @@ struct RatioEntry {
     fuel: Option<RatioFuelEntry>,
     #[serde(rename = "static-cp-points")]
     static_cp_points: Option<i64>,
+    #[serde(rename = "static-scattering")]
+    static_scattering: Option<StaticScatteringEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum StaticScatteringEntry {
+    Static,
+    LightFreeGas,
 }
 
 #[derive(Deserialize)]
@@ -300,10 +309,19 @@ impl RatioEntry {
                     ));
                 }
             },
+            static_scattering: match self.static_scattering {
+                None | Some(StaticScatteringEntry::Static) => StaticScattering::Static,
+                Some(StaticScatteringEntry::LightFreeGas) => StaticScattering::LightFreeGas,
+            },
         };
         if options.static_cp_points.is_some() && !options.uses_static() {
             return Err(
                 "branches.ratio: `static-cp-points` is used only by the static ratios (`static-ratio`)".into(),
+            );
+        }
+        if self.static_scattering.is_some() && !options.uses_static() {
+            return Err(
+                "branches.ratio: `static-scattering` is used only by the static ratios (`static-ratio`)".into(),
             );
         }
         Ok(options)
