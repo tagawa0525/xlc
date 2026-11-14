@@ -1215,7 +1215,7 @@ pub(super) struct Thermal<'a> {
     elapsed: [Duration; 2],
     /// 自由ガスの核の区間の仕事の内訳（ログ。[`Thermal::work`]）
     work: FreeGasWork,
-    /// [`FreeGasWork::points`] を書くか（DEBUG のログ）
+    /// [`FreeGasWork::points`] と [`FreeGasWork::nuclide_points`] を書くか（[`Thermal::new`] の `census`）
     census: bool,
     /// 自由ガスの核の D の値を持つ表と、この減速計算の [自由ガスの核種] の核の表（最初に区間を作る格子点で引く）
     kernels: Option<&'a KernelCache>,
@@ -1238,10 +1238,10 @@ pub(super) struct FreeGasWork {
     /// スレッドの時間: [区間の境界（[`Gas::cells`]。逐次）, 2 次式の作成, 作った区間の積分, 持った区間の積分]
     pub(super) seconds: [Duration; 4],
     /// 最初のスイープで区間を作った格子点の（レサジーのビット, エネルギーのビット, 評価の回数, 表に入れたときの大きさ (B)）。ピンと
-    /// 自己遮蔽の間で同じ格子点がどれだけ重なるかを数えるデバッグのログ（[`super::ShareCellCache::census`]）のためで、DEBUG のときだけ書く
+    /// 自己遮蔽の間で同じ格子点がどれだけ重なるかを数えるデバッグのログ（[`super::ShareCellCache::census`]）のためで、[`Thermal::new`] の `census` のときだけ書く
     pub(super) points: Vec<(u64, u64, u64, u64)>,
     /// `points` の格子点の、区間のある自由ガスの核種ごとの（核種, レサジーのビット, エネルギーのビット, 区間の数）。核種ごとの核
-    /// （[`Thermal::nuclide_keys`]）で、分岐の状態の間で同じ核と格子点がどれだけ重なるかを数える（DEBUG のときだけ書く）
+    /// （[`Thermal::nuclide_keys`]）で、分岐の状態の間で同じ核と格子点がどれだけ重なるかを数える（`points` と同じく `census` のときだけ書く）
     pub(super) nuclide_points: Vec<(u32, u64, u64, u32)>,
     /// 上限なしで持つ区間の数（最初のスイープで区間を作った格子点の区間と、核種の区間の始まりと位置の表を 1 区間の大きさで数えた
     /// もの）
@@ -1290,6 +1290,7 @@ impl<'a> Thermal<'a> {
     /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`kernels` は区間と D の値を減速計算の
     /// 間で持つ表（[`KernelCache`]。無ければ格子点ごとに作る）。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
     /// すべての格子点の核種の区間の始まりと位置の表も、48 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
+    /// `census` は [`FreeGasWork::points`] と [`FreeGasWork::nuclide_points`] を書くか（DEBUG のログ）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         gases: Vec<Gas>,
@@ -1301,6 +1302,7 @@ impl<'a> Thermal<'a> {
         n: usize,
         hold: usize,
         kernels: Option<&'a KernelCache>,
+        census: bool,
     ) -> Self {
         let n_gases = gases.len();
         // 個数密度がちょうど 0 のリングは散乱源に符号つきの 0 しか足さない（有限の積分との積）ので、積分しない（和はビットで同じ）
@@ -1334,12 +1336,17 @@ impl<'a> Thermal<'a> {
                 built: vec![0; n_gases],
                 ..FreeGasWork::default()
             },
-            census: tracing::enabled!(tracing::Level::DEBUG),
+            census,
             kernels,
             kernel_tables: Vec::new(),
             hits: Vec::new(),
             needed: 0,
         }
+    }
+
+    /// [`FreeGasWork::points`] と [`FreeGasWork::nuclide_points`] を書くか
+    pub(super) fn census(&self) -> bool {
+        self.census
     }
 
     /// 自由ガスの核の区間の仕事の内訳（ログ）

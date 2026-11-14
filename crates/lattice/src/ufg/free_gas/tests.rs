@@ -505,7 +505,12 @@ fn swept_at(
     let n = 2;
     let tables = vec![None; gases.len()];
     let start = sweep_start(&gases, &tables, &energies).expect("free-gas nuclides");
-    let mut thermal = Thermal::new(gases, sigma, rings, tables, 2, start, n, hold, kernels);
+    // 計数は散乱源を変えないので、いつも数える（ビットで同じことを見るテストも、数えた減速計算を比べる）。tracing の
+    // スレッドの購読者で DEBUG を選ばないのは、呼び出し箇所の関心がプロセスで共有され、購読者の無いテストのスレッドが先に
+    // 登録すると「無い」のまま残るため（#0287）
+    let mut thermal = Thermal::new(
+        gases, sigma, rings, tables, 2, start, n, hold, kernels, true,
+    );
     let start = thermal.start();
     let mut flux: Vec<Vec<f64>> = vec![u[..start].iter().map(|&x| test_flux(x)).collect(); n];
     let mut out = Vec::new();
@@ -578,18 +583,12 @@ fn the_cells_a_solve_would_hold_do_not_depend_on_its_hold() {
 #[test]
 fn the_census_counts_the_table_bytes_of_its_points_by_nuclide() {
     // DEBUG の計数の格子点の大きさ（表に入れたときの大きさ）は、その格子点の核種ごとの値を表に入れた大きさの和
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .with_writer(std::io::sink)
-        .finish();
-    tracing::subscriber::with_default(subscriber, || {
-        let kernels = KernelCache::default();
-        kernels.begin(|_| u64::MAX);
-        let (.., work) = swept_mixed(&test_grid(), 1.0, usize::MAX, Some(&kernels), None);
-        let counted: u64 = work.points.iter().map(|p| p.3).sum();
-        assert!(counted > 0);
-        assert_eq!(counted, kernels.bytes());
-    });
+    let kernels = KernelCache::default();
+    kernels.begin(|_| u64::MAX);
+    let (.., work) = swept_mixed(&test_grid(), 1.0, usize::MAX, Some(&kernels), None);
+    let counted: u64 = work.points.iter().map(|p| p.3).sum();
+    assert!(counted > 0);
+    assert_eq!(counted, kernels.bytes());
 }
 
 #[test]
