@@ -147,12 +147,27 @@ def table(path: Path) -> dict:
     """`points`（[状態] の軸の格子点の添字: 燃焼度、ホウ素、減速材、燃料）、`states`（[状態] の群定数）、`fuels`（燃料の温度の
     点の数）、`micro`（微視的断面積: `nuclides` と [状態][核種]）"""
     data = msgpack.unpackb(path.read_bytes(), strict_map_key=False)
+    # 比の最初の状態（`kinds`）とログの状態の番号の読み替えは、燃焼度 1 点で燃料の温度が最も速く変わる軸の順を前提にする
+    names = [a["name"] for a in data["axes"]]
+    counts = [len(a["points"]) for a in data["axes"]]
+    if names != ["burnup", "boron", "moderator", "fuel"] or counts[0] != 1:
+        sys.exit(f"{path}: axes {names} with {counts} points, not one burnup point")
     return {
         "points": data["points"],
         "states": data["states"],
-        "fuels": len(data["axes"][3]["points"]),
+        "counts": counts,
+        "fuels": counts[3],
         "micro": data["micro"],
     }
+
+
+def point(state: int, counts: list[int]) -> list[int]:
+    """ログの状態の番号（軸の直積の順。最後の軸が最も速く変わる）の格子点の添字"""
+    out = []
+    for n in reversed(counts):
+        out.append(state % n)
+        state //= n
+    return out[::-1]
 
 
 def worst(per: list[float], points: list) -> dict:
@@ -215,9 +230,11 @@ def main() -> None:
             {"path": lpath.name, "md5": md5(lpath)},
         ]
         tables[v] = table(tpath)
-        summary["variants"][v] = {
-            "timing": breakdown(log(lpath.read_text()), tables[v]["fuels"])
-        }
+        timing = breakdown(log(lpath.read_text()), tables[v]["fuels"])
+        # 時間の行の `state` はログの番号（軸の直積の順）、差の `state` は表の状態の並び（`points`）の番号
+        for row in timing["states"]:
+            row["point"] = point(row["state"], tables[v]["counts"])
+        summary["variants"][v] = {"timing": timing}
     summary["differences"] = {
         f"{v} - {b}": differences(tables[v], tables[b]) for v, b in PAIRS
     }
