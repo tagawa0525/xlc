@@ -53,6 +53,10 @@ const NON_ELASTIC_ROUNDING: f64 = 1.0e-12;
 /// 吸収
 const RING_CAPTURES: [&str; 5] = ["U-238", "Pu-239", "Pu-240", "Gd-155", "Gd-157"];
 
+/// UFG の減速計算の等価なセルの、弦の求積の小区間あたりの点の数の既定（ADR-0252）。[`crate::cp::POINTS`]（16）は等価原理の
+/// セルなど UFG の外の衝突確率も使う既定で、UFG の厳密な経路として入力（`ufg-cp-points = 16`）で選べる
+pub const UFG_CP_POINTS: usize = 6;
+
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ShieldingOptions {
@@ -63,7 +67,7 @@ pub struct ShieldingOptions {
     /// 燃料のピンと棒の UFG の減速計算の飛程の求め方
     pub collision: Collision,
     /// 燃料のピンと棒の UFG の減速計算の等価なセルの、弦の求積の小区間あたりの点の数（[`Cylinder::with_points`]。既定は
-    /// [`crate::cp::POINTS`]。減らすと衝突確率を求める時間が点の数に比例して減り、求積の誤差が増える。#0286）
+    /// [`UFG_CP_POINTS`]。減らすと衝突確率を求める時間が点の数に比例して減り、求積の誤差が増える。#0286、ADR-0252）
     pub cp_points: usize,
     /// 燃料のピンと棒の UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は
     /// 間引かない。ADR-0185）
@@ -84,7 +88,7 @@ impl Default for ShieldingOptions {
             max_iterations: 100,
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
-            cp_points: crate::cp::POINTS,
+            cp_points: UFG_CP_POINTS,
             thinning: None,
             hold_memory: None,
             scattering: Scattering::default(),

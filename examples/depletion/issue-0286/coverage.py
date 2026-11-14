@@ -3,7 +3,8 @@ inputs.py の 9 ケースで測っていない条件で比べる入力を書く�
 
 入力は coverage/ に `<ケース>-<変種>.toml` で書く。変種は `full`（`share = false`。どの核種も自由ガス）と `share-1e-4`、静止した
 標的にする核種の選び方の変種 `share-point`（格子点ごとの割合の最大）と `share-actinides`（アクチニドを残す）、求積の点の変種で、
-`full` と `share-1e-4` のほかは `VARIANT_CASES` のケースだけ。比べるのは compare_coverage.py。
+`full` と `share-1e-4` のほかは `VARIANT_CASES` のケースだけ。求積の点の変種のほかは、測ったときの ADR-0252 の前の既定の衝突確率の
+求積 16 点（`ufg-cp-points = 16`）を書く。比べるのは compare_coverage.py。
 
 ケース:
 
@@ -23,7 +24,7 @@ inputs.py の 9 ケースで測っていない条件で比べる入力を書く�
   の公称と、燃料の温度 1200 K、減速材の 600 K（0.661165 g/cc）、その両方の 4 状態）。どれもミクロ燃焼の 31 核種を書く
 - 燃焼した MOX の集合体の分岐（`assembly-mox`）: ../mox-assembly の履歴（どの核種も自由ガス、求積 16 点）の 0、20、40、60 MWd/kg から、
   公称（燃料 900 K、減速材 580 K、650 ppm）、燃料 1200 K、減速材 600 K、その両方の 4 状態。ミクロ燃焼の 31 核種と、ピン出力の
-  形状関数をテーブルに書く。変種は `full`、`share-point`、`share-1e-4` と、衝突確率の求積 6 点（`points-6`。ADR-0252 の候補）、
+  形状関数をテーブルに書く。変種は `full`、`share-point`、`share-1e-4` と、衝突確率の求積 6 点（`points-6`。ADR-0252）、
   その両方（`share-point-points-6`）
 
 使い方: python3 coverage.py（このディレクトリで）
@@ -52,12 +53,16 @@ FUELS = load("fuels_inputs", DEPLETION / "issue-0180/fuels/inputs.py")
 LETHARGY_1E_4 = (
     'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }\n'
 )
+# 測ったときの既定（ADR-0252 の前）の求積の点。既定が変わっても、変種を測ったときと同じ 16 点で解く
+EXACT_POINTS = "ufg-cp-points = 16\n"
 VARIANTS = {
-    "full": "ufg-free-gas = { share = false }\n",
-    "share-1e-4": LETHARGY_1E_4,
-    "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n',
-    "share-actinides": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy", keep-actinides = true } }\n',
-    # 衝突確率の求積の点（ADR-0252 の候補）と、それと既定の選び方の組み合わせ。`ufg-cp-points = 16` を書く入力の行を置き換える
+    "full": "ufg-free-gas = { share = false }\n" + EXACT_POINTS,
+    "share-1e-4": LETHARGY_1E_4 + EXACT_POINTS,
+    "share-point": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\n'
+    + EXACT_POINTS,
+    "share-actinides": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy", keep-actinides = true } }\n'
+    + EXACT_POINTS,
+    # 衝突確率の求積の点（ADR-0252）と、それと既定の選び方の組み合わせ
     "points-6": "ufg-free-gas = { share = false }\nufg-cp-points = 6\n",
     "share-point-points-6": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\nufg-cp-points = 6\n',
 }
@@ -306,10 +311,11 @@ def assembly_mox(variant: str) -> str:
         'library = "../../p2/depletion.msgpack"\n',
         source,
     )
+    # 求積の点はどの変種も書くので、履歴の入力が明示する 16 点の行を変種の行に任せる（書かない変種は既定の 6 点に黙って落ちるので止める）
+    if "ufg-cp-points = " not in VARIANTS[variant]:
+        sys.exit(f"{case}: variant {variant} must write ufg-cp-points")
+    body = replace_once(body, EXACT_POINTS, "", source)
     body = with_variant(body, variant, case)
-    # 求積の点の変種は、履歴と同じ 16 点を明示した行を置き換える（既定が変わっても基準を履歴と同じ 16 点に保つ）
-    if "ufg-cp-points = " in VARIANTS[variant]:
-        body = replace_once(body, "ufg-cp-points = 16\n", "", source)
     body = replace_once(
         body,
         VARIANTS[variant],

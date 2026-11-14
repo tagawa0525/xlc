@@ -2,6 +2,7 @@
 # issue-0180/branch/2A-60.toml の微分を除いたもの
 library = "../p2/depletion.msgpack"
 ufg-free-gas = { sweeps = 2, share = false }
+ufg-cp-points = 16
 ufg-tolerance = 1e-4
 few-group = { output = "fg-2A-60-sweeps-2.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 pitch = 1.26

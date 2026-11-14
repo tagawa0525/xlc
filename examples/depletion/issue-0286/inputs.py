@@ -3,7 +3,8 @@
 燃料の種類（ケース）ごとに、自己遮蔽の条件（変種）を替えた 1 状態の入力を `<ケース>-<変種>.toml` に書く。変種 `default` は
 ADR-0251 の前の既定（ADR-0209、ADR-0243、ADR-0246 の自由ガスで、どの核種も自由ガス。ufg-tolerance = 1e-4）で、測ったときの
 経路で解くように `share = false` を書く。ほかは `default` に 1 つの項目を足したもの（`share` の変種は `share = false` の代わりに
-閾値を書く）。比べるのは compare.py。
+閾値を書く）。どのケースの入力も、測ったときの ADR-0252 の前の既定の衝突確率の求積 16 点（`ufg-cp-points = 16`）を書き、求積の点の
+変種はその行を置き換える。比べるのは compare.py。
 
 ケース:
 
@@ -95,7 +96,7 @@ CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
 # 燃焼した MOX のピンセルの分岐（mox-history.toml の燃焼点）
 MOX_BURNUP = 40
 # 燃焼した MOX の集合体（../mox-assembly の履歴）の 1 状態で時間を比べる変種: どの核種も自由ガスの 16 点（基準）、既定の候補の
-# 選び方（ADR-0251）、求積 6 点（ADR-0252 の候補）、その両方
+# 選び方（ADR-0251）、求積 6 点（ADR-0252）、その両方
 MOX_ASSEMBLY_CASE = "mox-assembly-60"
 MOX_ASSEMBLY_BURNUP = 60
 MOX_ASSEMBLY_VARIANTS = {
@@ -135,6 +136,21 @@ def replace_once(text: str, old: str, new: str, where: str) -> str:
     if text.count(old) != 1:
         sys.exit(f"{where}: expected {old!r} once")
     return text.replace(old, new)
+
+
+# 測ったときの既定（ADR-0252 の前）の求積の点。既定が変わっても、変種を測ったときと同じ 16 点で解く
+EXACT_POINTS = "ufg-cp-points = 16\n"
+
+
+def with_exact_points(text: str, where: str) -> str:
+    """`library = ` の行の後に [`EXACT_POINTS`] を足す（履歴の入力が既に書いていればそのまま）"""
+    if EXACT_POINTS.rstrip("\n") in text.splitlines():
+        return text
+    library = text.find("\nlibrary = ")
+    library_end = text.find("\n", library + 1) + 1
+    if library < 0 or library_end == 0:
+        sys.exit(f"{where}: no library line")
+    return text[:library_end] + EXACT_POINTS + text[library_end:]
 
 
 def pin(name: str) -> str:
@@ -216,6 +232,13 @@ def mox_burned() -> str:
         "",
         source,
     )
+    # 求積の点は、どのケースとも同じく [`with_exact_points`] の行で書く
+    body = replace_once(
+        body,
+        "# 履歴は ADR-0252 の前の既定（衝突確率の求積 16 点）で作った\n" + EXACT_POINTS,
+        "",
+        source,
+    )
     body = replace_once(
         body,
         'library = "../p2/depletion.msgpack"\n',
@@ -269,9 +292,9 @@ def variant(base: str, case: str, name: str) -> str:
     """ケースの既定の入力 `base` に変種 `name` の行を足し、少数群定数（ピンセルは few-group、集合体はテーブル）の出力の名前を付ける"""
     text = base
     line = {**VARIANTS, **CP_VARIANTS, **SHARE_VARIANTS, **MOX_ASSEMBLY_VARIANTS}[name]
-    if "ufg-cp-points = " in line and "ufg-cp-points = 16\n" in text:
-        # 求積の点を明示した入力（[`mox_assembly`]）は、その行を変種の行で置き換える
-        text = replace_once(text, "ufg-cp-points = 16\n", "", case)
+    if "ufg-cp-points = " in line:
+        # 求積の点の変種は、どのケースも書く [`EXACT_POINTS`] の行を変種の行で置き換える
+        text = replace_once(text, EXACT_POINTS, "", case)
     if name in TOLERANCES:
         text = replace_once(
             text,
@@ -317,14 +340,14 @@ def bases() -> dict:
     cases["pin-mox"] = mox()
     cases["2A-60"] = assembly_2a60()
     cases.update({name: assembly(name) for name in ASSEMBLIES})
-    return cases
+    return {name: with_exact_points(text, name) for name, text in cases.items()}
 
 
 def cp_bases() -> dict:
     """衝突確率の近似だけで比べるケースの既定の入力"""
     cases = {name: assembly(name) for name in CP_ASSEMBLIES}
     cases["pin-mox-40"] = mox_burned()
-    return cases
+    return {name: with_exact_points(text, name) for name, text in cases.items()}
 
 
 def main() -> None:
@@ -338,7 +361,7 @@ def main() -> None:
     for case, base in {**old, **cp_bases()}.items():
         for name in CP_VARIANTS:
             (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))
-    base = mox_assembly()
+    base = with_exact_points(mox_assembly(), MOX_ASSEMBLY_CASE)
     for name in MOX_ASSEMBLY_TIMING:
         (HERE / f"{MOX_ASSEMBLY_CASE}-{name}.toml").write_text(
             variant(base, MOX_ASSEMBLY_CASE, name)

@@ -2,6 +2,7 @@
 # p2/lattice-2O.toml の 10 MWd/kg からの 1 状態の分岐
 library = "../p2/depletion.msgpack"
 ufg-free-gas = { sweeps = 1, share = false }
+ufg-cp-points = 16
 few-group = { output = "fg-2O-10-sweeps-1.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 ufg-tolerance = 1e-4
 pitch = 1.26

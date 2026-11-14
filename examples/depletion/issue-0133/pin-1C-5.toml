@@ -3,6 +3,7 @@
 library = "../depletion.msgpack"
 ufg-scattering = "static"
 ufg-transfer = "infinite-dilution"
+ufg-cp-points = 16
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02

@@ -371,8 +371,8 @@ fn track_table_defaults_to_the_adr_density() {
 }
 
 #[test]
-fn ufg_cp_points_default_to_the_cell_quadrature() {
-    // #0286: 省略すると弦の求積の小区間あたりの既定の点の数で、正の整数で選ぶ。自己遮蔽しない入力には書けない
+fn ufg_cp_points_default_to_six_and_keep_sixteen_selectable() {
+    // ADR-0252: 省略すると弦の求積の小区間あたり 6 点で、厳密な経路の 16 点を含む正の整数で選ぶ。自己遮蔽しない入力には書けない
     let points = |line: &str| {
         replaced(
             PIN_CELL,
@@ -386,8 +386,9 @@ fn ufg_cp_points_default_to_the_cell_quadrature() {
             .unwrap()
             .shielding_options()
             .cp_points,
-        crate::cp::POINTS
+        6
     );
+    assert_eq!(points("ufg-cp-points = 16").unwrap(), 16);
     assert_eq!(points("ufg-cp-points = 8").unwrap(), 8);
     for bad in [
         "ufg-cp-points = 0",
@@ -807,12 +808,12 @@ fn ufg_transfer_defaults_to_the_ring_flux_rows() {
 
 #[test]
 fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
-    // ADR-0209: 静止した標的と無限希釈の形を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定（ADR-0070、ADR-0076）の条件と同じ。
-    // 解く側は条件だけで決まる
+    // ADR-0209: 静止した標的と無限希釈の形と、求積 16 点（ADR-0252）を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定
+    // （ADR-0070、ADR-0076）の条件と同じ。解く側は条件だけで決まる
     let input = replaced(
         PIN_CELL,
         "library = \"m1.msgpack\"",
-        "library = \"m1.msgpack\"\nufg-scattering = \"static\"\nufg-transfer = \"infinite-dilution\"",
+        "library = \"m1.msgpack\"\nufg-scattering = \"static\"\nufg-transfer = \"infinite-dilution\"\nufg-cp-points = 16",
     )
     .unwrap();
     assert_eq!(
@@ -825,7 +826,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
                 density: 16,
                 deviation: MAX_DEVIATION
             },
-            cp_points: crate::cp::POINTS,
+            cp_points: 16,
             thinning: None,
             hold_memory: None,
             scattering: Scattering::Static,

@@ -1,6 +1,7 @@
 # このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース burn-uo2、変種 share-1e-4。ピンセルを 60 MWd/kg まで燃焼させる
 library = "../../p2/depletion.msgpack"
 ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }
+ufg-cp-points = 16
 # 燃料のリングの物質が 4 つあると、飛程の表（ADR-0156）は物質ごとの軸の直積で格子点より大きくなるので、格子点ごとに求める
 track-table = false
 pitch = 1.26

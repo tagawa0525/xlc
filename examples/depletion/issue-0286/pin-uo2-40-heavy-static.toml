@@ -2,6 +2,7 @@
 # issue-0274/pin-2A-40-energy-1000.toml の組成と形状
 library = "../p2/depletion.msgpack"
 ufg-free-gas = { heavy = false, share = false }
+ufg-cp-points = 16
 few-group = { output = "fg-pin-uo2-40-heavy-static.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
 pitch = 1.26

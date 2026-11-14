@@ -1,0 +1,88 @@
+{
+ "mox-assembly-60": {
+  "default-repeat-1": {
+   "shielding_seconds": 37.4,
+   "total_seconds": 50.408798739,
+   "per_pin": {
+    "grid": 1.7638018606410253,
+    "table": 0.7720429075128208,
+    "evaluate": 0.45274438841025655,
+    "collision": 0.17934400846153847,
+    "slowing": 16.38659978297436,
+    "free_gas": 13.289615584512816,
+    "sab": 1.1117078687179485
+   },
+   "transfers_per_pin": 0.2468383918461538
+  },
+  "cp-points-6-repeat-1": {
+   "shielding_seconds": 36.9,
+   "total_seconds": 49.731395457,
+   "per_pin": {
+    "grid": 1.7511777050000001,
+    "table": 0.44496190925641016,
+    "evaluate": 0.4834326167948718,
+    "collision": 0.19015408882051288,
+    "slowing": 16.369861592025643,
+    "free_gas": 13.26981098751282,
+    "sab": 1.113893549846154
+   },
+   "transfers_per_pin": 0.2509765622051282
+  },
+  "default-repeat-2": {
+   "shielding_seconds": 38.2,
+   "total_seconds": 51.318032599,
+   "per_pin": {
+    "grid": 1.760209342179487,
+    "table": 0.7803097849743593,
+    "evaluate": 0.4611978611282051,
+    "collision": 0.1826904666410257,
+    "slowing": 16.663674298897433,
+    "free_gas": 13.512929790102566,
+    "sab": 1.127441119307692
+   },
+   "transfers_per_pin": 0.24714667702564108
+  },
+  "cp-points-6-repeat-2": {
+   "shielding_seconds": 37.3,
+   "total_seconds": 50.192692535,
+   "per_pin": {
+    "grid": 1.7609799229487184,
+    "table": 0.44146843871794855,
+    "evaluate": 0.49044061151282037,
+    "collision": 0.18961233420512816,
+    "slowing": 16.487808307923075,
+    "free_gas": 13.37704779220513,
+    "sab": 1.1041250887179486
+   },
+   "transfers_per_pin": 0.23871788056410254
+  },
+  "default-repeat-3": {
+   "shielding_seconds": 37.5,
+   "total_seconds": 50.357314624,
+   "per_pin": {
+    "grid": 1.776570644717949,
+    "table": 0.7706594198205128,
+    "evaluate": 0.4811263866923076,
+    "collision": 0.18448435871794872,
+    "slowing": 16.499769213307694,
+    "free_gas": 13.401281121179487,
+    "sab": 1.1092963854358975
+   },
+   "transfers_per_pin": 0.27489107858974354
+  },
+  "cp-points-6-repeat-3": {
+   "shielding_seconds": 37.5,
+   "total_seconds": 50.502816795,
+   "per_pin": {
+    "grid": 1.7598624051282048,
+    "table": 0.4450816390769231,
+    "evaluate": 0.5144670314871793,
+    "collision": 0.20576877674358982,
+    "slowing": 16.42859705453846,
+    "free_gas": 13.321296006897432,
+    "sab": 1.116516341846154
+   },
+   "transfers_per_pin": 0.23326044653846162
+  }
+ }
+}

@@ -1619,7 +1619,12 @@ pub(crate) mod lattice {
             })
             .sum::<f64>()
             / ufg.len() as f64;
-        let cylinder = Cylinder::new(vec![0.2, 0.38, 0.48, radius]).unwrap();
+        // 自己遮蔽の等価なセルと同じ求積（`rod_lattice` の既定の条件）
+        let cylinder = Cylinder::with_points(
+            vec![0.2, 0.38, 0.48, radius],
+            ShieldingOptions::default().cp_points,
+        )
+        .unwrap();
         let rings: Vec<Option<&MaterialInput>> = [1, 1, 2, 3].map(|i| Some(&materials[i])).to_vec();
         let spectrum = crate::ufg::slowing_down(&library, &cylinder, &rings, [4.0, 1.0e4]).unwrap();
         assert_eq!(spectrum.groups, 1..3);
@@ -2562,9 +2567,20 @@ pub(crate) mod lattice {
     }
 
     #[test]
-    fn fewer_quadrature_points_stay_close_to_the_default_cell() {
-        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は既定の求積に近い
-        let default = ring_pin(&ShieldingOptions::default()).0;
+    fn the_default_cell_quadrature_takes_six_points() {
+        // ADR-0252: 等価なセルの弦の求積の既定は小区間あたり 6 点
+        assert_eq!(ShieldingOptions::default().cp_points, 6);
+    }
+
+    #[test]
+    fn fewer_quadrature_points_stay_close_to_the_exact_cell() {
+        // #0286: 等価なセルの弦の求積の点を減らすと、衝突確率が求積の誤差だけ変わり、実効断面積は厳密な経路（16 点。ADR-0252）の
+        // 求積に近い
+        let exact = ring_pin(&ShieldingOptions {
+            cp_points: 16,
+            ..ShieldingOptions::default()
+        })
+        .0;
         let coarse = ring_pin(&ShieldingOptions {
             cp_points: 4,
             ..ShieldingOptions::default()
@@ -2573,7 +2589,7 @@ pub(crate) mod lattice {
         let mut worst = 0.0_f64;
         for r in 0..6 {
             let (Some(a), Some(c)) = (
-                default.region_cross_sections(r),
+                exact.region_cross_sections(r),
                 coarse.region_cross_sections(r),
             ) else {
                 continue;

@@ -2,6 +2,7 @@
 # p2/lattice-2A-rods.toml の 20 MWd/kg からの 1 状態の分岐
 library = "../p2/depletion.msgpack"
 ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }
+ufg-cp-points = 16
 few-group = { output = "fg-2A-rods-20-share-1e-4.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 ufg-tolerance = 1e-4
 pitch = 1.26

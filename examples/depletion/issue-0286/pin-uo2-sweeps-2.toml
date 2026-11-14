@@ -2,6 +2,7 @@
 # issue-0274/pin-1C-0-energy-1000.toml の組成と形状
 library = "../p2/depletion.msgpack"
 ufg-free-gas = { sweeps = 2, share = false }
+ufg-cp-points = 16
 few-group = { output = "fg-pin-uo2-sweeps-2.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
 pitch = 1.26
