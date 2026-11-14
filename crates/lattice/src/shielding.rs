@@ -128,6 +128,7 @@ impl RatioOptions {
     /// 比のどれかが静止した標的の減速計算を使うか
     pub fn uses_static(&self) -> bool {
         self.fuel == RatioFuel::StaticRatio
+            || self.transfer == RatioTransfer::StaticRatio
             || self.rings == RatioRings::StaticRatio
             || self.sph == RatioSph::StaticRatio
     }
@@ -158,6 +159,10 @@ pub enum RatioTransfer {
     Reference,
     /// 基準の移行の行を、入射の群ごとに状態と基準の弾性散乱の比で縮める（行の和が状態の弾性散乱になる）
     ElasticRatio,
+    /// 基準の移行の行の要素ごとに、状態と基準を静止した標的で解いた減速計算（[`RatioFuel::StaticRatio`]。移行はリングの中性子束で
+    /// 数える）の同じ要素の比を掛け、行の和を `ElasticRatio` と同じにする（行の形の変化だけを静止した標的の比で入れる）。静止した
+    /// 標的の行が 0 の要素（熱運動による上方散乱）は基準の値のまま
+    StaticRatio,
 }
 
 /// 比で求める状態の、等価なセルの燃料でないリング（被覆管、減速材）の群定数（ADR-0250 の「比が決めない量」）。UFG の範囲の外は
@@ -2664,7 +2669,12 @@ fn ratio_cell(
         let static_pin = PinRings {
             cp_points: anchor.options.static_cp_points.unwrap_or(pin.cp_points),
             scattering: Scattering::Static,
-            transfer: UfgTransfer::InfiniteDilution,
+            // 移行の行を数えるのは、行の比に使うときだけ（数えなくても群定数と SPH 因子はビットで同じ）
+            transfer: if anchor.options.transfer == RatioTransfer::StaticRatio {
+                UfgTransfer::RingFlux
+            } else {
+                UfgTransfer::InfiniteDilution
+            },
             tangent: None,
             ..*pin
         };
@@ -2709,22 +2719,59 @@ fn ratio_cell(
     };
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
-    let rows = |transfer: &NuclideTransfer, full: &Shielded, base: &Shielded| -> NuclideTransfer {
-        match anchor.options.transfer {
+    // 静止した標的の減速計算の、リング `j` の核種 `k` の状態と基準の移行の行
+    let light_transfers =
+        |j: usize, k: usize| -> Result<(&NuclideTransfer, &NuclideTransfer), SelfShieldingError> {
+            let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+            let (Some(s), Some(a)) = (&s.ring_transfers[j], &a.ring_transfers[j]) else {
+                return Err(mismatch());
+            };
+            Ok((
+                s.get(k).ok_or_else(mismatch)?,
+                a.get(k).ok_or_else(mismatch)?,
+            ))
+        };
+    // リング `j` の核種 `k` の移行の行: 基準の行 `transfer` を、状態の群定数 `full` と基準の群定数 `base` で作り直す
+    let rows = |j: usize,
+                k: usize,
+                transfer: &NuclideTransfer,
+                full: &Shielded,
+                base: &Shielded|
+     -> Result<NuclideTransfer, SelfShieldingError> {
+        let elastic = |g: usize| ratio(full.elastic[g], base.elastic[g]);
+        let scaled = |shape: &dyn Fn(usize, &[f64]) -> Vec<f64>| NuclideTransfer {
+            groups: transfer.groups.clone(),
+            rows: transfer
+                .groups
+                .clone()
+                .zip(&transfer.rows)
+                .map(|(g, row)| shape(g, row))
+                .collect(),
+        };
+        Ok(match anchor.options.transfer {
             RatioTransfer::Reference => transfer.clone(),
-            RatioTransfer::ElasticRatio => NuclideTransfer {
-                groups: transfer.groups.clone(),
-                rows: transfer
-                    .groups
-                    .clone()
-                    .zip(&transfer.rows)
-                    .map(|(g, row)| {
-                        let r = ratio(full.elastic[g], base.elastic[g]);
-                        row.iter().map(|v| v * r).collect()
-                    })
-                    .collect(),
-            },
-        }
+            RatioTransfer::ElasticRatio => {
+                scaled(&|g, row| row.iter().map(|v| v * elastic(g)).collect())
+            }
+            RatioTransfer::StaticRatio => {
+                let (s, a) = light_transfers(j, k)?;
+                if s.groups != transfer.groups || a.groups != transfer.groups {
+                    return Err(mismatch());
+                }
+                scaled(&|g, row| {
+                    let i = g - transfer.groups.start;
+                    let shaped: Vec<f64> = row
+                        .iter()
+                        .zip(&s.rows[i])
+                        .zip(&a.rows[i])
+                        .map(|((v, s), a)| v * ratio(*s, *a))
+                        .collect();
+                    // 行の和は ElasticRatio と同じ（基準の行の和 × 弾性散乱の比）
+                    let norm = ratio(row.iter().sum::<f64>() * elastic(g), shaped.iter().sum());
+                    shaped.iter().map(|v| v * norm).collect()
+                })
+            }
+        })
     };
     let mut rings = Vec::with_capacity(targets.len());
     let mut ring_nuclides = Vec::with_capacity(targets.len());
@@ -2767,17 +2814,19 @@ fn ratio_cell(
                 let by_ratio = |state: &Shielded, at_anchor: &Shielded| {
                     let mut full = carlvik[k].clone();
                     scale_by_ratio(&mut full, &base[k], state, at_anchor, groups.clone());
-                    let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
-                    (full, transfer)
+                    let transfer = base_transfers
+                        .map(|t| rows(j, k, &t[k], &full, &base[k]))
+                        .transpose()?;
+                    Ok::<_, SelfShieldingError>((full, transfer))
                 };
                 match anchor.options.fuel {
-                    RatioFuel::Equivalence => by_ratio(&carlvik[k], &anchor_carlvik[k]),
+                    RatioFuel::Equivalence => by_ratio(&carlvik[k], &anchor_carlvik[k])?,
                     RatioFuel::StateAverage => {
-                        by_ratio(&state_cell()?.effective[k], &anchor_pin.effective[k])
+                        by_ratio(&state_cell()?.effective[k], &anchor_pin.effective[k])?
                     }
                     RatioFuel::StaticRatio => {
                         let (s, a) = light_rings(j)?;
-                        by_ratio(&s[k], &a[k])
+                        by_ratio(&s[k], &a[k])?
                     }
                     RatioFuel::State => {
                         let s = state_cell()?;
@@ -2800,23 +2849,27 @@ fn ratio_cell(
                             full.nu_fission[g] = base[k].nu_fission[g];
                             full.capture[g] = base[k].capture[g];
                         }
-                        (
-                            full,
-                            base_transfers.map(|t| rows(&t[k], &base[k], &base[k])),
-                        )
+                        let transfer = base_transfers
+                            .map(|t| rows(j, k, &t[k], &base[k], &base[k]))
+                            .transpose()?;
+                        (full, transfer)
                     }
                     RatioRings::ShieldingFactor => {
                         let state = full.clone();
                         let at_anchor =
                             library.shielded(name, a.temperature, &vec![infinite; ng])?;
                         scale_by_ratio(&mut full, &base[k], &state, &at_anchor, groups.clone());
-                        let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        let transfer = base_transfers
+                            .map(|t| rows(j, k, &t[k], &full, &base[k]))
+                            .transpose()?;
                         (full, transfer)
                     }
                     RatioRings::StaticRatio => {
                         let (s, a) = light_rings(j)?;
                         scale_by_ratio(&mut full, &base[k], &s[k], &a[k], groups.clone());
-                        let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        let transfer = base_transfers
+                            .map(|t| rows(j, k, &t[k], &full, &base[k]))
+                            .transpose()?;
                         (full, transfer)
                     }
                     RatioRings::State | RatioRings::StateSections => {
@@ -2825,7 +2878,9 @@ fn ratio_cell(
                         let full = ring[k].clone();
                         let transfer = match anchor.options.rings {
                             RatioRings::State => s.ring_transfers[j].as_ref().map(|t| t[k].clone()),
-                            _ => base_transfers.map(|t| rows(&t[k], &full, &base[k])),
+                            _ => base_transfers
+                                .map(|t| rows(j, k, &t[k], &full, &base[k]))
+                                .transpose()?,
                         };
                         (full, transfer)
                     }
