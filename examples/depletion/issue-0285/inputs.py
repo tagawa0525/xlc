@@ -48,6 +48,8 @@
 - f1-static-rows-sph: f1-static-rows の SPH 因子を状態の UFG のものにしたもの（SPH 因子の残る差を分ける診断）
 - f1-state-rows: f1-state-sections の移行の行を f1-static-rows の作り方にしたもの（移行の行の差だけを残す診断。target ratio_check の
   DEBUG で、行の差を transfer_check.py で読む）
+- f1-light-rows、f1-state-light-rows: f1-static-rows と f1-state-rows の比の減速計算の散乱核を、分離共鳴を持たない核種だけ UFG と
+  同じ自由ガスにしたもの（`static-scattering = "light-free-gas"`。減速材の温度で変わる水の熱運動を比に入れる）
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -163,6 +165,15 @@ SIX_SHIELDINGS = {
         'transfer = "static-ratio"\nfuel = "state"\nrings = "state-sections"\nsph = "state"',
     ),
 }
+LIGHT = '\nstatic-scattering = "light-free-gas"'
+SIX_SHIELDINGS["f1-light-rows"] = (
+    'shielding = "moderator-ratio"',
+    STATIC_ROWS + LIGHT,
+)
+SIX_SHIELDINGS["f1-state-light-rows"] = (
+    'shielding = "moderator-ratio"',
+    SIX_SHIELDINGS["f1-state-rows"][1] + LIGHT,
+)
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
 MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
