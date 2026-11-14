@@ -1619,7 +1619,12 @@ pub(crate) mod lattice {
             })
             .sum::<f64>()
             / ufg.len() as f64;
-        let cylinder = Cylinder::new(vec![0.2, 0.38, 0.48, radius]).unwrap();
+        // 自己遮蔽の等価なセルと同じ求積（`rod_lattice` の既定の条件）
+        let cylinder = Cylinder::with_points(
+            vec![0.2, 0.38, 0.48, radius],
+            ShieldingOptions::default().cp_points,
+        )
+        .unwrap();
         let rings: Vec<Option<&MaterialInput>> = [1, 1, 2, 3].map(|i| Some(&materials[i])).to_vec();
         let spectrum = crate::ufg::slowing_down(&library, &cylinder, &rings, [4.0, 1.0e4]).unwrap();
         assert_eq!(spectrum.groups, 1..3);
