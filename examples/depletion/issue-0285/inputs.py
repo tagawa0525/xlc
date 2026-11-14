@@ -151,12 +151,13 @@ PRODUCTION = {
 }
 # 今の既定で比べ直す入力: (種類, 燃焼度) と解き方
 SIX_POINTS = "ufg-cp-points = 6"
-# (種類, 燃焼度) → 解き方。2A の 60 MWd/kg のほかは、2A の 60 MWd/kg で判定の値に入った f1-light-rows を燃料の種類と燃焼度に広げる
+# (種類, 燃焼度) → 解き方。2A の 60 MWd/kg のほかは、2A の 60 MWd/kg で判定の値に入った f1-light-rows を燃料の種類と燃焼度に広げる。
+# 2O の 10 MWd/kg は、燃料を公称の 900 K に書き直すと、p2 のライブラリに 900 K のデータが無い履歴の核種（輸送した 90 のうち 1 つ）で
+# 止まるので入れない（Slurm 882）
 SIX = {
     ("2A", 60): None,
     ("2A", 0): ["every", "f1-light-rows"],
     ("2A", 20): ["every", "f1-light-rows"],
-    ("2O", 10): ["every", "f1-light-rows"],
     ("MOX", 60): ["every", "f1-light-rows"],
 }
 STATIC_ROWS = 'transfer = "static-ratio"\nfuel = "static-ratio"\nrings = "static-ratio"\nsph = "static-ratio"'
