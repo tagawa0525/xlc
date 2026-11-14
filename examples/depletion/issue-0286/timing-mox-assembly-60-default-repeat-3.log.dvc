@@ -1,0 +1,5 @@
+outs:
+- md5: 1a644788554a35a28c532f2903382d92
+  size: 1788380
+  hash: md5
+  path: timing-mox-assembly-60-default-repeat-3.log
