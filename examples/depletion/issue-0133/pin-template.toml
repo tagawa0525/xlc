@@ -4,6 +4,7 @@
 library = "../../depletion.msgpack"   # write_lattice.py が k<番号>/ の中に書く入力から見たパス
 ufg-scattering = "static"
 ufg-transfer = "infinite-dilution"
+ufg-cp-points = 16
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
