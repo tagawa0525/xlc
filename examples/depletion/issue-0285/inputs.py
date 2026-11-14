@@ -36,8 +36,7 @@
 
 - nominal: 本番の入力のまま（`shielding` を書かない。ADR-0201 の既定）
 - nominal-cp6: nominal の UFG の衝突確率の求積を 6 点にしたもの（`ufg-cp-points = 6`）
-- f1-static: f1-static と同じ比の解き方
-- f1-static-cp6: f1-static の UFG と静止した標的の求積を 6 点にしたもの（`ufg-cp-points = 6`、`static-cp-points = 6`）
+- f1-static-cp6: 上の f1-static の比の解き方で、UFG と静止した標的の求積を 6 点にしたもの（`ufg-cp-points = 6`、`static-cp-points = 6`）
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -131,7 +130,6 @@ PRODUCTION_BURNUP = 60
 PRODUCTION = {
     "nominal": ("", None),
     "nominal-cp6": ("ufg-cp-points = 6", None),
-    "f1-static": ("", SHIELDINGS["f1-static"]),
     "f1-static-cp6": ("ufg-cp-points = 6", TIMING_SHIELDINGS["f1-static-cp6"]),
 }
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
