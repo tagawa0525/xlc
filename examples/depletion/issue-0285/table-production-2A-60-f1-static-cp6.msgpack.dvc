@@ -1,0 +1,5 @@
+outs:
+- md5: 769f96d49281a86bfbf8c617ecfb526c
+  size: 1349592
+  hash: md5
+  path: table-production-2A-60-f1-static-cp6.msgpack

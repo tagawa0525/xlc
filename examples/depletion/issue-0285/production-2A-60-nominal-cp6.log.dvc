@@ -1,0 +1,5 @@
+outs:
+- md5: b218e234b8610316fa62df199e8d83bd
+  size: 455596
+  hash: md5
+  path: production-2A-60-nominal-cp6.log
