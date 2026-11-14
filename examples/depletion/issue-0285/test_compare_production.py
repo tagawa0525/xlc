@@ -146,6 +146,19 @@ class Differences(unittest.TestCase):
         with self.assertRaises(SystemExit):
             differences(other, base)
 
+    def test_a_micro_value_missing_from_both_tables_is_no_difference(self):
+        # 核分裂しない核種の thermal_fission は無い
+        base = tab(list(self.POINTS), [state(1.1, [0.01, 0.1])] * 2, [[30.0, 10.0]] * 2)
+        for row in base["micro"]["states"]:
+            row[1] = row[1] | {"thermal_fission": None}
+        d = differences(base, base)
+        self.assertEqual(d["micro"]["thermal_fission"]["value"], 0.0)
+        one = base | {
+            "micro": base["micro"] | {"states": [[micro(30.0), micro(10.0)]] * 2}
+        }
+        with self.assertRaises(SystemExit):
+            differences(one, base)
+
     def test_values_that_are_not_finite_stop(self):
         base = tab(list(self.POINTS), [state(1.1, [0.01, 0.1])] * 2, [[30.0, 10.0]] * 2)
         broken = base | {
