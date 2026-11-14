@@ -130,7 +130,7 @@ fuel = { temperature = [560, 600, 750, 900, 1050, 1200, 1350], materials = ["fue
 [history]
 file = "../p9-product/lattice-2A.msgpack"
 chain = "../chain.msgpack"
-# ADR-0199 の 27 点（../branches/burnup-interpolation.toml の「指針」）。off-nominal-burnup を書かないので、公称でない状態もすべての点で解く
+# 本番の 27 点のうち 60 MWd/kg の 1 点（inputs.py の PRODUCTION）
 burnup = [60]
 # ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216）
 micro = [

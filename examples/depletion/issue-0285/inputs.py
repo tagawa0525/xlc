@@ -235,8 +235,12 @@ def production(shielding: str) -> str:
         r'output = "table-2A\.msgpack"',
         f'output = "table-{stem}.msgpack"',
     )
+    # 燃焼点の行と、その上の 27 点の注釈を置き換える（注釈を残すと 1 点の入力に 27 点と書かれる）
     body = replaced(
-        body, r"\nburnup = \[[^\]]*\]\n", f"\nburnup = [{PRODUCTION_BURNUP}]\n"
+        body,
+        r"\n(?:#[^\n]*\n)*burnup = \[[^\]]*\]\n",
+        f"\n# 本番の 27 点のうち {PRODUCTION_BURNUP} MWd/kg の 1 点（inputs.py の PRODUCTION）\n"
+        f"burnup = [{PRODUCTION_BURNUP}]\n",
     )
     if points:
         body = replaced(
