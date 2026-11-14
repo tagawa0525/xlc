@@ -242,6 +242,7 @@ enum RatioFuelEntry {
 enum RatioTransferEntry {
     Reference,
     ElasticRatio,
+    StaticRatio,
 }
 
 #[derive(Deserialize)]
@@ -269,6 +270,7 @@ impl RatioEntry {
             transfer: match self.transfer {
                 None | Some(RatioTransferEntry::Reference) => RatioTransfer::Reference,
                 Some(RatioTransferEntry::ElasticRatio) => RatioTransfer::ElasticRatio,
+                Some(RatioTransferEntry::StaticRatio) => RatioTransfer::StaticRatio,
             },
             rings: match self.rings {
                 None | Some(RatioRingsEntry::Reference) => RatioRings::Reference,
