@@ -3,12 +3,13 @@
 実行: cd examples/depletion/issue-0285 && python3 -m unittest test_compare_production
 """
 
+import math
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from compare_production import breakdown, differences, kind, log
+from compare_production import breakdown, differences, kinds, log
 
 LOG = (
     "t  INFO shielding:dancoff: xlc_lattice::shielding: close time.busy=2.20s time.idle=1µs\n"
@@ -36,18 +37,42 @@ class Log(unittest.TestCase):
         self.assertEqual(first["shielding"], [30.0])
         self.assertEqual(first["moc"], [6.0, 3.0])
         self.assertEqual(first["derivative"], [4.0])
-        self.assertEqual(
-            [kind(s) for s in parsed["states"]], ["ufg+ratio", "ratio", "remix"]
-        )
+        # 状態 3 と 10 は燃料の温度の点（7 点の 3）が同じで、比の基準の静止した標的を解くのは最初の状態 3
+        self.assertEqual(kinds(parsed["states"], 7), ["ratio-first", "ratio", "remix"])
         self.assertEqual((ratio["state"], remix["seconds"]), (10, 8.0))
 
+    def test_the_first_ratio_state_is_per_fuel_temperature_point(self):
+        # 状態の番号を 7 で割った余りが燃料の温度の点: 3 と 10 は点 3、98 は点 0
+        states = [
+            {
+                "state": n,
+                "shielding": [],
+                "ratio-shielding": r,
+                "moc": [],
+                "derivative": [],
+            }
+            for n, r in [(3, [1.0]), (14, [30.0]), (10, [1.0]), (98, [1.0]), (17, [])]
+        ]
+        states[1] |= {"shielding": [30.0], "ratio-shielding": []}
+        self.assertEqual(
+            kinds(states, 7), ["ratio-first", "ufg", "ratio", "ratio-first", "remix"]
+        )
+
     def test_the_breakdown_counts_and_sums_by_kind(self):
-        b = breakdown(log(LOG))
+        b = breakdown(log(LOG), 7)
         self.assertEqual(b["total_seconds"], 104.5)
         self.assertEqual(b["state_seconds"], 98.0)
         self.assertEqual((b["shieldings"], b["ratios"]), (1, 2))
+        first = b["kinds"]["ratio-first"]
+        self.assertEqual((first["ufg"], first["ratio"]), ([1, 30.0], [1, 20.0]))
+        # 状態の最初の MOC は状態の固有値計算、ほかは微分の固有値計算
+        self.assertEqual((first["moc_state"], first["moc_other"]), ([1, 6.0], [1, 3.0]))
         self.assertEqual(b["kinds"]["ratio"]["ratio"], [1, 15.0])
-        self.assertEqual(b["kinds"]["remix"]["moc"], [1, 3.0])
+        self.assertEqual(b["kinds"]["remix"]["moc_state"], [1, 3.0])
+        self.assertEqual(
+            [(r["state"], r["kind"], r["ratio"]) for r in b["states"]],
+            [(3, "ratio-first", 20.0), (10, "ratio", 15.0), (17, "remix", 0.0)],
+        )
 
     def test_an_unfinished_run_stops(self):
         with self.assertRaises(SystemExit):
@@ -66,26 +91,68 @@ def state(k: float, absorption: list) -> dict:
     }
 
 
+def micro(total: float) -> dict:
+    return {
+        "total": [total, 60.0],
+        "nu_fission": [1.5, 0.08],
+        "fission": [0.6, 0.03],
+        "scatter": [[12.0, 0.01], [0.03, 15.0]],
+        "thermal_fission": 0.03,
+    }
+
+
+def tab(points: list, states: list[dict], totals: list[list[float]]) -> dict:
+    return {
+        "points": points,
+        "states": states,
+        "fuels": 7,
+        "micro": {
+            "nuclides": ["U-235", "U-238"],
+            "states": [[micro(t) for t in row] for row in totals],
+        },
+    }
+
+
 class Differences(unittest.TestCase):
     POINTS = ((0, 2, 2, 3), (0, 2, 6, 3))
 
     def test_the_worst_state_is_named_by_its_point(self):
-        base = (list(self.POINTS), [state(1.1, [0.01, 0.1]), state(1.0, [0.01, 0.1])])
-        variant = (
+        base = tab(
             list(self.POINTS),
-            [state(1.1, [0.01, 0.1]), state(1.0002, [0.01, 0.101])],
+            [state(1.1, [0.01, 0.1]), state(0.8, [0.01, 0.1])],
+            [[30.0, 10.0], [30.0, 10.0]],
+        )
+        variant = tab(
+            list(self.POINTS),
+            [state(1.1, [0.01, 0.1]), state(0.8002, [0.01, 0.101])],
+            [[30.0, 10.0], [30.0, 10.1]],
         )
         d = differences(variant, base)
-        self.assertAlmostEqual(d["worst_k"]["pcm"], 20.0)
+        self.assertAlmostEqual(d["worst_k"]["value"], 20.0)
         self.assertEqual(d["worst_k"]["point"], self.POINTS[1])
-        self.assertAlmostEqual(d["items"]["absorption"]["relative"], 0.001 / 0.101)
-        self.assertEqual(d["items"]["nu_fission"]["relative"], 0.0)
+        # 反応度の差は 1/k の差で、k が 1 より小さいと k∞ の差より大きい
+        self.assertAlmostEqual(d["worst_rho"]["value"], (1 / 0.8 - 1 / 0.8002) * 1e5)
+        self.assertAlmostEqual(d["items"]["absorption"]["value"], 0.001 / 0.101)
+        self.assertEqual(d["items"]["nu_fission"]["value"], 0.0)
+        self.assertEqual(
+            (d["micro"]["total"]["nuclide"], d["micro"]["total"]["point"]),
+            ("U-238", self.POINTS[1]),
+        )
+        self.assertAlmostEqual(d["micro"]["total"]["value"], 0.1 / 10.1)
 
     def test_tables_of_other_states_stop(self):
-        base = (list(self.POINTS), [state(1.1, [0.01, 0.1])] * 2)
-        other = ([self.POINTS[0], (0, 2, 5, 3)], base[1])
+        base = tab(list(self.POINTS), [state(1.1, [0.01, 0.1])] * 2, [[30.0, 10.0]] * 2)
+        other = base | {"points": [self.POINTS[0], (0, 2, 5, 3)]}
         with self.assertRaises(SystemExit):
             differences(other, base)
+
+    def test_values_that_are_not_finite_stop(self):
+        base = tab(list(self.POINTS), [state(1.1, [0.01, 0.1])] * 2, [[30.0, 10.0]] * 2)
+        broken = base | {
+            "states": [state(1.1, [0.01, 0.1]), state(1.1, [0.01, math.nan])]
+        }
+        with self.assertRaises(SystemExit):
+            differences(broken, base)
 
 
 if __name__ == "__main__":
