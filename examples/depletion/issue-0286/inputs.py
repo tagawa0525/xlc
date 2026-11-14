@@ -96,7 +96,7 @@ CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
 # 燃焼した MOX のピンセルの分岐（mox-history.toml の燃焼点）
 MOX_BURNUP = 40
 # 燃焼した MOX の集合体（../mox-assembly の履歴）の 1 状態で時間を比べる変種: どの核種も自由ガスの 16 点（基準）、既定の候補の
-# 選び方（ADR-0251）、求積 6 点（ADR-0252 の候補）、その両方
+# 選び方（ADR-0251）、求積 6 点（ADR-0252）、その両方
 MOX_ASSEMBLY_CASE = "mox-assembly-60"
 MOX_ASSEMBLY_BURNUP = 60
 MOX_ASSEMBLY_VARIANTS = {
@@ -146,9 +146,10 @@ def with_exact_points(text: str, where: str) -> str:
     """`library = ` の行の後に [`EXACT_POINTS`] を足す（履歴の入力が既に書いていればそのまま）"""
     if EXACT_POINTS in text:
         return text
-    library_end = text.find("\n", text.find("library = ")) + 1
-    if library_end == 0:
+    library = text.find("library = ")
+    if library < 0:
         sys.exit(f"{where}: no library line")
+    library_end = text.find("\n", library) + 1
     return text[:library_end] + EXACT_POINTS + text[library_end:]
 
 
@@ -360,7 +361,7 @@ def main() -> None:
     for case, base in {**old, **cp_bases()}.items():
         for name in CP_VARIANTS:
             (HERE / f"{case}-{name}.toml").write_text(variant(base, case, name))
-    base = mox_assembly()
+    base = with_exact_points(mox_assembly(), MOX_ASSEMBLY_CASE)
     for name in MOX_ASSEMBLY_TIMING:
         (HERE / f"{MOX_ASSEMBLY_CASE}-{name}.toml").write_text(
             variant(base, MOX_ASSEMBLY_CASE, name)
