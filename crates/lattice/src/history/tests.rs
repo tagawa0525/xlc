@@ -731,7 +731,7 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
             rings: RatioRings::InfiniteDilution,
             sph: RatioSph::State,
             fuel: RatioFuel::StateAverage,
-            static_cp_points: None,
+            ..RatioOptions::default()
         })
     );
     let state = ratio.replace(
