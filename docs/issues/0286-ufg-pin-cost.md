@@ -419,9 +419,9 @@ MaxRSS 38.8 GB（`ufg-hold-memory = 32`）。輸送と自己遮蔽 81 回。燃�
 `moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }`、
 `fuel = { temperature = [900], materials = ["mox-high", "mox-mid", "mox-low"] }`）と `[history]`（`file` はこの履歴、`chain` は
 examples/depletion/chain.msgpack、`burnup` は 0、20、40、60 から 1 点）を足す。入力が明示する `ufg-cp-points = 16` は
-既定の側に残す（main の既定が変わっても分岐の基準を履歴と同じ 16 点にするため）。今の `variant` は `CP_VARIANTS` の行を足すだけで、
-そのままでは `ufg-cp-points` が 2 つになって入力が読めないので、`ufg-tolerance` の `TOLERANCES` と同じく、その行を `replace_once` で
-置き換える分岐を `variant` に足す。`ufg-hold-memory = 32` は結果を変えないが時間を変える（ADR-0213）ので、時間を比べる入力では除く。
+基準の側に残す（既定が 6 点（ADR-0252）でも分岐の基準を履歴と同じ 16 点にするため）。inputs.py はどのケースの基準にも 16 点の行を書き
+（`with_exact_points`）、求積の点の変種は `variant` がその行を変種の行で置き換える。coverage.py は履歴の入力の行を除き、どの変種も
+求積の点の行を自分で書く。`ufg-hold-memory = 32` は結果を変えないが時間を変える（ADR-0213）ので、時間を比べる入力では除く。
 自由ガスの核種の絞り込みは、履歴の入力の `share = false` が基準の側に残る（分岐の基準は履歴を解いた設定と同じ、どの核種も自由ガス）。
 ADR-0251 の既定（格子点ごとの比の最大）とこの履歴からの分岐の差は、下の節で測った。
 
