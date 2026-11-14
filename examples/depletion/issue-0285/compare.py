@@ -1,7 +1,7 @@
 """#0285 の段 1（ADR-0250）: 比で求めた分岐のテーブル（inputs.py の f1、f2 と候補）を、状態ごとに UFG で解いたテーブル（every）と
 比べる。
 
-燃料の種類と燃焼度（inputs.py の <種類>-<燃焼度>）ごとに、every と同じ 9 状態（減速材 3 × 燃料の温度 3）で:
+燃料の種類と燃焼度（inputs.py の <種類>-<燃焼度>。今の既定で比べ直す入力は six-<種類>-<燃焼度>）ごとに、every と同じ 9 状態（減速材 3 × 燃料の温度 3）で:
 
 - k∞ の差 (k − k_every) × 1e5（pcm）
 - 少数群定数（`ITEMS`）の相対差の最大
@@ -228,6 +228,11 @@ def main() -> None:
         name, burnup, shielding = stem.split("-", 2)
         if shielding != "every":
             cases.setdefault(f"{name}-{burnup}", []).append(shielding)
+    # 今の既定で比べ直す入力（inputs.py の SIX）
+    for name, burnup in INPUTS.SIX:
+        cases[f"six-{name}-{burnup:g}"] = [
+            v for v in INPUTS.SIX_SHIELDINGS if v != "every"
+        ]
     present = {
         case: [v for v in variants if (HERE / f"table-{case}-{v}.msgpack").exists()]
         for case, variants in cases.items()
