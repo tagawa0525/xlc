@@ -7,8 +7,8 @@
 //!                                 # false で格子点ごとに求める。ADR-0156）
 //! track-table-deviation = 0.01   # 飛程の表で、リングごとの物質の ln Σ の中心からの差がこの値以下の格子点を 1 次の展開で内挿する
 //!                                 # （超える格子点は格子点ごとに求める。省略すると 0.01。ADR-0182。広げると速く、展開の誤差は差の 2 乗。#0286）
-//! ufg-cp-points = 16              # 自己遮蔽の減速計算の等価なセルの衝突確率の、弦の求積の小区間あたりの点の数（省略すると 16。
-//!                                 # 減らすと衝突確率の時間が点の数に比例して減り、求積の誤差が増える。#0286）
+//! ufg-cp-points = 6               # 自己遮蔽の減速計算の等価なセルの衝突確率の、弦の求積の小区間あたりの点の数（省略すると 6。
+//!                                 # 16 が厳密な経路。減らすと衝突確率の時間が点の数に比例して減り、求積の誤差が増える。ADR-0252）
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! ufg-scattering = "free-gas"     # 自己遮蔽の減速計算の散乱核の標的（"static" か "free-gas"。省略すると free-gas。ADR-0203、ADR-0209）
@@ -272,7 +272,7 @@ pub struct LatticeInput {
     pub self_shielding: bool,
     /// 自己遮蔽の UFG の減速計算の飛程の求め方（ADR-0156）
     pub collision: Collision,
-    /// 自己遮蔽の UFG の減速計算の等価なセルの、弦の求積の小区間あたりの点の数（#0286）
+    /// 自己遮蔽の UFG の減速計算の等価なセルの、弦の求積の小区間あたりの点の数（#0286、ADR-0252）
     pub cp_points: usize,
     /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185。`None` は間引かない）
     pub thinning: Option<f64>,
@@ -508,7 +508,7 @@ struct InputFile {
     track_table: Option<TrackTableEntry>,
     /// `track-table` の展開の上限。省略すると ADR-0182 の値
     track_table_deviation: Option<f64>,
-    /// 省略するとセルの既定の求積（[`crate::cp::POINTS`]）
+    /// 省略すると UFG の既定の求積（[`crate::shielding::UFG_CP_POINTS`]。ADR-0252）
     ufg_cp_points: Option<i64>,
     /// 省略すると間引かない（ADR-0185）
     ufg_tolerance: Option<f64>,
@@ -1355,7 +1355,7 @@ impl LatticeInput {
             ));
         }
         let cp_points = match file.ufg_cp_points {
-            None => crate::cp::POINTS,
+            None => crate::shielding::UFG_CP_POINTS,
             Some(points) if points > 0 => points as usize,
             Some(points) => {
                 return Err(invalid(format!(
