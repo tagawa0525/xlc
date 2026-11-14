@@ -144,12 +144,12 @@ EXACT_POINTS = "ufg-cp-points = 16\n"
 
 def with_exact_points(text: str, where: str) -> str:
     """`library = ` の行の後に [`EXACT_POINTS`] を足す（履歴の入力が既に書いていればそのまま）"""
-    if EXACT_POINTS in text:
+    if EXACT_POINTS.rstrip("\n") in text.splitlines():
         return text
-    library = text.find("library = ")
-    if library < 0:
+    library = text.find("\nlibrary = ")
+    library_end = text.find("\n", library + 1) + 1
+    if library < 0 or library_end == 0:
         sys.exit(f"{where}: no library line")
-    library_end = text.find("\n", library) + 1
     return text[:library_end] + EXACT_POINTS + text[library_end:]
 
 

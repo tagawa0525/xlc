@@ -311,7 +311,9 @@ def assembly_mox(variant: str) -> str:
         'library = "../../p2/depletion.msgpack"\n',
         source,
     )
-    # 求積の点はどの変種も書くので、履歴の入力が明示する 16 点の行を変種の行に任せる
+    # 求積の点はどの変種も書くので、履歴の入力が明示する 16 点の行を変種の行に任せる（書かない変種は既定の 6 点に黙って落ちるので止める）
+    if "ufg-cp-points = " not in VARIANTS[variant]:
+        sys.exit(f"{case}: variant {variant} must write ufg-cp-points")
     body = replace_once(body, EXACT_POINTS, "", source)
     body = with_variant(body, variant, case)
     body = replace_once(
