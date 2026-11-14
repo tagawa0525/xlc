@@ -1,6 +1,7 @@
 # このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース derivative-mox、変種 full。60 MWd/kg の公称の 1 状態で、Pu-240 と U-238 の微分の摂動の組成で自己遮蔽を解き直す
 library = "../../p2/depletion.msgpack"
 ufg-free-gas = { share = false }
+ufg-cp-points = 16
 few-group = { output = "table-derivative-mox-full.msgpack", bounds = [1e7, 0.625, 1e-5] }
 # 燃料のリングの物質が 4 つあると、飛程の表（ADR-0156）は物質ごとの軸の直積で格子点より大きくなるので、格子点ごとに求める
 track-table = false

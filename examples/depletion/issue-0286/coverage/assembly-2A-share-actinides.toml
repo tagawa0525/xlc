@@ -1,6 +1,7 @@
 # このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2A、変種 share-actinides。issue-0180/branch/2A-60.toml の微分を除き、4 状態にしたもの
 library = "../../p2/depletion.msgpack"
 ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy", keep-actinides = true } }
+ufg-cp-points = 16
 ufg-tolerance = 1e-4
 few-group = { output = "table-assembly-2A-share-actinides.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26

@@ -2,6 +2,7 @@
 # lattice-mox1-rings1.toml の燃焼度 0 の組成と形状
 library = "../depletion.msgpack"
 ufg-scattering = "static"
+ufg-cp-points = 16
 few-group = { output = "fg-pin-mox-static.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4
 pitch = 1.26

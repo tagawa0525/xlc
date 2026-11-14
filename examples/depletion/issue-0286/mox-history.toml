@@ -5,6 +5,8 @@
 library = "../p2/depletion.msgpack"
 # 履歴（mox-history.msgpack）は ADR-0251 の前の既定（どの核種も自由ガス）で作った
 ufg-free-gas = { share = false }
+# 履歴は ADR-0252 の前の既定（衝突確率の求積 16 点）で作った
+ufg-cp-points = 16
 ufg-tolerance = 1e-4
 pitch = 1.26
 azimuthal = 64
