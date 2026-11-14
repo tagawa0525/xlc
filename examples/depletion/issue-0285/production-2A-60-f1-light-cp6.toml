@@ -1,0 +1,152 @@
+# このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）の本番の形の 1 燃焼点: p9-2A/branch-2A.toml の 60 MWd/kg、f1-light-cp6
+library = "../p2/depletion.msgpack"
+ufg-tolerance = 1e-4
+ufg-cp-points = 6
+few-group = { output = "table-production-2A-60-f1-light-cp6.msgpack", bounds = [1e7, 0.625, 1e-5] }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+]
+
+[material.fuel-0]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-1]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-2]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-3]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.fuel-4]
+temperature = 900
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
+# p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+# 燃料のピン（3.1%）。燃料の 5 つのゾーンは lattice-2A.toml と同じ（ADR-0245）
+[cell.pin]
+zones = [
+  { material = "fuel-0", radius = 0.18317868871678278, rings = 1 },
+  { material = "fuel-1", radius = 0.25905378592099365, rings = 1 },
+  { material = "fuel-2", radius = 0.3172747957213116, rings = 1 },
+  { material = "fuel-3", radius = 0.36635737743356556, rings = 1 },
+  { material = "fuel-4", radius = 0.4096, rings = 1 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [0, 325, 650, 975, 1300, 1625], materials = ["water"] }
+# 密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）。560 K と 615 K は ADR-0239 の「減速材の軸」の値、ほかは
+# ../../vera/p6/lattice-6-fuel.toml と同じ値
+moderator = { temperature = [560, 570, 580, 590, 600, 610, 615], density = [0.752074, 0.732936, 0.711901, 0.688335, 0.661165, 0.628290, 0.608215], materials = ["water", "zircaloy"] }
+# 燃料の温度は 5 つの物質のすべてに当てる（ADR-0245）
+fuel = { temperature = [560, 600, 750, 900, 1050, 1200, 1350], materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3", "fuel-4"] }
+# subgrids を書かず、既定の 2 軸の組すべての部分格子にする（ADR-0200。3 つ同時の項を落とす誤差は p9-product の直積で 2.31〜4.17 pcm、
+# examples/depletion/verification.md の「Problem 9 の格子点の直積（2A）」）
+
+shielding = "moderator-ratio"
+
+[branches.ratio]
+transfer = "static-ratio"
+fuel = "static-ratio"
+rings = "static-ratio"
+sph = "static-ratio"
+static-scattering = "light-free-gas"
+
+[history]
+file = "../p9-product/lattice-2A.msgpack"
+chain = "../chain.msgpack"
+# 本番の 27 点のうち 60 MWd/kg の 1 点（inputs.py の PRODUCTION）
+burnup = [60]
+# ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216）
+micro = [
+  "U-234", "U-235", "U-236", "U-238", "Np-237", "Np-239", "Pu-238", "Pu-239", "Pu-240", "Pu-241", "Pu-242",
+  "Am-241", "Am-243", "Xe-135", "Sm-147", "Sm-149", "Sm-150", "Sm-151", "Sm-152",
+  "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160",
+  "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
+]
+# 線形の補正の係数を σᵢ から数密度の微分にする核種（ADR-0221）
+derivative = ["Pu-240"]
