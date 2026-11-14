@@ -808,12 +808,12 @@ fn ufg_transfer_defaults_to_the_ring_flux_rows() {
 
 #[test]
 fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
-    // ADR-0209: 静止した標的と無限希釈の形を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定（ADR-0070、ADR-0076）の条件と同じ。
-    // 解く側は条件だけで決まる
+    // ADR-0209: 静止した標的と無限希釈の形と、求積 16 点（ADR-0252）を書いた入力の自己遮蔽の条件は、既定を切り替える前の既定
+    // （ADR-0070、ADR-0076）の条件と同じ。解く側は条件だけで決まる
     let input = replaced(
         PIN_CELL,
         "library = \"m1.msgpack\"",
-        "library = \"m1.msgpack\"\nufg-scattering = \"static\"\nufg-transfer = \"infinite-dilution\"",
+        "library = \"m1.msgpack\"\nufg-scattering = \"static\"\nufg-transfer = \"infinite-dilution\"\nufg-cp-points = 16",
     )
     .unwrap();
     assert_eq!(
@@ -826,7 +826,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
                 density: 16,
                 deviation: MAX_DEVIATION
             },
-            cp_points: 6,
+            cp_points: 16,
             thinning: None,
             hold_memory: None,
             scattering: Scattering::Static,
