@@ -117,7 +117,7 @@ U-238 の補正に替える、固定の格子、孤立したペレットの CP �
 ADR-0250 の比を `[branches] shielding` の `"moderator-ratio"`（(F1)）と `"moderator-fuel-ratio"`（(F2)）として作り、比が決めない量を
 `[branches.ratio]` で選べるようにした（入力と比べ方は examples/depletion/issue-0285/inputs.py と compare.py、要約は compare.json）。
 2A の 60 MWd/kg の 1 燃焼点を、減速材 560、580、615 K（密度 0.752074、0.711901、0.608215 g/cc）× 燃料 560、900、1350 K、ホウ素
-650 ppm の 9 状態で、`every-state` と比べた（xlc 210b0051a と d14ed9c55（入力だけが違う）、分岐点は main の 5ec0adcb1、2026-11-14、
+650 ppm の 9 状態で、`every-state` と比べた（xlc cd6d0e40e と ec111e94e（入力だけが違う）、分岐点は main の 5ec0adcb1、2026-11-14、
 Slurm 863、864、865。どれも timed）。k∞ の差は (比 − every-state) × 1e5 で、公称の減速材の 3 状態（(F1) の基準）は 0。
 
 | 解き方（比が決めない量）                             |    k∞ の差 (pcm) | 減速材の反応度の比 − 1 | 燃料の温度の反応度の比 − 1 | U-238 の捕獲の最大の相対差（リング）    |
@@ -150,8 +150,8 @@ Slurm 863、864、865。どれも timed）。k∞ の差は (比 − every-state
 #### 残る差の内訳と、作り直した形（2A の 60 MWd/kg）
 
 比が決めない量と燃料のリングを、1 つずつ状態の UFG のものに替えて、(F1) の移行を縮めた形（f1-transfer）の差を分けた（入力の名前は
-examples/depletion/issue-0285/inputs.py、要約は compare.json）。xlc ef6250145（Slurm 866、decision）、886544c29（Slurm 867、timed）、
-977213c56（Slurm 868、decision）、分岐点は main の 5ec0adcb1、2026-11-14。k∞ の差は減速材 615 K と燃料 1350 K の状態（差の最も大きい
+examples/depletion/issue-0285/inputs.py、要約は compare.json）。xlc 5c8f6b02a（Slurm 866、decision）、d7da08898（Slurm 867、timed）、
+f57d8d609（Slurm 868、decision）、分岐点は main の 5ec0adcb1、2026-11-14。k∞ の差は減速材 615 K と燃料 1350 K の状態（差の最も大きい
 状態 8）で、隣り合う形の差を、その形で替えた量の寄与とした（替える順で値は少し変わる）:
 
 | 形（f1-transfer から順に状態の UFG に替えたもの）                           | 状態 8 の k∞ の差 (pcm) |                  その段の寄与 (pcm) |
@@ -183,7 +183,7 @@ UFG にした形と同じになった（f1-static-fuel の状態 8 で +22.9 pcm
 （SPH 因子の差は比で 6 割ほど縮むが、移行の行は静止した標的の比を掛けても変わらない）。
 
 静止した標的の比の時間（2A の 60 MWd/kg、燃料 900 K の減速材 3 点の入力 `timing-2A-60-*.toml`、ログの水準
-`info,xlc_lattice::ufg=debug,xlc_lattice::shielding=debug`。直す前は xlc 10ee0868b の 2 状態の入力で Slurm 869、直した後は fafa44b28
+`info,xlc_lattice::ufg=debug,xlc_lattice::shielding=debug`。直す前は xlc 0dfab44f2 の 2 状態の入力で Slurm 869、直した後は 09aba771f
 で Slurm 870、分岐点は main の 5ec0adcb1、2026-11-14、どちらも timed）: Slurm 867 の比の自己遮蔽 80.2〜89.8 秒は、使わない状態の
 UFG の減速計算（自由ガスを含む）を解いていたため（`fuel` の診断の値を判定する条件が `static-ratio` も含んでいた）。1 ピンの段の
 時間（スレッド秒。ピンの 39 本の平均）:
