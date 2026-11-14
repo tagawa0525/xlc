@@ -30,6 +30,15 @@
 
 - f1-static-cp6: f1-static の静止した標的の減速計算の衝突確率の求積を、小区間あたり 6 点にしたもの（`static-cp-points = 6`）
 
+本番の形の 1 燃焼点の入力 production-2A-60-<解き方>.toml（PRODUCTION）は、../p9-2A/branch-2A.toml（114 状態、微視的断面積と
+数密度の微分を持つ本番の入力）の燃焼点を 60 MWd/kg の 1 点にし、テーブルの出力の名前と自己遮蔽の解き方だけを変える（テーブルを
+作る時間を解き方で比べる）:
+
+- nominal: 本番の入力のまま（`shielding` を書かない。ADR-0201 の既定）
+- nominal-cp6: nominal の UFG の衝突確率の求積を 6 点にしたもの（`ufg-cp-points = 6`）
+- f1-static: f1-static と同じ比の解き方
+- f1-static-cp6: f1-static の UFG と静止した標的の求積を 6 点にしたもの（`ufg-cp-points = 6`、`static-cp-points = 6`）
+
 使い方: python3 inputs.py（このディレクトリで）
 """
 
@@ -116,6 +125,15 @@ TIMING_SHIELDINGS = {
         ),
     ),
 }
+# 本番の形の入力: 解き方 → (UFG の求積の行、`[branches]` に足す行)。燃焼点は PRODUCTION_BURNUP
+PRODUCTION_SOURCE = "p9-2A/branch-2A.toml"
+PRODUCTION_BURNUP = 60
+PRODUCTION = {
+    "nominal": ("", None),
+    "nominal-cp6": ("ufg-cp-points = 6", None),
+    "f1-static": ("", SHIELDINGS["f1-static"]),
+    "f1-static-cp6": ("ufg-cp-points = 6", TIMING_SHIELDINGS["f1-static-cp6"]),
+}
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
 MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
@@ -194,6 +212,51 @@ def branch(
     )
 
 
+def production(shielding: str) -> str:
+    """本番の形の入力（PRODUCTION）: PRODUCTION_SOURCE の燃焼点、テーブルの出力、自己遮蔽の解き方だけを変えたもの"""
+    path = DEPLETION / PRODUCTION_SOURCE
+    text = path.read_text()
+    # パスは examples/depletion からの相対で、どちらの入力からも同じ（p9-2A と issue-0285 は同じ深さ）
+    if path.resolve().parent.parent != HERE.parent:
+        sys.exit(f"{path} is not beside {HERE}")
+    stem = f"production-2A-{PRODUCTION_BURNUP}-{shielding}"
+    start = text.find("library = ")
+    if start < 0:
+        sys.exit(f"{path} has no library line")
+    body = text[start:]
+    points, ratio = PRODUCTION[shielding]
+
+    def replaced(body: str, pattern: str, new: str) -> str:
+        found = re.compile(pattern, re.DOTALL)
+        if len(found.findall(body)) != 1:
+            sys.exit(f"{path} has no single match of {pattern}")
+        return found.sub(lambda _: new, body)
+
+    body = replaced(
+        body,
+        r'output = "table-2A\.msgpack"',
+        f'output = "table-{stem}.msgpack"',
+    )
+    body = replaced(
+        body, r"\nburnup = \[[^\]]*\]\n", f"\nburnup = [{PRODUCTION_BURNUP}]\n"
+    )
+    if points:
+        body = replaced(
+            body, r"\nufg-tolerance = 1e-4\n", f"\nufg-tolerance = 1e-4\n{points}\n"
+        )
+    if ratio:
+        kind, options = ratio
+        body = replaced(
+            body,
+            r"\n\[history\]\n",
+            f"\n{kind}\n\n[branches.ratio]\n{options}\n\n[history]\n",
+        )
+    return (
+        f"# このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）の本番の形の 1 燃焼点: {PRODUCTION_SOURCE} の "
+        f"{PRODUCTION_BURNUP} MWd/kg、{shielding}\n{body}"
+    )
+
+
 def names() -> list[str]:
     """書く入力の名前（拡張子なし）。比べる順"""
     out = []
@@ -222,6 +285,10 @@ def main() -> None:
                 TIMING_STATES,
                 "timing-",
             )
+        )
+    for shielding in PRODUCTION:
+        (HERE / f"production-2A-{PRODUCTION_BURNUP}-{shielding}.toml").write_text(
+            production(shielding)
         )
 
 
