@@ -1,0 +1,5 @@
+outs:
+- md5: 6ace252a2fd6270342c42116e6ad2d1a
+  size: 1684329
+  hash: md5
+  path: burn-mox-full.msgpack

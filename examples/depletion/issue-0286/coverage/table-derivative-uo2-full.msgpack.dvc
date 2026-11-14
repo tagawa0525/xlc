@@ -1,0 +1,5 @@
+outs:
+- md5: 4586e8fc7d3e623571b7b007d5af559e
+  size: 102124
+  hash: md5
+  path: table-derivative-uo2-full.msgpack

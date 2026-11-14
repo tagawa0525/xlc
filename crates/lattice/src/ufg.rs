@@ -313,10 +313,37 @@ pub struct FreeGas {
     /// S(α, β) を持つ核種（H in H2O の H）を、S(α, β) の上限より下の入射でライブラリの S(α, β) の移行で散乱させる。false は、その
     /// 核種も自由ガスの核にする（ADR-0205）
     pub sab: bool,
-    /// 自由ガスにする核種を散乱の割合で絞る閾値。`Some(s)` は、自由ガスの核を使う範囲の狭い共鳴の中性子束 1/(Σt E) の重みの
-    /// 弾性散乱の率の、リングの物質の中の割合がどのリングでも `s` より小さい核種を静止した標的にする（S(α, β) の移行の核種は
-    /// 除かない）。`None` は絞らない（#0286）
-    pub share: Option<f64>,
+    /// 自由ガスにする核種を散乱の割合で絞る条件（[`Share`]）。`None` は絞らない（#0286、ADR-0251）
+    pub share: Option<Share>,
+}
+
+/// 自由ガスにする核種を、リングの物質の弾性散乱の中の割合で絞る条件（[`FreeGas::share`]。#0286、ADR-0251）。割合がどのリングでも
+/// `threshold` より小さい核種を静止した標的にする（S(α, β) の移行の核種は除かない）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Share {
+    /// 閾値（0 と 1 の間）
+    pub threshold: f64,
+    /// 割合の測り方
+    pub measure: ShareMeasure,
+    /// アクチニド（ZA の Z が 89 以上）は割合によらず自由ガスに残す
+    pub keep_actinides: bool,
+}
+
+/// [`FreeGas`] の既定の、核種を絞る条件: 範囲のどの格子点でも散乱の割合が 1e-4 より小さい核種を静止した標的にする（ADR-0251）
+pub const DEFAULT_SHARE: Share = Share {
+    threshold: 1.0e-4,
+    measure: ShareMeasure::Point,
+    keep_actinides: false,
+};
+
+/// 散乱の割合の測り方（[`Share::measure`]）。どちらも、その核種の自由ガスの核を使う範囲（入射エネルギーが [`Gas::top`] 以下の
+/// 格子点）で測る
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShareMeasure {
+    /// 狭い共鳴の中性子束 1/(Σt E) の重みのレサジーの積分の比 ∫ N σs / Σt du ÷ ∫ Σs / Σt du
+    Lethargy,
+    /// 格子点ごとの比 N σs / Σs の最大
+    Point,
 }
 
 /// 自由ガスの核を使う入射エネルギーの上限（[`FreeGas::upper`]、[`FreeGas::heavy`]）。
@@ -337,7 +364,7 @@ impl Default for Scattering {
 
 impl Default for FreeGas {
     /// ADR-0209 の既定（ADR-0205 の速い方法）で、分離共鳴を持たない核種の上限は温度によらない 1000 eV（ADR-0246）、
-    /// 分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）
+    /// 分離共鳴を持つ核種の上限は温度によらない 31 eV（ADR-0243）、核種は [`DEFAULT_SHARE`] で絞る（ADR-0251）
     fn default() -> Self {
         Self {
             upper: FreeGasCap::Energy(1000.0),
@@ -345,7 +372,7 @@ impl Default for FreeGas {
             sweeps: Some(3),
             heavy: Some(FreeGasCap::Energy(31.0)),
             sab: true,
-            share: None,
+            share: Some(DEFAULT_SHARE),
         }
     }
 }
@@ -667,6 +694,8 @@ fn solve_cell(
     // 核種（名前と温度の組）ごとのデータと、リングごとの（核種の番号、個数密度）
     let mut data: Vec<Data> = Vec::new();
     let mut keys: Vec<(&str, f64)> = Vec::new();
+    // 核種ごとの、アクチニド（ZA の Z が 89 以上）か（[`Share::keep_actinides`]）
+    let mut actinides: Vec<bool> = Vec::new();
     let mut entries: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
     for m in rings {
         let mut ring = Vec::new();
@@ -724,6 +753,7 @@ fn solve_cell(
                         gas,
                     });
                     keys.push((name, temperature));
+                    actinides.push((d.za / 1000.0).floor() >= 89.0);
                     data.len() - 1
                 }
             };
@@ -863,8 +893,7 @@ fn solve_cell(
     };
     // 散乱の割合で静止した標的にする核種（個数密度の向きの検査は、絞る前の自由ガスの核種で行う）
     if let Scattering::FreeGas(FreeGas {
-        share: Some(threshold),
-        ..
+        share: Some(share), ..
     }) = scattering
     {
         let rested = match frozen.as_deref().and_then(|f| f.rested.clone()) {
@@ -877,7 +906,7 @@ fn solve_cell(
             }
             Some(rested) => rested,
             None => {
-                let rested = minor_scatterers(&data, &entries, &points, &u, threshold)?;
+                let rested = minor_scatterers(&data, &actinides, &entries, &points, &u, share)?;
                 if let Some(f) = frozen.as_deref_mut() {
                     f.rested = Some(rested.clone());
                 }
@@ -2291,16 +2320,17 @@ fn lethargy_grid(
     (u, points)
 }
 
-/// [核種] の、静止した標的にするか: 自由ガスの核種のうち、リングの物質の中の散乱の割合（自由ガスの核を使う範囲（入射エネルギーが [`Gas::top`] 以下の格子点）の
-/// 狭い共鳴の中性子束 1/(Σt E) の重みの ∫ N σs / Σt du ÷ ∫ Σs / Σt du）が、その核種を含むどのリングでも `threshold` より小さい
-/// 核種（#0286）。核種は名前と温度の組（[`Data`]）ごとに決める。S(α, β) の移行の核種（[`Gas::floor`] のあるもの）は残す（S(α, β) の移行は自由ガスの核の
-/// 上限より上の入射を自由ガスに残すので、自由ガスなしでは使えない）。積分は格子点の台形則
+/// [核種] の、静止した標的にするか: 自由ガスの核種のうち、リングの物質の中の散乱の割合（自由ガスの核を使う範囲（入射エネルギーが [`Gas::top`] 以下の格子点）で
+/// `share.measure` の測り方（[`ShareMeasure`]）で測ったもの）が、その核種を含むどのリングでも `share.threshold` より小さい
+/// 核種（#0286、ADR-0251）。核種は名前と温度の組（[`Data`]）ごとに決める。S(α, β) の移行の核種（[`Gas::floor`] のあるもの）は残す（S(α, β) の移行は自由ガスの核の
+/// 上限より上の入射を自由ガスに残すので、自由ガスなしでは使えない）。`share.keep_actinides` なら、`actinides` の核種も残す。積分は格子点の台形則
 fn minor_scatterers(
     data: &[Data],
+    actinides: &[bool],
     entries: &[Vec<(usize, f64)>],
     points: &[(f64, bool)],
     u: &[f64],
-    threshold: f64,
+    share: Share,
 ) -> Result<Vec<bool>, UfgError> {
     let tops: Vec<Option<f64>> = data
         .iter()
@@ -2315,6 +2345,8 @@ fn minor_scatterers(
     // [リング][項] の ∫ N σs / Σt du と ∫ Σs / Σt du（どちらも項の核種の範囲で）
     let zeros: Vec<Vec<f64>> = entries.iter().map(|r| vec![0.0; r.len()]).collect();
     let (mut own, mut all) = (zeros.clone(), zeros.clone());
+    // [リング][項] の格子点ごとの N σs / Σs の最大（項の核種の範囲で）
+    let mut peak = zeros.clone();
     // 前の格子点の [リング][項] の N σs / Σt と Σs / Σt（範囲の外は 0）
     let (mut own_before, mut all_before) = (zeros.clone(), zeros);
     let mut values = vec![[0.0; 2]; data.len()];
@@ -2345,6 +2377,10 @@ fn minor_scatterers(
                 } else {
                     (0.0, 0.0)
                 };
+                // Σs が 0 の格子点（散乱のない物質）は、どの核種も散乱源に寄与しないので最大に数えない
+                if b > 0.0 {
+                    peak[i][j] = peak[i][j].max(a / b);
+                }
                 own[i][j] += 0.5 * du * (own_before[i][j] + a);
                 all[i][j] += 0.5 * du * (all_before[i][j] + b);
                 own_before[i][j] = a;
@@ -2355,21 +2391,26 @@ fn minor_scatterers(
     let mut shares = vec![0.0_f64; data.len()];
     for (i, ring) in entries.iter().enumerate() {
         for (j, &(k, _)) in ring.iter().enumerate() {
-            if all[i][j] > 0.0 {
-                shares[k] = shares[k].max(own[i][j] / all[i][j]);
-            }
+            let measured = match share.measure {
+                ShareMeasure::Lethargy if all[i][j] > 0.0 => own[i][j] / all[i][j],
+                ShareMeasure::Lethargy => continue,
+                ShareMeasure::Point => peak[i][j],
+            };
+            shares[k] = shares[k].max(measured);
         }
     }
     Ok(data
         .iter()
         .zip(&tops)
         .zip(&shares)
-        .map(|((d, top), &share)| {
-            let rest = top.is_some() && share < threshold;
+        .zip(actinides)
+        .map(|(((d, top), &measured), &actinide)| {
+            let kept = share.keep_actinides && actinide;
+            let rest = top.is_some() && !kept && measured < share.threshold;
             if rest {
                 tracing::debug!(
                     name = d.name,
-                    share,
+                    share = measured,
                     "UFG free gas rested by the scatter share"
                 );
             }

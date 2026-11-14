@@ -4,7 +4,7 @@
 # OpenMC の移行（openmc_pin_transfer.py）と同じ組成。
 library = "../../depletion.msgpack"
 ufg-scattering = "free-gas"
-ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400, sab = true }
+ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = 400, sab = true, share = false }
 ufg-transfer = "infinite-dilution"
 pitch = 1.26
 azimuthal = 64

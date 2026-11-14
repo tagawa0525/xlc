@@ -1,7 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース 2A-60、変種 share-1e-4
 # issue-0180/branch/2A-60.toml の微分を除いたもの
 library = "../p2/depletion.msgpack"
-ufg-free-gas = { share = 1e-4 }
+ufg-free-gas = { share = { threshold = 1e-4, measure = "lethargy" } }
 ufg-tolerance = 1e-4
 few-group = { output = "fg-2A-60-share-1e-4.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 pitch = 1.26

@@ -1,0 +1,5 @@
+outs:
+- md5: c2d0890c3335870278923b5b2c8d1109
+  size: 1684238
+  hash: md5
+  path: timing-mox-assembly-60-share-point.log

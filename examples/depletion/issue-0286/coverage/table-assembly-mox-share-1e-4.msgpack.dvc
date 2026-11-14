@@ -1,0 +1,5 @@
+outs:
+- md5: 7866ce8801101e67d148a810df1a406f
+  size: 634813
+  hash: md5
+  path: table-assembly-mox-share-1e-4.msgpack

@@ -1,6 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース pin-mox-40、変種 cp-points-8
 # issue-0286/mox-history.toml の 40 MWd/kg からの 1 状態の分岐
 library = "../p2/depletion.msgpack"
+ufg-free-gas = { share = false }
 ufg-cp-points = 8
 few-group = { output = "fg-pin-mox-40-cp-points-8.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

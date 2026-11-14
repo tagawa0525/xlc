@@ -1,0 +1,144 @@
+# このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-mox、変種 points-6。mox-assembly/lattice-mox-assembly.toml の [0, 20, 40, 60] MWd/kg からの 4 状態の分岐
+library = "../../p2/depletion.msgpack"
+ufg-free-gas = { share = false }
+ufg-cp-points = 6
+few-group = { output = "table-assembly-mox-points-6.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+ufg-tolerance = 1e-4
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl",
+  "pl  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pl",
+  "pl  pm  pm  pm  pm  gt  pm  pm  gt  pm  pm  gt  pm  pm  pm  pm  pl",
+  "pl  pm  pm  gt  pm  ph  ph  ph  ph  ph  ph  ph  pm  gt  pm  pm  pl",
+  "pl  pm  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pm  pl",
+  "pl  pm  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  gt  ph  ph  gt  ph  ph  it  ph  ph  gt  ph  ph  gt  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pl",
+  "pl  pm  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  ph  ph  gt  pm  pl",
+  "pl  pm  pm  pm  ph  ph  ph  ph  ph  ph  ph  ph  ph  pm  pm  pm  pl",
+  "pl  pm  pm  gt  pm  ph  ph  ph  ph  ph  ph  ph  pm  gt  pm  pm  pl",
+  "pl  pm  pm  pm  pm  gt  pm  pm  gt  pm  pm  gt  pm  pm  pm  pm  pl",
+  "pl  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pm  pl",
+  "pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  pl",
+]
+
+[material.mox-high]
+temperature = 900
+nuclides = { U-235 = 5.1050e-05, U-238 = 2.0370e-02, Pu-238 = 4.6690e-05, Pu-239 = 1.4650e-03, Pu-240 = 5.6910e-04, Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }
+
+[material.mox-mid]
+temperature = 900
+nuclides = { U-235 = 5.2283e-05, U-238 = 2.0862e-02, Pu-238 = 3.7567e-05, Pu-239 = 1.1787e-03, Pu-240 = 4.5790e-04, Pu-241 = 2.1829e-04, Pu-242 = 1.1369e-04, Am-241 = 2.4363e-05, O-16 = 4.5880e-02 }
+
+[material.mox-low]
+temperature = 900
+nuclides = { U-235 = 5.4241e-05, U-238 = 2.1643e-02, Pu-238 = 2.3077e-05, Pu-239 = 7.2408e-04, Pu-240 = 2.8128e-04, Pu-241 = 1.3409e-04, Pu-242 = 6.9838e-05, Am-241 = 1.4966e-05, O-16 = 4.5880e-02 }
+
+[material.zircaloy]
+temperature = 580
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 580
+# ../p9-product/lattice-2A.toml と同じ（減速材の格子点 580 K の密度、公称のホウ素 650 ppm。ADR-0239）
+water = { density = 0.711901, boron = 650, b10 = 0.199 }
+
+# MOX の燃料のピン（内側、その外、外周）。形状は 2A の燃料のピンと同じ
+[cell.ph]
+zones = [
+  { material = "mox-high", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[cell.pm]
+zones = [
+  { material = "mox-mid", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[cell.pl]
+zones = [
+  { material = "mox-low", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[branches]
+boron = { ppm = [650], materials = ["water"] }
+moderator = { temperature = [580, 600], density = [0.711901, 0.661165], materials = ["water", "zircaloy"] }
+fuel = { temperature = [900, 1200], materials = ["mox-high", "mox-mid", "mox-low"] }
+
+[history]
+file = "../../mox-assembly/lattice-mox-assembly.msgpack"
+chain = "../../chain.msgpack"
+burnup = [0, 20, 40, 60]
+micro = [
+  "U-234", "U-235", "U-236", "U-238", "Np-237", "Np-239", "Pu-238", "Pu-239", "Pu-240", "Pu-241", "Pu-242",
+  "Am-241", "Am-243", "Xe-135", "Sm-147", "Sm-149", "Sm-150", "Sm-151", "Sm-152",
+  "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160",
+  "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
+]

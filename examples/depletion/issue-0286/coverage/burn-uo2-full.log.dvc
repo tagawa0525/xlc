@@ -1,0 +1,5 @@
+outs:
+- md5: bcbfc596aa086e857f571963f60f46c7
+  size: 1050401
+  hash: md5
+  path: burn-uo2-full.log

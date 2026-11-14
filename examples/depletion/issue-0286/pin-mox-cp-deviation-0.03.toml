@@ -1,6 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース pin-mox、変種 cp-deviation-0.03
 # lattice-mox1-rings1.toml の燃焼度 0 の組成と形状
 library = "../depletion.msgpack"
+ufg-free-gas = { share = false }
 track-table-deviation = 0.03
 few-group = { output = "fg-pin-mox-cp-deviation-0.03.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

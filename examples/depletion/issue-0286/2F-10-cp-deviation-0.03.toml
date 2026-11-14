@@ -1,6 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース 2F-10、変種 cp-deviation-0.03
 # p2/lattice-2F.toml の 10 MWd/kg からの 1 状態の分岐
 library = "../p2/depletion.msgpack"
+ufg-free-gas = { share = false }
 track-table-deviation = 0.03
 few-group = { output = "fg-2F-10-cp-deviation-0.03.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 ufg-tolerance = 1e-4

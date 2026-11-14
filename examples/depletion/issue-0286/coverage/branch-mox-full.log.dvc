@@ -1,0 +1,5 @@
+outs:
+- md5: febafee1284d647d2cc258bcf432e7bd
+  size: 739561
+  hash: md5
+  path: branch-mox-full.log

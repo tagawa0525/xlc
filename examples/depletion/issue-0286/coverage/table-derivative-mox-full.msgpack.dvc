@@ -1,0 +1,5 @@
+outs:
+- md5: 719947cc0c49e342fdb033e17721b916
+  size: 102124
+  hash: md5
+  path: table-derivative-mox-full.msgpack

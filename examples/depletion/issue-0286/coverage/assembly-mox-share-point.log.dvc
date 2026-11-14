@@ -1,0 +1,5 @@
+outs:
+- md5: 439ba72aa4a64a771d56c8a18da984d4
+  size: 26575134
+  hash: md5
+  path: assembly-mox-share-point.log

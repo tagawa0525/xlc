@@ -2,7 +2,7 @@
 # h-inf の上方散乱のスイープを inf 回（inf は収束まで。#0179）にしたもの。スイープごとの中性子束の相対変化は RUST_LOG=xlc_lattice::ufg=debug で出る。
 library = "../../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
-ufg-free-gas = { heavy = inf, sweeps = inf }
+ufg-free-gas = { heavy = inf, sweeps = inf, share = false }
 few-group = { output = "sweeps-inf.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30

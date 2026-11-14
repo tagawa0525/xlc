@@ -3,3 +3,5 @@
 *.log
 fg-*.msgpack
 mox-history.msgpack
+# 計算の出力（coverage.py の入力の履歴とテーブル。要約は compare_coverage.py が書く JSON を追跡する）
+coverage/*.msgpack

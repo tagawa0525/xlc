@@ -1309,7 +1309,16 @@ fn thermal_spectrum_of(lib: &Library, scattering: Scattering) -> CellSpectrum {
     }
 }
 
-/// [`free_gas`] の、散乱の割合が `share` より小さい核種を静止した標的にするもの
+/// レサジーの積分の散乱の割合が `threshold` より小さい核種を静止した標的にする条件
+fn lethargy_share(threshold: f64) -> Share {
+    Share {
+        threshold,
+        measure: ShareMeasure::Lethargy,
+        keep_actinides: false,
+    }
+}
+
+/// [`free_gas`] の、レサジーの積分の散乱の割合が `share` より小さい核種を静止した標的にするもの
 fn free_gas_share(share: f64) -> Scattering {
     Scattering::FreeGas(FreeGas {
         upper: UNCAPPED,
@@ -1317,8 +1326,84 @@ fn free_gas_share(share: f64) -> Scattering {
         sweeps: None,
         heavy: None,
         sab: false,
-        share: Some(share),
+        share: Some(lethargy_share(share)),
     })
+}
+
+/// [`thermal_cell`] の燃料に、5.2 eV に散乱の共鳴を持つ薄い重い核種 U-234（ZA を `za` にしたもの）を足したセルの 100 eV より
+/// 下の減速計算。分離共鳴を持つ核種も上限なしで自由ガスにし、核種を `share` で絞る
+fn dilute_resonance_spectrum(share: Option<Share>, za: f64) -> CellSpectrum {
+    let resonance = |e: f64| 2.0e3 / (1.0 + ((e - 5.2) / 0.02).powi(2));
+    let mut energies: Vec<f64> = (0..=600).map(|k| 4.9 + 0.001 * k as f64).collect();
+    energies.insert(0, 4.0);
+    energies.extend([6.0, 8.0, 10.0, 100.0, 1.0e3, 2.0e4]);
+    let points = energies
+        .iter()
+        .map(|&e| [e, 10.0 + 1.5 * resonance(e), 10.0 + resonance(e), 0.0])
+        .collect();
+    let mut specs = thermal_specs();
+    specs.push(Spec {
+        name: "U-234",
+        awr: 232.03,
+        top: Some(2.0e4),
+        points,
+    });
+    let mut lib = library_with(specs, 600.0, &BOUNDS);
+    lib.nuclides.last_mut().unwrap().za = za;
+    let (_, mut fuel, water) = thermal_cell(600.0);
+    fuel.composition.push(("U-234".to_string(), 1.0e-6));
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let rings = [Some(&fuel), None, Some(&water), Some(&water)];
+    let spectrum = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e2],
+        Collision::Exact,
+        None,
+        Scattering::FreeGas(FreeGas {
+            upper: UNCAPPED,
+            cells: 4,
+            sweeps: None,
+            heavy: Some(UNCAPPED),
+            sab: false,
+            share,
+        }),
+        held_cells(1 << 30, 1),
+    )
+    .unwrap();
+    CellSpectrum {
+        demand: 0,
+        ..spectrum
+    }
+}
+
+#[test]
+fn a_pointwise_share_keeps_a_dilute_nuclide_with_a_scattering_resonance() {
+    // 薄い U-234（1e-6 /b/cm）の弾性散乱は、範囲のレサジーの積分では燃料の散乱の 1e-4 より小さい割合だが、5.2 eV の共鳴の頂上では
+    // 約 0.5 % を占める。レサジーの積分の割合は U-234 を静止した標的にして結果を動かし、格子点ごとの割合の最大は自由ガスに残す
+    // （ほかの核種はどちらの測り方でも 1e-4 を超え、絞らないときとビットで同じ）
+    let unshared = dilute_resonance_spectrum(None, 92234.0);
+    let integral = dilute_resonance_spectrum(Some(lethargy_share(1.0e-4)), 92234.0);
+    assert!(flux_difference(&integral, &unshared) > 1e-9);
+    let point = Share {
+        measure: ShareMeasure::Point,
+        ..lethargy_share(1.0e-4)
+    };
+    assert_eq!(dilute_resonance_spectrum(Some(point), 92234.0), unshared);
+}
+
+#[test]
+fn actinides_keep_their_free_gas_under_any_share() {
+    // アクチニド（Z ≥ 89）は割合によらず自由ガスに残す。同じ核種の ZA の Z を 88 にすると、割合の小さい核種として静止した標的になる
+    let keeping = Share {
+        keep_actinides: true,
+        ..lethargy_share(1.0e-4)
+    };
+    let unshared = dilute_resonance_spectrum(None, 92234.0);
+    assert_eq!(dilute_resonance_spectrum(Some(keeping), 92234.0), unshared);
+    let radium = dilute_resonance_spectrum(Some(keeping), 88234.0);
+    assert!(flux_difference(&radium, &unshared) > 1e-9);
 }
 
 #[test]
@@ -2052,7 +2137,7 @@ fn sab_nuclides_keep_their_free_gas_under_any_share() {
         sweeps: None,
         heavy: None,
         sab: true,
-        share: Some(0.95),
+        share: Some(lethargy_share(0.95)),
     });
     let unshared = solve(&resting, sab(4, None));
     assert_eq!(
@@ -3467,7 +3552,7 @@ fn tangents_stop_where_the_slowing_down_cannot_follow_them() {
         sweeps: Some(3),
         heavy: Some(FreeGasCap::Energy(10.0)),
         sab: false,
-        share: Some(1.0e-3),
+        share: Some(lethargy_share(1.0e-3)),
     });
     assert!(matches!(
         tangent_with(

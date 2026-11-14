@@ -1,0 +1,5 @@
+outs:
+- md5: 36fa428b15a630b3ca2dbd3c000514f3
+  size: 772809
+  hash: md5
+  path: branch-mox-share-point.log

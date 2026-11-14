@@ -1,0 +1,60 @@
+{
+ "2A-60": {
+  "default": {
+   "shielding_seconds": 46.8,
+   "total_seconds": 59.812772637,
+   "per_pin": {
+    "grid": 2.2346281182820515,
+    "table": 3.19718165251282,
+    "evaluate": 0.3981205057692308,
+    "collision": 5.296984940307691,
+    "slowing": 15.008671690871797,
+    "free_gas": 12.048380404794875,
+    "sab": 1.1075366449230768
+   },
+   "transfers_per_pin": 0.2568348164615384
+  },
+  "share-1e-4": {
+   "shielding_seconds": 35.8,
+   "total_seconds": 48.91975323,
+   "per_pin": {
+    "grid": 2.239779991692307,
+    "table": 3.1925916084615387,
+    "evaluate": 0.44946805274358975,
+    "collision": 5.319577960871797,
+    "slowing": 8.137503437512821,
+    "free_gas": 5.253273482923079,
+    "sab": 1.0851711082307693
+   },
+   "transfers_per_pin": 0.1979930386923077
+  },
+  "share-point": {
+   "shielding_seconds": 36.7,
+   "total_seconds": 49.694640642,
+   "per_pin": {
+    "grid": 2.250255337871795,
+    "table": 3.1936979300256403,
+    "evaluate": 0.4366410204358975,
+    "collision": 5.323364572974359,
+    "slowing": 8.723344860051283,
+    "free_gas": 5.824404631333332,
+    "sab": 1.0936909124871796
+   },
+   "transfers_per_pin": 0.18941250661538467
+  },
+  "share-actinides": {
+   "shielding_seconds": 36.3,
+   "total_seconds": 49.257779661,
+   "per_pin": {
+    "grid": 2.2578609872820516,
+    "table": 3.191321921,
+    "evaluate": 0.43547124561538464,
+    "collision": 5.334060489871795,
+    "slowing": 8.476650444461539,
+    "free_gas": 5.594619603179488,
+    "sab": 1.085094152102564
+   },
+   "transfers_per_pin": 0.18435450571794876
+  }
+ }
+}
