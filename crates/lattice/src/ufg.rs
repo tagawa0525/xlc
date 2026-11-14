@@ -1085,6 +1085,7 @@ fn solve_cell(
                             cells_beside_work(hold, work)
                         },
                         transfers.as_ref().map(|(_, shares)| shares.kernels()),
+                        tracing::enabled!(tracing::Level::DEBUG),
                     );
                     (Some(thermal), options.sweeps, held_tracks)
                 }

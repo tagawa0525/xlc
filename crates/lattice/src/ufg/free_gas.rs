@@ -1290,6 +1290,7 @@ impl<'a> Thermal<'a> {
     /// `tables`、区間の細かさ `cells` の状態。`start` は掃き直しの始め（[`sweep_start`]）、`n` はリングの数。`kernels` は区間と D の値を減速計算の
     /// 間で持つ表（[`KernelCache`]。無ければ格子点ごとに作る）。`hold` はスイープの間で持つ区間の数の上限（[`super::held_cells`] から減速計算の作業の配列の分を除いたもの。
     /// すべての格子点の核種の区間の始まりと位置の表も、48 B を 1 区間として数える。0 なら持たず、スイープごとに作り直す）。
+    /// `census` は [`FreeGasWork::points`] と [`FreeGasWork::nuclide_points`] を書くか（DEBUG のログ）。
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         gases: Vec<Gas>,
@@ -1301,6 +1302,7 @@ impl<'a> Thermal<'a> {
         n: usize,
         hold: usize,
         kernels: Option<&'a KernelCache>,
+        census: bool,
     ) -> Self {
         let n_gases = gases.len();
         // 個数密度がちょうど 0 のリングは散乱源に符号つきの 0 しか足さない（有限の積分との積）ので、積分しない（和はビットで同じ）
@@ -1334,7 +1336,7 @@ impl<'a> Thermal<'a> {
                 built: vec![0; n_gases],
                 ..FreeGasWork::default()
             },
-            census: tracing::enabled!(tracing::Level::DEBUG),
+            census,
             kernels,
             kernel_tables: Vec::new(),
             hits: Vec::new(),
