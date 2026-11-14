@@ -180,7 +180,13 @@ def differences(variant: dict, reference: dict) -> dict:
     for item in MICRO_ITEMS:
         per = []
         for s, b in zip(micro["states"], base_micro["states"]):
-            values = [relative(x[item], y[item]) for x, y in zip(s, b)]
+            # 核分裂しない核種の thermal_fission は値が無い（両方に無いことだけを許す）
+            if any((x[item] is None) != (y[item] is None) for x, y in zip(s, b)):
+                sys.exit(f"micro {item} is missing from one table")
+            values = [
+                0.0 if x[item] is None else relative(x[item], y[item])
+                for x, y in zip(s, b)
+            ]
             n = max(range(len(values)), key=lambda i: values[i])
             per.append((values[n], micro["nuclides"][n]))
         found = worst([v for v, _ in per], points)
