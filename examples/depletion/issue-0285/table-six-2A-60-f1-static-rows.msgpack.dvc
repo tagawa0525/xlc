@@ -1,0 +1,5 @@
+outs:
+- md5: 70edb0dc4a60a56d5404424b3cd61452
+  size: 161963
+  hash: md5
+  path: table-six-2A-60-f1-static-rows.msgpack
