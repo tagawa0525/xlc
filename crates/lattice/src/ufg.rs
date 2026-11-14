@@ -1085,7 +1085,8 @@ fn solve_cell(
                             cells_beside_work(hold, work)
                         },
                         transfers.as_ref().map(|(_, shares)| shares.kernels()),
-                        tracing::enabled!(tracing::Level::DEBUG),
+                        // 数えた格子点は、下の共有の表の計数（DEBUG のログ）だけが読む
+                        transfers.is_some() && tracing::enabled!(tracing::Level::DEBUG),
                     );
                     (Some(thermal), options.sweeps, held_tracks)
                 }
@@ -1449,7 +1450,7 @@ fn solve_cell(
             })
             .collect();
         if let Some(thermal) = &sweep.thermal
-            && tracing::enabled!(tracing::Level::DEBUG)
+            && thermal.census()
         {
             // 区間と D の値は、核の鍵（[`Thermal::kernel_key`]）と、格子点のレサジーとエネルギーで決まる
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
