@@ -2,6 +2,7 @@
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-2O-10-f1-state-sections.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 ufg-tolerance = 1e-4
+ufg-cp-points = 16
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03

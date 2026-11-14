@@ -1,6 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）の本番の形の 1 燃焼点: p9-2A/branch-2A.toml の 60 MWd/kg、nominal
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
+ufg-cp-points = 16
 few-group = { output = "table-production-2A-60-nominal.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 30

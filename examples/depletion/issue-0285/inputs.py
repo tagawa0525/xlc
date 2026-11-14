@@ -34,9 +34,11 @@
 数密度の微分を持つ本番の入力）の燃焼点を 60 MWd/kg の 1 点にし、テーブルの出力の名前と自己遮蔽の解き方だけを変える（テーブルを
 作る時間を解き方で比べる）:
 
-- nominal: 本番の入力のまま（`shielding` を書かない。ADR-0201 の既定）
-- nominal-cp6: nominal の UFG の衝突確率の求積を 6 点にしたもの（`ufg-cp-points = 6`）
+- nominal: 本番の入力の解き方（`shielding` を書かない。ADR-0201 の既定）で、UFG の求積は 16 点（ADR-0252 の前の既定）
+- nominal-cp6: nominal の UFG の衝突確率の求積を 6 点（ADR-0252 の今の既定）にしたもの（`ufg-cp-points = 6`）
 - f1-static-cp6: 上の f1-static の比の解き方で、UFG と静止した標的の求積を 6 点にしたもの（`ufg-cp-points = 6`、`static-cp-points = 6`）
+
+求積の点を書かない履歴から作る入力には、記録を測った 16 点（`ufg-cp-points = 16`。ADR-0252 の前の既定）を書く。
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -124,11 +126,13 @@ TIMING_SHIELDINGS = {
         ),
     ),
 }
+# 記録を測った UFG の求積（ADR-0252 の前の既定。今の既定は 6 点）
+POINTS = "ufg-cp-points = 16"
 # 本番の形の入力: 解き方 → (UFG の求積の行、`[branches]` に足す行)。燃焼点は PRODUCTION_BURNUP
 PRODUCTION_SOURCE = "p9-2A/branch-2A.toml"
 PRODUCTION_BURNUP = 60
 PRODUCTION = {
-    "nominal": ("", None),
+    "nominal": (POINTS, None),
     "nominal-cp6": ("ufg-cp-points = 6", None),
     "f1-static-cp6": ("ufg-cp-points = 6", TIMING_SHIELDINGS["f1-static-cp6"]),
 }
@@ -148,6 +152,17 @@ def with_temperature(body: str, material: str, kelvin: int) -> str:
     if len(pattern.findall(body)) != 1:
         sys.exit(f"material {material} has no single temperature line")
     return pattern.sub(rf"\g<1>{kelvin}\n", body)
+
+
+def with_points(body: str, path: Path) -> str:
+    """求積の点を書かない履歴の入力に、記録を測った 16 点（ADR-0252 の前の既定）を書く。既定のままにすると、再実行で記録と違う
+    6 点になる（ADR-0252 の帰結）"""
+    if "\nufg-cp-points = " in body:
+        return body
+    line = "\nufg-tolerance = 1e-4\n"
+    if body.count(line) != 1:
+        sys.exit(f"{path} has no single ufg-tolerance line")
+    return body.replace(line, f"{line}{POINTS}\n")
 
 
 def branch(
@@ -193,6 +208,7 @@ def branch(
         f"[material.water]\ntemperature = {NOMINAL_MODERATOR}\n{WATER}\n", body
     )
     body = with_temperature(body, "zircaloy", NOMINAL_MODERATOR)
+    body = with_points(body, path)
     for material in depleted:
         body = with_temperature(body, material, NOMINAL_FUEL)
     kind, ratio = (SHIELDINGS | TIMING_SHIELDINGS)[shielding]
