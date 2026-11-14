@@ -1,10 +1,10 @@
 ---
-status: proposed
-date: 2026-11-13
+status: accepted
+date: 2026-11-14
 requires: [ADR-0068, ADR-0156, ADR-0182]
 supersedes: []
 superseded-by:
-issues: ["#0286"]
+issues: ["#0286", "#0180", "#0278"]
 ---
 
 # ADR-0252: UFG の等価なセルの衝突確率の求積を、小区間あたり 6 点にする
@@ -70,8 +70,10 @@ timing-851-855.json）の、1 ピンの衝突確率と表の和（スレッド�
 
 ## 決定と理由
 
-（提案）UFG の等価なセルの衝突確率の求積の既定を、小区間あたり 6 点にする（`ufg-cp-points` の既定を 6 に）。16 点は入力で選べる
-厳密な経路として残す。
+UFG の等価なセルの衝突確率の求積の既定を、小区間あたり 6 点にする（`ufg-cp-points` の既定を 6 に）。16 点は入力で選べる
+厳密な経路として残す（`ufg-cp-points = 16`）。ユーザーは、既定を 6 点にし、16 点を入力で選べる形に残せばよいとした（ユーザー 2026-11-14）。
+UFG の既定は crates/lattice/src/shielding.rs の `UFG_CP_POINTS` で、crates/lattice/src/cp.rs の `POINTS`（16）は等価原理のセルなど
+UFG の外の衝突確率の既定のまま。
 
 - 11 のケースで k∞ の差は 0.03 pcm 以下、2 群の定数 4.5e−7、ピン出力 3e−9、リングの捕獲 4.8e−6 以下で、`share = 1e-4`
   （0.050 pcm、1.1e−6、2.7e−7、6.1e−6）と同じ水準。組み合わせた差は `share` だけの差とほぼ同じ（2O-5 で +0.053 と +0.050 pcm）
@@ -88,20 +90,30 @@ timing-851-855.json）の、1 ピンの衝突確率と表の和（スレッド�
 
 ### 帰結
 
-- 決めるのはユーザー。決まれば、別のブランチで `ufg-cp-points` の既定を 6 にし（crates/lattice/src/cp.rs の `POINTS` は等価原理の
-  セルなど UFG の外の衝突確率も使うので、UFG の既定は別の定数にする）、記録の数値の再測定の範囲を決める
-- 衝突確率の精度 1e-9 を保つ方針（CLAUDE.md の「方針」）の文は、既定が決まるまで変えない。決まれば、厳密な経路（16 点）を入力で
-  残す形に書き直す
+- 16 点で測った記録の入力のうち、どの核種も自由ガスの経路（`share = false`）で ADR-0251 が残した参照の条件と測った組（#0133 の
+  自由ガス、重い核種の自由ガス、S(α, β) の組、#0152 の参照、#0274 の cap-900 の組の 82 入力）と、#0286 の変種（inputs.py、coverage.py が
+  書く 198 入力と mox-history.toml。求積の点の変種のほかは 16 点を書く）は `ufg-cp-points = 16` を書き、再実行しても記録の値を出す。
+  ほかの入力（参照と比べる速い側の入力を含む）は新しい既定で解く。差は記録の桁より小さい（測ったケースで k∞ 0.03 pcm 以下）
+- 既定の変更で値が変わるのは、自己遮蔽する lattice のステージ（`bin/lattice` を deps に持つステージのうち、`ufg-cp-points` を書かない
+  入力のもの）。それらは main で既に changed（直下の `dvc.lock` の `bin/lattice` が、例の `dvc.lock` の記録と違う）で、このブランチの
+  例の入力の変更はどのステージの deps でもないので、このブランチで changed になるのは直下の `build`（crates の変更）だけ
+  （`scripts/count-changed-stages.py` で 1,007 ステージ。2026-11-14）。作り直す時間は数えていない
+- 本番の 2A のテーブル（#0278）は約 16.3〜17.7 時間の見込み（ADR-0251 の既定で約 18.2〜19.7 時間）。自己遮蔽を解く状態（14.85〜16.5
+  時間）に当てる 1 状態の比 0.81〜0.83（ADR-0251 の帰結）に、2A-60 の `share = 1e-4` に 6 点を足した 1 状態の比 0.855（49.6 → 42.4 秒）を
+  掛けた。ADR-0251 の既定（格子点ごとの比の最大）と 6 点を合わせた 2A-60 の時間は測っておらず、ほかの燃焼点の比も測っていない
+- 衝突確率の精度 1e-9 を保つ方針（CLAUDE.md の「方針」）は、16 点の求積の収束の基準（crates/lattice/src/cp/tests.rs の
+  `quadrature_converges`）で、6 点の既定はそれを満たさない（燃料の全断面積 0.3〜3000 /cm で 6 点の衝突確率の差 4e−9〜2e−5）。
+  その文は、16 点を入力で選べる厳密な経路として 1e-9 を保ち、UFG の既定は差を測った 6 点とする形に書き直す
 - 4 点の集合体での差（時間は 2A-60 で測った）と、燃焼の履歴（差が積み重なる）での差は測っていない。燃焼した MOX の集合体は分岐だけを
   測った（下の「確認」）。1 状態の差が 0.03 pcm 以下なので、燃焼の履歴の差も
   その大きさの見込み（確かめていない）
 
 ### 確認
 
-- crates/lattice/src/shielding/tests.rs の `fewer_quadrature_points_stay_close_to_the_default_cell`: 4 点の捕獲の実効断面積は既定に
-  近い（相対 1e−5 未満。測ると 1.3e−6）
-- crates/lattice/src/input/tests.rs の `ufg_cp_points_default_to_the_cell_quadrature`: 既定は 16 点で、正の整数を受け、0、負の数、
-  小数、真偽値と、自己遮蔽しない入力の指定を拒む
+- crates/lattice/src/shielding/tests.rs の `the_default_cell_quadrature_takes_six_points`（自己遮蔽の条件の既定は 6 点）と
+  `fewer_quadrature_points_stay_close_to_the_exact_cell`: 4 点の捕獲の実効断面積は 16 点に近い（相対 1e−5 未満。測ると 1.3e−6）
+- crates/lattice/src/input/tests.rs の `ufg_cp_points_default_to_six_and_keep_sixteen_selectable`: 既定は 6 点で、16 点を含む正の
+  整数を受け、0、負の数、小数、真偽値と、自己遮蔽しない入力の指定を拒む
 - examples/depletion/issue-0286/cp-853-855.json（compare.py）と timing-851-855.json（timing.py。ログは `timing-<ケース>-cp-*.log.dvc`）、入力は inputs.py（#0286 の「衝突確率の近似」の節）
 - 燃焼した MOX の集合体（examples/depletion/mox-assembly の履歴の 0、20、40、60 MWd/kg から、公称、燃料 1200 K、減速材 600 K、その両方の
   16 状態。Slurm 862、排他、xlc 4e54ffdf6、分岐点は main の 5ec0adcb1、2026-11-14。入力は coverage.py の `assembly-mox`）: 6 点の
