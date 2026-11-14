@@ -1,6 +1,7 @@
 # このファイルは inputs.py が書く（手で直さない）。#0285 の段 1（ADR-0250）: mox-assembly/lattice-mox-assembly.toml の 60 MWd/kg、f1-state
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-MOX-60-f1-state.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+ufg-free-gas = { share = false }
 ufg-tolerance = 1e-4
 ufg-cp-points = 16
 ufg-hold-memory = 32
