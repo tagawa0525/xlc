@@ -2863,6 +2863,13 @@ pub(crate) mod lattice {
                 fuel: RatioFuel::StaticRatio,
                 static_cp_points: None,
             },
+            RatioOptions {
+                transfer: RatioTransfer::StaticRatio,
+                rings: RatioRings::StaticRatio,
+                sph: RatioSph::StaticRatio,
+                fuel: RatioFuel::StaticRatio,
+                static_cp_points: None,
+            },
         ] {
             let (ratio, every, anchor, _) = ratio_pin(&library, 1.0, options);
             assert_eq!(every, anchor);
@@ -2926,6 +2933,74 @@ pub(crate) mod lattice {
             ..RatioOptions::default()
         };
         assert!(fuel_ring_gap(scaled) < 1e-12, "{}", fuel_ring_gap(scaled));
+    }
+
+    #[test]
+    fn static_ratio_transfers_take_the_static_row_shape_with_the_elastic_ratio_sum() {
+        // #0285: 静止した標的の行の比を選ぶと、どのリングの移行の行も、基準の行の要素ごとに、状態と基準を静止した標的（移行は
+        // リングの中性子束で数える）で解いた行の同じ要素の比を掛け、行の和を弾性散乱の比で縮めた行の和に合わせたもの（静止した
+        // 標的の行が 0 の要素は基準の値のまま）
+        let library = resonant_elastic_library();
+        let options = |transfer| RatioOptions {
+            transfer,
+            rings: RatioRings::StaticRatio,
+            sph: RatioSph::StaticRatio,
+            fuel: RatioFuel::StaticRatio,
+            static_cp_points: None,
+        };
+        let (ratio, _, anchor, state) =
+            ratio_pin(&library, 0.7, options(RatioTransfer::StaticRatio));
+        let (elastic, ..) = ratio_pin(&library, 0.7, options(RatioTransfer::ElasticRatio));
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let light = ShieldingOptions {
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::RingFlux,
+            ..ShieldingOptions::default()
+        };
+        let solve = |m: &[MaterialInput]| {
+            shield_fuel_with(&library, &tracking, m, &regions, &symmetry, &light).unwrap()
+        };
+        let (light_state, light_anchor) = (solve(&state), solve(&materials));
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs().max(f64::MIN_POSITIVE);
+        let mut reshaped = false;
+        // 燃料の 3 リングと、被覆管（領域 4）と水（領域 5）
+        for region in [0, 1, 2, 4, 5] {
+            let transfers = |s: &FuelShielding| s.region_transfers(region).unwrap().to_vec();
+            let (r, a, e, ls, la) = (
+                transfers(&ratio),
+                transfers(&anchor),
+                transfers(&elastic),
+                transfers(&light_state),
+                transfers(&light_anchor),
+            );
+            for k in 0..r.len() {
+                for (i, g) in a[k].groups.clone().enumerate() {
+                    let shaped: Vec<f64> = a[k].rows[i]
+                        .iter()
+                        .zip(&ls[k].rows[i])
+                        .zip(&la[k].rows[i])
+                        .map(|((v, s), l)| if *l == 0.0 { *v } else { v * s / l })
+                        .collect();
+                    let sum: f64 = e[k].rows[i].iter().sum();
+                    let norm = sum / shaped.iter().sum::<f64>();
+                    for (h, (got, want)) in r[k].rows[i].iter().zip(&shaped).enumerate() {
+                        assert!(
+                            close(*got, want * norm),
+                            "region {region} nuclide {k} group {g} to {h}: {got} vs {}",
+                            want * norm
+                        );
+                    }
+                    reshaped |= r[k].rows[i]
+                        .iter()
+                        .zip(&e[k].rows[i])
+                        .any(|(x, y)| !close(*x, *y));
+                }
+            }
+        }
+        // 行の形は弾性散乱の比で縮めた形と違う（違わなければ比べる意味が無い）
+        assert!(reshaped);
     }
 
     #[test]
