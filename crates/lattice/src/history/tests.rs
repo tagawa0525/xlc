@@ -623,6 +623,181 @@ fn nominal_boron_shielding_solves_once_per_burnup_moderator_and_fuel_point() {
     }
 }
 
+/// 入力 `text` の `[branches]` の自己遮蔽を、比で求める解き方 `value`（ADR-0250）にしたもの
+fn ratio_shielding(text: &str, value: &str) -> String {
+    assert!(text.contains("[history]\n"));
+    text.replace(
+        "[history]\n",
+        &format!("shielding = \"{value}\"\n[history]\n"),
+    )
+}
+
+/// `shield_states` の、比で求める参照の基準（`Branches::anchors`）を `BranchShielder::with_ratio` に渡したもの。最後は比で求めた回数
+fn shield_ratio_states(
+    text: &str,
+    history: &History,
+    library: &Library,
+) -> (Vec<Shielding>, usize, usize) {
+    let s = setup(text);
+    let branches = history_branches(
+        &s.input,
+        history,
+        &chain(),
+        library,
+        &[ValueGeometry {
+            lattice: &s.tracking.lattice,
+            region_materials: &s.region_materials,
+            chosen: &s.chosen,
+        }],
+    )
+    .unwrap();
+    let (anchors, options) = s.input.branches.as_ref().unwrap().anchors().unwrap();
+    let build = |point: usize, r: usize| branches.reference_state(point, r);
+    let mut reuse = ShieldingReuse::new(&s.tracking);
+    let mut shielder = BranchShielder::new(
+        &s.tracking,
+        branches.region_materials(0),
+        s.input.branches.as_ref().unwrap().varied(),
+        s.chosen.shielding(),
+        s.input.shielding_options(),
+    )
+    .with_ratio(anchors.to_vec(), options, &build);
+    let shielded = (0..branches.len())
+        .filter(|&i| branches.solved(0, i))
+        .map(|i| {
+            let reference = branches.reference(i);
+            owned(
+                shielder
+                    .shield_state(&mut reuse, library, &branches.state(i), reference, || {
+                        let (point, r) = reference.unwrap();
+                        branches.reference_state(point, r)
+                    })
+                    .unwrap(),
+            )
+        })
+        .collect();
+    (shielded, shielder.shieldings(), shielder.ratios())
+}
+
+#[test]
+fn ratio_shielding_solves_the_ufg_at_the_anchors_only() {
+    // ADR-0250 の (F1): 燃焼点と燃料の温度の点ごとに、減速材が公称の参照だけを解き、ほかの減速材の参照は比で求める。(F2) は燃焼点
+    // ごとに公称の 1 つだけを解く。ホウ素の軸は公称のホウ素の参照から作り直す（ADR-0201）。テストのライブラリは UFG の範囲を
+    // 持たないので、比で求めた参照は参照ごとに解いたもの（範囲の外の等価原理）とビットで同じで、状態は既定の解き方とビットで同じ
+    let library = library_for_reuse();
+    let history = deplete_with(&borated(PIN), &library);
+    let text = two_moderators("[0, 0.5]");
+    let fuel = "fuel = { temperature = [600], materials = [\"fuel\"] }";
+    assert!(text.contains(fuel));
+    let text = text.replace(
+        fuel,
+        "fuel = { temperature = [600, 650], materials = [\"fuel\"] }",
+    );
+    let (_, nominal, nominal_solves) = shield_states(&text, &history, &library);
+    // 燃焼度 2 点 × 減速材 2 点 × 燃料 2 点の参照
+    assert_eq!(nominal_solves, 8);
+    for (value, solves, ratios) in [("moderator-ratio", 4, 4), ("moderator-fuel-ratio", 2, 6)] {
+        let (states, shielded, by_ratio) =
+            shield_ratio_states(&ratio_shielding(&text, value), &history, &library);
+        assert_eq!((shielded, by_ratio), (solves, ratios), "{value}");
+        assert_eq!(states, nominal, "{value}");
+    }
+}
+
+#[test]
+fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() {
+    // ADR-0250: 比が決めない量の作り方は `[branches.ratio]` で選び、省略すると基準の値。比の解き方でない自己遮蔽には書けない。基準は
+    // 入力の物質の減速材の点なので、入力の物質が減速材の軸の点になければ止める
+    use crate::shielding::{RatioFuel, RatioOptions, RatioRings, RatioSph, RatioTransfer};
+    let text = two_moderators("[0]");
+    let parse = |text: &str| LatticeInput::parse(text).map_err(|e| e.to_string());
+    let anchors = |text: &str| {
+        parse(text).map(|input| {
+            let (a, o) = input.branches.as_ref().unwrap().anchors().unwrap();
+            (a.to_vec(), o)
+        })
+    };
+    let ratio = ratio_shielding(&text, "moderator-ratio");
+    // 減速材 2 点（公称は 600 K の点 0）× 燃料 1 点
+    assert_eq!(anchors(&ratio), Ok((vec![0, 0], RatioOptions::default())));
+    let chosen = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\ntransfer = \"elastic-ratio\"\nrings = \"infinite-dilution\"\nsph = \"state\"\nfuel = \"state-average\"\n[history]\n",
+    );
+    assert_eq!(
+        anchors(&chosen).map(|(_, o)| o),
+        Ok(RatioOptions {
+            transfer: RatioTransfer::ElasticRatio,
+            rings: RatioRings::InfiniteDilution,
+            sph: RatioSph::State,
+            fuel: RatioFuel::StateAverage,
+            static_cp_points: None,
+        })
+    );
+    let state = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nfuel = \"state\"\n[history]\n",
+    );
+    assert_eq!(anchors(&state).map(|(_, o)| o.fuel), Ok(RatioFuel::State));
+    let light = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nfuel = \"static-ratio\"\nrings = \"static-ratio\"\nsph = \"static-ratio\"\n[history]\n",
+    );
+    assert_eq!(
+        anchors(&light).map(|(_, o)| (o.fuel, o.rings, o.sph)),
+        Ok((
+            RatioFuel::StaticRatio,
+            RatioRings::StaticRatio,
+            RatioSph::StaticRatio
+        ))
+    );
+    // 静止した標的の減速計算の衝突確率の求積の点の数（省略すると UFG と同じ）
+    let points = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nfuel = \"static-ratio\"\nstatic-cp-points = 6\n[history]\n",
+    );
+    assert_eq!(
+        anchors(&points).map(|(_, o)| o.static_cp_points),
+        Ok(Some(6))
+    );
+    assert_eq!(anchors(&light).map(|(_, o)| o.static_cp_points), Ok(None));
+    let factor = ratio.replace(
+        "[history]\n",
+        "[branches.ratio]\nrings = \"shielding-factor\"\n[history]\n",
+    );
+    assert_eq!(
+        anchors(&factor).map(|(_, o)| o.rings),
+        Ok(RatioRings::ShieldingFactor)
+    );
+    // 比の解き方でない自己遮蔽、知らない値
+    for bad in [
+        text.replace(
+            "[history]\n",
+            "[branches.ratio]\nsph = \"state\"\n[history]\n",
+        ),
+        ratio.replace(
+            "[history]\n",
+            "[branches.ratio]\nsph = \"solved\"\n[history]\n",
+        ),
+        // 点の数は正、静止した標的の比のないときは書けない
+        ratio.replace(
+            "[history]\n",
+            "[branches.ratio]\nfuel = \"static-ratio\"\nstatic-cp-points = 0\n[history]\n",
+        ),
+        ratio.replace(
+            "[history]\n",
+            "[branches.ratio]\nstatic-cp-points = 6\n[history]\n",
+        ),
+    ] {
+        assert!(parse(&bad).is_err(), "{bad}");
+    }
+    // 入力の物質（600 K、0.7 g/cc）が減速材の軸の点にない
+    let off = ratio.replace("density = [0.7, 0.66]", "density = [0.71, 0.66]");
+    assert!(off != ratio);
+    let error = parse(&off).unwrap_err();
+    assert!(error.contains("ADR-0250"), "{error}");
+}
+
 #[test]
 fn branches_without_a_history_shield_at_the_nominal_boron_too() {
     let library = library_for_reuse();

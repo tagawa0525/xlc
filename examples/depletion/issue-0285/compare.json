@@ -1,0 +1,1093 @@
+{
+ "format": "xlc-compare-ratio-shielding",
+ "cases": {
+  "2A-60": {
+   "every": {
+    "k_inf": [
+     0.8188429548782801,
+     0.8108644555294424,
+     0.80244042217187,
+     0.8179100793517983,
+     0.8095935499050164,
+     0.8007901541891534,
+     0.8072574153525941,
+     0.7980577705136883,
+     0.7882840984976015
+    ],
+    "timing": {
+     "ufg": {
+      "count": 9,
+      "mean_seconds": 42.611111111111114
+     },
+     "ratio": {
+      "count": 0,
+      "mean_seconds": null
+     },
+     "state_seconds": 423.620205919
+    }
+   },
+   "f1": {
+    "k_pcm": [
+     -98.70681041765917,
+     -102.29490243870431,
+     -106.24057829837774,
+     2.5762225686065676e-05,
+     -2.5301982731207318e-08,
+     2.975064639088032e-07,
+     367.4848014761256,
+     381.50372203670236,
+     396.3617821016396
+    ],
+    "worst_k": {
+     "pcm": 396.3617821016396,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.007671954630129067,
+     "nu_fission": 0.0006756808224698941,
+     "diffusion": 0.0011715731588123745,
+     "scatter": 0.004464868181181089,
+     "adf": 0.0002499850545838731
+    },
+    "power": 0.0003925344929462153,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.024790965133429488,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -1.0581623581593742,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.012292676984020146,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 0.0007549328305924696,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 0.0009169125606700579,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.0009079176647541765,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.63333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 4.526666666666666
+     },
+     "state_seconds": 204.477655936
+    }
+   },
+   "f1-transfer": {
+    "k_pcm": [
+     14.475892111498467,
+     15.543290688102562,
+     16.58010939957766,
+     -1.061561949455836e-06,
+     -1.6764367671839864e-08,
+     -7.317479955304407e-08,
+     -41.78425647722861,
+     -43.93640028239609,
+     -46.09086358834391
+    ],
+    "worst_k": {
+     "pcm": -46.09086358834391,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0008745839139419251,
+     "nu_fission": 0.0002767307310531545,
+     "diffusion": 0.00010063386568843421,
+     "scatter": 0.00037336250516361756,
+     "adf": 4.8629092721399194e-05
+    },
+    "power": 6.354939308619833e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 0.003410883641830731,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": 0.15497078871697245,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.011849930434223,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": -9.338910943501588e-05,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 7.823098346015911e-05,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 6.509941570853606e-05,
+      "state": 6,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 46.26666666666667
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 4.718333333333333
+     },
+     "state_seconds": 207.949736964
+    }
+   },
+   "f2": {
+    "k_pcm": [
+     1508.4171700306958,
+     -102.29224619093813,
+     -1659.1355338345882,
+     1686.15342067564,
+     0.0037643459016578618,
+     -1624.4614172589156,
+     2281.521708866363,
+     381.5096829133835,
+     -1431.3968229599295
+    ],
+    "worst_k": {
+     "pcm": 2281.521708866363,
+     "state": 6
+    },
+    "items": {
+     "absorption": 0.04556715206009799,
+     "nu_fission": 0.0037353715011796897,
+     "diffusion": 0.006169618296160641,
+     "scatter": 0.02379152396562099,
+     "adf": 0.0006692016738715486
+    },
+    "power": 0.00099987856453659,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 1.967951992119965,
+      "at": "m0f0"
+     },
+     "moderator": {
+      "ratio_minus_one": -1.8709228033951244,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.03300528906459377,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 0.004040547225989011,
+      "state": 6,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 0.0043573194587172015,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.004397188230919946,
+      "state": 6,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 1,
+      "mean_seconds": 45.8
+     },
+     "ratio": {
+      "count": 8,
+      "mean_seconds": 4.0525
+     },
+     "state_seconds": 121.150158988
+    }
+   },
+   "f2-transfer": {
+    "k_pcm": [
+     149.5847247426907,
+     15.543545497676003,
+     -130.26409413099404,
+     140.00806307757907,
+     0.0005009992976034994,
+     -151.84981473137515,
+     110.78017624978065,
+     -43.93544699513585,
+     -210.56081704056152
+    ],
+    "worst_k": {
+     "pcm": -210.56081704056152,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.003962656564689588,
+     "nu_fission": 0.0005177766481703486,
+     "diffusion": 0.0003309301822069104,
+     "scatter": 0.0026525664323228597,
+     "adf": 0.00011637267226466316
+    },
+    "power": 0.00013382883882054013,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 0.1747675375538973,
+      "at": "m0f2"
+     },
+     "moderator": {
+      "ratio_minus_one": 0.13479182398829304,
+      "at": "m0f2"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.03123175522241106,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": -0.0004986038669080317,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 0.0005432615659755058,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.0005670004807565299,
+      "state": 6,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 1,
+      "mean_seconds": 45.5
+     },
+     "ratio": {
+      "count": 8,
+      "mean_seconds": 3.91625
+     },
+     "state_seconds": 117.589678398
+    }
+   },
+   "f1-factor": {
+    "k_pcm": [
+     14.516497408800788,
+     15.582531683588918,
+     16.61780959315573,
+     -1.2460477094577982e-06,
+     -2.559508160970836e-07,
+     -3.9218628344883655e-07,
+     -41.99549121324253,
+     -44.14538530057577,
+     -46.29752569593748
+    ],
+    "worst_k": {
+     "pcm": -46.29752569593748,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0008786925282309535,
+     "nu_fission": 0.0002793180834649423,
+     "diffusion": 0.00010112784732293169,
+     "scatter": 0.0003736602559393455,
+     "adf": 4.8832860759842264e-05
+    },
+    "power": 6.357673896094439e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 0.00341369162640337,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": 0.15540541117295303,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.011857456691622525,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": -9.475337802533623e-05,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 7.869922804593088e-05,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 6.556428714432627e-05,
+      "state": 6,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 46.0
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 4.565
+     },
+     "state_seconds": 205.844412401
+    }
+   },
+   "f1-dilute": {
+    "k_pcm": [
+     -21.752091646054517,
+     -16.599267609040957,
+     -11.192406693505408,
+     -2.769673379532378e-07,
+     4.929390229335695e-08,
+     -1.4315215679516768e-07,
+     -100.03453141428365,
+     -97.5940072965642,
+     -94.91545570057269
+    ],
+    "worst_k": {
+     "pcm": -100.03453141428365,
+     "state": 6
+    },
+    "items": {
+     "absorption": 0.0023600593295215436,
+     "nu_fission": 0.0006812974791393196,
+     "diffusion": 0.00041184110522615936,
+     "scatter": 0.0009150391330361488,
+     "adf": 0.00021211965674976048
+    },
+    "power": 0.00021397912650676925,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.006076304912479347,
+      "at": "m0f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.23296873719064937,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.008486638990040207,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": -9.956941682431886e-05,
+      "state": 6,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 0.00015433678034271203,
+      "state": 2,
+      "material": "fuel-0"
+     },
+     "Gd-157": {
+      "relative": 0.00018021465943696136,
+      "state": 2,
+      "material": "fuel-0"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 46.46666666666667
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 4.72
+     },
+     "state_seconds": 208.884103824
+    }
+   },
+   "f1-sph": {
+    "k_pcm": [
+     16.887638485363343,
+     18.237730535441976,
+     19.5793674805933,
+     -1.4235612688651145e-06,
+     -1.7953416531213406e-07,
+     -5.118128143521972e-09,
+     -49.83471167206987,
+     -52.893346005500334,
+     -56.017056290147416
+    ],
+    "worst_k": {
+     "pcm": -56.017056290147416,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0010714888876700434,
+     "nu_fission": 0.00017686072131852307,
+     "diffusion": 0.0001015826920579724,
+     "scatter": 0.0005718781810817866,
+     "adf": 3.391708938719306e-05
+    },
+    "power": 5.34122866742796e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 0.00461033106597597,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": 0.18078427213426163,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.011964238565768337,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": -0.00012498990205889182,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 2.8666908400420965e-05,
+      "state": 6,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": -2.5312338897132136e-05,
+      "state": 0,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.63333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.61666666666667
+     },
+     "state_seconds": 433.024629669
+    }
+   },
+   "f1-average": {
+    "k_pcm": [
+     -8.49200449961618,
+     -9.111483813561971,
+     -9.793712173566949,
+     9.485079388582562e-07,
+     -1.4122036873231991e-08,
+     3.167799356162959e-07,
+     24.232138371871326,
+     26.176360490437478,
+     28.28421230763878
+    ],
+    "worst_k": {
+     "pcm": 28.28421230763878,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.00048794400776656986,
+     "nu_fission": 0.00014644095144888958,
+     "diffusion": 3.930634016074352e-05,
+     "scatter": 0.0006072641745479697,
+     "adf": 5.86061993696958e-05
+    },
+    "power": 5.682080249312185e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0028416369998200963,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.09093614714347842,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.007927084244871097,
+      "state": 7,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 4.8085157733579464e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.0002355733314594044,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.000245296125610972,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 46.833333333333336
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 87.3
+     },
+     "state_seconds": 706.22553098
+    }
+   },
+   "f1-state": {
+    "k_pcm": [
+     -7.328011334695184,
+     -7.776148011662265,
+     -8.267483585577828,
+     4.008349208106665e-07,
+     -1.7641443861293737e-08,
+     3.168021400767884e-07,
+     20.180870150110497,
+     21.563169884986078,
+     23.05259691672834
+    ],
+    "worst_k": {
+     "pcm": 23.05259691672834,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0003984878005982726,
+     "nu_fission": 0.00017748071173985666,
+     "diffusion": 3.960228649917165e-05,
+     "scatter": 0.0005446532898911763,
+     "adf": 5.616982949705123e-05
+    },
+    "power": 5.369710230037472e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0020854588611108893,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.07847047248389916,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0010022825070580277,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Pu-239": {
+      "relative": 6.113753206360428e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00022572747509075342,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00023796047194402092,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.73333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 43.01666666666667
+     },
+     "state_seconds": 436.007094266
+    }
+   },
+   "f1-state-sph": {
+    "k_pcm": [
+     -4.91870719191434,
+     -5.084832923196725,
+     -5.272142634438204,
+     2.2040147484858608e-07,
+     -2.670863530340739e-07,
+     -3.115840918610502e-07,
+     12.100205089160543,
+     12.568009008717684,
+     13.079018471839898
+    ],
+    "worst_k": {
+     "pcm": 13.079018471839898,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.00020032591729181792,
+     "nu_fission": 8.189644481842645e-05,
+     "diffusion": 4.1422265539655386e-05,
+     "scatter": 0.0003456705059188731,
+     "adf": 4.141464108123137e-05
+    },
+    "power": 4.27058980802215e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0008459953919904839,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.05266939400426318,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0006460141612858461,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 1.2206996821140237e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00016316356770218476,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00017389168344772443,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 47.13333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.449999999999996
+     },
+     "state_seconds": 436.77349323
+    }
+   },
+   "f1-exact": {
+    "k_pcm": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "worst_k": {
+     "pcm": 0.0,
+     "state": 0
+    },
+    "items": {
+     "absorption": 0.0,
+     "nu_fission": 0.0,
+     "diffusion": 0.0,
+     "scatter": 0.0,
+     "adf": 0.0
+    },
+    "power": 0.0,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": 0.0,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": 0.0,
+      "at": "m2f2"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     },
+     "Pu-239": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     },
+     "Gd-155": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     },
+     "Gd-157": {
+      "relative": 0.0,
+      "state": 0,
+      "material": "fuel-0"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.63333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.300000000000004
+     },
+     "state_seconds": 431.282726421
+    }
+   },
+   "f1-state-sections": {
+    "k_pcm": [
+     -6.3244135564355375,
+     -6.475682491280388,
+     -6.648408979659237,
+     4.89164264649844e-07,
+     9.825473767932635e-09,
+     3.167577311558034e-07,
+     16.48651281384028,
+     16.86204800805946,
+     17.277893146683265
+    ],
+    "worst_k": {
+     "pcm": 17.277893146683265,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0002839686699505481,
+     "nu_fission": 9.188315474387754e-05,
+     "diffusion": 4.1691610426661385e-05,
+     "scatter": 0.00040944682978316367,
+     "adf": 4.49015139407795e-05
+    },
+    "power": 4.6024928994126714e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0008556249177921194,
+      "at": "m2f2"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.06772282759068338,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.000711931103358765,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 2.166299653239001e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00017826129398423873,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00018959542488472536,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.73333333333333
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 42.333333333333336
+     },
+     "state_seconds": 431.798486757
+    }
+   },
+   "f1-static-fuel": {
+    "k_pcm": [
+     -7.275621537294885,
+     -7.7037334371587995,
+     -8.135695888078498,
+     4.4536596632838155e-07,
+     6.128431095930864e-09,
+     3.168243445372809e-07,
+     20.250562535095717,
+     21.580540682242244,
+     22.888606858739724
+    ],
+    "worst_k": {
+     "pcm": 22.888606858739724,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.00038865329247857904,
+     "nu_fission": 0.00016187701900018705,
+     "diffusion": 4.015788950172711e-05,
+     "scatter": 0.0005418228154941059,
+     "adf": 5.6940005694596616e-05
+    },
+    "power": 5.52202662237839e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0019659967032522596,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.07790941798363193,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0009675092634604532,
+      "state": 8,
+      "material": "fuel-0"
+     },
+     "Pu-239": {
+      "relative": 6.683250538008778e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.00022228334513529902,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.0002336313486894781,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.86666666666667
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 85.66666666666667
+     },
+     "state_seconds": 692.269776444
+    }
+   },
+   "f1-static": {
+    "k_pcm": [
+     -6.236568920325869,
+     -6.365376668215905,
+     -6.476943650046696,
+     5.196842955967895e-07,
+     3.1209479445237776e-07,
+     -7.315259509255156e-08,
+     16.431541256556326,
+     16.746203986828245,
+     16.97420510214931
+    ],
+    "worst_k": {
+     "pcm": 16.97420510214931,
+     "state": 8
+    },
+    "items": {
+     "absorption": 0.0002774041905498038,
+     "nu_fission": 7.928987352845429e-05,
+     "diffusion": 4.240887997051232e-05,
+     "scatter": 0.0004049249866376745,
+     "adf": 4.55721464191831e-05
+    },
+    "power": 4.7375255234399255e-05,
+    "coefficients": {
+     "fuel": {
+      "ratio_minus_one": -0.0007551531388531041,
+      "at": "m2f0"
+     },
+     "moderator": {
+      "ratio_minus_one": -0.06678210198878276,
+      "at": "m0f0"
+     }
+    },
+    "rings": {
+     "U-238": {
+      "relative": -0.0006054294685730044,
+      "state": 7,
+      "material": "fuel-4"
+     },
+     "Pu-239": {
+      "relative": 2.7241221541629557e-05,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-155": {
+      "relative": 0.0001749278164560053,
+      "state": 8,
+      "material": "fuel-4"
+     },
+     "Gd-157": {
+      "relative": 0.00018537618046798876,
+      "state": 8,
+      "material": "fuel-4"
+     }
+    },
+    "timing": {
+     "ufg": {
+      "count": 3,
+      "mean_seconds": 45.666666666666664
+     },
+     "ratio": {
+      "count": 6,
+      "mean_seconds": 85.66666666666667
+     },
+     "state_seconds": 691.741374308
+    }
+   }
+  }
+ },
+ "missing": [
+  "2A-0-every",
+  "2A-0-f1",
+  "2A-0-f1-transfer",
+  "2A-0-f2-transfer",
+  "2A-20-every",
+  "2A-20-f1",
+  "2A-20-f1-transfer",
+  "2A-20-f2-transfer",
+  "2O-10-every",
+  "2O-10-f1",
+  "2O-10-f1-average",
+  "2O-10-f1-dilute",
+  "2O-10-f1-exact",
+  "2O-10-f1-factor",
+  "2O-10-f1-sph",
+  "2O-10-f1-state",
+  "2O-10-f1-state-sections",
+  "2O-10-f1-state-sph",
+  "2O-10-f1-static",
+  "2O-10-f1-static-fuel",
+  "2O-10-f1-transfer",
+  "2O-10-f2",
+  "2O-10-f2-transfer",
+  "MOX-0-every",
+  "MOX-0-f1",
+  "MOX-0-f1-transfer",
+  "MOX-0-f2-transfer",
+  "MOX-20-every",
+  "MOX-20-f1",
+  "MOX-20-f1-transfer",
+  "MOX-20-f2-transfer",
+  "MOX-60-every",
+  "MOX-60-f1",
+  "MOX-60-f1-average",
+  "MOX-60-f1-dilute",
+  "MOX-60-f1-exact",
+  "MOX-60-f1-factor",
+  "MOX-60-f1-sph",
+  "MOX-60-f1-state",
+  "MOX-60-f1-state-sections",
+  "MOX-60-f1-state-sph",
+  "MOX-60-f1-static",
+  "MOX-60-f1-static-fuel",
+  "MOX-60-f1-transfer",
+  "MOX-60-f2",
+  "MOX-60-f2-transfer"
+ ],
+ "inputs": [
+  {
+   "path": "table-2A-60-every.msgpack",
+   "md5": "4f8a5499ea52fbf393676d51e675c8b8"
+  },
+  {
+   "path": "table-2A-60-f1.msgpack",
+   "md5": "62abaed401e4dbfd638cc0d3dbf1321d"
+  },
+  {
+   "path": "table-2A-60-f1-transfer.msgpack",
+   "md5": "a3b723cd173a0d48ceb83e41458ec84e"
+  },
+  {
+   "path": "table-2A-60-f2.msgpack",
+   "md5": "0d450c1858fdde1576ed1927e8ff3117"
+  },
+  {
+   "path": "table-2A-60-f2-transfer.msgpack",
+   "md5": "87833ead4e47b03af8aa4518f1ab8448"
+  },
+  {
+   "path": "table-2A-60-f1-factor.msgpack",
+   "md5": "2352c41f6d1c0b652d1291f178134c1b"
+  },
+  {
+   "path": "table-2A-60-f1-dilute.msgpack",
+   "md5": "8d6712163aa74930e34b1b8cbe326ada"
+  },
+  {
+   "path": "table-2A-60-f1-sph.msgpack",
+   "md5": "fcd4115245a473488052707c579a366c"
+  },
+  {
+   "path": "table-2A-60-f1-average.msgpack",
+   "md5": "c39fb265821cc0ce7da7baa74b31877d"
+  },
+  {
+   "path": "table-2A-60-f1-state.msgpack",
+   "md5": "27d9371243fa5cf0d7d7e1e26a50a65f"
+  },
+  {
+   "path": "table-2A-60-f1-state-sph.msgpack",
+   "md5": "bc59014c54cfd8dae045003840d44046"
+  },
+  {
+   "path": "table-2A-60-f1-exact.msgpack",
+   "md5": "4f8a5499ea52fbf393676d51e675c8b8"
+  },
+  {
+   "path": "table-2A-60-f1-state-sections.msgpack",
+   "md5": "f066e5665ae7f572f6a9648b3dedfe7d"
+  },
+  {
+   "path": "table-2A-60-f1-static-fuel.msgpack",
+   "md5": "c07a3c6f40be740613eb431b4269aa96"
+  },
+  {
+   "path": "table-2A-60-f1-static.msgpack",
+   "md5": "5afe675a8615d8ba2f63b07cef3235f0"
+  }
+ ]
+}

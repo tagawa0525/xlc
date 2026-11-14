@@ -1,0 +1,5 @@
+outs:
+- md5: 2352c41f6d1c0b652d1291f178134c1b
+  size: 161963
+  hash: md5
+  path: table-2A-60-f1-factor.msgpack

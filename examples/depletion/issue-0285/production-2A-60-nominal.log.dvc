@@ -1,0 +1,5 @@
+outs:
+- md5: 3ab7159161ad2d2384a61812b75f91e1
+  size: 455610
+  hash: md5
+  path: production-2A-60-nominal.log

@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
@@ -105,6 +105,191 @@ pub enum UfgTransfer {
     /// 弾性散乱の移行を、UFG の減速計算でリングの中性子束と同じ散乱核で数える
     #[default]
     RingFlux,
+}
+
+/// 比で求める状態（ADR-0250）の、比が決めない量の作り方。どれも段 1 で `every-state` と比べて決める候補で、`Default` は ADR-0250 が
+/// 決めるまで使う基準の値
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RatioOptions {
+    /// 等価なセルのリングの UFG の範囲の移行
+    pub transfer: RatioTransfer,
+    /// 等価なセルの燃料でないリング（被覆管、減速材）の群定数
+    pub rings: RatioRings,
+    /// リングの物質に掛ける SPH 因子
+    pub sph: RatioSph,
+    /// 燃料のリングの UFG の範囲の群定数
+    pub fuel: RatioFuel,
+    /// 静止した標的の減速計算（[`RatioFuel::StaticRatio`] など）の等価なセルの衝突確率の、弦の求積の小区間あたりの点の数。`None` は
+    /// UFG と同じ（[`ShieldingOptions::cp_points`]）。比だけに使うので、点を減らした誤差のうち状態と基準で打ち消さない分だけが残る
+    pub static_cp_points: Option<usize>,
+}
+
+impl RatioOptions {
+    /// 比のどれかが静止した標的の減速計算を使うか
+    pub fn uses_static(&self) -> bool {
+        self.fuel == RatioFuel::StaticRatio
+            || self.rings == RatioRings::StaticRatio
+            || self.sph == RatioSph::StaticRatio
+    }
+}
+
+/// 比で求める状態の、燃料のリングの UFG の範囲の群定数。`Equivalence` のほかは、比の残る差をピンの平均の変化とリングの間の分布に
+/// 分ける診断（#0285）で、状態の UFG の減速計算を解く（時間は状態ごとに解くのと同じ）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioFuel {
+    /// 基準のリングの実効断面積に、状態と基準の等価原理の値の比を掛ける（ADR-0250）
+    #[default]
+    Equivalence,
+    /// 基準のリングの実効断面積に、状態と基準の UFG のピンの平均の比を掛ける（リングの間の分布は基準のまま）
+    StateAverage,
+    /// 状態の UFG のリングの実効断面積と移行
+    State,
+    /// 基準のリングの実効断面積に、状態と基準のそれぞれを、同じ等価なセルの減速計算を静止した標的（[`Scattering::Static`]。移行は
+    /// 無限希釈）で解いた値の比を掛ける。比はリングごとなので、リングの間の分布の変化も入る。静止した標的と自由ガスの差（絶対値の
+    /// 差。ADR-0209）は比で打ち消す
+    StaticRatio,
+}
+
+/// 比で求める状態の、等価なセルのリングの UFG の範囲の移行（ADR-0250 の「比が決めない量」）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioTransfer {
+    /// 基準の移行の行をそのまま使う
+    #[default]
+    Reference,
+    /// 基準の移行の行を、入射の群ごとに状態と基準の弾性散乱の比で縮める（行の和が状態の弾性散乱になる）
+    ElasticRatio,
+}
+
+/// 比で求める状態の、等価なセルの燃料でないリング（被覆管、減速材）の群定数（ADR-0250 の「比が決めない量」）。UFG の範囲の外は
+/// どれも状態の温度の無限希釈
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioRings {
+    /// UFG の範囲は基準のリングの実効断面積（状態の数密度で混ぜる）
+    #[default]
+    Reference,
+    /// UFG の範囲は基準のリングの実効断面積に、状態と基準の温度の無限希釈の値の比を掛けたもの（ADR-0201 の案 M の形）
+    ShieldingFactor,
+    /// UFG の範囲も状態の温度の無限希釈（移行の行を持たない）
+    InfiniteDilution,
+    /// UFG の範囲は基準のリングの実効断面積に、状態と基準を静止した標的で解いた減速計算の値の比を掛けたもの（[`RatioFuel::StaticRatio`]）
+    StaticRatio,
+    /// 状態の UFG のリングの実効断面積と移行（診断。状態の UFG の減速計算を解く）
+    State,
+    /// UFG の範囲は状態の UFG のリングの実効断面積で、移行は基準の行（[`RatioTransfer`] で縮める。診断）
+    StateSections,
+}
+
+/// 比で求める状態の SPH 因子（ADR-0250 の「SPH 因子は基準のものを使う」の近似を分けて測る）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RatioSph {
+    /// 基準の SPH 因子
+    #[default]
+    Reference,
+    /// 状態の UFG の減速計算を解いて求めた SPH 因子（診断。時間は状態ごとに解き直すのと同じ）
+    State,
+    /// 基準の SPH 因子に、状態と基準を静止した標的で解いた減速計算の SPH 因子の比を掛けたもの（[`RatioFuel::StaticRatio`]）
+    StaticRatio,
+}
+
+/// 比で求める状態（ADR-0250）の基準: 今の UFG で解いた自己遮蔽 `shielding` と、それに渡した物質 `materials`（状態の物質と同じ名前を
+/// 同じ順に持つ）。`light` はこの基準の静止した標的の減速計算を持ち回る置き場で、同じ基準の状態の間で共有し、別の基準とは共有しない
+#[derive(Debug, Clone, Copy)]
+pub struct RatioAnchor<'a> {
+    pub shielding: &'a FuelShielding,
+    pub materials: &'a [MaterialInput],
+    pub options: RatioOptions,
+    pub light: &'a AnchorLight,
+}
+
+/// 比の基準 1 つの、静止した標的の減速計算（[`RatioFuel::StaticRatio`] などの比の分母）の結果のセルごとの置き場。基準の物質と
+/// Dancoff 係数は状態によらないので、最初の状態で解いた結果を同じ基準のほかの状態で使う（解き直しても結果はビットで同じ）。鍵は
+/// 基準の物質と求積の点の数だけで、ライブラリ、格子、[`ShieldingOptions`] は同じ置き場を使う呼び出しの間で変えないこと（分岐の
+/// 状態の自己遮蔽では 1 つの `BranchShielder` の中で変わらず、基準の Dancoff 係数は基準の物質と格子で決まる）
+#[derive(Default)]
+pub struct AnchorLight {
+    /// 結果を解いた基準の物質と、等価なセルの衝突確率の求積の点の数（ほかの基準か点の数では使えない）
+    key: OnceLock<(Vec<MaterialInput>, usize)>,
+    /// 基準の物質の無限希釈の群定数（[`mixed`]）
+    dilute: OnceLock<Vec<Material>>,
+    /// （セル、結果）
+    cells: Mutex<Vec<(usize, Arc<CellShielding>)>>,
+}
+
+impl std::fmt::Debug for AnchorLight {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cells: Vec<usize> = self.lock().iter().map(|(c, _)| *c).collect();
+        f.debug_struct("AnchorLight")
+            .field("cells", &cells)
+            .finish()
+    }
+}
+
+impl AnchorLight {
+    /// 置き場を基準の物質 `materials` と求積の点の数 `cp_points` のものにする。すでに別の基準か点の数のものならエラー
+    fn bind(
+        &self,
+        materials: &[MaterialInput],
+        cp_points: usize,
+    ) -> Result<(), SelfShieldingError> {
+        let (held, points) = self.key.get_or_init(|| (materials.to_vec(), cp_points));
+        if held.as_slice() == materials && *points == cp_points {
+            Ok(())
+        } else {
+            Err(SelfShieldingError::AnchorLight)
+        }
+    }
+
+    /// 基準の物質 `materials` の無限希釈の群定数（最初に求めたものを持つ）
+    fn dilute(
+        &self,
+        library: &Library,
+        materials: &[MaterialInput],
+    ) -> Result<&[Material], SelfShieldingError> {
+        if let Some(d) = self.dilute.get() {
+            return Ok(d);
+        }
+        let d = mixed(library, materials)?;
+        Ok(self.dilute.get_or_init(|| d))
+    }
+
+    /// セル `cell` の結果。持っていなければ `solve` で解いて持つ（ピンは並列に解くが、1 回の自己遮蔽で同じセルは 1 度だけ解く
+    /// ので、解く間は置き場を占めない）
+    fn cell(
+        &self,
+        cell: usize,
+        solve: impl FnOnce() -> Result<CellShielding, SelfShieldingError>,
+    ) -> Result<Arc<CellShielding>, SelfShieldingError> {
+        let held = |cells: &[(usize, Arc<CellShielding>)]| {
+            cells
+                .iter()
+                .find(|(c, _)| *c == cell)
+                .map(|(_, s)| s.clone())
+        };
+        if let Some(s) = held(&self.lock()) {
+            return Ok(s);
+        }
+        let solved = Arc::new(solve()?);
+        let mut cells = self.lock();
+        if let Some(s) = held(&cells) {
+            return Ok(s);
+        }
+        cells.push((cell, solved.clone()));
+        Ok(solved)
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Vec<(usize, Arc<CellShielding>)>> {
+        // 置き場の中身は push だけで変わり、途中の状態を残さないので、ほかのスレッドが panic した後も使える
+        self.cells.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// 燃料のピンの UFG の範囲の解き方
+#[derive(Debug, Clone, Copy)]
+enum PinMethod<'a> {
+    /// 等価なセルの減速計算（`Some` なら、その核種の個数密度の向きの 1 次の変化も。[`shield_fuel_tangent`]）
+    Ufg(Option<&'a [String]>),
+    /// 基準の UFG の実効断面積に、状態と基準の等価原理の比を掛ける（[`shield_fuel_ratio`]）
+    Ratio(RatioAnchor<'a>),
 }
 
 /// 格子の燃料の自己遮蔽のエラー。
@@ -191,6 +376,19 @@ pub enum SelfShieldingError {
     },
     #[error("the lattice is not the one that was self-shielded")]
     ForeignLattice,
+    /// 比の基準の物質の名前と順が状態と違う（ADR-0250）
+    #[error("the ratio anchor has other materials than the state")]
+    AnchorMaterials,
+    /// 比の基準に、このセルのピンか、等価なセルのリングの実効断面積が無いか、リングの核種が状態と違う（ADR-0250）
+    #[error(
+        "cell {0}: the ratio anchor does not shield the pin with the rings and nuclides of the state"
+    )]
+    AnchorPin(usize),
+    /// 持ち回る基準の静止した標的の減速計算（[`AnchorLight`]）を、それを解いたのと違う基準の物質か求積の点の数で使おうとした（#0285）
+    #[error(
+        "the kept static solves of the ratio anchor belong to other anchor materials or chord points"
+    )]
+    AnchorLight,
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -476,6 +674,79 @@ impl PinShielding {
     }
 }
 
+impl FuelShielding {
+    /// MOC の中性子束 `flux`（[領域][群]。生成率で規格化したもの）から、燃料の領域の [`RING_CAPTURES`] の核種の捕獲と核分裂の反応率
+    /// Σ_g N σ_g φ_g V（物理的な中性子束と実効断面積）を、領域の物質の名前の `@` の前（燃焼の領域の元の物質。リングの位置）ごとに足して、
+    /// target `ring_rates` の DEBUG のログに出す（比で求める状態のリングの反応率を状態ごとに解いたものと比べる。ADR-0250）。
+    /// `region_materials` は [領域] の物質の名前、`materials` はその物質
+    pub fn log_ring_rates(
+        &self,
+        lattice: &Lattice,
+        flux: &[Vec<f64>],
+        region_materials: &[String],
+        materials: &[MaterialInput],
+    ) -> Result<(), SelfShieldingError> {
+        if !tracing::enabled!(target: "ring_rates", tracing::Level::DEBUG) {
+            return Ok(());
+        }
+        let physical = self.physical_flux(lattice, flux)?;
+        let volumes = lattice.volumes();
+        // (物質, 核種) ごとの [捕獲, 核分裂]（出す順は最初に現れた順）
+        let mut rates: Vec<(&str, &str, [f64; 2])> = Vec::new();
+        for (region, name) in region_materials.iter().enumerate() {
+            let is_fuel = self.materials[self.region_material[region]]
+                .nu_fission
+                .iter()
+                .any(|&v| v > 0.0);
+            let (Some(sections), Some(material)) = (
+                self.region_cross_sections(region),
+                materials.iter().find(|m| &m.name == name),
+            ) else {
+                continue;
+            };
+            if !is_fuel {
+                continue;
+            }
+            let base = name.split('@').next().unwrap_or(name);
+            for ((nuclide, density), s) in material.composition.iter().zip(sections) {
+                if !RING_CAPTURES.contains(&nuclide.as_str()) {
+                    continue;
+                }
+                let rate = |x: &[f64]| -> f64 {
+                    density
+                        * volumes[region]
+                        * x.iter()
+                            .zip(&physical[region])
+                            .map(|(a, b)| a * b)
+                            .sum::<f64>()
+                };
+                let value = [rate(&s.capture), rate(&s.fission)];
+                match rates
+                    .iter_mut()
+                    .find(|(m, n, _)| *m == base && *n == nuclide)
+                {
+                    Some((_, _, sum)) => {
+                        sum[0] += value[0];
+                        sum[1] += value[1];
+                    }
+                    None => rates.push((base, nuclide, value)),
+                }
+            }
+        }
+        for (material, nuclide, [capture, fission]) in rates {
+            tracing::debug!(
+                target: "ring_rates",
+                material,
+                nuclide,
+                capture,
+                fission,
+                "ring reaction rates per neutron produced"
+            );
+        }
+        Ok(())
+    }
+}
+
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
 /// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。移り合うピンと塊の組は、領域ごとの物質の名前で成り立つ
 /// 対称操作（`symmetry::detect`）で作る。成り立つ対称操作をすでに求めてあれば `shield_fuel_with` を使う
@@ -529,6 +800,8 @@ pub struct ShieldingReuse<'a> {
     callers: usize,
     /// 燃料のピンの Dancoff 係数を解いた回数
     dancoff_solves: usize,
+    /// 等価なセルの減速計算（燃料のピン、棒の塊、比の静止した標的）を解いた回数
+    slowing_downs: AtomicUsize,
     /// 移行の計数の自由ガスの核の割合の区間の表。格子、中性子束、個数密度に依らず、輸送とピンの間で使える（ADR-0213）
     shares: ShareCellCache,
     /// 呼び出し側が最後に渡した燃焼点（[`ShieldingReuse::at_point`]）
@@ -561,6 +834,7 @@ impl<'a> ShieldingReuse<'a> {
             dancoff: Vec::new(),
             callers: callers.get(),
             dancoff_solves: 0,
+            slowing_downs: AtomicUsize::new(0),
             shares: ShareCellCache::default(),
             point: None,
         }
@@ -585,6 +859,11 @@ impl<'a> ShieldingReuse<'a> {
     /// 燃料のピンの Dancoff 係数を解いた回数
     pub fn dancoff_solves(&self) -> usize {
         self.dancoff_solves
+    }
+
+    /// 等価なセルの減速計算（燃料のピン、棒の塊、比の静止した標的）を解いた回数
+    pub fn slowing_downs(&self) -> usize {
+        self.slowing_downs.load(Ordering::Relaxed)
     }
 
     /// 物質 `dilute`（無限希釈）を領域に `region_index` で置いた格子の、燃料のピンの Dancoff 係数（[セル]）。`fuel` は
@@ -670,6 +949,73 @@ pub fn shield_fuel_tangent(
     options: &ShieldingOptions,
     tangent: Option<&[String]>,
 ) -> Result<FuelShielding, SelfShieldingError> {
+    shield_fuel_by(
+        library,
+        reuse,
+        materials,
+        region_materials,
+        symmetry,
+        options,
+        PinMethod::Ufg(tangent),
+    )
+}
+
+/// [`shield_fuel_reusing`] の自己遮蔽で、燃料のピンの UFG の範囲の群を減速計算で解かず、基準 `anchor`（同じ格子を今の UFG で解いた
+/// 自己遮蔽）の等価なセルのリングの実効断面積に、状態と基準の等価原理の値の比 σ_eq(状態) / σ_eq(基準) を掛けて求める（ADR-0250）。
+/// σ_eq は範囲の外の群と同じ等価原理（状態と基準のそれぞれの Dancoff 係数と組成と温度）で、反応ごと・群ごとに比を取る（基準の値が
+/// 0 なら比は 1）。範囲の外の群、燃料でない物質、構造材の塊は状態の物質で解く（[`shield_fuel_reusing`] と同じ）。比が決めない量
+/// （燃料でないリングの群定数、移行、SPH 因子）は `anchor.options` で選ぶ。基準の物質が状態と同じなら、結果は基準とビットで同じ
+#[tracing::instrument(name = "ratio-shielding", skip_all)]
+pub fn shield_fuel_ratio(
+    library: &Library,
+    reuse: &mut ShieldingReuse,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
+    options: &ShieldingOptions,
+    anchor: RatioAnchor,
+) -> Result<FuelShielding, SelfShieldingError> {
+    if anchor.materials.len() != materials.len()
+        || anchor
+            .materials
+            .iter()
+            .zip(materials)
+            .any(|(a, m)| a.name != m.name)
+    {
+        return Err(SelfShieldingError::AnchorMaterials);
+    }
+    if anchor.shielding.lattice != reuse.tracking.lattice {
+        return Err(SelfShieldingError::ForeignLattice);
+    }
+    if anchor.options.uses_static() {
+        let cp_points = anchor.options.static_cp_points.unwrap_or(options.cp_points);
+        anchor.light.bind(anchor.materials, cp_points)?;
+    }
+    shield_fuel_by(
+        library,
+        reuse,
+        materials,
+        region_materials,
+        symmetry,
+        options,
+        PinMethod::Ratio(anchor),
+    )
+}
+
+/// [`shield_fuel_tangent`] と [`shield_fuel_ratio`] の自己遮蔽。燃料のピンの UFG の範囲を `method` で解く
+fn shield_fuel_by(
+    library: &Library,
+    reuse: &mut ShieldingReuse,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
+    options: &ShieldingOptions,
+    method: PinMethod,
+) -> Result<FuelShielding, SelfShieldingError> {
+    let tangent = match method {
+        PinMethod::Ufg(tangent) => tangent,
+        PinMethod::Ratio(_) => None,
+    };
     let tracking = reuse.tracking;
     let lattice = &tracking.lattice;
     let regions = lattice.volumes().len();
@@ -762,6 +1108,7 @@ pub fn shield_fuel_tangent(
     }
     let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
     let shares = &reuse.shares;
+    let solves = &reuse.slowing_downs;
     // 自己遮蔽のたびに求める（使用可能メモリは燃焼の間に変わる）。`total` は前の自己遮蔽から残った自由ガスの核の表（ADR-0248）を
     // 除いて新たに確保できる量
     let held = shares.kernels().start();
@@ -875,16 +1222,32 @@ pub fn shield_fuel_tangent(
             shares,
             hold,
             tangent,
+            solves,
         };
-        let ufg = shield_cell(
-            library,
-            &pin_cell,
-            materials,
-            dilute_materials,
-            factors,
-            &carlvik,
-            |inputs| cell_range(library, inputs),
-        )?;
+        let ufg = match method {
+            PinMethod::Ufg(_) => shield_cell(
+                library,
+                &pin_cell,
+                materials,
+                dilute_materials,
+                factors,
+                &carlvik,
+                |inputs| cell_range(library, inputs),
+            )?,
+            PinMethod::Ratio(anchor) => tracing::debug_span!("ratio").in_scope(|| {
+                ratio_cell(
+                    library,
+                    &pin_cell,
+                    materials,
+                    dilute_materials,
+                    factors,
+                    &carlvik,
+                    ring_materials,
+                    options,
+                    &anchor,
+                )
+            })?,
+        };
         Ok(PinSolution { carlvik, ufg })
     };
     // ピンは `par_iter` の仕事にせず、プールの各スレッドが 1 本ずつ番号の順に取る。`broadcast` の仕事はそのスレッドだけが
@@ -1062,7 +1425,7 @@ pub fn shield_fuel_tangent(
             &region_index,
             (symmetry.images(), &orbits),
             options,
-            (shares, total - growth),
+            (shares, solves, total - growth),
             &mut shielded,
         )
     })?;
@@ -1261,7 +1624,7 @@ fn shield_lumps(
     region_index: &[usize],
     (images, orbits): (&[Image], &[usize]),
     options: &ShieldingOptions,
-    (shares, total): (&ShareCellCache, u64),
+    (shares, solves, total): (&ShareCellCache, &AtomicUsize, u64),
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
     let lattice = &tracking.lattice;
@@ -1463,6 +1826,7 @@ fn shield_lumps(
                         shares,
                         hold,
                         tangent: None,
+                        solves,
                     };
                     shield_cell(
                         library,
@@ -1699,6 +2063,8 @@ struct PinRings<'a> {
     hold: usize,
     /// 減速計算の 1 次の変化を求める核種（[`shield_fuel_tangent`]）
     tangent: Option<&'a [String]>,
+    /// 等価なセルの減速計算を解いた回数（[`ShieldingReuse::slowing_downs`]）
+    solves: &'a AtomicUsize,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1733,6 +2099,8 @@ struct CellShielding {
     demand: u64,
     /// 減速計算の 1 次の変化（[`shield_fuel_tangent`] で頼んだときだけ）
     tangent: Option<Arc<PinTangent>>,
+    /// [中心のリング][UFG の範囲の群] の、等価なセルの減速計算の中性子束と体積の積（比の残る差のログの重み。#0285）
+    center_flux: Vec<Vec<f64>>,
 }
 
 /// 等価なセルの減速計算（[`solve_equivalent_cell`]）
@@ -1891,6 +2259,7 @@ fn solve_equivalent_cell<'a>(
         })
     };
     let (spectrum, transfers) = solve()?;
+    pin.solves.fetch_add(1, Ordering::Relaxed);
     // 1 次の変化は、同じ設定の減速計算と一緒に解き直す（時間を向きのない減速計算と比べる測定。ADR-0247 の段 I2-2）。比べる
     // 向きのない減速計算も解き直す（最初の減速計算が自由ガスの核の D の値の表を埋めるので、同じ表を引く 2 度目と比べる）
     let tangent = match pin.tangent {
@@ -2155,6 +2524,10 @@ fn shield_cell(
 
     // 中心の物質（燃料か棒）の平均: そのリングの中性子束と体積の重み
     let effective = center_average(carlvik, &equivalent, pin.rings);
+    let volumes = cylinder.volumes();
+    let center_flux = (0..pin.rings)
+        .map(|j| spectrum.flux[j].iter().map(|f| f * volumes[j]).collect())
+        .collect();
     Ok(Some(CellShielding {
         radius: *radius,
         rings,
@@ -2167,7 +2540,517 @@ fn shield_cell(
         points: spectrum.points,
         demand: spectrum.demand,
         tangent: tangent.clone().map(Arc::new),
+        center_flux,
     }))
+}
+
+/// 状態と基準の値の比（基準が 0 なら 1。比で変えない）
+fn ratio(state: f64, anchor: f64) -> f64 {
+    if anchor != 0.0 { state / anchor } else { 1.0 }
+}
+
+/// `target` の UFG の範囲の群 `groups` の反応ごとの値を、`base` の値に `state` / `anchor` の比を掛けたものにする
+fn scale_by_ratio(
+    target: &mut Shielded,
+    base: &Shielded,
+    state: &Shielded,
+    anchor: &Shielded,
+    groups: std::ops::Range<usize>,
+) {
+    fn reactions(s: &Shielded) -> [&Vec<f64>; 5] {
+        [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture]
+    }
+    let (b, s, a) = (reactions(base), reactions(state), reactions(anchor));
+    let out = [
+        &mut target.total,
+        &mut target.elastic,
+        &mut target.fission,
+        &mut target.nu_fission,
+        &mut target.capture,
+    ];
+    for (x, values) in out.into_iter().enumerate() {
+        for g in groups.clone() {
+            values[g] = b[x][g] * ratio(s[x][g], a[x][g]);
+        }
+    }
+}
+
+/// ピンのセル `pin.cell` の等価なセルのリングの物質を、基準 `anchor` の同じセルの UFG の結果から比で作る（[`shield_fuel_ratio`]）。
+/// 燃料のリングは、基準のリングの実効断面積に、状態の等価原理の値 `carlvik`（状態の Dancoff 係数 `dancoff` で解いたもの）と基準の
+/// 等価原理の値（基準の Dancoff 係数と組成で解き直す）の比を掛ける（診断の [`RatioFuel`] では状態の UFG から作る）。target
+/// `ratio_check` の DEBUG のときは、燃料のリングの [`RING_CAPTURES`] の核種の捕獲の比を群ごとにログに出す（[`log_ratio_check`]）。
+/// 燃料でないリング、移行、SPH 因子は `anchor.options` で作り、
+/// リングの物質は [`shield_cell`] と同じ作り方（核種の群定数を数密度で混ぜて SPH 因子を掛ける）。基準のピンに UFG の範囲が無ければ
+/// `None`（範囲の外の等価原理だけ）
+#[allow(clippy::too_many_arguments)]
+fn ratio_cell(
+    library: &Library,
+    pin: &PinRings,
+    materials: &[MaterialInput],
+    dilute: &[Material],
+    dancoff: &[f64],
+    carlvik: &[Shielded],
+    ring_materials: &[usize],
+    options: &ShieldingOptions,
+    anchor: &RatioAnchor,
+) -> Result<Option<CellShielding>, SelfShieldingError> {
+    let cell = pin.cell;
+    let mismatch = || SelfShieldingError::AnchorPin(cell);
+    let anchor_pin = anchor
+        .shielding
+        .pins
+        .iter()
+        .find(|p| p.cell == cell)
+        .ok_or_else(mismatch)?;
+    let (Some(anchor_sph), Some(radius)) = (&anchor_pin.sph, anchor_pin.equivalent) else {
+        return Ok(None);
+    };
+    let groups = anchor_sph.groups.clone();
+    let start = anchor_sph.moderator_ring;
+    // 基準の等価原理の値（範囲の外の群と同じ式。基準の Dancoff 係数と、基準の物質の組成と温度）
+    let radius_fuel = pin
+        .lattice
+        .cell_type(cell)
+        .pin()
+        .ok_or(SelfShieldingError::FuelShape(cell))?
+        .radii()[pin.rings - 1];
+    let anchor_equivalence = Equivalence {
+        chord: 2.0 * radius_fuel,
+        terms: anchor_pin
+            .dancoff
+            .iter()
+            .map(|&c| self::carlvik(c))
+            .collect::<Result<_, _>>()?,
+    };
+    let anchor_fuel = pin_fuel(pin.lattice, cell, anchor.materials, ring_materials);
+    let anchor_carlvik =
+        shield_material(library, &anchor_fuel, &anchor_equivalence, options, cell)?;
+    let geometry = pin
+        .lattice
+        .cell_type(cell)
+        .pin()
+        .ok_or(SelfShieldingError::FuelShape(cell))?;
+    let targets = ring_targets(geometry, pin.lattice.cell_regions(cell).start, start);
+    // 状態の UFG の減速計算（診断の燃料のリングと状態の SPH 因子とログのときだけ。時間は状態ごとに解くのと同じ）
+    let check = tracing::enabled!(target: "ratio_check", tracing::Level::DEBUG);
+    let state_ufg = if matches!(
+        anchor.options.fuel,
+        RatioFuel::StateAverage | RatioFuel::State
+    ) || anchor.options.sph == RatioSph::State
+        || matches!(
+            anchor.options.rings,
+            RatioRings::State | RatioRings::StateSections
+        )
+        || check
+    {
+        Some(
+            shield_cell(
+                library,
+                pin,
+                materials,
+                dilute,
+                dancoff,
+                carlvik,
+                |inputs| cell_range(library, inputs),
+            )?
+            .ok_or_else(mismatch)?,
+        )
+    } else {
+        None
+    };
+    let state_cell = || state_ufg.as_ref().ok_or_else(mismatch);
+    // 静止した標的の減速計算の、状態と基準の結果（比のどれかが使うときだけ）。基準の結果は同じ基準の状態の間で持ち回る
+    let light = if anchor.options.uses_static() {
+        let static_pin = PinRings {
+            cp_points: anchor.options.static_cp_points.unwrap_or(pin.cp_points),
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::InfiniteDilution,
+            tangent: None,
+            ..*pin
+        };
+        let range = |inputs: &[Option<&MaterialInput>]| cell_range(library, inputs);
+        let at_state = tracing::debug_span!("static-state").in_scope(|| {
+            shield_cell(
+                library,
+                &static_pin,
+                materials,
+                dilute,
+                dancoff,
+                carlvik,
+                range,
+            )
+        })?;
+        let at_anchor = anchor.light.cell(cell, || {
+            let anchor_dilute = anchor.light.dilute(library, anchor.materials)?;
+            tracing::debug_span!("static-anchor")
+                .in_scope(|| {
+                    shield_cell(
+                        library,
+                        &static_pin,
+                        anchor.materials,
+                        anchor_dilute,
+                        &anchor_pin.dancoff,
+                        &anchor_carlvik,
+                        range,
+                    )
+                })?
+                .ok_or_else(mismatch)
+        })?;
+        Some((at_state.ok_or_else(mismatch)?, at_anchor))
+    } else {
+        None
+    };
+    let light_rings = |j: usize| -> Result<(&[Shielded], &[Shielded]), SelfShieldingError> {
+        let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+        let (Some(s), Some(a)) = (&s.ring_nuclides[j], &a.ring_nuclides[j]) else {
+            return Err(mismatch());
+        };
+        Ok((s.as_slice(), a.as_slice()))
+    };
+    let ng = library.groups.len();
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    let rows = |transfer: &NuclideTransfer, full: &Shielded, base: &Shielded| -> NuclideTransfer {
+        match anchor.options.transfer {
+            RatioTransfer::Reference => transfer.clone(),
+            RatioTransfer::ElasticRatio => NuclideTransfer {
+                groups: transfer.groups.clone(),
+                rows: transfer
+                    .groups
+                    .clone()
+                    .zip(&transfer.rows)
+                    .map(|(g, row)| {
+                        let r = ratio(full.elastic[g], base.elastic[g]);
+                        row.iter().map(|v| v * r).collect()
+                    })
+                    .collect(),
+            },
+        }
+    };
+    let mut rings = Vec::with_capacity(targets.len());
+    let mut ring_nuclides = Vec::with_capacity(targets.len());
+    let mut ring_transfers = Vec::with_capacity(targets.len());
+    for (j, regions) in targets.iter().enumerate() {
+        let region = *regions.first().ok_or_else(mismatch)?;
+        let index = pin.region_index[region];
+        if index == pin.void {
+            rings.push(None);
+            ring_nuclides.push(None);
+            ring_transfers.push(None);
+            continue;
+        }
+        let (m, a) = (&materials[index], &anchor.materials[index]);
+        let base = anchor
+            .shielding
+            .region_cross_sections(region)
+            .ok_or_else(mismatch)?;
+        let base_transfers = anchor.shielding.region_transfers(region);
+        if base.len() != a.composition.len()
+            || base_transfers.is_some_and(|t| t.len() != base.len())
+        {
+            return Err(mismatch());
+        }
+        // 基準と状態は同じ燃焼点の、ホウ素が公称の状態なので、リングの核種の並びは同じ（違えば別の組成の基準）
+        if !m
+            .composition
+            .iter()
+            .map(|(n, _)| n)
+            .eq(a.composition.iter().map(|(n, _)| n))
+        {
+            return Err(mismatch());
+        }
+        let fuel = j < pin.rings;
+        let mut fulls = Vec::with_capacity(m.composition.len());
+        let mut transfers = Vec::with_capacity(m.composition.len());
+        let mut nuclides = Vec::with_capacity(m.composition.len());
+        for (k, (name, density)) in m.composition.iter().enumerate() {
+            let (full, transfer) = if fuel {
+                let by_ratio = |state: &Shielded, at_anchor: &Shielded| {
+                    let mut full = carlvik[k].clone();
+                    scale_by_ratio(&mut full, &base[k], state, at_anchor, groups.clone());
+                    let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                    (full, transfer)
+                };
+                match anchor.options.fuel {
+                    RatioFuel::Equivalence => by_ratio(&carlvik[k], &anchor_carlvik[k]),
+                    RatioFuel::StateAverage => {
+                        by_ratio(&state_cell()?.effective[k], &anchor_pin.effective[k])
+                    }
+                    RatioFuel::StaticRatio => {
+                        let (s, a) = light_rings(j)?;
+                        by_ratio(&s[k], &a[k])
+                    }
+                    RatioFuel::State => {
+                        let s = state_cell()?;
+                        let rings = s.ring_nuclides[j].as_ref().ok_or_else(mismatch)?;
+                        (
+                            rings[k].clone(),
+                            s.ring_transfers[j].as_ref().map(|t| t[k].clone()),
+                        )
+                    }
+                }
+            } else {
+                let mut full = library.shielded(name, m.temperature, &vec![infinite; ng])?;
+                match anchor.options.rings {
+                    RatioRings::InfiniteDilution => (full, None),
+                    RatioRings::Reference => {
+                        for g in groups.clone() {
+                            full.total[g] = base[k].total[g];
+                            full.elastic[g] = base[k].elastic[g];
+                            full.fission[g] = base[k].fission[g];
+                            full.nu_fission[g] = base[k].nu_fission[g];
+                            full.capture[g] = base[k].capture[g];
+                        }
+                        (
+                            full,
+                            base_transfers.map(|t| rows(&t[k], &base[k], &base[k])),
+                        )
+                    }
+                    RatioRings::ShieldingFactor => {
+                        let state = full.clone();
+                        let at_anchor =
+                            library.shielded(name, a.temperature, &vec![infinite; ng])?;
+                        scale_by_ratio(&mut full, &base[k], &state, &at_anchor, groups.clone());
+                        let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        (full, transfer)
+                    }
+                    RatioRings::StaticRatio => {
+                        let (s, a) = light_rings(j)?;
+                        scale_by_ratio(&mut full, &base[k], &s[k], &a[k], groups.clone());
+                        let transfer = base_transfers.map(|t| rows(&t[k], &full, &base[k]));
+                        (full, transfer)
+                    }
+                    RatioRings::State | RatioRings::StateSections => {
+                        let s = state_cell()?;
+                        let ring = s.ring_nuclides[j].as_ref().ok_or_else(mismatch)?;
+                        let full = ring[k].clone();
+                        let transfer = match anchor.options.rings {
+                            RatioRings::State => s.ring_transfers[j].as_ref().map(|t| t[k].clone()),
+                            _ => base_transfers.map(|t| rows(&t[k], &full, &base[k])),
+                        };
+                        (full, transfer)
+                    }
+                }
+            };
+            let nuclide =
+                shielded_nuclide_with(library, name, m.temperature, &full, transfer.as_ref())?;
+            nuclides.push((nuclide, *density));
+            fulls.push(full);
+            transfers.push(transfer);
+        }
+        let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
+            SelfShieldingError::Material {
+                name: m.name.clone(),
+                source,
+            }
+        })?;
+        rings.push(Some(material));
+        ring_nuclides.push(Some(Arc::new(fulls)));
+        // 移行の行は、基準が持てばどの核種にもあり、無限希釈の移行で解いた基準と、燃料でないリングを無限希釈にしたときは無い
+        let transfers: Option<Vec<NuclideTransfer>> = transfers.into_iter().collect();
+        ring_transfers.push(base_transfers.and(transfers).map(Arc::new));
+    }
+    let sph = match anchor.options.sph {
+        RatioSph::Reference => anchor_sph.factors.clone(),
+        RatioSph::State => state_cell()?.sph.clone(),
+        RatioSph::StaticRatio => {
+            let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+            if s.sph.len() != anchor_sph.factors.len() || a.sph.len() != s.sph.len() {
+                return Err(mismatch());
+            }
+            anchor_sph
+                .factors
+                .iter()
+                .zip(&s.sph)
+                .zip(&a.sph)
+                .map(|((base, state), at_anchor)| {
+                    base.iter()
+                        .zip(state)
+                        .zip(at_anchor)
+                        .map(|((b, s), a)| b * ratio(*s, *a))
+                        .collect()
+                })
+                .collect()
+        }
+    };
+    if sph.len() < rings.len() || sph.iter().any(|row| row.len() != groups.len()) {
+        return Err(mismatch());
+    }
+    for (ring, (material, mu)) in rings.iter_mut().zip(&sph).enumerate() {
+        if let Some(m) = material {
+            let mut all = vec![1.0; ng];
+            all[groups.clone()].copy_from_slice(mu);
+            *m = m
+                .scaled(&all)
+                .map_err(|source| SelfShieldingError::Material {
+                    name: format!("ring {ring} of cell {cell}"),
+                    source,
+                })?;
+        }
+    }
+    // ピンの平均（範囲の外は状態の等価原理の値）も、基準の平均に同じ比を掛ける（状態の UFG の平均の比なら、状態の UFG の平均）
+    let effective = match anchor.options.fuel {
+        RatioFuel::Equivalence => carlvik
+            .iter()
+            .zip(anchor_pin.effective.iter())
+            .zip(&anchor_carlvik)
+            .map(|((state, base), at_anchor)| {
+                let mut s = state.clone();
+                scale_by_ratio(&mut s, base, state, at_anchor, groups.clone());
+                s
+            })
+            .collect(),
+        RatioFuel::StateAverage | RatioFuel::State => state_cell()?.effective.clone(),
+        RatioFuel::StaticRatio => {
+            let (s, a) = light.as_ref().ok_or_else(mismatch)?;
+            carlvik
+                .iter()
+                .zip(anchor_pin.effective.iter())
+                .zip(s.effective.iter().zip(&a.effective))
+                .map(|((state, base), (light_state, light_anchor))| {
+                    let mut out = state.clone();
+                    scale_by_ratio(&mut out, base, light_state, light_anchor, groups.clone());
+                    out
+                })
+                .collect()
+        }
+    };
+    if check {
+        log_ratio_check(
+            library,
+            pin,
+            dancoff,
+            &RatioCheck {
+                materials,
+                carlvik,
+                anchor_carlvik: &anchor_carlvik,
+                anchor_pin,
+                anchor,
+                state: state_cell()?,
+                targets: &targets,
+            },
+        )?;
+    }
+    // この状態で解いた減速計算の格子点の数（持ち回った基準の静止した標的の減速計算は数えない）と、自由ガスの核の表の上限に使う
+    // 量（ADR-0248。自由ガスの核を使う状態の UFG だけ。静止した標的の量は自由ガスのピンの量より小さく、上限を広げすぎる）
+    let solved = || state_ufg.iter().chain(light.as_ref().map(|(s, _)| s));
+    let points = solved().map(|c| c.points).max().unwrap_or(0);
+    let demand = state_ufg.as_ref().map_or(0, |c| c.demand);
+    let radius = match anchor.options.fuel {
+        RatioFuel::State => state_cell()?.radius,
+        RatioFuel::Equivalence | RatioFuel::StateAverage | RatioFuel::StaticRatio => radius,
+    };
+    Ok(Some(CellShielding {
+        radius,
+        rings,
+        start,
+        effective,
+        ring_nuclides,
+        ring_transfers,
+        sph,
+        groups,
+        points,
+        demand,
+        tangent: None,
+        center_flux: Vec::new(),
+    }))
+}
+
+/// 物質 `materials` の無限希釈の群定数に、最後に真空の物質を足したもの（[`shield_fuel_by`] の物質の番号と同じ並び）
+fn mixed(
+    library: &Library,
+    materials: &[MaterialInput],
+) -> Result<Vec<Material>, SelfShieldingError> {
+    let mut dilute = materials
+        .iter()
+        .map(|m| {
+            Material::mix(library, &m.composition, m.temperature).map_err(|source| {
+                SelfShieldingError::Material {
+                    name: m.name.clone(),
+                    source,
+                }
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    dilute.push(Material::void(library.groups.len()));
+    Ok(dilute)
+}
+
+/// [`log_ratio_check`] が比べる値
+struct RatioCheck<'a> {
+    /// 状態の物質
+    materials: &'a [MaterialInput],
+    /// 状態と基準の等価原理の値
+    carlvik: &'a [Shielded],
+    anchor_carlvik: &'a [Shielded],
+    /// 基準の同じセルのピン
+    anchor_pin: &'a PinShielding,
+    anchor: &'a RatioAnchor<'a>,
+    /// 状態の UFG の減速計算
+    state: &'a CellShielding,
+    /// 等価なセルのリングごとの格子の領域（[`ring_targets`]）
+    targets: &'a [Vec<usize>],
+}
+
+/// 比で求める状態のピン `pin.cell` の燃料のリングの [`RING_CAPTURES`] の核種の、UFG の範囲の群ごとの捕獲の、状態と基準の比を target
+/// `ratio_check` の DEBUG のログに出す（比の残る差の原因を分ける。#0285）: `equivalence` は等価原理の比（[`RatioFuel::Equivalence`]
+/// が掛ける比）、`state` はリングの UFG の比、`mean` は UFG のピンの平均の比、`dancoff` は基準の物質のまま状態の Dancoff 係数
+/// `dancoff` で解き直した UFG のリングの比（減速材の物質の変化を除き、等価なセルの外径だけを変えた分）。`rate` は状態の UFG の
+/// そのリングと群の捕獲の反応率（数密度、実効断面積、等価なセルの中性子束と体積の積。群とリングの重み）
+fn log_ratio_check(
+    library: &Library,
+    pin: &PinRings,
+    dancoff: &[f64],
+    check: &RatioCheck,
+) -> Result<(), SelfShieldingError> {
+    let cell = pin.cell;
+    let mismatch = || SelfShieldingError::AnchorPin(cell);
+    let anchor = check.anchor;
+    // 基準の物質（真空は最後）で、状態の Dancoff 係数の等価なセルを解く
+    let anchor_dilute = mixed(library, anchor.materials)?;
+    let moved = shield_cell(
+        library,
+        pin,
+        anchor.materials,
+        &anchor_dilute,
+        dancoff,
+        check.anchor_carlvik,
+        |inputs| cell_range(library, inputs),
+    )?
+    .ok_or_else(mismatch)?;
+    let state = check.state;
+    let groups = state.groups.clone();
+    for (j, regions) in check.targets.iter().enumerate().take(pin.rings) {
+        let region = *regions.first().ok_or_else(mismatch)?;
+        let base = anchor
+            .shielding
+            .region_cross_sections(region)
+            .ok_or_else(mismatch)?;
+        let rings = state.ring_nuclides[j].as_ref().ok_or_else(mismatch)?;
+        let moved_rings = moved.ring_nuclides[j].as_ref().ok_or_else(mismatch)?;
+        let composition = &check.materials[pin.region_index[region]].composition;
+        for (k, (name, density)) in composition.iter().enumerate() {
+            if !RING_CAPTURES.contains(&name.as_str()) {
+                continue;
+            }
+            for g in groups.clone() {
+                let capture = |s: &Shielded| s.capture[g];
+                tracing::debug!(
+                    target: "ratio_check",
+                    cell,
+                    ring = j,
+                    nuclide = name.as_str(),
+                    group = g,
+                    equivalence = ratio(capture(&check.carlvik[k]), capture(&check.anchor_carlvik[k])),
+                    state = ratio(capture(&rings[k]), capture(&base[k])),
+                    mean = ratio(capture(&state.effective[k]), capture(&check.anchor_pin.effective[k])),
+                    dancoff = ratio(capture(&moved_rings[k]), capture(&base[k])),
+                    rate = density * capture(&rings[k]) * state.center_flux[j][g - groups.start],
+                    "ratio check of the ring capture"
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 /// 1本のピンの燃料の核種の実効断面積を、全断面積が収束するまで反復して求める。

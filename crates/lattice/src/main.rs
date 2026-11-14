@@ -528,10 +528,33 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .map_or(0, |h| h.perturbed_nuclides().len());
     let mut perturbed_shielders: Option<(usize, Vec<BranchShielder>)> = None;
     let mut finished_derivative_shieldings = 0;
+    let mut finished_ratios = 0;
+    // 比で求める参照（ADR-0250）の基準。摂動の組成を解き直す微分（摂動の参照の組成は比の基準と組まない）と、自己遮蔽の組成で燃焼の
+    // 領域を作り直す分岐（参照の番号が分岐の状態に続く）は、比で求めない
+    let anchors = input.branches.as_ref().and_then(|b| b.anchors());
+    if anchors.is_some()
+        && history_branches
+            .as_ref()
+            .is_some_and(|h| h.solves_perturbed_shielding() || !h.remixed().is_empty())
+    {
+        return Err(anyhow!(
+            "{}: the ratio shieldings (ADR-0250) take neither solved derivative shieldings nor a shielding history \
+             or burnup",
+            shown(path)
+        ));
+    }
     // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。公称の状態と摂動の組成の
     // 自己遮蔽で共有する（燃料の数密度だけを変える摂動は、状態の Dancoff 係数を持ち越す。ADR-0194）。Dancoff 係数は呼び出し側
     // （状態と微分の核種）の数だけ、最後に使った違う入力の結果を持つ（燃料でない燃焼の領域の数密度を変える摂動も、それぞれ 1 つ持つ）
     let mut reuse: Option<(usize, ShieldingReuse)> = None;
+    // 比の基準（ADR-0250）の物質（燃焼度の点、参照の番号）。履歴からの分岐は燃焼度の点ごと
+    let anchor_materials = |point: usize, r: usize| -> Vec<MaterialInput> {
+        match (&history_branches, &input.branches) {
+            (Some(h), _) => h.reference_state(point, r),
+            (None, Some(b)) => b.references()[r].clone(),
+            (None, None) => Vec::new(),
+        }
+    };
     let checkpoint = fingerprint
         .take()
         .map(|f| Checkpoint::new(Checkpoint::beside(path), f.finish()));
@@ -567,6 +590,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             && let Some((_, done)) = shielder.take()
         {
             finished_shieldings += done.shieldings();
+            finished_ratios += done.ratios();
         }
         if perturbed_shielders.as_ref().is_some_and(|(r, _)| *r != rod)
             && let Some((_, done)) = perturbed_shielders.take()
@@ -585,7 +609,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let (_, perturbed_shielders) = perturbed_shielders
             .get_or_insert_with(|| (rod, (0..derivatives).map(|_| new_shielder()).collect()));
-        let (_, shielder) = shielder.get_or_insert_with(|| (rod, new_shielder()));
+        let (_, shielder) = shielder.get_or_insert_with(|| {
+            let fresh = new_shielder();
+            match anchors {
+                Some((anchors, options)) => (
+                    rod,
+                    fresh.with_ratio(anchors.to_vec(), options, &anchor_materials),
+                ),
+                None => (rod, fresh),
+            }
+        });
         if reuse.as_ref().is_some_and(|(r, _)| *r != rod) {
             reuse = None;
         }
@@ -828,6 +861,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
             )
             .with_context(context)?,
         };
+        // 燃料のリングの反応率（target ring_rates の DEBUG のときだけ。比で求める状態と状態ごとに解いたものを比べる。ADR-0250）
+        if let Some(fuel) = fuel {
+            fuel.log_ring_rates(
+                &geometry.lattice,
+                &solution.flux,
+                solved_materials(rod),
+                state_materials,
+            )
+            .with_context(context)?;
+        }
         let emitting = tracing::debug_span!("output").entered();
         let outputs = if let Some(FewGroupOutput {
             bounds,
@@ -1280,6 +1323,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
         tracing::info!(
             shieldings = finished_shieldings + shielder.as_ref().map_or(0, |(_, s)| s.shieldings()),
+            ratios = finished_ratios + shielder.as_ref().map_or(0, |(_, s)| s.ratios()),
             derivative_shieldings = finished_derivative_shieldings
                 + perturbed_shielders.as_ref().map_or(0, |(_, s)| {
                     s.iter().map(BranchShielder::shieldings).sum::<usize>()
