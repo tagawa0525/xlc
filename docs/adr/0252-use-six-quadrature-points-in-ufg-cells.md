@@ -83,10 +83,11 @@ UFG の外の衝突確率の既定のまま。
   案 A、B、C を合わせると 6 点より 1 ピン 1.6 秒速いが、差は案 B で決まるので採らない
 - 4 点は 6 点より 1 ピン 1 秒速いが、新しい MOX のピンで 0.11 pcm、捕獲 2e−5 で、`share = 1e-4` の水準を超える
 - 縮む時間は衝突確率と表の時間で決まり、燃料のリングが 1 つの物質のセルでは小さい。燃焼した MOX の集合体（燃焼の領域がピンに 1 つ）の
-  60 MWd/kg の 1 状態では、1 ピンの衝突確率と表が 0.96 → 0.67 スレッド秒で、2A-60 の 8.50 → 3.55 秒より 1 桁小さい。1 状態は
-  50.2 → 52.9 秒と延びたが、延びは求積の点に依らない自由ガスの散乱源の段（1 ピン 13.3 → 14.9 秒）で、1 回ずつの実行の揺らぎの候補
-  （確かめていない）。ADR-0251 の既定と合わせた 1 状態は 39.6 → 39.3 秒（Slurm 861、timed の排他、32 スレッド、xlc 4e54ffdf6、2026-11-14。
-  timing-861.json）
+  60 MWd/kg の 1 状態では、1 ピンの衝突確率と表が 0.96 → 0.67 スレッド秒で、2A-60 の 8.50 → 3.55 秒より 1 桁小さい。1 回ずつの
+  実行（Slurm 861）では 1 状態が 50.2 → 52.9 秒と延びたが、同じジョブで 16 点と 6 点を交互に 3 回ずつ解くと、1 状態は 50.4〜51.3 秒と
+  49.7〜50.5 秒（平均 50.7 と 50.1 秒）、自由ガスの散乱源の段は 1 ピン 13.3〜13.5 秒と 13.3〜13.4 秒で、延びは再現しない（6 点は 1 状態で
+  0.6 秒短く、16 点の 3 回の幅 1.0 秒の中。Slurm 876、timed の排他、32 スレッド、2026-11-14。timing-876.json）。ADR-0251 の既定と合わせた
+  1 状態は 39.6 → 39.3 秒（Slurm 861、timed の排他、32 スレッド、xlc 4e54ffdf6、2026-11-14。timing-861.json）
 
 ### 帰結
 
@@ -116,6 +117,10 @@ UFG の外の衝突確率の既定のまま。
   `fewer_quadrature_points_stay_close_to_the_exact_cell`: 4 点の捕獲の実効断面積は 16 点に近い（相対 1e−5 未満。測ると 1.3e−6）
 - crates/lattice/src/input/tests.rs の `ufg_cp_points_default_to_six_and_keep_sixteen_selectable`: 既定は 6 点で、16 点を含む正の
   整数を受け、0、負の数、小数、真偽値と、自己遮蔽しない入力の指定を拒む
+- 燃焼した MOX の集合体の 60 MWd/kg の 1 状態の時間の繰り返し: examples/depletion/issue-0286/timing-876.json（timing.py。ログは
+  `timing-mox-assembly-60-<default | cp-points-6>-repeat-<1〜3>.log.dvc`）。Slurm 876 は入力を xlc a784092c2（分岐点は main の f8abc0e6b）の
+  inputs.py の `mox-assembly-60-default` と `-cp-points-6`、実行ファイルを main の `dvc.lock` の `bin/lattice`（md5 cda1b9db、Slurm 861 の
+  ブランチのコード）で解いた。6 本の標準出力は同じ md5
 - examples/depletion/issue-0286/cp-853-855.json（compare.py）と timing-851-855.json（timing.py。ログは `timing-<ケース>-cp-*.log.dvc`）、入力は inputs.py（#0286 の「衝突確率の近似」の節）
 - 燃焼した MOX の集合体（examples/depletion/mox-assembly の履歴の 0、20、40、60 MWd/kg から、公称、燃料 1200 K、減速材 600 K、その両方の
   16 状態。Slurm 862、排他、xlc 4e54ffdf6、分岐点は main の 5ec0adcb1、2026-11-14。入力は coverage.py の `assembly-mox`）: 6 点の
