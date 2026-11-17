@@ -51,16 +51,16 @@ stages:
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
-    - path: table-2A.msgpack
+    - path: table-2A-all-burnups.msgpack
       hash: md5
       md5: c33a630dde56915eb45d069cceeb0a02
       size: 36323004
     - path: thinning-2A.toml
       hash: md5
-      md5: 136ea3c95dac214f957711eeeb089729
-      size: 2705
+      md5: e135aaaad4c2e0b7ce3d5ddd5450912e
+      size: 2996
     outs:
     - path: thinning-2A.json
       hash: md5
-      md5: 15c08431325371a31b1a107753715d1e
-      size: 388280
+      md5: f8867ade0bf332a0105e9ff60a1adb42
+      size: 388292

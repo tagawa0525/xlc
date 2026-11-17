@@ -14874,10 +14874,10 @@
  "inputs": [
   {
    "path": "thinning-2A.toml",
-   "md5": "136ea3c95dac214f957711eeeb089729"
+   "md5": "e135aaaad4c2e0b7ce3d5ddd5450912e"
   },
   {
-   "path": "table-2A.msgpack",
+   "path": "table-2A-all-burnups.msgpack",
    "md5": "c33a630dde56915eb45d069cceeb0a02"
   }
  ],
