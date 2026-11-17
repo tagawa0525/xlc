@@ -5155,7 +5155,7 @@ python3 examples/depletion/compare_branch_cross_terms.py --report examples/deple
 
 ### 計算
 
-xlc ade8211c（ブランチ feat/0176-thin-production-2a-burnup、分岐点は main の 12281ea0）、2026-11-17、手元の 1 コアで約 16 秒。
+xlc c19b39b1（ブランチ feat/0176-thin-production-2a-burnup、分岐点は main の 12281ea0）、2026-11-17、手元の 1 コアで約 16 秒。
 `dvc repro examples/depletion/p9-2A/dvc.yaml:thinning-2A` で比べた（上流に changed のステージは無い）。
 テーブル `table-2A-all-burnups.msgpack`（md5 c33a630d）は、公称でない状態も 27 点のすべてで解いた入力（`off-nominal-burnup` を書く前の
 `branch-2A.toml`）の `branch-2A` の出力 `table-2A.msgpack` を、d6cc90d9 の Slurm 896 と、その続きの 68251719 の Slurm 908（#0278）で作ったもので、
