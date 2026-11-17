@@ -1,0 +1,5 @@
+outs:
+- md5: 5cbaa0d6ebc2b5597b6667cffacd7064
+  size: 1567
+  hash: md5
+  path: lattice-2O.out
