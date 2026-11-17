@@ -57,10 +57,10 @@ stages:
       size: 36323004
     - path: thinning-2A.toml
       hash: md5
-      md5: 5dd3985e306d255a1edf6b78664771de
-      size: 2412
+      md5: 136ea3c95dac214f957711eeeb089729
+      size: 2705
     outs:
     - path: thinning-2A.json
       hash: md5
-      md5: 3543a8c716c7027edcd10c41b76d63dd
-      size: 333059
+      md5: 15c08431325371a31b1a107753715d1e
+      size: 388280
