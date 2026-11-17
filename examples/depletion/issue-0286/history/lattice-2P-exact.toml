@@ -1,3 +1,6 @@
+# #0286 の燃焼の履歴の比較（compare_history.py）の厳密な経路の側の入力。examples/depletion/p2/lattice-2P.toml をコピーして
+# `ufg-free-gas = { share = false }` と `ufg-cp-points = 16` を足し、library、chain、output のパスを替えた（どの生成器も書かない）。
+# 下の注釈は元の入力のもので、その中の相対のパスは元の置き場から。
 # 格子計算の燃焼の検証（ADR-0178）: VERA Problem 2 の Gd 燃料 24 本（図 P2-2。リングごとに燃焼する。600 K、0.743 g/cc）を、分岐なしの 1 つの状態で、
 # 70 点（最後は 60 MWd/kg）まで燃焼させる。OpenMC の参照解は openmc-2P.toml。
 # 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。形状、組成と燃焼度の点は

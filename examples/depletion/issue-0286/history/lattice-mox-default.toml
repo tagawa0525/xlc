@@ -1,3 +1,6 @@
+# #0286 の燃焼の履歴の比較（compare_history.py）の既定の側の入力。examples/depletion/mox-assembly/lattice-mox-assembly.toml を
+# コピーして `ufg-free-gas = { share = false }` と `ufg-cp-points = 16` の行を除き（自己遮蔽は既定）、library、chain、output のパスを替えた
+# （どの生成器も書かない）。下の注釈は元の入力のもので、その 2 行を明示するという項はこの入力に当たらない。相対のパスは元の置き場から。
 # #0286 の自己遮蔽の近似を燃焼した MOX の集合体で確かめるための、MOX の 17×17 の集合体の燃焼の履歴。仕様書の無い問題で、
 # OpenMC の参照解は作らず、検証の記録にも載せない（xlc どうしの差を測る分岐の組成の出どころ）。
 # - 形状、離散化、燃焼度の点、出力密度、燃焼の領域は ../p2/lattice-2A.toml と同じ（手でコピーした。燃焼の領域は燃料の物質ごと、
