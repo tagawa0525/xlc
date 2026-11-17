@@ -912,10 +912,7 @@ impl HistoryBranches {
         let shape = &self.values[rod];
         let lattice_volume: f64 = lattice.volumes().iter().sum();
         let depleted_volume: f64 = shape.regions.iter().map(|d| d.volume).sum();
-        // 核種ごとの値はほかの核種によらず、核種の中の足す順は変えないので、核種ごとに並列に求めても結果は同じ
-        nuclides
-            .par_iter()
-            .map(|&(k, mean)| -> anyhow::Result<MicroNuclide> {
+        let nuclide = |&(k, mean): &(usize, f64)| -> anyhow::Result<MicroNuclide> {
             let name = &self.nuclides[self.transported[k]];
             let mut total = vec![0.0; coarse];
             let mut nu_fission = vec![0.0; coarse];
@@ -1045,8 +1042,11 @@ impl HistoryBranches {
                 thermal_fission: (below + above > 0.0).then(|| below / (below + above)),
                 derivative: None,
             })
-        })
-        .collect()
+        };
+        // 核種ごとの値はほかの核種によらず、核種の中の足す順は変えないので、核種ごとに並列に求めても結果は同じ。並列の collect で
+        // Result にすると、どの核種のエラーを返すかが走る順で変わるので、核種の順に並べてから最初のエラーを返す
+        let results: Vec<anyhow::Result<MicroNuclide>> = nuclides.par_iter().map(nuclide).collect();
+        results.into_iter().collect()
     }
 
     /// 制御棒の値 `rod` の状態 `index` の、格子全体の少数群（境界 `bounds`）の κΣf (eV/cm)（ADR-0190）: 燃焼の領域の輸送する核種

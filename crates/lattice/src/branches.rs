@@ -1342,8 +1342,9 @@ pub(crate) fn remix_varied(
         .enumerate()
         .filter_map(|(m, o)| o.map(|(name, r)| (m, name, r)))
         .collect();
-    // 物質ごとの群定数はほかの物質によらないので、物質ごとに並列に作っても結果は同じ
-    rebuilt
+    // 物質ごとの群定数はほかの物質によらないので、物質ごとに並列に作っても結果は同じ。並列の collect で Result にすると、どの物質の
+    // エラーを返すかが走る順で変わるので、物質の順に並べてから最初のエラーを返す
+    let results: Vec<anyhow::Result<(usize, Material)>> = rebuilt
         .into_par_iter()
         .map(|(m, name, r)| -> anyhow::Result<(usize, Material)> {
             let k = nominal
@@ -1408,7 +1409,8 @@ pub(crate) fn remix_varied(
             let mixed = Material::from_nuclides(&nuclides, ng)?.scaled(&sph[r])?;
             Ok((m, mixed))
         })
-        .collect()
+        .collect();
+    results.into_iter().collect()
 }
 
 /// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。最初に解く状態は始める解
