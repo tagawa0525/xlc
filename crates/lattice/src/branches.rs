@@ -36,6 +36,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use anyhow::{Context, anyhow, bail};
+use rayon::prelude::*;
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, LookupError};
@@ -1336,10 +1337,14 @@ pub(crate) fn remix_varied(
         bail!("material {m} is shared with a material the branches keep");
     }
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
-    owner
+    let rebuilt: Vec<(usize, &str, usize)> = owner
         .iter()
         .enumerate()
         .filter_map(|(m, o)| o.map(|(name, r)| (m, name, r)))
+        .collect();
+    // 物質ごとの群定数はほかの物質によらないので、物質ごとに並列に作っても結果は同じ
+    rebuilt
+        .into_par_iter()
         .map(|(m, name, r)| -> anyhow::Result<(usize, Material)> {
             let k = nominal
                 .iter()

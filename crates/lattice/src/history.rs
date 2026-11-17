@@ -47,6 +47,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
+use rayon::prelude::*;
 use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Shielded};
@@ -911,8 +912,10 @@ impl HistoryBranches {
         let shape = &self.values[rod];
         let lattice_volume: f64 = lattice.volumes().iter().sum();
         let depleted_volume: f64 = shape.regions.iter().map(|d| d.volume).sum();
-        let mut out = Vec::with_capacity(nuclides.len());
-        for &(k, mean) in nuclides {
+        // 核種ごとの値はほかの核種によらず、核種の中の足す順は変えないので、核種ごとに並列に求めても結果は同じ
+        nuclides
+            .par_iter()
+            .map(|&(k, mean)| -> anyhow::Result<MicroNuclide> {
             let name = &self.nuclides[self.transported[k]];
             let mut total = vec![0.0; coarse];
             let mut nu_fission = vec![0.0; coarse];
@@ -1033,7 +1036,7 @@ impl HistoryBranches {
                 })
                 .collect();
             let (below, above) = split_at(library.groups.bounds(), &fine_fission, yield_cutoff());
-            out.push(MicroNuclide {
+            Ok(MicroNuclide {
                 total: per(total),
                 nu_fission: per(nu_fission),
                 fission: per(fission),
@@ -1041,9 +1044,9 @@ impl HistoryBranches {
                 reactions,
                 thermal_fission: (below + above > 0.0).then(|| below / (below + above)),
                 derivative: None,
-            });
-        }
-        Ok(out)
+            })
+        })
+        .collect()
     }
 
     /// 制御棒の値 `rod` の状態 `index` の、格子全体の少数群（境界 `bounds`）の κΣf (eV/cm)（ADR-0190）: 燃焼の領域の輸送する核種
