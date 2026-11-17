@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 953c587b5c04b9f5f09a155d87a3b442
-      size: 2929808
+      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
+      size: 3072016
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -31,15 +31,15 @@ stages:
     outs:
     - path: wims69.msgpack
       hash: md5
-      md5: 727f25ee63e9bdf9a7ded4e3919c73e1
-      size: 13692345
+      md5: 313819dcbb8675cbac3db353adbe71dc
+      size: 13708204
   lattice:
     cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: pincell.toml
       hash: md5
@@ -47,8 +47,8 @@ stages:
       size: 638
     - path: wims69.msgpack
       hash: md5
-      md5: 727f25ee63e9bdf9a7ded4e3919c73e1
-      size: 13692345
+      md5: 313819dcbb8675cbac3db353adbe71dc
+      size: 13708204
     outs:
     - path: lattice.out
       hash: md5
@@ -63,8 +63,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: assemblies.toml
       hash: md5
@@ -89,5 +89,5 @@ stages:
     outs:
     - path: core.out
       hash: md5
-      md5: 7994484377fe0cb3439ccb447865ace7
+      md5: b14708c7a90fdf2d5d51509f819b27f9
       size: 2677

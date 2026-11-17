@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 953c587b5c04b9f5f09a155d87a3b442
-      size: 2929808
+      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
+      size: 3072016
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -79,40 +79,40 @@ stages:
     outs:
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
   openmc-mox2-model:
     cmd: nix develop ../..#references -c python3 openmc_model.py model 
       openmc-mox2.toml openmc-mox2-model
     deps:
-    - path: ../openmc_common.py
+    - path: ../../python-ast/examples/mox/openmc_model.py.ast
       hash: md5
-      md5: 097f582ede68566ed6b45a679ef2fad0
-      size: 3469
-    - path: ../openmc_input.py
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+    - path: ../../python-ast/examples/openmc_common.py.ast
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
-      size: 1507
-    - path: ../openmc_run.py
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: a0c19487fa6ebe2eb991c7208582f748
-      size: 4447
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
       size: 53
     - path: mox.msgpack
       hash: md5
-      md5: df682763e02f7e29cebe2a53d61d97ae
-      size: 29728159
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: openmc-mox2.toml
       hash: md5
-      md5: bac2c855b41890c16e172cbc4ce0a3fb
-      size: 594
-    - path: openmc_model.py
-      hash: md5
-      md5: 314248895335e418c06879644c0e1890
-      size: 8944
+      md5: d2b56ba4aed0d401ba8389f1188e815e
+      size: 600
     outs:
     - path: openmc-mox2-model
       hash: md5
@@ -150,26 +150,30 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract 
       openmc-mox2.toml openmc-mox2 openmc-mox2-results
     deps:
-    - path: ../openmc_common.py
+    - path: ../../python-ast/examples/mox/openmc_model.py.ast
       hash: md5
-      md5: 097f582ede68566ed6b45a679ef2fad0
-      size: 3469
-    - path: ../openmc_input.py
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+    - path: ../../python-ast/examples/openmc_common.py.ast
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
-      size: 1507
-    - path: ../openmc_run.py
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: a0c19487fa6ebe2eb991c7208582f748
-      size: 4447
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
       size: 53
     - path: mox.msgpack
       hash: md5
-      md5: df682763e02f7e29cebe2a53d61d97ae
-      size: 29728159
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: openmc-mox2
       hash: md5
       md5: 690f55f985c1a822bb32ed9b86a92ce9.dir
@@ -177,12 +181,8 @@ stages:
       nfiles: 3
     - path: openmc-mox2.toml
       hash: md5
-      md5: bac2c855b41890c16e172cbc4ce0a3fb
-      size: 594
-    - path: openmc_model.py
-      hash: md5
-      md5: 314248895335e418c06879644c0e1890
-      size: 8944
+      md5: d2b56ba4aed0d401ba8389f1188e815e
+      size: 600
     outs:
     - path: openmc-mox2-results
       hash: md5
@@ -199,8 +199,8 @@ stages:
       size: 653
     - path: ../../Cargo.lock
       hash: md5
-      md5: e5cf390009591e54a8dc050dab4b4ebd
-      size: 29402
+      md5: 63ca82c0dac0ca39bcb14fc086d0e7d4
+      size: 29543
     - path: ../../Cargo.toml
       hash: md5
       md5: 683e6ade069d2e592a845971523eb150
@@ -220,8 +220,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 5896628988965487c0e86b50009f56af.dir
-      size: 262077
+      md5: 60a751466d2021e67629f6a650a3759d.dir
+      size: 312496
       nfiles: 14
     - path: ../../crates/lattice/Cargo.toml
       hash: md5
@@ -233,9 +233,9 @@ stages:
       size: 2935
     - path: ../../crates/lattice/src
       hash: md5
-      md5: c4544adbab904f312744bbb373e33d6f.dir
-      size: 1882695
-      nfiles: 64
+      md5: 5717d39ed5f2c644b801a7c91a1178e8.dir
+      size: 2692861
+      nfiles: 70
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
       md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
@@ -255,8 +255,8 @@ stages:
       size: 98
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: pincell-mox2.toml
       hash: md5
       md5: 21750e97093c2feec9e94393a4d44526
@@ -264,20 +264,20 @@ stages:
     outs:
     - path: xlc-mox2.msgpack
       hash: md5
-      md5: 21df4b975e63c147d2f495461ebf44ce
+      md5: 0889a3c92b9c964c2dbc8ca24946fd51
       size: 22823
   lattice-mox2:
     cmd: ../../bin/lattice pincell-mox2.toml > lattice-mox2.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: pincell-mox2.toml
       hash: md5
       md5: 21750e97093c2feec9e94393a4d44526
@@ -285,7 +285,7 @@ stages:
     outs:
     - path: lattice-mox2.out
       hash: md5
-      md5: 6d249c60e12bcca9159376ff20253798
+      md5: d0946eba431559ffd3298679521776c6
       size: 11
   compare-capture-mox2:
     cmd: python3 compare_capture.py xs.toml xlc-mox2.msgpack 
@@ -334,15 +334,15 @@ stages:
       size: 2069860
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: openmc-mox2-results/fuel-xs.msgpack
       hash: md5
       md5: 9cfbc0d8b1249270732e4893f83d4b08
       size: 47169
     - path: xlc-mox2.msgpack
       hash: md5
-      md5: 21df4b975e63c147d2f495461ebf44ce
+      md5: 0889a3c92b9c964c2dbc8ca24946fd51
       size: 22823
     - path: xs.toml
       hash: md5
@@ -351,40 +351,40 @@ stages:
     outs:
     - path: compare-capture-mox2.out
       hash: md5
-      md5: b9dc3d19a4c9400d06d31d9d0c89a826
+      md5: cc2470266bf6ef597544c1186828fed9
       size: 17319
   openmc-mox1-model:
     cmd: nix develop ../..#references -c python3 openmc_model.py model 
       openmc-mox1.toml openmc-mox1-model
     deps:
-    - path: ../openmc_common.py
+    - path: ../../python-ast/examples/mox/openmc_model.py.ast
       hash: md5
-      md5: 097f582ede68566ed6b45a679ef2fad0
-      size: 3469
-    - path: ../openmc_input.py
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+    - path: ../../python-ast/examples/openmc_common.py.ast
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
-      size: 1507
-    - path: ../openmc_run.py
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: a0c19487fa6ebe2eb991c7208582f748
-      size: 4447
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
       size: 53
     - path: mox.msgpack
       hash: md5
-      md5: df682763e02f7e29cebe2a53d61d97ae
-      size: 29728159
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: openmc-mox1.toml
       hash: md5
-      md5: a29810cec4a76914ae82305a47ca2a1e
-      size: 594
-    - path: openmc_model.py
-      hash: md5
-      md5: 314248895335e418c06879644c0e1890
-      size: 8944
+      md5: 339ee3e928b9f28c1173ac304106bea0
+      size: 600
     outs:
     - path: openmc-mox1-model
       hash: md5
@@ -422,26 +422,30 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract 
       openmc-mox1.toml openmc-mox1 openmc-mox1-results
     deps:
-    - path: ../openmc_common.py
+    - path: ../../python-ast/examples/mox/openmc_model.py.ast
       hash: md5
-      md5: 097f582ede68566ed6b45a679ef2fad0
-      size: 3469
-    - path: ../openmc_input.py
+      md5: 07d5fa8ff26b4bca83de15c1f34270d6
+      size: 4896
+    - path: ../../python-ast/examples/openmc_common.py.ast
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
-      size: 1507
-    - path: ../openmc_run.py
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: a0c19487fa6ebe2eb991c7208582f748
-      size: 4447
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
       size: 53
     - path: mox.msgpack
       hash: md5
-      md5: df682763e02f7e29cebe2a53d61d97ae
-      size: 29728159
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: openmc-mox1
       hash: md5
       md5: 5ed91458491892a4f9c668f75614ca5f.dir
@@ -449,12 +453,8 @@ stages:
       nfiles: 3
     - path: openmc-mox1.toml
       hash: md5
-      md5: a29810cec4a76914ae82305a47ca2a1e
-      size: 594
-    - path: openmc_model.py
-      hash: md5
-      md5: 314248895335e418c06879644c0e1890
-      size: 8944
+      md5: 339ee3e928b9f28c1173ac304106bea0
+      size: 600
     outs:
     - path: openmc-mox1-results
       hash: md5
@@ -466,13 +466,13 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: pincell-mox1.toml
       hash: md5
       md5: 466aa5af13bc5772cd8f8a0df9995faa
@@ -480,7 +480,7 @@ stages:
     outs:
     - path: lattice-mox1.out
       hash: md5
-      md5: d700f96cc7f73b42f9fafbe3c5691525
+      md5: 279fdc508bfe5e0cbc9af08d63d1f485
       size: 11
   compare-k-mox1:
     cmd: python3 ../vera/compare_k.py lattice-mox1.out 
@@ -492,7 +492,7 @@ stages:
       size: 732
     - path: lattice-mox1.out
       hash: md5
-      md5: d700f96cc7f73b42f9fafbe3c5691525
+      md5: 279fdc508bfe5e0cbc9af08d63d1f485
       size: 11
     - path: openmc-mox1-results/k.json
       hash: md5
@@ -501,7 +501,7 @@ stages:
     outs:
     - path: compare-k-mox1.out
       hash: md5
-      md5: 1ede7e91578545644f159320ac0c0240
+      md5: c06bafcf16e203f9e73bcbd02cb73fc3
       size: 66
   fuel-xs-mox1:
     cmd: cargo run --release -p xlc-lattice --example fuel_xs -- 
@@ -513,8 +513,8 @@ stages:
       size: 653
     - path: ../../Cargo.lock
       hash: md5
-      md5: e5cf390009591e54a8dc050dab4b4ebd
-      size: 29402
+      md5: 63ca82c0dac0ca39bcb14fc086d0e7d4
+      size: 29543
     - path: ../../Cargo.toml
       hash: md5
       md5: 683e6ade069d2e592a845971523eb150
@@ -534,8 +534,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 5896628988965487c0e86b50009f56af.dir
-      size: 262077
+      md5: 60a751466d2021e67629f6a650a3759d.dir
+      size: 312496
       nfiles: 14
     - path: ../../crates/lattice/Cargo.toml
       hash: md5
@@ -547,9 +547,9 @@ stages:
       size: 2935
     - path: ../../crates/lattice/src
       hash: md5
-      md5: c4544adbab904f312744bbb373e33d6f.dir
-      size: 1882695
-      nfiles: 64
+      md5: 5717d39ed5f2c644b801a7c91a1178e8.dir
+      size: 2692861
+      nfiles: 70
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
       md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
@@ -569,8 +569,8 @@ stages:
       size: 98
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: pincell-mox1.toml
       hash: md5
       md5: 466aa5af13bc5772cd8f8a0df9995faa
@@ -578,7 +578,7 @@ stages:
     outs:
     - path: xlc-mox1.msgpack
       hash: md5
-      md5: 2712dc413ecfabec2a66d38212c68376
+      md5: d7b2d9d2a6323678f96062aed71338b9
       size: 22823
   compare-capture-mox1:
     cmd: python3 compare_capture.py xs.toml xlc-mox1.msgpack 
@@ -627,15 +627,15 @@ stages:
       size: 2069860
     - path: mox.msgpack
       hash: md5
-      md5: e369b4348316ebf22e4c4f5ef0d75c8c
-      size: 36569529
+      md5: 49520cdc25604f9a6f2575d59078307e
+      size: 36630980
     - path: openmc-mox1-results/fuel-xs.msgpack
       hash: md5
       md5: 26567a5cd6c019aea3f39d6ccd2e70e9
       size: 47169
     - path: xlc-mox1.msgpack
       hash: md5
-      md5: 2712dc413ecfabec2a66d38212c68376
+      md5: d7b2d9d2a6323678f96062aed71338b9
       size: 22823
     - path: xs.toml
       hash: md5
@@ -644,7 +644,7 @@ stages:
     outs:
     - path: compare-capture-mox1.out
       hash: md5
-      md5: 04db39025b0a8a09667720a9ec664737
+      md5: 1b30d1843230e54717f6b733cbd11e35
       size: 17319
   compare-k-mox2:
     cmd: python3 ../vera/compare_k.py lattice-mox2.out 
@@ -656,7 +656,7 @@ stages:
       size: 732
     - path: lattice-mox2.out
       hash: md5
-      md5: 6d249c60e12bcca9159376ff20253798
+      md5: d0946eba431559ffd3298679521776c6
       size: 11
     - path: openmc-mox2-results/k.json
       hash: md5
@@ -665,5 +665,5 @@ stages:
     outs:
     - path: compare-k-mox2.out
       hash: md5
-      md5: 1030eeeafd9ad51d6b6c8853817ea6f3
+      md5: bed75311abb193e3901205eaf1363abe
       size: 65

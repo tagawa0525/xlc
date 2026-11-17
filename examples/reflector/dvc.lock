@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 953c587b5c04b9f5f09a155d87a3b442
-      size: 2929808
+      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
+      size: 3072016
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -211,15 +211,15 @@ stages:
     outs:
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
   assembly-3A:
     cmd: ../../bin/lattice assembly-3A.toml > assembly-3A.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: assembly-3A.toml
       hash: md5
@@ -227,8 +227,8 @@ stages:
       size: 3783
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
     outs:
     - path: assembly-3A.out
       hash: md5
@@ -248,8 +248,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: axial-3A-16.toml
       hash: md5
@@ -261,8 +261,8 @@ stages:
       size: 175444
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
     outs:
     - path: axial-16
       hash: md5
@@ -271,8 +271,8 @@ stages:
       nfiles: 25
     - path: axial-3A-16.log
       hash: md5
-      md5: 96f31de1a9206e3c1ef366eee08b1354
-      size: 122993
+      md5: 8981e974fef1c3bbd76c73bb7c8a09e1
+      size: 122995
     - path: axial-3A-16.out
       hash: md5
       md5: 714a9033e2e9087b77dbb0ecee2de42d
@@ -283,8 +283,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: axial-3A-32.toml
       hash: md5
@@ -296,8 +296,8 @@ stages:
       size: 175444
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
     outs:
     - path: axial-32
       hash: md5
@@ -306,7 +306,7 @@ stages:
       nfiles: 41
     - path: axial-3A-32.log
       hash: md5
-      md5: 32c257d7f85ceba58aac520ca073f1a3
+      md5: 6071658d24c4f6011e122e3764c4a0e1
       size: 159441
     - path: axial-3A-32.out
       hash: md5
@@ -318,8 +318,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: axial-3A-fine.toml
       hash: md5
@@ -331,13 +331,13 @@ stages:
       size: 175444
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
     outs:
     - path: axial-3A-fine.log
       hash: md5
-      md5: db0802436d5d46f4363fcd7369e7878f
-      size: 123346
+      md5: 2994ce3390cf0ec377b8384e64896331
+      size: 123348
     - path: axial-3A-fine.out
       hash: md5
       md5: 7cd70e9b0222fb77fa591564d97aed34
@@ -353,8 +353,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: axial-16
       hash: md5
@@ -380,11 +380,11 @@ stages:
     outs:
     - path: core-axial-slab-16.log
       hash: md5
-      md5: ca92fbc810ae51fbc86b0c17a18f5996
-      size: 287131
+      md5: dec9cbf1002bab662612295bed3c6ebf
+      size: 10479
     - path: core-axial-slab-16.out
       hash: md5
-      md5: 6d760bd7900998232c90a7a7a6dd147d
+      md5: 2afbde71fa218a70ec3565483ba766fe
       size: 1133
   compare-axial-slab-16:
     cmd: python3 compare_axial.py axial-3A-16.log core-axial-slab-16.log > 
@@ -396,16 +396,16 @@ stages:
       size: 2907
     - path: axial-3A-16.log
       hash: md5
-      md5: 96f31de1a9206e3c1ef366eee08b1354
-      size: 122993
+      md5: 8981e974fef1c3bbd76c73bb7c8a09e1
+      size: 122995
     - path: core-axial-slab-16.log
       hash: md5
-      md5: ca92fbc810ae51fbc86b0c17a18f5996
-      size: 287131
+      md5: dec9cbf1002bab662612295bed3c6ebf
+      size: 10479
     outs:
     - path: compare-axial-slab-16.out
       hash: md5
-      md5: 7d9bb5e85a2e49a86988e2e046d13c34
+      md5: 5d0af4c4c53e9ffe44ee6a898a2530f2
       size: 2136
   core-axial-fstar-16:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-16.toml > 
@@ -413,8 +413,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: axial-16
       hash: md5
@@ -444,11 +444,11 @@ stages:
     outs:
     - path: core-axial-fstar-16.log
       hash: md5
-      md5: 3bb59a112ebda37c8843fd88eb0771bc
-      size: 283535
+      md5: f8f072595fcf533221d222fb0f628e61
+      size: 10465
     - path: core-axial-fstar-16.out
       hash: md5
-      md5: 11c1eb61503caafa8cfa510eba132457
+      md5: 7ea280b91abe2cec2c786c9bd5ea538c
       size: 1133
   compare-axial-fstar-16:
     cmd: python3 compare_axial.py axial-3A-16.log core-axial-fstar-16.log > 
@@ -460,16 +460,16 @@ stages:
       size: 2907
     - path: axial-3A-16.log
       hash: md5
-      md5: 96f31de1a9206e3c1ef366eee08b1354
-      size: 122993
+      md5: 8981e974fef1c3bbd76c73bb7c8a09e1
+      size: 122995
     - path: core-axial-fstar-16.log
       hash: md5
-      md5: 3bb59a112ebda37c8843fd88eb0771bc
-      size: 283535
+      md5: f8f072595fcf533221d222fb0f628e61
+      size: 10465
     outs:
     - path: compare-axial-fstar-16.out
       hash: md5
-      md5: c558981e1836943ad2a355aa67847b62
+      md5: 71624d54ad637e358f4a159bf25707c1
       size: 2136
   fstar-16:
     cmd: python3 compare_axial.py fstar axial-16/*.msgpack > fstar-16.out
@@ -494,8 +494,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: axial-32
       hash: md5
@@ -521,11 +521,11 @@ stages:
     outs:
     - path: core-axial-slab-32.log
       hash: md5
-      md5: 720742393aeb50fb71c8074cdb9953d6
-      size: 387537
+      md5: 82716963fa73dbc972777c485aa80792
+      size: 9558
     - path: core-axial-slab-32.out
       hash: md5
-      md5: 5daf9e5b1c06cecb1d86349926e1734b
+      md5: a4dec7d20f8fc7e0fcb4a599e6b7a20d
       size: 1707
   compare-axial-slab-32:
     cmd: python3 compare_axial.py axial-3A-32.log core-axial-slab-32.log > 
@@ -537,16 +537,16 @@ stages:
       size: 2907
     - path: axial-3A-32.log
       hash: md5
-      md5: 32c257d7f85ceba58aac520ca073f1a3
+      md5: 6071658d24c4f6011e122e3764c4a0e1
       size: 159441
     - path: core-axial-slab-32.log
       hash: md5
-      md5: 720742393aeb50fb71c8074cdb9953d6
-      size: 387537
+      md5: 82716963fa73dbc972777c485aa80792
+      size: 9558
     outs:
     - path: compare-axial-slab-32.out
       hash: md5
-      md5: aa4c0ce42dcf7dbf51c4a35e1a28f7ca
+      md5: 3ee48abc781fc839e487fa5aa86603ea
       size: 3432
   core-axial-fstar-32:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-32.toml > 
@@ -554,8 +554,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: axial-32
       hash: md5
@@ -585,11 +585,11 @@ stages:
     outs:
     - path: core-axial-fstar-32.log
       hash: md5
-      md5: abc203a3c74f3a1b732841895d0e2948
-      size: 384157
+      md5: 1e6556e8e90690289d9dd2e66aee3c10
+      size: 9553
     - path: core-axial-fstar-32.out
       hash: md5
-      md5: 8a0ea4e01806a7bd4d8b50d7821b2a2c
+      md5: 2aad82deb2e5c125e4cca44bdad34a52
       size: 1707
   compare-axial-fstar-32:
     cmd: python3 compare_axial.py axial-3A-32.log core-axial-fstar-32.log > 
@@ -601,16 +601,16 @@ stages:
       size: 2907
     - path: axial-3A-32.log
       hash: md5
-      md5: 32c257d7f85ceba58aac520ca073f1a3
+      md5: 6071658d24c4f6011e122e3764c4a0e1
       size: 159441
     - path: core-axial-fstar-32.log
       hash: md5
-      md5: abc203a3c74f3a1b732841895d0e2948
-      size: 384157
+      md5: 1e6556e8e90690289d9dd2e66aee3c10
+      size: 9553
     outs:
     - path: compare-axial-fstar-32.out
       hash: md5
-      md5: 8da0a0eb849b3c856fa9a228671d665b
+      md5: 4353e0abcea47bd8c610d55f7c22e954
       size: 3432
   fstar-32:
     cmd: python3 compare_axial.py fstar axial-32/*.msgpack > fstar-32.out
@@ -635,8 +635,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: axial-fine
       hash: md5
@@ -662,11 +662,11 @@ stages:
     outs:
     - path: core-axial-slab-fine.log
       hash: md5
-      md5: ed63d7988461331cbaaa64bc56df58c5
-      size: 289309
+      md5: ffa6769cdb3aa8133e86b27c2e790686
+      size: 10620
     - path: core-axial-slab-fine.out
       hash: md5
-      md5: 6f016714457679d699a949b1b1522cff
+      md5: b0865dcf8b2b5a9419ae0d90136cf48d
       size: 1133
   compare-axial-slab-fine:
     cmd: python3 compare_axial.py axial-3A-fine.log core-axial-slab-fine.log > 
@@ -678,16 +678,16 @@ stages:
       size: 2907
     - path: axial-3A-fine.log
       hash: md5
-      md5: db0802436d5d46f4363fcd7369e7878f
-      size: 123346
+      md5: 2994ce3390cf0ec377b8384e64896331
+      size: 123348
     - path: core-axial-slab-fine.log
       hash: md5
-      md5: ed63d7988461331cbaaa64bc56df58c5
-      size: 289309
+      md5: ffa6769cdb3aa8133e86b27c2e790686
+      size: 10620
     outs:
     - path: compare-axial-slab-fine.out
       hash: md5
-      md5: 694bd11f6dedd962916d1634a91a15dd
+      md5: edd664f2bafc67ac7c7997c1fa559eda
       size: 2136
   core-axial-fstar-fine:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-fine.toml > 
@@ -695,8 +695,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: axial-fine
       hash: md5
@@ -726,11 +726,11 @@ stages:
     outs:
     - path: core-axial-fstar-fine.log
       hash: md5
-      md5: e48600003816f552b11033fc7fd4807b
-      size: 283986
+      md5: c63d9a6392eb82cb2d29e7b7678875cf
+      size: 10468
     - path: core-axial-fstar-fine.out
       hash: md5
-      md5: 26ba9f0fcb658b857fbd41e0fe4430fc
+      md5: 7dbe0c2ddc35b5b36e0754644ae288e0
       size: 1133
   compare-axial-fstar-fine:
     cmd: python3 compare_axial.py axial-3A-fine.log core-axial-fstar-fine.log > 
@@ -742,16 +742,16 @@ stages:
       size: 2907
     - path: axial-3A-fine.log
       hash: md5
-      md5: db0802436d5d46f4363fcd7369e7878f
-      size: 123346
+      md5: 2994ce3390cf0ec377b8384e64896331
+      size: 123348
     - path: core-axial-fstar-fine.log
       hash: md5
-      md5: e48600003816f552b11033fc7fd4807b
-      size: 283986
+      md5: c63d9a6392eb82cb2d29e7b7678875cf
+      size: 10468
     outs:
     - path: compare-axial-fstar-fine.out
       hash: md5
-      md5: 3cab1b2881f13746c313f5605814cc6b
+      md5: 7c63c49ab14566306528cae49e128e08
       size: 2137
   fstar-fine:
     cmd: python3 compare_axial.py fstar axial-fine/*.msgpack > fstar-fine.out
@@ -776,8 +776,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: reflector-corner.toml
       hash: md5
@@ -785,8 +785,8 @@ stages:
       size: 10091
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
     outs:
     - path: fg-corner-corner.msgpack
       hash: md5
@@ -810,7 +810,7 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 9fa412ddb66c29844158488192fa146c
+      md5: c8b0869059876d19d7feb9d5529e05bb
       size: 24352
     - path: reflector-corner.out
       hash: md5
@@ -822,8 +822,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: core-assemblies.toml
       hash: md5
@@ -860,15 +860,15 @@ stages:
     outs:
     - path: core-corner-outline.log
       hash: md5
-      md5: 10c3c2150bcf13458dabba9f46601c50
-      size: 4744
+      md5: efc45c2745816240c79fc3ae58e5d964
+      size: 3569
     - path: core-corner-outline.out
       hash: md5
       md5: b221484f7bd5bd5dee84a6d4b1841ab2
       size: 342
     - path: core-pins-corner-outline.msgpack
       hash: md5
-      md5: 0fbe32d730daa5f5defb3d21ffff7510
+      md5: 3cebbbe510a5c267809e1b6f991c150c
       size: 2683
   lattice-I:
     cmd: RUST_LOG=debug ../../bin/lattice reflector-I.toml > reflector-I.out 2> 
@@ -876,8 +876,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: reflector-I.toml
       hash: md5
@@ -885,8 +885,8 @@ stages:
       size: 6551
     - path: reflector.msgpack
       hash: md5
-      md5: b868e64266dddbd59e06a1c19e8fd6d0
-      size: 63811429
+      md5: a940c1a47eb47bff6ed09c2816ac357c
+      size: 63843534
     outs:
     - path: fg-I-fuel.msgpack
       hash: md5
@@ -902,8 +902,8 @@ stages:
       size: 2683
     - path: reflector-I.log
       hash: md5
-      md5: dbb7c477b298cf2b53f34280a48cd50a
-      size: 18417
+      md5: 5956dfe72fd5f002412b79ca7e45b014
+      size: 18416
     - path: reflector-I.out
       hash: md5
       md5: ae20949e8b53afeeb60a8ca8fc9c2ef9
@@ -914,8 +914,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: core-assemblies.toml
       hash: md5
@@ -948,15 +948,15 @@ stages:
     outs:
     - path: core-corner-I.log
       hash: md5
-      md5: 86873ec94306b2e7d532cc2c555a50d6
-      size: 4748
+      md5: a5cd81a3e2e1f420e0a9ec5a1b9aefe9
+      size: 3558
     - path: core-corner-I.out
       hash: md5
       md5: 7c1152c50549f414f2f56d1262688b83
       size: 307
     - path: core-pins-corner-I.msgpack
       hash: md5
-      md5: 9ee0a1d1bebd018636d8f19c1227393b
+      md5: 5cccaae7b35472a0132de83991b5e9af
       size: 2683
   core-corner:
     cmd: RUST_LOG=debug ../../bin/core core-corner.toml > core-corner.out 2> 
@@ -964,8 +964,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: core-assemblies.toml
       hash: md5
@@ -1002,15 +1002,15 @@ stages:
     outs:
     - path: core-corner.log
       hash: md5
-      md5: c7a2c4e0e78086faf5a2bfb221f4da16
-      size: 4745
+      md5: 3751a8f4c3505abed1f9ddf756dacf82
+      size: 3567
     - path: core-corner.out
       hash: md5
       md5: 5725b677396f80b0fad52de2cf0b8f2e
       size: 307
     - path: core-pins-corner.msgpack
       hash: md5
-      md5: 0fbe32d730daa5f5defb3d21ffff7510
+      md5: 3cebbbe510a5c267809e1b6f991c150c
       size: 2683
   compare-corner:
     cmd: python3 compare_radial.py reflector-corner.log core-corner.log 21.5 0 1
@@ -1031,11 +1031,11 @@ stages:
       size: 1759
     - path: core-corner.log
       hash: md5
-      md5: c7a2c4e0e78086faf5a2bfb221f4da16
-      size: 4745
+      md5: 3751a8f4c3505abed1f9ddf756dacf82
+      size: 3567
     - path: core-pins-corner.msgpack
       hash: md5
-      md5: 0fbe32d730daa5f5defb3d21ffff7510
+      md5: 3cebbbe510a5c267809e1b6f991c150c
       size: 2683
     - path: moc-pins-corner.msgpack
       hash: md5
@@ -1043,12 +1043,12 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 9fa412ddb66c29844158488192fa146c
+      md5: c8b0869059876d19d7feb9d5529e05bb
       size: 24352
     outs:
     - path: compare-corner.out
       hash: md5
-      md5: 918b4dc6afbe6ba55e50b6d70d32a636
+      md5: 42e807758e240ddd3eff63c5fca6fe47
       size: 675
   compare-corner-I:
     cmd: python3 compare_radial.py reflector-corner.log core-corner-I.log 21.5 0
@@ -1069,11 +1069,11 @@ stages:
       size: 1759
     - path: core-corner-I.log
       hash: md5
-      md5: 86873ec94306b2e7d532cc2c555a50d6
-      size: 4748
+      md5: a5cd81a3e2e1f420e0a9ec5a1b9aefe9
+      size: 3558
     - path: core-pins-corner-I.msgpack
       hash: md5
-      md5: 9ee0a1d1bebd018636d8f19c1227393b
+      md5: 5cccaae7b35472a0132de83991b5e9af
       size: 2683
     - path: moc-pins-corner.msgpack
       hash: md5
@@ -1081,12 +1081,12 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 9fa412ddb66c29844158488192fa146c
+      md5: c8b0869059876d19d7feb9d5529e05bb
       size: 24352
     outs:
     - path: compare-corner-I.out
       hash: md5
-      md5: a3fb827b89dce299a4f877ddcb901397
+      md5: 1f79fe897c8293820fc750c9627a03ca
       size: 681
   compare-corner-outline:
     cmd: python3 compare_radial.py reflector-corner.log core-corner-outline.log 
@@ -1108,11 +1108,11 @@ stages:
       size: 1759
     - path: core-corner-outline.log
       hash: md5
-      md5: 10c3c2150bcf13458dabba9f46601c50
-      size: 4744
+      md5: efc45c2745816240c79fc3ae58e5d964
+      size: 3569
     - path: core-pins-corner-outline.msgpack
       hash: md5
-      md5: 0fbe32d730daa5f5defb3d21ffff7510
+      md5: 3cebbbe510a5c267809e1b6f991c150c
       size: 2683
     - path: moc-pins-corner.msgpack
       hash: md5
@@ -1120,10 +1120,10 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 9fa412ddb66c29844158488192fa146c
+      md5: c8b0869059876d19d7feb9d5529e05bb
       size: 24352
     outs:
     - path: compare-corner-outline.out
       hash: md5
-      md5: 9ff9b448835cd15b9a86937a2e4b5272
+      md5: 62cda7b11a556101b718462602e8d71f
       size: 675

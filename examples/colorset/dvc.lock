@@ -5,13 +5,13 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: ../vera/vera.msgpack
       hash: md5
-      md5: 0dfa3aca7be456e1019311672a92438c
-      size: 344427865
+      md5: 31bac92b01a88cd4eaf30544652a4925
+      size: 552311375
     - path: assembly-31.toml
       hash: md5
       md5: e558c56b3f9797cf913daa2fa76536b1
@@ -19,15 +19,15 @@ stages:
     outs:
     - path: fg-31.msgpack
       hash: md5
-      md5: 77a591d80b6b8bd1119c3a6d6a0b4aef
+      md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
     - path: lattice-31.out
       hash: md5
-      md5: 3e246f4820f39b93b6a0d2b313016460
+      md5: bf1c8d7ff1a3da7e40bbd90e55e17ad2
       size: 11
     - path: lattice-pins-31.msgpack
       hash: md5
-      md5: fff34a8d483d324b1a75b4dced48d875
+      md5: 0340fd177afe002744b14de7cc41282e
       size: 2683
   without-df-31:
     cmd: python3 without_df.py fg-31.msgpack fg-31-nodf.msgpack
@@ -38,25 +38,25 @@ stages:
       size: 398
     - path: fg-31.msgpack
       hash: md5
-      md5: 77a591d80b6b8bd1119c3a6d6a0b4aef
+      md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
     outs:
     - path: fg-31-nodf.msgpack
       hash: md5
-      md5: 2f1b4d2f8adac6b6983368fa90dbd0af
+      md5: e3c692cc30dfe123945d2ea70aa8de65
       size: 7584
   lattice-21:
     cmd: ../../bin/lattice assembly-21.toml > lattice-21.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: ../vera/vera.msgpack
       hash: md5
-      md5: 0dfa3aca7be456e1019311672a92438c
-      size: 344427865
+      md5: 31bac92b01a88cd4eaf30544652a4925
+      size: 552311375
     - path: assembly-21.toml
       hash: md5
       md5: 82b7394ec3370f3b61fdf9bf339c4c51
@@ -64,15 +64,15 @@ stages:
     outs:
     - path: fg-21.msgpack
       hash: md5
-      md5: 4c18c6425b0182c3030eddce73da54e3
+      md5: 85fef4ffba9a08e510c625fd189db42b
       size: 7584
     - path: lattice-21.out
       hash: md5
-      md5: d61ddbae3aae04e6b2256500b98d7afc
+      md5: 47fd88c2db1dca77530c700b7288cb25
       size: 11
     - path: lattice-pins-21.msgpack
       hash: md5
-      md5: 4c08d396fe9f12da12396334a20604f3
+      md5: dd07605df28d897a8a408a844b621b76
       size: 2683
   without-df-21:
     cmd: python3 without_df.py fg-21.msgpack fg-21-nodf.msgpack
@@ -83,20 +83,20 @@ stages:
       size: 398
     - path: fg-21.msgpack
       hash: md5
-      md5: 4c18c6425b0182c3030eddce73da54e3
+      md5: 85fef4ffba9a08e510c625fd189db42b
       size: 7584
     outs:
     - path: fg-21-nodf.msgpack
       hash: md5
-      md5: ad767400f992a7ba79757e7584581913
+      md5: 777bc408b797f94091c56c83f02f5bb9
       size: 7584
   core-nodf:
     cmd: ../../bin/core case-nodf.toml > core-nodf.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: assemblies-nodf.toml
       hash: md5
@@ -112,11 +112,11 @@ stages:
       size: 169
     - path: fg-21-nodf.msgpack
       hash: md5
-      md5: ad767400f992a7ba79757e7584581913
+      md5: 777bc408b797f94091c56c83f02f5bb9
       size: 7584
     - path: fg-31-nodf.msgpack
       hash: md5
-      md5: 2f1b4d2f8adac6b6983368fa90dbd0af
+      md5: e3c692cc30dfe123945d2ea70aa8de65
       size: 7584
     - path: plant.toml
       hash: md5
@@ -125,19 +125,19 @@ stages:
     outs:
     - path: core-nodf.out
       hash: md5
-      md5: 7c29cf60602b107d6e15f154ba1a915a
+      md5: 0e0cd65d7f2eaabf5dd187d5e4c00aca
       size: 307
     - path: core-pins-nodf.msgpack
       hash: md5
-      md5: c016143abced563dfb9f5eaf40afaee0
+      md5: 234ca0877636f005c0b5b8eb05dc5364
       size: 10537
   core:
     cmd: ../../bin/core case.toml > core.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: assemblies.toml
       hash: md5
@@ -153,11 +153,11 @@ stages:
       size: 198
     - path: fg-21.msgpack
       hash: md5
-      md5: 4c18c6425b0182c3030eddce73da54e3
+      md5: 85fef4ffba9a08e510c625fd189db42b
       size: 7584
     - path: fg-31.msgpack
       hash: md5
-      md5: 77a591d80b6b8bd1119c3a6d6a0b4aef
+      md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
     - path: plant.toml
       hash: md5
@@ -166,11 +166,11 @@ stages:
     outs:
     - path: core-pins.msgpack
       hash: md5
-      md5: e76c280edf69b68bae93fc211f8433e2
+      md5: 47fe5f0f643d435b3e9df4af5111709e
       size: 10537
     - path: core.out
       hash: md5
-      md5: 6bae9d3ffc75d05d220e26099f647ea7
+      md5: 9633e870ad98117f5255423ef02cadb0
       size: 307
   diffusion-4:
     cmd: python3 diffusion.py case.toml diffusion-4.msgpack 4 > diffusion-4.out
@@ -193,11 +193,11 @@ stages:
       size: 198
     - path: fg-21.msgpack
       hash: md5
-      md5: 4c18c6425b0182c3030eddce73da54e3
+      md5: 85fef4ffba9a08e510c625fd189db42b
       size: 7584
     - path: fg-31.msgpack
       hash: md5
-      md5: 77a591d80b6b8bd1119c3a6d6a0b4aef
+      md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
     - path: plant.toml
       hash: md5
@@ -206,11 +206,11 @@ stages:
     outs:
     - path: diffusion-4.msgpack
       hash: md5
-      md5: d7f31357547b691be1f7bd88b2ee7173
+      md5: 58192ea8d14f6d1070822d6f3b0e808d
       size: 10537
     - path: diffusion-4.out
       hash: md5
-      md5: 33b5e5f441c3d8befd4fe9bfb1c9f5bd
+      md5: f8628d8c10447ed45c1ee605c36ee65b
       size: 30
   diffusion-8:
     cmd: python3 diffusion.py case.toml diffusion-8.msgpack 8 > diffusion-8.out
@@ -233,11 +233,11 @@ stages:
       size: 198
     - path: fg-21.msgpack
       hash: md5
-      md5: 4c18c6425b0182c3030eddce73da54e3
+      md5: 85fef4ffba9a08e510c625fd189db42b
       size: 7584
     - path: fg-31.msgpack
       hash: md5
-      md5: 77a591d80b6b8bd1119c3a6d6a0b4aef
+      md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
     - path: plant.toml
       hash: md5
@@ -246,11 +246,11 @@ stages:
     outs:
     - path: diffusion-8.msgpack
       hash: md5
-      md5: ea019ed996e1fbfc2d8f4bd560db9cf2
+      md5: 007f60c0077f6d0f3c2e92e46165bec3
       size: 10537
     - path: diffusion-8.out
       hash: md5
-      md5: de2d55b7f2d7b2a74a2c89c3080ad32c
+      md5: fb616b5da9e7c07d80a68a268fda48ef
       size: 30
   diffusion-nodf-8:
     cmd: python3 diffusion.py case-nodf.toml diffusion-nodf-8.msgpack 8 > 
@@ -274,11 +274,11 @@ stages:
       size: 169
     - path: fg-21-nodf.msgpack
       hash: md5
-      md5: ad767400f992a7ba79757e7584581913
+      md5: 777bc408b797f94091c56c83f02f5bb9
       size: 7584
     - path: fg-31-nodf.msgpack
       hash: md5
-      md5: 2f1b4d2f8adac6b6983368fa90dbd0af
+      md5: e3c692cc30dfe123945d2ea70aa8de65
       size: 7584
     - path: plant.toml
       hash: md5
@@ -287,24 +287,24 @@ stages:
     outs:
     - path: diffusion-nodf-8.msgpack
       hash: md5
-      md5: eac62b19f7145a7f69e9aa08457d0c7c
+      md5: 41d9ff717d9e4048f1f7d3f51c7e6fe0
       size: 10537
     - path: diffusion-nodf-8.out
       hash: md5
-      md5: 89614a87634143c2177ad15b1ccf1072
+      md5: d5f48e7335d8e9e2e7fc362f95334b3f
       size: 30
   colorset:
     cmd: ../../bin/lattice colorset.toml > colorset.out
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: ../vera/vera.msgpack
       hash: md5
-      md5: 0dfa3aca7be456e1019311672a92438c
-      size: 344427865
+      md5: 31bac92b01a88cd4eaf30544652a4925
+      size: 552311375
     - path: colorset.toml
       hash: md5
       md5: 8b1f51963c1e783d7adc9b5a49f49265
@@ -312,27 +312,27 @@ stages:
     outs:
     - path: colorset.out
       hash: md5
-      md5: c15870a1f63043dc60999c31334c7746
+      md5: 1bd4e0464ad78c72b651befb4921bc7e
       size: 11
     - path: fg-node-21a.msgpack
       hash: md5
-      md5: e84c3cdf46c173aacba9d5ee2f4f0d47
+      md5: 16ddc18729894ee37df4c4885766fb98
       size: 485
     - path: fg-node-21b.msgpack
       hash: md5
-      md5: ae09eb16b4be135548c82c7c67ab3999
+      md5: b217d62544143281773b36e5a7aec5c7
       size: 485
     - path: fg-node-31a.msgpack
       hash: md5
-      md5: 3e0c50729cbfed39281c225bad7c7daa
+      md5: f4a35d82bee6bd5e4c16dc8fe9fe6da1
       size: 485
     - path: fg-node-31b.msgpack
       hash: md5
-      md5: 87d7c7fc5dd2b66c270b05244f5f133d
+      md5: d9356a732a931650251c9a2a5a47aa4b
       size: 485
     - path: moc-pins.msgpack
       hash: md5
-      md5: 55352b74d17aedba8631db4a917afc8f
+      md5: c03c744ff47ef82d59890a503be63be7
       size: 10537
   compare:
     cmd: "{ set -e; echo '== core-pins.msgpack vs diffusion-8.msgpack（再構成だけ）'; python3
@@ -354,40 +354,40 @@ stages:
       size: 1853
     - path: core-pins-nodf.msgpack
       hash: md5
-      md5: c016143abced563dfb9f5eaf40afaee0
+      md5: 234ca0877636f005c0b5b8eb05dc5364
       size: 10537
     - path: core-pins.msgpack
       hash: md5
-      md5: e76c280edf69b68bae93fc211f8433e2
+      md5: 47fe5f0f643d435b3e9df4af5111709e
       size: 10537
     - path: diffusion-4.msgpack
       hash: md5
-      md5: d7f31357547b691be1f7bd88b2ee7173
+      md5: 58192ea8d14f6d1070822d6f3b0e808d
       size: 10537
     - path: diffusion-8.msgpack
       hash: md5
-      md5: ea019ed996e1fbfc2d8f4bd560db9cf2
+      md5: 007f60c0077f6d0f3c2e92e46165bec3
       size: 10537
     - path: diffusion-nodf-8.msgpack
       hash: md5
-      md5: eac62b19f7145a7f69e9aa08457d0c7c
+      md5: 41d9ff717d9e4048f1f7d3f51c7e6fe0
       size: 10537
     - path: moc-pins.msgpack
       hash: md5
-      md5: 55352b74d17aedba8631db4a917afc8f
+      md5: c03c744ff47ef82d59890a503be63be7
       size: 10537
     outs:
     - path: compare.out
       hash: md5
-      md5: 68e7f4b4f9f74a621323fbc314b4df04
+      md5: 86ed7277fc20fd4659b133e161d61325
       size: 1955
   core-node:
     cmd: ../../bin/core case-node.toml > core-node.out
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: 5d1efe564c088c30b9a6582f93350f17
-      size: 6767584
+      md5: d6b0932c73b2aac6e70f1adee0065a71
+      size: 7443832
       isexec: true
     - path: assemblies-node.toml
       hash: md5
@@ -403,19 +403,19 @@ stages:
       size: 207
     - path: fg-node-21a.msgpack
       hash: md5
-      md5: e84c3cdf46c173aacba9d5ee2f4f0d47
+      md5: 16ddc18729894ee37df4c4885766fb98
       size: 485
     - path: fg-node-21b.msgpack
       hash: md5
-      md5: ae09eb16b4be135548c82c7c67ab3999
+      md5: b217d62544143281773b36e5a7aec5c7
       size: 485
     - path: fg-node-31a.msgpack
       hash: md5
-      md5: 3e0c50729cbfed39281c225bad7c7daa
+      md5: f4a35d82bee6bd5e4c16dc8fe9fe6da1
       size: 485
     - path: fg-node-31b.msgpack
       hash: md5
-      md5: 87d7c7fc5dd2b66c270b05244f5f133d
+      md5: d9356a732a931650251c9a2a5a47aa4b
       size: 485
     - path: plant.toml
       hash: md5
@@ -424,5 +424,5 @@ stages:
     outs:
     - path: core-node.out
       hash: md5
-      md5: f35be369a63a487b6592718425a54650
+      md5: 276fa3f0216ef48f4df5537acd7471ed
       size: 307

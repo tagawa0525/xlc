@@ -5,8 +5,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: c5g7-xs.toml
       hash: md5
@@ -29,14 +29,18 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_model.py model 
       openmc-c5g7.toml openmc-model
     deps:
-    - path: ../openmc_input.py
+    - path: ../../python-ast/examples/c5g7/openmc_model.py.ast
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
-      size: 1507
-    - path: ../openmc_run.py
+      md5: 1a60af4169c5ed73736a5c9d5fefb7d5
+      size: 5918
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: a0c19487fa6ebe2eb991c7208582f748
-      size: 4447
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -47,12 +51,8 @@ stages:
       size: 7422
     - path: openmc-c5g7.toml
       hash: md5
-      md5: 63dc07795ab19c681e312e34cb8f1a72
-      size: 327
-    - path: openmc_model.py
-      hash: md5
-      md5: fe356ee489d73d5e5ba13c425ade4ee3
-      size: 9052
+      md5: 2ffc27cda1562d38cb350e406cac2a93
+      size: 333
     outs:
     - path: openmc-model
       hash: md5
@@ -88,14 +88,18 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract 
       openmc-c5g7.toml openmc openmc-results
     deps:
-    - path: ../openmc_input.py
+    - path: ../../python-ast/examples/c5g7/openmc_model.py.ast
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
-      size: 1507
-    - path: ../openmc_run.py
+      md5: 1a60af4169c5ed73736a5c9d5fefb7d5
+      size: 5918
+    - path: ../../python-ast/examples/openmc_input.py.ast
       hash: md5
-      md5: a0c19487fa6ebe2eb991c7208582f748
-      size: 4447
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -107,12 +111,8 @@ stages:
       nfiles: 3
     - path: openmc-c5g7.toml
       hash: md5
-      md5: 63dc07795ab19c681e312e34cb8f1a72
-      size: 327
-    - path: openmc_model.py
-      hash: md5
-      md5: fe356ee489d73d5e5ba13c425ade4ee3
-      size: 9052
+      md5: 2ffc27cda1562d38cb350e406cac2a93
+      size: 333
     outs:
     - path: openmc-results
       hash: md5
@@ -149,8 +149,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 48387d6581bcea121b2b9ec7f52223a9
-      size: 9367080
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
       isexec: true
     - path: c5g7-fine.toml
       hash: md5
