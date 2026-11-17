@@ -592,6 +592,7 @@ dvc repro examples/vera/p5/dvc.yaml:hzp-compare
 5-2D の単一集合体の格子 `assembly-31` は、d6cc90d9（ブランチ chore/rerun-new-defaults、分岐点も main の d6cc90d9）の Slurm 901 で流した
 （2026-11-15〜16。区分 record の排他のジョブ）。パーティション main のジョブ（割り込まれうる）なので、時間は書かない。自己遮蔽の UFG の減速計算は
 d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）。
+下の節の手で書いた表と本文の数値は、この実行の前の値のまま（#0224）。
 
 ### 入力の構成
 

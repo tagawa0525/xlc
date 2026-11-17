@@ -201,7 +201,7 @@ OpenMC は 4e9cc7f7、分岐点は main の 2ce95c95、2026-10-16（Slurm の排
 Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、OpenMC とライブラリのステージは再実行せずに `dvc commit` で付け直した
 （db574cfb。deps の差はコメントだけ。#0145）。その後の `openmc_depletion.py` の docstring の変更（01f33be9）も、再実行せずに
 `dvc commit` で付け直した（92a332fd）。xlc の格子（`lattice-1C`）と比較（`compare-1C`）は 68251719（ブランチ chore/rerun-new-defaults、
-分岐点は main の d6cc90d9。作業ツリーの差は、先のジョブが書いた dvc.lock と比較の JSON だけ）、2026-11-17（Slurm の timed のジョブ 920。時間の表の xlc の行は
+分岐点は main の d6cc90d9。作業ツリーの差は、先のジョブが書いた生成物（dvc.lock、比較の JSON、時間の JSON）だけ）、2026-11-17（Slurm の timed のジョブ 920。時間の表の xlc の行は
 この実行の値。ADR-0214 の既定の 32 スレッド（ログの `thread pool threads=32`））。同じ計算を d6cc90d9 の割り込まれうるジョブ 900（2026-11-15）で
 流した後、時間を記録するために始めから再実行した。自己遮蔽の UFG の減速計算は
 d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）。
@@ -1496,7 +1496,7 @@ k∞ の差（xlc − OpenMC、pcm）と、0 の点からの変化。
 ### 時間の内訳
 
 xlc は履歴の `seconds`（全体は内訳の和）、OpenMC は `transport-seconds.json`（輸送 13 回）と `depletion_results.h5` の CRAM の時間。
-xlc は Slurm の timed のジョブ 660（32 スレッド）、OpenMC は排他のジョブ 409（16 スレッド）の中（どちらも「計算」のジョブ）。秒。
+xlc は Slurm の timed のジョブ 920（32 スレッド）、OpenMC は排他のジョブ 409（16 スレッド）の中（どちらも「計算」のジョブ）。秒。
 
 <!-- table: depletion-1c-times -->
 
@@ -2079,8 +2079,8 @@ python3 examples/depletion/compare_depletion_assembly.py --report examples/deple
 8 本の xlc の格子（`lattice`）と比較（`compare`）は、ブランチ chore/rerun-new-defaults（分岐点は main の d6cc90d9）で、Slurm で 1 本ずつ流した。
 2M、2O、2P、2A-density、2A-rods は d6cc90d9 の割り込まれうるジョブ 895、893、892、889、890（2026-11-15）、2A、2F、2N は 68251719 の timed の
 ジョブ 917、918、919（2026-11-17。同じ計算を d6cc90d9 の割り込まれうるジョブ 888、891、894 で流した後、時間を記録するために始めから
-再実行した。作業ツリーの差は、先のジョブが書いた dvc.lock と比較の JSON だけ）。自己遮蔽の UFG の減速計算は 8 本とも
-d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）で、
+再実行した。作業ツリーの差は、先のジョブが書いた生成物（dvc.lock、比較の JSON、時間の JSON）だけ）。自己遮蔽の UFG の減速計算は 8 本とも
+d6cc90d9 の既定（入力が書く `ufg-*` は、UFG の格子を間引く `ufg-tolerance = 1e-4` だけ。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）で、
 ADR-0214 の既定の 32 スレッド（ログの `thread pool threads=32`）。
 ライブラリは d6cc90d9 で作り直した `p2/depletion.msgpack` md5 975be970（`stage_runner.py` と `xs`。Slurm 887）、チェーンは `chain.msgpack` md5 1f1de180。
 比較の入力（JSON の `inputs`）は、xlc の `lattice-<ジョブ>.msgpack` が 2A 5371be64、2F c7318371、2M 69015d5d、2N 549d0f9b、2O b83d7eb5、
@@ -2096,8 +2096,8 @@ OpenMC の抽出が値の正のセルの平均で割った分は、比べる側�
 
 ### 時間
 
-xlc の時間の内訳（秒。履歴の `seconds`、全体は内訳の和）。3 本とも ADR-0243 の前の既定と 32 スレッド（ADR-0214）で、Slurm の timed の
-ジョブ 664（2A）、666（2F）、667（2N）の値。
+xlc の時間の内訳（秒。履歴の `seconds`、全体は内訳の和）。3 本とも「計算」の既定と 32 スレッド（ADR-0214）で、Slurm の timed の
+ジョブ 917（2A）、918（2F）、919（2N）の値。表の下の本文の時間は、前の実行（Slurm 664、666、667。ADR-0243 の前の既定）の値のまま（#0224）。
 
 <!-- table: depletion-assembly-times -->
 
@@ -4836,13 +4836,15 @@ python3 examples/depletion/compare_branch_cross_terms.py --report examples/deple
 
 ### 計算
 
-xlc 68251719（ブランチ chore/rerun-new-defaults、分岐点は main の d6cc90d9。作業ツリーの差は、先のジョブが書いた dvc.lock と比較の JSON だけ）、2026-11-16、Slurm 903（区分 record、パーティション main。
-割り込まれうるジョブで、時間は記録に使わない）で、`dvc repro examples/depletion/p9-product/dvc.yaml` の 4 つのステージ（`lattice-2A`、`branch-2A`、
-`compare-2A`、`grid-2A`。ジョブのログの `Running stage`）を実行した。ライブラリは `../p2/depletion.msgpack`（md5 975be970。ADR-0239 の温度の点を
+xlc 68251719（ブランチ chore/rerun-new-defaults、分岐点は main の d6cc90d9。作業ツリーの差は、先のジョブが書いた生成物（dvc.lock、比較の JSON、時間の JSON）だけ）、2026-11-16、Slurm 903（区分 record、パーティション main。
+割り込まれうるジョブで、時間は記録に使わない）で、`dvc repro examples/depletion/p9-product/dvc.yaml` の 3 つのステージ（`branch-2A`、
+`compare-2A`、`grid-2A`。ジョブのログの `Running stage`）を実行した。燃焼の履歴のステージ `lattice-2A` は、d6cc90d9 の Slurm 896（2026-11-15。
+`dvc repro examples/depletion/p9-2A/dvc.yaml` の上流として実行した。ジョブは、その後の p9-2A の `branch-2A` の途中でメモリ不足で止まった）の出力で、
+903 は実行していない（ログの `didn't change, skipping`）。ライブラリは `../p2/depletion.msgpack`（md5 975be970。ADR-0239 の温度の点を
 足したもの）、`bin/lattice` は md5 b54520ab（`build` の出力）、燃焼の履歴 `lattice-2A.msgpack` は md5 21f901cc、直積のテーブル
 `table-2A.msgpack` は md5 e0b2a95a、比較の JSON は md5 0253bdfb。少数群定数から解き直した k∞ とテーブルの `k_inf`（格子計算の k∞）の差は
 最大 0.0145 pcm（`--report`）。自己遮蔽の UFG の減速計算は
-d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）。
+d6cc90d9 の既定（入力が書く `ufg-*` は、UFG の格子を間引く `ufg-tolerance = 1e-4` だけ。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）。
 
 公称の状態の k∞ は 0、0.5、32、60 MWd/kg で 1.251687、1.200835、0.936871、0.809594（`--report`）。
 
@@ -8529,10 +8531,10 @@ git で追跡する。
 台帳は p5 の台帳の格子計算の層（燃料のある層）を 2A のミクロ燃焼のテーブル（`branches/table-2A-micro-boron-rod-axis.msgpack`）に替えたもの。
 濃縮度、可燃性毒物、反射体に面する位置の違いは無視する。ケースは `p9-timing/p9_timing_inputs.py` が書き、内訳は `p9-timing/p9_timing.py` が
 core のログ（tracing の span）から取る。ステージは `p9-timing/dvc.yaml` だが、下の結果はステージでなく試行で流した（`p9-timing/trial-0231/`）。
-ステージの上流の p5 の格子計算のステージが changed（p5 の dvc.lock がライブラリの前の版を指す。#0235）で、ステージを流すと p5 の格子計算が巻き込まれる
+測った時点では、ステージの上流の p5 の格子計算のステージが changed（p5 の dvc.lock がライブラリの前の版を指していた。#0235）で、ステージを流すと p5 の格子計算が巻き込まれた
 ため。試行の入力 `trial-0231/core-p9.toml` は、ステージの `core-p9.toml` の cycle と chain のパスだけをその置き場から引くように直したもので、
-台帳、サイクル、テーブルはステージと同じファイル（p5 の反射体と軸方向の平板は p5 の dvc.lock のとおりの出力で、そのステージの deps のライブラリは
-`vera.msgpack` md5 0dfa3aca）。ステージの出力（`p9-timing/timing-p9.json` など）は、下の表の出どころではなく、今の既定で再実行したもの（xlc 68251719、分岐点は main の d6cc90d9、
+台帳、サイクル、テーブルはステージと同じファイル（p5 の反射体と軸方向の平板は、測った時点の p5 の dvc.lock のとおりの出力で、そのステージの deps のライブラリは
+`vera.msgpack` md5 0dfa3aca。今の p5 の dvc.lock は Slurm 901 の出力（ライブラリ md5 31bac92b）を指す）。ステージの出力（`p9-timing/timing-p9.json` など）は、下の表の出どころではなく、今の既定で再実行したもの（xlc 68251719、分岐点は main の d6cc90d9、
 2026-11-17、Slurm の timed のジョブ 921。上流の p5 の格子計算は d6cc90d9 の Slurm 901）。
 
 テーブルの軸の制約で、表 P9-2 の形から次を変えた:

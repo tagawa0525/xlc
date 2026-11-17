@@ -13,7 +13,8 @@ resolution:
 ## 問題
 
 - Slurm 887（`python3 examples/stage_runner.py examples/depletion/p2/dvc.yaml xs-nuclide`、545 核種、排他、xlc d6cc90d96、
-  2026-11-15）の 1 時間 49 分のうち、16 コアで計算していたのは 31〜58 分の約 27 分だけだった。ログ
+  2026-11-15）の 2 時間 3 分 9 秒（sacct）のうち、16 コアで計算していたのは 31〜58 分の約 27 分だけだった。下の内訳は、走っている途中の
+  1 時間 49 分の時点までを読んだもので、その後の約 14 分（残りの `dvc commit` と `xs`）は分けていない。ログ
   （`~/github/slurm-logs/xlc-p2-library-defaults-887.out`）の runner の時刻で見た内訳:
   - 0〜547 秒: 上流の changed の確認（`dvc repro examples/depletion/p2/dvc.yaml:xs-range` の前）
   - 547〜1864 秒: `xs-range` の実行と、核種の投入の前の処理（deps の指紋など。何に時間がかかったかは確かめていない）

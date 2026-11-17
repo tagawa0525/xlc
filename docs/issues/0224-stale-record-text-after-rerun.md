@@ -42,4 +42,8 @@ resolution:
 - 2026-11-17: 求積 6 点（ADR-0252）と自由ガスの核種の絞り込み（ADR-0251）を既定にした後の再実行（ブランチ chore/rerun-new-defaults。
   Slurm 887〜903、908、917〜921）でも、同じ範囲（比較の JSON から描く表と「計算」の欄）だけを今の実行に合わせた。上の一覧の箇所は
   そのまま残り、表との食い違いは今の値で数え直す。examples/vera/verification.md の「Problem 5-2D の炉心の計算」と「Problem 6」、
-  examples/depletion/verification.md の「Problem 9 の格子点」の節の、表の外の本文の数値も、この再実行の前の値のまま
+  examples/depletion/verification.md の「Problem 9 の格子点」の節の、表の外の本文の数値も、この再実行の前の値のまま。
+  examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」の手で書いた表と本文（場合 1 の臨界ホウ素濃度 1302.96 ppm は、今の
+  `p5/hzp/compare-hzp.out` で 1302.36 ppm）、examples/depletion/verification.md の 1C の「時間の内訳」と集合体の「時間」の表の下の本文も同じ
+  （1C の xlc の全体は Slurm 660 の 451.7、655.9 秒から Slurm 920 の 826.4、971.3 秒に増えた。660 は ADR-0243 の前の既定で、増えの原因は
+  確かめていない。候補は ADR-0243 からこの実行までの既定の変更。UFG の 1 ピンの時間は #0286）
