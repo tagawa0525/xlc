@@ -478,5 +478,132 @@ class SchemeInputs(unittest.TestCase):
             cgi.summarize(t, schemes(("moderator", "value", "lagrange")))
 
 
+def fuel_square(u, b, m, f) -> float:
+    """燃料の √T の 2 次（a + b√T + cT。ADR-0242 の燃料の温度の依存のモデル）"""
+    r = math.sqrt(f) - 30.0
+    return 0.1 + 1e-5 * (1 + u) * (r * r + 2 * r)
+
+
+class KeptPoints(unittest.TestCase):
+    """方式の `points`（その軸の残す格子点。ADR-0242 の案 F3 の、格子点を減らす比べ方）"""
+
+    def test_the_left_out_points_are_interpolated_from_the_kept_points(self):
+        kept = [560.0, 750.0, 1200.0]
+        spec = {"axis": "fuel", "variable": "sqrt", "method": "linear", "points": kept}
+        s = cgi.summarize(wide_table(fuel_cubic), [spec])
+        (x,) = s["schemes"]
+        self.assertEqual(x["points"], kept)
+        self.assertEqual([c["point"] for c in x["centers"]], [600.0, 900.0, 1050.0])
+        g = [math.sqrt(f) for f in kept]
+        for c in x["centers"]:
+            weights = cgi.METHODS["linear"](g, math.sqrt(c["point"]))
+            for p, u in zip(c["points"], BURNUP, strict=True):
+                worst = None
+                for b, m in itertools.product(WIDE_BORON, range(len(WIDE_MODERATOR))):
+                    truth = state(fuel_cubic(u, b, m, c["point"]))
+                    rebuilt = state(
+                        sum(
+                            w * fuel_cubic(u, b, m, kept[k]) for k, w in weights.items()
+                        )
+                    )
+                    rho = (1 / k_inf(truth) - 1 / k_inf(rebuilt)) * 1e5
+                    if worst is None or abs(rho) > abs(worst):
+                        worst = rho
+                self.assertAlmostEqual(p["worst_pcm"], worst, places=8)
+
+    def test_hermite_on_three_kept_points_reproduces_a_quadratic_in_its_variable(self):
+        # 3 点の √T の 3 次 Hermite は、3 点を通る √T の放物線（#0274 の「格子点を減らす」）
+        kept = [560.0, 900.0, 1200.0]
+        s = cgi.summarize(
+            wide_table(fuel_square),
+            [
+                {"axis": "fuel", "variable": "sqrt", "method": m, "points": kept}
+                for m in ("hermite", "linear")
+            ],
+        )
+        hermite, linear = s["schemes"]
+        self.assertEqual(
+            [c["point"] for c in hermite["centers"]], [600.0, 750.0, 1050.0]
+        )
+        worst = [p["max_abs_pcm"] for c in hermite["centers"] for p in c["points"]]
+        self.assertLess(max(worst), 1e-9)
+        worst = [p["max_abs_pcm"] for c in linear["centers"] for p in c["points"]]
+        self.assertGreater(max(worst), 1e-3)
+
+    def test_schemes_without_points_leave_out_one_inner_point_at_a_time(self):
+        s = cgi.summarize(wide_table(fuel_cubic), schemes(("fuel", "sqrt", "hermite")))
+        (x,) = s["schemes"]
+        self.assertNotIn("points", x)
+        self.assertEqual([c["point"] for c in x["centers"]], WIDE_FUEL[1:-1])
+
+    def test_kept_points_must_be_increasing_axis_points_with_both_ends(self):
+        # 端を除くと外挿になり（core は外挿しない。ADR-0097）、軸に無い点や重なった点は格子にならない
+        t = wide_table(fuel_cubic)
+        for kept in (
+            [600.0, 900.0, 1200.0],
+            [560.0, 900.0, 1050.0],
+            [560.0, 800.0, 1200.0],
+            [560.0, 1050.0, 900.0, 1200.0],
+            [560.0, 900.0, 900.0, 1200.0],
+            WIDE_FUEL,
+            [],
+            900.0,
+            ["560", "x"],
+        ):
+            spec = {
+                "axis": "fuel",
+                "variable": "sqrt",
+                "method": "linear",
+                "points": kept,
+            }
+            with self.assertRaises(SystemExit, msg=kept):
+                cgi.summarize(t, [spec])
+
+    def test_kept_points_must_be_enough_for_the_method(self):
+        t = wide_table(fuel_cubic)
+        kept = [560.0, 750.0, 1200.0]
+        cgi.summarize(
+            t,
+            [{"axis": "fuel", "variable": "sqrt", "method": "hermite", "points": kept}],
+        )
+        with self.assertRaises(SystemExit):
+            cgi.summarize(
+                t,
+                [
+                    {
+                        "axis": "fuel",
+                        "variable": "sqrt",
+                        "method": "lagrange",
+                        "points": kept,
+                    }
+                ],
+            )
+
+    def test_the_command_takes_the_kept_points_of_a_scheme(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "table.msgpack").write_bytes(msgpack.packb(wide_table(fuel_cubic)))
+            config = root / "grid.toml"
+            config.write_text(
+                'table = "table.msgpack"\n'
+                '[[scheme]]\naxis = "fuel"\nvariable = "sqrt"\nmethod = "hermite"\n'
+                "points = [560, 900, 1200]\n"
+            )
+            output = root / "grid.json"
+            argv = sys.argv
+            sys.argv = [
+                "compare_grid_interpolation.py",
+                "--json",
+                str(output),
+                str(config),
+            ]
+            try:
+                cgi.main()
+            finally:
+                sys.argv = argv
+            (x,) = json.loads(output.read_text())["schemes"]
+            self.assertEqual(x["points"], [560.0, 900.0, 1200.0])
+
+
 if __name__ == "__main__":
     unittest.main()

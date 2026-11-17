@@ -1662,6 +1662,39 @@ class DrawGridInterpolation(unittest.TestCase):
             ],
         )
 
+    def test_scheme_rows_name_the_kept_points_when_a_scheme_keeps_some(self):
+        # 格子点を減らす方式（`points`）は、残す格子点から除いた格子点を内挿する（ADR-0242 の案 F3）
+        s = self.with_schemes()
+        s["schemes"][1]["points"] = [560.0, 590.0, 615.0]
+        table = vt.grid_interpolation_schemes([s])
+        self.assertEqual(
+            self.header(table),
+            [
+                "軸",
+                "内挿の変数",
+                "方式",
+                "残す格子点",
+                "0 MWd/kg (pcm)",
+                "60 MWd/kg (pcm)",
+                "最大の格子点",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["減速材 (K)", "温度", "線形", "1 点ずつ除く", "41.87", "93.27", "600"],
+                [
+                    "減速材 (K)",
+                    "密度",
+                    "3 次 Hermite",
+                    "560、590、615",
+                    "0.70",
+                    "3.20",
+                    "600",
+                ],
+            ],
+        )
+
     def test_scheme_point_rows_have_the_signed_error_of_the_worst_burnup(self):
         table = vt.grid_interpolation_scheme_points("moderator", [self.with_schemes()])
         self.assertEqual(self.header(table), ["内挿の変数", "方式", "600", "610"])
@@ -5795,6 +5828,7 @@ class DrawProductionThinning(unittest.TestCase):
         return {
             "max_abs_pcm": pcm,
             "states": 2,
+            "timed_states": 2,
             "seconds_per_point": seconds,
             "micro": {"total": {"max_relative": micro, "nuclide": "Pu-242"}},
         }
@@ -5935,6 +5969,24 @@ class DrawProductionThinning(unittest.TestCase):
             ],
         )
 
+    def test_kind_rows_count_the_given_states_of_the_estimated_table(self):
+        # 間引きの誤差を測ったテーブルと別の、本番の形のテーブルの状態の数（timing の `states`。無い種類は 0）
+        s = self.summary()
+        for sel in s["thinning"][0]["selections"]:
+            kinds = sel["results"]["hermite"]["kinds"]
+            kinds["boron"] = kinds["boron"] | {"timed_states": 5}
+            kinds["moderator+fuel"] = kinds["moderator+fuel"] | {"timed_states": 0}
+        table = vt.production_thinning_time([s])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["公称の状態", "1", "36.1"],
+                ["状態によらない分", "", "14.6"],
+                ["B", "5", "17.4"],
+                ["M、F", "0", "1299.6"],
+            ],
+        )
+
     def test_micro_rows_have_the_hermite_item_maxima_with_the_nuclide(self):
         table = vt.production_thinning_micro([self.summary()])
         self.assertEqual(self.header(table), ["選び方", "total (%)", "reactions (%)"])
@@ -5964,6 +6016,23 @@ class DrawProductionThinning(unittest.TestCase):
         del s["thinning"][0]["plans"]
         with self.assertRaises(vt.TableError):
             vt.production_thinning_plans([s])
+
+    def test_the_record_draws_the_gd_thinning(self):
+        for name, draw in [
+            ("depletion-p9-gd-thinning", vt.production_thinning),
+            ("depletion-p9-gd-thinning-time", vt.production_thinning_time),
+            ("depletion-p9-gd-thinning-micro", vt.production_thinning_micro),
+            ("depletion-p9-gd-thinning-derivative", vt.production_thinning_derivative),
+            ("depletion-p9-gd-cross-terms", vt.branch_cross_terms),
+        ]:
+            self.assertEqual(
+                vt.TABLES[name],
+                (["examples/depletion/p9-gd/compare-2O.json"], draw),
+            )
+        self.assertEqual(
+            vt.TABLES["depletion-p9-gd-grid-schemes"],
+            (["examples/depletion/p9-gd/grid-2O.json"], vt.grid_interpolation_schemes),
+        )
 
     def test_the_record_draws_the_production_thinning(self):
         for name, draw in [

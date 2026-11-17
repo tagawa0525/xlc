@@ -1,0 +1,5 @@
+outs:
+- md5: bda60adeb8bb6aabf1544f2e000d75b1
+  size: 1024542
+  hash: md5
+  path: lattice-2O.log

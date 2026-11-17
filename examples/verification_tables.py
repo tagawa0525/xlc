@@ -2169,10 +2169,16 @@ def production_thinning_plans(sources: list[dict]) -> str:
 
 
 def production_thinning_time(sources: list[dict]) -> str:
-    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分はすべての燃焼点で数える"""
+    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分はすべての燃焼点で数える。状態の数は、
+    時間の見込みに数えた状態の数（compare_branch_cross_terms.py の `timed_states`）"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
     first = t["selections"][0]["results"]["hermite"]["kinds"]
+    if any("timed_states" not in first[k] for k in kinds):
+        raise TableError(
+            "the thinning summary has no timed state counts; rerun compare_branch_cross_terms.py"
+        )
+    counts = {k: first[k]["timed_states"] for k in kinds}
     rows = [
         ["公称の状態", "1", f"{t['timing']['solve']:.1f}"],
         ["状態によらない分", "", f"{t['other_seconds']:.1f}"],
@@ -2180,7 +2186,7 @@ def production_thinning_time(sources: list[dict]) -> str:
     rows += [
         [
             kind_letters(k),
-            str(first[k]["states"]),
+            str(counts[k]),
             f"{first[k]['seconds_per_point']:.1f}",
         ]
         for k in kinds
@@ -2315,8 +2321,9 @@ def grid_schemes(sources: list[dict]) -> tuple[dict, list[dict]]:
 
 def grid_interpolation_schemes(sources: list[dict]) -> str:
     """方式ごとの、格子点をその点を除いた格子から内挿した |Δρ| の、内側の格子点の最大（燃焼度の点ごと、pcm）と、最大の格子点
-    （すべての燃焼度の点の中で）"""
+    （すべての燃焼度の点の中で）。残す格子点（`points`）を持つ方式があれば、その列を足す（持たない方式は 1 点ずつ除く）"""
     s, schemes = grid_schemes(sources)
+    kept = any("points" in x for x in schemes)
     rows = []
     for x in schemes:
         worst = max(
@@ -2329,6 +2336,15 @@ def grid_interpolation_schemes(sources: list[dict]) -> str:
                 GRID_VARIABLE_LABELS[(x["axis"], x["variable"])],
                 GRID_METHOD_LABELS[x["method"]],
                 *(
+                    [
+                        "、".join(f"{p:g}" for p in x["points"])
+                        if "points" in x
+                        else "1 点ずつ除く"
+                    ]
+                    if kept
+                    else []
+                ),
+                *(
                     f"{max(c['points'][b]['max_abs_pcm'] for c in x['centers']):.2f}"
                     for b in range(len(s["burnup"]))
                 ),
@@ -2336,7 +2352,15 @@ def grid_interpolation_schemes(sources: list[dict]) -> str:
             ]
         )
     return markdown_table(
-        ["軸", "内挿の変数", "方式", *grid_burnup_header(s), "最大の格子点"], rows
+        [
+            "軸",
+            "内挿の変数",
+            "方式",
+            *(["残す格子点"] if kept else []),
+            *grid_burnup_header(s),
+            "最大の格子点",
+        ],
+        rows,
     )
 
 
@@ -4817,6 +4841,30 @@ TABLES = {
     "depletion-p9-2a-thinning-derivative": (
         ["examples/depletion/p9-2A/thinning-2A.json"],
         production_thinning_derivative,
+    ),
+    "depletion-p9-gd-cross-terms": (
+        ["examples/depletion/p9-gd/compare-2O.json"],
+        branch_cross_terms,
+    ),
+    "depletion-p9-gd-thinning": (
+        ["examples/depletion/p9-gd/compare-2O.json"],
+        production_thinning,
+    ),
+    "depletion-p9-gd-thinning-time": (
+        ["examples/depletion/p9-gd/compare-2O.json"],
+        production_thinning_time,
+    ),
+    "depletion-p9-gd-thinning-micro": (
+        ["examples/depletion/p9-gd/compare-2O.json"],
+        production_thinning_micro,
+    ),
+    "depletion-p9-gd-thinning-derivative": (
+        ["examples/depletion/p9-gd/compare-2O.json"],
+        production_thinning_derivative,
+    ),
+    "depletion-p9-gd-grid-schemes": (
+        ["examples/depletion/p9-gd/grid-2O.json"],
+        grid_interpolation_schemes,
     ),
     "depletion-p9-product-grid-points": (
         ["examples/depletion/p9-product/grid-2A.json"],

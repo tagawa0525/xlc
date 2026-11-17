@@ -1,0 +1,5 @@
+outs:
+- md5: 28743bb1c6a2d6735443c4eb6b100f6e
+  size: 450149
+  hash: md5
+  path: fuel-2O.log

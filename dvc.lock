@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 6db61c315d234bd99bd14e806408e2fb.dir
-      size: 5619937
+      md5: 43e004967bfb96a182111e2eb4c78855.dir
+      size: 5632325
       nfiles: 265
     - path: flake.lock
       hash: md5
@@ -50,8 +50,8 @@ stages:
       isexec: true
     - path: bin/lattice
       hash: md5
-      md5: fc1b0b0181898a43d74b808de7f0a30b
-      size: 11177472
+      md5: c3b3bba1a9b0a22a3fa20b9e0a275f85
+      size: 11234944
       isexec: true
     - path: bin/xs
       hash: md5
@@ -668,8 +668,8 @@ stages:
     deps:
     - path: examples/depletion/compare_branch_cross_terms.py
       hash: md5
-      md5: b0903aaada6ea5a733021fb3847cfc38
-      size: 41709
+      md5: 0457499058f4e050586f6bfd07611c51
+      size: 44093
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -677,8 +677,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 75a00b6f740f0bb9f23e266e1144719a
-      size: 27687
+      md5: 886381fa1550439296345932c23fc96e
+      size: 28966
   python-ast@examples/depletion/compare_burnup_interpolation.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/compare_burnup_interpolation.py 
@@ -704,8 +704,8 @@ stages:
     deps:
     - path: examples/depletion/compare_grid_interpolation.py
       hash: md5
-      md5: 7847a86b732c6477c3f088b5dccead2d
-      size: 18059
+      md5: f2cf161944dd00d04a7e5e8f74f380b7
+      size: 20070
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -713,5 +713,5 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_grid_interpolation.py.ast
       hash: md5
-      md5: 63f1cba5a0ac4c714ddb689fae1f3bf8
-      size: 11068
+      md5: 966df2466ff82607590ba264dad24057
+      size: 12370

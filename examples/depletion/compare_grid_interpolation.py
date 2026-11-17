@@ -29,6 +29,9 @@
   少数群定数の差について線形とみなす
 - `schemes` は方式ごとの `centers` と同じ形の誤差（両隣でなく、その点を除いた格子の内挿。`linear` の両隣の重みは `centers` と
   同じ）。見込みは書かない（`intervals` は線形の内挿の誤差の 2 次の見込み）
+- 方式に `points`（その軸の残す格子点。軸の両端を含む増える列で、どれかの点を除く）があれば、内側の点を 1 つずつ除く代わりに、
+  残す格子点だけから、除いた格子点のそれぞれを内挿して比べる（ADR-0242 の案 F3 の、格子点を減らす比べ方。#0274 の「格子点を
+  減らす」）。要約の方式は同じ `points` を持ち、`centers` は除いた格子点の誤差
 - `inputs` は読んだファイル（TOML とテーブル）のパス（実行した cwd から）と md5
 """
 
@@ -176,10 +179,36 @@ def check_scheme(spec: dict, axes: dict) -> None:
         )
     if method not in METHODS:
         raise SystemExit(f"scheme: method {method!r} is not one of {sorted(METHODS)}")
-    if len(axes[axis]["points"]) - 1 < MIN_POINTS[method]:
+    full = [float(x) for x in axes[axis]["points"]]
+    kept = spec.get("points")
+    if kept is None:
+        if len(full) - 1 < MIN_POINTS[method]:
+            raise SystemExit(
+                f"scheme: {method} needs {MIN_POINTS[method]} points without the inner point, "
+                f"the {axis} axis has {len(full)}"
+            )
+        return
+    if not isinstance(kept, list) or any(
+        isinstance(x, bool) or not isinstance(x, (int, float)) for x in kept
+    ):
+        raise SystemExit(f"scheme: the kept points {kept!r} must be a list of numbers")
+    kept = [float(x) for x in kept]
+    # 端を除くと外挿になる（core は外挿しない。ADR-0097）
+    if (
+        not kept
+        or any(x not in full for x in kept)
+        or any(b <= a for a, b in itertools.pairwise(kept))
+        or kept[0] != full[0]
+        or kept[-1] != full[-1]
+        or len(kept) == len(full)
+    ):
         raise SystemExit(
-            f"scheme: {method} needs {MIN_POINTS[method]} points without the inner point, "
-            f"the {axis} axis has {len(axes[axis]['points'])}"
+            f"scheme: the kept points {kept} must be increasing points of the {axis} axis {full} "
+            "from the first to the last, leaving some out"
+        )
+    if len(kept) < MIN_POINTS[method]:
+        raise SystemExit(
+            f"scheme: {method} needs {MIN_POINTS[method]} kept points, not {len(kept)}"
         )
 
 
@@ -276,9 +305,16 @@ def summarize(table: dict, schemes: list[dict] = ()) -> dict:
         check_scheme(spec, state_axes_by_name)
         a = names.index(spec["axis"])
         full = VARIABLES[spec["variable"]](state_axes_by_name[spec["axis"]])
+        if "points" in spec:
+            kept = [points[a].index(float(x)) for x in spec["points"]]
+            cases = [(i, kept) for i in range(len(full)) if i not in kept]
+        else:
+            cases = [
+                (i, [k for k in range(len(full)) if k != i])
+                for i in range(1, len(full) - 1)
+            ]
         rows = []
-        for i in range(1, len(full) - 1):
-            rest = [k for k in range(len(full)) if k != i]
+        for i, rest in cases:
             weights = METHODS[spec["method"]]([full[k] for k in rest], full[i])
             rows.append(
                 {
@@ -286,14 +322,14 @@ def summarize(table: dict, schemes: list[dict] = ()) -> dict:
                     "points": errors(a, i, {rest[m]: c for m, c in weights.items()}),
                 }
             )
-        scheme_rows.append(
-            {
-                "axis": spec["axis"],
-                "variable": spec["variable"],
-                "method": spec["method"],
-                "centers": rows,
-            }
-        )
+        row = {
+            "axis": spec["axis"],
+            "variable": spec["variable"],
+            "method": spec["method"],
+        }
+        if "points" in spec:
+            row["points"] = [float(x) for x in spec["points"]]
+        scheme_rows.append(row | {"centers": rows})
     return {
         "format": "xlc-compare-grid-interpolation",
         "burnup": burnup,
@@ -345,10 +381,15 @@ def report(summary: dict) -> list[str]:
         )
     if summary["schemes"]:
         lines.append(
-            "方式ごとに、格子点をその点を除いた格子から内挿した |Δρ| の最大（pcm。燃焼度の点ごと）:"
+            "方式ごとに、格子点をその点を除いた格子（残す点があればその点）から内挿した |Δρ| の最大（pcm。燃焼度の点ごと）:"
         )
     for x in summary["schemes"]:
-        lines.append(f"  {x['axis']}、{x['variable']}、{x['method']}:")
+        kept = (
+            f"、残す点 {'、'.join(f'{p:g}' for p in x['points'])}"
+            if "points" in x
+            else ""
+        )
+        lines.append(f"  {x['axis']}、{x['variable']}、{x['method']}{kept}:")
         for c in x["centers"]:
             values = "、".join(
                 f"{p['worst_pcm']:+.2f}（{p['worst']}）" for p in c["points"]
@@ -371,7 +412,7 @@ def main() -> None:
         path = config_path.parent / config["table"]
         data = path.read_bytes()
         for spec in config.get("scheme", []):
-            extra = sorted(set(spec) - {"axis", "variable", "method"})
+            extra = sorted(set(spec) - {"axis", "variable", "method", "points"})
             if extra:
                 raise SystemExit(f"{config_path}: unknown scheme keys {extra}")
         summary = summarize(msgpack.unpackb(data), config.get("scheme", []))

@@ -1,0 +1,5 @@
+outs:
+- md5: 5ad37b4af4620c98cfb67c4f00b355fc
+  size: 2232552
+  hash: md5
+  path: fuel-2O.msgpack

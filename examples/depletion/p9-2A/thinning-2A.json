@@ -111,6 +111,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.0015098306407967876,
@@ -257,6 +258,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0065281072525078905,
@@ -403,6 +405,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.005389391321665273,
@@ -549,6 +552,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.008069016523663626,
@@ -695,6 +699,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0064565616995953925,
@@ -841,6 +846,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.011098064124650767,
@@ -1156,6 +1162,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.0035743274965649796,
@@ -1302,6 +1309,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.006021883343489571,
@@ -1448,6 +1456,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.012354909866961458,
@@ -1594,6 +1603,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.006118026687839125,
@@ -1740,6 +1750,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.015838060886222655,
@@ -1886,6 +1897,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.01322643365453834,
@@ -2236,6 +2248,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.0006048769354256056,
@@ -2382,6 +2395,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0034326473862105918,
@@ -2528,6 +2542,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.004792334647571038,
@@ -2674,6 +2689,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0035061344233469067,
@@ -2820,6 +2836,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.004999780005836119,
@@ -2966,6 +2983,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.007964059854453396,
@@ -3279,6 +3297,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.00030520134839384335,
@@ -3425,6 +3444,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0036566405032208995,
@@ -3571,6 +3591,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0025686279263882634,
@@ -3717,6 +3738,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0037092634127078583,
@@ -3863,6 +3885,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0027778764103886006,
@@ -4009,6 +4032,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.004499990206739969,
@@ -4357,6 +4381,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.0004670180418212564,
@@ -4503,6 +4528,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.004886309165690278,
@@ -4649,6 +4675,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0015298171051313233,
@@ -4795,6 +4822,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0049531706306535144,
@@ -4941,6 +4969,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0019874650820398323,
@@ -5087,6 +5116,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.00520521350771511,
@@ -5398,6 +5428,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 9.499468842555154e-05,
@@ -5544,6 +5575,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.005036450868098978,
@@ -5690,6 +5722,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0007644668627793887,
@@ -5836,6 +5869,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.005073727219744012,
@@ -5982,6 +6016,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0007777687914998973,
@@ -6128,6 +6163,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.005141057329061817,
@@ -6474,6 +6510,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.00032581365020824883,
@@ -6620,6 +6657,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.003845836332332115,
@@ -6766,6 +6804,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.001331224321371846,
@@ -6912,6 +6951,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0038613958663727553,
@@ -7058,6 +7098,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0014630745468369323,
@@ -7204,6 +7245,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.0041403465614365895,
@@ -7513,6 +7555,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 6.253669139732181e-05,
@@ -7659,6 +7702,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.00415929561510817,
@@ -7805,6 +7849,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0005061305438654842,
@@ -7951,6 +7996,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.004163025466896797,
@@ -8097,6 +8143,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0005520819151185729,
@@ -8243,6 +8290,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.004323619190215332,
@@ -8587,6 +8635,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.0001989925124414507,
@@ -8733,6 +8782,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0029949993467201495,
@@ -8879,6 +8929,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0010033104690579883,
@@ -9025,6 +9076,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0030510659638126763,
@@ -9171,6 +9223,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0010838028019283332,
@@ -9317,6 +9370,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.0033416889515929995,
@@ -9624,6 +9678,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 4.7705051311234746e-05,
@@ -9770,6 +9825,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0028817053552418494,
@@ -9916,6 +9972,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.00042849843891606704,
@@ -10062,6 +10119,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.002923581503912639,
@@ -10208,6 +10266,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0004752731936860555,
@@ -10354,6 +10413,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.003124922575976522,
@@ -10697,6 +10757,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 0.0001989925124414507,
@@ -10843,6 +10904,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0029949993467201495,
@@ -10989,6 +11051,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0010033104690579883,
@@ -11135,6 +11198,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0030510659638126763,
@@ -11281,6 +11345,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0010838028019283332,
@@ -11427,6 +11492,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.0033416889515929995,
@@ -11733,6 +11799,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 4.7705051311234746e-05,
@@ -11879,6 +11946,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0028817053552418494,
@@ -12025,6 +12093,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.00042849843891606704,
@@ -12171,6 +12240,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.002923581503912639,
@@ -12317,6 +12387,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0004752731936860555,
@@ -12463,6 +12534,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.003124922575976522,
@@ -12801,6 +12873,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 8.299163360853373e-05,
@@ -12947,6 +13020,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.00021621882944813996,
@@ -13093,6 +13167,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.00035301513692161265,
@@ -13239,6 +13314,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.0002596766853071886,
@@ -13385,6 +13461,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.00036553541313088844,
@@ -13531,6 +13608,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.0005986742919609265,
@@ -13832,6 +13910,7 @@
          },
          "states": 5,
          "seconds_per_point": 43.5,
+         "timed_states": 5,
          "micro": {
           "total": {
            "max_relative": 1.7232024950776705e-05,
@@ -13978,6 +14057,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 0.0001227802974884818,
@@ -14124,6 +14204,7 @@
          },
          "states": 6,
          "seconds_per_point": 216.60000000000002,
+         "timed_states": 6,
          "micro": {
           "total": {
            "max_relative": 6.232740581594342e-05,
@@ -14270,6 +14351,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 0.00012423046399165184,
@@ -14416,6 +14498,7 @@
          },
          "states": 30,
          "seconds_per_point": 261.0,
+         "timed_states": 30,
          "micro": {
           "total": {
            "max_relative": 7.969944937385858e-05,
@@ -14562,6 +14645,7 @@
          },
          "states": 36,
          "seconds_per_point": 1299.6000000000001,
+         "timed_states": 36,
          "micro": {
           "total": {
            "max_relative": 0.0001506115029021859,

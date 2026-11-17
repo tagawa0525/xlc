@@ -28,10 +28,12 @@
     selections = [{ name = "3 点", burnup = [0, 0.5, 60] }]   # 最初と最後の点を含み、どれかの点を除く
 
     [thinning.timing]                      # 省略できる。テーブルを作る時間の見込み（`thinning_time`）
-    total = 2349                           # すべての状態を解いた燃焼点 1 つの秒
+    total = 2349                           # すべての状態を解いた燃焼点 1 つの秒（`other` と一方だけ）
     solve = 36.1                           # 自己遮蔽を解く 1 状態の秒
     reuse = 8.7                            # 自己遮蔽を再利用する 1 状態の秒
     reuse-axis = "boron"
+    # other = 14.6                         # `total` の代わりに、燃焼点 1 つの状態によらない秒
+    # states = { boron = 5, ... }          # 省略できる。見込むテーブルの種類ごとの状態の数（どの種類も書く。`other` と使う）。省略するとこのテーブルの数
 
     [[thinning.plans]]                     # 省略できる（timing が要る）。状態の種類ごとに選び方を決めた組
     name = "混ぜる"
@@ -595,6 +597,7 @@ def thin(
                 }
                 if seconds is not None:
                     kinds[k]["seconds_per_point"] = seconds["kinds"][k]
+                    kinds[k]["timed_states"] = seconds["counts"][k]
                 if micro is not None:
                     kinds[k] |= ordered_items(micro_kind[k])
             results[method] = {
@@ -626,7 +629,7 @@ def thin(
         out.append(entry)
     summary = {"name": name, "burnup": burnup, "selections": out}
     if seconds is not None:
-        summary["hours"] = len(burnup) * float(timing["total"]) / 3600
+        summary["hours"] = len(burnup) * seconds["total"] / 3600
         summary["other_seconds"] = seconds["other"]
         summary["timing"] = dict(timing)
     if plans:
@@ -645,19 +648,61 @@ def thinning_time(timing: dict, counts: dict) -> dict:
     """テーブルを作る時間の見込みの、燃焼点ごとの秒。`timing` は、すべての状態を解いた燃焼点 1 つの全体の秒 `total`、自己遮蔽を
     解く状態の 1 状態の秒 `solve`、自己遮蔽を再利用する状態の秒 `reuse`、再利用する状態の変えた軸 `reuse-axis`（ADR-0201 の
     ホウ素。その軸を公称から変えた状態は、ほかの軸の同じ状態の自己遮蔽を再利用する）。公称の状態は `solve`。状態によらない秒
-    （`other`）は、`total` から状態の秒を引いた残り。状態の種類ごと（`counts` は種類 → 状態の数）の秒は、状態の数 × 1 状態の秒"""
+    （`other`）は、`total` から状態の秒を引いた残りか、`total` の代わりに `timing` の `other`。状態の種類ごと（`counts` は種類 →
+    状態の数）の秒は、状態の数 × 1 状態の秒。`timing` の `states`（種類 → 状態の数。テーブルのどの種類も書く）があれば、`counts` の
+    代わりにその数で数え、状態によらない秒は `other` で与える（間引きの誤差を測ったテーブルと別の、本番の形のテーブルの見込み）。数えた状態の数 `counts` と全体の秒 `total` も返す"""
+    unknown_keys = sorted(
+        set(timing) - {"total", "other", "solve", "reuse", "reuse-axis", "states"}
+    )
+    if unknown_keys:
+        raise SystemExit(f"unknown timing keys {unknown_keys}")
+    if ("total" in timing) == ("other" in timing):
+        raise SystemExit("give the timing either the total or the other seconds")
+    given = timing.get("states")
+    if given is not None:
+        # total は誤差を測ったテーブルの全体の秒で、別のテーブルの状態の秒を引いても状態によらない秒にならない
+        if "other" not in timing:
+            raise SystemExit("timing states need the other seconds, not the total")
+        if sorted(given) != sorted(counts):
+            raise SystemExit(
+                f"the timing states {sorted(given)} must name every kind of the table {list(counts)} (0 for kinds the estimated table does not solve)"
+            )
+        bad = {
+            k: v
+            for k, v in given.items()
+            if isinstance(v, bool) or not isinstance(v, int) or v < 0
+        }
+        if bad:
+            raise SystemExit(
+                f"the timing states {bad} must be counts (integers 0 or more)"
+            )
+        counts = {k: given[k] for k in counts}
     axis = timing["reuse-axis"]
     per_state = {
         k: float(timing["reuse"] if axis in k.split("+") else timing["solve"])
         for k in counts
     }
     kinds = {k: counts[k] * per_state[k] for k in counts}
-    other = float(timing["total"]) - float(timing["solve"]) - sum(kinds.values())
-    if other < 0:
-        raise SystemExit(
-            f"the states take {sum(kinds.values()) + float(timing['solve'])} s, more than the total {timing['total']} s"
-        )
-    return {"kinds": kinds, "other": other, "nominal": float(timing["solve"])}
+    states = float(timing["solve"]) + sum(kinds.values())
+    if "other" in timing:
+        other = float(timing["other"])
+        if other < 0:
+            raise SystemExit(f"the other seconds {other} are negative")
+        total = other + states
+    else:
+        total = float(timing["total"])
+        other = total - states
+        if other < 0:
+            raise SystemExit(
+                f"the states take {states} s, more than the total {timing['total']} s"
+            )
+    return {
+        "kinds": kinds,
+        "counts": counts,
+        "other": other,
+        "nominal": float(timing["solve"]),
+        "total": total,
+    }
 
 
 def table_hours(seconds: dict, burnups: int, points: dict) -> float:

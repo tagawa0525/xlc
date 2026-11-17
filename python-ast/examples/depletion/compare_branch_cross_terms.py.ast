@@ -317,6 +317,7 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
                 kinds[k] = {'max_abs_pcm': abs(per_kind[k][0]), 'worst_pcm': per_kind[k][0], 'worst': per_kind[k][1], 'states': counts[k]}
                 if seconds is not None:
                     kinds[k]['seconds_per_point'] = seconds['kinds'][k]
+                    kinds[k]['timed_states'] = seconds['counts'][k]
                 if micro is not None:
                     kinds[k] |= ordered_items(micro_kind[k])
             results[method] = {'rho_pcm': worst_per_point, 'max_abs_pcm': abs(worst[0]), 'worst_pcm': worst[0], 'worst': worst[1], 'kinds': kinds}
@@ -335,7 +336,7 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
         out.append(entry)
     summary = {'name': name, 'burnup': burnup, 'selections': out}
     if seconds is not None:
-        summary['hours'] = len(burnup) * float(timing['total']) / 3600
+        summary['hours'] = len(burnup) * seconds['total'] / 3600
         summary['other_seconds'] = seconds['other']
         summary['timing'] = dict(timing)
     if plans:
@@ -345,13 +346,36 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
     return summary
 
 def thinning_time(timing: dict, counts: dict) -> dict:
+    unknown_keys = sorted(set(timing) - {'total', 'other', 'solve', 'reuse', 'reuse-axis', 'states'})
+    if unknown_keys:
+        raise SystemExit(f'unknown timing keys {unknown_keys}')
+    if ('total' in timing) == ('other' in timing):
+        raise SystemExit('give the timing either the total or the other seconds')
+    given = timing.get('states')
+    if given is not None:
+        if 'other' not in timing:
+            raise SystemExit('timing states need the other seconds, not the total')
+        if sorted(given) != sorted(counts):
+            raise SystemExit(f'the timing states {sorted(given)} must name every kind of the table {list(counts)} (0 for kinds the estimated table does not solve)')
+        bad = {k: v for k, v in given.items() if isinstance(v, bool) or not isinstance(v, int) or v < 0}
+        if bad:
+            raise SystemExit(f'the timing states {bad} must be counts (integers 0 or more)')
+        counts = {k: given[k] for k in counts}
     axis = timing['reuse-axis']
     per_state = {k: float(timing['reuse'] if axis in k.split('+') else timing['solve']) for k in counts}
     kinds = {k: counts[k] * per_state[k] for k in counts}
-    other = float(timing['total']) - float(timing['solve']) - sum(kinds.values())
-    if other < 0:
-        raise SystemExit(f"the states take {sum(kinds.values()) + float(timing['solve'])} s, more than the total {timing['total']} s")
-    return {'kinds': kinds, 'other': other, 'nominal': float(timing['solve'])}
+    states = float(timing['solve']) + sum(kinds.values())
+    if 'other' in timing:
+        other = float(timing['other'])
+        if other < 0:
+            raise SystemExit(f'the other seconds {other} are negative')
+        total = other + states
+    else:
+        total = float(timing['total'])
+        other = total - states
+        if other < 0:
+            raise SystemExit(f"the states take {states} s, more than the total {timing['total']} s")
+    return {'kinds': kinds, 'counts': counts, 'other': other, 'nominal': float(timing['solve']), 'total': total}
 
 def table_hours(seconds: dict, burnups: int, points: dict) -> float:
     total = burnups * (seconds['other'] + seconds['nominal'])

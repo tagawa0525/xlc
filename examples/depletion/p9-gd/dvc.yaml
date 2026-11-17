@@ -1,0 +1,30 @@
+# Problem 9 の分岐のテーブルの解く状態と燃焼点を減らす案（ADR-0200 の案 B2 と案 H、ADR-0242 の案 F3）が、Gd 燃料の集合体（2O）でも
+# 成り立つかを測る比較のステージ（#0176）。格子計算（公称の状態での 2O の燃焼の履歴 lattice-2O.toml、各軸の両端と公称の点の直積を
+# 27 燃焼点で解いたテーブル branch-2O.toml、燃料の温度の 7 点を少数の燃焼点で解いたテーブル fuel-2O.toml）は記録に書く試行で、
+# ステージにせず Slurm で直接流し、出力を `dvc add` した（.dvc ファイル）。上流のライブラリ ../p2/depletion.msgpack と燃焼チェーン
+# ../chain.msgpack のステージが bin の変更で deps だけ changed のままで、ステージにすると作り直しが先に走るため。実行するのは default の
+# devShell の `dvc repro`（ADR-0159）
+stages:
+  compare-2O:
+    # 交差の項と燃焼点の間引きの要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_branch_cross_terms.py --json compare-2O.json compare-2O.toml
+    deps:
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - compare-2O.toml
+      - table-2O.msgpack
+    outs:
+      - compare-2O.json:
+          cache: false
+  grid-2O:
+    # 燃料の温度の格子点を減らした内挿の誤差の要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_grid_interpolation.py --json grid-2O.json grid-2O.toml
+    deps:
+      - grid-2O.toml
+      - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - fuel-2O.msgpack
+    outs:
+      - grid-2O.json:
+          cache: false
