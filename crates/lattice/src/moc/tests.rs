@@ -978,8 +978,8 @@ fn rejects_tolerances_that_do_not_bound_cmfd() {
 }
 
 #[test]
-fn cmfd_couplings_converge_to_the_same_solution() {
-    // CMFD の組み方と解き方を変える項目（#0289）は、反復の進み方だけを変え、収束した解を判定の中で変えない。鏡面反射と
+fn cmfd_couplings_and_sweeps_converge_to_the_same_solution() {
+    // CMFD の組み方と解き方を変える項目と、反復ごとのスイープの数（#0289）は、反復の進み方だけを変え、収束した解を判定の中で変えない。鏡面反射と
     // 真空の辺の両方がある格子で確かめる
     let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
     let water = PinCell::new(1.26, vec![]).unwrap();
@@ -1005,6 +1005,21 @@ fn cmfd_couplings_converge_to_the_same_solution() {
     };
     let reference = solve(&tracking, &materials, &tight).unwrap();
     let base = Coupling::default();
+    let two = solve(&tracking, &materials, &Options { sweeps: 2, ..tight }).unwrap();
+    assert!(
+        (two.k - reference.k).abs() < 1e-8,
+        "two sweeps: {} vs {}",
+        two.k,
+        reference.k
+    );
+    for (a, b) in two
+        .flux
+        .iter()
+        .flatten()
+        .zip(reference.flux.iter().flatten())
+    {
+        assert!(relative_change(*a, *b) < 1e-7, "two sweeps: {a} vs {b}");
+    }
     for coupling in [
         Coupling {
             relaxed: false,
