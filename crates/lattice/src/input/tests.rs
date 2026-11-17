@@ -1,7 +1,7 @@
 use super::*;
 use crate::branches::BranchShielding;
 use crate::cmfd::CmfdOptions;
-use crate::moc::{Acceleration, Options};
+use crate::moc::{Acceleration, Coupling, Options};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response};
 
 const PIN_CELL: &str = r#"
@@ -865,6 +865,62 @@ fn scattering_order_is_optional() {
         "cross-sections = \"c5g7.toml\"",
         "cross-sections = \"c5g7.toml\"\nscattering-order = 1",
     );
+    assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
+}
+
+#[test]
+fn moc_options_default_to_the_moc_defaults() {
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL).unwrap().moc,
+        Options::default()
+    );
+}
+
+#[test]
+fn moc_options_set_tolerances_and_cmfd_couplings() {
+    let input = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[moc]\nk-tolerance = 1e-9\nflux-tolerance = 1e-8\ncmfd-k-tolerance = 1e-12\n\
+         cmfd-flux-tolerance = 1e-10\ncmfd-relaxed = false\n\
+         cmfd-reflective-current = \"zero\"\n"
+    ))
+    .unwrap();
+    let default = Options::default();
+    let Acceleration::Cmfd(cmfd) = default.acceleration else {
+        panic!("the default accelerates with CMFD");
+    };
+    assert_eq!(
+        input.moc,
+        Options {
+            k_tolerance: 1e-9,
+            flux_tolerance: 1e-8,
+            acceleration: Acceleration::Cmfd(CmfdOptions {
+                k_tolerance: 1e-12,
+                flux_tolerance: 1e-10,
+                ..cmfd
+            }),
+            coupling: Coupling {
+                relaxed: false,
+                zero_reflective_current: true,
+            },
+            ..default
+        }
+    );
+    // 書かない項目は既定のまま
+    let input = LatticeInput::parse(&format!("{PIN_CELL}\n[moc]\nk-tolerance = 1e-9\n")).unwrap();
+    assert_eq!(
+        input.moc,
+        Options {
+            k_tolerance: 1e-9,
+            ..default
+        }
+    );
+}
+
+#[test]
+fn rejects_unknown_moc_reflective_current() {
+    let result = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[moc]\ncmfd-reflective-current = \"lagged\"\n"
+    ));
     assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
 }
 

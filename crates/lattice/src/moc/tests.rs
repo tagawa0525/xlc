@@ -978,6 +978,59 @@ fn rejects_tolerances_that_do_not_bound_cmfd() {
 }
 
 #[test]
+fn cmfd_couplings_converge_to_the_same_solution() {
+    // CMFD の組み方と解き方を変える項目（#0289）は、反復の進み方だけを変え、収束した解を判定の中で変えない。鏡面反射と
+    // 真空の辺の両方がある格子で確かめる
+    let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let water = PinCell::new(1.26, vec![]).unwrap();
+    let layout = vec![vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 1]];
+    let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+    let boundaries = Boundaries {
+        right: Boundary::Vacuum,
+        bottom: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+    let (f, m) = (fuel(), moderator());
+    let materials = [&f, &m, &m, &m, &m, &f, &m, &m, &m, &m, &m];
+    let tight = Options {
+        k_tolerance: 1e-10,
+        flux_tolerance: 1e-9,
+        acceleration: Acceleration::Cmfd(CmfdOptions {
+            k_tolerance: 1e-12,
+            flux_tolerance: 1e-10,
+            ..CmfdOptions::default()
+        }),
+        ..Options::default()
+    };
+    let reference = solve(&tracking, &materials, &tight).unwrap();
+    let base = Coupling::default();
+    for coupling in [
+        Coupling {
+            relaxed: false,
+            ..base
+        },
+        Coupling {
+            zero_reflective_current: true,
+            ..base
+        },
+    ] {
+        let options = Options { coupling, ..tight };
+        let s =
+            solve(&tracking, &materials, &options).unwrap_or_else(|e| panic!("{coupling:?}: {e}"));
+        assert!(
+            (s.k - reference.k).abs() < 1e-8,
+            "{coupling:?}: {} vs {}",
+            s.k,
+            reference.k
+        );
+        for (a, b) in s.flux.iter().flatten().zip(reference.flux.iter().flatten()) {
+            assert!(relative_change(*a, *b) < 1e-7, "{coupling:?}: {a} vs {b}");
+        }
+    }
+}
+
+#[test]
 fn relative_change_handles_zero_flux() {
     assert_eq!(relative_change(0.0, 0.0), 0.0);
     assert_eq!(relative_change(1.0, 0.0), 1.0);
