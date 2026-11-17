@@ -4,7 +4,7 @@ date: 2026-10-23
 requires: [ADR-0067, ADR-0130, ADR-0138, ADR-0159, ADR-0184, ADR-0189]
 supersedes: []
 superseded-by:
-issues: ["#0157"]
+issues: ["#0157", "#0288"]
 ---
 
 # ADR-0193: 核種ごとのステージを、DVC の外の runner が前回の CPU 時間の長い順に同時に実行し、dvc commit で lock に取り込む

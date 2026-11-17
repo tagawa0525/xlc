@@ -5,7 +5,7 @@ requires: [ADR-0159, ADR-0130]
 supersedes: []
 superseded-by:
 amends: [ADR-0159]
-issues: ["#0220"]
+issues: ["#0220", "#0288"]
 ---
 
 # ADR-0184: 重いステージは、目標のステージを指定して 1 本ずつ Slurm に流す

@@ -1,0 +1,39 @@
+schema: '2.0'
+stages:
+  branch-2A:
+    cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: b54520abc189139cc6b34ae570f84061
+      size: 11161856
+      isexec: true
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: ../p2/depletion.msgpack
+      hash: md5
+      md5: 975be970e7d0ff588e506ff0be5a7980
+      size: 1482667012
+    - path: ../p9-product/lattice-2A.msgpack
+      hash: md5
+      md5: 21f901cc677e02e70d0a24f3964d475e
+      size: 275077646
+    - path: branch-2A.toml
+      hash: md5
+      md5: b2a8b4b9d266d83557a01a507a7243f8
+      size: 7212
+    outs:
+    - path: branch-2A.log
+      hash: md5
+      md5: 5e54fe211dd84fa65babc597d38add99
+      size: 9532666
+    - path: branch-2A.out
+      hash: md5
+      md5: 419645fc925cef8bf2027a81db05a795
+      size: 67299
+    - path: table-2A.msgpack
+      hash: md5
+      md5: c33a630dde56915eb45d069cceeb0a02
+      size: 36323004

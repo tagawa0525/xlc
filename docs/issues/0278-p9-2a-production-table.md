@@ -13,7 +13,11 @@ resolution:
 ## 問題
 
 炉心の燃焼を最小の入力で縦に通すために、ADR-0239 の格子点で本番の形の 2A のテーブルを作る。入力とステージは
-examples/depletion/p9-2A（`branch-2A`。未実行）。
+examples/depletion/p9-2A（`branch-2A`）。テーブルは、ブランチ chore/rerun-new-defaults（分岐点は main の d6cc90d9）で作った
+（`table-2A.msgpack` md5 c33a630d。`p9-2A/dvc.lock`）。d6cc90d9 の Slurm 896（2026-11-15）が 687 状態を解いた所でカーネルの OOM killer に
+止められ（ほかのサービスのメモリと重なった）、68251719 の Slurm 908（2026-11-16）が同じコマンドでチェックポイント（ADR-0196）から続きを解いた。
+どちらも区分 record、パーティション main のジョブで、経過時間は 896 が 3 時間 48 分 43 秒（上流の `lattice-2A` を含む）、908 が 13 時間 39 分 56 秒
+（sacct。割り込まれうるジョブで再開を含むので、記録の時間には使わない）。
 
 関係する ADR: ADR-0239、ADR-0249、ADR-0251、ADR-0252
 
