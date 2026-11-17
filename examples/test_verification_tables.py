@@ -5828,6 +5828,7 @@ class DrawProductionThinning(unittest.TestCase):
         return {
             "max_abs_pcm": pcm,
             "states": 2,
+            "timed_states": 2,
             "seconds_per_point": seconds,
             "micro": {"total": {"max_relative": micro, "nuclide": "Pu-242"}},
         }
@@ -5971,7 +5972,10 @@ class DrawProductionThinning(unittest.TestCase):
     def test_kind_rows_count_the_given_states_of_the_estimated_table(self):
         # 間引きの誤差を測ったテーブルと別の、本番の形のテーブルの状態の数（timing の `states`。無い種類は 0）
         s = self.summary()
-        s["thinning"][0]["timing"]["states"] = {"boron": 5}
+        for sel in s["thinning"][0]["selections"]:
+            kinds = sel["results"]["hermite"]["kinds"]
+            kinds["boron"] = kinds["boron"] | {"timed_states": 5}
+            kinds["moderator+fuel"] = kinds["moderator+fuel"] | {"timed_states": 0}
         table = vt.production_thinning_time([s])
         self.assertEqual(
             self.rows(table),

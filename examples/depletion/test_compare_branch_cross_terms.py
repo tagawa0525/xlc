@@ -749,6 +749,26 @@ class ThinningTime(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "total"):
                 cct.thin("t", t, NOMINAL, selection, timing)
 
+    def test_given_states_must_be_counts(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        selection = [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}]
+        for count in (5.9, -3, True):
+            timing = TIMING | {"states": {"boron": count}}
+            with self.assertRaisesRegex(SystemExit, "count", msg=count):
+                cct.thin("t", t, NOMINAL, selection, timing)
+
+    def test_the_kinds_carry_the_state_counts_of_the_time_estimate(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        selection = [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}]
+        timing = TIMING | {"states": {"boron": 5}}
+        (s,) = cct.thin("t", t, NOMINAL, selection, timing)["selections"]
+        kinds = s["results"]["hermite"]["kinds"]
+        self.assertEqual(kinds["boron"]["timed_states"], 5)
+        self.assertEqual(kinds["moderator"]["timed_states"], 0)
+        (s,) = cct.thin("t", t, NOMINAL, selection, TIMING)["selections"]
+        kinds = s["results"]["hermite"]["kinds"]
+        self.assertEqual(kinds["boron"]["timed_states"], kinds["boron"]["states"])
+
     def test_given_states_must_be_kinds_of_the_table(self):
         t = Thinning().branch_table(lambda u: 1e-3 * u)
         timing = TIMING | {"states": {"boron+rods": 3}}
