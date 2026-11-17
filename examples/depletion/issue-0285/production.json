@@ -5706,55 +5706,79 @@
     "kinds": {
      "ratio-first": {
       "states": 7,
-      "seconds": 592.031172662,
+      "seconds": 414.024117122,
       "ufg": [
-       7,
-       207.6
+       1,
+       29.5
       ],
       "ratio": [
        7,
-       326.40000000000003
+       319.8
       ],
       "moc_state": [
        7,
-       21.9
+       26.720000000000002
       ],
       "moc_other": [
        7,
-       20.94
+       22.400000000000002
       ],
       "derivative": [
        7,
-       28.023059641000003
+       29.676286710999996
       ]
      },
      "ratio": {
-      "states": 14,
-      "seconds": 415.5861335800001,
+      "states": 35,
+      "seconds": 1051.0438293820002,
       "ufg": [
        0,
        0.0
       ],
       "ratio": [
-       14,
-       299.3
+       35,
+       757.0999999999999
       ],
       "moc_state": [
-       14,
-       46.629999999999995
+       35,
+       113.96000000000002
       ],
       "moc_other": [
-       14,
-       39.88000000000001
+       35,
+       104.84000000000002
       ],
       "derivative": [
-       14,
-       53.987113330999996
+       35,
+       140.374577214
+      ]
+     },
+     "ufg": {
+      "states": 6,
+      "seconds": 216.603878307,
+      "ufg": [
+       6,
+       166.4
+      ],
+      "ratio": [
+       0,
+       0.0
+      ],
+      "moc_state": [
+       6,
+       19.05
+      ],
+      "moc_other": [
+       6,
+       18.79
+      ],
+      "derivative": [
+       6,
+       24.598349874999997
       ]
      },
      "remix": {
-      "states": 35,
-      "seconds": 311.37134009299996,
+      "states": 66,
+      "seconds": 578.622914887,
       "ufg": [
        0,
        0.0
@@ -5764,33 +5788,961 @@
        0.0
       ],
       "moc_state": [
-       35,
-       127.89000000000001
+       66,
+       236.83999999999997
       ],
       "moc_other": [
-       35,
-       108.88000000000001
+       66,
+       202.75000000000003
       ],
       "derivative": [
-       35,
-       144.585575059
+       66,
+       268.125478892
       ]
      }
     },
-    "state_seconds": 1318.9886463349999,
-    "total_seconds": 1328.675256271,
+    "state_seconds": 2260.294739698,
+    "total_seconds": 2274.021845935,
     "shieldings": 7.0,
-    "ratios": 21.0,
+    "ratios": 42.0,
     "states": [
      {
-      "state": 130,
+      "state": 3,
       "kind": "ratio-first",
-      "seconds": 82.068792621,
+      "seconds": 86.618054648,
+      "ufg": 29.5,
+      "ratio": 45.5,
+      "moc_state": 6.22,
+      "moc_other": 3.3,
+      "derivative": 4.293622838,
+      "point": [
+       0,
+       0,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 10,
+      "kind": "ratio",
+      "seconds": 32.144005252,
+      "ufg": 0,
+      "ratio": 22.7,
+      "moc_state": 4.25,
+      "moc_other": 3.11,
+      "derivative": 4.119133487,
+      "point": [
+       0,
+       0,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 14,
+      "kind": "ufg",
+      "seconds": 40.916409987,
+      "ufg": 31.6,
+      "ratio": 0,
+      "moc_state": 4.23,
+      "moc_other": 3.11,
+      "derivative": 4.071613947,
+      "point": [
+       0,
+       0,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 15,
+      "kind": "ufg",
+      "seconds": 36.624025612,
       "ufg": 29.0,
-      "ratio": 44.6,
+      "ratio": 0,
+      "moc_state": 2.44,
+      "moc_other": 3.13,
+      "derivative": 4.091507307,
+      "point": [
+       0,
+       0,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 16,
+      "kind": "ufg",
+      "seconds": 36.275881799,
+      "ufg": 27.8,
+      "ratio": 0,
+      "moc_state": 3.19,
+      "moc_other": 3.16,
+      "derivative": 4.140730388,
+      "point": [
+       0,
+       0,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 17,
+      "kind": "remix",
+      "seconds": 8.311532786,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.14,
+      "moc_other": 3.13,
+      "derivative": 4.109150607,
+      "point": [
+       0,
+       0,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 18,
+      "kind": "ufg",
+      "seconds": 34.732154089,
+      "ufg": 26.5,
+      "ratio": 0,
+      "moc_state": 3.07,
+      "moc_other": 3.1,
+      "derivative": 4.057076798,
+      "point": [
+       0,
+       0,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 19,
+      "kind": "ufg",
+      "seconds": 34.239046078,
+      "ufg": 25.9,
+      "ratio": 0,
+      "moc_state": 3.14,
+      "moc_other": 3.11,
+      "derivative": 4.075034143,
+      "point": [
+       0,
+       0,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 20,
+      "kind": "ufg",
+      "seconds": 33.816360742,
+      "ufg": 25.6,
+      "ratio": 0,
+      "moc_state": 2.98,
+      "moc_other": 3.18,
+      "derivative": 4.162387292,
+      "point": [
+       0,
+       0,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 24,
+      "kind": "ratio",
+      "seconds": 33.233113777,
+      "ufg": 0,
+      "ratio": 23.2,
+      "moc_state": 4.45,
+      "moc_other": 3.24,
+      "derivative": 4.316316005,
+      "point": [
+       0,
+       0,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 31,
+      "kind": "ratio",
+      "seconds": 32.614400611,
+      "ufg": 0,
+      "ratio": 23.2,
+      "moc_state": 3.99,
+      "moc_other": 3.23,
+      "derivative": 4.241093899,
+      "point": [
+       0,
+       0,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 38,
+      "kind": "ratio",
+      "seconds": 32.986004776,
+      "ufg": 0,
+      "ratio": 23.1,
+      "moc_state": 4.5,
+      "moc_other": 3.07,
+      "derivative": 4.147875545,
+      "point": [
+       0,
+       0,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 45,
+      "kind": "ratio",
+      "seconds": 32.186026607,
+      "ufg": 0,
+      "ratio": 23.3,
+      "moc_state": 3.98,
+      "moc_other": 2.77,
+      "derivative": 3.7802028180000002,
+      "point": [
+       0,
+       0,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 52,
+      "kind": "remix",
+      "seconds": 10.753101749,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 5.33,
+      "moc_other": 3.15,
+      "derivative": 4.246871312,
+      "point": [
+       0,
+       1,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 59,
+      "kind": "remix",
+      "seconds": 9.735822861,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.33,
+      "moc_other": 3.2,
+      "derivative": 4.226795388,
+      "point": [
+       0,
+       1,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 63,
+      "kind": "remix",
+      "seconds": 9.567589531,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.33,
+      "moc_other": 3.19,
+      "derivative": 4.165867011,
+      "point": [
+       0,
+       1,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 64,
+      "kind": "remix",
+      "seconds": 7.757047629,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.5,
+      "moc_other": 3.18,
+      "derivative": 4.181984167,
+      "point": [
+       0,
+       1,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 65,
+      "kind": "remix",
+      "seconds": 8.4793831,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.22,
+      "moc_other": 3.2,
+      "derivative": 4.187991494,
+      "point": [
+       0,
+       1,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 66,
+      "kind": "remix",
+      "seconds": 8.500777679,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.2,
+      "moc_other": 3.17,
+      "derivative": 4.162493422,
+      "point": [
+       0,
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 67,
+      "kind": "remix",
+      "seconds": 8.506304272,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.23,
+      "moc_other": 3.21,
+      "derivative": 4.206135731,
+      "point": [
+       0,
+       1,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 68,
+      "kind": "remix",
+      "seconds": 8.495400841,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.2,
+      "moc_other": 3.21,
+      "derivative": 4.187455025,
+      "point": [
+       0,
+       1,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 69,
+      "kind": "remix",
+      "seconds": 8.41534793,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.19,
+      "moc_other": 3.19,
+      "derivative": 4.165751171,
+      "point": [
+       0,
+       1,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 73,
+      "kind": "remix",
+      "seconds": 9.779583219,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.38,
+      "moc_other": 3.21,
+      "derivative": 4.252336709,
+      "point": [
+       0,
+       1,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 80,
+      "kind": "remix",
+      "seconds": 9.410788843,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.97,
+      "moc_other": 3.27,
+      "derivative": 4.280899475,
+      "point": [
+       0,
+       1,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 87,
+      "kind": "remix",
+      "seconds": 9.48044168,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.49,
+      "moc_other": 2.73,
+      "derivative": 3.80569095,
+      "point": [
+       0,
+       1,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 94,
+      "kind": "remix",
+      "seconds": 8.957968435,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.03,
+      "moc_other": 2.8,
+      "derivative": 3.813761694,
+      "point": [
+       0,
+       1,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 98,
+      "kind": "ratio-first",
+      "seconds": 60.588385562,
+      "ufg": 0,
+      "ratio": 49.9,
+      "moc_state": 5.32,
+      "moc_other": 3.16,
+      "derivative": 4.186913271,
+      "point": [
+       0,
+       2,
+       0,
+       0
+      ]
+     },
+     {
+      "state": 99,
+      "kind": "ratio-first",
+      "seconds": 56.55911597,
+      "ufg": 0,
+      "ratio": 48.7,
+      "moc_state": 2.51,
+      "moc_other": 3.16,
+      "derivative": 4.204105081,
+      "point": [
+       0,
+       2,
+       0,
+       1
+      ]
+     },
+     {
+      "state": 100,
+      "kind": "ratio-first",
+      "seconds": 55.198345962,
+      "ufg": 0,
+      "ratio": 46.5,
+      "moc_state": 3.16,
+      "moc_other": 3.23,
+      "derivative": 4.309885028,
+      "point": [
+       0,
+       2,
+       0,
+       2
+      ]
+     },
+     {
+      "state": 101,
+      "kind": "remix",
+      "seconds": 8.52120045,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.23,
+      "moc_other": 3.17,
+      "derivative": 4.184372057,
+      "point": [
+       0,
+       2,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 102,
+      "kind": "ratio-first",
+      "seconds": 52.473197405,
+      "ufg": 0,
+      "ratio": 43.8,
+      "moc_state": 3.16,
+      "moc_other": 3.19,
+      "derivative": 4.24153516,
+      "point": [
+       0,
+       2,
+       0,
+       4
+      ]
+     },
+     {
+      "state": 103,
+      "kind": "ratio-first",
+      "seconds": 51.625816627,
+      "ufg": 0,
+      "ratio": 43.0,
+      "moc_state": 3.19,
+      "moc_other": 3.16,
+      "derivative": 4.203409565,
+      "point": [
+       0,
+       2,
+       0,
+       5
+      ]
+     },
+     {
+      "state": 104,
+      "kind": "ratio-first",
+      "seconds": 50.961200948,
+      "ufg": 0,
+      "ratio": 42.4,
+      "moc_state": 3.16,
+      "moc_other": 3.2,
+      "derivative": 4.236815768,
+      "point": [
+       0,
+       2,
+       0,
+       6
+      ]
+     },
+     {
+      "state": 105,
+      "kind": "ratio",
+      "seconds": 35.081981652,
+      "ufg": 0,
+      "ratio": 25.4,
+      "moc_state": 4.35,
+      "moc_other": 3.18,
+      "derivative": 4.224485403,
+      "point": [
+       0,
+       2,
+       1,
+       0
+      ]
+     },
+     {
+      "state": 106,
+      "kind": "ratio",
+      "seconds": 30.672880796,
+      "ufg": 0,
+      "ratio": 22.8,
+      "moc_state": 2.52,
+      "moc_other": 3.2,
+      "derivative": 4.244539619,
+      "point": [
+       0,
+       2,
+       1,
+       1
+      ]
+     },
+     {
+      "state": 107,
+      "kind": "ratio",
+      "seconds": 30.361645192,
+      "ufg": 0,
+      "ratio": 21.9,
+      "moc_state": 3.15,
+      "moc_other": 3.13,
+      "derivative": 4.146062685,
+      "point": [
+       0,
+       2,
+       1,
+       2
+      ]
+     },
+     {
+      "state": 108,
+      "kind": "remix",
+      "seconds": 8.378414584,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.16,
+      "moc_other": 3.13,
+      "derivative": 4.125927036,
+      "point": [
+       0,
+       2,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 109,
+      "kind": "ratio",
+      "seconds": 28.571514697,
+      "ufg": 0,
+      "ratio": 20.2,
+      "moc_state": 3.12,
+      "moc_other": 3.1,
+      "derivative": 4.108871516,
+      "point": [
+       0,
+       2,
+       1,
+       4
+      ]
+     },
+     {
+      "state": 110,
+      "kind": "ratio",
+      "seconds": 28.050717825,
+      "ufg": 0,
+      "ratio": 19.7,
+      "moc_state": 3.12,
+      "moc_other": 3.11,
+      "derivative": 4.104451903,
+      "point": [
+       0,
+       2,
+       1,
+       5
+      ]
+     },
+     {
+      "state": 111,
+      "kind": "ratio",
+      "seconds": 27.241691677,
+      "ufg": 0,
+      "ratio": 19.1,
+      "moc_state": 2.9,
+      "moc_other": 3.09,
+      "derivative": 4.091607711,
+      "point": [
+       0,
+       2,
+       1,
+       6
+      ]
+     },
+     {
+      "state": 112,
+      "kind": "remix",
+      "seconds": 9.387718298,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.25,
+      "moc_other": 3.14,
+      "derivative": 4.108173277,
+      "point": [
+       0,
+       2,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 113,
+      "kind": "remix",
+      "seconds": 7.586007882,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.46,
+      "moc_other": 3.11,
+      "derivative": 4.07263328,
+      "point": [
+       0,
+       2,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 114,
+      "kind": "remix",
+      "seconds": 8.239457185,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.11,
+      "moc_other": 3.13,
+      "derivative": 4.094569359,
+      "point": [
+       0,
+       2,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 115,
+      "kind": "remix",
+      "seconds": 10.193309725,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.12,
+      "moc_other": 3.12,
+      "derivative": 4.086543975,
+      "point": [
+       0,
+       2,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 116,
+      "kind": "remix",
+      "seconds": 8.264420033,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.15,
+      "moc_other": 3.11,
+      "derivative": 4.074946136,
+      "point": [
+       0,
+       2,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 117,
+      "kind": "remix",
+      "seconds": 8.177054443,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.08,
+      "moc_other": 3.09,
+      "derivative": 4.059113065,
+      "point": [
+       0,
+       2,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 118,
+      "kind": "remix",
+      "seconds": 8.260866468,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.13,
+      "moc_other": 3.12,
+      "derivative": 4.084400295,
+      "point": [
+       0,
+       2,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 119,
+      "kind": "ratio",
+      "seconds": 33.82325282,
+      "ufg": 0,
+      "ratio": 24.7,
+      "moc_state": 3.83,
+      "moc_other": 3.16,
+      "derivative": 4.172154772,
+      "point": [
+       0,
+       2,
+       3,
+       0
+      ]
+     },
+     {
+      "state": 120,
+      "kind": "ratio",
+      "seconds": 30.070077454,
+      "ufg": 0,
+      "ratio": 22.3,
+      "moc_state": 2.48,
+      "moc_other": 3.15,
+      "derivative": 4.162968044,
+      "point": [
+       0,
+       2,
+       3,
+       1
+      ]
+     },
+     {
+      "state": 121,
+      "kind": "ratio",
+      "seconds": 29.94099676,
+      "ufg": 0,
+      "ratio": 21.6,
+      "moc_state": 3.1,
+      "moc_other": 3.14,
+      "derivative": 4.152057066,
+      "point": [
+       0,
+       2,
+       3,
+       2
+      ]
+     },
+     {
+      "state": 122,
+      "kind": "remix",
+      "seconds": 8.450508061,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.19,
+      "moc_other": 3.15,
+      "derivative": 4.150951068,
+      "point": [
+       0,
+       2,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 123,
+      "kind": "ratio",
+      "seconds": 28.59185211,
+      "ufg": 0,
+      "ratio": 20.2,
+      "moc_state": 3.15,
+      "moc_other": 3.13,
+      "derivative": 4.140308471,
+      "point": [
+       0,
+       2,
+       3,
+       4
+      ]
+     },
+     {
+      "state": 124,
+      "kind": "ratio",
+      "seconds": 28.109960654,
+      "ufg": 0,
+      "ratio": 19.7,
+      "moc_state": 3.15,
+      "moc_other": 3.12,
+      "derivative": 4.122234492,
+      "point": [
+       0,
+       2,
+       3,
+       5
+      ]
+     },
+     {
+      "state": 125,
+      "kind": "ratio",
+      "seconds": 27.634581998,
+      "ufg": 0,
+      "ratio": 19.3,
+      "moc_state": 3.12,
+      "moc_other": 3.12,
+      "derivative": 4.131874237,
+      "point": [
+       0,
+       2,
+       3,
+       6
+      ]
+     },
+     {
+      "state": 126,
+      "kind": "ratio",
+      "seconds": 33.690421807999996,
+      "ufg": 0,
+      "ratio": 24.8,
+      "moc_state": 3.85,
+      "moc_other": 2.89,
+      "derivative": 3.88597775,
+      "point": [
+       0,
+       2,
+       4,
+       0
+      ]
+     },
+     {
+      "state": 127,
+      "kind": "ratio",
+      "seconds": 28.668232185,
+      "ufg": 0,
+      "ratio": 21.2,
+      "moc_state": 2.46,
+      "moc_other": 2.88,
+      "derivative": 3.889831226,
+      "point": [
+       0,
+       2,
+       4,
+       1
+      ]
+     },
+     {
+      "state": 128,
+      "kind": "ratio",
+      "seconds": 30.051745813,
+      "ufg": 0,
+      "ratio": 21.6,
+      "moc_state": 3.18,
+      "moc_other": 3.16,
+      "derivative": 4.159809404,
+      "point": [
+       0,
+       2,
+       4,
+       2
+      ]
+     },
+     {
+      "state": 129,
+      "kind": "remix",
+      "seconds": 8.454512014,
+      "ufg": 0,
+      "ratio": 0,
       "moc_state": 3.17,
       "moc_other": 3.18,
-      "derivative": 4.186739867,
+      "derivative": 4.192907437,
+      "point": [
+       0,
+       2,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 130,
+      "kind": "ratio",
+      "seconds": 28.584629078,
+      "ufg": 0,
+      "ratio": 20.2,
+      "moc_state": 3.15,
+      "moc_other": 3.14,
+      "derivative": 4.153516354,
       "point": [
        0,
        2,
@@ -5800,13 +6752,13 @@
      },
      {
       "state": 131,
-      "kind": "ratio-first",
-      "seconds": 80.460417488,
-      "ufg": 28.1,
-      "ratio": 43.9,
-      "moc_state": 3.14,
-      "moc_other": 3.16,
-      "derivative": 4.173698539,
+      "kind": "ratio",
+      "seconds": 28.109978671,
+      "ufg": 0,
+      "ratio": 19.7,
+      "moc_state": 3.15,
+      "moc_other": 3.17,
+      "derivative": 4.169481306,
       "point": [
        0,
        2,
@@ -5816,13 +6768,13 @@
      },
      {
       "state": 132,
-      "kind": "ratio-first",
-      "seconds": 79.272429168,
-      "ufg": 27.6,
-      "ratio": 43.2,
-      "moc_state": 3.15,
-      "moc_other": 3.15,
-      "derivative": 4.164013452,
+      "kind": "ratio",
+      "seconds": 27.670204742,
+      "ufg": 0,
+      "ratio": 19.2,
+      "moc_state": 3.12,
+      "moc_other": 3.18,
+      "derivative": 4.202124027,
       "point": [
        0,
        2,
@@ -5832,13 +6784,13 @@
      },
      {
       "state": 133,
-      "kind": "ratio-first",
-      "seconds": 92.482314418,
-      "ufg": 32.3,
-      "ratio": 50.9,
-      "moc_state": 4.42,
-      "moc_other": 2.72,
-      "derivative": 3.737565948,
+      "kind": "ratio",
+      "seconds": 34.236870903,
+      "ufg": 0,
+      "ratio": 24.9,
+      "moc_state": 4.4,
+      "moc_other": 2.75,
+      "derivative": 3.76553359,
       "point": [
        0,
        2,
@@ -5848,13 +6800,13 @@
      },
      {
       "state": 134,
-      "kind": "ratio-first",
-      "seconds": 88.90080641,
-      "ufg": 31.5,
-      "ratio": 49.7,
-      "moc_state": 2.48,
+      "kind": "ratio",
+      "seconds": 30.184106309,
+      "ufg": 0,
+      "ratio": 22.6,
+      "moc_state": 2.47,
       "moc_other": 3.0,
-      "derivative": 4.018019926,
+      "derivative": 4.010474003,
       "point": [
        0,
        2,
@@ -5864,13 +6816,13 @@
      },
      {
       "state": 135,
-      "kind": "ratio-first",
-      "seconds": 85.739590032,
-      "ufg": 29.9,
-      "ratio": 47.8,
-      "moc_state": 2.8,
-      "moc_other": 3.0,
-      "derivative": 4.006272073,
+      "kind": "ratio",
+      "seconds": 29.353791508,
+      "ufg": 0,
+      "ratio": 21.5,
+      "moc_state": 2.78,
+      "moc_other": 2.99,
+      "derivative": 3.994963284,
       "point": [
        0,
        2,
@@ -5880,13 +6832,13 @@
      },
      {
       "state": 136,
-      "kind": "ratio-first",
-      "seconds": 83.106822525,
-      "ufg": 29.2,
-      "ratio": 46.3,
-      "moc_state": 2.74,
+      "kind": "remix",
+      "seconds": 7.589854056,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.75,
       "moc_other": 2.73,
-      "derivative": 3.736749836,
+      "derivative": 3.741573764,
       "point": [
        0,
        2,
@@ -5897,12 +6849,12 @@
      {
       "state": 137,
       "kind": "ratio",
-      "seconds": 27.708534026,
+      "seconds": 28.012387243,
       "ufg": 0,
-      "ratio": 20.1,
-      "moc_state": 2.74,
+      "ratio": 20.4,
+      "moc_state": 2.73,
       "moc_other": 2.75,
-      "derivative": 3.764804731,
+      "derivative": 3.764647478,
       "point": [
        0,
        2,
@@ -5913,12 +6865,12 @@
      {
       "state": 138,
       "kind": "ratio",
-      "seconds": 27.368657522,
+      "seconds": 27.482817245,
       "ufg": 0,
-      "ratio": 19.7,
-      "moc_state": 2.76,
-      "moc_other": 2.76,
-      "derivative": 3.783005421,
+      "ratio": 19.8,
+      "moc_state": 2.78,
+      "moc_other": 2.74,
+      "derivative": 3.773279432,
       "point": [
        0,
        2,
@@ -5929,12 +6881,12 @@
      {
       "state": 139,
       "kind": "ratio",
-      "seconds": 27.179252994,
+      "seconds": 27.401862003,
       "ufg": 0,
-      "ratio": 19.2,
-      "moc_state": 3.16,
+      "ratio": 19.4,
+      "moc_state": 3.15,
       "moc_other": 2.73,
-      "derivative": 3.736134159,
+      "derivative": 3.741441692,
       "point": [
        0,
        2,
@@ -5945,12 +6897,12 @@
      {
       "state": 140,
       "kind": "ratio",
-      "seconds": 33.747032367,
+      "seconds": 33.967119075,
       "ufg": 0,
-      "ratio": 24.9,
-      "moc_state": 3.94,
-      "moc_other": 2.76,
-      "derivative": 3.762993142,
+      "ratio": 25.1,
+      "moc_state": 3.97,
+      "moc_other": 2.75,
+      "derivative": 3.766812548,
       "point": [
        0,
        2,
@@ -5961,12 +6913,12 @@
      {
       "state": 141,
       "kind": "ratio",
-      "seconds": 29.818918195,
+      "seconds": 30.141498819,
       "ufg": 0,
-      "ratio": 22.4,
-      "moc_state": 2.52,
-      "moc_other": 2.75,
-      "derivative": 3.769901224,
+      "ratio": 22.7,
+      "moc_state": 2.53,
+      "moc_other": 2.73,
+      "derivative": 3.740694062,
       "point": [
        0,
        2,
@@ -5977,12 +6929,12 @@
      {
       "state": 142,
       "kind": "ratio",
-      "seconds": 29.065307366,
+      "seconds": 29.427231925,
       "ufg": 0,
-      "ratio": 21.4,
-      "moc_state": 2.81,
+      "ratio": 21.8,
+      "moc_state": 2.77,
       "moc_other": 2.71,
-      "derivative": 3.706017335,
+      "derivative": 3.709895753,
       "point": [
        0,
        2,
@@ -5992,13 +6944,13 @@
      },
      {
       "state": 143,
-      "kind": "ratio",
-      "seconds": 28.311530642,
+      "kind": "remix",
+      "seconds": 7.631650819,
       "ufg": 0,
-      "ratio": 20.6,
+      "ratio": 0,
       "moc_state": 2.77,
       "moc_other": 2.76,
-      "derivative": 3.761586929,
+      "derivative": 3.770784214,
       "point": [
        0,
        2,
@@ -6009,12 +6961,12 @@
      {
       "state": 144,
       "kind": "ratio",
-      "seconds": 27.762979445,
+      "seconds": 28.006385857,
       "ufg": 0,
-      "ratio": 20.2,
-      "moc_state": 2.79,
-      "moc_other": 2.67,
-      "derivative": 3.670620852,
+      "ratio": 20.4,
+      "moc_state": 2.78,
+      "moc_other": 2.7,
+      "derivative": 3.698668358,
       "point": [
        0,
        2,
@@ -6025,12 +6977,12 @@
      {
       "state": 145,
       "kind": "ratio",
-      "seconds": 27.392250208,
+      "seconds": 27.57721591,
       "ufg": 0,
-      "ratio": 19.7,
-      "moc_state": 2.77,
+      "ratio": 19.9,
+      "moc_state": 2.76,
       "moc_other": 2.76,
-      "derivative": 3.766785975,
+      "derivative": 3.773908579,
       "point": [
        0,
        2,
@@ -6041,12 +6993,12 @@
      {
       "state": 146,
       "kind": "ratio",
-      "seconds": 26.833862074,
+      "seconds": 27.16262563,
       "ufg": 0,
-      "ratio": 19.2,
+      "ratio": 19.5,
       "moc_state": 2.77,
-      "moc_other": 2.74,
-      "derivative": 3.7544307420000003,
+      "moc_other": 2.76,
+      "derivative": 3.767280695,
       "point": [
        0,
        2,
@@ -6056,13 +7008,13 @@
      },
      {
       "state": 150,
-      "kind": "ratio",
-      "seconds": 33.361205465,
+      "kind": "remix",
+      "seconds": 10.397757529,
       "ufg": 0,
-      "ratio": 22.9,
-      "moc_state": 5.23,
-      "moc_other": 3.09,
-      "derivative": 4.090904201,
+      "ratio": 0,
+      "moc_state": 5.2,
+      "moc_other": 3.1,
+      "derivative": 4.105240476,
       "point": [
        0,
        3,
@@ -6072,13 +7024,13 @@
      },
      {
       "state": 157,
-      "kind": "ratio",
-      "seconds": 32.522946286,
+      "kind": "remix",
+      "seconds": 9.425770517,
       "ufg": 0,
-      "ratio": 23.1,
-      "moc_state": 4.23,
+      "ratio": 0,
+      "moc_state": 4.19,
       "moc_other": 3.11,
-      "derivative": 4.110878024,
+      "derivative": 4.11447594,
       "point": [
        0,
        3,
@@ -6089,12 +7041,12 @@
      {
       "state": 161,
       "kind": "remix",
-      "seconds": 9.408019206,
+      "seconds": 9.380467510999999,
       "ufg": 0,
       "ratio": 0,
       "moc_state": 4.24,
-      "moc_other": 3.13,
-      "derivative": 4.110047972,
+      "moc_other": 3.12,
+      "derivative": 4.088283226,
       "point": [
        0,
        3,
@@ -6105,12 +7057,12 @@
      {
       "state": 162,
       "kind": "remix",
-      "seconds": 7.599148438,
+      "seconds": 7.591402959,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 2.44,
-      "moc_other": 3.12,
-      "derivative": 4.087627684,
+      "moc_state": 2.42,
+      "moc_other": 3.13,
+      "derivative": 4.10101976,
       "point": [
        0,
        3,
@@ -6121,12 +7073,12 @@
      {
       "state": 163,
       "kind": "remix",
-      "seconds": 8.309485289,
+      "seconds": 8.287349364,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.14,
+      "moc_state": 3.13,
       "moc_other": 3.13,
-      "derivative": 4.111345235,
+      "derivative": 4.095648005,
       "point": [
        0,
        3,
@@ -6137,12 +7089,12 @@
      {
       "state": 164,
       "kind": "remix",
-      "seconds": 8.33464409,
+      "seconds": 8.256103851,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.18,
-      "moc_other": 3.13,
-      "derivative": 4.098596842,
+      "moc_state": 3.12,
+      "moc_other": 3.12,
+      "derivative": 4.082206603,
       "point": [
        0,
        3,
@@ -6153,12 +7105,12 @@
      {
       "state": 165,
       "kind": "remix",
-      "seconds": 8.30872854,
+      "seconds": 8.20229772,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.14,
-      "moc_other": 3.14,
-      "derivative": 4.115633745,
+      "moc_state": 3.09,
+      "moc_other": 3.1,
+      "derivative": 4.057874927,
       "point": [
        0,
        3,
@@ -6169,12 +7121,12 @@
      {
       "state": 166,
       "kind": "remix",
-      "seconds": 8.317101063,
+      "seconds": 8.228635634,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.14,
-      "moc_other": 3.13,
-      "derivative": 4.106462558,
+      "moc_state": 3.1,
+      "moc_other": 3.11,
+      "derivative": 4.070047026,
       "point": [
        0,
        3,
@@ -6185,12 +7137,12 @@
      {
       "state": 167,
       "kind": "remix",
-      "seconds": 8.265189388,
+      "seconds": 8.240872124,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.1,
-      "moc_other": 3.15,
-      "derivative": 4.109096138,
+      "moc_state": 3.09,
+      "moc_other": 3.11,
+      "derivative": 4.090253675,
       "point": [
        0,
        3,
@@ -6200,13 +7152,13 @@
      },
      {
       "state": 171,
-      "kind": "ratio",
-      "seconds": 32.617744269,
+      "kind": "remix",
+      "seconds": 9.49473506,
       "ufg": 0,
-      "ratio": 23.1,
+      "ratio": 0,
       "moc_state": 4.26,
       "moc_other": 3.13,
-      "derivative": 4.140416431,
+      "derivative": 4.134314939,
       "point": [
        0,
        3,
@@ -6216,13 +7168,13 @@
      },
      {
       "state": 178,
-      "kind": "ratio",
-      "seconds": 31.895912721,
+      "kind": "remix",
+      "seconds": 9.119567356,
       "ufg": 0,
-      "ratio": 22.8,
-      "moc_state": 3.88,
+      "ratio": 0,
+      "moc_state": 3.86,
       "moc_other": 3.16,
-      "derivative": 4.168634165,
+      "derivative": 4.166980234,
       "point": [
        0,
        3,
@@ -6233,12 +7185,12 @@
      {
       "state": 185,
       "kind": "remix",
-      "seconds": 9.201358231,
+      "seconds": 9.156207056,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.36,
+      "moc_state": 4.33,
       "moc_other": 2.73,
-      "derivative": 3.738060504,
+      "derivative": 3.730964737,
       "point": [
        0,
        3,
@@ -6249,12 +7201,12 @@
      {
       "state": 192,
       "kind": "remix",
-      "seconds": 8.717916013,
+      "seconds": 8.748627962,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.89,
-      "moc_other": 2.73,
-      "derivative": 3.738715272,
+      "moc_state": 3.9,
+      "moc_other": 2.74,
+      "derivative": 3.746452772,
       "point": [
        0,
        3,
@@ -6265,12 +7217,12 @@
      {
       "state": 199,
       "kind": "remix",
-      "seconds": 10.374011247,
+      "seconds": 10.340607481,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 5.19,
-      "moc_other": 3.09,
-      "derivative": 4.094432634,
+      "moc_state": 5.16,
+      "moc_other": 3.08,
+      "derivative": 4.086642908,
       "point": [
        0,
        4,
@@ -6281,12 +7233,12 @@
      {
       "state": 206,
       "kind": "remix",
-      "seconds": 9.413694937,
+      "seconds": 9.369721367,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.2,
-      "moc_other": 3.1,
-      "derivative": 4.108979505,
+      "moc_state": 4.18,
+      "moc_other": 3.09,
+      "derivative": 4.090438459,
       "point": [
        0,
        4,
@@ -6297,12 +7249,12 @@
      {
       "state": 210,
       "kind": "remix",
-      "seconds": 9.389052041,
+      "seconds": 9.328102606,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.24,
-      "moc_other": 3.12,
-      "derivative": 4.097153503,
+      "moc_state": 4.21,
+      "moc_other": 3.09,
+      "derivative": 4.057237674,
       "point": [
        0,
        4,
@@ -6313,12 +7265,12 @@
      {
       "state": 211,
       "kind": "remix",
-      "seconds": 7.570212279,
+      "seconds": 7.570818916,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 2.42,
-      "moc_other": 3.13,
-      "derivative": 4.094774226,
+      "moc_state": 2.41,
+      "moc_other": 3.12,
+      "derivative": 4.091890902,
       "point": [
        0,
        4,
@@ -6329,12 +7281,12 @@
      {
       "state": 212,
       "kind": "remix",
-      "seconds": 8.306784912,
+      "seconds": 8.261728191,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.13,
-      "moc_other": 3.14,
-      "derivative": 4.110175341,
+      "moc_state": 3.14,
+      "moc_other": 3.08,
+      "derivative": 4.049187303,
       "point": [
        0,
        4,
@@ -6345,12 +7297,12 @@
      {
       "state": 213,
       "kind": "remix",
-      "seconds": 8.250716899,
+      "seconds": 8.268161289,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.1,
-      "moc_other": 3.12,
-      "derivative": 4.097405293,
+      "moc_state": 3.13,
+      "moc_other": 3.11,
+      "derivative": 4.073649312,
       "point": [
        0,
        4,
@@ -6361,12 +7313,12 @@
      {
       "state": 214,
       "kind": "remix",
-      "seconds": 8.241562542,
+      "seconds": 8.235316769,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.09,
-      "moc_other": 3.13,
-      "derivative": 4.092118751,
+      "moc_state": 3.11,
+      "moc_other": 3.1,
+      "derivative": 4.063673967,
       "point": [
        0,
        4,
@@ -6377,12 +7329,12 @@
      {
       "state": 215,
       "kind": "remix",
-      "seconds": 8.213391691,
+      "seconds": 8.1871638,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.05,
-      "moc_other": 3.13,
-      "derivative": 4.104609174,
+      "moc_state": 3.07,
+      "moc_other": 3.09,
+      "derivative": 4.053385896,
       "point": [
        0,
        4,
@@ -6393,12 +7345,12 @@
      {
       "state": 216,
       "kind": "remix",
-      "seconds": 8.275226332,
+      "seconds": 8.298194384,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.11,
+      "moc_state": 3.12,
       "moc_other": 3.13,
-      "derivative": 4.101221305,
+      "derivative": 4.107400495,
       "point": [
        0,
        4,
@@ -6409,12 +7361,12 @@
      {
       "state": 220,
       "kind": "remix",
-      "seconds": 9.538741054,
+      "seconds": 9.45897283,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.25,
-      "moc_other": 3.17,
-      "derivative": 4.177276379,
+      "moc_state": 4.24,
+      "moc_other": 3.11,
+      "derivative": 4.113423497,
       "point": [
        0,
        4,
@@ -6425,12 +7377,12 @@
      {
       "state": 227,
       "kind": "remix",
-      "seconds": 9.139244408,
+      "seconds": 9.11684377,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.88,
+      "moc_state": 3.87,
       "moc_other": 3.16,
-      "derivative": 4.170481181,
+      "derivative": 4.159919309,
       "point": [
        0,
        4,
@@ -6441,12 +7393,12 @@
      {
       "state": 234,
       "kind": "remix",
-      "seconds": 9.187089561,
+      "seconds": 9.239208579,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.36,
+      "moc_state": 4.4,
       "moc_other": 2.72,
-      "derivative": 3.729655129,
+      "derivative": 3.73215631,
       "point": [
        0,
        4,
@@ -6457,12 +7409,12 @@
      {
       "state": 241,
       "kind": "remix",
-      "seconds": 8.767690875,
+      "seconds": 8.769537838,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.9,
+      "moc_state": 3.91,
       "moc_other": 2.75,
-      "derivative": 3.761452952,
+      "derivative": 3.748831081,
       "point": [
        0,
        4,
@@ -6473,12 +7425,12 @@
      {
       "state": 248,
       "kind": "remix",
-      "seconds": 10.493068576,
+      "seconds": 10.315756325,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 5.15,
-      "moc_other": 3.2,
-      "derivative": 4.237599203,
+      "moc_state": 5.14,
+      "moc_other": 3.07,
+      "derivative": 4.072414163,
       "point": [
        0,
        5,
@@ -6489,12 +7441,12 @@
      {
       "state": 255,
       "kind": "remix",
-      "seconds": 9.45189401,
+      "seconds": 9.410777479,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.23,
-      "moc_other": 3.11,
-      "derivative": 4.119603123,
+      "moc_state": 4.2,
+      "moc_other": 3.1,
+      "derivative": 4.101325704,
       "point": [
        0,
        5,
@@ -6505,12 +7457,12 @@
      {
       "state": 259,
       "kind": "remix",
-      "seconds": 11.708734833,
+      "seconds": 9.37610767,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.21,
-      "moc_other": 4.37,
-      "derivative": 6.075700143,
+      "moc_state": 4.23,
+      "moc_other": 3.1,
+      "derivative": 4.076455683,
       "point": [
        0,
        5,
@@ -6521,12 +7473,12 @@
      {
       "state": 260,
       "kind": "remix",
-      "seconds": 8.17826254,
+      "seconds": 7.548632312,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 2.71,
-      "moc_other": 3.23,
-      "derivative": 4.310655405,
+      "moc_state": 2.41,
+      "moc_other": 3.1,
+      "derivative": 4.06967284,
       "point": [
        0,
        5,
@@ -6537,12 +7489,12 @@
      {
       "state": 261,
       "kind": "remix",
-      "seconds": 9.64634059,
+      "seconds": 8.196036891,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.6,
-      "moc_other": 3.21,
-      "derivative": 4.336360527,
+      "moc_state": 3.07,
+      "moc_other": 3.08,
+      "derivative": 4.054778455,
       "point": [
        0,
        5,
@@ -6553,12 +7505,12 @@
      {
       "state": 262,
       "kind": "remix",
-      "seconds": 9.042394995,
+      "seconds": 8.255593634,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.64,
-      "moc_other": 3.22,
-      "derivative": 4.307869612,
+      "moc_state": 3.13,
+      "moc_other": 3.09,
+      "derivative": 4.057904976,
       "point": [
        0,
        5,
@@ -6569,12 +7521,12 @@
      {
       "state": 263,
       "kind": "remix",
-      "seconds": 8.266038567,
+      "seconds": 8.21367994,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.11,
-      "moc_other": 3.13,
-      "derivative": 4.08747344,
+      "moc_state": 3.1,
+      "moc_other": 3.08,
+      "derivative": 4.046084503,
       "point": [
        0,
        5,
@@ -6585,12 +7537,12 @@
      {
       "state": 264,
       "kind": "remix",
-      "seconds": 8.289074303,
+      "seconds": 8.217702245,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.1,
-      "moc_other": 3.15,
-      "derivative": 4.123675805,
+      "moc_state": 3.06,
+      "moc_other": 3.12,
+      "derivative": 4.080407504,
       "point": [
        0,
        5,
@@ -6601,12 +7553,12 @@
      {
       "state": 265,
       "kind": "remix",
-      "seconds": 8.241734902,
+      "seconds": 8.239117112,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.06,
-      "moc_other": 3.14,
-      "derivative": 4.117025466,
+      "moc_state": 3.09,
+      "moc_other": 3.1,
+      "derivative": 4.076934787,
       "point": [
        0,
        5,
@@ -6617,12 +7569,12 @@
      {
       "state": 269,
       "kind": "remix",
-      "seconds": 9.534903807,
+      "seconds": 9.511983547,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.29,
-      "moc_other": 3.12,
-      "derivative": 4.135843118,
+      "moc_state": 4.25,
+      "moc_other": 3.13,
+      "derivative": 4.142066093,
       "point": [
        0,
        5,
@@ -6633,12 +7585,12 @@
      {
       "state": 276,
       "kind": "remix",
-      "seconds": 9.158778045,
+      "seconds": 9.13938805,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.9,
-      "moc_other": 3.15,
-      "derivative": 4.156904712,
+      "moc_state": 3.88,
+      "moc_other": 3.16,
+      "derivative": 4.169577139,
       "point": [
        0,
        5,
@@ -6649,12 +7601,12 @@
      {
       "state": 283,
       "kind": "remix",
-      "seconds": 9.233417969,
+      "seconds": 9.183480152,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 4.36,
-      "moc_other": 2.75,
-      "derivative": 3.755529843,
+      "moc_state": 4.37,
+      "moc_other": 2.7,
+      "derivative": 3.7018073400000002,
       "point": [
        0,
        5,
@@ -6665,12 +7617,12 @@
      {
       "state": 290,
       "kind": "remix",
-      "seconds": 8.99768792,
+      "seconds": 8.754422494,
       "ufg": 0,
       "ratio": 0,
-      "moc_state": 3.98,
-      "moc_other": 2.82,
-      "derivative": 3.866013339,
+      "moc_state": 3.92,
+      "moc_other": 2.72,
+      "derivative": 3.724371153,
       "point": [
        0,
        5,
@@ -8893,7 +9845,7 @@
   },
   {
    "path": "production-2A-60-f1-light-cp6.log",
-   "md5": "52d8df1a71c4e4ea91400647f2e15780"
+   "md5": "860b8fe97fcef21d5d1f22a395f5cf91"
   }
  ]
 }
