@@ -704,8 +704,8 @@ stages:
     deps:
     - path: examples/depletion/compare_grid_interpolation.py
       hash: md5
-      md5: 7847a86b732c6477c3f088b5dccead2d
-      size: 18059
+      md5: 11f74c287079d8d96e0f2bea568c832c
+      size: 19836
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -713,5 +713,5 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_grid_interpolation.py.ast
       hash: md5
-      md5: 63f1cba5a0ac4c714ddb689fae1f3bf8
-      size: 11068
+      md5: 417b5d7fa0ef9bd6ebfd1df8c2b40f50
+      size: 12154
