@@ -37,3 +37,30 @@ stages:
       hash: md5
       md5: c33a630dde56915eb45d069cceeb0a02
       size: 36323004
+  thinning-2A:
+    cmd: python3 ../compare_branch_cross_terms.py --json thinning-2A.json 
+      thinning-2A.toml
+    deps:
+    - path: 
+        ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      hash: md5
+      md5: 75a00b6f740f0bb9f23e266e1144719a
+      size: 27687
+    - path: 
+        ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      hash: md5
+      md5: 1fbba180eddd60cc40f8e3c467dc578a
+      size: 9792
+    - path: table-2A.msgpack
+      hash: md5
+      md5: c33a630dde56915eb45d069cceeb0a02
+      size: 36323004
+    - path: thinning-2A.toml
+      hash: md5
+      md5: 5dd3985e306d255a1edf6b78664771de
+      size: 2412
+    outs:
+    - path: thinning-2A.json
+      hash: md5
+      md5: 3543a8c716c7027edcd10c41b76d63dd
+      size: 333059

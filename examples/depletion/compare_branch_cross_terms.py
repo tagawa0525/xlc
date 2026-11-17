@@ -21,14 +21,28 @@
     name = "ホウ素 × 減速材"
     keep = [["boron", "moderator"]]        # 部分格子を解く軸の組。1 軸ずつの分岐はどのモデルも持つ
 
-    [[thinning]]                           # 省略できる。燃焼度の軸を持つ直積のテーブルで、分岐を解く燃焼点を間引く
-    name = "2A"
+    [[thinning]]                           # 省略できる。燃焼度の軸を持ち、すべての状態をすべての燃焼点で解いたテーブル（直積か
+    name = "2A"                            # ADR-0200 の部分格子）で、分岐を解く燃焼点を間引く
     file = "table-2A.msgpack"
     nominal = { boron = 650, moderator = 580, fuel = 900 }
     selections = [{ name = "3 点", burnup = [0, 0.5, 60] }]   # 最初と最後の点を含み、どれかの点を除く
 
-- 間引き: 選んだ燃焼点の、公称でない各状態の公称の状態との差を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で直積の
-  状態と比べる。最大は、すべての状態と、状態の種類（公称と違う軸の組。`boron`、`boron+moderator` など）ごとに書く
+    [thinning.timing]                      # 省略できる。テーブルを作る時間の見込み（`thinning_time`）
+    total = 2349                           # すべての状態を解いた燃焼点 1 つの秒
+    solve = 36.1                           # 自己遮蔽を解く 1 状態の秒
+    reuse = 8.7                            # 自己遮蔽を再利用する 1 状態の秒
+    reuse-axis = "boron"
+
+    [[thinning.plans]]                     # 省略できる（timing が要る）。状態の種類ごとに選び方を決めた組
+    name = "混ぜる"
+    kinds = { boron = "3 点", ... }        # すべての種類に、selections の名前を書く
+
+`[[table]]` と `[[model]]` も省略できる（間引きだけを比べる入力）。
+
+- 間引き: 選んだ燃焼点の、公称でない各状態の公称の状態との差を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点の
+  テーブルの状態と比べる。最大は、すべての状態と、状態の種類（公称と違う軸の組。`boron`、`boron+moderator` など）ごとに書く。
+  テーブルが微視的断面積を持てば、微視的断面積と数密度の微分も同じ内挿で比べる（core の `interpolate_micro` は少数群定数と
+  同じ重みで足す。差の測り方は `micro_errors`）
 
 - 組み立て: 公称の状態を x0 とし、モデルの軸の組とその部分集合の全体を U（空集合と 1 軸ずつを含む）として、状態 x の値を
   Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x0) とする（f(x_v, x0) は v の軸だけ x の値にし、ほかを公称にした状態。cut-HDMR。
@@ -262,21 +276,252 @@ def kind_order(kind: str, names: list[str]) -> tuple:
     return (len(axes), [names.index(a) for a in axes])
 
 
-def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
-    """分岐を燃焼度の点 `burnup` だけで解いたとして、公称でない各状態の、公称の状態との差（少数群定数の項目）を燃焼度について
-    内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は `summarize_table` と同じ向き）。最大は、
-    すべての状態についてのものと、状態の種類（`state_kind`）ごとのもの（`kinds`）を書く"""
-    grid_of = table_grid(name, table, nominal)
-    burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
-    if burnup is None:
+def burnup_states(name: str, table: dict, nominal: dict) -> dict:
+    """燃焼度を最初の軸に持つテーブル（直積か、ADR-0200 の部分格子）の、燃焼度の点、状態の軸の名前と点、公称の状態の点の番号と、
+    状態の点の番号（燃焼度を除く。テーブルの順）ごとの、燃焼度の点ごとの `states` の位置。間引きの真値にするので、どの状態も
+    すべての燃焼度の点で解いてあること"""
+    if table.get("format") != "xlc-table" or table.get("split") != 1:
+        raise SystemExit(
+            f"{name}: the table must be an xlc-table that does not split the assembly"
+        )
+    axes = table["axes"]
+    if any("points" not in a for a in axes):
+        raise SystemExit(f"{name}: give the rods as a second table, not as a rod axis")
+    if axes[0]["name"] != "burnup":
         raise SystemExit(f"{name}: the table has no burnup axis")
-    indices = list(itertools.product(*[range(len(p)) for p in points]))
-    per_point = grid_of["per_point"]
-    at_nominal = indices.index(grid_of["nominal"])
-    states = [
-        table["states"][b * per_point : (b + 1) * per_point] for b in range(len(burnup))
-    ]
-    nominal_values = np.array([vector(s[at_nominal]) for s in states])
+    burnup = [float(b) for b in axes[0]["points"]]
+    names = [a["name"] for a in axes[1:]]
+    points = [[float(p) for p in a["points"]] for a in axes[1:]]
+    if sorted(nominal) != sorted(names):
+        raise SystemExit(
+            f"{name}: give the nominal value of every axis {names}, not {sorted(nominal)}"
+        )
+    for a, p in zip(axes[1:], points, strict=True):
+        given = float(nominal[a["name"]])
+        if given not in p:
+            raise SystemExit(
+                f"{name}: the nominal {a['name']} {given} is not a point of the axis {p}"
+            )
+        if "nominal" in a and float(a["nominal"]) != given:
+            raise SystemExit(
+                f"{name}: the table's nominal {a['name']} {a['nominal']} is not the given {given}"
+            )
+    if len(table["states"]) != len(table["points"]):
+        raise SystemExit(
+            f"{name}: {len(table['states'])} states for {len(table['points'])} points"
+        )
+    rows: dict[tuple, list] = {}
+    for position, point in enumerate(table["points"]):
+        rows.setdefault(tuple(point[1:]), [None] * len(burnup))[point[0]] = position
+    if any(None in r for r in rows.values()):
+        raise SystemExit(f"{name}: solve every state at every burnup point")
+    at_nominal = tuple(
+        p.index(float(nominal[n])) for n, p in zip(names, points, strict=True)
+    )
+    if at_nominal not in rows:
+        raise SystemExit(f"{name}: the table has no nominal state {nominal}")
+    return {
+        "burnup": burnup,
+        "names": names,
+        "points": points,
+        "nominal": at_nominal,
+        "rows": rows,
+    }
+
+
+# 微視的断面積（ADR-0216）と数密度の微分（ADR-0221）の、比べる項目
+MICRO_ITEMS = [
+    "total",
+    "nu_fission",
+    "fission",
+    "scatter",
+    "reactions",
+    "thermal_fission",
+]
+DERIVATIVE_ITEMS = [
+    "total",
+    "nu_fission",
+    "fission",
+    "scatter",
+    "rate_fission",
+    "rate_reactions",
+    "rate_thermal_fission",
+]
+
+
+def micro_parts(state: list[dict], nuclides: list[str]) -> list[tuple]:
+    """状態の微視的断面積を、(`micro` か `derivative`, 項目, 核種（反応は mt を添える）, 値の列) の区切りに並べる。境界より下の
+    核分裂は、割合でなく断面積（割合 × 群の和の σf）にする（core の `interpolate_micro` と同じく、その形で足して割合に戻す）"""
+    out = []
+
+    def put(kind, item, label, values):
+        out.append((kind, item, label, np.ravel(np.asarray(values, dtype=float))))
+
+    if len(state) != len(nuclides):
+        raise SystemExit(f"{len(state)} micro nuclides for {len(nuclides)} names")
+    for name, n in zip(nuclides, state, strict=True):
+        for item in ["total", "nu_fission", "fission", "scatter"]:
+            put("micro", item, name, n[item])
+        for r in n["reactions"]:
+            put("micro", "reactions", f"{name} mt{r['mt']}", r["channels"])
+        if n.get("thermal_fission") is not None:
+            put(
+                "micro",
+                "thermal_fission",
+                name,
+                [n["thermal_fission"] * sum(n["fission"])],
+            )
+        d = n.get("derivative")
+        if d is None:
+            continue
+        for item in ["total", "nu_fission", "fission", "scatter"]:
+            put("derivative", item, name, d[item])
+        rate = d.get("rate")
+        if rate is not None:
+            put("derivative", "rate_fission", name, rate["fission"])
+            for r in rate["reactions"]:
+                put(
+                    "derivative", "rate_reactions", f"{name} mt{r['mt']}", r["channels"]
+                )
+            put("derivative", "rate_thermal_fission", name, [rate["thermal_fission"]])
+    return out
+
+
+class MicroLayout:
+    """`micro_parts` の区切りの並び（どの状態も同じ）と、並べた値から比べる値への変換"""
+
+    def __init__(self, parts: list[tuple]):
+        self.labels = [(kind, item, label) for kind, item, label, _ in parts]
+        self.bounds = []
+        start = 0
+        for *_, values in parts:
+            self.bounds.append((start, start + len(values)))
+            start += len(values)
+        self.size = start
+        # 境界より下の核分裂の区切りから、同じ核種の σf の区切りへ
+        self.fission_of = {}
+        for k, (kind, item, label) in enumerate(self.labels):
+            if kind == "micro" and item == "thermal_fission":
+                self.fission_of[k] = self.labels.index(("micro", "fission", label))
+
+    def vector(self, state: list[dict], nuclides: list[str]) -> np.ndarray:
+        parts = micro_parts(state, nuclides)
+        if [(kind, item, label) for kind, item, label, _ in parts] != self.labels or (
+            sum(len(p[3]) for p in parts) != self.size
+        ):
+            raise SystemExit("the micro data differ in their items between states")
+        return np.concatenate([p[3] for p in parts])
+
+    def compared(self, v: np.ndarray) -> np.ndarray:
+        """境界より下の核分裂を割合に戻した値（`v` は [点][値]）"""
+        out = v.copy()
+        for k, f in self.fission_of.items():
+            a, _ = self.bounds[k]
+            fa, fb = self.bounds[f]
+            fission = v[:, fa:fb].sum(axis=1)
+            out[:, a] = np.divide(
+                v[:, a], fission, out=np.zeros_like(fission), where=fission != 0
+            )
+        return out
+
+
+def micro_errors(
+    layout: MicroLayout, rebuilt: np.ndarray, truth: np.ndarray
+) -> np.ndarray:
+    """点（行）と値ごとの差。微視的断面積は |組み立て − 真値| / |真値|、数密度の微分は区切りの真値の大きさの最大で割る（微分は
+    群や反応の間で 0 を横切り、要素ごとの比は 0 の近くで大きくなるだけで量の誤差を表さない）。真値が 0 の値（微分は区切りの
+    すべてが 0）は、組み立ても 0 でなければエラー"""
+    r = layout.compared(rebuilt)
+    t = layout.compared(truth)
+    scale = np.abs(t)
+    for (kind, *_), (a, b) in zip(layout.labels, layout.bounds, strict=True):
+        if kind == "derivative":
+            scale[:, a:b] = np.abs(t[:, a:b]).max(axis=1, keepdims=True)
+    difference = np.abs(r - t)
+    zero = scale == 0
+    if (difference[zero] != 0).any():
+        column = int(np.argwhere(zero & (difference != 0))[0][1])
+        k = next(n for n, (a, b) in enumerate(layout.bounds) if a <= column < b)
+        raise SystemExit(
+            f"{layout.labels[k]}: the interpolation is not zero where the table is"
+        )
+    return np.divide(difference, scale, out=np.zeros_like(difference), where=~zero)
+
+
+def item_worst(
+    layout: MicroLayout, errors: np.ndarray, at: list[dict], into: dict
+) -> None:
+    """`errors`（[点][値]。点の位置は `at`）の項目ごとの最大を、`into`（kind → 項目 → 最大）に足す"""
+    for k, ((kind, item, label), (a, b)) in enumerate(
+        zip(layout.labels, layout.bounds, strict=True)
+    ):
+        if a == b:
+            continue
+        block = errors[:, a:b]
+        n = int(np.argmax(block.max(axis=1)))
+        e = float(block[n].max())
+        worst = into.setdefault(kind, {}).setdefault(
+            item, {"max_relative": 0.0, "nuclide": label, "worst": at[n]}
+        )
+        if e > worst["max_relative"]:
+            worst.update({"max_relative": e, "nuclide": label, "worst": at[n]})
+
+
+def ordered_items(found: dict) -> dict:
+    """`item_worst` の結果を、`MICRO_ITEMS` と `DERIVATIVE_ITEMS` の順に並べる"""
+    out = {}
+    for kind, items in [("micro", MICRO_ITEMS), ("derivative", DERIVATIVE_ITEMS)]:
+        if kind in found:
+            out[kind] = {i: found[kind][i] for i in items if i in found[kind]}
+    return out
+
+
+def thin(
+    name: str,
+    table: dict,
+    nominal: dict,
+    selections: list[dict],
+    timing: dict | None = None,
+    plans: list[dict] = (),
+) -> dict:
+    """分岐を燃焼度の点 `burnup` だけで解いたとして、公称でない各状態の、公称の状態との差（少数群定数の項目と、テーブルが持てば
+    微視的断面積と数密度の微分）を燃焼度について内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は
+    `summarize_table` と同じ向き。微視的断面積の差は `micro_errors`）。最大は、すべての状態についてのものと、状態の種類
+    （`state_kind`）ごとのもの（`kinds`）を書く。テーブルは直積でも ADR-0200 の部分格子でもよい（`burnup_states`）。
+
+    `timing`（`thinning_time`）があれば、選び方ごとにテーブルを作る時間の見込みを書く。`plans` は状態の種類ごとに選び方を
+    決めた組で、誤差は種類ごとにその選び方の値を取る（状態ごとの内挿はほかの状態の燃焼点によらない）"""
+    grid_of = burnup_states(name, table, nominal)
+    burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
+    rows = grid_of["rows"]
+    at_nominal = grid_of["nominal"]
+    states = table["states"]
+    nominal_values = np.array([vector(states[p]) for p in rows[at_nominal]])
+    micro = table.get("micro")
+    if micro is not None:
+        if len(micro["states"]) != len(states):
+            raise SystemExit(
+                f"{name}: {len(micro['states'])} micro states for {len(states)} states"
+            )
+        nuclides = micro["nuclides"]
+        layout = MicroLayout(
+            micro_parts(micro["states"][rows[at_nominal][0]], nuclides)
+        )
+
+        def micro_rows(index):
+            return np.array(
+                [layout.vector(micro["states"][p], nuclides) for p in rows[index]]
+            )
+
+        nominal_micro = micro_rows(at_nominal)
+    kinds_of = {
+        index: state_kind(names, index, at_nominal)
+        for index in rows
+        if index != at_nominal
+    }
+    order = sorted(set(kinds_of.values()), key=lambda k: kind_order(k, names))
+    counts = {k: sum(1 for v in kinds_of.values() if v == k) for k in order}
+    seconds = None if timing is None else thinning_time(timing, counts)
     out = []
     for sel in selections:
         chosen = [float(b) for b in sel["burnup"]]
@@ -298,13 +543,12 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
             worst_per_point = [0.0] * len(removed)
             worst = (0.0, None)
             per_kind = {}
-            for flat, grid_index in enumerate(indices):
-                if flat == at_nominal:
-                    continue
-                kind = state_kind(names, grid_index, grid_of["nominal"])
+            micro_kind = {}
+            for grid_index, kind in kinds_of.items():
                 kind_worst = per_kind.setdefault(kind, [0.0, None])
+                positions = rows[grid_index]
                 difference = (
-                    np.array([vector(s[flat]) for s in states]) - nominal_values
+                    np.array([vector(states[p]) for p in positions]) - nominal_values
                 )
                 values = interpolate(
                     method,
@@ -312,42 +556,164 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
                     difference[index],
                     np.array([burnup[i] for i in removed]),
                 )
+                at = [
+                    {"burnup": burnup[i]}
+                    | {a: points[k][grid_index[k]] for k, a in enumerate(names)}
+                    for i in removed
+                ]
                 for n, i in enumerate(removed):
-                    rebuilt = unvector(nominal_values[i] + values[n], states[i][flat])
-                    rho = (1 / k_inf(states[i][flat]) - 1 / k_inf(rebuilt)) * 1e5
+                    truth = states[positions[i]]
+                    rebuilt = unvector(nominal_values[i] + values[n], truth)
+                    rho = (1 / k_inf(truth) - 1 / k_inf(rebuilt)) * 1e5
                     if abs(rho) > abs(worst_per_point[n]):
                         worst_per_point[n] = rho
-                    at = {"burnup": burnup[i]} | {
-                        a: points[k][grid_index[k]] for k, a in enumerate(names)
-                    }
                     if worst[1] is None or abs(rho) > abs(worst[0]):
-                        worst = (rho, at)
+                        worst = (rho, at[n])
                     if kind_worst[1] is None or abs(rho) > abs(kind_worst[0]):
-                        kind_worst[:] = [rho, at]
-            order = sorted(per_kind, key=lambda k: kind_order(k, names))
+                        kind_worst[:] = [rho, at[n]]
+                if micro is not None:
+                    truth = micro_rows(grid_index)
+                    rebuilt = nominal_micro[removed] + interpolate(
+                        method,
+                        np.array(chosen),
+                        (truth - nominal_micro)[index],
+                        np.array([burnup[i] for i in removed]),
+                    )
+                    item_worst(
+                        layout,
+                        micro_errors(layout, rebuilt, truth[removed]),
+                        at,
+                        micro_kind.setdefault(kind, {}),
+                    )
+            kinds = {}
+            for k in order:
+                kinds[k] = {
+                    "max_abs_pcm": abs(per_kind[k][0]),
+                    "worst_pcm": per_kind[k][0],
+                    "worst": per_kind[k][1],
+                    "states": counts[k],
+                }
+                if seconds is not None:
+                    kinds[k]["seconds_per_point"] = seconds["kinds"][k]
+                if micro is not None:
+                    kinds[k] |= ordered_items(micro_kind[k])
             results[method] = {
                 "rho_pcm": worst_per_point,
                 "max_abs_pcm": abs(worst[0]),
                 "worst_pcm": worst[0],
                 "worst": worst[1],
-                "kinds": {
-                    k: {
-                        "max_abs_pcm": abs(per_kind[k][0]),
-                        "worst_pcm": per_kind[k][0],
-                        "worst": per_kind[k][1],
-                    }
-                    for k in order
-                },
+                "kinds": kinds,
             }
-        out.append(
-            {
-                "name": sel["name"],
-                "burnup": chosen,
-                "removed": [burnup[i] for i in removed],
-                "results": results,
-            }
+            if micro is not None:
+                overall = {}
+                for k in order:
+                    for kind, items in micro_kind[k].items():
+                        for item, e in items.items():
+                            best = overall.setdefault(kind, {}).setdefault(item, e)
+                            if e["max_relative"] > best["max_relative"]:
+                                overall[kind][item] = e
+                results[method] |= ordered_items(overall)
+        entry = {
+            "name": sel["name"],
+            "burnup": chosen,
+            "removed": [burnup[i] for i in removed],
+            "results": results,
+        }
+        if seconds is not None:
+            entry["hours"] = table_hours(
+                seconds, len(burnup), {k: len(chosen) for k in order}
+            )
+        out.append(entry)
+    summary = {"name": name, "burnup": burnup, "selections": out}
+    if seconds is not None:
+        summary["hours"] = len(burnup) * float(timing["total"]) / 3600
+        summary["other_seconds"] = seconds["other"]
+        summary["timing"] = dict(timing)
+    if plans:
+        if seconds is None:
+            raise SystemExit(f"{name}: plans need the timing")
+        summary["plans"] = [
+            thinning_plan(
+                name, p, out, order, timing["reuse-axis"], seconds, len(burnup)
+            )
+            for p in plans
+        ]
+    return summary
+
+
+def thinning_time(timing: dict, counts: dict) -> dict:
+    """テーブルを作る時間の見込みの、燃焼点ごとの秒。`timing` は、すべての状態を解いた燃焼点 1 つの全体の秒 `total`、自己遮蔽を
+    解く状態の 1 状態の秒 `solve`、自己遮蔽を再利用する状態の秒 `reuse`、再利用する状態の変えた軸 `reuse-axis`（ADR-0201 の
+    ホウ素。その軸を公称から変えた状態は、ほかの軸の同じ状態の自己遮蔽を再利用する）。公称の状態は `solve`。状態によらない秒
+    （`other`）は、`total` から状態の秒を引いた残り。状態の種類ごと（`counts` は種類 → 状態の数）の秒は、状態の数 × 1 状態の秒"""
+    axis = timing["reuse-axis"]
+    per_state = {
+        k: float(timing["reuse"] if axis in k.split("+") else timing["solve"])
+        for k in counts
+    }
+    kinds = {k: counts[k] * per_state[k] for k in counts}
+    other = float(timing["total"]) - float(timing["solve"]) - sum(kinds.values())
+    if other < 0:
+        raise SystemExit(
+            f"the states take {sum(kinds.values()) + float(timing['solve'])} s, more than the total {timing['total']} s"
         )
-    return {"name": name, "burnup": burnup, "selections": out}
+    return {"kinds": kinds, "other": other, "nominal": float(timing["solve"])}
+
+
+def table_hours(seconds: dict, burnups: int, points: dict) -> float:
+    """公称の状態と状態によらない秒をすべての燃焼点で、状態の種類ごとの秒をその種類を解く燃焼点の数（`points`）で数えた時間"""
+    total = burnups * (seconds["other"] + seconds["nominal"])
+    total += sum(seconds["kinds"][k] * n for k, n in points.items())
+    return total / 3600
+
+
+def thinning_plan(
+    name: str,
+    plan: dict,
+    selections: list[dict],
+    order: list[str],
+    reuse_axis: str,
+    seconds: dict,
+    burnups: int,
+) -> dict:
+    """状態の種類ごとに選び方（`plan["kinds"]`。種類 → 選び方の名前）を決めた組の、誤差と時間（`thin` の説明）"""
+    by_name = {s["name"]: s for s in selections}
+    chosen = plan["kinds"]
+    if sorted(chosen) != sorted(order):
+        raise SystemExit(
+            f"{name} {plan['name']}: choose a selection for every kind {order}, not {sorted(chosen)}"
+        )
+    unknown = sorted({v for v in chosen.values() if v not in by_name})
+    if unknown:
+        raise SystemExit(f"{name} {plan['name']}: unknown selections {unknown}")
+    for kind in order:
+        axes = kind.split("+")
+        if reuse_axis not in axes or len(axes) == 1:
+            continue
+        # 再利用する状態は、再利用する先の状態を解いた燃焼点でしか解けない（ADR-0201）。公称の状態はすべての燃焼点で解く
+        base = "+".join(a for a in axes if a != reuse_axis)
+        if not set(by_name[chosen[kind]]["burnup"]) <= set(
+            by_name[chosen[base]]["burnup"]
+        ):
+            raise SystemExit(
+                f"{name} {plan['name']}: {kind} reuse the shielding of {base}, so solve them at some of its burnups"
+            )
+    results = {}
+    for method in THINNING_METHODS:
+        per_kind = {
+            k: by_name[chosen[k]]["results"][method]["kinds"][k]["max_abs_pcm"]
+            for k in order
+        }
+        worst = max(order, key=lambda k: per_kind[k])
+        results[method] = {"max_abs_pcm": per_kind[worst], "worst_kind": worst}
+    return {
+        "name": plan["name"],
+        "kinds": {k: chosen[k] for k in order},
+        "results": results,
+        "hours": table_hours(
+            seconds, burnups, {k: len(by_name[chosen[k]]["burnup"]) for k in order}
+        ),
+    }
 
 
 STATE_AXES = ["boron", "moderator", "fuel"]
@@ -427,17 +793,43 @@ def report(summary: dict) -> list[str]:
             raise SystemExit(
                 f"{t['name']}: the thinning has no errors per kind of state; rerun the comparison"
             )
-        lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}")
+        hours = (
+            f"、すべての燃焼点で {t['hours']:.2f} 時間の見込み" if "hours" in t else ""
+        )
+        lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}{hours}")
         for sel in t["selections"]:
-            lines.append(f"  {sel['name']}（{len(sel['burnup'])} 点）: {sel['burnup']}")
+            hours = f"、{sel['hours']:.2f} 時間の見込み" if "hours" in sel else ""
+            lines.append(
+                f"  {sel['name']}（{len(sel['burnup'])} 点）: {sel['burnup']}{hours}"
+            )
             for method, r in sel["results"].items():
                 lines.append(
                     f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）"
                 )
+                lines += micro_lines("      ", r)
                 for kind, k in r["kinds"].items():
                     lines.append(
                         f"      {kind}: |Δρ| の最大 {k['max_abs_pcm']:.2f} pcm（{k['worst_pcm']:+.2f}、{k['worst']}）"
                     )
+        for plan in t.get("plans", []):
+            lines.append(f"  {plan['name']}: {plan['hours']:.2f} 時間の見込み")
+            for method, r in plan["results"].items():
+                lines.append(
+                    f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_kind']}）"
+                )
+    return lines
+
+
+def micro_lines(indent: str, result: dict) -> list[str]:
+    """微視的断面積と数密度の微分の、項目ごとの差の最大"""
+    lines = []
+    for kind, label in [("micro", "微視的断面積"), ("derivative", "数密度の微分")]:
+        if kind in result:
+            items = "、".join(
+                f"{item} {e['max_relative']:.2e}（{e['nuclide']}、{e['worst']['burnup']:g}）"
+                for item, e in result[kind].items()
+            )
+            lines.append(f"{indent}{label}: {items}")
     return lines
 
 
@@ -463,7 +855,7 @@ def main() -> None:
             return loaded[path]
 
         tables = []
-        for t in config["table"]:
+        for t in config.get("table", []):
             rodded = None
             if "rods" in t:
                 rodded = read(config_path.parent / t["rods"])
@@ -478,6 +870,8 @@ def main() -> None:
                     read(config_path.parent / t["file"]),
                     t["nominal"],
                     t["selections"],
+                    t.get("timing"),
+                    t.get("plans", []),
                 )
             )
         summary = {
@@ -487,7 +881,7 @@ def main() -> None:
                 {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
                 for f in files
             ],
-            **summarize(tables, config["model"]),
+            **summarize(tables, config.get("model", [])),
         }
         Path(args[1]).write_text(
             json.dumps(summary, indent=1, ensure_ascii=False) + "\n"
