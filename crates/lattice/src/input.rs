@@ -138,7 +138,7 @@
 //! nuclides = ["U-235", "Pu-239"]  # 感度を求める核種
 //! output = "sensitivity.toml"     # 結果（`xlc_lattice::sensitivity::Report`）
 //! direct = 0.1                    # 数密度を (1 ± ε) 倍と (1 ± ε/2) 倍した直接の摂動も解く（検証の参照。省略すると解かない）
-//! k-tolerance = 1e-10             # この入力のすべての MOC の判定（省略すると既定。CMFD は既定とこの値の細かい方）
+//! k-tolerance = 1e-10             # この入力のすべての MOC の判定（省略すると既定。CMFD は既定とこの値の細かい方。[moc] とは書けない）
 //! flux-tolerance = 1e-9
 //!
 //! [sensitivity.generalized]       # 少数群定数の比の応答の一般化随伴を、収束の方法ごとに解いて比べる（ADR-0247 の段 3。結果は
@@ -1330,6 +1330,18 @@ impl LatticeInput {
             ));
         }
         let scattering_order = file.scattering_order;
+        // `[sensitivity]` の判定もこの入力のすべての MOC の判定（`SensitivityInput::options` が `moc` の上に重ねる）なので、
+        // 両方あるとどちらの値で解くかが決まらない
+        if file.moc.is_some()
+            && file
+                .sensitivity
+                .as_ref()
+                .is_some_and(|s| s.k_tolerance.is_some() || s.flux_tolerance.is_some())
+        {
+            return Err(invalid(
+                "`[moc]` and the tolerances of `[sensitivity]` both set the MOC tolerances; write them in one".into(),
+            ));
+        }
         let moc = file
             .moc
             .map_or_else(|| Ok(Options::default()), MocEntry::into_options)
