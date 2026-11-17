@@ -105,6 +105,15 @@ class Summary(unittest.TestCase):
             summary["kinds"]["ifba"]["B-10"]["max"]["value"], -1e-6, places=15
         )
 
+    def test_the_largest_density_difference_names_its_kind_and_nuclide(self):
+        default, exact = pair()
+        largest = compare.summarize(default, exact)["max_density"]
+        self.assertEqual(
+            (largest["kind"], largest["nuclide"], largest["burnup"]),
+            ("fuel", "U-235", 10.0),
+        )
+        self.assertAlmostEqual(largest["value"], 3e-6, places=15)
+
     def test_pin_powers_report_the_largest_relative_difference(self):
         default, exact = pair()
         summary = compare.summarize(default, exact)
