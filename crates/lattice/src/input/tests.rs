@@ -881,7 +881,7 @@ fn moc_options_set_tolerances_and_cmfd_couplings() {
     let input = LatticeInput::parse(&format!(
         "{PIN_CELL}\n[moc]\nk-tolerance = 1e-9\nflux-tolerance = 1e-8\ncmfd-k-tolerance = 1e-12\n\
          cmfd-flux-tolerance = 1e-10\ncmfd-relaxed = false\n\
-         cmfd-reflective-current = \"zero\"\nsweeps = 2\n"
+         cmfd-reflective-current = \"zero\"\n"
     ))
     .unwrap();
     let default = Options::default();
@@ -902,7 +902,6 @@ fn moc_options_set_tolerances_and_cmfd_couplings() {
                 relaxed: false,
                 zero_reflective_current: true,
             },
-            sweeps: 2,
             ..default
         }
     );
@@ -915,12 +914,6 @@ fn moc_options_set_tolerances_and_cmfd_couplings() {
             ..default
         }
     );
-}
-
-#[test]
-fn rejects_no_moc_sweeps() {
-    let result = LatticeInput::parse(&format!("{PIN_CELL}\n[moc]\nsweeps = 0\n"));
-    assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
 }
 
 #[test]
