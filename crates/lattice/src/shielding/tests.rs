@@ -2850,7 +2850,7 @@ pub(crate) mod lattice {
                 rings: RatioRings::ShieldingFactor,
                 sph: RatioSph::State,
                 fuel: RatioFuel::StateAverage,
-                static_cp_points: None,
+                ..RatioOptions::default()
             },
             RatioOptions {
                 fuel: RatioFuel::State,
@@ -2861,7 +2861,14 @@ pub(crate) mod lattice {
                 rings: RatioRings::StaticRatio,
                 sph: RatioSph::StaticRatio,
                 fuel: RatioFuel::StaticRatio,
-                static_cp_points: None,
+                ..RatioOptions::default()
+            },
+            RatioOptions {
+                transfer: RatioTransfer::StaticRatio,
+                rings: RatioRings::StaticRatio,
+                sph: RatioSph::StaticRatio,
+                fuel: RatioFuel::StaticRatio,
+                ..RatioOptions::default()
             },
         ] {
             let (ratio, every, anchor, _) = ratio_pin(&library, 1.0, options);
@@ -2926,6 +2933,74 @@ pub(crate) mod lattice {
             ..RatioOptions::default()
         };
         assert!(fuel_ring_gap(scaled) < 1e-12, "{}", fuel_ring_gap(scaled));
+    }
+
+    #[test]
+    fn static_ratio_transfers_take_the_static_row_shape_with_the_elastic_ratio_sum() {
+        // #0285: 静止した標的の行の比を選ぶと、どのリングの移行の行も、基準の行の要素ごとに、状態と基準を静止した標的（移行は
+        // リングの中性子束で数える）で解いた行の同じ要素の比を掛け、行の和を弾性散乱の比で縮めた行の和に合わせたもの（静止した
+        // 標的の行が 0 の要素は基準の値のまま）
+        let library = resonant_elastic_library();
+        let options = |transfer| RatioOptions {
+            transfer,
+            rings: RatioRings::StaticRatio,
+            sph: RatioSph::StaticRatio,
+            fuel: RatioFuel::StaticRatio,
+            ..RatioOptions::default()
+        };
+        let (ratio, _, anchor, state) =
+            ratio_pin(&library, 0.7, options(RatioTransfer::StaticRatio));
+        let (elastic, ..) = ratio_pin(&library, 0.7, options(RatioTransfer::ElasticRatio));
+        let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let light = ShieldingOptions {
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::RingFlux,
+            ..ShieldingOptions::default()
+        };
+        let solve = |m: &[MaterialInput]| {
+            shield_fuel_with(&library, &tracking, m, &regions, &symmetry, &light).unwrap()
+        };
+        let (light_state, light_anchor) = (solve(&state), solve(&materials));
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs().max(f64::MIN_POSITIVE);
+        let mut reshaped = false;
+        // 燃料の 3 リングと、被覆管（領域 4）と水（領域 5）
+        for region in [0, 1, 2, 4, 5] {
+            let transfers = |s: &FuelShielding| s.region_transfers(region).unwrap().to_vec();
+            let (r, a, e, ls, la) = (
+                transfers(&ratio),
+                transfers(&anchor),
+                transfers(&elastic),
+                transfers(&light_state),
+                transfers(&light_anchor),
+            );
+            for k in 0..r.len() {
+                for (i, g) in a[k].groups.clone().enumerate() {
+                    let shaped: Vec<f64> = a[k].rows[i]
+                        .iter()
+                        .zip(&ls[k].rows[i])
+                        .zip(&la[k].rows[i])
+                        .map(|((v, s), l)| if *l == 0.0 { *v } else { v * s / l })
+                        .collect();
+                    let sum: f64 = e[k].rows[i].iter().sum();
+                    let norm = sum / shaped.iter().sum::<f64>();
+                    for (h, (got, want)) in r[k].rows[i].iter().zip(&shaped).enumerate() {
+                        assert!(
+                            close(*got, want * norm),
+                            "region {region} nuclide {k} group {g} to {h}: {got} vs {}",
+                            want * norm
+                        );
+                    }
+                    reshaped |= r[k].rows[i]
+                        .iter()
+                        .zip(&e[k].rows[i])
+                        .any(|(x, y)| !close(*x, *y));
+                }
+            }
+        }
+        // 行の形は弾性散乱の比で縮めた形と違う（違わなければ比べる意味が無い）
+        assert!(reshaped);
     }
 
     #[test]
@@ -3090,17 +3165,71 @@ pub(crate) mod lattice {
         // #0285: 静止した標的の減速計算の比は、UFG の範囲の群の燃料と燃料でないリングの実効断面積と SPH 因子のそれぞれを、基準の値に、
         // 状態と基準を静止した標的（移行は無限希釈）で解いた値の比を掛けたものにする（リングの間の分布も比で変わる）。静止した標的の
         // 減速計算の衝突確率の求積の点の数は、選ばなければ UFG と同じで、選べばその点の数
-        let default = check_static_ratios(None);
+        let default = check_static_ratios(None, StaticScattering::Static);
         assert_eq!(
             default,
-            check_static_ratios(Some(ShieldingOptions::default().cp_points))
+            check_static_ratios(
+                Some(ShieldingOptions::default().cp_points),
+                StaticScattering::Static
+            )
         );
-        assert_ne!(default, check_static_ratios(Some(2)));
+        assert_ne!(
+            default,
+            check_static_ratios(Some(2), StaticScattering::Static)
+        );
+    }
+
+    #[test]
+    fn light_free_gas_ratios_take_the_thermal_motion_of_the_light_nuclides() {
+        // #0285: 比の減速計算の散乱核に軽い核種の自由ガスを選ぶと、分離共鳴を持たない核種（水の H と O）は UFG と同じ自由ガス（と
+        // S(α, β)）、分離共鳴を持つ核種は静止した標的で解いた値の比を掛ける（減速材の温度で変わる軽い核種の熱運動を比に入れる）
+        let light = check_static_ratios(None, StaticScattering::LightFreeGas);
+        assert_ne!(light, check_static_ratios(None, StaticScattering::Static));
+    }
+
+    #[test]
+    fn light_free_gas_ratios_need_a_free_gas_ufg() {
+        // 軽い核種の自由ガスは UFG の自由ガスの条件で解くので、UFG が静止した標的なら止める（黙って静止した標的にしない）
+        let library = resonant_library();
+        let shielding = ShieldingOptions {
+            scattering: Scattering::Static,
+            transfer: UfgTransfer::InfiniteDilution,
+            ..ShieldingOptions::default()
+        };
+        let (_, lattice, regions, materials) = ring_pin(&shielding);
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let symmetry = detect(&tracking, &regions).unwrap();
+        let anchor = shield_fuel_with(
+            &library, &tracking, &materials, &regions, &symmetry, &shielding,
+        )
+        .unwrap();
+        let result = shield_fuel_ratio(
+            &library,
+            &mut ShieldingReuse::new(&tracking),
+            &materials,
+            &regions,
+            &symmetry,
+            &shielding,
+            RatioAnchor {
+                shielding: &anchor,
+                materials: &materials,
+                options: RatioOptions {
+                    fuel: RatioFuel::StaticRatio,
+                    static_scattering: StaticScattering::LightFreeGas,
+                    ..RatioOptions::default()
+                },
+                light: &AnchorLight::default(),
+            },
+        );
+        assert!(
+            matches!(result, Err(SelfShieldingError::LightFreeGas)),
+            "{result:?}"
+        );
     }
 
     /// [`static_ratios_scale_every_ring_and_the_sph_factors_by_the_static_slowing_down`] の、静止した標的の減速計算の衝突確率の求積の
-    /// 点の数 `points` での確認。比で求めた状態の自己遮蔽を返す
-    fn check_static_ratios(points: Option<usize>) -> FuelShielding {
+    /// 点の数 `points` と散乱核 `scattering` での確認。比で求めた状態の自己遮蔽を返す
+    fn check_static_ratios(points: Option<usize>, scattering: StaticScattering) -> FuelShielding {
         let library = resonant_library();
         let (ratio, _, anchor, state) = ratio_pin(
             &library,
@@ -3111,13 +3240,22 @@ pub(crate) mod lattice {
                 sph: RatioSph::StaticRatio,
                 fuel: RatioFuel::StaticRatio,
                 static_cp_points: points,
+                static_scattering: scattering,
             },
         );
         let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
         let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
         let symmetry = detect(&tracking, &regions).unwrap();
         let light = ShieldingOptions {
-            scattering: Scattering::Static,
+            scattering: match (scattering, ShieldingOptions::default().scattering) {
+                (StaticScattering::Static, _) => Scattering::Static,
+                (StaticScattering::LightFreeGas, Scattering::FreeGas(gas)) => {
+                    Scattering::FreeGas(FreeGas { heavy: None, ..gas })
+                }
+                (StaticScattering::LightFreeGas, Scattering::Static) => {
+                    panic!("the default UFG scattering is static, not free gas")
+                }
+            },
             transfer: UfgTransfer::InfiniteDilution,
             cp_points: points.unwrap_or(ShieldingOptions::default().cp_points),
             ..ShieldingOptions::default()
@@ -3187,7 +3325,7 @@ pub(crate) mod lattice {
             rings: RatioRings::StaticRatio,
             sph: RatioSph::StaticRatio,
             fuel: RatioFuel::StaticRatio,
-            static_cp_points: None,
+            ..RatioOptions::default()
         };
         let (_, lattice, regions, materials) = ring_pin(&ShieldingOptions::default());
         let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
@@ -3355,7 +3493,7 @@ pub(crate) mod lattice {
                 rings: RatioRings::State,
                 sph: RatioSph::State,
                 fuel: RatioFuel::State,
-                static_cp_points: None,
+                ..RatioOptions::default()
             },
         );
         for region in [0, 1, 2, 4, 5] {

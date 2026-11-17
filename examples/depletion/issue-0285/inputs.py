@@ -37,8 +37,21 @@
 - nominal: 本番の入力の解き方（`shielding` を書かない。ADR-0201 の既定）で、UFG の求積は 16 点（ADR-0252 の前の既定）
 - nominal-cp6: nominal の UFG の衝突確率の求積を 6 点（ADR-0252 の今の既定）にしたもの（`ufg-cp-points = 6`）
 - f1-static-cp6: 上の f1-static の比の解き方で、UFG と静止した標的の求積を 6 点にしたもの（`ufg-cp-points = 6`、`static-cp-points = 6`）
+- f1-light-cp6: 下の SIX の f1-light-rows の比の解き方で、UFG の求積を 6 点にしたもの（比の減速計算も同じ 6 点）
 
 求積の点を書かない履歴から作る入力には、記録を測った 16 点（`ufg-cp-points = 16`。ADR-0252 の前の既定）を書く。
+
+今の既定（求積 6 点の ADR-0252、核種の選び方の ADR-0251）で比べ直す入力 six-<種類>-<燃焼度>-<解き方>.toml（SIX）は、上の 3 × 3 の
+状態で、求積を 6 点にする（`ufg-cp-points = 6`。静止した標的の減速計算も UFG と同じ 6 点）。解き方は SIX_SHIELDINGS（2A の 60 MWd/kg
+のほかの燃料と燃焼度は SIX に書いたものだけ）:
+
+- every、f1-static、f1-state-sections: 上と同じ解き方
+- f1-static-rows: f1-static の移行の行を、基準の行に状態と基準の静止した標的の行の比を掛けたもの（`transfer = "static-ratio"`）
+- f1-static-rows-sph: f1-static-rows の SPH 因子を状態の UFG のものにしたもの（SPH 因子の残る差を分ける診断）
+- f1-state-rows: f1-state-sections の移行の行を f1-static-rows の作り方にしたもの（移行の行の差だけを残す診断。target ratio_check の
+  DEBUG で、行の差を transfer_check.py で読む）
+- f1-light-rows、f1-state-light-rows: f1-static-rows と f1-state-rows の比の減速計算の散乱核を、分離共鳴を持たない核種だけ UFG と
+  同じ自由ガスにしたもの（`static-scattering = "light-free-gas"`。減速材の温度で変わる水の熱運動を比に入れる）
 
 使い方: python3 inputs.py（このディレクトリで）
 """
@@ -136,6 +149,42 @@ PRODUCTION = {
     "nominal-cp6": ("ufg-cp-points = 6", None),
     "f1-static-cp6": ("ufg-cp-points = 6", TIMING_SHIELDINGS["f1-static-cp6"]),
 }
+# 今の既定で比べ直す入力: (種類, 燃焼度) と解き方
+SIX_POINTS = "ufg-cp-points = 6"
+# (種類, 燃焼度) → 解き方。2A の 60 MWd/kg のほかは、2A の 60 MWd/kg で判定の値に入った f1-light-rows を燃料の種類と燃焼度に広げる。
+# 2O の 10 MWd/kg は、燃料を公称の 900 K に書き直すと、p2 のライブラリに 900 K のデータが無い履歴の核種（輸送した 90 のうち 1 つ）で
+# 止まるので入れない（Slurm 882）
+SIX = {
+    ("2A", 60): None,
+    ("2A", 0): ["every", "f1-light-rows"],
+    ("2A", 20): ["every", "f1-light-rows"],
+    ("MOX", 60): ["every", "f1-light-rows"],
+}
+STATIC_ROWS = 'transfer = "static-ratio"\nfuel = "static-ratio"\nrings = "static-ratio"\nsph = "static-ratio"'
+SIX_SHIELDINGS = {
+    "every": SHIELDINGS["every"],
+    "f1-static": SHIELDINGS["f1-static"],
+    "f1-state-sections": SHIELDINGS["f1-state-sections"],
+    "f1-static-rows": ('shielding = "moderator-ratio"', STATIC_ROWS),
+    "f1-static-rows-sph": (
+        'shielding = "moderator-ratio"',
+        STATIC_ROWS.replace('sph = "static-ratio"', 'sph = "state"'),
+    ),
+    "f1-state-rows": (
+        'shielding = "moderator-ratio"',
+        'transfer = "static-ratio"\nfuel = "state"\nrings = "state-sections"\nsph = "state"',
+    ),
+}
+LIGHT = '\nstatic-scattering = "light-free-gas"'
+SIX_SHIELDINGS["f1-light-rows"] = (
+    'shielding = "moderator-ratio"',
+    STATIC_ROWS + LIGHT,
+)
+SIX_SHIELDINGS["f1-state-light-rows"] = (
+    'shielding = "moderator-ratio"',
+    SIX_SHIELDINGS["f1-state-rows"][1] + LIGHT,
+)
+PRODUCTION["f1-light-cp6"] = ("ufg-cp-points = 6", SIX_SHIELDINGS["f1-light-rows"])
 # どの燃焼点でも流すもの（ほかは CANDIDATES の燃焼点だけ）
 MAIN = ["every", "f1", "f1-transfer", "f2-transfer"]
 
@@ -154,15 +203,15 @@ def with_temperature(body: str, material: str, kelvin: int) -> str:
     return pattern.sub(rf"\g<1>{kelvin}\n", body)
 
 
-def with_points(body: str, path: Path) -> str:
-    """求積の点を書かない履歴の入力に、記録を測った 16 点（ADR-0252 の前の既定）を書く。既定のままにすると、再実行で記録と違う
-    6 点になる（ADR-0252 の帰結）"""
+def with_points(body: str, path: Path, points: str = POINTS) -> str:
+    """求積の点を書かない履歴の入力に、求積の行 `points`（既定は記録を測った 16 点。ADR-0252 の前の既定）を書く。既定のままに
+    すると、再実行で記録と違う 6 点になる（ADR-0252 の帰結）"""
     if "\nufg-cp-points = " in body:
         return body
     line = "\nufg-tolerance = 1e-4\n"
     if body.count(line) != 1:
         sys.exit(f"{path} has no single ufg-tolerance line")
-    return body.replace(line, f"{line}{POINTS}\n")
+    return body.replace(line, f"{line}{points}\n")
 
 
 def branch(
@@ -172,6 +221,8 @@ def branch(
     shielding: str,
     states=(MODERATOR, FUEL),
     prefix: str = "",
+    points: str = POINTS,
+    shieldings: dict | None = None,
 ) -> str:
     path = DEPLETION / source
     text = path.read_text()
@@ -208,10 +259,10 @@ def branch(
         f"[material.water]\ntemperature = {NOMINAL_MODERATOR}\n{WATER}\n", body
     )
     body = with_temperature(body, "zircaloy", NOMINAL_MODERATOR)
-    body = with_points(body, path)
+    body = with_points(body, path, points)
     for material in depleted:
         body = with_temperature(body, material, NOMINAL_FUEL)
-    kind, ratio = (SHIELDINGS | TIMING_SHIELDINGS)[shielding]
+    kind, ratio = (shieldings or SHIELDINGS | TIMING_SHIELDINGS)[shielding]
     ratio = f"\n[branches.ratio]\n{ratio}\n" if ratio else ""
     fuels = ", ".join(f'"{m}"' for m in depleted)
     return (
@@ -304,6 +355,19 @@ def main() -> None:
                 "timing-",
             )
         )
+    for (name, burnup), shieldings in SIX.items():
+        for shielding in shieldings or SIX_SHIELDINGS:
+            (HERE / f"six-{name}-{burnup:g}-{shielding}.toml").write_text(
+                branch(
+                    name,
+                    CASES[name][0],
+                    float(burnup),
+                    shielding,
+                    prefix="six-",
+                    points=SIX_POINTS,
+                    shieldings=SIX_SHIELDINGS,
+                )
+            )
     for shielding in PRODUCTION:
         (HERE / f"production-2A-{PRODUCTION_BURNUP}-{shielding}.toml").write_text(
             production(shielding)

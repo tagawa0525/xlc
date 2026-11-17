@@ -42,12 +42,14 @@ def load(name: str, path: Path):
 COMPARE = load("compare", HERE / "compare.py")
 fields, md5, relative = COMPARE.fields, COMPARE.md5, COMPARE.relative
 
-VARIANTS = ["nominal", "nominal-cp6", "f1-static-cp6"]
-# テーブルの差: (解き方, 比べる基準)。求積 6 点の効きと、同じ 6 点の上での比の方式の効き
+VARIANTS = ["nominal", "nominal-cp6", "f1-static-cp6", "f1-light-cp6"]
+# テーブルの差: (解き方, 比べる基準)。求積 6 点の効きと、同じ 6 点の上での比の方式（静止した標的の比と、移行の行と軽い核種の
+# 自由ガスを入れた比）の効き
 PAIRS = [
     ("nominal-cp6", "nominal"),
     ("f1-static-cp6", "nominal-cp6"),
     ("f1-static-cp6", "nominal"),
+    ("f1-light-cp6", "nominal-cp6"),
 ]
 ITEMS = ["absorption", "nu_fission", "kappa_fission", "diffusion", "scatter", "adf"]
 MICRO_ITEMS = ["total", "nu_fission", "fission", "scatter", "thermal_fission"]

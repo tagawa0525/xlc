@@ -5700,6 +5700,1938 @@
      }
     ]
    }
+  },
+  "f1-light-cp6": {
+   "timing": {
+    "kinds": {
+     "ratio-first": {
+      "states": 7,
+      "seconds": 414.024117122,
+      "ufg": [
+       1,
+       29.5
+      ],
+      "ratio": [
+       7,
+       319.8
+      ],
+      "moc_state": [
+       7,
+       26.720000000000002
+      ],
+      "moc_other": [
+       7,
+       22.400000000000002
+      ],
+      "derivative": [
+       7,
+       29.676286710999996
+      ]
+     },
+     "ratio": {
+      "states": 35,
+      "seconds": 1051.0438293820002,
+      "ufg": [
+       0,
+       0.0
+      ],
+      "ratio": [
+       35,
+       757.0999999999999
+      ],
+      "moc_state": [
+       35,
+       113.96000000000002
+      ],
+      "moc_other": [
+       35,
+       104.84000000000002
+      ],
+      "derivative": [
+       35,
+       140.374577214
+      ]
+     },
+     "ufg": {
+      "states": 6,
+      "seconds": 216.603878307,
+      "ufg": [
+       6,
+       166.4
+      ],
+      "ratio": [
+       0,
+       0.0
+      ],
+      "moc_state": [
+       6,
+       19.05
+      ],
+      "moc_other": [
+       6,
+       18.79
+      ],
+      "derivative": [
+       6,
+       24.598349874999997
+      ]
+     },
+     "remix": {
+      "states": 66,
+      "seconds": 578.622914887,
+      "ufg": [
+       0,
+       0.0
+      ],
+      "ratio": [
+       0,
+       0.0
+      ],
+      "moc_state": [
+       66,
+       236.83999999999997
+      ],
+      "moc_other": [
+       66,
+       202.75000000000003
+      ],
+      "derivative": [
+       66,
+       268.125478892
+      ]
+     }
+    },
+    "state_seconds": 2260.294739698,
+    "total_seconds": 2274.021845935,
+    "shieldings": 7.0,
+    "ratios": 42.0,
+    "states": [
+     {
+      "state": 3,
+      "kind": "ratio-first",
+      "seconds": 86.618054648,
+      "ufg": 29.5,
+      "ratio": 45.5,
+      "moc_state": 6.22,
+      "moc_other": 3.3,
+      "derivative": 4.293622838,
+      "point": [
+       0,
+       0,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 10,
+      "kind": "ratio",
+      "seconds": 32.144005252,
+      "ufg": 0,
+      "ratio": 22.7,
+      "moc_state": 4.25,
+      "moc_other": 3.11,
+      "derivative": 4.119133487,
+      "point": [
+       0,
+       0,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 14,
+      "kind": "ufg",
+      "seconds": 40.916409987,
+      "ufg": 31.6,
+      "ratio": 0,
+      "moc_state": 4.23,
+      "moc_other": 3.11,
+      "derivative": 4.071613947,
+      "point": [
+       0,
+       0,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 15,
+      "kind": "ufg",
+      "seconds": 36.624025612,
+      "ufg": 29.0,
+      "ratio": 0,
+      "moc_state": 2.44,
+      "moc_other": 3.13,
+      "derivative": 4.091507307,
+      "point": [
+       0,
+       0,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 16,
+      "kind": "ufg",
+      "seconds": 36.275881799,
+      "ufg": 27.8,
+      "ratio": 0,
+      "moc_state": 3.19,
+      "moc_other": 3.16,
+      "derivative": 4.140730388,
+      "point": [
+       0,
+       0,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 17,
+      "kind": "remix",
+      "seconds": 8.311532786,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.14,
+      "moc_other": 3.13,
+      "derivative": 4.109150607,
+      "point": [
+       0,
+       0,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 18,
+      "kind": "ufg",
+      "seconds": 34.732154089,
+      "ufg": 26.5,
+      "ratio": 0,
+      "moc_state": 3.07,
+      "moc_other": 3.1,
+      "derivative": 4.057076798,
+      "point": [
+       0,
+       0,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 19,
+      "kind": "ufg",
+      "seconds": 34.239046078,
+      "ufg": 25.9,
+      "ratio": 0,
+      "moc_state": 3.14,
+      "moc_other": 3.11,
+      "derivative": 4.075034143,
+      "point": [
+       0,
+       0,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 20,
+      "kind": "ufg",
+      "seconds": 33.816360742,
+      "ufg": 25.6,
+      "ratio": 0,
+      "moc_state": 2.98,
+      "moc_other": 3.18,
+      "derivative": 4.162387292,
+      "point": [
+       0,
+       0,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 24,
+      "kind": "ratio",
+      "seconds": 33.233113777,
+      "ufg": 0,
+      "ratio": 23.2,
+      "moc_state": 4.45,
+      "moc_other": 3.24,
+      "derivative": 4.316316005,
+      "point": [
+       0,
+       0,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 31,
+      "kind": "ratio",
+      "seconds": 32.614400611,
+      "ufg": 0,
+      "ratio": 23.2,
+      "moc_state": 3.99,
+      "moc_other": 3.23,
+      "derivative": 4.241093899,
+      "point": [
+       0,
+       0,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 38,
+      "kind": "ratio",
+      "seconds": 32.986004776,
+      "ufg": 0,
+      "ratio": 23.1,
+      "moc_state": 4.5,
+      "moc_other": 3.07,
+      "derivative": 4.147875545,
+      "point": [
+       0,
+       0,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 45,
+      "kind": "ratio",
+      "seconds": 32.186026607,
+      "ufg": 0,
+      "ratio": 23.3,
+      "moc_state": 3.98,
+      "moc_other": 2.77,
+      "derivative": 3.7802028180000002,
+      "point": [
+       0,
+       0,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 52,
+      "kind": "remix",
+      "seconds": 10.753101749,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 5.33,
+      "moc_other": 3.15,
+      "derivative": 4.246871312,
+      "point": [
+       0,
+       1,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 59,
+      "kind": "remix",
+      "seconds": 9.735822861,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.33,
+      "moc_other": 3.2,
+      "derivative": 4.226795388,
+      "point": [
+       0,
+       1,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 63,
+      "kind": "remix",
+      "seconds": 9.567589531,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.33,
+      "moc_other": 3.19,
+      "derivative": 4.165867011,
+      "point": [
+       0,
+       1,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 64,
+      "kind": "remix",
+      "seconds": 7.757047629,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.5,
+      "moc_other": 3.18,
+      "derivative": 4.181984167,
+      "point": [
+       0,
+       1,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 65,
+      "kind": "remix",
+      "seconds": 8.4793831,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.22,
+      "moc_other": 3.2,
+      "derivative": 4.187991494,
+      "point": [
+       0,
+       1,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 66,
+      "kind": "remix",
+      "seconds": 8.500777679,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.2,
+      "moc_other": 3.17,
+      "derivative": 4.162493422,
+      "point": [
+       0,
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 67,
+      "kind": "remix",
+      "seconds": 8.506304272,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.23,
+      "moc_other": 3.21,
+      "derivative": 4.206135731,
+      "point": [
+       0,
+       1,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 68,
+      "kind": "remix",
+      "seconds": 8.495400841,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.2,
+      "moc_other": 3.21,
+      "derivative": 4.187455025,
+      "point": [
+       0,
+       1,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 69,
+      "kind": "remix",
+      "seconds": 8.41534793,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.19,
+      "moc_other": 3.19,
+      "derivative": 4.165751171,
+      "point": [
+       0,
+       1,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 73,
+      "kind": "remix",
+      "seconds": 9.779583219,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.38,
+      "moc_other": 3.21,
+      "derivative": 4.252336709,
+      "point": [
+       0,
+       1,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 80,
+      "kind": "remix",
+      "seconds": 9.410788843,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.97,
+      "moc_other": 3.27,
+      "derivative": 4.280899475,
+      "point": [
+       0,
+       1,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 87,
+      "kind": "remix",
+      "seconds": 9.48044168,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.49,
+      "moc_other": 2.73,
+      "derivative": 3.80569095,
+      "point": [
+       0,
+       1,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 94,
+      "kind": "remix",
+      "seconds": 8.957968435,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.03,
+      "moc_other": 2.8,
+      "derivative": 3.813761694,
+      "point": [
+       0,
+       1,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 98,
+      "kind": "ratio-first",
+      "seconds": 60.588385562,
+      "ufg": 0,
+      "ratio": 49.9,
+      "moc_state": 5.32,
+      "moc_other": 3.16,
+      "derivative": 4.186913271,
+      "point": [
+       0,
+       2,
+       0,
+       0
+      ]
+     },
+     {
+      "state": 99,
+      "kind": "ratio-first",
+      "seconds": 56.55911597,
+      "ufg": 0,
+      "ratio": 48.7,
+      "moc_state": 2.51,
+      "moc_other": 3.16,
+      "derivative": 4.204105081,
+      "point": [
+       0,
+       2,
+       0,
+       1
+      ]
+     },
+     {
+      "state": 100,
+      "kind": "ratio-first",
+      "seconds": 55.198345962,
+      "ufg": 0,
+      "ratio": 46.5,
+      "moc_state": 3.16,
+      "moc_other": 3.23,
+      "derivative": 4.309885028,
+      "point": [
+       0,
+       2,
+       0,
+       2
+      ]
+     },
+     {
+      "state": 101,
+      "kind": "remix",
+      "seconds": 8.52120045,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.23,
+      "moc_other": 3.17,
+      "derivative": 4.184372057,
+      "point": [
+       0,
+       2,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 102,
+      "kind": "ratio-first",
+      "seconds": 52.473197405,
+      "ufg": 0,
+      "ratio": 43.8,
+      "moc_state": 3.16,
+      "moc_other": 3.19,
+      "derivative": 4.24153516,
+      "point": [
+       0,
+       2,
+       0,
+       4
+      ]
+     },
+     {
+      "state": 103,
+      "kind": "ratio-first",
+      "seconds": 51.625816627,
+      "ufg": 0,
+      "ratio": 43.0,
+      "moc_state": 3.19,
+      "moc_other": 3.16,
+      "derivative": 4.203409565,
+      "point": [
+       0,
+       2,
+       0,
+       5
+      ]
+     },
+     {
+      "state": 104,
+      "kind": "ratio-first",
+      "seconds": 50.961200948,
+      "ufg": 0,
+      "ratio": 42.4,
+      "moc_state": 3.16,
+      "moc_other": 3.2,
+      "derivative": 4.236815768,
+      "point": [
+       0,
+       2,
+       0,
+       6
+      ]
+     },
+     {
+      "state": 105,
+      "kind": "ratio",
+      "seconds": 35.081981652,
+      "ufg": 0,
+      "ratio": 25.4,
+      "moc_state": 4.35,
+      "moc_other": 3.18,
+      "derivative": 4.224485403,
+      "point": [
+       0,
+       2,
+       1,
+       0
+      ]
+     },
+     {
+      "state": 106,
+      "kind": "ratio",
+      "seconds": 30.672880796,
+      "ufg": 0,
+      "ratio": 22.8,
+      "moc_state": 2.52,
+      "moc_other": 3.2,
+      "derivative": 4.244539619,
+      "point": [
+       0,
+       2,
+       1,
+       1
+      ]
+     },
+     {
+      "state": 107,
+      "kind": "ratio",
+      "seconds": 30.361645192,
+      "ufg": 0,
+      "ratio": 21.9,
+      "moc_state": 3.15,
+      "moc_other": 3.13,
+      "derivative": 4.146062685,
+      "point": [
+       0,
+       2,
+       1,
+       2
+      ]
+     },
+     {
+      "state": 108,
+      "kind": "remix",
+      "seconds": 8.378414584,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.16,
+      "moc_other": 3.13,
+      "derivative": 4.125927036,
+      "point": [
+       0,
+       2,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 109,
+      "kind": "ratio",
+      "seconds": 28.571514697,
+      "ufg": 0,
+      "ratio": 20.2,
+      "moc_state": 3.12,
+      "moc_other": 3.1,
+      "derivative": 4.108871516,
+      "point": [
+       0,
+       2,
+       1,
+       4
+      ]
+     },
+     {
+      "state": 110,
+      "kind": "ratio",
+      "seconds": 28.050717825,
+      "ufg": 0,
+      "ratio": 19.7,
+      "moc_state": 3.12,
+      "moc_other": 3.11,
+      "derivative": 4.104451903,
+      "point": [
+       0,
+       2,
+       1,
+       5
+      ]
+     },
+     {
+      "state": 111,
+      "kind": "ratio",
+      "seconds": 27.241691677,
+      "ufg": 0,
+      "ratio": 19.1,
+      "moc_state": 2.9,
+      "moc_other": 3.09,
+      "derivative": 4.091607711,
+      "point": [
+       0,
+       2,
+       1,
+       6
+      ]
+     },
+     {
+      "state": 112,
+      "kind": "remix",
+      "seconds": 9.387718298,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.25,
+      "moc_other": 3.14,
+      "derivative": 4.108173277,
+      "point": [
+       0,
+       2,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 113,
+      "kind": "remix",
+      "seconds": 7.586007882,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.46,
+      "moc_other": 3.11,
+      "derivative": 4.07263328,
+      "point": [
+       0,
+       2,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 114,
+      "kind": "remix",
+      "seconds": 8.239457185,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.11,
+      "moc_other": 3.13,
+      "derivative": 4.094569359,
+      "point": [
+       0,
+       2,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 115,
+      "kind": "remix",
+      "seconds": 10.193309725,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.12,
+      "moc_other": 3.12,
+      "derivative": 4.086543975,
+      "point": [
+       0,
+       2,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 116,
+      "kind": "remix",
+      "seconds": 8.264420033,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.15,
+      "moc_other": 3.11,
+      "derivative": 4.074946136,
+      "point": [
+       0,
+       2,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 117,
+      "kind": "remix",
+      "seconds": 8.177054443,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.08,
+      "moc_other": 3.09,
+      "derivative": 4.059113065,
+      "point": [
+       0,
+       2,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 118,
+      "kind": "remix",
+      "seconds": 8.260866468,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.13,
+      "moc_other": 3.12,
+      "derivative": 4.084400295,
+      "point": [
+       0,
+       2,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 119,
+      "kind": "ratio",
+      "seconds": 33.82325282,
+      "ufg": 0,
+      "ratio": 24.7,
+      "moc_state": 3.83,
+      "moc_other": 3.16,
+      "derivative": 4.172154772,
+      "point": [
+       0,
+       2,
+       3,
+       0
+      ]
+     },
+     {
+      "state": 120,
+      "kind": "ratio",
+      "seconds": 30.070077454,
+      "ufg": 0,
+      "ratio": 22.3,
+      "moc_state": 2.48,
+      "moc_other": 3.15,
+      "derivative": 4.162968044,
+      "point": [
+       0,
+       2,
+       3,
+       1
+      ]
+     },
+     {
+      "state": 121,
+      "kind": "ratio",
+      "seconds": 29.94099676,
+      "ufg": 0,
+      "ratio": 21.6,
+      "moc_state": 3.1,
+      "moc_other": 3.14,
+      "derivative": 4.152057066,
+      "point": [
+       0,
+       2,
+       3,
+       2
+      ]
+     },
+     {
+      "state": 122,
+      "kind": "remix",
+      "seconds": 8.450508061,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.19,
+      "moc_other": 3.15,
+      "derivative": 4.150951068,
+      "point": [
+       0,
+       2,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 123,
+      "kind": "ratio",
+      "seconds": 28.59185211,
+      "ufg": 0,
+      "ratio": 20.2,
+      "moc_state": 3.15,
+      "moc_other": 3.13,
+      "derivative": 4.140308471,
+      "point": [
+       0,
+       2,
+       3,
+       4
+      ]
+     },
+     {
+      "state": 124,
+      "kind": "ratio",
+      "seconds": 28.109960654,
+      "ufg": 0,
+      "ratio": 19.7,
+      "moc_state": 3.15,
+      "moc_other": 3.12,
+      "derivative": 4.122234492,
+      "point": [
+       0,
+       2,
+       3,
+       5
+      ]
+     },
+     {
+      "state": 125,
+      "kind": "ratio",
+      "seconds": 27.634581998,
+      "ufg": 0,
+      "ratio": 19.3,
+      "moc_state": 3.12,
+      "moc_other": 3.12,
+      "derivative": 4.131874237,
+      "point": [
+       0,
+       2,
+       3,
+       6
+      ]
+     },
+     {
+      "state": 126,
+      "kind": "ratio",
+      "seconds": 33.690421807999996,
+      "ufg": 0,
+      "ratio": 24.8,
+      "moc_state": 3.85,
+      "moc_other": 2.89,
+      "derivative": 3.88597775,
+      "point": [
+       0,
+       2,
+       4,
+       0
+      ]
+     },
+     {
+      "state": 127,
+      "kind": "ratio",
+      "seconds": 28.668232185,
+      "ufg": 0,
+      "ratio": 21.2,
+      "moc_state": 2.46,
+      "moc_other": 2.88,
+      "derivative": 3.889831226,
+      "point": [
+       0,
+       2,
+       4,
+       1
+      ]
+     },
+     {
+      "state": 128,
+      "kind": "ratio",
+      "seconds": 30.051745813,
+      "ufg": 0,
+      "ratio": 21.6,
+      "moc_state": 3.18,
+      "moc_other": 3.16,
+      "derivative": 4.159809404,
+      "point": [
+       0,
+       2,
+       4,
+       2
+      ]
+     },
+     {
+      "state": 129,
+      "kind": "remix",
+      "seconds": 8.454512014,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.17,
+      "moc_other": 3.18,
+      "derivative": 4.192907437,
+      "point": [
+       0,
+       2,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 130,
+      "kind": "ratio",
+      "seconds": 28.584629078,
+      "ufg": 0,
+      "ratio": 20.2,
+      "moc_state": 3.15,
+      "moc_other": 3.14,
+      "derivative": 4.153516354,
+      "point": [
+       0,
+       2,
+       4,
+       4
+      ]
+     },
+     {
+      "state": 131,
+      "kind": "ratio",
+      "seconds": 28.109978671,
+      "ufg": 0,
+      "ratio": 19.7,
+      "moc_state": 3.15,
+      "moc_other": 3.17,
+      "derivative": 4.169481306,
+      "point": [
+       0,
+       2,
+       4,
+       5
+      ]
+     },
+     {
+      "state": 132,
+      "kind": "ratio",
+      "seconds": 27.670204742,
+      "ufg": 0,
+      "ratio": 19.2,
+      "moc_state": 3.12,
+      "moc_other": 3.18,
+      "derivative": 4.202124027,
+      "point": [
+       0,
+       2,
+       4,
+       6
+      ]
+     },
+     {
+      "state": 133,
+      "kind": "ratio",
+      "seconds": 34.236870903,
+      "ufg": 0,
+      "ratio": 24.9,
+      "moc_state": 4.4,
+      "moc_other": 2.75,
+      "derivative": 3.76553359,
+      "point": [
+       0,
+       2,
+       5,
+       0
+      ]
+     },
+     {
+      "state": 134,
+      "kind": "ratio",
+      "seconds": 30.184106309,
+      "ufg": 0,
+      "ratio": 22.6,
+      "moc_state": 2.47,
+      "moc_other": 3.0,
+      "derivative": 4.010474003,
+      "point": [
+       0,
+       2,
+       5,
+       1
+      ]
+     },
+     {
+      "state": 135,
+      "kind": "ratio",
+      "seconds": 29.353791508,
+      "ufg": 0,
+      "ratio": 21.5,
+      "moc_state": 2.78,
+      "moc_other": 2.99,
+      "derivative": 3.994963284,
+      "point": [
+       0,
+       2,
+       5,
+       2
+      ]
+     },
+     {
+      "state": 136,
+      "kind": "remix",
+      "seconds": 7.589854056,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.75,
+      "moc_other": 2.73,
+      "derivative": 3.741573764,
+      "point": [
+       0,
+       2,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 137,
+      "kind": "ratio",
+      "seconds": 28.012387243,
+      "ufg": 0,
+      "ratio": 20.4,
+      "moc_state": 2.73,
+      "moc_other": 2.75,
+      "derivative": 3.764647478,
+      "point": [
+       0,
+       2,
+       5,
+       4
+      ]
+     },
+     {
+      "state": 138,
+      "kind": "ratio",
+      "seconds": 27.482817245,
+      "ufg": 0,
+      "ratio": 19.8,
+      "moc_state": 2.78,
+      "moc_other": 2.74,
+      "derivative": 3.773279432,
+      "point": [
+       0,
+       2,
+       5,
+       5
+      ]
+     },
+     {
+      "state": 139,
+      "kind": "ratio",
+      "seconds": 27.401862003,
+      "ufg": 0,
+      "ratio": 19.4,
+      "moc_state": 3.15,
+      "moc_other": 2.73,
+      "derivative": 3.741441692,
+      "point": [
+       0,
+       2,
+       5,
+       6
+      ]
+     },
+     {
+      "state": 140,
+      "kind": "ratio",
+      "seconds": 33.967119075,
+      "ufg": 0,
+      "ratio": 25.1,
+      "moc_state": 3.97,
+      "moc_other": 2.75,
+      "derivative": 3.766812548,
+      "point": [
+       0,
+       2,
+       6,
+       0
+      ]
+     },
+     {
+      "state": 141,
+      "kind": "ratio",
+      "seconds": 30.141498819,
+      "ufg": 0,
+      "ratio": 22.7,
+      "moc_state": 2.53,
+      "moc_other": 2.73,
+      "derivative": 3.740694062,
+      "point": [
+       0,
+       2,
+       6,
+       1
+      ]
+     },
+     {
+      "state": 142,
+      "kind": "ratio",
+      "seconds": 29.427231925,
+      "ufg": 0,
+      "ratio": 21.8,
+      "moc_state": 2.77,
+      "moc_other": 2.71,
+      "derivative": 3.709895753,
+      "point": [
+       0,
+       2,
+       6,
+       2
+      ]
+     },
+     {
+      "state": 143,
+      "kind": "remix",
+      "seconds": 7.631650819,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.77,
+      "moc_other": 2.76,
+      "derivative": 3.770784214,
+      "point": [
+       0,
+       2,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 144,
+      "kind": "ratio",
+      "seconds": 28.006385857,
+      "ufg": 0,
+      "ratio": 20.4,
+      "moc_state": 2.78,
+      "moc_other": 2.7,
+      "derivative": 3.698668358,
+      "point": [
+       0,
+       2,
+       6,
+       4
+      ]
+     },
+     {
+      "state": 145,
+      "kind": "ratio",
+      "seconds": 27.57721591,
+      "ufg": 0,
+      "ratio": 19.9,
+      "moc_state": 2.76,
+      "moc_other": 2.76,
+      "derivative": 3.773908579,
+      "point": [
+       0,
+       2,
+       6,
+       5
+      ]
+     },
+     {
+      "state": 146,
+      "kind": "ratio",
+      "seconds": 27.16262563,
+      "ufg": 0,
+      "ratio": 19.5,
+      "moc_state": 2.77,
+      "moc_other": 2.76,
+      "derivative": 3.767280695,
+      "point": [
+       0,
+       2,
+       6,
+       6
+      ]
+     },
+     {
+      "state": 150,
+      "kind": "remix",
+      "seconds": 10.397757529,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 5.2,
+      "moc_other": 3.1,
+      "derivative": 4.105240476,
+      "point": [
+       0,
+       3,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 157,
+      "kind": "remix",
+      "seconds": 9.425770517,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.19,
+      "moc_other": 3.11,
+      "derivative": 4.11447594,
+      "point": [
+       0,
+       3,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 161,
+      "kind": "remix",
+      "seconds": 9.380467510999999,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.24,
+      "moc_other": 3.12,
+      "derivative": 4.088283226,
+      "point": [
+       0,
+       3,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 162,
+      "kind": "remix",
+      "seconds": 7.591402959,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.42,
+      "moc_other": 3.13,
+      "derivative": 4.10101976,
+      "point": [
+       0,
+       3,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 163,
+      "kind": "remix",
+      "seconds": 8.287349364,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.13,
+      "moc_other": 3.13,
+      "derivative": 4.095648005,
+      "point": [
+       0,
+       3,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 164,
+      "kind": "remix",
+      "seconds": 8.256103851,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.12,
+      "moc_other": 3.12,
+      "derivative": 4.082206603,
+      "point": [
+       0,
+       3,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 165,
+      "kind": "remix",
+      "seconds": 8.20229772,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.09,
+      "moc_other": 3.1,
+      "derivative": 4.057874927,
+      "point": [
+       0,
+       3,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 166,
+      "kind": "remix",
+      "seconds": 8.228635634,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.1,
+      "moc_other": 3.11,
+      "derivative": 4.070047026,
+      "point": [
+       0,
+       3,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 167,
+      "kind": "remix",
+      "seconds": 8.240872124,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.09,
+      "moc_other": 3.11,
+      "derivative": 4.090253675,
+      "point": [
+       0,
+       3,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 171,
+      "kind": "remix",
+      "seconds": 9.49473506,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.26,
+      "moc_other": 3.13,
+      "derivative": 4.134314939,
+      "point": [
+       0,
+       3,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 178,
+      "kind": "remix",
+      "seconds": 9.119567356,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.86,
+      "moc_other": 3.16,
+      "derivative": 4.166980234,
+      "point": [
+       0,
+       3,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 185,
+      "kind": "remix",
+      "seconds": 9.156207056,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.33,
+      "moc_other": 2.73,
+      "derivative": 3.730964737,
+      "point": [
+       0,
+       3,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 192,
+      "kind": "remix",
+      "seconds": 8.748627962,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.9,
+      "moc_other": 2.74,
+      "derivative": 3.746452772,
+      "point": [
+       0,
+       3,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 199,
+      "kind": "remix",
+      "seconds": 10.340607481,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 5.16,
+      "moc_other": 3.08,
+      "derivative": 4.086642908,
+      "point": [
+       0,
+       4,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 206,
+      "kind": "remix",
+      "seconds": 9.369721367,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.18,
+      "moc_other": 3.09,
+      "derivative": 4.090438459,
+      "point": [
+       0,
+       4,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 210,
+      "kind": "remix",
+      "seconds": 9.328102606,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.21,
+      "moc_other": 3.09,
+      "derivative": 4.057237674,
+      "point": [
+       0,
+       4,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 211,
+      "kind": "remix",
+      "seconds": 7.570818916,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.41,
+      "moc_other": 3.12,
+      "derivative": 4.091890902,
+      "point": [
+       0,
+       4,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 212,
+      "kind": "remix",
+      "seconds": 8.261728191,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.14,
+      "moc_other": 3.08,
+      "derivative": 4.049187303,
+      "point": [
+       0,
+       4,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 213,
+      "kind": "remix",
+      "seconds": 8.268161289,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.13,
+      "moc_other": 3.11,
+      "derivative": 4.073649312,
+      "point": [
+       0,
+       4,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 214,
+      "kind": "remix",
+      "seconds": 8.235316769,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.11,
+      "moc_other": 3.1,
+      "derivative": 4.063673967,
+      "point": [
+       0,
+       4,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 215,
+      "kind": "remix",
+      "seconds": 8.1871638,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.07,
+      "moc_other": 3.09,
+      "derivative": 4.053385896,
+      "point": [
+       0,
+       4,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 216,
+      "kind": "remix",
+      "seconds": 8.298194384,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.12,
+      "moc_other": 3.13,
+      "derivative": 4.107400495,
+      "point": [
+       0,
+       4,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 220,
+      "kind": "remix",
+      "seconds": 9.45897283,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.24,
+      "moc_other": 3.11,
+      "derivative": 4.113423497,
+      "point": [
+       0,
+       4,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 227,
+      "kind": "remix",
+      "seconds": 9.11684377,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.87,
+      "moc_other": 3.16,
+      "derivative": 4.159919309,
+      "point": [
+       0,
+       4,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 234,
+      "kind": "remix",
+      "seconds": 9.239208579,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.4,
+      "moc_other": 2.72,
+      "derivative": 3.73215631,
+      "point": [
+       0,
+       4,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 241,
+      "kind": "remix",
+      "seconds": 8.769537838,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.91,
+      "moc_other": 2.75,
+      "derivative": 3.748831081,
+      "point": [
+       0,
+       4,
+       6,
+       3
+      ]
+     },
+     {
+      "state": 248,
+      "kind": "remix",
+      "seconds": 10.315756325,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 5.14,
+      "moc_other": 3.07,
+      "derivative": 4.072414163,
+      "point": [
+       0,
+       5,
+       0,
+       3
+      ]
+     },
+     {
+      "state": 255,
+      "kind": "remix",
+      "seconds": 9.410777479,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.2,
+      "moc_other": 3.1,
+      "derivative": 4.101325704,
+      "point": [
+       0,
+       5,
+       1,
+       3
+      ]
+     },
+     {
+      "state": 259,
+      "kind": "remix",
+      "seconds": 9.37610767,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.23,
+      "moc_other": 3.1,
+      "derivative": 4.076455683,
+      "point": [
+       0,
+       5,
+       2,
+       0
+      ]
+     },
+     {
+      "state": 260,
+      "kind": "remix",
+      "seconds": 7.548632312,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 2.41,
+      "moc_other": 3.1,
+      "derivative": 4.06967284,
+      "point": [
+       0,
+       5,
+       2,
+       1
+      ]
+     },
+     {
+      "state": 261,
+      "kind": "remix",
+      "seconds": 8.196036891,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.07,
+      "moc_other": 3.08,
+      "derivative": 4.054778455,
+      "point": [
+       0,
+       5,
+       2,
+       2
+      ]
+     },
+     {
+      "state": 262,
+      "kind": "remix",
+      "seconds": 8.255593634,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.13,
+      "moc_other": 3.09,
+      "derivative": 4.057904976,
+      "point": [
+       0,
+       5,
+       2,
+       3
+      ]
+     },
+     {
+      "state": 263,
+      "kind": "remix",
+      "seconds": 8.21367994,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.1,
+      "moc_other": 3.08,
+      "derivative": 4.046084503,
+      "point": [
+       0,
+       5,
+       2,
+       4
+      ]
+     },
+     {
+      "state": 264,
+      "kind": "remix",
+      "seconds": 8.217702245,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.06,
+      "moc_other": 3.12,
+      "derivative": 4.080407504,
+      "point": [
+       0,
+       5,
+       2,
+       5
+      ]
+     },
+     {
+      "state": 265,
+      "kind": "remix",
+      "seconds": 8.239117112,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.09,
+      "moc_other": 3.1,
+      "derivative": 4.076934787,
+      "point": [
+       0,
+       5,
+       2,
+       6
+      ]
+     },
+     {
+      "state": 269,
+      "kind": "remix",
+      "seconds": 9.511983547,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.25,
+      "moc_other": 3.13,
+      "derivative": 4.142066093,
+      "point": [
+       0,
+       5,
+       3,
+       3
+      ]
+     },
+     {
+      "state": 276,
+      "kind": "remix",
+      "seconds": 9.13938805,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.88,
+      "moc_other": 3.16,
+      "derivative": 4.169577139,
+      "point": [
+       0,
+       5,
+       4,
+       3
+      ]
+     },
+     {
+      "state": 283,
+      "kind": "remix",
+      "seconds": 9.183480152,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 4.37,
+      "moc_other": 2.7,
+      "derivative": 3.7018073400000002,
+      "point": [
+       0,
+       5,
+       5,
+       3
+      ]
+     },
+     {
+      "state": 290,
+      "kind": "remix",
+      "seconds": 8.754422494,
+      "ufg": 0,
+      "ratio": 0,
+      "moc_state": 3.92,
+      "moc_other": 2.72,
+      "derivative": 3.724371153,
+      "point": [
+       0,
+       5,
+       6,
+       3
+      ]
+     }
+    ]
+   }
   }
  },
  "differences": {
@@ -6821,6 +8753,379 @@
      "nuclide": "U-236"
     }
    }
+  },
+  "f1-light-cp6 - nominal-cp6": {
+   "k_pcm": [
+    -0.26172810733138263,
+    -0.14214320570582473,
+    2.0083934515469082e-08,
+    6.661338147750939e-11,
+    -1.2323475573339238e-09,
+    6.3726801613483985e-09,
+    -4.440892098500626e-11,
+    5.240252676230739e-07,
+    2.220446049250313e-11,
+    0.17238719718370987,
+    0.38857894659738434,
+    0.6762201882337671,
+    0.8680214142575693,
+    -0.253401528049757,
+    -0.1377448098804912,
+    -1.1146639167236572e-08,
+    -6.231681837221004e-08,
+    6.791234241632083e-08,
+    5.551115123125783e-11,
+    5.6843418860808015e-09,
+    -7.102096688527126e-08,
+    -2.5910384948701903e-07,
+    0.16740131183468066,
+    0.3778134844090175,
+    0.6584640579454515,
+    0.8459860924348028,
+    -0.19757852942614562,
+    -0.20563653739813503,
+    -0.22745834971082957,
+    -0.24580529057738332,
+    -0.2611880430047897,
+    -0.27554933177409424,
+    -0.2891751948341792,
+    -0.10795367942906253,
+    -0.11186743422708645,
+    -0.12373202604720746,
+    -0.13372162296354517,
+    -0.14209335887915842,
+    -0.14988765305590235,
+    -0.15731243906413894,
+    -3.019806626980426e-08,
+    7.771561172376096e-11,
+    2.2004620348070603e-08,
+    -2.070565940925917e-08,
+    3.1086244689504383e-10,
+    5.118905299639209e-07,
+    2.8204105717577477e-07,
+    0.13157494949123105,
+    0.13633140065749672,
+    0.15071964722945808,
+    0.16281293576669853,
+    0.1729182315446387,
+    0.18230952267828116,
+    0.19126176531436556,
+    0.29766447110501915,
+    0.3094570238171279,
+    0.34073634271880593,
+    0.3678691766872966,
+    0.39047617081955366,
+    0.4114536939936464,
+    0.431454857396929,
+    0.5205094228299956,
+    0.5391380522357103,
+    0.5951557670247354,
+    0.6419936157242567,
+    0.6808610953368266,
+    0.7168578657235081,
+    0.7512047619506745,
+    0.6700177123897255,
+    0.6939175056341895,
+    0.7656401937561341,
+    0.8254960724984883,
+    0.8750381596200896,
+    0.9208575729391377,
+    0.9645864154417261,
+    -0.23884428888010234,
+    -0.1300256754932505,
+    -2.772226892489016e-08,
+    -4.831024469353906e-07,
+    3.0309088572266774e-08,
+    -2.493005801795789e-07,
+    0.0,
+    -7.23865412055602e-08,
+    -2.525979425627156e-07,
+    0.15857342016145637,
+    0.35865041438931655,
+    0.6266646334185388,
+    0.8063798157875723,
+    -0.23243844768927602,
+    -0.12661701134231151,
+    -3.5504932327512506e-08,
+    -8.115730310009894e-09,
+    2.220446049250313e-11,
+    -2.220446049250313e-11,
+    -3.3306690738754696e-11,
+    -4.75175454539567e-09,
+    -2.856492820058065e-07,
+    0.1546436003141416,
+    0.3500819790280829,
+    0.6123604882612987,
+    0.7885039541299932,
+    -0.22652181987936615,
+    -0.12346188598133523,
+    5.870859354217828e-08,
+    -4.207745263329343e-09,
+    1.1102230246251565e-11,
+    -4.651834473179406e-09,
+    4.4105830099283594e-07,
+    -1.1102230246251565e-11,
+    -2.2870594307278225e-09,
+    0.1509888625239597,
+    0.3420857132341304,
+    0.5989759639057901,
+    0.7717437790044634
+   ],
+   "rho_pcm": [
+    -0.34391925989307737,
+    -0.18781595587658018,
+    2.617905892066119e-08,
+    8.881784197001252e-11,
+    -1.6209256159527285e-09,
+    8.482103908136196e-09,
+    -4.440892098500626e-11,
+    7.083000852503574e-07,
+    2.220446049250313e-11,
+    0.23156277082492238,
+    0.5285746839556182,
+    0.9363276012974708,
+    1.2167856910938468,
+    -0.3589758268196519,
+    -0.1957416943199064,
+    -1.5587531265737198e-08,
+    -8.735234757750732e-08,
+    9.612310947204605e-08,
+    6.661338147750939e-11,
+    8.171241461241152e-09,
+    -1.0293987884324451e-07,
+    -3.781863711083133e-07,
+    0.24052153266840293,
+    0.5479455767565256,
+    0.9683831811768684,
+    1.2566896569143893,
+    -0.2946724498409381,
+    -0.307477917971255,
+    -0.3431595255065645,
+    -0.3738487859283879,
+    -0.4002114456058692,
+    -0.4251554536871538,
+    -0.4490936690082492,
+    -0.16109230396299523,
+    -0.1673697835213872,
+    -0.18681619300409125,
+    -0.20357182557440012,
+    -0.21796686970887436,
+    -0.2315586614676235,
+    -0.24465246544203012,
+    -4.5141668181258865e-08,
+    1.1102230246251565e-10,
+    3.328448627826219e-08,
+    -3.157474282033945e-08,
+    4.662936703425657e-10,
+    7.928324663453168e-07,
+    4.39825953435502e-07,
+    0.1973453450654361,
+    0.20504086373218655,
+    0.22885869930266978,
+    0.24937330738161734,
+    0.26697598884961593,
+    0.28358361601199533,
+    0.29960337168954965,
+    0.44905223213209666,
+    0.46816236625168983,
+    0.5205860872603552,
+    0.5670826343395774,
+    0.6069126287755466,
+    0.6444599211619106,
+    0.6806996501795837,
+    0.7928431095649557,
+    0.8236261757943453,
+    0.9185386237620108,
+    1.0000511248664523,
+    1.0697081961330568,
+    1.1353052542073527,
+    1.1986893145188304,
+    1.0281552240698488,
+    1.0680223779813147,
+    1.1907883023409838,
+    1.2961100931629943,
+    1.3859750972011753,
+    1.4705345509069545,
+    1.5522808151313683,
+    -0.38854424384560104,
+    -0.2113088849897693,
+    -4.416467191958873e-08,
+    -7.715161842725138e-07,
+    4.884981308350689e-08,
+    -4.0518699506719713e-07,
+    0.0,
+    -1.1941558852868184e-07,
+    -4.1946446316387664e-07,
+    0.25811939818876084,
+    0.5859908303484929,
+    1.0313362474922982,
+    1.3350486451901844,
+    -0.403066490495263,
+    -0.2189555479592542,
+    -6.006306563222097e-08,
+    -1.3766765505351941e-08,
+    2.220446049250313e-11,
+    -4.440892098500626e-11,
+    -6.661338147750939e-11,
+    -8.304468224196171e-09,
+    -5.036193684304635e-07,
+    0.2667642734932585,
+    0.6046846827256758,
+    1.0622559070805337,
+    1.373530827830649,
+    -0.4174217911545597,
+    -0.22651423647879199,
+    1.0522693827397234e-07,
+    -7.549516567451064e-09,
+    2.220446049250313e-11,
+    -8.504308368628699e-09,
+    8.123279826577345e-07,
+    -2.220446049250313e-11,
+    -4.263256414560601e-09,
+    0.2753100819985477,
+    0.6231545549351125,
+    1.0928184827063703,
+    1.4115658258706532
+   ],
+   "worst_k": {
+    "value": 0.9645864154417261,
+    "state": 74,
+    "point": [
+     0,
+     2,
+     6,
+     6
+    ]
+   },
+   "worst_rho": {
+    "value": 1.5522808151313683,
+    "state": 74,
+    "point": [
+     0,
+     2,
+     6,
+     6
+    ]
+   },
+   "items": {
+    "absorption": {
+     "value": 1.3660896301484636e-05,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ]
+    },
+    "nu_fission": {
+     "value": 1.4477892106774343e-05,
+     "state": 12,
+     "point": [
+      0,
+      0,
+      6,
+      3
+     ]
+    },
+    "kappa_fission": {
+     "value": 1.4309296286301242e-05,
+     "state": 12,
+     "point": [
+      0,
+      0,
+      6,
+      3
+     ]
+    },
+    "diffusion": {
+     "value": 1.396206530165637e-06,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ]
+    },
+    "scatter": {
+     "value": 9.960498626383512e-06,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ]
+    },
+    "adf": {
+     "value": 5.760273689181199e-07,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ]
+    }
+   },
+   "micro": {
+    "total": {
+     "value": 0.0002517315327538801,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ],
+     "nuclide": "Sm-152"
+    },
+    "nu_fission": {
+     "value": 5.484055136629778e-05,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ],
+     "nuclide": "Pu-239"
+    },
+    "fission": {
+     "value": 5.573099700863687e-05,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ],
+     "nuclide": "Pu-239"
+    },
+    "scatter": {
+     "value": 0.00024309298188966816,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ],
+     "nuclide": "Sm-152"
+    },
+    "thermal_fission": {
+     "value": 9.249854644242939e-05,
+     "state": 74,
+     "point": [
+      0,
+      2,
+      6,
+      6
+     ],
+     "nuclide": "U-236"
+    }
+   }
   }
  },
  "points": [
@@ -7533,6 +9838,14 @@
   {
    "path": "production-2A-60-f1-static-cp6.log",
    "md5": "dc4e9f9ac024903d59f43b12679a26b9"
+  },
+  {
+   "path": "table-production-2A-60-f1-light-cp6.msgpack",
+   "md5": "2bd6761e68d8af2d2291cfa4d6764be3"
+  },
+  {
+   "path": "production-2A-60-f1-light-cp6.log",
+   "md5": "860b8fe97fcef21d5d1f22a395f5cf91"
   }
  ]
 }
