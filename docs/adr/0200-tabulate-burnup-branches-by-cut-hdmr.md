@@ -314,7 +314,7 @@ lattice の実行は、状態を軸の直積の番号で数えたまま、解く
   `ThinningSubgrids`、`ThinningMicro`、`ThinningTime`
 - 分岐を解く燃焼点の間引きと 3 つ同時の項（Gd 燃料の集合体 2O）: ADR-0239 の格子点の各軸の両端と公称の点の 3 × 3 × 3 の直積を 27 燃焼点の
   すべてで解いたテーブル（examples/depletion/p9-gd。格子計算は記録に書く試行で、`dvc add` した出力。Slurm 931）で、同じツールで比べた
-  （ステージ `compare-2O`、xlc 90140f6d、分岐点は main の 8369db18、2026-11-18）。2 軸の組すべての誤差（3 つ同時の項）は 2.25〜4.18 pcm で
+  （ステージ `compare-2O`、xlc e780fb7b、分岐点は main の 8369db18、2026-11-18）。2 軸の組すべての誤差（3 つ同時の項）は 2.25〜4.18 pcm で
   2A と同じ大きさ。間引きは 2A の 15 点で 44.21 pcm、15 点に 7、8、9、12 を足した 19 点で 4.13 pcm（記録は examples/depletion/verification.md の
   「Problem 9 の分岐の状態と燃焼点を減らす案の Gd 燃料の集合体（2O）での確認」）。時間の見込みの本番の形の状態の数と 1 状態の秒は
   ツールの `[thinning.timing]` の `states` と `other`（テストは `ThinningTime`）

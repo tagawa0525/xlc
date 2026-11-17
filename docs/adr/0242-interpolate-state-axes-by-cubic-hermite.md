@@ -190,7 +190,7 @@ Hermite は 29.52 pcm）にする（目安に入る方式が無いので、正�
   ln、温度とともに下がらない密度を止めること
 - 格子点を減らした内挿の比べ方（examples/depletion/test_compare_grid_interpolation.py の `KeptPoints`）: 方式の `points` の残す格子点から除いた
   格子点を内挿し、3 点の √T の 3 次 Hermite が √T の 2 次式を厳密に再現すること。Gd 燃料の集合体 2O の値は、ステージ `grid-2O`
-  （examples/depletion/p9-gd、xlc 37962eca、分岐点は main の 8369db18、2026-11-18、テーブルは Slurm 930 の `dvc add` した出力）
+  （examples/depletion/p9-gd、xlc e780fb7b、分岐点は main の 8369db18、2026-11-18、テーブルは Slurm 930 の `dvc add` した出力）
 - 測った値: 上の「検討した案」の表（Slurm 728 のテーブル、xlc 4922a278、分岐点 074410bc、2026-11-10。作り直したテーブルの値は examples/depletion/verification.md の「内挿の変数と方式の候補」、xlc 8238f552、分岐点 5d0834c1、2026-11-12、Slurm 752）
 - 測っていないこと: 本番の間隔の誤差。除いた点の両隣は本番の約 2 倍の間隔で、3 次 Hermite の誤差は間隔の 3 乗の桁で小さくなる見込み
   （確かめていない）。測るには、ホウ素と減速材の区間の中点の状態（減速材はライブラリにその温度の点が要る。ADR-0239 の背景）を解き、
