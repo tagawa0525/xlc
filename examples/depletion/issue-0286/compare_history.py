@@ -101,7 +101,7 @@ def pin_difference(
 
 
 def summarize(default: dict, exact: dict) -> dict:
-    """2 つの履歴を比べた要約（モジュールの説明の `--json`）。"""
+    """2 つの履歴を比べた要約（モジュールの説明の `--json`）。`max_density` は種類と核種をまたいだ体積の平均の差の絶対値の最大。"""
     check_same_run(default, exact)
     burnup = [p["burnup"] for p in exact["points"]]
     index = {name: i for i, name in enumerate(exact["nuclides"])}
@@ -151,11 +151,18 @@ def summarize(default: dict, exact: dict) -> dict:
         pin_difference(ours["pin_powers"], theirs["pin_powers"], theirs["burnup"])
         for ours, theirs in zip(default["points"], exact["points"])
     ]
+    found = [
+        {"kind": kind, "nuclide": name, **v["max"]}
+        for kind, by_name in kinds.items()
+        for name, v in by_name.items()
+        if v["max"] is not None
+    ]
     return {
         "burnup": burnup,
         "k": k,
         "max_drho_pcm": largest([x["drho_pcm"] for x in k], burnup),
         "kinds": kinds,
+        "max_density": max(found, key=lambda x: abs(x["value"])),
         "pins": pins,
         "max_pins": largest(pins, burnup),
     }
@@ -192,12 +199,15 @@ def at(found: dict | None, form: str, unit: str = "") -> str:
 def report(summary: dict) -> list[str]:
     lines = []
     for name, case in summary.items():
-        last = case["k"][-1]
+        first, last = case["k"][0], case["k"][-1]
+        d = case["max_density"]
         lines.append(
             f"{name}: 0〜{case['burnup'][-1]:g} MWd/kg の {len(case['burnup'])} 点。"
             f"1/k(既定) − 1/k(厳密) の絶対値の最大 {at(case['max_drho_pcm'], '+.4f', ' pcm')}、"
             f"最後の点 {last['drho_pcm']:+.4f} pcm（k∞ 既定 {last['default']:.6f}、厳密 {last['exact']:.6f}）。"
-            f"ピン出力の相対の差の最大 {at(case['max_pins'], '.2e')}"
+            f"0 の点 {first['drho_pcm']:+.4f} pcm。"
+            f"ピン出力の相対の差の最大 {at(case['max_pins'], '.2e')}。"
+            f"数密度（体積の平均）の相対の差の最大 {d['kind']} の {d['nuclide']} {at(d, '+.2e')}"
         )
         for kind, by_name in case["kinds"].items():
             parts = [
