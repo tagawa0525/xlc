@@ -55,6 +55,12 @@ md5 は xs: e77257b3 → f84383de、lattice: 03b6048d → 260f3d16、core: fe2d8
 
 関係する ADR: ADR-0166
 
+2026-11-18 の main（8369db18。直下の dvc.lock の `build` を付け直した後）では、examples/depletion/p2/dvc.yaml の xs のすべての核種のステージと
+`xs`、examples/depletion/dvc.yaml の `chain` が、deps の `bin/xs`（dvc.lock は f98234e2、`build` の出力は 28e28365）と `bin/chain`（4a9d4768 と
+d14e59ff）だけで changed で、出力（depletion.msgpack 975be970、chain.msgpack 1f1de180）は dvc.lock のとおり。xs と chain のクレートの変更で
+変わったのか、ここの原因で変わったのかは確かめていない。その下流のステージを `dvc repro` すると、ライブラリの作り直しが先に走る（#0176 の
+Gd の確認は、格子計算をステージにせず流した）
+
 ## 完了の条件
 
 - 実行ファイルが変わる原因を確かめてある（変わった節と記号を比べる）
