@@ -17,3 +17,14 @@ stages:
       - table-2A.msgpack
       - branch-2A.out
       - branch-2A.log
+  thinning-2A:
+    # 公称でない状態を解く燃焼点を間引く誤差と、テーブルを作る時間の見込みの要約（ADR-0200、#0176。数十 KB。git で追跡する）
+    cmd: python3 ../compare_branch_cross_terms.py --json thinning-2A.json thinning-2A.toml
+    deps:
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - thinning-2A.toml
+      - table-2A.msgpack
+    outs:
+      - thinning-2A.json:
+          cache: false
