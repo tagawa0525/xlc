@@ -5787,5 +5787,197 @@ class DrawSectorZones(unittest.TestCase):
                 self.assertIn(sources[0], vt.GIT_TRACKED)
 
 
+class DrawProductionThinning(unittest.TestCase):
+    """本番の形のテーブルの燃焼点の間引き（compare_branch_cross_terms.py の `[[thinning]]` の、時間の見込みと微視的断面積を持つ要約）"""
+
+    @staticmethod
+    def kind(pcm: float, seconds: float, micro: float = 0.0) -> dict:
+        return {
+            "max_abs_pcm": pcm,
+            "states": 2,
+            "seconds_per_point": seconds,
+            "micro": {"total": {"max_relative": micro, "nuclide": "Pu-242"}},
+        }
+
+    def selection(self, name: str, n: int, hermite: list[float], hours: float):
+        kinds = {
+            "boron": self.kind(hermite[0], 17.4),
+            "moderator+fuel": self.kind(hermite[1], 1299.6),
+        }
+        micro = {
+            "total": {
+                "max_relative": 3.1e-3,
+                "nuclide": "Pu-242",
+                "worst": {"burnup": 36.0},
+            },
+            "reactions": {
+                "max_relative": 4.5e-3,
+                "nuclide": "Pu-242 mt102",
+                "worst": {"burnup": 36.0},
+            },
+        }
+        derivative = {
+            "total": {
+                "max_relative": 0.18,
+                "nuclide": "Pu-240",
+                "worst": {"burnup": 0.25},
+            }
+        }
+        return {
+            "name": name,
+            "burnup": [0.0] * n,
+            "hours": hours,
+            "results": {
+                "linear": {
+                    "max_abs_pcm": 10 * max(hermite),
+                    "worst": {"burnup": 20.0},
+                    "kinds": kinds,
+                },
+                "hermite": {
+                    "max_abs_pcm": max(hermite),
+                    "worst": {"burnup": 36.0},
+                    "kinds": kinds,
+                    "micro": micro,
+                    "derivative": derivative,
+                },
+            },
+        }
+
+    def summary(self) -> dict:
+        return {
+            "format": "xlc-compare-branch-cross-terms",
+            "tables": [],
+            "thinning": [
+                {
+                    "name": "2A",
+                    "burnup": [0.0] * 27,
+                    "hours": 17.62,
+                    "other_seconds": 14.6,
+                    "timing": {"solve": 36.1, "reuse": 8.7},
+                    "selections": [
+                        self.selection("10 点", 10, [2.09, 6.01], 6.76),
+                        self.selection("14 点", 14, [0.6, 3.25], 9.32),
+                    ],
+                    "plans": [
+                        {
+                            "name": "種類ごと",
+                            "kinds": {"boron": "10 点", "moderator+fuel": "14 点"},
+                            "results": {
+                                "linear": {
+                                    "max_abs_pcm": 15.31,
+                                    "worst_kind": "moderator+fuel",
+                                },
+                                "hermite": {
+                                    "max_abs_pcm": 3.25,
+                                    "worst_kind": "moderator+fuel",
+                                },
+                            },
+                            "hours": 9.2,
+                        }
+                    ],
+                }
+            ],
+        }
+
+    rows = staticmethod(DrawBurnupInterpolation.rows)
+    header = staticmethod(DrawBranchProduct.header)
+
+    def test_selection_rows_have_the_hours_and_the_error_of_each_kind(self):
+        table = vt.production_thinning([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "選び方",
+                "点",
+                "時間の見込み (h)",
+                "Hermite (pcm、燃焼度)",
+                "B",
+                "M、F",
+                "線形 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["すべての燃焼点", "27", "17.62", "0", "0", "0", "0"],
+                ["10 点", "10", "6.76", "6.01（36）", "2.09", "6.01", "60.10"],
+                ["14 点", "14", "9.32", "3.25（36）", "0.60", "3.25", "32.50"],
+            ],
+        )
+
+    def test_plan_rows_name_the_selection_of_each_kind(self):
+        table = vt.production_thinning_plans([self.summary()])
+        self.assertEqual(
+            self.header(table),
+            [
+                "組",
+                "時間の見込み (h)",
+                "Hermite (pcm、種類)",
+                "線形 (pcm)",
+                "B",
+                "M、F",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [["種類ごと", "9.20", "3.25（M、F）", "15.31", "10 点", "14 点"]],
+        )
+
+    def test_kind_rows_have_the_states_and_the_seconds_per_burnup_point(self):
+        table = vt.production_thinning_time([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["公称の状態", "1", "36.1"],
+                ["状態によらない分", "", "14.6"],
+                ["B", "2", "17.4"],
+                ["M、F", "2", "1299.6"],
+            ],
+        )
+
+    def test_micro_rows_have_the_hermite_item_maxima_with_the_nuclide(self):
+        table = vt.production_thinning_micro([self.summary()])
+        self.assertEqual(self.header(table), ["選び方", "total (%)", "reactions (%)"])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["10 点", "0.310（Pu-242、36）", "0.450（Pu-242 mt102、36）"],
+                ["14 点", "0.310（Pu-242、36）", "0.450（Pu-242 mt102、36）"],
+            ],
+        )
+        table = vt.production_thinning_derivative([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [["10 点", "18.000（Pu-240、0.25）"], ["14 点", "18.000（Pu-240、0.25）"]],
+        )
+
+    def test_summaries_without_the_timing_or_the_micro_data_are_errors(self):
+        s = self.summary()
+        del s["thinning"][0]["selections"][0]["hours"]
+        with self.assertRaises(vt.TableError):
+            vt.production_thinning([s])
+        s = self.summary()
+        del s["thinning"][0]["selections"][1]["results"]["hermite"]["micro"]
+        with self.assertRaises(vt.TableError):
+            vt.production_thinning_micro([s])
+        s = self.summary()
+        del s["thinning"][0]["plans"]
+        with self.assertRaises(vt.TableError):
+            vt.production_thinning_plans([s])
+
+    def test_the_record_draws_the_production_thinning(self):
+        for name, draw in [
+            ("depletion-p9-2a-thinning", vt.production_thinning),
+            ("depletion-p9-2a-thinning-plans", vt.production_thinning_plans),
+            ("depletion-p9-2a-thinning-time", vt.production_thinning_time),
+            ("depletion-p9-2a-thinning-micro", vt.production_thinning_micro),
+            ("depletion-p9-2a-thinning-derivative", vt.production_thinning_derivative),
+        ]:
+            self.assertEqual(
+                vt.TABLES[name],
+                (["examples/depletion/p9-2A/thinning-2A.json"], draw),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
