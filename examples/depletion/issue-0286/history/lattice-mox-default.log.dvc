@@ -1,0 +1,5 @@
+outs:
+- md5: a4dc68c447f4be51944ee227fa4b4cbd
+  size: 155420
+  hash: md5
+  path: lattice-mox-default.log

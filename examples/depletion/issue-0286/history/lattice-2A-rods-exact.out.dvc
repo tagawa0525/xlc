@@ -1,0 +1,5 @@
+outs:
+- md5: 4f49e38e6e1bf52a91a450303133df99
+  size: 860
+  hash: md5
+  path: lattice-2A-rods-exact.out

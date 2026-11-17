@@ -3,7 +3,7 @@
 # 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。形状、組成と燃焼度の点は
 # OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。
 # 燃焼させる物質は fuel, ifba（対称操作の組ごとに 1 つの領域。ADR-0173）。
-library = "../../examples/depletion/p2/depletion.msgpack"
+library = "../../p2/depletion.msgpack"
 ufg-free-gas = { share = false }
 ufg-cp-points = 16
 ufg-tolerance = 1e-4
@@ -125,7 +125,7 @@ zones = [
 sectors = 8
 
 [depletion]
-chain = "../../examples/depletion/chain.msgpack"
+chain = "../../chain.msgpack"
 power = 38.41
 burnup = [
   0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1, 1.25, 1.5,

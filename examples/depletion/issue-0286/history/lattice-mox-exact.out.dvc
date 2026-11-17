@@ -1,0 +1,5 @@
+outs:
+- md5: 3235f8f99f400a21e4502323ab0635d8
+  size: 860
+  hash: md5
+  path: lattice-mox-exact.out

@@ -1,0 +1,5 @@
+outs:
+- md5: d1003899d92ffa66bc1336b7d36128c8
+  size: 860
+  hash: md5
+  path: lattice-2A-density-exact.out

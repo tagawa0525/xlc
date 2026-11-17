@@ -1,0 +1,5 @@
+outs:
+- md5: 632dedf708351d52145dc3fbaa9846b8
+  size: 219938
+  hash: md5
+  path: lattice-2A-rods-exact.log

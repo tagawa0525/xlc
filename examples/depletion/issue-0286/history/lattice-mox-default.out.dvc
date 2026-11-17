@@ -1,0 +1,5 @@
+outs:
+- md5: bdd123283a20c102f7b6bb8ef67ad689
+  size: 860
+  hash: md5
+  path: lattice-mox-default.out
