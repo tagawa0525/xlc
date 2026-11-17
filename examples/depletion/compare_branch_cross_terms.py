@@ -597,6 +597,7 @@ def thin(
                 }
                 if seconds is not None:
                     kinds[k]["seconds_per_point"] = seconds["kinds"][k]
+                    kinds[k]["timed_states"] = seconds["counts"][k]
                 if micro is not None:
                     kinds[k] |= ordered_items(micro_kind[k])
             results[method] = {
@@ -649,7 +650,7 @@ def thinning_time(timing: dict, counts: dict) -> dict:
     ホウ素。その軸を公称から変えた状態は、ほかの軸の同じ状態の自己遮蔽を再利用する）。公称の状態は `solve`。状態によらない秒
     （`other`）は、`total` から状態の秒を引いた残りか、`total` の代わりに `timing` の `other`。状態の種類ごと（`counts` は種類 →
     状態の数）の秒は、状態の数 × 1 状態の秒。`timing` の `states`（種類 → 状態の数。無い種類は 0）があれば、`counts` の代わりに
-    その数で数える（間引きの誤差を測ったテーブルと別の、本番の形のテーブルの見込み）。全体の秒 `total` も返す"""
+    その数で数える（間引きの誤差を測ったテーブルと別の、本番の形のテーブルの見込み）。数えた状態の数 `counts` と全体の秒 `total` も返す"""
     if ("total" in timing) == ("other" in timing):
         raise SystemExit("give the timing either the total or the other seconds")
     given = timing.get("states")
@@ -659,7 +660,16 @@ def thinning_time(timing: dict, counts: dict) -> dict:
             raise SystemExit(
                 f"the timing states {unknown} are not kinds of the table {list(counts)}"
             )
-        counts = {k: int(given.get(k, 0)) for k in counts}
+        bad = {
+            k: v
+            for k, v in given.items()
+            if isinstance(v, bool) or not isinstance(v, int) or v < 0
+        }
+        if bad:
+            raise SystemExit(
+                f"the timing states {bad} must be counts (integers 0 or more)"
+            )
+        counts = {k: given.get(k, 0) for k in counts}
     axis = timing["reuse-axis"]
     per_state = {
         k: float(timing["reuse"] if axis in k.split("+") else timing["solve"])
@@ -681,6 +691,7 @@ def thinning_time(timing: dict, counts: dict) -> dict:
             )
     return {
         "kinds": kinds,
+        "counts": counts,
         "other": other,
         "nominal": float(timing["solve"]),
         "total": total,

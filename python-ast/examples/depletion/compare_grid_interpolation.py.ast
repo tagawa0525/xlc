@@ -101,7 +101,7 @@ def check_scheme(spec: dict, axes: dict) -> None:
             raise SystemExit(f'scheme: {method} needs {MIN_POINTS[method]} points without the inner point, the {axis} axis has {len(full)}')
         return
     kept = [float(x) for x in kept]
-    if any((x not in full for x in kept)) or any((b <= a for a, b in itertools.pairwise(kept))) or kept[0] != full[0] or (kept[-1] != full[-1]) or (len(kept) == len(full)):
+    if not kept or any((x not in full for x in kept)) or any((b <= a for a, b in itertools.pairwise(kept))) or (kept[0] != full[0]) or (kept[-1] != full[-1]) or (len(kept) == len(full)):
         raise SystemExit(f'scheme: the kept points {kept} must be increasing points of the {axis} axis {full} from the first to the last, leaving some out')
     if len(kept) < MIN_POINTS[method]:
         raise SystemExit(f'scheme: {method} needs {MIN_POINTS[method]} kept points, not {len(kept)}')

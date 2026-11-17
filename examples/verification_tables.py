@@ -2170,14 +2170,15 @@ def production_thinning_plans(sources: list[dict]) -> str:
 
 def production_thinning_time(sources: list[dict]) -> str:
     """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分はすべての燃焼点で数える。状態の数は、
-    時間の見込みに数えた状態の数（timing の `states` があればその数。無い種類は 0）"""
+    時間の見込みに数えた状態の数（compare_branch_cross_terms.py の `timed_states`）"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
     first = t["selections"][0]["results"]["hermite"]["kinds"]
-    given = t["timing"].get("states")
-    counts = {
-        k: first[k]["states"] if given is None else given.get(k, 0) for k in kinds
-    }
+    if any("timed_states" not in first[k] for k in kinds):
+        raise TableError(
+            "the thinning summary has no timed state counts; rerun compare_branch_cross_terms.py"
+        )
+    counts = {k: first[k]["timed_states"] for k in kinds}
     rows = [
         ["公称の状態", "1", f"{t['timing']['solve']:.1f}"],
         ["状態によらない分", "", f"{t['other_seconds']:.1f}"],

@@ -191,7 +191,8 @@ def check_scheme(spec: dict, axes: dict) -> None:
     kept = [float(x) for x in kept]
     # 端を除くと外挿になる（core は外挿しない。ADR-0097）
     if (
-        any(x not in full for x in kept)
+        not kept
+        or any(x not in full for x in kept)
         or any(b <= a for a, b in itertools.pairwise(kept))
         or kept[0] != full[0]
         or kept[-1] != full[-1]

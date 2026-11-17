@@ -668,8 +668,8 @@ stages:
     deps:
     - path: examples/depletion/compare_branch_cross_terms.py
       hash: md5
-      md5: 2b3e7e5f70cf5215fbeae13ad791d310
-      size: 43084
+      md5: 32cc0a1d829520af3f5cdc5f89a7b2b3
+      size: 43497
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -677,8 +677,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 4c0b47f4e33b623df5fc8c5175d61008
-      size: 28338
+      md5: 7dd4cf270d6a5d6a9315125a1b2b89ea
+      size: 28633
   python-ast@examples/depletion/compare_burnup_interpolation.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/compare_burnup_interpolation.py 
@@ -704,8 +704,8 @@ stages:
     deps:
     - path: examples/depletion/compare_grid_interpolation.py
       hash: md5
-      md5: 11f74c287079d8d96e0f2bea568c832c
-      size: 19836
+      md5: c09988f3234ccbbd25b9da2eb6e5d6cf
+      size: 19856
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -713,5 +713,5 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_grid_interpolation.py.ast
       hash: md5
-      md5: 417b5d7fa0ef9bd6ebfd1df8c2b40f50
-      size: 12154
+      md5: a448c963804c1762821edc254b17ed26
+      size: 12168
