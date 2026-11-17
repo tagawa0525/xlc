@@ -912,6 +912,24 @@ fn moc_options_set_the_moc_and_cmfd_tolerances() {
 }
 
 #[test]
+fn rejects_moc_tolerances_the_moc_rejects() {
+    for entry in [
+        "k-tolerance = 0",
+        "flux-tolerance = -1e-6",
+        "cmfd-k-tolerance = nan",
+        // CMFD の精度が MOC の判定より粗い（k と中性子束で別に）
+        "k-tolerance = 1e-11",
+        "flux-tolerance = 1e-9",
+    ] {
+        let result = LatticeInput::parse(&format!("{PIN_CELL}\n[moc]\n{entry}\n"));
+        assert!(
+            matches!(result, Err(InputError::Invalid(_))),
+            "{entry}: {result:?}"
+        );
+    }
+}
+
+#[test]
 fn parses_pin_cell() {
     let input = LatticeInput::parse(PIN_CELL).unwrap();
     assert_eq!(
