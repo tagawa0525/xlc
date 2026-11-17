@@ -3252,7 +3252,9 @@ pub(crate) mod lattice {
                 (StaticScattering::LightFreeGas, Scattering::FreeGas(gas)) => {
                     Scattering::FreeGas(FreeGas { heavy: None, ..gas })
                 }
-                (StaticScattering::LightFreeGas, Scattering::Static) => unreachable!(),
+                (StaticScattering::LightFreeGas, Scattering::Static) => {
+                    panic!("the default UFG scattering is static, not free gas")
+                }
             },
             transfer: UfgTransfer::InfiniteDilution,
             cp_points: points.unwrap_or(ShieldingOptions::default().cp_points),
