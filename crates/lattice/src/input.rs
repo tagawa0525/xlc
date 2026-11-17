@@ -578,10 +578,8 @@ struct MocEntry {
 impl MocEntry {
     /// 判定と精度は正の有限で、CMFD の精度は MOC の判定以下（`moc::solve` と同じ条件。自己遮蔽の後の MOC を待たずに止める）
     fn into_options(self) -> Result<Options, String> {
-        let base = Options::default();
-        let Acceleration::Cmfd(cmfd) = base.acceleration else {
-            unreachable!("the default MOC options accelerate with CMFD");
-        };
+        // 既定の加速は既定の精度の CMFD（`moc::Options::default`）
+        let (base, cmfd) = (Options::default(), CmfdOptions::default());
         let k = self.k_tolerance.unwrap_or(base.k_tolerance);
         let flux = self.flux_tolerance.unwrap_or(base.flux_tolerance);
         let cmfd_k = self.cmfd_k_tolerance.unwrap_or(cmfd.k_tolerance);
