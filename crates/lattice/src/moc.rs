@@ -39,6 +39,9 @@ pub struct Options {
     pub acceleration: Acceleration,
     /// CMFD の解を反復に戻す形（`Acceleration::Cmfd` のときだけ使う）
     pub coupling: Coupling,
+    /// 反復ごとのスイープの数（1 以上）。CMFD は最後のスイープの後に解き、収束の判定はその前のスイープとの変化で行う。
+    /// 1 より多いのは、CMFD が減らせない成分の縮小率をスイープごとに測る切り分け（#0289）
+    pub sweeps: usize,
 }
 
 impl Default for Options {
@@ -50,6 +53,7 @@ impl Default for Options {
             max_iterations: 20_000,
             acceleration: Acceleration::Cmfd(CmfdOptions::default()),
             coupling: Coupling::default(),
+            sweeps: 1,
         }
     }
 }
@@ -971,16 +975,85 @@ fn solve_with(
     let mut tallies = sweeper.tallies(regions);
     let mut k_history = Remaining::default();
     let mut flux_history = Remaining::default();
-    drop(setup);
-
-    for iteration in 1..=options.max_iterations {
-        // 線源を Σt で割ったもの（角度中性子束の平衡値）の [モーメント][群] の展開係数
-        let equilibrium: Vec<Vec<f64>> = tracing::trace_span!("equilibrium").in_scope(|| {
+    // スイープの和から、代表ごとの中性子束と高次のモーメントを求める。代表ごとの値はほかの代表によらないので、代表ごとに
+    // 並列に求める（どの値も同じ式なので、結果は分け方によらない）
+    let scalar_flux =
+        |equilibrium: &[Vec<f64>], delta: &[f64], void_flux: &[f64]| -> Vec<Vec<f64>> {
+            (0..states)
+                .into_par_iter()
+                .map(|i| {
+                    // 真空では、通り抜ける角度中性子束の経路長の積分から求める
+                    if let Some(v) = sweeper.void[kept[i]] {
+                        return void_flux[v * ng..][..ng]
+                            .iter()
+                            .map(|f| f / volume(i))
+                            .collect();
+                    }
+                    let total = &material(i).total;
+                    let delta = &delta[i * pairs.len() * ng..][..ng];
+                    (0..ng)
+                        .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volume(i)))
+                        .collect()
+                })
+                .collect()
+        };
+    // 高次のモーメント: φ_k = 4π e_k / (2l + 1) + Σ w Y_k Δψ / (Σt V)（真空では散乱しないので使わない）
+    let higher_moments = |equilibrium: &[Vec<f64>], delta: &[f64]| -> Vec<Vec<f64>> {
+        (0..states)
+            .into_par_iter()
+            .map(|i| {
+                let total = &material(i).total;
+                let mut values = vec![0.0; (pairs.len() - 1) * ng];
+                if sweeper.void[kept[i]].is_some() {
+                    return values;
+                }
+                for (k, &(l, _)) in pairs.iter().enumerate().skip(1) {
+                    let delta = &delta[(i * pairs.len() + k) * ng..][..ng];
+                    let e = &equilibrium[i][k * ng..][..ng];
+                    for (g, v) in values[(k - 1) * ng..][..ng].iter_mut().enumerate() {
+                        *v = 4.0 * PI * e[g] / (2 * l + 1) as f64
+                            + delta[g] / (total[g] * volume(i));
+                    }
+                }
+                values
+            })
+            .collect()
+    };
+    // 線源を Σt で割ったもの（角度中性子束の平衡値）の [モーメント][群] の展開係数
+    let equilibria = |flux: &[Vec<f64>], higher: &[Vec<f64>], k: f64| -> Vec<Vec<f64>> {
+        tracing::trace_span!("equilibrium").in_scope(|| {
             (0..states)
                 .into_par_iter()
                 .map(|i| equilibrium_moments(material(i), &flux[i], &higher[i], k, &pairs))
                 .collect()
-        });
+        })
+    };
+    drop(setup);
+
+    for iteration in 1..=options.max_iterations {
+        // CMFD の前のスイープ（`Options::sweeps`）。中性子束と境界の値を生成率 1 に規格化し、k を生成率の比で更新する
+        for _ in 1..options.sweeps {
+            let equilibrium = equilibria(&flux, &higher, k);
+            tracing::trace_span!("sweep").in_scope(|| {
+                sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)
+            })?;
+            std::mem::swap(&mut outgoing, &mut next_outgoing);
+            let mut sums = sum_tallies(&sweeper, &tallies);
+            sweeper
+                .representatives
+                .symmetrize(&mut sums, &sweeper.void, ng);
+            flux = scalar_flux(&equilibrium, &sums.delta, &sums.void_flux);
+            higher = higher_moments(&equilibrium, &sums.delta);
+            let rate = production(&flux);
+            k *= rate;
+            flux.par_iter_mut()
+                .chain(higher.par_iter_mut())
+                .for_each(|values| values.iter_mut().for_each(|v| *v /= rate));
+            outgoing
+                .par_chunks_mut(sweeper.width)
+                .for_each(|values| values.iter_mut().for_each(|b| *b /= rate));
+        }
+        let equilibrium = equilibria(&flux, &higher, k);
 
         // 段の時間は trace の区間で測る（main.rs の FmtSpan::CLOSE で、閉じるときに time.busy を出す）
         tracing::trace_span!("sweep").in_scope(|| {
@@ -1004,46 +1077,10 @@ fn solve_with(
             region_current,
         } = sums;
 
-        // スイープの和から、代表ごとの中性子束、高次のモーメント、中性子流を求め、生成率 1 に規格化する。代表ごとの値は
-        // ほかの代表によらないので、代表ごとに並列に求める（どの値も同じ式なので、結果は分け方によらない）
+        // スイープの和から、代表ごとの中性子束、高次のモーメント、中性子流を求め、生成率 1 に規格化する
         let update = tracing::trace_span!("update").entered();
-        let mut new_flux: Vec<Vec<f64>> = (0..states)
-            .into_par_iter()
-            .map(|i| {
-                // 真空では、通り抜ける角度中性子束の経路長の積分から求める
-                if let Some(v) = sweeper.void[kept[i]] {
-                    return void_flux[v * ng..][..ng]
-                        .iter()
-                        .map(|f| f / volume(i))
-                        .collect();
-                }
-                let total = &material(i).total;
-                let delta = &delta[i * pairs.len() * ng..][..ng];
-                (0..ng)
-                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volume(i)))
-                    .collect()
-            })
-            .collect();
-        // 高次のモーメント: φ_k = 4π e_k / (2l + 1) + Σ w Y_k Δψ / (Σt V)（真空では散乱しないので使わない）
-        let mut new_higher: Vec<Vec<f64>> = (0..states)
-            .into_par_iter()
-            .map(|i| {
-                let total = &material(i).total;
-                let mut values = vec![0.0; (pairs.len() - 1) * ng];
-                if sweeper.void[kept[i]].is_some() {
-                    return values;
-                }
-                for (k, &(l, _)) in pairs.iter().enumerate().skip(1) {
-                    let delta = &delta[(i * pairs.len() + k) * ng..][..ng];
-                    let e = &equilibrium[i][k * ng..][..ng];
-                    for (g, v) in values[(k - 1) * ng..][..ng].iter_mut().enumerate() {
-                        *v = 4.0 * PI * e[g] / (2 * l + 1) as f64
-                            + delta[g] / (total[g] * volume(i));
-                    }
-                }
-                values
-            })
-            .collect();
+        let mut new_flux = scalar_flux(&equilibrium, &delta, &void_flux);
+        let mut new_higher = higher_moments(&equilibrium, &delta);
         // 領域の中性子流 [領域][x, y の順に群]: 真空は通り抜ける角度中性子束、散乱の次数が 1 以上なら1次の
         // モーメント（Y_11 = Ω_x、Y_1,-1 = Ω_y）、0 なら Σ w Ω Δψ / (Σt V)（等方な線源は中性子流を持たない）
         let moment_of = |pair: (usize, isize)| pairs.iter().position(|&q| q == pair);
