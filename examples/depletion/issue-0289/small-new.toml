@@ -1,4 +1,4 @@
-# #0289: #0285 の本番の形の 1 燃焼点（../issue-0285/production-2A-60-nominal-cp6.toml）を 4 状態に縮めた、自己遮蔽の外の時間の測定。trials/ で流し、ここに移すときに読むファイルのパスだけを直した
+# #0289: small.toml の出力の名前だけを変えた入力。Slurm 923 で、作り直しの物質と微視的断面積を並列にした xlc 40d1ad833 で流した。trials/ で流し、ここに移すときに読むファイルのパスだけを直した
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 ufg-cp-points = 6
