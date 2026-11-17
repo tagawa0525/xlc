@@ -16,7 +16,7 @@ mod symmetric;
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
 use crate::symmetry::{Detected, Symmetry, SymmetryError};
-use crate::tracking::{Boundary, Tracking};
+use crate::tracking::{Boundaries, Boundary, Tracking};
 pub use generalized::{Generalized, GeneralizedMethod, GeneralizedOptions, solve_generalized};
 use harmonics::{planar_moments, real_harmonic};
 use symmetric::{RegionKind, Representatives};
@@ -37,6 +37,8 @@ pub struct Options {
     pub flux_tolerance: f64,
     pub max_iterations: usize,
     pub acceleration: Acceleration,
+    /// CMFD の解を反復に戻す形（`Acceleration::Cmfd` のときだけ使う）
+    pub coupling: Coupling,
 }
 
 impl Default for Options {
@@ -47,6 +49,27 @@ impl Default for Options {
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
             acceleration: Acceleration::Cmfd(CmfdOptions::default()),
+            coupling: Coupling::default(),
+        }
+    }
+}
+
+/// CMFD の問題の組み方と解き方。既定は ADR-0110 の形で、ほかは反復の遅い成分を切り分ける入力の項目（`[moc]`。#0289）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Coupling {
+    /// CMFD の精度を、スイープによる変化が MOC の判定の何倍あるかに比例して緩める（ADR-0110）。false なら、どの反復も
+    /// `CmfdOptions` の精度で解く
+    pub relaxed: bool,
+    /// 鏡面反射の外周の面の正味の中性子流を、スイープで数えた値（今のスイープで出ていく分と、前のスイープで出て戻ってきた分の差。
+    /// 収束すると 0）でなく 0 として CMFD の問題を組む
+    pub zero_reflective_current: bool,
+}
+
+impl Default for Coupling {
+    fn default() -> Self {
+        Self {
+            relaxed: true,
+            zero_reflective_current: false,
         }
     }
 }
@@ -873,6 +896,7 @@ fn solve_with(
     }
 
     let mesh = CoarseMesh::new(tracking);
+    let reflective = reflective_faces(&mesh, tracking.boundaries());
     let face_lengths = tracked_face_lengths(tracking, &mesh)?;
     if let Some(face) = face_lengths.iter().position(|&l| l <= 0.0) {
         return Err(MocError::UntrackedFace(face));
@@ -1069,6 +1093,18 @@ fn solve_with(
         // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
         if let Acceleration::Cmfd(cmfd) = &options.acceleration {
             let cells = &reduced.cells;
+            let coupling = &options.coupling;
+            let zeroed;
+            let coarse_current = if coupling.zero_reflective_current {
+                let mut c = current.clone();
+                for &face in &reflective {
+                    c[face * ng..][..ng].fill(0.0);
+                }
+                zeroed = c;
+                &zeroed
+            } else {
+                &current
+            };
             let coarse = tracing::trace_span!("homogenize").in_scope(|| {
                 Coarse::homogenize(
                     &mesh,
@@ -1077,17 +1113,21 @@ fn solve_with(
                     &volumes,
                     &new_flux,
                     &reduced.regions.index,
-                    &current,
+                    coarse_current,
                 )
             })?;
             // MOC がまだ収束から遠いうちは、CMFD を細かく解いても次のスイープで崩れる。スイープによる変化（CMFD の誤差を
             // 含まない）に合わせて精度を緩める
-            let tuned = inexact_cmfd(
-                cmfd,
-                options,
-                (new_k - k).abs(),
-                largest_change(&new_flux, &flux),
-            );
+            let tuned = if coupling.relaxed {
+                inexact_cmfd(
+                    cmfd,
+                    options,
+                    (new_k - k).abs(),
+                    largest_change(&new_flux, &flux),
+                )
+            } else {
+                *cmfd
+            };
             // [代表のセル][群] の比
             let (coarse_k, ratio) =
                 tracing::trace_span!("coarse").in_scope(|| coarse.solve(new_k, &tuned))?;
@@ -1241,6 +1281,28 @@ fn tracked_face_lengths(tracking: &Tracking, mesh: &CoarseMesh) -> Result<Vec<f6
         add(end.faces());
     }
     Ok(lengths)
+}
+
+/// 境界が鏡面反射の外周の面
+fn reflective_faces(mesh: &CoarseMesh, boundaries: Boundaries) -> Vec<usize> {
+    let sides = [
+        boundaries.left,
+        boundaries.right,
+        boundaries.top,
+        boundaries.bottom,
+    ];
+    (0..mesh.faces())
+        .filter(|&face| {
+            let FaceCells::Outer { cell, outward } = mesh.face_cells(face) else {
+                return false;
+            };
+            // 外周の面は、その外向きの向きの辺の上にある（`outer_sides` と同じ）
+            mesh.cell_faces(cell)
+                .iter()
+                .position(|&(f, s)| f == face && s == outward)
+                .is_some_and(|side| sides[side] == Boundary::Reflective)
+        })
+        .collect()
 }
 
 /// [外周の辺（左、右、上、下）][群] の、外周の面の値 `values` [面][群]（面の上の平均）の辺の上の平均。

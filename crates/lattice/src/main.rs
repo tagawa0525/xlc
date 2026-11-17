@@ -768,7 +768,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             scattering_order: input
                 .scattering_order
                 .unwrap_or_else(|| available_order(&materials)),
-            ..Options::default()
+            ..input.moc
         };
         // k の感度（ADR-0247）は、状態の解と一緒に随伴を解き、結果を書く。状態は 1 つ（下で確かめてある）
         let (solution, converged) = match &input.sensitivity {
@@ -1054,7 +1054,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             scattering_order: input
                                 .scattering_order
                                 .unwrap_or_else(|| available_order(&materials)),
-                            ..Options::default()
+                            ..input.moc
                         };
                         let (solution, _) = solve_symmetric_from(
                             &geometry.tracking,

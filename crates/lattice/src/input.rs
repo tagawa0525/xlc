@@ -56,6 +56,11 @@
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! scattering-order = 1            # 散乱の非等方性のルジャンドルの次数（library のとき。省略するとライブラリにあるすべての次数）
+//! moc = { k-tolerance = 1e-9, flux-tolerance = 1e-8, cmfd-k-tolerance = 1e-12, cmfd-flux-tolerance = 1e-10 }
+//!                                 # この入力のすべての MOC の反復の判定と CMFD の精度（省略した項目は `moc::Options` の既定。CMFD の精度は
+//!                                 # MOC の判定以下）。反復の遅い成分を切り分ける項目（#0289）: cmfd-relaxed = false で CMFD の精度を
+//!                                 # スイープによる変化に比例して緩めない（ADR-0110）、cmfd-reflective-current = "zero" で
+//!                                 # 鏡面反射の外周の面の正味の中性子流を 0 として CMFD を組む（省略すると "swept"、スイープで数えた値）
 //! symmetry = "quarter"            # 使う対称性を強制する（検証用。"none"、"quarter"（左右と上下の鏡映）、"octant"（8 つの
 //!                                 # 操作すべて））。どれかの操作で格子が変わればエラー。省略すると、成り立つ対称操作を
 //!                                 # すべて使う（ADR-0112）
@@ -176,10 +181,12 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
+use crate::cmfd::CmfdOptions;
 use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
+use crate::moc::{Acceleration, Coupling, Options};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
@@ -293,6 +300,8 @@ pub struct LatticeInput {
     pub spacing: f64,
     /// 散乱の非等方性のルジャンドルの次数（0 なら等方散乱。`None` ならライブラリにあるすべての次数）
     pub scattering_order: Option<usize>,
+    /// MOC の反復の判定、CMFD の精度と組み方（`[moc]`。散乱の次数は `scattering_order` で、ここの値は使わない）
+    pub moc: Options,
     pub boundaries: Boundaries,
     /// 解くときに使う格子の対称性の選び方（ADR-0112）
     pub symmetry: SymmetryChoice,
@@ -532,6 +541,8 @@ struct InputFile {
     spacing: f64,
     /// 省略すると、ライブラリにあるすべての次数（巨視的断面積では 0）
     scattering_order: Option<usize>,
+    /// 省略すると `moc::Options` の既定
+    moc: Option<MocEntry>,
     /// 省略した辺は鏡面反射
     boundary: Option<BoundaryEntry>,
     /// 省略すると、成り立つ対称操作をすべて使う（ADR-0112）
@@ -554,6 +565,51 @@ struct InputFile {
     history: Option<HistoryEntry>,
     /// 省略すると k の感度を求めない
     sensitivity: Option<SensitivityEntry>,
+}
+
+/// `[moc]`。省略した項目は `moc::Options` の既定
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct MocEntry {
+    k_tolerance: Option<f64>,
+    flux_tolerance: Option<f64>,
+    cmfd_k_tolerance: Option<f64>,
+    cmfd_flux_tolerance: Option<f64>,
+    cmfd_relaxed: Option<bool>,
+    cmfd_reflective_current: Option<String>,
+}
+
+impl MocEntry {
+    /// 判定と精度の大小（正の有限で、CMFD が MOC 以下）は MOC を解くときに確かめる（`MocError::Tolerances`）
+    fn into_options(self) -> Result<Options, String> {
+        let base = Options::default();
+        let Acceleration::Cmfd(cmfd) = base.acceleration else {
+            unreachable!("the default MOC options accelerate with CMFD");
+        };
+        let zero_reflective_current = match self.cmfd_reflective_current.as_deref() {
+            None | Some("swept") => false,
+            Some("zero") => true,
+            Some(other) => {
+                return Err(format!(
+                    "`moc.cmfd-reflective-current` must be \"swept\" or \"zero\", got \"{other}\""
+                ));
+            }
+        };
+        Ok(Options {
+            k_tolerance: self.k_tolerance.unwrap_or(base.k_tolerance),
+            flux_tolerance: self.flux_tolerance.unwrap_or(base.flux_tolerance),
+            acceleration: Acceleration::Cmfd(CmfdOptions {
+                k_tolerance: self.cmfd_k_tolerance.unwrap_or(cmfd.k_tolerance),
+                flux_tolerance: self.cmfd_flux_tolerance.unwrap_or(cmfd.flux_tolerance),
+                ..cmfd
+            }),
+            coupling: Coupling {
+                relaxed: self.cmfd_relaxed.unwrap_or(base.coupling.relaxed),
+                zero_reflective_current,
+            },
+            ..base
+        })
+    }
 }
 
 /// k の数密度の感度（ADR-0247）
@@ -1274,6 +1330,10 @@ impl LatticeInput {
             ));
         }
         let scattering_order = file.scattering_order;
+        let moc = file
+            .moc
+            .map_or_else(|| Ok(Options::default()), MocEntry::into_options)
+            .map_err(invalid)?;
         if macroscopic && scattering_order.is_some_and(|order| order > 0) {
             return Err(invalid(
                 "`scattering-order` needs a library (macroscopic cross sections are P0 only)"
@@ -2121,6 +2181,7 @@ impl LatticeInput {
             azimuthal: file.azimuthal,
             spacing: file.spacing,
             scattering_order,
+            moc,
             boundaries,
             symmetry: match file.symmetry {
                 None => SymmetryChoice::Detect,
