@@ -165,6 +165,28 @@ class Mismatches(unittest.TestCase):
     def test_other_formats_stop(self):
         self.check_stops(lambda h: h.update(format="xlc-other"))
 
+    def test_a_k_inf_that_is_not_positive_and_finite_stops(self):
+        self.check_stops(lambda h: h["points"][1].update(k_inf=float("nan")))
+        self.check_stops(lambda h: h["points"][1].update(k_inf=0.0))
+
+    def test_a_compared_nuclide_missing_from_the_histories_stops(self):
+        default, exact = pair()
+        for h in (default, exact):
+            h["nuclides"] = [n if n != "B-10" else "B-11" for n in NAMES]
+        with self.assertRaises(SystemExit):
+            compare.summarize(default, exact)
+
+
+class NothingCompared(unittest.TestCase):
+    def test_no_compared_density_leaves_the_largest_empty(self):
+        default, exact = pair()
+        for h in (default, exact):
+            for point in h["points"]:
+                point["densities"] = [[0.0] * len(NAMES) for _ in h["regions"]]
+        summary = compare.summarize(default, exact)
+        self.assertIsNone(summary["max_density"])
+        self.assertIn("–", "\n".join(compare.report({"2A": summary})))
+
 
 class Files(unittest.TestCase):
     def test_json_lists_cases_with_input_md5_and_report_reads_it(self):
