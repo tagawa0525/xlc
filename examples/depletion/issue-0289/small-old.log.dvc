@@ -1,0 +1,5 @@
+outs:
+- md5: 9a75e874288ab754eb5c6a6d536f57ff
+  size: 22818
+  hash: md5
+  path: small-old.log

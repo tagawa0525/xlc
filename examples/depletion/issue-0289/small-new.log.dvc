@@ -1,0 +1,5 @@
+outs:
+- md5: 770056023a16f17e20b04d075cb8248d
+  size: 22836
+  hash: md5
+  path: small-new.log

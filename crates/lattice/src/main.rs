@@ -886,7 +886,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let boundaries = geometry.tracking.boundaries();
             let fews = match files {
                 FewGroupFiles::Lattice(_) => {
-                    let mut few = homogenize(&solution, &materials, groups, bounds, &boundaries)?;
+                    let mut few = tracing::debug_span!("fewgroup").in_scope(|| {
+                        homogenize(&solution, &materials, groups, bounds, &boundaries)
+                    })?;
                     // ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）
                     if *pins {
                         few.pins = Some(
@@ -910,19 +912,22 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             .with_context(context);
                         };
                         few.kappa_fission = Some(
-                            h.kappa_fission(
-                                rod,
-                                state,
-                                library,
-                                fuel,
-                                &geometry.lattice,
-                                &solution,
-                                &materials,
-                                bounds,
-                            )
-                            .with_context(|| {
-                                format!("{}: fission energy cross section", context())
-                            })?,
+                            tracing::debug_span!("kappa_fission")
+                                .in_scope(|| {
+                                    h.kappa_fission(
+                                        rod,
+                                        state,
+                                        library,
+                                        fuel,
+                                        &geometry.lattice,
+                                        &solution,
+                                        &materials,
+                                        bounds,
+                                    )
+                                })
+                                .with_context(|| {
+                                    format!("{}: fission energy cross section", context())
+                                })?,
                         );
                     }
                     // 集合体を分けた部分ノードの定数（ADR-0108）
@@ -1016,16 +1021,18 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .with_context(context);
                 };
                 let fuel = shielding.fuel();
-                let mut micro = h
-                    .micro(
-                        rod,
-                        state,
-                        library,
-                        fuel,
-                        &geometry.lattice,
-                        &solution,
-                        &output.bounds,
-                    )
+                let mut micro = tracing::debug_span!("micro")
+                    .in_scope(|| {
+                        h.micro(
+                            rod,
+                            state,
+                            library,
+                            fuel,
+                            &geometry.lattice,
+                            &solution,
+                            &output.bounds,
+                        )
+                    })
                     .with_context(|| format!("{}: micro cross sections", context()))?;
                 // 数密度の微分（ADR-0221 の直接の摂動か、ADR-0247 の一般化摂動）。摂動の組成を、状態の収束した解から解き直す
                 if !h.perturbed_nuclides().is_empty() || h.generalized().is_some() {
@@ -1056,24 +1063,28 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             geometry.chosen.moc(),
                             Some(&converged),
                         )?;
-                        let few = homogenize(
-                            &solution,
-                            &materials,
-                            &library.groups,
-                            &output.bounds,
-                            &boundaries,
-                        )?;
+                        let few = tracing::debug_span!("derivative_fewgroup").in_scope(|| {
+                            homogenize(
+                                &solution,
+                                &materials,
+                                &library.groups,
+                                &output.bounds,
+                                &boundaries,
+                            )
+                        })?;
                         // 反応率の微分（ADR-0215）の摂動の σᵢ。燃焼の領域の数密度は状態のもので重みを付けるが、摂動は核種の数密度を
                         // 領域によらず同じ割合で変えるので、自分の σᵢ の重み（領域の数密度 / 均質化した数密度）は摂動の組成と同じ
-                        let sigma = h.micro(
-                            rod,
-                            state,
-                            library,
-                            shielded.fuel(),
-                            &geometry.lattice,
-                            &solution,
-                            &output.bounds,
-                        )?;
+                        let sigma = tracing::debug_span!("derivative_micro").in_scope(|| {
+                            h.micro(
+                                rod,
+                                state,
+                                library,
+                                shielded.fuel(),
+                                &geometry.lattice,
+                                &solution,
+                                &output.bounds,
+                            )
+                        })?;
                         Ok((few, sigma, solution.iterations))
                     };
                     let nuclides = h.perturbed_nuclides();
@@ -1081,14 +1092,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     // 戻ることを状態ごとに 1 度確かめる（崩れた差が微分に入らないため）
                     let depletion = h.depletion_materials();
                     if !h.solves_perturbed_shielding() {
-                        shielding
-                            .check_remix(
-                                library,
-                                &geometry.lattice,
-                                solved_materials(rod),
-                                &depletion,
-                                state_materials,
-                            )
+                        tracing::debug_span!("check_remix")
+                            .in_scope(|| {
+                                shielding.check_remix(
+                                    library,
+                                    &geometry.lattice,
+                                    solved_materials(rod),
+                                    &depletion,
+                                    state_materials,
+                                )
+                            })
                             .with_context(context)?;
                     }
                     match h.generalized() {
@@ -1112,15 +1125,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                     );
                                     shielded
                                 } else {
-                                    shielding
-                                        .remixed_at(
-                                            library,
-                                            &geometry.lattice,
-                                            solved_materials(rod),
-                                            &depletion,
-                                            state_materials,
-                                            perturbed,
-                                        )
+                                    tracing::debug_span!("remix")
+                                        .in_scope(|| {
+                                            shielding.remixed_at(
+                                                library,
+                                                &geometry.lattice,
+                                                solved_materials(rod),
+                                                &depletion,
+                                                state_materials,
+                                                perturbed,
+                                            )
+                                        })
                                         .context("remixing the depletion regions")?
                                 };
                                 let (few, sigma, iterations) = solve_direct(&shielded)?;
@@ -1236,17 +1251,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     ))
                     .with_context(context);
                 };
-                let kinetics = h
-                    .kinetics(
-                        rod,
-                        state,
-                        library,
-                        fuel,
-                        &geometry.lattice,
-                        &solution,
-                        &output.bounds,
-                        few,
-                    )
+                let kinetics = tracing::debug_span!("kinetics")
+                    .in_scope(|| {
+                        h.kinetics(
+                            rod,
+                            state,
+                            library,
+                            fuel,
+                            &geometry.lattice,
+                            &solution,
+                            &output.bounds,
+                            few,
+                        )
+                    })
                     .with_context(|| format!("{}: kinetics data", context()))?;
                 let point = h.point_of(state);
                 let cooling = if rod == 0 && h.nominal_state(point) == Some(state) {
