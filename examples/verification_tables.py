@@ -2071,6 +2071,156 @@ def branch_thinning_kinds(sources: list[dict]) -> str:
     )
 
 
+def production_thinning_summary(sources: list[dict]) -> dict:
+    """テーブル 1 つの、時間の見込みを持つ間引きの要約（compare_branch_cross_terms.py の `[[thinning]]` の `timing`）"""
+    s = branch_cross_terms_summary(sources)
+    if len(s["thinning"]) != 1:
+        raise TableError(f"expected one thinning table, got {len(s['thinning'])}")
+    (t,) = s["thinning"]
+    if "hours" not in t or any("hours" not in sel for sel in t["selections"]):
+        raise TableError(
+            "the thinning summary has no hours; rerun compare_branch_cross_terms.py with the timing"
+        )
+    return t
+
+
+def kind_letters(kind: str) -> str:
+    axes = kind.split("+")
+    unknown = [a for a in axes if a not in BRANCH_AXIS_LETTERS]
+    if unknown:
+        raise TableError(f"no letter for the axes {unknown} of the kind {kind}")
+    return "、".join(BRANCH_AXIS_LETTERS[a] for a in axes)
+
+
+def thinning_kinds(t: dict) -> list[str]:
+    """選び方と方式のどれも同じ状態の種類を持つこと"""
+    results = [r for sel in t["selections"] for r in sel["results"].values()]
+    kinds = list(results[0]["kinds"])
+    if any(list(r["kinds"]) != kinds for r in results):
+        raise TableError("the selections and methods hold different kinds")
+    return kinds
+
+
+def production_thinning(sources: list[dict]) -> str:
+    """本番の形のテーブルの燃焼点の間引き（ADR-0200）: 選び方ごとの、テーブルを作る時間の見込みと、除いた点の |Δρ| の最大
+    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。最初の行はすべての燃焼点で解いたテーブル"""
+    t = production_thinning_summary(sources)
+    kinds = thinning_kinds(t)
+    rows = [
+        ["すべての燃焼点", str(len(t["burnup"])), f"{t['hours']:.2f}", "0"]
+        + ["0"] * len(kinds)
+        + ["0"]
+    ]
+    for sel in t["selections"]:
+        hermite = sel["results"]["hermite"]
+        rows.append(
+            [
+                sel["name"],
+                str(len(sel["burnup"])),
+                f"{sel['hours']:.2f}",
+                f"{hermite['max_abs_pcm']:.2f}（{hermite['worst']['burnup']:g}）",
+                *(f"{hermite['kinds'][k]['max_abs_pcm']:.2f}" for k in kinds),
+                f"{sel['results']['linear']['max_abs_pcm']:.2f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "選び方",
+            "点",
+            "時間の見込み (h)",
+            "Hermite (pcm、燃焼度)",
+            *(kind_letters(k) for k in kinds),
+            "線形 (pcm)",
+        ],
+        rows,
+    )
+
+
+def production_thinning_plans(sources: list[dict]) -> str:
+    """状態の種類ごとに選び方を決めた組の、時間の見込みと |Δρ| の最大（pcm）と、種類ごとの選び方"""
+    t = production_thinning_summary(sources)
+    if not t.get("plans"):
+        raise TableError("the thinning summary has no plans")
+    kinds = thinning_kinds(t)
+    rows = []
+    for plan in t["plans"]:
+        if list(plan["kinds"]) != kinds:
+            raise TableError(f"the plan {plan['name']} holds other kinds")
+        hermite = plan["results"]["hermite"]
+        rows.append(
+            [
+                plan["name"],
+                f"{plan['hours']:.2f}",
+                f"{hermite['max_abs_pcm']:.2f}（{kind_letters(hermite['worst_kind'])}）",
+                f"{plan['results']['linear']['max_abs_pcm']:.2f}",
+                *(plan["kinds"][k] for k in kinds),
+            ]
+        )
+    return markdown_table(
+        [
+            "組",
+            "時間の見込み (h)",
+            "Hermite (pcm、種類)",
+            "線形 (pcm)",
+            *(kind_letters(k) for k in kinds),
+        ],
+        rows,
+    )
+
+
+def production_thinning_time(sources: list[dict]) -> str:
+    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分はすべての燃焼点で数える"""
+    t = production_thinning_summary(sources)
+    kinds = thinning_kinds(t)
+    first = t["selections"][0]["results"]["hermite"]["kinds"]
+    rows = [
+        ["公称の状態", "1", f"{t['timing']['solve']:.1f}"],
+        ["状態によらない分", "", f"{t['other_seconds']:.1f}"],
+    ]
+    rows += [
+        [
+            kind_letters(k),
+            str(first[k]["states"]),
+            f"{first[k]['seconds_per_point']:.1f}",
+        ]
+        for k in kinds
+    ]
+    return markdown_table(["状態", "状態の数", "燃焼点 1 つの秒"], rows)
+
+
+def thinning_items(sources: list[dict], group: str) -> str:
+    t = production_thinning_summary(sources)
+    results = [sel["results"]["hermite"] for sel in t["selections"]]
+    if any(group not in r for r in results):
+        raise TableError(
+            f"the thinning summary has no {group} errors; rerun compare_branch_cross_terms.py"
+        )
+    items = list(results[0][group])
+    if any(list(r[group]) != items for r in results):
+        raise TableError(f"the selections hold different {group} items")
+    rows = [
+        [
+            sel["name"],
+            *(
+                f"{r[group][i]['max_relative'] * 100:.3f}（{r[group][i]['nuclide']}、{r[group][i]['worst']['burnup']:g}）"
+                for i in items
+            ),
+        ]
+        for sel, r in zip(t["selections"], results, strict=True)
+    ]
+    return markdown_table(["選び方", *(f"{i} (%)" for i in items)], rows)
+
+
+def production_thinning_micro(sources: list[dict]) -> str:
+    """選び方ごとの、微視的断面積の項目ごとの、除いた点の相対の差の最大（Hermite。%。核種と燃焼度を添える）"""
+    return thinning_items(sources, "micro")
+
+
+def production_thinning_derivative(sources: list[dict]) -> str:
+    """選び方ごとの、数密度の微分の項目ごとの、除いた点の差の最大（項目の最大の大きさとの比。Hermite。%。核種と燃焼度を添える）"""
+    return thinning_items(sources, "derivative")
+
+
 # 格子点の間の内挿の誤差の軸の名前と単位（examples/depletion/verification.md の「Problem 9 の格子点の直積（2A）」）
 GRID_AXIS_LABELS = {
     "boron": "ホウ素 (ppm)",
@@ -4647,6 +4797,26 @@ TABLES = {
     "depletion-p9-product-thinning-kinds": (
         ["examples/depletion/p9-product/compare-2A.json"],
         branch_thinning_kinds,
+    ),
+    "depletion-p9-2a-thinning": (
+        ["examples/depletion/p9-2A/thinning-2A.json"],
+        production_thinning,
+    ),
+    "depletion-p9-2a-thinning-plans": (
+        ["examples/depletion/p9-2A/thinning-2A.json"],
+        production_thinning_plans,
+    ),
+    "depletion-p9-2a-thinning-time": (
+        ["examples/depletion/p9-2A/thinning-2A.json"],
+        production_thinning_time,
+    ),
+    "depletion-p9-2a-thinning-micro": (
+        ["examples/depletion/p9-2A/thinning-2A.json"],
+        production_thinning_micro,
+    ),
+    "depletion-p9-2a-thinning-derivative": (
+        ["examples/depletion/p9-2A/thinning-2A.json"],
+        production_thinning_derivative,
     ),
     "depletion-p9-product-grid-points": (
         ["examples/depletion/p9-product/grid-2A.json"],
