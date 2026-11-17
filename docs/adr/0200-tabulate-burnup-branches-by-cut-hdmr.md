@@ -300,9 +300,10 @@ lattice の実行は、状態を軸の直積の番号で数えたまま、解く
   上の表の値を再現した（作り直したテーブルは ADR-0201 の公称のホウ素の自己遮蔽で、上の表のテーブルとは別の md5）。この確認の入力は
   試行で残していない
 - 分岐を解く燃焼点の間引き（本番の形の 2A）: examples/depletion/compare_branch_cross_terms.py の `[[thinning]]` で、本番の形の 2A の
-  テーブル（examples/depletion/p9-2A の `table-2A.msgpack`、md5 c33a630d）から燃焼点を間引き、除いた点で比べた（ステージ `thinning-2A`。
+  テーブル（examples/depletion/p9-2A の、`off-nominal-burnup` を書く前の `branch-2A` の出力。md5 c33a630d。`dvc add` したコピーの
+  `table-2A-all-burnups.msgpack`）から燃焼点を間引き、除いた点で比べた（ステージ `thinning-2A`。
   記録は examples/depletion/verification.md の「Problem 9 の本番の形の 2A のテーブルの燃焼点の間引き」。xlc 7f7e213e、分岐点は main の
-  c5efe30e、2026-11-17。15 点は xlc 0a66783f、分岐点は main の 12281ea0、2026-11-17）。Hermite の |Δρ| の最大は 6 点 189.45、8 点 19.08、
+  c5efe30e、2026-11-17。15 点は xlc ade8211c、分岐点は main の 12281ea0、2026-11-17）。Hermite の |Δρ| の最大は 6 点 189.45、8 点 19.08、
   10 点（見積もりの点）6.01、12 点 5.58、14 点 3.25、15 点（本番の入力の点）3.25、20 点 2.75 pcm。
   微視的断面積と Pu-240 の数密度の微分も同じ内挿で比べた（微分の全断面積の差は 14 点で 18.06%、15 点で 0.48%）。テストは examples/depletion/test_compare_branch_cross_terms.py の
   `ThinningSubgrids`、`ThinningMicro`、`ThinningTime`

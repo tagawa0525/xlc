@@ -5124,7 +5124,8 @@ python3 examples/depletion/compare_grid_interpolation.py --report examples/deple
 
 ## Problem 9 の本番の形の 2A のテーブルの燃焼点の間引き
 
-本番の形の 2A のテーブル（#0278。examples/depletion/p9-2A の `branch-2A` の出力 `table-2A.msgpack`）は、ADR-0239 の格子点の
+本番の形の 2A のテーブル（#0278。examples/depletion/p9-2A の `branch-2A` の、`off-nominal-burnup` を書く前の入力の出力を
+`table-2A-all-burnups.msgpack` にコピーして `dvc add` したもの）は、ADR-0239 の格子点の
 2 軸の組の部分格子（[ADR-0200](../../docs/adr/0200-tabulate-burnup-branches-by-cut-hdmr.md) の既定。公称の状態と公称でない 113 状態）を、
 [ADR-0199](../../docs/adr/0199-add-a-burnup-point-at-14.md) の 27 燃焼点のすべてで解いている。このテーブルから、公称でない状態を解く燃焼点を間引く誤差
 （ADR-0200 の「分岐を解く燃焼点」。#0176）を測った。選んだ燃焼点の、公称でない各状態の公称の状態との差を燃焼度について内挿し、
@@ -5154,12 +5155,12 @@ python3 examples/depletion/compare_branch_cross_terms.py --report examples/deple
 
 ### 計算
 
-xlc 0a66783f（ブランチ feat/0176-thin-production-2a-burnup、分岐点は main の 12281ea0）、2026-11-17、手元の 1 コアで約 16 秒。
-上流の `branch-2A` は deps（`bin/lattice` と、15 点を書いた `branch-2A.toml`）だけが changed で、出力は `dvc.lock` のとおりなので、
-`dvc repro -s examples/depletion/p9-2A/dvc.yaml:thinning-2A` で `dvc.lock` のテーブルから比べた（ADR-0184 の `-s` の 2 つ目の例外）。
-テーブル `table-2A.msgpack`（md5 c33a630d）は、公称でない状態も 27 点のすべてで解いた入力（`off-nominal-burnup` を書く前の
-`branch-2A.toml`）の、d6cc90d9 の Slurm 896 と、その続きの 68251719 の Slurm 908（#0278）の出力で、`bin/lattice` は md5 b54520ab。
-比較の JSON は md5 15c08431。
+xlc ade8211c（ブランチ feat/0176-thin-production-2a-burnup、分岐点は main の 12281ea0）、2026-11-17、手元の 1 コアで約 16 秒。
+`dvc repro examples/depletion/p9-2A/dvc.yaml:thinning-2A` で比べた（上流に changed のステージは無い）。
+テーブル `table-2A-all-burnups.msgpack`（md5 c33a630d）は、公称でない状態も 27 点のすべてで解いた入力（`off-nominal-burnup` を書く前の
+`branch-2A.toml`）の `branch-2A` の出力 `table-2A.msgpack` を、d6cc90d9 の Slurm 896 と、その続きの 68251719 の Slurm 908（#0278）で作ったもので、
+`bin/lattice` は md5 b54520ab。`branch-2A` の deps が変わり、作り直すと出力が 15 点のテーブルになるので、比べる真値にはコピーを使う。
+比較の JSON は md5 f8867ade。
 
 ### 結果
 
@@ -5262,7 +5263,8 @@ xlc 0a66783f（ブランチ feat/0176-thin-production-2a-burnup、分岐点は m
   0.1 と 0.5 MWd/kg の間の微分の差の変わり方を、その 2 点からの内挿で再現できない。原因（Pu-240 の数密度が小さい点の微分の解き方など）と、core の補正
   （ADR-0221 の ∂σ/∂N と数密度の差の積）への効きは確かめていない。反応率の (n,2n)（mt16）の微分は項目の大きさが小さく、比は大きくなる
 - 本番の入力（`branch-2A.toml`）の `off-nominal-burnup` は 15 点にした（#0278）。14 点との違いは 0.25 MWd/kg の微分の差（18% から
-  0.48%）で、時間の見込みは 0.64 時間増える。テーブルは、15 点で作り直すまで 27 点のすべてで解いた上の `table-2A.msgpack` のまま
+  0.48%）で、時間の見込みは 0.64 時間増える。`branch-2A` の出力 `table-2A.msgpack` は、15 点で作り直すまで 27 点のすべてで解いた
+上のテーブル（md5 c33a630d）のまま
 - 言えないこと: 測ったのは制御棒のない 2A だけで、制御棒を入れた組、Gd と Pyrex の集合体は測っていない（#0176）。時間は 1 燃焼点の
   測定から数えた見込みで、間引いたテーブルを作って測っていない。lattice の入力は、公称でない状態の燃焼点を `off-nominal-burnup`
   （公称でないすべての状態に 1 つの列）でしか選べず、種類ごとの組は今の入力で作れない（#0176）
