@@ -1,0 +1,5 @@
+outs:
+- md5: ecf874efeec9e102f7b9250d0dfd7b96
+  size: 55151820
+  hash: md5
+  path: lattice-2A-rods-exact.msgpack

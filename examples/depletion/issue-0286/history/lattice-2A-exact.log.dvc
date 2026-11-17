@@ -1,0 +1,5 @@
+outs:
+- md5: 114d9617af4445c6eb9321248b8b6b77
+  size: 155577
+  hash: md5
+  path: lattice-2A-exact.log

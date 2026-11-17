@@ -1,0 +1,5 @@
+outs:
+- md5: d2f60a1a925289845ce5b36db036f6ea
+  size: 1521
+  hash: md5
+  path: lattice-2M-exact.out

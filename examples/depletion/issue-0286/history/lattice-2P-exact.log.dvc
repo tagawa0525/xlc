@@ -1,0 +1,5 @@
+outs:
+- md5: 8ac18c1a172a60e2d7720dcf206e2f99
+  size: 351838
+  hash: md5
+  path: lattice-2P-exact.log

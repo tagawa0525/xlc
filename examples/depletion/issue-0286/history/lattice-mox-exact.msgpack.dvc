@@ -1,0 +1,5 @@
+outs:
+- md5: ba0f25ef27b244e6843d72df82d93cd2
+  size: 55151953
+  hash: md5
+  path: lattice-mox-exact.msgpack

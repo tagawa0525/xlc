@@ -1,0 +1,5 @@
+outs:
+- md5: f91264bad91df4370495a8cfe894f940
+  size: 155566
+  hash: md5
+  path: lattice-2A-density-exact.log
