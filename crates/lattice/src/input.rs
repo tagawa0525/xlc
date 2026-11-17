@@ -576,7 +576,7 @@ struct MocEntry {
 }
 
 impl MocEntry {
-    /// 判定と精度の大小（正の有限で、CMFD が MOC 以下）は MOC を解くときに確かめる（`MocError::Tolerances`）
+    /// 判定と精度は正の有限で、CMFD の精度は MOC の判定以下（`moc::solve` と同じ条件。自己遮蔽の後の MOC を待たずに止める）
     fn into_options(self) -> Result<Options, String> {
         let base = Options::default();
         let Acceleration::Cmfd(cmfd) = base.acceleration else {
@@ -586,6 +586,21 @@ impl MocEntry {
         let flux = self.flux_tolerance.unwrap_or(base.flux_tolerance);
         let cmfd_k = self.cmfd_k_tolerance.unwrap_or(cmfd.k_tolerance);
         let cmfd_flux = self.cmfd_flux_tolerance.unwrap_or(cmfd.flux_tolerance);
+        for (key, value) in [
+            ("k-tolerance", k),
+            ("flux-tolerance", flux),
+            ("cmfd-k-tolerance", cmfd_k),
+            ("cmfd-flux-tolerance", cmfd_flux),
+        ] {
+            if !positive(value) {
+                return Err(format!("`moc.{key}` must be positive, got {value}"));
+            }
+        }
+        if cmfd_k > k || cmfd_flux > flux {
+            return Err(format!(
+                "the CMFD tolerances of `moc` ({cmfd_k}, {cmfd_flux}) must not exceed the MOC ones ({k}, {flux})"
+            ));
+        }
         Ok(Options {
             k_tolerance: k,
             flux_tolerance: flux,
