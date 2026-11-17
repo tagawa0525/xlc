@@ -346,17 +346,21 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
     return summary
 
 def thinning_time(timing: dict, counts: dict) -> dict:
+    unknown_keys = sorted(set(timing) - {'total', 'other', 'solve', 'reuse', 'reuse-axis', 'states'})
+    if unknown_keys:
+        raise SystemExit(f'unknown timing keys {unknown_keys}')
     if ('total' in timing) == ('other' in timing):
         raise SystemExit('give the timing either the total or the other seconds')
     given = timing.get('states')
     if given is not None:
-        unknown = sorted(set(given) - set(counts))
-        if unknown:
-            raise SystemExit(f'the timing states {unknown} are not kinds of the table {list(counts)}')
+        if 'other' not in timing:
+            raise SystemExit('timing states need the other seconds, not the total')
+        if sorted(given) != sorted(counts):
+            raise SystemExit(f'the timing states {sorted(given)} must name every kind of the table {list(counts)} (0 for kinds the estimated table does not solve)')
         bad = {k: v for k, v in given.items() if isinstance(v, bool) or not isinstance(v, int) or v < 0}
         if bad:
             raise SystemExit(f'the timing states {bad} must be counts (integers 0 or more)')
-        counts = {k: given.get(k, 0) for k in counts}
+        counts = {k: given[k] for k in counts}
     axis = timing['reuse-axis']
     per_state = {k: float(timing['reuse'] if axis in k.split('+') else timing['solve']) for k in counts}
     kinds = {k: counts[k] * per_state[k] for k in counts}

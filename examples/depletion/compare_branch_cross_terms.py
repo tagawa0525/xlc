@@ -33,7 +33,7 @@
     reuse = 8.7                            # 自己遮蔽を再利用する 1 状態の秒
     reuse-axis = "boron"
     # other = 14.6                         # `total` の代わりに、燃焼点 1 つの状態によらない秒
-    # states = { boron = 5, ... }          # 省略できる。見込むテーブルの種類ごとの状態の数（無い種類は 0）。省略するとこのテーブルの数
+    # states = { boron = 5, ... }          # 省略できる。見込むテーブルの種類ごとの状態の数（どの種類も書く。`other` と使う）。省略するとこのテーブルの数
 
     [[thinning.plans]]                     # 省略できる（timing が要る）。状態の種類ごとに選び方を決めた組
     name = "混ぜる"
@@ -649,16 +649,23 @@ def thinning_time(timing: dict, counts: dict) -> dict:
     解く状態の 1 状態の秒 `solve`、自己遮蔽を再利用する状態の秒 `reuse`、再利用する状態の変えた軸 `reuse-axis`（ADR-0201 の
     ホウ素。その軸を公称から変えた状態は、ほかの軸の同じ状態の自己遮蔽を再利用する）。公称の状態は `solve`。状態によらない秒
     （`other`）は、`total` から状態の秒を引いた残りか、`total` の代わりに `timing` の `other`。状態の種類ごと（`counts` は種類 →
-    状態の数）の秒は、状態の数 × 1 状態の秒。`timing` の `states`（種類 → 状態の数。無い種類は 0）があれば、`counts` の代わりに
-    その数で数える（間引きの誤差を測ったテーブルと別の、本番の形のテーブルの見込み）。数えた状態の数 `counts` と全体の秒 `total` も返す"""
+    状態の数）の秒は、状態の数 × 1 状態の秒。`timing` の `states`（種類 → 状態の数。テーブルのどの種類も書く）があれば、`counts` の
+    代わりにその数で数え、状態によらない秒は `other` で与える（間引きの誤差を測ったテーブルと別の、本番の形のテーブルの見込み）。数えた状態の数 `counts` と全体の秒 `total` も返す"""
+    unknown_keys = sorted(
+        set(timing) - {"total", "other", "solve", "reuse", "reuse-axis", "states"}
+    )
+    if unknown_keys:
+        raise SystemExit(f"unknown timing keys {unknown_keys}")
     if ("total" in timing) == ("other" in timing):
         raise SystemExit("give the timing either the total or the other seconds")
     given = timing.get("states")
     if given is not None:
-        unknown = sorted(set(given) - set(counts))
-        if unknown:
+        # total は誤差を測ったテーブルの全体の秒で、別のテーブルの状態の秒を引いても状態によらない秒にならない
+        if "other" not in timing:
+            raise SystemExit("timing states need the other seconds, not the total")
+        if sorted(given) != sorted(counts):
             raise SystemExit(
-                f"the timing states {unknown} are not kinds of the table {list(counts)}"
+                f"the timing states {sorted(given)} must name every kind of the table {list(counts)} (0 for kinds the estimated table does not solve)"
             )
         bad = {
             k: v
@@ -669,7 +676,7 @@ def thinning_time(timing: dict, counts: dict) -> dict:
             raise SystemExit(
                 f"the timing states {bad} must be counts (integers 0 or more)"
             )
-        counts = {k: given.get(k, 0) for k in counts}
+        counts = {k: given[k] for k in counts}
     axis = timing["reuse-axis"]
     per_state = {
         k: float(timing["reuse"] if axis in k.split("+") else timing["solve"])

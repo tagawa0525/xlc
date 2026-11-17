@@ -188,6 +188,10 @@ def check_scheme(spec: dict, axes: dict) -> None:
                 f"the {axis} axis has {len(full)}"
             )
         return
+    if not isinstance(kept, list) or any(
+        isinstance(x, bool) or not isinstance(x, (int, float)) for x in kept
+    ):
+        raise SystemExit(f"scheme: the kept points {kept!r} must be a list of numbers")
     kept = [float(x) for x in kept]
     # 端を除くと外挿になる（core は外挿しない。ADR-0097）
     if (
