@@ -1,0 +1,5 @@
+outs:
+- md5: 1155222814d1825b1ad8be37cbe2632b
+  size: 327672
+  hash: md5
+  path: moc-small-zero.log

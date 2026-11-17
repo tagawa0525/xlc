@@ -1,0 +1,5 @@
+outs:
+- md5: 0e78ac8de114867f3fe7d223ca67e5c6
+  size: 171609
+  hash: md5
+  path: moc-pin.log

@@ -1,0 +1,5 @@
+outs:
+- md5: 7aebf02f3214215ea74e379aec5f2752
+  size: 64388
+  hash: md5
+  path: moc-three.log

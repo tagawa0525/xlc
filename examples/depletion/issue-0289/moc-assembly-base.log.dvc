@@ -1,0 +1,5 @@
+outs:
+- md5: 5bf750a2055e053422b033495a164576
+  size: 42446
+  hash: md5
+  path: moc-assembly-base.log

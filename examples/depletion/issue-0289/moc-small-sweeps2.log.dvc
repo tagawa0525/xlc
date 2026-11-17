@@ -1,0 +1,5 @@
+outs:
+- md5: 2266dbfb7c9fd23ff065693d00a0bd97
+  size: 135748
+  hash: md5
+  path: moc-small-sweeps2.log
