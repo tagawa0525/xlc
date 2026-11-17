@@ -323,7 +323,8 @@ d6cc90d96、2026-11-14。k∞ の差は (比 − every-state) × 1e5、反応度
 本番の形の 1 燃焼点（114 状態。production-2A-60-f1-light-cp6.toml、xlc 21d10721f、分岐点は main の d6cc90d96、2026-11-15、Slurm 886、
 timed（排他、32 スレッド））: 比の方式と今の解き方（どちらも 6 点）の反応度の差は −0.45〜+1.55 pcm（k∞ で −0.29〜+0.96 pcm）で、
 ADR-0200 の 5 pcm を 114 状態のどれでも超えない。少数群定数の相対差は 1.4e-5 以下、微視的断面積は 2.5e-4 以下（Sm-152 の全断面積と
-散乱。production.json の `f1-light-cp6 - nominal-cp6`）。テーブルは、OOM で止まった Slurm 881 の checkpoint から再開した 883（xlc
+散乱。production.json の `f1-light-cp6 - nominal-cp6`）。テーブルは、Slurm の外のプロセス（`text-embeddings` のコンテナ、約 34 GB）とメモリを取り合ってカーネルの OOM killer に
+止められた（lattice の anon-rss 54.8 GB）Slurm 881 の checkpoint から再開した 883（xlc
 1ccebf316。crates は 21d10721f と同じ）のものとビットで同じ（md5 が同じ）。時間は上の「本番の形の 1 燃焼点のテーブルの時間」と同じ
 取り方（ログの `branches` の `total_seconds` と状態ごとの区間。886 はジョブの中で `cargo build` を実行したので、ジョブの経過時間は使わない）:
 
