@@ -275,7 +275,7 @@ compare_production.py、要約は production.json）。xlc 7573f1b66、分岐点
 
 上の測定は求積 16 点と ADR-0251 の前の核種の選び方なので、今の既定（求積 6 点の ADR-0252、核種の選び方の ADR-0251）で
 `every-state` を流し直し、同じ 2A の 60 MWd/kg の 9 状態で比べた（入力は inputs.py の SIX、six-2A-60-*.toml。要約は compare.json の
-`six-2A-60`）。xlc 27550f130（Slurm 877 は timed、878 は decision）と 5bd081ae6（Slurm 879 は timed、880 は decision）、分岐点は main の
+`six-2A-60`）。xlc c6cf867fa（Slurm 877 は timed、878 は decision）と 315bed92c（Slurm 879 は timed、880 は decision）、分岐点は main の
 d6cc90d96、2026-11-14。k∞ の差は (比 − every-state) × 1e5、反応度の比は compare.py の係数の比 − 1 の絶対値の最大:
 
 | 形                                                                                | 560 K の k∞ の差 (pcm) | 615 K の k∞ の差 (pcm) | 減速材の反応度の比 − 1 | 燃料の温度の反応度の比 − 1 |
@@ -305,7 +305,7 @@ d6cc90d96、2026-11-14。k∞ の差は (比 − every-state) × 1e5、反応度
 - 判定の値（ADR-0200 の反応度 5 pcm、係数の比 1%）: f1-light-rows は反応度の差 −0.45〜+1.55 pcm、係数の比 0.21% 以下で入る。
   f1-static-rows は k∞ で +5.53 pcm（反応度で約 8 pcm）、減速材の反応度の比 3.3% で入らない
 
-ほかの燃料と燃焼度（今の既定、9 状態、f1-light-rows と every-state。xlc 241b534f1、分岐点は main の d6cc90d96、2026-11-14、Slurm 882 と
+ほかの燃料と燃焼度（今の既定、9 状態、f1-light-rows と every-state。xlc 1ccebf316、分岐点は main の d6cc90d96、2026-11-14、Slurm 882 と
 884、decision）:
 
 | 燃料と燃焼度              | k∞ の差 (pcm) | 減速材の反応度の比 − 1 | 燃料の温度の反応度の比 − 1 | U-238 のリングの捕獲の相対差の最大 |
@@ -320,11 +320,11 @@ d6cc90d96、2026-11-14。k∞ の差は (比 − every-state) × 1e5、反応度
   うち 89 で、履歴の読み込みで止まる（Slurm 882。inputs.py の SIX から外した）。Gd、Pyrex、IFBA、WABA、AIC の集合体と、燃料の
   温度の軸を比で求める (F2) は測っていない
 
-本番の形の 1 燃焼点（114 状態。production-2A-60-f1-light-cp6.toml、xlc e02a748cb、分岐点は main の d6cc90d96、2026-11-15、Slurm 886、
+本番の形の 1 燃焼点（114 状態。production-2A-60-f1-light-cp6.toml、xlc 21d10721f、分岐点は main の d6cc90d96、2026-11-15、Slurm 886、
 timed（排他、32 スレッド））: 比の方式と今の解き方（どちらも 6 点）の反応度の差は −0.45〜+1.55 pcm（k∞ で −0.29〜+0.96 pcm）で、
 ADR-0200 の 5 pcm を 114 状態のどれでも超えない。少数群定数の相対差は 1.4e-5 以下、微視的断面積は 2.5e-4 以下（Sm-152 の全断面積と
 散乱。production.json の `f1-light-cp6 - nominal-cp6`）。テーブルは、OOM で止まった Slurm 881 の checkpoint から再開した 883（xlc
-241b534f1。crates は e02a748cb と同じ）のものとビットで同じ（md5 が同じ）。時間は上の「本番の形の 1 燃焼点のテーブルの時間」と同じ
+1ccebf316。crates は 21d10721f と同じ）のものとビットで同じ（md5 が同じ）。時間は上の「本番の形の 1 燃焼点のテーブルの時間」と同じ
 取り方（ログの `branches` の `total_seconds` と状態ごとの区間。886 はジョブの中で `cargo build` を実行したので、ジョブの経過時間は使わない）:
 
 | 解き方（どれも求積 6 点）                             | 全体 (s) | 比の自己遮蔽（最初の比の状態、ほかの比の状態） | 27 燃焼点の見込み |
@@ -336,7 +336,7 @@ ADR-0200 の 5 pcm を 114 状態のどれでも超えない。少数群定数�
 - f1-light-cp6 は今の解き方 6 点より −75 秒（−3.2%。27 燃焼点で −0.56 時間）短い。比の状態の自己遮蔽 21.6 秒は今の解き方の UFG の
   状態の 27.6 秒より 6.0 秒短いが、燃料の温度の点ごとに最初の比の状態（基準の静止した標的の減速計算も解く）が 45.7 秒で 18.1 秒長く、
   効きの多くを打ち消す。自己遮蔽の外の秒は状態の種類ごとに 8.4〜9.3 秒で 874 と 873 と変わらず（基準の UFG の区間も 27.7 秒で 874 の
-  27.6 秒と同じ）、874 と 873（bin/lattice、xlc 7573f1b66）と 886（target/release/lattice、e02a748cb。同じ .cargo/config.toml の release）の
+  27.6 秒と同じ）、874 と 873（bin/lattice、xlc 7573f1b66）と 886（target/release/lattice、21d10721f。同じ .cargo/config.toml の release）の
   実行ファイルの違いは時間に出ていない
 - 静止した標的の比（判定の値に入らない）に対しては +279 秒（+14.0%）で、軽い核種の自由ガスが比の状態ごとに 6.1 秒、最初の比の状態ごとに
   13.0 秒を足した分
