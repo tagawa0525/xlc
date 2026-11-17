@@ -651,6 +651,14 @@ KINDS = [
     "boron+moderator+fuel",
 ]
 TIMING = {"total": 100.0, "solve": 3.0, "reuse": 1.0, "reuse-axis": "boron"}
+# 別のテーブルの状態の数で見込む時間（`states` はどの種類も書き、`total` でなく `other`）
+ESTIMATE = {
+    "other": 55.0,
+    "solve": 3.0,
+    "reuse": 1.0,
+    "reuse-axis": "boron",
+    "states": dict.fromkeys(KINDS, 0) | {"boron": 5, "moderator+fuel": 36},
+}
 
 
 class ThinningTime(unittest.TestCase):
@@ -714,14 +722,8 @@ class ThinningTime(unittest.TestCase):
         self.assertAlmostEqual(plan["hours"], (6 * (55 + 3) + seconds) / 3600)
 
     def test_given_states_and_other_seconds_estimate_another_table(self):
-        # 少ない状態で測った間引きの誤差に、本番の形の状態の数（`states`。無い種類は 0）と、状態によらない秒（`other`）で時間を見込む
-        timing = {
-            "other": 55.0,
-            "solve": 3.0,
-            "reuse": 1.0,
-            "reuse-axis": "boron",
-            "states": {"boron": 5, "moderator+fuel": 36},
-        }
+        # 少ない状態で測った間引きの誤差に、本番の形の状態の数（`states`）と、状態によらない秒（`other`）で時間を見込む
+        timing = ESTIMATE
         t = Thinning().branch_table(lambda u: 1e-3 * max(u - 3.0, 0.0))
         s = cct.thin(
             "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
@@ -753,15 +755,14 @@ class ThinningTime(unittest.TestCase):
         t = Thinning().branch_table(lambda u: 1e-3 * u)
         selection = [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}]
         for count in (5.9, -3, True):
-            timing = TIMING | {"states": {"boron": count}}
+            timing = ESTIMATE | {"states": ESTIMATE["states"] | {"boron": count}}
             with self.assertRaisesRegex(SystemExit, "count", msg=count):
                 cct.thin("t", t, NOMINAL, selection, timing)
 
     def test_the_kinds_carry_the_state_counts_of_the_time_estimate(self):
         t = Thinning().branch_table(lambda u: 1e-3 * u)
         selection = [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}]
-        timing = TIMING | {"states": {"boron": 5}}
-        (s,) = cct.thin("t", t, NOMINAL, selection, timing)["selections"]
+        (s,) = cct.thin("t", t, NOMINAL, selection, ESTIMATE)["selections"]
         kinds = s["results"]["hermite"]["kinds"]
         self.assertEqual(kinds["boron"]["timed_states"], 5)
         self.assertEqual(kinds["moderator"]["timed_states"], 0)
@@ -771,8 +772,39 @@ class ThinningTime(unittest.TestCase):
 
     def test_given_states_must_be_kinds_of_the_table(self):
         t = Thinning().branch_table(lambda u: 1e-3 * u)
-        timing = TIMING | {"states": {"boron+rods": 3}}
+        timing = ESTIMATE | {"states": ESTIMATE["states"] | {"boron+rods": 3}}
         with self.assertRaisesRegex(SystemExit, "kind"):
+            cct.thin(
+                "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
+            )
+
+    def test_given_states_must_list_every_kind_of_the_table(self):
+        # 書き漏らした種類を 0 にすると、その種類の時間が黙って落ちる
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        states = dict(ESTIMATE["states"])
+        del states["moderator+fuel"]
+        with self.assertRaisesRegex(SystemExit, "kind"):
+            cct.thin(
+                "t",
+                t,
+                NOMINAL,
+                [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}],
+                ESTIMATE | {"states": states},
+            )
+
+    def test_given_states_need_the_other_seconds_not_the_total(self):
+        # `total` は誤差を測ったテーブルの全体の秒で、別のテーブルの状態の秒を引いても状態によらない秒にならない
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        timing = TIMING | {"states": ESTIMATE["states"]}
+        with self.assertRaisesRegex(SystemExit, "other"):
+            cct.thin(
+                "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
+            )
+
+    def test_unknown_timing_keys_are_errors(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        timing = TIMING | {"state": ESTIMATE["states"]}
+        with self.assertRaisesRegex(SystemExit, "key"):
             cct.thin(
                 "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
             )

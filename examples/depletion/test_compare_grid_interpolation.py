@@ -547,6 +547,8 @@ class KeptPoints(unittest.TestCase):
             [560.0, 900.0, 900.0, 1200.0],
             WIDE_FUEL,
             [],
+            900.0,
+            ["560", "x"],
         ):
             spec = {
                 "axis": "fuel",
