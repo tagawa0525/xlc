@@ -1,0 +1,5 @@
+outs:
+- md5: c33a630dde56915eb45d069cceeb0a02
+  size: 36323004
+  hash: md5
+  path: table-2A-all-burnups.msgpack

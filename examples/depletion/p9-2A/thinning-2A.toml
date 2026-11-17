@@ -1,10 +1,12 @@
-# 本番の形の 2A のテーブル（table-2A.msgpack。ADR-0200 の 2 軸の組の部分格子の 114 状態を、ADR-0199 の 27 燃焼点のすべてで解いた
-# もの。#0278）から、公称でない状態を解く燃焼点を間引く誤差を、状態の種類ごとに測る（compare_branch_cross_terms.py の入力。#0176）。
+# 本番の形の 2A のテーブル（table-2A-all-burnups.msgpack。ADR-0200 の 2 軸の組の部分格子の 114 状態を、ADR-0199 の 27 燃焼点のすべてで
+# 解いたもの。#0278）から、公称でない状態を解く燃焼点を間引く誤差を、状態の種類ごとに測る（compare_branch_cross_terms.py の入力。#0176）。
+# 比べる真値はすべての燃焼点で解いた状態なので、`off-nominal-burnup` を書いた後の `branch-2A` の出力（table-2A.msgpack）ではなく、
+# 書く前の出力を `dvc add` で残したコピーを読む（dvc.yaml の `thinning-2A`）
 # 誤差は、除いた燃焼点で、公称の状態との差を選んだ燃焼点から内挿した値を、解いた値と比べたもの。
 
 [[thinning]]
 name = "2A（本番の形）"
-file = "table-2A.msgpack"
+file = "table-2A-all-burnups.msgpack"
 nominal = { boron = 650, moderator = 580, fuel = 900 }
 # 10 点は ADR-0200 の「分岐を解く燃焼点」の表の点（見積もりの仮定）。8 点も同じ表の点。ほかは点の数による誤差の変わり方を見る
 # 候補で、どれも Xe と Sm の平衡の前後（0.1、0.5 MWd/kg）を含む（ADR-0200）。15 点は本番の入力（branch-2A.toml の
