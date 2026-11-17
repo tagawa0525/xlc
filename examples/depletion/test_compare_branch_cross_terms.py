@@ -713,6 +713,50 @@ class ThinningTime(unittest.TestCase):
         )
         self.assertAlmostEqual(plan["hours"], (6 * (55 + 3) + seconds) / 3600)
 
+    def test_given_states_and_other_seconds_estimate_another_table(self):
+        # 少ない状態で測った間引きの誤差に、本番の形の状態の数（`states`。無い種類は 0）と、状態によらない秒（`other`）で時間を見込む
+        timing = {
+            "other": 55.0,
+            "solve": 3.0,
+            "reuse": 1.0,
+            "reuse-axis": "boron",
+            "states": {"boron": 5, "moderator+fuel": 36},
+        }
+        t = Thinning().branch_table(lambda u: 1e-3 * max(u - 3.0, 0.0))
+        s = cct.thin(
+            "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
+        )
+        self.assertAlmostEqual(s["other_seconds"], 55.0)
+        self.assertAlmostEqual(s["hours"], 6 * (55 + 3 + 5 * 1 + 36 * 3) / 3600)
+        (three,) = s["selections"]
+        self.assertAlmostEqual(
+            three["hours"], (6 * (55 + 3) + 3 * (5 * 1 + 36 * 3)) / 3600
+        )
+        kinds = three["results"]["hermite"]["kinds"]
+        self.assertAlmostEqual(kinds["boron"]["seconds_per_point"], 5.0)
+        self.assertAlmostEqual(kinds["moderator+fuel"]["seconds_per_point"], 108.0)
+        self.assertAlmostEqual(kinds["boron+moderator+fuel"]["seconds_per_point"], 0.0)
+        # 誤差を測った状態の数はテーブルのまま
+        self.assertEqual(kinds["boron"]["states"], 2)
+
+    def test_timing_needs_either_the_total_or_the_other_seconds(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        selection = [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}]
+        for timing in (
+            {"solve": 3.0, "reuse": 1.0, "reuse-axis": "boron"},
+            TIMING | {"other": 55.0},
+        ):
+            with self.assertRaisesRegex(SystemExit, "total"):
+                cct.thin("t", t, NOMINAL, selection, timing)
+
+    def test_given_states_must_be_kinds_of_the_table(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        timing = TIMING | {"states": {"boron+rods": 3}}
+        with self.assertRaisesRegex(SystemExit, "kind"):
+            cct.thin(
+                "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
+            )
+
     def test_plans_must_choose_a_selection_for_every_kind(self):
         with self.assertRaisesRegex(SystemExit, "kind"):
             self.summary([{"name": "足りない", "kinds": {"boron": "3 点"}}])
