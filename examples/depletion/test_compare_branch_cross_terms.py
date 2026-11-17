@@ -448,5 +448,316 @@ class Subgrids(unittest.TestCase):
             self.assertEqual(len(msgpack.unpackb(output.read_bytes())["points"]), 19)
 
 
+def micro_nuclide(
+    total: float, below: float = 0.5, derivative: float | None = None
+) -> dict:
+    """lattice が書く形の 2 群の核種の微視的断面積（ADR-0216）。`below` は境界より下の核分裂の割合、`derivative` は
+    数密度の微分の全断面積の 1 群目（ADR-0221）"""
+    out = {
+        "total": [total, 2 * total],
+        "nu_fission": [0.1, 0.4],
+        "fission": [0.04, 0.16],
+        "scatter": [[total / 2, 0.01], [0.0, total]],
+        "reactions": [
+            {"mt": 102, "channels": [[total / 10, total / 5]]},
+            {"mt": 17, "channels": [[0.0, 0.0]]},
+        ],
+        "thermal_fission": below,
+    }
+    if derivative is not None:
+        out["derivative"] = {
+            "total": [derivative, 1.0],
+            "nu_fission": [0.0, 0.0],
+            "fission": [0.0, 0.0],
+            "scatter": [[0.0, 0.0], [0.0, 0.0]],
+            "rate": {
+                "fission": [0.0, 0.0],
+                "reactions": [{"mt": 102, "channels": [[derivative, 0.0]]}],
+                "thermal_fission": 0.0,
+            },
+        }
+    return out
+
+
+def with_micro(t: dict, nuclides) -> dict:
+    """`nuclides(燃焼度, 状態の点の番号)` を状態ごとの微視的断面積にしたテーブル"""
+    burnup = t["axes"][0]["points"]
+    t["micro"] = {
+        "nuclides": ["U-235", "Pu-240"],
+        "densities": [[1e-4, 1e-6] for _ in burnup],
+        "states": [nuclides(burnup[p[0]], tuple(p[1:])) for p in t["points"]],
+    }
+    return t
+
+
+# 状態の点の番号の、公称の状態（NOMINAL の点）
+AT_NOMINAL = (1, 1, 1)
+
+
+class ThinningSubgrids(unittest.TestCase):
+    """ADR-0200 の部分格子のテーブル（2 軸の組すべての点を、すべての燃焼点で解いたもの）で燃焼点を間引く"""
+
+    def burnt(self) -> dict:
+        def g(u, b, m, f):
+            base = additive(u, b, m, f)["nu_fission"][1] - 1e-3 * u * u
+            return state(base + 1e-3 * max(u - 3.0, 0.0) * (b - 1300 + m - 565) / 400)
+
+        t = table(g, THINNING_BURNUP)
+        for a in t["axes"]:
+            if a["name"] in NOMINAL:
+                a["nominal"] = NOMINAL[a["name"]]
+        return t
+
+    def test_subgrid_tables_are_thinned_like_the_same_states_of_the_product(self):
+        product = self.burnt()
+        pairs = cct.subgrid_table(product, PAIRS)
+        self.assertLess(len(pairs["points"]), len(product["points"]))
+        selection = [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}]
+        full = cct.thin("t", product, NOMINAL, selection)["selections"][0]
+        sub = cct.thin("t", pairs, NOMINAL, selection)["selections"][0]
+        for method in cct.THINNING_METHODS:
+            kinds = sub["results"][method]["kinds"]
+            self.assertNotIn("boron+moderator+fuel", kinds, method)
+            for kind, r in kinds.items():
+                self.assertEqual(
+                    r, full["results"][method]["kinds"][kind], (method, kind)
+                )
+            self.assertGreater(kinds["boron+moderator"]["max_abs_pcm"], 1.0, method)
+
+    def test_tables_must_solve_every_state_at_every_burnup(self):
+        t = cct.subgrid_table(self.burnt(), PAIRS)
+        last = len(t["points"]) - 1
+        del t["points"][last]
+        del t["states"][last]
+        with self.assertRaisesRegex(SystemExit, "every burnup"):
+            cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+
+    def test_tables_must_hold_the_nominal_state(self):
+        t = self.burnt()
+        keep = [n for n, p in enumerate(t["points"]) if tuple(p[1:]) != AT_NOMINAL]
+        t["points"] = [t["points"][n] for n in keep]
+        t["states"] = [t["states"][n] for n in keep]
+        with self.assertRaisesRegex(SystemExit, "nominal"):
+            cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+
+    def test_nominal_values_of_the_table_must_be_the_given_ones(self):
+        t = self.burnt()
+        t["axes"][1]["nominal"] = 900.0
+        with self.assertRaisesRegex(SystemExit, "nominal"):
+            cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+
+
+class ThinningMicro(unittest.TestCase):
+    """微視的断面積と数密度の微分を、少数群定数と同じ内挿（公称の状態との差を燃焼度について内挿する）で比べる"""
+
+    def thinned(self, nuclides) -> dict:
+        t = with_micro(Thinning().branch_table(lambda u: 1e-3 * u), nuclides)
+        s = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+        return s["selections"][0]["results"]
+
+    def test_differences_linear_in_burnup_give_no_micro_error(self):
+        def nuclides(u, at):
+            off = 0.0 if at == AT_NOMINAL else 1.0
+            return [
+                micro_nuclide(10 + u * u + off * u),
+                micro_nuclide(5 + off * u, derivative=2 + u * off),
+            ]
+
+        for method, r in self.thinned(nuclides).items():
+            for item, e in r["micro"].items():
+                self.assertLess(e["max_relative"], 1e-12, (method, item))
+            for item, e in r["derivative"].items():
+                self.assertLess(e["max_relative"], 1e-12, (method, item))
+
+    def test_micro_errors_name_the_item_the_nuclide_and_the_state(self):
+        # Pu-240 の全断面積の差だけが 6 で折れる
+        def nuclides(u, at):
+            off = 0.0 if at == AT_NOMINAL else 1.0
+            return [micro_nuclide(10.0), micro_nuclide(5 + off * max(u - 6.0, 0.0))]
+
+        linear = self.thinned(nuclides)["linear"]
+        total = linear["micro"]["total"]
+        self.assertGreater(total["max_relative"], 1e-3)
+        self.assertEqual(total["nuclide"], "Pu-240")
+        self.assertEqual(total["worst"]["burnup"], 6.0)
+        self.assertEqual(linear["micro"]["reactions"]["nuclide"], "Pu-240 mt102")
+        self.assertLess(linear["micro"]["nu_fission"]["max_relative"], 1e-12)
+        # 状態の種類ごとにも書き、全体はその最大
+        kinds = linear["kinds"]
+        self.assertEqual(
+            total["max_relative"],
+            max(k["micro"]["total"]["max_relative"] for k in kinds.values()),
+        )
+
+    def test_fractions_below_the_cutoff_interpolate_as_cross_sections(self):
+        # 境界より下の核分裂の断面積（割合 × 群の和の σf）の差が燃焼度に線形なら、割合が線形でなくても誤差は 0（core の
+        # `interpolate_micro` と同じく、断面積で内挿して割合に戻す）
+        def nuclides(u, at):
+            off = 0.0 if at == AT_NOMINAL else 1.0
+            n = micro_nuclide(10.0, below=0.5)
+            scale = 1 + 0.1 * u * off
+            n["fission"] = [0.04 * scale, 0.16 * scale]
+            n["thermal_fission"] = (0.1 + 0.01 * u * off) / (0.2 * scale)
+            return [n, micro_nuclide(5.0)]
+
+        for method, r in self.thinned(nuclides).items():
+            self.assertLess(
+                r["micro"]["thermal_fission"]["max_relative"], 1e-12, method
+            )
+
+    def test_density_derivatives_are_compared_to_the_largest_value_of_their_item(self):
+        # 微分の全断面積は [d, 1]。d が 0 を横切っても、要素ごとの比でなく項目の最大の大きさとの比で書く
+        def nuclides(u, at):
+            off = 0.0 if at == AT_NOMINAL else 1.0
+            d = -0.5 + 0.1 * u + off * 1e-3 * max(u - 6.0, 0.0)
+            return [micro_nuclide(10.0), micro_nuclide(5.0, derivative=d)]
+
+        linear = self.thinned(nuclides)["linear"]
+        total = linear["derivative"]["total"]
+        # 6 の差 0 から、4 と 10 の線形の内挿で 2/6 × 4e-3 を外す。項目の最大の大きさは 1
+        self.assertAlmostEqual(total["max_relative"], 4e-3 / 3, places=12)
+        self.assertEqual(total["nuclide"], "Pu-240")
+        self.assertEqual(
+            linear["derivative"]["rate_reactions"]["nuclide"], "Pu-240 mt102"
+        )
+
+    def test_micro_values_off_zero_where_the_table_is_zero_are_errors(self):
+        def nuclides(u, at):
+            n = micro_nuclide(10.0)
+            if at != AT_NOMINAL and u != 6.0:
+                n["reactions"][1]["channels"] = [[1e-3, 0.0]]
+            return [n, micro_nuclide(5.0)]
+
+        with self.assertRaisesRegex(SystemExit, "zero"):
+            self.thinned(nuclides)
+
+    def test_tables_without_micro_data_compare_only_the_few_group_constants(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        s = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}])
+        for r in s["selections"][0]["results"].values():
+            self.assertNotIn("micro", r)
+            self.assertNotIn("derivative", r)
+
+
+# 燃焼点ごとの全体 100 秒、自己遮蔽を解く状態 3 秒、ホウ素を変えて自己遮蔽を再利用する状態 1 秒
+# 3 つの軸の直積の状態の種類（`state_kind`）
+KINDS = [
+    "boron",
+    "moderator",
+    "fuel",
+    "boron+moderator",
+    "boron+fuel",
+    "moderator+fuel",
+    "boron+moderator+fuel",
+]
+TIMING = {"total": 100.0, "solve": 3.0, "reuse": 1.0, "reuse-axis": "boron"}
+
+
+class ThinningTime(unittest.TestCase):
+    """燃焼点を間引いたテーブルを作る時間の見込み（公称の状態はすべての燃焼点で解く）"""
+
+    def summary(self, plans=None) -> dict:
+        t = Thinning().branch_table(lambda u: 1e-3 * max(u - 3.0, 0.0))
+        return cct.thin(
+            "t",
+            t,
+            NOMINAL,
+            [
+                {"name": "3 点", "burnup": [0.0, 4.0, 10.0]},
+                {"name": "4 点", "burnup": [0.0, 2.0, 4.0, 10.0]},
+            ],
+            TIMING,
+            plans or [],
+        )
+
+    def test_hours_scale_the_off_nominal_states_by_the_chosen_points(self):
+        s = self.summary()
+        # 27 状態（3 × 3 × 3）のうち、ホウ素を公称から変えた 18 状態が再利用、残りの 9 状態（公称を含む）が自己遮蔽を解く。
+        # 燃焼点ごとの状態によらない秒は 100 − (9 × 3 + 18 × 1) = 55
+        self.assertAlmostEqual(s["other_seconds"], 55.0)
+        self.assertAlmostEqual(s["hours"], 6 * 100.0 / 3600)
+        three, four = s["selections"]
+        self.assertAlmostEqual(
+            three["hours"], (6 * (55 + 3) + 3 * (8 * 3 + 18 * 1)) / 3600
+        )
+        self.assertAlmostEqual(
+            four["hours"], (6 * (55 + 3) + 4 * (8 * 3 + 18 * 1)) / 3600
+        )
+        kinds = three["results"]["hermite"]["kinds"]
+        self.assertEqual(kinds["boron"]["states"], 2)
+        self.assertAlmostEqual(kinds["boron"]["seconds_per_point"], 2 * 1.0)
+        self.assertAlmostEqual(kinds["moderator+fuel"]["seconds_per_point"], 4 * 3.0)
+
+    def test_plans_take_each_kind_from_its_selection(self):
+        kinds = KINDS
+        choice = dict.fromkeys(kinds, "4 点") | {
+            "boron": "3 点",
+            "fuel": "3 点",
+            "boron+fuel": "3 点",
+        }
+        s = self.summary([{"name": "混ぜる", "kinds": choice}])
+        (plan,) = s["plans"]
+        three, four = s["selections"]
+        for method in cct.THINNING_METHODS:
+            expected = max(
+                (three if choice[k] == "3 点" else four)["results"][method]["kinds"][k][
+                    "max_abs_pcm"
+                ]
+                for k in kinds
+            )
+            self.assertEqual(plan["results"][method]["max_abs_pcm"], expected, method)
+        seconds = sum(
+            len((three if choice[k] == "3 点" else four)["burnup"])
+            * three["results"]["hermite"]["kinds"][k]["seconds_per_point"]
+            for k in kinds
+        )
+        self.assertAlmostEqual(plan["hours"], (6 * (55 + 3) + seconds) / 3600)
+
+    def test_plans_must_choose_a_selection_for_every_kind(self):
+        with self.assertRaisesRegex(SystemExit, "kind"):
+            self.summary([{"name": "足りない", "kinds": {"boron": "3 点"}}])
+
+    def test_reusing_states_need_the_points_of_the_state_they_reuse(self):
+        # ホウ素と減速材を変えた状態は、減速材だけを変えた状態の自己遮蔽を再利用するので、その燃焼点の中で解く
+        kinds = KINDS
+        choice = dict.fromkeys(kinds, "3 点") | {"boron+moderator": "4 点"}
+        with self.assertRaisesRegex(SystemExit, "reuse"):
+            self.summary([{"name": "広い", "kinds": choice}])
+        # 公称の状態はすべての燃焼点で解くので、ホウ素だけを変えた状態はどの燃焼点でもよい
+        self.summary(
+            [
+                {
+                    "name": "ホウ素",
+                    "kinds": dict.fromkeys(kinds, "3 点") | {"boron": "4 点"},
+                }
+            ]
+        )
+
+
+class MainThinningOnly(unittest.TestCase):
+    def test_inputs_may_hold_only_the_thinning(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            t = Thinning().branch_table(lambda u: 1e-3 * u)
+            (root / "t.msgpack").write_bytes(msgpack.packb(t))
+            (root / "c.toml").write_text(
+                '[[thinning]]\nname = "a"\nfile = "t.msgpack"\n'
+                "nominal = { boron = 1300, moderator = 565, fuel = 565 }\n"
+                'selections = [{ name = "3 点", burnup = [0, 4, 10] }]\n'
+                "[thinning.timing]\ntotal = 100.0\nsolve = 3.0\nreuse = 1.0\n"
+                'reuse-axis = "boron"\n'
+            )
+            out = root / "s.json"
+            argv = sys.argv
+            sys.argv = ["x", "--json", str(out), str(root / "c.toml")]
+            try:
+                cct.main()
+            finally:
+                sys.argv = argv
+            summary = json.loads(out.read_text())
+            self.assertEqual(summary["tables"], [])
+            self.assertIn("hours", summary["thinning"][0]["selections"][0])
+
+
 if __name__ == "__main__":
     unittest.main()
