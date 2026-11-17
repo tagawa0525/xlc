@@ -1,0 +1,61 @@
+schema: '2.0'
+stages:
+  compare-2O:
+    cmd: python3 ../compare_branch_cross_terms.py --json compare-2O.json 
+      compare-2O.toml
+    deps:
+    - path: 
+        ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      hash: md5
+      md5: 7dd4cf270d6a5d6a9315125a1b2b89ea
+      size: 28633
+    - path: 
+        ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      hash: md5
+      md5: 1fbba180eddd60cc40f8e3c467dc578a
+      size: 9792
+    - path: compare-2O.toml
+      hash: md5
+      md5: 020753a8c015df513a38a08d4c510459
+      size: 3760
+    - path: table-2O.msgpack
+      hash: md5
+      md5: 17001a1068929de2e5206cc9fd16e886
+      size: 10387560
+    outs:
+    - path: compare-2O.json
+      hash: md5
+      md5: 18be3cba9c64ff540783b8671a5237fb
+      size: 726654
+  grid-2O:
+    cmd: python3 ../compare_grid_interpolation.py --json grid-2O.json 
+      grid-2O.toml
+    deps:
+    - path: 
+        ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      hash: md5
+      md5: 7dd4cf270d6a5d6a9315125a1b2b89ea
+      size: 28633
+    - path: 
+        ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      hash: md5
+      md5: 1fbba180eddd60cc40f8e3c467dc578a
+      size: 9792
+    - path: 
+        ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      hash: md5
+      md5: a448c963804c1762821edc254b17ed26
+      size: 12168
+    - path: fuel-2O.msgpack
+      hash: md5
+      md5: 5ad37b4af4620c98cfb67c4f00b355fc
+      size: 2232552
+    - path: grid-2O.toml
+      hash: md5
+      md5: 5335fd5961eb60723b29c296954aa2cf
+      size: 1301
+    outs:
+    - path: grid-2O.json
+      hash: md5
+      md5: d9258c74f03e397cb3be964a38fdeca6
+      size: 55717
