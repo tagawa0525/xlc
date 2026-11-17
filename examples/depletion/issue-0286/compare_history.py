@@ -101,13 +101,16 @@ def pin_difference(
 
 
 def summarize(default: dict, exact: dict) -> dict:
-    """2 つの履歴を比べた要約（モジュールの説明の `--json`）。`max_density` は種類と核種をまたいだ体積の平均の差の絶対値の最大。"""
+    """2 つの履歴を比べた要約（モジュールの説明の `--json`）。`max_density` は種類と核種をまたいだ体積の平均の差の絶対値の最大（比べた値が無ければ None）。"""
     check_same_run(default, exact)
     burnup = [p["burnup"] for p in exact["points"]]
     index = {name: i for i, name in enumerate(exact["nuclides"])}
     regions = exact["regions"]
     k = []
     for ours, theirs in zip(default["points"], exact["points"]):
+        for p in (ours, theirs):
+            if not (math.isfinite(p["k_inf"]) and p["k_inf"] > 0):
+                raise SystemExit(f"k_inf {p['k_inf']} at {p['burnup']} MWd/kg")
         k.append(
             {
                 "burnup": theirs["burnup"],
@@ -122,6 +125,8 @@ def summarize(default: dict, exact: dict) -> dict:
         total = sum(regions[r]["volume"] for r in members)
         kinds[kind] = {}
         for name in nuclides(kind):
+            if name not in index:
+                raise SystemExit(f"{name} of {kind} is not among the history nuclides")
             n = index[name]
             series, per_region = [], []
             for ours, theirs in zip(default["points"], exact["points"]):
@@ -162,7 +167,7 @@ def summarize(default: dict, exact: dict) -> dict:
         "k": k,
         "max_drho_pcm": largest([x["drho_pcm"] for x in k], burnup),
         "kinds": kinds,
-        "max_density": max(found, key=lambda x: abs(x["value"])),
+        "max_density": max(found, key=lambda x: abs(x["value"]), default=None),
         "pins": pins,
         "max_pins": largest(pins, burnup),
     }
@@ -207,7 +212,8 @@ def report(summary: dict) -> list[str]:
             f"最後の点 {last['drho_pcm']:+.4f} pcm（k∞ 既定 {last['default']:.6f}、厳密 {last['exact']:.6f}）。"
             f"0 の点 {first['drho_pcm']:+.4f} pcm。"
             f"ピン出力の相対の差の最大 {at(case['max_pins'], '.2e')}。"
-            f"数密度（体積の平均）の相対の差の最大 {d['kind']} の {d['nuclide']} {at(d, '+.2e')}"
+            "数密度（体積の平均）の相対の差の最大 "
+            + ("–" if d is None else f"{d['kind']} の {d['nuclide']} {at(d, '+.2e')}")
         )
         for kind, by_name in case["kinds"].items():
             parts = [
