@@ -57,10 +57,8 @@
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! scattering-order = 1            # 散乱の非等方性のルジャンドルの次数（library のとき。省略するとライブラリにあるすべての次数）
 //! moc = { k-tolerance = 1e-9, flux-tolerance = 1e-8, cmfd-k-tolerance = 1e-12, cmfd-flux-tolerance = 1e-10 }
-//!                                 # この入力のすべての MOC の反復の判定と CMFD の精度（省略した項目は `moc::Options` の既定。CMFD の精度は
-//!                                 # MOC の判定以下）。反復の遅い成分を切り分ける項目（#0289）: cmfd-relaxed = false で CMFD の精度を
-//!                                 # スイープによる変化に比例して緩めない（ADR-0110）、cmfd-reflective-current = "zero" で
-//!                                 # 鏡面反射の外周の面の正味の中性子流を 0 として CMFD を組む（省略すると "swept"、スイープで数えた値）
+//!                                 # この入力のすべての MOC の反復の判定と CMFD の精度（判定を細かくした参照の解に使う。省略した項目は
+//!                                 # `moc::Options` の既定。CMFD の精度は MOC の判定以下）
 //! symmetry = "quarter"            # 使う対称性を強制する（検証用。"none"、"quarter"（左右と上下の鏡映）、"octant"（8 つの
 //!                                 # 操作すべて））。どれかの操作で格子が変わればエラー。省略すると、成り立つ対称操作を
 //!                                 # すべて使う（ADR-0112）
@@ -186,7 +184,7 @@ use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, Shieldin
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
-use crate::moc::{Acceleration, Coupling, Options};
+use crate::moc::{Acceleration, Options};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
@@ -300,7 +298,7 @@ pub struct LatticeInput {
     pub spacing: f64,
     /// 散乱の非等方性のルジャンドルの次数（0 なら等方散乱。`None` ならライブラリにあるすべての次数）
     pub scattering_order: Option<usize>,
-    /// MOC の反復の判定、CMFD の精度と組み方（`[moc]`。散乱の次数は `scattering_order` で、ここの値は使わない）
+    /// MOC の反復の判定と CMFD の精度（`[moc]`。散乱の次数は `scattering_order` で、ここの値は使わない）
     pub moc: Options,
     pub boundaries: Boundaries,
     /// 解くときに使う格子の対称性の選び方（ADR-0112）
@@ -575,8 +573,6 @@ struct MocEntry {
     flux_tolerance: Option<f64>,
     cmfd_k_tolerance: Option<f64>,
     cmfd_flux_tolerance: Option<f64>,
-    cmfd_relaxed: Option<bool>,
-    cmfd_reflective_current: Option<String>,
 }
 
 impl MocEntry {
@@ -586,27 +582,18 @@ impl MocEntry {
         let Acceleration::Cmfd(cmfd) = base.acceleration else {
             unreachable!("the default MOC options accelerate with CMFD");
         };
-        let zero_reflective_current = match self.cmfd_reflective_current.as_deref() {
-            None | Some("swept") => false,
-            Some("zero") => true,
-            Some(other) => {
-                return Err(format!(
-                    "`moc.cmfd-reflective-current` must be \"swept\" or \"zero\", got \"{other}\""
-                ));
-            }
-        };
+        let k = self.k_tolerance.unwrap_or(base.k_tolerance);
+        let flux = self.flux_tolerance.unwrap_or(base.flux_tolerance);
+        let cmfd_k = self.cmfd_k_tolerance.unwrap_or(cmfd.k_tolerance);
+        let cmfd_flux = self.cmfd_flux_tolerance.unwrap_or(cmfd.flux_tolerance);
         Ok(Options {
-            k_tolerance: self.k_tolerance.unwrap_or(base.k_tolerance),
-            flux_tolerance: self.flux_tolerance.unwrap_or(base.flux_tolerance),
+            k_tolerance: k,
+            flux_tolerance: flux,
             acceleration: Acceleration::Cmfd(CmfdOptions {
-                k_tolerance: self.cmfd_k_tolerance.unwrap_or(cmfd.k_tolerance),
-                flux_tolerance: self.cmfd_flux_tolerance.unwrap_or(cmfd.flux_tolerance),
+                k_tolerance: cmfd_k,
+                flux_tolerance: cmfd_flux,
                 ..cmfd
             }),
-            coupling: Coupling {
-                relaxed: self.cmfd_relaxed.unwrap_or(base.coupling.relaxed),
-                zero_reflective_current,
-            },
             ..base
         })
     }

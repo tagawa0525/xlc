@@ -1,7 +1,7 @@
 use super::*;
 use crate::branches::BranchShielding;
 use crate::cmfd::CmfdOptions;
-use crate::moc::{Acceleration, Coupling, Options};
+use crate::moc::{Acceleration, Options};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response};
 
 const PIN_CELL: &str = r#"
@@ -877,11 +877,10 @@ fn moc_options_default_to_the_moc_defaults() {
 }
 
 #[test]
-fn moc_options_set_tolerances_and_cmfd_couplings() {
+fn moc_options_set_the_moc_and_cmfd_tolerances() {
     let input = LatticeInput::parse(&format!(
         "{PIN_CELL}\n[moc]\nk-tolerance = 1e-9\nflux-tolerance = 1e-8\ncmfd-k-tolerance = 1e-12\n\
-         cmfd-flux-tolerance = 1e-10\ncmfd-relaxed = false\n\
-         cmfd-reflective-current = \"zero\"\n"
+         cmfd-flux-tolerance = 1e-10\n"
     ))
     .unwrap();
     let default = Options::default();
@@ -898,10 +897,6 @@ fn moc_options_set_tolerances_and_cmfd_couplings() {
                 flux_tolerance: 1e-10,
                 ..cmfd
             }),
-            coupling: Coupling {
-                relaxed: false,
-                zero_reflective_current: true,
-            },
             ..default
         }
     );
@@ -914,14 +909,6 @@ fn moc_options_set_tolerances_and_cmfd_couplings() {
             ..default
         }
     );
-}
-
-#[test]
-fn rejects_unknown_moc_reflective_current() {
-    let result = LatticeInput::parse(&format!(
-        "{PIN_CELL}\n[moc]\ncmfd-reflective-current = \"lagged\"\n"
-    ));
-    assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
 }
 
 #[test]
