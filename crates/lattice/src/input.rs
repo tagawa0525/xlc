@@ -60,8 +60,7 @@
 //!                                 # この入力のすべての MOC の反復の判定と CMFD の精度（省略した項目は `moc::Options` の既定。CMFD の精度は
 //!                                 # MOC の判定以下）。反復の遅い成分を切り分ける項目（#0289）: cmfd-relaxed = false で CMFD の精度を
 //!                                 # スイープによる変化に比例して緩めない（ADR-0110）、cmfd-reflective-current = "zero" で
-//!                                 # 鏡面反射の外周の面の正味の中性子流を 0 として CMFD を組む（省略すると "swept"、スイープで数えた値）、
-//!                                 # sweeps = 2 で反復ごとに 2 回スイープしてから CMFD を解く（省略すると 1）
+//!                                 # 鏡面反射の外周の面の正味の中性子流を 0 として CMFD を組む（省略すると "swept"、スイープで数えた値）
 //! symmetry = "quarter"            # 使う対称性を強制する（検証用。"none"、"quarter"（左右と上下の鏡映）、"octant"（8 つの
 //!                                 # 操作すべて））。どれかの操作で格子が変わればエラー。省略すると、成り立つ対称操作を
 //!                                 # すべて使う（ADR-0112）
@@ -578,7 +577,6 @@ struct MocEntry {
     cmfd_flux_tolerance: Option<f64>,
     cmfd_relaxed: Option<bool>,
     cmfd_reflective_current: Option<String>,
-    sweeps: Option<usize>,
 }
 
 impl MocEntry {
@@ -597,12 +595,7 @@ impl MocEntry {
                 ));
             }
         };
-        let sweeps = self.sweeps.unwrap_or(base.sweeps);
-        if sweeps == 0 {
-            return Err("`moc.sweeps` must be at least 1".into());
-        }
         Ok(Options {
-            sweeps,
             k_tolerance: self.k_tolerance.unwrap_or(base.k_tolerance),
             flux_tolerance: self.flux_tolerance.unwrap_or(base.flux_tolerance),
             acceleration: Acceleration::Cmfd(CmfdOptions {
