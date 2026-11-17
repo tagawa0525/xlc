@@ -912,6 +912,23 @@ fn moc_options_set_the_moc_and_cmfd_tolerances() {
 }
 
 #[test]
+fn rejects_moc_with_sensitivity_tolerances() {
+    // `[sensitivity]` の判定もこの入力のすべての MOC の判定なので、`[moc]` と両方あると、どちらの値で解くかが決まらない
+    let result = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[moc]\ncmfd-k-tolerance = 1e-11\n\
+         [sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\nk-tolerance = 1e-10\n"
+    ));
+    assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
+    // 判定を書かない `[sensitivity]` とは組める
+    let input = LatticeInput::parse(&format!(
+        "{PIN_CELL}\n[moc]\nk-tolerance = 1e-9\n\
+         [sensitivity]\nnuclides = [\"U-235\"]\noutput = \"k.toml\"\n"
+    ))
+    .unwrap();
+    assert_eq!(input.moc.k_tolerance, 1e-9);
+}
+
+#[test]
 fn rejects_moc_tolerances_the_moc_rejects() {
     for entry in [
         "k-tolerance = 0",
