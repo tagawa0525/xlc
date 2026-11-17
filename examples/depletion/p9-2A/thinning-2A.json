@@ -10629,6 +10629,2115 @@
      "hours": 9.318083333333332
     },
     {
+     "name": "15 点",
+     "burnup": [
+      0.0,
+      0.1,
+      0.25,
+      0.5,
+      1.0,
+      2.0,
+      4.0,
+      6.0,
+      10.0,
+      16.0,
+      24.0,
+      32.0,
+      40.0,
+      48.0,
+      60.0
+     ],
+     "removed": [
+      0.75,
+      5.0,
+      7.0,
+      8.0,
+      9.0,
+      11.0,
+      12.0,
+      14.0,
+      20.0,
+      28.0,
+      36.0,
+      56.0
+     ],
+     "results": {
+      "linear": {
+       "rho_pcm": [
+        -1.6502304084120567,
+        -1.8389150400532905,
+        -3.6047224403090716,
+        -5.0583403491955,
+        -3.950727445911628,
+        -7.52517581652512,
+        -11.515140510531818,
+        -11.015273780001777,
+        -15.311178428345507,
+        -10.810747069767146,
+        -12.481358051452673,
+        -14.105714908763112
+       ],
+       "max_abs_pcm": 15.311178428345507,
+       "worst_pcm": -15.311178428345507,
+       "worst": {
+        "burnup": 20.0,
+        "boron": 650.0,
+        "moderator": 615.0,
+        "fuel": 560.0
+       },
+       "kinds": {
+        "boron": {
+         "max_abs_pcm": 2.9061462448964903,
+         "worst_pcm": -2.9061462448964903,
+         "worst": {
+          "burnup": 20.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 900.0
+         },
+         "states": 5,
+         "seconds_per_point": 43.5,
+         "micro": {
+          "total": {
+           "max_relative": 0.0001989925124414507,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 5.8357578918196513e-05,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 5.835757874658433e-05,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 9.513778183504319e-05,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.0002201053270982402,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.0004495663996738193,
+           "nuclide": "Np-239",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.0009773385000630462,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0004881130512833498,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0005773215927680079,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0007879844159319409,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 14.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.0008871851316686021,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.0021385778499009747,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.0008387119927512586,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          }
+         }
+        },
+        "moderator": {
+         "max_abs_pcm": 10.549690437966497,
+         "worst_pcm": -10.549690437966497,
+         "worst": {
+          "burnup": 20.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         },
+         "states": 6,
+         "seconds_per_point": 216.60000000000002,
+         "micro": {
+          "total": {
+           "max_relative": 0.0029949993467201495,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.00015636787138919415,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.00015636787163927533,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0006281484952256715,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.004305479552221952,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.002848752690724906,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.001788004670369038,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 560.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0014414823585669199,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0014651289759213303,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0029266592042383743,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.00407807755588003,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.004049653438803052,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.004077873804397424,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         }
+        },
+        "fuel": {
+         "max_abs_pcm": 4.849036632237347,
+         "worst_pcm": 4.849036632237347,
+         "worst": {
+          "burnup": 20.0,
+          "boron": 650.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         },
+         "states": 6,
+         "seconds_per_point": 216.60000000000002,
+         "micro": {
+          "total": {
+           "max_relative": 0.0010033104690579883,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 9.769275187291386e-05,
+           "nuclide": "U-236",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.00010680288092416872,
+           "nuclide": "U-236",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0010238899080203417,
+           "nuclide": "Xe-135",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.0010723720818497178,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.0008055461607003872,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.002098227882993459,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.000694446856202773,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 600.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0006939464485175176,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 600.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.002565071051741558,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.007218591997194651,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.006915048626807618,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.0068355520311997936,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          }
+         }
+        },
+        "boron+moderator": {
+         "max_abs_pcm": 14.871587746911885,
+         "worst_pcm": -14.871587746911885,
+         "worst": {
+          "burnup": 20.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         },
+         "states": 30,
+         "seconds_per_point": 261.0,
+         "micro": {
+          "total": {
+           "max_relative": 0.0030510659638126763,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.00020436367829612003,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.00020436367844923803,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0006377023483368731,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.0043946032572199836,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.002984567108068472,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.002526762857601718,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 975.0,
+            "moderator": 610.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0015738495052018628,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0015994680385467306,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.00371875701172948,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.0044883638846218024,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.004581537619992545,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 590.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.004469129854829296,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         }
+        },
+        "boron+fuel": {
+         "max_abs_pcm": 7.400829737447268,
+         "worst_pcm": -7.400829737447268,
+         "worst": {
+          "burnup": 20.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 560.0
+         },
+         "states": 30,
+         "seconds_per_point": 261.0,
+         "micro": {
+          "total": {
+           "max_relative": 0.0010838028019283332,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 9.952387393698787e-05,
+           "nuclide": "U-236",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.00010875071277436878,
+           "nuclide": "U-236",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.001120452575054412,
+           "nuclide": "Xe-135",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.0011578519031455842,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.0009108078903078251,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.0022279043195773877,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 975.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0008832734978700652,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0008939984568934947,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0033237996773790982,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.007612755947613561,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.007305711163042421,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.007208731617895285,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          }
+         }
+        },
+        "moderator+fuel": {
+         "max_abs_pcm": 15.311178428345507,
+         "worst_pcm": -15.311178428345507,
+         "worst": {
+          "burnup": 20.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         },
+         "states": 36,
+         "seconds_per_point": 1299.6000000000001,
+         "micro": {
+          "total": {
+           "max_relative": 0.0033416889515929995,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.00016671707856743227,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.00016671707867680808,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.001260085281566571,
+           "nuclide": "Xe-135",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 560.0,
+            "fuel": 560.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.004790183217262737,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.00320760721643659,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.0025564896075155152,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 590.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0019131400017930959,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0019345691896997276,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.005719666814357729,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.011600236836011843,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.011237505960234375,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.011184665878394309,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 8.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          }
+         }
+        }
+       },
+       "micro": {
+        "total": {
+         "max_relative": 0.0033416889515929995,
+         "nuclide": "Pu-242",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "nu_fission": {
+         "max_relative": 0.00020436367829612003,
+         "nuclide": "Am-241",
+         "worst": {
+          "burnup": 12.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "fission": {
+         "max_relative": 0.00020436367844923803,
+         "nuclide": "Am-241",
+         "worst": {
+          "burnup": 12.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "scatter": {
+         "max_relative": 0.001260085281566571,
+         "nuclide": "Xe-135",
+         "worst": {
+          "burnup": 12.0,
+          "boron": 650.0,
+          "moderator": 560.0,
+          "fuel": 560.0
+         }
+        },
+        "reactions": {
+         "max_relative": 0.004790183217262737,
+         "nuclide": "Pu-242 mt102",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "thermal_fission": {
+         "max_relative": 0.00320760721643659,
+         "nuclide": "Pu-242",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        }
+       },
+       "derivative": {
+        "total": {
+         "max_relative": 0.0025564896075155152,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 0.75,
+          "boron": 650.0,
+          "moderator": 590.0,
+          "fuel": 560.0
+         }
+        },
+        "nu_fission": {
+         "max_relative": 0.0019131400017930959,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 8.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "fission": {
+         "max_relative": 0.0019345691896997276,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 8.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "scatter": {
+         "max_relative": 0.005719666814357729,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 20.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "rate_fission": {
+         "max_relative": 0.011600236836011843,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 8.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "rate_reactions": {
+         "max_relative": 0.011237505960234375,
+         "nuclide": "Pu-240 mt102",
+         "worst": {
+          "burnup": 8.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "rate_thermal_fission": {
+         "max_relative": 0.011184665878394309,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 8.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        }
+       }
+      },
+      "hermite": {
+       "rho_pcm": [
+        0.11433500908264449,
+        -0.19227508827324158,
+        -0.91673144371196,
+        -0.6240660346823468,
+        -0.49703896722874674,
+        -1.8272574151989573,
+        -2.5248925648591047,
+        -1.990499402904078,
+        0.7479651845443414,
+        0.3540241228172647,
+        -3.254004898445295,
+        2.7506487000117374
+       ],
+       "max_abs_pcm": 3.254004898445295,
+       "worst_pcm": -3.254004898445295,
+       "worst": {
+        "burnup": 36.0,
+        "boron": 650.0,
+        "moderator": 615.0,
+        "fuel": 1350.0
+       },
+       "kinds": {
+        "boron": {
+         "max_abs_pcm": 0.5968623046248567,
+         "worst_pcm": 0.5968623046248567,
+         "worst": {
+          "burnup": 56.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 900.0
+         },
+         "states": 5,
+         "seconds_per_point": 43.5,
+         "micro": {
+          "total": {
+           "max_relative": 4.7705051311234746e-05,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 6.05150360902147e-06,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 11.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 6.051503588261985e-06,
+           "nuclide": "Am-241",
+           "worst": {
+            "burnup": 11.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 1.0147334847926885e-05,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "reactions": {
+           "max_relative": 6.795270504034455e-05,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 4.4577776916823285e-05,
+           "nuclide": "Np-239",
+           "worst": {
+            "burnup": 11.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.001736011178350578,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.000492711392311162,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1300.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0004934509976662279,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1300.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0010004098747332117,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.0002329489912783223,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.004534249616730698,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.0002161165388619002,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 900.0
+           }
+          }
+         }
+        },
+        "moderator": {
+         "max_abs_pcm": 2.593010430307352,
+         "worst_pcm": -2.593010430307352,
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         },
+         "states": 6,
+         "seconds_per_point": 216.60000000000002,
+         "micro": {
+          "total": {
+           "max_relative": 0.0028817053552418494,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 5.156621423903427e-05,
+           "nuclide": "Np-237",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 5.15662131555661e-05,
+           "nuclide": "Np-237",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0006086587430952701,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.004140406923007338,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.0027172174414622687,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.002458496709809518,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 610.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0010229877184708385,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0010231139324386818,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0016853042769355584,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 610.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.0015049425313931853,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.005111565582495374,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 570.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.001446841603457229,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         }
+        },
+        "fuel": {
+         "max_abs_pcm": 1.0590644257013615,
+         "worst_pcm": 1.0590644257013615,
+         "worst": {
+          "burnup": 12.0,
+          "boron": 650.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         },
+         "states": 6,
+         "seconds_per_point": 216.60000000000002,
+         "micro": {
+          "total": {
+           "max_relative": 0.00042849843891606704,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 1.5958968401966726e-05,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 1.722516835759818e-05,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.00014324469942325428,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.0006070642110377501,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.00038401071620081546,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.0018910005955586635,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0008716326136141163,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 600.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0008728131228969291,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 600.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0011951375074847755,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.0029103403078823606,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.0027886380566075632,
+           "nuclide": "Pu-240 mt102",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.0027453454096963655,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          }
+         }
+        },
+        "boron+moderator": {
+         "max_abs_pcm": 2.7914623740299405,
+         "worst_pcm": -2.7914623740299405,
+         "worst": {
+          "burnup": 36.0,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         },
+         "states": 30,
+         "seconds_per_point": 261.0,
+         "micro": {
+          "total": {
+           "max_relative": 0.002923581503912639,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 5.317314191047616e-05,
+           "nuclide": "Np-237",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 5.317314076505927e-05,
+           "nuclide": "Np-237",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0006152723211715279,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.004208799182595511,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.0028303319393150513,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.004406036744622921,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0016153971665583678,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 975.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0016152889680459634,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 975.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.003248890626645866,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.0016694686628053329,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 0.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.007771707946731314,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 0.0,
+            "moderator": 600.0,
+            "fuel": 900.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.0015967191683594199,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 20.0,
+            "boron": 0.0,
+            "moderator": 615.0,
+            "fuel": 900.0
+           }
+          }
+         }
+        },
+        "boron+fuel": {
+         "max_abs_pcm": 1.2908226586949567,
+         "worst_pcm": 1.2908226586949567,
+         "worst": {
+          "burnup": 12.0,
+          "boron": 1625.0,
+          "moderator": 580.0,
+          "fuel": 1350.0
+         },
+         "states": 30,
+         "seconds_per_point": 261.0,
+         "micro": {
+          "total": {
+           "max_relative": 0.0004752731936860555,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 1.659010214771993e-05,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 1.7885118827790017e-05,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.00014733268633711986,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.0006747029626029374,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.00043942287982371873,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 1350.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.002848274689705967,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0008609948695684025,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 600.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.0008621986023999609,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 600.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0016394180039062845,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.00302390492491681,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.006328490184407567,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 1625.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.002845912909256105,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 0.0,
+            "moderator": 580.0,
+            "fuel": 560.0
+           }
+          }
+         }
+        },
+        "moderator+fuel": {
+         "max_abs_pcm": 3.254004898445295,
+         "worst_pcm": -3.254004898445295,
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         },
+         "states": 36,
+         "seconds_per_point": 1299.6000000000001,
+         "micro": {
+          "total": {
+           "max_relative": 0.003124922575976522,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 5.529793093543866e-05,
+           "nuclide": "Np-237",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 5.5297929804746613e-05,
+           "nuclide": "Np-237",
+           "worst": {
+            "burnup": 56.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0006628720076489171,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          },
+          "reactions": {
+           "max_relative": 0.004479330986268558,
+           "nuclide": "Pu-242 mt102",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          },
+          "thermal_fission": {
+           "max_relative": 0.0029658082660153342,
+           "nuclide": "Pu-242",
+           "worst": {
+            "burnup": 36.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 1350.0
+           }
+          }
+         },
+         "derivative": {
+          "total": {
+           "max_relative": 0.00481007300286666,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "nu_fission": {
+           "max_relative": 0.0017335644833751504,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "fission": {
+           "max_relative": 0.001732882004818117,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "scatter": {
+           "max_relative": 0.0027101645222384375,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_fission": {
+           "max_relative": 0.004645289612251638,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_reactions": {
+           "max_relative": 0.00800792328619692,
+           "nuclide": "Pu-240 mt16",
+           "worst": {
+            "burnup": 0.75,
+            "boron": 650.0,
+            "moderator": 610.0,
+            "fuel": 560.0
+           }
+          },
+          "rate_thermal_fission": {
+           "max_relative": 0.004418999031884882,
+           "nuclide": "Pu-240",
+           "worst": {
+            "burnup": 12.0,
+            "boron": 650.0,
+            "moderator": 615.0,
+            "fuel": 560.0
+           }
+          }
+         }
+        }
+       },
+       "micro": {
+        "total": {
+         "max_relative": 0.003124922575976522,
+         "nuclide": "Pu-242",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "nu_fission": {
+         "max_relative": 5.529793093543866e-05,
+         "nuclide": "Np-237",
+         "worst": {
+          "burnup": 56.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "fission": {
+         "max_relative": 5.5297929804746613e-05,
+         "nuclide": "Np-237",
+         "worst": {
+          "burnup": 56.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "scatter": {
+         "max_relative": 0.0006628720076489171,
+         "nuclide": "Pu-242",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "reactions": {
+         "max_relative": 0.004479330986268558,
+         "nuclide": "Pu-242 mt102",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        },
+        "thermal_fission": {
+         "max_relative": 0.0029658082660153342,
+         "nuclide": "Pu-242",
+         "worst": {
+          "burnup": 36.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 1350.0
+         }
+        }
+       },
+       "derivative": {
+        "total": {
+         "max_relative": 0.00481007300286666,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 0.75,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "nu_fission": {
+         "max_relative": 0.0017335644833751504,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 0.75,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "fission": {
+         "max_relative": 0.001732882004818117,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 0.75,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "scatter": {
+         "max_relative": 0.003248890626645866,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 0.75,
+          "boron": 1625.0,
+          "moderator": 615.0,
+          "fuel": 900.0
+         }
+        },
+        "rate_fission": {
+         "max_relative": 0.004645289612251638,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 12.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        },
+        "rate_reactions": {
+         "max_relative": 0.00800792328619692,
+         "nuclide": "Pu-240 mt16",
+         "worst": {
+          "burnup": 0.75,
+          "boron": 650.0,
+          "moderator": 610.0,
+          "fuel": 560.0
+         }
+        },
+        "rate_thermal_fission": {
+         "max_relative": 0.004418999031884882,
+         "nuclide": "Pu-240",
+         "worst": {
+          "burnup": 12.0,
+          "boron": 650.0,
+          "moderator": 615.0,
+          "fuel": 560.0
+         }
+        }
+       }
+      }
+     },
+     "hours": 9.9565
+    },
+    {
      "name": "20 点",
      "burnup": [
       0.0,
@@ -12765,10 +14874,10 @@
  "inputs": [
   {
    "path": "thinning-2A.toml",
-   "md5": "5dd3985e306d255a1edf6b78664771de"
+   "md5": "e135aaaad4c2e0b7ce3d5ddd5450912e"
   },
   {
-   "path": "table-2A.msgpack",
+   "path": "table-2A-all-burnups.msgpack",
    "md5": "c33a630dde56915eb45d069cceeb0a02"
   }
  ],

@@ -1,5 +1,6 @@
-# Problem 9 の本番の形の 2A の分岐のテーブル（#0278）: ADR-0239 の格子点の 2 軸の組の部分格子（114 状態）を、ADR-0199 の 27 燃焼点の
-# すべてで解く。燃焼の履歴は ../p9-product/lattice-2A.msgpack（../p9-product/dvc.yaml の `lattice-2A` の出力。公称の状態での 2A の燃焼）、
+# Problem 9 の本番の形の 2A の分岐のテーブル（#0278）: ADR-0239 の格子点の 2 軸の組の部分格子（114 状態）を、公称の状態は ADR-0199 の
+# 27 燃焼点のすべてで、公称でない状態は branch-2A.toml の `off-nominal-burnup` の燃焼点で解く（ADR-0200）。燃焼の履歴は
+# ../p9-product/lattice-2A.msgpack（../p9-product/dvc.yaml の `lattice-2A` の出力。公称の状態での 2A の燃焼）、
 # ライブラリは ../p2/depletion.msgpack（../p2/dvc.yaml の出力）、燃焼チェーンは ../chain.msgpack（../dvc.yaml の出力）。実行するのは
 # default の devShell の `dvc repro`（ADR-0159）。重いので Slurm で流す（時間の見積もりと流し方は #0278）。止まっても同じコマンドで
 # 投げ直せば、書き終えた状態のチェックポイント（branch-2A.checkpoint）から続ける（ADR-0196）
@@ -18,13 +19,15 @@ stages:
       - branch-2A.out
       - branch-2A.log
   thinning-2A:
-    # 公称でない状態を解く燃焼点を間引く誤差と、テーブルを作る時間の見込みの要約（ADR-0200、#0176。数十 KB。git で追跡する）
+    # 公称でない状態を解く燃焼点を間引く誤差と、テーブルを作る時間の見込みの要約（ADR-0200、#0176。数十 KB。git で追跡する）。
+    # 真値は公称でない状態も 27 燃焼点のすべてで解いたテーブルで、`off-nominal-burnup` を書く前の `branch-2A` の出力（md5 c33a630d）を
+    # table-2A-all-burnups.msgpack にコピーして `dvc add` したもの。`branch-2A` の出力を deps にすると、15 点で作り直した後は比べられない
     cmd: python3 ../compare_branch_cross_terms.py --json thinning-2A.json thinning-2A.toml
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       - thinning-2A.toml
-      - table-2A.msgpack
+      - table-2A-all-burnups.msgpack
     outs:
       - thinning-2A.json:
           cache: false

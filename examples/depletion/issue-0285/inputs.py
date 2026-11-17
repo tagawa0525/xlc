@@ -309,6 +309,8 @@ def production(shielding: str) -> str:
         f"\n# 本番の 27 点のうち {PRODUCTION_BURNUP} MWd/kg の 1 点（inputs.py の PRODUCTION）\n"
         f"burnup = [{PRODUCTION_BURNUP}]\n",
     )
+    # 公称でない状態の燃焼点は 1 点の `burnup` の部分集合でなくなるので、その注釈ごと除く（1 点ではすべての状態をその点で解く）
+    body = replaced(body, r"\n(?:#[^\n]*\n)*off-nominal-burnup = \[[^\]]*\]\n", "\n")
     if points:
         body = replaced(
             body, r"\nufg-tolerance = 1e-4\n", f"\nufg-tolerance = 1e-4\n{points}\n"
