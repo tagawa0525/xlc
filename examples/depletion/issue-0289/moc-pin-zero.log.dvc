@@ -1,0 +1,5 @@
+outs:
+- md5: 844d4f0bc353ed842055cf17c30e6a2d
+  size: 128602
+  hash: md5
+  path: moc-pin-zero.log

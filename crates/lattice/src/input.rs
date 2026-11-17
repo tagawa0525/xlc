@@ -56,6 +56,9 @@
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! scattering-order = 1            # 散乱の非等方性のルジャンドルの次数（library のとき。省略するとライブラリにあるすべての次数）
+//! moc = { k-tolerance = 1e-9, flux-tolerance = 1e-8, cmfd-k-tolerance = 1e-12, cmfd-flux-tolerance = 1e-10 }
+//!                                 # この入力のすべての MOC の反復の判定と CMFD の精度（判定を細かくした参照の解に使う。省略した項目は
+//!                                 # `moc::Options` の既定。CMFD の精度は MOC の判定以下）
 //! symmetry = "quarter"            # 使う対称性を強制する（検証用。"none"、"quarter"（左右と上下の鏡映）、"octant"（8 つの
 //!                                 # 操作すべて））。どれかの操作で格子が変わればエラー。省略すると、成り立つ対称操作を
 //!                                 # すべて使う（ADR-0112）
@@ -135,7 +138,7 @@
 //! nuclides = ["U-235", "Pu-239"]  # 感度を求める核種
 //! output = "sensitivity.toml"     # 結果（`xlc_lattice::sensitivity::Report`）
 //! direct = 0.1                    # 数密度を (1 ± ε) 倍と (1 ± ε/2) 倍した直接の摂動も解く（検証の参照。省略すると解かない）
-//! k-tolerance = 1e-10             # この入力のすべての MOC の判定（省略すると既定。CMFD は既定とこの値の細かい方）
+//! k-tolerance = 1e-10             # この入力のすべての MOC の判定（省略すると既定。CMFD は既定とこの値の細かい方。[moc] とは書けない）
 //! flux-tolerance = 1e-9
 //!
 //! [sensitivity.generalized]       # 少数群定数の比の応答の一般化随伴を、収束の方法ごとに解いて比べる（ADR-0247 の段 3。結果は
@@ -176,10 +179,12 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
+use crate::cmfd::CmfdOptions;
 use crate::depletion::{ContinueFrom, DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::{DerivativeShielding, GeneralizedDerivatives, HistoryInput};
+use crate::moc::{Acceleration, Options};
 use crate::sensitivity::{FewGroupInput, GeneralizedInput, Method, Response, SensitivityInput};
 use crate::shielding::{ShieldingOptions, UfgTransfer};
 use crate::symmetry::Symmetry;
@@ -293,6 +298,8 @@ pub struct LatticeInput {
     pub spacing: f64,
     /// 散乱の非等方性のルジャンドルの次数（0 なら等方散乱。`None` ならライブラリにあるすべての次数）
     pub scattering_order: Option<usize>,
+    /// MOC の反復の判定と CMFD の精度（`[moc]`。散乱の次数は `scattering_order` で、ここの値は使わない）
+    pub moc: Options,
     pub boundaries: Boundaries,
     /// 解くときに使う格子の対称性の選び方（ADR-0112）
     pub symmetry: SymmetryChoice,
@@ -532,6 +539,8 @@ struct InputFile {
     spacing: f64,
     /// 省略すると、ライブラリにあるすべての次数（巨視的断面積では 0）
     scattering_order: Option<usize>,
+    /// 省略すると `moc::Options` の既定
+    moc: Option<MocEntry>,
     /// 省略した辺は鏡面反射
     boundary: Option<BoundaryEntry>,
     /// 省略すると、成り立つ対称操作をすべて使う（ADR-0112）
@@ -554,6 +563,53 @@ struct InputFile {
     history: Option<HistoryEntry>,
     /// 省略すると k の感度を求めない
     sensitivity: Option<SensitivityEntry>,
+}
+
+/// `[moc]`。省略した項目は `moc::Options` の既定
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct MocEntry {
+    k_tolerance: Option<f64>,
+    flux_tolerance: Option<f64>,
+    cmfd_k_tolerance: Option<f64>,
+    cmfd_flux_tolerance: Option<f64>,
+}
+
+impl MocEntry {
+    /// 判定と精度は正の有限で、CMFD の精度は MOC の判定以下（`moc::solve` と同じ条件。自己遮蔽の後の MOC を待たずに止める）
+    fn into_options(self) -> Result<Options, String> {
+        // 既定の加速は既定の精度の CMFD（`moc::Options::default`）
+        let (base, cmfd) = (Options::default(), CmfdOptions::default());
+        let k = self.k_tolerance.unwrap_or(base.k_tolerance);
+        let flux = self.flux_tolerance.unwrap_or(base.flux_tolerance);
+        let cmfd_k = self.cmfd_k_tolerance.unwrap_or(cmfd.k_tolerance);
+        let cmfd_flux = self.cmfd_flux_tolerance.unwrap_or(cmfd.flux_tolerance);
+        for (key, value) in [
+            ("k-tolerance", k),
+            ("flux-tolerance", flux),
+            ("cmfd-k-tolerance", cmfd_k),
+            ("cmfd-flux-tolerance", cmfd_flux),
+        ] {
+            if !positive(value) {
+                return Err(format!("`moc.{key}` must be positive, got {value}"));
+            }
+        }
+        if cmfd_k > k || cmfd_flux > flux {
+            return Err(format!(
+                "the CMFD tolerances of `moc` ({cmfd_k}, {cmfd_flux}) must not exceed the MOC ones ({k}, {flux})"
+            ));
+        }
+        Ok(Options {
+            k_tolerance: k,
+            flux_tolerance: flux,
+            acceleration: Acceleration::Cmfd(CmfdOptions {
+                k_tolerance: cmfd_k,
+                flux_tolerance: cmfd_flux,
+                ..cmfd
+            }),
+            ..base
+        })
+    }
 }
 
 /// k の数密度の感度（ADR-0247）
@@ -1274,6 +1330,22 @@ impl LatticeInput {
             ));
         }
         let scattering_order = file.scattering_order;
+        // `[sensitivity]` の判定もこの入力のすべての MOC の判定（`SensitivityInput::options` が `moc` の上に重ねる）なので、
+        // 両方あるとどちらの値で解くかが決まらない
+        if file.moc.is_some()
+            && file
+                .sensitivity
+                .as_ref()
+                .is_some_and(|s| s.k_tolerance.is_some() || s.flux_tolerance.is_some())
+        {
+            return Err(invalid(
+                "`[moc]` and the tolerances of `[sensitivity]` both set the MOC tolerances; write them in one".into(),
+            ));
+        }
+        let moc = file
+            .moc
+            .map_or_else(|| Ok(Options::default()), MocEntry::into_options)
+            .map_err(invalid)?;
         if macroscopic && scattering_order.is_some_and(|order| order > 0) {
             return Err(invalid(
                 "`scattering-order` needs a library (macroscopic cross sections are P0 only)"
@@ -2121,6 +2193,7 @@ impl LatticeInput {
             azimuthal: file.azimuthal,
             spacing: file.spacing,
             scattering_order,
+            moc,
             boundaries,
             symmetry: match file.symmetry {
                 None => SymmetryChoice::Detect,

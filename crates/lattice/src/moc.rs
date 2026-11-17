@@ -1143,6 +1143,12 @@ fn solve_with(
                 change = largest,
                 "largest flux change"
             );
+            let split = split_change(&mesh, &volumes, &reduced.regions.index, &new_flux, &flux);
+            tracing::trace!(
+                coarse = ?Rounded(&split.coarse),
+                shape = ?Rounded(&split.shape),
+                "flux change by group (cell average, shape in the cell)"
+            );
         }
         let k_remaining = k_history.update((new_k - k).abs());
         let flux_remaining = flux_history.update(change);
@@ -2303,6 +2309,64 @@ fn largest_change(new: &[Vec<f64>], old: &[Vec<f64>]) -> f64 {
                 .fold(0.0, f64::max)
         })
         .reduce(|| 0.0, f64::max)
+}
+
+/// 反復の中性子束の変化を、粗メッシュのセルの平均の変化と、セルの中の形の変化に分けたもの（反復の遅い成分を調べる trace）
+struct SplitChange {
+    /// [群] の、セルの体積平均の相対変化 Σ V δ / Σ V φ の、セルにわたる絶対値の最大
+    coarse: Vec<f64>,
+    /// [群] の、領域の相対変化 δ/φ からセルの平均の相対変化を引いたものの、領域にわたる絶対値の最大
+    shape: Vec<f64>,
+}
+
+/// `new` と `old` は [代表][群]、`state` は [領域] の代表の位置
+fn split_change(
+    mesh: &CoarseMesh,
+    volumes: &[f64],
+    state: &[usize],
+    new: &[Vec<f64>],
+    old: &[Vec<f64>],
+) -> SplitChange {
+    let ng = new.first().map_or(0, Vec::len);
+    let mut change = vec![0.0; mesh.cells() * ng];
+    let mut flux = vec![0.0; mesh.cells() * ng];
+    for (region, &i) in state.iter().enumerate() {
+        let cell = mesh.cell(region);
+        for g in 0..ng {
+            change[cell * ng + g] += volumes[region] * (new[i][g] - old[i][g]);
+            flux[cell * ng + g] += volumes[region] * old[i][g];
+        }
+    }
+    let average: Vec<f64> = change
+        .iter()
+        .zip(&flux)
+        .map(|(c, f)| if *f > 0.0 { c / f } else { 0.0 })
+        .collect();
+    let mut coarse = vec![0.0_f64; ng];
+    for (j, a) in average.iter().enumerate() {
+        coarse[j % ng] = coarse[j % ng].max(a.abs());
+    }
+    let mut shape = vec![0.0_f64; ng];
+    for (region, &i) in state.iter().enumerate() {
+        let cell = mesh.cell(region);
+        for g in 0..ng {
+            if old[i][g] > 0.0 {
+                let own = (new[i][g] - old[i][g]) / old[i][g];
+                shape[g] = shape[g].max((own - average[cell * ng + g]).abs());
+            }
+        }
+    }
+    SplitChange { coarse, shape }
+}
+
+/// trace に出す値の列を有効数字 2 桁で書く
+struct Rounded<'a>(&'a [f64]);
+
+impl std::fmt::Debug for Rounded<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let values: Vec<String> = self.0.iter().map(|v| format!("{v:.1e}")).collect();
+        write!(f, "[{}]", values.join(" "))
+    }
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。

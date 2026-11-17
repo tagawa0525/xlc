@@ -978,6 +978,43 @@ fn rejects_tolerances_that_do_not_bound_cmfd() {
 }
 
 #[test]
+fn split_change_separates_cell_averages_from_shapes_in_the_cell() {
+    // 2 × 2 のピンセル（セルごとに燃料と水の 2 領域）。左上のセルの群 0 だけが変わり、変化の体積平均は
+    // (1 × 0.1 + 3 × 0.3) / (1 + 3) = 0.25、形は領域の相対変化とその差の最大 |0.1 − 0.25| = 0.15
+    let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+    let lattice = Lattice::new(vec![pin], vec![vec![0, 0], vec![0, 0]]).unwrap();
+    let tracking = Tracking::new(&lattice, 8, 0.1).unwrap();
+    let mesh = CoarseMesh::new(&tracking);
+    assert_eq!((mesh.cells(), lattice.regions()), (4, 8));
+    assert_eq!((mesh.cell(0), mesh.cell(1), mesh.cell(2)), (0, 0, 1));
+    let volumes = [1.0, 3.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0];
+    let old = vec![vec![1.0, 2.0]; 8];
+    let mut new = old.clone();
+    new[0][0] = 1.1;
+    new[1][0] = 1.3;
+    // 群 1 は 2 番目のセルの両方の領域が同じ割合で変わる（形は変わらない）
+    new[2][1] = 2.2;
+    new[3][1] = 2.2;
+    let identity: Vec<usize> = (0..8).collect();
+    let split = split_change(&mesh, &volumes, &identity, &new, &old);
+    let close = |a: f64, b: f64| (a - b).abs() < 1e-12;
+    assert!(close(split.coarse[0], 0.25), "{:?}", split.coarse);
+    assert!(close(split.shape[0], 0.15), "{:?}", split.shape);
+    assert!(close(split.coarse[1], 0.1), "{:?}", split.coarse);
+    assert!(close(split.shape[1], 0.0), "{:?}", split.shape);
+    // 対称性の代表で状態を持つと、領域は代表の値を使う（左上のセルの 2 領域の代表を、ほかのセルの領域も使う）
+    let shared = split_change(
+        &mesh,
+        &volumes,
+        &[0, 1, 0, 1, 0, 1, 0, 1],
+        &new[..2],
+        &old[..2],
+    );
+    assert!(close(shared.coarse[0], 0.25), "{:?}", shared.coarse);
+    assert!(close(shared.shape[0], 0.15), "{:?}", shared.shape);
+}
+
+#[test]
 fn relative_change_handles_zero_flux() {
     assert_eq!(relative_change(0.0, 0.0), 0.0);
     assert_eq!(relative_change(1.0, 0.0), 1.0);

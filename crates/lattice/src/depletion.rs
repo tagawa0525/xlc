@@ -1335,7 +1335,7 @@ pub fn run(
         region_materials,
         chosen,
         reactions,
-        &Options::default(),
+        &input.moc,
         from,
         resumed,
         saved,
