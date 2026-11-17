@@ -1,0 +1,41 @@
+# Gd 燃料の集合体 2O の、燃料の温度の格子点を 7 点から 4 点か 3 点に減らす案（ADR-0242 の案 F3）の内挿の誤差を、fuel-2O.toml の
+# テーブル（燃料の温度の 7 点 × ホウ素の 3 点、Gd の燃え尽きの前、最中、後の燃焼点）で測る（compare_grid_interpolation.py の入力。
+# #0176）。4 点と 3 点は 2A の試算（#0274 の「2A の直積のテーブル（1000 eV）」の「格子点を減らす」）と同じ点で、残す点から除いた点を
+# 内挿する。core の燃料の温度の軸の式は √T の 3 次 Hermite（ADR-0242）。1 点ずつ除く行は 7 点の格子の誤差（2A の 0.38 pcm と比べる）。
+# √T の線形は、同じ測り方の 2A の値と比べるための行
+
+table = "fuel-2O.msgpack"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 750, 1050, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 900, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "linear"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "linear"
+points = [560, 750, 1050, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "linear"
+points = [560, 900, 1350]

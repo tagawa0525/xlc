@@ -1,0 +1,67 @@
+# Problem 9 の分岐のテーブルの解く状態と燃焼点を減らす案（ADR-0200 の案 B2 と案 H、ADR-0242 の案 F3）が、Gd 燃料の集合体（2O）でも
+# 成り立つかを測る（#0176）: 公称の状態での 2O の燃焼の履歴 → 各軸の両端と公称の点の直積を 27 燃焼点で解いたテーブル（間引きと
+# 3 つ同時の項）と、燃料の温度の 7 点を少数の燃焼点で解いたテーブル（格子点を減らす案） → 比べた要約。ライブラリは
+# ../p2/depletion.msgpack（../p2/dvc.yaml の出力）、燃焼チェーンは ../chain.msgpack（../dvc.yaml の出力）。実行するのは default の
+# devShell の `dvc repro`（ADR-0159）。lattice のステージは重いので、Slurm で流す
+stages:
+  lattice-2O:
+    # 燃焼点ごとの k∞ は標準出力、燃焼の時間の内訳はログ（標準エラー）
+    cmd: ../../../bin/lattice lattice-2O.toml > lattice-2O.out 2> lattice-2O.log
+    deps:
+      - lattice-2O.toml
+      - ../p2/depletion.msgpack
+      - ../chain.msgpack
+      - ../../../bin/lattice
+    outs:
+      - lattice-2O.out
+      - lattice-2O.msgpack
+      - lattice-2O.log
+  branch-2O:
+    # 状態ごとの k∞ は標準出力、状態ごとの時間はログ（標準エラー）
+    cmd: ../../../bin/lattice branch-2O.toml > branch-2O.out 2> branch-2O.log
+    deps:
+      - branch-2O.toml
+      - lattice-2O.msgpack
+      - ../p2/depletion.msgpack
+      - ../chain.msgpack
+      - ../../../bin/lattice
+    outs:
+      - table-2O.msgpack
+      - branch-2O.out
+      - branch-2O.log
+  fuel-2O:
+    # 状態ごとの時間（ログ）は、本番の形のテーブルを作る時間の見込みにも使う
+    cmd: ../../../bin/lattice fuel-2O.toml > fuel-2O.out 2> fuel-2O.log
+    deps:
+      - fuel-2O.toml
+      - lattice-2O.msgpack
+      - ../p2/depletion.msgpack
+      - ../chain.msgpack
+      - ../../../bin/lattice
+    outs:
+      - fuel-2O.msgpack
+      - fuel-2O.out
+      - fuel-2O.log
+  compare-2O:
+    # 交差の項と燃焼点の間引きの要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_branch_cross_terms.py --json compare-2O.json compare-2O.toml
+    deps:
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - compare-2O.toml
+      - table-2O.msgpack
+    outs:
+      - compare-2O.json:
+          cache: false
+  grid-2O:
+    # 燃料の温度の格子点を減らした内挿の誤差の要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_grid_interpolation.py --json grid-2O.json grid-2O.toml
+    deps:
+      - grid-2O.toml
+      - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - fuel-2O.msgpack
+    outs:
+      - grid-2O.json:
+          cache: false

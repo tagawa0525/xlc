@@ -1,0 +1,46 @@
+# Gd 燃料の集合体 2O の直積のテーブル（branch-2O.toml。ADR-0239 の格子点の各軸の両端と公称の点の 3 × 3 × 3 を、27 燃焼点のすべてで
+# 解いたもの）で、3 つ同時の項を落とす誤差（ADR-0200 の案 H）と、公称でない状態を解く燃焼点を間引く誤差（ADR-0200 の案 B2）を測る
+# （compare_branch_cross_terms.py の入力。#0176）。公称の状態は ADR-0239 の案 N2。比べ方は ../p9-product/compare-2A.toml と
+# ../p9-2A/thinning-2A.toml と同じ。
+
+[[table]]
+name = "2O（各軸の両端）"
+file = "table-2O.msgpack"
+nominal = { boron = 650, moderator = 580, fuel = 900 }
+
+[[model]]
+name = "1 軸ずつ"
+keep = []
+
+[[model]]
+name = "B×M、B×F"
+keep = [["boron", "moderator"], ["boron", "fuel"]]
+
+[[model]]
+name = "B×M、M×F"
+keep = [["boron", "moderator"], ["moderator", "fuel"]]
+
+[[model]]
+name = "B×F、M×F"
+keep = [["boron", "fuel"], ["moderator", "fuel"]]
+
+# ADR-0200 の既定。直積との差は 3 つ同時の項だけ
+[[model]]
+name = "2 軸の組すべて"
+keep = [["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]
+
+# 誤差は、除いた燃焼点で、公称の状態との差を選んだ燃焼点から内挿した値を、解いた値と比べたもの。選び方の最初の 7 つは
+# ../p9-2A/thinning-2A.toml と同じ点（2A の本番の入力は 15 点）。
+[[thinning]]
+name = "2O（各軸の両端）"
+file = "table-2O.msgpack"
+nominal = { boron = 650, moderator = 580, fuel = 900 }
+selections = [
+  { name = "6 点", burnup = [0, 0.1, 0.5, 6, 20, 60] },
+  { name = "8 点", burnup = [0, 0.1, 0.5, 2, 10, 20, 40, 60] },
+  { name = "10 点", burnup = [0, 0.1, 0.5, 2, 6, 10, 20, 32, 48, 60] },
+  { name = "12 点", burnup = [0, 0.1, 0.5, 1, 2, 4, 8, 14, 24, 36, 48, 60] },
+  { name = "14 点", burnup = [0, 0.1, 0.5, 1, 2, 4, 6, 10, 16, 24, 32, 40, 48, 60] },
+  { name = "15 点", burnup = [0, 0.1, 0.25, 0.5, 1, 2, 4, 6, 10, 16, 24, 32, 40, 48, 60] },
+  { name = "20 点", burnup = [0, 0.1, 0.25, 0.5, 1, 2, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40, 48, 60] },
+]
