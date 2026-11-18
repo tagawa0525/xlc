@@ -5127,7 +5127,7 @@ python3 examples/depletion/compare_grid_interpolation.py --report examples/deple
 Problem 9 の分岐のテーブルの燃料の温度の軸（[ADR-0239](../../docs/adr/0239-tabulate-p9-burnup-branches-on-hfp-grid.md) の「燃料の温度の軸」）を、7 点（560、600、750、900、1050、
 1200、1350 K）から減らす組の内挿の誤差を、7 点を持つ 2 つのテーブルで測った。組ごとに、残す格子点から除いた格子点を core の燃料の温度の
 軸の式（√T の 3 次 Hermite。[ADR-0242](../../docs/adr/0242-interpolate-state-axes-by-cubic-hermite.md)）で内挿し、格子点の状態と比べる（`compare_grid_interpolation.py` の方式の
-`points`）。値は除いた格子点の |Δρ| の、状態の中の最大（pcm）。「1 点ずつ除く」は 7 点の格子の誤差。目安は ADR-0200 の |Δρ| ≤ 5 pcm。
+`points`）。値は除いた格子点の |Δρ| の、状態の中の最大（pcm）。「1 点ずつ除く」は 7 点から 1 点を除いた格子の誤差（7 点の格子の誤差でなく、除いた点の両隣は 7 点の約 2 倍の間隔）。目安は ADR-0200 の |Δρ| ≤ 5 pcm。
 
 lattice は部分格子を公称の状態（入力の物質の状態。公称の燃料の温度は ADR-0239 の 900 K）から張るので、公称の値が格子点に無い軸があると
 止まる（crates/lattice/src/branches.rs の `branches.subgrids` のエラー）。900 K を含まない 560、750、1050、1350 K（2A の試算の 4 点。#0274 の
@@ -5152,12 +5152,12 @@ python3 examples/depletion/compare_grid_interpolation.py --report examples/deple
 
 ### 計算
 
-xlc d022edc7（ブランチ feat/0274-fuel-axis-4-points、分岐点は main の 1f7af5f1）、2026-11-18、手元の 1 コアで数秒。
+xlc d5df266a（ブランチ feat/0274-fuel-axis-4-points、分岐点は main の 1f7af5f1）、2026-11-18、手元の 1 コアで数秒。
 `dvc repro -s examples/depletion/p9-fuel-points/dvc.yaml:fuel-points-2A examples/depletion/p9-fuel-points/dvc.yaml:fuel-points-2O` で比べた
 （[ADR-0184](../../docs/adr/0184-run-heavy-stages-by-target.md) の `-s` の 2 つ目の例外。上流の 2A の `lattice-2A` と `branch-2A` を含む上流のステージは `bin/lattice` などの
 deps だけが changed で、作業ツリーの上流の出力は `dvc.lock` の記録のまま）。2A のテーブルは上の「Problem 9 の格子点の直積（2A）」の「計算」の
 xlc 68251719 の Slurm 903 の出力、2O のテーブルは上の 2O の記録の「計算」の xlc f8427b7a の Slurm 930 の出力。比較の JSON は
-`fuel-points-2A.json` が md5 ae1eb8dd、`fuel-points-2O.json` が md5 8b223c65。
+`fuel-points-2A.json` が md5 732559e6、`fuel-points-2O.json` が md5 e185a6dc。
 
 ### 結果
 
