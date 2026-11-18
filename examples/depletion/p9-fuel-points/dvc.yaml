@@ -1,0 +1,29 @@
+# Problem 9 の分岐のテーブルの燃料の温度の格子点を 7 点から減らす組（ADR-0239 の燃料の温度の軸）の内挿の誤差を、2A と Gd 燃料の 2O の
+# 燃料の温度の 7 点を持つテーブルで測る比較のステージ。テーブルは ../p9-product の `branch-2A` の出力（2A の直積、4 燃焼点）と、
+# ../p9-gd の `dvc add` した fuel-2O.msgpack（2O の燃料の温度 7 点 × ホウ素 3 点、7 燃焼点）で、ここでは作らない。2O の比べ方を
+# ../p9-gd に置かないのは、その置き場が #0176 の Gd の測定で別のブランチが変えているため。実行するのは default の devShell の
+# `dvc repro`（ADR-0159）
+stages:
+  fuel-points-2A:
+    # 残す格子点の組ごとの内挿の誤差の要約（数十 KB。git で追跡する）
+    cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2A.json fuel-points-2A.toml
+    deps:
+      - fuel-points-2A.toml
+      - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../p9-product/table-2A.msgpack
+    outs:
+      - fuel-points-2A.json:
+          cache: false
+  fuel-points-2O:
+    cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2O.json fuel-points-2O.toml
+    deps:
+      - fuel-points-2O.toml
+      - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../p9-gd/fuel-2O.msgpack
+    outs:
+      - fuel-points-2O.json:
+          cache: false

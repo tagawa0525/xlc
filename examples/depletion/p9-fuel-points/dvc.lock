@@ -1,0 +1,66 @@
+schema: '2.0'
+stages:
+  fuel-points-2A:
+    cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2A.json 
+      fuel-points-2A.toml
+    deps:
+    - path: 
+        ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      hash: md5
+      md5: 886381fa1550439296345932c23fc96e
+      size: 28966
+    - path: 
+        ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      hash: md5
+      md5: 1fbba180eddd60cc40f8e3c467dc578a
+      size: 9792
+    - path: 
+        ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      hash: md5
+      md5: 966df2466ff82607590ba264dad24057
+      size: 12370
+    - path: ../p9-product/table-2A.msgpack
+      hash: md5
+      md5: e0b2a95adc7d3046e3c15b88dfe93eb8
+      size: 1374380
+    - path: fuel-points-2A.toml
+      hash: md5
+      md5: dcd3a6278efee8ca571e858af35be0b2
+      size: 1491
+    outs:
+    - path: fuel-points-2A.json
+      hash: md5
+      md5: 732559e61c3081dd2e3c0c43fa8bd54e
+      size: 48271
+  fuel-points-2O:
+    cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2O.json 
+      fuel-points-2O.toml
+    deps:
+    - path: 
+        ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      hash: md5
+      md5: 886381fa1550439296345932c23fc96e
+      size: 28966
+    - path: 
+        ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      hash: md5
+      md5: 1fbba180eddd60cc40f8e3c467dc578a
+      size: 9792
+    - path: 
+        ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      hash: md5
+      md5: 966df2466ff82607590ba264dad24057
+      size: 12370
+    - path: ../p9-gd/fuel-2O.msgpack
+      hash: md5
+      md5: 5ad37b4af4620c98cfb67c4f00b355fc
+      size: 2232552
+    - path: fuel-points-2O.toml
+      hash: md5
+      md5: 38a9663e66931766f8e72b3080821c66
+      size: 1485
+    outs:
+    - path: fuel-points-2O.json
+      hash: md5
+      md5: e185a6dc60d13a713b4ba3cd3525a43f
+      size: 57979

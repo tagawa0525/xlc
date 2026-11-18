@@ -156,7 +156,7 @@ fn fuel_temperature_is_interpolated_in_its_square_root() {
     assert!(close(got.k_inf, want));
 }
 
-/// Problem 9 の燃料の温度の格子点（ADR-0239）
+/// 燃料の温度の 7 点の格子（ADR-0239 の案 F3。#0274 の 1 点を除いた誤差を測った 2A の直積のテーブルの格子点）
 const TF_P9: [f64; 7] = [560.0, 600.0, 750.0, 900.0, 1050.0, 1200.0, 1350.0];
 
 /// 燃料の温度の軸だけが点 `points` を持ち（ホウ素 1300 ppm、減速材 565 K の 1 点）、燃料の温度 T の状態が table() の状態の

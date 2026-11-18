@@ -4866,6 +4866,14 @@ TABLES = {
         ["examples/depletion/p9-gd/grid-2O.json"],
         grid_interpolation_schemes,
     ),
+    "depletion-p9-fuel-points-2A": (
+        ["examples/depletion/p9-fuel-points/fuel-points-2A.json"],
+        grid_interpolation_schemes,
+    ),
+    "depletion-p9-fuel-points-2O": (
+        ["examples/depletion/p9-fuel-points/fuel-points-2O.json"],
+        grid_interpolation_schemes,
+    ),
     "depletion-p9-product-grid-points": (
         ["examples/depletion/p9-product/grid-2A.json"],
         grid_interpolation_points,

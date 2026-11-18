@@ -1,0 +1,54 @@
+# 燃料の温度の格子点を減らす組の内挿の誤差（compare_grid_interpolation.py の入力。ADR-0239 の燃料の温度の軸）。組ごとに、残す
+# 格子点（`points`）から除いた格子点を、core の燃料の温度の軸の式（√T の 3 次 Hermite。ADR-0242）で内挿して比べる。組は、公称の
+# 900 K（ADR-0239 の案 N2）を含まない 560、750、1050、1350 K（lattice は部分格子を公称の状態から張るので、本番では作れない）と、
+# 900 K を含む 4 点の 3 組、5 点の 2 組、3 点の 560、900、1350 K
+
+table = "../p9-product/table-2A.msgpack"
+
+# 1 点ずつ除く（7 点から 1 点を除いた格子の誤差。除いた点の両隣は 7 点の約 2 倍の間隔）
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 750, 1050, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 900, 1050, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 900, 1200, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 750, 900, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 750, 900, 1050, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 750, 900, 1200, 1350]
+
+[[scheme]]
+axis = "fuel"
+variable = "sqrt"
+method = "hermite"
+points = [560, 900, 1350]
