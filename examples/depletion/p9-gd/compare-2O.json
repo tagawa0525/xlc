@@ -433,8 +433,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.009477616675264509,
@@ -727,8 +727,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.02858901155875127,
@@ -874,8 +874,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.0639491403995063,
@@ -1631,8 +1631,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.011491509684746671,
@@ -1925,8 +1925,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.030767858056198315,
@@ -2072,8 +2072,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.06868047241959908,
@@ -2493,7 +2493,7 @@
        }
       }
      },
-     "hours": 4.092416666666667
+     "hours": 2.611416666666667
     },
     {
      "name": "8 点",
@@ -2864,8 +2864,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.03599065511505769,
@@ -3158,8 +3158,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.10523642459895423,
@@ -3305,8 +3305,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.222835451992105,
@@ -4060,8 +4060,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.026735631547857568,
@@ -4354,8 +4354,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.07579903858979412,
@@ -4501,8 +4501,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.16299740670574847,
@@ -4922,7 +4922,7 @@
        }
       }
      },
-     "hours": 5.357305555555556
+     "hours": 3.3826388888888888
     },
     {
      "name": "10 点",
@@ -5291,8 +5291,8 @@
           "fuel": 560.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0050847904956921874,
@@ -5585,8 +5585,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.020470353876118997,
@@ -5732,8 +5732,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.04240118271377133,
@@ -6485,8 +6485,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.004097353716154414,
@@ -6779,8 +6779,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.01354016644177857,
@@ -6926,8 +6926,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.03052887758490721,
@@ -7347,7 +7347,7 @@
        }
       }
      },
-     "hours": 6.622194444444445
+     "hours": 4.1538611111111114
     },
     {
      "name": "12 点",
@@ -7714,8 +7714,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.017737112292529226,
@@ -8008,8 +8008,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.05315231362237365,
@@ -8155,8 +8155,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.11474165685462348,
@@ -8906,8 +8906,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.01583557533464209,
@@ -9200,8 +9200,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.04617843386913334,
@@ -9347,8 +9347,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.10121220213804397,
@@ -9768,7 +9768,7 @@
        }
       }
      },
-     "hours": 7.887083333333335
+     "hours": 4.925083333333334
     },
     {
      "name": "14 点",
@@ -10133,8 +10133,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0037731522628423465,
@@ -10427,8 +10427,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.012727705150398887,
@@ -10574,8 +10574,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.028737981918481443,
@@ -11323,8 +11323,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0040817160482966965,
@@ -11617,8 +11617,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.013338184768030175,
@@ -11764,8 +11764,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.03009792134595567,
@@ -12185,7 +12185,7 @@
        }
       }
      },
-     "hours": 9.151972222222224
+     "hours": 5.696305555555557
     },
     {
      "name": "15 点",
@@ -12549,8 +12549,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0037731522628423465,
@@ -12843,8 +12843,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.012727705150398887,
@@ -12990,8 +12990,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.028737981918481443,
@@ -13738,8 +13738,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0040817160482966965,
@@ -14032,8 +14032,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.013338184768030175,
@@ -14179,8 +14179,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.03009792134595567,
@@ -14600,7 +14600,7 @@
        }
       }
      },
-     "hours": 9.784416666666669
+     "hours": 6.081916666666668
     },
     {
      "name": "20 点",
@@ -14959,8 +14959,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0023128977131500065,
@@ -15253,8 +15253,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -15400,8 +15400,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -16143,8 +16143,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0020964517182520187,
@@ -16437,8 +16437,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.005918853851635114,
@@ -16584,8 +16584,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.012715759708192036,
@@ -17005,7 +17005,7 @@
        }
       }
      },
-     "hours": 12.94663888888889
+     "hours": 8.009972222222222
     },
     {
      "name": "17 点（15 点 + 8、12）",
@@ -17367,8 +17367,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0023128977131500065,
@@ -17661,8 +17661,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -17808,8 +17808,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -18554,8 +18554,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0020964517182520187,
@@ -18848,8 +18848,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.005918853851635114,
@@ -18995,8 +18995,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.012715759708192036,
@@ -19416,7 +19416,7 @@
        }
       }
      },
-     "hours": 11.049305555555556
+     "hours": 6.85313888888889
     },
     {
      "name": "18 点（15 点 + 7、8、9）",
@@ -19777,8 +19777,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.002215495788325345,
@@ -20071,8 +20071,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -20218,8 +20218,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -20963,8 +20963,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.001962278860683905,
@@ -21257,8 +21257,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.00471942066540508,
@@ -21404,8 +21404,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.010592220279141773,
@@ -21825,7 +21825,7 @@
        }
       }
      },
-     "hours": 11.681750000000001
+     "hours": 7.238750000000001
     },
     {
      "name": "18 点（15 点 + 8、9、12）",
@@ -22186,8 +22186,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0023128977131500065,
@@ -22480,8 +22480,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -22627,8 +22627,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -23372,8 +23372,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0020964517182520187,
@@ -23666,8 +23666,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.00614337930821307,
@@ -23813,8 +23813,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.013261191787184979,
@@ -24234,7 +24234,7 @@
        }
       }
      },
-     "hours": 11.681750000000001
+     "hours": 7.238750000000001
     },
     {
      "name": "18 点（15 点 + 7、8、12）",
@@ -24595,8 +24595,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.002215495788325345,
@@ -24889,8 +24889,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -25036,8 +25036,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -25781,8 +25781,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.001962278860683905,
@@ -26075,8 +26075,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.00471942066540508,
@@ -26222,8 +26222,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.010592220279141773,
@@ -26643,7 +26643,7 @@
        }
       }
      },
-     "hours": 11.681750000000001
+     "hours": 7.238750000000001
     },
     {
      "name": "18 点（15 点 + 7、9、12）",
@@ -27004,8 +27004,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.002215495788325345,
@@ -27298,8 +27298,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -27445,8 +27445,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -28190,8 +28190,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.001962278860683905,
@@ -28484,8 +28484,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.005159863107724286,
@@ -28631,8 +28631,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.011523957486981342,
@@ -29052,7 +29052,7 @@
        }
       }
      },
-     "hours": 11.681750000000001
+     "hours": 7.238750000000001
     },
     {
      "name": "19 点（15 点 + 7、8、9、12）",
@@ -29412,8 +29412,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.002215495788325345,
@@ -29706,8 +29706,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.008161268210699504,
@@ -29853,8 +29853,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.017415897344714496,
@@ -30597,8 +30597,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.001962278860683905,
@@ -30891,8 +30891,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.00471942066540508,
@@ -31038,8 +31038,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.010592220279141773,
@@ -31459,7 +31459,7 @@
        }
       }
      },
-     "hours": 12.314194444444446
+     "hours": 7.624361111111113
     },
     {
      "name": "21 点（15 点 + 5、7、8、9、11、12）",
@@ -31817,8 +31817,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0004809560200664872,
@@ -32111,8 +32111,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.0005361761483921414,
@@ -32258,8 +32258,8 @@
           "fuel": 560.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.0037102969864105254,
@@ -33000,8 +33000,8 @@
           "fuel": 1350.0
          },
          "states": 2,
-         "seconds_per_point": 219.60000000000002,
-         "timed_states": 6,
+         "seconds_per_point": 109.80000000000001,
+         "timed_states": 3,
          "micro": {
           "total": {
            "max_relative": 0.0003752849173221565,
@@ -33294,8 +33294,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 240.0,
-         "timed_states": 30,
+         "seconds_per_point": 120.0,
+         "timed_states": 15,
          "micro": {
           "total": {
            "max_relative": 0.00041667587911647523,
@@ -33441,8 +33441,8 @@
           "fuel": 1350.0
          },
          "states": 4,
-         "seconds_per_point": 1317.6000000000001,
-         "timed_states": 36,
+         "seconds_per_point": 658.8000000000001,
+         "timed_states": 18,
          "micro": {
           "total": {
            "max_relative": 0.0034952632211129337,
@@ -33862,10 +33862,10 @@
        }
       }
      },
-     "hours": 13.579083333333335
+     "hours": 8.395583333333335
     }
    ],
-   "hours": 17.37375,
+   "hours": 10.709249999999999,
    "other_seconds": 3.1,
    "timing": {
     "other": 3.1,
@@ -33875,10 +33875,10 @@
     "states": {
      "boron": 5,
      "moderator": 6,
-     "fuel": 6,
+     "fuel": 3,
      "boron+moderator": 30,
-     "boron+fuel": 30,
-     "moderator+fuel": 36,
+     "boron+fuel": 15,
+     "moderator+fuel": 18,
      "boron+moderator+fuel": 0
     }
    }
@@ -33888,7 +33888,7 @@
  "inputs": [
   {
    "path": "compare-2O.toml",
-   "md5": "12c6a40d49fe95ab4a3fec38378f1661"
+   "md5": "902d1862ba4b644d1f8c6b29a5b8c970"
   },
   {
    "path": "table-2O.msgpack",
