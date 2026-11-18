@@ -279,13 +279,10 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
     order = sorted(set(kinds_of.values()), key=lambda k: kind_order(k, names))
     counts = {k: sum((1 for v in kinds_of.values() if v == k)) for k in order}
     seconds = None if timing is None else thinning_time(timing, counts)
+    burnups = nominal_burnups(name, timing, burnup, selections)
     out = []
     for sel in selections:
-        chosen = [float(b) for b in sel['burnup']]
-        if len(chosen) < 2 or len(chosen) == len(burnup) or chosen != sorted(set(chosen)) or any((b not in burnup for b in chosen)) or (chosen[0] != burnup[0]) or (chosen[-1] != burnup[-1]):
-            raise SystemExit(f"{name} {sel['name']}: the burnups {chosen} must be increasing points of the table from the first to the last, leaving some out")
-        index = [burnup.index(b) for b in chosen]
-        removed = [i for i in range(len(burnup)) if i not in index]
+        chosen, index, removed = chosen_points(name, sel, burnup)
         results = {}
         for method in THINNING_METHODS:
             worst_per_point = [0.0] * len(removed)
@@ -332,21 +329,76 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
                 results[method] |= ordered_items(overall)
         entry = {'name': sel['name'], 'burnup': chosen, 'removed': [burnup[i] for i in removed], 'results': results}
         if seconds is not None:
-            entry['hours'] = table_hours(seconds, len(burnup), {k: len(chosen) for k in order})
+            entry['hours'] = table_hours(seconds, burnups, {k: len(chosen) for k in order})
         out.append(entry)
     summary = {'name': name, 'burnup': burnup, 'selections': out}
     if seconds is not None:
-        summary['hours'] = len(burnup) * seconds['total'] / 3600
+        summary['hours'] = burnups * seconds['total'] / 3600
         summary['other_seconds'] = seconds['other']
         summary['timing'] = dict(timing)
     if plans:
         if seconds is None:
             raise SystemExit(f'{name}: plans need the timing')
-        summary['plans'] = [thinning_plan(name, p, out, order, timing['reuse-axis'], seconds, len(burnup)) for p in plans]
+        summary['plans'] = [thinning_plan(name, p, out, order, timing['reuse-axis'], seconds, burnups) for p in plans]
     return summary
 
+def chosen_points(name: str, sel: dict, burnup: list[float]) -> tuple:
+    chosen = [float(b) for b in sel['burnup']]
+    if len(chosen) < 2 or len(chosen) == len(burnup) or chosen != sorted(set(chosen)) or any((b not in burnup for b in chosen)) or (chosen[0] != burnup[0]) or (chosen[-1] != burnup[-1]):
+        raise SystemExit(f"{name} {sel['name']}: the burnups {chosen} must be increasing points of the table from the first to the last, leaving some out")
+    index = [burnup.index(b) for b in chosen]
+    removed = [i for i in range(len(burnup)) if i not in index]
+    return (chosen, index, removed)
+
+def nominal_burnups(name: str, timing: dict | None, burnup: list[float], selections: list[dict]) -> int:
+    if timing is None or 'nominal-burnups' not in timing:
+        return len(burnup)
+    count = timing['nominal-burnups']
+    most = max((len(s['burnup']) for s in selections), default=0)
+    if isinstance(count, bool) or not isinstance(count, int) or count < max(most, 2):
+        raise SystemExit(f'{name}: the timing nominal-burnups {count!r} must be a count of points (an integer) no fewer than the points of any selection ({most})')
+    return count
+
+def nominal_points(name: str, table: dict, nominal: dict, selections: list[dict]) -> dict:
+    grid_of = burnup_states(name, table, nominal)
+    burnup = grid_of['burnup']
+    positions = grid_of['rows'][grid_of['nominal']]
+    states = [table['states'][p] for p in positions]
+    values = np.array([vector(s) for s in states])
+    micro = table.get('micro')
+    if micro is not None:
+        if len(micro['states']) != len(table['states']):
+            raise SystemExit(f"{name}: {len(micro['states'])} micro states for {len(table['states'])} states")
+        nuclides = micro['nuclides']
+        layout = MicroLayout(micro_parts(micro['states'][positions[0]], nuclides))
+        micro_values = np.array([layout.vector(micro['states'][p], nuclides) for p in positions])
+    out = []
+    for sel in selections:
+        chosen, index, removed = chosen_points(name, sel, burnup)
+        x = np.array(chosen)
+        q = np.array([burnup[i] for i in removed])
+        results = {}
+        for method in THINNING_METHODS:
+            interpolated = interpolate(method, x, values[index], q)
+            rho = []
+            relative = dict.fromkeys(RELATIVE, 0.0)
+            for n, i in enumerate(removed):
+                rebuilt = unvector(interpolated[n], states[i])
+                rho.append((1 / k_inf(states[i]) - 1 / k_inf(rebuilt)) * 100000.0)
+                for item, e in relative_errors(rebuilt, states[i]).items():
+                    relative[item] = max(relative[item], e)
+            worst = int(np.argmax(np.abs(rho)))
+            r = {'rho_pcm': rho, 'max_abs_pcm': abs(rho[worst]), 'worst_pcm': rho[worst], 'worst_burnup': burnup[removed[worst]], 'rms_pcm': float(np.sqrt(np.mean(np.square(rho)))), 'max_relative': relative}
+            if micro is not None:
+                found = {}
+                item_worst(layout, micro_errors(layout, interpolate(method, x, micro_values[index], q), micro_values[removed]), [{'burnup': burnup[i]} for i in removed], found)
+                r |= ordered_items(found)
+            results[method] = r
+        out.append({'name': sel['name'], 'burnup': chosen, 'removed': q.tolist(), 'results': results})
+    return {'name': name, 'burnup': burnup, 'selections': out}
+
 def thinning_time(timing: dict, counts: dict) -> dict:
-    unknown_keys = sorted(set(timing) - {'total', 'other', 'solve', 'reuse', 'reuse-axis', 'states'})
+    unknown_keys = sorted(set(timing) - {'total', 'other', 'solve', 'reuse', 'reuse-axis', 'states', 'nominal-burnups'})
     if unknown_keys:
         raise SystemExit(f'unknown timing keys {unknown_keys}')
     if ('total' in timing) == ('other' in timing):
@@ -464,6 +516,14 @@ def report(summary: dict) -> list[str]:
             lines.append(f"  {plan['name']}: {plan['hours']:.2f} 時間の見込み")
             for method, r in plan['results'].items():
                 lines.append(f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_kind']}）")
+    for t in summary.get('nominal', []):
+        lines.append(f"{t['name']}: 公称の状態の燃焼度の点 {len(t['burnup'])}")
+        for sel in t['selections']:
+            lines.append(f"  公称の状態を {sel['name']}（{len(sel['burnup'])} 点）から: {sel['burnup']}")
+            for method, r in sel['results'].items():
+                rel = '、'.join((f'{k} {v * 100:.3f}%' for k, v in r['max_relative'].items()))
+                lines.append(f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst_burnup']:g} MWd/kg）、rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}")
+                lines += micro_lines('      ', r)
     return lines
 
 def micro_lines(indent: str, result: dict) -> list[str]:
@@ -502,7 +562,8 @@ def main() -> None:
         thinning = []
         for t in config.get('thinning', []):
             thinning.append(thin(t['name'], read(config_path.parent / t['file']), t['nominal'], t['selections'], t.get('timing'), t.get('plans', [])))
-        summary = {'format': 'xlc-compare-branch-cross-terms', 'thinning': thinning, 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], **summarize(tables, config.get('model', []))}
+        nominal_entries = [nominal_points(t['name'], read(config_path.parent / t['file']), t['nominal'], t['selections']) for t in config.get('nominal', [])]
+        summary = {'format': 'xlc-compare-branch-cross-terms', 'thinning': thinning, **({'nominal': nominal_entries} if nominal_entries else {}), 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], **summarize(tables, config.get('model', []))}
         Path(args[1]).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + '\n')
         print('\n'.join(report(summary)))
     else:
