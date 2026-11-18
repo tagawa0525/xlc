@@ -5885,6 +5885,7 @@ class DrawProductionThinning(unittest.TestCase):
                 {
                     "name": "2A",
                     "burnup": [0.0] * 27,
+                    "nominal_burnup": [0.0] * 27,
                     "hours": 17.62,
                     "other_seconds": 14.6,
                     "timing": {"solve": 36.1, "reuse": 8.7},
@@ -5938,6 +5939,14 @@ class DrawProductionThinning(unittest.TestCase):
                 ["14 点", "14", "9.32", "3.25（36）", "0.60", "3.25", "32.50"],
             ],
         )
+
+    def test_tables_finer_than_the_nominal_points_have_no_row_of_every_point(self):
+        # 公称の状態を真値のテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルの誤差は 0 でない
+        s = self.summary()
+        s["thinning"][0]["burnup"] = [float(n) for n in range(73)]
+        s["thinning"][0]["nominal_burnup"] = [float(n) for n in range(27)]
+        rows = self.rows(vt.production_thinning([s]))
+        self.assertEqual([r[0] for r in rows], ["10 点", "14 点"])
 
     def test_plan_rows_name_the_selection_of_each_kind(self):
         table = vt.production_thinning_plans([self.summary()])

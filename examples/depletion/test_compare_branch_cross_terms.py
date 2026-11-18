@@ -852,6 +852,7 @@ class MainThinningOnly(unittest.TestCase):
                 sys.argv = argv
             summary = json.loads(out.read_text())
             self.assertEqual(summary["tables"], [])
+            self.assertEqual(summary["nominal"], [])
             self.assertIn("hours", summary["thinning"][0]["selections"][0])
 
 
@@ -954,30 +955,40 @@ class NominalBurnupPoints(unittest.TestCase):
 class ThinningNominalBurnups(unittest.TestCase):
     """間引きの真値のテーブルより少ない燃焼点で公称の状態を解く、本番の形のテーブルの時間の見込み"""
 
-    def test_nominal_burnups_count_the_nominal_and_other_seconds(self):
+    def thinned(self, nominal_burnup, burnup=(0.0, 4.0, 10.0)) -> dict:
         t = Thinning().branch_table(lambda u: 1e-3 * u)
-        timing = ESTIMATE | {"nominal-burnups": 4}
-        s = cct.thin(
-            "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
+        timing = ESTIMATE | {"nominal-burnup": nominal_burnup}
+        return cct.thin(
+            "t", t, NOMINAL, [{"name": "3 点", "burnup": list(burnup)}], timing
         )
+
+    def test_nominal_points_count_the_nominal_and_other_seconds(self):
+        s = self.thinned([0, 2, 4, 10])
+        self.assertEqual(s["nominal_burnup"], [0.0, 2.0, 4.0, 10.0])
         self.assertAlmostEqual(s["hours"], 4 * (55 + 3 + 5 * 1 + 36 * 3) / 3600)
         (three,) = s["selections"]
         self.assertAlmostEqual(
             three["hours"], (4 * (55 + 3) + 3 * (5 * 1 + 36 * 3)) / 3600
         )
 
-    def test_nominal_burnups_must_hold_the_chosen_points(self):
+    def test_tables_without_nominal_points_solve_the_nominal_state_at_every_point(self):
         t = Thinning().branch_table(lambda u: 1e-3 * u)
-        for count in (2, 0, 3.5, True):
-            timing = ESTIMATE | {"nominal-burnups": count}
-            with self.assertRaisesRegex(SystemExit, "nominal-burnups", msg=count):
-                cct.thin(
-                    "t",
-                    t,
-                    NOMINAL,
-                    [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}],
-                    timing,
-                )
+        s = cct.thin(
+            "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], ESTIMATE
+        )
+        self.assertEqual(s["nominal_burnup"], THINNING_BURNUP)
+
+    def test_selections_must_be_nominal_points(self):
+        # 公称でない状態は、公称の状態を解く燃焼点でしか解けない（公称の状態との差を持つため）
+        with self.assertRaisesRegex(SystemExit, "nominal-burnup"):
+            self.thinned([0, 2, 4, 10], burnup=(0.0, 6.0, 10.0))
+
+    def test_nominal_points_must_be_points_of_the_table_from_the_first_to_the_last(
+        self,
+    ):
+        for points in ([0, 3, 10], [1, 4, 10], [0, 4], [10, 4, 0], [0, 4, 4, 10], 4):
+            with self.assertRaisesRegex(SystemExit, "nominal-burnup", msg=points):
+                self.thinned(points)
 
 
 if __name__ == "__main__":
