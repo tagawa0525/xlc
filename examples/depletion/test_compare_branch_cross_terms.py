@@ -983,6 +983,11 @@ class ThinningNominalBurnups(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "nominal-burnup"):
             self.thinned([0, 2, 4, 10], burnup=(0.0, 6.0, 10.0))
 
+    def test_selections_off_the_table_are_named_before_the_nominal_points(self):
+        # 表に無い点を選んだ誤りを、公称の状態の点の外として出さない
+        with self.assertRaisesRegex(SystemExit, "increasing points of the table"):
+            self.thinned([0, 2, 4, 10], burnup=(0.0, 3.0, 10.0))
+
     def test_nominal_points_must_be_points_of_the_table_from_the_first_to_the_last(
         self,
     ):

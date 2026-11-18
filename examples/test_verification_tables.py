@@ -6012,6 +6012,12 @@ class DrawProductionThinning(unittest.TestCase):
             [["10 点", "18.000（Pu-240、0.25）"], ["14 点", "18.000（Pu-240、0.25）"]],
         )
 
+    def test_summaries_without_the_nominal_points_ask_to_rerun(self):
+        s = self.summary()
+        del s["thinning"][0]["nominal_burnup"]
+        with self.assertRaisesRegex(vt.TableError, "rerun"):
+            vt.production_thinning([s])
+
     def test_summaries_without_the_timing_or_the_micro_data_are_errors(self):
         s = self.summary()
         del s["thinning"][0]["selections"][0]["hours"]
