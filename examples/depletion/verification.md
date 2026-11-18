@@ -5427,8 +5427,8 @@ examples/depletion/p9-gd で `../../../bin/lattice <入力>.toml > <入力>.out 
   - 2P の 73 点のテーブル `branch-2P-all.toml`（584 状態）: Slurm 936（main）。`table-2P-all.msgpack` は md5 4c883b4a
   - 2P の燃料の温度のテーブル `fuel-2P.toml`（147 状態）: Slurm 937（timed の排他のジョブ。38 分 10 秒）。`fuel-2P.msgpack` は md5 34f33ede
 
-比べたのは、同じブランチ（分岐点は main の 8c1834da）の手元で、2026-11-18: `compare-2O-all` と `compare-2P-all` は xlc 205e1cf9
-（JSON の md5 857848d2、80320078）、`compare-2O` と `grid-2P` は xlc ca734765（e7c12a9e、3a4eb3d1）、`grid-2O` は f90cb8db（分岐点は main の
+比べたのは、同じブランチ（分岐点は main の 8c1834da）の手元で、2026-11-18: `compare-2O-all` と `compare-2P-all` は xlc ecc3cbd4
+（JSON の md5 60a78042、cf3c4c2c）、`compare-2O` と `grid-2P` は xlc ca734765（e7c12a9e、3a4eb3d1）、`grid-2O` は f90cb8db（分岐点は main の
 1f7af5f1。b53e020e で出し直しても同じ JSON、md5 09c2a045）。少数群定数から解き直した k∞ とテーブルの `k_inf` の差は、最大 0.0181 pcm
 （2O の 73 点）、0.0190 pcm（2P の 73 点）、0.0129 pcm（2P の 27 状態）、0.0077 pcm（2O の 27 状態）、0.0135 pcm と 0.0139 pcm（燃料の温度の
 2O と 2P）（`--report`）。
