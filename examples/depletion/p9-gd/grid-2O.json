@@ -1217,6 +1217,244 @@
    "method": "hermite",
    "points": [
     560.0,
+    900.0,
+    1050.0,
+    1350.0
+   ],
+   "centers": [
+    {
+     "point": 600.0,
+     "points": [
+      {
+       "burnup": 0.0,
+       "max_abs_pcm": 0.09002721630402277,
+       "worst_pcm": 0.09002721630402277,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 4.0,
+       "max_abs_pcm": 0.1300776291346395,
+       "worst_pcm": 0.1300776291346395,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 8.0,
+       "max_abs_pcm": 0.10053885979299793,
+       "worst_pcm": 0.10053885979299793,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 10.0,
+       "max_abs_pcm": 0.06160321448511752,
+       "worst_pcm": 0.06160321448511752,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 12.0,
+       "max_abs_pcm": 0.02560935059570113,
+       "worst_pcm": 0.02560935059570113,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 16.0,
+       "max_abs_pcm": 0.04764338379370514,
+       "worst_pcm": -0.04764338379370514,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 60.0,
+       "max_abs_pcm": 0.046212993054517426,
+       "worst_pcm": -0.046212993054517426,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      }
+     ]
+    },
+    {
+     "point": 750.0,
+     "points": [
+      {
+       "burnup": 0.0,
+       "max_abs_pcm": 0.19692123768288994,
+       "worst_pcm": 0.19692123768288994,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 4.0,
+       "max_abs_pcm": 0.2443883140967884,
+       "worst_pcm": 0.2443883140967884,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 8.0,
+       "max_abs_pcm": 0.19543393111609575,
+       "worst_pcm": 0.19543393111609575,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 10.0,
+       "max_abs_pcm": 0.1443590511018833,
+       "worst_pcm": 0.1443590511018833,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 12.0,
+       "max_abs_pcm": 0.09839443477765997,
+       "worst_pcm": 0.09839443477765997,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 16.0,
+       "max_abs_pcm": 0.01327576233389749,
+       "worst_pcm": 0.01327576233389749,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 60.0,
+       "max_abs_pcm": 0.06262083411812114,
+       "worst_pcm": 0.06262083411812114,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      }
+     ]
+    },
+    {
+     "point": 1200.0,
+     "points": [
+      {
+       "burnup": 0.0,
+       "max_abs_pcm": 0.3457015209873404,
+       "worst_pcm": 0.3457015209873404,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 4.0,
+       "max_abs_pcm": 0.28002802472393284,
+       "worst_pcm": 0.28002802472393284,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 8.0,
+       "max_abs_pcm": 0.23633994257199475,
+       "worst_pcm": 0.23633994257199475,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 10.0,
+       "max_abs_pcm": 0.24241826616089313,
+       "worst_pcm": 0.24241826616089313,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 12.0,
+       "max_abs_pcm": 0.2503263431430369,
+       "worst_pcm": 0.2503263431430369,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 16.0,
+       "max_abs_pcm": 0.2801549938480363,
+       "worst_pcm": 0.2801549938480363,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 60.0,
+       "max_abs_pcm": 0.3171795343259731,
+       "worst_pcm": 0.3171795343259731,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560.0,
     750.0,
     1050.0,
     1350.0
@@ -2149,6 +2387,244 @@
    "method": "linear",
    "points": [
     560.0,
+    900.0,
+    1050.0,
+    1350.0
+   ],
+   "centers": [
+    {
+     "point": 600.0,
+     "points": [
+      {
+       "burnup": 0.0,
+       "max_abs_pcm": 1.4790081713011993,
+       "worst_pcm": -1.4790081713011993,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 4.0,
+       "max_abs_pcm": 0.5256165272249369,
+       "worst_pcm": -0.5256165272249369,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 8.0,
+       "max_abs_pcm": 0.20220855694308426,
+       "worst_pcm": -0.20220855694308426,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 10.0,
+       "max_abs_pcm": 0.2768955704057774,
+       "worst_pcm": -0.2768955704057774,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 12.0,
+       "max_abs_pcm": 0.32031403569554584,
+       "worst_pcm": -0.32031403569554584,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 16.0,
+       "max_abs_pcm": 0.46352161198193187,
+       "worst_pcm": -0.46352161198193187,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      },
+      {
+       "burnup": 60.0,
+       "max_abs_pcm": 0.8789030080169624,
+       "worst_pcm": 0.8789030080169624,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 600.0
+       }
+      }
+     ]
+    },
+    {
+     "point": 750.0,
+     "points": [
+      {
+       "burnup": 0.0,
+       "max_abs_pcm": 3.159129413921047,
+       "worst_pcm": -3.159129413921047,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 4.0,
+       "max_abs_pcm": 1.164473783954456,
+       "worst_pcm": -1.164473783954456,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 8.0,
+       "max_abs_pcm": 0.46067550969475235,
+       "worst_pcm": -0.46067550969475235,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 10.0,
+       "max_abs_pcm": 0.589715144849734,
+       "worst_pcm": -0.589715144849734,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 12.0,
+       "max_abs_pcm": 0.6538597795979761,
+       "worst_pcm": -0.6538597795979761,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 16.0,
+       "max_abs_pcm": 0.9070462034577176,
+       "worst_pcm": -0.9070462034577176,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      },
+      {
+       "burnup": 60.0,
+       "max_abs_pcm": 1.9299363209990261,
+       "worst_pcm": 1.9299363209990261,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 750.0
+       }
+      }
+     ]
+    },
+    {
+     "point": 1200.0,
+     "points": [
+      {
+       "burnup": 0.0,
+       "max_abs_pcm": 1.2459265998465696,
+       "worst_pcm": -1.2459265998465696,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 4.0,
+       "max_abs_pcm": 0.4614971366390108,
+       "worst_pcm": -0.4614971366390108,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 8.0,
+       "max_abs_pcm": 0.13656131998551757,
+       "worst_pcm": -0.13656131998551757,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 10.0,
+       "max_abs_pcm": 0.12405474645316161,
+       "worst_pcm": -0.12405474645316161,
+       "worst": {
+        "boron": 0.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 12.0,
+       "max_abs_pcm": 0.10865131556681007,
+       "worst_pcm": 0.10865131556681007,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 16.0,
+       "max_abs_pcm": 0.21711453039863216,
+       "worst_pcm": 0.21711453039863216,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      },
+      {
+       "burnup": 60.0,
+       "max_abs_pcm": 1.1889645751494982,
+       "worst_pcm": 1.1889645751494982,
+       "worst": {
+        "boron": 1625.0,
+        "moderator": 580.0,
+        "fuel": 1200.0
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "linear",
+   "points": [
+    560.0,
     750.0,
     1050.0,
     1350.0
@@ -2697,7 +3173,7 @@
  "inputs": [
   {
    "path": "grid-2O.toml",
-   "md5": "5335fd5961eb60723b29c296954aa2cf"
+   "md5": "997f35166d7269da8a03954511a66569"
   },
   {
    "path": "fuel-2O.msgpack",

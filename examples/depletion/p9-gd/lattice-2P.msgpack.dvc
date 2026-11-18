@@ -1,0 +1,5 @@
+outs:
+- md5: c1daca77ae4ed14f79acfbb23dee02e9
+  size: 527367187
+  hash: md5
+  path: lattice-2P.msgpack

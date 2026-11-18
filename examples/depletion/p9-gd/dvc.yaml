@@ -4,6 +4,9 @@
 # ステージにせず Slurm で直接流し、出力を `dvc add` した（.dvc ファイル）。上流のライブラリ ../p2/depletion.msgpack と燃焼チェーン
 # ../chain.msgpack のステージが bin の変更で deps だけ changed のままで、ステージにすると作り直しが先に走るため。実行するのは default の
 # devShell の `dvc repro`（ADR-0159）
+# 分岐のテーブルの燃焼点を決める比較（compare-2O-all、compare-2P-all）の格子計算（2P の燃焼の履歴 lattice-2P.toml、履歴の 73 点の
+# すべてで解いたテーブル branch-2O-all.toml と branch-2P-all.toml、2P の直積 branch-2P.toml、2P の燃料の温度のテーブル fuel-2P.toml）も、
+# 同じ理由でステージにせず Slurm で直接流して `dvc add` する
 stages:
   compare-2O:
     # 交差の項と燃焼点の間引きの要約（数十 KB。git で追跡する）
@@ -27,4 +30,39 @@ stages:
       - fuel-2O.msgpack
     outs:
       - grid-2O.json:
+          cache: false
+  compare-2O-all:
+    # 公称の状態の燃焼点と、公称でない状態の燃焼点の間引きと、3 つ同時の項の、73 点を真値にした要約（git で追跡する）
+    cmd: python3 ../compare_branch_cross_terms.py --json compare-2O-all.json compare-2O-all.toml
+    deps:
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - compare-2O-all.toml
+      - table-2O-all.msgpack
+    outs:
+      - compare-2O-all.json:
+          cache: false
+  compare-2P-all:
+    # compare-2O-all と同じ比較を 2P で。3 つ同時の項は 2P の直積（table-2P.msgpack）も比べる（git で追跡する）
+    cmd: python3 ../compare_branch_cross_terms.py --json compare-2P-all.json compare-2P-all.toml
+    deps:
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - compare-2P-all.toml
+      - table-2P-all.msgpack
+      - table-2P.msgpack
+    outs:
+      - compare-2P-all.json:
+          cache: false
+  grid-2P:
+    # grid-2O と同じ比較を 2P で（git で追跡する）
+    cmd: python3 ../compare_grid_interpolation.py --json grid-2P.json grid-2P.toml
+    deps:
+      - grid-2P.toml
+      - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
+      - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
+      - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - fuel-2P.msgpack
+    outs:
+      - grid-2P.json:
           cache: false

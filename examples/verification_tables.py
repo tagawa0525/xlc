@@ -2081,6 +2081,10 @@ def production_thinning_summary(sources: list[dict]) -> dict:
         raise TableError(
             "the thinning summary has no hours; rerun compare_branch_cross_terms.py with the timing"
         )
+    if "nominal_burnup" not in t:
+        raise TableError(
+            "the thinning summary has no nominal points; rerun compare_branch_cross_terms.py"
+        )
     return t
 
 
@@ -2103,14 +2107,20 @@ def thinning_kinds(t: dict) -> list[str]:
 
 def production_thinning(sources: list[dict]) -> str:
     """本番の形のテーブルの燃焼点の間引き（ADR-0200）: 選び方ごとの、テーブルを作る時間の見込みと、除いた点の |Δρ| の最大
-    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。最初の行はすべての燃焼点で解いたテーブル"""
+    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。公称の状態をテーブルのすべての点で解く見込みでは、最初の行はすべての燃焼点で
+    解いたテーブル"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
-    rows = [
-        ["すべての燃焼点", str(len(t["burnup"])), f"{t['hours']:.2f}", "0"]
-        + ["0"] * len(kinds)
-        + ["0"]
-    ]
+    # 公称の状態をテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルは見込むテーブルでなく、誤差も 0 でない
+    rows = (
+        [
+            ["すべての燃焼点", str(len(t["burnup"])), f"{t['hours']:.2f}", "0"]
+            + ["0"] * len(kinds)
+            + ["0"]
+        ]
+        if t["nominal_burnup"] == t["burnup"]
+        else []
+    )
     for sel in t["selections"]:
         hermite = sel["results"]["hermite"]
         rows.append(
@@ -2169,7 +2179,7 @@ def production_thinning_plans(sources: list[dict]) -> str:
 
 
 def production_thinning_time(sources: list[dict]) -> str:
-    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分はすべての燃焼点で数える。状態の数は、
+    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分は見込むテーブルの公称の状態の燃焼点（`nominal_burnup`）で数える。状態の数は、
     時間の見込みに数えた状態の数（compare_branch_cross_terms.py の `timed_states`）"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
@@ -2192,6 +2202,51 @@ def production_thinning_time(sources: list[dict]) -> str:
         for k in kinds
     ]
     return markdown_table(["状態", "状態の数", "燃焼点 1 つの秒"], rows)
+
+
+def nominal_burnup_points(sources: list[dict]) -> str:
+    """公称の状態の燃焼点（compare_branch_cross_terms.py の `[[nominal]]`）: 選び方ごとの、除いた点の |Δρ| の最大（pcm）。
+    列はテーブルごとの Hermite（最大の燃焼度を添える）と線形。どのテーブルも同じ選び方を持つ"""
+    tables = []
+    for s in sources:
+        s = branch_cross_terms_summary([s])
+        if not s.get("nominal"):
+            raise TableError(
+                "the summary has no nominal points; rerun compare_branch_cross_terms.py with [[nominal]]"
+            )
+        if len(s["nominal"]) != 1:
+            raise TableError(f"expected one nominal table, got {len(s['nominal'])}")
+        tables.append(s["nominal"][0])
+    selections = [(sel["name"], sel["burnup"]) for sel in tables[0]["selections"]]
+    for t in tables[1:]:
+        if [(sel["name"], sel["burnup"]) for sel in t["selections"]] != selections:
+            raise TableError(f"the table {t['name']} holds other selections")
+    rows = []
+    for n, (name, burnup) in enumerate(selections):
+        cells = []
+        for t in tables:
+            results = t["selections"][n]["results"]
+            hermite = results["hermite"]
+            cells += [
+                f"{hermite['max_abs_pcm']:.2f}（{hermite['worst_burnup']:g}）",
+                f"{results['linear']['max_abs_pcm']:.2f}",
+            ]
+        rows.append([name, str(len(burnup)), *cells])
+    return markdown_table(
+        [
+            "選び方",
+            "点",
+            *(
+                label
+                for t in tables
+                for label in (
+                    f"{t['name']}、Hermite (pcm、燃焼度)",
+                    f"{t['name']}、線形 (pcm)",
+                )
+            ),
+        ],
+        rows,
+    )
 
 
 def thinning_items(sources: list[dict], group: str) -> str:
@@ -4865,6 +4920,45 @@ TABLES = {
     "depletion-p9-gd-grid-schemes": (
         ["examples/depletion/p9-gd/grid-2O.json"],
         grid_interpolation_schemes,
+    ),
+    "depletion-p9-gd-grid-schemes-2p": (
+        ["examples/depletion/p9-gd/grid-2P.json"],
+        grid_interpolation_schemes,
+    ),
+    "depletion-p9-gd-nominal-points": (
+        [
+            "examples/depletion/p9-gd/compare-2O-all.json",
+            "examples/depletion/p9-gd/compare-2P-all.json",
+        ],
+        nominal_burnup_points,
+    ),
+    "depletion-p9-gd-all-2o-thinning": (
+        ["examples/depletion/p9-gd/compare-2O-all.json"],
+        production_thinning,
+    ),
+    "depletion-p9-gd-all-2o-thinning-micro": (
+        ["examples/depletion/p9-gd/compare-2O-all.json"],
+        production_thinning_micro,
+    ),
+    "depletion-p9-gd-all-2o-cross-terms": (
+        ["examples/depletion/p9-gd/compare-2O-all.json"],
+        branch_cross_terms,
+    ),
+    "depletion-p9-gd-all-2p-thinning": (
+        ["examples/depletion/p9-gd/compare-2P-all.json"],
+        production_thinning,
+    ),
+    "depletion-p9-gd-all-2p-thinning-time": (
+        ["examples/depletion/p9-gd/compare-2P-all.json"],
+        production_thinning_time,
+    ),
+    "depletion-p9-gd-all-2p-thinning-micro": (
+        ["examples/depletion/p9-gd/compare-2P-all.json"],
+        production_thinning_micro,
+    ),
+    "depletion-p9-gd-all-2p-cross-terms": (
+        ["examples/depletion/p9-gd/compare-2P-all.json"],
+        branch_cross_terms,
     ),
     "depletion-p9-fuel-points-2A": (
         ["examples/depletion/p9-fuel-points/fuel-points-2A.json"],
