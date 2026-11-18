@@ -855,5 +855,130 @@ class MainThinningOnly(unittest.TestCase):
             self.assertIn("hours", summary["thinning"][0]["selections"][0])
 
 
+class NominalBurnupPoints(unittest.TestCase):
+    """公称の状態を燃焼度の一部の点だけで解いたとして、その点から燃焼度について内挿した公称の状態を、全点のテーブルの公称の状態と
+    比べる（公称でない状態は使わない）"""
+
+    def kinked(self, nominal_kink: float, off_kink: float = 0.0) -> dict:
+        """公称の νΣf2 は燃焼度で線形に変わり、6 で nominal_kink × (u − 6) の折れを持つ。公称でない状態は off_kink の折れを足す"""
+
+        def g(u, b, m, f):
+            base = 0.1 - 1e-3 * u + nominal_kink * max(u - 6.0, 0.0)
+            if (b, m, f) != (1300.0, 565.0, 565.0):
+                base += 1e-5 * (b - 1300) + off_kink * max(u - 6.0, 0.0)
+            return state(base)
+
+        return table(g, THINNING_BURNUP)
+
+    def compared(self, t: dict, burnup=(0.0, 4.0, 10.0)) -> dict:
+        s = cct.nominal_points(
+            "t", t, NOMINAL, [{"name": "3 点", "burnup": list(burnup)}]
+        )
+        (sel,) = s["selections"]
+        return sel
+
+    def test_nominal_states_linear_in_burnup_are_reproduced_from_any_points(self):
+        sel = self.compared(self.kinked(0.0, off_kink=1e-3))
+        self.assertEqual(sel["removed"], [1.0, 2.0, 6.0])
+        for method in cct.THINNING_METHODS:
+            r = sel["results"][method]
+            self.assertLess(r["max_abs_pcm"], 1e-9, method)
+            self.assertEqual(len(r["rho_pcm"]), 3, method)
+
+    def test_removed_points_compare_the_nominal_state_of_the_full_table(self):
+        # 公称の状態が 6 で折れる。選んだ 4 と 10 の間の折れを、線形も Hermite（区間の点が 2 つなので線形）も拾えない
+        sel = self.compared(self.kinked(1e-3))
+        linear = sel["results"]["linear"]
+        self.assertGreater(linear["max_abs_pcm"], 1.0)
+        self.assertEqual(linear["worst_burnup"], 6.0)
+        self.assertLess(max(abs(r) for r in linear["rho_pcm"][:2]), 1e-9)
+        # 公称でない状態の折れは、公称の状態の比較に効かない
+        other = self.compared(self.kinked(1e-3, off_kink=5e-3))
+        self.assertEqual(other["results"], sel["results"])
+
+    def test_relative_errors_name_the_few_group_items(self):
+        linear = self.compared(self.kinked(1e-3))["results"]["linear"]
+        relative = linear["max_relative"]
+        self.assertEqual(sorted(relative), sorted(cct.RELATIVE))
+        self.assertGreater(relative["nu_fission"], 1e-3)
+        self.assertLess(relative["absorption"], 1e-12)
+
+    def test_micro_errors_name_the_item_the_nuclide_and_the_burnup(self):
+        # 公称の状態の Pu-240 の全断面積だけが 6 で折れる（公称でない状態の折れは効かない）
+        def nuclides(u, at):
+            kink = max(u - 6.0, 0.0) * (1.0 if at == AT_NOMINAL else 3.0)
+            return [micro_nuclide(10 + u), micro_nuclide(5 + kink)]
+
+        t = with_micro(self.kinked(0.0), nuclides)
+        linear = self.compared(t)["results"]["linear"]
+        total = linear["micro"]["total"]
+        self.assertGreater(total["max_relative"], 1e-3)
+        self.assertEqual(total["nuclide"], "Pu-240")
+        self.assertEqual(total["worst"]["burnup"], 6.0)
+        self.assertLess(linear["micro"]["nu_fission"]["max_relative"], 1e-12)
+
+    def test_selections_must_be_points_from_the_first_to_the_last_leaving_some_out(
+        self,
+    ):
+        t = self.kinked(0.0)
+        for burnup in ([1.0, 4.0, 10.0], [0.0, 4.0], [0.0, 3.0, 10.0], THINNING_BURNUP):
+            with self.assertRaisesRegex(SystemExit, "increasing", msg=burnup):
+                self.compared(t, burnup)
+
+    def test_inputs_may_hold_the_nominal_points_and_report_them(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "t.msgpack").write_bytes(msgpack.packb(self.kinked(1e-3)))
+            (root / "c.toml").write_text(
+                '[[nominal]]\nname = "a"\nfile = "t.msgpack"\n'
+                "nominal = { boron = 1300, moderator = 565, fuel = 565 }\n"
+                'selections = [{ name = "3 点", burnup = [0, 4, 10] }]\n'
+            )
+            out = root / "s.json"
+            argv = sys.argv
+            sys.argv = ["x", "--json", str(out), str(root / "c.toml")]
+            try:
+                cct.main()
+            finally:
+                sys.argv = argv
+            summary = json.loads(out.read_text())
+            (entry,) = summary["nominal"]
+            self.assertEqual(entry["name"], "a")
+            self.assertEqual(entry["selections"][0]["removed"], [1.0, 2.0, 6.0])
+            lines = cct.report(summary)
+            self.assertTrue(
+                any("公称の状態" in line and "3 点" in line for line in lines)
+            )
+
+
+class ThinningNominalBurnups(unittest.TestCase):
+    """間引きの真値のテーブルより少ない燃焼点で公称の状態を解く、本番の形のテーブルの時間の見込み"""
+
+    def test_nominal_burnups_count_the_nominal_and_other_seconds(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        timing = ESTIMATE | {"nominal-burnups": 4}
+        s = cct.thin(
+            "t", t, NOMINAL, [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}], timing
+        )
+        self.assertAlmostEqual(s["hours"], 4 * (55 + 3 + 5 * 1 + 36 * 3) / 3600)
+        (three,) = s["selections"]
+        self.assertAlmostEqual(
+            three["hours"], (4 * (55 + 3) + 3 * (5 * 1 + 36 * 3)) / 3600
+        )
+
+    def test_nominal_burnups_must_hold_the_chosen_points(self):
+        t = Thinning().branch_table(lambda u: 1e-3 * u)
+        for count in (2, 0, 3.5, True):
+            timing = ESTIMATE | {"nominal-burnups": count}
+            with self.assertRaisesRegex(SystemExit, "nominal-burnups", msg=count):
+                cct.thin(
+                    "t",
+                    t,
+                    NOMINAL,
+                    [{"name": "3 点", "burnup": [0.0, 4.0, 10.0]}],
+                    timing,
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
