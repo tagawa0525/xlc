@@ -6063,5 +6063,115 @@ class DrawProductionThinning(unittest.TestCase):
             )
 
 
+class DrawNominalBurnupPoints(unittest.TestCase):
+    """公称の状態の燃焼点（compare_branch_cross_terms.py の `[[nominal]]` の要約）を、テーブルごとの列に並べる"""
+
+    @staticmethod
+    def selection(name: str, n: int, hermite: tuple, linear: float) -> dict:
+        return {
+            "name": name,
+            "burnup": [float(b) for b in range(n)],
+            "removed": [0.5],
+            "results": {
+                "linear": {"max_abs_pcm": linear, "worst_burnup": 44.0},
+                "hermite": {"max_abs_pcm": hermite[0], "worst_burnup": hermite[1]},
+            },
+        }
+
+    def summary(self, name: str, errors: list[tuple]) -> dict:
+        return {
+            "format": "xlc-compare-branch-cross-terms",
+            "tables": [],
+            "thinning": [],
+            "nominal": [
+                {
+                    "name": name,
+                    "burnup": [float(b) for b in range(73)],
+                    "selections": [
+                        self.selection("27 点", 27, errors[0], 162.43),
+                        self.selection("33 点", 33, errors[1], 160.0),
+                    ],
+                }
+            ],
+        }
+
+    @staticmethod
+    def rows(table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.splitlines()[2:]
+        ]
+
+    def test_rows_hold_each_table_errors_with_the_worst_burnup(self):
+        table = vt.nominal_burnup_points(
+            [
+                self.summary("2O", [(9.96, 1.5), (3.74, 58.0)]),
+                self.summary("2P", [(16.84, 7.5), (4.84, 10.5)]),
+            ]
+        )
+        self.assertEqual(
+            [c.strip() for c in table.splitlines()[0].strip("|").split("|")],
+            [
+                "選び方",
+                "点",
+                "2O、Hermite (pcm、燃焼度)",
+                "2O、線形 (pcm)",
+                "2P、Hermite (pcm、燃焼度)",
+                "2P、線形 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["27 点", "27", "9.96（1.5）", "162.43", "16.84（7.5）", "162.43"],
+                ["33 点", "33", "3.74（58）", "160.00", "4.84（10.5）", "160.00"],
+            ],
+        )
+
+    def test_tables_with_other_selections_are_errors(self):
+        other = self.summary("2P", [(16.84, 7.5), (4.84, 10.5)])
+        other["nominal"][0]["selections"][1]["burnup"].append(99.0)
+        with self.assertRaisesRegex(vt.TableError, "selections"):
+            vt.nominal_burnup_points(
+                [self.summary("2O", [(9.96, 1.5), (3.74, 58.0)]), other]
+            )
+
+    def test_summaries_without_the_nominal_points_ask_to_rerun(self):
+        s = self.summary("2O", [(9.96, 1.5), (3.74, 58.0)])
+        del s["nominal"]
+        with self.assertRaisesRegex(vt.TableError, "rerun"):
+            vt.nominal_burnup_points([s])
+
+    def test_the_record_draws_the_gd_burnup_points(self):
+        both = [
+            "examples/depletion/p9-gd/compare-2O-all.json",
+            "examples/depletion/p9-gd/compare-2P-all.json",
+        ]
+        self.assertEqual(
+            vt.TABLES["depletion-p9-gd-nominal-points"],
+            (both, vt.nominal_burnup_points),
+        )
+        for assembly in ["2O", "2P"]:
+            source = [f"examples/depletion/p9-gd/compare-{assembly}-all.json"]
+            key = f"depletion-p9-gd-all-{assembly.lower()}"
+            for suffix, draw in [
+                ("thinning", vt.production_thinning),
+                ("thinning-micro", vt.production_thinning_micro),
+                ("cross-terms", vt.branch_cross_terms),
+            ]:
+                self.assertEqual(vt.TABLES[f"{key}-{suffix}"], (source, draw))
+        self.assertEqual(
+            vt.TABLES["depletion-p9-gd-all-2p-thinning-time"],
+            (
+                ["examples/depletion/p9-gd/compare-2P-all.json"],
+                vt.production_thinning_time,
+            ),
+        )
+        self.assertEqual(
+            vt.TABLES["depletion-p9-gd-grid-schemes-2p"],
+            (["examples/depletion/p9-gd/grid-2P.json"], vt.grid_interpolation_schemes),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
