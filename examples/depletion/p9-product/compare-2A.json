@@ -9,6 +9,12 @@
     32.0,
     60.0
    ],
+   "nominal_burnup": [
+    0.0,
+    0.5,
+    32.0,
+    60.0
+   ],
    "selections": [
     {
      "name": "32 を除く 3 点",
@@ -42,7 +48,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 900.0
-         }
+         },
+         "states": 5
         },
         "moderator": {
          "max_abs_pcm": 503.76266233054247,
@@ -52,7 +59,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 6
         },
         "fuel": {
          "max_abs_pcm": 62.25311575245307,
@@ -62,7 +70,8 @@
           "boron": 650.0,
           "moderator": 580.0,
           "fuel": 560.0
-         }
+         },
+         "states": 6
         },
         "boron+moderator": {
          "max_abs_pcm": 742.3273378038386,
@@ -72,7 +81,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 30
         },
         "boron+fuel": {
          "max_abs_pcm": 223.26128762517607,
@@ -82,7 +92,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 560.0
-         }
+         },
+         "states": 30
         },
         "moderator+fuel": {
          "max_abs_pcm": 572.7624021387046,
@@ -92,7 +103,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 560.0
-         }
+         },
+         "states": 36
         },
         "boron+moderator+fuel": {
          "max_abs_pcm": 802.9682095413326,
@@ -102,7 +114,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 560.0
-         }
+         },
+         "states": 180
         }
        }
       },
@@ -127,7 +140,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 900.0
-         }
+         },
+         "states": 5
         },
         "moderator": {
          "max_abs_pcm": 503.76266233054247,
@@ -137,7 +151,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 6
         },
         "fuel": {
          "max_abs_pcm": 62.25311575245307,
@@ -147,7 +162,8 @@
           "boron": 650.0,
           "moderator": 580.0,
           "fuel": 560.0
-         }
+         },
+         "states": 6
         },
         "boron+moderator": {
          "max_abs_pcm": 742.3273378038386,
@@ -157,7 +173,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 30
         },
         "boron+fuel": {
          "max_abs_pcm": 223.26128762517607,
@@ -167,7 +184,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 560.0
-         }
+         },
+         "states": 30
         },
         "moderator+fuel": {
          "max_abs_pcm": 572.7624021387046,
@@ -177,7 +195,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 560.0
-         }
+         },
+         "states": 36
         },
         "boron+moderator+fuel": {
          "max_abs_pcm": 802.9682095413326,
@@ -187,7 +206,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 560.0
-         }
+         },
+         "states": 180
         }
        }
       }
@@ -225,7 +245,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 900.0
-         }
+         },
+         "states": 5
         },
         "moderator": {
          "max_abs_pcm": 155.53389931743934,
@@ -235,7 +256,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 6
         },
         "fuel": {
          "max_abs_pcm": 30.960105338562194,
@@ -245,7 +267,8 @@
           "boron": 650.0,
           "moderator": 580.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 6
         },
         "boron+moderator": {
          "max_abs_pcm": 241.7365274943295,
@@ -255,7 +278,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 30
         },
         "boron+fuel": {
          "max_abs_pcm": 125.36830555848199,
@@ -265,7 +289,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 30
         },
         "moderator+fuel": {
          "max_abs_pcm": 189.342846084406,
@@ -275,7 +300,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 36
         },
         "boron+moderator+fuel": {
          "max_abs_pcm": 276.42632807691746,
@@ -285,7 +311,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 180
         }
        }
       },
@@ -310,7 +337,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 900.0
-         }
+         },
+         "states": 5
         },
         "moderator": {
          "max_abs_pcm": 155.53389931743934,
@@ -320,7 +348,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 6
         },
         "fuel": {
          "max_abs_pcm": 30.960105338562194,
@@ -330,7 +359,8 @@
           "boron": 650.0,
           "moderator": 580.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 6
         },
         "boron+moderator": {
          "max_abs_pcm": 241.7365274943295,
@@ -340,7 +370,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 900.0
-         }
+         },
+         "states": 30
         },
         "boron+fuel": {
          "max_abs_pcm": 125.36830555848199,
@@ -350,7 +381,8 @@
           "boron": 1625.0,
           "moderator": 580.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 30
         },
         "moderator+fuel": {
          "max_abs_pcm": 189.342846084406,
@@ -360,7 +392,8 @@
           "boron": 650.0,
           "moderator": 615.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 36
         },
         "boron+moderator+fuel": {
          "max_abs_pcm": 276.42632807691746,
@@ -370,7 +403,8 @@
           "boron": 1625.0,
           "moderator": 615.0,
           "fuel": 1350.0
-         }
+         },
+         "states": 180
         }
        }
       }
@@ -379,6 +413,8 @@
    ]
   }
  ],
+ "nominal": [],
+ "combined": [],
  "inputs": [
   {
    "path": "compare-2A.toml",
