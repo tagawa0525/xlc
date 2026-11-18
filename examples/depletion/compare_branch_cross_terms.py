@@ -47,6 +47,15 @@
     nominal = { boron = 650, moderator = 580, fuel = 900 }
     selections = [{ name = "27 点", burnup = [0, 0.1, ...] }]
 
+    [[combined]]                           # 省略できる。`[[thinning]]` と同じ形のテーブルで、公称の状態と公称でない状態の燃焼点を
+    name = "2O"                            # 組にして間引く
+    file = "table-2O-all.msgpack"
+    nominal = { boron = 650, moderator = 580, fuel = 900 }
+    selections = [{ name = "33 点", burnup = [...] }, { name = "19 点", burnup = [...] }]
+    pairs = [{ nominal = "33 点", off-nominal = "19 点" }]   # 公称でない点は公称の点の中から
+
+    [combined.timing]                      # 省略できる。`[thinning.timing]` と同じ（`nominal-burnup` は書かない）
+
 `[[table]]` と `[[model]]` も省略できる（間引きだけを比べる入力）。
 
 - 間引き: 選んだ燃焼点の、公称でない各状態の公称の状態との差を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点の
@@ -57,6 +66,9 @@
 - 公称の状態の燃焼点: 選んだ燃焼点の公称の状態を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点のテーブルの公称の
   状態と比べる（`nominal_points`）。間引きは公称の状態をテーブルのすべての点の値で持つので、この誤差を含まない（時間の見込みの
   `nominal-burnup` の外の点でも、公称の状態は内挿でなくテーブルの値）
+
+- 公称の状態と公称でない状態の燃焼点の組: 公称の状態を組の公称の点から、公称でない状態の公称の状態との差を組の公称でない点から
+  内挿して足し（core の組み立て。`combine`）、公称でない点から除いた点で、全点のテーブルのすべての状態と比べる
 
 - 組み立て: 公称の状態を x0 とし、モデルの軸の組とその部分集合の全体を U（空集合と 1 軸ずつを含む）として、状態 x の値を
   Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x0) とする（f(x_v, x0) は v の軸だけ x の値にし、ほかを公称にした状態。cut-HDMR。
@@ -776,6 +788,217 @@ def nominal_points(
     return {"name": name, "burnup": burnup, "selections": out}
 
 
+def nominal_at(
+    method: str,
+    values: np.ndarray,
+    burnup: list[float],
+    at_index: list[int],
+    removed: list[int],
+) -> np.ndarray:
+    """公称の状態の値 `values`（[燃焼度の点][値]）の、除いた点 `removed` の値: 公称の点 `at_index` ではテーブルの値、ほかは公称の
+    点から内挿した値"""
+    held = values[removed].copy()
+    between = [n for n, i in enumerate(removed) if i not in at_index]
+    if between:
+        held[between] = interpolate(
+            method,
+            np.array([burnup[i] for i in at_index]),
+            values[at_index],
+            np.array([burnup[removed[n]] for n in between]),
+        )
+    return held
+
+
+def combine(
+    name: str,
+    table: dict,
+    nominal: dict,
+    selections: list[dict],
+    pairs: list[dict],
+    timing: dict | None = None,
+) -> dict:
+    """公称の状態を組の `nominal` の選び方の燃焼点だけで、公称でない状態を `off-nominal` の選び方の燃焼点だけで解いたとして、
+    core の組み立て（state.rs の `Assembly::corner`。公称の状態を公称の点から内挿し、公称でない状態の公称の状態との差を、その状態を
+    解いた点の公称の状態との差から内挿して足す。ADR-0200 の「core の内挿」）の値を、公称でない点から除いた点で、全点のテーブルの
+    すべての状態（公称の状態を含む）と比べる。公称の点では公称の状態はテーブルの値（core は格子点で重みが厳密に 1）。内挿は
+    `THINNING_METHODS` で、公称の状態と差に同じ方式を当てる。出す量は `thin` と同じ（全体と状態の種類ごとの最大、微視的断面積の
+    差）に、公称の状態の最大（`nominal`）と、少数群定数の項目の相対の差の最大（`relative_errors`）を足したもの。
+
+    core の燃焼度の軸の点は公称の状態を解いた点で、公称でない状態はその軸の点の番号で解いた点を持つので、公称でない点は公称の点の
+    中にあること。`timing`（`thinning_time`）があれば、組ごとに、公称の状態と状態によらない秒を公称の点の数で、公称でない状態の秒を
+    公称でない点の数で数えた時間を書く（`table_hours`。`nominal-burnup` は組が持つので書かない）"""
+    grid_of = burnup_states(name, table, nominal)
+    burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
+    rows = grid_of["rows"]
+    at_nominal = grid_of["nominal"]
+    states = table["states"]
+    nominal_values = np.array([vector(states[p]) for p in rows[at_nominal]])
+    micro = table.get("micro")
+    if micro is not None:
+        if len(micro["states"]) != len(states):
+            raise SystemExit(
+                f"{name}: {len(micro['states'])} micro states for {len(states)} states"
+            )
+        nuclides = micro["nuclides"]
+        layout = MicroLayout(
+            micro_parts(micro["states"][rows[at_nominal][0]], nuclides)
+        )
+
+        def micro_rows(index):
+            return np.array(
+                [layout.vector(micro["states"][p], nuclides) for p in rows[index]]
+            )
+
+        nominal_micro = micro_rows(at_nominal)
+    kinds_of = {
+        index: state_kind(names, index, at_nominal)
+        for index in rows
+        if index != at_nominal
+    }
+    order = sorted(set(kinds_of.values()), key=lambda k: kind_order(k, names))
+    counts = {k: sum(1 for v in kinds_of.values() if v == k) for k in order}
+    if timing is not None and "nominal-burnup" in timing:
+        raise SystemExit(
+            f"{name}: the pairs give the nominal burnups; drop the timing nominal-burnup"
+        )
+    seconds = None if timing is None else thinning_time(timing, counts)
+    by_name = {}
+    for sel in selections:
+        if sel["name"] in by_name:
+            raise SystemExit(f"{name}: two selections named {sel['name']}")
+        chosen_points(name, sel, burnup)
+        by_name[sel["name"]] = sel
+    out = []
+    for pair in pairs:
+        unknown = [
+            pair[k] for k in ("nominal", "off-nominal") if pair[k] not in by_name
+        ]
+        if unknown:
+            raise SystemExit(
+                f"{name}: unknown selections {unknown}; the entry has {list(by_name)}"
+            )
+        nominal_sel, off_sel = by_name[pair["nominal"]], by_name[pair["off-nominal"]]
+        label = f"{pair['nominal']} / {pair['off-nominal']}"
+        at_points, at_index, _ = chosen_points(name, nominal_sel, burnup)
+        off_points, off_index, removed = chosen_points(name, off_sel, burnup)
+        outside = sorted(set(off_points) - set(at_points))
+        if outside:
+            raise SystemExit(
+                f"{name} {label}: the off-nominal burnups {outside} are not nominal burnups "
+                "(core takes the burnup axis from the nominal state, ADR-0200)"
+            )
+        q = np.array([burnup[i] for i in removed])
+        results = {}
+        for method in THINNING_METHODS:
+            rebuilt_nominal = nominal_at(
+                method, nominal_values, burnup, at_index, removed
+            )
+            worst_per_point = [0.0] * len(removed)
+            worst = (0.0, None)
+            relative = dict.fromkeys(RELATIVE, 0.0)
+            per_kind = {}
+            micro_kind = {}
+            if micro is not None:
+                micro_nominal = nominal_at(
+                    method, nominal_micro, burnup, at_index, removed
+                )
+            for grid_index in rows:
+                kind = kinds_of.get(grid_index, "nominal")
+                kind_worst = per_kind.setdefault(kind, [0.0, None])
+                positions = rows[grid_index]
+                values = np.array([vector(states[p]) for p in positions])
+                rebuilt_all = rebuilt_nominal.copy()
+                if grid_index != at_nominal:
+                    rebuilt_all += interpolate(
+                        method,
+                        np.array(off_points),
+                        (values - nominal_values)[off_index],
+                        q,
+                    )
+                at = [
+                    {"burnup": burnup[i]}
+                    | {a: points[k][grid_index[k]] for k, a in enumerate(names)}
+                    for i in removed
+                ]
+                for n, i in enumerate(removed):
+                    truth = states[positions[i]]
+                    rebuilt = unvector(rebuilt_all[n], truth)
+                    rho = (1 / k_inf(truth) - 1 / k_inf(rebuilt)) * 1e5
+                    if abs(rho) > abs(worst_per_point[n]):
+                        worst_per_point[n] = rho
+                    if worst[1] is None or abs(rho) > abs(worst[0]):
+                        worst = (rho, at[n])
+                    if kind_worst[1] is None or abs(rho) > abs(kind_worst[0]):
+                        kind_worst[:] = [rho, at[n]]
+                    for item, e in relative_errors(rebuilt, truth).items():
+                        relative[item] = max(relative[item], e)
+                if micro is not None:
+                    truth = micro_rows(grid_index)
+                    rebuilt = micro_nominal.copy()
+                    if grid_index != at_nominal:
+                        rebuilt += interpolate(
+                            method,
+                            np.array(off_points),
+                            (truth - nominal_micro)[off_index],
+                            q,
+                        )
+                    item_worst(
+                        layout,
+                        micro_errors(layout, rebuilt, truth[removed]),
+                        at,
+                        micro_kind.setdefault(kind, {}),
+                    )
+            kinds = {}
+            for k in order:
+                kinds[k] = {
+                    "max_abs_pcm": abs(per_kind[k][0]),
+                    "worst_pcm": per_kind[k][0],
+                    "worst": per_kind[k][1],
+                    "states": counts[k],
+                }
+                if micro is not None:
+                    kinds[k] |= ordered_items(micro_kind[k])
+            at_worst = per_kind["nominal"]
+            results[method] = {
+                "rho_pcm": worst_per_point,
+                "max_abs_pcm": abs(worst[0]),
+                "worst_pcm": worst[0],
+                "worst": worst[1],
+                "nominal": {
+                    "max_abs_pcm": abs(at_worst[0]),
+                    "worst_pcm": at_worst[0],
+                    "worst_burnup": at_worst[1]["burnup"],
+                },
+                "max_relative": relative,
+                "kinds": kinds,
+            }
+            if micro is not None:
+                overall = {}
+                for k in ["nominal", *order]:
+                    for group, items in micro_kind[k].items():
+                        for item, e in items.items():
+                            best = overall.setdefault(group, {}).setdefault(item, e)
+                            if e["max_relative"] > best["max_relative"]:
+                                overall[group][item] = e
+                results[method] |= ordered_items(overall)
+        entry = {
+            "name": label,
+            "nominal_burnup": at_points,
+            "off_nominal_burnup": off_points,
+            "removed": q.tolist(),
+            "results": results,
+        }
+        if seconds is not None:
+            entry["hours"] = table_hours(
+                seconds, len(at_points), {k: len(off_points) for k in order}
+            )
+        out.append(entry)
+    summary = {"name": name, "burnup": burnup, "pairs": out}
+    if seconds is not None:
+        summary["timing"] = dict(timing)
+    return summary
+
+
 def thinning_time(timing: dict, counts: dict) -> dict:
     """テーブルを作る時間の見込みの、燃焼点ごとの秒。`timing` は、すべての状態を解いた燃焼点 1 つの全体の秒 `total`、自己遮蔽を
     解く状態の 1 状態の秒 `solve`、自己遮蔽を再利用する状態の秒 `reuse`、再利用する状態の変えた軸 `reuse-axis`（ADR-0201 の
@@ -1021,6 +1244,25 @@ def report(summary: dict) -> list[str]:
                     f"rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}"
                 )
                 lines += micro_lines("      ", r)
+    for t in summary.get("combined", []):
+        lines.append(f"{t['name']}: 公称の状態と公称でない状態の燃焼点を合わせた組")
+        for pair in t["pairs"]:
+            hours = f"、{pair['hours']:.2f} 時間の見込み" if "hours" in pair else ""
+            lines.append(
+                f"  {pair['name']}（公称 {len(pair['nominal_burnup'])} 点、公称でない "
+                f"{len(pair['off_nominal_burnup'])} 点）{hours}"
+            )
+            for method, r in pair["results"].items():
+                n = r["nominal"]
+                lines.append(
+                    f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）、"
+                    f"公称の状態 {n['max_abs_pcm']:.2f} pcm（{n['worst_pcm']:+.2f}、{n['worst_burnup']:g} MWd/kg）"
+                )
+                lines += micro_lines("      ", r)
+                for kind, k in r["kinds"].items():
+                    lines.append(
+                        f"      {kind}: |Δρ| の最大 {k['max_abs_pcm']:.2f} pcm（{k['worst_pcm']:+.2f}、{k['worst']}）"
+                    )
     return lines
 
 
@@ -1087,10 +1329,22 @@ def main() -> None:
             )
             for t in config.get("nominal", [])
         ]
+        combined = [
+            combine(
+                t["name"],
+                read(config_path.parent / t["file"]),
+                t["nominal"],
+                t["selections"],
+                t["pairs"],
+                t.get("timing"),
+            )
+            for t in config.get("combined", [])
+        ]
         summary = {
             "format": "xlc-compare-branch-cross-terms",
             "thinning": thinning,
             "nominal": nominal_entries,
+            "combined": combined,
             "inputs": [
                 {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
                 for f in files

@@ -2249,6 +2249,116 @@ def nominal_burnup_points(sources: list[dict]) -> str:
     )
 
 
+def combined_summaries(sources: list[dict]) -> list[dict]:
+    """テーブルごとの、公称の状態と公称でない状態の燃焼点の組（compare_branch_cross_terms.py の `[[combined]]`）。どのテーブルも
+    同じ組（名前と点）を持つこと"""
+    tables = []
+    for s in sources:
+        s = branch_cross_terms_summary([s])
+        if not s.get("combined"):
+            raise TableError(
+                "the summary has no combined points; rerun compare_branch_cross_terms.py with [[combined]]"
+            )
+        if len(s["combined"]) != 1:
+            raise TableError(f"expected one combined table, got {len(s['combined'])}")
+        tables.append(s["combined"][0])
+
+    def pairs(t):
+        return [
+            (p["name"], p["nominal_burnup"], p["off_nominal_burnup"])
+            for p in t["pairs"]
+        ]
+
+    for t in tables[1:]:
+        if pairs(t) != pairs(tables[0]):
+            raise TableError(f"the table {t['name']} holds other pairs")
+    return tables
+
+
+def combined_burnup_points(sources: list[dict]) -> str:
+    """公称の状態と公称でない状態の燃焼点の組ごとの、テーブルごとの時間の見込みと、除いた点の |Δρ| の最大（Hermite。pcm。燃焼度と、
+    最大の状態の種類（公称の状態は「公称」）を添える）と、公称の状態の |Δρ| の最大"""
+    tables = combined_summaries(sources)
+    rows = []
+    for n, pair in enumerate(tables[0]["pairs"]):
+        cells = []
+        for t in tables:
+            p = t["pairs"][n]
+            hermite = p["results"]["hermite"]
+            nominal = hermite["nominal"]
+            # 最大の状態の種類: 公称の状態、状態の種類の順に、最大と同じ値を持つ最初のもの
+            kinds = [("公称", nominal["max_abs_pcm"])] + [
+                (kind_letters(k), r["max_abs_pcm"]) for k, r in hermite["kinds"].items()
+            ]
+            kind = next(k for k, e in kinds if e == hermite["max_abs_pcm"])
+            cells += [
+                f"{p['hours']:.2f}",
+                f"{hermite['max_abs_pcm']:.2f}（{hermite['worst']['burnup']:g}、{kind}）",
+                f"{nominal['max_abs_pcm']:.2f}（{nominal['worst_burnup']:g}）",
+            ]
+        rows.append(
+            [
+                pair["name"],
+                str(len(pair["nominal_burnup"])),
+                str(len(pair["off_nominal_burnup"])),
+                *cells,
+            ]
+        )
+    return markdown_table(
+        [
+            "組（公称 / 公称でない）",
+            "公称の点",
+            "公称でない点",
+            *(
+                label
+                for t in tables
+                for label in (
+                    f"{t['name']}、時間の見込み (h)",
+                    f"{t['name']}、Hermite (pcm、燃焼度、状態)",
+                    f"{t['name']}、公称の状態 (pcm、燃焼度)",
+                )
+            ),
+        ],
+        rows,
+    )
+
+
+# 公称の状態と公称でない状態の燃焼点の組の表に並べる、微視的断面積の項目
+COMBINED_MICRO_ITEMS = ["total", "reactions"]
+
+
+def combined_burnup_micro(sources: list[dict]) -> str:
+    """公称の状態と公称でない状態の燃焼点の組ごとの、テーブルごとの、微視的断面積の項目（`COMBINED_MICRO_ITEMS`）の、除いた点の
+    相対の差の最大（Hermite。%。核種と燃焼度を添える）"""
+    tables = combined_summaries(sources)
+    rows = []
+    for n, pair in enumerate(tables[0]["pairs"]):
+        cells = []
+        for t in tables:
+            hermite = t["pairs"][n]["results"]["hermite"]
+            if "micro" not in hermite:
+                raise TableError(
+                    f"the table {t['name']} has no micro errors; rerun compare_branch_cross_terms.py"
+                )
+            for item in COMBINED_MICRO_ITEMS:
+                e = hermite["micro"][item]
+                cells.append(
+                    f"{e['max_relative'] * 100:.3f}（{e['nuclide']}、{e['worst']['burnup']:g}）"
+                )
+        rows.append([pair["name"], *cells])
+    return markdown_table(
+        [
+            "組（公称 / 公称でない）",
+            *(
+                f"{t['name']}、{item} (%)"
+                for t in tables
+                for item in COMBINED_MICRO_ITEMS
+            ),
+        ],
+        rows,
+    )
+
+
 def thinning_items(sources: list[dict], group: str) -> str:
     t = production_thinning_summary(sources)
     results = [sel["results"]["hermite"] for sel in t["selections"]]
@@ -4931,6 +5041,20 @@ TABLES = {
             "examples/depletion/p9-gd/compare-2P-all.json",
         ],
         nominal_burnup_points,
+    ),
+    "depletion-p9-gd-combined-points": (
+        [
+            "examples/depletion/p9-gd/compare-2O-all.json",
+            "examples/depletion/p9-gd/compare-2P-all.json",
+        ],
+        combined_burnup_points,
+    ),
+    "depletion-p9-gd-combined-micro": (
+        [
+            "examples/depletion/p9-gd/compare-2O-all.json",
+            "examples/depletion/p9-gd/compare-2P-all.json",
+        ],
+        combined_burnup_micro,
     ),
     "depletion-p9-gd-all-2o-thinning": (
         ["examples/depletion/p9-gd/compare-2O-all.json"],

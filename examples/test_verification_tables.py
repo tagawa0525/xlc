@@ -6173,5 +6173,184 @@ class DrawNominalBurnupPoints(unittest.TestCase):
         )
 
 
+class DrawCombinedBurnupPoints(unittest.TestCase):
+    """公称の状態と公称でない状態の燃焼点の組（compare_branch_cross_terms.py の `[[combined]]` の要約）を、テーブルごとの列に並べる"""
+
+    @staticmethod
+    def pair(name: str, n: int, off: int, hours: float, errors: dict) -> dict:
+        """`errors` は状態の種類（公称の状態は "nominal"）→ (|Δρ| の最大, 燃焼度)"""
+        worst = max(errors, key=lambda k: errors[k][0])
+        return {
+            "name": name,
+            "nominal_burnup": [float(b) for b in range(n)],
+            "off_nominal_burnup": [float(b) for b in range(off)],
+            "removed": [0.5],
+            "hours": hours,
+            "results": {
+                "hermite": {
+                    "max_abs_pcm": errors[worst][0],
+                    "worst": {"burnup": errors[worst][1]},
+                    "nominal": {
+                        "max_abs_pcm": errors["nominal"][0],
+                        "worst_burnup": errors["nominal"][1],
+                    },
+                    "kinds": {
+                        k: {"max_abs_pcm": v[0], "worst": {"burnup": v[1]}}
+                        for k, v in errors.items()
+                        if k != "nominal"
+                    },
+                    "micro": {
+                        "total": {
+                            "max_relative": 0.013,
+                            "nuclide": "Gd-157",
+                            "worst": {"burnup": 5.0},
+                        },
+                        "reactions": {
+                            "max_relative": 0.015,
+                            "nuclide": "Gd-157 mt107",
+                            "worst": {"burnup": 5.0},
+                        },
+                    },
+                },
+            },
+        }
+
+    def summary(self, name: str, scale: float = 1.0) -> dict:
+        return {
+            "format": "xlc-compare-branch-cross-terms",
+            "tables": [],
+            "thinning": [],
+            "nominal": [],
+            "combined": [
+                {
+                    "name": name,
+                    "burnup": [float(b) for b in range(73)],
+                    "pairs": [
+                        self.pair(
+                            "33 点 / 19 点",
+                            33,
+                            19,
+                            7.69 * scale,
+                            {
+                                "nominal": (3.74 * scale, 58.0),
+                                "boron": (4.17 * scale, 54.0),
+                                "boron+moderator": (5.25 * scale, 54.0),
+                            },
+                        ),
+                        self.pair(
+                            "35 点 / 19 点",
+                            35,
+                            19,
+                            7.71 * scale,
+                            {
+                                "nominal": (4.84, 10.5),
+                                "boron": (4.17, 54.0),
+                                "boron+moderator": (4.62, 54.0),
+                            },
+                        ),
+                    ],
+                }
+            ],
+        }
+
+    @staticmethod
+    def cells(table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.splitlines()
+            if not line.startswith("| -")
+        ]
+
+    def test_rows_hold_each_table_error_with_its_burnup_and_kind_of_state(self):
+        table = vt.combined_burnup_points([self.summary("2O"), self.summary("2P")])
+        self.assertEqual(
+            self.cells(table),
+            [
+                [
+                    "組（公称 / 公称でない）",
+                    "公称の点",
+                    "公称でない点",
+                    "2O、時間の見込み (h)",
+                    "2O、Hermite (pcm、燃焼度、状態)",
+                    "2O、公称の状態 (pcm、燃焼度)",
+                    "2P、時間の見込み (h)",
+                    "2P、Hermite (pcm、燃焼度、状態)",
+                    "2P、公称の状態 (pcm、燃焼度)",
+                ],
+                [
+                    "33 点 / 19 点",
+                    "33",
+                    "19",
+                    "7.69",
+                    "5.25（54、B、M）",
+                    "3.74（58）",
+                    "7.69",
+                    "5.25（54、B、M）",
+                    "3.74（58）",
+                ],
+                [
+                    "35 点 / 19 点",
+                    "35",
+                    "19",
+                    "7.71",
+                    "4.84（10.5、公称）",
+                    "4.84（10.5）",
+                    "7.71",
+                    "4.84（10.5、公称）",
+                    "4.84（10.5）",
+                ],
+            ],
+        )
+
+    def test_micro_rows_hold_each_table_item_with_its_nuclide_and_burnup(self):
+        table = vt.combined_burnup_micro([self.summary("2O"), self.summary("2P")])
+        self.assertEqual(
+            self.cells(table)[0],
+            [
+                "組（公称 / 公称でない）",
+                "2O、total (%)",
+                "2O、reactions (%)",
+                "2P、total (%)",
+                "2P、reactions (%)",
+            ],
+        )
+        self.assertEqual(
+            self.cells(table)[1],
+            [
+                "33 点 / 19 点",
+                "1.300（Gd-157、5）",
+                "1.500（Gd-157 mt107、5）",
+                "1.300（Gd-157、5）",
+                "1.500（Gd-157 mt107、5）",
+            ],
+        )
+
+    def test_tables_with_other_pairs_are_errors(self):
+        other = self.summary("2P")
+        other["combined"][0]["pairs"][1]["off_nominal_burnup"].append(99.0)
+        with self.assertRaisesRegex(vt.TableError, "pairs"):
+            vt.combined_burnup_points([self.summary("2O"), other])
+
+    def test_summaries_without_the_combined_points_ask_to_rerun(self):
+        s = self.summary("2O")
+        del s["combined"]
+        with self.assertRaisesRegex(vt.TableError, "rerun"):
+            vt.combined_burnup_points([s])
+
+    def test_the_record_draws_the_gd_combined_points(self):
+        both = [
+            "examples/depletion/p9-gd/compare-2O-all.json",
+            "examples/depletion/p9-gd/compare-2P-all.json",
+        ]
+        self.assertEqual(
+            vt.TABLES["depletion-p9-gd-combined-points"],
+            (both, vt.combined_burnup_points),
+        )
+        self.assertEqual(
+            vt.TABLES["depletion-p9-gd-combined-micro"],
+            (both, vt.combined_burnup_micro),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
