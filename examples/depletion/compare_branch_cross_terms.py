@@ -55,7 +55,8 @@
   同じ重みで足す。差の測り方は `micro_errors`）
 
 - 公称の状態の燃焼点: 選んだ燃焼点の公称の状態を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点のテーブルの公称の
-  状態と比べる（`nominal_points`）。間引きは公称の状態をすべての点で持つので、この誤差を含まない
+  状態と比べる（`nominal_points`）。間引きは公称の状態をテーブルのすべての点の値で持つので、この誤差を含まない（時間の見込みの
+  `nominal-burnup` の外の点でも、公称の状態は内挿でなくテーブルの値）
 
 - 組み立て: 公称の状態を x0 とし、モデルの軸の組とその部分集合の全体を U（空集合と 1 軸ずつを含む）として、状態 x の値を
   Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x0) とする（f(x_v, x0) は v の軸だけ x の値にし、ほかを公称にした状態。cut-HDMR。
@@ -535,6 +536,8 @@ def thin(
     order = sorted(set(kinds_of.values()), key=lambda k: kind_order(k, names))
     counts = {k: sum(1 for v in kinds_of.values() if v == k) for k in order}
     seconds = None if timing is None else thinning_time(timing, counts)
+    for sel in selections:
+        chosen_points(name, sel, burnup)
     nominal_points_of = nominal_burnup(name, timing, burnup, selections)
     burnups = len(nominal_points_of)
     out = []
@@ -844,7 +847,8 @@ def thinning_time(timing: dict, counts: dict) -> dict:
 
 
 def table_hours(seconds: dict, burnups: int, points: dict) -> float:
-    """公称の状態と状態によらない秒をすべての燃焼点で、状態の種類ごとの秒をその種類を解く燃焼点の数（`points`）で数えた時間"""
+    """公称の状態と状態によらない秒を見込むテーブルの公称の状態の燃焼点の数（`burnups`。`nominal_burnup`）で、状態の種類ごとの秒を
+    その種類を解く燃焼点の数（`points`）で数えた時間"""
     total = burnups * (seconds["other"] + seconds["nominal"])
     total += sum(seconds["kinds"][k] * n for k, n in points.items())
     return total / 3600

@@ -2081,6 +2081,10 @@ def production_thinning_summary(sources: list[dict]) -> dict:
         raise TableError(
             "the thinning summary has no hours; rerun compare_branch_cross_terms.py with the timing"
         )
+    if "nominal_burnup" not in t:
+        raise TableError(
+            "the thinning summary has no nominal points; rerun compare_branch_cross_terms.py"
+        )
     return t
 
 
@@ -2175,7 +2179,7 @@ def production_thinning_plans(sources: list[dict]) -> str:
 
 
 def production_thinning_time(sources: list[dict]) -> str:
-    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分はすべての燃焼点で数える。状態の数は、
+    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分は見込むテーブルの公称の状態の燃焼点（`nominal_burnup`）で数える。状態の数は、
     時間の見込みに数えた状態の数（compare_branch_cross_terms.py の `timed_states`）"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)

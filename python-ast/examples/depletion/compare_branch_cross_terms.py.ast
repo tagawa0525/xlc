@@ -279,6 +279,8 @@ def thin(name: str, table: dict, nominal: dict, selections: list[dict], timing: 
     order = sorted(set(kinds_of.values()), key=lambda k: kind_order(k, names))
     counts = {k: sum((1 for v in kinds_of.values() if v == k)) for k in order}
     seconds = None if timing is None else thinning_time(timing, counts)
+    for sel in selections:
+        chosen_points(name, sel, burnup)
     nominal_points_of = nominal_burnup(name, timing, burnup, selections)
     burnups = len(nominal_points_of)
     out = []
