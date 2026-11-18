@@ -668,8 +668,8 @@ stages:
     deps:
     - path: examples/depletion/compare_branch_cross_terms.py
       hash: md5
-      md5: 9dd3644647f75e430d41cefd8ec409f5
-      size: 50940
+      md5: 1a0b4469488949aefc80b321e3aa1437
+      size: 51672
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -677,8 +677,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: e6690c8dd775625a1771225b8d2ba451
-      size: 32884
+      md5: 336d9c767e5dd4ba2b3551f6b6ed0e68
+      size: 33367
   python-ast@examples/depletion/compare_burnup_interpolation.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/compare_burnup_interpolation.py 

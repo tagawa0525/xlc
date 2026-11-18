@@ -2103,14 +2103,20 @@ def thinning_kinds(t: dict) -> list[str]:
 
 def production_thinning(sources: list[dict]) -> str:
     """本番の形のテーブルの燃焼点の間引き（ADR-0200）: 選び方ごとの、テーブルを作る時間の見込みと、除いた点の |Δρ| の最大
-    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。最初の行はすべての燃焼点で解いたテーブル"""
+    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。公称の状態をテーブルのすべての点で解く見込みでは、最初の行はすべての燃焼点で
+    解いたテーブル"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
-    rows = [
-        ["すべての燃焼点", str(len(t["burnup"])), f"{t['hours']:.2f}", "0"]
-        + ["0"] * len(kinds)
-        + ["0"]
-    ]
+    # 公称の状態をテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルは見込むテーブルでなく、誤差も 0 でない
+    rows = (
+        [
+            ["すべての燃焼点", str(len(t["burnup"])), f"{t['hours']:.2f}", "0"]
+            + ["0"] * len(kinds)
+            + ["0"]
+        ]
+        if t["nominal_burnup"] == t["burnup"]
+        else []
+    )
     for sel in t["selections"]:
         hermite = sel["results"]["hermite"]
         rows.append(

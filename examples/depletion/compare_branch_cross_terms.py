@@ -34,7 +34,8 @@
     reuse-axis = "boron"
     # other = 14.6                         # `total` の代わりに、燃焼点 1 つの状態によらない秒
     # states = { boron = 5, ... }          # 省略できる。見込むテーブルの種類ごとの状態の数（どの種類も書く。`other` と使う）。省略するとこのテーブルの数
-    # nominal-burnups = 27                 # 省略できる。見込むテーブルの公称の状態の燃焼点の数（省略するとこのテーブルの点の数）
+    # nominal-burnup = [0, 0.1, ...]       # 省略できる。見込むテーブルの公称の状態の燃焼点（このテーブルの点から。選び方の点を含む。
+    #                                      # 省略するとこのテーブルの点）
 
     [[thinning.plans]]                     # 省略できる（timing が要る）。状態の種類ごとに選び方を決めた組
     name = "混ぜる"
@@ -534,7 +535,8 @@ def thin(
     order = sorted(set(kinds_of.values()), key=lambda k: kind_order(k, names))
     counts = {k: sum(1 for v in kinds_of.values() if v == k) for k in order}
     seconds = None if timing is None else thinning_time(timing, counts)
-    burnups = nominal_burnups(name, timing, burnup, selections)
+    nominal_points_of = nominal_burnup(name, timing, burnup, selections)
+    burnups = len(nominal_points_of)
     out = []
     for sel in selections:
         chosen, index, removed = chosen_points(name, sel, burnup)
@@ -625,7 +627,12 @@ def thin(
                 seconds, burnups, {k: len(chosen) for k in order}
             )
         out.append(entry)
-    summary = {"name": name, "burnup": burnup, "selections": out}
+    summary = {
+        "name": name,
+        "burnup": burnup,
+        "nominal_burnup": nominal_points_of,
+        "selections": out,
+    }
     if seconds is not None:
         summary["hours"] = burnups * seconds["total"] / 3600
         summary["other_seconds"] = seconds["other"]
@@ -659,21 +666,39 @@ def chosen_points(name: str, sel: dict, burnup: list[float]) -> tuple:
     return chosen, index, removed
 
 
-def nominal_burnups(
+def nominal_burnup(
     name: str, timing: dict | None, burnup: list[float], selections: list[dict]
-) -> int:
-    """時間の見込みで、公称の状態と状態によらない秒を数える燃焼点の数。`timing` の `nominal-burnups`（見込むテーブルの公称の
-    状態の燃焼点の数。間引きの真値のテーブルより少ない点で公称の状態を解くテーブルの見込み）か、このテーブルの点の数。公称で
-    ない状態は公称の状態の燃焼点で解くので、どの選び方の点の数以上"""
-    if timing is None or "nominal-burnups" not in timing:
-        return len(burnup)
-    count = timing["nominal-burnups"]
-    most = max((len(s["burnup"]) for s in selections), default=0)
-    if isinstance(count, bool) or not isinstance(count, int) or count < max(most, 2):
+) -> list[float]:
+    """時間の見込みで、公称の状態と状態によらない秒を数える燃焼点。`timing` の `nominal-burnup`（見込むテーブルの公称の状態の
+    燃焼点。間引きの真値のテーブルより少ない点で公称の状態を解くテーブルの見込み）か、このテーブルの点。公称でない状態は公称の
+    状態を解く燃焼点でしか解けない（公称の状態との差を持つ）ので、どの選び方の点もその中にあること"""
+    if timing is None or "nominal-burnup" not in timing:
+        return burnup
+    given = timing["nominal-burnup"]
+    points = (
+        [float(b) for b in given]
+        if isinstance(given, list)
+        and all(isinstance(b, (int, float)) and not isinstance(b, bool) for b in given)
+        else None
+    )
+    if (
+        points is None
+        or len(points) < 2
+        or points != sorted(set(points))
+        or any(b not in burnup for b in points)
+        or points[0] != burnup[0]
+        or points[-1] != burnup[-1]
+    ):
         raise SystemExit(
-            f"{name}: the timing nominal-burnups {count!r} must be a count of points (an integer) no fewer than the points of any selection ({most})"
+            f"{name}: the timing nominal-burnup {given!r} must be increasing points of the table from the first to the last"
         )
-    return count
+    for sel in selections:
+        outside = sorted({float(b) for b in sel["burnup"]} - set(points))
+        if outside:
+            raise SystemExit(
+                f"{name} {sel['name']}: the burnups {outside} are not in the timing nominal-burnup"
+            )
+    return points
 
 
 def nominal_points(
@@ -764,7 +789,7 @@ def thinning_time(timing: dict, counts: dict) -> dict:
             "reuse",
             "reuse-axis",
             "states",
-            "nominal-burnups",
+            "nominal-burnup",
         }
     )
     if unknown_keys:
@@ -848,7 +873,7 @@ def thinning_plan(
         axes = kind.split("+")
         if reuse_axis not in axes or len(axes) == 1:
             continue
-        # 再利用する状態は、再利用する先の状態を解いた燃焼点でしか解けない（ADR-0201）。公称の状態はすべての燃焼点で解く
+        # 再利用する状態は、再利用する先の状態を解いた燃焼点でしか解けない（ADR-0201）。公称の状態は、どの選び方の点でも解く（`nominal_burnup`）
         base = "+".join(a for a in axes if a != reuse_axis)
         if not set(by_name[chosen[kind]]["burnup"]) <= set(
             by_name[chosen[base]]["burnup"]
@@ -952,7 +977,9 @@ def report(summary: dict) -> list[str]:
                 f"{t['name']}: the thinning has no errors per kind of state; rerun the comparison"
             )
         hours = (
-            f"、すべての燃焼点で {t['hours']:.2f} 時間の見込み" if "hours" in t else ""
+            f"、公称の状態の {len(t['nominal_burnup'])} 点のすべてで {t['hours']:.2f} 時間の見込み"
+            if "hours" in t
+            else ""
         )
         lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}{hours}")
         for sel in t["selections"]:
@@ -1059,8 +1086,7 @@ def main() -> None:
         summary = {
             "format": "xlc-compare-branch-cross-terms",
             "thinning": thinning,
-            # 公称の状態の燃焼点を比べない入力の要約は、その項目を持たない
-            **({"nominal": nominal_entries} if nominal_entries else {}),
+            "nominal": nominal_entries,
             "inputs": [
                 {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
                 for f in files
