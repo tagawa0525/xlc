@@ -5402,7 +5402,7 @@ feat/0176-gd-branch-reduction、分岐点は main の 8369db18。各ディレク
 - 燃料の温度のテーブル `fuel-2O.toml`（147 状態）: xlc f8427b7a、2026-11-18、Slurm 930（区分 decision、パーティション timed の排他のジョブ。
   37 分 42 秒）。`fuel-2O.msgpack` は md5 5ad37b4a
 
-比べたのは `compare-2O`（数値は xlc e780fb7b、2026-11-18。JSON は、項目を足したブランチ feat/0176-gd-burnup-points（分岐点は main の 1f7af5f1）の e3d6874f で、2026-11-18 に手元で出し直した md5 7bbf89eb で、数値は同じ）と `grid-2O`（公称の 900 K を含む 4 点を足した同じブランチの acd0ce61、2026-11-18、手元。e3d6874f で出し直しても同じ JSON、md5 09c2a045）。
+比べたのは `compare-2O`（数値は xlc e780fb7b、2026-11-18。JSON は、項目を足したブランチ feat/0176-gd-burnup-points（分岐点は main の 1f7af5f1）の b53e020e で、2026-11-18 に手元で出し直した md5 7bbf89eb で、数値は同じ）と `grid-2O`（公称の 900 K を含む 4 点を足した同じブランチの f90cb8db、2026-11-18、手元。b53e020e で出し直しても同じ JSON、md5 09c2a045）。
 少数群定数から解き直した k∞ とテーブルの `k_inf` の差は最大 0.0077 pcm と 0.0135 pcm（`--report`）。
 
 テーブルを作る時間の見込みは、本番の形の 2O のテーブル（2A の本番の入力と同じ 2 軸の組の部分格子の 114 状態。B 5、M 6、F 6、B、M 30、
