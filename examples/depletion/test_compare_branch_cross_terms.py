@@ -996,5 +996,166 @@ class ThinningNominalBurnups(unittest.TestCase):
                 self.thinned(points)
 
 
+class CombinedBurnupPoints(unittest.TestCase):
+    """公称の状態を一部の燃焼点で、公称でない状態をその中の一部の燃焼点で解いたとして、core の組み立て（公称の状態を公称の点から
+    内挿し、公称でない状態の公称の状態との差を公称でない点から内挿して足す。ADR-0200）の値を、全点のテーブルの状態と比べる"""
+
+    def kinked(self, nominal_kink: float, off_kink: float = 0.0, at: float = 6.0):
+        """公称の νΣf2 は燃焼度で線形で、`at` で nominal_kink の折れを持つ。公称でない状態の差はホウ素の偏差に比例し、燃焼度で
+        線形に変わり、6 で off_kink の折れを持つ"""
+
+        def g(u, b, m, f):
+            base = 0.1 - 1e-3 * u + nominal_kink * max(u - at, 0.0)
+            if (b, m, f) != (1300.0, 565.0, 565.0):
+                base += 1e-5 * (b - 1300) + 1e-6 * u + off_kink * max(u - 6.0, 0.0)
+            return state(base)
+
+        return table(g, THINNING_BURNUP)
+
+    def combined(self, t, nominal, off, timing=None) -> dict:
+        selections = [
+            {"name": "公称", "burnup": list(nominal)},
+            {"name": "公称でない", "burnup": list(off)},
+        ]
+        pairs = [{"nominal": "公称", "off-nominal": "公称でない"}]
+        return cct.combine("t", t, NOMINAL, selections, pairs, timing)
+
+    def test_states_linear_in_burnup_are_reproduced_from_any_points(self):
+        s = self.combined(self.kinked(0.0), [0.0, 4.0, 10.0], [0.0, 4.0, 10.0])
+        (pair,) = s["pairs"]
+        self.assertEqual(pair["removed"], [1.0, 2.0, 6.0])
+        for method in cct.THINNING_METHODS:
+            self.assertLess(pair["results"][method]["max_abs_pcm"], 1e-9, method)
+
+    def test_off_nominal_states_carry_the_error_of_the_nominal_interpolation(self):
+        # 公称の状態だけが 6 で折れ、公称でない状態の差は線形。公称の点にも公称でない点にも無い 6 で、公称でない状態も公称の
+        # 状態の内挿の誤差を持つ（間引きの比較は公称の状態を全点の値にするので、この誤差を持たない）
+        t = self.kinked(1e-3)
+        s = self.combined(t, [0.0, 4.0, 10.0], [0.0, 4.0, 10.0])
+        thinned = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0, 4, 10]}])
+        nominal = cct.nominal_points(
+            "t", t, NOMINAL, [{"name": "3 点", "burnup": [0, 4, 10]}]
+        )
+        for method in cct.THINNING_METHODS:
+            r = s["pairs"][0]["results"][method]
+            self.assertLess(
+                thinned["selections"][0]["results"][method]["max_abs_pcm"], 1e-9
+            )
+            for kind, k in r["kinds"].items():
+                self.assertGreater(k["max_abs_pcm"], 1.0, (method, kind))
+                self.assertEqual(k["worst"]["burnup"], 6.0, (method, kind))
+            # 公称の状態の誤差は、公称の状態だけの比較と同じ
+            expected = nominal["selections"][0]["results"][method]
+            self.assertAlmostEqual(
+                r["nominal"]["max_abs_pcm"], expected["max_abs_pcm"], places=9
+            )
+            self.assertEqual(r["nominal"]["worst_burnup"], 6.0)
+            self.assertEqual(
+                r["max_abs_pcm"],
+                max(
+                    [r["nominal"]["max_abs_pcm"]]
+                    + [k["max_abs_pcm"] for k in r["kinds"].values()]
+                ),
+            )
+            self.assertEqual(sorted(r["max_relative"]), sorted(cct.RELATIVE))
+            self.assertGreater(r["max_relative"]["nu_fission"], 1e-3)
+
+    def test_nominal_points_take_the_nominal_state_of_the_table(self):
+        # 公称の状態は 1 で折れる。公称の点の 2 と 6 では公称の状態はテーブルの値で、誤差は間引きの比較と同じ。どちらの点にも
+        # 無い 1 だけが、公称の状態の内挿の誤差（0 から 2 の線形）を足す
+        t = self.kinked(1e-3, off_kink=1e-3, at=1.0)
+        s = self.combined(t, [0.0, 2.0, 4.0, 6.0, 10.0], [0.0, 4.0, 10.0])
+        thinned = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0, 4, 10]}])
+        for method in cct.THINNING_METHODS:
+            r = s["pairs"][0]["results"][method]
+            expected = thinned["selections"][0]["results"][method]["rho_pcm"]
+            self.assertEqual(len(r["rho_pcm"]), 3)
+            for got, want in zip(r["rho_pcm"][1:], expected[1:], strict=True):
+                self.assertAlmostEqual(got, want, places=9, msg=method)
+            self.assertGreater(abs(r["rho_pcm"][0] - expected[0]), 1.0, method)
+            self.assertLess(r["nominal"]["max_abs_pcm"] - abs(r["rho_pcm"][0]), 1e-9)
+
+    def test_off_nominal_points_must_be_nominal_points(self):
+        # core は公称でない状態の公称の状態との差を、その状態を解いた燃焼点で作る。公称の状態はテーブルの燃焼度の軸の点の
+        # すべてで解く（ADR-0200）ので、公称でない状態の点は公称の点の中から選ぶ
+        with self.assertRaisesRegex(SystemExit, "nominal"):
+            self.combined(self.kinked(0.0), [0.0, 4.0, 10.0], [0.0, 6.0, 10.0])
+
+    def test_pairs_name_selections_of_the_entry(self):
+        selections = [{"name": "3 点", "burnup": [0, 4, 10]}]
+        for pair in (
+            {"nominal": "3 点", "off-nominal": "4 点"},
+            {"nominal": "4 点", "off-nominal": "3 点"},
+        ):
+            with self.assertRaisesRegex(SystemExit, "4 点", msg=pair):
+                cct.combine("t", self.kinked(0.0), NOMINAL, selections, [pair])
+
+    def test_hours_count_the_nominal_points_and_the_off_nominal_points(self):
+        s = self.combined(
+            self.kinked(0.0), [0.0, 2.0, 4.0, 10.0], [0.0, 4.0, 10.0], ESTIMATE
+        )
+        (pair,) = s["pairs"]
+        self.assertAlmostEqual(
+            pair["hours"], (4 * (55 + 3) + 3 * (5 * 1 + 36 * 3)) / 3600
+        )
+        # 公称の状態の燃焼点は組が持つので、時間の見込みの `nominal-burnup` は書かない
+        with self.assertRaisesRegex(SystemExit, "nominal-burnup"):
+            self.combined(
+                self.kinked(0.0),
+                [0.0, 2.0, 4.0, 10.0],
+                [0.0, 4.0, 10.0],
+                ESTIMATE | {"nominal-burnup": [0, 2, 4, 10]},
+            )
+
+    def test_micro_errors_carry_the_nominal_interpolation(self):
+        # 公称の状態の Pu-240 の全断面積だけが 6 で折れ、公称でない状態の差は線形
+        def nuclides(u, at):
+            off = 0.0 if at == AT_NOMINAL else u
+            return [micro_nuclide(10 + u), micro_nuclide(5 + max(u - 6.0, 0.0) + off)]
+
+        t = with_micro(self.kinked(0.0), nuclides)
+        s = self.combined(t, [0.0, 4.0, 10.0], [0.0, 4.0, 10.0])
+        linear = s["pairs"][0]["results"]["linear"]
+        total = linear["micro"]["total"]
+        self.assertGreater(total["max_relative"], 1e-3)
+        self.assertEqual(total["nuclide"], "Pu-240")
+        self.assertEqual(total["worst"]["burnup"], 6.0)
+        self.assertIn("boron", total["worst"])
+        self.assertLess(linear["micro"]["nu_fission"]["max_relative"], 1e-12)
+        for kind in linear["kinds"].values():
+            self.assertGreater(kind["micro"]["total"]["max_relative"], 1e-3)
+
+    def test_inputs_may_hold_the_combined_points_and_report_them(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "t.msgpack").write_bytes(msgpack.packb(self.kinked(1e-3)))
+            (root / "c.toml").write_text(
+                '[[combined]]\nname = "a"\nfile = "t.msgpack"\n'
+                "nominal = { boron = 1300, moderator = 565, fuel = 565 }\n"
+                'selections = [{ name = "4 点", burnup = [0, 2, 4, 10] }, '
+                '{ name = "3 点", burnup = [0, 4, 10] }]\n'
+                'pairs = [{ nominal = "4 点", off-nominal = "3 点" }]\n'
+                "[combined.timing]\nother = 55.0\nsolve = 3.0\nreuse = 1.0\n"
+                'reuse-axis = "boron"\n'
+            )
+            out = root / "s.json"
+            argv = sys.argv
+            sys.argv = ["x", "--json", str(out), str(root / "c.toml")]
+            try:
+                cct.main()
+            finally:
+                sys.argv = argv
+            summary = json.loads(out.read_text())
+            (entry,) = summary["combined"]
+            self.assertEqual(entry["name"], "a")
+            (pair,) = entry["pairs"]
+            self.assertEqual(pair["name"], "4 点 / 3 点")
+            self.assertEqual(pair["nominal_burnup"], [0.0, 2.0, 4.0, 10.0])
+            self.assertEqual(pair["off_nominal_burnup"], [0.0, 4.0, 10.0])
+            self.assertIn("hours", pair)
+            lines = cct.report(summary)
+            self.assertTrue(any("4 点 / 3 点" in line for line in lines))
+
+
 if __name__ == "__main__":
     unittest.main()
