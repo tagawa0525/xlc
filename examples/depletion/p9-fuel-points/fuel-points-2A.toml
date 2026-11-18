@@ -5,7 +5,7 @@
 
 table = "../p9-product/table-2A.msgpack"
 
-# 1 点ずつ除く（7 点の格子の誤差）
+# 1 点ずつ除く（7 点から 1 点を除いた格子の誤差。除いた点の両隣は 7 点の約 2 倍の間隔）
 [[scheme]]
 axis = "fuel"
 variable = "sqrt"

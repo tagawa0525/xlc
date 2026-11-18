@@ -25,12 +25,12 @@ stages:
       size: 1374380
     - path: fuel-points-2A.toml
       hash: md5
-      md5: 062b2427ccebc2f69bb22606d5535aef
-      size: 1416
+      md5: dcd3a6278efee8ca571e858af35be0b2
+      size: 1491
     outs:
     - path: fuel-points-2A.json
       hash: md5
-      md5: ae1eb8dd79eb0ea13a75e015128af4a7
+      md5: 732559e61c3081dd2e3c0c43fa8bd54e
       size: 48271
   fuel-points-2O:
     cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2O.json 
@@ -57,10 +57,10 @@ stages:
       size: 2232552
     - path: fuel-points-2O.toml
       hash: md5
-      md5: 2a935cbb68fe6d4de5161e5e63ed5120
-      size: 1410
+      md5: 38a9663e66931766f8e72b3080821c66
+      size: 1485
     outs:
     - path: fuel-points-2O.json
       hash: md5
-      md5: 8b223c65b2e26413c76fd8c2933a3874
+      md5: e185a6dc60d13a713b4ba3cd3525a43f
       size: 57979
