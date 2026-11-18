@@ -5140,10 +5140,12 @@ lattice は部分格子を公称の状態（入力の物質の状態。公称の
   `fuel-2O.msgpack`、md5 5ad37b4a。燃料 7 点 × ホウ素 0、650、1625 ppm、減速材は公称の 580 K、Gd の燃え尽きの前、最中、後の 7 燃焼点）
 
 入力は examples/depletion/p9-fuel-points（`fuel-points-2A.toml`、`fuel-points-2O.toml`）、比較の JSON は同じ名前の `.json`（git で追跡する）。
-2O の比べ方を p9-gd に置かないのは、その置き場を #0176 の Gd の測定で別のブランチが変えているため。リポジトリの直下で、default の devShell の中:
+2O の比べ方を p9-gd に置かないのは、その置き場を #0176 の Gd の測定で別のブランチが変えているため。2A のテーブルの上流（p9-product の
+`lattice-2A`、`branch-2A` と p2 のライブラリ）は bin の変更で deps だけが changed なので、`-s` で上流を飛ばし、`dvc.lock` の記録の上流の
+出力で比べる（ADR-0184 の `-s` の 2 つ目の例外。`-s` を付けないと上流の数時間の格子計算が走る）。リポジトリの直下で、default の devShell の中:
 
 ```sh
-dvc repro examples/depletion/p9-fuel-points/dvc.yaml
+dvc repro -s examples/depletion/p9-fuel-points/dvc.yaml:fuel-points-2A examples/depletion/p9-fuel-points/dvc.yaml:fuel-points-2O
 python3 examples/depletion/compare_grid_interpolation.py --report examples/depletion/p9-fuel-points/fuel-points-2A.json
 python3 examples/depletion/compare_grid_interpolation.py --report examples/depletion/p9-fuel-points/fuel-points-2O.json
 ```
@@ -5193,8 +5195,8 @@ xlc 68251719 の Slurm 903 の出力、2O のテーブルは上の 2O の記録�
 
 <!-- /table -->
 
-- 900 K を含む 4 点のうち 560、900、1050、1350 K は 2A で 0.38、2O で 0.35 pcm で、7 点の 1 点ずつ除く誤差と同じ。900 K を含まない 4 点
-  （0.42、0.38 pcm）より小さい。ADR-0239 はこの 4 点にした
+- 900 K を含む 4 点のうち 560、900、1050、1350 K は 2A で 0.38、2O で 0.35 pcm で、900 K を含まない 4 点（0.42、0.38 pcm）より小さい。
+  最大の 1200 K は、1 点ずつ除く行の 1200 K と同じ点（900、1050、1350 K）から引くので同じ値。ADR-0239 はこの 4 点にした
 - 560、900、1200、1350 K は 2A で 0.34、2O で 0.32 pcm で、4 点の中で最も小さい。560、750、900、1350 K は 0.58、0.50 pcm で最も大きい
   （1050〜1200 K の 2 点を除き、900〜1350 K を 1 区間で引く。最大は 1200 K）
 - 5 点は 560、750、900、1050、1350 K で 0.38、0.35 pcm（560、900、1050、1350 K と同じ）、560、750、900、1200、1350 K で 0.24、0.21 pcm
