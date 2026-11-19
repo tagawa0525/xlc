@@ -421,7 +421,7 @@ docs/0258-settle-open-points で比べ始め、ADR-0260 に分けた。DVC の�
    項に、検査を通すことと、項目の意味を変えるときに形式の名前を変えることを書く
 
 この ADR を書いたブランチ（docs/0258-keep-dvc-and-automate-relock と、ユーザーの返事で決定を書き直した docs/0258-settle-open-points）は決定だけを書き、
-スキル、CLAUDE.md、script、hook、`dvc.yaml`、`dvc.lock`、ほかの ADR は変えない（ADR-0259 がこのブランチのコミットを引く 1 行の、rebase の後の hash の付け替えを除く）。一部を変える ADR（ADR-0130、ADR-0184、
+スキル、CLAUDE.md、script、hook、`dvc.yaml`、`dvc.lock`、ほかの ADR は変えない（ADR-0259 の 1 行が引いていたこのブランチのコミットの hash を、rebase の後に付け替えたことを除く。その行は、ADR-0259 を ADR-0260 に付け替えたコミット 273129162 で ADR-0259 から消えた）。一部を変える ADR（ADR-0130、ADR-0184、
 ADR-0257）は、上の段の実装のブランチで、その ADR の決定と「## 変更」を直す（ADR-0212 は、ADR-0260 のツールのブランチで直す）。ADR-0193 の CPU 時間の記録は変えない。
 
 ### 帰結
