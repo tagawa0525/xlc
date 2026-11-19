@@ -268,9 +268,12 @@ fn unresolved_shielding_lowers_capture_at_small_background() {
     use crate::multigroup::shielded_averages;
     let tape = unresolved_tape();
     let sigma0 = [1.0e10, 1.0];
-    let shielding = unresolved_shielding(&tape, 1, 300.0, &sigma0)
+    let [shielding] = &unresolved_shielding(&tape, 1, &[300.0], &sigma0)
         .unwrap()
-        .unwrap();
+        .unwrap()[..]
+    else {
+        panic!("one temperature gives one shielding");
+    };
     let tables = crate::pointwise::reconstruct(&tape, 1, 1.0e-3).unwrap();
     let groups = GroupStructure::new(vec![5.0e4, 1.0e4]).unwrap();
     let shielded = shielded_averages(
@@ -279,7 +282,7 @@ fn unresolved_shielding_lowers_capture_at_small_background() {
         &tables,
         None,
         &sigma0,
-        Some(&shielding),
+        Some(shielding),
         None,
     )
     .unwrap();
@@ -328,7 +331,7 @@ fn no_unresolved_range_gives_no_shielding() {
     .concat();
     let tape = Tape::parse(&text).unwrap();
     assert_eq!(
-        unresolved_shielding(&tape, 1, 300.0, &[10.0]).unwrap(),
+        unresolved_shielding(&tape, 1, &[300.0], &[10.0]).unwrap(),
         None
     );
 }

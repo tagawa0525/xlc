@@ -51,7 +51,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut ratios = vec![Vec::new(); sigma0.len()];
         let mut means = [0.0; 2];
         for seed in 1..=16 {
-            let b = xs.shielded(e, temperature, &sigma0, Sigma::default(), sampling, seed)?;
+            let [b] = <[_; 1]>::try_from(xs.shielded(
+                e,
+                &[temperature],
+                &sigma0,
+                Sigma::default(),
+                sampling,
+                seed,
+            )?)
+            .map_err(|_| "one temperature gives one result")?;
+            let b = b?;
             means[0] += b.mean.capture / 16.0;
             means[1] += b.mean.total / 16.0;
             for (r, s) in ratios.iter_mut().zip(&b.shielded) {

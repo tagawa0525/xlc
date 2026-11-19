@@ -107,25 +107,30 @@ pub struct ShieldedSigma {
 }
 
 impl UnresolvedXs<'_> {
-    /// エネルギー e (eV)、温度 `temperature` (K) での、バックグラウンド断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
+    /// エネルギー e (eV)、温度 `temperatures` (K) での、バックグラウンド断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
     /// Bondarenko の平均で求める（ADR-0177。`ladder`）。`background` は MF3 のバックグラウンド断面積（LSSF=1 では MF3 が平均断面積そのもの
-    /// なので 0 を渡す）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、同じ種なら温度を変えても同じラダーとエネルギーを使う（温度の間の相関を保つ）。
+    /// なので 0 を渡す）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、どの温度にも同じラダーとエネルギーを使う（温度の間の
+    /// 相関を保つ）。ラダーは温度の間で 1 度だけ作り、温度ごとの結果は、その温度だけを求めたときとビットまで同じ（#0155）。
+    ///
+    /// 外の `Err` は温度によらないエラーと正でない温度、内の `Err` はその温度のエラーで、結果は `temperatures` の順に並ぶ。
     pub fn shielded(
         &self,
         e: f64,
-        temperature: f64,
+        temperatures: &[f64],
         sigma0: &[f64],
         background: Sigma,
         sampling: Sampling,
         seed: u64,
-    ) -> Result<Bondarenko, UrrError> {
-        if temperature.is_nan() || temperature <= 0.0 {
-            return Err(UrrError::Temperature(temperature));
+    ) -> Result<Vec<Result<Bondarenko, UrrError>>, UrrError> {
+        if let Some(&t) = temperatures.iter().find(|t| t.is_nan() || **t <= 0.0) {
+            return Err(UrrError::Temperature(t));
         }
         let urr = self.urr;
         let ay = self.scattering_radius(e)?;
         let mut potential = 0.0;
         let mut sequences = Vec::new();
+        // [温度][系列] のドップラー幅
+        let mut deltas = vec![Vec::new(); temperatures.len()];
         for lv in &urr.l_values {
             let aa = self.channel_radius(lv.awri, ay);
             let k = wave_number_factor() * lv.awri / (lv.awri + 1.0) * e.sqrt();
@@ -135,8 +140,6 @@ impl UnresolvedXs<'_> {
             if !lv.j_values.is_empty() {
                 potential += ab * f64::from(2 * lv.l.number() + 1) * phi.sin().powi(2);
             }
-            // ドップラー幅 Δ = 2 √(E kT / A)
-            let delta = 2.0 * (e * BK * temperature / lv.awri).sqrt();
             for jv in &lv.j_values {
                 let p = parameters(&jv.points, e);
                 let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
@@ -153,14 +156,21 @@ impl UnresolvedXs<'_> {
                     dof_f: if p.gf > 0.0 { jv.amuf } else { WidthDof::Fixed },
                     dof_x: if p.gx > 0.0 { jv.amux } else { WidthDof::Fixed },
                     d: p.d,
-                    delta,
                     cos2: (2.0 * phi).cos(),
                     sin2p: (2.0 * phi).sin(),
                 });
+                for (deltas, &t) in deltas.iter_mut().zip(temperatures) {
+                    // ドップラー幅 Δ = 2 √(E kT / A)
+                    deltas.push(2.0 * (e * BK * t / lv.awri).sqrt());
+                }
             }
         }
-        bondarenko(&sequences, potential, background, sigma0, sampling, seed).map_err(|error| {
-            match error {
+        Ok(bondarenko(
+            &sequences, &deltas, potential, background, sigma0, sampling, seed,
+        )
+        .into_iter()
+        .map(|result| {
+            result.map_err(|error| match error {
                 LadderError::EmptySampling => UrrError::EmptySampling {
                     ladders: sampling.ladders,
                     samples: sampling.samples,
@@ -170,8 +180,9 @@ impl UnresolvedXs<'_> {
                     offset,
                     floored,
                 },
-            }
+            })
         })
+        .collect())
     }
 
     /// 位相シフトに使う散乱半径（NRO=1 なら表から補間する）。

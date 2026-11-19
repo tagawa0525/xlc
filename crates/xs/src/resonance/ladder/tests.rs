@@ -63,25 +63,30 @@ fn the_same_seed_gives_the_same_draws() {
     assert_ne!(Rng::new(42).uniform(), Rng::new(43).uniform());
 }
 
-/// 系列 `q` のラダー `ladder` のエネルギー `energies` での [弾性散乱, 核分裂, 捕獲] を、エネルギーと共鳴の対ごとに 1 つずつ
-/// 求める（`add_ladder` の式をそのまま点ごとに書いたもの）
-fn pointwise(q: &LadderSequence, ladder: &[Resonance], energies: &[f64]) -> Vec<[f64; 3]> {
+/// 系列 `q` のラダー `ladder` のドップラー幅 `delta` でのエネルギー `energies` での [弾性散乱, 核分裂, 捕獲] を、エネルギーと共鳴の
+/// 対ごとに 1 つずつ求める（`elastic_coefficients` と `add_ladder` の式をそのまま点ごとに書いたもの）
+fn pointwise(
+    q: &LadderSequence,
+    delta: f64,
+    ladder: &[Resonance],
+    energies: &[f64],
+) -> Vec<[f64; 3]> {
     use crate::special::faddeeva;
     let a = Complex64::new(1.0 - q.cos2, q.sin2p);
     let pole = |r: &Resonance| Complex64::new(r.energy, -0.5 * r.gamma);
     let root_pi = PI.sqrt();
-    let elastic_scale = 0.5 * q.scale * root_pi / q.delta;
+    let elastic_scale = 0.5 * q.scale * root_pi / delta;
     let mut parts = vec![[0.0; 3]; energies.len()];
     for r in ladder {
         let p = pole(r);
         let c: Complex64 = ladder.iter().map(|s| s.gn / (pole(s).conj() - p)).sum();
         let ar = r.gn * (c + Complex64::i() * a);
-        let y = 0.5 * r.gamma / q.delta;
+        let y = 0.5 * r.gamma / delta;
         let c = q.scale * r.gn / r.gamma * root_pi * y / r.gamma;
         let (fission_re, capture_re) = (c * r.gf, c * q.gg);
         let iar = Complex64::i() * ar * elastic_scale;
         for (part, &e) in parts.iter_mut().zip(energies) {
-            let x = (e - r.energy) / q.delta;
+            let x = (e - r.energy) / delta;
             let w = if x.abs() > ASYMPTOTIC || y > ASYMPTOTIC {
                 Complex64::i() / (root_pi * Complex64::new(x, y))
             } else {
@@ -110,7 +115,6 @@ fn ladder_sums_give_the_bits_of_the_pointwise_formula() {
             dof_f: WidthDof::Two,
             dof_x: WidthDof::Fixed,
             d: 1.0,
-            delta,
             cos2: 0.6_f64.cos(),
             sin2p: 0.6_f64.sin(),
         };
@@ -119,8 +123,9 @@ fn ladder_sums_give_the_bits_of_the_pointwise_formula() {
         let ladder = sample_ladder(&q, half, 1.0, &mut rng);
         let energies: Vec<f64> = (0..250).map(|i| -half + 0.2 * (i as f64 + 0.37)).collect();
         let mut parts = Parts::zeroed(energies.len());
-        add_ladder(&q, &ladder, &energies, &mut parts);
-        let expected = pointwise(&q, &ladder, &energies);
+        let coefficients = elastic_coefficients(&q, &ladder);
+        add_ladder(&q, delta, &ladder, &coefficients, &energies, &mut parts);
+        let expected = pointwise(&q, delta, &ladder, &energies);
         // 窓の端で Faddeeva 関数と漸近形が切り替わる共鳴（Δ = 0.2 eV）と、y > 100 で漸近形だけの共鳴（Δ = 1e-4 eV）があること
         let switching = ladder
             .iter()

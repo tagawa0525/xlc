@@ -21,7 +21,7 @@ use xlc_chain::endf::read_material;
 use xlc_depletion::chain::Chain;
 use xlc_xs::endf::{Reader, Tape};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
-use xlc_xs::process::{read_evaluation, resolved, unresolved_shielding};
+use xlc_xs::process::{ProcessError, read_evaluation, resolved, unresolved_shielding};
 
 /// 非分離共鳴の自己遮蔽を確かめる温度 (K)。VERA の燃料の核種の温度（examples/vera/xs.toml の値をコピーしたもの。変えたら合わせる）
 const TEMPERATURES: [f64; 4] = [565.0, 600.0, 900.0, 1200.0];
@@ -285,10 +285,14 @@ fn read_failures(tape: &Tape, mat: i32) -> Vec<(String, String)> {
     if let Err(err) = resolved(tape, mat) {
         failures.push(("resolved top".into(), err.to_string()));
     }
-    for t in TEMPERATURES {
-        if let Err(err) = unresolved_shielding(tape, mat, t, &SIGMA0) {
-            failures.push((format!("unresolved at {t} K"), err.to_string()));
-        }
+    // 全温度を 1 度に作るので、止まるのは最初にエラーになる温度だけ
+    match unresolved_shielding(tape, mat, &TEMPERATURES, &SIGMA0) {
+        Err(ProcessError::Temperature {
+            temperature,
+            source,
+        }) => failures.push((format!("unresolved at {temperature} K"), source.to_string())),
+        Err(err) => failures.push(("unresolved".into(), err.to_string())),
+        Ok(_) => {}
     }
     failures
 }
