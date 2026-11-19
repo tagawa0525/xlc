@@ -4,7 +4,7 @@
 接頭辞（`fuel` か `gd`）ごとに燃焼の領域の体積で平均する。CE/CM（ADR-0173）は 2 次なので、粗い方の誤差は差のおよそ 4/3 倍
 （細かい方の誤差は差の 1/3）。
 
-使い方: python3 compare_steps.py <燃料> [--json <出力>]（steps/out/ を読む）
+使い方: python3 compare_steps.py <燃料> [--coarse 40] [--fine 80] [--json <出力>]（steps/out/<燃料>-<点の数>.msgpack を読む）
 """
 
 import argparse
@@ -72,16 +72,18 @@ def groups_of(fuel: str) -> dict[str, list[str]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("fuel", choices=["u", "mox", "gd"])
+    parser.add_argument("--coarse", type=int, default=40, help="粗い方の燃焼度の点の数")
+    parser.add_argument("--fine", type=int, default=80, help="細かい方の燃焼度の点の数")
     parser.add_argument("--json", type=Path)
     args = parser.parse_args()
     out = HERE / "steps" / "out"
     rows = compare(
-        read(out / f"{args.fuel}-40.msgpack"),
-        read(out / f"{args.fuel}-80.msgpack"),
+        read(out / f"{args.fuel}-{args.coarse}.msgpack"),
+        read(out / f"{args.fuel}-{args.fine}.msgpack"),
         groups_of(args.fuel),
     )
     keys = list(rows[0]["densities"])
-    print("burnup k40 dk(pcm) " + " ".join(keys))
+    print(f"burnup k{args.coarse} dk(pcm) " + " ".join(keys))
     for r in rows:
         values = " ".join(
             "-" if r["densities"][k] is None else f"{r['densities'][k] * 100:+.3f}%"
@@ -90,7 +92,16 @@ def main() -> None:
         print(f"{r['burnup']:g} {r['k_coarse']:.5f} {r['dk_pcm']:+.1f} {values}")
     if args.json:
         args.json.write_text(
-            json.dumps({"fuel": args.fuel, "rows": rows}, indent=1) + "\n"
+            json.dumps(
+                {
+                    "fuel": args.fuel,
+                    "coarse": args.coarse,
+                    "fine": args.fine,
+                    "rows": rows,
+                },
+                indent=1,
+            )
+            + "\n"
         )
 
 
