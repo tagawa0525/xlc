@@ -10152,3 +10152,101 @@ python3 examples/depletion/kinetics_table.py --report examples/depletion/branche
   2.9531 /s へ動く（`decay_constants`）
 - 1 群の微視的断面積の例（燃焼度 0）: U-235 の核分裂 48.21 b、Cs-133 の捕獲 11.64 b、放射化の核種の Cs-134 の捕獲 13.36 b、Eu-154 の捕獲
   266.82 b（`cooling`）
+
+## 燃焼の履歴の上流の前提の見積もり（#0293）
+
+[#0293](../../docs/issues/0293-unmeasured-premises.md) の上流の項目のうち、燃焼の履歴の土台になるもの（項目 2、3、6、7、8）を、ピンセルの小さな計算で
+見積もる。目安は ADR-0215 と ADR-0200 の 5 pcm。値を詰めず、目安を超えるかと桁を出す。入力、比較のツール、出力は
+`issue-0293/`（入力は `inputs.py` が書く。説明は `inputs.py` の先頭）。
+
+- 燃料: 3.1% のウランのピン（u）、MOX-1 の組成のピン（mox）、3×3 の中央に 2O の Gd のピン（8 つの等面積のリング）を置き周りに u の
+  燃料のピン 8 本の格子（gd。Gd のピン 1 本の鏡面反射では周りの燃料の中性子が来ないため）
+- 状態: 燃料 900 K（Problem 9 の基準条件）、被覆管と減速材 565 K、0.743 g/cc、1300 ppm（2A の燃焼の OpenMC の参照の状態）。減速材を
+  基準条件の 580 K にしないのは、ピンセルのライブラリ（`depletion.msgpack`）が S(α,β) を持たない核種を 565、600、900、1200 K でしか持たず、
+  その間を内挿できないため（`xlc_format::library` の `lookup`）
+- ライブラリ: u と mox はピンセルのライブラリ。gd は、ピンセルのライブラリが Gd の同位体を Gd-155 しか持たないので、本番の
+  `p2/depletion.msgpack`（Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を輸送しない。#0293 の項目 1）
+- 離散化と燃焼の設定は本番（`p9-product/lattice-2A.toml`）と同じ方位角 30、間隔 0.03 cm、`ufg-tolerance` 1e-4、出力密度 38.41 W/g。燃料は
+  燃焼の領域 1 つ（本番の 2A は 5 つ。ADR-0245）
+
+```sh
+python3 examples/depletion/issue-0293/inputs.py
+cd examples/depletion/issue-0293/steps
+../../../../bin/lattice u-40.toml > out/u-40.out 2> out/u-40.log   # u-80、u-160、mox-40、mox-80、gd-40、gd-80、gd-160 も同じ形
+cd ../sab
+../../../../bin/xs nuclide xs-a.toml ../../xs-range.toml H-1 nuclides-a/H-1.msgpack   # O-16、B-10、B-11 も。b は H-1 だけ
+../../../../bin/xs assemble xs-a.toml ../../xs-range.toml nuclides-a                   # b も同じ形
+../../../../bin/lattice u-a.toml > out/u-a.out 2> out/u-a.log                          # u-b、mox-a、mox-b も同じ形
+cd ../urr
+../../../../bin/lattice u.toml > out/u.out 2> out/u.log                                # mox も同じ形
+cd ../../../..
+python3 examples/depletion/issue-0293/compare_steps.py u --coarse 40 --fine 80 --json examples/depletion/issue-0293/steps/out/compare-u-40-80.json
+python3 examples/depletion/issue-0293/compare_sab.py u --json examples/depletion/issue-0293/sab/out/compare-u.json
+nix develop .#python-tests -c python3 examples/depletion/issue-0293/estimates.py u --json examples/depletion/issue-0293/urr/out/u-estimates.json
+```
+
+### 計算
+
+入力は dc9dede0f（ブランチ feat/0293-upstream-pin-measurements、分岐点は main の 21e8dd608。rebase の前の 97558ed08）で、Slurm 943（ライブラリ a、b）、
+944（u-40 と、Sn を足す前の urr/u）、945（mox-40 と urr/mox）、946（sab の u。同じジョブの mox は MOX の履歴の前に走って失敗）、947（u-80）、948（mox-80）、
+949（gd-40）、950（gd-80）。urr/u は 4734f6e39（rebase の前の d558aecfb）の Slurm 954、sab の mox は同じコミットの 955、u-160 は 4d56baff8（rebase の前の
+56ab13e4e）の 956、gd-160 は b74c928ef（rebase の前の d747effff）の 957。どれも分岐点は main の 21e8dd608 で、2026-11-19。割り込まれうるジョブなので、
+時間は記録に使わない。`bin/lattice` は md5 c3b3bba1、`bin/xs` は md5 28e28365。ライブラリはピンセルの `depletion.msgpack`（md5 58a25945）と
+`p2/depletion.msgpack`（md5 975be970）、チェーンは `chain.msgpack`（md5 1f1de180）。sab のライブラリ a、b は md5 e4b679db と 85a1fa0b で、a の H-1 は
+ピンセルのライブラリの H-1（`xs-nuclides/H-1.msgpack`）と同じ md5（a1cb1cc7）。出力は `.dvc` で追う生成物（`steps/out` は md5 0085aa97、
+`sab/out` は 0521742b、`urr/out` は 928d030a）。比較と見積もりは a785c9471 で手元。
+
+### 燃焼の時間の進め方（項目 2）
+
+本番の 40 点（0.1〜60 MWd/kg）と、隣り合う点の中点を足して倍にした 80 点、さらに倍の 160 点（u と gd）の燃焼を、粗い方の点で比べる
+（`compare_steps.py`。差は細かい − 粗い）。積分法は CE/CM（ADR-0173）。
+
+- u: k∞ の差（80 − 40）は 1〜16 MWd/kg で −0.7〜−1.9 pcm、ステップが 2 MWd/kg になる 20〜40 で −5.1〜−7.1 pcm、4 MWd/kg になる
+  48 と 60 で −13.6 と −10.4 pcm。160 − 80 は同じ点で −0.4〜−0.6、−1.7〜−2.2、−4.5 と −3.6 pcm で、差は倍にするごとに約 1/3 に縮む
+  （2 次なら 1/4）。160 − 40 は最大 −18.1 pcm（48 MWd/kg）。40 点の k∞ は高く見積もる側で、目安を 20 MWd/kg より上で超える
+- mox: 80 − 40 は 1〜16 で −0.4〜−1.3 pcm、20〜40 で −2.4〜−2.9 pcm、48 と 60 で −5.5 と −6.9 pcm
+- gd: 80 − 40 は Gd の燃え尽き（5〜10 MWd/kg）で +30.4〜+323.0 pcm（7 MWd/kg で最大）、16 MWd/kg より上で −13.3〜−18.7 pcm。160 − 80 は
+  7 MWd/kg で +98.1 pcm、16 より上で −3.9〜−6.0 pcm。80 点は燃え尽きの間を 0.5 MWd/kg で刻み、本番の Gd の履歴（`p9-gd/lattice-2O.toml` の
+  72 点）と同じ刻みなので、本番の Gd の履歴の燃え尽きの誤差は 100 pcm の桁（160 − 80 の差より大きい見込みで、160 点の誤差は確かめていない）
+- 数密度の差（燃焼の領域の体積の平均。最初の 0.1 MWd/kg の点の Pu の小さな数密度の相対差を除く）は、u の 160 − 40 で U-235 −0.05% 以内、
+  Pu-241 −0.9% 以内、Xe-135 +0.09% 以内、Sm-149 ±0.1% 以内。mox の 80 − 40 の Xe-135 は +0.42%、Sm-149 は −0.21% まで。gd の Gd のピンの
+  Gd-157 は 80 − 40 で −25.4%、160 − 80 で −8.6%（どちらも 7 MWd/kg）
+- 比べる 2 つは同じ積分法、同じ核データ、同じ形状で、違うのは燃焼度の点だけ。OpenMC の参照も同じ積分法と同じ点で解く（ADR-0173）ので、
+  この誤差は OpenMC との比較に出ない
+
+### H in H2O の S(α,β) の温度の内挿（項目 8）
+
+H-1 の 573.6 K を評価済みの表で作ったライブラリ a と、550 と 600 K だけで作ったライブラリ b（573.6 K は 550 と 600 K の群定数の
+温度の線形の内挿。ADR-0080）で、u と mox の 40 点の履歴の組成から減速材だけを 573.6 K にしたブランチ計算を解き、k∞ を比べる
+（`compare_sab.py`。差は b − a）。O-16、B-10、B-11 は内挿できないので、どちらのライブラリにも 573.6 K を足した（a と b の違いは
+H-1 だけ）。被覆管は 565 K のまま。
+
+- u: 燃焼度 0、20、40、60 MWd/kg で −0.07、+1.15、+1.66、+2.08 pcm
+- mox: 同じ点で −3.58、−3.00、−2.96、−2.86 pcm
+- 区間の幅は 50 K で、Problem 9 の減速材の軸の内挿の区間（550〜573.6、573.6〜600、600〜623.6 K）はその約半分。目安の中
+- 比べる 2 つは H-1 の温度の点のほかは同じ入力。OpenMC の参照も内挿で解く（`p2/openmc-library.toml`）ので、OpenMC との比較はこの差を見ない
+
+### 非分離共鳴の自己遮蔽（項目 6）、収率の 2 点の重み（項目 7）、出力の規格化（項目 3）
+
+u と mox の 40 点の履歴の組成の、燃焼と同じ状態のブランチ計算を WIMS の 69 群のまま書き（`urr/`）、群の微視的断面積と少数群定数の
+無限媒質の中性子束から、1 次の摂動で見積もる（`estimates.py`。方法と仮定は先頭の説明）。69 群の定数の固有値は、どの点も表の k∞ と
+小数 5 桁で一致する。
+
+- 項目 6: UFG の範囲（4 eV〜15.03 keV。ADR-0069）の中で核種の非分離共鳴の範囲に入る群の吸収と生成を、ライブラリの σ0 の表の
+  自己遮蔽因子だけ減らしたときの k∞ の変化は、u で −0.11〜+0.09 pcm、mox で −3.44〜−4.79 pcm（大半は Pu-241。Pu-241 の非分離共鳴は
+  300 eV から）。σ0 は燃料（Sn は被覆管との小さい方）の均質な Bondarenko の背景で、燃料の外への逃げの項を入れないので遮蔽を大きく
+  見積もる。非均質な形状での遮蔽と、U-238 の分離共鳴との重なり（相互の遮蔽）は入れていない。目安の中
+- 項目 7: ENDF-349（England と Rider、LA-UR-94-3106。29 ページの「Energy Definitions」）は、高速の収率を核分裂スペクトルの中性子（U-235 の
+  Cd-115 の R 値 2.8 のスペクトル）の収率と定め、高速炉の炉心で測った収率と 0.5〜2.0 MeV の単色の中性子の収率を合わせたものと書く。
+  500 keV の点は核分裂スペクトルの収率で、熱外（共鳴）の中性子の収率ではない。収率の境界（112.47 eV。ADR-0183）より上の核分裂の
+  割合は、u で 11.7〜14.9%、mox で 22.2〜23.4%。その核分裂の収率を熱の点に置き換えたときの、輸送する核分裂生成物の累積の収率の変化から
+  見積もる k∞ の変化（数密度が収率に比例するとみなす）は、u で +0.0〜+0.9 pcm、mox で 0.0〜−2.1 pcm。核種ごとの絶対値の和は u で 12.8 pcm、
+  mox で 40.0 pcm まで（mox の Ag-109 が −12.5 pcm、Eu-153 が +6.7 pcm。60 MWd/kg）。共鳴ごとの収率の揺らぎ（ENDF-349 の文献に Ag-111/Mo-99 の
+  比などがある）は入れていない
+- 項目 3: 捕獲（MT102）の Q の和の、核分裂の Q（チェーンの値）の和に対する割合は、u で 2.52〜3.36%（燃焼度 0）から 6.50〜7.59%（60）、mox で
+  3.89〜4.16% から 5.33〜5.69%。幅は micro に挙げない吸収（u で吸収の 10.7〜13.5%、mox で 3.8〜4.2%。減速材の H-1 と B-10、被覆管など）の Q を
+  2.22〜8 MeV にしたもの。出力をこの分も含むエネルギーで規格化すると、同じ燃焼度までの核分裂が燃焼度の平均の割合だけ減り、同じ燃焼度の
+  k∞ は u で +460〜+573 pcm（20 MWd/kg）、+826〜+999 pcm（40）、+880〜+1,051 pcm（60）、mox で +240〜+256、+455〜+485、+658〜+702 pcm 変わる
+  見込み（履歴の k∞ の傾きから。燃焼度の軸がずれる量は 40 MWd/kg で 1.7〜2.1 MWd/kg）。OpenMC 0.15.2 の `energy-deposition` は
+  `heating-local`（photon を輸送しないとき）の tally で規格化する（`openmc/deplete/coupled_operator.py`）。`heating-local` に捕獲の γ が入るかは
+  確かめていない
