@@ -11,8 +11,12 @@
 //! neutron-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"  # 中性子の反応
 //! ```
 //!
-//! `natural-isotopes` は、天然の元素の評価（A = 0）を当てる核種の名前を挙げる（ADR-0262。省くと空。ENDF/B-VIII.0 には
-//! 要らない。ENDF/B-VII.1 なら `["C-12", "C-13"]`）。天然の元素の評価があって当てる核種がなければ止める
+//! 評価にないものを補う核種は、次の項目で名前を挙げる（省くと空。ENDF/B-VIII.0 には要らない）:
+//!
+//! - `natural-isotopes`: 天然の元素の評価（A = 0）を当てる核種（ADR-0262）。ENDF/B-VII.1 なら `["C-12", "C-13"]`。天然の元素の
+//!   評価があって当てる核種がなければ止める
+//! - `unknown-excitations`: 負の ELIS を励起エネルギーの分からない準位として受け入れる準安定状態（ADR-0263）。ENDF/B-VII.0 なら
+//!   `["Nb-88m"]`。挙げない負の ELIS は止める
 //!
 //! データにないものを規則で補った箇所は警告（tracing の warn）として標準エラーに出す。
 
@@ -27,7 +31,7 @@ use serde::Deserialize;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use xlc_chain::build::build;
+use xlc_chain::build::{Supplements, build};
 use xlc_chain::endf::{read_decay, read_neutron, read_yields};
 // MF8 の生成物の状態も、チェーンの反応の MT で読む
 use xlc_depletion::chain::REACTION_MTS;
@@ -45,6 +49,9 @@ struct Input {
     /// 天然の元素の評価を当てる核種（ADR-0262）
     #[serde(default)]
     natural_isotopes: Vec<String>,
+    /// 負の ELIS を受け入れる準安定状態（ADR-0263）
+    #[serde(default)]
+    unknown_excitations: Vec<String>,
 }
 
 fn main() -> ExitCode {
@@ -134,7 +141,11 @@ fn run(path: &Path) -> Result<()> {
         neutrons = neutrons.len(),
         "read the evaluations"
     );
-    let built = build(&decays, &neutrons, &yields, &input.natural_isotopes)?;
+    let supplements = Supplements {
+        natural_isotopes: input.natural_isotopes,
+        unknown_excitations: input.unknown_excitations,
+    };
+    let built = build(&decays, &neutrons, &yields, &supplements)?;
     for warning in &built.warnings {
         xlc_log::warn!("{warning}");
     }
