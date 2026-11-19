@@ -93,9 +93,11 @@ issues: []
 ### 確認
 
 - `scripts/test_dvc_repro.py`: 参照解のステージを含む目標、上限を超える目標で止まって dvc repro を呼ばず、通る目標で
-  dvc repro を呼ぶこと（PATH に置いた偽の dvc で）。下流の数え、references-shell の扱い、組の許可、`-s` を受けないこと
+  dvc repro を呼ぶこと（PATH に置いた偽の dvc で）。下流の数え、references-shell の扱い、組の許可、`-s` とリポジトリの直下の外を
+  受けないこと、ログで `STOP:` が一覧の後に来ること
 - `.claude/hooks/test_block_raw_dvc_repro_in_slurm.py`: `slurm-run.sh` に生の dvc repro を渡すコマンドを止め、ラッパー、
-  stage_runner、手元の `dvc repro` と `dvc repro -s` を止めないこと
+  stage_runner、手元の `dvc repro` と `dvc repro -s` を止めないこと。`slurm-run.sh … 2>&1 | tail` のように fd の番号が後に続いても
+  止めること。`.claude/hooks/test_block_raw_dvc_checkout.py` は `2>/dev/null dvc checkout` を止めること
 - 2026-11-19、xlc 52006f73f（分岐点は main 3eaeb4dcd。出力は `scripts/worktree-restore-outputs.sh` で dvc.lock のとおりに戻した）で
   `scripts/dvc-repro.py --max-stages 100 --count-only examples/vera/dvc.yaml`: 走りうるステージは 83（xs-nuclide 60、keno-assembly 12、
   keno-pincell 3、xs-range、xs、lattice-1B、compare-1B、references-shell、参照解 3）で、どれも dvc status の changed（下流から足した

@@ -39,8 +39,8 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
 - 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
   ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `scripts/dvc-repro.py --max-stages 1 <yaml>:xs`。ADR-0193）。
   runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
-- `dvc repro` を投げる前に、出力を戻した、ジョブを実行する worktree で `scripts/dvc-repro.py` に同じ引数と `--count-only` を
-  付けて数え、`--max-stages` と見積もりを決める（手元で数えるのが長ければ（#0268）、見込みの本数を上限にして投げ、ジョブの中で数えさせる）。
+- `dvc repro` を投げる前に、出力を戻した、ジョブを実行する worktree の直下で `scripts/dvc-repro.py` に同じ引数と `--count-only` を
+  付けて数え、`--max-stages` と見積もりを決める（ジョブも直下から投げる。ほかの場所ではスクリプトが止まる。手元で数えるのが長ければ（#0268）、見込みの本数を上限にして投げ、ジョブの中で数えさせる）。
   時間は、過去のログで実行したステージの数の一覧（`grep -o "Running stage '[^'@]*" <ログ> | sort | uniq -c`）の全体が同じジョブから取る。
   2026-10-22 に、65 核種の作り直しを多群の作成のないジョブから 45 分と見積もって 2 時間 5 分かかった（Slurm 452。ラダーの和をベクトル化した ADR-0188 の後は 38 分、Slurm 473）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の

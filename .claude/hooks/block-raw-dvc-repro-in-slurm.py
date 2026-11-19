@@ -19,7 +19,8 @@ MESSAGE = """\
 Slurm に投げる生の dvc repro は止めている（ADR-0257）。走るステージを数えずに投げると、changed になった参照解（数時間の
 OpenMC）や目標の上流のライブラリの作り直しまでが走る（2026-10-22 の Slurm 454、2026-11-19 の Slurm 960）。
 
-代わりに、ジョブのコマンドを次の形にする（default の devShell。数えるのはジョブの中なので、投げる側を待たせない）:
+代わりに、リポジトリ（worktree）の直下から、ジョブのコマンドを次の形にして投げる（default の devShell。数えるのはジョブの中なので、
+投げる側を待たせない）:
 
   scripts/dvc-repro.py --max-stages <見込む本数> [--allow-reference <yaml>:<ステージか foreach の組>]... <dvc repro の目標>
 
