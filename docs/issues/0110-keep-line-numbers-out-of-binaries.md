@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [tooling, verification]
 opened: 2026-10-14
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0255
 ---
 
 # 出力を変えない整理でも、行の位置が変わると実行ファイルが変わりステージが古くなる
@@ -37,3 +37,8 @@ b42e20a8 で crates/lattice/src/moc.rs の先頭にコメントの行を 1 つ�
 ## 経緯
 
 - 2026-10-14: ADR-0159 の確認で、行の位置で実行ファイルが変わることが分かった
+- 2026-11-19: 変わるバイトは、パニックの位置（Location）の行と列、`tracing` の Metadata の行、イベントの名前の行の数字と
+  分かった（ADR-0255 の「背景」）。core の nem.rs の 474 行のイベントは名前が 32 バイトで、定数の節の並びまで変えていた。
+  イベントを xlc-log のマクロに替えて名前から行を外し、`build` が番号を 0 にしたコピーを `bin/` に置くことにした
+  （ADR-0255）。すべての .rs の先頭に注釈の行を足しても、`bin/` の 4 つの md5 は変わらない（ADR-0255 の「確認」の (c)）。
+  守れないもの（ファイルの間の移動、`enabled!` の行の桁の変化）は ADR-0255 の「決定と理由」
