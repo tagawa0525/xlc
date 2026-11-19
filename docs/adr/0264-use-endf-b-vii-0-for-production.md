@@ -5,7 +5,7 @@ date: 2026-11-20
 requires: [ADR-0020, ADR-0124, ADR-0175, ADR-0262, ADR-0263]
 supersedes: []
 superseded-by:
-issues: ["#0303"]
+issues: ["#0303", "#0305"]
 ---
 
 # ADR-0264: 本番の核データを ENDF/B-VII.0 にする
@@ -125,9 +125,10 @@ xlc の側で確かめたこと（2026-11-20）:
 
 確定の前に行うこと（1 つ目と 2 つ目はまだ行っていない）:
 
-- 燃焼チェーンの全核種を、4 つの版の中性子のファイルから xs で処理できること
+- 燃焼チェーンの全核種を、4 つの版の中性子のファイルから xs で処理できること（VII.0 と VII.1 の分離共鳴の SLBW などで止まる核種は #0305）
 - 1 つのピンセルの燃焼で、4 つの版の反応度の差を、Problem 9 の範囲（約 17 MWd/kg）と 60 MWd/kg までの燃焼度ごとに測ること。規格化の定義を
-  そろえる
+  そろえる。入力とステージは examples/depletion/endfb70 などの dvc.yaml と examples/depletion/dvc.yaml の compare-depletion-versions
+  （examples/depletion/verification.md の「版ごとのピンセルの燃焼」）
 - 核分裂収率と崩壊データの版ごとの違いを、数値で比べること（ユーザーは、機械的に確かめられる形を求めた。ユーザー 2026-11-20）。
   2026-11-20 に `examples/depletion/compare_chain_versions.py` で比べた（背景。examples/depletion/verification.md の「版ごとの燃焼チェーン」）。
   違いが燃焼の反応度にどれだけ効くかは、2 つ目のピンセルの燃焼で見る

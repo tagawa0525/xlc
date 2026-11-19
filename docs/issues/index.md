@@ -302,3 +302,4 @@
 * [コードを変えた後に、軽い問題を今のコードで再実行して結果の変化に気付く検査が無い](0299-rerun-light-problems-to-notice-result-changes.md)
 * [ENDF/B-VIII.0 が軽水炉の燃焼で反応度を低く見積もるという報告を確かめ、本番の核データの版を決める](0303-endfb80-depletion-reactivity-bias.md)
 * [ENDF のテープの読み込み（Tape）が、離れた場所に再び現れるセクションを止める](0304-tape-refuses-split-sections.md)
+* [xs が分離共鳴の SLBW（LRF=1）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない](0305-xs-slbw-resolved.md)
