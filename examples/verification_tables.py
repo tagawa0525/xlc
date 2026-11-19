@@ -4723,6 +4723,44 @@ def endfb70_openmc(sources: list[dict]) -> str:
 
 
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
+# 版ごとの燃焼チェーンの置き場（examples/depletion のステージの cwd から。#0303）
+CHAIN_VERSIONS = {
+    "endfb70/chain.msgpack": "VII.0",
+    "endfb71/chain.msgpack": "VII.1",
+    "chain.msgpack": "VIII.0",
+    "endfb81/chain.msgpack": "VIII.1",
+}
+
+
+def chain_versions(sources: list[dict]) -> str:
+    """版ごとの燃焼チェーンの比較: 版の組と量ごとの、比べた項目、違う項目、片方だけの項目、相対差がしきい値を超える項目の数"""
+    rows = []
+    thresholds = None
+    for s in sources:
+        if s.get("format") != "xlc-compare-chain-versions":
+            raise TableError("not an xlc-compare-chain-versions summary")
+        try:
+            a, b = (CHAIN_VERSIONS[i["path"]] for i in s["inputs"])
+        except KeyError as e:
+            raise TableError(f"a chain of no known version: {e}") from None
+        for q, c in s["quantities"].items():
+            if thresholds is None:
+                thresholds = list(c["above"])
+            rows.append(
+                [
+                    f"{a} → {b}",
+                    q,
+                    str(c["compared"]),
+                    str(c["differ"]),
+                    str(c["one_sided"]),
+                    *(str(c["above"][t]) for t in thresholds),
+                ]
+            )
+    header = ["版", "量", "比べた", "違う", "片方だけ"]
+    header += [f"相対差 > {t}" for t in thresholds or []]
+    return markdown_table(header, rows)
+
+
 TABLES = {
     "p3-reference-results": (
         [
@@ -4790,6 +4828,14 @@ TABLES = {
             "examples/vera/endfb70/openmc/compare-2B.json",
         ],
         endfb70_openmc,
+    ),
+    "chain-versions": (
+        [
+            "examples/depletion/compare-chain-versions-70-71.json",
+            "examples/depletion/compare-chain-versions-71-80.json",
+            "examples/depletion/compare-chain-versions-80-81.json",
+        ],
+        chain_versions,
     ),
     "depletion-1c-k": (
         [
