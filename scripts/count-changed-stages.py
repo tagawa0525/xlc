@@ -23,6 +23,15 @@ KINDS = (
 )
 
 
+def change_kinds(changes):
+    """dvc status --json の 1 つの key の変更の種類の集合。変更は {種類: 中身} の辞書か、中身の無い種類（always changed）の文字列"""
+    return {
+        kind
+        for change in changes
+        for kind in ([change] if isinstance(change, str) else change)
+    }
+
+
 def count_changed(status):
     counts = {}
     for key, changes in status.items():
@@ -37,12 +46,7 @@ def count_changed(status):
             yaml_path, {"stages": 0, **dict.fromkeys(KINDS, 0)}
         )
         per_yaml["stages"] += 1
-        # 変更は {種類: 中身} の辞書か、中身の無い種類（always changed）の文字列
-        kinds = {
-            kind
-            for change in changes
-            for kind in ([change] if isinstance(change, str) else change)
-        }
+        kinds = change_kinds(changes)
         unknown = kinds - set(KINDS)
         if unknown:
             raise ValueError(f"{key}: unknown change kind {sorted(unknown)}")

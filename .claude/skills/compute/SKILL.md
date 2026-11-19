@@ -37,7 +37,7 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
   [--allow-reference <yaml>:<ステージか組>]... <目標>` にする（走りうるステージを数え、上限を超えるか許していない参照解が入れば
   何も実行せずに止まる。生の `dvc repro` を `slurm-run.sh` に渡すと hook が止める。ADR-0257）。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
-  数秒のステージを再実行する /dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、目標だけを
+  名前で挙げたステージを再実行する /dvc-relock（`scripts/dvc-relock.py --run`）と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、目標だけを
   `dvc.lock` の上流の出力で実行するとき（重さによらない）だけに使う。例のステージの `-s` は、手元でも Slurm でも
   `scripts/dvc-repro.py -s [--allow-reference <yaml>:<ステージ>] <yaml>:<ステージ>` で実行する（上流が `changed outs`、
   `changed command`、`changed checksum` を持てば何も実行せずに止まり、changed の正規形は先に実行する。生の `dvc repro -s` は
@@ -69,7 +69,7 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
   `.dvc` ファイルをコミットする（同じ名前で作り直したら `dvc add` をやり直す）。worktree の後片付けで消えず、
   `scripts/worktree-restore-outputs.sh` で戻り、前の版はキャッシュに残る（`dvc gc` は `--all-commits` で行う。ADR-0222、ADR-0123）
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
-  コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても再実行せず、分岐点から復元する。数秒で終わる
-  ステージだけは再実行してよい（ADR-0130）。rebase で hash が変わっても
+  コミットと分岐点（main のコミット）を書く。rebase で deps が変わったことを理由には再実行せず、分岐点から復元する。再実行
+  するかは、その結果が要るかと時間の見積もりで、流す側が決める（ADR-0130、ADR-0258）。rebase で hash が変わっても
   再測定せず、ツール（`commit-refs remap`。rebase と amend では、`remap.commitRefs` が true なら post-rewrite hook が自動で呼ぶ（失敗したときだけ手で呼ぶ）。付け替えはコミットされないので、自分でコミットする）で付け替える。文書やテストの変更で hash が最新でなくなっても再測定しない。
   再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）

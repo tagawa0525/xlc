@@ -108,7 +108,7 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
   `.dvc` のキーを直下の dvc.yaml のステージと分けて `*.dvc` の行に数える
 - `.dvc` を足すか変えたブランチをマージしたあとは、main で `scripts/dvc-checkout.py <その .dvc>` で置き場をキャッシュに合わせる
   （スキル dvc-relock の後半）。ブランチで作り直して `dvc add` をやり直していない生成物があると、`dvc checkout` は
-  「Can't remove the following unsaved files」で全体が止まる（ほかの出力も戻らない。スキル dvc-relock の前半 1）
+  「Can't remove the following unsaved files」で全体が止まる（ほかの出力も戻らない。対処はスキル dvc-relock の前半 2）
 - `dvc repro` は、目標にした `.dvc` の対象が変わっていると、`.dvc` の md5 を今のファイルに書き直す（コミットはしない。`-P` と上流の扱いは確かめていない。
   2026-10-31 に `dvc repro examples/mox/openmc-mox2.msgpack.dvc` で確かめた）。前の版はキャッシュに残る
 - 規則の 1 行は CLAUDE.md の「計算」にある。新しい生成物を追うのは記録を書く担当の 1 手に頼り、記録の md5 と `.dvc` を
