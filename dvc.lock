@@ -34,8 +34,8 @@ stages:
       size: 98
     - path: scripts/build-binaries.sh
       hash: md5
-      md5: 761f9572ae05e57656223201d9ccc0bc
-      size: 4667
+      md5: e2961cdbd6c591f07c5f50f896ef5785
+      size: 4719
       isexec: true
     outs:
     - path: bin/chain
@@ -8395,8 +8395,8 @@ stages:
     deps:
     - path: scripts/normalize_binary.py
       hash: md5
-      md5: 3e0c345bff9718e655063e905650da31
-      size: 10293
+      md5: 12825a273da48798840364b1e4a8f142
+      size: 10011
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -8404,8 +8404,8 @@ stages:
     outs:
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
-      md5: f9a336c05d5d3761d09c4109e5bd9ced
-      size: 5764
+      md5: e0501253359d1b1ff975af44ab9653a0
+      size: 5695
   binary-forms@lattice:
     cmd: python3 scripts/normalize_binary.py bin/lattice 
       binary-forms/lattice.md5
@@ -8417,8 +8417,8 @@ stages:
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
-      md5: f9a336c05d5d3761d09c4109e5bd9ced
-      size: 5764
+      md5: e0501253359d1b1ff975af44ab9653a0
+      size: 5695
     outs:
     - path: binary-forms/lattice.md5
       hash: md5
@@ -8434,8 +8434,8 @@ stages:
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
-      md5: f9a336c05d5d3761d09c4109e5bd9ced
-      size: 5764
+      md5: e0501253359d1b1ff975af44ab9653a0
+      size: 5695
     outs:
     - path: binary-forms/core.md5
       hash: md5
@@ -8451,8 +8451,8 @@ stages:
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
-      md5: f9a336c05d5d3761d09c4109e5bd9ced
-      size: 5764
+      md5: e0501253359d1b1ff975af44ab9653a0
+      size: 5695
     outs:
     - path: binary-forms/xs.md5
       hash: md5
@@ -8468,8 +8468,8 @@ stages:
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
-      md5: f9a336c05d5d3761d09c4109e5bd9ced
-      size: 5764
+      md5: e0501253359d1b1ff975af44ab9653a0
+      size: 5695
     outs:
     - path: binary-forms/chain.md5
       hash: md5

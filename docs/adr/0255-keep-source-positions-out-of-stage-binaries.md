@@ -109,10 +109,13 @@ crates の追跡しているすべての .rs の先頭に注釈の行を足す�
 - scripts/build-binaries.sh は、ビルドした実行ファイルを `bin/<名前>` にそのまま置く（ADR-0159、ADR-0160 のとおり）。
   `binary-forms` が scripts/normalize_binary.py で正規形を書く。コピーは Location の行と列、`Metadata` の行、`enabled!` の
   名前の行の数字を 0 にし、ほかのバイトを変えない。ほかのバイトが 1 つでも違えば正規形も違う
-- 例のステージの deps は `bin/<名前>` の代わりに `binary-forms/<名前>.md5` を書き、cmd は `bin/<名前>` を実行する。`dvc.yaml` を
+- ADR-0159 の deps の規則（ステージの入力と、ステージが呼ぶ実行ファイル）のうち、実行ファイルを並べる部分を、その正規形に
+  置き換える（ADR-0254 が入力の TOML を置き換えたのと同じ形）。例のステージの deps は `bin/<名前>` の代わりに
+  `binary-forms/<名前>.md5` を書き、cmd は `bin/<名前>` を実行する。`dvc.yaml` を
   書くツール（`examples/core/rods_cases.py`、`examples/vera/p3/p3_inputs.py`、`p5_inputs.py`、`p6_inputs.py`）も正規形の
   パスを書く。scripts/test_normalize_binary.py の `RepositoryDepsTest`（pre-commit の hook `binary-forms` も実行する）が、
-  生の `bin/` の deps と、`binary-forms` が書かない正規形を止める
+  生の `bin/` の deps、`binary-forms` が書かない正規形、cmd が実行する実行ファイルと deps の正規形の食い違い、リポジトリの直下の
+  `dvc.lock` の `build` の outs と食い違う正規形を止める
 - 構造体のレイアウトは `repr(Rust)` で保証されないので、値どうしの整合で見つける。Location は「NUL で終わる `.rs` の文字列を
   指す &str の後に、0 でない行と列」。`Metadata` は「名前 `"event <ファイル>"` の &str の直前に Some(行)、名前から決まった
   距離に同じファイルの &str」で、距離はイベントから決めてスパンにも使う。Metadata のファイル名を先に決め、Location はそれ以外から
@@ -131,8 +134,8 @@ lattice の `enabled!` の 12 か所の行の桁の変化（文字列の長さ�
 deps のパスを替えると、実行ファイルを deps に持つステージの lock が食い違う。ADR-0254 の移行（案 M1）と同じく、例の dvc.lock の
 `bin/<名前>` の deps の項目を、lock が記録した版（DVC のキャッシュに md5 で残っているもの）の正規形の項目（パス、md5、大きさ）に
 書き換える。キャッシュに無い版と、正規形を求められない版の項目は書き換えない。xlc-log の前の版はイベントの名前に行を含むので、
-その数字も 0 にして求める（normalize_binary.py の `unnamed_events`。古い版の正規形を求めるときだけ使う）。書き換えるのは
-実行ファイルの deps の項目だけで、outs、cmd、ほかの deps は変えない。
+移行の一度だけ、その数字も 0 にする版の normalize_binary.py で求めた（移行の後は使わないので、リポジトリには残さない）。
+書き換えるのは実行ファイルの deps の項目だけで、outs、cmd、ほかの deps は変えない。
 
 ### 帰結
 
@@ -142,7 +145,7 @@ deps のパスを替えると、実行ファイルを deps に持つステージ
   実行したら `binary-forms` も実行し、`binary-forms/` とリポジトリの直下の `dvc.lock` をコミットする（/dvc-relock）
 - ステージのパニックの文は、`bin/` の行と列をそのまま出す
 - 使わないモジュールで実行ファイルが変わる件（#0117）は、別の原因。xlc-format に #0117 のモジュールを足すと、番号を 0 にした
-  コピーでも 3 つの実行ファイルの大きさが変わる（xs +448、lattice +832、core +2,752 バイト。「確認」の (d)）ので、行の番号では
+  コピーでも 4 つの実行ファイルが変わり、大きさも増える（xs +448、lattice +832、core +2,752、chain +256 バイト。「確認」の (d)）ので、行の番号では
   なく、コードかデータが実際に増えている。この ADR では扱わない
 - ツールチェーンか `tracing` を上げてレイアウトが変わると、`binary-forms` が normalize_binary.py のエラーで止まる。そのときは
   整合の条件を新しいレイアウトに合わせ、「確認」の (c) をやり直す
@@ -160,7 +163,7 @@ deps のパスを替えると、実行ファイルを deps に持つステージ
 - (c) xlc-log の後、crates の追跡しているすべての .rs と crates/log/src/lib.rs の先頭に注釈の行を 1 つ足してビルドすると、
   コピーの 4 つの md5 が足す前と同じ（xs b5c605b7、lattice 98a772e0、core e6fc72e3、chain 16a674a2。今の `binary-forms/` の値）
 - (d) #0117 のモジュールの大きさ: 足す前と後の実行ファイルの大きさは xs 3,072,016 と 3,072,464、lattice 11,234,944 と
-  11,235,776、core 7,443,832 と 7,446,584 バイト
+  11,235,776、core 7,443,832 と 7,446,584、chain 1,953,016 と 1,953,272 バイト
 - (e) 定数を 1 つ変えた実行ファイル（crates/lattice/src/moc.rs の `POLAR_SIN` の 0.166_648 を 0.166_649 に）の lattice の正規形は
   2d50279f で、変える前（98a772e0）と違う
 - (f) 計算が変わらないこと: examples/m0 の xs、lattice、core を、main の `bin/`（xs 28e28365、lattice c3b3bba1、core 22e10bb8）と
@@ -176,4 +179,4 @@ deps のパスを替えると、実行ファイルを deps に持つステージ
 - (h) テスト: scripts/test_normalize_binary.py（小さな ELF で、0 にするバイトとそれ以外を変えないこと、ほかのバイトを 1 つ
   変えると正規形が変わるかエラーで止まること、行をずらした同じ構造から同じ正規形になること、節の端の Location と名前、偶然 NUL
   で終わる Metadata のファイル名（今のレイアウトの後ろのフィールドでは Location に当たらないことと、両方に当たると止まること）、
-  エラーの条件、例の deps）と、crates/log/src/tests.rs（水準ごとのマクロの名前、target、フィールドと書式の形）
+  エラーの条件、例の deps と lock の正規形）と、crates/log/src/tests.rs（水準ごとのマクロの名前、target、フィールドと書式の形）

@@ -2,7 +2,7 @@
 # 呼び、deps にはその正規形（binary-forms。ADR-0255）を書く。build の deps は実行ファイルを作りうるもの（コード、依存、
 # ツールチェーン、コンパイルの設定、devShell）のすべてで、どれかが変わると build だけが走る。作った実行ファイルの正規形が
 # 変わらなければ、計算のステージは走らない。
-# build と例のステージが deps にする Python のファイルと入力の TOML の正規形も、ここの python-ast と toml-values が書く（ADR-0210、ADR-0254）。
+# 例のステージと binary-forms が deps にする Python のファイルと入力の TOML の正規形も、ここの python-ast と toml-values が書く（ADR-0210、ADR-0254）。
 stages:
   build:
     cmd: scripts/build-binaries.sh
@@ -39,7 +39,7 @@ stages:
             cache: false
   # 計算のステージが deps にする Python のファイルの正規形（ADR-0210）。docstring とコメントを除いた形を python-ast/ に書き、
   # git で追跡する。計算のステージの cmd は元の .py を呼び、deps にはその正規形を書く。docstring とコメントだけの変更では
-  # このステージだけが走り、正規形のバイトが変わらなければ計算のステージは走らない。並びは、build とどれかの例の deps に
+  # このステージだけが走り、正規形のバイトが変わらなければ計算のステージは走らない。並びは、binary-forms とどれかの例の deps に
   # ある .py のすべて（scripts/test_normalize_python.py が、deps との食い違いを止める）
   python-ast:
     foreach:
