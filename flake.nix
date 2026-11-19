@@ -55,8 +55,25 @@
       # 使わない: PATH の先頭に素の python3 を足し、ステージの cmd の python3 が検証用の Python でなくなる（#0101）。
       # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ。
       # .dvc-wrapped は nixpkgs の Python のラッパーの中の名前なので、無ければビルドで止める
-      dvc = pkgs.runCommand "dvc-${pkgs.dvc.version}" { } ''
-        test -x ${pkgs.dvc}/bin/.dvc-wrapped || {
+      #
+      # DVC は vars と params の TOML を tomlkit で読む。nixpkgs の tomlkit 0.15.0 は、共通の接頭辞を持つ表の見出しで読む時間が
+      # 見出しの数の 2 乗で延びる（tomlkit の issue 479。0.15.1 で線形になった）ので、DVC の Python だけ直った版にする（#0268）。
+      # nixpkgs の tomlkit が 0.15.1 以上になったら、この override は評価で止まるので消す
+      dvcTomlkit =
+        assert lib.versionOlder pkgs.python3Packages.tomlkit.version "0.15.1";
+        pkgs.python3Packages.tomlkit.overridePythonAttrs rec {
+          version = "0.15.2";
+          src = pkgs.fetchPypi {
+            pname = "tomlkit";
+            inherit version;
+            hash = "sha256-g+MnVbodINk0C9Bp7pfp9iMrojRrY//LpCXeAffjJ6Y=";
+          };
+        };
+      dvcPackage = pkgs.python3Packages.toPythonApplication (
+        pkgs.python3Packages.dvc.override { tomlkit = dvcTomlkit; }
+      );
+      dvc = pkgs.runCommand "dvc-${dvcPackage.version}" { } ''
+        test -x ${dvcPackage}/bin/.dvc-wrapped || {
           echo "pkgs.dvc に bin/.dvc-wrapped が無い（#0101）" >&2
           exit 1
         }
@@ -64,7 +81,7 @@
         cat > $out/bin/dvc <<EOF
         #!${pkgs.runtimeShell}
         export PYTHONNOUSERSITE=true
-        exec ${pkgs.dvc}/bin/.dvc-wrapped "\$@"
+        exec ${dvcPackage}/bin/.dvc-wrapped "\$@"
         EOF
         chmod +x $out/bin/dvc
       '';
