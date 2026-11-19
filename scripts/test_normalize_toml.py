@@ -151,6 +151,16 @@ class InputMd5Test(unittest.TestCase):
                 hashlib.md5(norm.normalize("a = 1\n").encode()).hexdigest(),
             )
 
+    def test_given_bytes_are_hashed_instead_of_the_file(self):
+        # スクリプトが読んで解いたバイトの md5 にする（読み直した間に書き換わったファイルの md5 にしない）
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, "a.toml")
+            src.write_text("a = 2\n", encoding="utf-8")
+            self.assertEqual(
+                norm.input_md5(src, "a = 1  # コメント\n".encode()),
+                hashlib.md5(norm.normalize("a = 1\n").encode()).hexdigest(),
+            )
+
     def test_other_input_is_the_md5_of_its_bytes(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp, "a.msgpack")
