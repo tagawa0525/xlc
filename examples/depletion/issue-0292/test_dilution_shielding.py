@@ -40,11 +40,11 @@ class Interpolate(unittest.TestCase):
 
 class Weights(unittest.TestCase):
     def test_each_range_sums_to_its_two_group_flux(self):
-        w = ds.weights([1e3, 10.0, 1.0, 0.1, 1e-5], 565.0, 3.0, 2.0)
+        w = ds.weights([1e3, 25.0, 0.625, 0.1, 1e-5], 565.0, 3.0, 2.0)
         self.assertAlmostEqual(w[0] + w[1], 3.0)
         self.assertAlmostEqual(w[2] + w[3], 2.0)
-        # 熱外は単位のレサジーあたり一定
-        self.assertAlmostEqual(w[0] / w[1], 2.0)
+        # 熱外は単位のレサジーあたり一定（2 つの群は同じ 40 倍の幅）
+        self.assertAlmostEqual(w[0] / w[1], 1.0)
 
 
 class WeightsBoundary(unittest.TestCase):

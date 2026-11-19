@@ -22,10 +22,9 @@ import json
 import math
 from pathlib import Path
 
-import msgpack
 from untransported_absorption import (
-    absorption,
     nominal_states,
+    read,
     region_sum,
     two_group_flux,
 )
@@ -33,10 +32,6 @@ from untransported_absorption import (
 # 熱群と高速群の境界 (eV)。テーブルの 2 群の境界と同じ
 THERMAL = 0.625
 BOLTZMANN = 8.617333262e-5
-
-
-def read(path):
-    return msgpack.unpackb(Path(path).read_bytes(), strict_map_key=False)
 
 
 def temperature_data(nuclide_file, temperature):
@@ -49,6 +44,10 @@ def temperature_data(nuclide_file, temperature):
 
 def weights(bounds, temperature, fast, thermal):
     """群ごとの中性子束の重み（`bounds` は降順の群の境界 (eV)。熱外と熱の和はそれぞれ `fast` と `thermal`）"""
+    if THERMAL not in bounds:
+        raise SystemExit(
+            f"the groups have no boundary at {THERMAL} eV, the split of the two-group flux"
+        )
     kt = BOLTZMANN * temperature
     out = []
     for hi, lo in itertools.pairwise(bounds):
@@ -78,6 +77,13 @@ def interpolate(sigma0, table, value):
             x = (math.log(value) - math.log(s1)) / (math.log(s0) - math.log(s1))
             return t1 + (t0 - t1) * x
     return table[-1]
+
+
+def capture_and_fission(nuclide):
+    """冷却計算の 1 群の微視的断面積の、(n,γ) と核分裂の和 (barn)。xs のファイルの Bondarenko の表（捕獲と核分裂）と同じ反応にそろえる"""
+    return nuclide["fission"] + sum(
+        sum(r["channels"]) for r in nuclide["reactions"] if r["mt"] == 102
+    )
 
 
 def share(point, name, pruned):
@@ -173,7 +179,9 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
         for name in names:
             n = mean(name)
             r, one = ratio(nuclide(added_dir, name), total, n, sigma0, w, temperature)
-            cooled = absorption(cooling["points"][k][cooling["nuclides"].index(name)])
+            cooled = capture_and_fission(
+                cooling["points"][k][cooling["nuclides"].index(name)]
+            )
             entry = share(p, name, pruned)
             rows[name].append(
                 {
@@ -181,7 +189,7 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
                     "density": n,
                     "ratio": r,
                     "infinite_one_group": one,
-                    "weight_check": one / cooled,
+                    "weight_check": one / cooled if cooled > 0.0 else None,
                     "shielding_pcm": 1e5
                     * entry["fraction"]
                     * entry["captured_ratio"]

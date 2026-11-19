@@ -27,6 +27,7 @@
 """
 
 import argparse
+import copy
 import sys
 from pathlib import Path
 
@@ -314,7 +315,7 @@ def write_branches(fuel: str) -> None:
     )
     for name, listed in [("tracked", TRACKED)] + [(n, [n]) for n in nuclides]:
         tag = name if name == "tracked" else f"only-{name}"
-        mixed = hybrid(read(nominal_path), read(varied_path), listed)
+        mixed = hybrid(copy.deepcopy(nominal), varied, listed)
         (out / f"hybrid-{name}.msgpack").write_bytes(msgpack.packb(mixed))
         (out / f"{tag}.toml").write_text(
             branch_input(fuel, tag, f"hybrid-{name}.msgpack", BRANCH_BURNUP, None)

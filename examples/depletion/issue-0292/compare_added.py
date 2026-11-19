@@ -18,11 +18,7 @@ import hashlib
 import json
 from pathlib import Path
 
-import msgpack
-
-
-def read(path):
-    return msgpack.unpackb(Path(path).read_bytes(), strict_map_key=False)
+from untransported_absorption import read
 
 
 def history_k(history):
@@ -33,6 +29,12 @@ def history_k(history):
 
 def compare(before, after, absorption, added):
     k_before, k_after = history_k(before), history_k(after)
+    gained = set(after["transportable"]) - set(before["transportable"])
+    wrong = sorted(set(added) ^ gained)
+    if wrong:
+        raise SystemExit(
+            f"the added list and the nuclides the second library transports differ in {wrong}"
+        )
     if sorted(k_before) != sorted(k_after):
         raise SystemExit("the histories have different burnup points")
     rows = []

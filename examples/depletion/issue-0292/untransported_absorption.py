@@ -119,7 +119,10 @@ def lattice_volume(history, table, point, burnup):
         raise SystemExit("the table must track U-238 to fix the lattice volume")
     volume = summed("U-238") / densities[names.index("U-238")]
     for name, d in zip(names, densities):
-        if d > 0.0 and abs(summed(name) / volume / d - 1.0) > VOLUME_TOLERANCE:
+        mine = summed(name) / volume
+        if (d > 0.0) != (mine > 0.0) or (
+            d > 0.0 and abs(mine / d - 1.0) > VOLUME_TOLERANCE
+        ):
             raise SystemExit(
                 f"{name} at {burnup} MWd/kg: the history and the table disagree in the homogenized density"
             )
@@ -290,8 +293,8 @@ def summarize(history, table, half_lives):
 
 
 def prune(points, ranked, floor):
-    """最大の目安が `floor` pcm 以下の核種を、点ごとの核種の一覧と順位から外す（順位の残りの和は外す前の値のまま）"""
-    kept = {r["nuclide"] for r in ranked["ranking"] if r["max_pcm"] > floor}
+    """最大の目安の絶対値が `floor` pcm 以下の核種を、点ごとの核種の一覧と順位から外す（順位の残りの和は外す前の値のまま）"""
+    kept = {r["nuclide"] for r in ranked["ranking"] if abs(r["max_pcm"]) > floor}
     dropped = [r for r in ranked["ranking"] if r["nuclide"] not in kept]
     for p in points:
         p["untransported_all"] = {
@@ -303,7 +306,7 @@ def prune(points, ranked, floor):
         "counts": ranked["counts"],
         "pruned": {
             "count": len(dropped),
-            "sum_pcm": sum(r["max_pcm"] for r in dropped),
+            "sum_pcm": sum(abs(r["max_pcm"]) for r in dropped),
             "nuclides": [r["nuclide"] for r in dropped],
         },
     }
