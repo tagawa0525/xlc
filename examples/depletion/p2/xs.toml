@@ -7,7 +7,7 @@
 # 燃料の温度の軸の 560, 750, 900, 1050, 1200, 1350 K を、H-1 を除く全核種に（燃料と、減速材の温度の吸収体を燃焼させる履歴（#0139）の
 # 輸送する核種の分岐の温度。ADR-0239）。
 # 冷却材の H は S(α,β) の 550, 573.6, 600, 623.6 K（間の温度は lattice が内挿する。ADR-0080）。
-# Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 は輸送する核種から外したまま（#0293 の 1。外した理由の NaN は ADR-0177 で直り、../xs.toml には戻してある）
+# Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 は輸送する核種から外したまま（#0293 の 1。../xs.toml は輸送する）
 output = "depletion.msgpack"
 endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
