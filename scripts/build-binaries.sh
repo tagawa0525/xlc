@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-binaries.sh — DVC の build のステージ（リポジトリの直下の dvc.yaml）。xs、lattice、core と、xs のステージの燃焼チェーンの
-# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、ソースの行と列の番号を 0 にして（ADR-0255）bin/ に置く。examples/*/dvc.yaml の Rust のステージは、この実行ファイルを deps にして呼ぶ（ADR-0159）
+# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust のステージは、この実行ファイルを deps にして呼ぶ（ADR-0159）
 #
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #
@@ -65,9 +65,5 @@ for name in "${names[@]}" "${separate[@]}"; do
     echo "ERROR: $built に worktree のパスか outputs/out/lib が埋まっている（ADR-0159）" >&2
     exit 1
   fi
-  # パニックの位置の行と列と、ログの Metadata の行を 0 にしたコピーを置く。注釈の行や関数の並べ替えで bin/ のバイトが
-  # 変わらず、計算のステージが古くならない（ADR-0255）。パニックの行は、bin/ を作ったコミット（その md5 を dvc.lock の build の
-  # outs に書いたコミット。`git log -S <md5> --reverse -- dvc.lock` の最初。後のものは md5 を消したコミット）でこのスクリプトを流した target/dvc/release/<名前>（番号を残した
-  # 同じビルド）で、同じ入力を流すと分かる
-  python3 scripts/normalize_binary.py "$built" "bin/$name"
+  cp -- "$built" "bin/$name"
 done

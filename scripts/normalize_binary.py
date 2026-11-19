@@ -1,24 +1,24 @@
-"""DVC の build のステージが bin/ に置く実行ファイルから、ソースの行と列の番号を消す（ADR-0255）。
+"""DVC の計算のステージが deps にする、実行ファイルの正規形（ソースの行と列の番号を 0 にしたコピーの md5）を書く（ADR-0255）。
 
-使い方: python3 scripts/normalize_binary.py <ビルドした実行ファイル> <出力>
+使い方: python3 scripts/normalize_binary.py <bin/ の実行ファイル> <正規形の出力>
 
-計算を変えない編集（注釈の行を足す、関数を並べ替える）でも、ソースの行の番号は実行ファイルの次の 3 か所に入り、
-ステージの deps（ADR-0159）を変える。どれも計算のコードからは読まれず、パニックの文とログの記述にだけ使われる:
+計算を変えない編集（注釈の行を足す、関数を並べ替える）でも、ソースの行の番号は実行ファイルの次の 3 か所に入る。どれも
+計算のコードからは読まれず、パニックの文とログの記述にだけ使われる:
 
 - パニックの位置 `core::panic::Location`（配列の境界の検査など）の行と列
 - `tracing` のイベントとスパンの `Metadata` の `line: Option<u32>`
 - `tracing::enabled!` の名前 `"enabled <ファイル>:<行>"` の行の数字（イベントの名前は xlc_log のマクロが行を含めない）
 
-この 3 か所の番号を 0 にしたコピーを書く。ほかのバイトは変えない。構造体のレイアウトは `repr(Rust)` で保証されないので、
-値どうしの整合で見つける: Location は「NUL で終わる `.rs` の文字列を指す &str の後に 0 でない行と列」、Metadata は
-「名前 `"event <ファイル>"` の &str の直前に Some(行)、後ろの決まった距離に同じファイルの &str」。距離はイベントから
-決め、スパンにも使う。整合が崩れたとき（Location か Metadata が見つからない、距離がイベントごとに違う、1 つの &str が
-Location と Metadata のファイル名の両方に当たる）は、
-コンパイラか `tracing` のレイアウトが変わったとみなしてエラーで止める。黙って消し残すと、注釈の行でステージが
-古くなるのに気付けず、黙って別のバイトを消すと計算が変わりうる。
-crates/ のイベントの名前が行を含む（`tracing` のイベントのマクロを直接呼んだ）ときもエラーで止める。
-"""
+この 3 か所の番号を 0 にしたコピーの md5 を、1 行で書く。ステージが実行するのは `bin/` の実行ファイルのままで、コピーは
+md5 を取るためだけに作る。番号を 0 にするのは 3 か所だけで、ほかのバイトが 1 つでも違えば正規形も違う。構造体のレイアウトは
+`repr(Rust)` で保証されないので、値どうしの整合で見つける: Location は「NUL で終わる `.rs` の文字列を指す &str の後に 0 でない
+行と列」、Metadata は「名前 `"event <ファイル>"` の &str の直前に Some(行)、後ろの決まった距離に同じファイルの &str」。距離は
+イベントから決め、スパンにも使う。整合が崩れたとき（Location か Metadata が見つからない、距離がイベントごとに違う、1 つの &str が
+Location と Metadata のファイル名の両方に当たる）は、コンパイラか `tracing` のレイアウトが変わったとみなしてエラーで止める。
+推定の外れで別のバイトを 0 にすると、変わった実行ファイルを同じとみなし、ステージが古いのに走らない。crates/ のイベントの名前が
+行を含む（`tracing` のイベントのマクロを直接呼んだ）ときもエラーで止める。"""
 
+import hashlib
 import re
 import struct
 import sys
@@ -68,7 +68,11 @@ class Elf:
         return None
 
 
-def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
+def normalize(
+    data: bytes, unnamed_events: bool = False
+) -> tuple[bytes, dict[str, int]]:
+    """番号を 0 にしたコピーと、0 にした数。unnamed_events は、xlc_log の前の実行ファイル（イベントの名前が
+    "event <ファイル>:<行>"）の数字も 0 にする（dvc.lock が記録した古い版の正規形を求めるときだけ使う）"""
     elf = Elf(data)
     if ".data.rel.ro" not in elf.sections:
         raise ValueError(".data.rel.ro が無い（位置の情報の置き場が変わった）")
@@ -122,7 +126,7 @@ def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
                 f"{match.group(0)!r} の直前が Some(行) でない（Metadata のレイアウトが変わった）"
             )
         if digits is not None:
-            if kind == b"event" and path.startswith(b"crates/"):
+            if kind == b"event" and path.startswith(b"crates/") and not unnamed_events:
                 raise ValueError(
                     f"{match.group(0)!r}: tracing のイベントのマクロを名前なしで呼んでいる。xlc_log のマクロを使う"
                 )
@@ -177,13 +181,18 @@ def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
     return bytes(out), counts
 
 
+def form(data: bytes, unnamed_events: bool = False) -> str:
+    """正規形: 番号を 0 にしたコピーの md5 の 16 進"""
+    return hashlib.md5(normalize(data, unnamed_events)[0]).hexdigest()
+
+
 def main(argv: list[str]) -> None:
     if len(argv) != 2:
-        raise SystemExit("usage: python3 scripts/normalize_binary.py <built> <output>")
+        raise SystemExit("usage: python3 scripts/normalize_binary.py <binary> <form>")
     src, dst = Path(argv[0]), Path(argv[1])
-    data, counts = normalize(src.read_bytes())
-    dst.write_bytes(data)
-    dst.chmod(src.stat().st_mode)
+    copy, counts = normalize(src.read_bytes())
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(hashlib.md5(copy).hexdigest() + "\n", encoding="utf-8")
     print(f"{dst}: " + " ".join(f"{k}={v}" for k, v in counts.items()))
 
 
