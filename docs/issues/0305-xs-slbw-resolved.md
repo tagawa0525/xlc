@@ -29,7 +29,7 @@ resolution:
   `xs range` は MF2 の分離共鳴の上端までしか読まないので、MF2 のほかの部分と MF3 から MF6 は確かめていない
 - NJOY の RECONR は SLBW を再構成する。xs で SLBW を読むか、別の扱いにするかは決めていない
 
-関係する ADR: ADR-0264
+関係する ADR: ADR-0264、ADR-0265
 
 ## 完了の条件
 
