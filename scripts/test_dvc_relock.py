@@ -46,6 +46,7 @@ echo "dvc $*" >> "{d}/calls"
 case "$1" in
   repro)
     echo "Stage '$3' didn't change, skipping"
+    cp dvc.yaml "{d}/yaml-at-repro"
     [ "$3" = "$(cat "{d}/fail-repro" 2>/dev/null)" ] && echo "dvc failed on $3" >&2 && exit 5
     case "$*" in *dvc.yaml:python-ast*) echo rewritten > python-ast/a.py.ast;; esac
     exit 0;;
@@ -62,6 +63,32 @@ code=$(cat "{d}/{name}.code" 2>/dev/null || echo 0)
 if [ "{name}" = dvc-repro.py ] && [ "$code" = 0 ] && [ -f "{d}/after.json" ]; then cp "{d}/after.json" "{d}/status.json"; fi
 exit "$code"
 """
+# 直下の dvc.yaml の正規形の foreach は、例の deps のとおり（scripts/normalize_toml.py は toml-values が読む）
+ROOT_YAML = """\
+stages:
+  python-ast:
+    foreach:
+      - a.py
+{extra}      - scripts/normalize_toml.py
+    do:
+      cmd: python3 scripts/normalize_python.py ${{item}} python-ast/${{item}}.ast
+  toml-values:
+    foreach:
+      - examples/v/in.toml
+    do:
+      cmd: python3 scripts/normalize_toml.py ${{item}} toml-values/${{item}}.json
+      deps:
+        - python-ast/scripts/normalize_toml.py.ast
+"""
+EXAMPLE_YAML = """\
+stages:
+  lattice-1B:
+    cmd: lattice in.toml
+    deps:
+      - ../../python-ast/a.py.ast
+{extra}      - ../../toml-values/examples/v/in.toml.json
+"""
+
 PARTS = (
     "dvc-checkout.py",
     "check-references-shell.sh",
@@ -131,6 +158,8 @@ class Process(unittest.TestCase):
         (repo / "dvc.lock").write_text("schema: '2.0'\n")
         (repo / "examples" / "v" / "dvc.lock").write_text("schema: '2.0'\n")
         (repo / "examples" / "v" / "verification.md").write_text("record\n")
+        (repo / "dvc.yaml").write_text(ROOT_YAML.format(extra=""))
+        (repo / "examples" / "v" / "dvc.yaml").write_text(EXAMPLE_YAML.format(extra=""))
         subprocess.run([*git, "add", "."], check=True)
         subprocess.run([*git, "commit", "-q", "-m", "base"], check=True)
         subprocess.run([*git, "checkout", "-q", "-b", "topic"], check=True)
@@ -139,6 +168,7 @@ class Process(unittest.TestCase):
         self.script = repo / "scripts" / SCRIPT.name
         shutil.copy(SCRIPT, self.script)
         shutil.copy(SCRIPT.parent / "count-changed-stages.py", repo / "scripts")
+        shutil.copy(SCRIPT.parent / "normalized_forms.py", repo / "scripts")
         for name in PARTS:
             part = repo / "scripts" / name
             part.write_text(FAKE_PART.format(name=name, d=self.d))
@@ -212,6 +242,18 @@ class Process(unittest.TestCase):
                 "check-dvc-lock.sh",
             ],
         )
+
+    def test_the_foreach_follows_the_deps_before_the_normalized_forms_run(self):
+        # rebase の pick は pre-commit の hook を通らないので、正規形の foreach を例の deps に合わせ直してから書く
+        (self.repo / "examples" / "v" / "dvc.yaml").write_text(
+            EXAMPLE_YAML.format(extra="      - ../../python-ast/b.py.ast\n")
+        )
+        r = self.run_script(DEPS)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        expected = ROOT_YAML.format(extra="      - b.py\n")
+        self.assertEqual((self.d / "yaml-at-repro").read_text(), expected)
+        self.assertEqual((self.repo / "dvc.yaml").read_text(), expected)
+        self.assertIn("COMMIT: dvc.yaml", r.stdout)
 
     def test_named_stages_run_in_order_through_the_single_item_route(self):
         (self.d / "after.json").write_text(json.dumps(AFTER_LATTICE))

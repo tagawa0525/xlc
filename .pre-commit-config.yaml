@@ -29,6 +29,16 @@ repos:
         files: ^examples/(verification_tables\.py|.*/(verification(-[a-z0-9]+)?\.md|dvc\.lock|compare-[^/]*\.json))$
         pass_filenames: false # 渡されたファイルでなく、すべての記録を見る（JSON は追跡しない DVC の出力）
         verbose: true
+      - id: normalized-forms
+        name: rewrite the Python and TOML forms the stages depend on
+        # 下の検査（python-ast、toml-values）の前に、foreach を deps に合わせて 2 組のステージを実行し、書き直したらコミットを止める
+        # （ADR-0258）。vars の YAML と TOML も例の foreach を変えうる。実行ファイルの正規形（binary-forms）は、Rust を変えたコミットに
+        # build を求めないので、ここで書かない
+        entry: python3 scripts/normalized_forms.py
+        language: system
+        files: ^(.*dvc\.yaml|dvc\.lock|python-ast/.*|toml-values/.*|.*\.(py|toml|ya?ml))$
+        pass_filenames: false # 渡されたファイルでなく、すべての dvc.yaml の deps と 2 組のステージを見る
+        verbose: true
       - id: python-ast
         name: example stages depend on the current Python forms
         # run-checks.sh は .py の差分があるときだけ Python のテストを実行するので、dvc.yaml だけの変更でも検査する（ADR-0210）
