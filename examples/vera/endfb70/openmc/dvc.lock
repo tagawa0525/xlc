@@ -426,11 +426,12 @@ stages:
             ../../../../references/endf/ENDF-B-VII.0_neutrons/n-008_O_016.endf
           temperatures:
           - 600
+          - 1200
     outs:
     - path: openmc-library/neutron/O16.h5
       hash: md5
-      md5: 4579d6cf03195a106809daa9f87f3e76
-      size: 5337568
+      md5: 625a4eaee5fdf5088988810c1aca1e95
+      size: 5842816
   openmc-neutron@Sn112:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       neutron openmc-library.toml Sn112 openmc-library/neutron/Sn112.h5
@@ -778,11 +779,12 @@ stages:
             ../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_234.endf
           temperatures:
           - 600
+          - 1200
     outs:
     - path: openmc-library/neutron/U234.h5
       hash: md5
-      md5: 104728759284ab00a3c233e5aeba5285
-      size: 5261400
+      md5: 484d500e2b3a57dfddc4efb43023b6f1
+      size: 7067312
   openmc-neutron@U235:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       neutron openmc-library.toml U235 openmc-library/neutron/U235.h5
@@ -810,11 +812,12 @@ stages:
             ../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_235.endf
           temperatures:
           - 600
+          - 1200
     outs:
     - path: openmc-library/neutron/U235.h5
       hash: md5
-      md5: f9c8a0b0dc726e6f54438a15904a1089
-      size: 10325272
+      md5: c14d93734a51fc29a5bd93cc205796d8
+      size: 13677784
   openmc-neutron@U236:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       neutron openmc-library.toml U236 openmc-library/neutron/U236.h5
@@ -842,11 +845,12 @@ stages:
             ../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_236.endf
           temperatures:
           - 600
+          - 1200
     outs:
     - path: openmc-library/neutron/U236.h5
       hash: md5
-      md5: dc0425b3f7d676fd1911b9b06517bd06
-      size: 4648160
+      md5: b58f980d980934cae85fd4bf9ec7093e
+      size: 6330904
   openmc-neutron@U238:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       neutron openmc-library.toml U238 openmc-library/neutron/U238.h5
@@ -874,11 +878,12 @@ stages:
             ../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_238.endf
           temperatures:
           - 600
+          - 1200
     outs:
     - path: openmc-library/neutron/U238.h5
       hash: md5
-      md5: 3d14d5ae09976ee0b8bb12a19f9e475a
-      size: 18998040
+      md5: 9320bacbcc4371f02d6db7a0b8df3609
+      size: 26546088
   openmc-neutron@Zr90:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       neutron openmc-library.toml Zr90 openmc-library/neutron/Zr90.h5
@@ -1083,11 +1088,6 @@ stages:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       index openmc-library.toml openmc-library
     deps:
-    - path: 
-        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
-      hash: md5
-      md5: 4e4605c779c235e4e941dab6d8cebf1b
-      size: 4386
     - path: ../../../../python-ast/examples/openmc_input.py.ast
       hash: md5
       md5: dcf5542e807b71c7bfabe11026ecabf3
@@ -1096,10 +1096,15 @@ stages:
       hash: md5
       md5: 9d2f53ffbbdab6514418cef40a7e4a79
       size: 2936
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
+      hash: md5
+      md5: 7a72ffd518f0fc4de8fe0d35281ed2cf
+      size: 4436
     - path: openmc-library/neutron
       hash: md5
-      md5: a89719cf1e2fd0f28b2264af857bc685.dir
-      size: 111118100
+      md5: 451c349545a7a45606c1bd0bfcf10432.dir
+      size: 126012564
       nfiles: 32
     - path: openmc-library/thermal
       hash: md5
@@ -1115,3 +1120,294 @@ stages:
       hash: md5
       md5: a0297467d023d6bbbedc1f407f4ef31a
       size: 2303
+  openmc-model@1D:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py 
+      model openmc-1D.toml openmc-1D-model
+    deps:
+    - path: ../../../../python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+    - path: ../../../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+    - path: ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-1D.toml.json
+      hash: md5
+      md5: 8c99fb98ef79a011ec315d7319afb0a1
+      size: 162
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-1D-model
+      hash: md5
+      md5: 9c928f0e8e0f8239cf74ef4f4e52af15.dir
+      size: 23110
+      nfiles: 1
+  openmc-run@1D:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py run
+      openmc-1D.toml openmc-1D-model openmc-1D
+    deps:
+    - path: openmc-1D-model/model.xml
+      hash: md5
+      md5: 1c3ba0f73537b77cb64a4f7dc2897276
+      size: 23110
+    - path: openmc-library
+      hash: md5
+      md5: f9b44d3ec577c30676f668a72a23942e.dir
+      size: 146517694
+      nfiles: 36
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-1D.toml:
+        cross-sections: openmc-library/cross_sections.xml
+        threads: 16
+    outs:
+    - path: openmc-1D
+      hash: md5
+      md5: 479f89fadd473ec1f1acc8e76ee1def5.dir
+      size: 105590064
+      nfiles: 2
+  openmc-model@2B:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py 
+      model openmc-2B.toml openmc-2B-model
+    deps:
+    - path: ../../../../python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+    - path: ../../../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+    - path: ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-2B.toml.json
+      hash: md5
+      md5: 4513f876271ea38dc40b02ecc34624db
+      size: 163
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-2B-model
+      hash: md5
+      md5: 0fd77f5843320dbf9aece882d6a26294.dir
+      size: 26075
+      nfiles: 1
+  openmc-run@2B:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py run
+      openmc-2B.toml openmc-2B-model openmc-2B
+    deps:
+    - path: openmc-2B-model/model.xml
+      hash: md5
+      md5: 79b5499d37709b9824e4518238b1526a
+      size: 26075
+    - path: openmc-library
+      hash: md5
+      md5: f9b44d3ec577c30676f668a72a23942e.dir
+      size: 146517694
+      nfiles: 36
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-2B.toml:
+        cross-sections: openmc-library/cross_sections.xml
+        threads: 16
+    outs:
+    - path: openmc-2B
+      hash: md5
+      md5: 64e63d8b6b0e3caa3ef6e577b4866d2e.dir
+      size: 119468712
+      nfiles: 2
+  openmc-extract@2B:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py 
+      extract openmc-2B.toml openmc-2B openmc-2B-results
+    deps:
+    - path: ../../../../python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+    - path: ../../../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+    - path: ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-2B.toml.json
+      hash: md5
+      md5: 4513f876271ea38dc40b02ecc34624db
+      size: 163
+    - path: openmc-2B
+      hash: md5
+      md5: 64e63d8b6b0e3caa3ef6e577b4866d2e.dir
+      size: 119468712
+      nfiles: 2
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-2B-results
+      hash: md5
+      md5: f95d55e97d747b5b7653c4ce5b4d3d9e.dir
+      size: 2708776
+      nfiles: 3
+  openmc-extract@1D:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py 
+      extract openmc-1D.toml openmc-1D openmc-1D-results
+    deps:
+    - path: ../../../../python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+    - path: ../../../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+    - path: ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-1D.toml.json
+      hash: md5
+      md5: 8c99fb98ef79a011ec315d7319afb0a1
+      size: 162
+    - path: openmc-1D
+      hash: md5
+      md5: 479f89fadd473ec1f1acc8e76ee1def5.dir
+      size: 105590064
+      nfiles: 2
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-1D-results
+      hash: md5
+      md5: d19b7b81046b057aae86a2d4b77b0169.dir
+      size: 9605
+      nfiles: 2
+  openmc-run@1B:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py run
+      openmc-1B.toml openmc-1B-model openmc-1B
+    deps:
+    - path: openmc-1B-model/model.xml
+      hash: md5
+      md5: b7995f3f8348d87f83347b3c54325c8f
+      size: 23109
+    - path: openmc-library
+      hash: md5
+      md5: f9b44d3ec577c30676f668a72a23942e.dir
+      size: 146517694
+      nfiles: 36
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-1B.toml:
+        cross-sections: openmc-library/cross_sections.xml
+        threads: 16
+    outs:
+    - path: openmc-1B
+      hash: md5
+      md5: c7f960804f91e57b47bf4fb7cea0cbd4.dir
+      size: 105590064
+      nfiles: 2
+  openmc-extract@1B:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py 
+      extract openmc-1B.toml openmc-1B openmc-1B-results
+    deps:
+    - path: ../../../../python-ast/examples/openmc_common.py.ast
+      hash: md5
+      md5: 5bd4ad45584015f73e2c1e3d6f179e76
+      size: 2096
+    - path: ../../../../python-ast/examples/openmc_input.py.ast
+      hash: md5
+      md5: dcf5542e807b71c7bfabe11026ecabf3
+      size: 683
+    - path: ../../../../python-ast/examples/openmc_run.py.ast
+      hash: md5
+      md5: ef54b70b3fdc8fb2859025ed83c1d6ab
+      size: 2408
+    - path: ../../../../python-ast/examples/vera/openmc_model.py.ast
+      hash: md5
+      md5: d2087eee703094c47e2ab1b028fe93c5
+      size: 17391
+    - path: ../../../../python-ast/examples/vera/openmc_tallies.py.ast
+      hash: md5
+      md5: a96a3978071877b65e870a65d8be4f00
+      size: 6083
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-1B.toml.json
+      hash: md5
+      md5: 970cbfe469ed4d48fe137ed4a94007ff
+      size: 162
+    - path: openmc-1B
+      hash: md5
+      md5: c7f960804f91e57b47bf4fb7cea0cbd4.dir
+      size: 105590064
+      nfiles: 2
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-1B-results
+      hash: md5
+      md5: 771cde98c9acd5cddf926fd4fcb35db1.dir
+      size: 9604
+      nfiles: 2
