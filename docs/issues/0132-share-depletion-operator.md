@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [aws, depletion]
 opened: 2026-10-15
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 62d28d54e
 ---
 
 # Share the operator setup between openmc_depletion.py and the resumable run
@@ -36,3 +36,4 @@ resolution:
 - 2026-10-27: MOX のピンセルの燃焼（ADR-0206）の `openmc_depletion_mox.py` の `solve` が、同じ引数の 4 つ目のコピーになった
   （`TimedOperator` と `YIELD_CUTOFF` は import している）。`read`、`ring_radii`、`extract` も `openmc_depletion.py` のコピー（問題、形状、
   温度の扱いだけが違う）。共通の関数にするときは、これらも置き換える
+- 2026-11-19: 完了の条件の後者で閉じた。examples/depletion/test_openmc_depletion_settings.py が、4 つのツールの `TimedOperator` と積分器の設定の引数を ast で突き合わせる。共通の関数にまとめるのは、`openmc-1C` を再実行するときに合わせて行う
