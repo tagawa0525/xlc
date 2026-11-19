@@ -391,7 +391,7 @@ lock の deps の項と今の `dvc.yaml` の deps を、1 対 1 に対応させ�
 
 ブランチ feat/0298-rewrite-lock-paths（分岐点は main の be853f223）、手元、2026-11-20。
 
-- テスト（`scripts/test_rewrite_lock_paths.py`。使い捨ての git と DVC のリポジトリで本物の dvc を使う。25 件、4e1527cc7 で
+- テスト（`scripts/test_rewrite_lock_paths.py`。使い捨ての git と DVC のリポジトリで本物の dvc を使う。25 件、00ee960c6 で
   すべて通る）
   - 名前と置き場だけの移動で、lock の `path`、`params` のキー、`cmd`、ステージの名前だけが変わり、`dvc status` が移動の前と
     同じ `{}` になる（params のファイル、そのまま動かしたディレクトリの deps と outs、foreach の項目のパス、内容の同じ 2 つの
@@ -414,12 +414,12 @@ lock の deps の項と今の `dvc.yaml` の deps を、1 対 1 に対応させ�
   - 定義の変わらないステージは、動かす前から changed command でも一覧に出ない。作業ツリーの lock が動かす前のコミットと違えば
     止まる
   - 語の分け方、TOML の値の比べ方、1 対 1 の対応の探し方、`inputs` の読み方の単体のテスト
-- このリポジトリの例で、コミットせずに試して戻した（4e1527cc7、出力を戻していない worktree）
+- このリポジトリの例で、コミットせずに試して戻した（00ee960c6、出力を戻していない worktree）
   - `examples/c5g7` を `examples/lattice/c5g7` に動かし（正規形の `python-ast/` と `toml-values/` も、`dvc.yaml` の相対パスと
     直下の `dvc.yaml` の foreach の項目も直した）、ツールを実行した。13 のステージ（例の 7、直下の正規形の 6）を書き換え、
     `UNVERIFIED:` は無く、終了コード 0。`dvc status --json dvc.yaml <例の dvc.yaml>` は、動かす前も後も 12 のステージが changed
     で、パスを読み替えると同じだった（動かす前から changed の `lattice-coarse` の `binary-forms/lattice.md5` を含む）。この試しで
-    cmd の上流の出力のディレクトリの語が確かめられないことが分かり、テストを足して直した（f67a3d878、4e1527cc7）
+    cmd の上流の出力のディレクトリの語が確かめられないことが分かり、テストを足して直した（f3eaca429、00ee960c6）
   - `examples/mox/xs.toml` を `examples/mox/inputs/xs.toml` に動かし、中の `output` と核データのディレクトリの相対パスを
     書き換えた。4 つのステージ（直下の toml-values の 1、例の xs と比較の 2）を書き換え、終了コード 0。`dvc status` は、動かす
     前も後も 20 のステージが changed で、パスを読み替えると同じだった
