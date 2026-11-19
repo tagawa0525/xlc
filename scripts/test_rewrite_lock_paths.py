@@ -305,6 +305,36 @@ class MovingOnlyRewritesPaths(Base):
         self.assertEqual(lines(result, "NO-ENTRY:"), ["a/dvc.yaml:make-copy"])
 
 
+class UpstreamDirectory(Base):
+    def test_cmd_naming_an_upstream_output_directory_follows_its_outs(self):
+        r = self.r
+        r.write("a/x.txt", "x\n")
+        r.write(
+            "a/dvc.yaml",
+            """\
+            stages:
+              up:
+                cmd: mkdir -p od && cp x.txt od/x.txt
+                deps: [x.txt]
+                outs: [od]
+              down:
+                cmd: ls od > down.out && cat od/x.txt >> down.out
+                deps: [od/x.txt]
+                outs: [down.out]
+            """,
+        )
+        r.repro("a/dvc.yaml")
+        r.commit()
+        r.remove_outputs("a/od", "a/down.out")
+        r.write("a/dvc.yaml", r.read("a/dvc.yaml").replace("od", "res/od"))
+
+        result = r.tool()
+
+        self.assert_ok(result)
+        r.run("dvc", "checkout", "-q")
+        self.assertEqual(r.status("a/dvc.yaml"), {})
+
+
 class ChangedBeforeMoving(Base):
     def setUp(self):
         super().setUp()
