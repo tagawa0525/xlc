@@ -205,6 +205,9 @@ main 28668154f（2026-11-20）の例の 23 の `dvc.lock`（1,416 ステージ�
 - ツールは、ステージの展開、ファイルとディレクトリの md5、params の値の読み方、lock の書き方に DVC のライブラリを使う。
   default の devShell の Python には DVC が無い（flake.nix は、ステージの cmd の python3 を検証用の Python に保つため、DVC を
   別の Python で包む。#0101）ので、ツールは PATH の dvc のラッパーが使う Python で自分を実行し直す
+- ツールを Python で書くのは、判定に要る DVC の処理（foreach と変数を展開したステージの定義、ディレクトリの md5、params の値の
+  読み方、`dvc.lock` の書き方）が、DVC の Python のライブラリとしてしか使えないためである。ほかの言語で書くと、これらは DVC の
+  規則の再実装になり、`dvc status` の判定と食い違いうる
 
 ### ステージの対応
 
