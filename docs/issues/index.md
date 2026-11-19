@@ -299,3 +299,4 @@
 * [スキル openmc-reference の見積もりの表が、標準のタリーを入れる前の時間のままで、参照解の見積もりが 1/4〜1/3 になる](0301-openmc-estimates-predate-standard-tallies.md)
 * [KENO-VI との k の直接の比較は、処理かモデルの差を約 100〜180 pcm 含み、手法の差の物差しにならない](0302-keno-k-offset-as-method-yardstick.md)
 * [ADR-0258 の移行の段（正規形の hook、-s の経路、付け直しのコマンド、形式の検査、パスの付け替え）を実装する](0298-implement-adr-0258-migration-stages.md)
+* [コードを変えた後に、軽い問題を今のコードで再実行して結果の変化に気付く検査が無い](0299-rerun-light-problems-to-notice-result-changes.md)
