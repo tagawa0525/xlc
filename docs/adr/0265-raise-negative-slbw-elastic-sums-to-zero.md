@@ -51,7 +51,8 @@ NJOY2016 の RECONR は、範囲ごとの共鳴の部分（`csslbw` の結果）
 - 断面積: ENDF-102 の (D.1)〜(D.7)。透過因子、シフト因子、位相シフト、チャネル半径は MLBW と同じ（NJOY の `csslbw` と同じ）。全幅は
   MLBW と同じく Γn(E) + Γγ + Γf（LRX = 0 では競合反応の幅が無く、GT との差はパラメータの丸め）
 - 負の弾性散乱: 0 K の再構成で、範囲の中の弾性散乱を max(共鳴の部分 + MF3, 0) にする。和を 0 で切ると MF3 の表の点で折れるので、範囲の
-  中の MF3 の弾性散乱の表の点を、再構成の格子に必ず入れる点に加える。全断面積は部分反応の和で作り直すので、0 にした分だけ増える
+  中の MF3 の弾性散乱の表の点を、再構成の格子に必ず入れる点に加える。MF3 が段差を持つ点では、和は段差の左右の両方の値を持つので、
+  範囲の下端では右、上端では左の値、範囲の中では小さい方に対して切り、どちらの側も負にしない。全断面積は部分反応の和で作り直すので、0 にした分だけ増える
   （ENDF-102 の手当てのとおり）。共鳴の部分が負の点があれば、和を 0 にした点と、MF3 が打ち消した点（NJOY と値が違う点）の数を
   warn で出す
 - NJOY の 1e-8 b の下限は真似ない: 0 にした弾性散乱を 1e-8 b にする理由が評価に無い
@@ -69,7 +70,7 @@ NJOY2016 の RECONR は、範囲ごとの共鳴の部分（`csslbw` の結果）
 - 単体テスト（crates/xs/src/resonance/slbw/tests.rs）: `single_s_wave_level_matches_exact_breit_wigner`、
   `several_levels_sum_the_endf_single_level_terms`、`cooperating_levels_give_the_negative_elastic_of_the_formula`
 - 再構成の単体テスト（crates/xs/src/pointwise/tests.rs）: `slbw_range_adds_the_single_level_formula_to_the_background`、
-  `negative_slbw_elastic_with_its_background_is_raised_to_zero`
+  `negative_slbw_elastic_with_its_background_is_raised_to_zero`、`negative_slbw_elastic_is_raised_against_both_sides_of_a_background_step`
 - MF2 の読み込み（crates/xs/src/endf/mf2/tests.rs）: `reads_slbw_range_in_the_form_of_mlbw`、`energy_dependent_radius_in_slbw_is_error`
 - ポテンシャル散乱（crates/xs/src/process/tests.rs）: `resolved_range_has_its_top_and_potential_scattering`
 - MF2 の読み込みの J（crates/xs/src/endf/mf2/tests.rs）: `slbw_reads_resonances_whose_spin_equals_the_target_spin`、
