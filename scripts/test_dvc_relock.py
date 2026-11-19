@@ -48,7 +48,8 @@ FAKE_DVC = """\
 echo "dvc $*" >> "{d}/calls"
 case "$1" in
   repro)
-    [ "$3" = "$(cat "{d}/fail-repro" 2>/dev/null)" ] && exit 5
+    echo "Stage '$3' didn't change, skipping"
+    [ "$3" = "$(cat "{d}/fail-repro" 2>/dev/null)" ] && echo "dvc failed on $3" >&2 && exit 5
     [ "$3" = dvc.yaml:python-ast ] && echo rewritten > python-ast/a.py.ast
     exit 0;;
   status) [ -f "{d}/status-fails" ] && exit 3; cat "{d}/status.json";;
@@ -263,6 +264,14 @@ class Process(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.ran("dvc repro"), ["dvc repro -s build"])
         self.assertEqual(self.ran("dvc-repro.py"), [])
+        self.assertIn("Stage 'build' didn't change", r.stdout + r.stderr)
+        self.assertIn("dvc failed on build", r.stdout + r.stderr)
+
+    def test_the_normalized_forms_print_only_their_names_when_they_pass(self):
+        # 正規形は数百のステージで、dvc は飛ばしたものも 1 行ずつ出す
+        r = self.run_script(DEPS)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("didn't change", r.stdout + r.stderr)
 
     def test_failing_dvc_status_stops(self):
         (self.d / "status-fails").write_text("")
