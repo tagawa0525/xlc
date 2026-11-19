@@ -74,6 +74,11 @@ class YieldPoints(unittest.TestCase):
         self.assertIsNone(estimates.yield_points({"energies": [5e5, 1.4e7]}))
         self.assertIsNone(estimates.yield_points({"energies": [0.0253]}))
 
+    def test_nuclides_with_points_on_one_side_use_the_first_or_the_last(self):
+        self.assertEqual(estimates.single_point({"energies": [5e5, 1.4e7]}), 0)
+        self.assertEqual(estimates.single_point({"energies": [0.0253]}), 0)
+        self.assertEqual(estimates.single_point({"energies": [0.0253, 1.0]}), 1)
+
     def test_points_off_the_thermal_and_fast_energies_take_the_nearest_on_each_side(
         self,
     ):
