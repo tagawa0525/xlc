@@ -123,7 +123,7 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
 - xlc − OpenMC の変化のうち −65 pcm は、自己遮蔽の減速計算で分離共鳴を持つ核種を自由ガスにする入射エネルギーの上限の違いによる。OpenMC の上限は
   400 kT（600 K で 20.7 eV、1200 K で 41.4 eV。ADR-0204 の背景）で、燃料の温度とともに U-238 の 20.872 eV と 36.683 eV の共鳴を越える。xlc の既定は
   温度によらない 31 eV（ADR-0243）。xlc の上限を 400 kT にして 1B と 1D を解くと（試行の入力 `trials/0083-free-gas-cap/<版>/pincell-<問題>-400kt.toml`、
-  コミット aa40c344。計算は「計算」）、k は既定から 1B で −24 pcm（VII.0 1.183952、VIII.0 1.182411）、1D で +42 pcm（VII.0 1.165001、VIII.0 1.163582）動き、
+  コミット 45e0a205。計算は「計算」）、k は既定から 1B で −24 pcm（VII.0 1.183952、VIII.0 1.182411）、1D で +42 pcm（VII.0 1.165001、VIII.0 1.163582）動き、
   2 つの版で動きは 0.1 pcm 以内で同じ。同じ上限にした xlc − OpenMC は、VII.0 で 1B +80 ± 4、1D +59 ± 5 pcm（変化 −21 ± 6 pcm）、VIII.0 で
   1B +63 ± 6、1D +38 ± 7 pcm（変化 −25 ± 9 pcm）。残る −21〜−25 pcm は ± の 2.7〜3.2 倍で、原因は確かめていない
 - 上限を 400 kT にした xlc − KENO-VI の変化は +60 ± 10 pcm（+180 → +240）で、既定の 31 eV の −6 ± 10 pcm より大きい。KENO-VI の温度の変化は、
@@ -136,7 +136,7 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
 
 1B の核種だけの VIII.0 のライブラリを、核種ごとのステージの出力（`xs-nuclides/` と `endfb70/xs-nuclides/`）から `xs assemble` で組み、
 核種（または元素）を 1 つだけ VII.0 の出力に替えて 1B を解いた（入力は試行の `trials/0131-nuclide-swap/<場合>/` の `xs.toml`、`nuclides/`、
-`pincell-1B.toml`。コミット 1867c08a。計算は「計算」）。すべて VIII.0 の k は 1.182648、すべて VII.0 は 1.184189 で、上の表の出どころの値と同じ。
+`pincell-1B.toml`。コミット cd2e5aa9。計算は「計算」）。すべて VIII.0 の k は 1.182648、すべて VII.0 は 1.184189 で、上の表の出どころの値と同じ。
 
 - 替えた核種ごとの k の動き: U-238 −267、U-235 +203、O-16 +159、H-1 +91、Zr −42、B +9 pcm。Fe と Cr、Sn、U-234 と U-236 はどれも 1 pcm 未満。
   和は +153 pcm で、すべてを替えた +154 pcm と 2 pcm 以内で合う（核種ごとの動きはほぼ加法的）
@@ -177,18 +177,18 @@ d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-025
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`、`p3/dvc.lock`。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
 （[ADR-0176](../../docs/adr/0176-generate-verification-tables.md)）。
 
-OpenMC（ENDF/B-VII.0）の 1B、1D、2B は c4991e00（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の 0500a720）、2026-11-19。Slurm 961
+OpenMC（ENDF/B-VII.0）の 1B、1D、2B は 53be609d（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の 0500a720）、2026-11-19。Slurm 961
 （`openmc-endfb70-1B-1D-2B`。割り込まれうる排他のジョブで、時間は記録に使わない）で、`endfb70/openmc/dvc.yaml` の `openmc-neutron`（U-234、U-235、U-236、U-238、O-16 の
 600 K と 1200 K）、`openmc-index`、`openmc-model`、`openmc-run`、`openmc-extract` を `dvc repro` で実行した。ほかの核種（600 K）と H in H2O の
 ライブラリは 2026-10-21 に lock したもの（`endfb70/openmc/dvc.lock`）。1 世代 100 万粒子、乱数のシード 1、16 スレッドで、1B と 1D は 450 世代
-（最初の 50 世代を捨てる）、2B は 500 世代（最初の 100 世代を捨てる）。比較（`compare-1B`、`compare-1D`、`compare-2B`）は fb3bd439（分岐点は main の bb8f2869）、
+（最初の 50 世代を捨てる）、2B は 500 世代（最初の 100 世代を捨てる）。比較（`compare-1B`、`compare-1D`、`compare-2B`）は 3a599b6f（分岐点は main の bb8f2869）、
 2026-11-20 に手元で実行した。上流の xlc のステージ（`endfb70/dvc.yaml` の `pincell`、`assembly`）は deps（実行ファイルの正規形）だけが changed で、
 出力は `endfb70/dvc.lock` のとおりなので、`dvc repro -s` で lock の出力（上の d6cc90d9 の Slurm 898 のもの）を読んだ（ADR-0184）。
 
-自由ガスの上限を変えた 1B と 1D の試行は aa40c344（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の bb8f2869）、2026-11-20、Slurm 966
+自由ガスの上限を変えた 1B と 1D の試行は 45e0a205（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の bb8f2869）、2026-11-20、Slurm 966
 （`xlc-0083-free-gas-cap`）で、2 つの版のライブラリ（Slurm 897、898 のもの）に `bin/lattice` を既定（31 eV）と `ufg-free-gas = { heavy = 400 }` の入力で
 実行した（`trials/0083-free-gas-cap/<版>/pincell-<問題>-<上限>.toml`）。既定の 4 本の k は「格子」の表の出どころの値と 6 桁で一致する。
 
-核種を 1 つずつ替えた 1B の試行は 0500a720（main。試行の入力は追跡していない状態で実行し、同じ入力を 1867c08a でコミットした）、2026-11-19 に手元で
+核種を 1 つずつ替えた 1B の試行は 0500a720（main。試行の入力は追跡していない状態で実行し、同じ入力を cd2e5aa9 でコミットした）、2026-11-19 に手元で
 `bin/xs assemble <場合>/xs.toml examples/vera/xs-range.toml <場合>/nuclides` と `bin/lattice <場合>/pincell-1B.toml` を実行した。
 すべて VIII.0 とすべて VII.0 の場合の k は、Slurm 897、898 のライブラリの値（上の表の出どころ）と 6 桁で一致する。入力をコミットした後の再実行はしていない。
