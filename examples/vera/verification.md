@@ -700,7 +700,7 @@ d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-025
 ## Problem 6 の 3D の HFP の集合体（熱水力のフィードバック）
 
 Problem 6（表 P6-1。Problem 3A の集合体を HFP の入口の温度 565 K、2250 psia、ホウ素 1300 ppm、出力 17.67 MW、流量 0.6823 Mlbs/hr で）を、
-core の熱水力のフィードバック（ADR-0229）で解いた。仕様書に参照解は無い（REFERENCE SOLUTION）ので、下の 4 つの確認を書く。
+core の熱水力のフィードバック（ADR-0229）で解いた。仕様書に参照解は無い（REFERENCE SOLUTION）ので、下の確認を書く。
 入力とステージは `p6/p6_inputs.py` が書く `p6/` と `p6/dvc.yaml`（形状は `p3/p3_inputs.py` の 3A）。
 
 ```sh
