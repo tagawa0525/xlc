@@ -48,6 +48,15 @@ repos:
         files: ^(flake\.(nix|lock)|docs/patches/.*|(.*/)?references-shell\.txt)$
         pass_filenames: false # 渡されたファイルでなく、追跡しているすべての references-shell.txt を見る
         verbose: true
+      - id: exclusions
+        name: exclusions and provisional premises cite an open issue
+        # 閉じた issue を指す除外は、issue を閉じるコミット（docs/issues の変更だけ）で生まれるので、すべてのコミットで
+        # 実行する（#0294）
+        entry: scripts/check-exclusions.py
+        language: system
+        always_run: true
+        pass_filenames: false # 渡されたファイルでなく、追跡しているすべての印と issue の状態を見る
+        verbose: true
       - id: docs-consistency
         name: documents are consistent (issue and ADR numbers, links, both directions)
         # 検査は追跡しているすべてのファイルのパスを読む（リンク先のパスの有無、消した issue への参照）ので、消すだけ
