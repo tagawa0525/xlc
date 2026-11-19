@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, depletion, verification]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "コミット 526501389"
 ---
 
 # 同時の反復のレビューで残した記録と入力の指摘
@@ -41,3 +41,4 @@ resolution:
 
 - 2026-11-06: 親の 3 周目（HEAD 33749b7b7）の指摘から起こした。関係する ADR を「なし」にしたのは、ADR-0219 の `issues` に入れると ADR の変更になり、
   マージの前のレビューをやり直すため（#0236 と同じ扱い）。1 周目の指摘は親が直し（#0236 の経緯）、2 周目の指摘も直した
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。1 のログは ADR-0222 の帰結の失われたものに入れ、3 は 526501389、6 は 7baaffec0 で直した
