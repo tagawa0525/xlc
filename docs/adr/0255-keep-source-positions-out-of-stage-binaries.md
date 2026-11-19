@@ -136,7 +136,7 @@ lattice の `enabled!` の 12 か所の行の桁の変化（文字列の長さ�
   数字も 0 にする版の normalize_binary.py を当てた）
 - (c) xlc-log の後、crates の追跡しているすべての .rs と crates/log/src/lib.rs の先頭に注釈の行を 1 つ足してビルドすると、
   `bin/` の 4 つの md5 が足す前と同じ（xs b5c605b7、lattice 98a772e0、core e6fc72e3、chain 16a674a2）。節の端と
-  Metadata のファイル名を直した normalize_binary.py（549d77a63）を同じビルドに当てても、4 つの md5 は同じ
+  Metadata のファイル名を直した normalize_binary.py（b8c2969a8）を同じビルドに当てても、4 つの md5 は同じ
 - (d) #0117 のモジュールの大きさ: 足す前と後の実行ファイルの大きさは xs 3,072,016 と 3,072,464、lattice 11,234,944 と
   11,235,776、core 7,443,832 と 7,446,584 バイト
 - (e) 計算が変わらないこと: examples/m0 の xs、lattice、core を、main の `bin/`（xs 28e28365、lattice c3b3bba1、core 22e10bb8）と
