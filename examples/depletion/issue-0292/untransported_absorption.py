@@ -4,7 +4,7 @@
 使い方: python3 untransported_absorption.py --json <出力> --chain <チェーン（msgpack）> <燃焼の履歴（msgpack）> <テーブル（msgpack）>
         python3 untransported_absorption.py --report <出力の JSON>
 
-テーブルは燃焼の履歴からの分岐（`[history]`）で、燃焼度の点ごとの冷却計算の 1 群の微視的断面積（`cooling`。ADR-0238）を持ち、燃焼度の
+テーブルは燃焼の履歴からのブランチ計算（`[history]`）で、燃焼度の点ごとの冷却計算の 1 群の微視的断面積（`cooling`。ADR-0238）を持ち、燃焼度の
 ほかの軸がどれも 1 点のもの。1 群の微視的断面積 σⱼ は、燃焼の領域の反応率の和を、格子の体積で均質化した数密度 N̄ⱼ と、体積で
 積分した中性子束で割った値（crates/lattice/src/history.rs の `cooling`）なので、核種 j の吸収率は格子で均質化すると N̄ⱼ σₐⱼ φ̄
 （φ̄ は全群の中性子束）。σₐ は、チェーンの反応の中性子を失う分: (n,γ)、(n,p)、(n,α) と核分裂の和から、(n,2n) を 1 倍、(n,3n) を 2 倍、
@@ -38,6 +38,10 @@ LOSS = {102: 1.0, 103: 1.0, 107: 1.0, 16: -1.0, 17: -2.0, 37: -3.0}
 VOLUME_TOLERANCE = 1e-9
 # 一覧に出す核種の数
 TOP = 15
+# 順位の累積で、足す核種の数を数える残りの閾値 (pcm)
+THRESHOLDS_PCM = (50.0, 5.0)
+# xs が輸送する核種として処理しない核種（examples/depletion/p2/xs.toml の説明。#0127）。放射化の断面積は持つので一覧に出る
+XS_EXCLUDED = ("Pm-147", "Pm-148", "Pm-149", "Am-242m", "Eu-151")
 
 
 def read(path):
@@ -76,7 +80,7 @@ def two_group_flux(state):
 
 
 def nominal_states(table):
-    """燃焼度の点ごとの、ほかの軸がどれも公称の点の状態の番号（燃焼度の軸は最初）"""
+    """燃焼度の点ごとの、ほかの軸がどれも基準点の状態の番号（燃焼度の軸は最初）"""
     if table.get("format") != "xlc-table" or "cooling" not in table:
         raise SystemExit("the table must be an xlc-table with cooling cross sections")
     burnup, *rest = table["axes"]
@@ -254,6 +258,10 @@ def summarize(history, table, half_lives):
         points.append(
             {
                 "burnup": burnup,
+                "untransported_all": {
+                    n: {"fraction": shares[n], "captured_ratio": ratios[n][burnup]}
+                    for n in untransported
+                },
                 "k_inf": k_inf,
                 "fractions": totals,
                 "rho_pcm": {c: -1e5 * f / k_inf for c, f in totals.items()},
@@ -285,7 +293,53 @@ def summarize(history, table, half_lives):
                 ],
             }
         )
-    return {"points": points}
+    return {"points": points, **ranking(points)}
+
+
+def ranking(points):
+    """ADR-0165 の案 S3 の形の順位: 核種ごとに、自分の吸収で減らした割合の燃焼度の点を通じた最大と、その反応度の目安 1e5 f / k∞ の
+    最大。最大の大きい順に並べ、上から足したときの残りの核種の目安の和（核種ごとの最大の和で、保守的な側）を添える"""
+    names = list(points[0]["untransported_all"])
+    best = {}
+    for name in names:
+        values = [
+            (
+                1e5
+                * p["untransported_all"][name]["fraction"]
+                * p["untransported_all"][name]["captured_ratio"]
+                / p["k_inf"],
+                p["untransported_all"][name]["fraction"]
+                * p["untransported_all"][name]["captured_ratio"],
+                p["burnup"],
+            )
+            for p in points
+        ]
+        pcm, _, burnup = max(values)
+        best[name] = {
+            "pcm": pcm,
+            "fraction": max(v[1] for v in values),
+            "burnup": burnup,
+        }
+    order = sorted(names, key=lambda n: -best[n]["pcm"])
+    rest = sum(best[n]["pcm"] for n in order)
+    rows = []
+    for name in order:
+        rest -= best[name]["pcm"]
+        rows.append(
+            {
+                "nuclide": name,
+                "max_pcm": best[name]["pcm"],
+                "max_fraction": best[name]["fraction"],
+                "burnup": best[name]["burnup"],
+                "rest_pcm": max(rest, 0.0),
+                "xs_excluded": name in XS_EXCLUDED,
+            }
+        )
+    counts = {
+        str(t): next(i + 1 for i, r in enumerate(rows) if r["rest_pcm"] <= t)
+        for t in THRESHOLDS_PCM
+    }
+    return {"ranking": rows, "counts": counts}
 
 
 def report(summary):
@@ -302,6 +356,18 @@ def report(summary):
             f"{p['burnup']:g} | {p['k_inf']:.6f} | {100 * f['tracked']:.3f} | {100 * f['transported']:.3f} | "
             f"{100 * f['untransported']:.4f} | {p['rho_pcm']['untransported']:+.1f} | "
             f"{100 * p['untransported_captured']:.4f} | {p['untransported_captured_rho_pcm']:+.1f}"
+        )
+    lines.append(
+        "足す核種の数（残りの目安の和が閾値以下になる順位）: "
+        + ", ".join(f"{t} pcm で {n}" for t, n in summary["counts"].items())
+    )
+    lines.append(
+        "順位 | 核種 | 最大の目安 (pcm) | その割合 (%) | 燃焼度 | 残りの和 (pcm) | xs が輸送する核種にしない"
+    )
+    for i, r in enumerate(summary["ranking"][:40]):
+        lines.append(
+            f"{i + 1} | {r['nuclide']} | {r['max_pcm']:.1f} | {100 * r['max_fraction']:.4f} | {r['burnup']:g} | "
+            f"{r['rest_pcm']:.1f} | {'#0127' if r['xs_excluded'] else ''}"
         )
     last = summary["points"][-1]
     for key, label in [
