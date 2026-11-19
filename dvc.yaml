@@ -1,13 +1,13 @@
 # xlc の実行ファイルを作るステージ（ADR-0159）。examples/*/dvc.yaml の Rust のステージは、ここで作った bin/ の実行ファイルを
 # deps にして呼ぶ。deps は実行ファイルを作りうるもの（コード、依存、ツールチェーン、コンパイルの設定、devShell）の
 # すべてで、どれかが変わると build だけが走る。作った実行ファイルのバイトが変わらなければ、計算のステージは走らない。
-# 例のステージが deps にする Python のファイルと入力の TOML の正規形も、ここの python-ast と toml-values が書く（ADR-0210、ADR-0254）。
+# build と例のステージが deps にする Python のファイルと入力の TOML の正規形も、ここの python-ast と toml-values が書く（ADR-0210、ADR-0254）。
 stages:
   build:
     cmd: scripts/build-binaries.sh
     deps:
       - scripts/build-binaries.sh
-      - scripts/normalize_binary.py
+      - python-ast/scripts/normalize_binary.py.ast
       - crates
       - Cargo.toml
       - Cargo.lock
@@ -22,8 +22,8 @@ stages:
       - bin/chain
   # 計算のステージが deps にする Python のファイルの正規形（ADR-0210）。docstring とコメントを除いた形を python-ast/ に書き、
   # git で追跡する。計算のステージの cmd は元の .py を呼び、deps にはその正規形を書く。docstring とコメントだけの変更では
-  # このステージだけが走り、正規形のバイトが変わらなければ計算のステージは走らない。並びは、どれかの例の deps にある .py の
-  # すべて（scripts/test_normalize_python.py が、例の deps との食い違いを止める）
+  # このステージだけが走り、正規形のバイトが変わらなければ計算のステージは走らない。並びは、build とどれかの例の deps に
+  # ある .py のすべて（scripts/test_normalize_python.py が、deps との食い違いを止める）
   python-ast:
     foreach:
       - examples/c5g7/compare.py
@@ -64,6 +64,7 @@ stages:
       - examples/vera/openmc_tallies.py
       - examples/vera/p5/compare_hzp.py
       - examples/vera/p5/compare_rodless.py
+      - scripts/normalize_binary.py
       - scripts/normalize_toml.py
     do:
       cmd: python3 scripts/normalize_python.py ${item} python-ast/${item}.ast

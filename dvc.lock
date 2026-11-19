@@ -28,6 +28,10 @@ stages:
       hash: md5
       md5: cebdbdad6d3dffcd9d053e8e9d757351
       size: 15105
+    - path: python-ast/scripts/normalize_binary.py.ast
+      hash: md5
+      md5: ed751837fb76f2232016335fcc212f38
+      size: 5502
     - path: rust-toolchain.toml
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
@@ -37,10 +41,6 @@ stages:
       md5: 753c92e01487b8740ad7f521000377ba
       size: 5132
       isexec: true
-    - path: scripts/normalize_binary.py
-      hash: md5
-      md5: c0339d22009eaf025c1f0dfaf526fd97
-      size: 8530
     outs:
     - path: bin/chain
       hash: md5
@@ -8393,3 +8393,20 @@ stages:
       hash: md5
       md5: c916df39b8fe97e649ed2dabd6b6afef
       size: 10382
+  python-ast@scripts/normalize_binary.py:
+    cmd: python3 scripts/normalize_python.py scripts/normalize_binary.py 
+      python-ast/scripts/normalize_binary.py.ast
+    deps:
+    - path: scripts/normalize_binary.py
+      hash: md5
+      md5: 2e5a1a49871ca3256d7e701f9a6f50ec
+      size: 9451
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/scripts/normalize_binary.py.ast
+      hash: md5
+      md5: ed751837fb76f2232016335fcc212f38
+      size: 5502
