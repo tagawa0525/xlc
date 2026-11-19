@@ -2447,7 +2447,7 @@ fn rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry() 
 
 #[test]
 fn rod_values_are_solved_at_their_own_burnups() {
-    // 棒のない値は基準条件をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（基準条件を含む）を
+    // 棒のない値は基準条件をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（連続の軸がどれも基準値の状態を含む）を
     // その値の燃焼点で解く（ADR-0200 の制御棒を入れた組。ADR-0225）。状態の番号は燃焼度 × 2 + ホウ素で、基準値は 1000 ppm
     let library = library_with_boron();
     let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
