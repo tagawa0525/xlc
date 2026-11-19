@@ -178,7 +178,7 @@ def stage_deps() -> dict[str, list[str]]:
 
     YAML を読むライブラリは references の devShell に無いので、行から拾う。コメントと cmd の行を除いたすべての語を見る
     （リストの項目の行に限らない: 行末のコメントや `[a.py]` の形の deps も拾う）。リポジトリの直下の dvc.yaml は、
-    python-ast のステージ（正規形を書く側で、foreach の .py を deps にする）を除いて見る。
+    正規形を書くステージ（python-ast と toml-values）を除いて見る。
     """
     files = subprocess.run(
         ["git", "ls-files", "--", ":(glob)**/dvc.yaml"],
@@ -193,11 +193,15 @@ def stage_deps() -> dict[str, list[str]]:
         paths = []
         text = (ROOT / name).read_text(encoding="utf-8")
         if name == "dvc.yaml":
-            # python-ast のステージ（次のステージの行か終わりまで）だけを除く
-            block = re.search(r"^  python-ast:\n(?:(?:    .*)?\n)*", text, re.MULTILINE)
-            if block is None:
-                raise AssertionError("dvc.yaml has no python-ast stage")
-            text = text[: block.start()] + text[block.end() :]
+            # 正規形を書くステージ（python-ast と toml-values。次のステージの行か終わりまで）を除く。どちらも正規形を
+            # 書くスクリプトを deps にし、その正規形をそのスクリプトで書くことはできない
+            for stage in ("python-ast", "toml-values"):
+                block = re.search(
+                    rf"^  {stage}:\n(?:(?:    .*)?\n)*", text, re.MULTILINE
+                )
+                if block is None:
+                    raise AssertionError(f"dvc.yaml has no {stage} stage")
+                text = text[: block.start()] + text[block.end() :]
         for line in text.splitlines():
             code = re.sub(r"(^|\s)#.*$", "", line)
             if re.match(r"\s*cmd:", code):

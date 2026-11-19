@@ -1379,8 +1379,8 @@ stages:
     deps:
     - path: crates/lattice/Cargo.toml
       hash: md5
-      md5: f3437662f9aab415559f3ead36d0af1f
-      size: 797
+      md5: d9b3108d4a388b4b07ef2336eb6ae612
+      size: 827
     - path: scripts/normalize_toml.py
       hash: md5
       md5: 6d68e359e31ade2803751fb688a94189
@@ -1388,8 +1388,8 @@ stages:
     outs:
     - path: toml-values/crates/lattice/Cargo.toml.json
       hash: md5
-      md5: 1c29f5691c69a89bb5760c2ec0cf8700
-      size: 909
+      md5: c0168e2cfc687a5634b65e9d2c8872a3
+      size: 949
   toml-values@examples/m1/pincell-f293.6-m293.6.toml:
     cmd: python3 scripts/normalize_toml.py 
       examples/m1/pincell-f293.6-m293.6.toml 
