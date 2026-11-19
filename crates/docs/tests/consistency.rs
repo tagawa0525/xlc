@@ -1,16 +1,17 @@
 //! リポジトリの文書の整合性の検査（#0013）。
 //!
 //! git が追跡しているファイルを一度だけ読み、xlc_docs::Docs の検査に違反がないことを確かめる。閉じた issue の
-//! `resolution: コミット <hash>` は、git で HEAD かローカルのどれかのブランチの祖先のコミットを指すことを確かめる。
-//! 違反はすべて並べて示す。
+//! `resolution: コミット <hash>` と、文書が引くコミットの hash（`Docs::cited_hashes` のうちコミットを指すもの）は、
+//! git で HEAD、ローカルのブランチ、タグのどれかから辿れることを確かめる。違反はすべて並べて示す。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 use xlc_docs::{Citation, Docs};
 
@@ -45,8 +46,8 @@ fn inherited_git_variables() -> Vec<std::ffi::OsString> {
 }
 
 impl Repo<'_> {
-    /// リポジトリの根で git を実行する。git がなければエラーにする。
-    fn git(&self, args: &[&str]) -> Result<Output> {
+    /// リポジトリの根で git を実行するコマンド。
+    fn command(&self, args: &[&str]) -> Command {
         let mut command = Command::new("git");
         command.arg("-C").arg(self.root).args(args);
         if self.isolated {
@@ -55,8 +56,39 @@ impl Repo<'_> {
             }
         }
         command
+    }
+
+    /// リポジトリの根で git を実行する。git がなければエラーにする。
+    fn git(&self, args: &[&str]) -> Result<Output> {
+        self.command(args)
             .output()
             .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}").into())
+    }
+
+    /// 標準入力に `input` を渡して git を実行し、成功したときの標準出力を返す。入力は別のスレッドで書く（git が
+    /// 書く出力でパイプが詰まると、書き終わるまで待つ側と読まれるのを待つ側で止まる）
+    fn stdout_with_input(&self, args: &[&str], input: String) -> Result<String> {
+        let mut child = self
+            .command(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}"))?;
+        let mut stdin = child.stdin.take().ok_or("git has no stdin")?;
+        let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
+        let output = child.wait_with_output()?;
+        writer
+            .join()
+            .map_err(|_| "the thread writing to git panicked")??;
+        if !output.status.success() {
+            return Err(format!(
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        Ok(String::from_utf8(output.stdout)?)
     }
 
     /// git を実行し、成功したときの標準出力を返す。
@@ -92,62 +124,80 @@ fn tracked_files(repo: &Repo, pathspecs: &[&str]) -> Result<Vec<String>> {
         .collect())
 }
 
-/// `hash` が HEAD か、ローカルのどれかのブランチの祖先のコミットを指すか。違えば理由を返す。マージのコミットを作る
-/// 前の検査（pre-merge-commit の hook）では、HEAD はまだ元のブランチで、MERGE_HEAD もまだない（git 2.55 で確かめた）。
-/// issue を閉じたブランチの上のコミットは、そのブランチの祖先として認める。rebase で捨てた古いコミットは、どの
-/// ブランチの祖先でもなくなるので見つかる。マージしていないブランチの上のコミットは、そのブランチを消すまで見逃す
-fn commit_problem(repo: &Repo, hash: &str) -> Result<Option<String>> {
+/// HEAD、ローカルのブランチ、タグから辿れるコミット（完全な hash）。マージのコミットを作る前の検査
+/// （pre-merge-commit の hook）では、HEAD はまだ元のブランチで、MERGE_HEAD もまだない（git 2.55 で確かめた）ので、
+/// マージするブランチの上のコミットは、そのブランチから辿れるものとして認める。rebase で捨てた古いコミットは、
+/// どの ref からも辿れなくなるので見つかる。マージしていないブランチの上のコミットは、そのブランチを消すまで見逃す。
+/// タグは、ブランチを消した後も残すと決めたコミット（`record/`、`archive/`）を辿れるようにする。reflog は数えない
+/// （git gc が期限で消し、そのあとは hash を checkout できない。ADR-0122）
+fn reachable_commits(repo: &Repo) -> Result<HashSet<String>> {
+    Ok(repo
+        .stdout(&["rev-list", "HEAD", "--branches", "--tags"])?
+        .lines()
+        .map(str::to_string)
+        .collect())
+}
+
+const UNREACHABLE: &str = "is not reachable from HEAD, a branch or a tag \
+                           (cite the rebased commit, or tag the commit to keep it)";
+
+/// `hash` が `reachable` のコミットを指すか。違えば理由を返す。
+fn commit_problem(repo: &Repo, reachable: &HashSet<String>, hash: &str) -> Result<Option<String>> {
     let commit = format!("{hash}^{{commit}}");
-    if !repo
-        .git(&["rev-parse", "--quiet", "--verify", &commit])?
-        .status
-        .success()
-    {
+    let parsed = repo.git(&["rev-parse", "--quiet", "--verify", &commit])?;
+    if !parsed.status.success() {
         return Ok(Some(format!("commit {hash} does not exist")));
     }
-    if is_ancestor(repo, hash, "HEAD")? {
-        return Ok(None);
-    }
-    let branches = repo.git(&[
-        "for-each-ref",
-        "--contains",
-        hash,
-        "--format=%(refname)",
-        "refs/heads/",
-    ])?;
-    if !branches.status.success() {
-        return Err(format!(
-            "git for-each-ref failed: {}",
-            String::from_utf8_lossy(&branches.stderr)
-        )
-        .into());
-    }
-    Ok(if branches.stdout.is_empty() {
-        Some(format!(
-            "commit {hash} is not an ancestor of HEAD or any branch (rebased? update the hash)"
-        ))
-    } else {
-        None
-    })
+    let full = String::from_utf8(parsed.stdout)?;
+    Ok((!reachable.contains(full.trim())).then(|| format!("commit {hash} {UNREACHABLE}")))
 }
 
-/// 文書が引く hash のうち、このリポジトリのコミットを指すが辿れないもの。違反の文を返す。
-fn cited_commit_problems(_repo: &Repo, _cited: &[Citation]) -> Result<Vec<String>> {
-    Ok(Vec::new())
-}
-
-/// `hash` が `head` の祖先か。
-fn is_ancestor(repo: &Repo, hash: &str, head: &str) -> Result<bool> {
-    let ancestor = repo.git(&["merge-base", "--is-ancestor", hash, head])?;
-    match ancestor.status.code() {
-        Some(0) => Ok(true),
-        Some(1) => Ok(false),
-        _ => Err(format!(
-            "git merge-base failed: {}",
-            String::from_utf8_lossy(&ancestor.stderr)
-        )
-        .into()),
+/// 文書が引く hash のうち、このリポジトリのコミットを指すが `reachable` に無いものと、どのオブジェクトを指すか
+/// 決まらない（短すぎる）ものの、違反の文。コミットを指さない 16 進（md5、ほかのリポジトリのコミット、blob、
+/// 注釈つきのタグのオブジェクト）は見ない。消えたコミット（git gc の後）も md5 と区別できないので見逃す
+fn cited_commit_problems(
+    repo: &Repo,
+    reachable: &HashSet<String>,
+    cited: &[Citation],
+) -> Result<Vec<String>> {
+    let hashes: Vec<&str> = cited
+        .iter()
+        .map(|c| c.hash.as_str())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    if hashes.is_empty() {
+        return Ok(Vec::new());
     }
+    let objects = repo.stdout_with_input(
+        &[
+            "cat-file",
+            "--batch-check=%(objectname) %(objecttype)",
+            "--buffer",
+        ],
+        hashes.join("\n") + "\n",
+    )?;
+    let mut problems = BTreeMap::new();
+    for (hash, object) in hashes.iter().zip(objects.lines()) {
+        let problem = match object.split_once(' ') {
+            Some((full, "commit")) if !reachable.contains(full) => {
+                format!("commit {hash} {UNREACHABLE}")
+            }
+            Some((_, "ambiguous")) => {
+                format!("{hash} names more than one object (write more digits)")
+            }
+            _ => continue,
+        };
+        problems.insert(*hash, problem);
+    }
+    Ok(cited
+        .iter()
+        .filter_map(|c| {
+            problems
+                .get(c.hash.as_str())
+                .map(|p| format!("{}:{}: {p}", c.path, c.line))
+        })
+        .collect())
 }
 
 /// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
@@ -200,11 +250,17 @@ fn docs_are_consistent() -> Result<()> {
 
     let docs = Docs::new(texts, others);
     let mut violations: Vec<String> = docs.check().iter().map(ToString::to_string).collect();
+    let reachable = reachable_commits(&repo)?;
     for (path, hash) in docs.resolution_commits() {
-        if let Some(problem) = commit_problem(&repo, &hash)? {
+        if let Some(problem) = commit_problem(&repo, &reachable, &hash)? {
             violations.push(format!("{path}: `resolution` names {problem}"));
         }
     }
+    violations.extend(cited_commit_problems(
+        &repo,
+        &reachable,
+        &docs.cited_hashes(),
+    )?);
     assert!(
         violations.is_empty(),
         "{} documentation violation(s):\n{}",
@@ -330,7 +386,7 @@ impl TempRepo {
     }
 
     fn problem(&self, hash: &str) -> Result<Option<String>> {
-        commit_problem(&self.repo(), hash)
+        commit_problem(&self.repo(), &reachable_commits(&self.repo())?, hash)
     }
 
     /// 1 つの文書 `text` が引く hash の違反
@@ -339,7 +395,11 @@ impl TempRepo {
             BTreeMap::from([("docs/a.md".to_string(), text.to_string())]),
             Vec::<String>::new(),
         );
-        cited_commit_problems(&self.repo(), &docs.cited_hashes())
+        cited_commit_problems(
+            &self.repo(),
+            &reachable_commits(&self.repo())?,
+            &docs.cited_hashes(),
+        )
     }
 }
 

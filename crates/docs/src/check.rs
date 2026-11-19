@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::{
-    FrontMatter, Link, Value, adr_refs, issue_refs, links, markdown_lines, numbered_file,
-    parse_front_matter,
+    FrontMatter, Link, Value, adr_refs, hex_words, issue_refs, links, markdown_lines,
+    numbered_file, parse_front_matter,
 };
 
 /// 約束に反しているところ。
@@ -121,9 +121,27 @@ impl Docs {
             .collect()
     }
 
-    /// 文書の中のコミットの hash らしい語（`hex_words`）と、その場所。
+    /// CLAUDE.md と、docs と examples の Markdown の、コードブロックの外にあるコミットの hash らしい語（`hex_words`）
+    /// と、その場所。git で hash が指すものを確かめるのは呼ぶ側（tests/consistency.rs）。
     pub fn cited_hashes(&self) -> Vec<Citation> {
-        Vec::new()
+        let mut cited = Vec::new();
+        for (path, text) in &self.texts {
+            if !scanned_markdown(path) {
+                continue;
+            }
+            // 閉じていないコードブロックは check の scanned_lines が違反にする
+            let Ok(lines) = markdown_lines(text) else {
+                continue;
+            };
+            for (line, content) in lines {
+                cited.extend(hex_words(content).into_iter().map(|hash| Citation {
+                    path: path.clone(),
+                    line,
+                    hash: hash.to_string(),
+                }));
+            }
+        }
+        cited
     }
 
     /// `dir` の直下の番号つきの文書（README.md と、OKF の索引と履歴の `index.md`、`log.md` を除く。ADR-0256）。
@@ -157,7 +175,7 @@ impl Docs {
     /// Markdown の相対リンク先があるか。絶対パスと、http、https、mailto 以外のスキームは違反にする。
     fn check_links(&self, lines: &BTreeMap<&str, Vec<(usize, &str)>>, out: &mut Violations) {
         for (path, lines) in lines {
-            if !scanned_for_links(path) {
+            if !scanned_markdown(path) {
                 continue;
             }
             let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
@@ -297,8 +315,8 @@ fn scanned_for_refs(path: &str) -> bool {
         || (path.starts_with("crates/") && ["rs", "toml"].contains(&ext))
 }
 
-/// 相対リンクを確かめるファイル: CLAUDE.md と、docs と examples の Markdown。
-fn scanned_for_links(path: &str) -> bool {
+/// 相対リンクと引くコミットを確かめるファイル: CLAUDE.md と、docs と examples の Markdown。
+fn scanned_markdown(path: &str) -> bool {
     path == "CLAUDE.md"
         || ((path.starts_with("docs/") || path.starts_with("examples/")) && extension(path) == "md")
 }
