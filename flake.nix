@@ -60,7 +60,8 @@
       # 見出しの数の 2 乗で延びる（tomlkit の issue 479。0.15.1 で線形になった）ので、DVC の Python だけ直った版にする（#0268）。
       # nixpkgs の tomlkit が 0.15.1 以上になったら、この override は評価で止まるので消す
       dvcTomlkit =
-        assert lib.versionOlder pkgs.python3Packages.tomlkit.version "0.15.1";
+        assert lib.assertMsg (lib.versionOlder pkgs.python3Packages.tomlkit.version "0.15.1")
+          "nixpkgs の tomlkit が 0.15.1 以上になった。flake.nix の dvcTomlkit の override を消す（#0268）";
         pkgs.python3Packages.tomlkit.overridePythonAttrs rec {
           version = "0.15.2";
           src = pkgs.fetchPypi {
@@ -74,7 +75,7 @@
       );
       dvc = pkgs.runCommand "dvc-${dvcPackage.version}" { } ''
         test -x ${dvcPackage}/bin/.dvc-wrapped || {
-          echo "pkgs.dvc に bin/.dvc-wrapped が無い（#0101）" >&2
+          echo "dvc のパッケージ（dvcPackage）に bin/.dvc-wrapped が無い（#0101）" >&2
           exit 1
         }
         mkdir -p $out/bin
