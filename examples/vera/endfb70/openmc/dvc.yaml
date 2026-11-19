@@ -106,7 +106,7 @@ stages:
       - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-1B.json
-      - openmc-1B-results
+      - openmc-1B-results/k.json
     outs:
       - compare-1B.json:
           cache: false
@@ -118,7 +118,7 @@ stages:
       - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-1D.json
-      - openmc-1D-results
+      - openmc-1D-results/k.json
     outs:
       - compare-1D.json:
           cache: false
@@ -130,7 +130,8 @@ stages:
       - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-2B.json
-      - openmc-2B-results
+      - openmc-2B-results/k.json
+      - openmc-2B-results/pins.msgpack
       - ../p2/pins-2B.msgpack
     outs:
       - compare-2B.json:

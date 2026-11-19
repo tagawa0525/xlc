@@ -4786,6 +4786,7 @@ TABLES = {
     "endfb70-openmc": (
         [
             "examples/vera/endfb70/openmc/compare-1B.json",
+            "examples/vera/endfb70/openmc/compare-1D.json",
             "examples/vera/endfb70/openmc/compare-2B.json",
         ],
         endfb70_openmc,

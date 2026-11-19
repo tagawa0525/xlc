@@ -1411,3 +1411,113 @@ stages:
       md5: 771cde98c9acd5cddf926fd4fcb35db1.dir
       size: 9604
       nfiles: 2
+  compare-1B:
+    cmd: python3 ../../compare_openmc_keno.py --json compare-1B.json 
+      ../../../../references/vera/spec.txt 1B ../compare-1B.json 
+      openmc-1B-results
+    deps:
+    - path: ../../../../python-ast/examples/vera/compare_keno.py.ast
+      hash: md5
+      md5: 0d6ce13aae60ffc42f08fbc8f72ea478
+      size: 3412
+    - path: ../../../../python-ast/examples/vera/compare_openmc_keno.py.ast
+      hash: md5
+      md5: 066cc54a2fd88a62335658b07718c8a8
+      size: 2790
+    - path: ../../../../python-ast/examples/vera/compare_p3.py.ast
+      hash: md5
+      md5: 11b6a4d38d3f5c00904e1d5bf2460fbd
+      size: 15757
+    - path: ../../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare-1B.json
+      hash: md5
+      md5: b1b6d081ab3557cd74723cde1b7b73ef
+      size: 182
+    - path: openmc-1B-results/k.json
+      hash: md5
+      md5: 0434acb62be9b2f34455e7d2142ef14d
+      size: 75
+    outs:
+    - path: compare-1B.json
+      hash: md5
+      md5: 9eea98545206d7eb82118cae62c44afb
+      size: 794
+  compare-1D:
+    cmd: python3 ../../compare_openmc_keno.py --json compare-1D.json 
+      ../../../../references/vera/spec.txt 1D ../compare-1D.json 
+      openmc-1D-results
+    deps:
+    - path: ../../../../python-ast/examples/vera/compare_keno.py.ast
+      hash: md5
+      md5: 0d6ce13aae60ffc42f08fbc8f72ea478
+      size: 3412
+    - path: ../../../../python-ast/examples/vera/compare_openmc_keno.py.ast
+      hash: md5
+      md5: 066cc54a2fd88a62335658b07718c8a8
+      size: 2790
+    - path: ../../../../python-ast/examples/vera/compare_p3.py.ast
+      hash: md5
+      md5: 11b6a4d38d3f5c00904e1d5bf2460fbd
+      size: 15757
+    - path: ../../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare-1D.json
+      hash: md5
+      md5: ce59281360aaffdf1da092848c648b24
+      size: 182
+    - path: openmc-1D-results/k.json
+      hash: md5
+      md5: f8a455538f3701312971349fac9315f0
+      size: 76
+    outs:
+    - path: compare-1D.json
+      hash: md5
+      md5: b675e8216670d6eb6551c7053c7f974e
+      size: 795
+  compare-2B:
+    cmd: python3 ../../compare_openmc_keno.py --json compare-2B.json 
+      ../../../../references/vera/spec.txt 2B ../compare-2B.json 
+      openmc-2B-results ../p2/pins-2B.msgpack
+    deps:
+    - path: ../../../../python-ast/examples/vera/compare_keno.py.ast
+      hash: md5
+      md5: 0d6ce13aae60ffc42f08fbc8f72ea478
+      size: 3412
+    - path: ../../../../python-ast/examples/vera/compare_openmc_keno.py.ast
+      hash: md5
+      md5: 066cc54a2fd88a62335658b07718c8a8
+      size: 2790
+    - path: ../../../../python-ast/examples/vera/compare_p3.py.ast
+      hash: md5
+      md5: 11b6a4d38d3f5c00904e1d5bf2460fbd
+      size: 15757
+    - path: ../../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare-2B.json
+      hash: md5
+      md5: 9cfbef5ab1a0ed32abf40806a760aff9
+      size: 289
+    - path: ../p2/pins-2B.msgpack
+      hash: md5
+      md5: e0f8ad3a7a2dba69a94f7cb45d58523c
+      size: 2683
+    - path: openmc-2B-results/k.json
+      hash: md5
+      md5: bb117b291dea047f6412ff17aebb4a73
+      size: 75
+    - path: openmc-2B-results/pins.msgpack
+      hash: md5
+      md5: ee20cdc7a2942465c1b063e277abf4a2
+      size: 2683
+    outs:
+    - path: compare-2B.json
+      hash: md5
+      md5: 31eaf32006e0de64707abc3227138d3b
+      size: 1197
