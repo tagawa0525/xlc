@@ -151,46 +151,51 @@ enum Named {
 }
 
 /// `hashes` が指すものを、1 つの `git cat-file --batch-check` で引く。`<hash>^{commit}` で引くので、git は
-/// コミットだけで短い hash を決める（blob や tree と先頭が重なっても ambiguous にならない）
+/// コミットだけで短い hash を決める（blob や tree と先頭が重なっても 1 つに決まる）。先頭が同じコミットが 2 つ
+/// 以上あると、git は `^{commit}` を `missing` と答え、`ambiguous` とは答えない（git 2.55 で確かめた）ので、
+/// 同じ batch で `<hash>` も引き、それが `ambiguous` のものだけ、候補（`rev-parse --disambiguate`）のコミットを数える
 fn name_commits<'a>(repo: &Repo, hashes: &BTreeSet<&'a str>) -> Result<BTreeMap<&'a str, Named>> {
     if hashes.is_empty() {
         return Ok(BTreeMap::new());
     }
-    let input: String = hashes.iter().map(|h| format!("{h}^{{commit}}\n")).collect();
-    let output = repo.stdout_with_input(
-        &[
-            "cat-file",
-            "--batch-check=%(objectname) %(objecttype)",
-            "--buffer",
-        ],
-        input,
-    )?;
+    let input: String = hashes
+        .iter()
+        .map(|h| format!("{h}^{{commit}}\n{h}\n"))
+        .collect();
+    let output = repo.stdout_with_input(&["cat-file", BATCH_CHECK, "--buffer"], input)?;
     let lines: Vec<&str> = output.lines().collect();
-    if lines.len() != hashes.len() {
+    if lines.len() != 2 * hashes.len() {
         return Err(format!(
             "git cat-file answered {} lines for {} names",
             lines.len(),
-            hashes.len()
+            2 * hashes.len()
         )
         .into());
     }
-    Ok(hashes
-        .iter()
-        .zip(lines)
-        .map(|(hash, line)| {
-            let named = match line.split_once(' ') {
-                Some((full, "commit")) => Named::Commit(full.to_string()),
-                Some((_, "ambiguous")) => Named::Ambiguous,
-                _ => Named::Other,
-            };
-            (*hash, named)
-        })
-        .collect())
+    let mut named = BTreeMap::new();
+    for (hash, pair) in hashes.iter().zip(lines.chunks(2)) {
+        let value = match (pair[0].split_once(' '), pair[1].split_once(' ')) {
+            (Some((full, "commit")), _) => Named::Commit(full.to_string()),
+            (_, Some((_, "ambiguous"))) if candidate_commits(repo, hash)? > 1 => Named::Ambiguous,
+            _ => Named::Other,
+        };
+        named.insert(*hash, value);
+    }
+    Ok(named)
+}
+
+const BATCH_CHECK: &str = "--batch-check=%(objectname) %(objecttype)";
+
+/// 先頭が `prefix` のオブジェクトのうちコミットの数。
+fn candidate_commits(repo: &Repo, prefix: &str) -> Result<usize> {
+    let candidates = repo.stdout(&["rev-parse", &format!("--disambiguate={prefix}")])?;
+    let types = repo.stdout_with_input(&["cat-file", BATCH_CHECK], candidates)?;
+    Ok(types.lines().filter(|l| l.ends_with(" commit")).count())
 }
 
 /// 閉じた issue の `resolution` の hash（パスと hash）がコミットを指すか、文書が引く hash（`cited`）のうち
-/// コミットを指すものが HEAD、ブランチ、タグから辿れるかを確かめ、違反の文を返す。`resolution` の行も
-/// `cited` に入るので、辿れるかは `cited` の側だけで見る（同じ hash を 2 度示さない）。コミットを指さない
+/// コミットを指すものが HEAD、ブランチ、タグから辿れ、1 つのコミットに決まるかを確かめ、違反の文を返す。
+/// `resolution` の行も `cited` に入るので、辿れるかと決まるかは `cited` の側だけで見る（同じ hash を 2 度示さない）。コミットを指さない
 /// 16 進は md5 などと区別できないので、`resolution` のほかでは見ない（git gc の後の消えたコミットも見逃す）
 fn commit_problems(
     repo: &Repo,
@@ -206,7 +211,7 @@ fn commit_problems(
     let reachable = reachable_commits(repo)?;
     let mut problems: Vec<String> = resolutions
         .iter()
-        .filter(|(_, hash)| !matches!(named.get(hash.as_str()), Some(Named::Commit(_))))
+        .filter(|(_, hash)| matches!(named.get(hash.as_str()), None | Some(Named::Other)))
         .map(|(path, hash)| format!("{path}: `resolution` names commit {hash} that does not exist"))
         .collect();
     for c in cited {
