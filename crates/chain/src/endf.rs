@@ -2,6 +2,7 @@
 //!
 //! 行とレコードは xlc-xs の `endf::Tape` で読む（ADR-0166）。
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -111,12 +112,14 @@ fn count(value: i64, what: &str, line: usize) -> Result<u32> {
 
 /// 行の制御欄（MAT、MF、MT）。欄は `Tape::parse` が検査した。非 ASCII の文字は 1 桁に数える（`Tape::parse` と同じ）
 fn control(line: &str) -> (i64, i64, i64) {
-    let line: String = if line.is_ascii() {
-        line.to_string()
+    let line: Cow<str> = if line.is_ascii() {
+        Cow::Borrowed(line)
     } else {
-        line.chars()
-            .map(|c| if c.is_ascii() { c } else { '?' })
-            .collect()
+        Cow::Owned(
+            line.chars()
+                .map(|c| if c.is_ascii() { c } else { '?' })
+                .collect(),
+        )
     };
     let field = |range: std::ops::Range<usize>| {
         line.get(range)
