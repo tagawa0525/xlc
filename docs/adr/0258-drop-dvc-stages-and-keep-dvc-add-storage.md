@@ -2,7 +2,7 @@
 type: ADR
 status: proposed
 date: 2026-11-19
-requires: [ADR-0122, ADR-0126, ADR-0159, ADR-0193, ADR-0222]
+requires: [ADR-0122, ADR-0124, ADR-0126, ADR-0159, ADR-0160, ADR-0163, ADR-0193, ADR-0222]
 supersedes: []
 superseded-by:
 issues: []
@@ -63,7 +63,8 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
 - `.dvc` のファイル（ADR-0222）は 765（examples/depletion 749、examples/vera 12、examples/mox 2、examples/branches 2）。
   outs は 765（ディレクトリ 8）、大きさの和は 9.5 GB。拡張子は msgpack 408、log 263、out 91、ほか 3
 - キャッシュ `references/dvc-cache`（reflink。ADR-0123、ADR-0126）は 36 GB で、うち run-cache は 37 MB
-- 比較の JSON（examples の下の追跡する `compare-*.json`）は 101 で、71 が読んだ入力の md5（`inputs`）を持つ。検証の記録は 14 本で、表の目印は 222
+- 比較の JSON（examples の下の追跡する `compare-*.json`）は 101 で、71 が読んだ入力の md5（`inputs`）を持つ。lock の outs は 63 で、
+  ほかの 38 はステージの外で手で流した比較の出力検証の記録は 14 本で、表の目印は 222
 - ADR: 番号のある 64 本が `dvc` の語を含む（大小を区別しなければ 71 本）。決定が DVC のステージの仕組みそのものなのは
   ADR-0184、ADR-0210、ADR-0223、ADR-0254、ADR-0255、ADR-0257 の 6 本（ADR-0123 は既に superseded）。決定の一部が DVC の
   ステージに拠るのは ADR-0130、ADR-0136、ADR-0159、ADR-0160、ADR-0163、ADR-0176、ADR-0193、ADR-0212、ADR-0222 の 9 本。ほかは、確認や
@@ -147,30 +148,41 @@ DVC の古さの判定を残すので、(c) を妨げる仕組みのどれかが
 - runner（`examples/run_steps.py <steps.toml> <手順か組>...`）は、指定した手順だけを、指定した順に実行する。上流を自動で
   実行しない。古さも判定しない（入力の一覧は出どころの md5 を取るためだけに使う）
 - 追跡しているファイルに変更がある作業ツリーでは止まる（出どころのコミットで出し直せることを保つため。ADR-0122）。runner 自身が
-  書く追跡したファイル（一覧の出力の `.dvc` と出どころのファイル、`dvc add` が足す `.gitignore` の行、`stage-cpu-seconds.json`）は
-  除く。前の手順の出力をコミットせずに次の手順の入力にしたときは、その入力の md5 と、それを書いた手順の出どころで辿る
+  書く追跡したファイル（一覧の手順の出力そのもの、その `.dvc` と出どころのファイル、`stage-cpu-seconds.json`）と、`.gitignore` の
+  差のうち一覧の出力のパスを足す行は除く（`.gitignore` はファイルでなく行の差で見る。ほかの行の差があれば止まる）。前の手順の出力をコミットせずに次の手順の入力にしたときは、その入力の md5 と、それを書いた手順の出どころで辿る
 - 始めに `scripts/build-binaries.sh` を実行し、`bin/` を HEAD のソースから作る。`bin/` は追跡しないので、作業ツリーの検査では
-  古い実行ファイルを見分けられない（今は `dvc repro` が `build` のステージで作り直している）
+  古い実行ファイルを見分けられない（今は `dvc repro` が `build` のステージで作り直している）。実行の間は worktree ごとの排他の
+  ロックを持ち、同じ worktree で 2 つめの runner が始まれば止まる（走っている runner の `bin/` を作り直さないため。今は dvc の
+  リポジトリのロックが同じことをしている）。実行ファイルも前後の md5 の照合の入力に入れる
 - 実行の前後で入力の md5 を取り、食い違えば止まる（ADR-0193 の案 D1 と同じ）。成功したら、git で追跡しない出力は `dvc add` して
   `.dvc` の `meta` に出どころを書き、git で追跡する出力（比較の JSON など、今の `cache: false`）は隣の出どころのファイル
   （`<出力>.provenance.json`）に同じ中身を書く。`dvc add` は git が追跡するファイルを受けない
 - 核種ごとの xs の組は、ADR-0193 の同時実行（前回の CPU 時間の長い順、予算、SIGTERM の扱い、CPU 時間の記録）を runner に移す。
   `dvc status` と `dvc commit` の部分は要らなくなる
 - `bin/` は `scripts/build-binaries.sh` で作るビルドの生成物のまま残し、DVC の出力にしない。同じソースから worktree によらず同じ
-  実行ファイルを作る決まり（ADR-0159 の案 P1 と T1、それを補う ADR-0160 の strip と ADR-0163 の 1 回の cargo）は残し、出どころの
-  実行ファイルの md5 を worktree の間で比べられるようにする
+  実行ファイルを作る決まり（ADR-0159 の案 P1 と、案 T1 のうち ADR-0163 が置き換えなかった `target/dvc` と毎回の `cargo clean -p`、
+  ADR-0160 の strip、ADR-0163 の 3 つのパッケージだけの 1 回の cargo）は残し、出どころの実行ファイルの md5 を worktree の間で
+  比べられるようにする
 
 ### 出どころ
 
 - `.dvc` の `meta`（DVC が読まない欄）に、実行したコミット、日付、コマンド、入力ごとの（パス、md5）、実行ファイルの md5、
-  参照解の手順では references の devShell の store のパス（今の `references-shell.txt` の中身。ADR-0212）、Slurm のジョブの番号を書く
+  参照解の手順では references の devShell の store のパス（今の `references-shell.txt` の中身。ADR-0212）、Slurm のジョブの番号を書く。
+  md5 はファイルそのものの md5 で、正規形を使わない
+- 段 2 で lock から移した `meta` は、lock の deps をそのまま持つので、入力の md5 が正規形（`toml-values/`、`binary-forms/`、
+  `python-ast/` のパス）のものを含む。`meta` に出どころの種類（runner か lock か）と lock を入れたコミットを書いて分け、lock から
+  移した入力は、そのコミットの木の正規形のファイルで読む（段 3 で正規形を消しても git の履歴に残る）
 - 記録は今までどおり、数値を出したコミットと日付を書く（ADR-0122）。`examples/record_provenance.py` は `dvc.lock` の履歴の
   代わりに `.dvc` の `meta` と出どころのファイルを読む
 - 比較の JSON は git で追跡したまま、読んだ入力の md5（`inputs`）を持つ。`verification_tables.py --check` は表と JSON の一致を
   確かめ続ける。JSON の md5 を `dvc.lock` と照らす部分は、照らす相手が無くなるので外す。JSON の `inputs` のうち `.dvc` で追う
   出力の md5 は、今の出力と一致するかでなく、キャッシュにあって戻せるかを確かめる（記録が引く版を出し直せることの検査で、古さの
   検査にしない）。git で追跡する入力（入力の TOML など）はコミットから戻り、`references/` の入力（AWS の結果など。ADR-0174）は
-  ADR-0124 の固定に任せるので、この検査に入れない
+  ADR-0124 の固定に任せるので、この検査に入れない。今の JSON が TOML の入力に持つ md5 は値の正規形の md5（ADR-0254。
+  `scripts/normalize_toml.py` の `input_md5`）で、書いたコミットの木の `toml-values/` で読む。段 3 からは、比較のツールも入力の
+  ファイルそのものの md5 を書く
+- ステージの外で手で流した比較の JSON（38）とその入力の出どころは、今と同じく記録の「計算」と JSON の `inputs` で辿り、
+  移行で変えない
 
 ### 移行の順と見積もり
 
@@ -191,7 +203,9 @@ DVC の古さの判定を残すので、(c) を妨げる仕組みのどれかが
    `JsonInputsTest`）を `.dvc` に向け、`dvc.yaml` を書くスクリプト（p3、p5、p6 の inputs、`rods_cases.py`）を steps.toml を
    書く形にし、スキル compute、topic-start、openmc-reference、verification-record の該当の項を直す。目安は担当 1〜2 本、
    レビュー 2〜3 周
-3. 直下の `dvc.yaml` と `dvc.lock`（`build`、正規形 3 種）と、正規形を守る仕組みを消す（下の一覧）。スキル dvc-relock を消し、
+3. 直下の `dvc.yaml` と `dvc.lock`（`build`、正規形 3 種）と、正規形を守る仕組みを消す（下の一覧）。`normalize_toml.py` の
+   `input_md5` を読む比較のツール（compare_branch_cross_terms.py、compare_grid_interpolation.py、compare_p6.py）は、
+   同じ段で入力のファイルそのものの md5 を書く形にする。スキル dvc-relock を消し、
    CLAUDE.md の 3 行と docs/environment.md の DVC の項を直す。段 2 の後に例の `dvc.yaml` が無いと正規形の検査が空で通るか
    落ちるかは確かめていない。落ちるなら段 2 と 3 を 1 本にする。目安は担当 1 本、レビュー 2 周
 4. ADR と issue を今の状態に合わせる: 決定がステージの仕組みそのものの 6 本を、この ADR で置き換える（superseded）。一部が
@@ -239,7 +253,7 @@ rebase して lock の差を `.dvc` に移すかを決めてから始める。�
 段ごとに、次を通してからマージする。
 
 - 段 1: runner のテスト（手順の実行、汚れた作業ツリーで止まり runner 自身が書くファイルでは止まらない、始めに `bin/` を作る、
-  入力の md5 の食い違いで止まる、`meta` と出どころのファイルの中身、git で追跡する出力を `dvc add` しない、組の同時実行と
+  同じ worktree の 2 つめの runner が止まる、入力の md5 の食い違いで止まる、`meta` と出どころのファイルの中身、git で追跡する出力を `dvc add` しない、組の同時実行と
   SIGTERM）。DVC 3.67.1 が `meta` のある `.dvc` を `dvc checkout` で戻すこと。約 2,500 の `.dvc` での `dvc checkout` と `dvc add` の時間
 - 段 2: 移す前の 2,326 の outs のうち追跡しない 1,768 のすべてが、同じパスと md5 の `.dvc` にあること（移す前の lock と比べる
   スクリプト）。新しい worktree で `scripts/worktree-restore-outputs.sh` が MISSING なしで終わること。記録が引くステージの
@@ -251,6 +265,10 @@ rebase して lock の差を `.dvc` に移すかを決めてから始める。�
 - 段 4: `design-records check`、docs の整合性の検査（ADR と issue の両方向）
 
 ## 補足
+
+`requires` には、この案が残して拠る決定（記録の出どころ、references の固定、キャッシュの共有、実行ファイルのビルドの決まり、
+核種の組の同時実行、`dvc add` の保管）を挙げた。一部を変える ADR と置き換える ADR は、決めたときに `supersedes` と「## 変更」で
+結ぶ（proposed のうちに `supersedes` を書くと、置き換えられる側の `superseded-by` が要る）。
 
 棚卸しの数え方（main d17396374 の worktree の直下。2026-11-19）:
 
