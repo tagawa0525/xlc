@@ -1,4 +1,5 @@
 ---
+type: ADR
 status: accepted
 date: 2026-11-19
 requires: [ADR-0159, ADR-0160, ADR-0210, ADR-0254]
@@ -134,8 +135,8 @@ lattice の `enabled!` の 12 か所の行の桁の変化（文字列の長さ�
 deps のパスを替えると、実行ファイルを deps に持つステージの lock が食い違う。ADR-0254 の移行（案 M1）と同じく、例の dvc.lock の
 `bin/<名前>` の deps の項目を、lock が記録した版（DVC のキャッシュに md5 で残っているもの）の正規形の項目（パス、md5、大きさ）に
 書き換える。キャッシュに無い版と、正規形を求められない版の項目は書き換えない。xlc-log の前の版はイベントの名前に行を含むので、
-移行の一度だけ、その数字も 0 にする版の normalize_binary.py（9a5941aff の `unnamed_events`）で求めた。移行の後は使わないので、
-14ff595de で外した（CLAUDE.md の方針の、古い形式の読み込みを残さない）。
+移行の一度だけ、その数字も 0 にする版の normalize_binary.py（b6f975eb2 の `unnamed_events`）で求めた。移行の後は使わないので、
+8bcd3fecf で外した（CLAUDE.md の方針の、古い形式の読み込みを残さない）。
 書き換えるのは実行ファイルの deps の項目だけで、outs、cmd、ほかの deps は変えない。
 
 ### 帰結
@@ -154,7 +155,7 @@ deps のパスを替えると、実行ファイルを deps に持つステージ
 ### 確認
 
 (a)〜(e) は main の 92b0751ef からのブランチ（fix/0110-line-positions-in-binaries）、(f) と (g) は main の 9f1a69e72 に rebase した
-同じブランチ（a9ee72f85）で、default の devShell の `scripts/build-binaries.sh`、2026-11-19。(h) はブランチの先端のテスト。
+同じブランチ（1fd31e8f6）で、default の devShell の `scripts/build-binaries.sh`、2026-11-19。(h) はブランチの先端のテスト。
 
 - (a) 0 にした数（xlc-log の前の main の実行ファイル）: xs の Location 1,255、`Metadata` 16、lattice 4,087 と 142、core 2,525 と
   33、chain 1,024 と 3。lattice の `enabled!` は 12

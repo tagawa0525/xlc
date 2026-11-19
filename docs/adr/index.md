@@ -251,3 +251,4 @@
 * [ADR-0254: DVC のステージは、入力の TOML を tomllib で読んだ値の正規形で deps にする](0254-depend-stages-on-toml-values.md)
 * [ADR-0256: docs/ を OKF v0.3 のバンドルにし、design-records check で type と索引を検査する](0256-make-docs-an-okf-bundle.md)
 * [ADR（設計判断の記録）](README.md) - ADR（設計判断の記録）の書式と運用。
+* [ADR-0255: 計算のステージは、ソースの行と列の番号を除いた実行ファイルの正規形を deps にする](0255-keep-source-positions-out-of-stage-binaries.md)
