@@ -273,6 +273,16 @@ class Differences(unittest.TestCase):
         self.assertEqual(
             (item["nuclide"], item["a"], item["b"]), ("Cs-135", None, 7.5e13)
         )
+        self.assertEqual(summary["quantities"]["half_life"]["one_sided"], 1)
+
+    def test_a_reaction_in_only_one_chain_is_counted_apart(self):
+        # a の U-235 の (n,γ) を b は持たない。経路の違う反応（上の setUp の U-235）とは分けて数える
+        nuclides = chain_nuclides()
+        by_name(nuclides, "U-235")["reactions"] = []
+        summary = compare_chain_versions.summarize(self.a, build(nuclides))
+        reactions = summary["quantities"]["reactions"]
+        self.assertEqual((reactions["differ"], reactions["one_sided"]), (1, 1))
+        self.assertEqual(self.summary["quantities"]["reactions"]["one_sided"], 0)
 
 
 class NuclideSets(unittest.TestCase):
