@@ -4,7 +4,7 @@ status: accepted
 date: 2026-10-15
 supersedes: []
 superseded-by:
-issues: ["#0131"]
+issues: ["#0131", "#0302"]
 requires: [ADR-0020, ADR-0031, ADR-0079, ADR-0080, ADR-0124, ADR-0176]
 ---
 
@@ -74,13 +74,15 @@ xlc の xs は ENDF/B-VII.0 のすべての核種で止まらず、ピンセル 
   xlc − OpenMC（平均 +39 pcm）と同程度にはならなかった。核データの版の差だけで残りが説明できる、という見込みは k では
   成り立たない。原因は確かめていない（#0131）
 - ピン出力: 吸収体のある集合体で、xlc − KENO-VI の RMS は VIII.0 の 0.45〜0.61 倍に下がる
+- 上の 2 項は 5dac88dd の値。今のライブラリ（d6cc90d9、2026-11-15）では、15 の格子が +98〜+282 pcm（平均 +176）、3A が +196 pcm、3B が +165 pcm、
+  ピン出力の RMS の比が 0.48〜0.60 倍（`examples/vera/verification-endfb70.md` の「結論」）
 - NJOY で処理した ENDF/B-VII.0 の OpenMC（1B、1D、2B。ff985ca4、2026-11-19）: VII.0 の xlc − KENO-VI（+196〜+204 pcm）のうち、+94〜+181 pcm は
-  同じ評価済みデータの OpenMC と KENO-VI の間にあり、ライブラリを VIII.0 から VII.0 に替えたときの k の動きは xlc と OpenMC で 25 pcm 以内で合う。
+  同じ評価済みデータの OpenMC と KENO-VI の間にあり、ライブラリを VIII.0 から VII.0 に替えたときの k の動きは xlc と OpenMC で 26 pcm 以内で合う。
   `examples/vera/verification-endfb70.md` の「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）」（#0131）
 
 ## 帰結
 
-- 仕様書に KENO-VI の値がある問題は、OpenMC を実行せずに手法の差を見られる
+- 仕様書に KENO-VI の値がある問題は、OpenMC を実行せずに KENO-VI と比べられる。ただし k の差は手法の差だけではない（下の最後の項）
 - 検証用ライブラリは本番ではない。VII.0 の zip は ADR-0124 と同じく URL と sha256 で固定し、`.#endf` の木に
   `ENDF-B-VII.0_neutrons/`、`ENDF-B-VII.0_thermal_scatt/` として足す（docs/environment.md）。VIII.0 のディレクトリの中身は変わらない
 - 処理の差（AMPX と xlc）は分けられない。分けるには、同じ処理の参照（NJOY の VII.0 での OpenMC）が要り、2D の小さな

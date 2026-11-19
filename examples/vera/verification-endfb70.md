@@ -83,6 +83,7 @@ VII.0 の xlc − KENO-VI が、VIII.0 の xlc − OpenMC より大きい理由�
 同じ ENDF/B-VII.0 を NJOY で処理した OpenMC のライブラリ（`endfb70/openmc/openmc-library.toml`）で 1B、1D、2B を解き、xlc（VII.0 の検証用ライブラリ）と
 KENO-VI の間に置いた（ADR-0175 が許す診断。ステージは `endfb70/openmc/dvc.yaml`、比較のツールは `compare_openmc_keno.py`）。xlc − OpenMC の ± は
 OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統計誤差の二乗和の平方根（xlc は決定論で誤差を持たない）。
+この 3 本の OpenMC のバランス（k と、生成と吸収の比）は確かめていない（`openmc_balance.py` を VII.0 のライブラリでは流していない）。
 
 <!-- table: endfb70-openmc -->
 
@@ -101,7 +102,7 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
   2B 1.184193）から verification.md の「参照解」の OpenMC の k を引いたもの）は +87 ± 6、−4 ± 7、+77 ± 5 pcm。VII.0 の xlc − OpenMC はこれより
   +17 ± 8、+21 ± 8、+25 ± 7 pcm 大きい（± は 2 つの OpenMC の統計誤差を独立として合わせたもの。同じ乱数のシードで、相関は測っていない）
 - 言い換えると、ライブラリを VIII.0 から VII.0 に替えたときの k の動きは、xlc が +154、+142、+113 pcm、OpenMC が +137 ± 8、+121 ± 8、
-  +88 ± 7 pcm で、xlc と NJOY の VII.0 の処理は 3 問題とも 25 pcm 以内で同じ動きを出す。差の +17〜+25 pcm は ± の 2.2〜3.5 倍で、
+  +88 ± 7 pcm で、xlc と NJOY の VII.0 の処理は 3 問題とも 26 pcm 以内で同じ動きを出す。差の +17〜+25 pcm は ± の 2.2〜3.6 倍で、
   3 問題とも同じ符号。その原因は確かめていない
 - したがって、VII.0 の xlc − KENO-VI が VIII.0 の xlc − OpenMC より大きい分（1B で 204 − 87 = +117 pcm）は、主に OpenMC（NJOY）と KENO-VI の差
   （+100 pcm）で、xlc の VII.0 の処理に帰せるのは +17 pcm 程度。OpenMC − KENO-VI の原因（AMPX と NJOY の処理の差、KENO-VI のモデルの解釈、
@@ -113,7 +114,8 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
 ### 燃料の温度による変化（1B と 1D）
 
 1B（燃料 600 K）から 1D（1200 K）への差の変化を、核データの版ごとに並べる（[#0083](../../docs/issues/0083-fuel-temperature-slope.md)）。
-上の表と箇条書きの値の差で、± は関係する統計誤差の二乗和の平方根。
+上の表と箇条書きの値の差で、± は関係する統計誤差の二乗和の平方根（1B と 1D の OpenMC を独立として合わせたもの。同じ乱数のシードで、
+相関は測っていない）。
 
 - xlc − OpenMC の変化は、VII.0 で −87 ± 6 pcm（+104 → +17）、VIII.0 で −90 ± 9 pcm（+87 → −4）。2 つの版で同じ（差は 4 ± 11 pcm）で、
   この傾きは核データの版によらず、xlc と OpenMC の手法の差にある
@@ -125,7 +127,7 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
   温度によらない 31 eV（ADR-0243）。xlc の上限を 400 kT にして 1B と 1D を解くと（試行の入力 `trials/0083-free-gas-cap/<版>/pincell-<問題>-400kt.toml`、
   コミット 7375887d。計算は「計算」）、k は既定から 1B で −24 pcm（VII.0 1.183952、VIII.0 1.182411）、1D で +42 pcm（VII.0 1.165001、VIII.0 1.163582）動き、
   2 つの版で動きは 0.1 pcm 以内で同じ。同じ上限にした xlc − OpenMC は、VII.0 で 1B +80 ± 4、1D +59 ± 5 pcm（変化 −21 ± 6 pcm）、VIII.0 で
-  1B +63 ± 6、1D +38 ± 7 pcm（変化 −25 ± 9 pcm）。残る −21〜−25 pcm は ± の 2.7〜3.2 倍で、原因は確かめていない
+  1B +63 ± 6、1D +38 ± 7 pcm（変化 −25 ± 9 pcm）。残る −21〜−25 pcm は ± の 2.7〜3.3 倍で、原因は確かめていない
 - 残りは、軽い核種（分離共鳴を持たない核種）の上限の違い（xlc は 1 keV（ADR-0246）、OpenMC は 400 kT）では説明できない。軽い核種の上限も
   400 kT にすると（`ufg-free-gas = { heavy = 400, upper = 400 }`。試行の入力 `trials/0083-free-gas-cap/<版>/pincell-<問題>-400kt-both.toml`、
   コミット f2ef4f7d。計算は「計算」）、k は VII.0 で 1B 1.184172、1D 1.165226、VIII.0 で 1B 1.182633、1D 1.163809 になり、重い核種だけを 400 kT にした k から

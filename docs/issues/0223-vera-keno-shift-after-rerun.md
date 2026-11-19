@@ -99,8 +99,9 @@ heavy-cap、heavy-fast3 の `swap_absorption` の出力が ADR-0204 の記録の
 
 既に挙がっている見方（open の issue と ADR の「候補」「確かめていない」の行を「散乱核」「自己遮蔽」「KENO」で検索した）:
 
-- #0131: VII.0 の xlc − KENO-VI が VIII.0 の xlc − OpenMC より約 +130 pcm 大きい。候補は VII.0 のファイルの扱い、AMPX と NJOY の処理の差、
-  KENO-VI のモデルの解釈、565 K の S(α,β) の温度の補正。今回の動きは VIII.0 と VII.0 の両方で同じ向きで、VIII.0 の 1C と 2A は ADR-0209 が記録した動きなので、
+- #0131: VII.0 の xlc − KENO-VI が VIII.0 の xlc − OpenMC より大きい（1B で +117 pcm）。1B、1D、2B では、主に同じ VII.0 の OpenMC（NJOY）と
+  KENO-VI の差（+94〜+181 pcm）で、xlc の VII.0 のファイルの扱いは主因でない（2026-11-20）。OpenMC − KENO-VI の候補は AMPX と NJOY の処理の差、
+  KENO-VI のモデルの解釈、共鳴の散乱の扱い。今回の動きは VIII.0 と VII.0 の両方で同じ向きで、VIII.0 の 1C と 2A は ADR-0209 が記録した動きなので、
   #0131 の差とは別（VII.0 は上の候補）
 - #0040: 565 K の集合体の k∞ が KENO の 2A より約 170 pcm 大きい（前の版の値）
 - #0005: k の差のうち、散乱の移行（共鳴の範囲の自己遮蔽を含む）が未解明で最も大きな候補

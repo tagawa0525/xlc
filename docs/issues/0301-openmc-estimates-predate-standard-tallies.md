@@ -9,12 +9,12 @@ blocked-by: []
 resolution:
 ---
 
-# スキル openmc-reference の見積もりの表が、標準のタリーを入れる前の時間のままで、参照解の見積もりが約 1/3 になる
+# スキル openmc-reference の見積もりの表が、標準のタリーを入れる前の時間のままで、参照解の見積もりが 1/4〜1/3 になる
 
 ## 問題
 
 - スキル openmc-reference の「Slurm の名前と見積もり」の表の OpenMC の実績（1B の statepoint の total 17.8 分、2A〜2K と 2Q の 31〜50 分）は、
-  標準のタリーの組（ADR-0152）を `openmc_model.py` に入れる前の実行のもので、今のモデルの時間ではない。その statepoint にタリーは無い
+  標準のタリーの組（ADR-0152）を `openmc_model.py` に入れる前の実行のもので、今のモデルの時間ではない。その statepoint に標準のタリーの組は無い
   （`references/openmc/vera-1B/statepoint.250.h5` と `vera-1D` は 0 組、`vera-2B/statepoint.400.h5` はピンの核分裂率の 1 組）。表は世代数も書かないので、
   世代数の違う実行に比例で当てられない
 - 今のモデルでは、アクティブバッチの時間が非アクティブバッチの 3.5〜4.6 倍になる。Slurm 961（ENDF/B-VII.0 の 1B、1D、2B。排他、16 スレッド、
