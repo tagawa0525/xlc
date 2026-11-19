@@ -342,6 +342,7 @@ def main() -> None:
                 },
             }
         )
+    add_burnup_shift(results, history)
     for r in results:
         print(
             f"{r['burnup']:g} MWd/kg: k {r['k_table']:.5f} (flux {r['k_flux']:.5f}); "
@@ -350,6 +351,12 @@ def main() -> None:
             f"capture energy / fission energy {r['energy']['capture_over_fission'][0] * 100:.2f}–"
             f"{r['energy']['capture_over_fission'][1] * 100:.2f}%"
         )
+        if r["energy"]["burnup_shift"]:
+            lo, hi = r["energy"]["burnup_shift"]
+            print(
+                f"  normalization: mean delta {lo['mean_delta'] * 100:.2f}–{hi['mean_delta'] * 100:.2f}%, "
+                f"burnup {lo['burnup']:.2f}–{hi['burnup']:.2f} MWd/kg, k-inf {lo['dk_pcm']:+.0f} to {hi['dk_pcm']:+.0f} pcm"
+            )
         top = sorted(r["urr"]["nuclides"].items(), key=lambda x: x[1]["dk_pcm"])[:4]
         print("  URR: " + ", ".join(f"{n} {v['dk_pcm']:+.1f}" for n, v in top))
         top = sorted(
@@ -365,6 +372,40 @@ def main() -> None:
         args.json.write_text(
             json.dumps({"fuel": args.fuel, "results": results}, indent=1) + "\n"
         )
+
+
+def add_burnup_shift(results: list[dict], history: dict) -> None:
+    """項目 3 の k∞ への効きの見込み: 出力を捕獲の分も含むエネルギーで規格化すると、同じ燃焼度までの核分裂が 1/(1 + δ̄) に減る
+    （δ̄ は燃焼度 0 からの δ の燃焼度の平均。燃焼点の間は台形）。今の規格化の燃焼度 B の組成は、その規格化の B (1 + δ̄) の組成に
+    当たるので、同じ燃焼度の k∞ の差（捕獲を含む規格化 − 今の規格化）は −(dk/dB) B δ̄ / k（dk/dB は履歴の 1 つ前の燃焼点との差分）。δ は REST_Q の 2 つの端ごと"""
+    ks = {p["burnup"]: p["k_inf"] for p in history["points"]}
+    points = sorted(ks)
+    burnups = [r["burnup"] for r in results]
+    for i, r in enumerate(results):
+        b = r["burnup"]
+        if b == 0:
+            r["energy"]["burnup_shift"] = None
+            continue
+        j = points.index(b)
+        slope = (ks[b] - ks[points[j - 1]]) / (b - points[j - 1])
+        shift = []
+        for end in range(2):
+            deltas = [
+                results[m]["energy"]["capture_over_fission"][end] for m in range(i + 1)
+            ]
+            area = sum(
+                (deltas[m] + deltas[m + 1]) / 2 * (burnups[m + 1] - burnups[m])
+                for m in range(i)
+            )
+            mean = area / b
+            shift.append(
+                {
+                    "mean_delta": mean,
+                    "burnup": b * mean,
+                    "dk_pcm": -slope * b * mean / ks[b] * 1e5,
+                }
+            )
+        r["energy"]["burnup_shift"] = shift
 
 
 def _has_urr_in_ufg(endf, directory: Path, xs: dict, name: str) -> bool:
