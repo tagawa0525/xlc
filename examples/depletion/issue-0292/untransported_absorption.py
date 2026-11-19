@@ -313,6 +313,7 @@ def prune(points, ranked, floor):
         "pruned": {
             "count": len(dropped),
             "sum_pcm": sum(r["max_pcm"] for r in dropped),
+            "nuclides": [r["nuclide"] for r in dropped],
         },
     }
 

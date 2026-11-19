@@ -41,14 +41,17 @@ def compare(before, after, absorption, added):
         if b not in k_before:
             raise SystemExit(f"burnup {b} is not a point of the histories")
         shares = p["untransported_all"]
-        missing = [n for n in added if n not in shares]
+        dropped = set(absorption.get("pruned", {}).get("nuclides", []))
+        missing = [n for n in added if n not in shares and n not in dropped]
         if missing:
             raise SystemExit(
                 f"{missing} are not untransported nuclides of the absorption JSON"
             )
-        decay = sum(shares[n]["fraction"] for n in added)
+        # JSON から外した核種（最大の目安が床以下。untransported_absorption.py の PRUNE_PCM）は目安が 0
+        kept = [n for n in added if n in shares]
+        decay = sum(shares[n]["fraction"] for n in kept)
         captured = sum(
-            shares[n]["fraction"] * shares[n]["captured_ratio"] for n in added
+            shares[n]["fraction"] * shares[n]["captured_ratio"] for n in kept
         )
         rows.append(
             {
