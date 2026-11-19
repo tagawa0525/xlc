@@ -5067,8 +5067,8 @@ stages:
       size: 683
     - path: ../../python-ast/examples/openmc_resume.py.ast
       hash: md5
-      md5: fcb36a62438bba276021c415049b0244
-      size: 4593
+      md5: c8a3f8f9a2235d5ec4475beb203a449f
+      size: 4722
     - path: ../../python-ast/examples/openmc_run.py.ast
       hash: md5
       md5: ef54b70b3fdc8fb2859025ed83c1d6ab
