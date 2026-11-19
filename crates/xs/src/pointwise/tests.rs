@@ -719,6 +719,37 @@ fn negative_slbw_elastic_with_its_background_is_raised_to_zero() {
 }
 
 #[test]
+fn negative_slbw_elastic_is_raised_against_both_sides_of_a_background_step() {
+    // MF3 の弾性散乱が段差を持つ点では、和の表は段差の左右の両方の値を持つ。SLBW の弾性散乱が負になる 9 eV で、範囲の上端に
+    // 段差がある範囲（[1, 9] eV）と、範囲の中に段差がある範囲（[1, 50] eV）のどちらでも、和は両側で負にならない
+    let bw = crate::resonance::slbw_tests::cooperating_levels();
+    let step = linear(&[1.0e-5, 9.0, 9.0, 2.0e7], &[0.0, 0.0, 30.0, 30.0]);
+    for eh in [9.0, 50.0] {
+        let mf2 = Mf2 {
+            ranges: vec![ResonanceRange {
+                el: 1.0,
+                eh,
+                kind: RangeKind::Slbw(bw.clone()),
+            }],
+            ..slbw_mf2(bw.clone())
+        };
+        let mut tables = BTreeMap::from([(2, step.clone())]);
+        add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
+        let elastic = &tables[&2];
+        assert!(
+            elastic.y.iter().all(|&v| v >= 0.0),
+            "range up to {eh} eV: {:?}",
+            elastic
+                .x
+                .iter()
+                .zip(&elastic.y)
+                .filter(|(_, v)| **v < 0.0)
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
 fn mlbw_tables_have_points_at_the_breaks_of_the_radius_table() {
     use crate::endf::rec;
     // AP(E) は 25 eV で折れる。位相シフトも折れるので、中点の判定だけでは折れ目の点が入らないことがある
