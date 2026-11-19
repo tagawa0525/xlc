@@ -170,8 +170,9 @@ pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessErro
 /// （NJOY UNRESR に相当）。結果は温度の順に並ぶ。非分離共鳴がなければ `None`。
 ///
 /// どの温度にも同じラダーを使う（ADR-0177）ので、ラダーと係数は温度の間で 1 度だけ作る。どの温度の補正も、その温度だけを
-/// 作ったときとビットまで同じ（#0155）。エラーは、温度ごとに作ったときに最初にエラーになる温度のもので、温度によるエラーは
-/// その温度の `ProcessError::Temperature` で包む。
+/// 作ったときとビットまで同じ（#0155）。サンプリングのエラーは、温度ごとに作ったときに最初にエラーになる温度のものを、その温度の
+/// `ProcessError::Temperature` で包んで返す。温度によらないエラー（MF2 の読み、格子、正でない温度）は包まず、正でない温度は
+/// その位置によらず先に返る。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn unresolved_shielding(
     tape: &Tape,
@@ -520,7 +521,8 @@ pub fn process_nuclide(
     };
     // 非分離共鳴の補正は、温度の間で同じラダーを 1 度だけ作る（#0155）ので、温度のループの前に全温度を求める
     let shielding = unresolved_shielding(tape, evaluation.mat, temperatures, &settings.sigma0)?;
-    // 温度ごとに独立なので並列に求める。結果は温度の順で、エラーは最初の温度のもの（順に求めたときと同じ）
+    // 温度ごとに独立なので並列に求める。結果は温度の順で、エラーは最初の温度のもの。非分離共鳴の補正のエラーは、上で
+    // ほかの処理のエラーより先に返る
     let temperatures = in_parallel(temperatures.len(), |k| {
         let t = temperatures[k];
         common

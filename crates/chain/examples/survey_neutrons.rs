@@ -285,14 +285,14 @@ fn read_failures(tape: &Tape, mat: i32) -> Vec<(String, String)> {
     if let Err(err) = resolved(tape, mat) {
         failures.push(("resolved top".into(), err.to_string()));
     }
-    // 全温度を 1 度に作るので、止まるのは最初にエラーになる温度だけ
-    match unresolved_shielding(tape, mat, &TEMPERATURES, &SIGMA0) {
-        Err(ProcessError::Temperature {
-            temperature,
-            source,
-        }) => failures.push((format!("unresolved at {temperature} K"), source.to_string())),
-        Err(err) => failures.push(("unresolved".into(), err.to_string())),
-        Ok(_) => {}
+    // 温度を 1 つずつ渡し、どの温度で止まるかをすべて挙げる（全温度を 1 度に渡すと、最初にエラーになる温度だけが返る）
+    for t in TEMPERATURES {
+        let failure = match unresolved_shielding(tape, mat, &[t], &SIGMA0) {
+            Ok(_) => continue,
+            Err(ProcessError::Temperature { source, .. }) => source.to_string(),
+            Err(err) => err.to_string(),
+        };
+        failures.push((format!("unresolved at {t} K"), failure));
     }
     failures
 }
