@@ -204,7 +204,9 @@ class Prune(unittest.TestCase):
         pruned = ua.prune(points, ranked, 0.01)
         self.assertEqual(list(pruned["points"][0]["untransported_all"]), ["A"])
         self.assertEqual([r["nuclide"] for r in pruned["ranking"]], ["A"])
-        self.assertEqual(pruned["pruned"], {"count": 1, "sum_pcm": 0.004})
+        self.assertEqual(
+            pruned["pruned"], {"count": 1, "sum_pcm": 0.004, "nuclides": ["B"]}
+        )
 
 
 class Category(unittest.TestCase):

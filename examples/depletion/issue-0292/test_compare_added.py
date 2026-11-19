@@ -18,8 +18,9 @@ def history(ks):
     }
 
 
-def absorption(points):
+def absorption(points, pruned=()):
     return {
+        "pruned": {"nuclides": list(pruned)},
         "points": [
             {
                 "burnup": b,
@@ -30,11 +31,17 @@ def absorption(points):
                 },
             }
             for b, k, shares in points
-        ]
+        ],
     }
 
 
 class Compare(unittest.TestCase):
+    def test_added_nuclides_dropped_from_the_json_count_as_zero(self):
+        h = history([(10.0, 1.0)])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})], pruned=["P"])
+        (row,) = compare_added.compare(h, h, shares, ["A", "P"])["points"]
+        self.assertAlmostEqual(row["decay_only_pcm"], -1e3)
+
     def test_the_direct_difference_and_both_estimates_sum_the_added_nuclides(self):
         before = history([(0.0, 1.2), (10.0, 1.0), (20.0, 0.9)])
         after = history([(0.0, 1.2), (10.0, 0.99), (20.0, 0.88)])
