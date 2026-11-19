@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 import tomllib
+import yaml
 
 HERE = Path(__file__).resolve().parent
 # 版のディレクトリ → ENDF の版の名前。VIII.0 のライブラリとチェーンは HERE の xs.toml と chain.toml
@@ -58,6 +59,42 @@ class Libraries(unittest.TestCase):
                     (chain.parent / read(chain)["neutron-directory"]).resolve(),
                     (xs.parent / read(xs)["endf-directory"]).resolve(),
                 )
+
+
+class Stages(unittest.TestCase):
+    """examples/depletion/dvc.yaml の foreach の組が、入力の読むパスと同じこと（違うと、入力が読むファイルが変わってもステージが走らない）"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.stages = yaml.safe_load((HERE / "dvc.yaml").read_text())["stages"]
+
+    def test_depletion_deps_are_the_library_and_chain_of_each_input(self):
+        items = self.stages["lattice-1C-version"]["foreach"]
+        self.assertEqual(sorted(items), sorted(VERSIONS))
+        for key, item in items.items():
+            with self.subTest(key):
+                d = read(HERE / key / "lattice-1C-60.toml")
+                for dep, path in (
+                    (item["library"], d["library"]),
+                    (item["chain"], d["depletion"]["chain"]),
+                ):
+                    self.assertEqual(
+                        (HERE / dep).resolve(), (HERE / key / path).resolve()
+                    )
+
+    def test_check_deps_are_the_neutrons_of_each_chain(self):
+        items = self.stages["natural-isotopes"]["foreach"]
+        self.assertEqual(sorted(items), sorted(VERSIONS))
+        for key, item in items.items():
+            with self.subTest(key):
+                chain = HERE / f"{item['chain']}.toml"
+                self.assertEqual(
+                    (chain.parent / read(chain)["neutron-directory"]).resolve(),
+                    (
+                        HERE / f"../../references/endf/{item['neutrons']}_neutrons"
+                    ).resolve(),
+                )
+                self.assertEqual(item["neutrons"], VERSIONS[key])
 
 
 class Depletions(unittest.TestCase):
