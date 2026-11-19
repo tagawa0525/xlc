@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification]
 opened: 2026-11-03
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: "コミット 70e0c89cc"
 ---
 
 # MOX-1 の 0 の点の切り分けの記録の周で残った指摘
@@ -38,3 +38,4 @@ issue #0001 の経緯に #0152 の結果を引き、run.sh の 4 件を直すか
 
 - 2026-11-03: ブランチ feat/0152-mox1-gap の記録の周（11e6ac8e5）で出た。文書の事実の誤りの 3 件は同じブランチで直した
 - 2026-11-03: 直した箇所の周（129e733b5）で出た言い回しと記録の食い違いの 3 件を足した
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。#0001 の経緯、記録の注の食い違いと 448 のコミットは 70e0c89cc で直した
