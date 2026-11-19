@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-13
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 63358d37d
 ---
 
 # 手で流した OpenMC の statepoint のモデルと、extract の入力のモデルの一致を確かめない
@@ -32,3 +32,9 @@ extract が、statepoint を出したモデルと入力のモデルの一致を�
 ## 経緯
 
 - 2026-10-13: feat/0086-periphery-constants のレビューで挙がった
+- 2026-11-19: openmc_core_2d.py と openmc_model_3d.py の extract が、作業ディレクトリの model.xml と入力から作ったモデルを、
+  ライブラリのパスと statepoint を書く世代を除いて比べ、違えば止まるようにした（openmc_resume.py の `check_model`。テストは
+  examples/test_openmc_resume.py と examples/vera/test_openmc_extract.py）。手元の statepoint の 5 本（5A-2D、AWS の m3 の 3A、3B、5B-2D、
+  5C-2D）で確かめ、5A-2D だけが、標準のタリーの組（ADR-0152）を足す前のモデルで流したので止まった。入力に `standard-tallies = false` を
+  書いて流したモデルに合わせ（verification.md の標準のタリーの組の段落も直した）、`openmc-5A-2D-extract` を再実行して、出力の md5 が
+  前と同じことを確かめた

@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [openmc, reference]
 opened: 2026-10-13
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット fee90a0ff
 ---
 
 # The statepoint pruner does not run during the OpenMC run
@@ -41,3 +41,6 @@ VM での間引きを直しても、S3 の `runs/` の statepoint は完了ま�
 
 - 2026-10-13: ADR-0155 の再開の確認で、S3 の `run/` に古い statepoint が残ることから見つけた
 - 2026-11-19: AWS を使わなくなった後も、r995 の実行に同じ欠陥が残るので開いたままにした
+- 2026-11-19: `run_model` が `work` を絶対パスにしてから間引きのスレッドを始めるようにした。テスト（examples/test_openmc_resume.py）は、
+  OpenMC と同じく作業ディレクトリを移すモデルで、相対パスの `work` でも実行の終わりの前に最新の 2 個だけが残ることを確かめる。S3 の
+  側の同期（ADR-0155）は変えていない（AWS は今は使わない）

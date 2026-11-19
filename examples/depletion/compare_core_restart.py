@@ -25,14 +25,10 @@ import sys
 from pathlib import Path
 
 import msgpack
+from core_history import rho_pcm
 
 # 組にする点の EFPD と日数の相対の許容（後の半分は切った点から数え直すので、丸めの分だけ違う）
 TIME_TOLERANCE = 1e-12
-
-
-def rho_pcm(base: float, k: float) -> float:
-    """`base` から `k` への反応度の差 (pcm)"""
-    return (1.0 / base - 1.0 / k) * 1e5
 
 
 def check_format(name: str, core: dict) -> None:

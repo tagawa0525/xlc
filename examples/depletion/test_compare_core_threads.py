@@ -4,13 +4,14 @@
 """
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_core_threads
 import msgpack
-from test_compare_core_guess import core, log
+from test_compare_core_pair import core, log, write_run
 
 
 def run(history: dict, iterations, threads: int, total: float, midpoint=900.0):
@@ -78,7 +79,7 @@ class Compare(unittest.TestCase):
 
     def test_empty_paths_are_errors(self):
         with self.assertRaises(SystemExit):
-            compare_core_threads.parse("p9=a.msgpack,,b.msgpack,b.log")
+            compare_core_threads.parse("p9=a.toml,,b.toml")
 
     def test_red_black_runs_need_a_thread_pool_line(self):
         history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
@@ -88,19 +89,14 @@ class Compare(unittest.TestCase):
                 run(core(), [1, 1, 1, 1], 1, 1.0), [(history, bare)]
             )
 
-    def test_a_base_without_a_thread_pool_line_is_the_bin_core_before(self):
-        # ADR-0234 の前の bin/core はスレッドのプールの行を出さない（固有値計算は 1 スレッドの直方体の並びの順）
+    def test_a_base_without_a_thread_pool_line_is_an_error(self):
+        # 入力が順を決めるので、スレッドの数もログの行で確かめる（行の無いログは、入力の名前の履歴のものでない）
         history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
         bare = text.split("\n", 1)[1]
-        c = compare_core_threads.compare(
-            (history, bare), [run(core(), [50, 20, 10, 30], 16, 0.5)]
-        )
-        self.assertEqual(
-            [(r["order"], r["threads"]) for r in c["runs"]],
-            [("before", None), ("red-black", 16)],
-        )
-        text = "\n".join(compare_core_threads.report({"cases": {"p9": c}}))
-        self.assertIn("ADR-0234 の前の bin/core: 固有値計算 4 回", text)
+        with self.assertRaises(SystemExit):
+            compare_core_threads.compare(
+                (history, bare), [run(core(), [50, 20, 10, 30], 16, 0.5)]
+            )
 
     def test_report_gives_the_time_per_thread_count(self):
         c = compare_core_threads.compare(
@@ -116,6 +112,59 @@ class Compare(unittest.TestCase):
         )
         self.assertIn("色の順 4 スレッド: 固有値計算 4 回、外側の反復 110 回", text)
         self.assertIn("色の順の履歴はスレッドの数によらずバイトで同じ", text)
+
+
+class Inputs(unittest.TestCase):
+    """燃焼の順は、引数の位置でなく、入力の `node-order` で決まる"""
+
+    def test_the_first_input_is_lexicographic_and_the_others_red_black(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            lexicographic = write_run(
+                tmp,
+                "lexicographic",
+                top='node-order = "lexicographic"',
+                text=run(core(), [1] * 4, 1, 1.0)[1],
+            )
+            one = write_run(
+                tmp, "one", top="threads = 1", text=run(core(), [1] * 4, 1, 1.0)[1]
+            )
+            four = write_run(
+                tmp,
+                "four",
+                top='node-order = "red-black"\nthreads = 4',
+                text=run(core(), [1] * 4, 4, 1.0)[1],
+            )
+            runs, files = compare_core_threads.thread_runs([lexicographic, one, four])
+            self.assertEqual(len(runs), 3)
+            self.assertEqual(len(files), 9)
+            # 4 スレッドの燃焼と同じ履歴に書いた燃焼
+            again = write_run(
+                tmp, "again", top="threads = 4", text=run(core(), [1] * 4, 4, 1.0)[1]
+            )
+            (tmp / "again.toml").write_text(
+                (tmp / "again.toml")
+                .read_text()
+                .replace("again.msgpack", "four.msgpack")
+            )
+            # 入力の `threads` とログのスレッドの数が違う
+            mislabeled = write_run(
+                tmp,
+                "mislabeled",
+                top="threads = 2",
+                text=run(core(), [1] * 4, 4, 1.0)[1],
+            )
+            for wrong in (
+                [one, lexicographic],
+                [lexicographic, one, lexicographic],
+                [lexicographic, mislabeled],
+                [lexicographic, four, again],
+            ):
+                with (
+                    self.subTest([p.name for p in wrong]),
+                    self.assertRaises(SystemExit),
+                ):
+                    compare_core_threads.thread_runs(wrong)
 
 
 if __name__ == "__main__":

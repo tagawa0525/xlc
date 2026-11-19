@@ -10,11 +10,15 @@
 - `run --restart` は、作業ディレクトリの最新の statepoint から `openmc -r` で再開する。入力は同じものを与える（OpenMC は
   乱数の系列と tally の積算を statepoint から引き継ぐ）。再開した世代から先の statepoint が同じ名前で書かれる
 - `run --threads N` は、入力の `threads` を上書きする（計算機の物理コア数に合わせるため。値はコマンドの引数に残る）
+- extract は、run が作業ディレクトリに書いた model.xml と入力から作ったモデルを `check_model` で比べ、違えば止まる（run は
+  ステージでなく、入力やモデルのコードを変えても statepoint は古いまま残るため）
 """
 
 import re
 import sys
+import tempfile
 import threading
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,9 +89,14 @@ def run_model(
     model: openmc.Model, run: dict[str, Any], work: Path, options: Options
 ) -> None:
     """`model` を `work` で解く。`options.restart` なら最新の statepoint から再開する。"""
+    # `model.run(cwd=work)` はプロセスの作業ディレクトリを `work` に移すので、相対パスのままでは別のスレッドの
+    # `prune` が `work/work` を探す
+    work = work.resolve()
     restart_file = None
     found = statepoints(work)
     if options.restart:
+        # model.run は model.xml を書き換えるので、前の区切りのモデルと比べるのはここが最後（extract は最後の区切りの model.xml しか見ない）
+        check_model(model, work)
         restart_file = latest_readable(found)
         print(f"restart from {restart_file}", flush=True)
     elif found:
@@ -113,6 +122,47 @@ def run_model(
         stop.set()
         pruner.join()
     prune(work)
+
+
+# run の環境と引数で変わり、モデルを変えない要素: ライブラリのパス（実行した worktree の絶対パス）と、statepoint を書く世代
+# （`--statepoint-interval` で上書きできる。ADR-0168）
+RUN_ONLY = (("materials", "cross_sections"), ("settings", "state_point"))
+
+
+def model_form(path: Path) -> list[tuple[str, str]]:
+    """model.xml の最上位の要素ごとの正規形（`RUN_ONLY` を除き、空白を無視した C14N）。"""
+    root = ET.parse(path).getroot()
+    for parent, tag in RUN_ONLY:
+        for node in root.findall(parent):
+            for child in node.findall(tag):
+                node.remove(child)
+    return [
+        (node.tag, ET.canonicalize(ET.tostring(node), strip_text=True)) for node in root
+    ]
+
+
+def check_model(model: openmc.Model, work: Path) -> None:
+    """`work` の model.xml（run が書いた、statepoint を出したモデル）が `model` と `RUN_ONLY` のほかで同じことを確かめる。"""
+    ran = work / "model.xml"
+    if not ran.is_file():
+        raise SystemExit(
+            f"{ran} is missing; cannot tell which model the statepoints came from"
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        expected = Path(tmp) / "model.xml"
+        model.export_to_model_xml(str(expected))
+        want = model_form(expected)
+    got = model_form(ran)
+    if got != want:
+        differ = sorted({tag for tag, _ in set(got) ^ set(want)})
+        where = (
+            f"in {differ}"
+            if differ
+            else "in the order or the count of its top-level elements"
+        )
+        raise SystemExit(
+            f"{ran} differs from the model of the input {where}; run it again or fix the input"
+        )
 
 
 def run_or_extract(

@@ -17,10 +17,7 @@ import sys
 from pathlib import Path
 
 import msgpack
-from core_history import single_state
-
-# core の燃焼度と履歴の燃焼点の一致の許容（core は出力密度 × EFPD で、履歴は燃焼度の点から時間を求めて燃焼させる）
-BURNUP_TOLERANCE = 1e-9
+from core_history import rho_pcm, same_burnup, single_state
 
 
 def branch_k(table: dict, state: dict, burnup: float) -> float:
@@ -80,11 +77,7 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
     points = []
     for p in core["points"]:
         b = p["burnup"]
-        matched = [
-            h
-            for h in history
-            if abs(h["burnup"] - b) <= BURNUP_TOLERANCE * max(1.0, h["burnup"])
-        ]
+        matched = [h for h in history if same_burnup(b, h["burnup"])]
         if len(matched) != 1:
             raise SystemExit(f"core burnup {b} is not a point of the history")
         (h,) = matched
@@ -99,11 +92,9 @@ def summarize(lattice: dict, table: dict, core: dict) -> dict:
                 "on_table": on_table,
                 "history_k": h["k_inf"],
                 "k": p["k"],
-                "rho_pcm": (1.0 / h["k_inf"] - 1.0 / p["k"]) * 1e5,
+                "rho_pcm": rho_pcm(h["k_inf"], p["k"]),
                 "branch_k": branch,
-                "branch_rho_pcm": None
-                if branch is None
-                else (1.0 / branch - 1.0 / p["k"]) * 1e5,
+                "branch_rho_pcm": None if branch is None else rho_pcm(branch, p["k"]),
             }
         )
     on = [abs(p["rho_pcm"]) for p in points if p["on_table"]]

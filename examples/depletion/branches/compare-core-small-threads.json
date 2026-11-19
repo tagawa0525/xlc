@@ -2,12 +2,20 @@
  "format": "xlc-compare-core-threads",
  "inputs": [
   {
+   "path": "examples/depletion/branches/core-small-search-lexicographic-1.toml",
+   "md5": "9cf3e50463118d62948694969016b1f3"
+  },
+  {
    "path": "examples/depletion/branches/core-small-search-lexicographic-1.msgpack",
    "md5": "4675c7f98b4f8de7934c95e106978fef"
   },
   {
    "path": "examples/depletion/branches/core-small-search-lexicographic-1.log",
    "md5": "7dfb059f9cf1fc80ecc873a762bbd7a1"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-1-1.toml",
+   "md5": "8534fcfc8048b140476ebc3f81a948ca"
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-1-1.msgpack",
@@ -18,12 +26,20 @@
    "md5": "39fecdf4e12c5ca785b697038cec4978"
   },
   {
+   "path": "examples/depletion/branches/core-small-search-threads-4-1.toml",
+   "md5": "f6eb1e512a371eec4bcb9979dbb0343c"
+  },
+  {
    "path": "examples/depletion/branches/core-small-search-threads-4-1.msgpack",
    "md5": "919b2f80dff60cc35dc89473451ab251"
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-4-1.log",
    "md5": "93bfbb9445a49d642dae5ce01390c44a"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-threads-16-1.toml",
+   "md5": "53c26319c5e114efe387b18386feaf38"
   },
   {
    "path": "examples/depletion/branches/core-small-search-threads-16-1.msgpack",
@@ -34,12 +50,20 @@
    "md5": "17f5482a646f6521a171e79bcc2e3a0a"
   },
   {
+   "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.toml",
+   "md5": "3213a07728654a9fddcd4ea2fe01b588"
+  },
+  {
    "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.msgpack",
    "md5": "cab0f27e20e38073ab68242b3c60cc47"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-lexicographic-1.log",
    "md5": "1708373b199a00cf433d6fc69d9f1ac3"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-1-1.toml",
+   "md5": "b7adb0b3722f25c02130b13798416db8"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-1-1.msgpack",
@@ -50,12 +74,20 @@
    "md5": "c522f612318126e9cfbe2271a8bd7d64"
   },
   {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.toml",
+   "md5": "27774995147917356ff08ff9d1e3a94f"
+  },
+  {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.msgpack",
    "md5": "9c024886b20f409775219a10fc274997"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-4-1.log",
    "md5": "49cf27ff2509218fcbf9b088be36e090"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-threads-16-1.toml",
+   "md5": "8df69413bdd6c21de30a7b4f970d2085"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-threads-16-1.msgpack",

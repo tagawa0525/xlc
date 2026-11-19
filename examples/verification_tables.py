@@ -1319,54 +1319,72 @@ def core_guess_summary(sources: list[dict]) -> dict:
 
 
 def core_guess_runs(sources: list[dict]) -> str:
-    """固有値計算の初期値（ADR-0231）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間（compare_core_guess.py）"""
-    s = core_guess_summary(sources)
-    rows = []
-    for name, c in s["cases"].items():
-        for label, key in [("平らな初期値", "flat"), ("既定（ADR-0231）", "default")]:
-            r = c["runs"][key]
-            rows.append(
-                [
-                    name,
-                    label,
-                    str(r["solves"]),
-                    f"{r['iterations']:,}",
-                    f"{r['eigenvalue_seconds']:.1f}",
-                    f"{r['seconds']:.1f}",
-                ]
-            )
-        f, d = c["runs"]["flat"], c["runs"]["default"]
-        rows.append(
-            [
-                name,
-                "既定 / 平らな初期値",
-                "",
-                f"{d['iterations'] / f['iterations']:.3f}",
-                f"{d['eigenvalue_seconds'] / f['eigenvalue_seconds']:.3f}",
-                f"{d['seconds'] / f['seconds']:.3f}",
-            ]
-        )
-    return markdown_table(
-        [
-            "燃焼",
-            "初期値",
-            "固有値計算の数",
-            "外側の反復の回数の和",
-            "固有値計算の時間 (s)",
-            "全体の時間 (s)",
-        ],
-        rows,
+    """固有値計算の初期値（ADR-0231）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間と、既定 / 平らな
+    初期値の比（compare_core_pair.py）"""
+    return core_pair_runs(
+        core_guess_summary(sources),
+        "初期値",
+        [("平らな初期値", "flat"), ("既定（ADR-0231）", "default")],
+        "既定 / 平らな初期値",
     )
 
 
+def core_pair_runs(
+    s: dict,
+    header: str,
+    runs: list[tuple[str, str]],
+    ratio: str,
+    per_solve: bool = False,
+) -> str:
+    """同じ core の燃焼を 1 つの項目だけ変えて比べた要約（compare_core_pair.py）の、燃焼ごとの固有値計算の数、外側の反復の回数の和、
+    固有値計算の時間の和、全体の時間と、比べる燃焼 / 基準の燃焼の比。`runs` は基準と比べる燃焼の (行の名前, `runs` の鍵)、`header` は
+    その列の名前、`ratio` は比の行の名前。`per_solve` なら、固有値計算 1 回の外側の反復の回数と時間の範囲の列も描く"""
+    rows = []
+    for name, c in s["cases"].items():
+        for label, key in runs:
+            r = c["runs"][key]
+            row = [name, label, str(r["solves"]), f"{r['iterations']:,}"]
+            if per_solve:
+                low, high = r["per_solve"]["iterations"]
+                row.append(f"{low:,}〜{high:,}")
+            row.append(f"{r['eigenvalue_seconds']:.1f}")
+            if per_solve:
+                fast, slow = r["per_solve"]["seconds"]
+                row.append(f"{fast:.3f}〜{slow:.3f}")
+            row.append(f"{r['seconds']:.1f}")
+            rows.append(row)
+        a, b = (c["runs"][key] for _, key in runs)
+        row = [
+            name,
+            ratio,
+            f"{b['solves'] / a['solves']:.3f}",
+            f"{b['iterations'] / a['iterations']:.3f}",
+        ]
+        if per_solve:
+            row.append("")
+        row.append(f"{b['eigenvalue_seconds'] / a['eigenvalue_seconds']:.3f}")
+        if per_solve:
+            row.append("")
+        row.append(f"{b['seconds'] / a['seconds']:.3f}")
+        rows.append(row)
+    columns = ["燃焼", header, "固有値計算の数", "外側の反復の回数の和"]
+    if per_solve:
+        columns.append("1 回の外側の反復")
+    columns.append("固有値計算の時間 (s)")
+    if per_solve:
+        columns.append("1 回の時間 (s)")
+    columns.append("全体の時間 (s)")
+    return markdown_table(columns, rows)
+
+
 def core_guess_differences(sources: list[dict]) -> str:
-    """固有値計算の初期値（ADR-0231）の既定 − 平らな初期値の差の最大（compare_core_guess.py）: 点と中点の k とホウ素の差の絶対値、点の
+    """固有値計算の初期値（ADR-0231）の既定 − 平らな初期値の差の最大（compare_core_pair.py）: 点と中点の k とホウ素の差の絶対値、点の
     ノードの燃焼度と出力の割合の相対差の絶対値"""
     return core_pair_differences(core_guess_summary(sources))
 
 
 def core_pair_differences(s: dict) -> str:
-    """同じ core の燃焼を 1 つの項目だけ変えて比べた要約（compare_core_guess.py、compare_core_xenon_boron.py）の、燃焼ごとの差の最大:
+    """同じ core の燃焼を 1 つの項目だけ変えて比べた要約（compare_core_pair.py）の、燃焼ごとの差の最大:
     点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と出力の割合の相対差の絶対値"""
     rows = []
     for name, c in s["cases"].items():
@@ -1453,51 +1471,13 @@ def core_acceleration_summary(sources: list[dict]) -> dict:
 
 def core_acceleration_runs(sources: list[dict], label: str = "CMFD（ADR-0232）") -> str:
     """固有値計算の加速（ADR-0232）ごとの、固有値計算の数、外側の反復の回数の和と 1 回の範囲、固有値計算の時間の和と 1 回の範囲、全体の
-    時間と、CMFD / 加速なしの比（compare_core_acceleration.py）。`label` は CMFD の行の版の名前"""
-    s = core_acceleration_summary(sources)
-    rows = []
-    for name, c in s["cases"].items():
-        for version, key in [("加速なし", "none"), (label, "cmfd")]:
-            r = c["runs"][key]
-            low, high = r["per_solve"]["iterations"]
-            fast, slow = r["per_solve"]["seconds"]
-            rows.append(
-                [
-                    name,
-                    version,
-                    str(r["solves"]),
-                    f"{r['iterations']:,}",
-                    f"{low:,}〜{high:,}",
-                    f"{r['eigenvalue_seconds']:.1f}",
-                    f"{fast:.3f}〜{slow:.3f}",
-                    f"{r['seconds']:.1f}",
-                ]
-            )
-        n, a = c["runs"]["none"], c["runs"]["cmfd"]
-        rows.append(
-            [
-                name,
-                "CMFD / 加速なし",
-                f"{a['solves'] / n['solves']:.3f}",
-                f"{a['iterations'] / n['iterations']:.3f}",
-                "",
-                f"{a['eigenvalue_seconds'] / n['eigenvalue_seconds']:.3f}",
-                "",
-                f"{a['seconds'] / n['seconds']:.3f}",
-            ]
-        )
-    return markdown_table(
-        [
-            "燃焼",
-            "加速",
-            "固有値計算の数",
-            "外側の反復の回数の和",
-            "1 回の外側の反復",
-            "固有値計算の時間 (s)",
-            "1 回の時間 (s)",
-            "全体の時間 (s)",
-        ],
-        rows,
+    時間と、CMFD / 加速なしの比（compare_core_pair.py）。`label` は CMFD の行の版の名前"""
+    return core_pair_runs(
+        core_acceleration_summary(sources),
+        "加速",
+        [("加速なし", "none"), (label, "cmfd")],
+        "CMFD / 加速なし",
+        per_solve=True,
     )
 
 
@@ -1564,7 +1544,7 @@ def core_threads_differences(sources: list[dict]) -> str:
 
 
 def core_acceleration_differences(sources: list[dict]) -> str:
-    """固有値計算の CMFD − 加速なしの差の最大（compare_core_acceleration.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と
+    """固有値計算の CMFD − 加速なしの差の最大（compare_core_pair.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と
     出力の割合の相対差の絶対値"""
     return core_pair_differences(core_acceleration_summary(sources))
 
@@ -1688,51 +1668,17 @@ def core_xenon_boron_summary(sources: list[dict]) -> dict:
 
 def core_xenon_boron_runs(sources: list[dict]) -> str:
     """平衡 Xe と臨界ホウ素の収束のさせ方（ADR-0219）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間と、
-    同時の反復 / 解き直すたびに探す形の比（compare_core_xenon_boron.py）"""
-    s = core_xenon_boron_summary(sources)
-    rows = []
-    for name, c in s["cases"].items():
-        for label, key in [
-            ("解き直すたびに探す", "nested"),
-            ("同時の反復（ADR-0219）", "joint"),
-        ]:
-            r = c["runs"][key]
-            rows.append(
-                [
-                    name,
-                    label,
-                    str(r["solves"]),
-                    f"{r['iterations']:,}",
-                    f"{r['eigenvalue_seconds']:.1f}",
-                    f"{r['seconds']:.1f}",
-                ]
-            )
-        n, j = c["runs"]["nested"], c["runs"]["joint"]
-        rows.append(
-            [
-                name,
-                "同時 / 解き直すたび",
-                f"{j['solves'] / n['solves']:.3f}",
-                f"{j['iterations'] / n['iterations']:.3f}",
-                f"{j['eigenvalue_seconds'] / n['eigenvalue_seconds']:.3f}",
-                f"{j['seconds'] / n['seconds']:.3f}",
-            ]
-        )
-    return markdown_table(
-        [
-            "燃焼",
-            "Xe とホウ素",
-            "固有値計算の数",
-            "外側の反復の回数の和",
-            "固有値計算の時間 (s)",
-            "全体の時間 (s)",
-        ],
-        rows,
+    同時の反復 / 解き直すたびに探す形の比（compare_core_pair.py）"""
+    return core_pair_runs(
+        core_xenon_boron_summary(sources),
+        "Xe とホウ素",
+        [("解き直すたびに探す", "nested"), ("同時の反復（ADR-0219）", "joint")],
+        "同時 / 解き直すたび",
     )
 
 
 def core_xenon_boron_differences(sources: list[dict]) -> str:
-    """平衡 Xe と臨界ホウ素の同時の反復 − 解き直すたびに探す形の差の最大（compare_core_xenon_boron.py）: 点と中点の k とホウ素の差の
+    """平衡 Xe と臨界ホウ素の同時の反復 − 解き直すたびに探す形の差の最大（compare_core_pair.py）: 点と中点の k とホウ素の差の
     絶対値、点のノードの燃焼度と出力の割合の相対差の絶対値"""
     return core_pair_differences(core_xenon_boron_summary(sources))
 

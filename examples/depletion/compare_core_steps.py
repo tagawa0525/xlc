@@ -31,6 +31,7 @@ from itertools import pairwise
 from pathlib import Path
 
 import msgpack
+from core_history import flat
 
 # core のログ（crates/core/src/depletion.rs の tracing）の中点の行の、固有値計算の回数
 MIDPOINT_SOLVES = re.compile(r"\bsolves=(\d+)\b")
@@ -92,10 +93,6 @@ def midpoint_solves(log: str) -> list[int]:
                 raise SystemExit(f"a midpoint line without solves: {line}")
             found.append(int(m[1]))
     return found
-
-
-def flat(rows: list[list[float]]) -> list[float]:
-    return [v for row in rows for v in row]
 
 
 def differences(coarse: dict, fine: dict) -> dict:

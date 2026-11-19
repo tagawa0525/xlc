@@ -340,8 +340,8 @@ stages:
     deps:
     - path: examples/openmc_resume.py
       hash: md5
-      md5: a90c8a98b8982c506edcccd63d9c2277
-      size: 5924
+      md5: 7015d7b0b71a39d3d96b6745ffc25e16
+      size: 8425
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -349,8 +349,8 @@ stages:
     outs:
     - path: python-ast/examples/openmc_resume.py.ast
       hash: md5
-      md5: 008ce9dbb5daab4b2c23ba200fb48d91
-      size: 3492
+      md5: c8a3f8f9a2235d5ec4475beb203a449f
+      size: 4722
   python-ast@examples/openmc_run.py:
     cmd: python3 scripts/normalize_python.py examples/openmc_run.py 
       python-ast/examples/openmc_run.py.ast
@@ -530,8 +530,8 @@ stages:
     deps:
     - path: examples/vera/openmc_core_2d.py
       hash: md5
-      md5: 624d13bdd2aba11b33ae3faad3b516cc
-      size: 18178
+      md5: ac65613edbb3a3dfabbdf053bc71b7a4
+      size: 18477
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -539,8 +539,8 @@ stages:
     outs:
     - path: python-ast/examples/vera/openmc_core_2d.py.ast
       hash: md5
-      md5: 32869ba087afec5f25cb4a3b496ec5b1
-      size: 10685
+      md5: 7d181c436c2cdf42deecf7ad11484521
+      size: 10832
   python-ast@examples/vera/openmc_library.py:
     cmd: python3 scripts/normalize_python.py examples/vera/openmc_library.py 
       python-ast/examples/vera/openmc_library.py.ast
@@ -4191,8 +4191,8 @@ stages:
     deps:
     - path: examples/vera/p5/openmc-5A-2D.toml
       hash: md5
-      md5: c9e3ac5889c9a1b6ab313255b0f2b2ca
-      size: 685
+      md5: d31d6f502312d8f9c9d2a7dce54e1d65
+      size: 987
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -4200,8 +4200,8 @@ stages:
     outs:
     - path: toml-values/examples/vera/p5/openmc-5A-2D.toml.json
       hash: md5
-      md5: eca4bf21981d2fae310564ba9c39fa06
-      size: 170
+      md5: 78bdfe81d89ce2bbe81f570bcf78165e
+      size: 198
   toml-values@examples/depletion/p9-fuel-points/fuel-points-2O.toml:
     cmd: python3 scripts/normalize_toml.py 
       examples/depletion/p9-fuel-points/fuel-points-2O.toml 

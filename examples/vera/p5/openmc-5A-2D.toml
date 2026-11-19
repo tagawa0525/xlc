@@ -8,3 +8,6 @@ batches = 2300
 inactive = 300
 seed = 1
 threads = 24
+# references/openmc/vera-5A-2D/ の statepoint は、標準のタリーの組（ADR-0152）を足す前のモデルで流した（2026-10-12）。
+# extract はその model.xml と入力のモデルを比べるので、入力は流したモデルのとおり組を入れない
+standard-tallies = false

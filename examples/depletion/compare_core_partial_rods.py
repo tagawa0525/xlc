@@ -30,19 +30,7 @@ import sys
 from pathlib import Path
 
 import msgpack
-from core_history import single_state
-
-# 燃焼点の燃焼度の一致の許容（炉心の燃焼度はノードの燃焼度の重金属の質量の重みの平均なので、ノードの出力が違う燃焼では丸めが違う）
-BURNUP_TOLERANCE = 1e-9
-
-
-def same_burnup(a: float, b: float) -> bool:
-    return abs(a - b) <= BURNUP_TOLERANCE * max(1.0, abs(b))
-
-
-def rho_pcm(base: float, k: float) -> float:
-    """`base` から `k` への反応度の差 (pcm)"""
-    return (1.0 / base - 1.0 / k) * 1e5
+from core_history import rho_pcm, same_burnup, single_state
 
 
 def monotonic(values: list[float]) -> bool:

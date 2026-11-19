@@ -1,5 +1,24 @@
 """core の燃焼の履歴（`xlc-core-history`。ADR-0190、ADR-0218）を読む比較のツールの共通の部分。"""
 
+from pathlib import Path
+
+import tomllib
+
+# 2 つの燃焼度（MWd/kg）を同じ燃焼点とみなす相対の許容（1 MWd/kg 未満は絶対の許容）。core の燃焼度は出力密度 × EFPD で、
+# 格子計算の履歴は燃焼度の点から時間を求めて燃焼させ、炉心の燃焼度はノードの燃焼度の重金属の質量の重みの平均なので、
+# 同じ点でも丸めが違う
+BURNUP_TOLERANCE = 1e-9
+
+
+def same_burnup(a: float, b: float) -> bool:
+    """燃焼度 `a` が `b` と同じ点か（`BURNUP_TOLERANCE`）"""
+    return abs(a - b) <= BURNUP_TOLERANCE * max(1.0, abs(b))
+
+
+def rho_pcm(base: float, k: float) -> float:
+    """`base` から `k` への反応度の差 (pcm)"""
+    return (1.0 / base - 1.0 / k) * 1e5
+
 
 def default_midpoints(core: dict) -> None:
     """中点を初めの点のホウ素で解いた燃焼（ADR-0191 の案 S1）と、Xe を平衡にした燃焼（ADR-0219）なら止める（中点でも探し、Xe を時間で
@@ -31,3 +50,62 @@ def single_state(core: dict) -> dict:
         )
     (state,) = states.values()
     return state
+
+
+def flat(rows: list[list[float]]) -> list[float]:
+    return [v for row in rows for v in row]
+
+
+def largest_relative(a: list[float], b: list[float]) -> float:
+    """b を基準にした相対差の絶対値の最大。b が 0 の値は、a も 0 であること（核分裂のないノード）"""
+    if len(a) != len(b):
+        raise SystemExit(f"{len(a)} and {len(b)} values")
+    worst = 0.0
+    for x, y in zip(a, b):
+        if y == 0.0:
+            if x != 0.0:
+                raise SystemExit(f"{x} against 0")
+            continue
+        worst = max(worst, abs(x - y) / abs(y))
+    return worst
+
+
+def core_run(source: Path) -> tuple[dict, Path, Path]:
+    """core の入力 `source` と、それが書く燃焼の履歴（`[depletion]` の `history`。入力のディレクトリから）と、そのログ（入力の
+    拡張子を `.log` にしたパス。記録のコマンドは core の標準エラーをそこに書く）。履歴は入力の項目の一部（`initial-guess` など）を
+    書かないので、比べるツールは入力から項目を読み、入力が名前を書く履歴を読む"""
+    run = tomllib.loads(source.read_text())
+    depletion = run.get("depletion")
+    if not isinstance(depletion, dict) or "history" not in depletion:
+        raise SystemExit(f"{source} has no [depletion] history")
+    return run, source.parent / depletion["history"], source.with_suffix(".log")
+
+
+def differing_keys(a: dict, b: dict, allowed: set[tuple[str | None, str]]) -> list[str]:
+    """2 つの入力の、`allowed`（(表か None, 項目)）のほかで値の違う項目の名前（表の項目は `<表>.<項目>`）"""
+
+    def strip(run: dict) -> dict:
+        run = {k: dict(v) if isinstance(v, dict) else v for k, v in run.items()}
+        for section, key in allowed:
+            (run if section is None else run.get(section, {})).pop(key, None)
+        return run
+
+    a, b = strip(a), strip(b)
+    keys = []
+    for key in sorted(a.keys() | b.keys()):
+        x, y = a.get(key), b.get(key)
+        if isinstance(x, dict) and isinstance(y, dict) and key == "depletion":
+            keys += [
+                f"{key}.{k}"
+                for k in sorted(x.keys() | y.keys())
+                if x.get(k) != y.get(k)
+            ]
+        elif x != y:
+            keys.append(key)
+    return keys
+
+
+def setting(run: dict, section: str | None, key: str, default: str) -> str:
+    """入力 `run` の項目 `key`（`section` が None ならケースの直下、ほかはその表）。書いていなければ core の既定 `default`"""
+    table = run if section is None else run.get(section, {})
+    return table.get(key, default)

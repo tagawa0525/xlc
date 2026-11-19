@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from openmc_common import material
 from openmc_model import AIC, B4C, FUEL, GUIDE_INNER, GUIDE_OUTER, GUIDE_TUBES, HALF_GAP, INSTRUMENT_INNER, INSTRUMENT_OUTER, INSTRUMENT_TUBE, MODERATOR_DENSE, PITCH, PYREX_OCTANTS, SS304, ZIRCALOY, N, concentric, fuel_layers, octant_images, pin_lattice, pyrex_layers, rod_layers, temperature_mode, tube, with_carbon
-from openmc_resume import OPTIONAL, Options, run_model, run_or_extract, set_statepoints
+from openmc_resume import OPTIONAL, Options, check_model, run_model, run_or_extract, set_statepoints
 from openmc_run import box_settings, fuel_mean, mesh_values, write_k, write_pin_powers
 from openmc_run import read_run as common_read_run
 TEMPERATURE = 565.0
@@ -132,10 +132,8 @@ def assembly_mesh() -> openmc.RegularMesh:
 def read_run(source: Path) -> dict[str, Any]:
     return common_read_run(source, list(RODS), OPTIONAL | openmc_tallies.OPTIONAL)
 
-def solve(source: Path, work: Path, options: Options) -> None:
-    run = read_run(source)
+def model_of(run: dict[str, Any], options: Options) -> openmc.Model:
     problem = run['problem']
-    work.mkdir(parents=True, exist_ok=True)
     m = {**{f'fuel {e}': material(f'fuel {e}', d, TEMPERATURE) for e, d in FUELS.items()}, 'clad': material('zircaloy-4', ZIRCALOY, TEMPERATURE), 'water': material('moderator', MODERATOR_DENSE, TEMPERATURE), 'steel': material('ss304', SS304, TEMPERATURE), 'carbon steel': material('carbon steel', CARBON_STEEL, TEMPERATURE)}
     m['water'].add_s_alpha_beta('c_H_in_H2O')
     geometry = geometry_of(problem, m)
@@ -155,8 +153,12 @@ def solve(source: Path, work: Path, options: Options) -> None:
     if openmc_tallies.enabled(run):
         tallies.extend(openmc_tallies.core_2d(list(materials), assembly_mesh(), HALF_GAP))
         openmc_tallies.quiet(settings)
-    model = openmc.Model(geometry, materials, settings, tallies)
-    run_model(model, run, work, options)
+    return openmc.Model(geometry, materials, settings, tallies)
+
+def solve(source: Path, work: Path, options: Options) -> None:
+    run = read_run(source)
+    work.mkdir(parents=True, exist_ok=True)
+    run_model(model_of(run, options), run, work, options)
 
 def unfold(quarter: np.ndarray) -> np.ndarray:
     rows = np.concatenate([quarter[:0:-1], quarter], axis=0)
@@ -164,6 +166,7 @@ def unfold(quarter: np.ndarray) -> np.ndarray:
 
 def extract(source: Path, work: Path, results: Path) -> None:
     run = read_run(source)
+    check_model(model_of(run, Options()), work)
     problem = run['problem']
     edges, pins = pin_edges()
     cells = len(edges) - 1

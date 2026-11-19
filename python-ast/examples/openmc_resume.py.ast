@@ -1,6 +1,8 @@
 import re
 import sys
+import tempfile
 import threading
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,9 +48,11 @@ def prune(work: Path) -> None:
         old.unlink(missing_ok=True)
 
 def run_model(model: openmc.Model, run: dict[str, Any], work: Path, options: Options) -> None:
+    work = work.resolve()
     restart_file = None
     found = statepoints(work)
     if options.restart:
+        check_model(model, work)
         restart_file = latest_readable(found)
         print(f'restart from {restart_file}', flush=True)
     elif found:
@@ -66,6 +70,29 @@ def run_model(model: openmc.Model, run: dict[str, Any], work: Path, options: Opt
         stop.set()
         pruner.join()
     prune(work)
+RUN_ONLY = (('materials', 'cross_sections'), ('settings', 'state_point'))
+
+def model_form(path: Path) -> list[tuple[str, str]]:
+    root = ET.parse(path).getroot()
+    for parent, tag in RUN_ONLY:
+        for node in root.findall(parent):
+            for child in node.findall(tag):
+                node.remove(child)
+    return [(node.tag, ET.canonicalize(ET.tostring(node), strip_text=True)) for node in root]
+
+def check_model(model: openmc.Model, work: Path) -> None:
+    ran = work / 'model.xml'
+    if not ran.is_file():
+        raise SystemExit(f'{ran} is missing; cannot tell which model the statepoints came from')
+    with tempfile.TemporaryDirectory() as tmp:
+        expected = Path(tmp) / 'model.xml'
+        model.export_to_model_xml(str(expected))
+        want = model_form(expected)
+    got = model_form(ran)
+    if got != want:
+        differ = sorted({tag for tag, _ in set(got) ^ set(want)})
+        where = f'in {differ}' if differ else 'in the order or the count of its top-level elements'
+        raise SystemExit(f'{ran} differs from the model of the input {where}; run it again or fix the input')
 
 def run_or_extract(solve: Callable[[Path, Path, Options], None], extract: Callable[[Path, Path, Path], None], usage: str) -> None:
     args = sys.argv[1:]
