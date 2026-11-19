@@ -23,7 +23,7 @@ b42e20a8 で crates/lattice/src/moc.rs の先頭にコメントの行を 1 つ�
 実行ファイルに入れること。実行ファイルは文字列 `crates/lattice/src/moc.rs` を含むが、変わったバイトが行番号かは確かめて
 いない。
 
-関係する ADR: [ADR-0159](../adr/0159-depend-stages-on-built-binaries.md)
+関係する ADR: [ADR-0159](../adr/0159-depend-stages-on-built-binaries.md)、[ADR-0255](../adr/0255-keep-source-positions-out-of-stage-binaries.md)
 
 ## 完了の条件
 

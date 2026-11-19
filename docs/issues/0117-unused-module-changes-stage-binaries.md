@@ -54,7 +54,7 @@ md5 は xs: e77257b3 → f84383de、lattice: 03b6048d → 260f3d16、core: fe2d8
 原因の候補（確かめていない）: codegen unit の分け方（release は LTO なし、codegen unit は既定の 16）で、モジュールを足すと
 既存の関数の入る codegen unit が変わる。
 
-関係する ADR: ADR-0166
+関係する ADR: ADR-0166、ADR-0255
 
 2026-11-18 の main（8369db18。直下の dvc.lock の `build` を付け直した後）では、examples/depletion/p2/dvc.yaml の xs のすべての核種のステージと
 `xs`、examples/depletion/dvc.yaml の `chain` が、deps の `bin/xs`（dvc.lock は f98234e2、`build` の出力は 28e28365）と `bin/chain`（4a9d4768 と
