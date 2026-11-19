@@ -1205,6 +1205,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlc-outputs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rmp-serde",
+ "rmpv",
+ "serde",
+ "xlc-core",
+ "xlc-depletion",
+ "xlc-format",
+ "xlc-lattice",
+ "xlc-xs",
+]
+
+[[package]]
 name = "xlc-xs"
 version = "0.1.0"
 dependencies = [

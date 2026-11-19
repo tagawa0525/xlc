@@ -1,0 +1,26 @@
+[package]
+name = "xlc-outputs"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+# 形式を変える修正の検査（ADR-0258）が、ステージの出力を本番と同じ読み手で読む。計算のステージは呼ばない（build の
+# 実行ファイルに入らない）
+[dependencies]
+xlc-core = { path = "../core" }
+xlc-depletion = { path = "../depletion" }
+xlc-format = { path = "../format" }
+xlc-lattice = { path = "../lattice" }
+xlc-xs = { path = "../xs" }
+anyhow.workspace = true
+rmp-serde.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+rmpv.workspace = true
+
+[[bin]]
+name = "read-outputs"
+path = "src/main.rs"
