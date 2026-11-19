@@ -76,7 +76,7 @@ xlc の xs は ENDF/B-VII.0 のすべての核種で止まらず、ピンセル 
 - ピン出力: 吸収体のある集合体で、xlc − KENO-VI の RMS は VIII.0 の 0.45〜0.61 倍に下がる
 - 上の 2 項は 5dac88dd の値。今のライブラリ（d6cc90d9、2026-11-15）では、15 の格子が +98〜+282 pcm（平均 +176）、3A が +196 pcm、3B が +165 pcm、
   ピン出力の RMS の比が 0.48〜0.60 倍（`examples/vera/verification-endfb70.md` の「結論」）
-- NJOY で処理した ENDF/B-VII.0 の OpenMC（1B、1D、2B。ff985ca4、2026-11-19）: VII.0 の xlc − KENO-VI（+196〜+204 pcm）のうち、+94〜+181 pcm は
+- NJOY で処理した ENDF/B-VII.0 の OpenMC（1B、1D、2B。776b9134、2026-11-19）: VII.0 の xlc − KENO-VI（+196〜+204 pcm）のうち、+94〜+181 pcm は
   同じ評価済みデータの OpenMC と KENO-VI の間にあり、ライブラリを VIII.0 から VII.0 に替えたときの k の動きは xlc と OpenMC で 26 pcm 以内で合う。
   `examples/vera/verification-endfb70.md` の「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）」（#0131）
 

@@ -14,7 +14,7 @@ resolution:
 ## 問題
 
 出典は examples/vera/verification-endfb70.md の「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）」（xlc は d6cc90d9、OpenMC は
-ff985ca4、比較は 5dc8f1c8、2026-11-20）。値はそこに書き、ここには未解決の点だけを並べる。
+776b9134、比較は a32f0afe、2026-11-20）。値はそこに書き、ここには未解決の点だけを並べる。
 
 題名の差は、1B、1D、2B では、主に同じ ENDF/B-VII.0 を NJOY で処理した OpenMC と KENO-VI の差で、xlc の VII.0 の処理の誤りではなかった
 （ライブラリを VIII.0 から VII.0 に替えたときの k の動きが、xlc と OpenMC で 26 pcm 以内で合う）。残る点:
