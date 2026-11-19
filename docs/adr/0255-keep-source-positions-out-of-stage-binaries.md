@@ -106,7 +106,7 @@ crates の追跡しているすべての .rs の先頭に注釈の行を足す�
 失うもの: ステージのパニックの文の位置が `crates/lattice/src/moc.rs:0:0` の形になる（ファイル名とパニックの文は残る）。行は、
 `bin/` を作ったコミットで scripts/build-binaries.sh を流した `target/dvc/release/<名前>`（番号を残した同じビルド）で、同じ
 入力を流すと出る。計算のコードは同じなので、同じ場所で止まる。`bin/` をキャッシュから戻した worktree には `target/dvc` が
-無いか別のコミットのものなので、`bin/` の md5 を `dvc.lock` の `build` の outs に書いたコミット（`git log -S <md5> -- dvc.lock`）で
+無いか別のコミットのものなので、`bin/` の md5 を `dvc.lock` の `build` の outs に書いたコミット（`git log -S <md5> --reverse -- dvc.lock` の最初。後のものは md5 を消したコミット）で
 ビルドし直す。
 
 守れる範囲: 注釈と空行の追加と削除、行の中の位置（列）の変化、ファイルの中の関数の並べ替え（1 組で確かめた）。守れないもの:

@@ -67,7 +67,7 @@ for name in "${names[@]}" "${separate[@]}"; do
   fi
   # パニックの位置の行と列と、ログの Metadata の行を 0 にしたコピーを置く。注釈の行や関数の並べ替えで bin/ のバイトが
   # 変わらず、計算のステージが古くならない（ADR-0255）。パニックの行は、bin/ を作ったコミット（その md5 を dvc.lock の build の
-  # outs に書いたコミット。`git log -S <md5> -- dvc.lock`）でこのスクリプトを流した target/dvc/release/<名前>（番号を残した
+  # outs に書いたコミット。`git log -S <md5> --reverse -- dvc.lock` の最初。後のものは md5 を消したコミット）でこのスクリプトを流した target/dvc/release/<名前>（番号を残した
   # 同じビルド）で、同じ入力を流すと分かる
   python3 scripts/normalize_binary.py "$built" "bin/$name"
 done
