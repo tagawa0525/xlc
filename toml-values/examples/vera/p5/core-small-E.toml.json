@@ -1,0 +1,23 @@
+{
+ "cycle": "core-small-E-cycle.toml",
+ "axial-mesh": [
+  0.0,
+  21.5
+ ],
+ "radial-nodes": 1,
+ "pin-powers": "core-small-E-pins.msgpack",
+ "boundary": {
+  "x": [
+   "vacuum",
+   "vacuum"
+  ],
+  "y": [
+   "vacuum",
+   "vacuum"
+  ],
+  "z": [
+   "reflective",
+   "reflective"
+  ]
+ }
+}

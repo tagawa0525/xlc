@@ -14,10 +14,10 @@ Problem 6 には参照解が無い（仕様書の REFERENCE SOLUTION）ので、
   解の状態の減速材と燃料の温度も、表の行の名前に使うので TOML から取る（実効温度の方式も同じ）
 - 層ごとの減速材の温度、燃料の実効温度（核分裂のある層だけ）、核分裂率の割合と、減速材の温度でのテーブルの密度
   （格子の TOML の `[branches]` の moderator の格子点の密度を温度で線形に内挿したもの。core の内挿と同じ。ADR-0229 の案 T1）
-- `--report`: JSON から文章の報告を標準出力に描く。1 行目は読んだファイルのパスと md5 の先頭 8 桁（`inputs`）
+- `--report`: JSON から文章の報告を標準出力に描く。1 行目は読んだファイルのパスと md5 の先頭 8 桁（`inputs`。
+  TOML は値の正規形の md5。ADR-0254）
 """
 
-import hashlib
 import itertools
 import json
 import re
@@ -25,6 +25,10 @@ import sys
 from pathlib import Path
 
 import tomllib
+
+# 入力の md5 は、ステージの deps と同じく TOML なら値の正規形のもの（ADR-0254）
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from normalize_toml import input_md5
 
 NUMBER = r"[-+0-9.eE]+"
 # 熱水力の要約の、`thermal-hydraulics iterations` の行の後に出る行の頭
@@ -166,7 +170,7 @@ def compare(paths: list[str]) -> dict:
         "format": "xlc-compare-p6",
         # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
         "inputs": [
-            {"path": str(p), "md5": hashlib.md5(p.read_bytes()).hexdigest()}
+            {"path": str(p), "md5": input_md5(p)}
             for p in (
                 lattice_toml,
                 core_toml,

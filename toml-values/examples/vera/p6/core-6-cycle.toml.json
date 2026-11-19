@@ -1,0 +1,7 @@
+{
+ "plant": "core-6-plant.toml",
+ "inventory": "core-6-assemblies.toml",
+ "loading": [
+  "6"
+ ]
+}

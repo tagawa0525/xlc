@@ -1,0 +1,7 @@
+{
+ "plant": "plant.toml",
+ "inventory": "assemblies-1.toml",
+ "loading": [
+  "A01  A02@90"
+ ]
+}

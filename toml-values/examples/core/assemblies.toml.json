@@ -1,0 +1,18 @@
+{
+ "design": {
+  "fuel": {
+   "bounds": [
+    0.0,
+    365.76
+   ],
+   "layers": [
+    "table-rods.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "F01": {
+   "design": "fuel"
+  }
+ }
+}

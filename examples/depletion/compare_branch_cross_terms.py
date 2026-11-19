@@ -80,10 +80,9 @@
 - 誤差: k∞ は少数群定数の無限媒質の固有値（compare_burnup_interpolation.py の `k_inf`）で、Δρ = (1/k_直積 − 1/k_組み立て) × 1e5 pcm。
   項目ごとの相対の差 |組み立て − 直積| / |直積| の、群（ADF は面と群）と状態についての最大も書く
 - M² = D1 / (Σt1 − Σs1→1) + D2 / (Σt2 − Σs2→2)（基準条件の 2 群の移動面積。出力の分布の誤差の見積もりに使う。ADR-0200）
-- `inputs` は読んだファイルのパス（実行した cwd から）と md5
+- `inputs` は読んだファイルのパス（実行した cwd から）と md5（TOML は値の正規形の md5。ADR-0254）
 """
 
-import hashlib
 import itertools
 import json
 import math
@@ -96,6 +95,10 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_burnup_interpolation import interpolate, k_inf, unvector, vector
+
+# 入力の md5 は、ステージの deps と同じく TOML なら値の正規形のもの（ADR-0254）
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from normalize_toml import input_md5
 
 # 相対の差を書く項目
 RELATIVE = ["fission", "nu_fission", "absorption", "diffusion", "adf"]
@@ -1345,10 +1348,7 @@ def main() -> None:
             "thinning": thinning,
             "nominal": nominal_entries,
             "combined": combined,
-            "inputs": [
-                {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
-                for f in files
-            ],
+            "inputs": [{"path": str(f), "md5": input_md5(f)} for f in files],
             **summarize(tables, config.get("model", [])),
         }
         Path(args[1]).write_text(

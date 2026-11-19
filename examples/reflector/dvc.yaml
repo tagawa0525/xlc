@@ -9,7 +9,7 @@ stages:
     # ライブラリ（reflector.msgpack）は I 型の格子と共有する
     cmd: ../../bin/xs xs.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/reflector/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
@@ -66,7 +66,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice assembly-3A.toml > assembly-3A.out
     deps:
-      - assembly-3A.toml
+      - ../../toml-values/examples/reflector/assembly-3A.toml.json
       - reflector.msgpack
       - ../../bin/lattice
     outs:
@@ -78,7 +78,7 @@ stages:
     # 中性子束を比べるため、ログを debug で受ける
     cmd: mkdir -p axial-16 && RUST_LOG=debug ../../bin/lattice axial-3A-16.toml > axial-3A-16.out 2> axial-3A-16.log
     deps:
-      - axial-3A-16.toml
+      - ../../toml-values/examples/reflector/axial-3A-16.toml.json
       - reflector.msgpack
       - medium-3A.msgpack
       - ../../bin/lattice
@@ -91,7 +91,7 @@ stages:
     # 中性子束を比べるため、ログを debug で受ける
     cmd: mkdir -p axial-32 && RUST_LOG=debug ../../bin/lattice axial-3A-32.toml > axial-3A-32.out 2> axial-3A-32.log
     deps:
-      - axial-3A-32.toml
+      - ../../toml-values/examples/reflector/axial-3A-32.toml.json
       - reflector.msgpack
       - medium-3A.msgpack
       - ../../bin/lattice
@@ -104,7 +104,7 @@ stages:
     # 中性子束を比べるため、ログを debug で受ける
     cmd: mkdir -p axial-fine && RUST_LOG=debug ../../bin/lattice axial-3A-fine.toml > axial-3A-fine.out 2> axial-3A-fine.log
     deps:
-      - axial-3A-fine.toml
+      - ../../toml-values/examples/reflector/axial-3A-fine.toml.json
       - reflector.msgpack
       - medium-3A.msgpack
       - ../../bin/lattice
@@ -115,10 +115,10 @@ stages:
   core-axial-slab-16:
     cmd: RUST_LOG=debug ../../bin/core core-axial-slab-16.toml > core-axial-slab-16.out 2> core-axial-slab-16.log
     deps:
-      - core-axial-slab-16.toml
-      - core-axial-slab-16-cycle.toml
-      - core-axial-plant.toml
-      - core-axial-assemblies-16.toml
+      - ../../toml-values/examples/reflector/core-axial-slab-16.toml.json
+      - ../../toml-values/examples/reflector/core-axial-slab-16-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      - ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       - axial-16
       - ../../bin/core
     outs:
@@ -135,10 +135,10 @@ stages:
   core-axial-fstar-16:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-16.toml > core-axial-fstar-16.out 2> core-axial-fstar-16.log
     deps:
-      - core-axial-fstar-16.toml
-      - core-axial-fstar-16-cycle.toml
-      - core-axial-plant.toml
-      - core-axial-assemblies-16.toml
+      - ../../toml-values/examples/reflector/core-axial-fstar-16.toml.json
+      - ../../toml-values/examples/reflector/core-axial-fstar-16-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      - ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       - axial-16
       - fg-3A.msgpack
       - ../../bin/core
@@ -164,10 +164,10 @@ stages:
   core-axial-slab-32:
     cmd: RUST_LOG=debug ../../bin/core core-axial-slab-32.toml > core-axial-slab-32.out 2> core-axial-slab-32.log
     deps:
-      - core-axial-slab-32.toml
-      - core-axial-slab-32-cycle.toml
-      - core-axial-plant.toml
-      - core-axial-assemblies-32.toml
+      - ../../toml-values/examples/reflector/core-axial-slab-32.toml.json
+      - ../../toml-values/examples/reflector/core-axial-slab-32-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      - ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       - axial-32
       - ../../bin/core
     outs:
@@ -184,10 +184,10 @@ stages:
   core-axial-fstar-32:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-32.toml > core-axial-fstar-32.out 2> core-axial-fstar-32.log
     deps:
-      - core-axial-fstar-32.toml
-      - core-axial-fstar-32-cycle.toml
-      - core-axial-plant.toml
-      - core-axial-assemblies-32.toml
+      - ../../toml-values/examples/reflector/core-axial-fstar-32.toml.json
+      - ../../toml-values/examples/reflector/core-axial-fstar-32-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      - ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       - axial-32
       - fg-3A.msgpack
       - ../../bin/core
@@ -213,10 +213,10 @@ stages:
   core-axial-slab-fine:
     cmd: RUST_LOG=debug ../../bin/core core-axial-slab-fine.toml > core-axial-slab-fine.out 2> core-axial-slab-fine.log
     deps:
-      - core-axial-slab-fine.toml
-      - core-axial-slab-fine-cycle.toml
-      - core-axial-plant.toml
-      - core-axial-assemblies-fine.toml
+      - ../../toml-values/examples/reflector/core-axial-slab-fine.toml.json
+      - ../../toml-values/examples/reflector/core-axial-slab-fine-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      - ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       - axial-fine
       - ../../bin/core
     outs:
@@ -233,10 +233,10 @@ stages:
   core-axial-fstar-fine:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-fine.toml > core-axial-fstar-fine.out 2> core-axial-fstar-fine.log
     deps:
-      - core-axial-fstar-fine.toml
-      - core-axial-fstar-fine-cycle.toml
-      - core-axial-plant.toml
-      - core-axial-assemblies-fine.toml
+      - ../../toml-values/examples/reflector/core-axial-fstar-fine.toml.json
+      - ../../toml-values/examples/reflector/core-axial-fstar-fine-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      - ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       - axial-fine
       - fg-3A.msgpack
       - ../../bin/core
@@ -263,7 +263,7 @@ stages:
     # I 型の格子（ADR-0095）。MOC の k とノード平均の中性子束を比べるため、ログを debug で受ける
     cmd: RUST_LOG=debug ../../bin/lattice reflector-I.toml > reflector-I.out 2> reflector-I.log
     deps:
-      - reflector-I.toml
+      - ../../toml-values/examples/reflector/reflector-I.toml.json
       - reflector.msgpack
       - ../../bin/lattice
     outs:
@@ -276,7 +276,7 @@ stages:
     # 角型の格子（ADR-0095、#0029）。MOC の k とノード平均の中性子束を比べるため、ログを debug で受ける
     cmd: RUST_LOG=debug ../../bin/lattice reflector-corner.toml > reflector-corner.out 2> reflector-corner.log
     deps:
-      - reflector-corner.toml
+      - ../../toml-values/examples/reflector/reflector-corner.toml.json
       - reflector.msgpack
       - ../../bin/lattice
     outs:
@@ -290,10 +290,10 @@ stages:
   core-corner:
     cmd: RUST_LOG=debug ../../bin/core core-corner.toml > core-corner.out 2> core-corner.log
     deps:
-      - core-corner.toml
-      - core-corner-cycle.toml
-      - core-corner-plant.toml
-      - core-assemblies.toml
+      - ../../toml-values/examples/reflector/core-corner.toml.json
+      - ../../toml-values/examples/reflector/core-corner-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-corner-plant.toml.json
+      - ../../toml-values/examples/reflector/core-assemblies.toml.json
       - fg-corner-fuel.msgpack
       - fg-corner-right.msgpack
       - fg-corner-top.msgpack
@@ -318,10 +318,10 @@ stages:
   core-corner-outline:
     cmd: RUST_LOG=debug ../../bin/core core-corner-outline.toml > core-corner-outline.out 2> core-corner-outline.log
     deps:
-      - core-corner-outline.toml
-      - core-corner-outline-cycle.toml
-      - core-corner-outline-plant.toml
-      - core-assemblies.toml
+      - ../../toml-values/examples/reflector/core-corner-outline.toml.json
+      - ../../toml-values/examples/reflector/core-corner-outline-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-corner-outline-plant.toml.json
+      - ../../toml-values/examples/reflector/core-assemblies.toml.json
       - fg-corner-fuel.msgpack
       - fg-corner-right.msgpack
       - fg-corner-top.msgpack
@@ -346,10 +346,10 @@ stages:
   core-corner-I:
     cmd: RUST_LOG=debug ../../bin/core core-corner-I.toml > core-corner-I.out 2> core-corner-I.log
     deps:
-      - core-corner-I.toml
-      - core-corner-I-cycle.toml
-      - core-corner-I-plant.toml
-      - core-assemblies.toml
+      - ../../toml-values/examples/reflector/core-corner-I.toml.json
+      - ../../toml-values/examples/reflector/core-corner-I-cycle.toml.json
+      - ../../toml-values/examples/reflector/core-corner-I-plant.toml.json
+      - ../../toml-values/examples/reflector/core-assemblies.toml.json
       - fg-corner-fuel.msgpack
       - fg-I-reflector.msgpack
       - fg-corner-corner.msgpack

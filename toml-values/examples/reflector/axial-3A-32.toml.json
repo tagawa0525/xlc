@@ -1,0 +1,934 @@
+{
+ "library": "reflector.msgpack",
+ "self-shielding": false,
+ "pitch": 1.0,
+ "azimuthal": 32,
+ "spacing": 0.05,
+ "boundary": {
+  "left": "vacuum",
+  "right": "vacuum"
+ },
+ "few-group": {
+  "bounds": [
+   10000000.0,
+   0.625,
+   1e-05
+  ],
+  "axial": true,
+  "nodes": [
+   {
+    "output": "axial-32/lower-water.msgpack",
+    "columns": [
+     1,
+     50
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/lower-plate.msgpack",
+    "columns": [
+     51,
+     55
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/bottom-nozzle.msgpack",
+    "columns": [
+     56,
+     60
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/lower-gap-plug.msgpack",
+    "columns": [
+     61,
+     66
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/fuel-01.msgpack",
+    "columns": [
+     67,
+     78
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-02.msgpack",
+    "columns": [
+     79,
+     90
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-03.msgpack",
+    "columns": [
+     91,
+     102
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-04.msgpack",
+    "columns": [
+     103,
+     114
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-05.msgpack",
+    "columns": [
+     115,
+     126
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-06.msgpack",
+    "columns": [
+     127,
+     138
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-07.msgpack",
+    "columns": [
+     139,
+     150
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-08.msgpack",
+    "columns": [
+     151,
+     162
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-09.msgpack",
+    "columns": [
+     163,
+     174
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-10.msgpack",
+    "columns": [
+     175,
+     186
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-11.msgpack",
+    "columns": [
+     187,
+     198
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-12.msgpack",
+    "columns": [
+     199,
+     210
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-13.msgpack",
+    "columns": [
+     211,
+     222
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-14.msgpack",
+    "columns": [
+     223,
+     234
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-15.msgpack",
+    "columns": [
+     235,
+     246
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-16.msgpack",
+    "columns": [
+     247,
+     258
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-17.msgpack",
+    "columns": [
+     259,
+     270
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-18.msgpack",
+    "columns": [
+     271,
+     282
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-19.msgpack",
+    "columns": [
+     283,
+     294
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-20.msgpack",
+    "columns": [
+     295,
+     306
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-21.msgpack",
+    "columns": [
+     307,
+     318
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-22.msgpack",
+    "columns": [
+     319,
+     330
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-23.msgpack",
+    "columns": [
+     331,
+     342
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-24.msgpack",
+    "columns": [
+     343,
+     354
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-25.msgpack",
+    "columns": [
+     355,
+     366
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-26.msgpack",
+    "columns": [
+     367,
+     378
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-27.msgpack",
+    "columns": [
+     379,
+     390
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-28.msgpack",
+    "columns": [
+     391,
+     402
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-29.msgpack",
+    "columns": [
+     403,
+     414
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-30.msgpack",
+    "columns": [
+     415,
+     426
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-31.msgpack",
+    "columns": [
+     427,
+     438
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/fuel-32.msgpack",
+    "columns": [
+     439,
+     450
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-32/plenum.msgpack",
+    "columns": [
+     451,
+     468
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/upper-plug-gap.msgpack",
+    "columns": [
+     469,
+     472
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/top-nozzle.msgpack",
+    "columns": [
+     473,
+     482
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/upper-plate.msgpack",
+    "columns": [
+     483,
+     490
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-32/upper-water.msgpack",
+    "columns": [
+     491,
+     540
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   }
+  ]
+ },
+ "widths": [
+  {
+   "size": 1.0,
+   "count": 50
+  },
+  {
+   "size": 1.0,
+   "count": 5
+  },
+  {
+   "size": 1.2106,
+   "count": 5
+  },
+  {
+   "size": 1.057,
+   "count": 4
+  },
+  {
+   "size": 0.835,
+   "count": 2
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.9525,
+   "count": 12
+  },
+  {
+   "size": 0.8556,
+   "count": 10
+  },
+  {
+   "size": 0.9665,
+   "count": 4
+  },
+  {
+   "size": 0.8945,
+   "count": 4
+  },
+  {
+   "size": 0.835,
+   "count": 2
+  },
+  {
+   "size": 1.0645,
+   "count": 2
+  },
+  {
+   "size": 0.8827,
+   "count": 10
+  },
+  {
+   "size": 0.95,
+   "count": 8
+  },
+  {
+   "size": 1.0,
+   "count": 50
+  }
+ ],
+ "heights": [
+  {
+   "size": 1.0
+  }
+ ],
+ "rows": [
+  "water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water plate plate plate plate plate bnozzle bnozzle bnozzle bnozzle bnozzle gap gap gap gap plug plug fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum pgrid pgrid pgrid pgrid plenum plenum plenum plenum plug plug gap gap tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle plate plate plate plate plate plate plate plate water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water"
+ ],
+ "material": {
+  "fuel": {
+   "medium": "medium-3A.msgpack"
+  },
+  "water": {
+   "temperature": 600,
+   "nuclides": {
+    "H-1": 0.0496224,
+    "O-16": 0.0248112,
+    "B-10": 1.0707e-05,
+    "B-11": 4.30971e-05
+   }
+  },
+  "zircaloy": {
+   "temperature": 600,
+   "nuclides": {
+    "Cr-50": 3.30121e-06,
+    "Cr-52": 6.36606e-05,
+    "Cr-53": 7.2186e-06,
+    "Cr-54": 1.79686e-06,
+    "Fe-54": 8.68307e-06,
+    "Fe-56": 0.000136306,
+    "Fe-57": 3.14789e-06,
+    "Fe-58": 4.18926e-07,
+    "Zr-90": 0.0218865,
+    "Zr-91": 0.00477292,
+    "Zr-92": 0.00729551,
+    "Zr-94": 0.00739335,
+    "Zr-96": 0.0011911,
+    "Sn-112": 4.68066e-06,
+    "Sn-114": 3.18478e-06,
+    "Sn-115": 1.64064e-06,
+    "Sn-116": 7.01616e-05,
+    "Sn-117": 3.70592e-05,
+    "Sn-118": 0.000116872,
+    "Sn-119": 4.14504e-05,
+    "Sn-120": 0.000157212,
+    "Sn-122": 2.23417e-05,
+    "Sn-124": 2.79392e-05
+   }
+  },
+  "ss304": {
+   "temperature": 600,
+   "nuclides": {
+    "C-12": 0.000317461,
+    "C-13": 3.43358e-06,
+    "Si-28": 0.00158197,
+    "Si-29": 8.03653e-05,
+    "Si-30": 5.30394e-05,
+    "P-31": 6.99938e-05,
+    "Cr-50": 0.000764915,
+    "Cr-52": 0.0147506,
+    "Cr-53": 0.0016726,
+    "Cr-54": 0.000416346,
+    "Mn-55": 0.00175387,
+    "Fe-54": 0.00344776,
+    "Fe-56": 0.0541225,
+    "Fe-57": 0.00124992,
+    "Fe-58": 0.000166342,
+    "Ni-58": 0.00530854,
+    "Ni-60": 0.00204484,
+    "Ni-61": 8.88879e-05,
+    "Ni-62": 0.000283413,
+    "Ni-64": 7.2177e-05
+   }
+  },
+  "inconel": {
+   "temperature": 600,
+   "nuclides": {
+    "Si-28": 0.00404885,
+    "Si-29": 0.000205685,
+    "Si-30": 0.000135748,
+    "Ti-46": 0.000212518,
+    "Ti-47": 0.000191652,
+    "Ti-48": 0.00189901,
+    "Ti-49": 0.00013936,
+    "Ti-50": 0.000133435,
+    "Cr-50": 0.000618222,
+    "Cr-52": 0.0119218,
+    "Cr-53": 0.00135184,
+    "Cr-54": 0.000336501,
+    "Fe-54": 0.000361353,
+    "Fe-56": 0.00567247,
+    "Fe-57": 0.000131002,
+    "Fe-58": 1.7434e-05,
+    "Ni-58": 0.0417608,
+    "Ni-60": 0.0160862,
+    "Ni-61": 0.000699255,
+    "Ni-62": 0.00222953,
+    "Ni-64": 0.000567796
+   }
+  },
+  "plate": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.5
+    },
+    {
+     "material": "water",
+     "volume": 0.5
+    }
+   ]
+  },
+  "bnozzle": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.27923
+    },
+    {
+     "material": "water",
+     "volume": 0.72077
+    }
+   ]
+  },
+  "tnozzle": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.19147
+    },
+    {
+     "material": "water",
+     "volume": 0.80853
+    }
+   ]
+  },
+  "gap": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.00814154
+    },
+    {
+     "material": "water",
+     "volume": 0.99185846
+    }
+   ]
+  },
+  "plug": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.41296353
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "plenum": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "pgrid": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "inconel",
+     "volume": 0.06948616
+    },
+    {
+     "material": "water",
+     "volume": 0.51755031
+    }
+   ]
+  }
+ },
+ "cell": {
+  "fuel": {
+   "zones": [
+    {
+     "material": "fuel",
+     "rings": 1
+    }
+   ]
+  },
+  "water": {
+   "zones": [
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "plate": {
+   "zones": [
+    {
+     "material": "plate",
+     "rings": 1
+    }
+   ]
+  },
+  "bnozzle": {
+   "zones": [
+    {
+     "material": "bnozzle",
+     "rings": 1
+    }
+   ]
+  },
+  "gap": {
+   "zones": [
+    {
+     "material": "gap",
+     "rings": 1
+    }
+   ]
+  },
+  "plug": {
+   "zones": [
+    {
+     "material": "plug",
+     "rings": 1
+    }
+   ]
+  },
+  "plenum": {
+   "zones": [
+    {
+     "material": "plenum",
+     "rings": 1
+    }
+   ]
+  },
+  "pgrid": {
+   "zones": [
+    {
+     "material": "pgrid",
+     "rings": 1
+    }
+   ]
+  },
+  "tnozzle": {
+   "zones": [
+    {
+     "material": "tnozzle",
+     "rings": 1
+    }
+   ]
+  }
+ }
+}

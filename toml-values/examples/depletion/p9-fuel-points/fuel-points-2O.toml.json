@@ -1,0 +1,88 @@
+{
+ "table": "../p9-gd/fuel-2O.msgpack",
+ "scheme": [
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    750,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    900,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    900,
+    1200,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    750,
+    900,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    750,
+    900,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    750,
+    900,
+    1200,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    900,
+    1350
+   ]
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "problem": "MOX-1",
+ "cross-sections": "../vera/openmc-library/cross_sections.xml",
+ "effective-xs-groups": "mox.msgpack",
+ "particles": 1000000,
+ "batches": 250,
+ "inactive": 50,
+ "seed": 1,
+ "threads": 16
+}

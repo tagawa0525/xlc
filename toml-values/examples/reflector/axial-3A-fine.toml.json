@@ -1,0 +1,694 @@
+{
+ "library": "reflector.msgpack",
+ "self-shielding": false,
+ "pitch": 1.0,
+ "azimuthal": 32,
+ "spacing": 0.05,
+ "boundary": {
+  "left": "vacuum",
+  "right": "vacuum"
+ },
+ "few-group": {
+  "bounds": [
+   10000000.0,
+   0.625,
+   1e-05
+  ],
+  "axial": true,
+  "nodes": [
+   {
+    "output": "axial-fine/lower-water.msgpack",
+    "columns": [
+     1,
+     100
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/lower-plate.msgpack",
+    "columns": [
+     101,
+     110
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/bottom-nozzle.msgpack",
+    "columns": [
+     111,
+     120
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/lower-gap-plug.msgpack",
+    "columns": [
+     121,
+     132
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/fuel-01.msgpack",
+    "columns": [
+     133,
+     180
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-02.msgpack",
+    "columns": [
+     181,
+     228
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-03.msgpack",
+    "columns": [
+     229,
+     276
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-04.msgpack",
+    "columns": [
+     277,
+     324
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-05.msgpack",
+    "columns": [
+     325,
+     372
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-06.msgpack",
+    "columns": [
+     373,
+     420
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-07.msgpack",
+    "columns": [
+     421,
+     468
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-08.msgpack",
+    "columns": [
+     469,
+     516
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-09.msgpack",
+    "columns": [
+     517,
+     564
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-10.msgpack",
+    "columns": [
+     565,
+     612
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-11.msgpack",
+    "columns": [
+     613,
+     660
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-12.msgpack",
+    "columns": [
+     661,
+     708
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-13.msgpack",
+    "columns": [
+     709,
+     756
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-14.msgpack",
+    "columns": [
+     757,
+     804
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-15.msgpack",
+    "columns": [
+     805,
+     852
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/fuel-16.msgpack",
+    "columns": [
+     853,
+     900
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-fine/plenum.msgpack",
+    "columns": [
+     901,
+     936
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/upper-plug-gap.msgpack",
+    "columns": [
+     937,
+     944
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/top-nozzle.msgpack",
+    "columns": [
+     945,
+     964
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/upper-plate.msgpack",
+    "columns": [
+     965,
+     980
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-fine/upper-water.msgpack",
+    "columns": [
+     981,
+     1080
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   }
+  ]
+ },
+ "widths": [
+  {
+   "size": 0.5,
+   "count": 100
+  },
+  {
+   "size": 0.5,
+   "count": 10
+  },
+  {
+   "size": 0.6053,
+   "count": 10
+  },
+  {
+   "size": 0.5285,
+   "count": 8
+  },
+  {
+   "size": 0.4175,
+   "count": 4
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.47625,
+   "count": 48
+  },
+  {
+   "size": 0.4278,
+   "count": 20
+  },
+  {
+   "size": 0.48325,
+   "count": 8
+  },
+  {
+   "size": 0.44725,
+   "count": 8
+  },
+  {
+   "size": 0.4175,
+   "count": 4
+  },
+  {
+   "size": 0.53225,
+   "count": 4
+  },
+  {
+   "size": 0.44135,
+   "count": 20
+  },
+  {
+   "size": 0.475,
+   "count": 16
+  },
+  {
+   "size": 0.5,
+   "count": 100
+  }
+ ],
+ "heights": [
+  {
+   "size": 1.0
+  }
+ ],
+ "rows": [
+  "water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water plate plate plate plate plate plate plate plate plate plate bnozzle bnozzle bnozzle bnozzle bnozzle bnozzle bnozzle bnozzle bnozzle bnozzle gap gap gap gap gap gap gap gap plug plug plug plug fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel fuel plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum plenum pgrid pgrid pgrid pgrid pgrid pgrid pgrid pgrid plenum plenum plenum plenum plenum plenum plenum plenum plug plug plug plug gap gap gap gap tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle plate plate plate plate plate plate plate plate plate plate plate plate plate plate plate plate water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water"
+ ],
+ "material": {
+  "fuel": {
+   "medium": "medium-3A.msgpack"
+  },
+  "water": {
+   "temperature": 600,
+   "nuclides": {
+    "H-1": 0.0496224,
+    "O-16": 0.0248112,
+    "B-10": 1.0707e-05,
+    "B-11": 4.30971e-05
+   }
+  },
+  "zircaloy": {
+   "temperature": 600,
+   "nuclides": {
+    "Cr-50": 3.30121e-06,
+    "Cr-52": 6.36606e-05,
+    "Cr-53": 7.2186e-06,
+    "Cr-54": 1.79686e-06,
+    "Fe-54": 8.68307e-06,
+    "Fe-56": 0.000136306,
+    "Fe-57": 3.14789e-06,
+    "Fe-58": 4.18926e-07,
+    "Zr-90": 0.0218865,
+    "Zr-91": 0.00477292,
+    "Zr-92": 0.00729551,
+    "Zr-94": 0.00739335,
+    "Zr-96": 0.0011911,
+    "Sn-112": 4.68066e-06,
+    "Sn-114": 3.18478e-06,
+    "Sn-115": 1.64064e-06,
+    "Sn-116": 7.01616e-05,
+    "Sn-117": 3.70592e-05,
+    "Sn-118": 0.000116872,
+    "Sn-119": 4.14504e-05,
+    "Sn-120": 0.000157212,
+    "Sn-122": 2.23417e-05,
+    "Sn-124": 2.79392e-05
+   }
+  },
+  "ss304": {
+   "temperature": 600,
+   "nuclides": {
+    "C-12": 0.000317461,
+    "C-13": 3.43358e-06,
+    "Si-28": 0.00158197,
+    "Si-29": 8.03653e-05,
+    "Si-30": 5.30394e-05,
+    "P-31": 6.99938e-05,
+    "Cr-50": 0.000764915,
+    "Cr-52": 0.0147506,
+    "Cr-53": 0.0016726,
+    "Cr-54": 0.000416346,
+    "Mn-55": 0.00175387,
+    "Fe-54": 0.00344776,
+    "Fe-56": 0.0541225,
+    "Fe-57": 0.00124992,
+    "Fe-58": 0.000166342,
+    "Ni-58": 0.00530854,
+    "Ni-60": 0.00204484,
+    "Ni-61": 8.88879e-05,
+    "Ni-62": 0.000283413,
+    "Ni-64": 7.2177e-05
+   }
+  },
+  "inconel": {
+   "temperature": 600,
+   "nuclides": {
+    "Si-28": 0.00404885,
+    "Si-29": 0.000205685,
+    "Si-30": 0.000135748,
+    "Ti-46": 0.000212518,
+    "Ti-47": 0.000191652,
+    "Ti-48": 0.00189901,
+    "Ti-49": 0.00013936,
+    "Ti-50": 0.000133435,
+    "Cr-50": 0.000618222,
+    "Cr-52": 0.0119218,
+    "Cr-53": 0.00135184,
+    "Cr-54": 0.000336501,
+    "Fe-54": 0.000361353,
+    "Fe-56": 0.00567247,
+    "Fe-57": 0.000131002,
+    "Fe-58": 1.7434e-05,
+    "Ni-58": 0.0417608,
+    "Ni-60": 0.0160862,
+    "Ni-61": 0.000699255,
+    "Ni-62": 0.00222953,
+    "Ni-64": 0.000567796
+   }
+  },
+  "plate": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.5
+    },
+    {
+     "material": "water",
+     "volume": 0.5
+    }
+   ]
+  },
+  "bnozzle": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.27923
+    },
+    {
+     "material": "water",
+     "volume": 0.72077
+    }
+   ]
+  },
+  "tnozzle": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.19147
+    },
+    {
+     "material": "water",
+     "volume": 0.80853
+    }
+   ]
+  },
+  "gap": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.00814154
+    },
+    {
+     "material": "water",
+     "volume": 0.99185846
+    }
+   ]
+  },
+  "plug": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.41296353
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "plenum": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "pgrid": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "inconel",
+     "volume": 0.06948616
+    },
+    {
+     "material": "water",
+     "volume": 0.51755031
+    }
+   ]
+  }
+ },
+ "cell": {
+  "fuel": {
+   "zones": [
+    {
+     "material": "fuel",
+     "rings": 1
+    }
+   ]
+  },
+  "water": {
+   "zones": [
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "plate": {
+   "zones": [
+    {
+     "material": "plate",
+     "rings": 1
+    }
+   ]
+  },
+  "bnozzle": {
+   "zones": [
+    {
+     "material": "bnozzle",
+     "rings": 1
+    }
+   ]
+  },
+  "gap": {
+   "zones": [
+    {
+     "material": "gap",
+     "rings": 1
+    }
+   ]
+  },
+  "plug": {
+   "zones": [
+    {
+     "material": "plug",
+     "rings": 1
+    }
+   ]
+  },
+  "plenum": {
+   "zones": [
+    {
+     "material": "plenum",
+     "rings": 1
+    }
+   ]
+  },
+  "pgrid": {
+   "zones": [
+    {
+     "material": "pgrid",
+     "rings": 1
+    }
+   ]
+  },
+  "tnozzle": {
+   "zones": [
+    {
+     "material": "tnozzle",
+     "rings": 1
+    }
+   ]
+  }
+ }
+}

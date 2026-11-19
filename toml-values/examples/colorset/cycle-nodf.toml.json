@@ -1,0 +1,8 @@
+{
+ "plant": "plant.toml",
+ "inventory": "assemblies-nodf.toml",
+ "loading": [
+  "A31  A21",
+  "B21  B31"
+ ]
+}

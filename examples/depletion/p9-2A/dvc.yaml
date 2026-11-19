@@ -9,7 +9,7 @@ stages:
     # 状態ごとの k∞ は標準出力、状態ごとの時間はログ（標準エラー）
     cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
     deps:
-      - branch-2A.toml
+      - ../../../toml-values/examples/depletion/p9-2A/branch-2A.toml.json
       - ../p9-product/lattice-2A.msgpack
       - ../p2/depletion.msgpack
       - ../chain.msgpack
@@ -26,7 +26,8 @@ stages:
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
-      - thinning-2A.toml
+      - ../../../python-ast/scripts/normalize_toml.py.ast
+      - ../../../toml-values/examples/depletion/p9-2A/thinning-2A.toml.json
       - table-2A-all-burnups.msgpack
     outs:
       - thinning-2A.json:

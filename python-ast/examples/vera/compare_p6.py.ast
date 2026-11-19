@@ -1,10 +1,11 @@
-import hashlib
 import itertools
 import json
 import re
 import sys
 from pathlib import Path
 import tomllib
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
+from normalize_toml import input_md5
 NUMBER = '[-+0-9.eE]+'
 THERMAL_LINES = ('fuel temperature', 'moderator density', 'channel outlets', 'thermal layers')
 
@@ -88,7 +89,7 @@ def compare(paths: list[str]) -> dict:
         if z not in fractions:
             raise SystemExit(f'the thermal layer {z} is not an axial fission layer')
         layers.append({**layer, 'density': table_density(grid, layer['moderator']), 'fraction': fractions[z]})
-    return {'format': 'xlc-compare-p6', 'inputs': [{'path': str(p), 'md5': hashlib.md5(p.read_bytes()).hexdigest()} for p in (lattice_toml, core_toml, low_toml, iso_toml, hfp_out, low_out, iso_out)], 'k': hfp['k'], 'thermal': {'iterations': t['iterations'], 'change': t['change'], 'tolerance': th['tolerance'], 'effective': th['effective-temperature'], 'fuel_average': t['fuel_average'], 'fuel_max': t['fuel_max'], 'density_error': t['density_error']}, 'channel': {'rise': channel['rise'], 'expected_rise': expected, 'rise_relative_diff': channel['rise'] / expected - 1, 'outlet': channel['outlet']}, 'low_power': {'k': low['k'], 'power_ratio': low_th['power'] / th['power'], 'iterations': low['thermal']['iterations'], 'outlet': low['thermal']['channels'][0]['outlet'], 'fuel_max': low['thermal']['fuel_max']}, 'isothermal': {'k': iso['k'], 'moderator': iso_state['moderator'], 'fuel': iso_state['fuel']}, 'low_power_vs_isothermal_pcm': (low['k'] - iso['k']) * 100000.0, 'layers': layers}
+    return {'format': 'xlc-compare-p6', 'inputs': [{'path': str(p), 'md5': input_md5(p)} for p in (lattice_toml, core_toml, low_toml, iso_toml, hfp_out, low_out, iso_out)], 'k': hfp['k'], 'thermal': {'iterations': t['iterations'], 'change': t['change'], 'tolerance': th['tolerance'], 'effective': th['effective-temperature'], 'fuel_average': t['fuel_average'], 'fuel_max': t['fuel_max'], 'density_error': t['density_error']}, 'channel': {'rise': channel['rise'], 'expected_rise': expected, 'rise_relative_diff': channel['rise'] / expected - 1, 'outlet': channel['outlet']}, 'low_power': {'k': low['k'], 'power_ratio': low_th['power'] / th['power'], 'iterations': low['thermal']['iterations'], 'outlet': low['thermal']['channels'][0]['outlet'], 'fuel_max': low['thermal']['fuel_max']}, 'isothermal': {'k': iso['k'], 'moderator': iso_state['moderator'], 'fuel': iso_state['fuel']}, 'low_power_vs_isothermal_pcm': (low['k'] - iso['k']) * 100000.0, 'layers': layers}
 
 def report(s: dict) -> list[str]:
     t, c = (s['thermal'], s['channel'])

@@ -1,0 +1,7 @@
+{
+ "plant": "core-axial-plant.toml",
+ "inventory": "core-axial-assemblies-fine.toml",
+ "loading": [
+  "FSTAR-fine"
+ ]
+}

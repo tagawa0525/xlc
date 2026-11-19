@@ -8,10 +8,11 @@ stages:
     # 残す格子点の組ごとの内挿の誤差の要約（数十 KB。git で追跡する）
     cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2A.json fuel-points-2A.toml
     deps:
-      - fuel-points-2A.toml
+      - ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2A.toml.json
       - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../../../python-ast/scripts/normalize_toml.py.ast
       - ../p9-product/table-2A.msgpack
     outs:
       - fuel-points-2A.json:
@@ -19,10 +20,11 @@ stages:
   fuel-points-2O:
     cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2O.json fuel-points-2O.toml
     deps:
-      - fuel-points-2O.toml
+      - ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2O.toml.json
       - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../../../python-ast/scripts/normalize_toml.py.ast
       - ../p9-gd/fuel-2O.msgpack
     outs:
       - fuel-points-2O.json:

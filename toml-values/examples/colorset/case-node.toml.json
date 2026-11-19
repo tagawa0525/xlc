@@ -1,0 +1,22 @@
+{
+ "cycle": "cycle-node.toml",
+ "axial-mesh": [
+  0.0,
+  21.5
+ ],
+ "radial-nodes": 1,
+ "boundary": {
+  "x": [
+   "reflective",
+   "reflective"
+  ],
+  "y": [
+   "reflective",
+   "reflective"
+  ],
+  "z": [
+   "reflective",
+   "reflective"
+  ]
+ }
+}

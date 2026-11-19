@@ -8,7 +8,7 @@ stages:
   assembly-21:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-21.toml > assembly-21.out
     deps:
-      - assembly-21.toml
+      - ../../../toml-values/examples/vera/p5/assembly-21.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -17,7 +17,7 @@ stages:
   assembly-21-aic:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-21-aic.toml > assembly-21-aic.out
     deps:
-      - assembly-21-aic.toml
+      - ../../../toml-values/examples/vera/p5/assembly-21-aic.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -26,7 +26,7 @@ stages:
   assembly-21-b4c:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-21-b4c.toml > assembly-21-b4c.out
     deps:
-      - assembly-21-b4c.toml
+      - ../../../toml-values/examples/vera/p5/assembly-21-b4c.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -35,7 +35,7 @@ stages:
   assembly-26:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-26.toml > assembly-26.out
     deps:
-      - assembly-26.toml
+      - ../../../toml-values/examples/vera/p5/assembly-26.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -44,7 +44,7 @@ stages:
   assembly-26-aic:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-aic.toml > assembly-26-aic.out
     deps:
-      - assembly-26-aic.toml
+      - ../../../toml-values/examples/vera/p5/assembly-26-aic.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -53,7 +53,7 @@ stages:
   assembly-26-b4c:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-b4c.toml > assembly-26-b4c.out
     deps:
-      - assembly-26-b4c.toml
+      - ../../../toml-values/examples/vera/p5/assembly-26-b4c.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -62,7 +62,7 @@ stages:
   assembly-26-p16:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-p16.toml > assembly-26-p16.out
     deps:
-      - assembly-26-p16.toml
+      - ../../../toml-values/examples/vera/p5/assembly-26-p16.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -71,7 +71,7 @@ stages:
   assembly-26-p20:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-p20.toml > assembly-26-p20.out
     deps:
-      - assembly-26-p20.toml
+      - ../../../toml-values/examples/vera/p5/assembly-26-p20.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -80,7 +80,7 @@ stages:
   assembly-26-p24:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-p24.toml > assembly-26-p24.out
     deps:
-      - assembly-26-p24.toml
+      - ../../../toml-values/examples/vera/p5/assembly-26-p24.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -89,7 +89,7 @@ stages:
   assembly-31:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-31.toml > assembly-31.out
     deps:
-      - assembly-31.toml
+      - ../../../toml-values/examples/vera/p5/assembly-31.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -98,7 +98,7 @@ stages:
   assembly-31-p12:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-31-p12.toml > assembly-31-p12.out
     deps:
-      - assembly-31-p12.toml
+      - ../../../toml-values/examples/vera/p5/assembly-31-p12.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -107,7 +107,7 @@ stages:
   assembly-31-p16:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-31-p16.toml > assembly-31-p16.out
     deps:
-      - assembly-31-p16.toml
+      - ../../../toml-values/examples/vera/p5/assembly-31-p16.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -116,7 +116,7 @@ stages:
   assembly-31-p24:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-31-p24.toml > assembly-31-p24.out
     deps:
-      - assembly-31-p24.toml
+      - ../../../toml-values/examples/vera/p5/assembly-31-p24.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -125,7 +125,7 @@ stages:
   reflector-I:
     cmd: mkdir -p lattice && ../../../bin/lattice reflector-I.toml > reflector-I.out
     deps:
-      - reflector-I.toml
+      - ../../../toml-values/examples/vera/p5/reflector-I.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -135,7 +135,7 @@ stages:
   reflector-I-31-p12:
     cmd: mkdir -p lattice && ../../../bin/lattice reflector-I-31-p12.toml > reflector-I-31-p12.out
     deps:
-      - reflector-I-31-p12.toml
+      - ../../../toml-values/examples/vera/p5/reflector-I-31-p12.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -145,7 +145,7 @@ stages:
   reflector-I-31-p8:
     cmd: mkdir -p lattice && ../../../bin/lattice reflector-I-31-p8.toml > reflector-I-31-p8.out
     deps:
-      - reflector-I-31-p8.toml
+      - ../../../toml-values/examples/vera/p5/reflector-I-31-p8.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -155,7 +155,7 @@ stages:
   reflector-corner:
     cmd: mkdir -p lattice && ../../../bin/lattice reflector-corner.toml > reflector-corner.out
     deps:
-      - reflector-corner.toml
+      - ../../../toml-values/examples/vera/p5/reflector-corner.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -167,7 +167,7 @@ stages:
   small-moc:
     cmd: ../../../bin/lattice small-moc.toml > small-moc.out
     deps:
-      - small-moc.toml
+      - ../../../toml-values/examples/vera/p5/small-moc.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -176,10 +176,10 @@ stages:
   core-5A:
     cmd: RUST_LOG=debug ../../../bin/core core-5A.toml > core-5A.out 2> core-5A.log
     deps:
-      - core-5A.toml
-      - core-5A-cycle.toml
-      - core-plant.toml
-      - core-5A-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-5A.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5A-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       - lattice/21.msgpack
       - lattice/26-p16.msgpack
       - lattice/26-p20.msgpack
@@ -204,10 +204,10 @@ stages:
   core-5A-Inext:
     cmd: RUST_LOG=debug ../../../bin/core core-5A-Inext.toml > core-5A-Inext.out 2> core-5A-Inext.log
     deps:
-      - core-5A-Inext.toml
-      - core-5A-Inext-cycle.toml
-      - core-plant-Inext.toml
-      - core-5A-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-5A-Inext.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5A-Inext-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-plant-Inext.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       - lattice/21.msgpack
       - lattice/26-p16.msgpack
       - lattice/26-p20.msgpack
@@ -230,10 +230,10 @@ stages:
   core-5A-Ly:
     cmd: RUST_LOG=debug ../../../bin/core core-5A-Ly.toml > core-5A-Ly.out 2> core-5A-Ly.log
     deps:
-      - core-5A-Ly.toml
-      - core-5A-Ly-cycle.toml
-      - core-plant-Ly.toml
-      - core-5A-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-5A-Ly.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5A-Ly-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-plant-Ly.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       - lattice/21.msgpack
       - lattice/26-p16.msgpack
       - lattice/26-p20.msgpack
@@ -258,10 +258,10 @@ stages:
   core-5B:
     cmd: RUST_LOG=debug ../../../bin/core core-5B.toml > core-5B.out 2> core-5B.log
     deps:
-      - core-5B.toml
-      - core-5B-cycle.toml
-      - core-plant.toml
-      - core-5B-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-5B.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5B-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5B-assemblies.toml.json
       - lattice/21-aic.msgpack
       - lattice/21.msgpack
       - lattice/26-aic.msgpack
@@ -287,10 +287,10 @@ stages:
   core-5C:
     cmd: RUST_LOG=debug ../../../bin/core core-5C.toml > core-5C.out 2> core-5C.log
     deps:
-      - core-5C.toml
-      - core-5C-cycle.toml
-      - core-plant.toml
-      - core-5C-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-5C.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5C-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-5C-assemblies.toml.json
       - lattice/21-b4c.msgpack
       - lattice/21.msgpack
       - lattice/26-b4c.msgpack
@@ -316,10 +316,10 @@ stages:
   core-lattice-I-equivalence:
     cmd: RUST_LOG=debug ../../../bin/core core-lattice-I-equivalence.toml > core-lattice-I-equivalence.out 2> core-lattice-I-equivalence.log
     deps:
-      - core-lattice-I-equivalence.toml
-      - core-lattice-I-equivalence-cycle.toml
-      - core-lattice-I-plant.toml
-      - core-lattice-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-lattice-I-equivalence.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-I-equivalence-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-I-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -332,10 +332,10 @@ stages:
   core-lattice-I-fstar:
     cmd: RUST_LOG=debug ../../../bin/core core-lattice-I-fstar.toml > core-lattice-I-fstar.out 2> core-lattice-I-fstar.log
     deps:
-      - core-lattice-I-fstar.toml
-      - core-lattice-I-fstar-cycle.toml
-      - core-lattice-I-plant.toml
-      - core-lattice-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-lattice-I-fstar.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-I-fstar-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-I-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -348,10 +348,10 @@ stages:
   core-lattice-corner-equivalence:
     cmd: RUST_LOG=debug ../../../bin/core core-lattice-corner-equivalence.toml > core-lattice-corner-equivalence.out 2> core-lattice-corner-equivalence.log
     deps:
-      - core-lattice-corner-equivalence.toml
-      - core-lattice-corner-equivalence-cycle.toml
-      - core-lattice-corner-plant.toml
-      - core-lattice-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-lattice-corner-equivalence.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-corner-equivalence-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-corner-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-corner-fuel.msgpack
@@ -366,10 +366,10 @@ stages:
   core-lattice-corner-fstar:
     cmd: RUST_LOG=debug ../../../bin/core core-lattice-corner-fstar.toml > core-lattice-corner-fstar.out 2> core-lattice-corner-fstar.log
     deps:
-      - core-lattice-corner-fstar.toml
-      - core-lattice-corner-fstar-cycle.toml
-      - core-lattice-corner-plant.toml
-      - core-lattice-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-lattice-corner-fstar.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-corner-fstar-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-corner-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-corner-fuel.msgpack
@@ -384,10 +384,10 @@ stages:
   core-small-E:
     cmd: RUST_LOG=debug ../../../bin/core core-small-E.toml > core-small-E.out 2> core-small-E.log
     deps:
-      - core-small-E.toml
-      - core-small-E-cycle.toml
-      - core-small-E-plant.toml
-      - core-small-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-small-E.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-E-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-E-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -403,10 +403,10 @@ stages:
   core-small-I:
     cmd: RUST_LOG=debug ../../../bin/core core-small-I.toml > core-small-I.out 2> core-small-I.log
     deps:
-      - core-small-I.toml
-      - core-small-I-cycle.toml
-      - core-small-I-plant.toml
-      - core-small-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-small-I.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-I-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-I-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -420,10 +420,10 @@ stages:
   core-small-step-Lx:
     cmd: RUST_LOG=debug ../../../bin/core core-small-step-Lx.toml > core-small-step-Lx.out 2> core-small-step-Lx.log
     deps:
-      - core-small-step-Lx.toml
-      - core-small-step-Lx-cycle.toml
-      - core-small-step-Lx-plant.toml
-      - core-small-step-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-small-step-Lx.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-step-Lx-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-step-Lx-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-step-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -439,10 +439,10 @@ stages:
   core-small-step-Ly:
     cmd: RUST_LOG=debug ../../../bin/core core-small-step-Ly.toml > core-small-step-Ly.out 2> core-small-step-Ly.log
     deps:
-      - core-small-step-Ly.toml
-      - core-small-step-Ly-cycle.toml
-      - core-small-step-Ly-plant.toml
-      - core-small-step-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/core-small-step-Ly.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-step-Ly-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-step-Ly-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/core-small-step-assemblies.toml.json
       - lattice/31.msgpack
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -669,7 +669,7 @@ stages:
   hzp-21-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel.toml > 21-fuel.out
     deps:
-      - hzp/21-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/21-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -679,7 +679,7 @@ stages:
   hzp-rodless-21-fuel:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-21-fuel.toml > rodless-21-fuel.out
     deps:
-      - hzp/rodless-21-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-21-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -689,7 +689,7 @@ stages:
   hzp-21-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-igrid.toml > 21-igrid.out
     deps:
-      - hzp/21-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/21-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -698,7 +698,7 @@ stages:
   hzp-21-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-zgrid.toml > 21-zgrid.out
     deps:
-      - hzp/21-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/21-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -707,7 +707,7 @@ stages:
   hzp-rodless-21-zgrid:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-21-zgrid.toml > rodless-21-zgrid.out
     deps:
-      - hzp/rodless-21-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-21-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -716,7 +716,7 @@ stages:
   hzp-26-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel.toml > 26-fuel.out
     deps:
-      - hzp/26-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -726,7 +726,7 @@ stages:
   hzp-rodless-26-fuel:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-26-fuel.toml > rodless-26-fuel.out
     deps:
-      - hzp/rodless-26-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-26-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -736,7 +736,7 @@ stages:
   hzp-26-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-igrid.toml > 26-igrid.out
     deps:
-      - hzp/26-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -745,7 +745,7 @@ stages:
   hzp-26-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-zgrid.toml > 26-zgrid.out
     deps:
-      - hzp/26-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -754,7 +754,7 @@ stages:
   hzp-rodless-26-zgrid:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-26-zgrid.toml > rodless-26-zgrid.out
     deps:
-      - hzp/rodless-26-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-26-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -763,7 +763,7 @@ stages:
   hzp-26-p16-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-empty.toml > 26-p16-empty.out
     deps:
-      - hzp/26-p16-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -773,7 +773,7 @@ stages:
   hzp-26-p16-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-empty-igrid.toml > 26-p16-empty-igrid.out
     deps:
-      - hzp/26-p16-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -782,7 +782,7 @@ stages:
   hzp-26-p16-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-plenum.toml > 26-p16-plenum.out
     deps:
-      - hzp/26-p16-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -792,7 +792,7 @@ stages:
   hzp-26-p16-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-plug.toml > 26-p16-plug.out
     deps:
-      - hzp/26-p16-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -802,7 +802,7 @@ stages:
   hzp-26-p16-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-plug-igrid.toml > 26-p16-plug-igrid.out
     deps:
-      - hzp/26-p16-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -811,7 +811,7 @@ stages:
   hzp-26-p16-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-poison.toml > 26-p16-poison.out
     deps:
-      - hzp/26-p16-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -821,7 +821,7 @@ stages:
   hzp-26-p16-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-poison-zgrid.toml > 26-p16-poison-zgrid.out
     deps:
-      - hzp/26-p16-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p16-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -830,7 +830,7 @@ stages:
   hzp-26-p20-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-empty.toml > 26-p20-empty.out
     deps:
-      - hzp/26-p20-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -840,7 +840,7 @@ stages:
   hzp-26-p20-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-empty-igrid.toml > 26-p20-empty-igrid.out
     deps:
-      - hzp/26-p20-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -849,7 +849,7 @@ stages:
   hzp-26-p20-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-plenum.toml > 26-p20-plenum.out
     deps:
-      - hzp/26-p20-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -859,7 +859,7 @@ stages:
   hzp-26-p20-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-plug.toml > 26-p20-plug.out
     deps:
-      - hzp/26-p20-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -869,7 +869,7 @@ stages:
   hzp-26-p20-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-plug-igrid.toml > 26-p20-plug-igrid.out
     deps:
-      - hzp/26-p20-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -878,7 +878,7 @@ stages:
   hzp-26-p20-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-poison.toml > 26-p20-poison.out
     deps:
-      - hzp/26-p20-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -888,7 +888,7 @@ stages:
   hzp-26-p20-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-poison-zgrid.toml > 26-p20-poison-zgrid.out
     deps:
-      - hzp/26-p20-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p20-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -897,7 +897,7 @@ stages:
   hzp-26-p24-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-empty.toml > 26-p24-empty.out
     deps:
-      - hzp/26-p24-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -907,7 +907,7 @@ stages:
   hzp-26-p24-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-empty-igrid.toml > 26-p24-empty-igrid.out
     deps:
-      - hzp/26-p24-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -916,7 +916,7 @@ stages:
   hzp-26-p24-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-plenum.toml > 26-p24-plenum.out
     deps:
-      - hzp/26-p24-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -926,7 +926,7 @@ stages:
   hzp-26-p24-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-plug.toml > 26-p24-plug.out
     deps:
-      - hzp/26-p24-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -936,7 +936,7 @@ stages:
   hzp-26-p24-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-plug-igrid.toml > 26-p24-plug-igrid.out
     deps:
-      - hzp/26-p24-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -945,7 +945,7 @@ stages:
   hzp-26-p24-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-poison.toml > 26-p24-poison.out
     deps:
-      - hzp/26-p24-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -955,7 +955,7 @@ stages:
   hzp-26-p24-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-poison-zgrid.toml > 26-p24-poison-zgrid.out
     deps:
-      - hzp/26-p24-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/26-p24-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -964,7 +964,7 @@ stages:
   hzp-31-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-fuel.toml > 31-fuel.out
     deps:
-      - hzp/31-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -974,7 +974,7 @@ stages:
   hzp-rodless-31-fuel:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-31-fuel.toml > rodless-31-fuel.out
     deps:
-      - hzp/rodless-31-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-31-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -984,7 +984,7 @@ stages:
   hzp-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-igrid.toml > 31-igrid.out
     deps:
-      - hzp/31-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -993,7 +993,7 @@ stages:
   hzp-31-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-zgrid.toml > 31-zgrid.out
     deps:
-      - hzp/31-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1002,7 +1002,7 @@ stages:
   hzp-rodless-31-zgrid:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-31-zgrid.toml > rodless-31-zgrid.out
     deps:
-      - hzp/rodless-31-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-31-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1011,7 +1011,7 @@ stages:
   hzp-31-p12-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-empty.toml > 31-p12-empty.out
     deps:
-      - hzp/31-p12-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1021,7 +1021,7 @@ stages:
   hzp-31-p12-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-empty-igrid.toml > 31-p12-empty-igrid.out
     deps:
-      - hzp/31-p12-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1030,7 +1030,7 @@ stages:
   hzp-31-p12-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-plenum.toml > 31-p12-plenum.out
     deps:
-      - hzp/31-p12-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1040,7 +1040,7 @@ stages:
   hzp-31-p12-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-plug.toml > 31-p12-plug.out
     deps:
-      - hzp/31-p12-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1050,7 +1050,7 @@ stages:
   hzp-31-p12-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-plug-igrid.toml > 31-p12-plug-igrid.out
     deps:
-      - hzp/31-p12-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1059,7 +1059,7 @@ stages:
   hzp-31-p12-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-poison.toml > 31-p12-poison.out
     deps:
-      - hzp/31-p12-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1069,7 +1069,7 @@ stages:
   hzp-31-p12-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-poison-zgrid.toml > 31-p12-poison-zgrid.out
     deps:
-      - hzp/31-p12-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p12-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1078,7 +1078,7 @@ stages:
   hzp-31-p16-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-empty.toml > 31-p16-empty.out
     deps:
-      - hzp/31-p16-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1088,7 +1088,7 @@ stages:
   hzp-31-p16-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-empty-igrid.toml > 31-p16-empty-igrid.out
     deps:
-      - hzp/31-p16-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1097,7 +1097,7 @@ stages:
   hzp-31-p16-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-plenum.toml > 31-p16-plenum.out
     deps:
-      - hzp/31-p16-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1107,7 +1107,7 @@ stages:
   hzp-31-p16-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-plug.toml > 31-p16-plug.out
     deps:
-      - hzp/31-p16-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1117,7 +1117,7 @@ stages:
   hzp-31-p16-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-plug-igrid.toml > 31-p16-plug-igrid.out
     deps:
-      - hzp/31-p16-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1126,7 +1126,7 @@ stages:
   hzp-31-p16-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-poison.toml > 31-p16-poison.out
     deps:
-      - hzp/31-p16-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1136,7 +1136,7 @@ stages:
   hzp-31-p16-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-poison-zgrid.toml > 31-p16-poison-zgrid.out
     deps:
-      - hzp/31-p16-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p16-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1145,7 +1145,7 @@ stages:
   hzp-31-p24-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-empty.toml > 31-p24-empty.out
     deps:
-      - hzp/31-p24-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1155,7 +1155,7 @@ stages:
   hzp-31-p24-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-empty-igrid.toml > 31-p24-empty-igrid.out
     deps:
-      - hzp/31-p24-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1164,7 +1164,7 @@ stages:
   hzp-31-p24-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-plenum.toml > 31-p24-plenum.out
     deps:
-      - hzp/31-p24-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1174,7 +1174,7 @@ stages:
   hzp-31-p24-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-plug.toml > 31-p24-plug.out
     deps:
-      - hzp/31-p24-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1184,7 +1184,7 @@ stages:
   hzp-31-p24-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-plug-igrid.toml > 31-p24-plug-igrid.out
     deps:
-      - hzp/31-p24-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1193,7 +1193,7 @@ stages:
   hzp-31-p24-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-poison.toml > 31-p24-poison.out
     deps:
-      - hzp/31-p24-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1203,7 +1203,7 @@ stages:
   hzp-31-p24-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-poison-zgrid.toml > 31-p24-poison-zgrid.out
     deps:
-      - hzp/31-p24-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p24-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1212,7 +1212,7 @@ stages:
   hzp-31-p8-empty:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-empty.toml > 31-p8-empty.out
     deps:
-      - hzp/31-p8-empty.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p8-empty.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1222,7 +1222,7 @@ stages:
   hzp-31-p8-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-plenum.toml > 31-p8-plenum.out
     deps:
-      - hzp/31-p8-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p8-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1232,7 +1232,7 @@ stages:
   hzp-31-p8-plug:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-plug.toml > 31-p8-plug.out
     deps:
-      - hzp/31-p8-plug.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p8-plug.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1242,7 +1242,7 @@ stages:
   hzp-31-p8-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-poison.toml > 31-p8-poison.out
     deps:
-      - hzp/31-p8-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/31-p8-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1252,7 +1252,7 @@ stages:
   hzp-reflector-I-31-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-fuel.toml > reflector-I-31-fuel.out
     deps:
-      - hzp/reflector-I-31-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1262,7 +1262,7 @@ stages:
   hzp-rodless-reflector-I-31-fuel:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-reflector-I-31-fuel.toml > rodless-reflector-I-31-fuel.out
     deps:
-      - hzp/rodless-reflector-I-31-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1272,7 +1272,7 @@ stages:
   hzp-reflector-I-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-igrid.toml > reflector-I-31-igrid.out
     deps:
-      - hzp/reflector-I-31-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1282,7 +1282,7 @@ stages:
   hzp-reflector-I-31-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-zgrid.toml > reflector-I-31-zgrid.out
     deps:
-      - hzp/reflector-I-31-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1292,7 +1292,7 @@ stages:
   hzp-rodless-reflector-I-31-zgrid:
     cmd: cd hzp && mkdir -p rodless/lattice rodless/media && ../../../../bin/lattice rodless-reflector-I-31-zgrid.toml > rodless-reflector-I-31-zgrid.out
     deps:
-      - hzp/rodless-reflector-I-31-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1302,7 +1302,7 @@ stages:
   hzp-reflector-I-31-p12-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-empty-igrid.toml > reflector-I-31-p12-empty-igrid.out
     deps:
-      - hzp/reflector-I-31-p12-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1312,7 +1312,7 @@ stages:
   hzp-reflector-I-31-p12-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-plenum.toml > reflector-I-31-p12-plenum.out
     deps:
-      - hzp/reflector-I-31-p12-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1322,7 +1322,7 @@ stages:
   hzp-reflector-I-31-p12-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-plug-igrid.toml > reflector-I-31-p12-plug-igrid.out
     deps:
-      - hzp/reflector-I-31-p12-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1332,7 +1332,7 @@ stages:
   hzp-reflector-I-31-p12-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-poison.toml > reflector-I-31-p12-poison.out
     deps:
-      - hzp/reflector-I-31-p12-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1342,7 +1342,7 @@ stages:
   hzp-reflector-I-31-p12-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-poison-zgrid.toml > reflector-I-31-p12-poison-zgrid.out
     deps:
-      - hzp/reflector-I-31-p12-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1352,7 +1352,7 @@ stages:
   hzp-reflector-I-31-p8-empty-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-empty-igrid.toml > reflector-I-31-p8-empty-igrid.out
     deps:
-      - hzp/reflector-I-31-p8-empty-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1362,7 +1362,7 @@ stages:
   hzp-reflector-I-31-p8-plenum:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-plenum.toml > reflector-I-31-p8-plenum.out
     deps:
-      - hzp/reflector-I-31-p8-plenum.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plenum.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1372,7 +1372,7 @@ stages:
   hzp-reflector-I-31-p8-plug-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-plug-igrid.toml > reflector-I-31-p8-plug-igrid.out
     deps:
-      - hzp/reflector-I-31-p8-plug-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1382,7 +1382,7 @@ stages:
   hzp-reflector-I-31-p8-poison:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-poison.toml > reflector-I-31-p8-poison.out
     deps:
-      - hzp/reflector-I-31-p8-poison.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1392,7 +1392,7 @@ stages:
   hzp-reflector-I-31-p8-poison-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-poison-zgrid.toml > reflector-I-31-p8-poison-zgrid.out
     deps:
-      - hzp/reflector-I-31-p8-poison-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1402,7 +1402,7 @@ stages:
   hzp-reflector-corner-31-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-corner-31-fuel.toml > reflector-corner-31-fuel.out
     deps:
-      - hzp/reflector-corner-31-fuel.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1414,7 +1414,7 @@ stages:
   hzp-reflector-corner-31-igrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-corner-31-igrid.toml > reflector-corner-31-igrid.out
     deps:
-      - hzp/reflector-corner-31-igrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1426,7 +1426,7 @@ stages:
   hzp-reflector-corner-31-zgrid:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-corner-31-zgrid.toml > reflector-corner-31-zgrid.out
     deps:
-      - hzp/reflector-corner-31-zgrid.toml
+      - ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -1438,7 +1438,7 @@ stages:
   hzp-axial-21:
     cmd: cd hzp && mkdir -p axial-21 && ../../../../bin/lattice axial-21.toml > axial-21.out 2> axial-21.log
     deps:
-      - hzp/axial-21.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-21.toml.json
       - ../vera.msgpack
       - hzp/media/21-fuel.msgpack
       - ../../../bin/lattice
@@ -1449,7 +1449,7 @@ stages:
   hzp-axial-21-rcca:
     cmd: cd hzp && mkdir -p axial-21-rcca && ../../../../bin/lattice axial-21-rcca.toml > axial-21-rcca.out 2> axial-21-rcca.log
     deps:
-      - hzp/axial-21-rcca.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-21-rcca.toml.json
       - ../vera.msgpack
       - hzp/media/21-fuel.msgpack
       - ../../../bin/lattice
@@ -1460,7 +1460,7 @@ stages:
   hzp-axial-26-rcca:
     cmd: cd hzp && mkdir -p axial-26-rcca && ../../../../bin/lattice axial-26-rcca.toml > axial-26-rcca.out 2> axial-26-rcca.log
     deps:
-      - hzp/axial-26-rcca.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-26-rcca.toml.json
       - ../vera.msgpack
       - hzp/media/26-fuel.msgpack
       - ../../../bin/lattice
@@ -1471,7 +1471,7 @@ stages:
   hzp-axial-26-p16:
     cmd: cd hzp && mkdir -p axial-26-p16 && ../../../../bin/lattice axial-26-p16.toml > axial-26-p16.out 2> axial-26-p16.log
     deps:
-      - hzp/axial-26-p16.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-26-p16.toml.json
       - ../vera.msgpack
       - hzp/media/26-p16-empty.msgpack
       - hzp/media/26-p16-plenum.msgpack
@@ -1485,7 +1485,7 @@ stages:
   hzp-axial-26-p20:
     cmd: cd hzp && mkdir -p axial-26-p20 && ../../../../bin/lattice axial-26-p20.toml > axial-26-p20.out 2> axial-26-p20.log
     deps:
-      - hzp/axial-26-p20.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-26-p20.toml.json
       - ../vera.msgpack
       - hzp/media/26-p20-empty.msgpack
       - hzp/media/26-p20-plenum.msgpack
@@ -1499,7 +1499,7 @@ stages:
   hzp-axial-26-p24:
     cmd: cd hzp && mkdir -p axial-26-p24 && ../../../../bin/lattice axial-26-p24.toml > axial-26-p24.out 2> axial-26-p24.log
     deps:
-      - hzp/axial-26-p24.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-26-p24.toml.json
       - ../vera.msgpack
       - hzp/media/26-p24-empty.msgpack
       - hzp/media/26-p24-plenum.msgpack
@@ -1513,7 +1513,7 @@ stages:
   hzp-axial-31:
     cmd: cd hzp && mkdir -p axial-31 && ../../../../bin/lattice axial-31.toml > axial-31.out 2> axial-31.log
     deps:
-      - hzp/axial-31.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-31.toml.json
       - ../vera.msgpack
       - hzp/media/31-fuel.msgpack
       - ../../../bin/lattice
@@ -1524,7 +1524,7 @@ stages:
   hzp-axial-31-rcca:
     cmd: cd hzp && mkdir -p axial-31-rcca && ../../../../bin/lattice axial-31-rcca.toml > axial-31-rcca.out 2> axial-31-rcca.log
     deps:
-      - hzp/axial-31-rcca.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-31-rcca.toml.json
       - ../vera.msgpack
       - hzp/media/31-fuel.msgpack
       - ../../../bin/lattice
@@ -1535,7 +1535,7 @@ stages:
   hzp-axial-31-p12:
     cmd: cd hzp && mkdir -p axial-31-p12 && ../../../../bin/lattice axial-31-p12.toml > axial-31-p12.out 2> axial-31-p12.log
     deps:
-      - hzp/axial-31-p12.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-31-p12.toml.json
       - ../vera.msgpack
       - hzp/media/31-p12-empty.msgpack
       - hzp/media/31-p12-plenum.msgpack
@@ -1549,7 +1549,7 @@ stages:
   hzp-axial-31-p16:
     cmd: cd hzp && mkdir -p axial-31-p16 && ../../../../bin/lattice axial-31-p16.toml > axial-31-p16.out 2> axial-31-p16.log
     deps:
-      - hzp/axial-31-p16.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-31-p16.toml.json
       - ../vera.msgpack
       - hzp/media/31-p16-empty.msgpack
       - hzp/media/31-p16-plenum.msgpack
@@ -1563,7 +1563,7 @@ stages:
   hzp-axial-31-p24:
     cmd: cd hzp && mkdir -p axial-31-p24 && ../../../../bin/lattice axial-31-p24.toml > axial-31-p24.out 2> axial-31-p24.log
     deps:
-      - hzp/axial-31-p24.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-31-p24.toml.json
       - ../vera.msgpack
       - hzp/media/31-p24-empty.msgpack
       - hzp/media/31-p24-plenum.msgpack
@@ -1577,7 +1577,7 @@ stages:
   hzp-axial-31-p8:
     cmd: cd hzp && mkdir -p axial-31-p8 && ../../../../bin/lattice axial-31-p8.toml > axial-31-p8.out 2> axial-31-p8.log
     deps:
-      - hzp/axial-31-p8.toml
+      - ../../../toml-values/examples/vera/p5/hzp/axial-31-p8.toml.json
       - ../vera.msgpack
       - hzp/media/31-p8-empty.msgpack
       - hzp/media/31-p8-plenum.msgpack
@@ -1591,10 +1591,10 @@ stages:
   hzp-interp-31:
     cmd: cd hzp && ../../../../bin/core interp-31.toml > interp-31.out 2> interp-31.log
     deps:
-      - hzp/interp-31.toml
-      - hzp/interp-31-cycle.toml
-      - hzp/interp-31-plant.toml
-      - hzp/interp-31-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/hzp/interp-31.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/interp-31-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/interp-31-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/interp-31-assemblies.toml.json
       - hzp/lattice/31-fuel.msgpack
       - ../../../bin/core
     outs:
@@ -1603,10 +1603,10 @@ stages:
   hzp-small:
     cmd: cd hzp && ../../../../bin/core small.toml > small.out 2> small.log
     deps:
-      - hzp/small.toml
-      - hzp/small-cycle.toml
-      - hzp/small-plant.toml
-      - hzp/small-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/hzp/small.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-assemblies.toml.json
       - hzp/axial-31
       - hzp/axial-31-rcca
       - hzp/lattice/31-fuel.msgpack
@@ -1629,10 +1629,10 @@ stages:
   hzp-small-half:
     cmd: cd hzp && ../../../../bin/core small-half.toml > small-half.out 2> small-half.log
     deps:
-      - hzp/small-half.toml
-      - hzp/small-cycle.toml
-      - hzp/small-plant.toml
-      - hzp/small-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/hzp/small-half.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-assemblies.toml.json
       - hzp/axial-31
       - hzp/axial-31-rcca
       - hzp/lattice/31-fuel.msgpack
@@ -1656,10 +1656,10 @@ stages:
   hzp-small-2d-aic:
     cmd: cd hzp && ../../../../bin/core small-2d-aic.toml > small-2d-aic.out 2> small-2d-aic.log
     deps:
-      - hzp/small-2d-aic.toml
-      - hzp/small-2d-aic-cycle.toml
-      - hzp/small-2d-aic-plant.toml
-      - hzp/small-2d-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-aic.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-aic-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-aic-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-assemblies.toml.json
       - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
@@ -1674,10 +1674,10 @@ stages:
   hzp-small-2d-b4c:
     cmd: cd hzp && ../../../../bin/core small-2d-b4c.toml > small-2d-b4c.out 2> small-2d-b4c.log
     deps:
-      - hzp/small-2d-b4c.toml
-      - hzp/small-2d-b4c-cycle.toml
-      - hzp/small-2d-b4c-plant.toml
-      - hzp/small-2d-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-b4c.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-b4c-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-b4c-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/small-2d-assemblies.toml.json
       - hzp/lattice/31-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
@@ -1692,10 +1692,10 @@ stages:
   hzp-core-hzp:
     cmd: cd hzp && ../../../../bin/core core-hzp.toml > core-hzp.out 2> core-hzp.log
     deps:
-      - hzp/core-hzp.toml
-      - hzp/core-hzp-cycle.toml
-      - hzp/core-hzp-plant.toml
-      - hzp/core-hzp-assemblies.toml
+      - ../../../toml-values/examples/vera/p5/hzp/core-hzp.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/core-hzp-cycle.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/core-hzp-plant.toml.json
+      - ../../../toml-values/examples/vera/p5/hzp/core-hzp-assemblies.toml.json
       - hzp/axial-21
       - hzp/axial-21-rcca
       - hzp/axial-26-p16
@@ -1828,7 +1828,7 @@ stages:
       - ../../../python-ast/examples/vera/compare_keno.py.ast
       - ../../../python-ast/examples/vera/compare_k.py.ast
       - ../../../references/vera/spec.txt
-      - hzp/core-hzp.toml
+      - ../../../toml-values/examples/vera/p5/hzp/core-hzp.toml.json
       - hzp/core-hzp.out
     outs:
       - hzp/compare-hzp.out

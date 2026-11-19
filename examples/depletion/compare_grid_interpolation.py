@@ -32,10 +32,9 @@
 - 方式に `points`（その軸の残す格子点。軸の両端を含む増える列で、どれかの点を除く）があれば、内側の点を 1 つずつ除く代わりに、
   残す格子点だけから、除いた格子点のそれぞれを内挿して比べる（ADR-0242 の案 F3 の、格子点を減らす比べ方。#0274 の「格子点を
   減らす」）。要約の方式は同じ `points` を持ち、`centers` は除いた格子点の誤差
-- `inputs` は読んだファイル（TOML とテーブル）のパス（実行した cwd から）と md5
+- `inputs` は読んだファイル（TOML とテーブル）のパス（実行した cwd から）と md5（TOML は値の正規形の md5。ADR-0254）
 """
 
-import hashlib
 import itertools
 import json
 import math
@@ -49,6 +48,10 @@ import tomllib
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_branch_cross_terms import table_grid
 from compare_burnup_interpolation import k_inf, unvector, vector
+
+# 入力の md5 は、ステージの deps と同じく TOML なら値の正規形のもの（ADR-0254）
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from normalize_toml import input_md5
 
 TRANSFORMS = {"linear": lambda x: x, "sqrt": math.sqrt}
 
@@ -404,8 +407,7 @@ def main() -> None:
         print("\n".join(report(json.loads(Path(args[1]).read_text()))))
     elif len(args) == 3 and args[0] == "--json":
         config_path = Path(args[2])
-        config_bytes = config_path.read_bytes()
-        config = tomllib.loads(config_bytes.decode())
+        config = tomllib.loads(config_path.read_text())
         unknown = sorted(set(config) - {"table", "scheme"})
         if unknown:
             raise SystemExit(f"{config_path}: unknown keys {unknown}")
@@ -417,8 +419,8 @@ def main() -> None:
                 raise SystemExit(f"{config_path}: unknown scheme keys {extra}")
         summary = summarize(msgpack.unpackb(data), config.get("scheme", []))
         summary["inputs"] = [
-            {"path": str(config_path), "md5": hashlib.md5(config_bytes).hexdigest()},
-            {"path": str(path), "md5": hashlib.md5(data).hexdigest()},
+            {"path": str(config_path), "md5": input_md5(config_path)},
+            {"path": str(path), "md5": input_md5(path)},
         ]
         Path(args[1]).write_text(
             json.dumps(summary, indent=1, ensure_ascii=False) + "\n"

@@ -1,0 +1,7 @@
+{
+ "plant": "core-lattice-I-plant.toml",
+ "inventory": "core-lattice-assemblies.toml",
+ "loading": [
+  "31 ."
+ ]
+}

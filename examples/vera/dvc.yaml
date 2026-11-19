@@ -66,7 +66,7 @@ stages:
       - ../../python-ast/examples/vera/openmc_library.py.ast
       - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
-      - openmc-library.toml
+      - ../../toml-values/examples/vera/openmc-library.toml.json
       - openmc-library/neutron
       - openmc-library/thermal
     outs:
@@ -82,7 +82,7 @@ stages:
       - ../../python-ast/examples/openmc_run.py.ast
       - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
-      - p1/openmc-1B.toml
+      - ../../toml-values/examples/vera/p1/openmc-1B.toml.json
     outs:
       - p1/openmc-1B-model
   openmc-1B:
@@ -109,7 +109,7 @@ stages:
       - ../../python-ast/examples/openmc_run.py.ast
       - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
-      - p1/openmc-1B.toml
+      - ../../toml-values/examples/vera/p1/openmc-1B.toml.json
       - p1/openmc-1B
     outs:
       - p1/openmc-1B-results
@@ -125,7 +125,7 @@ stages:
       - ../../python-ast/examples/openmc_resume.py.ast
       - ../../python-ast/examples/openmc_run.py.ast
       - references-shell.txt
-      - p5/openmc-5A-2D.toml
+      - ../../toml-values/examples/vera/p5/openmc-5A-2D.toml.json
       - ../../references/openmc/vera-5A-2D
     outs:
       - p5/openmc-5A-2D-results
@@ -134,7 +134,7 @@ stages:
     # （ADR-0138）。ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらない
     cmd: ../../bin/xs range xs.toml xs-range.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/vera/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons
       - ../../bin/xs
     outs:
@@ -161,7 +161,7 @@ stages:
   xs:
     cmd: ../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
     deps:
-      - xs.toml
+      - ../../toml-values/examples/vera/xs.toml.json
       - xs-range.toml
       - xs-nuclides
       - ../../bin/xs
@@ -171,7 +171,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice p1/pincell-1B.toml > p1/lattice-1B.out
     deps:
-      - p1/pincell-1B.toml
+      - ../../toml-values/examples/vera/p1/pincell-1B.toml.json
       - vera.msgpack
       - ../../bin/lattice
     outs:
@@ -191,7 +191,7 @@ stages:
     do:
       cmd: ../../bin/lattice p1/pincell-${item}.toml > p1/keno-lattice-${item}.out && python3 compare_keno_lattice.py --json compare-keno-${item}.json ../../references/vera/spec.txt ${item} p1/keno-lattice-${item}.out
       deps:
-        - p1/pincell-${item}.toml
+        - ../../toml-values/examples/vera/p1/pincell-${item}.toml.json
         - vera.msgpack
         - ../../python-ast/examples/vera/compare_keno_lattice.py.ast
         - ../../python-ast/examples/vera/compare_keno.py.ast
@@ -208,7 +208,7 @@ stages:
     do:
       cmd: ../../bin/lattice p2/assembly-${item}.toml > p2/keno-lattice-${item}.out && python3 compare_keno_lattice.py --json compare-keno-${item}.json ../../references/vera/spec.txt ${item} p2/keno-lattice-${item}.out p2/pins-${item}.msgpack
       deps:
-        - p2/assembly-${item}.toml
+        - ../../toml-values/examples/vera/p2/assembly-${item}.toml.json
         - vera.msgpack
         - ../../python-ast/examples/vera/compare_keno_lattice.py.ast
         - ../../python-ast/examples/vera/compare_keno.py.ast

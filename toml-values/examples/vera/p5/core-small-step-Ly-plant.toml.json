@@ -1,0 +1,51 @@
+{
+ "pitch": 21.5,
+ "height": 21.5,
+ "map": [
+  "-     C@90  E@90  I@90  N     C     -",
+  "C@90  I@180 *     *     *     I@90  C",
+  "N@90  *     *     *     *     *     E",
+  "I@180 *     *     *     *     *     I",
+  "E@180 *     *     *     *     *     N@270",
+  "C@180 I@270 *     *     *     I     C@270",
+  "-     C@180 N@180 I@270 E@270 C@270 -"
+ ],
+ "reflector": {
+  "C": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner.msgpack"
+   ]
+  },
+  "E": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-right.msgpack"
+   ]
+  },
+  "I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I.msgpack"
+   ]
+  },
+  "N": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-top.msgpack"
+   ]
+  }
+ }
+}

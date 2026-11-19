@@ -1,4 +1,3 @@
-import hashlib
 import itertools
 import json
 import math
@@ -9,6 +8,8 @@ import numpy as np
 import tomllib
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_burnup_interpolation import interpolate, k_inf, unvector, vector
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
+from normalize_toml import input_md5
 RELATIVE = ['fission', 'nu_fission', 'absorption', 'diffusion', 'adf']
 RODS = ['out', 'in']
 THINNING_METHODS = ['linear', 'hermite']
@@ -693,7 +694,7 @@ def main() -> None:
             thinning.append(thin(t['name'], read(config_path.parent / t['file']), t['nominal'], t['selections'], t.get('timing'), t.get('plans', [])))
         nominal_entries = [nominal_points(t['name'], read(config_path.parent / t['file']), t['nominal'], t['selections']) for t in config.get('nominal', [])]
         combined = [combine(t['name'], read(config_path.parent / t['file']), t['nominal'], t['selections'], t['pairs'], t.get('timing')) for t in config.get('combined', [])]
-        summary = {'format': 'xlc-compare-branch-cross-terms', 'thinning': thinning, 'nominal': nominal_entries, 'combined': combined, 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], **summarize(tables, config.get('model', []))}
+        summary = {'format': 'xlc-compare-branch-cross-terms', 'thinning': thinning, 'nominal': nominal_entries, 'combined': combined, 'inputs': [{'path': str(f), 'md5': input_md5(f)} for f in files], **summarize(tables, config.get('model', []))}
         Path(args[1]).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + '\n')
         print('\n'.join(report(summary)))
     else:

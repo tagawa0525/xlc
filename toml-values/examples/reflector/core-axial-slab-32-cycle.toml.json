@@ -1,0 +1,7 @@
+{
+ "plant": "core-axial-plant.toml",
+ "inventory": "core-axial-assemblies-32.toml",
+ "loading": [
+  "SLAB-32"
+ ]
+}

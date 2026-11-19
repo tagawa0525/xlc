@@ -7,7 +7,7 @@ stages:
   lattice-3A-fuel:
     cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-fuel.toml > lattice-3A-fuel.out
     deps:
-      - lattice-3A-fuel.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3A-fuel.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -17,7 +17,7 @@ stages:
   lattice-3A-zgrid:
     cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-zgrid.toml > lattice-3A-zgrid.out
     deps:
-      - lattice-3A-zgrid.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3A-zgrid.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -26,7 +26,7 @@ stages:
   lattice-3A-igrid:
     cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-igrid.toml > lattice-3A-igrid.out
     deps:
-      - lattice-3A-igrid.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3A-igrid.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -35,7 +35,7 @@ stages:
   axial-3A:
     cmd: mkdir -p axial-3A && RUST_LOG=debug ../../../../bin/lattice axial-3A.toml > axial-3A.out 2> axial-3A.log
     deps:
-      - axial-3A.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/axial-3A.toml.json
       - ../vera.msgpack
       - medium-3A-fuel.msgpack
       - ../../../../bin/lattice
@@ -46,10 +46,10 @@ stages:
   core-3A-slab:
     cmd: RUST_LOG=debug ../../../../bin/core core-3A-slab.toml > core-3A-slab.out 2> core-3A-slab.log
     deps:
-      - core-3A-slab.toml
-      - core-3A-slab-cycle.toml
-      - core-3A-slab-plant.toml
-      - core-3A-slab-assemblies.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-slab.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-slab-cycle.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-slab-plant.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-slab-assemblies.toml.json
       - axial-3A
       - ../../../../bin/core
     outs:
@@ -58,10 +58,10 @@ stages:
   core-3A:
     cmd: RUST_LOG=debug ../../../../bin/core core-3A.toml > core-3A.out 2> core-3A.log
     deps:
-      - core-3A.toml
-      - core-3A-cycle.toml
-      - core-3A-plant.toml
-      - core-3A-assemblies.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-cycle.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-plant.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3A-assemblies.toml.json
       - axial-3A
       - lattice-3A/fuel.msgpack
       - lattice-3A/zgrid.msgpack
@@ -95,7 +95,7 @@ stages:
   lattice-3B-poison:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison.toml > lattice-3B-poison.out
     deps:
-      - lattice-3B-poison.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-poison.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -105,7 +105,7 @@ stages:
   lattice-3B-poison-zgrid:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison-zgrid.toml > lattice-3B-poison-zgrid.out
     deps:
-      - lattice-3B-poison-zgrid.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-poison-zgrid.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -114,7 +114,7 @@ stages:
   lattice-3B-empty:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-empty.toml > lattice-3B-empty.out
     deps:
-      - lattice-3B-empty.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-empty.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -124,7 +124,7 @@ stages:
   lattice-3B-plug:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plug.toml > lattice-3B-plug.out
     deps:
-      - lattice-3B-plug.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-plug.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -134,7 +134,7 @@ stages:
   lattice-3B-plenum:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plenum.toml > lattice-3B-plenum.out
     deps:
-      - lattice-3B-plenum.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-plenum.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -144,7 +144,7 @@ stages:
   lattice-3B-empty-igrid:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-empty-igrid.toml > lattice-3B-empty-igrid.out
     deps:
-      - lattice-3B-empty-igrid.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-empty-igrid.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -153,7 +153,7 @@ stages:
   lattice-3B-plug-igrid:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plug-igrid.toml > lattice-3B-plug-igrid.out
     deps:
-      - lattice-3B-plug-igrid.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-plug-igrid.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -162,7 +162,7 @@ stages:
   lattice-3B-poison-igrid:
     cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison-igrid.toml > lattice-3B-poison-igrid.out
     deps:
-      - lattice-3B-poison-igrid.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/lattice-3B-poison-igrid.toml.json
       - ../vera.msgpack
       - ../../../../bin/lattice
     outs:
@@ -171,7 +171,7 @@ stages:
   axial-3B:
     cmd: mkdir -p axial-3B && RUST_LOG=debug ../../../../bin/lattice axial-3B.toml > axial-3B.out 2> axial-3B.log
     deps:
-      - axial-3B.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/axial-3B.toml.json
       - ../vera.msgpack
       - medium-3B-poison.msgpack
       - medium-3B-empty.msgpack
@@ -185,10 +185,10 @@ stages:
   core-3B-slab:
     cmd: RUST_LOG=debug ../../../../bin/core core-3B-slab.toml > core-3B-slab.out 2> core-3B-slab.log
     deps:
-      - core-3B-slab.toml
-      - core-3B-slab-cycle.toml
-      - core-3B-slab-plant.toml
-      - core-3B-slab-assemblies.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-slab.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-slab-cycle.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-slab-plant.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-slab-assemblies.toml.json
       - axial-3B
       - ../../../../bin/core
     outs:
@@ -197,10 +197,10 @@ stages:
   core-3B:
     cmd: RUST_LOG=debug ../../../../bin/core core-3B.toml > core-3B.out 2> core-3B.log
     deps:
-      - core-3B.toml
-      - core-3B-cycle.toml
-      - core-3B-plant.toml
-      - core-3B-assemblies.toml
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-cycle.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-plant.toml.json
+      - ../../../../toml-values/examples/vera/endfb70/p3/core-3B-assemblies.toml.json
       - axial-3B
       - lattice-3B/poison.msgpack
       - lattice-3B/poison-zgrid.msgpack

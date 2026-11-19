@@ -4,7 +4,7 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/m1/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
@@ -27,7 +27,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
-      - pincell.toml
+      - ../../toml-values/examples/m1/pincell.toml.json
       - m1.msgpack
       - ../../bin/lattice
     outs:
@@ -42,7 +42,7 @@ stages:
     do:
       cmd: ../../bin/lattice pincell-${item}.toml > lattice-${item}.out
       deps:
-        - pincell-${item}.toml
+        - ../../toml-values/examples/m1/pincell-${item}.toml.json
         - m1.msgpack
         - ../../bin/lattice
       outs:

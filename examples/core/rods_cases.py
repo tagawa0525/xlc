@@ -153,14 +153,14 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/core/xs.toml.json
 {listed(endf_deps + code("xs"), 6)}    outs:
       - rods.msgpack
   lattice:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice assembly.toml > lattice.out
     deps:
-      - assembly.toml
+      - ../../toml-values/examples/core/assembly.toml.json
       - rods.msgpack
 {listed(code("lattice"), 6)}    outs:
       - table-rods.msgpack
@@ -171,10 +171,10 @@ stages:
       # DVC は出力の親のディレクトリを作らないので、作ってから実行する
       cmd: mkdir -p out && ../../bin/core cases/${{item}}.toml > out/${{item}}.out
       deps:
-        - cases/${{item}}.toml
-        - plant.toml
-        - assemblies.toml
-        - cycle.toml
+        - ../../toml-values/examples/core/cases/${{item}}.toml.json
+        - ../../toml-values/examples/core/plant.toml.json
+        - ../../toml-values/examples/core/assemblies.toml.json
+        - ../../toml-values/examples/core/cycle.toml.json
         - table-rods.msgpack
 {listed(code("core"), 8)}      outs:
         - out/${{item}}.out

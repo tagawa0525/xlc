@@ -7,7 +7,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice assembly-31.toml > lattice-31.out
     deps:
-      - assembly-31.toml
+      - ../../toml-values/examples/colorset/assembly-31.toml.json
       - ../vera/vera.msgpack
       - ../../bin/lattice
     outs:
@@ -18,7 +18,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice assembly-21.toml > lattice-21.out
     deps:
-      - assembly-21.toml
+      - ../../toml-values/examples/colorset/assembly-21.toml.json
       - ../vera/vera.msgpack
       - ../../bin/lattice
     outs:
@@ -29,7 +29,7 @@ stages:
     # カラーセット全体の MOC。結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice colorset.toml > colorset.out
     deps:
-      - colorset.toml
+      - ../../toml-values/examples/colorset/colorset.toml.json
       - ../vera/vera.msgpack
       - ../../bin/lattice
     outs:
@@ -57,12 +57,12 @@ stages:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/core case.toml > core.out
     deps:
-      - case.toml
-      - cycle.toml
-      - assemblies.toml
+      - ../../toml-values/examples/colorset/case.toml.json
+      - ../../toml-values/examples/colorset/cycle.toml.json
+      - ../../toml-values/examples/colorset/assemblies.toml.json
       - fg-31.msgpack
       - fg-21.msgpack
-      - plant.toml
+      - ../../toml-values/examples/colorset/plant.toml.json
       - ../../bin/core
     outs:
       - core-pins.msgpack
@@ -71,14 +71,14 @@ stages:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/core case-node.toml > core-node.out
     deps:
-      - case-node.toml
-      - cycle-node.toml
-      - assemblies-node.toml
+      - ../../toml-values/examples/colorset/case-node.toml.json
+      - ../../toml-values/examples/colorset/cycle-node.toml.json
+      - ../../toml-values/examples/colorset/assemblies-node.toml.json
       - fg-node-31a.msgpack
       - fg-node-21a.msgpack
       - fg-node-21b.msgpack
       - fg-node-31b.msgpack
-      - plant.toml
+      - ../../toml-values/examples/colorset/plant.toml.json
       - ../../bin/core
     outs:
       - core-node.out
@@ -86,12 +86,12 @@ stages:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/core case-nodf.toml > core-nodf.out
     deps:
-      - case-nodf.toml
-      - cycle-nodf.toml
-      - assemblies-nodf.toml
+      - ../../toml-values/examples/colorset/case-nodf.toml.json
+      - ../../toml-values/examples/colorset/cycle-nodf.toml.json
+      - ../../toml-values/examples/colorset/assemblies-nodf.toml.json
       - fg-31-nodf.msgpack
       - fg-21-nodf.msgpack
-      - plant.toml
+      - ../../toml-values/examples/colorset/plant.toml.json
       - ../../bin/core
     outs:
       - core-pins-nodf.msgpack
@@ -100,12 +100,12 @@ stages:
     cmd: python3 diffusion.py case.toml diffusion-4.msgpack 4 > diffusion-4.out
     deps:
       - ../../python-ast/examples/colorset/diffusion.py.ast
-      - case.toml
-      - cycle.toml
-      - assemblies.toml
+      - ../../toml-values/examples/colorset/case.toml.json
+      - ../../toml-values/examples/colorset/cycle.toml.json
+      - ../../toml-values/examples/colorset/assemblies.toml.json
       - fg-31.msgpack
       - fg-21.msgpack
-      - plant.toml
+      - ../../toml-values/examples/colorset/plant.toml.json
     outs:
       - diffusion-4.msgpack
       - diffusion-4.out
@@ -113,12 +113,12 @@ stages:
     cmd: python3 diffusion.py case.toml diffusion-8.msgpack 8 > diffusion-8.out
     deps:
       - ../../python-ast/examples/colorset/diffusion.py.ast
-      - case.toml
-      - cycle.toml
-      - assemblies.toml
+      - ../../toml-values/examples/colorset/case.toml.json
+      - ../../toml-values/examples/colorset/cycle.toml.json
+      - ../../toml-values/examples/colorset/assemblies.toml.json
       - fg-31.msgpack
       - fg-21.msgpack
-      - plant.toml
+      - ../../toml-values/examples/colorset/plant.toml.json
     outs:
       - diffusion-8.msgpack
       - diffusion-8.out
@@ -126,12 +126,12 @@ stages:
     cmd: python3 diffusion.py case-nodf.toml diffusion-nodf-8.msgpack 8 > diffusion-nodf-8.out
     deps:
       - ../../python-ast/examples/colorset/diffusion.py.ast
-      - case-nodf.toml
-      - cycle-nodf.toml
-      - assemblies-nodf.toml
+      - ../../toml-values/examples/colorset/case-nodf.toml.json
+      - ../../toml-values/examples/colorset/cycle-nodf.toml.json
+      - ../../toml-values/examples/colorset/assemblies-nodf.toml.json
       - fg-31-nodf.msgpack
       - fg-21-nodf.msgpack
-      - plant.toml
+      - ../../toml-values/examples/colorset/plant.toml.json
     outs:
       - diffusion-nodf-8.msgpack
       - diffusion-nodf-8.out

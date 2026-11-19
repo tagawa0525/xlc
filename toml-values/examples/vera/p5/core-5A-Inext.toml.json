@@ -1,0 +1,24 @@
+{
+ "cycle": "core-5A-Inext-cycle.toml",
+ "axial-mesh": [
+  0.0,
+  21.5
+ ],
+ "radial-nodes": 1,
+ "pin-powers": "core-5A-Inext-pins.msgpack",
+ "boundary": {
+  "x": [
+   "vacuum",
+   "vacuum"
+  ],
+  "y": [
+   "vacuum",
+   "vacuum"
+  ],
+  "z": [
+   "reflective",
+   "reflective"
+  ],
+  "outline": "vacuum"
+ }
+}

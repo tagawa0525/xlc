@@ -1,0 +1,6 @@
+{
+ "output": "chain.msgpack",
+ "decay-directory": "../../references/endf/ENDF-B-VIII.0_decay",
+ "nfy-directory": "../../references/endf/ENDF-B-VIII.0_nfy",
+ "neutron-directory": "../../references/endf/ENDF-B-VIII.0_neutrons"
+}

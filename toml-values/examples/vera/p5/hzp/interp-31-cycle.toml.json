@@ -1,0 +1,7 @@
+{
+ "plant": "interp-31-plant.toml",
+ "inventory": "interp-31-assemblies.toml",
+ "loading": [
+  "A"
+ ]
+}

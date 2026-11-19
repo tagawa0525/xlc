@@ -4,7 +4,7 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/m3-nuclides/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf

@@ -1,0 +1,96 @@
+{
+ "design": {
+  "31": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/31.msgpack"
+   ]
+  },
+  "31-I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I-fuel.msgpack"
+   ]
+  },
+  "31-corner": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-fuel.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "J06": {
+   "design": "31-corner"
+  },
+  "H06": {
+   "design": "31-I"
+  },
+  "G06": {
+   "design": "31-corner"
+  },
+  "K07": {
+   "design": "31-corner"
+  },
+  "J07": {
+   "design": "31"
+  },
+  "H07": {
+   "design": "31"
+  },
+  "G07": {
+   "design": "31"
+  },
+  "F07": {
+   "design": "31-corner"
+  },
+  "K08": {
+   "design": "31-I"
+  },
+  "J08": {
+   "design": "31"
+  },
+  "H08": {
+   "design": "31"
+  },
+  "G08": {
+   "design": "31"
+  },
+  "F08": {
+   "design": "31-I"
+  },
+  "K09": {
+   "design": "31-corner"
+  },
+  "J09": {
+   "design": "31"
+  },
+  "H09": {
+   "design": "31"
+  },
+  "G09": {
+   "design": "31"
+  },
+  "F09": {
+   "design": "31-corner"
+  },
+  "J10": {
+   "design": "31-corner"
+  },
+  "H10": {
+   "design": "31-I"
+  },
+  "G10": {
+   "design": "31-corner"
+  }
+ }
+}

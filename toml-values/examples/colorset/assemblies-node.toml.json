@@ -1,0 +1,54 @@
+{
+ "design": {
+  "31a": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-node-31a.msgpack"
+   ]
+  },
+  "21a": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-node-21a.msgpack"
+   ]
+  },
+  "21b": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-node-21b.msgpack"
+   ]
+  },
+  "31b": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-node-31b.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "A31": {
+   "design": "31a"
+  },
+  "A21": {
+   "design": "21a"
+  },
+  "B21": {
+   "design": "21b"
+  },
+  "B31": {
+   "design": "31b"
+  }
+ }
+}

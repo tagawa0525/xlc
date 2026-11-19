@@ -1,0 +1,329 @@
+{
+ "library": "../vera/vera.msgpack",
+ "pin-powers": "moc-pins.msgpack",
+ "few-group": {
+  "bounds": [
+   10000000.0,
+   0.625,
+   1e-05
+  ],
+  "nodes": [
+   {
+    "output": "fg-node-31a.msgpack",
+    "columns": [
+     1,
+     19
+    ],
+    "rows": [
+     1,
+     19
+    ]
+   },
+   {
+    "output": "fg-node-21a.msgpack",
+    "columns": [
+     20,
+     38
+    ],
+    "rows": [
+     1,
+     19
+    ]
+   },
+   {
+    "output": "fg-node-21b.msgpack",
+    "columns": [
+     1,
+     19
+    ],
+    "rows": [
+     20,
+     38
+    ]
+   },
+   {
+    "output": "fg-node-31b.msgpack",
+    "columns": [
+     20,
+     38
+    ],
+    "rows": [
+     20,
+     38
+    ]
+   }
+  ]
+ },
+ "pitch": 1.26,
+ "azimuthal": 30,
+ "spacing": 0.03,
+ "widths": [
+  {
+   "size": 0.04
+  },
+  {
+   "size": 1.26,
+   "count": 17
+  },
+  {
+   "size": 0.04
+  },
+  {
+   "size": 0.04
+  },
+  {
+   "size": 1.26,
+   "count": 17
+  },
+  {
+   "size": 0.04
+  }
+ ],
+ "heights": [
+  {
+   "size": 0.04
+  },
+  {
+   "size": 1.26,
+   "count": 17
+  },
+  {
+   "size": 0.04
+  },
+  {
+   "size": 0.04
+  },
+  {
+   "size": 1.26,
+   "count": 17
+  },
+  {
+   "size": 0.04
+  }
+ ],
+ "rows": [
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 gt pin31 pin31 gt pin31 pin31 it pin31 pin31 gt pin31 pin31 gt pin31 pin31 w w pin21 pin21 gt pin21 pin21 gt pin21 pin21 it pin21 pin21 gt pin21 pin21 gt pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 gt pin21 pin21 gt pin21 pin21 it pin21 pin21 gt pin21 pin21 gt pin21 pin21 w w pin31 pin31 gt pin31 pin31 gt pin31 pin31 it pin31 pin31 gt pin31 pin31 gt pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w"
+ ],
+ "material": {
+  "fuel31": {
+   "temperature": 600,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "zircaloy": {
+   "temperature": 600,
+   "nuclides": {
+    "Cr-50": 3.30121e-06,
+    "Cr-52": 6.36606e-05,
+    "Cr-53": 7.2186e-06,
+    "Cr-54": 1.79686e-06,
+    "Fe-54": 8.68307e-06,
+    "Fe-56": 0.000136306,
+    "Fe-57": 3.14789e-06,
+    "Fe-58": 4.18926e-07,
+    "Zr-90": 0.0218865,
+    "Zr-91": 0.00477292,
+    "Zr-92": 0.00729551,
+    "Zr-94": 0.00739335,
+    "Zr-96": 0.0011911,
+    "Sn-112": 4.68066e-06,
+    "Sn-114": 3.18478e-06,
+    "Sn-115": 1.64064e-06,
+    "Sn-116": 7.01616e-05,
+    "Sn-117": 3.70592e-05,
+    "Sn-118": 0.000116872,
+    "Sn-119": 4.14504e-05,
+    "Sn-120": 0.000157212,
+    "Sn-122": 2.23417e-05,
+    "Sn-124": 2.79392e-05
+   }
+  },
+  "water": {
+   "temperature": 600,
+   "nuclides": {
+    "H-1": 0.0441459,
+    "O-16": 0.0220729,
+    "B-10": 9.52537e-06,
+    "B-11": 3.83408e-05
+   }
+  },
+  "fuel21": {
+   "temperature": 600,
+   "nuclides": {
+    "U-234": 4.04814e-06,
+    "U-235": 0.000488801,
+    "U-236": 2.23756e-06,
+    "U-238": 0.0223844,
+    "O-16": 0.0457591
+   }
+  }
+ },
+ "cell": {
+  "pin31": {
+   "zones": [
+    {
+     "material": "fuel31",
+     "radius": 0.4096,
+     "rings": 5
+    },
+    {
+     "material": "void",
+     "radius": 0.418,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.475,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.63,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "gt": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.561,
+     "rings": 3
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.602,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "it": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.559,
+     "rings": 3
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.605,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "pin21": {
+   "zones": [
+    {
+     "material": "fuel21",
+     "radius": 0.4096,
+     "rings": 5
+    },
+    {
+     "material": "void",
+     "radius": 0.418,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.475,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.63,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "w": {
+   "zones": [
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  }
+ }
+}

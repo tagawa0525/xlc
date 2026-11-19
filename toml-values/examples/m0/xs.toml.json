@@ -1,0 +1,33 @@
+{
+ "output": "wims69.msgpack",
+ "endf-directory": "../../references/endf/ENDF-B-VIII.0_neutrons",
+ "sigma0": [
+  10000000000.0
+ ],
+ "nuclide": {
+  "H-1": {
+   "endf": "n-001_H_001.endf",
+   "temperatures": [
+    293.6
+   ]
+  },
+  "O-16": {
+   "endf": "n-008_O_016.endf",
+   "temperatures": [
+    293.6
+   ]
+  },
+  "U-235": {
+   "endf": "n-092_U_235.endf",
+   "temperatures": [
+    293.6
+   ]
+  },
+  "U-238": {
+   "endf": "n-092_U_238.endf",
+   "temperatures": [
+    293.6
+   ]
+  }
+ }
+}

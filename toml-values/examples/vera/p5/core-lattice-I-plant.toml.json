@@ -1,0 +1,18 @@
+{
+ "pitch": 21.5,
+ "height": 21.5,
+ "map": [
+  "* I"
+ ],
+ "reflector": {
+  "I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I.msgpack"
+   ]
+  }
+ }
+}

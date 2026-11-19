@@ -1,0 +1,24 @@
+{
+ "cycle": "core-corner-outline-cycle.toml",
+ "axial-mesh": [
+  0.0,
+  21.5
+ ],
+ "radial-nodes": 1,
+ "pin-powers": "core-pins-corner-outline.msgpack",
+ "boundary": {
+  "x": [
+   "reflective",
+   "zero-flux"
+  ],
+  "y": [
+   "reflective",
+   "zero-flux"
+  ],
+  "z": [
+   "reflective",
+   "reflective"
+  ],
+  "outline": "vacuum"
+ }
+}

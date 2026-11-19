@@ -1,0 +1,65 @@
+{
+ "workspace": {
+  "resolver": "3",
+  "members": [
+   "crates/*"
+  ],
+  "package": {
+   "version": "0.1.0",
+   "edition": "2024"
+  },
+  "dependencies": {
+   "anyhow": "1.0.104",
+   "faer": {
+    "version": "0.24.4",
+    "default-features": false,
+    "features": [
+     "std",
+     "sparse-linalg"
+    ]
+   },
+   "num-complex": "0.4.6",
+   "num_cpus": "1.17.0",
+   "rayon": "1.12.0",
+   "rmp-serde": "1.3.1",
+   "rmpv": {
+    "version": "1.3.1",
+    "features": [
+     "with-serde"
+    ]
+   },
+   "serde": {
+    "version": "1.0.229",
+    "features": [
+     "derive"
+    ]
+   },
+   "sha2": "0.10.9",
+   "thiserror": "2.0.21",
+   "toml": "1.1.6",
+   "tracing": "0.1.44",
+   "tracing-subscriber": {
+    "version": "0.3.23",
+    "features": [
+     "env-filter"
+    ]
+   }
+  },
+  "lints": {
+   "clippy": {
+    "unwrap_used": "deny",
+    "expect_used": "deny",
+    "panic": "deny",
+    "unreachable": "deny",
+    "todo": "deny",
+    "unimplemented": "deny",
+    "disallowed_macros": "deny"
+   }
+  }
+ },
+ "profile": {
+  "dev": {
+   "opt-level": 1
+  }
+ }
+}
