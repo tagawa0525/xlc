@@ -203,8 +203,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def relock(args: argparse.Namespace, ran: list[str]) -> None:
-    """付け直しの段を順に行う。実行したステージを ran に足す（止まったときも、そこまでを報告するため）"""
-    check_locks(args.base)
+    """付け直しの段（始めの lock の確認の後）を順に行う。実行したステージを ran に足す（止まったときも、そこまでを報告するため）"""
     run(
         [str(SCRIPTS / "dvc-checkout.py")],
         "outputs did not come back as dvc.lock records them (see MISSING: above)",
@@ -252,6 +251,12 @@ def report(ran: list[str], before: dict[str, str]) -> None:
         print(f"COMMIT: {path}")
 
 
+def stop_reason(e: Exception) -> str:
+    if isinstance(e, subprocess.CalledProcessError):
+        return f"{' '.join(e.cmd)} failed: {e.stderr}"
+    return str(e)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     sys.stdout.reconfigure(line_buffering=True)
@@ -263,17 +268,17 @@ def main(argv: list[str] | None = None) -> int:
                 f"run from the root of the repository ({root}); the stages are paths from there"
             )
         before = worktree_files()
-    except Stop as e:
-        print(f"STOP: {e}", file=sys.stderr)
+        # 作業ツリーを書き換える前なので、止まってもコミットするファイルは無い（読めない lock そのものを出さない）
+        check_locks(args.base)
+    except (Stop, subprocess.CalledProcessError) as e:
+        print(f"STOP: {stop_reason(e)}", file=sys.stderr)
         return 1
     ran: list[str] = []
     try:
         relock(args, ran)
     except (Stop, subprocess.CalledProcessError) as e:
         report(ran, before)
-        if isinstance(e, subprocess.CalledProcessError):
-            e = f"{' '.join(e.cmd)} failed: {e.stderr}"
-        print(f"STOP: {e}", file=sys.stderr)
+        print(f"STOP: {stop_reason(e)}", file=sys.stderr)
         print(
             "NEXT: find the cause at the STOP: line (/dvc-relock). Rerun after fixing it; "
             "the COMMIT: files above are not committed yet",
