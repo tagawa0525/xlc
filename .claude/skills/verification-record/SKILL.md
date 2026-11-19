@@ -174,4 +174,4 @@ python3 examples/vera/compare_balance.py xlc-2K.msgpack references/openmc/balanc
    移すコミットに入れる（`trials/` は無視されるので、その中では `.dvc` が無視されるファイルになり、`dvc add` が止まる）。比較の
    JSON は、引く生成物のパスを書くので、移した後の置き場の出力から書く
    記録か比較の JSON が試行の出力を md5 で引くときは、その記録か JSON をコミットする前に 3 の移動とこの `dvc add` を済ませる
-   （CLAUDE.md の「計算」の時機。`trials/` のパスのまま md5 を書くと、その時機に `dvc add` できず、2 で消す試行なら出力が残らない）
+   （スキル compute の `dvc add` の項の時機。`trials/` のパスのまま md5 を書くと、その時機に `dvc add` できず、2 で消す試行なら出力が残らない）
