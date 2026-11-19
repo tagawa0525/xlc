@@ -9,7 +9,7 @@
   その群の自己遮蔽因子 f = σ(σ0) / σ(∞) をライブラリの σ0 の表（ラダーのサンプリングで作った非分離共鳴の自己遮蔽。ADR-0177）から
   取り、吸収と生成をそれぞれ (1 − f) 倍だけ減らしたときの k の変化を出す。σ0 は燃料の領域の組成（steps/out/<燃料>-40.msgpack の
   燃焼点の数密度）の均質な Bondarenko の背景 Σ_{j≠i} N_j σt_j(∞) / N_i で、燃料の外への逃げの項を入れない（σ0 が小さくなり、遮蔽を
-  大きく見積もる）。境界の群は、群の下端が EL 以上の群だけを数える
+  大きく見積もる）。被覆管にもある核種（Sn）は、燃料と被覆管の組成の背景の小さい方を使う。境界の群は、群の下端が EL 以上の群だけを数える
 - 項目 7（収率の 2 点の重み）: 核分裂率のうち収率の境界（112.47 eV。ADR-0183）より上の割合（`thermal_fission` から）と、その
   核分裂の収率を 500 keV の点から熱の点に置き換えたときの、主な核分裂生成物の累積の収率の相対変化 δ と、吸収の割合 a から
   Δk/k ≈ −a δ（数密度が収率に比例するとみなす上限。熱外の核分裂の本当の収率は 2 点の間にあると見込む）
@@ -167,6 +167,9 @@ def main() -> None:
             f"nuclides with unresolved resonances in the UFG range are not in micro: {missing}"
         )
 
+    # 被覆管の組成（Sn の非分離共鳴の背景。被覆管の Sn は micro の均質化した反応率に含まれる）
+    branch = tomllib.loads((HERE / "urr" / f"{args.fuel}.toml").read_text())
+    clad = branch["material"]["zircaloy"]["nuclides"]
     burnup_axis = [a["name"] for a in table["axes"]].index("burnup")
     burnups = table["axes"][burnup_axis]["points"]
     fuel_region = history["regions"][0]
@@ -189,13 +192,18 @@ def main() -> None:
             for n, d in zip(history["nuclides"], hp["densities"][0])
             if d > 0 and n in by_name and n in history["transportable"]
         }
-        totals = {n: np.array(at_temperature(n)["shielded"][0]["total"]) for n in fuel}
+        materials = [fuel, clad]
+        totals = {
+            n: np.array(at_temperature(n)["shielded"][0]["total"])
+            for m in materials
+            for n in m
+        }
 
         # 項目 6
         d_absorption = d_production = 0.0
         urr_rows = {}
         for i, name in enumerate(names):
-            if name not in urr or fuel.get(name, 0.0) == 0.0:
+            if name not in urr or not any(m.get(name, 0.0) > 0 for m in materials):
                 continue
             groups = urr_groups(bounds, urr[name])
             if not groups:
@@ -204,8 +212,11 @@ def main() -> None:
             s = nuclides[i]
             da = dp = 0.0
             for g in groups:
-                background = (
-                    sum(fuel[j] * totals[j][g] for j in fuel if j != name) / fuel[name]
+                # 燃料と被覆管（Sn）のうち、σ0 の小さい（遮蔽の強い）方
+                background = min(
+                    sum(m[j] * totals[j][g] for j in m if j != name) / m[name]
+                    for m in materials
+                    if m.get(name, 0.0) > 0
                 )
                 absorbed = [t["capture"][g] + t["fission"][g] for t in shielded]
                 f_a = shielding_factor(absorbed, sigma0, background)
