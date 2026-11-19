@@ -47,6 +47,14 @@ repos:
         files: ^(.*dvc\.(yaml|lock)|toml-values/.*|.*\.(toml|json|py))$
         pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml、正規形、追跡している JSON を見る
         verbose: true
+      - id: binary-forms
+        name: example stages depend on the binary forms
+        # dvc.yaml だけの変更は .py の差分が無く、run-checks.sh が Python のテストを実行しないので、ここで検査する（ADR-0255）
+        entry: python3 scripts/test_normalize_binary.py RepositoryDepsTest
+        language: system
+        files: ^(.*dvc\.yaml|binary-forms/.*|.*\.py)$
+        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml を見る
+        verbose: true
       - id: references-shell
         name: references-shell.txt matches the references devShell
         # references-shell のステージは always_changed で dvc repro まで書き直されないので、flake の変更で食い違っても
