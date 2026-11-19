@@ -10389,12 +10389,12 @@ heating-local / 捕獲の断面積 = 2.2246 MeV）、B-10 の (n,α)、即発中
 
 ### 計算（出力の規格化）
 
-OpenMC の 2 本は b7e7821c8（ブランチ feat/0293-energy-normalization-check、分岐点は main の 0500a720e。流したのは rebase の前の同じ変更）で、
+OpenMC の 2 本は acdbcb546（ブランチ feat/0293-energy-normalization-check、分岐点は main の 0500a720e。流したのは rebase の前の同じ変更）で、
 Slurm 962（`fission-q`）と 968（`energy-deposition`）、2026-11-19〜20。割り込まれうるジョブで（962 は止められていた時間がある）、時間は記録に
 使わない。OpenMC 0.15.2、ライブラリは `openmc-library/`（ENDF/B-VIII.0）、チェーンは `openmc-chain.xml`（md5 2a2bc167）。出力は `.dvc` で追う
 生成物（`normalization/out` は md5 4a289298。`fission-q.msgpack` は be4e2a42、`energy-deposition.msgpack` は bda8ee6f、`compare.json` は c3080b5f）。
 比較は同じコミットで手元、2026-11-20。`heating-local` の中身、ER と QI、Kappa と VII.0 と VIII.0 の QI と ET の値は `fission_energy.py` で、
-ae69e1e44 で手元、2026-11-20
+836635ee7 で手元、2026-11-20
 
 ## 輸送しない核種の吸収（U、Gd、MOX）
 
