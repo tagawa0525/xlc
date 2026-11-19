@@ -12,7 +12,8 @@
   `skipif`）と、テストの本文の中の skip は集めない
 - provisional: 例の入力（examples の TOML と YAML）の注釈（値の後ろの注釈を含む）の「確かめていない」「暫定」「仮の」
   「仮に」「仮置き」「未確認」。同じ行が指す issue を見る（前後の行の issue は、別の話のことがある）
-- excluded: 例の入力の注釈で、「外す」「外した」「外して」を含むもの（issue の番号の有無によらない）と、ほかの除外の語
+- excluded: 例の入力の注釈で、「外す」「外した」「外して」を含むもの（issue の番号の有無によらない。否定と、外したときの
+  効きの説明は除く）と、ほかの除外の語
   （除いた、省く など）のすぐ前後に issue の番号があるもの。語のすぐ前後の番号を見る（同じ行の離れた番号と、次の行の番号は
   数えない）
 
@@ -48,13 +49,15 @@ PYTHON_SKIP = re.compile(
     r"^\s*@((unittest|pytest\.mark|mark)\.)?(skip|xfail|expectedFailure)\b"
 )
 PROVISIONAL = re.compile(r"確かめていない|暫定|仮の|仮に|仮置き|未確認")
-# 番号の有無によらず集める除外の語。「外さない」は除外でないので含めない
-REMOVING = re.compile(r"外[すし]")
-# 除外の語と issue の番号が、文をまたがずに 16 文字以内で並ぶもの。離れた issue は、同じ行の別の話のことがある
-# （「H-1 を除く全核種に…履歴（#NNNN）の温度」）
-DROPPING = r"(?:外[すし]|除[くいき]|省[くいき]|除外)"
-EXCLUDED_BEFORE = re.compile(rf"#(\d{{4}})(?!\w)[^。#]{{0,16}}{DROPPING}")
-EXCLUDED_AFTER = re.compile(rf"{DROPPING}[^。#]{{0,16}}#(\d{{4}})(?!\w)")
+# 番号の有無によらず集める除外の語（外す、外した、外して、外し、）。否定と、外したときの効きの説明（外さない、外していない、外しても、外すと）は
+# 除外でないので含めない
+REMOVING = re.compile(r"外(?:す(?![とな])|し(?:た|て(?!いない|も)|(?=[、,])))")
+# 除外の語と issue の番号（「#0001、#0002」の並びを含む）が、文をまたがずに 16 文字以内で並ぶもの。離れた issue は、
+# 同じ行の別の話のことがある（「H-1 を除く全核種に…履歴（#NNNN）の温度」）
+DROPPING = rf"(?:{REMOVING.pattern}|除[くいき]|省[くいき]|除外)"
+ISSUE_RUN = r"#\d{4}(?!\w)(?:[、,] ?#\d{4}(?!\w))*"
+EXCLUDED_BEFORE = re.compile(rf"({ISSUE_RUN})[^。#]{{0,16}}{DROPPING}")
+EXCLUDED_AFTER = re.compile(rf"{DROPPING}[^。#]{{0,16}}({ISSUE_RUN})")
 REVIEW_LEFTOVER = re.compile(r"review|leftover")
 # 前提を並べる一覧の issue。項目を指すだけでは、その項目を解消する条件にならない
 LIST_ISSUE = "0293"
@@ -130,9 +133,8 @@ def input_markers(path, text):
                 path, number, "provisional", line.strip(), *references(comment)
             )
         # 語の前と後ろを別々に探す（1 つの式では、前の番号の一致が語を使い、後ろの番号を拾えない）
-        adjacent = tuple(
-            EXCLUDED_BEFORE.findall(comment) + EXCLUDED_AFTER.findall(comment)
-        )
+        runs = EXCLUDED_BEFORE.findall(comment) + EXCLUDED_AFTER.findall(comment)
+        adjacent = tuple(issue for run in runs for issue in ISSUE.findall(run))
         if adjacent or REMOVING.search(comment):
             yield Marker(path, number, "excluded", line.strip(), adjacent, ())
 
@@ -181,12 +183,7 @@ def violations(markers, statuses):
         unknown = "、".join(
             f"#{issue}" for issue in marker.issues if issue not in statuses
         )
-        if LIST_ISSUE in marker.issues and not known:
-            found.append(
-                f"{where}\n  #{LIST_ISSUE} は前提を並べる一覧で、項目を解消する条件を持たないので理由に数えません。"
-                "その項目を解消する開いている issue を同じ行に書いてください"
-            )
-        elif known:
+        if known:
             closed = "、".join(f"#{issue}" for issue in known)
             found.append(
                 f"{where}\n  指している issue（{closed}）は閉じています。理由が消えたなら外したものを戻し、"
@@ -196,6 +193,16 @@ def violations(markers, statuses):
             found.append(
                 f"{where}\n  指している番号（{unknown}）の issue が、追跡している docs/issues/ にありません。"
                 "番号を確かめるか、issue のファイルを git add してください"
+            )
+        elif LIST_ISSUE in marker.issues:
+            found.append(
+                f"{where}\n  #{LIST_ISSUE} は前提を並べる一覧で、項目を解消する条件を持たないので理由に数えません。"
+                "その項目を解消する開いている issue を同じ行に書いてください"
+            )
+        elif marker.kind == "excluded":
+            found.append(
+                f"{where}\n  除外の語のすぐ隣（同じ文の 16 文字以内）に、開いている issue の番号（#NNNN）がありません。"
+                "原因を直すのが既定です。残すなら、解消の条件を書いた issue を起こして、番号を語のすぐ隣に書いてください"
             )
         else:
             found.append(

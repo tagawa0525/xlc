@@ -219,7 +219,7 @@ class InputComments(unittest.TestCase):
         self.assertEqual(len(found), 3)
         for found_line, line in zip(found, (1, 2, 4)):
             self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
-            self.assertIn("同じ行", found_line)
+            self.assertIn("すぐ隣", found_line)
 
     def test_negations_and_effects_of_removing_are_not_exclusions(self):
         lines = [
