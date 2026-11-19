@@ -115,15 +115,15 @@ if ((${#inputs[@]})); then
   # VM が実行するツール（src/ に置く。新しい実行も起動し直しも同じ集合。定義の自身は新しい実行だけ）
   tool_files=("${DEF_TOOLS[@]}" "$DEF_ENTRY")
   [[ -f $DEF_LIBRARY/cross_sections.xml ]] ||
-    { echo "$DEF_LIBRARY/cross_sections.xml がありません（dvc checkout で戻す）" >&2; exit 1; }
+    { echo "$DEF_LIBRARY/cross_sections.xml がありません（scripts/dvc-checkout.py で戻す）" >&2; exit 1; }
   # 一部だけ checkout されたライブラリを置かない（VM で OpenMC が核データを読むときに初めて失敗する）
   while read -r f; do
-    [[ -f $DEF_LIBRARY/$f ]] || { echo "$DEF_LIBRARY/$f がありません（dvc checkout で戻す）" >&2; exit 1; }
+    [[ -f $DEF_LIBRARY/$f ]] || { echo "$DEF_LIBRARY/$f がありません（scripts/dvc-checkout.py で戻す）" >&2; exit 1; }
   done < <(sed -n 's/.* path="\([^"]*\)".*/\1/p' "$DEF_LIBRARY/cross_sections.xml")
   # 定義の data のファイル。鍵は内容のハッシュ（同じファイルは 1 度だけ置く）
   data_pairs=()
   for f in "${DEF_DATA[@]}"; do
-    [[ -f $f ]] || { echo "$f がありません（定義 $def_file の data。dvc checkout で戻す）" >&2; exit 1; }
+    [[ -f $f ]] || { echo "$f がありません（定義 $def_file の data。scripts/dvc-checkout.py で戻す）" >&2; exit 1; }
     data_pairs+=("$f=$(sha256sum "$f" | cut -c1-16)")
   done
   keys=$(s3_keys "runs/$name/")

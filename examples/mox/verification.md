@@ -31,7 +31,7 @@ OpenMC のデータは examples/vera/openmc_library.py で作る（Pu-238〜242 
 ステージは DVC で実行する（ADR-0123）。OpenMC のライブラリとツールは examples/vera/dvc.yaml のステージの出力なので、先に戻す（ADR-0130）:
 
 ```sh
-dvc checkout examples/vera/dvc.yaml
+nix develop -c scripts/dvc-checkout.py examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 70 dvc-mox 'nix develop -c dvc repro examples/mox/dvc.yaml'
 ```
 

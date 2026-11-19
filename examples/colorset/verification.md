@@ -26,7 +26,7 @@ VERA の仕様書の表 P5-4）。方位角と間隔は ADR-0111（方位角 30�
 カラーセット全体の MOC は約 16 分、最大 17 GB なので、`dvc repro` 全体を Slurm に流す:
 
 ```sh
-dvc checkout examples/vera/dvc.yaml
+nix develop -c scripts/dvc-checkout.py examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 60 dvc-colorset 'nix develop -c dvc repro examples/colorset/dvc.yaml'
 ```
 

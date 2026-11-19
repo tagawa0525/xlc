@@ -19,7 +19,7 @@
 ステージは DVC で実行する（ADR-0123）。ライブラリは examples/vera/dvc.yaml の `xs` の出力なので、先に戻す（ADR-0130）:
 
 ```sh
-dvc checkout examples/vera/dvc.yaml
+nix develop -c scripts/dvc-checkout.py examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 25 dvc-split 'nix develop -c dvc repro examples/split/dvc.yaml'
 ```
 

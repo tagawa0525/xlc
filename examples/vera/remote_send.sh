@@ -25,7 +25,7 @@ remote=$2
 
 [[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から実行してください" >&2; exit 1; }
 [[ -f examples/vera/openmc-library/cross_sections.xml ]] ||
-  { echo "examples/vera/openmc-library がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
+  { echo "examples/vera/openmc-library がありません（scripts/dvc-checkout.py examples/vera/dvc.yaml で戻す）" >&2; exit 1; }
 
 if ((allow && !dry)); then "$(dirname "$0")/../aws/aws_allow_ip.sh"; fi
 
