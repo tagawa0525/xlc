@@ -1,6 +1,6 @@
-# 履歴の残り R（ADR-0215、#0190）のベース計算のテーブル: VERA Problem 2 の 2A の今の既定の燃焼の履歴（../p2/lattice-2A.msgpack、md5 7efea664）の
-# 17 の燃焼点（../branches/branch-2A-micro.toml と同じ）を、基準条件（ホウ素 1300 ppm、減速材 565 K と 0.743 g/cc、燃料 565 K）と、
-# 減速材の軸の公称でない格子点（600 K と 0.661 g/cc。密度の履歴ブランチ residual-density-history.toml の条件）の 2 状態で解く。追う 31 核種と
+# 履歴の残り R（ADR-0215、#0190）の公称のテーブル: VERA Problem 2 の 2A の今の既定の燃焼の履歴（../p2/lattice-2A.msgpack、md5 7efea664）の
+# 17 の燃焼点（../branches/branch-2A-micro.toml と同じ）を、公称の状態（ホウ素 1300 ppm、減速材 565 K と 0.743 g/cc、燃料 565 K）と、
+# 減速材の軸の公称でない格子点（600 K と 0.661 g/cc。密度の履歴の分岐 residual-density-history.toml の条件）の 2 状態で解く。追う 31 核種と
 # Pu-240 の数密度の微分は ../micro/nominal.toml と同じ。格子、離散化、燃料と被覆管の組成は履歴の入力（../p2/lattice-2A.toml）と同じで、
 # 減速材は分岐の軸のためホウ酸水で書く（履歴の入力の数密度と相対で約 1e-6 違う）。
 library = "../p2/depletion.msgpack"
@@ -100,7 +100,7 @@ sectors = 8
 
 [branches]
 boron = { ppm = [1300], materials = ["water"] }
-# 公称（入力の物質）の 565 K、0.743 g/cc と、密度の履歴ブランチの条件 600 K、0.661 g/cc
+# 公称（入力の物質）の 565 K、0.743 g/cc と、密度の履歴の分岐の条件 600 K、0.661 g/cc
 moderator = { temperature = [565, 600], density = [0.743, 0.661], materials = ["water", "zircaloy"] }
 fuel = { temperature = [565], materials = ["fuel"] }
 

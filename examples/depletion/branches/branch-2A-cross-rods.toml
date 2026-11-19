@@ -1,4 +1,4 @@
-# branch-2A-cross.toml の 12 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く（制御棒のブランチ。ADR-0097 の形状の変更）。
+# branch-2A-cross.toml の 12 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く（制御棒の分岐。ADR-0097 の形状の変更）。
 # 制御棒、被覆管（SS304）、吸収体と被覆管の間の真空の形と組成は ../p2/lattice-2A-rods.toml と同じ。制御棒の物質は 565 K のまま。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4

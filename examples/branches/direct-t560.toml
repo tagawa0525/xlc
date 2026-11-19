@@ -1,4 +1,4 @@
-# assembly-2B.toml のブランチのテーブルの格子点の間の状態を、直接に格子計算する入力（1300 ppm、燃料・被覆管・
+# assembly-2B.toml の分岐のテーブルの格子点の間の状態を、直接に格子計算する入力（1300 ppm、燃料・被覆管・
 # 減速材とも 560 K、減速材の密度 0.75207 g/cm³。密度は VERA の仕様書の付録 G の表 G-2）。
 library = "branches.msgpack"
 few-group = { output = "direct-t560.msgpack", bounds = [1e7, 0.625, 1e-5] }

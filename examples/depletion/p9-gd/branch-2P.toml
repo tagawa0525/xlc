@@ -1,7 +1,7 @@
 # Gd 燃料の集合体 2P の、3 つ同時の項を落とす誤差（ADR-0200 の案 H。2 軸の組の部分格子）を測る直積のテーブル（#0176）。branch-2O.toml と
 # 同じ 27 状態（ADR-0239 の格子点の各軸の両端と公称の点、ホウ素 0、650、1625 ppm × 減速材 560、580、615 K × 燃料 560、900、1350 K）を、
 # Gd の燃え尽きの前（0）、山の付近（8）、後（16）、終わり（60 MWd/kg）の 4 燃焼点で解く。2O では、27 燃焼点のどれでも 2.25〜4.18 pcm で、
-# 燃え尽きの付近で大きくならなかった（examples/depletion/verification.md の「Problem 9 のブランチ条件と燃焼点を減らす案の Gd 燃料の集合体
+# 燃え尽きの付近で大きくならなかった（examples/depletion/verification.md の「Problem 9 の分岐の状態と燃焼点を減らす案の Gd 燃料の集合体
 # （2O）での確認」）ので、少数の燃焼点にした。燃焼の履歴は lattice-2P.msgpack。branch-2O.toml と違うのは `rows`（../p2/lattice-2P.toml と
 # 同じ）、`few-group` の出力、履歴と燃焼点だけ。比べ方は compare-2P-all.toml。
 library = "../p2/depletion.msgpack"
@@ -81,7 +81,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 580
-# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、基準ホウ素濃度 650 ppm。B-10 の割合は
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
 # p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 

@@ -1,4 +1,4 @@
-# 履歴の補正の core（ADR-0215）の確認 3: R を持つベース計算のテーブルの集合体 1 体を、一生を履歴ブランチの条件 j（減速材 600 K、
+# 履歴の補正の core（ADR-0215）の確認 3: R を持つ公称のテーブルの集合体 1 体を、一生を履歴の分岐の条件 j（減速材 600 K、
 # 0.661 g/cc。residual-density-history.toml と同じ条件）で燃焼させる。ノードの履歴は 0.661 g/cc（w = 1）で、テーブルの点の k を
 # 第 1 項のテーブル（table-residual-density-branch.msgpack）の k∞ と比べる。
 # ステップは ../branches/core-2A-micro.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。

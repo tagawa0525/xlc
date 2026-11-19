@@ -1,4 +1,4 @@
-# 履歴の残り R を書き足す前のベース計算のテーブル（residual-nominal-rate.toml の出力）の集合体 1 体。
+# 履歴の残り R を書き足す前の公称のテーブル（residual-nominal-rate.toml の出力）の集合体 1 体。
 [design.2A]
 bounds = [0.0, 21.5]
 layers = ["table-residual-nominal-rate.msgpack"]

@@ -1,4 +1,4 @@
-# 履歴の残り R を持つベース計算のテーブル（residual.toml の出力。ADR-0215）の集合体 1 体。
+# 履歴の残り R を持つ公称のテーブル（residual.toml の出力。ADR-0215）の集合体 1 体。
 [design.2A]
 bounds = [0.0, 21.5]
 layers = ["table-residual-nominal-histories.msgpack"]

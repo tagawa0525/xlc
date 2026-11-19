@@ -1,4 +1,4 @@
-# 履歴の残り R の分け方（ADR-0215、#0190）: 減速材の密度だけの経路の w = 0.5 の履歴ブランチ（weight-history-0702.toml）の追う 31 核種だけを
+# 履歴の残り R の分け方（ADR-0215、#0190）: 減速材の密度だけの経路の w = 0.5 の履歴の分岐（weight-history-0702.toml）の追う 31 核種だけを
 # 公称の履歴（../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-weight-0702.msgpack）の、weight-branch-0702.toml と
 # 同じ 17 点を、同じ条件の 1 状態（ホウ素 1300 ppm、減速材 565 K と 0.702 g/cc、燃料 565 K）で解く。
 library = "../p2/depletion.msgpack"

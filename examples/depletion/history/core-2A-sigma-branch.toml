@@ -1,6 +1,6 @@
-# 履歴の補正の core（ADR-0215）の参照: 第 1 項のテーブル（table-residual-density-branch.msgpack）の集合体 1 体を、一生を履歴ブランチの
+# 履歴の補正の core（ADR-0215）の参照: 第 1 項のテーブル（table-residual-density-branch.msgpack）の集合体 1 体を、一生を履歴の分岐の
 # 条件 j（減速材 600 K、0.661 g/cc）で燃焼させる。core-2A-residual-branch.toml とテーブルだけが違い、ミクロ燃焼の σᵢ、基準の N̄ᵢ、
-# 定数がどれも履歴ブランチの自分の条件のもの。core の k と第 1 項のテーブルの k∞ の差が、履歴の補正のない core の到達できる水準。
+# 定数がどれも履歴の分岐の自分の条件のもの。core の k と第 1 項のテーブルの k∞ の差が、履歴の補正のない core の到達できる水準。
 # ステップは ../branches/core-2A-micro.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。
 cycle = "core-2A-sigma-cycle.toml"
 axial-mesh = [0.0, 21.5]

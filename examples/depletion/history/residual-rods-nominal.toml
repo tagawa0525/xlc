@@ -1,7 +1,7 @@
-# 履歴の残り R（ADR-0215、#0190）の、減速材の密度と制御棒の 2 つの履歴の変数のベース計算のテーブル: VERA Problem 2 の 2A のベース計算の
+# 履歴の残り R（ADR-0215、#0190）の、減速材の密度と制御棒の 2 つの履歴の変数の公称のテーブル: VERA Problem 2 の 2A の公称の燃焼の
 # 履歴（../p2/lattice-2A.msgpack）の 17 の燃焼点を、制御棒のない値と、案内管 24 本すべてに AIC の制御棒を入れた値（[branches.rod]。
-# ../branches/branch-2A-micro-rod-axis.toml と同じ格子）で解く。どちらの値も基準条件（ホウ素 1300 ppm、減速材 565 K と 0.743 g/cc、
-# 燃料 565 K）と、減速材の軸の公称でない格子点（600 K と 0.661 g/cc。密度の履歴ブランチ residual-density-history.toml の条件）を持つ。
+# ../branches/branch-2A-micro-rod-axis.toml と同じ格子）で解く。どちらの値も公称の状態（ホウ素 1300 ppm、減速材 565 K と 0.743 g/cc、
+# 燃料 565 K）と、減速材の軸の公称でない格子点（600 K と 0.661 g/cc。密度の履歴の分岐 residual-density-history.toml の条件）を持つ。
 # 制御棒のない値の 2 状態、追う 31 核種、Pu-240 の数密度の微分は residual-nominal-rate.toml と同じ。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-residual-rods-nominal.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -155,7 +155,7 @@ sectors = 8
 
 [branches]
 boron = { ppm = [1300], materials = ["water"] }
-# 公称（入力の物質）の 565 K、0.743 g/cc と、密度の履歴ブランチの条件 600 K、0.661 g/cc
+# 公称（入力の物質）の 565 K、0.743 g/cc と、密度の履歴の分岐の条件 600 K、0.661 g/cc
 moderator = { temperature = [565, 600], density = [0.743, 0.661], materials = ["water", "zircaloy"] }
 fuel = { temperature = [565], materials = ["fuel"] }
 
@@ -177,5 +177,5 @@ micro = [
 derivative = ["Pu-240"]
 # 記録の値は摂動の組成で自己遮蔽を解き直して出した（ADR-0221。既定は状態の自己遮蔽のまま。ADR-0249）
 derivative-shielding = "solved"
-# 制御棒を入れた値も、すべての状態をすべての燃焼点で解く（rod-burnup で点を減らすと、その値の基準条件も間引かれ、制御棒の履歴の残りを
+# 制御棒を入れた値も、すべての状態をすべての燃焼点で解く（rod-burnup で点を減らすと、その値の公称の状態も間引かれ、制御棒の履歴の残りを
 # 作れる点が減る。ADR-0225）

@@ -1,7 +1,7 @@
-# ブランチのテーブルの交差の項を落とす誤差（ADR-0200。compare_branch_cross_terms.py の入力）。直積で解いたテーブルから、基準条件と
+# 分岐のテーブルの交差の項を落とす誤差（ADR-0200。compare_branch_cross_terms.py の入力）。直積で解いたテーブルから、公称の状態と
 # 1 軸ずつの分岐と、モデルの軸の組の部分格子だけで直積のすべての状態を組み立て、直積の状態と比べる。
 #
-# - 2B（燃焼度 0）: M3 のブランチのテーブル（examples/branches/assembly-2B.toml。ADR-0097）。ホウ素 900、1300、1700 ppm × 減速材 550、565、
+# - 2B（燃焼度 0）: M3 の分岐のテーブル（examples/branches/assembly-2B.toml。ADR-0097）。ホウ素 900、1300、1700 ppm × 減速材 550、565、
 #   580 K × 燃料 550、565、580 K
 # - 2A（17 点）: 2A の履歴の 17 燃焼点のテーブル（branch-2A-fine.toml）。ホウ素 1000、1300 ppm × 燃料 565、600 K（減速材は 565 K の 1 点）
 # - 2A（40 MWd/kg）: branch-2A-cross.toml。「制御棒あり」は、制御棒を入れた branch-2A-cross-rods.toml を離散の軸 rods として足す。ホウ素 0、650、1300 ppm × 減速材 565 K
@@ -72,7 +72,7 @@ keep = [["boron", "moderator", "rods"], ["moderator", "fuel", "rods"]]
 name = "2 軸の組すべて × R"
 keep = [["boron", "moderator", "rods"], ["boron", "fuel", "rods"], ["moderator", "fuel", "rods"]]
 
-# 分岐を燃焼度の一部の点だけで解くとき: 2A（17 点）の公称でない 3 状態の、基準条件との差を、選んだ燃焼点から燃焼度について内挿し
+# 分岐を燃焼度の一部の点だけで解くとき: 2A（17 点）の公称でない 3 状態の、公称の状態との差を、選んだ燃焼点から燃焼度について内挿し
 # （線形と ADR-0192 の Hermite）、選ばなかった点で全点のテーブルと比べる
 [[thinning]]
 name = "2A（17 点）"

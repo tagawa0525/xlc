@@ -1,4 +1,4 @@
-# 2B の集合体のブランチのテーブル。
+# 2B の集合体の分岐のテーブル。
 [design.2B]
 bounds = [0.0, 21.5]
 layers = ["table-2B.msgpack"]

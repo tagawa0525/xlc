@@ -1,5 +1,5 @@
 # #0279 の段 5（ADR-0247）: table-d2-fixed.toml のテーブルで、../../branches/core-2A-micro.toml と同じ集合体 1 体（反射境界）のミクロ燃焼
-# （出力密度 38.41 W/g、40 のステップ、基準条件）。
+# （出力密度 38.41 W/g、40 のステップ、公称の状態）。
 cycle = "core-d2-fixed-cycle.toml"
 axial-mesh = [0.0, 21.5]
 radial-nodes = 1

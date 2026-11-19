@@ -1,4 +1,4 @@
-# 補正を切った core: core-2A-rods-switch.toml と同じ燃焼を、履歴の残りを持たない制御棒の軸のベース計算のテーブルでする。
+# 補正を切った core: core-2A-rods-switch.toml と同じ燃焼を、履歴の残りを持たない制御棒の軸の公称のテーブルでする。
 # ステップは core-2A-residual-switch.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。
 cycle = "core-2A-rods-plain-cycle.toml"
 axial-mesh = [0.0, 21.5]

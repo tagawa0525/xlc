@@ -91,7 +91,7 @@ CP_VARIANTS = {
     "cp-share-1e-4-combined": LETHARGY_1E_4 + CP_COMBINED,
     "cp-share-1e-4-points-6": LETHARGY_1E_4 + "ufg-cp-points = 6\n",
 }
-# 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、ブランチ条件を解く燃焼点 (MWd/kg)）
+# 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
 CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
 # 燃焼した MOX のピンセルの分岐（mox-history.toml の燃焼点）
 MOX_BURNUP = 40
@@ -124,7 +124,7 @@ PIN_SETTINGS = (
     "ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = { energy = 1000 }, sab = true }\n",
     'ufg-transfer = "infinite-dilution"\n',
 )
-# 集合体: （履歴の入力（examples/depletion から）、ブランチ条件を解く燃焼点 (MWd/kg)）
+# 集合体: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
 ASSEMBLIES = {
     "2O-10": ("p2/lattice-2O.toml", 10),
     "2F-10": ("p2/lattice-2F.toml", 10),

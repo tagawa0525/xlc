@@ -83,7 +83,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 580
-# ../p9-product/lattice-2A.toml と同じ（減速材の格子点 580 K の密度、基準ホウ素濃度 650 ppm。ADR-0239）
+# ../p9-product/lattice-2A.toml と同じ（減速材の格子点 580 K の密度、公称のホウ素 650 ppm。ADR-0239）
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 
 # MOX の燃料のピン（内側、その外、外周）。形状は 2A の燃料のピンと同じ

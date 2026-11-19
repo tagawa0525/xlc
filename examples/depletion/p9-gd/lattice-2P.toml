@@ -1,5 +1,5 @@
-# Problem 9 のブランチのテーブルの燃焼点を Gd 燃料の集合体で決める測定の、2P の燃焼の履歴（#0176）。VERA Problem 2 の 2P（3.1% の燃料に、
-# 1.8% 濃縮で 5% Gd2O3 の Gd 燃料 24 本。../p2/lattice-2P.toml と同じ配置）を、lattice-2O.toml と同じ形（ADR-0239 の基準条件、
+# Problem 9 の分岐のテーブルの燃焼点を Gd 燃料の集合体で決める測定の、2P の燃焼の履歴（#0176）。VERA Problem 2 の 2P（3.1% の燃料に、
+# 1.8% 濃縮で 5% Gd2O3 の Gd 燃料 24 本。../p2/lattice-2P.toml と同じ配置）を、lattice-2O.toml と同じ形（ADR-0239 の公称の状態、
 # 燃料のピンの 5 つの物質（ADR-0245）、Gd のピンのリングごとの 8 つの物質、出力密度、72 の燃焼度の点）で燃焼させる。lattice-2O.toml と
 # 違うのは `rows`（../p2/lattice-2P.toml と同じ）と `output` だけ。燃焼度の点は ../p2/lattice-2P.toml の 70 点（../p2/lattice-2O.toml と
 # 同じ点）に 0.25 と 0.75 を足した lattice-2O.toml と同じ 72 点（../p2/ の 2P の HZP の履歴の k∞ の山も 8.5 MWd/kg、../p2/lattice-2P.out）。
@@ -80,7 +80,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 580
-# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、基準ホウ素濃度 650 ppm。B-10 の割合は
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
 # p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 
