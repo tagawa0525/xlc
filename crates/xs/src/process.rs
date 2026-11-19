@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::endf::{
     Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, final_state_table,
-    final_states, parse_delayed, parse_nubar,
+    final_states, parse_delayed, parse_nubar, total_nubar,
 };
 use crate::multigroup::{
     Emission, FissionNeutrons, FreeGas, ReactionAverages, Reactions, SabError, SabOutside,
@@ -717,10 +717,7 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
     };
     let first = *tape.mts(mat, 3).first().ok_or(ProcessError::NoMf3)?;
     let head = mf3(first)?;
-    let nubar = match tape.section(mat, 1, 452) {
-        Some(section) => Some(parse_nubar(&section)?),
-        None => None,
-    };
+    let nubar = total_nubar(tape, mat)?;
     let cold = ColdParts::read(tape, mat, tolerance)?;
     let fission_parts = fission_parts(tape, mat, nubar.as_ref())?;
     let delayed = delayed_families(tape, mat)?;
