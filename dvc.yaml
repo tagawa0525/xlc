@@ -52,6 +52,7 @@ stages:
       - examples/core/rods_cases.py
       - examples/depletion/compare_branch_cross_terms.py
       - examples/depletion/compare_burnup_interpolation.py
+      - examples/depletion/compare_chain_versions.py
       - examples/depletion/compare_depletion.py
       - examples/depletion/compare_depletion_assembly.py
       - examples/depletion/compare_grid_interpolation.py
@@ -178,6 +179,9 @@ stages:
       - examples/core/plant.toml
       - examples/core/xs.toml
       - examples/depletion/chain.toml
+      - examples/depletion/endfb70/chain.toml
+      - examples/depletion/endfb71/chain.toml
+      - examples/depletion/endfb81/chain.toml
       - examples/depletion/lattice-1C-rings1.toml
       - examples/depletion/lattice-1C-rings4.toml
       - examples/depletion/lattice-2A.toml

@@ -1,0 +1,20 @@
+{
+ "output": "chain.msgpack",
+ "decay-directory": "../../../references/endf/ENDF-B-VII.0_decay",
+ "nfy-directory": "../../../references/endf/ENDF-B-VII.0_nfy",
+ "neutron-directory": "../../../references/endf/ENDF-B-VII.0_neutrons",
+ "natural-isotopes": [
+  "C-12",
+  "C-13",
+  "V-50",
+  "V-51",
+  "Zn-64",
+  "Zn-66",
+  "Zn-67",
+  "Zn-68",
+  "Zn-70"
+ ],
+ "unknown-excitations": [
+  "Nb-88m"
+ ]
+}

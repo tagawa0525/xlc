@@ -1,0 +1,10 @@
+{
+ "output": "chain.msgpack",
+ "decay-directory": "../../../references/endf/ENDF-B-VII.1_decay",
+ "nfy-directory": "../../../references/endf/ENDF-B-VII.1_nfy",
+ "neutron-directory": "../../../references/endf/ENDF-B-VII.1_neutrons",
+ "natural-isotopes": [
+  "C-12",
+  "C-13"
+ ]
+}
