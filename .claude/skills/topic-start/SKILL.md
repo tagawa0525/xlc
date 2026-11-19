@@ -1,6 +1,6 @@
 ---
 name: topic-start
-description: xlc で 1 つのトピックの作業を始め、マージするまでの手順。記録の番号、worktree、references の symlink、生成物のコピー、ビルド、TDD のコミットの分け方、記録に書く計算の前の main への rebase、チェック、/git-merge の呼び方、マージ前後の片付け。
+description: xlc で 1 つのトピックの作業を始め、マージするまでの手順。記録の番号、worktree、references の symlink、生成物を戻す、ビルド、TDD のコミットの分け方、記録に書く計算の前の main への rebase、チェック、/git-merge の呼び方、マージが止まったとき、マージの後片付け。
 argument-hint: <branch>
 ---
 
@@ -129,7 +129,7 @@ cargo build --release
 `git stash` は使わない。排他のジョブが走っている間は手元で計算しない。
 
 Slurm の投げ方: コマンドは `cd <worktree> && ...` で始める（`&` で切らない）。投げた後に `squeue` のコメントのパスを確かめる。
-main の作業ツリー（~/github/xlc）では dvc も計算も実行しない。見積もりは種類ごとに 1 段階を測ってから本数を掛ける（スキル slurm-run）。
+main の作業ツリー（~/github/xlc）では dvc も計算も実行しない（例外は下の「マージ」と「後片付け」が指すスキル dvc-relock の段だけ）。見積もりは種類ごとに 1 段階を測ってから本数を掛ける（スキル slurm-run）。
 xs のライブラリの作り直しは、核種ごとのステージを `examples/stage_runner.py` で流す（スキル compute、ADR-0193）。
 
 計算の待ち時間が長く、その間に main が進んだら、マージ前の rebase で hash が変わる。計算は再測定せず、付け替えは
@@ -168,12 +168,15 @@ worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡
   `--kind issue`）で振り直す。手で付け替えない。`renumber` は作業ツリーに追跡していない変更があると止まる
 - rebase のあと、記録のコミットの hash は hook が付け替える（スキル verification-record）。付け替えた差分をコミットして
   から、チェックに戻る
+- マージが pre-merge-commit の hook の「マージするブランチが .gitignore から外した生成物」で止まったら、スキル dvc-relock の
+  「マージが止まったら」の節に従う（main の worktree の古い出力を消してよいかを決める）。消す `rm` と `git merge --abort` は
+  dvc-relock の allowed-tools に無いので、許可の確認を受けて実行する（`rm` を許可に入れると、ほかの場面の削除も確認なしに通る）
 
 ## 後片付け
 
 - 後片付け（worktree とブランチの削除、予約のタグの解放）は /git-merge が行う
-- DVC のステージの出力を入れたブランチをマージしたあとは、main で `scripts/dvc-checkout.py dvc.yaml` と `scripts/dvc-checkout.py examples/vera/dvc.yaml`
-  をして `dvc.lock` の出力に合わせる（ADR-0130、ADR-0159。手順はスキル dvc-relock の後半）
+- DVC のステージの出力を入れたブランチをマージしたあとは、スキル dvc-relock の「後半: マージのあと（main の worktree で）」に従い、
+  main の出力を `dvc.lock` に合わせる（ADR-0130、ADR-0159）
 
 ## チェックとレビューの細目
 
