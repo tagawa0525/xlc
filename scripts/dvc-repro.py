@@ -218,6 +218,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
+    # Slurm のログは stdout と stderr を 1 つのファイルにまとめるので、行ごとに書き出して STOP: を一覧の後に置く
+    sys.stdout.reconfigure(line_buffering=True)
     selection = ["-P"] if args.all_pipelines else args.targets
     try:
         root = subprocess.run(
