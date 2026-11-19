@@ -2,7 +2,7 @@
 
 use super::Error;
 use super::tab1::Tab1;
-use super::tape::Section;
+use super::tape::{Section, Tape};
 
 /// ν(E) の表を読む。M0 では表形式（LNU=2）だけを扱う。
 pub fn parse_nubar(section: &Section<'_>) -> Result<Tab1, Error> {
@@ -13,6 +13,14 @@ pub fn parse_nubar(section: &Section<'_>) -> Result<Tab1, Error> {
         return Err(Error::new(r.line(), format!("LNU={lnu} is not supported")));
     }
     Ok(r.tab1()?.table)
+}
+
+/// 物質 `mat` の MF1 MT452 の ν(E)。MT452 がなければ `None`。
+pub fn total_nubar(tape: &Tape, mat: i32) -> Result<Option<Tab1>, Error> {
+    match tape.section(mat, 1, 452) {
+        Some(section) => parse_nubar(&section).map(Some),
+        None => Ok(None),
+    }
 }
 
 /// 遅発中性子の族ごとの崩壊定数と ν_d(E)（MF1 MT455）。
