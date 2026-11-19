@@ -504,6 +504,41 @@ def depletion_single_k(sources: list[dict]) -> str:
     )
 
 
+def depletion_dilute_absorbers(sources: list[dict]) -> str:
+    """輸送しない核種を無限希釈の吸収体として数えた燃焼（ADR-0261、#0292）: 燃焼点ごとの、65 核種を輸送する核種にした燃焼からの
+    反応度の差と、その内訳（examples/depletion/issue-0292/compare_dilute.py の docstring）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-dilute-absorbers":
+        raise TableError("not an xlc-compare-dilute-absorbers summary")
+    rows = [
+        [
+            burnup_label(p["burnup"]),
+            *(
+                signed(p[key], 1)
+                for key in (
+                    "dilute_pcm",
+                    "shielded_dilute_pcm",
+                    "rest_pcm",
+                    "dilute_added_pcm",
+                    "dilute_unshielded_pcm",
+                )
+            ),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "全核種を数える",
+            "4 核種を遮蔽",
+            "残りの吸収",
+            "65 核種を希釈",
+            "61 核種を希釈",
+        ],
+        rows,
+    )
+
+
 def density_rows(s: dict, nuclides: list[str]) -> str:
     rows = [
         [burnup_label(b)] + [percent_or_dash(s["pin"][n][i]) for n in nuclides]
@@ -4527,6 +4562,10 @@ GIT_TRACKED = {
     "examples/depletion/issue-0133/pellet-zones/summary.json",
     # 燃料のピンを方位の扇形の組にも分けた燃焼の格子の試行（#0276）。ステージの出力でない
     "examples/depletion/issue-0276/summary.json",
+    # 輸送しない核種を無限希釈の吸収体として数えた燃焼のセルの試行（#0292）。ステージの出力でない
+    "examples/depletion/issue-0292/dilute-u.json",
+    "examples/depletion/issue-0292/dilute-mox.json",
+    "examples/depletion/issue-0292/dilute-gd.json",
 }
 
 
@@ -5200,6 +5239,13 @@ TABLES = {
         ["examples/depletion/branches/compare-core-2A-micro.json"],
         core_micro_largest,
     ),
+    **{
+        f"depletion-dilute-absorbers-{fuel}": (
+            [f"examples/depletion/issue-0292/dilute-{fuel}.json"],
+            depletion_dilute_absorbers,
+        )
+        for fuel in ("u", "mox", "gd")
+    },
     "depletion-2a-core-partial-rods-k": (
         ["examples/depletion/branches/compare-core-2A-partial-rods.json"],
         core_partial_rods_k,
