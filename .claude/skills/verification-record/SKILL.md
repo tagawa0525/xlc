@@ -53,8 +53,7 @@ DVC の出力（`cache: false`）を git で追跡する。新しい測定には
     要る。xlc の dvc.yaml で `always_changed` を持つのは references-shell のステージだけで、`persist` は無い2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
     格子計算を戻すだけで終わり、depletion の dvc.lock を戻して changed にしてから流した Slurm 658 で走った（#0152）
   - 比較のステージだけが走る再実行（上流が走らない）は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。上流が
-    走らないことは、スキル compute の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
-    確かめる。`dvc status` だけでは、上流が出力を書き換えた後に走る下流が出ない
+    走らないことは、`scripts/dvc-repro.py --count-only` の一覧で確かめる（スキル compute）
   - 描く関数が OpenMC の `seconds` も読む表の OpenMC の行は、上の項（OpenMC の total も `--timed`）と、
     数時間の参照解を AWS に回していたとき（2026-11-19 までの CLAUDE.md の「計算」）の規則とが両立しなかった。今は参照解も r995 の Slurm で流すが、
     数時間の OpenMC を `--timed` にするかは決めていない。今の行は timed のパーティションができる前の main のジョブの値で、扱いは

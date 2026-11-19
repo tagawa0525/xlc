@@ -30,22 +30,19 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
   （ADR-0159、ADR-0210。ADR-0254 の移行は lock の deps の書き換え）だけ（値の同じ TOML の差は、ADR-0254 の正規形で deps に表れない）。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
   devShell の store のパスが参照解の deps。食い違いは pre-commit の hook `references-shell` が止める。ADR-0212）
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
-  実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
+  実行する。重いときは全体を上の形で Slurm に流し、ジョブのコマンドは `scripts/dvc-repro.py --max-stages <見込む本数>
+  [--allow-reference <yaml>:<ステージか組>]... <目標>` にする（走りうるステージを数え、上限を超えるか許していない参照解が入れば
+  何も実行せずに止まる。生の `dvc repro` を `slurm-run.sh` に渡すと hook が止める。ADR-0257）。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
   数秒のステージを再実行する /dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、数秒の下流を
   `dvc.lock` の上流の出力で再実行するときだけに使う（確かめ方と除く項目は ADR-0184 の決定の `-s` の項。記録には上流の出どころを別に書く）。実行したら `dvc.lock` をコミットする（上流の `build`、`python-ast`、`binary-forms`、`toml-values` が書き換えたリポジトリの直下の `dvc.lock`、`python-ast/`、`binary-forms/`、`toml-values/` も。ADR-0159、ADR-0210、ADR-0255、ADR-0254）
 - 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
-  ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `dvc repro <yaml>:xs`。ADR-0193）。
+  ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `scripts/dvc-repro.py --max-stages 1 <yaml>:xs`。ADR-0193）。
   runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
-- `dvc repro` を投げる前に、走りうるステージを数えて見積もる（出力を戻した、ジョブを実行する worktree で）。
-  changed の数は `dvc status` の文字列を grep で数えず（タブで始まる `changed deps:` の行を拾って誤り、2026-10-28 に 468 を 942 と数えた）、
-  `scripts/count-changed-stages.py [<yaml>...]` で数える。
-  `dvc status --with-deps <yaml>:<ステージ>` の changed と、目標の上流（`dvc dag --dot <yaml>:<ステージ>`）のうちその下流に
-  あるもの（`dvc status` と `dvc repro --dry` は、上流が出力を書き換えた後に走る下流を出さない。上流が同じ出力を書けば下流は
-  飛ぶので上限）。走るステージに参照解（数時間の OpenMC）が入っていれば、投げずに原因（deps の文書だけの変更など）を調べる。
+- `dvc repro` を投げる前に、出力を戻した、ジョブを実行する worktree の直下で `scripts/dvc-repro.py` に同じ引数と `--count-only` を
+  付けて数え、`--max-stages` と見積もりを決める（ジョブも直下から投げる。ほかの場所ではスクリプトが止まる。手元で数えるのが長ければ（#0268）、見込みの本数を上限にして投げ、ジョブの中で数えさせる）。
   時間は、過去のログで実行したステージの数の一覧（`grep -o "Running stage '[^'@]*" <ログ> | sort | uniq -c`）の全体が同じジョブから取る。
-  2026-10-22 に、65 核種の作り直しを多群の作成のないジョブから 45 分と見積もって 2 時間 5 分かかり（Slurm 452。ラダーの和をベクトル化した ADR-0188 の後は 38 分、Slurm 473）、文書だけを
-  直した deps で changed になった 5 時間の OpenMC を目標の上流に入れて投げ、12 分で止めた（Slurm 454）
+  2026-10-22 に、65 核種の作り直しを多群の作成のないジョブから 45 分と見積もって 2 時間 5 分かかった（Slurm 452。ラダーの和をベクトル化した ADR-0188 の後は 38 分、Slurm 473）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml のステージの

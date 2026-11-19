@@ -372,16 +372,17 @@ OpenMC の参照解も xlc も、今は r995 の Slurm で流す（AWS は枠が
    3.4 時間。Gd が外側から燃えると展開の外の格子点が増えて遅くなるので、見積もりは多めにとる）:
 
    ```sh
-   cd <worktree> && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 130 xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
-     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 140 xlc-2A-density 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-density' \
-     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 160 xlc-2A-rods 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
-     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 300 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
-     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 300 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
+   cd <worktree> && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 130 xlc-2A 'scripts/dvc-repro.py --max-stages 1 examples/depletion/p2/dvc.yaml:lattice@2A' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 140 xlc-2A-density 'scripts/dvc-repro.py --max-stages 1 examples/depletion/p2/dvc.yaml:lattice@2A-density' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 160 xlc-2A-rods 'scripts/dvc-repro.py --max-stages 1 examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 300 xlc-2O 'scripts/dvc-repro.py --max-stages 1 examples/depletion/p2/dvc.yaml:lattice@2O' \
+     && ~/.claude/scripts/slurm-run.sh --class timed --ref 'ADR-0179,ADR-0184' --purpose 'p2 の格子計算の燃焼の結果と時間を記録に載せる' --timed -t 300 xlc-2P 'scripts/dvc-repro.py --max-stages 1 examples/depletion/p2/dvc.yaml:lattice@2P'
    ```
 
    `-t`（分）は、1 点の試行（燃焼度 0.1 だけ、輸送 3 回、16 スレッド、排他。2026-10-15、trials のコミット前の入力で記録に書かない）の 1 回の輸送の時間
    2A 72 秒、2A-density 76 秒、2A-rods 91 秒、2O 455 秒、2P 480 秒（核種 89〜90。2O と 2P は自己遮蔽が 98%）に、輸送の回数（81 と 141）を掛け、約 1.3 倍した
    見積もり（1.6、1.7、2.0、17.8、18.8 時間の 1.3 倍。燃焼が進んで UFG の点が増えるとさらに長い見込みで、測っていない）。
+   ジョブは `scripts/dvc-repro.py`（ADR-0257）で、格子計算の 1 本だけが走ることを上限 1 で確かめる（上流が changed なら何も実行せずに止まる）。
    `dvc repro examples/depletion/p2/dvc.yaml` 全体は、比較のステージが OpenMC の結果を要るので、AWS の取り出しの前は失敗する。
 4. 比較: AWS の結果を取り出したあと `dvc repro examples/depletion/p2/dvc.yaml:compare@2A`（ほかも同じ）。`compare-<ジョブ>.json` は git で追跡する
    （ピンセルの compare-1C と同じ）。記録（examples/depletion/verification.md）は、スキル verification-record の手順で書く。ピン出力の比較は、

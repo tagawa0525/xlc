@@ -28,6 +28,7 @@ BLOCKED = [
     "dvc status\ndvc checkout",
     "git status || dvc checkout",
     "dvc checkout 2>&1 | tail -5",
+    "2>/dev/null dvc checkout",
     "dvc -q checkout",
     "dvc --cd examples/vera checkout dvc.yaml",
     "/nix/store/abc-dvc/bin/dvc checkout",
@@ -179,7 +180,7 @@ SH = shutil.which("sh")
 def run_settings_command(payload, project_dir, path=None):
     """.claude/settings.json の PreToolUse の Bash の command を、Claude Code と同じくシェルで実行する。"""
     (entry,) = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
-    (handler,) = entry["hooks"]
+    (handler,) = [h for h in entry["hooks"] if HOOK.name in h["command"]]
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
     if project_dir is not None:
         env["CLAUDE_PROJECT_DIR"] = project_dir

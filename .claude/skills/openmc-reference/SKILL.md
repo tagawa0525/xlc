@@ -44,10 +44,12 @@ scripts/dvc-checkout.py examples/vera/dvc.yaml
 数秒。手元でよい。`-s` は付けない: スキル compute が `-s` を許す例外に当たらず、上流の changed も数秒で実行できる）。
 
 `dvc repro` は `default` の devShell で実行する（`references` の devShell の中では cargo と dvc がない）。ライブラリの
-63 ステージを含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
+63 ステージを含み、全体で 40〜60 分かかるので、全体を Slurm で流す。ジョブは `scripts/dvc-repro.py` で、先にリポジトリの直下で
+同じ引数に `--count-only` を付けて `[reference]` の行を読み、作り直すと決めた参照解のステージか組だけを `--allow-reference` に挙げる
+（すべてを挙げると、文書だけの deps の変更で changed になった参照解も止まらずに走る。ほかの参照解が入れば何も実行せずに止まる。ADR-0257）:
 
 ```sh
-~/.claude/scripts/slurm-run.sh --class record --ref '- VERA の参照解のステージの作り直し' --purpose 'VERA の OpenMC の参照解と核データのステージを作る' --timed -t 90 vera-reference-stages 'dvc repro examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）。区分と参照と目的はその計算に合わせる
+~/.claude/scripts/slurm-run.sh --class record --ref '- VERA の参照解のステージの作り直し' --purpose 'VERA の OpenMC の参照解と核データのステージを作る' --timed -t 90 vera-reference-stages 'scripts/dvc-repro.py --max-stages <見込む本数> --allow-reference examples/vera/dvc.yaml:<作り直す参照解のステージか組>... examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）。区分と参照と目的、実行する参照解はその計算に合わせる
 ```
 
 終わったら `dvc.lock` をコミットする。

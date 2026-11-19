@@ -8,6 +8,11 @@
             "type": "command",
             "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/block-raw-dvc-checkout.py\"; if [ ! -f \"$f\" ]; then echo \"block-raw-dvc-checkout: $f が無いので dvc checkout を確かめていない（CLAUDE_PROJECT_DIR を確かめる）\" >&2; exit 1; fi; input=$(cat); case $input in *check*) printf %s \"$input\" | python3 \"$f\"; exit $?;; esac; exit 0",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/block-raw-dvc-repro-in-slurm.py\"; if [ ! -f \"$f\" ]; then echo \"block-raw-dvc-repro-in-slurm: $f が無いので Slurm に渡す dvc repro を確かめていない（CLAUDE_PROJECT_DIR を確かめる）\" >&2; exit 1; fi; input=$(cat); case $input in *slurm-run*) printf %s \"$input\" | python3 \"$f\"; exit $?;; esac; exit 0",
+            "timeout": 10
           }
         ]
       }
