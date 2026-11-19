@@ -69,5 +69,27 @@ class YieldPoints(unittest.TestCase):
         self.assertIsNone(estimates.yield_points({"energies": [5e5, 1.4e7]}))
 
 
+class BurnupShift(unittest.TestCase):
+    def test_a_constant_delta_shifts_the_burnup_by_delta_times_burnup(self):
+        results = [
+            {"burnup": b, "energy": {"capture_over_fission": [0.05, 0.05]}}
+            for b in (0.0, 20.0)
+        ]
+        # dk/dB = −0.005 /(MWd/kg)、k(20) = 1.0
+        history = {
+            "points": [
+                {"burnup": 0.0, "k_inf": 1.1},
+                {"burnup": 10.0, "k_inf": 1.05},
+                {"burnup": 20.0, "k_inf": 1.0},
+            ]
+        }
+        estimates.add_burnup_shift(results, history)
+        self.assertIsNone(results[0]["energy"]["burnup_shift"])
+        shift = results[1]["energy"]["burnup_shift"][0]
+        self.assertAlmostEqual(shift["mean_delta"], 0.05)
+        self.assertAlmostEqual(shift["burnup"], 1.0)
+        self.assertAlmostEqual(shift["dk_pcm"], 500.0)
+
+
 if __name__ == "__main__":
     unittest.main()
