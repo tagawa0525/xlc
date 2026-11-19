@@ -312,7 +312,7 @@ class MovingOnlyRewritesPaths(Base):
         result = r.tool()
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("UNVERIFIED: a/dvc.yaml:make", result.stdout)
+        self.assertIn("UNVERIFIED: a/dvc.yaml:make: cmd の語 'twin.txt'", result.stdout)
 
     def test_duplicating_a_stage_does_not_make_a_lock_entry_for_the_copy(self):
         r = self.r
@@ -434,7 +434,7 @@ class OutsNamedByTheProgram(Base):
         result = r.tool()
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("UNVERIFIED: a/deep/dvc.yaml:make", result.stdout)
+        self.assertIn("UNVERIFIED: a/deep/dvc.yaml:make: outs の", result.stdout)
 
     def test_a_glob_whose_matches_moved_is_not_rewritten(self):
         r = self.r
@@ -455,7 +455,7 @@ class OutsNamedByTheProgram(Base):
         result = r.tool()
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("UNVERIFIED: a/dvc.yaml:cat", result.stdout)
+        self.assertIn("UNVERIFIED: a/dvc.yaml:cat: cmd の語 'in/*.txt'", result.stdout)
 
     def test_moving_them_with_the_dvc_yaml_is_rewritten(self):
         r = self.r
@@ -640,6 +640,33 @@ class MovingDvcYaml(Base):
             [l.split(":")[1] for l in lines(result, "UNVERIFIED:")], ["two"]
         )
 
+    def test_a_word_reaching_a_tracked_file_moved_outside_the_stages_is_not_rewritten(
+        self,
+    ):
+        r = self.r
+        r.write("a/note.txt", "n\n")
+        r.write(
+            "a/dvc.yaml", r.read("a/dvc.yaml").replace("in.txt >", "in.txt note.txt >")
+        )
+        r.repro("a/dvc.yaml")
+        r.commit()
+        for f in ("dvc.yaml", "dvc.lock", "in.txt", "one.out", "two.out"):
+            r.mv(f"a/{f}", f"a/deep/{f}")
+        # note.txt はどの deps にも無く、別の場所へ動かした。cmd の ../note.txt は、動かす前と同じ a/note.txt を指す
+        r.mv("a/note.txt", "b/note.txt")
+        r.write(
+            "a/deep/dvc.yaml",
+            r.read("a/deep/dvc.yaml")
+            .replace("../shared.txt", "../../shared.txt")
+            .replace("..#attr", "../..#attr")
+            .replace("note.txt", "../note.txt"),
+        )
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("UNVERIFIED: a/deep/dvc.yaml:one: cmd の語", result.stdout)
+
     def test_a_stage_whose_definition_did_not_change_is_left_as_it_was(self):
         r = self.r
         # 動かす前から changed command（dvc.yaml の cmd を変えて流していない）
@@ -818,7 +845,61 @@ class TomlPaths(Base):
         result = r.tool()
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("UNVERIFIED: a/dvc.yaml:run", result.stdout)
+        self.assertIn(
+            "UNVERIFIED: a/dvc.yaml:run: a/case.toml の中のパスが", result.stdout
+        )
+
+    def test_toml_whose_comment_alone_changed_is_still_checked(self):
+        r = self.r
+        r.mv("lib/lib.txt", "lib2/lib.txt")
+        r.write(
+            "a/dvc.yaml",
+            r.read("a/dvc.yaml").replace("../lib/lib.txt", "../lib2/lib.txt"),
+        )
+        # 注釈だけを変えると、元の TOML の md5 は変わり、正規形の md5 は変わらない
+        r.write("a/case.toml", "# note\n" + r.read("a/case.toml"))
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            "UNVERIFIED: a/dvc.yaml:run: a/case.toml の中のパスが", result.stdout
+        )
+
+    def test_toml_naming_a_tracked_file_moved_outside_the_stages_is_not_rewritten(self):
+        r = self.r
+        r.write("a/table.txt", "t\n")
+        r.write("a/case.toml", r.read("a/case.toml") + 'table = "table.txt"\n')
+        r.run(
+            "python3",
+            "scripts/normalize_toml.py",
+            "a/case.toml",
+            "toml-values/a/case.toml.json",
+        )
+        r.repro("dvc.yaml")
+        r.repro("a/dvc.yaml")
+        r.commit()
+        # table.txt はどのステージの deps にも無い。lib は動かして TOML も直し、run を確かめさせる
+        r.mv("a/table.txt", "b/table.txt")
+        r.mv("lib/lib.txt", "lib2/lib.txt")
+        r.write(
+            "a/case.toml",
+            r.read("a/case.toml").replace("../lib/lib.txt", "../lib2/lib.txt"),
+        )
+        r.run(
+            "python3",
+            "scripts/normalize_toml.py",
+            "a/case.toml",
+            "toml-values/a/case.toml.json",
+        )
+        r.write(
+            "a/dvc.yaml",
+            r.read("a/dvc.yaml").replace("../lib/lib.txt", "../lib2/lib.txt"),
+        )
+
+        r.tool()
+
+        self.assertIn("a/dvc.yaml:run", r.status("dvc.yaml", "a/dvc.yaml"))
 
     def test_a_pairing_from_a_stage_that_failed_does_not_verify_another(self):
         r = self.r
