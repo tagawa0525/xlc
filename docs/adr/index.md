@@ -254,4 +254,4 @@
 * [ADR（設計判断の記録）](README.md) - ADR（設計判断の記録）の書式と運用。
 * [ADR-0257: Slurm に投げる dvc repro は、走りうるステージを数えて上限と参照解の許可を確かめるラッパーを通し、生の dvc repro を hook で止める](0257-count-stages-before-slurm-dvc-repro.md)
 * [ADR-0258: DVC のステージと deps の正規形は残し、changed を作り直しの残高として扱い、rebase の後の付け直しを 1 本のコマンドにし、上流を飛ばす実行は上流の出力が dvc.lock のとおりかで決める](0258-keep-dvc-and-deps-forms-and-carry-changed-as-rebuild-backlog.md)
-* [ADR-0259: examples の計算は 1 ケース 1 ディレクトリに置き、本番はステージ、検討は dvc add と README で残し、ケースの文書を OKF の形で地図から結ぶ](0259-keep-each-example-case-in-one-directory.md)
+* [ADR-0259: examples の計算は 1 ケース 1 ディレクトリに置き、本番も検討もステージで流して検討は凍結し、ケースの文書を結果の置き場にして OKF で結ぶ](0259-keep-each-example-case-in-one-directory.md)
