@@ -1082,15 +1082,135 @@
    ]
   },
   "fission_q": {
-   "compared": 65,
-   "differ": 54,
-   "one_sided": 0,
+   "compared": 85,
+   "differ": 74,
+   "one_sided": 20,
    "above": {
-    "1e-06": 54,
-    "0.001": 50,
-    "0.01": 44
+    "1e-06": 74,
+    "0.001": 70,
+    "0.01": 64
    },
    "largest": [
+    {
+     "nuclide": "Ac-225",
+     "a": null,
+     "b": 175832500.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Ac-226",
+     "a": null,
+     "b": 175584800.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Am-240",
+     "a": null,
+     "b": 205838100.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-245",
+     "a": null,
+     "b": 215161700.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-246",
+     "a": null,
+     "b": 214610000.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-247",
+     "a": null,
+     "b": 215028100.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-248",
+     "a": null,
+     "b": 214619600.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Cf-246",
+     "a": null,
+     "b": 219035600.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Cf-248",
+     "a": null,
+     "b": 218978400.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Cm-240",
+     "a": null,
+     "b": 209960000.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Es-251",
+     "a": null,
+     "b": 215800000.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Es-252",
+     "a": null,
+     "b": 217200000.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Es-253",
+     "a": null,
+     "b": 218500000.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Es-254m",
+     "a": null,
+     "b": 219900000.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Np-234",
+     "a": null,
+     "b": 191403100.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Pa-229",
+     "a": null,
+     "b": 186411600.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Pa-230",
+     "a": null,
+     "b": 186209900.0,
+     "relative": null
+    },
+    {
+     "nuclide": "Th-231",
+     "a": null,
+     "b": 178726700.0,
+     "relative": null
+    },
+    {
+     "nuclide": "U-230",
+     "a": null,
+     "b": 190126800.0,
+     "relative": null
+    },
+    {
+     "nuclide": "U-231",
+     "a": null,
+     "b": 188981600.0,
+     "relative": null
+    },
     {
      "nuclide": "Ac-227",
      "a": 199999000.0,
@@ -1150,406 +1270,527 @@
      "a": 199999000.0,
      "b": 182286000.0,
      "relative": 0.08856544282721414
-    },
-    {
-     "nuclide": "Th-229",
-     "a": 199999000.0,
-     "b": 183811000.0,
-     "relative": 0.08094040470202352
-    },
-    {
-     "nuclide": "Pa-232",
-     "a": 199999000.0,
-     "b": 185167700.0,
-     "relative": 0.07415687078435391
-    },
-    {
-     "nuclide": "Pa-231",
-     "a": 200000000.0,
-     "b": 185593400.0,
-     "relative": 0.072033
-    },
-    {
-     "nuclide": "Pa-233",
-     "a": 200000000.0,
-     "b": 185653600.0,
-     "relative": 0.071732
-    },
-    {
-     "nuclide": "Bk-249",
-     "a": 200000000.0,
-     "b": 214891300.0,
-     "relative": 0.06929689568633071
-    },
-    {
-     "nuclide": "Cf-251",
-     "a": 200000000.0,
-     "b": 213386000.0,
-     "relative": 0.06273138818854096
-    },
-    {
-     "nuclide": "Cf-249",
-     "a": 200000000.0,
-     "b": 211730000.0,
-     "relative": 0.05540074623341047
-    },
-    {
-     "nuclide": "Th-230",
-     "a": 190596500.0,
-     "b": 180397700.0,
-     "relative": 0.05350990180827035
-    },
-    {
-     "nuclide": "U-241",
-     "a": 180000000.0,
-     "b": 189577600.0,
-     "relative": 0.05052073662711207
-    },
-    {
-     "nuclide": "Cm-246",
-     "a": 200000000.0,
-     "b": 210530000.0,
-     "relative": 0.05001662470906759
-    },
-    {
-     "nuclide": "Np-236",
-     "a": 199999000.0,
-     "b": 190233500.0,
-     "relative": 0.048827744138720694
-    },
-    {
-     "nuclide": "Cm-250",
-     "a": 200000000.0,
-     "b": 209809300.0,
-     "relative": 0.04675340892896549
-    },
-    {
-     "nuclide": "Np-235",
-     "a": 200000000.0,
-     "b": 190695000.0,
-     "relative": 0.046525
-    },
-    {
-     "nuclide": "Cm-247",
-     "a": 200000000.0,
-     "b": 209360700.0,
-     "relative": 0.04471087458152366
-    },
-    {
-     "nuclide": "Cm-249",
-     "a": 200000000.0,
-     "b": 209040800.0,
-     "relative": 0.043248973406148465
-    },
-    {
-     "nuclide": "U-237",
-     "a": 180000000.0,
-     "b": 187821000.0,
-     "relative": 0.04164071110259236
-    },
-    {
-     "nuclide": "U-239",
-     "a": 180000000.0,
-     "b": 187584900.0,
-     "relative": 0.0404344912623564
-    },
-    {
-     "nuclide": "Cm-244",
-     "a": 200000000.0,
-     "b": 208376000.0,
-     "relative": 0.04019656774292625
-    },
-    {
-     "nuclide": "Th-233",
-     "a": 184999000.0,
-     "b": 177696000.0,
-     "relative": 0.03947588905885978
-    },
-    {
-     "nuclide": "Th-234",
-     "a": 184999000.0,
-     "b": 178216900.0,
-     "relative": 0.036660198163233314
     }
    ]
   },
   "yield_sources": {
-   "compared": 65,
-   "differ": 0,
-   "one_sided": 0,
+   "compared": 85,
+   "differ": 20,
+   "one_sided": 20,
    "above": {
-    "1e-06": 0,
-    "0.001": 0,
-    "0.01": 0
-   },
-   "largest": []
-  },
-  "yield_energies": {
-   "compared": 65,
-   "differ": 1,
-   "one_sided": 0,
-   "above": {
-    "1e-06": 1,
-    "0.001": 1,
-    "0.01": 1
+    "1e-06": 20,
+    "0.001": 20,
+    "0.01": 20
    },
    "largest": [
+    {
+     "nuclide": "Ac-225",
+     "a": null,
+     "b": "Th-227",
+     "relative": null
+    },
+    {
+     "nuclide": "Ac-226",
+     "a": null,
+     "b": "Th-227",
+     "relative": null
+    },
+    {
+     "nuclide": "Am-240",
+     "a": null,
+     "b": "Am-241",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-245",
+     "a": null,
+     "b": "Cm-245",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-246",
+     "a": null,
+     "b": "Cm-246",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-247",
+     "a": null,
+     "b": "Cm-246",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-248",
+     "a": null,
+     "b": "Cm-248",
+     "relative": null
+    },
+    {
+     "nuclide": "Cf-246",
+     "a": null,
+     "b": "Cf-249",
+     "relative": null
+    },
+    {
+     "nuclide": "Cf-248",
+     "a": null,
+     "b": "Cf-249",
+     "relative": null
+    },
+    {
+     "nuclide": "Cm-240",
+     "a": null,
+     "b": "Cm-242",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-251",
+     "a": null,
+     "b": "Es-254",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-252",
+     "a": null,
+     "b": "Es-254",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-253",
+     "a": null,
+     "b": "Es-254",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-254m",
+     "a": null,
+     "b": "Es-254",
+     "relative": null
+    },
+    {
+     "nuclide": "Np-234",
+     "a": null,
+     "b": "Np-237",
+     "relative": null
+    },
+    {
+     "nuclide": "Pa-229",
+     "a": null,
+     "b": "Pa-231",
+     "relative": null
+    },
+    {
+     "nuclide": "Pa-230",
+     "a": null,
+     "b": "Pa-231",
+     "relative": null
+    },
+    {
+     "nuclide": "Th-231",
+     "a": null,
+     "b": "Th-232",
+     "relative": null
+    },
+    {
+     "nuclide": "U-230",
+     "a": null,
+     "b": "U-232",
+     "relative": null
+    },
+    {
+     "nuclide": "U-231",
+     "a": null,
+     "b": "U-232",
+     "relative": null
+    }
+   ]
+  },
+  "yield_energies": {
+   "compared": 85,
+   "differ": 21,
+   "one_sided": 20,
+   "above": {
+    "1e-06": 21,
+    "0.001": 21,
+    "0.01": 21
+   },
+   "largest": [
+    {
+     "nuclide": "Ac-225",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Ac-226",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Am-240",
+     "a": null,
+     "b": "0.0253 500000.0 14000000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-245",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-246",
+     "a": null,
+     "b": "500000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-247",
+     "a": null,
+     "b": "500000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Bk-248",
+     "a": null,
+     "b": "500000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Cf-246",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Cf-248",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Cm-240",
+     "a": null,
+     "b": "500000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-251",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-252",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-253",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Es-254m",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "Np-234",
+     "a": null,
+     "b": "0.0253 500000.0 14000000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Pa-229",
+     "a": null,
+     "b": "500000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "Pa-230",
+     "a": null,
+     "b": "500000.0",
+     "relative": null
+    },
     {
      "nuclide": "Pu-239",
      "a": "0.0253 500000.0 14000000.0",
      "b": "0.0253 500000.0 2000000.0 14000000.0",
      "relative": null
+    },
+    {
+     "nuclide": "Th-231",
+     "a": null,
+     "b": "500000.0 14000000.0",
+     "relative": null
+    },
+    {
+     "nuclide": "U-230",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
+    },
+    {
+     "nuclide": "U-231",
+     "a": null,
+     "b": "0.0253",
+     "relative": null
     }
    ]
   },
   "fission_yields": {
-   "compared": 98834,
-   "differ": 4025,
-   "one_sided": 1003,
+   "compared": 123785,
+   "differ": 28976,
+   "one_sided": 25954,
    "above": {
-    "1e-06": 3918,
-    "0.001": 2981,
-    "0.01": 2022
+    "1e-06": 28869,
+    "0.001": 27932,
+    "0.01": 26973
    },
    "largest": [
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-106",
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "Ag-109",
      "a": null,
-     "b": 6.12916e-14,
+     "b": 1.025e-14,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-106m",
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "Ag-109m",
      "a": null,
-     "b": 1.65977e-13,
+     "b": 1.025e-14,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-107",
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "Ag-110",
      "a": null,
-     "b": 2.47967e-12,
+     "b": 9.56001e-13,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-107m",
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "Ag-110m",
      "a": null,
-     "b": 1.81975e-11,
+     "b": 2.23e-12,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-108",
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "Ag-111",
      "a": null,
-     "b": 3.77448e-10,
+     "b": 8.27001e-11,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-108m",
-     "a": null,
-     "b": 3.77448e-10,
-     "relative": null
-    },
-    {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-111m",
      "a": null,
-     "b": 3.82947e-14,
+     "b": 5.53e-10,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-112",
      "a": null,
-     "b": 7.54897e-13,
+     "b": 1.99e-08,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-113",
      "a": null,
-     "b": 2.1597e-12,
+     "b": 1.09e-07,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-113m",
      "a": null,
-     "b": 1.57978e-11,
+     "b": 7.26001e-07,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-114",
      "a": null,
-     "b": 3.406247e-06,
+     "b": 4.15e-06,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-115",
      "a": null,
-     "b": 1.628019e-05,
+     "b": 1.445e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-115m",
      "a": null,
-     "b": 1.628019e-05,
+     "b": 1.445e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-116",
      "a": null,
-     "b": 4.883636e-05,
+     "b": 2.907e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-116m",
      "a": null,
-     "b": 4.883636e-05,
+     "b": 2.907e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-117",
      "a": null,
-     "b": 0.0001731762,
+     "b": 9.32301e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-117m",
      "a": null,
-     "b": 0.0001731762,
+     "b": 9.32301e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-118",
      "a": null,
-     "b": 0.0002028033,
+     "b": 7.79801e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-118m",
      "a": null,
-     "b": 0.0002028033,
+     "b": 7.79801e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-119",
      "a": null,
-     "b": 0.000324297,
+     "b": 0.0001506,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-120",
      "a": null,
-     "b": 5.088199e-05,
+     "b": 2.1205e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-120m",
      "a": null,
-     "b": 5.088196e-05,
+     "b": 2.1205e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-121",
      "a": null,
-     "b": 3.713808e-05,
+     "b": 2.017e-05,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-122",
      "a": null,
-     "b": 3.192775e-06,
+     "b": 8.25001e-07,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-122m",
      "a": null,
-     "b": 3.192775e-06,
+     "b": 8.25001e-07,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-123",
      "a": null,
-     "b": 7.35325e-07,
+     "b": 2.08e-07,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-124",
      "a": null,
-     "b": 9.40871e-12,
+     "b": 1.5e-12,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-125",
      "a": null,
-     "b": 9.28874e-13,
+     "b": 1.44e-13,
      "relative": null
     },
     {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
-     "product": "Ag-126",
-     "a": null,
-     "b": 6.15916e-14,
-     "relative": null
-    },
-    {
-     "nuclide": "Pu-239",
-     "energy": 2000000.0,
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
      "product": "Ag-129",
      "a": null,
-     "b": 7.3744e-17,
+     "b": 2.89377e-12,
+     "relative": null
+    },
+    {
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "Ag-130",
+     "a": null,
+     "b": 1.03e-13,
+     "relative": null
+    },
+    {
+     "nuclide": "Ac-225",
+     "energy": 0.0253,
+     "product": "As-73",
+     "a": null,
+     "b": 2.03e-14,
      "relative": null
     }
    ]
@@ -1779,8 +2020,21 @@
  },
  "yield_tables": [
   {
+   "nuclide": "Ac-225",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 886
+  },
+  {
+   "nuclide": "Ac-226",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 886
+  },
+  {
    "nuclide": "Ac-227",
    "energy": 0.0253,
+   "only": null,
    "products": 886,
    "differ": 6,
    "sum_a": 1.9999998697598191,
@@ -1790,8 +2044,27 @@
    "max_product": "Ga-72"
   },
   {
+   "nuclide": "Am-240",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 993
+  },
+  {
+   "nuclide": "Am-240",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 1009
+  },
+  {
+   "nuclide": "Am-240",
+   "energy": 14000000.0,
+   "only": "b",
+   "products": 1116
+  },
+  {
    "nuclide": "Am-241",
    "energy": 0.0253,
+   "only": null,
    "products": 993,
    "differ": 6,
    "sum_a": 1.999999442371248,
@@ -1803,6 +2076,7 @@
   {
    "nuclide": "Am-241",
    "energy": 500000.0,
+   "only": null,
    "products": 1009,
    "differ": 6,
    "sum_a": 1.9999998894127922,
@@ -1814,6 +2088,7 @@
   {
    "nuclide": "Am-241",
    "energy": 14000000.0,
+   "only": null,
    "products": 1116,
    "differ": 12,
    "sum_a": 1.9999996994547327,
@@ -1825,6 +2100,7 @@
   {
    "nuclide": "Am-242",
    "energy": 0.0253,
+   "only": null,
    "products": 997,
    "differ": 8,
    "sum_a": 1.9999997973105355,
@@ -1836,6 +2112,7 @@
   {
    "nuclide": "Am-242m",
    "energy": 0.0253,
+   "only": null,
    "products": 997,
    "differ": 8,
    "sum_a": 1.9999997973105355,
@@ -1847,6 +2124,7 @@
   {
    "nuclide": "Am-243",
    "energy": 500000.0,
+   "only": null,
    "products": 1011,
    "differ": 8,
    "sum_a": 2.0000002035806532,
@@ -1858,6 +2136,7 @@
   {
    "nuclide": "Am-244",
    "energy": 500000.0,
+   "only": null,
    "products": 1011,
    "differ": 8,
    "sum_a": 2.0000002035806532,
@@ -1869,6 +2148,7 @@
   {
    "nuclide": "Am-244m",
    "energy": 500000.0,
+   "only": null,
    "products": 1011,
    "differ": 8,
    "sum_a": 2.0000002035806532,
@@ -1878,8 +2158,33 @@
    "max_product": "Ga-72"
   },
   {
+   "nuclide": "Bk-245",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 1003
+  },
+  {
+   "nuclide": "Bk-246",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 998
+  },
+  {
+   "nuclide": "Bk-247",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 998
+  },
+  {
+   "nuclide": "Bk-248",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 948
+  },
+  {
    "nuclide": "Bk-249",
    "energy": 500000.0,
+   "only": null,
    "products": 948,
    "differ": 8,
    "sum_a": 2.0000003773647133,
@@ -1891,6 +2196,7 @@
   {
    "nuclide": "Bk-250",
    "energy": 500000.0,
+   "only": null,
    "products": 948,
    "differ": 8,
    "sum_a": 2.0000003773647133,
@@ -1900,8 +2206,21 @@
    "max_product": "Xe-145"
   },
   {
+   "nuclide": "Cf-246",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 1101
+  },
+  {
+   "nuclide": "Cf-248",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 1101
+  },
+  {
    "nuclide": "Cf-249",
    "energy": 0.0253,
+   "only": null,
    "products": 1101,
    "differ": 12,
    "sum_a": 1.9999996762038694,
@@ -1913,6 +2232,7 @@
   {
    "nuclide": "Cf-250",
    "energy": 0.0253,
+   "only": null,
    "products": 1101,
    "differ": 12,
    "sum_a": 1.9999996762038694,
@@ -1924,6 +2244,7 @@
   {
    "nuclide": "Cf-251",
    "energy": 0.0252,
+   "only": null,
    "products": 1014,
    "differ": 6,
    "sum_a": 1.9999998542007715,
@@ -1935,6 +2256,7 @@
   {
    "nuclide": "Cf-252",
    "energy": 0.0252,
+   "only": null,
    "products": 1014,
    "differ": 6,
    "sum_a": 1.9999998542007715,
@@ -1946,6 +2268,7 @@
   {
    "nuclide": "Cf-253",
    "energy": 0.0252,
+   "only": null,
    "products": 1014,
    "differ": 6,
    "sum_a": 1.9999998542007715,
@@ -1957,6 +2280,7 @@
   {
    "nuclide": "Cf-254",
    "energy": 0.0252,
+   "only": null,
    "products": 1014,
    "differ": 6,
    "sum_a": 1.9999998542007715,
@@ -1966,8 +2290,15 @@
    "max_product": "Ga-72"
   },
   {
+   "nuclide": "Cm-240",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 1050
+  },
+  {
    "nuclide": "Cm-241",
    "energy": 500000.0,
+   "only": null,
    "products": 1050,
    "differ": 4,
    "sum_a": 1.9999995468791771,
@@ -1979,6 +2310,7 @@
   {
    "nuclide": "Cm-242",
    "energy": 500000.0,
+   "only": null,
    "products": 1050,
    "differ": 4,
    "sum_a": 1.9999995468791771,
@@ -1990,6 +2322,7 @@
   {
    "nuclide": "Cm-243",
    "energy": 0.0253,
+   "only": null,
    "products": 1032,
    "differ": 6,
    "sum_a": 1.9999993198796058,
@@ -2001,6 +2334,7 @@
   {
    "nuclide": "Cm-243",
    "energy": 500000.0,
+   "only": null,
    "products": 1047,
    "differ": 6,
    "sum_a": 2.0000005256140656,
@@ -2012,6 +2346,7 @@
   {
    "nuclide": "Cm-244",
    "energy": 500000.0,
+   "only": null,
    "products": 1039,
    "differ": 6,
    "sum_a": 2.0000004840726646,
@@ -2023,6 +2358,7 @@
   {
    "nuclide": "Cm-245",
    "energy": 0.0253,
+   "only": null,
    "products": 1003,
    "differ": 8,
    "sum_a": 1.9999999970073195,
@@ -2034,6 +2370,7 @@
   {
    "nuclide": "Cm-246",
    "energy": 500000.0,
+   "only": null,
    "products": 998,
    "differ": 8,
    "sum_a": 2.0000000755196132,
@@ -2045,6 +2382,7 @@
   {
    "nuclide": "Cm-247",
    "energy": 500000.0,
+   "only": null,
    "products": 998,
    "differ": 8,
    "sum_a": 2.0000000755196132,
@@ -2056,6 +2394,7 @@
   {
    "nuclide": "Cm-248",
    "energy": 500000.0,
+   "only": null,
    "products": 948,
    "differ": 8,
    "sum_a": 2.0000003773647133,
@@ -2067,6 +2406,7 @@
   {
    "nuclide": "Cm-249",
    "energy": 500000.0,
+   "only": null,
    "products": 948,
    "differ": 8,
    "sum_a": 2.0000003773647133,
@@ -2078,6 +2418,7 @@
   {
    "nuclide": "Cm-250",
    "energy": 500000.0,
+   "only": null,
    "products": 948,
    "differ": 8,
    "sum_a": 2.0000003773647133,
@@ -2087,8 +2428,27 @@
    "max_product": "Xe-145"
   },
   {
+   "nuclide": "Es-251",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 997
+  },
+  {
+   "nuclide": "Es-252",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 997
+  },
+  {
+   "nuclide": "Es-253",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 997
+  },
+  {
    "nuclide": "Es-254",
    "energy": 0.0253,
+   "only": null,
    "products": 997,
    "differ": 6,
    "sum_a": 2.000000070943102,
@@ -2098,8 +2458,15 @@
    "max_product": "Xe-145"
   },
   {
+   "nuclide": "Es-254m",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 997
+  },
+  {
    "nuclide": "Es-255",
    "energy": 0.0253,
+   "only": null,
    "products": 997,
    "differ": 6,
    "sum_a": 2.000000070943102,
@@ -2111,6 +2478,7 @@
   {
    "nuclide": "Fm-255",
    "energy": 0.0253,
+   "only": null,
    "products": 1009,
    "differ": 6,
    "sum_a": 2.0000001349322263,
@@ -2120,8 +2488,27 @@
    "max_product": "Ga-72"
   },
   {
+   "nuclide": "Np-234",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 933
+  },
+  {
+   "nuclide": "Np-234",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 979
+  },
+  {
+   "nuclide": "Np-234",
+   "energy": 14000000.0,
+   "only": "b",
+   "products": 1067
+  },
+  {
    "nuclide": "Np-235",
    "energy": 0.0253,
+   "only": null,
    "products": 933,
    "differ": 8,
    "sum_a": 2.0000004351978404,
@@ -2133,6 +2520,7 @@
   {
    "nuclide": "Np-235",
    "energy": 500000.0,
+   "only": null,
    "products": 979,
    "differ": 8,
    "sum_a": 2.0000001688744,
@@ -2144,6 +2532,7 @@
   {
    "nuclide": "Np-235",
    "energy": 14000000.0,
+   "only": null,
    "products": 1067,
    "differ": 12,
    "sum_a": 2.000000185705832,
@@ -2155,6 +2544,7 @@
   {
    "nuclide": "Np-236",
    "energy": 0.0253,
+   "only": null,
    "products": 933,
    "differ": 8,
    "sum_a": 2.0000004351978404,
@@ -2166,6 +2556,7 @@
   {
    "nuclide": "Np-236",
    "energy": 500000.0,
+   "only": null,
    "products": 979,
    "differ": 8,
    "sum_a": 2.0000001688744,
@@ -2177,6 +2568,7 @@
   {
    "nuclide": "Np-236",
    "energy": 14000000.0,
+   "only": null,
    "products": 1067,
    "differ": 12,
    "sum_a": 2.000000185705832,
@@ -2188,6 +2580,7 @@
   {
    "nuclide": "Np-237",
    "energy": 0.0253,
+   "only": null,
    "products": 933,
    "differ": 8,
    "sum_a": 2.0000004351978404,
@@ -2199,6 +2592,7 @@
   {
    "nuclide": "Np-237",
    "energy": 500000.0,
+   "only": null,
    "products": 979,
    "differ": 8,
    "sum_a": 2.0000001688744,
@@ -2210,6 +2604,7 @@
   {
    "nuclide": "Np-237",
    "energy": 14000000.0,
+   "only": null,
    "products": 1067,
    "differ": 12,
    "sum_a": 2.000000185705832,
@@ -2221,6 +2616,7 @@
   {
    "nuclide": "Np-238",
    "energy": 500000.0,
+   "only": null,
    "products": 916,
    "differ": 8,
    "sum_a": 2.0000000115651857,
@@ -2232,6 +2628,7 @@
   {
    "nuclide": "Np-239",
    "energy": 500000.0,
+   "only": null,
    "products": 916,
    "differ": 8,
    "sum_a": 2.0000000115651857,
@@ -2241,8 +2638,21 @@
    "max_product": "Ga-72"
   },
   {
+   "nuclide": "Pa-229",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 984
+  },
+  {
+   "nuclide": "Pa-230",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 984
+  },
+  {
    "nuclide": "Pa-231",
    "energy": 500000.0,
+   "only": null,
    "products": 984,
    "differ": 6,
    "sum_a": 1.9999993398716251,
@@ -2254,6 +2664,7 @@
   {
    "nuclide": "Pa-232",
    "energy": 500000.0,
+   "only": null,
    "products": 984,
    "differ": 6,
    "sum_a": 1.9999993398716251,
@@ -2265,6 +2676,7 @@
   {
    "nuclide": "Pa-233",
    "energy": 500000.0,
+   "only": null,
    "products": 984,
    "differ": 6,
    "sum_a": 1.9999993398716251,
@@ -2276,6 +2688,7 @@
   {
    "nuclide": "Pu-236",
    "energy": 500000.0,
+   "only": null,
    "products": 1010,
    "differ": 6,
    "sum_a": 1.9999994657222102,
@@ -2287,6 +2700,7 @@
   {
    "nuclide": "Pu-237",
    "energy": 500000.0,
+   "only": null,
    "products": 1010,
    "differ": 6,
    "sum_a": 1.9999994657222102,
@@ -2298,6 +2712,7 @@
   {
    "nuclide": "Pu-238",
    "energy": 500000.0,
+   "only": null,
    "products": 1010,
    "differ": 6,
    "sum_a": 1.9999994657222102,
@@ -2309,6 +2724,7 @@
   {
    "nuclide": "Pu-239",
    "energy": 0.0253,
+   "only": null,
    "products": 996,
    "differ": 110,
    "sum_a": 2.00000014490271,
@@ -2320,6 +2736,7 @@
   {
    "nuclide": "Pu-239",
    "energy": 500000.0,
+   "only": null,
    "products": 1003,
    "differ": 1003,
    "sum_a": 2.000000030273452,
@@ -2330,7 +2747,14 @@
   },
   {
    "nuclide": "Pu-239",
+   "energy": 2000000.0,
+   "only": "b",
+   "products": 1003
+  },
+  {
+   "nuclide": "Pu-239",
    "energy": 14000000.0,
+   "only": null,
    "products": 1113,
    "differ": 1113,
    "sum_a": 2.0000003929951986,
@@ -2342,6 +2766,7 @@
   {
    "nuclide": "Pu-240",
    "energy": 0.0253,
+   "only": null,
    "products": 964,
    "differ": 8,
    "sum_a": 2.0000002985577714,
@@ -2353,6 +2778,7 @@
   {
    "nuclide": "Pu-240",
    "energy": 500000.0,
+   "only": null,
    "products": 973,
    "differ": 8,
    "sum_a": 2.000000295107409,
@@ -2364,6 +2790,7 @@
   {
    "nuclide": "Pu-240",
    "energy": 14000000.0,
+   "only": null,
    "products": 1095,
    "differ": 12,
    "sum_a": 1.9999999936229858,
@@ -2375,6 +2802,7 @@
   {
    "nuclide": "Pu-241",
    "energy": 0.0253,
+   "only": null,
    "products": 931,
    "differ": 8,
    "sum_a": 2.000000188221734,
@@ -2386,6 +2814,7 @@
   {
    "nuclide": "Pu-241",
    "energy": 500000.0,
+   "only": null,
    "products": 958,
    "differ": 8,
    "sum_a": 2.0000001883574634,
@@ -2397,6 +2826,7 @@
   {
    "nuclide": "Pu-242",
    "energy": 0.0253,
+   "only": null,
    "products": 918,
    "differ": 8,
    "sum_a": 2.000000339788772,
@@ -2408,6 +2838,7 @@
   {
    "nuclide": "Pu-242",
    "energy": 500000.0,
+   "only": null,
    "products": 944,
    "differ": 8,
    "sum_a": 2.0000003774012383,
@@ -2419,6 +2850,7 @@
   {
    "nuclide": "Pu-242",
    "energy": 14000000.0,
+   "only": null,
    "products": 996,
    "differ": 8,
    "sum_a": 1.999999462955107,
@@ -2430,6 +2862,7 @@
   {
    "nuclide": "Pu-243",
    "energy": 0.0253,
+   "only": null,
    "products": 918,
    "differ": 8,
    "sum_a": 2.000000339788772,
@@ -2441,6 +2874,7 @@
   {
    "nuclide": "Pu-243",
    "energy": 500000.0,
+   "only": null,
    "products": 944,
    "differ": 8,
    "sum_a": 2.0000003774012383,
@@ -2452,6 +2886,7 @@
   {
    "nuclide": "Pu-243",
    "energy": 14000000.0,
+   "only": null,
    "products": 996,
    "differ": 8,
    "sum_a": 1.999999462955107,
@@ -2463,6 +2898,7 @@
   {
    "nuclide": "Pu-244",
    "energy": 0.0253,
+   "only": null,
    "products": 918,
    "differ": 8,
    "sum_a": 2.000000339788772,
@@ -2474,6 +2910,7 @@
   {
    "nuclide": "Pu-244",
    "energy": 500000.0,
+   "only": null,
    "products": 944,
    "differ": 8,
    "sum_a": 2.0000003774012383,
@@ -2485,6 +2922,7 @@
   {
    "nuclide": "Pu-244",
    "energy": 14000000.0,
+   "only": null,
    "products": 996,
    "differ": 8,
    "sum_a": 1.999999462955107,
@@ -2496,6 +2934,7 @@
   {
    "nuclide": "Pu-246",
    "energy": 0.0253,
+   "only": null,
    "products": 918,
    "differ": 8,
    "sum_a": 2.000000339788772,
@@ -2507,6 +2946,7 @@
   {
    "nuclide": "Pu-246",
    "energy": 500000.0,
+   "only": null,
    "products": 944,
    "differ": 8,
    "sum_a": 2.0000003774012383,
@@ -2518,6 +2958,7 @@
   {
    "nuclide": "Pu-246",
    "energy": 14000000.0,
+   "only": null,
    "products": 996,
    "differ": 8,
    "sum_a": 1.999999462955107,
@@ -2529,6 +2970,7 @@
   {
    "nuclide": "Ra-223",
    "energy": 0.0253,
+   "only": null,
    "products": 886,
    "differ": 6,
    "sum_a": 1.9999998697598191,
@@ -2540,6 +2982,7 @@
   {
    "nuclide": "Ra-226",
    "energy": 0.0253,
+   "only": null,
    "products": 886,
    "differ": 6,
    "sum_a": 1.9999998697598191,
@@ -2551,6 +2994,7 @@
   {
    "nuclide": "Th-227",
    "energy": 0.0253,
+   "only": null,
    "products": 886,
    "differ": 6,
    "sum_a": 1.9999998697598191,
@@ -2562,6 +3006,7 @@
   {
    "nuclide": "Th-228",
    "energy": 0.0253,
+   "only": null,
    "products": 886,
    "differ": 6,
    "sum_a": 1.9999998697598191,
@@ -2573,6 +3018,7 @@
   {
    "nuclide": "Th-229",
    "energy": 0.0253,
+   "only": null,
    "products": 888,
    "differ": 6,
    "sum_a": 1.9999996637641761,
@@ -2584,6 +3030,7 @@
   {
    "nuclide": "Th-230",
    "energy": 0.0253,
+   "only": null,
    "products": 888,
    "differ": 6,
    "sum_a": 1.9999996637641761,
@@ -2593,8 +3040,21 @@
    "max_product": "Ga-72"
   },
   {
+   "nuclide": "Th-231",
+   "energy": 500000.0,
+   "only": "b",
+   "products": 847
+  },
+  {
+   "nuclide": "Th-231",
+   "energy": 14000000.0,
+   "only": "b",
+   "products": 976
+  },
+  {
    "nuclide": "Th-232",
    "energy": 500000.0,
+   "only": null,
    "products": 847,
    "differ": 10,
    "sum_a": 1.9999997135457748,
@@ -2606,6 +3066,7 @@
   {
    "nuclide": "Th-232",
    "energy": 14000000.0,
+   "only": null,
    "products": 976,
    "differ": 12,
    "sum_a": 2.000000068378732,
@@ -2617,6 +3078,7 @@
   {
    "nuclide": "Th-233",
    "energy": 500000.0,
+   "only": null,
    "products": 847,
    "differ": 10,
    "sum_a": 1.9999997135457748,
@@ -2628,6 +3090,7 @@
   {
    "nuclide": "Th-233",
    "energy": 14000000.0,
+   "only": null,
    "products": 976,
    "differ": 12,
    "sum_a": 2.000000068378732,
@@ -2639,6 +3102,7 @@
   {
    "nuclide": "Th-234",
    "energy": 500000.0,
+   "only": null,
    "products": 847,
    "differ": 10,
    "sum_a": 1.9999997135457748,
@@ -2650,6 +3114,7 @@
   {
    "nuclide": "Th-234",
    "energy": 14000000.0,
+   "only": null,
    "products": 976,
    "differ": 12,
    "sum_a": 2.000000068378732,
@@ -2657,10 +3122,23 @@
    "sum_abs": 3.0051700019640033e-05,
    "max_abs": 1.1290000541220018e-05,
    "max_product": "Ag-125"
+  },
+  {
+   "nuclide": "U-230",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 1052
+  },
+  {
+   "nuclide": "U-231",
+   "energy": 0.0253,
+   "only": "b",
+   "products": 1052
   },
   {
    "nuclide": "U-232",
    "energy": 0.0253,
+   "only": null,
    "products": 1052,
    "differ": 6,
    "sum_a": 1.9999999288840862,
@@ -2672,6 +3150,7 @@
   {
    "nuclide": "U-233",
    "energy": 0.0253,
+   "only": null,
    "products": 970,
    "differ": 6,
    "sum_a": 2.000000044998829,
@@ -2683,6 +3162,7 @@
   {
    "nuclide": "U-233",
    "energy": 500000.0,
+   "only": null,
    "products": 993,
    "differ": 6,
    "sum_a": 1.999999893435932,
@@ -2694,6 +3174,7 @@
   {
    "nuclide": "U-233",
    "energy": 14000000.0,
+   "only": null,
    "products": 1100,
    "differ": 12,
    "sum_a": 2.000000525210647,
@@ -2705,6 +3186,7 @@
   {
    "nuclide": "U-234",
    "energy": 500000.0,
+   "only": null,
    "products": 977,
    "differ": 8,
    "sum_a": 2.000000136731193,
@@ -2716,6 +3198,7 @@
   {
    "nuclide": "U-234",
    "energy": 14000000.0,
+   "only": null,
    "products": 1092,
    "differ": 12,
    "sum_a": 1.9999998458245876,
@@ -2727,6 +3210,7 @@
   {
    "nuclide": "U-235",
    "energy": 0.0253,
+   "only": null,
    "products": 923,
    "differ": 6,
    "sum_a": 1.999999767627597,
@@ -2738,6 +3222,7 @@
   {
    "nuclide": "U-235",
    "energy": 500000.0,
+   "only": null,
    "products": 924,
    "differ": 8,
    "sum_a": 1.9999995112591584,
@@ -2749,6 +3234,7 @@
   {
    "nuclide": "U-235",
    "energy": 14000000.0,
+   "only": null,
    "products": 1082,
    "differ": 12,
    "sum_a": 1.9999996103156321,
@@ -2760,6 +3246,7 @@
   {
    "nuclide": "U-236",
    "energy": 500000.0,
+   "only": null,
    "products": 926,
    "differ": 8,
    "sum_a": 1.9999997292150002,
@@ -2771,6 +3258,7 @@
   {
    "nuclide": "U-236",
    "energy": 14000000.0,
+   "only": null,
    "products": 1059,
    "differ": 12,
    "sum_a": 1.999999636258147,
@@ -2782,6 +3270,7 @@
   {
    "nuclide": "U-237",
    "energy": 500000.0,
+   "only": null,
    "products": 899,
    "differ": 8,
    "sum_a": 2.000000033987683,
@@ -2793,6 +3282,7 @@
   {
    "nuclide": "U-238",
    "energy": 500000.0,
+   "only": null,
    "products": 895,
    "differ": 10,
    "sum_a": 2.000000036194088,
@@ -2804,6 +3294,7 @@
   {
    "nuclide": "U-238",
    "energy": 14000000.0,
+   "only": null,
    "products": 1000,
    "differ": 12,
    "sum_a": 1.9999997889746226,
@@ -2815,6 +3306,7 @@
   {
    "nuclide": "U-239",
    "energy": 500000.0,
+   "only": null,
    "products": 895,
    "differ": 10,
    "sum_a": 2.000000036194088,
@@ -2826,6 +3318,7 @@
   {
    "nuclide": "U-239",
    "energy": 14000000.0,
+   "only": null,
    "products": 1000,
    "differ": 12,
    "sum_a": 1.9999997889746226,
@@ -2837,6 +3330,7 @@
   {
    "nuclide": "U-240",
    "energy": 500000.0,
+   "only": null,
    "products": 895,
    "differ": 10,
    "sum_a": 2.000000036194088,
@@ -2848,6 +3342,7 @@
   {
    "nuclide": "U-240",
    "energy": 14000000.0,
+   "only": null,
    "products": 1000,
    "differ": 12,
    "sum_a": 1.9999997889746226,
@@ -2859,6 +3354,7 @@
   {
    "nuclide": "U-241",
    "energy": 500000.0,
+   "only": null,
    "products": 895,
    "differ": 10,
    "sum_a": 2.000000036194088,
@@ -2870,6 +3366,7 @@
   {
    "nuclide": "U-241",
    "energy": 14000000.0,
+   "only": null,
    "products": 1000,
    "differ": 12,
    "sum_a": 1.9999997889746226,

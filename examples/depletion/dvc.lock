@@ -5683,8 +5683,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/compare_chain_versions.py.ast
       hash: md5
-      md5: f224d68f702decdfc066106fd77feafb
-      size: 11822
+      md5: bdf343a426c90b2f1ccaf14743129f16
+      size: 12598
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -5696,12 +5696,12 @@ stages:
     outs:
     - path: compare-chain-versions-71-80.json
       hash: md5
-      md5: dded8b5b82a7d9c08bef6cbb960ed227
-      size: 56912
+      md5: d8923eda6d460bd26c98cae6f4668054
+      size: 65114
     - path: compare-chain-versions-71-80.txt
       hash: md5
-      md5: 1a087ae756804d1af75f59de5b316a96
-      size: 25616
+      md5: 0b4b24f614ed7aa97b40746ce37995da
+      size: 28315
   chain-version@endfb81:
     cmd: ../../bin/chain endfb81/chain.toml
     deps:
@@ -5740,8 +5740,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/compare_chain_versions.py.ast
       hash: md5
-      md5: f224d68f702decdfc066106fd77feafb
-      size: 11822
+      md5: bdf343a426c90b2f1ccaf14743129f16
+      size: 12598
     - path: endfb70/chain.msgpack
       hash: md5
       md5: 5c4c81940ae00f9e9cdcd561ac4610a3
@@ -5753,12 +5753,12 @@ stages:
     outs:
     - path: compare-chain-versions-70-71.json
       hash: md5
-      md5: 71d118022f930334734d8793b1ddbbc5
-      size: 72967
+      md5: 596c63b0a80811b9306ff335c46e1f03
+      size: 80424
     - path: compare-chain-versions-70-71.txt
       hash: md5
-      md5: 766958fbcad998487e6e103ff627693e
-      size: 31171
+      md5: 2aeacbd3fc894177ee3e43f3910d9302
+      size: 33397
   compare-chain-versions@80-81:
     cmd: python3 compare_chain_versions.py --json 
       compare-chain-versions-80-81.json chain.msgpack endfb81/chain.msgpack > 
@@ -5766,8 +5766,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/compare_chain_versions.py.ast
       hash: md5
-      md5: f224d68f702decdfc066106fd77feafb
-      size: 11822
+      md5: bdf343a426c90b2f1ccaf14743129f16
+      size: 12598
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -5779,8 +5779,8 @@ stages:
     outs:
     - path: compare-chain-versions-80-81.json
       hash: md5
-      md5: 23770a133bd620d4f60b2b077ab2499a
-      size: 60684
+      md5: b9c0f34c16a32c91b0404f6f3afbb854
+      size: 62945
     - path: compare-chain-versions-80-81.txt
       hash: md5
       md5: dc8b361a28f5ed7fab47cb0aae529b60
