@@ -236,6 +236,7 @@
   "excitation": {
    "compared": 3722,
    "differ": 357,
+   "one_sided": 0,
    "above": {
     "1e-06": 282,
     "0.001": 132,
@@ -427,6 +428,7 @@
   "half_life": {
    "compared": 3466,
    "differ": 757,
+   "one_sided": 17,
    "above": {
     "1e-06": 619,
     "0.001": 530,
@@ -618,6 +620,7 @@
   "decay_energy": {
    "compared": 10347,
    "differ": 6499,
+   "one_sided": 0,
    "above": {
     "1e-06": 5752,
     "0.001": 4748,
@@ -839,6 +842,7 @@
   "decay_modes": {
    "compared": 5257,
    "differ": 1812,
+   "one_sided": 0,
    "above": {
     "1e-06": 1697,
     "0.001": 1503,
@@ -1090,6 +1094,7 @@
   "fission_q": {
    "compared": 65,
    "differ": 54,
+   "one_sided": 0,
    "above": {
     "1e-06": 54,
     "0.001": 50,
@@ -1281,6 +1286,7 @@
   "yield_sources": {
    "compared": 65,
    "differ": 0,
+   "one_sided": 0,
    "above": {
     "1e-06": 0,
     "0.001": 0,
@@ -1291,6 +1297,7 @@
   "yield_energies": {
    "compared": 65,
    "differ": 1,
+   "one_sided": 0,
    "above": {
     "1e-06": 1,
     "0.001": 1,
@@ -1308,6 +1315,7 @@
   "fission_yields": {
    "compared": 97831,
    "differ": 3022,
+   "one_sided": 0,
    "above": {
     "1e-06": 2915,
     "0.001": 1978,
@@ -1559,6 +1567,7 @@
   "reactions": {
    "compared": 1925,
    "differ": 165,
+   "one_sided": 151,
    "above": {
     "1e-06": 165,
     "0.001": 165,

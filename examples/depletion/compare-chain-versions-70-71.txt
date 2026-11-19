@@ -3,17 +3,17 @@ inputs: endfb70/chain.msgpack 5c4c8194, endfb71/chain.msgpack 32ee4517
   only_a: Ac-206m2 Ag-129m Am-236m At-193m At-193m2 At-216m Au-185m Au-199m Ba-134m Bh-271 Bh-272 Bh-273 Bh-274 Bh-275 Bk-236 Bk-236m Bk-239 Bk-252 Br-88m Cd-109m Cd-109m2 Cm-252 Db-266 Db-267 Db-268 Db-269 Ds-274 Ds-275 Ds-276 Ds-277 Ds-278 Ds-279 Ds-281 Dy-155m Dy-159m Fm-247m Fr-200m Fr-201m Gd-153m Gd-157m Gd-159m Hs-266m Hs-267m Hs-270 Hs-271 Hs-272 Hs-274 Hs-275 Hs-276 Lr-264 Lr-265 Lr-266 Lu-172m2 Md-262 Mt-272 Mt-274 Mt-275 Mt-276 Mt-279 N-11m Nb-86m Nb-91m2 Nd-134m Ni-68m No-248 No-249 No-252m No-263 No-264 Pd-93m Po-214m Rb-88m Rf-253m Rf-255m Rf-266 Rf-267 Rf-268 Rg-273 Rg-274 Rg-275 Rg-276 Rg-277 Rg-278 Rg-279 Rg-280 Rg-281 Rg-282 Rg-283 Rh-114m Rh-91m Rh-92m S-47 Sb-115m Sc-56m Sg-268 Sg-270 Sg-271 Sg-272 Sg-273 Sn-115m Sn-115m2 Sn-132m Tb-153m Tc-101m Te-115m2 Te-134m Te-135m Th-229m Tl-176m Tm-147m U-221 Y-80m2 Y-99m Zn-61m3 Zr-88m
   only_b: Ag-116m2 Ag-95m Ag-95m2 Ag-95m3 Ar-30 As-60 As-61 As-62 As-63 At-196m Au-174m Au-176m Au-192m2 B-6 Be-5 Bh-269 Bi-187m Bi-204m Bi-208m Br-67 C-8 Ca-34 Ce-127m Cl-28 Cs-125m Cu-52 Cu-81 Eu-136m2 Fe-65m Ga-56 Ga-57 Ga-58 Ga-59 Ga-72m Ge-58 Ge-59 H-7 Ho-148m2 Ho-155m Hs-265m Hs-268 I-145 In-133m Ir-164m Ir-168m Ir-187m Ir-188m K-32 Lr-255m Lu-153m Lu-179m Lu-180m Md-247m Md-249m Mg-19 Mt-266m Mt-269 Nb-85m Nb-90m2 Ne-16 No-254m Pb-181m Pb-189m Pd-125 Pd-126 Pm-133m Pm-142m Pt-184m Rb-71 Re-164m Rf-261m Rh-123 Sc-36 Sc-37 Sg-269 Ta-160m Ta-176m Ta-176m2 Ta-178m2 Ta-179m Ta-179m2 Ta-185m Tb-135 Tb-146m2 Tc-86m Tl-176 Tl-188m2 Tl-198m2 Tm-150m Tm-166m V-40 V-41 W-180m W-186m W-190m Yb-171m Zn-54 Zn-73m2
 
-| 量 | 比べた項目 | 違う項目 | 相対差 > 1e-06 | 相対差 > 0.001 | 相対差 > 0.01 |
-| --- | --- | --- | --- | --- | --- |
-| excitation | 3722 | 357 | 282 | 132 | 85 |
-| half_life | 3466 | 757 | 619 | 530 | 434 |
-| decay_energy | 10347 | 6499 | 5752 | 4748 | 3702 |
-| decay_modes | 5257 | 1812 | 1697 | 1503 | 1339 |
-| fission_q | 65 | 54 | 54 | 50 | 44 |
-| yield_sources | 65 | 0 | 0 | 0 | 0 |
-| yield_energies | 65 | 1 | 1 | 1 | 1 |
-| fission_yields | 97831 | 3022 | 2915 | 1978 | 1019 |
-| reactions | 1925 | 165 | 165 | 165 | 165 |
+| 量 | 比べた項目 | 違う項目 | 片方だけ | 相対差 > 1e-06 | 相対差 > 0.001 | 相対差 > 0.01 |
+| --- | --- | --- | --- | --- | --- | --- |
+| excitation | 3722 | 357 | 0 | 282 | 132 | 85 |
+| half_life | 3466 | 757 | 17 | 619 | 530 | 434 |
+| decay_energy | 10347 | 6499 | 0 | 5752 | 4748 | 3702 |
+| decay_modes | 5257 | 1812 | 0 | 1697 | 1503 | 1339 |
+| fission_q | 65 | 54 | 0 | 54 | 50 | 44 |
+| yield_sources | 65 | 0 | 0 | 0 | 0 | 0 |
+| yield_energies | 65 | 1 | 0 | 1 | 1 | 1 |
+| fission_yields | 97831 | 3022 | 0 | 2915 | 1978 | 1019 |
+| reactions | 1925 | 165 | 151 | 165 | 165 | 165 |
 
 ## excitation（違う 357 項目のうち、相対差の大きい 30）
 - Ag-94m2: a 0、b 6.67e+06（相対差 1）
@@ -352,12 +352,12 @@ inputs: endfb70/chain.msgpack 5c4c8194, endfb71/chain.msgpack 32ee4517
 - I-135 半減期: a 23652 s、b 23652 s（相対差 0）
   - 分岐 I-135 beta- → Xe-135: a 0.90145、b 0.834911（相対差 0.0738）
   - 分岐 I-135 beta- → Xe-135m: a 0.0985497、b 0.165089（相対差 0.403）
-- Sm-149 半減期: a なし s、b なし s（相対差 なし）
+- Sm-149: 両方で安定
 - Pm-149 半減期: a 191088 s、b 191088 s（相対差 0）
   - 分岐 Pm-149 beta- → Sm-149: a 1、b 1（相対差 0）
-- Nd-143 半減期: a なし s、b なし s（相対差 なし）
-- Rh-103 半減期: a なし s、b なし s（相対差 なし）
-- Cs-133 半減期: a なし s、b なし s（相対差 なし）
+- Nd-143: 両方で安定
+- Rh-103: 両方で安定
+- Cs-133: 両方で安定
 - 収率 Pu-239 E=0.0253 eV → Cs-133: a 2.03997e-07、b 2.03997e-07（相対差 0）
 - 収率 Pu-239 E=0.0253 eV → I-135: a 0.0428742、b 0.0428742（相対差 0）
 - 収率 Pu-239 E=0.0253 eV → Nd-143: a 2.90996e-11、b 2.90996e-11（相対差 0）
