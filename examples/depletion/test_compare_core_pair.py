@@ -57,17 +57,22 @@ def log(iterations, midpoints=((1.0, 900.0, 1),), total=5.0):
 
 
 def write_run(
-    directory: Path, name: str, top: str = "", depletion: str = "", history=None
+    directory: Path,
+    name: str,
+    top: str = "",
+    depletion: str = "",
+    history=None,
+    text=None,
 ) -> Path:
     """core の入力 `<name>.toml` と、それが名前を書く履歴 `<name>.msgpack`、そのログ `<name>.log`。`top` と `depletion` は
-    ケースと `[depletion]` に足す行"""
+    ケースと `[depletion]` に足す行、`text` はログ（省けば `log([1] * 4)`）"""
     source = directory / f"{name}.toml"
     source.write_text(
         f'cycle = "cycle.toml"\n{top}\n[depletion]\nspecific-power = 40.0\n'
         f'history = "{name}.msgpack"\n{depletion}\n'
     )
     (directory / f"{name}.msgpack").write_bytes(msgpack.packb(history or core()))
-    (directory / f"{name}.log").write_text(log([1] * 4))
+    (directory / f"{name}.log").write_text(log([1] * 4) if text is None else text)
     return source
 
 

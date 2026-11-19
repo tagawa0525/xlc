@@ -1,5 +1,9 @@
 """core の燃焼の履歴（`xlc-core-history`。ADR-0190、ADR-0218）を読む比較のツールの共通の部分。"""
 
+from pathlib import Path
+
+import tomllib
+
 # 2 つの燃焼度（MWd/kg）を同じ燃焼点とみなす相対の許容（1 MWd/kg 未満は絶対の許容）。core の燃焼度は出力密度 × EFPD で、
 # 格子計算の履歴は燃焼度の点から時間を求めて燃焼させ、炉心の燃焼度はノードの燃焼度の重金属の質量の重みの平均なので、
 # 同じ点でも丸めが違う
@@ -46,3 +50,21 @@ def single_state(core: dict) -> dict:
         )
     (state,) = states.values()
     return state
+
+
+def core_run(source: Path) -> tuple[dict, Path, Path]:
+    """core の入力 `source` と、それが書く燃焼の履歴（`[depletion]` の `history`。入力のディレクトリから）と、そのログ（履歴の
+    拡張子を `.log` にしたパス。core の標準エラーをそこに書く）。履歴は入力の項目の一部（`initial-guess` など）を書かないので、
+    比べるツールは入力から項目を読み、入力が名前を書く履歴を読む"""
+    run = tomllib.loads(source.read_text())
+    depletion = run.get("depletion")
+    if not isinstance(depletion, dict) or "history" not in depletion:
+        raise SystemExit(f"{source} has no [depletion] history")
+    history = source.parent / depletion["history"]
+    return run, history, history.with_suffix(".log")
+
+
+def setting(run: dict, section: str | None, key: str, default: str) -> str:
+    """入力 `run` の項目 `key`（`section` が None ならケースの直下、ほかはその表）。書いていなければ core の既定 `default`"""
+    table = run if section is None else run.get(section, {})
+    return table.get(key, default)

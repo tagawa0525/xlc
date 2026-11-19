@@ -1,16 +1,16 @@
 """固有値計算を解く順（ADR-0234 のケースの `node-order`）とスレッドの数（`threads`）だけを変えた同じ core の燃焼を比べ、点と中点の k、
 ホウ素、燃焼度、出力の割合の差と、色の順の履歴のバイトの一致、燃焼ごとの固有値計算の数、外側の反復の回数、時間を出す。
 
-使い方: python3 compare_core_threads.py --json <要約の出力先> <名前>=<直方体の並びの順の履歴>,<そのログ>,<色の順の履歴>,<そのログ>[,<色の順の履歴>,<そのログ>...]
+使い方: python3 compare_core_threads.py --json <要約の出力先> <名前>=<直方体の並びの順の core の入力>,<色の順の core の入力>[,<色の順の core の入力>...]
         python3 compare_core_threads.py --report <要約の JSON>
 
-- 履歴とログ、差の取り方は compare_core_pair.py と同じ（差は最初の色の順の燃焼 − 直方体の並びの順の燃焼）。スレッドの数はログの
-  `thread pool threads=` の行から読む。最初の燃焼のログにその行が無ければ、ADR-0234 の前の bin/core（固有値計算は 1 スレッドの
-  直方体の並びの順）の燃焼とし、順を `before`、スレッドの数を null にする
+- 入力から読む履歴とログ、差の取り方は compare_core_pair.py と同じ（差は最初の色の順の燃焼 − 直方体の並びの順の燃焼）。燃焼の順は
+  入力の `node-order` で、最初の入力が `lexicographic`、ほかが `red-black`（書かなければ core の既定の `red-black`）でなければ止まる。
+  スレッドの数はログの `thread pool threads=` の行から読み、行が無いか、入力の `threads` と違えば止まる
 - `--json`: 名前ごとに `points`、`midpoints`（compare_core_pair.py と同じ形）と、`runs` の燃焼ごとの順（`lexicographic` か `red-black`）、
   スレッドの数、最初の色の順の履歴とバイトで同じか（`same_bytes`。直方体の並びの順と最初の色の順は null）、固有値計算（span `nem`）の数、外側の反復の
   回数の和、固有値計算の時間の和（フィールド `seconds`）、core の全体の時間（`core seconds=`）、`per_solve` の固有値計算 1 回の外側の
-  反復の回数と時間の [最小, 最大]。`inputs` は読んだファイルのパスと md5
+  反復の回数と時間の [最小, 最大]。`inputs` は読んだファイル（燃焼ごとに入力、履歴、ログの順）のパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
 
@@ -22,40 +22,58 @@ from pathlib import Path
 
 import compare_core_pair
 import msgpack
+from core_history import core_run, setting
 
 POOL = re.compile(r"thread pool threads=(\d+) from=")
 
 ORDERS = {
     "lexicographic": "直方体の並びの順",
     "red-black": "色の順",
-    "before": "ADR-0234 の前の bin/core",
 }
 
 
-def threads_of(log: str) -> int | None:
-    """ログのスレッドのプールの行のスレッドの数。行が無ければ None（ADR-0234 の前の bin/core）"""
+def threads_of(log: str) -> int:
+    """ログのスレッドのプールの行のスレッドの数"""
     pools = POOL.findall(log)
-    if len(pools) > 1:
-        raise SystemExit("the log has more than one thread pool line")
-    return int(pools[0]) if pools else None
+    if len(pools) != 1:
+        raise SystemExit(
+            f"the log needs one thread pool line (thread pool threads=), found {len(pools)}"
+        )
+    return int(pools[0])
 
 
 def run_of(order: str, history: bytes, log: str, first: bytes | None) -> dict:
     core = msgpack.unpackb(history)
-    threads = threads_of(log)
-    if threads is None:
-        if order != "lexicographic":
-            raise SystemExit(
-                "a red-black log needs a thread pool line (thread pool threads=)"
-            )
-        order = "before"
     return {
         "order": order,
-        "threads": threads,
+        "threads": threads_of(log),
         "same_bytes": None if first is None else history == first,
         **compare_core_pair.run_of(core, log),
         "per_solve": compare_core_pair.per_solve(log),
     }
+
+
+def thread_runs(sources: list[Path]) -> tuple[list[tuple[bytes, str]], list[Path]]:
+    """入力ごとの履歴のバイトとログと、読んだファイル。最初の入力の `node-order` が `lexicographic`、ほかが `red-black` でなければ、
+    また入力の `threads` がログのスレッドの数と違えば止まる"""
+    runs = []
+    files = []
+    for i, source in enumerate(sources):
+        run, history, log_path = core_run(source)
+        want = "lexicographic" if i == 0 else "red-black"
+        got = setting(run, None, "node-order", "red-black")
+        if got != want:
+            raise SystemExit(
+                f"{source} sets node-order = {got!r}; input {i + 1} must set {want!r}"
+            )
+        log = log_path.read_text()
+        if "threads" in run and run["threads"] != threads_of(log):
+            raise SystemExit(
+                f"{source} sets threads = {run['threads']}, but {log_path} ran {threads_of(log)}"
+            )
+        runs.append((history.read_bytes(), log))
+        files += [source, history, log_path]
+    return runs, files
 
 
 def compare(
@@ -111,9 +129,9 @@ def parse(arg: str) -> tuple[str, list[Path]]:
     name, _, files = arg.partition("=")
     parts = files.split(",")
     paths = [Path(p) for p in parts]
-    if not name or len(paths) < 4 or len(paths) % 2 or not all(parts):
+    if not name or len(paths) < 2 or not all(parts):
         raise SystemExit(
-            f"give <name>=<lexicographic history>,<log>,<red-black history>,<log>[,...], got {arg}"
+            f"give <name>=<lexicographic core input>,<red-black core input>[,...], got {arg}"
         )
     return name, paths
 
@@ -128,12 +146,9 @@ def main() -> None:
         for name, paths in map(parse, args[2:]):
             if name in cases:
                 raise SystemExit(f"a second case named {name}")
-            pairs = [
-                (paths[i].read_bytes(), paths[i + 1].read_text())
-                for i in range(0, len(paths), 2)
-            ]
-            cases[name] = compare(pairs[0], pairs[1:])
-            files += paths
+            runs, read = thread_runs(paths)
+            cases[name] = compare(runs[0], runs[1:])
+            files += read
         summary = {
             "format": "xlc-compare-core-threads",
             # 読んだファイルのパス（実行した cwd から）と md5

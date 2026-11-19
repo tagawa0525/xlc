@@ -1,20 +1,22 @@
 """入力の 1 項目（`ITEMS`）だけを変えた同じ core の燃焼を 2 本ずつ比べ、点と中点の k、ホウ素、燃焼度、出力の割合の差と、固有値計算の数、
 外側の反復の回数、時間を出す。
 
-使い方: python3 compare_core_pair.py <項目> --json <要約の出力先> <名前>=<基準の履歴>,<そのログ>,<比べる履歴>,<そのログ> ...
+使い方: python3 compare_core_pair.py <項目> --json <要約の出力先> <名前>=<基準の core の入力>,<比べる core の入力> ...
         python3 compare_core_pair.py --report <要約の JSON>
 
-- <項目> は `ITEMS` の鍵（`initial-guess`、`xenon-boron`、`acceleration`）。基準と比べる燃焼の値、要約の `format` と `runs` の鍵は
+- <項目> は `ITEMS` の鍵（`initial-guess`、`xenon-boron`、`acceleration`）。基準と比べる燃焼の項目の値、要約の `format` と `runs` の鍵は
   その表の行
-- 履歴は core の燃焼の履歴（msgpack）、ログはその標準エラー（tracing）。2 つの燃焼は、同じ燃焼点（EFPD と日数）、状態、定格の出力密度、
-  軸方向のメッシュ、集合体を持つこと。差は比べる燃焼 − 基準の燃焼
+- 燃焼の履歴は入力の `[depletion]` の `history`（msgpack）、ログはその拡張子を `.log` にしたファイル（core の標準エラー。tracing）。
+  入力の項目の値が表の基準の値と比べる値の順でなければ止まる（履歴はこれらの項目を書かないので、入力で 2 本を見分ける）。同じ入力を
+  別の版の bin/core で解いた燃焼は、項目の値が同じなので比べない
+- 2 つの燃焼は、同じ燃焼点（EFPD と日数）、状態、定格の出力密度、軸方向のメッシュ、集合体を持つこと。差は比べる燃焼 − 基準の燃焼
 - `--json`: 名前ごとに次を書く
   - `points`: 燃焼点ごとの EFPD、日数、状態と、k とホウ素の差、ノードの燃焼度の相対差の絶対値の最大、出力の割合の相対差の絶対値の
     最大（核分裂のないノードを除く）
   - `midpoints`: ログの中点の行（`depletion midpoint`）ごとの、k とホウ素の差
   - `runs`: 基準と比べる燃焼の、固有値計算（span `nem`）の数、外側の反復の回数の和、固有値計算の時間の和（フィールド `seconds`）、
     core の全体の時間（`core seconds=`）。項目の `per_solve` が真なら、固有値計算 1 回の外側の反復の回数と時間の [最小, 最大]（`per_solve`）
-  `inputs` は読んだファイルのパスと md5
+  `inputs` は読んだファイル（入力、履歴、ログの順）のパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
 
@@ -26,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import msgpack
+from core_history import core_run, setting
 
 # span `nem` の閉じる行のフィールド
 NEM = re.compile(r"nem\{iterations=(\d+) seconds=([0-9.eE+-]+)\}")
@@ -39,8 +42,13 @@ SHARED = ("specific_power", "states", "axial_mesh", "assemblies", "heavy_metal")
 
 @dataclass(frozen=True)
 class Item:
-    """比べる入力の項目。`runs` は要約の `runs` の鍵（基準, 比べる燃焼）"""
+    """比べる入力の項目。`section` は項目を書く表（None はケースの直下）、`values` は基準と比べる燃焼の値、`default` は書かない
+    ときの core の値（crates/core/src/input.rs）、`runs` は要約の `runs` の鍵（基準, 比べる燃焼）"""
 
+    key: str
+    section: str | None
+    values: tuple[str, str]
+    default: str
     format: str
     runs: tuple[str, str]
     per_solve: bool
@@ -48,11 +56,35 @@ class Item:
 
 ITEMS = {
     # 固有値計算の初期値（ADR-0231）: 平らな初期値 → 既定
-    "initial-guess": Item("xlc-compare-core-guess", ("flat", "default"), False),
+    "initial-guess": Item(
+        "initial-guess",
+        "depletion",
+        ("flat", "previous"),
+        "previous",
+        "xlc-compare-core-guess",
+        ("flat", "default"),
+        False,
+    ),
     # 平衡 Xe と臨界ホウ素の収束のさせ方（ADR-0219）: 解き直すたびに探す → 同時の反復
-    "xenon-boron": Item("xlc-compare-core-xenon-boron", ("nested", "joint"), False),
+    "xenon-boron": Item(
+        "xenon-boron",
+        "depletion",
+        ("nested", "joint"),
+        "joint",
+        "xlc-compare-core-xenon-boron",
+        ("nested", "joint"),
+        False,
+    ),
     # 固有値計算の加速（ADR-0232）: 加速なし → CMFD
-    "acceleration": Item("xlc-compare-core-acceleration", ("none", "cmfd"), True),
+    "acceleration": Item(
+        "acceleration",
+        None,
+        ("none", "cmfd"),
+        "cmfd",
+        "xlc-compare-core-acceleration",
+        ("none", "cmfd"),
+        True,
+    ),
 }
 
 
@@ -149,6 +181,25 @@ def compare(item: Item, base_core: dict, base_log: str, core: dict, log: str) ->
     return {**differences(base_core, base_log, core, log), "runs": runs}
 
 
+def pair_runs(
+    item: Item, base: Path, other: Path
+) -> tuple[dict, str, dict, str, list[Path]]:
+    """基準の入力 `base` と比べる入力 `other` の、履歴とログと、読んだファイル。入力の項目の値が `item.values` の順でなければ止まる"""
+    loaded: list = []
+    files = []
+    for source, want, role in zip((base, other), item.values, ("first", "second")):
+        run, history, log = core_run(source)
+        got = setting(run, item.section, item.key, item.default)
+        if got != want:
+            raise SystemExit(
+                f"{source} sets {item.key} = {got!r}; the {role} input of a pair must set {want!r}"
+            )
+        loaded += [msgpack.unpackb(history.read_bytes()), log.read_text()]
+        files += [source, history, log]
+    base_core, base_log, core, log = loaded
+    return base_core, base_log, core, log, files
+
+
 def item_of(summary: dict) -> Item:
     for item in ITEMS.values():
         if summary.get("format") == item.format:
@@ -198,10 +249,8 @@ def parse(arg: str) -> tuple[str, list[Path]]:
     name, _, files = arg.partition("=")
     parts = files.split(",")
     paths = [Path(p) for p in parts]
-    if not name or len(paths) != 4 or not all(parts):
-        raise SystemExit(
-            f"give <name>=<base history>,<base log>,<history>,<log>, got {arg}"
-        )
+    if not name or len(paths) != 2 or not all(parts):
+        raise SystemExit(f"give <name>=<base core input>,<core input>, got {arg}")
     return name, paths
 
 
@@ -216,15 +265,9 @@ def main() -> None:
         for name, paths in map(parse, args[3:]):
             if name in cases:
                 raise SystemExit(f"a second case named {name}")
-            base_history, base_log, history, log = paths
-            cases[name] = compare(
-                item,
-                msgpack.unpackb(base_history.read_bytes()),
-                base_log.read_text(),
-                msgpack.unpackb(history.read_bytes()),
-                log.read_text(),
-            )
-            files += paths
+            base_core, base_log, core, log, read = pair_runs(item, *paths)
+            cases[name] = compare(item, base_core, base_log, core, log)
+            files += read
         summary = {
             "format": item.format,
             # 読んだファイルのパス（実行した cwd から）と md5

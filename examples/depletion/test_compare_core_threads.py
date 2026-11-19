@@ -89,14 +89,35 @@ class Inputs(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             lexicographic = write_run(
-                tmp, "lexicographic", top='node-order = "lexicographic"'
+                tmp,
+                "lexicographic",
+                top='node-order = "lexicographic"',
+                text=run(core(), [1] * 4, 1, 1.0)[1],
             )
-            one = write_run(tmp, "one", top="threads = 1")
-            four = write_run(tmp, "four", top='node-order = "red-black"\nthreads = 4')
+            one = write_run(
+                tmp, "one", top="threads = 1", text=run(core(), [1] * 4, 1, 1.0)[1]
+            )
+            four = write_run(
+                tmp,
+                "four",
+                top='node-order = "red-black"\nthreads = 4',
+                text=run(core(), [1] * 4, 4, 1.0)[1],
+            )
             runs, files = compare_core_threads.thread_runs([lexicographic, one, four])
             self.assertEqual(len(runs), 3)
             self.assertEqual(len(files), 9)
-            for wrong in ([one, lexicographic], [lexicographic, one, lexicographic]):
+            # 入力の `threads` とログのスレッドの数が違う
+            mislabeled = write_run(
+                tmp,
+                "mislabeled",
+                top="threads = 2",
+                text=run(core(), [1] * 4, 4, 1.0)[1],
+            )
+            for wrong in (
+                [one, lexicographic],
+                [lexicographic, one, lexicographic],
+                [lexicographic, mislabeled],
+            ):
                 with (
                     self.subTest([p.name for p in wrong]),
                     self.assertRaises(SystemExit),
