@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット ba82bcfa1
 ---
 
 # 熱水力のフィードバックのレビューの残り（効率、重複、将来のエラーの形）
@@ -69,3 +69,4 @@ feat/0228-problem-6（ADR-0230）のローカルのレビューの non-blocking 
 ## 経緯
 
 - 2026-11-06: feat/0228-thermal-hydraulics の 1 周目のレビューの non-blocking の指摘から起こした
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは閉じたコミットの本文）

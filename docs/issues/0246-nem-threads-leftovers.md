@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, performance]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット b99739975
 ---
 
 # core の色の順の並列の残り（粗メッシュの並列の効き、組み立て、スレッドの規則の共有）
@@ -46,3 +46,4 @@ ADR-0234 で固有値計算を市松の 2 色の順で並列に解いた後に�
 ## 経緯
 
 - 2026-11-06: ADR-0234 の実装とレビューの 1、2、3 周目で残した
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは閉じたコミットの本文）

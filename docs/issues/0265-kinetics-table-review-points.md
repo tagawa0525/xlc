@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [lattice, core, xs]
 opened: 2026-11-07
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット ba82bcfa1
 ---
 
 # 動特性と冷却計算のデータの実装に残したレビューの指摘
@@ -80,3 +80,4 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 ## 経緯
 
 - 2026-11-07: ADR-0238 の実装のレビューの 1〜3 周目で出た指摘のうち、直さなかったものをまとめた
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは閉じたコミットの本文）
