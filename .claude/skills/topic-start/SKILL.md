@@ -63,8 +63,10 @@ worktree に無い。キャッシュ（main と共有。reflink）から `dvc.lo
 scripts/worktree-restore-outputs.sh
 ```
 
-終了コード 255 で終わることがある。`dvc.lock` に hash がまだ無いステージと、キャッシュに無い出力（OpenMC の結果など）は
-戻らないためで、戻らなかった出力は一覧に出る。作業に要るものが入っていなければ `dvc repro` で作る。
+終了コードは 0 か 1（中身は `scripts/dvc-checkout.py`）。`dvc.lock` に hash がまだ無いステージ（流していない参照解など）の出力は
+戻らず、`UNRUN:` に数えるだけで 0 になる。作業に要るものがそこに入っていれば `dvc repro` で作る。hash があるのに戻らなかった
+出力（キャッシュに無いか、ブランチが変えた lock の出力）は `MISSING:` に出て 1 で止まる。これは `dvc repro` で埋めずに原因を
+調べる（`.dvc` で追う生成物は `dvc repro` で作れない。ADR-0222）。
 
 そのあと、worktree でビルドする。`target/` は worktree ごとにあり、最初は全体を作るので数分かかる（手元でよい。ADR-0026）。
 DVC のステージが呼ぶ実行ファイルは、これとは別に `dvc repro` の `build` が `target/dvc` に作る（ADR-0159）:
