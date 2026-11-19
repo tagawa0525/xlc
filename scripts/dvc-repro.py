@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """dvc repro の前に走りうるステージを数え、上限を超えるか、許していない参照解のステージが入っていれば、何も実行せずに止まる（ADR-0257）。
+`-s` では、上流の出力が dvc.lock のとおりかを確かめてから、目標のステージだけを実行する（ADR-0258）。
 
 使い方（default の devShell で、リポジトリの直下から）:
     scripts/dvc-repro.py --max-stages <N> [--allow-reference <yaml>:<ステージか foreach の組>]... [--count-only]
                          [--no-run-cache] (-P | <dvc repro の目標>...)
+    scripts/dvc-repro.py -s [--allow-reference <yaml>:<ステージか foreach の組>]... [--count-only] [--no-run-cache]
+                         <yaml>:<ステージか foreach の組>
 
 - 走る範囲は `dvc repro --dry -f <目標>` が並べるステージ（目標とその上流）で、cmd もそこから読む
 - 走りうるステージは、範囲のうち `dvc status --json --with-deps <目標>` が changed と示すものと、`dvc dag --dot` でその下流に
@@ -15,11 +18,17 @@
   `--allow-reference` に `<yaml>:<ステージ>` か `<yaml>:<組>`（foreach の組の全部）で挙げたものだけを実行してよい
 - 一覧（ステージごとに changed の種類か、どの changed の下流か）を出し、通れば `dvc repro <目標>` を同じプロセスで実行する
   （終了コードは dvc repro のもの）。`--count-only` は数えて終わる（通れば 0、止まれば 1）
-- `-s` は受けない（上流を飛ばす数秒の再実行は手元で実行する。ADR-0184）。ほかの dvc repro のオプションも、走るステージの
-  数え方を変えうるので受けない
+- `-s`: 走るのは目標（foreach の組なら組の全部）だけなので、数える代わりに上流を確かめる。目標の上流（`dvc status --json
+  --with-deps <目標>`）が `changed outs`、`changed command`、`changed checksum` を持てば、何も実行せずに止まる（判定は
+  scripts/check-skip-upstream.py の blockers）。上流の changed が deps だけなら、上流の出力は dvc.lock のとおりで、下流の lock は
+  上流の lock とつながる。changed の正規形のステージ（python-ast、toml-values、binary-forms）は、下流の cmd が元のファイルを読むので
+  `dvc repro -s <そのステージ>` で先に実行し、確かめ直す。上流に references-shell があれば scripts/check-references-shell.sh を
+  通す。参照解の目標は `--allow-reference` に挙げたときだけ実行する。通れば `dvc repro -s <目標>` を同じプロセスで実行する
+- ほかの dvc repro のオプションは、走るステージの数え方を変えうるので受けない
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -34,6 +43,13 @@ DRY_STAGE = re.compile(r"Running stage '(.+)':")
 DOT_EDGE = re.compile(r'"(.+)" -> "(.+)";')
 REFERENCES_SHELL = "references-shell"
 CHECK_REFERENCES_SHELL = Path(__file__).resolve().parent / "check-references-shell.sh"
+
+# -s の上流の判定は check-skip-upstream.py と同じものを使う（名前に - があるので import 文では読めない）
+_SPEC = importlib.util.spec_from_file_location(
+    "check_skip_upstream", Path(__file__).resolve().parent / "check-skip-upstream.py"
+)
+skip_upstream = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(skip_upstream)
 
 
 class ReproError(Exception):
@@ -87,6 +103,16 @@ def allows(entry: str, key: str) -> bool:
     return key == entry or key.split("@", 1)[0] == entry
 
 
+def check_allow(allow: list[str], scope: list[str]) -> None:
+    """`--allow-reference` のどれもが、走る範囲のステージを指すこと（書き違いで何も許さないまま通さない）"""
+    for entry in allow:
+        if not any(allows(entry, key) for key in scope):
+            raise ReproError(
+                f"--allow-reference {entry} names no stage of this dvc repro "
+                "(write it as <yaml>:<stage> or <yaml>:<foreach group>, as dvc status shows)"
+            )
+
+
 @dataclass
 class Count:
     runs: dict[str, str]  # 走りうるステージ → 理由（実行の順）
@@ -107,12 +133,7 @@ def count(
     """走りうるステージを数える。shell_matches は references-shell.txt が references の devShell と同じか"""
     scope = list(cmds)
     in_scope = set(scope)
-    for entry in allow:
-        if not any(allows(entry, key) for key in scope):
-            raise ReproError(
-                f"--allow-reference {entry} names no stage of this dvc repro "
-                "(write it as <yaml>:<stage> or <yaml>:<foreach group>, as dvc status shows)"
-            )
+    check_allow(allow, scope)
     children: dict[str, set[str]] = {}
     for up, down in edges:
         if up in in_scope and down in in_scope:
@@ -149,6 +170,39 @@ def count(
     ]
     outside = sorted(key for key in status if key not in in_scope)
     return Count(runs, references, refused, outside)
+
+
+@dataclass
+class Single:
+    runs: list[str]  # 目標のステージ（foreach の組なら組の全部。実行の順）
+    references: list[str]  # runs のうち参照解のステージ
+    refused: list[str]  # references のうち許していないもの
+    run_first: list[str]  # 先に実行する changed の正規形のステージ
+    blocked: list[tuple[str, list[str]]]  # 止める上流のステージと変更の種類
+    needs_shell_check: bool  # 上流に references-shell があるか
+
+
+def plan_single(
+    status: dict, cmds: dict[str, list[str]], target: str, allow: list[str]
+) -> Single:
+    """`-s <目標>` で走るステージと、上流の確認の結果。cmds は `dvc repro --dry -f -s <目標>`、status は
+    `dvc status --json --with-deps <目標>`"""
+    runs = list(cmds)
+    check_allow(allow, runs)
+    references = [key for key in runs if is_reference(cmds[key])]
+    refused = [
+        key for key in references if not any(allows(entry, key) for entry in allow)
+    ]
+    run_first, blocked = [], []
+    for key, kinds in skip_upstream.blockers(status, target):
+        if key.startswith(skip_upstream.RUN_FIRST):
+            run_first.append(key)
+        else:
+            blocked.append((key, kinds))
+    needs_shell_check = any(
+        stage_name(key) == REFERENCES_SHELL and key not in cmds for key in status
+    )
+    return Single(runs, references, refused, run_first, blocked, needs_shell_check)
 
 
 def dvc(*args: str) -> str:
@@ -193,27 +247,126 @@ def report(c: Count, max_stages: int) -> list[str]:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--max-stages", type=int, required=True)
+    parser.add_argument("--max-stages", type=int)
     parser.add_argument("--allow-reference", action="append", default=[])
     parser.add_argument("--count-only", action="store_true")
     parser.add_argument("--no-run-cache", action="store_true")
     parser.add_argument("-P", "--all-pipelines", action="store_true")
-    # -s を受けないことを、argparse の「unrecognized arguments」でなく理由とともに示す
-    parser.add_argument(
-        "-s", "--single-item", action="store_true", help=argparse.SUPPRESS
-    )
+    parser.add_argument("-s", "--single-item", action="store_true")
     parser.add_argument("targets", nargs="*")
     args = parser.parse_args(argv)
     if args.single_item:
+        # 上流の確認が、数える代わりになる。目標が 1 つでないと、確かめた上流と走るステージが食い違う
+        if args.max_stages is not None:
+            parser.error(
+                "-s runs only the target, so it checks the upstream instead of counting: "
+                "drop --max-stages"
+            )
+        if args.all_pipelines or len(args.targets) != 1 or ":" not in args.targets[0]:
+            parser.error(
+                "-s takes one target written as <yaml>:<stage or foreach group>"
+            )
+        return args
+    if args.max_stages is None:
         parser.error(
-            "-s is not counted here: run the seconds-long reruns that skip the upstream "
-            "locally with dvc repro -s (/dvc-relock, ADR-0184)"
+            "--max-stages is required (or -s for one stage over a locked upstream)"
         )
     if args.max_stages < 0:
         parser.error("--max-stages must not be negative")
     if args.all_pipelines == bool(args.targets):
         parser.error("give either -P or the targets of dvc repro")
     return args
+
+
+def report_single(p: Single) -> list[str]:
+    """`-s` の一覧を出し、止まる理由を返す（空なら通る）"""
+    for key in p.runs:
+        mark = " [reference]" if key in p.references else ""
+        print(f"RUN: {key}{mark} (target of -s)")
+    for key in p.run_first:
+        print(f"RUN-FIRST: {key} (normalized form, changed)")
+    for key, kinds in p.blocked:
+        print(f"BLOCKED: {key}: {', '.join(kinds)}")
+    problems = []
+    if p.blocked:
+        problems.append(
+            "upstream stages have changes other than changed deps, so their outputs are not what "
+            "dvc.lock records"
+        )
+    if p.refused:
+        problems.append(
+            "reference stages not allowed by --allow-reference: " + ", ".join(p.refused)
+        )
+    return problems
+
+
+SINGLE_NEXT = (
+    "NEXT: nothing ran. A BLOCKED upstream stage has outputs that differ from dvc.lock (outputs not "
+    "restored with scripts/dvc-checkout.py, or edited) or a changed command; restore the outputs, or "
+    "run without -s so dvc repro runs the upstream first (scripts/dvc-repro.py --max-stages). Add "
+    "--allow-reference only for a reference stage the job is meant to run"
+)
+
+
+def plan_and_report(target: str, cmds: dict[str, list[str]], allow: list[str]):
+    status = json.loads(dvc("status", "--json", "--with-deps", target))
+    p = plan_single(status, cmds, target, allow)
+    problems = report_single(p)
+    if p.needs_shell_check:
+        matches = references_shell_matches()
+        print(
+            f"REFERENCES-SHELL: matches the references devShell: {'yes' if matches else 'no'}"
+        )
+        if not matches:
+            problems.append(
+                "references-shell.txt differs from the references devShell (scripts/check-references-shell.sh)"
+            )
+    return p, problems
+
+
+def single_item(args: argparse.Namespace) -> int:
+    """`-s <目標>`: 上流の出力が dvc.lock のとおりかを確かめ、目標だけを実行する"""
+    target = args.targets[0]
+    cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", target))
+    if not cmds:
+        raise ReproError(f"dvc repro --dry -f -s {target} listed no stage")
+    p, problems = plan_and_report(target, cmds, args.allow_reference)
+    if problems:
+        for problem in problems:
+            print(f"STOP: {problem}", file=sys.stderr)
+        print(SINGLE_NEXT, file=sys.stderr)
+        return 1
+    if args.count_only:
+        return 0
+    if p.run_first:
+        command = ["dvc", "repro", "-s", *p.run_first]
+        print(f"RUNNING: {' '.join(command)}", flush=True)
+        if subprocess.run(command, check=False).returncode != 0:
+            raise ReproError(f"{' '.join(command)} failed")
+        # 正規形を書き直すと、上流の deps の md5 が変わりうるので確かめ直す
+        p, problems = plan_and_report(target, cmds, args.allow_reference)
+        if p.run_first:
+            problems.append(
+                "normalized forms are still changed after running them: "
+                + ", ".join(p.run_first)
+            )
+        if problems:
+            for problem in problems:
+                print(f"STOP: {problem}", file=sys.stderr)
+            print(
+                SINGLE_NEXT.replace("nothing ran", "only the normalized forms ran"),
+                file=sys.stderr,
+            )
+            return 1
+    command = [
+        "dvc",
+        "repro",
+        "-s",
+        *(["--no-run-cache"] if args.no_run_cache else []),
+        target,
+    ]
+    print(f"RUNNING: {' '.join(command)}", flush=True)
+    os.execvp("dvc", command)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -234,6 +387,8 @@ def main(argv: list[str] | None = None) -> int:
             raise ReproError(
                 f"run from the root of the repository ({root}); the targets are paths from there"
             )
+        if args.single_item:
+            return single_item(args)
         cmds = parse_dry_run(dvc("repro", "--dry", "-f", *selection))
         if not cmds:
             raise ReproError(
@@ -258,7 +413,12 @@ def main(argv: list[str] | None = None) -> int:
                 f"REFERENCES-SHELL: matches the references devShell: {'yes' if shell_matches else 'no'}"
             )
         c = count(status, edges, cmds, shell_matches, args.allow_reference)
-    except (ReproError, subprocess.CalledProcessError, json.JSONDecodeError) as e:
+    except (
+        ReproError,
+        ValueError,
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+    ) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
     problems = report(c, args.max_stages)
