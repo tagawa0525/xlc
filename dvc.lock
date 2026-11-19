@@ -723,10 +723,10 @@ stages:
       hash: md5
       md5: cbfcc01b4e52fafcaa4e68f101e58e48
       size: 178
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/cycle-1.toml.json
       hash: md5
@@ -740,10 +740,10 @@ stages:
       hash: md5
       md5: 82b7394ec3370f3b61fdf9bf339c4c51
       size: 3536
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/assembly-21.toml.json
       hash: md5
@@ -758,10 +758,10 @@ stages:
       hash: md5
       md5: fba723eec2d807fe44819b9fc629b003
       size: 21218
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-21-rcca.toml.json
       hash: md5
@@ -776,10 +776,10 @@ stages:
       hash: md5
       md5: c5e5cfdfe7ed3e735d94f8559d1f32dd
       size: 10480
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/reflector-I-31-p12-empty-igrid.toml.json
@@ -794,10 +794,10 @@ stages:
       hash: md5
       md5: 8ad853a8b88b08ad7bbcecc6035f14eb
       size: 21637
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-21.toml.json
       hash: md5
@@ -812,10 +812,10 @@ stages:
       hash: md5
       md5: b38aac570d5ae4ce3c5d5814b16e530d
       size: 5830
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-poison.toml.json
       hash: md5
@@ -830,10 +830,10 @@ stages:
       hash: md5
       md5: 48b79ec155c39ecf8ebb04f049bb412f
       size: 692
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-I-plant.toml.json
       hash: md5
@@ -848,10 +848,10 @@ stages:
       hash: md5
       md5: 0d09e18f4093ec9bfe5451ad05a39ad8
       size: 355
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-E-cycle.toml.json
       hash: md5
@@ -865,10 +865,10 @@ stages:
       hash: md5
       md5: e6c7c0e7f7a3616afb3f93de4b93613c
       size: 4288
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/lattice-6-zgrid.toml.json
       hash: md5
@@ -883,10 +883,10 @@ stages:
       hash: md5
       md5: 2209447d11eebe19b967ce753339c29c
       size: 1294
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-Ly-plant.toml.json
       hash: md5
@@ -900,10 +900,10 @@ stages:
       hash: md5
       md5: 1a785fcc63e4d73e361be2d4943628e3
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-128.toml.json
       hash: md5
@@ -918,10 +918,10 @@ stages:
       hash: md5
       md5: 879dd626e74588f8018fa919a7616eb6
       size: 5408
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p8-plenum.toml.json
       hash: md5
@@ -936,10 +936,10 @@ stages:
       hash: md5
       md5: 82973b8a35ce8f9b09460213a264b744
       size: 2611
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B-assemblies.toml.json
       hash: md5
@@ -953,10 +953,10 @@ stages:
       hash: md5
       md5: 5ad35af0aac7f99c80985799c8c3293d
       size: 6540
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/21-fuel.toml.json
       hash: md5
@@ -970,10 +970,10 @@ stages:
       hash: md5
       md5: 34cce12cc99fcc0959e71def63c1aad3
       size: 3485
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2B.toml.json
       hash: md5
@@ -988,10 +988,10 @@ stages:
       hash: md5
       md5: 97e62b5007f6a006379da0f5a5f350f6
       size: 410
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-Ly.toml.json
       hash: md5
@@ -1005,10 +1005,10 @@ stages:
       hash: md5
       md5: 65407278bd05bed9b62ea3fda0176b3d
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-124.toml.json
       hash: md5
@@ -1023,10 +1023,10 @@ stages:
       hash: md5
       md5: c5226cd5a085637bb89f75c54f193b7b
       size: 7879
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5C-assemblies.toml.json
       hash: md5
@@ -1040,10 +1040,10 @@ stages:
       hash: md5
       md5: 768732fb6f3d000836f5a9196bc62604
       size: 178
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/cycle-2.toml.json
       hash: md5
@@ -1058,10 +1058,10 @@ stages:
       hash: md5
       md5: 71098123840b7300d1de04faea9ff368
       size: 2447
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A-Ly-cycle.toml.json
       hash: md5
@@ -1076,10 +1076,10 @@ stages:
       hash: md5
       md5: 73134ca2484ebaaec9b1e424e4c65ac4
       size: 4339
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
       hash: md5
@@ -1094,10 +1094,10 @@ stages:
       hash: md5
       md5: e1ddb2adc6aa7a6e4327429a0e59d2ac
       size: 2241
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/core-6-low-power.toml.json
       hash: md5
@@ -1111,10 +1111,10 @@ stages:
       hash: md5
       md5: 8243cb84fbc8f257eb49995474d9dee0
       size: 4789
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/lattice-6-igrid.toml.json
       hash: md5
@@ -1128,10 +1128,10 @@ stages:
       hash: md5
       md5: 70a8840677a0f63abfa3a3f9a85e9e92
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-180.toml.json
       hash: md5
@@ -1146,10 +1146,10 @@ stages:
       hash: md5
       md5: 940fc32a1f741a4f21f2245be1ffb6cb
       size: 7879
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5B-assemblies.toml.json
       hash: md5
@@ -1163,10 +1163,10 @@ stages:
       hash: md5
       md5: 511c28c4235a6a49635d2dbd9f7de4fd
       size: 718
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m1/pincell-f900-m293.6.toml.json
       hash: md5
@@ -1181,10 +1181,10 @@ stages:
       hash: md5
       md5: 6b15aecc1d4db4020ef58fa5cf8e1504
       size: 5279
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3B-plug-igrid.toml.json
       hash: md5
@@ -1199,10 +1199,10 @@ stages:
       hash: md5
       md5: ed9dc0f44bbf467b66bb7135f03fd58d
       size: 163
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/interp-31-cycle.toml.json
       hash: md5
@@ -1217,10 +1217,10 @@ stages:
       hash: md5
       md5: f39b53a4c2a073e7e4b5fb80fc33d631
       size: 1488
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/depletion/p9-fuel-points/fuel-points-2A.toml.json
@@ -1236,10 +1236,10 @@ stages:
       hash: md5
       md5: cfd16f39882455fab2d8e19f98b38951
       size: 3905
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3A-zgrid.toml.json
       hash: md5
@@ -1254,10 +1254,10 @@ stages:
       hash: md5
       md5: 1ed7a388c74531a752de41a3a46f0808
       size: 4395
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3A-igrid.toml.json
       hash: md5
@@ -1271,10 +1271,10 @@ stages:
       hash: md5
       md5: 339ee3e928b9f28c1173ac304106bea0
       size: 600
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/mox/openmc-mox1.toml.json
       hash: md5
@@ -1289,10 +1289,10 @@ stages:
       hash: md5
       md5: 244432dbe4764661401cb35f11493671
       size: 1755
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       hash: md5
@@ -1306,10 +1306,10 @@ stages:
       hash: md5
       md5: 67ab37b75380e28a1d7c06b0a3a30a6d
       size: 22552
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/axial-3B.toml.json
       hash: md5
@@ -1323,10 +1323,10 @@ stages:
       hash: md5
       md5: acdf610d4a89f3c2b995d69a345562d6
       size: 307
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/case.toml.json
       hash: md5
@@ -1341,10 +1341,10 @@ stages:
       hash: md5
       md5: 8c1e0525161c9506e07427ba1ecbc534
       size: 18019
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/reflector-corner.toml.json
       hash: md5
@@ -1359,10 +1359,10 @@ stages:
       hash: md5
       md5: de4bf05d433ba98052a53643c8218aa3
       size: 5223
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/endfb70/p3/lattice-3B-poison-zgrid.toml.json
@@ -1377,10 +1377,10 @@ stages:
       hash: md5
       md5: d9b3108d4a388b4b07ef2336eb6ae612
       size: 827
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/crates/lattice/Cargo.toml.json
       hash: md5
@@ -1395,10 +1395,10 @@ stages:
       hash: md5
       md5: 843a58b5708b6ef0cf49c71650853900
       size: 724
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m1/pincell-f293.6-m293.6.toml.json
       hash: md5
@@ -1413,10 +1413,10 @@ stages:
       hash: md5
       md5: 7426420530c46f6a4e66b4c8143bd6d8
       size: 2473
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-timing/core-p9-cycle.toml.json
       hash: md5
@@ -1430,10 +1430,10 @@ stages:
       hash: md5
       md5: 1c5c58a074448f09f28fb6704a3238f7
       size: 161
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/core-6-plant.toml.json
       hash: md5
@@ -1448,10 +1448,10 @@ stages:
       hash: md5
       md5: d0f0a4a51a00dea91e8d3eff017b7ca2
       size: 853
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/openmc-mox1-rings1.toml.json
       hash: md5
@@ -1466,10 +1466,10 @@ stages:
       hash: md5
       md5: 537a66f2f75f021df89741d26bf0e183
       size: 1055
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-assemblies.toml.json
       hash: md5
@@ -1484,10 +1484,10 @@ stages:
       hash: md5
       md5: 788a351abe8309f9da4f81bb1fc79c82
       size: 473
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-0.25-180.toml.json
       hash: md5
@@ -1502,10 +1502,10 @@ stages:
       hash: md5
       md5: 43891614a26765f82b0cb0f6fcec963c
       size: 5163
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2A-rods.toml.json
       hash: md5
@@ -1520,10 +1520,10 @@ stages:
       hash: md5
       md5: 6b15aecc1d4db4020ef58fa5cf8e1504
       size: 5279
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-plug-igrid.toml.json
       hash: md5
@@ -1538,10 +1538,10 @@ stages:
       hash: md5
       md5: 4013fa6bac0dc14bcb6b5e1a12c27ec8
       size: 5831
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-poison.toml.json
       hash: md5
@@ -1555,10 +1555,10 @@ stages:
       hash: md5
       md5: 51d6a7d39a329beb1242f207cce9208b
       size: 452
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-124.toml.json
       hash: md5
@@ -1572,10 +1572,10 @@ stages:
       hash: md5
       md5: d06c9dd69d1a936e1c61c3fcd3a685f2
       size: 995
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m0/plant.toml.json
       hash: md5
@@ -1589,10 +1589,10 @@ stages:
       hash: md5
       md5: f3a9805210519499b5a2349d11e089ca
       size: 664
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5C.toml.json
       hash: md5
@@ -1606,10 +1606,10 @@ stages:
       hash: md5
       md5: 935e8726d4029825d4f651018d18f1aa
       size: 4730
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2F.toml.json
       hash: md5
@@ -1623,10 +1623,10 @@ stages:
       hash: md5
       md5: 9aa44b82e324960ce264e812094f3f5b
       size: 5399
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-plug.toml.json
       hash: md5
@@ -1641,10 +1641,10 @@ stages:
       hash: md5
       md5: 00a031886c43c92a96f564820a0904d9
       size: 18707
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-corner-31-igrid.toml.json
       hash: md5
@@ -1658,10 +1658,10 @@ stages:
       hash: md5
       md5: cf2b507961de8ca9fbcd7cdb32abfaea
       size: 4979
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2M.toml.json
       hash: md5
@@ -1675,10 +1675,10 @@ stages:
       hash: md5
       md5: bc7390f631b053ff202b2c2521815c1e
       size: 7023
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-zgrid.toml.json
       hash: md5
@@ -1688,14 +1688,14 @@ stages:
     cmd: python3 scripts/normalize_toml.py rust-toolchain.toml 
       toml-values/rust-toolchain.toml.json
     deps:
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     - path: rust-toolchain.toml
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
       size: 98
-    - path: scripts/normalize_toml.py
-      hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
     outs:
     - path: toml-values/rust-toolchain.toml.json
       hash: md5
@@ -1709,10 +1709,10 @@ stages:
       hash: md5
       md5: 95878aea540f861bc82386639a973ad0
       size: 1169
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B.toml.json
       hash: md5
@@ -1727,10 +1727,10 @@ stages:
       hash: md5
       md5: a16156bddbaeed556a3823138457a007
       size: 2450
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A-Inext-cycle.toml.json
       hash: md5
@@ -1745,10 +1745,10 @@ stages:
       hash: md5
       md5: cfd16f39882455fab2d8e19f98b38951
       size: 3905
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3A-zgrid.toml.json
       hash: md5
@@ -1763,10 +1763,10 @@ stages:
       hash: md5
       md5: 34797d7c4878471066564cc6ba25366e
       size: 5401
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-empty-igrid.toml.json
       hash: md5
@@ -1780,10 +1780,10 @@ stages:
       hash: md5
       md5: 5e1d8fe5706fcb206e870b40a3ff1911
       size: 4707
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2G.toml.json
       hash: md5
@@ -1798,10 +1798,10 @@ stages:
       hash: md5
       md5: 5b889abf40430f151f91e80d079a95b3
       size: 10373
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-igrid.toml.json
       hash: md5
@@ -1816,10 +1816,10 @@ stages:
       hash: md5
       md5: ba7cfa0158d24bfa128933523ff1163a
       size: 4613
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/rodless-21-fuel.toml.json
       hash: md5
@@ -1834,10 +1834,10 @@ stages:
       hash: md5
       md5: 25e3d6458cf580badc025147873142d2
       size: 5411
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-plenum.toml.json
       hash: md5
@@ -1851,10 +1851,10 @@ stages:
       hash: md5
       md5: 7b1acd66df861da774092bb055357979
       size: 207
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/cycle-node.toml.json
       hash: md5
@@ -1869,10 +1869,10 @@ stages:
       hash: md5
       md5: cc036f770b39cd0771046cddd4dd3143
       size: 473
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-0.25-122.toml.json
       hash: md5
@@ -1887,10 +1887,10 @@ stages:
       hash: md5
       md5: 8fe4ba42fd4e22f5fe5ee4593233fa78
       size: 730
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-assemblies.toml.json
       hash: md5
@@ -1904,10 +1904,10 @@ stages:
       hash: md5
       md5: 7aab5d7d416b432c7119d8e636e094e0
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-128.toml.json
       hash: md5
@@ -1922,10 +1922,10 @@ stages:
       hash: md5
       md5: f5cfa54c68f3d1050c321262cebd16ef
       size: 461
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-corner-fstar.toml.json
       hash: md5
@@ -1940,10 +1940,10 @@ stages:
       hash: md5
       md5: facce14a375013b538aa06ef1ed924b6
       size: 521
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-b4c.toml.json
       hash: md5
@@ -1958,10 +1958,10 @@ stages:
       hash: md5
       md5: 00a4acaf5239b5c5caca6c2849842959
       size: 4179
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-assemblies.toml.json
       hash: md5
@@ -1976,10 +1976,10 @@ stages:
       hash: md5
       md5: c7bb2142bb6c568f1e858f27c5dbab96
       size: 5402
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-empty-igrid.toml.json
       hash: md5
@@ -1994,10 +1994,10 @@ stages:
       hash: md5
       md5: 2dba8457f8abc372b3da4230b4a26a01
       size: 22736
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-31-p24.toml.json
       hash: md5
@@ -2011,10 +2011,10 @@ stages:
       hash: md5
       md5: de6b1fb221197956a8814947c41a4b9b
       size: 321
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/case-nodf.toml.json
       hash: md5
@@ -2029,10 +2029,10 @@ stages:
       hash: md5
       md5: 6e65fc4a22dccad36b2f2b436b42e874
       size: 6231
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-poison-zgrid.toml.json
       hash: md5
@@ -2046,10 +2046,10 @@ stages:
       hash: md5
       md5: a91e6246fc53be89a6b56ff1bbb8b9cf
       size: 259
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/assemblies.toml.json
       hash: md5
@@ -2063,10 +2063,10 @@ stages:
       hash: md5
       md5: 27e5dbce41ebc5a30c5ed0c9861db610
       size: 221
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/crates/format/Cargo.toml.json
       hash: md5
@@ -2081,10 +2081,10 @@ stages:
       hash: md5
       md5: b18634ef74c5c6400b15156ac1de2afc
       size: 6274
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-plug-igrid.toml.json
       hash: md5
@@ -2099,10 +2099,10 @@ stages:
       hash: md5
       md5: b038671fa58e09b24861a6aa3aee8500
       size: 410
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-Lx.toml.json
       hash: md5
@@ -2116,10 +2116,10 @@ stages:
       hash: md5
       md5: c44bdabc5921c8c01c91f96c264db962
       size: 330
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/case-node.toml.json
       hash: md5
@@ -2133,10 +2133,10 @@ stages:
       hash: md5
       md5: 2e674600ee63ea1b88a8027f7f680b6b
       size: 472
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-20.toml.json
       hash: md5
@@ -2150,10 +2150,10 @@ stages:
       hash: md5
       md5: 6c8c61a2cecf0cf23520aa0a98adb307
       size: 5464
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-26-b4c.toml.json
       hash: md5
@@ -2167,10 +2167,10 @@ stages:
       hash: md5
       md5: 466aa5af13bc5772cd8f8a0df9995faa
       size: 1229
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/mox/pincell-mox1.toml.json
       hash: md5
@@ -2185,10 +2185,10 @@ stages:
       hash: md5
       md5: aca5cb9855192dee500752dfaebf0aed
       size: 1025
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-E-plant.toml.json
       hash: md5
@@ -2202,10 +2202,10 @@ stages:
       hash: md5
       md5: 90e801a3b574d2d1c0678d212539f9f5
       size: 464
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-I.toml.json
       hash: md5
@@ -2220,10 +2220,10 @@ stages:
       hash: md5
       md5: efb186f923584647902f63d46fe04079
       size: 1294
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-Lx-plant.toml.json
       hash: md5
@@ -2237,10 +2237,10 @@ stages:
       hash: md5
       md5: 704182ecfd5bbd3913d1f70fa68250a8
       size: 169
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/cycle-nodf.toml.json
       hash: md5
@@ -2254,10 +2254,10 @@ stages:
       hash: md5
       md5: 1834c947c2991db4c280510526fb9b34
       size: 5399
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-plug.toml.json
       hash: md5
@@ -2271,10 +2271,10 @@ stages:
       hash: md5
       md5: 86dff844b8b4ff3d1ad887a1654a656a
       size: 4035
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/xs.toml.json
       hash: md5
@@ -2288,10 +2288,10 @@ stages:
       hash: md5
       md5: 39bf5290d911f9c19764c92089260b77
       size: 449
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-60.toml.json
       hash: md5
@@ -2305,10 +2305,10 @@ stages:
       hash: md5
       md5: 9b2b37b2620621f87955d054f1af6bac
       size: 4326
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/xs.toml.json
       hash: md5
@@ -2322,10 +2322,10 @@ stages:
       hash: md5
       md5: 752cb605ea5c6d3c9819d9bc120a5fce
       size: 1144
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A.toml.json
       hash: md5
@@ -2339,10 +2339,10 @@ stages:
       hash: md5
       md5: 1de1856fb0dea5423c5ba9e46169b40c
       size: 2444
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5C-cycle.toml.json
       hash: md5
@@ -2356,10 +2356,10 @@ stages:
       hash: md5
       md5: 1ec703fa6f33826310cde5433f40e9cc
       size: 410
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-I.toml.json
       hash: md5
@@ -2373,10 +2373,10 @@ stages:
       hash: md5
       md5: c6dc6ba92dabfd1757279cadc14e3ab4
       size: 3565
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3A-fuel.toml.json
       hash: md5
@@ -2390,10 +2390,10 @@ stages:
       hash: md5
       md5: 4aad98ab3d3590d1fe13eb67cb6ec7aa
       size: 3528
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2A.toml.json
       hash: md5
@@ -2407,10 +2407,10 @@ stages:
       hash: md5
       md5: d25f738aa65ad5e5276e57d758e4462f
       size: 463
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-128.toml.json
       hash: md5
@@ -2424,10 +2424,10 @@ stages:
       hash: md5
       md5: 2cf5091e3a9fad0e4208e49ec3334714
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-118.toml.json
       hash: md5
@@ -2442,10 +2442,10 @@ stages:
       hash: md5
       md5: f6d85d7b414e443df51c15e94c8b5f6c
       size: 189
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/core-lattice-corner-fstar-cycle.toml.json
@@ -2460,10 +2460,10 @@ stages:
       hash: md5
       md5: e7ca1c982f9025198bf5e4578fee712b
       size: 469
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-1-116.toml.json
       hash: md5
@@ -2478,10 +2478,10 @@ stages:
       hash: md5
       md5: 624e7eca30966afdf443e20d8d41b4d0
       size: 240
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-slab-fine-cycle.toml.json
       hash: md5
@@ -2495,10 +2495,10 @@ stages:
       hash: md5
       md5: a68604a0aa809bec20c53aec6aa29cdc
       size: 5398
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-plug.toml.json
       hash: md5
@@ -2513,10 +2513,10 @@ stages:
       hash: md5
       md5: aeb8f3bbf5040c550286f1f143f2a2e2
       size: 10471
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-gd/compare-2O-all.toml.json
       hash: md5
@@ -2531,10 +2531,10 @@ stages:
       hash: md5
       md5: bb345f1682e5f75c5a457427fe7ffaf1
       size: 484
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/openmc/openmc-1B.toml.json
       hash: md5
@@ -2548,10 +2548,10 @@ stages:
       hash: md5
       md5: 822751f45d1386a9463a6b09363669bd
       size: 638
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m0/pincell.toml.json
       hash: md5
@@ -2566,10 +2566,10 @@ stages:
       hash: md5
       md5: eb571d1418de92f5cf6c90271d66fa83
       size: 6231
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-poison-zgrid.toml.json
       hash: md5
@@ -2584,10 +2584,10 @@ stages:
       hash: md5
       md5: 9d44e23f8ed7c8232df06887efcac1ec
       size: 610
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-I-plant.toml.json
       hash: md5
@@ -2602,10 +2602,10 @@ stages:
       hash: md5
       md5: 7c8ca1c277de30f12563716429f7b0d4
       size: 2393
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-slab-assemblies.toml.json
       hash: md5
@@ -2620,10 +2620,10 @@ stages:
       hash: md5
       md5: 497f07da351296a0465ae31ea841269d
       size: 198
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-cycle.toml.json
       hash: md5
@@ -2637,10 +2637,10 @@ stages:
       hash: md5
       md5: d3ec79d41e043eb4468bdc99f8f81823
       size: 7023
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/21-zgrid.toml.json
       hash: md5
@@ -2654,10 +2654,10 @@ stages:
       hash: md5
       md5: 51a8330abb74b59958bc6993c6bd306a
       size: 3947
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/lattice-6-fuel.toml.json
       hash: md5
@@ -2671,10 +2671,10 @@ stages:
       hash: md5
       md5: 5f7d7bb74411f516b883439c2bc38f00
       size: 3019
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m3-nuclides/xs.toml.json
       hash: md5
@@ -2688,10 +2688,10 @@ stages:
       hash: md5
       md5: a3d0b75008c294b9ac776a7966b6b1eb
       size: 131
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-cycle.toml.json
       hash: md5
@@ -2705,10 +2705,10 @@ stages:
       hash: md5
       md5: 752cb605ea5c6d3c9819d9bc120a5fce
       size: 1144
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A.toml.json
       hash: md5
@@ -2723,10 +2723,10 @@ stages:
       hash: md5
       md5: 68a11e09cc84697e661fb3055d128ec6
       size: 367
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/assemblies-nodf.toml.json
       hash: md5
@@ -2740,10 +2740,10 @@ stages:
       hash: md5
       md5: d3dd549e4ce767e6ab8f103664241815
       size: 454
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-150.toml.json
       hash: md5
@@ -2757,10 +2757,10 @@ stages:
       hash: md5
       md5: a01735e830d080fa5f4cc15565ea28e2
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-200.toml.json
       hash: md5
@@ -2775,10 +2775,10 @@ stages:
       hash: md5
       md5: 5f7c95b93c7d327bc3c15d223c4df473
       size: 1096
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A-slab.toml.json
       hash: md5
@@ -2792,10 +2792,10 @@ stages:
       hash: md5
       md5: cd1d2c349a05b8110e762a77d55452e7
       size: 3485
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2C.toml.json
       hash: md5
@@ -2810,10 +2810,10 @@ stages:
       hash: md5
       md5: e42357a5d1f5e4b28fd4481235f3a872
       size: 556
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-Lx-cycle.toml.json
       hash: md5
@@ -2828,10 +2828,10 @@ stages:
       hash: md5
       md5: 673064a93c8bde0edce101b7972c055a
       size: 3692
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3B-empty.toml.json
       hash: md5
@@ -2845,10 +2845,10 @@ stages:
       hash: md5
       md5: 0fc99d865892007f9046e71a265aa15f
       size: 351
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/assemblies.toml.json
       hash: md5
@@ -2862,10 +2862,10 @@ stages:
       hash: md5
       md5: 76fbd8fb192fb86237b078ea9680ce1c
       size: 664
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5B.toml.json
       hash: md5
@@ -2879,10 +2879,10 @@ stages:
       hash: md5
       md5: 54b8e5858a1d53ddbdf9c1c79389f3c7
       size: 4153
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2A.toml.json
       hash: md5
@@ -2897,10 +2897,10 @@ stages:
       hash: md5
       md5: f6664f600c54701315102cd040bbfdd4
       size: 475
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-0.125-122.toml.json
       hash: md5
@@ -2915,10 +2915,10 @@ stages:
       hash: md5
       md5: 522445a46b4face11bd999c22555ded7
       size: 141
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B-slab-cycle.toml.json
       hash: md5
@@ -2932,10 +2932,10 @@ stages:
       hash: md5
       md5: 2b3ed9c07e28697a5378c3f1201a68c9
       size: 5961
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/assembly.toml.json
       hash: md5
@@ -2949,10 +2949,10 @@ stages:
       hash: md5
       md5: a6fedbcf34556bd587eccd8d6dde6c85
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-116.toml.json
       hash: md5
@@ -2966,10 +2966,10 @@ stages:
       hash: md5
       md5: 5efe18970d588e0ebc79c3c311744342
       size: 3674
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/assembly-2.toml.json
       hash: md5
@@ -2984,10 +2984,10 @@ stages:
       hash: md5
       md5: 97a03d08567f4aafa71e6bda79970fb4
       size: 475
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-0.125-116.toml.json
       hash: md5
@@ -3001,10 +3001,10 @@ stages:
       hash: md5
       md5: 4f641e3e99dc5b702e43e8e900a1e598
       size: 5656
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-31-p12.toml.json
       hash: md5
@@ -3018,10 +3018,10 @@ stages:
       hash: md5
       md5: dbbc298c409f179ce82defefd1e57a42
       size: 366
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/plant.toml.json
       hash: md5
@@ -3036,10 +3036,10 @@ stages:
       hash: md5
       md5: c158b7bb81aaa38f9cac9ea7240b8332
       size: 4976
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/rodless-31-zgrid.toml.json
       hash: md5
@@ -3054,10 +3054,10 @@ stages:
       hash: md5
       md5: d89b25871d5e728e2ef37f5158f6cd2a
       size: 1915
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/lattice-1C-rings1.toml.json
       hash: md5
@@ -3072,10 +3072,10 @@ stages:
       hash: md5
       md5: e526d7ecced7bee5a1105a7ebc955fd9
       size: 5575
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-product/lattice-2A.toml.json
       hash: md5
@@ -3089,10 +3089,10 @@ stages:
       hash: md5
       md5: 66b9c234427516e64ecd01c6102553dc
       size: 718
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m1/pincell-f293.6-m600.toml.json
       hash: md5
@@ -3106,10 +3106,10 @@ stages:
       hash: md5
       md5: dd145867ad087dd2cc47d78f920dfc75
       size: 131
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-cycle.toml.json
       hash: md5
@@ -3123,10 +3123,10 @@ stages:
       hash: md5
       md5: 9952342042705b1ac3c5f7e2be6e6567
       size: 7632
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2O.toml.json
       hash: md5
@@ -3140,10 +3140,10 @@ stages:
       hash: md5
       md5: 001d0fb704c99a371d291ba872fa32a8
       size: 469
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-1-122.toml.json
       hash: md5
@@ -3158,10 +3158,10 @@ stages:
       hash: md5
       md5: 4be7c4e38c6422fe443f0af1b6b3e998
       size: 10091
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/reflector-corner.toml.json
       hash: md5
@@ -3175,10 +3175,10 @@ stages:
       hash: md5
       md5: 72fde7dcb53c26c798368f2a10adc4a8
       size: 5305
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-igrid.toml.json
       hash: md5
@@ -3193,10 +3193,10 @@ stages:
       hash: md5
       md5: c2b35dfbafcdfd644384bb109e4604d5
       size: 6274
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-plug-igrid.toml.json
       hash: md5
@@ -3211,10 +3211,10 @@ stages:
       hash: md5
       md5: 6f03917727430f44878f270cc0dc58b3
       size: 6087
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-product/branch-2A.toml.json
       hash: md5
@@ -3228,10 +3228,10 @@ stages:
       hash: md5
       md5: 530acf75250f88bf443d50f8080fc3ac
       size: 9553
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/reflector-I.toml.json
       hash: md5
@@ -3246,10 +3246,10 @@ stages:
       hash: md5
       md5: abaf5b82a0166353c4e486c1c3191851
       size: 368
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-I-plant.toml.json
       hash: md5
@@ -3264,10 +3264,10 @@ stages:
       hash: md5
       md5: 5b3df88e4eb6f4751b293e1abb285264
       size: 4578
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-empty.toml.json
       hash: md5
@@ -3281,10 +3281,10 @@ stages:
       hash: md5
       md5: 73e846eba2dd493fc21c378bd287af76
       size: 5159
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2F.toml.json
       hash: md5
@@ -3299,10 +3299,10 @@ stages:
       hash: md5
       md5: 57c6101e4baf2d0443941c491bb7e178
       size: 6274
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-plug-igrid.toml.json
       hash: md5
@@ -3317,10 +3317,10 @@ stages:
       hash: md5
       md5: 1c68daba700c75c38cf6404eb5ccb739
       size: 224
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-fstar-32-cycle.toml.json
       hash: md5
@@ -3334,10 +3334,10 @@ stages:
       hash: md5
       md5: 607599ffb9282261120b82ce84c10a6b
       size: 1511
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p1/pincell-1B.toml.json
       hash: md5
@@ -3352,10 +3352,10 @@ stages:
       hash: md5
       md5: d212ad8c212378b7c2301dfa6cdfc073
       size: 169
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/interp-31-assemblies.toml.json
       hash: md5
@@ -3369,10 +3369,10 @@ stages:
       hash: md5
       md5: 676fad7df2674a343f8316894021eb3c
       size: 183
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/assemblies-2.toml.json
       hash: md5
@@ -3386,10 +3386,10 @@ stages:
       hash: md5
       md5: 55282ed4b9cafe550a12b25d230654e1
       size: 343
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-cycle.toml.json
       hash: md5
@@ -3404,10 +3404,10 @@ stages:
       hash: md5
       md5: 0466be5d72960c57432af32918fe3cfc
       size: 728
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-corner-plant.toml.json
       hash: md5
@@ -3421,10 +3421,10 @@ stages:
       hash: md5
       md5: 77ea1d6decfb23361b524986c5129a2a
       size: 469
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-2-122.toml.json
       hash: md5
@@ -3438,10 +3438,10 @@ stages:
       hash: md5
       md5: 07af20e74861eb17cf65b725739ae2c4
       size: 450
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-120.toml.json
       hash: md5
@@ -3456,10 +3456,10 @@ stages:
       hash: md5
       md5: 74621a8999b2655d1326f129d92c4dac
       size: 1443
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-assemblies.toml.json
       hash: md5
@@ -3473,10 +3473,10 @@ stages:
       hash: md5
       md5: aa5a37bb083cb3f74a6de6d5b485ff6a
       size: 212
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-plant.toml.json
       hash: md5
@@ -3491,10 +3491,10 @@ stages:
       hash: md5
       md5: f9a852c7697ec74de8998a1c176d831b
       size: 4438
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-plenum.toml.json
       hash: md5
@@ -3508,10 +3508,10 @@ stages:
       hash: md5
       md5: 784546c8dbb57259064714c53f5fbaa9
       size: 5640
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-26-aic.toml.json
       hash: md5
@@ -3525,10 +3525,10 @@ stages:
       hash: md5
       md5: dd9d949995431dfc3488dbc220ea2070
       size: 1504
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m0/cycle.toml.json
       hash: md5
@@ -3542,10 +3542,10 @@ stages:
       hash: md5
       md5: 5269c1dd3b250d1193cf6d8c6edae3b7
       size: 134
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/plant.toml.json
       hash: md5
@@ -3560,10 +3560,10 @@ stages:
       hash: md5
       md5: de4bf05d433ba98052a53643c8218aa3
       size: 5223
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-poison-zgrid.toml.json
       hash: md5
@@ -3578,10 +3578,10 @@ stages:
       hash: md5
       md5: 17f9080e8eb49db4389f2dec15c7a749
       size: 550
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-outline.toml.json
       hash: md5
@@ -3596,10 +3596,10 @@ stages:
       hash: md5
       md5: ab03e7b3d42421dc84549e669490f0fc
       size: 450
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-I-fstar.toml.json
       hash: md5
@@ -3613,10 +3613,10 @@ stages:
       hash: md5
       md5: 2ffc27cda1562d38cb350e406cac2a93
       size: 333
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/c5g7/openmc-c5g7.toml.json
       hash: md5
@@ -3630,10 +3630,10 @@ stages:
       hash: md5
       md5: 4bd70824b7981a01853cd9b80abc613d
       size: 1511
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p1/pincell-1C.toml.json
       hash: md5
@@ -3647,10 +3647,10 @@ stages:
       hash: md5
       md5: 37d32ed80fe76d2102ad9faa2e977323
       size: 452
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-90.toml.json
       hash: md5
@@ -3664,10 +3664,10 @@ stages:
       hash: md5
       md5: 163d01d52568b10a35c38557b184b6b4
       size: 465
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-126.toml.json
       hash: md5
@@ -3681,10 +3681,10 @@ stages:
       hash: md5
       md5: d934a859b0903687f6d88544f2fffecb
       size: 5017
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2J.toml.json
       hash: md5
@@ -3698,10 +3698,10 @@ stages:
       hash: md5
       md5: d83716d11ad13e1ac7e3777981a62f7b
       size: 453
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/interp-31.toml.json
       hash: md5
@@ -3715,10 +3715,10 @@ stages:
       hash: md5
       md5: f6d252661ed825460eec12c8897a5a83
       size: 526
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m0/xs.toml.json
       hash: md5
@@ -3733,10 +3733,10 @@ stages:
       hash: md5
       md5: d953923ad23415aae04ae3f97f4db7d7
       size: 862
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-slab-32.toml.json
       hash: md5
@@ -3750,10 +3750,10 @@ stages:
       hash: md5
       md5: d564974a9180609d524d83c2ea4ac064
       size: 6898
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/xs.toml.json
       hash: md5
@@ -3768,10 +3768,10 @@ stages:
       hash: md5
       md5: dc5a6fa2d4334c7e2d8e5a6559f65e24
       size: 10883
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plug-igrid.toml.json
@@ -3786,10 +3786,10 @@ stages:
       hash: md5
       md5: 13cc3c099abd329a54c692923bce01bb
       size: 5656
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-31-p24.toml.json
       hash: md5
@@ -3804,10 +3804,10 @@ stages:
       hash: md5
       md5: 7c8ca1c277de30f12563716429f7b0d4
       size: 2393
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/endfb70/p3/core-3A-slab-assemblies.toml.json
@@ -3823,10 +3823,10 @@ stages:
       hash: md5
       md5: 2f1e50fbb758ee3bb3e3a4506e7d2a39
       size: 141
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-slab-cycle.toml.json
       hash: md5
@@ -3841,10 +3841,10 @@ stages:
       hash: md5
       md5: 3138d7d935196960688c8f8f857b5f56
       size: 521
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-aic.toml.json
       hash: md5
@@ -3859,10 +3859,10 @@ stages:
       hash: md5
       md5: 34e5b40356c363198608c7504dbed1c4
       size: 211
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-slab-plant.toml.json
       hash: md5
@@ -3877,10 +3877,10 @@ stages:
       hash: md5
       md5: becd860bc4e2470878adb88d065c6da6
       size: 224
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-fstar-16-cycle.toml.json
       hash: md5
@@ -3895,10 +3895,10 @@ stages:
       hash: md5
       md5: 6701824fee9f46eac68ffe7826b90fd9
       size: 4613
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/rodless-31-fuel.toml.json
       hash: md5
@@ -3912,10 +3912,10 @@ stages:
       hash: md5
       md5: 0889c68d85a7acb9988ff067538c89f2
       size: 198
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/cycle.toml.json
       hash: md5
@@ -3930,10 +3930,10 @@ stages:
       hash: md5
       md5: 9f907008676f845d4f4ca3e8461ed362
       size: 10477
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/reflector-I-31-p8-empty-igrid.toml.json
@@ -3948,10 +3948,10 @@ stages:
       hash: md5
       md5: 55ece6c24139276fc74226037b3d3d1e
       size: 5657
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-26-p16.toml.json
       hash: md5
@@ -3966,10 +3966,10 @@ stages:
       hash: md5
       md5: ea31f6f8865678ef6ce24019c62c4d45
       size: 12398
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/openmc-library.toml.json
       hash: md5
@@ -3983,10 +3983,10 @@ stages:
       hash: md5
       md5: a6d3c4cd34ed2fb6a0ea554a71dd856f
       size: 21637
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-31.toml.json
       hash: md5
@@ -4001,10 +4001,10 @@ stages:
       hash: md5
       md5: 84c88725cf3f823c289c924dab77a492
       size: 174
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-I-fstar-cycle.toml.json
       hash: md5
@@ -4018,10 +4018,10 @@ stages:
       hash: md5
       md5: 1835c36c7e267e291c3d30d867cbcee0
       size: 9174
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/openmc-library.toml.json
       hash: md5
@@ -4035,10 +4035,10 @@ stages:
       hash: md5
       md5: 5103ff250af838c7eec685ea10efaab4
       size: 702
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m1/pincell.toml.json
       hash: md5
@@ -4053,10 +4053,10 @@ stages:
       hash: md5
       md5: f459935b84077f1c9bdd82016f9a8022
       size: 475
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-0.125-180.toml.json
       hash: md5
@@ -4070,10 +4070,10 @@ stages:
       hash: md5
       md5: 1c4385fc805b5912de6be3dbc92e0c89
       size: 3487
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2D.toml.json
       hash: md5
@@ -4088,10 +4088,10 @@ stages:
       hash: md5
       md5: 3de7e4bc073ade5e6d772d14e364b23b
       size: 4976
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/rodless-21-zgrid.toml.json
       hash: md5
@@ -4106,10 +4106,10 @@ stages:
       hash: md5
       md5: 10f181e109b77576b49e6c922483894a
       size: 21219
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-26-rcca.toml.json
       hash: md5
@@ -4123,10 +4123,10 @@ stages:
       hash: md5
       md5: 683e6ade069d2e592a845971523eb150
       size: 1422
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/Cargo.toml.json
       hash: md5
@@ -4141,10 +4141,10 @@ stages:
       hash: md5
       md5: 8b4091552c42bb29154f07cf1a1950e6
       size: 4815
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-poison.toml.json
       hash: md5
@@ -4159,10 +4159,10 @@ stages:
       hash: md5
       md5: 7ca848b39e45a2de936b0c9c7df1c3cc
       size: 1673
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       hash: md5
@@ -4176,10 +4176,10 @@ stages:
       hash: md5
       md5: 90dcc81b7df84b9605bbe11b07e3a867
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-180.toml.json
       hash: md5
@@ -4193,10 +4193,10 @@ stages:
       hash: md5
       md5: c9e3ac5889c9a1b6ab313255b0f2b2ca
       size: 685
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/openmc-5A-2D.toml.json
       hash: md5
@@ -4211,10 +4211,10 @@ stages:
       hash: md5
       md5: a777294611c9dcf3fdc82cccd4af4cb6
       size: 1482
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/depletion/p9-fuel-points/fuel-points-2O.toml.json
@@ -4230,10 +4230,10 @@ stages:
       hash: md5
       md5: a6c3155086ab475f43984b40cc9f6eca
       size: 5401
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-empty-igrid.toml.json
       hash: md5
@@ -4247,10 +4247,10 @@ stages:
       hash: md5
       md5: 7e55baeae8e91f275f61b49927ec1640
       size: 1513
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p1/pincell-1D.toml.json
       hash: md5
@@ -4264,10 +4264,10 @@ stages:
       hash: md5
       md5: fb701acefa0250190ff69fbf15b2451e
       size: 967
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-half.toml.json
       hash: md5
@@ -4282,10 +4282,10 @@ stages:
       hash: md5
       md5: 8681c90e173cc8c81c105bedb952494f
       size: 711
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-fstar-fine.toml.json
       hash: md5
@@ -4299,10 +4299,10 @@ stages:
       hash: md5
       md5: f33fe16435a8d371bcb3fa3f38f19e7c
       size: 11754
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/axial-3A-16.toml.json
       hash: md5
@@ -4317,10 +4317,10 @@ stages:
       hash: md5
       md5: 5d4b20f8dce41957ec2d699686ecfa21
       size: 355
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-I-cycle.toml.json
       hash: md5
@@ -4334,10 +4334,10 @@ stages:
       hash: md5
       md5: 36d5cf3fabd59b3631e62be7e93e295b
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-126.toml.json
       hash: md5
@@ -4351,10 +4351,10 @@ stages:
       hash: md5
       md5: 0ceb6174c2af05e5b411cc8c5c996841
       size: 1374
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/mox/xs.toml.json
       hash: md5
@@ -4369,10 +4369,10 @@ stages:
       hash: md5
       md5: f9a852c7697ec74de8998a1c176d831b
       size: 4438
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3B-plenum.toml.json
       hash: md5
@@ -4386,10 +4386,10 @@ stages:
       hash: md5
       md5: e4b056d0677b05b4ea2ac276ce22451b
       size: 607
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A-Inext.toml.json
       hash: md5
@@ -4403,10 +4403,10 @@ stages:
       hash: md5
       md5: 03b250f32c95d6c6adc2c7ce82580336
       size: 5398
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p24-plug.toml.json
       hash: md5
@@ -4420,10 +4420,10 @@ stages:
       hash: md5
       md5: 35b29b9c5ef023a4d7ad0e45ad403242
       size: 663
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m0/core.toml.json
       hash: md5
@@ -4438,10 +4438,10 @@ stages:
       hash: md5
       md5: 82a81c8b9e06e26455b4aa7a25bdbd67
       size: 10306
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/reflector-I-31-p12.toml.json
       hash: md5
@@ -4455,10 +4455,10 @@ stages:
       hash: md5
       md5: 995a79aebf66edca4a55e352c5523703
       size: 5657
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-26-p24.toml.json
       hash: md5
@@ -4473,10 +4473,10 @@ stages:
       hash: md5
       md5: a9d151c0cf1b0715872a08b765485406
       size: 564
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/assemblies-node.toml.json
       hash: md5
@@ -4490,10 +4490,10 @@ stages:
       hash: md5
       md5: 10f5fbdfaae98b01bb5e6538e4d3a2ee
       size: 449
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-20.toml.json
       hash: md5
@@ -4508,10 +4508,10 @@ stages:
       hash: md5
       md5: 88b1664993552b075367c16e34717b03
       size: 228
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-fstar-fine-cycle.toml.json
       hash: md5
@@ -4526,10 +4526,10 @@ stages:
       hash: md5
       md5: 9f1a215fcde17fdedb2d0f7273262519
       size: 6232
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-poison-zgrid.toml.json
       hash: md5
@@ -4543,10 +4543,10 @@ stages:
       hash: md5
       md5: 4499fda45b4f101488396aa00ae2c4cb
       size: 472
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-90.toml.json
       hash: md5
@@ -4561,10 +4561,10 @@ stages:
       hash: md5
       md5: fcdf7d1e625e710a4db512f6f8e061e7
       size: 188
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/core-lattice-I-equivalence-cycle.toml.json
@@ -4579,10 +4579,10 @@ stages:
       hash: md5
       md5: 7ef410d175271c3826a40c073442dde7
       size: 3533
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-plant.toml.json
       hash: md5
@@ -4597,10 +4597,10 @@ stages:
       hash: md5
       md5: dd145867ad087dd2cc47d78f920dfc75
       size: 131
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A-cycle.toml.json
       hash: md5
@@ -4614,10 +4614,10 @@ stages:
       hash: md5
       md5: 9e26a966d16202bef3a632f11d27c477
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-200.toml.json
       hash: md5
@@ -4632,10 +4632,10 @@ stages:
       hash: md5
       md5: d1d900f6c2d0f29be91a103f8fbcf20e
       size: 7891
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-2A/branch-2A.toml.json
       hash: md5
@@ -4649,10 +4649,10 @@ stages:
       hash: md5
       md5: 1f6f8a191a308172ee72228a006fc9a6
       size: 7024
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-zgrid.toml.json
       hash: md5
@@ -4667,10 +4667,10 @@ stages:
       hash: md5
       md5: 19aa4db2611b21669f6e9a7355b0e1ec
       size: 5411
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-plenum.toml.json
       hash: md5
@@ -4685,10 +4685,10 @@ stages:
       hash: md5
       md5: bff76795585344f985c7562381eea5ca
       size: 4578
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-empty.toml.json
       hash: md5
@@ -4703,10 +4703,10 @@ stages:
       hash: md5
       md5: bf07130f5c0adc7e9b19eb8adb793022
       size: 9974
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plenum.toml.json
       hash: md5
@@ -4720,10 +4720,10 @@ stages:
       hash: md5
       md5: 3ce6b204bd4a4ca4195400fad86586dd
       size: 80285
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/xs.toml.json
       hash: md5
@@ -4738,10 +4738,10 @@ stages:
       hash: md5
       md5: 68c465cd754d470f1650475087b83c16
       size: 5411
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-plenum.toml.json
       hash: md5
@@ -4756,10 +4756,10 @@ stages:
       hash: md5
       md5: 66e6ddc9dc284eeac012c92bdcb0b626
       size: 673
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       hash: md5
@@ -4773,10 +4773,10 @@ stages:
       hash: md5
       md5: a07dcbed851d5633ff92f6abe21b69fd
       size: 355
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/chain.toml.json
       hash: md5
@@ -4790,10 +4790,10 @@ stages:
       hash: md5
       md5: 1ea999090e442c7036ae0fdb5faf1bf1
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-150.toml.json
       hash: md5
@@ -4808,10 +4808,10 @@ stages:
       hash: md5
       md5: bcaa945fce5bfee6efac9ccee9630577
       size: 10393
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison.toml.json
       hash: md5
@@ -4825,10 +4825,10 @@ stages:
       hash: md5
       md5: d2b56ba4aed0d401ba8389f1188e815e
       size: 600
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/mox/openmc-mox2.toml.json
       hash: md5
@@ -4843,10 +4843,10 @@ stages:
       hash: md5
       md5: 717fd759c4608bd43e062742fb3b1b44
       size: 5695
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-poison-igrid.toml.json
       hash: md5
@@ -4860,10 +4860,10 @@ stages:
       hash: md5
       md5: 16d83246b371861c7fd74cdb156a42cf
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-124.toml.json
       hash: md5
@@ -4878,10 +4878,10 @@ stages:
       hash: md5
       md5: 7df13a0eda6616aeecbbeb799ee98075
       size: 6232
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-poison-zgrid.toml.json
       hash: md5
@@ -4895,10 +4895,10 @@ stages:
       hash: md5
       md5: 5f7c95b93c7d327bc3c15d223c4df473
       size: 1096
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-slab.toml.json
       hash: md5
@@ -4913,10 +4913,10 @@ stages:
       hash: md5
       md5: 30e1b13d05308d734f0415e5dd0bbd21
       size: 1011
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-aic-plant.toml.json
       hash: md5
@@ -4930,10 +4930,10 @@ stages:
       hash: md5
       md5: 297d0de24430e4741e5aa0655c283416
       size: 465
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-122.toml.json
       hash: md5
@@ -4948,10 +4948,10 @@ stages:
       hash: md5
       md5: 2f1e50fbb758ee3bb3e3a4506e7d2a39
       size: 141
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A-slab-cycle.toml.json
       hash: md5
@@ -4966,10 +4966,10 @@ stages:
       hash: md5
       md5: b718fb28dac61e0e2847204e05c43328
       size: 2569
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-plant-Inext.toml.json
       hash: md5
@@ -4984,10 +4984,10 @@ stages:
       hash: md5
       md5: 67ab37b75380e28a1d7c06b0a3a30a6d
       size: 22552
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/axial-3B.toml.json
       hash: md5
@@ -5001,10 +5001,10 @@ stages:
       hash: md5
       md5: fb364bf49bad559068d32e2a28164a1d
       size: 2444
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A-cycle.toml.json
       hash: md5
@@ -5019,10 +5019,10 @@ stages:
       hash: md5
       md5: f0d162067968e6ba995d286c4fcc5cc2
       size: 1011
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-b4c-plant.toml.json
       hash: md5
@@ -5037,10 +5037,10 @@ stages:
       hash: md5
       md5: 1db53d84538e76eba9d87326ac23d1bd
       size: 23484
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-26-p20.toml.json
       hash: md5
@@ -5055,10 +5055,10 @@ stages:
       hash: md5
       md5: 311d6e9d018878703be86560b8ebb482
       size: 5412
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-plenum.toml.json
       hash: md5
@@ -5072,10 +5072,10 @@ stages:
       hash: md5
       md5: 432913d8396b9274e58642a419f8d806
       size: 5639
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-21-aic.toml.json
       hash: md5
@@ -5090,10 +5090,10 @@ stages:
       hash: md5
       md5: 522445a46b4face11bd999c22555ded7
       size: 141
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-slab-cycle.toml.json
       hash: md5
@@ -5108,10 +5108,10 @@ stages:
       hash: md5
       md5: 3e62da42bd696b0b275ce9b4bca3f733
       size: 4977
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/rodless-26-zgrid.toml.json
       hash: md5
@@ -5126,10 +5126,10 @@ stages:
       hash: md5
       md5: 8a696a4982b67477ec6c3b7772675a5f
       size: 6275
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-plug-igrid.toml.json
       hash: md5
@@ -5144,10 +5144,10 @@ stages:
       hash: md5
       md5: cb415287a3c7abc06f3ba33891c2077e
       size: 353
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-b4c-cycle.toml.json
       hash: md5
@@ -5162,10 +5162,10 @@ stages:
       hash: md5
       md5: 1f60762adfd9521d25e7882951413bf4
       size: 4614
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/rodless-26-fuel.toml.json
       hash: md5
@@ -5180,10 +5180,10 @@ stages:
       hash: md5
       md5: 717fd759c4608bd43e062742fb3b1b44
       size: 5695
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/endfb70/p3/lattice-3B-poison-igrid.toml.json
@@ -5199,10 +5199,10 @@ stages:
       hash: md5
       md5: 958e4c5c6e7e3f9cb977ae1104619632
       size: 18206
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-corner-31-zgrid.toml.json
       hash: md5
@@ -5216,10 +5216,10 @@ stages:
       hash: md5
       md5: 880e570f65181a668c4454db9b0cb15f
       size: 6551
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/reflector-I.toml.json
       hash: md5
@@ -5233,10 +5233,10 @@ stages:
       hash: md5
       md5: c40a623a56a2f37d2b6b53f7e8ffca3e
       size: 5398
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-plug.toml.json
       hash: md5
@@ -5250,10 +5250,10 @@ stages:
       hash: md5
       md5: b00721671c70d2f7c367d227372b206f
       size: 4317
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-31.toml.json
       hash: md5
@@ -5267,10 +5267,10 @@ stages:
       hash: md5
       md5: 8b1f51963c1e783d7adc9b5a49f49265
       size: 11153
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/colorset.toml.json
       hash: md5
@@ -5285,10 +5285,10 @@ stages:
       hash: md5
       md5: 673064a93c8bde0edce101b7972c055a
       size: 3692
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-empty.toml.json
       hash: md5
@@ -5320,10 +5320,10 @@ stages:
       hash: md5
       md5: 50a041f64e47bf049d989d2245b3c936
       size: 10880
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plug-igrid.toml.json
@@ -5339,10 +5339,10 @@ stages:
       hash: md5
       md5: deb1d89178b3b31fe31e6d1e8a4ca58f
       size: 6232
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-poison-zgrid.toml.json
       hash: md5
@@ -5357,10 +5357,10 @@ stages:
       hash: md5
       md5: 957af2f7f53b20af111403111c965d82
       size: 5402
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-empty-igrid.toml.json
       hash: md5
@@ -5375,10 +5375,10 @@ stages:
       hash: md5
       md5: 5ff5e9dfe34dcd433a8c71a59afe646f
       size: 486
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/openmc/openmc-2B.toml.json
       hash: md5
@@ -5393,10 +5393,10 @@ stages:
       hash: md5
       md5: 82973b8a35ce8f9b09460213a264b744
       size: 2611
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-assemblies.toml.json
       hash: md5
@@ -5410,10 +5410,10 @@ stages:
       hash: md5
       md5: a903d799557355b415e276c011af5206
       size: 6195
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2K.toml.json
       hash: md5
@@ -5428,10 +5428,10 @@ stages:
       hash: md5
       md5: db1498a91dd4231d045ef71d27076427
       size: 254
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-outline-cycle.toml.json
       hash: md5
@@ -5445,10 +5445,10 @@ stages:
       hash: md5
       md5: 125d2285e876422c801a1bfbc0720483
       size: 19820
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/axial-3A.toml.json
       hash: md5
@@ -5462,10 +5462,10 @@ stages:
       hash: md5
       md5: b3e0c67e4d708b6c2447a5a22a814b2a
       size: 601
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A-Ly.toml.json
       hash: md5
@@ -5479,10 +5479,10 @@ stages:
       hash: md5
       md5: f55fa4b77668a572fa9f1e30496d10f3
       size: 472
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-60.toml.json
       hash: md5
@@ -5497,10 +5497,10 @@ stages:
       hash: md5
       md5: a0ff23190edfe358918389b566df374f
       size: 556
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-step-Ly-cycle.toml.json
       hash: md5
@@ -5515,10 +5515,10 @@ stages:
       hash: md5
       md5: 4e9042f14318f0c0f36bbb6cb92dcc6e
       size: 2351
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A-assemblies.toml.json
       hash: md5
@@ -5532,10 +5532,10 @@ stages:
       hash: md5
       md5: 9b031e9c87e565eeacbadabdd76461b7
       size: 1121
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-slab.toml.json
       hash: md5
@@ -5550,10 +5550,10 @@ stages:
       hash: md5
       md5: 34e5b40356c363198608c7504dbed1c4
       size: 211
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B-slab-plant.toml.json
       hash: md5
@@ -5567,10 +5567,10 @@ stages:
       hash: md5
       md5: 4a0c5f686cbd706b3e5d84b1c2fbcbf4
       size: 444
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-180.toml.json
       hash: md5
@@ -5584,10 +5584,10 @@ stages:
       hash: md5
       md5: 2367dda5e3c47eeb148c9579372b89e6
       size: 1263
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small.toml.json
       hash: md5
@@ -5601,10 +5601,10 @@ stages:
       hash: md5
       md5: 619398d6779676308a22a08515e3f273
       size: 23418
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-31-p8.toml.json
       hash: md5
@@ -5618,10 +5618,10 @@ stages:
       hash: md5
       md5: 2392a179a22d8abb470785c1682082d3
       size: 469
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-1-180.toml.json
       hash: md5
@@ -5636,10 +5636,10 @@ stages:
       hash: md5
       md5: bf5a3e092900e17f2b127fdb6dee9625
       size: 5831
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-poison.toml.json
       hash: md5
@@ -5653,10 +5653,10 @@ stages:
       hash: md5
       md5: 72493cf75c6b6a97c275776ebe964379
       size: 433
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-60.toml.json
       hash: md5
@@ -5671,10 +5671,10 @@ stages:
       hash: md5
       md5: 8b4091552c42bb29154f07cf1a1950e6
       size: 4815
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3B-poison.toml.json
       hash: md5
@@ -5688,10 +5688,10 @@ stages:
       hash: md5
       md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
       size: 150
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/crates/numeric/Cargo.toml.json
       hash: md5
@@ -5706,10 +5706,10 @@ stages:
       hash: md5
       md5: dd69e65766c0a8f7879973d62fe136ec
       size: 850
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-fstar-32.toml.json
       hash: md5
@@ -5724,10 +5724,10 @@ stages:
       hash: md5
       md5: 291b6c7e27f2018ccc04881df27da94c
       size: 6231
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-poison-zgrid.toml.json
       hash: md5
@@ -5742,10 +5742,10 @@ stages:
       hash: md5
       md5: 56eb5fb6a7fd6af8afbc09e504e36e46
       size: 1521
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/lattice-mox1-rings1.toml.json
       hash: md5
@@ -5759,10 +5759,10 @@ stages:
       hash: md5
       md5: e558c56b3f9797cf913daa2fa76536b1
       size: 3456
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/colorset/assembly-31.toml.json
       hash: md5
@@ -5776,10 +5776,10 @@ stages:
       hash: md5
       md5: 8845ce7c8d89f8d28261f4a64ced9f37
       size: 4078
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2Q.toml.json
       hash: md5
@@ -5794,10 +5794,10 @@ stages:
       hash: md5
       md5: 36416ae0026d00695e159d2b80c3e52c
       size: 10839
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison-zgrid.toml.json
@@ -5812,10 +5812,10 @@ stages:
       hash: md5
       md5: 25de12ef2fe9770faad20b85aee62100
       size: 595
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A.toml.json
       hash: md5
@@ -5829,10 +5829,10 @@ stages:
       hash: md5
       md5: c8a3c2a22a450b85b6b2ef44098799cb
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-126.toml.json
       hash: md5
@@ -5847,10 +5847,10 @@ stages:
       hash: md5
       md5: 6d53ffcb29baab70738d17a31b39aa78
       size: 236
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-slab-32-cycle.toml.json
       hash: md5
@@ -5865,10 +5865,10 @@ stages:
       hash: md5
       md5: 8e7df0158fd3a0c08615cf44813e50bc
       size: 23874
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/core-hzp-assemblies.toml.json
       hash: md5
@@ -5883,10 +5883,10 @@ stages:
       hash: md5
       md5: aa5a37bb083cb3f74a6de6d5b485ff6a
       size: 212
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B-plant.toml.json
       hash: md5
@@ -5901,10 +5901,10 @@ stages:
       hash: md5
       md5: 47b8df79e0043f97b0a316efd514685d
       size: 5412
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-plenum.toml.json
       hash: md5
@@ -5919,10 +5919,10 @@ stages:
       hash: md5
       md5: afe4a4d16c3bd5997000cf7a73ce9066
       size: 353
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/small-2d-aic-cycle.toml.json
       hash: md5
@@ -5936,10 +5936,10 @@ stages:
       hash: md5
       md5: f3d0792b5b5af09612f047e313cf032c
       size: 80779
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/small-moc.toml.json
       hash: md5
@@ -5953,10 +5953,10 @@ stages:
       hash: md5
       md5: 3e61208ac5644956989fa687af4782f7
       size: 465
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-118.toml.json
       hash: md5
@@ -5971,10 +5971,10 @@ stages:
       hash: md5
       md5: 414f199c261f92648ff0bc2dd3f37902
       size: 10624
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-gd/compare-2P-all.toml.json
       hash: md5
@@ -5989,10 +5989,10 @@ stages:
       hash: md5
       md5: 4ad87babfe9cbc13ecabee8a0e752ace
       size: 2508
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/endfb70/p3/core-3B-slab-assemblies.toml.json
@@ -6008,10 +6008,10 @@ stages:
       hash: md5
       md5: c0c27f9094b6a31c9f38caf60b43abab
       size: 10842
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison-zgrid.toml.json
@@ -6027,10 +6027,10 @@ stages:
       hash: md5
       md5: 1811e6da92356dc4d92adccf61a2c68c
       size: 10053
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-zgrid.toml.json
@@ -6045,10 +6045,10 @@ stages:
       hash: md5
       md5: 35ac2dfe8df85aabce434a97561aa5f6
       size: 14740
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/axial-3A-fine.toml.json
       hash: md5
@@ -6063,10 +6063,10 @@ stages:
       hash: md5
       md5: 0645914d0cfd0427e9238fc7b78910e7
       size: 533
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-outline-plant.toml.json
       hash: md5
@@ -6080,10 +6080,10 @@ stages:
       hash: md5
       md5: 59818aba18c843e2f5caae575c217ec4
       size: 5692
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2N.toml.json
       hash: md5
@@ -6097,10 +6097,10 @@ stages:
       hash: md5
       md5: be04ccef82ac074ca5e09371f62cb440
       size: 11709
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/c5g7/c5g7.toml.json
       hash: md5
@@ -6115,10 +6115,10 @@ stages:
       hash: md5
       md5: 7c3be576b8063c2d304945575d701c62
       size: 232
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-I-cycle.toml.json
       hash: md5
@@ -6133,10 +6133,10 @@ stages:
       hash: md5
       md5: 595336cebb35d8b10a8039c9c572c241
       size: 3002
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-2A/thinning-2A.toml.json
       hash: md5
@@ -6150,10 +6150,10 @@ stages:
       hash: md5
       md5: a2222057dd2fcbd9b82ed041b03c8cdc
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-118.toml.json
       hash: md5
@@ -6167,10 +6167,10 @@ stages:
       hash: md5
       md5: 945dbc62566e31565a777c958fc9fcc6
       size: 591
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner.toml.json
       hash: md5
@@ -6185,10 +6185,10 @@ stages:
       hash: md5
       md5: 58db4c63d5d0e6f512319ce147cd0704
       size: 5412
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-plenum.toml.json
       hash: md5
@@ -6202,10 +6202,10 @@ stages:
       hash: md5
       md5: bd76ac02895bc24c34ecc77b39db7a5b
       size: 464
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-116.toml.json
       hash: md5
@@ -6219,10 +6219,10 @@ stages:
       hash: md5
       md5: 74d22c16e433dd09daf662c115f5c995
       size: 469
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-2-116.toml.json
       hash: md5
@@ -6237,10 +6237,10 @@ stages:
       hash: md5
       md5: 899a74d924856140fc2632690544999d
       size: 4418
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3B-plug.toml.json
       hash: md5
@@ -6254,10 +6254,10 @@ stages:
       hash: md5
       md5: f78f91ba99ebdd217e4574fb7c47d343
       size: 469
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-2-180.toml.json
       hash: md5
@@ -6272,10 +6272,10 @@ stages:
       hash: md5
       md5: 2f10a60d7c3a1c253b1d52a71df402cd
       size: 4161
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2A-density.toml.json
       hash: md5
@@ -6289,10 +6289,10 @@ stages:
       hash: md5
       md5: 631f44aed787fb456f0c920a1945d9be
       size: 6392
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/xs.toml.json
       hash: md5
@@ -6307,10 +6307,10 @@ stages:
       hash: md5
       md5: 52a1ca66a0d763310eae60d36a9102dc
       size: 482
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/core-lattice-corner-equivalence.toml.json
@@ -6326,10 +6326,10 @@ stages:
       hash: md5
       md5: 1d94fedad3880f7fbb4dc5e75315d2ec
       size: 22737
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-26-p24.toml.json
       hash: md5
@@ -6344,10 +6344,10 @@ stages:
       hash: md5
       md5: 54f289eee800cef3b6de9d601904db95
       size: 2304
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-product/grid-2A.toml.json
       hash: md5
@@ -6361,10 +6361,10 @@ stages:
       hash: md5
       md5: 2d7ff24c6ceb4fc4760c7f0736fff7d9
       size: 3733
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/assembly-1.toml.json
       hash: md5
@@ -6378,10 +6378,10 @@ stages:
       hash: md5
       md5: c562600cfbbc07a43619dab6c10f0dd2
       size: 2444
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5B-cycle.toml.json
       hash: md5
@@ -6395,10 +6395,10 @@ stages:
       hash: md5
       md5: be6fcc663bb2104bfc62509c9057131d
       size: 2902
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-plant-Ly.toml.json
       hash: md5
@@ -6412,10 +6412,10 @@ stages:
       hash: md5
       md5: bf9c33521a3ad70aaa35b3ffde252249
       size: 5304
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/21-igrid.toml.json
       hash: md5
@@ -6429,10 +6429,10 @@ stages:
       hash: md5
       md5: 55cee4f377aade2b41a65f33416a4a2c
       size: 5399
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-plug.toml.json
       hash: md5
@@ -6447,10 +6447,10 @@ stages:
       hash: md5
       md5: 548cc013ea68f3f49de37bb6d5fc545a
       size: 4475
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/endfb70/p3/lattice-3B-empty-igrid.toml.json
@@ -6465,10 +6465,10 @@ stages:
       hash: md5
       md5: 2964dfaba3d5c514beccfc94f12a5755
       size: 5657
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-26-p20.toml.json
       hash: md5
@@ -6483,10 +6483,10 @@ stages:
       hash: md5
       md5: de746f6c431c765b977b66fea0b4734a
       size: 155
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/interp-31-plant.toml.json
       hash: md5
@@ -6500,10 +6500,10 @@ stages:
       hash: md5
       md5: ada5dde1c254aa1a1973409e4ebea012
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-122.toml.json
       hash: md5
@@ -6517,10 +6517,10 @@ stages:
       hash: md5
       md5: 01ab8e656e1c925cd50fff24c8971a14
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-120.toml.json
       hash: md5
@@ -6534,10 +6534,10 @@ stages:
       hash: md5
       md5: 1c617582d3167404889a6dfdac17c574
       size: 433
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-20.toml.json
       hash: md5
@@ -6552,10 +6552,10 @@ stages:
       hash: md5
       md5: 872f70b953721f29c490d4574bb4083b
       size: 2290
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/core-6-assemblies.toml.json
       hash: md5
@@ -6569,10 +6569,10 @@ stages:
       hash: md5
       md5: f6dfdfd9609ce9f8aee55fce35fbb057
       size: 183
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/assemblies-1.toml.json
       hash: md5
@@ -6586,10 +6586,10 @@ stages:
       hash: md5
       md5: 32c065f73aedf804b6403d089208298e
       size: 118
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/plant.toml.json
       hash: md5
@@ -6604,10 +6604,10 @@ stages:
       hash: md5
       md5: 1566cd8b50d876d511e0245137a01db1
       size: 255
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-plant.toml.json
       hash: md5
@@ -6621,10 +6621,10 @@ stages:
       hash: md5
       md5: 401c519f6fda960069b5bddf6ec4c973
       size: 275
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/case-2.toml.json
       hash: md5
@@ -6638,10 +6638,10 @@ stages:
       hash: md5
       md5: 72654f45a92d0a43d6a08b344c2b34c8
       size: 410
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-small-E.toml.json
       hash: md5
@@ -6655,10 +6655,10 @@ stages:
       hash: md5
       md5: dd35e0d8e730a58e8362dfbc16785c72
       size: 653
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/.cargo/config.toml.json
       hash: md5
@@ -6673,10 +6673,10 @@ stages:
       hash: md5
       md5: 1ed7a388c74531a752de41a3a46f0808
       size: 4395
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3A-igrid.toml.json
       hash: md5
@@ -6691,10 +6691,10 @@ stages:
       hash: md5
       md5: 4d1d56853b1330f6d674965f10ac35ae
       size: 1027
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/openmc-1C-rings4.toml.json
       hash: md5
@@ -6709,10 +6709,10 @@ stages:
       hash: md5
       md5: c6dc6ba92dabfd1757279cadc14e3ab4
       size: 3565
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/lattice-3A-fuel.toml.json
       hash: md5
@@ -6726,10 +6726,10 @@ stages:
       hash: md5
       md5: 21750e97093c2feec9e94393a4d44526
       size: 1229
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/mox/pincell-mox2.toml.json
       hash: md5
@@ -6743,10 +6743,10 @@ stages:
       hash: md5
       md5: 8aa40801c28d5be6dda62ad4b1b67611
       size: 6540
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-fuel.toml.json
       hash: md5
@@ -6760,10 +6760,10 @@ stages:
       hash: md5
       md5: 687de19f478234b53e2e9d90fdf79b0a
       size: 445
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p1/openmc-1B.toml.json
       hash: md5
@@ -6777,10 +6777,10 @@ stages:
       hash: md5
       md5: 4daba60628dc3d46672933f2f0e31714
       size: 1692
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m1/xs.toml.json
       hash: md5
@@ -6795,10 +6795,10 @@ stages:
       hash: md5
       md5: 4b894576f977b5ee5e28ccdc329de2de
       size: 17799
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-corner-31-fuel.toml.json
       hash: md5
@@ -6813,10 +6813,10 @@ stages:
       hash: md5
       md5: a3d0b75008c294b9ac776a7966b6b1eb
       size: 131
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B-cycle.toml.json
       hash: md5
@@ -6830,10 +6830,10 @@ stages:
       hash: md5
       md5: 275cb6113aec7d61199998d3f7096e74
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-122.toml.json
       hash: md5
@@ -6848,10 +6848,10 @@ stages:
       hash: md5
       md5: be9cc32fe519188387247c4b40fd8b00
       size: 4579
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-empty.toml.json
       hash: md5
@@ -6866,10 +6866,10 @@ stages:
       hash: md5
       md5: 4b304568b4384bcd6957b3a3e17e2c07
       size: 5830
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p12-poison.toml.json
       hash: md5
@@ -6883,10 +6883,10 @@ stages:
       hash: md5
       md5: 0107f2369a20bece2ce53525ae16d94f
       size: 3783
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/assembly-3A.toml.json
       hash: md5
@@ -6901,10 +6901,10 @@ stages:
       hash: md5
       md5: ffa1698bc68cef6675b28f7752e6e1b0
       size: 5830
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-poison.toml.json
       hash: md5
@@ -6919,10 +6919,10 @@ stages:
       hash: md5
       md5: 44f235003e486615a7edc0dce733fc41
       size: 23484
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-31-p12.toml.json
       hash: md5
@@ -6937,10 +6937,10 @@ stages:
       hash: md5
       md5: 7f3ac6dab78362ac29559c3a42d42bbf
       size: 4578
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-empty.toml.json
       hash: md5
@@ -6954,10 +6954,10 @@ stages:
       hash: md5
       md5: d4288823d6f3413b642577412d276703
       size: 128
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/core-6-cycle.toml.json
       hash: md5
@@ -6972,10 +6972,10 @@ stages:
       hash: md5
       md5: 7d0d3603e203f39114d7174c14cc910c
       size: 6275
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-plug-igrid.toml.json
       hash: md5
@@ -6989,10 +6989,10 @@ stages:
       hash: md5
       md5: 7e2ca34824a215709ef21bc03fa92ef9
       size: 6541
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-fuel.toml.json
       hash: md5
@@ -7007,10 +7007,10 @@ stages:
       hash: md5
       md5: e6bcc4e659c608f0fdbeb48aeca508ef
       size: 5401
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p16-empty-igrid.toml.json
       hash: md5
@@ -7024,10 +7024,10 @@ stages:
       hash: md5
       md5: 946c86616da71e24349e5e948bb3a361
       size: 13560
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/axial-3A-32.toml.json
       hash: md5
@@ -7041,10 +7041,10 @@ stages:
       hash: md5
       md5: c22f658bdacc092fb332cc84988269bf
       size: 12979
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/c5g7/c5g7-fine.toml.json
       hash: md5
@@ -7059,10 +7059,10 @@ stages:
       hash: md5
       md5: ea6d7f53facd2e63c4b29a1264d8bee5
       size: 5402
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-empty-igrid.toml.json
       hash: md5
@@ -7077,10 +7077,10 @@ stages:
       hash: md5
       md5: 3d88378019a56d2f575a51a3599ebf78
       size: 236
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-slab-16-cycle.toml.json
       hash: md5
@@ -7095,10 +7095,10 @@ stages:
       hash: md5
       md5: 4ad87babfe9cbc13ecabee8a0e752ace
       size: 2508
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-slab-assemblies.toml.json
       hash: md5
@@ -7112,10 +7112,10 @@ stages:
       hash: md5
       md5: 33e459a8e64c029c04ce0e4267533cd4
       size: 4317
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-21.toml.json
       hash: md5
@@ -7130,10 +7130,10 @@ stages:
       hash: md5
       md5: a466790f678e91c7ad3814a2f90c30e3
       size: 227
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/core-lattice-corner-equivalence-cycle.toml.json
@@ -7148,10 +7148,10 @@ stages:
       hash: md5
       md5: b5bbce2e34fa617616e82b56233b3513
       size: 6853
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/core-hzp.toml.json
       hash: md5
@@ -7166,10 +7166,10 @@ stages:
       hash: md5
       md5: 2b236a748ca0caea8f755abb62fcb4bd
       size: 1027
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/openmc-1C-rings1.toml.json
       hash: md5
@@ -7184,10 +7184,10 @@ stages:
       hash: md5
       md5: 5ce7d6dbe561f7144aa01be8389b33aa
       size: 6275
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p24-plug-igrid.toml.json
       hash: md5
@@ -7201,10 +7201,10 @@ stages:
       hash: md5
       md5: acd4725a69467811883b0f659fc596f3
       size: 3709
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/lattice-2A.toml.json
       hash: md5
@@ -7219,10 +7219,10 @@ stages:
       hash: md5
       md5: d4e3dee73b07b034f3c3964ce4c77f50
       size: 5831
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-poison.toml.json
       hash: md5
@@ -7237,10 +7237,10 @@ stages:
       hash: md5
       md5: 9b031e9c87e565eeacbadabdd76461b7
       size: 1121
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3B-slab.toml.json
       hash: md5
@@ -7254,10 +7254,10 @@ stages:
       hash: md5
       md5: 346c4fb6d312a3da8a149abcd059bac1
       size: 7605
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p2/lattice-2P.toml.json
       hash: md5
@@ -7271,10 +7271,10 @@ stages:
       hash: md5
       md5: aa5a37bb083cb3f74a6de6d5b485ff6a
       size: 212
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-plant.toml.json
       hash: md5
@@ -7288,10 +7288,10 @@ stages:
       hash: md5
       md5: 801bbac849271c5666c56dbfba2049a3
       size: 2913
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-plant.toml.json
       hash: md5
@@ -7306,10 +7306,10 @@ stages:
       hash: md5
       md5: aa5a37bb083cb3f74a6de6d5b485ff6a
       size: 212
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A-plant.toml.json
       hash: md5
@@ -7323,10 +7323,10 @@ stages:
       hash: md5
       md5: 200d7330ab619bb5dcba40f541670b18
       size: 7422
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/c5g7/c5g7-xs.toml.json
       hash: md5
@@ -7340,10 +7340,10 @@ stages:
       hash: md5
       md5: c2b77616a7f00f744e26de1ab2f6ef22
       size: 275
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/split/case-1.toml.json
       hash: md5
@@ -7358,10 +7358,10 @@ stages:
       hash: md5
       md5: 4e9042f14318f0c0f36bbb6cb92dcc6e
       size: 2351
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3A-assemblies.toml.json
       hash: md5
@@ -7375,10 +7375,10 @@ stages:
       hash: md5
       md5: 8f8f4e149300ca3a984a38c6b2145f1b
       size: 4372
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2I.toml.json
       hash: md5
@@ -7392,10 +7392,10 @@ stages:
       hash: md5
       md5: a2dd44749a2b85426c29f107a4503383
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-116.toml.json
       hash: md5
@@ -7410,10 +7410,10 @@ stages:
       hash: md5
       md5: b95767b5e5bdb35c0c82deb173bfbbc6
       size: 10303
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/reflector-I-31-p8.toml.json
       hash: md5
@@ -7428,10 +7428,10 @@ stages:
       hash: md5
       md5: 52d9bf106bd630eeb46674bb0fa6365c
       size: 2792
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/lattice-1C-rings4.toml.json
       hash: md5
@@ -7446,10 +7446,10 @@ stages:
       hash: md5
       md5: b95b91d0b992cedf23bb1f209bf883e6
       size: 23484
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-26-p16.toml.json
       hash: md5
@@ -7464,10 +7464,10 @@ stages:
       hash: md5
       md5: a6b2125964584172e70506f4309e8595
       size: 6320
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/core-hzp-plant.toml.json
       hash: md5
@@ -7481,10 +7481,10 @@ stages:
       hash: md5
       md5: fa31d62d6553bc803e22cd0d44f335c3
       size: 5304
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-igrid.toml.json
       hash: md5
@@ -7499,10 +7499,10 @@ stages:
       hash: md5
       md5: 38f313d3f350c985c5941f2d010dd340
       size: 2449
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/core-hzp-cycle.toml.json
       hash: md5
@@ -7516,10 +7516,10 @@ stages:
       hash: md5
       md5: 44e9734e5cc261541994bca48c455d9f
       size: 5395
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p8-plug.toml.json
       hash: md5
@@ -7533,10 +7533,10 @@ stages:
       hash: md5
       md5: b4ca53e081889f178764d7075f3f379b
       size: 1727
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-gd/grid-2O.toml.json
       hash: md5
@@ -7550,10 +7550,10 @@ stages:
       hash: md5
       md5: 4f1bf341cee2093ab88f2127badc24cc
       size: 1727
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-gd/grid-2P.toml.json
       hash: md5
@@ -7568,10 +7568,10 @@ stages:
       hash: md5
       md5: 5ce6994259961938b7ff0ba39cb9015d
       size: 23483
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-31-p16.toml.json
       hash: md5
@@ -7586,10 +7586,10 @@ stages:
       hash: md5
       md5: e5eaf4972dc0cae13643271f30f07182
       size: 719
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-slab-16.toml.json
       hash: md5
@@ -7603,10 +7603,10 @@ stages:
       hash: md5
       md5: 2a662cce88f053e7e9a8486d88b379e6
       size: 4575
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p8-empty.toml.json
       hash: md5
@@ -7621,10 +7621,10 @@ stages:
       hash: md5
       md5: 8d2bf2b43d5d10e2686633d7e7320657
       size: 29161
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/depletion/p9-timing/core-p9-assemblies.toml.json
@@ -7640,10 +7640,10 @@ stages:
       hash: md5
       md5: 62381d007243b7303422bdf7c06f28c0
       size: 707
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-fstar-16.toml.json
       hash: md5
@@ -7658,10 +7658,10 @@ stages:
       hash: md5
       md5: 46b58a26187a07679e96fb41ee880c60
       size: 4544
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-gd/compare-2O.toml.json
       hash: md5
@@ -7675,10 +7675,10 @@ stages:
       hash: md5
       md5: fcc40a010cbecfbd25288c536f91215c
       size: 120
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cycle.toml.json
       hash: md5
@@ -7693,10 +7693,10 @@ stages:
       hash: md5
       md5: 12046447724b19eddedd795544ea5afd
       size: 428
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-corner-plant.toml.json
       hash: md5
@@ -7711,10 +7711,10 @@ stages:
       hash: md5
       md5: 125d2285e876422c801a1bfbc0720483
       size: 19820
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/axial-3A.toml.json
       hash: md5
@@ -7728,10 +7728,10 @@ stages:
       hash: md5
       md5: 339cac9a53d0ee3740d8952a5629bc65
       size: 4318
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-26.toml.json
       hash: md5
@@ -7745,10 +7745,10 @@ stages:
       hash: md5
       md5: 3b9c1619953b72bab2fde5ad0decb3ca
       size: 443
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/split-200.toml.json
       hash: md5
@@ -7763,10 +7763,10 @@ stages:
       hash: md5
       md5: 531e7bca56db17df769ac27f4b8e083f
       size: 530
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-assemblies.toml.json
       hash: md5
@@ -7780,10 +7780,10 @@ stages:
       hash: md5
       md5: ebd81020af9278fbfbdb78263af9002e
       size: 435
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-150.toml.json
       hash: md5
@@ -7797,10 +7797,10 @@ stages:
       hash: md5
       md5: 54ab70d01d2ef5d4ac409877e72d6559
       size: 5463
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-21-b4c.toml.json
       hash: md5
@@ -7815,10 +7815,10 @@ stages:
       hash: md5
       md5: 34e5b40356c363198608c7504dbed1c4
       size: 211
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B-slab-plant.toml.json
       hash: md5
@@ -7833,10 +7833,10 @@ stages:
       hash: md5
       md5: 50c2c1866483ab2e6f461e700d4856b5
       size: 471
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-lattice-I-equivalence.toml.json
       hash: md5
@@ -7851,10 +7851,10 @@ stages:
       hash: md5
       md5: ad859ad324e6b5517f8e42a9249a84a5
       size: 723
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-slab-fine.toml.json
       hash: md5
@@ -7869,10 +7869,10 @@ stages:
       hash: md5
       md5: 8ae58a2ee53f9c656467c71fac658061
       size: 8542
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/openmc-library.toml.json
       hash: md5
@@ -7887,10 +7887,10 @@ stages:
       hash: md5
       md5: 446776ab152561c73f1bb4ce29e11615
       size: 10396
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison.toml.json
       hash: md5
@@ -7904,10 +7904,10 @@ stages:
       hash: md5
       md5: 8dbc2a1619df10f5330812827e00d025
       size: 2153
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/core-6.toml.json
       hash: md5
@@ -7921,10 +7921,10 @@ stages:
       hash: md5
       md5: 95878aea540f861bc82386639a973ad0
       size: 1169
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/core-3B.toml.json
       hash: md5
@@ -7939,10 +7939,10 @@ stages:
       hash: md5
       md5: 94a2e37a47df9ebe75a2aacebdb423ed
       size: 5827
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/31-p8-poison.toml.json
       hash: md5
@@ -7957,10 +7957,10 @@ stages:
       hash: md5
       md5: 313cf54ccd20ce8f324cd01b5eaff072
       size: 1541
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-product/compare-2A.toml.json
       hash: md5
@@ -7974,10 +7974,10 @@ stages:
       hash: md5
       md5: f791eeaca60c21269f90553937c309d9
       size: 4531
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2H.toml.json
       hash: md5
@@ -7991,10 +7991,10 @@ stages:
       hash: md5
       md5: c799b53fb145a8790c9dc9fcb908d0d3
       size: 7785
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/xs.toml.json
       hash: md5
@@ -8009,10 +8009,10 @@ stages:
       hash: md5
       md5: 34e5b40356c363198608c7504dbed1c4
       size: 211
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/endfb70/p3/core-3A-slab-plant.toml.json
       hash: md5
@@ -8027,10 +8027,10 @@ stages:
       hash: md5
       md5: f2a25f061f6389e485981a9c203ad8e1
       size: 473
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/fine-0.25-116.toml.json
       hash: md5
@@ -8045,10 +8045,10 @@ stages:
       hash: md5
       md5: abd5d4c0231f131b8bcc704a11b39dd5
       size: 4579
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p20-empty.toml.json
       hash: md5
@@ -8063,10 +8063,10 @@ stages:
       hash: md5
       md5: f3706317bcbef58d7f3936c858a3deae
       size: 2296
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       hash: md5
@@ -8081,10 +8081,10 @@ stages:
       hash: md5
       md5: 78e7d3b278c863965998d402c5d36aa7
       size: 7761
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       hash: md5
@@ -8098,10 +8098,10 @@ stages:
       hash: md5
       md5: 3dc45e435e84c020e40bc288027953f5
       size: 4987
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p2/assembly-2E.toml.json
       hash: md5
@@ -8116,10 +8116,10 @@ stages:
       hash: md5
       md5: 548cc013ea68f3f49de37bb6d5fc545a
       size: 4475
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-empty-igrid.toml.json
       hash: md5
@@ -8133,10 +8133,10 @@ stages:
       hash: md5
       md5: b2cb5082c4034b17cbac20ecc665c42c
       size: 5656
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/assembly-31-p16.toml.json
       hash: md5
@@ -8150,10 +8150,10 @@ stages:
       hash: md5
       md5: e04ff5ed3c0ab6ae60a8810b70eb17d7
       size: 355
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/crates/depletion/Cargo.toml.json
       hash: md5
@@ -8168,10 +8168,10 @@ stages:
       hash: md5
       md5: 665091091ab25b0e0e81121eb74e5c8a
       size: 11360
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-fuel.toml.json
       hash: md5
@@ -8186,10 +8186,10 @@ stages:
       hash: md5
       md5: 4e826fc9aa61741b87eee45820edea65
       size: 9977
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plenum.toml.json
       hash: md5
@@ -8204,10 +8204,10 @@ stages:
       hash: md5
       md5: 357b92a00c32a4b7406579d1fed239e1
       size: 1203
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/core-6-isothermal.toml.json
       hash: md5
@@ -8222,10 +8222,10 @@ stages:
       hash: md5
       md5: 5a3511ae7a9f745ae0f60437c6cd83e7
       size: 11877
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/reflector-I-31-zgrid.toml.json
       hash: md5
@@ -8239,10 +8239,10 @@ stages:
       hash: md5
       md5: 42eeec56fc8810455295a517d403d2fa
       size: 20395
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p6/axial-6.toml.json
       hash: md5
@@ -8257,10 +8257,10 @@ stages:
       hash: md5
       md5: d73c9675ece759d933a5ff26cdd55c26
       size: 4579
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/26-p16-empty.toml.json
       hash: md5
@@ -8275,10 +8275,10 @@ stages:
       hash: md5
       md5: d126405e1d248c23db46bafecbdd7bf0
       size: 9648
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: 
         toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-fuel.toml.json
@@ -8294,10 +8294,10 @@ stages:
       hash: md5
       md5: 1c1f7037e301e6c0e48014b0536afcfd
       size: 21218
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p5/hzp/axial-31-rcca.toml.json
       hash: md5
@@ -8311,10 +8311,10 @@ stages:
       hash: md5
       md5: 899a74d924856140fc2632690544999d
       size: 4418
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/vera/p3/lattice-3B-plug.toml.json
       hash: md5
@@ -8328,10 +8328,10 @@ stages:
       hash: md5
       md5: 43abee5f9f04337e6359749af39960ee
       size: 474
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/volume-120.toml.json
       hash: md5
@@ -8345,10 +8345,10 @@ stages:
       hash: md5
       md5: 52f76a6eae50a17116679eb0a6647d7c
       size: 433
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/core/cases/flux-90.toml.json
       hash: md5
@@ -8363,10 +8363,10 @@ stages:
       hash: md5
       md5: c8c8def3b3d6f8cdf0446893fccea33b
       size: 1951
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/depletion/p9-timing/core-p9.toml.json
       hash: md5
@@ -8380,10 +8380,10 @@ stages:
       hash: md5
       md5: 687c60286f1bc563fa498b5f18ca52ca
       size: 10188
-    - path: scripts/normalize_toml.py
+    - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 6d68e359e31ade2803751fb688a94189
-      size: 2146
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     outs:
     - path: toml-values/examples/m0/assemblies.toml.json
       hash: md5

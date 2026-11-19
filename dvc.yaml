@@ -86,6 +86,7 @@ stages:
     do:
       cmd: python3 scripts/normalize_python.py ${item} python-ast/${item}.ast
       deps:
+        # 正規形を書くスクリプト自身は、その正規形を自分で書けない（書くには先に自分が要る）ので、ファイルそのものを deps にする
         - scripts/normalize_python.py
         - ${item}
       outs:
@@ -536,7 +537,7 @@ stages:
     do:
       cmd: python3 scripts/normalize_toml.py ${item} toml-values/${item}.json
       deps:
-        - scripts/normalize_toml.py
+        - python-ast/scripts/normalize_toml.py.ast
         - ${item}
       outs:
         - toml-values/${item}.json:
