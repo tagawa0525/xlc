@@ -1017,6 +1017,30 @@ class DrawDiluteAbsorbers(unittest.TestCase):
             vt.depletion_dilute_absorbers([{"format": "other"}])
 
 
+class DrawFissionableAbsorbers(unittest.TestCase):
+    def summary(self, reference: bool) -> dict:
+        """compare_fissionable.py の要約（1 点。比べる相手があれば form_pcm と rest_fission_pcm を持つ）"""
+        point = {"burnup": 60.0, "form_from_65_pcm": 126.44}
+        if reference:
+            point.update({"form_pcm": 118.36, "rest_fission_pcm": 8.08})
+        return {"format": "xlc-compare-fissionable-absorbers", "points": [point]}
+
+    def row(self, table: str) -> list[str]:
+        return [c.strip() for c in table.split("\n")[2].strip("|").split("|")]
+
+    def test_row_has_the_differences_from_the_65_nuclides_and_the_reference(self):
+        table = vt.depletion_fissionable_absorbers([self.summary(True)])
+        self.assertEqual(self.row(table), ["60", "+126.4", "+118.4", "+8.1"])
+
+    def test_a_cell_without_the_reference_has_dashes(self):
+        table = vt.depletion_fissionable_absorbers([self.summary(False)])
+        self.assertEqual(self.row(table), ["60", "+126.4", "–", "–"])
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaisesRegex(vt.TableError, "xlc-compare-fissionable-absorbers"):
+            vt.depletion_fissionable_absorbers([{"format": "other"}])
+
+
 class DrawAssemblyPins(unittest.TestCase):
     def summary(self) -> dict:
         """compare_depletion_assembly.py の要約（2 点）"""
