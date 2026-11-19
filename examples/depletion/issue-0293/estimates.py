@@ -93,27 +93,35 @@ def cumulative_yields(chain: dict, independent: dict[int, float]) -> dict[int, f
                     (p, mode["ratio"] * product["count"])
                 )
     memo: dict[int, float] = {}
+    visiting: set[int] = set()
 
-    def cumulative(i: int, path: frozenset) -> float:
+    def cumulative(i: int) -> float:
         if i in memo:
             return memo[i]
-        value = independent.get(i, 0.0)
-        for p, ratio in parents.get(i, []):
-            if p not in path:
-                value += ratio * cumulative(p, path | {i})
+        if i in visiting:
+            sys.exit(f"the decay of nuclide {i} returns to itself")
+        visiting.add(i)
+        value = independent.get(i, 0.0) + sum(
+            ratio * cumulative(p) for p, ratio in parents.get(i, [])
+        )
+        visiting.discard(i)
         memo[i] = value
         return value
 
-    return {i: cumulative(i, frozenset()) for i in range(len(nuclides))}
+    return {i: cumulative(i) for i in range(len(nuclides))}
 
 
 def yield_points(fission: dict) -> tuple[int, int] | None:
-    """熱（0.0253 eV）と高速（500 keV）の点の番号。2 点が無い核種は None（収率の重みが点を 1 つしか使わない）"""
+    """収率の重み（ADR-0183。OpenMC 0.15.2 の `FissionYieldCutoffHelper` と同じ選び方）が境界の下と上に使う点の番号。境界の下に
+    熱（0.0253 eV）に最も近い点、上に高速（500 keV）に最も近い点。どちらかの側に点が無い核種は None（すべての核分裂に 1 つの点を使う）"""
     energies = fission["energies"]
-    try:
-        return energies.index(0.0253), energies.index(5e5)
-    except ValueError:
+    below = [i for i, e in enumerate(energies) if e < YIELD_CUTOFF]
+    above = [i for i, e in enumerate(energies) if e >= YIELD_CUTOFF]
+    if not below or not above:
         return None
+    thermal = min(below, key=lambda i: abs(energies[i] - 0.0253))
+    fast = min(above, key=lambda i: abs(energies[i] - 5e5))
+    return thermal, fast
 
 
 def main() -> None:
@@ -156,11 +164,14 @@ def main() -> None:
         if (3, 102) not in material.section_data:
             sys.exit(f"{name}: no MF3 MT102")
         capture_q[name] = material.section_data[3, 102]["QI"]
+    # 被覆管の組成（Sn の非分離共鳴の背景。被覆管の Sn は micro の均質化した反応率に含まれる）
+    branch = tomllib.loads((HERE / "urr" / f"{args.fuel}.toml").read_text())
+    clad = branch["material"]["zircaloy"]["nuclides"]
     missing = [
         n
         for n in by_name
         if n not in names
-        and n in history["transportable"]
+        and (n in history["transportable"] or n in clad)
         and _has_urr_in_ufg(endf, endf_directory, xs, n)
     ]
     if missing:
@@ -168,14 +179,28 @@ def main() -> None:
             f"nuclides with unresolved resonances in the UFG range are not in micro: {missing}"
         )
 
-    # 被覆管の組成（Sn の非分離共鳴の背景。被覆管の Sn は micro の均質化した反応率に含まれる）
-    branch = tomllib.loads((HERE / "urr" / f"{args.fuel}.toml").read_text())
-    clad = branch["material"]["zircaloy"]["nuclides"]
     burnup_axis = [a["name"] for a in table["axes"]].index("burnup")
     burnups = table["axes"][burnup_axis]["points"]
     fuel_region = history["regions"][0]
     if fuel_region["material"] != "fuel" or len(history["regions"]) != 1:
         sys.exit("expected one depletion region `fuel`")
+    # 核分裂する核種ごとの、熱と高速の点の累積の収率（燃焼度によらない）
+    cumulative = {}
+    for name in names:
+        fission = (
+            chain["nuclides"][chain_index[name]].get("fission")
+            if name in chain_index
+            else None
+        )
+        points = yield_points(fission) if fission else None
+        if points is None:
+            continue
+        cumulative[name] = [
+            cumulative_yields(
+                chain, {y["nuclide"]: y["value"] for y in fission["yields"][p]}
+            )
+            for p in points
+        ]
     results = []
     for point, state, nuclides in zip(
         table["points"], table["states"], micro["states"]
@@ -184,6 +209,14 @@ def main() -> None:
         densities = micro["densities"][point[burnup_axis]]
         phi, k = flux(state)
         absorption = float(np.dot(state["absorption"], phi))
+        # 核種ごとの吸収（全断面積から群から出る散乱の行の和を引いたもの。(n,2n) などで増える中性子を引いた吸収）
+        absorbed_by = [
+            densities[i]
+            * sum(
+                (s["total"][g] - sum(s["scatter"][g])) * phi[g] for g in range(len(phi))
+            )
+            for i, s in enumerate(nuclides)
+        ]
         production = float(np.dot(state["nu_fission"], phi))
 
         # 燃料の領域の組成（σ0 の背景）
@@ -193,39 +226,46 @@ def main() -> None:
             for n, d in zip(history["nuclides"], hp["densities"][0])
             if d > 0 and n in by_name and n in history["transportable"]
         }
-        materials = [fuel, clad]
-        # 背景の全断面積は物質の温度で（燃料 900 K、被覆管 565 K）
-        totals = {}
-        for m, temperature in ((clad, CLAD_TEMPERATURE), (fuel, FUEL_TEMPERATURE)):
-            for n in m:
-                totals[n] = np.array(
-                    at_temperature(n, temperature)["shielded"][0]["total"]
-                )
+        # (組成, 温度, 核種ごとの無限希釈の全断面積)。背景と自己遮蔽因子は物質の温度で（燃料 900 K、被覆管 565 K）
+        materials = []
+        for m, temperature in ((fuel, FUEL_TEMPERATURE), (clad, CLAD_TEMPERATURE)):
+            totals = {
+                n: np.array(at_temperature(n, temperature)["shielded"][0]["total"])
+                for n in m
+            }
+            materials.append((m, temperature, totals))
 
         # 項目 6
         d_absorption = d_production = 0.0
         urr_rows = {}
         for i, name in enumerate(names):
-            if name not in urr or not any(m.get(name, 0.0) > 0 for m in materials):
+            if name not in urr or not any(
+                m.get(name, 0.0) > 0 for m, _, _ in materials
+            ):
                 continue
             groups = urr_groups(bounds, urr[name])
             if not groups:
                 continue
-            shielded = at_temperature(name)["shielded"]
             s = nuclides[i]
             da = dp = 0.0
             for g in groups:
-                # 燃料と被覆管（Sn）のうち、σ0 の小さい（遮蔽の強い）方
-                background = min(
-                    sum(m[j] * totals[j][g] for j in m if j != name) / m[name]
-                    for m in materials
-                    if m.get(name, 0.0) > 0
-                )
-                absorbed = [t["capture"][g] + t["fission"][g] for t in shielded]
-                f_a = shielding_factor(absorbed, sigma0, background)
-                f_nf = shielding_factor(
-                    [t["nu_fission"][g] for t in shielded], sigma0, background
-                )
+                # 燃料と被覆管（Sn）のうち、遮蔽の強い（自己遮蔽因子の小さい）方。どちらも物質の温度の表で
+                f_a = f_nf = 1.0
+                for m, temperature, totals in materials:
+                    if m.get(name, 0.0) <= 0:
+                        continue
+                    shielded = at_temperature(name, temperature)["shielded"]
+                    background = (
+                        sum(m[j] * totals[j][g] for j in m if j != name) / m[name]
+                    )
+                    absorbed = [t["capture"][g] + t["fission"][g] for t in shielded]
+                    f_a = min(f_a, shielding_factor(absorbed, sigma0, background))
+                    f_nf = min(
+                        f_nf,
+                        shielding_factor(
+                            [t["nu_fission"][g] for t in shielded], sigma0, background
+                        ),
+                    )
                 sigma_a = s["total"][g] - sum(s["scatter"][g])
                 da += densities[i] * phi[g] * sigma_a * (1 - f_a)
                 dp += densities[i] * phi[g] * s["nu_fission"][g] * (1 - f_nf)
@@ -259,18 +299,6 @@ def main() -> None:
         epithermal = (
             sum(f * (1 - thermal[n]) for n, f in fissions.items()) / total_fission
         )
-        cumulative = {}
-        for name in fissions:
-            fission = chain["nuclides"][chain_index[name]]["fission"]
-            points = yield_points(fission) if fission else None
-            if points is None:
-                continue
-            cumulative[name] = [
-                cumulative_yields(
-                    chain, {y["nuclide"]: y["value"] for y in fission["yields"][p]}
-                )
-                for p in points
-            ]
         yield_rows = {}
         for i, name in enumerate(names):
             if name in fissions or name not in chain_index:
@@ -278,22 +306,14 @@ def main() -> None:
             j = chain_index[name]
             current = alternative = 0.0
             for f_name, f in fissions.items():
-                if f_name not in cumulative:
+                if f_name not in cumulative or f_name not in thermal:
                     continue
                 th, fast = cumulative[f_name][0][j], cumulative[f_name][1][j]
                 current += f * (thermal[f_name] * th + (1 - thermal[f_name]) * fast)
                 alternative += f * th
             if current == 0.0:
                 continue
-            s = nuclides[i]
-            share = (
-                densities[i]
-                * sum(
-                    (s["total"][g] - sum(s["scatter"][g])) * phi[g]
-                    for g in range(len(phi))
-                )
-                / absorption
-            )
+            share = absorbed_by[i] / absorption
             delta = alternative / current - 1
             yield_rows[name] = {
                 "share": share,
@@ -307,12 +327,9 @@ def main() -> None:
             for n, f in fissions.items()
         )
         q_capture = 0.0
-        micro_absorption = 0.0
+        micro_absorption = sum(absorbed_by)
         for i, name in enumerate(names):
             s = nuclides[i]
-            micro_absorption += densities[i] * sum(
-                (s["total"][g] - sum(s["scatter"][g])) * phi[g] for g in range(len(phi))
-            )
             capture = sum(
                 densities[i] * float(np.dot(channel, phi))
                 for reaction in s["reactions"]
