@@ -151,7 +151,7 @@ python3 examples/depletion/compare_chain_versions.py --report examples/depletion
 
 ### 計算
 
-チェーンは bdb1e65d（分岐点は main の f2caccce）、比べたのは c8fbca99、2026-11-20。チェーンのステージの `bin/chain` の正規形は
+チェーンは 8de8bbf2（分岐点は main の f2caccce）、比べたのは 3bc403c6、2026-11-20。チェーンのステージの `bin/chain` の正規形は
 md5 8391b8ec。VIII.0 のチェーンは既存の `chain` のステージで、出力は前の lock と同じ（md5 1f1de180）。比較の文章は
 `compare-chain-versions-<組>.txt`（`--report` と同じ）。
 
