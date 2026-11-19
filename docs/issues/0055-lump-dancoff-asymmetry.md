@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, shielding, symmetry]
 opened: 2026-10-10

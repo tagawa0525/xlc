@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [verification, xs]
 opened: 2026-10-08

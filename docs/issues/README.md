@@ -1,3 +1,8 @@
+---
+type: Guide
+description: issue（未解決の問題とやること）の書式と運用。
+---
+
 # issues
 
 未解決の問題とやることを、1件1ファイルで管理する。何をなぜ決めたかは ADR（docs/adr/）に書き、ここには
@@ -10,6 +15,7 @@
 
 ```markdown
 ---
+type: Issue
 status: open          # open | closed
 labels: [lattice, shielding]
 opened: 2026-10-08
@@ -62,5 +68,5 @@ resolution:           # 閉じるとき: ADR-NNNN | コミット <hash> | wontfi
 - issue は `design-records new --kind issue <slug> <title>` で作る。番号を振ってタグ `issue-NNNN` で予約し、
   表題の行だけを書くので、フロントマターと節は手で埋める。番号の振り方、衝突の修正方法（`renumber --kind issue`）、タグの
   解放（`prune`）は ADR と同じ（docs/adr/README.md）。フロントマターの検査は crates/docs が行う（#0013）
-- 一覧のファイルは作らない（手で書く一覧は各ファイルとずれる）。開いている issue は
-  `grep -l '^status: open$' docs/issues/[0-9]*.md` で探す
+- 索引（docs/issues/index.md）の行は `design-records new` か `design-records index` が足す（docs/ は OKF のバンドル。ADR-0256）。
+  開いている issue は `grep -l '^status: open$' docs/issues/[0-9]*.md` で探す

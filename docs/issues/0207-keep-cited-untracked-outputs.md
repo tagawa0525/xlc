@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [tooling, dvc]
 opened: 2026-10-30

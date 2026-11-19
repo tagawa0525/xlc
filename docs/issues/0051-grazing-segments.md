@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, moc, cmfd]
 opened: 2026-10-10

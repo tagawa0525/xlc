@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [xs, format, chain]
 opened: 2026-10-14

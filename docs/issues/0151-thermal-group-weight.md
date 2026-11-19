@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [xs, lattice, shielding]
 opened: 2026-10-23

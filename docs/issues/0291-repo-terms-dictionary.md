@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [docs, terms]
 opened: 2026-11-19

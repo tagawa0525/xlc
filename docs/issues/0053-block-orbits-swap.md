@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, symmetry]
 opened: 2026-10-10

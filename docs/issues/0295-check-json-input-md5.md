@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [dvc, checks]
 opened: 2026-11-19

@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, performance]
 opened: 2026-10-13

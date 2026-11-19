@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [dvc, performance]
 opened: 2026-11-15

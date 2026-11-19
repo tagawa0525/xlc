@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [lattice, sensitivity, reproducibility]
 opened: 2026-11-12

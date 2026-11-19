@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [lattice, moc, verification]
 opened: 2026-10-10

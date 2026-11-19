@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, depletion, core]
 opened: 2026-11-13

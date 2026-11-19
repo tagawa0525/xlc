@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [performance, build]
 opened: 2026-10-14

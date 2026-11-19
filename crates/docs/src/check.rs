@@ -74,7 +74,7 @@ impl Docs {
         check_front(
             &issues,
             &ISSUE_KEYS,
-            &[],
+            &ISSUE_OPTIONAL_KEYS,
             &ISSUE_STATUSES,
             "opened",
             &mut out,
@@ -111,14 +111,14 @@ impl Docs {
             .collect()
     }
 
-    /// `dir` の直下の番号つきの文書（README.md を除く）。
+    /// `dir` の直下の番号つきの文書（README.md と、OKF の索引と履歴の `index.md`、`log.md` を除く。ADR-0256）。
     fn numbered(&self, dir: &str, out: &mut Violations) -> Vec<Doc<'_>> {
         let mut docs = Vec::new();
         for (path, text) in &self.texts {
             let Some(name) = path.strip_prefix(dir) else {
                 continue;
             };
-            if name.contains('/') || !name.ends_with(".md") || name == "README.md" {
+            if name.contains('/') || !name.ends_with(".md") || NOT_RECORDS.contains(&name) {
                 continue;
             }
             let Some(number) = numbered_file(name) else {
@@ -185,6 +185,8 @@ impl Docs {
     }
 }
 
+/// ADR と issue の置き場にある、番号つきの記録でない文書。
+const NOT_RECORDS: [&str; 3] = ["README.md", "index.md", "log.md"];
 const ADR_DIR: &str = "docs/adr/";
 const ISSUE_DIR: &str = "docs/issues/";
 const ADR_KEYS: [&str; 6] = [
@@ -195,8 +197,9 @@ const ADR_KEYS: [&str; 6] = [
     "issues",
     "requires",
 ];
-/// 書いたときだけ検査するキー。一部の置き換えは両方向に結ぶ（`check_amendment`）。
-const ADR_OPTIONAL_KEYS: [&str; 2] = ["amends", "amended-by"];
+/// 書いたときだけ検査するキー。一部の置き換えは両方向に結ぶ（`check_amendment`）。`type` は OKF の概念の種類で、
+/// 有無と値は `design-records check` が検査する。
+const ADR_OPTIONAL_KEYS: [&str; 3] = ["type", "amends", "amended-by"];
 const ADR_STATUSES: [&str; 5] = [
     "proposed",
     "accepted",
@@ -213,6 +216,8 @@ const ISSUE_KEYS: [&str; 7] = [
     "blocked-by",
     "resolution",
 ];
+/// OKF の概念の種類。有無と値は `design-records check` が検査する。
+const ISSUE_OPTIONAL_KEYS: [&str; 1] = ["type"];
 const ISSUE_STATUSES: [&str; 2] = ["open", "closed"];
 /// issue の本文で、関係する ADR を挙げる行の書き出し（docs/issues/README.md）。
 const RELATED_ADRS: &str = "関係する ADR:";

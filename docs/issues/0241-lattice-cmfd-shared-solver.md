@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [lattice, core, maintenance]
 opened: 2026-11-06

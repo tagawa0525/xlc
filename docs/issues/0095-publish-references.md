@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [infra, docs]
 opened: 2026-10-12

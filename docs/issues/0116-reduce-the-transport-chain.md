@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [depletion, nuclear-data]
 opened: 2026-10-14

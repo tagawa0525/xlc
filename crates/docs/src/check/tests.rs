@@ -232,6 +232,40 @@ fn finds_missing_and_unexpected_keys() {
 }
 
 #[test]
+fn treats_okf_index_and_log_files_as_not_records() {
+    let mut files = base();
+    add(
+        &mut files,
+        "docs/adr/index.md",
+        format!("# adr\n\n* [{}: keep a](0001-keep-a.md)\n", adr(1)),
+    );
+    add(
+        &mut files,
+        "docs/issues/index.md",
+        "# issues\n\n* [Something to do](0001-open-one.md)\n".to_string(),
+    );
+    add(
+        &mut files,
+        "docs/issues/log.md",
+        "# log\n\n## 2026-11-19\n\n* **Creation**: index\n".to_string(),
+    );
+    assert_violations(files, &[]);
+}
+
+#[test]
+fn accepts_the_okf_type_key_in_adrs_and_issues() {
+    let mut files = base();
+    edit(&mut files, ADR2, "---\nstatus:", "---\ntype: ADR\nstatus:");
+    edit(
+        &mut files,
+        ISSUE1,
+        "---\nstatus:",
+        "---\ntype: Issue\nstatus:",
+    );
+    assert_violations(files, &[]);
+}
+
+#[test]
 fn finds_bad_statuses() {
     let mut files = base();
     edit(&mut files, ADR2, "status: accepted", "status: bogus");

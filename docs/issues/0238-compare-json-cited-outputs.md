@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [dvc, verification, review]
 opened: 2026-11-06

@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [references, openmc]
 opened: 2026-10-29

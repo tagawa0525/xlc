@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [depletion, tooling]
 opened: 2026-11-06

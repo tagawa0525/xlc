@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [depletion, verification]
 opened: 2026-10-24

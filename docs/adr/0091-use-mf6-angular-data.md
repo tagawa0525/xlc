@@ -1,4 +1,5 @@
 ---
+type: ADR
 status: rejected
 date: 2026-10-08
 supersedes: []

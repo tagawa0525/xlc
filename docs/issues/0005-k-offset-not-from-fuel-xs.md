@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [xs, lattice, verification]
 opened: 2026-10-08

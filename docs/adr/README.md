@@ -1,3 +1,8 @@
+---
+type: Guide
+description: ADR（設計判断の記録）の書式と運用。
+---
+
 # ADR（設計判断の記録）
 
 何をなぜ決めたかを、1件1つの決定として記録する。書式は MADR を簡略にしたもの。
@@ -13,6 +18,7 @@
 
 ```markdown
 ---
+type: ADR
 status: accepted      # proposed | accepted | rejected | superseded | deprecated
 date: 2026-10-08      # 最後に status が変わった日（accepted なら決めた日）
 supersedes: []        # この ADR が置き換えた ADR（例: [ADR-0002]）
@@ -125,4 +131,5 @@ requires: []          # 前提にしている ADR（例: [ADR-0068]）。なけ�
   `post-merge-cleanup.sh` が `design-records prune` で、main の履歴に入った記録のタグを消す（slug がタグの
   メッセージと一致するものだけ。予約の後に slug を変えた記録のタグは手で消す。マージしなかったブランチのタグは
   残す）。仕組みの決定は nixfiles の ADR-0018
-- 一覧のファイルは作らない。採用中の ADR は `grep -l '^status: accepted$' docs/adr/[0-9]*.md` で探す
+- 索引（docs/adr/index.md）の行は `design-records new` か `design-records index` が足す（docs/ は OKF のバンドル。ADR-0256）。
+  採用中の ADR は `grep -l '^status: accepted$' docs/adr/[0-9]*.md` で探す
