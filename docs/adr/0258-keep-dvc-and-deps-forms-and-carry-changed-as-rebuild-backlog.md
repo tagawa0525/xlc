@@ -504,8 +504,8 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
     書かなければ、何も書かずに終了コード 0。ステージが書き直したファイルと、並びを書き直した `dvc.yaml` を `REWRITTEN:` に出して
     終了コード 1 で止まり、それを `git add` すると次は 0 になること。例の deps に足した正規形が並びに入ること。どのステージも
     deps にしない項は、並び、直下の lock の項、正規形のファイルから消え、ほかの lock の行はバイトで残ること。並びが空になる
-    ステージは何も書かずに止まること。2 組を 1 つの `dvc repro -s dvc.yaml:python-ast dvc.yaml:toml-values` で実行し、失敗すれば
-    止まること
+    ステージは何も書かずに止まること。解けない `dvc.yaml`（知らない `${名前}`）は、その名前を `STOP:` に挙げ、dvc を呼ばずに
+    止まること。2 組を 1 つの `dvc repro -s dvc.yaml:python-ast dvc.yaml:toml-values` で実行し、失敗すれば止まること
   - `scripts/test_dvc_relock.py` の `test_the_foreach_follows_the_deps_before_the_normalized_forms_run`: 付け直しのコマンドが、
     正規形の `dvc repro -s` の前に並びを例の deps に合わせ、`dvc.yaml` を `COMMIT:` に出すこと
   - 実際のコミット（hook は xlc 7d54a9637、分岐点は main 3e134ac6a。出力を戻していない worktree、手元、2026-11-20。試しの
