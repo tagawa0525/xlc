@@ -74,5 +74,13 @@ class Links(unittest.TestCase):
         )
 
 
+class Committed(unittest.TestCase):
+    def test_the_committed_inputs_have_the_values_inputs_py_writes(self):
+        # 値だけを比べる（../xs.toml の注釈の書き換えでは止めない）
+        for path, text in inputs.generated().items():
+            with self.subTest(path=path.relative_to(inputs.HERE)):
+                self.assertEqual(tomllib.loads(path.read_text()), tomllib.loads(text))
+
+
 if __name__ == "__main__":
     unittest.main()
