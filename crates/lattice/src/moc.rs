@@ -717,7 +717,7 @@ pub fn solve_importance(
         cell_spectra(&mesh, materials),
         cell_spectra(&mesh, &adjoint),
     );
-    tracing::info!(
+    xlc_log::info!(
         k = solution.k,
         adjoint_k = adjoint_solution.k,
         forward_iterations = solution.iterations,
@@ -855,7 +855,7 @@ fn solve_with(
         let exact = lattice.volumes();
         let (region, error) = worst_volume_error(&exact, &volumes);
         let cell = lattice.region_cell(region);
-        tracing::debug!(
+        xlc_log::debug!(
             regions,
             worst_region = region,
             cell,
@@ -863,7 +863,7 @@ fn solve_with(
             "track volumes against the exact areas"
         );
         for (region, (exact, tracked)) in exact.iter().zip(&volumes).enumerate() {
-            tracing::trace!(
+            xlc_log::trace!(
                 region,
                 exact,
                 tracked,
@@ -1119,7 +1119,7 @@ fn solve_with(
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
         // 残りの誤差を見積もって判定する
         // 両方の履歴を毎回更新する（短絡評価で片方が飛ぶと、縮小率を離れた反復どうしで比べてしまう）
-        tracing::debug!(
+        xlc_log::debug!(
             iteration,
             k = new_k,
             k_change = new_k - k,
@@ -1134,7 +1134,7 @@ fn solve_with(
                 .enumerate()
                 .fold((0, 0.0), |a, (i, c)| if c > a.1 { (i, c) } else { a });
             let (i, group) = (index / ng, index % ng);
-            tracing::trace!(
+            xlc_log::trace!(
                 region = kept[i],
                 cell = mesh.cell(kept[i]),
                 group,
@@ -1144,7 +1144,7 @@ fn solve_with(
                 "largest flux change"
             );
             let split = split_change(&mesh, &volumes, &reduced.regions.index, &new_flux, &flux);
-            tracing::trace!(
+            xlc_log::trace!(
                 coarse = ?Rounded(&split.coarse),
                 shape = ?Rounded(&split.shape),
                 "flux change by group (cell average, shape in the cell)"
@@ -1783,7 +1783,7 @@ impl<'a> Sweeper<'a> {
                 )
             })
             .collect();
-        tracing::debug!(
+        xlc_log::debug!(
             regions,
             crossed = tallies.iter().map(|t| t.regions.len()).sum::<usize>(),
             "regions held by the tallies of the track groups"
@@ -2032,7 +2032,7 @@ impl<'a> Sweeper<'a> {
                 Ok(())
             })?;
         if timed {
-            tracing::trace!(
+            xlc_log::trace!(
                 busy_seconds = tallies.iter().map(|t| t.busy_seconds).sum::<f64>(),
                 attenuation_seconds = tallies.iter().map(|t| t.attenuation_seconds).sum::<f64>(),
                 copies = self.copies,

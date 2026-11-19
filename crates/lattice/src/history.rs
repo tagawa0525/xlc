@@ -437,7 +437,7 @@ pub fn history_branches(
         let (lacking, absent): (Vec<usize>, Vec<usize>) =
             left.into_iter().partition(|&i| in_library(i));
         if !lacking.is_empty() {
-            tracing::warn!(
+            xlc_log::warn!(
                 burnup = history.points[p].burnup,
                 nuclides = lacking
                     .iter()
@@ -448,7 +448,7 @@ pub fn history_branches(
                 "not transported: no library data at the temperature of the depletion"
             );
         }
-        tracing::info!(
+        xlc_log::info!(
             burnup = history.points[p].burnup,
             nuclides = absent.len(),
             density = absent.iter().map(|&i| total(i)).sum::<f64>(),

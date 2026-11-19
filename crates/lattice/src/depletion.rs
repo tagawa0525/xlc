@@ -1603,7 +1603,7 @@ pub(crate) fn run_with_moc(
             .filter(|&i| in_library[i] && !transportable[i] && present(i))
             .collect();
         if !lacking.is_empty() {
-            tracing::warn!(
+            xlc_log::warn!(
                 nuclides = lacking
                     .iter()
                     .map(|&i| chain.nuclides[i].name.as_str())
@@ -1616,7 +1616,7 @@ pub(crate) fn run_with_moc(
         let absent: Vec<usize> = (0..chain.nuclides.len())
             .filter(|&i| !in_library[i] && present(i))
             .collect();
-        tracing::info!(
+        xlc_log::info!(
             nuclides = absent.len(),
             density = absent.iter().map(|&i| total(i)).sum::<f64>(),
             "decay only: not in the library"
@@ -1827,7 +1827,7 @@ pub(crate) fn run_with_moc(
         if depletion.shielding == ShieldingFrequency::StepStart && at == TransportAt::Point {
             held = Some((shielded, materials));
         }
-        tracing::info!(
+        xlc_log::info!(
             solve = solves,
             k = solution.k,
             iterations = solution.iterations,
@@ -1924,7 +1924,7 @@ pub(crate) fn run_with_moc(
                 );
             }
             let time = history.points[last].time + h;
-            tracing::info!(points = done, "resuming after the saved points");
+            xlc_log::info!(points = done, "resuming after the saved points");
             (
                 history,
                 Beginning {

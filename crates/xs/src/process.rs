@@ -241,7 +241,7 @@ pub fn unresolved_shielding(
     let floored: usize = sampled.iter().map(|b| b.floored).sum();
     if floored > 0 {
         let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples * grid.len();
-        tracing::warn!(
+        xlc_log::warn!(
             "{temperature} K: the sampled elastic (with the MF3 background) is negative at {floored} of \
              {samples} sampled energies in the unresolved range and is raised to 1 microbarn, as NJOY PURR does"
         );
@@ -443,7 +443,7 @@ pub fn process_nuclide(
         thermal.limits()?;
         // NJOY THERMR（参照解の OpenMC の S(α, β) を作る）は ln S を 3 点の 2 次式で補間する（thermr.f90 の terpq）。
         // 評価済みデータの補間則に従い、差は知らせる（ADR-0133）
-        tracing::warn!(
+        xlc_log::warn!(
             nuclide = name,
             "S(α, β) follows the ENDF interpolation law (ln S linear); NJOY THERMR interpolates ln S \
              quadratically, so its scattering cross section differs (ADR-0133)"
@@ -621,7 +621,7 @@ fn chain_reactions(
             .find(|(_, (r, t))| **r > tolerance * t.abs())
             .map(|(g, (r, _))| (g, *r))
         {
-            tracing::warn!(
+            xlc_log::warn!(
                 mt,
                 group,
                 missing,
@@ -667,7 +667,7 @@ fn state_table(
     let nodes: Vec<f64> = table.x.iter().chain(&sigma.x).copied().collect();
     let Ok(tables) = resonance_tables(value, &nodes, low, high, tolerance);
     if let Some(energy) = uncovered.get() {
-        tracing::warn!(
+        xlc_log::warn!(
             mt,
             lfs,
             energy,
@@ -783,7 +783,7 @@ pub fn fission_parts(
     let delayed = tape.section(mat, 1, 455);
     let Some(delayed_spectrum) = tape.section(mat, 5, 455) else {
         if delayed.is_some() {
-            tracing::warn!(
+            xlc_log::warn!(
                 mat,
                 "MF1 MT455 has no spectrum in MF5 MT455; the delayed neutrons get the MF5 MT18 spectrum"
             );

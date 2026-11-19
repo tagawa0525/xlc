@@ -336,7 +336,7 @@ fn start_at_threshold(
     } else {
         0.0
     };
-    tracing::debug!(
+    xlc_log::debug!(
         "MT{mt}: the table starts at {first} eV, below the kinematic threshold {threshold} eV; \
          starting it at the threshold and dropping {dropped} more points below it; the largest \
          value below it, now 0, was {zeroed:.2e} of the maximum"
@@ -450,7 +450,7 @@ impl ColdParts {
                     summary.zeroed, z.zeroed, z.mt
                 )
             });
-            tracing::warn!(
+            xlc_log::warn!(
                 "{} reactions start below their kinematic threshold -Q(A+1)/A and now start at it \
                  with a zero cross section; the largest shift is {:.4e} eV in MT{} and the largest \
                  relative shift is {:.2e} of the threshold in MT{}; {} points below the thresholds \

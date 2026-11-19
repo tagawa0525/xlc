@@ -118,7 +118,7 @@ fn run(path: &Path) -> Result<()> {
     let neutrons = read_all(&base.join(&input.neutron_directory), |text| {
         read_neutron(text, &REACTION_MTS)
     })?;
-    tracing::info!(
+    xlc_log::info!(
         decay = decays.len(),
         nfy = yields.len(),
         neutrons = neutrons.len(),
@@ -126,10 +126,10 @@ fn run(path: &Path) -> Result<()> {
     );
     let built = build(&decays, &neutrons, &yields)?;
     for warning in &built.warnings {
-        tracing::warn!("{warning}");
+        xlc_log::warn!("{warning}");
     }
     let chain = &built.chain;
-    tracing::info!(
+    xlc_log::info!(
         nuclides = chain.nuclides.len(),
         unstable = chain.nuclides.iter().filter(|n| n.decay.is_some()).count(),
         with_reactions = chain

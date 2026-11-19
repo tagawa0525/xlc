@@ -155,7 +155,7 @@ fn use_allowed_cpus() -> anyhow::Result<()> {
         .num_threads(threads)
         .build_global()
         .context("thread pool")?;
-    tracing::info!(threads = rayon::current_num_threads(), from, "thread pool");
+    xlc_log::info!(threads = rayon::current_num_threads(), from, "thread pool");
     Ok(())
 }
 
@@ -346,7 +346,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         }
         // 時間の内訳（ADR-0173 の「全体像」を測るため）
         let (t, d) = (history.transport, history.depletion);
-        tracing::info!(
+        xlc_log::info!(
             solves = history.solves,
             shieldings = history.shieldings,
             regions = history.regions.len(),
@@ -1139,7 +1139,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                         .context("remixing the depletion regions")?
                                 };
                                 let (few, sigma, iterations) = solve_direct(&shielded)?;
-                                tracing::info!(
+                                xlc_log::info!(
                                     state,
                                     nuclide = nuclides[j],
                                     iterations,
@@ -1173,7 +1173,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 (generalized.tolerance, generalized.restart),
                             )
                             .with_context(|| format!("{}: generalized adjoints", context()))?;
-                            tracing::info!(
+                            xlc_log::info!(
                                 state,
                                 adjoint_iterations = table.adjoint_iterations,
                                 adjoint_seconds = table.seconds[0],
@@ -1205,7 +1205,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                     } else {
                                         None
                                     };
-                                    tracing::info!(
+                                    xlc_log::info!(
                                         state,
                                         nuclide = nuclides[j],
                                         shielding_seconds,
@@ -1223,7 +1223,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 },
                             )
                             .map(|()| {
-                                tracing::info!(
+                                xlc_log::info!(
                                     state,
                                     seconds = started.elapsed().as_secs_f64(),
                                     "generalized derivatives"
@@ -1280,7 +1280,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         report(solved, solution.k);
         drop(emitting);
-        tracing::info!(
+        xlc_log::info!(
             state = solved,
             iterations = solution.iterations,
             tracks = geometry.tracking.tracks.len(),
@@ -1338,7 +1338,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let states = solve_states(&present, &solve_counts, checkpoint.as_ref(), fits, solve)?;
     if input.branches.is_some() && input.self_shielding {
         // この実行で解いた状態の自己遮蔽の回数（チェックポイントから続けた実行は、続けた後の分）
-        tracing::info!(
+        xlc_log::info!(
             shieldings = finished_shieldings + shielder.as_ref().map_or(0, |(_, s)| s.shieldings()),
             ratios = finished_ratios + shielder.as_ref().map_or(0, |(_, s)| s.ratios()),
             derivative_shieldings = finished_derivative_shieldings

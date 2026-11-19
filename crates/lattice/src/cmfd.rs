@@ -971,7 +971,7 @@ impl Coarse {
                 .receive(applied, steps)
                 .map_err(|_| CmfdError::NotFinite)?;
         }
-        tracing::trace!(steps, "coarse-mesh fixed source");
+        xlc_log::trace!(steps, "coarse-mesh fixed source");
         Ok(krylov.solution().to_vec())
     }
 
@@ -999,13 +999,13 @@ impl Coarse {
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         if !chain.z_matrix {
-            tracing::debug!("coarse-mesh matrix is not an irreducible Z-matrix; solving unshifted");
+            xlc_log::debug!("coarse-mesh matrix is not an irreducible Z-matrix; solving unshifted");
             return self.inverse_iteration(chain, k, 0.0, options);
         }
         let shift = 1.0 / (k * (1.0 + WIELANDT));
         match self.inverse_iteration(chain, k, shift, options) {
             Err(CmfdError::ShiftBelowEigenvalue) => {
-                tracing::debug!("coarse-mesh shift below the eigenvalue; solving unshifted");
+                xlc_log::debug!("coarse-mesh shift below the eigenvalue; solving unshifted");
                 self.inverse_iteration(chain, k, 0.0, options)
             }
             result => result,
@@ -1079,7 +1079,7 @@ impl Coarse {
                     .zip(&self.flux)
                     .map(|(new, old)| new / (old / start))
                     .collect();
-                tracing::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
+                xlc_log::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
                 return Ok((k, ratio));
             }
         }
@@ -1148,7 +1148,7 @@ impl Coarse {
                     .zip(&self.flux)
                     .map(|(new, old)| new / (old / start))
                     .collect();
-                tracing::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
+                xlc_log::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
                 return Ok((k, ratio));
             }
         }

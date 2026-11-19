@@ -89,7 +89,7 @@ impl Core<'_> {
             tracing::trace_span!("homogenize").in_scope(|| self.coarse(state, order))?;
         let solution = tracing::trace_span!("coarse").in_scope(|| coarse.solve(k, tolerances))?;
         let _scale = tracing::trace_span!("scale").entered();
-        tracing::trace!(
+        xlc_log::trace!(
             iterations = solution.iterations,
             k = solution.k,
             "coarse-mesh eigenvalue"

@@ -209,7 +209,7 @@ impl Checkpoint {
         out.sync_all().with_context(shown)?;
         std::fs::rename(&temporary, &self.path).with_context(|| self.shown())?;
         sync_directory(&self.path)?;
-        tracing::info!(
+        xlc_log::info!(
             bytes = bytes.len(),
             seconds = start.elapsed().as_secs_f64(),
             "checkpoint"
@@ -460,7 +460,7 @@ pub fn solve_states<T: Serialize + DeserializeOwned>(
         );
     }
     if let (Some(c), false) = (checkpoint, states.is_empty()) {
-        tracing::info!(
+        xlc_log::info!(
             checkpoint = %c.path.display(),
             states = states.len(),
             "resuming after the saved states"

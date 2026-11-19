@@ -294,7 +294,7 @@ impl Mf2 {
                     // ENDF は非分離共鳴の l を 2 までとする。それを超える l も、分離共鳴と同じ
                     // 剛体球の透過因子と位相シフトで扱う（NJOY は l=2 の式で計算してしまう）
                     if let Some(lv) = urr.l_values.iter().find(|lv| lv.l.number() > 2) {
-                        tracing::warn!(
+                        xlc_log::warn!(
                             "line {range_line}: unresolved range has L={} beyond the ENDF limit of 2; \
                              using the hard-sphere factors for that L (NJOY uses those of L=2)",
                             lv.l

@@ -157,7 +157,7 @@ fn added_threads_log_inside_the_callers_span() {
     let _entered = caller.enter();
     in_parallel_in(&budget, 50, |_| {
         std::thread::sleep(Duration::from_millis(2));
-        tracing::info!(target: TARGET, "probe");
+        xlc_log::info!(target: TARGET, "probe");
         Ok::<_, ()>(())
     })
     .unwrap();

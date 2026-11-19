@@ -413,7 +413,7 @@ impl TrackTable {
                 }
                 Ok::<(), CpError>(())
             })?;
-        tracing::debug!(
+        xlc_log::debug!(
             nodes,
             solved = used
                 .as_ref()

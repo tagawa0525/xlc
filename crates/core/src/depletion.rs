@@ -837,7 +837,7 @@ pub fn deplete(
                 .map(String::as_str)
                 .filter(|id| !placed.contains_key(id))
                 .collect();
-            tracing::info!(
+            xlc_log::info!(
                 inherited = ids.len() - input.fresh.len(),
                 fresh = input.fresh.len(),
                 ?discharged,
@@ -854,7 +854,7 @@ pub fn deplete(
     // 燃焼点 0 の炉心の平均の燃焼度。ステップの炉心の平均の燃焼度の目標は、これに定格の出力密度 × 累積の EFPD を足した値（ADR-0220）
     let start_burnup = weighted(&burnups, &masses);
     if let Some(m) = &micro {
-        tracing::info!(
+        xlc_log::info!(
             tracked = m.chain.nuclides.len(),
             auxiliary = m.chain.auxiliary(),
             nodes = m.uses[point_state(0)].iter().flatten().count(),
@@ -1294,7 +1294,7 @@ pub fn deplete(
                 .iter()
                 .map(|c| c.outlet)
                 .fold(f64::NEG_INFINITY, f64::max);
-            tracing::info!(
+            xlc_log::info!(
                 iterations = t.iterations,
                 change = t.change,
                 outlet,
@@ -1306,7 +1306,7 @@ pub fn deplete(
         }
     };
     let report = |point: &CorePoint, solve: &Solve| {
-        tracing::info!(
+        xlc_log::info!(
             efpd = point.efpd,
             days = point.days,
             state = point.state,
@@ -1419,7 +1419,7 @@ pub fn deplete(
                         solve_operating(step.state, b, half, from, given, fraction, &|| {
                             format!("the midpoint of the step to {end} EFPD")
                         })?;
-                    tracing::info!(
+                    xlc_log::info!(
                         k = middle.solved.solution.k,
                         boron = middle.ppm,
                         solves = middle.solves,
@@ -1878,9 +1878,9 @@ fn equilibrate<S>(
             .fold(0.0, f64::max);
         // ホウ素を探した評価（成分なし）は、k が目標から許容の中
         let critical = boron.as_ref().is_none_or(|b| b.critical);
-        tracing::debug!(iteration, residual, ?boron, "equilibrium xenon");
+        xlc_log::debug!(iteration, residual, ?boron, "equilibrium xenon");
         if residual <= EQUILIBRIUM_TOLERANCE && critical {
-            tracing::info!(iterations = iteration, residual, "equilibrium xenon");
+            xlc_log::info!(iterations = iteration, residual, "equilibrium xenon");
             return Ok((solved, x));
         }
         // 範囲の端で解き、k を目標に寄せる濃度がその端の外: 濃度を端に留めて組成だけを進める

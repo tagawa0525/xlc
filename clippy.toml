@@ -9,7 +9,8 @@ disallowed-methods = [
     { path = "std::env::vars", reason = "read computation options from the input file (ADR-0137)" },
     { path = "std::env::vars_os", reason = "read computation options from the input file (ADR-0137)" },
 ]
-# 本番のコードでの assert! 系（テストのビルドでは各クレートの入口で許す）
+# 本番のコードでの assert! 系（テストのビルドでは各クレートの入口で許す）と、tracing のイベントのマクロ（名前に行の番号を
+# 入れ、注釈の行で実行ファイルを変える。xlc_log の同じ名前のマクロを使う。ADR-0255）
 disallowed-macros = [
     { path = "std::assert", reason = "return an error instead of panicking" },
     { path = "std::assert_eq", reason = "return an error instead of panicking" },
@@ -17,4 +18,9 @@ disallowed-macros = [
     { path = "std::debug_assert", reason = "return an error instead of panicking" },
     { path = "std::debug_assert_eq", reason = "return an error instead of panicking" },
     { path = "std::debug_assert_ne", reason = "return an error instead of panicking" },
+    { path = "tracing::trace", reason = "use xlc_log::trace!, which leaves the line number out of the event name (ADR-0255)" },
+    { path = "tracing::debug", reason = "use xlc_log::debug!, which leaves the line number out of the event name (ADR-0255)" },
+    { path = "tracing::info", reason = "use xlc_log::info!, which leaves the line number out of the event name (ADR-0255)" },
+    { path = "tracing::warn", reason = "use xlc_log::warn!, which leaves the line number out of the event name (ADR-0255)" },
+    { path = "tracing::error", reason = "use xlc_log::error!, which leaves the line number out of the event name (ADR-0255)" },
 ]

@@ -758,7 +758,7 @@ impl FuelShielding {
             }
         }
         for (material, nuclide, [capture, fission]) in rates {
-            tracing::debug!(
+            xlc_log::debug!(
                 target: "ring_rates",
                 material,
                 nuclide,
@@ -909,7 +909,7 @@ impl<'a> ShieldingReuse<'a> {
         if let Some(k) = self.dancoff.iter().position(|d| {
             d.region_index == region_index && d.totals == totals && d.options == *options
         }) {
-            tracing::debug!("pin Dancoff factors reused");
+            xlc_log::debug!("pin Dancoff factors reused");
             // 使った入力を前に移す（追い出すのは最も長く使っていない入力）
             let hit = self.dancoff.remove(k);
             let factors = hit.factors.clone();
@@ -1137,7 +1137,7 @@ fn shield_fuel_by(
     // 除いて新たに確保できる量
     let held = shares.kernels().start();
     let total = hold_total(options.hold_memory, held)?;
-    tracing::debug!(bytes = total, "UFG held memory");
+    xlc_log::debug!(bytes = total, "UFG held memory");
 
     let mut shielded = FuelShielding {
         materials: dilute,
@@ -1436,7 +1436,7 @@ fn shield_fuel_by(
         solved.push((cell, Solved { pin, assigned }));
     }
     let serial = serial.elapsed().as_secs_f64();
-    tracing::info!(
+    xlc_log::info!(
         replicate = replicate.as_secs_f64(),
         solved = serial - replicate.as_secs_f64(),
         "serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins)"
@@ -1485,7 +1485,7 @@ fn shield_fuel_by(
         nuclides,
     } = shares.census();
     if tracing::enabled!(tracing::Level::DEBUG) {
-        tracing::debug!(
+        xlc_log::debug!(
             total,
             distinct,
             new,
@@ -1497,7 +1497,7 @@ fn shield_fuel_by(
             "UFG free-gas evaluations: total = sum over the pins, distinct = without the points shared between pins, new = also without the points of the previous shielding, earlier = also without the points of the earlier shieldings of the burnup point; bytes = the table size of those points"
         );
         for (kelvin, [total, distinct, earlier, point]) in nuclides {
-            tracing::debug!(
+            xlc_log::debug!(
                 kelvin,
                 total,
                 distinct,
@@ -1511,7 +1511,7 @@ fn shield_fuel_by(
     // 解いたピンの 1 回の量の最大（次の自己遮蔽の上限に使う）
     shares.kernels().set_demand(demand);
     let [reused, built, full] = shares.kernels().counts();
-    tracing::info!(
+    xlc_log::info!(
         reused,
         built,
         full,
@@ -1520,7 +1520,7 @@ fn shield_fuel_by(
         demand,
         "UFG free-gas kernel points"
     );
-    tracing::info!(
+    xlc_log::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),
         points_min = ?points.iter().min(),
@@ -1550,7 +1550,7 @@ pub fn log_effective_change(
     let mut by_group: Vec<[[f64; 2]; 2]> = Vec::new();
     // 比べられない組（ピンの数か並び、核種の並びの違う摂動）は、名前と群を取り違えたログを出さずに、比べないことを出す
     if nominal.pins.len() != perturbed.pins.len() {
-        tracing::warn!(
+        xlc_log::warn!(
             nominal = nominal.pins.len(),
             perturbed = perturbed.pins.len(),
             "the perturbed self-shielding has another pin count; not compared"
@@ -1570,7 +1570,7 @@ pub fn log_effective_change(
                 .zip(q.effective.iter())
                 .any(|(a, b)| a.total.len() != b.total.len() || a.capture.len() != b.capture.len())
         {
-            tracing::warn!(
+            xlc_log::warn!(
                 nominal = p.cell,
                 perturbed = q.cell,
                 "the perturbed self-shielding has another pin or nuclide order; not compared"
@@ -1607,7 +1607,7 @@ pub fn log_effective_change(
         }
     }
     for (name, worst, at) in &by_nuclide {
-        tracing::debug!(
+        xlc_log::debug!(
             name = name.as_str(),
             total = worst[0],
             total_group = at[0],
@@ -1617,7 +1617,7 @@ pub fn log_effective_change(
         );
     }
     for (g, worst) in by_group.iter().enumerate() {
-        tracing::debug!(
+        xlc_log::debug!(
             group = g,
             upper = bounds.get(g).copied(),
             lower = bounds.get(g + 1).copied(),
@@ -2241,7 +2241,7 @@ fn solve_equivalent_cell<'a>(
         },
     )?;
     let radius = sum / (bottom - top) as f64;
-    tracing::debug!(radius, "equivalent cell outer radius (cm)");
+    xlc_log::debug!(radius, "equivalent cell outer radius (cm)");
     let cylinder = Cylinder::with_points(
         radii[..start]
             .iter()
@@ -2481,7 +2481,7 @@ fn shield_cell(
                     if RING_CAPTURES.contains(&name.as_str()) {
                         let rate: f64 = s.capture.iter().zip(flux).map(|(c, f)| c * f).sum();
                         let capture = rate / flux.iter().sum::<f64>();
-                        tracing::debug!(
+                        xlc_log::debug!(
                             cell,
                             ring = j,
                             nuclide = name.as_str(),
@@ -3110,7 +3110,7 @@ fn log_transfer_check(
         let [state_out, state_up, state_below] = sums(Some(rows.state), g);
         let [elastic_out, elastic_up, elastic_below] = sums(Some(rows.elastic), g);
         let [static_out, static_up, static_below] = sums(rows.by_static, g);
-        tracing::debug!(
+        xlc_log::debug!(
             target: "ratio_check",
             cell,
             ring,
@@ -3210,7 +3210,7 @@ fn log_ratio_check(
             }
             for g in groups.clone() {
                 let capture = |s: &Shielded| s.capture[g];
-                tracing::debug!(
+                xlc_log::debug!(
                     target: "ratio_check",
                     cell,
                     ring = j,
@@ -3293,7 +3293,7 @@ fn shield_material(
             .fold(0.0, f64::max);
         totals = tables.iter().map(|s| s.total.clone()).collect();
         if change <= options.tolerance {
-            tracing::debug!(
+            xlc_log::debug!(
                 iterations = iteration,
                 nuclides = tables.len(),
                 dilute = dilute.iter().flatten().count(),

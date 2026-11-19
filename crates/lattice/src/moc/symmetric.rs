@@ -161,7 +161,7 @@ impl Representatives {
             .map(|c| smallest(&|g| g.cells[c], c))
             .collect();
         let cells = Orbits::new(&cell_representative);
-        tracing::info!(
+        xlc_log::info!(
             tracks = n,
             representative_tracks = tracks.len(),
             regions = count,
