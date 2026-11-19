@@ -310,6 +310,14 @@ class Process(unittest.TestCase):
         self.assertEqual(self.calls(), ["check-dvc-lock.sh examples/v/dvc.lock"])
         self.assertIn("STOP:", r.stderr)
 
+    def test_a_stop_at_the_first_lock_check_lists_nothing_to_commit(self):
+        # 読めない lock は作業ツリーの変更でありうる。それをコミットするファイルとして出さない
+        (self.repo / "examples" / "v" / "dvc.lock").write_text("stages: {}\n")
+        self.exit_with("check-dvc-lock.sh")
+        r = self.run_script(DEPS)
+        self.assertEqual(r.returncode, 1)
+        self.assertNotIn("COMMIT:", r.stdout)
+
     def test_locks_changed_since_the_fork_point_are_checked(self):
         # examples/v/dvc.lock はブランチのコミットで変わった（rebase の pick は pre-commit の hook を通らない）
         r = self.run_script(DEPS)
