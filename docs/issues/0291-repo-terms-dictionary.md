@@ -18,16 +18,18 @@ resolution:
 `.ja-terms/prh.yml`（claude-harness の ADR-0096）に置き、共通の辞書にある xlc でしか使わない語の規則（claude-harness の #316 の
 23 規則）も移す（ユーザー 2026-11-19）。
 
-直す語（ユーザー 2026-11-19）: 公称の状態 → 基準条件、公称でない状態 → ブランチ条件、公称の燃焼（履歴）→ ベース計算、
-公称のテーブル → ベース計算のテーブル、分岐の計算 → ブランチ計算、分岐のテーブル → ブランチのテーブル、履歴の分岐 →
-履歴ブランチ、瞬時の分岐 → 瞬時ブランチ。
+直す語（ユーザー 2026-11-19。英語の元の語で示す。訳した旧い語は `.ja-terms/prh.yml` の規則にある）: nominal state →
+基準条件、off-nominal state → ブランチ条件、nominal depletion → ベース計算、nominal table → ベース計算のテーブル、
+branch calculation → ブランチ計算、branch table → ブランチのテーブル、history branch → 履歴ブランチ、instantaneous
+branch → 瞬時ブランチ。
 
 機械的な置き換えはできないので、辞書は前後の語で専門用語と決まる形だけを止める。残りは次のとおり:
 
-- 辞書が止めない形（「公称の点」「公称の組成」「公称の <数> ppm」「履歴からの分岐」「N 状態の分岐」、単独の「分岐」など）は、
+- 辞書が止めない形（「公称の点」「公称の組成」「公称の <数> ppm」「履歴からの分岐」「1 状態の分岐」、単独の「分岐」など）は、
   文脈で直す語が変わる。行ごとに決めて直す
-- DVC のステージの deps（examples の TOML と、python-ast の対象の .py）の 130 ファイルは、直すとステージが changed になる。
-  `.textlintignore` で検査から外してあり、ステージごとに付け直しの条件（ADR-0212 の (b)）か再実行を決めて直す
+- DVC のステージの deps（examples の TOML と、python-ast の対象の .py）は、直すとステージが changed になる。deps と、
+  それを書くか出力の文を確かめる .py（p2_inputs.py、p5_inputs.py、p6_inputs.py、test_compare_branch_cross_terms.py）の
+  134 ファイルは `.textlintignore` で検査から外してあり、ステージごとに付け直しの条件（ADR-0212 の (b)）か再実行を決めて直す
 - claude-harness の共通の辞書から 23 規則を消す（claude-harness の #316。この辞書がマージされた後）
 
 関係する ADR: なし
@@ -35,9 +37,9 @@ resolution:
 ## 完了の条件
 
 - [ ] 辞書が止めない形の行を、直すか一般の語と決める
-- [ ] DVC の deps の 130 ファイルを直して `.textlintignore` から外す
+- [ ] DVC の deps とそれに結びつく 134 ファイルを直して `.textlintignore` から外す
 - [ ] `ja-terms check` が、追跡しているファイル（docs/issues/0142 を除く）で 0 件になる
 
 ## 経緯
 
-- 2026-11-19: リポジトリの辞書を置き、辞書が止める形を DVC の deps の外で直した。deps の 130 ファイルは検査から外した
+- 2026-11-19: リポジトリの辞書を置き、辞書が止める形を DVC の deps の外で直した。deps とそれに結びつく 134 ファイルは検査から外した

@@ -1,9 +1,10 @@
 # 崩れた日本語の語の検査（nixfiles の ADR-0014）から外すファイル。語の調査の表は、直す対象の語をわざと含む
 docs/issues/0142-fix-context-dependent-terms.md
 
-# DVC のステージの deps（TOML と、python-ast の対象の .py）で、.ja-terms/prh.yml の nominal と branch の規則が当たるもの。
-# 直すとステージが changed になり、付け直しの条件（ADR-0212 の (b)）をステージごとに確かめる必要があるので、別の PR で
-# 直してからここから消す（#0291）
+# DVC のステージの deps（TOML と、python-ast の対象の .py）と、それを書くか比べる .py（p2_inputs.py などの入力を書く
+# スクリプトと、deps のスクリプトの出力の文を確かめるテスト）で、.ja-terms/prh.yml の nominal と branch の規則が当たるもの。
+# deps を直すとステージが changed になり、付け直しの条件（ADR-0212 の (b)）をステージごとに確かめる必要があるので、別の
+# PR で直してからここから消す（#0291）
 examples/colorset/diffusion.py
 examples/core/assemblies.toml
 examples/core/assembly.toml
@@ -26,6 +27,7 @@ examples/depletion/p2/lattice-2N.toml
 examples/depletion/p2/lattice-2O.toml
 examples/depletion/p2/lattice-2P.toml
 examples/depletion/p2/xs.toml
+examples/depletion/p2_inputs.py
 examples/depletion/p9-2A/branch-2A.toml
 examples/depletion/p9-2A/thinning-2A.toml
 examples/depletion/p9-fuel-points/fuel-points-2A.toml
@@ -36,6 +38,7 @@ examples/depletion/p9-gd/compare-2P-all.toml
 examples/depletion/p9-product/branch-2A.toml
 examples/depletion/p9-product/compare-2A.toml
 examples/depletion/p9-product/lattice-2A.toml
+examples/depletion/test_compare_branch_cross_terms.py
 examples/vera/p5/compare_rodless.py
 examples/vera/p5/hzp/21-fuel.toml
 examples/vera/p5/hzp/21-igrid.toml
@@ -129,8 +132,10 @@ examples/vera/p5/hzp/rodless-31-fuel.toml
 examples/vera/p5/hzp/rodless-31-zgrid.toml
 examples/vera/p5/hzp/rodless-reflector-I-31-fuel.toml
 examples/vera/p5/hzp/rodless-reflector-I-31-zgrid.toml
+examples/vera/p5/p5_inputs.py
 examples/vera/p6/axial-6.toml
 examples/vera/p6/lattice-6-fuel.toml
 examples/vera/p6/lattice-6-igrid.toml
 examples/vera/p6/lattice-6-zgrid.toml
+examples/vera/p6/p6_inputs.py
 examples/vera/xs.toml
